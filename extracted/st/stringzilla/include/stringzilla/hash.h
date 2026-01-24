@@ -126,7 +126,7 @@ SZ_DYNAMIC sz_u64_t sz_bytesum(sz_cptr_t text, sz_size_t length);
  *  @endcode
  *
  *  @note   Selects the fastest implementation at compile- or run-time based on `SZ_DYNAMIC_DISPATCH`.
- *  @sa     sz_hash_serial, sz_hash_haswell, sz_hash_skylake, sz_hash_ice, sz_hash_neon, sz_hash_sve
+ *  @sa     sz_hash_serial, sz_hash_westmere, sz_hash_skylake, sz_hash_ice, sz_hash_neon, sz_hash_sve
  *
  *  @note   The algorithm must provide the same output on all platforms in both single-shot and incremental modes.
  *  @sa     sz_hash_state_init, sz_hash_state_update, sz_hash_state_digest
@@ -163,7 +163,7 @@ SZ_DYNAMIC sz_u64_t sz_hash(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
  *  @endcode
  *
  *  @note   Selects the fastest implementation at compile- or run-time based on `SZ_DYNAMIC_DISPATCH`.
- *  @sa     sz_fill_random_serial, sz_fill_random_haswell, sz_fill_random_skylake, sz_fill_random_ice,
+ *  @sa     sz_fill_random_serial, sz_fill_random_westmere, sz_fill_random_skylake, sz_fill_random_ice,
  *          sz_fill_random_neon, sz_fill_random_sve
  */
 SZ_DYNAMIC void sz_fill_random(sz_ptr_t text, sz_size_t length, sz_u64_t nonce);
@@ -171,20 +171,60 @@ SZ_DYNAMIC void sz_fill_random(sz_ptr_t text, sz_size_t length, sz_u64_t nonce);
 /**
  *  @brief  The state for incremental construction of a hash.
  *  @see    sz_hash_state_init, sz_hash_state_update, sz_hash_state_digest.
+ *
+ *  @note   Uses `packed` attribute to allow placement at arbitrary addresses without UBSAN warnings.
+ *          This struct uses plain byte arrays to avoid implicit alignment requirements from SIMD types.
+ *          The layout matches sz_hash_state_internal_t_ for safe casting between them.
  */
+#if defined(_MSC_VER)
+#pragma pack(push, 1)
 typedef struct sz_hash_state_t {
+    sz_u8_t aes[64]; // 64 bytes, equivalent to sz_u512_vec_t
+    sz_u8_t sum[64]; // 64 bytes, equivalent to sz_u512_vec_t
+    sz_u8_t ins[64]; // 64 bytes, equivalent to sz_u512_vec_t
+    sz_u8_t key[16]; // 16 bytes, equivalent to sz_u128_vec_t
+    sz_size_t ins_length;
+} sz_hash_state_t;
+#pragma pack(pop)
+#else
+typedef struct __attribute__((packed)) sz_hash_state_t {
+    sz_u8_t aes[64]; // 64 bytes, equivalent to sz_u512_vec_t
+    sz_u8_t sum[64]; // 64 bytes, equivalent to sz_u512_vec_t
+    sz_u8_t ins[64]; // 64 bytes, equivalent to sz_u512_vec_t
+    sz_u8_t key[16]; // 16 bytes, equivalent to sz_u128_vec_t
+    sz_size_t ins_length;
+} sz_hash_state_t;
+#endif
+
+/**
+ *  @brief  Internal aligned version of sz_hash_state_t using SIMD union types.
+ *          This is layout-compatible with sz_hash_state_t but provides convenient
+ *          SIMD vector accessors for internal implementations.
+ */
+typedef struct sz_hash_state_internal_t_ {
     sz_u512_vec_t aes;
     sz_u512_vec_t sum;
     sz_u512_vec_t ins;
     sz_u128_vec_t key;
     sz_size_t ins_length;
-} sz_hash_state_t;
+} sz_hash_state_internal_t_;
 
 typedef struct sz_hash_minimal_t_ {
     sz_u128_vec_t aes;
     sz_u128_vec_t sum;
     sz_u128_vec_t key;
 } sz_hash_minimal_t_;
+
+/**
+ *  @brief  The state for incremental construction of a SHA256 hash.
+ *  @see    sz_sha256_state_init, sz_sha256_state_update, sz_sha256_state_digest.
+ */
+typedef struct sz_sha256_state_t {
+    sz_u32_t hash[8];       ///< Current hash state: 8x 32-bit values
+    sz_u8_t block[64];      ///< 64-byte message block buffer
+    sz_size_t block_length; ///< Current bytes in block (0-63)
+    sz_u64_t total_length;  ///< Total message length in bytes
+} sz_sha256_state_t;
 
 /**
  *  @brief  Initializes the state for incremental construction of a hash.
@@ -211,11 +251,35 @@ SZ_DYNAMIC void sz_hash_state_update(sz_hash_state_t *state, sz_cptr_t text, sz_
  */
 SZ_DYNAMIC sz_u64_t sz_hash_state_digest(sz_hash_state_t const *state);
 
+/**
+ *  @brief  Initializes the state for incremental SHA256 hashing.
+ *
+ *  @param[out] state The state to initialize.
+ */
+SZ_DYNAMIC void sz_sha256_state_init(sz_sha256_state_t *state);
+
+/**
+ *  @brief  Updates the SHA256 state with new data.
+ *
+ *  @param[inout] state The state to update.
+ *  @param[in] data The new data to hash.
+ *  @param[in] length The number of bytes in the new data.
+ */
+SZ_DYNAMIC void sz_sha256_state_update(sz_sha256_state_t *state, sz_cptr_t data, sz_size_t length);
+
+/**
+ *  @brief  Finalizes the SHA256 state and returns the hash.
+ *
+ *  @param[in] state The state to finalize.
+ *  @param[out] digest Output buffer for the 32-byte (256-bit) hash.
+ */
+SZ_DYNAMIC void sz_sha256_state_digest(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]);
+
 /** @copydoc sz_bytesum */
 SZ_PUBLIC sz_u64_t sz_bytesum_serial(sz_cptr_t text, sz_size_t length);
 
 /** @copydoc sz_hash */
-SZ_PUBLIC sz_u64_t sz_hash_serial(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
+SZ_PUBLIC SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_serial(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
 
 /** @copydoc sz_fill_random */
 SZ_PUBLIC void sz_fill_random_serial(sz_ptr_t text, sz_size_t length, sz_u64_t nonce);
@@ -229,25 +293,42 @@ SZ_PUBLIC void sz_hash_state_update_serial(sz_hash_state_t *state, sz_cptr_t tex
 /** @copydoc sz_hash_state_digest */
 SZ_PUBLIC sz_u64_t sz_hash_state_digest_serial(sz_hash_state_t const *state);
 
+#if SZ_USE_WESTMERE
+
+/** @copydoc sz_hash */
+SZ_PUBLIC SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_westmere(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
+
+/** @copydoc sz_fill_random */
+SZ_PUBLIC void sz_fill_random_westmere(sz_ptr_t text, sz_size_t length, sz_u64_t nonce);
+
+/** @copydoc sz_hash_state_init */
+SZ_PUBLIC void sz_hash_state_init_westmere(sz_hash_state_t *state, sz_u64_t seed);
+
+/** @copydoc sz_hash_state_update */
+SZ_PUBLIC void sz_hash_state_update_westmere(sz_hash_state_t *state, sz_cptr_t text, sz_size_t length);
+
+/** @copydoc sz_hash_state_digest */
+SZ_PUBLIC sz_u64_t sz_hash_state_digest_westmere(sz_hash_state_t const *state);
+
+#endif
+
+#if SZ_USE_GOLDMONT
+
+/** @copydoc sz_sha256_state_init */
+SZ_PUBLIC void sz_sha256_state_init_goldmont(sz_sha256_state_t *state);
+
+/** @copydoc sz_sha256_state_update */
+SZ_PUBLIC void sz_sha256_state_update_goldmont(sz_sha256_state_t *state, sz_cptr_t text, sz_size_t length);
+
+/** @copydoc sz_sha256_state_digest */
+SZ_PUBLIC void sz_sha256_state_digest_goldmont(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]);
+
+#endif
+
 #if SZ_USE_HASWELL
 
 /** @copydoc sz_bytesum */
 SZ_PUBLIC sz_u64_t sz_bytesum_haswell(sz_cptr_t text, sz_size_t length);
-
-/** @copydoc sz_hash */
-SZ_PUBLIC sz_u64_t sz_hash_haswell(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
-
-/** @copydoc sz_fill_random */
-SZ_PUBLIC void sz_fill_random_haswell(sz_ptr_t text, sz_size_t length, sz_u64_t nonce);
-
-/** @copydoc sz_hash_state_init */
-SZ_PUBLIC void sz_hash_state_init_haswell(sz_hash_state_t *state, sz_u64_t seed);
-
-/** @copydoc sz_hash_state_update */
-SZ_PUBLIC void sz_hash_state_update_haswell(sz_hash_state_t *state, sz_cptr_t text, sz_size_t length);
-
-/** @copydoc sz_hash_state_digest */
-SZ_PUBLIC sz_u64_t sz_hash_state_digest_haswell(sz_hash_state_t const *state);
 
 #endif
 
@@ -257,7 +338,7 @@ SZ_PUBLIC sz_u64_t sz_hash_state_digest_haswell(sz_hash_state_t const *state);
 SZ_PUBLIC sz_u64_t sz_bytesum_skylake(sz_cptr_t text, sz_size_t length);
 
 /** @copydoc sz_hash */
-SZ_PUBLIC sz_u64_t sz_hash_skylake(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
+SZ_PUBLIC SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_skylake(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
 
 /** @copydoc sz_fill_random */
 SZ_PUBLIC void sz_fill_random_skylake(sz_ptr_t text, sz_size_t length, sz_u64_t nonce);
@@ -279,7 +360,7 @@ SZ_PUBLIC sz_u64_t sz_hash_state_digest_skylake(sz_hash_state_t const *state);
 SZ_PUBLIC sz_u64_t sz_bytesum_ice(sz_cptr_t text, sz_size_t length);
 
 /** @copydoc sz_hash */
-SZ_PUBLIC sz_u64_t sz_hash_ice(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
+SZ_PUBLIC SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_ice(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
 
 /** @copydoc sz_fill_random */
 SZ_PUBLIC void sz_fill_random_ice(sz_ptr_t text, sz_size_t length, sz_u64_t nonce);
@@ -293,6 +374,15 @@ SZ_PUBLIC void sz_hash_state_update_ice(sz_hash_state_t *state, sz_cptr_t text, 
 /** @copydoc sz_hash_state_digest */
 SZ_PUBLIC sz_u64_t sz_hash_state_digest_ice(sz_hash_state_t const *state);
 
+/** @copydoc sz_sha256_state_init */
+SZ_PUBLIC void sz_sha256_state_init_ice(sz_sha256_state_t *state);
+
+/** @copydoc sz_sha256_state_update */
+SZ_PUBLIC void sz_sha256_state_update_ice(sz_sha256_state_t *state, sz_cptr_t text, sz_size_t length);
+
+/** @copydoc sz_sha256_state_digest */
+SZ_PUBLIC void sz_sha256_state_digest_ice(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]);
+
 #endif
 
 #if SZ_USE_NEON
@@ -305,7 +395,7 @@ SZ_PUBLIC sz_u64_t sz_bytesum_neon(sz_cptr_t text, sz_size_t length);
 #if SZ_USE_NEON_AES
 
 /** @copydoc sz_hash */
-SZ_PUBLIC sz_u64_t sz_hash_neon(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
+SZ_PUBLIC SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_neon(sz_cptr_t text, sz_size_t length, sz_u64_t seed);
 
 /** @copydoc sz_fill_random */
 SZ_PUBLIC void sz_fill_random_neon(sz_ptr_t text, sz_size_t length, sz_u64_t nonce);
@@ -318,6 +408,19 @@ SZ_PUBLIC void sz_hash_state_update_neon(sz_hash_state_t *state, sz_cptr_t text,
 
 /** @copydoc sz_hash_state_digest */
 SZ_PUBLIC sz_u64_t sz_hash_state_digest_neon(sz_hash_state_t const *state);
+
+#endif
+
+#if SZ_USE_NEON_SHA
+
+/** @copydoc sz_sha256_state_init */
+SZ_PUBLIC void sz_sha256_state_init_neon(sz_sha256_state_t *state);
+
+/** @copydoc sz_sha256_state_update */
+SZ_PUBLIC void sz_sha256_state_update_neon(sz_sha256_state_t *state, sz_cptr_t data, sz_size_t length);
+
+/** @copydoc sz_sha256_state_digest */
+SZ_PUBLIC void sz_sha256_state_digest_neon(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]);
 
 #endif
 
@@ -363,15 +466,11 @@ SZ_PUBLIC sz_u64_t sz_hash_state_digest_sve2(sz_hash_state_t const *state);
  *  @note   The current content of the `ins` buffer and its length is ignored.
  */
 SZ_PUBLIC sz_bool_t sz_hash_state_equal(sz_hash_state_t const *lhs, sz_hash_state_t const *rhs) {
-    int same_aes = //
-        lhs->aes.u64s[0] == rhs->aes.u64s[0] && lhs->aes.u64s[1] == rhs->aes.u64s[1] &&
-        lhs->aes.u64s[2] == rhs->aes.u64s[2] && lhs->aes.u64s[3] == rhs->aes.u64s[3];
-    int same_sum = //
-        lhs->sum.u64s[0] == rhs->sum.u64s[0] && lhs->sum.u64s[1] == rhs->sum.u64s[1] &&
-        lhs->sum.u64s[2] == rhs->sum.u64s[2] && lhs->sum.u64s[3] == rhs->sum.u64s[3];
-    int same_key = //
-        lhs->key.u64s[0] == rhs->key.u64s[0] && lhs->key.u64s[1] == rhs->key.u64s[1];
-    return same_aes && same_sum && same_key ? sz_true_k : sz_false_k;
+    // Compare byte-by-byte using sz_equal (safe for packed struct)
+    if (!sz_equal((sz_cptr_t)lhs->aes, (sz_cptr_t)rhs->aes, 64)) return sz_false_k;
+    if (!sz_equal((sz_cptr_t)lhs->sum, (sz_cptr_t)rhs->sum, 64)) return sz_false_k;
+    if (!sz_equal((sz_cptr_t)lhs->key, (sz_cptr_t)rhs->key, 16)) return sz_false_k;
+    return sz_true_k;
 }
 
 #pragma endregion // Helper Methods
@@ -477,7 +576,8 @@ SZ_INTERNAL sz_u128_vec_t sz_emulate_aesenc_si128_serial_(sz_u128_vec_t state_ve
     return result;
 }
 
-SZ_INTERNAL sz_u128_vec_t sz_emulate_shuffle_epi8_serial_(sz_u128_vec_t state_vec, sz_u8_t const order[16]) {
+SZ_INTERNAL sz_u128_vec_t sz_emulate_shuffle_epi8_serial_(sz_u128_vec_t state_vec,
+                                                          sz_u8_t const order[sz_at_least_(16)]) {
     sz_u128_vec_t result;
     // Unroll the loop for 16 bytes
     result.u8s[0] = state_vec.u8s[order[0]];
@@ -528,7 +628,7 @@ SZ_INTERNAL sz_u128_vec_t sz_emulate_shuffle_epi8_serial_(sz_u128_vec_t state_ve
  *
  */
 SZ_INTERNAL sz_u64_t const *sz_hash_pi_constants_(void) {
-    static SZ_ALIGN64 sz_u64_t const pi[16] = {
+    static sz_align_(64) sz_u64_t const pi[16] = {
         0x243F6A8885A308D3ull, 0x13198A2E03707344ull, 0xA4093822299F31D0ull, 0x082EFA98EC4E6C89ull,
         0x452821E638D01377ull, 0xBE5466CF34E90C6Cull, 0xC0AC29B7C97C50DDull, 0x3F84D5B5B5470917ull,
         0x9216D5D98979FB1Bull, 0xD1310BA698DFB5ACull, 0x2FFD72DBD01ADFB7ull, 0xB8E1AFED6A267E96ull,
@@ -542,7 +642,7 @@ SZ_INTERNAL sz_u64_t const *sz_hash_pi_constants_(void) {
  *  @return Pointer aligned to 64 bytes on SIMD-capable platforms.
  */
 SZ_INTERNAL sz_u8_t const *sz_hash_u8x16x4_shuffle_(void) {
-    static SZ_ALIGN64 sz_u8_t const shuffle[64] = {
+    static sz_align_(64) sz_u8_t const shuffle[64] = {
         0x04, 0x0b, 0x09, 0x06, 0x08, 0x0d, 0x0f, 0x05, //
         0x0e, 0x03, 0x01, 0x0c, 0x00, 0x07, 0x0a, 0x02, //
         0x04, 0x0b, 0x09, 0x06, 0x08, 0x0d, 0x0f, 0x05, //
@@ -553,6 +653,46 @@ SZ_INTERNAL sz_u8_t const *sz_hash_u8x16x4_shuffle_(void) {
         0x0e, 0x03, 0x01, 0x0c, 0x00, 0x07, 0x0a, 0x02  //
     };
     return &shuffle[0];
+}
+
+/**
+ *  @brief  SHA256 initial hash values: first 32 bits of fractional parts of square roots of first 8 primes.
+ *  @return Pointer to 8x 32-bit constants, aligned to 64 bytes.
+ *  @see    FIPS 180-4 Section 5.3.3
+ */
+SZ_INTERNAL sz_u32_t const *sz_sha256_initial_hash_(void) {
+    static sz_align_(64) sz_u32_t const h[8] = {
+        0x6a09e667ul, 0xbb67ae85ul, 0x3c6ef372ul, 0xa54ff53aul, //
+        0x510e527ful, 0x9b05688cul, 0x1f83d9abul, 0x5be0cd19ul, //
+    };
+    return &h[0];
+}
+
+/**
+ *  @brief  SHA256 round constants: first 32 bits of fractional parts of cube roots of first 64 primes.
+ *  @return Pointer to 64x 32-bit constants, aligned to 64 bytes.
+ *  @see    FIPS 180-4 Section 4.2.2
+ */
+SZ_INTERNAL sz_u32_t const *sz_sha256_round_constants_(void) {
+    static sz_align_(64) sz_u32_t const k[64] = {
+        0x428a2f98ul, 0x71374491ul, 0xb5c0fbcful, 0xe9b5dba5ul, //
+        0x3956c25bul, 0x59f111f1ul, 0x923f82a4ul, 0xab1c5ed5ul, //
+        0xd807aa98ul, 0x12835b01ul, 0x243185beul, 0x550c7dc3ul, //
+        0x72be5d74ul, 0x80deb1feul, 0x9bdc06a7ul, 0xc19bf174ul, //
+        0xe49b69c1ul, 0xefbe4786ul, 0x0fc19dc6ul, 0x240ca1ccul, //
+        0x2de92c6ful, 0x4a7484aaul, 0x5cb0a9dcul, 0x76f988daul, //
+        0x983e5152ul, 0xa831c66dul, 0xb00327c8ul, 0xbf597fc7ul, //
+        0xc6e00bf3ul, 0xd5a79147ul, 0x06ca6351ul, 0x14292967ul, //
+        0x27b70a85ul, 0x2e1b2138ul, 0x4d2c6dfcul, 0x53380d13ul, //
+        0x650a7354ul, 0x766a0abbul, 0x81c2c92eul, 0x92722c85ul, //
+        0xa2bfe8a1ul, 0xa81a664bul, 0xc24b8b70ul, 0xc76c51a3ul, //
+        0xd192e819ul, 0xd6990624ul, 0xf40e3585ul, 0x106aa070ul, //
+        0x19a4c116ul, 0x1e376c08ul, 0x2748774cul, 0x34b0bcb5ul, //
+        0x391c0cb3ul, 0x4ed8aa4aul, 0x5b9cca4ful, 0x682e6ff3ul, //
+        0x748f82eeul, 0x78a5636ful, 0x84c87814ul, 0x8cc70208ul, //
+        0x90befffaul, 0xa4506cebul, 0xbef9a3f7ul, 0xc67178f2ul, //
+    };
+    return &k[0];
 }
 
 SZ_INTERNAL void sz_hash_minimal_init_serial_(sz_hash_minimal_t_ *state, sz_u64_t seed) {
@@ -607,16 +747,19 @@ SZ_INTERNAL void sz_hash_shift_in_register_serial_(sz_u128_vec_t *vec, int shift
 SZ_PUBLIC void sz_hash_state_init_serial(sz_hash_state_t *state, sz_u64_t seed) {
 
     // The key is made from the seed and half of it will be mixed with the length in the end
-    state->key.u64s[0] = seed;
-    state->key.u64s[1] = seed;
+    sz_u64_t *key_u64s = (sz_u64_t *)state->key;
+    key_u64s[0] = seed;
+    key_u64s[1] = seed;
 
     // XOR the user-supplied keys with the two "pi" constants
     sz_u64_t const *pi = sz_hash_pi_constants_();
-    for (int i = 0; i < 8; ++i) state->aes.u64s[i] = seed ^ pi[i];
-    for (int i = 0; i < 8; ++i) state->sum.u64s[i] = seed ^ pi[i + 8];
+    sz_u64_t *aes_u64s = (sz_u64_t *)state->aes;
+    sz_u64_t *sum_u64s = (sz_u64_t *)state->sum;
+    for (int i = 0; i < 8; ++i) aes_u64s[i] = seed ^ pi[i];
+    for (int i = 0; i < 8; ++i) sum_u64s[i] = seed ^ pi[i + 8];
 
     // The inputs are zeroed out at the beginning
-    for (int i = 0; i < 8; ++i) state->ins.u64s[i] = 0;
+    for (int i = 0; i < 64; ++i) state->ins[i] = 0;
     state->ins_length = 0;
 }
 
@@ -624,9 +767,9 @@ SZ_INTERNAL void sz_hash_state_update_serial_(sz_hash_state_t *state) {
     sz_u8_t const *shuffle = sz_hash_u8x16x4_shuffle_();
 
     // To reuse the snippets above, let's cast to our familiar 128-bit vectors
-    sz_u128_vec_t *aes_vecs = (sz_u128_vec_t *)&state->aes.u64s[0];
-    sz_u128_vec_t *sum_vecs = (sz_u128_vec_t *)&state->sum.u64s[0];
-    sz_u128_vec_t *ins_vecs = (sz_u128_vec_t *)&state->ins.u64s[0];
+    sz_u128_vec_t *aes_vecs = (sz_u128_vec_t *)state->aes;
+    sz_u128_vec_t *sum_vecs = (sz_u128_vec_t *)state->sum;
+    sz_u128_vec_t *ins_vecs = (sz_u128_vec_t *)state->ins;
 
     // First 128-bit block
     aes_vecs[0] = sz_emulate_aesenc_si128_serial_(aes_vecs[0], ins_vecs[0]);
@@ -652,12 +795,14 @@ SZ_INTERNAL void sz_hash_state_update_serial_(sz_hash_state_t *state) {
 SZ_INTERNAL sz_u64_t sz_hash_state_finalize_serial_(sz_hash_state_t const *state) {
 
     // Mix the length into the key
-    sz_u128_vec_t key_with_length = state->key;
-    key_with_length.u64s[0] += state->ins_length;
+    sz_u64_t const *key_u64s = (sz_u64_t const *)state->key;
+    sz_u128_vec_t key_with_length;
+    key_with_length.u64s[0] = key_u64s[0] + state->ins_length;
+    key_with_length.u64s[1] = key_u64s[1];
 
     // To reuse the snippets above, let's cast to our familiar 128-bit vectors
-    sz_u128_vec_t *aes_vecs = (sz_u128_vec_t *)&state->aes.u64s[0];
-    sz_u128_vec_t *sum_vecs = (sz_u128_vec_t *)&state->sum.u64s[0];
+    sz_u128_vec_t const *aes_vecs = (sz_u128_vec_t const *)state->aes;
+    sz_u128_vec_t const *sum_vecs = (sz_u128_vec_t const *)state->sum;
 
     // Combine the "sum" and the "AES" blocks
     sz_u128_vec_t mixed0 = sz_emulate_aesenc_si128_serial_(sum_vecs[0], aes_vecs[0]);
@@ -679,10 +824,10 @@ SZ_INTERNAL sz_u64_t sz_hash_state_finalize_serial_(sz_hash_state_t const *state
     return mixed_in_register.u64s[0];
 }
 
-SZ_PUBLIC sz_u64_t sz_hash_serial(sz_cptr_t start, sz_size_t length, sz_u64_t seed) {
+SZ_PUBLIC SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_serial(sz_cptr_t start, sz_size_t length, sz_u64_t seed) {
     if (length <= 16) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
+        sz_align_(16) sz_hash_minimal_t_ state;
         sz_hash_minimal_init_serial_(&state, seed);
         // Load the data and update the state
         sz_u128_vec_t data_vec;
@@ -693,7 +838,7 @@ SZ_PUBLIC sz_u64_t sz_hash_serial(sz_cptr_t start, sz_size_t length, sz_u64_t se
     }
     else if (length <= 32) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
+        sz_align_(16) sz_hash_minimal_t_ state;
         sz_hash_minimal_init_serial_(&state, seed);
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec;
@@ -714,7 +859,7 @@ SZ_PUBLIC sz_u64_t sz_hash_serial(sz_cptr_t start, sz_size_t length, sz_u64_t se
     }
     else if (length <= 48) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
+        sz_align_(16) sz_hash_minimal_t_ state;
         sz_hash_minimal_init_serial_(&state, seed);
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec, data2_vec;
@@ -739,7 +884,7 @@ SZ_PUBLIC sz_u64_t sz_hash_serial(sz_cptr_t start, sz_size_t length, sz_u64_t se
     }
     else if (length <= 64) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
+        sz_align_(16) sz_hash_minimal_t_ state;
         sz_hash_minimal_init_serial_(&state, seed);
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec, data2_vec, data3_vec;
@@ -767,34 +912,33 @@ SZ_PUBLIC sz_u64_t sz_hash_serial(sz_cptr_t start, sz_size_t length, sz_u64_t se
         return sz_hash_minimal_finalize_serial_(&state, length);
     }
     else {
-        // Use a larger state to handle the main loop and add different offsets
-        // to different lanes of the register
-        SZ_ALIGN64 sz_hash_state_t state;
+        sz_align_(64) sz_hash_state_t state;
         sz_hash_state_init_serial(&state, seed);
 
 #if SZ_USE_MISALIGNED_LOADS
         for (; state.ins_length + 64 <= length; state.ins_length += 64) {
-            state.ins.u64s[0] = *(sz_u64_t const *)(start + state.ins_length);
-            state.ins.u64s[1] = *(sz_u64_t const *)(start + state.ins_length + 8);
-            state.ins.u64s[2] = *(sz_u64_t const *)(start + state.ins_length + 16);
-            state.ins.u64s[3] = *(sz_u64_t const *)(start + state.ins_length + 24);
-            state.ins.u64s[4] = *(sz_u64_t const *)(start + state.ins_length + 32);
-            state.ins.u64s[5] = *(sz_u64_t const *)(start + state.ins_length + 40);
-            state.ins.u64s[6] = *(sz_u64_t const *)(start + state.ins_length + 48);
-            state.ins.u64s[7] = *(sz_u64_t const *)(start + state.ins_length + 56);
+            sz_u64_t *ins_u64s = (sz_u64_t *)(sz_size_t)state.ins;
+            ins_u64s[0] = *(sz_u64_t const *)(start + state.ins_length);
+            ins_u64s[1] = *(sz_u64_t const *)(start + state.ins_length + 8);
+            ins_u64s[2] = *(sz_u64_t const *)(start + state.ins_length + 16);
+            ins_u64s[3] = *(sz_u64_t const *)(start + state.ins_length + 24);
+            ins_u64s[4] = *(sz_u64_t const *)(start + state.ins_length + 32);
+            ins_u64s[5] = *(sz_u64_t const *)(start + state.ins_length + 40);
+            ins_u64s[6] = *(sz_u64_t const *)(start + state.ins_length + 48);
+            ins_u64s[7] = *(sz_u64_t const *)(start + state.ins_length + 56);
             sz_hash_state_update_serial_(&state);
         }
 #else
         for (; state.ins_length + 64 <= length; state.ins_length += 64) {
-            for (sz_size_t i = 0; i < 64; ++i) state.ins.u8s[i] = start[state.ins_length + i];
+            for (sz_size_t i = 0; i < 64; ++i) state.ins[i] = start[state.ins_length + i];
             sz_hash_state_update_serial_(&state);
         }
 #endif
 
         if (state.ins_length < length) {
-            for (sz_size_t i = 0; i != 8; ++i) state.ins.u64s[i] = 0;
+            for (sz_size_t i = 0; i != 64; ++i) state.ins[i] = 0;
             for (sz_size_t i = 0; state.ins_length < length; ++i, ++state.ins_length)
-                state.ins.u8s[i] = start[state.ins_length];
+                state.ins[i] = start[state.ins_length];
             sz_hash_state_update_serial_(&state);
             state.ins_length = length;
         }
@@ -811,12 +955,12 @@ SZ_PUBLIC void sz_hash_state_update_serial(sz_hash_state_t *state, sz_cptr_t tex
         state->ins_length += to_copy;
         length -= to_copy;
         // Append to the internal buffer until it's full
-        while (to_copy--) state->ins.u8s[progress_in_block++] = *text++;
+        while (to_copy--) state->ins[progress_in_block++] = *text++;
         // If we've reached the end of the buffer, update the state
         if (will_fill_block) {
             sz_hash_state_update_serial_(state);
             // Reset to zeros now, so we don't have to overwrite an immutable buffer in the folding state
-            for (int i = 0; i < 8; ++i) state->ins.u64s[i] = 0;
+            for (int i = 0; i < 64; ++i) state->ins[i] = 0;
         }
     }
 }
@@ -826,13 +970,15 @@ SZ_PUBLIC sz_u64_t sz_hash_state_digest_serial(sz_hash_state_t const *state) {
     if (length >= 64) return sz_hash_state_finalize_serial_(state);
 
     // Switch back to a smaller "minimal" state for small inputs
+    sz_u64_t const *key_u64s = (sz_u64_t const *)state->key;
     sz_hash_minimal_t_ minimal_state;
-    minimal_state.key = state->key;
-    minimal_state.aes = *(sz_u128_vec_t const *)&state->aes.u64s[0];
-    minimal_state.sum = *(sz_u128_vec_t const *)&state->sum.u64s[0];
+    minimal_state.key.u64s[0] = key_u64s[0];
+    minimal_state.key.u64s[1] = key_u64s[1];
+    minimal_state.aes = *(sz_u128_vec_t const *)state->aes;
+    minimal_state.sum = *(sz_u128_vec_t const *)state->sum;
 
     // The logic is different depending on the length of the input
-    sz_u128_vec_t const *ins_vecs = (sz_u128_vec_t const *)&state->ins.u64s[0];
+    sz_u128_vec_t const *ins_vecs = (sz_u128_vec_t const *)state->ins;
     if (length <= 16) {
         sz_hash_minimal_update_serial_(&minimal_state, ins_vecs[0]);
         return sz_hash_minimal_finalize_serial_(&minimal_state, length);
@@ -857,6 +1003,216 @@ SZ_PUBLIC sz_u64_t sz_hash_state_digest_serial(sz_hash_state_t const *state) {
     }
 }
 
+#pragma region Serial SHA256 Implementation
+
+/** @brief SHA256 rotate right operation. */
+SZ_INTERNAL sz_u32_t sz_sha256_rotr_(sz_u32_t value, sz_u32_t count) {
+    return (value >> count) | (value << (32 - count));
+}
+
+/** @brief SHA256 Ch (choose) function: (x AND y) XOR (NOT x AND z). */
+SZ_INTERNAL sz_u32_t sz_sha256_ch_(sz_u32_t x, sz_u32_t y, sz_u32_t z) { return (x & y) ^ (~x & z); }
+
+/** @brief SHA256 Maj (majority) function: (x AND y) XOR (x AND z) XOR (y AND z). */
+SZ_INTERNAL sz_u32_t sz_sha256_maj_(sz_u32_t x, sz_u32_t y, sz_u32_t z) { return (x & y) ^ (x & z) ^ (y & z); }
+
+/** @brief SHA256 Sigma0 function: ROTR(x,2) XOR ROTR(x,13) XOR ROTR(x,22). */
+SZ_INTERNAL sz_u32_t sz_sha256_sigma0_(sz_u32_t x) {
+    return sz_sha256_rotr_(x, 2) ^ sz_sha256_rotr_(x, 13) ^ sz_sha256_rotr_(x, 22);
+}
+
+/** @brief SHA256 Sigma1 function: ROTR(x,6) XOR ROTR(x,11) XOR ROTR(x,25). */
+SZ_INTERNAL sz_u32_t sz_sha256_sigma1_(sz_u32_t x) {
+    return sz_sha256_rotr_(x, 6) ^ sz_sha256_rotr_(x, 11) ^ sz_sha256_rotr_(x, 25);
+}
+
+/** @brief SHA256 sigma0 function: ROTR(x,7) XOR ROTR(x,18) XOR SHR(x,3). */
+SZ_INTERNAL sz_u32_t sz_sha256_sigma0_lower_(sz_u32_t x) {
+    return sz_sha256_rotr_(x, 7) ^ sz_sha256_rotr_(x, 18) ^ (x >> 3);
+}
+
+/** @brief SHA256 sigma1 function: ROTR(x,17) XOR ROTR(x,19) XOR SHR(x,10). */
+SZ_INTERNAL sz_u32_t sz_sha256_sigma1_lower_(sz_u32_t x) {
+    return sz_sha256_rotr_(x, 17) ^ sz_sha256_rotr_(x, 19) ^ (x >> 10);
+}
+
+/**
+ *  @brief Process a single 512-bit (64-byte) block of data using SHA256.
+ *  @param[inout] hash Pointer to 8x 32-bit hash values, modified in place.
+ *  @param[in] block Pointer to 64-byte message block.
+ */
+SZ_INTERNAL void sz_sha256_process_block_serial_(sz_u32_t hash[sz_at_least_(8)],
+                                                 sz_u8_t const block[sz_at_least_(64)]) {
+    sz_u32_t const *round_constants = sz_sha256_round_constants_();
+    sz_u32_t message_schedule[16];
+    sz_u32_t a, b, c, d, e, f, g, h, temp1, temp2;
+
+    // Initialize working variables
+    a = hash[0], b = hash[1], c = hash[2], d = hash[3];
+    e = hash[4], f = hash[5], g = hash[6], h = hash[7];
+
+    // Main compression loop - rounds until 16th
+    for (sz_size_t i = 0; i < 16; ++i) {
+        // Read big-endian 32-bit words from the block
+        message_schedule[i] = ((sz_u32_t)block[i * 4 + 0] << 24) | ((sz_u32_t)block[i * 4 + 1] << 16) |
+                              ((sz_u32_t)block[i * 4 + 2] << 8) | ((sz_u32_t)block[i * 4 + 3] << 0);
+        temp1 = h + sz_sha256_sigma1_(e) + sz_sha256_ch_(e, f, g) + round_constants[i] + message_schedule[i % 16];
+        temp2 = sz_sha256_sigma0_(a) + sz_sha256_maj_(a, b, c);
+        h = g, g = f, f = e;
+        e = d + temp1;
+        d = c, c = b, b = a;
+        a = temp1 + temp2;
+    }
+
+    // Main compression loop - rounds from 16th to 64th
+    for (sz_size_t i = 16; i < 64; ++i) {
+        message_schedule[(i) % 16] =
+            sz_sha256_sigma1_lower_(message_schedule[(i - 2) % 16]) + message_schedule[(i - 7) % 16] +
+            sz_sha256_sigma0_lower_(message_schedule[(i - 15) % 16]) + message_schedule[(i - 16) % 16];
+        temp1 = h + sz_sha256_sigma1_(e) + sz_sha256_ch_(e, f, g) + round_constants[i] + message_schedule[i % 16];
+        temp2 = sz_sha256_sigma0_(a) + sz_sha256_maj_(a, b, c);
+        h = g, g = f, f = e;
+        e = d + temp1;
+        d = c, c = b, b = a;
+        a = temp1 + temp2;
+    }
+
+    // Add compressed chunk to current hash value
+    hash[0] += a, hash[1] += b, hash[2] += c, hash[3] += d;
+    hash[4] += e, hash[5] += f, hash[6] += g, hash[7] += h;
+}
+
+/**
+ *  @brief  Initialize SHA256 state with standard initial hash values.
+ *  @param  state   Pointer to SHA256 state structure.
+ */
+SZ_PUBLIC void sz_sha256_state_init_serial(sz_sha256_state_t *state_ptr) {
+    // Vectorize the load/store of 8x u32s as 4x u64s
+    sz_u32_t const *initial_hash = sz_sha256_initial_hash_();
+    sz_u64_t const *src = (sz_u64_t const *)initial_hash;
+    sz_u64_t *dst = (sz_u64_t *)state_ptr->hash;
+    dst[0] = src[0], dst[1] = src[1], dst[2] = src[2], dst[3] = src[3];
+    state_ptr->block_length = 0, state_ptr->total_length = 0;
+}
+
+/**
+ *  @brief  Update SHA256 state with new data.
+ *  @param  state   Pointer to SHA256 state structure.
+ *  @param  data    Pointer to input data.
+ *  @param  length  Length of input data in bytes.
+ */
+SZ_PUBLIC void sz_sha256_state_update_serial(sz_sha256_state_t *state_ptr, sz_cptr_t data, sz_size_t length) {
+    sz_u8_t const *input = (sz_u8_t const *)data;
+    sz_size_t const current_block_index = state_ptr->block_length / 64;
+    sz_size_t const final_block_index = (state_ptr->block_length + length) / 64;
+    int const stays_in_the_block = current_block_index == final_block_index;
+    int const fills_the_block = (state_ptr->block_length + length) % 64 == 0;
+
+    state_ptr->total_length += length;
+
+    // Fast path: stays in same block and doesn't fill it
+    if (stays_in_the_block && !fills_the_block) {
+        for (; length; --length, ++state_ptr->block_length, ++input) state_ptr->block[state_ptr->block_length] = *input;
+        return;
+    }
+
+    // Calculate head, body, and tail lengths
+    sz_size_t const head_length = (64 - state_ptr->block_length) % 64;
+    sz_size_t const tail_length = (state_ptr->block_length + length) % 64;
+    sz_size_t const body_length = length - head_length - tail_length;
+
+    // Copy hash to aligned local buffer
+    sz_align_(32) sz_u32_t hash[8];
+    hash[0] = state_ptr->hash[0], hash[1] = state_ptr->hash[1], hash[2] = state_ptr->hash[2],
+    hash[3] = state_ptr->hash[3], hash[4] = state_ptr->hash[4], hash[5] = state_ptr->hash[5],
+    hash[6] = state_ptr->hash[6], hash[7] = state_ptr->hash[7];
+
+    // Process head to complete the current block
+    if (head_length) {
+        for (sz_size_t i = 0; i < head_length; ++i) state_ptr->block[state_ptr->block_length++] = input[i];
+        sz_sha256_process_block_serial_(hash, state_ptr->block);
+        state_ptr->block_length = 0;
+        input += head_length;
+    }
+
+    // Process body (complete aligned blocks)
+    for (sz_size_t processed = 0; processed < body_length; processed += 64, input += 64)
+        sz_sha256_process_block_serial_(hash, input);
+
+    // Process tail (remaining bytes into block buffer)
+    for (sz_size_t i = 0; i < tail_length; ++i) state_ptr->block[i] = input[i];
+    state_ptr->block_length = tail_length;
+
+    // Copy hash back
+    state_ptr->hash[0] = hash[0], state_ptr->hash[1] = hash[1], state_ptr->hash[2] = hash[2],
+    state_ptr->hash[3] = hash[3];
+    state_ptr->hash[4] = hash[4], state_ptr->hash[5] = hash[5], state_ptr->hash[6] = hash[6],
+    state_ptr->hash[7] = hash[7];
+}
+
+SZ_PUBLIC void sz_sha256_state_digest_serial(sz_sha256_state_t const *state_ptr, sz_u8_t digest[sz_at_least_(32)]) {
+    // Create a copy of the state for padding
+    sz_sha256_state_t state = *state_ptr;
+
+    // Append the '1' bit (0x80 byte) after the message
+    state.block[state.block_length++] = 0x80;
+
+    // If there's not enough room for the 64-bit length, pad this block and process it
+    if (state.block_length > 56) {
+        sz_size_t remaining = 64 - state.block_length;
+#if SZ_USE_MISALIGNED_LOADS
+        // Use word-sized writes for better performance when misaligned stores are supported
+        sz_size_t word_bytes = (remaining / 8) * 8;
+        for (sz_size_t i = 0; i < word_bytes; i += 8) *(sz_u64_t *)&state.block[state.block_length + i] = 0;
+        for (sz_size_t i = word_bytes; i < remaining; ++i) state.block[state.block_length + i] = 0;
+#else
+        // Use byte-by-byte writes to avoid alignment issues on platforms like ARMv7
+        for (sz_size_t i = 0; i < remaining; ++i) state.block[state.block_length + i] = 0;
+#endif
+        sz_sha256_process_block_serial_(state.hash, state.block);
+        state.block_length = 0;
+    }
+
+    // Pad with zeros until we have 56 bytes
+    sz_size_t remaining = 56 - state.block_length;
+
+#if SZ_USE_MISALIGNED_LOADS
+    // Use word-sized writes for better performance when misaligned stores are supported
+    sz_size_t word_bytes = (remaining / 8) * 8;
+    for (sz_size_t i = 0; i < word_bytes; i += 8) *(sz_u64_t *)&state.block[state.block_length + i] = 0;
+    for (sz_size_t i = word_bytes; i < remaining; ++i) state.block[state.block_length + i] = 0;
+#else
+    // Use byte-by-byte writes to avoid alignment issues on platforms like ARMv7
+    for (sz_size_t i = 0; i < remaining; ++i) state.block[state.block_length + i] = 0;
+#endif
+
+    state.block_length = 56;
+
+    // Append the message length in bits as a 64-bit big-endian integer
+    sz_u64_t bit_length = state.total_length * 8;
+    state.block[56] = (sz_u8_t)(bit_length >> 56);
+    state.block[57] = (sz_u8_t)(bit_length >> 48);
+    state.block[58] = (sz_u8_t)(bit_length >> 40);
+    state.block[59] = (sz_u8_t)(bit_length >> 32);
+    state.block[60] = (sz_u8_t)(bit_length >> 24);
+    state.block[61] = (sz_u8_t)(bit_length >> 16);
+    state.block[62] = (sz_u8_t)(bit_length >> 8);
+    state.block[63] = (sz_u8_t)(bit_length >> 0);
+
+    // Process the final block
+    sz_sha256_process_block_serial_(state.hash, state.block);
+
+    // Produce the final hash digest in big-endian format
+    for (sz_size_t i = 0; i < 8; ++i) {
+        digest[i * 4 + 0] = (sz_u8_t)(state.hash[i] >> 24);
+        digest[i * 4 + 1] = (sz_u8_t)(state.hash[i] >> 16);
+        digest[i * 4 + 2] = (sz_u8_t)(state.hash[i] >> 8);
+        digest[i * 4 + 3] = (sz_u8_t)(state.hash[i] >> 0);
+    }
+}
+
+#pragma endregion // Serial SHA256 Implementation
+
 SZ_PUBLIC void sz_fill_random_serial(sz_ptr_t text, sz_size_t length, sz_u64_t nonce) {
     sz_u64_t const *pi_ptr = sz_hash_pi_constants_();
     sz_u128_vec_t input_vec, pi_vec, key_vec, generated_vec;
@@ -875,103 +1231,19 @@ SZ_PUBLIC void sz_fill_random_serial(sz_ptr_t text, sz_size_t length, sz_u64_t n
 
 #pragma endregion // Serial Implementation
 
-/*  AVX2 implementation of the string search algorithms for Haswell processors and newer.
- *  Very minimalistic (compared to AVX-512), but still faster than the serial implementation.
+/*  SSE4.2 + AES-NI implementation of the string hashing algorithms for Westmere and newer CPUs.
+ *  Uses 128-bit AES instructions that debuted in Westmere (2010).
  */
-#pragma region Haswell Implementation
-#if SZ_USE_HASWELL
+#pragma region Westmere Implementation
+#if SZ_USE_WESTMERE
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("avx2,aes"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("sse4.2,aes"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("avx2", "aes")
+#pragma GCC target("sse4.2", "aes")
 #endif
 
-SZ_PUBLIC sz_u64_t sz_bytesum_haswell(sz_cptr_t text, sz_size_t length) {
-    // The naive implementation of this function is very simple.
-    // It assumes the CPU is great at handling unaligned "loads".
-    //
-    // A typical AWS Skylake instance can have 32 KB x 2 blocks of L1 data cache per core,
-    // 1 MB x 2 blocks of L2 cache per core, and one shared L3 cache buffer.
-    // For now, let's avoid the cases beyond the L2 size.
-    int is_huge = length > 1ull * 1024ull * 1024ull;
-
-    // When the buffer is small, there isn't much to innovate.
-    if (length <= 32) { return sz_bytesum_serial(text, length); }
-    else if (!is_huge) {
-        sz_u256_vec_t text_vec, sums_vec;
-        sums_vec.ymm = _mm256_setzero_si256();
-        for (; length >= 32; text += 32, length -= 32) {
-            text_vec.ymm = _mm256_lddqu_si256((__m256i const *)text);
-            sums_vec.ymm = _mm256_add_epi64(sums_vec.ymm, _mm256_sad_epu8(text_vec.ymm, _mm256_setzero_si256()));
-        }
-        // We can also avoid the final serial loop by fetching 32 bytes from end, in reverse direction,
-        // and shifting the data within the register to zero-out the duplicate bytes.
-
-        // Accumulating 256 bits is harder, as we need to extract the 128-bit sums first.
-        __m128i low_xmm = _mm256_castsi256_si128(sums_vec.ymm);
-        __m128i high_xmm = _mm256_extracti128_si256(sums_vec.ymm, 1);
-        __m128i sums_xmm = _mm_add_epi64(low_xmm, high_xmm);
-        sz_u64_t low = (sz_u64_t)_mm_cvtsi128_si64(sums_xmm);
-        sz_u64_t high = (sz_u64_t)_mm_extract_epi64(sums_xmm, 1);
-        sz_u64_t result = low + high;
-        if (length) result += sz_bytesum_serial(text, length);
-        return result;
-    }
-    // For gigantic buffers, exceeding typical L1 cache sizes, there are other tricks we can use.
-    // Most notably, we can avoid populating the cache with the entire buffer, and instead traverse it in 2 directions.
-    else {
-        sz_size_t head_length = (32 - ((sz_size_t)text % 32)) % 32; // 31 or less.
-        sz_size_t tail_length = (sz_size_t)(text + length) % 32;    // 31 or less.
-        sz_size_t body_length = length - head_length - tail_length; // Multiple of 32.
-        sz_u64_t result = 0;
-
-        // Handle the tail before we start updating the `text` pointer
-        while (tail_length) result += text[length - (tail_length--)];
-        // Handle the head
-        while (head_length--) result += *text++;
-
-        sz_u256_vec_t text_vec, sums_vec;
-        sums_vec.ymm = _mm256_setzero_si256();
-        // Fill the aligned body of the buffer.
-        if (!is_huge) {
-            for (; body_length >= 32; text += 32, body_length -= 32) {
-                text_vec.ymm = _mm256_stream_load_si256((__m256i const *)text);
-                sums_vec.ymm = _mm256_add_epi64(sums_vec.ymm, _mm256_sad_epu8(text_vec.ymm, _mm256_setzero_si256()));
-            }
-        }
-        // When the buffer is huge, we can traverse it in 2 directions.
-        else {
-            sz_u256_vec_t text_reversed_vec, sums_reversed_vec;
-            sums_reversed_vec.ymm = _mm256_setzero_si256();
-            for (; body_length >= 64; text += 32, body_length -= 64) {
-                text_vec.ymm = _mm256_stream_load_si256((__m256i *)(text));
-                sums_vec.ymm = _mm256_add_epi64(sums_vec.ymm, _mm256_sad_epu8(text_vec.ymm, _mm256_setzero_si256()));
-                text_reversed_vec.ymm = _mm256_stream_load_si256((__m256i *)(text + body_length - 32));
-                sums_reversed_vec.ymm = _mm256_add_epi64(
-                    sums_reversed_vec.ymm, _mm256_sad_epu8(text_reversed_vec.ymm, _mm256_setzero_si256()));
-            }
-            if (body_length >= 32) {
-                sz_assert_(body_length == 32);
-                text_vec.ymm = _mm256_stream_load_si256((__m256i *)(text));
-                sums_vec.ymm = _mm256_add_epi64(sums_vec.ymm, _mm256_sad_epu8(text_vec.ymm, _mm256_setzero_si256()));
-                text += 32;
-            }
-            sums_vec.ymm = _mm256_add_epi64(sums_vec.ymm, sums_reversed_vec.ymm);
-        }
-
-        // Accumulating 256 bits is harder, as we need to extract the 128-bit sums first.
-        __m128i low_xmm = _mm256_castsi256_si128(sums_vec.ymm);
-        __m128i high_xmm = _mm256_extracti128_si256(sums_vec.ymm, 1);
-        __m128i sums_xmm = _mm_add_epi64(low_xmm, high_xmm);
-        sz_u64_t low = (sz_u64_t)_mm_cvtsi128_si64(sums_xmm);
-        sz_u64_t high = (sz_u64_t)_mm_extract_epi64(sums_xmm, 1);
-        result += low + high;
-        return result;
-    }
-}
-
-SZ_INTERNAL void sz_hash_minimal_init_haswell_(sz_hash_minimal_t_ *state, sz_u64_t seed) {
+SZ_INTERNAL void sz_hash_minimal_init_westmere_aligned_(sz_hash_minimal_t_ *state, sz_u64_t seed) {
 
     // The key is made from the seed and half of it will be mixed with the length in the end
     __m128i seed_vec = _mm_set1_epi64x(seed);
@@ -989,7 +1261,12 @@ SZ_INTERNAL void sz_hash_minimal_init_haswell_(sz_hash_minimal_t_ *state, sz_u64
     state->sum.xmm = k2;
 }
 
-SZ_INTERNAL sz_u64_t sz_hash_minimal_finalize_haswell_(sz_hash_minimal_t_ const *state, sz_size_t length) {
+SZ_INTERNAL void sz_hash_minimal_update_westmere_aligned_(sz_hash_minimal_t_ *state_ptr, __m128i block, __m128i order) {
+    state_ptr->aes.xmm = _mm_aesenc_si128(state_ptr->aes.xmm, block);
+    state_ptr->sum.xmm = _mm_add_epi64(_mm_shuffle_epi8(state_ptr->sum.xmm, order), block);
+}
+
+SZ_INTERNAL sz_u64_t sz_hash_minimal_finalize_westmere_aligned_(sz_hash_minimal_t_ const *state, sz_size_t length) {
     // Mix the length into the key
     __m128i key_with_length = _mm_add_epi64(state->key.xmm, _mm_set_epi64x(0, length));
     // Combine the "sum" and the "AES" blocks
@@ -1001,89 +1278,45 @@ SZ_INTERNAL sz_u64_t sz_hash_minimal_finalize_haswell_(sz_hash_minimal_t_ const 
     return _mm_cvtsi128_si64(mixed_in_register);
 }
 
-SZ_INTERNAL void sz_hash_minimal_update_haswell_(sz_hash_minimal_t_ *state, __m128i block) {
-    // ? In this kernel, assuming it's only used internally on properly aligned `state`,
-    // ? we don't need `_mm_storeu_si128` stores to update the state.
-    __m128i const shuffle_mask = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
-    state->aes.xmm = _mm_aesenc_si128(_mm_lddqu_si128(&state->aes.xmm), block);
-    state->sum.xmm = _mm_add_epi64(_mm_shuffle_epi8(_mm_lddqu_si128(&state->sum.xmm), shuffle_mask), block);
-}
-
-SZ_PUBLIC void sz_hash_state_init_haswell(sz_hash_state_t *state, sz_u64_t seed) {
+SZ_PUBLIC void sz_hash_state_init_westmere(sz_hash_state_t *state, sz_u64_t seed) {
     // The key is made from the seed and half of it will be mixed with the length in the end
     __m128i seed_vec = _mm_set1_epi64x(seed);
 
     // ! In this kernel, assuming it may be called on arbitrarily misaligned `state`,
     // ! we must use `_mm_storeu_si128` stores to update the state. Moreover, accessing `state.xmms[i]`
     // ! fools the compiler into preferring aligned operations over out misaligned ones.
-    _mm_storeu_si128((__m128i *)&state->key.u8s[0], seed_vec);
+    _mm_storeu_si128((__m128i *)state->key, seed_vec);
 
     // XOR the user-supplied keys with the two "pi" constants
     sz_u64_t const *pi = sz_hash_pi_constants_();
     for (int i = 0; i < 4; ++i)
-        _mm_storeu_si128((__m128i *)&state->aes.u8s[i * sizeof(__m128i)],
+        _mm_storeu_si128((__m128i *)&state->aes[i * 16],
                          _mm_xor_si128(seed_vec, _mm_lddqu_si128((__m128i const *)(pi + i * 2))));
     for (int i = 0; i < 4; ++i)
-        _mm_storeu_si128((__m128i *)&state->sum.u8s[i * sizeof(__m128i)],
+        _mm_storeu_si128((__m128i *)&state->sum[i * 16],
                          _mm_xor_si128(seed_vec, _mm_lddqu_si128((__m128i const *)(pi + i * 2 + 8))));
 
     // The inputs are zeroed out at the beginning
-    _mm_storeu_si128((__m128i *)&state->ins.u8s[0 * sizeof(__m128i)], _mm_setzero_si128());
-    _mm_storeu_si128((__m128i *)&state->ins.u8s[1 * sizeof(__m128i)], _mm_setzero_si128());
-    _mm_storeu_si128((__m128i *)&state->ins.u8s[2 * sizeof(__m128i)], _mm_setzero_si128());
-    _mm_storeu_si128((__m128i *)&state->ins.u8s[3 * sizeof(__m128i)], _mm_setzero_si128());
+    _mm_storeu_si128((__m128i *)&state->ins[0], _mm_setzero_si128());
+    _mm_storeu_si128((__m128i *)&state->ins[16], _mm_setzero_si128());
+    _mm_storeu_si128((__m128i *)&state->ins[32], _mm_setzero_si128());
+    _mm_storeu_si128((__m128i *)&state->ins[48], _mm_setzero_si128());
     state->ins_length = 0;
 }
 
-SZ_INTERNAL void sz_hash_state_update_haswell_(sz_hash_state_t *state) {
-    __m128i const shuffle_mask = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
-    _mm_storeu_si128( //
-        (__m128i *)&state->aes.u8s[0 * sizeof(__m128i)],
-        _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->aes.u8s[0 * sizeof(__m128i)]),
-                         _mm_lddqu_si128((__m128i *)&state->ins.u8s[0 * sizeof(__m128i)])));
-    _mm_storeu_si128( //
-        (__m128i *)&state->sum.u8s[0 * sizeof(__m128i)],
-        _mm_add_epi64(_mm_shuffle_epi8(_mm_lddqu_si128((__m128i *)&state->sum.u8s[0 * sizeof(__m128i)]), shuffle_mask),
-                      _mm_lddqu_si128((__m128i *)&state->ins.u8s[0 * sizeof(__m128i)])));
-    _mm_storeu_si128( //
-        (__m128i *)&state->aes.u8s[1 * sizeof(__m128i)],
-        _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->aes.u8s[1 * sizeof(__m128i)]),
-                         _mm_lddqu_si128((__m128i *)&state->ins.u8s[1 * sizeof(__m128i)])));
-    _mm_storeu_si128( //
-        (__m128i *)&state->sum.u8s[1 * sizeof(__m128i)],
-        _mm_add_epi64(_mm_shuffle_epi8(_mm_lddqu_si128((__m128i *)&state->sum.u8s[1 * sizeof(__m128i)]), shuffle_mask),
-                      _mm_lddqu_si128((__m128i *)&state->ins.u8s[1 * sizeof(__m128i)])));
-    _mm_storeu_si128( //
-        (__m128i *)&state->aes.u8s[2 * sizeof(__m128i)],
-        _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->aes.u8s[2 * sizeof(__m128i)]),
-                         _mm_lddqu_si128((__m128i *)&state->ins.u8s[2 * sizeof(__m128i)])));
-    _mm_storeu_si128( //
-        (__m128i *)&state->sum.u8s[2 * sizeof(__m128i)],
-        _mm_add_epi64(_mm_shuffle_epi8(_mm_lddqu_si128((__m128i *)&state->sum.u8s[2 * sizeof(__m128i)]), shuffle_mask),
-                      _mm_lddqu_si128((__m128i *)&state->ins.u8s[2 * sizeof(__m128i)])));
-    _mm_storeu_si128( //
-        (__m128i *)&state->aes.u8s[3 * sizeof(__m128i)],
-        _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->aes.u8s[3 * sizeof(__m128i)]),
-                         _mm_lddqu_si128((__m128i *)&state->ins.u8s[3 * sizeof(__m128i)])));
-    _mm_storeu_si128( //
-        (__m128i *)&state->sum.u8s[3 * sizeof(__m128i)],
-        _mm_add_epi64(_mm_shuffle_epi8(_mm_lddqu_si128((__m128i *)&state->sum.u8s[3 * sizeof(__m128i)]), shuffle_mask),
-                      _mm_lddqu_si128((__m128i *)&state->ins.u8s[3 * sizeof(__m128i)])));
-}
-
-SZ_INTERNAL sz_u64_t sz_hash_state_finalize_haswell_(sz_hash_state_t const *state) {
+SZ_INTERNAL sz_u64_t sz_hash_state_finalize_westmere_(sz_hash_state_t const *state) {
     // Mix the length into the key
     __m128i key_with_length =
-        _mm_add_epi64(_mm_lddqu_si128((__m128i *)&state->key.u8s[0]), _mm_set_epi64x(0, state->ins_length));
+        _mm_add_epi64(_mm_lddqu_si128((__m128i const *)state->key), _mm_set_epi64x(0, state->ins_length));
     // Combine the "sum" and the "AES" blocks
-    __m128i mixed0 = _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->sum.u8s[0 * sizeof(__m128i)]),
-                                      _mm_lddqu_si128((__m128i *)&state->aes.u8s[0 * sizeof(__m128i)]));
-    __m128i mixed1 = _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->sum.u8s[1 * sizeof(__m128i)]),
-                                      _mm_lddqu_si128((__m128i *)&state->aes.u8s[1 * sizeof(__m128i)]));
-    __m128i mixed2 = _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->sum.u8s[2 * sizeof(__m128i)]),
-                                      _mm_lddqu_si128((__m128i *)&state->aes.u8s[2 * sizeof(__m128i)]));
-    __m128i mixed3 = _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->sum.u8s[3 * sizeof(__m128i)]),
-                                      _mm_lddqu_si128((__m128i *)&state->aes.u8s[3 * sizeof(__m128i)]));
+    __m128i mixed0 =
+        _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->sum[0]), _mm_lddqu_si128((__m128i *)&state->aes[0]));
+    __m128i mixed1 =
+        _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->sum[16]), _mm_lddqu_si128((__m128i *)&state->aes[16]));
+    __m128i mixed2 =
+        _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->sum[32]), _mm_lddqu_si128((__m128i *)&state->aes[32]));
+    __m128i mixed3 =
+        _mm_aesenc_si128(_mm_lddqu_si128((__m128i *)&state->sum[48]), _mm_lddqu_si128((__m128i *)&state->aes[48]));
     // Combine the mixed registers
     __m128i mixed01 = _mm_aesenc_si128(mixed0, mixed1);
     __m128i mixed23 = _mm_aesenc_si128(mixed2, mixed3);
@@ -1095,78 +1328,99 @@ SZ_INTERNAL sz_u64_t sz_hash_state_finalize_haswell_(sz_hash_state_t const *stat
     return _mm_cvtsi128_si64(mixed_in_register);
 }
 
-SZ_PUBLIC sz_u64_t sz_hash_haswell(sz_cptr_t start, sz_size_t length, sz_u64_t seed) {
+SZ_PUBLIC SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_westmere(sz_cptr_t start, sz_size_t length, sz_u64_t seed) {
 
     if (length <= 16) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
         // Load the data and update the state
         sz_u128_vec_t data_vec;
         data_vec.xmm = _mm_setzero_si128();
         for (sz_size_t i = 0; i < length; ++i) data_vec.u8s[i] = start[i];
-        sz_hash_minimal_update_haswell_(&state, data_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 32) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
-        // Load the data and update the state
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
+        // Load the data, shifting the data within the register to de-interleave the bytes
         sz_u128_vec_t data0_vec, data1_vec;
         data0_vec.xmm = _mm_lddqu_si128((__m128i const *)(start));
         data1_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + length - 16));
-        // Let's shift the data within the register to de-interleave the bytes.
         sz_hash_shift_in_register_serial_(&data1_vec, (int)(32 - length));
-        sz_hash_minimal_update_haswell_(&state, data0_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data1_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data0_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data1_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 48) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
-        // Load the data and update the state
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
+        // Load the data, shifting the data within the register to de-interleave the bytes
         sz_u128_vec_t data0_vec, data1_vec, data2_vec;
         data0_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 0));
         data1_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 16));
         data2_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + length - 16));
-        // Let's shift the data within the register to de-interleave the bytes.
         sz_hash_shift_in_register_serial_(&data2_vec, (int)(48 - length));
-        sz_hash_minimal_update_haswell_(&state, data0_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data1_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data2_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data0_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data1_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data2_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 64) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
-        // Load the data and update the state
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
+        // Load the data, shifting the data within the register to de-interleave the bytes
         sz_u128_vec_t data0_vec, data1_vec, data2_vec, data3_vec;
         data0_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 0));
         data1_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 16));
         data2_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 32));
         data3_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + length - 16));
-        // Let's shift the data within the register to de-interleave the bytes.
         sz_hash_shift_in_register_serial_(&data3_vec, (int)(64 - length));
-        sz_hash_minimal_update_haswell_(&state, data0_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data1_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data2_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data3_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data0_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data1_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data2_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data3_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else {
-        // Use a larger state to handle the main loop and add different offsets
-        // to different lanes of the register
-        SZ_ALIGN64 sz_hash_state_t state;
-        sz_hash_state_init_haswell(&state, seed);
+        sz_align_(64) sz_hash_state_internal_t_ state;
+        sz_hash_state_init_westmere((sz_hash_state_t *)&state, seed);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
         for (; state.ins_length + 64 <= length; state.ins_length += 64) {
             state.ins.xmms[0] = _mm_lddqu_si128((__m128i const *)(start + state.ins_length + 0));
             state.ins.xmms[1] = _mm_lddqu_si128((__m128i const *)(start + state.ins_length + 16));
             state.ins.xmms[2] = _mm_lddqu_si128((__m128i const *)(start + state.ins_length + 32));
             state.ins.xmms[3] = _mm_lddqu_si128((__m128i const *)(start + state.ins_length + 48));
-            sz_hash_state_update_haswell_(&state);
+            state.aes.xmms[0] = _mm_aesenc_si128(state.aes.xmms[0], state.ins.xmms[0]);
+            state.aes.xmms[1] = _mm_aesenc_si128(state.aes.xmms[1], state.ins.xmms[1]);
+            state.aes.xmms[2] = _mm_aesenc_si128(state.aes.xmms[2], state.ins.xmms[2]);
+            state.aes.xmms[3] = _mm_aesenc_si128(state.aes.xmms[3], state.ins.xmms[3]);
+            state.sum.xmms[0] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[0], order), state.ins.xmms[0]);
+            state.sum.xmms[1] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[1], order), state.ins.xmms[1]);
+            state.sum.xmms[2] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[2], order), state.ins.xmms[2]);
+            state.sum.xmms[3] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[3], order), state.ins.xmms[3]);
         }
         // Handle the tail, resetting the registers to zero first
         if (state.ins_length < length) {
@@ -1176,88 +1430,162 @@ SZ_PUBLIC sz_u64_t sz_hash_haswell(sz_cptr_t start, sz_size_t length, sz_u64_t s
             state.ins.xmms[3] = _mm_setzero_si128();
             for (sz_size_t i = 0; state.ins_length < length; ++i, ++state.ins_length)
                 state.ins.u8s[i] = start[state.ins_length];
-            sz_hash_state_update_haswell_(&state);
+            state.aes.xmms[0] = _mm_aesenc_si128(state.aes.xmms[0], state.ins.xmms[0]);
+            state.aes.xmms[1] = _mm_aesenc_si128(state.aes.xmms[1], state.ins.xmms[1]);
+            state.aes.xmms[2] = _mm_aesenc_si128(state.aes.xmms[2], state.ins.xmms[2]);
+            state.aes.xmms[3] = _mm_aesenc_si128(state.aes.xmms[3], state.ins.xmms[3]);
+            state.sum.xmms[0] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[0], order), state.ins.xmms[0]);
+            state.sum.xmms[1] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[1], order), state.ins.xmms[1]);
+            state.sum.xmms[2] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[2], order), state.ins.xmms[2]);
+            state.sum.xmms[3] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[3], order), state.ins.xmms[3]);
             state.ins_length = length;
         }
-        return sz_hash_state_finalize_haswell_(&state);
+        return sz_hash_state_finalize_westmere_((sz_hash_state_t const *)&state);
     }
 }
 
-SZ_PUBLIC void sz_hash_state_update_haswell(sz_hash_state_t *state, sz_cptr_t text, sz_size_t length) {
-    while (length) {
-        // Append to the internal buffer until it's full
-        if (state->ins_length % 64 == 0 && length >= 64) {
-            _mm_storeu_si128((__m128i *)&state->ins.u8s[0 * sizeof(__m128i)],
-                             _mm_lddqu_si128((__m128i const *)(text + 0)));
-            _mm_storeu_si128((__m128i *)&state->ins.u8s[1 * sizeof(__m128i)],
-                             _mm_lddqu_si128((__m128i const *)(text + 16)));
-            _mm_storeu_si128((__m128i *)&state->ins.u8s[2 * sizeof(__m128i)],
-                             _mm_lddqu_si128((__m128i const *)(text + 32)));
-            _mm_storeu_si128((__m128i *)&state->ins.u8s[3 * sizeof(__m128i)],
-                             _mm_lddqu_si128((__m128i const *)(text + 48)));
-            sz_hash_state_update_haswell_(state);
-            state->ins_length += 64;
-            text += 64;
-            length -= 64;
-        }
-        // If vectorization isn't that trivial - fall back to the serial implementation
-        else {
-            sz_size_t progress_in_block = state->ins_length % 64;
-            sz_size_t to_copy = sz_min_of_two(length, 64 - progress_in_block);
-            int const will_fill_block = progress_in_block + to_copy == 64;
-            // Update the metadata before we modify the `to_copy` variable
-            state->ins_length += to_copy;
-            length -= to_copy;
-            // Append to the internal buffer until it's full
-            while (to_copy--) state->ins.u8s[progress_in_block++] = *text++;
-            // If we've reached the end of the buffer, update the state
-            if (will_fill_block) {
-                sz_hash_state_update_haswell_(state);
-                // Reset to zeros now, so we don't have to overwrite an immutable buffer in the folding state
-                for (int i = 0; i < 4; ++i)
-                    _mm_storeu_si128((__m128i *)&state->ins.u8s[i * sizeof(__m128i)], _mm_setzero_si128());
-            }
-        }
+SZ_PUBLIC void sz_hash_state_update_westmere(sz_hash_state_t *state_ptr, sz_cptr_t text, sz_size_t length) {
+
+    // The worst usage pattern... that we should ironically handle first - is updating the state
+    // with a very small chunk of data, potentially, one byte at a time. In such cases, we won't
+    // even bother using AVX-512 masked loads to avoid tripping the CPU state.
+    sz_size_t const current_block_index = state_ptr->ins_length / 64;
+    sz_size_t const final_block_index = (state_ptr->ins_length + length) / 64;
+    int const stays_in_the_block = current_block_index == final_block_index;
+    int const fills_the_block = (state_ptr->ins_length + length) % 64 == 0;
+    if (stays_in_the_block && !fills_the_block) {
+        for (; length; --length, ++state_ptr->ins_length, ++text) state_ptr->ins[state_ptr->ins_length % 64] = *text;
+        return;
     }
+
+    // Now we know that our "text" parts will end up in different blocks.
+    // It's a good idea to pull the state into registers, as well definitely mix them at block boundaries.
+    sz_size_t const progress_in_block = state_ptr->ins_length % 64;
+    sz_size_t const head_length = (64 - progress_in_block) % 64;
+    sz_size_t const tail_length = (state_ptr->ins_length + length) % 64;
+    sz_size_t const body_length = length - head_length - tail_length;
+    sz_assert_(body_length % 64 == 0 && head_length < 64 && tail_length < 64);
+
+    // Lets keep a local copy of the state for one or more updates.
+    // Keep arithmetic in u8 space to avoid alignment assumptions on __m128i pointers.
+    sz_align_(64) sz_hash_state_internal_t_ state;
+    state.aes.xmms[0] = _mm_lddqu_si128((__m128i const *)&state_ptr->aes[0]);
+    state.aes.xmms[1] = _mm_lddqu_si128((__m128i const *)&state_ptr->aes[16]);
+    state.aes.xmms[2] = _mm_lddqu_si128((__m128i const *)&state_ptr->aes[32]);
+    state.aes.xmms[3] = _mm_lddqu_si128((__m128i const *)&state_ptr->aes[48]);
+    state.sum.xmms[0] = _mm_lddqu_si128((__m128i const *)&state_ptr->sum[0]);
+    state.sum.xmms[1] = _mm_lddqu_si128((__m128i const *)&state_ptr->sum[16]);
+    state.sum.xmms[2] = _mm_lddqu_si128((__m128i const *)&state_ptr->sum[32]);
+    state.sum.xmms[3] = _mm_lddqu_si128((__m128i const *)&state_ptr->sum[48]);
+    state.ins.xmms[0] = _mm_lddqu_si128((__m128i const *)&state_ptr->ins[0]);
+    state.ins.xmms[1] = _mm_lddqu_si128((__m128i const *)&state_ptr->ins[16]);
+    state.ins.xmms[2] = _mm_lddqu_si128((__m128i const *)&state_ptr->ins[32]);
+    state.ins.xmms[3] = _mm_lddqu_si128((__m128i const *)&state_ptr->ins[48]);
+    state.ins_length = state_ptr->ins_length;
+
+    // Handle the head first, filling up the current block
+    __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+    if (head_length) {
+        sz_ptr_t local_ptr = (sz_ptr_t)&state.ins.u8s[progress_in_block];
+        sz_ptr_t const local_end = (sz_ptr_t)&state.ins.u8s[64];
+        for (; local_ptr < local_end; ++local_ptr, ++text) *local_ptr = *text;
+        state.aes.xmms[0] = _mm_aesenc_si128(state.aes.xmms[0], state.ins.xmms[0]);
+        state.aes.xmms[1] = _mm_aesenc_si128(state.aes.xmms[1], state.ins.xmms[1]);
+        state.aes.xmms[2] = _mm_aesenc_si128(state.aes.xmms[2], state.ins.xmms[2]);
+        state.aes.xmms[3] = _mm_aesenc_si128(state.aes.xmms[3], state.ins.xmms[3]);
+        state.sum.xmms[0] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[0], order), state.ins.xmms[0]);
+        state.sum.xmms[1] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[1], order), state.ins.xmms[1]);
+        state.sum.xmms[2] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[2], order), state.ins.xmms[2]);
+        state.sum.xmms[3] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[3], order), state.ins.xmms[3]);
+        state.ins_length += head_length;
+        length -= head_length;
+    }
+
+    // Now handle the body
+    for (; length >= 64; state.ins_length += 64, text += 64, length -= 64) {
+        state.ins.xmms[0] = _mm_lddqu_si128((__m128i const *)(text + 0));
+        state.ins.xmms[1] = _mm_lddqu_si128((__m128i const *)(text + 16));
+        state.ins.xmms[2] = _mm_lddqu_si128((__m128i const *)(text + 32));
+        state.ins.xmms[3] = _mm_lddqu_si128((__m128i const *)(text + 48));
+        state.aes.xmms[0] = _mm_aesenc_si128(state.aes.xmms[0], state.ins.xmms[0]);
+        state.aes.xmms[1] = _mm_aesenc_si128(state.aes.xmms[1], state.ins.xmms[1]);
+        state.aes.xmms[2] = _mm_aesenc_si128(state.aes.xmms[2], state.ins.xmms[2]);
+        state.aes.xmms[3] = _mm_aesenc_si128(state.aes.xmms[3], state.ins.xmms[3]);
+        state.sum.xmms[0] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[0], order), state.ins.xmms[0]);
+        state.sum.xmms[1] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[1], order), state.ins.xmms[1]);
+        state.sum.xmms[2] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[2], order), state.ins.xmms[2]);
+        state.sum.xmms[3] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[3], order), state.ins.xmms[3]);
+    }
+    state.ins.xmms[0] = _mm_setzero_si128();
+    state.ins.xmms[1] = _mm_setzero_si128();
+    state.ins.xmms[2] = _mm_setzero_si128();
+    state.ins.xmms[3] = _mm_setzero_si128();
+
+    // The tail is the last part we need to handle
+    if (tail_length) {
+        sz_ptr_t local_ptr = (sz_ptr_t)&state.ins.u8s[0];
+        sz_ptr_t const local_end = (sz_ptr_t)&state.ins.u8s[tail_length];
+        for (; local_ptr < local_end; ++local_ptr, ++text) *local_ptr = *text;
+        state.ins_length += tail_length;
+    }
+
+    // Save the state back to the memory
+    __m128i *aes_dst = (__m128i *)state_ptr->aes;
+    __m128i *sum_dst = (__m128i *)state_ptr->sum;
+    __m128i *ins_dst = (__m128i *)state_ptr->ins;
+    _mm_storeu_si128(&aes_dst[0], state.aes.xmms[0]);
+    _mm_storeu_si128(&aes_dst[1], state.aes.xmms[1]);
+    _mm_storeu_si128(&aes_dst[2], state.aes.xmms[2]);
+    _mm_storeu_si128(&aes_dst[3], state.aes.xmms[3]);
+    _mm_storeu_si128(&sum_dst[0], state.sum.xmms[0]);
+    _mm_storeu_si128(&sum_dst[1], state.sum.xmms[1]);
+    _mm_storeu_si128(&sum_dst[2], state.sum.xmms[2]);
+    _mm_storeu_si128(&sum_dst[3], state.sum.xmms[3]);
+    _mm_storeu_si128(&ins_dst[0], state.ins.xmms[0]);
+    _mm_storeu_si128(&ins_dst[1], state.ins.xmms[1]);
+    _mm_storeu_si128(&ins_dst[2], state.ins.xmms[2]);
+    _mm_storeu_si128(&ins_dst[3], state.ins.xmms[3]);
+    state_ptr->ins_length = state.ins_length;
 }
 
-SZ_PUBLIC sz_u64_t sz_hash_state_digest_haswell(sz_hash_state_t const *state) {
-    sz_size_t length = state->ins_length;
-    if (length >= 64) return sz_hash_state_finalize_haswell_(state);
+SZ_PUBLIC sz_u64_t sz_hash_state_digest_westmere(sz_hash_state_t const *state_ptr) {
+    sz_size_t length = state_ptr->ins_length;
+    if (length >= 64) return sz_hash_state_finalize_westmere_(state_ptr);
 
     // Switch back to a smaller "minimal" state for small inputs
-    SZ_ALIGN64 sz_hash_minimal_t_ minimal_state;
-    minimal_state.key.xmm = _mm_lddqu_si128(&state->key.xmm);
-    minimal_state.aes.xmm = _mm_lddqu_si128(&state->aes.xmms[0]);
-    minimal_state.sum.xmm = _mm_lddqu_si128(&state->sum.xmms[0]);
+    sz_align_(16) sz_hash_minimal_t_ state;
+    state.key.xmm = _mm_lddqu_si128((__m128i const *)state_ptr->key);
+    state.aes.xmm = _mm_lddqu_si128((__m128i const *)state_ptr->aes);
+    state.sum.xmm = _mm_lddqu_si128((__m128i const *)state_ptr->sum);
 
     // The logic is different depending on the length of the input
-    __m128i const *ins_xmms = (__m128i const *)&state->ins.xmms[0];
+    __m128i const *ins_xmms = (__m128i const *)state_ptr->ins;
+    __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
     if (length <= 16) {
-        sz_hash_minimal_update_haswell_(&minimal_state, _mm_lddqu_si128(&ins_xmms[0]));
-        return sz_hash_minimal_finalize_haswell_(&minimal_state, length);
+        sz_hash_minimal_update_westmere_aligned_(&state, _mm_lddqu_si128(&ins_xmms[0]), order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 32) {
-        sz_hash_minimal_update_haswell_(&minimal_state, _mm_lddqu_si128(&ins_xmms[0]));
-        sz_hash_minimal_update_haswell_(&minimal_state, _mm_lddqu_si128(&ins_xmms[1]));
-        return sz_hash_minimal_finalize_haswell_(&minimal_state, length);
+        sz_hash_minimal_update_westmere_aligned_(&state, _mm_lddqu_si128(&ins_xmms[0]), order);
+        sz_hash_minimal_update_westmere_aligned_(&state, _mm_lddqu_si128(&ins_xmms[1]), order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 48) {
-        sz_hash_minimal_update_haswell_(&minimal_state, _mm_lddqu_si128(&ins_xmms[0]));
-        sz_hash_minimal_update_haswell_(&minimal_state, _mm_lddqu_si128(&ins_xmms[1]));
-        sz_hash_minimal_update_haswell_(&minimal_state, _mm_lddqu_si128(&ins_xmms[2]));
-        return sz_hash_minimal_finalize_haswell_(&minimal_state, length);
+        sz_hash_minimal_update_westmere_aligned_(&state, _mm_lddqu_si128(&ins_xmms[0]), order);
+        sz_hash_minimal_update_westmere_aligned_(&state, _mm_lddqu_si128(&ins_xmms[1]), order);
+        sz_hash_minimal_update_westmere_aligned_(&state, _mm_lddqu_si128(&ins_xmms[2]), order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else {
-        sz_hash_minimal_update_haswell_(&minimal_state, _mm_lddqu_si128(&ins_xmms[0]));
-        sz_hash_minimal_update_haswell_(&minimal_state, _mm_lddqu_si128(&ins_xmms[1]));
-        sz_hash_minimal_update_haswell_(&minimal_state, _mm_lddqu_si128(&ins_xmms[2]));
-        sz_hash_minimal_update_haswell_(&minimal_state, _mm_lddqu_si128(&ins_xmms[3]));
-        return sz_hash_minimal_finalize_haswell_(&minimal_state, length);
+        sz_hash_minimal_update_westmere_aligned_(&state, _mm_lddqu_si128(&ins_xmms[0]), order);
+        sz_hash_minimal_update_westmere_aligned_(&state, _mm_lddqu_si128(&ins_xmms[1]), order);
+        sz_hash_minimal_update_westmere_aligned_(&state, _mm_lddqu_si128(&ins_xmms[2]), order);
+        sz_hash_minimal_update_westmere_aligned_(&state, _mm_lddqu_si128(&ins_xmms[3]), order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
 }
 
-SZ_PUBLIC void sz_fill_random_haswell(sz_ptr_t text, sz_size_t length, sz_u64_t nonce) {
+SZ_PUBLIC void sz_fill_random_westmere(sz_ptr_t text, sz_size_t length, sz_u64_t nonce) {
     sz_u64_t const *pi_ptr = sz_hash_pi_constants_();
     if (length <= 16) {
         __m128i input = _mm_set1_epi64x(nonce);
@@ -1348,6 +1676,409 @@ SZ_PUBLIC void sz_fill_random_haswell(sz_ptr_t text, sz_size_t length, sz_u64_t 
             generated[3] = _mm_aesenc_si128(inputs[3], keys[3]);
             for (sz_size_t j = 0; i < length; ++i, ++j) text[i] = ((sz_u8_t *)generated)[j];
         }
+    }
+}
+
+#if defined(__clang__)
+#pragma clang attribute pop
+#elif defined(__GNUC__)
+#pragma GCC pop_options
+#endif
+#endif            // SZ_USE_WESTMERE
+#pragma endregion // Westmere Implementation
+
+/*  SHA-NI implementation of sz_sha for Goldmont and newer CPUs.
+ *  Uses 128-bit XMM registers for hashing.
+ */
+#pragma region Goldmont Implementation
+#if SZ_USE_GOLDMONT
+#if defined(__clang__)
+#pragma clang attribute push(__attribute__((target("sse3,ssse3,sse4.1,sha"))), apply_to = function)
+#elif defined(__GNUC__)
+#pragma GCC push_options
+#pragma GCC target("sse3", "ssse3", "sse4.1", "sha")
+#endif
+
+/**
+ *  @brief Process a single 512-bit (64-byte) block of data using SHA256.
+ *  @param[inout] hash Pointer to 8x 32-bit hash values, modified in place.
+ *  @param[in] block Pointer to 64-byte message block.
+ */
+SZ_INTERNAL void sz_sha256_process_block_goldmont_(sz_u32_t hash[sz_at_least_(8)],
+                                                   sz_u8_t const block[sz_at_least_(64)]) {
+    sz_u32_t const *round_constants = sz_sha256_round_constants_();
+
+    // Load and byte-swap the first 16 words (big-endian) using SSE
+    __m128i const bswap_mask = _mm_setr_epi8(3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12);
+    __m128i msg0 = _mm_shuffle_epi8(_mm_lddqu_si128((__m128i const *)&block[0]), bswap_mask);
+    __m128i msg1 = _mm_shuffle_epi8(_mm_lddqu_si128((__m128i const *)&block[16]), bswap_mask);
+    __m128i msg2 = _mm_shuffle_epi8(_mm_lddqu_si128((__m128i const *)&block[32]), bswap_mask);
+    __m128i msg3 = _mm_shuffle_epi8(_mm_lddqu_si128((__m128i const *)&block[48]), bswap_mask);
+
+    // Load initial hash values and pack into SHA-NI state format
+    // SHA-NI uses ABEF/CDGH layout instead of ABCD/EFGH
+    __m128i state0 = _mm_lddqu_si128((__m128i const *)&hash[0]); // A B C D
+    __m128i state1 = _mm_lddqu_si128((__m128i const *)&hash[4]); // E F G H
+    __m128i tmp = _mm_shuffle_epi32(state0, 0xB1);               // CDAB
+    state1 = _mm_shuffle_epi32(state1, 0x1B);                    // HGFE
+    state0 = _mm_alignr_epi8(tmp, state1, 8);                    // ABEF
+    state1 = _mm_blend_epi16(state1, tmp, 0xF0);                 // CDGH
+
+    __m128i state0_save = state0;
+    __m128i state1_save = state1;
+
+    // Rounds 0-3
+    __m128i msg_tmp = _mm_add_epi32(msg0, _mm_lddqu_si128((__m128i const *)&round_constants[0]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+
+    // Rounds 4-7
+    msg_tmp = _mm_add_epi32(msg1, _mm_lddqu_si128((__m128i const *)&round_constants[4]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg0 = _mm_sha256msg1_epu32(msg0, msg1);
+
+    // Rounds 8-11
+    msg_tmp = _mm_add_epi32(msg2, _mm_lddqu_si128((__m128i const *)&round_constants[8]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg1 = _mm_sha256msg1_epu32(msg1, msg2);
+
+    // Rounds 12-15
+    msg_tmp = _mm_add_epi32(msg3, _mm_lddqu_si128((__m128i const *)&round_constants[12]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg0 = _mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4));
+    msg0 = _mm_sha256msg2_epu32(msg0, msg3);
+    msg2 = _mm_sha256msg1_epu32(msg2, msg3);
+
+    // Rounds 16-19
+    msg_tmp = _mm_add_epi32(msg0, _mm_lddqu_si128((__m128i const *)&round_constants[16]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg1 = _mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4));
+    msg1 = _mm_sha256msg2_epu32(msg1, msg0);
+    msg3 = _mm_sha256msg1_epu32(msg3, msg0);
+
+    // Rounds 20-23
+    msg_tmp = _mm_add_epi32(msg1, _mm_lddqu_si128((__m128i const *)&round_constants[20]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg2 = _mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4));
+    msg2 = _mm_sha256msg2_epu32(msg2, msg1);
+    msg0 = _mm_sha256msg1_epu32(msg0, msg1);
+
+    // Rounds 24-27
+    msg_tmp = _mm_add_epi32(msg2, _mm_lddqu_si128((__m128i const *)&round_constants[24]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg3 = _mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4));
+    msg3 = _mm_sha256msg2_epu32(msg3, msg2);
+    msg1 = _mm_sha256msg1_epu32(msg1, msg2);
+
+    // Rounds 28-31
+    msg_tmp = _mm_add_epi32(msg3, _mm_lddqu_si128((__m128i const *)&round_constants[28]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg0 = _mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4));
+    msg0 = _mm_sha256msg2_epu32(msg0, msg3);
+    msg2 = _mm_sha256msg1_epu32(msg2, msg3);
+
+    // Rounds 32-35
+    msg_tmp = _mm_add_epi32(msg0, _mm_lddqu_si128((__m128i const *)&round_constants[32]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg1 = _mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4));
+    msg1 = _mm_sha256msg2_epu32(msg1, msg0);
+    msg3 = _mm_sha256msg1_epu32(msg3, msg0);
+
+    // Rounds 36-39
+    msg_tmp = _mm_add_epi32(msg1, _mm_lddqu_si128((__m128i const *)&round_constants[36]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg2 = _mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4));
+    msg2 = _mm_sha256msg2_epu32(msg2, msg1);
+    msg0 = _mm_sha256msg1_epu32(msg0, msg1);
+
+    // Rounds 40-43
+    msg_tmp = _mm_add_epi32(msg2, _mm_lddqu_si128((__m128i const *)&round_constants[40]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg3 = _mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4));
+    msg3 = _mm_sha256msg2_epu32(msg3, msg2);
+    msg1 = _mm_sha256msg1_epu32(msg1, msg2);
+
+    // Rounds 44-47
+    msg_tmp = _mm_add_epi32(msg3, _mm_lddqu_si128((__m128i const *)&round_constants[44]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg0 = _mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4));
+    msg0 = _mm_sha256msg2_epu32(msg0, msg3);
+    msg2 = _mm_sha256msg1_epu32(msg2, msg3);
+
+    // Rounds 48-51
+    msg_tmp = _mm_add_epi32(msg0, _mm_lddqu_si128((__m128i const *)&round_constants[48]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg1 = _mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4));
+    msg1 = _mm_sha256msg2_epu32(msg1, msg0);
+    msg3 = _mm_sha256msg1_epu32(msg3, msg0);
+
+    // Rounds 52-55
+    msg_tmp = _mm_add_epi32(msg1, _mm_lddqu_si128((__m128i const *)&round_constants[52]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg2 = _mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4));
+    msg2 = _mm_sha256msg2_epu32(msg2, msg1);
+
+    // Rounds 56-59
+    msg_tmp = _mm_add_epi32(msg2, _mm_lddqu_si128((__m128i const *)&round_constants[56]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg3 = _mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4));
+    msg3 = _mm_sha256msg2_epu32(msg3, msg2);
+
+    // Rounds 60-63
+    msg_tmp = _mm_add_epi32(msg3, _mm_lddqu_si128((__m128i const *)&round_constants[60]));
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+
+    // Add compressed chunk to current hash value
+    state0 = _mm_add_epi32(state0, state0_save);
+    state1 = _mm_add_epi32(state1, state1_save);
+
+    // Unpack from SHA-NI state format (ABEF/CDGH) back to ABCD/EFGH
+    tmp = _mm_shuffle_epi32(state0, 0x1B);       // FEBA
+    state1 = _mm_shuffle_epi32(state1, 0xB1);    // GHCD
+    state0 = _mm_blend_epi16(tmp, state1, 0xF0); // ABCD
+    state1 = _mm_alignr_epi8(state1, tmp, 8);    // EFGH
+
+    // Store hash values
+    _mm_storeu_si128((__m128i *)&hash[0], state0);
+    _mm_storeu_si128((__m128i *)&hash[4], state1);
+}
+
+SZ_PUBLIC void sz_sha256_state_init_goldmont(sz_sha256_state_t *state_ptr) {
+    // Vectorize the load/store of 8x u32s using 2x 128-bit SSE loads
+    sz_u32_t const *initial_hash = sz_sha256_initial_hash_();
+    _mm_storeu_si128((__m128i *)&state_ptr->hash[0], _mm_lddqu_si128((__m128i const *)&initial_hash[0]));
+    _mm_storeu_si128((__m128i *)&state_ptr->hash[4], _mm_lddqu_si128((__m128i const *)&initial_hash[4]));
+    state_ptr->block_length = 0, state_ptr->total_length = 0;
+}
+
+SZ_PUBLIC void sz_sha256_state_update_goldmont(sz_sha256_state_t *state_ptr, sz_cptr_t data, sz_size_t length) {
+    sz_u8_t const *input = (sz_u8_t const *)data;
+    sz_size_t const current_block_index = state_ptr->block_length / 64;
+    sz_size_t const final_block_index = (state_ptr->block_length + length) / 64;
+    int const stays_in_the_block = current_block_index == final_block_index;
+    int const fills_the_block = (state_ptr->block_length + length) % 64 == 0;
+
+    state_ptr->total_length += length;
+
+    // Fast path: stays in same block and doesn't fill it
+    if (stays_in_the_block && !fills_the_block) {
+        for (; length; --length, ++state_ptr->block_length, ++input) state_ptr->block[state_ptr->block_length] = *input;
+        return;
+    }
+
+    // Calculate head, body, and tail lengths
+    sz_size_t const head_length = (64 - state_ptr->block_length) % 64;
+    sz_size_t const tail_length = (state_ptr->block_length + length) % 64;
+    sz_size_t const body_length = length - head_length - tail_length;
+
+    // Copy hash to aligned local buffer
+    sz_align_(16) sz_u32_t hash[8];
+    _mm_store_si128((__m128i *)&hash[0], _mm_lddqu_si128((__m128i const *)&state_ptr->hash[0]));
+    _mm_store_si128((__m128i *)&hash[4], _mm_lddqu_si128((__m128i const *)&state_ptr->hash[4]));
+
+    // Process head to complete the current block
+    if (head_length) {
+        for (sz_size_t i = 0; i < head_length; ++i) state_ptr->block[state_ptr->block_length++] = input[i];
+        sz_sha256_process_block_goldmont_(hash, state_ptr->block);
+        state_ptr->block_length = 0;
+        input += head_length;
+    }
+
+    // Process body (complete aligned blocks)
+    for (sz_size_t processed = 0; processed < body_length; processed += 64, input += 64)
+        sz_sha256_process_block_goldmont_(hash, input);
+
+    // Process tail (remaining bytes into block buffer)
+    for (sz_size_t i = 0; i < tail_length; ++i) state_ptr->block[i] = input[i];
+    state_ptr->block_length = tail_length;
+
+    // Copy hash back
+    _mm_storeu_si128((__m128i *)&state_ptr->hash[0], _mm_load_si128((__m128i const *)&hash[0]));
+    _mm_storeu_si128((__m128i *)&state_ptr->hash[4], _mm_load_si128((__m128i const *)&hash[4]));
+}
+
+SZ_PUBLIC void sz_sha256_state_digest_goldmont(sz_sha256_state_t const *state_ptr, sz_u8_t digest[sz_at_least_(32)]) {
+    // Create a copy of the state for padding
+    sz_sha256_state_t state = *state_ptr;
+
+    // Append the '1' bit (0x80 byte) after the message
+    state.block[state.block_length++] = 0x80;
+
+    // If there's not enough room for the 64-bit length, pad this block and process it
+    if (state.block_length > 56) {
+        // Zero remaining bytes using 128-bit vectorized writes
+        sz_size_t remaining = 64 - state.block_length;
+        sz_size_t xmm_bytes = (remaining / 16) * 16;
+        for (sz_size_t i = 0; i < xmm_bytes; i += 16)
+            _mm_storeu_si128((__m128i *)&state.block[state.block_length + i], _mm_setzero_si128());
+        for (sz_size_t i = xmm_bytes; i < remaining; ++i) state.block[state.block_length + i] = 0;
+        sz_sha256_process_block_goldmont_(state.hash, state.block);
+        state.block_length = 0;
+    }
+
+    // Pad with zeros until we have 56 bytes
+    sz_size_t remaining = 56 - state.block_length;
+    sz_size_t xmm_bytes = (remaining / 16) * 16;
+    for (sz_size_t i = 0; i < xmm_bytes; i += 16)
+        _mm_storeu_si128((__m128i *)&state.block[state.block_length + i], _mm_setzero_si128());
+    for (sz_size_t i = xmm_bytes; i < remaining; ++i) state.block[state.block_length + i] = 0;
+    state.block_length = 56;
+
+    // Append the message length in bits as a 64-bit big-endian integer
+    sz_u64_t bit_length = state.total_length * 8;
+    state.block[56] = (sz_u8_t)(bit_length >> 56);
+    state.block[57] = (sz_u8_t)(bit_length >> 48);
+    state.block[58] = (sz_u8_t)(bit_length >> 40);
+    state.block[59] = (sz_u8_t)(bit_length >> 32);
+    state.block[60] = (sz_u8_t)(bit_length >> 24);
+    state.block[61] = (sz_u8_t)(bit_length >> 16);
+    state.block[62] = (sz_u8_t)(bit_length >> 8);
+    state.block[63] = (sz_u8_t)(bit_length >> 0);
+
+    // Process the final block
+    sz_sha256_process_block_goldmont_(state.hash, state.block);
+
+    // Produce the final hash digest in big-endian format
+    for (sz_size_t i = 0; i < 8; ++i) {
+        digest[i * 4 + 0] = (sz_u8_t)(state.hash[i] >> 24);
+        digest[i * 4 + 1] = (sz_u8_t)(state.hash[i] >> 16);
+        digest[i * 4 + 2] = (sz_u8_t)(state.hash[i] >> 8);
+        digest[i * 4 + 3] = (sz_u8_t)(state.hash[i] >> 0);
+    }
+}
+
+#if defined(__clang__)
+#pragma clang attribute pop
+#elif defined(__GNUC__)
+#pragma GCC pop_options
+#endif
+#endif            // SZ_USE_GOLDMONT
+#pragma endregion // Goldmont Implementation
+
+/*  AVX2 implementation of sz_bytesum for Haswell and newer CPUs.
+ *  Uses 256-bit YMM registers for byte accumulation.
+ */
+#pragma region Haswell Implementation
+#if SZ_USE_HASWELL
+#if defined(__clang__)
+#pragma clang attribute push(__attribute__((target("avx2"))), apply_to = function)
+#elif defined(__GNUC__)
+#pragma GCC push_options
+#pragma GCC target("avx2")
+#endif
+
+SZ_PUBLIC sz_u64_t sz_bytesum_haswell(sz_cptr_t text, sz_size_t length) {
+    // The naive implementation of this function is very simple.
+    // It assumes the CPU is great at handling unaligned "loads".
+    //
+    // A typical AWS Skylake instance can have 32 KB x 2 blocks of L1 data cache per core,
+    // 1 MB x 2 blocks of L2 cache per core, and one shared L3 cache buffer.
+    // For now, let's avoid the cases beyond the L2 size.
+    int is_huge = length > 1ull * 1024ull * 1024ull;
+
+    // When the buffer is small, there isn't much to innovate.
+    if (length <= 32) { return sz_bytesum_serial(text, length); }
+    else if (!is_huge) {
+        sz_u256_vec_t text_vec, sums_vec;
+        sums_vec.ymm = _mm256_setzero_si256();
+        for (; length >= 32; text += 32, length -= 32) {
+            text_vec.ymm = _mm256_lddqu_si256((__m256i const *)text);
+            sums_vec.ymm = _mm256_add_epi64(sums_vec.ymm, _mm256_sad_epu8(text_vec.ymm, _mm256_setzero_si256()));
+        }
+        // We can also avoid the final serial loop by fetching 32 bytes from end, in reverse direction,
+        // and shifting the data within the register to zero-out the duplicate bytes.
+
+        // Accumulating 256 bits is harder, as we need to extract the 128-bit sums first.
+        __m128i low_xmm = _mm256_castsi256_si128(sums_vec.ymm);
+        __m128i high_xmm = _mm256_extracti128_si256(sums_vec.ymm, 1);
+        __m128i sums_xmm = _mm_add_epi64(low_xmm, high_xmm);
+        sz_u64_t low = (sz_u64_t)_mm_cvtsi128_si64(sums_xmm);
+        sz_u64_t high = (sz_u64_t)_mm_extract_epi64(sums_xmm, 1);
+        sz_u64_t result = low + high;
+        if (length) result += sz_bytesum_serial(text, length);
+        return result;
+    }
+    // For gigantic buffers, exceeding typical L1 cache sizes, there are other tricks we can use.
+    // Most notably, we can avoid populating the cache with the entire buffer, and instead traverse it in 2 directions.
+    else {
+        sz_size_t head_length = (32 - ((sz_size_t)text % 32)) % 32; // 31 or less.
+        sz_size_t tail_length = (sz_size_t)(text + length) % 32;    // 31 or less.
+        sz_size_t body_length = length - head_length - tail_length; // Multiple of 32.
+        sz_u64_t result = 0;
+
+        // Handle the tail before we start updating the `text` pointer
+        while (tail_length) result += text[length - (tail_length--)];
+        // Handle the head
+        while (head_length--) result += *text++;
+
+        sz_u256_vec_t text_vec, sums_vec;
+        sums_vec.ymm = _mm256_setzero_si256();
+        // Fill the aligned body of the buffer.
+        if (!is_huge) {
+            for (; body_length >= 32; text += 32, body_length -= 32) {
+                text_vec.ymm = _mm256_stream_load_si256((__m256i const *)text);
+                sums_vec.ymm = _mm256_add_epi64(sums_vec.ymm, _mm256_sad_epu8(text_vec.ymm, _mm256_setzero_si256()));
+            }
+        }
+        // When the buffer is huge, we can traverse it in 2 directions.
+        else {
+            sz_u256_vec_t text_reversed_vec, sums_reversed_vec;
+            sums_reversed_vec.ymm = _mm256_setzero_si256();
+            for (; body_length >= 64; text += 32, body_length -= 64) {
+                text_vec.ymm = _mm256_stream_load_si256((__m256i *)(text));
+                sums_vec.ymm = _mm256_add_epi64(sums_vec.ymm, _mm256_sad_epu8(text_vec.ymm, _mm256_setzero_si256()));
+                text_reversed_vec.ymm = _mm256_stream_load_si256((__m256i *)(text + body_length - 32));
+                sums_reversed_vec.ymm = _mm256_add_epi64(
+                    sums_reversed_vec.ymm, _mm256_sad_epu8(text_reversed_vec.ymm, _mm256_setzero_si256()));
+            }
+            if (body_length >= 32) {
+                sz_assert_(body_length == 32);
+                text_vec.ymm = _mm256_stream_load_si256((__m256i *)(text));
+                sums_vec.ymm = _mm256_add_epi64(sums_vec.ymm, _mm256_sad_epu8(text_vec.ymm, _mm256_setzero_si256()));
+                text += 32;
+            }
+            sums_vec.ymm = _mm256_add_epi64(sums_vec.ymm, sums_reversed_vec.ymm);
+        }
+
+        // Accumulating 256 bits is harder, as we need to extract the 128-bit sums first.
+        __m128i low_xmm = _mm256_castsi256_si128(sums_vec.ymm);
+        __m128i high_xmm = _mm256_extracti128_si256(sums_vec.ymm, 1);
+        __m128i sums_xmm = _mm_add_epi64(low_xmm, high_xmm);
+        sz_u64_t low = (sz_u64_t)_mm_cvtsi128_si64(sums_xmm);
+        sz_u64_t high = (sz_u64_t)_mm_extract_epi64(sums_xmm, 1);
+        result += low + high;
+        return result;
     }
 }
 
@@ -1478,123 +2209,205 @@ SZ_PUBLIC void sz_hash_state_init_skylake(sz_hash_state_t *state, sz_u64_t seed)
     __m512i seed_vec = _mm512_set1_epi64(seed);
     // ! In this kernel, assuming it may be called on arbitrarily misaligned `state`,
     // ! we must use `_mm_storeu_si128` stores to update the state.
-    _mm_storeu_si128((__m128i *)&state->key.u8s[0], _mm512_castsi512_si128(seed_vec));
+    _mm_storeu_si128((__m128i *)state->key, _mm512_castsi512_si128(seed_vec));
 
     // XOR the user-supplied keys with the two "pi" constants
     sz_u64_t const *pi = sz_hash_pi_constants_();
     __m512i const pi0 = _mm512_load_epi64((__m512i const *)(pi));
     __m512i const pi1 = _mm512_load_epi64((__m512i const *)(pi + 8));
-    _mm512_storeu_si512(&state->aes.zmm, _mm512_xor_si512(seed_vec, pi0));
-    _mm512_storeu_si512(&state->sum.zmm, _mm512_xor_si512(seed_vec, pi1));
+    _mm512_storeu_si512((__m512i *)state->aes, _mm512_xor_si512(seed_vec, pi0));
+    _mm512_storeu_si512((__m512i *)state->sum, _mm512_xor_si512(seed_vec, pi1));
 
     // The inputs are zeroed out at the beginning
-    _mm512_storeu_si512(&state->ins.zmm, _mm512_setzero_si512());
+    _mm512_storeu_si512((__m512i *)state->ins, _mm512_setzero_si512());
     state->ins_length = 0;
 }
 
-SZ_PUBLIC sz_u64_t sz_hash_skylake(sz_cptr_t start, sz_size_t length, sz_u64_t seed) {
+SZ_PUBLIC SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_skylake(sz_cptr_t start, sz_size_t length, sz_u64_t seed) {
 
     if (length <= 16) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
         // Load the data and update the state
         sz_u128_vec_t data_vec;
         data_vec.xmm = _mm_maskz_loadu_epi8(sz_u16_mask_until_(length), start);
-        sz_hash_minimal_update_haswell_(&state, data_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 32) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec;
         data0_vec.xmm = _mm_lddqu_si128((__m128i const *)(start));
         data1_vec.xmm = _mm_maskz_loadu_epi8(sz_u16_mask_until_(length - 16), start + 16);
-        sz_hash_minimal_update_haswell_(&state, data0_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data1_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data0_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data1_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 48) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec, data2_vec;
         data0_vec.xmm = _mm_lddqu_si128((__m128i const *)(start));
         data1_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 16));
         data2_vec.xmm = _mm_maskz_loadu_epi8(sz_u16_mask_until_(length - 32), start + 32);
-        sz_hash_minimal_update_haswell_(&state, data0_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data1_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data2_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data0_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data1_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data2_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 64) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec, data2_vec, data3_vec;
         data0_vec.xmm = _mm_lddqu_si128((__m128i const *)(start));
         data1_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 16));
         data2_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 32));
         data3_vec.xmm = _mm_maskz_loadu_epi8(sz_u16_mask_until_(length - 48), start + 48);
-        sz_hash_minimal_update_haswell_(&state, data0_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data1_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data2_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data3_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data0_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data1_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data2_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data3_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else {
-        // Use a larger state to handle the main loop and add different offsets
-        // to different lanes of the register
-        SZ_ALIGN64 sz_hash_state_t state;
-        sz_hash_state_init_skylake(&state, seed);
+        sz_align_(64) sz_hash_state_internal_t_ state;
+        sz_hash_state_init_skylake((sz_hash_state_t *)&state, seed);
 
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
         for (; state.ins_length + 64 <= length; state.ins_length += 64) {
             state.ins.zmm = _mm512_loadu_epi8(start + state.ins_length);
-            sz_hash_state_update_haswell_(&state);
+            state.aes.xmms[0] = _mm_aesenc_si128(state.aes.xmms[0], state.ins.xmms[0]);
+            state.aes.xmms[1] = _mm_aesenc_si128(state.aes.xmms[1], state.ins.xmms[1]);
+            state.aes.xmms[2] = _mm_aesenc_si128(state.aes.xmms[2], state.ins.xmms[2]);
+            state.aes.xmms[3] = _mm_aesenc_si128(state.aes.xmms[3], state.ins.xmms[3]);
+            state.sum.xmms[0] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[0], order), state.ins.xmms[0]);
+            state.sum.xmms[1] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[1], order), state.ins.xmms[1]);
+            state.sum.xmms[2] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[2], order), state.ins.xmms[2]);
+            state.sum.xmms[3] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[3], order), state.ins.xmms[3]);
         }
         if (state.ins_length < length) {
             state.ins.zmm = _mm512_maskz_loadu_epi8( //
                 sz_u64_mask_until_(length - state.ins_length), start + state.ins_length);
-            sz_hash_state_update_haswell_(&state);
+            state.aes.xmms[0] = _mm_aesenc_si128(state.aes.xmms[0], state.ins.xmms[0]);
+            state.aes.xmms[1] = _mm_aesenc_si128(state.aes.xmms[1], state.ins.xmms[1]);
+            state.aes.xmms[2] = _mm_aesenc_si128(state.aes.xmms[2], state.ins.xmms[2]);
+            state.aes.xmms[3] = _mm_aesenc_si128(state.aes.xmms[3], state.ins.xmms[3]);
+            state.sum.xmms[0] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[0], order), state.ins.xmms[0]);
+            state.sum.xmms[1] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[1], order), state.ins.xmms[1]);
+            state.sum.xmms[2] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[2], order), state.ins.xmms[2]);
+            state.sum.xmms[3] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[3], order), state.ins.xmms[3]);
             state.ins_length = length;
         }
-        return sz_hash_state_finalize_haswell_(&state);
+        return sz_hash_state_finalize_westmere_((sz_hash_state_t const *)&state);
     }
 }
 
-SZ_PUBLIC void sz_hash_state_update_skylake(sz_hash_state_t *state, sz_cptr_t text, sz_size_t length) {
-    while (length) {
-        sz_size_t const progress_in_block = state->ins_length % 64;
-        sz_size_t const to_copy = sz_min_of_two(length, 64 - progress_in_block);
-        int const will_fill_block = progress_in_block + to_copy == 64;
-        // Update the metadata before we modify the `to_copy` variable
-        state->ins_length += to_copy;
-        length -= to_copy;
-        // Append to the internal buffer until it's full
-        __mmask64 to_copy_mask = sz_u64_mask_until_(to_copy);
-        _mm512_mask_storeu_epi8(&state->ins.u8s[0] + progress_in_block, to_copy_mask,
-                                _mm512_maskz_loadu_epi8(to_copy_mask, text));
-        text += to_copy;
-        // If we've reached the end of the buffer, update the state
-        if (will_fill_block) {
-            sz_hash_state_update_haswell_(state);
-            // Reset to zeros now, so we don't have to overwrite an immutable buffer in the folding state
-            _mm512_storeu_si512(&state->ins.zmm, _mm512_setzero_si512());
-        }
+SZ_PUBLIC void sz_hash_state_update_skylake(sz_hash_state_t *state_ptr, sz_cptr_t text, sz_size_t length) {
+
+    // The worst usage pattern... that we should ironically handle first - is updating the state
+    // with a very small chunk of data, potentially, one byte at a time. In such cases, we won't
+    // even bother using AVX-512 masked loads to avoid tripping the CPU state.
+    sz_size_t const current_block_index = state_ptr->ins_length / 64;
+    sz_size_t const final_block_index = (state_ptr->ins_length + length) / 64;
+    int const stays_in_the_block = current_block_index == final_block_index;
+    int const fills_the_block = (state_ptr->ins_length + length) % 64 == 0;
+    if (stays_in_the_block && !fills_the_block) {
+        for (; length; --length, ++state_ptr->ins_length, ++text) state_ptr->ins[state_ptr->ins_length % 64] = *text;
+        return;
     }
+
+    // Now we know that our "text" parts will end up in different blocks.
+    // It's a good idea to pull the state into registers, as well definitely mix them at block boundaries.
+    sz_size_t const progress_in_block = state_ptr->ins_length % 64;
+    sz_size_t const head_length = (64 - progress_in_block) % 64;
+    sz_size_t const tail_length = (state_ptr->ins_length + length) % 64;
+    sz_size_t const body_length = length - head_length - tail_length;
+    sz_assert_(body_length % 64 == 0 && head_length < 64 && tail_length < 64);
+
+    // Lets keep a local copy of the state for one or more updates.
+    sz_align_(64) sz_hash_state_internal_t_ state;
+    state.aes.zmm = _mm512_loadu_si512((__m512i const *)state_ptr->aes);
+    state.sum.zmm = _mm512_loadu_si512((__m512i const *)state_ptr->sum);
+    state.ins.zmm = _mm512_loadu_si512((__m512i const *)state_ptr->ins);
+    state.ins_length = state_ptr->ins_length;
+
+    // Handle the head first, to align to the next block boundary
+    __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+    if (head_length) {
+        __mmask64 progress_mask = _knot_mask64(sz_u64_mask_until_(progress_in_block));
+        state.ins.zmm = _mm512_mask_loadu_epi8(state.ins.zmm, progress_mask, text - progress_in_block);
+        state.aes.xmms[0] = _mm_aesenc_si128(state.aes.xmms[0], state.ins.xmms[0]);
+        state.aes.xmms[1] = _mm_aesenc_si128(state.aes.xmms[1], state.ins.xmms[1]);
+        state.aes.xmms[2] = _mm_aesenc_si128(state.aes.xmms[2], state.ins.xmms[2]);
+        state.aes.xmms[3] = _mm_aesenc_si128(state.aes.xmms[3], state.ins.xmms[3]);
+        state.sum.xmms[0] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[0], order), state.ins.xmms[0]);
+        state.sum.xmms[1] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[1], order), state.ins.xmms[1]);
+        state.sum.xmms[2] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[2], order), state.ins.xmms[2]);
+        state.sum.xmms[3] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[3], order), state.ins.xmms[3]);
+        state.ins_length += head_length;
+        text += head_length;
+        length -= head_length;
+    }
+
+    // Now handle the body
+    for (; length >= 64; state.ins_length += 64, text += 64, length -= 64) {
+        state.ins.zmm = _mm512_loadu_epi8(text);
+        state.aes.xmms[0] = _mm_aesenc_si128(state.aes.xmms[0], state.ins.xmms[0]);
+        state.aes.xmms[1] = _mm_aesenc_si128(state.aes.xmms[1], state.ins.xmms[1]);
+        state.aes.xmms[2] = _mm_aesenc_si128(state.aes.xmms[2], state.ins.xmms[2]);
+        state.aes.xmms[3] = _mm_aesenc_si128(state.aes.xmms[3], state.ins.xmms[3]);
+        state.sum.xmms[0] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[0], order), state.ins.xmms[0]);
+        state.sum.xmms[1] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[1], order), state.ins.xmms[1]);
+        state.sum.xmms[2] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[2], order), state.ins.xmms[2]);
+        state.sum.xmms[3] = _mm_add_epi64(_mm_shuffle_epi8(state.sum.xmms[3], order), state.ins.xmms[3]);
+    }
+
+    // The tail is the last part we need to handle
+    if (tail_length) {
+        __mmask64 tail_mask = sz_u64_mask_until_(tail_length);
+        state.ins.zmm = _mm512_maskz_loadu_epi8(tail_mask, text);
+        state.ins_length += tail_length;
+    }
+
+    // Save the state back to the memory
+    _mm512_storeu_si512((__m512i *)state_ptr->aes, state.aes.zmm);
+    _mm512_storeu_si512((__m512i *)state_ptr->sum, state.sum.zmm);
+    _mm512_storeu_si512((__m512i *)state_ptr->ins, state.ins.zmm);
+    state_ptr->ins_length = state.ins_length;
 }
 
 SZ_PUBLIC sz_u64_t sz_hash_state_digest_skylake(sz_hash_state_t const *state) {
     // ? We don't know a better way to fold the state on Ice Lake, than to use the Haswell implementation.
-    return sz_hash_state_digest_haswell(state);
+    return sz_hash_state_digest_westmere(state);
 }
 
 SZ_PUBLIC void sz_fill_random_skylake(sz_ptr_t text, sz_size_t length, sz_u64_t nonce) {
-    sz_fill_random_haswell(text, length, nonce);
+    sz_fill_random_westmere(text, length, nonce);
 }
 
 #if defined(__clang__)
@@ -1614,13 +2427,13 @@ SZ_PUBLIC void sz_fill_random_skylake(sz_ptr_t text, sz_size_t length, sz_u64_t 
 #pragma region Ice Lake Implementation
 #if SZ_USE_ICE
 #if defined(__clang__)
-#pragma clang attribute push(                                                                                  \
-    __attribute__((target("avx,avx512f,avx512vl,avx512bw,avx512dq,avx512vbmi,avx512vnni,bmi,bmi2,aes,vaes"))), \
+#pragma clang attribute push(                                                                                      \
+    __attribute__((target("avx,avx512f,avx512vl,avx512bw,avx512dq,avx512vbmi,avx512vnni,bmi,bmi2,aes,vaes,sha"))), \
     apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
 #pragma GCC target("avx", "avx512f", "avx512vl", "avx512bw", "avx512dq", "avx512vbmi", "avx512vnni", "bmi", "bmi2", \
-                   "aes", "vaes")
+                   "aes", "vaes", "sha")
 #endif
 
 SZ_PUBLIC sz_u64_t sz_bytesum_ice(sz_cptr_t text, sz_size_t length) {
@@ -1749,91 +2562,98 @@ SZ_PUBLIC sz_u64_t sz_bytesum_ice(sz_cptr_t text, sz_size_t length) {
     }
 }
 
-SZ_INTERNAL void sz_hash_state_update_ice_(sz_hash_state_t *state) {
-    __m512i const shuffle_mask = _mm512_load_si512((__m512i const *)sz_hash_u8x16x4_shuffle_());
-    // ! In this kernel, assuming it may be called on arbitrarily misaligned `state`,
-    // ! we must use `_mm512_storeu_si512` stores to update the state.
-    _mm512_storeu_si512(&state->aes.zmm,
-                        _mm512_aesenc_epi128(_mm512_loadu_si512(&state->aes.zmm), _mm512_loadu_si512(&state->ins.zmm)));
-    _mm512_storeu_si512(&state->sum.zmm,
-                        _mm512_add_epi64(_mm512_shuffle_epi8(_mm512_loadu_si512(&state->sum.zmm), shuffle_mask),
-                                         _mm512_loadu_si512(&state->ins.zmm)));
-}
-
-SZ_PUBLIC sz_u64_t sz_hash_ice(sz_cptr_t start, sz_size_t length, sz_u64_t seed) {
+SZ_PUBLIC SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_ice(sz_cptr_t start, sz_size_t length, sz_u64_t seed) {
 
     // For short strings the "masked loads" are identical to Skylake-X and
     // the "logic" is identical to Haswell.
     if (length <= 16) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
         // Load the data and update the state
         sz_u128_vec_t data_vec;
         data_vec.xmm = _mm_maskz_loadu_epi8(sz_u16_mask_until_(length), start);
-        sz_hash_minimal_update_haswell_(&state, data_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 32) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec;
         data0_vec.xmm = _mm_lddqu_si128((__m128i const *)(start));
         data1_vec.xmm = _mm_maskz_loadu_epi8(sz_u16_mask_until_(length - 16), start + 16);
-        sz_hash_minimal_update_haswell_(&state, data0_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data1_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data0_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data1_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 48) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec, data2_vec;
         data0_vec.xmm = _mm_lddqu_si128((__m128i const *)(start));
         data1_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 16));
         data2_vec.xmm = _mm_maskz_loadu_epi8(sz_u16_mask_until_(length - 32), start + 32);
-        sz_hash_minimal_update_haswell_(&state, data0_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data1_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data2_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data0_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data1_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data2_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     else if (length <= 64) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
-        sz_hash_minimal_init_haswell_(&state, seed);
+        sz_align_(16) sz_hash_minimal_t_ state;
+        sz_hash_minimal_init_westmere_aligned_(&state, seed);
+
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec, data2_vec, data3_vec;
         data0_vec.xmm = _mm_lddqu_si128((__m128i const *)(start));
         data1_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 16));
         data2_vec.xmm = _mm_lddqu_si128((__m128i const *)(start + 32));
         data3_vec.xmm = _mm_maskz_loadu_epi8(sz_u16_mask_until_(length - 48), start + 48);
-        sz_hash_minimal_update_haswell_(&state, data0_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data1_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data2_vec.xmm);
-        sz_hash_minimal_update_haswell_(&state, data3_vec.xmm);
-        return sz_hash_minimal_finalize_haswell_(&state, length);
+
+        // Shuffle with the same mask
+        __m128i const order = _mm_load_si128((__m128i const *)sz_hash_u8x16x4_shuffle_());
+        sz_hash_minimal_update_westmere_aligned_(&state, data0_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data1_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data2_vec.xmm, order);
+        sz_hash_minimal_update_westmere_aligned_(&state, data3_vec.xmm, order);
+        return sz_hash_minimal_finalize_westmere_aligned_(&state, length);
     }
     // This is where the logic differs from Skylake-X and other pre-Ice Lake CPUs:
     else {
-        // Use a larger state to handle the main loop and add different offsets
-        // to different lanes of the register
-        SZ_ALIGN64 sz_hash_state_t state;
-        sz_hash_state_init_skylake(&state, seed);
+        sz_align_(64) sz_hash_state_internal_t_ state;
+        sz_hash_state_init_skylake((sz_hash_state_t *)&state, seed);
 
+        // Shuffle with the same mask
+        __m512i const order = _mm512_load_si512((__m512i const *)sz_hash_u8x16x4_shuffle_());
         for (; state.ins_length + 64 <= length; state.ins_length += 64) {
             state.ins.zmm = _mm512_loadu_epi8(start + state.ins_length);
-            sz_hash_state_update_ice_(&state);
+            state.aes.zmm = _mm512_aesenc_epi128(state.aes.zmm, state.ins.zmm);
+            state.sum.zmm = _mm512_add_epi64(_mm512_shuffle_epi8(state.sum.zmm, order), state.ins.zmm);
         }
         if (state.ins_length < length) {
             state.ins.zmm =
                 _mm512_maskz_loadu_epi8(sz_u64_mask_until_(length - state.ins_length), start + state.ins_length);
-            sz_hash_state_update_ice_(&state);
+            state.aes.zmm = _mm512_aesenc_epi128(state.aes.zmm, state.ins.zmm);
+            state.sum.zmm = _mm512_add_epi64(_mm512_shuffle_epi8(state.sum.zmm, order), state.ins.zmm);
             state.ins_length = length;
         }
-        return sz_hash_state_finalize_haswell_(&state);
+        return sz_hash_state_finalize_westmere_((sz_hash_state_t const *)&state);
     }
 }
 
@@ -1841,31 +2661,71 @@ SZ_PUBLIC void sz_hash_state_init_ice(sz_hash_state_t *state, sz_u64_t seed) {
     sz_hash_state_init_skylake(state, seed);
 }
 
-SZ_PUBLIC void sz_hash_state_update_ice(sz_hash_state_t *state, sz_cptr_t text, sz_size_t length) {
-    while (length) {
-        sz_size_t progress_in_block = state->ins_length % 64;
-        sz_size_t to_copy = sz_min_of_two(length, 64 - progress_in_block);
-        int const will_fill_block = progress_in_block + to_copy == 64;
-        // Update the metadata before we modify the `to_copy` variable
-        state->ins_length += to_copy;
-        length -= to_copy;
-        // Append to the internal buffer until it's full
-        __mmask64 to_copy_mask = sz_u64_mask_until_(to_copy);
-        _mm512_mask_storeu_epi8(state->ins.u8s + progress_in_block, to_copy_mask,
-                                _mm512_maskz_loadu_epi8(to_copy_mask, text));
-        text += to_copy;
-        // If we've reached the end of the buffer, update the state
-        if (will_fill_block) {
-            sz_hash_state_update_ice_(state);
-            // Reset to zeros now, so we don't have to overwrite an immutable buffer in the folding state
-            _mm512_storeu_si512(&state->ins.zmm, _mm512_setzero_si512());
-        }
+SZ_PUBLIC void sz_hash_state_update_ice(sz_hash_state_t *state_ptr, sz_cptr_t text, sz_size_t length) {
+
+    // The worst usage pattern... that we should ironically handle first - is updating the state
+    // with a very small chunk of data, potentially, one byte at a time. In such cases, we won't
+    // even bother using AVX-512 masked loads to avoid tripping the CPU state.
+    sz_size_t const current_block_index = state_ptr->ins_length / 64;
+    sz_size_t const final_block_index = (state_ptr->ins_length + length) / 64;
+    int const stays_in_the_block = current_block_index == final_block_index;
+    int const fills_the_block = (state_ptr->ins_length + length) % 64 == 0;
+    if (stays_in_the_block && !fills_the_block) {
+        for (; length; --length, ++state_ptr->ins_length, ++text) state_ptr->ins[state_ptr->ins_length % 64] = *text;
+        return;
     }
+
+    // Now we know that our "text" parts will end up in different blocks.
+    // It's a good idea to pull the state into registers, as well definitely mix them at block boundaries.
+    sz_size_t const progress_in_block = state_ptr->ins_length % 64;
+    sz_size_t const head_length = (64 - progress_in_block) % 64;
+    sz_size_t const tail_length = (state_ptr->ins_length + length) % 64;
+    sz_size_t const body_length = length - head_length - tail_length;
+    sz_assert_(body_length % 64 == 0 && head_length < 64 && tail_length < 64);
+
+    // Lets keep a local copy of the state for one or more updates.
+    sz_align_(64) sz_hash_state_internal_t_ state;
+    state.aes.zmm = _mm512_loadu_si512((__m512i const *)state_ptr->aes);
+    state.sum.zmm = _mm512_loadu_si512((__m512i const *)state_ptr->sum);
+    state.ins.zmm = _mm512_loadu_si512((__m512i const *)state_ptr->ins);
+    state.ins_length = state_ptr->ins_length;
+
+    // Handle the head first, to align to the next block boundary
+    __m512i const order = _mm512_load_si512((__m512i const *)sz_hash_u8x16x4_shuffle_());
+    if (head_length) {
+        __mmask64 progress_mask = _knot_mask64(sz_u64_mask_until_(progress_in_block));
+        state.ins.zmm = _mm512_mask_loadu_epi8(state.ins.zmm, progress_mask, text - progress_in_block);
+        state.aes.zmm = _mm512_aesenc_epi128(state.aes.zmm, state.ins.zmm);
+        state.sum.zmm = _mm512_add_epi64(_mm512_shuffle_epi8(state.sum.zmm, order), state.ins.zmm);
+        state.ins_length += head_length;
+        text += head_length;
+        length -= head_length;
+    }
+
+    // Now handle the body
+    for (; length >= 64; state.ins_length += 64, text += 64, length -= 64) {
+        state.ins.zmm = _mm512_loadu_epi8(text);
+        state.aes.zmm = _mm512_aesenc_epi128(state.aes.zmm, state.ins.zmm);
+        state.sum.zmm = _mm512_add_epi64(_mm512_shuffle_epi8(state.sum.zmm, order), state.ins.zmm);
+    }
+
+    // The tail is the last part we need to handle
+    if (tail_length) {
+        __mmask64 tail_mask = sz_u64_mask_until_(tail_length);
+        state.ins.zmm = _mm512_maskz_loadu_epi8(tail_mask, text);
+        state.ins_length += tail_length;
+    }
+
+    // Save the state back to the memory
+    _mm512_storeu_si512((__m512i *)state_ptr->aes, state.aes.zmm);
+    _mm512_storeu_si512((__m512i *)state_ptr->sum, state.sum.zmm);
+    _mm512_storeu_si512((__m512i *)state_ptr->ins, state.ins.zmm);
+    state_ptr->ins_length = state.ins_length;
 }
 
 SZ_PUBLIC sz_u64_t sz_hash_state_digest_ice(sz_hash_state_t const *state) {
     // ? We don't know a better way to fold the state on Ice Lake, than to use the Haswell implementation.
-    return sz_hash_state_digest_haswell(state);
+    return sz_hash_state_digest_westmere(state);
 }
 
 SZ_PUBLIC void sz_fill_random_ice(sz_ptr_t output, sz_size_t length, sz_u64_t nonce) {
@@ -1974,9 +2834,325 @@ SZ_INTERNAL __m256i sz_hash_minimal_x4_finalize_ice_(sz_hash_minimal_x4_t_ const
 }
 
 SZ_INTERNAL void sz_hash_minimal_x4_update_ice_(sz_hash_minimal_x4_t_ *state, __m512i blocks) {
-    __m512i const shuffle_mask = _mm512_load_si512((__m512i const *)sz_hash_u8x16x4_shuffle_());
+    __m512i const order = _mm512_load_si512((__m512i const *)sz_hash_u8x16x4_shuffle_());
     state->aes.zmm = _mm512_aesenc_epi128(state->aes.zmm, blocks);
-    state->sum.zmm = _mm512_add_epi64(_mm512_shuffle_epi8(state->sum.zmm, shuffle_mask), blocks);
+    state->sum.zmm = _mm512_add_epi64(_mm512_shuffle_epi8(state->sum.zmm, order), blocks);
+}
+
+/**
+ *  @brief Process a single 512-bit (64-byte) block of data using SHA256.
+ *  @param[inout] hash Pointer to 8x 32-bit hash values, modified in place.
+ *  @param[in] block Pointer to 64-byte message block.
+ */
+SZ_INTERNAL void sz_sha256_process_block_ice_(sz_u32_t hash[sz_at_least_(8)], sz_u8_t const block[sz_at_least_(64)]) {
+    sz_u32_t const *round_constants = sz_sha256_round_constants_();
+
+    // Load entire 64-byte block with single 512-bit load and byte-swap
+    sz_u512_vec_t block_vec;
+    block_vec.zmm = _mm512_loadu_si512(block);
+
+    // Byte-swap using 512-bit shuffle (reverse byte order within each 32-bit word)
+    __m512i const bswap_mask_512 = _mm512_set_epi8(                     //
+        60, 61, 62, 63, 56, 57, 58, 59, 52, 53, 54, 55, 48, 49, 50, 51, //
+        44, 45, 46, 47, 40, 41, 42, 43, 36, 37, 38, 39, 32, 33, 34, 35, //
+        28, 29, 30, 31, 24, 25, 26, 27, 20, 21, 22, 23, 16, 17, 18, 19, //
+        12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3);
+    block_vec.zmm = _mm512_shuffle_epi8(block_vec.zmm, bswap_mask_512);
+
+    // Extract 128-bit message words (SHA-NI operates on 128-bit registers)
+    __m128i msg0 = block_vec.xmms[0];
+    __m128i msg1 = block_vec.xmms[1];
+    __m128i msg2 = block_vec.xmms[2];
+    __m128i msg3 = block_vec.xmms[3];
+
+    // Pre-load round constants into 512-bit registers for efficient access
+    sz_u128_vec_t k0_3, k4_7, k8_11, k12_15, k16_19, k20_23, k24_27, k28_31;
+    sz_u128_vec_t k32_35, k36_39, k40_43, k44_47, k48_51, k52_55, k56_59, k60_63;
+    k0_3.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[0]);
+    k4_7.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[4]);
+    k8_11.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[8]);
+    k12_15.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[12]);
+    k16_19.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[16]);
+    k20_23.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[20]);
+    k24_27.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[24]);
+    k28_31.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[28]);
+    k32_35.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[32]);
+    k36_39.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[36]);
+    k40_43.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[40]);
+    k44_47.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[44]);
+    k48_51.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[48]);
+    k52_55.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[52]);
+    k56_59.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[56]);
+    k60_63.xmm = _mm_lddqu_si128((__m128i const *)&round_constants[60]);
+
+    // Pack state into SHA-NI format (ABEF/CDGH)
+    __m128i state0 = _mm_lddqu_si128((__m128i const *)&hash[0]); // A B C D
+    __m128i state1 = _mm_lddqu_si128((__m128i const *)&hash[4]); // E F G H
+    __m128i tmp = _mm_shuffle_epi32(state0, 0xB1);               // CDAB
+    state1 = _mm_shuffle_epi32(state1, 0x1B);                    // HGFE
+    state0 = _mm_alignr_epi8(tmp, state1, 8);                    // ABEF
+    state1 = _mm_blend_epi16(state1, tmp, 0xF0);                 // CDGH
+
+    __m128i state0_save = state0;
+    __m128i state1_save = state1;
+
+    // Rounds 0-3
+    __m128i msg_tmp = _mm_add_epi32(msg0, k0_3.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+
+    // Rounds 4-7
+    msg_tmp = _mm_add_epi32(msg1, k4_7.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg0 = _mm_sha256msg1_epu32(msg0, msg1);
+
+    // Rounds 8-11
+    msg_tmp = _mm_add_epi32(msg2, k8_11.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg1 = _mm_sha256msg1_epu32(msg1, msg2);
+
+    // Rounds 12-15
+    msg_tmp = _mm_add_epi32(msg3, k12_15.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg0 = _mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4));
+    msg0 = _mm_sha256msg2_epu32(msg0, msg3);
+    msg2 = _mm_sha256msg1_epu32(msg2, msg3);
+
+    // Rounds 16-19
+    msg_tmp = _mm_add_epi32(msg0, k16_19.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg1 = _mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4));
+    msg1 = _mm_sha256msg2_epu32(msg1, msg0);
+    msg3 = _mm_sha256msg1_epu32(msg3, msg0);
+
+    // Rounds 20-23
+    msg_tmp = _mm_add_epi32(msg1, k20_23.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg2 = _mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4));
+    msg2 = _mm_sha256msg2_epu32(msg2, msg1);
+    msg0 = _mm_sha256msg1_epu32(msg0, msg1);
+
+    // Rounds 24-27
+    msg_tmp = _mm_add_epi32(msg2, k24_27.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg3 = _mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4));
+    msg3 = _mm_sha256msg2_epu32(msg3, msg2);
+    msg1 = _mm_sha256msg1_epu32(msg1, msg2);
+
+    // Rounds 28-31
+    msg_tmp = _mm_add_epi32(msg3, k28_31.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg0 = _mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4));
+    msg0 = _mm_sha256msg2_epu32(msg0, msg3);
+    msg2 = _mm_sha256msg1_epu32(msg2, msg3);
+
+    // Rounds 32-35
+    msg_tmp = _mm_add_epi32(msg0, k32_35.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg1 = _mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4));
+    msg1 = _mm_sha256msg2_epu32(msg1, msg0);
+    msg3 = _mm_sha256msg1_epu32(msg3, msg0);
+
+    // Rounds 36-39
+    msg_tmp = _mm_add_epi32(msg1, k36_39.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg2 = _mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4));
+    msg2 = _mm_sha256msg2_epu32(msg2, msg1);
+    msg0 = _mm_sha256msg1_epu32(msg0, msg1);
+
+    // Rounds 40-43
+    msg_tmp = _mm_add_epi32(msg2, k40_43.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg3 = _mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4));
+    msg3 = _mm_sha256msg2_epu32(msg3, msg2);
+    msg1 = _mm_sha256msg1_epu32(msg1, msg2);
+
+    // Rounds 44-47
+    msg_tmp = _mm_add_epi32(msg3, k44_47.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg0 = _mm_add_epi32(msg0, _mm_alignr_epi8(msg3, msg2, 4));
+    msg0 = _mm_sha256msg2_epu32(msg0, msg3);
+    msg2 = _mm_sha256msg1_epu32(msg2, msg3);
+
+    // Rounds 48-51
+    msg_tmp = _mm_add_epi32(msg0, k48_51.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg1 = _mm_add_epi32(msg1, _mm_alignr_epi8(msg0, msg3, 4));
+    msg1 = _mm_sha256msg2_epu32(msg1, msg0);
+    msg3 = _mm_sha256msg1_epu32(msg3, msg0);
+
+    // Rounds 52-55
+    msg_tmp = _mm_add_epi32(msg1, k52_55.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg2 = _mm_add_epi32(msg2, _mm_alignr_epi8(msg1, msg0, 4));
+    msg2 = _mm_sha256msg2_epu32(msg2, msg1);
+
+    // Rounds 56-59
+    msg_tmp = _mm_add_epi32(msg2, k56_59.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+    msg3 = _mm_add_epi32(msg3, _mm_alignr_epi8(msg2, msg1, 4));
+    msg3 = _mm_sha256msg2_epu32(msg3, msg2);
+
+    // Rounds 60-63
+    msg_tmp = _mm_add_epi32(msg3, k60_63.xmm);
+    state1 = _mm_sha256rnds2_epu32(state1, state0, msg_tmp);
+    msg_tmp = _mm_shuffle_epi32(msg_tmp, 0x0E);
+    state0 = _mm_sha256rnds2_epu32(state0, state1, msg_tmp);
+
+    // Add compressed chunk to hash
+    state0 = _mm_add_epi32(state0, state0_save);
+    state1 = _mm_add_epi32(state1, state1_save);
+
+    // Unpack from SHA-NI format back to ABCD/EFGH
+    tmp = _mm_shuffle_epi32(state0, 0x1B);       // FEBA
+    state1 = _mm_shuffle_epi32(state1, 0xB1);    // GHCD
+    state0 = _mm_blend_epi16(tmp, state1, 0xF0); // ABCD
+    state1 = _mm_alignr_epi8(state1, tmp, 8);    // EFGH
+
+    // Store results
+    _mm_storeu_si128((__m128i *)&hash[0], state0);
+    _mm_storeu_si128((__m128i *)&hash[4], state1);
+}
+
+/**
+ *  @brief  Initialize SHA256 state with IV constants.
+ *  @param  state   Pointer to SHA256 state structure to initialize.
+ */
+SZ_PUBLIC void sz_sha256_state_init_ice(sz_sha256_state_t *state_ptr) {
+    // Vectorize the load/store of 8x u32s using 1x 256-bit AVX load
+    sz_u32_t const *initial_hash = sz_sha256_initial_hash_();
+    _mm256_storeu_si256((__m256i *)state_ptr->hash, _mm256_lddqu_si256((__m256i const *)initial_hash));
+    state_ptr->block_length = 0, state_ptr->total_length = 0;
+}
+
+/**
+ *  @brief  Update SHA256 state with additional data.
+ *          Uses AVX-512 for efficient data copying.
+ *  @param  state   Pointer to SHA256 state structure.
+ *  @param  data    Input data to process.
+ *  @param  length  Number of bytes in input data.
+ */
+SZ_PUBLIC void sz_sha256_state_update_ice(sz_sha256_state_t *state_ptr, sz_cptr_t data, sz_size_t length) {
+    sz_u8_t const *input = (sz_u8_t const *)data;
+    sz_size_t const current_block_index = state_ptr->block_length / 64;
+    sz_size_t const final_block_index = (state_ptr->block_length + length) / 64;
+    int const stays_in_the_block = current_block_index == final_block_index;
+    int const fills_the_block = (state_ptr->block_length + length) % 64 == 0;
+
+    state_ptr->total_length += length;
+
+    // Fast path: stays in same block and doesn't fill it
+    if (stays_in_the_block && !fills_the_block) {
+        for (; length; --length, ++state_ptr->block_length, ++input) state_ptr->block[state_ptr->block_length] = *input;
+        return;
+    }
+
+    // Calculate head, body, and tail lengths
+    sz_size_t const head_length = (64 - state_ptr->block_length) % 64;
+    sz_size_t const tail_length = (state_ptr->block_length + length) % 64;
+    sz_size_t const body_length = length - head_length - tail_length;
+
+    // Copy hash to aligned local buffer
+    sz_align_(32) sz_u32_t hash[8];
+    _mm256_store_si256((__m256i *)hash, _mm256_lddqu_si256((__m256i const *)state_ptr->hash));
+
+    // Process head to complete the current block
+    if (head_length) {
+        __mmask64 mask = sz_u64_clamp_mask_until_(head_length);
+        _mm512_mask_storeu_epi8(&state_ptr->block[state_ptr->block_length], mask, _mm512_maskz_loadu_epi8(mask, input));
+        state_ptr->block_length += head_length;
+        sz_sha256_process_block_ice_(hash, state_ptr->block);
+        state_ptr->block_length = 0;
+        input += head_length;
+    }
+
+    // Process body (complete aligned blocks)
+    for (sz_size_t processed = 0; processed < body_length; processed += 64, input += 64)
+        sz_sha256_process_block_ice_(hash, input);
+
+    // Process tail (remaining bytes into block buffer)
+    if (tail_length) {
+        __mmask64 mask = sz_u64_clamp_mask_until_(tail_length);
+        _mm512_mask_storeu_epi8(state_ptr->block, mask, _mm512_maskz_loadu_epi8(mask, input));
+        state_ptr->block_length = tail_length;
+    }
+
+    // Copy hash back
+    _mm256_storeu_si256((__m256i *)state_ptr->hash, _mm256_load_si256((__m256i const *)hash));
+}
+
+SZ_PUBLIC void sz_sha256_state_digest_ice(sz_sha256_state_t const *state_ptr, sz_u8_t digest[sz_at_least_(32)]) {
+    // Create a copy of the state for padding
+    sz_sha256_state_t state = *state_ptr;
+
+    // Append the '1' bit (0x80 byte) after the message
+    state.block[state.block_length++] = 0x80;
+
+    // If there's not enough room for the 64-bit length, pad this block and process it
+    if (state.block_length > 56) {
+        // Zero remaining bytes using AVX-512 masked store
+        sz_size_t remaining = 64 - state.block_length;
+        __mmask64 mask = sz_u64_clamp_mask_until_(remaining);
+        _mm512_mask_storeu_epi8(&state.block[state.block_length], mask, _mm512_setzero_si512());
+        sz_sha256_process_block_ice_(state.hash, state.block);
+        state.block_length = 0;
+    }
+
+    // Pad with zeros until we have 56 bytes using AVX-512 masked store
+    sz_size_t remaining = 56 - state.block_length;
+    __mmask64 mask = sz_u64_clamp_mask_until_(remaining);
+    _mm512_mask_storeu_epi8(&state.block[state.block_length], mask, _mm512_setzero_si512());
+
+    // Append the 64-bit length in bits (big-endian)
+    sz_u64_t bit_length = state.total_length * 8;
+    state.block[56] = (sz_u8_t)(bit_length >> 56);
+    state.block[57] = (sz_u8_t)(bit_length >> 48);
+    state.block[58] = (sz_u8_t)(bit_length >> 40);
+    state.block[59] = (sz_u8_t)(bit_length >> 32);
+    state.block[60] = (sz_u8_t)(bit_length >> 24);
+    state.block[61] = (sz_u8_t)(bit_length >> 16);
+    state.block[62] = (sz_u8_t)(bit_length >> 8);
+    state.block[63] = (sz_u8_t)(bit_length >> 0);
+
+    // Process the final block
+    sz_sha256_process_block_ice_(state.hash, state.block);
+
+    // Produce the final hash digest in big-endian format
+    for (sz_size_t i = 0; i < 8; ++i) {
+        digest[i * 4 + 0] = (sz_u8_t)(state.hash[i] >> 24);
+        digest[i * 4 + 1] = (sz_u8_t)(state.hash[i] >> 16);
+        digest[i * 4 + 2] = (sz_u8_t)(state.hash[i] >> 8);
+        digest[i * 4 + 3] = (sz_u8_t)(state.hash[i] >> 0);
+    }
 }
 
 #if defined(__clang__)
@@ -1993,10 +3169,10 @@ SZ_INTERNAL void sz_hash_minimal_x4_update_ice_(sz_hash_minimal_x4_t_ *state, __
 #pragma region NEON Implementation
 #if SZ_USE_NEON
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+simd"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+simd"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+simd")
+#pragma GCC target("+simd")
 #endif
 
 SZ_PUBLIC sz_u64_t sz_bytesum_neon(sz_cptr_t text, sz_size_t length) {
@@ -2028,10 +3204,10 @@ SZ_PUBLIC sz_u64_t sz_bytesum_neon(sz_cptr_t text, sz_size_t length) {
 #pragma region NEON AES Implementation
 #if SZ_USE_NEON_AES
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+simd+crypto+aes"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+simd+crypto+aes"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+simd+crypto+aes")
+#pragma GCC target("+simd+crypto+aes")
 #endif
 
 /**
@@ -2082,44 +3258,47 @@ SZ_INTERNAL sz_u64_t sz_hash_minimal_finalize_neon_(sz_hash_minimal_t_ const *st
 }
 
 SZ_INTERNAL void sz_hash_minimal_update_neon_(sz_hash_minimal_t_ *state, uint8x16_t block) {
-    uint8x16_t const shuffle_mask = vld1q_u8(sz_hash_u8x16x4_shuffle_());
+    uint8x16_t const order = vld1q_u8(sz_hash_u8x16x4_shuffle_());
     state->aes.u8x16 = sz_emulate_aesenc_u8x16_neon_(state->aes.u8x16, block);
-    uint8x16_t sum_shuffled = vqtbl1q_u8(vreinterpretq_u8_u64(state->sum.u64x2), shuffle_mask);
+    uint8x16_t sum_shuffled = vqtbl1q_u8(vreinterpretq_u8_u64(state->sum.u64x2), order);
     state->sum.u64x2 = vaddq_u64(vreinterpretq_u64_u8(sum_shuffled), vreinterpretq_u64_u8(block));
 }
 
 SZ_PUBLIC void sz_hash_state_init_neon(sz_hash_state_t *state, sz_u64_t seed) {
     // The key is made from the seed and half of it will be mixed with the length in the end
     uint64x2_t seed_vec = vdupq_n_u64(seed);
-    state->key.u64x2 = seed_vec;
+    vst1q_u64((sz_u64_t *)state->key, seed_vec);
 
     // XOR the user-supplied keys with the two "pi" constants
     sz_u64_t const *pi = sz_hash_pi_constants_();
-    for (int i = 0; i < 4; ++i) state->aes.u64x2s[i] = veorq_u64(seed_vec, vld1q_u64(pi + i * 2));
-    for (int i = 0; i < 4; ++i) state->sum.u64x2s[i] = veorq_u64(seed_vec, vld1q_u64(pi + i * 2 + 8));
+    for (int i = 0; i < 4; ++i)
+        vst1q_u8(state->aes + i * 16, vreinterpretq_u8_u64(veorq_u64(seed_vec, vld1q_u64(pi + i * 2))));
+    for (int i = 0; i < 4; ++i)
+        vst1q_u8(state->sum + i * 16, vreinterpretq_u8_u64(veorq_u64(seed_vec, vld1q_u64(pi + i * 2 + 8))));
 
     // The inputs are zeroed out at the beginning
-    state->ins.u8x16s[0] = state->ins.u8x16s[1] = state->ins.u8x16s[2] = state->ins.u8x16s[3] = vdupq_n_u8(0);
+    uint8x16_t zeros = vdupq_n_u8(0);
+    for (int i = 0; i < 4; ++i) vst1q_u8(state->ins + i * 16, zeros);
     state->ins_length = 0;
 }
 
-SZ_INTERNAL void sz_hash_state_update_neon_(sz_hash_state_t *state) {
-    uint8x16_t const shuffle_mask = vld1q_u8(sz_hash_u8x16x4_shuffle_());
+SZ_INTERNAL void sz_hash_state_update_neon_(sz_hash_state_internal_t_ *state) {
+    uint8x16_t const order = vld1q_u8(sz_hash_u8x16x4_shuffle_());
     state->aes.u8x16s[0] = sz_emulate_aesenc_u8x16_neon_(state->aes.u8x16s[0], state->ins.u8x16s[0]);
-    uint8x16_t sum_shuffled0 = vqtbl1q_u8(vreinterpretq_u8_u64(state->sum.u64x2s[0]), shuffle_mask);
+    uint8x16_t sum_shuffled0 = vqtbl1q_u8(vreinterpretq_u8_u64(state->sum.u64x2s[0]), order);
     state->sum.u64x2s[0] = vaddq_u64(vreinterpretq_u64_u8(sum_shuffled0), state->ins.u64x2s[0]);
     state->aes.u8x16s[1] = sz_emulate_aesenc_u8x16_neon_(state->aes.u8x16s[1], state->ins.u8x16s[1]);
-    uint8x16_t sum_shuffled1 = vqtbl1q_u8(vreinterpretq_u8_u64(state->sum.u64x2s[1]), shuffle_mask);
+    uint8x16_t sum_shuffled1 = vqtbl1q_u8(vreinterpretq_u8_u64(state->sum.u64x2s[1]), order);
     state->sum.u64x2s[1] = vaddq_u64(vreinterpretq_u64_u8(sum_shuffled1), state->ins.u64x2s[1]);
     state->aes.u8x16s[2] = sz_emulate_aesenc_u8x16_neon_(state->aes.u8x16s[2], state->ins.u8x16s[2]);
-    uint8x16_t sum_shuffled2 = vqtbl1q_u8(vreinterpretq_u8_u64(state->sum.u64x2s[2]), shuffle_mask);
+    uint8x16_t sum_shuffled2 = vqtbl1q_u8(vreinterpretq_u8_u64(state->sum.u64x2s[2]), order);
     state->sum.u64x2s[2] = vaddq_u64(vreinterpretq_u64_u8(sum_shuffled2), state->ins.u64x2s[2]);
     state->aes.u8x16s[3] = sz_emulate_aesenc_u8x16_neon_(state->aes.u8x16s[3], state->ins.u8x16s[3]);
-    uint8x16_t sum_shuffled3 = vqtbl1q_u8(vreinterpretq_u8_u64(state->sum.u64x2s[3]), shuffle_mask);
+    uint8x16_t sum_shuffled3 = vqtbl1q_u8(vreinterpretq_u8_u64(state->sum.u64x2s[3]), order);
     state->sum.u64x2s[3] = vaddq_u64(vreinterpretq_u64_u8(sum_shuffled3), state->ins.u64x2s[3]);
 }
 
-SZ_INTERNAL sz_u64_t sz_hash_state_finalize_neon_(sz_hash_state_t const *state) {
+SZ_INTERNAL sz_u64_t sz_hash_state_finalize_neon_(sz_hash_state_internal_t_ const *state) {
     // Mix the length into the key
     uint64x2_t key_with_length = vaddq_u64(state->key.u64x2, vsetq_lane_u64(state->ins_length, vdupq_n_u64(0), 0));
     // Combine the "sum" and the "AES" blocks
@@ -2139,53 +3318,141 @@ SZ_INTERNAL sz_u64_t sz_hash_state_finalize_neon_(sz_hash_state_t const *state) 
     return vgetq_lane_u64(vreinterpretq_u64_u8(mixed_in_register), 0);
 }
 
-SZ_PUBLIC void sz_hash_state_update_neon(sz_hash_state_t *state, sz_cptr_t text, sz_size_t length) {
-    // This whole function is identical to Haswell.
-    while (length) {
-        // Append to the internal buffer until it's full
-        if (state->ins_length % 64 == 0 && length >= 64) {
-            state->ins.u8x16s[0] = vld1q_u8((sz_u8_t const *)(text + 0));
-            state->ins.u8x16s[1] = vld1q_u8((sz_u8_t const *)(text + 16));
-            state->ins.u8x16s[2] = vld1q_u8((sz_u8_t const *)(text + 32));
-            state->ins.u8x16s[3] = vld1q_u8((sz_u8_t const *)(text + 48));
-            sz_hash_state_update_neon_(state);
-            state->ins_length += 64;
-            text += 64;
-            length -= 64;
-        }
-        // If vectorization isn't that trivial - fall back to the serial implementation
-        else {
-            sz_size_t progress_in_block = state->ins_length % 64;
-            sz_size_t to_copy = sz_min_of_two(length, 64 - progress_in_block);
-            int const will_fill_block = progress_in_block + to_copy == 64;
-            // Update the metadata before we modify the `to_copy` variable
-            state->ins_length += to_copy;
-            length -= to_copy;
-            // Append to the internal buffer until it's full
-            while (to_copy--) state->ins.u8s[progress_in_block++] = *text++;
-            // If we've reached the end of the buffer, update the state
-            if (will_fill_block) {
-                sz_hash_state_update_neon_(state);
-                // Reset to zeros now, so we don't have to overwrite an immutable buffer in the folding state
-                for (int i = 0; i < 4; ++i) vst1q_u8(state->ins.u8s + i * 16, vdupq_n_u8(0));
-            }
-        }
+SZ_PUBLIC void sz_hash_state_update_neon(sz_hash_state_t *state_ptr, sz_cptr_t text, sz_size_t length) {
+
+    // The worst usage pattern... that we should ironically handle first - is updating the state
+    // with a very small chunk of data, potentially, one byte at a time. In such cases, we won't
+    // even bother using NEON masked loads to avoid complexity.
+    sz_size_t const current_block_index = state_ptr->ins_length / 64;
+    sz_size_t const final_block_index = (state_ptr->ins_length + length) / 64;
+    int const stays_in_the_block = current_block_index == final_block_index;
+    int const fills_the_block = (state_ptr->ins_length + length) % 64 == 0;
+    if (stays_in_the_block && !fills_the_block) {
+        for (; length; --length, ++state_ptr->ins_length, ++text) state_ptr->ins[state_ptr->ins_length % 64] = *text;
+        return;
     }
+
+    // Now we know that our "text" parts will end up in different blocks.
+    // It's a good idea to pull the state into registers, as well definitely mix them at block boundaries.
+    sz_size_t const progress_in_block = state_ptr->ins_length % 64;
+    sz_size_t const head_length = (64 - progress_in_block) % 64;
+    sz_size_t const tail_length = (state_ptr->ins_length + length) % 64;
+    sz_size_t const body_length = length - head_length - tail_length;
+    sz_assert_(body_length % 64 == 0 && head_length < 64 && tail_length < 64);
+
+    // Lets keep a local copy of the state for one or more updates.
+    sz_align_(64) sz_hash_state_internal_t_ state;
+    state.aes.u8x16s[0] = vld1q_u8((sz_u8_t const *)state_ptr->aes + 0);
+    state.aes.u8x16s[1] = vld1q_u8((sz_u8_t const *)state_ptr->aes + 16);
+    state.aes.u8x16s[2] = vld1q_u8((sz_u8_t const *)state_ptr->aes + 32);
+    state.aes.u8x16s[3] = vld1q_u8((sz_u8_t const *)state_ptr->aes + 48);
+    state.sum.u8x16s[0] = vld1q_u8((sz_u8_t const *)state_ptr->sum + 0);
+    state.sum.u8x16s[1] = vld1q_u8((sz_u8_t const *)state_ptr->sum + 16);
+    state.sum.u8x16s[2] = vld1q_u8((sz_u8_t const *)state_ptr->sum + 32);
+    state.sum.u8x16s[3] = vld1q_u8((sz_u8_t const *)state_ptr->sum + 48);
+    state.ins.u8x16s[0] = vld1q_u8((sz_u8_t const *)state_ptr->ins + 0);
+    state.ins.u8x16s[1] = vld1q_u8((sz_u8_t const *)state_ptr->ins + 16);
+    state.ins.u8x16s[2] = vld1q_u8((sz_u8_t const *)state_ptr->ins + 32);
+    state.ins.u8x16s[3] = vld1q_u8((sz_u8_t const *)state_ptr->ins + 48);
+    state.ins_length = state_ptr->ins_length;
+
+    // Handle the head first, filling up the current block
+    uint8x16_t const order = vld1q_u8(sz_hash_u8x16x4_shuffle_());
+    if (head_length) {
+        sz_ptr_t local_ptr = (sz_ptr_t)&state.ins.u8s[progress_in_block];
+        sz_ptr_t const local_end = (sz_ptr_t)&state.ins.u8s[64];
+        for (; local_ptr < local_end; ++local_ptr, ++text) *local_ptr = *text;
+        state.aes.u8x16s[0] = sz_emulate_aesenc_u8x16_neon_(state.aes.u8x16s[0], state.ins.u8x16s[0]);
+        state.aes.u8x16s[1] = sz_emulate_aesenc_u8x16_neon_(state.aes.u8x16s[1], state.ins.u8x16s[1]);
+        state.aes.u8x16s[2] = sz_emulate_aesenc_u8x16_neon_(state.aes.u8x16s[2], state.ins.u8x16s[2]);
+        state.aes.u8x16s[3] = sz_emulate_aesenc_u8x16_neon_(state.aes.u8x16s[3], state.ins.u8x16s[3]);
+        state.sum.u64x2s[0] = vaddq_u64(
+            vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(state.sum.u64x2s[0]), order)), state.ins.u64x2s[0]);
+        state.sum.u64x2s[1] = vaddq_u64(
+            vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(state.sum.u64x2s[1]), order)), state.ins.u64x2s[1]);
+        state.sum.u64x2s[2] = vaddq_u64(
+            vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(state.sum.u64x2s[2]), order)), state.ins.u64x2s[2]);
+        state.sum.u64x2s[3] = vaddq_u64(
+            vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(state.sum.u64x2s[3]), order)), state.ins.u64x2s[3]);
+        state.ins_length += head_length;
+        length -= head_length;
+    }
+
+    // Now handle the body
+    for (; length >= 64; state.ins_length += 64, text += 64, length -= 64) {
+        state.ins.u8x16s[0] = vld1q_u8((sz_u8_t const *)(text + 0));
+        state.ins.u8x16s[1] = vld1q_u8((sz_u8_t const *)(text + 16));
+        state.ins.u8x16s[2] = vld1q_u8((sz_u8_t const *)(text + 32));
+        state.ins.u8x16s[3] = vld1q_u8((sz_u8_t const *)(text + 48));
+        state.aes.u8x16s[0] = sz_emulate_aesenc_u8x16_neon_(state.aes.u8x16s[0], state.ins.u8x16s[0]);
+        state.aes.u8x16s[1] = sz_emulate_aesenc_u8x16_neon_(state.aes.u8x16s[1], state.ins.u8x16s[1]);
+        state.aes.u8x16s[2] = sz_emulate_aesenc_u8x16_neon_(state.aes.u8x16s[2], state.ins.u8x16s[2]);
+        state.aes.u8x16s[3] = sz_emulate_aesenc_u8x16_neon_(state.aes.u8x16s[3], state.ins.u8x16s[3]);
+        state.sum.u64x2s[0] = vaddq_u64(
+            vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(state.sum.u64x2s[0]), order)), state.ins.u64x2s[0]);
+        state.sum.u64x2s[1] = vaddq_u64(
+            vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(state.sum.u64x2s[1]), order)), state.ins.u64x2s[1]);
+        state.sum.u64x2s[2] = vaddq_u64(
+            vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(state.sum.u64x2s[2]), order)), state.ins.u64x2s[2]);
+        state.sum.u64x2s[3] = vaddq_u64(
+            vreinterpretq_u64_u8(vqtbl1q_u8(vreinterpretq_u8_u64(state.sum.u64x2s[3]), order)), state.ins.u64x2s[3]);
+    }
+    state.ins.u8x16s[0] = vdupq_n_u8(0);
+    state.ins.u8x16s[1] = vdupq_n_u8(0);
+    state.ins.u8x16s[2] = vdupq_n_u8(0);
+    state.ins.u8x16s[3] = vdupq_n_u8(0);
+
+    // The tail is the last part we need to handle
+    if (tail_length) {
+        sz_ptr_t local_ptr = (sz_ptr_t)&state.ins.u8s[0];
+        sz_ptr_t const local_end = (sz_ptr_t)&state.ins.u8s[tail_length];
+        for (; local_ptr < local_end; ++local_ptr, ++text) *local_ptr = *text;
+        state.ins_length += tail_length;
+    }
+
+    // Save the state back to the memory
+    vst1q_u8((sz_u8_t *)state_ptr->aes + 0, state.aes.u8x16s[0]);
+    vst1q_u8((sz_u8_t *)state_ptr->aes + 16, state.aes.u8x16s[1]);
+    vst1q_u8((sz_u8_t *)state_ptr->aes + 32, state.aes.u8x16s[2]);
+    vst1q_u8((sz_u8_t *)state_ptr->aes + 48, state.aes.u8x16s[3]);
+    vst1q_u8((sz_u8_t *)state_ptr->sum + 0, state.sum.u8x16s[0]);
+    vst1q_u8((sz_u8_t *)state_ptr->sum + 16, state.sum.u8x16s[1]);
+    vst1q_u8((sz_u8_t *)state_ptr->sum + 32, state.sum.u8x16s[2]);
+    vst1q_u8((sz_u8_t *)state_ptr->sum + 48, state.sum.u8x16s[3]);
+    vst1q_u8((sz_u8_t *)state_ptr->ins + 0, state.ins.u8x16s[0]);
+    vst1q_u8((sz_u8_t *)state_ptr->ins + 16, state.ins.u8x16s[1]);
+    vst1q_u8((sz_u8_t *)state_ptr->ins + 32, state.ins.u8x16s[2]);
+    vst1q_u8((sz_u8_t *)state_ptr->ins + 48, state.ins.u8x16s[3]);
+    state_ptr->ins_length = state.ins_length;
 }
 
 SZ_PUBLIC sz_u64_t sz_hash_state_digest_neon(sz_hash_state_t const *state) {
     // This whole function is identical to Haswell.
     sz_size_t length = state->ins_length;
-    if (length >= 64) return sz_hash_state_finalize_neon_(state);
+    if (length >= 64) {
+        // Load the public state into the internal representation for finalization
+        sz_hash_state_internal_t_ internal_state;
+        internal_state.aes.u8x16s[0] = vld1q_u8(state->aes + 0);
+        internal_state.aes.u8x16s[1] = vld1q_u8(state->aes + 16);
+        internal_state.aes.u8x16s[2] = vld1q_u8(state->aes + 32);
+        internal_state.aes.u8x16s[3] = vld1q_u8(state->aes + 48);
+        internal_state.sum.u8x16s[0] = vld1q_u8(state->sum + 0);
+        internal_state.sum.u8x16s[1] = vld1q_u8(state->sum + 16);
+        internal_state.sum.u8x16s[2] = vld1q_u8(state->sum + 32);
+        internal_state.sum.u8x16s[3] = vld1q_u8(state->sum + 48);
+        internal_state.key.u8x16 = vld1q_u8(state->key);
+        internal_state.ins_length = state->ins_length;
+        return sz_hash_state_finalize_neon_(&internal_state);
+    }
 
     // Switch back to a smaller "minimal" state for small inputs
     sz_hash_minimal_t_ minimal_state;
-    minimal_state.key.u8x16 = state->key.u8x16;
-    minimal_state.aes.u8x16 = state->aes.u8x16s[0];
-    minimal_state.sum.u8x16 = state->sum.u8x16s[0];
+    minimal_state.key.u8x16 = vld1q_u8(state->key);
+    minimal_state.aes.u8x16 = vld1q_u8(state->aes);
+    minimal_state.sum.u8x16 = vld1q_u8(state->sum);
 
     // The logic is different depending on the length of the input
-    uint8x16_t const *ins_vecs = (uint8x16_t const *)&state->ins.u8x16s[0];
+    uint8x16_t const *ins_vecs = (uint8x16_t const *)state->ins;
     if (length <= 16) {
         sz_hash_minimal_update_neon_(&minimal_state, ins_vecs[0]);
         return sz_hash_minimal_finalize_neon_(&minimal_state, length);
@@ -2210,10 +3477,10 @@ SZ_PUBLIC sz_u64_t sz_hash_state_digest_neon(sz_hash_state_t const *state) {
     }
 }
 
-SZ_PUBLIC sz_u64_t sz_hash_neon(sz_cptr_t start, sz_size_t length, sz_u64_t seed) {
+SZ_PUBLIC SZ_NO_STACK_PROTECTOR sz_u64_t sz_hash_neon(sz_cptr_t start, sz_size_t length, sz_u64_t seed) {
     if (length <= 16) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
+        sz_align_(16) sz_hash_minimal_t_ state;
         sz_hash_minimal_init_neon_(&state, seed);
         // Load the data and update the state
         sz_u128_vec_t data_vec;
@@ -2224,7 +3491,7 @@ SZ_PUBLIC sz_u64_t sz_hash_neon(sz_cptr_t start, sz_size_t length, sz_u64_t seed
     }
     else if (length <= 32) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
+        sz_align_(16) sz_hash_minimal_t_ state;
         sz_hash_minimal_init_neon_(&state, seed);
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec;
@@ -2238,7 +3505,7 @@ SZ_PUBLIC sz_u64_t sz_hash_neon(sz_cptr_t start, sz_size_t length, sz_u64_t seed
     }
     else if (length <= 48) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
+        sz_align_(16) sz_hash_minimal_t_ state;
         sz_hash_minimal_init_neon_(&state, seed);
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec, data2_vec;
@@ -2254,7 +3521,7 @@ SZ_PUBLIC sz_u64_t sz_hash_neon(sz_cptr_t start, sz_size_t length, sz_u64_t seed
     }
     else if (length <= 64) {
         // Initialize the AES block with a given seed
-        sz_hash_minimal_t_ state;
+        sz_align_(16) sz_hash_minimal_t_ state;
         sz_hash_minimal_init_neon_(&state, seed);
         // Load the data and update the state
         sz_u128_vec_t data0_vec, data1_vec, data2_vec, data3_vec;
@@ -2271,10 +3538,8 @@ SZ_PUBLIC sz_u64_t sz_hash_neon(sz_cptr_t start, sz_size_t length, sz_u64_t seed
         return sz_hash_minimal_finalize_neon_(&state, length);
     }
     else {
-        // Use a larger state to handle the main loop and add different offsets
-        // to different lanes of the register
-        SZ_ALIGN64 sz_hash_state_t state;
-        sz_hash_state_init_neon(&state, seed);
+        sz_align_(64) sz_hash_state_internal_t_ state;
+        sz_hash_state_init_neon((sz_hash_state_t *)&state, seed);
         for (; state.ins_length + 64 <= length; state.ins_length += 64) {
             state.ins.u8x16s[0] = vld1q_u8((sz_u8_t const *)(start + state.ins_length + 0));
             state.ins.u8x16s[1] = vld1q_u8((sz_u8_t const *)(start + state.ins_length + 16));
@@ -2396,8 +3661,308 @@ SZ_PUBLIC void sz_fill_random_neon(sz_ptr_t text, sz_size_t length, sz_u64_t non
 #elif defined(__GNUC__)
 #pragma GCC pop_options
 #endif
-#endif            // SZ_USE_NEON
+#endif            // SZ_USE_NEON_AES
 #pragma endregion // NEON AES Implementation
+
+#pragma region NEON SHA Implementation
+#if SZ_USE_NEON_SHA
+#if defined(__clang__)
+#pragma clang attribute push(__attribute__((target("+simd+crypto+sha2"))), apply_to = function)
+#elif defined(__GNUC__)
+#pragma GCC push_options
+#pragma GCC target("+simd+crypto+sha2")
+#endif
+
+/**
+ *  @brief Process a single 512-bit (64-byte) block of data using SHA256.
+ *  @param[inout] hash Pointer to 8x 32-bit hash values, modified in place.
+ *  @param[in] block Pointer to 64-byte message block.
+ */
+SZ_INTERNAL void sz_sha256_process_block_neon_(sz_u32_t hash[sz_at_least_(8)], sz_u8_t const block[sz_at_least_(64)]) {
+    sz_u32_t const *round_constants = sz_sha256_round_constants_();
+
+    // Pre-load all round constants using multi-vector loads (4x16 = 64 bytes per load)
+    uint32x4x4_t k_batch0 = vld1q_u32_x4(&round_constants[0]);  // k0-k3
+    uint32x4x4_t k_batch1 = vld1q_u32_x4(&round_constants[16]); // k4-k7
+    uint32x4x4_t k_batch2 = vld1q_u32_x4(&round_constants[32]); // k8-k11
+    uint32x4x4_t k_batch3 = vld1q_u32_x4(&round_constants[48]); // k12-k15
+
+    uint32x4_t k0 = k_batch0.val[0];
+    uint32x4_t k1 = k_batch0.val[1];
+    uint32x4_t k2 = k_batch0.val[2];
+    uint32x4_t k3 = k_batch0.val[3];
+    uint32x4_t k4 = k_batch1.val[0];
+    uint32x4_t k5 = k_batch1.val[1];
+    uint32x4_t k6 = k_batch1.val[2];
+    uint32x4_t k7 = k_batch1.val[3];
+    uint32x4_t k8 = k_batch2.val[0];
+    uint32x4_t k9 = k_batch2.val[1];
+    uint32x4_t k10 = k_batch2.val[2];
+    uint32x4_t k11 = k_batch2.val[3];
+    uint32x4_t k12 = k_batch3.val[0];
+    uint32x4_t k13 = k_batch3.val[1];
+    uint32x4_t k14 = k_batch3.val[2];
+    uint32x4_t k15 = k_batch3.val[3];
+
+    // Load current hash state
+    uint32x4_t state0 = vld1q_u32(&hash[0]); // a, b, c, d
+    uint32x4_t state1 = vld1q_u32(&hash[4]); // e, f, g, h
+    uint32x4_t state0_saved = state0;
+    uint32x4_t state1_saved = state1;
+
+    // Load message schedule (big-endian)
+    uint32x4_t msg0 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(&block[0])));
+    uint32x4_t msg1 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(&block[16])));
+    uint32x4_t msg2 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(&block[32])));
+    uint32x4_t msg3 = vreinterpretq_u32_u8(vrev32q_u8(vld1q_u8(&block[48])));
+
+    uint32x4_t tmp0, tmp1;
+
+    // Rounds 0-3
+    tmp0 = vaddq_u32(msg0, k0);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+
+    // Rounds 4-7
+    tmp0 = vaddq_u32(msg1, k1);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+
+    // Rounds 8-11
+    tmp0 = vaddq_u32(msg2, k2);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+
+    // Rounds 12-15: OpenSSL pattern - add K first, then message schedule during hash
+    tmp0 = vaddq_u32(msg3, k3);
+    msg0 = vsha256su0q_u32(msg0, msg1);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg0 = vsha256su1q_u32(msg0, msg2, msg3);
+
+    // Rounds 16-19
+    tmp0 = vaddq_u32(msg0, k4);
+    msg1 = vsha256su0q_u32(msg1, msg2);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg1 = vsha256su1q_u32(msg1, msg3, msg0);
+
+    // Rounds 20-23
+    tmp0 = vaddq_u32(msg1, k5);
+    msg2 = vsha256su0q_u32(msg2, msg3);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg2 = vsha256su1q_u32(msg2, msg0, msg1);
+
+    // Rounds 24-27
+    tmp0 = vaddq_u32(msg2, k6);
+    msg3 = vsha256su0q_u32(msg3, msg0);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg3 = vsha256su1q_u32(msg3, msg1, msg2);
+
+    // Rounds 28-31
+    tmp0 = vaddq_u32(msg3, k7);
+    msg0 = vsha256su0q_u32(msg0, msg1);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg0 = vsha256su1q_u32(msg0, msg2, msg3);
+
+    // Rounds 32-35
+    tmp0 = vaddq_u32(msg0, k8);
+    msg1 = vsha256su0q_u32(msg1, msg2);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg1 = vsha256su1q_u32(msg1, msg3, msg0);
+
+    // Rounds 36-39
+    tmp0 = vaddq_u32(msg1, k9);
+    msg2 = vsha256su0q_u32(msg2, msg3);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg2 = vsha256su1q_u32(msg2, msg0, msg1);
+
+    // Rounds 40-43
+    tmp0 = vaddq_u32(msg2, k10);
+    msg3 = vsha256su0q_u32(msg3, msg0);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg3 = vsha256su1q_u32(msg3, msg1, msg2);
+
+    // Rounds 44-47
+    tmp0 = vaddq_u32(msg3, k11);
+    msg0 = vsha256su0q_u32(msg0, msg1);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg0 = vsha256su1q_u32(msg0, msg2, msg3);
+
+    // Rounds 48-51
+    tmp0 = vaddq_u32(msg0, k12);
+    msg1 = vsha256su0q_u32(msg1, msg2);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg1 = vsha256su1q_u32(msg1, msg3, msg0);
+
+    // Rounds 52-55
+    tmp0 = vaddq_u32(msg1, k13);
+    msg2 = vsha256su0q_u32(msg2, msg3);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg2 = vsha256su1q_u32(msg2, msg0, msg1);
+
+    // Rounds 56-59
+    tmp0 = vaddq_u32(msg2, k14);
+    msg3 = vsha256su0q_u32(msg3, msg0);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+    msg3 = vsha256su1q_u32(msg3, msg1, msg2);
+
+    // Rounds 60-63 (no next message to prepare, just process with msg3)
+    tmp0 = vaddq_u32(msg3, k15);
+    tmp1 = state0;
+    state0 = vsha256hq_u32(state0, state1, tmp0);
+    state1 = vsha256h2q_u32(state1, tmp1, tmp0);
+
+    // Add compressed chunk to current hash value
+    state0 = vaddq_u32(state0, state0_saved);
+    state1 = vaddq_u32(state1, state1_saved);
+
+    // Store result back
+    vst1q_u32(&hash[0], state0);
+    vst1q_u32(&hash[4], state1);
+}
+
+SZ_PUBLIC void sz_sha256_state_init_neon(sz_sha256_state_t *state_ptr) {
+    // Vectorize the load/store of 8x u32s using 2x 128-bit NEON loads
+    sz_u32_t const *initial_hash = sz_sha256_initial_hash_();
+    vst1q_u32(&state_ptr->hash[0], vld1q_u32(&initial_hash[0]));
+    vst1q_u32(&state_ptr->hash[4], vld1q_u32(&initial_hash[4]));
+    state_ptr->block_length = 0, state_ptr->total_length = 0;
+}
+
+SZ_PUBLIC void sz_sha256_state_update_neon(sz_sha256_state_t *state_ptr, sz_cptr_t data, sz_size_t length) {
+    sz_u8_t const *input = (sz_u8_t const *)data;
+    sz_size_t const current_block_index = state_ptr->block_length / 64;
+    sz_size_t const final_block_index = (state_ptr->block_length + length) / 64;
+    int const stays_in_the_block = current_block_index == final_block_index;
+    int const fills_the_block = (state_ptr->block_length + length) % 64 == 0;
+
+    state_ptr->total_length += length;
+
+    // Fast path: stays in same block and doesn't fill it
+    if (stays_in_the_block && !fills_the_block) {
+        for (; length; --length, ++state_ptr->block_length, ++input) state_ptr->block[state_ptr->block_length] = *input;
+        return;
+    }
+
+    // Calculate head, body, and tail lengths
+    sz_size_t const head_length = (64 - state_ptr->block_length) % 64;
+    sz_size_t const tail_length = (state_ptr->block_length + length) % 64;
+    sz_size_t const body_length = length - head_length - tail_length;
+
+    // Copy hash to aligned local buffer
+    sz_align_(16) sz_u32_t hash[8];
+    vst1q_u32(&hash[0], vld1q_u32(&state_ptr->hash[0]));
+    vst1q_u32(&hash[4], vld1q_u32(&state_ptr->hash[4]));
+
+    // Process head to complete the current block
+    if (head_length) {
+        for (sz_size_t i = 0; i < head_length; ++i) state_ptr->block[state_ptr->block_length++] = input[i];
+        sz_sha256_process_block_neon_(hash, state_ptr->block);
+        state_ptr->block_length = 0;
+        input += head_length;
+    }
+
+    // Process body (complete aligned blocks)
+    for (sz_size_t processed = 0; processed < body_length; processed += 64, input += 64)
+        sz_sha256_process_block_neon_(hash, input);
+
+    // Process tail (remaining bytes into block buffer)
+    for (sz_size_t i = 0; i < tail_length; ++i) state_ptr->block[i] = input[i];
+    state_ptr->block_length = tail_length;
+
+    // Copy hash back
+    vst1q_u32(&state_ptr->hash[0], vld1q_u32(&hash[0]));
+    vst1q_u32(&state_ptr->hash[4], vld1q_u32(&hash[4]));
+}
+
+/**
+ *  @brief  Finalize SHA256 computation and produce 256-bit digest using NEON.
+ *  @param  state   Pointer to SHA256 state structure (not modified).
+ *  @param  digest  Output buffer for 32-byte (256-bit) hash digest.
+ */
+SZ_PUBLIC void sz_sha256_state_digest_neon(sz_sha256_state_t const *state_ptr, sz_u8_t digest[sz_at_least_(32)]) {
+    // Create a copy of the state for padding
+    sz_sha256_state_t state = *state_ptr;
+
+    // Append the '1' bit (0x80 byte) after the message
+    state.block[state.block_length++] = 0x80;
+
+    // If there's not enough room for the 64-bit length, pad this block and process it
+    if (state.block_length > 56) {
+        // Zero remaining bytes using vectorized writes
+        sz_size_t remaining = 64 - state.block_length;
+        sz_size_t vec_bytes = (remaining / 16) * 16;
+        uint8x16_t zero_vec = vdupq_n_u8(0);
+        for (sz_size_t i = 0; i < vec_bytes; i += 16) vst1q_u8(&state.block[state.block_length + i], zero_vec);
+        for (sz_size_t i = vec_bytes; i < remaining; ++i) state.block[state.block_length + i] = 0;
+        sz_sha256_process_block_neon_(state.hash, state.block);
+        state.block_length = 0;
+    }
+
+    // Pad with zeros until we have 56 bytes
+    sz_size_t remaining = 56 - state.block_length;
+    sz_size_t vec_bytes = (remaining / 16) * 16;
+    uint8x16_t zero_vec = vdupq_n_u8(0);
+    for (sz_size_t i = 0; i < vec_bytes; i += 16) vst1q_u8(&state.block[state.block_length + i], zero_vec);
+    for (sz_size_t i = vec_bytes; i < remaining; ++i) state.block[state.block_length + i] = 0;
+    state.block_length = 56;
+
+    // Append the message length in bits as a 64-bit big-endian integer
+    sz_u64_t bit_length = state.total_length * 8;
+    state.block[56] = (sz_u8_t)(bit_length >> 56);
+    state.block[57] = (sz_u8_t)(bit_length >> 48);
+    state.block[58] = (sz_u8_t)(bit_length >> 40);
+    state.block[59] = (sz_u8_t)(bit_length >> 32);
+    state.block[60] = (sz_u8_t)(bit_length >> 24);
+    state.block[61] = (sz_u8_t)(bit_length >> 16);
+    state.block[62] = (sz_u8_t)(bit_length >> 8);
+    state.block[63] = (sz_u8_t)(bit_length >> 0);
+
+    // Process the final block
+    sz_sha256_process_block_neon_(state.hash, state.block);
+
+    // Produce the final hash digest in big-endian format
+    for (sz_size_t i = 0; i < 8; ++i) {
+        digest[i * 4 + 0] = (sz_u8_t)(state.hash[i] >> 24);
+        digest[i * 4 + 1] = (sz_u8_t)(state.hash[i] >> 16);
+        digest[i * 4 + 2] = (sz_u8_t)(state.hash[i] >> 8);
+        digest[i * 4 + 3] = (sz_u8_t)(state.hash[i] >> 0);
+    }
+}
+
+#if defined(__clang__)
+#pragma clang attribute pop
+#elif defined(__GNUC__)
+#pragma GCC pop_options
+#endif
+#endif            // SZ_USE_NEON_SHA
+#pragma endregion // NEON SHA Implementation
 
 /*  Implementation of the string search algorithms using the Arm SVE variable-length registers,
  *  available in Arm v9 processors, like in Apple M4+ and Graviton 3+ CPUs.
@@ -2405,10 +3970,10 @@ SZ_PUBLIC void sz_fill_random_neon(sz_ptr_t text, sz_size_t length, sz_u64_t non
 #pragma region SVE Implementation
 #if SZ_USE_SVE
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+sve"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+sve"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+sve")
+#pragma GCC target("+sve")
 #endif
 
 SZ_PUBLIC sz_u64_t sz_bytesum_sve(sz_cptr_t text, sz_size_t length) {
@@ -2443,10 +4008,10 @@ SZ_PUBLIC sz_u64_t sz_bytesum_sve(sz_cptr_t text, sz_size_t length) {
 #pragma region SVE2 Implementation
 #if SZ_USE_SVE2
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+sve+sve2"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+sve+sve2"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+sve+sve2")
+#pragma GCC target("+sve+sve2")
 #endif
 
 SZ_PUBLIC sz_u64_t sz_bytesum_sve2(sz_cptr_t text, sz_size_t length) {
@@ -2485,10 +4050,10 @@ SZ_PUBLIC sz_u64_t sz_bytesum_sve2(sz_cptr_t text, sz_size_t length) {
 #pragma region SVE2 AES Implementation
 #if SZ_USE_SVE2_AES
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+sve+sve2+sve2-aes"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+sve+sve2+sve2-aes"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+sve+sve2+sve2-aes")
+#pragma GCC target("+sve+sve2+sve2-aes")
 #endif
 
 /**
@@ -2500,39 +4065,35 @@ SZ_INTERNAL svuint8_t sz_emulate_aesenc_u8x16_sve2_(svuint8_t state_vec, svuint8
     return sveor_u8_x(svptrue_b8(), svaesmc_u8(svaese_u8(state_vec, svdup_n_u8(0))), round_key_vec);
 }
 
-SZ_INTERNAL svuint64_t sz_emulate_aesenc_u64x2_sve2_(svuint64_t state_vec, svuint64_t round_key_vec) {
-    return svreinterpret_u64_u8(sz_emulate_aesenc_u8x16_sve2_( //
-        svreinterpret_u8_u64(state_vec),                       //
-        svreinterpret_u8_u64(round_key_vec)));
-}
-
 /** @brief A variant of `sz_hash_sve2` for strings up to 16 bytes long - smallest SVE register size. */
-SZ_PUBLIC sz_u64_t sz_hash_sve2_upto16_(sz_cptr_t text, sz_size_t length, sz_u64_t seed) {
+SZ_INTERNAL sz_u64_t sz_hash_sve2_upto16_(sz_cptr_t text, sz_size_t length, sz_u64_t seed) {
     svuint8_t state_aes, state_sum, state_key;
 
     // To load and store the seed, we don't even need a `svwhilelt_b64(0, 2)`.
     state_key = svreinterpret_u8_u64(svdup_n_u64(seed));
+    svbool_t const all64 = svptrue_b64();
+    svbool_t const all8 = svptrue_b8();
 
     // XOR the user-supplied keys with the two "pi" constants
     sz_u64_t const *pi = sz_hash_pi_constants_();
-    svuint64_t pi0 = svld1_u64(svptrue_b64(), pi);
-    svuint64_t pi1 = svld1_u64(svptrue_b64(), pi + 8);
-    state_aes = sveor_u8_x(svptrue_b8(), state_key, svreinterpret_u8_u64(pi0));
-    state_sum = sveor_u8_x(svptrue_b8(), state_key, svreinterpret_u8_u64(pi1));
+    svuint64_t pi0 = svld1_u64(all64, pi);
+    svuint64_t pi1 = svld1_u64(all64, pi + 8);
+    state_aes = sveor_u8_x(all8, state_key, svreinterpret_u8_u64(pi0));
+    state_sum = sveor_u8_x(all8, state_key, svreinterpret_u8_u64(pi1));
 
     // We will only use the first 128 bits of the shuffle mask
-    svuint8_t const shuffle_mask = svld1_u8(svptrue_b8(), sz_hash_u8x16x4_shuffle_());
+    svuint8_t const order = svld1_u8(all8, sz_hash_u8x16x4_shuffle_());
 
     // This is our best case for SVE2 dominance over NEON - we can load the data in one go with a predicate.
     svuint8_t block = svld1_u8(svwhilelt_b8((sz_u64_t)0, (sz_u64_t)length), (sz_u8_t const *)text);
     // One round of hashing logic
     state_aes = sz_emulate_aesenc_u8x16_sve2_(state_aes, block);
-    svuint8_t sum_shuffled = svtbl_u8(state_sum, shuffle_mask);
-    state_sum = svreinterpret_u8_u64(
-        svadd_u64_x(svptrue_b64(), svreinterpret_u64_u8(sum_shuffled), svreinterpret_u64_u8(block)));
+    svuint8_t sum_shuffled = svtbl_u8(state_sum, order);
+    state_sum =
+        svreinterpret_u8_u64(svadd_u64_x(all64, svreinterpret_u64_u8(sum_shuffled), svreinterpret_u64_u8(block)));
 
     // Now mix, folding the length into the key
-    svuint64_t key_with_length = svadd_u64_x(svptrue_b64(), svreinterpret_u64_u8(state_key), svdupq_n_u64(length, 0));
+    svuint64_t key_with_length = svadd_u64_x(all64, svreinterpret_u64_u8(state_key), svdupq_n_u64(length, 0));
     // Combine the "sum" and the "AES" blocks
     svuint8_t mixed = sz_emulate_aesenc_u8x16_sve2_(state_sum, state_aes);
     // Make sure the "key" mixes enough with the state,
@@ -2541,13 +4102,28 @@ SZ_PUBLIC sz_u64_t sz_hash_sve2_upto16_(sz_cptr_t text, sz_size_t length, sz_u64
         sz_emulate_aesenc_u8x16_sve2_(mixed, svreinterpret_u8_u64(key_with_length)), mixed);
     // Extract the low 64 bits
     svuint64_t mixed_in_register_u64 = svreinterpret_u64_u8(mixed_in_register);
-    return svlasta_u64(svpfalse_b(), mixed_in_register_u64); // Extract the first element
+    return svlasta_u64(all64, mixed_in_register_u64); // Extract the first element
 }
 
-SZ_PUBLIC void sz_hash_state_init_sve2(sz_hash_state_t *state, sz_u64_t seed) { sz_hash_state_init_neon(state, seed); }
+/*  @brief  SVE2 increment hash functions currently mostly delegate to NEON for optimal performance.
+ *  @see    draft/hash.h for experimental SVE2 implementations.
+ *
+ *  Vanilla SVE could have helped optimized loads & stores with predicated instructions,
+ *  but the `mov` between Z and Q registers isn't free. Moreover, those "bridge" moving
+ *  instructions are designed for the bottom 128 bits of the state. Using "stores" for
+ *  larger 256-bit registers isn't fast either.
+ *
+ *  SVE2 comes with optional AES extensions, but they don't yield absolutely any performance
+ *  improvements even for wider registers due to the added cost and complexity of dealing with
+ *  predicates.
+ */
 
-SZ_PUBLIC void sz_hash_state_update_sve2(sz_hash_state_t *state, sz_cptr_t text, sz_size_t length) {
-    sz_hash_state_update_neon(state, text, length);
+SZ_PUBLIC void sz_hash_state_init_sve2(sz_hash_state_t *state, sz_u64_t seed) { //
+    sz_hash_state_init_neon(state, seed);
+}
+
+SZ_PUBLIC void sz_hash_state_update_sve2(sz_hash_state_t *state_ptr, sz_cptr_t text, sz_size_t length) {
+    sz_hash_state_update_neon(state_ptr, text, length);
 }
 
 SZ_PUBLIC sz_u64_t sz_hash_state_digest_sve2(sz_hash_state_t const *state) { //
@@ -2555,71 +4131,13 @@ SZ_PUBLIC sz_u64_t sz_hash_state_digest_sve2(sz_hash_state_t const *state) { //
 }
 
 SZ_PUBLIC sz_u64_t sz_hash_sve2(sz_cptr_t text, sz_size_t length, sz_u64_t seed) {
-    if (length <= 16) { return sz_hash_sve2_upto16_(text, length, seed); }
-    else { return sz_hash_neon(text, length, seed); }
+    if (length <= 16) return sz_hash_sve2_upto16_(text, length, seed);
+    return sz_hash_neon(text, length, seed);
 }
 
 SZ_PUBLIC void sz_fill_random_sve2(sz_ptr_t text, sz_size_t length, sz_u64_t nonce) {
     sz_fill_random_neon(text, length, nonce);
 }
-
-#if 0
-/**
- *  @brief  A helper function for computing 16x packed string hashes for strings up to 16 bytes long.
- *          The number 16 is derived from 2048 bits (256 bytes) being the maximum size of the SVE register
- *          and the AES block size being 128 bits (16 bytes). So in the largest SVE register, we can fit
- *          16 such individual AES blocks.
- *          It's relevant for set intersection operations and is faster than hashing each string individually.
- */
-SZ_PUBLIC void sz_hash_sve2_upto16x16_(char texts[16][16], sz_size_t length[16], sz_u64_t seed, sz_u64_t hashes[16]) {
-    svuint8_t state_aes, state_sum, state_key;
-
-    // To load and store the seed, we don't even need a `svwhilelt_b64(0, 2)`.
-    state_key = svreinterpret_u8_u64(svdup_n_u64(seed));
-
-    // XOR the user-supplied keys with the two "pi" constants
-    sz_u64_t const *pi = sz_hash_pi_constants_();
-    svuint64_t pi0 = svdupq_n_u64(pi[0], pi[1]);
-    svuint64_t pi1 = svdupq_n_u64(pi[8], pi[9]);
-    state_aes = sveor_u8_x(svptrue_b8(), state_key, svreinterpret_u8_u64(pi0));
-    state_sum = sveor_u8_x(svptrue_b8(), state_key, svreinterpret_u8_u64(pi1));
-
-    // We will only use the first 128 bits of the shuffle mask
-    sz_u8_t const *shuffle_mask = sz_hash_u8x16x4_shuffle_();
-    svuint8_t const shuffle_mask = svreinterpret_u8_u64(svdupq_n_u64( //
-        *(sz_u64_t const *)(shuffle_mask + 0),                        //
-        *(sz_u64_t const *)(shuffle_mask + 8)));
-    svuint8_t const sum_shuffled = svtbl_u8(state_sum, shuffle_mask);
-
-    // Loop throughthe input until we process all the bytes
-    sz_size_t const bytes_per_register = svcntb();
-    sz_size_t const texts_per_register = bytes_per_register / 16;
-    for (sz_size_t progress_bytes = 0; progress_bytes < 256; progress_bytes += bytes_per_register) {
-        svuint8_t blocks =
-            svld1_u8(svwhilelt_b8((sz_u64_t)progress_bytes, (sz_u64_t)256), (sz_u8_t const *)(&texts[0][0] + progress_bytes));
-
-        // One round of hashing logic for multiple blocks
-        svuint8_t blocks_aes = sz_emulate_aesenc_u8x16_sve2_(state_aes, blocks);
-        svuint8_t blocks_sum = svreinterpret_u8_u64(
-            svadd_u64_x(svptrue_b64(), svreinterpret_u64_u8(sum_shuffled), svreinterpret_u64_u8(blocks)));
-
-        // Now mix, folding the length into the key
-        svuint64_t key_with_lengths =
-            svadd_u64_x(svptrue_b64(), svreinterpret_u64_u8(state_key), svdupq_n_u64(length, 0));
-
-        // Combine the "sum" and the "AES" blocks
-        svuint8_t mixed = sz_emulate_aesenc_u8x16_sve2_(blocks_sum, blocks_aes);
-
-        // Make sure the "key" mixes enough with the state,
-        // as with less than 2 rounds - SMHasher fails
-        svuint8_t mixed_in_register = sz_emulate_aesenc_u8x16_sve2_(
-            sz_emulate_aesenc_u8x16_sve2_(mixed, svreinterpret_u8_u64(key_with_lengths)), mixed);
-
-        // Extract the low 64 bits from each lane
-        svuint64_t mixed_in_register_u64 = svreinterpret_u64_u8(mixed_in_register);
-    }
-}
-#endif
 
 #if defined(__clang__)
 #pragma clang attribute pop
@@ -2658,8 +4176,8 @@ SZ_DYNAMIC sz_u64_t sz_hash(sz_cptr_t text, sz_size_t length, sz_u64_t seed) {
     return sz_hash_ice(text, length, seed);
 #elif SZ_USE_SKYLAKE
     return sz_hash_skylake(text, length, seed);
-#elif SZ_USE_HASWELL
-    return sz_hash_haswell(text, length, seed);
+#elif SZ_USE_WESTMERE
+    return sz_hash_westmere(text, length, seed);
 #elif SZ_USE_SVE2_AES
     return sz_hash_sve2(text, length, seed);
 #elif SZ_USE_NEON_AES
@@ -2674,8 +4192,8 @@ SZ_DYNAMIC void sz_fill_random(sz_ptr_t text, sz_size_t length, sz_u64_t nonce) 
     sz_fill_random_ice(text, length, nonce);
 #elif SZ_USE_SKYLAKE
     sz_fill_random_skylake(text, length, nonce);
-#elif SZ_USE_HASWELL
-    sz_fill_random_haswell(text, length, nonce);
+#elif SZ_USE_WESTMERE
+    sz_fill_random_westmere(text, length, nonce);
 #elif SZ_USE_SVE2_AES
     sz_fill_random_sve2(text, length, nonce);
 #elif SZ_USE_NEON_AES
@@ -2690,8 +4208,8 @@ SZ_DYNAMIC void sz_hash_state_init(sz_hash_state_t *state, sz_u64_t seed) {
     sz_hash_state_init_ice(state, seed);
 #elif SZ_USE_SKYLAKE
     sz_hash_state_init_skylake(state, seed);
-#elif SZ_USE_HASWELL
-    sz_hash_state_init_haswell(state, seed);
+#elif SZ_USE_WESTMERE
+    sz_hash_state_init_westmere(state, seed);
 #elif SZ_USE_SVE2_AES
     sz_hash_state_init_sve2(state, seed);
 #elif SZ_USE_NEON_AES
@@ -2706,8 +4224,8 @@ SZ_DYNAMIC void sz_hash_state_update(sz_hash_state_t *state, sz_cptr_t text, sz_
     sz_hash_state_update_ice(state, text, length);
 #elif SZ_USE_SKYLAKE
     sz_hash_state_update_skylake(state, text, length);
-#elif SZ_USE_HASWELL
-    sz_hash_state_update_haswell(state, text, length);
+#elif SZ_USE_WESTMERE
+    sz_hash_state_update_westmere(state, text, length);
 #elif SZ_USE_SVE2_AES
     sz_hash_state_update_sve2(state, text, length);
 #elif SZ_USE_NEON_AES
@@ -2722,14 +4240,50 @@ SZ_DYNAMIC sz_u64_t sz_hash_state_digest(sz_hash_state_t const *state) {
     return sz_hash_state_digest_ice(state);
 #elif SZ_USE_SKYLAKE
     return sz_hash_state_digest_skylake(state);
-#elif SZ_USE_HASWELL
-    return sz_hash_state_digest_haswell(state);
+#elif SZ_USE_WESTMERE
+    return sz_hash_state_digest_westmere(state);
 #elif SZ_USE_SVE2_AES
     return sz_hash_state_digest_sve2(state);
 #elif SZ_USE_NEON_AES
     return sz_hash_state_digest_neon(state);
 #else
     return sz_hash_state_digest_serial(state);
+#endif
+}
+
+SZ_DYNAMIC void sz_sha256_state_init(sz_sha256_state_t *state) {
+#if SZ_USE_NEON_SHA
+    sz_sha256_state_init_neon(state);
+#elif SZ_USE_ICE
+    sz_sha256_state_init_ice(state);
+#elif SZ_USE_GOLDMONT
+    sz_sha256_state_init_goldmont(state);
+#else
+    sz_sha256_state_init_serial(state);
+#endif
+}
+
+SZ_DYNAMIC void sz_sha256_state_update(sz_sha256_state_t *state, sz_cptr_t data, sz_size_t length) {
+#if SZ_USE_NEON_SHA
+    sz_sha256_state_update_neon(state, data, length);
+#elif SZ_USE_ICE
+    sz_sha256_state_update_ice(state, data, length);
+#elif SZ_USE_GOLDMONT
+    sz_sha256_state_update_goldmont(state, data, length);
+#else
+    sz_sha256_state_update_serial(state, data, length);
+#endif
+}
+
+SZ_DYNAMIC void sz_sha256_state_digest(sz_sha256_state_t const *state, sz_u8_t digest[sz_at_least_(32)]) {
+#if SZ_USE_NEON_SHA
+    sz_sha256_state_digest_neon(state, digest);
+#elif SZ_USE_ICE
+    sz_sha256_state_digest_ice(state, digest);
+#elif SZ_USE_GOLDMONT
+    sz_sha256_state_digest_goldmont(state, digest);
+#else
+    sz_sha256_state_digest_serial(state, digest);
 #endif
 }
 

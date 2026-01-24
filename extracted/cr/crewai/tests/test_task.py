@@ -162,6 +162,7 @@ def test_task_callback_returns_task_output():
             "name": task.name or task.description,
             "expected_output": "Bullet point list of 5 interesting ideas.",
             "output_format": OutputFormat.RAW,
+            "messages": [],
         }
         assert output_dict == expected_output
 
@@ -288,7 +289,7 @@ def test_guardrail_type_error():
         )
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_output_pydantic_sequential():
     class ScoreOutput(BaseModel):
         score: int
@@ -313,7 +314,7 @@ def test_output_pydantic_sequential():
     assert result.to_dict() == {"score": 4}
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_output_pydantic_hierarchical():
     class ScoreOutput(BaseModel):
         score: int
@@ -343,7 +344,7 @@ def test_output_pydantic_hierarchical():
     assert result.to_dict() == {"score": 4}
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_output_json_sequential():
     import uuid
 
@@ -375,7 +376,7 @@ def test_output_json_sequential():
         os.remove(output_file)
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_output_json_hierarchical():
     class ScoreOutput(BaseModel):
         score: int
@@ -405,7 +406,7 @@ def test_output_json_hierarchical():
     assert result.to_dict() == {"score": 4}
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_inject_date():
     reporter = Agent(
         role="Reporter",
@@ -430,7 +431,7 @@ def test_inject_date():
     assert "2025-05-21" in result.raw
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_inject_date_custom_format():
     reporter = Agent(
         role="Reporter",
@@ -456,7 +457,7 @@ def test_inject_date_custom_format():
     assert "May 21, 2025" in result.raw
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_no_inject_date():
     reporter = Agent(
         role="Reporter",
@@ -481,7 +482,7 @@ def test_no_inject_date():
     assert "2025-05-21" not in result.raw
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_json_property_without_output_json():
     class ScoreOutput(BaseModel):
         score: int
@@ -509,7 +510,7 @@ def test_json_property_without_output_json():
     assert "No JSON output found in the final task." in str(excinfo.value)
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_output_json_dict_sequential():
     class ScoreOutput(BaseModel):
         score: int
@@ -534,7 +535,7 @@ def test_output_json_dict_sequential():
     assert result.to_dict() == {"score": 4}
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_output_json_dict_hierarchical():
     class ScoreOutput(BaseModel):
         score: int
@@ -564,7 +565,7 @@ def test_output_json_dict_hierarchical():
     assert result.to_dict() == {"score": 4}
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_output_pydantic_to_another_task():
     class ScoreOutput(BaseModel):
         score: int
@@ -574,8 +575,8 @@ def test_output_pydantic_to_another_task():
         goal="Score the title",
         backstory="You're an expert scorer, specialized in scoring titles.",
         allow_delegation=False,
-        llm="gpt-4-0125-preview",
-        function_calling_llm="gpt-3.5-turbo-0125",
+        llm="gpt-4o",
+        function_calling_llm="gpt-4o",
         verbose=True,
     )
 
@@ -602,7 +603,7 @@ def test_output_pydantic_to_another_task():
     assert pydantic_result.score == 5
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_output_json_to_another_task():
     class ScoreOutput(BaseModel):
         score: int
@@ -630,10 +631,10 @@ def test_output_json_to_another_task():
 
     crew = Crew(agents=[scorer], tasks=[task1, task2])
     result = crew.kickoff()
-    assert '{"score": 4}' == result.json
+    assert '{"score": 3}' == result.json
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_save_task_output():
     scorer = Agent(
         role="Scorer",
@@ -657,7 +658,7 @@ def test_save_task_output():
         save_file.assert_called_once()
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_save_task_json_output():
     from unittest.mock import patch
 
@@ -695,9 +696,14 @@ def test_save_task_json_output():
                 assert "score" in data
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
-def test_save_task_pydantic_output():
-    import uuid
+@pytest.mark.vcr()
+def test_save_task_pydantic_output(tmp_path, monkeypatch):
+    """Test saving pydantic output to a file.
+
+    Uses tmp_path fixture and monkeypatch to change directory to avoid
+    file system race conditions on enterprise systems.
+    """
+    from pathlib import Path
 
     class ScoreOutput(BaseModel):
         score: int
@@ -709,7 +715,9 @@ def test_save_task_pydantic_output():
         allow_delegation=False,
     )
 
-    output_file = f"score_{uuid.uuid4()}.json"
+    monkeypatch.chdir(tmp_path)
+
+    output_file = "score_output.json"
     task = Task(
         description="Give me an integer score between 1-5 for the following title: 'The impact of AI in the future of work'",
         expected_output="The score of the title.",
@@ -721,14 +729,12 @@ def test_save_task_pydantic_output():
     crew = Crew(agents=[scorer], tasks=[task])
     crew.kickoff()
 
-    output_file_exists = os.path.exists(output_file)
-    assert output_file_exists
-    assert {"score": 4} == json.loads(open(output_file).read())
-    if output_file_exists:
-        os.remove(output_file)
+    output_path = Path(output_file).resolve()
+    assert output_path.exists()
+    assert {"score": 4} == json.loads(output_path.read_text())
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_custom_converter_cls():
     class ScoreOutput(BaseModel):
         score: int
@@ -760,7 +766,7 @@ def test_custom_converter_cls():
         mock_to_pydantic.assert_called_once()
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_increment_delegations_for_hierarchical_process():
     scorer = Agent(
         role="Scorer",
@@ -787,7 +793,7 @@ def test_increment_delegations_for_hierarchical_process():
         increment_delegations.assert_called_once()
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_increment_delegations_for_sequential_process():
     manager = Agent(
         role="Manager",
@@ -821,7 +827,7 @@ def test_increment_delegations_for_sequential_process():
         increment_delegations.assert_called_once()
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_increment_tool_errors():
     from crewai.tools import tool
 
@@ -1218,7 +1224,7 @@ def test_create_directory_false():
     assert not resolved_dir.exists()
 
     with pytest.raises(
-        RuntimeError, match="Directory .* does not exist and create_directory is False"
+        RuntimeError, match=r"Directory .* does not exist and create_directory is False"
     ):
         task._save_file("test content")
 
@@ -1275,7 +1281,7 @@ def test_github_issue_3149_reproduction():
     assert task.output_file == "test_output.txt"
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_task_execution_times():
     researcher = Agent(
         role="Researcher",
@@ -1545,7 +1551,7 @@ def test_task_with_no_max_execution_time():
         execute.assert_called_once()
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_task_with_max_execution_time():
     from crewai.tools import tool
 
@@ -1579,7 +1585,7 @@ def test_task_with_max_execution_time():
     assert result.raw == "okay"
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_task_with_max_execution_time_exceeded():
     from crewai.tools import tool
 
@@ -1613,7 +1619,7 @@ def test_task_with_max_execution_time_exceeded():
         task.execute_sync(agent=researcher)
 
 
-@pytest.mark.vcr(filter_headers=["authorization"])
+@pytest.mark.vcr()
 def test_task_interpolation_with_hyphens():
     agent = Agent(
         role="Researcher",
@@ -1635,3 +1641,110 @@ def test_task_interpolation_with_hyphens():
     assert "say hello world" in task.prompt()
 
     assert result.raw == "Hello, World!"
+
+
+def test_task_copy_with_none_context():
+    original_task = Task(
+        description="Test task",
+        expected_output="Test output",
+        context=None
+    )
+
+    new_task = original_task.copy(agents=[], task_mapping={})
+    assert original_task.context is None
+    assert new_task.context is None
+
+
+def test_task_copy_with_not_specified_context():
+    from crewai.utilities.constants import NOT_SPECIFIED
+    original_task = Task(
+        description="Test task",
+        expected_output="Test output",
+    )
+
+    new_task = original_task.copy(agents=[], task_mapping={})
+    assert original_task.context is NOT_SPECIFIED
+    assert new_task.context is NOT_SPECIFIED
+
+
+def test_task_copy_with_list_context():
+    """Test that copying a task with list context works correctly."""
+    task1 = Task(
+        description="Task 1",
+        expected_output="Output 1"
+    )
+    task2 = Task(
+        description="Task 2",
+        expected_output="Output 2",
+        context=[task1]
+    )
+
+    task_mapping = {task1.key: task1}
+
+    copied_task2 = task2.copy(agents=[], task_mapping=task_mapping)
+
+    assert isinstance(copied_task2.context, list)
+    assert len(copied_task2.context) == 1
+    assert copied_task2.context[0] is task1
+
+
+@pytest.mark.vcr()
+def test_task_output_includes_messages():
+    """Test that TaskOutput includes messages from agent execution."""
+    researcher = Agent(
+        role="Researcher",
+        goal="Make the best research and analysis on content about AI and AI agents",
+        backstory="You're an expert researcher, specialized in technology, software engineering, AI and startups. You work as a freelancer and is now working on doing research and analysis for a new customer.",
+        allow_delegation=False,
+    )
+
+    task1 = Task(
+        description="Give me a list of 3 interesting ideas about AI.",
+        expected_output="Bullet point list of 3 ideas.",
+        agent=researcher,
+    )
+
+    task2 = Task(
+        description="Summarize the ideas from the previous task.",
+        expected_output="A summary of the ideas.",
+        agent=researcher,
+    )
+
+    crew = Crew(agents=[researcher], tasks=[task1, task2], process=Process.sequential)
+    result = crew.kickoff()
+
+    # Verify both tasks have messages
+    assert len(result.tasks_output) == 2
+
+    # Check first task output has messages
+    task1_output = result.tasks_output[0]
+    assert hasattr(task1_output, "messages")
+    assert isinstance(task1_output.messages, list)
+    assert len(task1_output.messages) > 0
+
+    # Check second task output has messages
+    task2_output = result.tasks_output[1]
+    assert hasattr(task2_output, "messages")
+    assert isinstance(task2_output.messages, list)
+    assert len(task2_output.messages) > 0
+
+
+def test_async_execution_fails():
+    researcher = Agent(
+      role="Researcher",
+      goal="Make the best research and analysis on content about AI and AI agents",
+      backstory="You're an expert researcher, specialized in technology, software engineering, AI and startups. You work as a freelancer and is now working on doing research and analysis for a new customer.",
+      allow_delegation=False,
+    )
+
+    task = Task(
+      description="Give me a list of 5 interesting ideas to explore for na article, what makes them unique and interesting.",
+      expected_output="Bullet point list of 5 interesting ideas.",
+      async_execution=True,
+      agent=researcher,
+    )
+
+    with patch.object(Task, "_execute_core", side_effect=RuntimeError("boom!")):
+      with pytest.raises(RuntimeError, match="boom!"):
+        execution = task.execute_async(agent=researcher)
+        execution.result()

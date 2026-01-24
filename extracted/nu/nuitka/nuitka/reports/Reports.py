@@ -15,13 +15,16 @@ import traceback
 from nuitka import TreeXML
 from nuitka.__past__ import unicode
 from nuitka.build.DataComposerInterface import getDataComposerReportValues
-from nuitka.build.SconsUtils import readSconsErrorReport
+from nuitka.build.SconsUtils import getSconsReportValue, readSconsErrorReport
 from nuitka.code_generation.ConstantCodes import getDistributionMetadataValues
 from nuitka.containers.OrderedSets import OrderedSet
 from nuitka.freezer.IncludedDataFiles import getIncludedDataFiles
 from nuitka.freezer.IncludedEntryPoints import getStandaloneEntryPoints
 from nuitka.freezer.Standalone import getRemovedUsedDllsInfo
-from nuitka.importing.Importing import getPackageSearchPath
+from nuitka.importing.Importing import (
+    getPackageSearchPath,
+    getRecompileDecisionReason,
+)
 from nuitka.importing.Recursion import getRecursionDecisions
 from nuitka.ModuleRegistry import (
     getDoneModules,
@@ -63,6 +66,7 @@ from nuitka.utils.Distributions import (
     isDistributionVendored,
 )
 from nuitka.utils.FileOperations import (
+    getNormalizedPath,
     getReportPath,
     putBinaryFileContents,
     putTextFileContents,
@@ -253,11 +257,30 @@ def _getReportInputData(aborted):
             getResultRunFilename(onefile=isOnefileMode())
         )
         scons_error_report_data = readSconsErrorReport(
-            source_dir=getSourceDirectoryPath()
+            source_dir=getSourceDirectoryPath(onefile=False, create=False)
         )
     else:
         scons_error_report_data = {}
         output_run_filename = "failed too early"
+
+    source_dir = (
+        getSourceDirectoryPath(onefile=False, create=False) if hasMainModule() else None
+    )
+
+    if source_dir is not None:
+        cpp_flags = getSconsReportValue(source_dir, "cpp_flags", default=None)
+        c_flags = getSconsReportValue(source_dir, "c_flags", default=None)
+        cc_flags = getSconsReportValue(source_dir, "cc_flags", default=None)
+        cxx_flags = getSconsReportValue(source_dir, "cxx_flags", default=None)
+        ld_flags = getSconsReportValue(source_dir, "ld_flags", default=None)
+    else:
+        cpp_flags = None
+        c_flags = None
+        cc_flags = None
+        cxx_flags = None
+        ld_flags = None
+
+    del source_dir
 
     compilation_mode = getCompilationMode()
 
@@ -313,6 +336,13 @@ def _addModulesToReport(root, report_input_data, diffable):
                 report_input_data["module_sources"][module_name].getFilename()
             ),
         )
+
+        recompiled, recompiled_reason = getRecompileDecisionReason(module_name)
+        if recompiled_reason is not None:
+            module_xml_node.attrib["recompiled_extension"] = (
+                "yes" if recompiled else "no"
+            )
+            module_xml_node.attrib["recompiled_extension_reason"] = recompiled_reason
 
         distributions = report_input_data["module_distributions"][module_name]
 
@@ -555,6 +585,31 @@ def writeCompilationReport(report_filename, report_input_data, diffable):
         )
 
         exception_xml_node.text = "\n" + traceback.format_exc()
+
+    if report_input_data["cpp_flags"] is not None:
+        scons_environment_xml_node = TreeXML.appendTreeElement(
+            root,
+            "scons_environment",
+        )
+
+        if report_input_data["cpp_flags"] != "":
+            scons_environment_xml_node.attrib["cpp_flags"] = report_input_data[
+                "cpp_flags"
+            ]
+        if report_input_data["c_flags"] != "":
+            scons_environment_xml_node.attrib["c_flags"] = report_input_data["c_flags"]
+        if report_input_data["cc_flags"] != "":
+            scons_environment_xml_node.attrib["cc_flags"] = report_input_data[
+                "cc_flags"
+            ]
+        if report_input_data["cxx_flags"] != "":
+            scons_environment_xml_node.attrib["cxx_flags"] = report_input_data[
+                "cxx_flags"
+            ]
+        if report_input_data["ld_flags"] != "":
+            scons_environment_xml_node.attrib["ld_flags"] = report_input_data[
+                "ld_flags"
+            ]
 
     if report_input_data["scons_error_report_data"]:
         scons_error_reports_node = TreeXML.appendTreeElement(
@@ -807,7 +862,9 @@ def writeCompilationReport(report_filename, report_input_data, diffable):
         contents = contents.encode("utf8")
 
     try:
-        putBinaryFileContents(filename=report_filename, contents=contents)
+        putBinaryFileContents(
+            filename=getNormalizedPath(report_filename), contents=contents
+        )
     except OSError as e:
         reports_logger.warning(
             "Compilation report write to file '%s' failed due to: %s."
@@ -939,8 +996,8 @@ def writeCompilationReports(aborted):
                 continue
 
             writeCompilationReportFromTemplate(
-                template_filename=template_filename,
-                report_filename=report_filename,
+                template_filename=getNormalizedPath(template_filename),
+                report_filename=getNormalizedPath(report_filename),
                 report_input_data=report_input_data,
             )
 

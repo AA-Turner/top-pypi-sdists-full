@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr, field_validator
 
 
 class TaskRun(BaseModel):
@@ -30,33 +30,33 @@ class TaskRun(BaseModel):
     Parameters
     __________
     root_task_name : str
-        The name of the root task in the current task run.
+        The name of the root task in the current task run — **Read-only:** *any user-provided value will be ignored.*
     database_name : str
-        The name of the current database for the task run.
+        The name of the current database for the task run — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str
-        The name of the current schema for the task run.
+        The name of the current schema for the task run — **Read-only:** *any user-provided value will be ignored.*
     state : str
-        The current state of the task run.
+        The current state of the task run — **Read-only:** *any user-provided value will be ignored.*
     scheduled_time : datetime
-        The scheduled time for the task run.
+        The scheduled time for the task run — **Read-only:** *any user-provided value will be ignored.*
     next_scheduled_time : datetime
-        The next upcoming time for the task run.
+        The next upcoming time for the task run — **Read-only:** *any user-provided value will be ignored.*
     root_task_id : str
-        The unique task ID for the root task.
+        The unique task ID for the root task — **Read-only:** *any user-provided value will be ignored.*
     graph_version : int
-        The current version of the DAG on the task run.
+        The current version of the DAG on the task run — **Read-only:** *any user-provided value will be ignored.*
     run_id : int
-        The unique ID for the current task run.
+        The unique ID for the current task run — **Read-only:** *any user-provided value will be ignored.*
     first_error_task_name : str, optional
-        The name of the first task throwing an error in the task run.
+        The name of the first task throwing an error in the task run — **Read-only:** *any user-provided value will be ignored.*
     first_error_code : int, optional
-        The first error code thrown in the task run.
+        The first error code thrown in the task run — **Read-only:** *any user-provided value will be ignored.*
     first_error_message : str, optional
-        The first error message thrown in the task run.
+        The first error message thrown in the task run — **Read-only:** *any user-provided value will be ignored.*
     query_start_time : datetime, optional
-        The start time for the task run query.
+        The start time for the task run query — **Read-only:** *any user-provided value will be ignored.*
     completed_time : datetime, optional
-        The time this task run was last completed.
+        The time this task run was last completed — **Read-only:** *any user-provided value will be ignored.*
     """
 
     root_task_name: StrictStr
@@ -112,9 +112,10 @@ class TaskRun(BaseModel):
             )
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -156,7 +157,7 @@ class TaskRun(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -171,9 +172,9 @@ class TaskRun(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return TaskRun.parse_obj(obj)
+            return TaskRun.model_validate(obj)
 
-        _obj = TaskRun.parse_obj(
+        _obj = TaskRun.model_validate(
             {
                 "root_task_name": obj.get("root_task_name"),
                 "database_name": obj.get("database_name"),

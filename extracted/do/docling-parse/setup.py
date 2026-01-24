@@ -5,7 +5,7 @@ import sys
 
 class CustomBuildPy(_build_py):
     def run(self):
-        subprocess.check_call([sys.executable, "build.py"])
+        subprocess.check_call([sys.executable, "local_build.py"])
         super().run()
 
 class BinaryDistribution(Distribution):
@@ -21,7 +21,6 @@ setup(
     package_data={
         "docling_parse": [
             "*.so", "*.pyd", "*.dll",
-            "pdf_resources/*",
             "pdf_resources_v2/*",
         ],
     },

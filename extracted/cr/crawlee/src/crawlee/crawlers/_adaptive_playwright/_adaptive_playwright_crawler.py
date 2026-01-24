@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup, Tag
 from parsel import Selector
 from typing_extensions import Self, TypeVar, override
 
-from crawlee._types import BasicCrawlingContext, JsonSerializable, RequestHandlerRunResult
+from crawlee._types import BasicCrawlingContext, ConcurrencySettings, JsonSerializable, RequestHandlerRunResult
 from crawlee._utils.docs import docs_group
 from crawlee._utils.wait import wait_for
 from crawlee.crawlers import (
@@ -27,23 +27,16 @@ from crawlee.crawlers import (
 )
 from crawlee.crawlers._beautifulsoup._beautifulsoup_parser import BeautifulSoupParser
 from crawlee.crawlers._parsel._parsel_parser import ParselParser
+from crawlee.crawlers._playwright._playwright_crawler import _PlaywrightCrawlerAdditionalOptions
 from crawlee.statistics import Statistics, StatisticsState
 
-from ._adaptive_playwright_crawler_statistics import (
-    AdaptivePlaywrightCrawlerStatisticState,
-)
+from ._adaptive_playwright_crawler_statistics import AdaptivePlaywrightCrawlerStatisticState
 from ._adaptive_playwright_crawling_context import (
     AdaptivePlaywrightCrawlingContext,
     AdaptivePlaywrightPreNavCrawlingContext,
 )
-from ._rendering_type_predictor import (
-    DefaultRenderingTypePredictor,
-    RenderingType,
-    RenderingTypePredictor,
-)
-from ._result_comparator import (
-    create_default_comparator,
-)
+from ._rendering_type_predictor import DefaultRenderingTypePredictor, RenderingType, RenderingTypePredictor
+from ._result_comparator import create_default_comparator
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -51,7 +44,6 @@ if TYPE_CHECKING:
     from typing_extensions import Unpack
 
     from crawlee.crawlers._basic._basic_crawler import _BasicCrawlerOptions
-    from crawlee.crawlers._playwright._playwright_crawler import _PlaywrightCrawlerAdditionalOptions
 
 
 TStaticParseResult = TypeVar('TStaticParseResult')
@@ -71,7 +63,6 @@ class _NonPersistentStatistics(Statistics):
     async def __aenter__(self) -> Self:
         self._active = True
         await self._state.initialize()
-        self._after_initialize()
         return self
 
     async def __aexit__(
@@ -83,10 +74,10 @@ class _NonPersistentStatistics(Statistics):
         self._active = False
 
 
-@docs_group('Classes')
+@docs_group('Crawlers')
 class AdaptivePlaywrightCrawler(
-    Generic[TStaticCrawlingContext, TStaticParseResult, TStaticSelectResult],
     BasicCrawler[AdaptivePlaywrightCrawlingContext, AdaptivePlaywrightCrawlerStatisticState],
+    Generic[TStaticCrawlingContext, TStaticParseResult, TStaticSelectResult],
 ):
     """An adaptive web crawler capable of using both static HTTP request based crawling and browser based crawling.
 
@@ -99,7 +90,8 @@ class AdaptivePlaywrightCrawler(
     from crawlee.crawlers import AdaptivePlaywrightCrawler, AdaptivePlaywrightCrawlingContext
 
     crawler = AdaptivePlaywrightCrawler.with_beautifulsoup_static_parser(
-        max_requests_per_crawl=5, playwright_crawler_specific_kwargs={'browser_type': 'chromium'}
+        max_requests_per_crawl=10,  # Limit the max requests per crawl.
+        playwright_crawler_specific_kwargs={'browser_type': 'chromium'},
     )
 
     @crawler.router.default_handler
@@ -148,28 +140,30 @@ class AdaptivePlaywrightCrawler(
                 non-default configuration.
             kwargs: Additional keyword arguments to pass to the underlying `BasicCrawler`.
         """
-        # Some sub crawler kwargs are internally modified. Prepare copies.
-        basic_crawler_kwargs_for_static_crawler = deepcopy(kwargs)
-        basic_crawler_kwargs_for_pw_crawler = deepcopy(kwargs)
-
         # Adaptive crawling related.
         self.rendering_type_predictor = rendering_type_predictor or DefaultRenderingTypePredictor()
         self.result_checker = result_checker or (lambda _: True)
         self.result_comparator = result_comparator or create_default_comparator(result_checker)
 
-        super().__init__(statistics=statistics, **kwargs)
+        # Set default concurrency settings for browser crawlers if not provided
+        if 'concurrency_settings' not in kwargs or kwargs['concurrency_settings'] is None:
+            kwargs['concurrency_settings'] = ConcurrencySettings(desired_concurrency=1)
+
+        adaptive_statistics = statistics or Statistics(state_model=AdaptivePlaywrightCrawlerStatisticState)
+
+        super().__init__(statistics=adaptive_statistics, **kwargs)
 
         # Sub crawlers related.
-        playwright_crawler_specific_kwargs = playwright_crawler_specific_kwargs or {}
+        playwright_crawler_specific_kwargs = playwright_crawler_specific_kwargs or _PlaywrightCrawlerAdditionalOptions()
 
         # Each sub crawler will use custom logger .
         static_logger = getLogger('Subcrawler_static')
         static_logger.setLevel(logging.ERROR)
-        basic_crawler_kwargs_for_static_crawler['_logger'] = static_logger
+        basic_crawler_kwargs_for_static_crawler: _BasicCrawlerOptions = {'_logger': static_logger, **kwargs}
 
         pw_logger = getLogger('Subcrawler_playwright')
         pw_logger.setLevel(logging.ERROR)
-        basic_crawler_kwargs_for_pw_crawler['_logger'] = pw_logger
+        basic_crawler_kwargs_for_pw_crawler: _BasicCrawlerOptions = {'_logger': pw_logger, **kwargs}
 
         # Initialize sub crawlers to create their pipelines.
         static_crawler_class = AbstractHttpCrawler.create_parsed_http_crawler_class(static_parser=static_parser)
@@ -204,6 +198,7 @@ class AdaptivePlaywrightCrawler(
 
         self._additional_context_managers = [
             *self._additional_context_managers,
+            self.rendering_type_predictor,
             static_crawler.statistics,
             playwright_crawler.statistics,
             playwright_crawler._browser_pool,  # noqa: SLF001 # Intentional access to private member.
@@ -289,11 +284,14 @@ class AdaptivePlaywrightCrawler(
             use_state_function = context.use_state
 
         # New result is created and injected to newly created context. This is done to ensure isolation of sub crawlers.
-        result = RequestHandlerRunResult(key_value_store_getter=self.get_key_value_store)
+        result = RequestHandlerRunResult(
+            key_value_store_getter=self.get_key_value_store,
+            request=context.request,
+        )
         context_linked_to_result = BasicCrawlingContext(
-            request=deepcopy(context.request),
-            session=deepcopy(context.session),
-            proxy_info=deepcopy(context.proxy_info),
+            request=result.request,
+            session=context.session,
+            proxy_info=context.proxy_info,
             send_request=context.send_request,
             add_requests=result.add_requests,
             push_data=result.push_data,
@@ -331,7 +329,7 @@ class AdaptivePlaywrightCrawler(
                 )
                 await self.router(adaptive_crawling_context)
 
-            return self._static_context_pipeline(context_linked_to_result, from_static_pipeline_to_top_router)
+            return self._static_context_pipeline(context_linked_to_result, from_static_pipeline_to_top_router)  # ty: ignore[invalid-argument-type]
 
         if rendering_type == 'client only':
 
@@ -341,7 +339,7 @@ class AdaptivePlaywrightCrawler(
                 )
                 await self.router(adaptive_crawling_context)
 
-            return self._pw_context_pipeline(context_linked_to_result, from_pw_pipeline_to_top_router)
+            return self._pw_context_pipeline(context_linked_to_result, from_pw_pipeline_to_top_router)  # ty: ignore[invalid-argument-type]
 
         raise RuntimeError(
             f'Not a valid rendering type. Must be one of the following: {", ".join(get_args(RenderingType))}'
@@ -401,12 +399,9 @@ class AdaptivePlaywrightCrawler(
             raise pw_run.exception
 
         if pw_run.result:
-            self._context_result_map[context] = pw_run.result
-
             if should_detect_rendering_type:
                 detection_result: RenderingType
                 static_run = await self._crawl_one('static', context=context, state=old_state_copy)
-
                 if static_run.result and self.result_comparator(static_run.result, pw_run.result):
                     detection_result = 'static'
                 else:
@@ -414,6 +409,8 @@ class AdaptivePlaywrightCrawler(
 
                 context.log.debug(f'Detected rendering type {detection_result} for {context.request.url}')
                 self.rendering_type_predictor.store_result(context.request, detection_result)
+
+            self._context_result_map[context] = pw_run.result
 
     def pre_navigation_hook(
         self,

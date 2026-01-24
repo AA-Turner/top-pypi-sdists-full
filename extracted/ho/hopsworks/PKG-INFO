@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hopsworks
-Version: 4.3.2
+Version: 4.6.2
 Summary: Hopsworks Python SDK to interact with Hopsworks Platform, Feature Store, Model Registry and Model Serving
 Author-email: Hopsworks AB <robin@hopsworks.ai>
 License: Apache-2.0
@@ -13,39 +13,40 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Utilities
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Intended Audience :: Developers
-Requires-Python: <3.13,>=3.8
+Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyhumps==1.6.1
 Requires-Dist: requests
 Requires-Dist: furl
 Requires-Dist: boto3
-Requires-Dist: pandas[mysql]<2.3.0
+Requires-Dist: pandas[mysql]<2.4.0
 Requires-Dist: numpy<2
 Requires-Dist: pyjks
 Requires-Dist: mock
-Requires-Dist: avro==1.11.3
+Requires-Dist: avro==1.12.0
 Requires-Dist: PyMySQL[rsa]
 Requires-Dist: tzlocal
-Requires-Dist: fsspec
+Requires-Dist: fsspec<2025.12.0
 Requires-Dist: retrying
-Requires-Dist: hopsworks_aiomysql[sa]==0.2.1
+Requires-Dist: hopsworks_aiomysql[sa]==0.2.2
 Requires-Dist: opensearch-py<=2.4.2,>=1.1.0
 Requires-Dist: tqdm
 Requires-Dist: grpcio<2.0.0,>=1.49.1
 Requires-Dist: protobuf<5.0.0,>=4.25.4
 Requires-Dist: packaging
 Provides-Extra: python
-Requires-Dist: pyarrow>=10.0; extra == "python"
-Requires-Dist: confluent-kafka<=2.6.1; extra == "python"
-Requires-Dist: fastavro<=1.11.1,>=1.4.11; extra == "python"
+Requires-Dist: pyarrow>=17.0; extra == "python"
+Requires-Dist: confluent-kafka<=2.11.1; extra == "python"
+Requires-Dist: fastavro<=1.12.0,>=1.4.11; extra == "python"
 Requires-Dist: tqdm; extra == "python"
+Requires-Dist: hops-deltalake==1.1.2.post2; (python_version >= "3.9" and (sys_platform == "linux" or (sys_platform == "darwin" and platform_machine == "arm64"))) and extra == "python"
 Provides-Extra: sqlalchemy-1
 Requires-Dist: pandas<2.2.0; extra == "sqlalchemy-1"
 Requires-Dist: sqlalchemy<2.0.0; extra == "sqlalchemy-1"
@@ -56,25 +57,30 @@ Requires-Dist: hopsworks[python]; extra == "dev-no-opt"
 Requires-Dist: pytest==7.4.4; extra == "dev-no-opt"
 Requires-Dist: pytest-mock==3.12.0; extra == "dev-no-opt"
 Requires-Dist: ruff; extra == "dev-no-opt"
-Requires-Dist: pyspark==3.1.1; extra == "dev-no-opt"
+Requires-Dist: gitignorefile; extra == "dev-no-opt"
+Requires-Dist: pyspark==3.5.5; extra == "dev-no-opt"
 Requires-Dist: moto[s3]==5.0.0; extra == "dev-no-opt"
 Requires-Dist: typeguard==4.2.1; extra == "dev-no-opt"
-Requires-Dist: delta-spark==1.0.1; extra == "dev-no-opt"
+Requires-Dist: delta-spark==3.3.1; extra == "dev-no-opt"
 Provides-Extra: dev-pandas1
 Requires-Dist: hopsworks[python]; extra == "dev-pandas1"
 Requires-Dist: pytest==7.4.4; extra == "dev-pandas1"
 Requires-Dist: pytest-mock==3.12.0; extra == "dev-pandas1"
 Requires-Dist: ruff; extra == "dev-pandas1"
-Requires-Dist: pyspark==3.1.1; extra == "dev-pandas1"
+Requires-Dist: pyspark==3.5.5; extra == "dev-pandas1"
 Requires-Dist: moto[s3]==5.0.0; extra == "dev-pandas1"
 Requires-Dist: pandas<=1.5.3; extra == "dev-pandas1"
 Requires-Dist: sqlalchemy<=1.4.48; extra == "dev-pandas1"
-Requires-Dist: delta-spark==1.0.1; extra == "dev-pandas1"
+Requires-Dist: delta-spark==3.3.1; extra == "dev-pandas1"
 Provides-Extra: dev
 Requires-Dist: hopsworks[dev-no-opt,great-expectations,polars]; extra == "dev"
 Provides-Extra: polars
 Requires-Dist: polars<=0.21.0,>=0.20.18; extra == "polars"
-Requires-Dist: pyarrow>=10.0; extra == "polars"
+Requires-Dist: pyarrow>=17.0; extra == "polars"
+Provides-Extra: mcp
+Requires-Dist: fastmcp>=2.10.5; extra == "mcp"
+Requires-Dist: httpx; extra == "mcp"
+Requires-Dist: pydantic>=2.11.7; extra == "mcp"
 Dynamic: license-file
 
 # Hopsworks Client
@@ -89,7 +95,7 @@ Dynamic: license-file
     alt="Hopsworks Documentation"
   /></a>
   <a><img
-    src="https://img.shields.io/badge/python-3.8+-blue"
+    src="https://img.shields.io/badge/python-3.9+-blue"
     alt="python"
   /></a>
   <a href="https://pypi.org/project/hopsworks/"><img

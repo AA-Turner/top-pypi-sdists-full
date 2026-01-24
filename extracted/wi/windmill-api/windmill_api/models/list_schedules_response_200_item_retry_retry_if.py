@@ -8,9 +8,10 @@ T = TypeVar("T", bound="ListSchedulesResponse200ItemRetryRetryIf")
 
 @_attrs_define
 class ListSchedulesResponse200ItemRetryRetryIf:
-    """
+    """Conditional retry based on error or result
+
     Attributes:
-        expr (str):
+        expr (str): JavaScript expression that returns true to retry. Has access to 'result' and 'error' variables
     """
 
     expr: str

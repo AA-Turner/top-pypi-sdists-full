@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List
 from typing_extensions import Literal, TypedDict
+
+from ..._types import SequenceNotStr
 
 __all__ = ["FeedListItemsParams"]
 
@@ -21,6 +22,14 @@ class FeedListItemsParams(TypedDict, total=False):
     has_tenant: bool
     """Whether the feed items have a tenant."""
 
+    locale: str
+    """The locale to render the feed items in.
+
+    Must be in the IETF 5646 format (e.g. `en-US`). When not provided, will default
+    to the locale that the feed items were rendered in. Only available for
+    enterprise plan customers using custom translations.
+    """
+
     page_size: int
     """The number of items per page (defaults to 50)."""
 
@@ -36,5 +45,5 @@ class FeedListItemsParams(TypedDict, total=False):
     trigger_data: str
     """The trigger data of the feed items (as a JSON string)."""
 
-    workflow_categories: List[str]
+    workflow_categories: SequenceNotStr[str]
     """The workflow categories of the feed items."""

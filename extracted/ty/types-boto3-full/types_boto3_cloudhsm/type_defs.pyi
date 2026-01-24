@@ -3,7 +3,7 @@ Type annotations for cloudhsm service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudhsm/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
 from .literals import ClientVersionType, CloudHsmObjectStateType, HsmStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -86,7 +81,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -205,12 +200,12 @@ class DeleteLunaClientResponseTypeDef(TypedDict):
 class DescribeHapgResponseTypeDef(TypedDict):
     HapgArn: str
     HapgSerial: str
-    HsmsLastActionFailed: List[str]
-    HsmsPendingDeletion: List[str]
-    HsmsPendingRegistration: List[str]
+    HsmsLastActionFailed: list[str]
+    HsmsPendingDeletion: list[str]
+    HsmsPendingRegistration: list[str]
     Label: str
     LastModifiedTimestamp: str
-    PartitionSerialList: List[str]
+    PartitionSerialList: list[str]
     State: CloudHsmObjectStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -235,7 +230,7 @@ class DescribeHsmResponseTypeDef(TypedDict):
     SshKeyLastUpdated: str
     ServerCertUri: str
     ServerCertLastUpdated: str
-    Partitions: List[str]
+    Partitions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeLunaClientResponseTypeDef(TypedDict):
@@ -253,26 +248,26 @@ class GetConfigResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAvailableZonesResponseTypeDef(TypedDict):
-    AZList: List[str]
+    AZList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListHapgsResponseTypeDef(TypedDict):
-    HapgList: List[str]
+    HapgList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListHsmsResponseTypeDef(TypedDict):
-    HsmList: List[str]
+    HsmList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListLunaClientsResponseTypeDef(TypedDict):
-    ClientList: List[str]
+    ClientList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ModifyHapgResponseTypeDef(TypedDict):

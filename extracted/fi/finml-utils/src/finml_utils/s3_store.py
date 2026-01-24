@@ -4,7 +4,7 @@ import shutil
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Literal, override
 from uuid import uuid4
 
 import boto3
@@ -42,6 +42,21 @@ class RemoteStore(ABC):
 
     @abstractmethod
     def delete_all_files(self, bucket_name: str) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_objects(
+        self, bucket_name: str, predicate: Callable | None = None
+    ) -> list[tuple[str, str]]:
+        """List objects in a bucket and return tuples of (object_key, presigned_url).
+
+        Args:
+            bucket_name: Name of the S3 bucket
+            predicate: Optional callable to filter objects. Should accept (obj_key, url) tuple.
+
+        Returns:
+            List of tuples containing (object_key, presigned_url)
+        """
         raise NotImplementedError
 
     def upload_dataframe(self, df: pd.DataFrame, filename: str, bucket_name: str):
@@ -84,6 +99,10 @@ class RemoteStore(ABC):
 
 
 class S3RemoteStore(RemoteStore):
+    url: str
+    key_id: str
+    secret: str
+
     def __init__(self, url: str, key_id: str, secret: str) -> None:
         self.url = url
         self.key_id = key_id
@@ -104,6 +123,7 @@ class S3RemoteStore(RemoteStore):
             config=Config(signature_version="s3v4", region_name="auto"),
         )
 
+    @override
     def upload_folder(
         self,
         local_folder: Path | str,
@@ -111,14 +131,17 @@ class S3RemoteStore(RemoteStore):
         destination_folder: str | None = None,
     ) -> None:
         local_folder = Path(local_folder)
-        for file in tqdm(os.listdir(local_folder)):
+        for file in tqdm(Path(local_folder).iterdir()):
             target_file_name = local_folder.joinpath(file)
             self.api.upload_file(
-                target_file_name,
+                target_file_name.as_posix(),
                 bucket_name,
-                file if destination_folder is None else f"{destination_folder}/{file}",
+                file.name
+                if destination_folder is None
+                else f"{destination_folder}/{file.name}",
             )
 
+    @override
     def upload_file(
         self,
         file_path: Path,
@@ -127,15 +150,17 @@ class S3RemoteStore(RemoteStore):
     ) -> None:
         if output_file_name is None:
             output_file_name = file_path.name
-        self.api.upload_file(file_path, bucket_name, output_file_name)
+        self.api.upload_file(file_path.as_posix(), bucket_name, output_file_name)
 
     def download_file(
         self,
         filename: str,
         bucket_name: str,
-        output_path: Path | None = None,
+        output_path: Path,
     ) -> None:
-        self.api.download_file(bucket_name, filename, output_path)
+        path = output_path.joinpath(filename)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.api.download_file(bucket_name, filename, path.as_posix())
 
     def download_folder(
         self,
@@ -165,17 +190,15 @@ class S3RemoteStore(RemoteStore):
             @retry(stop=stop_after_attempt(3), wait=wait_fixed(10))
             def execute():
                 obj_key, url = tup
+                local_file_path = local_folder.joinpath(obj_key)
+                local_file_path.parent.mkdir(parents=True, exist_ok=True)
 
                 if platform.system() == "Windows":
-                    wget_cmd = (
-                        f'wget "{url}" -O "{local_folder.joinpath(obj_key)}.tmp" -q'
-                    )
-                    move_cmd = f'move "{local_folder.joinpath(obj_key)}.tmp" "{local_folder.joinpath(obj_key)}"'
+                    wget_cmd = f'wget "{url}" -O "{local_file_path}.tmp" -q'
+                    move_cmd = f'move "{local_file_path}.tmp" "{local_file_path}"'
                 else:  # Assumes iOS or Linux
-                    wget_cmd = (
-                        f"wget '{url}' -O '{local_folder.joinpath(obj_key)}.tmp' -q"
-                    )
-                    move_cmd = f"mv '{local_folder.joinpath(obj_key)}.tmp' '{local_folder.joinpath(obj_key)}'"
+                    wget_cmd = f"wget '{url}' -O '{local_file_path}.tmp' -q"
+                    move_cmd = f"mv '{local_file_path}.tmp' '{local_file_path}'"
 
                 return_code = os.system(wget_cmd)
                 os.system(move_cmd)
@@ -186,12 +209,34 @@ class S3RemoteStore(RemoteStore):
             return execute()
 
         return_codes = p_imap(download, urls)
+
         if any(return_codes):
             raise RuntimeError(f"Failed to download files from {bucket_name}")
 
     def delete_all_files(self, bucket_name: str) -> None:
         bucket = self.resource.Bucket(bucket_name)
         bucket.objects.all().delete()
+
+    def list_objects(
+        self, bucket_name: str, predicate: Callable | None = None
+    ) -> list[tuple[str, str]]:
+        bucket = self.resource.Bucket(bucket_name)
+
+        urls = [
+            (
+                obj.key,
+                bucket.meta.client.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": bucket_name, "Key": obj.key},
+                ),
+            )
+            for obj in bucket.objects.all()
+        ]
+
+        if predicate is not None:
+            urls = list(filter(predicate, urls))
+
+        return urls
 
 
 def download(tup: tuple[str, str, str]):

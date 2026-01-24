@@ -8,6 +8,8 @@
 
 #include "include/core/SkColor.h"
 #include "include/core/SkFont.h"
+#include "include/core/SkFontMgr.h"
+#include "include/core/SkRefCnt.h"
 #include "include/core/SkString.h"
 #include "include/core/SkTextBlob.h"
 
@@ -33,6 +35,8 @@ public:
     // get/set current font (used for shaping and displaying text)
     const SkFont& font() const { return fFont; }
     void setFont(SkFont font);
+
+    void setFontMgr(sk_sp<SkFontMgr> fontMgr);
 
     struct Text {
         const std::vector<TextLine>& fLines;
@@ -110,13 +114,14 @@ private:
         int fHeight = 0;
         bool fShaped = false;
 
-        TextLine(StringSlice t) : fText(std::move(t)) {}
+        explicit TextLine(StringSlice t) : fText(std::move(t)) {}
         TextLine() {}
     };
     std::vector<TextLine> fLines;
     int fWidth = 0;
     int fHeight = 0;
     SkFont fFont;
+    sk_sp<SkFontMgr> fFontMgr;
     bool fNeedsReshape = false;
     const char* fLocale = "en";  // TODO: make this setable
 

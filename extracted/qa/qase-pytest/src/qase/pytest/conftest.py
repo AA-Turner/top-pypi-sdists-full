@@ -18,6 +18,10 @@ def pytest_configure(config):
         "qase_parametrize_ignore: mark test to ignore parameters in Qase reports"
     )
 
+    # Skip plugin registration if pytest is running in collect-only mode
+    if config.option.collectonly:
+        return
+
     config_manager = setup_config_manager(config)
 
     QasePytestPluginSingleton.init(reporter=QaseCoreReporter(
@@ -190,6 +194,22 @@ def setup_config_manager(config):
                 config_manager.config.testops.set_status_filter(
                     [status.strip() for status in config.option.__dict__[option].split(',')])
 
+            if option == "qase_testops_show_public_report_link" and config.option.__dict__[option] is not None:
+                config_manager.config.testops.set_show_public_report_link(
+                    config.option.__dict__[option])
+
+            if option == "qase_status_mapping" and config.option.__dict__[option] is not None:
+                # Parse status mapping from CLI parameter
+                # Format: "source1=target1,source2=target2"
+                mapping_dict = {}
+                pairs = config.option.__dict__[option].split(',')
+                for pair in pairs:
+                    pair = pair.strip()
+                    if pair and '=' in pair:
+                        source_status, target_status = pair.split('=', 1)
+                        mapping_dict[source_status.strip()] = target_status.strip()
+                config_manager.config.set_status_mapping(mapping_dict)
+
             if option == "qase_testops_run_external_link_type" and config.option.__dict__[option] is not None:
                 if not config_manager.config.testops.run.external_link:
                     from qase.commons.models.external_link import ExternalLinkConfig
@@ -201,6 +221,20 @@ def setup_config_manager(config):
                     from qase.commons.models.external_link import ExternalLinkConfig
                     config_manager.config.testops.run.external_link = ExternalLinkConfig()
                 config_manager.config.testops.run.external_link.set_link(config.option.__dict__[option])
+
+            if option == "qase_logging_console" and config.option.__dict__[option] is not None:
+                config_manager.config.logging.set_console(config.option.__dict__[option])
+
+            if option == "qase_logging_file" and config.option.__dict__[option] is not None:
+                config_manager.config.logging.set_file(config.option.__dict__[option])
+
+    # Update logger with final logging options after all CLI options are processed
+    from qase.commons.logger import LoggingOptions
+    logging_options = LoggingOptions(
+        console=config_manager.config.logging.console if config_manager.config.logging.console is not None else True,
+        file=config_manager.config.logging.file if config_manager.config.logging.file is not None else config_manager.config.debug
+    )
+    config_manager.logger = config_manager.logger.__class__(debug=config_manager.config.debug, logging_options=logging_options)
 
     return config_manager
 

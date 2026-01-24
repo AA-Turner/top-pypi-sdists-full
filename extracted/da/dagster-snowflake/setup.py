@@ -23,19 +23,21 @@ setup(
     description="Package for Snowflake Dagster framework components.",
     url="https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-snowflake",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_snowflake_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.14",
+    python_requires=">=3.10,<3.15",
     install_requires=[
-        "dagster==1.11.11",
+        "dagster==1.12.12",
+        "snowflake-snowpark-python>=1.24.0",
+        "snowflake-core>=1.8.0",
         "snowflake-connector-python>=3.4.0",
         # Workaround for incorrect pin in the snowflake-connector-python package
         # See https://github.com/snowflakedb/snowflake-connector-python/issues/2109
@@ -47,7 +49,7 @@ setup(
             "snowflake-sqlalchemy",
         ],
         "pandas": [
-            "pandas",
+            "pandas<3.0.0",
             "snowflake-connector-python[pandas]>=3.4.0",
         ],
     },

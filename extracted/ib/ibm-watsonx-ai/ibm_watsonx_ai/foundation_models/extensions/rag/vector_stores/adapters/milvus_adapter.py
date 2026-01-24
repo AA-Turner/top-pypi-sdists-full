@@ -1,51 +1,48 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 import asyncio
 import copy
+import logging
 from typing import Any, TypeAlias, cast
 
+from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
+    DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD,
+    DEFAULT_DOCUMENT_NAME_FIELD,
     LangChainVectorStoreAdapter,
 )
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import (
     InvalidValue,
     MissingExtension,
     VectorStoreSerializationError,
 )
 
-try:
-    from langchain_core.embeddings import Embeddings as LCEmbeddings
-    from langchain_milvus import Milvus
-    from langchain_milvus.utils.sparse import (
-        BaseSparseEmbedding as LCMilvusBaseSparseEmbedding,
-    )
+if not is_lib_installed(ext := "langchain-milvus"):
+    raise MissingExtension(ext, extra_info="rag")
+from langchain_milvus import Milvus
+from langchain_milvus.utils.sparse import (
+    BaseSparseEmbedding as LCMilvusBaseSparseEmbedding,
+)
 
-    from .milvus_utils import (
-        DEFAULT_INDEX_PARAM,
-        MilvusBM25BuiltinFunction,
-        _LangchainEmbeddings,
-    )
-
-except ImportError as exc:
-    raise MissingExtension(
-        "langchain_milvus",
-        reason="Please install `ibm-watsonx-ai` with flag `rag`: \n `pip install -U 'ibm-watsonx-ai[rag]'`",
-    ) from exc
-
+if not is_lib_installed(ext := "langchain-core"):
+    raise MissingExtension(ext, extra_info="rag")
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings as LCEmbeddings
 
-try:
-    from pymilvus import MilvusException
-except ImportError:
-    raise MissingExtension("pymilvus")
+if not is_lib_installed(ext := "pymilvus"):
+    raise MissingExtension(ext)
+from pymilvus import MilvusException
 
-import logging
-
-from ibm_watsonx_ai import APIClient
+from .milvus_utils import (
+    DEFAULT_INDEX_PARAM,
+    MilvusBM25BuiltinFunction,
+    _LangchainEmbeddings,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +72,15 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
     :param collection_name: name of the Milvus vector database collection, defaults to None
     :type collection_name: str, optional
 
+    :param document_name_field: mapping field for document name, defaults to `document_id`
+    :type document_name_field: str, optional
+
+    :param chunk_sequence_number_field: mapping field for chunk sequence number, defaults to `sequence_number`
+    :type chunk_sequence_number_field: str, optional
+
+    :param text_field: mapping field for text field
+    :type text_field: str, optional
+
     :param kwargs: keyword arguments that will be directly passed to `langchain_milvus.Milvus` constructor
     :type kwargs: Any, optional
 
@@ -91,34 +97,42 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
     .. code-block:: python
 
         from ibm_watsonx_ai import APIClient, Credentials
-        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores import MilvusVectorStore
+        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores import (
+            MilvusVectorStore,
+        )
         from ibm_watsonx_ai.foundation_models.embeddings import Embeddings
 
         credentials = Credentials(
-                api_key = IAM_API_KEY,
-                url = "https://us-south.ml.cloud.ibm.com"
-                )
+            api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+        )
 
         api_client = APIClient(credentials)
 
         embedding = Embeddings(
-                 model_id=EmbeddingTypes.IBM_SLATE_30M_ENG,
-                 api_client=api_client
-                 )
+            model_id=EmbeddingTypes.IBM_SLATE_30M_ENG, api_client=api_client
+        )
 
         vector_store = MilvusVectorStore(
-                api_client,
-                connection_id='***',
-                collection_name='my_test_collection',
-                embedding_function=embedding
-            )
+            api_client,
+            connection_id="***",
+            collection_name="my_test_collection",
+            embedding_function=embedding,
+        )
 
-        vector_store.add_documents([
-            {'content': 'document one content', 'metadata':{'url':'ibm.com'}},
-            {'content': 'document two content', 'metadata':{'url':'ibm.com'}}
-        ])
+        vector_store.add_documents(
+            [
+                {
+                    "content": "document one content",
+                    "metadata": {"url": "ibm.com"},
+                },
+                {
+                    "content": "document two content",
+                    "metadata": {"url": "ibm.com"},
+                },
+            ]
+        )
 
-        vector_store.search('one', k=1)
+        vector_store.search("one", k=1)
 
     .. note::
         To use hybrid search you need to pass several embedding function.
@@ -218,10 +232,16 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         vector_store: Milvus | None = None,
         embedding_function: EmbeddingType | list[EmbeddingType] | None = None,
         collection_name: str | None = None,
+        document_name_field: str = DEFAULT_DOCUMENT_NAME_FIELD,
+        chunk_sequence_number_field: str = DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD,
+        text_field: str | None = None,
         **kwargs: Any,
     ) -> None:
         self._connection_id = connection_id
         self._client = api_client
+        self._document_name_field = document_name_field
+        self._chunk_sequence_number_field = chunk_sequence_number_field
+        self._text_field = text_field
 
         self._is_serializable = not bool(vector_store)
 
@@ -256,7 +276,7 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         if vector_store is None:
             if self._client is not None and self._connection_id is not None:
                 self._datasource_type, connection_properties = self._connect_by_type(
-                    cast(str, self._connection_id)
+                    self._connection_id
                 )
             else:
                 self._datasource_type, connection_properties = (
@@ -274,19 +294,26 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
                 "builtin_function": self._builtin_function,
             }
 
+            if self._text_field is not None:
+                self._properties["text_field"] = self._text_field
+
             self._properties = VectorStoreConnector(
                 self._properties
             )._get_milvus_connection_params()
             vector_store = Milvus(**self._properties)
+
         else:
             self._datasource_type = (
                 VectorStoreConnector.get_type_from_langchain_vector_store(vector_store)
             )
 
+        self._text_field = vector_store._text_field
         self._embedding_function = cast(list, self._embedding_function)
 
         super().__init__(
             vector_store=vector_store,
+            document_name_field=self._document_name_field,
+            chunk_sequence_number_field=self._chunk_sequence_number_field,
         )
 
     def get_client(self) -> Milvus:
@@ -343,7 +370,7 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
             try:
                 embeddings.append(embedding_func.embed_documents(texts))
             except NotImplementedError:
-                embeddings.append([embedding_func.embed_query(x) for x in texts])  # type: ignore[arg-type]
+                embeddings.append([embedding_func.embed_query(x) for x in texts])
 
         if isinstance(self._langchain_vector_store.embedding_func, list):
             transposed_embeddings: list | list[list] = [
@@ -449,7 +476,7 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
                 pass
 
         try:
-            return self.get_client().add_embeddings(  # type: ignore[attr-defined]
+            return self.get_client().add_embeddings(
                 ids=ids,
                 texts=texts,
                 metadatas=metadatas,
@@ -517,14 +544,20 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
                 "Serialization is only available when 'builtin_function' is an instance of `MilvusBM25BuiltinFunction`"
             )
 
-        return {
+        data_dict = {
             "connection_id": self._connection_id,
             "embedding_function": embedding_function,
             "collection_name": self._collection_name,
             "builtin_function": builtin_function,
             **self._additional_kwargs,
             "datasource_type": str(self._datasource_type),
+            "document_name_field": self._document_name_field,
+            "chunk_sequence_number_field": self._chunk_sequence_number_field,
         }
+        if self._text_field is not None:
+            data_dict["text_field"] = self._text_field
+
+        return data_dict
 
     @classmethod
     def from_dict(
@@ -565,3 +598,39 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         )
 
         return cls(api_client, **d)
+
+    def _get_window_documents(
+        self, doc_id: str, seq_nums_window: list[int]
+    ) -> list[Document]:
+        """
+        Receives a document ID and a list of chunks' sequence_numbers,
+        and searches the vector store according to the metadata.
+
+        :param doc_id: ID of document
+        :type doc_id: str
+
+        :param seq_nums_window: list of sequence numbers
+        :type seq_nums_window: list[int]
+
+        :return: list of documents from that document with these sequence_numbers
+        :rtype: list[Document]
+        """
+        expr = f"{self._document_name_field} LIKE '{doc_id}' && {self._chunk_sequence_number_field} in {seq_nums_window}"
+        docs = self._langchain_vector_store.col.query(  # type: ignore[union-attr]
+            expr=expr,
+            output_fields=[self._chunk_sequence_number_field, self._text_field],
+            limit=len(seq_nums_window),
+        )
+        window_documents = [
+            Document(
+                page_content=doc[self._text_field],
+                metadata={
+                    self._chunk_sequence_number_field: doc[
+                        self._chunk_sequence_number_field
+                    ],
+                    self._document_name_field: doc_id,
+                },
+            )
+            for doc in docs
+        ]
+        return window_documents

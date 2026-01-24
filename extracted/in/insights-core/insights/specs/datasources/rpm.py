@@ -148,7 +148,11 @@ def pkgs_with_writable_dirs(broker):
 
     if packages:
         return DatasourceProvider(
-            content=sorted(packages), relative_path="insights_datasources/rpm_pkgs"
+            content=sorted(packages),
+            relative_path="insights_datasources/rpm_pkgs",
+            ds=Specs.rpm_pkgs,
+            ctx=broker.get(HostContext),
+            cleaner=broker.get("cleaner"),
         )
 
 

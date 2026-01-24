@@ -3,7 +3,7 @@ Type annotations for cloudfront service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -43,6 +44,7 @@ from .literals import (
     HttpVersionType,
     ICPRecordalStatusType,
     IpAddressTypeType,
+    IpamCidrStatusType,
     ItemSelectionType,
     ManagedCertificateStatusType,
     MethodType,
@@ -62,16 +64,12 @@ from .literals import (
     ResponseHeadersPolicyTypeType,
     SslProtocolType,
     SSLSupportMethodType,
+    TrustStoreStatusType,
     ValidationTokenHostType,
+    ViewerMtlsModeType,
     ViewerProtocolPolicyType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -96,6 +94,8 @@ __all__ = (
     "AssociateDistributionWebACLRequestTypeDef",
     "AssociateDistributionWebACLResultTypeDef",
     "BlobTypeDef",
+    "CaCertificatesBundleS3LocationTypeDef",
+    "CaCertificatesBundleSourceTypeDef",
     "CacheBehaviorOutputTypeDef",
     "CacheBehaviorTypeDef",
     "CacheBehaviorUnionTypeDef",
@@ -124,6 +124,9 @@ __all__ = (
     "CloudFrontOriginAccessIdentityTypeDef",
     "ConflictingAliasTypeDef",
     "ConflictingAliasesListTypeDef",
+    "ConnectionFunctionAssociationTypeDef",
+    "ConnectionFunctionSummaryTypeDef",
+    "ConnectionFunctionTestResultTypeDef",
     "ConnectionGroupAssociationFilterTypeDef",
     "ConnectionGroupSummaryTypeDef",
     "ConnectionGroupTypeDef",
@@ -154,6 +157,8 @@ __all__ = (
     "CreateCachePolicyResultTypeDef",
     "CreateCloudFrontOriginAccessIdentityRequestTypeDef",
     "CreateCloudFrontOriginAccessIdentityResultTypeDef",
+    "CreateConnectionFunctionRequestTypeDef",
+    "CreateConnectionFunctionResultTypeDef",
     "CreateConnectionGroupRequestTypeDef",
     "CreateConnectionGroupResultTypeDef",
     "CreateContinuousDeploymentPolicyRequestTypeDef",
@@ -194,6 +199,8 @@ __all__ = (
     "CreateStreamingDistributionResultTypeDef",
     "CreateStreamingDistributionWithTagsRequestTypeDef",
     "CreateStreamingDistributionWithTagsResultTypeDef",
+    "CreateTrustStoreRequestTypeDef",
+    "CreateTrustStoreResultTypeDef",
     "CreateVpcOriginRequestTypeDef",
     "CreateVpcOriginResultTypeDef",
     "CustomErrorResponseTypeDef",
@@ -215,6 +222,7 @@ __all__ = (
     "DeleteAnycastIpListRequestTypeDef",
     "DeleteCachePolicyRequestTypeDef",
     "DeleteCloudFrontOriginAccessIdentityRequestTypeDef",
+    "DeleteConnectionFunctionRequestTypeDef",
     "DeleteConnectionGroupRequestTypeDef",
     "DeleteContinuousDeploymentPolicyRequestTypeDef",
     "DeleteDistributionRequestTypeDef",
@@ -229,10 +237,14 @@ __all__ = (
     "DeleteOriginRequestPolicyRequestTypeDef",
     "DeletePublicKeyRequestTypeDef",
     "DeleteRealtimeLogConfigRequestTypeDef",
+    "DeleteResourcePolicyRequestTypeDef",
     "DeleteResponseHeadersPolicyRequestTypeDef",
     "DeleteStreamingDistributionRequestTypeDef",
+    "DeleteTrustStoreRequestTypeDef",
     "DeleteVpcOriginRequestTypeDef",
     "DeleteVpcOriginResultTypeDef",
+    "DescribeConnectionFunctionRequestTypeDef",
+    "DescribeConnectionFunctionResultTypeDef",
     "DescribeFunctionRequestTypeDef",
     "DescribeFunctionResultTypeDef",
     "DescribeKeyValueStoreRequestTypeDef",
@@ -246,6 +258,8 @@ __all__ = (
     "DistributionConfigUnionTypeDef",
     "DistributionConfigWithTagsTypeDef",
     "DistributionIdListTypeDef",
+    "DistributionIdOwnerListTypeDef",
+    "DistributionIdOwnerTypeDef",
     "DistributionListTypeDef",
     "DistributionResourceIdTypeDef",
     "DistributionSummaryTypeDef",
@@ -305,6 +319,8 @@ __all__ = (
     "GetCloudFrontOriginAccessIdentityConfigResultTypeDef",
     "GetCloudFrontOriginAccessIdentityRequestTypeDef",
     "GetCloudFrontOriginAccessIdentityResultTypeDef",
+    "GetConnectionFunctionRequestTypeDef",
+    "GetConnectionFunctionResultTypeDef",
     "GetConnectionGroupByRoutingEndpointRequestTypeDef",
     "GetConnectionGroupByRoutingEndpointResultTypeDef",
     "GetConnectionGroupRequestTypeDef",
@@ -360,6 +376,8 @@ __all__ = (
     "GetPublicKeyResultTypeDef",
     "GetRealtimeLogConfigRequestTypeDef",
     "GetRealtimeLogConfigResultTypeDef",
+    "GetResourcePolicyRequestTypeDef",
+    "GetResourcePolicyResultTypeDef",
     "GetResponseHeadersPolicyConfigRequestTypeDef",
     "GetResponseHeadersPolicyConfigResultTypeDef",
     "GetResponseHeadersPolicyRequestTypeDef",
@@ -369,6 +387,8 @@ __all__ = (
     "GetStreamingDistributionRequestTypeDef",
     "GetStreamingDistributionRequestWaitTypeDef",
     "GetStreamingDistributionResultTypeDef",
+    "GetTrustStoreRequestTypeDef",
+    "GetTrustStoreResultTypeDef",
     "GetVpcOriginRequestTypeDef",
     "GetVpcOriginResultTypeDef",
     "GrpcConfigTypeDef",
@@ -382,6 +402,8 @@ __all__ = (
     "InvalidationListTypeDef",
     "InvalidationSummaryTypeDef",
     "InvalidationTypeDef",
+    "IpamCidrConfigTypeDef",
+    "IpamConfigTypeDef",
     "KGKeyPairIdsTypeDef",
     "KeyGroupConfigOutputTypeDef",
     "KeyGroupConfigTypeDef",
@@ -409,6 +431,9 @@ __all__ = (
     "ListCloudFrontOriginAccessIdentitiesResultTypeDef",
     "ListConflictingAliasesRequestTypeDef",
     "ListConflictingAliasesResultTypeDef",
+    "ListConnectionFunctionsRequestPaginateTypeDef",
+    "ListConnectionFunctionsRequestTypeDef",
+    "ListConnectionFunctionsResultTypeDef",
     "ListConnectionGroupsRequestPaginateTypeDef",
     "ListConnectionGroupsRequestTypeDef",
     "ListConnectionGroupsResultTypeDef",
@@ -424,6 +449,9 @@ __all__ = (
     "ListDistributionsByAnycastIpListIdResultTypeDef",
     "ListDistributionsByCachePolicyIdRequestTypeDef",
     "ListDistributionsByCachePolicyIdResultTypeDef",
+    "ListDistributionsByConnectionFunctionRequestPaginateTypeDef",
+    "ListDistributionsByConnectionFunctionRequestTypeDef",
+    "ListDistributionsByConnectionFunctionResultTypeDef",
     "ListDistributionsByConnectionModeRequestPaginateTypeDef",
     "ListDistributionsByConnectionModeRequestTypeDef",
     "ListDistributionsByConnectionModeResultTypeDef",
@@ -431,10 +459,15 @@ __all__ = (
     "ListDistributionsByKeyGroupResultTypeDef",
     "ListDistributionsByOriginRequestPolicyIdRequestTypeDef",
     "ListDistributionsByOriginRequestPolicyIdResultTypeDef",
+    "ListDistributionsByOwnedResourceRequestTypeDef",
+    "ListDistributionsByOwnedResourceResultTypeDef",
     "ListDistributionsByRealtimeLogConfigRequestTypeDef",
     "ListDistributionsByRealtimeLogConfigResultTypeDef",
     "ListDistributionsByResponseHeadersPolicyIdRequestTypeDef",
     "ListDistributionsByResponseHeadersPolicyIdResultTypeDef",
+    "ListDistributionsByTrustStoreRequestPaginateTypeDef",
+    "ListDistributionsByTrustStoreRequestTypeDef",
+    "ListDistributionsByTrustStoreResultTypeDef",
     "ListDistributionsByVpcOriginIdRequestTypeDef",
     "ListDistributionsByVpcOriginIdResultTypeDef",
     "ListDistributionsByWebACLIdRequestTypeDef",
@@ -479,6 +512,9 @@ __all__ = (
     "ListStreamingDistributionsResultTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResultTypeDef",
+    "ListTrustStoresRequestPaginateTypeDef",
+    "ListTrustStoresRequestTypeDef",
+    "ListTrustStoresResultTypeDef",
     "ListVpcOriginsRequestTypeDef",
     "ListVpcOriginsResultTypeDef",
     "LoggingConfigTypeDef",
@@ -537,8 +573,12 @@ __all__ = (
     "PublicKeyListTypeDef",
     "PublicKeySummaryTypeDef",
     "PublicKeyTypeDef",
+    "PublishConnectionFunctionRequestTypeDef",
+    "PublishConnectionFunctionResultTypeDef",
     "PublishFunctionRequestTypeDef",
     "PublishFunctionResultTypeDef",
+    "PutResourcePolicyRequestTypeDef",
+    "PutResourcePolicyResultTypeDef",
     "QueryArgProfileConfigOutputTypeDef",
     "QueryArgProfileConfigTypeDef",
     "QueryArgProfileTypeDef",
@@ -613,10 +653,15 @@ __all__ = (
     "TenantConfigOutputTypeDef",
     "TenantConfigTypeDef",
     "TenantConfigUnionTypeDef",
+    "TestConnectionFunctionRequestTypeDef",
+    "TestConnectionFunctionResultTypeDef",
     "TestFunctionRequestTypeDef",
     "TestFunctionResultTypeDef",
     "TestResultTypeDef",
     "TrafficConfigTypeDef",
+    "TrustStoreConfigTypeDef",
+    "TrustStoreSummaryTypeDef",
+    "TrustStoreTypeDef",
     "TrustedKeyGroupsOutputTypeDef",
     "TrustedKeyGroupsTypeDef",
     "TrustedKeyGroupsUnionTypeDef",
@@ -624,10 +669,14 @@ __all__ = (
     "TrustedSignersTypeDef",
     "TrustedSignersUnionTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateAnycastIpListRequestTypeDef",
+    "UpdateAnycastIpListResultTypeDef",
     "UpdateCachePolicyRequestTypeDef",
     "UpdateCachePolicyResultTypeDef",
     "UpdateCloudFrontOriginAccessIdentityRequestTypeDef",
     "UpdateCloudFrontOriginAccessIdentityResultTypeDef",
+    "UpdateConnectionFunctionRequestTypeDef",
+    "UpdateConnectionFunctionResultTypeDef",
     "UpdateConnectionGroupRequestTypeDef",
     "UpdateConnectionGroupResultTypeDef",
     "UpdateContinuousDeploymentPolicyRequestTypeDef",
@@ -662,12 +711,15 @@ __all__ = (
     "UpdateResponseHeadersPolicyResultTypeDef",
     "UpdateStreamingDistributionRequestTypeDef",
     "UpdateStreamingDistributionResultTypeDef",
+    "UpdateTrustStoreRequestTypeDef",
+    "UpdateTrustStoreResultTypeDef",
     "UpdateVpcOriginRequestTypeDef",
     "UpdateVpcOriginResultTypeDef",
     "ValidationTokenDetailTypeDef",
     "VerifyDnsConfigurationRequestTypeDef",
     "VerifyDnsConfigurationResultTypeDef",
     "ViewerCertificateTypeDef",
+    "ViewerMtlsConfigTypeDef",
     "VpcOriginConfigTypeDef",
     "VpcOriginEndpointConfigOutputTypeDef",
     "VpcOriginEndpointConfigTypeDef",
@@ -685,7 +737,7 @@ class AliasICPRecordalTypeDef(TypedDict):
 
 class AliasesOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class AliasesTypeDef(TypedDict):
     Quantity: int
@@ -693,24 +745,7 @@ class AliasesTypeDef(TypedDict):
 
 class CachedMethodsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: List[MethodType]
-
-class AnycastIpListSummaryTypeDef(TypedDict):
-    Id: str
-    Name: str
-    Status: str
-    Arn: str
-    IpCount: int
-    LastModifiedTime: datetime
-
-class AnycastIpListTypeDef(TypedDict):
-    Id: str
-    Name: str
-    Status: str
-    Arn: str
-    AnycastIps: List[str]
-    IpCount: int
-    LastModifiedTime: datetime
+    Items: list[MethodType]
 
 class AssociateAliasRequestTypeDef(TypedDict):
     TargetDistributionId: str
@@ -724,7 +759,7 @@ class AssociateDistributionTenantWebACLRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -735,22 +770,28 @@ class AssociateDistributionWebACLRequestTypeDef(TypedDict):
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
+class CaCertificatesBundleS3LocationTypeDef(TypedDict):
+    Bucket: str
+    Key: str
+    Region: str
+    Version: NotRequired[str]
+
 class GrpcConfigTypeDef(TypedDict):
     Enabled: bool
 
 class TrustedKeyGroupsOutputTypeDef(TypedDict):
     Enabled: bool
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class TrustedSignersOutputTypeDef(TypedDict):
     Enabled: bool
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class CookieNamesOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class CookieNamesTypeDef(TypedDict):
     Quantity: int
@@ -758,7 +799,7 @@ class CookieNamesTypeDef(TypedDict):
 
 class HeadersOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class HeadersTypeDef(TypedDict):
     Quantity: int
@@ -766,7 +807,7 @@ class HeadersTypeDef(TypedDict):
 
 class QueryStringNamesOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class QueryStringNamesTypeDef(TypedDict):
     Quantity: int
@@ -793,6 +834,9 @@ class ConflictingAliasTypeDef(TypedDict):
     DistributionId: NotRequired[str]
     AccountId: NotRequired[str]
 
+class ConnectionFunctionAssociationTypeDef(TypedDict):
+    Id: str
+
 class ConnectionGroupAssociationFilterTypeDef(TypedDict):
     AnycastIpListId: NotRequired[str]
 
@@ -816,7 +860,7 @@ class ContentTypeProfileTypeDef(TypedDict):
 
 class StagingDistributionDnsNamesOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class StagingDistributionDnsNamesTypeDef(TypedDict):
     Quantity: int
@@ -836,6 +880,12 @@ class CopyDistributionRequestTypeDef(TypedDict):
     Staging: NotRequired[bool]
     IfMatch: NotRequired[str]
     Enabled: NotRequired[bool]
+
+class IpamCidrConfigTypeDef(TypedDict):
+    Cidr: str
+    IpamPoolArn: str
+    AnycastIp: NotRequired[str]
+    Status: NotRequired[IpamCidrStatusType]
 
 class DomainItemTypeDef(TypedDict):
     Domain: str
@@ -876,6 +926,15 @@ class PublicKeyConfigTypeDef(TypedDict):
     EncodedKey: str
     Comment: NotRequired[str]
 
+class TrustStoreTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Arn: NotRequired[str]
+    Name: NotRequired[str]
+    Status: NotRequired[TrustStoreStatusType]
+    NumberOfCaCertificates: NotRequired[int]
+    LastModifiedTime: NotRequired[datetime]
+    Reason: NotRequired[str]
+
 class CustomErrorResponseTypeDef(TypedDict):
     ErrorCode: int
     ResponsePagePath: NotRequired[str]
@@ -888,11 +947,11 @@ class OriginCustomHeaderTypeDef(TypedDict):
 
 class OriginSslProtocolsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: List[SslProtocolType]
+    Items: list[SslProtocolType]
 
 class GeoRestrictionCustomizationOutputTypeDef(TypedDict):
     RestrictionType: GeoRestrictionTypeType
-    Locations: NotRequired[List[str]]
+    Locations: NotRequired[list[str]]
 
 class WebAclCustomizationTypeDef(TypedDict):
     Action: CustomizationActionTypeType
@@ -913,6 +972,10 @@ class DeleteCachePolicyRequestTypeDef(TypedDict):
 class DeleteCloudFrontOriginAccessIdentityRequestTypeDef(TypedDict):
     Id: str
     IfMatch: NotRequired[str]
+
+class DeleteConnectionFunctionRequestTypeDef(TypedDict):
+    Id: str
+    IfMatch: str
 
 class DeleteConnectionGroupRequestTypeDef(TypedDict):
     Id: str
@@ -969,6 +1032,9 @@ class DeleteRealtimeLogConfigRequestTypeDef(TypedDict):
     Name: NotRequired[str]
     ARN: NotRequired[str]
 
+class DeleteResourcePolicyRequestTypeDef(TypedDict):
+    ResourceArn: str
+
 class DeleteResponseHeadersPolicyRequestTypeDef(TypedDict):
     Id: str
     IfMatch: NotRequired[str]
@@ -977,9 +1043,17 @@ class DeleteStreamingDistributionRequestTypeDef(TypedDict):
     Id: str
     IfMatch: NotRequired[str]
 
+class DeleteTrustStoreRequestTypeDef(TypedDict):
+    Id: str
+    IfMatch: str
+
 class DeleteVpcOriginRequestTypeDef(TypedDict):
     Id: str
     IfMatch: str
+
+class DescribeConnectionFunctionRequestTypeDef(TypedDict):
+    Identifier: str
+    Stage: NotRequired[FunctionStageType]
 
 class DescribeFunctionRequestTypeDef(TypedDict):
     Name: str
@@ -1017,7 +1091,11 @@ class DistributionIdListTypeDef(TypedDict):
     IsTruncated: bool
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
+
+class DistributionIdOwnerTypeDef(TypedDict):
+    DistributionId: str
+    OwnerAccountId: str
 
 class DistributionResourceIdTypeDef(TypedDict):
     DistributionId: NotRequired[str]
@@ -1044,7 +1122,7 @@ class DomainConflictTypeDef(TypedDict):
 
 class FieldPatternsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class FieldPatternsTypeDef(TypedDict):
     Quantity: int
@@ -1056,7 +1134,7 @@ class KinesisStreamConfigTypeDef(TypedDict):
 
 class QueryStringCacheKeysOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class FunctionAssociationTypeDef(TypedDict):
     FunctionARN: str
@@ -1071,7 +1149,7 @@ class FunctionMetadataTypeDef(TypedDict):
 class GeoRestrictionOutputTypeDef(TypedDict):
     RestrictionType: GeoRestrictionTypeType
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class GeoRestrictionTypeDef(TypedDict):
     RestrictionType: GeoRestrictionTypeType
@@ -1092,6 +1170,10 @@ class GetCloudFrontOriginAccessIdentityConfigRequestTypeDef(TypedDict):
 
 class GetCloudFrontOriginAccessIdentityRequestTypeDef(TypedDict):
     Id: str
+
+class GetConnectionFunctionRequestTypeDef(TypedDict):
+    Identifier: str
+    Stage: NotRequired[FunctionStageType]
 
 class GetConnectionGroupByRoutingEndpointRequestTypeDef(TypedDict):
     RoutingEndpoint: str
@@ -1150,7 +1232,7 @@ class GetKeyGroupConfigRequestTypeDef(TypedDict):
 
 class KeyGroupConfigOutputTypeDef(TypedDict):
     Name: str
-    Items: List[str]
+    Items: list[str]
     Comment: NotRequired[str]
 
 class GetKeyGroupRequestTypeDef(TypedDict):
@@ -1184,6 +1266,9 @@ class GetRealtimeLogConfigRequestTypeDef(TypedDict):
     Name: NotRequired[str]
     ARN: NotRequired[str]
 
+class GetResourcePolicyRequestTypeDef(TypedDict):
+    ResourceArn: str
+
 class GetResponseHeadersPolicyConfigRequestTypeDef(TypedDict):
     Id: str
 
@@ -1196,12 +1281,15 @@ class GetStreamingDistributionConfigRequestTypeDef(TypedDict):
 class GetStreamingDistributionRequestTypeDef(TypedDict):
     Id: str
 
+class GetTrustStoreRequestTypeDef(TypedDict):
+    Identifier: str
+
 class GetVpcOriginRequestTypeDef(TypedDict):
     Id: str
 
 class PathsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class PathsTypeDef(TypedDict):
     Quantity: int
@@ -1214,7 +1302,7 @@ class InvalidationSummaryTypeDef(TypedDict):
 
 class KeyPairIdsTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class KeyGroupConfigTypeDef(TypedDict):
     Name: str
@@ -1257,6 +1345,11 @@ class ListConflictingAliasesRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     MaxItems: NotRequired[int]
 
+class ListConnectionFunctionsRequestTypeDef(TypedDict):
+    Marker: NotRequired[str]
+    MaxItems: NotRequired[int]
+    Stage: NotRequired[FunctionStageType]
+
 class ListContinuousDeploymentPoliciesRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     MaxItems: NotRequired[str]
@@ -1277,6 +1370,11 @@ class ListDistributionsByCachePolicyIdRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     MaxItems: NotRequired[str]
 
+class ListDistributionsByConnectionFunctionRequestTypeDef(TypedDict):
+    ConnectionFunctionIdentifier: str
+    Marker: NotRequired[str]
+    MaxItems: NotRequired[int]
+
 class ListDistributionsByConnectionModeRequestTypeDef(TypedDict):
     ConnectionMode: ConnectionModeType
     Marker: NotRequired[str]
@@ -1292,6 +1390,11 @@ class ListDistributionsByOriginRequestPolicyIdRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     MaxItems: NotRequired[str]
 
+class ListDistributionsByOwnedResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+    Marker: NotRequired[str]
+    MaxItems: NotRequired[str]
+
 class ListDistributionsByRealtimeLogConfigRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     MaxItems: NotRequired[str]
@@ -1300,6 +1403,11 @@ class ListDistributionsByRealtimeLogConfigRequestTypeDef(TypedDict):
 
 class ListDistributionsByResponseHeadersPolicyIdRequestTypeDef(TypedDict):
     ResponseHeadersPolicyId: str
+    Marker: NotRequired[str]
+    MaxItems: NotRequired[str]
+
+class ListDistributionsByTrustStoreRequestTypeDef(TypedDict):
+    TrustStoreIdentifier: str
     Marker: NotRequired[str]
     MaxItems: NotRequired[str]
 
@@ -1386,6 +1494,20 @@ class ListStreamingDistributionsRequestTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     Resource: str
 
+class ListTrustStoresRequestTypeDef(TypedDict):
+    Marker: NotRequired[str]
+    MaxItems: NotRequired[int]
+
+class TrustStoreSummaryTypeDef(TypedDict):
+    Id: str
+    Arn: str
+    Name: str
+    Status: TrustStoreStatusType
+    NumberOfCaCertificates: int
+    LastModifiedTime: datetime
+    ETag: str
+    Reason: NotRequired[str]
+
 class ListVpcOriginsRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     MaxItems: NotRequired[str]
@@ -1408,7 +1530,7 @@ class OriginAccessControlSummaryTypeDef(TypedDict):
 
 class StatusCodesOutputTypeDef(TypedDict):
     Quantity: int
-    Items: List[int]
+    Items: list[int]
 
 class OriginGroupMemberTypeDef(TypedDict):
     OriginId: str
@@ -1423,6 +1545,7 @@ class S3OriginConfigTypeDef(TypedDict):
 
 class VpcOriginConfigTypeDef(TypedDict):
     VpcOriginId: str
+    OwnerAccountId: NotRequired[str]
     OriginReadTimeout: NotRequired[int]
     OriginKeepaliveTimeout: NotRequired[int]
 
@@ -1446,9 +1569,17 @@ class PublicKeySummaryTypeDef(TypedDict):
     EncodedKey: str
     Comment: NotRequired[str]
 
+class PublishConnectionFunctionRequestTypeDef(TypedDict):
+    Id: str
+    IfMatch: str
+
 class PublishFunctionRequestTypeDef(TypedDict):
     Name: str
     IfMatch: str
+
+class PutResourcePolicyRequestTypeDef(TypedDict):
+    ResourceArn: str
+    PolicyDocument: str
 
 class QueryArgProfileTypeDef(TypedDict):
     QueryArg: str
@@ -1460,7 +1591,7 @@ class QueryStringCacheKeysTypeDef(TypedDict):
 
 class ResponseHeadersPolicyAccessControlAllowHeadersOutputTypeDef(TypedDict):
     Quantity: int
-    Items: List[str]
+    Items: list[str]
 
 class ResponseHeadersPolicyAccessControlAllowHeadersTypeDef(TypedDict):
     Quantity: int
@@ -1468,7 +1599,7 @@ class ResponseHeadersPolicyAccessControlAllowHeadersTypeDef(TypedDict):
 
 class ResponseHeadersPolicyAccessControlAllowMethodsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: List[ResponseHeadersPolicyAccessControlAllowMethodsValuesType]
+    Items: list[ResponseHeadersPolicyAccessControlAllowMethodsValuesType]
 
 class ResponseHeadersPolicyAccessControlAllowMethodsTypeDef(TypedDict):
     Quantity: int
@@ -1476,7 +1607,7 @@ class ResponseHeadersPolicyAccessControlAllowMethodsTypeDef(TypedDict):
 
 class ResponseHeadersPolicyAccessControlAllowOriginsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: List[str]
+    Items: list[str]
 
 class ResponseHeadersPolicyAccessControlAllowOriginsTypeDef(TypedDict):
     Quantity: int
@@ -1484,7 +1615,7 @@ class ResponseHeadersPolicyAccessControlAllowOriginsTypeDef(TypedDict):
 
 class ResponseHeadersPolicyAccessControlExposeHeadersOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
 
 class ResponseHeadersPolicyAccessControlExposeHeadersTypeDef(TypedDict):
     Quantity: int
@@ -1549,6 +1680,11 @@ class TagTypeDef(TypedDict):
     Key: str
     Value: NotRequired[str]
 
+class TrustStoreConfigTypeDef(TypedDict):
+    TrustStoreId: str
+    AdvertiseTrustStoreCaNames: NotRequired[bool]
+    IgnoreCertificateExpiry: NotRequired[bool]
+
 class TrustedKeyGroupsTypeDef(TypedDict):
     Enabled: bool
     Quantity: int
@@ -1558,6 +1694,11 @@ class TrustedSignersTypeDef(TypedDict):
     Enabled: bool
     Quantity: int
     Items: NotRequired[Sequence[str]]
+
+class UpdateAnycastIpListRequestTypeDef(TypedDict):
+    Id: str
+    IfMatch: str
+    IpAddressType: NotRequired[IpAddressTypeType]
 
 class UpdateConnectionGroupRequestTypeDef(TypedDict):
     Id: str
@@ -1588,21 +1729,14 @@ class VpcOriginSummaryTypeDef(TypedDict):
     LastModifiedTime: datetime
     Arn: str
     OriginEndpointArn: str
+    AccountId: NotRequired[str]
 
 AliasesUnionTypeDef = Union[AliasesTypeDef, AliasesOutputTypeDef]
 
 class AllowedMethodsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: List[MethodType]
+    Items: list[MethodType]
     CachedMethods: NotRequired[CachedMethodsOutputTypeDef]
-
-class AnycastIpListCollectionTypeDef(TypedDict):
-    Marker: str
-    MaxItems: int
-    IsTruncated: bool
-    Quantity: int
-    Items: NotRequired[List[AnycastIpListSummaryTypeDef]]
-    NextMarker: NotRequired[str]
 
 class AssociateDistributionTenantWebACLResultTypeDef(TypedDict):
     Id: str
@@ -1613,11 +1747,6 @@ class AssociateDistributionTenantWebACLResultTypeDef(TypedDict):
 class AssociateDistributionWebACLResultTypeDef(TypedDict):
     Id: str
     WebACLArn: str
-    ETag: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateAnycastIpListResultTypeDef(TypedDict):
-    AnycastIpList: AnycastIpListTypeDef
     ETag: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1634,9 +1763,10 @@ class DisassociateDistributionWebACLResultTypeDef(TypedDict):
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetAnycastIpListResultTypeDef(TypedDict):
-    AnycastIpList: AnycastIpListTypeDef
+class GetConnectionFunctionResultTypeDef(TypedDict):
+    ConnectionFunctionCode: StreamingBody
     ETag: str
+    ContentType: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetFunctionResultTypeDef(TypedDict):
@@ -1645,17 +1775,35 @@ class GetFunctionResultTypeDef(TypedDict):
     ContentType: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetResourcePolicyResultTypeDef(TypedDict):
+    ResourceArn: str
+    PolicyDocument: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutResourcePolicyResultTypeDef(TypedDict):
+    ResourceArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateDomainAssociationResultTypeDef(TypedDict):
     Domain: str
     ResourceId: str
     ETag: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class TestConnectionFunctionRequestTypeDef(TypedDict):
+    Id: str
+    IfMatch: str
+    ConnectionObject: BlobTypeDef
+    Stage: NotRequired[FunctionStageType]
+
 class TestFunctionRequestTypeDef(TypedDict):
     Name: str
     IfMatch: str
     EventObject: BlobTypeDef
     Stage: NotRequired[FunctionStageType]
+
+class CaCertificatesBundleSourceTypeDef(TypedDict):
+    CaCertificatesBundleS3Location: NotRequired[CaCertificatesBundleS3LocationTypeDef]
 
 class CachePolicyCookiesConfigOutputTypeDef(TypedDict):
     CookieBehavior: CachePolicyCookieBehaviorType
@@ -1739,13 +1887,13 @@ class CloudFrontOriginAccessIdentityListTypeDef(TypedDict):
     IsTruncated: bool
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[CloudFrontOriginAccessIdentitySummaryTypeDef]]
+    Items: NotRequired[list[CloudFrontOriginAccessIdentitySummaryTypeDef]]
 
 class ConflictingAliasesListTypeDef(TypedDict):
     NextMarker: NotRequired[str]
     MaxItems: NotRequired[int]
     Quantity: NotRequired[int]
-    Items: NotRequired[List[ConflictingAliasTypeDef]]
+    Items: NotRequired[list[ConflictingAliasTypeDef]]
 
 class ListConnectionGroupsRequestTypeDef(TypedDict):
     AssociationFilter: NotRequired[ConnectionGroupAssociationFilterTypeDef]
@@ -1754,12 +1902,12 @@ class ListConnectionGroupsRequestTypeDef(TypedDict):
 
 class ListConnectionGroupsResultTypeDef(TypedDict):
     NextMarker: str
-    ConnectionGroups: List[ConnectionGroupSummaryTypeDef]
+    ConnectionGroups: list[ConnectionGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ContentTypeProfilesOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[ContentTypeProfileTypeDef]]
+    Items: NotRequired[list[ContentTypeProfileTypeDef]]
 
 class ContentTypeProfilesTypeDef(TypedDict):
     Quantity: int
@@ -1768,6 +1916,10 @@ class ContentTypeProfilesTypeDef(TypedDict):
 class ContinuousDeploymentSingleWeightConfigTypeDef(TypedDict):
     Weight: float
     SessionStickinessConfig: NotRequired[SessionStickinessConfigTypeDef]
+
+class IpamConfigTypeDef(TypedDict):
+    Quantity: int
+    IpamCidrConfigs: list[IpamCidrConfigTypeDef]
 
 class CreateKeyValueStoreRequestTypeDef(TypedDict):
     Name: str
@@ -1789,7 +1941,7 @@ class KeyValueStoreListTypeDef(TypedDict):
     MaxItems: int
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[KeyValueStoreTypeDef]]
+    Items: NotRequired[list[KeyValueStoreTypeDef]]
 
 class UpdateKeyValueStoreResultTypeDef(TypedDict):
     KeyValueStore: KeyValueStoreTypeDef
@@ -1831,9 +1983,24 @@ class UpdatePublicKeyRequestTypeDef(TypedDict):
     Id: str
     IfMatch: NotRequired[str]
 
+class CreateTrustStoreResultTypeDef(TypedDict):
+    TrustStore: TrustStoreTypeDef
+    ETag: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTrustStoreResultTypeDef(TypedDict):
+    TrustStore: TrustStoreTypeDef
+    ETag: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateTrustStoreResultTypeDef(TypedDict):
+    TrustStore: TrustStoreTypeDef
+    ETag: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CustomErrorResponsesOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[CustomErrorResponseTypeDef]]
+    Items: NotRequired[list[CustomErrorResponseTypeDef]]
 
 class CustomErrorResponsesTypeDef(TypedDict):
     Quantity: int
@@ -1841,7 +2008,7 @@ class CustomErrorResponsesTypeDef(TypedDict):
 
 class CustomHeadersOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[OriginCustomHeaderTypeDef]]
+    Items: NotRequired[list[OriginCustomHeaderTypeDef]]
 
 class CustomHeadersTypeDef(TypedDict):
     Quantity: int
@@ -1894,6 +2061,14 @@ class ListDistributionsByVpcOriginIdResultTypeDef(TypedDict):
     DistributionIdList: DistributionIdListTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DistributionIdOwnerListTypeDef(TypedDict):
+    Marker: str
+    MaxItems: int
+    IsTruncated: bool
+    Quantity: int
+    NextMarker: NotRequired[str]
+    Items: NotRequired[list[DistributionIdOwnerTypeDef]]
+
 class ListDomainConflictsRequestTypeDef(TypedDict):
     Domain: str
     DomainControlValidationResource: DistributionResourceIdTypeDef
@@ -1911,11 +2086,11 @@ class ListDistributionTenantsRequestTypeDef(TypedDict):
     MaxItems: NotRequired[int]
 
 class VerifyDnsConfigurationResultTypeDef(TypedDict):
-    DnsConfigurationList: List[DnsConfigurationTypeDef]
+    DnsConfigurationList: list[DnsConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDomainConflictsResultTypeDef(TypedDict):
-    DomainConflicts: List[DomainConflictTypeDef]
+    DomainConflicts: list[DomainConflictTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1935,7 +2110,7 @@ class EndPointTypeDef(TypedDict):
 
 class FunctionAssociationsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[FunctionAssociationTypeDef]]
+    Items: NotRequired[list[FunctionAssociationTypeDef]]
 
 class FunctionAssociationsTypeDef(TypedDict):
     Quantity: int
@@ -1988,7 +2163,7 @@ class InvalidationListTypeDef(TypedDict):
     IsTruncated: bool
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[InvalidationSummaryTypeDef]]
+    Items: NotRequired[list[InvalidationSummaryTypeDef]]
 
 class KGKeyPairIdsTypeDef(TypedDict):
     KeyGroupId: NotRequired[str]
@@ -2002,7 +2177,7 @@ KeyGroupConfigUnionTypeDef = Union[KeyGroupConfigTypeDef, KeyGroupConfigOutputTy
 
 class KeyValueStoreAssociationsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[KeyValueStoreAssociationTypeDef]]
+    Items: NotRequired[list[KeyValueStoreAssociationTypeDef]]
 
 class KeyValueStoreAssociationsTypeDef(TypedDict):
     Quantity: int
@@ -2010,13 +2185,17 @@ class KeyValueStoreAssociationsTypeDef(TypedDict):
 
 class LambdaFunctionAssociationsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[LambdaFunctionAssociationTypeDef]]
+    Items: NotRequired[list[LambdaFunctionAssociationTypeDef]]
 
 class LambdaFunctionAssociationsTypeDef(TypedDict):
     Quantity: int
     Items: NotRequired[Sequence[LambdaFunctionAssociationTypeDef]]
 
 class ListCloudFrontOriginAccessIdentitiesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListConnectionFunctionsRequestPaginateTypeDef(TypedDict):
+    Stage: NotRequired[FunctionStageType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListConnectionGroupsRequestPaginateTypeDef(TypedDict):
@@ -2032,8 +2211,16 @@ class ListDistributionTenantsRequestPaginateTypeDef(TypedDict):
     AssociationFilter: NotRequired[DistributionTenantAssociationFilterTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListDistributionsByConnectionFunctionRequestPaginateTypeDef(TypedDict):
+    ConnectionFunctionIdentifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListDistributionsByConnectionModeRequestPaginateTypeDef(TypedDict):
     ConnectionMode: ConnectionModeType
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListDistributionsByTrustStoreRequestPaginateTypeDef(TypedDict):
+    TrustStoreIdentifier: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListDistributionsRequestPaginateTypeDef(TypedDict):
@@ -2065,11 +2252,19 @@ class ListPublicKeysRequestPaginateTypeDef(TypedDict):
 class ListStreamingDistributionsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListTrustStoresRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTrustStoresResultTypeDef(TypedDict):
+    NextMarker: str
+    TrustStoreList: list[TrustStoreSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ManagedCertificateDetailsTypeDef(TypedDict):
     CertificateArn: NotRequired[str]
     CertificateStatus: NotRequired[ManagedCertificateStatusType]
     ValidationTokenHost: NotRequired[ValidationTokenHostType]
-    ValidationTokenDetails: NotRequired[List[ValidationTokenDetailTypeDef]]
+    ValidationTokenDetails: NotRequired[list[ValidationTokenDetailTypeDef]]
 
 class MonitoringSubscriptionTypeDef(TypedDict):
     RealtimeMetricsSubscriptionConfig: NotRequired[RealtimeMetricsSubscriptionConfigTypeDef]
@@ -2080,14 +2275,14 @@ class OriginAccessControlListTypeDef(TypedDict):
     IsTruncated: bool
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[OriginAccessControlSummaryTypeDef]]
+    Items: NotRequired[list[OriginAccessControlSummaryTypeDef]]
 
 class OriginGroupFailoverCriteriaOutputTypeDef(TypedDict):
     StatusCodes: StatusCodesOutputTypeDef
 
 class OriginGroupMembersOutputTypeDef(TypedDict):
     Quantity: int
-    Items: List[OriginGroupMemberTypeDef]
+    Items: list[OriginGroupMemberTypeDef]
 
 class OriginGroupMembersTypeDef(TypedDict):
     Quantity: int
@@ -2110,11 +2305,11 @@ class PublicKeyListTypeDef(TypedDict):
     MaxItems: int
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[PublicKeySummaryTypeDef]]
+    Items: NotRequired[list[PublicKeySummaryTypeDef]]
 
 class QueryArgProfilesOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[QueryArgProfileTypeDef]]
+    Items: NotRequired[list[QueryArgProfileTypeDef]]
 
 class QueryArgProfilesTypeDef(TypedDict):
     Quantity: int
@@ -2146,7 +2341,7 @@ class ResponseHeadersPolicyCorsConfigTypeDef(TypedDict):
 
 class ResponseHeadersPolicyCustomHeadersConfigOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[ResponseHeadersPolicyCustomHeaderTypeDef]]
+    Items: NotRequired[list[ResponseHeadersPolicyCustomHeaderTypeDef]]
 
 class ResponseHeadersPolicyCustomHeadersConfigTypeDef(TypedDict):
     Quantity: int
@@ -2154,7 +2349,7 @@ class ResponseHeadersPolicyCustomHeadersConfigTypeDef(TypedDict):
 
 class ResponseHeadersPolicyRemoveHeadersConfigOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[ResponseHeadersPolicyRemoveHeaderTypeDef]]
+    Items: NotRequired[list[ResponseHeadersPolicyRemoveHeaderTypeDef]]
 
 class ResponseHeadersPolicyRemoveHeadersConfigTypeDef(TypedDict):
     Quantity: int
@@ -2198,10 +2393,14 @@ class UntagResourceRequestTypeDef(TypedDict):
     TagKeys: TagKeysTypeDef
 
 class TagsOutputTypeDef(TypedDict):
-    Items: NotRequired[List[TagTypeDef]]
+    Items: NotRequired[list[TagTypeDef]]
 
 class TagsTypeDef(TypedDict):
     Items: NotRequired[Sequence[TagTypeDef]]
+
+class ViewerMtlsConfigTypeDef(TypedDict):
+    Mode: NotRequired[ViewerMtlsModeType]
+    TrustStoreConfig: NotRequired[TrustStoreConfigTypeDef]
 
 TrustedKeyGroupsUnionTypeDef = Union[TrustedKeyGroupsTypeDef, TrustedKeyGroupsOutputTypeDef]
 TrustedSignersUnionTypeDef = Union[TrustedSignersTypeDef, TrustedSignersOutputTypeDef]
@@ -2212,11 +2411,12 @@ class VpcOriginListTypeDef(TypedDict):
     IsTruncated: bool
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[VpcOriginSummaryTypeDef]]
+    Items: NotRequired[list[VpcOriginSummaryTypeDef]]
 
-class ListAnycastIpListsResultTypeDef(TypedDict):
-    AnycastIpLists: AnycastIpListCollectionTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class UpdateTrustStoreRequestTypeDef(TypedDict):
+    Id: str
+    CaCertificatesBundleSource: CaCertificatesBundleSourceTypeDef
+    IfMatch: str
 
 class ForwardedValuesOutputTypeDef(TypedDict):
     QueryString: bool
@@ -2302,6 +2502,28 @@ TrafficConfigTypeDef = TypedDict(
     },
 )
 
+class AnycastIpListSummaryTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Status: str
+    Arn: str
+    IpCount: int
+    LastModifiedTime: datetime
+    IpAddressType: NotRequired[IpAddressTypeType]
+    ETag: NotRequired[str]
+    IpamConfig: NotRequired[IpamConfigTypeDef]
+
+class AnycastIpListTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Status: str
+    Arn: str
+    AnycastIps: list[str]
+    IpCount: int
+    LastModifiedTime: datetime
+    IpAddressType: NotRequired[IpAddressTypeType]
+    IpamConfig: NotRequired[IpamConfigTypeDef]
+
 class ListKeyValueStoresResultTypeDef(TypedDict):
     KeyValueStoreList: KeyValueStoreListTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2364,13 +2586,14 @@ class VpcOriginTypeDef(TypedDict):
     CreatedTime: datetime
     LastModifiedTime: datetime
     VpcOriginEndpointConfig: VpcOriginEndpointConfigOutputTypeDef
+    AccountId: NotRequired[str]
 
 class DistributionTenantSummaryTypeDef(TypedDict):
     Id: str
     DistributionId: str
     Name: str
     Arn: str
-    Domains: List[DomainResultTypeDef]
+    Domains: list[DomainResultTypeDef]
     CreatedTime: datetime
     LastModifiedTime: datetime
     ETag: str
@@ -2381,9 +2604,13 @@ class DistributionTenantSummaryTypeDef(TypedDict):
 
 CustomizationsUnionTypeDef = Union[CustomizationsTypeDef, CustomizationsOutputTypeDef]
 
+class ListDistributionsByOwnedResourceResultTypeDef(TypedDict):
+    DistributionList: DistributionIdOwnerListTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class EncryptionEntitiesOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[EncryptionEntityOutputTypeDef]]
+    Items: NotRequired[list[EncryptionEntityOutputTypeDef]]
 
 class EncryptionEntitiesTypeDef(TypedDict):
     Quantity: int
@@ -2399,8 +2626,8 @@ class RealtimeLogConfigTypeDef(TypedDict):
     ARN: str
     Name: str
     SamplingRate: int
-    EndPoints: List[EndPointTypeDef]
-    Fields: List[str]
+    EndPoints: list[EndPointTypeDef]
+    Fields: list[str]
 
 class UpdateRealtimeLogConfigRequestTypeDef(TypedDict):
     EndPoints: NotRequired[Sequence[EndPointTypeDef]]
@@ -2454,12 +2681,12 @@ class ListInvalidationsResultTypeDef(TypedDict):
 class ActiveTrustedKeyGroupsTypeDef(TypedDict):
     Enabled: bool
     Quantity: int
-    Items: NotRequired[List[KGKeyPairIdsTypeDef]]
+    Items: NotRequired[list[KGKeyPairIdsTypeDef]]
 
 class ActiveTrustedSignersTypeDef(TypedDict):
     Enabled: bool
     Quantity: int
-    Items: NotRequired[List[SignerTypeDef]]
+    Items: NotRequired[list[SignerTypeDef]]
 
 class CreateKeyGroupRequestTypeDef(TypedDict):
     KeyGroupConfig: KeyGroupConfigUnionTypeDef
@@ -2564,7 +2791,7 @@ class StreamingDistributionListTypeDef(TypedDict):
     IsTruncated: bool
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[StreamingDistributionSummaryTypeDef]]
+    Items: NotRequired[list[StreamingDistributionSummaryTypeDef]]
 
 class OriginGroupFailoverCriteriaTypeDef(TypedDict):
     StatusCodes: StatusCodesUnionTypeDef
@@ -2593,10 +2820,10 @@ class DistributionTenantTypeDef(TypedDict):
     DistributionId: NotRequired[str]
     Name: NotRequired[str]
     Arn: NotRequired[str]
-    Domains: NotRequired[List[DomainResultTypeDef]]
+    Domains: NotRequired[list[DomainResultTypeDef]]
     Tags: NotRequired[TagsOutputTypeDef]
     Customizations: NotRequired[CustomizationsOutputTypeDef]
-    Parameters: NotRequired[List[ParameterTypeDef]]
+    Parameters: NotRequired[list[ParameterTypeDef]]
     ConnectionGroupId: NotRequired[str]
     CreatedTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
@@ -2713,9 +2940,32 @@ class ContinuousDeploymentPolicyConfigTypeDef(TypedDict):
     Enabled: bool
     TrafficConfig: NotRequired[TrafficConfigTypeDef]
 
+class AnycastIpListCollectionTypeDef(TypedDict):
+    Marker: str
+    MaxItems: int
+    IsTruncated: bool
+    Quantity: int
+    Items: NotRequired[list[AnycastIpListSummaryTypeDef]]
+    NextMarker: NotRequired[str]
+
+class CreateAnycastIpListResultTypeDef(TypedDict):
+    AnycastIpList: AnycastIpListTypeDef
+    ETag: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAnycastIpListResultTypeDef(TypedDict):
+    AnycastIpList: AnycastIpListTypeDef
+    ETag: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAnycastIpListResultTypeDef(TypedDict):
+    AnycastIpList: AnycastIpListTypeDef
+    ETag: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class OriginsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: List[OriginOutputTypeDef]
+    Items: list[OriginOutputTypeDef]
 
 class CreateVpcOriginResultTypeDef(TypedDict):
     VpcOrigin: VpcOriginTypeDef
@@ -2740,12 +2990,12 @@ class UpdateVpcOriginResultTypeDef(TypedDict):
 
 class ListDistributionTenantsByCustomizationResultTypeDef(TypedDict):
     NextMarker: str
-    DistributionTenantList: List[DistributionTenantSummaryTypeDef]
+    DistributionTenantList: list[DistributionTenantSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDistributionTenantsResultTypeDef(TypedDict):
     NextMarker: str
-    DistributionTenantList: List[DistributionTenantSummaryTypeDef]
+    DistributionTenantList: list[DistributionTenantSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateDistributionTenantRequestTypeDef(TypedDict):
@@ -2790,7 +3040,7 @@ class RealtimeLogConfigsTypeDef(TypedDict):
     MaxItems: int
     IsTruncated: bool
     Marker: str
-    Items: NotRequired[List[RealtimeLogConfigTypeDef]]
+    Items: NotRequired[list[RealtimeLogConfigTypeDef]]
     NextMarker: NotRequired[str]
 
 class UpdateRealtimeLogConfigResultTypeDef(TypedDict):
@@ -2803,7 +3053,7 @@ class KeyGroupListTypeDef(TypedDict):
     MaxItems: int
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[KeyGroupSummaryTypeDef]]
+    Items: NotRequired[list[KeyGroupSummaryTypeDef]]
 
 class CreateInvalidationForDistributionTenantResultTypeDef(TypedDict):
     Location: str
@@ -2840,6 +3090,16 @@ class StreamingDistributionTypeDef(TypedDict):
     StreamingDistributionConfig: StreamingDistributionConfigOutputTypeDef
     LastModifiedTime: NotRequired[datetime]
 
+class ConnectionFunctionSummaryTypeDef(TypedDict):
+    Name: str
+    Id: str
+    ConnectionFunctionConfig: FunctionConfigOutputTypeDef
+    ConnectionFunctionArn: str
+    Status: str
+    Stage: FunctionStageType
+    CreatedTime: datetime
+    LastModifiedTime: datetime
+
 class FunctionSummaryTypeDef(TypedDict):
     Name: str
     FunctionConfig: FunctionConfigOutputTypeDef
@@ -2850,7 +3110,7 @@ FunctionConfigUnionTypeDef = Union[FunctionConfigTypeDef, FunctionConfigOutputTy
 
 class OriginGroupsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[OriginGroupOutputTypeDef]]
+    Items: NotRequired[list[OriginGroupOutputTypeDef]]
 
 CustomOriginConfigUnionTypeDef = Union[CustomOriginConfigTypeDef, CustomOriginConfigOutputTypeDef]
 
@@ -2860,7 +3120,7 @@ class UpdateVpcOriginRequestTypeDef(TypedDict):
     IfMatch: str
 
 class TenantConfigOutputTypeDef(TypedDict):
-    ParameterDefinitions: NotRequired[List[ParameterDefinitionTypeDef]]
+    ParameterDefinitions: NotRequired[list[ParameterDefinitionTypeDef]]
 
 class TenantConfigTypeDef(TypedDict):
     ParameterDefinitions: NotRequired[Sequence[ParameterDefinitionTypeDef]]
@@ -2950,6 +3210,8 @@ class CreateAnycastIpListRequestTypeDef(TypedDict):
     Name: str
     IpCount: int
     Tags: NotRequired[TagsUnionTypeDef]
+    IpAddressType: NotRequired[IpAddressTypeType]
+    IpamCidrConfigs: NotRequired[Sequence[IpamCidrConfigTypeDef]]
 
 class CreateConnectionGroupRequestTypeDef(TypedDict):
     Name: str
@@ -2969,6 +3231,11 @@ class CreateDistributionTenantRequestTypeDef(TypedDict):
     ManagedCertificateRequest: NotRequired[ManagedCertificateRequestTypeDef]
     Enabled: NotRequired[bool]
 
+class CreateTrustStoreRequestTypeDef(TypedDict):
+    Name: str
+    CaCertificatesBundleSource: CaCertificatesBundleSourceTypeDef
+    Tags: NotRequired[TagsUnionTypeDef]
+
 class CreateVpcOriginRequestTypeDef(TypedDict):
     VpcOriginEndpointConfig: VpcOriginEndpointConfigUnionTypeDef
     Tags: NotRequired[TagsUnionTypeDef]
@@ -2983,7 +3250,7 @@ StreamingDistributionConfigUnionTypeDef = Union[
 
 class CacheBehaviorsOutputTypeDef(TypedDict):
     Quantity: int
-    Items: NotRequired[List[CacheBehaviorOutputTypeDef]]
+    Items: NotRequired[list[CacheBehaviorOutputTypeDef]]
 
 class ForwardedValuesTypeDef(TypedDict):
     QueryString: bool
@@ -3049,6 +3316,10 @@ ContinuousDeploymentPolicyConfigUnionTypeDef = Union[
     ContinuousDeploymentPolicyConfigTypeDef, ContinuousDeploymentPolicyConfigOutputTypeDef
 ]
 
+class ListAnycastIpListsResultTypeDef(TypedDict):
+    AnycastIpLists: AnycastIpListCollectionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class FieldLevelEncryptionProfileTypeDef(TypedDict):
     Id: str
     LastModifiedTime: datetime
@@ -3063,7 +3334,7 @@ class FieldLevelEncryptionProfileListTypeDef(TypedDict):
     MaxItems: int
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[FieldLevelEncryptionProfileSummaryTypeDef]]
+    Items: NotRequired[list[FieldLevelEncryptionProfileSummaryTypeDef]]
 
 FieldLevelEncryptionProfileConfigUnionTypeDef = Union[
     FieldLevelEncryptionProfileConfigTypeDef, FieldLevelEncryptionProfileConfigOutputTypeDef
@@ -3099,6 +3370,38 @@ class UpdateStreamingDistributionResultTypeDef(TypedDict):
     ETag: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ConnectionFunctionTestResultTypeDef(TypedDict):
+    ConnectionFunctionSummary: NotRequired[ConnectionFunctionSummaryTypeDef]
+    ComputeUtilization: NotRequired[str]
+    ConnectionFunctionExecutionLogs: NotRequired[list[str]]
+    ConnectionFunctionErrorMessage: NotRequired[str]
+    ConnectionFunctionOutput: NotRequired[str]
+
+class CreateConnectionFunctionResultTypeDef(TypedDict):
+    ConnectionFunctionSummary: ConnectionFunctionSummaryTypeDef
+    Location: str
+    ETag: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeConnectionFunctionResultTypeDef(TypedDict):
+    ConnectionFunctionSummary: ConnectionFunctionSummaryTypeDef
+    ETag: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListConnectionFunctionsResultTypeDef(TypedDict):
+    NextMarker: str
+    ConnectionFunctions: list[ConnectionFunctionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PublishConnectionFunctionResultTypeDef(TypedDict):
+    ConnectionFunctionSummary: ConnectionFunctionSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateConnectionFunctionResultTypeDef(TypedDict):
+    ConnectionFunctionSummary: ConnectionFunctionSummaryTypeDef
+    ETag: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateFunctionResultTypeDef(TypedDict):
     FunctionSummary: FunctionSummaryTypeDef
     Location: str
@@ -3114,7 +3417,7 @@ class FunctionListTypeDef(TypedDict):
     MaxItems: int
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[FunctionSummaryTypeDef]]
+    Items: NotRequired[list[FunctionSummaryTypeDef]]
 
 class PublishFunctionResultTypeDef(TypedDict):
     FunctionSummary: FunctionSummaryTypeDef
@@ -3123,7 +3426,7 @@ class PublishFunctionResultTypeDef(TypedDict):
 class TestResultTypeDef(TypedDict):
     FunctionSummary: NotRequired[FunctionSummaryTypeDef]
     ComputeUtilization: NotRequired[str]
-    FunctionExecutionLogs: NotRequired[List[str]]
+    FunctionExecutionLogs: NotRequired[list[str]]
     FunctionErrorMessage: NotRequired[str]
     FunctionOutput: NotRequired[str]
 
@@ -3132,10 +3435,22 @@ class UpdateFunctionResultTypeDef(TypedDict):
     ETag: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateConnectionFunctionRequestTypeDef(TypedDict):
+    Name: str
+    ConnectionFunctionConfig: FunctionConfigUnionTypeDef
+    ConnectionFunctionCode: BlobTypeDef
+    Tags: NotRequired[TagsUnionTypeDef]
+
 class CreateFunctionRequestTypeDef(TypedDict):
     Name: str
     FunctionConfig: FunctionConfigUnionTypeDef
     FunctionCode: BlobTypeDef
+
+class UpdateConnectionFunctionRequestTypeDef(TypedDict):
+    Id: str
+    IfMatch: str
+    ConnectionFunctionConfig: FunctionConfigUnionTypeDef
+    ConnectionFunctionCode: BlobTypeDef
 
 class UpdateFunctionRequestTypeDef(TypedDict):
     Name: str
@@ -3173,7 +3488,7 @@ class FieldLevelEncryptionListTypeDef(TypedDict):
     MaxItems: int
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[FieldLevelEncryptionSummaryTypeDef]]
+    Items: NotRequired[list[FieldLevelEncryptionSummaryTypeDef]]
 
 FieldLevelEncryptionConfigUnionTypeDef = Union[
     FieldLevelEncryptionConfigTypeDef, FieldLevelEncryptionConfigOutputTypeDef
@@ -3252,6 +3567,8 @@ class DistributionConfigOutputTypeDef(TypedDict):
     AnycastIpListId: NotRequired[str]
     TenantConfig: NotRequired[TenantConfigOutputTypeDef]
     ConnectionMode: NotRequired[ConnectionModeType]
+    ViewerMtlsConfig: NotRequired[ViewerMtlsConfigTypeDef]
+    ConnectionFunctionAssociation: NotRequired[ConnectionFunctionAssociationTypeDef]
 
 class DistributionSummaryTypeDef(TypedDict):
     Id: str
@@ -3275,9 +3592,11 @@ class DistributionSummaryTypeDef(TypedDict):
     Staging: bool
     ETag: NotRequired[str]
     OriginGroups: NotRequired[OriginGroupsOutputTypeDef]
-    AliasICPRecordals: NotRequired[List[AliasICPRecordalTypeDef]]
+    AliasICPRecordals: NotRequired[list[AliasICPRecordalTypeDef]]
     ConnectionMode: NotRequired[ConnectionModeType]
     AnycastIpListId: NotRequired[str]
+    ViewerMtlsConfig: NotRequired[ViewerMtlsConfigTypeDef]
+    ConnectionFunctionAssociation: NotRequired[ConnectionFunctionAssociationTypeDef]
 
 ForwardedValuesUnionTypeDef = Union[ForwardedValuesTypeDef, ForwardedValuesOutputTypeDef]
 CachePolicySummaryTypeDef = TypedDict(
@@ -3308,7 +3627,7 @@ class OriginRequestPolicyListTypeDef(TypedDict):
     MaxItems: int
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[OriginRequestPolicySummaryTypeDef]]
+    Items: NotRequired[list[OriginRequestPolicySummaryTypeDef]]
 
 class CreateCachePolicyRequestTypeDef(TypedDict):
     CachePolicyConfig: CachePolicyConfigUnionTypeDef
@@ -3373,6 +3692,10 @@ class UpdateFieldLevelEncryptionProfileRequestTypeDef(TypedDict):
     Id: str
     IfMatch: NotRequired[str]
 
+class TestConnectionFunctionResultTypeDef(TypedDict):
+    ConnectionFunctionTestResult: ConnectionFunctionTestResultTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListFunctionsResultTypeDef(TypedDict):
     FunctionList: FunctionListTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3415,7 +3738,7 @@ class ResponseHeadersPolicyListTypeDef(TypedDict):
     MaxItems: int
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[ResponseHeadersPolicySummaryTypeDef]]
+    Items: NotRequired[list[ResponseHeadersPolicySummaryTypeDef]]
 
 OriginGroupUnionTypeDef = Union[OriginGroupTypeDef, OriginGroupOutputTypeDef]
 
@@ -3432,7 +3755,7 @@ class DistributionTypeDef(TypedDict):
     DistributionConfig: DistributionConfigOutputTypeDef
     ActiveTrustedSigners: NotRequired[ActiveTrustedSignersTypeDef]
     ActiveTrustedKeyGroups: NotRequired[ActiveTrustedKeyGroupsTypeDef]
-    AliasICPRecordals: NotRequired[List[AliasICPRecordalTypeDef]]
+    AliasICPRecordals: NotRequired[list[AliasICPRecordalTypeDef]]
 
 class GetDistributionConfigResultTypeDef(TypedDict):
     DistributionConfig: DistributionConfigOutputTypeDef
@@ -3445,7 +3768,7 @@ class DistributionListTypeDef(TypedDict):
     IsTruncated: bool
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[DistributionSummaryTypeDef]]
+    Items: NotRequired[list[DistributionSummaryTypeDef]]
 
 class CacheBehaviorTypeDef(TypedDict):
     PathPattern: str
@@ -3494,7 +3817,7 @@ class CachePolicyListTypeDef(TypedDict):
     MaxItems: int
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[CachePolicySummaryTypeDef]]
+    Items: NotRequired[list[CachePolicySummaryTypeDef]]
 
 class ListOriginRequestPoliciesResultTypeDef(TypedDict):
     OriginRequestPolicyList: OriginRequestPolicyListTypeDef
@@ -3504,7 +3827,7 @@ class ContinuousDeploymentPolicyListTypeDef(TypedDict):
     MaxItems: int
     Quantity: int
     NextMarker: NotRequired[str]
-    Items: NotRequired[List[ContinuousDeploymentPolicySummaryTypeDef]]
+    Items: NotRequired[list[ContinuousDeploymentPolicySummaryTypeDef]]
 
 class OriginsTypeDef(TypedDict):
     Quantity: int
@@ -3555,11 +3878,19 @@ class ListDistributionsByAnycastIpListIdResultTypeDef(TypedDict):
     DistributionList: DistributionListTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListDistributionsByConnectionFunctionResultTypeDef(TypedDict):
+    DistributionList: DistributionListTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListDistributionsByConnectionModeResultTypeDef(TypedDict):
     DistributionList: DistributionListTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDistributionsByRealtimeLogConfigResultTypeDef(TypedDict):
+    DistributionList: DistributionListTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListDistributionsByTrustStoreResultTypeDef(TypedDict):
     DistributionList: DistributionListTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -3616,6 +3947,8 @@ class DistributionConfigTypeDef(TypedDict):
     AnycastIpListId: NotRequired[str]
     TenantConfig: NotRequired[TenantConfigUnionTypeDef]
     ConnectionMode: NotRequired[ConnectionModeType]
+    ViewerMtlsConfig: NotRequired[ViewerMtlsConfigTypeDef]
+    ConnectionFunctionAssociation: NotRequired[ConnectionFunctionAssociationTypeDef]
 
 DistributionConfigUnionTypeDef = Union[DistributionConfigTypeDef, DistributionConfigOutputTypeDef]
 

@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from anyscale._private.anyscale_client import AnyscaleClientInterface
 from anyscale._private.models.model_base import ResultIterator
@@ -9,7 +9,7 @@ from anyscale.service._private.service_sdk import PrivateServiceSDK
 from anyscale.service.commands import (
     _ARCHIVE_ARG_DOCSTRINGS,
     _ARCHIVE_EXAMPLE,
-    _controller_logs,
+    _controller_logs as _controller_logs,
     _CONTROLLER_LOGS_ARG_DOCSTRINGS,
     _CONTROLLER_LOGS_EXAMPLE,
     _DELETE_ARG_DOCSTRINGS,
@@ -22,18 +22,27 @@ from anyscale.service.commands import (
     _ROLLBACK_EXAMPLE,
     _STATUS_ARG_DOCSTRINGS,
     _STATUS_EXAMPLE,
+    _TAGS_ADD_ARG_DOCSTRINGS,
+    _TAGS_ADD_EXAMPLE,
+    _TAGS_LIST_ARG_DOCSTRINGS,
+    _TAGS_LIST_EXAMPLE,
+    _TAGS_REMOVE_ARG_DOCSTRINGS,
+    _TAGS_REMOVE_EXAMPLE,
     _TERMINATE_ARG_DOCSTRINGS,
     _TERMINATE_EXAMPLE,
     _WAIT_ARG_DOCSTRINGS,
     _WAIT_EXAMPLE,
-    archive,
-    delete,
-    deploy,
-    list,
-    rollback,
-    status,
-    terminate,
-    wait,
+    add_tags as add_tags,
+    archive as archive,
+    delete as delete,
+    deploy as deploy,
+    list as list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
+    list_tags as list_tags,
+    remove_tags as remove_tags,
+    rollback as rollback,
+    status as status,
+    terminate as terminate,
+    wait as wait,
 )
 from anyscale.service.models import (
     ServiceConfig,
@@ -60,11 +69,15 @@ class ServiceSDK:
     )
     def deploy(  # noqa: F811
         self,
-        config: ServiceConfig,
+        configs: Union[ServiceConfig, List[ServiceConfig]],
         *,
         in_place: bool = False,
         canary_percent: Optional[int] = None,
         max_surge_percent: Optional[int] = None,
+        versions: Optional[str] = None,
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
     ) -> str:
         """Deploy a service.
 
@@ -75,10 +88,14 @@ class ServiceSDK:
         Returns the id of the deployed service.
         """
         return self._private_sdk.deploy(
-            config,
+            configs=configs,
             in_place=in_place,
             canary_percent=canary_percent,
             max_surge_percent=max_surge_percent,
+            versions=versions,
+            name=name,
+            cloud=cloud,
+            project=project,
         )
 
     @sdk_docs(
@@ -173,6 +190,7 @@ class ServiceSDK:
         # Filters
         name: Optional[str] = None,
         state_filter: Optional[Union[List[ServiceState], List[str]]] = None,
+        tags_filter: Optional[Dict[str, List[str]]] = None,
         creator_id: Optional[str] = None,
         cloud: Optional[str] = None,
         project: Optional[str] = None,
@@ -197,6 +215,7 @@ class ServiceSDK:
             service_id=service_id,
             name=name,
             state_filter=state_filter,
+            tags_filter=tags_filter,
             creator_id=creator_id,
             cloud=cloud,
             project=project,
@@ -261,4 +280,52 @@ class ServiceSDK:
             canary=canary,
             mode=mode,
             max_lines=max_lines,
+        )
+
+    @sdk_docs(doc_py_example=_TAGS_ADD_EXAMPLE, arg_docstrings=_TAGS_ADD_ARG_DOCSTRINGS)
+    def add_tags(  # noqa: F811
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        tags: Dict[str, str],
+    ) -> None:
+        """Upsert (add/update) tag key/value pairs for a service."""
+        return self._private_sdk.add_tags(
+            id=id, name=name, cloud=cloud, project=project, tags=tags
+        )
+
+    @sdk_docs(
+        doc_py_example=_TAGS_REMOVE_EXAMPLE, arg_docstrings=_TAGS_REMOVE_ARG_DOCSTRINGS
+    )
+    def remove_tags(  # noqa: F811
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        keys: List[str],
+    ) -> None:
+        """Remove tags by key from a service."""
+        return self._private_sdk.remove_tags(
+            id=id, name=name, cloud=cloud, project=project, keys=keys
+        )
+
+    @sdk_docs(
+        doc_py_example=_TAGS_LIST_EXAMPLE, arg_docstrings=_TAGS_LIST_ARG_DOCSTRINGS
+    )
+    def list_tags(  # noqa: F811
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """List tags for a service."""
+        return self._private_sdk.list_tags(
+            id=id, name=name, cloud=cloud, project=project
         )

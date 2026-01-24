@@ -82,7 +82,7 @@ def dummy_pipeline_ml(dummy_pipeline, env_from_dict):
         training=dummy_pipeline.only_nodes_with_tags("training"),
         inference=dummy_pipeline.only_nodes_with_tags("inference"),
         input_name="raw_data",
-        log_model_kwargs={"conda_env": env_from_dict, "artifact_path": "model"},
+        log_model_kwargs={"conda_env": env_from_dict, "name": "model"},
     )
     return dummy_pipeline_ml
 
@@ -268,7 +268,7 @@ def dummy_catalog_dataset_factory(tmp_path):
         (lf("dummy_pipeline_ml")),
     ],
 )
-def test_mlflow_hook_save_pipeline_ml(
+def test_mlflow_hook_save_pipeline_ml_as_model(
     kedro_project_with_mlflow_conf,
     pipeline_to_run,
     dummy_catalog,
@@ -303,33 +303,27 @@ def test_mlflow_hook_save_pipeline_ml(
         mlflow_hook.after_pipeline_run(
             run_params=dummy_run_params, pipeline=pipeline_to_run, catalog=dummy_catalog
         )
+
         # test : parameters should have been logged
         mlflow_client = MlflowClient(context.mlflow.server.mlflow_tracking_uri)
-        run_data = mlflow_client.get_run(run_id).data
+        loaded_run = mlflow_client.get_run(run_id)
 
         # all run_params are recorded as tags
         for k, v in dummy_run_params.items():
             if v:
-                assert run_data.tags[k] == str(v)
+                assert loaded_run.data.tags[k] == str(v)
 
         # params are not recorded because we don't have MlflowHook here
         # and the model should not be logged when it is not a PipelineML
-        nb_artifacts = len(mlflow_client.list_artifacts(run_id))
+        # in mlflow 3, models are no longer artifacts of the run but either inputs or puputs
         if isinstance(pipeline_to_run, PipelineML):
-            assert nb_artifacts == 1
+            assert len(loaded_run.outputs.model_outputs) == 1
         else:
-            assert nb_artifacts == 0
+            assert len(loaded_run.outputs.model_outputs) == 0
 
         if isinstance(pipeline_to_run, PipelineML):
             trained_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
 
-            # there is a trick: before python 3.8, the dict is not ordered
-            # and the conversion to string sometimes leads to
-            # '[{"name": "a", "type": "long"}]' and sometimes to
-            # '[{"type": "long", "name": "a"}]'
-            # which causes random failures and we had to case each case
-            # This was drop when we support only python >=3.9, but
-            # I let the comment in case the bug bounces back
             assert trained_model.metadata.signature.to_dict() == {
                 "inputs": '[{"type": "long", "name": "a", "required": true}]',
                 "outputs": None,
@@ -377,7 +371,7 @@ def test_mlflow_hook_save_pipeline_ml_with_copy_mode(
             inference=dummy_pipeline_ml.inference,
             input_name=dummy_pipeline_ml.input_name,
             log_model_kwargs={
-                "artifact_path": dummy_pipeline_ml.log_model_kwargs["artifact_path"],
+                "name": dummy_pipeline_ml.log_model_kwargs["name"],
                 "conda_env": {"python": "3.10.0", "dependencies": ["kedro==0.18.11"]},
             },
             kpm_kwargs={
@@ -437,7 +431,7 @@ def test_mlflow_hook_save_pipeline_ml_with_default_copy_mode_assign(
             inference=dummy_pipeline_ml.inference,
             input_name=dummy_pipeline_ml.input_name,
             log_model_kwargs={
-                "artifact_path": dummy_pipeline_ml.log_model_kwargs["artifact_path"],
+                "name": dummy_pipeline_ml.log_model_kwargs["name"],
                 "conda_env": {"python": "3.10.0", "dependencies": ["kedro==0.18.11"]},
             },
         )
@@ -584,17 +578,17 @@ def test_mlflow_hook_save_pipeline_ml_with_signature(
 
 
 @pytest.mark.parametrize(
-    "artifact_path,expected_artifact_path",
+    "name,expected_name",
     ([None, "model"], ["my_custom_model", "my_custom_model"]),
 )
-def test_mlflow_hook_save_pipeline_ml_with_artifact_path(
+def test_mlflow_hook_save_pipeline_ml_with_name(
     kedro_project_with_mlflow_conf,
     env_from_dict,
     dummy_pipeline,
     dummy_catalog,
     dummy_run_params,
-    artifact_path,
-    expected_artifact_path,
+    name,
+    expected_name,
 ):
     # config_with_base_mlflow_conf is a conftest fixture
     bootstrap_project(kedro_project_with_mlflow_conf)
@@ -605,9 +599,9 @@ def test_mlflow_hook_save_pipeline_ml_with_artifact_path(
         log_model_kwargs = {
             "conda_env": env_from_dict,
         }
-        if artifact_path is not None:
+        if name is not None:
             # we need to test what happens if the key is NOT present
-            log_model_kwargs["artifact_path"] = artifact_path
+            log_model_kwargs["name"] = name
 
         pipeline_to_run = pipeline_ml_factory(
             training=dummy_pipeline.only_nodes_with_tags("training"),
@@ -640,9 +634,7 @@ def test_mlflow_hook_save_pipeline_ml_with_artifact_path(
         )
 
         # test : parameters should have been logged
-        trained_model = mlflow.pyfunc.load_model(
-            f"runs:/{run_id}/{expected_artifact_path}"
-        )
+        trained_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/{expected_name}")
         # the real test is that the model is loaded without error
         assert trained_model is not None
 
@@ -669,7 +661,7 @@ def test_mlflow_hook_save_pipeline_ml_with_dataset_factory(
         }
 
         namespace = "a"
-        log_model_kwargs["artifact_path"] = "artifacts"
+        log_model_kwargs["name"] = "artifacts"
         dummy_pipeline_with_namespace = pipeline(
             nodes=dummy_pipeline_dataset_factory, namespace=namespace
         )

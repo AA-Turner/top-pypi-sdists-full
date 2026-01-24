@@ -30,7 +30,7 @@ protected:
         const SkScalar kMaxDashLen = 100;
         const SkScalar kDashGrowth = 1.2f;
 
-        SkSTArray<100, SkScalar> intervals;
+        STArray<100, SkScalar> intervals;
         for (SkScalar len = 1; len < kMaxDashLen; len *= kDashGrowth) {
             intervals.push_back(len);
             intervals.push_back(len);
@@ -40,7 +40,7 @@ protected:
         fDashPaint.setStyle(SkPaint::kStroke_Style);
         fDashPaint.setStrokeWidth(6);
         fDashPaint.setColor(0xff008000);
-        fDashPaint.setPathEffect(SkDashPathEffect::Make(intervals.begin(), intervals.size(), 0));
+        fDashPaint.setPathEffect(SkDashPathEffect::Make(intervals, 0));
 
         fPointsPaint.setColor(0xff800000);
         fPointsPaint.setStrokeWidth(3);
@@ -48,11 +48,9 @@ protected:
         fRect = SkRect::MakeLTRB(10, 10, 100, 70);
     }
 
-    SkString onShortName() override {
-        return SkString("contour_start");
-    }
+    SkString getName() const override { return SkString("contour_start"); }
 
-    SkISize onISize() override { return SkISize::Make(kImageWidth, kImageHeight); }
+    SkISize getISize() override { return SkISize::Make(kImageWidth, kImageHeight); }
 
     void onDraw(SkCanvas* canvas) override {
 
@@ -107,11 +105,7 @@ private:
         for (unsigned i = 0; i < 8; ++i) {
             const SkPath path = makePath(fRect, dir, i);
             canvas->drawPath(path, fDashPaint);
-
-            const int n = path.countPoints();
-            AutoTArray<SkPoint> points(n);
-            path.getPoints(points.get(), n);
-            canvas->drawPoints(SkCanvas::kPoints_PointMode, n, points.get(), fPointsPaint);
+            canvas->drawPoints(SkCanvas::kPoints_PointMode, path.points(), fPointsPaint);
 
             canvas->translate(0, kImageHeight / 8);
         }

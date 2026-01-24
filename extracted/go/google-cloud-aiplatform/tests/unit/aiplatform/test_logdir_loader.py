@@ -21,8 +21,14 @@ import os.path
 import shutil
 import tempfile
 
+import pytest
+
+try:
+    import tensorflow as tf
+except ImportError:
+    pytest.skip("Tensorflow not available", allow_module_level=True)
+
 from google.cloud.aiplatform.tensorboard import logdir_loader
-import tensorflow as tf
 
 from tensorboard.backend.event_processing import directory_loader
 from tensorboard.backend.event_processing import event_file_loader

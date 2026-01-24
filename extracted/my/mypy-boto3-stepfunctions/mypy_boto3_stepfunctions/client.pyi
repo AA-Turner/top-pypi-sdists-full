@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -99,12 +100,6 @@ from .type_defs import (
     ValidateStateMachineDefinitionOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -113,40 +108,40 @@ else:
 __all__ = ("SFNClient",)
 
 class Exceptions(BaseClientExceptions):
-    ActivityAlreadyExists: Type[BotocoreClientError]
-    ActivityDoesNotExist: Type[BotocoreClientError]
-    ActivityLimitExceeded: Type[BotocoreClientError]
-    ActivityWorkerLimitExceeded: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ExecutionAlreadyExists: Type[BotocoreClientError]
-    ExecutionDoesNotExist: Type[BotocoreClientError]
-    ExecutionLimitExceeded: Type[BotocoreClientError]
-    ExecutionNotRedrivable: Type[BotocoreClientError]
-    InvalidArn: Type[BotocoreClientError]
-    InvalidDefinition: Type[BotocoreClientError]
-    InvalidEncryptionConfiguration: Type[BotocoreClientError]
-    InvalidExecutionInput: Type[BotocoreClientError]
-    InvalidLoggingConfiguration: Type[BotocoreClientError]
-    InvalidName: Type[BotocoreClientError]
-    InvalidOutput: Type[BotocoreClientError]
-    InvalidToken: Type[BotocoreClientError]
-    InvalidTracingConfiguration: Type[BotocoreClientError]
-    KmsAccessDeniedException: Type[BotocoreClientError]
-    KmsInvalidStateException: Type[BotocoreClientError]
-    KmsThrottlingException: Type[BotocoreClientError]
-    MissingRequiredParameter: Type[BotocoreClientError]
-    ResourceNotFound: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    StateMachineAlreadyExists: Type[BotocoreClientError]
-    StateMachineDeleting: Type[BotocoreClientError]
-    StateMachineDoesNotExist: Type[BotocoreClientError]
-    StateMachineLimitExceeded: Type[BotocoreClientError]
-    StateMachineTypeNotSupported: Type[BotocoreClientError]
-    TaskDoesNotExist: Type[BotocoreClientError]
-    TaskTimedOut: Type[BotocoreClientError]
-    TooManyTags: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ActivityAlreadyExists: type[BotocoreClientError]
+    ActivityDoesNotExist: type[BotocoreClientError]
+    ActivityLimitExceeded: type[BotocoreClientError]
+    ActivityWorkerLimitExceeded: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ExecutionAlreadyExists: type[BotocoreClientError]
+    ExecutionDoesNotExist: type[BotocoreClientError]
+    ExecutionLimitExceeded: type[BotocoreClientError]
+    ExecutionNotRedrivable: type[BotocoreClientError]
+    InvalidArn: type[BotocoreClientError]
+    InvalidDefinition: type[BotocoreClientError]
+    InvalidEncryptionConfiguration: type[BotocoreClientError]
+    InvalidExecutionInput: type[BotocoreClientError]
+    InvalidLoggingConfiguration: type[BotocoreClientError]
+    InvalidName: type[BotocoreClientError]
+    InvalidOutput: type[BotocoreClientError]
+    InvalidToken: type[BotocoreClientError]
+    InvalidTracingConfiguration: type[BotocoreClientError]
+    KmsAccessDeniedException: type[BotocoreClientError]
+    KmsInvalidStateException: type[BotocoreClientError]
+    KmsThrottlingException: type[BotocoreClientError]
+    MissingRequiredParameter: type[BotocoreClientError]
+    ResourceNotFound: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    StateMachineAlreadyExists: type[BotocoreClientError]
+    StateMachineDeleting: type[BotocoreClientError]
+    StateMachineDoesNotExist: type[BotocoreClientError]
+    StateMachineLimitExceeded: type[BotocoreClientError]
+    StateMachineTypeNotSupported: type[BotocoreClientError]
+    TaskDoesNotExist: type[BotocoreClientError]
+    TaskTimedOut: type[BotocoreClientError]
+    TooManyTags: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class SFNClient(BaseClient):
     """
@@ -217,7 +212,7 @@ class SFNClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_stepfunctions/client/#create_state_machine_alias)
         """
 
-    def delete_activity(self, **kwargs: Unpack[DeleteActivityInputTypeDef]) -> Dict[str, Any]:
+    def delete_activity(self, **kwargs: Unpack[DeleteActivityInputTypeDef]) -> dict[str, Any]:
         """
         Deletes an activity.
 
@@ -227,7 +222,7 @@ class SFNClient(BaseClient):
 
     def delete_state_machine(
         self, **kwargs: Unpack[DeleteStateMachineInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a state machine.
 
@@ -237,7 +232,7 @@ class SFNClient(BaseClient):
 
     def delete_state_machine_alias(
         self, **kwargs: Unpack[DeleteStateMachineAliasInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a state machine <a
         href="https://docs.aws.amazon.com/step-functions/latest/dg/concepts-state-machine-alias.html">alias</a>.
@@ -248,7 +243,7 @@ class SFNClient(BaseClient):
 
     def delete_state_machine_version(
         self, **kwargs: Unpack[DeleteStateMachineVersionInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a state machine <a
         href="https://docs.aws.amazon.com/step-functions/latest/dg/concepts-state-machine-version.html">version</a>.
@@ -438,7 +433,7 @@ class SFNClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_stepfunctions/client/#redrive_execution)
         """
 
-    def send_task_failure(self, **kwargs: Unpack[SendTaskFailureInputTypeDef]) -> Dict[str, Any]:
+    def send_task_failure(self, **kwargs: Unpack[SendTaskFailureInputTypeDef]) -> dict[str, Any]:
         """
         Used by activity workers, Task states using the <a
         href="https://docs.aws.amazon.com/step-functions/latest/dg/connect-to-resource.html#connect-wait-token">callback</a>
@@ -451,7 +446,7 @@ class SFNClient(BaseClient):
 
     def send_task_heartbeat(
         self, **kwargs: Unpack[SendTaskHeartbeatInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used by activity workers and Task states using the <a
         href="https://docs.aws.amazon.com/step-functions/latest/dg/connect-to-resource.html#connect-wait-token">callback</a>
@@ -462,7 +457,7 @@ class SFNClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_stepfunctions/client/#send_task_heartbeat)
         """
 
-    def send_task_success(self, **kwargs: Unpack[SendTaskSuccessInputTypeDef]) -> Dict[str, Any]:
+    def send_task_success(self, **kwargs: Unpack[SendTaskSuccessInputTypeDef]) -> dict[str, Any]:
         """
         Used by activity workers, Task states using the <a
         href="https://docs.aws.amazon.com/step-functions/latest/dg/connect-to-resource.html#connect-wait-token">callback</a>
@@ -503,7 +498,7 @@ class SFNClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_stepfunctions/client/#stop_execution)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Add a tag to a Step Functions resource.
 
@@ -519,7 +514,7 @@ class SFNClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_stepfunctions/client/#test_state)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Remove a tag from a Step Functions resource.
 
@@ -527,7 +522,7 @@ class SFNClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_stepfunctions/client/#untag_resource)
         """
 
-    def update_map_run(self, **kwargs: Unpack[UpdateMapRunInputTypeDef]) -> Dict[str, Any]:
+    def update_map_run(self, **kwargs: Unpack[UpdateMapRunInputTypeDef]) -> dict[str, Any]:
         """
         Updates an in-progress Map Run's configuration to include changes to the
         settings that control maximum concurrency and Map Run failure.

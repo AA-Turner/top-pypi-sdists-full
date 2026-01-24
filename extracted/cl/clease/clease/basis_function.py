@@ -1,7 +1,8 @@
 """Module for setting up pseudospins and basis functions."""
+
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 import math
-from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 
@@ -35,7 +36,7 @@ class BasisFunction(ABC):
         return self.name == other.name and self.unique_elements == other.unique_elements
 
     @property
-    def unique_elements(self) -> List[str]:
+    def unique_elements(self) -> list[str]:
         return self._unique_elements
 
     @unique_elements.setter
@@ -47,11 +48,11 @@ class BasisFunction(ABC):
         return len(self.unique_elements)
 
     @property
-    def spin_dict(self) -> Dict[str, int]:
+    def spin_dict(self) -> dict[str, int]:
         return self.get_spin_dict()
 
     @property
-    def basis_functions(self) -> List[Dict[str, float]]:
+    def basis_functions(self) -> list[dict[str, float]]:
         """Property access to :meth:`get_basis_functions`."""
         return self.get_basis_functions()
 
@@ -84,7 +85,7 @@ class Polynomial(BasisFunction):
 
     name = "polynomial"
 
-    def get_spin_dict(self) -> Dict[str, int]:
+    def get_spin_dict(self) -> dict[str, int]:
         """Define pseudospins for all consistuting elements."""
         gram_schmidt = GramSchmidtMonimial(self.num_unique_elements)
         spin_values = gram_schmidt.values
@@ -93,7 +94,7 @@ class Polynomial(BasisFunction):
             spin_dict[self.unique_elements[x]] = spin_values[x]
         return spin_dict
 
-    def get_basis_functions(self) -> List[Dict[str, float]]:
+    def get_basis_functions(self) -> list[dict[str, float]]:
         """Create basis functions to guarantee the orthonormality."""
         gram_schmidt = GramSchmidtMonimial(self.num_unique_elements)
         gram_schmidt.build()
@@ -111,7 +112,7 @@ class Trigonometric(BasisFunction):
 
     name = "trigonometric"
 
-    def get_spin_dict(self) -> Dict[str, int]:
+    def get_spin_dict(self) -> dict[str, int]:
         """Define pseudospins for all consistuting elements."""
         spin_values = list(range(self.num_unique_elements))
         spin_dict = {}
@@ -119,7 +120,7 @@ class Trigonometric(BasisFunction):
             spin_dict[self.unique_elements[x]] = spin_values[x]
         return spin_dict
 
-    def get_basis_functions(self) -> List[Dict[str, float]]:
+    def get_basis_functions(self) -> list[dict[str, float]]:
         """Create basis functions to guarantee the orthonormality."""
         alpha = list(range(1, self.num_unique_elements))
         bf_list = []
@@ -166,14 +167,14 @@ class BinaryLinear(BasisFunction):
 
     name = "binary_linear"
 
-    def __init__(self, unique_elements: List[str], redundant_element: Optional[str] = "auto"):
+    def __init__(self, unique_elements: list[str], redundant_element: str | None = "auto"):
         super().__init__(unique_elements)
         if redundant_element == "auto":
             self.redundant_element = sorted(unique_elements)[0]
         else:
             self.redundant_element = redundant_element
 
-    def get_spin_dict(self) -> Dict[str, int]:
+    def get_spin_dict(self) -> dict[str, int]:
         """Define pseudospins for all consistuting elements."""
         spin_values = list(range(self.num_unique_elements))
         spin_dict = {}
@@ -181,7 +182,7 @@ class BinaryLinear(BasisFunction):
             spin_dict[self.unique_elements[x]] = spin_values[x]
         return spin_dict
 
-    def get_basis_functions(self) -> List[Dict[str, float]]:
+    def get_basis_functions(self) -> list[dict[str, float]]:
         """Create orthonormal basis functions.
 
         Due to the constraint that any site is occupied by exactly one element,

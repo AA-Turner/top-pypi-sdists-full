@@ -1,7 +1,7 @@
 r'''
 # `github_team_sync_group_mapping`
 
-Refer to the Terraform Registry for docs: [`github_team_sync_group_mapping`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping).
+Refer to the Terraform Registry for docs: [`github_team_sync_group_mapping`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TeamSyncGroupMapping(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.teamSyncGroupMapping.TeamSyncGroupMapping",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping github_team_sync_group_mapping}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping github_team_sync_group_mapping}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class TeamSyncGroupMapping(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping github_team_sync_group_mapping} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping github_team_sync_group_mapping} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param team_slug: Slug of the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#team_slug TeamSyncGroupMapping#team_slug}
-        :param group: group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#group TeamSyncGroupMapping#group}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#id TeamSyncGroupMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param team_slug: Slug of the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#team_slug TeamSyncGroupMapping#team_slug}
+        :param group: group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#group TeamSyncGroupMapping#group}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#id TeamSyncGroupMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class TeamSyncGroupMapping(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TeamSyncGroupMapping to import.
-        :param import_from_id: The id of the existing TeamSyncGroupMapping that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TeamSyncGroupMapping that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TeamSyncGroupMapping to import is found.
         '''
         if __debug__:
@@ -245,9 +245,9 @@ class TeamSyncGroupMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param team_slug: Slug of the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#team_slug TeamSyncGroupMapping#team_slug}
-        :param group: group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#group TeamSyncGroupMapping#group}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#id TeamSyncGroupMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param team_slug: Slug of the team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#team_slug TeamSyncGroupMapping#team_slug}
+        :param group: group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#group TeamSyncGroupMapping#group}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#id TeamSyncGroupMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -353,7 +353,7 @@ class TeamSyncGroupMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def team_slug(self) -> builtins.str:
         '''Slug of the team.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#team_slug TeamSyncGroupMapping#team_slug}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#team_slug TeamSyncGroupMapping#team_slug}
         '''
         result = self._values.get("team_slug")
         assert result is not None, "Required property 'team_slug' is missing"
@@ -365,14 +365,14 @@ class TeamSyncGroupMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TeamSyncGroupMappingGroup"]]]:
         '''group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#group TeamSyncGroupMapping#group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#group TeamSyncGroupMapping#group}
         '''
         result = self._values.get("group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TeamSyncGroupMappingGroup"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#id TeamSyncGroupMapping#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#id TeamSyncGroupMapping#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -410,9 +410,9 @@ class TeamSyncGroupMappingGroup:
         group_name: builtins.str,
     ) -> None:
         '''
-        :param group_description: The description of the IdP group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#group_description TeamSyncGroupMapping#group_description}
-        :param group_id: The ID of the IdP group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#group_id TeamSyncGroupMapping#group_id}
-        :param group_name: The name of the IdP group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#group_name TeamSyncGroupMapping#group_name}
+        :param group_description: The description of the IdP group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#group_description TeamSyncGroupMapping#group_description}
+        :param group_id: The ID of the IdP group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#group_id TeamSyncGroupMapping#group_id}
+        :param group_name: The name of the IdP group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#group_name TeamSyncGroupMapping#group_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5bd09f5dfb1ed708bc66c84cbd128527819f2dd64e598c69ec2de21279db1c1a)
@@ -429,7 +429,7 @@ class TeamSyncGroupMappingGroup:
     def group_description(self) -> builtins.str:
         '''The description of the IdP group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#group_description TeamSyncGroupMapping#group_description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#group_description TeamSyncGroupMapping#group_description}
         '''
         result = self._values.get("group_description")
         assert result is not None, "Required property 'group_description' is missing"
@@ -439,7 +439,7 @@ class TeamSyncGroupMappingGroup:
     def group_id(self) -> builtins.str:
         '''The ID of the IdP group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#group_id TeamSyncGroupMapping#group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#group_id TeamSyncGroupMapping#group_id}
         '''
         result = self._values.get("group_id")
         assert result is not None, "Required property 'group_id' is missing"
@@ -449,7 +449,7 @@ class TeamSyncGroupMappingGroup:
     def group_name(self) -> builtins.str:
         '''The name of the IdP group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_sync_group_mapping#group_name TeamSyncGroupMapping#group_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_sync_group_mapping#group_name TeamSyncGroupMapping#group_name}
         '''
         result = self._values.get("group_name")
         assert result is not None, "Required property 'group_name' is missing"

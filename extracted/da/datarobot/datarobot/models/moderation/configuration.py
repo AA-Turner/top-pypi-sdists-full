@@ -61,33 +61,31 @@ class ModerationConfiguration(APIObject):
     def _config_path(cls, config_id: str) -> str:
         return f"{cls._path}{config_id}/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("name"): String(),
-            t.Key("description"): String(),
-            t.Key("type"): t.Enum(*[e.value for e in GuardType]),
-            t.Key("entity_id"): t.String(),
-            t.Key("entity_type"): t.Enum(*[e.value for e in ModerationGuardEntityType]),
-            t.Key("ootb_type", optional=True): t.Enum(*[e.value for e in ModerationGuardOotbType]),
-            t.Key("llm_type", optional=True): t.Enum(*[e.value for e in ModerationGuardLlmType]),
-            t.Key("deployment_id", optional=True): String(allow_blank=True),
-            t.Key("created_at", optional=True): t.Or(parse_time, t.Null),
-            t.Key("creator_id", optional=True): String(allow_blank=True),
-            t.Key("org_id", optional=True): String(allow_blank=True),
-            t.Key("intervention", optional=True): GuardInterventionForConfiguration.schema,
-            t.Key("model_info", optional=True): GuardModelInfo.schema,
-            t.Key("nemo_info", optional=True): GuardNemoInfo.schema,
-            # below are part of configuration, but not from a template
-            t.Key("stages"): t.List(t.Enum(*[e.value for e in ModerationGuardStage])),
-            t.Key("is_valid", optional=True): t.Bool(),
-            t.Key("error_message", optional=True): String(),
-            t.Key("openai_api_key", optional=True): String(),
-            t.Key("openai_api_base", optional=True): String(),
-            t.Key("openai_deployment_id", optional=True): String(),
-            t.Key("openai_credential", optional=True): String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("name"): String(),
+        t.Key("description"): String(),
+        t.Key("type"): t.Enum(*[e.value for e in GuardType]),
+        t.Key("entity_id"): t.String(),
+        t.Key("entity_type"): t.Enum(*[e.value for e in ModerationGuardEntityType]),
+        t.Key("ootb_type", optional=True): t.Enum(*[e.value for e in ModerationGuardOotbType]),
+        t.Key("llm_type", optional=True): t.Enum(*[e.value for e in ModerationGuardLlmType]),
+        t.Key("deployment_id", optional=True): String(allow_blank=True),
+        t.Key("created_at", optional=True): t.Or(parse_time, t.Null),
+        t.Key("creator_id", optional=True): String(allow_blank=True),
+        t.Key("org_id", optional=True): String(allow_blank=True),
+        t.Key("intervention", optional=True): GuardInterventionForConfiguration.schema,
+        t.Key("model_info", optional=True): GuardModelInfo.schema,
+        t.Key("nemo_info", optional=True): GuardNemoInfo.schema,
+        # below are part of configuration, but not from a template
+        t.Key("stages"): t.List(t.Enum(*[e.value for e in ModerationGuardStage])),
+        t.Key("is_valid", optional=True): t.Bool(),
+        t.Key("error_message", optional=True): String(),
+        t.Key("openai_api_key", optional=True): String(),
+        t.Key("openai_api_base", optional=True): String(),
+        t.Key("openai_deployment_id", optional=True): String(),
+        t.Key("openai_credential", optional=True): String(),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -155,9 +153,7 @@ class ModerationConfiguration(APIObject):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.name or self.id!r})"
 
-    def _update_values(
-        self: ModerationConfiguration, new_response: ModerationConfiguration
-    ) -> None:
+    def _update_values(self: ModerationConfiguration, new_response: ModerationConfiguration) -> None:
         # called by update() and refresh()
         fields = self._fields()
         for attr in fields:
@@ -191,9 +187,7 @@ class ModerationConfiguration(APIObject):
         return cls.from_location(path)
 
     @classmethod
-    def list(
-        cls, entity_id: str, entity_type: ModerationGuardEntityType
-    ) -> List[ModerationConfiguration]:
+    def list(cls, entity_id: str, entity_type: ModerationGuardEntityType) -> List[ModerationConfiguration]:
         """List Guard Configurations.
 
         .. versionadded:: v3.6

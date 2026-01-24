@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import List, Union
 
 from ...asset import Asset
 from ...call_builder.base import BaseStrictReceivePathsCallBuilder
@@ -30,7 +29,7 @@ class StrictReceivePathsCallBuilder(BaseCallBuilder, BaseStrictReceivePathsCallB
     If a list of assets is passed as the source, horizon will find any payment
     paths from those source assets to the desired destination asset.
 
-    See `List Strict Receive Payment Paths <https://developers.stellar.org/api/aggregations/paths/strict-receive/>`__ for more information.
+    See `List Strict Receive Payment Paths <https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-strict-receive-payment-paths>`__ for more information.
 
     :param horizon_url: Horizon server URL.
     :param client: The client instance used to send request.
@@ -43,9 +42,9 @@ class StrictReceivePathsCallBuilder(BaseCallBuilder, BaseStrictReceivePathsCallB
         self,
         horizon_url: str,
         client: BaseAsyncClient,
-        source: Union[str, List[Asset]],
+        source: str | list[Asset],
         destination_asset: Asset,
-        destination_amount: Union[str, Decimal],
+        destination_amount: str | Decimal,
     ) -> None:
         super().__init__(
             horizon_url=horizon_url,

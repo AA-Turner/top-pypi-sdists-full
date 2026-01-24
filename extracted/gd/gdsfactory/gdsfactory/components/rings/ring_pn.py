@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+__all__ = ["ring_double_pn", "ring_single_pn"]
+
 from functools import partial
 from typing import Any
 
 import numpy as np
 
 import gdsfactory as gf
-from gdsfactory.components.vias.via import via
-from gdsfactory.components.vias.via_stack import via_stack
 from gdsfactory.cross_section import Section, rib
 from gdsfactory.typings import (
     ComponentSpec,
@@ -15,6 +15,9 @@ from gdsfactory.typings import (
     CrossSectionSpec,
     LayerSpec,
 )
+
+from ..vias.via import via
+from ..vias.via_stack import via_stack
 
 cross_section_rib = partial(
     gf.cross_section.strip,
@@ -34,16 +37,17 @@ _heater_vias = partial(
     size=(0.5, 0.5),
     layers=("M1", "M2", "M3"),
     vias=(
-        partial(via, layer="VIAC", size=(0.1, 0.1), enclosure=0.1, pitch=0.2),
+        partial(via, layer="VIAC", size=(0.1, 0.1), enclosure=0.01, pitch=0.2),
         partial(
             via,
             layer="VIA1",
             size=(0.1, 0.1),
-            enclosure=0.1,
+            enclosure=0.01,
             pitch=0.2,
         ),
         None,
     ),
+    correct_size=True,
 )
 
 
@@ -329,3 +333,8 @@ def ring_single_pn(
     c.add_ports(ring.ports)
     c.flatten()
     return c
+
+
+if __name__ == "__main__":
+    c = ring_single_pn()
+    c.show()

@@ -17,13 +17,7 @@ import time
 import warnings
 from enum import auto
 from importlib import import_module
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Coroutine,
-    List,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, List, Union
 
 import cocotb
 import cocotb._gpi_triggers
@@ -42,7 +36,7 @@ from cocotb._utils import (
     remove_traceback_frames,
     safe_divide,
 )
-from cocotb._xunit_reporter import XUnitReporter
+from cocotb._xunit_reporter import XUnitReporter, bin_xml_escape
 from cocotb.logging import ANSI
 from cocotb.simtime import get_sim_time
 from cocotb.task import Task
@@ -166,6 +160,8 @@ class RegressionManager:
         self._mode = RegressionMode.REGRESSION
         self._included: List[bool]
         self._sim_failure: Union[Error[None], None] = None
+        self._regression_seed = cocotb.RANDOM_SEED
+        self._random_state: Any
 
         # Setup XUnit
         ###################
@@ -395,8 +391,11 @@ class RegressionManager:
         # seed random number generator based on test module, name, and COCOTB_RANDOM_SEED
         hasher = hashlib.sha1()
         hasher.update(self._test.fullname.encode())
-        seed = cocotb.RANDOM_SEED + int(hasher.hexdigest(), 16)
-        random.seed(seed)
+        test_seed = self._regression_seed + int(hasher.hexdigest(), 16)
+
+        cocotb.RANDOM_SEED = test_seed
+        self._random_state = random.getstate()
+        random.seed(test_seed)
 
         self._start_sim_time = get_sim_time("ns")
         self._start_time = time.time()
@@ -437,6 +436,9 @@ class RegressionManager:
         # compute wall time
         wall_time = time.time() - self._start_time
         sim_time_ns = get_sim_time("ns") - self._start_sim_time
+
+        cocotb.RANDOM_SEED = self._regression_seed
+        random.setstate(self._random_state)
 
         # Judge and record pass/fail.
         self._score_test(
@@ -750,7 +752,9 @@ class RegressionManager:
             sim_time_ns=repr(sim_time_ns),
             ratio_time=repr(ratio_time),
         )
-        self.xunit.add_failure(error_type=type(result).__name__, error_msg=str(result))
+        self.xunit.add_failure(
+            error_type=type(result).__name__, error_msg=bin_xml_escape(result)
+        )
 
         # update running passed/failed/skipped counts
         self.failures += 1

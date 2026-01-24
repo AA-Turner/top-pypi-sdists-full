@@ -221,6 +221,7 @@ __all__ = [
     'PreventionDiscoveryConfigActionPubSubNotificationPubsubCondition',
     'PreventionDiscoveryConfigActionPubSubNotificationPubsubConditionExpressions',
     'PreventionDiscoveryConfigActionPubSubNotificationPubsubConditionExpressionsCondition',
+    'PreventionDiscoveryConfigActionPublishToDataplexCatalog',
     'PreventionDiscoveryConfigActionTagResources',
     'PreventionDiscoveryConfigActionTagResourcesTagCondition',
     'PreventionDiscoveryConfigActionTagResourcesTagConditionSensitivityScore',
@@ -229,6 +230,8 @@ __all__ = [
     'PreventionDiscoveryConfigErrorDetails',
     'PreventionDiscoveryConfigOrgConfig',
     'PreventionDiscoveryConfigOrgConfigLocation',
+    'PreventionDiscoveryConfigOtherCloudStartingLocation',
+    'PreventionDiscoveryConfigOtherCloudStartingLocationAwsLocation',
     'PreventionDiscoveryConfigTarget',
     'PreventionDiscoveryConfigTargetBigQueryTarget',
     'PreventionDiscoveryConfigTargetBigQueryTargetCadence',
@@ -270,6 +273,23 @@ __all__ = [
     'PreventionDiscoveryConfigTargetCloudStorageTargetFilterOthers',
     'PreventionDiscoveryConfigTargetCloudStorageTargetGenerationCadence',
     'PreventionDiscoveryConfigTargetCloudStorageTargetGenerationCadenceInspectTemplateModifiedCadence',
+    'PreventionDiscoveryConfigTargetOtherCloudTarget',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetConditions',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetConditionsAmazonS3BucketConditions',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetDataSourceType',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetDisabled',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetFilter',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollection',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexes',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPattern',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegex',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegexAwsAccountRegex',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetFilterOthers',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResource',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3Bucket',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3BucketAwsAccount',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadence',
+    'PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadenceInspectTemplateModifiedCadence',
     'PreventionDiscoveryConfigTargetSecretsTarget',
     'PreventionInspectTemplateInspectConfig',
     'PreventionInspectTemplateInspectConfigCustomInfoType',
@@ -316,10 +336,12 @@ __all__ = [
     'PreventionJobTriggerInspectJobActionJobNotificationEmails',
     'PreventionJobTriggerInspectJobActionPubSub',
     'PreventionJobTriggerInspectJobActionPublishFindingsToCloudDataCatalog',
+    'PreventionJobTriggerInspectJobActionPublishFindingsToDataplexCatalog',
     'PreventionJobTriggerInspectJobActionPublishSummaryToCscc',
     'PreventionJobTriggerInspectJobActionPublishToStackdriver',
     'PreventionJobTriggerInspectJobActionSaveFindings',
     'PreventionJobTriggerInspectJobActionSaveFindingsOutputConfig',
+    'PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigStoragePath',
     'PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigTable',
     'PreventionJobTriggerInspectJobInspectConfig',
     'PreventionJobTriggerInspectJobInspectConfigCustomInfoType',
@@ -11173,6 +11195,8 @@ class PreventionDiscoveryConfigAction(dict):
             suggest = "export_data"
         elif key == "pubSubNotification":
             suggest = "pub_sub_notification"
+        elif key == "publishToDataplexCatalog":
+            suggest = "publish_to_dataplex_catalog"
         elif key == "tagResources":
             suggest = "tag_resources"
 
@@ -11190,19 +11214,23 @@ class PreventionDiscoveryConfigAction(dict):
     def __init__(__self__, *,
                  export_data: Optional['outputs.PreventionDiscoveryConfigActionExportData'] = None,
                  pub_sub_notification: Optional['outputs.PreventionDiscoveryConfigActionPubSubNotification'] = None,
+                 publish_to_dataplex_catalog: Optional['outputs.PreventionDiscoveryConfigActionPublishToDataplexCatalog'] = None,
                  tag_resources: Optional['outputs.PreventionDiscoveryConfigActionTagResources'] = None):
         """
         :param 'PreventionDiscoveryConfigActionExportDataArgs' export_data: Export data profiles into a provided location
                Structure is documented below.
         :param 'PreventionDiscoveryConfigActionPubSubNotificationArgs' pub_sub_notification: Publish a message into the Pub/Sub topic.
                Structure is documented below.
-        :param 'PreventionDiscoveryConfigActionTagResourcesArgs' tag_resources: Publish a message into the Pub/Sub topic.
+        :param 'PreventionDiscoveryConfigActionPublishToDataplexCatalogArgs' publish_to_dataplex_catalog: Publish a portion of each profile to Dataplex Universal Catalog with the aspect type Sensitive Data Protection Profile.
+        :param 'PreventionDiscoveryConfigActionTagResourcesArgs' tag_resources: Tag the profiled resources with the specified tag values.
                Structure is documented below.
         """
         if export_data is not None:
             pulumi.set(__self__, "export_data", export_data)
         if pub_sub_notification is not None:
             pulumi.set(__self__, "pub_sub_notification", pub_sub_notification)
+        if publish_to_dataplex_catalog is not None:
+            pulumi.set(__self__, "publish_to_dataplex_catalog", publish_to_dataplex_catalog)
         if tag_resources is not None:
             pulumi.set(__self__, "tag_resources", tag_resources)
 
@@ -11225,10 +11253,18 @@ class PreventionDiscoveryConfigAction(dict):
         return pulumi.get(self, "pub_sub_notification")
 
     @_builtins.property
+    @pulumi.getter(name="publishToDataplexCatalog")
+    def publish_to_dataplex_catalog(self) -> Optional['outputs.PreventionDiscoveryConfigActionPublishToDataplexCatalog']:
+        """
+        Publish a portion of each profile to Dataplex Universal Catalog with the aspect type Sensitive Data Protection Profile.
+        """
+        return pulumi.get(self, "publish_to_dataplex_catalog")
+
+    @_builtins.property
     @pulumi.getter(name="tagResources")
     def tag_resources(self) -> Optional['outputs.PreventionDiscoveryConfigActionTagResources']:
         """
-        Publish a message into the Pub/Sub topic.
+        Tag the profiled resources with the specified tag values.
         Structure is documented below.
         """
         return pulumi.get(self, "tag_resources")
@@ -11544,6 +11580,12 @@ class PreventionDiscoveryConfigActionPubSubNotificationPubsubConditionExpression
 
 
 @pulumi.output_type
+class PreventionDiscoveryConfigActionPublishToDataplexCatalog(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
 class PreventionDiscoveryConfigActionTagResources(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -11669,7 +11711,7 @@ class PreventionDiscoveryConfigActionTagResourcesTagConditionSensitivityScore(di
                  score: _builtins.str):
         """
         :param _builtins.str score: The sensitivity score applied to the resource.
-               Possible values are: `SENSITIVITY_LOW`, `SENSITIVITY_MODERATE`, `SENSITIVITY_HIGH`.
+               Possible values are: `SENSITIVITY_LOW`, `SENSITIVITY_MODERATE`, `SENSITIVITY_HIGH`, `SENSITIVITY_UNKNOWN`.
         """
         pulumi.set(__self__, "score", score)
 
@@ -11678,7 +11720,7 @@ class PreventionDiscoveryConfigActionTagResourcesTagConditionSensitivityScore(di
     def score(self) -> _builtins.str:
         """
         The sensitivity score applied to the resource.
-        Possible values are: `SENSITIVITY_LOW`, `SENSITIVITY_MODERATE`, `SENSITIVITY_HIGH`.
+        Possible values are: `SENSITIVITY_LOW`, `SENSITIVITY_MODERATE`, `SENSITIVITY_HIGH`, `SENSITIVITY_UNKNOWN`.
         """
         return pulumi.get(self, "score")
 
@@ -11894,6 +11936,94 @@ class PreventionDiscoveryConfigOrgConfigLocation(dict):
 
 
 @pulumi.output_type
+class PreventionDiscoveryConfigOtherCloudStartingLocation(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "awsLocation":
+            suggest = "aws_location"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigOtherCloudStartingLocation. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigOtherCloudStartingLocation.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigOtherCloudStartingLocation.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 aws_location: Optional['outputs.PreventionDiscoveryConfigOtherCloudStartingLocationAwsLocation'] = None):
+        """
+        :param 'PreventionDiscoveryConfigOtherCloudStartingLocationAwsLocationArgs' aws_location: A nested object resource.
+               Structure is documented below.
+        """
+        if aws_location is not None:
+            pulumi.set(__self__, "aws_location", aws_location)
+
+    @_builtins.property
+    @pulumi.getter(name="awsLocation")
+    def aws_location(self) -> Optional['outputs.PreventionDiscoveryConfigOtherCloudStartingLocationAwsLocation']:
+        """
+        A nested object resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "aws_location")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigOtherCloudStartingLocationAwsLocation(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "accountId":
+            suggest = "account_id"
+        elif key == "allAssetInventoryAssets":
+            suggest = "all_asset_inventory_assets"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigOtherCloudStartingLocationAwsLocation. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigOtherCloudStartingLocationAwsLocation.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigOtherCloudStartingLocationAwsLocation.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 account_id: Optional[_builtins.str] = None,
+                 all_asset_inventory_assets: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.str account_id: The AWS account ID that this discovery config applies to. Within an organization, you can find the AWS account ID inside an AWS account ARN. Example: arn:<partition>:organizations::<management-account-id>:account/<organization-id>/<account-id>
+        :param _builtins.bool all_asset_inventory_assets: All AWS assets stored in Asset Inventory that didn't match other AWS discovery configs.
+        """
+        if account_id is not None:
+            pulumi.set(__self__, "account_id", account_id)
+        if all_asset_inventory_assets is not None:
+            pulumi.set(__self__, "all_asset_inventory_assets", all_asset_inventory_assets)
+
+    @_builtins.property
+    @pulumi.getter(name="accountId")
+    def account_id(self) -> Optional[_builtins.str]:
+        """
+        The AWS account ID that this discovery config applies to. Within an organization, you can find the AWS account ID inside an AWS account ARN. Example: arn:<partition>:organizations::<management-account-id>:account/<organization-id>/<account-id>
+        """
+        return pulumi.get(self, "account_id")
+
+    @_builtins.property
+    @pulumi.getter(name="allAssetInventoryAssets")
+    def all_asset_inventory_assets(self) -> Optional[_builtins.bool]:
+        """
+        All AWS assets stored in Asset Inventory that didn't match other AWS discovery configs.
+        """
+        return pulumi.get(self, "all_asset_inventory_assets")
+
+
+@pulumi.output_type
 class PreventionDiscoveryConfigTarget(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -11904,6 +12034,8 @@ class PreventionDiscoveryConfigTarget(dict):
             suggest = "cloud_sql_target"
         elif key == "cloudStorageTarget":
             suggest = "cloud_storage_target"
+        elif key == "otherCloudTarget":
+            suggest = "other_cloud_target"
         elif key == "secretsTarget":
             suggest = "secrets_target"
 
@@ -11922,6 +12054,7 @@ class PreventionDiscoveryConfigTarget(dict):
                  big_query_target: Optional['outputs.PreventionDiscoveryConfigTargetBigQueryTarget'] = None,
                  cloud_sql_target: Optional['outputs.PreventionDiscoveryConfigTargetCloudSqlTarget'] = None,
                  cloud_storage_target: Optional['outputs.PreventionDiscoveryConfigTargetCloudStorageTarget'] = None,
+                 other_cloud_target: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTarget'] = None,
                  secrets_target: Optional['outputs.PreventionDiscoveryConfigTargetSecretsTarget'] = None):
         """
         :param 'PreventionDiscoveryConfigTargetBigQueryTargetArgs' big_query_target: BigQuery target for Discovery. The first target to match a table will be the one applied.
@@ -11929,6 +12062,8 @@ class PreventionDiscoveryConfigTarget(dict):
         :param 'PreventionDiscoveryConfigTargetCloudSqlTargetArgs' cloud_sql_target: Cloud SQL target for Discovery. The first target to match a table will be the one applied.
                Structure is documented below.
         :param 'PreventionDiscoveryConfigTargetCloudStorageTargetArgs' cloud_storage_target: Cloud Storage target for Discovery. The first target to match a bucket will be the one applied.
+               Structure is documented below.
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetArgs' other_cloud_target: Other clouds target for discovery. The first target to match a resource will be the one applied.
                Structure is documented below.
         :param 'PreventionDiscoveryConfigTargetSecretsTargetArgs' secrets_target: Discovery target that looks for credentials and secrets stored in cloud resource metadata and reports them as vulnerabilities to Security Command Center. Only one target of this type is allowed.
         """
@@ -11938,6 +12073,8 @@ class PreventionDiscoveryConfigTarget(dict):
             pulumi.set(__self__, "cloud_sql_target", cloud_sql_target)
         if cloud_storage_target is not None:
             pulumi.set(__self__, "cloud_storage_target", cloud_storage_target)
+        if other_cloud_target is not None:
+            pulumi.set(__self__, "other_cloud_target", other_cloud_target)
         if secrets_target is not None:
             pulumi.set(__self__, "secrets_target", secrets_target)
 
@@ -11967,6 +12104,15 @@ class PreventionDiscoveryConfigTarget(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "cloud_storage_target")
+
+    @_builtins.property
+    @pulumi.getter(name="otherCloudTarget")
+    def other_cloud_target(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTarget']:
+        """
+        Other clouds target for discovery. The first target to match a resource will be the one applied.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "other_cloud_target")
 
     @_builtins.property
     @pulumi.getter(name="secretsTarget")
@@ -12521,7 +12667,7 @@ class PreventionDiscoveryConfigTargetBigQueryTargetFilterTablesIncludeRegexes(di
     def __init__(__self__, *,
                  patterns: Optional[Sequence['outputs.PreventionDiscoveryConfigTargetBigQueryTargetFilterTablesIncludeRegexesPattern']] = None):
         """
-        :param Sequence['PreventionDiscoveryConfigTargetBigQueryTargetFilterTablesIncludeRegexesPatternArgs'] patterns: The group of regular expression patterns to match against one or more file stores. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
+        :param Sequence['PreventionDiscoveryConfigTargetBigQueryTargetFilterTablesIncludeRegexesPatternArgs'] patterns: The group of regular expression patterns to match against one or more resources. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
                Structure is documented below.
         """
         if patterns is not None:
@@ -12531,7 +12677,7 @@ class PreventionDiscoveryConfigTargetBigQueryTargetFilterTablesIncludeRegexes(di
     @pulumi.getter
     def patterns(self) -> Optional[Sequence['outputs.PreventionDiscoveryConfigTargetBigQueryTargetFilterTablesIncludeRegexesPattern']]:
         """
-        The group of regular expression patterns to match against one or more file stores. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
+        The group of regular expression patterns to match against one or more resources. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
         Structure is documented below.
         """
         return pulumi.get(self, "patterns")
@@ -12760,7 +12906,7 @@ class PreventionDiscoveryConfigTargetCloudSqlTargetFilter(dict):
                  database_resource_reference: Optional['outputs.PreventionDiscoveryConfigTargetCloudSqlTargetFilterDatabaseResourceReference'] = None,
                  others: Optional['outputs.PreventionDiscoveryConfigTargetCloudSqlTargetFilterOthers'] = None):
         """
-        :param 'PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionArgs' collection: A specific set of buckets for this filter to apply to.
+        :param 'PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionArgs' collection: A collection of resources for this filter to apply to.
                Structure is documented below.
         :param 'PreventionDiscoveryConfigTargetCloudSqlTargetFilterDatabaseResourceReferenceArgs' database_resource_reference: The database resource to scan. Targets including this can only include one target (the target with this database resource reference).
                Structure is documented below.
@@ -12777,7 +12923,7 @@ class PreventionDiscoveryConfigTargetCloudSqlTargetFilter(dict):
     @pulumi.getter
     def collection(self) -> Optional['outputs.PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollection']:
         """
-        A specific set of buckets for this filter to apply to.
+        A collection of resources for this filter to apply to.
         Structure is documented below.
         """
         return pulumi.get(self, "collection")
@@ -12822,7 +12968,7 @@ class PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollection(dict):
     def __init__(__self__, *,
                  include_regexes: Optional['outputs.PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionIncludeRegexes'] = None):
         """
-        :param 'PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionIncludeRegexesArgs' include_regexes: A collection of regular expressions to match a file store against.
+        :param 'PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionIncludeRegexesArgs' include_regexes: A collection of regular expressions to match a resource against.
                Structure is documented below.
         """
         if include_regexes is not None:
@@ -12832,7 +12978,7 @@ class PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollection(dict):
     @pulumi.getter(name="includeRegexes")
     def include_regexes(self) -> Optional['outputs.PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionIncludeRegexes']:
         """
-        A collection of regular expressions to match a file store against.
+        A collection of regular expressions to match a resource against.
         Structure is documented below.
         """
         return pulumi.get(self, "include_regexes")
@@ -12843,7 +12989,7 @@ class PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionIncludeRegexe
     def __init__(__self__, *,
                  patterns: Optional[Sequence['outputs.PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionIncludeRegexesPattern']] = None):
         """
-        :param Sequence['PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionIncludeRegexesPatternArgs'] patterns: The group of regular expression patterns to match against one or more file stores. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
+        :param Sequence['PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionIncludeRegexesPatternArgs'] patterns: The group of regular expression patterns to match against one or more resources. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
                Structure is documented below.
         """
         if patterns is not None:
@@ -12853,7 +12999,7 @@ class PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionIncludeRegexe
     @pulumi.getter
     def patterns(self) -> Optional[Sequence['outputs.PreventionDiscoveryConfigTargetCloudSqlTargetFilterCollectionIncludeRegexesPattern']]:
         """
-        The group of regular expression patterns to match against one or more file stores. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
+        The group of regular expression patterns to match against one or more resources. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
         Structure is documented below.
         """
         return pulumi.get(self, "patterns")
@@ -13043,7 +13189,7 @@ class PreventionDiscoveryConfigTargetCloudSqlTargetGenerationCadence(dict):
         """
         :param 'PreventionDiscoveryConfigTargetCloudSqlTargetGenerationCadenceInspectTemplateModifiedCadenceArgs' inspect_template_modified_cadence: Governs when to update data profiles when the inspection rules defined by the `InspectTemplate` change. If not set, changing the template will not cause a data profile to update.
                Structure is documented below.
-        :param _builtins.str refresh_frequency: Data changes in Cloud Storage can't trigger reprofiling. If you set this field, profiles are refreshed at this frequency regardless of whether the underlying buckets have changes. Defaults to never.
+        :param _builtins.str refresh_frequency: Frequency to update profiles regardless of whether the underlying resource has changes. Defaults to never.
                Possible values are: `UPDATE_FREQUENCY_NEVER`, `UPDATE_FREQUENCY_DAILY`, `UPDATE_FREQUENCY_MONTHLY`.
         :param 'PreventionDiscoveryConfigTargetCloudSqlTargetGenerationCadenceSchemaModifiedCadenceArgs' schema_modified_cadence: Governs when to update data profiles when a schema is modified
                Structure is documented below.
@@ -13068,7 +13214,7 @@ class PreventionDiscoveryConfigTargetCloudSqlTargetGenerationCadence(dict):
     @pulumi.getter(name="refreshFrequency")
     def refresh_frequency(self) -> Optional[_builtins.str]:
         """
-        Data changes in Cloud Storage can't trigger reprofiling. If you set this field, profiles are refreshed at this frequency regardless of whether the underlying buckets have changes. Defaults to never.
+        Frequency to update profiles regardless of whether the underlying resource has changes. Defaults to never.
         Possible values are: `UPDATE_FREQUENCY_NEVER`, `UPDATE_FREQUENCY_DAILY`, `UPDATE_FREQUENCY_MONTHLY`.
         """
         return pulumi.get(self, "refresh_frequency")
@@ -13246,7 +13392,7 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetConditions(dict):
         :param 'PreventionDiscoveryConfigTargetCloudStorageTargetConditionsCloudStorageConditionsArgs' cloud_storage_conditions: Cloud Storage conditions.
                Structure is documented below.
         :param _builtins.str created_after: File store must have been created after this date. Used to avoid backfilling. A timestamp in RFC3339 UTC "Zulu" format with nanosecond resolution and upto nine fractional digits.
-        :param _builtins.str min_age: Duration format. Minimum age a file store must have. If set, the value must be 1 hour or greater.
+        :param _builtins.str min_age: Duration format.  Minimum age a resource must be before a profile can be generated. Value must be 1 hour or greater. Minimum age is not supported for Azure Blob Storage containers.
         """
         if cloud_storage_conditions is not None:
             pulumi.set(__self__, "cloud_storage_conditions", cloud_storage_conditions)
@@ -13276,7 +13422,7 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetConditions(dict):
     @pulumi.getter(name="minAge")
     def min_age(self) -> Optional[_builtins.str]:
         """
-        Duration format. Minimum age a file store must have. If set, the value must be 1 hour or greater.
+        Duration format.  Minimum age a resource must be before a profile can be generated. Value must be 1 hour or greater. Minimum age is not supported for Azure Blob Storage containers.
         """
         return pulumi.get(self, "min_age")
 
@@ -13367,7 +13513,7 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetFilter(dict):
         """
         :param 'PreventionDiscoveryConfigTargetCloudStorageTargetFilterCloudStorageResourceReferenceArgs' cloud_storage_resource_reference: The bucket to scan. Targets including this can only include one target (the target with this bucket). This enables profiling the contents of a single bucket, while the other options allow for easy profiling of many buckets within a project or an organization.
                Structure is documented below.
-        :param 'PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionArgs' collection: A specific set of buckets for this filter to apply to.
+        :param 'PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionArgs' collection: A collection of resources for this filter to apply to.
                Structure is documented below.
         :param 'PreventionDiscoveryConfigTargetCloudStorageTargetFilterOthersArgs' others: Match discovery resources not covered by any other filter.
         """
@@ -13391,7 +13537,7 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetFilter(dict):
     @pulumi.getter
     def collection(self) -> Optional['outputs.PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollection']:
         """
-        A specific set of buckets for this filter to apply to.
+        A collection of resources for this filter to apply to.
         Structure is documented below.
         """
         return pulumi.get(self, "collection")
@@ -13477,7 +13623,7 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollection(dict):
     def __init__(__self__, *,
                  include_regexes: Optional['outputs.PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionIncludeRegexes'] = None):
         """
-        :param 'PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionIncludeRegexesArgs' include_regexes: A collection of regular expressions to match a file store against.
+        :param 'PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionIncludeRegexesArgs' include_regexes: A collection of regular expressions to match a resource against.
                Structure is documented below.
         """
         if include_regexes is not None:
@@ -13487,7 +13633,7 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollection(dict):
     @pulumi.getter(name="includeRegexes")
     def include_regexes(self) -> Optional['outputs.PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionIncludeRegexes']:
         """
-        A collection of regular expressions to match a file store against.
+        A collection of regular expressions to match a resource against.
         Structure is documented below.
         """
         return pulumi.get(self, "include_regexes")
@@ -13498,7 +13644,7 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionIncludeRe
     def __init__(__self__, *,
                  patterns: Optional[Sequence['outputs.PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionIncludeRegexesPattern']] = None):
         """
-        :param Sequence['PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionIncludeRegexesPatternArgs'] patterns: The group of regular expression patterns to match against one or more file stores. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
+        :param Sequence['PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionIncludeRegexesPatternArgs'] patterns: The group of regular expression patterns to match against one or more resources. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
                Structure is documented below.
         """
         if patterns is not None:
@@ -13508,7 +13654,7 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionIncludeRe
     @pulumi.getter
     def patterns(self) -> Optional[Sequence['outputs.PreventionDiscoveryConfigTargetCloudStorageTargetFilterCollectionIncludeRegexesPattern']]:
         """
-        The group of regular expression patterns to match against one or more file stores. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
+        The group of regular expression patterns to match against one or more resources. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
         Structure is documented below.
         """
         return pulumi.get(self, "patterns")
@@ -13635,7 +13781,7 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetGenerationCadence(dict):
         """
         :param 'PreventionDiscoveryConfigTargetCloudStorageTargetGenerationCadenceInspectTemplateModifiedCadenceArgs' inspect_template_modified_cadence: Governs when to update data profiles when the inspection rules defined by the `InspectTemplate` change. If not set, changing the template will not cause a data profile to update.
                Structure is documented below.
-        :param _builtins.str refresh_frequency: Data changes in Cloud Storage can't trigger reprofiling. If you set this field, profiles are refreshed at this frequency regardless of whether the underlying buckets have changes. Defaults to never.
+        :param _builtins.str refresh_frequency: Frequency to update profiles regardless of whether the underlying resource has changes. Defaults to never.
                Possible values are: `UPDATE_FREQUENCY_NEVER`, `UPDATE_FREQUENCY_DAILY`, `UPDATE_FREQUENCY_MONTHLY`.
         """
         if inspect_template_modified_cadence is not None:
@@ -13656,7 +13802,7 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetGenerationCadence(dict):
     @pulumi.getter(name="refreshFrequency")
     def refresh_frequency(self) -> Optional[_builtins.str]:
         """
-        Data changes in Cloud Storage can't trigger reprofiling. If you set this field, profiles are refreshed at this frequency regardless of whether the underlying buckets have changes. Defaults to never.
+        Frequency to update profiles regardless of whether the underlying resource has changes. Defaults to never.
         Possible values are: `UPDATE_FREQUENCY_NEVER`, `UPDATE_FREQUENCY_DAILY`, `UPDATE_FREQUENCY_MONTHLY`.
         """
         return pulumi.get(self, "refresh_frequency")
@@ -13664,6 +13810,713 @@ class PreventionDiscoveryConfigTargetCloudStorageTargetGenerationCadence(dict):
 
 @pulumi.output_type
 class PreventionDiscoveryConfigTargetCloudStorageTargetGenerationCadenceInspectTemplateModifiedCadence(dict):
+    def __init__(__self__, *,
+                 frequency: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str frequency: How frequently data profiles can be updated when the template is modified. Defaults to never.
+               Possible values are: `UPDATE_FREQUENCY_NEVER`, `UPDATE_FREQUENCY_DAILY`, `UPDATE_FREQUENCY_MONTHLY`.
+        """
+        if frequency is not None:
+            pulumi.set(__self__, "frequency", frequency)
+
+    @_builtins.property
+    @pulumi.getter
+    def frequency(self) -> Optional[_builtins.str]:
+        """
+        How frequently data profiles can be updated when the template is modified. Defaults to never.
+        Possible values are: `UPDATE_FREQUENCY_NEVER`, `UPDATE_FREQUENCY_DAILY`, `UPDATE_FREQUENCY_MONTHLY`.
+        """
+        return pulumi.get(self, "frequency")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTarget(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dataSourceType":
+            suggest = "data_source_type"
+        elif key == "generationCadence":
+            suggest = "generation_cadence"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTarget. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTarget.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTarget.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 filter: 'outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilter',
+                 conditions: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetConditions'] = None,
+                 data_source_type: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetDataSourceType'] = None,
+                 disabled: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetDisabled'] = None,
+                 generation_cadence: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadence'] = None):
+        """
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetFilterArgs' filter: Required. The resources that the discovery cadence applies to. The first target with a matching filter will be the one to apply to a resource.
+               Structure is documented below.
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetConditionsArgs' conditions: In addition to matching the filter, these conditions must be true before a profile is generated.
+               Structure is documented below.
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetDataSourceTypeArgs' data_source_type: Required. The type of data profiles generated by this discovery target. Supported values are: aws/s3/bucket
+               Structure is documented below.
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetDisabledArgs' disabled: Disable profiling for resources that match this filter.
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadenceArgs' generation_cadence: How often and when to update profiles. New resources that match both the filter and conditions are scanned as quickly as possible depending on system capacity.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "filter", filter)
+        if conditions is not None:
+            pulumi.set(__self__, "conditions", conditions)
+        if data_source_type is not None:
+            pulumi.set(__self__, "data_source_type", data_source_type)
+        if disabled is not None:
+            pulumi.set(__self__, "disabled", disabled)
+        if generation_cadence is not None:
+            pulumi.set(__self__, "generation_cadence", generation_cadence)
+
+    @_builtins.property
+    @pulumi.getter
+    def filter(self) -> 'outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilter':
+        """
+        Required. The resources that the discovery cadence applies to. The first target with a matching filter will be the one to apply to a resource.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "filter")
+
+    @_builtins.property
+    @pulumi.getter
+    def conditions(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetConditions']:
+        """
+        In addition to matching the filter, these conditions must be true before a profile is generated.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "conditions")
+
+    @_builtins.property
+    @pulumi.getter(name="dataSourceType")
+    def data_source_type(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetDataSourceType']:
+        """
+        Required. The type of data profiles generated by this discovery target. Supported values are: aws/s3/bucket
+        Structure is documented below.
+        """
+        return pulumi.get(self, "data_source_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def disabled(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetDisabled']:
+        """
+        Disable profiling for resources that match this filter.
+        """
+        return pulumi.get(self, "disabled")
+
+    @_builtins.property
+    @pulumi.getter(name="generationCadence")
+    def generation_cadence(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadence']:
+        """
+        How often and when to update profiles. New resources that match both the filter and conditions are scanned as quickly as possible depending on system capacity.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "generation_cadence")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetConditions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "amazonS3BucketConditions":
+            suggest = "amazon_s3_bucket_conditions"
+        elif key == "minAge":
+            suggest = "min_age"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetConditions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetConditions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetConditions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 amazon_s3_bucket_conditions: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetConditionsAmazonS3BucketConditions'] = None,
+                 min_age: Optional[_builtins.str] = None):
+        """
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetConditionsAmazonS3BucketConditionsArgs' amazon_s3_bucket_conditions: Amazon S3 bucket conditions.
+               Structure is documented below.
+               
+               
+               <a name="nested_targets_other_cloud_target_conditions_amazon_s3_bucket_conditions"></a>The `amazon_s3_bucket_conditions` block supports:
+        :param _builtins.str min_age: Duration format.  Minimum age a resource must be before a profile can be generated. Value must be 1 hour or greater. Minimum age is not supported for Azure Blob Storage containers.
+        """
+        if amazon_s3_bucket_conditions is not None:
+            pulumi.set(__self__, "amazon_s3_bucket_conditions", amazon_s3_bucket_conditions)
+        if min_age is not None:
+            pulumi.set(__self__, "min_age", min_age)
+
+    @_builtins.property
+    @pulumi.getter(name="amazonS3BucketConditions")
+    def amazon_s3_bucket_conditions(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetConditionsAmazonS3BucketConditions']:
+        """
+        Amazon S3 bucket conditions.
+        Structure is documented below.
+
+
+        <a name="nested_targets_other_cloud_target_conditions_amazon_s3_bucket_conditions"></a>The `amazon_s3_bucket_conditions` block supports:
+        """
+        return pulumi.get(self, "amazon_s3_bucket_conditions")
+
+    @_builtins.property
+    @pulumi.getter(name="minAge")
+    def min_age(self) -> Optional[_builtins.str]:
+        """
+        Duration format.  Minimum age a resource must be before a profile can be generated. Value must be 1 hour or greater. Minimum age is not supported for Azure Blob Storage containers.
+        """
+        return pulumi.get(self, "min_age")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetConditionsAmazonS3BucketConditions(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "bucketTypes":
+            suggest = "bucket_types"
+        elif key == "objectStorageClasses":
+            suggest = "object_storage_classes"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetConditionsAmazonS3BucketConditions. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetConditionsAmazonS3BucketConditions.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetConditionsAmazonS3BucketConditions.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 bucket_types: Optional[Sequence[_builtins.str]] = None,
+                 object_storage_classes: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] bucket_types: Bucket types that should be profiled. Optional. Defaults to TYPE_ALL_SUPPORTED if unspecified. Possible values: ["TYPE_ALL_SUPPORTED", "TYPE_GENERAL_PURPOSE"]
+        :param Sequence[_builtins.str] object_storage_classes: Object classes that should be profiled. Optional. Defaults to ALL_SUPPORTED_CLASSES if unspecified. Possible values: ["ALL_SUPPORTED_CLASSES", "STANDARD", "STANDARD_INFREQUENT_ACCESS", "GLACIER_INSTANT_RETRIEVAL", "INTELLIGENT_TIERING"]
+        """
+        if bucket_types is not None:
+            pulumi.set(__self__, "bucket_types", bucket_types)
+        if object_storage_classes is not None:
+            pulumi.set(__self__, "object_storage_classes", object_storage_classes)
+
+    @_builtins.property
+    @pulumi.getter(name="bucketTypes")
+    def bucket_types(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Bucket types that should be profiled. Optional. Defaults to TYPE_ALL_SUPPORTED if unspecified. Possible values: ["TYPE_ALL_SUPPORTED", "TYPE_GENERAL_PURPOSE"]
+        """
+        return pulumi.get(self, "bucket_types")
+
+    @_builtins.property
+    @pulumi.getter(name="objectStorageClasses")
+    def object_storage_classes(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Object classes that should be profiled. Optional. Defaults to ALL_SUPPORTED_CLASSES if unspecified. Possible values: ["ALL_SUPPORTED_CLASSES", "STANDARD", "STANDARD_INFREQUENT_ACCESS", "GLACIER_INSTANT_RETRIEVAL", "INTELLIGENT_TIERING"]
+        """
+        return pulumi.get(self, "object_storage_classes")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetDataSourceType(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dataSource":
+            suggest = "data_source"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetDataSourceType. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetDataSourceType.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetDataSourceType.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 data_source: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str data_source: (Optional)
+        """
+        if data_source is not None:
+            pulumi.set(__self__, "data_source", data_source)
+
+    @_builtins.property
+    @pulumi.getter(name="dataSource")
+    def data_source(self) -> Optional[_builtins.str]:
+        """
+        (Optional)
+        """
+        return pulumi.get(self, "data_source")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetDisabled(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetFilter(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "singleResource":
+            suggest = "single_resource"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetFilter. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilter.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilter.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 collection: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollection'] = None,
+                 others: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterOthers'] = None,
+                 single_resource: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResource'] = None):
+        """
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionArgs' collection: A collection of resources for this filter to apply to.
+               Structure is documented below.
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetFilterOthersArgs' others: Match discovery resources not covered by any other filter.
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceArgs' single_resource: The resource to scan. Configs using this filter can only have one target (the target with this single resource reference).
+               Structure is documented below.
+        """
+        if collection is not None:
+            pulumi.set(__self__, "collection", collection)
+        if others is not None:
+            pulumi.set(__self__, "others", others)
+        if single_resource is not None:
+            pulumi.set(__self__, "single_resource", single_resource)
+
+    @_builtins.property
+    @pulumi.getter
+    def collection(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollection']:
+        """
+        A collection of resources for this filter to apply to.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "collection")
+
+    @_builtins.property
+    @pulumi.getter
+    def others(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterOthers']:
+        """
+        Match discovery resources not covered by any other filter.
+        """
+        return pulumi.get(self, "others")
+
+    @_builtins.property
+    @pulumi.getter(name="singleResource")
+    def single_resource(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResource']:
+        """
+        The resource to scan. Configs using this filter can only have one target (the target with this single resource reference).
+        Structure is documented below.
+        """
+        return pulumi.get(self, "single_resource")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollection(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "includeRegexes":
+            suggest = "include_regexes"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollection. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollection.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollection.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 include_regexes: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexes'] = None):
+        """
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesArgs' include_regexes: A collection of regular expressions to match a resource against.
+               Structure is documented below.
+        """
+        if include_regexes is not None:
+            pulumi.set(__self__, "include_regexes", include_regexes)
+
+    @_builtins.property
+    @pulumi.getter(name="includeRegexes")
+    def include_regexes(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexes']:
+        """
+        A collection of regular expressions to match a resource against.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "include_regexes")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexes(dict):
+    def __init__(__self__, *,
+                 patterns: Optional[Sequence['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPattern']] = None):
+        """
+        :param Sequence['PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternArgs'] patterns: The group of regular expression patterns to match against one or more resources. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
+               Structure is documented below.
+        """
+        if patterns is not None:
+            pulumi.set(__self__, "patterns", patterns)
+
+    @_builtins.property
+    @pulumi.getter
+    def patterns(self) -> Optional[Sequence['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPattern']]:
+        """
+        The group of regular expression patterns to match against one or more resources. Maximum of 100 entries. The sum of all lengths of regular expressions can't exceed 10 KiB.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "patterns")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPattern(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "amazonS3BucketRegex":
+            suggest = "amazon_s3_bucket_regex"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPattern. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPattern.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPattern.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 amazon_s3_bucket_regex: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegex'] = None):
+        """
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegexArgs' amazon_s3_bucket_regex: Regex for Cloud Storage.
+               Structure is documented below.
+               
+               
+               <a name="nested_targets_other_cloud_target_filter_collection_include_regexes_patterns_amazon_s3_bucket_regex"></a>The `amazon_s3_bucket_regex` block supports:
+        """
+        if amazon_s3_bucket_regex is not None:
+            pulumi.set(__self__, "amazon_s3_bucket_regex", amazon_s3_bucket_regex)
+
+    @_builtins.property
+    @pulumi.getter(name="amazonS3BucketRegex")
+    def amazon_s3_bucket_regex(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegex']:
+        """
+        Regex for Cloud Storage.
+        Structure is documented below.
+
+
+        <a name="nested_targets_other_cloud_target_filter_collection_include_regexes_patterns_amazon_s3_bucket_regex"></a>The `amazon_s3_bucket_regex` block supports:
+        """
+        return pulumi.get(self, "amazon_s3_bucket_regex")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegex(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "awsAccountRegex":
+            suggest = "aws_account_regex"
+        elif key == "bucketNameRegex":
+            suggest = "bucket_name_regex"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegex. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegex.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegex.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 aws_account_regex: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegexAwsAccountRegex'] = None,
+                 bucket_name_regex: Optional[_builtins.str] = None):
+        """
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegexAwsAccountRegexArgs' aws_account_regex: The AWS account regex
+        :param _builtins.str bucket_name_regex: Regex to test the bucket name against. If empty, all buckets match.
+        """
+        if aws_account_regex is not None:
+            pulumi.set(__self__, "aws_account_regex", aws_account_regex)
+        if bucket_name_regex is not None:
+            pulumi.set(__self__, "bucket_name_regex", bucket_name_regex)
+
+    @_builtins.property
+    @pulumi.getter(name="awsAccountRegex")
+    def aws_account_regex(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegexAwsAccountRegex']:
+        """
+        The AWS account regex
+        """
+        return pulumi.get(self, "aws_account_regex")
+
+    @_builtins.property
+    @pulumi.getter(name="bucketNameRegex")
+    def bucket_name_regex(self) -> Optional[_builtins.str]:
+        """
+        Regex to test the bucket name against. If empty, all buckets match.
+        """
+        return pulumi.get(self, "bucket_name_regex")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegexAwsAccountRegex(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "accountIdRegex":
+            suggest = "account_id_regex"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegexAwsAccountRegex. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegexAwsAccountRegex.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterCollectionIncludeRegexesPatternAmazonS3BucketRegexAwsAccountRegex.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 account_id_regex: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str account_id_regex: Regex to test the AWS account ID against. If empty, all accounts match. Example: arn:aws:organizations::123:account/o-b2c3d4/345
+        """
+        if account_id_regex is not None:
+            pulumi.set(__self__, "account_id_regex", account_id_regex)
+
+    @_builtins.property
+    @pulumi.getter(name="accountIdRegex")
+    def account_id_regex(self) -> Optional[_builtins.str]:
+        """
+        Regex to test the AWS account ID against. If empty, all accounts match. Example: arn:aws:organizations::123:account/o-b2c3d4/345
+        """
+        return pulumi.get(self, "account_id_regex")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetFilterOthers(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResource(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "amazonS3Bucket":
+            suggest = "amazon_s3_bucket"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResource. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResource.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResource.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 amazon_s3_bucket: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3Bucket'] = None):
+        """
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3BucketArgs' amazon_s3_bucket: Amazon S3 bucket.
+               Structure is documented below.
+               
+               
+               <a name="nested_targets_other_cloud_target_filter_single_resource_amazon_s3_bucket"></a>The `amazon_s3_bucket` block supports:
+        """
+        if amazon_s3_bucket is not None:
+            pulumi.set(__self__, "amazon_s3_bucket", amazon_s3_bucket)
+
+    @_builtins.property
+    @pulumi.getter(name="amazonS3Bucket")
+    def amazon_s3_bucket(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3Bucket']:
+        """
+        Amazon S3 bucket.
+        Structure is documented below.
+
+
+        <a name="nested_targets_other_cloud_target_filter_single_resource_amazon_s3_bucket"></a>The `amazon_s3_bucket` block supports:
+        """
+        return pulumi.get(self, "amazon_s3_bucket")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3Bucket(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "awsAccount":
+            suggest = "aws_account"
+        elif key == "bucketName":
+            suggest = "bucket_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3Bucket. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3Bucket.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3Bucket.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 aws_account: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3BucketAwsAccount'] = None,
+                 bucket_name: Optional[_builtins.str] = None):
+        """
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3BucketAwsAccountArgs' aws_account: The AWS account.
+        :param _builtins.str bucket_name: The bucket name.
+        """
+        if aws_account is not None:
+            pulumi.set(__self__, "aws_account", aws_account)
+        if bucket_name is not None:
+            pulumi.set(__self__, "bucket_name", bucket_name)
+
+    @_builtins.property
+    @pulumi.getter(name="awsAccount")
+    def aws_account(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3BucketAwsAccount']:
+        """
+        The AWS account.
+        """
+        return pulumi.get(self, "aws_account")
+
+    @_builtins.property
+    @pulumi.getter(name="bucketName")
+    def bucket_name(self) -> Optional[_builtins.str]:
+        """
+        The bucket name.
+        """
+        return pulumi.get(self, "bucket_name")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3BucketAwsAccount(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "accountId":
+            suggest = "account_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3BucketAwsAccount. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3BucketAwsAccount.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetFilterSingleResourceAmazonS3BucketAwsAccount.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 account_id: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str account_id: AWS account ID.
+        """
+        if account_id is not None:
+            pulumi.set(__self__, "account_id", account_id)
+
+    @_builtins.property
+    @pulumi.getter(name="accountId")
+    def account_id(self) -> Optional[_builtins.str]:
+        """
+        AWS account ID.
+        """
+        return pulumi.get(self, "account_id")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadence(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "inspectTemplateModifiedCadence":
+            suggest = "inspect_template_modified_cadence"
+        elif key == "refreshFrequency":
+            suggest = "refresh_frequency"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadence. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadence.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadence.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 inspect_template_modified_cadence: Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadenceInspectTemplateModifiedCadence'] = None,
+                 refresh_frequency: Optional[_builtins.str] = None):
+        """
+        :param 'PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadenceInspectTemplateModifiedCadenceArgs' inspect_template_modified_cadence: Governs when to update data profiles when the inspection rules defined by the `InspectTemplate` change. If not set, changing the template will not cause a data profile to update.
+               Structure is documented below.
+        :param _builtins.str refresh_frequency: Frequency to update profiles regardless of whether the underlying resource has changes. Defaults to never.
+               Possible values are: `UPDATE_FREQUENCY_NEVER`, `UPDATE_FREQUENCY_DAILY`, `UPDATE_FREQUENCY_MONTHLY`.
+        """
+        if inspect_template_modified_cadence is not None:
+            pulumi.set(__self__, "inspect_template_modified_cadence", inspect_template_modified_cadence)
+        if refresh_frequency is not None:
+            pulumi.set(__self__, "refresh_frequency", refresh_frequency)
+
+    @_builtins.property
+    @pulumi.getter(name="inspectTemplateModifiedCadence")
+    def inspect_template_modified_cadence(self) -> Optional['outputs.PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadenceInspectTemplateModifiedCadence']:
+        """
+        Governs when to update data profiles when the inspection rules defined by the `InspectTemplate` change. If not set, changing the template will not cause a data profile to update.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "inspect_template_modified_cadence")
+
+    @_builtins.property
+    @pulumi.getter(name="refreshFrequency")
+    def refresh_frequency(self) -> Optional[_builtins.str]:
+        """
+        Frequency to update profiles regardless of whether the underlying resource has changes. Defaults to never.
+        Possible values are: `UPDATE_FREQUENCY_NEVER`, `UPDATE_FREQUENCY_DAILY`, `UPDATE_FREQUENCY_MONTHLY`.
+        """
+        return pulumi.get(self, "refresh_frequency")
+
+
+@pulumi.output_type
+class PreventionDiscoveryConfigTargetOtherCloudTargetGenerationCadenceInspectTemplateModifiedCadence(dict):
     def __init__(__self__, *,
                  frequency: Optional[_builtins.str] = None):
         """
@@ -15583,6 +16436,8 @@ class PreventionJobTriggerInspectJobAction(dict):
             suggest = "pub_sub"
         elif key == "publishFindingsToCloudDataCatalog":
             suggest = "publish_findings_to_cloud_data_catalog"
+        elif key == "publishFindingsToDataplexCatalog":
+            suggest = "publish_findings_to_dataplex_catalog"
         elif key == "publishSummaryToCscc":
             suggest = "publish_summary_to_cscc"
         elif key == "publishToStackdriver":
@@ -15606,6 +16461,7 @@ class PreventionJobTriggerInspectJobAction(dict):
                  job_notification_emails: Optional['outputs.PreventionJobTriggerInspectJobActionJobNotificationEmails'] = None,
                  pub_sub: Optional['outputs.PreventionJobTriggerInspectJobActionPubSub'] = None,
                  publish_findings_to_cloud_data_catalog: Optional['outputs.PreventionJobTriggerInspectJobActionPublishFindingsToCloudDataCatalog'] = None,
+                 publish_findings_to_dataplex_catalog: Optional['outputs.PreventionJobTriggerInspectJobActionPublishFindingsToDataplexCatalog'] = None,
                  publish_summary_to_cscc: Optional['outputs.PreventionJobTriggerInspectJobActionPublishSummaryToCscc'] = None,
                  publish_to_stackdriver: Optional['outputs.PreventionJobTriggerInspectJobActionPublishToStackdriver'] = None,
                  save_findings: Optional['outputs.PreventionJobTriggerInspectJobActionSaveFindings'] = None):
@@ -15615,7 +16471,11 @@ class PreventionJobTriggerInspectJobAction(dict):
         :param 'PreventionJobTriggerInspectJobActionJobNotificationEmailsArgs' job_notification_emails: Sends an email when the job completes. The email goes to IAM project owners and technical Essential Contacts.
         :param 'PreventionJobTriggerInspectJobActionPubSubArgs' pub_sub: Publish a message into a given Pub/Sub topic when the job completes.
                Structure is documented below.
-        :param 'PreventionJobTriggerInspectJobActionPublishFindingsToCloudDataCatalogArgs' publish_findings_to_cloud_data_catalog: Publish findings of a DlpJob to Data Catalog.
+        :param 'PreventionJobTriggerInspectJobActionPublishFindingsToCloudDataCatalogArgs' publish_findings_to_cloud_data_catalog: (Optional, Deprecated)
+               Publish findings of a DlpJob to Data Catalog.
+               
+               > **Warning:** `publish_findings_to_cloud_data_catalog` is deprecated and will be removed in a future major release. To publish findings to Dataplex Catalog, use `publish_findings_to_dataplex_catalog` instead.
+        :param 'PreventionJobTriggerInspectJobActionPublishFindingsToDataplexCatalogArgs' publish_findings_to_dataplex_catalog: Publish findings of a DlpJob as an aspect to Dataplex Universal Catalog.
         :param 'PreventionJobTriggerInspectJobActionPublishSummaryToCsccArgs' publish_summary_to_cscc: Publish the result summary of a DlpJob to the Cloud Security Command Center.
         :param 'PreventionJobTriggerInspectJobActionPublishToStackdriverArgs' publish_to_stackdriver: Enable Stackdriver metric dlp.googleapis.com/findingCount.
         :param 'PreventionJobTriggerInspectJobActionSaveFindingsArgs' save_findings: If set, the detailed findings will be persisted to the specified OutputStorageConfig. Only a single instance of this action can be specified. Compatible with: Inspect, Risk
@@ -15629,6 +16489,8 @@ class PreventionJobTriggerInspectJobAction(dict):
             pulumi.set(__self__, "pub_sub", pub_sub)
         if publish_findings_to_cloud_data_catalog is not None:
             pulumi.set(__self__, "publish_findings_to_cloud_data_catalog", publish_findings_to_cloud_data_catalog)
+        if publish_findings_to_dataplex_catalog is not None:
+            pulumi.set(__self__, "publish_findings_to_dataplex_catalog", publish_findings_to_dataplex_catalog)
         if publish_summary_to_cscc is not None:
             pulumi.set(__self__, "publish_summary_to_cscc", publish_summary_to_cscc)
         if publish_to_stackdriver is not None:
@@ -15664,11 +16526,23 @@ class PreventionJobTriggerInspectJobAction(dict):
 
     @_builtins.property
     @pulumi.getter(name="publishFindingsToCloudDataCatalog")
+    @_utilities.deprecated("""`publish_findings_to_cloud_data_catalog` is deprecated and will be removed in a future major release. To publish findings to Dataplex Catalog, use `publish_findings_to_dataplex_catalog` instead.""")
     def publish_findings_to_cloud_data_catalog(self) -> Optional['outputs.PreventionJobTriggerInspectJobActionPublishFindingsToCloudDataCatalog']:
         """
+        (Optional, Deprecated)
         Publish findings of a DlpJob to Data Catalog.
+
+        > **Warning:** `publish_findings_to_cloud_data_catalog` is deprecated and will be removed in a future major release. To publish findings to Dataplex Catalog, use `publish_findings_to_dataplex_catalog` instead.
         """
         return pulumi.get(self, "publish_findings_to_cloud_data_catalog")
+
+    @_builtins.property
+    @pulumi.getter(name="publishFindingsToDataplexCatalog")
+    def publish_findings_to_dataplex_catalog(self) -> Optional['outputs.PreventionJobTriggerInspectJobActionPublishFindingsToDataplexCatalog']:
+        """
+        Publish findings of a DlpJob as an aspect to Dataplex Universal Catalog.
+        """
+        return pulumi.get(self, "publish_findings_to_dataplex_catalog")
 
     @_builtins.property
     @pulumi.getter(name="publishSummaryToCscc")
@@ -15972,6 +16846,12 @@ class PreventionJobTriggerInspectJobActionPublishFindingsToCloudDataCatalog(dict
 
 
 @pulumi.output_type
+class PreventionJobTriggerInspectJobActionPublishFindingsToDataplexCatalog(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
 class PreventionJobTriggerInspectJobActionPublishSummaryToCscc(dict):
     def __init__(__self__):
         pass
@@ -16027,6 +16907,8 @@ class PreventionJobTriggerInspectJobActionSaveFindingsOutputConfig(dict):
         suggest = None
         if key == "outputSchema":
             suggest = "output_schema"
+        elif key == "storagePath":
+            suggest = "storage_path"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PreventionJobTriggerInspectJobActionSaveFindingsOutputConfig. Access the value via the '{suggest}' property getter instead.")
@@ -16040,11 +16922,10 @@ class PreventionJobTriggerInspectJobActionSaveFindingsOutputConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 table: 'outputs.PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigTable',
-                 output_schema: Optional[_builtins.str] = None):
+                 output_schema: Optional[_builtins.str] = None,
+                 storage_path: Optional['outputs.PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigStoragePath'] = None,
+                 table: Optional['outputs.PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigTable'] = None):
         """
-        :param 'PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigTableArgs' table: Information on the location of the target BigQuery Table.
-               Structure is documented below.
         :param _builtins.str output_schema: Schema used for writing the findings for Inspect jobs. This field is only used for
                Inspect and must be unspecified for Risk jobs. Columns are derived from the Finding
                object. If appending to an existing table, any columns from the predefined schema
@@ -16053,19 +16934,21 @@ class PreventionJobTriggerInspectJobActionSaveFindingsOutputConfig(dict):
                table with no schema, and no changes will be made to an existing table that has a schema.
                Only for use with external storage.
                Possible values are: `BASIC_COLUMNS`, `GCS_COLUMNS`, `DATASTORE_COLUMNS`, `BIG_QUERY_COLUMNS`, `ALL_COLUMNS`.
+        :param 'PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigStoragePathArgs' storage_path: Store findings in an existing Cloud Storage bucket. Files will be generated with the job ID and file part number
+               as the filename, and will contain findings in textproto format as SaveToGcsFindingsOutput. The file name will use
+               the naming convention <job_id>-<shard_number>, for example: my-job-id-2.
+               Supported for InspectJobs. The bucket must not be the same as the bucket being inspected. If storing findings to
+               Cloud Storage, the output schema field should not be set. If set, it will be ignored.
+               Structure is documented below.
+        :param 'PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigTableArgs' table: Information on the location of the target BigQuery Table.
+               Structure is documented below.
         """
-        pulumi.set(__self__, "table", table)
         if output_schema is not None:
             pulumi.set(__self__, "output_schema", output_schema)
-
-    @_builtins.property
-    @pulumi.getter
-    def table(self) -> 'outputs.PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigTable':
-        """
-        Information on the location of the target BigQuery Table.
-        Structure is documented below.
-        """
-        return pulumi.get(self, "table")
+        if storage_path is not None:
+            pulumi.set(__self__, "storage_path", storage_path)
+        if table is not None:
+            pulumi.set(__self__, "table", table)
 
     @_builtins.property
     @pulumi.getter(name="outputSchema")
@@ -16081,6 +16964,48 @@ class PreventionJobTriggerInspectJobActionSaveFindingsOutputConfig(dict):
         Possible values are: `BASIC_COLUMNS`, `GCS_COLUMNS`, `DATASTORE_COLUMNS`, `BIG_QUERY_COLUMNS`, `ALL_COLUMNS`.
         """
         return pulumi.get(self, "output_schema")
+
+    @_builtins.property
+    @pulumi.getter(name="storagePath")
+    def storage_path(self) -> Optional['outputs.PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigStoragePath']:
+        """
+        Store findings in an existing Cloud Storage bucket. Files will be generated with the job ID and file part number
+        as the filename, and will contain findings in textproto format as SaveToGcsFindingsOutput. The file name will use
+        the naming convention <job_id>-<shard_number>, for example: my-job-id-2.
+        Supported for InspectJobs. The bucket must not be the same as the bucket being inspected. If storing findings to
+        Cloud Storage, the output schema field should not be set. If set, it will be ignored.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "storage_path")
+
+    @_builtins.property
+    @pulumi.getter
+    def table(self) -> Optional['outputs.PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigTable']:
+        """
+        Information on the location of the target BigQuery Table.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "table")
+
+
+@pulumi.output_type
+class PreventionJobTriggerInspectJobActionSaveFindingsOutputConfigStoragePath(dict):
+    def __init__(__self__, *,
+                 path: _builtins.str):
+        """
+        :param _builtins.str path: A URL representing a file or path (no wildcards) in Cloud Storage.
+               Example: `gs://[BUCKET_NAME]/dictionary.txt`
+        """
+        pulumi.set(__self__, "path", path)
+
+    @_builtins.property
+    @pulumi.getter
+    def path(self) -> _builtins.str:
+        """
+        A URL representing a file or path (no wildcards) in Cloud Storage.
+        Example: `gs://[BUCKET_NAME]/dictionary.txt`
+        """
+        return pulumi.get(self, "path")
 
 
 @pulumi.output_type

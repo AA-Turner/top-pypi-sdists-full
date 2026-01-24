@@ -1,4 +1,5 @@
 # pylint:disable=private-import
+import builtins
 from contextlib import contextmanager
 import copy
 import hashlib
@@ -22,18 +23,11 @@ from urllib.parse import urlparse
 import click
 
 from anyscale.cli_logger import BlockLogger
-from anyscale.client.openapi_client import ComputeTemplate
+from anyscale.client.openapi_client import ComputeTemplate, DecoratedCloudResource
 from anyscale.client.openapi_client.api.default_api import DefaultApi
 from anyscale.client.openapi_client.models.cloud_providers import CloudProviders
-from anyscale.client.openapi_client.models.cloud_with_cloud_resource import (
-    CloudWithCloudResource,
-)
-from anyscale.client.openapi_client.models.cloud_with_cloud_resource_gcp import (
-    CloudWithCloudResourceGCP,
-)
 from anyscale.client.openapi_client.models.user_info import UserInfo
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi as SDKDefaultApi
-from anyscale.shared_anyscale_utils.aws import bucket_name_from_maybe_bucket_arn
 from anyscale.util import is_anyscale_workspace
 from anyscale.utils.ray_utils import zip_directory  # type: ignore
 from anyscale.utils.workload_types import Workload
@@ -87,7 +81,9 @@ def is_workspace_dependency_tracking_disabled() -> bool:
 
 def _upload_file_to_google_cloud_storage(file: str, bucket: str, object_name: str):
     try:
-        from google.cloud import storage
+        from google.cloud import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP storage dependency")
+            storage,
+        )
 
     except Exception:  # noqa: BLE001
         raise click.ClickException(
@@ -108,8 +104,8 @@ def _upload_file_to_google_cloud_storage(file: str, bucket: str, object_name: st
 
 def _upload_file_to_s3(file: str, bucket: str, object_key: str):
     try:
-        import boto3
-        import botocore.config
+        import boto3  # noqa: PLC0415 - codex_reason("gpt5.2", "optional AWS SDK dependency")
+        import botocore.config  # noqa: PLC0415 - codex_reason("gpt5.2", "optional AWS SDK dependency")
     except Exception:  # noqa: BLE001
         raise click.ClickException(
             "Could not upload file to S3: Could not import the Amazon S3 Python API via `import boto3`.  Please check your installation or try running `pip install boto3`."
@@ -127,6 +123,97 @@ def _upload_file_to_s3(file: str, bucket: str, object_key: str):
         ) from e
 
 
+def _upload_file_to_azure_storage(file: str, upload_path: str, object_name: str) -> str:
+    """Upload a file to Azure Blob Storage using smart_open (same library Ray uses for downloads).
+
+    Args:
+        file: Local file path to upload
+        upload_path: Azure storage path (abfss://container@account.dfs.core.windows.net/path)
+        object_name: Name of the object to upload
+
+    Returns:
+        str: The final uploaded filepath (azure://container/path/filename)
+
+    Raises:
+        click.ClickException: If upload fails or required packages are missing
+    """
+    try:
+        from azure.identity import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional Azure identity dependency")
+            DefaultAzureCredential,
+        )
+        from azure.storage.blob import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional Azure storage dependency")
+            BlobServiceClient,
+        )
+        import smart_open  # noqa: PLC0415 - codex_reason("gpt5.2", "optional smart_open dependency for Azure")
+    except ImportError as e:  # noqa: BLE001
+        raise click.ClickException(
+            f"Could not upload file to Azure Storage. Missing required packages: {e}. "
+            "Please install: pip install smart-open[azure] azure-storage-blob azure-identity"
+        )
+
+    parsed = urlparse(upload_path)
+    # smart_open uses 'azure://' scheme, not 'abfss://'
+    # Typical forms we want to support:
+    #   - abfss://container@account.dfs.core.windows.net/path
+    #   - azure://container/path
+    #
+    # For abfss, we can derive both the container and storage account from the URL.
+    # For azure://, we only know the container from the URL, so we require the
+    # storage account name to be provided via environment variable.
+    if parsed.scheme == "abfss":
+        container_and_account = parsed.netloc
+        # Example: "container@account.dfs.core.windows.net"
+        container_name = container_and_account.split("@")[0]
+        storage_account_name: str = container_and_account.split("@")[1].split(".")[0]
+    elif parsed.scheme == "azure":
+        # Example: azure://container/path
+        container_name = parsed.netloc
+
+        # We need the storage account name to construct the BlobServiceClient.
+        # Require it to be passed via environment variable so users can control
+        # which account is used when only given an azure:// URI.
+        # Use the same standard name used elsewhere in the codebase.
+        storage_account_name = os.environ.get("AZURE_STORAGE_ACCOUNT", "")
+        if not storage_account_name:
+            raise click.ClickException(
+                "When using an 'azure://' upload_path, you must set either "
+                "AZURE_STORAGE_ACCOUNT to the Azure Storage account name."
+            )
+    else:
+        raise click.ClickException(
+            f"Unsupported Azure URI scheme for upload_path: {upload_path!r}"
+        )
+
+    # Construct azure:// URL for smart_open using the same logic as S3/GCS
+    final_uploaded_filepath = f"azure://{container_name}/{object_name}"
+
+    try:
+        credential = DefaultAzureCredential()
+        blob_service_client = BlobServiceClient(
+            account_url=f"https://{storage_account_name}.blob.core.windows.net",
+            credential=credential,
+        )
+        transport_params = {"client": blob_service_client}
+    except Exception as e:  # noqa: BLE001
+        raise click.ClickException(
+            f"Failed to create Azure BlobServiceClient: {e!r}. "
+            "Please ensure Azure credentials are available (managed identity or environment variables)."
+        ) from e
+
+    try:
+        with smart_open.open(
+            final_uploaded_filepath, "wb", transport_params=transport_params
+        ) as fout, builtins.open(file, "rb") as fin:
+            fout.write(fin.read())
+    except Exception as e:  # noqa: BLE001
+        raise click.ClickException(
+            f"Failed to upload the working directory to Azure Storage. Error {e!r} "
+            "Please validate you have exported Azure credentials with the correct write permissions. "
+            "If you do not desire to upload your working directory, please set your working directory to a public remote URI or remove the runtime_environment from your job or service yaml."
+        ) from e
+    return final_uploaded_filepath
+
+
 def _get_remote_storage_object_name(upload_path, upload_filename):
     # Strip leading slash, otherwise bucket will create a new directory called "/".
     object_name = os.path.join(urlparse(upload_path).path, upload_filename).lstrip("/")
@@ -140,16 +227,19 @@ def _upload_file_to_remote_storage(
     service = parsed_upload_path.scheme
     bucket = parsed_upload_path.netloc
     object_name = _get_remote_storage_object_name(upload_path, upload_filename)
+    if service in ("abfss", "azure"):
+        return _upload_file_to_azure_storage(source_file, upload_path, object_name)
     if service == "s3":
         _upload_file_to_s3(source_file, bucket, object_key=object_name)
     if service == "gs":
         _upload_file_to_google_cloud_storage(
             source_file, bucket, object_name=object_name
         )
-
     final_uploaded_filepath = os.path.join(upload_path, upload_filename)
     try:
-        from smart_open import open
+        from smart_open import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional smart_open dependency for remote storage")
+            open,  # noqa: A004 - claude_comment("claude-opus-4-5", "smart_open.open intentionally shadows builtin for file-like API")
+        )
 
         open(final_uploaded_filepath)
     except Exception as e:  # noqa: BLE001
@@ -162,9 +252,7 @@ def _upload_file_to_remote_storage(
 
 def is_dir_remote_uri(target_dir: str) -> bool:
     parsed = urlparse(target_dir)
-    if parsed.scheme:
-        return True
-    return False
+    return bool(parsed.scheme)
 
 
 @contextmanager
@@ -322,18 +410,14 @@ def parse_requirements_file(path: str) -> Optional[List[str]]:
     """TODO: add comment."""
     requirements_file = Path(path)
     if requirements_file.is_file():
-        parsed_requirements = []
         lines = requirements_file.read_text().strip().split("\n")
+        parsed_requirements = []
         for line in lines:
-            # Strip comments.
+            # Strip comments and whitespace
             hash_idx = line.find("#")
-            if hash_idx != -1:
-                line = line[:hash_idx]
-
-            # Ignore empty lines (after stripping comments).
-            line = line.strip()
-            if line:
-                parsed_requirements.append(line)
+            content = (line[:hash_idx] if hash_idx != -1 else line).strip()
+            if content:
+                parsed_requirements.append(content)
     else:
         parsed_requirements = None
 
@@ -405,26 +489,58 @@ def infer_upload_path_and_rewrite_working_dir(
     so that the launched service will read from remote bucket directly.
 
     For Workspaces:
-        The remote path: [s3, gs]://{bucket_name}/{org_id}/{cloud_id}/workspace_snapshots/{workspace_id}/{workload_type}/{backup_zip}
+        The remote path: [s3, gs, abfss]://{bucket_name}/{org_id}/{cloud_id}/workspace_snapshots/{workspace_id}/{workload_type}/{backup_zip}
     Otherwise:
-        The remote path: [s3, gs]://{bucket_name}/{org_id}/{cloud_id}/{workload_type}/{backup_zip}
+        The remote path: [s3, gs, abfss]://{bucket_name}/{org_id}/{cloud_id}/{workload_type}/{backup_zip}
         workload_type=[jobs, scheduled_jobs, services]
     """
 
-    cloud: CloudWithCloudResource = api_client.get_cloud_with_cloud_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_get(
-        cloud_id
-    ).result
-    org_id = _get_organization_id(api_client)
+    all_cloud_resources = api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+        cloud_id=cloud_id,
+    ).results
 
-    if cloud.provider == CloudProviders.AWS:
-        bucket_name = _get_cloud_s3_bucket_from_cloud(cloud)
+    if len(all_cloud_resources) == 0:
+        raise click.ClickException(f"No cloud resources found for cloud {cloud_id}.")
+
+    primary_cloud_resource: DecoratedCloudResource = all_cloud_resources[0]
+
+    bucket_name = _get_cloud_storage_bucket_name_from_cloud_resource(
+        primary_cloud_resource
+    )
+
+    if primary_cloud_resource.provider == CloudProviders.AWS:
         protocol = "s3"
-    elif cloud.provider == CloudProviders.GCP:
-        bucket_name = _get_cloud_gs_bucket_from_cloud(api_client, cloud)
+    elif primary_cloud_resource.provider == CloudProviders.GCP:
         protocol = "gs"
+    elif primary_cloud_resource.provider == CloudProviders.AZURE:
+        if not bucket_name:
+            raise ValueError(
+                f"Cloud {cloud_id} does not have an Azure storage bucket configured. "
+                "Please configure a storage bucket for this cloud."
+            )
+
+        # Parse the scheme from the bucket name (e.g., abfss://container@account.dfs.core.windows.net)
+        parsed_bucket = urlparse(bucket_name)
+        if not parsed_bucket.scheme:
+            raise click.ClickException(
+                f"Invalid Azure storage bucket name format: {bucket_name}. "
+                "Expected format: abfss://container-name@storage-account.dfs.core.windows.net"
+            )
+        protocol = str(parsed_bucket.scheme)
+        # Extract storage account name for Ray runtime environment
+        # Format: abfss://container@storage-account.dfs.core.windows.net
+        netloc_str = str(parsed_bucket.netloc) if parsed_bucket.netloc else ""
+        if not netloc_str:
+            raise click.ClickException(
+                f"Invalid Azure storage bucket name format: {bucket_name}. "
+                "Expected format: abfss://container-name@storage-account.dfs.core.windows.net"
+            )
+        storage_account_name = netloc_str.split("@")[1].split(".")[0]
+        # For Azure, use netloc (container@account.dfs.core.windows.net) for path construction
+        bucket_name = netloc_str
     else:
         raise click.ClickException(
-            f"Currently launching a service from workspaces in a {cloud.provider} cloud is not supported. "
+            f"Currently launching jobs or services from workspaces in a {primary_cloud_resource.provider} cloud is not supported. "
             "Please contact Anyscale support for more info."
         )
 
@@ -432,6 +548,7 @@ def infer_upload_path_and_rewrite_working_dir(
     working_dir_path = Path(new_runtime_env["working_dir"]).absolute()
     log.info(f"Uploading local working_dir from '{working_dir_path}'.")
 
+    org_id = _get_organization_id(api_client)
     if workspace_id:
         new_runtime_env[
             "upload_path"
@@ -440,6 +557,15 @@ def infer_upload_path_and_rewrite_working_dir(
         new_runtime_env[
             "upload_path"
         ] = f"{protocol}://{bucket_name}/{org_id}/{cloud_id}/{workload_type}"
+
+    # For Azure, set AZURE_STORAGE_ACCOUNT environment variable for Ray to download working_dir
+    if primary_cloud_resource.provider == CloudProviders.AZURE and storage_account_name:
+        if "env_vars" not in new_runtime_env:
+            new_runtime_env["env_vars"] = {}
+        new_runtime_env["env_vars"]["AZURE_STORAGE_ACCOUNT"] = storage_account_name
+        log.info(
+            f"Setting AZURE_STORAGE_ACCOUNT={storage_account_name} for Ray runtime environment."
+        )
 
     new_runtime_env = upload_and_rewrite_working_dir(new_runtime_env)
     return new_runtime_env
@@ -451,41 +577,15 @@ def _get_organization_id(api_client: DefaultApi):
     return orgs[0].id
 
 
-def _get_cloud_s3_bucket_from_cloud(cloud: CloudWithCloudResource) -> Optional[str]:
-    """
-    If the cloud has an associated aws s3 bucket, we return its name.
-
-    Please note that this is only for v2 clouds where customers have their
-    own S3 buckets.
-    """
-    assert cloud.provider == CloudProviders.AWS
-    if cloud and cloud.cloud_resource and cloud.cloud_resource.aws_s3_id:
-        return bucket_name_from_maybe_bucket_arn(cloud.cloud_resource.aws_s3_id)
-    else:
-        return None
-
-
-def _get_cloud_gs_bucket_from_cloud(
-    api_client: DefaultApi, cloud: CloudWithCloudResource
+def _get_cloud_storage_bucket_name_from_cloud_resource(
+    cloud_resource: DecoratedCloudResource,
 ) -> Optional[str]:
     """
-    If the cloud has an associated Google Storage bucket, we return its name.
+    If the cloud resource has an associated AWS S3, Google Storage or Azure Storage bucket, we return its name.
 
-    Please note that this is only for v2 clouds where customers have their
-    own Google Storage.
+    Please note that this is only for v2 clouds where customers have their own object storage.
     """
-    assert cloud.provider == CloudProviders.GCP
-
-    gcp_cloud: CloudWithCloudResourceGCP = api_client.get_cloud_with_cloud_resource_api_v2_clouds_with_cloud_resource_gcp_router_cloud_id_get(
-        cloud.id
-    ).result
-
-    if (
-        gcp_cloud
-        and gcp_cloud.cloud_resource
-        and gcp_cloud.cloud_resource.gcp_cloud_storage_bucket_id
-    ):
-        gs_bucket_name = gcp_cloud.cloud_resource.gcp_cloud_storage_bucket_id
-        return gs_bucket_name
+    if cloud_resource.object_storage and cloud_resource.object_storage.bucket_name:
+        return cloud_resource.object_storage.bucket_name
     else:
         return None

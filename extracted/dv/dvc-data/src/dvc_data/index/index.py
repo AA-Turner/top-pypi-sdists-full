@@ -2,10 +2,14 @@ import errno
 import logging
 import os
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from collections.abc import Iterator, MutableMapping
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+from itertools import repeat
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
 
 import attrs
+from fsspec import Callback
+from fsspec.callbacks import DEFAULT_CALLBACK
 from sqltrie import JSONTrie, PyGTrie, ShortKeyError, SQLiteTrie
 
 from dvc_data.compat import cached_property
@@ -14,6 +18,8 @@ from dvc_data.hashfile.meta import Meta
 from dvc_data.hashfile.tree import Tree
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from dvc_objects.fs.base import FileSystem
 
     from dvc_data.hashfile.db import HashFileDB
@@ -156,6 +162,19 @@ class Storage(ABC):
         fs, path = self.get(entry)
         return fs.exists(path)
 
+    def bulk_exists(
+        self,
+        entries: list["DataIndexEntry"],
+        refresh: bool = False,
+        jobs: Optional[int] = None,
+        callback: "Callback" = DEFAULT_CALLBACK,
+    ) -> dict["DataIndexEntry", bool]:
+        results = {}
+        for entry in callback.wrap(entries):
+            results[entry] = self.exists(entry)
+
+        return results
+
 
 class ObjectStorage(Storage):
     def __init__(
@@ -223,6 +242,80 @@ class ObjectStorage(Storage):
             return False
         finally:
             self.index.commit()
+
+    def bulk_exists(  # noqa: C901, PLR0912
+        self,
+        entries: list["DataIndexEntry"],
+        refresh: bool = False,
+        jobs: Optional[int] = None,
+        callback: "Callback" = DEFAULT_CALLBACK,
+    ) -> dict["DataIndexEntry", bool]:
+        from .build import build_entry
+
+        entries_with_hash = [e for e in entries if e.hash_info]
+        entries_without_hash = [e for e in entries if not e.hash_info]
+        results = dict.fromkeys(entries_without_hash, False)
+        callback.relative_update(len(entries_without_hash))
+
+        if not entries_with_hash:
+            return results
+
+        if self.index is None or not refresh:
+            for entry in callback.wrap(entries_with_hash):
+                assert entry.hash_info
+                value = cast("str", entry.hash_info.value)
+                if self.index is None:
+                    exists = self.odb.exists(value)
+                else:
+                    key = self.odb._oid_parts(value)
+                    exists = key in self.index
+                results[entry] = exists
+            return results
+
+        path_to_entries: dict[str, list[DataIndexEntry]] = defaultdict(list)
+        for entry in entries_with_hash:
+            _, path = self.get(entry)
+            path_to_entries[path].append(entry)
+
+        info_results: Union[
+            Iterable[Union[Exception, Optional[dict[str, Any]]]], None
+        ] = None
+        try:
+            self.fs.ls(self.odb.path)  # check for fs access
+        except FileNotFoundError as exc:
+            info_results = repeat(exc, len(path_to_entries))
+            callback.relative_update(len(entries_with_hash))
+        except NotImplementedError:
+            # some filesystems don't implement ls
+            pass
+        if info_results is None:
+            info_results = self.fs.info(
+                list(path_to_entries),
+                batch_size=jobs,
+                return_exceptions=True,
+                callback=callback,
+            )
+
+        for (path, _entries), info in zip(path_to_entries.items(), info_results):
+            if isinstance(info, Exception) and not isinstance(info, FileNotFoundError):
+                raise info
+            assert _entries
+            entry = _entries[0]
+            assert entry.hash_info  # built from entries_with_hash
+            value = cast("str", entry.hash_info.value)
+            key = self.odb._oid_parts(value)
+            exists = info is not None and not isinstance(info, FileNotFoundError)
+            if exists:
+                self.index[key] = build_entry(path, self.fs, info=info)
+            else:
+                self.index.pop(key, None)
+            results.update(dict.fromkeys(_entries, exists))
+
+        if self.index is not None:
+            logger.debug("Committing index results")
+            self.index.commit()
+
+        return results
 
 
 class FileStorage(Storage):
@@ -441,6 +534,69 @@ class StorageMapping(MutableMapping):
             raise StorageKeyError(entry.key)
 
         return storage.remote.exists(entry, **kwargs)
+
+    def _bulk_storage_exists(
+        self,
+        entries: list[DataIndexEntry],
+        storage: str,
+        **kwargs,
+    ) -> dict[DataIndexEntry, bool]:
+        by_storage: dict[Storage, list[DataIndexEntry]] = defaultdict(list)
+        by_odb: dict[Optional[HashFileDB], dict[Storage, list[DataIndexEntry]]] = (
+            defaultdict(lambda: defaultdict(list))
+        )
+        for entry in entries:
+            storage_info = self[entry.key]
+            storage_obj = getattr(storage_info, storage) if storage_info else None
+            if isinstance(storage_obj, ObjectStorage):
+                by_odb[storage_obj.odb][storage_obj].append(entry)
+            elif storage_obj is not None:
+                by_storage[storage_obj].append(entry)
+
+        for storages in by_odb.values():
+            assert storages  # cannot be empty, we always add at least one entry
+            representative = next(iter(storages))
+            by_storage[representative] = [
+                e for entries in storages.values() for e in entries
+            ]
+
+        results = {}
+
+        for storage_obj, storage_entries in by_storage.items():
+            results.update(
+                storage_obj.bulk_exists(
+                    storage_entries,
+                    **kwargs,
+                )
+            )
+
+        return results
+
+    def bulk_cache_exists(
+        self,
+        entries: list[DataIndexEntry],
+        callback: Callback = DEFAULT_CALLBACK,
+        **kwargs,
+    ) -> dict[DataIndexEntry, bool]:
+        return self._bulk_storage_exists(
+            entries,
+            "cache",
+            callback=callback,
+            **kwargs,
+        )
+
+    def bulk_remote_exists(
+        self,
+        entries: list[DataIndexEntry],
+        callback: Callback = DEFAULT_CALLBACK,
+        **kwargs,
+    ) -> dict[DataIndexEntry, bool]:
+        return self._bulk_storage_exists(
+            entries,
+            "remote",
+            callback=callback,
+            **kwargs,
+        )
 
 
 class BaseDataIndex(ABC, MutableMapping[DataIndexKey, DataIndexEntry]):

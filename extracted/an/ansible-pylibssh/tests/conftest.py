@@ -3,6 +3,7 @@
 
 """Pytest plugins and fixtures configuration."""
 
+import logging
 import shutil
 import socket
 import subprocess
@@ -75,8 +76,8 @@ def sshd_hostkey_path(sshd_path):
 
     # noqa: DAR101
     """
-    path = sshd_path / 'ssh_host_rsa_key'
-    keygen_cmd = 'ssh-keygen', '-N', '', '-f', str(path)
+    path = sshd_path / 'ssh_host_ecdsa_key'
+    keygen_cmd = 'ssh-keygen', '-N', '', '-f', str(path), '-t', 'ecdsa'
     subprocess.check_call(keygen_cmd)
     path.chmod(_FILE_PRIV_RW_OWNER)
     return path
@@ -91,11 +92,11 @@ def ssh_clientkey_path(sshd_path):
 
     # noqa: DAR101
     """
-    path = sshd_path / 'ssh_client_rsa_key'
+    path = sshd_path / 'ssh_client_ecdsa_key'
     keygen_cmd = (  # noqa: WPS317
         'ssh-keygen',
-        '-t', 'rsa',
-        '-b', '8192',
+        '-t', 'ecdsa',
+        '-b', '256',
         '-C', 'ansible-pylibssh integration tests key',
         '-N', '',
         '-f', str(path),
@@ -115,12 +116,33 @@ def ssh_client_session(ssh_session_connect):
     # noqa: DAR101
     """
     ssh_session = Session()
+    # TODO Adjust when #597 will be merged
+    ssh_session.set_log_level(logging.CRITICAL)
     ssh_session_connect(ssh_session)
     try:  # noqa: WPS501
         yield ssh_session
     finally:
         ssh_session.close()
         del ssh_session  # noqa: WPS420
+
+
+@pytest.fixture
+def ssh_session_connect_retries(sshd_addr, ssh_clientkey_path):
+    """
+    Authenticate existing session object against SSHD with a private SSH key.
+
+    This sets ``open_session_retries=100`` and it returns a function
+    that takes session as parameter.
+
+    :returns: Function that will connect the session.
+    :rtype: Callback
+    """
+    return partial(
+        ensure_ssh_session_connected,
+        sshd_addr=sshd_addr,
+        ssh_clientkey_path=ssh_clientkey_path,
+        ssh_session_retries=100,
+    )
 
 
 @pytest.fixture
@@ -173,6 +195,7 @@ def sshd_addr(free_port_num, ssh_authorized_keys_path, sshd_hostkey_path, sshd_p
         '/usr/sbin/sshd',
         '-D',
         '-f', '/dev/null',
+        '-E', '/dev/stderr',
         opt, 'LogLevel=DEBUG3',
         opt, 'HostKey={key!s}'.format(key=sshd_hostkey_path),
         opt, 'PidFile={pid!s}'.format(pid=sshd_path / 'sshd.pid'),
@@ -187,7 +210,6 @@ def sshd_addr(free_port_num, ssh_authorized_keys_path, sshd_hostkey_path, sshd_p
         opt, 'StrictModes=no',
         opt, 'PermitEmptyPasswords=yes',
         opt, 'PermitRootLogin=yes',
-        opt, 'Protocol=2',
         opt, 'HostbasedAuthentication=no',
         opt, 'IgnoreUserKnownHosts=yes',
         opt, 'Port={port:d}'.format(port=free_port_num),  # port before addr

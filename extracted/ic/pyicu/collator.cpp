@@ -34,6 +34,8 @@
 #include "arg.h"
 
 DECLARE_CONSTANTS_TYPE(UCollationResult)
+DECLARE_CONSTANTS_TYPE(ECollationStrength)
+DECLARE_CONSTANTS_TYPE(EComparisonResult)
 DECLARE_CONSTANTS_TYPE(UCollAttribute)
 DECLARE_CONSTANTS_TYPE(UCollAttributeValue)
 #if U_ICU_VERSION_HEX >= 0x04080000
@@ -1409,6 +1411,8 @@ void _init_collator(PyObject *m)
     ImmutableIndexType_.tp_as_sequence = &t_immutableindex_as_sequence;
 #endif
     INSTALL_CONSTANTS_TYPE(UCollationResult, m);
+    INSTALL_CONSTANTS_TYPE(ECollationStrength, m);
+    INSTALL_CONSTANTS_TYPE(EComparisonResult, m);
     INSTALL_CONSTANTS_TYPE(UCollAttribute, m);
     INSTALL_CONSTANTS_TYPE(UCollAttributeValue, m);
     REGISTER_TYPE(CollationKey, m);
@@ -1425,6 +1429,16 @@ void _init_collator(PyObject *m)
     INSTALL_ENUM(UCollationResult, "LESS", UCOL_LESS);
     INSTALL_ENUM(UCollationResult, "EQUAL", UCOL_EQUAL);
     INSTALL_ENUM(UCollationResult, "GREATER", UCOL_GREATER);
+
+    INSTALL_ENUM(ECollationStrength, "PRIMARY", UCOL_PRIMARY);
+    INSTALL_ENUM(ECollationStrength, "SECONDARY", UCOL_SECONDARY);
+    INSTALL_ENUM(ECollationStrength, "TERTIARY", UCOL_TERTIARY);
+    INSTALL_ENUM(ECollationStrength, "QUATERNARY", UCOL_QUATERNARY);
+    INSTALL_ENUM(ECollationStrength, "IDENTICAL", UCOL_IDENTICAL);
+
+    INSTALL_ENUM(EComparisonResult, "LESS", UCOL_LESS);
+    INSTALL_ENUM(EComparisonResult, "EQUAL", UCOL_EQUAL);
+    INSTALL_ENUM(EComparisonResult, "GREATER", UCOL_GREATER);
 
     INSTALL_ENUM(UCollAttribute, "FRENCH_COLLATION", UCOL_FRENCH_COLLATION);
     INSTALL_ENUM(UCollAttribute, "ALTERNATE_HANDLING", UCOL_ALTERNATE_HANDLING);

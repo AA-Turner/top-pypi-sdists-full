@@ -18,7 +18,7 @@ from wbcore.contrib.example_app.viewsets import MatchModelViewSet
 @pytest.mark.django_db
 class TestMatchModelViewSet(TestCase):
     def setUp(self):
-        self.user = SuperUserFactory()
+        self.user = SuperUserFactory.create()
         self.client = Client()
         self.client.force_login(user=self.user)
         self.list_url = reverse("example_app:match-list")
@@ -29,20 +29,20 @@ class TestMatchModelViewSet(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_create_view(self):
-        match = MatchFactory()
+        match = MatchFactory.create()
         response = get_create_view(self.client, match, self.user, self.list_url, MatchModelViewSet)
         self.assertEqual(response.status_code, 201)
         self.assertTrue(Match.objects.filter(home=match.home, away=match.away).exists())
 
     def test_detail_view(self):
-        instance = MatchFactory()
+        instance = MatchFactory.create()
         response = get_detail_view(self.client, instance.pk, self.detail_url_str)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["instance"]["id"], instance.id)
 
     def test_update_view(self):
-        instance = MatchFactory(status=Match.MatchStatus.SCHEDULED)
-        new_home_team = TeamFactory()
+        instance = MatchFactory.create(status=Match.MatchStatus.SCHEDULED)
+        new_home_team = TeamFactory.create()
         instance.home = new_home_team
         response = get_update_view(self.client, instance, MatchModelSerializer, self.detail_url_str)
         instance.refresh_from_db()
@@ -50,15 +50,15 @@ class TestMatchModelViewSet(TestCase):
         self.assertEqual(response.data["instance"]["home"], instance.home.id)
 
     def test_partial_update_view(self):
-        instance = MatchFactory()
-        new_home_team = TeamFactory()
+        instance = MatchFactory.create()
+        new_home_team = TeamFactory.create()
         response = get_partial_view(self.client, instance.id, {"home": new_home_team.id}, self.detail_url_str)
         instance.refresh_from_db()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["instance"]["home"], instance.home.id)
 
     def test_delete_view(self):
-        instance = MatchFactory()
+        instance = MatchFactory.create()
         self.assertTrue(Match.objects.filter(pk=instance.pk).exists())
         response = get_delete_view(self.client, self.detail_url_str, instance.pk)
         self.assertEqual(response.status_code, 204)

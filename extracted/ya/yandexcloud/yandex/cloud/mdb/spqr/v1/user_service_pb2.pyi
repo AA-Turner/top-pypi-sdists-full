@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.field_mask_pb2
 import google.protobuf.internal.containers
 import google.protobuf.message
+import google.protobuf.wrappers_pb2
 import typing
 import yandex.cloud.mdb.spqr.v1.user_pb2
 
@@ -68,41 +69,6 @@ class ListUsersRequest(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["cluster_id", b"cluster_id", "page_size", b"page_size", "page_token", b"page_token"]) -> None: ...
 
 global___ListUsersRequest = ListUsersRequest
-
-@typing.final
-class ListUsersAtRevisionRequest(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    CLUSTER_ID_FIELD_NUMBER: builtins.int
-    PAGE_SIZE_FIELD_NUMBER: builtins.int
-    PAGE_TOKEN_FIELD_NUMBER: builtins.int
-    REVISION_FIELD_NUMBER: builtins.int
-    cluster_id: builtins.str
-    """ID of the cluster to list SPQR users in.
-    To get the cluster ID, use a [ClusterService.List] request.
-    """
-    page_size: builtins.int
-    """The maximum number of results per page to return. If the number of available
-    results is larger than [page_size], the service returns a [ListUsersResponse.next_page_token]
-    that can be used to get the next page of results in subsequent list requests.
-    """
-    page_token: builtins.str
-    """Page token. To get the next page of results, set [page_token] to the
-    [ListUsersResponse.next_page_token] returned by the previous list request.
-    """
-    revision: builtins.int
-    """Cluster revision"""
-    def __init__(
-        self,
-        *,
-        cluster_id: builtins.str = ...,
-        page_size: builtins.int = ...,
-        page_token: builtins.str = ...,
-        revision: builtins.int = ...,
-    ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["cluster_id", b"cluster_id", "page_size", b"page_size", "page_token", b"page_token", "revision", b"revision"]) -> None: ...
-
-global___ListUsersAtRevisionRequest = ListUsersAtRevisionRequest
 
 @typing.final
 class ListUsersResponse(google.protobuf.message.Message):
@@ -186,6 +152,7 @@ class UpdateUserRequest(google.protobuf.message.Message):
     PERMISSIONS_FIELD_NUMBER: builtins.int
     SETTINGS_FIELD_NUMBER: builtins.int
     GRANTS_FIELD_NUMBER: builtins.int
+    DELETION_PROTECTION_FIELD_NUMBER: builtins.int
     cluster_id: builtins.str
     """ID of the SPQR cluster the user belongs to.
     To get the cluster ID, use a [ClusterService.List] request.
@@ -212,6 +179,10 @@ class UpdateUserRequest(google.protobuf.message.Message):
     def grants(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """New user grants"""
 
+    @property
+    def deletion_protection(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Deletion Protection inhibits deletion of the user"""
+
     def __init__(
         self,
         *,
@@ -222,9 +193,10 @@ class UpdateUserRequest(google.protobuf.message.Message):
         permissions: collections.abc.Iterable[yandex.cloud.mdb.spqr.v1.user_pb2.Permission] | None = ...,
         settings: yandex.cloud.mdb.spqr.v1.user_pb2.UserSettings | None = ...,
         grants: collections.abc.Iterable[builtins.str] | None = ...,
+        deletion_protection: google.protobuf.wrappers_pb2.BoolValue | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["settings", b"settings", "update_mask", b"update_mask"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["cluster_id", b"cluster_id", "grants", b"grants", "password", b"password", "permissions", b"permissions", "settings", b"settings", "update_mask", b"update_mask", "user_name", b"user_name"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["deletion_protection", b"deletion_protection", "settings", b"settings", "update_mask", b"update_mask"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["cluster_id", b"cluster_id", "deletion_protection", b"deletion_protection", "grants", b"grants", "password", b"password", "permissions", b"permissions", "settings", b"settings", "update_mask", b"update_mask", "user_name", b"user_name"]) -> None: ...
 
 global___UpdateUserRequest = UpdateUserRequest
 

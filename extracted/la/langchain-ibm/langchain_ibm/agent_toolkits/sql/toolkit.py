@@ -1,20 +1,19 @@
 """IBM watsonx.ai SQL Toolkit wrapper."""
 
-from typing import List
+from typing import Any
 
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.tools import BaseTool
 from langchain_core.tools.base import BaseToolkit
 from pydantic import ConfigDict, Field
 
-from langchain_ibm.utilities.sql_database import WatsonxSQLDatabase
-
-from .tool import (
+from langchain_ibm.agent_toolkits.sql.tool import (
     InfoSQLDatabaseTool,
     ListSQLDatabaseTool,
     QuerySQLCheckerTool,
     QuerySQLDatabaseTool,
 )
+from langchain_ibm.utilities.sql_database import WatsonxSQLDatabase
 
 
 class WatsonxSQLDatabaseToolkit(BaseToolkit):
@@ -23,14 +22,14 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
     db: WatsonxSQLDatabase = Field(exclude=True)
     """Instance of the watsonx SQL database."""
 
-    llm: BaseLanguageModel = Field(exclude=True)
+    llm: BaseLanguageModel[Any] = Field(exclude=True)
     """Instance of the LLM."""
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
     )
 
-    def get_tools(self) -> List[BaseTool]:
+    def get_tools(self) -> list[BaseTool]:
         """Get the tools in the toolkit."""
         list_sql_database_tool = ListSQLDatabaseTool(db=self.db)
         info_sql_database_tool_description = (
@@ -41,7 +40,8 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
             "Example Input: table1, table2, table3"
         )
         info_sql_database_tool = InfoSQLDatabaseTool(
-            db=self.db, description=info_sql_database_tool_description
+            db=self.db,
+            description=info_sql_database_tool_description,
         )
         query_sql_database_tool_description = (
             "Input to this tool is a detailed and correct SQL query, output is a "
@@ -52,15 +52,18 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
             "to query the correct table fields."
         )
         query_sql_database_tool = QuerySQLDatabaseTool(
-            db=self.db, description=query_sql_database_tool_description
+            db=self.db,
+            description=query_sql_database_tool_description,
         )
         query_sql_checker_tool_description = (
             "Use this tool to double check if your query is correct before executing "
             "it. Always use this tool before executing a query with "
             f"{query_sql_database_tool.name}!"
         )
-        query_sql_checker_tool = QuerySQLCheckerTool(
-            db=self.db, llm=self.llm, description=query_sql_checker_tool_description
+        query_sql_checker_tool = QuerySQLCheckerTool(  # type: ignore[call-arg]
+            db=self.db,
+            llm=self.llm,
+            description=query_sql_checker_tool_description,
         )
         return [
             query_sql_database_tool,
@@ -69,7 +72,7 @@ class WatsonxSQLDatabaseToolkit(BaseToolkit):
             query_sql_checker_tool,
         ]
 
-    def get_context(self) -> dict:
+    def get_context(self) -> dict[str, Any]:
         """Return db context that you may want in agent prompt."""
         return self.db.get_context()
 

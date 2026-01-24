@@ -73,14 +73,12 @@ class GPENCIL_UL_annotation_layer(_bpy_types.UIList):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_item(
@@ -115,14 +113,12 @@ class GREASE_PENCIL_MT_draw_delete(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -140,14 +136,12 @@ class GREASE_PENCIL_MT_layer_active(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -165,14 +159,12 @@ class GREASE_PENCIL_MT_move_to_layer(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -190,14 +182,12 @@ class GREASE_PENCIL_MT_snap(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -215,14 +205,12 @@ class GREASE_PENCIL_MT_snap_pie(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -240,14 +228,12 @@ class GREASE_PENCIL_MT_stroke_simplify(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:

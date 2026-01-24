@@ -165,9 +165,9 @@ class CccClient(AbstractClient):
 
 
     def CreateAIAgentCall(self, request):
-        r"""用于调用AI模型发起外呼通话，仅限自有电话号码使用，目前开通高级版座席**限时**免费体验。
+        r"""用于创建**一次性的智能体外呼通话**。你可以在管理端-智能体管理中，新建语音智能体，进行 [对话流程配置](https://cloud.tencent.com/document/product/679/119796) 。该接口可调用配置完成的智能体发起单次的外呼任务。若需创建批量智能体外呼任务，请参考文档 [创建自动外呼任务](https://cloud.tencent.com/document/product/679/69194)。
 
-        发起通话前，请先确认您的AI模型是否兼容 OpenAI、Azure 或 Minimax 协议，并前往模型服务商网站获取相关鉴权信息。 具体功能说明请参考文档 [腾讯云联络中心AI通话平台](https://cloud.tencent.com/document/product/679/112100)。
+        该功能需购买语音智能体通话套餐，并且仅限自有电话号码使用。详情请参考 [语音智能体通话购买指引](https://cloud.tencent.com/document/product/679/125953)。
 
         :param request: Request instance for CreateAIAgentCall.
         :type request: :class:`tencentcloud.ccc.v20200210.models.CreateAIAgentCallRequest`
@@ -190,9 +190,9 @@ class CccClient(AbstractClient):
 
 
     def CreateAICall(self, request):
-        r"""用于调用AI模型发起外呼通话，仅限自有电话号码使用，目前开通高级版座席**限时**免费体验。
+        r"""用于 **直接调用AI模型** 发起 **单次** 外呼通话，支持通过API参数直接配置模型、提示词、语音等全部通话要素。
 
-        发起通话前，请先确认您的AI模型是否兼容 OpenAI、Azure 或 Minimax 协议，并前往模型服务商网站获取相关鉴权信息。 具体功能说明请参考文档 [腾讯云联络中心AI通话平台](https://cloud.tencent.com/document/product/679/112100)。
+        该功能需购买语音智能体通话套餐，并且仅限自有电话号码使用。详情请参考 [语音智能体通话购买指引](https://cloud.tencent.com/document/product/679/125953)。
 
         :param request: Request instance for CreateAICall.
         :type request: :class:`tencentcloud.ccc.v20200210.models.CreateAICallRequest`
@@ -261,7 +261,9 @@ class CccClient(AbstractClient):
 
 
     def CreateAutoCalloutTask(self, request):
-        r"""创建自动外呼任务
+        r"""用于**创建批量自动外呼通话**，系统将根据任务配置，自动向指定的**被叫号码列表**发起外呼通话。该接口可调用配置完成的智能体发起批量的外呼任务，你可以在管理端-智能体管理中，新建语音智能体，进行 [对话流程配置](https://cloud.tencent.com/document/product/679/119796)。若需创建单次智能体外呼任务，请参考文档 [创建单次智能体通话](https://cloud.tencent.com/document/product/679/115681)。
+
+        该功能需购买语音智能体通话套餐，并且仅限自有电话号码使用。详情请参考 [语音智能体通话购买指引](https://cloud.tencent.com/document/product/679/125953)。
 
         :param request: Request instance for CreateAutoCalloutTask.
         :type request: :class:`tencentcloud.ccc.v20200210.models.CreateAutoCalloutTaskRequest`
@@ -632,6 +634,29 @@ class CccClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeAIAgentInfoList(self, request):
+        r"""本接口用于分页查询指定实例（SdkAppId）下已配置的智能体信息列表，包括智能体ID和名称等基本信息。
+
+        :param request: Request instance for DescribeAIAgentInfoList.
+        :type request: :class:`tencentcloud.ccc.v20200210.models.DescribeAIAgentInfoListRequest`
+        :rtype: :class:`tencentcloud.ccc.v20200210.models.DescribeAIAgentInfoListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeAIAgentInfoList", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeAIAgentInfoListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeAIAnalysisResult(self, request):
         r"""获取 AI 会话分析结果
 
@@ -656,7 +681,7 @@ class CccClient(AbstractClient):
 
 
     def DescribeAICallExtractResult(self, request):
-        r"""获取 AI 通话内容提取结果。
+        r"""本接口用于：在语音智能体通话结束后，通过 Session ID 查询指定会话的 **话后标签** 结果。相关话后标签需提前在管理端完成配置，具体说明请参见 [话后标签](https://cloud.tencent.com/document/product/679/119800) 。
 
         :param request: Request instance for DescribeAICallExtractResult.
         :type request: :class:`tencentcloud.ccc.v20200210.models.DescribeAICallExtractResultRequest`
@@ -679,7 +704,11 @@ class CccClient(AbstractClient):
 
 
     def DescribeAILatency(self, request):
-        r"""获取 AI 时延信息
+        r"""调用该接口，可以通过 Session ID 查询指定会话在特定时间段内，AI服务的处理时延明细与统计数据，时延信息包括：
+        - 端到端（ETE）时延：统计从用户语音输入到 AI 返回完整响应的整体耗时。
+        - 自动语音识别（ASR）时延：统计语音输入被识别为文本所需的处理耗时。
+        - 大语言模型（LLM）时延：统计 AI 模型生成文本内容的推理耗时。
+        - 语音合成（TTS）时延：统计文本转换为语音音频的合成耗时。
 
         :param request: Request instance for DescribeAILatency.
         :type request: :class:`tencentcloud.ccc.v20200210.models.DescribeAILatencyRequest`
@@ -748,7 +777,8 @@ class CccClient(AbstractClient):
 
 
     def DescribeAutoCalloutTask(self, request):
-        r"""查询自动外呼任务详情
+        r"""用于通过 TaskId 查询**自动外呼任务的详细信息**，包括任务基础配置、起止时间、外呼名单、执行状态以及实际通话情况等。
+        该接口通常与 [创建批量自动外呼任务](https://cloud.tencent.com/document/product/679/69194) 配合使用，用于在任务创建后查看任务配置是否生效、任务当前状态，以及后续执行过程中的实时进展。
 
         :param request: Request instance for DescribeAutoCalloutTask.
         :type request: :class:`tencentcloud.ccc.v20200210.models.DescribeAutoCalloutTaskRequest`
@@ -1554,6 +1584,30 @@ class CccClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def PauseAutoCalloutTask(self, request):
+        r"""用于通过 TaskId **暂停一个正在执行的自动外呼任务**。调用该接口后，任务将被临时中断，不再发起新的外呼请求；已发起的通话不受影响。
+        暂停后的任务可通过 [恢复暂停的自动外呼任务](https://cloud.tencent.com/document/product/679/125356) 接口继续执行。如需永久终止任务，请参考 [停止自动外呼任务](https://cloud.tencent.com/document/product/679/69192)。
+
+        :param request: Request instance for PauseAutoCalloutTask.
+        :type request: :class:`tencentcloud.ccc.v20200210.models.PauseAutoCalloutTaskRequest`
+        :rtype: :class:`tencentcloud.ccc.v20200210.models.PauseAutoCalloutTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("PauseAutoCalloutTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.PauseAutoCalloutTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def PausePredictiveDialingCampaign(self, request):
         r"""暂停预测式外呼任务
 
@@ -1568,6 +1622,29 @@ class CccClient(AbstractClient):
             body = self.call("PausePredictiveDialingCampaign", params, headers=headers)
             response = json.loads(body)
             model = models.PausePredictiveDialingCampaignResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def PlaySoundCall(self, request):
+        r"""对与座席通话中的会话，进行放音
+
+        :param request: Request instance for PlaySoundCall.
+        :type request: :class:`tencentcloud.ccc.v20200210.models.PlaySoundCallRequest`
+        :rtype: :class:`tencentcloud.ccc.v20200210.models.PlaySoundCallResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("PlaySoundCall", params, headers=headers)
+            response = json.loads(body)
+            model = models.PlaySoundCallResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1623,6 +1700,29 @@ class CccClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ResumeAutoCalloutTask(self, request):
+        r"""用于通过 TaskId **恢复一个已被暂停的自动外呼任务**。该接口适用于在调用 [暂停自动外呼任务](https://cloud.tencent.com/document/product/679/125357) 后，需继续执行剩余外呼计划的场景。调用成功后，任务将从暂停状态恢复，重新发起未完成的外呼请求。
+
+        :param request: Request instance for ResumeAutoCalloutTask.
+        :type request: :class:`tencentcloud.ccc.v20200210.models.ResumeAutoCalloutTaskRequest`
+        :rtype: :class:`tencentcloud.ccc.v20200210.models.ResumeAutoCalloutTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ResumeAutoCalloutTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.ResumeAutoCalloutTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ResumePredictiveDialingCampaign(self, request):
         r"""恢复预测式外呼任务
 
@@ -1637,6 +1737,29 @@ class CccClient(AbstractClient):
             body = self.call("ResumePredictiveDialingCampaign", params, headers=headers)
             response = json.loads(body)
             model = models.ResumePredictiveDialingCampaignResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SetStaffStatus(self, request):
+        r"""设置 staff 状态
+
+        :param request: Request instance for SetStaffStatus.
+        :type request: :class:`tencentcloud.ccc.v20200210.models.SetStaffStatusRequest`
+        :rtype: :class:`tencentcloud.ccc.v20200210.models.SetStaffStatusResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SetStaffStatus", params, headers=headers)
+            response = json.loads(body)
+            model = models.SetStaffStatusResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

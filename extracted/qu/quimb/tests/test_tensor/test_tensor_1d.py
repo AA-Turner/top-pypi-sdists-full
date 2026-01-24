@@ -860,6 +860,14 @@ class TestMatrixProductOperator:
         t2 = h2.trace()
         assert_allclose(2 * t, t2)
 
+    @pytest.mark.parametrize("p", [2, 3, 4])
+    def test_add_mpo_length_1(self, p):
+        mpoa = qtn.MPO_rand(L=1, bond_dim=1, phys_dim=p)
+        mpob = qtn.MPO_rand(L=1, bond_dim=1, phys_dim=p)
+        mpoc = mpoa + mpob
+        assert mpoc[0].shape == (p, p)
+        assert_allclose(mpoc.to_dense(), mpoa.to_dense() + mpob.to_dense())
+
     def test_adding_mpo(self):
         h = qtn.MPO_ham_heis(6)
         hd = h.to_qarray()
@@ -1160,7 +1168,14 @@ class TestDense1D:
 
 class TestTensor1DCompress:
     @pytest.mark.parametrize(
-        "method", ["direct", "dm", "fit", "zipup", "zipup-first"]
+        "method",
+        [
+            "direct",
+            "dm",
+            "fit",
+            "zipup",
+            "zipup-first",
+        ],
     )
     @pytest.mark.parametrize("dtype", dtypes)
     def test_mps_partial_mpo_apply(self, method, dtype):
@@ -1179,13 +1194,22 @@ class TestTensor1DCompress:
         )
 
     @pytest.mark.parametrize(
-        "method", ["direct", "dm", "fit", "zipup", "zipup-first"]
+        "method",
+        [
+            "direct",
+            "dm",
+            "fit",
+            "zipup",
+            "zipup-first",
+            "src",
+            "src-first",
+        ],
     )
     @pytest.mark.parametrize("sweep_reverse", [False, True])
     def test_mpo_compress_opts(self, method, sweep_reverse):
         L = 6
-        A = qtn.MPO_rand(L, 2, phys_dim=3)
-        B = qtn.MPO_rand(L, 3, phys_dim=3)
+        A = qtn.MPO_rand(L, 2, phys_dim=3, tags="A")
+        B = qtn.MPO_rand(L, 3, phys_dim=3, tags="B")
         AB = A.gate_upper_with_op_lazy(B)
         assert AB.num_tensors == 2 * L
         ABc = qtn.tensor_network_1d_compress(
@@ -1203,3 +1227,6 @@ class TestTensor1DCompress:
             assert ABc.calc_current_orthog_center() == (L - 1, L - 1)
         else:
             assert ABc.calc_current_orthog_center() == (0, 0)
+
+        for site in range(L):
+            assert set(ABc[site].tags) == {"A", "B", f"I{site}"}

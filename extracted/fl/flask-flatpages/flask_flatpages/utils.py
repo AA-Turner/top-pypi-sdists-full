@@ -1,15 +1,19 @@
 """Utility functions to render Markdown text to HTML."""
 
+from typing import Callable, TypeVar
 import markdown
-import six
 from markdown.extensions import codehilite
+
 
 from .imports import PygmentsHtmlFormatter
 
-if six.PY3:
-    from io import StringIO
-else:
-    from StringIO import StringIO
+from io import StringIO
+
+
+P = TypeVar("P")
+
+
+WrappedRenderer = Callable[[P], str]
 
 
 class NamedStringIO(StringIO, object):
@@ -23,21 +27,18 @@ class NamedStringIO(StringIO, object):
         :param name: The name to attach to the stream. Will
             be consumed in e.g. ReaderErrors raised by pyyaml.
         """
-        if not six.PY3:
-            super(NamedStringIO, self).__init__(content)
-        else:
-            super().__init__(content)
+        super().__init__(content)
         self.name = name
 
 
 def force_unicode(value, encoding="utf-8", errors="strict"):
     """Convert bytes or any other Python instance to string."""
-    if isinstance(value, six.text_type):
+    if isinstance(value, str):
         return value
     return value.decode(encoding, errors)
 
 
-def pygmented_markdown(text, flatpages=None):
+def pygmented_markdown(text: str, flatpages=None):
     """Render Markdown text to HTML.
 
     Uses the `CodeHilite`_ extension only if `Pygments`_ is available. If
@@ -67,15 +68,12 @@ def pygmented_markdown(text, flatpages=None):
         extension_configs = {}
 
         for extension in original_extensions:
-            if (
-                isinstance(extension, six.string_types)
-                and "codehilite" in extension
-            ):
+            if isinstance(extension, str) and "codehilite" in extension:
                 continue
             elif isinstance(extension, codehilite.CodeHiliteExtension):
                 continue
             extensions.append(extension)
-            if isinstance(extension, six.string_types):
+            if isinstance(extension, str):
                 if extension in original_config:
                     extension_configs[extension] = original_config[extension]
     elif not extensions:
@@ -85,7 +83,7 @@ def pygmented_markdown(text, flatpages=None):
     )
 
 
-def pygments_style_defs(style="default"):
+def pygments_style_defs(style: str = "default") -> str:
     """:return: the CSS definitions for the `CodeHilite`_ Markdown plugin.
 
     :param style: The Pygments `style`_ to use.

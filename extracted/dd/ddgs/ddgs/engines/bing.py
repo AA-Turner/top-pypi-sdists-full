@@ -1,15 +1,13 @@
 """Bing search engine implementation."""
 
-from __future__ import annotations
-
 import base64
 from collections.abc import Mapping
 from time import time
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import parse_qs, urlparse
 
-from ..base import BaseSearchEngine
-from ..results import TextResult
+from ddgs.base import BaseSearchEngine
+from ddgs.results import TextResult
 
 
 def unwrap_bing_url(raw_url: str) -> str | None:
@@ -33,6 +31,8 @@ def unwrap_bing_url(raw_url: str) -> str | None:
 class Bing(BaseSearchEngine[TextResult]):
     """Bing search engine."""
 
+    disabled = True  # !!!
+
     name = "bing"
     category = "text"
     provider = "bing"
@@ -41,14 +41,20 @@ class Bing(BaseSearchEngine[TextResult]):
     search_method = "GET"
 
     items_xpath = "//li[contains(@class, 'b_algo')]"
-    elements_xpath: Mapping[str, str] = {
+    elements_xpath: ClassVar[Mapping[str, str]] = {
         "title": ".//h2/a//text()",
         "href": ".//h2/a/@href",
         "body": ".//p//text()",
     }
 
     def build_payload(
-        self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
+        self,
+        query: str,
+        region: str,
+        safesearch: str,  # noqa: ARG002
+        timelimit: str | None,
+        page: int = 1,
+        **kwargs: str,  # noqa: ARG002
     ) -> dict[str, Any]:
         """Build a payload for the Bing search request."""
         country, lang = region.lower().split("-")

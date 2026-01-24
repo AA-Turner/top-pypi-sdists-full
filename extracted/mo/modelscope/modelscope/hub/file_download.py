@@ -25,6 +25,7 @@ from modelscope.hub.constants import (
     MODELSCOPE_PARALLEL_DOWNLOAD_THRESHOLD_MB, TEMPORARY_FOLDER_NAME)
 from modelscope.utils.constant import (DEFAULT_DATASET_REVISION,
                                        DEFAULT_MODEL_REVISION,
+                                       INTRA_CLOUD_ACCELERATION,
                                        REPO_TYPE_DATASET, REPO_TYPE_MODEL,
                                        REPO_TYPE_SUPPORT)
 from modelscope.utils.file_utils import (get_dataset_cache_root,
@@ -48,6 +49,7 @@ def model_file_download(
     local_files_only: Optional[bool] = False,
     cookies: Optional[CookieJar] = None,
     local_dir: Optional[str] = None,
+    token: Optional[str] = None,
 ) -> Optional[str]:  # pragma: no cover
     """Download from a given URL and cache it if it's not already present in the local cache.
 
@@ -66,6 +68,7 @@ def model_file_download(
             local cached file if it exists. if `False`, download the file anyway even it exists.
         cookies (CookieJar, optional): The cookie of download request.
         local_dir (str, optional): Specific local directory path to which the file will be downloaded.
+        token (str, optional): The user token.
 
     Returns:
         string: string of local file or if networking is off, last version of
@@ -94,7 +97,8 @@ def model_file_download(
         user_agent=user_agent,
         local_files_only=local_files_only,
         cookies=cookies,
-        local_dir=local_dir)
+        local_dir=local_dir,
+        token=token)
 
 
 def dataset_file_download(
@@ -106,6 +110,7 @@ def dataset_file_download(
     user_agent: Optional[Union[Dict, str]] = None,
     local_files_only: Optional[bool] = False,
     cookies: Optional[CookieJar] = None,
+    token: Optional[str] = None,
 ) -> str:
     """Download raw files of a dataset.
     Downloads all files at the specified revision. This
@@ -128,6 +133,7 @@ def dataset_file_download(
         local_files_only (bool, optional): If `True`, avoid downloading the file and return the path to the
             local cached file if it exists.
         cookies (CookieJar, optional): The cookie of the request, default None.
+        token (str, optional): The user token.
     Raises:
         ValueError: the value details.
 
@@ -152,7 +158,8 @@ def dataset_file_download(
         user_agent=user_agent,
         local_files_only=local_files_only,
         cookies=cookies,
-        local_dir=local_dir)
+        local_dir=local_dir,
+        token=token)
 
 
 def _repo_file_download(
@@ -167,6 +174,7 @@ def _repo_file_download(
     cookies: Optional[CookieJar] = None,
     local_dir: Optional[str] = None,
     disable_tqdm: bool = False,
+    token: Optional[str] = None,
 ) -> Optional[str]:  # pragma: no cover
 
     if not repo_type:
@@ -193,14 +201,28 @@ def _repo_file_download(
                 ' traffic has been disabled. To enable look-ups and downloads'
                 " online, set 'local_files_only' to False.")
 
-    _api = HubApi()
+    _api = HubApi(token=token)
+
     headers = {
-        'user-agent': ModelScopeConfig.get_user_agent(user_agent=user_agent, )
+        'user-agent': ModelScopeConfig.get_user_agent(user_agent=user_agent, ),
+        'snapshot-identifier': str(uuid.uuid4()),
     }
+
+    if INTRA_CLOUD_ACCELERATION == 'true':
+        region_id: str = (
+            os.getenv('INTRA_CLOUD_ACCELERATION_REGION')
+            or _api._get_internal_acceleration_domain())
+        if region_id:
+            logger.info(
+                f'Intra-cloud acceleration enabled for downloading from {repo_id}'
+            )
+            headers['x-aliyun-region-id'] = region_id
+
     if cookies is None:
-        cookies = ModelScopeConfig.get_cookies()
+        cookies = _api.get_cookies()
     repo_files = []
-    endpoint = _api.get_endpoint_for_read(repo_id=repo_id, repo_type=repo_type)
+    endpoint = _api.get_endpoint_for_read(
+        repo_id=repo_id, repo_type=repo_type, token=token)
     file_to_download_meta = None
     if repo_type == REPO_TYPE_MODEL:
         revision = _api.get_valid_revision(
@@ -242,7 +264,8 @@ def _repo_file_download(
                     recursive=True,
                     page_number=page_number,
                     page_size=page_size,
-                    endpoint=endpoint)
+                    endpoint=endpoint,
+                    token=token)
             except Exception as e:
                 logger.error(
                     f'Get dataset: {repo_id} file list failed, error: {e}')

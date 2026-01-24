@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 from difflib import get_close_matches
-from typing import Any, Optional
+from typing import Any
 
 from langchain_core.callbacks import (
     CallbackManagerForLLMRun,
@@ -24,17 +24,19 @@ logger = logging.getLogger(__name__)
 
 
 class GoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseLLM):
-    """Google GenerativeAI models.
+    """Google GenerativeAI text completion large language models (legacy LLMs).
 
-    Example:
-        .. code-block:: python
+    !!! example "Basic Usage"
 
-            from langchain_google_genai import GoogleGenerativeAI
+        ```python
+        from langchain_google_genai import GoogleGenerativeAI
 
-            llm = GoogleGenerativeAI(model="gemini-2.5-pro")
+        llm = GoogleGenerativeAI(model="gemini-2.5-pro")
+        ```
     """
 
-    client: Any = None  #: :meta private:
+    client: Any = None
+
     model_config = ConfigDict(
         populate_by_name=True,
     )
@@ -70,22 +72,26 @@ class GoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseLLM):
         self.client = ChatGoogleGenerativeAI(
             api_key=self.google_api_key,
             credentials=self.credentials,
+            vertexai=self.vertexai,
+            project=self.project,
+            location=self.location,
             temperature=self.temperature,
             top_p=self.top_p,
             top_k=self.top_k,
             max_tokens=self.max_output_tokens,
+            max_retries=self.max_retries,
             timeout=self.timeout,
             model=self.model,
-            client_options=self.client_options,
-            transport=self.transport,
+            base_url=self.base_url,
             additional_headers=self.additional_headers,
             safety_settings=self.safety_settings,
+            seed=self.seed,
         )
 
         return self
 
     def _get_ls_params(
-        self, stop: Optional[list[str]] = None, **kwargs: Any
+        self, stop: list[str] | None = None, **kwargs: Any
     ) -> LangSmithParams:
         """Get standard params for tracing."""
         ls_params = super()._get_ls_params(stop=stop, **kwargs)
@@ -106,8 +112,8 @@ class GoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseLLM):
     def _generate(
         self,
         prompts: list[str],
-        stop: Optional[list[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> LLMResult:
         generations = []
@@ -121,7 +127,7 @@ class GoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseLLM):
             generations.append(
                 [
                     Generation(
-                        text=g.message.content,
+                        text=g.message.text,
                         generation_info={
                             **g.generation_info,
                             "usage_metadata": g.message.usage_metadata,
@@ -135,8 +141,8 @@ class GoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseLLM):
     def _stream(
         self,
         prompt: str,
-        stop: Optional[list[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> Iterator[GenerationChunk]:
         for stream_chunk in self.client._stream(
@@ -145,7 +151,7 @@ class GoogleGenerativeAI(_BaseGoogleGenerativeAI, BaseLLM):
             run_manager=run_manager,
             **kwargs,
         ):
-            chunk = GenerationChunk(text=stream_chunk.message.content)
+            chunk = GenerationChunk(text=stream_chunk.message.text)
             yield chunk
             if run_manager:
                 run_manager.on_llm_new_token(

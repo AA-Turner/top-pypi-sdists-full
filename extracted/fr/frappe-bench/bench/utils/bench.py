@@ -25,6 +25,7 @@ from bench.utils import (
 	get_cmd_output,
 	log,
 	which,
+	use_uv,
 )
 
 logger = logging.getLogger(bench.PROJECT_NAME)
@@ -99,13 +100,13 @@ def install_python_dev_dependencies(bench_path=".", apps=None, verbose=False):
 		if os.path.exists(pyproject_path):
 			pyproject_deps = _generate_dev_deps_pattern(pyproject_path)
 			if pyproject_deps:
-				if os.environ.get("BENCH_USE_UV"):
+				if use_uv():
 					bench.run(f"uv pip install {quiet_flag} --upgrade {pyproject_deps} --python {bench.python}")
 				else:
 					bench.run(f"{bench.python} -m pip install {quiet_flag} --upgrade {pyproject_deps}")
 
 		if not pyproject_deps and os.path.exists(dev_requirements_path):
-			if os.environ.get("BENCH_USE_UV"):
+			if use_uv():
 				bench.run(
 					f"uv pip install {quiet_flag} --upgrade -r {dev_requirements_path} --python {bench.python}"
 				)
@@ -248,14 +249,14 @@ def migrate_env(python, backup=False):
 	# Create virtualenv using specified python
 	def _install_app(app, pyenv):
 		app_path = f"-e {os.path.join('apps', app)}"
-		if os.environ.get("BENCH_USE_UV"):
+		if use_uv():
 			exec_cmd(f"uv pip install --upgrade {app_path} --python {pyenv}/bin/python")
 		else:
 			exec_cmd(f"{pyenv}/bin/python -m pip install --upgrade {app_path}")
 
 	try:
 		logger.log(f"Setting up a New Virtual {python} Environment")
-		if os.environ.get("BENCH_USE_UV"):
+		if use_uv():
 			if os.environ.get("FRAPPE_DOCKER_BUILD"):
 				exec_cmd(f"uv venv {pvenv} --seed --link-mode=copy --python {python}")
 			else:

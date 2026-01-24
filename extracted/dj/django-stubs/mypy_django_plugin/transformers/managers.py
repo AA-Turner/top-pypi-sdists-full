@@ -29,6 +29,7 @@ from mypy.types import (
     Instance,
     Overloaded,
     ProperType,
+    TupleType,
     TypeOfAny,
     TypeType,
     TypeVarType,
@@ -167,7 +168,7 @@ def _process_dynamic_method(
 def _get_funcdef_type(definition: Node | None) -> ProperType | None:
     if isinstance(definition, FuncBase):
         return definition.type
-    elif isinstance(definition, Decorator):
+    if isinstance(definition, Decorator):
         return definition.func.type
     return None
 
@@ -250,15 +251,25 @@ def _replace_type_var(ret_type: MypyType, to_replace: str, replace_by: MypyType)
 
     if isinstance(ret_type, Instance):
         # Since it is an instance, recursively find the type var for all its args.
-        ret_type.args = tuple(_replace_type_var(item, to_replace, replace_by) for item in ret_type.args)
-        return ret_type
-
-    if hasattr(ret_type, "item"):
-        # For example TypeType has an item. find the type_var for this item
-        ret_type.item = _replace_type_var(ret_type.item, to_replace, replace_by)
-    if hasattr(ret_type, "items"):
-        # For example TypeList has items. find recursively type_var for its items
-        ret_type.items = [_replace_type_var(item, to_replace, replace_by) for item in ret_type.items]
+        return ret_type.copy_modified(
+            args=tuple(_replace_type_var(item, to_replace, replace_by) for item in ret_type.args)
+        )
+    if isinstance(ret_type, TypeType):
+        return TypeType.make_normalized(
+            _replace_type_var(ret_type.item, to_replace, replace_by),
+            line=ret_type.line,
+            column=ret_type.column,
+        )
+    if isinstance(ret_type, TupleType):
+        return ret_type.copy_modified(
+            items=[_replace_type_var(item, to_replace, replace_by) for item in ret_type.items]
+        )
+    if isinstance(ret_type, UnionType):
+        return UnionType.make_union(
+            items=[_replace_type_var(item, to_replace, replace_by) for item in ret_type.items],
+            line=ret_type.line,
+            column=ret_type.column,
+        )
     return ret_type
 
 
@@ -277,7 +288,7 @@ def resolve_manager_method(ctx: AttributeContext) -> MypyType:
     default_attr_type = get_proper_type(ctx.default_attr_type)
     if not isinstance(default_attr_type, AnyType):
         return ctx.default_attr_type
-    elif default_attr_type.type_of_any != TypeOfAny.implementation_artifact:
+    if default_attr_type.type_of_any != TypeOfAny.implementation_artifact:
         return ctx.default_attr_type
 
     # (Current state is:) We wouldn't end up here when looking up a method from a custom _manager_.
@@ -292,18 +303,15 @@ def resolve_manager_method(ctx: AttributeContext) -> MypyType:
 
     if isinstance(ctx.type, Instance):
         return resolve_manager_method_from_instance(instance=ctx.type, method_name=method_name, ctx=ctx)
-    elif isinstance(ctx.type, UnionType) and all(
-        isinstance(get_proper_type(item), Instance) for item in ctx.type.items
-    ):
+    if isinstance(ctx.type, UnionType) and all(isinstance(get_proper_type(item), Instance) for item in ctx.type.items):
         resolved = tuple(
             resolve_manager_method_from_instance(instance=instance, method_name=method_name, ctx=ctx)
             for item in ctx.type.items
             if isinstance((instance := get_proper_type(item)), Instance)
         )
         return UnionType(resolved)
-    else:
-        ctx.api.fail(f'Unable to resolve return type of queryset/manager method "{method_name}"', ctx.context)
-        return AnyType(TypeOfAny.from_error)
+    ctx.api.fail(f'Unable to resolve return type of queryset/manager method "{method_name}"', ctx.context)
+    return AnyType(TypeOfAny.from_error)
 
 
 def create_new_manager_class_from_from_queryset_method(ctx: DynamicClassDefContext) -> None:
@@ -326,9 +334,12 @@ def create_new_manager_class_from_from_queryset_method(ctx: DynamicClassDefConte
     new_manager_info = create_manager_info_from_from_queryset_call(semanal_api, ctx.call, ctx.name)
     if new_manager_info is None:
         if not ctx.api.final_iteration:
-            # XXX: hack for python/mypy#17402
-            ph = PlaceholderNode(ctx.api.qualified_name(ctx.name), ctx.call, ctx.call.line, becomes_typeinfo=True)
-            ctx.api.add_symbol_table_node(ctx.name, SymbolTableNode(GDEF, ph))
+            # Only add PlaceholderNode if it doesn't already exist to prevent
+            # infinite semantic analysis iterations (fixes #2373)
+            if not (manager_sym and isinstance(manager_sym.node, PlaceholderNode)):
+                # XXX: hack for python/mypy#17402
+                ph = PlaceholderNode(ctx.api.qualified_name(ctx.name), ctx.call, ctx.call.line, becomes_typeinfo=True)
+                ctx.api.add_symbol_table_node(ctx.name, SymbolTableNode(GDEF, ph))
             ctx.api.defer()
         return
 
@@ -465,7 +476,7 @@ def populate_manager_from_queryset(manager_info: TypeInfo, queryset_info: TypeIn
                 continue
             # private, magic methods are not copied
             # https://github.com/django/django/blob/5.0.4/django/db/models/manager.py#L101
-            elif name.startswith("_"):
+            if name.startswith("_"):
                 continue
             # Insert the queryset method name as a class member. Note that the type of
             # the method is set as Any. Figuring out the type is the job of the

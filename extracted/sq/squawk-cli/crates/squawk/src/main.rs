@@ -1,23 +1,22 @@
+mod cmd;
 mod config;
 mod debug;
 mod file;
 mod file_finding;
 mod github;
 mod reporter;
-use crate::file_finding::find_paths;
+use crate::cmd::Cmd;
+use crate::reporter::LintArgs;
 use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
-use config::Config;
 use debug::debug;
-use log::info;
-use reporter::check_and_dump_files;
+use reporter::lint_and_report;
 use simplelog::CombinedLogger;
 use squawk_linter::{Rule, Version};
 use std::io;
-use std::io::IsTerminal;
 use std::panic;
 use std::path::PathBuf;
-use std::process::{self, ExitCode};
+use std::process::ExitCode;
 
 #[derive(Parser, Debug)]
 pub struct UploadToGithubArgs {
@@ -70,8 +69,9 @@ pub enum DebugOption {
     Ast,
 }
 
-#[derive(Debug, ValueEnum, Clone)]
+#[derive(Debug, ValueEnum, Clone, Default)]
 pub enum Reporter {
+    #[default]
     Tty,
     Gcc,
     Json,
@@ -82,7 +82,7 @@ pub enum Reporter {
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Parser, Debug)]
 #[command(version)]
-struct Opt {
+struct Opts {
     /// Paths or patterns to search
     #[arg(value_name = "path")]
     path_patterns: Vec<String>,
@@ -165,127 +165,47 @@ Please open an issue at https://github.com/sbdchd/squawk/issues/new with the log
         writeln!(stderr, "{panic_info}\n{backtrace}\n{open_an_issue}").ok();
     }));
 
-    let opts = Opt::parse();
+    let opts = Opts::parse();
 
     if opts.verbose {
+        // ANSI codes don't render properly in the VSCode output pane
+        let color_choice = if matches!(opts.cmd, Some(Command::Server)) {
+            simplelog::ColorChoice::Never
+        } else {
+            simplelog::ColorChoice::Auto
+        };
         CombinedLogger::init(vec![simplelog::TermLogger::new(
             simplelog::LevelFilter::Info,
             simplelog::Config::default(),
             simplelog::TerminalMode::Stderr,
-            simplelog::ColorChoice::Auto,
+            color_choice,
         )])
         .expect("problem creating logger");
     }
 
-    let conf = Config::parse(opts.config_path)
-        .unwrap_or_else(|e| {
-            eprintln!("Configuration error: {e}");
-            process::exit(1);
-        })
-        .unwrap_or_default();
-
-    // the --exclude flag completely overrides the configuration file.
-    let excluded_rules = if let Some(excluded_rules) = opts.excluded_rules {
-        excluded_rules
-    } else {
-        conf.excluded_rules.clone()
-    };
-
-    // the --exclude-path flag completely overrides the configuration file.
-    let excluded_paths = if let Some(excluded_paths) = opts.excluded_path {
-        excluded_paths
-    } else {
-        conf.excluded_paths.clone()
-    };
-    let pg_version = if let Some(pg_version) = opts.pg_version {
-        Some(pg_version)
-    } else {
-        conf.pg_version
-    };
-
-    let assume_in_transaction = if opts.assume_in_transaction {
-        opts.assume_in_transaction
-    } else if opts.no_assume_in_transaction {
-        !opts.no_assume_in_transaction
-    } else {
-        conf.assume_in_transaction.unwrap_or_default()
-    };
-
-    let no_error_on_unmatched_pattern = if opts.no_error_on_unmatched_pattern {
-        opts.no_error_on_unmatched_pattern
-    } else {
-        false
-    };
-
-    info!("pg version: {pg_version:?}");
-    info!("excluded rules: {:?}", &excluded_rules);
-    info!("excluded paths: {:?}", &excluded_paths);
-    info!("assume in a transaction: {assume_in_transaction:?}");
-    info!("no error on unmatched pattern: {no_error_on_unmatched_pattern:?}");
-
-    let is_stdin = !io::stdin().is_terminal();
-    let github_annotations = std::env::var("GITHUB_ACTIONS").is_ok()
-        && std::env::var("SQUAWK_DISABLE_GITHUB_ANNOTATIONS").is_err();
-    match opts.cmd {
-        Some(Command::Server) => {
+    match Cmd::from(opts) {
+        Cmd::Server => {
             squawk_server::run().context("language server failed")?;
         }
-        Some(Command::UploadToGithub(args)) => {
-            github::check_and_comment_on_pr(
-                *args,
-                &conf,
-                is_stdin,
-                opts.stdin_filepath,
-                &excluded_rules,
-                &excluded_paths,
-                pg_version,
-                assume_in_transaction,
-                github_annotations,
-            )
-            .context("Upload to GitHub failed")?;
+        Cmd::UploadToGithub(config) => {
+            github::check_and_comment_on_pr(*config).context("Upload to GitHub failed")?;
         }
-        None => {
-            let found_paths =
-                find_paths(&opts.path_patterns, &excluded_paths).unwrap_or_else(|e| {
-                    eprintln!("Failed to find files: {e}");
-                    process::exit(1);
-                });
-            if found_paths.is_empty() && !opts.path_patterns.is_empty() {
-                eprintln!(
-                    "Failed to find files for provided patterns: {:?}",
-                    opts.path_patterns
-                );
-                if !no_error_on_unmatched_pattern {
-                    process::exit(1);
-                }
-            }
-            if !found_paths.is_empty() || is_stdin {
-                let stdout = io::stdout();
-                let mut handle = stdout.lock();
-
-                let read_stdin = found_paths.is_empty() && is_stdin;
-                if let Some(kind) = opts.debug {
-                    debug(&mut handle, &found_paths, read_stdin, &kind, opts.verbose)?;
-                } else {
-                    let reporter = opts.reporter.unwrap_or(Reporter::Tty);
-                    let exit_code = check_and_dump_files(
-                        &mut handle,
-                        &found_paths,
-                        read_stdin,
-                        opts.stdin_filepath,
-                        &excluded_rules,
-                        pg_version,
-                        assume_in_transaction,
-                        &reporter,
-                        github_annotations,
-                    )?;
-                    return Ok(exit_code);
-                }
-            } else if !no_error_on_unmatched_pattern {
-                Opt::command().print_long_help()?;
-                println!();
-            }
+        Cmd::Debug(debug_args) => {
+            let stdout = io::stdout();
+            let mut handle = stdout.lock();
+            debug(&mut handle, debug_args)?;
         }
+        Cmd::Lint(lint_args) => {
+            let stdout = io::stdout();
+            let mut handle = stdout.lock();
+            return lint_and_report(&mut handle, lint_args);
+        }
+        Cmd::Help => {
+            Opts::command().print_long_help()?;
+            println!();
+        }
+        Cmd::None => (),
     }
+
     Ok(ExitCode::SUCCESS)
 }

@@ -7,7 +7,7 @@ maintainers = [
     {name = "Arie Bovenberg", email = "a.c.bovenberg@gmail.com"},
 ]
 readme = "README.md"
-version = "0.8.9"
+version = "0.9.5"
 license = "MIT"
 description = "Modern datetime library for Python"
 requires-python = ">=3.9"
@@ -26,12 +26,14 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
     "Programming Language :: Python",
     "Programming Language :: Rust",
     "Typing :: Typed",
 ]
 dependencies = [
     "tzdata>=2020.1; sys_platform == 'win32'",
+    "tzlocal>=4.0; sys_platform != 'darwin' and sys_platform != 'linux'",
 ]
 keywords = [
     "datetime", "typesafe", "rust", "date", "time", "timezone", "utc",
@@ -83,6 +85,7 @@ module = [
     "whenever._whenever",
     "_interpreters",
     "tzdata",
+    "tzlocal",
     "pydantic_core",
     "pydantic",
 ]
@@ -101,6 +104,7 @@ find = { where = ["pysrc"] }
 [tool.maturin]
 python-source = "pysrc"
 module-name = "whenever._whenever"
+bindings = "pyo3-ffi"
 
 [build-system]
 requires = [

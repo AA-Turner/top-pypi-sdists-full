@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reportlab
-Version: 4.4.4
+Version: 4.4.9
 Summary: The Reportlab Toolkit
 Home-page: https://www.reportlab.com/
 Author: Andy Robinson, Robin Becker, the ReportLab team and the community
@@ -12,11 +12,11 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Topic :: Printing
 Classifier: Topic :: Text Processing :: Markup
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9,<4
 License-File: LICENSE
 Requires-Dist: pillow>=9.0.0

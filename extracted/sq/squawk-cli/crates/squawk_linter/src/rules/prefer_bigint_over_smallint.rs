@@ -32,7 +32,7 @@ fn smallint_to_bigint(smallint_type: &str) -> &'static str {
 fn create_bigint_fix(ty: &ast::Type) -> Option<Fix> {
     let type_name = ty.syntax().first_token()?;
     let i64 = smallint_to_bigint(type_name.text());
-    let edit = Edit::replace(ty.syntax().text_range(), i64);
+    let edit = Edit::replace(type_name.text_range(), i64);
     Some(Fix::new(
         format!("Replace with a 64-bit integer type: `{i64}`"),
         vec![edit],
@@ -64,11 +64,11 @@ pub(crate) fn prefer_bigint_over_smallint(ctx: &mut Linter, parse: &Parse<Source
 
 #[cfg(test)]
 mod test {
-    use insta::{assert_debug_snapshot, assert_snapshot};
+    use insta::assert_snapshot;
 
     use crate::{
         Rule,
-        test_utils::{fix_sql, lint},
+        test_utils::{fix_sql, lint_errors, lint_ok},
     };
 
     fn fix(sql: &str) -> String {
@@ -102,6 +102,14 @@ mod test {
     }
 
     #[test]
+    fn fix_array_types() {
+        assert_snapshot!(fix("create table users (ids smallint[]);"), @"create table users (ids bigint[]);");
+        assert_snapshot!(fix("create table users (ids int2[]);"), @"create table users (ids int8[]);");
+        assert_snapshot!(fix("create table users (ids smallserial[]);"), @"create table users (ids bigserial[]);");
+        assert_snapshot!(fix("create table users (ids serial2[]);"), @"create table users (ids serial8[]);");
+    }
+
+    #[test]
     fn err() {
         let sql = r#"
 create table users (
@@ -117,17 +125,7 @@ create table users (
     id serial2
 );
         "#;
-        let errors = lint(sql, Rule::PreferBigintOverSmallint);
-        assert_ne!(errors.len(), 0);
-        assert_eq!(errors.len(), 4);
-        assert_eq!(
-            errors
-                .iter()
-                .filter(|x| x.code == Rule::PreferBigintOverSmallint)
-                .count(),
-            4
-        );
-        assert_debug_snapshot!(errors);
+        assert_snapshot!(lint_errors(sql, Rule::PreferBigintOverSmallint));
     }
 
     #[test]
@@ -158,7 +156,6 @@ create table users (
     id serial4
 );
         "#;
-        let errors = lint(sql, Rule::PreferBigintOverSmallint);
-        assert_eq!(errors.len(), 0);
+        lint_ok(sql, Rule::PreferBigintOverSmallint);
     }
 }

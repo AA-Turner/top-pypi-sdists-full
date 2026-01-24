@@ -1,10 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: oslo.versionedobjects
-Version: 3.8.0
+Version: 3.9.0
 Summary: Oslo Versioned Objects library
-Home-page: https://docs.openstack.org/oslo.versionedobjects/latest/
-Author: OpenStack
-Author-email: openstack-discuss@lists.openstack.org
+Author-email: OpenStack <openstack-discuss@lists.openstack.org>
+License: Apache-2.0
+Project-URL: Homepage, https://docs.openstack.org/oslo.versionedobjects
+Project-URL: Repository, https://opendev.org/openstack/oslo.versionedobjects
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
@@ -12,13 +13,12 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: oslo.concurrency>=3.26.0
 Requires-Dist: oslo.config>=5.2.0
@@ -30,19 +30,16 @@ Requires-Dist: oslo.log>=3.36.0
 Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: WebOb>=1.7.1
 Requires-Dist: netaddr>=0.7.18
-
-========================
-Team and repository tags
-========================
-
-.. image:: https://governance.openstack.org/tc/badges/oslo.versionedobjects.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-.. Change things from this point on
+Dynamic: license-file
+Dynamic: requires-dist
 
 =====================
 oslo.versionedobjects
 =====================
+
+.. image:: https://governance.openstack.org/tc/badges/oslo.versionedobjects.svg
+
+.. Change things from this point on
 
 .. image:: https://img.shields.io/pypi/v/oslo.versionedobjects.svg
     :target: https://pypi.org/project/oslo.versionedobjects/
@@ -63,4 +60,3 @@ upgrade compatibility across distributed services.
 * Source: http://opendev.org/openstack/oslo.versionedobjects
 * Bugs: http://bugs.launchpad.net/oslo.versionedobjects
 * Release notes: https://docs.openstack.org/releasenotes/oslo.versionedobjects/
-

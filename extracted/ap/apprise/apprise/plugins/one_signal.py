@@ -75,7 +75,7 @@ class NotifyOneSignal(NotifyBase):
     secure_protocol = "onesignal"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_onesignal"
+    setup_url = "https://appriseit.com/services/onesignal/"
 
     # Notification
     notify_url = "https://api.onesignal.com/notifications"
@@ -487,7 +487,9 @@ class NotifyOneSignal(NotifyBase):
                             )
                         )
 
-                        self.logger.debug("Response Details:\r\n%s", r.content)
+                        self.logger.debug(
+                            "Response Details:\r\n%r",
+                            (r.content or b"")[:2000])
 
                         has_error = True
 

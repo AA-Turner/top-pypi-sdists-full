@@ -1,22 +1,23 @@
 from __future__ import annotations
 
 import json
+import queue
+import sys
 import typing
 from abc import ABC, abstractmethod
 from collections import deque
-from collections.abc import Hashable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from functools import lru_cache
-from queue import Queue
 from threading import Condition, Event, Lock, Semaphore, Thread, Timer
 from time import monotonic, sleep, time
-from types import GenericAlias, ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Generic, Union, cast
+from types import GenericAlias, ModuleType, TracebackType
+from typing import Any, Generic, cast
 from uuid import UUID
 
-from typing_extensions import TypeVar
+from typing_extensions import Self, TypeVar
 
 from eventsourcing.domain import (
     DomainEventProtocol,
@@ -33,8 +34,139 @@ from eventsourcing.utils import (
     strtobool,
 )
 
-if TYPE_CHECKING:
-    from typing_extensions import Self
+# Backport Queue shutdown feature - remove when dropping support for Python 3.12.
+_T = TypeVar("_T")
+if sys.version_info[0:2] < (3, 13):  # pragma: no cover
+
+    class ShutDown(Exception):  # noqa: N818  # pyright: ignore[reportRedeclaration]
+        """Raised when put/get with shut-down queue."""
+
+    class Queue(queue.Queue[_T]):  # pyright: ignore[reportRedeclaration]
+        def __init__(self, maxsize: int = 0):
+            super().__init__(maxsize)
+            # Queue shutdown state
+            self.is_shutdown = False
+
+        def put(
+            self,
+            item: _T,
+            block: bool = True,  # noqa: FBT001,FBT002
+            timeout: float | None = None,
+        ) -> None:
+            """Put an item into the queue.
+
+            If optional args 'block' is true and 'timeout' is None (the default),
+            block if necessary until a free slot is available. If 'timeout' is
+            a non-negative number, it blocks at most 'timeout' seconds and raises
+            the Full exception if no free slot was available within that time.
+            Otherwise ('block' is false), put an item on the queue if a free slot
+            is immediately available, else raise the Full exception ('timeout'
+            is ignored in that case).
+
+            Raises ShutDown if the queue has been shut down.
+            """
+            with self.not_full:
+                if self.is_shutdown:
+                    raise ShutDown
+                if self.maxsize > 0:
+                    if not block:
+                        if self._qsize() >= self.maxsize:
+                            raise queue.Full
+                    elif timeout is None:
+                        while self._qsize() >= self.maxsize:
+                            self.not_full.wait()
+                            if self.is_shutdown:
+                                raise ShutDown
+                    elif timeout < 0:
+                        msg = "'timeout' must be a non-negative number"
+                        raise ValueError(msg)
+                    else:
+                        endtime = time() + timeout
+                        while self._qsize() >= self.maxsize:
+                            remaining = endtime - time()
+                            if remaining <= 0.0:
+                                raise queue.Full
+                            self.not_full.wait(remaining)
+                            if self.is_shutdown:
+                                raise ShutDown
+                self._put(item)
+                self.unfinished_tasks += 1
+                self.not_empty.notify()
+
+        def get(
+            self,
+            block: bool = True,  # noqa: FBT001,FBT002
+            timeout: float | None = None,
+        ) -> _T:
+            """Remove and return an item from the queue.
+
+            If optional args 'block' is true and 'timeout' is None (the default),
+            block if necessary until an item is available. If 'timeout' is
+            a non-negative number, it blocks at most 'timeout' seconds and raises
+            the Empty exception if no item was available within that time.
+            Otherwise ('block' is false), return an item if one is immediately
+            available, else raise the Empty exception ('timeout' is ignored
+            in that case).
+
+            Raises ShutDown if the queue has been shut down and is empty,
+            or if the queue has been shut down immediately.
+            """
+            with self.not_empty:
+                if self.is_shutdown and not self._qsize():
+                    raise ShutDown
+                if not block:
+                    if not self._qsize():
+                        raise queue.Empty
+                elif timeout is None:
+                    while not self._qsize():
+                        self.not_empty.wait()
+                        if self.is_shutdown and not self._qsize():
+                            raise ShutDown
+                elif timeout < 0:
+                    msg = "'timeout' must be a non-negative number"
+                    raise ValueError(msg)
+                else:
+                    endtime = time() + timeout
+                    while not self._qsize():
+                        remaining = endtime - time()
+                        if remaining <= 0.0:
+                            raise queue.Empty
+                        self.not_empty.wait(remaining)
+                        if self.is_shutdown and not self._qsize():
+                            raise ShutDown
+                item = self._get()
+                self.not_full.notify()
+                return item
+
+        def shutdown(
+            self,
+            immediate: bool = False,  # noqa: FBT001,FBT002
+        ) -> None:
+            """Shut-down the queue, making queue gets and puts raise ShutDown.
+
+            By default, gets will only raise once the queue is empty. Set
+            'immediate' to True to make gets raise immediately instead.
+
+            All blocked callers of put() and get() will be unblocked. If
+            'immediate', a task is marked as done for each item remaining in
+            the queue, which may unblock callers of join().
+            """
+            with self.mutex:
+                self.is_shutdown = True
+                if immediate:
+                    while self._qsize():
+                        self._get()
+                        if self.unfinished_tasks > 0:
+                            self.unfinished_tasks -= 1
+                    # release all blocked threads in `join()`
+                    self.all_tasks_done.notify_all()
+                # All getters need to re-check queue-empty to raise ShutDown
+                self.not_empty.notify_all()
+                self.not_full.notify_all()
+
+else:  # pragma: no cover
+    Queue = queue.Queue  # pyright: ignore[reportAssignmentType]
+    ShutDown = queue.ShutDown  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class Transcoding(ABC):
@@ -251,7 +383,7 @@ class Mapper(Generic[TAggregateID]):
     ) -> StoredEvent:
         """Converts the given domain event to a :class:`StoredEvent` object."""
         topic = get_topic(domain_event.__class__)
-        event_state = domain_event.__dict__.copy()
+        event_state = dict(vars(domain_event))
         originator_id = event_state.pop("originator_id")
         originator_version = event_state.pop("originator_version")
         class_version = getattr(type(domain_event), "class_version", 1)
@@ -304,7 +436,7 @@ class Mapper(Generic[TAggregateID]):
             from_version += 1
 
         domain_event = object.__new__(cls)
-        domain_event.__dict__.update(event_state)
+        object.__setattr__(domain_event, "__dict__", event_state)
         return domain_event
 
 
@@ -618,7 +750,9 @@ class EventStore(Generic[TAggregateID]):
         notification_ids = self.recorder.insert_events(stored_events, **kwargs)
         if notification_ids:
             assert len(notification_ids) == len(stored_events)
-            for d, s, n_id in zip(domain_events, stored_events, notification_ids):
+            for d, s, n_id in zip(
+                domain_events, stored_events, notification_ids, strict=True
+            ):
                 recordings.append(
                     Recording(
                         d,
@@ -664,29 +798,44 @@ class InfrastructureFactoryError(EventSourcingError):
     """Raised when an infrastructure factory cannot be created."""
 
 
-class InfrastructureFactory(ABC, Generic[TTrackingRecorder]):
+class BaseInfrastructureFactory(ABC, Generic[TTrackingRecorder]):
     """Abstract base class for infrastructure factories."""
 
     PERSISTENCE_MODULE = "PERSISTENCE_MODULE"
     TRANSCODER_TOPIC = "TRANSCODER_TOPIC"
-    MAPPER_TOPIC = "MAPPER_TOPIC"
     CIPHER_TOPIC = "CIPHER_TOPIC"
     COMPRESSOR_TOPIC = "COMPRESSOR_TOPIC"
-    IS_SNAPSHOTTING_ENABLED = "IS_SNAPSHOTTING_ENABLED"
-    APPLICATION_RECORDER_TOPIC = "APPLICATION_RECORDER_TOPIC"
-    TRACKING_RECORDER_TOPIC = "TRACKING_RECORDER_TOPIC"
-    PROCESS_RECORDER_TOPIC = "PROCESS_RECORDER_TOPIC"
+
+    def __init__(self, env: Environment | EnvType | None):
+        """Initialises infrastructure factory object with given application name."""
+        self.env = env if isinstance(env, Environment) else Environment(env=env)
+        self._is_entered = False
+
+    def __enter__(self) -> Self:
+        self._is_entered = True
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self._is_entered = False
+
+    def close(self) -> None:
+        """Closes any database connections, and anything else that needs closing."""
 
     @classmethod
     def construct(
-        cls: type[InfrastructureFactory[TTrackingRecorder]],
+        cls: type[Self],
         env: Environment | None = None,
-    ) -> InfrastructureFactory[TTrackingRecorder]:
+    ) -> Self:
         """Constructs concrete infrastructure factory for given
         named application. Reads and resolves persistence
         topic from environment variable 'PERSISTENCE_MODULE'.
         """
-        factory_cls: type[InfrastructureFactory[TTrackingRecorder]]
+        factory_cls: type[Self]
         if env is None:
             env = Environment()
         topic = (
@@ -705,9 +854,7 @@ class InfrastructureFactory(ABC, Generic[TTrackingRecorder]):
             or "eventsourcing.popo"
         )
         try:
-            obj: type[InfrastructureFactory[TTrackingRecorder]] | ModuleType = (
-                resolve_topic(topic)
-            )
+            obj: type[Self] | ModuleType = resolve_topic(topic)
         except TopicError as e:
             msg = (
                 "Failed to resolve persistence module topic: "
@@ -718,29 +865,29 @@ class InfrastructureFactory(ABC, Generic[TTrackingRecorder]):
 
         if isinstance(obj, ModuleType):
             # Find the factory in the module.
-            factory_classes: list[type[InfrastructureFactory[TTrackingRecorder]]] = []
+            factory_classes = set[type[Self]]()
             for member in obj.__dict__.values():
-                if (
-                    member is not InfrastructureFactory
-                    and isinstance(member, type)  # Look for classes...
-                    and isinstance(member, type)  # Look for classes...
-                    and not isinstance(
-                        member, GenericAlias
-                    )  # Issue with Python 3.9 and 3.10.
-                    and issubclass(member, InfrastructureFactory)  # Ignore base class.
-                    and member not in factory_classes  # Forgive aliases.
-                ):
-                    factory_classes.append(member)
+                # Look for classes...
+                if not isinstance(member, type):
+                    continue
+                # Issue with Python 3.9 and 3.10.
+                if isinstance(member, GenericAlias):
+                    continue  # pragma: no cover (for Python > 3.10 only)
+                if not issubclass(member, cls):
+                    continue
+                if getattr(member, "__parameters__", None):
+                    continue
+                factory_classes.add(member)
 
             if len(factory_classes) == 1:
-                factory_cls = factory_classes[0]
+                factory_cls = next(iter(factory_classes))
             else:
                 msg = (
                     f"Found {len(factory_classes)} infrastructure factory classes in"
                     f" '{topic}', expected 1."
                 )
                 raise InfrastructureFactoryError(msg)
-        elif isinstance(obj, type) and issubclass(obj, InfrastructureFactory):
+        elif isinstance(obj, type) and issubclass(obj, cls):
             factory_cls = obj
         else:
             msg = (
@@ -749,10 +896,6 @@ class InfrastructureFactory(ABC, Generic[TTrackingRecorder]):
             )
             raise InfrastructureFactoryError(msg)
         return factory_cls(env=env)
-
-    def __init__(self, env: Environment | EnvType | None):
-        """Initialises infrastructure factory object with given application name."""
-        self.env = env if isinstance(env, Environment) else Environment(env=env)
 
     def transcoder(
         self,
@@ -764,32 +907,6 @@ class InfrastructureFactory(ABC, Generic[TTrackingRecorder]):
         else:
             transcoder_class = JSONTranscoder
         return transcoder_class()
-
-    def mapper(
-        self,
-        transcoder: Transcoder | None = None,
-        mapper_class: type[Mapper[TAggregateID]] | None = None,
-    ) -> Mapper[TAggregateID]:
-        """Constructs a mapper."""
-        # Resolve MAPPER_TOPIC if no given class.
-        if mapper_class is None:
-            mapper_topic = self.env.get(self.MAPPER_TOPIC)
-            mapper_class = (
-                resolve_topic(mapper_topic) if mapper_topic else Mapper[TAggregateID]
-            )
-
-        # Check we have a mapper class.
-        assert mapper_class is not None
-        origin_mapper_class = typing.get_origin(mapper_class) or mapper_class
-        assert isinstance(origin_mapper_class, type), mapper_class
-        assert issubclass(origin_mapper_class, Mapper), mapper_class
-
-        # Construct and return a mapper.
-        return mapper_class(
-            transcoder=transcoder or self.transcoder(),
-            cipher=self.cipher(),
-            compressor=self.compressor(),
-        )
 
     def cipher(self) -> Cipher | None:
         """Reads environment variables 'CIPHER_TOPIC'
@@ -823,6 +940,42 @@ class InfrastructureFactory(ABC, Generic[TTrackingRecorder]):
             else:
                 compressor = compressor_cls
         return compressor
+
+
+class InfrastructureFactory(BaseInfrastructureFactory[TTrackingRecorder]):
+    """Abstract base class for Application factories."""
+
+    MAPPER_TOPIC = "MAPPER_TOPIC"
+    IS_SNAPSHOTTING_ENABLED = "IS_SNAPSHOTTING_ENABLED"
+    APPLICATION_RECORDER_TOPIC = "APPLICATION_RECORDER_TOPIC"
+    TRACKING_RECORDER_TOPIC = "TRACKING_RECORDER_TOPIC"
+    PROCESS_RECORDER_TOPIC = "PROCESS_RECORDER_TOPIC"
+
+    def mapper(
+        self,
+        transcoder: Transcoder | None = None,
+        mapper_class: type[Mapper[TAggregateID]] | None = None,
+    ) -> Mapper[TAggregateID]:
+        """Constructs a mapper."""
+        # Resolve MAPPER_TOPIC if no given class.
+        if mapper_class is None:
+            mapper_topic = self.env.get(self.MAPPER_TOPIC)
+            mapper_class = (
+                resolve_topic(mapper_topic) if mapper_topic else Mapper[TAggregateID]
+            )
+
+        # Check we have a mapper class.
+        assert mapper_class is not None
+        origin_mapper_class = typing.get_origin(mapper_class) or mapper_class
+        assert isinstance(origin_mapper_class, type), mapper_class
+        assert issubclass(origin_mapper_class, Mapper), mapper_class
+
+        # Construct and return a mapper.
+        return mapper_class(
+            transcoder=transcoder or self.transcoder(),
+            cipher=self.cipher(),
+            compressor=self.compressor(),
+        )
 
     def event_store(
         self,
@@ -860,9 +1013,6 @@ class InfrastructureFactory(ABC, Generic[TTrackingRecorder]):
         """
         return strtobool(self.env.get(self.IS_SNAPSHOTTING_ENABLED, "no"))
 
-    def close(self) -> None:
-        """Closes any database connections, and anything else that needs closing."""
-
 
 @dataclass(frozen=True)
 class Tracking:
@@ -874,7 +1024,7 @@ class Tracking:
     notification_id: int
 
 
-Params = Union[Sequence[Any], Mapping[str, Any]]
+Params = Sequence[Any] | Mapping[str, Any]
 
 
 class Cursor(ABC):
@@ -1055,7 +1205,7 @@ class ConnectionPool(ABC, Generic[TConnection]):
         return self._num_in_use >= self.pool_size + self.max_overflow
 
     def get_connection(
-        self, timeout: float | None = None, is_writer: bool | None = None
+        self, timeout: float | None = None, *, is_writer: bool | None = None
     ) -> TConnection:
         """Issues connections, or raises ConnectionPoolExhausted error.
         Provides "fairness" on attempts to get connections, meaning that
@@ -1355,13 +1505,17 @@ class ListenNotifySubscription(Subscription[TApplicationRecorder_co]):
         self._pull_thread.start()
 
     def __exit__(self, *args: object, **kwargs: Any) -> None:
-        super().__exit__(*args, **kwargs)
-        self._pull_thread.join()
+        try:
+            super().__exit__(*args, **kwargs)
+        finally:
+            self._pull_thread.join()
 
     def stop(self) -> None:
         """Stops the subscription."""
         super().stop()
-        self._notifications_queue.put([])
+        self._notifications_queue.shutdown(  # pyright: ignore[reportAttributeAccessIssue]
+            immediate=True
+        )
         self._has_been_notified.set()
 
     def __next__(self) -> Notification:
@@ -1370,11 +1524,17 @@ class ListenNotifySubscription(Subscription[TApplicationRecorder_co]):
             self._notifications_index == len(self._notifications)
             and not self._has_been_stopped
         ):
-            self._notifications = self._notifications_queue.get()
-            self._notifications_index = 0
+            try:
+                self._notifications = self._notifications_queue.get()
+            except ShutDown:
+                pass
+            else:
+                self._notifications_queue.task_done()
+                self._notifications_index = 0
 
-        # Stop the iteration if necessary, maybe raise thread error.
-        if self._has_been_stopped or not self._notifications:
+        # Stop the iteration if subscription has been stopped.
+        if self._has_been_stopped:
+            # Maybe raise thread error.
             if self._thread_error is not None:
                 raise self._thread_error
             raise StopIteration
@@ -1405,8 +1565,10 @@ class ListenNotifySubscription(Subscription[TApplicationRecorder_co]):
                 inclusive_of_start=False,
             )
             if len(notifications) > 0:
-                # print("Putting", len(notifications), "notifications into queue")
-                self._notifications_queue.put(notifications)
+                try:
+                    self._notifications_queue.put(notifications)
+                except ShutDown:
+                    break
                 self._last_notification_id = notifications[-1].id
             if len(notifications) < self._select_limit:
                 break

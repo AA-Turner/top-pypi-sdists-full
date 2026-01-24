@@ -80,11 +80,11 @@ options:
         type: str
         required: false
       primary_volume_id:
-        description: Primary Volume ID.
-        type: int
+        description: Primary Volume ID. Required for the Create/Delete tasks.
+        type: str
         required: false
       secondary_pool_id:
-        description: Pool ID of the secondary storage system.
+        description: Pool ID of the secondary storage system. Required for the Create tasks.
         type: int
         required: false
       consistency_group_id:
@@ -93,14 +93,18 @@ options:
         required: false
       allocate_new_consistency_group:
         description: Allocate and assign a new consistency group ID.
+          Required for the Create GAD pair with server cluster configuration
+          /Create GAD pair with cross path server configuration tasks.
         type: bool
         required: false
       set_alua_mode:
         description: Set the ALUA mode to True.
+          Required for the Create GAD pair with cross path server configuration task.
         type: bool
         required: false
       primary_resource_group_name:
         description: The primary resource group name.
+          Required for the Create GAD pair with cross path server configuration task.
         type: str
         required: false
       secondary_resource_group_name:
@@ -108,17 +112,20 @@ options:
         type: str
         required: false
       quorum_disk_id:
-        description: The quorum disk ID.
+        description: The quorum disk ID. Required for the Create tasks.
         type: int
         required: false
       primary_hostgroups:
         description: The list of host groups on the primary storage device.
+          Required for the Create GAD pair with server cluster configuration task.
         type: list
         elements: dict
         required: false
         suboptions:
           name:
             description: Host group name.
+              Required for the Create GAD pair with server cluster configuration
+              /Create GAD pair with cross path server configuration tasks.
             type: str
             required: true
           lun_id:
@@ -127,80 +134,93 @@ options:
             required: false
           port:
             description: Port name.
+              Required for the Create GAD pair with server cluster configuration
+              /Create GAD pair with cross path server configuration tasks.
             type: str
             required: true
           enable_preferred_path:
             description: Enables the preferred path for the specified host group.
+              Required for the Create GAD pair with server cluster configuration
+              /Create GAD pair with cross path server configuration tasks.
             type: bool
             required: false
       secondary_hostgroups:
-        description: The list of host groups on the secondary storage device.
+        description: The list of host groups on the secondary storage device. Required for the Create tasks.
         type: list
         elements: dict
         required: false
         suboptions:
           name:
-            description: Host group name.
+            description: Host group name. Required for the Create tasks.
             type: str
             required: true
           port:
-            description: Port name.
+            description: Port name. Required for the Create tasks.
             type: str
             required: true
           enable_preferred_path:
             description: Enables the preferred path for the specified host group.
+              Required for the Create tasks.
             type: bool
             required: false
           lun_id:
-            description: LUN ID.
+            description: LUN ID. Required for the Create tasks.
             type: int
             required: false
       secondary_iscsi_targets:
         description: The list of iscsi targets on the secondary storage device.
+          Required for the Create GAD-ISCSI Pair task.
         type: list
         elements: dict
         required: false
         suboptions:
           name:
-            description: ISCSI target name.
+            description: ISCSI target name. Required for the Create GAD-ISCSI Pair task.
             type: str
             required: true
           port:
-            description: Port name.
+            description: Port name. Required for the Create GAD-ISCSI Pair task.
             type: str
             required: true
           enable_preferred_path:
             description: Enables the preferred path for the specified ISCSI target.
+              Required for the Create GAD-ISCSI Pair task.
             type: bool
             required: false
           lun_id:
-            description: LUN ID.
+            description: LUN ID. Required for the Create GAD-ISCSI Pair task.
             type: int
             required: false
       secondary_nvm_subsystem:
         description: NVM subsystem details of the secondary volume.
+          Required for the Create GAD-NVMe Pair task.
         type: dict
         required: false
         suboptions:
           name:
             description: Name of the NVM subsystem on the secondary storage system.
+              Required for the Create GAD-NVMe Pair task.
             type: str
             required: true
           paths:
             description: Host NQN paths information on the secondary storage system.
+              Required for the Create GAD-NVMe Pair task.
             type: list
             elements: str
             required: false
       local_device_group_name:
         description: The device group name in the local storage system.
+          Optional for the Split/Resync/Swap-Split/Swap-Resync tasks.
         type: str
         required: false
       remote_device_group_name:
         description: The device group name in the remote storage system.
+          Optional for the Split/Resync/Swap-Split/Swap-Resync tasks.
         type: str
         required: false
       copy_pair_name:
         description: The name for the pair in the copy group.
+          Required for the Create/Split/Resync/Swap-Split/Swap-Resync/Expand tasks.
         type: str
         required: false
       path_group_id:
@@ -209,6 +229,7 @@ options:
         required: false
       copy_group_name:
         description: The name for the copy group.
+          Required for the Create/Split/Resync/Delete/Swap-Split/Swap-Resync/Expand tasks.
         type: str
         required: false
       copy_pace:
@@ -225,6 +246,7 @@ options:
         default: 'NEVER'
       new_volume_size:
         description: Required for resize or expand operation. Value should be grater than the current volume size.
+          Required for the Expand GAD pair task.
         type: str
         required: false
       is_data_reduction_force_copy:
@@ -247,7 +269,8 @@ options:
         required: false
       provisioned_secondary_volume_id:
         description: ID of the provisioned secondary volume that you want to use for the GAD pair creation.
-        type: int
+          Required for the Create a GAD pair with provisioned secondary volume id task.
+        type: str
         required: false
       begin_secondary_volume_id:
         description: >
@@ -255,16 +278,18 @@ options:
           If this field is specified, end_secondary_volume_id must also be specified.
           If this field is not specified, Ansible modules will try to create SVOL ID same as the PVOL ID if available,
           otherwise it will use the first available LDEV ID.
+          Required for the Create a GAD pair using a range for secondary volume id task.
         required: false
-        type: int
+        type: str
       end_secondary_volume_id:
         description: >
           Specify end ldev id for LDEV range for svol. This is an optional field during create operation.
           If this field is specified, begin_secondary_volume_id must also be specified.
           If this field is not specified, Ansible modules will try to create SVOL ID same as PVOL ID iff available,
           otherwise it will use the first available LDEV ID.
+          Required for the Create a GAD pair using a range for secondary volume id task.
         required: false
-        type: int
+        type: str
       should_delete_svol:
         description: Specify true to delete the SVOL.
         type: bool
@@ -383,92 +408,96 @@ data:
   contains:
     consistency_group_id:
       description: Consistency Group ID.
-      type: int
-      sample: 1
-    copy_pace_track_size:
-      description: Copy pace track size.
+      type: str
+      sample: ""
+    copy_group_name:
+      description: Copy group name.
+      type: str
+      sample: "GAD_Test_perform"
+    copy_pair_name:
+      description: Copy pair name.
+      type: str
+      sample: "GAD_Pair_20250930032554_1"
+    copy_progress_rate:
+      description: Copy progress rate.
       type: int
       sample: -1
-    copy_rate:
-      description: Copy rate.
-      type: int
-      sample: 0
-    mirror_unit_id:
-      description: Mirror unit ID.
-      type: int
-      sample: 1
-    pair_name:
-      description: Pair name.
+    fence_level:
+      description: Fence level.
+      type: str
+      sample: "NEVER"
+    is_alua_enabled:
+      description: Whether ALUA is enabled.
+      type: bool
+      sample: null
+    pvol_difference_data_management:
+      description: Primary volume difference data management.
+      type: str
+      sample: "D"
+    pvol_io_mode:
+      description: Primary volume I/O mode.
+      type: str
+      sample: "L/M"
+    pvol_journal_id:
+      description: Primary volume journal ID.
       type: str
       sample: ""
-    primary_hex_volume_id:
-      description: Primary hex volume ID.
-      type: str
-      sample: "00:00:01"
-    primary_v_s_m_resource_group_name:
-      description: Primary VSM resource group name.
-      type: str
-      sample: ""
-    primary_virtual_hex_volume_id:
-      description: Primary virtual hex volume ID.
-      type: str
-      sample: "00:00:01"
-    primary_virtual_storage_id:
-      description: Primary virtual storage ID.
-      type: str
-      sample: ""
-    primary_virtual_volume_id:
-      description: Primary virtual volume ID.
+    pvol_ldev_id:
+      description: Primary volume LDEV ID.
       type: int
-      sample: -1
-    primary_volume_id:
-      description: Primary volume ID.
-      type: int
-      sample: 1
-    primary_volume_storage_id:
-      description: Primary volume storage ID.
-      type: int
-      sample: 811111
-    secondary_hex_volume_id:
-      description: Secondary hex volume ID.
+      sample: 3364
+    pvol_processing_status:
+      description: Primary volume processing status.
       type: str
-      sample: "00:00:02"
-    secondary_v_s_m_resource_group_name:
-      description: Secondary VSM resource group name.
-      type: str
-      sample: ""
-    secondary_virtual_hex_volume_id:
-      description: Secondary virtual hex volume ID.
-      type: int
-      sample: -1
-    secondary_virtual_storage_id:
-      description: Secondary virtual storage ID.
-      type: str
-      sample: ""
-    secondary_virtual_volume_id:
-      description: Secondary virtual volume ID.
-      type: int
-      sample: -1
-    secondary_volume_id:
-      description: Secondary volume ID.
-      type: int
-      sample: 2
-    secondary_volume_storage_id:
-      description: Secondary volume storage ID.
-      type: int
-      sample: 811112
-    status:
-      description: Status of the GAD pair.
+      sample: "N"
+    pvol_status:
+      description: Primary volume status.
       type: str
       sample: "PAIR"
-    storage_serial_number:
-      description: Storage serial number.
+    pvol_storage_device_id:
+      description: Primary volume storage device ID.
       type: str
-      sample: "811111"
-    type:
-      description: Type of the GAD pair.
+      sample: "900000040014"
+    quorum_disk_id:
+      description: Quorum disk ID.
+      type: int
+      sample: 10
+    remote_mirror_copy_pair_id:
+      description: Remote mirror copy pair ID.
+      type: str
+      sample: "900000040015,GAD_Test_perform,GAD_Test_performP_,GAD_Test_performS_,GAD_Pair_20250930032554_1"
+    replication_type:
+      description: Replication type.
       type: str
       sample: "GAD"
+    svol_difference_data_management:
+      description: Secondary volume difference data management.
+      type: str
+      sample: "D"
+    svol_io_mode:
+      description: Secondary volume I/O mode.
+      type: str
+      sample: "L/M"
+    svol_journal_id:
+      description: Secondary volume journal ID.
+      type: str
+      sample: ""
+    svol_ldev_id:
+      description: Secondary volume LDEV ID.
+      type: int
+      sample: 6285
+    svol_processing_status:
+      description: Secondary volume processing status.
+      type: str
+      sample: "N"
+    svol_status:
+      description: Secondary volume status.
+      type: str
+      sample: "PAIR"
+    svol_storage_device_id:
+      description: Secondary volume storage device ID.
+      type: str
+      sample: "900000040015"
 """
 
 

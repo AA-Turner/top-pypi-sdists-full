@@ -3,7 +3,7 @@ Type annotations for chime service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_chime/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -39,12 +40,6 @@ from .literals import (
     UserTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -222,7 +217,7 @@ class MemberErrorTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -438,7 +433,7 @@ class ListSupportedPhoneNumberCountriesRequestTypeDef(TypedDict):
 
 class PhoneNumberCountryTypeDef(TypedDict):
     CountryCode: NotRequired[str]
-    SupportedPhoneNumberTypes: NotRequired[List[PhoneNumberTypeType]]
+    SupportedPhoneNumberTypes: NotRequired[list[PhoneNumberTypeType]]
 
 class ListUsersRequestTypeDef(TypedDict):
     AccountId: str
@@ -560,9 +555,9 @@ class AccountTypeDef(TypedDict):
     AccountType: NotRequired[AccountTypeType]
     CreatedTimestamp: NotRequired[datetime]
     DefaultLicense: NotRequired[LicenseType]
-    SupportedLicenses: NotRequired[List[LicenseType]]
+    SupportedLicenses: NotRequired[list[LicenseType]]
     AccountStatus: NotRequired[AccountStatusType]
-    SigninDelegateGroups: NotRequired[List[SigninDelegateGroupTypeDef]]
+    SigninDelegateGroups: NotRequired[list[SigninDelegateGroupTypeDef]]
 
 class AssociateSigninDelegateGroupsWithAccountRequestTypeDef(TypedDict):
     AccountId: str
@@ -612,7 +607,7 @@ class BatchCreateRoomMembershipRequestTypeDef(TypedDict):
     MembershipItemList: Sequence[MembershipItemTypeDef]
 
 class BatchCreateRoomMembershipResponseTypeDef(TypedDict):
-    Errors: List[MemberErrorTypeDef]
+    Errors: list[MemberErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateMeetingDialOutResponseTypeDef(TypedDict):
@@ -632,28 +627,28 @@ class GetPhoneNumberSettingsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchAvailablePhoneNumbersResponseTypeDef(TypedDict):
-    E164PhoneNumbers: List[str]
+    E164PhoneNumbers: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class BatchDeletePhoneNumberResponseTypeDef(TypedDict):
-    PhoneNumberErrors: List[PhoneNumberErrorTypeDef]
+    PhoneNumberErrors: list[PhoneNumberErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchUpdatePhoneNumberResponseTypeDef(TypedDict):
-    PhoneNumberErrors: List[PhoneNumberErrorTypeDef]
+    PhoneNumberErrors: list[PhoneNumberErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchSuspendUserResponseTypeDef(TypedDict):
-    UserErrors: List[UserErrorTypeDef]
+    UserErrors: list[UserErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchUnsuspendUserResponseTypeDef(TypedDict):
-    UserErrors: List[UserErrorTypeDef]
+    UserErrors: list[UserErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchUpdateUserResponseTypeDef(TypedDict):
-    UserErrors: List[UserErrorTypeDef]
+    UserErrors: list[UserErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchUpdatePhoneNumberRequestTypeDef(TypedDict):
@@ -668,7 +663,7 @@ class GetBotResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListBotsResponseTypeDef(TypedDict):
-    Bots: List[BotTypeDef]
+    Bots: list[BotTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -689,7 +684,7 @@ class GetRoomResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRoomsResponseTypeDef(TypedDict):
-    Rooms: List[RoomTypeDef]
+    Rooms: list[RoomTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -715,7 +710,7 @@ class UpdateGlobalSettingsRequestTypeDef(TypedDict):
     VoiceConnector: NotRequired[VoiceConnectorSettingsTypeDef]
 
 class InviteUsersResponseTypeDef(TypedDict):
-    Invites: List[InviteTypeDef]
+    Invites: list[InviteTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAccountsRequestPaginateTypeDef(TypedDict):
@@ -730,7 +725,7 @@ class ListUsersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSupportedPhoneNumberCountriesResponseTypeDef(TypedDict):
-    PhoneNumberCountries: List[PhoneNumberCountryTypeDef]
+    PhoneNumberCountries: list[PhoneNumberCountryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RoomMembershipTypeDef(TypedDict):
@@ -744,7 +739,7 @@ class PhoneNumberOrderTypeDef(TypedDict):
     PhoneNumberOrderId: NotRequired[str]
     ProductType: NotRequired[PhoneNumberProductTypeType]
     Status: NotRequired[PhoneNumberOrderStatusType]
-    OrderedPhoneNumbers: NotRequired[List[OrderedPhoneNumberTypeDef]]
+    OrderedPhoneNumbers: NotRequired[list[OrderedPhoneNumberTypeDef]]
     CreatedTimestamp: NotRequired[datetime]
     UpdatedTimestamp: NotRequired[datetime]
 
@@ -758,7 +753,7 @@ PhoneNumberTypeDef = TypedDict(
         "ProductType": NotRequired[PhoneNumberProductTypeType],
         "Status": NotRequired[PhoneNumberStatusType],
         "Capabilities": NotRequired[PhoneNumberCapabilitiesTypeDef],
-        "Associations": NotRequired[List[PhoneNumberAssociationTypeDef]],
+        "Associations": NotRequired[list[PhoneNumberAssociationTypeDef]],
         "CallingName": NotRequired[str],
         "CallingNameStatus": NotRequired[CallingNameStatusType],
         "CreatedTimestamp": NotRequired[datetime],
@@ -783,7 +778,7 @@ class GetAccountResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAccountsResponseTypeDef(TypedDict):
-    Accounts: List[AccountTypeDef]
+    Accounts: list[AccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -804,7 +799,7 @@ class GetUserResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListUsersResponseTypeDef(TypedDict):
-    Users: List[UserTypeDef]
+    Users: list[UserTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -821,7 +816,7 @@ class CreateRoomMembershipResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRoomMembershipsResponseTypeDef(TypedDict):
-    RoomMemberships: List[RoomMembershipTypeDef]
+    RoomMemberships: list[RoomMembershipTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -838,7 +833,7 @@ class GetPhoneNumberOrderResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPhoneNumberOrdersResponseTypeDef(TypedDict):
-    PhoneNumberOrders: List[PhoneNumberOrderTypeDef]
+    PhoneNumberOrders: list[PhoneNumberOrderTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -847,7 +842,7 @@ class GetPhoneNumberResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPhoneNumbersResponseTypeDef(TypedDict):
-    PhoneNumbers: List[PhoneNumberTypeDef]
+    PhoneNumbers: list[PhoneNumberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

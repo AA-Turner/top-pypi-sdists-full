@@ -83,7 +83,7 @@ class NotifyForm(NotifyBase):
     secure_protocol = "forms"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_Custom_Form"
+    setup_url = "https://appriseit.com/services/form/"
 
     # Support attachments
     attachment_support = True
@@ -347,7 +347,7 @@ class NotifyForm(NotifyBase):
             (FORMPayloadField.VERSION, self.form_version),
             (FORMPayloadField.TITLE, title),
             (FORMPayloadField.MESSAGE, body),
-            (FORMPayloadField.MESSAGETYPE, notify_type),
+            (FORMPayloadField.MESSAGETYPE, notify_type.value),
         ):
 
             if not self.payload_map[key]:
@@ -424,7 +424,8 @@ class NotifyForm(NotifyBase):
                     str(r.status_code),
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False

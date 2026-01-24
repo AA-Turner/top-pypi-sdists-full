@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymeshfix
-Version: 0.17.1
+Version: 0.17.2
 Summary: Repair triangular meshes using MeshFix
 Home-page: https://github.com/pyvista/pymeshfix
 Author: PyVista Developers
@@ -14,7 +14,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9, <3.14
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: numpy>1.11.0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: labelbox
-Version: 7.2.0
+Version: 7.4.0
 Summary: Labelbox Python API
 Project-URL: Homepage, https://labelbox.com/
 Project-URL: Documentation, https://labelbox-python.readthedocs.io/en/latest/
@@ -28,9 +28,12 @@ Requires-Dist: google-api-core>=1.22.1
 Requires-Dist: lbox-clients==1.1.2
 Requires-Dist: pydantic>=2.0
 Requires-Dist: python-dateutil<2.10.0,>=2.8.2
+Requires-Dist: pyyaml>=6.0
 Requires-Dist: requests>=2.22.0
 Requires-Dist: strenum>=0.4.15
 Requires-Dist: tqdm>=4.66.2
+Provides-Extra: alignerr
+Requires-Dist: lbox-alignerr>=0.1.0; extra == 'alignerr'
 Provides-Extra: data
 Requires-Dist: imagesize>=1.4.1; extra == 'data'
 Requires-Dist: numpy>=1.25.0; extra == 'data'

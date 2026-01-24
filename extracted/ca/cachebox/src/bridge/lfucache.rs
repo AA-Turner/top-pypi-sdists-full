@@ -2,27 +2,31 @@ use crate::common::Entry;
 use crate::common::ObservedIterator;
 use crate::common::PreHashObject;
 
-#[pyo3::pyclass(module = "cachebox._core", frozen)]
+#[cfg_attr(Py_3_9, pyo3::pyclass(module = "cachebox._core", frozen))]
+#[cfg_attr(
+    not(Py_3_9),
+    pyo3::pyclass(module = "cachebox._core", frozen, immutable_type)
+)]
 pub struct LFUCache {
-    raw: crate::mutex::Mutex<crate::policies::lfu::LFUPolicy>,
+    raw: crate::common::Mutex<crate::policies::lfu::LFUPolicy>,
 }
 
 #[allow(non_camel_case_types)]
 #[pyo3::pyclass(module = "cachebox._core")]
 pub struct lfucache_items {
     pub ptr: ObservedIterator,
-    pub iter: crate::mutex::Mutex<crate::policies::lfu::LFUIterator>,
+    pub iter: crate::common::Mutex<crate::policies::lfu::LFUIterator>,
 }
 
 #[pyo3::pymethods]
 impl LFUCache {
     #[new]
-    #[pyo3(signature=(maxsize, *, capacity=0))]
-    fn __new__(maxsize: usize, capacity: usize) -> pyo3::PyResult<Self> {
-        let raw = crate::policies::lfu::LFUPolicy::new(maxsize, capacity)?;
+    #[pyo3(signature=(maxsize, *, capacity=0, maxmemory=0))]
+    fn __new__(maxsize: usize, capacity: usize, maxmemory: usize) -> pyo3::PyResult<Self> {
+        let raw = crate::policies::lfu::LFUPolicy::new(maxsize, capacity, maxmemory)?;
 
         let self_ = Self {
-            raw: crate::mutex::Mutex::new(raw),
+            raw: crate::common::Mutex::new(raw),
         };
         Ok(self_)
     }
@@ -33,6 +37,14 @@ impl LFUCache {
 
     fn maxsize(&self) -> usize {
         self.raw.lock().maxsize()
+    }
+
+    fn maxmemory(&self) -> usize {
+        self.raw.lock().maxmemory()
+    }
+
+    fn memory(&self) -> usize {
+        self.raw.lock().memory()
     }
 
     fn capacity(&self) -> usize {
@@ -46,7 +58,8 @@ impl LFUCache {
     fn __sizeof__(&self) -> usize {
         let lock = self.raw.lock();
 
-        lock.capacity() * (size_of::<PreHashObject>() + size_of::<pyo3::ffi::PyObject>())
+        lock.capacity()
+            * (size_of::<PreHashObject>() + size_of::<pyo3::ffi::PyObject>() + size_of::<usize>())
     }
 
     fn __contains__(
@@ -83,9 +96,9 @@ impl LFUCache {
         let mut lock = self.raw.lock();
 
         match lock.entry_with_slot(py, &key)? {
-            Entry::Occupied(entry) => Ok(Some(entry.update(value)?)),
+            Entry::Occupied(entry) => Ok(Some(entry.update(py, value)?)),
             Entry::Absent(entry) => {
-                entry.insert(key, value, freq)?;
+                entry.insert(py, key, value, freq)?;
                 Ok(None)
             }
         }
@@ -174,7 +187,7 @@ impl LFUCache {
 
         match lock.entry(py, &key)? {
             Entry::Occupied(entry) => {
-                let (_, value, _) = entry.remove();
+                let (_, value, _, _) = entry.remove();
                 Ok(value)
             }
             Entry::Absent(_) => Err(pyo3::PyErr::new::<super::CoreKeyError, _>(key.obj)),
@@ -185,7 +198,7 @@ impl LFUCache {
         let mut lock = self.raw.lock();
 
         match lock.popitem() {
-            Some((key, val, _)) => Ok((key.obj, val)),
+            Some((key, val, _, _)) => Ok((key.obj, val)),
             None => Err(pyo3::PyErr::new::<super::CoreKeyError, _>(())),
         }
     }
@@ -221,7 +234,7 @@ impl LFUCache {
                 Ok(unsafe { node.as_ref().1.clone_ref(py) })
             }
             Entry::Absent(entry) => {
-                entry.insert(key, default.clone_ref(py), freq)?;
+                entry.insert(py, key, default.clone_ref(py), freq)?;
                 Ok(default)
             }
         }
@@ -234,7 +247,7 @@ impl LFUCache {
 
         let result = lfucache_items {
             ptr: ObservedIterator::new(slf.as_ptr(), state),
-            iter: crate::mutex::Mutex::new(iter),
+            iter: crate::common::Mutex::new(iter),
         };
 
         pyo3::Py::new(slf.py(), result)
@@ -293,13 +306,15 @@ impl LFUCache {
 
             let maxsize = pyo3::ffi::PyLong_FromSize_t(lock.maxsize());
             let capacity = pyo3::ffi::PyLong_FromSize_t(lock.capacity());
+            let maxmemory = pyo3::ffi::PyLong_FromSize_t(lock.maxmemory());
 
             tuple!(
                 py,
-                3,
+                4,
                 0 => maxsize,
                 1 => list,
                 2 => capacity,
+                3 => maxmemory,
             )?
         };
 
@@ -344,7 +359,7 @@ impl lfucache_items {
         slf.ptr.proceed(slf.py())?;
 
         if let Some(x) = iter.next() {
-            let (key, val, freq) = unsafe { x.as_ref() };
+            let (key, val, freq, _) = unsafe { x.as_ref() };
 
             let freq = unsafe { pyo3::ffi::PyLong_FromSize_t(*freq) };
 

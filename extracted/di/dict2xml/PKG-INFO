@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dict2xml
-Version: 1.7.7
+Version: 1.7.8
 Summary: Small utility to convert a python dictionary into an XML string
 Project-URL: Homepage, http://github.com/delfick/python-dict2xml
 Author-email: Stephen Moore <stephen@delfick.com>
@@ -157,6 +157,8 @@ Limitations
 Changelog
 ---------
 
+1.7.8 - 15 January 2026
+    * Added some .pyi files
 
 1.7.7 - 10 July 2025
     * Converted the tests to plain python to remove the noseOfYeti dependency

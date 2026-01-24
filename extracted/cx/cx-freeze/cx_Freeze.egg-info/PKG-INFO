@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: cx_Freeze
-Version: 8.4.1
+Version: 8.5.3
 Summary: Create standalone executables from Python scripts
-Author-email: Anthony Tuininga <anthony.tuininga@gmail.com>, Marcelo Duarte <marcelotduarte@users.noreply.github.com>
+Author-email: Marcelo Duarte <marcelotduarte@users.noreply.github.com>, Anthony Tuininga <anthony.tuininga@gmail.com>
 License-Expression: PSF-2.0
 Project-URL: Home, https://marcelotduarte.github.io/cx_Freeze
 Project-URL: Changelog, https://github.com/marcelotduarte/cx_Freeze/blob/main/CHANGELOG.md
@@ -15,51 +15,50 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Software Distribution
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: filelock>=3.12.3
+Requires-Dist: freeze-core>=0.4.0
 Requires-Dist: packaging>=24
-Requires-Dist: setuptools<=80.9.0,>=65.6.3
-Requires-Dist: tomli>=2.0.1; python_version < "3.11"
-Requires-Dist: patchelf<0.18,>=0.14; sys_platform == "linux" and platform_machine == "x86_64"
-Requires-Dist: patchelf<0.18,>=0.14; sys_platform == "linux" and platform_machine == "i686"
-Requires-Dist: patchelf<0.18,>=0.14; sys_platform == "linux" and platform_machine == "aarch64"
-Requires-Dist: patchelf<0.18,>=0.14; sys_platform == "linux" and platform_machine == "armv7l"
-Requires-Dist: patchelf<0.18,>=0.14; sys_platform == "linux" and platform_machine == "ppc64le"
-Requires-Dist: patchelf<0.18,>=0.14; sys_platform == "linux" and platform_machine == "s390x"
+Requires-Dist: setuptools<81,>=78.1.1
+Requires-Dist: tomli>=2.0.1; python_version == "3.10"
+Requires-Dist: filelock>=3.20.1; sys_platform == "linux"
+Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "x86_64"
+Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "i686"
+Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "aarch64"
+Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "armv7l"
+Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "ppc64le"
+Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "s390x"
 Requires-Dist: dmgbuild>=1.6.1; sys_platform == "darwin"
-Requires-Dist: cabarchive>=0.2.4; sys_platform == "win32"
-Requires-Dist: cx-logging>=3.1; sys_platform == "win32" and platform_machine != "ARM64"
-Requires-Dist: lief<=0.17.0,>=0.15.1; sys_platform == "win32"
-Requires-Dist: striprtf>=0.0.26; sys_platform == "win32"
+Requires-Dist: lief<=0.17.1,>=0.15.1; sys_platform == "win32" and platform_machine != "ARM64"
+Requires-Dist: lief<=0.17.1,>=0.15.1; sys_platform == "win32" and platform_machine == "ARM64" and python_version <= "3.13"
+Requires-Dist: python-msilib>=0.4.1; sys_platform == "win32" and python_version >= "3.13"
 Provides-Extra: dev
-Requires-Dist: bump-my-version==1.2.3; extra == "dev"
-Requires-Dist: cibuildwheel==2.23.3; extra == "dev"
-Requires-Dist: pre-commit==4.3.0; extra == "dev"
+Requires-Dist: bump-my-version==1.2.6; extra == "dev"
+Requires-Dist: pre-commit==4.5.1; extra == "dev"
 Provides-Extra: doc
 Requires-Dist: sphinx==8.2.3; python_version >= "3.11" and extra == "doc"
 Requires-Dist: sphinx-issues==5.0.1; python_version >= "3.11" and extra == "doc"
-Requires-Dist: sphinx-new-tab-link==0.8.0; python_version >= "3.11" and extra == "doc"
+Requires-Dist: sphinx-new-tab-link==0.8.1; python_version >= "3.11" and extra == "doc"
 Requires-Dist: sphinx-tabs==3.4.7; python_version >= "3.11" and extra == "doc"
-Requires-Dist: furo==2024.8.6; python_version >= "3.11" and extra == "doc"
+Requires-Dist: furo==2025.12.19; python_version >= "3.11" and extra == "doc"
 Requires-Dist: myst-parser==4.0.1; python_version >= "3.11" and extra == "doc"
 Provides-Extra: tests
-Requires-Dist: coverage==7.10.6; extra == "tests"
-Requires-Dist: pytest==8.4.2; extra == "tests"
+Requires-Dist: coverage==7.13.1; extra == "tests"
+Requires-Dist: filelock>=3.20.1; extra == "tests"
+Requires-Dist: pytest==9.0.2; extra == "tests"
 Requires-Dist: pluggy==1.6.0; extra == "tests"
 Requires-Dist: pytest-mock==3.15.1; extra == "tests"
 Requires-Dist: pytest-timeout==2.4.0; extra == "tests"
@@ -108,9 +107,13 @@ command:
 conda install conda-forge::cx_freeze
 ```
 
-Please check the
-[installation](https://cx-freeze.readthedocs.io/en/latest/installation.html)
-for more information.
+> [!NOTE]
+> For more information, please check the
+> [installation](https://cx-freeze.readthedocs.io/en/latest/installation.html).
+
+> [!IMPORTANT]
+> If you are creating "service" standalone executables, see this
+> [readme](https://github.com/marcelotduarte/cx_Freeze/tree/main/samples/service#readme).
 
 # Changelog
 

@@ -3,7 +3,7 @@ Type annotations for sqs service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sqs/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
@@ -27,12 +28,6 @@ from .literals import (
     QueueAttributeNameType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -140,7 +135,7 @@ class CancelMessageMoveTaskRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -253,8 +248,8 @@ class MessageAttributeValueOutputTypeDef(TypedDict):
     DataType: str
     StringValue: NotRequired[str]
     BinaryValue: NotRequired[bytes]
-    StringListValues: NotRequired[List[str]]
-    BinaryListValues: NotRequired[List[bytes]]
+    StringListValues: NotRequired[list[str]]
+    BinaryListValues: NotRequired[list[bytes]]
 
 
 class PurgeQueueRequestTypeDef(TypedDict):
@@ -356,7 +351,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class GetQueueAttributesResultTypeDef(TypedDict):
-    Attributes: Dict[QueueAttributeNameType, str]
+    Attributes: dict[QueueAttributeNameType, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -366,18 +361,18 @@ class GetQueueUrlResultTypeDef(TypedDict):
 
 
 class ListDeadLetterSourceQueuesResultTypeDef(TypedDict):
-    queueUrls: List[str]
+    queueUrls: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListQueueTagsResultTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListQueuesResultTypeDef(TypedDict):
-    QueueUrls: List[str]
+    QueueUrls: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -406,8 +401,8 @@ class ChangeMessageVisibilityBatchRequestTypeDef(TypedDict):
 
 
 class ChangeMessageVisibilityBatchResultTypeDef(TypedDict):
-    Successful: List[ChangeMessageVisibilityBatchResultEntryTypeDef]
-    Failed: List[BatchResultErrorEntryTypeDef]
+    Successful: list[ChangeMessageVisibilityBatchResultEntryTypeDef]
+    Failed: list[BatchResultErrorEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -421,8 +416,8 @@ class DeleteMessageBatchRequestTypeDef(TypedDict):
 
 
 class DeleteMessageBatchResultTypeDef(TypedDict):
-    Successful: List[DeleteMessageBatchResultEntryTypeDef]
-    Failed: List[BatchResultErrorEntryTypeDef]
+    Successful: list[DeleteMessageBatchResultEntryTypeDef]
+    Failed: list[BatchResultErrorEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -437,7 +432,7 @@ class ListQueuesRequestPaginateTypeDef(TypedDict):
 
 
 class ListMessageMoveTasksResultTypeDef(TypedDict):
-    Results: List[ListMessageMoveTasksResultEntryTypeDef]
+    Results: list[ListMessageMoveTasksResultEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -446,14 +441,14 @@ class MessageTypeDef(TypedDict):
     ReceiptHandle: NotRequired[str]
     MD5OfBody: NotRequired[str]
     Body: NotRequired[str]
-    Attributes: NotRequired[Dict[MessageSystemAttributeNameType, str]]
+    Attributes: NotRequired[dict[MessageSystemAttributeNameType, str]]
     MD5OfMessageAttributes: NotRequired[str]
-    MessageAttributes: NotRequired[Dict[str, MessageAttributeValueOutputTypeDef]]
+    MessageAttributes: NotRequired[dict[str, MessageAttributeValueOutputTypeDef]]
 
 
 class SendMessageBatchResultTypeDef(TypedDict):
-    Successful: List[SendMessageBatchResultEntryTypeDef]
-    Failed: List[BatchResultErrorEntryTypeDef]
+    Successful: list[SendMessageBatchResultEntryTypeDef]
+    Failed: list[BatchResultErrorEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -463,7 +458,7 @@ MessageAttributeValueUnionTypeDef = Union[
 
 
 class ReceiveMessageResultTypeDef(TypedDict):
-    Messages: List[MessageTypeDef]
+    Messages: list[MessageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

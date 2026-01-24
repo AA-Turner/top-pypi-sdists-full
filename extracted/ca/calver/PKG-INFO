@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: calver
-Version: 2025.4.17
+Version: 2025.10.20
 Summary: Setuptools extension for CalVer package versions
 Author-email: Dustin Ingram <di@python.org>
 License-Expression: Apache-2.0

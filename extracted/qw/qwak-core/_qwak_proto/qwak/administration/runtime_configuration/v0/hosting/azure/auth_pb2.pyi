@@ -95,12 +95,32 @@ class AzureManagedIdentity(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CLIENT_ID_FIELD_NUMBER: builtins.int
+    FEDERATED_CREDENTIALS_FIELD_NUMBER: builtins.int
     client_id: builtins.str
+    @property
+    def federated_credentials(self) -> global___KubernetesFederatedCredentialsDescriptor: ...
     def __init__(
         self,
         *,
         client_id: builtins.str = ...,
+        federated_credentials: global___KubernetesFederatedCredentialsDescriptor | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["client_id", b"client_id"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["federated_credentials", b"federated_credentials", "type", b"type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["client_id", b"client_id", "federated_credentials", b"federated_credentials", "type", b"type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["federated_credentials"] | None: ...
 
 global___AzureManagedIdentity = AzureManagedIdentity
+
+class KubernetesFederatedCredentialsDescriptor(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SERVICE_ACCOUNT_NAME_FIELD_NUMBER: builtins.int
+    service_account_name: builtins.str
+    def __init__(
+        self,
+        *,
+        service_account_name: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["service_account_name", b"service_account_name"]) -> None: ...
+
+global___KubernetesFederatedCredentialsDescriptor = KubernetesFederatedCredentialsDescriptor

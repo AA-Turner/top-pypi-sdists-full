@@ -3,6 +3,7 @@
 static PyObject *__Pyx_FetchSharedCythonABIModule(void);
 
 /////////////// FetchSharedCythonModule ////////////
+//@requires: ModuleSetupCode.c::AddModuleRef
 
 static PyObject *__Pyx_FetchSharedCythonABIModule(void) {
     return __Pyx_PyImport_AddModuleRef(__PYX_ABI_MODULE_NAME);
@@ -16,7 +17,7 @@ static PyTypeObject* __Pyx_FetchCommonTypeFromSpec(PyTypeObject *metaclass, PyOb
 //@requires:ExtensionTypes.c::FixUpExtensionType
 //@requires: FetchSharedCythonModule
 //@requires:StringTools.c::IncludeStringH
-//@requires:Optimize.c::dict_setdefault
+//@requires:Builtins.c::dict_setdefault
 
 #if __PYX_LIMITED_VERSION_HEX < 0x030C0000
 static PyObject* __Pyx_PyType_FromMetaclass(PyTypeObject *metaclass, PyObject *module, PyType_Spec *spec, PyObject *bases) {
@@ -63,7 +64,7 @@ static int __Pyx_VerifyCachedType(PyObject *cached_type,
 #else
     basicsize = ((PyTypeObject*) cached_type)->tp_basicsize;
 #endif
-    
+
     if (basicsize != expected_basicsize) {
         PyErr_Format(PyExc_TypeError,
             "Shared Cython type %.200s has the wrong size, try recompiling",
@@ -102,19 +103,22 @@ static PyTypeObject *__Pyx_FetchCommonTypeFromSpec(PyTypeObject *metaclass, PyOb
         goto bad;
     }
 
-    // We pass the ABI module reference to avoid keeping the user module alive by foreign type usages.
-    CYTHON_UNUSED_VAR(module);
-    cached_type = __Pyx_PyType_FromMetaclass(metaclass, abi_module, spec, bases);
+    // Without module-state, pass the ABI module reference to avoid keeping the user module alive by foreign type usages.
+    // With module-state it's important to keep the user module alive though.
+    cached_type = __Pyx_PyType_FromMetaclass(
+        metaclass,
+        CYTHON_USE_MODULE_STATE ? module : abi_module,
+        spec, bases);
     if (unlikely(!cached_type)) goto bad;
     if (unlikely(__Pyx_fix_up_extension_type_from_spec(spec, (PyTypeObject *) cached_type) < 0)) goto bad;
 
-    new_cached_type = __Pyx_PyDict_SetDefault(abi_module_dict, py_object_name, cached_type, 1);
+    new_cached_type = __Pyx_PyDict_SetDefault(abi_module_dict, py_object_name, cached_type);
     if (unlikely(new_cached_type != cached_type)) {
         if (unlikely(!new_cached_type)) goto bad;
         // race to initialize it - use the value that's already been set.
         Py_DECREF(cached_type);
         cached_type = new_cached_type;
-        
+
         if (__Pyx_VerifyCachedType(
                 cached_type,
                 object_name,
@@ -151,6 +155,11 @@ Py_VISIT(traverse_module_state->__pyx_CommonTypesMetaclassType);
 
 Py_CLEAR(clear_module_state->__pyx_CommonTypesMetaclassType);
 
+//////////////////// CommonTypesMetaclass.init //////////////////
+//@substitute: naming
+
+if (likely(__pyx_CommonTypesMetaclass_init($module_cname) == 0)); else
+
 /////////////////////////// CommonTypesMetaclass.proto ////////////////////////
 
 static int __pyx_CommonTypesMetaclass_init(PyObject *module); /* proto */
@@ -165,6 +174,18 @@ static PyObject* __pyx_CommonTypesMetaclass_get_module(CYTHON_UNUSED PyObject *s
     return PyUnicode_FromString(__PYX_ABI_MODULE_NAME);
 }
 
+#if __PYX_LIMITED_VERSION_HEX < 0x030A0000
+static PyObject* __pyx_CommonTypesMetaclass_call(CYTHON_UNUSED PyObject *self, CYTHON_UNUSED PyObject *args, CYTHON_UNUSED PyObject *kwds) {
+    PyErr_SetString(PyExc_TypeError, "Cannot instantiate Cython internal types");
+    return NULL;
+}
+
+static int __pyx_CommonTypesMetaclass_setattr(CYTHON_UNUSED PyObject *self, CYTHON_UNUSED PyObject *attr, CYTHON_UNUSED PyObject *value) {
+    PyErr_SetString(PyExc_TypeError, "Cython internal types are immutable");
+    return -1;
+}
+#endif
+
 static PyGetSetDef __pyx_CommonTypesMetaclass_getset[] = {
     {"__module__", __pyx_CommonTypesMetaclass_get_module, NULL, NULL, NULL},
     {0, 0, 0, 0, 0}
@@ -172,6 +193,11 @@ static PyGetSetDef __pyx_CommonTypesMetaclass_getset[] = {
 
 static PyType_Slot __pyx_CommonTypesMetaclass_slots[] = {
     {Py_tp_getset, (void *)__pyx_CommonTypesMetaclass_getset},
+    #if __PYX_LIMITED_VERSION_HEX < 0x030A0000
+    {Py_tp_call, (void*)__pyx_CommonTypesMetaclass_call},
+    {Py_tp_new, (void*)__pyx_CommonTypesMetaclass_call},
+    {Py_tp_setattro, (void*)__pyx_CommonTypesMetaclass_setattr},
+    #endif
     {0, 0}
 };
 
@@ -179,15 +205,13 @@ static PyType_Spec __pyx_CommonTypesMetaclass_spec = {
     __PYX_TYPE_MODULE_PREFIX "_common_types_metatype",
     0,
     0,
-#if PY_VERSION_HEX >= 0x030A0000
     Py_TPFLAGS_IMMUTABLETYPE |
     Py_TPFLAGS_DISALLOW_INSTANTIATION |
-#endif
     Py_TPFLAGS_DEFAULT, /*tp_flags*/
     __pyx_CommonTypesMetaclass_slots
 };
 
-static int __pyx_CommonTypesMetaclass_init(PyObject *module) {   
+static int __pyx_CommonTypesMetaclass_init(PyObject *module) {
     $modulestatetype_cname *mstate = __Pyx_PyModule_GetState(module);
     PyObject *bases = PyTuple_Pack(1, &PyType_Type);
     if (unlikely(!bases)) {

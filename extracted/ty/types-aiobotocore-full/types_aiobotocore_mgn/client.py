@@ -3,7 +3,7 @@ Type annotations for mgn service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -151,12 +152,6 @@ from .type_defs import (
     WaveResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -167,15 +162,15 @@ __all__ = ("MgnClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UninitializedAccountException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UninitializedAccountException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class MgnClient(AioBaseClient):
@@ -235,7 +230,7 @@ class MgnClient(AioBaseClient):
 
     async def associate_applications(
         self, **kwargs: Unpack[AssociateApplicationsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associate applications to wave.
 
@@ -245,7 +240,7 @@ class MgnClient(AioBaseClient):
 
     async def associate_source_servers(
         self, **kwargs: Unpack[AssociateSourceServersRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associate source servers to application.
 
@@ -314,7 +309,7 @@ class MgnClient(AioBaseClient):
 
     async def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete application.
 
@@ -332,7 +327,7 @@ class MgnClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#delete_connector)
         """
 
-    async def delete_job(self, **kwargs: Unpack[DeleteJobRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_job(self, **kwargs: Unpack[DeleteJobRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a single Job by ID.
 
@@ -342,7 +337,7 @@ class MgnClient(AioBaseClient):
 
     async def delete_launch_configuration_template(
         self, **kwargs: Unpack[DeleteLaunchConfigurationTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a single Launch Configuration Template by ID.
 
@@ -352,7 +347,7 @@ class MgnClient(AioBaseClient):
 
     async def delete_replication_configuration_template(
         self, **kwargs: Unpack[DeleteReplicationConfigurationTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a single Replication Configuration Template by ID.
 
@@ -362,7 +357,7 @@ class MgnClient(AioBaseClient):
 
     async def delete_source_server(
         self, **kwargs: Unpack[DeleteSourceServerRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a single source server by ID.
 
@@ -380,7 +375,7 @@ class MgnClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#delete_vcenter_client)
         """
 
-    async def delete_wave(self, **kwargs: Unpack[DeleteWaveRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_wave(self, **kwargs: Unpack[DeleteWaveRequestTypeDef]) -> dict[str, Any]:
         """
         Delete wave.
 
@@ -451,7 +446,7 @@ class MgnClient(AioBaseClient):
 
     async def disassociate_applications(
         self, **kwargs: Unpack[DisassociateApplicationsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociate applications from wave.
 
@@ -461,7 +456,7 @@ class MgnClient(AioBaseClient):
 
     async def disassociate_source_servers(
         self, **kwargs: Unpack[DisassociateSourceServersRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociate source servers from application.
 
@@ -509,7 +504,7 @@ class MgnClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#get_replication_configuration)
         """
 
-    async def initialize_service(self) -> Dict[str, Any]:
+    async def initialize_service(self) -> dict[str, Any]:
         """
         Initialize Application Migration Service.
 
@@ -670,7 +665,7 @@ class MgnClient(AioBaseClient):
 
     async def remove_source_server_action(
         self, **kwargs: Unpack[RemoveSourceServerActionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Remove source server post migration custom action.
 
@@ -680,7 +675,7 @@ class MgnClient(AioBaseClient):
 
     async def remove_template_action(
         self, **kwargs: Unpack[RemoveTemplateActionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Remove template post migration custom action.
 
@@ -744,7 +739,7 @@ class MgnClient(AioBaseClient):
         self, **kwargs: Unpack[StartReplicationRequestTypeDef]
     ) -> SourceServerResponseTypeDef:
         """
-        Starts replication for SNAPSHOT_SHIPPING agents.
+        Start replication for source server irrespective of its replication type.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/start_replication.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mgn/client/#start_replication)
@@ -1095,7 +1090,7 @@ class MgnClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

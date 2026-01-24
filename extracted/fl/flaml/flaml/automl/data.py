@@ -5,6 +5,7 @@
 import json
 import os
 import random
+import re
 import uuid
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -50,7 +51,10 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0, dataset_forma
     """
     import pickle
 
-    import openml
+    try:
+        import openml
+    except ImportError:
+        openml = None
     from sklearn.model_selection import train_test_split
 
     filename = "openml_ds" + str(dataset_id) + ".pkl"
@@ -61,15 +65,15 @@ def load_openml_dataset(dataset_id, data_dir=None, random_state=0, dataset_forma
             dataset = pickle.load(f)
     else:
         print("download dataset from openml")
-        dataset = openml.datasets.get_dataset(dataset_id)
+        dataset = openml.datasets.get_dataset(dataset_id) if openml else None
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
         with open(filepath, "wb") as f:
             pickle.dump(dataset, f, pickle.HIGHEST_PROTOCOL)
-    print("Dataset name:", dataset.name)
+    print("Dataset name:", dataset.name) if dataset else None
     try:
         X, y, *__ = dataset.get_data(target=dataset.default_target_attribute, dataset_format=dataset_format)
-    except ValueError:
+    except (ValueError, AttributeError, TypeError):
         from sklearn.datasets import fetch_openml
 
         X, y = fetch_openml(data_id=dataset_id, return_X_y=True)
@@ -705,6 +709,14 @@ def auto_convert_dtypes_pandas(
     """
     if na_values is None:
         na_values = {"NA", "na", "NULL", "null", ""}
+    # Remove the empty string separately (handled by the regex `^\s*$`)
+    vals = [re.escape(v) for v in na_values if v != ""]
+    # Build inner alternation group
+    inner = "|".join(vals) if vals else ""
+    if inner:
+        pattern = re.compile(rf"^\s*(?:{inner})?\s*$")
+    else:
+        pattern = re.compile(r"^\s*$")
 
     df_converted = df.convert_dtypes()
     schema = {}
@@ -718,7 +730,11 @@ def auto_convert_dtypes_pandas(
     for col in df.columns:
         series = df[col]
         # Replace NA-like values if string
-        series_cleaned = series.map(lambda x: np.nan if isinstance(x, str) and x.strip() in na_values else x)
+        if series.dtype == object:
+            mask = series.astype(str).str.match(pattern)
+            series_cleaned = series.where(~mask, np.nan)
+        else:
+            series_cleaned = series
 
         # Skip conversion if already non-object data type, except bool which can potentially be categorical
         if (

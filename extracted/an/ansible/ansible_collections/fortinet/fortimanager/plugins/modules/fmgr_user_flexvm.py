@@ -16,7 +16,6 @@ short_description: User flexvm
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.2.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -114,6 +116,9 @@ options:
             user:
                 type: str
                 description: User.
+            default_config:
+                type: int
+                description: Default config.
 '''
 
 EXAMPLES = '''
@@ -129,8 +134,8 @@ EXAMPLES = '''
     - name: User flexvm
       fortinet.fortimanager.fmgr_user_flexvm:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -143,6 +148,7 @@ EXAMPLES = '''
           # program: <string>
           # status: <value in [disable, enable]>
           # user: <string>
+          # default_config: <integer>
 '''
 
 RETURN = '''
@@ -199,6 +205,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'user_flexvm': {
             'type': 'dict',
             'v_range': [['7.2.1', '']],
@@ -209,7 +216,8 @@ def main():
                 'password': {'v_range': [['7.2.1', '']], 'no_log': True, 'type': 'str'},
                 'program': {'v_range': [['7.2.1', '']], 'type': 'str'},
                 'status': {'v_range': [['7.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'user': {'v_range': [['7.2.1', '']], 'type': 'str'}
+                'user': {'v_range': [['7.2.1', '']], 'type': 'str'},
+                'default_config': {'v_range': [['7.6.4', '']], 'type': 'int'}
             }
         }
     }

@@ -1,7 +1,7 @@
 r'''
 # `data_github_branch_protection_rules`
 
-Refer to the Terraform Registry for docs: [`data_github_branch_protection_rules`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/branch_protection_rules).
+Refer to the Terraform Registry for docs: [`data_github_branch_protection_rules`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/branch_protection_rules).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGithubBranchProtectionRules(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.dataGithubBranchProtectionRules.DataGithubBranchProtectionRules",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/branch_protection_rules github_branch_protection_rules}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/branch_protection_rules github_branch_protection_rules}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataGithubBranchProtectionRules(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/branch_protection_rules github_branch_protection_rules} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/branch_protection_rules github_branch_protection_rules} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/branch_protection_rules#repository DataGithubBranchProtectionRules#repository}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/branch_protection_rules#id DataGithubBranchProtectionRules#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/branch_protection_rules#repository DataGithubBranchProtectionRules#repository}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/branch_protection_rules#id DataGithubBranchProtectionRules#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataGithubBranchProtectionRules(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGithubBranchProtectionRules to import.
-        :param import_from_id: The id of the existing DataGithubBranchProtectionRules that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/branch_protection_rules#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGithubBranchProtectionRules that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/branch_protection_rules#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGithubBranchProtectionRules to import is found.
         '''
         if __debug__:
@@ -211,8 +211,8 @@ class DataGithubBranchProtectionRulesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/branch_protection_rules#repository DataGithubBranchProtectionRules#repository}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/branch_protection_rules#id DataGithubBranchProtectionRules#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/branch_protection_rules#repository DataGithubBranchProtectionRules#repository}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/branch_protection_rules#id DataGithubBranchProtectionRules#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -313,14 +313,14 @@ class DataGithubBranchProtectionRulesConfig(_cdktf_9a9027ec.TerraformMetaArgumen
 
     @builtins.property
     def repository(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/branch_protection_rules#repository DataGithubBranchProtectionRules#repository}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/branch_protection_rules#repository DataGithubBranchProtectionRules#repository}.'''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/branch_protection_rules#id DataGithubBranchProtectionRules#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/branch_protection_rules#id DataGithubBranchProtectionRules#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

@@ -16,7 +16,6 @@ short_description: Configure Virtual Access Points
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -1627,6 +1629,13 @@ options:
             _intf_vrf:
                 type: int
                 description: Intf vrf.
+            captive_network_assistant_bypass:
+                aliases: ['captive-network-assistant-bypass']
+                type: str
+                description: Enable/disable Captive Network Assistant bypass.
+                choices:
+                    - 'disable'
+                    - 'enable'
 '''
 
 EXAMPLES = '''
@@ -1642,8 +1651,8 @@ EXAMPLES = '''
     - name: Configure Virtual Access Points
       fortinet.fortimanager.fmgr_vap_dynamicmapping:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -2123,6 +2132,7 @@ EXAMPLES = '''
           #     rdnss: <list or string>
           #     valid_life_time: <integer>
           # _intf_vrf: <integer>
+          # captive_network_assistant_bypass: <value in [disable, enable]>
 '''
 
 RETURN = '''
@@ -2180,6 +2190,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'vap': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'vap_dynamicmapping': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -2466,10 +2477,10 @@ def main():
                 'utm-log': {'v_range': [['7.0.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'utm-status': {'v_range': [['7.0.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'webfilter-profile': {'v_range': [['7.0.1', '']], 'type': 'str'},
-                'sae-h2e-only': {'v_range': [['7.0.5', '7.0.13'], ['7.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'sae-pk': {'v_range': [['7.0.5', '7.0.13'], ['7.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'sae-private-key': {'v_range': [['7.0.5', '7.0.13'], ['7.2.1', '']], 'no_log': True, 'type': 'str'},
-                'sticky-client-threshold-6g': {'v_range': [['7.0.5', '7.0.13'], ['7.2.1', '']], 'type': 'str'},
+                'sae-h2e-only': {'v_range': [['7.0.5', '7.0.15'], ['7.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'sae-pk': {'v_range': [['7.0.5', '7.0.15'], ['7.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'sae-private-key': {'v_range': [['7.0.5', '7.0.15'], ['7.2.1', '']], 'no_log': True, 'type': 'str'},
+                'sticky-client-threshold-6g': {'v_range': [['7.0.5', '7.0.15'], ['7.2.1', '']], 'type': 'str'},
                 'application-dscp-marking': {'v_range': [['7.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'l3-roaming-mode': {'v_range': [['7.2.1', '']], 'choices': ['direct', 'indirect'], 'type': 'str'},
                 'rates-11ac-mcs-map': {'v_range': [['7.2.1', '']], 'type': 'str'},
@@ -2496,26 +2507,43 @@ def main():
                 },
                 'domain-name-stripping': {'v_range': [['7.6.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'local-lan-partition': {'v_range': [['7.6.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                '_intf_role': {'v_range': [['7.4.6', '7.4.7'], ['7.6.2', '']], 'choices': ['lan', 'wan', 'dmz', 'undefined'], 'type': 'str'},
+                '_intf_role': {
+                    'v_range': [['7.2.10', '7.2.11'], ['7.4.6', '7.4.8'], ['7.6.2', '']],
+                    'choices': ['lan', 'wan', 'dmz', 'undefined'],
+                    'type': 'str'
+                },
                 'called-station-id-type': {'v_range': [['7.6.2', '']], 'choices': ['mac', 'ip', 'apname'], 'type': 'str'},
                 'external-pre-auth': {'v_range': [['7.6.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'pre-auth': {'v_range': [['7.6.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                '_intf_ip6-send-adv': {'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                '_intf_ip6-send-adv': {
+                    'v_range': [['7.2.10', '7.2.11'], ['7.4.7', '7.4.8'], ['7.6.3', '']],
+                    'choices': ['disable', 'enable'],
+                    'type': 'str'
+                },
                 'ip6-prefix-list': {
-                    'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']],
+                    'v_range': [['7.2.10', '7.2.11'], ['7.4.7', '7.4.8'], ['7.6.3', '']],
                     'type': 'list',
                     'options': {
-                        'autonomous-flag': {'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'dnssl': {'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']], 'type': 'raw'},
-                        'onlink-flag': {'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'preferred-life-time': {'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']], 'type': 'int'},
-                        'prefix': {'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']], 'type': 'str'},
-                        'rdnss': {'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']], 'type': 'raw'},
-                        'valid-life-time': {'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']], 'type': 'int'}
+                        'autonomous-flag': {
+                            'v_range': [['7.2.10', '7.2.11'], ['7.4.7', '7.4.8'], ['7.6.3', '']],
+                            'choices': ['disable', 'enable'],
+                            'type': 'str'
+                        },
+                        'dnssl': {'v_range': [['7.2.10', '7.2.11'], ['7.4.7', '7.4.8'], ['7.6.3', '']], 'type': 'raw'},
+                        'onlink-flag': {
+                            'v_range': [['7.2.10', '7.2.11'], ['7.4.7', '7.4.8'], ['7.6.3', '']],
+                            'choices': ['disable', 'enable'],
+                            'type': 'str'
+                        },
+                        'preferred-life-time': {'v_range': [['7.2.10', '7.2.11'], ['7.4.7', '7.4.8'], ['7.6.3', '']], 'type': 'int'},
+                        'prefix': {'v_range': [['7.2.10', '7.2.11'], ['7.4.7', '7.4.8'], ['7.6.3', '']], 'type': 'str'},
+                        'rdnss': {'v_range': [['7.2.10', '7.2.11'], ['7.4.7', '7.4.8'], ['7.6.3', '']], 'type': 'raw'},
+                        'valid-life-time': {'v_range': [['7.2.10', '7.2.11'], ['7.4.7', '7.4.8'], ['7.6.3', '']], 'type': 'int'}
                     },
                     'elements': 'dict'
                 },
-                '_intf_vrf': {'v_range': [['7.6.3', '']], 'type': 'int'}
+                '_intf_vrf': {'v_range': [['7.6.3', '']], 'type': 'int'},
+                'captive-network-assistant-bypass': {'v_range': [['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
             }
         }
     }

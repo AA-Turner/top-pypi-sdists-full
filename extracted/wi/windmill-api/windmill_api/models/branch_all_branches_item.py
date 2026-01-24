@@ -16,9 +16,9 @@ T = TypeVar("T", bound="BranchAllBranchesItem")
 class BranchAllBranchesItem:
     """
     Attributes:
-        modules (List['BranchAllBranchesItemModulesItem']):
-        summary (Union[Unset, str]):
-        skip_failure (Union[Unset, bool]):
+        modules (List['BranchAllBranchesItemModulesItem']): Steps to execute in this branch
+        summary (Union[Unset, str]): Short description of this branch's purpose
+        skip_failure (Union[Unset, bool]): If true, failure in this branch doesn't fail the entire flow
     """
 
     modules: List["BranchAllBranchesItemModulesItem"]

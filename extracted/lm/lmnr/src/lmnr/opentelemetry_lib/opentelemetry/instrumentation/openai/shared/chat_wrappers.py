@@ -43,6 +43,7 @@ from ..utils import (
 from lmnr.opentelemetry_lib.tracing.context import (
     get_current_context,
     get_event_attributes_from_context,
+    is_in_litellm_context,
 )
 from opentelemetry.instrumentation.utils import _SUPPRESS_INSTRUMENTATION_KEY
 from opentelemetry.metrics import Counter, Histogram
@@ -86,6 +87,12 @@ def chat_wrapper(
     ):
         return wrapped(*args, **kwargs)
     # span needs to be opened and closed manually because the response is a generator
+
+    # LiteLLM calls OpenAI through OpenAI SDK, and to avoid double-instrumentation,
+    # we check if we're in a LiteLLM context and return the result directly if so.
+
+    if is_in_litellm_context():
+        return wrapped(*args, **kwargs)
 
     span = tracer.start_span(
         SPAN_NAME,
@@ -184,6 +191,11 @@ async def achat_wrapper(
     if context_api.get_value(_SUPPRESS_INSTRUMENTATION_KEY) or context_api.get_value(
         SUPPRESS_LANGUAGE_MODEL_INSTRUMENTATION_KEY
     ):
+        return await wrapped(*args, **kwargs)
+
+    # LiteLLM calls OpenAI through OpenAI SDK, and to avoid double-instrumentation,
+    # we check if we're in a LiteLLM context and return the result directly if so.
+    if is_in_litellm_context():
         return await wrapped(*args, **kwargs)
 
     span = tracer.start_span(
@@ -630,7 +642,12 @@ class ChatStream(ObjectProxy):
         self._first_token = True
         # will be updated when first token is received
         self._time_of_first_token = self._start_time
-        self._complete_response = {"choices": [], "model": ""}
+        self._complete_response = {
+            "choices": [],
+            "model": "",
+            "id": "",
+            "service_tier": None,
+        }
 
         # Cleanup state tracking to prevent duplicate operations
         self._cleanup_completed = False
@@ -708,6 +725,10 @@ class ChatStream(ObjectProxy):
 
     def _process_item(self, item):
         self._span.add_event(name=f"{SpanAttributes.LLM_CONTENT_COMPLETION_CHUNK}")
+        self._complete_response["id"] = item.id if hasattr(item, "id") else ""
+        self._complete_response["service_tier"] = (
+            item.service_tier if hasattr(item, "service_tier") else ""
+        )
 
         if self._first_token and self._streaming_time_to_first_token:
             self._time_of_first_token = time.time()
@@ -866,7 +887,7 @@ def _build_from_streaming_response(
     start_time=None,
     request_kwargs=None,
 ):
-    complete_response = {"choices": [], "model": "", "id": ""}
+    complete_response = {"choices": [], "model": "", "id": "", "service_tier": None}
 
     first_token = True
     time_of_first_token = start_time  # will be updated when first token is received
@@ -936,7 +957,7 @@ async def _abuild_from_streaming_response(
     start_time=None,
     request_kwargs=None,
 ):
-    complete_response = {"choices": [], "model": "", "id": ""}
+    complete_response = {"choices": [], "model": "", "id": "", "service_tier": None}
 
     first_token = True
     time_of_first_token = start_time  # will be updated when first token is received
@@ -1115,6 +1136,7 @@ def _accumulate_stream_items(item, complete_response):
 
     complete_response["model"] = item.get("model")
     complete_response["id"] = item.get("id")
+    complete_response["service_tier"] = item.get("service_tier")
 
     # capture usage information from the last stream chunks
     if item.get("usage"):

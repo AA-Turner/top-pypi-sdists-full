@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import TYPE_CHECKING, Any, List, Sequence, Set, Type, Union
+from typing import TYPE_CHECKING, Any, List, Sequence, Set, Type, TypeAlias, Union
 
 import pyarrow
-from typing_extensions import TypeAlias
 
 from chalk.utils import AnyDataclass
 

@@ -15,6 +15,7 @@ from cx_Freeze._compat import (
     IS_CONDA,
     IS_MACOS,
     IS_MINGW,
+    IS_UCRT,
     IS_WINDOWS,
     PYTHON_VERSION,
 )
@@ -178,7 +179,7 @@ def test_freezer_populate_zip_options_invalid_values(tmp_package) -> None:
         ),
         pytest.param(
             {"include_msvcr": True},
-            {"include_msvcr": IS_WINDOWS},
+            {"include_msvcr": IS_UCRT},
             id="include_msvcr=true",
         ),
         pytest.param(
@@ -369,7 +370,10 @@ def test_freezer_copy_package_data(tmp_package) -> None:
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
     ignore_patterns = [
+        "*.c",
+        "*.cpp",
         "*.pxd",
+        "*.pxi",
         "*.py",
         # "*.pyc", # this pattern is not copied by _copy_package_data itself.
         "*.pyi",

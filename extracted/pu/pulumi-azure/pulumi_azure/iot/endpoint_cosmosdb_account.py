@@ -30,7 +30,8 @@ class EndpointCosmosdbAccountArgs:
                  partition_key_name: Optional[pulumi.Input[_builtins.str]] = None,
                  partition_key_template: Optional[pulumi.Input[_builtins.str]] = None,
                  primary_key: Optional[pulumi.Input[_builtins.str]] = None,
-                 secondary_key: Optional[pulumi.Input[_builtins.str]] = None):
+                 secondary_key: Optional[pulumi.Input[_builtins.str]] = None,
+                 subscription_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a EndpointCosmosdbAccount resource.
         :param pulumi.Input[_builtins.str] container_name: The name of the Cosmos DB Container in the Cosmos DB Database. Changing this forces a new resource to be created.
@@ -51,6 +52,9 @@ class EndpointCosmosdbAccountArgs:
         :param pulumi.Input[_builtins.str] secondary_key: The secondary key of the Cosmos DB Account.
                
                > **Note:** `secondary_key` must and can only be specified when `authentication_type` is `keyBased`.
+        :param pulumi.Input[_builtins.str] subscription_id: The subscription ID for the endpoint.
+               
+               > **Note:** When `subscription_id` isn't specified it will be set to the subscription ID of the IoT Hub resource.
         """
         pulumi.set(__self__, "container_name", container_name)
         pulumi.set(__self__, "database_name", database_name)
@@ -71,6 +75,8 @@ class EndpointCosmosdbAccountArgs:
             pulumi.set(__self__, "primary_key", primary_key)
         if secondary_key is not None:
             pulumi.set(__self__, "secondary_key", secondary_key)
+        if subscription_id is not None:
+            pulumi.set(__self__, "subscription_id", subscription_id)
 
     @_builtins.property
     @pulumi.getter(name="containerName")
@@ -222,6 +228,20 @@ class EndpointCosmosdbAccountArgs:
     def secondary_key(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "secondary_key", value)
 
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The subscription ID for the endpoint.
+
+        > **Note:** When `subscription_id` isn't specified it will be set to the subscription ID of the IoT Hub resource.
+        """
+        return pulumi.get(self, "subscription_id")
+
+    @subscription_id.setter
+    def subscription_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "subscription_id", value)
+
 
 @pulumi.input_type
 class _EndpointCosmosdbAccountState:
@@ -237,7 +257,8 @@ class _EndpointCosmosdbAccountState:
                  partition_key_template: Optional[pulumi.Input[_builtins.str]] = None,
                  primary_key: Optional[pulumi.Input[_builtins.str]] = None,
                  resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
-                 secondary_key: Optional[pulumi.Input[_builtins.str]] = None):
+                 secondary_key: Optional[pulumi.Input[_builtins.str]] = None,
+                 subscription_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering EndpointCosmosdbAccount resources.
         :param pulumi.Input[_builtins.str] authentication_type: The type used to authenticate against the Cosmos DB Account endpoint. Possible values are `keyBased` and `identityBased`. Defaults to `keyBased`.
@@ -258,6 +279,9 @@ class _EndpointCosmosdbAccountState:
         :param pulumi.Input[_builtins.str] secondary_key: The secondary key of the Cosmos DB Account.
                
                > **Note:** `secondary_key` must and can only be specified when `authentication_type` is `keyBased`.
+        :param pulumi.Input[_builtins.str] subscription_id: The subscription ID for the endpoint.
+               
+               > **Note:** When `subscription_id` isn't specified it will be set to the subscription ID of the IoT Hub resource.
         """
         if authentication_type is not None:
             pulumi.set(__self__, "authentication_type", authentication_type)
@@ -283,6 +307,8 @@ class _EndpointCosmosdbAccountState:
             pulumi.set(__self__, "resource_group_name", resource_group_name)
         if secondary_key is not None:
             pulumi.set(__self__, "secondary_key", secondary_key)
+        if subscription_id is not None:
+            pulumi.set(__self__, "subscription_id", subscription_id)
 
     @_builtins.property
     @pulumi.getter(name="authenticationType")
@@ -434,6 +460,20 @@ class _EndpointCosmosdbAccountState:
     def secondary_key(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "secondary_key", value)
 
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The subscription ID for the endpoint.
+
+        > **Note:** When `subscription_id` isn't specified it will be set to the subscription ID of the IoT Hub resource.
+        """
+        return pulumi.get(self, "subscription_id")
+
+    @subscription_id.setter
+    def subscription_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "subscription_id", value)
+
 
 @pulumi.type_token("azure:iot/endpointCosmosdbAccount:EndpointCosmosdbAccount")
 class EndpointCosmosdbAccount(pulumi.CustomResource):
@@ -453,11 +493,66 @@ class EndpointCosmosdbAccount(pulumi.CustomResource):
                  primary_key: Optional[pulumi.Input[_builtins.str]] = None,
                  resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  secondary_key: Optional[pulumi.Input[_builtins.str]] = None,
+                 subscription_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
         Manages an IotHub Cosmos DB Account Endpoint
 
         > **Note:** Endpoints can be defined either directly on the `iot.IoTHub` resource, or using the `azurerm_iothub_endpoint_*` resources - but the two ways of defining the endpoints cannot be used together. If both are used against the same IoTHub, spurious changes will occur. Also, defining a `azurerm_iothub_endpoint_*` resource and another endpoint of a different type directly on the `iot.IoTHub` resource is not supported.
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_azure as azure
+
+        example = azure.core.ResourceGroup("example",
+            name="example-resources",
+            location="West Europe")
+        example_io_t_hub = azure.iot.IoTHub("example",
+            name="exampleIothub",
+            resource_group_name=example.name,
+            location=example.location,
+            sku={
+                "name": "B1",
+                "capacity": 1,
+            },
+            tags={
+                "purpose": "example",
+            })
+        example_account = azure.cosmosdb.Account("example",
+            name="cosmosdb-account",
+            location=example.location,
+            resource_group_name=example.name,
+            offer_type="Standard",
+            kind="GlobalDocumentDB",
+            consistency_policy={
+                "consistency_level": "Strong",
+            },
+            geo_locations=[{
+                "location": example.location,
+                "failover_priority": 0,
+            }])
+        example_sql_database = azure.cosmosdb.SqlDatabase("example",
+            name="cosmos-sql-db",
+            resource_group_name=example_account.resource_group_name,
+            account_name=example_account.name)
+        example_sql_container = azure.cosmosdb.SqlContainer("example",
+            name="example-container",
+            resource_group_name=example_account.resource_group_name,
+            account_name=example_account.name,
+            database_name=example_sql_database.name,
+            partition_key_path="/definition/id")
+        example_endpoint_cosmosdb_account = azure.iot.EndpointCosmosdbAccount("example",
+            name="example",
+            resource_group_name=example.name,
+            iothub_id=example_io_t_hub.id,
+            container_name=example_sql_container.name,
+            database_name=example_sql_database.name,
+            endpoint_uri=example_account.endpoint,
+            primary_key=example_account.primary_key,
+            secondary_key=example_account.secondary_key)
+        ```
 
         ## Import
 
@@ -487,6 +582,9 @@ class EndpointCosmosdbAccount(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] secondary_key: The secondary key of the Cosmos DB Account.
                
                > **Note:** `secondary_key` must and can only be specified when `authentication_type` is `keyBased`.
+        :param pulumi.Input[_builtins.str] subscription_id: The subscription ID for the endpoint.
+               
+               > **Note:** When `subscription_id` isn't specified it will be set to the subscription ID of the IoT Hub resource.
         """
         ...
     @overload
@@ -498,6 +596,60 @@ class EndpointCosmosdbAccount(pulumi.CustomResource):
         Manages an IotHub Cosmos DB Account Endpoint
 
         > **Note:** Endpoints can be defined either directly on the `iot.IoTHub` resource, or using the `azurerm_iothub_endpoint_*` resources - but the two ways of defining the endpoints cannot be used together. If both are used against the same IoTHub, spurious changes will occur. Also, defining a `azurerm_iothub_endpoint_*` resource and another endpoint of a different type directly on the `iot.IoTHub` resource is not supported.
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_azure as azure
+
+        example = azure.core.ResourceGroup("example",
+            name="example-resources",
+            location="West Europe")
+        example_io_t_hub = azure.iot.IoTHub("example",
+            name="exampleIothub",
+            resource_group_name=example.name,
+            location=example.location,
+            sku={
+                "name": "B1",
+                "capacity": 1,
+            },
+            tags={
+                "purpose": "example",
+            })
+        example_account = azure.cosmosdb.Account("example",
+            name="cosmosdb-account",
+            location=example.location,
+            resource_group_name=example.name,
+            offer_type="Standard",
+            kind="GlobalDocumentDB",
+            consistency_policy={
+                "consistency_level": "Strong",
+            },
+            geo_locations=[{
+                "location": example.location,
+                "failover_priority": 0,
+            }])
+        example_sql_database = azure.cosmosdb.SqlDatabase("example",
+            name="cosmos-sql-db",
+            resource_group_name=example_account.resource_group_name,
+            account_name=example_account.name)
+        example_sql_container = azure.cosmosdb.SqlContainer("example",
+            name="example-container",
+            resource_group_name=example_account.resource_group_name,
+            account_name=example_account.name,
+            database_name=example_sql_database.name,
+            partition_key_path="/definition/id")
+        example_endpoint_cosmosdb_account = azure.iot.EndpointCosmosdbAccount("example",
+            name="example",
+            resource_group_name=example.name,
+            iothub_id=example_io_t_hub.id,
+            container_name=example_sql_container.name,
+            database_name=example_sql_database.name,
+            endpoint_uri=example_account.endpoint,
+            primary_key=example_account.primary_key,
+            secondary_key=example_account.secondary_key)
+        ```
 
         ## Import
 
@@ -534,6 +686,7 @@ class EndpointCosmosdbAccount(pulumi.CustomResource):
                  primary_key: Optional[pulumi.Input[_builtins.str]] = None,
                  resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  secondary_key: Optional[pulumi.Input[_builtins.str]] = None,
+                 subscription_id: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -565,6 +718,7 @@ class EndpointCosmosdbAccount(pulumi.CustomResource):
                 raise TypeError("Missing required property 'resource_group_name'")
             __props__.__dict__["resource_group_name"] = resource_group_name
             __props__.__dict__["secondary_key"] = None if secondary_key is None else pulumi.Output.secret(secondary_key)
+            __props__.__dict__["subscription_id"] = subscription_id
         secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["primaryKey", "secondaryKey"])
         opts = pulumi.ResourceOptions.merge(opts, secret_opts)
         super(EndpointCosmosdbAccount, __self__).__init__(
@@ -588,7 +742,8 @@ class EndpointCosmosdbAccount(pulumi.CustomResource):
             partition_key_template: Optional[pulumi.Input[_builtins.str]] = None,
             primary_key: Optional[pulumi.Input[_builtins.str]] = None,
             resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
-            secondary_key: Optional[pulumi.Input[_builtins.str]] = None) -> 'EndpointCosmosdbAccount':
+            secondary_key: Optional[pulumi.Input[_builtins.str]] = None,
+            subscription_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'EndpointCosmosdbAccount':
         """
         Get an existing EndpointCosmosdbAccount resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -614,6 +769,9 @@ class EndpointCosmosdbAccount(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] secondary_key: The secondary key of the Cosmos DB Account.
                
                > **Note:** `secondary_key` must and can only be specified when `authentication_type` is `keyBased`.
+        :param pulumi.Input[_builtins.str] subscription_id: The subscription ID for the endpoint.
+               
+               > **Note:** When `subscription_id` isn't specified it will be set to the subscription ID of the IoT Hub resource.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -631,6 +789,7 @@ class EndpointCosmosdbAccount(pulumi.CustomResource):
         __props__.__dict__["primary_key"] = primary_key
         __props__.__dict__["resource_group_name"] = resource_group_name
         __props__.__dict__["secondary_key"] = secondary_key
+        __props__.__dict__["subscription_id"] = subscription_id
         return EndpointCosmosdbAccount(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
@@ -734,4 +893,14 @@ class EndpointCosmosdbAccount(pulumi.CustomResource):
         > **Note:** `secondary_key` must and can only be specified when `authentication_type` is `keyBased`.
         """
         return pulumi.get(self, "secondary_key")
+
+    @_builtins.property
+    @pulumi.getter(name="subscriptionId")
+    def subscription_id(self) -> pulumi.Output[_builtins.str]:
+        """
+        The subscription ID for the endpoint.
+
+        > **Note:** When `subscription_id` isn't specified it will be set to the subscription ID of the IoT Hub resource.
+        """
+        return pulumi.get(self, "subscription_id")
 

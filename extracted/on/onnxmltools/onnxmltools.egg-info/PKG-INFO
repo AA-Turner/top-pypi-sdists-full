@@ -1,35 +1,29 @@
 Metadata-Version: 2.4
 Name: onnxmltools
-Version: 1.14.0
+Version: 1.15.0
 Summary: Converts Machine Learning models to ONNX
-Home-page: https://github.com/onnx/onnxmltools
-Author: ONNX
-Author-email: onnx-technical-discuss@lists.lfaidata.foundation
-License: Apache License v2.0
+Author-email: ONNX <onnx-technical-discuss@lists.lfaidata.foundation>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/onnx/onnxmltools
+Project-URL: Repository, https://github.com/onnx/onnxmltools
+Project-URL: Issues, https://github.com/onnx/onnxmltools/issues
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy
-Requires-Dist: onnx
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: onnx>=1.8.1
+Requires-Dist: protobuf
+Requires-Dist: skl2onnx>=1.4.9
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 <!--- SPDX-License-Identifier: Apache-2.0 -->
 #

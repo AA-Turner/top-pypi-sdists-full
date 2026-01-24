@@ -21,22 +21,23 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 keywords = ["Kaggle", "API"]
-requires-python = ">=3.7"
+requires-python = ">= 3.11"
 dependencies = [
     "bleach",
-    "certifi>=14.05.14",
-    "charset-normalizer",
-    "idna",
-    "python-dateutil>=2.5.3",
+    "kagglesdk >= 0.1.14, < 1.0", # sync with kagglehub
     "python-slugify",
     "requests",
-    "setuptools>=21.0.0",
-    "six>=1.10",
-    "text-unidecode",
+    "python-dateutil",
+    "six>=1.10", # should be unused but is still imported
     "tqdm",
-    "urllib3>=1.15.1",
-    "webencodings",
-    "protobuf"
+    "urllib3 >= 1.15.1",
+    "packaging",
+    "protobuf",
+    "black >= 24.10.0",
+    "mypy >= 1.15.0",
+    # Pre-install `types-*` packages to speed up lint:typing command.
+    "types-requests",
+    "types-tqdm",
 ]
 
 [project.scripts]
@@ -47,9 +48,7 @@ Homepage = "https://github.com/Kaggle/kaggle-api"
 Issues = "https://github.com/Kaggle/kaggle-api/issues"
 
 [tool.hatch.version]
-path = "src/__init__.py"
-# TODO: Remove validate-bump = false for next stable release
-validate-bump = false
+path = "src/kaggle/__init__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
@@ -61,14 +60,12 @@ packages = ["src/kaggle", "src/kagglesdk"]
 
 [tool.hatch.envs.default.scripts]
 install-unzip = """sudo apt-get install -y unzip || echo 'unzip could not be installed'"""
-install-autogen = """curl -fsSL --output /tmp/autogen.zip "https://github.com/mbrukman/autogen/archive/refs/heads/master.zip" && 
-  rm -rf /tmp/autogen && mkdir -p /tmp/autogen && unzip -qo /tmp/autogen.zip -d /tmp/autogen && 
-  mv /tmp/autogen/autogen-*/* /tmp/autogen && rm -rf /tmp/autogen/autogen-* && 
-  sudo chmod a+rx /tmp/autogen/autogen.sh"""
 # TODO: install in Mac/Windows
-install-yapf = """pip3 install yapf==0.40.2 --break-system-packages || echo 'yapf could not be installed'"""
+install-black = """pip3 install black --break-system-packages || echo 'black could not be installed'"""
 install-toml = """sudo apt-get install -y python3-toml || echo 'toml could not be installed'"""
-install-deps = "hatch run install-unzip && hatch run install-autogen && hatch run install-yapf && hatch run install-toml"
+install-sphinx = """pip3 install sphinx --break-system-packages || echo 'sphinx could not be installed'"""
+install-myst = """pip3 install myst-parser --break-system-packages || echo 'myst-parser could not be installed'"""
+install-deps = "hatch run install-unzip && hatch run install-black && hatch run install-toml && hatch run install-sphinx && hatch run install-myst"
 
 integration-test = "pytest {args:integration_tests}"
 
@@ -79,3 +76,47 @@ test = "./tools/GeneratePythonLibrary.sh --test local"
 
 [tool.docformatter]
 recursive = true
+
+[tool.black]
+target-version = ["py311"]
+line-length = 120
+extend-exclude = 'kagglesdk'
+
+[tool.mypy]
+strict = false
+show_error_codes = true
+follow_imports = 'silent'
+exclude = '''(?x)(
+    /src/
+)'''
+python_version = 3.11
+
+# Start off with these
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+# Getting these passing should be easy
+strict_equality = true
+extra_checks = true
+
+# Strongly recommend enabling this one as soon as you can
+check_untyped_defs = true
+
+# These shouldn't be too much additional work, but may be tricky to
+# get passing if you use a lot of untyped libraries
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+
+# These next few are various gradations of forcing use of type annotations
+disallow_incomplete_defs = true
+# TODO Enable these after GA.
+#disallow_untyped_calls = true # 167 errors reported a/o April 30, 2025
+#disallow_untyped_defs = true # 132
+
+# This one isn't too hard to get passing, but return on investment is lower
+no_implicit_reexport = true # 50
+
+# This one can be tricky to get passing if you use a lot of untyped libraries
+warn_return_any = true

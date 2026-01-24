@@ -8,19 +8,18 @@ from collections.abc import (
 import datetime as dt
 from typing import (
     Any,
+    Concatenate,
     Generic,
     Literal,
+    TypeAlias,
     TypeVar,
     final,
     overload,
 )
 
 import numpy as np
-from pandas.core.base import SelectionMixin
 from pandas.core.frame import DataFrame
-from pandas.core.groupby import (
-    generic,
-)
+from pandas.core.groupby import generic
 from pandas.core.groupby.indexing import (
     GroupByIndexingMixin,
     GroupByNthSelector,
@@ -38,13 +37,9 @@ from pandas.core.window import (
     ExponentialMovingWindowGroupby,
     RollingGroupby,
 )
-from typing_extensions import (
-    Concatenate,
-    Self,
-    TypeAlias,
-)
+from typing_extensions import Self
 
-from pandas._libs.lib import _NoDefaultDoNotUse
+from pandas._libs.lib import NoDefaultDoNotUse
 from pandas._libs.tslibs import BaseOffset
 from pandas._typing import (
     S1,
@@ -68,20 +63,26 @@ from pandas._typing import (
     TimestampConvertibleTypes,
     WindowingEngine,
     WindowingEngineKwargs,
-    npt,
+    np_ndarray_dt,
+    np_ndarray_int64,
 )
 
 from pandas.plotting import PlotAccessor
 
 _ResamplerGroupBy: TypeAlias = (
-    DatetimeIndexResamplerGroupby[NDFrameT]  # ty: ignore[invalid-argument-type]
-    | PeriodIndexResamplerGroupby[NDFrameT]  # ty: ignore[invalid-argument-type]
-    | TimedeltaIndexResamplerGroupby[NDFrameT]  # ty: ignore[invalid-argument-type]
+    DatetimeIndexResamplerGroupby[NDFrameT]
+    | PeriodIndexResamplerGroupby[NDFrameT]
+    | TimedeltaIndexResamplerGroupby[NDFrameT]
 )
 
 class GroupBy(BaseGroupBy[NDFrameT]):
     def __getattr__(self, attr: str) -> Any: ...
-    def apply(self, func: Callable | str, *args, **kwargs) -> NDFrameT: ...
+    def apply(
+        self,
+        func: Callable[Concatenate[NDFrameT, P], Any] | str,
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> NDFrameT: ...
     @final
     @overload
     def any(self: GroupBy[Series], skipna: bool = ...) -> Series[bool]: ...
@@ -209,7 +210,7 @@ class GroupBy(BaseGroupBy[NDFrameT]):
         origin: TimeGrouperOrigin | TimestampConvertibleTypes = ...,
         offset: TimedeltaConvertibleTypes | None = ...,
         group_keys: bool = ...,
-        **kwargs,
+        **kwargs: Any,
     ) -> _ResamplerGroupBy[NDFrameT]: ...
     @final
     def rolling(
@@ -244,7 +245,7 @@ class GroupBy(BaseGroupBy[NDFrameT]):
         adjust: bool = ...,
         ignore_na: bool = ...,
         axis: Axis = ...,
-        times: str | np.ndarray | Series | np.timedelta64 | None = ...,
+        times: str | np_ndarray_dt | Series | np.timedelta64 | None = ...,
         method: CalculationMethod = ...,
         *,
         selection: IndexLabel | None = ...,
@@ -255,7 +256,9 @@ class GroupBy(BaseGroupBy[NDFrameT]):
     def bfill(self, limit: int | None = ...) -> NDFrameT: ...
     @final
     @property
-    def nth(self) -> GroupByNthSelector[Self]: ...
+    def nth(
+        self,
+    ) -> GroupByNthSelector[Self]: ...  # pyrefly: ignore[bad-specialization]
     @final
     def quantile(
         self,
@@ -274,51 +277,51 @@ class GroupBy(BaseGroupBy[NDFrameT]):
         ascending: bool = True,
         na_option: str = "keep",
         pct: bool = False,
-        axis: AxisInt | _NoDefaultDoNotUse = 0,
+        axis: AxisInt | NoDefaultDoNotUse = 0,
     ) -> NDFrameT: ...
     @final
     def cumprod(
-        self, axis: Axis | _NoDefaultDoNotUse = ..., *args, **kwargs
+        self, axis: Axis | NoDefaultDoNotUse = ..., *args: Any, **kwargs: Any
     ) -> NDFrameT: ...
     @final
     def cumsum(
-        self, axis: Axis | _NoDefaultDoNotUse = ..., *args, **kwargs
+        self, axis: Axis | NoDefaultDoNotUse = ..., *args: Any, **kwargs: Any
     ) -> NDFrameT: ...
     @final
     def cummin(
         self,
-        axis: AxisInt | _NoDefaultDoNotUse = ...,
+        axis: AxisInt | NoDefaultDoNotUse = ...,
         numeric_only: bool = ...,
-        **kwargs,
+        **kwargs: Any,
     ) -> NDFrameT: ...
     @final
     def cummax(
         self,
-        axis: AxisInt | _NoDefaultDoNotUse = ...,
+        axis: AxisInt | NoDefaultDoNotUse = ...,
         numeric_only: bool = ...,
-        **kwargs,
+        **kwargs: Any,
     ) -> NDFrameT: ...
     @final
     def shift(
         self,
         periods: int | Sequence[int] = 1,
         freq: Frequency | None = ...,
-        axis: Axis | _NoDefaultDoNotUse = 0,
-        fill_value=...,
+        axis: Axis | NoDefaultDoNotUse = 0,
+        fill_value: Scalar | None = None,
         suffix: str | None = ...,
     ) -> NDFrameT: ...
     @final
     def diff(
-        self, periods: int = 1, axis: AxisInt | _NoDefaultDoNotUse = 0
+        self, periods: int = 1, axis: AxisInt | NoDefaultDoNotUse = 0
     ) -> NDFrameT: ...
     @final
     def pct_change(
         self,
         periods: int = ...,
-        fill_method: Literal["bfill", "ffill"] | None | _NoDefaultDoNotUse = ...,
-        limit: int | None | _NoDefaultDoNotUse = ...,
-        freq=...,
-        axis: Axis | _NoDefaultDoNotUse = ...,
+        fill_method: Literal["bfill", "ffill"] | None | NoDefaultDoNotUse = ...,
+        limit: int | None | NoDefaultDoNotUse = ...,
+        freq: Frequency | None = None,
+        axis: Axis | NoDefaultDoNotUse = ...,
     ) -> NDFrameT: ...
     @final
     def head(self, n: int = ...) -> NDFrameT: ...
@@ -330,11 +333,11 @@ class GroupBy(BaseGroupBy[NDFrameT]):
         n: int | None = None,
         frac: float | None = None,
         replace: bool = False,
-        weights: Sequence | Series | None = ...,
+        weights: Sequence[float] | Series | None = ...,
         random_state: RandomState | None = ...,
     ) -> NDFrameT: ...
 
-_GroupByT = TypeVar("_GroupByT", bound=GroupBy)
+_GroupByT = TypeVar("_GroupByT", bound=GroupBy[Any])
 
 # GroupByPlot does not really inherit from PlotAccessor but it delegates
 # to it using __call__ and __getattr__. We lie here to avoid repeating the
@@ -343,10 +346,10 @@ _GroupByT = TypeVar("_GroupByT", bound=GroupBy)
 class GroupByPlot(PlotAccessor, Generic[_GroupByT]):
     def __init__(self, groupby: _GroupByT) -> None: ...
     # The following methods are inherited from the fake parent class PlotAccessor
-    # def __call__(self, *args, **kwargs): ...
+    # def __call__(self, *args: Any, **kwargs: Any): ...
     # def __getattr__(self, name: str): ...
 
-class BaseGroupBy(SelectionMixin[NDFrameT], GroupByIndexingMixin):
+class BaseGroupBy(GroupByIndexingMixin, Generic[NDFrameT]):
     @final
     def __len__(self) -> int: ...
     @final
@@ -359,7 +362,7 @@ class BaseGroupBy(SelectionMixin[NDFrameT], GroupByIndexingMixin):
     def ngroups(self) -> int: ...
     @final
     @property
-    def indices(self) -> dict[Hashable, Index | npt.NDArray[np.int_] | list[int]]: ...
+    def indices(self) -> dict[Hashable, Index | np_ndarray_int64 | list[int]]: ...
     @overload
     def pipe(
         self,
@@ -375,19 +378,19 @@ class BaseGroupBy(SelectionMixin[NDFrameT], GroupByIndexingMixin):
         **kwargs: Any,
     ) -> T: ...
     @final
-    def get_group(self, name) -> NDFrameT: ...
+    def get_group(self, name: Hashable) -> NDFrameT: ...
     @final
     def __iter__(self) -> Iterator[tuple[Hashable, NDFrameT]]: ...
     @overload
-    def __getitem__(self: BaseGroupBy[DataFrame], key: Scalar) -> generic.SeriesGroupBy: ...  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
+    def __getitem__(self: BaseGroupBy[DataFrame], key: Scalar) -> generic.SeriesGroupBy[Any, Any]: ...  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
     @overload
     def __getitem__(
         self: BaseGroupBy[DataFrame], key: Iterable[Hashable]
-    ) -> generic.DataFrameGroupBy: ...
+    ) -> generic.DataFrameGroupBy[Any, Any]: ...
     @overload
     def __getitem__(
         self: BaseGroupBy[Series[S1]],
         idx: list[str] | Index | Series[S1] | MaskType | tuple[Hashable | slice, ...],
-    ) -> generic.SeriesGroupBy: ...
+    ) -> generic.SeriesGroupBy[Any, Any]: ...
     @overload
     def __getitem__(self: BaseGroupBy[Series[S1]], idx: Scalar) -> S1: ...

@@ -1,23 +1,33 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use serde::Deserialize;
+use axum::Extension;
+use serde::{Deserialize, Serialize};
+use tokio_util::task::TaskTracker;
 use tracing::instrument;
 
 use crate::{
     cache::CacheParamsOptions,
     config::Config,
-    db::clickhouse::ClickHouseConnectionInfo,
+    db::{clickhouse::ClickHouseConnectionInfo, postgres::PostgresConnectionInfo},
     embeddings::{Embedding, EmbeddingEncodingFormat, EmbeddingInput, EmbeddingRequest},
     endpoints::inference::InferenceClients,
     error::{Error, ErrorDetails},
     http::TensorzeroHttpClient,
-    inference::types::Usage,
+    inference::types::{
+        Usage,
+        usage::{ApiType, RawResponseEntry},
+    },
+    rate_limiting::{RateLimitingManager, ScopeInfo},
 };
+use tensorzero_auth::middleware::RequestApiKeyExtension;
+
+#[cfg(test)]
+use crate::http::DEFAULT_HTTP_CLIENT_TIMEOUT;
 
 use super::inference::InferenceCredentials;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Params {
+pub struct EmbeddingsParams {
     pub input: EmbeddingInput,
     pub model_name: String,
     pub dimensions: Option<u32>,
@@ -28,37 +38,46 @@ pub struct Params {
     pub credentials: InferenceCredentials,
     #[serde(default)]
     pub cache_options: CacheParamsOptions,
+    #[serde(default, rename = "tensorzero::include_raw_response")]
+    pub include_raw_response: bool,
 }
 
-#[instrument(
-    name = "embeddings",
-    skip(config, http_client, params),
-    fields(model, num_inputs)
+#[instrument(name = "embeddings", skip_all, fields(model, num_inputs))]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Function signature matches existing API pattern"
 )]
 pub async fn embeddings(
     config: Arc<Config>,
     http_client: &TensorzeroHttpClient,
     clickhouse_connection_info: ClickHouseConnectionInfo,
-    params: Params,
+    postgres_connection_info: PostgresConnectionInfo,
+    deferred_tasks: TaskTracker,
+    rate_limiting_manager: std::sync::Arc<RateLimitingManager>,
+    params: EmbeddingsParams,
+    api_key_ext: Option<Extension<RequestApiKeyExtension>>,
 ) -> Result<EmbeddingResponse, Error> {
     let span = tracing::Span::current();
     span.record("model", &params.model_name);
     span.record("num_inputs", params.input.num_inputs());
+    if let Some(relay) = &config.gateway.relay {
+        return relay.relay_embeddings(params).await;
+    }
     let embedding_model = config
         .embedding_models
-        .get(&params.model_name)
+        .get(&params.model_name, config.gateway.relay.as_ref())
         .await?
         .ok_or_else(|| {
             Error::new(ErrorDetails::ModelNotFound {
                 model_name: params.model_name.clone(),
             })
         })?;
-    if let EmbeddingInput::Batch(array) = &params.input {
-        if array.is_empty() {
-            return Err(Error::new(ErrorDetails::InvalidRequest {
-                message: "Input cannot be empty".to_string(),
-            }));
-        }
+    if let EmbeddingInput::Batch(array) = &params.input
+        && array.is_empty()
+    {
+        return Err(Error::new(ErrorDetails::InvalidRequest {
+            message: "Input cannot be empty".to_string(),
+        }));
     }
 
     let request = EmbeddingRequest {
@@ -66,43 +85,74 @@ pub async fn embeddings(
         dimensions: params.dimensions,
         encoding_format: params.encoding_format,
     };
+
+    // NOTE: we do not support tags for embeddings yet
+    // we should fix this once the tags are implemented
+    let tags = Arc::new(HashMap::default());
     let dryrun = params.dryrun.unwrap_or(false);
     let clients = InferenceClients {
-        http_client,
-        credentials: &params.credentials,
-        cache_options: &(params.cache_options, dryrun).into(),
-        clickhouse_connection_info: &clickhouse_connection_info,
+        http_client: http_client.clone(),
+        credentials: Arc::new(params.credentials.clone()),
+        cache_options: (params.cache_options, dryrun).into(),
+        clickhouse_connection_info: clickhouse_connection_info.clone(),
+        postgres_connection_info: postgres_connection_info.clone(),
+        tags: tags.clone(),
+        rate_limiting_manager,
+        otlp_config: config.gateway.export.otlp.clone(),
+        deferred_tasks,
+        scope_info: ScopeInfo::new(tags.clone(), api_key_ext),
+        relay: None,
+        include_raw_usage: false, // not supported for embeddings endpoint (#5451)
+        include_raw_response: params.include_raw_response,
     };
     let response = embedding_model
         .embed(&request, &params.model_name, &clients)
         .await?;
     let usage = response.usage_considering_cached();
+    let tensorzero_raw_response = if params.include_raw_response && !response.cached {
+        Some(vec![RawResponseEntry {
+            model_inference_id: response.id,
+            provider_type: response.embedding_provider_name.to_string(),
+            api_type: ApiType::Embeddings,
+            data: response.raw_response.clone(),
+        }])
+    } else if params.include_raw_response {
+        Some(vec![]) // Empty array for cached responses
+    } else {
+        None
+    };
     Ok(EmbeddingResponse {
         embeddings: response.embeddings,
         usage,
         model: params.model_name,
+        tensorzero_raw_response,
     })
 }
 
+#[derive(Debug, Clone, Serialize)]
 pub struct EmbeddingResponse {
     pub embeddings: Vec<Embedding>,
     pub usage: Usage,
     pub model: String,
+    #[serde(
+        rename = "tensorzero::raw_response",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub tensorzero_raw_response: Option<Vec<RawResponseEntry>>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::Config;
-    use crate::config::TimeoutsConfig;
+    use crate::config::provider_types::ProviderTypesConfig;
     use crate::embeddings::{EmbeddingModelConfig, EmbeddingProviderConfig, EmbeddingProviderInfo};
+    use crate::model_table::ProviderTypeDefaultCredentials;
     use crate::providers::dummy::DummyProvider;
-    use std::collections::HashMap;
-    use tracing_test::traced_test;
 
-    #[traced_test]
     #[tokio::test]
     async fn test_no_warning_when_model_exists() {
+        let logs_contain = crate::utils::testing::capture_logs();
         // Create a config with a valid embedding model
         let dummy_provider = EmbeddingProviderConfig::Dummy(DummyProvider {
             model_name: "good-model".into(),
@@ -110,29 +160,38 @@ mod tests {
         });
         let provider_info = EmbeddingProviderInfo {
             inner: dummy_provider,
-            timeouts: TimeoutsConfig::default(),
+            timeout_ms: None,
             provider_name: Arc::from("dummy"),
             extra_body: None,
+            extra_headers: None,
         };
         let embedding_model = EmbeddingModelConfig {
             routing: vec!["dummy".to_string().into()],
             providers: HashMap::from([("dummy".to_string().into(), provider_info)]),
-            timeouts: TimeoutsConfig::default(),
+            timeout_ms: None,
         };
 
         // Create a minimal config with just the embedding model
         let mut embedding_models = HashMap::new();
         embedding_models.insert("test-model".to_string().into(), embedding_model);
 
+        let provider_types = ProviderTypesConfig::default();
         let config = Config {
-            embedding_models: embedding_models.try_into().unwrap(),
+            embedding_models: Arc::new(
+                crate::embeddings::EmbeddingModelTable::new(
+                    embedding_models,
+                    Arc::new(ProviderTypeDefaultCredentials::new(&provider_types)),
+                    DEFAULT_HTTP_CLIENT_TIMEOUT,
+                )
+                .unwrap(),
+            ),
             ..Default::default()
         };
 
         let config = Arc::new(config);
 
-        let http_client = TensorzeroHttpClient::new().unwrap();
-        let params = Params {
+        let http_client = TensorzeroHttpClient::new_testing().unwrap();
+        let params = EmbeddingsParams {
             input: EmbeddingInput::Single("test input".to_string()),
             model_name: "test-model".to_string(),
             dimensions: None,
@@ -140,11 +199,21 @@ mod tests {
             dryrun: None,
             credentials: InferenceCredentials::default(),
             cache_options: CacheParamsOptions::default(),
+            include_raw_response: false,
         };
 
-        let clickhouse_connection_info = ClickHouseConnectionInfo::Disabled;
-
-        let result = embeddings(config, &http_client, clickhouse_connection_info, params).await;
+        let clickhouse_connection_info = ClickHouseConnectionInfo::new_disabled();
+        let result = embeddings(
+            config,
+            &http_client,
+            clickhouse_connection_info,
+            PostgresConnectionInfo::Disabled,
+            tokio_util::task::TaskTracker::new(),
+            Arc::new(RateLimitingManager::new_dummy()),
+            params,
+            None,
+        )
+        .await;
 
         // The function should succeed
         assert!(result.is_ok());
@@ -152,15 +221,14 @@ mod tests {
         // Check that no warnings were logged for model not found
         assert!(!logs_contain("Model not found"));
     }
-
-    #[traced_test]
     #[tokio::test]
     async fn test_warning_when_model_not_found() {
+        let logs_contain = crate::utils::testing::capture_logs();
         // Create an empty config with no embedding models
         let config = Arc::new(Config::default());
 
-        let http_client = TensorzeroHttpClient::new().unwrap();
-        let params = Params {
+        let http_client = TensorzeroHttpClient::new_testing().unwrap();
+        let params = EmbeddingsParams {
             input: EmbeddingInput::Single("test input".to_string()),
             model_name: "nonexistent-model".to_string(),
             dimensions: None,
@@ -168,11 +236,22 @@ mod tests {
             dryrun: None,
             credentials: InferenceCredentials::default(),
             cache_options: CacheParamsOptions::default(),
+            include_raw_response: false,
         };
 
-        let clickhouse_connection_info = ClickHouseConnectionInfo::Disabled;
+        let clickhouse_connection_info = ClickHouseConnectionInfo::new_disabled();
 
-        let result = embeddings(config, &http_client, clickhouse_connection_info, params).await;
+        let result = embeddings(
+            config,
+            &http_client,
+            clickhouse_connection_info,
+            PostgresConnectionInfo::Disabled,
+            tokio_util::task::TaskTracker::new(),
+            Arc::new(RateLimitingManager::new_dummy()),
+            params,
+            None,
+        )
+        .await;
 
         // The function should fail with ModelNotFound
         assert!(result.is_err());

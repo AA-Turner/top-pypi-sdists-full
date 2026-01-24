@@ -2,12 +2,11 @@
 # @Author  : llc
 # @Time    : 2022/12/5 10:27
 
-from typing import Optional
 
 import pytest
 from pydantic import BaseModel, Field
 
-from flask_openapi3 import OpenAPI, APIView
+from flask_openapi3 import APIView, OpenAPI
 
 app = OpenAPI(__name__)
 app.config["TESTING"] = True
@@ -19,11 +18,11 @@ class Query(BaseModel):
 
 
 class BookQuery(BaseModel):
-    age: Optional[int] = Field(None, description="Age")
+    age: int | None = Field(None, description="Age")
 
 
 class BookBody(BaseModel):
-    age: Optional[int] = Field(..., ge=2, le=4, description="Age")
+    age: int | None = Field(..., ge=2, le=4, description="Age")
     author: str = Field(None, min_length=2, max_length=4, description="Author")
 
 
@@ -41,7 +40,6 @@ async def post_openapi(body: Query):
 
 @api_view.route("/book")
 class BookListAPIView:
-
     @api_view.doc(summary="get book list")
     async def get(self, query: BookQuery):
         return query.model_dump_json()

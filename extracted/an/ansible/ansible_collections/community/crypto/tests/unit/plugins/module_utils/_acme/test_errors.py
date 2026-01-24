@@ -5,16 +5,17 @@
 from __future__ import annotations
 
 import typing as t
+from collections.abc import Callable
 from unittest.mock import (
     MagicMock,
 )
 
 import pytest
+
 from ansible_collections.community.crypto.plugins.module_utils._acme.errors import (
     ACMEProtocolException,
     format_error_problem,
 )
-
 
 TEST_FORMAT_ERROR_PROBLEM: list[tuple[dict[str, t.Any], str, str]] = [
     (
@@ -112,7 +113,7 @@ def create_error_response() -> MagicMock:
     return response
 
 
-def create_decode_error(msg: str) -> t.Callable[[t.Any], t.Any]:
+def create_decode_error(msg: str) -> Callable[[t.Any], t.Any]:
     def f(content: t.Any) -> t.NoReturn:
         raise Exception(msg)
 
@@ -120,7 +121,7 @@ def create_decode_error(msg: str) -> t.Callable[[t.Any], t.Any]:
 
 
 TEST_ACME_PROTOCOL_EXCEPTION: list[
-    tuple[dict[str, t.Any], t.Callable[[t.Any], t.Any] | None, str, dict[str, t.Any]]
+    tuple[dict[str, t.Any], Callable[[t.Any], t.Any] | None, str, dict[str, t.Any]]
 ] = [
     (
         {},
@@ -350,7 +351,7 @@ TEST_ACME_PROTOCOL_EXCEPTION: list[
 )
 def test_acme_protocol_exception(
     parameters: dict[str, t.Any],
-    from_json: t.Callable[[t.Any], t.NoReturn] | None,
+    from_json: Callable[[t.Any], t.NoReturn] | None,
     msg: str,
     args: dict[str, t.Any],
 ) -> None:

@@ -1,27 +1,29 @@
+# pyright: reportDeprecated=false
 from datetime import datetime, timezone
-from uuid import UUID
 
 import pytest
 from tensorzero import (
     AndFilter,
     AsyncTensorZeroGateway,
     BooleanMetricFilter,
+    ContentBlockChatOutputText,
+    ContentBlockChatOutputToolCall,
     FloatMetricFilter,
     NotFilter,
     OrderBy,
     OrFilter,
+    StoredInferenceJson,
+    StoredInputMessageContentText,
+    StoredInputMessageContentToolCall,
+    StoredInputMessageContentToolResult,
     TagFilter,
     TensorZeroGateway,
-    Text,
     TimeFilter,
-    ToolCall,
-    ToolResult,
 )
-from tensorzero.tensorzero import StoredInference
 
 
 def test_simple_list_json_inferences(embedded_sync_client: TensorZeroGateway):
-    order_by = [OrderBy(by="timestamp", direction="DESC")]
+    order_by = [OrderBy(by="timestamp", direction="descending")]
     inferences = embedded_sync_client.experimental_list_inferences(
         function_name="extract_entities",
         variant_name=None,
@@ -39,7 +41,7 @@ def test_simple_list_json_inferences(embedded_sync_client: TensorZeroGateway):
 
     for inference in inferences:
         assert inference.function_name == "extract_entities"
-        assert isinstance(inference, StoredInference.Json)
+        assert isinstance(inference, StoredInferenceJson)
         assert isinstance(inference.variant_name, str)
         input = inference.input
         messages = input.messages
@@ -52,11 +54,12 @@ def test_simple_list_json_inferences(embedded_sync_client: TensorZeroGateway):
         assert output.raw is not None
         assert output.parsed is not None
         inference_id = inference.inference_id
-        assert isinstance(inference_id, UUID)
+        assert isinstance(inference_id, str)
         episode_id = inference.episode_id
-        assert isinstance(episode_id, UUID)
+        assert isinstance(episode_id, str)
         output_schema = inference.output_schema
         assert output_schema is not None
+        assert inference.dispreferred_outputs is not None
         assert len(inference.dispreferred_outputs) == 0
 
     # ORDER BY timestamp DESC is applied - verify timestamps are in descending order
@@ -73,7 +76,7 @@ def test_simple_query_with_float_filter(embedded_sync_client: TensorZeroGateway)
         value=0.5,
         comparison_operator=">",
     )
-    order_by = [OrderBy(by="metric", name="jaccard_similarity", direction="DESC")]
+    order_by = [OrderBy(by="metric", name="jaccard_similarity", direction="descending")]
     inferences = embedded_sync_client.experimental_list_inferences(
         function_name="extract_entities",
         variant_name=None,
@@ -87,16 +90,17 @@ def test_simple_query_with_float_filter(embedded_sync_client: TensorZeroGateway)
 
     for inference in inferences:
         assert inference.function_name == "extract_entities"
+        assert inference.dispreferred_outputs is not None
         assert len(inference.dispreferred_outputs) == 0
 
     # Since we aren't yet grabbing metric values from the DB we can't verify ordering by metric
 
 
 def test_simple_query_chat_function(embedded_sync_client: TensorZeroGateway):
-    order_by = [OrderBy(by="timestamp", direction="ASC")]
+    order_by = [OrderBy(by="timestamp", direction="ascending")]
     inferences = embedded_sync_client.experimental_list_inferences(
         function_name="write_haiku",
-        variant_name="better_prompt_haiku_3_5",
+        variant_name="better_prompt_haiku_4_5",
         filters=None,
         output_source="inference",
         limit=3,
@@ -111,7 +115,7 @@ def test_simple_query_chat_function(embedded_sync_client: TensorZeroGateway):
 
     for inference in inferences:
         assert inference.function_name == "write_haiku"
-        assert inference.variant_name == "better_prompt_haiku_3_5"
+        assert inference.variant_name == "better_prompt_haiku_4_5"
         input = inference.input
         messages = input.messages
         assert messages is not None
@@ -124,16 +128,19 @@ def test_simple_query_chat_function(embedded_sync_client: TensorZeroGateway):
         output_0 = output[0]
         assert output_0.type == "text"
         # Type narrowing: we know it's a Text block
-        assert isinstance(output_0, Text)
+        assert isinstance(output_0, ContentBlockChatOutputText)
         assert output_0.text is not None
         inference_id = inference.inference_id
-        assert isinstance(inference_id, UUID)
+        assert isinstance(inference_id, str)
         episode_id = inference.episode_id
-        assert isinstance(episode_id, UUID)
-        tool_params = inference.tool_params
-        assert tool_params is not None
-        assert tool_params.tools_available == []
-        assert tool_params.parallel_tool_calls is None
+        assert isinstance(episode_id, str)
+        # Test individual tool param fields
+        assert inference.allowed_tools is None or len(inference.allowed_tools) == 0
+        assert inference.additional_tools is None or len(inference.additional_tools) == 0
+        assert inference.parallel_tool_calls is None
+        assert isinstance(inference.provider_tools, list)
+        assert len(inference.provider_tools) == 0
+        assert inference.dispreferred_outputs is not None
         assert len(inference.dispreferred_outputs) == 0
 
     # ORDER BY timestamp ASC is applied - verify timestamps are in ascending order
@@ -157,7 +164,6 @@ def test_simple_query_chat_function_with_tools(embedded_sync_client: TensorZeroG
     assert len(inferences) == limit
     for inference in inferences:
         assert inference.function_name == "multi_hop_rag_agent"
-        assert inference.variant_name == "baseline"
         input = inference.input
         messages = input.messages
         assert messages is not None
@@ -168,20 +174,18 @@ def test_simple_query_chat_function_with_tools(embedded_sync_client: TensorZeroG
             for content in message.content:
                 assert content.type in ["text", "tool_call", "tool_result"]
                 if content.type == "tool_call":
-                    assert isinstance(content, ToolCall)
+                    assert isinstance(content, StoredInputMessageContentToolCall)
                     assert content.id is not None
                     assert content.name is not None
                     assert content.arguments is not None
-                    assert content.raw_name is not None
-                    assert content.raw_arguments is not None
                 elif content.type == "tool_result":
-                    assert isinstance(content, ToolResult)
+                    assert isinstance(content, StoredInputMessageContentToolResult)
                     assert content.id is not None
                     assert content.name is not None
                     assert content.result is not None
                 elif content.type == "text":
-                    assert isinstance(content, Text)
-                    assert (content.text is not None) ^ (content.arguments is not None)
+                    assert isinstance(content, StoredInputMessageContentText)
+                    assert content.text is not None
                 else:
                     assert False
 
@@ -191,40 +195,25 @@ def test_simple_query_chat_function_with_tools(embedded_sync_client: TensorZeroG
         assert len(output) >= 1
         for output_item in output:
             if output_item.type == "text":
-                assert isinstance(output_item, Text)
+                assert isinstance(output_item, ContentBlockChatOutputText)
                 assert output_item.text is not None
             elif output_item.type == "tool_call":
-                assert isinstance(output_item, ToolCall)
+                assert isinstance(output_item, ContentBlockChatOutputToolCall)
                 assert output_item.id is not None
                 assert output_item.name is not None
                 assert output_item.arguments is not None
                 assert output_item.raw_name is not None
                 assert output_item.raw_arguments is not None
-            elif output_item.type == "tool_result":
-                assert isinstance(output_item, ToolResult)
-                assert output_item.id is not None
-                assert output_item.name is not None
-                assert output_item.result is not None
-                print(output_item)
-                assert False
         inference_id = inference.inference_id
-        assert isinstance(inference_id, UUID)
+        assert isinstance(inference_id, str)
         episode_id = inference.episode_id
-        assert isinstance(episode_id, UUID)
-        tool_params = inference.tool_params
-        assert tool_params is not None
-        assert len(tool_params.tools_available) == 4
-        for tool in tool_params.tools_available:
-            assert tool.name in [
-                "think",
-                "search_wikipedia",
-                "load_wikipedia_page",
-                "answer_question",
-            ]
-            assert tool.description is not None
-            assert tool.parameters is not None
-            assert tool.strict is True
-        assert tool_params.parallel_tool_calls
+        assert isinstance(episode_id, str)
+        # Test individual tool param fields
+        # Changed behavior: None when using function defaults
+        assert inference.allowed_tools is None
+        assert inference.additional_tools is None
+        assert inference.parallel_tool_calls is True
+        assert inference.provider_tools is None or len(inference.provider_tools) == 0
 
 
 def test_demonstration_output_source(embedded_sync_client: TensorZeroGateway):
@@ -239,6 +228,7 @@ def test_demonstration_output_source(embedded_sync_client: TensorZeroGateway):
     assert len(inferences) == 5
     for inference in inferences:
         assert inference.function_name == "extract_entities"
+        assert inference.dispreferred_outputs is not None
         assert len(inference.dispreferred_outputs) == 1
 
 
@@ -320,41 +310,81 @@ def test_or_filter_mixed_metrics(embedded_sync_client: TensorZeroGateway):
 
 
 def test_not_filter(embedded_sync_client: TensorZeroGateway):
-    filters = NotFilter(
+    # NOT (exact_match = true OR exact_match = false) returns rows WITHOUT the metric.
+    # This test verifies that the NOT filter correctly excludes rows that have the metric
+    # (with either true or false value) and returns only rows without it.
+
+    # Get total count (no filter)
+    all_inferences = embedded_sync_client.experimental_list_inferences(
+        function_name="extract_entities",
+        variant_name=None,
+        filters=None,
+        output_source="inference",
+        limit=1000,
+        offset=None,
+    )
+    total_count = len(all_inferences)
+
+    # Get count with exact_match = true
+    true_filter = BooleanMetricFilter(metric_name="exact_match", value=True)
+    true_inferences = embedded_sync_client.experimental_list_inferences(
+        function_name="extract_entities",
+        variant_name=None,
+        filters=true_filter,
+        output_source="inference",
+        limit=1000,
+        offset=None,
+    )
+    true_count = len(true_inferences)
+
+    # Get count with exact_match = false
+    false_filter = BooleanMetricFilter(metric_name="exact_match", value=False)
+    false_inferences = embedded_sync_client.experimental_list_inferences(
+        function_name="extract_entities",
+        variant_name=None,
+        filters=false_filter,
+        output_source="inference",
+        limit=1000,
+        offset=None,
+    )
+    false_count = len(false_inferences)
+
+    # Get count with NOT (true OR false) - should return rows WITHOUT the metric
+    not_filter = NotFilter(
         child=OrFilter(
             children=[
-                BooleanMetricFilter(
-                    metric_name="exact_match",
-                    value=True,
-                ),
-                BooleanMetricFilter(
-                    metric_name="exact_match",
-                    value=False,
-                ),
+                BooleanMetricFilter(metric_name="exact_match", value=True),
+                BooleanMetricFilter(metric_name="exact_match", value=False),
             ]
         )
     )
-    inferences = embedded_sync_client.experimental_list_inferences(
+    not_inferences = embedded_sync_client.experimental_list_inferences(
         function_name="extract_entities",
         variant_name=None,
-        filters=filters,
+        filters=not_filter,
         output_source="inference",
-        limit=None,
+        limit=1000,
         offset=None,
     )
-    assert len(inferences) == 0
+    not_count = len(not_inferences)
+
+    # Verify: rows with metric (true + false) + rows without metric (NOT result) = total
+    rows_with_metric = true_count + false_count
+    assert rows_with_metric + not_count == total_count, (
+        f"NOT filter should return exactly the rows without the metric. "
+        f"true={true_count}, false={false_count}, NOT={not_count}, total={total_count}"
+    )
 
 
 def test_simple_time_filter(embedded_sync_client: TensorZeroGateway):
     filters = TimeFilter(
-        time=datetime.fromtimestamp(
-            1672531200, tz=timezone.utc
-        ).isoformat(),  # 2023-01-01 00:00:00 UTC
+        # 2023-01-01 00:00:00 UTC
+        time=datetime.fromtimestamp(1672531200, tz=timezone.utc).isoformat(),
         comparison_operator=">",
     )
     order_by = [
-        OrderBy(by="metric", name="exact_match", direction="DESC"),
-        OrderBy(by="timestamp", direction="ASC"),
+        OrderBy(by="metric", name="exact_match", direction="descending"),
+        OrderBy(by="timestamp", direction="ascending"),
     ]
     inferences = embedded_sync_client.experimental_list_inferences(
         function_name="extract_entities",
@@ -401,6 +431,7 @@ def test_simple_tag_filter(embedded_sync_client: TensorZeroGateway):
     assert len(inferences) == 49
     for inference in inferences:
         assert inference.function_name == "extract_entities"
+        assert inference.tags is not None
         assert inference.tags["tensorzero::evaluation_name"] == "entity_extraction"
 
 
@@ -430,6 +461,7 @@ def test_combined_time_and_tag_filter(embedded_sync_client: TensorZeroGateway):
     assert len(inferences) == 23
     for inference in inferences:
         assert inference.function_name == "write_haiku"
+        assert inference.tags is not None
         assert inference.tags["tensorzero::evaluation_name"] == "haiku"
 
 
@@ -472,7 +504,7 @@ def test_list_render_chat_inferences(embedded_sync_client: TensorZeroGateway):
 async def test_simple_list_json_inferences_async(
     embedded_async_client: AsyncTensorZeroGateway,
 ):
-    order_by = [OrderBy(by="timestamp", direction="DESC")]
+    order_by = [OrderBy(by="timestamp", direction="descending")]
     inferences = await embedded_async_client.experimental_list_inferences(
         function_name="extract_entities",
         variant_name=None,
@@ -496,18 +528,17 @@ async def test_simple_list_json_inferences_async(
         assert isinstance(messages, list)
         assert len(messages) == 1
         # Type narrowing: we know these are JSON inferences
+        assert isinstance(inference, StoredInferenceJson)
         assert inference.type == "json"
         output = inference.output
         assert output.raw is not None
         assert output.parsed is not None
         inference_id = inference.inference_id
-        assert isinstance(inference_id, UUID)
+        assert isinstance(inference_id, str)
         episode_id = inference.episode_id
-        assert isinstance(episode_id, UUID)
+        assert isinstance(episode_id, str)
         # StoredJsonInference has output_schema, StoredChatInference doesn't
-        assert (
-            hasattr(inference, "output_schema") and inference.output_schema is not None
-        )
+        assert hasattr(inference, "output_schema") and inference.output_schema is not None
 
     # ORDER BY timestamp DESC is applied - verify timestamps are in descending order
     timestamps = [inference.timestamp for inference in inferences]
@@ -526,7 +557,7 @@ async def test_simple_query_with_float_filter_async(
         value=0.5,
         comparison_operator=">",
     )
-    order_by = [OrderBy(by="metric", name="jaccard_similarity", direction="DESC")]
+    order_by = [OrderBy(by="metric", name="jaccard_similarity", direction="descending")]
     inferences = await embedded_async_client.experimental_list_inferences(
         function_name="extract_entities",
         variant_name=None,
@@ -540,6 +571,7 @@ async def test_simple_query_with_float_filter_async(
 
     for inference in inferences:
         assert inference.function_name == "extract_entities"
+        assert inference.dispreferred_outputs is not None
         assert len(inference.dispreferred_outputs) == 0
 
     # ORDER BY metric jaccard_similarity DESC is applied with filter > 0.5
@@ -550,10 +582,10 @@ async def test_simple_query_with_float_filter_async(
 async def test_simple_query_chat_function_async(
     embedded_async_client: AsyncTensorZeroGateway,
 ):
-    order_by = [OrderBy(by="timestamp", direction="ASC")]
+    order_by = [OrderBy(by="timestamp", direction="ascending")]
     inferences = await embedded_async_client.experimental_list_inferences(
         function_name="write_haiku",
-        variant_name="better_prompt_haiku_3_5",
+        variant_name="better_prompt_haiku_4_5",
         filters=None,
         output_source="inference",
         limit=3,
@@ -568,7 +600,7 @@ async def test_simple_query_chat_function_async(
 
     for inference in inferences:
         assert inference.function_name == "write_haiku"
-        assert inference.variant_name == "better_prompt_haiku_3_5"
+        assert inference.variant_name == "better_prompt_haiku_4_5"
         inp = inference.input
         messages = inp.messages
         assert isinstance(messages, list)
@@ -580,14 +612,15 @@ async def test_simple_query_chat_function_async(
         output_0 = output[0]
         assert output_0.type == "text"
         # Type narrowing: we know it's a Text block
-        assert isinstance(output_0, Text)
+        assert isinstance(output_0, ContentBlockChatOutputText)
         assert output_0.text is not None
-        assert isinstance(inference.inference_id, UUID)
-        assert isinstance(inference.episode_id, UUID)
-        tp = inference.tool_params
-        assert tp is not None
-        assert tp.tools_available == []
-        assert tp.parallel_tool_calls is None
+        assert isinstance(inference.inference_id, str)
+        assert isinstance(inference.episode_id, str)
+        # Test individual tool param fields
+        assert inference.allowed_tools is None or len(inference.allowed_tools) == 0
+        assert inference.additional_tools is None or len(inference.additional_tools) == 0
+        assert inference.parallel_tool_calls is None
+        assert inference.provider_tools is None or len(inference.provider_tools) == 0
 
     # ORDER BY timestamp ASC is applied - verify timestamps are in ascending order
     timestamps = [inference.timestamp for inference in inferences]
@@ -612,6 +645,7 @@ async def test_demonstration_output_source_async(
     assert len(inferences) == 5
     for inference in inferences:
         assert inference.function_name == "extract_entities"
+        assert inference.dispreferred_outputs is not None
         assert len(inference.dispreferred_outputs) == 1
 
 
@@ -703,29 +737,70 @@ async def test_or_filter_mixed_metrics_async(
 
 @pytest.mark.asyncio
 async def test_not_filter_async(embedded_async_client: AsyncTensorZeroGateway):
-    filters = NotFilter(
+    # NOT (exact_match = true OR exact_match = false) returns rows WITHOUT the metric.
+    # This test verifies that the NOT filter correctly excludes rows that have the metric
+    # (with either true or false value) and returns only rows without it.
+
+    # Get total count (no filter)
+    all_inferences = await embedded_async_client.experimental_list_inferences(
+        function_name="extract_entities",
+        variant_name=None,
+        filters=None,
+        output_source="inference",
+        limit=1000,
+        offset=None,
+    )
+    total_count = len(all_inferences)
+
+    # Get count with exact_match = true
+    true_filter = BooleanMetricFilter(metric_name="exact_match", value=True)
+    true_inferences = await embedded_async_client.experimental_list_inferences(
+        function_name="extract_entities",
+        variant_name=None,
+        filters=true_filter,
+        output_source="inference",
+        limit=1000,
+        offset=None,
+    )
+    true_count = len(true_inferences)
+
+    # Get count with exact_match = false
+    false_filter = BooleanMetricFilter(metric_name="exact_match", value=False)
+    false_inferences = await embedded_async_client.experimental_list_inferences(
+        function_name="extract_entities",
+        variant_name=None,
+        filters=false_filter,
+        output_source="inference",
+        limit=1000,
+        offset=None,
+    )
+    false_count = len(false_inferences)
+
+    # Get count with NOT (true OR false) - should return rows WITHOUT the metric
+    not_filter = NotFilter(
         child=OrFilter(
             children=[
-                BooleanMetricFilter(
-                    metric_name="exact_match",
-                    value=True,
-                ),
-                BooleanMetricFilter(
-                    metric_name="exact_match",
-                    value=False,
-                ),
+                BooleanMetricFilter(metric_name="exact_match", value=True),
+                BooleanMetricFilter(metric_name="exact_match", value=False),
             ]
         )
     )
-    inferences = await embedded_async_client.experimental_list_inferences(
+    not_inferences = await embedded_async_client.experimental_list_inferences(
         function_name="extract_entities",
         variant_name=None,
-        filters=filters,
+        filters=not_filter,
         output_source="inference",
-        limit=None,
+        limit=1000,
         offset=None,
     )
-    assert len(inferences) == 0
+    not_count = len(not_inferences)
+
+    # Verify: rows with metric (true + false) + rows without metric (NOT result) = total
+    rows_with_metric = true_count + false_count
+    assert rows_with_metric + not_count == total_count, (
+        f"NOT filter should return exactly the rows without the metric. "
+        f"true={true_count}, false={false_count}, NOT={not_count}, total={total_count}"
+    )
 
 
 @pytest.mark.asyncio
@@ -733,14 +808,13 @@ async def test_simple_time_filter_async(
     embedded_async_client: AsyncTensorZeroGateway,
 ):
     filters = TimeFilter(
-        time=datetime.fromtimestamp(
-            1672531200, tz=timezone.utc
-        ).isoformat(),  # 2023-01-01 00:00:00 UTC
+        # 2023-01-01 00:00:00 UTC
+        time=datetime.fromtimestamp(1672531200, tz=timezone.utc).isoformat(),
         comparison_operator=">",
     )
     order_by = [
-        OrderBy(by="metric", name="exact_match", direction="DESC"),
-        OrderBy(by="timestamp", direction="ASC"),
+        OrderBy(by="metric", name="exact_match", direction="descending"),
+        OrderBy(by="timestamp", direction="ascending"),
     ]
     inferences = await embedded_async_client.experimental_list_inferences(
         function_name="extract_entities",
@@ -790,6 +864,7 @@ async def test_simple_tag_filter_async(
     assert len(inferences) == 100
     for inference in inferences:
         assert inference.function_name == "extract_entities"
+        assert inference.tags is not None
         assert inference.tags["tensorzero::evaluation_name"] == "entity_extraction"
 
 
@@ -822,6 +897,7 @@ async def test_combined_time_and_tag_filter_async(
     assert len(inferences) == 15
     for inference in inferences:
         assert inference.function_name == "write_haiku"
+        assert inference.tags is not None
         assert inference.tags["tensorzero::evaluation_name"] == "haiku"
 
 
@@ -862,4 +938,5 @@ async def test_list_render_chat_inferences_async(
     )
     assert len(rendered_inferences) == 2
     for inference in rendered_inferences:
+        assert inference.dispreferred_outputs is not None
         assert len(inference.dispreferred_outputs) == 1

@@ -30,7 +30,14 @@ import pytest
 import vcr  # type: ignore
 from google.auth.credentials import AnonymousCredentials
 from httpx import AsyncByteStream, Response, SyncByteStream
-from langchain.chains import LLMChain, RetrievalQA
+
+try:
+    from langchain.chains import LLMChain, RetrievalQA
+except ImportError:
+    # Fallback import for LangChain v1.0 changes (moved to langchain_classic)
+    from langchain_classic.chains import LLMChain, RetrievalQA
+
+
 from langchain_community.embeddings import FakeEmbeddings
 from langchain_community.retrievers import KNNRetriever
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -78,7 +85,7 @@ SUPPORTS_TEMPLATES = LANGCHAIN_VERSION < (0, 3, 0)
 
 class TestInstrumentor:
     def test_entrypoint_for_opentelemetry_instrument(self) -> None:
-        (instrumentor_entrypoint,) = entry_points(
+        (instrumentor_entrypoint,) = entry_points(  # type: ignore[no-untyped-call]
             group="opentelemetry_instrumentor", name="langchain"
         )
         instrumentor = instrumentor_entrypoint.load()()
@@ -583,7 +590,7 @@ def test_anthropic_token_counts(
     span = spans[0]
     llm_attributes = dict(span.attributes or {})
     assert llm_attributes.pop(OPENINFERENCE_SPAN_KIND, None) == LLM.value
-    assert llm_attributes.pop(LLM_TOKEN_COUNT_PROMPT, None) == 22
+    assert llm_attributes.pop(LLM_TOKEN_COUNT_PROMPT, None) == 33
     assert llm_attributes.pop(LLM_TOKEN_COUNT_COMPLETION, None) == 5
     assert llm_attributes.pop(LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_WRITE) == 2
     assert llm_attributes.pop(LLM_TOKEN_COUNT_PROMPT_DETAILS_CACHE_READ) == 9
@@ -612,10 +619,13 @@ def test_gemini_token_counts_streaming(
             llm = VertexAI(
                 api_transport="rest",
                 project="test-project",
-                model_name="gemini-pro",
-                streaming=streaming,
+                model_name="gemini-2.5-flash",
             )
-            llm.invoke("Tell me a funny joke, a one-liner.")
+            if streaming:
+                for _ in llm.stream("Tell me a funny joke, a one-liner."):
+                    pass
+            else:
+                llm.invoke("Tell me a funny joke, a one-liner.")
             spans = in_memory_span_exporter.get_finished_spans()
             assert len(spans) == 1
             span = spans[0]

@@ -1,16 +1,23 @@
 import math
 from typing import Union
 
-import pandas as pd
+from itables.typing import (
+    DataFrameModuleName,
+    DataFrameOrSeries,
+    get_dataframe_module_name,
+)
 
-from itables.typing import DataFrameOrSeries
 
+def nbytes(df: DataFrameOrSeries, df_module_name: DataFrameModuleName = None) -> int:
+    """Return an estimate for number of bytes used by the dataframe"""
+    if df_module_name is None:
+        df_module_name = get_dataframe_module_name(df)
+        assert df_module_name is not None
 
-def nbytes(df: DataFrameOrSeries) -> int:
-    try:
+    if df_module_name in ["pandas", "numpy"]:
         return sum(x.values.nbytes for _, x in df.items())
-    except AttributeError:
-        # Polars DataFrame
+    else:
+        # Polars or Narwhalified DataFrame
         return df.estimated_size()
 
 
@@ -34,19 +41,31 @@ def as_nbytes(mem: Union[int, float, str]) -> int:
 
 def downsample(
     df: DataFrameOrSeries,
+    df_module_name: DataFrameModuleName = None,
     max_rows: int = 0,
     max_columns: int = 0,
     max_bytes: Union[int, str] = 0,
 ) -> tuple[DataFrameOrSeries, str]:
     """Return a subset of the dataframe that fits the limits"""
-    org_rows, org_columns, org_bytes = len(df), len(df.columns), nbytes(df)
+    if df_module_name is None:
+        df_module_name = get_dataframe_module_name(df)
+
+    org_rows, org_columns, org_bytes = (
+        len(df),
+        len(df.columns),
+        nbytes(df, df_module_name),
+    )
     max_bytes_numeric = as_nbytes(max_bytes)
     df = _downsample(
-        df, max_rows=max_rows, max_columns=max_columns, max_bytes=max_bytes_numeric
+        df,
+        df_module_name,
+        max_rows=max_rows,
+        max_columns=max_columns,
+        max_bytes=max_bytes_numeric,
     )
 
     if len(df) < org_rows or len(df.columns) < org_columns:
-        link = '<a href="https://mwouts.github.io/itables/downsampling.html">downsampled</a>'
+        downsampled = '<a href="https://mwouts.github.io/itables/downsampling.html">downsampled</a>'
         reasons = []
         if org_rows > max_rows > 0:
             reasons.append("maxRows={}".format(max_rows))
@@ -55,16 +74,14 @@ def downsample(
         if org_bytes > max_bytes_numeric > 0:
             reasons.append("maxBytes={}".format(max_bytes))
 
-        warning = "{} from {:,d}x{:,d} to {:,d}x{:,d} as {}".format(
-            link,
-            org_rows,
-            org_columns,
-            len(df),
-            len(df.columns),
-            " and ".join(reasons),
-        )
+        if len(df.columns) < org_columns:
+            downsampled_warning = f"{downsampled} from {org_rows:,d}x{org_columns:,d} to {len(df):,d}x{len(df.columns):,d} as {' and '.join(reasons)}"
+        else:
+            downsampled_warning = (
+                f"{downsampled} from {org_rows:,d} rows as {' and '.join(reasons)}"
+            )
 
-        return df, warning
+        return df, downsampled_warning
 
     return df, ""
 
@@ -98,41 +115,42 @@ def shrink_towards_target_aspect_ratio(
     return int(rows * row_shrink_factor), int(columns * column_shrink_factor)
 
 
-def _downsample(df, max_rows=0, max_columns=0, max_bytes=0, target_aspect_ratio=None):
+def _downsample(
+    df,
+    df_module_name: DataFrameModuleName,
+    max_rows=0,
+    max_columns=0,
+    max_bytes=0,
+    target_aspect_ratio=None,
+):
     """Implementation of downsample - may be called recursively"""
     if len(df) > max_rows > 0:
         second_half = max_rows // 2
         first_half = max_rows - second_half
         assert first_half >= second_half
-        if second_half:
-            try:
-                df = pd.concat((df.iloc[:first_half], df.iloc[-second_half:]))
-            except AttributeError:
-                df = df.head(first_half).vstack(df.tail(second_half))
+        rows = list(range(first_half)) + list(range(len(df) - second_half, len(df)))
+        if df_module_name == "pandas":
+            df = df.iloc[rows]
+        elif df_module_name == "polars":
+            df = df[rows]
         else:
-            try:
-                df = df.iloc[:first_half]
-            except AttributeError:
-                df = df.head(first_half)
+            raise TypeError(f"Unsupported DataFrame type: {df_module_name}")
 
     if len(df.columns) > max_columns > 0:
         second_half = max_columns // 2
         first_half = max_columns - second_half
         assert first_half >= second_half
-        if second_half:
-            if isinstance(df, pd.DataFrame):
-                df = pd.concat(
-                    (df.iloc[:, :first_half], df.iloc[:, -second_half:]), axis=1
-                )
-            else:
-                df = df[df.columns[:first_half]].hstack(df[df.columns[-second_half:]])
+        columns = list(range(first_half)) + list(
+            range(len(df.columns) - second_half, len(df.columns))
+        )
+        if df_module_name == "pandas":
+            df = df.iloc[:, columns]
+        elif df_module_name == "polars":
+            df = df[[df.columns[i] for i in columns]]
         else:
-            if isinstance(df, pd.DataFrame):
-                df = df.iloc[:, :first_half]
-            else:
-                df = df[df.columns[:first_half]]
+            raise TypeError(f"Unsupported DataFrame type: {df_module_name}")
 
-    df_nbytes = nbytes(df)
+    df_nbytes = nbytes(df, df_module_name)
     if df_nbytes > max_bytes > 0:
         if target_aspect_ratio is None:
             if max_rows > 0 and max_columns > 0:
@@ -149,19 +167,16 @@ def _downsample(df, max_rows=0, max_columns=0, max_bytes=0, target_aspect_ratio=
 
         if max_rows > 0 and max_columns > 0:
             return _downsample(
-                df, max_rows, max_columns, max_bytes, target_aspect_ratio
+                df,
+                df_module_name,
+                max_rows,
+                max_columns,
+                max_bytes,
+                target_aspect_ratio,
             )
 
         # max_bytes is smaller than the average size of one cell
-        if isinstance(df, pd.DataFrame):
-            return pd.DataFrame("...", index=df.index[:1], columns=df.columns[:1])
-
-        else:
-            import polars as pl  # noqa
-
-            assert isinstance(df, pl.DataFrame)
-
-            df = pl.DataFrame({df.columns[0]: ["..."]})
-        return df
+        # return a single cell with "..."
+        return type(df)({df.columns[0]: ["..."]})
 
     return df

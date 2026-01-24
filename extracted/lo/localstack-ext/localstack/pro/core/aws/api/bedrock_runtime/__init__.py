@@ -1,6 +1,7 @@
+from collections.abc import Iterable, Iterator
 from datetime import datetime
 from enum import StrEnum
-from typing import IO, Dict, Iterable, Iterator, List, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -25,6 +26,7 @@ DocumentPageLocationDocumentIndexInteger = int
 DocumentPageLocationEndInteger = int
 DocumentPageLocationStartInteger = int
 FoundationModelVersionIdentifier = str
+GuardrailArn = str
 GuardrailAutomatedReasoningPoliciesProcessed = int
 GuardrailAutomatedReasoningPolicyUnitsProcessed = int
 GuardrailAutomatedReasoningPolicyVersionArn = str
@@ -36,6 +38,7 @@ GuardrailContentPolicyUnitsProcessed = int
 GuardrailContextualGroundingFilterScoreDouble = float
 GuardrailContextualGroundingFilterThresholdDouble = float
 GuardrailContextualGroundingPolicyUnitsProcessed = int
+GuardrailId = str
 GuardrailIdentifier = str
 GuardrailOutputText = str
 GuardrailSensitiveInformationPolicyFreeUnitsProcessed = int
@@ -62,6 +65,9 @@ PaginationToken = str
 RequestMetadataKeyString = str
 RequestMetadataValueString = str
 S3Uri = str
+SearchResultLocationEndInteger = int
+SearchResultLocationSearchResultIndexInteger = int
+SearchResultLocationStartInteger = int
 StatusCode = int
 String = str
 TagKey = str
@@ -81,6 +87,24 @@ class AsyncInvokeStatus(StrEnum):
     InProgress = "InProgress"
     Completed = "Completed"
     Failed = "Failed"
+
+
+class AudioFormat(StrEnum):
+    mp3 = "mp3"
+    opus = "opus"
+    wav = "wav"
+    aac = "aac"
+    flac = "flac"
+    mp4 = "mp4"
+    ogg = "ogg"
+    mkv = "mkv"
+    mka = "mka"
+    x_aac = "x-aac"
+    m4a = "m4a"
+    mpeg = "mpeg"
+    mpga = "mpga"
+    pcm = "pcm"
+    webm = "webm"
 
 
 class CachePointType(StrEnum):
@@ -183,9 +207,20 @@ class GuardrailManagedWordType(StrEnum):
     PROFANITY = "PROFANITY"
 
 
+class GuardrailOrigin(StrEnum):
+    REQUEST = "REQUEST"
+    ACCOUNT_ENFORCED = "ACCOUNT_ENFORCED"
+    ORGANIZATION_ENFORCED = "ORGANIZATION_ENFORCED"
+
+
 class GuardrailOutputScope(StrEnum):
     INTERVENTIONS = "INTERVENTIONS"
     FULL = "FULL"
+
+
+class GuardrailOwnership(StrEnum):
+    SELF = "SELF"
+    CROSS_ACCOUNT = "CROSS_ACCOUNT"
 
 
 class GuardrailPiiEntityType(StrEnum):
@@ -265,6 +300,13 @@ class PerformanceConfigLatency(StrEnum):
     optimized = "optimized"
 
 
+class ServiceTierType(StrEnum):
+    priority = "priority"
+    default = "default"
+    flex = "flex"
+    reserved = "reserved"
+
+
 class SortAsyncInvocationBy(StrEnum):
     SubmissionTime = "SubmissionTime"
 
@@ -281,11 +323,18 @@ class StopReason(StrEnum):
     stop_sequence = "stop_sequence"
     guardrail_intervened = "guardrail_intervened"
     content_filtered = "content_filtered"
+    malformed_model_output = "malformed_model_output"
+    malformed_tool_use = "malformed_tool_use"
+    model_context_window_exceeded = "model_context_window_exceeded"
 
 
 class ToolResultStatus(StrEnum):
     success = "success"
     error = "error"
+
+
+class ToolUseType(StrEnum):
+    server_tool_use = "server_tool_use"
 
 
 class Trace(StrEnum):
@@ -343,8 +392,8 @@ class ModelErrorException(ServiceException):
     code: str = "ModelErrorException"
     sender_fault: bool = True
     status_code: int = 424
-    originalStatusCode: Optional[StatusCode]
-    resourceName: Optional[NonBlankString]
+    originalStatusCode: StatusCode | None
+    resourceName: NonBlankString | None
 
 
 class ModelNotReadyException(ServiceException):
@@ -366,8 +415,8 @@ class ModelStreamErrorException(ServiceException):
     code: str = "ModelStreamErrorException"
     sender_fault: bool = True
     status_code: int = 424
-    originalStatusCode: Optional[StatusCode]
-    originalMessage: Optional[NonBlankString]
+    originalStatusCode: StatusCode | None
+    originalMessage: NonBlankString | None
 
 
 class ModelTimeoutException(ServiceException):
@@ -442,10 +491,29 @@ class ValidationException(ServiceException):
 
 class AnyToolChoice(TypedDict, total=False):
     """The model must request at least one tool (no text is generated). For
-    example, ``{"any" : {}}``.
+    example, ``{"any" : {}}``. For more information, see `Call a tool with
+    the Converse
+    API <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html>`__
+    in the Amazon Bedrock User Guide.
     """
 
     pass
+
+
+GuardrailOriginList = list[GuardrailOrigin]
+
+
+class AppliedGuardrailDetails(TypedDict, total=False):
+    """Details about the specific guardrail that was applied during this
+    assessment, including its identifier, version, ARN, origin, and
+    ownership information.
+    """
+
+    guardrailId: GuardrailId | None
+    guardrailVersion: GuardrailVersion | None
+    guardrailArn: GuardrailArn | None
+    guardrailOrigin: GuardrailOriginList | None
+    guardrailOwnership: GuardrailOwnership | None
 
 
 GuardrailImageSourceBytesBlob = bytes
@@ -456,7 +524,7 @@ class GuardrailImageSource(TypedDict, total=False):
     used in independent api.
     """
 
-    bytes: Optional[GuardrailImageSourceBytesBlob]
+    bytes: GuardrailImageSourceBytesBlob | None
 
 
 class GuardrailImageBlock(TypedDict, total=False):
@@ -468,24 +536,24 @@ class GuardrailImageBlock(TypedDict, total=False):
     source: GuardrailImageSource
 
 
-GuardrailContentQualifierList = List[GuardrailContentQualifier]
+GuardrailContentQualifierList = list[GuardrailContentQualifier]
 
 
 class GuardrailTextBlock(TypedDict, total=False):
     """The text block to be evaluated by the guardrail."""
 
     text: String
-    qualifiers: Optional[GuardrailContentQualifierList]
+    qualifiers: GuardrailContentQualifierList | None
 
 
 class GuardrailContentBlock(TypedDict, total=False):
     """The content block to be evaluated by the guardrail."""
 
-    text: Optional[GuardrailTextBlock]
-    image: Optional[GuardrailImageBlock]
+    text: GuardrailTextBlock | None
+    image: GuardrailImageBlock | None
 
 
-GuardrailContentBlockList = List[GuardrailContentBlock]
+GuardrailContentBlockList = list[GuardrailContentBlock]
 
 
 class ApplyGuardrailRequest(ServiceRequest):
@@ -493,28 +561,28 @@ class ApplyGuardrailRequest(ServiceRequest):
     guardrailVersion: GuardrailVersion
     source: GuardrailContentSource
     content: GuardrailContentBlockList
-    outputScope: Optional[GuardrailOutputScope]
+    outputScope: GuardrailOutputScope | None
 
 
 class GuardrailImageCoverage(TypedDict, total=False):
     """The details of the guardrail image coverage."""
 
-    guarded: Optional[ImagesGuarded]
-    total: Optional[ImagesTotal]
+    guarded: ImagesGuarded | None
+    total: ImagesTotal | None
 
 
 class GuardrailTextCharactersCoverage(TypedDict, total=False):
     """The guardrail coverage for the text characters."""
 
-    guarded: Optional[TextCharactersGuarded]
-    total: Optional[TextCharactersTotal]
+    guarded: TextCharactersGuarded | None
+    total: TextCharactersTotal | None
 
 
 class GuardrailCoverage(TypedDict, total=False):
     """The action of the guardrail coverage details."""
 
-    textCharacters: Optional[GuardrailTextCharactersCoverage]
-    images: Optional[GuardrailImageCoverage]
+    textCharacters: GuardrailTextCharactersCoverage | None
+    images: GuardrailImageCoverage | None
 
 
 class GuardrailUsage(TypedDict, total=False):
@@ -526,9 +594,9 @@ class GuardrailUsage(TypedDict, total=False):
     sensitiveInformationPolicyUnits: GuardrailSensitiveInformationPolicyUnitsProcessed
     sensitiveInformationPolicyFreeUnits: GuardrailSensitiveInformationPolicyFreeUnitsProcessed
     contextualGroundingPolicyUnits: GuardrailContextualGroundingPolicyUnitsProcessed
-    contentPolicyImageUnits: Optional[GuardrailContentPolicyImageUnitsProcessed]
-    automatedReasoningPolicyUnits: Optional[GuardrailAutomatedReasoningPolicyUnitsProcessed]
-    automatedReasoningPolicies: Optional[GuardrailAutomatedReasoningPoliciesProcessed]
+    contentPolicyImageUnits: GuardrailContentPolicyImageUnitsProcessed | None
+    automatedReasoningPolicyUnits: GuardrailAutomatedReasoningPolicyUnitsProcessed | None
+    automatedReasoningPolicies: GuardrailAutomatedReasoningPoliciesProcessed | None
 
 
 GuardrailProcessingLatency = int
@@ -537,9 +605,9 @@ GuardrailProcessingLatency = int
 class GuardrailInvocationMetrics(TypedDict, total=False):
     """The invocation metrics for the guardrail."""
 
-    guardrailProcessingLatency: Optional[GuardrailProcessingLatency]
-    usage: Optional[GuardrailUsage]
-    guardrailCoverage: Optional[GuardrailCoverage]
+    guardrailProcessingLatency: GuardrailProcessingLatency | None
+    usage: GuardrailUsage | None
+    guardrailCoverage: GuardrailCoverage | None
 
 
 class GuardrailAutomatedReasoningNoTranslationsFinding(TypedDict, total=False):
@@ -563,11 +631,11 @@ class GuardrailAutomatedReasoningStatement(TypedDict, total=False):
     natural language explanation.
     """
 
-    logic: Optional[GuardrailAutomatedReasoningStatementLogicContent]
-    naturalLanguage: Optional[GuardrailAutomatedReasoningStatementNaturalLanguageContent]
+    logic: GuardrailAutomatedReasoningStatementLogicContent | None
+    naturalLanguage: GuardrailAutomatedReasoningStatementNaturalLanguageContent | None
 
 
-GuardrailAutomatedReasoningStatementList = List[GuardrailAutomatedReasoningStatement]
+GuardrailAutomatedReasoningStatementList = list[GuardrailAutomatedReasoningStatement]
 
 
 class GuardrailAutomatedReasoningScenario(TypedDict, total=False):
@@ -575,10 +643,10 @@ class GuardrailAutomatedReasoningScenario(TypedDict, total=False):
     false, containing specific logical assignments.
     """
 
-    statements: Optional[GuardrailAutomatedReasoningStatementList]
+    statements: GuardrailAutomatedReasoningStatementList | None
 
 
-GuardrailAutomatedReasoningDifferenceScenarioList = List[GuardrailAutomatedReasoningScenario]
+GuardrailAutomatedReasoningDifferenceScenarioList = list[GuardrailAutomatedReasoningScenario]
 
 
 class GuardrailAutomatedReasoningInputTextReference(TypedDict, total=False):
@@ -586,10 +654,10 @@ class GuardrailAutomatedReasoningInputTextReference(TypedDict, total=False):
     logical elements.
     """
 
-    text: Optional[GuardrailAutomatedReasoningStatementNaturalLanguageContent]
+    text: GuardrailAutomatedReasoningStatementNaturalLanguageContent | None
 
 
-GuardrailAutomatedReasoningInputTextReferenceList = List[
+GuardrailAutomatedReasoningInputTextReferenceList = list[
     GuardrailAutomatedReasoningInputTextReference
 ]
 
@@ -599,14 +667,14 @@ class GuardrailAutomatedReasoningTranslation(TypedDict, total=False):
     logical statements, including premises, claims, and confidence scores.
     """
 
-    premises: Optional[GuardrailAutomatedReasoningStatementList]
-    claims: Optional[GuardrailAutomatedReasoningStatementList]
-    untranslatedPremises: Optional[GuardrailAutomatedReasoningInputTextReferenceList]
-    untranslatedClaims: Optional[GuardrailAutomatedReasoningInputTextReferenceList]
-    confidence: Optional[GuardrailAutomatedReasoningTranslationConfidence]
+    premises: GuardrailAutomatedReasoningStatementList | None
+    claims: GuardrailAutomatedReasoningStatementList | None
+    untranslatedPremises: GuardrailAutomatedReasoningInputTextReferenceList | None
+    untranslatedClaims: GuardrailAutomatedReasoningInputTextReferenceList | None
+    confidence: GuardrailAutomatedReasoningTranslationConfidence | None
 
 
-GuardrailAutomatedReasoningTranslationList = List[GuardrailAutomatedReasoningTranslation]
+GuardrailAutomatedReasoningTranslationList = list[GuardrailAutomatedReasoningTranslation]
 
 
 class GuardrailAutomatedReasoningTranslationOption(TypedDict, total=False):
@@ -614,10 +682,10 @@ class GuardrailAutomatedReasoningTranslationOption(TypedDict, total=False):
     content.
     """
 
-    translations: Optional[GuardrailAutomatedReasoningTranslationList]
+    translations: GuardrailAutomatedReasoningTranslationList | None
 
 
-GuardrailAutomatedReasoningTranslationOptionList = List[
+GuardrailAutomatedReasoningTranslationOptionList = list[
     GuardrailAutomatedReasoningTranslationOption
 ]
 
@@ -627,14 +695,14 @@ class GuardrailAutomatedReasoningTranslationAmbiguousFinding(TypedDict, total=Fa
     requiring additional context or clarification.
     """
 
-    options: Optional[GuardrailAutomatedReasoningTranslationOptionList]
-    differenceScenarios: Optional[GuardrailAutomatedReasoningDifferenceScenarioList]
+    options: GuardrailAutomatedReasoningTranslationOptionList | None
+    differenceScenarios: GuardrailAutomatedReasoningDifferenceScenarioList | None
 
 
 class GuardrailAutomatedReasoningLogicWarning(TypedDict, total=False):
-    type: Optional[GuardrailAutomatedReasoningLogicWarningType]
-    premises: Optional[GuardrailAutomatedReasoningStatementList]
-    claims: Optional[GuardrailAutomatedReasoningStatementList]
+    type: GuardrailAutomatedReasoningLogicWarningType | None
+    premises: GuardrailAutomatedReasoningStatementList | None
+    claims: GuardrailAutomatedReasoningStatementList | None
 
 
 class GuardrailAutomatedReasoningRule(TypedDict, total=False):
@@ -642,11 +710,11 @@ class GuardrailAutomatedReasoningRule(TypedDict, total=False):
     during evaluation.
     """
 
-    identifier: Optional[AutomatedReasoningRuleIdentifier]
-    policyVersionArn: Optional[GuardrailAutomatedReasoningPolicyVersionArn]
+    identifier: AutomatedReasoningRuleIdentifier | None
+    policyVersionArn: GuardrailAutomatedReasoningPolicyVersionArn | None
 
 
-GuardrailAutomatedReasoningRuleList = List[GuardrailAutomatedReasoningRule]
+GuardrailAutomatedReasoningRuleList = list[GuardrailAutomatedReasoningRule]
 
 
 class GuardrailAutomatedReasoningImpossibleFinding(TypedDict, total=False):
@@ -654,9 +722,9 @@ class GuardrailAutomatedReasoningImpossibleFinding(TypedDict, total=False):
     in the premises or rules.
     """
 
-    translation: Optional[GuardrailAutomatedReasoningTranslation]
-    contradictingRules: Optional[GuardrailAutomatedReasoningRuleList]
-    logicWarning: Optional[GuardrailAutomatedReasoningLogicWarning]
+    translation: GuardrailAutomatedReasoningTranslation | None
+    contradictingRules: GuardrailAutomatedReasoningRuleList | None
+    logicWarning: GuardrailAutomatedReasoningLogicWarning | None
 
 
 class GuardrailAutomatedReasoningSatisfiableFinding(TypedDict, total=False):
@@ -664,10 +732,10 @@ class GuardrailAutomatedReasoningSatisfiableFinding(TypedDict, total=False):
     additional assumptions not provided in the input.
     """
 
-    translation: Optional[GuardrailAutomatedReasoningTranslation]
-    claimsTrueScenario: Optional[GuardrailAutomatedReasoningScenario]
-    claimsFalseScenario: Optional[GuardrailAutomatedReasoningScenario]
-    logicWarning: Optional[GuardrailAutomatedReasoningLogicWarning]
+    translation: GuardrailAutomatedReasoningTranslation | None
+    claimsTrueScenario: GuardrailAutomatedReasoningScenario | None
+    claimsFalseScenario: GuardrailAutomatedReasoningScenario | None
+    logicWarning: GuardrailAutomatedReasoningLogicWarning | None
 
 
 class GuardrailAutomatedReasoningInvalidFinding(TypedDict, total=False):
@@ -675,9 +743,9 @@ class GuardrailAutomatedReasoningInvalidFinding(TypedDict, total=False):
     established rules or premises.
     """
 
-    translation: Optional[GuardrailAutomatedReasoningTranslation]
-    contradictingRules: Optional[GuardrailAutomatedReasoningRuleList]
-    logicWarning: Optional[GuardrailAutomatedReasoningLogicWarning]
+    translation: GuardrailAutomatedReasoningTranslation | None
+    contradictingRules: GuardrailAutomatedReasoningRuleList | None
+    logicWarning: GuardrailAutomatedReasoningLogicWarning | None
 
 
 class GuardrailAutomatedReasoningValidFinding(TypedDict, total=False):
@@ -685,10 +753,10 @@ class GuardrailAutomatedReasoningValidFinding(TypedDict, total=False):
     the premises, with no possible alternative interpretations.
     """
 
-    translation: Optional[GuardrailAutomatedReasoningTranslation]
-    claimsTrueScenario: Optional[GuardrailAutomatedReasoningScenario]
-    supportingRules: Optional[GuardrailAutomatedReasoningRuleList]
-    logicWarning: Optional[GuardrailAutomatedReasoningLogicWarning]
+    translation: GuardrailAutomatedReasoningTranslation | None
+    claimsTrueScenario: GuardrailAutomatedReasoningScenario | None
+    supportingRules: GuardrailAutomatedReasoningRuleList | None
+    logicWarning: GuardrailAutomatedReasoningLogicWarning | None
 
 
 class GuardrailAutomatedReasoningFinding(TypedDict, total=False):
@@ -698,16 +766,16 @@ class GuardrailAutomatedReasoningFinding(TypedDict, total=False):
     issues.
     """
 
-    valid: Optional[GuardrailAutomatedReasoningValidFinding]
-    invalid: Optional[GuardrailAutomatedReasoningInvalidFinding]
-    satisfiable: Optional[GuardrailAutomatedReasoningSatisfiableFinding]
-    impossible: Optional[GuardrailAutomatedReasoningImpossibleFinding]
-    translationAmbiguous: Optional[GuardrailAutomatedReasoningTranslationAmbiguousFinding]
-    tooComplex: Optional[GuardrailAutomatedReasoningTooComplexFinding]
-    noTranslations: Optional[GuardrailAutomatedReasoningNoTranslationsFinding]
+    valid: GuardrailAutomatedReasoningValidFinding | None
+    invalid: GuardrailAutomatedReasoningInvalidFinding | None
+    satisfiable: GuardrailAutomatedReasoningSatisfiableFinding | None
+    impossible: GuardrailAutomatedReasoningImpossibleFinding | None
+    translationAmbiguous: GuardrailAutomatedReasoningTranslationAmbiguousFinding | None
+    tooComplex: GuardrailAutomatedReasoningTooComplexFinding | None
+    noTranslations: GuardrailAutomatedReasoningNoTranslationsFinding | None
 
 
-GuardrailAutomatedReasoningFindingList = List[GuardrailAutomatedReasoningFinding]
+GuardrailAutomatedReasoningFindingList = list[GuardrailAutomatedReasoningFinding]
 
 
 class GuardrailAutomatedReasoningPolicyAssessment(TypedDict, total=False):
@@ -715,7 +783,7 @@ class GuardrailAutomatedReasoningPolicyAssessment(TypedDict, total=False):
     logical findings about the validity of claims made in the input content.
     """
 
-    findings: Optional[GuardrailAutomatedReasoningFindingList]
+    findings: GuardrailAutomatedReasoningFindingList | None
 
 
 class GuardrailContextualGroundingFilter(TypedDict, total=False):
@@ -723,10 +791,10 @@ class GuardrailContextualGroundingFilter(TypedDict, total=False):
     threshold: GuardrailContextualGroundingFilterThresholdDouble
     score: GuardrailContextualGroundingFilterScoreDouble
     action: GuardrailContextualGroundingPolicyAction
-    detected: Optional[Boolean]
+    detected: Boolean | None
 
 
-GuardrailContextualGroundingFilters = List[GuardrailContextualGroundingFilter]
+GuardrailContextualGroundingFilters = list[GuardrailContextualGroundingFilter]
 
 
 class GuardrailContextualGroundingPolicyAssessment(TypedDict, total=False):
@@ -734,34 +802,34 @@ class GuardrailContextualGroundingPolicyAssessment(TypedDict, total=False):
     filter.
     """
 
-    filters: Optional[GuardrailContextualGroundingFilters]
+    filters: GuardrailContextualGroundingFilters | None
 
 
 class GuardrailRegexFilter(TypedDict, total=False):
     """A Regex filter configured in a guardrail."""
 
-    name: Optional[String]
-    match: Optional[String]
-    regex: Optional[String]
+    name: String | None
+    match: String | None
+    regex: String | None
     action: GuardrailSensitiveInformationPolicyAction
-    detected: Optional[Boolean]
+    detected: Boolean | None
 
 
-GuardrailRegexFilterList = List[GuardrailRegexFilter]
+GuardrailRegexFilterList = list[GuardrailRegexFilter]
 
 
 class GuardrailPiiEntityFilter(TypedDict, total=False):
     match: String
     type: GuardrailPiiEntityType
     action: GuardrailSensitiveInformationPolicyAction
-    detected: Optional[Boolean]
+    detected: Boolean | None
 
 
-GuardrailPiiEntityFilterList = List[GuardrailPiiEntityFilter]
+GuardrailPiiEntityFilterList = list[GuardrailPiiEntityFilter]
 
 
 class GuardrailSensitiveInformationPolicyAssessment(TypedDict, total=False):
-    """The assessment for aPersonally Identifiable Information (PII) policy."""
+    """The assessment for a Personally Identifiable Information (PII) policy."""
 
     piiEntities: GuardrailPiiEntityFilterList
     regexes: GuardrailRegexFilterList
@@ -771,10 +839,10 @@ class GuardrailManagedWord(TypedDict, total=False):
     match: String
     type: GuardrailManagedWordType
     action: GuardrailWordPolicyAction
-    detected: Optional[Boolean]
+    detected: Boolean | None
 
 
-GuardrailManagedWordList = List[GuardrailManagedWord]
+GuardrailManagedWordList = list[GuardrailManagedWord]
 
 
 class GuardrailCustomWord(TypedDict, total=False):
@@ -782,10 +850,10 @@ class GuardrailCustomWord(TypedDict, total=False):
 
     match: String
     action: GuardrailWordPolicyAction
-    detected: Optional[Boolean]
+    detected: Boolean | None
 
 
-GuardrailCustomWordList = List[GuardrailCustomWord]
+GuardrailCustomWordList = list[GuardrailCustomWord]
 
 
 class GuardrailWordPolicyAssessment(TypedDict, total=False):
@@ -798,12 +866,12 @@ class GuardrailWordPolicyAssessment(TypedDict, total=False):
 class GuardrailContentFilter(TypedDict, total=False):
     type: GuardrailContentFilterType
     confidence: GuardrailContentFilterConfidence
-    filterStrength: Optional[GuardrailContentFilterStrength]
+    filterStrength: GuardrailContentFilterStrength | None
     action: GuardrailContentPolicyAction
-    detected: Optional[Boolean]
+    detected: Boolean | None
 
 
-GuardrailContentFilterList = List[GuardrailContentFilter]
+GuardrailContentFilterList = list[GuardrailContentFilter]
 
 
 class GuardrailContentPolicyAssessment(TypedDict, total=False):
@@ -816,10 +884,10 @@ class GuardrailTopic(TypedDict, total=False):
     name: String
     type: GuardrailTopicType
     action: GuardrailTopicPolicyAction
-    detected: Optional[Boolean]
+    detected: Boolean | None
 
 
-GuardrailTopicList = List[GuardrailTopic]
+GuardrailTopicList = list[GuardrailTopic]
 
 
 class GuardrailTopicPolicyAssessment(TypedDict, total=False):
@@ -833,48 +901,49 @@ class GuardrailAssessment(TypedDict, total=False):
     Converse API.
     """
 
-    topicPolicy: Optional[GuardrailTopicPolicyAssessment]
-    contentPolicy: Optional[GuardrailContentPolicyAssessment]
-    wordPolicy: Optional[GuardrailWordPolicyAssessment]
-    sensitiveInformationPolicy: Optional[GuardrailSensitiveInformationPolicyAssessment]
-    contextualGroundingPolicy: Optional[GuardrailContextualGroundingPolicyAssessment]
-    automatedReasoningPolicy: Optional[GuardrailAutomatedReasoningPolicyAssessment]
-    invocationMetrics: Optional[GuardrailInvocationMetrics]
+    topicPolicy: GuardrailTopicPolicyAssessment | None
+    contentPolicy: GuardrailContentPolicyAssessment | None
+    wordPolicy: GuardrailWordPolicyAssessment | None
+    sensitiveInformationPolicy: GuardrailSensitiveInformationPolicyAssessment | None
+    contextualGroundingPolicy: GuardrailContextualGroundingPolicyAssessment | None
+    automatedReasoningPolicy: GuardrailAutomatedReasoningPolicyAssessment | None
+    invocationMetrics: GuardrailInvocationMetrics | None
+    appliedGuardrailDetails: AppliedGuardrailDetails | None
 
 
-GuardrailAssessmentList = List[GuardrailAssessment]
+GuardrailAssessmentList = list[GuardrailAssessment]
 
 
 class GuardrailOutputContent(TypedDict, total=False):
     """The output content produced by the guardrail."""
 
-    text: Optional[GuardrailOutputText]
+    text: GuardrailOutputText | None
 
 
-GuardrailOutputContentList = List[GuardrailOutputContent]
+GuardrailOutputContentList = list[GuardrailOutputContent]
 
 
 class ApplyGuardrailResponse(TypedDict, total=False):
     usage: GuardrailUsage
     action: GuardrailAction
-    actionReason: Optional[String]
+    actionReason: String | None
     outputs: GuardrailOutputContentList
     assessments: GuardrailAssessmentList
-    guardrailCoverage: Optional[GuardrailCoverage]
+    guardrailCoverage: GuardrailCoverage | None
 
 
 class AsyncInvokeS3OutputDataConfig(TypedDict, total=False):
     """Asynchronous invocation output data settings."""
 
     s3Uri: S3Uri
-    kmsKeyId: Optional[KmsKeyId]
-    bucketOwner: Optional[AccountId]
+    kmsKeyId: KmsKeyId | None
+    bucketOwner: AccountId | None
 
 
 class AsyncInvokeOutputDataConfig(TypedDict, total=False):
     """Asynchronous invocation output data settings."""
 
-    s3OutputDataConfig: Optional[AsyncInvokeS3OutputDataConfig]
+    s3OutputDataConfig: AsyncInvokeS3OutputDataConfig | None
 
 
 Timestamp = datetime
@@ -885,21 +954,59 @@ class AsyncInvokeSummary(TypedDict, total=False):
 
     invocationArn: InvocationArn
     modelArn: AsyncInvokeArn
-    clientRequestToken: Optional[AsyncInvokeIdempotencyToken]
-    status: Optional[AsyncInvokeStatus]
-    failureMessage: Optional[AsyncInvokeMessage]
+    clientRequestToken: AsyncInvokeIdempotencyToken | None
+    status: AsyncInvokeStatus | None
+    failureMessage: AsyncInvokeMessage | None
     submitTime: Timestamp
-    lastModifiedTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
+    lastModifiedTime: Timestamp | None
+    endTime: Timestamp | None
     outputDataConfig: AsyncInvokeOutputDataConfig
 
 
-AsyncInvokeSummaries = List[AsyncInvokeSummary]
+AsyncInvokeSummaries = list[AsyncInvokeSummary]
+
+
+class ErrorBlock(TypedDict, total=False):
+    """A block containing error information when content processing fails."""
+
+    message: String | None
+
+
+class S3Location(TypedDict, total=False):
+    """A storage location in an Amazon S3 bucket."""
+
+    uri: S3Uri
+    bucketOwner: AccountId | None
+
+
+AudioSourceBytesBlob = bytes
+
+
+class AudioSource(TypedDict, total=False):
+    """The source of audio data, which can be provided either as raw bytes or a
+    reference to an S3 location.
+    """
+
+    bytes: AudioSourceBytesBlob | None
+    s3Location: S3Location | None
+
+
+class AudioBlock(TypedDict, total=False):
+    """An audio content block that contains audio data in various supported
+    formats.
+    """
+
+    format: AudioFormat
+    source: AudioSource
+    error: ErrorBlock | None
 
 
 class AutoToolChoice(TypedDict, total=False):
     """The Model automatically decides if a tool should be called or whether to
-    generate text instead. For example, ``{"auto" : {}}``.
+    generate text instead. For example, ``{"auto" : {}}``. For more
+    information, see `Call a tool with the Converse
+    API <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html>`__
+    in the Amazon Bedrock User Guide
     """
 
     pass
@@ -913,7 +1020,7 @@ class BidirectionalInputPayloadPart(TypedDict, total=False):
     stream.
     """
 
-    bytes: Optional[PartBody]
+    bytes: PartBody | None
 
 
 class BidirectionalOutputPayloadPart(TypedDict, total=False):
@@ -921,7 +1028,7 @@ class BidirectionalOutputPayloadPart(TypedDict, total=False):
     transcription.
     """
 
-    bytes: Optional[PartBody]
+    bytes: PartBody | None
 
 
 Blob = bytes
@@ -932,15 +1039,26 @@ class CachePointBlock(TypedDict, total=False):
     type: CachePointType
 
 
+class SearchResultLocation(TypedDict, total=False):
+    """Specifies a search result location within the content array, providing
+    positioning information for cited content using search result index and
+    block positions.
+    """
+
+    searchResultIndex: SearchResultLocationSearchResultIndexInteger | None
+    start: SearchResultLocationStartInteger | None
+    end: SearchResultLocationEndInteger | None
+
+
 class DocumentChunkLocation(TypedDict, total=False):
     """Specifies a chunk-level location within a document, providing
     positioning information for cited content using logical document
     segments or chunks.
     """
 
-    documentIndex: Optional[DocumentChunkLocationDocumentIndexInteger]
-    start: Optional[DocumentChunkLocationStartInteger]
-    end: Optional[DocumentChunkLocationEndInteger]
+    documentIndex: DocumentChunkLocationDocumentIndexInteger | None
+    start: DocumentChunkLocationStartInteger | None
+    end: DocumentChunkLocationEndInteger | None
 
 
 class DocumentPageLocation(TypedDict, total=False):
@@ -948,9 +1066,9 @@ class DocumentPageLocation(TypedDict, total=False):
     information for cited content using page numbers.
     """
 
-    documentIndex: Optional[DocumentPageLocationDocumentIndexInteger]
-    start: Optional[DocumentPageLocationStartInteger]
-    end: Optional[DocumentPageLocationEndInteger]
+    documentIndex: DocumentPageLocationDocumentIndexInteger | None
+    start: DocumentPageLocationStartInteger | None
+    end: DocumentPageLocationEndInteger | None
 
 
 class DocumentCharLocation(TypedDict, total=False):
@@ -959,9 +1077,18 @@ class DocumentCharLocation(TypedDict, total=False):
     character indices.
     """
 
-    documentIndex: Optional[DocumentCharLocationDocumentIndexInteger]
-    start: Optional[DocumentCharLocationStartInteger]
-    end: Optional[DocumentCharLocationEndInteger]
+    documentIndex: DocumentCharLocationDocumentIndexInteger | None
+    start: DocumentCharLocationStartInteger | None
+    end: DocumentCharLocationEndInteger | None
+
+
+class WebLocation(TypedDict, total=False):
+    """Provides the URL and domain information for the website that was cited
+    when performing a web search.
+    """
+
+    url: String | None
+    domain: String | None
 
 
 class CitationLocation(TypedDict, total=False):
@@ -971,9 +1098,11 @@ class CitationLocation(TypedDict, total=False):
     method.
     """
 
-    documentChar: Optional[DocumentCharLocation]
-    documentPage: Optional[DocumentPageLocation]
-    documentChunk: Optional[DocumentChunkLocation]
+    web: WebLocation | None
+    documentChar: DocumentCharLocation | None
+    documentPage: DocumentPageLocation | None
+    documentChunk: DocumentChunkLocation | None
+    searchResultLocation: SearchResultLocation | None
 
 
 class CitationSourceContent(TypedDict, total=False):
@@ -981,10 +1110,10 @@ class CitationSourceContent(TypedDict, total=False):
     cited or referenced in the model's response.
     """
 
-    text: Optional[String]
+    text: String | None
 
 
-CitationSourceContentList = List[CitationSourceContent]
+CitationSourceContentList = list[CitationSourceContent]
 
 
 class Citation(TypedDict, total=False):
@@ -993,9 +1122,10 @@ class Citation(TypedDict, total=False):
     response and the source documents that informed that response.
     """
 
-    title: Optional[String]
-    sourceContent: Optional[CitationSourceContentList]
-    location: Optional[CitationLocation]
+    title: String | None
+    source: String | None
+    sourceContent: CitationSourceContentList | None
+    location: CitationLocation | None
 
 
 class CitationGeneratedContent(TypedDict, total=False):
@@ -1003,10 +1133,10 @@ class CitationGeneratedContent(TypedDict, total=False):
     by a citation from a source document.
     """
 
-    text: Optional[String]
+    text: String | None
 
 
-CitationGeneratedContentList = List[CitationGeneratedContent]
+CitationGeneratedContentList = list[CitationGeneratedContent]
 
 
 class CitationSourceContentDelta(TypedDict, total=False):
@@ -1014,11 +1144,11 @@ class CitationSourceContentDelta(TypedDict, total=False):
     responses, allowing clients to build up the cited content progressively.
     """
 
-    text: Optional[String]
+    text: String | None
 
 
-CitationSourceContentListDelta = List[CitationSourceContentDelta]
-Citations = List[Citation]
+CitationSourceContentListDelta = list[CitationSourceContentDelta]
+Citations = list[Citation]
 
 
 class CitationsConfig(TypedDict, total=False):
@@ -1038,8 +1168,8 @@ class CitationsContentBlock(TypedDict, total=False):
     content and the source documents that informed the response.
     """
 
-    content: Optional[CitationGeneratedContentList]
-    citations: Optional[Citations]
+    content: CitationGeneratedContentList | None
+    citations: Citations | None
 
 
 class CitationsDelta(TypedDict, total=False):
@@ -1048,16 +1178,40 @@ class CitationsDelta(TypedDict, total=False):
     as the response is generated.
     """
 
-    title: Optional[String]
-    sourceContent: Optional[CitationSourceContentListDelta]
-    location: Optional[CitationLocation]
+    title: String | None
+    source: String | None
+    sourceContent: CitationSourceContentListDelta | None
+    location: CitationLocation | None
+
+
+class SearchResultContentBlock(TypedDict, total=False):
+    """A block within a search result that contains the content."""
+
+    text: String
+
+
+SearchResultContentBlocks = list[SearchResultContentBlock]
+
+
+class SearchResultBlock(TypedDict, total=False):
+    """A search result block that enables natural citations with proper source
+    attribution for retrieved content.
+
+    This field is only supported by Anthropic Claude Opus 4.1, Opus 4,
+    Sonnet 4.5, Sonnet 4, Sonnet 3.7, and 3.5 Haiku models.
+    """
+
+    source: String
+    title: String
+    content: SearchResultContentBlocks
+    citations: CitationsConfig | None
 
 
 class ReasoningTextBlock(TypedDict, total=False):
     """Contains the reasoning that the model used to return the output."""
 
     text: String
-    signature: Optional[String]
+    signature: String | None
 
 
 class ReasoningContentBlock(TypedDict, total=False):
@@ -1067,8 +1221,8 @@ class ReasoningContentBlock(TypedDict, total=False):
     accuracy of its final response.
     """
 
-    reasoningText: Optional[ReasoningTextBlock]
-    redactedContent: Optional[Blob]
+    reasoningText: ReasoningTextBlock | None
+    redactedContent: Blob | None
 
 
 GuardrailConverseImageSourceBytesBlob = bytes
@@ -1077,7 +1231,7 @@ GuardrailConverseImageSourceBytesBlob = bytes
 class GuardrailConverseImageSource(TypedDict, total=False):
     """The image source (image bytes) of the guardrail converse image source."""
 
-    bytes: Optional[GuardrailConverseImageSourceBytesBlob]
+    bytes: GuardrailConverseImageSourceBytesBlob | None
 
 
 class GuardrailConverseImageBlock(TypedDict, total=False):
@@ -1089,16 +1243,17 @@ class GuardrailConverseImageBlock(TypedDict, total=False):
     source: GuardrailConverseImageSource
 
 
-GuardrailConverseContentQualifierList = List[GuardrailConverseContentQualifier]
+GuardrailConverseContentQualifierList = list[GuardrailConverseContentQualifier]
 
 
 class GuardrailConverseTextBlock(TypedDict, total=False):
     """A text block that contains text that you want to assess with a
-    guardrail. For more information, see GuardrailConverseContentBlock.
+    guardrail. For more information, see
+    `GuardrailConverseContentBlock <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_GuardrailConverseContentBlock.html>`__.
     """
 
     text: String
-    qualifiers: Optional[GuardrailConverseContentQualifierList]
+    qualifiers: GuardrailConverseContentQualifierList | None
 
 
 class GuardrailConverseContentBlock(TypedDict, total=False):
@@ -1109,15 +1264,8 @@ class GuardrailConverseContentBlock(TypedDict, total=False):
     API operations.
     """
 
-    text: Optional[GuardrailConverseTextBlock]
-    image: Optional[GuardrailConverseImageBlock]
-
-
-class S3Location(TypedDict, total=False):
-    """A storage location in an Amazon S3 bucket."""
-
-    uri: S3Uri
-    bucketOwner: Optional[AccountId]
+    text: GuardrailConverseTextBlock | None
+    image: GuardrailConverseImageBlock | None
 
 
 VideoSourceBytesBlob = bytes
@@ -1129,8 +1277,8 @@ class VideoSource(TypedDict, total=False):
     transfer videos up to 1GB in size from an S3 bucket.
     """
 
-    bytes: Optional[VideoSourceBytesBlob]
-    s3Location: Optional[S3Location]
+    bytes: VideoSourceBytesBlob | None
+    s3Location: S3Location | None
 
 
 class VideoBlock(TypedDict, total=False):
@@ -1145,30 +1293,30 @@ class DocumentContentBlock(TypedDict, total=False):
     model and potentially cited in the response.
     """
 
-    text: Optional[String]
+    text: String | None
 
 
-DocumentContentBlocks = List[DocumentContentBlock]
+DocumentContentBlocks = list[DocumentContentBlock]
 DocumentSourceBytesBlob = bytes
 
 
 class DocumentSource(TypedDict, total=False):
     """Contains the content of a document."""
 
-    bytes: Optional[DocumentSourceBytesBlob]
-    s3Location: Optional[S3Location]
-    text: Optional[String]
-    content: Optional[DocumentContentBlocks]
+    bytes: DocumentSourceBytesBlob | None
+    s3Location: S3Location | None
+    text: String | None
+    content: DocumentContentBlocks | None
 
 
 class DocumentBlock(TypedDict, total=False):
     """A document to include in a message."""
 
-    format: Optional[DocumentFormat]
+    format: DocumentFormat | None
     name: DocumentBlockNameString
     source: DocumentSource
-    context: Optional[String]
-    citations: Optional[CitationsConfig]
+    context: String | None
+    citations: CitationsConfig | None
 
 
 ImageSourceBytesBlob = bytes
@@ -1177,8 +1325,8 @@ ImageSourceBytesBlob = bytes
 class ImageSource(TypedDict, total=False):
     """The source for an image."""
 
-    bytes: Optional[ImageSourceBytesBlob]
-    s3Location: Optional[S3Location]
+    bytes: ImageSourceBytesBlob | None
+    s3Location: S3Location | None
 
 
 class ImageBlock(TypedDict, total=False):
@@ -1186,6 +1334,7 @@ class ImageBlock(TypedDict, total=False):
 
     format: ImageFormat
     source: ImageSource
+    error: ErrorBlock | None
 
 
 class Document(TypedDict, total=False):
@@ -1193,37 +1342,35 @@ class Document(TypedDict, total=False):
 
 
 class ToolResultContentBlock(TypedDict, total=False):
-    """The tool result content block."""
+    """The tool result content block. For more information, see `Call a tool
+    with the Converse
+    API <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html>`__
+    in the Amazon Bedrock User Guide.
+    """
 
-    json: Optional[Document]
-    text: Optional[String]
-    image: Optional[ImageBlock]
-    document: Optional[DocumentBlock]
-    video: Optional[VideoBlock]
+    json: Document | None
+    text: String | None
+    image: ImageBlock | None
+    document: DocumentBlock | None
+    video: VideoBlock | None
+    searchResult: SearchResultBlock | None
 
 
-ToolResultContentBlocks = List[ToolResultContentBlock]
+ToolResultContentBlocks = list[ToolResultContentBlock]
 
 
 class ToolResultBlock(TypedDict, total=False):
-    """A tool result block that contains the results for a tool request that
-    the model previously made.
-    """
-
     toolUseId: ToolUseId
     content: ToolResultContentBlocks
-    status: Optional[ToolResultStatus]
+    status: ToolResultStatus | None
+    type: String | None
 
 
 class ToolUseBlock(TypedDict, total=False):
-    """A tool use content block. Contains information about a tool that the
-    model is requesting be run., The model uses the result from the tool to
-    generate a response.
-    """
-
     toolUseId: ToolUseId
     name: ToolName
     input: Document
+    type: ToolUseType | None
 
 
 class ContentBlock(TypedDict, total=False):
@@ -1235,16 +1382,27 @@ class ContentBlock(TypedDict, total=False):
     API operations.
     """
 
-    text: Optional[String]
-    image: Optional[ImageBlock]
-    document: Optional[DocumentBlock]
-    video: Optional[VideoBlock]
-    toolUse: Optional[ToolUseBlock]
-    toolResult: Optional[ToolResultBlock]
-    guardContent: Optional[GuardrailConverseContentBlock]
-    cachePoint: Optional[CachePointBlock]
-    reasoningContent: Optional[ReasoningContentBlock]
-    citationsContent: Optional[CitationsContentBlock]
+    text: String | None
+    image: ImageBlock | None
+    document: DocumentBlock | None
+    video: VideoBlock | None
+    audio: AudioBlock | None
+    toolUse: ToolUseBlock | None
+    toolResult: ToolResultBlock | None
+    guardContent: GuardrailConverseContentBlock | None
+    cachePoint: CachePointBlock | None
+    reasoningContent: ReasoningContentBlock | None
+    citationsContent: CitationsContentBlock | None
+    searchResult: SearchResultBlock | None
+
+
+class ImageBlockDelta(TypedDict, total=False):
+    """A streaming delta event that contains incremental image data during
+    streaming responses.
+    """
+
+    source: ImageSource | None
+    error: ErrorBlock | None
 
 
 class ReasoningContentBlockDelta(TypedDict, total=False):
@@ -1254,9 +1412,22 @@ class ReasoningContentBlockDelta(TypedDict, total=False):
     accuracy of its final response.
     """
 
-    text: Optional[String]
-    redactedContent: Optional[Blob]
-    signature: Optional[String]
+    text: String | None
+    redactedContent: Blob | None
+    signature: String | None
+
+
+class ToolResultBlockDelta(TypedDict, total=False):
+    """Contains incremental updates to tool results information during
+    streaming responses. This allows clients to build up tool results data
+    progressively as the response is generated.
+    """
+
+    text: String | None
+    json: Document | None
+
+
+ToolResultBlocksDelta = list[ToolResultBlockDelta]
 
 
 class ToolUseBlockDelta(TypedDict, total=False):
@@ -1268,10 +1439,12 @@ class ToolUseBlockDelta(TypedDict, total=False):
 class ContentBlockDelta(TypedDict, total=False):
     """A block of content in a streaming response."""
 
-    text: Optional[String]
-    toolUse: Optional[ToolUseBlockDelta]
-    reasoningContent: Optional[ReasoningContentBlockDelta]
-    citation: Optional[CitationsDelta]
+    text: String | None
+    toolUse: ToolUseBlockDelta | None
+    toolResult: ToolResultBlocksDelta | None
+    reasoningContent: ReasoningContentBlockDelta | None
+    citation: CitationsDelta | None
+    image: ImageBlockDelta | None
 
 
 class ContentBlockDeltaEvent(TypedDict, total=False):
@@ -1281,17 +1454,32 @@ class ContentBlockDeltaEvent(TypedDict, total=False):
     contentBlockIndex: NonNegativeInteger
 
 
-class ToolUseBlockStart(TypedDict, total=False):
-    """The start of a tool use block."""
+class ImageBlockStart(TypedDict, total=False):
+    """The initial event in a streaming image block that indicates the start of
+    image content.
+    """
 
+    format: ImageFormat
+
+
+class ToolResultBlockStart(TypedDict, total=False):
+    toolUseId: ToolUseId
+    type: String | None
+    status: ToolResultStatus | None
+
+
+class ToolUseBlockStart(TypedDict, total=False):
     toolUseId: ToolUseId
     name: ToolName
+    type: ToolUseType | None
 
 
 class ContentBlockStart(TypedDict, total=False):
     """Content block start information."""
 
-    toolUse: Optional[ToolUseBlockStart]
+    toolUse: ToolUseBlockStart | None
+    toolResult: ToolResultBlockStart | None
+    image: ImageBlockStart | None
 
 
 class ContentBlockStartEvent(TypedDict, total=False):
@@ -1307,7 +1495,7 @@ class ContentBlockStopEvent(TypedDict, total=False):
     contentBlockIndex: NonNegativeInteger
 
 
-ContentBlocks = List[ContentBlock]
+ContentBlocks = list[ContentBlock]
 Long = int
 
 
@@ -1335,17 +1523,21 @@ class ConverseOutput(TypedDict, total=False):
     `Converse <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html>`__.
     """
 
-    message: Optional[Message]
+    message: Message | None
+
+
+class ServiceTier(TypedDict, total=False):
+    type: ServiceTierType
 
 
 class PerformanceConfiguration(TypedDict, total=False):
     """Performance settings for a model."""
 
-    latency: Optional[PerformanceConfigLatency]
+    latency: PerformanceConfigLatency | None
 
 
-RequestMetadata = Dict[RequestMetadataKeyString, RequestMetadataValueString]
-ConverseRequestAdditionalModelResponseFieldPathsList = List[
+RequestMetadata = dict[RequestMetadataKeyString, RequestMetadataValueString]
+ConverseRequestAdditionalModelResponseFieldPathsList = list[
     ConverseRequestAdditionalModelResponseFieldPathsListMemberString
 ]
 
@@ -1357,10 +1549,10 @@ class PromptVariableValues(TypedDict, total=False):
     works <https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-management-how.html>`__.
     """
 
-    text: Optional[String]
+    text: String | None
 
 
-PromptVariableMap = Dict[String, PromptVariableValues]
+PromptVariableMap = dict[String, PromptVariableValues]
 
 
 class GuardrailConfiguration(TypedDict, total=False):
@@ -1369,14 +1561,17 @@ class GuardrailConfiguration(TypedDict, total=False):
     operation.
     """
 
-    guardrailIdentifier: GuardrailIdentifier
-    guardrailVersion: GuardrailVersion
-    trace: Optional[GuardrailTrace]
+    guardrailIdentifier: GuardrailIdentifier | None
+    guardrailVersion: GuardrailVersion | None
+    trace: GuardrailTrace | None
 
 
 class SpecificToolChoice(TypedDict, total=False):
     """The model must request a specific tool. For example,
-    ``{"tool" : {"name" : "Your tool name"}}``.
+    ``{"tool" : {"name" : "Your tool name"}}``. For more information, see
+    `Call a tool with the Converse
+    API <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html>`__
+    in the Amazon Bedrock User Guide
 
     This field is only supported by Anthropic Claude 3 models.
     """
@@ -1386,41 +1581,60 @@ class SpecificToolChoice(TypedDict, total=False):
 
 class ToolChoice(TypedDict, total=False):
     """Determines which tools the model should request in a call to
-    ``Converse`` or ``ConverseStream``. ``ToolChoice`` is only supported by
-    Anthropic Claude 3 models and by Mistral AI Mistral Large.
+    ``Converse`` or ``ConverseStream``. For more information, see `Call a
+    tool with the Converse
+    API <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html>`__
+    in the Amazon Bedrock User Guide.
     """
 
-    auto: Optional[AutoToolChoice]
-    any: Optional[AnyToolChoice]
-    tool: Optional[SpecificToolChoice]
+    auto: AutoToolChoice | None
+    any: AnyToolChoice | None
+    tool: SpecificToolChoice | None
+
+
+class SystemTool(TypedDict, total=False):
+    """Specifies a system-defined tool for the model to use. *System-defined
+    tools* are tools that are created and provided by the model provider.
+    """
+
+    name: ToolName
 
 
 class ToolInputSchema(TypedDict, total=False):
-    """The schema for the tool. The top level schema type must be ``object``."""
+    """The schema for the tool. The top level schema type must be ``object``.
+    For more information, see `Call a tool with the Converse
+    API <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html>`__
+    in the Amazon Bedrock User Guide.
+    """
 
-    json: Optional[Document]
+    json: Document | None
 
 
 class ToolSpecification(TypedDict, total=False):
-    """The specification for the tool."""
+    """The specification for the tool. For more information, see `Call a tool
+    with the Converse
+    API <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html>`__
+    in the Amazon Bedrock User Guide.
+    """
 
     name: ToolName
-    description: Optional[NonEmptyString]
+    description: NonEmptyString | None
     inputSchema: ToolInputSchema
 
 
 class Tool(TypedDict, total=False):
     """Information about a tool that you can use with the Converse API. For
-    more information, see `Tool use (function
-    calling) <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html>`__
+    more information, see `Call a tool with the Converse
+    API <https://docs.aws.amazon.com/bedrock/latest/userguide/tool-use.html>`__
     in the Amazon Bedrock User Guide.
     """
 
-    toolSpec: Optional[ToolSpecification]
-    cachePoint: Optional[CachePointBlock]
+    toolSpec: ToolSpecification | None
+    systemTool: SystemTool | None
+    cachePoint: CachePointBlock | None
 
 
-ToolConfigurationToolsList = List[Tool]
+ToolConfigurationToolsList = list[Tool]
 
 
 class ToolConfiguration(TypedDict, total=False):
@@ -1431,10 +1645,10 @@ class ToolConfiguration(TypedDict, total=False):
     """
 
     tools: ToolConfigurationToolsList
-    toolChoice: Optional[ToolChoice]
+    toolChoice: ToolChoice | None
 
 
-InferenceConfigurationStopSequencesList = List[NonEmptyString]
+InferenceConfigurationStopSequencesList = list[NonEmptyString]
 
 
 class InferenceConfiguration(TypedDict, total=False):
@@ -1451,70 +1665,71 @@ class InferenceConfiguration(TypedDict, total=False):
     parameters <https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters.html>`__.
     """
 
-    maxTokens: Optional[InferenceConfigurationMaxTokensInteger]
-    temperature: Optional[InferenceConfigurationTemperatureFloat]
-    topP: Optional[InferenceConfigurationTopPFloat]
-    stopSequences: Optional[InferenceConfigurationStopSequencesList]
+    maxTokens: InferenceConfigurationMaxTokensInteger | None
+    temperature: InferenceConfigurationTemperatureFloat | None
+    topP: InferenceConfigurationTopPFloat | None
+    stopSequences: InferenceConfigurationStopSequencesList | None
 
 
 class SystemContentBlock(TypedDict, total=False):
-    """A system content block."""
+    """Contains configurations for instructions to provide the model for how to
+    handle input. To learn more, see `Using the Converse
+    API <https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-call.html>`__.
+    """
 
-    text: Optional[NonEmptyString]
-    guardContent: Optional[GuardrailConverseContentBlock]
-    cachePoint: Optional[CachePointBlock]
+    text: NonEmptyString | None
+    guardContent: GuardrailConverseContentBlock | None
+    cachePoint: CachePointBlock | None
 
 
-SystemContentBlocks = List[SystemContentBlock]
-Messages = List[Message]
+SystemContentBlocks = list[SystemContentBlock]
+Messages = list[Message]
 
 
 class ConverseRequest(ServiceRequest):
     modelId: ConversationalModelId
-    messages: Optional[Messages]
-    system: Optional[SystemContentBlocks]
-    inferenceConfig: Optional[InferenceConfiguration]
-    toolConfig: Optional[ToolConfiguration]
-    guardrailConfig: Optional[GuardrailConfiguration]
-    additionalModelRequestFields: Optional[Document]
-    promptVariables: Optional[PromptVariableMap]
-    additionalModelResponseFieldPaths: Optional[
-        ConverseRequestAdditionalModelResponseFieldPathsList
-    ]
-    requestMetadata: Optional[RequestMetadata]
-    performanceConfig: Optional[PerformanceConfiguration]
+    messages: Messages | None
+    system: SystemContentBlocks | None
+    inferenceConfig: InferenceConfiguration | None
+    toolConfig: ToolConfiguration | None
+    guardrailConfig: GuardrailConfiguration | None
+    additionalModelRequestFields: Document | None
+    promptVariables: PromptVariableMap | None
+    additionalModelResponseFieldPaths: ConverseRequestAdditionalModelResponseFieldPathsList | None
+    requestMetadata: RequestMetadata | None
+    performanceConfig: PerformanceConfiguration | None
+    serviceTier: ServiceTier | None
 
 
 class PromptRouterTrace(TypedDict, total=False):
     """A prompt router trace."""
 
-    invokedModelId: Optional[InvokedModelId]
+    invokedModelId: InvokedModelId | None
 
 
-GuardrailAssessmentListMap = Dict[String, GuardrailAssessmentList]
-GuardrailAssessmentMap = Dict[String, GuardrailAssessment]
-ModelOutputs = List[GuardrailOutputText]
+GuardrailAssessmentListMap = dict[String, GuardrailAssessmentList]
+GuardrailAssessmentMap = dict[String, GuardrailAssessment]
+ModelOutputs = list[GuardrailOutputText]
 
 
 class GuardrailTraceAssessment(TypedDict, total=False):
     """A Top level guardrail trace object. For more information, see
-    ConverseTrace.
+    `ConverseTrace <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ConverseTrace.html>`__.
     """
 
-    modelOutput: Optional[ModelOutputs]
-    inputAssessment: Optional[GuardrailAssessmentMap]
-    outputAssessments: Optional[GuardrailAssessmentListMap]
-    actionReason: Optional[String]
+    modelOutput: ModelOutputs | None
+    inputAssessment: GuardrailAssessmentMap | None
+    outputAssessments: GuardrailAssessmentListMap | None
+    actionReason: String | None
 
 
 class ConverseTrace(TypedDict, total=False):
     """The trace object in a response from
     `Converse <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html>`__.
-    Currently, you can only trace guardrails.
     """
 
-    guardrail: Optional[GuardrailTraceAssessment]
-    promptRouter: Optional[PromptRouterTrace]
+    guardrail: GuardrailTraceAssessment | None
+    promptRouter: PromptRouterTrace | None
 
 
 class TokenUsage(TypedDict, total=False):
@@ -1523,8 +1738,8 @@ class TokenUsage(TypedDict, total=False):
     inputTokens: TokenUsageInputTokensInteger
     outputTokens: TokenUsageOutputTokensInteger
     totalTokens: TokenUsageTotalTokensInteger
-    cacheReadInputTokens: Optional[TokenUsageCacheReadInputTokensInteger]
-    cacheWriteInputTokens: Optional[TokenUsageCacheWriteInputTokensInteger]
+    cacheReadInputTokens: TokenUsageCacheReadInputTokensInteger | None
+    cacheWriteInputTokens: TokenUsageCacheWriteInputTokensInteger | None
 
 
 class ConverseResponse(TypedDict, total=False):
@@ -1532,19 +1747,19 @@ class ConverseResponse(TypedDict, total=False):
     stopReason: StopReason
     usage: TokenUsage
     metrics: ConverseMetrics
-    additionalModelResponseFields: Optional[Document]
-    trace: Optional[ConverseTrace]
-    performanceConfig: Optional[PerformanceConfiguration]
+    additionalModelResponseFields: Document | None
+    trace: ConverseTrace | None
+    performanceConfig: PerformanceConfiguration | None
+    serviceTier: ServiceTier | None
 
 
 class ConverseStreamTrace(TypedDict, total=False):
     """The trace object in a response from
     `ConverseStream <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ConverseStream.html>`__.
-    Currently, you can only trace guardrails.
     """
 
-    guardrail: Optional[GuardrailTraceAssessment]
-    promptRouter: Optional[PromptRouterTrace]
+    guardrail: GuardrailTraceAssessment | None
+    promptRouter: PromptRouterTrace | None
 
 
 class ConverseStreamMetrics(TypedDict, total=False):
@@ -1558,15 +1773,16 @@ class ConverseStreamMetadataEvent(TypedDict, total=False):
 
     usage: TokenUsage
     metrics: ConverseStreamMetrics
-    trace: Optional[ConverseStreamTrace]
-    performanceConfig: Optional[PerformanceConfiguration]
+    trace: ConverseStreamTrace | None
+    performanceConfig: PerformanceConfiguration | None
+    serviceTier: ServiceTier | None
 
 
 class MessageStopEvent(TypedDict, total=False):
     """The stop event for a message."""
 
     stopReason: StopReason
-    additionalModelResponseFields: Optional[Document]
+    additionalModelResponseFields: Document | None
 
 
 class MessageStartEvent(TypedDict, total=False):
@@ -1578,49 +1794,51 @@ class MessageStartEvent(TypedDict, total=False):
 class ConverseStreamOutput(TypedDict, total=False):
     """The messages output stream"""
 
-    messageStart: Optional[MessageStartEvent]
-    contentBlockStart: Optional[ContentBlockStartEvent]
-    contentBlockDelta: Optional[ContentBlockDeltaEvent]
-    contentBlockStop: Optional[ContentBlockStopEvent]
-    messageStop: Optional[MessageStopEvent]
-    metadata: Optional[ConverseStreamMetadataEvent]
-    internalServerException: Optional[InternalServerException]
-    modelStreamErrorException: Optional[ModelStreamErrorException]
-    validationException: Optional[ValidationException]
-    throttlingException: Optional[ThrottlingException]
-    serviceUnavailableException: Optional[ServiceUnavailableException]
+    messageStart: MessageStartEvent | None
+    contentBlockStart: ContentBlockStartEvent | None
+    contentBlockDelta: ContentBlockDeltaEvent | None
+    contentBlockStop: ContentBlockStopEvent | None
+    messageStop: MessageStopEvent | None
+    metadata: ConverseStreamMetadataEvent | None
+    internalServerException: InternalServerException | None
+    modelStreamErrorException: ModelStreamErrorException | None
+    validationException: ValidationException | None
+    throttlingException: ThrottlingException | None
+    serviceUnavailableException: ServiceUnavailableException | None
 
 
-ConverseStreamRequestAdditionalModelResponseFieldPathsList = List[
+ConverseStreamRequestAdditionalModelResponseFieldPathsList = list[
     ConverseStreamRequestAdditionalModelResponseFieldPathsListMemberString
 ]
 
 
 class GuardrailStreamConfiguration(TypedDict, total=False):
     """Configuration information for a guardrail that you use with the
-    ConverseStream action.
+    `ConverseStream <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ConverseStream.html>`__
+    action.
     """
 
-    guardrailIdentifier: GuardrailIdentifier
-    guardrailVersion: GuardrailVersion
-    trace: Optional[GuardrailTrace]
-    streamProcessingMode: Optional[GuardrailStreamProcessingMode]
+    guardrailIdentifier: GuardrailIdentifier | None
+    guardrailVersion: GuardrailVersion | None
+    trace: GuardrailTrace | None
+    streamProcessingMode: GuardrailStreamProcessingMode | None
 
 
 class ConverseStreamRequest(ServiceRequest):
     modelId: ConversationalModelId
-    messages: Optional[Messages]
-    system: Optional[SystemContentBlocks]
-    inferenceConfig: Optional[InferenceConfiguration]
-    toolConfig: Optional[ToolConfiguration]
-    guardrailConfig: Optional[GuardrailStreamConfiguration]
-    additionalModelRequestFields: Optional[Document]
-    promptVariables: Optional[PromptVariableMap]
-    additionalModelResponseFieldPaths: Optional[
-        ConverseStreamRequestAdditionalModelResponseFieldPathsList
-    ]
-    requestMetadata: Optional[RequestMetadata]
-    performanceConfig: Optional[PerformanceConfiguration]
+    messages: Messages | None
+    system: SystemContentBlocks | None
+    inferenceConfig: InferenceConfiguration | None
+    toolConfig: ToolConfiguration | None
+    guardrailConfig: GuardrailStreamConfiguration | None
+    additionalModelRequestFields: Document | None
+    promptVariables: PromptVariableMap | None
+    additionalModelResponseFieldPaths: (
+        ConverseStreamRequestAdditionalModelResponseFieldPathsList | None
+    )
+    requestMetadata: RequestMetadata | None
+    performanceConfig: PerformanceConfiguration | None
+    serviceTier: ServiceTier | None
 
 
 class ConverseStreamResponse(TypedDict, total=False):
@@ -1634,8 +1852,10 @@ class ConverseTokensRequest(TypedDict, total=False):
     allowing you to count tokens for conversation-based inference requests.
     """
 
-    messages: Optional[Messages]
-    system: Optional[SystemContentBlocks]
+    messages: Messages | None
+    system: SystemContentBlocks | None
+    toolConfig: ToolConfiguration | None
+    additionalModelRequestFields: Document | None
 
 
 class InvokeModelTokensRequest(TypedDict, total=False):
@@ -1652,8 +1872,8 @@ class CountTokensInput(TypedDict, total=False):
     ``InvokeModel`` or ``Converse`` request body.
     """
 
-    invokeModel: Optional[InvokeModelTokensRequest]
-    converse: Optional[ConverseTokensRequest]
+    invokeModel: InvokeModelTokensRequest | None
+    converse: ConverseTokensRequest | None
 
 
 class CountTokensRequest(ServiceRequest):
@@ -1672,30 +1892,32 @@ class GetAsyncInvokeRequest(ServiceRequest):
 class GetAsyncInvokeResponse(TypedDict, total=False):
     invocationArn: InvocationArn
     modelArn: AsyncInvokeArn
-    clientRequestToken: Optional[AsyncInvokeIdempotencyToken]
+    clientRequestToken: AsyncInvokeIdempotencyToken | None
     status: AsyncInvokeStatus
-    failureMessage: Optional[AsyncInvokeMessage]
+    failureMessage: AsyncInvokeMessage | None
     submitTime: Timestamp
-    lastModifiedTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
+    lastModifiedTime: Timestamp | None
+    endTime: Timestamp | None
     outputDataConfig: AsyncInvokeOutputDataConfig
 
 
 class InvokeModelRequest(ServiceRequest):
-    body: Optional[IO[Body]]
-    contentType: Optional[MimeType]
-    accept: Optional[MimeType]
+    body: IO[Body] | None
+    contentType: MimeType | None
+    accept: MimeType | None
     modelId: InvokeModelIdentifier
-    trace: Optional[Trace]
-    guardrailIdentifier: Optional[GuardrailIdentifier]
-    guardrailVersion: Optional[GuardrailVersion]
-    performanceConfigLatency: Optional[PerformanceConfigLatency]
+    trace: Trace | None
+    guardrailIdentifier: GuardrailIdentifier | None
+    guardrailVersion: GuardrailVersion | None
+    performanceConfigLatency: PerformanceConfigLatency | None
+    serviceTier: ServiceTierType | None
 
 
 class InvokeModelResponse(TypedDict, total=False):
-    body: Union[Body, IO[Body], Iterable[Body]]
+    body: Body | IO[Body] | Iterable[Body]
     contentType: MimeType
-    performanceConfigLatency: Optional[PerformanceConfigLatency]
+    performanceConfigLatency: PerformanceConfigLatency | None
+    serviceTier: ServiceTierType | None
 
 
 class InvokeModelWithBidirectionalStreamInput(TypedDict, total=False):
@@ -1703,19 +1925,19 @@ class InvokeModelWithBidirectionalStreamInput(TypedDict, total=False):
     invocation step.
     """
 
-    chunk: Optional[BidirectionalInputPayloadPart]
+    chunk: BidirectionalInputPayloadPart | None
 
 
 class InvokeModelWithBidirectionalStreamOutput(TypedDict, total=False):
     """Output from the bidirectional stream that was used for model invocation."""
 
-    chunk: Optional[BidirectionalOutputPayloadPart]
-    internalServerException: Optional[InternalServerException]
-    modelStreamErrorException: Optional[ModelStreamErrorException]
-    validationException: Optional[ValidationException]
-    throttlingException: Optional[ThrottlingException]
-    modelTimeoutException: Optional[ModelTimeoutException]
-    serviceUnavailableException: Optional[ServiceUnavailableException]
+    chunk: BidirectionalOutputPayloadPart | None
+    internalServerException: InternalServerException | None
+    modelStreamErrorException: ModelStreamErrorException | None
+    validationException: ValidationException | None
+    throttlingException: ThrottlingException | None
+    modelTimeoutException: ModelTimeoutException | None
+    serviceUnavailableException: ServiceUnavailableException | None
 
 
 class InvokeModelWithBidirectionalStreamRequest(ServiceRequest):
@@ -1728,53 +1950,55 @@ class InvokeModelWithBidirectionalStreamResponse(TypedDict, total=False):
 
 
 class InvokeModelWithResponseStreamRequest(ServiceRequest):
-    body: Optional[IO[Body]]
-    contentType: Optional[MimeType]
-    accept: Optional[MimeType]
+    body: IO[Body] | None
+    contentType: MimeType | None
+    accept: MimeType | None
     modelId: InvokeModelIdentifier
-    trace: Optional[Trace]
-    guardrailIdentifier: Optional[GuardrailIdentifier]
-    guardrailVersion: Optional[GuardrailVersion]
-    performanceConfigLatency: Optional[PerformanceConfigLatency]
+    trace: Trace | None
+    guardrailIdentifier: GuardrailIdentifier | None
+    guardrailVersion: GuardrailVersion | None
+    performanceConfigLatency: PerformanceConfigLatency | None
+    serviceTier: ServiceTierType | None
 
 
 class PayloadPart(TypedDict, total=False):
     """Payload content included in the response."""
 
-    bytes: Optional[PartBody]
+    bytes: PartBody | None
 
 
 class ResponseStream(TypedDict, total=False):
     """Definition of content in the response stream."""
 
-    chunk: Optional[PayloadPart]
-    internalServerException: Optional[InternalServerException]
-    modelStreamErrorException: Optional[ModelStreamErrorException]
-    validationException: Optional[ValidationException]
-    throttlingException: Optional[ThrottlingException]
-    modelTimeoutException: Optional[ModelTimeoutException]
-    serviceUnavailableException: Optional[ServiceUnavailableException]
+    chunk: PayloadPart | None
+    internalServerException: InternalServerException | None
+    modelStreamErrorException: ModelStreamErrorException | None
+    validationException: ValidationException | None
+    throttlingException: ThrottlingException | None
+    modelTimeoutException: ModelTimeoutException | None
+    serviceUnavailableException: ServiceUnavailableException | None
 
 
 class InvokeModelWithResponseStreamResponse(TypedDict, total=False):
     body: Iterator[ResponseStream]
     contentType: MimeType
-    performanceConfigLatency: Optional[PerformanceConfigLatency]
+    performanceConfigLatency: PerformanceConfigLatency | None
+    serviceTier: ServiceTierType | None
 
 
 class ListAsyncInvokesRequest(ServiceRequest):
-    submitTimeAfter: Optional[Timestamp]
-    submitTimeBefore: Optional[Timestamp]
-    statusEquals: Optional[AsyncInvokeStatus]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    sortBy: Optional[SortAsyncInvocationBy]
-    sortOrder: Optional[SortOrder]
+    submitTimeAfter: Timestamp | None
+    submitTimeBefore: Timestamp | None
+    statusEquals: AsyncInvokeStatus | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    sortBy: SortAsyncInvocationBy | None
+    sortOrder: SortOrder | None
 
 
 class ListAsyncInvokesResponse(TypedDict, total=False):
-    nextToken: Optional[PaginationToken]
-    asyncInvokeSummaries: Optional[AsyncInvokeSummaries]
+    nextToken: PaginationToken | None
+    asyncInvokeSummaries: AsyncInvokeSummaries | None
 
 
 class ModelInputPayload(TypedDict, total=False):
@@ -1788,15 +2012,15 @@ class Tag(TypedDict, total=False):
     value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class StartAsyncInvokeRequest(ServiceRequest):
-    clientRequestToken: Optional[AsyncInvokeIdempotencyToken]
+    clientRequestToken: AsyncInvokeIdempotencyToken | None
     modelId: AsyncInvokeIdentifier
     modelInput: ModelInputPayload
     outputDataConfig: AsyncInvokeOutputDataConfig
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class StartAsyncInvokeResponse(TypedDict, total=False):
@@ -1804,8 +2028,8 @@ class StartAsyncInvokeResponse(TypedDict, total=False):
 
 
 class BedrockRuntimeApi:
-    service = "bedrock-runtime"
-    version = "2023-09-30"
+    service: str = "bedrock-runtime"
+    version: str = "2023-09-30"
 
     @handler("ApplyGuardrail")
     def apply_guardrail(
@@ -1836,6 +2060,7 @@ class BedrockRuntimeApi:
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
         :raises InternalServerException:
+        :raises ServiceUnavailableException:
         :raises ValidationException:
         :raises ServiceQuotaExceededException:
         """
@@ -1857,6 +2082,7 @@ class BedrockRuntimeApi:
         | None = None,
         request_metadata: RequestMetadata | None = None,
         performance_config: PerformanceConfiguration | None = None,
+        service_tier: ServiceTier | None = None,
         **kwargs,
     ) -> ConverseResponse:
         """Sends messages to the specified Amazon Bedrock model. ``Converse``
@@ -1931,6 +2157,8 @@ class BedrockRuntimeApi:
         :param additional_model_response_field_paths: Additional model parameters field paths to return in the response.
         :param request_metadata: Key-value pairs that you can use to filter invocation logs.
         :param performance_config: Model performance settings for the request.
+        :param service_tier: Specifies the processing tier configuration used for serving the
+        request.
         :returns: ConverseResponse
         :raises AccessDeniedException:
         :raises ThrottlingException:
@@ -1960,6 +2188,7 @@ class BedrockRuntimeApi:
         | None = None,
         request_metadata: RequestMetadata | None = None,
         performance_config: PerformanceConfiguration | None = None,
+        service_tier: ServiceTier | None = None,
         **kwargs,
     ) -> ConverseStreamResponse:
         """Sends messages to the specified Amazon Bedrock model and returns the
@@ -2042,6 +2271,8 @@ class BedrockRuntimeApi:
         :param additional_model_response_field_paths: Additional model parameters field paths to return in the response.
         :param request_metadata: Key-value pairs that you can use to filter invocation logs.
         :param performance_config: Model performance settings for the request.
+        :param service_tier: Specifies the processing tier configuration used for serving the
+        request.
         :returns: ConverseStreamResponse
         :raises AccessDeniedException:
         :raises ThrottlingException:
@@ -2133,6 +2364,7 @@ class BedrockRuntimeApi:
         guardrail_identifier: GuardrailIdentifier | None = None,
         guardrail_version: GuardrailVersion | None = None,
         performance_config_latency: PerformanceConfigLatency | None = None,
+        service_tier: ServiceTierType | None = None,
         **kwargs,
     ) -> InvokeModelResponse:
         """Invokes the specified Amazon Bedrock model to run inference using the
@@ -2170,6 +2402,7 @@ class BedrockRuntimeApi:
         :param guardrail_identifier: The unique identifier of the guardrail that you want to use.
         :param guardrail_version: The version number for the guardrail.
         :param performance_config_latency: Model performance settings for the request.
+        :param service_tier: Specifies the processing tier type used for serving the request.
         :returns: InvokeModelResponse
         :raises AccessDeniedException:
         :raises ResourceNotFoundException:
@@ -2234,6 +2467,7 @@ class BedrockRuntimeApi:
         guardrail_identifier: GuardrailIdentifier | None = None,
         guardrail_version: GuardrailVersion | None = None,
         performance_config_latency: PerformanceConfigLatency | None = None,
+        service_tier: ServiceTierType | None = None,
         **kwargs,
     ) -> InvokeModelWithResponseStreamResponse:
         """Invoke the specified Amazon Bedrock model to run inference using the
@@ -2278,6 +2512,7 @@ class BedrockRuntimeApi:
         :param guardrail_identifier: The unique identifier of the guardrail that you want to use.
         :param guardrail_version: The version number for the guardrail.
         :param performance_config_latency: Model performance settings for the request.
+        :param service_tier: Specifies the processing tier type used for serving the request.
         :returns: InvokeModelWithResponseStreamResponse
         :raises AccessDeniedException:
         :raises ResourceNotFoundException:

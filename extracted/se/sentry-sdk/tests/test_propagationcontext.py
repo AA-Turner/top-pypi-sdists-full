@@ -25,7 +25,7 @@ def test_empty_context():
 
     assert ctx.parent_span_id is None
     assert ctx.parent_sampled is None
-    assert ctx.dynamic_sampling_context is None
+    assert ctx.dynamic_sampling_context == {}
 
 
 def test_context_with_values():
@@ -72,7 +72,7 @@ def test_property_setters():
     assert ctx.trace_id == "X234567890abcdef1234567890abcdef"
     assert ctx._span_id == "X234567890abcdef"
     assert ctx.span_id == "X234567890abcdef"
-    assert ctx.dynamic_sampling_context is None
+    assert ctx.dynamic_sampling_context == {}
 
 
 def test_update():
@@ -93,7 +93,7 @@ def test_update():
     assert ctx._span_id is not None
     assert ctx.parent_span_id == "Z234567890abcdef"
     assert not ctx.parent_sampled
-    assert ctx.dynamic_sampling_context is None
+    assert ctx.dynamic_sampling_context == {}
 
     assert not hasattr(ctx, "foo")
 
@@ -155,8 +155,7 @@ def test_sample_rand_filled(parent_sampled, sample_rate, expected_interval):
         )
 
     assert (
-        ctx.dynamic_sampling_context["sample_rand"]
-        == f"{expected_interval[0]:.6f}"  # noqa: E231
+        ctx.dynamic_sampling_context["sample_rand"] == f"{expected_interval[0]:.6f}"  # noqa: E231
     )
     assert mock_randrange.call_count == 1
     assert mock_randrange.call_args[0] == (

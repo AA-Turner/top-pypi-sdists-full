@@ -21,45 +21,39 @@ from datarobot.models.notebooks.enums import NotebookType, RunType, ScheduledRun
 scheduled_job_param_trafaret = t.Dict({t.Key("name"): t.String, t.Key("value"): t.String})
 
 
-scheduled_job_payload_trafaret = t.Dict(
-    {
-        t.Key("uid"): t.String,
-        t.Key("org_id"): t.String,
-        t.Key("use_case_id"): t.String,
-        t.Key("notebook_id"): t.String,
-        t.Key("notebook_name"): t.String,
-        t.Key("run_type"): t.Enum(*list(RunType)),
-        t.Key("notebook_type"): t.Enum(*list(NotebookType)),
-        t.Key("parameters"): t.List(scheduled_job_param_trafaret),
-        t.Key("notebook_path", optional=True): t.String,
-        t.Key("use_case_name", optional=True): t.String,
-    }
-).ignore_extra("*")
+scheduled_job_payload_trafaret = t.Dict({
+    t.Key("uid"): t.String,
+    t.Key("org_id"): t.String,
+    t.Key("use_case_id"): t.String,
+    t.Key("notebook_id"): t.String,
+    t.Key("notebook_name"): t.String,
+    t.Key("run_type"): t.Enum(*list(RunType)),
+    t.Key("notebook_type"): t.Enum(*list(NotebookType)),
+    t.Key("parameters"): t.List(scheduled_job_param_trafaret),
+    t.Key("notebook_path", optional=True): t.String,
+    t.Key("use_case_name", optional=True): t.String,
+}).ignore_extra("*")
 
-scheduled_run_revision_metadata_trafaret = t.Dict(
-    {
-        t.Key("id", optional=True): t.String,
-        t.Key("name", optional=True): t.String,
-    }
-)
+scheduled_run_revision_metadata_trafaret = t.Dict({
+    t.Key("id", optional=True): t.String,
+    t.Key("name", optional=True): t.String,
+})
 
 
 # TODO: [NB-4787] We are using trafaret's "ignore_extra" very liberally and this is a subset of properties
-notebook_scheduled_run_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("use_case_id"): t.String,
-        t.Key("status"): t.Enum(*list(ScheduledRunStatus)),
-        t.Key("payload"): scheduled_job_payload_trafaret,
-        t.Key("title", optional=True): t.String,
-        t.Key("start_time", optional=True): t.String,
-        t.Key("end_time", optional=True): t.String,
-        t.Key("revision", optional=True): scheduled_run_revision_metadata_trafaret,
-        t.Key("duration", optional=True): t.Int,
-        t.Key("run_type", optional=True): t.Enum(*list(RunType)),
-        t.Key("notebook_type", optional=True): t.Enum(*list(NotebookType)),
-    }
-).ignore_extra("*")
+notebook_scheduled_run_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("use_case_id"): t.String,
+    t.Key("status"): t.Enum(*list(ScheduledRunStatus)),
+    t.Key("payload"): scheduled_job_payload_trafaret,
+    t.Key("title", optional=True): t.String,
+    t.Key("start_time", optional=True): t.String,
+    t.Key("end_time", optional=True): t.String,
+    t.Key("revision", optional=True): scheduled_run_revision_metadata_trafaret,
+    t.Key("duration", optional=True): t.Int,
+    t.Key("run_type", optional=True): t.Enum(*list(RunType)),
+    t.Key("notebook_type", optional=True): t.Enum(*list(NotebookType)),
+}).ignore_extra("*")
 
 
 class ScheduledJobParam(APIObject):
@@ -218,9 +212,7 @@ class NotebookScheduledRun(APIObject):
         self.title = title
         self.start_time = start_time
         self.end_time = end_time
-        self.revision = (
-            ScheduledRunRevisionMetadata.from_server_data(revision) if revision else None
-        )
+        self.revision = ScheduledRunRevisionMetadata.from_server_data(revision) if revision else None
         self.duration = duration
         self.run_type = run_type
         self.notebook_type = notebook_type

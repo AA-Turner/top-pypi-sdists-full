@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schema-salad
-Version: 8.9.20250723145140
+Version: 8.9.20251102115403
 Summary: Schema Annotations for Linked Avro Data (SALAD)
 Home-page: https://schema-salad.readthedocs.io/
 Download-URL: https://github.com/common-workflow-language/schema_salad/releases
@@ -25,7 +25,7 @@ License-File: LICENSE.txt
 Requires-Dist: requests>=1.0
 Requires-Dist: ruamel.yaml<0.19,>=0.17.6
 Requires-Dist: rdflib<8.0.0,>=4.2.2
-Requires-Dist: mistune<3.1,>=3
+Requires-Dist: mistune<3.2,>=3
 Requires-Dist: CacheControl[filecache]<0.15,>=0.13.1
 Requires-Dist: mypy_extensions
 Provides-Extra: docs

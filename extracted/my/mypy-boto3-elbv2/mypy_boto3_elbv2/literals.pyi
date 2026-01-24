@@ -43,6 +43,7 @@ __all__ = (
     "EnablePrefixForIpv6SourceNatEnumType",
     "EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnumType",
     "IpAddressTypeType",
+    "JwtValidationActionAdditionalClaimFormatEnumType",
     "LoadBalancerAvailableWaiterName",
     "LoadBalancerExistsWaiterName",
     "LoadBalancerSchemeEnumType",
@@ -66,13 +67,19 @@ __all__ = (
     "TargetHealthStateEnumType",
     "TargetInServiceWaiterName",
     "TargetTypeEnumType",
+    "TransformTypeEnumType",
     "TrustStoreAssociationStatusEnumType",
     "TrustStoreStatusType",
     "WaiterName",
 )
 
 ActionTypeEnumType = Literal[
-    "authenticate-cognito", "authenticate-oidc", "fixed-response", "forward", "redirect"
+    "authenticate-cognito",
+    "authenticate-oidc",
+    "fixed-response",
+    "forward",
+    "jwt-validation",
+    "redirect",
 ]
 AdvertiseTrustStoreCaNamesEnumType = Literal["off", "on"]
 AnomalyResultEnumType = Literal["anomalous", "normal"]
@@ -93,6 +100,9 @@ DescribeTrustStoresPaginatorName = Literal["describe_trust_stores"]
 EnablePrefixForIpv6SourceNatEnumType = Literal["off", "on"]
 EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnumType = Literal["off", "on"]
 IpAddressTypeType = Literal["dualstack", "dualstack-without-public-ipv4", "ipv4"]
+JwtValidationActionAdditionalClaimFormatEnumType = Literal[
+    "single-string", "space-separated-values", "string-array"
+]
 LoadBalancerAvailableWaiterName = Literal["load_balancer_available"]
 LoadBalancerExistsWaiterName = Literal["load_balancer_exists"]
 LoadBalancerSchemeEnumType = Literal["internal", "internet-facing"]
@@ -100,7 +110,9 @@ LoadBalancerStateEnumType = Literal["active", "active_impaired", "failed", "prov
 LoadBalancerTypeEnumType = Literal["application", "gateway", "network"]
 LoadBalancersDeletedWaiterName = Literal["load_balancers_deleted"]
 MitigationInEffectEnumType = Literal["no", "yes"]
-ProtocolEnumType = Literal["GENEVE", "HTTP", "HTTPS", "TCP", "TCP_UDP", "TLS", "UDP"]
+ProtocolEnumType = Literal[
+    "GENEVE", "HTTP", "HTTPS", "QUIC", "TCP", "TCP_QUIC", "TCP_UDP", "TLS", "UDP"
+]
 RedirectActionStatusCodeEnumType = Literal["HTTP_301", "HTTP_302"]
 RemoveIpamPoolEnumType = Literal["ipv4"]
 RevocationTypeType = Literal["CRL"]
@@ -134,6 +146,7 @@ TargetHealthStateEnumType = Literal[
 ]
 TargetInServiceWaiterName = Literal["target_in_service"]
 TargetTypeEnumType = Literal["alb", "instance", "ip", "lambda"]
+TransformTypeEnumType = Literal["host-header-rewrite", "url-rewrite"]
 TrustStoreAssociationStatusEnumType = Literal["active", "removed"]
 TrustStoreStatusType = Literal["ACTIVE", "CREATING"]
 ElasticLoadBalancingv2ServiceName = Literal["elbv2"]
@@ -163,7 +176,7 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -175,8 +188,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -230,6 +245,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -328,7 +344,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -367,8 +382,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -403,6 +416,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -412,18 +426,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -445,8 +461,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -461,15 +475,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -500,8 +515,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -552,16 +567,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_account_limits",
@@ -596,6 +602,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

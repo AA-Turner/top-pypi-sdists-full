@@ -78,56 +78,56 @@ class NextGenPMCore:
         self.desktop_app = NGAppManager(app_path, self.logger)
 
     @property
-    def batch_posting_window(self):
+    def batch_posting_window(self) -> BatchPostingWindow:
         """This property is used to access BatchPostingWindow class."""
         if self._batch_posting_window is None:
             self._batch_posting_window = BatchPostingWindow(self.app_path, self.logger)
         return self._batch_posting_window
 
     @property
-    def batch_maintenance_window(self):
+    def batch_maintenance_window(self) -> BatchMaintenanceWindow:
         """This property is used to access BatchMaintenanceWindow class."""
         if self._batch_maintenance_window is None:
             self._batch_maintenance_window = BatchMaintenanceWindow(self.app_path, self.logger)
         return self._batch_maintenance_window
 
     @property
-    def balance_control_window(self):
+    def balance_control_window(self) -> BalanceControlWindow:
         """This property is used to access BatchMaintenanceWindow class."""
         if self._balance_control_window is None:
             self._balance_control_window = BalanceControlWindow(self.app_path, self.logger)
         return self._balance_control_window
 
     @property
-    def cob_window(self):
+    def cob_window(self) -> COBWindow:
         """This property is used to access COBWindow class."""
         if self._cob_window is None:
             self._cob_window = COBWindow(self.app_path, self.logger)
         return self._cob_window
 
     @property
-    def encounter_insurance_window(self):
+    def encounter_insurance_window(self) -> EncounterInsuranceWindow:
         """This property is used to access EncounterInsuranteWindow class."""
         if self._encounter_insurance_window is None:
             self._encounter_insurance_window = EncounterInsuranceWindow(self.app_path, self.logger)
         return self._encounter_insurance_window
 
     @property
-    def import_file_window(self):
+    def import_file_window(self) -> ImportFileWindow:
         """This property is used to access ImportFileWindow class."""
         if self._import_file_window is None:
             self._import_file_window = ImportFileWindow(self.app_path, self.logger)
         return self._import_file_window
 
     @property
-    def payment_entry_window(self):
+    def payment_entry_window(self) -> PaymentEntryWindow:
         """This property is used to access PaymentEntryWindow class."""
         if self._payment_entry_window is None:
             self._payment_entry_window = PaymentEntryWindow(self.app_path, self.logger, self.textract)
         return self._payment_entry_window
 
     @property
-    def transaction_ledger_window(self):
+    def transaction_ledger_window(self) -> TransactionLedgerWindow:
         """This property is used to access TransactionLedgerWiundow class."""
         if self._transaction_legder_window is None:
             self._transaction_legder_window = TransactionLedgerWindow(self.app_path, self.logger)
@@ -225,7 +225,7 @@ class NextGenPMCore:
             raise MultipleSessionsError("Process failed with multiple sessions issue")
 
     @capture_screenshot_if_pywin_error()
-    def select_practice_from_app(self, practice: str):
+    def select_practice_from_app(self, practice: str) -> None:
         """Select practice from the Health Practice menu.
 
         Args:
@@ -234,7 +234,7 @@ class NextGenPMCore:
         self.click_practice_from_bar()
         self.input_check_practice(practice)
 
-    def check_if_practice_was_set_correctly(self, practice: str):
+    def check_if_practice_was_set_correctly(self, practice: str) -> None:
         """Check if the practice was set correctly.
 
         Args:
@@ -248,7 +248,7 @@ class NextGenPMCore:
             )
 
     @retry(tries=3, delay=3)
-    def click_practice_from_bar(self):
+    def click_practice_from_bar(self) -> None:
         """Clicks the Health Practice button from the menu bar."""
         practice_icon = self.desktop_app.dialog.child_window(title="cmdToolPractice", control_type="Button")
         with contextlib.suppress(_ctypes.COMError):
@@ -258,7 +258,7 @@ class NextGenPMCore:
         self.desktop_app.dialog.child_window(auto_id="cboPractice", control_type="Pane").wait("visible", 5)
 
     @retry(tries=3, delay=3)
-    def input_check_practice(self, practice: str):
+    def input_check_practice(self, practice: str) -> None:
         """Input check practice information and click OK.
 
         Args:

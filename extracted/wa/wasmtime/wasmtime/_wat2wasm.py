@@ -1,5 +1,6 @@
+import ctypes
+
 from . import _ffi as ffi
-from ctypes import *
 from wasmtime import WasmtimeError
 import typing
 
@@ -24,12 +25,26 @@ def wat2wasm(wat: typing.Union[str, bytes]) -> bytearray:
 
     if isinstance(wat, str):
         wat = wat.encode('utf8')
-    wat_buffer = create_string_buffer(wat)
+    wat_buffer = ctypes.create_string_buffer(wat)
     wasm = ffi.wasm_byte_vec_t()
-    error = ffi.wasmtime_wat2wasm(wat_buffer, len(wat), byref(wasm))
+    error = ffi.wasmtime_wat2wasm(wat_buffer, len(wat), ctypes.byref(wasm))
     if error:
         raise WasmtimeError._from_ptr(error)
     else:
         ret = ffi.to_bytes(wasm)
-        ffi.wasm_byte_vec_delete(byref(wasm))
+        ffi.wasm_byte_vec_delete(ctypes.byref(wasm))
         return ret
+
+def _to_wasm(wasm: typing.Union[str, bytes, bytearray]) -> typing.Union[bytes, bytearray]:
+    # If this looks like a string, parse it as the text format. Note that
+    # in python 2 strings and bytes are basically the same, so we skip this
+    # if the first byte in the string is 0, meaning this is actually a wasm
+    # module.
+    if isinstance(wasm, str) and len(wasm) > 0 and ord(wasm[0]) != 0:
+        wasm = wat2wasm(wasm)
+    if isinstance(wasm, bytes) and len(wasm) > 0 and wasm[0] != 0:
+        wasm = wat2wasm(wasm)
+
+    if not isinstance(wasm, (bytes, bytearray)):
+        raise TypeError("expected wasm bytes")
+    return wasm

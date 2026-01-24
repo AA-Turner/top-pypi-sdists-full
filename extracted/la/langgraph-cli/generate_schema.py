@@ -13,8 +13,9 @@ from pathlib import Path
 
 import msgspec
 
-from langgraph_cli.config import (
+from langgraph_cli.schemas import (
     AuthConfig,
+    CacheConfig,
     CheckpointerConfig,
     Config,
     ConfigurableHeaderConfig,
@@ -22,9 +23,12 @@ from langgraph_cli.config import (
     HttpConfig,
     IndexConfig,
     SecurityConfig,
+    SerdeConfig,
     StoreConfig,
     ThreadTTLConfig,
     TTLConfig,
+    WebhooksConfig,
+    WebhookUrlPolicy,
 )
 
 
@@ -110,10 +114,14 @@ def add_descriptions_to_schema(schema, cls):
                 SecurityConfig,
                 HttpConfig,
                 CorsConfig,
+                CacheConfig,
                 ThreadTTLConfig,
                 CheckpointerConfig,
+                SerdeConfig,
                 TTLConfig,
                 ConfigurableHeaderConfig,
+                WebhooksConfig,
+                WebhookUrlPolicy,
             ]:
                 if potential_cls.__name__ == def_name:
                     add_descriptions_to_schema(def_schema, potential_cls)

@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import h5py
 import numpy as np
+import pandas as pd
 import pytest
 
 import scanpy as sc
+
+if TYPE_CHECKING:
+    from typing import Literal
+
 
 ROOT = Path(__file__).parent
 ROOT = ROOT / "_data" / "10x_data"
@@ -28,15 +34,19 @@ def assert_anndata_equal(a1, a2):
         pytest.param(
             ROOT / "1.2.0" / "filtered_gene_bc_matrices" / "hg19_chr21",
             ROOT / "1.2.0" / "filtered_gene_bc_matrices_h5.h5",
+            id="1.2.0",
         ),
         pytest.param(
             ROOT / "3.0.0" / "filtered_feature_bc_matrix",
             ROOT / "3.0.0" / "filtered_feature_bc_matrix.h5",
+            id="3.0.0",
         ),
     ],
 )
-@pytest.mark.parametrize("prefix", [None, "prefix_"])
-def test_read_10x(tmp_path, mtx_path, h5_path, prefix):
+@pytest.mark.parametrize("prefix", [None, "prefix_"], ids=["no_prefix", "prefix"])
+def test_read_10x(
+    tmp_path: Path, mtx_path: Path, h5_path: Path, prefix: str | None
+) -> None:
     if prefix is not None:
         # Build files named "prefix_XXX.xxx" in a temporary directory.
         mtx_path_orig = mtx_path
@@ -64,6 +74,27 @@ def test_read_10x(tmp_path, mtx_path, h5_path, prefix):
     h5.write(from_h5_pth)
 
     assert_anndata_equal(sc.read_h5ad(from_mtx_pth), sc.read_h5ad(from_h5_pth))
+
+
+@pytest.mark.parametrize(
+    ("genes", "col_dtypes"),
+    [
+        pytest.param("symbols", dict(gene_ids="int64"), id="symbols"),
+        pytest.param("ids", dict(gene_symbols="str"), id="ids"),
+    ],
+)
+def test_read_10x_mtx_int(
+    genes: Literal["symbols", "ids"], col_dtypes: dict[str, str]
+) -> None:
+    str_dt = "str" if pd.options.future.infer_string else "object"
+    col_dtypes = {k: str_dt if v == "str" else v for k, v in col_dtypes.items()}
+
+    adata = sc.read_10x_mtx(
+        ROOT / "int-ids", var_names=f"gene_{genes}", compressed=False
+    )
+
+    assert adata.var.index.dtype == str_dt
+    assert dict(adata.var.dtypes) == dict(feature_types=str_dt, **col_dtypes)
 
 
 def test_read_10x_h5_v1():
@@ -175,3 +206,28 @@ def test_10x_probe_barcode_read():
     assert set(probe_anndata.obs.columns) == {"filtered_barcodes"}
     assert probe_anndata.shape == (4987, 1000)
     assert probe_anndata.X.nnz == 858
+
+
+def test_read_10x_compressed_parameter(tmp_path):
+    """Test that the compressed parameter works correctly."""
+    # Copy test data to temp directory
+    mtx_path_v3 = ROOT / "3.0.0" / "filtered_feature_bc_matrix"
+    test_path = tmp_path / "test_compressed"
+    test_path.mkdir()
+
+    # Create uncompressed copies of the compressed files
+    for file in mtx_path_v3.glob("*.gz"):
+        import gzip
+
+        with gzip.open(file, "rb") as f_in:
+            content = f_in.read()
+            dest_file = test_path / file.name[:-3]  # Removes .gz extension
+            with dest_file.open("wb") as f_out:
+                f_out.write(content)
+
+    # Read the uncompressed data
+    adata_uncompressed = sc.read_10x_mtx(test_path, compressed=False)
+    # Read the compressed data
+    adata_compressed = sc.read_10x_mtx(mtx_path_v3, compressed=True)
+    # Check that the two AnnData objects are equal
+    assert_anndata_equal(adata_uncompressed, adata_compressed)

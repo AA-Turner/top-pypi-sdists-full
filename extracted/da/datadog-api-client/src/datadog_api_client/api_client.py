@@ -52,10 +52,29 @@ class ApiClient:
 
         self.rest_client = self._build_rest_client()
         self.default_headers = {}
+
+        # Cache for validation performance optimization - persists across requests
+        # Simple size limiting to prevent memory leaks
+        self._validation_cache: Dict[str, Any] = {}
+        self._validation_cache_max_size = 1000  # Configurable limit
         if self.configuration.compress:
             self.default_headers["Accept-Encoding"] = "gzip"
         # Set default User-Agent.
         self.user_agent = user_agent()
+
+        # Initialize delegated token config if delegated auth is configured
+        self._delegated_token_config = None
+        if (
+            self.configuration.delegated_auth_provider is not None
+            and self.configuration.delegated_auth_org_uuid is not None
+        ):
+            from datadog_api_client.delegated_auth import DelegatedTokenConfig
+
+            self._delegated_token_config = DelegatedTokenConfig(
+                org_uuid=self.configuration.delegated_auth_org_uuid,
+                provider="aws",
+                provider_auth=self.configuration.delegated_auth_provider,
+            )
 
     def __enter__(self) -> Self:
         return self
@@ -180,8 +199,28 @@ class ApiClient:
 
         # store our data under the key of 'received_data' so users have some
         # context if they are deserializing a string and the data type is wrong
+
+        # Use ApiClient's validation cache for performance optimization across requests
+        request_cache = self._validation_cache if check_type else None
+
+        # Simple cache size limiting to prevent memory leaks
+        if request_cache is not None and len(request_cache) > self._validation_cache_max_size:
+            # Remove 25% of cache entries when full (keep most recent 75%)
+            items_to_keep = int(self._validation_cache_max_size * 0.75)
+            cache_items = list(request_cache.items())
+            request_cache.clear()
+            # Keep the most recently added items (simple FIFO)
+            for key, value in cache_items[-items_to_keep:]:
+                request_cache[key] = value
+
         deserialized_data = validate_and_convert_types(
-            received_data, response_type, ["received_data"], True, check_type, configuration=self.configuration
+            received_data,
+            response_type,
+            ["received_data"],
+            True,
+            check_type,
+            configuration=self.configuration,
+            request_cache=request_cache,
         )
         return deserialized_data
 
@@ -454,6 +493,35 @@ class ApiClient:
             return "application/json"
         return content_types[0]
 
+    def use_delegated_token_auth(self, headers: Dict[str, Any]) -> None:
+        """Use delegated token authentication if configured.
+
+        :param headers: Header parameters dict to be updated.
+        :raises: ApiValueError if delegated token authentication fails
+        """
+        # Skip if no delegated token config
+        if self._delegated_token_config is None:
+            return
+
+        # Check if we need to get or refresh the token
+        if (
+            self.configuration._delegated_token_credentials is None
+            or self.configuration._delegated_token_credentials.is_expired()
+        ):
+            # Get new token from provider, passing the API configuration
+            try:
+                self.configuration._delegated_token_credentials = (
+                    self.configuration.delegated_auth_provider.authenticate(
+                        self._delegated_token_config, self.configuration
+                    )
+                )
+            except Exception as e:
+                raise ApiValueError(f"Failed to get delegated token: {str(e)}")
+
+        # Set the Authorization header with the delegated token
+        token = self.configuration._delegated_token_credentials.delegated_token
+        headers["Authorization"] = f"Bearer {token}"
+
 
 class ThreadedApiClient(ApiClient):
     _pool = None
@@ -680,6 +748,7 @@ class Endpoint:
                 self.api_client.configuration.spec_property_naming,
                 self.api_client.configuration.check_input_type,
                 configuration=self.api_client.configuration,
+                request_cache=None,  # No cache available for input validation
             )
             kwargs[key] = fixed_val
 
@@ -822,18 +891,34 @@ class Endpoint:
         if not self.settings["auth"]:
             return
 
-        for auth in self.settings["auth"]:
-            auth_setting = self.api_client.configuration.auth_settings().get(auth)
-            if auth_setting:
-                if auth_setting["in"] == "header":
-                    if auth_setting["type"] != "http-signature":
-                        if auth_setting["value"] is None:
-                            raise ApiValueError("Invalid authentication token for {}".format(auth_setting["key"]))
-                        headers[auth_setting["key"]] = auth_setting["value"]
-                elif auth_setting["in"] == "query":
-                    queries.append((auth_setting["key"], auth_setting["value"]))
-                else:
-                    raise ApiValueError("Authentication token must be in `query` or `header`")
+        # check if endpoint uses appKeyAuth and if delegated token config is available
+        has_app_key_auth = "appKeyAuth" in self.settings["auth"]
+
+        # Check if delegated auth is configured (using our actual attributes)
+        has_delegated_auth = (
+            hasattr(self.api_client.configuration, "delegated_auth_provider")
+            and self.api_client.configuration.delegated_auth_provider is not None
+            and hasattr(self.api_client.configuration, "delegated_auth_org_uuid")
+            and self.api_client.configuration.delegated_auth_org_uuid is not None
+        )
+
+        if has_app_key_auth and has_delegated_auth:
+            # Use delegated token authentication
+            self.api_client.use_delegated_token_auth(headers)
+        else:
+            # Use regular authentication
+            for auth in self.settings["auth"]:
+                auth_setting = self.api_client.configuration.auth_settings().get(auth)
+                if auth_setting:
+                    if auth_setting["in"] == "header":
+                        if auth_setting["type"] != "http-signature":
+                            if auth_setting["value"] is None:
+                                raise ApiValueError("Invalid authentication token for {}".format(auth_setting["key"]))
+                            headers[auth_setting["key"]] = auth_setting["value"]
+                    elif auth_setting["in"] == "query":
+                        queries.append((auth_setting["key"], auth_setting["value"]))
+                    else:
+                        raise ApiValueError("Authentication token must be in `query` or `header`")
 
 
 def user_agent() -> str:

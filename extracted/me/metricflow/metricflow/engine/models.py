@@ -14,11 +14,9 @@ from dbt_semantic_interfaces.protocols.dimension import (
 )
 from dbt_semantic_interfaces.protocols.entity import Entity as SemanticManifestEntity
 from dbt_semantic_interfaces.protocols.export import Export
-from dbt_semantic_interfaces.protocols.measure import MeasureAggregationParameters
 from dbt_semantic_interfaces.protocols.metadata import Metadata
 from dbt_semantic_interfaces.protocols.metric import Metric as SemanticManifestMetric
 from dbt_semantic_interfaces.protocols.metric import (
-    MetricInputMeasure,
     MetricType,
     MetricTypeParams,
     SemanticLayerElementConfig,
@@ -31,8 +29,6 @@ from dbt_semantic_interfaces.protocols.saved_query import (
 )
 from dbt_semantic_interfaces.protocols.where_filter import WhereFilterIntersection
 from dbt_semantic_interfaces.references import EntityReference, SemanticModelReference
-from dbt_semantic_interfaces.transformations.add_input_metric_measures import AddInputMetricMeasuresRule
-from dbt_semantic_interfaces.type_enums.aggregation_type import AggregationType
 from dbt_semantic_interfaces.type_enums.entity_type import EntityType
 from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
 from metricflow_semantics.specs.dimension_spec import DimensionSpec
@@ -85,15 +81,6 @@ class Metric(SearchableElement):
         )
 
     @property
-    def input_measures(self) -> Sequence[MetricInputMeasure]:
-        """Return the complete list of input measure configurations for this metric."""
-        assert self.type_params.input_measures, (
-            f"Metric {self.name} should have had input_measures populated by "
-            f"{AddInputMetricMeasuresRule.__class__.__name__}"
-        )
-        return self.type_params.input_measures
-
-    @property
     def default_search_and_sort_attribute(self) -> str:  # noqa: D102
         return self.name
 
@@ -103,7 +90,7 @@ class Dimension(SearchableElement):
     """Dataclass representation of a Dimension."""
 
     name: str
-    qualified_name: str
+    dunder_name: str
     description: Optional[str]
     type: DimensionType
     entity_links: Tuple[EntityReference, ...]
@@ -123,7 +110,7 @@ class Dimension(SearchableElement):
         semantic_model_reference: SemanticModelReference,
     ) -> Dimension:
         """Build from pydantic Dimension and entity_key."""
-        qualified_name = DimensionSpec(element_name=pydantic_dimension.name, entity_links=entity_links).qualified_name
+        qualified_name = DimensionSpec(element_name=pydantic_dimension.name, entity_links=entity_links).dunder_name
         parsed_type_params: Optional[DimensionTypeParams] = None
         if pydantic_dimension.type_params:
             parsed_type_params = PydanticDimensionTypeParams(
@@ -132,7 +119,7 @@ class Dimension(SearchableElement):
             )
         return cls(
             name=pydantic_dimension.name,
-            qualified_name=qualified_name,
+            dunder_name=qualified_name,
             description=pydantic_dimension.description,
             type=pydantic_dimension.type,
             type_params=parsed_type_params,
@@ -147,22 +134,22 @@ class Dimension(SearchableElement):
 
     @property
     def default_search_and_sort_attribute(self) -> str:  # noqa: D102
-        return self.qualified_name
+        return self.dunder_name
 
     @property
-    def granularity_free_qualified_name(self) -> str:
+    def granularity_free_dunder_name(self) -> str:
         """Renders the qualified name without the granularity suffix.
 
         In the list metrics and list dimensions outputs we want to render the qualified name of the dimension, but
         without including the base granularity for time dimensions. This method is useful in those contexts.
 
-        Note: in most cases you should be using the qualified_name - this is only useful in cases where the
+        Note: in most cases you should be using the dunder_name - this is only useful in cases where the
         Dimension set has de-duplicated TimeDimensions such that you never have more than one granularity
         in your set for each TimeDimension.
         """
         return StructuredLinkableSpecName(
             entity_link_names=tuple(e.element_name for e in self.entity_links), element_name=self.name
-        ).qualified_name
+        ).dunder_name
 
 
 @dataclass(frozen=True)
@@ -195,19 +182,6 @@ class Entity(SearchableElement):
     @property
     def default_search_and_sort_attribute(self) -> str:  # noqa: D102
         return self.name
-
-
-@dataclass(frozen=True)
-class Measure:
-    """Dataclass representation of a Measure."""
-
-    name: str
-    agg: AggregationType
-    agg_time_dimension: str
-    config: Optional[SemanticLayerElementConfig] = None
-    description: Optional[str] = None
-    expr: Optional[str] = None
-    agg_params: Optional[MeasureAggregationParameters] = None
 
 
 @dataclass(frozen=True)

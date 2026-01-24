@@ -10,12 +10,13 @@ T = TypeVar("T", bound="ListJobsResponse200ItemType0RawFlowPreprocessorModuleRet
 
 @_attrs_define
 class ListJobsResponse200ItemType0RawFlowPreprocessorModuleRetryExponential:
-    """
+    """Retry with exponential backoff (delay doubles each time)
+
     Attributes:
-        attempts (Union[Unset, int]):
-        multiplier (Union[Unset, int]):
-        seconds (Union[Unset, int]):
-        random_factor (Union[Unset, int]):
+        attempts (Union[Unset, int]): Number of retry attempts
+        multiplier (Union[Unset, int]): Multiplier for exponential backoff
+        seconds (Union[Unset, int]): Initial delay in seconds
+        random_factor (Union[Unset, int]): Random jitter percentage (0-100) to avoid thundering herd
     """
 
     attempts: Union[Unset, int] = UNSET

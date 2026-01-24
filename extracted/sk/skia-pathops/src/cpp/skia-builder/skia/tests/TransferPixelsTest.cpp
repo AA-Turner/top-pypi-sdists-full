@@ -14,9 +14,9 @@
 #include "include/core/SkSize.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/private/base/SkAlign.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/gpu/ganesh/GrCaps.h"
@@ -29,9 +29,10 @@
 #include "src/gpu/ganesh/GrPixmap.h"
 #include "src/gpu/ganesh/GrResourceProvider.h"
 #include "src/gpu/ganesh/GrTexture.h"
+#include "src/gpu/ganesh/GrUtil.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
-#include "tests/TestUtils.h"
+#include "tests/ganesh/GaneshTestUtils.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -151,7 +152,7 @@ void basic_transfer_to_test(skiatest::Reporter* reporter,
                                                            GrTextureType::k2D,
                                                            renderable,
                                                            1,
-                                                           GrMipmapped::kNo,
+                                                           skgpu::Mipmapped::kNo,
                                                            skgpu::Budgeted::kNo,
                                                            GrProtected::kNo,
                                                            /*label=*/{});
@@ -239,10 +240,10 @@ void basic_transfer_to_test(skiatest::Reporter* reporter,
             });
     GrImageInfo srcInfo(allowedSrc.fColorType, kUnpremul_SkAlphaType, nullptr, tex->dimensions());
     GrImageInfo dstInfo(            colorType, kUnpremul_SkAlphaType, nullptr, tex->dimensions());
-    ComparePixels(GrCPixmap(srcInfo,   srcData.get(), srcRowBytes),
-                  GrCPixmap(dstInfo, dstBuffer.get(), dstRowBytes),
-                  compareTolerances,
-                  error);
+    CompareGaneshPixels(GrCPixmap(srcInfo,   srcData.get(), srcRowBytes),
+                        GrCPixmap(dstInfo, dstBuffer.get(), dstRowBytes),
+                        compareTolerances,
+                        error);
 
     //////////////////////////
     // transfer partial data
@@ -301,10 +302,10 @@ void basic_transfer_to_test(skiatest::Reporter* reporter,
                static_cast<int>(colorType));
         return;
     }
-    ComparePixels(GrCPixmap(srcInfo,   srcData.get(), srcRowBytes),
-                  GrCPixmap(dstInfo, dstBuffer.get(), dstRowBytes),
-                  compareTolerances,
-                  error);
+    CompareGaneshPixels(GrCPixmap(srcInfo,   srcData.get(), srcRowBytes),
+                        GrCPixmap(dstInfo, dstBuffer.get(), dstRowBytes),
+                        compareTolerances,
+                        error);
 }
 
 void basic_transfer_from_test(skiatest::Reporter* reporter, const sk_gpu_test::ContextInfo& ctxInfo,
@@ -348,7 +349,7 @@ void basic_transfer_from_test(skiatest::Reporter* reporter, const sk_gpu_test::C
                                                            renderable,
                                                            1,
                                                            skgpu::Budgeted::kNo,
-                                                           GrMipmapped::kNo,
+                                                           skgpu::Mipmapped::kNo,
                                                            GrProtected::kNo,
                                                            &data,
                                                            /*label=*/{});
@@ -418,7 +419,10 @@ void basic_transfer_from_test(skiatest::Reporter* reporter, const sk_gpu_test::C
     ++expectedTransferCnt;
 
     if (context->priv().caps()->mapBufferFlags() & GrCaps::kAsyncRead_MapFlag) {
-        gpu->submitToGpu(true);
+        GrSubmitInfo info;
+        info.fSync = GrSyncCpu::kYes;
+
+        gpu->submitToGpu(info);
     }
 
     // Copy the transfer buffer contents to a temporary so we can manipulate it.
@@ -444,10 +448,10 @@ void basic_transfer_from_test(skiatest::Reporter* reporter, const sk_gpu_test::C
                        diffs[0], diffs[1], diffs[2], diffs[3]);
             });
     GrImageInfo textureDataInfo(colorType, kUnpremul_SkAlphaType, nullptr, kTexDims);
-    ComparePixels(GrCPixmap(textureDataInfo,  textureData.get(), textureDataRowBytes),
-                  GrCPixmap(   transferInfo, transferData.get(),  fullBufferRowBytes),
-                  tol,
-                  error);
+    CompareGaneshPixels(GrCPixmap(textureDataInfo,  textureData.get(), textureDataRowBytes),
+                        GrCPixmap(   transferInfo, transferData.get(),  fullBufferRowBytes),
+                        tol,
+                        error);
 
     ///////////////////////
     // Now test a partial read at an offset into the buffer.
@@ -465,7 +469,10 @@ void basic_transfer_from_test(skiatest::Reporter* reporter, const sk_gpu_test::C
     ++expectedTransferCnt;
 
     if (context->priv().caps()->mapBufferFlags() & GrCaps::kAsyncRead_MapFlag) {
-        gpu->submitToGpu(true);
+        GrSubmitInfo info;
+        info.fSync = GrSyncCpu::kYes;
+
+        gpu->submitToGpu(info);
     }
 
     map = reinterpret_cast<const char*>(buffer->map());
@@ -482,10 +489,10 @@ void basic_transfer_from_test(skiatest::Reporter* reporter, const sk_gpu_test::C
     const char* textureDataStart =
             textureData.get() + textureDataRowBytes * kPartialTop + textureDataBpp * kPartialLeft;
     textureDataInfo = textureDataInfo.makeWH(kPartialWidth, kPartialHeight);
-    ComparePixels(GrCPixmap(textureDataInfo,   textureDataStart,   textureDataRowBytes),
-                  GrCPixmap(transferInfo   , transferData.get(), partialBufferRowBytes),
-                  tol,
-                  error);
+    CompareGaneshPixels(GrCPixmap(textureDataInfo,   textureDataStart,   textureDataRowBytes),
+                        GrCPixmap(transferInfo   , transferData.get(), partialBufferRowBytes),
+                        tol,
+                        error);
 #if GR_GPU_STATS
     REPORTER_ASSERT(reporter, gpu->stats()->transfersFromSurface() == expectedTransferCnt);
 #else
@@ -504,6 +511,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(TransferPixelsToTextureTest,
         for (auto colorType : {
                      GrColorType::kAlpha_8,
                      GrColorType::kBGR_565,
+                     GrColorType::kRGB_565,
                      GrColorType::kABGR_4444,
                      GrColorType::kRGBA_8888,
                      GrColorType::kRGBA_8888_SRGB,
@@ -512,10 +520,13 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(TransferPixelsToTextureTest,
                      GrColorType::kBGRA_8888,
                      GrColorType::kRGBA_1010102,
                      GrColorType::kBGRA_1010102,
+                     GrColorType::kRGB_101010x,
+                     GrColorType::kRGBA_10x6,
                      GrColorType::kGray_8,
                      GrColorType::kAlpha_F16,
                      GrColorType::kRGBA_F16,
                      GrColorType::kRGBA_F16_Clamped,
+                     GrColorType::kRGB_F16F16F16x,
                      GrColorType::kRGBA_F32,
                      GrColorType::kAlpha_16,
                      GrColorType::kRG_1616,
@@ -540,6 +551,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(TransferPixelsFromTextureTest,
                      GrColorType::kAlpha_8,
                      GrColorType::kAlpha_16,
                      GrColorType::kBGR_565,
+                     GrColorType::kRGB_565,
                      GrColorType::kABGR_4444,
                      GrColorType::kRGBA_8888,
                      GrColorType::kRGBA_8888_SRGB,
@@ -548,10 +560,13 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(TransferPixelsFromTextureTest,
                      GrColorType::kBGRA_8888,
                      GrColorType::kRGBA_1010102,
                      GrColorType::kBGRA_1010102,
+                     GrColorType::kRGB_101010x,
+                     GrColorType::kRGBA_10x6,
                      GrColorType::kGray_8,
                      GrColorType::kAlpha_F16,
                      GrColorType::kRGBA_F16,
                      GrColorType::kRGBA_F16_Clamped,
+                     GrColorType::kRGB_F16F16F16x,
                      GrColorType::kRGBA_F32,
                      GrColorType::kRG_1616,
                      GrColorType::kRGBA_16161616,

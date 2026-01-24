@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 import random
@@ -7,18 +8,23 @@ import string
 import asyncio
 import aiohttp
 import base64
-from typing import Union, AsyncIterator, Iterator, Awaitable, Optional
+import requests
+from pathlib import Path
+from datetime import datetime
+from typing import Union, AsyncIterator, Iterator, Awaitable, Optional, List, Dict, Any, Type
 
 from ..image.copy_images import copy_media, get_media_dir
 from ..typing import Messages, ImageType
-from ..providers.types import ProviderType, BaseRetryProvider
+from ..providers.types import ProviderType, BaseProvider
 from ..providers.response import *
-from ..errors import NoMediaResponseError
+from ..errors import NoMediaResponseError, ProviderNotFoundError
 from ..providers.retry_provider import IterListProvider
 from ..providers.asyncio import to_sync_generator
 from ..providers.any_provider import AnyProvider
-from ..Provider import OpenaiAccount, PollinationsImage
+from ..Provider import OpenaiAccount, PollinationsImage, ProviderUtils
+from ..Provider.template import OpenaiTemplate
 from ..tools.run_tools import async_iter_run_tools, iter_run_tools
+from ..cookies import get_cookies_dir
 from .stubs import ChatCompletion, ChatCompletionChunk, Image, ImagesResponse, UsageModel, ToolCallModel, ClientResponse
 from .models import ClientModels
 from .types import IterResponse, Client as BaseClient
@@ -64,14 +70,15 @@ def iter_response(
     stream: bool,
     response_format: Optional[dict] = None,
     max_tokens: Optional[int] = None,
-    stop: Optional[list[str]] = None
+    stop: Optional[list[str]] = None,
+    provider_info: Optional[ProviderInfo] = None
 ) -> ChatCompletionResponseType:
     content = ""
     reasoning = []
     finish_reason = None
     tool_calls = None
     usage = None
-    provider: ProviderInfo = None
+    provider_info: ProviderInfo = None
     conversation: JsonConversation = None
     completion_id = ''.join(random.choices(string.ascii_letters + string.digits, k=28))
     idx = 0
@@ -94,13 +101,11 @@ def iter_response(
             usage = chunk
             continue
         elif isinstance(chunk, ProviderInfo):
-            provider = chunk
+            provider_info = chunk
             continue
         elif isinstance(chunk, Reasoning):
             reasoning.append(chunk)
-        elif isinstance(chunk, HiddenResponse):
-            continue
-        elif isinstance(chunk, Exception):
+        elif isinstance(chunk, (HiddenResponse, Exception, JsonRequest, JsonResponse)):
             continue
         elif not chunk:
             continue
@@ -118,9 +123,9 @@ def iter_response(
 
         if stream:
             chunk = ChatCompletionChunk.model_construct(chunk, None, completion_id, int(time.time()))
-            if provider is not None:
-                chunk.provider = provider.name
-                chunk.model = provider.model
+            if provider_info is not None:
+                chunk.provider = provider_info.name
+                chunk.model = provider_info.model
             yield chunk
 
         if finish_reason is not None:
@@ -149,29 +154,18 @@ def iter_response(
             conversation=None if conversation is None else conversation.get_dict(),
             reasoning=reasoning if reasoning else None
         )
-    if provider is not None:
-        chat_completion.provider = provider.name
-        chat_completion.model = provider.model
+    if provider_info is not None:
+        chat_completion.provider = provider_info.name
+        chat_completion.model = provider_info.model
     yield chat_completion
-
-# Synchronous iter_append_model_and_provider function
-def iter_append_model_and_provider(response: ChatCompletionResponseType, last_model: str, last_provider: ProviderType) -> ChatCompletionResponseType:
-    if isinstance(last_provider, BaseRetryProvider):
-        yield from response
-        return
-    for chunk in response:
-        if isinstance(chunk, (ChatCompletion, ChatCompletionChunk)):
-            if chunk.provider is None and last_provider is not None:
-                chunk.model = getattr(last_provider, "last_model", last_model)
-                chunk.provider = last_provider.__name__
-        yield chunk
 
 async def async_iter_response(
     response: AsyncIterator[Union[str, ResponseType]],
     stream: bool,
     response_format: Optional[dict] = None,
     max_tokens: Optional[int] = None,
-    stop: Optional[list[str]] = None
+    stop: Optional[list[str]] = None,
+    provider_info: Optional[ProviderInfo] = None
 ) -> AsyncChatCompletionResponseType:
     content = ""
     reasoning = []
@@ -180,7 +174,6 @@ async def async_iter_response(
     idx = 0
     tool_calls = None
     usage = None
-    provider: ProviderInfo = None
     conversation: JsonConversation = None
 
     try:
@@ -199,13 +192,11 @@ async def async_iter_response(
                 usage = chunk
                 continue
             elif isinstance(chunk, ProviderInfo):
-                provider = chunk
+                provider_info = chunk
                 continue
             elif isinstance(chunk, Reasoning) and not stream:
                 reasoning.append(chunk)
-            elif isinstance(chunk, HiddenResponse):
-                continue
-            elif isinstance(chunk, Exception):
+            elif isinstance(chunk, (HiddenResponse, Exception, JsonRequest, JsonResponse)):
                 continue
             elif not chunk:
                 continue
@@ -223,9 +214,9 @@ async def async_iter_response(
 
             if stream:
                 chunk = ChatCompletionChunk.model_construct(chunk, None, completion_id, int(time.time()))
-                if provider is not None:
-                    chunk.provider = provider.name
-                    chunk.model = provider.model
+                if provider_info is not None:
+                    chunk.provider = provider_info.name
+                    chunk.model = provider_info.model
                 yield chunk
 
             if finish_reason is not None:
@@ -254,76 +245,10 @@ async def async_iter_response(
                 conversation=conversation,
                 reasoning=reasoning if reasoning else None
             )
-        if provider is not None:
-            chat_completion.provider = provider.name
-            chat_completion.model = provider.model
+        if provider_info is not None:
+            chat_completion.provider = provider_info.name
+            chat_completion.model = provider_info.model
         yield chat_completion
-    finally:
-        await safe_aclose(response)
-
-async def async_response(
-    response: AsyncIterator[Union[str, ResponseType]]
-) -> ClientResponse:
-    content = ""
-    response_id = ''.join(random.choices(string.ascii_letters + string.digits, k=28))
-    idx = 0
-    usage = None
-    provider: ProviderInfo = None
-    conversation: JsonConversation = None
-
-    async for chunk in response:
-        if isinstance(chunk, FinishReason):
-            continue
-        elif isinstance(chunk, JsonConversation):
-            conversation = chunk
-            continue
-        elif isinstance(chunk, ToolCalls):
-            continue
-        elif isinstance(chunk, Usage):
-            usage = chunk
-            continue
-        elif isinstance(chunk, ProviderInfo):
-            provider = chunk
-            continue
-        elif isinstance(chunk, HiddenResponse):
-            continue
-        elif isinstance(chunk, Exception):
-            continue
-
-        content = add_chunk(content, chunk)
-        if not content:
-            continue
-        idx += 1
-
-    if usage is None:
-        usage = UsageModel.model_construct(completion_tokens=idx, total_tokens=idx)
-    else:
-        usage = UsageModel.model_construct(**usage.get_dict())
-
-    response = ClientResponse.model_construct(
-        content, response_id, int(time.time()), usage=usage, conversation=conversation
-    )
-    if provider is not None:
-        response.provider = provider.name
-        response.model = provider.model
-    return response
-
-async def async_iter_append_model_and_provider(
-        response: AsyncChatCompletionResponseType,
-        last_model: str,
-        last_provider: ProviderType
-    ) -> AsyncChatCompletionResponseType:
-    try:
-        if isinstance(last_provider, BaseRetryProvider):
-            async for chunk in response:
-                yield chunk
-            return
-        async for chunk in response:
-            if isinstance(chunk, (ChatCompletion, ChatCompletionChunk)):
-                if chunk.provider is None and last_provider is not None:
-                    chunk.model = getattr(last_provider, "last_model", last_model)
-                    chunk.provider = last_provider.__name__
-            yield chunk
     finally:
         await safe_aclose(response)
 
@@ -335,6 +260,8 @@ class Client(BaseClient):
         **kwargs
     ) -> None:
         super().__init__(**kwargs)
+        if self.base_url and provider is None:
+            provider = create_custom_provider(base_url=self.base_url, api_key=self.api_key)
         self.chat: Chat = Chat(self, provider)
         if media_provider is None:
             media_provider = kwargs.get("image_provider", provider)
@@ -359,8 +286,8 @@ class Completions:
         response_format: Optional[dict] = None,
         max_tokens: Optional[int] = None,
         stop: Optional[Union[list[str], str]] = None,
-        api_key: Optional[str] = None,
         ignore_stream: Optional[bool] = False,
+        raw: Optional[bool] = False,
         **kwargs
     ) -> ChatCompletion:
         if isinstance(messages, str):
@@ -387,17 +314,36 @@ class Completions:
                 proxy=self.client.proxy if proxy is None else proxy,
                 max_tokens=max_tokens,
                 stop=stop,
-                api_key=self.client.api_key if api_key is None else api_key
+                api_key=self.client.api_key,
+                base_url=self.client.base_url
             ),
             **kwargs
         )
 
-        response = iter_response(response, stream, response_format, max_tokens, stop)
-        response = iter_append_model_and_provider(response, model, provider)
+        provider_info = ProviderInfo(**provider.get_dict(), model=model)
+
+        def fallback(response):
+            return iter_response(response, stream, response_format, max_tokens, stop, provider_info)
+
+        if raw:
+            def raw_response(response):
+                chunks = []
+                started = False
+                for chunk in response:
+                    if isinstance(chunk, JsonResponse):
+                        yield chunk
+                        started = True
+                    else:
+                        chunks.append(chunk)
+                if not started:
+                    for chunk in fallback(chunks):
+                        yield chunk
+            if stream:
+                return raw_response(response)
+            return next(raw_response(response))
         if stream:
-            return response
-        else:
-            return next(response)
+            return fallback(response)
+        return next(fallback(response))
 
     def stream(
         self,
@@ -655,7 +601,6 @@ class AsyncClient(BaseClient):
         self.models: ClientModels = ClientModels(self, provider, media_provider)
         self.images: AsyncImages = AsyncImages(self, media_provider)
         self.media: AsyncImages = self.images
-        self.responses: AsyncResponses = AsyncResponses(self, provider)
 
 class AsyncChat:
     completions: AsyncCompletions
@@ -680,8 +625,8 @@ class AsyncCompletions:
         response_format: Optional[dict] = None,
         max_tokens: Optional[int] = None,
         stop: Optional[Union[list[str], str]] = None,
-        api_key: Optional[str] = None,
         ignore_stream: Optional[bool] = False,
+        raw: Optional[bool] = False,
         **kwargs
     ) -> Awaitable[ChatCompletion]:
         if isinstance(messages, str):
@@ -708,18 +653,35 @@ class AsyncCompletions:
                 proxy=self.client.proxy if proxy is None else proxy,
                 max_tokens=max_tokens,
                 stop=stop,
-                api_key=self.client.api_key if api_key is None else api_key
+                api_key=self.client.api_key,
+                base_url=self.client.base_url
             ),
             **kwargs
         )
 
-        response = async_iter_response(response, stream, response_format, max_tokens, stop)
-        response = async_iter_append_model_and_provider(response, model, provider)
+        def fallback(response):
+            provider_info = ProviderInfo(**provider.get_dict(), model=model)
+            return async_iter_response(response, stream, response_format, max_tokens, stop, provider_info)
 
+        if raw:
+            async def raw_response(response):
+                chunks = []
+                started = False
+                async for chunk in response:
+                    if isinstance(chunk, JsonResponse):
+                        yield chunk
+                        started = True
+                    else:
+                        chunks.append(chunk)
+                if not started:
+                    for chunk in fallback(chunks):
+                        yield chunk
+            if stream:
+                return raw_response(response)
+            return anext(raw_response(response))
         if stream:
-            return response
-        else:
-            return anext(response)
+            return fallback(response)
+        return anext(fallback(response))
 
     def stream(
         self,
@@ -756,50 +718,221 @@ class AsyncImages(Images):
            image=image, model=model, provider=provider, response_format=response_format, **kwargs
         )
 
-class AsyncResponses():
-    def __init__(self, client: AsyncClient, provider: Optional[ProviderType] = None):
-        self.client: AsyncClient = client
-        self.provider: ProviderType = provider
 
-    async def create(
-        self,
-        input: str,
-        model: str = "",
-        provider: Optional[ProviderType] = None,
-        instructions: Optional[str] = None,
-        proxy: Optional[str] = None,
-        api_key: Optional[str] = None,
+def create_custom_provider(
+    base_url: str,
+    api_key: str = None,
+    name: str = None,
+    working: bool = True,
+    default_model: str = "",
+    models: List[str] = None,
+    **kwargs
+) -> Type[OpenaiTemplate]:
+    """
+    Create a custom provider class based on OpenaiTemplate.
+    
+    Args:
+        base_url: The base URL for the API (e.g., "https://api.example.com/v1")
+        api_key: Optional API key for authentication
+        name: Optional name for the provider (defaults to derived from base_url)
+        working: Whether the provider is working (default: True)
+        default_model: Default model to use
+        models: List of available models
+        **kwargs: Additional attributes to set on the provider class
+    
+    Returns:
+        A custom provider class that extends OpenaiTemplate
+    """
+    if name is None:
+        # Derive name from base_url
+        from urllib.parse import urlparse
+        parsed = urlparse(base_url)
+        name = parsed.netloc.replace(".", "_").replace("-", "_").title().replace("_", "")
+        if not name:
+            name = "CustomProvider"
+    
+    # Create a new class that extends OpenaiTemplate
+    class_attrs = {
+        "url": base_url,
+        "base_url": base_url.rstrip("/"),
+        "api_key": api_key,
+        "working": working,
+        "default_model": default_model,
+        "models": models or [],
         **kwargs
-    ) -> ClientResponse:
-        if isinstance(input, str):
-            input = [{"role": "user", "content": input}]
-        if instructions is not None:
-            input = [{"role": "developer", "content": instructions}] + input
-        for idx, message in enumerate(input):
-            if isinstance(message["content"], list):
-                for key, value in enumerate(message["content"]):
-                    if isinstance(value, dict) and value.get("type") == "input_text":
-                        message["content"][key] = {"type": "text", "text": value.get("text")}
-                    input[idx] = {"role": message["role"], "content": message["content"]}
-        resolve_media(kwargs)
-        if hasattr(model, "name"):
-            model = model.get_long_name()
-        if provider is None:
-            provider = self.provider
-            if provider is None:
-                provider = AnyProvider
-        if isinstance(provider, str):
-            provider = convert_to_provider(provider)
+    }
+    
+    CustomProvider = type(name, (OpenaiTemplate,), class_attrs)
+    print(f"Created custom provider class '{name}' with base URL '{base_url}'")
+    return CustomProvider
 
-        response = async_iter_run_tools(
-            provider,
-            model=model,
-            messages=input,
-            **filter_none(
-                proxy=self.client.proxy if proxy is None else proxy,
-                api_key=self.client.api_key if api_key is None else api_key
-            ),
+
+class ClientFactory:
+    """
+    Factory class for creating Client and AsyncClient instances with various provider configurations.
+    
+    Supports:
+    - Named providers (e.g., "PollinationsAI", "DeepInfra")
+    - Custom providers with custom API base URLs
+    - Live providers (dynamically loaded providers)
+    
+    Example usage:
+        # Create client with a named provider
+        client = ClientFactory.create_client("PollinationsAI")
+                
+        # Create client with custom provider
+        client = ClientFactory.create_client(
+            base_url="https://api.example.com/v1",
+            api_key="your-api-key"
+        )
+        
+        # Create async client
+        async_client = ClientFactory.create_async_client("PollinationsAI")
+    """
+    
+    # Registry of live/custom providers
+    _live_providers_url = "https://g4f.dev/dist/js/providers.json"
+    _live_providers: Dict[str, Dict] = {}
+    
+    @classmethod
+    def create_provider(
+        cls,
+        name: str,
+        provider: Union[Type[BaseProvider], str],
+        base_url: str = None,
+        api_key: str = None,
+        **kwargs
+    ) -> Type[BaseProvider]:
+        """
+        Register a live/custom provider that can be used by name.
+        
+        Args:
+            name: Name to register the provider under
+            provider: Either a provider class or "custom" to create a custom provider
+            base_url: Base URL for custom providers
+            api_key: API key for custom providers
+            **kwargs: Additional arguments for custom provider creation
+            
+        Returns:
+            The registered provider class
+        """
+        if not isinstance(provider, str):
+            return provider
+        elif provider.startswith("custom:"):
+            if provider.startswith("custom:"):
+                serverId = provider[7:]
+                base_url = f"https://g4f.space/custom/{serverId}"
+            if not base_url:
+                raise ValueError("base_url is required for custom providers")
+            provider = create_custom_provider(base_url, api_key, name=name, **kwargs)
+        elif provider in ProviderUtils.convert:
+            provider = ProviderUtils.convert[provider]
+        else:
+            if not cls._live_providers:
+                path = Path(get_cookies_dir()) / "models" / datetime.today().strftime('%Y-%m-%d') / f"providers.json"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if path.exists():
+                    with open(path, "r", encoding="utf-8") as f:
+                        cls._live_providers = json.load(f)
+                cls._live_providers = requests.get(cls._live_providers_url).json()
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(cls._live_providers, f, indent=4)
+            if provider in cls._live_providers.get("providers", {}):
+                config = cls._live_providers["providers"][provider]
+                if "provider" in config and config.get("provider") in ProviderUtils.convert:
+                    return ProviderUtils.convert[config.get("provider")]
+                return create_custom_provider(
+                    base_url=config.get("baseUrl") if api_key else config.get("backupUrl", config.get("baseUrl")),
+                    api_key=api_key,
+                    name=provider,
+                    default_model=cls._live_providers["defaultModels"].get(provider, ""),
+                )
+            else:
+                raise ProviderNotFoundError(f"Provider '{name}' not found")
+        return provider
+    
+    @classmethod
+    def create_client(
+        cls,
+        provider: Union[str, Type[BaseProvider], None] = None,
+        media_provider: Union[str, Type[BaseProvider], None] = None,
+        base_url: str = None,
+        api_key: str = None,
+        proxies: Union[dict, str] = None,
+        **kwargs
+    ) -> "Client":
+        """
+        Create a synchronous Client instance.
+        
+        Args:
+            provider: Provider name(s), class(es), or None for default
+            media_provider: Provider for media/image generation
+            base_url: API base URL for custom provider
+            api_key: API key for authentication
+            proxies: Proxy configuration
+            **kwargs: Additional arguments passed to Client
+            
+        Returns:
+            Configured Client instance
+            
+        Example:
+            # Named provider
+            client = ClientFactory.create_client("PollinationsAI")
+                        
+            # Custom provider
+            client = ClientFactory.create_client(
+                base_url="https://api.openai.com/v1",
+                api_key="sk-..."
+            )
+        """
+        return Client(
+            provider=cls.create_provider(None, provider, base_url, api_key, **kwargs),
+            media_provider=media_provider,
+            api_key=api_key,
+            base_url=base_url,
+            proxies=proxies,
             **kwargs
         )
+    
+    @classmethod
+    def create_async_client(
+        cls,
+        provider: Union[str, Type[BaseProvider], None] = None,
+        media_provider: Union[str, Type[BaseProvider], None] = None,
+        base_url: str = None,
+        api_key: str = None,
+        proxies: Union[dict, str] = None,
+        **kwargs
+    ) -> "AsyncClient":
+        """
+        Create an asynchronous AsyncClient instance.
+        
+        Args:
+            provider: Provider name(s), class(es), or None for default
+            media_provider: Provider for media/image generation
+            base_url: API base URL for custom provider
+            api_key: API key for authentication
+            proxies: Proxy configuration
+            **kwargs: Additional arguments passed to AsyncClient
+            
+        Returns:
+            Configured AsyncClient instance
+            
+        Example:
+            # Named provider
+            client = ClientFactory.create_async_client("PollinationsAI")
 
-        return await async_response(response)
+            # Custom provider
+            client = ClientFactory.create_async_client(
+                base_url="https://api.openai.com/v1",
+                api_key="sk-..."
+            )
+        """
+        return AsyncClient(
+            provider=cls.create_provider(provider, base_url, api_key, **kwargs),
+            media_provider=media_provider,
+            api_key=api_key,
+            base_url=base_url,
+            proxies=proxies,
+            **kwargs
+        )

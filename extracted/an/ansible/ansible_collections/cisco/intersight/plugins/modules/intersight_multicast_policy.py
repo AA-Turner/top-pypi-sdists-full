@@ -132,7 +132,7 @@ EXAMPLES = r'''
 '''
 
 RETURN = r'''
-api_repsonse:
+api_response:
   description: The API response output returned by the specified resource.
   returned: always
   type: dict
@@ -206,11 +206,7 @@ def main():
     }
 
     if intersight.module.params['state'] == 'present':
-        if intersight.module.params['description']:
-            intersight.api_body['Description'] = intersight.module.params['description']
-
-        if intersight.module.params['tags']:
-            intersight.api_body['Tags'] = intersight.module.params['tags']
+        intersight.set_tags_and_description()
 
         # Add querier IP address if querier is enabled
         if intersight.module.params['querier_state'] == 'Enabled':
@@ -220,9 +216,6 @@ def main():
             if intersight.module.params['querier_ip_address_peer']:
                 intersight.api_body['QuerierIpAddressPeer'] = intersight.module.params['querier_ip_address_peer']
 
-    #
-    # Code below should be common across all policy modules
-    #
     intersight.configure_policy_or_profile(resource_path=resource_path)
 
     module.exit_json(**intersight.result)

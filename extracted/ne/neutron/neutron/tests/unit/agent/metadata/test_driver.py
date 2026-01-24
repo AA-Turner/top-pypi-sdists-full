@@ -24,6 +24,7 @@ from oslo_config import cfg
 from oslo_utils import uuidutils
 
 from neutron.agent.l3 import agent as l3_agent
+from neutron.agent.l3 import ha as l3_ha
 from neutron.agent.l3 import router_info
 from neutron.agent.linux import external_process as ep
 from neutron.agent.linux import ip_lib
@@ -115,6 +116,9 @@ class TestMetadataDriverProcess(base.BaseTestCase):
         self.mock_conf_obsolete = mock.patch.object(
             driver_base.HaproxyConfiguratorBase,
             'is_config_file_obsolete').start()
+        self.mock_ka_notifications = mock.patch.object(
+            l3_ha.AgentMixin, '_start_keepalived_notifications_server')
+        self.mock_ka_notifications.start()
 
     def test_after_router_updated_called_on_agent_process_update(self):
         with mock.patch.object(metadata_driver, 'after_router_updated') as f,\
@@ -122,6 +126,7 @@ class TestMetadataDriverProcess(base.BaseTestCase):
                            'NamespaceManager.list_all', return_value={}),\
                 mock.patch.object(router_info.RouterInfo, 'process'):
             agent = l3_agent.L3NATAgent('localhost')
+            agent.init_host()
             router_id = _uuid()
             router = {'id': router_id}
             ri = router_info.RouterInfo(mock.Mock(), router_id, router,
@@ -147,6 +152,7 @@ class TestMetadataDriverProcess(base.BaseTestCase):
                            'NamespaceManager.list_all', return_value={}),\
                 mock.patch.object(router_info.RouterInfo, 'process'):
             agent = l3_agent.L3NATAgent('localhost')
+            agent.init_host()
             router_id = _uuid()
             router = {'id': router_id}
             ri = router_info.RouterInfo(mock.Mock(), router_id, router,
@@ -197,6 +203,7 @@ class TestMetadataDriverProcess(base.BaseTestCase):
                     new_callable=mock.PropertyMock,
                     side_effect=[False, True]):
             agent = l3_agent.L3NATAgent('localhost')
+            agent.init_host()
             agent.process_monitor = mock.Mock()
             cfg_file = os.path.join(
                 metadata_driver.HaproxyConfigurator.get_config_path(

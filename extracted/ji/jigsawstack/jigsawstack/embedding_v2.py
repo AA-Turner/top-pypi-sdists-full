@@ -15,6 +15,9 @@ class EmbeddingV2Params(TypedDict):
     url: NotRequired[str]
     file_store_key: NotRequired[str]
     token_overflow_mode: NotRequired[Literal["truncate", "error"]]
+    dimensions: NotRequired[int]
+    instruction: NotRequired[str]
+    query: NotRequired[bool]
     speaker_fingerprint: NotRequired[bool]
 
 

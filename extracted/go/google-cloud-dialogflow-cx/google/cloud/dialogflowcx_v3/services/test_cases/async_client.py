@@ -98,12 +98,16 @@ class TestCasesAsyncClient:
     parse_intent_path = staticmethod(TestCasesClient.parse_intent_path)
     page_path = staticmethod(TestCasesClient.page_path)
     parse_page_path = staticmethod(TestCasesClient.parse_page_path)
+    playbook_path = staticmethod(TestCasesClient.playbook_path)
+    parse_playbook_path = staticmethod(TestCasesClient.parse_playbook_path)
     test_case_path = staticmethod(TestCasesClient.test_case_path)
     parse_test_case_path = staticmethod(TestCasesClient.parse_test_case_path)
     test_case_result_path = staticmethod(TestCasesClient.test_case_result_path)
     parse_test_case_result_path = staticmethod(
         TestCasesClient.parse_test_case_result_path
     )
+    tool_path = staticmethod(TestCasesClient.tool_path)
+    parse_tool_path = staticmethod(TestCasesClient.parse_tool_path)
     transition_route_group_path = staticmethod(
         TestCasesClient.transition_route_group_path
     )
@@ -915,10 +919,10 @@ class TestCasesAsyncClient:
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``:
-           [RunTestCaseMetadata][google.cloud.dialogflow.cx.v3.RunTestCaseMetadata]
-        -  ``response``:
-           [RunTestCaseResponse][google.cloud.dialogflow.cx.v3.RunTestCaseResponse]
+        - ``metadata``:
+          [RunTestCaseMetadata][google.cloud.dialogflow.cx.v3.RunTestCaseMetadata]
+        - ``response``:
+          [RunTestCaseResponse][google.cloud.dialogflow.cx.v3.RunTestCaseResponse]
 
         .. code-block:: python
 
@@ -1025,10 +1029,10 @@ class TestCasesAsyncClient:
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``:
-           [BatchRunTestCasesMetadata][google.cloud.dialogflow.cx.v3.BatchRunTestCasesMetadata]
-        -  ``response``:
-           [BatchRunTestCasesResponse][google.cloud.dialogflow.cx.v3.BatchRunTestCasesResponse]
+        - ``metadata``:
+          [BatchRunTestCasesMetadata][google.cloud.dialogflow.cx.v3.BatchRunTestCasesMetadata]
+        - ``response``:
+          [BatchRunTestCasesResponse][google.cloud.dialogflow.cx.v3.BatchRunTestCasesResponse]
 
         .. code-block:: python
 
@@ -1226,10 +1230,10 @@ class TestCasesAsyncClient:
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``:
-           [ImportTestCasesMetadata][google.cloud.dialogflow.cx.v3.ImportTestCasesMetadata]
-        -  ``response``:
-           [ImportTestCasesResponse][google.cloud.dialogflow.cx.v3.ImportTestCasesResponse]
+        - ``metadata``:
+          [ImportTestCasesMetadata][google.cloud.dialogflow.cx.v3.ImportTestCasesMetadata]
+        - ``response``:
+          [ImportTestCasesResponse][google.cloud.dialogflow.cx.v3.ImportTestCasesResponse]
 
         .. code-block:: python
 
@@ -1339,10 +1343,10 @@ class TestCasesAsyncClient:
         The returned ``Operation`` type has the following
         method-specific fields:
 
-        -  ``metadata``:
-           [ExportTestCasesMetadata][google.cloud.dialogflow.cx.v3.ExportTestCasesMetadata]
-        -  ``response``:
-           [ExportTestCasesResponse][google.cloud.dialogflow.cx.v3.ExportTestCasesResponse]
+        - ``metadata``:
+          [ExportTestCasesMetadata][google.cloud.dialogflow.cx.v3.ExportTestCasesMetadata]
+        - ``response``:
+          [ExportTestCasesResponse][google.cloud.dialogflow.cx.v3.ExportTestCasesResponse]
 
         .. code-block:: python
 

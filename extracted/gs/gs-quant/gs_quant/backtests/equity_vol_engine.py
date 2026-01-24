@@ -17,7 +17,9 @@ import copy
 import re
 import warnings
 from functools import reduce
+from typing import Union
 
+import datetime as dt
 import pandas as pd
 
 from gs_quant.api.gs.backtests_xasset.response_datatypes.backtest_datatypes import TransactionCostConfig, \
@@ -35,6 +37,7 @@ from gs_quant.markets.portfolio import Portfolio
 from gs_quant.risk import EqDelta, EqSpot, EqGamma, EqVega
 from gs_quant.target.backtests import BacktestSignalSeriesItem, BacktestTradingQuantityType, EquityMarketModel, \
     FlowVolBacktestMeasure
+from gs_quant.common import TradeAs
 
 
 def get_backtest_trading_quantity_type(scaling_type, risk):
@@ -188,14 +191,14 @@ class EquityVolEngine(object):
                     if isinstance(action, a.AddScaledTradeAction):
                         if action.scaling_level is None or action.scaling_type is None:
                             check_results.append('Error: AddScaledTradeAction scaling_level or scaling_type is None')
-                    expiry_date_modes = map(lambda x: ExpirationDateParser(x.expirationDate).get_mode(),
+                    expiry_date_modes = map(lambda x: TenorParser(x.expirationDate).get_mode(),
                                             action.priceables)
                     expiry_date_modes = list(set(expiry_date_modes))
                     if len(expiry_date_modes) > 1:
                         check_results.append(
                             f'Error: {type(action).__name__} all priceable expiration_date modifiers must '
-                            'be the same. Found [' + ', '.join(expiry_date_modes) + ']')
-                    if expiry_date_modes[0] not in ['otc', 'listed']:
+                            'be the same. Found [' + ', '.join([str(edm) for edm in expiry_date_modes]) + ']')
+                    if expiry_date_modes[0] is not None and expiry_date_modes[0] not in ['otc', 'listed']:
                         check_results.append(
                             f'Error: {type(action).__name__} invalid expiration_date '
                             'modifier ' + expiry_date_modes[0])
@@ -220,8 +223,6 @@ class EquityVolEngine(object):
                             'Error: HedgeAction: PeriodicTrigger frequency must be the same as trade_duration')
                     if not action.risk == EqDelta:
                         check_results.append('Error: HedgeAction: risk type must be EqDelta')
-                    if not trigger.trigger_requirements.frequency == '1b':
-                        check_results.append('Error: HedgeAction: frequency must be \'1b\'')
                 elif isinstance(action, (a.ExitPositionAction, a.ExitTradeAction)):
                     continue
                 else:
@@ -275,34 +276,37 @@ class EquityVolEngine(object):
             action = trigger.actions[0]
             if isinstance(action, a.EnterPositionQuantityScaledAction):
                 underlier_list = cls.__get_underlier_list(action.priceables)
-                roll_frequency = action.trade_duration
+                tp = TenorParser(action.trade_duration)
+                roll_frequency = tp.get_date()
+                roll_date_mode = tp.get_mode()
                 trade_quantity = action.trade_quantity
                 trade_quantity_type = action.trade_quantity_type
-                expiry_date_mode = ExpirationDateParser(action.priceables[0].expiration_date).get_mode()
+                expiry_date_mode = TenorParser(action.priceables[0].expiration_date).get_mode()
                 transaction_cost.trade_cost_model = TradingCosts(cls.__map_tc_model(action.transaction_cost),
                                                                  cls.__map_tc_model(action.transaction_cost_exit))
             elif isinstance(action, a.AddTradeAction):
                 underlier_list = cls.__get_underlier_list(action.priceables)
-                roll_frequency = action.trade_duration
+                tp = TenorParser(action.trade_duration)
+                roll_frequency = tp.get_date()
+                roll_date_mode = tp.get_mode()
                 trade_quantity = 1
                 trade_quantity_type = BacktestTradingQuantityType.quantity
-                expiry_date_mode = ExpirationDateParser(action.priceables[0].expiration_date).get_mode()
+                expiry_date_mode = TenorParser(action.priceables[0].expiration_date).get_mode()
                 transaction_cost.trade_cost_model = TradingCosts(cls.__map_tc_model(action.transaction_cost),
                                                                  cls.__map_tc_model(action.transaction_cost_exit))
             elif isinstance(action, a.AddScaledTradeAction):
                 underlier_list = cls.__get_underlier_list(action.priceables)
-                roll_frequency = action.trade_duration
+                tp = TenorParser(action.trade_duration)
+                roll_frequency = tp.get_date()
+                roll_date_mode = tp.get_mode()
                 trade_quantity = action.scaling_level
                 trade_quantity_type = get_backtest_trading_quantity_type(action.scaling_type, action.scaling_risk)
-                expiry_date_mode = ExpirationDateParser(action.priceables[0].expiration_date).get_mode()
+                expiry_date_mode = TenorParser(action.priceables[0].expiration_date).get_mode()
                 transaction_cost.trade_cost_model = TradingCosts(cls.__map_tc_model(action.transaction_cost),
                                                                  cls.__map_tc_model(action.transaction_cost_exit))
             elif isinstance(action, a.HedgeAction):
-                if trigger.trigger_requirements.frequency == '1b':
-                    frequency = 'Daily'
-                else:
-                    raise RuntimeError('unrecognised hedge frequency')
-                hedge = DeltaHedgeParameters(frequency=frequency)
+                hedge = DeltaHedgeParameters(frequency=trigger.trigger_requirements.frequency,
+                                             notional=action.risk_percentage)
                 transaction_cost.hedge_cost_model = TradingCosts(cls.__map_tc_model(action.transaction_cost),
                                                                  cls.__map_tc_model(action.transaction_cost_exit))
 
@@ -321,7 +325,7 @@ class EquityVolEngine(object):
                                       trade_out_signals=trade_out_signals,
                                       market_model=market_model,
                                       expiry_date_mode=expiry_date_mode,
-                                      roll_date_mode=expiry_date_mode,
+                                      roll_date_mode=roll_date_mode,
                                       cash_accrual=cash_accrual,
                                       transaction_cost_config=transaction_cost_config,
                                       use_xasset_backtesting_service=True
@@ -331,12 +335,17 @@ class EquityVolEngine(object):
         return BacktestResult(result)
 
     @classmethod
-    def __get_underlier_list(cls, pricables):
-        pricables_copy = copy.deepcopy(pricables)
-        for pricable in pricables_copy:
-            edp = ExpirationDateParser(pricable.expiration_date)
-            pricable.expiration_date = edp.get_date()
-        return pricables_copy
+    def __get_underlier_list(cls, priceables):
+        priceables_copy = copy.deepcopy(priceables)
+        for priceable in priceables_copy:
+            edp = TenorParser(priceable.expiration_date)
+            priceable.expiration_date = edp.get_date()
+            if hasattr(priceable, 'trade_as'):
+                expiry_date_mode = get_enum_value(TradeAs, edp.get_mode())
+                priceable.trade_as = priceable.trade_as or expiry_date_mode \
+                    if isinstance(expiry_date_mode, TradeAs) else None
+                print(priceable.trade_as)
+        return priceables_copy
 
     @classmethod
     def __map_tc_model(cls, model: TransactionModel):
@@ -356,15 +365,18 @@ class EquityVolEngine(object):
         return None
 
 
-class ExpirationDateParser(object):
+class TenorParser(object):
 
     # match expiration dates expressed as 3m@listed
     expiry_regex = '(.*)@(.*)'
 
-    def __init__(self, expiry: str):
+    def __init__(self, expiry: Union[str, dt.date]):
         self.expiry = expiry
 
     def get_date(self):
+        if isinstance(self.expiry, dt.date):
+            return self.expiry
+
         parts = re.search(self.expiry_regex, self.expiry)
         if parts:
             return parts.group(1)
@@ -372,8 +384,11 @@ class ExpirationDateParser(object):
             return self.expiry
 
     def get_mode(self):
+        if isinstance(self.expiry, dt.date):
+            return None
+
         parts = re.search(self.expiry_regex, self.expiry)
         if parts:
             return parts.group(2)
         else:
-            return 'otc'
+            return None

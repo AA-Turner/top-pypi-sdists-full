@@ -2,9 +2,17 @@ import ctypes
 from ctypes import ARRAY, POINTER
 
 
-VesinDevice = ctypes.c_int
+VesinDeviceKind = ctypes.c_int
 VesinUnknownDevice = 0
 VesinCPU = 1
+VesinCUDA = 2
+
+
+class VesinDevice(ctypes.Structure):
+    _fields_ = [
+        ("type", VesinDeviceKind),
+        ("device_id", ctypes.c_int),
+    ]
 
 
 class VesinOptions(ctypes.Structure):
@@ -26,6 +34,7 @@ class VesinNeighborList(ctypes.Structure):
         ("shifts", POINTER(ARRAY(ctypes.c_int32, 3))),
         ("distances", POINTER(ctypes.c_double)),
         ("vectors", POINTER(ARRAY(ctypes.c_double, 3))),
+        ("opaque", ctypes.c_void_p),
     ]
 
 
@@ -34,10 +43,10 @@ def setup_functions(lib):
     lib.vesin_free.restype = None
 
     lib.vesin_neighbors.argtypes = [
-        POINTER(ARRAY(ctypes.c_double, 3)),  # points
+        POINTER(ctypes.c_double),  # points
         ctypes.c_size_t,  # n_points
-        ARRAY(ARRAY(ctypes.c_double, 3), 3),  # box
-        ctypes.c_bool,  # periodic
+        POINTER(ctypes.c_double),  # box
+        POINTER(ctypes.c_bool),  # periodic
         VesinDevice,  # device
         VesinOptions,  # options
         POINTER(VesinNeighborList),  # neighbors

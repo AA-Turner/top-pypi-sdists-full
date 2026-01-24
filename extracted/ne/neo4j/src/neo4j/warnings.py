@@ -16,19 +16,34 @@
 
 from __future__ import annotations
 
-import typing as t
-
+from . import _typing as _t
 from ._debug import NotificationPrinter
 
 
-if t.TYPE_CHECKING:
-    from ._work.summary import SummaryNotification
+if _t.TYPE_CHECKING:
+    from ._work.summary import GqlStatusObject
 
 
 __all__ = [
     "Neo4jDeprecationWarning",
     "Neo4jWarning",
+    "PreviewWarning",
 ]
+
+
+class PreviewWarning(Warning):
+    """
+    A driver feature in preview has been used.
+
+    It might be changed without following the deprecation policy.
+    See also https://github.com/neo4j/neo4j-python-driver/wiki/preview-features
+
+    .. versionadded:: 5.8
+
+    .. versionchanged:: 6.0
+        Moved from ``neo4j.PreviewWarning`` to
+        ``neo4j.warnings.PreviewWarning``.
+    """
 
 
 class Neo4jWarning(Warning):
@@ -38,8 +53,8 @@ class Neo4jWarning(Warning):
     Which notifications trigger a warning can be controlled by a
     configuration option: :ref:`driver-warn-notification-severity-ref`
 
-    **This is experimental** (see :ref:`filter-warnings-ref`).
-    It might be changed or removed any time even without prior notice.
+    See also
+    https://github.com/neo4j/neo4j-python-driver/wiki/preview-features
 
     :param notification: The notification that triggered the warning.
     :param query: The query for which the notification was sent.
@@ -47,15 +62,20 @@ class Neo4jWarning(Warning):
 
     .. versionadded:: 5.21
 
+    .. versionchanged:: 6.0
+        * :attr:`.notification` is now of type :class:`.GqlStatusObject`
+          instead of :class:`.SummaryNotification`.
+        * Stabilized from preview.
+
     .. seealso:: :ref:`development-environment-ref`
     """
 
     #: The notification that triggered the warning.
-    notification: SummaryNotification
+    notification: GqlStatusObject
 
     def __init__(
         self,
-        notification: SummaryNotification,
+        notification: GqlStatusObject,
         query: str | None = None,
     ) -> None:
         msg = str(NotificationPrinter(notification, query))
@@ -72,10 +92,9 @@ class Neo4jDeprecationWarning(Neo4jWarning, DeprecationWarning):
         This warning is a subclass of :class:`DeprecationWarning`.
         This means that Python will not show this warning by default.
 
-    **This is experimental** (see :ref:`filter-warnings-ref`).
-    It might be changed or removed any time even without prior notice.
-
     :param notification: The notification that triggered the warning.
 
     .. versionadded:: 5.21
+
+    .. versionchanged:: 6.0 Stabilized from preview.
     """

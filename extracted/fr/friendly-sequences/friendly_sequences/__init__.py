@@ -80,6 +80,14 @@ class Seq(Iterator[T_co]):
     ) -> Seq[V]:
         return Seq(itertools.chain.from_iterable(self))
 
+    @PT.overload
+    def filter(
+        self: Seq[T_co], func: Callable[[T_co], PT.TypeGuard[U]]
+    ) -> Seq[U]: ...
+
+    @PT.overload
+    def filter(self: Seq[T_co], func: Callable[[T_co], bool]) -> Seq[T_co]: ...
+
     def filter(
         self: Seq[T_co],
         func: Callable[[T_co], PT.TypeGuard[U] | bool],
@@ -128,14 +136,13 @@ class Seq(Iterator[T_co]):
 
     def zip(
         self: Seq[T_co],
-        seq: Iterable[V],
-        *,
+        *seq: Iterable[V],
         strict: bool = False,
     ) -> Seq[tuple[T_co, V]]:
         return Seq(
             zip(
                 self,
-                seq,
+                *seq,
                 strict=strict,
             )
         )

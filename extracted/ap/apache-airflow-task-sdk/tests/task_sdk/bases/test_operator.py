@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 import uuid
 import warnings
@@ -28,7 +29,8 @@ import jinja2
 import pytest
 import structlog
 
-from airflow.decorators import task as task_decorator
+from airflow.sdk import task as task_decorator
+from airflow.sdk._shared.secrets_masker import _secrets_masker, mask_secret
 from airflow.sdk.bases.operator import (
     BaseOperator,
     BaseOperatorMeta,
@@ -61,6 +63,9 @@ class ClassWithCustomAttributes:
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
+
+    def __hash__(self):
+        return hash(self.__dict__)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -109,8 +114,8 @@ class MockOperator(BaseOperator):
 
 
 class TestBaseOperator:
-    # Since we have a custom metaclass, lets double check the behaviour of passing args in the wrong way (args
-    # etc)
+    # Since we have a custom metaclass, lets double check the behaviour of
+    # passing args in the wrong way (args etc)
     def test_kwargs_only(self):
         with pytest.raises(TypeError, match="keyword arguments"):
             BaseOperator("task_id")
@@ -122,6 +127,29 @@ class TestBaseOperator:
     def test_missing_kwargs(self):
         with pytest.raises(TypeError, match="missing keyword arguments"):
             FakeSubClass(task_id="task_id")
+
+    def test_baseoperator_raises_exception_when_task_id_plus_taskgroup_id_exceeds_250_chars(self):
+        with DAG(dag_id="foo"), TaskGroup("A"):
+            with pytest.raises(ValueError, match="The key has to be less than 250 characters"):
+                BaseOperator(task_id="1" * 249)
+
+    def test_baseoperator_with_task_id_and_taskgroup_id_less_than_250_chars(self):
+        with DAG(dag_id="foo", schedule=None), TaskGroup("A" * 10):
+            BaseOperator(task_id="1" * 239)
+
+    def test_baseoperator_with_task_id_less_than_250_chars(self):
+        """Test exception is not raised when operator task id  < 250 chars."""
+        with DAG(dag_id="foo"):
+            op = BaseOperator(task_id="1" * 249)
+        assert op.task_id == "1" * 249
+
+    def test_task_naive_datetime(self):
+        naive_datetime = DEFAULT_DATE.replace(tzinfo=None)
+        op_no_dag = BaseOperator(
+            task_id="test_task_naive_datetime", start_date=naive_datetime, end_date=naive_datetime
+        )
+        assert op_no_dag.start_date.tzinfo
+        assert op_no_dag.end_date.tzinfo
 
     def test_hash(self):
         """Two operators created equally should hash equaylly"""
@@ -213,6 +241,23 @@ class TestBaseOperator:
                 illegal_argument_1234="hello?",
             )
 
+    @mock.patch("airflow.sdk.bases.operator.redact")
+    def test_illegal_args_with_secrets(self, mock_redact):
+        """
+        Tests that operators on illegal arguments with secrets are correctly masked.
+        """
+        secret = "secretP4ssw0rd!"
+        mock_redact.side_effect = ["***"]
+
+        msg = r"Invalid arguments were passed to BaseOperator"
+        with pytest.raises(TypeError, match=msg) as exc_info:
+            BaseOperator(
+                task_id="test_illegal_args",
+                secret_argument=secret,
+            )
+        assert "***" in str(exc_info.value)
+        assert secret not in str(exc_info.value)
+
     def test_invalid_type_for_default_arg(self):
         error_msg = "'max_active_tis_per_dag' for task 'test' expects <class 'int'>, got <class 'str'> with value 'not_an_int'"
         with pytest.raises(TypeError, match=error_msg):
@@ -248,6 +293,22 @@ class TestBaseOperator:
                 task_id="empty_task",
                 weight_rule=NotRegisteredPriorityWeightStrategy(),
             )
+
+    def test_db_safe_priority(self):
+        """Test the db_safe_priority function."""
+        from airflow.sdk.bases.operator import DB_SAFE_MAXIMUM, DB_SAFE_MINIMUM, db_safe_priority
+
+        assert db_safe_priority(1) == 1
+        assert db_safe_priority(-1) == -1
+        assert db_safe_priority(9999999999) == DB_SAFE_MAXIMUM
+        assert db_safe_priority(-9999999999) == DB_SAFE_MINIMUM
+
+    def test_db_safe_constants(self):
+        """Test the database safe constants."""
+        from airflow.sdk.bases.operator import DB_SAFE_MAXIMUM, DB_SAFE_MINIMUM
+
+        assert DB_SAFE_MINIMUM == -2147483648
+        assert DB_SAFE_MAXIMUM == 2147483647
 
     def test_warnings_are_properly_propagated(self):
         with pytest.warns(DeprecationWarning, match="deprecated") as warnings:
@@ -499,6 +560,27 @@ class TestBaseOperator:
         ):
             BaseOperator(task_id="op1", trigger_rule="some_rule")
 
+    def test_trigger_rule_validation(self):
+        from airflow.sdk.definitions._internal.abstractoperator import DEFAULT_TRIGGER_RULE
+
+        # An operator with default trigger rule and a fail-stop dag should be allowed.
+        with DAG(
+            dag_id="test_dag_trigger_rule_validation",
+            schedule=None,
+            start_date=DEFAULT_DATE,
+            fail_fast=True,
+        ):
+            BaseOperator(task_id="test_valid_trigger_rule", trigger_rule=DEFAULT_TRIGGER_RULE)
+
+        # An operator with non default trigger rule and a non fail-stop dag should be allowed.
+        with DAG(
+            dag_id="test_dag_trigger_rule_validation",
+            schedule=None,
+            start_date=DEFAULT_DATE,
+            fail_fast=False,
+        ):
+            BaseOperator(task_id="test_valid_trigger_rule", trigger_rule="always")
+
     @pytest.mark.parametrize(
         ("content", "context", "expected_output"),
         [
@@ -698,6 +780,39 @@ class TestBaseOperator:
         task.render_template_fields(context={"foo": "whatever", "bar": "whatever"})
         assert mock_jinja_env.call_count == 1
 
+    def test_deepcopy(self):
+        # Test bug when copying an operator attached to a Dag
+        with DAG("dag0", schedule=None, start_date=DEFAULT_DATE) as dag:
+
+            @dag.task
+            def task0():
+                pass
+
+            MockOperator(task_id="task1", arg1=task0())
+
+        copy.deepcopy(dag)
+
+    def test_mro(self):
+        from airflow.providers.common.sql.operators import sql
+
+        class Mixin(sql.BaseSQLOperator):
+            pass
+
+        class Branch(Mixin, sql.BranchSQLOperator):
+            pass
+
+        # The following throws an exception if metaclass breaks MRO:
+        #   airflow.exceptions.AirflowException: Invalid arguments were passed to Branch (task_id: test). Invalid arguments were:
+        #   **kwargs: {'sql': 'sql', 'follow_task_ids_if_true': ['x'], 'follow_task_ids_if_false': ['y']}
+        op = Branch(
+            task_id="test",
+            conn_id="abc",
+            sql="sql",
+            follow_task_ids_if_true=["x"],
+            follow_task_ids_if_false=["y"],
+        )
+        assert isinstance(op, Branch)
+
 
 def test_init_subclass_args():
     class InitSubclassOp(BaseOperator):
@@ -821,6 +936,30 @@ def test_render_template_fields_logging(
         assert not_expected_log not in caplog.text
 
 
+@pytest.mark.enable_redact
+def test_render_template_fields_secret_masking(caplog):
+    """Test that sensitive values are masked in Jinja template rendering exceptions."""
+    masker = _secrets_masker()
+    masker.reset_masker()
+
+    masker.sensitive_variables_fields = ["password", "secret", "token"]
+
+    mask_secret("mysecretpassword", "password")
+
+    task = MockOperator(task_id="op1", arg1="{{ password + 1 }}")
+    context = {"password": "mysecretpassword"}
+
+    with (
+        pytest.raises(TypeError),
+        caplog.at_level(logging.ERROR, logger="airflow.sdk.definitions.templater"),
+    ):
+        task.render_template_fields(context=context)
+
+    assert "mysecretpassword" not in caplog.text
+    assert "Template: '{{ password + 1 }}'" in caplog.text
+    assert "Exception rendering Jinja template for task 'op1', field 'arg1'" in caplog.text
+
+
 class HelloWorldOperator(BaseOperator):
     log = structlog.get_logger(__name__)
 
@@ -855,10 +994,12 @@ class TestExecutorSafeguard:
                 "event": "ExtendedHelloWorldOperator.execute cannot be called outside of the Task Runner!",
                 "level": "warning",
                 "timestamp": mock.ANY,
+                "logger": "tests.task_sdk.bases.test_operator",
+                "loc": mock.ANY,
             },
         ]
 
-    def test_decorated_operators(self, captured_logs):
+    def test_decorated_operators(self, caplog):
         with DAG("d1") as dag:
 
             @dag.task(task_id="task_id", dag=dag)
@@ -869,15 +1010,13 @@ class TestExecutorSafeguard:
             op = say_hello()
 
         op.operator.execute(context={})
-        assert captured_logs == [
-            {
-                "event": "HelloWorldOperator.execute cannot be called outside of the Task Runner!",
-                "level": "warning",
-                "timestamp": mock.ANY,
-            },
-        ]
+        assert {
+            "event": "HelloWorldOperator.execute cannot be called outside of the Task Runner!",
+            "log_level": "warning",
+        } in caplog
 
-    def test_python_op(self, captured_logs):
+    @pytest.mark.log_level(logging.WARNING)
+    def test_python_op(self, caplog):
         from airflow.providers.standard.operators.python import PythonOperator
 
         with DAG("d1"):
@@ -891,13 +1030,10 @@ class TestExecutorSafeguard:
                 python_callable=say_hello,
             )
         op.execute(context={}, PythonOperator__sentinel=ExecutorSafeguard.sentinel_value)
-        assert captured_logs == [
-            {
-                "event": "HelloWorldOperator.execute cannot be called outside of the Task Runner!",
-                "level": "warning",
-                "timestamp": mock.ANY,
-            },
-        ]
+        assert {
+            "event": "HelloWorldOperator.execute cannot be called outside of the Task Runner!",
+            "log_level": "warning",
+        } in caplog
 
 
 def test_partial_default_args():

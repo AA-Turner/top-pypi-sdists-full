@@ -5,6 +5,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .workspace_display_config import WorkspaceDisplayConfig
 
 
 class WorkspaceRead(UniversalBaseModel):
@@ -16,6 +17,7 @@ class WorkspaceRead(UniversalBaseModel):
 
     label: str
     created: dt.datetime
+    display_config: typing.Optional[WorkspaceDisplayConfig] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

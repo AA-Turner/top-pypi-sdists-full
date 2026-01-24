@@ -22,9 +22,9 @@ from django.http import (
 
 from .checks import get_third_party_profiler
 from .config import load_config
+from .core import enable
 from .db import setup_db
 from .open_in_pycharm import OpenInPyCharmError
-from .profiler import enable
 from .serialize import monkeypatch_queryset_repr
 from .settings import get_webapp_settings
 from .web.api import (

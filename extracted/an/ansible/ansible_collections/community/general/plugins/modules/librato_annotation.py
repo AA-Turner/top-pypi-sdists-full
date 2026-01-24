@@ -1,12 +1,10 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 #
 # Copyright (c) Seth Edwards, 2014
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from __future__ import absolute_import, division, print_function
-__metaclass__ = type
+from __future__ import annotations
 
 
 DOCUMENTATION = r"""
@@ -40,7 +38,6 @@ options:
     description:
       - The annotation stream name.
       - If the annotation stream does not exist, it creates one automatically.
-    required: false
   title:
     type: str
     description:
@@ -52,25 +49,21 @@ options:
     description:
       - A string which describes the originating source of an annotation when that annotation is tracked across multiple members
         of a population.
-    required: false
   description:
     type: str
     description:
       - The description contains extra metadata about a particular annotation.
       - The description should contain specifics on the individual annotation for example V(Deployed 9b562b2 shipped new feature
         foo!).
-    required: false
   start_time:
     type: int
     description:
       - The unix timestamp indicating the time at which the event referenced by this annotation started.
-    required: false
   end_time:
     type: int
     description:
       - The unix timestamp indicating the time at which the event referenced by this annotation ended.
       - For events that have a duration, this is a useful way to annotate the duration of the event.
-    required: false
   links:
     type: list
     elements: dict
@@ -114,48 +107,47 @@ from ansible.module_utils.urls import fetch_url
 
 
 def post_annotation(module):
-    user = module.params['user']
-    api_key = module.params['api_key']
-    name = module.params['name']
-    title = module.params['title']
+    user = module.params["user"]
+    api_key = module.params["api_key"]
+    name = module.params["name"]
+    title = module.params["title"]
 
-    url = 'https://metrics-api.librato.com/v1/annotations/%s' % name
+    url = f"https://metrics-api.librato.com/v1/annotations/{name}"
     params = {}
-    params['title'] = title
+    params["title"] = title
 
-    if module.params['source'] is not None:
-        params['source'] = module.params['source']
-    if module.params['description'] is not None:
-        params['description'] = module.params['description']
-    if module.params['start_time'] is not None:
-        params['start_time'] = module.params['start_time']
-    if module.params['end_time'] is not None:
-        params['end_time'] = module.params['end_time']
-    if module.params['links'] is not None:
-        params['links'] = module.params['links']
+    if module.params["source"] is not None:
+        params["source"] = module.params["source"]
+    if module.params["description"] is not None:
+        params["description"] = module.params["description"]
+    if module.params["start_time"] is not None:
+        params["start_time"] = module.params["start_time"]
+    if module.params["end_time"] is not None:
+        params["end_time"] = module.params["end_time"]
+    if module.params["links"] is not None:
+        params["links"] = module.params["links"]
 
     json_body = module.jsonify(params)
 
     headers = {}
-    headers['Content-Type'] = 'application/json'
+    headers["Content-Type"] = "application/json"
 
     # Hack send parameters the way fetch_url wants them
-    module.params['url_username'] = user
-    module.params['url_password'] = api_key
+    module.params["url_username"] = user
+    module.params["url_password"] = api_key
     response, info = fetch_url(module, url, data=json_body, headers=headers)
-    response_code = str(info['status'])
-    response_body = info['body']
-    if info['status'] != 201:
-        if info['status'] >= 400:
-            module.fail_json(msg="Request Failed. Response code: " + response_code + " Response body: " + response_body)
+    response_code = str(info["status"])
+    response_body = info["body"]
+    if info["status"] != 201:
+        if info["status"] >= 400:
+            module.fail_json(msg=f"Request Failed. Response code: {response_code} Response body: {response_body}")
         else:
-            module.fail_json(msg="Request Failed. Response code: " + response_code)
+            module.fail_json(msg=f"Request Failed. Response code: {response_code}")
     response = response.read()
     module.exit_json(changed=True, annotation=response)
 
 
 def main():
-
     module = AnsibleModule(
         argument_spec=dict(
             user=dict(required=True),
@@ -164,14 +156,14 @@ def main():
             title=dict(required=True),
             source=dict(),
             description=dict(),
-            start_time=dict(type='int'),
-            end_time=dict(type='int'),
-            links=dict(type='list', elements='dict')
+            start_time=dict(type="int"),
+            end_time=dict(type="int"),
+            links=dict(type="list", elements="dict"),
         )
     )
 
     post_annotation(module)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

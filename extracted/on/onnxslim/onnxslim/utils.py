@@ -17,6 +17,7 @@ from onnxslim.third_party.onnx_graphsurgeon.logger.logger import G_LOGGER
 
 logger = logging.getLogger("onnxslim")
 
+
 import ml_dtypes
 
 try:
@@ -204,7 +205,7 @@ def onnxruntime_inference(model: onnx.ModelProto, input_data: dict) -> dict[str,
     return onnx_output, model
 
 
-def format_model_info(model_info_list: dict | list[dict], elapsed_time: float = None):
+def format_model_info(model_info_list: dict | list[dict], elapsed_time: float | None = None):
     assert model_info_list, "model_info_list must contain more than one model info"
     from colorama import Fore, init
 
@@ -273,14 +274,14 @@ def format_model_info(model_info_list: dict | list[dict], elapsed_time: float = 
         final_op_info.extend(
             (
                 [SEPARATING_LINE] * (len(model_info_list) + 1),
-                ["Elapsed Time"] + [f"{elapsed_time:.2f} s"],
+                ["Elapsed Time", f"{elapsed_time:.2f} s"],
             )
         )
 
     return final_op_info
 
 
-def print_model_info_as_table(model_info_list: dict | list[dict], elapsed_time: float = None):
+def print_model_info_as_table(model_info_list: dict | list[dict], elapsed_time: float | None = None):
     """Prints the model information as a formatted table for the given model name and list of model details."""
     if not isinstance(model_info_list, (list, tuple)):
         model_info_list = [model_info_list]
@@ -505,7 +506,7 @@ def save(
     model_path: str,
     model_check: bool = False,
     save_as_external_data: bool = False,
-    model_info: dict = None,
+    model_info: dict | None = None,
 ):
     """Save an ONNX model to a specified path, with optional model checking for validity."""
     if model_check:
@@ -599,8 +600,8 @@ def get_itemsize(dtype):
     ]:
         return 1
 
-    print(dtype)
-    raise
+    print(f"Unknown ONNX dtype: {dtype}")
+    raise ValueError(f"Unsupported TensorProto dtype: {dtype}")
 
 
 def calculate_tensor_size(tensor):
@@ -663,32 +664,39 @@ def is_onnxruntime_available():
 def check_onnx_compatibility():
     """Ensure ONNX Runtime and ONNX versions are compatible for model inference."""
     compatibility_dict = {
-        "1.20": "1.16",
-        "1.19": "1.16",
-        "1.18": "1.16",
-        "1.17": "1.15",
-        "1.16": "1.14.1",
-        "1.15": "1.14",
-        "1.14": "1.13",
-        "1.13": "1.12",
-        "1.12": "1.12",
-        "1.11": "1.11",
-        "1.10": "1.10",
-        "1.9": "1.10",
-        "1.8": "1.9",
-        "1.7": "1.8",
-        "1.6": "1.8",
-        "1.5": "1.7",
-        "1.4": "1.7",
-        "1.3": "1.7",
-        "1.2": "1.6",
-        "1.1": "1.6",
-        "1.0": "1.6",
-        "0.5": "1.5",
-        "0.4": "1.5",
-        "0.3": "1.4",
-        "0.2": "1.3",
-        "0.1": "1.3",
+        # ONNX Runtime version -> ONNX version (max supported)
+        # 2024-2025 releases
+        "1.23": "1.18",   # opset 23, released 2025-09
+        "1.22": "1.17",   # opset 22, released 2025-05
+        "1.21": "1.17",   # opset 22, released 2025-03
+        "1.20": "1.16",   # opset 21, released 2024-11
+        "1.19": "1.16",   # opset 21, released 2024-08
+        "1.18": "1.16",   # opset 21, released 2024-05
+        "1.17": "1.15",   # opset 20, released 2024-01
+        # 2023 releases
+        "1.16": "1.14.1", # opset 19, released 2023-09
+        "1.15": "1.14",   # opset 19, released 2023-05
+        "1.14": "1.13",   # opset 18, released 2023-03
+        "1.13": "1.12",   # opset 17, released 2022-11
+        # 2022 and earlier
+        "1.12": "1.12",   # opset 17
+        "1.11": "1.11",   # opset 16
+        "1.10": "1.10",   # opset 15
+        "1.9": "1.10",    # opset 15
+        "1.8": "1.9",     # opset 14
+        "1.7": "1.8",     # opset 13
+        "1.6": "1.8",     # opset 13
+        "1.5": "1.7",     # opset 12
+        "1.4": "1.7",     # opset 12
+        "1.3": "1.7",     # opset 12
+        "1.2": "1.6",     # opset 11
+        "1.1": "1.6",     # opset 11
+        "1.0": "1.6",     # opset 11
+        "0.5": "1.5",     # opset 10
+        "0.4": "1.5",     # opset 10
+        "0.3": "1.4",     # opset 9
+        "0.2": "1.3",     # opset 8
+        "0.1": "1.3",     # opset 8
     }
     import onnx
     import onnxruntime
@@ -776,9 +784,7 @@ def update_outputs_dims(
         elif isinstance(dim, str):
             dim_proto.dim_param = dim
         else:
-            raise ValueError(  # noqa: TRY004
-                f"Only int or str is accepted as dimension value, incorrect type: {type(dim)}"
-            )
+            raise ValueError(f"Only int or str is accepted as dimension value, incorrect type: {type(dim)}")
 
     for output in model.graph.output:
         output_name = output.name

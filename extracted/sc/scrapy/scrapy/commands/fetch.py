@@ -19,8 +19,6 @@ if TYPE_CHECKING:
 
 
 class Command(ScrapyCommand):
-    requires_project = False
-
     def syntax(self) -> str:
         return "[options] <url>"
 

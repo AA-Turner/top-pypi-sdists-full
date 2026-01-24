@@ -12,14 +12,45 @@ from __future__ import annotations
 from typing_extensions import TypedDict
 
 
-class ShortBlobType(TypedDict):
-    """Short Blob
+class BranchShortType(TypedDict):
+    """Branch Short
 
-    Short Blob
+    Branch Short
     """
 
-    url: str
+    name: str
+    commit: BranchShortPropCommitType
+    protected: bool
+
+
+class BranchShortTypeForResponse(TypedDict):
+    """Branch Short
+
+    Branch Short
+    """
+
+    name: str
+    commit: BranchShortPropCommitTypeForResponse
+    protected: bool
+
+
+class BranchShortPropCommitType(TypedDict):
+    """BranchShortPropCommit"""
+
     sha: str
+    url: str
 
 
-__all__ = ("ShortBlobType",)
+class BranchShortPropCommitTypeForResponse(TypedDict):
+    """BranchShortPropCommit"""
+
+    sha: str
+    url: str
+
+
+__all__ = (
+    "BranchShortPropCommitType",
+    "BranchShortPropCommitTypeForResponse",
+    "BranchShortType",
+    "BranchShortTypeForResponse",
+)

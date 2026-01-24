@@ -4,7 +4,7 @@ Auto-generated file, do not edit by hand.
 """
 from ..util import u
 
-# Copyright (C) 2011-2025 The Libphonenumber Authors
+# Copyright (C) 2011-2026 The Libphonenumber Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -696,6 +696,7 @@ data = {
  '1320':('America/Chicago',),
  '1321':('America/New_York',),
  '1323':('America/Los_Angeles',),
+ '1324':('America/New_York',),
  '1325':('America/Chicago',),
  '1326':('America/New_York',),
  '1327':('America/Chicago',),
@@ -716,6 +717,7 @@ data = {
  '1350':('America/Los_Angeles',),
  '1351':('America/New_York',),
  '1352':('America/New_York',),
+ '1353':('America/Chicago',),
  '1354':('America/Toronto',),
  '1360':('America/Los_Angeles',),
  '1361':('America/Chicago',),
@@ -934,7 +936,7 @@ data = {
  '1432':('America/Chicago',),
  '1434':('America/New_York',),
  '1435':('America/Denver',),
- '1437':('America/Winnipeg',),
+ '1437':('America/Toronto',),
  '1438':('America/Toronto',),
  '1440':('America/New_York',),
  '1441':('Atlantic/Bermuda',),
@@ -2882,7 +2884,10 @@ data = {
  '61734976':('Australia/Brisbane',),
  '617350':('Australia/Brisbane',),
  '617353':('Australia/Brisbane',),
- '617354':('Australia/Brisbane',),
+ '6173540':('Australia/Brisbane',),
+ '6173546':('Australia/Brisbane',),
+ '6173547':('Australia/Brisbane',),
+ '6173548':('Australia/Brisbane',),
  '617355':('Australia/Brisbane',),
  '61735678':('Australia/Brisbane',),
  '617360':('Australia/Brisbane',),
@@ -2997,6 +3002,7 @@ data = {
  '6185129':('Australia/Adelaide', 'Australia/Perth'),
  '618513':('Australia/Sydney',),
  '618514':('Australia/Sydney',),
+ '61855':('Australia/Adelaide', 'Australia/Perth'),
  '6186':('Australia/Adelaide', 'Australia/Perth'),
  '6187':('Australia/Adelaide', 'Australia/Perth'),
  '6188':('Australia/Adelaide', 'Australia/Perth'),

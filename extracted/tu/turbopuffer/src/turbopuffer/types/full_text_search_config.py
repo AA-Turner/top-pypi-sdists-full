@@ -10,6 +10,14 @@ __all__ = ["FullTextSearchConfig"]
 
 
 class FullTextSearchConfig(BaseModel):
+    """Configuration options for full-text search."""
+
+    ascii_folding: Optional[bool] = None
+    """
+    Whether to convert each non-ASCII character in a token to its ASCII equivalent,
+    if one exists (e.g., à -> a). Defaults to `false` (i.e., no folding).
+    """
+
     b: Optional[float] = None
     """The `b` document length normalization parameter for BM25. Defaults to `0.75`."""
 
@@ -47,5 +55,5 @@ class FullTextSearchConfig(BaseModel):
     tokenizer: Optional[Tokenizer] = None
     """The tokenizer to use for full-text search on an attribute.
 
-    Defaults to `word_v2`.
+    Defaults to `word_v3`.
     """

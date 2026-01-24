@@ -282,9 +282,9 @@ class XMLStream(asyncio.BaseProtocol):
     #: List of DNS SRV services records which map to STARTTLS services
     starttls_services: Set[str]
 
-
     def __init__(self, host: str = '', port: int = 0,
-                 ssl_context: Optional[ssl.SSLContext] = None):
+                 ssl_context: Optional[ssl.SSLContext] = None,
+                 loop: Optional[asyncio.AbstractEventLoop] = None):
         self.transport = None
         self.socket = None
         self._connect_loop_wait = 0
@@ -314,7 +314,13 @@ class XMLStream(asyncio.BaseProtocol):
 
         self.keyfile = None
 
-        self._loop = None
+        if loop:
+            self._loop = loop
+        else:
+            self._loop = None
+            # Let the loop be set by the getter
+            self.loop
+
 
         self.default_port = int(port)
         self.default_domain = ''
@@ -360,7 +366,7 @@ class XMLStream(asyncio.BaseProtocol):
         self._current_connection_attempt = None
 
         self.disconnect_reason = None
-        self.disconnected = Future()
+        self.disconnected = Future(loop=self.loop)
         self._session_started = False
         self._always_send_everything = False
 
@@ -424,7 +430,7 @@ class XMLStream(asyncio.BaseProtocol):
         """Set the self.disconnected future on disconnect"""
         if not self.disconnected.done():
             self.disconnected.set_result(True)
-        self.disconnected = asyncio.Future()
+        self.disconnected = asyncio.Future(loop=self.loop)
 
     def connect(self, host: Optional[str] = None, port: Optional[int] = None) -> asyncio.Future:
         """Create a new socket and connect to the server.
@@ -724,7 +730,7 @@ class XMLStream(asyncio.BaseProtocol):
         else:
             self._set_disconnected_future()
             self.event("disconnected", reason)
-            future: Future = Future()
+            future: Future = Future(loop=self.loop)
             future.set_result(None)
             return future
 
@@ -1470,7 +1476,7 @@ class XMLStream(asyncio.BaseProtocol):
         :param int timeout: Timeout
         :raises: :class:`asyncio.TimeoutError` when the timeout is reached
         """
-        fut: Future = asyncio.Future()
+        fut: Future = asyncio.Future(loop=self.loop)
 
         def result_handler(event_data: Any) -> None:
             if not fut.done():

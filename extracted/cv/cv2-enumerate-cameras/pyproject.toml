@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cv2_enumerate_cameras"
+description = "Enumerate / List / Find / Detect / Search index for opencv VideoCapture."
+authors = [
+  { name="Yu He", email="chinaheyu@outlook.com" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: C++",
+  "Typing :: Typed"
+]
+readme = "README.md"
+requires-python = ">=3.6"
+license = {file = "LICENSE"}
+keywords = ["opencv", "cv2", "enumerate", "camera", "video capture"]
+dynamic = ["version"]
+
+dependencies = [
+  "pyobjc-framework-AVFoundation; platform_system == 'Darwin'",
+]
+
+[project.urls]
+Homepage = "https://github.com/lukehugh/cv2_enumerate_cameras"
+Issues = "https://github.com/lukehugh/cv2_enumerate_cameras/issues"
+
+[project.scripts]
+lscam = "cv2_enumerate_cameras.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cv2_enumerate_cameras"]
+namespaces = false
+
+[tool.setuptools.dynamic]
+version = {attr = "cv2_enumerate_cameras.__version__"}

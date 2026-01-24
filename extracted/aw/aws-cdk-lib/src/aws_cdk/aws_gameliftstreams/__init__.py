@@ -76,549 +76,15 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gameliftstreams.ApplicationReference",
-    jsii_struct_bases=[],
-    name_mapping={"application_arn": "applicationArn"},
+from ..interfaces.aws_gameliftstreams import (
+    ApplicationReference as _ApplicationReference_3d673e1c,
+    IApplicationRef as _IApplicationRef_2ee70e7c,
+    IStreamGroupRef as _IStreamGroupRef_ad23a873,
+    StreamGroupReference as _StreamGroupReference_fe90a10e,
 )
-class ApplicationReference:
-    def __init__(self, *, application_arn: builtins.str) -> None:
-        '''A reference to a Application resource.
 
-        :param application_arn: The Arn of the Application resource.
 
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gameliftstreams as gameliftstreams
-            
-            application_reference = gameliftstreams.ApplicationReference(
-                application_arn="applicationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60f4aaf00dcf0aff063d174267262854da93dcf064102086825d41866177e056)
-            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_arn": application_arn,
-        }
-
-    @builtins.property
-    def application_arn(self) -> builtins.str:
-        '''The Arn of the Application resource.'''
-        result = self._values.get("application_arn")
-        assert result is not None, "Required property 'application_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ApplicationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gameliftstreams.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_source_uri": "applicationSourceUri",
-        "description": "description",
-        "executable_path": "executablePath",
-        "runtime_environment": "runtimeEnvironment",
-        "application_log_output_uri": "applicationLogOutputUri",
-        "application_log_paths": "applicationLogPaths",
-        "tags": "tags",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        application_source_uri: builtins.str,
-        description: builtins.str,
-        executable_path: builtins.str,
-        runtime_environment: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.RuntimeEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]],
-        application_log_output_uri: typing.Optional[builtins.str] = None,
-        application_log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param application_source_uri: The location of the content that you want to stream. Enter an Amazon S3 URI to a bucket that contains your game or other application. The location can have a multi-level prefix structure, but it must include all the files needed to run the content. Amazon GameLift Streams copies everything under the specified location. This value is immutable. To designate a different content location, create a new application. .. epigraph:: The Amazon S3 bucket and the Amazon GameLift Streams application must be in the same AWS Region.
-        :param description: A human-readable label for the application. You can update this value later.
-        :param executable_path: The path and file name of the executable file that launches the content for streaming. Enter a path value that is relative to the location set in ``ApplicationSourceUri`` .
-        :param runtime_environment: A set of configuration settings to run the application on a stream group. This configures the operating system, and can include compatibility layers and other drivers.
-        :param application_log_output_uri: An Amazon S3 URI to a bucket where you would like Amazon GameLift Streams to save application logs. Required if you specify one or more ``ApplicationLogPaths`` .
-        :param application_log_paths: Locations of log files that your content generates during a stream session. Enter path values that are relative to the ``ApplicationSourceUri`` location. You can specify up to 10 log paths. Amazon GameLift Streams uploads designated log files to the Amazon S3 bucket that you specify in ``ApplicationLogOutputUri`` at the end of a stream session. To retrieve stored log files, call `GetStreamSession <https://docs.aws.amazon.com/gameliftstreams/latest/apireference/API_GetStreamSession.html>`_ and get the ``LogFileLocationUri`` .
-        :param tags: A list of labels to assign to the new application resource. Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gameliftstreams as gameliftstreams
-            
-            cfn_application_props = gameliftstreams.CfnApplicationProps(
-                application_source_uri="applicationSourceUri",
-                description="description",
-                executable_path="executablePath",
-                runtime_environment=gameliftstreams.CfnApplication.RuntimeEnvironmentProperty(
-                    type="type",
-                    version="version"
-                ),
-            
-                # the properties below are optional
-                application_log_output_uri="applicationLogOutputUri",
-                application_log_paths=["applicationLogPaths"],
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf559d648da5bcc6d426f2fa9d64617eba1c68df0cd94a3f9e4e8e5996e805e4)
-            check_type(argname="argument application_source_uri", value=application_source_uri, expected_type=type_hints["application_source_uri"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument executable_path", value=executable_path, expected_type=type_hints["executable_path"])
-            check_type(argname="argument runtime_environment", value=runtime_environment, expected_type=type_hints["runtime_environment"])
-            check_type(argname="argument application_log_output_uri", value=application_log_output_uri, expected_type=type_hints["application_log_output_uri"])
-            check_type(argname="argument application_log_paths", value=application_log_paths, expected_type=type_hints["application_log_paths"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_source_uri": application_source_uri,
-            "description": description,
-            "executable_path": executable_path,
-            "runtime_environment": runtime_environment,
-        }
-        if application_log_output_uri is not None:
-            self._values["application_log_output_uri"] = application_log_output_uri
-        if application_log_paths is not None:
-            self._values["application_log_paths"] = application_log_paths
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def application_source_uri(self) -> builtins.str:
-        '''The location of the content that you want to stream.
-
-        Enter an Amazon S3 URI to a bucket that contains your game or other application. The location can have a multi-level prefix structure, but it must include all the files needed to run the content. Amazon GameLift Streams copies everything under the specified location.
-
-        This value is immutable. To designate a different content location, create a new application.
-        .. epigraph::
-
-           The Amazon S3 bucket and the Amazon GameLift Streams application must be in the same AWS Region.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-applicationsourceuri
-        '''
-        result = self._values.get("application_source_uri")
-        assert result is not None, "Required property 'application_source_uri' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''A human-readable label for the application.
-
-        You can update this value later.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def executable_path(self) -> builtins.str:
-        '''The path and file name of the executable file that launches the content for streaming.
-
-        Enter a path value that is relative to the location set in ``ApplicationSourceUri`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-executablepath
-        '''
-        result = self._values.get("executable_path")
-        assert result is not None, "Required property 'executable_path' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def runtime_environment(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplication.RuntimeEnvironmentProperty"]:
-        '''A set of configuration settings to run the application on a stream group.
-
-        This configures the operating system, and can include compatibility layers and other drivers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-runtimeenvironment
-        '''
-        result = self._values.get("runtime_environment")
-        assert result is not None, "Required property 'runtime_environment' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplication.RuntimeEnvironmentProperty"], result)
-
-    @builtins.property
-    def application_log_output_uri(self) -> typing.Optional[builtins.str]:
-        '''An Amazon S3 URI to a bucket where you would like Amazon GameLift Streams to save application logs.
-
-        Required if you specify one or more ``ApplicationLogPaths`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-applicationlogoutputuri
-        '''
-        result = self._values.get("application_log_output_uri")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def application_log_paths(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Locations of log files that your content generates during a stream session.
-
-        Enter path values that are relative to the ``ApplicationSourceUri`` location. You can specify up to 10 log paths. Amazon GameLift Streams uploads designated log files to the Amazon S3 bucket that you specify in ``ApplicationLogOutputUri`` at the end of a stream session. To retrieve stored log files, call `GetStreamSession <https://docs.aws.amazon.com/gameliftstreams/latest/apireference/API_GetStreamSession.html>`_ and get the ``LogFileLocationUri`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-applicationlogpaths
-        '''
-        result = self._values.get("application_log_paths")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''A list of labels to assign to the new application resource.
-
-        Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gameliftstreams.CfnStreamGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "location_configurations": "locationConfigurations",
-        "stream_class": "streamClass",
-        "default_application": "defaultApplication",
-        "tags": "tags",
-    },
-)
-class CfnStreamGroupProps:
-    def __init__(
-        self,
-        *,
-        description: builtins.str,
-        location_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamGroup.LocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        stream_class: builtins.str,
-        default_application: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamGroup.DefaultApplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStreamGroup``.
-
-        :param description: A descriptive label for the stream group.
-        :param location_configurations: A set of one or more locations and the streaming capacity for each location. One of the locations MUST be your primary location, which is the AWS Region where you are specifying this resource.
-        :param stream_class: The target stream quality for sessions that are hosted in this stream group. Set a stream class that is appropriate to the type of content that you're streaming. Stream class determines the type of computing resources Amazon GameLift Streams uses and impacts the cost of streaming. The following options are available: A stream class can be one of the following: - *``gen5n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.4, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA A10G Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen5n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA A10G Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 4 vCPUs, 16 GB RAM, 12 GB VRAM - Tenancy: Supports up to 2 concurrent stream sessions - *``gen5n_ultra`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Uses dedicated NVIDIA A10G Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen4n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.4, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA T4 Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen4n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA T4 Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 4 vCPUs, 16 GB RAM, 8 GB VRAM - Tenancy: Supports up to 2 concurrent stream sessions - *``gen4n_ultra`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Uses dedicated NVIDIA T4 Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM - Tenancy: Supports 1 concurrent stream session
-        :param default_application: Object that identifies the Amazon GameLift Streams application to stream with this stream group.
-        :param tags: A list of labels to assign to the new stream group resource. Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gameliftstreams as gameliftstreams
-            
-            cfn_stream_group_props = gameliftstreams.CfnStreamGroupProps(
-                description="description",
-                location_configurations=[gameliftstreams.CfnStreamGroup.LocationConfigurationProperty(
-                    location_name="locationName",
-            
-                    # the properties below are optional
-                    always_on_capacity=123,
-                    on_demand_capacity=123
-                )],
-                stream_class="streamClass",
-            
-                # the properties below are optional
-                default_application=gameliftstreams.CfnStreamGroup.DefaultApplicationProperty(
-                    arn="arn",
-                    id="id"
-                ),
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2997124a9d44ddc8951fa0effc557b193f10cbfb4e3867a8a2d79ba217b9edc8)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument location_configurations", value=location_configurations, expected_type=type_hints["location_configurations"])
-            check_type(argname="argument stream_class", value=stream_class, expected_type=type_hints["stream_class"])
-            check_type(argname="argument default_application", value=default_application, expected_type=type_hints["default_application"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "description": description,
-            "location_configurations": location_configurations,
-            "stream_class": stream_class,
-        }
-        if default_application is not None:
-            self._values["default_application"] = default_application
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''A descriptive label for the stream group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def location_configurations(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStreamGroup.LocationConfigurationProperty"]]]:
-        '''A set of one or more locations and the streaming capacity for each location.
-
-        One of the locations MUST be your primary location, which is the AWS Region where you are specifying this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-locationconfigurations
-        '''
-        result = self._values.get("location_configurations")
-        assert result is not None, "Required property 'location_configurations' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStreamGroup.LocationConfigurationProperty"]]], result)
-
-    @builtins.property
-    def stream_class(self) -> builtins.str:
-        '''The target stream quality for sessions that are hosted in this stream group.
-
-        Set a stream class that is appropriate to the type of content that you're streaming. Stream class determines the type of computing resources Amazon GameLift Streams uses and impacts the cost of streaming. The following options are available:
-
-        A stream class can be one of the following:
-
-        - *``gen5n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.4, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA A10G Tensor GPU.
-        - Reference resolution: 1080p
-        - Reference frame rate: 60 fps
-        - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM
-        - Tenancy: Supports 1 concurrent stream session
-        - *``gen5n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA A10G Tensor GPU.
-        - Reference resolution: 1080p
-        - Reference frame rate: 60 fps
-        - Workload specifications: 4 vCPUs, 16 GB RAM, 12 GB VRAM
-        - Tenancy: Supports up to 2 concurrent stream sessions
-        - *``gen5n_ultra`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Uses dedicated NVIDIA A10G Tensor GPU.
-        - Reference resolution: 1080p
-        - Reference frame rate: 60 fps
-        - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM
-        - Tenancy: Supports 1 concurrent stream session
-        - *``gen4n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.4, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA T4 Tensor GPU.
-        - Reference resolution: 1080p
-        - Reference frame rate: 60 fps
-        - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM
-        - Tenancy: Supports 1 concurrent stream session
-        - *``gen4n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA T4 Tensor GPU.
-        - Reference resolution: 1080p
-        - Reference frame rate: 60 fps
-        - Workload specifications: 4 vCPUs, 16 GB RAM, 8 GB VRAM
-        - Tenancy: Supports up to 2 concurrent stream sessions
-        - *``gen4n_ultra`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Uses dedicated NVIDIA T4 Tensor GPU.
-        - Reference resolution: 1080p
-        - Reference frame rate: 60 fps
-        - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM
-        - Tenancy: Supports 1 concurrent stream session
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-streamclass
-        '''
-        result = self._values.get("stream_class")
-        assert result is not None, "Required property 'stream_class' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_application(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamGroup.DefaultApplicationProperty"]]:
-        '''Object that identifies the Amazon GameLift Streams application to stream with this stream group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-defaultapplication
-        '''
-        result = self._values.get("default_application")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamGroup.DefaultApplicationProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''A list of labels to assign to the new stream group resource.
-
-        Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStreamGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_gameliftstreams.IApplicationRef")
-class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''(experimental) A reference to a Application resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IApplicationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gameliftstreams.IApplicationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''(experimental) A reference to a Application resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_gameliftstreams.IStreamGroupRef")
-class IStreamGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a StreamGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="streamGroupRef")
-    def stream_group_ref(self) -> "StreamGroupReference":
-        '''(experimental) A reference to a StreamGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IStreamGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a StreamGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_gameliftstreams.IStreamGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="streamGroupRef")
-    def stream_group_ref(self) -> "StreamGroupReference":
-        '''(experimental) A reference to a StreamGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("StreamGroupReference", jsii.get(self, "streamGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IStreamGroupRef).__jsii_proxy_class__ = lambda : _IStreamGroupRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_gameliftstreams.StreamGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={"stream_group_arn": "streamGroupArn"},
-)
-class StreamGroupReference:
-    def __init__(self, *, stream_group_arn: builtins.str) -> None:
-        '''A reference to a StreamGroup resource.
-
-        :param stream_group_arn: The Arn of the StreamGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_gameliftstreams as gameliftstreams
-            
-            stream_group_reference = gameliftstreams.StreamGroupReference(
-                stream_group_arn="streamGroupArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ea8f3f54d750f2ae71d55a78c0d7e012f3899e4a29008b861f791b4bff1c1321)
-            check_type(argname="argument stream_group_arn", value=stream_group_arn, expected_type=type_hints["stream_group_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "stream_group_arn": stream_group_arn,
-        }
-
-    @builtins.property
-    def stream_group_arn(self) -> builtins.str:
-        '''The Arn of the StreamGroup resource.'''
-        result = self._values.get("stream_group_arn")
-        assert result is not None, "Required property 'stream_group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "StreamGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IApplicationRef_2ee70e7c, _ITaggableV2_4e6798f8)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -660,23 +126,24 @@ class CfnApplication(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         application_source_uri: builtins.str,
         description: builtins.str,
         executable_path: builtins.str,
-        runtime_environment: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.RuntimeEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]],
+        runtime_environment: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.RuntimeEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]],
         application_log_output_uri: typing.Optional[builtins.str] = None,
         application_log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::GameLiftStreams::Application``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param application_source_uri: The location of the content that you want to stream. Enter an Amazon S3 URI to a bucket that contains your game or other application. The location can have a multi-level prefix structure, but it must include all the files needed to run the content. Amazon GameLift Streams copies everything under the specified location. This value is immutable. To designate a different content location, create a new application. .. epigraph:: The Amazon S3 bucket and the Amazon GameLift Streams application must be in the same AWS Region.
         :param description: A human-readable label for the application. You can update this value later.
-        :param executable_path: The path and file name of the executable file that launches the content for streaming. Enter a path value that is relative to the location set in ``ApplicationSourceUri`` .
+        :param executable_path: The relative path and file name of the executable file that Amazon GameLift Streams will stream. Specify a path relative to the location set in ``ApplicationSourceUri`` . The file must be contained within the application's root folder. For Windows applications, the file must be a valid Windows executable or batch file with a filename ending in .exe, .cmd, or .bat. For Linux applications, the file must be a valid Linux binary executable or a script that contains an initial interpreter line starting with a shebang (' ``#!`` ').
         :param runtime_environment: A set of configuration settings to run the application on a stream group. This configures the operating system, and can include compatibility layers and other drivers.
         :param application_log_output_uri: An Amazon S3 URI to a bucket where you would like Amazon GameLift Streams to save application logs. Required if you specify one or more ``ApplicationLogPaths`` .
         :param application_log_paths: Locations of log files that your content generates during a stream session. Enter path values that are relative to the ``ApplicationSourceUri`` location. You can specify up to 10 log paths. Amazon GameLift Streams uploads designated log files to the Amazon S3 bucket that you specify in ``ApplicationLogOutputUri`` at the end of a stream session. To retrieve stored log files, call `GetStreamSession <https://docs.aws.amazon.com/gameliftstreams/latest/apireference/API_GetStreamSession.html>`_ and get the ``LogFileLocationUri`` .
@@ -698,8 +165,31 @@ class CfnApplication(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForApplication")
+    @builtins.classmethod
+    def arn_for_application(cls, resource: "_IApplicationRef_2ee70e7c") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c94c187779bbccffe5da1d4a0c4f62df421d8664f8a29a623939455de67474bc)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
+
+    @jsii.member(jsii_name="isCfnApplication")
+    @builtins.classmethod
+    def is_cfn_application(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApplication.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f508b760aafe53023b2165f38ccb270bc42890b15036b660e740327c548c7909)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -730,9 +220,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
+    def application_ref(self) -> "_ApplicationReference_3d673e1c":
         '''A reference to a Application resource.'''
-        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+        return typing.cast("_ApplicationReference_3d673e1c", jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrArn")
@@ -758,9 +248,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -796,7 +286,7 @@ class CfnApplication(
     @builtins.property
     @jsii.member(jsii_name="executablePath")
     def executable_path(self) -> builtins.str:
-        '''The path and file name of the executable file that launches the content for streaming.'''
+        '''The relative path and file name of the executable file that Amazon GameLift Streams will stream.'''
         return typing.cast(builtins.str, jsii.get(self, "executablePath"))
 
     @executable_path.setter
@@ -810,14 +300,14 @@ class CfnApplication(
     @jsii.member(jsii_name="runtimeEnvironment")
     def runtime_environment(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplication.RuntimeEnvironmentProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplication.RuntimeEnvironmentProperty"]:
         '''A set of configuration settings to run the application on a stream group.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplication.RuntimeEnvironmentProperty"], jsii.get(self, "runtimeEnvironment"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplication.RuntimeEnvironmentProperty"], jsii.get(self, "runtimeEnvironment"))
 
     @runtime_environment.setter
     def runtime_environment(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnApplication.RuntimeEnvironmentProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnApplication.RuntimeEnvironmentProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99f6582f76f3c6a11837e068e6e72ca864955b2789dca17c695fab2bad3ca516)
@@ -950,7 +440,190 @@ class CfnApplication(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IStreamGroupRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gameliftstreams.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_source_uri": "applicationSourceUri",
+        "description": "description",
+        "executable_path": "executablePath",
+        "runtime_environment": "runtimeEnvironment",
+        "application_log_output_uri": "applicationLogOutputUri",
+        "application_log_paths": "applicationLogPaths",
+        "tags": "tags",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        application_source_uri: builtins.str,
+        description: builtins.str,
+        executable_path: builtins.str,
+        runtime_environment: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.RuntimeEnvironmentProperty", typing.Dict[builtins.str, typing.Any]]],
+        application_log_output_uri: typing.Optional[builtins.str] = None,
+        application_log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param application_source_uri: The location of the content that you want to stream. Enter an Amazon S3 URI to a bucket that contains your game or other application. The location can have a multi-level prefix structure, but it must include all the files needed to run the content. Amazon GameLift Streams copies everything under the specified location. This value is immutable. To designate a different content location, create a new application. .. epigraph:: The Amazon S3 bucket and the Amazon GameLift Streams application must be in the same AWS Region.
+        :param description: A human-readable label for the application. You can update this value later.
+        :param executable_path: The relative path and file name of the executable file that Amazon GameLift Streams will stream. Specify a path relative to the location set in ``ApplicationSourceUri`` . The file must be contained within the application's root folder. For Windows applications, the file must be a valid Windows executable or batch file with a filename ending in .exe, .cmd, or .bat. For Linux applications, the file must be a valid Linux binary executable or a script that contains an initial interpreter line starting with a shebang (' ``#!`` ').
+        :param runtime_environment: A set of configuration settings to run the application on a stream group. This configures the operating system, and can include compatibility layers and other drivers.
+        :param application_log_output_uri: An Amazon S3 URI to a bucket where you would like Amazon GameLift Streams to save application logs. Required if you specify one or more ``ApplicationLogPaths`` .
+        :param application_log_paths: Locations of log files that your content generates during a stream session. Enter path values that are relative to the ``ApplicationSourceUri`` location. You can specify up to 10 log paths. Amazon GameLift Streams uploads designated log files to the Amazon S3 bucket that you specify in ``ApplicationLogOutputUri`` at the end of a stream session. To retrieve stored log files, call `GetStreamSession <https://docs.aws.amazon.com/gameliftstreams/latest/apireference/API_GetStreamSession.html>`_ and get the ``LogFileLocationUri`` .
+        :param tags: A list of labels to assign to the new application resource. Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gameliftstreams as gameliftstreams
+            
+            cfn_application_props = gameliftstreams.CfnApplicationProps(
+                application_source_uri="applicationSourceUri",
+                description="description",
+                executable_path="executablePath",
+                runtime_environment=gameliftstreams.CfnApplication.RuntimeEnvironmentProperty(
+                    type="type",
+                    version="version"
+                ),
+            
+                # the properties below are optional
+                application_log_output_uri="applicationLogOutputUri",
+                application_log_paths=["applicationLogPaths"],
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf559d648da5bcc6d426f2fa9d64617eba1c68df0cd94a3f9e4e8e5996e805e4)
+            check_type(argname="argument application_source_uri", value=application_source_uri, expected_type=type_hints["application_source_uri"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument executable_path", value=executable_path, expected_type=type_hints["executable_path"])
+            check_type(argname="argument runtime_environment", value=runtime_environment, expected_type=type_hints["runtime_environment"])
+            check_type(argname="argument application_log_output_uri", value=application_log_output_uri, expected_type=type_hints["application_log_output_uri"])
+            check_type(argname="argument application_log_paths", value=application_log_paths, expected_type=type_hints["application_log_paths"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_source_uri": application_source_uri,
+            "description": description,
+            "executable_path": executable_path,
+            "runtime_environment": runtime_environment,
+        }
+        if application_log_output_uri is not None:
+            self._values["application_log_output_uri"] = application_log_output_uri
+        if application_log_paths is not None:
+            self._values["application_log_paths"] = application_log_paths
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def application_source_uri(self) -> builtins.str:
+        '''The location of the content that you want to stream.
+
+        Enter an Amazon S3 URI to a bucket that contains your game or other application. The location can have a multi-level prefix structure, but it must include all the files needed to run the content. Amazon GameLift Streams copies everything under the specified location.
+
+        This value is immutable. To designate a different content location, create a new application.
+        .. epigraph::
+
+           The Amazon S3 bucket and the Amazon GameLift Streams application must be in the same AWS Region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-applicationsourceuri
+        '''
+        result = self._values.get("application_source_uri")
+        assert result is not None, "Required property 'application_source_uri' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A human-readable label for the application.
+
+        You can update this value later.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def executable_path(self) -> builtins.str:
+        '''The relative path and file name of the executable file that Amazon GameLift Streams will stream.
+
+        Specify a path relative to the location set in ``ApplicationSourceUri`` . The file must be contained within the application's root folder. For Windows applications, the file must be a valid Windows executable or batch file with a filename ending in .exe, .cmd, or .bat. For Linux applications, the file must be a valid Linux binary executable or a script that contains an initial interpreter line starting with a shebang (' ``#!`` ').
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-executablepath
+        '''
+        result = self._values.get("executable_path")
+        assert result is not None, "Required property 'executable_path' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def runtime_environment(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplication.RuntimeEnvironmentProperty"]:
+        '''A set of configuration settings to run the application on a stream group.
+
+        This configures the operating system, and can include compatibility layers and other drivers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-runtimeenvironment
+        '''
+        result = self._values.get("runtime_environment")
+        assert result is not None, "Required property 'runtime_environment' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplication.RuntimeEnvironmentProperty"], result)
+
+    @builtins.property
+    def application_log_output_uri(self) -> typing.Optional[builtins.str]:
+        '''An Amazon S3 URI to a bucket where you would like Amazon GameLift Streams to save application logs.
+
+        Required if you specify one or more ``ApplicationLogPaths`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-applicationlogoutputuri
+        '''
+        result = self._values.get("application_log_output_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def application_log_paths(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Locations of log files that your content generates during a stream session.
+
+        Enter path values that are relative to the ``ApplicationSourceUri`` location. You can specify up to 10 log paths. Amazon GameLift Streams uploads designated log files to the Amazon S3 bucket that you specify in ``ApplicationLogOutputUri`` at the end of a stream session. To retrieve stored log files, call `GetStreamSession <https://docs.aws.amazon.com/gameliftstreams/latest/apireference/API_GetStreamSession.html>`_ and get the ``LogFileLocationUri`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-applicationlogpaths
+        '''
+        result = self._values.get("application_log_paths")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A list of labels to assign to the new application resource.
+
+        Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-application.html#cfn-gameliftstreams-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IStreamGroupRef_ad23a873, _ITaggableV2_4e6798f8)
 class CfnStreamGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -968,7 +641,7 @@ class CfnStreamGroup(
     Values for capacity must be whole number multiples of the tenancy value of the stream group's stream class.
     .. epigraph::
 
-       Application association is not currently supported in AWS CloudFormation . To link additional applications to a stream group, use the Amazon GameLift Streams console or the AWS CLI .
+       Application association is not currently supported in CloudFormation . To link additional applications to a stream group, use the Amazon GameLift Streams console or the AWS CLI .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html
     :cloudformationResource: AWS::GameLiftStreams::StreamGroup
@@ -987,7 +660,9 @@ class CfnStreamGroup(
         
                 # the properties below are optional
                 always_on_capacity=123,
-                on_demand_capacity=123
+                maximum_capacity=123,
+                on_demand_capacity=123,
+                target_idle_capacity=123
             )],
             stream_class="streamClass",
         
@@ -1004,21 +679,22 @@ class CfnStreamGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         description: builtins.str,
-        location_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamGroup.LocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        location_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamGroup.LocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         stream_class: builtins.str,
-        default_application: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStreamGroup.DefaultApplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        default_application: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamGroup.DefaultApplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::GameLiftStreams::StreamGroup``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param description: A descriptive label for the stream group.
         :param location_configurations: A set of one or more locations and the streaming capacity for each location. One of the locations MUST be your primary location, which is the AWS Region where you are specifying this resource.
-        :param stream_class: The target stream quality for sessions that are hosted in this stream group. Set a stream class that is appropriate to the type of content that you're streaming. Stream class determines the type of computing resources Amazon GameLift Streams uses and impacts the cost of streaming. The following options are available: A stream class can be one of the following: - *``gen5n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.4, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA A10G Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen5n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA A10G Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 4 vCPUs, 16 GB RAM, 12 GB VRAM - Tenancy: Supports up to 2 concurrent stream sessions - *``gen5n_ultra`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Uses dedicated NVIDIA A10G Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen4n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.4, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA T4 Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen4n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA T4 Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 4 vCPUs, 16 GB RAM, 8 GB VRAM - Tenancy: Supports up to 2 concurrent stream sessions - *``gen4n_ultra`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Uses dedicated NVIDIA T4 Tensor GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM - Tenancy: Supports 1 concurrent stream session
+        :param stream_class: The target stream quality for sessions that are hosted in this stream group. Set a stream class that is appropriate to the type of content that you're streaming. Stream class determines the type of computing resources Amazon GameLift Streams uses and impacts the cost of streaming. The following options are available: A stream class can be one of the following: - *``gen6n_pro_win2022`` (NVIDIA, pro)* Supports applications with extremely high 3D scene complexity which require maximum resources. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 16 vCPUs, 64 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen6n_pro`` (NVIDIA, pro)* Supports applications with extremely high 3D scene complexity which require maximum resources. Uses dedicated NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 16 vCPUs, 64 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen6n_ultra_win2022`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen6n_ultra`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Uses dedicated NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen6n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 4 vCPUs, 16 GB RAM, 12 GB VRAM - Tenancy: Supports up to 2 concurrent stream sessions - *``gen6n_medium`` (NVIDIA, medium)* Supports applications with moderate 3D scene complexity. Uses NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 2 vCPUs, 8 GB RAM, 6 GB VRAM - Tenancy: Supports up to 4 concurrent stream sessions - *``gen6n_small`` (NVIDIA, small)* Supports applications with lightweight 3D scene complexity and low CPU usage. Uses NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 1 vCPUs, 4 GB RAM, 2 GB VRAM - Tenancy: Supports up to 12 concurrent stream sessions - *``gen5n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA A10G Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen5n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA A10G Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 4 vCPUs, 16 GB RAM, 12 GB VRAM - Tenancy: Supports up to 2 concurrent stream sessions - *``gen5n_ultra`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Uses dedicated NVIDIA A10G Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen4n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA T4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen4n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA T4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 4 vCPUs, 16 GB RAM, 8 GB VRAM - Tenancy: Supports up to 2 concurrent stream sessions - *``gen4n_ultra`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Uses dedicated NVIDIA T4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM - Tenancy: Supports 1 concurrent stream session
         :param default_application: Object that identifies the Amazon GameLift Streams application to stream with this stream group.
         :param tags: A list of labels to assign to the new stream group resource. Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
         '''
@@ -1036,8 +712,34 @@ class CfnStreamGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForStreamGroup")
+    @builtins.classmethod
+    def arn_for_stream_group(
+        cls,
+        resource: "_IStreamGroupRef_ad23a873",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8540278fdd3b8a4498e2cc4cfa8e5b9cc8d4b5c4d3cc416a36f562cacdbd5ba)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStreamGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnStreamGroup")
+    @builtins.classmethod
+    def is_cfn_stream_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnStreamGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d09e3d7bd23e058bf82fe12a34d8bf2b19d08ebf87feb9dc5cb17e72c7ccfef)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStreamGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1088,9 +790,9 @@ class CfnStreamGroup(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1099,9 +801,9 @@ class CfnStreamGroup(
 
     @builtins.property
     @jsii.member(jsii_name="streamGroupRef")
-    def stream_group_ref(self) -> StreamGroupReference:
+    def stream_group_ref(self) -> "_StreamGroupReference_fe90a10e":
         '''A reference to a StreamGroup resource.'''
-        return typing.cast(StreamGroupReference, jsii.get(self, "streamGroupRef"))
+        return typing.cast("_StreamGroupReference_fe90a10e", jsii.get(self, "streamGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1120,14 +822,14 @@ class CfnStreamGroup(
     @jsii.member(jsii_name="locationConfigurations")
     def location_configurations(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStreamGroup.LocationConfigurationProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.LocationConfigurationProperty"]]]:
         '''A set of one or more locations and the streaming capacity for each location.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStreamGroup.LocationConfigurationProperty"]]], jsii.get(self, "locationConfigurations"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.LocationConfigurationProperty"]]], jsii.get(self, "locationConfigurations"))
 
     @location_configurations.setter
     def location_configurations(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnStreamGroup.LocationConfigurationProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.LocationConfigurationProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5dce7069bc18c5adbe92459796919490fb80e38f9a3fe455b779e19b0b30da98)
@@ -1151,14 +853,14 @@ class CfnStreamGroup(
     @jsii.member(jsii_name="defaultApplication")
     def default_application(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamGroup.DefaultApplicationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.DefaultApplicationProperty"]]:
         '''Object that identifies the Amazon GameLift Streams application to stream with this stream group.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamGroup.DefaultApplicationProperty"]], jsii.get(self, "defaultApplication"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.DefaultApplicationProperty"]], jsii.get(self, "defaultApplication"))
 
     @default_application.setter
     def default_application(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnStreamGroup.DefaultApplicationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.DefaultApplicationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4aa4ce53af802ec6bb329423326bcefed0b20e44bbe786ff2d23e1de4a242ec9)
@@ -1259,7 +961,9 @@ class CfnStreamGroup(
         name_mapping={
             "location_name": "locationName",
             "always_on_capacity": "alwaysOnCapacity",
+            "maximum_capacity": "maximumCapacity",
             "on_demand_capacity": "onDemandCapacity",
+            "target_idle_capacity": "targetIdleCapacity",
         },
     )
     class LocationConfigurationProperty:
@@ -1268,15 +972,19 @@ class CfnStreamGroup(
             *,
             location_name: builtins.str,
             always_on_capacity: typing.Optional[jsii.Number] = None,
+            maximum_capacity: typing.Optional[jsii.Number] = None,
             on_demand_capacity: typing.Optional[jsii.Number] = None,
+            target_idle_capacity: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Configuration settings that define a stream group's stream capacity for a location.
 
             When configuring a location for the first time, you must specify a numeric value for at least one of the two capacity types.
 
             :param location_name: A location's name. For example, ``us-east-1`` . For a complete list of locations that Amazon GameLift Streams supports, refer to `Regions, quotas, and limitations <https://docs.aws.amazon.com/gameliftstreams/latest/developerguide/regions-quotas.html>`_ in the *Amazon GameLift Streams Developer Guide* .
-            :param always_on_capacity: The streaming capacity that is allocated and ready to handle stream requests without delay. You pay for this capacity whether it's in use or not. Best for quickest time from streaming request to streaming session. Default is 1 (2 for high stream classes) when creating a stream group or adding a location.
-            :param on_demand_capacity: The streaming capacity that Amazon GameLift Streams can allocate in response to stream requests, and then de-allocate when the session has terminated. This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes). Default is 0 when creating a stream group or adding a location.
+            :param always_on_capacity: This setting, if non-zero, indicates minimum streaming capacity which is allocated to you and is never released back to the service. You pay for this base level of capacity at all times, whether used or idle.
+            :param maximum_capacity: 
+            :param on_demand_capacity: This field is deprecated. Use MaximumCapacity instead. This parameter is ignored when MaximumCapacity is specified. The streaming capacity that Amazon GameLift Streams can allocate in response to stream requests, and then de-allocate when the session has terminated. This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes). Default is 0 when you create a stream group or add a location.
+            :param target_idle_capacity: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1292,21 +1000,29 @@ class CfnStreamGroup(
                 
                     # the properties below are optional
                     always_on_capacity=123,
-                    on_demand_capacity=123
+                    maximum_capacity=123,
+                    on_demand_capacity=123,
+                    target_idle_capacity=123
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__4c32e96242e189f6a75d890a7316a655383684ce9337b4906f2e3b49bec9a86e)
                 check_type(argname="argument location_name", value=location_name, expected_type=type_hints["location_name"])
                 check_type(argname="argument always_on_capacity", value=always_on_capacity, expected_type=type_hints["always_on_capacity"])
+                check_type(argname="argument maximum_capacity", value=maximum_capacity, expected_type=type_hints["maximum_capacity"])
                 check_type(argname="argument on_demand_capacity", value=on_demand_capacity, expected_type=type_hints["on_demand_capacity"])
+                check_type(argname="argument target_idle_capacity", value=target_idle_capacity, expected_type=type_hints["target_idle_capacity"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "location_name": location_name,
             }
             if always_on_capacity is not None:
                 self._values["always_on_capacity"] = always_on_capacity
+            if maximum_capacity is not None:
+                self._values["maximum_capacity"] = maximum_capacity
             if on_demand_capacity is not None:
                 self._values["on_demand_capacity"] = on_demand_capacity
+            if target_idle_capacity is not None:
+                self._values["target_idle_capacity"] = target_idle_capacity
 
         @builtins.property
         def location_name(self) -> builtins.str:
@@ -1322,9 +1038,9 @@ class CfnStreamGroup(
 
         @builtins.property
         def always_on_capacity(self) -> typing.Optional[jsii.Number]:
-            '''The streaming capacity that is allocated and ready to handle stream requests without delay.
+            '''This setting, if non-zero, indicates minimum streaming capacity which is allocated to you and is never released back to the service.
 
-            You pay for this capacity whether it's in use or not. Best for quickest time from streaming request to streaming session. Default is 1 (2 for high stream classes) when creating a stream group or adding a location.
+            You pay for this base level of capacity at all times, whether used or idle.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html#cfn-gameliftstreams-streamgroup-locationconfiguration-alwaysoncapacity
             '''
@@ -1332,14 +1048,30 @@ class CfnStreamGroup(
             return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
-        def on_demand_capacity(self) -> typing.Optional[jsii.Number]:
-            '''The streaming capacity that Amazon GameLift Streams can allocate in response to stream requests, and then de-allocate when the session has terminated.
+        def maximum_capacity(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html#cfn-gameliftstreams-streamgroup-locationconfiguration-maximumcapacity
+            '''
+            result = self._values.get("maximum_capacity")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
-            This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes). Default is 0 when creating a stream group or adding a location.
+        @builtins.property
+        def on_demand_capacity(self) -> typing.Optional[jsii.Number]:
+            '''This field is deprecated. Use MaximumCapacity instead. This parameter is ignored when MaximumCapacity is specified.
+
+            The streaming capacity that Amazon GameLift Streams can allocate in response to stream requests, and then de-allocate when the session has terminated. This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes). Default is 0 when you create a stream group or add a location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html#cfn-gameliftstreams-streamgroup-locationconfiguration-ondemandcapacity
             '''
             result = self._values.get("on_demand_capacity")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def target_idle_capacity(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html#cfn-gameliftstreams-streamgroup-locationconfiguration-targetidlecapacity
+            '''
+            result = self._values.get("target_idle_capacity")
             return typing.cast(typing.Optional[jsii.Number], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1354,56 +1086,230 @@ class CfnStreamGroup(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_gameliftstreams.CfnStreamGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "location_configurations": "locationConfigurations",
+        "stream_class": "streamClass",
+        "default_application": "defaultApplication",
+        "tags": "tags",
+    },
+)
+class CfnStreamGroupProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        location_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamGroup.LocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        stream_class: builtins.str,
+        default_application: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStreamGroup.DefaultApplicationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStreamGroup``.
+
+        :param description: A descriptive label for the stream group.
+        :param location_configurations: A set of one or more locations and the streaming capacity for each location. One of the locations MUST be your primary location, which is the AWS Region where you are specifying this resource.
+        :param stream_class: The target stream quality for sessions that are hosted in this stream group. Set a stream class that is appropriate to the type of content that you're streaming. Stream class determines the type of computing resources Amazon GameLift Streams uses and impacts the cost of streaming. The following options are available: A stream class can be one of the following: - *``gen6n_pro_win2022`` (NVIDIA, pro)* Supports applications with extremely high 3D scene complexity which require maximum resources. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 16 vCPUs, 64 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen6n_pro`` (NVIDIA, pro)* Supports applications with extremely high 3D scene complexity which require maximum resources. Uses dedicated NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 16 vCPUs, 64 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen6n_ultra_win2022`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen6n_ultra`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Uses dedicated NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen6n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 4 vCPUs, 16 GB RAM, 12 GB VRAM - Tenancy: Supports up to 2 concurrent stream sessions - *``gen6n_medium`` (NVIDIA, medium)* Supports applications with moderate 3D scene complexity. Uses NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 2 vCPUs, 8 GB RAM, 6 GB VRAM - Tenancy: Supports up to 4 concurrent stream sessions - *``gen6n_small`` (NVIDIA, small)* Supports applications with lightweight 3D scene complexity and low CPU usage. Uses NVIDIA L4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 1 vCPUs, 4 GB RAM, 2 GB VRAM - Tenancy: Supports up to 12 concurrent stream sessions - *``gen5n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA A10G Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen5n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA A10G Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 4 vCPUs, 16 GB RAM, 12 GB VRAM - Tenancy: Supports up to 2 concurrent stream sessions - *``gen5n_ultra`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Uses dedicated NVIDIA A10G Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen4n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA T4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM - Tenancy: Supports 1 concurrent stream session - *``gen4n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA T4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 4 vCPUs, 16 GB RAM, 8 GB VRAM - Tenancy: Supports up to 2 concurrent stream sessions - *``gen4n_ultra`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Uses dedicated NVIDIA T4 Tensor Core GPU. - Reference resolution: 1080p - Reference frame rate: 60 fps - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM - Tenancy: Supports 1 concurrent stream session
+        :param default_application: Object that identifies the Amazon GameLift Streams application to stream with this stream group.
+        :param tags: A list of labels to assign to the new stream group resource. Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_gameliftstreams as gameliftstreams
+            
+            cfn_stream_group_props = gameliftstreams.CfnStreamGroupProps(
+                description="description",
+                location_configurations=[gameliftstreams.CfnStreamGroup.LocationConfigurationProperty(
+                    location_name="locationName",
+            
+                    # the properties below are optional
+                    always_on_capacity=123,
+                    maximum_capacity=123,
+                    on_demand_capacity=123,
+                    target_idle_capacity=123
+                )],
+                stream_class="streamClass",
+            
+                # the properties below are optional
+                default_application=gameliftstreams.CfnStreamGroup.DefaultApplicationProperty(
+                    arn="arn",
+                    id="id"
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2997124a9d44ddc8951fa0effc557b193f10cbfb4e3867a8a2d79ba217b9edc8)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument location_configurations", value=location_configurations, expected_type=type_hints["location_configurations"])
+            check_type(argname="argument stream_class", value=stream_class, expected_type=type_hints["stream_class"])
+            check_type(argname="argument default_application", value=default_application, expected_type=type_hints["default_application"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "location_configurations": location_configurations,
+            "stream_class": stream_class,
+        }
+        if default_application is not None:
+            self._values["default_application"] = default_application
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''A descriptive label for the stream group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location_configurations(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.LocationConfigurationProperty"]]]:
+        '''A set of one or more locations and the streaming capacity for each location.
+
+        One of the locations MUST be your primary location, which is the AWS Region where you are specifying this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-locationconfigurations
+        '''
+        result = self._values.get("location_configurations")
+        assert result is not None, "Required property 'location_configurations' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.LocationConfigurationProperty"]]], result)
+
+    @builtins.property
+    def stream_class(self) -> builtins.str:
+        '''The target stream quality for sessions that are hosted in this stream group.
+
+        Set a stream class that is appropriate to the type of content that you're streaming. Stream class determines the type of computing resources Amazon GameLift Streams uses and impacts the cost of streaming. The following options are available:
+
+        A stream class can be one of the following:
+
+        - *``gen6n_pro_win2022`` (NVIDIA, pro)* Supports applications with extremely high 3D scene complexity which require maximum resources. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA L4 Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 16 vCPUs, 64 GB RAM, 24 GB VRAM
+        - Tenancy: Supports 1 concurrent stream session
+        - *``gen6n_pro`` (NVIDIA, pro)* Supports applications with extremely high 3D scene complexity which require maximum resources. Uses dedicated NVIDIA L4 Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 16 vCPUs, 64 GB RAM, 24 GB VRAM
+        - Tenancy: Supports 1 concurrent stream session
+        - *``gen6n_ultra_win2022`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA L4 Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM
+        - Tenancy: Supports 1 concurrent stream session
+        - *``gen6n_ultra`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Uses dedicated NVIDIA L4 Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM
+        - Tenancy: Supports 1 concurrent stream session
+        - *``gen6n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA L4 Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 4 vCPUs, 16 GB RAM, 12 GB VRAM
+        - Tenancy: Supports up to 2 concurrent stream sessions
+        - *``gen6n_medium`` (NVIDIA, medium)* Supports applications with moderate 3D scene complexity. Uses NVIDIA L4 Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 2 vCPUs, 8 GB RAM, 6 GB VRAM
+        - Tenancy: Supports up to 4 concurrent stream sessions
+        - *``gen6n_small`` (NVIDIA, small)* Supports applications with lightweight 3D scene complexity and low CPU usage. Uses NVIDIA L4 Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 1 vCPUs, 4 GB RAM, 2 GB VRAM
+        - Tenancy: Supports up to 12 concurrent stream sessions
+        - *``gen5n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA A10G Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM
+        - Tenancy: Supports 1 concurrent stream session
+        - *``gen5n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA A10G Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 4 vCPUs, 16 GB RAM, 12 GB VRAM
+        - Tenancy: Supports up to 2 concurrent stream sessions
+        - *``gen5n_ultra`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Uses dedicated NVIDIA A10G Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 8 vCPUs, 32 GB RAM, 24 GB VRAM
+        - Tenancy: Supports 1 concurrent stream session
+        - *``gen4n_win2022`` (NVIDIA, ultra)* Supports applications with extremely high 3D scene complexity. Runs applications on Microsoft Windows Server 2022 Base and supports DirectX 12. Compatible with Unreal Engine versions up through 5.6, 32 and 64-bit applications, and anti-cheat technology. Uses NVIDIA T4 Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM
+        - Tenancy: Supports 1 concurrent stream session
+        - *``gen4n_high`` (NVIDIA, high)* Supports applications with moderate to high 3D scene complexity. Uses NVIDIA T4 Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 4 vCPUs, 16 GB RAM, 8 GB VRAM
+        - Tenancy: Supports up to 2 concurrent stream sessions
+        - *``gen4n_ultra`` (NVIDIA, ultra)* Supports applications with high 3D scene complexity. Uses dedicated NVIDIA T4 Tensor Core GPU.
+        - Reference resolution: 1080p
+        - Reference frame rate: 60 fps
+        - Workload specifications: 8 vCPUs, 32 GB RAM, 16 GB VRAM
+        - Tenancy: Supports 1 concurrent stream session
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-streamclass
+        '''
+        result = self._values.get("stream_class")
+        assert result is not None, "Required property 'stream_class' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_application(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.DefaultApplicationProperty"]]:
+        '''Object that identifies the Amazon GameLift Streams application to stream with this stream group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-defaultapplication
+        '''
+        result = self._values.get("default_application")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStreamGroup.DefaultApplicationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A list of labels to assign to the new stream group resource.
+
+        Tags are developer-defined key-value pairs. Tagging AWS resources is useful for resource management, access management and cost allocation. See `Tagging AWS Resources <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ in the *AWS General Reference* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gameliftstreams-streamgroup.html#cfn-gameliftstreams-streamgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStreamGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "ApplicationReference",
     "CfnApplication",
     "CfnApplicationProps",
     "CfnStreamGroup",
     "CfnStreamGroupProps",
-    "IApplicationRef",
-    "IStreamGroupRef",
-    "StreamGroupReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__60f4aaf00dcf0aff063d174267262854da93dcf064102086825d41866177e056(
-    *,
-    application_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf559d648da5bcc6d426f2fa9d64617eba1c68df0cd94a3f9e4e8e5996e805e4(
-    *,
-    application_source_uri: builtins.str,
-    description: builtins.str,
-    executable_path: builtins.str,
-    runtime_environment: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.RuntimeEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]],
-    application_log_output_uri: typing.Optional[builtins.str] = None,
-    application_log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2997124a9d44ddc8951fa0effc557b193f10cbfb4e3867a8a2d79ba217b9edc8(
-    *,
-    description: builtins.str,
-    location_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    stream_class: builtins.str,
-    default_application: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.DefaultApplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ea8f3f54d750f2ae71d55a78c0d7e012f3899e4a29008b861f791b4bff1c1321(
-    *,
-    stream_group_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__98acfa7b89cf716a7d04ae3a442e9ce27afcc5fb822ef47ddf9f1d824dffcb57(
     scope: _constructs_77d1e7e8.Construct,
@@ -1416,6 +1322,18 @@ def _typecheckingstub__98acfa7b89cf716a7d04ae3a442e9ce27afcc5fb822ef47ddf9f1d824
     application_log_output_uri: typing.Optional[builtins.str] = None,
     application_log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c94c187779bbccffe5da1d4a0c4f62df421d8664f8a29a623939455de67474bc(
+    resource: _IApplicationRef_2ee70e7c,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f508b760aafe53023b2165f38ccb270bc42890b15036b660e740327c548c7909(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1482,6 +1400,19 @@ def _typecheckingstub__36db25239f5829e6be78b8afc94eb689056b154e144d17ae679806f52
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cf559d648da5bcc6d426f2fa9d64617eba1c68df0cd94a3f9e4e8e5996e805e4(
+    *,
+    application_source_uri: builtins.str,
+    description: builtins.str,
+    executable_path: builtins.str,
+    runtime_environment: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.RuntimeEnvironmentProperty, typing.Dict[builtins.str, typing.Any]]],
+    application_log_output_uri: typing.Optional[builtins.str] = None,
+    application_log_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__79f0f973b06de7ae1a48df1df69579c9c8dfd0885945a959686fdddf31cc2674(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1491,6 +1422,18 @@ def _typecheckingstub__79f0f973b06de7ae1a48df1df69579c9c8dfd0885945a959686fdddf3
     stream_class: builtins.str,
     default_application: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.DefaultApplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8540278fdd3b8a4498e2cc4cfa8e5b9cc8d4b5c4d3cc416a36f562cacdbd5ba(
+    resource: _IStreamGroupRef_ad23a873,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d09e3d7bd23e058bf82fe12a34d8bf2b19d08ebf87feb9dc5cb17e72c7ccfef(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1549,7 +1492,20 @@ def _typecheckingstub__4c32e96242e189f6a75d890a7316a655383684ce9337b4906f2e3b49b
     *,
     location_name: builtins.str,
     always_on_capacity: typing.Optional[jsii.Number] = None,
+    maximum_capacity: typing.Optional[jsii.Number] = None,
     on_demand_capacity: typing.Optional[jsii.Number] = None,
+    target_idle_capacity: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2997124a9d44ddc8951fa0effc557b193f10cbfb4e3867a8a2d79ba217b9edc8(
+    *,
+    description: builtins.str,
+    location_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.LocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    stream_class: builtins.str,
+    default_application: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStreamGroup.DefaultApplicationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -29,15 +30,10 @@ from .literals import (
     CustomPluginStateType,
     KafkaClusterClientAuthenticationTypeType,
     KafkaClusterEncryptionInTransitTypeType,
+    NetworkTypeType,
     WorkerConfigurationStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -143,8 +139,8 @@ __all__ = (
 )
 
 class VpcDescriptionTypeDef(TypedDict):
-    securityGroups: NotRequired[List[str]]
-    subnets: NotRequired[List[str]]
+    securityGroups: NotRequired[list[str]]
+    subnets: NotRequired[list[str]]
 
 class VpcTypeDef(TypedDict):
     subnets: Sequence[str]
@@ -222,7 +218,7 @@ class WorkerConfigurationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -403,12 +399,12 @@ class DeleteWorkerConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListConnectorOperationsResponseTypeDef(TypedDict):
-    connectorOperations: List[ConnectorOperationSummaryTypeDef]
+    connectorOperations: list[ConnectorOperationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateConnectorResponseTypeDef(TypedDict):
@@ -499,7 +495,7 @@ class CapacityUpdateTypeDef(TypedDict):
     provisionedCapacity: NotRequired[ProvisionedCapacityUpdateTypeDef]
 
 class ListWorkerConfigurationsResponseTypeDef(TypedDict):
-    workerConfigurations: List[WorkerConfigurationSummaryTypeDef]
+    workerConfigurations: list[WorkerConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -566,14 +562,15 @@ class ConnectorSummaryTypeDef(TypedDict):
     kafkaClusterEncryptionInTransit: NotRequired[KafkaClusterEncryptionInTransitDescriptionTypeDef]
     kafkaConnectVersion: NotRequired[str]
     logDelivery: NotRequired[LogDeliveryDescriptionTypeDef]
-    plugins: NotRequired[List[PluginDescriptionTypeDef]]
+    networkType: NotRequired[NetworkTypeType]
+    plugins: NotRequired[list[PluginDescriptionTypeDef]]
     serviceExecutionRoleArn: NotRequired[str]
     workerConfiguration: NotRequired[WorkerConfigurationDescriptionTypeDef]
 
 class DescribeConnectorResponseTypeDef(TypedDict):
     capacity: CapacityDescriptionTypeDef
     connectorArn: str
-    connectorConfiguration: Dict[str, str]
+    connectorConfiguration: dict[str, str]
     connectorDescription: str
     connectorName: str
     connectorState: ConnectorStateType
@@ -584,7 +581,8 @@ class DescribeConnectorResponseTypeDef(TypedDict):
     kafkaClusterEncryptionInTransit: KafkaClusterEncryptionInTransitDescriptionTypeDef
     kafkaConnectVersion: str
     logDelivery: LogDeliveryDescriptionTypeDef
-    plugins: List[PluginDescriptionTypeDef]
+    networkType: NetworkTypeType
+    plugins: list[PluginDescriptionTypeDef]
     serviceExecutionRoleArn: str
     workerConfiguration: WorkerConfigurationDescriptionTypeDef
     stateDescription: StateDescriptionTypeDef
@@ -602,6 +600,7 @@ class CreateConnectorRequestTypeDef(TypedDict):
     serviceExecutionRoleArn: str
     connectorDescription: NotRequired[str]
     logDelivery: NotRequired[LogDeliveryTypeDef]
+    networkType: NotRequired[NetworkTypeType]
     workerConfiguration: NotRequired[WorkerConfigurationTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
@@ -610,22 +609,22 @@ class DescribeConnectorOperationResponseTypeDef(TypedDict):
     connectorOperationArn: str
     connectorOperationState: ConnectorOperationStateType
     connectorOperationType: ConnectorOperationTypeType
-    operationSteps: List[ConnectorOperationStepTypeDef]
+    operationSteps: list[ConnectorOperationStepTypeDef]
     originWorkerSetting: WorkerSettingTypeDef
-    originConnectorConfiguration: Dict[str, str]
+    originConnectorConfiguration: dict[str, str]
     targetWorkerSetting: WorkerSettingTypeDef
-    targetConnectorConfiguration: Dict[str, str]
+    targetConnectorConfiguration: dict[str, str]
     errorInfo: StateDescriptionTypeDef
     creationTime: datetime
     endTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCustomPluginsResponseTypeDef(TypedDict):
-    customPlugins: List[CustomPluginSummaryTypeDef]
+    customPlugins: list[CustomPluginSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListConnectorsResponseTypeDef(TypedDict):
-    connectors: List[ConnectorSummaryTypeDef]
+    connectors: list[ConnectorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

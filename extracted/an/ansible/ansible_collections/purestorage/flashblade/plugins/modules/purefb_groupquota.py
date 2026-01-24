@@ -52,6 +52,14 @@ options:
       - The group name on which the quota is enforced.
       - Cannot be combined with I(gid)
     type: str
+  context:
+    description:
+    - Name of fleet member on which to perform the operation.
+    - This requires the array receiving the request is a member of a fleet
+      and the context name to be a member of the same fleet.
+    type: str
+    default: ""
+    version_added: "1.22.0"
 extends_documentation_fragment:
     - purestorage.flashblade.purestorage.fb
 """
@@ -115,82 +123,120 @@ RETURN = """
 
 HAS_PURITY_FB = True
 try:
-    from purity_fb import QuotasGroup
+    from pypureclient.flashblade import GroupQuotaPost, GroupQuotaPatch
 except ImportError:
     HAS_PURITY_FB = False
 
+CONTEXT_API_VERSION = "2.17"
+
 from ansible.module_utils.basic import AnsibleModule, human_to_bytes
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
-    get_blade,
+    get_system,
     purefb_argument_spec,
 )
 
 
-MIN_REQUIRED_API_VERSION = "1.6"
-
-
 def get_fs(module, blade):
     """Return Filesystem or None"""
-    fsys = []
-    fsys.append(module.params["name"])
-    try:
-        res = blade.file_systems.list_file_systems(names=fsys)
-        return res.items[0]
-    except Exception:
-        return None
+    api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version:
+        res = blade.get_file_systems(
+            names=[module.params["name"]], context_names=[module.params["context"]]
+        )
+    else:
+        res = blade.get_file_systems(names=[module.params["name"]])
+    if res.status_code == 200:
+        return list(res.items)[0]
+    return None
 
 
 def get_quota(module, blade):
     """Return Filesystem User Quota or None"""
-    fsys = []
-    fsys.append(module.params["name"])
-    try:
-        if module.params["gid"]:
-            res = blade.quotas_groups.list_group_quotas(
-                file_system_names=fsys, filter="group.id=" + str(module.params["gid"])
+    api_version = list(blade.get_versions().items)
+    if module.params["gid"]:
+        if CONTEXT_API_VERSION in api_version:
+            res = blade.get_quotas_groups(
+                file_system_names=[module.params["name"]],
+                filter="group.id=" + str(module.params["gid"]),
+                context_names=[module.params["context"]],
             )
         else:
-            res = blade.quotas_groups.list_group_quotas(
-                file_system_names=fsys,
+            res = blade.get_quotas_groups(
+                file_system_names=[module.params["name"]],
+                filter="group.id=" + str(module.params["gid"]),
+            )
+    else:
+        if CONTEXT_API_VERSION in api_version:
+            res = blade.get_quotas_groups(
+                file_system_names=[module.params["name"]],
+                filter="group.name='" + module.params["gname"] + "'",
+                context_names=[module.params["context"]],
+            )
+        else:
+            res = blade.get_quotas_groups(
+                file_system_names=[module.params["name"]],
                 filter="group.name='" + module.params["gname"] + "'",
             )
-        return res.items[0]
-    except Exception:
-        return None
+    if res.status_code == 200 and res.total_item_count != 0:
+        return list(res.items)[0]
+    return None
 
 
 def create_quota(module, blade):
     """Create Filesystem User Quota"""
     changed = True
+    api_version = list(blade.get_versions().items)
     if not module.check_mode:
-        try:
-            if module.params["gid"]:
-                blade.quotas_groups.create_group_quotas(
+        if module.params["gid"]:
+            if CONTEXT_API_VERSION in api_version:
+                res = blade.post_quotas_groups(
                     file_system_names=[module.params["name"]],
                     gids=[module.params["gid"]],
-                    quota=QuotasGroup(
+                    quota=GroupQuotaPost(
                         quota=int(human_to_bytes(module.params["quota"]))
                     ),
+                    context_names=[module.params["context"]],
                 )
             else:
-                blade.quotas_groups.create_group_quotas(
+                res = blade.post_quotas_groups(
                     file_system_names=[module.params["name"]],
-                    group_names=[module.params["gname"]],
-                    quota=QuotasGroup(
+                    gids=[module.params["gid"]],
+                    quota=GroupQuotaPost(
                         quota=int(human_to_bytes(module.params["quota"]))
                     ),
                 )
-        except Exception:
-            if module.params["gid"]:
+            if res.status_code != 200:
                 module.fail_json(
-                    msg="Failed to create quote for UID {0} on filesystem {1}.".format(
-                        module.params["gid"], module.params["name"]
+                    msg="Failed to create quote for UID {0} on filesystem {1}. Error: {2}".format(
+                        module.params["gid"],
+                        module.params["name"],
+                        res.errors[0].message,
                     )
                 )
+        else:
+            if CONTEXT_API_VERSION in api_version:
+                res = blade.post_quotas_groups(
+                    file_system_names=[module.params["name"]],
+                    group_names=[module.params["gname"]],
+                    quota=GroupQuotaPost(
+                        quota=int(human_to_bytes(module.params["quota"]))
+                    ),
+                    context_names=[module.params["context"]],
+                )
             else:
+                res = blade.post_quotas_groups(
+                    file_system_names=[module.params["name"]],
+                    group_names=[module.params["gname"]],
+                    quota=GroupQuotaPost(
+                        quota=int(human_to_bytes(module.params["quota"]))
+                    ),
+                )
+            if res.status_code != 200:
                 module.fail_json(
-                    msg="Failed to create quote for groupname {0} on filesystem {1}.".format(
-                        module.params["gname"], module.params["name"]
+                    msg="Failed to create quote for groupname {0} on filesystem {1}. Error: {2}".format(
+                        module.params["gname"],
+                        module.params["name"],
+                        res.errors[0].message,
                     )
                 )
     module.exit_json(changed=changed)
@@ -199,38 +245,61 @@ def create_quota(module, blade):
 def update_quota(module, blade):
     """Upodate Filesystem User Quota"""
     changed = False
+    api_version = list(blade.get_versions().items)
     current_quota = get_quota(module, blade)
     if current_quota.quota != human_to_bytes(module.params["quota"]):
         changed = True
         if not module.check_mode:
             if module.params["gid"]:
-                try:
-                    blade.quotas_groups.update_group_quotas(
+                if CONTEXT_API_VERSION in api_version:
+                    res = blade.patch_quotas_groups(
                         file_system_names=[module.params["name"]],
                         gids=[module.params["gid"]],
-                        quota=QuotasGroup(
+                        quota=GroupQuotaPatch(
+                            quota=int(human_to_bytes(module.params["quota"]))
+                        ),
+                        context_names=[module.params["context"]],
+                    )
+                else:
+                    res = blade.patch_quotas_groups(
+                        file_system_names=[module.params["name"]],
+                        gids=[module.params["gid"]],
+                        quota=GroupQuotaPatch(
                             quota=int(human_to_bytes(module.params["quota"]))
                         ),
                     )
-                except Exception:
+                if res.status_code != 200:
                     module.fail_json(
-                        msg="Failed to update quota for UID {0} on filesystem {1}.".format(
-                            module.params["gid"], module.params["name"]
+                        msg="Failed to update quota for UID {0} on filesystem {1}. Error: {2}".format(
+                            module.params["gid"],
+                            module.params["name"],
+                            res.errors[0].message,
                         )
                     )
             else:
-                try:
-                    blade.quotas_groups.update_group_quotas(
+                if CONTEXT_API_VERSION in api_version:
+                    res = blade.patch_quotas_groups(
                         file_system_names=[module.params["name"]],
                         group_names=[module.params["gname"]],
-                        quota=QuotasGroup(
+                        quota=GroupQuotaPatch(
+                            quota=int(human_to_bytes(module.params["quota"]))
+                        ),
+                        context_names=[module.params["context"]],
+                    )
+                else:
+                    res = blade.patch_quotas_groups(
+                        file_system_names=[module.params["name"]],
+                        group_names=[module.params["gname"]],
+                        quota=GroupQuotaPatch(
                             quota=int(human_to_bytes(module.params["quota"]))
                         ),
                     )
-                except Exception:
+                if res.status_code != 200:
                     module.fail_json(
-                        msg="Failed to update quota for UID {0} on filesystem {1}.".format(
-                            module.params["gname"], module.params["name"]
+                        msg="Failed to update quota for UID {0} on filesystem {1}. Error: {2}".format(
+                            module.params["gname"],
+                            module.params["name"],
+                            res.errors[0].message,
                         )
                     )
     module.exit_json(changed=changed)
@@ -239,29 +308,44 @@ def update_quota(module, blade):
 def delete_quota(module, blade):
     """Delete Filesystem User Quota"""
     changed = True
+    api_version = list(blade.get_versions().items)
     if not module.check_mode:
-        try:
-            if module.params["gid"]:
-                blade.quotas_groups.delete_group_quotas(
+        if module.params["gid"]:
+            if CONTEXT_API_VERSION in api_version:
+                res = blade.delete_quotas_groups(
+                    file_system_names=[module.params["name"]],
+                    gids=[module.params["gid"]],
+                    context_names=[module.params["context"]],
+                )
+            else:
+                res = blade.delete_quotas_groups(
                     file_system_names=[module.params["name"]],
                     gids=[module.params["gid"]],
                 )
-            else:
-                blade.quotas_groups.delete_group_quotas(
-                    file_system_names=[module.params["name"]],
-                    group_names=[module.params["gname"]],
-                )
-        except Exception:
-            if module.params["gid"]:
+            if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete quota for UID {0} on filesystem {1}.".format(
                         module.params["gid"], module.params["name"]
                     )
                 )
+        else:
+            if CONTEXT_API_VERSION in api_version:
+                res = blade.delete_quotas_groups(
+                    file_system_names=[module.params["name"]],
+                    group_names=[module.params["gname"]],
+                    context_names=[module.params["context"]],
+                )
             else:
+                res = blade.delete_quotas_groups(
+                    file_system_names=[module.params["name"]],
+                    group_names=[module.params["gname"]],
+                )
+            if res.status_code != 200:
                 module.fail_json(
-                    msg="Failed to delete quota for groupname {0} on filesystem {1}.".format(
-                        module.params["gname"], module.params["name"]
+                    msg="Failed to delete quota for groupname {0} on filesystem {1}. Error: {2}".format(
+                        module.params["gname"],
+                        module.params["name"],
+                        res.errors[0].message,
                     )
                 )
     module.exit_json(changed=changed)
@@ -276,6 +360,7 @@ def main():
             gname=dict(type="str"),
             state=dict(default="present", choices=["present", "absent"]),
             quota=dict(type="str"),
+            context=dict(type="str", default=""),
         )
     )
 
@@ -289,18 +374,10 @@ def main():
     )
 
     if not HAS_PURITY_FB:
-        module.fail_json(msg="purity_fb sdk is required for this module")
+        module.fail_json(msg="py-pure-client sdk is required for this module")
 
     state = module.params["state"]
-    blade = get_blade(module)
-    versions = blade.api_version.list_versions().versions
-
-    if MIN_REQUIRED_API_VERSION not in versions:
-        module.fail_json(
-            msg="Minimum FlashBlade REST version required: {0}".format(
-                MIN_REQUIRED_API_VERSION
-            )
-        )
+    blade = get_system(module)
     fsys = get_fs(module, blade)
     if not fsys:
         module.fail_json(

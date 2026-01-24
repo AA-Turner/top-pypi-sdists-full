@@ -1,4 +1,5 @@
-use kornia_image::{Image, ImageError};
+use kornia_image::{allocator::ImageAllocator, Image, ImageError};
+use rayon::prelude::*;
 
 /// Compute the pixel intensity histogram of an image.
 ///
@@ -22,14 +23,16 @@ use kornia_image::{Image, ImageError};
 ///
 /// ```
 /// use kornia_image::{Image, ImageSize};
+/// use kornia_image::allocator::CpuAllocator;
 /// use kornia_imgproc::histogram::compute_histogram;
 ///
-/// let image = Image::<u8, 1>::new(
+/// let image = Image::<u8, 1, _>::new(
 ///   ImageSize {
 ///     width: 3,
 ///     height: 3,
 ///   },
 ///   vec![0, 2, 4, 128, 130, 132, 254, 255, 255],
+///   CpuAllocator
 /// ).unwrap();
 ///
 /// let mut histogram = vec![0; 3];
@@ -37,9 +40,9 @@ use kornia_image::{Image, ImageError};
 /// compute_histogram(&image, &mut histogram, 3).unwrap();
 /// assert_eq!(histogram, vec![3, 3, 3]);
 /// ```
-pub fn compute_histogram(
-    src: &Image<u8, 1>,
-    hist: &mut Vec<usize>,
+pub fn compute_histogram<A: ImageAllocator>(
+    src: &Image<u8, 1, A>,
+    hist: &mut [usize],
     num_bins: usize,
 ) -> Result<(), ImageError> {
     if num_bins == 0 || num_bins > 256 {
@@ -53,12 +56,33 @@ pub fn compute_histogram(
     // we assume 8-bit images for now and range [0, 255]
     let scale = 256.0 / num_bins as f32;
 
-    // TODO: check if this can be done in parallel
-    src.as_slice().iter().fold(hist, |histogram, &pixel| {
-        let bin_pos = (pixel as f32 / scale).floor();
-        histogram[bin_pos as usize] += 1;
-        histogram
-    });
+    let width = src.width();
+    let src_slice = src.as_slice();
+
+    // parallaized computation of histogram on local threads
+    let partial_hist = src_slice
+        .par_chunks_exact(width)
+        .map(|row| {
+            let mut local_hist = vec![0_usize; num_bins];
+            for &pixel in row {
+                let bin = (pixel as f32 / scale).floor() as usize;
+                local_hist[bin] += 1;
+            }
+            local_hist
+        })
+        .reduce(
+            || vec![0; num_bins],
+            |mut a, b| {
+                for (i, val) in b.into_iter().enumerate() {
+                    a[i] += val;
+                }
+                a
+            },
+        );
+
+    for (i, val) in partial_hist.into_iter().enumerate() {
+        hist[i] += val;
+    }
 
     Ok(())
 }
@@ -66,7 +90,7 @@ pub fn compute_histogram(
 #[cfg(test)]
 mod tests {
     use kornia_image::{Image, ImageError, ImageSize};
-
+    use kornia_tensor::CpuAllocator;
     #[test]
     fn test_compute_histogram() -> Result<(), ImageError> {
         let image = Image::new(
@@ -75,6 +99,7 @@ mod tests {
                 height: 3,
             },
             vec![0, 2, 4, 128, 130, 132, 254, 255, 255],
+            CpuAllocator,
         )?;
 
         let mut histogram = vec![0; 3];

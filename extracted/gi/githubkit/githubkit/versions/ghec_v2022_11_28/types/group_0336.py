@@ -12,25 +12,29 @@ from __future__ import annotations
 from typing_extensions import TypedDict
 
 
-class BranchShortType(TypedDict):
-    """Branch Short
+class WorkflowDispatchResponseType(TypedDict):
+    """Workflow Dispatch Response
 
-    Branch Short
+    Response containing the workflow run ID and URLs.
     """
 
-    name: str
-    commit: BranchShortPropCommitType
-    protected: bool
+    workflow_run_id: int
+    run_url: str
+    html_url: str
 
 
-class BranchShortPropCommitType(TypedDict):
-    """BranchShortPropCommit"""
+class WorkflowDispatchResponseTypeForResponse(TypedDict):
+    """Workflow Dispatch Response
 
-    sha: str
-    url: str
+    Response containing the workflow run ID and URLs.
+    """
+
+    workflow_run_id: int
+    run_url: str
+    html_url: str
 
 
 __all__ = (
-    "BranchShortPropCommitType",
-    "BranchShortType",
+    "WorkflowDispatchResponseType",
+    "WorkflowDispatchResponseTypeForResponse",
 )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvespa
-Version: 0.61.0
+Version: 0.63.0
 Summary: Python API for vespa.ai
 Author: Thiago G. Martins, Thomas Thoresen
 Maintainer-email: Thomas Thoresen <thomas@vespa.ai>
@@ -210,7 +210,7 @@ Project-URL: homepage, https://pypi.org/project/pyvespa
 Project-URL: repository, https://github.com/vespa-engine/pyvespa
 Keywords: vespa,search engine,data science
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.9
+Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
@@ -225,10 +225,11 @@ Requires-Dist: typing_extensions
 Requires-Dist: python-dateutil
 Requires-Dist: fastcore>=1.7.8
 Requires-Dist: lxml
+Requires-Dist: certifi
 Provides-Extra: vespacli
 Requires-Dist: vespacli; extra == "vespacli"
 Provides-Extra: build
-Requires-Dist: setuptools==69.0.3; extra == "build"
+Requires-Dist: setuptools==78.1.1; extra == "build"
 Requires-Dist: build==1.0.3; extra == "build"
 Requires-Dist: twine==5.1.1; extra == "build"
 Requires-Dist: toml==0.10.2; extra == "build"
@@ -240,7 +241,7 @@ Requires-Dist: vespacli; extra == "unittest"
 Requires-Dist: pytest-asyncio; extra == "unittest"
 Requires-Dist: mypy>=1.14.1; extra == "unittest"
 Provides-Extra: docs
-Requires-Dist: ipykernel; extra == "docs"
+Requires-Dist: ipykernel==6.30.1; extra == "docs"
 Requires-Dist: nbconvert; extra == "docs"
 Requires-Dist: jupyter; extra == "docs"
 Requires-Dist: mkdocs-material; extra == "docs"
@@ -262,8 +263,8 @@ Requires-Dist: tiktoken; extra == "feed"
 Requires-Dist: vespacli; extra == "feed"
 Provides-Extra: notebooks
 Requires-Dist: notebook; extra == "notebooks"
-Requires-Dist: nbconvert<=7.12.0; extra == "notebooks"
-Requires-Dist: ipykernel; extra == "notebooks"
+Requires-Dist: nbconvert; extra == "notebooks"
+Requires-Dist: ipykernel==6.30.1; extra == "notebooks"
 Requires-Dist: jupytext; extra == "notebooks"
 Requires-Dist: numpy; extra == "notebooks"
 Requires-Dist: pandas; extra == "notebooks"

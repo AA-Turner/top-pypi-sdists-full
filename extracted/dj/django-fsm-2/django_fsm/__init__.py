@@ -8,6 +8,7 @@ import inspect
 from functools import partialmethod
 from functools import wraps
 
+from django import VERSION as DJANGO_VERSION
 from django.apps import apps as django_apps
 from django.db import models
 from django.db.models import Field
@@ -18,22 +19,22 @@ from django_fsm.signals import post_transition
 from django_fsm.signals import pre_transition
 
 __all__ = [
-    "TransitionNotAllowed",
-    "ConcurrentTransition",
-    "FSMFieldMixin",
-    "FSMField",
-    "FSMIntegerField",
-    "FSMKeyField",
-    "ConcurrentTransitionMixin",
-    "transition",
-    "can_proceed",
-    "has_transition_perm",
     "GET_STATE",
     "RETURN_VALUE",
+    "ConcurrentTransition",
+    "ConcurrentTransitionMixin",
+    "FSMField",
+    "FSMFieldMixin",
+    "FSMIntegerField",
+    "FSMKeyField",
+    "TransitionNotAllowed",
+    "can_proceed",
+    "has_transition_perm",
+    "transition",
 ]
 
 
-class TransitionNotAllowed(Exception):
+class TransitionNotAllowed(Exception):  # noqa: N818
     """Raised when a transition is not allowed"""
 
     def __init__(self, *args, **kwargs):
@@ -42,11 +43,11 @@ class TransitionNotAllowed(Exception):
         super().__init__(*args, **kwargs)
 
 
-class InvalidResultState(Exception):
+class InvalidResultState(Exception):  # noqa: N818
     """Raised when we got invalid result state"""
 
 
-class ConcurrentTransition(Exception):
+class ConcurrentTransition(Exception):  # noqa: N818
     """
     Raised when the transition cannot be executed because the
     object has become stale (state has been changed since it
@@ -91,7 +92,7 @@ class Transition:
         return False
 
 
-def get_available_FIELD_transitions(instance, field):
+def get_available_FIELD_transitions(instance, field):  # noqa: N802
     """
     List of transitions available in current model state
     with all conditions met
@@ -105,14 +106,14 @@ def get_available_FIELD_transitions(instance, field):
             yield meta.get_transition(curr_state)
 
 
-def get_all_FIELD_transitions(instance, field):
+def get_all_FIELD_transitions(instance, field):  # noqa: N802
     """
     List of all transitions available in current model state
     """
     return field.get_all_transitions(instance.__class__)
 
 
-def get_available_user_FIELD_transitions(instance, user, field):
+def get_available_user_FIELD_transitions(instance, user, field):  # noqa: N802
     """
     List of transitions available in current model state
     with all conditions met and user have rights on it
@@ -211,7 +212,7 @@ class FSMFieldDescriptor:
     def __init__(self, field):
         self.field = field
 
-    def __get__(self, instance, type=None):
+    def __get__(self, instance, instance_type=None):
         if instance is None:
             return self
         return self.field.get_state(instance)
@@ -234,7 +235,7 @@ class FSMFieldMixin:
         self.state_proxy = {}  # state -> ProxyClsRef
 
         state_choices = kwargs.pop("state_choices", None)
-        choices = kwargs.get("choices", None)
+        choices = kwargs.get("choices")
         if state_choices is not None and choices is not None:
             raise ValueError("Use one of choices or state_choices value")
 
@@ -344,8 +345,7 @@ class FSMFieldMixin:
         for transition in transitions.values():
             meta = transition._django_fsm
 
-            for transition in meta.transitions.values():
-                yield transition
+            yield from meta.transitions.values()
 
     def contribute_to_class(self, cls, name, **kwargs):
         self.base_cls = cls
@@ -405,8 +405,6 @@ class FSMIntegerField(FSMFieldMixin, models.IntegerField):
     """
     Same as FSMField, but stores the state value in an IntegerField.
     """
-
-    pass
 
 
 class FSMKeyField(FSMFieldMixin, models.ForeignKey):
@@ -482,7 +480,7 @@ class ConcurrentTransitionMixin:
     def state_fields(self):
         return filter(lambda field: isinstance(field, FSMFieldMixin), self._meta.fields)
 
-    def _do_update(self, base_qs, using, pk_val, values, update_fields, forced_update):
+    def _do_update(self, base_qs, using, pk_val, values, update_fields, forced_update, returning_fields=None):
         # _do_update is called once for each model class in the inheritance hierarchy.
         # We can only filter the base_qs on state fields (can be more than one!) present in this particular model.
 
@@ -492,14 +490,26 @@ class ConcurrentTransitionMixin:
         # state filter will be used to narrow down the standard filter checking only PK
         state_filter = {field.attname: self.__initial_states[field.attname] for field in filter_on}
 
-        updated = super()._do_update(
-            base_qs=base_qs.filter(**state_filter),
-            using=using,
-            pk_val=pk_val,
-            values=values,
-            update_fields=update_fields,
-            forced_update=forced_update,
-        )
+        # Django 6.0+ added returning_fields parameter to _do_update
+        if DJANGO_VERSION >= (6, 0):
+            updated = super()._do_update(
+                base_qs=base_qs.filter(**state_filter),
+                using=using,
+                pk_val=pk_val,
+                values=values,
+                update_fields=update_fields,
+                forced_update=forced_update,
+                returning_fields=returning_fields,
+            )
+        else:
+            updated = super()._do_update(
+                base_qs=base_qs.filter(**state_filter),
+                using=using,
+                pk_val=pk_val,
+                values=values,
+                update_fields=update_fields,
+                forced_update=forced_update,
+            )
 
         # It may happen that nothing was updated in the original _do_update method not because of unmatching state,
         # but because of missing PK. This codepath is possible when saving a new model instance with *preset PK*.
@@ -557,7 +567,7 @@ def transition(field, source="*", target=None, on_error=None, conditions=[], per
     return inner_transition
 
 
-def can_proceed(bound_method, check_conditions=True):
+def can_proceed(bound_method, check_conditions=True):  # noqa: FBT002
     """
     Returns True if model in state allows to call bound_method
 
@@ -597,25 +607,23 @@ class State:
         raise NotImplementedError
 
 
-class RETURN_VALUE(State):
+class RETURN_VALUE(State):  # noqa: N801
     def __init__(self, *allowed_states):
         self.allowed_states = allowed_states if allowed_states else None
 
     def get_state(self, model, transition, result, args=[], kwargs={}):
-        if self.allowed_states is not None:
-            if result not in self.allowed_states:
-                raise InvalidResultState(f"{result} is not in list of allowed states\n{self.allowed_states}")
+        if self.allowed_states is not None and result not in self.allowed_states:
+            raise InvalidResultState(f"{result} is not in list of allowed states\n{self.allowed_states}")
         return result
 
 
-class GET_STATE(State):
+class GET_STATE(State):  # noqa: N801
     def __init__(self, func, states=None):
         self.func = func
         self.allowed_states = states
 
     def get_state(self, model, transition, result, args=[], kwargs={}):
         result_state = self.func(model, *args, **kwargs)
-        if self.allowed_states is not None:
-            if result_state not in self.allowed_states:
-                raise InvalidResultState(f"{result_state} is not in list of allowed states\n{self.allowed_states}")
+        if self.allowed_states is not None and result_state not in self.allowed_states:
+            raise InvalidResultState(f"{result_state} is not in list of allowed states\n{self.allowed_states}")
         return result_state

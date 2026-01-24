@@ -19,7 +19,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 def get_config_info(option):
     config_file_path = os.path.expanduser(CONFIG_FILE_PATH)
-    options = ('from_lang', 'to_lang', 'provider', 'secret_access_key')
+    options = ('from_lang', 'to_lang', 'provider', 'secret_access_key', 'region', 'folder_id')
     if not os.path.exists(config_file_path) or option not in options:
         return ''
 
@@ -140,10 +140,29 @@ def config_file(ctx, from_lang, to_lang, provider, secret_access_key):
     help="Set to use DeepL's pro API.",
     required=False,
 )
+@click.option(
+    'region', '--region', '-r',
+    default=get_config_info('region'),
+    help="Region for apis",
+    required=False,
+)
+@click.option(
+    'folder_id', '--folder_id',
+    default=get_config_info('folder_id'),
+    help="Folder ID for Yandex API",
+    required=False,
+)
+@click.option(
+    'is_iam', '--is_iam',
+    default=False,
+    is_flag=True,
+    help="Use IAM token authentication for Yandex API",
+    required=False,
+)
 @click.argument('text', nargs=-1, type=click.STRING, required=True)
-def main(from_lang, to_lang, provider, secret_access_key, output_only, pro, text):
+def main(from_lang, to_lang, provider, secret_access_key, output_only, pro, text, region, folder_id, is_iam):
     """
-    Python command line tool to make on line translations
+    Python command line tool to make online translations
 
     \b
     Example:
@@ -163,6 +182,9 @@ def main(from_lang, to_lang, provider, secret_access_key, output_only, pro, text
     if provider != DEFAULT_PROVIDER:
         kwargs['secret_access_key'] = secret_access_key
         kwargs['pro'] = pro
+        kwargs['region'] = region
+        kwargs['folder_id'] = folder_id
+        kwargs['is_iam'] = is_iam
 
     translator = Translator(**kwargs)
     translation = translator.translate(text)

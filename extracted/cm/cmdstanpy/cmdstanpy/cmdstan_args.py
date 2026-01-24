@@ -1,23 +1,16 @@
 """
 CmdStan arguments
 """
+
 import os
 from enum import Enum, auto
 from time import time
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, Mapping, Optional, Union
 
 import numpy as np
 from numpy.random import default_rng
 
-from cmdstanpy import _TMPDIR
-from cmdstanpy.utils import (
-    cmdstan_path,
-    cmdstan_version_before,
-    create_named_text_file,
-    get_logger,
-    read_metric,
-    write_stan_json,
-)
+from cmdstanpy.utils import cmdstan_path, cmdstan_version_before, get_logger
 
 OptionalPath = Union[str, os.PathLike, None]
 
@@ -64,10 +57,9 @@ class SamplerArgs:
         save_warmup: bool = False,
         thin: Optional[int] = None,
         max_treedepth: Optional[int] = None,
-        metric: Union[
-            str, Dict[str, Any], List[str], List[Dict[str, Any]], None
-        ] = None,
-        step_size: Union[float, List[float], None] = None,
+        metric_type: Optional[str] = None,
+        metric_file: Union[str, list[str], None] = None,
+        step_size: Union[float, list[float], None] = None,
         adapt_engaged: bool = True,
         adapt_delta: Optional[float] = None,
         adapt_init_phase: Optional[int] = None,
@@ -82,9 +74,8 @@ class SamplerArgs:
         self.save_warmup = save_warmup
         self.thin = thin
         self.max_treedepth = max_treedepth
-        self.metric = metric
-        self.metric_type: Optional[str] = None
-        self.metric_file: Union[str, List[str], None] = None
+        self.metric_type: Optional[str] = metric_type
+        self.metric_file: Union[str, list[str], None] = metric_file
         self.step_size = step_size
         self.adapt_engaged = adapt_engaged
         self.adapt_delta = adapt_delta
@@ -161,8 +152,9 @@ class SamplerArgs:
             ):
                 if self.step_size <= 0:
                     raise ValueError(
-                        'Argument "step_size" must be > 0, '
-                        'found {}.'.format(self.step_size)
+                        'Argument "step_size" must be > 0, found {}.'.format(
+                            self.step_size
+                        )
                     )
             else:
                 if len(self.step_size) != chains:
@@ -176,124 +168,15 @@ class SamplerArgs:
                             'Argument "step_size" must be > 0, '
                             'chain {}, found {}.'.format(i + 1, step_size)
                         )
-        if self.metric is not None:
-            if isinstance(self.metric, str):
-                if self.metric in ['diag', 'diag_e']:
-                    self.metric_type = 'diag_e'
-                elif self.metric in ['dense', 'dense_e']:
-                    self.metric_type = 'dense_e'
-                elif self.metric in ['unit', 'unit_e']:
-                    self.metric_type = 'unit_e'
-                else:
-                    if not os.path.exists(self.metric):
-                        raise ValueError('no such file {}'.format(self.metric))
-                    dims = read_metric(self.metric)
-                    if len(dims) == 1:
-                        self.metric_type = 'diag_e'
-                    else:
-                        self.metric_type = 'dense_e'
-                    self.metric_file = self.metric
-            elif isinstance(self.metric, dict):
-                if 'inv_metric' not in self.metric:
-                    raise ValueError(
-                        'Entry "inv_metric" not found in metric dict.'
-                    )
-                dims = list(np.asarray(self.metric['inv_metric']).shape)
-                if len(dims) == 1:
-                    self.metric_type = 'diag_e'
-                else:
-                    self.metric_type = 'dense_e'
-                dict_file = create_named_text_file(
-                    dir=_TMPDIR, prefix="metric", suffix=".json"
-                )
-                write_stan_json(dict_file, self.metric)
-                self.metric_file = dict_file
-            elif isinstance(self.metric, (list, tuple)):
-                if len(self.metric) != chains:
-                    raise ValueError(
-                        'Number of metric files must match number of chains,'
-                        ' found {} metric files for {} chains.'.format(
-                            len(self.metric), chains
-                        )
-                    )
-                if all(isinstance(elem, dict) for elem in self.metric):
-                    metric_files: List[str] = []
-                    for i, metric in enumerate(self.metric):
-                        metric_dict: Dict[str, Any] = metric  # type: ignore
-                        if 'inv_metric' not in metric_dict:
-                            raise ValueError(
-                                'Entry "inv_metric" not found in metric dict '
-                                'for chain {}.'.format(i + 1)
-                            )
-                        if i == 0:
-                            dims = list(
-                                np.asarray(metric_dict['inv_metric']).shape
-                            )
-                        else:
-                            dims2 = list(
-                                np.asarray(metric_dict['inv_metric']).shape
-                            )
-                            if dims != dims2:
-                                raise ValueError(
-                                    'Found inconsistent "inv_metric" entry '
-                                    'for chain {}: entry has dims '
-                                    '{}, expected {}.'.format(
-                                        i + 1, dims, dims2
-                                    )
-                                )
-                        dict_file = create_named_text_file(
-                            dir=_TMPDIR, prefix="metric", suffix=".json"
-                        )
-                        write_stan_json(dict_file, metric_dict)
-                        metric_files.append(dict_file)
-                    if len(dims) == 1:
-                        self.metric_type = 'diag_e'
-                    else:
-                        self.metric_type = 'dense_e'
-                    self.metric_file = metric_files
-                elif all(isinstance(elem, str) for elem in self.metric):
-                    metric_files = []
-                    for i, metric in enumerate(self.metric):
-                        assert isinstance(metric, str)  # typecheck
-                        if not os.path.exists(metric):
-                            raise ValueError('no such file {}'.format(metric))
-                        if i == 0:
-                            dims = read_metric(metric)
-                        else:
-                            dims2 = read_metric(metric)
-                            if len(dims) != len(dims2):
-                                raise ValueError(
-                                    'Metrics files {}, {},'
-                                    ' inconsistent metrics'.format(
-                                        self.metric[0], metric
-                                    )
-                                )
-                            if dims != dims2:
-                                raise ValueError(
-                                    'Metrics files {}, {},'
-                                    ' inconsistent metrics'.format(
-                                        self.metric[0], metric
-                                    )
-                                )
-                        metric_files.append(metric)
-                    if len(dims) == 1:
-                        self.metric_type = 'diag_e'
-                    else:
-                        self.metric_type = 'dense_e'
-                    self.metric_file = metric_files
-                else:
-                    raise ValueError(
-                        'Argument "metric" must be a list of pathnames or '
-                        'Python dicts, found list of {}.'.format(
-                            type(self.metric[0])
-                        )
-                    )
-            else:
+        if self.metric_type is not None:
+            if self.metric_type in ['diag', 'dense', 'unit']:
+                self.metric_type += '_e'
+            if self.metric_type not in ['diag_e', 'dense_e', 'unit_e']:
                 raise ValueError(
-                    'Invalid metric specified, not a recognized metric type, '
-                    'must be either a metric type name, a filepath, dict, '
-                    'or list of per-chain filepaths or dicts.  Found '
-                    'an object of type {}.'.format(type(self.metric))
+                    'Argument "metric" must be one of [diag, dense, unit,'
+                    ' diag_e, dense_e, unit_e], found {}.'.format(
+                        self.metric_type
+                    )
                 )
 
         if self.adapt_delta is not None:
@@ -330,7 +213,8 @@ class SamplerArgs:
 
         if self.fixed_param and (
             self.max_treedepth is not None
-            or self.metric is not None
+            or self.metric_type is not None
+            or self.metric_file is not None
             or self.step_size is not None
             or not (
                 self.adapt_delta is None
@@ -343,7 +227,7 @@ class SamplerArgs:
                 'When fixed_param=True, cannot specify adaptation parameters.'
             )
 
-    def compose(self, idx: int, cmd: List[str]) -> List[str]:
+    def compose(self, idx: int, cmd: list[str]) -> list[str]:
         """
         Compose CmdStan command for method-specific non-default arguments.
         """
@@ -369,7 +253,7 @@ class SamplerArgs:
                 cmd.append(f'stepsize={self.step_size}')
             else:
                 cmd.append(f'stepsize={self.step_size[idx]}')
-        if self.metric is not None:
+        if self.metric_type is not None:
             cmd.append(f'metric={self.metric_type}')
         if self.metric_file is not None:
             if not isinstance(self.metric_file, list):
@@ -467,7 +351,7 @@ class OptimizeArgs:
         positive_float(self.tol_param, 'tol_param')
         positive_int(self.history_size, 'history_size')
 
-    def compose(self, _idx: int, cmd: List[str]) -> List[str]:
+    def compose(self, _idx: int, cmd: list[str]) -> list[str]:
         """compose command string for CmdStan for non-default arg values."""
         cmd.append('method=optimize')
         if self.algorithm:
@@ -511,7 +395,7 @@ class LaplaceArgs:
             raise ValueError(f'Invalid path for mode file: {self.mode}')
         positive_int(self.draws, 'draws')
 
-    def compose(self, _idx: int, cmd: List[str]) -> List[str]:
+    def compose(self, _idx: int, cmd: list[str]) -> list[str]:
         """compose command string for CmdStan for non-default arg values."""
         cmd.append('method=laplace')
         cmd.append(f'mode={self.mode}')
@@ -579,7 +463,7 @@ class PathfinderArgs:
         positive_int(self.num_draws, 'num_draws')
         positive_int(self.num_elbo_draws, 'num_elbo_draws')
 
-    def compose(self, _idx: int, cmd: List[str]) -> List[str]:
+    def compose(self, _idx: int, cmd: list[str]) -> list[str]:
         """compose command string for CmdStan for non-default arg values."""
         cmd.append('method=pathfinder')
 
@@ -624,12 +508,13 @@ class PathfinderArgs:
 class GenerateQuantitiesArgs:
     """Arguments needed for generate_quantities method."""
 
-    def __init__(self, csv_files: List[str]) -> None:
+    def __init__(self, csv_files: list[str]) -> None:
         """Initialize object."""
         self.sample_csv_files = csv_files
 
     def validate(
-        self, chains: Optional[int] = None  # pylint: disable=unused-argument
+        self,
+        chains: Optional[int] = None,  # pylint: disable=unused-argument
     ) -> None:
         """
         Check arguments correctness and consistency.
@@ -642,7 +527,7 @@ class GenerateQuantitiesArgs:
                     'Invalid path for sample csv file: {}'.format(csv)
                 )
 
-    def compose(self, idx: int, cmd: List[str]) -> List[str]:
+    def compose(self, idx: int, cmd: list[str]) -> list[str]:
         """
         Compose CmdStan command for method-specific non-default arguments.
         """
@@ -681,7 +566,8 @@ class VariationalArgs:
         self.output_samples = output_samples
 
     def validate(
-        self, chains: Optional[int] = None  # pylint: disable=unused-argument
+        self,
+        chains: Optional[int] = None,  # pylint: disable=unused-argument
     ) -> None:
         """
         Check arguments correctness and consistency.
@@ -705,7 +591,7 @@ class VariationalArgs:
         positive_int(self.output_samples, 'output_samples')
 
     # pylint: disable=unused-argument
-    def compose(self, idx: int, cmd: List[str]) -> List[str]:
+    def compose(self, idx: int, cmd: list[str]) -> list[str]:
         """
         Compose CmdStan command for method-specific non-default arguments.
         """
@@ -747,7 +633,7 @@ class CmdStanArgs:
         self,
         model_name: str,
         model_exe: OptionalPath,
-        chain_ids: Optional[List[int]],
+        chain_ids: Optional[list[int]],
         method_args: Union[
             SamplerArgs,
             OptimizeArgs,
@@ -757,8 +643,8 @@ class CmdStanArgs:
             PathfinderArgs,
         ],
         data: Union[Mapping[str, Any], str, None] = None,
-        seed: Union[int, List[int], None] = None,
-        inits: Union[int, float, str, List[str], None] = None,
+        seed: Union[int, list[int], None] = None,
+        inits: Union[int, float, str, list[str], None] = None,
         output_dir: OptionalPath = None,
         sig_figs: Optional[int] = None,
         save_latent_dynamics: bool = False,
@@ -959,11 +845,11 @@ class CmdStanArgs:
         *,
         diagnostic_file: Optional[str] = None,
         profile_file: Optional[str] = None,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Compose CmdStan command for non-default arguments.
         """
-        cmd: List[str] = []
+        cmd: list[str] = []
         if idx is not None and self.chain_ids is not None:
             if idx < 0 or idx > len(self.chain_ids) - 1:
                 raise ValueError(

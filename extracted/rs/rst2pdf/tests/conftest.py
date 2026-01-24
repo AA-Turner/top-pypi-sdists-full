@@ -51,8 +51,12 @@ check_dependency = {'plantuml': can_run(["plantuml", "-pipe"])}
 def _get_metadata(pdf):
     metadata = pdf.metadata
 
+    # Do not compare dates as they will differ each time the PDF is generated
     del metadata['creationDate']
     del metadata['modDate']
+
+    # Do not compare the ReportLab producer string as it may differ between versions
+    del metadata['producer']
 
     return metadata
 
@@ -120,7 +124,7 @@ def compare_pdfs(path_a, path_b):
             words_a == words_b
         ), "Text of the last printed block differs from the reference"
 
-    assert len(pages_a) == len(pages_b)
+    assert len(pages_a) == len(pages_b), "Number of pages differs from the reference"
     page_no = 0
     for page_a, page_b in zip(pages_a, pages_b):
         page_no = page_no + 1
@@ -129,7 +133,9 @@ def compare_pdfs(path_a, path_b):
         print(f"page_b: {page_b}")
         print("number of blocks in page_a: %s" % len(page_a))
         print("number of blocks in page_b: %s" % len(page_b))
-        assert len(page_a) == len(page_b)
+        assert len(page_a) == len(
+            page_b
+        ), f"Number of blocks on page {page_no} differs from the reference"
         for block_a, block_b in zip(page_a, page_b):
             # each block has the following format:
             #

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
+from ..options.annotations import Metadata
 from .base import PoeExecutor
 
 if TYPE_CHECKING:
+    from asyncio.subprocess import Process
     from collections.abc import Sequence
 
     from ..context import ContextProtocol
@@ -17,7 +19,23 @@ class UvExecutor(PoeExecutor):
     """
 
     __key__ = "uv"
-    __options__: dict[str, type] = {}
+
+    class ExecutorOptions(PoeExecutor.ExecutorOptions):
+        extra: str | list[str] | None = None
+        group: str | list[str] | None = None
+        no_group: Annotated[
+            str | list[str] | None, Metadata(config_name="no-group")
+        ] = None
+        with_: Annotated[str | list[str] | None, Metadata(config_name="with")] = None
+        isolated: bool = False
+        no_sync: Annotated[bool, Metadata(config_name="no-sync")] = False
+        locked: bool = False
+        frozen: bool = False
+        no_project: Annotated[bool, Metadata(config_name="no-project")] = False
+        python: str | None = None
+
+    __uv_cli_options = ("extra", "group", "no-group", "with", "python")
+    __uv_cli_flags = ("isolated", "no-sync", "locked", "frozen", "no-project")
 
     @classmethod
     def works_with_context(cls, context: ContextProtocol) -> bool:
@@ -25,16 +43,15 @@ class UvExecutor(PoeExecutor):
             return False
         return bool(cls._uv_cmd_from_path())
 
-    def execute(
+    async def execute(
         self, cmd: Sequence[str], input: bytes | None = None, use_exec: bool = False
-    ) -> int:
+    ) -> Process:
         """
-        Execute the given cmd as a subprocess inside the uv managed dev environment.
-
-        We simply use `uv run`, which handles the virtualenv and other setup for us.
+        Execute the given cmd as a subprocess via `uv run`.
         """
 
         uv_run_options = []
+
         if self._io.verbosity > 0:
             uv_run_options.append("-v")
         elif self._io.verbosity < 0:
@@ -45,8 +62,18 @@ class UvExecutor(PoeExecutor):
             uv_run_options.append(f"--directory={self.working_dir}")
             uv_run_options.append(f"--project={self.context.config.project_dir}")
 
+        uv_run_options.extend(
+            f"--{key}={item}"
+            for key in self.__uv_cli_options
+            if (value := self.options.get(key))
+            for item in ((value,) if isinstance(value, str) else value)
+        )
+        uv_run_options.extend(
+            f"--{key}" for key in self.__uv_cli_flags if self.options.get(key)
+        )
+
         # Run this task with `uv run`
-        return self._execute_cmd(
+        return await self._execute_cmd(
             (self._uv_cmd(), "run", *uv_run_options, *cmd),
             input=input,
             use_exec=use_exec,

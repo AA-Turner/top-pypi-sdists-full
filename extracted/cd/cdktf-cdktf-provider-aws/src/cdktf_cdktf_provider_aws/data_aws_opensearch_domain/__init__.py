@@ -1,7 +1,7 @@
 r'''
 # `data_aws_opensearch_domain`
 
-Refer to the Terraform Registry for docs: [`data_aws_opensearch_domain`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain).
+Refer to the Terraform Registry for docs: [`data_aws_opensearch_domain`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsOpensearchDomain(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsOpensearchDomain.DataAwsOpensearchDomain",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain aws_opensearch_domain}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain aws_opensearch_domain}.'''
 
     def __init__(
         self,
@@ -53,7 +53,6 @@ class DataAwsOpensearchDomain(
         *,
         domain_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
-        off_peak_window_options: typing.Optional[typing.Union["DataAwsOpensearchDomainOffPeakWindowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -64,15 +63,14 @@ class DataAwsOpensearchDomain(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain aws_opensearch_domain} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain aws_opensearch_domain} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param off_peak_window_options: off_peak_window_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#off_peak_window_options DataAwsOpensearchDomain#off_peak_window_options}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#region DataAwsOpensearchDomain#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#region DataAwsOpensearchDomain#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -88,7 +86,6 @@ class DataAwsOpensearchDomain(
         config = DataAwsOpensearchDomainConfig(
             domain_name=domain_name,
             id=id,
-            off_peak_window_options=off_peak_window_options,
             region=region,
             tags=tags,
             connection=connection,
@@ -115,7 +112,7 @@ class DataAwsOpensearchDomain(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsOpensearchDomain to import.
-        :param import_from_id: The id of the existing DataAwsOpensearchDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsOpensearchDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsOpensearchDomain to import is found.
         '''
         if __debug__:
@@ -126,19 +123,9 @@ class DataAwsOpensearchDomain(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
-    @jsii.member(jsii_name="putOffPeakWindowOptions")
-    def put_off_peak_window_options(self) -> None:
-        value = DataAwsOpensearchDomainOffPeakWindowOptions()
-
-        return typing.cast(None, jsii.invoke(self, "putOffPeakWindowOptions", [value]))
-
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
-
-    @jsii.member(jsii_name="resetOffPeakWindowOptions")
-    def reset_off_peak_window_options(self) -> None:
-        return typing.cast(None, jsii.invoke(self, "resetOffPeakWindowOptions", []))
 
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
@@ -254,6 +241,13 @@ class DataAwsOpensearchDomain(
         return typing.cast(builtins.str, jsii.get(self, "engineVersion"))
 
     @builtins.property
+    @jsii.member(jsii_name="identityCenterOptions")
+    def identity_center_options(
+        self,
+    ) -> "DataAwsOpensearchDomainIdentityCenterOptionsList":
+        return typing.cast("DataAwsOpensearchDomainIdentityCenterOptionsList", jsii.get(self, "identityCenterOptions"))
+
+    @builtins.property
     @jsii.member(jsii_name="ipAddressType")
     def ip_address_type(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "ipAddressType"))
@@ -276,8 +270,8 @@ class DataAwsOpensearchDomain(
     @jsii.member(jsii_name="offPeakWindowOptions")
     def off_peak_window_options(
         self,
-    ) -> "DataAwsOpensearchDomainOffPeakWindowOptionsOutputReference":
-        return typing.cast("DataAwsOpensearchDomainOffPeakWindowOptionsOutputReference", jsii.get(self, "offPeakWindowOptions"))
+    ) -> "DataAwsOpensearchDomainOffPeakWindowOptionsList":
+        return typing.cast("DataAwsOpensearchDomainOffPeakWindowOptionsList", jsii.get(self, "offPeakWindowOptions"))
 
     @builtins.property
     @jsii.member(jsii_name="processing")
@@ -310,13 +304,6 @@ class DataAwsOpensearchDomain(
     @jsii.member(jsii_name="idInput")
     def id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
-
-    @builtins.property
-    @jsii.member(jsii_name="offPeakWindowOptionsInput")
-    def off_peak_window_options_input(
-        self,
-    ) -> typing.Optional["DataAwsOpensearchDomainOffPeakWindowOptions"]:
-        return typing.cast(typing.Optional["DataAwsOpensearchDomainOffPeakWindowOptions"], jsii.get(self, "offPeakWindowOptionsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="regionInput")
@@ -1984,7 +1971,6 @@ class DataAwsOpensearchDomainCognitoOptionsOutputReference(
         "provisioners": "provisioners",
         "domain_name": "domainName",
         "id": "id",
-        "off_peak_window_options": "offPeakWindowOptions",
         "region": "region",
         "tags": "tags",
     },
@@ -2002,7 +1988,6 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         domain_name: builtins.str,
         id: typing.Optional[builtins.str] = None,
-        off_peak_window_options: typing.Optional[typing.Union["DataAwsOpensearchDomainOffPeakWindowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         region: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
@@ -2014,16 +1999,13 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param off_peak_window_options: off_peak_window_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#off_peak_window_options DataAwsOpensearchDomain#off_peak_window_options}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#region DataAwsOpensearchDomain#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#region DataAwsOpensearchDomain#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
-        if isinstance(off_peak_window_options, dict):
-            off_peak_window_options = DataAwsOpensearchDomainOffPeakWindowOptions(**off_peak_window_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2c0f1481e0115efdd12e89a4cd9c857816eedc44692308a6d82d55caa490b24e)
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
@@ -2035,7 +2017,6 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument off_peak_window_options", value=off_peak_window_options, expected_type=type_hints["off_peak_window_options"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2057,8 +2038,6 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if id is not None:
             self._values["id"] = id
-        if off_peak_window_options is not None:
-            self._values["off_peak_window_options"] = off_peak_window_options
         if region is not None:
             self._values["region"] = region
         if tags is not None:
@@ -2130,14 +2109,14 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#domain_name DataAwsOpensearchDomain#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#id DataAwsOpensearchDomain#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2146,28 +2125,17 @@ class DataAwsOpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def off_peak_window_options(
-        self,
-    ) -> typing.Optional["DataAwsOpensearchDomainOffPeakWindowOptions"]:
-        '''off_peak_window_options block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#off_peak_window_options DataAwsOpensearchDomain#off_peak_window_options}
-        '''
-        result = self._values.get("off_peak_window_options")
-        return typing.cast(typing.Optional["DataAwsOpensearchDomainOffPeakWindowOptions"], result)
-
-    @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#region DataAwsOpensearchDomain#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#region DataAwsOpensearchDomain#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/opensearch_domain#tags DataAwsOpensearchDomain#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2499,6 +2467,167 @@ class DataAwsOpensearchDomainEncryptionAtRestOutputReference(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dataAwsOpensearchDomain.DataAwsOpensearchDomainIdentityCenterOptions",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataAwsOpensearchDomainIdentityCenterOptions:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataAwsOpensearchDomainIdentityCenterOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataAwsOpensearchDomainIdentityCenterOptionsList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsOpensearchDomain.DataAwsOpensearchDomainIdentityCenterOptionsList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe6211ae877a7a0e7f8b437c1ca1970e511bd0ec7176625824cf5148f8514238)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsOpensearchDomainIdentityCenterOptionsOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__77fb6d1eb2771595750d119f94b07eb314bece939840528fa6b910fdc03c7b8b)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsOpensearchDomainIdentityCenterOptionsOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e766f01374562f6b9fc03edb1f07593a232772fb0ff04150d3df56c718955e7e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff0e01047eb012ed5e6a45bc9496ebdf4fbc358c874772f3b946e8e78f0b6730)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26aeb9cd68b7ad6bd1ee259e0285ec62a5c79063aebf02ecb936bd783b3d6226)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataAwsOpensearchDomainIdentityCenterOptionsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsOpensearchDomain.DataAwsOpensearchDomainIdentityCenterOptionsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6903891e31e4559167f5c75f86303cef14b3708e16a6e4a251ffbb6c32b02026)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="enabledApiAccess")
+    def enabled_api_access(self) -> _cdktf_9a9027ec.IResolvable:
+        return typing.cast(_cdktf_9a9027ec.IResolvable, jsii.get(self, "enabledApiAccess"))
+
+    @builtins.property
+    @jsii.member(jsii_name="identityCenterInstanceArn")
+    def identity_center_instance_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "identityCenterInstanceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rolesKey")
+    def roles_key(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "rolesKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="subjectKey")
+    def subject_key(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "subjectKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataAwsOpensearchDomainIdentityCenterOptions]:
+        return typing.cast(typing.Optional[DataAwsOpensearchDomainIdentityCenterOptions], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataAwsOpensearchDomainIdentityCenterOptions],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4d7767513fa75c19a105c72d93deda90dc915e07e6f5669c0aea3fdaa9cd775)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-aws.dataAwsOpensearchDomain.DataAwsOpensearchDomainLogPublishingOptions",
     jsii_struct_bases=[],
     name_mapping={},
@@ -2821,6 +2950,82 @@ class DataAwsOpensearchDomainOffPeakWindowOptions:
         )
 
 
+class DataAwsOpensearchDomainOffPeakWindowOptionsList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dataAwsOpensearchDomain.DataAwsOpensearchDomainOffPeakWindowOptionsList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e1240f0d7ce0c25534ff3e5419f0bfe4228d3779a22f0e0a7045a680d35beab)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataAwsOpensearchDomainOffPeakWindowOptionsOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d49174267300e4f5aadc1cc853bb0c805b179909cfe3bdf25da78ed69423d1d6)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataAwsOpensearchDomainOffPeakWindowOptionsOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b32df30ed0ef754754a67ef5cc535c1a934cbf12442d3d7c1a6f177c5136874)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__398730643f01474745fb7eb1be80d8e32a6c8a8dc976f1c04f765a2d32f7b440)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__805f3499fac28715750efceccc48ebe48558066ae64719232867ec517809e931)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.dataAwsOpensearchDomain.DataAwsOpensearchDomainOffPeakWindowOptionsOffPeakWindow",
     jsii_struct_bases=[],
@@ -3129,16 +3334,22 @@ class DataAwsOpensearchDomainOffPeakWindowOptionsOutputReference(
         self,
         terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
         terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
     ) -> None:
         '''
         :param terraform_resource: The parent resource.
         :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f08d2acfc55be4286cbe1294892acf6e6b75ea68f21f4143c98521d4bc337e82)
             check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
-        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -3658,6 +3869,9 @@ __all__ = [
     "DataAwsOpensearchDomainEncryptionAtRest",
     "DataAwsOpensearchDomainEncryptionAtRestList",
     "DataAwsOpensearchDomainEncryptionAtRestOutputReference",
+    "DataAwsOpensearchDomainIdentityCenterOptions",
+    "DataAwsOpensearchDomainIdentityCenterOptionsList",
+    "DataAwsOpensearchDomainIdentityCenterOptionsOutputReference",
     "DataAwsOpensearchDomainLogPublishingOptions",
     "DataAwsOpensearchDomainLogPublishingOptionsList",
     "DataAwsOpensearchDomainLogPublishingOptionsOutputReference",
@@ -3665,6 +3879,7 @@ __all__ = [
     "DataAwsOpensearchDomainNodeToNodeEncryptionList",
     "DataAwsOpensearchDomainNodeToNodeEncryptionOutputReference",
     "DataAwsOpensearchDomainOffPeakWindowOptions",
+    "DataAwsOpensearchDomainOffPeakWindowOptionsList",
     "DataAwsOpensearchDomainOffPeakWindowOptionsOffPeakWindow",
     "DataAwsOpensearchDomainOffPeakWindowOptionsOffPeakWindowList",
     "DataAwsOpensearchDomainOffPeakWindowOptionsOffPeakWindowOutputReference",
@@ -3691,7 +3906,6 @@ def _typecheckingstub__361ca6b3786e8dd0875a7f9ada87c38372343059cccab079a0b198547
     *,
     domain_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
-    off_peak_window_options: typing.Optional[typing.Union[DataAwsOpensearchDomainOffPeakWindowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4219,7 +4433,6 @@ def _typecheckingstub__2c0f1481e0115efdd12e89a4cd9c857816eedc44692308a6d82d55caa
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     domain_name: builtins.str,
     id: typing.Optional[builtins.str] = None,
-    off_peak_window_options: typing.Optional[typing.Union[DataAwsOpensearchDomainOffPeakWindowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     region: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
@@ -4320,6 +4533,53 @@ def _typecheckingstub__880073dce02e60ead6621db6bf824f893590301d632140bf35e026285
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fe6211ae877a7a0e7f8b437c1ca1970e511bd0ec7176625824cf5148f8514238(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77fb6d1eb2771595750d119f94b07eb314bece939840528fa6b910fdc03c7b8b(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e766f01374562f6b9fc03edb1f07593a232772fb0ff04150d3df56c718955e7e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff0e01047eb012ed5e6a45bc9496ebdf4fbc358c874772f3b946e8e78f0b6730(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26aeb9cd68b7ad6bd1ee259e0285ec62a5c79063aebf02ecb936bd783b3d6226(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6903891e31e4559167f5c75f86303cef14b3708e16a6e4a251ffbb6c32b02026(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4d7767513fa75c19a105c72d93deda90dc915e07e6f5669c0aea3fdaa9cd775(
+    value: typing.Optional[DataAwsOpensearchDomainIdentityCenterOptions],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f06b82c6883a40bf90700f4e7501a73539824cf975b1210051df2299188051ed(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -4410,6 +4670,38 @@ def _typecheckingstub__d0c335b49ccf43aaf96eb8d4af8e7e01f4e31af9a1a8db05a552b3d59
 
 def _typecheckingstub__ec7e9f41887b47f866d24af6c27c768e36a485e29f90ab64fd343ab55605fbf3(
     value: typing.Optional[DataAwsOpensearchDomainNodeToNodeEncryption],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e1240f0d7ce0c25534ff3e5419f0bfe4228d3779a22f0e0a7045a680d35beab(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d49174267300e4f5aadc1cc853bb0c805b179909cfe3bdf25da78ed69423d1d6(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b32df30ed0ef754754a67ef5cc535c1a934cbf12442d3d7c1a6f177c5136874(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__398730643f01474745fb7eb1be80d8e32a6c8a8dc976f1c04f765a2d32f7b440(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__805f3499fac28715750efceccc48ebe48558066ae64719232867ec517809e931(
+    value: builtins.bool,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4511,6 +4803,8 @@ def _typecheckingstub__808efac46d92db906ddea115c0615d1628110b3885256f0d8dba3480b
 def _typecheckingstub__f08d2acfc55be4286cbe1294892acf6e6b75ea68f21f4143c98521d4bc337e82(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
 ) -> None:
     """Type checking stubs"""
     pass

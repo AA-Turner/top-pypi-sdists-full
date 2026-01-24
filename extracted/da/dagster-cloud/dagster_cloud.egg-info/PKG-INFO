@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-cloud
-Version: 1.11.11
+Version: 1.12.12
 Author-email: Elementl <support@elementl.com>
 License: Apache-2.0
 Project-URL: Homepage, https://dagster.io/cloud
@@ -22,20 +22,18 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Operating System :: OS Independent
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: dagster==1.11.11
-Requires-Dist: dagster-shared==1.11.11
-Requires-Dist: dagster-cloud-cli==1.11.11
-Requires-Dist: opentelemetry-api<2,>=1.27.0
-Requires-Dist: opentelemetry-sdk<2,>=1.27.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2,>=1.27.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.27.0
-Requires-Dist: pex<3,>=2.1.132
+Requires-Dist: dagster==1.12.12
+Requires-Dist: dagster-shared==1.12.12
+Requires-Dist: dagster-cloud-cli==1.12.12
+Requires-Dist: pex<2.60.0,>=2.1.132
 Requires-Dist: questionary
 Requires-Dist: requests
 Requires-Dist: typer
@@ -53,24 +51,29 @@ Requires-Dist: pylint; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: types-PyYAML; extra == "tests"
 Requires-Dist: types-requests; extra == "tests"
-Requires-Dist: dagster-cloud-test-infra; extra == "tests"
 Requires-Dist: dbt-bigquery>=1.9.0; extra == "tests"
 Requires-Dist: dbt-core; extra == "tests"
 Requires-Dist: dbt-snowflake; extra == "tests"
 Requires-Dist: dbt-duckdb; extra == "tests"
 Requires-Dist: dagster-dbt; extra == "tests"
 Requires-Dist: dagster-k8s; extra == "tests"
+Requires-Dist: dagster-docker; extra == "tests"
 Requires-Dist: dagster-cloud-backend; extra == "tests"
+Requires-Dist: dagster-test; extra == "tests"
+Requires-Dist: dagster-cloud-test-infra; extra == "tests"
+Requires-Dist: dagster-cloud-dagit; extra == "tests"
+Requires-Dist: dagster-dg-cli; extra == "tests"
+Requires-Dist: syrupy; extra == "tests"
 Provides-Extra: insights
 Requires-Dist: pyarrow; extra == "insights"
 Provides-Extra: docker
 Requires-Dist: docker; extra == "docker"
-Requires-Dist: dagster-docker==0.27.11; extra == "docker"
+Requires-Dist: dagster-docker==0.28.12; extra == "docker"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes; extra == "kubernetes"
-Requires-Dist: dagster-k8s==0.27.11; extra == "kubernetes"
+Requires-Dist: dagster-k8s==0.28.12; extra == "kubernetes"
 Provides-Extra: ecs
-Requires-Dist: dagster-aws==0.27.11; extra == "ecs"
+Requires-Dist: dagster-aws==0.28.12; extra == "ecs"
 Requires-Dist: boto3; extra == "ecs"
 Provides-Extra: sandbox
 Requires-Dist: supervisor; extra == "sandbox"

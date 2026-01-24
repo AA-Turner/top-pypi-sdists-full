@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import json
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence, TypeVar
+from typing import TypeVar
 
 import attrs
 import numpy as np
@@ -25,14 +26,14 @@ from typing_extensions import Self
 try:
     from PIL import Image
 except ImportError as err:
-    warnings.warn("Experimental spatial ingestor requires the `pillow` package.")
+    warnings.warn("Experimental spatial ingestor requires the `pillow` package.", stacklevel=1)
     raise err
 
 
 from somacore import Axis, CoordinateSpace, IdentityTransform, ScaleTransform
 from somacore.options import PlatformConfig
 
-from ... import (
+from tiledbsoma import (
     Collection,
     DataFrame,
     DenseNDArray,
@@ -45,29 +46,15 @@ from ... import (
     _util,
     logging,
 )
-from ..._common_nd_array import NDArray
-from ..._constants import SOMA_JOINID, SPATIAL_DISCLAIMER
-from ..._exception import (
-    AlreadyExistsError,
-    NotCreateableError,
-    SOMAError,
-)
-from ..._soma_object import AnySOMAObject
-from ..._types import IngestMode
-from ...options import SOMATileDBContext
-from ...options._soma_tiledb_context import _validate_soma_tiledb_context
-from ...options._tiledb_create_write_options import (
-    TileDBCreateOptions,
-    TileDBWriteOptions,
-)
-from .. import conversions
-from .._common import AdditionalMetadata
-from .._registration import (
-    AxisIDMapping,
-    ExperimentAmbientLabelMapping,
-    ExperimentIDMapping,
-)
-from ..ingest import (
+from tiledbsoma._common_nd_array import NDArray
+from tiledbsoma._constants import SOMA_JOINID, SPATIAL_DISCLAIMER
+from tiledbsoma._exception import AlreadyExistsError, SOMAError
+from tiledbsoma._soma_object import SOMAObject
+from tiledbsoma._types import IngestMode
+from tiledbsoma.io import conversions
+from tiledbsoma.io._common import AdditionalMetadata
+from tiledbsoma.io._registration import AxisIDMapping, ExperimentAmbientLabelMapping, ExperimentIDMapping
+from tiledbsoma.io.ingest import (
     IngestCtx,
     IngestionParams,
     IngestPlatformCtx,
@@ -77,12 +64,16 @@ from ..ingest import (
     _write_matrix_to_denseNDArray,
     add_metadata,
 )
+from tiledbsoma.options import SOMATileDBContext
+from tiledbsoma.options._soma_tiledb_context import _validate_soma_tiledb_context
+from tiledbsoma.options._tiledb_create_write_options import TileDBCreateOptions, TileDBWriteOptions
+
 from ._util import TenXCountMatrixReader, _read_visium_software_version
 
 _NDArr = TypeVar("_NDArr", bound=NDArray)
 
 
-def path_validator(instance, attribute, value: Path) -> None:  # type: ignore[no-untyped-def]
+def path_validator(instance, attribute, value: Path) -> None:  # type: ignore[no-untyped-def] # noqa: ARG001, ANN001
     if not value.exists():
         raise OSError(f"Path {value} does not exist")
 
@@ -91,14 +82,13 @@ def optional_path_converter(value: str | Path | None) -> Path | None:
     return None if value is None else Path(value)
 
 
-def optional_path_validator(instance, attribute, x: Path | None) -> None:  # type: ignore[no-untyped-def]
+def optional_path_validator(instance, attribute, x: Path | None) -> None:  # type: ignore[no-untyped-def] # noqa: ARG001, ANN001
     if x is not None and not x.exists():
         raise OSError(f"Path {x} does not exist")
 
 
 @attrs.define(kw_only=True)
 class VisiumPaths:
-
     @classmethod
     def from_base_folder(
         cls,
@@ -125,24 +115,20 @@ class VisiumPaths:
         base_path = Path(base_path)
 
         if gene_expression is None:
-            gene_expression_suffix = (
-                "raw_feature_bc_matrix.h5"
-                if use_raw_counts
-                else "filtered_feature_bc_matrix.h5"
-            )
+            gene_expression_suffix = "raw_feature_bc_matrix.h5" if use_raw_counts else "filtered_feature_bc_matrix.h5"
 
             possible_paths = list(base_path.glob(f"*{gene_expression_suffix}"))
             if len(possible_paths) == 0:
                 raise OSError(
                     f"No expression matrix ending in {gene_expression_suffix} found "
                     f"in {base_path}. If the file has been renamed, it can be directly "
-                    f"specified with the `gene_expression` argument."
+                    f"specified with the `gene_expression` argument.",
                 )
             if len(possible_paths) > 1:
                 raise OSError(
                     f"Multiple files ending in {gene_expression_suffix} "
                     f"found in {base_path}. The desired file must be specified with "
-                    f"the `gene_expression` argument."
+                    f"the `gene_expression` argument.",
                 )
             gene_expression = possible_paths[0]
 
@@ -186,24 +172,19 @@ class VisiumPaths:
         if version is None:
             try:
                 version = _read_visium_software_version(gene_expression)
-            except (KeyError, ValueError):
-                raise ValueError(
-                    "Unable to determine Space Ranger version from gene expression file."
-                )
+            except (KeyError, ValueError) as e:
+                raise ValueError("Unable to determine Space Ranger version from gene expression file.") from e
 
         # Find the tissue positions file path if it wasn't supplied.
         if tissue_positions is None:
             major_version = version[0] if isinstance(version, tuple) else version
-            if major_version == 1:
-                possible_file_name = "tissue_positions_list.csv"
-            else:
-                possible_file_name = "tissue_positions.csv"
+            possible_file_name = "tissue_positions_list.csv" if major_version == 1 else "tissue_positions.csv"
             tissue_positions = spatial_dir / possible_file_name
             if not tissue_positions.exists():
                 raise OSError(
                     f"No tissue position file found in {spatial_dir}. Tried file: "
                     f"{possible_file_name}. If the file has been renamed it can be "
-                    f"directly specified using argument `tissue_positions`."
+                    f"directly specified using argument `tissue_positions`.",
                 )
 
         if scale_factors is None:
@@ -227,25 +208,15 @@ class VisiumPaths:
     gene_expression: Path = attrs.field(converter=Path, validator=path_validator)
     scale_factors: Path = attrs.field(converter=Path, validator=path_validator)
     tissue_positions: Path = attrs.field(converter=Path, validator=path_validator)
-    fullres_image: Path | None = attrs.field(
-        converter=optional_path_converter, validator=optional_path_validator
-    )
-    hires_image: Path | None = attrs.field(
-        converter=optional_path_converter, validator=optional_path_validator
-    )
+    fullres_image: Path | None = attrs.field(converter=optional_path_converter, validator=optional_path_validator)
+    hires_image: Path | None = attrs.field(converter=optional_path_converter, validator=optional_path_validator)
 
-    lowres_image: Path | None = attrs.field(
-        converter=optional_path_converter, validator=optional_path_validator
-    )
+    lowres_image: Path | None = attrs.field(converter=optional_path_converter, validator=optional_path_validator)
     version: int | tuple[int, int, int]
 
     @property
     def has_image(self) -> bool:
-        return (
-            self.fullres_image is not None
-            or self.hires_image is not None
-            or self.lowres_image is not None
-        )
+        return self.fullres_image is not None or self.hires_image is not None or self.lowres_image is not None
 
     @property
     def major_version(self) -> int:
@@ -269,7 +240,7 @@ def register_visium_datasets(
         context: Optional :class:`SOMATileDBContext` for opening the existing
             :class:`Experiment`.
     """
-    raise NotImplementedError()
+    raise NotImplementedError
 
 
 def from_visium(
@@ -379,13 +350,11 @@ def from_visium(
     if ingest_mode != "write":
         raise NotImplementedError(
             f"Support for ingest mode '{ingest_mode}' is not implemented. Currently, "
-            f"only support for 'write' mode is implemented."
+            f"only support for 'write' mode is implemented.",
         )
     ingestion_params = IngestionParams(ingest_mode, registration_mapping)
     if ingestion_params.appending and X_kind == DenseNDArray:
-        raise NotImplementedError(
-            "Support for appending to `X_kind=DenseNDArray` is not implemented."
-        )
+        raise NotImplementedError("Support for appending to `X_kind=DenseNDArray` is not implemented.")
     if ingestion_params.appending:
         raise NotImplementedError("Suport for appending is not implemented.")
 
@@ -398,9 +367,7 @@ def from_visium(
         "ingestion_params": IngestionParams(ingest_mode, registration_mapping),
         "additional_metadata": additional_metadata,
     }
-    ingest_platform_ctx: IngestPlatformCtx = dict(
-        **ingest_ctx, platform_config=platform_config
-    )
+    ingest_platform_ctx: IngestPlatformCtx = dict(**ingest_ctx, platform_config=platform_config)
 
     # Get input file locations and check the version is compatible.
     input_paths = (
@@ -409,16 +376,11 @@ def from_visium(
         else VisiumPaths.from_base_folder(input_path, use_raw_counts=use_raw_counts)
     )
     if input_paths.major_version not in {1, 2}:
-        raise ValueError(
-            f"Visium version {input_paths.version} is not supported. Expected major "
-            f"version 1 or 2."
-        )
+        raise ValueError(f"Visium version {input_paths.version} is not supported. Expected major version 1 or 2.")
 
     # Get JSON scale factors.
     # -- Get the spot diameters from teh scale factors file.
-    with open(
-        input_paths.scale_factors, mode="r", encoding="utf-8"
-    ) as scale_factors_json:
+    with open(input_paths.scale_factors, encoding="utf-8") as scale_factors_json:  # noqa: PTH123
         scale_factors = json.load(scale_factors_json)
     pixels_per_spot_diameter = scale_factors["spot_diameter_fullres"]
 
@@ -437,7 +399,7 @@ def from_visium(
     # Create axes and transformations
     # mypy false positive https://github.com/python/mypy/issues/5313
     coord_space = CoordinateSpace(
-        (Axis(name="x", unit="pixels"), Axis(name="y", unit="pixels"))  # type: ignore[arg-type]
+        (Axis(name="x", unit="pixels"), Axis(name="y", unit="pixels")),  # type: ignore[arg-type]
     )
 
     # Read 10x HDF5 gene expression file.
@@ -453,7 +415,7 @@ def from_visium(
             {
                 SOMA_JOINID: pa.array(np.arange(nobs, dtype=np.int64)),
                 "obs_id": reader.obs_id,
-            }
+            },
         )
         var_data = pa.Table.from_pydict(
             {
@@ -462,7 +424,7 @@ def from_visium(
                 "gene_ids": reader.gene_id,
                 "feature_types": reader.feature_type,
                 "genome": reader.genome,
-            }
+            },
         )
     logging.log_io(None, _util.format_elapsed(start_time, "FINISHED READING"))
 
@@ -479,24 +441,19 @@ def from_visium(
     # Write the new experiment.
     start_time = _util.get_start_stamp()
     logging.log_io(None, f"START  WRITING {experiment_uri}")
-    with _create_or_open_collection(
-        Experiment, experiment_uri, **ingest_ctx
-    ) as experiment:
+    with _create_or_open_collection(Experiment, experiment_uri, **ingest_ctx) as experiment:
+        data_protocol = experiment.context.data_protocol(experiment.uri)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # OBS
         df_uri = _util.uri_joinpath(experiment_uri, "obs")
-        with _write_arrow_to_dataframe(
-            df_uri, obs_data, max_size=nobs, **ingest_platform_ctx
-        ) as obs:
+        with _write_arrow_to_dataframe(df_uri, obs_data, max_size=nobs, **ingest_platform_ctx) as obs:
             _maybe_set(experiment, "obs", obs, use_relative_uri=use_relative_uri)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # OBS
         if write_obs_spatial_presence:
-            obs_spatial_presence_uri = _util.uri_joinpath(
-                experiment_uri, "obs_spatial_presence"
-            )
+            obs_spatial_presence_uri = _util.uri_joinpath(experiment_uri, "obs_spatial_presence")
             unique_obs_id = reader.unique_obs_indices()
             obs_spatial_presence = _write_scene_presence_dataframe(
                 unique_obs_id,
@@ -516,30 +473,20 @@ def from_visium(
         # MS
         experiment_ms_uri = _util.uri_joinpath(experiment_uri, "ms")
 
-        with _create_or_open_collection(
-            Collection[Measurement], experiment_ms_uri, **ingest_ctx
-        ) as ms:
+        with _create_or_open_collection(Collection[Measurement], experiment_ms_uri, **ingest_ctx) as ms:
             _maybe_set(experiment, "ms", ms, use_relative_uri=use_relative_uri)
 
             # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
             # MS/meas
-            measurement_uri = _util.uri_joinpath(experiment_ms_uri, measurement_name)
-            with _create_or_open_collection(
-                Measurement, measurement_uri, **ingest_ctx
-            ) as measurement:
-                _maybe_set(
-                    ms, measurement_name, measurement, use_relative_uri=use_relative_uri
-                )
+            measurement_uri = _util.uri_joinpath(experiment_ms_uri, _util.sanitize_key(measurement_name, data_protocol))
+            with _create_or_open_collection(Measurement, measurement_uri, **ingest_ctx) as measurement:
+                _maybe_set(ms, measurement_name, measurement, use_relative_uri=use_relative_uri)
 
                 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
                 # MS/meas/VAR
                 var_uri = _util.uri_joinpath(measurement_uri, "var")
-                with _write_arrow_to_dataframe(
-                    var_uri, var_data, max_size=nvar, **ingest_platform_ctx
-                ) as var:
-                    _maybe_set(
-                        measurement, "var", var, use_relative_uri=use_relative_uri
-                    )
+                with _write_arrow_to_dataframe(var_uri, var_data, max_size=nvar, **ingest_platform_ctx) as var:
+                    _maybe_set(measurement, "var", var, use_relative_uri=use_relative_uri)
 
                 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
                 # MS/meas/VAR_SPATIAL_PRESENCE
@@ -566,11 +513,9 @@ def from_visium(
                 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
                 # MS/meas/X/DATA
                 measurement_X_uri = _util.uri_joinpath(measurement_uri, "X")
-                with _create_or_open_collection(
-                    Collection, measurement_X_uri, **ingest_ctx
-                ) as x:
+                with _create_or_open_collection(Collection, measurement_X_uri, **ingest_ctx) as x:
                     _maybe_set(measurement, "X", x, use_relative_uri=use_relative_uri)
-                    X_layer_uri = _util.uri_joinpath(measurement_X_uri, X_layer_name)
+                    X_layer_uri = _util.uri_joinpath(measurement_X_uri, _util.sanitize_key(X_layer_name, data_protocol))
                     with _write_X_layer(
                         X_kind,
                         X_layer_uri,
@@ -579,39 +524,30 @@ def from_visium(
                         joinid_maps.var_axes[measurement_name],
                         **ingest_platform_ctx,
                     ) as data:
-                        _maybe_set(
-                            x, X_layer_name, data, use_relative_uri=use_relative_uri
-                        )
+                        _maybe_set(x, X_layer_name, data, use_relative_uri=use_relative_uri)
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
         # SPATIAL
         spatial_uri = _util.uri_joinpath(experiment_uri, "spatial")
-        with _create_or_open_collection(
-            Collection[Scene], spatial_uri, **ingest_ctx
-        ) as spatial:
-            _maybe_set(
-                experiment, "spatial", spatial, use_relative_uri=use_relative_uri
-            )
-            scene_uri = _util.uri_joinpath(spatial_uri, scene_name)
+        with _create_or_open_collection(Collection[Scene], spatial_uri, **ingest_ctx) as spatial:
+            _maybe_set(experiment, "spatial", spatial, use_relative_uri=use_relative_uri)
+            scene_uri = _util.uri_joinpath(spatial_uri, _util.sanitize_key(scene_name, data_protocol))
             with _create_or_open_scene(scene_uri, **ingest_ctx) as scene:
-                _maybe_set(
-                    spatial, scene_name, scene, use_relative_uri=use_relative_uri
-                )
+                _maybe_set(spatial, scene_name, scene, use_relative_uri=use_relative_uri)
                 scene.coordinate_space = coord_space
 
                 img_uri = _util.uri_joinpath(scene_uri, "img")
-                with _create_or_open_collection(
-                    Collection[MultiscaleImage], img_uri, **ingest_ctx
-                ) as img:
+                with _create_or_open_collection(Collection[MultiscaleImage], img_uri, **ingest_ctx) as img:
                     _maybe_set(scene, "img", img, use_relative_uri=use_relative_uri)
 
                     # Write image data and add to the scene.
                     if image_paths:
-                        tissue_uri = _util.uri_joinpath(img_uri, image_name)
+                        tissue_uri = _util.uri_joinpath(img_uri, _util.sanitize_key(image_name, data_protocol))
                         with _create_visium_tissue_images(
                             tissue_uri,
                             image_paths,
                             image_channel_first=image_channel_first,
+                            coord_space=coord_space,
                             use_relative_uri=use_relative_uri,
                             **ingest_platform_ctx,
                         ) as tissue_image:
@@ -643,18 +579,11 @@ def from_visium(
                                 )
                                 scene.set_transform_to_multiscale_image(
                                     image_name,
-                                    transform=ScaleTransform(
-                                        ("x", "y"), ("x", "y"), updated_scales
-                                    ),
+                                    transform=ScaleTransform(("x", "y"), ("x", "y"), updated_scales),
                                 )
-                            tissue_image.coordinate_space = CoordinateSpace(
-                                (Axis(name="x", unit="pixels"), Axis(name="y", unit="pixels"))  # type: ignore[arg-type]
-                            )
 
                 obsl_uri = _util.uri_joinpath(scene_uri, "obsl")
-                with _create_or_open_collection(
-                    Collection[AnySOMAObject], obsl_uri, **ingest_ctx
-                ) as obsl:
+                with _create_or_open_collection(Collection[SOMAObject], obsl_uri, **ingest_ctx) as obsl:
                     _maybe_set(scene, "obsl", obsl, use_relative_uri=use_relative_uri)
 
                     # Write spot data and add to the scene.
@@ -671,14 +600,13 @@ def from_visium(
                     ) as loc:
                         _maybe_set(obsl, "loc", loc, use_relative_uri=use_relative_uri)
                         scene.set_transform_to_point_cloud_dataframe(
-                            "loc", transform=IdentityTransform(("x", "y"), ("x", "y"))
+                            "loc",
+                            transform=IdentityTransform(("x", "y"), ("x", "y")),
                         )
                         loc.coordinate_space = coord_space
 
                 varl_uri = _util.uri_joinpath(scene_uri, "varl")
-                with _create_or_open_collection(
-                    Collection[Collection[AnySOMAObject]], varl_uri, **ingest_ctx
-                ) as varl:
+                with _create_or_open_collection(Collection[Collection[SOMAObject]], varl_uri, **ingest_ctx) as varl:
                     _maybe_set(scene, "varl", varl, use_relative_uri=use_relative_uri)
 
     logging.log_io(
@@ -711,13 +639,11 @@ def _write_arrow_to_dataframe(
             platform_config=platform_config,
             context=context,
         )
-    except (AlreadyExistsError, NotCreateableError):
-        raise SOMAError(f"{df_uri} already exists")
+    except AlreadyExistsError as e:
+        raise SOMAError(f"{df_uri} already exists") from e
 
     if not ingestion_params.write_schema_no_data:
-        tiledb_create_options = TileDBCreateOptions.from_platform_config(
-            platform_config
-        )
+        tiledb_create_options = TileDBCreateOptions.from_platform_config(platform_config)
         tiledb_write_options = TileDBWriteOptions.from_platform_config(platform_config)
         _write_arrow_table(
             arrow_table,
@@ -739,8 +665,8 @@ def _write_X_layer(
     cls: type[_NDArr],
     uri: str,
     reader: TenXCountMatrixReader,
-    axis_0_mapping: AxisIDMapping,
-    axis_1_mapping: AxisIDMapping,
+    axis_0_mapping: AxisIDMapping,  # noqa: ARG001
+    axis_1_mapping: AxisIDMapping,  # noqa: ARG001
     *,
     ingestion_params: IngestionParams,
     additional_metadata: AdditionalMetadata,
@@ -754,7 +680,6 @@ def _write_X_layer(
     assert reader._data is not None
     matrix_type = pa.from_numpy_dtype(reader._data.dtype)
     try:
-
         soma_ndarray = cls.create(
             uri,
             type=matrix_type,
@@ -762,12 +687,10 @@ def _write_X_layer(
             platform_config=platform_config,
             context=context,
         )
-    except (AlreadyExistsError, NotCreateableError):
+    except AlreadyExistsError as e:
         if ingestion_params.error_if_already_exists:
-            raise SOMAError(f"{uri} already exists")
-        soma_ndarray = cls.open(
-            uri, "w", platform_config=platform_config, context=context
-        )
+            raise SOMAError(f"{uri} already exists") from e
+        soma_ndarray = cls.open(uri, "w", platform_config=platform_config, context=context)
 
     logging.log_io(
         f"Writing {uri}",
@@ -785,12 +708,8 @@ def _write_X_layer(
         _write_matrix_to_denseNDArray(
             soma_ndarray,
             matrix,
-            tiledb_create_options=TileDBCreateOptions.from_platform_config(
-                platform_config
-            ),
-            tiledb_write_options=TileDBWriteOptions.from_platform_config(
-                platform_config
-            ),
+            tiledb_create_options=TileDBCreateOptions.from_platform_config(platform_config),
+            tiledb_write_options=TileDBWriteOptions.from_platform_config(platform_config),
             ingestion_params=ingestion_params,
             additional_metadata=additional_metadata,
         )
@@ -801,7 +720,7 @@ def _write_X_layer(
                 "soma_data": reader.data,
                 "soma_dim_0": reader.obs_indices,
                 "soma_dim_1": reader.var_indices,
-            }
+            },
         )
         soma_ndarray.write(data, platform_config=platform_config)
     else:
@@ -835,16 +754,16 @@ def _write_scene_presence_dataframe(
                     ("soma_joinid", pa.int64()),
                     ("scene_id", pa.string()),
                     ("data", pa.bool_()),
-                ]
+                ],
             ),
             domain=((0, max_joinid_len - 1), ("", "")),
             index_column_names=("soma_joinid", "scene_id"),
             platform_config=platform_config,
             context=context,
         )
-    except (AlreadyExistsError, NotCreateableError):
+    except AlreadyExistsError as e:
         if ingestion_params.error_if_already_exists:
-            raise SOMAError(f"{df_uri} already exists")
+            raise SOMAError(f"{df_uri} already exists") from e
         soma_df = DataFrame.open(df_uri, "w", context=context)
 
     if ingestion_params.write_schema_no_data:
@@ -865,11 +784,9 @@ def _write_scene_presence_dataframe(
                 "soma_joinid": joinids,
                 "scene_id": nvalues * [scene_id],
                 "data": nvalues * [True],
-            }
+            },
         )
-        _write_arrow_table(
-            arrow_table, soma_df, tiledb_create_options, tiledb_write_options
-        )
+        _write_arrow_table(arrow_table, soma_df, tiledb_create_options, tiledb_write_options)
 
     logging.log_io(
         f"Wrote   {df_uri}",
@@ -897,10 +814,7 @@ def _write_visium_spots(
     """
     start_time = _util.get_start_stamp()
     logging.log_io(None, "START WRITING loc")
-    if major_version == 1:
-        names = [id_column_name, "in_tissue", "array_row", "array_col", "y", "x"]
-    else:
-        names = None
+    names = [id_column_name, "in_tissue", "array_row", "array_col", "y", "x"] if major_version == 1 else None
     df = (
         pd.read_csv(input_tissue_positions, names=names)
         .rename(
@@ -908,12 +822,12 @@ def _write_visium_spots(
                 "barcode": id_column_name,
                 "pxl_row_in_fullres": "y",
                 "pxl_col_in_fullres": "x",
-            }
+            },
         )
         .assign(spot_diameter_fullres=np.double(spot_diameter))
     )
     obs_df = obs_data.to_pandas()
-    df = pd.merge(obs_df, df, how="inner", on=id_column_name)
+    df = obs_df.merge(df, how="inner", on=id_column_name)
     df.drop(id_column_name, axis=1, inplace=True)
 
     domain = (
@@ -950,9 +864,7 @@ def _write_visium_spots(
     tiledb_write_options = TileDBWriteOptions.from_platform_config(platform_config)
 
     if arrow_table:
-        _write_arrow_table(
-            arrow_table, soma_point_cloud, tiledb_create_options, tiledb_write_options
-        )
+        _write_arrow_table(arrow_table, soma_point_cloud, tiledb_create_options, tiledb_write_options)
 
     add_metadata(soma_point_cloud, additional_metadata)
     logging.log_io(None, _util.format_elapsed(start_time, "FINISH WRITING loc"))
@@ -971,10 +883,10 @@ def _create_or_open_scene(
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             scene = Scene.create(uri, context=context)
-    except (AlreadyExistsError, NotCreateableError):
+    except AlreadyExistsError as e:
         # It already exists. Are we resuming?
         if ingestion_params.error_if_already_exists:
-            raise SOMAError(f"{uri} already exists")
+            raise SOMAError(f"{uri} already exists") from e
         scene = Scene.open(uri, "w", context=context)
 
     add_metadata(scene, additional_metadata)
@@ -986,11 +898,12 @@ def _create_visium_tissue_images(
     image_paths: list[tuple[str, Path, float | None]],
     *,
     image_channel_first: bool,
+    coord_space: Sequence[str] | CoordinateSpace = ("x", "y"),
     additional_metadata: AdditionalMetadata = None,
     platform_config: PlatformConfig | None = None,
     context: SOMATileDBContext | None = None,
-    ingestion_params: IngestionParams,
-    use_relative_uri: bool | None = None,
+    ingestion_params: IngestionParams,  # noqa: ARG001
+    use_relative_uri: bool | None = None,  # noqa: ARG001
 ) -> MultiscaleImage:
     """Creates, opens, and writes a ``MultiscaleImage`` with the provide
     visium resolutions levels and returns the open image for writing.
@@ -1020,6 +933,7 @@ def _create_visium_tissue_images(
             data_axis_order=data_axis_order,
             context=context,
             platform_config=platform_config,
+            coordinate_space=coord_space,
         )
 
     # Add additional metadata.

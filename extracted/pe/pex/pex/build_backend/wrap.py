@@ -11,6 +11,7 @@ import io
 import os
 import tarfile
 
+from pex import sdist
 from pex.build_backend import BuildError
 from pex.build_backend.configuration import load_config
 from pex.build_backend.pylock import ScriptLocks
@@ -22,10 +23,11 @@ from pex.common import (
     open_zip,
     safe_mkdtemp,
 )
+from pex.compatibility import PY2
 from pex.typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Iterator, Optional
+    from typing import Any, Callable, Dict, Iterator, Optional, Sequence, Tuple
 
 
 _CONFIG = load_config(internal_plugins=[(ScriptLocks.CONFIG_KEY, ScriptLocks)])
@@ -62,25 +64,7 @@ def build_sdist(
 
     sdist_path = os.path.join(sdist_directory, sdist_name)
     build_dir = _build_dir("sdist")
-
-    with tarfile.open(sdist_path) as tf:
-        tf.extractall(build_dir)
-
-    entries = os.listdir(build_dir)
-    if len(entries) != 1:
-        raise BuildError(
-            "Calling `{backend}.build_sdist` produced an sdist with unexpected contents.\n"
-            "Expected expected one top-level <project>-<version> directory but found {count}:\n"
-            "{entries}".format(
-                backend=_CONFIG.delegate_build_backend,
-                count=len(entries),
-                entries="\n".join(entries),
-            )
-        )
-
-    tarball_root_dir_name = entries[0]
-    tarball_root_dir = os.path.join(build_dir, tarball_root_dir_name)
-
+    tarball_root_dir = sdist.extract_tarball(sdist_path, dest_dir=build_dir)
     for plugin in plugins:
         plugin.modify_sdist(tarball_root_dir)
 
@@ -94,6 +78,27 @@ def build_sdist(
                 tf.addfile(tar_info, fp)
 
     return sdist_name
+
+
+if TYPE_CHECKING:
+    from typing import Protocol
+
+    class CSVWriter(Protocol):
+        def writerow(self, row):
+            # type: (Sequence[Any]) -> None
+            pass
+
+
+def csv_output():
+    # type: () -> Tuple[CSVWriter, Callable[[], bytes]]
+    if PY2:
+        record = io.BytesIO()
+        csv_writer = csv.writer(record, delimiter=",", quotechar='"', lineterminator="\n")
+        return csv_writer, record.getvalue
+    else:
+        record = io.StringIO()
+        csv_writer = csv.writer(record, delimiter=",", quotechar='"', lineterminator="\n")
+        return csv_writer, lambda: record.getvalue().encode("utf-8")
 
 
 def build_wheel(
@@ -142,8 +147,7 @@ def build_wheel(
     record_zinfo, _ = ZipFileEx.zip_info_from_file(
         os.path.join(build_dir, record_relpath), arcname=record_relpath, date_time=date_time
     )
-    record = io.StringIO()
-    csv_writer = csv.writer(record, delimiter=",", quotechar='"', lineterminator="\n")
+    csv_writer, get_csv_bytes = csv_output()
     with open_zip(wheel_path, "w") as zf:
         for path in _iter_files_deterministic(build_dir):
             if path == record_relpath:
@@ -162,6 +166,6 @@ def build_wheel(
             )
 
         csv_writer.writerow((record_relpath, None, None))
-        zf.writestr(record_zinfo, record.getvalue().encode("utf-8"))
+        zf.writestr(record_zinfo, get_csv_bytes())
 
     return wheel_name

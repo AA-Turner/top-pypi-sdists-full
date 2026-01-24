@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 from schemathesis.config._checks import ChecksConfig
@@ -12,12 +13,60 @@ DEFAULT_UNEXPECTED_METHODS = {"get", "put", "post", "delete", "options", "patch"
 
 
 @dataclass(repr=False)
-class PhaseConfig(DiffBase):
+class ExtraDataSourcesConfig(DiffBase):
+    """Configuration for extra data sources used to augment test generation."""
+
+    responses: bool
+
+    __slots__ = ("responses", "_is_default")
+
+    def __init__(
+        self,
+        *,
+        responses: bool = True,
+    ) -> None:
+        self.responses = responses
+        self._is_default = responses
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ExtraDataSourcesConfig:
+        return cls(
+            responses=data.get("responses", True),
+        )
+
+    @property
+    def is_enabled(self) -> bool:
+        """Extra data sources are enabled if any source is enabled."""
+        return self.responses
+
+
+class OperationOrdering(str, Enum):
+    """Strategy for ordering API operations during test execution."""
+
+    AUTO = "auto"
+    """Try dependency graph first, fallback to RESTful heuristic"""
+
+    NONE = "none"
+    """No ordering - operations execute in schema iteration order"""
+
+
+@dataclass(repr=False)
+class FuzzingPhaseConfig(DiffBase):
     enabled: bool
     generation: GenerationConfig
     checks: ChecksConfig
+    operation_ordering: OperationOrdering
+    extra_data_sources: ExtraDataSourcesConfig
 
-    __slots__ = ("enabled", "generation", "checks")
+    __slots__ = (
+        "enabled",
+        "generation",
+        "checks",
+        "operation_ordering",
+        "extra_data_sources",
+        "_checks_is_default",
+        "_extra_data_sources_is_default",
+    )
 
     def __init__(
         self,
@@ -25,17 +74,43 @@ class PhaseConfig(DiffBase):
         enabled: bool = True,
         generation: GenerationConfig | None = None,
         checks: ChecksConfig | None = None,
+        operation_ordering: OperationOrdering | str = OperationOrdering.AUTO,
+        extra_data_sources: ExtraDataSourcesConfig | None = None,
     ) -> None:
         self.enabled = enabled
         self.generation = generation or GenerationConfig()
         self.checks = checks or ChecksConfig()
+        self.operation_ordering = (
+            OperationOrdering(operation_ordering) if isinstance(operation_ordering, str) else operation_ordering
+        )
+        self.extra_data_sources = extra_data_sources or ExtraDataSourcesConfig()
+        # Track whether nested configs were provided or created as defaults
+        self._checks_is_default = checks is None
+        self._extra_data_sources_is_default = extra_data_sources is None
+
+    @property
+    def _is_default(self) -> bool:
+        """Check if this config is still in default state.
+
+        A config is default if enabled is True, operation_ordering is AUTO,
+        and all nested configs are in their default state.
+        """
+        return (
+            self.enabled
+            and self.generation._is_default
+            and self._checks_is_default
+            and self.operation_ordering == OperationOrdering.AUTO
+            and self._extra_data_sources_is_default
+        )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> PhaseConfig:
+    def from_dict(cls, data: dict[str, Any]) -> FuzzingPhaseConfig:
         return cls(
             enabled=data.get("enabled", True),
             generation=GenerationConfig.from_dict(data.get("generation", {})),
             checks=ChecksConfig.from_dict(data.get("checks", {})),
+            operation_ordering=data.get("operation-ordering", "auto"),
+            extra_data_sources=ExtraDataSourcesConfig.from_dict(data.get("extra-data-sources", {})),
         )
 
 
@@ -45,8 +120,16 @@ class ExamplesPhaseConfig(DiffBase):
     fill_missing: bool
     generation: GenerationConfig
     checks: ChecksConfig
+    operation_ordering: OperationOrdering
 
-    __slots__ = ("enabled", "fill_missing", "generation", "checks")
+    __slots__ = (
+        "enabled",
+        "fill_missing",
+        "generation",
+        "checks",
+        "operation_ordering",
+        "_is_default",
+    )
 
     def __init__(
         self,
@@ -55,11 +138,22 @@ class ExamplesPhaseConfig(DiffBase):
         fill_missing: bool = False,
         generation: GenerationConfig | None = None,
         checks: ChecksConfig | None = None,
+        operation_ordering: OperationOrdering | str = OperationOrdering.AUTO,
     ) -> None:
         self.enabled = enabled
         self.fill_missing = fill_missing
         self.generation = generation or GenerationConfig()
         self.checks = checks or ChecksConfig()
+        self.operation_ordering = (
+            OperationOrdering(operation_ordering) if isinstance(operation_ordering, str) else operation_ordering
+        )
+        self._is_default = (
+            enabled
+            and not fill_missing
+            and generation is None
+            and checks is None
+            and self.operation_ordering == OperationOrdering.AUTO
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ExamplesPhaseConfig:
@@ -68,6 +162,7 @@ class ExamplesPhaseConfig(DiffBase):
             fill_missing=data.get("fill-missing", False),
             generation=GenerationConfig.from_dict(data.get("generation", {})),
             checks=ChecksConfig.from_dict(data.get("checks", {})),
+            operation_ordering=data.get("operation-ordering", "auto"),
         )
 
 
@@ -78,8 +173,17 @@ class CoveragePhaseConfig(DiffBase):
     generation: GenerationConfig
     checks: ChecksConfig
     unexpected_methods: set[str]
+    operation_ordering: OperationOrdering
 
-    __slots__ = ("enabled", "generate_duplicate_query_parameters", "generation", "checks", "unexpected_methods")
+    __slots__ = (
+        "enabled",
+        "generate_duplicate_query_parameters",
+        "generation",
+        "checks",
+        "unexpected_methods",
+        "operation_ordering",
+        "_is_default",
+    )
 
     def __init__(
         self,
@@ -89,12 +193,24 @@ class CoveragePhaseConfig(DiffBase):
         generation: GenerationConfig | None = None,
         checks: ChecksConfig | None = None,
         unexpected_methods: set[str] | None = None,
+        operation_ordering: OperationOrdering | str = OperationOrdering.AUTO,
     ) -> None:
         self.enabled = enabled
         self.generate_duplicate_query_parameters = generate_duplicate_query_parameters
-        self.unexpected_methods = unexpected_methods or DEFAULT_UNEXPECTED_METHODS
+        self.unexpected_methods = unexpected_methods if unexpected_methods is not None else DEFAULT_UNEXPECTED_METHODS
         self.generation = generation or GenerationConfig()
         self.checks = checks or ChecksConfig()
+        self.operation_ordering = (
+            OperationOrdering(operation_ordering) if isinstance(operation_ordering, str) else operation_ordering
+        )
+        self._is_default = (
+            enabled
+            and not generate_duplicate_query_parameters
+            and generation is None
+            and checks is None
+            and unexpected_methods is None
+            and self.operation_ordering == OperationOrdering.AUTO
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CoveragePhaseConfig:
@@ -106,12 +222,18 @@ class CoveragePhaseConfig(DiffBase):
             else None,
             generation=GenerationConfig.from_dict(data.get("generation", {})),
             checks=ChecksConfig.from_dict(data.get("checks", {})),
+            operation_ordering=data.get("operation-ordering", "auto"),
         )
+
+
+class InferenceAlgorithm(str, Enum):
+    LOCATION_HEADERS = "location-headers"
+    DEPENDENCY_ANALYSIS = "dependency-analysis"
 
 
 @dataclass(repr=False)
 class InferenceConfig(DiffBase):
-    algorithms: list[str]
+    algorithms: list[InferenceAlgorithm]
 
     __slots__ = ("algorithms",)
 
@@ -120,18 +242,23 @@ class InferenceConfig(DiffBase):
         *,
         algorithms: list[str] | None = None,
     ) -> None:
-        self.algorithms = algorithms if algorithms is not None else ["location-headers"]
+        self.algorithms = (
+            [InferenceAlgorithm(a) for a in algorithms] if algorithms is not None else list(InferenceAlgorithm)
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> InferenceConfig:
         return cls(
-            algorithms=data.get("algorithms", ["location-headers"]),
+            algorithms=data.get("algorithms", list(InferenceAlgorithm)),
         )
 
     @property
     def is_enabled(self) -> bool:
         """Inference is enabled if any algorithms are configured."""
         return bool(self.algorithms)
+
+    def is_algorithm_enabled(self, algorithm: InferenceAlgorithm) -> bool:
+        return algorithm in self.algorithms
 
 
 @dataclass(repr=False)
@@ -142,7 +269,7 @@ class StatefulPhaseConfig(DiffBase):
     max_steps: int
     inference: InferenceConfig
 
-    __slots__ = ("enabled", "generation", "checks", "max_steps", "inference")
+    __slots__ = ("enabled", "generation", "checks", "max_steps", "inference", "_is_default")
 
     def __init__(
         self,
@@ -158,6 +285,7 @@ class StatefulPhaseConfig(DiffBase):
         self.generation = generation or GenerationConfig()
         self.checks = checks or ChecksConfig()
         self.inference = inference or InferenceConfig()
+        self._is_default = enabled and generation is None and checks is None and max_steps is None and inference is None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> StatefulPhaseConfig:
@@ -174,7 +302,7 @@ class StatefulPhaseConfig(DiffBase):
 class PhasesConfig(DiffBase):
     examples: ExamplesPhaseConfig
     coverage: CoveragePhaseConfig
-    fuzzing: PhaseConfig
+    fuzzing: FuzzingPhaseConfig
     stateful: StatefulPhaseConfig
 
     __slots__ = ("examples", "coverage", "fuzzing", "stateful")
@@ -184,15 +312,17 @@ class PhasesConfig(DiffBase):
         *,
         examples: ExamplesPhaseConfig | None = None,
         coverage: CoveragePhaseConfig | None = None,
-        fuzzing: PhaseConfig | None = None,
+        fuzzing: FuzzingPhaseConfig | None = None,
         stateful: StatefulPhaseConfig | None = None,
     ) -> None:
         self.examples = examples or ExamplesPhaseConfig()
         self.coverage = coverage or CoveragePhaseConfig()
-        self.fuzzing = fuzzing or PhaseConfig()
+        self.fuzzing = fuzzing or FuzzingPhaseConfig()
         self.stateful = stateful or StatefulPhaseConfig()
 
-    def get_by_name(self, *, name: str) -> PhaseConfig | CoveragePhaseConfig | StatefulPhaseConfig:
+    def get_by_name(
+        self, *, name: str
+    ) -> FuzzingPhaseConfig | ExamplesPhaseConfig | CoveragePhaseConfig | StatefulPhaseConfig:
         return {
             "examples": self.examples,
             "coverage": self.coverage,
@@ -214,7 +344,7 @@ class PhasesConfig(DiffBase):
         return cls(
             examples=ExamplesPhaseConfig.from_dict(merge(data.get("examples", {}))),
             coverage=CoveragePhaseConfig.from_dict(merge(data.get("coverage", {}))),
-            fuzzing=PhaseConfig.from_dict(merge(data.get("fuzzing", {}))),
+            fuzzing=FuzzingPhaseConfig.from_dict(merge(data.get("fuzzing", {}))),
             stateful=StatefulPhaseConfig.from_dict(merge(data.get("stateful", {}))),
         )
 

@@ -1,0 +1,45 @@
+Metadata-Version: 2.4
+Name: arbor
+Version: 0.11.0
+Summary: High performance simulation of networks of multicompartment neurons.
+Keywords: simulator,neuroscience,morphological detail,HPC,GPU,C++
+Author-Email: Arbor Dev Team <contact@arbor-sim.org>
+Maintainer-Email: Arbor Dev Team <contact@arbor-sim.org>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: C++
+Project-URL: homepage, https://arbor-sim.org
+Project-URL: documentation, https://docs.arbor-sim.org
+Project-URL: repository, https://github.com/arbor-sim/arbor
+Project-URL: changelog, https://github.com/arbor-sim/arbor/releases
+Requires-Python: >=3.10
+Requires-Dist: numpy
+Description-Content-Type: text/markdown
+
+[![ci](https://github.com/arbor-sim/arbor/actions/workflows/test-matrix.yml/badge.svg)](https://github.com/arbor-sim/arbor/actions/workflows/test-matrix.yml)
+[![spack](https://github.com/arbor-sim/arbor/actions/workflows/test-spack.yml/badge.svg)](https://github.com/arbor-sim/arbor/actions/workflows/test-spack.yml)
+[![pip](https://github.com/arbor-sim/arbor/actions/workflows/test-pip.yml/badge.svg)](https://github.com/arbor-sim/arbor/actions/workflows/test-pip.yml)
+[![pythonwheels](https://github.com/arbor-sim/arbor/actions/workflows/build-pip-wheels.yml/badge.svg)](https://github.com/arbor-sim/arbor/actions/workflows/build-pip-wheels.yml)
+[![gitpod](https://img.shields.io/badge/Gitpod-Ready--to--Code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/arbor-sim/arbor)
+[![docs](https://readthedocs.org/projects/arbor/badge/?version=latest)](https://docs.arbor-sim.org/en/latest/)
+[![gitter](https://badges.gitter.im/arbor-sim/community.svg)](https://gitter.im/arbor-sim/community)
+[![CodeQL](https://github.com/arbor-sim/arbor/actions/workflows/codeql.yml/badge.svg?branch=master)](https://github.com/arbor-sim/arbor/actions/workflows/codeql.yml)
+
+# Arbor Library
+
+[Arbor](https://arbor-sim.org) is a library for implementing performance portable network simulations of multi-compartment neuron models.
+
+An installation guide and library documentation are available online at [docs.arbor-sim.org](http://docs.arbor-sim.org).
+
+[Submit a ticket](https://github.com/arbor-sim/arbor/issues) or [join Gitter](https://gitter.im/arbor-sim/community) or [Matrix](https://matrix.to/#/#arbor-sim_community:gitter.im) if you have any questions or need help.
+
+### Citing Arbor
+
+The Arbor introductory paper and entry on Zenodo can be cited, see [CITATION.bib](CITATION.bib). Please refer to [our documentation](https://docs.arbor-sim.org/en/latest/index.html#citing-arbor) for more information.

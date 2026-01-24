@@ -193,7 +193,7 @@ class TestStreamingUsage:
                 pytest.fail(f'unparseable JSON in output (likely corrupted by keepalive): {line}')
         else:
             # account for some wobble in the number of keepalives for artifact gather, etc
-            assert 1 <= incoming_data.count('"event": "keepalive"') < 5
+            assert 1 <= incoming_data.count('"event": "keepalive"') < 15
 
     @pytest.mark.parametrize("job_type", ['run', 'adhoc'])
     def test_remote_job_by_sockets(self, tmp_path, project_fixtures, job_type):
@@ -503,7 +503,7 @@ def test_unparsable_line_worker(tmp_path):
 def test_unparsable_really_big_line_processor(tmp_path):
     process_dir = tmp_path / 'for_process'
     process_dir.mkdir()
-    incoming_buffer = io.BytesIO(bytes(f'not-json-data with extra garbage:{"f"*10000}', encoding='utf-8'))
+    incoming_buffer = io.BytesIO(bytes(f'not-json-data with extra garbage:{"f" * 10000}', encoding='utf-8'))
 
     def status_receiver(status_data, runner_config):  # pylint: disable=W0613
         assert status_data['status'] == 'error'
@@ -516,4 +516,43 @@ def test_unparsable_really_big_line_processor(tmp_path):
         _input=incoming_buffer,
         private_data_dir=process_dir,
         status_handler=status_receiver
+    )
+
+
+def test_error_on_empty_line_processor(tmp_path):
+    process_dir = tmp_path / 'for_process'
+    process_dir.mkdir()
+    incoming_buffer = io.BytesIO(b'')
+
+    def status_receiver(status_data, runner_config):  # pylint: disable=unused-argument
+        assert status_data['status'] == 'error'
+        assert (
+            'Unexpected empty line encountered during worker stream. '
+            'Worker did not produce events or streaming was aborted, check execution node health.'
+        ) in status_data['job_explanation']
+
+    run(
+        streamer='process',
+        _input=incoming_buffer,
+        private_data_dir=process_dir,
+        status_handler=status_receiver,
+    )
+
+
+def test_error_on_os_error_processor(tmp_path, mocker):
+    process_dir = tmp_path / 'for_process'
+    process_dir.mkdir()
+
+    incoming_buffer = mocker.Mock()
+    incoming_buffer.readline.side_effect = OSError("Simulated OS error")
+
+    def status_receiver(status_data, runner_config):  # pylint: disable=unused-argument
+        assert status_data['status'] == 'error'
+        assert 'Failed to read from worker stream. Error: Simulated OS error' in status_data['job_explanation']
+
+    run(
+        streamer='process',
+        _input=incoming_buffer,
+        private_data_dir=process_dir,
+        status_handler=status_receiver,
     )

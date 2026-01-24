@@ -3,6 +3,7 @@ import datetime
 from buf.validate import validate_pb2 as _validate_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
+from nominal.gen.v1 import alias_pb2 as _alias_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -71,10 +72,52 @@ OPC_UA_DEADBAND_TYPE_ABSOLUTE: OpcUaDeadbandType
 OPC_UA_DEADBAND_TYPE_PERCENT: OpcUaDeadbandType
 
 class OpcAuthenticationConfig(_message.Message):
-    __slots__ = ("anonymous",)
+    __slots__ = ("anonymous", "username_password", "token")
     ANONYMOUS_FIELD_NUMBER: _ClassVar[int]
+    USERNAME_PASSWORD_FIELD_NUMBER: _ClassVar[int]
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
     anonymous: _empty_pb2.Empty
-    def __init__(self, anonymous: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...) -> None: ...
+    username_password: OpcUsernamePasswordAuthentication
+    token: OpcTokenAuthentication
+    def __init__(self, anonymous: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., username_password: _Optional[_Union[OpcUsernamePasswordAuthentication, _Mapping]] = ..., token: _Optional[_Union[OpcTokenAuthentication, _Mapping]] = ...) -> None: ...
+
+class OpcAuthenticationConfigSecret(_message.Message):
+    __slots__ = ("anonymous", "username_password", "token")
+    ANONYMOUS_FIELD_NUMBER: _ClassVar[int]
+    USERNAME_PASSWORD_FIELD_NUMBER: _ClassVar[int]
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    anonymous: _empty_pb2.Empty
+    username_password: OpcUsernamePasswordAuthenticationSecret
+    token: OpcTokenAuthenticationSecret
+    def __init__(self, anonymous: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., username_password: _Optional[_Union[OpcUsernamePasswordAuthenticationSecret, _Mapping]] = ..., token: _Optional[_Union[OpcTokenAuthenticationSecret, _Mapping]] = ...) -> None: ...
+
+class OpcUsernamePasswordAuthentication(_message.Message):
+    __slots__ = ("username", "password")
+    USERNAME_FIELD_NUMBER: _ClassVar[int]
+    PASSWORD_FIELD_NUMBER: _ClassVar[int]
+    username: str
+    password: str
+    def __init__(self, username: _Optional[str] = ..., password: _Optional[str] = ...) -> None: ...
+
+class OpcUsernamePasswordAuthenticationSecret(_message.Message):
+    __slots__ = ("username", "password")
+    USERNAME_FIELD_NUMBER: _ClassVar[int]
+    PASSWORD_FIELD_NUMBER: _ClassVar[int]
+    username: str
+    password: str
+    def __init__(self, username: _Optional[str] = ..., password: _Optional[str] = ...) -> None: ...
+
+class OpcTokenAuthentication(_message.Message):
+    __slots__ = ("token",)
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    token: str
+    def __init__(self, token: _Optional[str] = ...) -> None: ...
+
+class OpcTokenAuthenticationSecret(_message.Message):
+    __slots__ = ("token",)
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    token: str
+    def __init__(self, token: _Optional[str] = ...) -> None: ...
 
 class OpcIdentifierValue(_message.Message):
     __slots__ = ("numeric", "string")
@@ -129,6 +172,16 @@ class OpcUaConnectionDetails(_message.Message):
     security_policy: OpcSecurityPolicy
     authentication_config: OpcAuthenticationConfig
     def __init__(self, uri: _Optional[str] = ..., security_policy: _Optional[_Union[OpcSecurityPolicy, str]] = ..., authentication_config: _Optional[_Union[OpcAuthenticationConfig, _Mapping]] = ...) -> None: ...
+
+class OpcUaConnectionDetailsSecret(_message.Message):
+    __slots__ = ("uri", "security_policy", "authentication_config")
+    URI_FIELD_NUMBER: _ClassVar[int]
+    SECURITY_POLICY_FIELD_NUMBER: _ClassVar[int]
+    AUTHENTICATION_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    uri: str
+    security_policy: OpcSecurityPolicy
+    authentication_config: OpcAuthenticationConfigSecret
+    def __init__(self, uri: _Optional[str] = ..., security_policy: _Optional[_Union[OpcSecurityPolicy, str]] = ..., authentication_config: _Optional[_Union[OpcAuthenticationConfigSecret, _Mapping]] = ...) -> None: ...
 
 class OpcUaTraversalConfig(_message.Message):
     __slots__ = ("root_nodes", "skip_nodes", "reference_exploration_type")

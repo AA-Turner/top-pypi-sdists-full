@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: d6tstack
+Version: 0.2.0
+Summary: d6tstack: Quickly ingest CSV and XLS files. Export to pandas, SQL, parquet
+Home-page: https://github.com/d6t/d6tstack
+Author: DataBolt Team
+Author-email: support@databolt.tech
+License: MIT
+Description: Quickly ingest raw files. Works for XLS, CSV, TXT which can be exported to CSV, Parquet, SQL and Pandas. d6tstack solves many performance and schema problems typically encountered when ingesting raw files.
+Keywords: d6tstack,ingest csv
+Platform: UNKNOWN
+Requires-Python: >=3.5
+Provides-Extra: psql
+Provides-Extra: mysql
+Provides-Extra: parquet
+Provides-Extra: xls

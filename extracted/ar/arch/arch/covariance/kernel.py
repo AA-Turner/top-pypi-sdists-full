@@ -1,31 +1,31 @@
-from arch.compat.numba import jit
+from arch.compat.numba import DISABLE_NUMBA, HAS_NUMBA, jit
 
 from abc import ABC, abstractmethod
 from functools import cached_property
-from typing import Optional, SupportsInt, Union, cast
+from typing import SupportsInt, cast
 
 import numpy as np
 from pandas import DataFrame, Index
-from pandas.util._decorators import Substitution
 
-from arch.typing import ArrayLike, Float64Array
+from arch._typing import ArrayLike, Float64Array, Float64Array2D
 from arch.utility.array import AbstractDocStringInheritor, ensure1d, ensure2d
+from arch.vendor._decorators import Substitution
 
 __all__ = [
+    "Andrews",
     "Bartlett",
+    "CovarianceEstimate",
+    "CovarianceEstimator",
+    "Gallant",
+    "NeweyWest",
     "Parzen",
     "ParzenCauchy",
     "ParzenGeometric",
     "ParzenRiesz",
+    "QuadraticSpectral",
     "TukeyHamming",
     "TukeyHanning",
     "TukeyParzen",
-    "CovarianceEstimate",
-    "CovarianceEstimator",
-    "QuadraticSpectral",
-    "Andrews",
-    "Gallant",
-    "NeweyWest",
 ]
 
 KERNELS = [
@@ -84,9 +84,9 @@ class CovarianceEstimate:
         self,
         short_run: Float64Array,
         one_sided_strict: Float64Array,
-        columns: Union[Index, list[str], None] = None,
-        long_run: Optional[Float64Array] = None,
-        one_sided: Optional[Float64Array] = None,
+        columns: Index | list[str] | None = None,
+        long_run: Float64Array | None = None,
+        one_sided: Float64Array | None = None,
     ) -> None:
         self._sr = short_run
         self._oss = one_sided_strict
@@ -94,13 +94,13 @@ class CovarianceEstimate:
         self._long_run = long_run
         self._one_sided = one_sided
 
-    def _wrap(self, value: Float64Array) -> Union[Float64Array, DataFrame]:
+    def _wrap(self, value: Float64Array) -> Float64Array | DataFrame:
         if self._columns is not None:
             return DataFrame(value, columns=self._columns, index=self._columns)
         return value
 
     @cached_property
-    def long_run(self) -> Union[Float64Array, DataFrame]:
+    def long_run(self) -> Float64Array | DataFrame:
         """
         The long-run covariance estimate.
         """
@@ -111,14 +111,14 @@ class CovarianceEstimate:
         return self._wrap(long_run)
 
     @cached_property
-    def short_run(self) -> Union[Float64Array, DataFrame]:
+    def short_run(self) -> Float64Array | DataFrame:
         """
         The short-run covariance estimate.
         """
         return self._wrap(self._sr)
 
     @cached_property
-    def one_sided(self) -> Union[Float64Array, DataFrame]:
+    def one_sided(self) -> Float64Array | DataFrame:
         """
         The one-sided covariance estimate.
         """
@@ -129,21 +129,26 @@ class CovarianceEstimate:
         return self._wrap(one_sided)
 
     @cached_property
-    def one_sided_strict(self) -> Union[Float64Array, DataFrame]:
+    def one_sided_strict(self) -> Float64Array | DataFrame:
         """
         The one-sided strict covariance estimate.
         """
         return self._wrap(self._oss)
 
 
-@jit(nopython=True)
-def _cov_jit(
+def _cov_kernel(
     df: int, k: int, num_weights: int, w: np.ndarray, x: np.ndarray
 ) -> np.ndarray:
     oss = np.zeros((k, k))
     for i in range(1, num_weights):
         oss += w[i] * (x[i:].T @ x[:-i]) / df
     return oss
+
+
+if HAS_NUMBA and not DISABLE_NUMBA:
+    _cov_jit = jit(_cov_kernel, nopython=True)
+else:
+    _cov_jit = _cov_kernel
 
 
 class CovarianceEstimator(ABC):
@@ -185,10 +190,10 @@ class CovarianceEstimator(ABC):
     def __init__(
         self,
         x: ArrayLike,
-        bandwidth: Optional[float] = None,
+        bandwidth: float | None = None,
         df_adjust: int = 0,
         center: bool = True,
-        weights: Optional[ArrayLike] = None,
+        weights: ArrayLike | None = None,
         force_int: bool = False,
     ):
         self._x_orig = ensure2d(x, "x")
@@ -197,13 +202,14 @@ class CovarianceEstimator(ABC):
         if self._center:
             self._x = self._x - self._x.mean(0)
         if bandwidth is not None:
-            if not np.isscalar(bandwidth) or (cast(float, bandwidth) < 0.0):
+            _bandwidth = bandwidth
+            if not np.isscalar(_bandwidth) or (cast("float", _bandwidth) < 0.0):
                 raise ValueError("bandwidth must be a non-negative scalar.")
-        self._bandwidth = bandwidth
+        self._bandwidth: float | None = bandwidth
         self._auto_bandwidth = bandwidth is None
-        if not np.isscalar(df_adjust) or (cast(int, df_adjust) < 0):
+        if not np.isscalar(df_adjust) or (cast("int", df_adjust) < 0):
             raise ValueError("df_adjust must be a non-negative integer.")
-        self._df_adjust = int(cast(SupportsInt, df_adjust))
+        self._df_adjust = int(cast("SupportsInt", df_adjust))
         self._df = self._x.shape[0] - self._df_adjust
         if self._df <= 0:
             raise ValueError(
@@ -211,11 +217,12 @@ class CovarianceEstimator(ABC):
                 "size of x using df_adjust. df_adjust must be less than"
                 f" {self._x.shape[0]}"
             )
+        xw: Float64Array2D
         if weights is None:
             xw = self._x_weights = np.ones((self._x.shape[1], 1))
         else:
-            xw = ensure1d(np.asarray(weights), "weights", series=False)
-            xw = self._x_weights = xw[:, None]
+            _xw = ensure1d(np.asarray(weights), "weights", series=False).astype(float)
+            xw = self._x_weights = cast("Float64Array2D", _xw[:, None])
         if (
             xw.shape[0] != self._x.shape[1]
             or xw.shape[1] != 1
@@ -268,6 +275,7 @@ class CovarianceEstimator(ABC):
             self._bandwidth = self.opt_bandwidth
         if self._force_int:
             return float(int(np.ceil(self._bandwidth)))
+        assert self._bandwidth is not None
         return self._bandwidth
 
     @property
@@ -444,7 +452,9 @@ class Bartlett(CovarianceEstimator, metaclass=AbstractDocStringInheritor):
 
     def _weights(self) -> Float64Array:
         bw = self.bandwidth
-        return (bw + 1 - np.arange(int(bw + 1), dtype="double")) / (bw + 1)
+        return ((bw + 1 - np.arange(int(bw + 1), dtype="double")) / (bw + 1)).astype(
+            float
+        )
 
 
 _parzen_formula = """\

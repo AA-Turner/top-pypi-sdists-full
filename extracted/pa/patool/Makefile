@@ -16,9 +16,9 @@ MAKEFLAGS += --no-builtin-rules
 
 
 ############ Configuration ############
-VERSION:=$(shell grep "Version: str =" patoolib/configuration.py | cut -d '"' -f2)
-AUTHOR:=$(shell grep "MyName: str =" patoolib/configuration.py | cut -d '"' -f2)
-APPNAME:=$(shell grep "AppName: str =" patoolib/configuration.py | cut -d '"' -f2)
+VERSION:=$(shell grep "Version:" patoolib/configuration.py | cut -d '"' -f2)
+AUTHOR:=$(shell grep "MyName:" patoolib/configuration.py | cut -d '"' -f2)
+APPNAME:=$(shell grep "AppName:" patoolib/configuration.py | cut -d '"' -f2)
 ARCHIVE_SOURCE:=$(APPNAME)-$(VERSION).tar.gz
 ARCHIVE_WHEEL:=$(APPNAME)-$(VERSION)-py2.py3-none-any.whl
 GITRELEASETAG:=$(VERSION)
@@ -38,6 +38,8 @@ PYTESTOPTS?=-s --full-trace --log-file=build/test.log --numprocesses auto
 TESTS ?= tests/
 # set test options
 TESTOPTS=
+# python files and directories
+PY_FILES_DIRS:=setup.py patoolib tests doc/web/source
 
 ############ Default target ############
 
@@ -50,11 +52,8 @@ help:	## display this help section
 
 ############ Installation and provisioning  ############
 
-# these targets work best in a virtual python environment
-# see https://github.com/pyenv/pyenv for more info
-
-.PHONY: init ## install python virtual env and required development packages
-init:
+.PHONY: init
+init: ## install python virtual env and required development packages
 	uv sync
 
 
@@ -76,13 +75,13 @@ distclean:	clean ## run clean and additionally remove all build and dist files
 
 .PHONY: dist
 dist: ## build source and wheel distribution file
-	uv build
+	env SOURCE_DATE_EPOCH=$(shell git log -1 --pretty=%ct) uv build
 
 .PHONY: release-pypi
 release-pypi: ## upload a new release to pypi
 	uv publish dist/$(ARCHIVE_SOURCE) dist/$(ARCHIVE_WHEEL)
 
-# export GITHUB_TOKEN for the hub command
+# export GITHUB_TOKEN for the gh command
 # Generate a fine grained access token with:
 # - Restricted to this repository (patool)
 # - Repository permission: Metadata -> Read (displayed as "Read access to metadata" in token view)
@@ -111,7 +110,7 @@ release: distclean releasecheck ## release a new version of patool
 	$(MAKE) dist release-gh release-pypi release-homepage github-issues
 
 .PHONY: releasecheck
-releasecheck: update_webmeta checkgit checkchangelog lint test typecheck checkgitreleasetag ## check that repo is ready for release
+releasecheck: update-webmeta checkgit checkchangelog lint test typecheck checkgitreleasetag ## check that repo is ready for release
 
 .PHONY: checkgit
 checkgit: ## check that git changes are all committed on the main branch
@@ -175,24 +174,26 @@ checkchangelog: ## check changelog before release
 
 .PHONY: lint
 lint: ## lint python code
-	ruff check setup.py patoolib tests doc/web/source
+	ruff check $(PY_FILES_DIRS)
+
+.PHONY: audit
+audit: ## run audit checks
+	zizmor --config .zizmor.yml .github/workflows/python-package.yml
+	pip-audit
 
 .PHONY: reformat
 reformat: ## format the python code
-	ruff format setup.py patoolib tests doc/web/source
+	ruff check --fix $(PY_FILES_DIRS)
+	ruff format $(PY_FILES_DIRS)
 
-.PHONY: checkoutdated checkoutdatedpy checkoutdatedgh
-checkoutdated: checkoutdatedpy checkoutdatedgh
+.PHONY: checkoutdated checkoutdated-py checkoutdated-gh
+checkoutdated: checkoutdated-py checkoutdated-gh
 
-checkoutdatedpy:	## Check for outdated package requirements
-# Compare the list of currently installed packages with the same list of packages with latest versions from pypi.
-# Assumes that all requirements have pinned versions with "==".
-# To check only direct dependencies, not those of further down the dependency tree,
-# the output is filtered by using `pip tree -d0` and grep with a regular
-# expression of the form
-# `grep -E "(\tpackage1\t|package2\t| ... |\tpackageN)"`.
-# The leading tab before each package prevents matching substrings.
-# When grep does not find any match, all required packages are uptodate.
+checkoutdated-py:	## Check for outdated package requirements
+# Assumes all packages in requirements have pinned versions with "==".
+# Compare the output of "uv pip list" (the current versions) with the result of "uv pip compile" (available versions).
+# Then filter only for upgrades of direct dependencies with grep.
+# When grep does not find any match, all direct dependencies are uptodate.
 # In this case, grep exits with exitcode 1. Test for this after running grep.
 	@set +e; \
 	echo "Check for outdated Python packages"; \
@@ -200,11 +201,25 @@ checkoutdatedpy:	## Check for outdated package requirements
 	grep -iE "($(shell grep == pyproject.toml  | cut -f1 -d= | tr -d "\"\' "| sed -e 's/\[.*\]//' |sort | paste -sd '|'))"; \
 	test $$? = 1
 
-checkoutdatedgh:	## check for outedated github tools
+checkoutdated-gh:	## check for outdated github projects
 # github-check-outdated is a local tool which compares a given version with the latest available github release version
 # see https://gist.github.com/wummel/ef14989766009effa4e262b01096fc8c for an example implementation
 	@echo "Check for outdated Github tools"
-	github-check-outdated astral-sh uv "$(shell uv self version | cut -f2 -d" ")"
+	github-check-outdated astral-sh uv "$(shell uv --version | cut -f2 -d" ")"
+	github-check-outdated python cpython v$(shell python --version | cut -f2 -d" ") '^v3\.14\.[0-9]+$$'
+
+
+.PHONY: upgradeoutdated
+upgradeoutdated:	upgradeoutdated-gh upgradeoutdated-py
+
+.PHONY: upgradeoutdated-gh
+upgradeoutdated-gh:
+	sed -i -e 's/uv_version_dev = ".*"/uv_version_dev = "$(shell github-check-outdated astral-sh uv 0 | cut -f4 -d" ")"/' pyproject.toml
+	sed -i -e 's/ version: ".*"/ version: "$(shell github-check-outdated astral-sh uv 0 | cut -f4 -d" ")"/' .github/workflows/python-package.yml
+
+.PHONY: upgradeoutdated-py
+upgradeoutdated-py:	## upgrade dependencies in uv.lock
+	uv lock --upgrade
 
 
 ############ Testing ############
@@ -220,8 +235,8 @@ test-github: ## run github workflow actions
 	act -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest --matrix os:ubuntu-latest
 
 .PHONY: typecheck
-typecheck:	## run pytype
-	pytype patoolib
+typecheck:	## run the ty type checker
+	ty check
 
 ############ Documentation ############
 
@@ -232,12 +247,12 @@ doc/$(APPNAME).txt: doc/$(APPNAME).1 ## make text file from man page for wheel b
 count: ## print some code statistics
 	@sloccount patoolib
 
-.PHONY: update_webmeta
-update_webmeta: ## update package metadata for the homepage
+.PHONY: update-webmeta
+update-webmeta: ## update package metadata for the homepage
 	sed -i -e 's/project =.*/project = "$(APPNAME)"/g' $(WEBMETA)
 	sed -i -e 's/version =.*/version = "$(VERSION)"/g' $(WEBMETA)
 	sed -i -e 's/author =.*/author = "$(AUTHOR)"/g' $(WEBMETA)
 
 .PHONY: release-homepage
-release-homepage: update_webmeta ## update the homepage after a release
+release-homepage: update-webmeta ## update the homepage after a release
 	$(MAKE) -C doc/web release

@@ -1,13 +1,13 @@
 import numpy as np
 from scipy import sparse
 
-from findiff.coefs import coefficients_non_uni, coefficients
-from findiff.grids import GridAxis, EquidistantAxis, NonEquidistantAxis
+from findiff.coefs import coefficients, coefficients_non_uni
+from findiff.grids import EquidistantAxis, GridAxis, NonEquidistantAxis
 from findiff.utils import (
-    get_long_indices_for_all_grid_points_as_ndarray,
-    to_long_index,
     get_list_of_multiindex_tuples,
     get_long_indices_for_all_grid_points_as_1d_array,
+    get_long_indices_for_all_grid_points_as_ndarray,
+    to_long_index,
 )
 
 
@@ -32,13 +32,17 @@ class _FinDiffBase:
         self.axis = axis
         self.order = order
 
-    def validate_f(self, f):
+    def guard_valid_target(self, f):
         try:
             f.shape[self.axis]
         except AttributeError as err:
             raise ValueError(
                 "Diff objects can only be applied to arrays or evaluated(!) functions returning arrays"
             ) from err
+
+        if np.issubdtype(f.dtype, np.integer):
+            f = f.astype(np.float64)
+        return f
 
     def apply_to_array(self, yd, y, weights, off_slices, ref_slice, dim):
         """Applies the finite differences only to slices along a given axis"""
@@ -87,9 +91,7 @@ class _FinDiffUniform(_FinDiffBase):
         self.center = coef_schemes["center"]
 
     def __call__(self, f):
-        self.validate_f(f)
-        if np.issubdtype(f.dtype, np.integer):
-            f = f.astype(np.float64)
+        f = self.guard_valid_target(f)
 
         npts = f.shape[self.axis]
         fd = np.zeros_like(f)
@@ -179,12 +181,7 @@ class _FinDiffUniformPeriodic(_FinDiffBase):
         self.coefs = coefficients(self.order, acc)["center"]
 
     def __call__(self, f):
-        self.validate_f(f)
-        if np.issubdtype(f.dtype, np.integer):
-            f = f.astype(np.float64)
-
-        if np.issubdtype(f.dtype, np.integer):
-            f = f.astype(np.float64)
+        f = self.guard_valid_target(f)
 
         fd = np.zeros_like(f)
         for off, coef in zip(self.coefs["offsets"], self.coefs["coefficients"]):
@@ -214,17 +211,16 @@ class _FinDiffNonUniform(_FinDiffBase):
         super().__init__(axis, order)
         self.coords = coords
         self.acc = acc
-        self.coef_list = []
-        for i in range(len(self.coords)):
-            self.coef_list.append(coefficients_non_uni(order, self.acc, self.coords, i))
+        self.coef_list = [
+            coefficients_non_uni(order, self.acc, self.coords, i)
+            for i in range(len(coords))
+        ]
 
     def __call__(self, y):
         """The core function to take a partial derivative on a non-uniform grid"""
+        y = self.guard_valid_target(y)
 
-        if np.issubdtype(y.dtype, np.integer):
-            y = y.astype(np.float64)
-
-        order, dim = self.order, self.axis
+        dim = self.axis
 
         yd = np.zeros_like(y)
 
@@ -232,7 +228,7 @@ class _FinDiffNonUniform(_FinDiffBase):
         multi_slice = [slice(None, None)] * ndims
         ref_multi_slice = [slice(None, None)] * ndims
 
-        for i, x in enumerate(self.coords):
+        for i, _ in enumerate(self.coords):
 
             coefs = self.coef_list[i]
             ref_multi_slice[dim] = i

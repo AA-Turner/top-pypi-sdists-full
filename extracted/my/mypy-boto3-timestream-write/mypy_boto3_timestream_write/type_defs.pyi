@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -31,12 +32,6 @@ from .literals import (
     TimeUnitType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -135,7 +130,7 @@ class BatchLoadTaskTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -276,7 +271,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListBatchLoadTasksResponseTypeDef(TypedDict):
-    BatchLoadTasks: List[BatchLoadTaskTypeDef]
+    BatchLoadTasks: list[BatchLoadTaskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -286,7 +281,7 @@ class CreateDatabaseRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -302,7 +297,7 @@ class DescribeDatabaseResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDatabasesResponseTypeDef(TypedDict):
-    Databases: List[DatabaseTypeDef]
+    Databases: list[DatabaseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -316,7 +311,7 @@ class DataSourceConfigurationTypeDef(TypedDict):
     CsvConfiguration: NotRequired[CsvConfigurationTypeDef]
 
 class DescribeEndpointsResponseTypeDef(TypedDict):
-    Endpoints: List[EndpointTypeDef]
+    Endpoints: list[EndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class MagneticStoreRejectedDataLocationTypeDef(TypedDict):
@@ -337,7 +332,7 @@ class MixedMeasureMappingOutputTypeDef(TypedDict):
     MeasureName: NotRequired[str]
     SourceColumn: NotRequired[str]
     TargetMeasureName: NotRequired[str]
-    MultiMeasureAttributeMappings: NotRequired[List[MultiMeasureAttributeMappingTypeDef]]
+    MultiMeasureAttributeMappings: NotRequired[list[MultiMeasureAttributeMappingTypeDef]]
 
 class MixedMeasureMappingTypeDef(TypedDict):
     MeasureValueType: MeasureValueTypeType
@@ -347,7 +342,7 @@ class MixedMeasureMappingTypeDef(TypedDict):
     MultiMeasureAttributeMappings: NotRequired[Sequence[MultiMeasureAttributeMappingTypeDef]]
 
 class MultiMeasureMappingsOutputTypeDef(TypedDict):
-    MultiMeasureAttributeMappings: List[MultiMeasureAttributeMappingTypeDef]
+    MultiMeasureAttributeMappings: list[MultiMeasureAttributeMappingTypeDef]
     TargetMultiMeasureName: NotRequired[str]
 
 class MultiMeasureMappingsTypeDef(TypedDict):
@@ -355,7 +350,7 @@ class MultiMeasureMappingsTypeDef(TypedDict):
     TargetMultiMeasureName: NotRequired[str]
 
 class SchemaOutputTypeDef(TypedDict):
-    CompositePartitionKey: NotRequired[List[PartitionKeyTypeDef]]
+    CompositePartitionKey: NotRequired[list[PartitionKeyTypeDef]]
 
 class SchemaTypeDef(TypedDict):
     CompositePartitionKey: NotRequired[Sequence[PartitionKeyTypeDef]]
@@ -378,11 +373,11 @@ class WriteRecordsRequestTypeDef(TypedDict):
     CommonAttributes: NotRequired[RecordTypeDef]
 
 class DataModelOutputTypeDef(TypedDict):
-    DimensionMappings: List[DimensionMappingTypeDef]
+    DimensionMappings: list[DimensionMappingTypeDef]
     TimeColumn: NotRequired[str]
     TimeUnit: NotRequired[TimeUnitType]
     MultiMeasureMappings: NotRequired[MultiMeasureMappingsOutputTypeDef]
-    MixedMeasureMappings: NotRequired[List[MixedMeasureMappingOutputTypeDef]]
+    MixedMeasureMappings: NotRequired[list[MixedMeasureMappingOutputTypeDef]]
     MeasureNameColumn: NotRequired[str]
 
 class DataModelTypeDef(TypedDict):
@@ -438,7 +433,7 @@ class DescribeTableResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTablesResponseTypeDef(TypedDict):
-    Tables: List[TableTypeDef]
+    Tables: list[TableTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

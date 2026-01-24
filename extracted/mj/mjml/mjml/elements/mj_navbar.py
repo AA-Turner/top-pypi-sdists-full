@@ -1,7 +1,7 @@
 import random
 import string
 
-from ..helpers import conditionalTag, msoConditionalTag
+from ..helpers import conditionalTag, makeLowerBreakpoint, msoConditionalTag
 from ._base import BodyComponent
 
 
@@ -60,7 +60,7 @@ class MjNavbar(BodyComponent):
         # double curly braces used to escape "{" and "}" in f-strings
         return f'''
             noinput.mj-menu-checkbox {{ display:block!important; max-height:none!important; visibility:visible!important; }}
-            @media only screen and (max-width:{breakpoint}) {{
+            @media only screen and (max-width:{makeLowerBreakpoint(breakpoint)}) {{
               .mj-menu-checkbox[type="checkbox"] ~ .mj-inline-links {{ display:none!important; }}
               .mj-menu-checkbox[type="checkbox"]:checked ~ .mj-inline-links,
               .mj-menu-checkbox[type="checkbox"] ~ .mj-menu-trigger {{ display:block!important; max-width:none!important; max-height:none!important; font-size:inherit!important; }}
@@ -110,7 +110,7 @@ class MjNavbar(BodyComponent):
         }
 
     def renderHamburger(self):
-        key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+        key = ''.join(random.choices(string.digits + 'abcdef', k=16))
         checkbox_html = f'<input type="checkbox" id="{key}" class="mj-menu-checkbox" style="display:none !important; max-height:0; visibility:hidden;" />' # noqa: E501
         input_tag = msoConditionalTag(checkbox_html, True)
         div_attrs = self.html_attrs(class_='mj-menu-trigger', style='trigger')

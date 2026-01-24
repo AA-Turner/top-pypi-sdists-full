@@ -1,5 +1,3 @@
-from typing import Optional
-
 from django.conf import settings
 from django.core import checks
 from django.db import models
@@ -81,18 +79,16 @@ class PhoneNumberField(models.CharField):
             return [checks.Error(force_str(e), obj=self)]
         return []
 
+    def to_python(self, value):
+        return to_python(value, region=self.region)
+
     def get_prep_value(self, value):
         """
         Perform preliminary non-db specific value checks and conversions.
         """
-        if not value:
-            return super().get_prep_value(value)
-
-        if isinstance(value, PhoneNumber):
-            parsed_value = value
-        else:
-            # Convert the string to a PhoneNumber object.
-            parsed_value = to_python(value)
+        parsed_value = super().get_prep_value(value)
+        if not parsed_value:
+            return parsed_value
 
         if parsed_value.is_valid():
             # A valid phone number. Normalize it for storage.
@@ -103,7 +99,7 @@ class PhoneNumberField(models.CharField):
             # Not a valid phone number. Store the raw string.
             value = parsed_value.raw_input
 
-        return super().get_prep_value(value)
+        return value
 
     def from_db_value(self, value, expression, connection):
         return to_python(value)
@@ -122,7 +118,7 @@ class PhoneNumberField(models.CharField):
         form_class=None,
         choices_form_class=None,
         **kwargs,
-    ) -> Optional[Field]:
+    ) -> Field | None:
         defaults = {
             "form_class": (
                 formfields.PhoneNumberField if form_class is None else form_class

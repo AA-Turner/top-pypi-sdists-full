@@ -33,6 +33,8 @@ class OrganizationCollaborator(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'base_role': 'OrganizationBaseRole',
+        'additional_roles': 'list[OrganizationAdditionalRole]',
         'permission_level': 'OrganizationPermissionLevel',
         'id': 'str',
         'name': 'str',
@@ -42,6 +44,8 @@ class OrganizationCollaborator(object):
     }
 
     attribute_map = {
+        'base_role': 'base_role',
+        'additional_roles': 'additional_roles',
         'permission_level': 'permission_level',
         'id': 'id',
         'name': 'name',
@@ -50,12 +54,14 @@ class OrganizationCollaborator(object):
         'user_id': 'user_id'
     }
 
-    def __init__(self, permission_level=None, id=None, name=None, created_at=None, email=None, user_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, base_role=None, additional_roles=None, permission_level=None, id=None, name=None, created_at=None, email=None, user_id=None, local_vars_configuration=None):  # noqa: E501
         """OrganizationCollaborator - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._base_role = None
+        self._additional_roles = None
         self._permission_level = None
         self._id = None
         self._name = None
@@ -64,6 +70,8 @@ class OrganizationCollaborator(object):
         self._user_id = None
         self.discriminator = None
 
+        self.base_role = base_role
+        self.additional_roles = additional_roles
         self.permission_level = permission_level
         self.id = id
         self.name = name
@@ -71,6 +79,56 @@ class OrganizationCollaborator(object):
         self.email = email
         if user_id is not None:
             self.user_id = user_id
+
+    @property
+    def base_role(self):
+        """Gets the base_role of this OrganizationCollaborator.  # noqa: E501
+
+        The base RBAC organization role.  # noqa: E501
+
+        :return: The base_role of this OrganizationCollaborator.  # noqa: E501
+        :rtype: OrganizationBaseRole
+        """
+        return self._base_role
+
+    @base_role.setter
+    def base_role(self, base_role):
+        """Sets the base_role of this OrganizationCollaborator.
+
+        The base RBAC organization role.  # noqa: E501
+
+        :param base_role: The base_role of this OrganizationCollaborator.  # noqa: E501
+        :type: OrganizationBaseRole
+        """
+        if self.local_vars_configuration.client_side_validation and base_role is None:  # noqa: E501
+            raise ValueError("Invalid value for `base_role`, must not be `None`")  # noqa: E501
+
+        self._base_role = base_role
+
+    @property
+    def additional_roles(self):
+        """Gets the additional_roles of this OrganizationCollaborator.  # noqa: E501
+
+        Additional RBAC organization roles.  # noqa: E501
+
+        :return: The additional_roles of this OrganizationCollaborator.  # noqa: E501
+        :rtype: list[OrganizationAdditionalRole]
+        """
+        return self._additional_roles
+
+    @additional_roles.setter
+    def additional_roles(self, additional_roles):
+        """Sets the additional_roles of this OrganizationCollaborator.
+
+        Additional RBAC organization roles.  # noqa: E501
+
+        :param additional_roles: The additional_roles of this OrganizationCollaborator.  # noqa: E501
+        :type: list[OrganizationAdditionalRole]
+        """
+        if self.local_vars_configuration.client_side_validation and additional_roles is None:  # noqa: E501
+            raise ValueError("Invalid value for `additional_roles`, must not be `None`")  # noqa: E501
+
+        self._additional_roles = additional_roles
 
     @property
     def permission_level(self):

@@ -1,6 +1,5 @@
 import datetime
 from enum import Enum
-from typing import Optional
 
 from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, Field, field_validator
@@ -123,6 +122,16 @@ class PluginConfiguration(BaseModel):
             description="manifest paths of agent strategy providers in yaml format,"
             "refers to [AgentStrategyProvider](#agentstrategyprovider)",
         )
+        datasources: list[str] = Field(
+            default_factory=list,
+            description="manifest paths of datasource providers in yaml format"
+            " refers to [DatasourceProvider](#datasourceprovider)",
+        )
+        triggers: list[str] = Field(
+            default_factory=list,
+            description="manifest paths of trigger providers in yaml format, "
+            "refers to [TriggerProvider](#triggerprovider)",
+        )
 
     @docs(
         description="Meta information of plugin",
@@ -153,7 +162,7 @@ class PluginConfiguration(BaseModel):
 
         @field_validator("minimum_dify_version")
         @classmethod
-        def validate_minimum_dify_version(cls, v: Optional[str]) -> Optional[str]:
+        def validate_minimum_dify_version(cls, v: str | None) -> str | None:
             if v is None:
                 return v
             try:

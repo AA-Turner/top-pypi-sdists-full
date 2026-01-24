@@ -17,8 +17,8 @@ from schemathesis.config._parameters import load_parameters
 from schemathesis.config._phases import PhasesConfig
 from schemathesis.config._rate_limit import build_limiter
 from schemathesis.config._report import ReportsConfig
-from schemathesis.config._warnings import SchemathesisWarning, resolve_warnings
-from schemathesis.core import HYPOTHESIS_IN_MEMORY_DATABASE_IDENTIFIER, hooks
+from schemathesis.config._warnings import WarningsConfig
+from schemathesis.core import HYPOTHESIS_IN_MEMORY_DATABASE_IDENTIFIER, NOT_SET, NotSet, hooks
 from schemathesis.core.validation import validate_base_url
 
 if TYPE_CHECKING:
@@ -59,7 +59,7 @@ class ProjectConfig(DiffBase):
     request_cert: str | None
     request_cert_key: str | None
     parameters: dict[str, Any]
-    warnings: list[SchemathesisWarning] | None
+    warnings: WarningsConfig
     auth: AuthConfig
     checks: ChecksConfig
     phases: PhasesConfig
@@ -107,7 +107,7 @@ class ProjectConfig(DiffBase):
         request_cert: str | None = None,
         request_cert_key: str | None = None,
         parameters: dict[str, Any] | None = None,
-        warnings: bool | list[SchemathesisWarning] | None = None,
+        warnings: WarningsConfig | None = None,
         auth: AuthConfig | None = None,
         checks: ChecksConfig | None = None,
         phases: PhasesConfig | None = None,
@@ -141,7 +141,7 @@ class ProjectConfig(DiffBase):
         self.request_cert = request_cert
         self.request_cert_key = request_cert_key
         self.parameters = parameters or {}
-        self._set_warnings(warnings)
+        self.warnings = warnings or WarningsConfig.from_value(None)
         self.auth = auth or AuthConfig()
         self.checks = checks or ChecksConfig()
         self.phases = phases or PhasesConfig()
@@ -167,7 +167,7 @@ class ProjectConfig(DiffBase):
             request_cert_key=resolve(data.get("request-cert-key")),
             parameters=load_parameters(data),
             auth=AuthConfig.from_dict(data.get("auth", {})),
-            warnings=resolve_warnings(data.get("warnings")),
+            warnings=WarningsConfig.from_value(data.get("warnings")),
             checks=ChecksConfig.from_dict(data.get("checks", {})),
             phases=PhasesConfig.from_dict(data.get("phases", {})),
             generation=GenerationConfig.from_dict(data.get("generation", {})),
@@ -175,14 +175,6 @@ class ProjectConfig(DiffBase):
                 operations=[OperationConfig.from_dict(operation) for operation in data.get("operations", [])]
             ),
         )
-
-    def _set_warnings(self, warnings: bool | list[SchemathesisWarning] | None) -> None:
-        if warnings is False:
-            self.warnings = []
-        elif warnings is True:
-            self.warnings = list(SchemathesisWarning)
-        else:
-            self.warnings = warnings
 
     def update(
         self,
@@ -201,7 +193,7 @@ class ProjectConfig(DiffBase):
         parameters: dict[str, Any] | None = None,
         proxy: str | None = None,
         suppress_health_check: list[HealthCheck] | None = None,
-        warnings: bool | list[SchemathesisWarning] | None = None,
+        warnings: WarningsConfig | None = None,
     ) -> None:
         if base_url is not None:
             _validate_base_url(base_url)
@@ -252,7 +244,17 @@ class ProjectConfig(DiffBase):
             self.suppress_health_check = suppress_health_check
 
         if warnings is not None:
-            self._set_warnings(warnings)
+            self.warnings = warnings
+
+    @property
+    def config_path(self) -> str | None:
+        """Filesystem path to the loaded configuration file, if any.
+
+        Returns None if using default configuration.
+        """
+        if self._parent is not None:
+            return self._parent.config_path
+        return None
 
     def auth_for(self, *, operation: APIOperation | None = None) -> tuple[str, str] | None:
         """Get auth credentials, prioritizing operation-specific configs."""
@@ -305,11 +307,11 @@ class ProjectConfig(DiffBase):
             config = self.operations.get_for_operation(operation=operation)
             if config.request_cert is not None:
                 if config.request_cert_key:
-                    return (config.request_cert, config.request_cert_key)
+                    return config.request_cert, config.request_cert_key
                 return config.request_cert
         if self.request_cert is not None:
             if self.request_cert_key:
-                return (self.request_cert, self.request_cert_key)
+                return self.request_cert, self.request_cert_key
             return self.request_cert
         return None
 
@@ -331,14 +333,12 @@ class ProjectConfig(DiffBase):
             return self.rate_limit
         return None
 
-    def warnings_for(self, *, operation: APIOperation | None = None) -> list[SchemathesisWarning]:
+    def warnings_for(self, *, operation: APIOperation | None = None) -> WarningsConfig:
         # Operation can be absent on some non-fatal errors due to schema parsing
         if operation is not None:
             config = self.operations.get_for_operation(operation=operation)
             if config.warnings is not None:
                 return config.warnings
-        if self.warnings is None:
-            return list(SchemathesisWarning)
         return self.warnings
 
     def phases_for(self, *, operation: APIOperation | None) -> PhasesConfig:
@@ -347,6 +347,8 @@ class ProjectConfig(DiffBase):
             for op in self.operations.operations:
                 if op._filter_set.applies_to(operation=operation):
                     configs.append(op.phases)
+        if not configs:
+            return self.phases
         configs.append(self.phases)
         return PhasesConfig.from_hierarchy(configs)
 
@@ -367,7 +369,10 @@ class ProjectConfig(DiffBase):
         if phase is not None:
             phases = self.phases_for(operation=operation)
             phase_config = phases.get_by_name(name=phase)
-            configs.append(phase_config.generation)
+            if not phase_config._is_default:
+                configs.append(phase_config.generation)
+        if not configs:
+            return self.generation
         configs.append(self.generation)
         return GenerationConfig.from_hierarchy(configs)
 
@@ -388,7 +393,10 @@ class ProjectConfig(DiffBase):
         if phase is not None:
             phases = self.phases_for(operation=operation)
             phase_config = phases.get_by_name(name=phase)
-            configs.append(phase_config.checks)
+            if not phase_config._is_default:
+                configs.append(phase_config.checks)
+        if not configs:
+            return self.checks
         configs.append(self.checks)
         return ChecksConfig.from_hierarchy(configs)
 
@@ -489,7 +497,6 @@ def _validate_base_url(base_url: str) -> None:
 class ProjectsConfig(DiffBase):
     default: ProjectConfig
     named: dict[str, ProjectConfig]
-    _override: ProjectConfig
 
     __slots__ = ("default", "named", "_override")
 
@@ -501,10 +508,11 @@ class ProjectsConfig(DiffBase):
     ) -> None:
         self.default = default or ProjectConfig()
         self.named = named or {}
+        self._override: ProjectConfig | NotSet = NOT_SET
 
     @property
     def override(self) -> ProjectConfig:
-        if not hasattr(self, "_override"):
+        if isinstance(self._override, NotSet):
             self._override = ProjectConfig()
             self._override._parent = self.default._parent
         return self._override
@@ -530,7 +538,7 @@ class ProjectsConfig(DiffBase):
         # Highest priority goes to `override`, then config specifically
         # for the given project, then the "default" project config
         configs = []
-        if hasattr(self, "_override"):
+        if not isinstance(self._override, NotSet):
             configs.append(self._override)
         title = schema.get("info", {}).get("title")
         if title is not None:

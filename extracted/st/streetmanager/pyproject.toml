@@ -1,0 +1,43 @@
+[project]
+name = "streetmanager"
+version = "0.3.3"
+description = "A Python client library for the Street Manager API"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Cogna Co", email = "info@cogna.co" }]
+license = { file = "LICENSE" }
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "urllib3>=1.25.3",
+  "python-dateutil>=2.8.2",
+  "six>=1.10",
+  "certifi>=2019.9.11",
+  "requests>=2.25.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/streetmanager"]
+
+[project.urls]
+Homepage = "https://github.com/cogna-public/streetmanager"
+"Bug Tracker" = "https://github.com/cogna-public/streetmanager/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Ensure src/ is on sys.path during tests
+pythonpath = ["src"]
+addopts = "-ra"
+
+[tool.uv]
+dev-dependencies = [
+  "pytest>=8",
+]

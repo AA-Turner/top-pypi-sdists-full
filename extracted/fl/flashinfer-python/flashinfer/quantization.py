@@ -19,20 +19,9 @@ from typing import Tuple
 
 import torch
 
-from .jit import JitSpec
-from .jit import env as jit_env
-from .jit import gen_jit_spec
+from .api_logging import flashinfer_api
+from .jit.quantization import gen_quantization_module
 from .utils import register_custom_op, register_fake_op
-
-
-def gen_quantization_module() -> JitSpec:
-    return gen_jit_spec(
-        "quantization",
-        [
-            jit_env.FLASHINFER_CSRC_DIR / "quantization.cu",
-            jit_env.FLASHINFER_CSRC_DIR / "flashinfer_quantization_ops.cu",
-        ],
-    )
 
 
 @functools.cache
@@ -54,6 +43,7 @@ def _fake_packbits(x: torch.Tensor, bitorder: str) -> torch.Tensor:
     return torch.empty((x.size(0) + 7) // 8, dtype=torch.uint8, device=x.device)
 
 
+@flashinfer_api
 def packbits(x: torch.Tensor, bitorder: str = "big") -> torch.Tensor:
     r"""Pack the elements of a binary-valued array into bits in a uint8 array.
 
@@ -88,6 +78,7 @@ def packbits(x: torch.Tensor, bitorder: str = "big") -> torch.Tensor:
     return _packbits(x, bitorder)
 
 
+@flashinfer_api
 def segment_packbits(
     x: torch.Tensor, indptr: torch.Tensor, bitorder: str = "big"
 ) -> Tuple[torch.Tensor, torch.Tensor]:

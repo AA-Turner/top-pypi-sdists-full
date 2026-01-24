@@ -1,15 +1,13 @@
-from __future__ import absolute_import, print_function
-
 """
-    M2Crypto utility routines.
+M2Crypto utility routines.
 
-    NOTHING IN THIS MODULE IS GUARANTEED TO BE STABLE, USED ONLY FOR
-    INTERNAL PURPOSES OF M2CRYPTO.
+NOTHING IN THIS MODULE IS GUARANTEED TO BE STABLE, USED ONLY FOR
+INTERNAL PURPOSES OF M2CRYPTO.
 
-    Copyright (c) 1999-2004 Ng Pheng Siong. All rights reserved.
+Copyright (c) 1999-2004 Ng Pheng Siong. All rights reserved.
 
-    Portions created by Open Source Applications Foundation (OSAF) are
-    Copyright (C) 2004 OSAF. All Rights Reserved.
+Portions created by Open Source Applications Foundation (OSAF) are
+Copyright (C) 2004 OSAF. All Rights Reserved.
 """
 
 import binascii
@@ -35,7 +33,7 @@ AddrType = Union[Tuple[str, int], str]
 # ModeStr = Literal['r', 'w', 'rw', 'rb', 'wb', 'rwb']
 ModeStr = str
 
-log = logging.getLogger('util')
+log = logging.getLogger("util")
 
 
 class UtilError(Exception):
@@ -70,7 +68,7 @@ def pkcs5_pad(data: str, blklen: int = 8) -> str:
 
 def pkcs7_pad(data: str, blklen: int) -> str:
     if blklen > 255:
-        raise ValueError('illegal block size')
+        raise ValueError("illegal block size")
     pad = blklen - (len(data) % blklen)
     return data + chr(pad) * pad
 
@@ -84,7 +82,7 @@ def octx_to_num(x: bytes) -> int:
 
 
 def genparam_callback(p: int, n: int) -> int:
-    ch = ['.', '+', '*', '\n']
+    ch = [".", "+", "*", "\n"]
     sys.stdout.write(ch[p])
     sys.stdout.flush()
     return 1
@@ -96,8 +94,8 @@ def quiet_genparam_callback(p: int, n: int) -> int:
 
 def passphrase_callback(
     v: bool,
-    prompt1: str = 'Enter passphrase:',
-    prompt2: str = 'Verify passphrase:',
+    prompt1: str = "Enter passphrase:",
+    prompt2: str = "Verify passphrase:",
 ) -> Optional[str]:
     from getpass import getpass
 
@@ -116,4 +114,4 @@ def passphrase_callback(
 
 
 def no_passphrase_callback(*args) -> str:
-    return ''
+    return ""

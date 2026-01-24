@@ -9,28 +9,64 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
+from typing import Literal, Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0147 import RepositoryRulesetConditionsPropRefName
-from .group_0153 import (
-    RepositoryRulesetConditionsRepositoryPropertyTargetPropRepositoryProperty,
-)
+from .group_0003 import SimpleUser
+from .group_0155 import ProjectsV2StatusUpdate
 
 
-class OrgRulesetConditionsOneof2(GitHubModel):
-    """repository_property_and_ref_name
+class ProjectsV2(GitHubModel):
+    """Projects v2 Project
 
-    Conditions to target repositories by property and refs by name
+    A projects v2 project
     """
 
-    ref_name: Missing[RepositoryRulesetConditionsPropRefName] = Field(default=UNSET)
-    repository_property: RepositoryRulesetConditionsRepositoryPropertyTargetPropRepositoryProperty = Field()
+    id: float = Field(description="The unique identifier of the project.")
+    node_id: str = Field(description="The node ID of the project.")
+    owner: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    creator: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    title: str = Field(description="The project title.")
+    description: Union[str, None] = Field(
+        description="A short description of the project."
+    )
+    public: bool = Field(
+        description="Whether the project is visible to anyone with access to the owner."
+    )
+    closed_at: Union[_dt.datetime, None] = Field(
+        description="The time when the project was closed."
+    )
+    created_at: _dt.datetime = Field(
+        description="The time when the project was created."
+    )
+    updated_at: _dt.datetime = Field(
+        description="The time when the project was last updated."
+    )
+    number: int = Field(description="The project number.")
+    short_description: Union[str, None] = Field(
+        description="A concise summary of the project."
+    )
+    deleted_at: Union[_dt.datetime, None] = Field(
+        description="The time when the project was deleted."
+    )
+    deleted_by: Union[None, SimpleUser] = Field()
+    state: Missing[Literal["open", "closed"]] = Field(
+        default=UNSET, description="The current state of the project."
+    )
+    latest_status_update: Missing[Union[None, ProjectsV2StatusUpdate]] = Field(
+        default=UNSET
+    )
+    is_template: Missing[bool] = Field(
+        default=UNSET, description="Whether this project is a template"
+    )
 
 
-model_rebuild(OrgRulesetConditionsOneof2)
+model_rebuild(ProjectsV2)
 
-__all__ = ("OrgRulesetConditionsOneof2",)
+__all__ = ("ProjectsV2",)

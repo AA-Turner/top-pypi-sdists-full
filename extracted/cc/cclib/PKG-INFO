@@ -1,0 +1,89 @@
+Metadata-Version: 2.1
+Name: cclib
+Version: 1.8.1
+Summary: parsers and algorithms for computational chemistry
+Author-email: cclib development team <cclib@googlegroups.com>
+Maintainer-email: cclib development team <cclib@googlegroups.com>
+License: BSD 3-Clause License
+        
+        Copyright (c) 2024, the cclib development team
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        * Redistributions of source code must retain the above copyright notice, this
+          list of conditions and the following disclaimer.
+        
+        * Redistributions in binary form must reproduce the above copyright notice,
+          this list of conditions and the following disclaimer in the documentation
+          and/or other materials provided with the distribution.
+        
+        * Neither the name of the copyright holder nor the names of its
+          contributors may be used to endorse or promote products derived from
+          this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: Bug Tracker, https://github.com/cclib/cclib/issues
+Project-URL: Changelog, https://github.com/cclib/cclib/blob/master/doc/sphinx/changelog.rst
+Project-URL: Documentation, http://cclib.github.io/
+Project-URL: Homepage, https://github.com/cclib/cclib
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: packaging>=19.0
+Requires-Dist: periodictable
+Requires-Dist: scipy>=1.2.0
+Provides-Extra: bridges
+Requires-Dist: ase>=3.21; extra == "bridges"
+Requires-Dist: biopython; extra == "bridges"
+Requires-Dist: openbabel; extra == "bridges"
+Requires-Dist: pandas; extra == "bridges"
+Requires-Dist: pyscf; extra == "bridges"
+Requires-Dist: qc-iodata>=1.0.0a2; extra == "bridges"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Provides-Extra: dev
+Requires-Dist: cclib[bridges,docs,test]; extra == "dev"
+Provides-Extra: all
+Requires-Dist: cclib[bridges]; extra == "all"
+
+### cclib
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8280878.svg)](https://doi.org/10.5281/zenodo.8280878)
+[![PyPI version](http://img.shields.io/pypi/v/cclib.svg?style=flat)](https://pypi.python.org/pypi/cclib)
+[![GitHub release](https://img.shields.io/github/release/cclib/cclib.svg?style=flat)](https://github.com/cclib/cclib/releases)
+[![build status](https://github.com/cclib/cclib/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/cclib/cclib/actions/workflows/cclib_pytest.yml)
+[![license](http://img.shields.io/badge/license-BSD-blue.svg?style=flat)](https://github.com/cclib/cclib/blob/master/LICENSE)
+
+<img src="./logo.png" alt="cclib logo" width="100" />
+
+cclib is a Python library that provides parsers for output files of computational chemistry packages. It also provides a platform for computational chemists to implement algorithms in a platform-independent way.
+
+For more information, go to [https://cclib.github.io](https://cclib.github.io). There is a mailing list for questions at https://groups.google.com/g/cclib.

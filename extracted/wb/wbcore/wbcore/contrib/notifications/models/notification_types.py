@@ -1,12 +1,12 @@
 from contextlib import suppress
 
-from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models import UniqueConstraint
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from guardian.utils import get_anonymous_user
 
+from wbcore.contrib.authentication.models.users import User
 from wbcore.models import WBModel
 
 
@@ -62,9 +62,7 @@ class NotificationTypeSetting(WBModel):
     notification_type = models.ForeignKey(
         to="notifications.NotificationType", related_name="user_settings", on_delete=models.CASCADE
     )
-    user = models.ForeignKey(
-        to=get_user_model(), related_name="wbnotification_user_settings", on_delete=models.CASCADE
-    )
+    user = models.ForeignKey(to=User, related_name="wbnotification_user_settings", on_delete=models.CASCADE)
 
     enable_web = models.BooleanField(default=False)
     enable_mobile = models.BooleanField(default=False)
@@ -113,7 +111,7 @@ def post_save_notification_type(instance, **kwargs):
     anonymous_user = get_anonymous_user()
 
     objs = []
-    for user in get_user_model().objects.filter(~models.Q(pk=anonymous_user.pk)):
+    for user in User.objects.filter(~models.Q(pk=anonymous_user.pk)):
         try:
             existing_setting = NotificationTypeSetting.objects.get(user=user, notification_type=instance)
             enable_web = existing_setting.enable_web if not instance.is_lock else instance.default_enable_web
@@ -142,10 +140,10 @@ def post_save_notification_type(instance, **kwargs):
         )
 
 
-@receiver(post_save, sender=get_user_model())
+@receiver(post_save, sender=User)
 def post_save_user(sender, instance, created, raw, **kwargs):
     if created:
-        with suppress(get_user_model().DoesNotExist):
+        with suppress(User.DoesNotExist):
             anonymous_user = get_anonymous_user()
             if instance.pk == anonymous_user.pk:
                 return

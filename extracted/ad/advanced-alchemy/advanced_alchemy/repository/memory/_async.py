@@ -35,7 +35,7 @@ from advanced_alchemy.filters import (
     StatementFilter,
 )
 from advanced_alchemy.repository._async import SQLAlchemyAsyncRepositoryProtocol, SQLAlchemyAsyncSlugRepositoryProtocol
-from advanced_alchemy.repository._util import DEFAULT_ERROR_MESSAGE_TEMPLATES, LoadSpec
+from advanced_alchemy.repository._util import DEFAULT_ERROR_MESSAGE_TEMPLATES, LoadSpec, compare_values
 from advanced_alchemy.repository.memory.base import (
     AnyObject,
     InMemoryStore,
@@ -99,7 +99,9 @@ class SQLAlchemyAsyncMockRepository(SQLAlchemyAsyncRepositoryProtocol[ModelT]):
         self.auto_expunge = auto_expunge
         self.auto_refresh = auto_refresh
         self.auto_commit = auto_commit
-        self.error_messages = self._get_error_messages(error_messages=error_messages)
+        self.error_messages = self._get_error_messages(
+            error_messages=error_messages, default_messages=self.error_messages
+        )
         self.wrap_exceptions = wrap_exceptions
         self.order_by = order_by
         self._dialect: Dialect = create_autospec(Dialect, instance=True)
@@ -121,13 +123,14 @@ class SQLAlchemyAsyncMockRepository(SQLAlchemyAsyncRepositoryProtocol[ModelT]):
     ) -> Optional[ErrorMessages]:
         if error_messages == Empty:
             error_messages = None
-        default_messages = cast(
-            "Optional[ErrorMessages]",
-            default_messages if default_messages != Empty else DEFAULT_ERROR_MESSAGE_TEMPLATES,
-        )
-        if error_messages is not None and default_messages is not None:
-            default_messages.update(cast("ErrorMessages", error_messages))
-        return default_messages
+        if default_messages == Empty:
+            default_messages = None
+        messages = cast("ErrorMessages", dict(DEFAULT_ERROR_MESSAGE_TEMPLATES))
+        if default_messages:
+            messages.update(cast("ErrorMessages", default_messages))
+        if error_messages:
+            messages.update(cast("ErrorMessages", error_messages))
+        return messages
 
     @classmethod
     def __database_add__(cls, identity: Any, data: ModelT) -> ModelT:
@@ -209,36 +212,58 @@ class SQLAlchemyAsyncMockRepository(SQLAlchemyAsyncRepositoryProtocol[ModelT]):
     def _apply_limit_offset_pagination(result: list[ModelT], limit: int, offset: int) -> list[ModelT]:
         return result[offset:limit]
 
-    @staticmethod
+    def _extract_field_name(self, field: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]") -> str:
+        """Extract string field name from various input types.
+
+        Args:
+            field: Field name, column element, or instrumented attribute
+
+        Returns:
+            str: String field name for use with getattr()
+
+        Raises:
+            RepositoryError: If a ColumnElement (func expression) is used with mock repository
+        """
+        if isinstance(field, str):
+            return field
+        if isinstance(field, InstrumentedAttribute):
+            return field.key
+        msg = f"{type(field)} columns are not supported in mock repositories (in-memory filtering)"
+        raise RepositoryError(msg)
+
     def _filter_in_collection(
+        self,
         result: list[ModelT],
-        field_name: str,
+        field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]",
         values: abc.Collection[Any],
     ) -> list[ModelT]:
-        return [item for item in result if getattr(item, field_name) in values]
+        field_str = self._extract_field_name(field_name)
+        return [item for item in result if getattr(item, field_str) in values]
 
-    @staticmethod
     def _filter_not_in_collection(
+        self,
         result: list[ModelT],
-        field_name: str,
+        field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]",
         values: abc.Collection[Any],
     ) -> list[ModelT]:
         if not values:
             return result
-        return [item for item in result if getattr(item, field_name) not in values]
+        field_str = self._extract_field_name(field_name)
+        return [item for item in result if getattr(item, field_str) not in values]
 
-    @staticmethod
     def _filter_on_datetime_field(
+        self,
         result: list[ModelT],
-        field_name: str,
+        field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]",
         before: Optional[datetime.datetime] = None,
         after: Optional[datetime.datetime] = None,
         on_or_before: Optional[datetime.datetime] = None,
         on_or_after: Optional[datetime.datetime] = None,
     ) -> list[ModelT]:
+        field_str = self._extract_field_name(field_name)
         result_: list[ModelT] = []
         for item in result:
-            attr: datetime.datetime = getattr(item, field_name)
+            attr: datetime.datetime = getattr(item, field_str)
             if before is not None and attr < before:
                 result_.append(item)
             if after is not None and attr > after:
@@ -302,9 +327,13 @@ class SQLAlchemyAsyncMockRepository(SQLAlchemyAsyncRepositoryProtocol[ModelT]):
         except AttributeError as error:
             raise RepositoryError from error
 
-    @staticmethod
-    def _order_by(result: list[ModelT], field_name: str, sort_desc: bool = False) -> list[ModelT]:
-        return sorted(result, key=lambda item: getattr(item, field_name), reverse=sort_desc)
+    def _order_by(
+        self,
+        result: list[ModelT],
+        field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]",
+        sort_desc: bool = False,
+    ) -> list[ModelT]:
+        return sorted(result, key=lambda item: getattr(item, self._extract_field_name(field_name)), reverse=sort_desc)
 
     def _apply_filters(
         self,
@@ -425,6 +454,7 @@ class SQLAlchemyAsyncMockRepository(SQLAlchemyAsyncRepositoryProtocol[ModelT]):
         load: Optional[LoadSpec] = None,
         execution_options: Optional[dict[str, Any]] = None,
         uniquify: Optional[bool] = None,
+        with_for_update: ForUpdateParameter = None,
     ) -> ModelT:
         return self._find_or_raise_not_found(item_id)
 
@@ -490,7 +520,7 @@ class SQLAlchemyAsyncMockRepository(SQLAlchemyAsyncRepositoryProtocol[ModelT]):
         if upsert:
             for field_name, new_field_value in kwargs_.items():
                 field = getattr(existing, field_name, MISSING)
-                if field is not MISSING and field != new_field_value:
+                if field is not MISSING and not compare_values(field, new_field_value):  # pragma: no cover
                     setattr(existing, field_name, new_field_value)
             existing = await self.update(existing)
         return existing, False
@@ -524,7 +554,7 @@ class SQLAlchemyAsyncMockRepository(SQLAlchemyAsyncRepositoryProtocol[ModelT]):
         updated = False
         for field_name, new_field_value in kwargs_.items():
             field = getattr(existing, field_name, MISSING)
-            if field is not MISSING and field != new_field_value:
+            if field is not MISSING and not compare_values(field, new_field_value):  # pragma: no cover
                 updated = True
                 setattr(existing, field_name, new_field_value)
         existing = await self.update(existing)

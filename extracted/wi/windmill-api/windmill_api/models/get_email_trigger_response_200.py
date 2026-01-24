@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.get_email_trigger_response_200_mode import GetEmailTriggerResponse200Mode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -29,11 +30,12 @@ class GetEmailTriggerResponse200:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (GetEmailTriggerResponse200Mode): job trigger mode
         workspaced_local_part (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, GetEmailTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, GetEmailTriggerResponse200Retry]):
+        retry (Union[Unset, GetEmailTriggerResponse200Retry]): Retry configuration for failed module executions
     """
 
     local_part: str
@@ -45,6 +47,7 @@ class GetEmailTriggerResponse200:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: GetEmailTriggerResponse200Mode
     workspaced_local_part: Union[Unset, bool] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "GetEmailTriggerResponse200ErrorHandlerArgs"] = UNSET
@@ -63,6 +66,8 @@ class GetEmailTriggerResponse200:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         workspaced_local_part = self.workspaced_local_part
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
@@ -86,6 +91,7 @@ class GetEmailTriggerResponse200:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if workspaced_local_part is not UNSET:
@@ -126,6 +132,8 @@ class GetEmailTriggerResponse200:
 
         is_flow = d.pop("is_flow")
 
+        mode = GetEmailTriggerResponse200Mode(d.pop("mode"))
+
         workspaced_local_part = d.pop("workspaced_local_part", UNSET)
 
         error_handler_path = d.pop("error_handler_path", UNSET)
@@ -154,6 +162,7 @@ class GetEmailTriggerResponse200:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             workspaced_local_part=workspaced_local_part,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,

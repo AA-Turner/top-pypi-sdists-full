@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ffmpeg-progress-yield
-Version: 1.0.3
+Version: 1.1.1
 Summary: Run an ffmpeg command with progress
 Keywords: ffmpeg
 Author: Werner Robitza
@@ -9,7 +9,6 @@ License-Expression: MIT
 License-File: LICENSE.md
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -17,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: tqdm>=4.38.0
 Requires-Python: >=3.9
 Project-URL: Homepage, https://github.com/slhck/ffmpeg-progress-yield
@@ -148,7 +148,7 @@ It will show a progress bar, and once the command is done, show the ffmpeg stder
 Full usage notes:
 
 ```
-usage: ffmpeg-progress-yield [-h] [-d DURATION] [-n] [-p] [-x] [-l LOG_FILE] ...
+usage: ffmpeg-progress-yield [-h] [-d DURATION] [-n] [-p] [-x] [-l LOG_FILE] [--ffprobe-path FFPROBE_PATH] ...
 
 ffmpeg-progress-yield v0.12.0
 
@@ -165,6 +165,8 @@ options:
                         Exclude progress lines from ffmpeg log. (default: False)
   -l, --log-file LOG_FILE
                         Send ffmpeg log output to specified file. (default: None)
+  --ffprobe-path FFPROBE_PATH
+                        Path to ffprobe executable (for duration probing). (default: ffprobe)
 ```
 
 #### Duration override

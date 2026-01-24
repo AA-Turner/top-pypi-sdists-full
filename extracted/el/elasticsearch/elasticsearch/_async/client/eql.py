@@ -38,8 +38,8 @@ class EqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Delete an async EQL search.
-          Delete an async EQL search or a stored synchronous EQL search.
+          <p>Delete an async EQL search.</p>
+          <p>Delete an async EQL search or a stored synchronous EQL search.
           The API also deletes results for the search.</p>
 
 
@@ -89,8 +89,8 @@ class EqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get async EQL search results.
-          Get the current status and available results for an async EQL search or a stored synchronous EQL search.</p>
+          <p>Get async EQL search results.</p>
+          <p>Get the current status and available results for an async EQL search or a stored synchronous EQL search.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-eql-get>`_
@@ -143,8 +143,8 @@ class EqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get the async EQL status.
-          Get the current status for an async EQL search or a stored synchronous EQL search without returning results.</p>
+          <p>Get the async EQL status.</p>
+          <p>Get the current status for an async EQL search or a stored synchronous EQL search without returning results.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-eql-get-status>`_
@@ -229,6 +229,7 @@ class EqlClient(NamespacedClient):
         keep_on_completion: t.Optional[bool] = None,
         max_samples_per_key: t.Optional[int] = None,
         pretty: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         result_position: t.Optional[t.Union[str, t.Literal["head", "tail"]]] = None,
         runtime_mappings: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
         size: t.Optional[int] = None,
@@ -242,14 +243,14 @@ class EqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get EQL search results.
-          Returns search results for an Event Query Language (EQL) query.
+          <p>Get EQL search results.</p>
+          <p>Returns search results for an Event Query Language (EQL) query.
           EQL assumes each document in a data stream or index corresponds to an event.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-eql-search>`_
 
-        :param index: The name of the index to scope the operation
+        :param index: Comma-separated list of index names to scope the operation
         :param query: EQL query you wish to run.
         :param allow_no_indices: Whether to ignore if a wildcard indices expression resolves
             into no concrete indices. (This includes `_all` string or when no indices
@@ -285,13 +286,17 @@ class EqlClient(NamespacedClient):
             `size` parameter to get a smaller or larger set of samples. To retrieve more
             than one sample per set of join keys, use the `max_samples_per_key` parameter.
             Pipes are not supported for sample queries.
+        :param project_routing: Specifies a subset of projects to target for the search
+            using project metadata tags in a subset of Lucene query syntax. Allowed Lucene
+            queries: the _alias tag and a single value (possibly wildcarded). Examples:
+            _alias:my-project _alias:_origin _alias:*pr* Supported in serverless only.
         :param result_position:
         :param runtime_mappings:
         :param size: For basic queries, the maximum number of matching events to return.
             Defaults to 10
         :param tiebreaker_field: Field used to sort hits with the same timestamp in ascending
             order
-        :param timestamp_field: Field containing event timestamp. Default "@timestamp"
+        :param timestamp_field: Field containing event timestamp.
         :param wait_for_completion_timeout:
         """
         if index in SKIP_IN_PATH:
@@ -318,6 +323,8 @@ class EqlClient(NamespacedClient):
             __query["ignore_unavailable"] = ignore_unavailable
         if pretty is not None:
             __query["pretty"] = pretty
+        if project_routing is not None:
+            __query["project_routing"] = project_routing
         if not __body:
             if query is not None:
                 __body["query"] = query

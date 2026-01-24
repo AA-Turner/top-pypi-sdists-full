@@ -3,7 +3,7 @@ Type annotations for network-firewall service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -35,6 +36,9 @@ from .paginator import (
     ListFirewallsPaginator,
     ListFlowOperationResultsPaginator,
     ListFlowOperationsPaginator,
+    ListProxiesPaginator,
+    ListProxyConfigurationsPaginator,
+    ListProxyRuleGroupsPaginator,
     ListRuleGroupsPaginator,
     ListTagsForResourcePaginator,
     ListTLSInspectionConfigurationsPaginator,
@@ -49,10 +53,20 @@ from .type_defs import (
     AssociateFirewallPolicyResponseTypeDef,
     AssociateSubnetsRequestTypeDef,
     AssociateSubnetsResponseTypeDef,
+    AttachRuleGroupsToProxyConfigurationRequestTypeDef,
+    AttachRuleGroupsToProxyConfigurationResponseTypeDef,
     CreateFirewallPolicyRequestTypeDef,
     CreateFirewallPolicyResponseTypeDef,
     CreateFirewallRequestTypeDef,
     CreateFirewallResponseTypeDef,
+    CreateProxyConfigurationRequestTypeDef,
+    CreateProxyConfigurationResponseTypeDef,
+    CreateProxyRequestTypeDef,
+    CreateProxyResponseTypeDef,
+    CreateProxyRuleGroupRequestTypeDef,
+    CreateProxyRuleGroupResponseTypeDef,
+    CreateProxyRulesRequestTypeDef,
+    CreateProxyRulesResponseTypeDef,
     CreateRuleGroupRequestTypeDef,
     CreateRuleGroupResponseTypeDef,
     CreateTLSInspectionConfigurationRequestTypeDef,
@@ -65,6 +79,14 @@ from .type_defs import (
     DeleteFirewallResponseTypeDef,
     DeleteNetworkFirewallTransitGatewayAttachmentRequestTypeDef,
     DeleteNetworkFirewallTransitGatewayAttachmentResponseTypeDef,
+    DeleteProxyConfigurationRequestTypeDef,
+    DeleteProxyConfigurationResponseTypeDef,
+    DeleteProxyRequestTypeDef,
+    DeleteProxyResponseTypeDef,
+    DeleteProxyRuleGroupRequestTypeDef,
+    DeleteProxyRuleGroupResponseTypeDef,
+    DeleteProxyRulesRequestTypeDef,
+    DeleteProxyRulesResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteRuleGroupRequestTypeDef,
     DeleteRuleGroupResponseTypeDef,
@@ -82,6 +104,14 @@ from .type_defs import (
     DescribeFlowOperationResponseTypeDef,
     DescribeLoggingConfigurationRequestTypeDef,
     DescribeLoggingConfigurationResponseTypeDef,
+    DescribeProxyConfigurationRequestTypeDef,
+    DescribeProxyConfigurationResponseTypeDef,
+    DescribeProxyRequestTypeDef,
+    DescribeProxyResponseTypeDef,
+    DescribeProxyRuleGroupRequestTypeDef,
+    DescribeProxyRuleGroupResponseTypeDef,
+    DescribeProxyRuleRequestTypeDef,
+    DescribeProxyRuleResponseTypeDef,
     DescribeResourcePolicyRequestTypeDef,
     DescribeResourcePolicyResponseTypeDef,
     DescribeRuleGroupMetadataRequestTypeDef,
@@ -94,6 +124,8 @@ from .type_defs import (
     DescribeTLSInspectionConfigurationResponseTypeDef,
     DescribeVpcEndpointAssociationRequestTypeDef,
     DescribeVpcEndpointAssociationResponseTypeDef,
+    DetachRuleGroupsFromProxyConfigurationRequestTypeDef,
+    DetachRuleGroupsFromProxyConfigurationResponseTypeDef,
     DisassociateAvailabilityZonesRequestTypeDef,
     DisassociateAvailabilityZonesResponseTypeDef,
     DisassociateSubnetsRequestTypeDef,
@@ -110,6 +142,12 @@ from .type_defs import (
     ListFlowOperationResultsResponseTypeDef,
     ListFlowOperationsRequestTypeDef,
     ListFlowOperationsResponseTypeDef,
+    ListProxiesRequestTypeDef,
+    ListProxiesResponseTypeDef,
+    ListProxyConfigurationsRequestTypeDef,
+    ListProxyConfigurationsResponseTypeDef,
+    ListProxyRuleGroupsRequestTypeDef,
+    ListProxyRuleGroupsResponseTypeDef,
     ListRuleGroupsRequestTypeDef,
     ListRuleGroupsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -145,6 +183,16 @@ from .type_defs import (
     UpdateFirewallPolicyResponseTypeDef,
     UpdateLoggingConfigurationRequestTypeDef,
     UpdateLoggingConfigurationResponseTypeDef,
+    UpdateProxyConfigurationRequestTypeDef,
+    UpdateProxyConfigurationResponseTypeDef,
+    UpdateProxyRequestTypeDef,
+    UpdateProxyResponseTypeDef,
+    UpdateProxyRuleGroupPrioritiesRequestTypeDef,
+    UpdateProxyRuleGroupPrioritiesResponseTypeDef,
+    UpdateProxyRulePrioritiesRequestTypeDef,
+    UpdateProxyRulePrioritiesResponseTypeDef,
+    UpdateProxyRuleRequestTypeDef,
+    UpdateProxyRuleResponseTypeDef,
     UpdateRuleGroupRequestTypeDef,
     UpdateRuleGroupResponseTypeDef,
     UpdateSubnetChangeProtectionRequestTypeDef,
@@ -153,12 +201,6 @@ from .type_defs import (
     UpdateTLSInspectionConfigurationResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -167,19 +209,19 @@ else:
 __all__ = ("NetworkFirewallClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InsufficientCapacityException: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    InvalidOperationException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    InvalidResourcePolicyException: Type[BotocoreClientError]
-    InvalidTokenException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    LogDestinationPermissionException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceOwnerCheckException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InsufficientCapacityException: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    InvalidOperationException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidResourcePolicyException: type[BotocoreClientError]
+    InvalidTokenException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    LogDestinationPermissionException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceOwnerCheckException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
 
 class NetworkFirewallClient(AioBaseClient):
     """
@@ -257,6 +299,16 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#associate_subnets)
         """
 
+    async def attach_rule_groups_to_proxy_configuration(
+        self, **kwargs: Unpack[AttachRuleGroupsToProxyConfigurationRequestTypeDef]
+    ) -> AttachRuleGroupsToProxyConfigurationResponseTypeDef:
+        """
+        Attaches <a>ProxyRuleGroup</a> resources to a <a>ProxyConfiguration</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/attach_rule_groups_to_proxy_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#attach_rule_groups_to_proxy_configuration)
+        """
+
     async def create_firewall(
         self, **kwargs: Unpack[CreateFirewallRequestTypeDef]
     ) -> CreateFirewallResponseTypeDef:
@@ -276,6 +328,46 @@ class NetworkFirewallClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_firewall_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#create_firewall_policy)
+        """
+
+    async def create_proxy(
+        self, **kwargs: Unpack[CreateProxyRequestTypeDef]
+    ) -> CreateProxyResponseTypeDef:
+        """
+        Creates an Network Firewall <a>Proxy</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_proxy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#create_proxy)
+        """
+
+    async def create_proxy_configuration(
+        self, **kwargs: Unpack[CreateProxyConfigurationRequestTypeDef]
+    ) -> CreateProxyConfigurationResponseTypeDef:
+        """
+        Creates an Network Firewall <a>ProxyConfiguration</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_proxy_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#create_proxy_configuration)
+        """
+
+    async def create_proxy_rule_group(
+        self, **kwargs: Unpack[CreateProxyRuleGroupRequestTypeDef]
+    ) -> CreateProxyRuleGroupResponseTypeDef:
+        """
+        Creates an Network Firewall <a>ProxyRuleGroup</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_proxy_rule_group.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#create_proxy_rule_group)
+        """
+
+    async def create_proxy_rules(
+        self, **kwargs: Unpack[CreateProxyRulesRequestTypeDef]
+    ) -> CreateProxyRulesResponseTypeDef:
+        """
+        Creates Network Firewall <a>ProxyRule</a> resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_proxy_rules.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#create_proxy_rules)
         """
 
     async def create_rule_group(
@@ -339,9 +431,49 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#delete_network_firewall_transit_gateway_attachment)
         """
 
+    async def delete_proxy(
+        self, **kwargs: Unpack[DeleteProxyRequestTypeDef]
+    ) -> DeleteProxyResponseTypeDef:
+        """
+        Deletes the specified <a>Proxy</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_proxy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#delete_proxy)
+        """
+
+    async def delete_proxy_configuration(
+        self, **kwargs: Unpack[DeleteProxyConfigurationRequestTypeDef]
+    ) -> DeleteProxyConfigurationResponseTypeDef:
+        """
+        Deletes the specified <a>ProxyConfiguration</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_proxy_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#delete_proxy_configuration)
+        """
+
+    async def delete_proxy_rule_group(
+        self, **kwargs: Unpack[DeleteProxyRuleGroupRequestTypeDef]
+    ) -> DeleteProxyRuleGroupResponseTypeDef:
+        """
+        Deletes the specified <a>ProxyRuleGroup</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_proxy_rule_group.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#delete_proxy_rule_group)
+        """
+
+    async def delete_proxy_rules(
+        self, **kwargs: Unpack[DeleteProxyRulesRequestTypeDef]
+    ) -> DeleteProxyRulesResponseTypeDef:
+        """
+        Deletes the specified <a>ProxyRule</a>(s).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_proxy_rules.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#delete_proxy_rules)
+        """
+
     async def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a resource policy that you created in a <a>PutResourcePolicy</a>
         request.
@@ -431,6 +563,47 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_logging_configuration)
         """
 
+    async def describe_proxy(
+        self, **kwargs: Unpack[DescribeProxyRequestTypeDef]
+    ) -> DescribeProxyResponseTypeDef:
+        """
+        Returns the data objects for the specified proxy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_proxy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_proxy)
+        """
+
+    async def describe_proxy_configuration(
+        self, **kwargs: Unpack[DescribeProxyConfigurationRequestTypeDef]
+    ) -> DescribeProxyConfigurationResponseTypeDef:
+        """
+        Returns the data objects for the specified proxy configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_proxy_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_proxy_configuration)
+        """
+
+    async def describe_proxy_rule(
+        self, **kwargs: Unpack[DescribeProxyRuleRequestTypeDef]
+    ) -> DescribeProxyRuleResponseTypeDef:
+        """
+        Returns the data objects for the specified proxy configuration for the
+        specified proxy rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_proxy_rule.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_proxy_rule)
+        """
+
+    async def describe_proxy_rule_group(
+        self, **kwargs: Unpack[DescribeProxyRuleGroupRequestTypeDef]
+    ) -> DescribeProxyRuleGroupResponseTypeDef:
+        """
+        Returns the data objects for the specified proxy rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_proxy_rule_group.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_proxy_rule_group)
+        """
+
     async def describe_resource_policy(
         self, **kwargs: Unpack[DescribeResourcePolicyRequestTypeDef]
     ) -> DescribeResourcePolicyResponseTypeDef:
@@ -491,6 +664,16 @@ class NetworkFirewallClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_vpc_endpoint_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_vpc_endpoint_association)
+        """
+
+    async def detach_rule_groups_from_proxy_configuration(
+        self, **kwargs: Unpack[DetachRuleGroupsFromProxyConfigurationRequestTypeDef]
+    ) -> DetachRuleGroupsFromProxyConfigurationResponseTypeDef:
+        """
+        Detaches <a>ProxyRuleGroup</a> resources from a <a>ProxyConfiguration</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/detach_rule_groups_from_proxy_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#detach_rule_groups_from_proxy_configuration)
         """
 
     async def disassociate_availability_zones(
@@ -576,6 +759,36 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#list_flow_operations)
         """
 
+    async def list_proxies(
+        self, **kwargs: Unpack[ListProxiesRequestTypeDef]
+    ) -> ListProxiesResponseTypeDef:
+        """
+        Retrieves the metadata for the proxies that you have defined.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_proxies.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#list_proxies)
+        """
+
+    async def list_proxy_configurations(
+        self, **kwargs: Unpack[ListProxyConfigurationsRequestTypeDef]
+    ) -> ListProxyConfigurationsResponseTypeDef:
+        """
+        Retrieves the metadata for the proxy configuration that you have defined.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_proxy_configurations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#list_proxy_configurations)
+        """
+
+    async def list_proxy_rule_groups(
+        self, **kwargs: Unpack[ListProxyRuleGroupsRequestTypeDef]
+    ) -> ListProxyRuleGroupsResponseTypeDef:
+        """
+        Retrieves the metadata for the proxy rule groups that you have defined.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_proxy_rule_groups.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#list_proxy_rule_groups)
+        """
+
     async def list_rule_groups(
         self, **kwargs: Unpack[ListRuleGroupsRequestTypeDef]
     ) -> ListRuleGroupsResponseTypeDef:
@@ -619,7 +832,7 @@ class NetworkFirewallClient(AioBaseClient):
 
     async def put_resource_policy(
         self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates an IAM policy for your rule group, firewall policy, or
         firewall.
@@ -670,7 +883,7 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#start_flow_flush)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified resource.
 
@@ -678,7 +891,7 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the tags with the specified keys from the specified resource.
 
@@ -767,6 +980,56 @@ class NetworkFirewallClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_logging_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_logging_configuration)
+        """
+
+    async def update_proxy(
+        self, **kwargs: Unpack[UpdateProxyRequestTypeDef]
+    ) -> UpdateProxyResponseTypeDef:
+        """
+        Updates the properties of the specified proxy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_proxy)
+        """
+
+    async def update_proxy_configuration(
+        self, **kwargs: Unpack[UpdateProxyConfigurationRequestTypeDef]
+    ) -> UpdateProxyConfigurationResponseTypeDef:
+        """
+        Updates the properties of the specified proxy configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_proxy_configuration)
+        """
+
+    async def update_proxy_rule(
+        self, **kwargs: Unpack[UpdateProxyRuleRequestTypeDef]
+    ) -> UpdateProxyRuleResponseTypeDef:
+        """
+        Updates the properties of the specified proxy rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_rule.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_proxy_rule)
+        """
+
+    async def update_proxy_rule_group_priorities(
+        self, **kwargs: Unpack[UpdateProxyRuleGroupPrioritiesRequestTypeDef]
+    ) -> UpdateProxyRuleGroupPrioritiesResponseTypeDef:
+        """
+        Updates proxy rule group priorities within a proxy configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_rule_group_priorities.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_proxy_rule_group_priorities)
+        """
+
+    async def update_proxy_rule_priorities(
+        self, **kwargs: Unpack[UpdateProxyRulePrioritiesRequestTypeDef]
+    ) -> UpdateProxyRulePrioritiesResponseTypeDef:
+        """
+        Updates proxy rule priorities within a proxy rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_rule_priorities.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_proxy_rule_priorities)
         """
 
     async def update_rule_group(
@@ -868,6 +1131,39 @@ class NetworkFirewallClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_proxies"]
+    ) -> ListProxiesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_proxy_configurations"]
+    ) -> ListProxyConfigurationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_proxy_rule_groups"]
+    ) -> ListProxyRuleGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_rule_groups"]
     ) -> ListRuleGroupsPaginator:
         """
@@ -918,7 +1214,7 @@ class NetworkFirewallClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

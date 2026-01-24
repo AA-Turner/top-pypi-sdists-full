@@ -53,12 +53,10 @@ class RelationshipGraph:
     A graph showing related datasets. linkage_keys is a list of dataset ids that are related.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id", optional=True): String(),
-            t.Key("linkage_keys", optional=True): t.List(String()),
-        }
-    )
+    _converter = t.Dict({
+        t.Key("id", optional=True): String(),
+        t.Key("linkage_keys", optional=True): t.List(String()),
+    })
     schema = _converter
 
     def __init__(self, id: str = None, linkage_keys: List[str] = None):
@@ -89,14 +87,12 @@ class FeatureEngineeringOptions:
     Options used for automated feature engineering.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("related_graphs", optional=True): t.List(RelationshipGraph.schema),
-            t.Key("related_datasets", optional=True): t.List(FeatureEngineeringDataset.schema),
-            t.Key("suggested_graph_ids", optional=True): t.List(String()),
-            t.Key("is_snowflake_writable", optional=True): t.Bool(),
-        }
-    )
+    _converter = t.Dict({
+        t.Key("related_graphs", optional=True): t.List(RelationshipGraph.schema),
+        t.Key("related_datasets", optional=True): t.List(FeatureEngineeringDataset.schema),
+        t.Key("suggested_graph_ids", optional=True): t.List(String()),
+        t.Key("is_snowflake_writable", optional=True): t.Bool(),
+    })
     schema = _converter
 
     def __init__(
@@ -111,9 +107,7 @@ class FeatureEngineeringOptions:
         else:
             self.related_graphs = related_graphs
         if related_datasets and isinstance(related_datasets[0], dict):
-            self.related_datasets = [
-                FeatureEngineeringDataset(**dataset) for dataset in related_datasets
-            ]
+            self.related_datasets = [FeatureEngineeringDataset(**dataset) for dataset in related_datasets]
         else:
             self.related_datasets = related_datasets
         self.suggested_graph_ids = suggested_graph_ids
@@ -122,14 +116,10 @@ class FeatureEngineeringOptions:
     def collect_payload(self) -> Dict[str, Any]:
         return {
             "related_graphs": (
-                [graph.collect_payload() for graph in self.related_graphs]
-                if self.related_graphs
-                else None
+                [graph.collect_payload() for graph in self.related_graphs] if self.related_graphs else None
             ),
             "related_datasets": (
-                [dataset.collect_payload() for dataset in self.related_datasets]
-                if self.related_datasets
-                else None
+                [dataset.collect_payload() for dataset in self.related_datasets] if self.related_datasets else None
             ),
             "suggested_graph_ids": self.suggested_graph_ids,
             "is_snowflake_writable": self.is_snowflake_writable,
@@ -141,14 +131,12 @@ class Duration:
     Duration information for a holdout.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("max_length", optional=True): Int(),
-            t.Key("min_length", optional=True): Int(),
-            t.Key("allow_blank", optional=True): t.Bool(),
-            t.Key("convert_to_timedelta", optional=True): t.Bool(),
-        }
-    )
+    _converter = t.Dict({
+        t.Key("max_length", optional=True): Int(),
+        t.Key("min_length", optional=True): Int(),
+        t.Key("allow_blank", optional=True): t.Bool(),
+        t.Key("convert_to_timedelta", optional=True): t.Bool(),
+    })
 
     def __init__(
         self,
@@ -176,9 +164,7 @@ class Periodicity:
     For time series projects only. Includes time step and time unit information for a given modeling period.
     """
 
-    _converter = t.Dict(
-        {t.Key("time_steps", optional=True): Int(), t.Key("time_unit", optional=True): String()}
-    )
+    _converter = t.Dict({t.Key("time_steps", optional=True): Int(), t.Key("time_unit", optional=True): String()})
 
     def __init__(self, time_steps: int = None, time_unit: Union[TIME_UNITS, Literal["ROW"]] = None):
         self.time_steps = time_steps
@@ -492,150 +478,127 @@ class ProjectOptions(AdvancedOptions, APIObject):
         Language code to use for text extraction for document features.
     """
 
-    _backtest_specification_converter = t.Dict(
-        {
-            t.Key("gap_duration", optional=True): String(),
-            t.Key("index", optional=True): Int(),
-            t.Key("primary_training_end_date", optional=True): parse_time,
-            t.Key("primary_training_start_date", optional=True): parse_time,
-            t.Key("validation_duration", optional=True): String(),
-            t.Key("validation_end_date", optional=True): parse_time,
-            t.Key("validation_start_date", optional=True): parse_time,
-        }
-    ).ignore_extra("is_modified")
+    _backtest_specification_converter = t.Dict({
+        t.Key("gap_duration", optional=True): String(),
+        t.Key("index", optional=True): Int(),
+        t.Key("primary_training_end_date", optional=True): parse_time,
+        t.Key("primary_training_start_date", optional=True): parse_time,
+        t.Key("validation_duration", optional=True): String(),
+        t.Key("validation_end_date", optional=True): parse_time,
+        t.Key("validation_start_date", optional=True): parse_time,
+    }).ignore_extra("is_modified")
 
-    _partitioning_warnings_converter = t.Dict(
-        {  # by default, we omit null keys in response
-            t.Key("backtest_index", optional=True, default=None): t.Or(
-                t.Int(gte=0), t.Null
-            ),  # None for holdout
-            t.Key("partition"): t.String,
-            t.Key("warnings"): t.List(t.String),
-        }
-    ).allow_extra("*")
+    _partitioning_warnings_converter = t.Dict({  # by default, we omit null keys in response
+        t.Key("backtest_index", optional=True, default=None): t.Or(t.Int(gte=0), t.Null),  # None for holdout
+        t.Key("partition"): t.String,
+        t.Key("warnings"): t.List(t.String),
+    }).allow_extra("*")
 
-    _partitioning_extended_warnings_converter = t.Dict(
-        {
-            # by default, we omit null keys in response
-            t.Key("backtest_index", optional=True, default=None): t.Or(
-                t.Int(gte=0), t.Null
-            ),  # None for holdout
-            t.Key("partition"): t.String,
-            t.Key("warnings"): t.List(
-                t.Dict(
-                    {
-                        t.Key("title"): t.String,
-                        t.Key("message"): t.String,
-                        t.Key("type"): t.String,
-                    }
-                ),
-            ),
-        }
-    ).allow_extra("*")
+    _partitioning_extended_warnings_converter = t.Dict({
+        # by default, we omit null keys in response
+        t.Key("backtest_index", optional=True, default=None): t.Or(t.Int(gte=0), t.Null),  # None for holdout
+        t.Key("partition"): t.String,
+        t.Key("warnings"): t.List(
+            t.Dict({
+                t.Key("title"): t.String,
+                t.Key("message"): t.String,
+                t.Key("type"): t.String,
+            }),
+        ),
+    }).allow_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("aggregation_type", optional=True): t.Null() | String(),
-            t.Key("allowed_pairwise_interaction_groups_filename", optional=True): t.Null()
-            | String(),
-            t.Key("allow_partial_history_time_series_predictions", optional=True): t.Null()
-            | t.Bool(),
-            t.Key("autopilot_data_selection_method", optional=True): t.Null() | String(),
-            t.Key("auto_start", optional=True): t.Null() | t.Bool(),
-            t.Key("backtests", optional=True): t.Null() | t.List(_backtest_specification_converter),
-            t.Key("calendar_id", optional=True): t.Null() | String(),
-            t.Key("calendar_name", optional=True): t.Null() | String(),
-            t.Key("class_mapping_aggregation_settings", optional=True): t.Null()
-            | t.List(_class_mapping_aggregation_settings_converter),
-            t.Key("class_mapping_aggregation_settings_enabled", optional=True): t.Null() | t.Bool(),
-            t.Key("cross_series_group_by_columns", optional=True): t.Null() | t.List(String()),
-            t.Key("cv_holdout_level", optional=True): t.Null() | t.Or(String(), Int()),
-            t.Key("cv_method", optional=True): t.Null() | cv_method_converter,
-            t.Key("date_removal", optional=True): t.Null() | t.Bool(),
-            t.Key("datetime_partition_column", optional=True): t.Null() | String(),
-            t.Key("datetime_partitioning_id", optional=True): t.Or(t.Null(), String()),
-            t.Key("default_to_a_priori", optional=True): t.Null() | t.Bool(),
-            t.Key("default_to_do_not_derive", optional=True): t.Null() | t.Bool(),
-            t.Key("document_text_extraction_language", optional=True): t.Null() | String(),
-            t.Key("document_text_extraction_task", optional=True): t.Null()
-            | t.Enum(*DocumentTextExtractionMethod.ALL),
-            t.Key("differencing_method", optional=True): t.Null() | String(),
-            t.Key("disable_holdout", optional=True): t.Null() | t.Bool(),
-            t.Key("error_message", optional=True): t.Null() | String(),
-            t.Key("external_predictions", optional=True): t.Null() | t.List(Feature),
-            t.Key("external_time_series_baseline_dataset_name", optional=True): t.Null() | String(),
-            t.Key("feature_derivation_window_end", optional=True): t.Null() | Int(),
-            t.Key("feature_derivation_window_start", optional=True): t.Null() | Int(),
-            t.Key("feature_engineering_graphs", optional=True): t.Null()
-            | t.List(RelationshipGraph._converter),
-            t.Key("feature_engineering_options", optional=True): t.Or(
-                t.Null(), t.Dict({}), FeatureEngineeringOptions._converter
-            ),
-            t.Key("feature_engineering_prediction_point", optional=True): t.Null()
-            | Feature._converter,
-            t.Key("featurelist_id", optional=True): t.Null() | String(),
-            t.Key("feature_settings", optional=True): t.Null()
-            | t.List(_feature_settings_converter),
-            t.Key("forecast_window_end", optional=True): t.Null() | Int(),
-            t.Key("forecast_window_start", optional=True): t.Null() | Int(),
-            t.Key("gap_duration", optional=True): t.Null() | String(),
-            t.Key("holdout_duration", optional=True): t.Or(t.Null(), String(), Duration._converter),
-            t.Key("holdout_end_date", optional=True): t.Null() | parse_time,
-            t.Key("holdout_level", optional=True): t.Null() | t.Or(String(), Int()),
-            t.Key("holdout_pct", optional=True): t.Null() | Int(),
-            t.Key("holdout_start_date", optional=True): t.Null() | parse_time,
-            t.Key("initial_gpu_workers", optional=True): t.Null() | Int(),
-            t.Key("initial_mode", optional=True): t.Null()
-            | t.Or(
-                t.Enum(AUTOPILOT_MODE.FULL_AUTO),
-                t.Enum(AUTOPILOT_MODE.MANUAL),
-                t.Enum(AUTOPILOT_MODE.QUICK),
-                t.Enum(AUTOPILOT_MODE.COMPREHENSIVE),
-            ),
-            t.Key("initial_num_workers", optional=True): t.Null() | Int(),
-            t.Key("is_dirty", optional=True): t.Null() | t.Bool(),
-            t.Key("is_holdout_modified", optional=True): t.Null() | t.Bool(),
-            t.Key("metric", optional=True): t.Null() | String(),
-            t.Key("model_splits", optional=True): t.Null() | Int(),
-            t.Key("multiseries_id_columns", optional=True): t.Null() | t.List(String()),
-            t.Key("number_of_backtests", optional=True): t.Null() | Int(),
-            t.Key("partitioning_warnings", optional=True): t.Or(
-                t.Null() | t.List(_partitioning_warnings_converter)
-            ),
-            t.Key("partitioning_extended_warnings", optional=True): t.Or(
-                t.Null() | t.List(_partitioning_extended_warnings_converter)
-            ),
-            t.Key("partition_key_cols", optional=True): t.Null() | String(),
-            t.Key("periodicities", optional=True): t.Null() | t.List(Periodicity._converter),
-            t.Key("positive_class", optional=True): t.Null() | t.Or(String(), Int()),
-            t.Key("project_id", optional=True): t.Null() | String(),
-            t.Key("quintile_level", optional=True): t.Null() | Int(),
-            t.Key("relationships_configuration_id", optional=True): t.Null() | String(),
-            t.Key("reps", optional=True): t.Null() | Int(),
-            t.Key("sample_step_pct", optional=True): t.Null() | Int(),
-            t.Key("segmentation_id_column", optional=True): t.Null() | String(),
-            t.Key("segmentation_model_package_id", optional=True): t.Null() | String(),
-            t.Key("segmentation_model_package_name", optional=True): t.Null() | String(),
-            t.Key("segmentation_task_id", optional=True): t.Null() | String(),
-            t.Key("segments_count", optional=True): t.Null() | Int(),
-            t.Key("target", optional=True): t.Null() | String(),
-            t.Key("target_type", optional=True): t.Null() | t.Enum(*TARGET_TYPE.ALL),
-            t.Key("training_level", optional=True): t.Null() | t.Or(String(), Int()),
-            t.Key("treat_as_exponential", optional=True): t.Null()
-            | t.Enum(*TREAT_AS_EXPONENTIAL.ALL),
-            t.Key("use_gpu", optional=True): t.Null() | t.Bool(),
-            t.Key("unsupervised_mode", optional=True): t.Null() | t.Bool(),
-            t.Key("use_cross_series_features", optional=True): t.Null() | t.Bool(),
-            t.Key("use_project_settings", optional=True): t.Null() | t.Bool(),
-            t.Key("user_partition_col", optional=True): t.Null() | Feature._converter,
-            t.Key("use_time_series", optional=True): t.Null() | t.Bool(),
-            t.Key("validation_duration", optional=True): t.Null() | String(),
-            t.Key("validation_level", optional=True): t.Null() | t.Or(String(), Int()),
-            t.Key("validation_pct", optional=True): t.Null() | Int(),
-            t.Key("validation_type", optional=True): t.Null() | t.Enum(*VALIDATION_TYPE.ALL),
-            t.Key("windows_basis_unit", optional=True): t.Null() | t.Enum(*TIME_UNITS.ALL),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("aggregation_type", optional=True): t.Null() | String(),
+        t.Key("allowed_pairwise_interaction_groups_filename", optional=True): t.Null() | String(),
+        t.Key("allow_partial_history_time_series_predictions", optional=True): t.Null() | t.Bool(),
+        t.Key("autopilot_data_selection_method", optional=True): t.Null() | String(),
+        t.Key("auto_start", optional=True): t.Null() | t.Bool(),
+        t.Key("backtests", optional=True): t.Null() | t.List(_backtest_specification_converter),
+        t.Key("calendar_id", optional=True): t.Null() | String(),
+        t.Key("calendar_name", optional=True): t.Null() | String(),
+        t.Key("class_mapping_aggregation_settings", optional=True): t.Null()
+        | t.List(_class_mapping_aggregation_settings_converter),
+        t.Key("class_mapping_aggregation_settings_enabled", optional=True): t.Null() | t.Bool(),
+        t.Key("cross_series_group_by_columns", optional=True): t.Null() | t.List(String()),
+        t.Key("cv_holdout_level", optional=True): t.Null() | t.Or(String(), Int()),
+        t.Key("cv_method", optional=True): t.Null() | cv_method_converter,
+        t.Key("date_removal", optional=True): t.Null() | t.Bool(),
+        t.Key("datetime_partition_column", optional=True): t.Null() | String(),
+        t.Key("datetime_partitioning_id", optional=True): t.Or(t.Null(), String()),
+        t.Key("default_to_a_priori", optional=True): t.Null() | t.Bool(),
+        t.Key("default_to_do_not_derive", optional=True): t.Null() | t.Bool(),
+        t.Key("document_text_extraction_language", optional=True): t.Null() | String(),
+        t.Key("document_text_extraction_task", optional=True): t.Null() | t.Enum(*DocumentTextExtractionMethod.ALL),
+        t.Key("differencing_method", optional=True): t.Null() | String(),
+        t.Key("disable_holdout", optional=True): t.Null() | t.Bool(),
+        t.Key("error_message", optional=True): t.Null() | String(),
+        t.Key("external_predictions", optional=True): t.Null() | t.List(Feature),
+        t.Key("external_time_series_baseline_dataset_name", optional=True): t.Null() | String(),
+        t.Key("feature_derivation_window_end", optional=True): t.Null() | Int(),
+        t.Key("feature_derivation_window_start", optional=True): t.Null() | Int(),
+        t.Key("feature_engineering_graphs", optional=True): t.Null() | t.List(RelationshipGraph._converter),
+        t.Key("feature_engineering_options", optional=True): t.Or(
+            t.Null(), t.Dict({}), FeatureEngineeringOptions._converter
+        ),
+        t.Key("feature_engineering_prediction_point", optional=True): t.Null() | Feature._converter,
+        t.Key("featurelist_id", optional=True): t.Null() | String(),
+        t.Key("feature_settings", optional=True): t.Null() | t.List(_feature_settings_converter),
+        t.Key("forecast_window_end", optional=True): t.Null() | Int(),
+        t.Key("forecast_window_start", optional=True): t.Null() | Int(),
+        t.Key("gap_duration", optional=True): t.Null() | String(),
+        t.Key("holdout_duration", optional=True): t.Or(t.Null(), String(), Duration._converter),
+        t.Key("holdout_end_date", optional=True): t.Null() | parse_time,
+        t.Key("holdout_level", optional=True): t.Null() | t.Or(String(), Int()),
+        t.Key("holdout_pct", optional=True): t.Null() | Int(),
+        t.Key("holdout_start_date", optional=True): t.Null() | parse_time,
+        t.Key("initial_gpu_workers", optional=True): t.Null() | Int(),
+        t.Key("initial_mode", optional=True): t.Null()
+        | t.Or(
+            t.Enum(AUTOPILOT_MODE.FULL_AUTO),
+            t.Enum(AUTOPILOT_MODE.MANUAL),
+            t.Enum(AUTOPILOT_MODE.QUICK),
+            t.Enum(AUTOPILOT_MODE.COMPREHENSIVE),
+        ),
+        t.Key("initial_num_workers", optional=True): t.Null() | Int(),
+        t.Key("is_dirty", optional=True): t.Null() | t.Bool(),
+        t.Key("is_holdout_modified", optional=True): t.Null() | t.Bool(),
+        t.Key("metric", optional=True): t.Null() | String(),
+        t.Key("model_splits", optional=True): t.Null() | Int(),
+        t.Key("multiseries_id_columns", optional=True): t.Null() | t.List(String()),
+        t.Key("number_of_backtests", optional=True): t.Null() | Int(),
+        t.Key("partitioning_warnings", optional=True): t.Or(t.Null() | t.List(_partitioning_warnings_converter)),
+        t.Key("partitioning_extended_warnings", optional=True): t.Or(
+            t.Null() | t.List(_partitioning_extended_warnings_converter)
+        ),
+        t.Key("partition_key_cols", optional=True): t.Null() | String(),
+        t.Key("periodicities", optional=True): t.Null() | t.List(Periodicity._converter),
+        t.Key("positive_class", optional=True): t.Null() | t.Or(String(), Int()),
+        t.Key("project_id", optional=True): t.Null() | String(),
+        t.Key("quintile_level", optional=True): t.Null() | Int(),
+        t.Key("relationships_configuration_id", optional=True): t.Null() | String(),
+        t.Key("reps", optional=True): t.Null() | Int(),
+        t.Key("sample_step_pct", optional=True): t.Null() | Int(),
+        t.Key("segmentation_id_column", optional=True): t.Null() | String(),
+        t.Key("segmentation_model_package_id", optional=True): t.Null() | String(),
+        t.Key("segmentation_model_package_name", optional=True): t.Null() | String(),
+        t.Key("segmentation_task_id", optional=True): t.Null() | String(),
+        t.Key("segments_count", optional=True): t.Null() | Int(),
+        t.Key("target", optional=True): t.Null() | String(),
+        t.Key("target_type", optional=True): t.Null() | t.Enum(*TARGET_TYPE.ALL),
+        t.Key("training_level", optional=True): t.Null() | t.Or(String(), Int()),
+        t.Key("treat_as_exponential", optional=True): t.Null() | t.Enum(*TREAT_AS_EXPONENTIAL.ALL),
+        t.Key("use_gpu", optional=True): t.Null() | t.Bool(),
+        t.Key("unsupervised_mode", optional=True): t.Null() | t.Bool(),
+        t.Key("use_cross_series_features", optional=True): t.Null() | t.Bool(),
+        t.Key("use_project_settings", optional=True): t.Null() | t.Bool(),
+        t.Key("user_partition_col", optional=True): t.Null() | Feature._converter,
+        t.Key("use_time_series", optional=True): t.Null() | t.Bool(),
+        t.Key("validation_duration", optional=True): t.Null() | String(),
+        t.Key("validation_level", optional=True): t.Null() | t.Or(String(), Int()),
+        t.Key("validation_pct", optional=True): t.Null() | Int(),
+        t.Key("validation_type", optional=True): t.Null() | t.Enum(*VALIDATION_TYPE.ALL),
+        t.Key("windows_basis_unit", optional=True): t.Null() | t.Enum(*TIME_UNITS.ALL),
+    }).allow_extra("*")
 
     # The super() call is included in the _set_values method
     def __init__(  # pylint: disable=W0231
@@ -900,12 +863,8 @@ class ProjectOptions(AdvancedOptions, APIObject):
         A helper method to set all instance values. See class definition for value types and descriptions.
         """
         self.aggregation_type = aggregation_type
-        self.allowed_pairwise_interaction_groups_filename = (
-            allowed_pairwise_interaction_groups_filename
-        )
-        self.allow_partial_history_time_series_predictions = (
-            allow_partial_history_time_series_predictions
-        )
+        self.allowed_pairwise_interaction_groups_filename = allowed_pairwise_interaction_groups_filename
+        self.allow_partial_history_time_series_predictions = allow_partial_history_time_series_predictions
         self.autopilot_data_selection_method = autopilot_data_selection_method
         self.auto_start = auto_start
         if backtests and isinstance(backtests[0], dict):
@@ -914,12 +873,9 @@ class ProjectOptions(AdvancedOptions, APIObject):
             self.backtests = backtests
         self.calendar_id = calendar_id
         self.calendar_name = calendar_name
-        if class_mapping_aggregation_settings and isinstance(
-            class_mapping_aggregation_settings[0], dict
-        ):
+        if class_mapping_aggregation_settings and isinstance(class_mapping_aggregation_settings[0], dict):
             self.class_mapping_aggregation_settings = [
-                ClassMappingAggregationSettings(**setting)
-                for setting in class_mapping_aggregation_settings
+                ClassMappingAggregationSettings(**setting) for setting in class_mapping_aggregation_settings
             ]
         else:
             self.class_mapping_aggregation_settings = class_mapping_aggregation_settings
@@ -938,24 +894,18 @@ class ProjectOptions(AdvancedOptions, APIObject):
         self.disable_holdout = disable_holdout
         self.error_message = error_message
         if external_predictions and isinstance(external_predictions[0], dict):
-            self.external_predictions = [
-                Feature(**external_prediction) for external_prediction in external_predictions
-            ]
+            self.external_predictions = [Feature(**external_prediction) for external_prediction in external_predictions]
         else:
             self.external_predictions = external_predictions
         self.external_time_series_baseline_dataset_name = external_time_series_baseline_dataset_name
         self.feature_derivation_window_end = feature_derivation_window_end
         self.feature_derivation_window_start = feature_derivation_window_start
         if feature_engineering_graphs and isinstance(feature_engineering_graphs[0], dict):
-            self.feature_engineering_graphs = [
-                RelationshipGraph(**graph) for graph in feature_engineering_graphs
-            ]
+            self.feature_engineering_graphs = [RelationshipGraph(**graph) for graph in feature_engineering_graphs]
         else:
             self.feature_engineering_graphs = feature_engineering_graphs
         if feature_engineering_options and isinstance(feature_engineering_options, dict):
-            self.feature_engineering_options = FeatureEngineeringOptions(
-                **feature_engineering_options
-            )
+            self.feature_engineering_options = FeatureEngineeringOptions(**feature_engineering_options)
         else:
             self.feature_engineering_options = feature_engineering_options
         self.feature_engineering_prediction_point = feature_engineering_prediction_point
@@ -1036,10 +986,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
 
     @property
     def is_empty(self) -> bool:
-        return all(
-            (value is None or key in self._fields_with_defaults)
-            for key, value in vars(self).items()
-        )
+        return all((value is None or key in self._fields_with_defaults) for key, value in vars(self).items())
 
     @classmethod
     def get(cls, project_id: str) -> ProjectOptions:  # pylint: disable=W0221
@@ -1080,11 +1027,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
             "accuracy_optimized_mb": self.accuracy_optimized_mb,
             "autopilot_with_feature_discovery": self.autopilot_with_feature_discovery,
             "auto_start": self.auto_start,
-            "backtests": (
-                [backtest.collect_payload() for backtest in self.backtests]
-                if self.backtests
-                else None
-            ),
+            "backtests": ([backtest.collect_payload() for backtest in self.backtests] if self.backtests else None),
             "blend_best_models": self.blend_best_models,
             "blueprint_threshold": self.blueprint_threshold,
             "class_mapping_aggregation_settings": (
@@ -1104,9 +1047,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
             "feature_derivation_window_start": self.feature_derivation_window_start,
             "feature_discovery_supervised_feature_reduction": self.feature_discovery_supervised_feature_reduction,
             "feature_engineering_options": (
-                self.feature_engineering_options.collect_payload()
-                if self.feature_engineering_options
-                else None
+                self.feature_engineering_options.collect_payload() if self.feature_engineering_options else None
             ),
             "featurelist_id": self.featurelist_id,
             "feature_settings": (
@@ -1149,10 +1090,7 @@ class ProjectOptions(AdvancedOptions, APIObject):
     def collect_autopilot_payload(self) -> Dict[str, Any]:
         if not self.is_empty:
             return super().collect_payload()
-        return {
-            default_field: getattr(self, default_field)
-            for default_field in self._fields_with_defaults
-        }
+        return {default_field: getattr(self, default_field) for default_field in self._fields_with_defaults}
 
     def update_options(self, use_patch=True) -> Optional[ProjectOptions]:
         """

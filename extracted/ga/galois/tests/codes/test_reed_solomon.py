@@ -2,6 +2,8 @@
 A pytest module to test general Reed-Solomon codes.
 """
 
+import random
+
 import numpy as np
 import pytest
 
@@ -84,20 +86,13 @@ def test_properties(reed_solomon_codes):
     assert np.array_equal(rs.H, reed_solomon_codes["H"])
 
 
-def test_encode_exceptions():
-    # Systematic
+@pytest.mark.parametrize("is_systematic", (True, False))
+def test_encode_exceptions(is_systematic):
     n, k = 15, 7
-    rs = galois.ReedSolomon(n, k)
+    rs = galois.ReedSolomon(n, k, systematic=is_systematic)
     GF = rs.field
     with pytest.raises(ValueError):
         rs.encode(GF.Random(k + 1))
-
-    # Non-systematic
-    n, k = 15, 7
-    rs = galois.ReedSolomon(n, k, systematic=False)
-    GF = rs.field
-    with pytest.raises(ValueError):
-        rs.encode(GF.Random(k - 1))
 
 
 def test_encode_vector(reed_solomon_codes):
@@ -106,9 +101,8 @@ def test_encode_vector(reed_solomon_codes):
     rs = reed_solomon_codes["code"]
     MESSAGES = reed_solomon_codes["encode"]["messages"]
     CODEWORDS = reed_solomon_codes["encode"]["codewords"]
-    is_systematic = reed_solomon_codes["is_systematic"]
 
-    verify_encode(rs, MESSAGES, CODEWORDS, is_systematic, True)
+    verify_encode(rs, MESSAGES, CODEWORDS, True)
 
 
 def test_encode_matrix(reed_solomon_codes):
@@ -117,9 +111,8 @@ def test_encode_matrix(reed_solomon_codes):
     rs = reed_solomon_codes["code"]
     MESSAGES = reed_solomon_codes["encode"]["messages"]
     CODEWORDS = reed_solomon_codes["encode"]["codewords"]
-    is_systematic = reed_solomon_codes["is_systematic"]
 
-    verify_encode(rs, MESSAGES, CODEWORDS, is_systematic, False)
+    verify_encode(rs, MESSAGES, CODEWORDS, False)
 
 
 def test_encode_shortened_vector(reed_solomon_codes):
@@ -128,34 +121,25 @@ def test_encode_shortened_vector(reed_solomon_codes):
     rs = reed_solomon_codes["code"]
     MESSAGES = reed_solomon_codes["encode"]["messages"]
     CODEWORDS = reed_solomon_codes["encode"]["codewords"]
-    is_systematic = reed_solomon_codes["is_systematic"]
 
-    verify_encode_shortened(rs, MESSAGES, CODEWORDS, is_systematic, True)
+    verify_encode_shortened(rs, MESSAGES, CODEWORDS, True)
 
 
 def test_encode_shortened_matrix(reed_solomon_codes):
     rs = reed_solomon_codes["code"]
     MESSAGES = reed_solomon_codes["encode"]["messages"]
     CODEWORDS = reed_solomon_codes["encode"]["codewords"]
-    is_systematic = reed_solomon_codes["is_systematic"]
 
-    verify_encode_shortened(rs, MESSAGES, CODEWORDS, is_systematic, False)
+    verify_encode_shortened(rs, MESSAGES, CODEWORDS, False)
 
 
-def test_decode_exceptions():
-    # Systematic
+@pytest.mark.parametrize("is_systematic", (True, False))
+def test_decode_exceptions(is_systematic):
     n, k = 15, 7
-    rs = galois.ReedSolomon(n, k)
+    rs = galois.ReedSolomon(n, k, systematic=is_systematic)
     GF = rs.field
     with pytest.raises(ValueError):
         rs.decode(GF.Random(n + 1))
-
-    # Non-systematic
-    n, k = 15, 7
-    rs = galois.ReedSolomon(n, k, systematic=False)
-    GF = rs.field
-    with pytest.raises(ValueError):
-        rs.decode(GF.Random(n - 1))
 
 
 def test_decode_vector(reed_solomon_codes):
@@ -170,11 +154,79 @@ def test_decode_matrix(reed_solomon_codes):
 
 def test_decode_shortened_vector(reed_solomon_codes):
     rs = reed_solomon_codes["code"]
-    is_systematic = reed_solomon_codes["is_systematic"]
-    verify_decode_shortened(rs, 1, is_systematic)
+    verify_decode_shortened(rs, 1)
 
 
 def test_decode_shortened_matrix(reed_solomon_codes):
     rs = reed_solomon_codes["code"]
-    is_systematic = reed_solomon_codes["is_systematic"]
-    verify_decode_shortened(rs, 5, is_systematic)
+    verify_decode_shortened(rs, 5)
+
+
+def test_odd_characteristic():
+    rs = galois.ReedSolomon(3**2 - 1, d=3, field=galois.GF(3**2))
+    message = rs.field.Range(0, rs.k)
+    codeword = rs.encode(message)
+    err_codeword = codeword.copy()
+    err_codeword[0] += rs.field(1)
+    decoded_message, num_errors = rs.decode(err_codeword, errors=True)
+    assert num_errors == 1
+    assert np.array_equal(decoded_message, message)
+
+
+@pytest.mark.parametrize("q", [2**4, 3**3])
+def test_errors_and_erasures(q):
+    rs = galois.ReedSolomon(q - 1, d=7, field=galois.GF(q))
+    message = rs.field.Random(rs.k)
+    codeword = rs.encode(message)
+
+    for n_erasures in range(1, rs.d):
+        c = codeword.copy()
+
+        # Add erasures
+        erasure_idxs = np.arange(n_erasures)
+        erasure_idxs = random.sample(erasure_idxs.tolist(), k=n_erasures)
+        erasures = np.zeros(codeword.shape, dtype=bool)  # Erasure mask
+        erasures[erasure_idxs] = True
+        c[erasures] = 0  # Erasures are represented by zeros
+
+        # Add a correctable number of errors
+        n_errors = (rs.d - 1 - n_erasures) // 2
+        error_idxs = np.where(~erasures)[0]  # Possible error indices
+        error_idxs = random.sample(error_idxs.tolist(), k=n_errors)
+        errors = np.zeros(codeword.shape, dtype=bool)  # Error mask
+        errors[error_idxs] = True
+        c[errors] += rs.field.Random(1, low=1)  # Introduce errors
+
+        decoded_message, n_corrected = rs.decode(c, erasures=erasures, errors=True)
+        assert np.array_equal(decoded_message, message)
+        assert n_corrected == n_errors
+
+
+@pytest.mark.parametrize("q", [2**4, 3**3])
+def test_errors_and_erasures_shortened(q):
+    rs = galois.ReedSolomon(q - 1, d=7, field=galois.GF(q))
+    s = 3  # Shortening length
+    message = rs.field.Random(rs.k - s)
+    codeword = rs.encode(message)
+
+    for n_erasures in range(1, rs.d):
+        c = codeword.copy()
+
+        # Add erasures
+        erasure_idxs = np.arange(n_erasures)
+        erasure_idxs = random.sample(erasure_idxs.tolist(), k=n_erasures)
+        erasures = np.zeros(codeword.shape, dtype=bool)  # Erasure mask
+        erasures[erasure_idxs] = True
+        c[erasures] = 0  # Erasures are represented by zeros
+
+        # Add a correctable number of errors
+        n_errors = (rs.d - 1 - n_erasures) // 2
+        error_idxs = np.where(~erasures)[0]  # Possible error indices
+        error_idxs = random.sample(error_idxs.tolist(), k=n_errors)
+        errors = np.zeros(codeword.shape, dtype=bool)  # Error mask
+        errors[error_idxs] = True
+        c[errors] += rs.field.Random(1, low=1)  # Introduce errors
+
+        decoded_message, n_corrected = rs.decode(c, erasures=erasures, errors=True)
+        assert np.array_equal(decoded_message, message)
+        assert n_corrected == n_errors

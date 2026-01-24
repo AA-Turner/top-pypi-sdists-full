@@ -9,28 +9,78 @@ from kroki.common import ErrorResult, ImageSrc, KrokiImageContext, MkDocsEventCo
 from kroki.logging import log
 
 
+def _get_object_media_type(file_ext: str) -> str:
+    match file_ext:
+        case "png":
+            return "image/png"
+        case "svg":
+            return "image/svg+xml"
+        case "jpeg":
+            return "image/jpg"
+        case "pdf":
+            return "application/pdf"
+        case _:
+            err_msg = f"Not implemented: '{file_ext}"
+            raise PluginError(err_msg)
+
+
 class ContentRenderer:
-    def __init__(self, kroki_client: KrokiClient, tag_format: str, *, fail_fast: bool) -> None:
+    def __init__(
+        self,
+        kroki_client: KrokiClient,
+        tag_format: str,
+        *,
+        fail_fast: bool,
+        diagram_background_color_light: str | None = None,
+        diagram_background_color_dark: str | None = None,
+    ) -> None:
         self.fail_fast = fail_fast
         self.kroki_client = kroki_client
         self.tag_format = tag_format
+        self.diagram_background_color_light = diagram_background_color_light
+        self.diagram_background_color_dark = diagram_background_color_dark
 
-    def _get_object_media_type(self, file_ext: str) -> str:
-        match file_ext:
-            case "png":
-                return "image/png"
-            case "svg":
-                return "image/svg+xml"
-            case "jpeg":
-                return "image/jpg"
-            case "pdf":
-                return "application/pdf"
-            case _:
-                err_msg = f"Not implemented: '{file_ext}"
-                raise PluginError(err_msg)
+    def _build_style_attr(self, plugin_options: dict) -> str:
+        """Build inline style attribute from plugin options."""
+        styles = self._build_styles(plugin_options)
+        if not styles:
+            return ""
+        return f' style="{"; ".join(styles)}"'
 
-    @classmethod
-    def _svg_data(cls, image_src: ImageSrc) -> str:
+    def _build_styles(self, plugin_options: dict) -> list[str]:
+        """Build list of CSS styles from plugin options, merging global defaults."""
+        styles = []
+        if "display-width" in plugin_options:
+            styles.append(f"width: {plugin_options['display-width']}")
+        if "display-height" in plugin_options:
+            styles.append(f"height: {plugin_options['display-height']}")
+        if "display-align" in plugin_options:
+            align = plugin_options["display-align"]
+            styles.append("display: block")
+            if align == "center":
+                styles.append("margin-left: auto")
+                styles.append("margin-right: auto")
+            elif align == "right":
+                styles.append("margin-left: auto")
+                styles.append("margin-right: 0")
+            elif align == "left":
+                styles.append("margin-left: 0")
+                styles.append("margin-right: auto")
+
+        # Background color: per-diagram options override global defaults
+        bg_light = plugin_options.get("bg-light", self.diagram_background_color_light)
+        bg_dark = plugin_options.get("bg-dark", self.diagram_background_color_dark)
+
+        if bg_light and bg_dark:
+            styles.append(f"background: light-dark({bg_light}, {bg_dark})")
+        elif bg_light:
+            styles.append(f"background: {bg_light}")
+        elif bg_dark:
+            styles.append(f"background: {bg_dark}")
+
+        return styles
+
+    def _svg_data(self, image_src: ImageSrc, plugin_options: dict) -> str:
         if image_src.file_content is None:
             err_msg = "Cannot include empty SVG data"
             raise PluginError(err_msg)
@@ -43,31 +93,42 @@ class ContentRenderer:
         svg_tag.attrib["preserveAspectRatio"] = "xMaxYMax meet"
         svg_tag.attrib["id"] = "Kroki"
 
+        # Build inline style for display and background options
+        styles = self._build_styles(plugin_options)
+        if styles:
+            svg_tag.attrib["style"] = "; ".join(styles)
+
         return DefuseElementTree.tostring(svg_tag, short_empty_elements=True).decode()
 
-    def _image_response(self, image_src: ImageSrc) -> str:
+    def _image_response(self, image_src: ImageSrc, plugin_options: dict) -> str:
         tag_format = self.tag_format
         if tag_format == "svg":
             if image_src.file_ext != "svg":
-                log.warning("Cannot render '%s' in svg tag -> using img tag.", image_src.url)
+                log.warning(
+                    "Cannot render '%s' in svg tag -> using img tag.", image_src.url
+                )
                 tag_format = "img"
             if image_src.file_content is None:
                 log.warning("Cannot render missing data in svg tag -> using img tag.")
                 tag_format = "img"
 
+        style_attr = self._build_style_attr(plugin_options)
+
         match tag_format:
             case "object":
-                media_type = self._get_object_media_type(image_src.file_ext)
-                return f'<object id="Kroki" type="{media_type}" data="{image_src.url}" style="max-width:100%"></object>'
+                media_type = _get_object_media_type(image_src.file_ext)
+                return f'<object id="Kroki" type="{media_type}" data="{image_src.url}"{style_attr}></object>'
             case "svg":
-                return ContentRenderer._svg_data(image_src)
+                return self._svg_data(image_src, plugin_options)
             case "img":
-                return f'<img alt="Kroki" src="{image_src.url}">'
+                return f'<img alt="Kroki" src="{image_src.url}"{style_attr} />'
             case _:
                 err_msg = "Unknown tag format set."
                 raise PluginError(err_msg)
 
-    def _err_response(self, err_result: ErrorResult, kroki_data: None | str = None) -> str:
+    def _err_response(
+        self, err_result: ErrorResult, kroki_data: None | str = None
+    ) -> str:
         if ErrorResult.error is None:
             log.error("%s", err_result.err_msg)
         else:
@@ -79,17 +140,21 @@ class ContentRenderer:
         return (
             '<details open="">'
             f"<summary>{err_result.err_msg}</summary>"
-            f'<p>{err_result.response_text or ""}</p>'
+            f"<p>{err_result.response_text or ''}</p>"
             f'<pre><code linenums="1">{kroki_data or ""}</code></pre>'
             "</details>"
         )
 
-    def render_kroki_block(self, kroki_context: KrokiImageContext, context: MkDocsEventContext) -> str:
+    async def render_kroki_block(
+        self, kroki_context: KrokiImageContext, context: MkDocsEventContext
+    ) -> str:
         match kroki_context.data:
             case Ok(kroki_data):
-                match self.kroki_client.get_image_url(kroki_context, context):
+                match await self.kroki_client.get_image_url(kroki_context, context):
                     case Ok(image_src):
-                        return self._image_response(image_src)
+                        return self._image_response(
+                            image_src, kroki_context.plugin_options
+                        )
                     case Err(err_result):
                         return self._err_response(err_result, kroki_data)
             case Err(err_result):

@@ -3,7 +3,7 @@ Type annotations for mediapackagev2 service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediapackagev2/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -38,15 +39,10 @@ from .literals import (
     PresetSpeke20AudioType,
     PresetSpeke20VideoType,
     ScteFilterType,
+    ScteInSegmentsType,
     TsEncryptionMethodType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -189,7 +185,7 @@ class CancelHarvestJobRequestTypeDef(TypedDict):
 
 
 class CdnAuthConfigurationOutputTypeDef(TypedDict):
-    CdnIdentifierSecretArns: List[str]
+    CdnIdentifierSecretArns: list[str]
     SecretsRoleArn: str
 
 
@@ -226,7 +222,7 @@ class CreateChannelGroupRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -284,7 +280,7 @@ class StartTagTypeDef(TypedDict):
 
 
 class ForceEndpointErrorConfigurationOutputTypeDef(TypedDict):
-    EndpointErrorConditions: NotRequired[List[EndpointErrorConditionType]]
+    EndpointErrorConditions: NotRequired[list[EndpointErrorConditionType]]
 
 
 class DashDvbFontDownloadTypeDef(TypedDict):
@@ -346,6 +342,7 @@ class EncryptionMethodTypeDef(TypedDict):
 
 class FilterConfigurationOutputTypeDef(TypedDict):
     ManifestFilter: NotRequired[str]
+    DrmSettings: NotRequired[str]
     Start: NotRequired[datetime]
     End: NotRequired[datetime]
     TimeDelaySeconds: NotRequired[int]
@@ -486,11 +483,13 @@ class ResetOriginEndpointStateRequestTypeDef(TypedDict):
 
 
 class ScteOutputTypeDef(TypedDict):
-    ScteFilter: NotRequired[List[ScteFilterType]]
+    ScteFilter: NotRequired[list[ScteFilterType]]
+    ScteInSegments: NotRequired[ScteInSegmentsType]
 
 
 class ScteTypeDef(TypedDict):
     ScteFilter: NotRequired[Sequence[ScteFilterType]]
+    ScteInSegments: NotRequired[ScteInSegmentsType]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -522,7 +521,7 @@ class CreateChannelGroupResponseTypeDef(TypedDict):
     ModifiedAt: datetime
     ETag: str
     Description: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -538,7 +537,7 @@ class GetChannelGroupResponseTypeDef(TypedDict):
     ModifiedAt: datetime
     Description: str
     ETag: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -559,19 +558,19 @@ class GetOriginEndpointPolicyResponseTypeDef(TypedDict):
 
 
 class ListChannelGroupsResponseTypeDef(TypedDict):
-    Items: List[ChannelGroupListConfigurationTypeDef]
+    Items: list[ChannelGroupListConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListChannelsResponseTypeDef(TypedDict):
-    Items: List[ChannelListConfigurationTypeDef]
+    Items: list[ChannelListConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -600,7 +599,7 @@ class UpdateChannelGroupResponseTypeDef(TypedDict):
     ModifiedAt: datetime
     Description: str
     ETag: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -631,10 +630,10 @@ class CreateChannelResponseTypeDef(TypedDict):
     CreatedAt: datetime
     ModifiedAt: datetime
     Description: str
-    IngestEndpoints: List[IngestEndpointTypeDef]
+    IngestEndpoints: list[IngestEndpointTypeDef]
     InputType: InputTypeType
     ETag: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     InputSwitchConfiguration: InputSwitchConfigurationTypeDef
     OutputHeaderConfiguration: OutputHeaderConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -648,10 +647,10 @@ class GetChannelResponseTypeDef(TypedDict):
     ModifiedAt: datetime
     ResetAt: datetime
     Description: str
-    IngestEndpoints: List[IngestEndpointTypeDef]
+    IngestEndpoints: list[IngestEndpointTypeDef]
     InputType: InputTypeType
     ETag: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     InputSwitchConfiguration: InputSwitchConfigurationTypeDef
     OutputHeaderConfiguration: OutputHeaderConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -664,10 +663,10 @@ class UpdateChannelResponseTypeDef(TypedDict):
     CreatedAt: datetime
     ModifiedAt: datetime
     Description: str
-    IngestEndpoints: List[IngestEndpointTypeDef]
+    IngestEndpoints: list[IngestEndpointTypeDef]
     InputType: InputTypeType
     ETag: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     InputSwitchConfiguration: InputSwitchConfigurationTypeDef
     OutputHeaderConfiguration: OutputHeaderConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -675,7 +674,7 @@ class UpdateChannelResponseTypeDef(TypedDict):
 
 class DashDvbSettingsOutputTypeDef(TypedDict):
     FontDownload: NotRequired[DashDvbFontDownloadTypeDef]
-    ErrorMetrics: NotRequired[List[DashDvbMetricsReportingTypeDef]]
+    ErrorMetrics: NotRequired[list[DashDvbMetricsReportingTypeDef]]
 
 
 class DashDvbSettingsTypeDef(TypedDict):
@@ -694,9 +693,10 @@ class DestinationTypeDef(TypedDict):
 class SpekeKeyProviderOutputTypeDef(TypedDict):
     EncryptionContractConfiguration: EncryptionContractConfigurationTypeDef
     ResourceId: str
-    DrmSystems: List[DrmSystemType]
+    DrmSystems: list[DrmSystemType]
     RoleArn: str
     Url: str
+    CertificateArn: NotRequired[str]
 
 
 class SpekeKeyProviderTypeDef(TypedDict):
@@ -705,6 +705,7 @@ class SpekeKeyProviderTypeDef(TypedDict):
     DrmSystems: Sequence[DrmSystemType]
     RoleArn: str
     Url: str
+    CertificateArn: NotRequired[str]
 
 
 class GetHlsManifestConfigurationTypeDef(TypedDict):
@@ -741,6 +742,7 @@ class GetMssManifestConfigurationTypeDef(TypedDict):
 
 class FilterConfigurationTypeDef(TypedDict):
     ManifestFilter: NotRequired[str]
+    DrmSettings: NotRequired[str]
     Start: NotRequired[TimestampTypeDef]
     End: NotRequired[TimestampTypeDef]
     TimeDelaySeconds: NotRequired[int]
@@ -766,9 +768,9 @@ class GetHarvestJobRequestWaitTypeDef(TypedDict):
 
 
 class HarvestedManifestsOutputTypeDef(TypedDict):
-    HlsManifests: NotRequired[List[HarvestedHlsManifestTypeDef]]
-    DashManifests: NotRequired[List[HarvestedDashManifestTypeDef]]
-    LowLatencyHlsManifests: NotRequired[List[HarvestedLowLatencyHlsManifestTypeDef]]
+    HlsManifests: NotRequired[list[HarvestedHlsManifestTypeDef]]
+    DashManifests: NotRequired[list[HarvestedDashManifestTypeDef]]
+    LowLatencyHlsManifests: NotRequired[list[HarvestedLowLatencyHlsManifestTypeDef]]
 
 
 class HarvestedManifestsTypeDef(TypedDict):
@@ -809,10 +811,10 @@ class OriginEndpointListConfigurationTypeDef(TypedDict):
     Description: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     ModifiedAt: NotRequired[datetime]
-    HlsManifests: NotRequired[List[ListHlsManifestConfigurationTypeDef]]
-    LowLatencyHlsManifests: NotRequired[List[ListLowLatencyHlsManifestConfigurationTypeDef]]
-    DashManifests: NotRequired[List[ListDashManifestConfigurationTypeDef]]
-    MssManifests: NotRequired[List[ListMssManifestConfigurationTypeDef]]
+    HlsManifests: NotRequired[list[ListHlsManifestConfigurationTypeDef]]
+    LowLatencyHlsManifests: NotRequired[list[ListLowLatencyHlsManifestConfigurationTypeDef]]
+    DashManifests: NotRequired[list[ListDashManifestConfigurationTypeDef]]
+    MssManifests: NotRequired[list[ListMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationOutputTypeDef]
 
 
@@ -836,12 +838,12 @@ class GetDashManifestConfigurationTypeDef(TypedDict):
     MinBufferTimeSeconds: NotRequired[int]
     SuggestedPresentationDelaySeconds: NotRequired[int]
     SegmentTemplateFormat: NotRequired[Literal["NUMBER_WITH_TIMELINE"]]
-    PeriodTriggers: NotRequired[List[DashPeriodTriggerType]]
+    PeriodTriggers: NotRequired[list[DashPeriodTriggerType]]
     ScteDash: NotRequired[ScteDashTypeDef]
     DrmSignaling: NotRequired[DashDrmSignalingType]
     UtcTiming: NotRequired[DashUtcTimingTypeDef]
-    Profiles: NotRequired[List[Literal["DVB_DASH"]]]
-    BaseUrls: NotRequired[List[DashBaseUrlTypeDef]]
+    Profiles: NotRequired[list[Literal["DVB_DASH"]]]
+    BaseUrls: NotRequired[list[DashBaseUrlTypeDef]]
     ProgramInformation: NotRequired[DashProgramInformationTypeDef]
     DvbSettings: NotRequired[DashDvbSettingsOutputTypeDef]
     Compactness: NotRequired[DashCompactnessType]
@@ -887,7 +889,7 @@ class CreateHarvestJobResponseTypeDef(TypedDict):
     Status: HarvestJobStatusType
     ErrorMessage: str
     ETag: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -906,7 +908,7 @@ class GetHarvestJobResponseTypeDef(TypedDict):
     Status: HarvestJobStatusType
     ErrorMessage: str
     ETag: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -931,7 +933,7 @@ HarvestedManifestsUnionTypeDef = Union[HarvestedManifestsTypeDef, HarvestedManif
 
 
 class ListOriginEndpointsResponseTypeDef(TypedDict):
-    Items: List[OriginEndpointListConfigurationTypeDef]
+    Items: list[OriginEndpointListConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1006,7 +1008,7 @@ class CreateMssManifestConfigurationTypeDef(TypedDict):
 
 
 class ListHarvestJobsResponseTypeDef(TypedDict):
-    Items: List[HarvestJobTypeDef]
+    Items: list[HarvestJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1035,13 +1037,13 @@ class CreateOriginEndpointResponseTypeDef(TypedDict):
     ModifiedAt: datetime
     Description: str
     StartoverWindowSeconds: int
-    HlsManifests: List[GetHlsManifestConfigurationTypeDef]
-    LowLatencyHlsManifests: List[GetLowLatencyHlsManifestConfigurationTypeDef]
-    DashManifests: List[GetDashManifestConfigurationTypeDef]
-    MssManifests: List[GetMssManifestConfigurationTypeDef]
+    HlsManifests: list[GetHlsManifestConfigurationTypeDef]
+    LowLatencyHlsManifests: list[GetLowLatencyHlsManifestConfigurationTypeDef]
+    DashManifests: list[GetDashManifestConfigurationTypeDef]
+    MssManifests: list[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
     ETag: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1057,13 +1059,13 @@ class GetOriginEndpointResponseTypeDef(TypedDict):
     ResetAt: datetime
     Description: str
     StartoverWindowSeconds: int
-    HlsManifests: List[GetHlsManifestConfigurationTypeDef]
-    LowLatencyHlsManifests: List[GetLowLatencyHlsManifestConfigurationTypeDef]
-    DashManifests: List[GetDashManifestConfigurationTypeDef]
-    MssManifests: List[GetMssManifestConfigurationTypeDef]
+    HlsManifests: list[GetHlsManifestConfigurationTypeDef]
+    LowLatencyHlsManifests: list[GetLowLatencyHlsManifestConfigurationTypeDef]
+    DashManifests: list[GetDashManifestConfigurationTypeDef]
+    MssManifests: list[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
     ETag: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1078,13 +1080,13 @@ class UpdateOriginEndpointResponseTypeDef(TypedDict):
     ModifiedAt: datetime
     Description: str
     StartoverWindowSeconds: int
-    HlsManifests: List[GetHlsManifestConfigurationTypeDef]
-    LowLatencyHlsManifests: List[GetLowLatencyHlsManifestConfigurationTypeDef]
-    MssManifests: List[GetMssManifestConfigurationTypeDef]
+    HlsManifests: list[GetHlsManifestConfigurationTypeDef]
+    LowLatencyHlsManifests: list[GetLowLatencyHlsManifestConfigurationTypeDef]
+    MssManifests: list[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
     ETag: str
-    Tags: Dict[str, str]
-    DashManifests: List[GetDashManifestConfigurationTypeDef]
+    Tags: dict[str, str]
+    DashManifests: list[GetDashManifestConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

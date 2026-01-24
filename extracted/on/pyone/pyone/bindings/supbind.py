@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 #
-# Generated Wed Jul  2 17:27:12 2025 by generateDS.py version 2.44.3.
-# Python 3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]
+# Generated Tue Dec  9 01:05:58 2025 by generateDS.py version 2.44.3.
+# Python 3.10.12 (main, Nov  4 2025, 08:48:33) [GCC 11.4.0]
 #
 # Command line options:
 #   ('-q', '')
@@ -18,7 +18,7 @@
 #   ../../../share/doc/xsd/index.xsd
 #
 # Command line:
-#   /home/one/init-build-jenkins.qMcVGq/one/src/oca/python/bin/generateDS -q -f -o "pyone/bindings/supbind.py" -s "pyone/bindings/__init__.py" --super="supbind" --external-encoding="utf-8" --silence ../../../share/doc/xsd/index.xsd
+#   /home/one/init-build-jenkins.wANc4p/one/src/oca/python/bin/generateDS -q -f -o "pyone/bindings/supbind.py" -s "pyone/bindings/__init__.py" --super="supbind" --external-encoding="utf-8" --silence ../../../share/doc/xsd/index.xsd
 #
 # Current working directory (os.getcwd()):
 #   python
@@ -4253,82 +4253,6 @@ class DATASTORE(GeneratedsSuper):
 # end class DATASTORE
 
 
-class TEMPLATE(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, TEMPLATE)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if TEMPLATE.subclass:
-            return TEMPLATE.subclass(*args_, **kwargs_)
-        else:
-            return TEMPLATE(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def has__content(self):
-        if (
-
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_='', name_='TEMPLATE', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATE')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'TEMPLATE':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATE')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATE', pretty_print=pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATE'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_='', name_='TEMPLATE', fromsubclass_=False, pretty_print=True):
-        pass
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        pass
-# end class TEMPLATE
-
-
 class DOCUMENT_POOL(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
@@ -6332,7 +6256,8 @@ class IMAGE(GeneratedsSuper):
             self.APP_CLONES.export(outfile, level, namespaceprefix_, namespacedef_='', name_='APP_CLONES', pretty_print=pretty_print)
         if self.TEMPLATE is not None:
             namespaceprefix_ = self.TEMPLATE_nsprefix_ + ':' if (UseCapturedNS_ and self.TEMPLATE_nsprefix_) else ''
-            self.TEMPLATE.export(outfile, level, namespaceprefix_, namespacedef_='', name_='TEMPLATE', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sTEMPLATE>%s</%sTEMPLATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.TEMPLATE), input_name='TEMPLATE')), namespaceprefix_ , eol_))
         if self.SNAPSHOTS is not None:
             namespaceprefix_ = self.SNAPSHOTS_nsprefix_ + ':' if (UseCapturedNS_ and self.SNAPSHOTS_nsprefix_) else ''
             self.SNAPSHOTS.export(outfile, level, namespaceprefix_, namespacedef_='', name_='SNAPSHOTS', pretty_print=pretty_print)
@@ -6526,12 +6451,13 @@ class IMAGE(GeneratedsSuper):
             self.APP_CLONES = obj_
             obj_.original_tagname_ = 'APP_CLONES'
         elif nodeName_ == 'TEMPLATE':
-            obj_ = TEMPLATEType16.factory(parent_object_=self)
-            obj_.build(child_, gds_collector_=gds_collector_)
-            self.TEMPLATE = obj_
-            obj_.original_tagname_ = 'TEMPLATE'
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'TEMPLATE')
+            value_ = self.gds_validate_string(value_, node, 'TEMPLATE')
+            self.TEMPLATE = value_
+            self.TEMPLATE_nsprefix_ = child_.prefix
         elif nodeName_ == 'SNAPSHOTS':
-            obj_ = SNAPSHOTSType17.factory(parent_object_=self)
+            obj_ = SNAPSHOTSType16.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.SNAPSHOTS = obj_
             obj_.original_tagname_ = 'SNAPSHOTS'
@@ -7007,7 +6933,7 @@ class MARKETPLACEAPP(GeneratedsSuper):
             self.GNAME = value_
             self.GNAME_nsprefix_ = child_.prefix
         elif nodeName_ == 'LOCK':
-            obj_ = LOCKType19.factory(parent_object_=self)
+            obj_ = LOCKType18.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.LOCK = obj_
             obj_.original_tagname_ = 'LOCK'
@@ -7102,7 +7028,7 @@ class MARKETPLACEAPP(GeneratedsSuper):
             self.TYPE = ival_
             self.TYPE_nsprefix_ = child_.prefix
         elif nodeName_ == 'PERMISSIONS':
-            obj_ = PERMISSIONSType20.factory(parent_object_=self)
+            obj_ = PERMISSIONSType19.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.PERMISSIONS = obj_
             obj_.original_tagname_ = 'PERMISSIONS'
@@ -7533,7 +7459,7 @@ class MARKETPLACE(GeneratedsSuper):
             self.MARKETPLACEAPPS = obj_
             obj_.original_tagname_ = 'MARKETPLACEAPPS'
         elif nodeName_ == 'PERMISSIONS':
-            obj_ = PERMISSIONSType21.factory(parent_object_=self)
+            obj_ = PERMISSIONSType20.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.PERMISSIONS = obj_
             obj_.original_tagname_ = 'PERMISSIONS'
@@ -7641,7 +7567,7 @@ class MONITORING_DATA(GeneratedsSuper):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         if nodeName_ == 'MONITORING':
-            obj_ = MONITORINGType22.factory(parent_object_=self)
+            obj_ = MONITORINGType21.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.MONITORING.append(obj_)
             obj_.original_tagname_ = 'MONITORING'
@@ -10446,7 +10372,7 @@ class SECURITY_GROUP(GeneratedsSuper):
             self.NAME = value_
             self.NAME_nsprefix_ = child_.prefix
         elif nodeName_ == 'PERMISSIONS':
-            obj_ = PERMISSIONSType23.factory(parent_object_=self)
+            obj_ = PERMISSIONSType22.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.PERMISSIONS = obj_
             obj_.original_tagname_ = 'PERMISSIONS'
@@ -10471,7 +10397,7 @@ class SECURITY_GROUP(GeneratedsSuper):
             self.ERROR_VMS = obj_
             obj_.original_tagname_ = 'ERROR_VMS'
         elif nodeName_ == 'TEMPLATE':
-            obj_ = TEMPLATEType24.factory(parent_object_=self)
+            obj_ = TEMPLATEType23.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.TEMPLATE = obj_
             obj_.original_tagname_ = 'TEMPLATE'
@@ -10709,7 +10635,7 @@ class USER_POOL(GeneratedsSuper):
             self.USER.append(obj_)
             obj_.original_tagname_ = 'USER'
         elif nodeName_ == 'QUOTAS':
-            obj_ = QUOTASType25.factory(parent_object_=self)
+            obj_ = QUOTASType24.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.QUOTAS.append(obj_)
             obj_.original_tagname_ = 'QUOTAS'
@@ -10976,7 +10902,7 @@ class USER(GeneratedsSuper):
             self.GID = ival_
             self.GID_nsprefix_ = child_.prefix
         elif nodeName_ == 'GROUPS':
-            obj_ = GROUPSType28.factory(parent_object_=self)
+            obj_ = GROUPSType27.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.GROUPS = obj_
             obj_.original_tagname_ = 'GROUPS'
@@ -11011,7 +10937,7 @@ class USER(GeneratedsSuper):
             self.ENABLED = ival_
             self.ENABLED_nsprefix_ = child_.prefix
         elif nodeName_ == 'LOGIN_TOKEN':
-            obj_ = LOGIN_TOKENType29.factory(parent_object_=self)
+            obj_ = LOGIN_TOKENType28.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.LOGIN_TOKEN.append(obj_)
             obj_.original_tagname_ = 'LOGIN_TOKEN'
@@ -11042,7 +10968,7 @@ class USER(GeneratedsSuper):
             self.IMAGE_QUOTA = obj_
             obj_.original_tagname_ = 'IMAGE_QUOTA'
         elif nodeName_ == 'DEFAULT_USER_QUOTAS':
-            obj_ = DEFAULT_USER_QUOTASType30.factory(parent_object_=self)
+            obj_ = DEFAULT_USER_QUOTASType29.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.DEFAULT_USER_QUOTAS = obj_
             obj_.original_tagname_ = 'DEFAULT_USER_QUOTAS'
@@ -11322,27 +11248,27 @@ class VDC(GeneratedsSuper):
             self.NAME = value_
             self.NAME_nsprefix_ = child_.prefix
         elif nodeName_ == 'GROUPS':
-            obj_ = GROUPSType33.factory(parent_object_=self)
+            obj_ = GROUPSType32.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.GROUPS = obj_
             obj_.original_tagname_ = 'GROUPS'
         elif nodeName_ == 'CLUSTERS':
-            obj_ = CLUSTERSType34.factory(parent_object_=self)
+            obj_ = CLUSTERSType33.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.CLUSTERS = obj_
             obj_.original_tagname_ = 'CLUSTERS'
         elif nodeName_ == 'HOSTS':
-            obj_ = HOSTSType35.factory(parent_object_=self)
+            obj_ = HOSTSType34.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.HOSTS = obj_
             obj_.original_tagname_ = 'HOSTS'
         elif nodeName_ == 'DATASTORES':
-            obj_ = DATASTORESType36.factory(parent_object_=self)
+            obj_ = DATASTORESType35.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.DATASTORES = obj_
             obj_.original_tagname_ = 'DATASTORES'
         elif nodeName_ == 'VNETS':
-            obj_ = VNETSType38.factory(parent_object_=self)
+            obj_ = VNETSType37.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.VNETS = obj_
             obj_.original_tagname_ = 'VNETS'
@@ -11676,12 +11602,12 @@ class VM_GROUP(GeneratedsSuper):
             self.NAME = value_
             self.NAME_nsprefix_ = child_.prefix
         elif nodeName_ == 'PERMISSIONS':
-            obj_ = PERMISSIONSType39.factory(parent_object_=self)
+            obj_ = PERMISSIONSType38.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.PERMISSIONS = obj_
             obj_.original_tagname_ = 'PERMISSIONS'
         elif nodeName_ == 'LOCK':
-            obj_ = LOCKType40.factory(parent_object_=self)
+            obj_ = LOCKType39.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.LOCK = obj_
             obj_.original_tagname_ = 'LOCK'
@@ -11794,7 +11720,7 @@ class VM_POOL(GeneratedsSuper):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         if nodeName_ == 'VM':
-            obj_ = VMType41.factory(parent_object_=self)
+            obj_ = VMType40.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.VM.append(obj_)
             obj_.original_tagname_ = 'VM'
@@ -12070,7 +11996,8 @@ class VMTEMPLATE(GeneratedsSuper):
             outfile.write('<%sREGTIME>%s</%sREGTIME>%s' % (namespaceprefix_ , self.gds_format_integer(self.REGTIME, input_name='REGTIME'), namespaceprefix_ , eol_))
         if self.TEMPLATE is not None:
             namespaceprefix_ = self.TEMPLATE_nsprefix_ + ':' if (UseCapturedNS_ and self.TEMPLATE_nsprefix_) else ''
-            self.TEMPLATE.export(outfile, level, namespaceprefix_, namespacedef_='', name_='TEMPLATE', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sTEMPLATE>%s</%sTEMPLATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.TEMPLATE), input_name='TEMPLATE')), namespaceprefix_ , eol_))
     def build(self, node, gds_collector_=None):
         self.gds_collector_ = gds_collector_
         if SaveElementTreeNode:
@@ -12122,12 +12049,12 @@ class VMTEMPLATE(GeneratedsSuper):
             self.NAME = value_
             self.NAME_nsprefix_ = child_.prefix
         elif nodeName_ == 'LOCK':
-            obj_ = LOCKType44.factory(parent_object_=self)
+            obj_ = LOCKType43.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.LOCK = obj_
             obj_.original_tagname_ = 'LOCK'
         elif nodeName_ == 'PERMISSIONS':
-            obj_ = PERMISSIONSType45.factory(parent_object_=self)
+            obj_ = PERMISSIONSType44.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.PERMISSIONS = obj_
             obj_.original_tagname_ = 'PERMISSIONS'
@@ -12138,10 +12065,11 @@ class VMTEMPLATE(GeneratedsSuper):
             self.REGTIME = ival_
             self.REGTIME_nsprefix_ = child_.prefix
         elif nodeName_ == 'TEMPLATE':
-            obj_ = TEMPLATEType46.factory(parent_object_=self)
-            obj_.build(child_, gds_collector_=gds_collector_)
-            self.TEMPLATE = obj_
-            obj_.original_tagname_ = 'TEMPLATE'
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'TEMPLATE')
+            value_ = self.gds_validate_string(value_, node, 'TEMPLATE')
+            self.TEMPLATE = value_
+            self.TEMPLATE_nsprefix_ = child_.prefix
 # end class VMTEMPLATE
 
 
@@ -12460,7 +12388,8 @@ class VM(GeneratedsSuper):
             self.TEMPLATE.export(outfile, level, namespaceprefix_, namespacedef_='', name_='TEMPLATE', pretty_print=pretty_print)
         if self.USER_TEMPLATE is not None:
             namespaceprefix_ = self.USER_TEMPLATE_nsprefix_ + ':' if (UseCapturedNS_ and self.USER_TEMPLATE_nsprefix_) else ''
-            self.USER_TEMPLATE.export(outfile, level, namespaceprefix_, namespacedef_='', name_='USER_TEMPLATE', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sUSER_TEMPLATE>%s</%sUSER_TEMPLATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.USER_TEMPLATE), input_name='USER_TEMPLATE')), namespaceprefix_ , eol_))
         if self.HISTORY_RECORDS is not None:
             namespaceprefix_ = self.HISTORY_RECORDS_nsprefix_ + ':' if (UseCapturedNS_ and self.HISTORY_RECORDS_nsprefix_) else ''
             self.HISTORY_RECORDS.export(outfile, level, namespaceprefix_, namespacedef_='', name_='HISTORY_RECORDS', pretty_print=pretty_print)
@@ -12585,7 +12514,7 @@ class VM(GeneratedsSuper):
             self.LOCK = obj_
             obj_.original_tagname_ = 'LOCK'
         elif nodeName_ == 'MONITORING':
-            obj_ = MONITORINGType47.factory(parent_object_=self)
+            obj_ = MONITORINGType45.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.MONITORING = obj_
             obj_.original_tagname_ = 'MONITORING'
@@ -12595,27 +12524,28 @@ class VM(GeneratedsSuper):
             self.SCHED_ACTIONS = obj_
             obj_.original_tagname_ = 'SCHED_ACTIONS'
         elif nodeName_ == 'TEMPLATE':
-            obj_ = TEMPLATEType49.factory(parent_object_=self)
+            obj_ = TEMPLATEType47.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.TEMPLATE = obj_
             obj_.original_tagname_ = 'TEMPLATE'
         elif nodeName_ == 'USER_TEMPLATE':
-            obj_ = USER_TEMPLATEType53.factory(parent_object_=self)
-            obj_.build(child_, gds_collector_=gds_collector_)
-            self.USER_TEMPLATE = obj_
-            obj_.original_tagname_ = 'USER_TEMPLATE'
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'USER_TEMPLATE')
+            value_ = self.gds_validate_string(value_, node, 'USER_TEMPLATE')
+            self.USER_TEMPLATE = value_
+            self.USER_TEMPLATE_nsprefix_ = child_.prefix
         elif nodeName_ == 'HISTORY_RECORDS':
-            obj_ = HISTORY_RECORDSType54.factory(parent_object_=self)
+            obj_ = HISTORY_RECORDSType50.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.HISTORY_RECORDS = obj_
             obj_.original_tagname_ = 'HISTORY_RECORDS'
         elif nodeName_ == 'SNAPSHOTS':
-            obj_ = SNAPSHOTSType56.factory(parent_object_=self)
+            obj_ = SNAPSHOTSType52.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.SNAPSHOTS.append(obj_)
             obj_.original_tagname_ = 'SNAPSHOTS'
         elif nodeName_ == 'BACKUPS':
-            obj_ = BACKUPSType58.factory(parent_object_=self)
+            obj_ = BACKUPSType54.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.BACKUPS = obj_
             obj_.original_tagname_ = 'BACKUPS'
@@ -12717,7 +12647,7 @@ class VNET_POOL(GeneratedsSuper):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         if nodeName_ == 'VNET':
-            obj_ = VNETType60.factory(parent_object_=self)
+            obj_ = VNETType56.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.VNET.append(obj_)
             obj_.original_tagname_ = 'VNET'
@@ -13079,7 +13009,8 @@ class VNET(GeneratedsSuper):
             self.ERROR_VMS.export(outfile, level, namespaceprefix_, namespacedef_='', name_='ERROR_VMS', pretty_print=pretty_print)
         if self.TEMPLATE is not None:
             namespaceprefix_ = self.TEMPLATE_nsprefix_ + ':' if (UseCapturedNS_ and self.TEMPLATE_nsprefix_) else ''
-            self.TEMPLATE.export(outfile, level, namespaceprefix_, namespacedef_='', name_='TEMPLATE', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sTEMPLATE>%s</%sTEMPLATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.TEMPLATE), input_name='TEMPLATE')), namespaceprefix_ , eol_))
         if self.AR_POOL is not None:
             namespaceprefix_ = self.AR_POOL_nsprefix_ + ':' if (UseCapturedNS_ and self.AR_POOL_nsprefix_) else ''
             self.AR_POOL.export(outfile, level, namespaceprefix_, namespacedef_='', name_='AR_POOL', pretty_print=pretty_print)
@@ -13134,17 +13065,17 @@ class VNET(GeneratedsSuper):
             self.NAME = value_
             self.NAME_nsprefix_ = child_.prefix
         elif nodeName_ == 'LOCK':
-            obj_ = LOCKType67.factory(parent_object_=self)
+            obj_ = LOCKType63.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.LOCK = obj_
             obj_.original_tagname_ = 'LOCK'
         elif nodeName_ == 'PERMISSIONS':
-            obj_ = PERMISSIONSType68.factory(parent_object_=self)
+            obj_ = PERMISSIONSType64.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.PERMISSIONS = obj_
             obj_.original_tagname_ = 'PERMISSIONS'
         elif nodeName_ == 'CLUSTERS':
-            obj_ = CLUSTERSType69.factory(parent_object_=self)
+            obj_ = CLUSTERSType65.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.CLUSTERS = obj_
             obj_.original_tagname_ = 'CLUSTERS'
@@ -13221,37 +13152,38 @@ class VNET(GeneratedsSuper):
             self.USED_LEASES = ival_
             self.USED_LEASES_nsprefix_ = child_.prefix
         elif nodeName_ == 'VROUTERS':
-            obj_ = VROUTERSType70.factory(parent_object_=self)
+            obj_ = VROUTERSType66.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.VROUTERS = obj_
             obj_.original_tagname_ = 'VROUTERS'
         elif nodeName_ == 'UPDATED_VMS':
-            obj_ = UPDATED_VMSType71.factory(parent_object_=self)
+            obj_ = UPDATED_VMSType67.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.UPDATED_VMS = obj_
             obj_.original_tagname_ = 'UPDATED_VMS'
         elif nodeName_ == 'OUTDATED_VMS':
-            obj_ = OUTDATED_VMSType72.factory(parent_object_=self)
+            obj_ = OUTDATED_VMSType68.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.OUTDATED_VMS = obj_
             obj_.original_tagname_ = 'OUTDATED_VMS'
         elif nodeName_ == 'UPDATING_VMS':
-            obj_ = UPDATING_VMSType73.factory(parent_object_=self)
+            obj_ = UPDATING_VMSType69.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.UPDATING_VMS = obj_
             obj_.original_tagname_ = 'UPDATING_VMS'
         elif nodeName_ == 'ERROR_VMS':
-            obj_ = ERROR_VMSType74.factory(parent_object_=self)
+            obj_ = ERROR_VMSType70.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.ERROR_VMS = obj_
             obj_.original_tagname_ = 'ERROR_VMS'
         elif nodeName_ == 'TEMPLATE':
-            obj_ = TEMPLATEType75.factory(parent_object_=self)
-            obj_.build(child_, gds_collector_=gds_collector_)
-            self.TEMPLATE = obj_
-            obj_.original_tagname_ = 'TEMPLATE'
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'TEMPLATE')
+            value_ = self.gds_validate_string(value_, node, 'TEMPLATE')
+            self.TEMPLATE = value_
+            self.TEMPLATE_nsprefix_ = child_.prefix
         elif nodeName_ == 'AR_POOL':
-            obj_ = AR_POOLType76.factory(parent_object_=self)
+            obj_ = AR_POOLType71.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.AR_POOL = obj_
             obj_.original_tagname_ = 'AR_POOL'
@@ -13527,7 +13459,8 @@ class VNTEMPLATE(GeneratedsSuper):
             outfile.write('<%sREGTIME>%s</%sREGTIME>%s' % (namespaceprefix_ , self.gds_format_integer(self.REGTIME, input_name='REGTIME'), namespaceprefix_ , eol_))
         if self.TEMPLATE is not None:
             namespaceprefix_ = self.TEMPLATE_nsprefix_ + ':' if (UseCapturedNS_ and self.TEMPLATE_nsprefix_) else ''
-            self.TEMPLATE.export(outfile, level, namespaceprefix_, namespacedef_='', name_='TEMPLATE', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sTEMPLATE>%s</%sTEMPLATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.TEMPLATE), input_name='TEMPLATE')), namespaceprefix_ , eol_))
     def build(self, node, gds_collector_=None):
         self.gds_collector_ = gds_collector_
         if SaveElementTreeNode:
@@ -13579,12 +13512,12 @@ class VNTEMPLATE(GeneratedsSuper):
             self.NAME = value_
             self.NAME_nsprefix_ = child_.prefix
         elif nodeName_ == 'LOCK':
-            obj_ = LOCKType78.factory(parent_object_=self)
+            obj_ = LOCKType73.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.LOCK = obj_
             obj_.original_tagname_ = 'LOCK'
         elif nodeName_ == 'PERMISSIONS':
-            obj_ = PERMISSIONSType79.factory(parent_object_=self)
+            obj_ = PERMISSIONSType74.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.PERMISSIONS = obj_
             obj_.original_tagname_ = 'PERMISSIONS'
@@ -13595,10 +13528,11 @@ class VNTEMPLATE(GeneratedsSuper):
             self.REGTIME = ival_
             self.REGTIME_nsprefix_ = child_.prefix
         elif nodeName_ == 'TEMPLATE':
-            obj_ = TEMPLATEType80.factory(parent_object_=self)
-            obj_.build(child_, gds_collector_=gds_collector_)
-            self.TEMPLATE = obj_
-            obj_.original_tagname_ = 'TEMPLATE'
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'TEMPLATE')
+            value_ = self.gds_validate_string(value_, node, 'TEMPLATE')
+            self.TEMPLATE = value_
+            self.TEMPLATE_nsprefix_ = child_.prefix
 # end class VNTEMPLATE
 
 
@@ -13923,17 +13857,17 @@ class VROUTER(GeneratedsSuper):
             self.NAME = value_
             self.NAME_nsprefix_ = child_.prefix
         elif nodeName_ == 'PERMISSIONS':
-            obj_ = PERMISSIONSType81.factory(parent_object_=self)
+            obj_ = PERMISSIONSType75.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.PERMISSIONS = obj_
             obj_.original_tagname_ = 'PERMISSIONS'
         elif nodeName_ == 'LOCK':
-            obj_ = LOCKType82.factory(parent_object_=self)
+            obj_ = LOCKType76.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.LOCK = obj_
             obj_.original_tagname_ = 'LOCK'
         elif nodeName_ == 'VMS':
-            obj_ = VMSType83.factory(parent_object_=self)
+            obj_ = VMSType77.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.VMS = obj_
             obj_.original_tagname_ = 'VMS'
@@ -14195,12 +14129,12 @@ class ZONE(GeneratedsSuper):
             self.STATE = ival_
             self.STATE_nsprefix_ = child_.prefix
         elif nodeName_ == 'TEMPLATE':
-            obj_ = TEMPLATEType85.factory(parent_object_=self)
+            obj_ = TEMPLATEType79.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.TEMPLATE = obj_
             obj_.original_tagname_ = 'TEMPLATE'
         elif nodeName_ == 'SERVER_POOL':
-            obj_ = SERVER_POOLType86.factory(parent_object_=self)
+            obj_ = SERVER_POOLType80.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.SERVER_POOL = obj_
             obj_.original_tagname_ = 'SERVER_POOL'
@@ -15463,7 +15397,7 @@ class BACKUP_CONFIGType(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, BACKUP_VOLATILE=None, FS_FREEZE=None, INCREMENTAL_BACKUP_ID=None, INCREMENT_MODE=None, KEEP_LAST=None, LAST_BACKUP_ID=None, LAST_BACKUP_SIZE=None, LAST_DATASTORE_ID=None, LAST_INCREMENT_ID=None, MODE=None, gds_collector_=None, **kwargs_):
+    def __init__(self, BACKUP_VOLATILE=None, FS_FREEZE=None, INCREMENTAL_BACKUP_ID=None, INCREMENT_MODE=None, KEEP_LAST=None, LAST_BACKUP_ID=None, LAST_BACKUP_SIZE=None, LAST_BRIDGE=None, LAST_DATASTORE_ID=None, LAST_INCREMENT_ID=None, MODE=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -15483,6 +15417,8 @@ class BACKUP_CONFIGType(GeneratedsSuper):
         self.LAST_BACKUP_ID_nsprefix_ = None
         self.LAST_BACKUP_SIZE = LAST_BACKUP_SIZE
         self.LAST_BACKUP_SIZE_nsprefix_ = None
+        self.LAST_BRIDGE = LAST_BRIDGE
+        self.LAST_BRIDGE_nsprefix_ = None
         self.LAST_DATASTORE_ID = LAST_DATASTORE_ID
         self.LAST_DATASTORE_ID_nsprefix_ = None
         self.LAST_INCREMENT_ID = LAST_INCREMENT_ID
@@ -15532,6 +15468,10 @@ class BACKUP_CONFIGType(GeneratedsSuper):
         return self.LAST_BACKUP_SIZE
     def set_LAST_BACKUP_SIZE(self, LAST_BACKUP_SIZE):
         self.LAST_BACKUP_SIZE = LAST_BACKUP_SIZE
+    def get_LAST_BRIDGE(self):
+        return self.LAST_BRIDGE
+    def set_LAST_BRIDGE(self, LAST_BRIDGE):
+        self.LAST_BRIDGE = LAST_BRIDGE
     def get_LAST_DATASTORE_ID(self):
         return self.LAST_DATASTORE_ID
     def set_LAST_DATASTORE_ID(self, LAST_DATASTORE_ID):
@@ -15553,6 +15493,7 @@ class BACKUP_CONFIGType(GeneratedsSuper):
             self.KEEP_LAST is not None or
             self.LAST_BACKUP_ID is not None or
             self.LAST_BACKUP_SIZE is not None or
+            self.LAST_BRIDGE is not None or
             self.LAST_DATASTORE_ID is not None or
             self.LAST_INCREMENT_ID is not None or
             self.MODE is not None
@@ -15618,6 +15559,10 @@ class BACKUP_CONFIGType(GeneratedsSuper):
             namespaceprefix_ = self.LAST_BACKUP_SIZE_nsprefix_ + ':' if (UseCapturedNS_ and self.LAST_BACKUP_SIZE_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sLAST_BACKUP_SIZE>%s</%sLAST_BACKUP_SIZE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.LAST_BACKUP_SIZE), input_name='LAST_BACKUP_SIZE')), namespaceprefix_ , eol_))
+        if self.LAST_BRIDGE is not None:
+            namespaceprefix_ = self.LAST_BRIDGE_nsprefix_ + ':' if (UseCapturedNS_ and self.LAST_BRIDGE_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sLAST_BRIDGE>%s</%sLAST_BRIDGE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.LAST_BRIDGE), input_name='LAST_BRIDGE')), namespaceprefix_ , eol_))
         if self.LAST_DATASTORE_ID is not None:
             namespaceprefix_ = self.LAST_DATASTORE_ID_nsprefix_ + ':' if (UseCapturedNS_ and self.LAST_DATASTORE_ID_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -15686,6 +15631,12 @@ class BACKUP_CONFIGType(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'LAST_BACKUP_SIZE')
             self.LAST_BACKUP_SIZE = value_
             self.LAST_BACKUP_SIZE_nsprefix_ = child_.prefix
+        elif nodeName_ == 'LAST_BRIDGE':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'LAST_BRIDGE')
+            value_ = self.gds_validate_string(value_, node, 'LAST_BRIDGE')
+            self.LAST_BRIDGE = value_
+            self.LAST_BRIDGE_nsprefix_ = child_.prefix
         elif nodeName_ == 'LAST_DATASTORE_ID':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'LAST_DATASTORE_ID')
@@ -20640,7 +20591,7 @@ class TEMPLATEType10(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, ARGUMENTS=None, ARGUMENTS_STDIN=None, CALL=None, COMMAND=None, REMOTE=None, RESOURCE=None, STATE=None, LCM_STATE=None, anytypeobjs_=None, gds_collector_=None, **kwargs_):
+    def __init__(self, ARGUMENTS=None, ARGUMENTS_STDIN=None, CALL=None, COMMAND=None, LCM_STATE=None, REMOTE=None, RESOURCE=None, STATE=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -20654,18 +20605,14 @@ class TEMPLATEType10(GeneratedsSuper):
         self.CALL_nsprefix_ = None
         self.COMMAND = COMMAND
         self.COMMAND_nsprefix_ = None
+        self.LCM_STATE = LCM_STATE
+        self.LCM_STATE_nsprefix_ = None
         self.REMOTE = REMOTE
         self.REMOTE_nsprefix_ = None
         self.RESOURCE = RESOURCE
         self.RESOURCE_nsprefix_ = None
         self.STATE = STATE
         self.STATE_nsprefix_ = None
-        self.LCM_STATE = LCM_STATE
-        self.LCM_STATE_nsprefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
@@ -20697,6 +20644,10 @@ class TEMPLATEType10(GeneratedsSuper):
         return self.COMMAND
     def set_COMMAND(self, COMMAND):
         self.COMMAND = COMMAND
+    def get_LCM_STATE(self):
+        return self.LCM_STATE
+    def set_LCM_STATE(self, LCM_STATE):
+        self.LCM_STATE = LCM_STATE
     def get_REMOTE(self):
         return self.REMOTE
     def set_REMOTE(self, REMOTE):
@@ -20709,25 +20660,16 @@ class TEMPLATEType10(GeneratedsSuper):
         return self.STATE
     def set_STATE(self, STATE):
         self.STATE = STATE
-    def get_LCM_STATE(self):
-        return self.LCM_STATE
-    def set_LCM_STATE(self, LCM_STATE):
-        self.LCM_STATE = LCM_STATE
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
     def has__content(self):
         if (
             self.ARGUMENTS is not None or
             self.ARGUMENTS_STDIN is not None or
             self.CALL is not None or
             self.COMMAND is not None or
+            self.LCM_STATE is not None or
             self.REMOTE is not None or
             self.RESOURCE is not None or
-            self.STATE is not None or
-            self.LCM_STATE is not None or
-            self.anytypeobjs_
+            self.STATE is not None
         ):
             return True
         else:
@@ -20778,6 +20720,10 @@ class TEMPLATEType10(GeneratedsSuper):
             namespaceprefix_ = self.COMMAND_nsprefix_ + ':' if (UseCapturedNS_ and self.COMMAND_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sCOMMAND>%s</%sCOMMAND>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.COMMAND), input_name='COMMAND')), namespaceprefix_ , eol_))
+        if self.LCM_STATE is not None:
+            namespaceprefix_ = self.LCM_STATE_nsprefix_ + ':' if (UseCapturedNS_ and self.LCM_STATE_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sLCM_STATE>%s</%sLCM_STATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.LCM_STATE), input_name='LCM_STATE')), namespaceprefix_ , eol_))
         if self.REMOTE is not None:
             namespaceprefix_ = self.REMOTE_nsprefix_ + ':' if (UseCapturedNS_ and self.REMOTE_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -20790,15 +20736,6 @@ class TEMPLATEType10(GeneratedsSuper):
             namespaceprefix_ = self.STATE_nsprefix_ + ':' if (UseCapturedNS_ and self.STATE_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sSTATE>%s</%sSTATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.STATE), input_name='STATE')), namespaceprefix_ , eol_))
-        if self.LCM_STATE is not None:
-            namespaceprefix_ = self.LCM_STATE_nsprefix_ + ':' if (UseCapturedNS_ and self.LCM_STATE_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sLCM_STATE>%s</%sLCM_STATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.LCM_STATE), input_name='LCM_STATE')), namespaceprefix_ , eol_))
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
     def build(self, node, gds_collector_=None):
         self.gds_collector_ = gds_collector_
         if SaveElementTreeNode:
@@ -20837,6 +20774,12 @@ class TEMPLATEType10(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'COMMAND')
             self.COMMAND = value_
             self.COMMAND_nsprefix_ = child_.prefix
+        elif nodeName_ == 'LCM_STATE':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'LCM_STATE')
+            value_ = self.gds_validate_string(value_, node, 'LCM_STATE')
+            self.LCM_STATE = value_
+            self.LCM_STATE_nsprefix_ = child_.prefix
         elif nodeName_ == 'REMOTE':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'REMOTE')
@@ -20855,15 +20798,6 @@ class TEMPLATEType10(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'STATE')
             self.STATE = value_
             self.STATE_nsprefix_ = child_.prefix
-        elif nodeName_ == 'LCM_STATE':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'LCM_STATE')
-            value_ = self.gds_validate_string(value_, node, 'LCM_STATE')
-            self.LCM_STATE = value_
-            self.LCM_STATE_nsprefix_ = child_.prefix
-        else:
-            content_ = self.gds_build_any(child_, 'TEMPLATEType10')
-            self.anytypeobjs_.append(content_)
 # end class TEMPLATEType10
 
 
@@ -20973,7 +20907,7 @@ class HOOK_EXECUTION_RECORDType(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, HOOK_ID=None, EXECUTION_ID=None, TIMESTAMP=None, ARGUMENTS=None, EXECUTION_RESULT=None, REMOTE_HOST=None, RETRY=None, anytypeobjs_=None, gds_collector_=None, **kwargs_):
+    def __init__(self, HOOK_ID=None, EXECUTION_ID=None, TIMESTAMP=None, ARGUMENTS=None, EXECUTION_RESULT=None, REMOTE_HOST=None, RETRY=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -20993,10 +20927,6 @@ class HOOK_EXECUTION_RECORDType(GeneratedsSuper):
         self.REMOTE_HOST_nsprefix_ = None
         self.RETRY = RETRY
         self.RETRY_nsprefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
@@ -21040,10 +20970,6 @@ class HOOK_EXECUTION_RECORDType(GeneratedsSuper):
         return self.RETRY
     def set_RETRY(self, RETRY):
         self.RETRY = RETRY
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
     def has__content(self):
         if (
             self.HOOK_ID is not None or
@@ -21052,8 +20978,7 @@ class HOOK_EXECUTION_RECORDType(GeneratedsSuper):
             self.ARGUMENTS is not None or
             self.EXECUTION_RESULT is not None or
             self.REMOTE_HOST is not None or
-            self.RETRY is not None or
-            self.anytypeobjs_
+            self.RETRY is not None
         ):
             return True
         else:
@@ -21115,11 +21040,6 @@ class HOOK_EXECUTION_RECORDType(GeneratedsSuper):
             namespaceprefix_ = self.RETRY_nsprefix_ + ':' if (UseCapturedNS_ and self.RETRY_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sRETRY>%s</%sRETRY>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.RETRY), input_name='RETRY')), namespaceprefix_ , eol_))
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
     def build(self, node, gds_collector_=None):
         self.gds_collector_ = gds_collector_
         if SaveElementTreeNode:
@@ -21175,9 +21095,6 @@ class HOOK_EXECUTION_RECORDType(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'RETRY')
             self.RETRY = value_
             self.RETRY_nsprefix_ = child_.prefix
-        else:
-            content_ = self.gds_build_any(child_, 'HOOK_EXECUTION_RECORDType')
-            self.anytypeobjs_.append(content_)
 # end class HOOK_EXECUTION_RECORDType
 
 
@@ -24587,101 +24504,7 @@ class PERMISSIONSType15(GeneratedsSuper):
 # end class PERMISSIONSType15
 
 
-class TEMPLATEType16(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, anytypeobjs_=None, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, TEMPLATEType16)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if TEMPLATEType16.subclass:
-            return TEMPLATEType16.subclass(*args_, **kwargs_)
-        else:
-            return TEMPLATEType16(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
-    def has__content(self):
-        if (
-            self.anytypeobjs_
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType16', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType16')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'TEMPLATEType16':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType16')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType16', pretty_print=pretty_print)
-            showIndent(outfile, level, pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType16'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType16', fromsubclass_=False, pretty_print=True):
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        content_ = self.gds_build_any(child_, 'TEMPLATEType16')
-        self.anytypeobjs_.append(content_)
-# end class TEMPLATEType16
-
-
-class SNAPSHOTSType17(GeneratedsSuper):
+class SNAPSHOTSType16(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -24705,13 +24528,13 @@ class SNAPSHOTSType17(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, SNAPSHOTSType17)
+                CurrentSubclassModule_, SNAPSHOTSType16)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if SNAPSHOTSType17.subclass:
-            return SNAPSHOTSType17.subclass(*args_, **kwargs_)
+        if SNAPSHOTSType16.subclass:
+            return SNAPSHOTSType16.subclass(*args_, **kwargs_)
         else:
-            return SNAPSHOTSType17(*args_, **kwargs_)
+            return SNAPSHOTSType16(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -24749,32 +24572,32 @@ class SNAPSHOTSType17(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTSType17', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SNAPSHOTSType17')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTSType16', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SNAPSHOTSType16')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'SNAPSHOTSType17':
+        if self.original_tagname_ is not None and name_ == 'SNAPSHOTSType16':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SNAPSHOTSType17')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SNAPSHOTSType16')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SNAPSHOTSType17', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SNAPSHOTSType16', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SNAPSHOTSType17'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SNAPSHOTSType16'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTSType17', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTSType16', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -24827,14 +24650,14 @@ class SNAPSHOTSType17(GeneratedsSuper):
             self.NEXT_SNAPSHOT = value_
             self.NEXT_SNAPSHOT_nsprefix_ = child_.prefix
         elif nodeName_ == 'SNAPSHOT':
-            obj_ = SNAPSHOTType18.factory(parent_object_=self)
+            obj_ = SNAPSHOTType17.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.SNAPSHOT.append(obj_)
             obj_.original_tagname_ = 'SNAPSHOT'
-# end class SNAPSHOTSType17
+# end class SNAPSHOTSType16
 
 
-class SNAPSHOTType18(GeneratedsSuper):
+class SNAPSHOTType17(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -24861,13 +24684,13 @@ class SNAPSHOTType18(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, SNAPSHOTType18)
+                CurrentSubclassModule_, SNAPSHOTType17)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if SNAPSHOTType18.subclass:
-            return SNAPSHOTType18.subclass(*args_, **kwargs_)
+        if SNAPSHOTType17.subclass:
+            return SNAPSHOTType17.subclass(*args_, **kwargs_)
         else:
-            return SNAPSHOTType18(*args_, **kwargs_)
+            return SNAPSHOTType17(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -24914,32 +24737,32 @@ class SNAPSHOTType18(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType18', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SNAPSHOTType18')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType17', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SNAPSHOTType17')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'SNAPSHOTType18':
+        if self.original_tagname_ is not None and name_ == 'SNAPSHOTType17':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SNAPSHOTType18')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SNAPSHOTType17')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SNAPSHOTType18', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SNAPSHOTType17', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SNAPSHOTType18'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SNAPSHOTType17'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType18', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType17', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -25028,7 +24851,7 @@ class SNAPSHOTType18(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'SIZE')
             self.SIZE = ival_
             self.SIZE_nsprefix_ = child_.prefix
-# end class SNAPSHOTType18
+# end class SNAPSHOTType17
 
 
 class BACKUP_INCREMENTSType(GeneratedsSuper):
@@ -25313,7 +25136,7 @@ class INCREMENTType(GeneratedsSuper):
 # end class INCREMENTType
 
 
-class LOCKType19(GeneratedsSuper):
+class LOCKType18(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -25334,13 +25157,13 @@ class LOCKType19(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, LOCKType19)
+                CurrentSubclassModule_, LOCKType18)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if LOCKType19.subclass:
-            return LOCKType19.subclass(*args_, **kwargs_)
+        if LOCKType18.subclass:
+            return LOCKType18.subclass(*args_, **kwargs_)
         else:
-            return LOCKType19(*args_, **kwargs_)
+            return LOCKType18(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -25372,32 +25195,32 @@ class LOCKType19(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType19', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType19')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType18', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType18')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'LOCKType19':
+        if self.original_tagname_ is not None and name_ == 'LOCKType18':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType19')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType18')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType19', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType18', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType19'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType18'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType19', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType18', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -25456,7 +25279,342 @@ class LOCKType19(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'REQ_ID')
             self.REQ_ID = ival_
             self.REQ_ID_nsprefix_ = child_.prefix
-# end class LOCKType19
+# end class LOCKType18
+
+
+class PERMISSIONSType19(GeneratedsSuper):
+    __hash__ = GeneratedsSuper.__hash__
+    subclass = None
+    superclass = None
+    def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, gds_collector_=None, **kwargs_):
+        self.gds_collector_ = gds_collector_
+        self.gds_elementtree_node_ = None
+        self.original_tagname_ = None
+        self.parent_object_ = kwargs_.get('parent_object_')
+        self.ns_prefix_ = None
+        self.OWNER_U = OWNER_U
+        self.OWNER_U_nsprefix_ = None
+        self.OWNER_M = OWNER_M
+        self.OWNER_M_nsprefix_ = None
+        self.OWNER_A = OWNER_A
+        self.OWNER_A_nsprefix_ = None
+        self.GROUP_U = GROUP_U
+        self.GROUP_U_nsprefix_ = None
+        self.GROUP_M = GROUP_M
+        self.GROUP_M_nsprefix_ = None
+        self.GROUP_A = GROUP_A
+        self.GROUP_A_nsprefix_ = None
+        self.OTHER_U = OTHER_U
+        self.OTHER_U_nsprefix_ = None
+        self.OTHER_M = OTHER_M
+        self.OTHER_M_nsprefix_ = None
+        self.OTHER_A = OTHER_A
+        self.OTHER_A_nsprefix_ = None
+    def factory(*args_, **kwargs_):
+        if CurrentSubclassModule_ is not None:
+            subclass = getSubclassFromModule_(
+                CurrentSubclassModule_, PERMISSIONSType19)
+            if subclass is not None:
+                return subclass(*args_, **kwargs_)
+        if PERMISSIONSType19.subclass:
+            return PERMISSIONSType19.subclass(*args_, **kwargs_)
+        else:
+            return PERMISSIONSType19(*args_, **kwargs_)
+    factory = staticmethod(factory)
+    def get_ns_prefix_(self):
+        return self.ns_prefix_
+    def set_ns_prefix_(self, ns_prefix):
+        self.ns_prefix_ = ns_prefix
+    def get_OWNER_U(self):
+        return self.OWNER_U
+    def set_OWNER_U(self, OWNER_U):
+        self.OWNER_U = OWNER_U
+    def get_OWNER_M(self):
+        return self.OWNER_M
+    def set_OWNER_M(self, OWNER_M):
+        self.OWNER_M = OWNER_M
+    def get_OWNER_A(self):
+        return self.OWNER_A
+    def set_OWNER_A(self, OWNER_A):
+        self.OWNER_A = OWNER_A
+    def get_GROUP_U(self):
+        return self.GROUP_U
+    def set_GROUP_U(self, GROUP_U):
+        self.GROUP_U = GROUP_U
+    def get_GROUP_M(self):
+        return self.GROUP_M
+    def set_GROUP_M(self, GROUP_M):
+        self.GROUP_M = GROUP_M
+    def get_GROUP_A(self):
+        return self.GROUP_A
+    def set_GROUP_A(self, GROUP_A):
+        self.GROUP_A = GROUP_A
+    def get_OTHER_U(self):
+        return self.OTHER_U
+    def set_OTHER_U(self, OTHER_U):
+        self.OTHER_U = OTHER_U
+    def get_OTHER_M(self):
+        return self.OTHER_M
+    def set_OTHER_M(self, OTHER_M):
+        self.OTHER_M = OTHER_M
+    def get_OTHER_A(self):
+        return self.OTHER_A
+    def set_OTHER_A(self, OTHER_A):
+        self.OTHER_A = OTHER_A
+    def has__content(self):
+        if (
+            self.OWNER_U is not None or
+            self.OWNER_M is not None or
+            self.OWNER_A is not None or
+            self.GROUP_U is not None or
+            self.GROUP_M is not None or
+            self.GROUP_A is not None or
+            self.OTHER_U is not None or
+            self.OTHER_M is not None or
+            self.OTHER_A is not None
+        ):
+            return True
+        else:
+            return False
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType19', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType19')
+        if imported_ns_def_ is not None:
+            namespacedef_ = imported_ns_def_
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType19':
+            name_ = self.original_tagname_
+        if UseCapturedNS_ and self.ns_prefix_:
+            namespaceprefix_ = self.ns_prefix_ + ':'
+        showIndent(outfile, level, pretty_print)
+        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
+        already_processed = set()
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType19')
+        if self.has__content():
+            outfile.write('>%s' % (eol_, ))
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType19', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
+        else:
+            outfile.write('/>%s' % (eol_, ))
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType19'):
+        pass
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType19', fromsubclass_=False, pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.OWNER_U is not None:
+            namespaceprefix_ = self.OWNER_U_nsprefix_ + ':' if (UseCapturedNS_ and self.OWNER_U_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sOWNER_U>%s</%sOWNER_U>%s' % (namespaceprefix_ , self.gds_format_integer(self.OWNER_U, input_name='OWNER_U'), namespaceprefix_ , eol_))
+        if self.OWNER_M is not None:
+            namespaceprefix_ = self.OWNER_M_nsprefix_ + ':' if (UseCapturedNS_ and self.OWNER_M_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sOWNER_M>%s</%sOWNER_M>%s' % (namespaceprefix_ , self.gds_format_integer(self.OWNER_M, input_name='OWNER_M'), namespaceprefix_ , eol_))
+        if self.OWNER_A is not None:
+            namespaceprefix_ = self.OWNER_A_nsprefix_ + ':' if (UseCapturedNS_ and self.OWNER_A_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sOWNER_A>%s</%sOWNER_A>%s' % (namespaceprefix_ , self.gds_format_integer(self.OWNER_A, input_name='OWNER_A'), namespaceprefix_ , eol_))
+        if self.GROUP_U is not None:
+            namespaceprefix_ = self.GROUP_U_nsprefix_ + ':' if (UseCapturedNS_ and self.GROUP_U_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sGROUP_U>%s</%sGROUP_U>%s' % (namespaceprefix_ , self.gds_format_integer(self.GROUP_U, input_name='GROUP_U'), namespaceprefix_ , eol_))
+        if self.GROUP_M is not None:
+            namespaceprefix_ = self.GROUP_M_nsprefix_ + ':' if (UseCapturedNS_ and self.GROUP_M_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sGROUP_M>%s</%sGROUP_M>%s' % (namespaceprefix_ , self.gds_format_integer(self.GROUP_M, input_name='GROUP_M'), namespaceprefix_ , eol_))
+        if self.GROUP_A is not None:
+            namespaceprefix_ = self.GROUP_A_nsprefix_ + ':' if (UseCapturedNS_ and self.GROUP_A_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sGROUP_A>%s</%sGROUP_A>%s' % (namespaceprefix_ , self.gds_format_integer(self.GROUP_A, input_name='GROUP_A'), namespaceprefix_ , eol_))
+        if self.OTHER_U is not None:
+            namespaceprefix_ = self.OTHER_U_nsprefix_ + ':' if (UseCapturedNS_ and self.OTHER_U_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sOTHER_U>%s</%sOTHER_U>%s' % (namespaceprefix_ , self.gds_format_integer(self.OTHER_U, input_name='OTHER_U'), namespaceprefix_ , eol_))
+        if self.OTHER_M is not None:
+            namespaceprefix_ = self.OTHER_M_nsprefix_ + ':' if (UseCapturedNS_ and self.OTHER_M_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sOTHER_M>%s</%sOTHER_M>%s' % (namespaceprefix_ , self.gds_format_integer(self.OTHER_M, input_name='OTHER_M'), namespaceprefix_ , eol_))
+        if self.OTHER_A is not None:
+            namespaceprefix_ = self.OTHER_A_nsprefix_ + ':' if (UseCapturedNS_ and self.OTHER_A_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sOTHER_A>%s</%sOTHER_A>%s' % (namespaceprefix_ , self.gds_format_integer(self.OTHER_A, input_name='OTHER_A'), namespaceprefix_ , eol_))
+    def build(self, node, gds_collector_=None):
+        self.gds_collector_ = gds_collector_
+        if SaveElementTreeNode:
+            self.gds_elementtree_node_ = node
+        already_processed = set()
+        self.ns_prefix_ = node.prefix
+        self._buildAttributes(node, node.attrib, already_processed)
+        for child in node:
+            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
+            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
+        return self
+    def _buildAttributes(self, node, attrs, already_processed):
+        pass
+    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
+        if nodeName_ == 'OWNER_U' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'OWNER_U')
+            ival_ = self.gds_validate_integer(ival_, node, 'OWNER_U')
+            self.OWNER_U = ival_
+            self.OWNER_U_nsprefix_ = child_.prefix
+        elif nodeName_ == 'OWNER_M' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'OWNER_M')
+            ival_ = self.gds_validate_integer(ival_, node, 'OWNER_M')
+            self.OWNER_M = ival_
+            self.OWNER_M_nsprefix_ = child_.prefix
+        elif nodeName_ == 'OWNER_A' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'OWNER_A')
+            ival_ = self.gds_validate_integer(ival_, node, 'OWNER_A')
+            self.OWNER_A = ival_
+            self.OWNER_A_nsprefix_ = child_.prefix
+        elif nodeName_ == 'GROUP_U' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'GROUP_U')
+            ival_ = self.gds_validate_integer(ival_, node, 'GROUP_U')
+            self.GROUP_U = ival_
+            self.GROUP_U_nsprefix_ = child_.prefix
+        elif nodeName_ == 'GROUP_M' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'GROUP_M')
+            ival_ = self.gds_validate_integer(ival_, node, 'GROUP_M')
+            self.GROUP_M = ival_
+            self.GROUP_M_nsprefix_ = child_.prefix
+        elif nodeName_ == 'GROUP_A' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'GROUP_A')
+            ival_ = self.gds_validate_integer(ival_, node, 'GROUP_A')
+            self.GROUP_A = ival_
+            self.GROUP_A_nsprefix_ = child_.prefix
+        elif nodeName_ == 'OTHER_U' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'OTHER_U')
+            ival_ = self.gds_validate_integer(ival_, node, 'OTHER_U')
+            self.OTHER_U = ival_
+            self.OTHER_U_nsprefix_ = child_.prefix
+        elif nodeName_ == 'OTHER_M' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'OTHER_M')
+            ival_ = self.gds_validate_integer(ival_, node, 'OTHER_M')
+            self.OTHER_M = ival_
+            self.OTHER_M_nsprefix_ = child_.prefix
+        elif nodeName_ == 'OTHER_A' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'OTHER_A')
+            ival_ = self.gds_validate_integer(ival_, node, 'OTHER_A')
+            self.OTHER_A = ival_
+            self.OTHER_A_nsprefix_ = child_.prefix
+# end class PERMISSIONSType19
+
+
+class MARKETPLACEAPPSType(GeneratedsSuper):
+    __hash__ = GeneratedsSuper.__hash__
+    subclass = None
+    superclass = None
+    def __init__(self, ID=None, gds_collector_=None, **kwargs_):
+        self.gds_collector_ = gds_collector_
+        self.gds_elementtree_node_ = None
+        self.original_tagname_ = None
+        self.parent_object_ = kwargs_.get('parent_object_')
+        self.ns_prefix_ = None
+        if ID is None:
+            self.ID = []
+        else:
+            self.ID = ID
+        self.ID_nsprefix_ = None
+    def factory(*args_, **kwargs_):
+        if CurrentSubclassModule_ is not None:
+            subclass = getSubclassFromModule_(
+                CurrentSubclassModule_, MARKETPLACEAPPSType)
+            if subclass is not None:
+                return subclass(*args_, **kwargs_)
+        if MARKETPLACEAPPSType.subclass:
+            return MARKETPLACEAPPSType.subclass(*args_, **kwargs_)
+        else:
+            return MARKETPLACEAPPSType(*args_, **kwargs_)
+    factory = staticmethod(factory)
+    def get_ns_prefix_(self):
+        return self.ns_prefix_
+    def set_ns_prefix_(self, ns_prefix):
+        self.ns_prefix_ = ns_prefix
+    def get_ID(self):
+        return self.ID
+    def set_ID(self, ID):
+        self.ID = ID
+    def add_ID(self, value):
+        self.ID.append(value)
+    def insert_ID_at(self, index, value):
+        self.ID.insert(index, value)
+    def replace_ID_at(self, index, value):
+        self.ID[index] = value
+    def has__content(self):
+        if (
+            self.ID
+        ):
+            return True
+        else:
+            return False
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MARKETPLACEAPPSType', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('MARKETPLACEAPPSType')
+        if imported_ns_def_ is not None:
+            namespacedef_ = imported_ns_def_
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.original_tagname_ is not None and name_ == 'MARKETPLACEAPPSType':
+            name_ = self.original_tagname_
+        if UseCapturedNS_ and self.ns_prefix_:
+            namespaceprefix_ = self.ns_prefix_ + ':'
+        showIndent(outfile, level, pretty_print)
+        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
+        already_processed = set()
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='MARKETPLACEAPPSType')
+        if self.has__content():
+            outfile.write('>%s' % (eol_, ))
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='MARKETPLACEAPPSType', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
+        else:
+            outfile.write('/>%s' % (eol_, ))
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='MARKETPLACEAPPSType'):
+        pass
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MARKETPLACEAPPSType', fromsubclass_=False, pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        for ID_ in self.ID:
+            namespaceprefix_ = self.ID_nsprefix_ + ':' if (UseCapturedNS_ and self.ID_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sID>%s</%sID>%s' % (namespaceprefix_ , self.gds_format_integer(ID_, input_name='ID'), namespaceprefix_ , eol_))
+    def build(self, node, gds_collector_=None):
+        self.gds_collector_ = gds_collector_
+        if SaveElementTreeNode:
+            self.gds_elementtree_node_ = node
+        already_processed = set()
+        self.ns_prefix_ = node.prefix
+        self._buildAttributes(node, node.attrib, already_processed)
+        for child in node:
+            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
+            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
+        return self
+    def _buildAttributes(self, node, attrs, already_processed):
+        pass
+    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
+        if nodeName_ == 'ID' and child_.text:
+            sval_ = child_.text
+            ival_ = self.gds_parse_integer(sval_, node, 'ID')
+            ival_ = self.gds_validate_integer(ival_, node, 'ID')
+            self.ID.append(ival_)
+            self.ID_nsprefix_ = child_.prefix
+# end class MARKETPLACEAPPSType
 
 
 class PERMISSIONSType20(GeneratedsSuper):
@@ -25690,342 +25848,7 @@ class PERMISSIONSType20(GeneratedsSuper):
 # end class PERMISSIONSType20
 
 
-class MARKETPLACEAPPSType(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, ID=None, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-        if ID is None:
-            self.ID = []
-        else:
-            self.ID = ID
-        self.ID_nsprefix_ = None
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, MARKETPLACEAPPSType)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if MARKETPLACEAPPSType.subclass:
-            return MARKETPLACEAPPSType.subclass(*args_, **kwargs_)
-        else:
-            return MARKETPLACEAPPSType(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def get_ID(self):
-        return self.ID
-    def set_ID(self, ID):
-        self.ID = ID
-    def add_ID(self, value):
-        self.ID.append(value)
-    def insert_ID_at(self, index, value):
-        self.ID.insert(index, value)
-    def replace_ID_at(self, index, value):
-        self.ID[index] = value
-    def has__content(self):
-        if (
-            self.ID
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MARKETPLACEAPPSType', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('MARKETPLACEAPPSType')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'MARKETPLACEAPPSType':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='MARKETPLACEAPPSType')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='MARKETPLACEAPPSType', pretty_print=pretty_print)
-            showIndent(outfile, level, pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='MARKETPLACEAPPSType'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MARKETPLACEAPPSType', fromsubclass_=False, pretty_print=True):
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        for ID_ in self.ID:
-            namespaceprefix_ = self.ID_nsprefix_ + ':' if (UseCapturedNS_ and self.ID_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sID>%s</%sID>%s' % (namespaceprefix_ , self.gds_format_integer(ID_, input_name='ID'), namespaceprefix_ , eol_))
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        if nodeName_ == 'ID' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'ID')
-            ival_ = self.gds_validate_integer(ival_, node, 'ID')
-            self.ID.append(ival_)
-            self.ID_nsprefix_ = child_.prefix
-# end class MARKETPLACEAPPSType
-
-
-class PERMISSIONSType21(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, OWNER_U=None, OWNER_M=None, OWNER_A=None, GROUP_U=None, GROUP_M=None, GROUP_A=None, OTHER_U=None, OTHER_M=None, OTHER_A=None, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-        self.OWNER_U = OWNER_U
-        self.OWNER_U_nsprefix_ = None
-        self.OWNER_M = OWNER_M
-        self.OWNER_M_nsprefix_ = None
-        self.OWNER_A = OWNER_A
-        self.OWNER_A_nsprefix_ = None
-        self.GROUP_U = GROUP_U
-        self.GROUP_U_nsprefix_ = None
-        self.GROUP_M = GROUP_M
-        self.GROUP_M_nsprefix_ = None
-        self.GROUP_A = GROUP_A
-        self.GROUP_A_nsprefix_ = None
-        self.OTHER_U = OTHER_U
-        self.OTHER_U_nsprefix_ = None
-        self.OTHER_M = OTHER_M
-        self.OTHER_M_nsprefix_ = None
-        self.OTHER_A = OTHER_A
-        self.OTHER_A_nsprefix_ = None
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, PERMISSIONSType21)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if PERMISSIONSType21.subclass:
-            return PERMISSIONSType21.subclass(*args_, **kwargs_)
-        else:
-            return PERMISSIONSType21(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def get_OWNER_U(self):
-        return self.OWNER_U
-    def set_OWNER_U(self, OWNER_U):
-        self.OWNER_U = OWNER_U
-    def get_OWNER_M(self):
-        return self.OWNER_M
-    def set_OWNER_M(self, OWNER_M):
-        self.OWNER_M = OWNER_M
-    def get_OWNER_A(self):
-        return self.OWNER_A
-    def set_OWNER_A(self, OWNER_A):
-        self.OWNER_A = OWNER_A
-    def get_GROUP_U(self):
-        return self.GROUP_U
-    def set_GROUP_U(self, GROUP_U):
-        self.GROUP_U = GROUP_U
-    def get_GROUP_M(self):
-        return self.GROUP_M
-    def set_GROUP_M(self, GROUP_M):
-        self.GROUP_M = GROUP_M
-    def get_GROUP_A(self):
-        return self.GROUP_A
-    def set_GROUP_A(self, GROUP_A):
-        self.GROUP_A = GROUP_A
-    def get_OTHER_U(self):
-        return self.OTHER_U
-    def set_OTHER_U(self, OTHER_U):
-        self.OTHER_U = OTHER_U
-    def get_OTHER_M(self):
-        return self.OTHER_M
-    def set_OTHER_M(self, OTHER_M):
-        self.OTHER_M = OTHER_M
-    def get_OTHER_A(self):
-        return self.OTHER_A
-    def set_OTHER_A(self, OTHER_A):
-        self.OTHER_A = OTHER_A
-    def has__content(self):
-        if (
-            self.OWNER_U is not None or
-            self.OWNER_M is not None or
-            self.OWNER_A is not None or
-            self.GROUP_U is not None or
-            self.GROUP_M is not None or
-            self.GROUP_A is not None or
-            self.OTHER_U is not None or
-            self.OTHER_M is not None or
-            self.OTHER_A is not None
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType21', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType21')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType21':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType21')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType21', pretty_print=pretty_print)
-            showIndent(outfile, level, pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType21'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType21', fromsubclass_=False, pretty_print=True):
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.OWNER_U is not None:
-            namespaceprefix_ = self.OWNER_U_nsprefix_ + ':' if (UseCapturedNS_ and self.OWNER_U_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sOWNER_U>%s</%sOWNER_U>%s' % (namespaceprefix_ , self.gds_format_integer(self.OWNER_U, input_name='OWNER_U'), namespaceprefix_ , eol_))
-        if self.OWNER_M is not None:
-            namespaceprefix_ = self.OWNER_M_nsprefix_ + ':' if (UseCapturedNS_ and self.OWNER_M_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sOWNER_M>%s</%sOWNER_M>%s' % (namespaceprefix_ , self.gds_format_integer(self.OWNER_M, input_name='OWNER_M'), namespaceprefix_ , eol_))
-        if self.OWNER_A is not None:
-            namespaceprefix_ = self.OWNER_A_nsprefix_ + ':' if (UseCapturedNS_ and self.OWNER_A_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sOWNER_A>%s</%sOWNER_A>%s' % (namespaceprefix_ , self.gds_format_integer(self.OWNER_A, input_name='OWNER_A'), namespaceprefix_ , eol_))
-        if self.GROUP_U is not None:
-            namespaceprefix_ = self.GROUP_U_nsprefix_ + ':' if (UseCapturedNS_ and self.GROUP_U_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sGROUP_U>%s</%sGROUP_U>%s' % (namespaceprefix_ , self.gds_format_integer(self.GROUP_U, input_name='GROUP_U'), namespaceprefix_ , eol_))
-        if self.GROUP_M is not None:
-            namespaceprefix_ = self.GROUP_M_nsprefix_ + ':' if (UseCapturedNS_ and self.GROUP_M_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sGROUP_M>%s</%sGROUP_M>%s' % (namespaceprefix_ , self.gds_format_integer(self.GROUP_M, input_name='GROUP_M'), namespaceprefix_ , eol_))
-        if self.GROUP_A is not None:
-            namespaceprefix_ = self.GROUP_A_nsprefix_ + ':' if (UseCapturedNS_ and self.GROUP_A_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sGROUP_A>%s</%sGROUP_A>%s' % (namespaceprefix_ , self.gds_format_integer(self.GROUP_A, input_name='GROUP_A'), namespaceprefix_ , eol_))
-        if self.OTHER_U is not None:
-            namespaceprefix_ = self.OTHER_U_nsprefix_ + ':' if (UseCapturedNS_ and self.OTHER_U_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sOTHER_U>%s</%sOTHER_U>%s' % (namespaceprefix_ , self.gds_format_integer(self.OTHER_U, input_name='OTHER_U'), namespaceprefix_ , eol_))
-        if self.OTHER_M is not None:
-            namespaceprefix_ = self.OTHER_M_nsprefix_ + ':' if (UseCapturedNS_ and self.OTHER_M_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sOTHER_M>%s</%sOTHER_M>%s' % (namespaceprefix_ , self.gds_format_integer(self.OTHER_M, input_name='OTHER_M'), namespaceprefix_ , eol_))
-        if self.OTHER_A is not None:
-            namespaceprefix_ = self.OTHER_A_nsprefix_ + ':' if (UseCapturedNS_ and self.OTHER_A_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sOTHER_A>%s</%sOTHER_A>%s' % (namespaceprefix_ , self.gds_format_integer(self.OTHER_A, input_name='OTHER_A'), namespaceprefix_ , eol_))
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        if nodeName_ == 'OWNER_U' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'OWNER_U')
-            ival_ = self.gds_validate_integer(ival_, node, 'OWNER_U')
-            self.OWNER_U = ival_
-            self.OWNER_U_nsprefix_ = child_.prefix
-        elif nodeName_ == 'OWNER_M' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'OWNER_M')
-            ival_ = self.gds_validate_integer(ival_, node, 'OWNER_M')
-            self.OWNER_M = ival_
-            self.OWNER_M_nsprefix_ = child_.prefix
-        elif nodeName_ == 'OWNER_A' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'OWNER_A')
-            ival_ = self.gds_validate_integer(ival_, node, 'OWNER_A')
-            self.OWNER_A = ival_
-            self.OWNER_A_nsprefix_ = child_.prefix
-        elif nodeName_ == 'GROUP_U' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'GROUP_U')
-            ival_ = self.gds_validate_integer(ival_, node, 'GROUP_U')
-            self.GROUP_U = ival_
-            self.GROUP_U_nsprefix_ = child_.prefix
-        elif nodeName_ == 'GROUP_M' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'GROUP_M')
-            ival_ = self.gds_validate_integer(ival_, node, 'GROUP_M')
-            self.GROUP_M = ival_
-            self.GROUP_M_nsprefix_ = child_.prefix
-        elif nodeName_ == 'GROUP_A' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'GROUP_A')
-            ival_ = self.gds_validate_integer(ival_, node, 'GROUP_A')
-            self.GROUP_A = ival_
-            self.GROUP_A_nsprefix_ = child_.prefix
-        elif nodeName_ == 'OTHER_U' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'OTHER_U')
-            ival_ = self.gds_validate_integer(ival_, node, 'OTHER_U')
-            self.OTHER_U = ival_
-            self.OTHER_U_nsprefix_ = child_.prefix
-        elif nodeName_ == 'OTHER_M' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'OTHER_M')
-            ival_ = self.gds_validate_integer(ival_, node, 'OTHER_M')
-            self.OTHER_M = ival_
-            self.OTHER_M_nsprefix_ = child_.prefix
-        elif nodeName_ == 'OTHER_A' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'OTHER_A')
-            ival_ = self.gds_validate_integer(ival_, node, 'OTHER_A')
-            self.OTHER_A = ival_
-            self.OTHER_A_nsprefix_ = child_.prefix
-# end class PERMISSIONSType21
-
-
-class MONITORINGType22(GeneratedsSuper):
+class MONITORINGType21(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -26063,13 +25886,13 @@ class MONITORINGType22(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, MONITORINGType22)
+                CurrentSubclassModule_, MONITORINGType21)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if MONITORINGType22.subclass:
-            return MONITORINGType22.subclass(*args_, **kwargs_)
+        if MONITORINGType21.subclass:
+            return MONITORINGType21.subclass(*args_, **kwargs_)
         else:
-            return MONITORINGType22(*args_, **kwargs_)
+            return MONITORINGType21(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -26142,32 +25965,32 @@ class MONITORINGType22(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType22', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('MONITORINGType22')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType21', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('MONITORINGType21')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'MONITORINGType22':
+        if self.original_tagname_ is not None and name_ == 'MONITORINGType21':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='MONITORINGType22')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='MONITORINGType21')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='MONITORINGType22', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='MONITORINGType21', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='MONITORINGType22'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='MONITORINGType21'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType22', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType21', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -26294,7 +26117,7 @@ class MONITORINGType22(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'TIMESTAMP')
             self.TIMESTAMP = ival_
             self.TIMESTAMP_nsprefix_ = child_.prefix
-# end class MONITORINGType22
+# end class MONITORINGType21
 
 
 class DISK_SIZEType(GeneratedsSuper):
@@ -29922,7 +29745,7 @@ class VXLAN_IDSType(GeneratedsSuper):
 # end class VXLAN_IDSType
 
 
-class PERMISSIONSType23(GeneratedsSuper):
+class PERMISSIONSType22(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -29953,13 +29776,13 @@ class PERMISSIONSType23(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, PERMISSIONSType23)
+                CurrentSubclassModule_, PERMISSIONSType22)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if PERMISSIONSType23.subclass:
-            return PERMISSIONSType23.subclass(*args_, **kwargs_)
+        if PERMISSIONSType22.subclass:
+            return PERMISSIONSType22.subclass(*args_, **kwargs_)
         else:
-            return PERMISSIONSType23(*args_, **kwargs_)
+            return PERMISSIONSType22(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -30016,32 +29839,32 @@ class PERMISSIONSType23(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType23', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType23')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType22', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType22')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType23':
+        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType22':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType23')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType22')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType23', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType22', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType23'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType22'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType23', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType22', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -30150,7 +29973,7 @@ class PERMISSIONSType23(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'OTHER_A')
             self.OTHER_A = ival_
             self.OTHER_A_nsprefix_ = child_.prefix
-# end class PERMISSIONSType23
+# end class PERMISSIONSType22
 
 
 class UPDATED_VMSType(GeneratedsSuper):
@@ -30569,11 +30392,11 @@ class ERROR_VMSType(GeneratedsSuper):
 # end class ERROR_VMSType
 
 
-class TEMPLATEType24(GeneratedsSuper):
+class TEMPLATEType23(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, DESCRIPTION=None, RULE=None, anytypeobjs_=None, gds_collector_=None, **kwargs_):
+    def __init__(self, DESCRIPTION=None, RULE=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -30586,20 +30409,16 @@ class TEMPLATEType24(GeneratedsSuper):
         else:
             self.RULE = RULE
         self.RULE_nsprefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, TEMPLATEType24)
+                CurrentSubclassModule_, TEMPLATEType23)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if TEMPLATEType24.subclass:
-            return TEMPLATEType24.subclass(*args_, **kwargs_)
+        if TEMPLATEType23.subclass:
+            return TEMPLATEType23.subclass(*args_, **kwargs_)
         else:
-            return TEMPLATEType24(*args_, **kwargs_)
+            return TEMPLATEType23(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -30619,45 +30438,40 @@ class TEMPLATEType24(GeneratedsSuper):
         self.RULE.insert(index, value)
     def replace_RULE_at(self, index, value):
         self.RULE[index] = value
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
     def has__content(self):
         if (
             self.DESCRIPTION is not None or
-            self.RULE or
-            self.anytypeobjs_
+            self.RULE
         ):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType24', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType24')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType23', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType23')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'TEMPLATEType24':
+        if self.original_tagname_ is not None and name_ == 'TEMPLATEType23':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType24')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType23')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType24', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType23', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType24'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType23'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType24', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType23', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -30669,11 +30483,6 @@ class TEMPLATEType24(GeneratedsSuper):
         for RULE_ in self.RULE:
             namespaceprefix_ = self.RULE_nsprefix_ + ':' if (UseCapturedNS_ and self.RULE_nsprefix_) else ''
             RULE_.export(outfile, level, namespaceprefix_, namespacedef_='', name_='RULE', pretty_print=pretty_print)
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
     def build(self, node, gds_collector_=None):
         self.gds_collector_ = gds_collector_
         if SaveElementTreeNode:
@@ -30699,10 +30508,7 @@ class TEMPLATEType24(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.RULE.append(obj_)
             obj_.original_tagname_ = 'RULE'
-        else:
-            content_ = self.gds_build_any(child_, 'TEMPLATEType24')
-            self.anytypeobjs_.append(content_)
-# end class TEMPLATEType24
+# end class TEMPLATEType23
 
 
 class RULEType(GeneratedsSuper):
@@ -31619,7 +31425,7 @@ class LOGIN_TOKENType(GeneratedsSuper):
 # end class LOGIN_TOKENType
 
 
-class QUOTASType25(GeneratedsSuper):
+class QUOTASType24(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -31642,13 +31448,13 @@ class QUOTASType25(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, QUOTASType25)
+                CurrentSubclassModule_, QUOTASType24)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if QUOTASType25.subclass:
-            return QUOTASType25.subclass(*args_, **kwargs_)
+        if QUOTASType24.subclass:
+            return QUOTASType24.subclass(*args_, **kwargs_)
         else:
-            return QUOTASType25(*args_, **kwargs_)
+            return QUOTASType24(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -31685,32 +31491,32 @@ class QUOTASType25(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='QUOTASType25', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('QUOTASType25')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='QUOTASType24', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('QUOTASType24')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'QUOTASType25':
+        if self.original_tagname_ is not None and name_ == 'QUOTASType24':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='QUOTASType25')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='QUOTASType24')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='QUOTASType25', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='QUOTASType24', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='QUOTASType25'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='QUOTASType24'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='QUOTASType25', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='QUOTASType24', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -31771,7 +31577,7 @@ class QUOTASType25(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.IMAGE_QUOTA = obj_
             obj_.original_tagname_ = 'IMAGE_QUOTA'
-# end class QUOTASType25
+# end class QUOTASType24
 
 
 class DEFAULT_USER_QUOTASType(GeneratedsSuper):
@@ -31900,7 +31706,7 @@ class DEFAULT_USER_QUOTASType(GeneratedsSuper):
             self.NETWORK_QUOTA = obj_
             obj_.original_tagname_ = 'NETWORK_QUOTA'
         elif nodeName_ == 'VM_QUOTA':
-            obj_ = VM_QUOTAType26.factory(parent_object_=self)
+            obj_ = VM_QUOTAType25.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.VM_QUOTA = obj_
             obj_.original_tagname_ = 'VM_QUOTA'
@@ -31912,7 +31718,7 @@ class DEFAULT_USER_QUOTASType(GeneratedsSuper):
 # end class DEFAULT_USER_QUOTASType
 
 
-class VM_QUOTAType26(GeneratedsSuper):
+class VM_QUOTAType25(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -31927,13 +31733,13 @@ class VM_QUOTAType26(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, VM_QUOTAType26)
+                CurrentSubclassModule_, VM_QUOTAType25)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if VM_QUOTAType26.subclass:
-            return VM_QUOTAType26.subclass(*args_, **kwargs_)
+        if VM_QUOTAType25.subclass:
+            return VM_QUOTAType25.subclass(*args_, **kwargs_)
         else:
-            return VM_QUOTAType26(*args_, **kwargs_)
+            return VM_QUOTAType25(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -31950,32 +31756,32 @@ class VM_QUOTAType26(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VM_QUOTAType26', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VM_QUOTAType26')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VM_QUOTAType25', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VM_QUOTAType25')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'VM_QUOTAType26':
+        if self.original_tagname_ is not None and name_ == 'VM_QUOTAType25':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VM_QUOTAType26')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VM_QUOTAType25')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VM_QUOTAType26', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VM_QUOTAType25', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VM_QUOTAType26'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VM_QUOTAType25'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VM_QUOTAType26', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VM_QUOTAType25', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -31998,14 +31804,14 @@ class VM_QUOTAType26(GeneratedsSuper):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         if nodeName_ == 'VM':
-            obj_ = VMType27.factory(parent_object_=self)
+            obj_ = VMType26.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.VM = obj_
             obj_.original_tagname_ = 'VM'
-# end class VM_QUOTAType26
+# end class VM_QUOTAType25
 
 
-class VMType27(GeneratedsSuper):
+class VMType26(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -32046,13 +31852,13 @@ class VMType27(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, VMType27)
+                CurrentSubclassModule_, VMType26)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if VMType27.subclass:
-            return VMType27.subclass(*args_, **kwargs_)
+        if VMType26.subclass:
+            return VMType26.subclass(*args_, **kwargs_)
         else:
-            return VMType27(*args_, **kwargs_)
+            return VMType26(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -32134,32 +31940,32 @@ class VMType27(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType27', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VMType27')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType26', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VMType26')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'VMType27':
+        if self.original_tagname_ is not None and name_ == 'VMType26':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VMType27')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VMType26')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VMType27', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VMType26', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VMType27'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VMType26'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType27', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType26', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -32318,10 +32124,10 @@ class VMType27(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'VMS_USED')
             self.VMS_USED = value_
             self.VMS_USED_nsprefix_ = child_.prefix
-# end class VMType27
+# end class VMType26
 
 
-class GROUPSType28(GeneratedsSuper):
+class GROUPSType27(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -32339,13 +32145,13 @@ class GROUPSType28(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, GROUPSType28)
+                CurrentSubclassModule_, GROUPSType27)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if GROUPSType28.subclass:
-            return GROUPSType28.subclass(*args_, **kwargs_)
+        if GROUPSType27.subclass:
+            return GROUPSType27.subclass(*args_, **kwargs_)
         else:
-            return GROUPSType28(*args_, **kwargs_)
+            return GROUPSType27(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -32368,32 +32174,32 @@ class GROUPSType28(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='GROUPSType28', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('GROUPSType28')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='GROUPSType27', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('GROUPSType27')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'GROUPSType28':
+        if self.original_tagname_ is not None and name_ == 'GROUPSType27':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='GROUPSType28')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='GROUPSType27')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='GROUPSType28', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='GROUPSType27', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='GROUPSType28'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='GROUPSType27'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='GROUPSType28', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='GROUPSType27', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -32422,10 +32228,10 @@ class GROUPSType28(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class GROUPSType28
+# end class GROUPSType27
 
 
-class LOGIN_TOKENType29(GeneratedsSuper):
+class LOGIN_TOKENType28(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -32444,13 +32250,13 @@ class LOGIN_TOKENType29(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, LOGIN_TOKENType29)
+                CurrentSubclassModule_, LOGIN_TOKENType28)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if LOGIN_TOKENType29.subclass:
-            return LOGIN_TOKENType29.subclass(*args_, **kwargs_)
+        if LOGIN_TOKENType28.subclass:
+            return LOGIN_TOKENType28.subclass(*args_, **kwargs_)
         else:
-            return LOGIN_TOKENType29(*args_, **kwargs_)
+            return LOGIN_TOKENType28(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -32477,32 +32283,32 @@ class LOGIN_TOKENType29(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOGIN_TOKENType29', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOGIN_TOKENType29')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOGIN_TOKENType28', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOGIN_TOKENType28')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'LOGIN_TOKENType29':
+        if self.original_tagname_ is not None and name_ == 'LOGIN_TOKENType28':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOGIN_TOKENType29')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOGIN_TOKENType28')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOGIN_TOKENType29', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOGIN_TOKENType28', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOGIN_TOKENType29'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOGIN_TOKENType28'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOGIN_TOKENType29', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOGIN_TOKENType28', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -32551,10 +32357,10 @@ class LOGIN_TOKENType29(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'EGID')
             self.EGID = ival_
             self.EGID_nsprefix_ = child_.prefix
-# end class LOGIN_TOKENType29
+# end class LOGIN_TOKENType28
 
 
-class DEFAULT_USER_QUOTASType30(GeneratedsSuper):
+class DEFAULT_USER_QUOTASType29(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -32575,13 +32381,13 @@ class DEFAULT_USER_QUOTASType30(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, DEFAULT_USER_QUOTASType30)
+                CurrentSubclassModule_, DEFAULT_USER_QUOTASType29)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if DEFAULT_USER_QUOTASType30.subclass:
-            return DEFAULT_USER_QUOTASType30.subclass(*args_, **kwargs_)
+        if DEFAULT_USER_QUOTASType29.subclass:
+            return DEFAULT_USER_QUOTASType29.subclass(*args_, **kwargs_)
         else:
-            return DEFAULT_USER_QUOTASType30(*args_, **kwargs_)
+            return DEFAULT_USER_QUOTASType29(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -32613,32 +32419,32 @@ class DEFAULT_USER_QUOTASType30(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DEFAULT_USER_QUOTASType30', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DEFAULT_USER_QUOTASType30')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DEFAULT_USER_QUOTASType29', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DEFAULT_USER_QUOTASType29')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'DEFAULT_USER_QUOTASType30':
+        if self.original_tagname_ is not None and name_ == 'DEFAULT_USER_QUOTASType29':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DEFAULT_USER_QUOTASType30')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DEFAULT_USER_QUOTASType29')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DEFAULT_USER_QUOTASType30', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DEFAULT_USER_QUOTASType29', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DEFAULT_USER_QUOTASType30'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DEFAULT_USER_QUOTASType29'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DEFAULT_USER_QUOTASType30', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DEFAULT_USER_QUOTASType29', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -32680,7 +32486,7 @@ class DEFAULT_USER_QUOTASType30(GeneratedsSuper):
             self.NETWORK_QUOTA = obj_
             obj_.original_tagname_ = 'NETWORK_QUOTA'
         elif nodeName_ == 'VM_QUOTA':
-            obj_ = VM_QUOTAType31.factory(parent_object_=self)
+            obj_ = VM_QUOTAType30.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.VM_QUOTA = obj_
             obj_.original_tagname_ = 'VM_QUOTA'
@@ -32689,10 +32495,10 @@ class DEFAULT_USER_QUOTASType30(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.IMAGE_QUOTA = obj_
             obj_.original_tagname_ = 'IMAGE_QUOTA'
-# end class DEFAULT_USER_QUOTASType30
+# end class DEFAULT_USER_QUOTASType29
 
 
-class VM_QUOTAType31(GeneratedsSuper):
+class VM_QUOTAType30(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -32707,13 +32513,13 @@ class VM_QUOTAType31(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, VM_QUOTAType31)
+                CurrentSubclassModule_, VM_QUOTAType30)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if VM_QUOTAType31.subclass:
-            return VM_QUOTAType31.subclass(*args_, **kwargs_)
+        if VM_QUOTAType30.subclass:
+            return VM_QUOTAType30.subclass(*args_, **kwargs_)
         else:
-            return VM_QUOTAType31(*args_, **kwargs_)
+            return VM_QUOTAType30(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -32730,32 +32536,32 @@ class VM_QUOTAType31(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VM_QUOTAType31', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VM_QUOTAType31')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VM_QUOTAType30', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VM_QUOTAType30')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'VM_QUOTAType31':
+        if self.original_tagname_ is not None and name_ == 'VM_QUOTAType30':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VM_QUOTAType31')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VM_QUOTAType30')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VM_QUOTAType31', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VM_QUOTAType30', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VM_QUOTAType31'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VM_QUOTAType30'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VM_QUOTAType31', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VM_QUOTAType30', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -32778,14 +32584,14 @@ class VM_QUOTAType31(GeneratedsSuper):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         if nodeName_ == 'VM':
-            obj_ = VMType32.factory(parent_object_=self)
+            obj_ = VMType31.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.VM = obj_
             obj_.original_tagname_ = 'VM'
-# end class VM_QUOTAType31
+# end class VM_QUOTAType30
 
 
-class VMType32(GeneratedsSuper):
+class VMType31(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -32826,13 +32632,13 @@ class VMType32(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, VMType32)
+                CurrentSubclassModule_, VMType31)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if VMType32.subclass:
-            return VMType32.subclass(*args_, **kwargs_)
+        if VMType31.subclass:
+            return VMType31.subclass(*args_, **kwargs_)
         else:
-            return VMType32(*args_, **kwargs_)
+            return VMType31(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -32914,32 +32720,32 @@ class VMType32(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType32', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VMType32')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType31', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VMType31')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'VMType32':
+        if self.original_tagname_ is not None and name_ == 'VMType31':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VMType32')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VMType31')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VMType32', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VMType31', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VMType32'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VMType31'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType32', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType31', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -33098,10 +32904,10 @@ class VMType32(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'VMS_USED')
             self.VMS_USED = value_
             self.VMS_USED_nsprefix_ = child_.prefix
-# end class VMType32
+# end class VMType31
 
 
-class GROUPSType33(GeneratedsSuper):
+class GROUPSType32(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -33119,13 +32925,13 @@ class GROUPSType33(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, GROUPSType33)
+                CurrentSubclassModule_, GROUPSType32)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if GROUPSType33.subclass:
-            return GROUPSType33.subclass(*args_, **kwargs_)
+        if GROUPSType32.subclass:
+            return GROUPSType32.subclass(*args_, **kwargs_)
         else:
-            return GROUPSType33(*args_, **kwargs_)
+            return GROUPSType32(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -33148,32 +32954,32 @@ class GROUPSType33(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='GROUPSType33', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('GROUPSType33')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='GROUPSType32', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('GROUPSType32')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'GROUPSType33':
+        if self.original_tagname_ is not None and name_ == 'GROUPSType32':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='GROUPSType33')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='GROUPSType32')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='GROUPSType33', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='GROUPSType32', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='GROUPSType33'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='GROUPSType32'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='GROUPSType33', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='GROUPSType32', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -33202,10 +33008,10 @@ class GROUPSType33(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class GROUPSType33
+# end class GROUPSType32
 
 
-class CLUSTERSType34(GeneratedsSuper):
+class CLUSTERSType33(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -33223,13 +33029,13 @@ class CLUSTERSType34(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, CLUSTERSType34)
+                CurrentSubclassModule_, CLUSTERSType33)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if CLUSTERSType34.subclass:
-            return CLUSTERSType34.subclass(*args_, **kwargs_)
+        if CLUSTERSType33.subclass:
+            return CLUSTERSType33.subclass(*args_, **kwargs_)
         else:
-            return CLUSTERSType34(*args_, **kwargs_)
+            return CLUSTERSType33(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -33252,32 +33058,32 @@ class CLUSTERSType34(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType34', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('CLUSTERSType34')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType33', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('CLUSTERSType33')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'CLUSTERSType34':
+        if self.original_tagname_ is not None and name_ == 'CLUSTERSType33':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='CLUSTERSType34')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='CLUSTERSType33')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='CLUSTERSType34', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='CLUSTERSType33', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='CLUSTERSType34'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='CLUSTERSType33'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType34', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType33', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -33304,7 +33110,7 @@ class CLUSTERSType34(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.CLUSTER.append(obj_)
             obj_.original_tagname_ = 'CLUSTER'
-# end class CLUSTERSType34
+# end class CLUSTERSType33
 
 
 class CLUSTERType(GeneratedsSuper):
@@ -33419,7 +33225,7 @@ class CLUSTERType(GeneratedsSuper):
 # end class CLUSTERType
 
 
-class HOSTSType35(GeneratedsSuper):
+class HOSTSType34(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -33437,13 +33243,13 @@ class HOSTSType35(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, HOSTSType35)
+                CurrentSubclassModule_, HOSTSType34)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if HOSTSType35.subclass:
-            return HOSTSType35.subclass(*args_, **kwargs_)
+        if HOSTSType34.subclass:
+            return HOSTSType34.subclass(*args_, **kwargs_)
         else:
-            return HOSTSType35(*args_, **kwargs_)
+            return HOSTSType34(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -33466,32 +33272,32 @@ class HOSTSType35(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HOSTSType35', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('HOSTSType35')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HOSTSType34', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('HOSTSType34')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'HOSTSType35':
+        if self.original_tagname_ is not None and name_ == 'HOSTSType34':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='HOSTSType35')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='HOSTSType34')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='HOSTSType35', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='HOSTSType34', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='HOSTSType35'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='HOSTSType34'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HOSTSType35', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HOSTSType34', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -33518,7 +33324,7 @@ class HOSTSType35(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.HOST.append(obj_)
             obj_.original_tagname_ = 'HOST'
-# end class HOSTSType35
+# end class HOSTSType34
 
 
 class HOSTType(GeneratedsSuper):
@@ -33633,7 +33439,7 @@ class HOSTType(GeneratedsSuper):
 # end class HOSTType
 
 
-class DATASTORESType36(GeneratedsSuper):
+class DATASTORESType35(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -33651,13 +33457,13 @@ class DATASTORESType36(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, DATASTORESType36)
+                CurrentSubclassModule_, DATASTORESType35)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if DATASTORESType36.subclass:
-            return DATASTORESType36.subclass(*args_, **kwargs_)
+        if DATASTORESType35.subclass:
+            return DATASTORESType35.subclass(*args_, **kwargs_)
         else:
-            return DATASTORESType36(*args_, **kwargs_)
+            return DATASTORESType35(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -33680,32 +33486,32 @@ class DATASTORESType36(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DATASTORESType36', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DATASTORESType36')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DATASTORESType35', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DATASTORESType35')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'DATASTORESType36':
+        if self.original_tagname_ is not None and name_ == 'DATASTORESType35':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DATASTORESType36')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DATASTORESType35')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DATASTORESType36', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DATASTORESType35', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DATASTORESType36'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DATASTORESType35'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DATASTORESType36', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DATASTORESType35', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -33728,14 +33534,14 @@ class DATASTORESType36(GeneratedsSuper):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         if nodeName_ == 'DATASTORE':
-            obj_ = DATASTOREType37.factory(parent_object_=self)
+            obj_ = DATASTOREType36.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.DATASTORE.append(obj_)
             obj_.original_tagname_ = 'DATASTORE'
-# end class DATASTORESType36
+# end class DATASTORESType35
 
 
-class DATASTOREType37(GeneratedsSuper):
+class DATASTOREType36(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -33752,13 +33558,13 @@ class DATASTOREType37(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, DATASTOREType37)
+                CurrentSubclassModule_, DATASTOREType36)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if DATASTOREType37.subclass:
-            return DATASTOREType37.subclass(*args_, **kwargs_)
+        if DATASTOREType36.subclass:
+            return DATASTOREType36.subclass(*args_, **kwargs_)
         else:
-            return DATASTOREType37(*args_, **kwargs_)
+            return DATASTOREType36(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -33780,32 +33586,32 @@ class DATASTOREType37(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DATASTOREType37', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DATASTOREType37')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DATASTOREType36', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DATASTOREType36')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'DATASTOREType37':
+        if self.original_tagname_ is not None and name_ == 'DATASTOREType36':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DATASTOREType37')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DATASTOREType36')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DATASTOREType37', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DATASTOREType36', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DATASTOREType37'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DATASTOREType36'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DATASTOREType37', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DATASTOREType36', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -33844,10 +33650,10 @@ class DATASTOREType37(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'DATASTORE_ID')
             self.DATASTORE_ID = ival_
             self.DATASTORE_ID_nsprefix_ = child_.prefix
-# end class DATASTOREType37
+# end class DATASTOREType36
 
 
-class VNETSType38(GeneratedsSuper):
+class VNETSType37(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -33865,13 +33671,13 @@ class VNETSType38(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, VNETSType38)
+                CurrentSubclassModule_, VNETSType37)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if VNETSType38.subclass:
-            return VNETSType38.subclass(*args_, **kwargs_)
+        if VNETSType37.subclass:
+            return VNETSType37.subclass(*args_, **kwargs_)
         else:
-            return VNETSType38(*args_, **kwargs_)
+            return VNETSType37(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -33894,32 +33700,32 @@ class VNETSType38(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VNETSType38', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VNETSType38')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VNETSType37', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VNETSType37')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'VNETSType38':
+        if self.original_tagname_ is not None and name_ == 'VNETSType37':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VNETSType38')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VNETSType37')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VNETSType38', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VNETSType37', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VNETSType38'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VNETSType37'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VNETSType38', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VNETSType37', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -33946,7 +33752,7 @@ class VNETSType38(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.VNET.append(obj_)
             obj_.original_tagname_ = 'VNET'
-# end class VNETSType38
+# end class VNETSType37
 
 
 class VNETType(GeneratedsSuper):
@@ -34061,7 +33867,7 @@ class VNETType(GeneratedsSuper):
 # end class VNETType
 
 
-class PERMISSIONSType39(GeneratedsSuper):
+class PERMISSIONSType38(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -34092,13 +33898,13 @@ class PERMISSIONSType39(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, PERMISSIONSType39)
+                CurrentSubclassModule_, PERMISSIONSType38)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if PERMISSIONSType39.subclass:
-            return PERMISSIONSType39.subclass(*args_, **kwargs_)
+        if PERMISSIONSType38.subclass:
+            return PERMISSIONSType38.subclass(*args_, **kwargs_)
         else:
-            return PERMISSIONSType39(*args_, **kwargs_)
+            return PERMISSIONSType38(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -34155,32 +33961,32 @@ class PERMISSIONSType39(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType39', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType39')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType38', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType38')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType39':
+        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType38':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType39')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType38')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType39', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType38', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType39'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType38'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType39', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType38', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -34289,10 +34095,10 @@ class PERMISSIONSType39(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'OTHER_A')
             self.OTHER_A = ival_
             self.OTHER_A_nsprefix_ = child_.prefix
-# end class PERMISSIONSType39
+# end class PERMISSIONSType38
 
 
-class LOCKType40(GeneratedsSuper):
+class LOCKType39(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -34313,13 +34119,13 @@ class LOCKType40(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, LOCKType40)
+                CurrentSubclassModule_, LOCKType39)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if LOCKType40.subclass:
-            return LOCKType40.subclass(*args_, **kwargs_)
+        if LOCKType39.subclass:
+            return LOCKType39.subclass(*args_, **kwargs_)
         else:
-            return LOCKType40(*args_, **kwargs_)
+            return LOCKType39(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -34351,32 +34157,32 @@ class LOCKType40(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType40', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType40')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType39', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType39')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'LOCKType40':
+        if self.original_tagname_ is not None and name_ == 'LOCKType39':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType40')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType39')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType40', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType39', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType40'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType39'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType40', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType39', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -34435,7 +34241,7 @@ class LOCKType40(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'REQ_ID')
             self.REQ_ID = ival_
             self.REQ_ID_nsprefix_ = child_.prefix
-# end class LOCKType40
+# end class LOCKType39
 
 
 class ROLESType(GeneratedsSuper):
@@ -34720,7 +34526,7 @@ class ROLEType(GeneratedsSuper):
 # end class ROLEType
 
 
-class VMType41(GeneratedsSuper):
+class VMType40(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -34767,13 +34573,13 @@ class VMType41(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, VMType41)
+                CurrentSubclassModule_, VMType40)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if VMType41.subclass:
-            return VMType41.subclass(*args_, **kwargs_)
+        if VMType40.subclass:
+            return VMType40.subclass(*args_, **kwargs_)
         else:
-            return VMType41(*args_, **kwargs_)
+            return VMType40(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -34870,32 +34676,32 @@ class VMType41(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType41', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VMType41')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType40', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VMType40')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'VMType41':
+        if self.original_tagname_ is not None and name_ == 'VMType40':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VMType41')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VMType40')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VMType41', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VMType40', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VMType41'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VMType40'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType41', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMType40', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -34960,7 +34766,8 @@ class VMType41(GeneratedsSuper):
             self.MONITORING.export(outfile, level, namespaceprefix_, namespacedef_='', name_='MONITORING', pretty_print=pretty_print)
         if self.USER_TEMPLATE is not None:
             namespaceprefix_ = self.USER_TEMPLATE_nsprefix_ + ':' if (UseCapturedNS_ and self.USER_TEMPLATE_nsprefix_) else ''
-            self.USER_TEMPLATE.export(outfile, level, namespaceprefix_, namespacedef_='', name_='USER_TEMPLATE', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sUSER_TEMPLATE>%s</%sUSER_TEMPLATE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.USER_TEMPLATE), input_name='USER_TEMPLATE')), namespaceprefix_ , eol_))
         if self.HISTORY_RECORDS is not None:
             namespaceprefix_ = self.HISTORY_RECORDS_nsprefix_ + ':' if (UseCapturedNS_ and self.HISTORY_RECORDS_nsprefix_) else ''
             self.HISTORY_RECORDS.export(outfile, level, namespaceprefix_, namespacedef_='', name_='HISTORY_RECORDS', pretty_print=pretty_print)
@@ -35057,29 +34864,30 @@ class VMType41(GeneratedsSuper):
             self.DEPLOY_ID = value_
             self.DEPLOY_ID_nsprefix_ = child_.prefix
         elif nodeName_ == 'TEMPLATE':
-            obj_ = TEMPLATEType42.factory(parent_object_=self)
+            obj_ = TEMPLATEType41.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.TEMPLATE = obj_
             obj_.original_tagname_ = 'TEMPLATE'
         elif nodeName_ == 'MONITORING':
-            obj_ = MONITORINGType43.factory(parent_object_=self)
+            obj_ = MONITORINGType42.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.MONITORING = obj_
             obj_.original_tagname_ = 'MONITORING'
         elif nodeName_ == 'USER_TEMPLATE':
-            obj_ = USER_TEMPLATEType.factory(parent_object_=self)
-            obj_.build(child_, gds_collector_=gds_collector_)
-            self.USER_TEMPLATE = obj_
-            obj_.original_tagname_ = 'USER_TEMPLATE'
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'USER_TEMPLATE')
+            value_ = self.gds_validate_string(value_, node, 'USER_TEMPLATE')
+            self.USER_TEMPLATE = value_
+            self.USER_TEMPLATE_nsprefix_ = child_.prefix
         elif nodeName_ == 'HISTORY_RECORDS':
             obj_ = HISTORY_RECORDSType.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.HISTORY_RECORDS = obj_
             obj_.original_tagname_ = 'HISTORY_RECORDS'
-# end class VMType41
+# end class VMType40
 
 
-class TEMPLATEType42(GeneratedsSuper):
+class TEMPLATEType41(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -35110,13 +34918,13 @@ class TEMPLATEType42(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, TEMPLATEType42)
+                CurrentSubclassModule_, TEMPLATEType41)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if TEMPLATEType42.subclass:
-            return TEMPLATEType42.subclass(*args_, **kwargs_)
+        if TEMPLATEType41.subclass:
+            return TEMPLATEType41.subclass(*args_, **kwargs_)
         else:
-            return TEMPLATEType42(*args_, **kwargs_)
+            return TEMPLATEType41(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -35170,32 +34978,32 @@ class TEMPLATEType42(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType42', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType42')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType41', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType41')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'TEMPLATEType42':
+        if self.original_tagname_ is not None and name_ == 'TEMPLATEType41':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType42')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType41')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType42', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType41', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType42'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType41'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType42', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType41', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -35214,7 +35022,8 @@ class TEMPLATEType42(GeneratedsSuper):
             outfile.write('<%sVCPU>%s</%sVCPU>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.VCPU), input_name='VCPU')), namespaceprefix_ , eol_))
         for DISK_ in self.DISK:
             namespaceprefix_ = self.DISK_nsprefix_ + ':' if (UseCapturedNS_ and self.DISK_nsprefix_) else ''
-            DISK_.export(outfile, level, namespaceprefix_, namespacedef_='', name_='DISK', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sDISK>%s</%sDISK>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(DISK_), input_name='DISK')), namespaceprefix_ , eol_))
         for NIC_ in self.NIC:
             namespaceprefix_ = self.NIC_nsprefix_ + ':' if (UseCapturedNS_ and self.NIC_nsprefix_) else ''
             NIC_.export(outfile, level, namespaceprefix_, namespacedef_='', name_='NIC', pretty_print=pretty_print)
@@ -35255,10 +35064,11 @@ class TEMPLATEType42(GeneratedsSuper):
             self.VCPU = value_
             self.VCPU_nsprefix_ = child_.prefix
         elif nodeName_ == 'DISK':
-            obj_ = DISKType.factory(parent_object_=self)
-            obj_.build(child_, gds_collector_=gds_collector_)
-            self.DISK.append(obj_)
-            obj_.original_tagname_ = 'DISK'
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'DISK')
+            value_ = self.gds_validate_string(value_, node, 'DISK')
+            self.DISK.append(value_)
+            self.DISK_nsprefix_ = child_.prefix
         elif nodeName_ == 'NIC':
             obj_ = NICType.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
@@ -35270,7 +35080,83 @@ class TEMPLATEType42(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'GRAPHICS')
             self.GRAPHICS = value_
             self.GRAPHICS_nsprefix_ = child_.prefix
-# end class TEMPLATEType42
+# end class TEMPLATEType41
+
+
+class DISK(GeneratedsSuper):
+    __hash__ = GeneratedsSuper.__hash__
+    subclass = None
+    superclass = None
+    def __init__(self, gds_collector_=None, **kwargs_):
+        self.gds_collector_ = gds_collector_
+        self.gds_elementtree_node_ = None
+        self.original_tagname_ = None
+        self.parent_object_ = kwargs_.get('parent_object_')
+        self.ns_prefix_ = None
+    def factory(*args_, **kwargs_):
+        if CurrentSubclassModule_ is not None:
+            subclass = getSubclassFromModule_(
+                CurrentSubclassModule_, DISK)
+            if subclass is not None:
+                return subclass(*args_, **kwargs_)
+        if DISK.subclass:
+            return DISK.subclass(*args_, **kwargs_)
+        else:
+            return DISK(*args_, **kwargs_)
+    factory = staticmethod(factory)
+    def get_ns_prefix_(self):
+        return self.ns_prefix_
+    def set_ns_prefix_(self, ns_prefix):
+        self.ns_prefix_ = ns_prefix
+    def has__content(self):
+        if (
+
+        ):
+            return True
+        else:
+            return False
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_='', name_='DISK', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DISK')
+        if imported_ns_def_ is not None:
+            namespacedef_ = imported_ns_def_
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.original_tagname_ is not None and name_ == 'DISK':
+            name_ = self.original_tagname_
+        if UseCapturedNS_ and self.ns_prefix_:
+            namespaceprefix_ = self.ns_prefix_ + ':'
+        showIndent(outfile, level, pretty_print)
+        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
+        already_processed = set()
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DISK')
+        if self.has__content():
+            outfile.write('>%s' % (eol_, ))
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DISK', pretty_print=pretty_print)
+            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
+        else:
+            outfile.write('/>%s' % (eol_, ))
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DISK'):
+        pass
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_='', name_='DISK', fromsubclass_=False, pretty_print=True):
+        pass
+    def build(self, node, gds_collector_=None):
+        self.gds_collector_ = gds_collector_
+        if SaveElementTreeNode:
+            self.gds_elementtree_node_ = node
+        already_processed = set()
+        self.ns_prefix_ = node.prefix
+        self._buildAttributes(node, node.attrib, already_processed)
+        for child in node:
+            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
+            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
+        return self
+    def _buildAttributes(self, node, attrs, already_processed):
+        pass
+    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
+        pass
+# end class DISK
 
 
 class GRAPHICS(GeneratedsSuper):
@@ -35347,100 +35233,6 @@ class GRAPHICS(GeneratedsSuper):
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         pass
 # end class GRAPHICS
-
-
-class DISKType(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, anytypeobjs_=None, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, DISKType)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if DISKType.subclass:
-            return DISKType.subclass(*args_, **kwargs_)
-        else:
-            return DISKType(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
-    def has__content(self):
-        if (
-            self.anytypeobjs_
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DISKType', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DISKType')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'DISKType':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DISKType')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DISKType', pretty_print=pretty_print)
-            showIndent(outfile, level, pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DISKType'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DISKType', fromsubclass_=False, pretty_print=True):
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        content_ = self.gds_build_any(child_, 'DISKType')
-        self.anytypeobjs_.append(content_)
-# end class DISKType
 
 
 class NICType(GeneratedsSuper):
@@ -35537,7 +35329,7 @@ class NICType(GeneratedsSuper):
 # end class NICType
 
 
-class MONITORINGType43(GeneratedsSuper):
+class MONITORINGType42(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -35554,13 +35346,13 @@ class MONITORINGType43(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, MONITORINGType43)
+                CurrentSubclassModule_, MONITORINGType42)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if MONITORINGType43.subclass:
-            return MONITORINGType43.subclass(*args_, **kwargs_)
+        if MONITORINGType42.subclass:
+            return MONITORINGType42.subclass(*args_, **kwargs_)
         else:
-            return MONITORINGType43(*args_, **kwargs_)
+            return MONITORINGType42(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -35577,32 +35369,32 @@ class MONITORINGType43(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType43', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('MONITORINGType43')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType42', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('MONITORINGType42')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'MONITORINGType43':
+        if self.original_tagname_ is not None and name_ == 'MONITORINGType42':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='MONITORINGType43')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='MONITORINGType42')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='MONITORINGType43', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='MONITORINGType42', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='MONITORINGType43'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='MONITORINGType42'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType43', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType42', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -35626,352 +35418,9 @@ class MONITORINGType43(GeneratedsSuper):
     def _buildAttributes(self, node, attrs, already_processed):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        content_ = self.gds_build_any(child_, 'MONITORINGType43')
+        content_ = self.gds_build_any(child_, 'MONITORINGType42')
         self.anytypeobjs_.append(content_)
-# end class MONITORINGType43
-
-
-class USER_TEMPLATEType(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, LABELS=None, ERROR=None, SCHED_MESSAGE=None, SCHED_RANK=None, SCHED_DS_RANK=None, SCHED_REQUIREMENTS=None, SCHED_DS_REQUIREMENTS=None, USER_PRIORITY=None, SCHED_ACTION=None, anytypeobjs_=None, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-        self.LABELS = LABELS
-        self.LABELS_nsprefix_ = None
-        self.ERROR = ERROR
-        self.ERROR_nsprefix_ = None
-        self.SCHED_MESSAGE = SCHED_MESSAGE
-        self.SCHED_MESSAGE_nsprefix_ = None
-        self.SCHED_RANK = SCHED_RANK
-        self.SCHED_RANK_nsprefix_ = None
-        self.SCHED_DS_RANK = SCHED_DS_RANK
-        self.SCHED_DS_RANK_nsprefix_ = None
-        self.SCHED_REQUIREMENTS = SCHED_REQUIREMENTS
-        self.SCHED_REQUIREMENTS_nsprefix_ = None
-        self.SCHED_DS_REQUIREMENTS = SCHED_DS_REQUIREMENTS
-        self.SCHED_DS_REQUIREMENTS_nsprefix_ = None
-        self.USER_PRIORITY = USER_PRIORITY
-        self.USER_PRIORITY_nsprefix_ = None
-        if SCHED_ACTION is None:
-            self.SCHED_ACTION = []
-        else:
-            self.SCHED_ACTION = SCHED_ACTION
-        self.SCHED_ACTION_nsprefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, USER_TEMPLATEType)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if USER_TEMPLATEType.subclass:
-            return USER_TEMPLATEType.subclass(*args_, **kwargs_)
-        else:
-            return USER_TEMPLATEType(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def get_LABELS(self):
-        return self.LABELS
-    def set_LABELS(self, LABELS):
-        self.LABELS = LABELS
-    def get_ERROR(self):
-        return self.ERROR
-    def set_ERROR(self, ERROR):
-        self.ERROR = ERROR
-    def get_SCHED_MESSAGE(self):
-        return self.SCHED_MESSAGE
-    def set_SCHED_MESSAGE(self, SCHED_MESSAGE):
-        self.SCHED_MESSAGE = SCHED_MESSAGE
-    def get_SCHED_RANK(self):
-        return self.SCHED_RANK
-    def set_SCHED_RANK(self, SCHED_RANK):
-        self.SCHED_RANK = SCHED_RANK
-    def get_SCHED_DS_RANK(self):
-        return self.SCHED_DS_RANK
-    def set_SCHED_DS_RANK(self, SCHED_DS_RANK):
-        self.SCHED_DS_RANK = SCHED_DS_RANK
-    def get_SCHED_REQUIREMENTS(self):
-        return self.SCHED_REQUIREMENTS
-    def set_SCHED_REQUIREMENTS(self, SCHED_REQUIREMENTS):
-        self.SCHED_REQUIREMENTS = SCHED_REQUIREMENTS
-    def get_SCHED_DS_REQUIREMENTS(self):
-        return self.SCHED_DS_REQUIREMENTS
-    def set_SCHED_DS_REQUIREMENTS(self, SCHED_DS_REQUIREMENTS):
-        self.SCHED_DS_REQUIREMENTS = SCHED_DS_REQUIREMENTS
-    def get_USER_PRIORITY(self):
-        return self.USER_PRIORITY
-    def set_USER_PRIORITY(self, USER_PRIORITY):
-        self.USER_PRIORITY = USER_PRIORITY
-    def get_SCHED_ACTION(self):
-        return self.SCHED_ACTION
-    def set_SCHED_ACTION(self, SCHED_ACTION):
-        self.SCHED_ACTION = SCHED_ACTION
-    def add_SCHED_ACTION(self, value):
-        self.SCHED_ACTION.append(value)
-    def insert_SCHED_ACTION_at(self, index, value):
-        self.SCHED_ACTION.insert(index, value)
-    def replace_SCHED_ACTION_at(self, index, value):
-        self.SCHED_ACTION[index] = value
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
-    def has__content(self):
-        if (
-            self.LABELS is not None or
-            self.ERROR is not None or
-            self.SCHED_MESSAGE is not None or
-            self.SCHED_RANK is not None or
-            self.SCHED_DS_RANK is not None or
-            self.SCHED_REQUIREMENTS is not None or
-            self.SCHED_DS_REQUIREMENTS is not None or
-            self.USER_PRIORITY is not None or
-            self.SCHED_ACTION or
-            self.anytypeobjs_
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='USER_TEMPLATEType', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('USER_TEMPLATEType')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'USER_TEMPLATEType':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='USER_TEMPLATEType')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='USER_TEMPLATEType', pretty_print=pretty_print)
-            showIndent(outfile, level, pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='USER_TEMPLATEType'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='USER_TEMPLATEType', fromsubclass_=False, pretty_print=True):
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.LABELS is not None:
-            namespaceprefix_ = self.LABELS_nsprefix_ + ':' if (UseCapturedNS_ and self.LABELS_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sLABELS>%s</%sLABELS>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.LABELS), input_name='LABELS')), namespaceprefix_ , eol_))
-        if self.ERROR is not None:
-            namespaceprefix_ = self.ERROR_nsprefix_ + ':' if (UseCapturedNS_ and self.ERROR_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sERROR>%s</%sERROR>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.ERROR), input_name='ERROR')), namespaceprefix_ , eol_))
-        if self.SCHED_MESSAGE is not None:
-            namespaceprefix_ = self.SCHED_MESSAGE_nsprefix_ + ':' if (UseCapturedNS_ and self.SCHED_MESSAGE_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sSCHED_MESSAGE>%s</%sSCHED_MESSAGE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.SCHED_MESSAGE), input_name='SCHED_MESSAGE')), namespaceprefix_ , eol_))
-        if self.SCHED_RANK is not None:
-            namespaceprefix_ = self.SCHED_RANK_nsprefix_ + ':' if (UseCapturedNS_ and self.SCHED_RANK_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sSCHED_RANK>%s</%sSCHED_RANK>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.SCHED_RANK), input_name='SCHED_RANK')), namespaceprefix_ , eol_))
-        if self.SCHED_DS_RANK is not None:
-            namespaceprefix_ = self.SCHED_DS_RANK_nsprefix_ + ':' if (UseCapturedNS_ and self.SCHED_DS_RANK_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sSCHED_DS_RANK>%s</%sSCHED_DS_RANK>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.SCHED_DS_RANK), input_name='SCHED_DS_RANK')), namespaceprefix_ , eol_))
-        if self.SCHED_REQUIREMENTS is not None:
-            namespaceprefix_ = self.SCHED_REQUIREMENTS_nsprefix_ + ':' if (UseCapturedNS_ and self.SCHED_REQUIREMENTS_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sSCHED_REQUIREMENTS>%s</%sSCHED_REQUIREMENTS>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.SCHED_REQUIREMENTS), input_name='SCHED_REQUIREMENTS')), namespaceprefix_ , eol_))
-        if self.SCHED_DS_REQUIREMENTS is not None:
-            namespaceprefix_ = self.SCHED_DS_REQUIREMENTS_nsprefix_ + ':' if (UseCapturedNS_ and self.SCHED_DS_REQUIREMENTS_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sSCHED_DS_REQUIREMENTS>%s</%sSCHED_DS_REQUIREMENTS>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.SCHED_DS_REQUIREMENTS), input_name='SCHED_DS_REQUIREMENTS')), namespaceprefix_ , eol_))
-        if self.USER_PRIORITY is not None:
-            namespaceprefix_ = self.USER_PRIORITY_nsprefix_ + ':' if (UseCapturedNS_ and self.USER_PRIORITY_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sUSER_PRIORITY>%s</%sUSER_PRIORITY>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.USER_PRIORITY), input_name='USER_PRIORITY')), namespaceprefix_ , eol_))
-        for SCHED_ACTION_ in self.SCHED_ACTION:
-            namespaceprefix_ = self.SCHED_ACTION_nsprefix_ + ':' if (UseCapturedNS_ and self.SCHED_ACTION_nsprefix_) else ''
-            SCHED_ACTION_.export(outfile, level, namespaceprefix_, namespacedef_='', name_='SCHED_ACTION', pretty_print=pretty_print)
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        if nodeName_ == 'LABELS':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'LABELS')
-            value_ = self.gds_validate_string(value_, node, 'LABELS')
-            self.LABELS = value_
-            self.LABELS_nsprefix_ = child_.prefix
-        elif nodeName_ == 'ERROR':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'ERROR')
-            value_ = self.gds_validate_string(value_, node, 'ERROR')
-            self.ERROR = value_
-            self.ERROR_nsprefix_ = child_.prefix
-        elif nodeName_ == 'SCHED_MESSAGE':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'SCHED_MESSAGE')
-            value_ = self.gds_validate_string(value_, node, 'SCHED_MESSAGE')
-            self.SCHED_MESSAGE = value_
-            self.SCHED_MESSAGE_nsprefix_ = child_.prefix
-        elif nodeName_ == 'SCHED_RANK':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'SCHED_RANK')
-            value_ = self.gds_validate_string(value_, node, 'SCHED_RANK')
-            self.SCHED_RANK = value_
-            self.SCHED_RANK_nsprefix_ = child_.prefix
-        elif nodeName_ == 'SCHED_DS_RANK':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'SCHED_DS_RANK')
-            value_ = self.gds_validate_string(value_, node, 'SCHED_DS_RANK')
-            self.SCHED_DS_RANK = value_
-            self.SCHED_DS_RANK_nsprefix_ = child_.prefix
-        elif nodeName_ == 'SCHED_REQUIREMENTS':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'SCHED_REQUIREMENTS')
-            value_ = self.gds_validate_string(value_, node, 'SCHED_REQUIREMENTS')
-            self.SCHED_REQUIREMENTS = value_
-            self.SCHED_REQUIREMENTS_nsprefix_ = child_.prefix
-        elif nodeName_ == 'SCHED_DS_REQUIREMENTS':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'SCHED_DS_REQUIREMENTS')
-            value_ = self.gds_validate_string(value_, node, 'SCHED_DS_REQUIREMENTS')
-            self.SCHED_DS_REQUIREMENTS = value_
-            self.SCHED_DS_REQUIREMENTS_nsprefix_ = child_.prefix
-        elif nodeName_ == 'USER_PRIORITY':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'USER_PRIORITY')
-            value_ = self.gds_validate_string(value_, node, 'USER_PRIORITY')
-            self.USER_PRIORITY = value_
-            self.USER_PRIORITY_nsprefix_ = child_.prefix
-        elif nodeName_ == 'SCHED_ACTION':
-            obj_ = SCHED_ACTIONType.factory(parent_object_=self)
-            obj_.build(child_, gds_collector_=gds_collector_)
-            self.SCHED_ACTION.append(obj_)
-            obj_.original_tagname_ = 'SCHED_ACTION'
-        else:
-            content_ = self.gds_build_any(child_, 'USER_TEMPLATEType')
-            self.anytypeobjs_.append(content_)
-# end class USER_TEMPLATEType
-
-
-class SCHED_ACTIONType(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, anytypeobjs_=None, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-        self.anytypeobjs_ = anytypeobjs_
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, SCHED_ACTIONType)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if SCHED_ACTIONType.subclass:
-            return SCHED_ACTIONType.subclass(*args_, **kwargs_)
-        else:
-            return SCHED_ACTIONType(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def has__content(self):
-        if (
-            self.anytypeobjs_ is not None
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SCHED_ACTIONType', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SCHED_ACTIONType')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'SCHED_ACTIONType':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SCHED_ACTIONType')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SCHED_ACTIONType', pretty_print=pretty_print)
-            showIndent(outfile, level, pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SCHED_ACTIONType'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SCHED_ACTIONType', fromsubclass_=False, pretty_print=True):
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if not fromsubclass_:
-            if self.anytypeobjs_ is not None:
-                content_ = self.anytypeobjs_
-                outfile.write(content_)
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        content_ = self.gds_build_any(child_, 'SCHED_ACTIONType')
-        self.set_anytypeobjs_(content_)
-# end class SCHED_ACTIONType
+# end class MONITORINGType42
 
 
 class HISTORY_RECORDSType(GeneratedsSuper):
@@ -36307,7 +35756,7 @@ class HISTORYType(GeneratedsSuper):
 # end class HISTORYType
 
 
-class LOCKType44(GeneratedsSuper):
+class LOCKType43(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -36328,13 +35777,13 @@ class LOCKType44(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, LOCKType44)
+                CurrentSubclassModule_, LOCKType43)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if LOCKType44.subclass:
-            return LOCKType44.subclass(*args_, **kwargs_)
+        if LOCKType43.subclass:
+            return LOCKType43.subclass(*args_, **kwargs_)
         else:
-            return LOCKType44(*args_, **kwargs_)
+            return LOCKType43(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -36366,32 +35815,32 @@ class LOCKType44(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType44', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType44')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType43', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType43')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'LOCKType44':
+        if self.original_tagname_ is not None and name_ == 'LOCKType43':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType44')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType43')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType44', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType43', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType44'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType43'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType44', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType43', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -36450,10 +35899,10 @@ class LOCKType44(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'REQ_ID')
             self.REQ_ID = ival_
             self.REQ_ID_nsprefix_ = child_.prefix
-# end class LOCKType44
+# end class LOCKType43
 
 
-class PERMISSIONSType45(GeneratedsSuper):
+class PERMISSIONSType44(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -36484,13 +35933,13 @@ class PERMISSIONSType45(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, PERMISSIONSType45)
+                CurrentSubclassModule_, PERMISSIONSType44)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if PERMISSIONSType45.subclass:
-            return PERMISSIONSType45.subclass(*args_, **kwargs_)
+        if PERMISSIONSType44.subclass:
+            return PERMISSIONSType44.subclass(*args_, **kwargs_)
         else:
-            return PERMISSIONSType45(*args_, **kwargs_)
+            return PERMISSIONSType44(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -36547,32 +35996,32 @@ class PERMISSIONSType45(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType45', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType45')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType44', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType44')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType45':
+        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType44':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType45')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType44')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType45', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType44', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType45'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType44'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType45', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType44', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -36681,108 +36130,14 @@ class PERMISSIONSType45(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'OTHER_A')
             self.OTHER_A = ival_
             self.OTHER_A_nsprefix_ = child_.prefix
-# end class PERMISSIONSType45
+# end class PERMISSIONSType44
 
 
-class TEMPLATEType46(GeneratedsSuper):
+class MONITORINGType45(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, anytypeobjs_=None, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, TEMPLATEType46)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if TEMPLATEType46.subclass:
-            return TEMPLATEType46.subclass(*args_, **kwargs_)
-        else:
-            return TEMPLATEType46(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
-    def has__content(self):
-        if (
-            self.anytypeobjs_
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType46', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType46')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'TEMPLATEType46':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType46')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType46', pretty_print=pretty_print)
-            showIndent(outfile, level, pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType46'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType46', fromsubclass_=False, pretty_print=True):
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        content_ = self.gds_build_any(child_, 'TEMPLATEType46')
-        self.anytypeobjs_.append(content_)
-# end class TEMPLATEType46
-
-
-class MONITORINGType47(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, CPU=None, CPU_FORECAST=None, CPU_FORECAST_FAR=None, DISKRDBYTES=None, DISKRDBYTES_BW=None, DISKRDBYTES_BW_FORECAST=None, DISKRDBYTES_BW_FORECAST_FAR=None, DISKRDIOPS=None, DISKRDIOPS_BW=None, DISKRDIOPS_BW_FORECAST=None, DISKRDIOPS_BW_FORECAST_FAR=None, DISKWRBYTES=None, DISKWRBYTES_BW=None, DISKWRBYTES_BW_FORECAST=None, DISKWRBYTES_BW_FORECAST_FAR=None, DISKWRIOPS=None, DISKWRIOPS_BW=None, DISKWRIOPS_BW_FORECAST=None, DISKWRIOPS_BW_FORECAST_FAR=None, DISK_SIZE=None, ID=None, MEMORY=None, NETRX=None, NETRX_BW=None, NETRX_BW_FORECAST=None, NETRX_BW_FORECAST_FAR=None, NETTX=None, NETTX_BW=None, NETTX_BW_FORECAST=None, NETTX_BW_FORECAST_FAR=None, TIMESTAMP=None, anytypeobjs_=None, gds_collector_=None, **kwargs_):
+    def __init__(self, CPU=None, CPU_FORECAST=None, CPU_FORECAST_FAR=None, DISKRDBYTES=None, DISKRDBYTES_BW=None, DISKRDBYTES_BW_FORECAST=None, DISKRDBYTES_BW_FORECAST_FAR=None, DISKRDIOPS=None, DISKRDIOPS_BW=None, DISKRDIOPS_BW_FORECAST=None, DISKRDIOPS_BW_FORECAST_FAR=None, DISKWRBYTES=None, DISKWRBYTES_BW=None, DISKWRBYTES_BW_FORECAST=None, DISKWRBYTES_BW_FORECAST_FAR=None, DISKWRIOPS=None, DISKWRIOPS_BW=None, DISKWRIOPS_BW_FORECAST=None, DISKWRIOPS_BW_FORECAST_FAR=None, DISK_SIZE=None, ID=None, MEMORY=None, MEMORY_FORECAST=None, MEMORY_FORECAST_FAR=None, NETRX=None, NETRX_BW=None, NETRX_BW_FORECAST=None, NETRX_BW_FORECAST_FAR=None, NETTX=None, NETTX_BW=None, NETTX_BW_FORECAST=None, NETTX_BW_FORECAST_FAR=None, TIMESTAMP=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -36835,6 +36190,10 @@ class MONITORINGType47(GeneratedsSuper):
         self.ID_nsprefix_ = None
         self.MEMORY = MEMORY
         self.MEMORY_nsprefix_ = None
+        self.MEMORY_FORECAST = MEMORY_FORECAST
+        self.MEMORY_FORECAST_nsprefix_ = None
+        self.MEMORY_FORECAST_FAR = MEMORY_FORECAST_FAR
+        self.MEMORY_FORECAST_FAR_nsprefix_ = None
         self.NETRX = NETRX
         self.NETRX_nsprefix_ = None
         self.NETRX_BW = NETRX_BW
@@ -36853,20 +36212,16 @@ class MONITORINGType47(GeneratedsSuper):
         self.NETTX_BW_FORECAST_FAR_nsprefix_ = None
         self.TIMESTAMP = TIMESTAMP
         self.TIMESTAMP_nsprefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, MONITORINGType47)
+                CurrentSubclassModule_, MONITORINGType45)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if MONITORINGType47.subclass:
-            return MONITORINGType47.subclass(*args_, **kwargs_)
+        if MONITORINGType45.subclass:
+            return MONITORINGType45.subclass(*args_, **kwargs_)
         else:
-            return MONITORINGType47(*args_, **kwargs_)
+            return MONITORINGType45(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -36966,6 +36321,14 @@ class MONITORINGType47(GeneratedsSuper):
         return self.MEMORY
     def set_MEMORY(self, MEMORY):
         self.MEMORY = MEMORY
+    def get_MEMORY_FORECAST(self):
+        return self.MEMORY_FORECAST
+    def set_MEMORY_FORECAST(self, MEMORY_FORECAST):
+        self.MEMORY_FORECAST = MEMORY_FORECAST
+    def get_MEMORY_FORECAST_FAR(self):
+        return self.MEMORY_FORECAST_FAR
+    def set_MEMORY_FORECAST_FAR(self, MEMORY_FORECAST_FAR):
+        self.MEMORY_FORECAST_FAR = MEMORY_FORECAST_FAR
     def get_NETRX(self):
         return self.NETRX
     def set_NETRX(self, NETRX):
@@ -37002,10 +36365,6 @@ class MONITORINGType47(GeneratedsSuper):
         return self.TIMESTAMP
     def set_TIMESTAMP(self, TIMESTAMP):
         self.TIMESTAMP = TIMESTAMP
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
     def has__content(self):
         if (
             self.CPU is not None or
@@ -37030,6 +36389,8 @@ class MONITORINGType47(GeneratedsSuper):
             self.DISK_SIZE or
             self.ID is not None or
             self.MEMORY is not None or
+            self.MEMORY_FORECAST is not None or
+            self.MEMORY_FORECAST_FAR is not None or
             self.NETRX is not None or
             self.NETRX_BW is not None or
             self.NETRX_BW_FORECAST is not None or
@@ -37038,38 +36399,37 @@ class MONITORINGType47(GeneratedsSuper):
             self.NETTX_BW is not None or
             self.NETTX_BW_FORECAST is not None or
             self.NETTX_BW_FORECAST_FAR is not None or
-            self.TIMESTAMP is not None or
-            self.anytypeobjs_
+            self.TIMESTAMP is not None
         ):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType47', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('MONITORINGType47')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType45', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('MONITORINGType45')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'MONITORINGType47':
+        if self.original_tagname_ is not None and name_ == 'MONITORINGType45':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='MONITORINGType47')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='MONITORINGType45')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='MONITORINGType47', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='MONITORINGType45', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='MONITORINGType47'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='MONITORINGType45'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType47', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='MONITORINGType45', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -37161,6 +36521,14 @@ class MONITORINGType47(GeneratedsSuper):
             namespaceprefix_ = self.MEMORY_nsprefix_ + ':' if (UseCapturedNS_ and self.MEMORY_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sMEMORY>%s</%sMEMORY>%s' % (namespaceprefix_ , self.gds_format_decimal(self.MEMORY, input_name='MEMORY'), namespaceprefix_ , eol_))
+        if self.MEMORY_FORECAST is not None:
+            namespaceprefix_ = self.MEMORY_FORECAST_nsprefix_ + ':' if (UseCapturedNS_ and self.MEMORY_FORECAST_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sMEMORY_FORECAST>%s</%sMEMORY_FORECAST>%s' % (namespaceprefix_ , self.gds_format_decimal(self.MEMORY_FORECAST, input_name='MEMORY_FORECAST'), namespaceprefix_ , eol_))
+        if self.MEMORY_FORECAST_FAR is not None:
+            namespaceprefix_ = self.MEMORY_FORECAST_FAR_nsprefix_ + ':' if (UseCapturedNS_ and self.MEMORY_FORECAST_FAR_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sMEMORY_FORECAST_FAR>%s</%sMEMORY_FORECAST_FAR>%s' % (namespaceprefix_ , self.gds_format_decimal(self.MEMORY_FORECAST_FAR, input_name='MEMORY_FORECAST_FAR'), namespaceprefix_ , eol_))
         if self.NETRX is not None:
             namespaceprefix_ = self.NETRX_nsprefix_ + ':' if (UseCapturedNS_ and self.NETRX_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -37197,11 +36565,6 @@ class MONITORINGType47(GeneratedsSuper):
             namespaceprefix_ = self.TIMESTAMP_nsprefix_ + ':' if (UseCapturedNS_ and self.TIMESTAMP_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sTIMESTAMP>%s</%sTIMESTAMP>%s' % (namespaceprefix_ , self.gds_format_integer(self.TIMESTAMP, input_name='TIMESTAMP'), namespaceprefix_ , eol_))
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
     def build(self, node, gds_collector_=None):
         self.gds_collector_ = gds_collector_
         if SaveElementTreeNode:
@@ -37331,7 +36694,7 @@ class MONITORINGType47(GeneratedsSuper):
             self.DISKWRIOPS_BW_FORECAST_FAR = fval_
             self.DISKWRIOPS_BW_FORECAST_FAR_nsprefix_ = child_.prefix
         elif nodeName_ == 'DISK_SIZE':
-            obj_ = DISK_SIZEType48.factory(parent_object_=self)
+            obj_ = DISK_SIZEType46.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.DISK_SIZE.append(obj_)
             obj_.original_tagname_ = 'DISK_SIZE'
@@ -37347,6 +36710,18 @@ class MONITORINGType47(GeneratedsSuper):
             fval_ = self.gds_validate_decimal(fval_, node, 'MEMORY')
             self.MEMORY = fval_
             self.MEMORY_nsprefix_ = child_.prefix
+        elif nodeName_ == 'MEMORY_FORECAST' and child_.text:
+            sval_ = child_.text
+            fval_ = self.gds_parse_decimal(sval_, node, 'MEMORY_FORECAST')
+            fval_ = self.gds_validate_decimal(fval_, node, 'MEMORY_FORECAST')
+            self.MEMORY_FORECAST = fval_
+            self.MEMORY_FORECAST_nsprefix_ = child_.prefix
+        elif nodeName_ == 'MEMORY_FORECAST_FAR' and child_.text:
+            sval_ = child_.text
+            fval_ = self.gds_parse_decimal(sval_, node, 'MEMORY_FORECAST_FAR')
+            fval_ = self.gds_validate_decimal(fval_, node, 'MEMORY_FORECAST_FAR')
+            self.MEMORY_FORECAST_FAR = fval_
+            self.MEMORY_FORECAST_FAR_nsprefix_ = child_.prefix
         elif nodeName_ == 'NETRX' and child_.text:
             sval_ = child_.text
             fval_ = self.gds_parse_decimal(sval_, node, 'NETRX')
@@ -37401,13 +36776,10 @@ class MONITORINGType47(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'TIMESTAMP')
             self.TIMESTAMP = ival_
             self.TIMESTAMP_nsprefix_ = child_.prefix
-        else:
-            content_ = self.gds_build_any(child_, 'MONITORINGType47')
-            self.anytypeobjs_.append(content_)
-# end class MONITORINGType47
+# end class MONITORINGType45
 
 
-class DISK_SIZEType48(GeneratedsSuper):
+class DISK_SIZEType46(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -37424,13 +36796,13 @@ class DISK_SIZEType48(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, DISK_SIZEType48)
+                CurrentSubclassModule_, DISK_SIZEType46)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if DISK_SIZEType48.subclass:
-            return DISK_SIZEType48.subclass(*args_, **kwargs_)
+        if DISK_SIZEType46.subclass:
+            return DISK_SIZEType46.subclass(*args_, **kwargs_)
         else:
-            return DISK_SIZEType48(*args_, **kwargs_)
+            return DISK_SIZEType46(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -37452,32 +36824,32 @@ class DISK_SIZEType48(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DISK_SIZEType48', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DISK_SIZEType48')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DISK_SIZEType46', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DISK_SIZEType46')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'DISK_SIZEType48':
+        if self.original_tagname_ is not None and name_ == 'DISK_SIZEType46':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DISK_SIZEType48')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DISK_SIZEType46')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DISK_SIZEType48', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DISK_SIZEType46', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DISK_SIZEType48'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DISK_SIZEType46'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DISK_SIZEType48', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DISK_SIZEType46', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -37516,14 +36888,14 @@ class DISK_SIZEType48(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'SIZE')
             self.SIZE = ival_
             self.SIZE_nsprefix_ = child_.prefix
-# end class DISK_SIZEType48
+# end class DISK_SIZEType46
 
 
-class TEMPLATEType49(GeneratedsSuper):
+class TEMPLATEType47(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, AUTOMATIC_DS_REQUIREMENTS=None, AUTOMATIC_NIC_REQUIREMENTS=None, AUTOMATIC_REQUIREMENTS=None, CLONING_TEMPLATE_ID=None, CONTEXT=None, CPU=None, CPU_COST=None, DISK=None, DISK_COST=None, EMULATOR=None, FEATURES=None, HYPERV_OPTIONS=None, GRAPHICS=None, VIDEO=None, IMPORTED=None, INPUT=None, MEMORY=None, MEMORY_COST=None, MEMORY_MAX=None, MEMORY_SLOTS=None, MEMORY_RESIZE_MODE=None, NIC=None, NIC_ALIAS=None, NIC_DEFAULT=None, NUMA_NODE=None, OS=None, PCI=None, RAW=None, SECURITY_GROUP_RULE=None, SNAPSHOT=None, SPICE_OPTIONS=None, SUBMIT_ON_HOLD=None, TEMPLATE_ID=None, TM_MAD_SYSTEM=None, TOPOLOGY=None, VCPU=None, VCPU_MAX=None, VMGROUP=None, VMID=None, VROUTER_ID=None, VROUTER_KEEPALIVED_ID=None, VROUTER_KEEPALIVED_PASSWORD=None, SCHED_ACTION=None, gds_collector_=None, **kwargs_):
+    def __init__(self, AUTOMATIC_DS_REQUIREMENTS=None, AUTOMATIC_NIC_REQUIREMENTS=None, AUTOMATIC_REQUIREMENTS=None, CLONING_TEMPLATE_ID=None, CONTEXT=None, CPU=None, CPU_COST=None, DISK=None, DISK_COST=None, EMULATOR=None, FEATURES=None, HYPERV_OPTIONS=None, GRAPHICS=None, VIDEO=None, IMPORTED=None, INPUT=None, MEMORY=None, MEMORY_COST=None, MEMORY_MAX=None, MEMORY_SLOTS=None, MEMORY_RESIZE_MODE=None, NIC=None, NIC_ALIAS=None, NIC_DEFAULT=None, NUMA_NODE=None, OS=None, PCI=None, RAW=None, SECURITY_GROUP_RULE=None, SNAPSHOT=None, SPICE_OPTIONS=None, SUBMIT_ON_HOLD=None, TEMPLATE_ID=None, TM_MAD_SYSTEM=None, TOPOLOGY=None, TPM=None, VCPU=None, VCPU_MAX=None, VMGROUP=None, VMID=None, VROUTER_ID=None, VROUTER_KEEPALIVED_ID=None, VROUTER_KEEPALIVED_PASSWORD=None, SCHED_ACTION=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -37617,6 +36989,8 @@ class TEMPLATEType49(GeneratedsSuper):
         self.TM_MAD_SYSTEM_nsprefix_ = None
         self.TOPOLOGY = TOPOLOGY
         self.TOPOLOGY_nsprefix_ = None
+        self.TPM = TPM
+        self.TPM_nsprefix_ = None
         self.VCPU = VCPU
         self.VCPU_nsprefix_ = None
         self.VCPU_MAX = VCPU_MAX
@@ -37639,13 +37013,13 @@ class TEMPLATEType49(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, TEMPLATEType49)
+                CurrentSubclassModule_, TEMPLATEType47)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if TEMPLATEType49.subclass:
-            return TEMPLATEType49.subclass(*args_, **kwargs_)
+        if TEMPLATEType47.subclass:
+            return TEMPLATEType47.subclass(*args_, **kwargs_)
         else:
-            return TEMPLATEType49(*args_, **kwargs_)
+            return TEMPLATEType47(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -37827,6 +37201,10 @@ class TEMPLATEType49(GeneratedsSuper):
         return self.TOPOLOGY
     def set_TOPOLOGY(self, TOPOLOGY):
         self.TOPOLOGY = TOPOLOGY
+    def get_TPM(self):
+        return self.TPM
+    def set_TPM(self, TPM):
+        self.TPM = TPM
     def get_VCPU(self):
         return self.VCPU
     def set_VCPU(self, VCPU):
@@ -37902,6 +37280,7 @@ class TEMPLATEType49(GeneratedsSuper):
             self.TEMPLATE_ID is not None or
             self.TM_MAD_SYSTEM is not None or
             self.TOPOLOGY is not None or
+            self.TPM is not None or
             self.VCPU is not None or
             self.VCPU_MAX is not None or
             self.VMGROUP is not None or
@@ -37914,32 +37293,32 @@ class TEMPLATEType49(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType49', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType49')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType47', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType47')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'TEMPLATEType49':
+        if self.original_tagname_ is not None and name_ == 'TEMPLATEType47':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType49')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType47')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType49', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType47', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType49'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType47'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType49', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType47', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -37974,7 +37353,8 @@ class TEMPLATEType49(GeneratedsSuper):
             outfile.write('<%sCPU_COST>%s</%sCPU_COST>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.CPU_COST), input_name='CPU_COST')), namespaceprefix_ , eol_))
         for DISK_ in self.DISK:
             namespaceprefix_ = self.DISK_nsprefix_ + ':' if (UseCapturedNS_ and self.DISK_nsprefix_) else ''
-            DISK_.export(outfile, level, namespaceprefix_, namespacedef_='', name_='DISK', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sDISK>%s</%sDISK>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(DISK_), input_name='DISK')), namespaceprefix_ , eol_))
         if self.DISK_COST is not None:
             namespaceprefix_ = self.DISK_COST_nsprefix_ + ':' if (UseCapturedNS_ and self.DISK_COST_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -38079,6 +37459,9 @@ class TEMPLATEType49(GeneratedsSuper):
             namespaceprefix_ = self.TOPOLOGY_nsprefix_ + ':' if (UseCapturedNS_ and self.TOPOLOGY_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sTOPOLOGY>%s</%sTOPOLOGY>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.TOPOLOGY), input_name='TOPOLOGY')), namespaceprefix_ , eol_))
+        if self.TPM is not None:
+            namespaceprefix_ = self.TPM_nsprefix_ + ':' if (UseCapturedNS_ and self.TPM_nsprefix_) else ''
+            self.TPM.export(outfile, level, namespaceprefix_, namespacedef_='', name_='TPM', pretty_print=pretty_print)
         if self.VCPU is not None:
             namespaceprefix_ = self.VCPU_nsprefix_ + ':' if (UseCapturedNS_ and self.VCPU_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -38167,10 +37550,11 @@ class TEMPLATEType49(GeneratedsSuper):
             self.CPU_COST = value_
             self.CPU_COST_nsprefix_ = child_.prefix
         elif nodeName_ == 'DISK':
-            obj_ = DISKType50.factory(parent_object_=self)
-            obj_.build(child_, gds_collector_=gds_collector_)
-            self.DISK.append(obj_)
-            obj_.original_tagname_ = 'DISK'
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'DISK')
+            value_ = self.gds_validate_string(value_, node, 'DISK')
+            self.DISK.append(value_)
+            self.DISK_nsprefix_ = child_.prefix
         elif nodeName_ == 'DISK_COST':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'DISK_COST')
@@ -38249,7 +37633,7 @@ class TEMPLATEType49(GeneratedsSuper):
             self.MEMORY_RESIZE_MODE = value_
             self.MEMORY_RESIZE_MODE_nsprefix_ = child_.prefix
         elif nodeName_ == 'NIC':
-            obj_ = NICType51.factory(parent_object_=self)
+            obj_ = NICType48.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.NIC.append(obj_)
             obj_.original_tagname_ = 'NIC'
@@ -38295,7 +37679,7 @@ class TEMPLATEType49(GeneratedsSuper):
             self.SECURITY_GROUP_RULE.append(value_)
             self.SECURITY_GROUP_RULE_nsprefix_ = child_.prefix
         elif nodeName_ == 'SNAPSHOT':
-            obj_ = SNAPSHOTType52.factory(parent_object_=self)
+            obj_ = SNAPSHOTType49.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.SNAPSHOT.append(obj_)
             obj_.original_tagname_ = 'SNAPSHOT'
@@ -38329,6 +37713,11 @@ class TEMPLATEType49(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'TOPOLOGY')
             self.TOPOLOGY = value_
             self.TOPOLOGY_nsprefix_ = child_.prefix
+        elif nodeName_ == 'TPM':
+            obj_ = TPMType.factory(parent_object_=self)
+            obj_.build(child_, gds_collector_=gds_collector_)
+            self.TPM = obj_
+            obj_.original_tagname_ = 'TPM'
         elif nodeName_ == 'VCPU':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'VCPU')
@@ -38376,7 +37765,7 @@ class TEMPLATEType49(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.SCHED_ACTION.append(obj_)
             obj_.original_tagname_ = 'SCHED_ACTION'
-# end class TEMPLATEType49
+# end class TEMPLATEType47
 
 
 class CONTEXT(GeneratedsSuper):
@@ -39367,100 +38756,6 @@ class VMGROUP(GeneratedsSuper):
 # end class VMGROUP
 
 
-class DISKType50(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, anytypeobjs_=None, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, DISKType50)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if DISKType50.subclass:
-            return DISKType50.subclass(*args_, **kwargs_)
-        else:
-            return DISKType50(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
-    def has__content(self):
-        if (
-            self.anytypeobjs_
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DISKType50', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('DISKType50')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'DISKType50':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='DISKType50')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='DISKType50', pretty_print=pretty_print)
-            showIndent(outfile, level, pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='DISKType50'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='DISKType50', fromsubclass_=False, pretty_print=True):
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        content_ = self.gds_build_any(child_, 'DISKType50')
-        self.anytypeobjs_.append(content_)
-# end class DISKType50
-
-
 class VIDEOType(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
@@ -39624,7 +38919,7 @@ class VIDEOType(GeneratedsSuper):
 # end class VIDEOType
 
 
-class NICType51(GeneratedsSuper):
+class NICType48(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -39641,13 +38936,13 @@ class NICType51(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, NICType51)
+                CurrentSubclassModule_, NICType48)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if NICType51.subclass:
-            return NICType51.subclass(*args_, **kwargs_)
+        if NICType48.subclass:
+            return NICType48.subclass(*args_, **kwargs_)
         else:
-            return NICType51(*args_, **kwargs_)
+            return NICType48(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -39664,32 +38959,32 @@ class NICType51(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='NICType51', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('NICType51')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='NICType48', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('NICType48')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'NICType51':
+        if self.original_tagname_ is not None and name_ == 'NICType48':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='NICType51')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='NICType48')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='NICType51', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='NICType48', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='NICType51'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='NICType48'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='NICType51', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='NICType48', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -39713,27 +39008,21 @@ class NICType51(GeneratedsSuper):
     def _buildAttributes(self, node, attrs, already_processed):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        content_ = self.gds_build_any(child_, 'NICType51')
+        content_ = self.gds_build_any(child_, 'NICType48')
         self.anytypeobjs_.append(content_)
-# end class NICType51
+# end class NICType48
 
 
 class NIC_ALIASType(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, ALIAS_ID=None, PARENT=None, PARENT_ID=None, anytypeobjs_=None, gds_collector_=None, **kwargs_):
+    def __init__(self, anytypeobjs_=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
         self.parent_object_ = kwargs_.get('parent_object_')
         self.ns_prefix_ = None
-        self.ALIAS_ID = ALIAS_ID
-        self.ALIAS_ID_nsprefix_ = None
-        self.PARENT = PARENT
-        self.PARENT_nsprefix_ = None
-        self.PARENT_ID = PARENT_ID
-        self.PARENT_ID_nsprefix_ = None
         if anytypeobjs_ is None:
             self.anytypeobjs_ = []
         else:
@@ -39753,27 +39042,12 @@ class NIC_ALIASType(GeneratedsSuper):
         return self.ns_prefix_
     def set_ns_prefix_(self, ns_prefix):
         self.ns_prefix_ = ns_prefix
-    def get_ALIAS_ID(self):
-        return self.ALIAS_ID
-    def set_ALIAS_ID(self, ALIAS_ID):
-        self.ALIAS_ID = ALIAS_ID
-    def get_PARENT(self):
-        return self.PARENT
-    def set_PARENT(self, PARENT):
-        self.PARENT = PARENT
-    def get_PARENT_ID(self):
-        return self.PARENT_ID
-    def set_PARENT_ID(self, PARENT_ID):
-        self.PARENT_ID = PARENT_ID
     def get_anytypeobjs_(self): return self.anytypeobjs_
     def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
     def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
     def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
     def has__content(self):
         if (
-            self.ALIAS_ID is not None or
-            self.PARENT is not None or
-            self.PARENT_ID is not None or
             self.anytypeobjs_
         ):
             return True
@@ -39809,18 +39083,6 @@ class NIC_ALIASType(GeneratedsSuper):
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.ALIAS_ID is not None:
-            namespaceprefix_ = self.ALIAS_ID_nsprefix_ + ':' if (UseCapturedNS_ and self.ALIAS_ID_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sALIAS_ID>%s</%sALIAS_ID>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.ALIAS_ID), input_name='ALIAS_ID')), namespaceprefix_ , eol_))
-        if self.PARENT is not None:
-            namespaceprefix_ = self.PARENT_nsprefix_ + ':' if (UseCapturedNS_ and self.PARENT_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sPARENT>%s</%sPARENT>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PARENT), input_name='PARENT')), namespaceprefix_ , eol_))
-        if self.PARENT_ID is not None:
-            namespaceprefix_ = self.PARENT_ID_nsprefix_ + ':' if (UseCapturedNS_ and self.PARENT_ID_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sPARENT_ID>%s</%sPARENT_ID>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.PARENT_ID), input_name='PARENT_ID')), namespaceprefix_ , eol_))
         if not fromsubclass_:
             for obj_ in self.anytypeobjs_:
                 showIndent(outfile, level, pretty_print)
@@ -39840,31 +39102,12 @@ class NIC_ALIASType(GeneratedsSuper):
     def _buildAttributes(self, node, attrs, already_processed):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        if nodeName_ == 'ALIAS_ID':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'ALIAS_ID')
-            value_ = self.gds_validate_string(value_, node, 'ALIAS_ID')
-            self.ALIAS_ID = value_
-            self.ALIAS_ID_nsprefix_ = child_.prefix
-        elif nodeName_ == 'PARENT':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'PARENT')
-            value_ = self.gds_validate_string(value_, node, 'PARENT')
-            self.PARENT = value_
-            self.PARENT_nsprefix_ = child_.prefix
-        elif nodeName_ == 'PARENT_ID':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'PARENT_ID')
-            value_ = self.gds_validate_string(value_, node, 'PARENT_ID')
-            self.PARENT_ID = value_
-            self.PARENT_ID_nsprefix_ = child_.prefix
-        else:
-            content_ = self.gds_build_any(child_, 'NIC_ALIASType')
-            self.anytypeobjs_.append(content_)
+        content_ = self.gds_build_any(child_, 'NIC_ALIASType')
+        self.anytypeobjs_.append(content_)
 # end class NIC_ALIASType
 
 
-class SNAPSHOTType52(GeneratedsSuper):
+class SNAPSHOTType49(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -39891,13 +39134,13 @@ class SNAPSHOTType52(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, SNAPSHOTType52)
+                CurrentSubclassModule_, SNAPSHOTType49)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if SNAPSHOTType52.subclass:
-            return SNAPSHOTType52.subclass(*args_, **kwargs_)
+        if SNAPSHOTType49.subclass:
+            return SNAPSHOTType49.subclass(*args_, **kwargs_)
         else:
-            return SNAPSHOTType52(*args_, **kwargs_)
+            return SNAPSHOTType49(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -39944,32 +39187,32 @@ class SNAPSHOTType52(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType52', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SNAPSHOTType52')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType49', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SNAPSHOTType49')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'SNAPSHOTType52':
+        if self.original_tagname_ is not None and name_ == 'SNAPSHOTType49':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SNAPSHOTType52')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SNAPSHOTType49')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SNAPSHOTType52', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SNAPSHOTType49', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SNAPSHOTType52'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SNAPSHOTType49'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType52', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType49', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -40058,84 +39301,81 @@ class SNAPSHOTType52(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'TIME')
             self.TIME = value_
             self.TIME_nsprefix_ = child_.prefix
-# end class SNAPSHOTType52
+# end class SNAPSHOTType49
 
 
-class USER_TEMPLATEType53(GeneratedsSuper):
+class TPMType(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, anytypeobjs_=None, gds_collector_=None, **kwargs_):
+    def __init__(self, MODEL=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
         self.parent_object_ = kwargs_.get('parent_object_')
         self.ns_prefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
+        self.MODEL = MODEL
+        self.MODEL_nsprefix_ = None
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, USER_TEMPLATEType53)
+                CurrentSubclassModule_, TPMType)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if USER_TEMPLATEType53.subclass:
-            return USER_TEMPLATEType53.subclass(*args_, **kwargs_)
+        if TPMType.subclass:
+            return TPMType.subclass(*args_, **kwargs_)
         else:
-            return USER_TEMPLATEType53(*args_, **kwargs_)
+            return TPMType(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
     def set_ns_prefix_(self, ns_prefix):
         self.ns_prefix_ = ns_prefix
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
+    def get_MODEL(self):
+        return self.MODEL
+    def set_MODEL(self, MODEL):
+        self.MODEL = MODEL
     def has__content(self):
         if (
-            self.anytypeobjs_
+            self.MODEL is not None
         ):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='USER_TEMPLATEType53', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('USER_TEMPLATEType53')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TPMType', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TPMType')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'USER_TEMPLATEType53':
+        if self.original_tagname_ is not None and name_ == 'TPMType':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='USER_TEMPLATEType53')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TPMType')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='USER_TEMPLATEType53', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TPMType', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='USER_TEMPLATEType53'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TPMType'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='USER_TEMPLATEType53', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TPMType', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
+        if self.MODEL is not None:
+            namespaceprefix_ = self.MODEL_nsprefix_ + ':' if (UseCapturedNS_ and self.MODEL_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sMODEL>%s</%sMODEL>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.MODEL), input_name='MODEL')), namespaceprefix_ , eol_))
     def build(self, node, gds_collector_=None):
         self.gds_collector_ = gds_collector_
         if SaveElementTreeNode:
@@ -40150,12 +39390,16 @@ class USER_TEMPLATEType53(GeneratedsSuper):
     def _buildAttributes(self, node, attrs, already_processed):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        content_ = self.gds_build_any(child_, 'USER_TEMPLATEType53')
-        self.anytypeobjs_.append(content_)
-# end class USER_TEMPLATEType53
+        if nodeName_ == 'MODEL':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'MODEL')
+            value_ = self.gds_validate_string(value_, node, 'MODEL')
+            self.MODEL = value_
+            self.MODEL_nsprefix_ = child_.prefix
+# end class TPMType
 
 
-class HISTORY_RECORDSType54(GeneratedsSuper):
+class HISTORY_RECORDSType50(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -40173,13 +39417,13 @@ class HISTORY_RECORDSType54(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, HISTORY_RECORDSType54)
+                CurrentSubclassModule_, HISTORY_RECORDSType50)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if HISTORY_RECORDSType54.subclass:
-            return HISTORY_RECORDSType54.subclass(*args_, **kwargs_)
+        if HISTORY_RECORDSType50.subclass:
+            return HISTORY_RECORDSType50.subclass(*args_, **kwargs_)
         else:
-            return HISTORY_RECORDSType54(*args_, **kwargs_)
+            return HISTORY_RECORDSType50(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -40202,32 +39446,32 @@ class HISTORY_RECORDSType54(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HISTORY_RECORDSType54', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('HISTORY_RECORDSType54')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HISTORY_RECORDSType50', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('HISTORY_RECORDSType50')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'HISTORY_RECORDSType54':
+        if self.original_tagname_ is not None and name_ == 'HISTORY_RECORDSType50':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='HISTORY_RECORDSType54')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='HISTORY_RECORDSType50')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='HISTORY_RECORDSType54', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='HISTORY_RECORDSType50', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='HISTORY_RECORDSType54'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='HISTORY_RECORDSType50'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HISTORY_RECORDSType54', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HISTORY_RECORDSType50', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -40250,14 +39494,14 @@ class HISTORY_RECORDSType54(GeneratedsSuper):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         if nodeName_ == 'HISTORY':
-            obj_ = HISTORYType55.factory(parent_object_=self)
+            obj_ = HISTORYType51.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.HISTORY.append(obj_)
             obj_.original_tagname_ = 'HISTORY'
-# end class HISTORY_RECORDSType54
+# end class HISTORY_RECORDSType50
 
 
-class HISTORYType55(GeneratedsSuper):
+class HISTORYType51(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -40314,13 +39558,13 @@ class HISTORYType55(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, HISTORYType55)
+                CurrentSubclassModule_, HISTORYType51)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if HISTORYType55.subclass:
-            return HISTORYType55.subclass(*args_, **kwargs_)
+        if HISTORYType51.subclass:
+            return HISTORYType51.subclass(*args_, **kwargs_)
         else:
-            return HISTORYType55(*args_, **kwargs_)
+            return HISTORYType51(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -40442,32 +39686,32 @@ class HISTORYType55(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HISTORYType55', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('HISTORYType55')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HISTORYType51', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('HISTORYType51')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'HISTORYType55':
+        if self.original_tagname_ is not None and name_ == 'HISTORYType51':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='HISTORYType55')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='HISTORYType51')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='HISTORYType55', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='HISTORYType51', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='HISTORYType55'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='HISTORYType51'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HISTORYType55', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='HISTORYType51', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -40706,10 +39950,10 @@ class HISTORYType55(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'REQUEST_ID')
             self.REQUEST_ID = value_
             self.REQUEST_ID_nsprefix_ = child_.prefix
-# end class HISTORYType55
+# end class HISTORYType51
 
 
-class SNAPSHOTSType56(GeneratedsSuper):
+class SNAPSHOTSType52(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -40735,13 +39979,13 @@ class SNAPSHOTSType56(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, SNAPSHOTSType56)
+                CurrentSubclassModule_, SNAPSHOTSType52)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if SNAPSHOTSType56.subclass:
-            return SNAPSHOTSType56.subclass(*args_, **kwargs_)
+        if SNAPSHOTSType52.subclass:
+            return SNAPSHOTSType52.subclass(*args_, **kwargs_)
         else:
-            return SNAPSHOTSType56(*args_, **kwargs_)
+            return SNAPSHOTSType52(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -40784,32 +40028,32 @@ class SNAPSHOTSType56(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTSType56', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SNAPSHOTSType56')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTSType52', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SNAPSHOTSType52')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'SNAPSHOTSType56':
+        if self.original_tagname_ is not None and name_ == 'SNAPSHOTSType52':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SNAPSHOTSType56')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SNAPSHOTSType52')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SNAPSHOTSType56', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SNAPSHOTSType52', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SNAPSHOTSType56'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SNAPSHOTSType52'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTSType56', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTSType52', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -40872,14 +40116,14 @@ class SNAPSHOTSType56(GeneratedsSuper):
             self.NEXT_SNAPSHOT = ival_
             self.NEXT_SNAPSHOT_nsprefix_ = child_.prefix
         elif nodeName_ == 'SNAPSHOT':
-            obj_ = SNAPSHOTType57.factory(parent_object_=self)
+            obj_ = SNAPSHOTType53.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.SNAPSHOT.append(obj_)
             obj_.original_tagname_ = 'SNAPSHOT'
-# end class SNAPSHOTSType56
+# end class SNAPSHOTSType52
 
 
-class SNAPSHOTType57(GeneratedsSuper):
+class SNAPSHOTType53(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -40906,13 +40150,13 @@ class SNAPSHOTType57(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, SNAPSHOTType57)
+                CurrentSubclassModule_, SNAPSHOTType53)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if SNAPSHOTType57.subclass:
-            return SNAPSHOTType57.subclass(*args_, **kwargs_)
+        if SNAPSHOTType53.subclass:
+            return SNAPSHOTType53.subclass(*args_, **kwargs_)
         else:
-            return SNAPSHOTType57(*args_, **kwargs_)
+            return SNAPSHOTType53(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -40959,32 +40203,32 @@ class SNAPSHOTType57(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType57', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SNAPSHOTType57')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType53', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SNAPSHOTType53')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'SNAPSHOTType57':
+        if self.original_tagname_ is not None and name_ == 'SNAPSHOTType53':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SNAPSHOTType57')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SNAPSHOTType53')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SNAPSHOTType57', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SNAPSHOTType53', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SNAPSHOTType57'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SNAPSHOTType53'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType57', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SNAPSHOTType53', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -41073,10 +40317,10 @@ class SNAPSHOTType57(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'SIZE')
             self.SIZE = ival_
             self.SIZE_nsprefix_ = child_.prefix
-# end class SNAPSHOTType57
+# end class SNAPSHOTType53
 
 
-class BACKUPSType58(GeneratedsSuper):
+class BACKUPSType54(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -41093,13 +40337,13 @@ class BACKUPSType58(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, BACKUPSType58)
+                CurrentSubclassModule_, BACKUPSType54)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if BACKUPSType58.subclass:
-            return BACKUPSType58.subclass(*args_, **kwargs_)
+        if BACKUPSType54.subclass:
+            return BACKUPSType54.subclass(*args_, **kwargs_)
         else:
-            return BACKUPSType58(*args_, **kwargs_)
+            return BACKUPSType54(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -41121,32 +40365,32 @@ class BACKUPSType58(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='BACKUPSType58', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('BACKUPSType58')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='BACKUPSType54', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('BACKUPSType54')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'BACKUPSType58':
+        if self.original_tagname_ is not None and name_ == 'BACKUPSType54':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='BACKUPSType58')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='BACKUPSType54')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='BACKUPSType58', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='BACKUPSType54', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='BACKUPSType58'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='BACKUPSType54'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='BACKUPSType58', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='BACKUPSType54', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -41172,7 +40416,7 @@ class BACKUPSType58(GeneratedsSuper):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         if nodeName_ == 'BACKUP_CONFIG':
-            obj_ = BACKUP_CONFIGType59.factory(parent_object_=self)
+            obj_ = BACKUP_CONFIGType55.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.BACKUP_CONFIG = obj_
             obj_.original_tagname_ = 'BACKUP_CONFIG'
@@ -41181,14 +40425,14 @@ class BACKUPSType58(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.BACKUP_IDS = obj_
             obj_.original_tagname_ = 'BACKUP_IDS'
-# end class BACKUPSType58
+# end class BACKUPSType54
 
 
-class BACKUP_CONFIGType59(GeneratedsSuper):
+class BACKUP_CONFIGType55(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
-    def __init__(self, BACKUP_JOB_ID=None, BACKUP_VOLATILE=None, FS_FREEZE=None, INCREMENTAL_BACKUP_ID=None, INCREMENT_MODE=None, KEEP_LAST=None, LAST_BACKUP_ID=None, LAST_BACKUP_SIZE=None, LAST_DATASTORE_ID=None, LAST_INCREMENT_ID=None, MODE=None, gds_collector_=None, **kwargs_):
+    def __init__(self, BACKUP_JOB_ID=None, BACKUP_VOLATILE=None, FS_FREEZE=None, INCREMENTAL_BACKUP_ID=None, INCREMENT_MODE=None, KEEP_LAST=None, LAST_BACKUP_ID=None, LAST_BACKUP_SIZE=None, LAST_BRIDGE=None, LAST_DATASTORE_ID=None, LAST_INCREMENT_ID=None, MODE=None, gds_collector_=None, **kwargs_):
         self.gds_collector_ = gds_collector_
         self.gds_elementtree_node_ = None
         self.original_tagname_ = None
@@ -41210,6 +40454,8 @@ class BACKUP_CONFIGType59(GeneratedsSuper):
         self.LAST_BACKUP_ID_nsprefix_ = None
         self.LAST_BACKUP_SIZE = LAST_BACKUP_SIZE
         self.LAST_BACKUP_SIZE_nsprefix_ = None
+        self.LAST_BRIDGE = LAST_BRIDGE
+        self.LAST_BRIDGE_nsprefix_ = None
         self.LAST_DATASTORE_ID = LAST_DATASTORE_ID
         self.LAST_DATASTORE_ID_nsprefix_ = None
         self.LAST_INCREMENT_ID = LAST_INCREMENT_ID
@@ -41219,13 +40465,13 @@ class BACKUP_CONFIGType59(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, BACKUP_CONFIGType59)
+                CurrentSubclassModule_, BACKUP_CONFIGType55)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if BACKUP_CONFIGType59.subclass:
-            return BACKUP_CONFIGType59.subclass(*args_, **kwargs_)
+        if BACKUP_CONFIGType55.subclass:
+            return BACKUP_CONFIGType55.subclass(*args_, **kwargs_)
         else:
-            return BACKUP_CONFIGType59(*args_, **kwargs_)
+            return BACKUP_CONFIGType55(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -41263,6 +40509,10 @@ class BACKUP_CONFIGType59(GeneratedsSuper):
         return self.LAST_BACKUP_SIZE
     def set_LAST_BACKUP_SIZE(self, LAST_BACKUP_SIZE):
         self.LAST_BACKUP_SIZE = LAST_BACKUP_SIZE
+    def get_LAST_BRIDGE(self):
+        return self.LAST_BRIDGE
+    def set_LAST_BRIDGE(self, LAST_BRIDGE):
+        self.LAST_BRIDGE = LAST_BRIDGE
     def get_LAST_DATASTORE_ID(self):
         return self.LAST_DATASTORE_ID
     def set_LAST_DATASTORE_ID(self, LAST_DATASTORE_ID):
@@ -41285,6 +40535,7 @@ class BACKUP_CONFIGType59(GeneratedsSuper):
             self.KEEP_LAST is not None or
             self.LAST_BACKUP_ID is not None or
             self.LAST_BACKUP_SIZE is not None or
+            self.LAST_BRIDGE is not None or
             self.LAST_DATASTORE_ID is not None or
             self.LAST_INCREMENT_ID is not None or
             self.MODE is not None
@@ -41292,32 +40543,32 @@ class BACKUP_CONFIGType59(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='BACKUP_CONFIGType59', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('BACKUP_CONFIGType59')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='BACKUP_CONFIGType55', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('BACKUP_CONFIGType55')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'BACKUP_CONFIGType59':
+        if self.original_tagname_ is not None and name_ == 'BACKUP_CONFIGType55':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='BACKUP_CONFIGType59')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='BACKUP_CONFIGType55')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='BACKUP_CONFIGType59', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='BACKUP_CONFIGType55', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='BACKUP_CONFIGType59'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='BACKUP_CONFIGType55'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='BACKUP_CONFIGType59', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='BACKUP_CONFIGType55', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -41354,6 +40605,10 @@ class BACKUP_CONFIGType59(GeneratedsSuper):
             namespaceprefix_ = self.LAST_BACKUP_SIZE_nsprefix_ + ':' if (UseCapturedNS_ and self.LAST_BACKUP_SIZE_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sLAST_BACKUP_SIZE>%s</%sLAST_BACKUP_SIZE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.LAST_BACKUP_SIZE), input_name='LAST_BACKUP_SIZE')), namespaceprefix_ , eol_))
+        if self.LAST_BRIDGE is not None:
+            namespaceprefix_ = self.LAST_BRIDGE_nsprefix_ + ':' if (UseCapturedNS_ and self.LAST_BRIDGE_nsprefix_) else ''
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sLAST_BRIDGE>%s</%sLAST_BRIDGE>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.LAST_BRIDGE), input_name='LAST_BRIDGE')), namespaceprefix_ , eol_))
         if self.LAST_DATASTORE_ID is not None:
             namespaceprefix_ = self.LAST_DATASTORE_ID_nsprefix_ + ':' if (UseCapturedNS_ and self.LAST_DATASTORE_ID_nsprefix_) else ''
             showIndent(outfile, level, pretty_print)
@@ -41428,6 +40683,12 @@ class BACKUP_CONFIGType59(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'LAST_BACKUP_SIZE')
             self.LAST_BACKUP_SIZE = value_
             self.LAST_BACKUP_SIZE_nsprefix_ = child_.prefix
+        elif nodeName_ == 'LAST_BRIDGE':
+            value_ = child_.text
+            value_ = self.gds_parse_string(value_, node, 'LAST_BRIDGE')
+            value_ = self.gds_validate_string(value_, node, 'LAST_BRIDGE')
+            self.LAST_BRIDGE = value_
+            self.LAST_BRIDGE_nsprefix_ = child_.prefix
         elif nodeName_ == 'LAST_DATASTORE_ID':
             value_ = child_.text
             value_ = self.gds_parse_string(value_, node, 'LAST_DATASTORE_ID')
@@ -41446,10 +40707,10 @@ class BACKUP_CONFIGType59(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'MODE')
             self.MODE = value_
             self.MODE_nsprefix_ = child_.prefix
-# end class BACKUP_CONFIGType59
+# end class BACKUP_CONFIGType55
 
 
-class VNETType60(GeneratedsSuper):
+class VNETType56(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -41516,13 +40777,13 @@ class VNETType60(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, VNETType60)
+                CurrentSubclassModule_, VNETType56)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if VNETType60.subclass:
-            return VNETType60.subclass(*args_, **kwargs_)
+        if VNETType56.subclass:
+            return VNETType56.subclass(*args_, **kwargs_)
         else:
-            return VNETType60(*args_, **kwargs_)
+            return VNETType56(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -41669,32 +40930,32 @@ class VNETType60(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VNETType60', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VNETType60')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VNETType56', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VNETType56')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'VNETType60':
+        if self.original_tagname_ is not None and name_ == 'VNETType56':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VNETType60')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VNETType56')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VNETType60', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VNETType56', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VNETType60'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VNETType56'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VNETType60', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VNETType56', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -41850,12 +41111,12 @@ class VNETType60(GeneratedsSuper):
             self.NAME = value_
             self.NAME_nsprefix_ = child_.prefix
         elif nodeName_ == 'PERMISSIONS':
-            obj_ = PERMISSIONSType61.factory(parent_object_=self)
+            obj_ = PERMISSIONSType57.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.PERMISSIONS = obj_
             obj_.original_tagname_ = 'PERMISSIONS'
         elif nodeName_ == 'CLUSTERS':
-            obj_ = CLUSTERSType62.factory(parent_object_=self)
+            obj_ = CLUSTERSType58.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.CLUSTERS = obj_
             obj_.original_tagname_ = 'CLUSTERS'
@@ -41937,22 +41198,22 @@ class VNETType60(GeneratedsSuper):
             self.VROUTERS = obj_
             obj_.original_tagname_ = 'VROUTERS'
         elif nodeName_ == 'UPDATED_VMS':
-            obj_ = UPDATED_VMSType63.factory(parent_object_=self)
+            obj_ = UPDATED_VMSType59.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.UPDATED_VMS = obj_
             obj_.original_tagname_ = 'UPDATED_VMS'
         elif nodeName_ == 'OUTDATED_VMS':
-            obj_ = OUTDATED_VMSType64.factory(parent_object_=self)
+            obj_ = OUTDATED_VMSType60.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.OUTDATED_VMS = obj_
             obj_.original_tagname_ = 'OUTDATED_VMS'
         elif nodeName_ == 'UPDATING_VMS':
-            obj_ = UPDATING_VMSType65.factory(parent_object_=self)
+            obj_ = UPDATING_VMSType61.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.UPDATING_VMS = obj_
             obj_.original_tagname_ = 'UPDATING_VMS'
         elif nodeName_ == 'ERROR_VMS':
-            obj_ = ERROR_VMSType66.factory(parent_object_=self)
+            obj_ = ERROR_VMSType62.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.ERROR_VMS = obj_
             obj_.original_tagname_ = 'ERROR_VMS'
@@ -41967,10 +41228,10 @@ class VNETType60(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.AR_POOL = obj_
             obj_.original_tagname_ = 'AR_POOL'
-# end class VNETType60
+# end class VNETType56
 
 
-class PERMISSIONSType61(GeneratedsSuper):
+class PERMISSIONSType57(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -42001,13 +41262,13 @@ class PERMISSIONSType61(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, PERMISSIONSType61)
+                CurrentSubclassModule_, PERMISSIONSType57)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if PERMISSIONSType61.subclass:
-            return PERMISSIONSType61.subclass(*args_, **kwargs_)
+        if PERMISSIONSType57.subclass:
+            return PERMISSIONSType57.subclass(*args_, **kwargs_)
         else:
-            return PERMISSIONSType61(*args_, **kwargs_)
+            return PERMISSIONSType57(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -42064,32 +41325,32 @@ class PERMISSIONSType61(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType61', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType61')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType57', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType57')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType61':
+        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType57':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType61')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType57')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType61', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType57', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType61'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType57'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType61', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType57', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -42198,10 +41459,10 @@ class PERMISSIONSType61(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'OTHER_A')
             self.OTHER_A = ival_
             self.OTHER_A_nsprefix_ = child_.prefix
-# end class PERMISSIONSType61
+# end class PERMISSIONSType57
 
 
-class CLUSTERSType62(GeneratedsSuper):
+class CLUSTERSType58(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -42219,13 +41480,13 @@ class CLUSTERSType62(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, CLUSTERSType62)
+                CurrentSubclassModule_, CLUSTERSType58)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if CLUSTERSType62.subclass:
-            return CLUSTERSType62.subclass(*args_, **kwargs_)
+        if CLUSTERSType58.subclass:
+            return CLUSTERSType58.subclass(*args_, **kwargs_)
         else:
-            return CLUSTERSType62(*args_, **kwargs_)
+            return CLUSTERSType58(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -42248,32 +41509,32 @@ class CLUSTERSType62(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType62', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('CLUSTERSType62')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType58', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('CLUSTERSType58')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'CLUSTERSType62':
+        if self.original_tagname_ is not None and name_ == 'CLUSTERSType58':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='CLUSTERSType62')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='CLUSTERSType58')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='CLUSTERSType62', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='CLUSTERSType58', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='CLUSTERSType62'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='CLUSTERSType58'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType62', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType58', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -42302,7 +41563,7 @@ class CLUSTERSType62(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class CLUSTERSType62
+# end class CLUSTERSType58
 
 
 class VROUTERSType(GeneratedsSuper):
@@ -42409,7 +41670,7 @@ class VROUTERSType(GeneratedsSuper):
 # end class VROUTERSType
 
 
-class UPDATED_VMSType63(GeneratedsSuper):
+class UPDATED_VMSType59(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -42427,13 +41688,13 @@ class UPDATED_VMSType63(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, UPDATED_VMSType63)
+                CurrentSubclassModule_, UPDATED_VMSType59)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if UPDATED_VMSType63.subclass:
-            return UPDATED_VMSType63.subclass(*args_, **kwargs_)
+        if UPDATED_VMSType59.subclass:
+            return UPDATED_VMSType59.subclass(*args_, **kwargs_)
         else:
-            return UPDATED_VMSType63(*args_, **kwargs_)
+            return UPDATED_VMSType59(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -42456,32 +41717,32 @@ class UPDATED_VMSType63(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATED_VMSType63', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('UPDATED_VMSType63')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATED_VMSType59', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('UPDATED_VMSType59')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'UPDATED_VMSType63':
+        if self.original_tagname_ is not None and name_ == 'UPDATED_VMSType59':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='UPDATED_VMSType63')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='UPDATED_VMSType59')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='UPDATED_VMSType63', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='UPDATED_VMSType59', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='UPDATED_VMSType63'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='UPDATED_VMSType59'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATED_VMSType63', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATED_VMSType59', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -42510,10 +41771,10 @@ class UPDATED_VMSType63(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class UPDATED_VMSType63
+# end class UPDATED_VMSType59
 
 
-class OUTDATED_VMSType64(GeneratedsSuper):
+class OUTDATED_VMSType60(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -42531,13 +41792,13 @@ class OUTDATED_VMSType64(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, OUTDATED_VMSType64)
+                CurrentSubclassModule_, OUTDATED_VMSType60)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if OUTDATED_VMSType64.subclass:
-            return OUTDATED_VMSType64.subclass(*args_, **kwargs_)
+        if OUTDATED_VMSType60.subclass:
+            return OUTDATED_VMSType60.subclass(*args_, **kwargs_)
         else:
-            return OUTDATED_VMSType64(*args_, **kwargs_)
+            return OUTDATED_VMSType60(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -42560,32 +41821,32 @@ class OUTDATED_VMSType64(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='OUTDATED_VMSType64', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('OUTDATED_VMSType64')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='OUTDATED_VMSType60', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('OUTDATED_VMSType60')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'OUTDATED_VMSType64':
+        if self.original_tagname_ is not None and name_ == 'OUTDATED_VMSType60':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='OUTDATED_VMSType64')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='OUTDATED_VMSType60')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='OUTDATED_VMSType64', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='OUTDATED_VMSType60', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='OUTDATED_VMSType64'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='OUTDATED_VMSType60'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='OUTDATED_VMSType64', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='OUTDATED_VMSType60', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -42614,10 +41875,10 @@ class OUTDATED_VMSType64(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class OUTDATED_VMSType64
+# end class OUTDATED_VMSType60
 
 
-class UPDATING_VMSType65(GeneratedsSuper):
+class UPDATING_VMSType61(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -42635,13 +41896,13 @@ class UPDATING_VMSType65(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, UPDATING_VMSType65)
+                CurrentSubclassModule_, UPDATING_VMSType61)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if UPDATING_VMSType65.subclass:
-            return UPDATING_VMSType65.subclass(*args_, **kwargs_)
+        if UPDATING_VMSType61.subclass:
+            return UPDATING_VMSType61.subclass(*args_, **kwargs_)
         else:
-            return UPDATING_VMSType65(*args_, **kwargs_)
+            return UPDATING_VMSType61(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -42664,32 +41925,32 @@ class UPDATING_VMSType65(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATING_VMSType65', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('UPDATING_VMSType65')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATING_VMSType61', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('UPDATING_VMSType61')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'UPDATING_VMSType65':
+        if self.original_tagname_ is not None and name_ == 'UPDATING_VMSType61':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='UPDATING_VMSType65')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='UPDATING_VMSType61')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='UPDATING_VMSType65', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='UPDATING_VMSType61', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='UPDATING_VMSType65'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='UPDATING_VMSType61'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATING_VMSType65', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATING_VMSType61', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -42718,10 +41979,10 @@ class UPDATING_VMSType65(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class UPDATING_VMSType65
+# end class UPDATING_VMSType61
 
 
-class ERROR_VMSType66(GeneratedsSuper):
+class ERROR_VMSType62(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -42739,13 +42000,13 @@ class ERROR_VMSType66(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, ERROR_VMSType66)
+                CurrentSubclassModule_, ERROR_VMSType62)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if ERROR_VMSType66.subclass:
-            return ERROR_VMSType66.subclass(*args_, **kwargs_)
+        if ERROR_VMSType62.subclass:
+            return ERROR_VMSType62.subclass(*args_, **kwargs_)
         else:
-            return ERROR_VMSType66(*args_, **kwargs_)
+            return ERROR_VMSType62(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -42768,32 +42029,32 @@ class ERROR_VMSType66(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ERROR_VMSType66', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('ERROR_VMSType66')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ERROR_VMSType62', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('ERROR_VMSType62')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'ERROR_VMSType66':
+        if self.original_tagname_ is not None and name_ == 'ERROR_VMSType62':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='ERROR_VMSType66')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='ERROR_VMSType62')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='ERROR_VMSType66', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='ERROR_VMSType62', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='ERROR_VMSType66'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='ERROR_VMSType62'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ERROR_VMSType66', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ERROR_VMSType62', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -42822,7 +42083,7 @@ class ERROR_VMSType66(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class ERROR_VMSType66
+# end class ERROR_VMSType62
 
 
 class AR_POOLType(GeneratedsSuper):
@@ -43175,7 +42436,7 @@ class ARType(GeneratedsSuper):
 # end class ARType
 
 
-class LOCKType67(GeneratedsSuper):
+class LOCKType63(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -43196,13 +42457,13 @@ class LOCKType67(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, LOCKType67)
+                CurrentSubclassModule_, LOCKType63)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if LOCKType67.subclass:
-            return LOCKType67.subclass(*args_, **kwargs_)
+        if LOCKType63.subclass:
+            return LOCKType63.subclass(*args_, **kwargs_)
         else:
-            return LOCKType67(*args_, **kwargs_)
+            return LOCKType63(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -43234,32 +42495,32 @@ class LOCKType67(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType67', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType67')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType63', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType63')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'LOCKType67':
+        if self.original_tagname_ is not None and name_ == 'LOCKType63':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType67')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType63')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType67', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType63', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType67'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType63'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType67', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType63', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -43318,10 +42579,10 @@ class LOCKType67(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'REQ_ID')
             self.REQ_ID = ival_
             self.REQ_ID_nsprefix_ = child_.prefix
-# end class LOCKType67
+# end class LOCKType63
 
 
-class PERMISSIONSType68(GeneratedsSuper):
+class PERMISSIONSType64(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -43352,13 +42613,13 @@ class PERMISSIONSType68(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, PERMISSIONSType68)
+                CurrentSubclassModule_, PERMISSIONSType64)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if PERMISSIONSType68.subclass:
-            return PERMISSIONSType68.subclass(*args_, **kwargs_)
+        if PERMISSIONSType64.subclass:
+            return PERMISSIONSType64.subclass(*args_, **kwargs_)
         else:
-            return PERMISSIONSType68(*args_, **kwargs_)
+            return PERMISSIONSType64(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -43415,32 +42676,32 @@ class PERMISSIONSType68(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType68', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType68')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType64', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType64')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType68':
+        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType64':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType68')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType64')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType68', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType64', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType68'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType64'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType68', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType64', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -43549,10 +42810,10 @@ class PERMISSIONSType68(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'OTHER_A')
             self.OTHER_A = ival_
             self.OTHER_A_nsprefix_ = child_.prefix
-# end class PERMISSIONSType68
+# end class PERMISSIONSType64
 
 
-class CLUSTERSType69(GeneratedsSuper):
+class CLUSTERSType65(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -43570,13 +42831,13 @@ class CLUSTERSType69(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, CLUSTERSType69)
+                CurrentSubclassModule_, CLUSTERSType65)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if CLUSTERSType69.subclass:
-            return CLUSTERSType69.subclass(*args_, **kwargs_)
+        if CLUSTERSType65.subclass:
+            return CLUSTERSType65.subclass(*args_, **kwargs_)
         else:
-            return CLUSTERSType69(*args_, **kwargs_)
+            return CLUSTERSType65(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -43599,32 +42860,32 @@ class CLUSTERSType69(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType69', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('CLUSTERSType69')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType65', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('CLUSTERSType65')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'CLUSTERSType69':
+        if self.original_tagname_ is not None and name_ == 'CLUSTERSType65':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='CLUSTERSType69')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='CLUSTERSType65')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='CLUSTERSType69', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='CLUSTERSType65', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='CLUSTERSType69'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='CLUSTERSType65'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType69', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='CLUSTERSType65', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -43653,10 +42914,10 @@ class CLUSTERSType69(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class CLUSTERSType69
+# end class CLUSTERSType65
 
 
-class VROUTERSType70(GeneratedsSuper):
+class VROUTERSType66(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -43674,13 +42935,13 @@ class VROUTERSType70(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, VROUTERSType70)
+                CurrentSubclassModule_, VROUTERSType66)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if VROUTERSType70.subclass:
-            return VROUTERSType70.subclass(*args_, **kwargs_)
+        if VROUTERSType66.subclass:
+            return VROUTERSType66.subclass(*args_, **kwargs_)
         else:
-            return VROUTERSType70(*args_, **kwargs_)
+            return VROUTERSType66(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -43703,32 +42964,32 @@ class VROUTERSType70(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VROUTERSType70', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VROUTERSType70')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VROUTERSType66', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VROUTERSType66')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'VROUTERSType70':
+        if self.original_tagname_ is not None and name_ == 'VROUTERSType66':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VROUTERSType70')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VROUTERSType66')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VROUTERSType70', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VROUTERSType66', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VROUTERSType70'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VROUTERSType66'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VROUTERSType70', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VROUTERSType66', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -43757,10 +43018,10 @@ class VROUTERSType70(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class VROUTERSType70
+# end class VROUTERSType66
 
 
-class UPDATED_VMSType71(GeneratedsSuper):
+class UPDATED_VMSType67(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -43778,13 +43039,13 @@ class UPDATED_VMSType71(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, UPDATED_VMSType71)
+                CurrentSubclassModule_, UPDATED_VMSType67)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if UPDATED_VMSType71.subclass:
-            return UPDATED_VMSType71.subclass(*args_, **kwargs_)
+        if UPDATED_VMSType67.subclass:
+            return UPDATED_VMSType67.subclass(*args_, **kwargs_)
         else:
-            return UPDATED_VMSType71(*args_, **kwargs_)
+            return UPDATED_VMSType67(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -43807,32 +43068,32 @@ class UPDATED_VMSType71(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATED_VMSType71', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('UPDATED_VMSType71')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATED_VMSType67', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('UPDATED_VMSType67')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'UPDATED_VMSType71':
+        if self.original_tagname_ is not None and name_ == 'UPDATED_VMSType67':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='UPDATED_VMSType71')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='UPDATED_VMSType67')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='UPDATED_VMSType71', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='UPDATED_VMSType67', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='UPDATED_VMSType71'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='UPDATED_VMSType67'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATED_VMSType71', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATED_VMSType67', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -43861,10 +43122,10 @@ class UPDATED_VMSType71(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class UPDATED_VMSType71
+# end class UPDATED_VMSType67
 
 
-class OUTDATED_VMSType72(GeneratedsSuper):
+class OUTDATED_VMSType68(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -43882,13 +43143,13 @@ class OUTDATED_VMSType72(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, OUTDATED_VMSType72)
+                CurrentSubclassModule_, OUTDATED_VMSType68)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if OUTDATED_VMSType72.subclass:
-            return OUTDATED_VMSType72.subclass(*args_, **kwargs_)
+        if OUTDATED_VMSType68.subclass:
+            return OUTDATED_VMSType68.subclass(*args_, **kwargs_)
         else:
-            return OUTDATED_VMSType72(*args_, **kwargs_)
+            return OUTDATED_VMSType68(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -43911,32 +43172,32 @@ class OUTDATED_VMSType72(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='OUTDATED_VMSType72', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('OUTDATED_VMSType72')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='OUTDATED_VMSType68', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('OUTDATED_VMSType68')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'OUTDATED_VMSType72':
+        if self.original_tagname_ is not None and name_ == 'OUTDATED_VMSType68':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='OUTDATED_VMSType72')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='OUTDATED_VMSType68')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='OUTDATED_VMSType72', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='OUTDATED_VMSType68', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='OUTDATED_VMSType72'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='OUTDATED_VMSType68'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='OUTDATED_VMSType72', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='OUTDATED_VMSType68', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -43965,10 +43226,10 @@ class OUTDATED_VMSType72(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class OUTDATED_VMSType72
+# end class OUTDATED_VMSType68
 
 
-class UPDATING_VMSType73(GeneratedsSuper):
+class UPDATING_VMSType69(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -43986,13 +43247,13 @@ class UPDATING_VMSType73(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, UPDATING_VMSType73)
+                CurrentSubclassModule_, UPDATING_VMSType69)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if UPDATING_VMSType73.subclass:
-            return UPDATING_VMSType73.subclass(*args_, **kwargs_)
+        if UPDATING_VMSType69.subclass:
+            return UPDATING_VMSType69.subclass(*args_, **kwargs_)
         else:
-            return UPDATING_VMSType73(*args_, **kwargs_)
+            return UPDATING_VMSType69(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -44015,32 +43276,32 @@ class UPDATING_VMSType73(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATING_VMSType73', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('UPDATING_VMSType73')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATING_VMSType69', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('UPDATING_VMSType69')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'UPDATING_VMSType73':
+        if self.original_tagname_ is not None and name_ == 'UPDATING_VMSType69':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='UPDATING_VMSType73')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='UPDATING_VMSType69')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='UPDATING_VMSType73', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='UPDATING_VMSType69', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='UPDATING_VMSType73'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='UPDATING_VMSType69'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATING_VMSType73', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='UPDATING_VMSType69', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -44069,10 +43330,10 @@ class UPDATING_VMSType73(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class UPDATING_VMSType73
+# end class UPDATING_VMSType69
 
 
-class ERROR_VMSType74(GeneratedsSuper):
+class ERROR_VMSType70(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -44090,13 +43351,13 @@ class ERROR_VMSType74(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, ERROR_VMSType74)
+                CurrentSubclassModule_, ERROR_VMSType70)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if ERROR_VMSType74.subclass:
-            return ERROR_VMSType74.subclass(*args_, **kwargs_)
+        if ERROR_VMSType70.subclass:
+            return ERROR_VMSType70.subclass(*args_, **kwargs_)
         else:
-            return ERROR_VMSType74(*args_, **kwargs_)
+            return ERROR_VMSType70(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -44119,32 +43380,32 @@ class ERROR_VMSType74(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ERROR_VMSType74', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('ERROR_VMSType74')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ERROR_VMSType70', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('ERROR_VMSType70')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'ERROR_VMSType74':
+        if self.original_tagname_ is not None and name_ == 'ERROR_VMSType70':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='ERROR_VMSType74')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='ERROR_VMSType70')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='ERROR_VMSType74', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='ERROR_VMSType70', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='ERROR_VMSType74'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='ERROR_VMSType70'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ERROR_VMSType74', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ERROR_VMSType70', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -44173,292 +43434,10 @@ class ERROR_VMSType74(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class ERROR_VMSType74
+# end class ERROR_VMSType70
 
 
-class TEMPLATEType75(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, DNS=None, GATEWAY=None, GATEWAY6=None, GUEST_MTU=None, IP6_METHOD=None, IP6_METRIC=None, METHOD=None, METRIC=None, NETWORK_ADDRESS=None, NETWORK_MASK=None, SEARCH_DOMAIN=None, anytypeobjs_=None, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-        self.DNS = DNS
-        self.DNS_nsprefix_ = None
-        self.GATEWAY = GATEWAY
-        self.GATEWAY_nsprefix_ = None
-        self.GATEWAY6 = GATEWAY6
-        self.GATEWAY6_nsprefix_ = None
-        self.GUEST_MTU = GUEST_MTU
-        self.GUEST_MTU_nsprefix_ = None
-        self.IP6_METHOD = IP6_METHOD
-        self.IP6_METHOD_nsprefix_ = None
-        self.IP6_METRIC = IP6_METRIC
-        self.IP6_METRIC_nsprefix_ = None
-        self.METHOD = METHOD
-        self.METHOD_nsprefix_ = None
-        self.METRIC = METRIC
-        self.METRIC_nsprefix_ = None
-        self.NETWORK_ADDRESS = NETWORK_ADDRESS
-        self.NETWORK_ADDRESS_nsprefix_ = None
-        self.NETWORK_MASK = NETWORK_MASK
-        self.NETWORK_MASK_nsprefix_ = None
-        self.SEARCH_DOMAIN = SEARCH_DOMAIN
-        self.SEARCH_DOMAIN_nsprefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, TEMPLATEType75)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if TEMPLATEType75.subclass:
-            return TEMPLATEType75.subclass(*args_, **kwargs_)
-        else:
-            return TEMPLATEType75(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def get_DNS(self):
-        return self.DNS
-    def set_DNS(self, DNS):
-        self.DNS = DNS
-    def get_GATEWAY(self):
-        return self.GATEWAY
-    def set_GATEWAY(self, GATEWAY):
-        self.GATEWAY = GATEWAY
-    def get_GATEWAY6(self):
-        return self.GATEWAY6
-    def set_GATEWAY6(self, GATEWAY6):
-        self.GATEWAY6 = GATEWAY6
-    def get_GUEST_MTU(self):
-        return self.GUEST_MTU
-    def set_GUEST_MTU(self, GUEST_MTU):
-        self.GUEST_MTU = GUEST_MTU
-    def get_IP6_METHOD(self):
-        return self.IP6_METHOD
-    def set_IP6_METHOD(self, IP6_METHOD):
-        self.IP6_METHOD = IP6_METHOD
-    def get_IP6_METRIC(self):
-        return self.IP6_METRIC
-    def set_IP6_METRIC(self, IP6_METRIC):
-        self.IP6_METRIC = IP6_METRIC
-    def get_METHOD(self):
-        return self.METHOD
-    def set_METHOD(self, METHOD):
-        self.METHOD = METHOD
-    def get_METRIC(self):
-        return self.METRIC
-    def set_METRIC(self, METRIC):
-        self.METRIC = METRIC
-    def get_NETWORK_ADDRESS(self):
-        return self.NETWORK_ADDRESS
-    def set_NETWORK_ADDRESS(self, NETWORK_ADDRESS):
-        self.NETWORK_ADDRESS = NETWORK_ADDRESS
-    def get_NETWORK_MASK(self):
-        return self.NETWORK_MASK
-    def set_NETWORK_MASK(self, NETWORK_MASK):
-        self.NETWORK_MASK = NETWORK_MASK
-    def get_SEARCH_DOMAIN(self):
-        return self.SEARCH_DOMAIN
-    def set_SEARCH_DOMAIN(self, SEARCH_DOMAIN):
-        self.SEARCH_DOMAIN = SEARCH_DOMAIN
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
-    def has__content(self):
-        if (
-            self.DNS is not None or
-            self.GATEWAY is not None or
-            self.GATEWAY6 is not None or
-            self.GUEST_MTU is not None or
-            self.IP6_METHOD is not None or
-            self.IP6_METRIC is not None or
-            self.METHOD is not None or
-            self.METRIC is not None or
-            self.NETWORK_ADDRESS is not None or
-            self.NETWORK_MASK is not None or
-            self.SEARCH_DOMAIN is not None or
-            self.anytypeobjs_
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType75', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType75')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'TEMPLATEType75':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType75')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType75', pretty_print=pretty_print)
-            showIndent(outfile, level, pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType75'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType75', fromsubclass_=False, pretty_print=True):
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.DNS is not None:
-            namespaceprefix_ = self.DNS_nsprefix_ + ':' if (UseCapturedNS_ and self.DNS_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sDNS>%s</%sDNS>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.DNS), input_name='DNS')), namespaceprefix_ , eol_))
-        if self.GATEWAY is not None:
-            namespaceprefix_ = self.GATEWAY_nsprefix_ + ':' if (UseCapturedNS_ and self.GATEWAY_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sGATEWAY>%s</%sGATEWAY>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.GATEWAY), input_name='GATEWAY')), namespaceprefix_ , eol_))
-        if self.GATEWAY6 is not None:
-            namespaceprefix_ = self.GATEWAY6_nsprefix_ + ':' if (UseCapturedNS_ and self.GATEWAY6_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sGATEWAY6>%s</%sGATEWAY6>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.GATEWAY6), input_name='GATEWAY6')), namespaceprefix_ , eol_))
-        if self.GUEST_MTU is not None:
-            namespaceprefix_ = self.GUEST_MTU_nsprefix_ + ':' if (UseCapturedNS_ and self.GUEST_MTU_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sGUEST_MTU>%s</%sGUEST_MTU>%s' % (namespaceprefix_ , self.gds_format_integer(self.GUEST_MTU, input_name='GUEST_MTU'), namespaceprefix_ , eol_))
-        if self.IP6_METHOD is not None:
-            namespaceprefix_ = self.IP6_METHOD_nsprefix_ + ':' if (UseCapturedNS_ and self.IP6_METHOD_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sIP6_METHOD>%s</%sIP6_METHOD>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.IP6_METHOD), input_name='IP6_METHOD')), namespaceprefix_ , eol_))
-        if self.IP6_METRIC is not None:
-            namespaceprefix_ = self.IP6_METRIC_nsprefix_ + ':' if (UseCapturedNS_ and self.IP6_METRIC_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sIP6_METRIC>%s</%sIP6_METRIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.IP6_METRIC), input_name='IP6_METRIC')), namespaceprefix_ , eol_))
-        if self.METHOD is not None:
-            namespaceprefix_ = self.METHOD_nsprefix_ + ':' if (UseCapturedNS_ and self.METHOD_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sMETHOD>%s</%sMETHOD>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.METHOD), input_name='METHOD')), namespaceprefix_ , eol_))
-        if self.METRIC is not None:
-            namespaceprefix_ = self.METRIC_nsprefix_ + ':' if (UseCapturedNS_ and self.METRIC_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sMETRIC>%s</%sMETRIC>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.METRIC), input_name='METRIC')), namespaceprefix_ , eol_))
-        if self.NETWORK_ADDRESS is not None:
-            namespaceprefix_ = self.NETWORK_ADDRESS_nsprefix_ + ':' if (UseCapturedNS_ and self.NETWORK_ADDRESS_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sNETWORK_ADDRESS>%s</%sNETWORK_ADDRESS>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.NETWORK_ADDRESS), input_name='NETWORK_ADDRESS')), namespaceprefix_ , eol_))
-        if self.NETWORK_MASK is not None:
-            namespaceprefix_ = self.NETWORK_MASK_nsprefix_ + ':' if (UseCapturedNS_ and self.NETWORK_MASK_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sNETWORK_MASK>%s</%sNETWORK_MASK>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.NETWORK_MASK), input_name='NETWORK_MASK')), namespaceprefix_ , eol_))
-        if self.SEARCH_DOMAIN is not None:
-            namespaceprefix_ = self.SEARCH_DOMAIN_nsprefix_ + ':' if (UseCapturedNS_ and self.SEARCH_DOMAIN_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sSEARCH_DOMAIN>%s</%sSEARCH_DOMAIN>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.SEARCH_DOMAIN), input_name='SEARCH_DOMAIN')), namespaceprefix_ , eol_))
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        if nodeName_ == 'DNS':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'DNS')
-            value_ = self.gds_validate_string(value_, node, 'DNS')
-            self.DNS = value_
-            self.DNS_nsprefix_ = child_.prefix
-        elif nodeName_ == 'GATEWAY':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'GATEWAY')
-            value_ = self.gds_validate_string(value_, node, 'GATEWAY')
-            self.GATEWAY = value_
-            self.GATEWAY_nsprefix_ = child_.prefix
-        elif nodeName_ == 'GATEWAY6':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'GATEWAY6')
-            value_ = self.gds_validate_string(value_, node, 'GATEWAY6')
-            self.GATEWAY6 = value_
-            self.GATEWAY6_nsprefix_ = child_.prefix
-        elif nodeName_ == 'GUEST_MTU' and child_.text:
-            sval_ = child_.text
-            ival_ = self.gds_parse_integer(sval_, node, 'GUEST_MTU')
-            ival_ = self.gds_validate_integer(ival_, node, 'GUEST_MTU')
-            self.GUEST_MTU = ival_
-            self.GUEST_MTU_nsprefix_ = child_.prefix
-        elif nodeName_ == 'IP6_METHOD':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'IP6_METHOD')
-            value_ = self.gds_validate_string(value_, node, 'IP6_METHOD')
-            self.IP6_METHOD = value_
-            self.IP6_METHOD_nsprefix_ = child_.prefix
-        elif nodeName_ == 'IP6_METRIC':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'IP6_METRIC')
-            value_ = self.gds_validate_string(value_, node, 'IP6_METRIC')
-            self.IP6_METRIC = value_
-            self.IP6_METRIC_nsprefix_ = child_.prefix
-        elif nodeName_ == 'METHOD':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'METHOD')
-            value_ = self.gds_validate_string(value_, node, 'METHOD')
-            self.METHOD = value_
-            self.METHOD_nsprefix_ = child_.prefix
-        elif nodeName_ == 'METRIC':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'METRIC')
-            value_ = self.gds_validate_string(value_, node, 'METRIC')
-            self.METRIC = value_
-            self.METRIC_nsprefix_ = child_.prefix
-        elif nodeName_ == 'NETWORK_ADDRESS':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'NETWORK_ADDRESS')
-            value_ = self.gds_validate_string(value_, node, 'NETWORK_ADDRESS')
-            self.NETWORK_ADDRESS = value_
-            self.NETWORK_ADDRESS_nsprefix_ = child_.prefix
-        elif nodeName_ == 'NETWORK_MASK':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'NETWORK_MASK')
-            value_ = self.gds_validate_string(value_, node, 'NETWORK_MASK')
-            self.NETWORK_MASK = value_
-            self.NETWORK_MASK_nsprefix_ = child_.prefix
-        elif nodeName_ == 'SEARCH_DOMAIN':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'SEARCH_DOMAIN')
-            value_ = self.gds_validate_string(value_, node, 'SEARCH_DOMAIN')
-            self.SEARCH_DOMAIN = value_
-            self.SEARCH_DOMAIN_nsprefix_ = child_.prefix
-        else:
-            content_ = self.gds_build_any(child_, 'TEMPLATEType75')
-            self.anytypeobjs_.append(content_)
-# end class TEMPLATEType75
-
-
-class AR_POOLType76(GeneratedsSuper):
+class AR_POOLType71(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -44476,13 +43455,13 @@ class AR_POOLType76(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, AR_POOLType76)
+                CurrentSubclassModule_, AR_POOLType71)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if AR_POOLType76.subclass:
-            return AR_POOLType76.subclass(*args_, **kwargs_)
+        if AR_POOLType71.subclass:
+            return AR_POOLType71.subclass(*args_, **kwargs_)
         else:
-            return AR_POOLType76(*args_, **kwargs_)
+            return AR_POOLType71(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -44505,32 +43484,32 @@ class AR_POOLType76(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='AR_POOLType76', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('AR_POOLType76')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='AR_POOLType71', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('AR_POOLType71')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'AR_POOLType76':
+        if self.original_tagname_ is not None and name_ == 'AR_POOLType71':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='AR_POOLType76')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='AR_POOLType71')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='AR_POOLType76', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='AR_POOLType71', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='AR_POOLType76'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='AR_POOLType71'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='AR_POOLType76', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='AR_POOLType71', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -44553,14 +43532,14 @@ class AR_POOLType76(GeneratedsSuper):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         if nodeName_ == 'AR':
-            obj_ = ARType77.factory(parent_object_=self)
+            obj_ = ARType72.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.AR.append(obj_)
             obj_.original_tagname_ = 'AR'
-# end class AR_POOLType76
+# end class AR_POOLType71
 
 
-class ARType77(GeneratedsSuper):
+class ARType72(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -44615,13 +43594,13 @@ class ARType77(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, ARType77)
+                CurrentSubclassModule_, ARType72)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if ARType77.subclass:
-            return ARType77.subclass(*args_, **kwargs_)
+        if ARType72.subclass:
+            return ARType72.subclass(*args_, **kwargs_)
         else:
-            return ARType77(*args_, **kwargs_)
+            return ARType72(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -44738,32 +43717,32 @@ class ARType77(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ARType77', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('ARType77')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ARType72', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('ARType72')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'ARType77':
+        if self.original_tagname_ is not None and name_ == 'ARType72':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='ARType77')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='ARType72')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='ARType77', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='ARType72', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='ARType77'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='ARType72'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ARType77', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='ARType72', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -44990,7 +43969,7 @@ class ARType77(GeneratedsSuper):
             obj_.build(child_, gds_collector_=gds_collector_)
             self.LEASES = obj_
             obj_.original_tagname_ = 'LEASES'
-# end class ARType77
+# end class ARType72
 
 
 class LEASESType(GeneratedsSuper):
@@ -45326,7 +44305,7 @@ class LEASEType(GeneratedsSuper):
 # end class LEASEType
 
 
-class LOCKType78(GeneratedsSuper):
+class LOCKType73(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -45347,13 +44326,13 @@ class LOCKType78(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, LOCKType78)
+                CurrentSubclassModule_, LOCKType73)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if LOCKType78.subclass:
-            return LOCKType78.subclass(*args_, **kwargs_)
+        if LOCKType73.subclass:
+            return LOCKType73.subclass(*args_, **kwargs_)
         else:
-            return LOCKType78(*args_, **kwargs_)
+            return LOCKType73(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -45385,32 +44364,32 @@ class LOCKType78(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType78', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType78')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType73', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType73')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'LOCKType78':
+        if self.original_tagname_ is not None and name_ == 'LOCKType73':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType78')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType73')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType78', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType73', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType78'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType73'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType78', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType73', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -45469,10 +44448,10 @@ class LOCKType78(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'REQ_ID')
             self.REQ_ID = ival_
             self.REQ_ID_nsprefix_ = child_.prefix
-# end class LOCKType78
+# end class LOCKType73
 
 
-class PERMISSIONSType79(GeneratedsSuper):
+class PERMISSIONSType74(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -45503,13 +44482,13 @@ class PERMISSIONSType79(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, PERMISSIONSType79)
+                CurrentSubclassModule_, PERMISSIONSType74)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if PERMISSIONSType79.subclass:
-            return PERMISSIONSType79.subclass(*args_, **kwargs_)
+        if PERMISSIONSType74.subclass:
+            return PERMISSIONSType74.subclass(*args_, **kwargs_)
         else:
-            return PERMISSIONSType79(*args_, **kwargs_)
+            return PERMISSIONSType74(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -45566,32 +44545,32 @@ class PERMISSIONSType79(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType79', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType79')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType74', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType74')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType79':
+        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType74':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType79')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType74')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType79', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType74', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType79'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType74'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType79', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType74', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -45700,122 +44679,10 @@ class PERMISSIONSType79(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'OTHER_A')
             self.OTHER_A = ival_
             self.OTHER_A_nsprefix_ = child_.prefix
-# end class PERMISSIONSType79
+# end class PERMISSIONSType74
 
 
-class TEMPLATEType80(GeneratedsSuper):
-    __hash__ = GeneratedsSuper.__hash__
-    subclass = None
-    superclass = None
-    def __init__(self, VN_MAD=None, anytypeobjs_=None, gds_collector_=None, **kwargs_):
-        self.gds_collector_ = gds_collector_
-        self.gds_elementtree_node_ = None
-        self.original_tagname_ = None
-        self.parent_object_ = kwargs_.get('parent_object_')
-        self.ns_prefix_ = None
-        self.VN_MAD = VN_MAD
-        self.VN_MAD_nsprefix_ = None
-        if anytypeobjs_ is None:
-            self.anytypeobjs_ = []
-        else:
-            self.anytypeobjs_ = anytypeobjs_
-    def factory(*args_, **kwargs_):
-        if CurrentSubclassModule_ is not None:
-            subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, TEMPLATEType80)
-            if subclass is not None:
-                return subclass(*args_, **kwargs_)
-        if TEMPLATEType80.subclass:
-            return TEMPLATEType80.subclass(*args_, **kwargs_)
-        else:
-            return TEMPLATEType80(*args_, **kwargs_)
-    factory = staticmethod(factory)
-    def get_ns_prefix_(self):
-        return self.ns_prefix_
-    def set_ns_prefix_(self, ns_prefix):
-        self.ns_prefix_ = ns_prefix
-    def get_VN_MAD(self):
-        return self.VN_MAD
-    def set_VN_MAD(self, VN_MAD):
-        self.VN_MAD = VN_MAD
-    def get_anytypeobjs_(self): return self.anytypeobjs_
-    def set_anytypeobjs_(self, anytypeobjs_): self.anytypeobjs_ = anytypeobjs_
-    def add_anytypeobjs_(self, value): self.anytypeobjs_.append(value)
-    def insert_anytypeobjs_(self, index, value): self._anytypeobjs_[index] = value
-    def has__content(self):
-        if (
-            self.VN_MAD is not None or
-            self.anytypeobjs_
-        ):
-            return True
-        else:
-            return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType80', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType80')
-        if imported_ns_def_ is not None:
-            namespacedef_ = imported_ns_def_
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'TEMPLATEType80':
-            name_ = self.original_tagname_
-        if UseCapturedNS_ and self.ns_prefix_:
-            namespaceprefix_ = self.ns_prefix_ + ':'
-        showIndent(outfile, level, pretty_print)
-        outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
-        already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType80')
-        if self.has__content():
-            outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType80', pretty_print=pretty_print)
-            showIndent(outfile, level, pretty_print)
-            outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
-        else:
-            outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType80'):
-        pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType80', fromsubclass_=False, pretty_print=True):
-        if pretty_print:
-            eol_ = '\n'
-        else:
-            eol_ = ''
-        if self.VN_MAD is not None:
-            namespaceprefix_ = self.VN_MAD_nsprefix_ + ':' if (UseCapturedNS_ and self.VN_MAD_nsprefix_) else ''
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sVN_MAD>%s</%sVN_MAD>%s' % (namespaceprefix_ , self.gds_encode(self.gds_format_string(quote_xml(self.VN_MAD), input_name='VN_MAD')), namespaceprefix_ , eol_))
-        if not fromsubclass_:
-            for obj_ in self.anytypeobjs_:
-                showIndent(outfile, level, pretty_print)
-                outfile.write(str(obj_))
-                outfile.write('\n')
-    def build(self, node, gds_collector_=None):
-        self.gds_collector_ = gds_collector_
-        if SaveElementTreeNode:
-            self.gds_elementtree_node_ = node
-        already_processed = set()
-        self.ns_prefix_ = node.prefix
-        self._buildAttributes(node, node.attrib, already_processed)
-        for child in node:
-            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
-            self._buildChildren(child, node, nodeName_, gds_collector_=gds_collector_)
-        return self
-    def _buildAttributes(self, node, attrs, already_processed):
-        pass
-    def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
-        if nodeName_ == 'VN_MAD':
-            value_ = child_.text
-            value_ = self.gds_parse_string(value_, node, 'VN_MAD')
-            value_ = self.gds_validate_string(value_, node, 'VN_MAD')
-            self.VN_MAD = value_
-            self.VN_MAD_nsprefix_ = child_.prefix
-        else:
-            content_ = self.gds_build_any(child_, 'TEMPLATEType80')
-            self.anytypeobjs_.append(content_)
-# end class TEMPLATEType80
-
-
-class PERMISSIONSType81(GeneratedsSuper):
+class PERMISSIONSType75(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -45846,13 +44713,13 @@ class PERMISSIONSType81(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, PERMISSIONSType81)
+                CurrentSubclassModule_, PERMISSIONSType75)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if PERMISSIONSType81.subclass:
-            return PERMISSIONSType81.subclass(*args_, **kwargs_)
+        if PERMISSIONSType75.subclass:
+            return PERMISSIONSType75.subclass(*args_, **kwargs_)
         else:
-            return PERMISSIONSType81(*args_, **kwargs_)
+            return PERMISSIONSType75(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -45909,32 +44776,32 @@ class PERMISSIONSType81(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType81', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType81')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType75', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('PERMISSIONSType75')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType81':
+        if self.original_tagname_ is not None and name_ == 'PERMISSIONSType75':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType81')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='PERMISSIONSType75')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType81', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='PERMISSIONSType75', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType81'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='PERMISSIONSType75'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType81', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='PERMISSIONSType75', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -46043,10 +44910,10 @@ class PERMISSIONSType81(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'OTHER_A')
             self.OTHER_A = ival_
             self.OTHER_A_nsprefix_ = child_.prefix
-# end class PERMISSIONSType81
+# end class PERMISSIONSType75
 
 
-class LOCKType82(GeneratedsSuper):
+class LOCKType76(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -46067,13 +44934,13 @@ class LOCKType82(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, LOCKType82)
+                CurrentSubclassModule_, LOCKType76)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if LOCKType82.subclass:
-            return LOCKType82.subclass(*args_, **kwargs_)
+        if LOCKType76.subclass:
+            return LOCKType76.subclass(*args_, **kwargs_)
         else:
-            return LOCKType82(*args_, **kwargs_)
+            return LOCKType76(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -46105,32 +44972,32 @@ class LOCKType82(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType82', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType82')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType76', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('LOCKType76')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'LOCKType82':
+        if self.original_tagname_ is not None and name_ == 'LOCKType76':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType82')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='LOCKType76')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType82', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='LOCKType76', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType82'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='LOCKType76'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType82', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='LOCKType76', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -46189,10 +45056,10 @@ class LOCKType82(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'REQ_ID')
             self.REQ_ID = ival_
             self.REQ_ID_nsprefix_ = child_.prefix
-# end class LOCKType82
+# end class LOCKType76
 
 
-class VMSType83(GeneratedsSuper):
+class VMSType77(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -46210,13 +45077,13 @@ class VMSType83(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, VMSType83)
+                CurrentSubclassModule_, VMSType77)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if VMSType83.subclass:
-            return VMSType83.subclass(*args_, **kwargs_)
+        if VMSType77.subclass:
+            return VMSType77.subclass(*args_, **kwargs_)
         else:
-            return VMSType83(*args_, **kwargs_)
+            return VMSType77(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -46239,32 +45106,32 @@ class VMSType83(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMSType83', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VMSType83')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMSType77', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('VMSType77')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'VMSType83':
+        if self.original_tagname_ is not None and name_ == 'VMSType77':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VMSType83')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='VMSType77')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VMSType83', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='VMSType77', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VMSType83'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='VMSType77'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMSType83', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='VMSType77', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -46293,7 +45160,7 @@ class VMSType83(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'ID')
             self.ID.append(ival_)
             self.ID_nsprefix_ = child_.prefix
-# end class VMSType83
+# end class VMSType77
 
 
 class ZONEType(GeneratedsSuper):
@@ -46443,7 +45310,7 @@ class ZONEType(GeneratedsSuper):
             self.STATE = ival_
             self.STATE_nsprefix_ = child_.prefix
         elif nodeName_ == 'TEMPLATE':
-            obj_ = TEMPLATEType84.factory(parent_object_=self)
+            obj_ = TEMPLATEType78.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.TEMPLATE = obj_
             obj_.original_tagname_ = 'TEMPLATE'
@@ -46455,7 +45322,7 @@ class ZONEType(GeneratedsSuper):
 # end class ZONEType
 
 
-class TEMPLATEType84(GeneratedsSuper):
+class TEMPLATEType78(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -46470,13 +45337,13 @@ class TEMPLATEType84(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, TEMPLATEType84)
+                CurrentSubclassModule_, TEMPLATEType78)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if TEMPLATEType84.subclass:
-            return TEMPLATEType84.subclass(*args_, **kwargs_)
+        if TEMPLATEType78.subclass:
+            return TEMPLATEType78.subclass(*args_, **kwargs_)
         else:
-            return TEMPLATEType84(*args_, **kwargs_)
+            return TEMPLATEType78(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -46493,32 +45360,32 @@ class TEMPLATEType84(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType84', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType84')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType78', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType78')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'TEMPLATEType84':
+        if self.original_tagname_ is not None and name_ == 'TEMPLATEType78':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType84')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType78')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType84', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType78', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType84'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType78'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType84', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType78', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -46547,7 +45414,7 @@ class TEMPLATEType84(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'ENDPOINT')
             self.ENDPOINT = value_
             self.ENDPOINT_nsprefix_ = child_.prefix
-# end class TEMPLATEType84
+# end class TEMPLATEType78
 
 
 class SERVER_POOLType(GeneratedsSuper):
@@ -46781,7 +45648,7 @@ class SERVERType(GeneratedsSuper):
 # end class SERVERType
 
 
-class TEMPLATEType85(GeneratedsSuper):
+class TEMPLATEType79(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -46796,13 +45663,13 @@ class TEMPLATEType85(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, TEMPLATEType85)
+                CurrentSubclassModule_, TEMPLATEType79)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if TEMPLATEType85.subclass:
-            return TEMPLATEType85.subclass(*args_, **kwargs_)
+        if TEMPLATEType79.subclass:
+            return TEMPLATEType79.subclass(*args_, **kwargs_)
         else:
-            return TEMPLATEType85(*args_, **kwargs_)
+            return TEMPLATEType79(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -46819,32 +45686,32 @@ class TEMPLATEType85(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType85', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType85')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType79', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('TEMPLATEType79')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'TEMPLATEType85':
+        if self.original_tagname_ is not None and name_ == 'TEMPLATEType79':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType85')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='TEMPLATEType79')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType85', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='TEMPLATEType79', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType85'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='TEMPLATEType79'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType85', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='TEMPLATEType79', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -46873,10 +45740,10 @@ class TEMPLATEType85(GeneratedsSuper):
             value_ = self.gds_validate_string(value_, node, 'ENDPOINT')
             self.ENDPOINT = value_
             self.ENDPOINT_nsprefix_ = child_.prefix
-# end class TEMPLATEType85
+# end class TEMPLATEType79
 
 
-class SERVER_POOLType86(GeneratedsSuper):
+class SERVER_POOLType80(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -46894,13 +45761,13 @@ class SERVER_POOLType86(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, SERVER_POOLType86)
+                CurrentSubclassModule_, SERVER_POOLType80)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if SERVER_POOLType86.subclass:
-            return SERVER_POOLType86.subclass(*args_, **kwargs_)
+        if SERVER_POOLType80.subclass:
+            return SERVER_POOLType80.subclass(*args_, **kwargs_)
         else:
-            return SERVER_POOLType86(*args_, **kwargs_)
+            return SERVER_POOLType80(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -46923,32 +45790,32 @@ class SERVER_POOLType86(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SERVER_POOLType86', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SERVER_POOLType86')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SERVER_POOLType80', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SERVER_POOLType80')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'SERVER_POOLType86':
+        if self.original_tagname_ is not None and name_ == 'SERVER_POOLType80':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SERVER_POOLType86')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SERVER_POOLType80')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SERVER_POOLType86', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SERVER_POOLType80', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SERVER_POOLType86'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SERVER_POOLType80'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SERVER_POOLType86', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SERVER_POOLType80', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -46971,14 +45838,14 @@ class SERVER_POOLType86(GeneratedsSuper):
         pass
     def _buildChildren(self, child_, node, nodeName_, fromsubclass_=False, gds_collector_=None):
         if nodeName_ == 'SERVER':
-            obj_ = SERVERType87.factory(parent_object_=self)
+            obj_ = SERVERType81.factory(parent_object_=self)
             obj_.build(child_, gds_collector_=gds_collector_)
             self.SERVER.append(obj_)
             obj_.original_tagname_ = 'SERVER'
-# end class SERVER_POOLType86
+# end class SERVER_POOLType80
 
 
-class SERVERType87(GeneratedsSuper):
+class SERVERType81(GeneratedsSuper):
     __hash__ = GeneratedsSuper.__hash__
     subclass = None
     superclass = None
@@ -47009,13 +45876,13 @@ class SERVERType87(GeneratedsSuper):
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, SERVERType87)
+                CurrentSubclassModule_, SERVERType81)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if SERVERType87.subclass:
-            return SERVERType87.subclass(*args_, **kwargs_)
+        if SERVERType81.subclass:
+            return SERVERType81.subclass(*args_, **kwargs_)
         else:
-            return SERVERType87(*args_, **kwargs_)
+            return SERVERType81(*args_, **kwargs_)
     factory = staticmethod(factory)
     def get_ns_prefix_(self):
         return self.ns_prefix_
@@ -47072,32 +45939,32 @@ class SERVERType87(GeneratedsSuper):
             return True
         else:
             return False
-    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SERVERType87', pretty_print=True):
-        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SERVERType87')
+    def export(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SERVERType81', pretty_print=True):
+        imported_ns_def_ = GenerateDSNamespaceDefs_.get('SERVERType81')
         if imported_ns_def_ is not None:
             namespacedef_ = imported_ns_def_
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.original_tagname_ is not None and name_ == 'SERVERType87':
+        if self.original_tagname_ is not None and name_ == 'SERVERType81':
             name_ = self.original_tagname_
         if UseCapturedNS_ and self.ns_prefix_:
             namespaceprefix_ = self.ns_prefix_ + ':'
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespaceprefix_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SERVERType87')
+        self._exportAttributes(outfile, level, already_processed, namespaceprefix_, name_='SERVERType81')
         if self.has__content():
             outfile.write('>%s' % (eol_, ))
-            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SERVERType87', pretty_print=pretty_print)
+            self._exportChildren(outfile, level + 1, namespaceprefix_, namespacedef_, name_='SERVERType81', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespaceprefix_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SERVERType87'):
+    def _exportAttributes(self, outfile, level, already_processed, namespaceprefix_='', name_='SERVERType81'):
         pass
-    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SERVERType87', fromsubclass_=False, pretty_print=True):
+    def _exportChildren(self, outfile, level, namespaceprefix_='', namespacedef_=' xmlns:None="http://opennebula.org/XMLSchema" ', name_='SERVERType81', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -47206,7 +46073,7 @@ class SERVERType87(GeneratedsSuper):
             ival_ = self.gds_validate_integer(ival_, node, 'FEDLOG_INDEX')
             self.FEDLOG_INDEX = ival_
             self.FEDLOG_INDEX_nsprefix_ = child_.prefix
-# end class SERVERType87
+# end class SERVERType81
 
 
 #
@@ -47443,26 +46310,26 @@ __all__ = [
     "ADMINSType",
     "ADMINSType6",
     "ARType",
-    "ARType77",
+    "ARType72",
     "AR_POOLType",
-    "AR_POOLType76",
+    "AR_POOLType71",
     "AUTH_MADType",
     "AUTH_MAD_CONFType",
     "BACKUPJOB",
     "BACKUPJOB_POOL",
     "BACKUPSType",
-    "BACKUPSType58",
+    "BACKUPSType54",
     "BACKUP_CONFIGType",
-    "BACKUP_CONFIGType59",
+    "BACKUP_CONFIGType55",
     "BACKUP_IDSType",
     "BACKUP_INCREMENTSType",
     "CALL_INFO",
     "CAPACITYType",
     "CLUSTER",
     "CLUSTERSType",
-    "CLUSTERSType34",
-    "CLUSTERSType62",
-    "CLUSTERSType69",
+    "CLUSTERSType33",
+    "CLUSTERSType58",
+    "CLUSTERSType65",
     "CLUSTERType",
     "CLUSTER_POOL",
     "CONTEXT",
@@ -47470,9 +46337,9 @@ __all__ = [
     "DATASTORE",
     "DATASTORESType",
     "DATASTORESType11",
-    "DATASTORESType36",
+    "DATASTORESType35",
     "DATASTOREType",
-    "DATASTOREType37",
+    "DATASTOREType36",
     "DATASTORE_MADType",
     "DATASTORE_POOL",
     "DATASTORE_QUOTA",
@@ -47481,18 +46348,17 @@ __all__ = [
     "DEFAULT_GROUP_QUOTASType",
     "DEFAULT_GROUP_QUOTASType7",
     "DEFAULT_USER_QUOTASType",
-    "DEFAULT_USER_QUOTASType30",
-    "DISKType",
-    "DISKType50",
+    "DEFAULT_USER_QUOTASType29",
+    "DISK",
     "DISK_SIZEType",
-    "DISK_SIZEType48",
+    "DISK_SIZEType46",
     "DOCUMENT",
     "DOCUMENT_POOL",
     "DSType",
     "DS_MAD_CONFType",
     "ERROR_VMSType",
-    "ERROR_VMSType66",
-    "ERROR_VMSType74",
+    "ERROR_VMSType62",
+    "ERROR_VMSType70",
     "EXECUTION_RESULTType",
     "EXTRAType",
     "FEATURES",
@@ -47500,16 +46366,16 @@ __all__ = [
     "GRAPHICS",
     "GROUP",
     "GROUPSType",
-    "GROUPSType28",
-    "GROUPSType33",
+    "GROUPSType27",
+    "GROUPSType32",
     "GROUPType",
     "GROUP_POOL",
     "HISTORY",
     "HISTORYType",
-    "HISTORYType55",
+    "HISTORYType51",
     "HISTORY_RECORDS",
     "HISTORY_RECORDSType",
-    "HISTORY_RECORDSType54",
+    "HISTORY_RECORDSType50",
     "HM_MADType",
     "HOOK",
     "HOOKLOGType",
@@ -47519,7 +46385,7 @@ __all__ = [
     "HOOK_POOL",
     "HOST",
     "HOSTSType",
-    "HOSTSType35",
+    "HOSTSType34",
     "HOSTType",
     "HOST_POOL",
     "HOST_SHAREType",
@@ -47541,14 +46407,14 @@ __all__ = [
     "LOCK",
     "LOCKType",
     "LOCKType14",
-    "LOCKType19",
-    "LOCKType40",
-    "LOCKType44",
-    "LOCKType67",
-    "LOCKType78",
-    "LOCKType82",
+    "LOCKType18",
+    "LOCKType39",
+    "LOCKType43",
+    "LOCKType63",
+    "LOCKType73",
+    "LOCKType76",
     "LOGIN_TOKENType",
-    "LOGIN_TOKENType29",
+    "LOGIN_TOKENType28",
     "LOGType",
     "MARKETPLACE",
     "MARKETPLACEAPP",
@@ -47561,14 +46427,14 @@ __all__ = [
     "MEMORYType13",
     "MONITORING",
     "MONITORINGType",
-    "MONITORINGType22",
-    "MONITORINGType43",
-    "MONITORINGType47",
+    "MONITORINGType21",
+    "MONITORINGType42",
+    "MONITORINGType45",
     "MONITORING_DATA",
     "NETWORKType",
     "NETWORK_QUOTA",
     "NICType",
-    "NICType51",
+    "NICType48",
     "NIC_ALIASType",
     "NIC_DEFAULT",
     "NODEType",
@@ -47578,8 +46444,8 @@ __all__ = [
     "OPENNEBULA_CONFIGURATION",
     "OS",
     "OUTDATED_VMSType",
-    "OUTDATED_VMSType64",
-    "OUTDATED_VMSType72",
+    "OUTDATED_VMSType60",
+    "OUTDATED_VMSType68",
     "PARAMETERSType",
     "PARAMETERType",
     "PCI",
@@ -47588,20 +46454,20 @@ __all__ = [
     "PERMISSIONS",
     "PERMISSIONSType",
     "PERMISSIONSType15",
+    "PERMISSIONSType19",
     "PERMISSIONSType2",
     "PERMISSIONSType20",
-    "PERMISSIONSType21",
-    "PERMISSIONSType23",
+    "PERMISSIONSType22",
     "PERMISSIONSType3",
-    "PERMISSIONSType39",
-    "PERMISSIONSType45",
-    "PERMISSIONSType61",
-    "PERMISSIONSType68",
-    "PERMISSIONSType79",
-    "PERMISSIONSType81",
+    "PERMISSIONSType38",
+    "PERMISSIONSType44",
+    "PERMISSIONSType57",
+    "PERMISSIONSType64",
+    "PERMISSIONSType74",
+    "PERMISSIONSType75",
     "PLANType",
     "QUOTASType",
-    "QUOTASType25",
+    "QUOTASType24",
     "RAFT",
     "RAFTType",
     "RAW",
@@ -47609,54 +46475,47 @@ __all__ = [
     "ROLEType",
     "RULEType",
     "SCHED_ACTION",
-    "SCHED_ACTIONType",
     "SCHED_MADType",
     "SECURITY_GROUP",
     "SECURITY_GROUP_POOL",
     "SECURITY_GROUP_RULE",
     "SERVERType",
-    "SERVERType87",
+    "SERVERType81",
     "SERVER_POOLType",
-    "SERVER_POOLType86",
+    "SERVER_POOLType80",
     "SHOWBACKType",
     "SHOWBACK_RECORDS",
     "SNAPSHOTSType",
-    "SNAPSHOTSType17",
-    "SNAPSHOTSType56",
+    "SNAPSHOTSType16",
+    "SNAPSHOTSType52",
     "SNAPSHOTType",
-    "SNAPSHOTType18",
-    "SNAPSHOTType52",
-    "SNAPSHOTType57",
+    "SNAPSHOTType17",
+    "SNAPSHOTType49",
+    "SNAPSHOTType53",
     "SPICE_OPTIONS",
     "SYSTEMType",
-    "TEMPLATE",
     "TEMPLATEType",
     "TEMPLATEType10",
-    "TEMPLATEType16",
-    "TEMPLATEType24",
-    "TEMPLATEType42",
-    "TEMPLATEType46",
-    "TEMPLATEType49",
-    "TEMPLATEType75",
-    "TEMPLATEType80",
-    "TEMPLATEType84",
-    "TEMPLATEType85",
+    "TEMPLATEType23",
+    "TEMPLATEType41",
+    "TEMPLATEType47",
+    "TEMPLATEType78",
+    "TEMPLATEType79",
     "TM_MADType",
     "TM_MAD_CONFType",
     "TOPOLOGY",
+    "TPMType",
     "UPDATED_VMSType",
-    "UPDATED_VMSType63",
-    "UPDATED_VMSType71",
+    "UPDATED_VMSType59",
+    "UPDATED_VMSType67",
     "UPDATING_VMSType",
-    "UPDATING_VMSType65",
-    "UPDATING_VMSType73",
+    "UPDATING_VMSType61",
+    "UPDATING_VMSType69",
     "USER",
     "USERSType",
     "USERSType5",
     "USERType",
     "USER_POOL",
-    "USER_TEMPLATEType",
-    "USER_TEMPLATEType53",
     "VDC",
     "VDC_POOL",
     "VIDEOType",
@@ -47664,15 +46523,15 @@ __all__ = [
     "VM",
     "VMGROUP",
     "VMSType",
-    "VMSType83",
+    "VMSType77",
     "VMTEMPLATE",
     "VMTEMPLATE_POOL",
     "VMType",
     "VMType1",
-    "VMType27",
-    "VMType32",
+    "VMType26",
+    "VMType31",
     "VMType4",
-    "VMType41",
+    "VMType40",
     "VMType9",
     "VM_GROUP",
     "VM_GROUP_POOL",
@@ -47680,22 +46539,22 @@ __all__ = [
     "VM_POOL",
     "VM_QUOTA",
     "VM_QUOTAType",
-    "VM_QUOTAType26",
-    "VM_QUOTAType31",
+    "VM_QUOTAType25",
+    "VM_QUOTAType30",
     "VM_QUOTAType8",
     "VNC_PORTSType",
     "VNET",
     "VNETSType",
-    "VNETSType38",
+    "VNETSType37",
     "VNETType",
-    "VNETType60",
+    "VNETType56",
     "VNET_POOL",
     "VNTEMPLATE",
     "VNTEMPLATE_POOL",
     "VN_MAD_CONFType",
     "VROUTER",
     "VROUTERSType",
-    "VROUTERSType70",
+    "VROUTERSType66",
     "VROUTER_POOL",
     "VXLAN_IDSType",
     "ZONE",

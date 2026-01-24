@@ -14,9 +14,14 @@
 
 
 import unittest
+import uuid
 import mock
 
-from google.cloud.spanner_v1 import TransactionOptions
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.semconv.resource import ResourceAttributes
+
+
+from google.cloud.spanner_v1 import TransactionOptions, _helpers
 
 
 class Test_merge_query_options(unittest.TestCase):
@@ -87,6 +92,48 @@ class Test_merge_query_options(unittest.TestCase):
         )
         result = self._callFUT(base, merge)
         self.assertEqual(result, expected)
+
+
+class Test_get_cloud_region(unittest.TestCase):
+    def setUp(self):
+        _helpers._cloud_region = None
+
+    def _callFUT(self, *args, **kw):
+        from google.cloud.spanner_v1._helpers import _get_cloud_region
+
+        return _get_cloud_region(*args, **kw)
+
+    @mock.patch("google.cloud.spanner_v1._helpers.GoogleCloudResourceDetector.detect")
+    def test_get_location_with_region(self, mock_detect):
+        """Test that _get_cloud_region returns the region when detected."""
+        mock_resource = Resource.create(
+            {ResourceAttributes.CLOUD_REGION: "us-central1"}
+        )
+        mock_detect.return_value = mock_resource
+
+        location = self._callFUT()
+        self.assertEqual(location, "us-central1")
+
+    @mock.patch("google.cloud.spanner_v1._helpers.GoogleCloudResourceDetector.detect")
+    def test_get_location_without_region(self, mock_detect):
+        """Test that _get_cloud_region returns 'global' when no region is detected."""
+        mock_resource = Resource.create({})  # No region attribute
+        mock_detect.return_value = mock_resource
+
+        location = self._callFUT()
+        self.assertEqual(location, "global")
+
+    @mock.patch("google.cloud.spanner_v1._helpers.GoogleCloudResourceDetector.detect")
+    def test_get_location_with_exception(self, mock_detect):
+        """Test that _get_cloud_region returns 'global' and logs a warning on exception."""
+        mock_detect.side_effect = Exception("detector failed")
+
+        with self.assertLogs(
+            "google.cloud.spanner_v1._helpers", level="WARNING"
+        ) as log:
+            location = self._callFUT()
+            self.assertEqual(location, "global")
+            self.assertIn("Failed to detect GCP resource location", log.output[0])
 
 
 class Test_make_value_pb(unittest.TestCase):
@@ -739,6 +786,18 @@ class Test_parse_value_pb(unittest.TestCase):
         self.assertEqual(
             self._callFUT(value_pb, field_type, field_name, column_info), VALUE
         )
+
+    def test_w_uuid(self):
+        from google.protobuf.struct_pb2 import Value
+        from google.cloud.spanner_v1 import Type
+        from google.cloud.spanner_v1 import TypeCode
+
+        VALUE = uuid.uuid4()
+        field_type = Type(code=TypeCode.UUID)
+        field_name = "uuid_column"
+        value_pb = Value(string_value=str(VALUE))
+
+        self.assertEqual(self._callFUT(value_pb, field_type, field_name), VALUE)
 
 
 class Test_parse_list_value_pbs(unittest.TestCase):

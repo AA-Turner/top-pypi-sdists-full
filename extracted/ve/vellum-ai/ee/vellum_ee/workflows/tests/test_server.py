@@ -1,17 +1,39 @@
+import pytest
 import sys
-from uuid import uuid4
+from uuid import UUID, uuid4
 from typing import Type, cast
 
 from vellum.client.core.pydantic_utilities import UniversalBaseModel
 from vellum.client.types.code_executor_response import CodeExecutorResponse
 from vellum.client.types.number_vellum_value import NumberVellumValue
 from vellum.workflows import BaseWorkflow
+from vellum.workflows.events.workflow import WorkflowExecutionInitiatedBody
+from vellum.workflows.exceptions import WorkflowInitializationException
 from vellum.workflows.nodes import BaseNode
 from vellum.workflows.state.context import WorkflowContext
 from vellum.workflows.utils.uuids import generate_workflow_deployment_prefix
 from vellum.workflows.utils.zip import zip_file_map
+from vellum_ee.workflows.display.utils.events import event_enricher
 from vellum_ee.workflows.display.workflows.base_workflow_display import BaseWorkflowDisplay
 from vellum_ee.workflows.server.virtual_file_loader import VirtualFileFinder
+
+
+@pytest.fixture
+def virtual_file_loader():
+    """Fixture to manage VirtualFileFinder registration and cleanup."""
+    finders = []
+
+    def _register(files, namespace, source_module=None):
+        finder = VirtualFileFinder(files, namespace, source_module=source_module)
+        sys.meta_path.append(finder)
+        finders.append(finder)
+        return finder
+
+    yield _register
+
+    for finder in reversed(finders):
+        if finder in sys.meta_path:
+            sys.meta_path.remove(finder)
 
 
 def test_load_workflow_event_display_context():
@@ -25,20 +47,12 @@ def test_load_workflow_event_display_context():
 def test_load_from_module__lazy_reference_in_file_loader():
     # GIVEN a workflow module with a node containing a lazy reference
     files = {
-        "__init__.py": "",
         "workflow.py": """\
 from vellum.workflows import BaseWorkflow
 from .nodes.start_node import StartNode
 
 class Workflow(BaseWorkflow):
     graph = StartNode
-""",
-        "nodes/__init__.py": """\
-from .start_node import StartNode
-
-__all__ = [
-    "StartNode",
-]
 """,
         "nodes/start_node.py": """\
 from vellum.workflows.nodes import BaseNode
@@ -97,11 +111,6 @@ class Workflow(BaseWorkflow):
     class Outputs(BaseWorkflow.Outputs):
        final_output = CodeExecutionNode.Outputs.result
 """,
-        "nodes/__init__.py": """
-from .code_execution_node import CodeExecutionNode
-
-__all__ = ["CodeExecutionNode"]
-""",
         "nodes/code_execution_node/__init__.py": """
 from typing import Any
 
@@ -143,6 +152,11 @@ class CodeExecutionNode(BaseCodeExecutionNode[BaseState, int]):
     # AND we get the code execution result
     assert event.body.outputs == {"final_output": 5.0}
 
+    # AND the workflow definition module is correctly serialized as a list
+    serialized_event = event.model_dump(mode="json")
+    workflow_definition = serialized_event["body"]["workflow_definition"]
+    assert workflow_definition["module"] == [namespace, "workflow"]
+
 
 def test_load_from_module__simple_code_execution_node_with_try(
     vellum_client,
@@ -167,11 +181,6 @@ class Workflow(BaseWorkflow):
 
     class Outputs(BaseWorkflow.Outputs):
        final_output = CodeExecutionNode.Outputs.result
-""",
-        "nodes/__init__.py": """
-from .code_execution_node import CodeExecutionNode
-
-__all__ = ["CodeExecutionNode"]
 """,
         "nodes/code_execution_node/__init__.py": """
 from typing import Union
@@ -244,11 +253,6 @@ class Workflow(BaseWorkflow):
     class Outputs(BaseWorkflow.Outputs):
        final_output = CodeExecutionNode.Outputs.result
 """,
-        "nodes/__init__.py": """
-from .code_execution_node import CodeExecutionNode
-
-__all__ = ["CodeExecutionNode"]
-""",
         "nodes/code_execution_node/__init__.py": """
 from typing import Union
 
@@ -320,11 +324,6 @@ class Workflow(BaseWorkflow):
     class Outputs(BaseWorkflow.Outputs):
        final_output = Subworkflow.Outputs.result
 """,
-        "nodes/__init__.py": """
-from .subworkflow import Subworkflow
-
-__all__ = ["Subworkflow"]
-""",
         "nodes/subworkflow/__init__.py": """
 from vellum.workflows.nodes.displayable import InlineSubworkflowNode
 
@@ -332,11 +331,6 @@ from .workflow import SubworkflowWorkflow
 
 class Subworkflow(InlineSubworkflowNode):
     subworkflow = SubworkflowWorkflow
-""",
-        "nodes/subworkflow/nodes/__init__.py": """
-from .code_execution_node import CodeExecutionNode
-
-__all__ = ["CodeExecutionNode"]
 """,
         "nodes/subworkflow/nodes/code_execution_node/__init__.py": """
 from typing import Union
@@ -418,11 +412,6 @@ class Workflow(BaseWorkflow):
     class Outputs(BaseWorkflow.Outputs):  # noqa: W293
        results = MapNode.Outputs.final_output
 """,
-        "nodes/__init__.py": """
-from .map_node import MapNode
-
-__all__ = ["MapNode"]
-""",
         "nodes/map_node/__init__.py": """
 from vellum.workflows.nodes.core.map_node import MapNode as BaseMapNode
 
@@ -432,11 +421,6 @@ class MapNode(BaseMapNode):
     items = ["foo", "bar", "baz"]
     subworkflow = MapNodeWorkflow
     max_concurrency = 4
-""",
-        "nodes/map_node/nodes/__init__.py": """
-from .code_execution_node import CodeExecutionNode
-
-__all__ = ["CodeExecutionNode"]
 """,
         "nodes/map_node/nodes/code_execution_node/__init__.py": """
 from typing import Union
@@ -497,6 +481,227 @@ class MapNodeWorkflow(BaseWorkflow):
 
     # AND we get the map node results as a list
     assert event.body.outputs == {"results": [1.0, 1.0, 1.0]}
+
+
+def test_load_from_module__syntax_error_in_node_file():
+    """
+    Tests that a syntax error in a node file raises WorkflowInitializationException with user-facing message.
+    """
+    # GIVEN a workflow module with a node file containing a syntax error (missing colon)
+    files = {
+        "__init__.py": "",
+        "workflow.py": """\
+from vellum.workflows import BaseWorkflow
+from .nodes.broken_node import BrokenNode
+
+class Workflow(BaseWorkflow):
+    graph = BrokenNode
+""",
+        "nodes/broken_node.py": """\
+from vellum.workflows.nodes import BaseNode
+
+class BrokenNode(BaseNode)  # Missing colon
+    \"\"\"This node has a syntax error.\"\"\"
+""",
+    }
+
+    namespace = str(uuid4())
+
+    # AND the virtual file loader is registered
+    sys.meta_path.append(VirtualFileFinder(files, namespace))
+
+    # WHEN we attempt to load the workflow
+    # THEN it should raise WorkflowInitializationException
+    with pytest.raises(WorkflowInitializationException) as exc_info:
+        BaseWorkflow.load_from_module(namespace)
+
+    # AND the error message should be user-friendly
+    error_message = str(exc_info.value)
+    assert "Syntax Error raised while loading Workflow:" in error_message
+    assert "invalid syntax" in error_message or "expected ':'" in error_message
+
+
+def test_load_from_module__name_error_in_node_file():
+    """
+    Tests that a NameError in a node file raises WorkflowInitializationException with user-facing message.
+    """
+    # GIVEN a workflow module with a node file containing a NameError (undefined class reference)
+    files = {
+        "__init__.py": "",
+        "workflow.py": """\
+from vellum.workflows import BaseWorkflow
+from .nodes.broken_node import BrokenNode
+
+class Workflow(BaseWorkflow):
+    graph = BrokenNode
+""",
+        "nodes/broken_node.py": """\
+from vellum.workflows.nodes import BaseNode
+
+class BrokenNode(BaseNode):
+    some_attribute = UndefinedClass()
+""",
+    }
+
+    namespace = str(uuid4())
+
+    # AND the virtual file loader is registered
+    sys.meta_path.append(VirtualFileFinder(files, namespace))
+
+    # WHEN we attempt to load the workflow
+    # THEN it should raise WorkflowInitializationException
+    with pytest.raises(WorkflowInitializationException) as exc_info:
+        BaseWorkflow.load_from_module(namespace)
+
+    # AND the error message should be user-friendly
+    error_message = str(exc_info.value)
+    assert "Invalid variable reference:" in error_message
+    assert "UndefinedClass" in error_message or "not defined" in error_message
+
+
+def test_load_from_module__module_not_found_error():
+    """
+    Tests that a ModuleNotFoundError raises WorkflowInitializationException with user-facing message.
+    """
+    # GIVEN a workflow module that imports a non-existent module
+    files = {
+        "__init__.py": "",
+        "workflow.py": """\
+from vellum.workflows import BaseWorkflow
+from .non_existent_module import SomeClass
+
+class Workflow(BaseWorkflow):
+    graph = None
+""",
+    }
+
+    namespace = str(uuid4())
+
+    # AND the virtual file loader is registered
+    sys.meta_path.append(VirtualFileFinder(files, namespace, source_module="test"))
+
+    # WHEN we attempt to load the workflow
+    # THEN it should raise WorkflowInitializationException
+    with pytest.raises(WorkflowInitializationException) as exc_info:
+        BaseWorkflow.load_from_module(namespace)
+
+    # AND the error message should be user-friendly and show source_module instead of namespace
+    error_message = str(exc_info.value)
+    assert error_message == "Workflow module not found: No module named 'test.non_existent_module'"
+
+
+def test_load_from_module__module_not_found_error_with_external_package():
+    """
+    Tests that when ModuleNotFoundError occurs for an external package (not containing the namespace),
+    the exception includes vellum_on_error_action set to CREATE_CUSTOM_IMAGE in raw_data.
+    """
+
+    # GIVEN a workflow module that imports a non-existent external package
+    files = {
+        "__init__.py": "",
+        "workflow.py": """\
+from vellum.workflows import BaseWorkflow
+import some_external_package
+
+class Workflow(BaseWorkflow):
+    graph = None
+""",
+    }
+
+    namespace = str(uuid4())
+
+    # AND the virtual file loader is registered
+    finder = VirtualFileFinder(files, namespace, source_module="test")
+    sys.meta_path.append(finder)
+
+    # WHEN we attempt to load the workflow
+    # THEN it should raise WorkflowInitializationException
+    with pytest.raises(WorkflowInitializationException) as exc_info:
+        BaseWorkflow.load_from_module(namespace)
+
+    # AND the error message should be user-friendly
+    error_message = str(exc_info.value)
+    assert "Workflow module not found:" in error_message
+    assert "some_external_package" in error_message
+
+    assert exc_info.value.raw_data is not None
+    assert exc_info.value.raw_data["vellum_on_error_action"] == "CREATE_CUSTOM_IMAGE"
+
+
+def test_load_from_module__module_not_found_error_with_internal_package():
+    """
+    Tests that when ModuleNotFoundError occurs for an internal module (containing the namespace),
+    the exception does NOT include vellum_on_error_action in raw_data.
+    """
+
+    # GIVEN a workflow module that imports a non-existent internal module
+    files = {
+        "__init__.py": "",
+        "workflow.py": """\
+from vellum.workflows import BaseWorkflow
+from .non_existent_module import SomeClass
+
+class Workflow(BaseWorkflow):
+    graph = None
+""",
+    }
+
+    namespace = str(uuid4())
+
+    # AND the virtual file loader is registered
+    finder = VirtualFileFinder(files, namespace, source_module="test")
+    sys.meta_path.append(finder)
+
+    # WHEN we attempt to load the workflow
+    # THEN it should raise WorkflowInitializationException
+    with pytest.raises(WorkflowInitializationException) as exc_info:
+        BaseWorkflow.load_from_module(namespace)
+
+    # AND the error message should be user-friendly
+    error_message = str(exc_info.value)
+    assert "Workflow module not found:" in error_message
+
+    assert exc_info.value.raw_data is not None
+    assert "vellum_on_error_action" not in exc_info.value.raw_data
+
+
+def test_load_from_module__module_not_found_error_includes_stacktrace_and_file_context():
+    """
+    Tests that ModuleNotFoundError includes stacktrace and file context in the exception.
+    """
+
+    # GIVEN a workflow module that imports a non-existent internal module
+    files = {
+        "__init__.py": "",
+        "workflow.py": """\
+from vellum.workflows import BaseWorkflow
+from .non_existent_module import SomeClass
+
+class Workflow(BaseWorkflow):
+    graph = None
+""",
+    }
+
+    namespace = str(uuid4())
+
+    # AND the virtual file loader is registered
+    finder = VirtualFileFinder(files, namespace, source_module="test")
+    sys.meta_path.append(finder)
+
+    # WHEN we attempt to load the workflow
+    # THEN it should raise WorkflowInitializationException
+    with pytest.raises(WorkflowInitializationException) as exc_info:
+        BaseWorkflow.load_from_module(namespace)
+
+    # AND the exception should include a stacktrace
+    assert exc_info.value.stacktrace is not None
+    assert "ModuleNotFoundError" in exc_info.value.stacktrace
+    assert "non_existent_module" in exc_info.value.stacktrace
+
+    # AND the exception should include file context in raw_data
+    assert exc_info.value.raw_data is not None
+    assert "file" in exc_info.value.raw_data
+    assert "lineno" in exc_info.value.raw_data
 
 
 def test_serialize_module__tool_calling_node_with_single_tool():
@@ -629,19 +834,9 @@ class TestSubworkflowDeploymentNode(SubworkflowDeploymentNode):
     files = {
         "__init__.py": "",
         "workflow.py": parent_workflow_code,
-        "nodes/__init__.py": """
-from .subworkflow_deployment_node import TestSubworkflowDeploymentNode
-
-__all__ = ["TestSubworkflowDeploymentNode"]
-""",
         "nodes/subworkflow_deployment_node.py": parent_node_code,
         f"{expected_prefix}/__init__.py": "",
         f"{expected_prefix}/workflow.py": mock_workflow_code,
-        f"{expected_prefix}/nodes/__init__.py": """
-from .test_node import TestNode
-
-__all__ = ["TestNode"]
-""",
         f"{expected_prefix}/nodes/test_node.py": test_node_code,
     }
 
@@ -729,11 +924,6 @@ class TestSubworkflowDeploymentNode(SubworkflowDeploymentNode):
     subworkflow_files = {
         "__init__.py": "",
         "workflow.py": mock_workflow_code,
-        "nodes/__init__.py": """
-from .test_node import TestNode
-
-__all__ = ["TestNode"]
-""",
         "nodes/test_node.py": test_node_code,
     }
 
@@ -741,11 +931,6 @@ __all__ = ["TestNode"]
         "__init__.py": "",
         "inputs.py": inputs_code,
         "workflow.py": parent_workflow_code,
-        "nodes/__init__.py": """
-from .subworkflow_deployment_node import TestSubworkflowDeploymentNode
-
-__all__ = ["TestSubworkflowDeploymentNode"]
-""",
         "nodes/subworkflow_deployment_node.py": parent_node_code,
     }
 
@@ -776,3 +961,148 @@ __all__ = ["TestSubworkflowDeploymentNode"]
 
     # AND the X-Vellum-Always-Success header should be included for graceful error handling
     assert kwargs["request_options"]["additional_headers"]["X-Vellum-Always-Success"] == "true"
+
+
+def test_workflow_initiated_event_includes_display_context_with_output_display_name():
+    """
+    Tests that workflow initiated events include display context with annotated node and output information.
+    """
+    # GIVEN a workflow with a single node that has a single output
+    files = {
+        "workflow.py": """\
+from vellum.workflows import BaseWorkflow
+from .nodes.start_node import StartNode
+
+class Workflow(BaseWorkflow):
+    graph = StartNode
+
+    class Outputs(BaseWorkflow.Outputs):
+        final_result = StartNode.Outputs.result
+""",
+        "nodes/start_node.py": """\
+from vellum.workflows.nodes import BaseNode
+
+class StartNode(BaseNode):
+    class Outputs(BaseNode.Outputs):
+        result: str = "test output"
+""",
+        "display/nodes/start_node.py": """\
+from uuid import UUID
+from vellum_ee.workflows.display.nodes.base_node_display import BaseNodeDisplay
+from vellum_ee.workflows.display.nodes.types import NodeOutputDisplay
+from ...nodes.start_node import StartNode
+
+class StartNodeDisplay(BaseNodeDisplay[StartNode]):
+    node_id = UUID("11111111-1111-1111-1111-111111111111")
+    output_display = {
+        StartNode.Outputs.result: NodeOutputDisplay(
+            id=UUID("22222222-2222-2222-2222-222222222222"),
+            name="Pretty Result"
+        )
+    }
+""",
+        "display/workflow.py": """\
+""",
+    }
+
+    namespace = str(uuid4())
+    finder = VirtualFileFinder(files, namespace)
+    sys.meta_path.append(finder)
+
+    try:
+        # WHEN we stream the workflow and enrich the initiated event with display context
+        Workflow = BaseWorkflow.load_from_module(namespace)
+        workflow = Workflow()
+        initiated_event = list(workflow.stream())[0]
+        enriched_event = event_enricher(initiated_event)
+
+        # THEN the initiated event should have display context
+        assert isinstance(enriched_event.body, WorkflowExecutionInitiatedBody)
+        body = enriched_event.body
+        assert body.display_context is not None
+
+        # AND the display context should contain the annotated node
+        node_displays = body.display_context.node_displays
+        annotated_node_id = UUID("11111111-1111-1111-1111-111111111111")
+        assert annotated_node_id in node_displays
+
+        # AND the node's output display should contain the output with the display name "Pretty Result"
+        node_display = node_displays[annotated_node_id]
+        assert "result" in node_display.output_display
+
+        # AND the output should map to the annotated output id
+        annotated_output_id = UUID("22222222-2222-2222-2222-222222222222")
+        assert node_display.output_display["result"] == annotated_output_id
+    finally:
+        if finder in sys.meta_path:
+            sys.meta_path.remove(finder)
+
+
+def test_load_from_module__chained_nodes_with_absolute_imports(virtual_file_loader):
+    """
+    Tests that a workflow with chained nodes using absolute imports works correctly.
+    This test is expected to fail on main as absolute imports are not yet supported.
+    """
+
+    # GIVEN a workflow module with two chained base nodes using absolute imports
+    namespace = str(uuid4())
+    source_module = "test_workflow_abs"
+    files = {
+        "__init__.py": "",
+        "workflow.py": f"""
+from vellum.workflows import BaseWorkflow
+from {source_module}.nodes.first_node import FirstNode
+from {source_module}.nodes.second_node import SecondNode
+
+class Workflow(BaseWorkflow):
+    graph = FirstNode >> SecondNode
+
+    class Outputs(BaseWorkflow.Outputs):
+        final_output = SecondNode.Outputs.result
+""",
+        "nodes/__init__.py": "",
+        "nodes/first_node.py": """
+from vellum.workflows.nodes import BaseNode
+
+class FirstNode(BaseNode):
+    class Outputs(BaseNode.Outputs):
+        value: str
+
+    def run(self) -> "FirstNode.Outputs":
+        return self.Outputs(value="Hello from FirstNode")
+""",
+        "nodes/second_node.py": f"""
+from vellum.workflows.nodes import BaseNode
+from {source_module}.nodes.first_node import FirstNode
+
+class SecondNode(BaseNode):
+    input_value = FirstNode.Outputs.value
+
+    class Outputs(BaseNode.Outputs):
+        result: str
+
+    def run(self) -> "SecondNode.Outputs":
+        return self.Outputs(result=f"{{self.input_value}} -> SecondNode")
+""",
+    }
+
+    # AND the virtual file loader is registered
+    virtual_file_loader(files, namespace, source_module=source_module)
+
+    # WHEN the workflow is loaded
+    Workflow = BaseWorkflow.load_from_module(namespace)
+    workflow = Workflow()
+
+    # THEN the workflow is successfully initialized
+    assert workflow
+
+    # WHEN we run the workflow
+    terminal_event = workflow.run()
+
+    # THEN the workflow should have completed successfully
+    assert terminal_event.name == "workflow.execution.fulfilled"
+
+    # AND the outputs should be as expected
+    assert terminal_event.outputs == {
+        "final_output": "Hello from FirstNode -> SecondNode",
+    }

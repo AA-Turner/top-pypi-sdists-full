@@ -16,17 +16,17 @@ def serializedATN():
         buf.write("\2\3\2\3\2\3\2\6\2\23\n\2\r\2\16\2\24\3\2\3\2\3\2\3\2")
         buf.write("\3\2\7\2\34\n\2\f\2\16\2\37\13\2\7\2!\n\2\f\2\16\2$\13")
         buf.write("\2\3\2\3\2\3\2\3\3\3\3\3\4\3\4\3\5\3\5\3\6\3\6\3\6\2\2")
-        buf.write("\7\2\4\6\b\n\2\2\2.\2\f\3\2\2\2\4(\3\2\2\2\6*\3\2\2\2")
-        buf.write("\b,\3\2\2\2\n.\3\2\2\2\f\22\7\5\2\2\r\16\5\n\6\2\16\17")
-        buf.write("\5\4\3\2\17\20\5\n\6\2\20\21\5\6\4\2\21\23\3\2\2\2\22")
-        buf.write("\r\3\2\2\2\23\24\3\2\2\2\24\22\3\2\2\2\24\25\3\2\2\2\25")
-        buf.write("\"\3\2\2\2\26\27\5\n\6\2\27\35\5\b\5\2\30\31\5\n\6\2\31")
-        buf.write("\32\5\6\4\2\32\34\3\2\2\2\33\30\3\2\2\2\34\37\3\2\2\2")
-        buf.write("\35\33\3\2\2\2\35\36\3\2\2\2\36!\3\2\2\2\37\35\3\2\2\2")
-        buf.write(" \26\3\2\2\2!$\3\2\2\2\" \3\2\2\2\"#\3\2\2\2#%\3\2\2\2")
-        buf.write("$\"\3\2\2\2%&\7\3\2\2&\'\7\2\2\3\'\3\3\2\2\2()\7\6\2\2")
-        buf.write(")\5\3\2\2\2*+\7\b\2\2+\7\3\2\2\2,-\7\7\2\2-\t\3\2\2\2")
-        buf.write("./\7\4\2\2/\13\3\2\2\2\5\24\35\"")
+        buf.write("\7\2\4\6\b\n\2\3\3\2\6\b\2.\2\f\3\2\2\2\4(\3\2\2\2\6*")
+        buf.write("\3\2\2\2\b,\3\2\2\2\n.\3\2\2\2\f\22\7\5\2\2\r\16\5\n\6")
+        buf.write("\2\16\17\5\4\3\2\17\20\5\n\6\2\20\21\5\6\4\2\21\23\3\2")
+        buf.write("\2\2\22\r\3\2\2\2\23\24\3\2\2\2\24\22\3\2\2\2\24\25\3")
+        buf.write("\2\2\2\25\"\3\2\2\2\26\27\5\n\6\2\27\35\5\b\5\2\30\31")
+        buf.write("\5\n\6\2\31\32\5\6\4\2\32\34\3\2\2\2\33\30\3\2\2\2\34")
+        buf.write("\37\3\2\2\2\35\33\3\2\2\2\35\36\3\2\2\2\36!\3\2\2\2\37")
+        buf.write("\35\3\2\2\2 \26\3\2\2\2!$\3\2\2\2\" \3\2\2\2\"#\3\2\2")
+        buf.write("\2#%\3\2\2\2$\"\3\2\2\2%&\7\3\2\2&\'\7\2\2\3\'\3\3\2\2")
+        buf.write("\2()\7\6\2\2)\5\3\2\2\2*+\t\2\2\2+\7\3\2\2\2,-\7\7\2\2")
+        buf.write("-\t\3\2\2\2./\7\4\2\2/\13\3\2\2\2\5\24\35\"")
         return buf.getvalue()
 
 
@@ -47,11 +47,11 @@ class EntityLinkParser ( Parser ):
 
     RULE_entitylink = 0
     RULE_entity_type = 1
-    RULE_name_or_fqn = 2
+    RULE_nameOrFqn = 2
     RULE_entity_field = 3
     RULE_separator = 4
 
-    ruleNames =  [ "entitylink", "entity_type", "name_or_fqn", "entity_field", 
+    ruleNames =  [ "entitylink", "entity_type", "nameOrFqn", "entity_field", 
                    "separator" ]
 
     EOF = Token.EOF
@@ -98,11 +98,11 @@ class EntityLinkParser ( Parser ):
                 return self.getTypedRuleContext(EntityLinkParser.Entity_typeContext,i)
 
 
-        def name_or_fqn(self, i:int=None):
+        def nameOrFqn(self, i:int=None):
             if i is None:
-                return self.getTypedRuleContexts(EntityLinkParser.Name_or_fqnContext)
+                return self.getTypedRuleContexts(EntityLinkParser.NameOrFqnContext)
             else:
-                return self.getTypedRuleContext(EntityLinkParser.Name_or_fqnContext,i)
+                return self.getTypedRuleContext(EntityLinkParser.NameOrFqnContext,i)
 
 
         def entity_field(self, i:int=None):
@@ -147,7 +147,7 @@ class EntityLinkParser ( Parser ):
                     self.state = 13
                     self.separator()
                     self.state = 14
-                    self.name_or_fqn()
+                    self.nameOrFqn()
 
                 else:
                     raise NoViableAltException(self)
@@ -171,7 +171,7 @@ class EntityLinkParser ( Parser ):
                         self.state = 22
                         self.separator()
                         self.state = 23
-                        self.name_or_fqn() 
+                        self.nameOrFqn() 
                     self.state = 29
                     self._errHandler.sync(self)
                     _alt = self._interp.adaptivePredict(self._input,1,self._ctx)
@@ -247,51 +247,50 @@ class EntityLinkParser ( Parser ):
         return localctx
 
 
-    class Name_or_fqnContext(ParserRuleContext):
+    class NameOrFqnContext(ParserRuleContext):
         __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
             self.parser = parser
 
-
-        def getRuleIndex(self):
-            return EntityLinkParser.RULE_name_or_fqn
-
-     
-        def copyFrom(self, ctx:ParserRuleContext):
-            super().copyFrom(ctx)
-
-
-
-    class NameOrFQNContext(Name_or_fqnContext):
-
-        def __init__(self, parser, ctx:ParserRuleContext): # actually a EntityLinkParser.Name_or_fqnContext
-            super().__init__(parser)
-            self.copyFrom(ctx)
-
         def NAME_OR_FQN(self):
             return self.getToken(EntityLinkParser.NAME_OR_FQN, 0)
 
+        def ENTITY_TYPE(self):
+            return self.getToken(EntityLinkParser.ENTITY_TYPE, 0)
+
+        def ENTITY_FIELD(self):
+            return self.getToken(EntityLinkParser.ENTITY_FIELD, 0)
+
+        def getRuleIndex(self):
+            return EntityLinkParser.RULE_nameOrFqn
+
         def enterRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "enterNameOrFQN" ):
-                listener.enterNameOrFQN(self)
+            if hasattr( listener, "enterNameOrFqn" ):
+                listener.enterNameOrFqn(self)
 
         def exitRule(self, listener:ParseTreeListener):
-            if hasattr( listener, "exitNameOrFQN" ):
-                listener.exitNameOrFQN(self)
+            if hasattr( listener, "exitNameOrFqn" ):
+                listener.exitNameOrFqn(self)
 
 
 
-    def name_or_fqn(self):
 
-        localctx = EntityLinkParser.Name_or_fqnContext(self, self._ctx, self.state)
-        self.enterRule(localctx, 4, self.RULE_name_or_fqn)
+    def nameOrFqn(self):
+
+        localctx = EntityLinkParser.NameOrFqnContext(self, self._ctx, self.state)
+        self.enterRule(localctx, 4, self.RULE_nameOrFqn)
+        self._la = 0 # Token type
         try:
-            localctx = EntityLinkParser.NameOrFQNContext(self, localctx)
             self.enterOuterAlt(localctx, 1)
             self.state = 40
-            self.match(EntityLinkParser.NAME_OR_FQN)
+            _la = self._input.LA(1)
+            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << EntityLinkParser.ENTITY_TYPE) | (1 << EntityLinkParser.ENTITY_FIELD) | (1 << EntityLinkParser.NAME_OR_FQN))) != 0)):
+                self._errHandler.recoverInline(self)
+            else:
+                self._errHandler.reportMatch(self)
+                self.consume()
         except RecognitionException as re:
             localctx.exception = re
             self._errHandler.reportError(self, re)

@@ -16,7 +16,6 @@ short_description: Configure SCIM client entries.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.10.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -144,6 +146,12 @@ options:
                 type: list
                 elements: str
                 description: Certificate for token verification.
+            cascade:
+                type: str
+                description: Enable/disable to follow SCIM users/groups changes in IDP.
+                choices:
+                    - 'disable'
+                    - 'enable'
 '''
 
 EXAMPLES = '''
@@ -159,8 +167,8 @@ EXAMPLES = '''
     - name: Configure SCIM client entries.
       fortinet.fortimanager.fmgr_user_scim:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -177,6 +185,7 @@ EXAMPLES = '''
           # secret: <list or string>
           # status: <value in [disable, enable]>
           # token_certificate: <list or string>
+          # cascade: <value in [disable, enable]>
 '''
 
 RETURN = '''
@@ -233,6 +242,7 @@ def main():
     module_primary_key = 'id'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'user_scim': {
             'type': 'dict',
             'v_range': [['7.6.3', '']],
@@ -247,7 +257,8 @@ def main():
                 'name': {'v_range': [['7.6.3', '']], 'type': 'str'},
                 'secret': {'v_range': [['7.6.3', '']], 'no_log': True, 'type': 'list', 'elements': 'str'},
                 'status': {'v_range': [['7.6.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'token-certificate': {'v_range': [['7.6.3', '']], 'no_log': True, 'type': 'list', 'elements': 'str'}
+                'token-certificate': {'v_range': [['7.6.3', '']], 'no_log': True, 'type': 'list', 'elements': 'str'},
+                'cascade': {'v_range': [['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
             }
         }
     }

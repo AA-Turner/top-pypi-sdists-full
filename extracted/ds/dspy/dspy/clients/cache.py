@@ -29,7 +29,7 @@ class Cache:
         enable_memory_cache: bool,
         disk_cache_dir: str,
         disk_size_limit_bytes: int | None = 1024 * 1024 * 10,
-        memory_max_entries: int | None = 1000000,
+        memory_max_entries: int = 1000000,
     ):
         """
         Args:
@@ -43,6 +43,10 @@ class Cache:
         self.enable_disk_cache = enable_disk_cache
         self.enable_memory_cache = enable_memory_cache
         if self.enable_memory_cache:
+            if memory_max_entries is None:
+                raise ValueError("`memory_max_entries` cannot be None. Use `math.inf` if you need an unbounded cache.")
+            elif memory_max_entries <= 0:
+                raise ValueError(f"`memory_max_entries` must be a positive number, but received {memory_max_entries}")
             self.memory_cache = LRUCache(maxsize=memory_max_entries)
         else:
             self.memory_cache = {}
@@ -96,6 +100,10 @@ class Cache:
         return sha256(orjson.dumps(params, option=orjson.OPT_SORT_KEYS)).hexdigest()
 
     def get(self, request: dict[str, Any], ignored_args_for_cache_key: list[str] | None = None) -> Any:
+
+        if not self.enable_memory_cache and not self.enable_disk_cache:
+            return None
+
         try:
             key = self.cache_key(request, ignored_args_for_cache_key)
         except Exception:
@@ -128,13 +136,19 @@ class Cache:
         ignored_args_for_cache_key: list[str] | None = None,
         enable_memory_cache: bool = True,
     ) -> None:
+        enable_memory_cache = self.enable_memory_cache and enable_memory_cache
+
+        # Early return to avoid computing cache key if both memory and disk cache are disabled
+        if not enable_memory_cache and not self.enable_disk_cache:
+            return
+
         try:
             key = self.cache_key(request, ignored_args_for_cache_key)
         except Exception:
             logger.debug(f"Failed to generate cache key for request: {request}")
             return
 
-        if self.enable_memory_cache and enable_memory_cache:
+        if enable_memory_cache:
             with self._lock:
                 self.memory_cache[key] = value
 
@@ -160,7 +174,11 @@ class Cache:
             with open(filepath, "wb") as f:
                 cloudpickle.dump(self.memory_cache, f)
 
-    def load_memory_cache(self, filepath: str) -> None:
+    def load_memory_cache(self, filepath: str, allow_pickle: bool = False) -> None:
+        if not allow_pickle:
+            raise ValueError("Loading untrusted .pkl files can run arbitrary code, which may be dangerous. \
+            Set `allow_pickle=True` to load if you are running in a trusted environment and the file is from a trusted source.")
+
         if not self.enable_memory_cache:
             return
 

@@ -70,6 +70,7 @@ set(SIMPLEBLUEZ_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/Message.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/Path.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/interfaces/ObjectManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/interfaces/Properties.cpp
 )
 
 # Configure the build targets
@@ -102,7 +103,7 @@ target_link_libraries(simplebluez PUBLIC ${DBus1_LIBRARIES})
 
 target_include_directories(simplebluez PRIVATE ${SIMPLEBLUEZ_INCLUDE})
 target_include_directories(simplebluez PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/external)
-target_include_directories(simplebluez PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal)
+target_include_directories(simplebluez PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal/include)
 target_include_directories(simplebluez INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/external>
@@ -166,7 +167,7 @@ if(SIMPLEBLUEZ_TEST)
 
     target_compile_definitions(simplebluez_test PRIVATE FMT_HEADER_ONLY)
     target_include_directories(simplebluez_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/external)
-    target_include_directories(simplebluez_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal)
+    target_include_directories(simplebluez_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal/include)
 
     set_target_properties(simplebluez_test PROPERTIES
         CXX_VISIBILITY_PRESET hidden

@@ -15,6 +15,7 @@ if sys.version_info < (3, 11):
 
 from inspect_ai.model._generate_config import BatchConfig
 from inspect_ai.model._providers.util.batch import (
+    BatchCheckResult,
     Batcher,
     BatchRequest,
 )
@@ -50,7 +51,9 @@ class FakeBatcher(Batcher[str, FakeCompletionInfo]):
         """
         super().__init__(
             config or BatchConfig(size=3, send_delay=0.01, tick=0.001),
-            model_retry_config("test", 3, None, lambda e: True, lambda m, s: None),
+            model_retry_config(
+                "test", 3, None, lambda e: True, lambda ex: None, lambda m, s: None
+            ),
             max_batch_request_count=10,
             max_batch_size_mb=1,
         )
@@ -78,9 +81,7 @@ class FakeBatcher(Batcher[str, FakeCompletionInfo]):
 
         return batch_id
 
-    async def _check_batch(
-        self, batch
-    ) -> tuple[int, int, int, FakeCompletionInfo | None]:
+    async def _check_batch(self, batch) -> BatchCheckResult[FakeCompletionInfo]:
         """Simulate checking batch status."""
         batch_id = batch.id
 
@@ -91,23 +92,26 @@ class FakeBatcher(Batcher[str, FakeCompletionInfo]):
         if batch_id in self._fail_batch_ids:
             raise Exception(f"Simulated batch failure for {batch_id}")
 
-        # Calculate age
         creation_time = self._batch_creation_times.get(batch_id, time.time())
-        age = int(time.time() - creation_time)
 
         # Check if batch is "complete" based on elapsed time
         if time.time() - creation_time >= self._batch_completion_delay:
             # Batch is complete
             request_count = len(self._created_batches[batch_id])
-            return (
-                request_count,  # completed count
-                0,  # failed count
-                age,  # age in seconds
-                FakeCompletionInfo(result_uris=[f"result-{batch_id}"]),
+            return BatchCheckResult(
+                completed_count=request_count,
+                failed_count=0,
+                created_at=int(creation_time),
+                completion_info=FakeCompletionInfo(result_uris=[f"result-{batch_id}"]),
             )
         else:
             # Still processing
-            return (0, 0, age, None)
+            return BatchCheckResult(
+                completed_count=0,
+                failed_count=0,
+                created_at=int(creation_time),
+                completion_info=None,
+            )
 
     async def _handle_batch_result(
         self, batch, completion_info: FakeCompletionInfo
@@ -136,14 +140,14 @@ class TestBatcher:
 
     async def _run_with_task_group(self, test_func):
         """Helper to run test logic within a TaskGroup context."""
-        from inspect_ai._util.eval_task_group import init_eval_task_group
+        from inspect_ai._util.background import set_background_task_group
 
         async with anyio.create_task_group() as tg:
-            init_eval_task_group(tg)
+            set_background_task_group(tg)
             try:
                 await test_func()
             finally:
-                init_eval_task_group(None)
+                set_background_task_group(None)
 
     async def test_successful_single_request(self):
         """Test that a single request gets processed successfully."""

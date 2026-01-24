@@ -30,6 +30,7 @@ from tests.e2e.project_template.utils import patch_crawlee_version_in_project
     [
         pytest.param('httpx', marks=pytest.mark.httpx),
         pytest.param('curl-impersonate', marks=pytest.mark.curl_impersonate),
+        pytest.param('impit', marks=pytest.mark.impit),
     ],
 )
 @pytest.mark.parametrize(
@@ -61,14 +62,17 @@ async def test_static_crawler_actor_at_apify(
             'http_client': http_client,
             'enable_apify_integration': True,
             'start_url': default_start_url,
+            'install_project': False,
         },
-        accept_hooks=False,  # Do not install the newly created environment.
         output_dir=tmp_path,
     )
 
     patch_crawlee_version_in_project(
         project_path=tmp_path / actor_name, wheel_path=crawlee_wheel_path, package_manager=package_manager
     )
+
+    # Print apify version for debugging purposes in rare cases of CLI failures
+    subprocess.run(['apify', '--version'], check=True)  # noqa: ASYNC221, S607
 
     # Build actor using sequence of cli commands as the user would
     subprocess.run(  # noqa: ASYNC221, S603
@@ -79,7 +83,7 @@ async def test_static_crawler_actor_at_apify(
     )
     subprocess.run(['apify', 'init', '-y', actor_name], capture_output=True, check=True, cwd=tmp_path / actor_name)  # noqa: ASYNC221, S603, S607
 
-    build_process = subprocess.run(['apify', 'push'], capture_output=True, check=False, cwd=tmp_path / actor_name)  # noqa: ASYNC221, S603, S607
+    build_process = subprocess.run(['apify', 'push'], capture_output=True, check=False, cwd=tmp_path / actor_name)  # noqa: ASYNC221, S607
     # Get actor ID from build log
     actor_id_regexp = re.compile(r'https:\/\/console\.apify\.com\/actors\/(.*)#\/builds\/\d*\.\d*\.\d*')
 

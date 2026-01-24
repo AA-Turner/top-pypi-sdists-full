@@ -1,20 +1,19 @@
 import io
 import time
 import unittest
+from unittest.mock import patch
 
-from pymysqlreplication.json_binary import JsonDiff, JsonDiffOperation
-from pymysqlreplication.tests import base
+from pymysql.protocol import MysqlPacket
+
 from pymysqlreplication import BinLogStreamReader
-from pymysqlreplication.gtid import GtidSet, Gtid
-from pymysqlreplication.event import *
 from pymysqlreplication.constants.BINLOG import *
 from pymysqlreplication.constants.NONE_SOURCE import *
-from pymysqlreplication.row_event import *
+from pymysqlreplication.event import *
+from pymysqlreplication.gtid import Gtid, GtidSet
+from pymysqlreplication.json_binary import JsonDiff, JsonDiffOperation
 from pymysqlreplication.packet import BinLogPacketWrapper
-from pymysql.protocol import MysqlPacket
-from unittest.mock import patch
-import pytest
-
+from pymysqlreplication.row_event import *
+from pymysqlreplication.tests import base
 
 __all__ = [
     "TestBasicBinLogStreamReader",
@@ -32,7 +31,14 @@ __all__ = [
 
 class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
     def ignoredEvents(self):
-        return [GtidEvent, PreviousGtidsEvent]
+        return [
+            GtidEvent,
+            PreviousGtidsEvent,
+            MariadbStartEncryptionEvent,
+            MariadbGtidListEvent,
+            MariadbBinLogCheckPointEvent,
+            MariadbGtidEvent,
+        ]
 
     def test_allowed_event_list(self):
         self.assertEqual(len(self.stream._allowed_event_list(None, None, False)), 25)
@@ -247,7 +253,8 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
         # QueryEvent for the Create Table
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
 
@@ -263,6 +270,87 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
             self.assertEqual(event.rows[0]["values"]["id"], 1)
             self.assertEqual(event.rows[0]["values"]["data"], "Hello World")
             self.assertEqual(event.columns[1].name, "data")
+
+    def test_fetch_column_names_from_schema(self):
+        # This test is for scenarios where column names are NOT in the binlog
+        # (MySQL 5.7 or older, or MySQL 8.0+ with binlog_row_metadata=MINIMAL)
+
+        # Check if binlog_row_metadata exists (MySQL 8.0+)
+        try:
+            cursor = self.execute("SHOW GLOBAL VARIABLES LIKE 'binlog_row_metadata'")
+            result = cursor.fetchone()
+            if result:
+                global_binlog_row_metadata = result[1]
+                if global_binlog_row_metadata == 'FULL':
+                    self.skipTest("binlog_row_metadata is FULL globally, use_column_name_cache is not needed")
+            # If result is None, binlog_row_metadata doesn't exist (MySQL 5.7 or older), so proceed
+        except pymysql.err.OperationalError as e:
+            if e.args[0] == 1193:  # ER_UNKNOWN_SYSTEM_VARIABLE
+                # Variable doesn't exist, likely MySQL 5.7 or older, so proceed
+                pass
+            else:
+                raise
+
+        query = "CREATE TABLE test_column_cache (id INT NOT NULL AUTO_INCREMENT, data VARCHAR (50) NOT NULL, PRIMARY KEY (id))"
+        self.execute(query)
+        self.execute("INSERT INTO test_column_cache (data) VALUES('Hello')")
+        self.execute("COMMIT")
+
+        # Test with use_column_name_cache = True
+        self.stream.close()
+        self.stream = BinLogStreamReader(
+            self.database,
+            server_id=1024,
+            use_column_name_cache=True,
+            only_events=[WriteRowsEvent],
+        )
+
+        event = self.stream.fetchone()
+        self.assertIsInstance(event, WriteRowsEvent)
+        self.assertEqual(event.table, "test_column_cache")
+        self.assertIn("id", event.rows[0]["values"])
+        self.assertIn("data", event.rows[0]["values"])
+        self.assertEqual(event.rows[0]["values"]["id"], 1)
+        self.assertEqual(event.rows[0]["values"]["data"], "Hello")
+
+        # Test with use_column_name_cache = False
+        self.stream.close()
+
+        # Clear cache before next run
+        from pymysqlreplication import row_event
+        row_event._COLUMN_NAME_CACHE.clear()
+
+        self.stream = BinLogStreamReader(
+            self.database,
+            server_id=1025, # different server_id to avoid caching issues
+            use_column_name_cache=False,
+            only_events=[WriteRowsEvent],
+        )
+
+        # Reset and replay events
+        self.resetBinLog()
+        self.execute("INSERT INTO test_column_cache (data) VALUES('World')")
+        self.execute("COMMIT")
+
+        # Skip RotateEvent and FormatDescriptionEvent
+        self.stream.fetchone()
+        self.stream.fetchone()
+        # Skip QueryEvent for BEGIN
+        if not self.isMariaDB():
+            self.stream.fetchone()
+        # Skip TableMapEvent
+        self.stream.fetchone()
+
+        event = self.stream.fetchone()
+        self.assertIsInstance(event, WriteRowsEvent)
+        self.assertEqual(event.table, "test_column_cache")
+        # With cache disabled, we should not have column names
+        self.assertNotIn("id", event.rows[0]["values"])
+        self.assertNotIn("data", event.rows[0]["values"])
+
+        # cleanup
+        row_event._COLUMN_NAME_CACHE.clear()
+
 
     def test_delete_row_event(self):
         query = "CREATE TABLE test (id INT NOT NULL AUTO_INCREMENT, data VARCHAR (50) NOT NULL, PRIMARY KEY (id))"
@@ -280,7 +368,8 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
         self.assertIsInstance(self.stream.fetchone(), FormatDescriptionEvent)
 
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
 
@@ -310,7 +399,8 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
         self.assertIsInstance(self.stream.fetchone(), FormatDescriptionEvent)
 
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
 
@@ -340,7 +430,8 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
         # QueryEvent for the Create Table
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
 
@@ -374,7 +465,8 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
         self.assertIsInstance(self.stream.fetchone(), FormatDescriptionEvent)
 
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
 
@@ -405,7 +497,8 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
         self.assertIsInstance(self.stream.fetchone(), FormatDescriptionEvent)
 
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
 
@@ -446,7 +539,8 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
         # QueryEvent for the Create Table
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         event = self.stream.fetchone()
         self.assertIsInstance(event, TableMapEvent)
@@ -489,9 +583,11 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
 
         self.assertIsInstance(self.stream.fetchone(), RotateEvent)
         self.assertIsInstance(self.stream.fetchone(), FormatDescriptionEvent)
-        self.assertIsInstance(self.stream.fetchone(), XidEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), XidEvent)
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
         self.assertIsInstance(self.stream.fetchone(), UpdateRowsEvent)
         self.assertIsInstance(self.stream.fetchone(), XidEvent)
@@ -521,7 +617,8 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
         self.assertGreater(self.stream.log_pos, 0)
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
         self.assertIsInstance(self.stream.fetchone(), WriteRowsEvent)
 
@@ -603,6 +700,8 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
                 self.stream._BinLogStreamReader__ignore_decode_errors,
                 self.stream._BinLogStreamReader__verify_checksum,
                 self.stream._BinLogStreamReader__optional_meta_data,
+                self.stream._BinLogStreamReader__enable_logging,
+                self.stream._BinLogStreamReader__use_column_name_cache,
             )
 
         self.stream.close()
@@ -644,9 +743,9 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
             self.database, server_id=1024, only_events=[UpdateRowsEvent]
         )
         create_query = (
-            "CREATE TABLE setting_table( id SERIAL AUTO_INCREMENT, setting JSON);"
+            "CREATE TABLE setting_table( id INT, setting JSON);"
         )
-        insert_query = """INSERT INTO setting_table (setting) VALUES ('{"btn": true, "model": false}');"""
+        insert_query = """INSERT INTO setting_table (id, setting) VALUES (1, '{"btn": true, "model": false}');"""
 
         update_query = """  UPDATE setting_table
                             SET setting = JSON_REMOVE(setting, '$.model')
@@ -666,6 +765,9 @@ class TestBasicBinLogStreamReader(base.PyMySQLReplicationTestCase):
             self.assertEqual(event.rows[0]["after_values"]["setting"], {b"btn": True}),
 
     def test_format_description_event(self):
+        if self.isMariaDB():
+            self.skipTest("This is for MySQL. There is a second test_format_description_event for MariaDB")
+
         self.stream.close()
         self.stream = BinLogStreamReader(
             self.database,
@@ -700,7 +802,14 @@ class TestMultipleRowBinLogStreamReader(base.PyMySQLReplicationTestCase):
             self.execute("SET GLOBAL binlog_row_image='FULL';")
 
     def ignoredEvents(self):
-        return [GtidEvent, PreviousGtidsEvent]
+        return [
+            GtidEvent,
+            PreviousGtidsEvent,
+            MariadbStartEncryptionEvent,
+            MariadbGtidListEvent,
+            MariadbBinLogCheckPointEvent,
+            MariadbGtidEvent,
+        ]
 
     def test_insert_multiple_row_event(self):
         query = "CREATE TABLE test (id INT NOT NULL AUTO_INCREMENT, data VARCHAR (50) NOT NULL, PRIMARY KEY (id))"
@@ -715,7 +824,8 @@ class TestMultipleRowBinLogStreamReader(base.PyMySQLReplicationTestCase):
         self.assertIsInstance(self.stream.fetchone(), RotateEvent)
         self.assertIsInstance(self.stream.fetchone(), FormatDescriptionEvent)
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
 
@@ -750,7 +860,8 @@ class TestMultipleRowBinLogStreamReader(base.PyMySQLReplicationTestCase):
         self.assertIsInstance(self.stream.fetchone(), RotateEvent)
         self.assertIsInstance(self.stream.fetchone(), FormatDescriptionEvent)
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
 
@@ -790,7 +901,8 @@ class TestMultipleRowBinLogStreamReader(base.PyMySQLReplicationTestCase):
         self.assertIsInstance(self.stream.fetchone(), FormatDescriptionEvent)
 
         # QueryEvent for the BEGIN
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         self.assertIsInstance(self.stream.fetchone(), TableMapEvent)
 
@@ -1144,6 +1256,12 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         )
         self.execute("SET @@binlog_format='STATEMENT'")
 
+        self.charset_num = 33
+        if self.isMariaDB():
+            self.charset_num = 8
+        # if self.isMySQL80AndMore():
+        #     self.charset_num = 255
+
     def test_rand_event(self):
         self.execute(
             "CREATE TABLE test (id INT NOT NULL AUTO_INCREMENT, data INT NOT NULL, PRIMARY KEY (id))"
@@ -1153,7 +1271,8 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
 
         self.assertEqual(self.bin_log_format(), "STATEMENT")
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         expected_rand_event = self.stream.fetchone()
         self.assertIsInstance(expected_rand_event, RandEvent)
@@ -1171,7 +1290,8 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
 
         self.assertEqual(self.bin_log_format(), "STATEMENT")
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1180,7 +1300,9 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, "foo")
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 0)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        if self.isMariaDB():
+            self.charset_num = 33
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
         # Test _dump method
         expected_user_var_event._dump()
@@ -1197,7 +1319,8 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
 
         self.assertEqual(self.bin_log_format(), "STATEMENT")
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1206,7 +1329,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertIsInstance(expected_user_var_event.value, float)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 1)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
     def test_user_var_int_event(self):
         self.execute(
@@ -1222,7 +1345,8 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
 
         self.assertEqual(self.bin_log_format(), "STATEMENT")
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1231,7 +1355,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, 5)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 2)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1240,7 +1364,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, 0)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 2)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1249,7 +1373,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, -5)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 2)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
     def test_user_var_int24_event(self):
         self.execute(
@@ -1265,7 +1389,8 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
 
         self.assertEqual(self.bin_log_format(), "STATEMENT")
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1274,7 +1399,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, 8388607)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 2)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1283,7 +1408,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, -8388607)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 2)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1292,7 +1417,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, 16777215)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 2)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
     def test_user_var_longlong_event(self):
         self.execute(
@@ -1308,7 +1433,8 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
 
         self.assertEqual(self.bin_log_format(), "STATEMENT")
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1317,7 +1443,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, 9223372036854775807)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 2)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1326,7 +1452,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, -9223372036854775808)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 2)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1335,7 +1461,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, 18446744073709551615)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 2)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
     def test_user_var_decimal_event(self):
         self.execute(
@@ -1350,7 +1476,8 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
 
         self.assertEqual(self.bin_log_format(), "STATEMENT")
         self.assertIsInstance(self.stream.fetchone(), QueryEvent)
-        self.assertIsInstance(self.stream.fetchone(), QueryEvent)
+        if not self.isMariaDB():
+            self.assertIsInstance(self.stream.fetchone(), QueryEvent)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1359,7 +1486,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, 5.25)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 4)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
         expected_user_var_event = self.stream.fetchone()
         self.assertIsInstance(expected_user_var_event, UserVarEvent)
@@ -1368,7 +1495,7 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         self.assertEqual(expected_user_var_event.value, -5.25)
         self.assertEqual(expected_user_var_event.is_null, 0)
         self.assertEqual(expected_user_var_event.type, 4)
-        self.assertEqual(expected_user_var_event.charset, 33)
+        self.assertEqual(expected_user_var_event.charset, self.charset_num)
 
     def tearDown(self):
         self.execute("SET @@binlog_format='ROW'")
@@ -1376,7 +1503,6 @@ class TestStatementConnectionSetting(base.PyMySQLReplicationTestCase):
         super(TestStatementConnectionSetting, self).tearDown()
 
 
-@pytest.mark.mariadb
 class TestMariadbBinlogStreamReader(base.PyMySQLReplicationTestCase):
     def setUp(self):
         super().setUp()
@@ -1413,7 +1539,6 @@ class TestMariadbBinlogStreamReader(base.PyMySQLReplicationTestCase):
         self.assertEqual(event.filename, self.bin_log_basename() + ".000001")
 
 
-@pytest.mark.mariadb
 class TestMariadbBinlogStreamReader2(base.PyMySQLReplicationTestCase):
     def setUp(self):
         super().setUp()
@@ -1519,6 +1644,9 @@ class TestMariadbBinlogStreamReader2(base.PyMySQLReplicationTestCase):
         self.assertEqual(event.gtid_list[0].gtid, "0-1-15")
 
     def test_format_description_event(self):
+        if not self.isMariaDB():
+            self.skipTest("This is for MariaDB. There is a second test_format_description_event for MySQL.")
+
         self.stream.close()
         self.stream = BinLogStreamReader(
             self.database,
@@ -1546,10 +1674,14 @@ class TestMariadbBinlogStreamReader2(base.PyMySQLReplicationTestCase):
 class TestRowsQueryLogEvents(base.PyMySQLReplicationTestCase):
     def setUp(self):
         super(TestRowsQueryLogEvents, self).setUp()
-        self.execute("SET SESSION binlog_rows_query_log_events=1")
+        if self.isMariaDB():
+            self.skipTest("skipping the entire class")
+        else:
+            self.execute("SET SESSION binlog_rows_query_log_events=1")
 
     def tearDown(self):
-        self.execute("SET SESSION binlog_rows_query_log_events=0")
+        if not self.isMariaDB():
+            self.execute("SET SESSION binlog_rows_query_log_events=0")
         super(TestRowsQueryLogEvents, self).tearDown()
 
     def test_rows_query_log_event(self):
@@ -1618,7 +1750,6 @@ class TestLatin1(base.PyMySQLReplicationTestCase):
         assert event.query == r"CREATE TABLE test_latin1_\xd6\xc6\xdb (a INT)"
 
 
-@pytest.mark.mariadb
 class TestOptionalMetaData(base.PyMySQLReplicationTestCase):
     def setUp(self):
         super(TestOptionalMetaData, self).setUp()
@@ -1979,7 +2110,8 @@ class TestJsonPartialUpdate(base.PyMySQLReplicationTestCase):
         if not self.isMySQL8014AndMore():
             self.skipTest("Mysql version is under 8.0.14 - pass TestJsonPartialUpdate")
         self.execute("SET SESSION binlog_row_image = 'FULL';")
-        self.execute("SET SESSION binlog_row_value_options = 'PARTIAL_JSON';")
+        if not self.isMariaDB():
+            self.execute("SET SESSION binlog_row_value_options = 'PARTIAL_JSON';")
 
     def test_json_partial_update(self):
         create_query = "CREATE TABLE test_json_v2 (id INT, c JSON,PRIMARY KEY (id)) ;"

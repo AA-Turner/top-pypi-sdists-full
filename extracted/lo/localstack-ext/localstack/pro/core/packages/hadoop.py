@@ -1,4 +1,5 @@
-_A='hadoop'
+_B='hadoop'
+_A=None
 import glob,os
 from xml.etree.ElementTree import Element,SubElement,tostring
 from localstack import config
@@ -13,30 +14,30 @@ HADOOP_MIRROR_URL='https://mirror.lyrahosting.com/apache/hadoop/common/hadoop-{v
 HADOOP_ARCHIVE_URL='https://archive.apache.org/dist/hadoop/common/hadoop-{version}/hadoop-{version}.tar.gz'
 AWS_SDK_BUNDLE_JAR=f"aws-java-sdk-bundle-{AWS_SDK_VER}.jar"
 AWS_SDK_BUNDLE_JAR_URL=f"{MAVEN_REPO_URL}/com/amazonaws/aws-java-sdk-bundle/{AWS_SDK_VER}/{AWS_SDK_BUNDLE_JAR}"
-HADOOP_DEFAULT_VERSION='3.3.1'
-HADOOP_VERSIONS=['2.10.2','3.3.1','3.4.0']
+HADOOP_DEFAULT_VERSION='3.3.5'
+HADOOP_VERSIONS=['2.10.2','3.3.1','3.3.5']
 class HadoopInstaller(MirrorArchiveInstaller):
-	def __init__(A,version):super().__init__(name=_A,version=version,extract_single_directory=True)
-	def _post_process(A,target):B=target;A._write_hadoop_config(B);A._replace_aws_sdk(B);A._apply_cve_fixes(B)
-	def _get_primary_url(A):return HADOOP_ARCHIVE_URL.format(version=A.version)
-	def _get_mirror_url(A):return HADOOP_MIRROR_URL.format(version=A.version)
+	def __init__(A,version:str):super().__init__(name=_B,version=version,extract_single_directory=True)
+	def _post_process(A,target:InstallTarget)->_A:B=target;A._write_hadoop_config(B);A._replace_aws_sdk(B);A._apply_cve_fixes(B)
+	def _get_primary_url(A)->str:return HADOOP_ARCHIVE_URL.format(version=A.version)
+	def _get_mirror_url(A)->str:return HADOOP_MIRROR_URL.format(version=A.version)
 	def _get_checksum_url(A):B=A._get_primary_url();return f"{B}.sha512"
-	def _get_install_marker_path(A,install_dir):return os.path.join(install_dir,'bin',_A)
-	def get_hadoop_home(A):return A.get_installed_dir()
-	def get_hadoop_bin(A):B=A.get_hadoop_home();return A._get_install_marker_path(B)if B else None
-	def get_hadoop_bin_dir(B):A=B.get_hadoop_home();return os.path.join(A,'bin')if A else None
-	def get_hadoop_tool_lib_dir(B):A=B.get_hadoop_home();return os.path.join(A,'share',_A,'tools','lib')if A else None
-	def _write_hadoop_config(E,target):
+	def _get_install_marker_path(A,install_dir:str)->str:return os.path.join(install_dir,'bin',_B)
+	def get_hadoop_home(A)->str|_A:return A.get_installed_dir()
+	def get_hadoop_bin(A)->str|_A:B=A.get_hadoop_home();return A._get_install_marker_path(B)if B else _A
+	def get_hadoop_bin_dir(B)->str|_A:A=B.get_hadoop_home();return os.path.join(A,'bin')if A else _A
+	def get_hadoop_tool_lib_dir(B)->str|_A:A=B.get_hadoop_home();return os.path.join(A,'share',_B,'tools','lib')if A else _A
+	def _write_hadoop_config(E,target:InstallTarget)->_A:
 		B='true';A=config.external_service_url();F={'fs.s3.awsAccessKeyId':DEFAULT_AWS_ACCOUNT_ID,'fs.s3.awsSecretAccessKey':DEFAULT_AWS_ACCOUNT_ID,'fs.s3.endpoint':A,'fs.s3.path.style.access':B,'fs.s3a.awsAccessKeyId':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.awsSecretAccessKey':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.access.key':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.secret.key':DEFAULT_AWS_ACCOUNT_ID,'fs.s3a.endpoint':A,'fs.s3a.path.style.access':B,'fs.s3n.awsAccessKeyId':DEFAULT_AWS_ACCOUNT_ID,'fs.s3n.awsSecretAccessKey':DEFAULT_AWS_ACCOUNT_ID,'fs.s3n.endpoint':A,'fs.s3n.path.style.access':B,'fs.defaultFS':f"file://{config.TMP_FOLDER}/hadoop-fs",'fs.default.name':f"file://{config.TMP_FOLDER}/hadoop-fs"};C=Element('configuration')
 		for(G,H)in F.items():D=SubElement(C,'property');SubElement(D,'name').text=G;SubElement(D,'value').text=H
 		I=os.path.join(E._get_install_dir(target),'etc/hadoop/core-site.xml');save_file(I,tostring(C))
-	def _replace_aws_sdk(C,target):
+	def _replace_aws_sdk(C,target:InstallTarget)->_A:
 		A=C.get_hadoop_tool_lib_dir();B=glob.glob(os.path.join(A,'aws-java-sdk-*.jar'))
 		for D in B:rm_rf(D)
 		if B:E=bigdata_jar_cache_dir(target);download_and_cache_jar_file(AWS_SDK_BUNDLE_JAR_URL,E,A)
-	def _apply_cve_fixes(E,target):A=target;B=CVEFix(paths=['hadoop/3.3.1/share/hadoop/common/lib/htrace-core4-4.1.0-incubating.jar','hadoop/3.3.1/share/hadoop/hdfs/lib/htrace-core4-4.1.0-incubating.jar','hadoop/3.3.1/share/hadoop/yarn/hadoop-yarn-applications-catalog-webapp-3.3.1.war:WEB-INF/lib/htrace-core4-4.1.0-incubating.jar','hadoop/3.3.1/share/hadoop/yarn/timelineservice/lib/htrace-core-3.1.0-incubating.jar'],strategy=FixStrategyDelete());C=CVEFix(paths=['hadoop/3.3.1/share/hadoop/client/hadoop-client-api-3.3.1.jar'],strategy=FixStrategyDownloadFile(file_url=HTRACE_NOOP_JAR_URL,target_path=os.path.join(A.value,'hadoop/3.3.1/share/hadoop/common')));D=CVEFix(paths=['hadoop/3.3.1/share/hadoop/hdfs/lib/log4j-1.2.17.jar','hadoop/3.3.1/share/hadoop/common/lib/log4j-1.2.17.jar','hadoop/3.3.1/share/hadoop/common/lib/slf4j-log4j12-1.7.30.jar'],strategy=FixStrategyDelete());fix_cves_in_jar_files(A,fixes=[B,C,D])
+	def _apply_cve_fixes(E,target:InstallTarget)->_A:A=target;B=CVEFix(paths=['hadoop/3.3.1/share/hadoop/common/lib/htrace-core4-4.1.0-incubating.jar','hadoop/3.3.1/share/hadoop/hdfs/lib/htrace-core4-4.1.0-incubating.jar','hadoop/3.3.1/share/hadoop/yarn/hadoop-yarn-applications-catalog-webapp-3.3.1.war:WEB-INF/lib/htrace-core4-4.1.0-incubating.jar','hadoop/3.3.1/share/hadoop/yarn/timelineservice/lib/htrace-core-3.1.0-incubating.jar'],strategy=FixStrategyDelete());C=CVEFix(paths=['hadoop/3.3.1/share/hadoop/client/hadoop-client-api-3.3.1.jar'],strategy=FixStrategyDownloadFile(file_url=HTRACE_NOOP_JAR_URL,target_path=os.path.join(A.value,'hadoop/3.3.1/share/hadoop/common')));D=CVEFix(paths=['hadoop/3.3.1/share/hadoop/hdfs/lib/log4j-1.2.17.jar','hadoop/3.3.1/share/hadoop/common/lib/log4j-1.2.17.jar','hadoop/3.3.1/share/hadoop/common/lib/slf4j-log4j12-1.7.30.jar'],strategy=FixStrategyDelete());fix_cves_in_jar_files(A,fixes=[B,C,D])
 class HadoopPackage(Package):
-	def __init__(A,default_version=HADOOP_DEFAULT_VERSION):super().__init__(name='Hadoop',default_version=default_version)
-	def get_versions(A):return HADOOP_VERSIONS
-	def _get_installer(A,version):return HadoopInstaller(version)
+	def __init__(A,default_version:str=HADOOP_DEFAULT_VERSION):super().__init__(name='Hadoop',default_version=default_version)
+	def get_versions(A)->list[str]:return HADOOP_VERSIONS
+	def _get_installer(A,version)->HadoopInstaller:return HadoopInstaller(version)
 hadoop_package=HadoopPackage()

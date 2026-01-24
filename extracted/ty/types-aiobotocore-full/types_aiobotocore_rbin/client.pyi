@@ -3,7 +3,7 @@ Type annotations for rbin service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rbin/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -49,12 +50,6 @@ from .type_defs import (
     UpdateRuleResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -63,12 +58,12 @@ else:
 __all__ = ("RecycleBinClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class RecycleBinClient(AioBaseClient):
     """
@@ -115,7 +110,7 @@ class RecycleBinClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rbin/client/#create_rule)
         """
 
-    async def delete_rule(self, **kwargs: Unpack[DeleteRuleRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_rule(self, **kwargs: Unpack[DeleteRuleRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a Recycle Bin retention rule.
 
@@ -159,7 +154,7 @@ class RecycleBinClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rbin/client/#lock_rule)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns tags to the specified retention rule.
 
@@ -177,7 +172,7 @@ class RecycleBinClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rbin/client/#unlock_rule)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Unassigns a tag from a retention rule.
 
@@ -213,7 +208,7 @@ class RecycleBinClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

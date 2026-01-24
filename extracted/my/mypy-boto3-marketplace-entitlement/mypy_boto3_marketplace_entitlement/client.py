@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -28,11 +29,6 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import GetEntitlementsPaginator
 from .type_defs import GetEntitlementsRequestTypeDef, GetEntitlementsResultTypeDef
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -43,10 +39,10 @@ __all__ = ("MarketplaceEntitlementServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServiceErrorException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServiceErrorException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 
 class MarketplaceEntitlementServiceClient(BaseClient):

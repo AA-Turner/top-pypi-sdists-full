@@ -1,0 +1,22 @@
+Translation: 
+  TEST_db1: 
+    Range: [Range1, Range2]
+    Deviation: [Deviation1]
+    Corrupt: [Corrupt1]
+    Missing: [Missing1, Missing2]
+    All: [Range1, Range2, Deviation1, Corrupt1, Missing1, Missing2]
+    Composite: [(R1-sum(M))/R1, (R2-sum(M))/R2, M1*D^2, M2*D^2, mean(All)-10]
+  
+Composite Equations: 
+- Comp1 (R-sum(M))/R: "np.divide(({Range} - {Missing}.sum(axis=1)),{Range})" 
+- Comp2 M*D^2: "{Missing}*np.power({Deviation},2)" 
+- Comp3 mean(ALL)-10: "({All}).mean(axis=1) - 10"
+
+Check Corrupt: [-999]
+
+Check Range:
+  Range: [-20,90]
+  Deviation: [-20,90]
+  Corrupt: [-20,90]
+  Missing: [-20,90]
+  

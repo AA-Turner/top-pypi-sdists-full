@@ -44,7 +44,6 @@ def alembic_export(
     sh_open: float | None = 0.0,
     sh_close: float | None = 1.0,
     selected: bool | None = False,
-    visible_objects_only: bool | None = False,
     flatten: bool | None = False,
     collection: str = "",
     uvs: bool | None = True,
@@ -72,46 +71,25 @@ def alembic_export(
 ) -> None:
     """Export current scene in an Alembic archive
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -125,66 +103,34 @@ def alembic_export(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
-        :type filter_glob: str
         :param start: Start Frame, Start frame of the export, use the default value to take the start frame of the current scene
-        :type start: int | None
         :param end: End Frame, End frame of the export, use the default value to take the end frame of the current scene
-        :type end: int | None
         :param xsamples: Transform Samples, Number of times per frame transformations are sampled
-        :type xsamples: int | None
         :param gsamples: Geometry Samples, Number of times per frame object data are sampled
-        :type gsamples: int | None
         :param sh_open: Shutter Open, Time at which the shutter is open
-        :type sh_open: float | None
         :param sh_close: Shutter Close, Time at which the shutter is closed
-        :type sh_close: float | None
         :param selected: Selected Objects Only, Export only selected objects
-        :type selected: bool | None
-        :param visible_objects_only: Visible Objects Only, Export only objects that are visible
-        :type visible_objects_only: bool | None
         :param flatten: Flatten Hierarchy, Do not preserve objects parent/children relationship
-        :type flatten: bool | None
         :param collection: Collection
-        :type collection: str
         :param uvs: UV Coordinates, Export UV coordinates
-        :type uvs: bool | None
         :param packuv: Merge UVs
-        :type packuv: bool | None
         :param normals: Normals, Export normals
-        :type normals: bool | None
         :param vcolors: Color Attributes, Export color attributes
-        :type vcolors: bool | None
         :param orcos: Generated Coordinates, Export undeformed mesh vertex coordinates
-        :type orcos: bool | None
         :param face_sets: Face Sets, Export per face shading group assignments
-        :type face_sets: bool | None
         :param subdiv_schema: Use Subdivision Schema, Export meshes using Alembics subdivision schema
-        :type subdiv_schema: bool | None
         :param apply_subdiv: Apply Subdivision Surface, Export subdivision surfaces as meshes
-        :type apply_subdiv: bool | None
         :param curves_as_mesh: Curves as Mesh, Export curves and NURBS surfaces as meshes
-        :type curves_as_mesh: bool | None
         :param use_instancing: Use Instancing, Export data of duplicated objects as Alembic instances; speeds up the export and can be disabled for compatibility with other software
-        :type use_instancing: bool | None
         :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :type global_scale: float | None
         :param triangulate: Triangulate, Export polygons (quads and n-gons) as triangles
-        :type triangulate: bool | None
         :param quad_method: Quad Method, Method for splitting the quads into triangles
-        :type quad_method: bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems | None
         :param ngon_method: N-gon Method, Method for splitting the n-gons into triangles
-        :type ngon_method: bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems | None
         :param export_hair: Export Hair, Exports hair particle systems as animated curves
-        :type export_hair: bool | None
         :param export_particles: Export Particles, Exports non-hair particle systems
-        :type export_particles: bool | None
         :param export_custom_properties: Export Custom Properties, Export custom properties to Alembic .userProperties
-        :type export_custom_properties: bool | None
         :param as_background_job: Run as Background Job, Enable this to run the import in the background, disable to block Blender while importing. This option is deprecated; EXECUTE this operator to run in the foreground, and INVOKE it to run as a background job
-        :type as_background_job: bool | None
         :param evaluation_mode: Settings, Determines visibility of objects, modifier settings, and other areas where there are different settings for viewport and rendering
 
     RENDER
@@ -192,8 +138,6 @@ def alembic_export(
 
     VIEWPORT
     Viewport -- Use Viewport settings for object visibility, modifier settings, etc.
-        :type evaluation_mode: typing.Literal['RENDER','VIEWPORT'] | None
-        :type init_scene_frame_range: bool | None
     """
 
 def alembic_import(
@@ -239,52 +183,28 @@ def alembic_import(
 ) -> None:
     """Load an Alembic archive
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -298,22 +218,13 @@ def alembic_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
-        :type filter_glob: str
         :param scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :type scale: float | None
         :param set_frame_range: Set Frame Range, If checked, update scenes start and end frame to match those of the Alembic archive
-        :type set_frame_range: bool | None
         :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
-        :type validate_meshes: bool | None
         :param always_add_cache_reader: Always Add Cache Reader, Add cache modifiers and constraints to imported objects even if they are not animated so that they can be updated when reloading the Alembic archive
-        :type always_add_cache_reader: bool | None
         :param is_sequence: Is Sequence, Set to true if the cache is split into separate files
-        :type is_sequence: bool | None
         :param as_background_job: Run as Background Job, Enable this to run the export in the background, disable to block Blender while exporting. This option is deprecated; EXECUTE this operator to run in the foreground, and INVOKE it to run as a background job
-        :type as_background_job: bool | None
     """
 
 def append(
@@ -361,52 +272,28 @@ def append(
 ) -> None:
     """Append from a Library .blend file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param filename: File Name, Name of the file
-        :type filename: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -420,27 +307,16 @@ def append(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param link: Link, Link the objects or data-blocks rather than appending
-        :type link: bool | None
         :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy
-        :type do_reuse_local_id: bool | None
         :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block
-        :type clear_asset_data: bool | None
         :param autoselect: Select, Select new objects
-        :type autoselect: bool | None
         :param active_collection: Active Collection, Put new objects on the active collection
-        :type active_collection: bool | None
         :param instance_collections: Instance Collections, Create instances for collections, rather than adding them directly to the scene
-        :type instance_collections: bool | None
         :param instance_object_data: Instance Object Data, Create instances for object data which are not referenced by any objects
-        :type instance_object_data: bool | None
         :param set_fake: Fake User, Set "Fake User" for appended items (except objects and collections)
-        :type set_fake: bool | None
         :param use_recursive: Localize All, Localize all appended data, including those indirectly linked from other libraries
-        :type use_recursive: bool | None
     """
 
 def batch_rename(
@@ -477,14 +353,9 @@ def batch_rename(
 ) -> None:
     """Rename multiple items at once
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_type: Type, Type of data to rename
-    :type data_type: typing.Literal['OBJECT','COLLECTION','MATERIAL','MESH','CURVE','META','VOLUME','GREASEPENCIL','ARMATURE','LATTICE','LIGHT','LIGHT_PROBE','CAMERA','SPEAKER','BONE','NODE','SEQUENCE_STRIP','ACTION_CLIP','SCENE','BRUSH'] | None
     :param data_source: Source
-    :type data_source: typing.Literal['SELECT','ALL'] | None
     :param actions: actions
-    :type actions: bpy.types.bpy_prop_collection[bl_operators.wm.BatchRenameAction] | None
     """
 
 def blend_strings_utf8_validate(
@@ -492,11 +363,7 @@ def blend_strings_utf8_validate(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Check and fix all strings in current .blend file to be valid UTF-8 Unicode (needed for some old, 2.4x area files)
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Check and fix all strings in current .blend file to be valid UTF-8 Unicode (needed for some old, 2.4x area files)"""
 
 def call_asset_shelf_popover(
     execution_context: int | str | None = None,
@@ -507,10 +374,7 @@ def call_asset_shelf_popover(
 ) -> None:
     """Open a predefined asset shelf in a popup
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Asset Shelf Name, Identifier of the asset shelf to display
-    :type name: str
     """
 
 def call_menu(
@@ -522,10 +386,7 @@ def call_menu(
 ) -> None:
     """Open a predefined menu
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the menu
-    :type name: str
     """
 
 def call_menu_pie(
@@ -537,10 +398,7 @@ def call_menu_pie(
 ) -> None:
     """Open a predefined pie menu
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the pie menu
-    :type name: str
     """
 
 def call_panel(
@@ -553,12 +411,8 @@ def call_panel(
 ) -> None:
     """Open a predefined panel
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the menu
-    :type name: str
     :param keep_open: Keep Open
-    :type keep_open: bool | None
     """
 
 def clear_recent_files(
@@ -570,10 +424,7 @@ def clear_recent_files(
 ) -> None:
     """Clear the recent files list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param remove: Remove
-    :type remove: typing.Literal['ALL','MISSING'] | None
     """
 
 def collection_export_all(
@@ -581,11 +432,7 @@ def collection_export_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Invoke all configured exporters for all collections
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Invoke all configured exporters for all collections"""
 
 def context_collection_boolean_set(
     execution_context: int | str | None = None,
@@ -598,14 +445,9 @@ def context_collection_boolean_set(
 ) -> None:
     """Set boolean values for a collection of items
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path_iter: data_path_iter, The data path relative to the context, must point to an iterable
-    :type data_path_iter: str
     :param data_path_item: data_path_item, The data path from each iterable to the value (int or float)
-    :type data_path_item: str
     :param type: Type
-    :type type: typing.Literal['TOGGLE','ENABLE','DISABLE'] | None
     """
 
 def context_cycle_array(
@@ -618,12 +460,8 @@ def context_cycle_array(
 ) -> None:
     """Set a context array value (useful for cycling the active mesh edit mode)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param reverse: Reverse, Cycle backwards
-    :type reverse: bool | None
     """
 
 def context_cycle_enum(
@@ -637,14 +475,9 @@ def context_cycle_enum(
 ) -> None:
     """Toggle a context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param reverse: Reverse, Cycle backwards
-    :type reverse: bool | None
     :param wrap: Wrap, Wrap back to the first/last values
-    :type wrap: bool | None
     """
 
 def context_cycle_int(
@@ -658,14 +491,9 @@ def context_cycle_int(
 ) -> None:
     """Set a context value (useful for cycling active material, shape keys, groups, etc.)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param reverse: Reverse, Cycle backwards
-    :type reverse: bool | None
     :param wrap: Wrap, Wrap back to the first/last values
-    :type wrap: bool | None
     """
 
 def context_menu_enum(
@@ -677,10 +505,7 @@ def context_menu_enum(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     """
 
 def context_modal_mouse(
@@ -697,20 +522,12 @@ def context_modal_mouse(
 ) -> None:
     """Adjust arbitrary values with mouse input
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path_iter: data_path_iter, The data path relative to the context, must point to an iterable
-    :type data_path_iter: str
     :param data_path_item: data_path_item, The data path from each iterable to the value (int or float)
-    :type data_path_item: str
     :param header_text: Header Text, Text to display in header during scale
-    :type header_text: str
     :param input_scale: input_scale, Scale the mouse movement by this value before applying the delta
-    :type input_scale: float | None
     :param invert: invert, Invert the mouse input
-    :type invert: bool | None
     :param initial_x: initial_x
-    :type initial_x: int | None
     """
 
 def context_pie_enum(
@@ -722,10 +539,7 @@ def context_pie_enum(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     """
 
 def context_scale_float(
@@ -738,12 +552,8 @@ def context_scale_float(
 ) -> None:
     """Scale a float context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param value: Value, Assign value
-    :type value: float | None
     """
 
 def context_scale_int(
@@ -757,14 +567,9 @@ def context_scale_int(
 ) -> None:
     """Scale an int context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param value: Value, Assign value
-    :type value: float | None
     :param always_step: Always Step, Always adjust the value by a minimum of 1 when value is not 1.0
-    :type always_step: bool | None
     """
 
 def context_set_boolean(
@@ -777,12 +582,8 @@ def context_set_boolean(
 ) -> None:
     """Set a context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param value: Value, Assignment value
-    :type value: bool | None
     """
 
 def context_set_enum(
@@ -795,12 +596,8 @@ def context_set_enum(
 ) -> None:
     """Set a context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param value: Value, Assignment value (as a string)
-    :type value: str
     """
 
 def context_set_float(
@@ -814,14 +611,9 @@ def context_set_float(
 ) -> None:
     """Set a context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param value: Value, Assignment value
-    :type value: float | None
     :param relative: Relative, Apply relative to the current value (delta)
-    :type relative: bool | None
     """
 
 def context_set_id(
@@ -834,12 +626,8 @@ def context_set_id(
 ) -> None:
     """Set a context value to an ID data-block
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param value: Value, Assign value
-    :type value: str
     """
 
 def context_set_int(
@@ -853,14 +641,9 @@ def context_set_int(
 ) -> None:
     """Set a context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param value: Value, Assign value
-    :type value: int | None
     :param relative: Relative, Apply relative to the current value (delta)
-    :type relative: bool | None
     """
 
 def context_set_string(
@@ -873,12 +656,8 @@ def context_set_string(
 ) -> None:
     """Set a context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param value: Value, Assign value
-    :type value: str
     """
 
 def context_set_value(
@@ -891,12 +670,8 @@ def context_set_value(
 ) -> None:
     """Set a context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param value: Value, Assignment value (as a string)
-    :type value: str
     """
 
 def context_toggle(
@@ -909,12 +684,8 @@ def context_toggle(
 ) -> None:
     """Toggle a context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param module: Module, Optionally override the context with a module
-    :type module: str
     """
 
 def context_toggle_enum(
@@ -928,14 +699,9 @@ def context_toggle_enum(
 ) -> None:
     """Toggle a context value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :type data_path: str
     :param value_1: Value, Toggle enum
-    :type value_1: str
     :param value_2: Value, Toggle enum
-    :type value_2: str
     """
 
 def debug_menu(
@@ -947,10 +713,7 @@ def debug_menu(
 ) -> None:
     """Open a popup to set the debug level
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param debug_value: Debug Value
-    :type debug_value: int | None
     """
 
 def doc_view(
@@ -962,10 +725,7 @@ def doc_view(
 ) -> None:
     """Open online reference docs in a web browser
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param doc_id: Doc ID
-    :type doc_id: str
     """
 
 def doc_view_manual(
@@ -977,10 +737,7 @@ def doc_view_manual(
 ) -> None:
     """Load online manual
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param doc_id: Doc ID
-    :type doc_id: str
     """
 
 def doc_view_manual_ui_context(
@@ -988,11 +745,7 @@ def doc_view_manual_ui_context(
     undo: bool | None = None,
     /,
 ) -> None:
-    """View a context based online manual in a web browser
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """View a context based online manual in a web browser"""
 
 def drop_blend_file(
     execution_context: int | str | None = None,
@@ -1003,10 +756,7 @@ def drop_blend_file(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: filepath
-    :type filepath: str
     """
 
 def drop_import_file(
@@ -1020,12 +770,8 @@ def drop_import_file(
 ) -> None:
     """Operator that allows file handlers to receive file drops
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param directory: Directory, Directory of the file
-    :type directory: str
     :param files: Files
-    :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
     """
 
 def fbx_import(
@@ -1076,50 +822,27 @@ def fbx_import(
 ) -> None:
     """Import FBX file into current scene
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1133,11 +856,8 @@ def fbx_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param global_scale: Scale
-        :type global_scale: float | None
         :param mtl_name_collision_mode: Material Name Collision, Behavior when the name of an imported material conflicts with an existing material
 
     MAKE_UNIQUE
@@ -1145,7 +865,6 @@ def fbx_import(
 
     REFERENCE_EXISTING
     Reference Existing -- If a material with the same name already exists, reference that instead of importing.
-        :type mtl_name_collision_mode: typing.Literal['MAKE_UNIQUE','REFERENCE_EXISTING'] | None
         :param import_colors: Vertex Colors, Import vertex color attributes
 
     NONE
@@ -1156,25 +875,15 @@ def fbx_import(
 
     LINEAR
     Linear -- Vertex colors in the file are in linear color space.
-        :type import_colors: typing.Literal['NONE','SRGB','LINEAR'] | None
         :param use_custom_normals: Custom Normals, Import custom normals, if available (otherwise Blender will compute them)
-        :type use_custom_normals: bool | None
         :param use_custom_props: Custom Properties, Import user properties as custom properties
-        :type use_custom_props: bool | None
         :param use_custom_props_enum_as_string: Enums As Strings, Store custom property enumeration values as strings
-        :type use_custom_props_enum_as_string: bool | None
         :param import_subdivision: Subdivision Data, Import FBX subdivision information as subdivision surface modifiers
-        :type import_subdivision: bool | None
         :param ignore_leaf_bones: Ignore Leaf Bones, Ignore the last bone at the end of each chain (used to mark the length of the previous bone)
-        :type ignore_leaf_bones: bool | None
         :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
-        :type validate_meshes: bool | None
         :param use_anim: Import Animation, Import FBX animation
-        :type use_anim: bool | None
         :param anim_offset: Offset, Offset to apply to animation timestamps, in frames
-        :type anim_offset: float | None
         :param filter_glob: Extension Filter
-        :type filter_glob: str
     """
 
 def grease_pencil_export_pdf(
@@ -1215,46 +924,25 @@ def grease_pencil_export_pdf(
 ) -> None:
     """Export Grease Pencil to PDF
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1268,11 +956,8 @@ def grease_pencil_export_pdf(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param use_fill: Fill, Export strokes with fill enabled
-        :type use_fill: bool | None
         :param selected_object_type: Object, Which objects to include in the export
 
     ACTIVE
@@ -1283,7 +968,6 @@ def grease_pencil_export_pdf(
 
     VISIBLE
     Visible -- Include all visible objects.
-        :type selected_object_type: typing.Literal['ACTIVE','SELECTED','VISIBLE'] | None
         :param frame_mode: Frames, Which frames to include in the export
 
     ACTIVE
@@ -1294,11 +978,8 @@ def grease_pencil_export_pdf(
 
     SCENE
     Scene -- Include all scene frames.
-        :type frame_mode: typing.Literal['ACTIVE','SELECTED','SCENE'] | None
         :param stroke_sample: Sampling, Precision of stroke sampling. Low values mean a more precise result, and zero disables sampling
-        :type stroke_sample: float | None
         :param use_uniform_width: Uniform Width, Export strokes with uniform width
-        :type use_uniform_width: bool | None
     """
 
 def grease_pencil_export_svg(
@@ -1340,46 +1021,25 @@ def grease_pencil_export_svg(
 ) -> None:
     """Export Grease Pencil to SVG
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1393,11 +1053,8 @@ def grease_pencil_export_svg(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param use_fill: Fill, Export strokes with fill enabled
-        :type use_fill: bool | None
         :param selected_object_type: Object, Which objects to include in the export
 
     ACTIVE
@@ -1408,7 +1065,6 @@ def grease_pencil_export_svg(
 
     VISIBLE
     Visible -- Include all visible objects.
-        :type selected_object_type: typing.Literal['ACTIVE','SELECTED','VISIBLE'] | None
         :param frame_mode: Frames, Which frames to include in the export
 
     ACTIVE
@@ -1419,13 +1075,9 @@ def grease_pencil_export_svg(
 
     SCENE
     Scene -- Include all scene frames.
-        :type frame_mode: typing.Literal['ACTIVE','SELECTED','SCENE'] | None
         :param stroke_sample: Sampling, Precision of stroke sampling. Low values mean a more precise result, and zero disables sampling
-        :type stroke_sample: float | None
         :param use_uniform_width: Uniform Width, Export strokes with uniform width
-        :type use_uniform_width: bool | None
         :param use_clip_camera: Clip Camera, Clip drawings to camera size when exporting in camera view
-        :type use_clip_camera: bool | None
     """
 
 def grease_pencil_import_svg(
@@ -1467,52 +1119,28 @@ def grease_pencil_import_svg(
 ) -> None:
     """Import SVG into Grease Pencil
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1526,15 +1154,10 @@ def grease_pencil_import_svg(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param resolution: Resolution, Resolution of the generated strokes
-        :type resolution: int | None
         :param scale: Scale, Scale of the final strokes
-        :type scale: float | None
         :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data
-        :type use_scene_unit: bool | None
     """
 
 def id_linked_relocate(
@@ -1580,54 +1203,29 @@ def id_linked_relocate(
 ) -> None:
     """Relocate a linked ID, i.e. select another ID to link, and remap its local usages to that newly linked data-block). Currently only designed as an internal operator, not directly exposed to the user
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param id_session_uid: Linked ID Session UID, Unique runtime identifier for the linked ID to relocate
-        :type id_session_uid: int | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param filename: File Name, Name of the file
-        :type filename: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1641,23 +1239,14 @@ def id_linked_relocate(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param link: Link, Link the objects or data-blocks rather than appending
-        :type link: bool | None
         :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy
-        :type do_reuse_local_id: bool | None
         :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block
-        :type clear_asset_data: bool | None
         :param autoselect: Select, Select new objects
-        :type autoselect: bool | None
         :param active_collection: Active Collection, Put new objects on the active collection
-        :type active_collection: bool | None
         :param instance_collections: Instance Collections, Create instances for collections, rather than adding them directly to the scene
-        :type instance_collections: bool | None
         :param instance_object_data: Instance Object Data, Create instances for object data which are not referenced by any objects
-        :type instance_object_data: bool | None
     """
 
 def interface_theme_preset_add(
@@ -1671,14 +1260,9 @@ def interface_theme_preset_add(
 ) -> None:
     """Add a custom theme to the preset list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the preset, used to make the path name
-    :type name: str
     :param remove_name: remove_name
-    :type remove_name: bool | None
     :param remove_active: remove_active
-    :type remove_active: bool | None
     """
 
 def interface_theme_preset_remove(
@@ -1692,14 +1276,9 @@ def interface_theme_preset_remove(
 ) -> None:
     """Remove a custom theme from the preset list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the preset, used to make the path name
-    :type name: str
     :param remove_name: remove_name
-    :type remove_name: bool | None
     :param remove_active: remove_active
-    :type remove_active: bool | None
     """
 
 def interface_theme_preset_save(
@@ -1713,14 +1292,9 @@ def interface_theme_preset_save(
 ) -> None:
     """Save a custom theme in the preset list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the preset, used to make the path name
-    :type name: str
     :param remove_name: remove_name
-    :type remove_name: bool | None
     :param remove_active: remove_active
-    :type remove_active: bool | None
     """
 
 def keyconfig_preset_add(
@@ -1734,14 +1308,9 @@ def keyconfig_preset_add(
 ) -> None:
     """Add a custom keymap configuration to the preset list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the preset, used to make the path name
-    :type name: str
     :param remove_name: remove_name
-    :type remove_name: bool | None
     :param remove_active: remove_active
-    :type remove_active: bool | None
     """
 
 def keyconfig_preset_remove(
@@ -1755,14 +1324,9 @@ def keyconfig_preset_remove(
 ) -> None:
     """Remove a custom keymap configuration from the preset list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the preset, used to make the path name
-    :type name: str
     :param remove_name: remove_name
-    :type remove_name: bool | None
     :param remove_active: remove_active
-    :type remove_active: bool | None
     """
 
 def lib_reload(
@@ -1802,56 +1366,30 @@ def lib_reload(
 ) -> None:
     """Reload the given library
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param library: Library, Library to reload
-        :type library: str
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param filename: File Name, Name of the file
-        :type filename: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1865,9 +1403,7 @@ def lib_reload(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def lib_relocate(
@@ -1909,58 +1445,31 @@ def lib_relocate(
 ) -> None:
     """Relocate the given library to one or several others
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param library: Library, Library to relocate
-        :type library: str
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param filename: File Name, Name of the file
-        :type filename: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -1974,9 +1483,7 @@ def lib_relocate(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def link(
@@ -2023,54 +1530,29 @@ def link(
 ) -> None:
     """Link from a Library .blend file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param filename: File Name, Name of the file
-        :type filename: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -2084,23 +1566,14 @@ def link(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param link: Link, Link the objects or data-blocks rather than appending
-        :type link: bool | None
         :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy
-        :type do_reuse_local_id: bool | None
         :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block
-        :type clear_asset_data: bool | None
         :param autoselect: Select, Select new objects
-        :type autoselect: bool | None
         :param active_collection: Active Collection, Put new objects on the active collection
-        :type active_collection: bool | None
         :param instance_collections: Instance Collections, Create instances for collections, rather than adding them directly to the scene
-        :type instance_collections: bool | None
         :param instance_object_data: Instance Object Data, Create instances for object data which are not referenced by any objects
-        :type instance_object_data: bool | None
     """
 
 def memory_statistics(
@@ -2108,11 +1581,7 @@ def memory_statistics(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Print memory statistics to the console
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Print memory statistics to the console"""
 
 def obj_export(
     execution_context: int | str | None = None,
@@ -2177,46 +1646,25 @@ def obj_export(
 ) -> None:
     """Save the scene to a Wavefront OBJ file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -2230,15 +1678,10 @@ def obj_export(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param export_animation: Export Animation, Export multiple frames instead of the current frame only
-        :type export_animation: bool | None
         :param start_frame: Start Frame, The first frame to be exported
-        :type start_frame: int | None
         :param end_frame: End Frame, The last frame to be exported
-        :type end_frame: int | None
         :param forward_axis: Forward Axis
 
     X
@@ -2258,7 +1701,6 @@ def obj_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type forward_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param up_axis: Up Axis
 
     X
@@ -2278,13 +1720,9 @@ def obj_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type up_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :type global_scale: float | None
         :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes
-        :type apply_modifiers: bool | None
         :param apply_transform: Apply Transform, Apply object transforms to exported vertices
-        :type apply_transform: bool | None
         :param export_eval_mode: Object Properties, Determines properties like object visibility, modifiers etc., where they differ for Render and Viewport
 
     DAG_EVAL_RENDER
@@ -2292,19 +1730,12 @@ def obj_export(
 
     DAG_EVAL_VIEWPORT
     Viewport -- Export objects as they appear in the viewport.
-        :type export_eval_mode: typing.Literal['DAG_EVAL_RENDER','DAG_EVAL_VIEWPORT'] | None
         :param export_selected_objects: Export Selected Objects, Export only selected objects instead of all supported objects
-        :type export_selected_objects: bool | None
         :param export_uv: Export UVs
-        :type export_uv: bool | None
         :param export_normals: Export Normals, Export per-face normals if the face is flat-shaded, per-face-corner normals if smooth-shaded
-        :type export_normals: bool | None
         :param export_colors: Export Colors, Export per-vertex colors
-        :type export_colors: bool | None
         :param export_materials: Export Materials, Export MTL library. There must be a Principled-BSDF node for image textures to be exported to the MTL file
-        :type export_materials: bool | None
         :param export_pbr_extensions: Export Materials with PBR Extensions, Export MTL library using PBR extensions (roughness, metallic, sheen, coat, anisotropy, transmission)
-        :type export_pbr_extensions: bool | None
         :param path_mode: Path Mode, Method used to reference paths
 
     AUTO
@@ -2324,25 +1755,15 @@ def obj_export(
 
     COPY
     Copy -- Copy the file to the destination path.
-        :type path_mode: typing.Literal['AUTO','ABSOLUTE','RELATIVE','MATCH','STRIP','COPY'] | None
         :param export_triangulated_mesh: Export Triangulated Mesh, All ngons with four or more vertices will be triangulated. Meshes in the scene will not be affected. Behaves like Triangulate Modifier with ngon-method: "Beauty", quad-method: "Shortest Diagonal", min vertices: 4
-        :type export_triangulated_mesh: bool | None
         :param export_curves_as_nurbs: Export Curves as NURBS, Export curves in parametric form instead of exporting as mesh
-        :type export_curves_as_nurbs: bool | None
         :param export_object_groups: Export Object Groups, Append mesh name to object name, separated by a _
-        :type export_object_groups: bool | None
         :param export_material_groups: Export Material Groups, Generate an OBJ group for each part of a geometry using a different material
-        :type export_material_groups: bool | None
         :param export_vertex_groups: Export Vertex Groups, Export the name of the vertex group of a face. It is approximated by choosing the vertex group with the most members among the vertices of a face
-        :type export_vertex_groups: bool | None
         :param export_smooth_groups: Export Smooth Groups, Generate smooth groups identifiers for each group of smooth faces, as unique integer values by default
-        :type export_smooth_groups: bool | None
         :param smooth_group_bitflags: Bitflags Smooth Groups, If exporting smoothgroups, generate bitflags values for the groups, instead of unique integer values. The same bitflag value can be re-used for different groups of smooth faces, as long as they have no common sharp edges or vertices
-        :type smooth_group_bitflags: bool | None
         :param filter_glob: Extension Filter
-        :type filter_glob: str
         :param collection: Collection
-        :type collection: str
     """
 
 def obj_import(
@@ -2397,50 +1818,27 @@ def obj_import(
 ) -> None:
     """Load a Wavefront OBJ scene
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -2454,13 +1852,9 @@ def obj_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :type global_scale: float | None
         :param clamp_size: Clamp Bounding Box, Resize the objects to keep bounding box under this value. Value 0 disables clamping
-        :type clamp_size: float | None
         :param forward_axis: Forward Axis
 
     X
@@ -2480,7 +1874,6 @@ def obj_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type forward_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param up_axis: Up Axis
 
     X
@@ -2500,19 +1893,12 @@ def obj_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type up_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param use_split_objects: Split By Object, Import each OBJ o as a separate object
-        :type use_split_objects: bool | None
         :param use_split_groups: Split By Group, Import each OBJ g as a separate object
-        :type use_split_groups: bool | None
         :param import_vertex_groups: Vertex Groups, Import OBJ groups as vertex groups
-        :type import_vertex_groups: bool | None
         :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
-        :type validate_meshes: bool | None
         :param close_spline_loops: Detect Cyclic Curves, Join curve endpoints if overlapping control points are detected (if disabled, no curves will be cyclic)
-        :type close_spline_loops: bool | None
         :param collection_separator: Path Separator, Character used to separate objects name into hierarchical structure
-        :type collection_separator: str
         :param mtl_name_collision_mode: Material Name Collision, How to handle naming collisions when importing materials
 
     MAKE_UNIQUE
@@ -2520,9 +1906,7 @@ def obj_import(
 
     REFERENCE_EXISTING
     Reference Existing -- Use existing materials with same name instead of creating new ones.
-        :type mtl_name_collision_mode: typing.Literal['MAKE_UNIQUE','REFERENCE_EXISTING'] | None
         :param filter_glob: Extension Filter
-        :type filter_glob: str
     """
 
 def open_mainfile(
@@ -2562,48 +1946,26 @@ def open_mainfile(
 ) -> None:
     """Open a Blender file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -2617,17 +1979,11 @@ def open_mainfile(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param load_ui: Load UI, Load user interface setup in the .blend file
-        :type load_ui: bool | None
         :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences
-        :type use_scripts: bool | None
         :param display_file_selector: Display File Selector
-        :type display_file_selector: bool | None
         :param state: State
-        :type state: int | None
     """
 
 def operator_cheat_sheet(
@@ -2635,22 +1991,14 @@ def operator_cheat_sheet(
     undo: bool | None = None,
     /,
 ) -> None:
-    """List all the operators in a text-block, useful for scripting
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """List all the operators in a text-block, useful for scripting"""
 
 def operator_defaults(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set the active operator to its default values
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set the active operator to its default values"""
 
 def operator_pie_enum(
     execution_context: int | str | None = None,
@@ -2662,12 +2010,8 @@ def operator_pie_enum(
 ) -> None:
     """Undocumented, consider contributing.
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Operator, Operator name (in Python as string)
-    :type data_path: str
     :param prop_string: Property, Property name (as a string)
-    :type prop_string: str
     """
 
 def operator_preset_add(
@@ -2682,16 +2026,10 @@ def operator_preset_add(
 ) -> None:
     """Add or remove an Operator Preset
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the preset, used to make the path name
-    :type name: str
     :param remove_name: remove_name
-    :type remove_name: bool | None
     :param remove_active: remove_active
-    :type remove_active: bool | None
     :param operator: Operator
-    :type operator: str
     """
 
 def operator_presets_cleanup(
@@ -2705,12 +2043,8 @@ def operator_presets_cleanup(
 ) -> None:
     """Remove outdated operator properties from presets that may cause problems
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param operator: operator
-    :type operator: str
     :param properties: properties
-    :type properties: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
     """
 
 def owner_disable(
@@ -2722,10 +2056,7 @@ def owner_disable(
 ) -> None:
     """Disable add-on for workspace
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param owner_id: UI Tag
-    :type owner_id: str
     """
 
 def owner_enable(
@@ -2737,10 +2068,7 @@ def owner_enable(
 ) -> None:
     """Enable add-on for workspace
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param owner_id: UI Tag
-    :type owner_id: str
     """
 
 def path_open(
@@ -2752,10 +2080,7 @@ def path_open(
 ) -> None:
     """Open a path in a file browser
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: filepath
-    :type filepath: str
     """
 
 def ply_export(
@@ -2807,46 +2132,25 @@ def ply_export(
 ) -> None:
     """Save the scene to a PLY file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -2860,9 +2164,7 @@ def ply_export(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param forward_axis: Forward Axis
 
     X
@@ -2882,7 +2184,6 @@ def ply_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type forward_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param up_axis: Up Axis
 
     X
@@ -2902,19 +2203,12 @@ def ply_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type up_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :type global_scale: float | None
         :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes
-        :type apply_modifiers: bool | None
         :param export_selected_objects: Export Selected Objects, Export only selected objects instead of all supported objects
-        :type export_selected_objects: bool | None
         :param collection: Source Collection, Export only objects from this collection (and its children)
-        :type collection: str
         :param export_uv: Export UVs
-        :type export_uv: bool | None
         :param export_normals: Export Vertex Normals, Export specific vertex normals if available, export calculated normals otherwise
-        :type export_normals: bool | None
         :param export_colors: Export Vertex Colors, Export vertex color attributes
 
     NONE
@@ -2925,15 +2219,10 @@ def ply_export(
 
     LINEAR
     Linear -- Vertex colors in the file are in linear color space.
-        :type export_colors: typing.Literal['NONE','SRGB','LINEAR'] | None
         :param export_attributes: Export Vertex Attributes, Export custom vertex attributes
-        :type export_attributes: bool | None
         :param export_triangulated_mesh: Export Triangulated Mesh, All ngons with four or more vertices will be triangulated. Meshes in the scene will not be affected. Behaves like Triangulate Modifier with ngon-method: "Beauty", quad-method: "Shortest Diagonal", min vertices: 4
-        :type export_triangulated_mesh: bool | None
         :param ascii_format: ASCII Format, Export file in ASCII format, export as binary otherwise
-        :type ascii_format: bool | None
         :param filter_glob: Extension Filter
-        :type filter_glob: str
     """
 
 def ply_import(
@@ -2983,50 +2272,27 @@ def ply_import(
 ) -> None:
     """Import an PLY file as an object
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -3040,13 +2306,9 @@ def ply_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param global_scale: Scale
-        :type global_scale: float | None
         :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data
-        :type use_scene_unit: bool | None
         :param forward_axis: Forward Axis
 
     X
@@ -3066,7 +2328,6 @@ def ply_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type forward_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param up_axis: Up Axis
 
     X
@@ -3086,9 +2347,7 @@ def ply_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type up_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param merge_verts: Merge Vertices, Merges vertices by distance
-        :type merge_verts: bool | None
         :param import_colors: Vertex Colors, Import vertex color attributes
 
     NONE
@@ -3099,11 +2358,8 @@ def ply_import(
 
     LINEAR
     Linear -- Vertex colors in the file are in linear color space.
-        :type import_colors: typing.Literal['NONE','SRGB','LINEAR'] | None
         :param import_attributes: Vertex Attributes, Import custom vertex attributes
-        :type import_attributes: bool | None
         :param filter_glob: Extension Filter
-        :type filter_glob: str
     """
 
 def previews_batch_clear(
@@ -3125,28 +2381,16 @@ def previews_batch_clear(
 ) -> None:
     """Clear selected .blend files previews
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param files: files
-    :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
     :param directory: directory
-    :type directory: str
     :param filter_blender: filter_blender
-    :type filter_blender: bool | None
     :param filter_folder: filter_folder
-    :type filter_folder: bool | None
     :param use_scenes: Scenes, Clear scenes previews
-    :type use_scenes: bool | None
     :param use_collections: Collections, Clear collections previews
-    :type use_collections: bool | None
     :param use_objects: Objects, Clear objects previews
-    :type use_objects: bool | None
     :param use_intern_data: Materials & Textures, Clear internal previews (materials, textures, images, etc.)
-    :type use_intern_data: bool | None
     :param use_trusted: Trusted Blend Files, Enable Python evaluation for selected files
-    :type use_trusted: bool | None
     :param use_backups: Save Backups, Keep a backup (.blend1) version of the files when saving with cleared previews
-    :type use_backups: bool | None
     """
 
 def previews_batch_generate(
@@ -3168,28 +2412,16 @@ def previews_batch_generate(
 ) -> None:
     """Generate selected .blend files previews
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param files: Collection of file paths with common directory root
-    :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
     :param directory: Root path of all files listed in files collection
-    :type directory: str
     :param filter_blender: Show Blender files in the File Browser
-    :type filter_blender: bool | None
     :param filter_folder: Show folders in the File Browser
-    :type filter_folder: bool | None
     :param use_scenes: Scenes, Generate scenes previews
-    :type use_scenes: bool | None
     :param use_collections: Collections, Generate collections previews
-    :type use_collections: bool | None
     :param use_objects: Objects, Generate objects previews
-    :type use_objects: bool | None
     :param use_intern_data: Materials & Textures, Generate internal previews (materials, textures, images, etc.)
-    :type use_intern_data: bool | None
     :param use_trusted: Trusted Blend Files, Enable Python evaluation for selected files
-    :type use_trusted: bool | None
     :param use_backups: Save Backups, Keep a backup (.blend1) version of the files when saving with generated previews
-    :type use_backups: bool | None
     """
 
 def previews_clear(
@@ -3216,8 +2448,6 @@ def previews_clear(
 ) -> None:
     """Clear data-block previews (only for some types like objects, materials, textures, etc.)
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param id_type: Data-Block Type, Which data-block previews to clear
 
     ALL
@@ -3252,7 +2482,6 @@ def previews_clear(
 
     IMAGE
     Images.
-        :type id_type: set[typing.Literal['ALL','GEOMETRY','SHADING','SCENE','COLLECTION','OBJECT','MATERIAL','LIGHT','WORLD','TEXTURE','IMAGE']] | None
     """
 
 def previews_ensure(
@@ -3260,11 +2489,7 @@ def previews_ensure(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Ensure data-block previews are available and up-to-date (to be saved in .blend file, only for some types like materials, textures, etc.)
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Ensure data-block previews are available and up-to-date (to be saved in .blend file, only for some types like materials, textures, etc.)"""
 
 def properties_add(
     execution_context: int | str | None = None,
@@ -3275,10 +2500,7 @@ def properties_add(
 ) -> None:
     """Add your own property to the data-block
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Property Edit, Property data_path edit
-    :type data_path: str
     """
 
 def properties_context_change(
@@ -3290,10 +2512,7 @@ def properties_context_change(
 ) -> None:
     """Jump to a different tab inside the properties editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param context: Context
-    :type context: str
     """
 
 def properties_edit(
@@ -3480,12 +2699,8 @@ def properties_edit(
 ) -> None:
     """Change a custom propertys type, or adjust how it is displayed in the interface
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param data_path: Property Edit, Property data_path edit
-        :type data_path: str
         :param property_name: Property Name, Property name edit
-        :type property_name: str
         :param property_type: Type
 
     FLOAT
@@ -3514,51 +2729,28 @@ def properties_edit(
 
     PYTHON
     Python -- Edit a Python value directly, for unsupported property types.
-        :type property_type: typing.Literal['FLOAT','FLOAT_ARRAY','INT','INT_ARRAY','BOOL','BOOL_ARRAY','STRING','DATA_BLOCK','PYTHON'] | None
         :param is_overridable_library: Library Overridable, Allow the property to be overridden when the data-block is linked
-        :type is_overridable_library: bool | None
         :param description: Description
-        :type description: str
         :param use_soft_limits: Soft Limits, Limits the Property Value slider to a range, values outside the range must be inputted numerically
-        :type use_soft_limits: bool | None
         :param array_length: Array Length
-        :type array_length: int | None
         :param default_int: Default Value
-        :type default_int: collections.abc.Iterable[int] | None
         :param min_int: Min
-        :type min_int: int | None
         :param max_int: Max
-        :type max_int: int | None
         :param soft_min_int: Soft Min
-        :type soft_min_int: int | None
         :param soft_max_int: Soft Max
-        :type soft_max_int: int | None
         :param step_int: Step
-        :type step_int: int | None
         :param default_bool: Default Value
-        :type default_bool: collections.abc.Iterable[bool] | None
         :param default_float: Default Value
-        :type default_float: collections.abc.Iterable[float] | None
         :param min_float: Min
-        :type min_float: float | None
         :param max_float: Max
-        :type max_float: float | None
         :param soft_min_float: Soft Min
-        :type soft_min_float: float | None
         :param soft_max_float: Soft Max
-        :type soft_max_float: float | None
         :param precision: Precision
-        :type precision: int | None
         :param step_float: Step
-        :type step_float: float | None
         :param subtype: Subtype
-        :type subtype: str | None
         :param default_string: Default Value
-        :type default_string: str
         :param id_type: ID Type
-        :type id_type: typing.Literal['ACTION','ARMATURE','BRUSH','CACHEFILE','CAMERA','COLLECTION','CURVE','CURVES','FONT','GREASEPENCIL','GREASEPENCIL_V3','IMAGE','KEY','LATTICE','LIBRARY','LIGHT','LIGHT_PROBE','LINESTYLE','MASK','MATERIAL','MESH','META','MOVIECLIP','NODETREE','OBJECT','PAINTCURVE','PALETTE','PARTICLE','POINTCLOUD','SCENE','SCREEN','SOUND','SPEAKER','TEXT','TEXTURE','VOLUME','WINDOWMANAGER','WORKSPACE','WORLD'] | None
         :param eval_string: Value, Python value for unsupported custom property types
-        :type eval_string: str
     """
 
 def properties_edit_value(
@@ -3572,14 +2764,9 @@ def properties_edit_value(
 ) -> None:
     """Edit the value of a custom property
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Property Edit, Property data_path edit
-    :type data_path: str
     :param property_name: Property Name, Property name edit
-    :type property_name: str
     :param eval_string: Value, Value for custom property types that can only be edited as a Python expression
-    :type eval_string: str
     """
 
 def properties_remove(
@@ -3592,12 +2779,8 @@ def properties_remove(
 ) -> None:
     """Internal use (edit a property data_path)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path: Property Edit, Property data_path edit
-    :type data_path: str
     :param property_name: Property Name, Property name edit
-    :type property_name: str
     """
 
 def quit_blender(
@@ -3605,11 +2788,7 @@ def quit_blender(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Quit Blender
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Quit Blender"""
 
 def radial_control(
     execution_context: int | str | None = None,
@@ -3631,32 +2810,18 @@ def radial_control(
 ) -> None:
     """Set some size property (e.g. brush size) with mouse wheel
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param data_path_primary: Primary Data Path, Primary path of property to be set by the radial control
-    :type data_path_primary: str
     :param data_path_secondary: Secondary Data Path, Secondary path of property to be set by the radial control
-    :type data_path_secondary: str
     :param use_secondary: Use Secondary, Path of property to select between the primary and secondary data paths
-    :type use_secondary: str
     :param rotation_path: Rotation Path, Path of property used to rotate the texture display
-    :type rotation_path: str
     :param color_path: Color Path, Path of property used to set the color of the control
-    :type color_path: str
     :param fill_color_path: Fill Color Path, Path of property used to set the fill color of the control
-    :type fill_color_path: str
     :param fill_color_override_path: Fill Color Override Path
-    :type fill_color_override_path: str
     :param fill_color_override_test_path: Fill Color Override Test
-    :type fill_color_override_test_path: str
     :param zoom_path: Zoom Path, Path of property used to set the zoom level for the control
-    :type zoom_path: str
     :param image_id: Image ID, Path of ID that is used to generate an image for the control
-    :type image_id: str
     :param secondary_tex: Secondary Texture, Tweak brush secondary/mask texture
-    :type secondary_tex: bool | None
     :param release_confirm: Confirm On Release, Finish operation on key release
-    :type release_confirm: bool | None
     """
 
 def read_factory_settings(
@@ -3670,13 +2835,8 @@ def read_factory_settings(
 ) -> None:
     """Load factory default startup file and preferences. To make changes permanent, use "Save Startup File" and "Save Preferences"
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_factory_startup_app_template_only: Factory Startup App-Template Only
-    :type use_factory_startup_app_template_only: bool | None
-    :type app_template: str
     :param use_empty: Empty, After loading, remove everything except scenes, windows, and workspaces. This makes it possible to load the startup file with its scene configuration and window layout intact, but no objects, materials, animations, ...
-    :type use_empty: bool | None
     """
 
 def read_factory_userpref(
@@ -3688,10 +2848,7 @@ def read_factory_userpref(
 ) -> None:
     """Load factory default preferences. To make changes to preferences permanent, use "Save Preferences"
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_factory_startup_app_template_only: Factory Startup App-Template Only
-    :type use_factory_startup_app_template_only: bool | None
     """
 
 def read_history(
@@ -3699,11 +2856,7 @@ def read_history(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reloads history and bookmarks
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reloads history and bookmarks"""
 
 def read_homefile(
     execution_context: int | str | None = None,
@@ -3720,21 +2873,12 @@ def read_homefile(
 ) -> None:
     """Open the default file
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: File Path, Path to an alternative start-up file
-    :type filepath: str
     :param load_ui: Load UI, Load user interface setup from the .blend file
-    :type load_ui: bool | None
     :param use_splash: Splash
-    :type use_splash: bool | None
     :param use_factory_startup: Factory Startup, Load the default (factory startup) blend file. This is independent of the normal start-up file that the user can save
-    :type use_factory_startup: bool | None
     :param use_factory_startup_app_template_only: Factory Startup App-Template Only
-    :type use_factory_startup_app_template_only: bool | None
-    :type app_template: str
     :param use_empty: Empty, After loading, remove everything except scenes, windows, and workspaces. This makes it possible to load the startup file with its scene configuration and window layout intact, but no objects, materials, animations, ...
-    :type use_empty: bool | None
     """
 
 def read_userpref(
@@ -3742,11 +2886,7 @@ def read_userpref(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Load last saved preferences
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Load last saved preferences"""
 
 def recover_auto_save(
     execution_context: int | str | None = None,
@@ -3782,48 +2922,26 @@ def recover_auto_save(
 ) -> None:
     """Open an automatically saved file to recover it
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -3837,11 +2955,8 @@ def recover_auto_save(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences
-        :type use_scripts: bool | None
     """
 
 def recover_last_session(
@@ -3853,10 +2968,7 @@ def recover_last_session(
 ) -> None:
     """Open the last closed file ("quit.blend")
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences
-    :type use_scripts: bool | None
     """
 
 def redraw_timer(
@@ -3879,8 +2991,6 @@ def redraw_timer(
 ) -> None:
     """Simple redraw timer to test the speed of updating the interface
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     DRAW
@@ -3903,11 +3013,8 @@ def redraw_timer(
 
     UNDO
     Undo/Redo -- Undo and redo.
-        :type type: typing.Literal['DRAW','DRAW_SWAP','DRAW_WIN','DRAW_WIN_SWAP','ANIM_STEP','ANIM_PLAY','UNDO'] | None
         :param iterations: Iterations, Number of times to redraw
-        :type iterations: int | None
         :param time_limit: Time Limit, Seconds to run the test for (override iterations)
-        :type time_limit: float | None
     """
 
 def revert_mainfile(
@@ -3919,10 +3026,7 @@ def revert_mainfile(
 ) -> None:
     """Reload the saved file
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences
-    :type use_scripts: bool | None
     """
 
 def save_as_mainfile(
@@ -3961,48 +3065,26 @@ def save_as_mainfile(
 ) -> None:
     """Save the current file in the desired location
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -4016,15 +3098,10 @@ def save_as_mainfile(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param compress: Compress, Write compressed .blend file
-        :type compress: bool | None
         :param relative_remap: Remap Relative, Remap relative paths when saving to a different directory
-        :type relative_remap: bool | None
         :param copy: Save Copy, Save a copy of the actual working state but does not make saved file active
-        :type copy: bool | None
     """
 
 def save_homefile(
@@ -4032,11 +3109,7 @@ def save_homefile(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Make the current file the default startup file
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Make the current file the default startup file"""
 
 def save_mainfile(
     execution_context: int | str | None = None,
@@ -4075,48 +3148,26 @@ def save_mainfile(
 ) -> None:
     """Save the current Blender file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -4130,17 +3181,11 @@ def save_mainfile(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param compress: Compress, Write compressed .blend file
-        :type compress: bool | None
         :param relative_remap: Remap Relative, Remap relative paths when saving to a different directory
-        :type relative_remap: bool | None
         :param exit: Exit, Exit Blender after saving
-        :type exit: bool | None
         :param incremental: Incremental, Save the current Blender file with a numerically incremented name that does not overwrite any existing files
-        :type incremental: bool | None
     """
 
 def save_userpref(
@@ -4148,33 +3193,21 @@ def save_userpref(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Make the current preferences default
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Make the current preferences default"""
 
 def search_menu(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Pop-up a search over all menus in the current context
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Pop-up a search over all menus in the current context"""
 
 def search_operator(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Pop-up a search over all available operators in current context
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Pop-up a search over all available operators in current context"""
 
 def search_single_menu(
     execution_context: int | str | None = None,
@@ -4186,12 +3219,8 @@ def search_single_menu(
 ) -> None:
     """Pop-up a search for a menu in current context
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param menu_idname: Menu Name, Menu to search in
-    :type menu_idname: str
     :param initial_query: Initial Query, Query to insert into the search box
-    :type initial_query: str
     """
 
 def set_stereo_3d(
@@ -4209,18 +3238,11 @@ def set_stereo_3d(
 ) -> None:
     """Toggle 3D stereo support for current window (or change the display mode)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param display_mode: Display Mode
-    :type display_mode: bpy.stub_internal.rna_enums.Stereo3DDisplayItems | None
     :param anaglyph_type: Anaglyph Type
-    :type anaglyph_type: bpy.stub_internal.rna_enums.Stereo3DAnaglyphTypeItems | None
     :param interlace_type: Interlace Type
-    :type interlace_type: bpy.stub_internal.rna_enums.Stereo3DInterlaceTypeItems | None
     :param use_interlace_swap: Swap Left/Right, Swap left and right stereo channels
-    :type use_interlace_swap: bool | None
     :param use_sidebyside_crosseyed: Cross-Eyed, Right eye should see left image and vice versa
-    :type use_sidebyside_crosseyed: bool | None
     """
 
 def set_working_color_space(
@@ -4233,12 +3255,8 @@ def set_working_color_space(
 ) -> None:
     """Change the working color space of all colors in this blend file
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param convert_colors: Convert Colors in All Data-blocks, Change colors in all data-blocks to the new working space
-    :type convert_colors: bool | None
     :param working_space: Working Space, Color space to set
-    :type working_space: str | None
     """
 
 def splash(
@@ -4246,22 +3264,14 @@ def splash(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Open the splash screen with release info
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Open the splash screen with release info"""
 
 def splash_about(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Open a window with information about Blender
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Open a window with information about Blender"""
 
 def stl_export(
     execution_context: int | str | None = None,
@@ -4309,46 +3319,25 @@ def stl_export(
 ) -> None:
     """Save the scene to an STL file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -4362,21 +3351,13 @@ def stl_export(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param ascii_format: ASCII Format, Export file in ASCII format, export as binary otherwise
-        :type ascii_format: bool | None
         :param use_batch: Batch Export, Export each object to a separate file
-        :type use_batch: bool | None
         :param export_selected_objects: Export Selected Objects, Export only selected objects instead of all supported objects
-        :type export_selected_objects: bool | None
         :param collection: Source Collection, Export only objects from this collection (and its children)
-        :type collection: str
         :param global_scale: Scale
-        :type global_scale: float | None
         :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to exported data
-        :type use_scene_unit: bool | None
         :param forward_axis: Forward Axis
 
     X
@@ -4396,7 +3377,6 @@ def stl_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type forward_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param up_axis: Up Axis
 
     X
@@ -4416,11 +3396,8 @@ def stl_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type up_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes
-        :type apply_modifiers: bool | None
         :param filter_glob: Extension Filter
-        :type filter_glob: str
     """
 
 def stl_import(
@@ -4469,50 +3446,27 @@ def stl_import(
 ) -> None:
     """Import an STL file as an object
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param directory: Directory, Directory of the file
-        :type directory: str
         :param files: Files
-        :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -4526,15 +3480,10 @@ def stl_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
         :param global_scale: Scale
-        :type global_scale: float | None
         :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data
-        :type use_scene_unit: bool | None
         :param use_facet_normal: Facet Normals, Use (import) facet normals (note that this will still give flat shading)
-        :type use_facet_normal: bool | None
         :param forward_axis: Forward Axis
 
     X
@@ -4554,7 +3503,6 @@ def stl_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type forward_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param up_axis: Up Axis
 
     X
@@ -4574,11 +3522,8 @@ def stl_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type up_axis: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param use_mesh_validate: Validate Mesh, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
-        :type use_mesh_validate: bool | None
         :param filter_glob: Extension Filter
-        :type filter_glob: str
     """
 
 def sysinfo(
@@ -4590,10 +3535,7 @@ def sysinfo(
 ) -> None:
     """Generate system information, saved into a text file
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: filepath
-    :type filepath: str
     """
 
 def tool_set_by_brush_type(
@@ -4627,12 +3569,8 @@ def tool_set_by_brush_type(
 ) -> None:
     """Look up the most appropriate tool for the given brush type and activate that
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param brush_type: Brush Type, Brush type identifier for which the most appropriate tool will be looked up
-    :type brush_type: str
     :param space_type: Type
-    :type space_type: typing.Literal['EMPTY','VIEW_3D','IMAGE_EDITOR','NODE_EDITOR','SEQUENCE_EDITOR','CLIP_EDITOR','DOPESHEET_EDITOR','GRAPH_EDITOR','NLA_EDITOR','TEXT_EDITOR','CONSOLE','INFO','TOPBAR','STATUSBAR','OUTLINER','PROPERTIES','FILE_BROWSER','SPREADSHEET','PREFERENCES'] | None
     """
 
 def tool_set_by_id(
@@ -4668,16 +3606,10 @@ def tool_set_by_id(
 ) -> None:
     """Set the tool by name (for key-maps)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Identifier, Identifier of the tool
-    :type name: str
     :param cycle: Cycle, Cycle through tools in this group
-    :type cycle: bool | None
     :param as_fallback: Set Fallback, Set the fallback tool instead of the primary tool
-    :type as_fallback: bool | None
     :param space_type: Type
-    :type space_type: typing.Literal['EMPTY','VIEW_3D','IMAGE_EDITOR','NODE_EDITOR','SEQUENCE_EDITOR','CLIP_EDITOR','DOPESHEET_EDITOR','GRAPH_EDITOR','NLA_EDITOR','TEXT_EDITOR','CONSOLE','INFO','TOPBAR','STATUSBAR','OUTLINER','PROPERTIES','FILE_BROWSER','SPREADSHEET','PREFERENCES'] | None
     """
 
 def tool_set_by_index(
@@ -4714,18 +3646,11 @@ def tool_set_by_index(
 ) -> None:
     """Set the tool by index (for key-maps)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: Index in Toolbar
-    :type index: int | None
     :param cycle: Cycle, Cycle through tools in this group
-    :type cycle: bool | None
     :param expand: expand, Include tool subgroups
-    :type expand: bool | None
     :param as_fallback: Set Fallback, Set the fallback tool instead of the primary
-    :type as_fallback: bool | None
     :param space_type: Type
-    :type space_type: typing.Literal['EMPTY','VIEW_3D','IMAGE_EDITOR','NODE_EDITOR','SEQUENCE_EDITOR','CLIP_EDITOR','DOPESHEET_EDITOR','GRAPH_EDITOR','NLA_EDITOR','TEXT_EDITOR','CONSOLE','INFO','TOPBAR','STATUSBAR','OUTLINER','PROPERTIES','FILE_BROWSER','SPREADSHEET','PREFERENCES'] | None
     """
 
 def toolbar(
@@ -4733,33 +3658,21 @@ def toolbar(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Undocumented, consider contributing.
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Undocumented, consider contributing."""
 
 def toolbar_fallback_pie(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Undocumented, consider contributing.
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Undocumented, consider contributing."""
 
 def toolbar_prompt(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Leader key like functionality for accessing tools
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Leader key like functionality for accessing tools"""
 
 def url_open(
     execution_context: int | str | None = None,
@@ -4770,10 +3683,7 @@ def url_open(
 ) -> None:
     """Open a website in the web browser
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param url: URL, URL to open
-    :type url: str
     """
 
 def url_open_preset(
@@ -4785,10 +3695,7 @@ def url_open_preset(
 ) -> None:
     """Open a preset website in the web browser
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Site
-    :type type: str | None
     """
 
 def usd_export(
@@ -4822,7 +3729,6 @@ def usd_export(
     sort_method: str | None = "",
     filter_glob: str = "*.usd",
     selected_objects_only: bool | None = False,
-    visible_objects_only: bool | None = True,
     collection: str = "",
     export_animation: bool | None = False,
     export_hair: bool | None = False,
@@ -4856,6 +3762,8 @@ def usd_export(
     root_prim_path: str = "/root",
     export_custom_properties: bool | None = True,
     custom_properties_namespace: str = "userProperties",
+    accessibility_label: str = "",
+    accessibility_description: str = "",
     author_blender_name: bool | None = True,
     convert_world_material: bool | None = True,
     allow_unicode: bool | None = True,
@@ -4891,46 +3799,25 @@ def usd_export(
 ) -> None:
     """Export current scene in a USD archive
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param display_type: Display Type
 
     DEFAULT
@@ -4944,30 +3831,16 @@ def usd_export(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
-        :type filter_glob: str
         :param selected_objects_only: Selection Only, Only export selected objects. Unselected parents of selected objects are exported as empty transform
-        :type selected_objects_only: bool | None
-        :param visible_objects_only: Visible Only, Only export visible objects. Invisible parents of exported objects are exported as empty transforms
-        :type visible_objects_only: bool | None
         :param collection: Collection
-        :type collection: str
         :param export_animation: Animation, Export all frames in the render frame range, rather than only the current frame
-        :type export_animation: bool | None
         :param export_hair: Hair, Export hair particle systems as USD curves
-        :type export_hair: bool | None
         :param export_uvmaps: UV Maps, Include all mesh UV maps in the export
-        :type export_uvmaps: bool | None
         :param rename_uvmaps: Rename UV Maps, Rename active render UV map to "st" to match USD conventions
-        :type rename_uvmaps: bool | None
         :param export_mesh_colors: Color Attributes, Include mesh color attributes in the export
-        :type export_mesh_colors: bool | None
         :param export_normals: Normals, Include normals of exported meshes in the export
-        :type export_normals: bool | None
         :param export_materials: Materials, Export viewport settings of materials as USD preview materials, and export material assignments as geometry subsets
-        :type export_materials: bool | None
         :param export_subdivision: Subdivision, Choose how subdivision modifiers will be mapped to the USD subdivision scheme during export
 
     IGNORE
@@ -4978,15 +3851,10 @@ def usd_export(
 
     BEST_MATCH
     Best Match -- Scheme = Catmull-Clark, when possible. Reverts to exporting the subdivided mesh for the Simple subdivision type.
-        :type export_subdivision: typing.Literal['IGNORE','TESSELLATE','BEST_MATCH'] | None
         :param export_armatures: Armatures, Export armatures and meshes with armature modifiers as USD skeletons and skinned meshes
-        :type export_armatures: bool | None
         :param only_deform_bones: Only Deform Bones, Only export deform bones and their parents
-        :type only_deform_bones: bool | None
         :param export_shapekeys: Shape Keys, Export shape keys as USD blend shapes
-        :type export_shapekeys: bool | None
         :param use_instancing: Instancing, Export instanced objects as references in USD rather than real objects
-        :type use_instancing: bool | None
         :param evaluation_mode: Use Settings for, Determines visibility of objects, modifier settings, and other areas where there are different settings for viewport and rendering
 
     RENDER
@@ -4994,13 +3862,9 @@ def usd_export(
 
     VIEWPORT
     Viewport -- Use Viewport settings for object visibility, modifier settings, etc.
-        :type evaluation_mode: typing.Literal['RENDER','VIEWPORT'] | None
         :param generate_preview_surface: USD Preview Surface Network, Generate an approximate USD Preview Surface shader representation of a Principled BSDF node network
-        :type generate_preview_surface: bool | None
         :param generate_materialx_network: MaterialX Network, Generate a MaterialX network representation of the materials
-        :type generate_materialx_network: bool | None
         :param convert_orientation: Convert Orientation, Convert orientation axis to a different convention to match other applications
-        :type convert_orientation: bool | None
         :param export_global_forward_selection: Forward Axis
 
     X
@@ -5020,7 +3884,6 @@ def usd_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type export_global_forward_selection: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param export_global_up_selection: Up Axis
 
     X
@@ -5040,7 +3903,6 @@ def usd_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :type export_global_up_selection: typing.Literal['X','Y','Z','NEGATIVE_X','NEGATIVE_Y','NEGATIVE_Z'] | None
         :param export_textures_mode: Export Textures, Texture export method
 
     KEEP
@@ -5052,11 +3914,8 @@ def usd_export(
 
     NEW
     New Path -- Export textures to a textures folder next to the USD file.
-        :type export_textures_mode: typing.Literal['KEEP','PRESERVE','NEW'] | None
         :param overwrite_textures: Overwrite Textures, Overwrite existing files when exporting textures
-        :type overwrite_textures: bool | None
         :param relative_paths: Relative Paths, Use relative paths to reference external files (i.e. textures, volumes) in USD, otherwise use absolute paths
-        :type relative_paths: bool | None
         :param xform_op_mode: Xform Ops, The type of transform operators to write
 
     TRS
@@ -5067,37 +3926,23 @@ def usd_export(
 
     MAT
     Matrix -- Export matrix operator.
-        :type xform_op_mode: typing.Literal['TRS','TOS','MAT'] | None
         :param root_prim_path: Root Prim, If set, add a transform primitive with the given path to the stage as the parent of all exported data
-        :type root_prim_path: str
         :param export_custom_properties: Custom Properties, Export custom properties as USD attributes
-        :type export_custom_properties: bool | None
         :param custom_properties_namespace: Namespace, If set, add the given namespace as a prefix to exported custom property names. This only applies to property names that do not already have a prefix (e.g., it would apply to name bar but not foo:bar) and does not apply to blender object and data names which are always exported in the userProperties:blender namespace
-        :type custom_properties_namespace: str
+        :param accessibility_label: Label, Set the accessibility label for the exported stages default prim
+        :param accessibility_description: Description, Set the accessibility description for the exported stages default prim
         :param author_blender_name: Blender Names, Author USD custom attributes containing the original Blender object and object data names
-        :type author_blender_name: bool | None
         :param convert_world_material: World Dome Light, Convert the world material to a USD dome light. Currently works for simple materials, consisting of an environment texture connected to a background shader, with an optional vector multiply of the texture color
-        :type convert_world_material: bool | None
         :param allow_unicode: Allow Unicode, Preserve UTF-8 encoded characters when writing USD prim and property names (requires software utilizing USD 24.03 or greater when opening the resulting files)
-        :type allow_unicode: bool | None
         :param export_meshes: Meshes, Export all meshes
-        :type export_meshes: bool | None
         :param export_lights: Lights, Export all lights
-        :type export_lights: bool | None
         :param export_cameras: Cameras, Export all cameras
-        :type export_cameras: bool | None
         :param export_curves: Curves, Export all curves
-        :type export_curves: bool | None
         :param export_points: Point Clouds, Export all point clouds
-        :type export_points: bool | None
         :param export_volumes: Volumes, Export all volumes
-        :type export_volumes: bool | None
         :param triangulate_meshes: Triangulate Meshes, Triangulate meshes during export
-        :type triangulate_meshes: bool | None
         :param quad_method: Quad Method, Method for splitting the quads into triangles
-        :type quad_method: bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems | None
         :param ngon_method: N-gon Method, Method for splitting the n-gons into triangles
-        :type ngon_method: bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems | None
         :param usdz_downscale_size: USDZ Texture Downsampling, Choose a maximum size for all exported textures
 
     KEEP
@@ -5120,11 +3965,8 @@ def usd_export(
 
     CUSTOM
     Custom -- Specify a custom size.
-        :type usdz_downscale_size: typing.Literal['KEEP','256','512','1024','2048','4096','CUSTOM'] | None
         :param usdz_downscale_custom_size: USDZ Custom Downscale Size, Custom size for downscaling exported textures
-        :type usdz_downscale_custom_size: int | None
         :param merge_parent_xform: Merge parent Xform, Merge USD primitives with their Xform parent if possible. USD does not allow nested UsdGeomGprims, intermediary Xform prims will be defined to keep the USD file valid when encountering object hierarchies.
-        :type merge_parent_xform: bool | None
         :param convert_scene_units: Units, Set the USD Stage meters per unit to the chosen measurement, or a custom value
 
     METERS
@@ -5150,9 +3992,7 @@ def usd_export(
 
     CUSTOM
     Custom -- Specify a custom scene meters per unit value.
-        :type convert_scene_units: typing.Literal['METERS','KILOMETERS','CENTIMETERS','MILLIMETERS','INCHES','FEET','YARDS','CUSTOM'] | None
         :param meters_per_unit: Meters Per Unit, Custom value for meters per unit in the USD Stage
-        :type meters_per_unit: float | None
     """
 
 def usd_import(
@@ -5231,48 +4071,26 @@ def usd_import(
 ) -> None:
     """Import USD stage into current scene
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param relative_path: Relative Path, Select the file relative to the blend file
-        :type relative_path: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -5286,64 +4104,34 @@ def usd_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
-        :type filter_glob: str
         :param scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :type scale: float | None
         :param set_frame_range: Set Frame Range, Update the scenes start and end frame to match those of the USD archive
-        :type set_frame_range: bool | None
         :param import_cameras: Cameras
-        :type import_cameras: bool | None
         :param import_curves: Curves
-        :type import_curves: bool | None
         :param import_lights: Lights
-        :type import_lights: bool | None
         :param import_materials: Materials
-        :type import_materials: bool | None
         :param import_meshes: Meshes
-        :type import_meshes: bool | None
         :param import_volumes: Volumes
-        :type import_volumes: bool | None
         :param import_shapes: USD Shapes
-        :type import_shapes: bool | None
         :param import_skeletons: Armatures
-        :type import_skeletons: bool | None
         :param import_blendshapes: Shape Keys
-        :type import_blendshapes: bool | None
         :param import_points: Point Clouds
-        :type import_points: bool | None
         :param import_subdivision: Import Subdivision Scheme, Create subdivision surface modifiers based on the USD SubdivisionScheme attribute
-        :type import_subdivision: bool | None
         :param support_scene_instancing: Scene Instancing, Import USD scene graph instances as collection instances
-        :type support_scene_instancing: bool | None
         :param import_visible_only: Visible Primitives Only, Do not import invisible USD primitives. Only applies to primitives with a non-animated visibility attribute. Primitives with animated visibility will always be imported
-        :type import_visible_only: bool | None
         :param create_collection: Create Collection, Add all imported objects to a new collection
-        :type create_collection: bool | None
         :param read_mesh_uvs: UV Coordinates, Read mesh UV coordinates
-        :type read_mesh_uvs: bool | None
         :param read_mesh_colors: Color Attributes, Read mesh color attributes
-        :type read_mesh_colors: bool | None
         :param read_mesh_attributes: Mesh Attributes, Read USD Primvars as mesh attributes
-        :type read_mesh_attributes: bool | None
         :param prim_path_mask: Path Mask, Import only the primitive at the given path and its descendants. Multiple paths may be specified in a list delimited by commas or semicolons
-        :type prim_path_mask: str
         :param import_guide: Guide, Import guide geometry
-        :type import_guide: bool | None
         :param import_proxy: Proxy, Import proxy geometry
-        :type import_proxy: bool | None
         :param import_render: Render, Import final render geometry
-        :type import_render: bool | None
         :param import_all_materials: Import All Materials, Also import materials that are not used by any geometry. Note that when this option is false, materials referenced by geometry will still be imported
-        :type import_all_materials: bool | None
         :param import_usd_preview: Import USD Preview, Convert UsdPreviewSurface shaders to Principled BSDF shader networks
-        :type import_usd_preview: bool | None
         :param set_material_blend: Set Material Blend, If the Import USD Preview option is enabled, the material blend method will automatically be set based on the shaders opacity and opacityThreshold inputs
-        :type set_material_blend: bool | None
         :param light_intensity_scale: Light Intensity Scale, Scale for the intensity of imported lights
-        :type light_intensity_scale: float | None
         :param mtl_purpose: Material Purpose, Attempt to import materials with the given purpose. If no material with this purpose is bound to the primitive, fall back on loading any other bound material
 
     MTL_ALL_PURPOSE
@@ -5354,7 +4142,6 @@ def usd_import(
 
     MTL_FULL
     Full -- Attempt to import full materials. Load allPurpose or preview materials, in that order, as a fallback.
-        :type mtl_purpose: typing.Literal['MTL_ALL_PURPOSE','MTL_PREVIEW','MTL_FULL'] | None
         :param mtl_name_collision_mode: Material Name Collision, Behavior when the name of an imported material conflicts with an existing material
 
     MAKE_UNIQUE
@@ -5362,7 +4149,6 @@ def usd_import(
 
     REFERENCE_EXISTING
     Reference Existing -- If a material with the same name already exists, reference that instead of importing.
-        :type mtl_name_collision_mode: typing.Literal['MAKE_UNIQUE','REFERENCE_EXISTING'] | None
         :param import_textures_mode: Import Textures, Behavior when importing textures from a USDZ archive
 
     IMPORT_NONE
@@ -5373,9 +4159,7 @@ def usd_import(
 
     IMPORT_COPY
     Copy -- Copy files to textures directory.
-        :type import_textures_mode: typing.Literal['IMPORT_NONE','IMPORT_PACK','IMPORT_COPY'] | None
         :param import_textures_dir: Textures Directory, Path to the directory where imported textures will be copied
-        :type import_textures_dir: str
         :param tex_name_collision_mode: File Name Collision, Behavior when the name of an imported texture file conflicts with an existing file
 
     USE_EXISTING
@@ -5383,7 +4167,6 @@ def usd_import(
 
     OVERWRITE
     Overwrite -- Overwrite existing files.
-        :type tex_name_collision_mode: typing.Literal['USE_EXISTING','OVERWRITE'] | None
         :param property_import_mode: Custom Properties, Behavior when importing USD attributes as Blender custom properties
 
     NONE
@@ -5394,17 +4177,11 @@ def usd_import(
 
     ALL
     All Custom -- Import all USD custom attributes as Blender custom properties. Namespaces will be retained in the property names.
-        :type property_import_mode: typing.Literal['NONE','USER','ALL'] | None
         :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
-        :type validate_meshes: bool | None
         :param create_world_material: World Dome Light, Convert the first discovered USD dome light to a world background shader
-        :type create_world_material: bool | None
         :param import_defined_only: Defined Primitives Only, Import only defined USD primitives. When disabled this allows importing USD primitives which are not defined, such as those with an override specifier
-        :type import_defined_only: bool | None
         :param merge_parent_xform: Merge parent Xform, Allow USD primitives to merge with their Xform parent if they are the only child in the hierarchy
-        :type merge_parent_xform: bool | None
         :param apply_unit_conversion_scale: Apply Unit Conversion Scale, Scale the scene objects by the USD stages meters per unit value. This scaling is applied in addition to the value specified in the Scale option
-        :type apply_unit_conversion_scale: bool | None
     """
 
 def window_close(
@@ -5412,44 +4189,28 @@ def window_close(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Close the current window
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Close the current window"""
 
 def window_fullscreen_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle the current window full-screen
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle the current window full-screen"""
 
 def window_new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new window
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new window"""
 
 def window_new_main(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new main window with its own workspace and scene selection
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new main window with its own workspace and scene selection"""
 
 def xr_navigation_fly(
     execution_context: int | str | None = None,
@@ -5472,11 +4233,12 @@ def xr_navigation_fly(
         "CONTROLLER_FORWARD",
     ]
     | None = "VIEWER_FORWARD",
+    snap_turn_threshold: float | None = 0.95,
     lock_location_z: bool | None = False,
     lock_direction: bool | None = False,
-    speed_frame_based: bool | None = True,
-    speed_min: float | None = 0.018,
-    speed_max: float | None = 0.054,
+    speed_frame_based: bool | None = False,
+    turn_speed_factor: float | None = 0.333333,
+    fly_speed_factor: float | None = 0.333333,
     speed_interpolation0: collections.abc.Sequence[float] | mathutils.Vector | None = (
         0.0,
         0.0,
@@ -5485,11 +4247,27 @@ def xr_navigation_fly(
         1.0,
         1.0,
     ),
+    alt_mode: typing.Literal[
+        "FORWARD",
+        "BACK",
+        "LEFT",
+        "RIGHT",
+        "UP",
+        "DOWN",
+        "TURNLEFT",
+        "TURNRIGHT",
+        "VIEWER_FORWARD",
+        "VIEWER_BACK",
+        "VIEWER_LEFT",
+        "VIEWER_RIGHT",
+        "CONTROLLER_FORWARD",
+    ]
+    | None = "VIEWER_FORWARD",
+    alt_lock_location_z: bool | None = False,
+    alt_lock_direction: bool | None = False,
 ) -> None:
     """Move/turn relative to the VR viewer or controller
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param mode: Mode, Fly mode
 
     FORWARD
@@ -5530,21 +4308,56 @@ def xr_navigation_fly(
 
     CONTROLLER_FORWARD
     Controller Forward -- Move along controllers forward axis.
-        :type mode: typing.Literal['FORWARD','BACK','LEFT','RIGHT','UP','DOWN','TURNLEFT','TURNRIGHT','VIEWER_FORWARD','VIEWER_BACK','VIEWER_LEFT','VIEWER_RIGHT','CONTROLLER_FORWARD'] | None
+        :param snap_turn_threshold: Snap Turn Threshold, Input state threshold when using snap turn
         :param lock_location_z: Lock Elevation, Prevent changes to viewer elevation
-        :type lock_location_z: bool | None
         :param lock_direction: Lock Direction, Limit movement to viewers initial direction
-        :type lock_direction: bool | None
         :param speed_frame_based: Frame Based Speed, Apply fixed movement deltas every update
-        :type speed_frame_based: bool | None
-        :param speed_min: Minimum Speed, Minimum move (turn) speed in meters (radians) per second or frame
-        :type speed_min: float | None
-        :param speed_max: Maximum Speed, Maximum move (turn) speed in meters (radians) per second or frame
-        :type speed_max: float | None
+        :param turn_speed_factor: Turn Speed Factor, Ratio between the min and max turn speed
+        :param fly_speed_factor: Fly Speed Factor, Ratio between the min and max fly speed
         :param speed_interpolation0: Speed Interpolation 0, First cubic spline control point between min/max speeds
-        :type speed_interpolation0: collections.abc.Sequence[float] | mathutils.Vector | None
         :param speed_interpolation1: Speed Interpolation 1, Second cubic spline control point between min/max speeds
-        :type speed_interpolation1: collections.abc.Sequence[float] | mathutils.Vector | None
+        :param alt_mode: Mode (Alt), Fly mode when hands are swapped
+
+    FORWARD
+    Forward -- Move along navigation forward axis.
+
+    BACK
+    Back -- Move along navigation back axis.
+
+    LEFT
+    Left -- Move along navigation left axis.
+
+    RIGHT
+    Right -- Move along navigation right axis.
+
+    UP
+    Up -- Move along navigation up axis.
+
+    DOWN
+    Down -- Move along navigation down axis.
+
+    TURNLEFT
+    Turn Left -- Turn counter-clockwise around navigation up axis.
+
+    TURNRIGHT
+    Turn Right -- Turn clockwise around navigation up axis.
+
+    VIEWER_FORWARD
+    Viewer Forward -- Move along viewers forward axis.
+
+    VIEWER_BACK
+    Viewer Back -- Move along viewers back axis.
+
+    VIEWER_LEFT
+    Viewer Left -- Move along viewers left axis.
+
+    VIEWER_RIGHT
+    Viewer Right -- Move along viewers right axis.
+
+    CONTROLLER_FORWARD
+    Controller Forward -- Move along controllers forward axis.
+        :param alt_lock_location_z: Lock Elevation (Alt), When hands are swapped, prevent changes to viewer elevation
+        :param alt_lock_direction: Lock Direction (Alt), When hands are swapped, limit movement to viewers initial direction
     """
 
 def xr_navigation_grab(
@@ -5560,18 +4373,11 @@ def xr_navigation_grab(
 ) -> None:
     """Navigate the VR scene by grabbing with controllers
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param lock_location: Lock Location, Prevent changes to viewer location
-    :type lock_location: bool | None
     :param lock_location_z: Lock Elevation, Prevent changes to viewer elevation
-    :type lock_location_z: bool | None
     :param lock_rotation: Lock Rotation, Prevent changes to viewer rotation
-    :type lock_rotation: bool | None
     :param lock_rotation_z: Lock Up Orientation, Prevent changes to viewer up orientation
-    :type lock_rotation_z: bool | None
     :param lock_scale: Lock Scale, Prevent changes to viewer scale
-    :type lock_scale: bool | None
     """
 
 def xr_navigation_reset(
@@ -5585,50 +4391,42 @@ def xr_navigation_reset(
 ) -> None:
     """Reset VR navigation deltas relative to session base pose
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param location: Location, Reset location deltas
-    :type location: bool | None
     :param rotation: Rotation, Reset rotation deltas
-    :type rotation: bool | None
     :param scale: Scale, Reset scale deltas
-    :type scale: bool | None
     """
+
+def xr_navigation_swap_hands(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Swap VR navigation controls between left / right controllers"""
 
 def xr_navigation_teleport(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    teleport_axes: collections.abc.Iterable[bool] | None = (True, True, True),
-    interpolation: float | None = 1.0,
-    offset: float | None = 0.0,
     selectable_only: bool | None = True,
-    distance: float | None = 1.70141e38,
-    from_viewer: bool | None = False,
-    axis: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, -1.0),
-    color: collections.abc.Iterable[float] | None = (0.35, 0.35, 1.0, 1.0),
+    force: float | None = 8.5,
+    range: float | None = 0.15,
+    ray_line_width: float | None = 6.0,
+    destination_indicator_width: float | None = 0.18,
+    hit_color: collections.abc.Iterable[float] | None = (0.4, 0.6, 0.9, 1.0),
+    miss_color: collections.abc.Iterable[float] | None = (1.0, 0.35, 0.35, 1.0),
+    fallback_color: collections.abc.Iterable[float] | None = (0.5, 0.45, 0.8, 1.0),
 ) -> None:
     """Set VR viewer location to controller raycast hit location
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param teleport_axes: Teleport Axes, Enabled teleport axes in navigation space
-    :type teleport_axes: collections.abc.Iterable[bool] | None
-    :param interpolation: Interpolation, Interpolation factor between viewer and hit locations
-    :type interpolation: float | None
-    :param offset: Offset, Offset along hit normal to subtract from final location
-    :type offset: float | None
     :param selectable_only: Selectable Only, Only allow selectable objects to influence raycast result
-    :type selectable_only: bool | None
-    :param distance: Maximum raycast distance
-    :type distance: float | None
-    :param from_viewer: From Viewer, Use viewer pose as raycast origin
-    :type from_viewer: bool | None
-    :param axis: Axis, Raycast axis in controller/viewer space
-    :type axis: collections.abc.Sequence[float] | mathutils.Vector | None
-    :param color: Color, Raycast color
-    :type color: collections.abc.Iterable[float] | None
+    :param force: Force, Velocity force controlling the teleportation arc parabola in m/s
+    :param range: Range, Time step range controlling the teleportation arc parabola
+    :param ray_line_width: Ray Line Width, Visual width of the teleportation ray line
+    :param destination_indicator_width: Destination Indicator Width, Visual width of the hit destination indicator
+    :param hit_color: Hit Color, Color of raycast when it succeeds
+    :param miss_color: Miss Color, Color of raycast when it misses
+    :param fallback_color: Fallback Color, Color of raycast when a fallback case succeeds
     """
 
 def xr_session_toggle(
@@ -5636,8 +4434,4 @@ def xr_session_toggle(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Open a view for use with virtual reality headsets, or close it if already opened
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Open a view for use with virtual reality headsets, or close it if already opened"""

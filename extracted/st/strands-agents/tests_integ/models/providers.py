@@ -3,13 +3,14 @@ Aggregates all providers for testing all providers in one go.
 """
 
 import os
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import requests
 from pytest import mark
 
 from strands.models import BedrockModel, Model
 from strands.models.anthropic import AnthropicModel
+from strands.models.gemini import GeminiModel
 from strands.models.litellm import LiteLLMModel
 from strands.models.llamaapi import LlamaAPIModel
 from strands.models.mistral import MistralModel
@@ -25,7 +26,7 @@ class ProviderInfo:
         self,
         id: str,
         factory: Callable[[], Model],
-        environment_variable: Optional[str] = None,
+        environment_variable: str | None = None,
     ) -> None:
         self.id = id
         self.model_factory = factory
@@ -126,6 +127,15 @@ writer = ProviderInfo(
         stream_options={"include_usage": True},
     ),
 )
+gemini = ProviderInfo(
+    id="gemini",
+    environment_variable="GOOGLE_API_KEY",
+    factory=lambda: GeminiModel(
+        client_args={"api_key": os.getenv("GOOGLE_API_KEY")},
+        model_id="gemini-2.5-flash",
+        params={"temperature": 0.7},
+    ),
+)
 
 ollama = OllamaProviderInfo()
 
@@ -134,6 +144,7 @@ all_providers = [
     bedrock,
     anthropic,
     cohere,
+    gemini,
     llama,
     litellm,
     mistral,

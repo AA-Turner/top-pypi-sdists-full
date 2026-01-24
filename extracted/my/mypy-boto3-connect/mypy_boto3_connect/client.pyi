@@ -3,7 +3,7 @@ Type annotations for connect service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -31,12 +32,20 @@ from .paginator import (
     ListApprovedOriginsPaginator,
     ListAuthenticationProfilesPaginator,
     ListBotsPaginator,
+    ListChildHoursOfOperationsPaginator,
     ListContactEvaluationsPaginator,
+    ListContactFlowModuleAliasesPaginator,
     ListContactFlowModulesPaginator,
+    ListContactFlowModuleVersionsPaginator,
     ListContactFlowsPaginator,
     ListContactFlowVersionsPaginator,
     ListContactReferencesPaginator,
+    ListDataTableAttributesPaginator,
+    ListDataTablePrimaryValuesPaginator,
+    ListDataTablesPaginator,
+    ListDataTableValuesPaginator,
     ListDefaultVocabulariesPaginator,
+    ListEntitySecurityProfilesPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
     ListFlowAssociationsPaginator,
@@ -55,14 +64,17 @@ from .paginator import (
     ListQueueQuickConnectsPaginator,
     ListQueuesPaginator,
     ListQuickConnectsPaginator,
+    ListRoutingProfileManualAssignmentQueuesPaginator,
     ListRoutingProfileQueuesPaginator,
     ListRoutingProfilesPaginator,
     ListRulesPaginator,
     ListSecurityKeysPaginator,
     ListSecurityProfileApplicationsPaginator,
+    ListSecurityProfileFlowModulesPaginator,
     ListSecurityProfilePermissionsPaginator,
     ListSecurityProfilesPaginator,
     ListTaskTemplatesPaginator,
+    ListTestCasesPaginator,
     ListTrafficDistributionGroupsPaginator,
     ListTrafficDistributionGroupUsersPaginator,
     ListUseCasesPaginator,
@@ -71,11 +83,14 @@ from .paginator import (
     ListUsersPaginator,
     ListViewsPaginator,
     ListViewVersionsPaginator,
+    ListWorkspacePagesPaginator,
+    ListWorkspacesPaginator,
     SearchAgentStatusesPaginator,
     SearchAvailablePhoneNumbersPaginator,
     SearchContactFlowModulesPaginator,
     SearchContactFlowsPaginator,
     SearchContactsPaginator,
+    SearchDataTablesPaginator,
     SearchHoursOfOperationOverridesPaginator,
     SearchHoursOfOperationsPaginator,
     SearchPredefinedAttributesPaginator,
@@ -85,9 +100,13 @@ from .paginator import (
     SearchResourceTagsPaginator,
     SearchRoutingProfilesPaginator,
     SearchSecurityProfilesPaginator,
+    SearchTestCasesPaginator,
     SearchUserHierarchyGroupsPaginator,
     SearchUsersPaginator,
+    SearchViewsPaginator,
     SearchVocabulariesPaginator,
+    SearchWorkspaceAssociationsPaginator,
+    SearchWorkspacesPaginator,
 )
 from .type_defs import (
     ActivateEvaluationFormRequestTypeDef,
@@ -96,8 +115,11 @@ from .type_defs import (
     AssociateAnalyticsDataSetResponseTypeDef,
     AssociateApprovedOriginRequestTypeDef,
     AssociateBotRequestTypeDef,
+    AssociateContactWithUserRequestTypeDef,
     AssociateDefaultVocabularyRequestTypeDef,
+    AssociateEmailAddressAliasRequestTypeDef,
     AssociateFlowRequestTypeDef,
+    AssociateHoursOfOperationsRequestTypeDef,
     AssociateInstanceStorageConfigRequestTypeDef,
     AssociateInstanceStorageConfigResponseTypeDef,
     AssociateLambdaFunctionRequestTypeDef,
@@ -107,10 +129,19 @@ from .type_defs import (
     AssociateRoutingProfileQueuesRequestTypeDef,
     AssociateSecurityKeyRequestTypeDef,
     AssociateSecurityKeyResponseTypeDef,
+    AssociateSecurityProfilesRequestTypeDef,
     AssociateTrafficDistributionGroupUserRequestTypeDef,
     AssociateUserProficienciesRequestTypeDef,
+    AssociateWorkspaceRequestTypeDef,
+    AssociateWorkspaceResponseTypeDef,
     BatchAssociateAnalyticsDataSetRequestTypeDef,
     BatchAssociateAnalyticsDataSetResponseTypeDef,
+    BatchCreateDataTableValueRequestTypeDef,
+    BatchCreateDataTableValueResponseTypeDef,
+    BatchDeleteDataTableValueRequestTypeDef,
+    BatchDeleteDataTableValueResponseTypeDef,
+    BatchDescribeDataTableValueRequestTypeDef,
+    BatchDescribeDataTableValueResponseTypeDef,
     BatchDisassociateAnalyticsDataSetRequestTypeDef,
     BatchDisassociateAnalyticsDataSetResponseTypeDef,
     BatchGetAttachedFileMetadataRequestTypeDef,
@@ -119,19 +150,29 @@ from .type_defs import (
     BatchGetFlowAssociationResponseTypeDef,
     BatchPutContactRequestTypeDef,
     BatchPutContactResponseTypeDef,
+    BatchUpdateDataTableValueRequestTypeDef,
+    BatchUpdateDataTableValueResponseTypeDef,
     ClaimPhoneNumberRequestTypeDef,
     ClaimPhoneNumberResponseTypeDef,
     CompleteAttachedFileUploadRequestTypeDef,
     CreateAgentStatusRequestTypeDef,
     CreateAgentStatusResponseTypeDef,
+    CreateContactFlowModuleAliasRequestTypeDef,
+    CreateContactFlowModuleAliasResponseTypeDef,
     CreateContactFlowModuleRequestTypeDef,
     CreateContactFlowModuleResponseTypeDef,
+    CreateContactFlowModuleVersionRequestTypeDef,
+    CreateContactFlowModuleVersionResponseTypeDef,
     CreateContactFlowRequestTypeDef,
     CreateContactFlowResponseTypeDef,
     CreateContactFlowVersionRequestTypeDef,
     CreateContactFlowVersionResponseTypeDef,
     CreateContactRequestTypeDef,
     CreateContactResponseTypeDef,
+    CreateDataTableAttributeRequestTypeDef,
+    CreateDataTableAttributeResponseTypeDef,
+    CreateDataTableRequestTypeDef,
+    CreateDataTableResponseTypeDef,
     CreateEmailAddressRequestTypeDef,
     CreateEmailAddressResponseTypeDef,
     CreateEvaluationFormRequestTypeDef,
@@ -165,6 +206,8 @@ from .type_defs import (
     CreateSecurityProfileResponseTypeDef,
     CreateTaskTemplateRequestTypeDef,
     CreateTaskTemplateResponseTypeDef,
+    CreateTestCaseRequestTypeDef,
+    CreateTestCaseResponseTypeDef,
     CreateTrafficDistributionGroupRequestTypeDef,
     CreateTrafficDistributionGroupResponseTypeDef,
     CreateUseCaseRequestTypeDef,
@@ -179,13 +222,21 @@ from .type_defs import (
     CreateViewVersionResponseTypeDef,
     CreateVocabularyRequestTypeDef,
     CreateVocabularyResponseTypeDef,
+    CreateWorkspacePageRequestTypeDef,
+    CreateWorkspaceRequestTypeDef,
+    CreateWorkspaceResponseTypeDef,
     DeactivateEvaluationFormRequestTypeDef,
     DeactivateEvaluationFormResponseTypeDef,
     DeleteAttachedFileRequestTypeDef,
     DeleteContactEvaluationRequestTypeDef,
+    DeleteContactFlowModuleAliasRequestTypeDef,
     DeleteContactFlowModuleRequestTypeDef,
+    DeleteContactFlowModuleVersionRequestTypeDef,
     DeleteContactFlowRequestTypeDef,
     DeleteContactFlowVersionRequestTypeDef,
+    DeleteDataTableAttributeRequestTypeDef,
+    DeleteDataTableAttributeResponseTypeDef,
+    DeleteDataTableRequestTypeDef,
     DeleteEmailAddressRequestTypeDef,
     DeleteEvaluationFormRequestTypeDef,
     DeleteHoursOfOperationOverrideRequestTypeDef,
@@ -201,6 +252,7 @@ from .type_defs import (
     DeleteRuleRequestTypeDef,
     DeleteSecurityProfileRequestTypeDef,
     DeleteTaskTemplateRequestTypeDef,
+    DeleteTestCaseRequestTypeDef,
     DeleteTrafficDistributionGroupRequestTypeDef,
     DeleteUseCaseRequestTypeDef,
     DeleteUserHierarchyGroupRequestTypeDef,
@@ -209,18 +261,27 @@ from .type_defs import (
     DeleteViewVersionRequestTypeDef,
     DeleteVocabularyRequestTypeDef,
     DeleteVocabularyResponseTypeDef,
+    DeleteWorkspaceMediaRequestTypeDef,
+    DeleteWorkspacePageRequestTypeDef,
+    DeleteWorkspaceRequestTypeDef,
     DescribeAgentStatusRequestTypeDef,
     DescribeAgentStatusResponseTypeDef,
     DescribeAuthenticationProfileRequestTypeDef,
     DescribeAuthenticationProfileResponseTypeDef,
     DescribeContactEvaluationRequestTypeDef,
     DescribeContactEvaluationResponseTypeDef,
+    DescribeContactFlowModuleAliasRequestTypeDef,
+    DescribeContactFlowModuleAliasResponseTypeDef,
     DescribeContactFlowModuleRequestTypeDef,
     DescribeContactFlowModuleResponseTypeDef,
     DescribeContactFlowRequestTypeDef,
     DescribeContactFlowResponseTypeDef,
     DescribeContactRequestTypeDef,
     DescribeContactResponseTypeDef,
+    DescribeDataTableAttributeRequestTypeDef,
+    DescribeDataTableAttributeResponseTypeDef,
+    DescribeDataTableRequestTypeDef,
+    DescribeDataTableResponseTypeDef,
     DescribeEmailAddressRequestTypeDef,
     DescribeEmailAddressResponseTypeDef,
     DescribeEvaluationFormRequestTypeDef,
@@ -251,6 +312,8 @@ from .type_defs import (
     DescribeRuleResponseTypeDef,
     DescribeSecurityProfileRequestTypeDef,
     DescribeSecurityProfileResponseTypeDef,
+    DescribeTestCaseRequestTypeDef,
+    DescribeTestCaseResponseTypeDef,
     DescribeTrafficDistributionGroupRequestTypeDef,
     DescribeTrafficDistributionGroupResponseTypeDef,
     DescribeUserHierarchyGroupRequestTypeDef,
@@ -263,10 +326,14 @@ from .type_defs import (
     DescribeViewResponseTypeDef,
     DescribeVocabularyRequestTypeDef,
     DescribeVocabularyResponseTypeDef,
+    DescribeWorkspaceRequestTypeDef,
+    DescribeWorkspaceResponseTypeDef,
     DisassociateAnalyticsDataSetRequestTypeDef,
     DisassociateApprovedOriginRequestTypeDef,
     DisassociateBotRequestTypeDef,
+    DisassociateEmailAddressAliasRequestTypeDef,
     DisassociateFlowRequestTypeDef,
+    DisassociateHoursOfOperationsRequestTypeDef,
     DisassociateInstanceStorageConfigRequestTypeDef,
     DisassociateLambdaFunctionRequestTypeDef,
     DisassociateLexBotRequestTypeDef,
@@ -274,10 +341,15 @@ from .type_defs import (
     DisassociateQueueQuickConnectsRequestTypeDef,
     DisassociateRoutingProfileQueuesRequestTypeDef,
     DisassociateSecurityKeyRequestTypeDef,
+    DisassociateSecurityProfilesRequestTypeDef,
     DisassociateTrafficDistributionGroupUserRequestTypeDef,
     DisassociateUserProficienciesRequestTypeDef,
+    DisassociateWorkspaceRequestTypeDef,
+    DisassociateWorkspaceResponseTypeDef,
     DismissUserContactRequestTypeDef,
     EmptyResponseMetadataTypeDef,
+    EvaluateDataTableValuesRequestTypeDef,
+    EvaluateDataTableValuesResponseTypeDef,
     GetAttachedFileRequestTypeDef,
     GetAttachedFileResponseTypeDef,
     GetContactAttributesRequestTypeDef,
@@ -302,10 +374,13 @@ from .type_defs import (
     GetPromptFileResponseTypeDef,
     GetTaskTemplateRequestTypeDef,
     GetTaskTemplateResponseTypeDef,
+    GetTestCaseExecutionSummaryRequestTypeDef,
+    GetTestCaseExecutionSummaryResponseTypeDef,
     GetTrafficDistributionRequestTypeDef,
     GetTrafficDistributionResponseTypeDef,
     ImportPhoneNumberRequestTypeDef,
     ImportPhoneNumberResponseTypeDef,
+    ImportWorkspaceMediaRequestTypeDef,
     ListAgentStatusRequestTypeDef,
     ListAgentStatusResponseTypeDef,
     ListAnalyticsDataAssociationsRequestTypeDef,
@@ -320,18 +395,34 @@ from .type_defs import (
     ListAuthenticationProfilesResponseTypeDef,
     ListBotsRequestTypeDef,
     ListBotsResponseTypeDef,
+    ListChildHoursOfOperationsRequestTypeDef,
+    ListChildHoursOfOperationsResponseTypeDef,
     ListContactEvaluationsRequestTypeDef,
     ListContactEvaluationsResponseTypeDef,
+    ListContactFlowModuleAliasesRequestTypeDef,
+    ListContactFlowModuleAliasesResponseTypeDef,
     ListContactFlowModulesRequestTypeDef,
     ListContactFlowModulesResponseTypeDef,
+    ListContactFlowModuleVersionsRequestTypeDef,
+    ListContactFlowModuleVersionsResponseTypeDef,
     ListContactFlowsRequestTypeDef,
     ListContactFlowsResponseTypeDef,
     ListContactFlowVersionsRequestTypeDef,
     ListContactFlowVersionsResponseTypeDef,
     ListContactReferencesRequestTypeDef,
     ListContactReferencesResponseTypeDef,
+    ListDataTableAttributesRequestTypeDef,
+    ListDataTableAttributesResponseTypeDef,
+    ListDataTablePrimaryValuesRequestTypeDef,
+    ListDataTablePrimaryValuesResponseTypeDef,
+    ListDataTablesRequestTypeDef,
+    ListDataTablesResponseTypeDef,
+    ListDataTableValuesRequestTypeDef,
+    ListDataTableValuesResponseTypeDef,
     ListDefaultVocabulariesRequestTypeDef,
     ListDefaultVocabulariesResponseTypeDef,
+    ListEntitySecurityProfilesRequestTypeDef,
+    ListEntitySecurityProfilesResponseTypeDef,
     ListEvaluationFormsRequestTypeDef,
     ListEvaluationFormsResponseTypeDef,
     ListEvaluationFormVersionsRequestTypeDef,
@@ -370,6 +461,8 @@ from .type_defs import (
     ListQuickConnectsResponseTypeDef,
     ListRealtimeContactAnalysisSegmentsV2RequestTypeDef,
     ListRealtimeContactAnalysisSegmentsV2ResponseTypeDef,
+    ListRoutingProfileManualAssignmentQueuesRequestTypeDef,
+    ListRoutingProfileManualAssignmentQueuesResponseTypeDef,
     ListRoutingProfileQueuesRequestTypeDef,
     ListRoutingProfileQueuesResponseTypeDef,
     ListRoutingProfilesRequestTypeDef,
@@ -380,6 +473,8 @@ from .type_defs import (
     ListSecurityKeysResponseTypeDef,
     ListSecurityProfileApplicationsRequestTypeDef,
     ListSecurityProfileApplicationsResponseTypeDef,
+    ListSecurityProfileFlowModulesRequestTypeDef,
+    ListSecurityProfileFlowModulesResponseTypeDef,
     ListSecurityProfilePermissionsRequestTypeDef,
     ListSecurityProfilePermissionsResponseTypeDef,
     ListSecurityProfilesRequestTypeDef,
@@ -388,6 +483,12 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     ListTaskTemplatesRequestTypeDef,
     ListTaskTemplatesResponseTypeDef,
+    ListTestCaseExecutionRecordsRequestTypeDef,
+    ListTestCaseExecutionRecordsResponseTypeDef,
+    ListTestCaseExecutionsRequestTypeDef,
+    ListTestCaseExecutionsResponseTypeDef,
+    ListTestCasesRequestTypeDef,
+    ListTestCasesResponseTypeDef,
     ListTrafficDistributionGroupsRequestTypeDef,
     ListTrafficDistributionGroupsResponseTypeDef,
     ListTrafficDistributionGroupUsersRequestTypeDef,
@@ -404,6 +505,12 @@ from .type_defs import (
     ListViewsResponseTypeDef,
     ListViewVersionsRequestTypeDef,
     ListViewVersionsResponseTypeDef,
+    ListWorkspaceMediaRequestTypeDef,
+    ListWorkspaceMediaResponseTypeDef,
+    ListWorkspacePagesRequestTypeDef,
+    ListWorkspacePagesResponseTypeDef,
+    ListWorkspacesRequestTypeDef,
+    ListWorkspacesResponseTypeDef,
     MonitorContactRequestTypeDef,
     MonitorContactResponseTypeDef,
     PauseContactRequestTypeDef,
@@ -417,14 +524,20 @@ from .type_defs import (
     SearchAgentStatusesResponseTypeDef,
     SearchAvailablePhoneNumbersRequestTypeDef,
     SearchAvailablePhoneNumbersResponseTypeDef,
+    SearchContactEvaluationsRequestTypeDef,
+    SearchContactEvaluationsResponseTypeDef,
     SearchContactFlowModulesRequestTypeDef,
     SearchContactFlowModulesResponseTypeDef,
     SearchContactFlowsRequestTypeDef,
     SearchContactFlowsResponseTypeDef,
     SearchContactsRequestTypeDef,
     SearchContactsResponseTypeDef,
+    SearchDataTablesRequestTypeDef,
+    SearchDataTablesResponseTypeDef,
     SearchEmailAddressesRequestTypeDef,
     SearchEmailAddressesResponseTypeDef,
+    SearchEvaluationFormsRequestTypeDef,
+    SearchEvaluationFormsResponseTypeDef,
     SearchHoursOfOperationOverridesRequestTypeDef,
     SearchHoursOfOperationOverridesResponseTypeDef,
     SearchHoursOfOperationsRequestTypeDef,
@@ -443,12 +556,20 @@ from .type_defs import (
     SearchRoutingProfilesResponseTypeDef,
     SearchSecurityProfilesRequestTypeDef,
     SearchSecurityProfilesResponseTypeDef,
+    SearchTestCasesRequestTypeDef,
+    SearchTestCasesResponseTypeDef,
     SearchUserHierarchyGroupsRequestTypeDef,
     SearchUserHierarchyGroupsResponseTypeDef,
     SearchUsersRequestTypeDef,
     SearchUsersResponseTypeDef,
+    SearchViewsRequestTypeDef,
+    SearchViewsResponseTypeDef,
     SearchVocabulariesRequestTypeDef,
     SearchVocabulariesResponseTypeDef,
+    SearchWorkspaceAssociationsRequestTypeDef,
+    SearchWorkspaceAssociationsResponseTypeDef,
+    SearchWorkspacesRequestTypeDef,
+    SearchWorkspacesResponseTypeDef,
     SendChatIntegrationEventRequestTypeDef,
     SendChatIntegrationEventResponseTypeDef,
     SendOutboundEmailRequestTypeDef,
@@ -458,6 +579,7 @@ from .type_defs import (
     StartChatContactResponseTypeDef,
     StartContactEvaluationRequestTypeDef,
     StartContactEvaluationResponseTypeDef,
+    StartContactMediaProcessingRequestTypeDef,
     StartContactRecordingRequestTypeDef,
     StartContactStreamingRequestTypeDef,
     StartContactStreamingResponseTypeDef,
@@ -472,11 +594,15 @@ from .type_defs import (
     StartScreenSharingRequestTypeDef,
     StartTaskContactRequestTypeDef,
     StartTaskContactResponseTypeDef,
+    StartTestCaseExecutionRequestTypeDef,
+    StartTestCaseExecutionResponseTypeDef,
     StartWebRTCContactRequestTypeDef,
     StartWebRTCContactResponseTypeDef,
+    StopContactMediaProcessingRequestTypeDef,
     StopContactRecordingRequestTypeDef,
     StopContactRequestTypeDef,
     StopContactStreamingRequestTypeDef,
+    StopTestCaseExecutionRequestTypeDef,
     SubmitContactEvaluationRequestTypeDef,
     SubmitContactEvaluationResponseTypeDef,
     SuspendContactRecordingRequestTypeDef,
@@ -493,12 +619,19 @@ from .type_defs import (
     UpdateContactEvaluationResponseTypeDef,
     UpdateContactFlowContentRequestTypeDef,
     UpdateContactFlowMetadataRequestTypeDef,
+    UpdateContactFlowModuleAliasRequestTypeDef,
     UpdateContactFlowModuleContentRequestTypeDef,
     UpdateContactFlowModuleMetadataRequestTypeDef,
     UpdateContactFlowNameRequestTypeDef,
     UpdateContactRequestTypeDef,
     UpdateContactRoutingDataRequestTypeDef,
     UpdateContactScheduleRequestTypeDef,
+    UpdateDataTableAttributeRequestTypeDef,
+    UpdateDataTableAttributeResponseTypeDef,
+    UpdateDataTableMetadataRequestTypeDef,
+    UpdateDataTableMetadataResponseTypeDef,
+    UpdateDataTablePrimaryValuesRequestTypeDef,
+    UpdateDataTablePrimaryValuesResponseTypeDef,
     UpdateEmailAddressMetadataRequestTypeDef,
     UpdateEmailAddressMetadataResponseTypeDef,
     UpdateEvaluationFormRequestTypeDef,
@@ -532,6 +665,7 @@ from .type_defs import (
     UpdateSecurityProfileRequestTypeDef,
     UpdateTaskTemplateRequestTypeDef,
     UpdateTaskTemplateResponseTypeDef,
+    UpdateTestCaseRequestTypeDef,
     UpdateTrafficDistributionRequestTypeDef,
     UpdateUserHierarchyGroupNameRequestTypeDef,
     UpdateUserHierarchyRequestTypeDef,
@@ -544,14 +678,12 @@ from .type_defs import (
     UpdateViewContentRequestTypeDef,
     UpdateViewContentResponseTypeDef,
     UpdateViewMetadataRequestTypeDef,
+    UpdateWorkspaceMetadataRequestTypeDef,
+    UpdateWorkspacePageRequestTypeDef,
+    UpdateWorkspaceThemeRequestTypeDef,
+    UpdateWorkspaceVisibilityRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -560,33 +692,35 @@ else:
 __all__ = ("ConnectClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConditionalOperationFailedException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ContactFlowNotPublishedException: Type[BotocoreClientError]
-    ContactNotFoundException: Type[BotocoreClientError]
-    DestinationNotAllowedException: Type[BotocoreClientError]
-    DuplicateResourceException: Type[BotocoreClientError]
-    IdempotencyException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidContactFlowException: Type[BotocoreClientError]
-    InvalidContactFlowModuleException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MaximumResultReturnedException: Type[BotocoreClientError]
-    OutboundContactNotPermittedException: Type[BotocoreClientError]
-    OutputTypeNotFoundException: Type[BotocoreClientError]
-    PropertyValidationException: Type[BotocoreClientError]
-    ResourceConflictException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceNotReadyException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UserNotFoundException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConditionalOperationFailedException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ContactFlowNotPublishedException: type[BotocoreClientError]
+    ContactNotFoundException: type[BotocoreClientError]
+    DestinationNotAllowedException: type[BotocoreClientError]
+    DuplicateResourceException: type[BotocoreClientError]
+    IdempotencyException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidActiveRegionException: type[BotocoreClientError]
+    InvalidContactFlowException: type[BotocoreClientError]
+    InvalidContactFlowModuleException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidTestCaseException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MaximumResultReturnedException: type[BotocoreClientError]
+    OutboundContactNotPermittedException: type[BotocoreClientError]
+    OutputTypeNotFoundException: type[BotocoreClientError]
+    PropertyValidationException: type[BotocoreClientError]
+    ResourceConflictException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceNotReadyException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UserNotFoundException: type[BotocoreClientError]
 
 class ConnectClient(BaseClient):
     """
@@ -664,9 +798,19 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_bot)
         """
 
+    def associate_contact_with_user(
+        self, **kwargs: Unpack[AssociateContactWithUserRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates a queued contact with an agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_contact_with_user.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_contact_with_user)
+        """
+
     def associate_default_vocabulary(
         self, **kwargs: Unpack[AssociateDefaultVocabularyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an existing vocabulary as the default.
 
@@ -674,12 +818,33 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_default_vocabulary)
         """
 
-    def associate_flow(self, **kwargs: Unpack[AssociateFlowRequestTypeDef]) -> Dict[str, Any]:
+    def associate_email_address_alias(
+        self, **kwargs: Unpack[AssociateEmailAddressAliasRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates an email address alias with an existing email address in an Amazon
+        Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_email_address_alias.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_email_address_alias)
+        """
+
+    def associate_flow(self, **kwargs: Unpack[AssociateFlowRequestTypeDef]) -> dict[str, Any]:
         """
         Associates a connect resource to a flow.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_flow.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_flow)
+        """
+
+    def associate_hours_of_operations(
+        self, **kwargs: Unpack[AssociateHoursOfOperationsRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Associates a set of hours of operations with another hours of operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_hours_of_operations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_hours_of_operations)
         """
 
     def associate_instance_storage_config(
@@ -752,9 +917,19 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_security_key)
         """
 
+    def associate_security_profiles(
+        self, **kwargs: Unpack[AssociateSecurityProfilesRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Associate security profiles with an Entity in an Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_security_profiles.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_security_profiles)
+        """
+
     def associate_traffic_distribution_group_user(
         self, **kwargs: Unpack[AssociateTrafficDistributionGroupUserRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an agent with a traffic distribution group.
 
@@ -772,6 +947,17 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_user_proficiencies)
         """
 
+    def associate_workspace(
+        self, **kwargs: Unpack[AssociateWorkspaceRequestTypeDef]
+    ) -> AssociateWorkspaceResponseTypeDef:
+        """
+        Associates a workspace with one or more users or routing profiles, allowing
+        them to access the workspace's configured views and pages.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_workspace.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_workspace)
+        """
+
     def batch_associate_analytics_data_set(
         self, **kwargs: Unpack[BatchAssociateAnalyticsDataSetRequestTypeDef]
     ) -> BatchAssociateAnalyticsDataSetResponseTypeDef:
@@ -781,6 +967,36 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_associate_analytics_data_set.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#batch_associate_analytics_data_set)
+        """
+
+    def batch_create_data_table_value(
+        self, **kwargs: Unpack[BatchCreateDataTableValueRequestTypeDef]
+    ) -> BatchCreateDataTableValueResponseTypeDef:
+        """
+        Creates values for attributes in a data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_create_data_table_value.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#batch_create_data_table_value)
+        """
+
+    def batch_delete_data_table_value(
+        self, **kwargs: Unpack[BatchDeleteDataTableValueRequestTypeDef]
+    ) -> BatchDeleteDataTableValueResponseTypeDef:
+        """
+        Deletes multiple values from a data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_delete_data_table_value.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#batch_delete_data_table_value)
+        """
+
+    def batch_describe_data_table_value(
+        self, **kwargs: Unpack[BatchDescribeDataTableValueRequestTypeDef]
+    ) -> BatchDescribeDataTableValueResponseTypeDef:
+        """
+        Retrieves multiple values from a data table without evaluating expressions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_describe_data_table_value.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#batch_describe_data_table_value)
         """
 
     def batch_disassociate_analytics_data_set(
@@ -826,6 +1042,17 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#batch_put_contact)
         """
 
+    def batch_update_data_table_value(
+        self, **kwargs: Unpack[BatchUpdateDataTableValueRequestTypeDef]
+    ) -> BatchUpdateDataTableValueResponseTypeDef:
+        """
+        Updates multiple data table values using all properties from
+        BatchCreateDataTableValue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_update_data_table_value.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#batch_update_data_table_value)
+        """
+
     def claim_phone_number(
         self, **kwargs: Unpack[ClaimPhoneNumberRequestTypeDef]
     ) -> ClaimPhoneNumberResponseTypeDef:
@@ -839,7 +1066,7 @@ class ConnectClient(BaseClient):
 
     def complete_attached_file_upload(
         self, **kwargs: Unpack[CompleteAttachedFileUploadRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Allows you to confirm that the attached file has been uploaded using the
         pre-signed URL provided in the StartAttachedFileUpload API.
@@ -888,6 +1115,29 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_contact_flow_module)
         """
 
+    def create_contact_flow_module_alias(
+        self, **kwargs: Unpack[CreateContactFlowModuleAliasRequestTypeDef]
+    ) -> CreateContactFlowModuleAliasResponseTypeDef:
+        """
+        Creates a named alias that points to a specific version of a contact flow
+        module.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_contact_flow_module_alias.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_contact_flow_module_alias)
+        """
+
+    def create_contact_flow_module_version(
+        self, **kwargs: Unpack[CreateContactFlowModuleVersionRequestTypeDef]
+    ) -> CreateContactFlowModuleVersionResponseTypeDef:
+        """
+        Creates an immutable snapshot of a contact flow module, preserving its content
+        and settings at a specific point in time for version control and rollback
+        capabilities.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_contact_flow_module_version.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_contact_flow_module_version)
+        """
+
     def create_contact_flow_version(
         self, **kwargs: Unpack[CreateContactFlowVersionRequestTypeDef]
     ) -> CreateContactFlowVersionResponseTypeDef:
@@ -896,6 +1146,26 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_contact_flow_version.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_contact_flow_version)
+        """
+
+    def create_data_table(
+        self, **kwargs: Unpack[CreateDataTableRequestTypeDef]
+    ) -> CreateDataTableResponseTypeDef:
+        """
+        Creates a new data table with the specified properties.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_data_table.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_data_table)
+        """
+
+    def create_data_table_attribute(
+        self, **kwargs: Unpack[CreateDataTableAttributeRequestTypeDef]
+    ) -> CreateDataTableAttributeResponseTypeDef:
+        """
+        Adds an attribute to an existing data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_data_table_attribute.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_data_table_attribute)
         """
 
     def create_email_address(
@@ -1069,6 +1339,17 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_task_template)
         """
 
+    def create_test_case(
+        self, **kwargs: Unpack[CreateTestCaseRequestTypeDef]
+    ) -> CreateTestCaseResponseTypeDef:
+        """
+        Creates a test case with its content and metadata for the specified Amazon
+        Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_test_case.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_test_case)
+        """
+
     def create_traffic_distribution_group(
         self, **kwargs: Unpack[CreateTrafficDistributionGroupRequestTypeDef]
     ) -> CreateTrafficDistributionGroupResponseTypeDef:
@@ -1137,6 +1418,27 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_vocabulary)
         """
 
+    def create_workspace(
+        self, **kwargs: Unpack[CreateWorkspaceRequestTypeDef]
+    ) -> CreateWorkspaceResponseTypeDef:
+        """
+        Creates a workspace that defines the user experience by mapping views to pages.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_workspace.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_workspace)
+        """
+
+    def create_workspace_page(
+        self, **kwargs: Unpack[CreateWorkspacePageRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates a view with a page in a workspace, defining what users see when they
+        navigate to that page.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_workspace_page.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_workspace_page)
+        """
+
     def deactivate_evaluation_form(
         self, **kwargs: Unpack[DeactivateEvaluationFormRequestTypeDef]
     ) -> DeactivateEvaluationFormResponseTypeDef:
@@ -1149,7 +1451,7 @@ class ConnectClient(BaseClient):
 
     def delete_attached_file(
         self, **kwargs: Unpack[DeleteAttachedFileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an attached file along with the underlying S3 Object.
 
@@ -1169,7 +1471,7 @@ class ConnectClient(BaseClient):
 
     def delete_contact_flow(
         self, **kwargs: Unpack[DeleteContactFlowRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a flow for the specified Amazon Connect instance.
 
@@ -1179,7 +1481,7 @@ class ConnectClient(BaseClient):
 
     def delete_contact_flow_module(
         self, **kwargs: Unpack[DeleteContactFlowModuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified flow module.
 
@@ -1187,9 +1489,30 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_contact_flow_module)
         """
 
+    def delete_contact_flow_module_alias(
+        self, **kwargs: Unpack[DeleteContactFlowModuleAliasRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes an alias reference, breaking the named connection to the underlying
+        module version without affecting the version itself.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_contact_flow_module_alias.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_contact_flow_module_alias)
+        """
+
+    def delete_contact_flow_module_version(
+        self, **kwargs: Unpack[DeleteContactFlowModuleVersionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes a specific version of a contact flow module.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_contact_flow_module_version.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_contact_flow_module_version)
+        """
+
     def delete_contact_flow_version(
         self, **kwargs: Unpack[DeleteContactFlowVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the particular version specified in flow version identifier.
 
@@ -1197,9 +1520,28 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_contact_flow_version)
         """
 
+    def delete_data_table(self, **kwargs: Unpack[DeleteDataTableRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a data table and all associated attributes, versions, audits, and
+        values.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_data_table.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_data_table)
+        """
+
+    def delete_data_table_attribute(
+        self, **kwargs: Unpack[DeleteDataTableAttributeRequestTypeDef]
+    ) -> DeleteDataTableAttributeResponseTypeDef:
+        """
+        Deletes an attribute and all its values from a data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_data_table_attribute.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_data_table_attribute)
+        """
+
     def delete_email_address(
         self, **kwargs: Unpack[DeleteEmailAddressRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes email address from the specified Amazon Connect instance.
 
@@ -1281,7 +1623,7 @@ class ConnectClient(BaseClient):
 
     def delete_push_notification_registration(
         self, **kwargs: Unpack[DeletePushNotificationRegistrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes registration for a device token and a chat contact.
 
@@ -1341,7 +1683,7 @@ class ConnectClient(BaseClient):
 
     def delete_task_template(
         self, **kwargs: Unpack[DeleteTaskTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the task template.
 
@@ -1349,9 +1691,18 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_task_template)
         """
 
+    def delete_test_case(self, **kwargs: Unpack[DeleteTestCaseRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes the test case that has already been created for the specified Amazon
+        Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_test_case.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_test_case)
+        """
+
     def delete_traffic_distribution_group(
         self, **kwargs: Unpack[DeleteTrafficDistributionGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a traffic distribution group.
 
@@ -1389,7 +1740,7 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_user_hierarchy_group)
         """
 
-    def delete_view(self, **kwargs: Unpack[DeleteViewRequestTypeDef]) -> Dict[str, Any]:
+    def delete_view(self, **kwargs: Unpack[DeleteViewRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the view entirely.
 
@@ -1399,7 +1750,7 @@ class ConnectClient(BaseClient):
 
     def delete_view_version(
         self, **kwargs: Unpack[DeleteViewVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the particular version specified in <code>ViewVersion</code> identifier.
 
@@ -1415,6 +1766,34 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_vocabulary.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_vocabulary)
+        """
+
+    def delete_workspace(self, **kwargs: Unpack[DeleteWorkspaceRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a workspace and removes all associated view and resource assignments.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_workspace.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_workspace)
+        """
+
+    def delete_workspace_media(
+        self, **kwargs: Unpack[DeleteWorkspaceMediaRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a media asset (such as a logo) from a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_workspace_media.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_workspace_media)
+        """
+
+    def delete_workspace_page(
+        self, **kwargs: Unpack[DeleteWorkspacePageRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the association between a view and a page in a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_workspace_page.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_workspace_page)
         """
 
     def describe_agent_status(
@@ -1475,6 +1854,38 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_contact_flow_module.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_contact_flow_module)
+        """
+
+    def describe_contact_flow_module_alias(
+        self, **kwargs: Unpack[DescribeContactFlowModuleAliasRequestTypeDef]
+    ) -> DescribeContactFlowModuleAliasResponseTypeDef:
+        """
+        Retrieves detailed information about a specific alias, including which version
+        it currently points to and its metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_contact_flow_module_alias.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_contact_flow_module_alias)
+        """
+
+    def describe_data_table(
+        self, **kwargs: Unpack[DescribeDataTableRequestTypeDef]
+    ) -> DescribeDataTableResponseTypeDef:
+        """
+        Returns all properties for a data table except for attributes and values.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_data_table.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_data_table)
+        """
+
+    def describe_data_table_attribute(
+        self, **kwargs: Unpack[DescribeDataTableAttributeRequestTypeDef]
+    ) -> DescribeDataTableAttributeResponseTypeDef:
+        """
+        Returns detailed information for a specific data table attribute including its
+        configuration, validation rules, and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_data_table_attribute.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_data_table_attribute)
         """
 
     def describe_email_address(
@@ -1628,6 +2039,17 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_security_profile)
         """
 
+    def describe_test_case(
+        self, **kwargs: Unpack[DescribeTestCaseRequestTypeDef]
+    ) -> DescribeTestCaseResponseTypeDef:
+        """
+        Describes the specified test case and allows you to get the content and
+        metadata of the test case for the specified Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_test_case.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_test_case)
+        """
+
     def describe_traffic_distribution_group(
         self, **kwargs: Unpack[DescribeTrafficDistributionGroupRequestTypeDef]
     ) -> DescribeTrafficDistributionGroupResponseTypeDef:
@@ -1689,6 +2111,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_vocabulary)
         """
 
+    def describe_workspace(
+        self, **kwargs: Unpack[DescribeWorkspaceRequestTypeDef]
+    ) -> DescribeWorkspaceResponseTypeDef:
+        """
+        Retrieves details about a workspace, including its configuration and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_workspace.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_workspace)
+        """
+
     def disassociate_analytics_data_set(
         self, **kwargs: Unpack[DisassociateAnalyticsDataSetRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1719,12 +2151,33 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#disassociate_bot)
         """
 
-    def disassociate_flow(self, **kwargs: Unpack[DisassociateFlowRequestTypeDef]) -> Dict[str, Any]:
+    def disassociate_email_address_alias(
+        self, **kwargs: Unpack[DisassociateEmailAddressAliasRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the alias association between two email addresses in an Amazon Connect
+        instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_email_address_alias.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#disassociate_email_address_alias)
+        """
+
+    def disassociate_flow(self, **kwargs: Unpack[DisassociateFlowRequestTypeDef]) -> dict[str, Any]:
         """
         Disassociates a connect resource from a flow.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_flow.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#disassociate_flow)
+        """
+
+    def disassociate_hours_of_operations(
+        self, **kwargs: Unpack[DisassociateHoursOfOperationsRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Disassociates a set of hours of operations with another hours of operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_hours_of_operations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#disassociate_hours_of_operations)
         """
 
     def disassociate_instance_storage_config(
@@ -1798,9 +2251,20 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#disassociate_security_key)
         """
 
+    def disassociate_security_profiles(
+        self, **kwargs: Unpack[DisassociateSecurityProfilesRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Disassociates a security profile attached to a Q in Connect AI Agent Entity in
+        an Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_security_profiles.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#disassociate_security_profiles)
+        """
+
     def disassociate_traffic_distribution_group_user(
         self, **kwargs: Unpack[DisassociateTrafficDistributionGroupUserRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates an agent from a traffic distribution group.
 
@@ -1818,15 +2282,36 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#disassociate_user_proficiencies)
         """
 
+    def disassociate_workspace(
+        self, **kwargs: Unpack[DisassociateWorkspaceRequestTypeDef]
+    ) -> DisassociateWorkspaceResponseTypeDef:
+        """
+        Removes the association between a workspace and one or more users or routing
+        profiles.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_workspace.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#disassociate_workspace)
+        """
+
     def dismiss_user_contact(
         self, **kwargs: Unpack[DismissUserContactRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Dismisses contacts from an agent's CCP and returns the agent to an available
         state, which allows the agent to receive a new routed contact.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/dismiss_user_contact.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#dismiss_user_contact)
+        """
+
+    def evaluate_data_table_values(
+        self, **kwargs: Unpack[EvaluateDataTableValuesRequestTypeDef]
+    ) -> EvaluateDataTableValuesResponseTypeDef:
+        """
+        Evaluates values at the time of the request and returns them.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/evaluate_data_table_values.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#evaluate_data_table_values)
         """
 
     def get_attached_file(
@@ -1950,6 +2435,17 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_task_template)
         """
 
+    def get_test_case_execution_summary(
+        self, **kwargs: Unpack[GetTestCaseExecutionSummaryRequestTypeDef]
+    ) -> GetTestCaseExecutionSummaryResponseTypeDef:
+        """
+        Retrieves an overview of a test execution that includes the status of the
+        execution, start and end time, and observation summary.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_test_case_execution_summary.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_test_case_execution_summary)
+        """
+
     def get_traffic_distribution(
         self, **kwargs: Unpack[GetTrafficDistributionRequestTypeDef]
     ) -> GetTrafficDistributionResponseTypeDef:
@@ -1970,6 +2466,16 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/import_phone_number.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#import_phone_number)
+        """
+
+    def import_workspace_media(
+        self, **kwargs: Unpack[ImportWorkspaceMediaRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Imports a media asset (such as a logo) for use in a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/import_workspace_media.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#import_workspace_media)
         """
 
     def list_agent_statuses(
@@ -2043,6 +2549,17 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_bots)
         """
 
+    def list_child_hours_of_operations(
+        self, **kwargs: Unpack[ListChildHoursOfOperationsRequestTypeDef]
+    ) -> ListChildHoursOfOperationsResponseTypeDef:
+        """
+        Provides information about the child hours of operations for the specified
+        parent hours of operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_child_hours_of_operations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_child_hours_of_operations)
+        """
+
     def list_contact_evaluations(
         self, **kwargs: Unpack[ListContactEvaluationsRequestTypeDef]
     ) -> ListContactEvaluationsResponseTypeDef:
@@ -2051,6 +2568,27 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_evaluations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_contact_evaluations)
+        """
+
+    def list_contact_flow_module_aliases(
+        self, **kwargs: Unpack[ListContactFlowModuleAliasesRequestTypeDef]
+    ) -> ListContactFlowModuleAliasesResponseTypeDef:
+        """
+        Lists all aliases associated with a contact flow module, showing their current
+        version mappings and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_flow_module_aliases.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_contact_flow_module_aliases)
+        """
+
+    def list_contact_flow_module_versions(
+        self, **kwargs: Unpack[ListContactFlowModuleVersionsRequestTypeDef]
+    ) -> ListContactFlowModuleVersionsResponseTypeDef:
+        """
+        Retrieves a paginated list of all versions for a specific contact flow module.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_flow_module_versions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_contact_flow_module_versions)
         """
 
     def list_contact_flow_modules(
@@ -2095,6 +2633,47 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_contact_references)
         """
 
+    def list_data_table_attributes(
+        self, **kwargs: Unpack[ListDataTableAttributesRequestTypeDef]
+    ) -> ListDataTableAttributesResponseTypeDef:
+        """
+        Returns all attributes for a specified data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_data_table_attributes.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_data_table_attributes)
+        """
+
+    def list_data_table_primary_values(
+        self, **kwargs: Unpack[ListDataTablePrimaryValuesRequestTypeDef]
+    ) -> ListDataTablePrimaryValuesResponseTypeDef:
+        """
+        Lists all primary value combinations for a given data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_data_table_primary_values.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_data_table_primary_values)
+        """
+
+    def list_data_table_values(
+        self, **kwargs: Unpack[ListDataTableValuesRequestTypeDef]
+    ) -> ListDataTableValuesResponseTypeDef:
+        """
+        Lists values stored in a data table with optional filtering by record IDs or
+        primary attribute values.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_data_table_values.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_data_table_values)
+        """
+
+    def list_data_tables(
+        self, **kwargs: Unpack[ListDataTablesRequestTypeDef]
+    ) -> ListDataTablesResponseTypeDef:
+        """
+        Lists all data tables for the specified Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_data_tables.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_data_tables)
+        """
+
     def list_default_vocabularies(
         self, **kwargs: Unpack[ListDefaultVocabulariesRequestTypeDef]
     ) -> ListDefaultVocabulariesResponseTypeDef:
@@ -2103,6 +2682,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_default_vocabularies.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_default_vocabularies)
+        """
+
+    def list_entity_security_profiles(
+        self, **kwargs: Unpack[ListEntitySecurityProfilesRequestTypeDef]
+    ) -> ListEntitySecurityProfilesResponseTypeDef:
+        """
+        Lists all security profiles attached to a Q in Connect AIAgent Entity in an
+        Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_entity_security_profiles.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_entity_security_profiles)
         """
 
     def list_evaluation_form_versions(
@@ -2299,6 +2889,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_realtime_contact_analysis_segments_v2)
         """
 
+    def list_routing_profile_manual_assignment_queues(
+        self, **kwargs: Unpack[ListRoutingProfileManualAssignmentQueuesRequestTypeDef]
+    ) -> ListRoutingProfileManualAssignmentQueuesResponseTypeDef:
+        """
+        Lists the manual assignment queues associated with a routing profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_routing_profile_manual_assignment_queues.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_routing_profile_manual_assignment_queues)
+        """
+
     def list_routing_profile_queues(
         self, **kwargs: Unpack[ListRoutingProfileQueuesRequestTypeDef]
     ) -> ListRoutingProfileQueuesResponseTypeDef:
@@ -2342,10 +2942,21 @@ class ConnectClient(BaseClient):
         self, **kwargs: Unpack[ListSecurityProfileApplicationsRequestTypeDef]
     ) -> ListSecurityProfileApplicationsResponseTypeDef:
         """
-        Returns a list of third-party applications in a specific security profile.
+        Returns a list of third-party applications or MCP Servers in a specific
+        security profile.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_security_profile_applications.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_security_profile_applications)
+        """
+
+    def list_security_profile_flow_modules(
+        self, **kwargs: Unpack[ListSecurityProfileFlowModulesRequestTypeDef]
+    ) -> ListSecurityProfileFlowModulesResponseTypeDef:
+        """
+        A list of Flow Modules an AI Agent can invoke as a tool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_security_profile_flow_modules.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_security_profile_flow_modules)
         """
 
     def list_security_profile_permissions(
@@ -2387,6 +2998,40 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_task_templates.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_task_templates)
+        """
+
+    def list_test_case_execution_records(
+        self, **kwargs: Unpack[ListTestCaseExecutionRecordsRequestTypeDef]
+    ) -> ListTestCaseExecutionRecordsResponseTypeDef:
+        """
+        Lists detailed steps of test case execution that includes all observations
+        along with actions taken and data associated in the specified Amazon Connect
+        instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_test_case_execution_records.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_test_case_execution_records)
+        """
+
+    def list_test_case_executions(
+        self, **kwargs: Unpack[ListTestCaseExecutionsRequestTypeDef]
+    ) -> ListTestCaseExecutionsResponseTypeDef:
+        """
+        Lists all test case executions and allows filtering by test case id, test case
+        name, start time, end time or status of the execution for the specified Amazon
+        Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_test_case_executions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_test_case_executions)
+        """
+
+    def list_test_cases(
+        self, **kwargs: Unpack[ListTestCasesRequestTypeDef]
+    ) -> ListTestCasesResponseTypeDef:
+        """
+        Lists the test cases present in the specific Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_test_cases.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_test_cases)
         """
 
     def list_traffic_distribution_group_users(
@@ -2468,6 +3113,37 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_views)
         """
 
+    def list_workspace_media(
+        self, **kwargs: Unpack[ListWorkspaceMediaRequestTypeDef]
+    ) -> ListWorkspaceMediaResponseTypeDef:
+        """
+        Lists media assets (such as logos) associated with a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_workspace_media.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_workspace_media)
+        """
+
+    def list_workspace_pages(
+        self, **kwargs: Unpack[ListWorkspacePagesRequestTypeDef]
+    ) -> ListWorkspacePagesResponseTypeDef:
+        """
+        Lists the page configurations in a workspace, including the views assigned to
+        each page.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_workspace_pages.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_workspace_pages)
+        """
+
+    def list_workspaces(
+        self, **kwargs: Unpack[ListWorkspacesRequestTypeDef]
+    ) -> ListWorkspacesResponseTypeDef:
+        """
+        Lists the workspaces in an Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_workspaces.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_workspaces)
+        """
+
     def monitor_contact(
         self, **kwargs: Unpack[MonitorContactRequestTypeDef]
     ) -> MonitorContactResponseTypeDef:
@@ -2478,7 +3154,7 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#monitor_contact)
         """
 
-    def pause_contact(self, **kwargs: Unpack[PauseContactRequestTypeDef]) -> Dict[str, Any]:
+    def pause_contact(self, **kwargs: Unpack[PauseContactRequestTypeDef]) -> dict[str, Any]:
         """
         Allows pausing an ongoing task contact.
 
@@ -2486,7 +3162,7 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#pause_contact)
         """
 
-    def put_user_status(self, **kwargs: Unpack[PutUserStatusRequestTypeDef]) -> Dict[str, Any]:
+    def put_user_status(self, **kwargs: Unpack[PutUserStatusRequestTypeDef]) -> dict[str, Any]:
         """
         Changes the current status of a user or agent in Amazon Connect.
 
@@ -2517,7 +3193,7 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#replicate_instance)
         """
 
-    def resume_contact(self, **kwargs: Unpack[ResumeContactRequestTypeDef]) -> Dict[str, Any]:
+    def resume_contact(self, **kwargs: Unpack[ResumeContactRequestTypeDef]) -> dict[str, Any]:
         """
         Allows resuming a task contact in a paused state.
 
@@ -2527,7 +3203,7 @@ class ConnectClient(BaseClient):
 
     def resume_contact_recording(
         self, **kwargs: Unpack[ResumeContactRecordingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         When a contact is being recorded, and the recording has been suspended using
         SuspendContactRecording, this API resumes recording whatever recording is
@@ -2556,6 +3232,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_available_phone_numbers.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_available_phone_numbers)
+        """
+
+    def search_contact_evaluations(
+        self, **kwargs: Unpack[SearchContactEvaluationsRequestTypeDef]
+    ) -> SearchContactEvaluationsResponseTypeDef:
+        """
+        Searches contact evaluations in an Amazon Connect instance, with optional
+        filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_contact_evaluations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_contact_evaluations)
         """
 
     def search_contact_flow_modules(
@@ -2589,6 +3276,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_contacts)
         """
 
+    def search_data_tables(
+        self, **kwargs: Unpack[SearchDataTablesRequestTypeDef]
+    ) -> SearchDataTablesResponseTypeDef:
+        """
+        Searches for data tables based on the table's ID, name, and description.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_data_tables.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_data_tables)
+        """
+
     def search_email_addresses(
         self, **kwargs: Unpack[SearchEmailAddressesRequestTypeDef]
     ) -> SearchEmailAddressesResponseTypeDef:
@@ -2597,6 +3294,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_email_addresses.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_email_addresses)
+        """
+
+    def search_evaluation_forms(
+        self, **kwargs: Unpack[SearchEvaluationFormsRequestTypeDef]
+    ) -> SearchEvaluationFormsResponseTypeDef:
+        """
+        Searches evaluation forms in an Amazon Connect instance, with optional
+        filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_evaluation_forms.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_evaluation_forms)
         """
 
     def search_hours_of_operation_overrides(
@@ -2692,6 +3400,17 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_security_profiles)
         """
 
+    def search_test_cases(
+        self, **kwargs: Unpack[SearchTestCasesRequestTypeDef]
+    ) -> SearchTestCasesResponseTypeDef:
+        """
+        Searches for test cases in the specified Amazon Connect instance, with optional
+        filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_test_cases.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_test_cases)
+        """
+
     def search_user_hierarchy_groups(
         self, **kwargs: Unpack[SearchUserHierarchyGroupsRequestTypeDef]
     ) -> SearchUserHierarchyGroupsResponseTypeDef:
@@ -2713,6 +3432,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_users)
         """
 
+    def search_views(
+        self, **kwargs: Unpack[SearchViewsRequestTypeDef]
+    ) -> SearchViewsResponseTypeDef:
+        """
+        Searches views based on name, description, or tags.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_views.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_views)
+        """
+
     def search_vocabularies(
         self, **kwargs: Unpack[SearchVocabulariesRequestTypeDef]
     ) -> SearchVocabulariesResponseTypeDef:
@@ -2722,6 +3451,27 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_vocabularies.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_vocabularies)
+        """
+
+    def search_workspace_associations(
+        self, **kwargs: Unpack[SearchWorkspaceAssociationsRequestTypeDef]
+    ) -> SearchWorkspaceAssociationsResponseTypeDef:
+        """
+        Searches for workspace associations with users or routing profiles based on
+        various criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_workspace_associations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_workspace_associations)
+        """
+
+    def search_workspaces(
+        self, **kwargs: Unpack[SearchWorkspacesRequestTypeDef]
+    ) -> SearchWorkspacesResponseTypeDef:
+        """
+        Searches workspaces based on name, description, visibility, or tags.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_workspaces.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#search_workspaces)
         """
 
     def send_chat_integration_event(
@@ -2737,7 +3487,7 @@ class ConnectClient(BaseClient):
 
     def send_outbound_email(
         self, **kwargs: Unpack[SendOutboundEmailRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send outbound email for outbound campaigns.
 
@@ -2776,9 +3526,19 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#start_contact_evaluation)
         """
 
+    def start_contact_media_processing(
+        self, **kwargs: Unpack[StartContactMediaProcessingRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Enables in-flight message processing for an ongoing chat session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_contact_media_processing.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#start_contact_media_processing)
+        """
+
     def start_contact_recording(
         self, **kwargs: Unpack[StartContactRecordingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts recording the contact:.
 
@@ -2811,7 +3571,7 @@ class ConnectClient(BaseClient):
         self, **kwargs: Unpack[StartOutboundChatContactRequestTypeDef]
     ) -> StartOutboundChatContactResponseTypeDef:
         """
-        Initiates a new outbound SMS contact to a customer.
+        Initiates a new outbound SMS or WhatsApp contact to a customer.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_outbound_chat_contact.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#start_outbound_chat_contact)
@@ -2840,7 +3600,7 @@ class ConnectClient(BaseClient):
 
     def start_screen_sharing(
         self, **kwargs: Unpack[StartScreenSharingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts screen sharing for a contact.
 
@@ -2858,6 +3618,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#start_task_contact)
         """
 
+    def start_test_case_execution(
+        self, **kwargs: Unpack[StartTestCaseExecutionRequestTypeDef]
+    ) -> StartTestCaseExecutionResponseTypeDef:
+        """
+        Starts executing a published test case.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_test_case_execution.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#start_test_case_execution)
+        """
+
     def start_web_rtc_contact(
         self, **kwargs: Unpack[StartWebRTCContactRequestTypeDef]
     ) -> StartWebRTCContactResponseTypeDef:
@@ -2869,7 +3639,7 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#start_web_rtc_contact)
         """
 
-    def stop_contact(self, **kwargs: Unpack[StopContactRequestTypeDef]) -> Dict[str, Any]:
+    def stop_contact(self, **kwargs: Unpack[StopContactRequestTypeDef]) -> dict[str, Any]:
         """
         Ends the specified contact.
 
@@ -2877,9 +3647,19 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#stop_contact)
         """
 
+    def stop_contact_media_processing(
+        self, **kwargs: Unpack[StopContactMediaProcessingRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops in-flight message processing for an ongoing chat session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/stop_contact_media_processing.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#stop_contact_media_processing)
+        """
+
     def stop_contact_recording(
         self, **kwargs: Unpack[StopContactRecordingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops recording a call when a contact is being recorded.
 
@@ -2889,12 +3669,22 @@ class ConnectClient(BaseClient):
 
     def stop_contact_streaming(
         self, **kwargs: Unpack[StopContactStreamingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Ends message streaming on a specified contact.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/stop_contact_streaming.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#stop_contact_streaming)
+        """
+
+    def stop_test_case_execution(
+        self, **kwargs: Unpack[StopTestCaseExecutionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops a running test execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/stop_test_case_execution.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#stop_test_case_execution)
         """
 
     def submit_contact_evaluation(
@@ -2909,7 +3699,7 @@ class ConnectClient(BaseClient):
 
     def suspend_contact_recording(
         self, **kwargs: Unpack[SuspendContactRecordingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         When a contact is being recorded, this API suspends recording whatever is
         selected in the flow configuration: call (IVR or agent), screen, or both.
@@ -2918,7 +3708,7 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#suspend_contact_recording)
         """
 
-    def tag_contact(self, **kwargs: Unpack[TagContactRequestTypeDef]) -> Dict[str, Any]:
+    def tag_contact(self, **kwargs: Unpack[TagContactRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the contact resource.
 
@@ -2947,7 +3737,7 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#transfer_contact)
         """
 
-    def untag_contact(self, **kwargs: Unpack[UntagContactRequestTypeDef]) -> Dict[str, Any]:
+    def untag_contact(self, **kwargs: Unpack[UntagContactRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the contact resource.
 
@@ -2985,7 +3775,7 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_authentication_profile)
         """
 
-    def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> Dict[str, Any]:
+    def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> dict[str, Any]:
         """
         This API is in preview release for Amazon Connect and is subject to change.
 
@@ -2995,7 +3785,7 @@ class ConnectClient(BaseClient):
 
     def update_contact_attributes(
         self, **kwargs: Unpack[UpdateContactAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates user-defined contact attributes associated with the
         specified contact.
@@ -3017,7 +3807,7 @@ class ConnectClient(BaseClient):
 
     def update_contact_flow_content(
         self, **kwargs: Unpack[UpdateContactFlowContentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the specified flow.
 
@@ -3027,7 +3817,7 @@ class ConnectClient(BaseClient):
 
     def update_contact_flow_metadata(
         self, **kwargs: Unpack[UpdateContactFlowMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates metadata about specified flow.
 
@@ -3035,9 +3825,20 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_contact_flow_metadata)
         """
 
+    def update_contact_flow_module_alias(
+        self, **kwargs: Unpack[UpdateContactFlowModuleAliasRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates a specific Aliases metadata, including the version it's tied to, it's
+        name, and description.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_flow_module_alias.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_contact_flow_module_alias)
+        """
+
     def update_contact_flow_module_content(
         self, **kwargs: Unpack[UpdateContactFlowModuleContentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates specified flow module for the specified Amazon Connect instance.
 
@@ -3047,7 +3848,7 @@ class ConnectClient(BaseClient):
 
     def update_contact_flow_module_metadata(
         self, **kwargs: Unpack[UpdateContactFlowModuleMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates metadata about specified flow module.
 
@@ -3057,7 +3858,7 @@ class ConnectClient(BaseClient):
 
     def update_contact_flow_name(
         self, **kwargs: Unpack[UpdateContactFlowNameRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The name of the flow.
 
@@ -3067,7 +3868,7 @@ class ConnectClient(BaseClient):
 
     def update_contact_routing_data(
         self, **kwargs: Unpack[UpdateContactRoutingDataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates routing priority and age on the contact (<b>QueuePriority</b> and
         <b>QueueTimeAdjustmentInSeconds</b>).
@@ -3078,12 +3879,43 @@ class ConnectClient(BaseClient):
 
     def update_contact_schedule(
         self, **kwargs: Unpack[UpdateContactScheduleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the scheduled time of a task contact that is already scheduled.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_schedule.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_contact_schedule)
+        """
+
+    def update_data_table_attribute(
+        self, **kwargs: Unpack[UpdateDataTableAttributeRequestTypeDef]
+    ) -> UpdateDataTableAttributeResponseTypeDef:
+        """
+        Updates all properties for an attribute using all properties from
+        CreateDataTableAttribute.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_data_table_attribute.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_data_table_attribute)
+        """
+
+    def update_data_table_metadata(
+        self, **kwargs: Unpack[UpdateDataTableMetadataRequestTypeDef]
+    ) -> UpdateDataTableMetadataResponseTypeDef:
+        """
+        Updates the metadata properties of a data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_data_table_metadata.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_data_table_metadata)
+        """
+
+    def update_data_table_primary_values(
+        self, **kwargs: Unpack[UpdateDataTablePrimaryValuesRequestTypeDef]
+    ) -> UpdateDataTablePrimaryValuesResponseTypeDef:
+        """
+        Updates the primary values for a record.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_data_table_primary_values.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_data_table_primary_values)
         """
 
     def update_email_address_metadata(
@@ -3149,7 +3981,7 @@ class ConnectClient(BaseClient):
 
     def update_participant_authentication(
         self, **kwargs: Unpack[UpdateParticipantAuthenticationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Instructs Amazon Connect to resume the authentication process.
 
@@ -3159,7 +3991,7 @@ class ConnectClient(BaseClient):
 
     def update_participant_role_config(
         self, **kwargs: Unpack[UpdateParticipantRoleConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates timeouts for when human chat participants are to be considered idle,
         and when agents are automatically disconnected from a chat due to idleness.
@@ -3376,9 +4208,18 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_task_template)
         """
 
+    def update_test_case(self, **kwargs: Unpack[UpdateTestCaseRequestTypeDef]) -> dict[str, Any]:
+        """
+        Updates any of the metadata for a test case, such as the name, description, and
+        status or content of an existing test case.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_test_case.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_test_case)
+        """
+
     def update_traffic_distribution(
         self, **kwargs: Unpack[UpdateTrafficDistributionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the traffic distribution for a given traffic distribution group.
 
@@ -3480,12 +4321,54 @@ class ConnectClient(BaseClient):
 
     def update_view_metadata(
         self, **kwargs: Unpack[UpdateViewMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the view metadata.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_view_metadata.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_view_metadata)
+        """
+
+    def update_workspace_metadata(
+        self, **kwargs: Unpack[UpdateWorkspaceMetadataRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the metadata of a workspace, such as its name and description.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_workspace_metadata.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_workspace_metadata)
+        """
+
+    def update_workspace_page(
+        self, **kwargs: Unpack[UpdateWorkspacePageRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the configuration of a page in a workspace, including the associated
+        view and input data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_workspace_page.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_workspace_page)
+        """
+
+    def update_workspace_theme(
+        self, **kwargs: Unpack[UpdateWorkspaceThemeRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the theme configuration for a workspace, including colors and styling.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_workspace_theme.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_workspace_theme)
+        """
+
+    def update_workspace_visibility(
+        self, **kwargs: Unpack[UpdateWorkspaceVisibilityRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the visibility setting of a workspace, controlling whether it is
+        available to all users, assigned users only, or none.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_workspace_visibility.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_workspace_visibility)
         """
 
     @overload  # type: ignore[override]
@@ -3545,8 +4428,41 @@ class ConnectClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_child_hours_of_operations"]
+    ) -> ListChildHoursOfOperationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_contact_evaluations"]
     ) -> ListContactEvaluationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contact_flow_module_aliases"]
+    ) -> ListContactFlowModuleAliasesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contact_flow_module_versions"]
+    ) -> ListContactFlowModuleVersionsPaginator:
         """
         Create a paginator for an operation.
 
@@ -3600,8 +4516,63 @@ class ConnectClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_table_attributes"]
+    ) -> ListDataTableAttributesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_table_primary_values"]
+    ) -> ListDataTablePrimaryValuesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_table_values"]
+    ) -> ListDataTableValuesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_tables"]
+    ) -> ListDataTablesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_default_vocabularies"]
     ) -> ListDefaultVocabulariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_entity_security_profiles"]
+    ) -> ListEntitySecurityProfilesPaginator:
         """
         Create a paginator for an operation.
 
@@ -3809,6 +4780,17 @@ class ConnectClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_routing_profile_manual_assignment_queues"]
+    ) -> ListRoutingProfileManualAssignmentQueuesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_routing_profile_queues"]
     ) -> ListRoutingProfileQueuesPaginator:
         """
@@ -3864,6 +4846,17 @@ class ConnectClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_security_profile_flow_modules"]
+    ) -> ListSecurityProfileFlowModulesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_security_profile_permissions"]
     ) -> ListSecurityProfilePermissionsPaginator:
         """
@@ -3888,6 +4881,17 @@ class ConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_task_templates"]
     ) -> ListTaskTemplatesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_cases"]
+    ) -> ListTestCasesPaginator:
         """
         Create a paginator for an operation.
 
@@ -3985,6 +4989,28 @@ class ConnectClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_workspace_pages"]
+    ) -> ListWorkspacePagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_workspaces"]
+    ) -> ListWorkspacesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_agent_statuses"]
     ) -> SearchAgentStatusesPaginator:
         """
@@ -4031,6 +5057,17 @@ class ConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_contacts"]
     ) -> SearchContactsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_data_tables"]
+    ) -> SearchDataTablesPaginator:
         """
         Create a paginator for an operation.
 
@@ -4139,6 +5176,17 @@ class ConnectClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_test_cases"]
+    ) -> SearchTestCasesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_user_hierarchy_groups"]
     ) -> SearchUserHierarchyGroupsPaginator:
         """
@@ -4161,8 +5209,41 @@ class ConnectClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_views"]
+    ) -> SearchViewsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_vocabularies"]
     ) -> SearchVocabulariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_workspace_associations"]
+    ) -> SearchWorkspaceAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_workspaces"]
+    ) -> SearchWorkspacesPaginator:
         """
         Create a paginator for an operation.
 

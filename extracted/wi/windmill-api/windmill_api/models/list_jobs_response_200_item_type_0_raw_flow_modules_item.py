@@ -43,25 +43,36 @@ T = TypeVar("T", bound="ListJobsResponse200ItemType0RawFlowModulesItem")
 
 @_attrs_define
 class ListJobsResponse200ItemType0RawFlowModulesItem:
-    """
+    """A single step in a flow. Can be a script, subflow, loop, or branch
+
     Attributes:
-        id (str):
+        id (str): Unique identifier for this step. Used to reference results via 'results.step_id'. Must be a valid
+            identifier (alphanumeric, underscore, hyphen)
         value (Any):
-        stop_after_if (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemStopAfterIf]):
-        stop_after_all_iters_if (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemStopAfterAllItersIf]):
-        skip_if (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemSkipIf]):
+        stop_after_if (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemStopAfterIf]): Early termination
+            condition for a module
+        stop_after_all_iters_if (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemStopAfterAllItersIf]): Early
+            termination condition for a module
+        skip_if (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemSkipIf]): Conditionally skip this step based
+            on previous results or flow inputs
         sleep (Union['ListJobsResponse200ItemType0RawFlowModulesItemSleepType0',
-            'ListJobsResponse200ItemType0RawFlowModulesItemSleepType1', Unset]):
-        cache_ttl (Union[Unset, float]):
+            'ListJobsResponse200ItemType0RawFlowModulesItemSleepType1', Unset]): Maps input parameters for a step. Can be a
+            static value or a JavaScript expression that references previous results or flow inputs
+        cache_ttl (Union[Unset, float]): Cache duration in seconds for this step's results
+        cache_ignore_s3_path (Union[Unset, bool]):
         timeout (Union['ListJobsResponse200ItemType0RawFlowModulesItemTimeoutType0',
-            'ListJobsResponse200ItemType0RawFlowModulesItemTimeoutType1', Unset]):
-        delete_after_use (Union[Unset, bool]):
-        summary (Union[Unset, str]):
-        mock (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemMock]):
-        suspend (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemSuspend]):
-        priority (Union[Unset, float]):
-        continue_on_error (Union[Unset, bool]):
-        retry (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemRetry]):
+            'ListJobsResponse200ItemType0RawFlowModulesItemTimeoutType1', Unset]): Maps input parameters for a step. Can be
+            a static value or a JavaScript expression that references previous results or flow inputs
+        delete_after_use (Union[Unset, bool]): If true, this step's result is deleted after use to save memory
+        summary (Union[Unset, str]): Short description of what this step does
+        mock (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemMock]): Mock configuration for testing without
+            executing the actual step
+        suspend (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemSuspend]): Configuration for approval/resume
+            steps that wait for user input
+        priority (Union[Unset, float]): Execution priority for this step (higher numbers run first)
+        continue_on_error (Union[Unset, bool]): If true, flow continues even if this step fails
+        retry (Union[Unset, ListJobsResponse200ItemType0RawFlowModulesItemRetry]): Retry configuration for failed module
+            executions
     """
 
     id: str
@@ -75,6 +86,7 @@ class ListJobsResponse200ItemType0RawFlowModulesItem:
         Unset,
     ] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
+    cache_ignore_s3_path: Union[Unset, bool] = UNSET
     timeout: Union[
         "ListJobsResponse200ItemType0RawFlowModulesItemTimeoutType0",
         "ListJobsResponse200ItemType0RawFlowModulesItemTimeoutType1",
@@ -126,6 +138,7 @@ class ListJobsResponse200ItemType0RawFlowModulesItem:
                 sleep = self.sleep.to_dict()
 
         cache_ttl = self.cache_ttl
+        cache_ignore_s3_path = self.cache_ignore_s3_path
         timeout: Union[Dict[str, Any], Unset]
         if isinstance(self.timeout, Unset):
             timeout = UNSET
@@ -174,6 +187,8 @@ class ListJobsResponse200ItemType0RawFlowModulesItem:
             field_dict["sleep"] = sleep
         if cache_ttl is not UNSET:
             field_dict["cache_ttl"] = cache_ttl
+        if cache_ignore_s3_path is not UNSET:
+            field_dict["cache_ignore_s3_path"] = cache_ignore_s3_path
         if timeout is not UNSET:
             field_dict["timeout"] = timeout
         if delete_after_use is not UNSET:
@@ -291,6 +306,8 @@ class ListJobsResponse200ItemType0RawFlowModulesItem:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
+        cache_ignore_s3_path = d.pop("cache_ignore_s3_path", UNSET)
+
         def _parse_timeout(
             data: object,
         ) -> Union[
@@ -365,6 +382,7 @@ class ListJobsResponse200ItemType0RawFlowModulesItem:
             skip_if=skip_if,
             sleep=sleep,
             cache_ttl=cache_ttl,
+            cache_ignore_s3_path=cache_ignore_s3_path,
             timeout=timeout,
             delete_after_use=delete_after_use,
             summary=summary,

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
         ExecuteComponentJsonBodyForceViewerStaticFields,
     )
     from ..models.execute_component_json_body_raw_code import ExecuteComponentJsonBodyRawCode
+    from ..models.execute_component_json_body_run_query_params import ExecuteComponentJsonBodyRunQueryParams
 
 
 T = TypeVar("T", bound="ExecuteComponentJsonBody")
@@ -31,6 +32,7 @@ class ExecuteComponentJsonBody:
         force_viewer_static_fields (Union[Unset, ExecuteComponentJsonBodyForceViewerStaticFields]):
         force_viewer_one_of_fields (Union[Unset, ExecuteComponentJsonBodyForceViewerOneOfFields]):
         force_viewer_allow_user_resources (Union[Unset, List[str]]):
+        run_query_params (Union[Unset, ExecuteComponentJsonBodyRunQueryParams]): Runnable query parameters
     """
 
     component: str
@@ -42,6 +44,7 @@ class ExecuteComponentJsonBody:
     force_viewer_static_fields: Union[Unset, "ExecuteComponentJsonBodyForceViewerStaticFields"] = UNSET
     force_viewer_one_of_fields: Union[Unset, "ExecuteComponentJsonBodyForceViewerOneOfFields"] = UNSET
     force_viewer_allow_user_resources: Union[Unset, List[str]] = UNSET
+    run_query_params: Union[Unset, "ExecuteComponentJsonBodyRunQueryParams"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -66,6 +69,10 @@ class ExecuteComponentJsonBody:
         if not isinstance(self.force_viewer_allow_user_resources, Unset):
             force_viewer_allow_user_resources = self.force_viewer_allow_user_resources
 
+        run_query_params: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.run_query_params, Unset):
+            run_query_params = self.run_query_params.to_dict()
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -88,6 +95,8 @@ class ExecuteComponentJsonBody:
             field_dict["force_viewer_one_of_fields"] = force_viewer_one_of_fields
         if force_viewer_allow_user_resources is not UNSET:
             field_dict["force_viewer_allow_user_resources"] = force_viewer_allow_user_resources
+        if run_query_params is not UNSET:
+            field_dict["run_query_params"] = run_query_params
 
         return field_dict
 
@@ -100,6 +109,7 @@ class ExecuteComponentJsonBody:
             ExecuteComponentJsonBodyForceViewerStaticFields,
         )
         from ..models.execute_component_json_body_raw_code import ExecuteComponentJsonBodyRawCode
+        from ..models.execute_component_json_body_run_query_params import ExecuteComponentJsonBodyRunQueryParams
 
         d = src_dict.copy()
         component = d.pop("component")
@@ -139,6 +149,13 @@ class ExecuteComponentJsonBody:
 
         force_viewer_allow_user_resources = cast(List[str], d.pop("force_viewer_allow_user_resources", UNSET))
 
+        _run_query_params = d.pop("run_query_params", UNSET)
+        run_query_params: Union[Unset, ExecuteComponentJsonBodyRunQueryParams]
+        if isinstance(_run_query_params, Unset):
+            run_query_params = UNSET
+        else:
+            run_query_params = ExecuteComponentJsonBodyRunQueryParams.from_dict(_run_query_params)
+
         execute_component_json_body = cls(
             component=component,
             args=args,
@@ -149,6 +166,7 @@ class ExecuteComponentJsonBody:
             force_viewer_static_fields=force_viewer_static_fields,
             force_viewer_one_of_fields=force_viewer_one_of_fields,
             force_viewer_allow_user_resources=force_viewer_allow_user_resources,
+            run_query_params=run_query_params,
         )
 
         execute_component_json_body.additional_properties = d

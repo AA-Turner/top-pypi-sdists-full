@@ -13,6 +13,9 @@ pub enum FieldIndex {
         model: Option<String>,
         embedding_type: Option<EmbeddingDataType>,
     },
+    MultiVectorIndex {
+        metric: MultiVectorDistanceMetric,
+    },
 }
 
 #[pyclass(eq, eq_int)]
@@ -45,7 +48,9 @@ pub enum VectorDistanceMetric {
 impl From<VectorDistanceMetric> for topk_rs::proto::v1::control::VectorDistanceMetric {
     fn from(metric: VectorDistanceMetric) -> Self {
         match metric {
-            VectorDistanceMetric::Cosine => topk_rs::proto::v1::control::VectorDistanceMetric::Cosine,
+            VectorDistanceMetric::Cosine => {
+                topk_rs::proto::v1::control::VectorDistanceMetric::Cosine
+            }
             VectorDistanceMetric::Euclidean => {
                 topk_rs::proto::v1::control::VectorDistanceMetric::Euclidean
             }
@@ -63,6 +68,35 @@ impl From<VectorDistanceMetric> for topk_rs::proto::v1::control::VectorDistanceM
 #[derive(Debug, Clone, PartialEq)]
 pub enum KeywordIndexType {
     Text,
+}
+
+#[pyclass(eq, eq_int)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum MultiVectorDistanceMetric {
+    Maxsim,
+}
+
+impl From<MultiVectorDistanceMetric> for topk_rs::proto::v1::control::MultiVectorDistanceMetric {
+    fn from(metric: MultiVectorDistanceMetric) -> Self {
+        match metric {
+            MultiVectorDistanceMetric::Maxsim => {
+                topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim
+            }
+        }
+    }
+}
+
+impl From<topk_rs::proto::v1::control::MultiVectorDistanceMetric> for MultiVectorDistanceMetric {
+    fn from(metric: topk_rs::proto::v1::control::MultiVectorDistanceMetric) -> Self {
+        match metric {
+            topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
+                MultiVectorDistanceMetric::Maxsim
+            }
+            topk_rs::proto::v1::control::MultiVectorDistanceMetric::Unspecified => {
+                unreachable!("Invalid multi-vector distance metric")
+            }
+        }
+    }
 }
 
 impl From<KeywordIndexType> for topk_rs::proto::v1::control::KeywordIndexType {
@@ -89,6 +123,9 @@ impl Into<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                 model,
                 embedding_type.map(|dt| dt.into()),
             ),
+            FieldIndex::MultiVectorIndex { metric } => {
+                topk_rs::proto::v1::control::FieldIndex::multi_vector(metric.into())
+            }
         }
     }
 }
@@ -99,7 +136,9 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
             topk_rs::proto::v1::control::field_index::Index::KeywordIndex(keyword_index) => {
                 FieldIndex::KeywordIndex {
                     index_type: match keyword_index.index_type() {
-                        topk_rs::proto::v1::control::KeywordIndexType::Text => KeywordIndexType::Text,
+                        topk_rs::proto::v1::control::KeywordIndexType::Text => {
+                            KeywordIndexType::Text
+                        }
                         t => panic!("unsupported keyword index: {:?}", t),
                     },
                 }
@@ -139,6 +178,16 @@ impl From<topk_rs::proto::v1::control::FieldIndex> for FieldIndex {
                 FieldIndex::SemanticIndex {
                     model: semantic_index.model,
                     embedding_type,
+                }
+            }
+            topk_rs::proto::v1::control::field_index::Index::MultiVectorIndex(mvi) => {
+                FieldIndex::MultiVectorIndex {
+                    metric: match mvi.metric() {
+                        topk_rs::proto::v1::control::MultiVectorDistanceMetric::Maxsim => {
+                            MultiVectorDistanceMetric::Maxsim
+                        }
+                        m => panic!("unsupported multi-vector metric {:?}", m),
+                    },
                 }
             }
         }

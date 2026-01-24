@@ -14,7 +14,6 @@ readme = "README.md"
 
 [dependencies]
 http.workspace = true
-parking_lot.workspace = true
 pyo3 = { workspace = true, features = [] }
 ryo3-core.workspace = true
 serde = { workspace = true, optional = true }

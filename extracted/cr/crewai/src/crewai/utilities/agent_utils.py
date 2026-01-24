@@ -1,8 +1,11 @@
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
 import json
 import re
-from collections.abc import Callable, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict
 
+from pydantic import BaseModel
 from rich.console import Console
 
 from crewai.agents.constants import FINAL_ANSWER_AND_PARSABLE_ACTION_ERROR_MESSAGE
@@ -13,24 +16,57 @@ from crewai.agents.parser import (
     parse,
 )
 from crewai.cli.config import Settings
-from crewai.llm import LLM
 from crewai.llms.base_llm import BaseLLM
 from crewai.tools import BaseTool as CrewAITool
 from crewai.tools.base_tool import BaseTool
 from crewai.tools.structured_tool import CrewStructuredTool
 from crewai.tools.tool_types import ToolResult
-from crewai.utilities import I18N, Printer
 from crewai.utilities.errors import AgentRepositoryError
 from crewai.utilities.exceptions.context_window_exceeding_exception import (
-    LLMContextLengthExceededException,
+    LLMContextLengthExceededError,
 )
+from crewai.utilities.i18n import I18N
+from crewai.utilities.printer import ColoredText, Printer
+from crewai.utilities.token_counter_callback import TokenCalcHandler
+from crewai.utilities.types import LLMMessage
+
+
+if TYPE_CHECKING:
+    from crewai.agent import Agent
+    from crewai.agents.crew_agent_executor import CrewAgentExecutor
+    from crewai.lite_agent import LiteAgent
+    from crewai.llm import LLM
+    from crewai.task import Task
+
+
+class SummaryContent(TypedDict):
+    """Structure for summary content entries.
+
+    Attributes:
+        content: The summarized content.
+    """
+
+    content: str
+
 
 console = Console()
 
+_MULTIPLE_NEWLINES: Final[re.Pattern[str]] = re.compile(r"\n+")
+
 
 def parse_tools(tools: list[BaseTool]) -> list[CrewStructuredTool]:
-    """Parse tools to be used for the task."""
-    tools_list = []
+    """Parse tools to be used for the task.
+
+    Args:
+        tools: List of tools to parse.
+
+    Returns:
+        List of structured tools.
+
+    Raises:
+        ValueError: If a tool is not a CrewStructuredTool or BaseTool.
+    """
+    tools_list: list[CrewStructuredTool] = []
 
     for tool in tools:
         if isinstance(tool, CrewAITool):
@@ -42,7 +78,14 @@ def parse_tools(tools: list[BaseTool]) -> list[CrewStructuredTool]:
 
 
 def get_tool_names(tools: Sequence[CrewStructuredTool | BaseTool]) -> str:
-    """Get the names of the tools."""
+    """Get the names of the tools.
+
+    Args:
+        tools: List of tools to get names from.
+
+    Returns:
+        Comma-separated string of tool names.
+    """
     return ", ".join([t.name for t in tools])
 
 
@@ -51,16 +94,30 @@ def render_text_description_and_args(
 ) -> str:
     """Render the tool name, description, and args in plain text.
 
-        search: This tool is used for search, args: {"query": {"type": "string"}}
-        calculator: This tool is used for math, \
-        args: {"expression": {"type": "string"}}
+    search: This tool is used for search, args: {"query": {"type": "string"}}
+    calculator: This tool is used for math, \
+    args: {"expression": {"type": "string"}}
+
+    Args:
+        tools: List of tools to render.
+
+    Returns:
+        Plain text description of tools.
     """
     tool_strings = [tool.description for tool in tools]
     return "\n".join(tool_strings)
 
 
 def has_reached_max_iterations(iterations: int, max_iterations: int) -> bool:
-    """Check if the maximum number of iterations has been reached."""
+    """Check if the maximum number of iterations has been reached.
+
+    Args:
+        iterations: Current number of iterations.
+        max_iterations: Maximum allowed iterations.
+
+    Returns:
+        True if maximum iterations reached, False otherwise.
+    """
     return iterations >= max_iterations
 
 
@@ -68,19 +125,22 @@ def handle_max_iterations_exceeded(
     formatted_answer: AgentAction | AgentFinish | None,
     printer: Printer,
     i18n: I18N,
-    messages: list[dict[str, str]],
+    messages: list[LLMMessage],
     llm: LLM | BaseLLM,
-    callbacks: list[Any],
-) -> AgentAction | AgentFinish:
-    """
-    Handles the case when the maximum number of iterations is exceeded.
-    Performs one more LLM call to get the final answer.
+    callbacks: list[TokenCalcHandler],
+) -> AgentFinish:
+    """Handles the case when the maximum number of iterations is exceeded. Performs one more LLM call to get the final answer.
 
-    Parameters:
+    Args:
         formatted_answer: The last formatted answer from the agent.
+        printer: Printer instance for output.
+        i18n: I18N instance for internationalization.
+        messages: List of messages to send to the LLM.
+        llm: The LLM instance to call.
+        callbacks: List of callbacks for the LLM call.
 
     Returns:
-        The final formatted answer after exceeding max iterations.
+        AgentFinish with the final answer after exceeding max iterations.
     """
     printer.print(
         content="Maximum iterations reached. Requesting final answer.",
@@ -109,21 +169,47 @@ def handle_max_iterations_exceeded(
         )
         raise ValueError("Invalid response from LLM call - None or empty.")
 
-    # Return the formatted answer, regardless of its type
-    return format_answer(answer)
+    formatted = format_answer(answer=answer)
+
+    # If format_answer returned an AgentAction, convert it to AgentFinish
+    if isinstance(formatted, AgentFinish):
+        return formatted
+    return AgentFinish(
+        thought=formatted.thought,
+        output=formatted.text,
+        text=formatted.text,
+    )
 
 
-def format_message_for_llm(prompt: str, role: str = "user") -> dict[str, str]:
+def format_message_for_llm(
+    prompt: str, role: Literal["user", "assistant", "system"] = "user"
+) -> LLMMessage:
+    """Format a message for the LLM.
+
+    Args:
+        prompt:  The message content.
+        role:  The role of the message sender, either 'user' or 'assistant'.
+
+    Returns:
+        A dictionary with 'role' and 'content' keys.
+
+    """
     prompt = prompt.rstrip()
     return {"role": role, "content": prompt}
 
 
 def format_answer(answer: str) -> AgentAction | AgentFinish:
-    """Format a response from the LLM into an AgentAction or AgentFinish."""
+    """Format a response from the LLM into an AgentAction or AgentFinish.
+
+    Args:
+        answer: The raw response from the LLM
+
+    Returns:
+        Either an AgentAction or AgentFinish
+    """
     try:
         return parse(answer)
     except Exception:
-        # If parsing fails, return a default AgentFinish
         return AgentFinish(
             thought="Failed to parse LLM response",
             output=answer,
@@ -134,26 +220,57 @@ def format_answer(answer: str) -> AgentAction | AgentFinish:
 def enforce_rpm_limit(
     request_within_rpm_limit: Callable[[], bool] | None = None,
 ) -> None:
-    """Enforce the requests per minute (RPM) limit if applicable."""
+    """Enforce the requests per minute (RPM) limit if applicable.
+
+    Args:
+        request_within_rpm_limit: Function to enforce RPM limit.
+    """
     if request_within_rpm_limit:
         request_within_rpm_limit()
 
 
 def get_llm_response(
     llm: LLM | BaseLLM,
-    messages: list[dict[str, str]],
-    callbacks: list[Any],
+    messages: list[LLMMessage],
+    callbacks: list[TokenCalcHandler],
     printer: Printer,
-    from_task: Any | None = None,
-    from_agent: Any | None = None,
+    from_task: Task | None = None,
+    from_agent: Agent | LiteAgent | None = None,
+    response_model: type[BaseModel] | None = None,
+    executor_context: CrewAgentExecutor | LiteAgent | None = None,
 ) -> str:
-    """Call the LLM and return the response, handling any invalid responses."""
+    """Call the LLM and return the response, handling any invalid responses.
+
+    Args:
+        llm: The LLM instance to call.
+        messages: The messages to send to the LLM.
+        callbacks: List of callbacks for the LLM call.
+        printer: Printer instance for output.
+        from_task: Optional task context for the LLM call.
+        from_agent: Optional agent context for the LLM call.
+        response_model: Optional Pydantic model for structured outputs.
+        executor_context: Optional executor context for hook invocation.
+
+    Returns:
+        The response from the LLM as a string.
+
+    Raises:
+        Exception: If an error occurs.
+        ValueError: If the response is None or empty.
+    """
+
+    if executor_context is not None:
+        if not _setup_before_llm_call_hooks(executor_context, printer):
+            raise ValueError("LLM call blocked by before_llm_call hook")
+        messages = executor_context.messages
+
     try:
         answer = llm.call(
             messages,
             callbacks=callbacks,
             from_task=from_task,
-            from_agent=from_agent,
+            from_agent=from_agent,  # type: ignore[arg-type]
+            response_model=response_model,
         )
     except Exception as e:
         raise e
@@ -164,13 +281,75 @@ def get_llm_response(
         )
         raise ValueError("Invalid response from LLM call - None or empty.")
 
-    return answer
+    return _setup_after_llm_call_hooks(executor_context, answer, printer)
+
+
+async def aget_llm_response(
+    llm: LLM | BaseLLM,
+    messages: list[LLMMessage],
+    callbacks: list[TokenCalcHandler],
+    printer: Printer,
+    from_task: Task | None = None,
+    from_agent: Agent | LiteAgent | None = None,
+    response_model: type[BaseModel] | None = None,
+    executor_context: CrewAgentExecutor | None = None,
+) -> str:
+    """Call the LLM asynchronously and return the response.
+
+    Args:
+        llm: The LLM instance to call.
+        messages: The messages to send to the LLM.
+        callbacks: List of callbacks for the LLM call.
+        printer: Printer instance for output.
+        from_task: Optional task context for the LLM call.
+        from_agent: Optional agent context for the LLM call.
+        response_model: Optional Pydantic model for structured outputs.
+        executor_context: Optional executor context for hook invocation.
+
+    Returns:
+        The response from the LLM as a string.
+
+    Raises:
+        Exception: If an error occurs.
+        ValueError: If the response is None or empty.
+    """
+    if executor_context is not None:
+        if not _setup_before_llm_call_hooks(executor_context, printer):
+            raise ValueError("LLM call blocked by before_llm_call hook")
+        messages = executor_context.messages
+
+    try:
+        answer = await llm.acall(
+            messages,
+            callbacks=callbacks,
+            from_task=from_task,
+            from_agent=from_agent,  # type: ignore[arg-type]
+            response_model=response_model,
+        )
+    except Exception as e:
+        raise e
+    if not answer:
+        printer.print(
+            content="Received None or empty response from LLM call.",
+            color="red",
+        )
+        raise ValueError("Invalid response from LLM call - None or empty.")
+
+    return _setup_after_llm_call_hooks(executor_context, answer, printer)
 
 
 def process_llm_response(
     answer: str, use_stop_words: bool
 ) -> AgentAction | AgentFinish:
-    """Process the LLM response and format it into an AgentAction or AgentFinish."""
+    """Process the LLM response and format it into an AgentAction or AgentFinish.
+
+    Args:
+        answer: The raw response from the LLM
+        use_stop_words: Whether to use stop words in the LLM call
+
+    Returns:
+        Either an AgentAction or AgentFinish
+    """
     if not use_stop_words:
         try:
             # Preliminary parsing to check for errors.
@@ -185,9 +364,9 @@ def process_llm_response(
 def handle_agent_action_core(
     formatted_answer: AgentAction,
     tool_result: ToolResult,
-    messages: list[dict[str, str]] | None = None,
-    step_callback: Callable | None = None,
-    show_logs: Callable | None = None,
+    messages: list[LLMMessage] | None = None,
+    step_callback: Callable | None = None,  # type: ignore[type-arg]
+    show_logs: Callable | None = None,  # type: ignore[type-arg]
 ) -> AgentAction | AgentFinish:
     """Core logic for handling agent actions and tool results.
 
@@ -200,6 +379,9 @@ def handle_agent_action_core(
 
     Returns:
         Either an AgentAction or AgentFinish
+
+    Notes:
+        - TODO: Remove messages parameter and its usage.
     """
     if step_callback:
         step_callback(tool_result)
@@ -220,7 +402,7 @@ def handle_agent_action_core(
     return formatted_answer
 
 
-def handle_unknown_error(printer: Any, exception: Exception) -> None:
+def handle_unknown_error(printer: Printer, exception: Exception) -> None:
     """Handle unknown errors by informing the user.
 
     Args:
@@ -244,10 +426,10 @@ def handle_unknown_error(printer: Any, exception: Exception) -> None:
 
 def handle_output_parser_exception(
     e: OutputParserError,
-    messages: list[dict[str, str]],
+    messages: list[LLMMessage],
     iterations: int,
     log_error_after: int = 3,
-    printer: Any | None = None,
+    printer: Printer | None = None,
 ) -> AgentAction:
     """Handle OutputParserError by updating messages and formatted_answer.
 
@@ -288,18 +470,18 @@ def is_context_length_exceeded(exception: Exception) -> bool:
     Returns:
         bool: True if the exception is due to context length exceeding
     """
-    return LLMContextLengthExceededException(str(exception))._is_context_limit_error(
+    return LLMContextLengthExceededError(str(exception))._is_context_limit_error(
         str(exception)
     )
 
 
 def handle_context_length(
     respect_context_window: bool,
-    printer: Any,
-    messages: list[dict[str, str]],
-    llm: Any,
-    callbacks: list[Any],
-    i18n: Any,
+    printer: Printer,
+    messages: list[LLMMessage],
+    llm: LLM | BaseLLM,
+    callbacks: list[TokenCalcHandler],
+    i18n: I18N,
 ) -> None:
     """Handle context length exceeded by either summarizing or raising an error.
 
@@ -310,13 +492,16 @@ def handle_context_length(
         llm: LLM instance for summarization
         callbacks: List of callbacks for LLM
         i18n: I18N instance for messages
+
+    Raises:
+        SystemExit: If context length is exceeded and user opts not to summarize
     """
     if respect_context_window:
         printer.print(
             content="Context length exceeded. Summarizing content to fit the model context window. Might take a while...",
             color="yellow",
         )
-        summarize_messages(messages, llm, callbacks, i18n)
+        summarize_messages(messages=messages, llm=llm, callbacks=callbacks, i18n=i18n)
     else:
         printer.print(
             content="Context length exceeded. Consider using smaller text or RAG tools from crewai_tools.",
@@ -328,10 +513,10 @@ def handle_context_length(
 
 
 def summarize_messages(
-    messages: list[dict[str, str]],
-    llm: Any,
-    callbacks: list[Any],
-    i18n: Any,
+    messages: list[LLMMessage],
+    llm: LLM | BaseLLM,
+    callbacks: list[TokenCalcHandler],
+    i18n: I18N,
 ) -> None:
     """Summarize messages to fit within context window.
 
@@ -341,7 +526,7 @@ def summarize_messages(
         callbacks: List of callbacks for LLM
         i18n: I18N instance for messages
     """
-    messages_string = " ".join([message["content"] for message in messages])
+    messages_string = " ".join([message["content"] for message in messages])  # type: ignore[misc]
     cut_size = llm.get_context_window_size()
 
     messages_groups = [
@@ -349,7 +534,7 @@ def summarize_messages(
         for i in range(0, len(messages_string), cut_size)
     ]
 
-    summarized_contents = []
+    summarized_contents: list[SummaryContent] = []
 
     total_groups = len(messages_groups)
     for idx, group in enumerate(messages_groups, 1):
@@ -357,15 +542,17 @@ def summarize_messages(
             content=f"Summarizing {idx}/{total_groups}...",
             color="yellow",
         )
+
+        messages = [
+            format_message_for_llm(
+                i18n.slice("summarizer_system_message"), role="system"
+            ),
+            format_message_for_llm(
+                i18n.slice("summarize_instruction").format(group=group["content"]),
+            ),
+        ]
         summary = llm.call(
-            [
-                format_message_for_llm(
-                    i18n.slice("summarizer_system_message"), role="system"
-                ),
-                format_message_for_llm(
-                    i18n.slice("summarize_instruction").format(group=group["content"]),
-                ),
-            ],
+            messages,
             callbacks=callbacks,
         )
         summarized_contents.append({"content": str(summary)})
@@ -404,20 +591,29 @@ def show_agent_logs(
     if formatted_answer is None:
         # Start logs
         printer.print(
-            content=f"\033[1m\033[95m# Agent:\033[00m \033[1m\033[92m{agent_role}\033[00m"
+            content=[
+                ColoredText("# Agent: ", "bold_purple"),
+                ColoredText(agent_role, "bold_green"),
+            ]
         )
         if task_description:
             printer.print(
-                content=f"\033[95m## Task:\033[00m \033[92m{task_description}\033[00m"
+                content=[
+                    ColoredText("## Task: ", "purple"),
+                    ColoredText(task_description, "green"),
+                ]
             )
     else:
         # Execution logs
         printer.print(
-            content=f"\n\n\033[1m\033[95m# Agent:\033[00m \033[1m\033[92m{agent_role}\033[00m"
+            content=[
+                ColoredText("\n\n# Agent: ", "bold_purple"),
+                ColoredText(agent_role, "bold_green"),
+            ]
         )
 
         if isinstance(formatted_answer, AgentAction):
-            thought = re.sub(r"\n+", "\n", formatted_answer.thought)
+            thought = _MULTIPLE_NEWLINES.sub("\n", formatted_answer.thought)
             formatted_json = json.dumps(
                 formatted_answer.tool_input,
                 indent=2,
@@ -425,24 +621,39 @@ def show_agent_logs(
             )
             if thought and thought != "":
                 printer.print(
-                    content=f"\033[95m## Thought:\033[00m \033[92m{thought}\033[00m"
+                    content=[
+                        ColoredText("## Thought: ", "purple"),
+                        ColoredText(thought, "green"),
+                    ]
                 )
             printer.print(
-                content=f"\033[95m## Using tool:\033[00m \033[92m{formatted_answer.tool}\033[00m"
+                content=[
+                    ColoredText("## Using tool: ", "purple"),
+                    ColoredText(formatted_answer.tool, "green"),
+                ]
             )
             printer.print(
-                content=f"\033[95m## Tool Input:\033[00m \033[92m\n{formatted_json}\033[00m"
+                content=[
+                    ColoredText("## Tool Input: ", "purple"),
+                    ColoredText(f"\n{formatted_json}", "green"),
+                ]
             )
             printer.print(
-                content=f"\033[95m## Tool Output:\033[00m \033[92m\n{formatted_answer.result}\033[00m"
+                content=[
+                    ColoredText("## Tool Output: ", "purple"),
+                    ColoredText(f"\n{formatted_answer.result}", "green"),
+                ]
             )
         elif isinstance(formatted_answer, AgentFinish):
             printer.print(
-                content=f"\033[95m## Final Answer:\033[00m \033[92m\n{formatted_answer.output}\033[00m\n\n"
+                content=[
+                    ColoredText("## Final Answer: ", "purple"),
+                    ColoredText(f"\n{formatted_answer.output}\n\n", "green"),
+                ]
             )
 
 
-def _print_current_organization():
+def _print_current_organization() -> None:
     settings = Settings()
     if settings.org_uuid:
         console.print(
@@ -457,6 +668,17 @@ def _print_current_organization():
 
 
 def load_agent_from_repository(from_repository: str) -> dict[str, Any]:
+    """Load an agent from the repository.
+
+    Args:
+        from_repository: The name of the agent to load.
+
+    Returns:
+        A dictionary of attributes to use for the agent.
+
+    Raises:
+        AgentRepositoryError: If the agent cannot be loaded.
+    """
     attributes: dict[str, Any] = {}
     if from_repository:
         import importlib
@@ -502,3 +724,103 @@ def load_agent_from_repository(from_repository: str) -> dict[str, Any]:
             else:
                 attributes[key] = value
     return attributes
+
+
+def _setup_before_llm_call_hooks(
+    executor_context: CrewAgentExecutor | LiteAgent | None, printer: Printer
+) -> bool:
+    """Setup and invoke before_llm_call hooks for the executor context.
+
+    Args:
+        executor_context: The executor context to setup the hooks for.
+        printer: Printer instance for error logging.
+
+    Returns:
+        True if LLM execution should proceed, False if blocked by a hook.
+    """
+    if executor_context and executor_context.before_llm_call_hooks:
+        from crewai.hooks.llm_hooks import LLMCallHookContext
+
+        original_messages = executor_context.messages
+
+        hook_context = LLMCallHookContext(executor_context)
+        try:
+            for hook in executor_context.before_llm_call_hooks:
+                result = hook(hook_context)
+                if result is False:
+                    printer.print(
+                        content="LLM call blocked by before_llm_call hook",
+                        color="yellow",
+                    )
+                    return False
+        except Exception as e:
+            printer.print(
+                content=f"Error in before_llm_call hook: {e}",
+                color="yellow",
+            )
+
+        if not isinstance(executor_context.messages, list):
+            printer.print(
+                content=(
+                    "Warning: before_llm_call hook replaced messages with non-list. "
+                    "Restoring original messages list. Hooks should modify messages in-place, "
+                    "not replace the list (e.g., use context.messages.append() not context.messages = [])."
+                ),
+                color="yellow",
+            )
+            if isinstance(original_messages, list):
+                executor_context.messages = original_messages
+            else:
+                executor_context.messages = []
+
+    return True
+
+
+def _setup_after_llm_call_hooks(
+    executor_context: CrewAgentExecutor | LiteAgent | None,
+    answer: str,
+    printer: Printer,
+) -> str:
+    """Setup and invoke after_llm_call hooks for the executor context.
+
+    Args:
+        executor_context: The executor context to setup the hooks for.
+        answer: The LLM response string.
+        printer: Printer instance for error logging.
+
+    Returns:
+        The potentially modified response string.
+    """
+    if executor_context and executor_context.after_llm_call_hooks:
+        from crewai.hooks.llm_hooks import LLMCallHookContext
+
+        original_messages = executor_context.messages
+
+        hook_context = LLMCallHookContext(executor_context, response=answer)
+        try:
+            for hook in executor_context.after_llm_call_hooks:
+                modified_response = hook(hook_context)
+                if modified_response is not None and isinstance(modified_response, str):
+                    answer = modified_response
+
+        except Exception as e:
+            printer.print(
+                content=f"Error in after_llm_call hook: {e}",
+                color="yellow",
+            )
+
+        if not isinstance(executor_context.messages, list):
+            printer.print(
+                content=(
+                    "Warning: after_llm_call hook replaced messages with non-list. "
+                    "Restoring original messages list. Hooks should modify messages in-place, "
+                    "not replace the list (e.g., use context.messages.append() not context.messages = [])."
+                ),
+                color="yellow",
+            )
+            if isinstance(original_messages, list):
+                executor_context.messages = original_messages
+            else:
+                executor_context.messages = []
+
+    return answer

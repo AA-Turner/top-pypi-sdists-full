@@ -1,28 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: f90nml
-Version: 1.4.5
+Version: 1.5
 Summary: Fortran 90 namelist parser
-Home-page: http://github.com/marshallward/f90nml
+Home-page: https://github.com/marshallward/f90nml
 Author: Marshall Ward
 Author-email: f90nml@marshallward.org
+License: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.6
 Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.2
-Classifier: Programming Language :: Python :: 3.3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Utilities
-Provides-Extra: yaml
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: NOTICE
 License-File: AUTHORS
+Provides-Extra: yaml
+Requires-Dist: PyYAML; extra == "yaml"
+Dynamic: license-file
 
 =========================================================
 f90nml - A Fortran namelist parser, generator, and editor
@@ -169,16 +173,14 @@ The latest version of ``f90nml`` can be installed from source::
 conda
 -----
 
-There is a conda-forge feedstock (not maintained, nor supported by, the Author).
-
-Information on supported versions and platforms, and detailed installation instructions
-using ``conda`` and ``conda-forge`` is available here:
-
-   https://github.com/conda-forge/f90nml-feedstock
-
-but TL;DR::
+There is a conda-forge feedstock (not maintained by the author)::
 
     $ conda install -c conda-forge f90nml
+
+Information on supported versions and platforms, and detailed installation
+instructions using ``conda`` and ``conda-forge`` is available here:
+
+   https://github.com/conda-forge/f90nml-feedstock
 
 
 Package distribution

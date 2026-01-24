@@ -192,7 +192,8 @@ class AtlanConnectorType(str, Enum, metaclass=utils.ExtendableEnumMeta):
     def CREATE_CUSTOM(
         cls, name: str, value: str, category=AtlanConnectionCategory.CUSTOM
     ) -> "AtlanConnectorType":
-        return cls.add_value(name, value, category)
+        # Force-lowercase the value to avoid frontend case-related issues
+        return cls.add_value(name, value.lower(), category)
 
     def to_qualified_name(self):
         return f"default/{self.value}/{int(utils.get_epoch_timestamp())}"
@@ -385,6 +386,7 @@ class AtlanConnectorType(str, Enum, metaclass=utils.ExtendableEnumMeta):
     DOCUMENTDB = ("documentdb", AtlanConnectionCategory.DATABASE)
     AI = ("ai", AtlanConnectionCategory.AI)
     SAP_ECC = ("sap-ecc", AtlanConnectionCategory.ERP)
+    CLOUDSQL_POSTGRES = ("cloudsql-postgres", AtlanConnectionCategory.DATABASE)
 
 
 class AtlanCustomAttributePrimitiveType(str, Enum):
@@ -399,6 +401,7 @@ class AtlanCustomAttributePrimitiveType(str, Enum):
     URL = "url"
     SQL = "SQL"
     LONG = "long"
+    RICH_TEXT = "string"
 
 
 class AtlanDeleteType(str, Enum):
@@ -1852,6 +1855,7 @@ class AtlanIcon(str, Enum):
     UPLOAD = "PhUpload"
     UPLOAD_SIMPLE = "PhUploadSimple"
     USB = "PhUsb"
+    # file deepcode ignore NoHardcodedCredentials: this is not a credential
     USER = "PhUser"
     USERS = "PhUsers"
     USERS_FOUR = "PhUsersFour"
@@ -2126,6 +2130,10 @@ class PersonaMetadataAction(str, Enum):
     REMOVE_ATLAN_TAG = "persona-entity-remove-classification"
     ATTACH_TERMS = "persona-add-terms"
     DETACH_TERMS = "persona-remove-terms"
+    DQ_CREATE = "persona-dq-create"
+    DQ_READ = "persona-dq-read"
+    DQ_UPDATE = "persona-dq-update"
+    DQ_DELETE = "persona-dq-delete"
 
 
 class PersonaDomainAction(str, Enum):
@@ -2217,6 +2225,7 @@ class WorkflowPackage(str, Enum):
     AZURE_EVENT_HUB = "atlan-azure-event-hub"
     BIGQUERY = "atlan-bigquery"
     BIGQUERY_MINER = "atlan-bigquery-miner"
+    CLOUDSQL_POSTGRES = "atlan-cloudsql-postgres"
     CONNECTION_DELETE = "atlan-connection-delete"
     DATABRICKS = "atlan-databricks"
     DATABRICKS_LINEAGE = "atlan-databricks-lineage"
@@ -2433,7 +2442,7 @@ class OpenLineageEventType(Enum):
     OTHER = "OTHER"
 
 
-class alpha_DQRuleThresholdCompareOperator(str, Enum):
+class DataQualityRuleThresholdCompareOperator(str, Enum):
     EQUAL = "EQ"
     GREATER_THAN_EQUAL = "GTE"
     LESS_THAN_EQUAL = "LTE"
@@ -2442,70 +2451,32 @@ class alpha_DQRuleThresholdCompareOperator(str, Enum):
     LESS_THAN = "LT"
 
 
-class alpha_DQDimension(str, Enum):
-    COMPLETENESS = "completeness"
-    TIMELINESS = "timeliness"
-    ACCURACY = "accuracy"
-    CONSISTENCY = "consistency"
-    UNIQUENESS = "uniqueness"
-    VALIDITY = "validity"
-    VOLUME = "volume"
+class DataQualityRuleTemplateType(str, Enum):
+    BLANK_COUNT = "BLANK_COUNT"
+    BLANK_PERCENTAGE = "BLANK_PERCENTAGE"
+    NULL_COUNT = "NULL_COUNT"
+    NULL_PERCENTAGE = "NULL_PERCENTAGE"
+    FRESHNESS = "FRESHNESS"
+    AVERAGE = "AVERAGE"
+    MAX_VALUE = "MAX_VALUE"
+    MIN_VALUE = "MIN_VALUE"
+    STANDARD_DEVIATION = "STANDARD_DEVIATION"
+    DUPLICATE_COUNT = "DUPLICATE_COUNT"
+    UNIQUE_COUNT = "UNIQUE_COUNT"
+    ROW_COUNT = "ROW_COUNT"
+    CUSTOM_SQL = "Custom SQL"
+    REGEX_MATCH = "REGEX_MATCH"
+    VALID_STRING_VALUES = "VALID_STRING_VALUES"
+    VALID_STRING_VALUES_REFERENCE = "VALID_STRING_VALUES_REFERENCE"
+    STRING_LENGTH = "STRING_LENGTH"
+    RECON_ROW_COUNT = "RECON_ROW_COUNT"
+    RECON_AVERAGE = "RECON_AVERAGE"
+    RECON_SUM = "RECON_SUM"
+    RECON_DUPLICATE_COUNT = "RECON_DUPLICATE_COUNT"
+    RECON_UNIQUE_COUNT = "RECON_UNIQUE_COUNT"
 
 
-class alpha_DQEnvironmentSetupStatus(str, Enum):
-    NOT_STARTED = "NOT_STARTED"
-    IN_PROGRESS = "IN_PROGRESS"
-    SUCCESSFUL = "SUCCESSFUL"
-    FAILED = "FAILED"
-
-
-class alpha_DQResult(str, Enum):
-    PASS = "PASS"
-    FAIL = "FAIL"
-
-
-class alpha_DQRuleAlertPriority(str, Enum):
-    URGENT = "URGENT"
-    NORMAL = "NORMAL"
-    LOW = "LOW"
-
-
-class alpha_DQRuleStatus(str, Enum):
-    ACTIVE = "ACTIVE"
-    SUSPENDED = "SUSPENDED"
-
-
-class alpha_DQRuleTemplateMetricValueType(str, Enum):
-    ABSOLUTE = "ABSOLUTE"
-    PERCENTAGE = "PERCENTAGE"
-    TIME = "TIME"
-
-
-class alpha_DQRuleThresholdUnit(str, Enum):
-    PERCENTAGE = "PERCENTAGE"
-    SECONDS = "SECONDS"
-    MINUTES = "MINUTES"
-    HOURS = "HOURS"
-    DAYS = "DAYS"
-    WEEKS = "WEEKS"
-    MONTHS = "MONTHS"
-    YEARS = "YEARS"
-
-
-class alpha_DQScheduleType(str, Enum):
-    ON_DATA_CHANGE = "ON_DATA_CHANGE"
-    CRON = "CRON"
-    NOT_SCHEDULED = "NOT_SCHEDULED"
-
-
-class alpha_DQSourceSyncStatus(str, Enum):
-    SUCCESSFUL = "SUCCESSFUL"
-    FAILURE = "FAILURE"
-    IN_PROGRESS = "IN_PROGRESS"
-    WAITING_FOR_SCHEDULE = "WAITING_FOR_SCHEDULE"
-
-
-class alpha_dqRuleTemplateConfigRuleConditions(str, Enum):
+class DataQualityRuleTemplateConfigRuleConditions(str, Enum):
     # String Length conditions
     STRING_LENGTH_BETWEEN = "STRING_LENGTH_BETWEEN"
     STRING_LENGTH_EQUALS = "STRING_LENGTH_EQUALS"
@@ -2521,6 +2492,16 @@ class alpha_dqRuleTemplateConfigRuleConditions(str, Enum):
     # List conditions
     IN_LIST = "IN_LIST"
     NOT_IN_LIST = "NOT_IN_LIST"
+
+    # Reference list conditions
+    IN_LIST_REFERENCE = "IN_LIST_REFERENCE"
+
+    # Reconciliation conditions
+    ROW_COUNT_RECON = "ROW_COUNT_RECON"
+    AVERAGE_RECON = "AVERAGE_RECON"
+    SUM_RECON = "SUM_RECON"
+    DUPLICATE_COUNT_RECON = "DUPLICATE_COUNT_RECON"
+    UNIQUE_COUNT_RECON = "UNIQUE_COUNT_RECON"
 
 
 # **************************************
@@ -2636,6 +2617,23 @@ class AppWorkflowRunStatus(str, Enum):
     STOPPED = "Stopped"
 
 
+class AssetSmusMetadataFormStatus(str, Enum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
+class AtlanAppDeploymentOperation(str, Enum):
+    INSTALL = "INSTALL"
+    UPGRADE = "UPGRADE"
+    DOWNGRADE = "DOWNGRADE"
+
+
+class AtlanAppDeploymentStatus(str, Enum):
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
 class AtlasGlossaryCategoryType(str, Enum):
     DOCUMENT_FOLDER = "DOCUMENT_FOLDER"
 
@@ -2703,10 +2701,23 @@ class AuthPolicyType(str, Enum):
     ROW_FILTER = "rowFilter"
 
 
+class BigqueryRoutineType(str, Enum):
+    SP = "SP"
+    UDF = "UDF"
+    TVF = "TVF"
+
+
 class CertificateStatus(str, Enum):
     DEPRECATED = "DEPRECATED"
     DRAFT = "DRAFT"
     VERIFIED = "VERIFIED"
+
+
+class ConnectionDQEnvironmentSetupStatus(str, Enum):
+    NOT_STARTED = "NOT_STARTED"
+    IN_PROGRESS = "IN_PROGRESS"
+    SUCCESSFUL = "SUCCESSFUL"
+    FAILED = "FAILED"
 
 
 class DataProductCriticality(str, Enum):
@@ -2741,6 +2752,73 @@ class DataProductVisibility(str, Enum):
     PUBLIC = "Public"
 
 
+class DataQualityDimension(str, Enum):
+    COMPLETENESS = "completeness"
+    TIMELINESS = "timeliness"
+    ACCURACY = "accuracy"
+    CONSISTENCY = "consistency"
+    UNIQUENESS = "uniqueness"
+    VALIDITY = "validity"
+    VOLUME = "volume"
+
+
+class DataQualityResult(str, Enum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+
+
+class DataQualityRuleAlertPriority(str, Enum):
+    URGENT = "URGENT"
+    NORMAL = "NORMAL"
+    LOW = "LOW"
+
+
+class DataQualityRuleCustomSQLReturnType(str, Enum):
+    ROW_COUNT = "ROW_COUNT"
+    NUMERIC_VALUE = "NUMERIC_VALUE"
+
+
+class DataQualityRuleStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+
+
+class DataQualityRuleTemplateMetricValueType(str, Enum):
+    ABSOLUTE = "ABSOLUTE"
+    PERCENTAGE = "PERCENTAGE"
+    TIME = "TIME"
+
+
+class DataQualityRuleThresholdUnit(str, Enum):
+    PERCENTAGE = "PERCENTAGE"
+    SECONDS = "SECONDS"
+    MINUTES = "MINUTES"
+    HOURS = "HOURS"
+    DAYS = "DAYS"
+    WEEKS = "WEEKS"
+    MONTHS = "MONTHS"
+    YEARS = "YEARS"
+    ABSOLUTE = "ABSOLUTE"
+
+
+class DataQualityScheduleType(str, Enum):
+    ON_DATA_CHANGE = "ON_DATA_CHANGE"
+    CRON = "CRON"
+    NOT_SCHEDULED = "NOT_SCHEDULED"
+
+
+class DataQualitySourceSyncStatus(str, Enum):
+    SUCCESSFUL = "SUCCESSFUL"
+    FAILURE = "FAILURE"
+    IN_PROGRESS = "IN_PROGRESS"
+    WAITING_FOR_SCHEDULE = "WAITING_FOR_SCHEDULE"
+
+
+class DatabricksVolumeType(str, Enum):
+    MANAGED = "MANAGED"
+    EXTERNAL = "EXTERNAL"
+
+
 class DocumentDBCollectionValidationAction(str, Enum):
     ERROR = "ERROR"
     WARN = "WARN"
@@ -2758,6 +2836,11 @@ class DomoCardType(str, Enum):
     CHART = "CHART"
     DRILL_VIEW = "DRILL VIEW"
     NOTEBOOK = "NOTEBOOK"
+
+
+class DremioParentAssetType(str, Enum):
+    SPACE = "SPACE"
+    SOURCE = "SOURCE"
 
 
 class DynamoDBSecondaryIndexProjectionType(str, Enum):
@@ -2949,6 +3032,20 @@ class QuickSightDatasetImportMode(str, Enum):
 
 class QuickSightFolderType(str, Enum):
     SHARED = "SHARED"
+
+
+class S3ObjectLockMode(str, Enum):
+    GOVERNANCE = "GOVERNANCE"
+    COMPLIANCE = "COMPLIANCE"
+
+
+class SageMakerUnifiedStudioProjectStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    DELETING = "DELETING"
+    DELETE_FAILED = "DELETE_FAILED"
+    UPDATING = "UPDATING"
+    UPDATE_FAILED = "UPDATE_FAILED"
+    MOVING = "MOVING"
 
 
 class SchemaRegistrySchemaCompatibility(str, Enum):

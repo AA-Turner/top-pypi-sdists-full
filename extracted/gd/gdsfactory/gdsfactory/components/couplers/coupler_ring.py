@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+__all__ = ["coupler_ring"]
+
 import gdsfactory as gf
 from gdsfactory.component import Component
-from gdsfactory.components.couplers.coupler import coupler_straight
-from gdsfactory.components.couplers.coupler90 import coupler90
 from gdsfactory.typings import ComponentSpec, CrossSectionSpec
+
+from ..couplers.coupler import coupler_straight
+from ..couplers.coupler90 import coupler90
 
 
 @gf.cell_with_module_name
@@ -95,4 +98,5 @@ def coupler_ring(
     )
     c.auto_rename_ports()
     c.flatten()
+    c.info["radius"] = radius
     return c

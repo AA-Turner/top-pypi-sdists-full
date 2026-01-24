@@ -1,9 +1,7 @@
-# Copyright 2025 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
-import dataclasses
 import inspect
-import re
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import (
@@ -19,16 +17,27 @@ from typing import (
 )
 
 from marimo import _loggers
+from marimo._ai._tools.types import (
+    MarimoCellConsoleOutputs,
+    MarimoCellErrors,
+    MarimoErrorDetail,
+    MarimoNotebookInfo,
+    ToolGuidelines,
+)
 from marimo._ai._tools.utils.exceptions import ToolExecutionError
+from marimo._ai._tools.utils.output_cleaning import clean_output
 from marimo._config.config import CopilotMode
+from marimo._messaging.cell_output import CellChannel
+from marimo._messaging.notification import CellNotification
 from marimo._server.ai.tools.types import (
     FunctionArgs,
     ToolDefinition,
     ValidationFunction,
 )
 from marimo._server.api.deps import AppStateBase
-from marimo._server.sessions import Session, SessionManager
-from marimo._types.ids import SessionId
+from marimo._session.model import ConnectionState
+from marimo._types.ids import CellId_t, SessionId
+from marimo._utils.case import to_snake_case
 from marimo._utils.dataclass_to_openapi import PythonTypeToOpenAPI
 from marimo._utils.parse_dataclass import parse_raw
 
@@ -44,6 +53,9 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable
 
     from starlette.applications import Starlette
+
+    from marimo._server.session_manager import SessionManager
+    from marimo._session import Session
 
 
 @dataclass
@@ -69,8 +81,8 @@ class ToolContext:
         return app
 
     def get_session(self, session_id: SessionId) -> Session:
-        session_manager = self.session_manager
-        if session_id not in session_manager.sessions:
+        session = self.session_manager.get_session(session_id)
+        if session is None:
             raise ToolExecutionError(
                 f"Session {session_id} not found",
                 code="SESSION_NOT_FOUND",
@@ -78,7 +90,179 @@ class ToolContext:
                 suggested_fix="Use get_active_notebooks to find valid session IDs",
                 meta={"session_id": session_id},
             )
-        return session_manager.sessions[session_id]
+        return session
+
+    def get_cell_notification(
+        self, session_id: SessionId, cell_id: CellId_t
+    ) -> CellNotification:
+        session_view = self.get_session(session_id).session_view
+        if cell_id not in session_view.cell_notifications:
+            raise ToolExecutionError(
+                f"Cell notification not found for cell {cell_id}",
+                code="CELL_NOTIFICATION_NOT_FOUND",
+                is_retryable=False,
+                suggested_fix="Try again with a valid cell ID.",
+                meta={"cell_id": cell_id},
+            )
+        return session_view.cell_notifications[cell_id]
+
+    def get_active_sessions_internal(self) -> list[MarimoNotebookInfo]:
+        """
+        Get active sessions from the app state.
+
+        This follows the logic from marimo/_server/api/endpoints/home.py
+        """
+        import os
+
+        UNSAVED_NOTEBOOK_MESSAGE = (
+            "(unsaved notebook - save to disk to get file path)"
+        )
+        files: list[MarimoNotebookInfo] = []
+        for session_id, session in self.session_manager.sessions.items():
+            state = session.connection_state()
+            if (
+                state == ConnectionState.OPEN
+                or state == ConnectionState.ORPHANED
+            ):
+                full_file_path = session.app_file_manager.path
+                filename = session.app_file_manager.filename
+                basename = os.path.basename(filename) if filename else None
+                files.append(
+                    MarimoNotebookInfo(
+                        name=(basename or "new notebook"),
+                        # file path should be absolute path for agent-based edit tools
+                        path=(full_file_path or UNSAVED_NOTEBOOK_MESSAGE),
+                        session_id=session_id,
+                    )
+                )
+        # Return most recent notebooks first (reverse chronological order)
+        return files[::-1]
+
+    def get_notebook_errors(
+        self, session_id: SessionId, include_stderr: bool
+    ) -> list[MarimoCellErrors]:
+        """
+        Get all errors in the current notebook session, organized by cell.
+
+        Optionally include stderr messages foreach cell.
+        """
+        session = self.get_session(session_id)
+        session_view = session.session_view
+        cell_errors_map: dict[CellId_t, MarimoCellErrors] = {}
+        notebook_errors: list[MarimoCellErrors] = []
+        stderr: list[str] = []
+
+        for cell_id, cell_notif in session_view.cell_notifications.items():
+            errors = self.get_cell_errors(
+                session_id,
+                cell_id,
+                maybe_cell_notif=cell_notif,
+            )
+            if include_stderr:
+                stderr = self.get_cell_console_outputs(cell_notif).stderr
+            if errors:
+                cell_errors_map[cell_id] = MarimoCellErrors(
+                    cell_id=cell_id,
+                    errors=errors,
+                    stderr=stderr,
+                )
+
+        # Use cell_manager to get cells in the correct notebook order
+        cell_manager = session.app_file_manager.app.cell_manager
+        for cell_data in cell_manager.cell_data():
+            cell_id = cell_data.cell_id
+            if cell_id in cell_errors_map:
+                notebook_errors.append(cell_errors_map[cell_id])
+
+        return notebook_errors
+
+    def get_cell_errors(
+        self,
+        session_id: SessionId,
+        cell_id: CellId_t,
+        maybe_cell_notif: Optional[CellNotification] = None,
+    ) -> list[MarimoErrorDetail]:
+        """
+        Get all errors for a given cell.
+        """
+        errors: list[MarimoErrorDetail] = []
+        cell_notif = maybe_cell_notif or self.get_cell_notification(
+            session_id, cell_id
+        )
+
+        if (
+            not cell_notif.output
+            or cell_notif.output.channel != CellChannel.MARIMO_ERROR
+        ):
+            return errors
+
+        items = cell_notif.output.data
+
+        if not isinstance(items, list):
+            # no errors
+            return errors
+
+        for err in items:
+            # TODO: filter out noisy useless errors
+            # like "An ancestor raised an exception..."
+            if isinstance(err, dict):
+                errors.append(
+                    MarimoErrorDetail(
+                        type=err.get("type", "UnknownError"),
+                        message=err.get("msg", str(err)),
+                        traceback=err.get("traceback", []),
+                    )
+                )
+            else:
+                # Fallback for rich error objects
+                err_type: str = getattr(err, "type", type(err).__name__)
+                describe_fn: Optional[Any] = getattr(err, "describe", None)
+                message_val = (
+                    describe_fn() if callable(describe_fn) else str(err)
+                )
+                message: str = str(message_val)
+                tb: list[str] = getattr(err, "traceback", []) or []
+                errors.append(
+                    MarimoErrorDetail(
+                        type=err_type,
+                        message=message,
+                        traceback=tb,
+                    )
+                )
+
+        return errors
+
+    def get_cell_console_outputs(
+        self, cell_notif: CellNotification
+    ) -> MarimoCellConsoleOutputs:
+        """
+        Get the console outputs for a given cell notification.
+        """
+        stdout_messages: list[str] = []
+        stderr_messages: list[str] = []
+
+        if cell_notif.console is None:
+            return MarimoCellConsoleOutputs(stdout=[], stderr=[])
+
+        console_outputs = (
+            cell_notif.console
+            if isinstance(cell_notif.console, list)
+            else [cell_notif.console]
+        )
+        for output in console_outputs:
+            if output is None:
+                continue
+            elif output.channel == CellChannel.STDOUT:
+                stdout_messages.append(str(output.data))
+            elif output.channel == CellChannel.STDERR:
+                stderr_messages.append(str(output.data))
+
+        cleaned_stdout_messages = clean_output(stdout_messages)
+        cleaned_stderr_messages = clean_output(stderr_messages)
+
+        return MarimoCellConsoleOutputs(
+            stdout=cleaned_stdout_messages, stderr=cleaned_stderr_messages
+        )
 
 
 class ToolBase(Generic[ArgsT, OutT], ABC):
@@ -96,6 +280,7 @@ class ToolBase(Generic[ArgsT, OutT], ABC):
     # Override in subclass, or rely on fallbacks below
     name: str = ""
     description: str = ""
+    guidelines: Optional[ToolGuidelines] = None
     Args: type[ArgsT]
     Output: type[OutT]
     context: ToolContext
@@ -124,11 +309,19 @@ class ToolBase(Generic[ArgsT, OutT], ABC):
 
         # get name from class name
         if self.name == "":
-            self.name = self._to_snake_case(self.__class__.__name__)
+            self.name = to_snake_case(self.__class__.__name__)
 
         # get description from class docstring
         if self.description == "":
-            self.description = (self.__class__.__doc__ or "").strip()
+            base_description = (self.__class__.__doc__ or "").strip()
+
+            # If guidelines exist, append them
+            if self.guidelines is not None:
+                self.description = self._format_with_guidelines(
+                    base_description, self.guidelines
+                )
+            else:
+                self.description = base_description
 
     async def __call__(self, args: ArgsT) -> OutT:
         """
@@ -237,21 +430,38 @@ class ToolBase(Generic[ArgsT, OutT], ABC):
     # helpers
     def _coerce_args(self, args: Any) -> ArgsT:  # type: ignore[override]
         """If Args is a dataclass and args is a dict, construct it; else pass through."""
-        if dataclasses.is_dataclass(args):
+        if is_dataclass(args):
             # Already parsed
             return args  # type: ignore[return-value]
         return parse_raw(args, self.Args)
 
-    def _to_snake_case(self, name: str) -> str:
-        """Convert a PascalCase/CamelCase class name to snake_case function name.
+    def _format_with_guidelines(
+        self, description: str, guidelines: ToolGuidelines
+    ) -> str:
+        """Combine description with structured guidelines."""
+        parts = [description] if description else []
 
-        Examples:
-            GetCellMap -> get_cell_map
-        """
-        # Handle acronyms and normal Camel/Pascal case transitions
-        s1 = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
-        s2 = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s1)
-        return s2.replace("-", "_").lower()
+        if guidelines.when_to_use:
+            parts.append("\n## When to use:")
+            parts.extend(f"- {item}" for item in guidelines.when_to_use)
+
+        if guidelines.avoid_if:
+            parts.append("\n## Avoid if:")
+            parts.extend(f"- {item}" for item in guidelines.avoid_if)
+
+        if guidelines.prerequisites:
+            parts.append("\n## Prerequisites:")
+            parts.extend(f"- {item}" for item in guidelines.prerequisites)
+
+        if guidelines.side_effects:
+            parts.append("\n## Side effects:")
+            parts.extend(f"- {item}" for item in guidelines.side_effects)
+
+        if guidelines.additional_info:
+            parts.append("\n## Additional info:")
+            parts.append(guidelines.additional_info)
+
+        return "\n".join(parts)
 
     # error defaults/hooks
     def _default_error_code(self) -> str:

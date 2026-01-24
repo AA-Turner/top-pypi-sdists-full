@@ -29,6 +29,7 @@ from collections import Counter
 import pandas as pd
 from pandas import DataFrame
 
+from pm4py.objects.ocel.obj import OCEL
 from pm4py.objects.bpmn.obj import BPMN
 from pm4py.objects.dfg.obj import DFG
 from pm4py.objects.powl.obj import POWL
@@ -43,9 +44,9 @@ from pm4py.util.pandas_utils import (
     check_is_pandas_dataframe,
     check_pandas_dataframe_columns,
 )
-from pm4py.utils import get_properties, __event_log_deprecation_warning
+from pm4py.utils import get_properties, __event_log_deprecation_warning, is_polars_lazyframe
 from pm4py.util import constants, pandas_utils
-import deprecation
+from pm4py.util import deprecation
 import importlib.util
 
 
@@ -98,21 +99,26 @@ def discover_dfg(
         )
         from pm4py.util import constants
 
-        from pm4py.algo.discovery.dfg.adapters.pandas.df_statistics import (
-            get_dfg_graph,
-        )
+        if is_polars_lazyframe(log):
+            from pm4py.algo.discovery.dfg.adapters.polars.df_statistics import get_dfg_graph
+            from pm4py.statistics.start_activities.polars import get as start_activities_module
+            from pm4py.statistics.end_activities.polars import get as end_activities_module
+        else:
+            from pm4py.algo.discovery.dfg.adapters.pandas.df_statistics import (
+                get_dfg_graph,
+            )
+            from pm4py.statistics.start_activities.pandas import (
+                get as start_activities_module,
+            )
+            from pm4py.statistics.end_activities.pandas import (
+                get as end_activities_module,
+            )
 
         dfg = get_dfg_graph(
             log,
             activity_key=activity_key,
             timestamp_key=timestamp_key,
             case_id_glue=case_id_key,
-        )
-        from pm4py.statistics.start_activities.pandas import (
-            get as start_activities_module,
-        )
-        from pm4py.statistics.end_activities.pandas import (
-            get as end_activities_module,
         )
 
         start_activities = start_activities_module.get_start_activities(
@@ -190,29 +196,10 @@ def discover_dfg_typed(
             timestamp_key='time:timestamp'
         )
     """
-    from pm4py.algo.discovery.dfg.variants import clean
+    from pm4py.objects.dfg.obj import DFG
 
-    parameters = get_properties(
-        log,
-        activity_key=activity_key,
-        timestamp_key=timestamp_key,
-        case_id_key=case_id_key,
-    )
-
-    if importlib.util.find_spec("polars"):
-        import polars as pl
-
-        if isinstance(log, pl.DataFrame):
-            from pm4py.algo.discovery.dfg.variants import clean_polars
-
-            return clean_polars.apply(log, parameters)
-
-    if pandas_utils.check_is_pandas_dataframe(log):
-        return clean.apply(log, parameters)
-    else:
-        raise TypeError(
-            "pm4py.discover_dfg_typed is only defined for DataFrames"
-        )
+    dfg, sa, ea = discover_dfg(log, activity_key=activity_key, case_id_key=case_id_key, timestamp_key=timestamp_key)
+    return DFG(dfg, sa, ea)
 
 
 def discover_performance_dfg(
@@ -279,9 +266,20 @@ def discover_performance_dfg(
         )
         from pm4py.util import constants
 
-        from pm4py.algo.discovery.dfg.adapters.pandas.df_statistics import (
-            get_dfg_graph,
-        )
+        if is_polars_lazyframe(log):
+            from pm4py.algo.discovery.dfg.adapters.polars.df_statistics import get_dfg_graph
+            from pm4py.statistics.start_activities.polars import get as start_activities_module
+            from pm4py.statistics.end_activities.polars import get as end_activities_module
+        else:
+            from pm4py.algo.discovery.dfg.adapters.pandas.df_statistics import (
+                get_dfg_graph,
+            )
+            from pm4py.statistics.start_activities.pandas import (
+                get as start_activities_module,
+            )
+            from pm4py.statistics.end_activities.pandas import (
+                get as end_activities_module,
+            )
 
         dfg = get_dfg_graph(
             log,
@@ -293,12 +291,6 @@ def discover_performance_dfg(
             business_hours=business_hours,
             business_hours_slot=business_hour_slots,
             workcalendar=workcalendar,
-        )
-        from pm4py.statistics.start_activities.pandas import (
-            get as start_activities_module,
-        )
-        from pm4py.statistics.end_activities.pandas import (
-            get as end_activities_module,
         )
 
         start_activities = start_activities_module.get_start_activities(
@@ -897,9 +889,13 @@ def discover_eventually_follows_graph(
             timestamp_key=timestamp_key,
             case_id_key=case_id_key,
         )
-        from pm4py.statistics.eventually_follows.pandas import get
 
-        return get.apply(log, parameters=properties)
+        if is_polars_lazyframe(log):
+            from pm4py.statistics.eventually_follows.polars import get
+            return get.apply(log, parameters=properties)
+        else:
+            from pm4py.statistics.eventually_follows.pandas import get
+            return get.apply(log, parameters=properties)
     else:
         from pm4py.statistics.eventually_follows.log import get
 
@@ -1466,8 +1462,38 @@ def correlation_miner(
         df, activity_key=activity_key, timestamp_key=timestamp_key
     )
 
-    first_activity = df[activity_key].iloc[0]
-    last_activity = df[activity_key].iloc[-1]
+    if is_polars_lazyframe(df):
+        if importlib.util.find_spec("polars") is None:
+            raise RuntimeError(
+                "Polars LazyFrame provided but 'polars' package is not installed."
+            )
+
+        import polars as pl  # type: ignore[import-untyped]
+
+        if activity_key not in df.columns:
+            raise Exception(
+                f"Column '{activity_key}' is not present in the provided Polars LazyFrame."
+            )
+
+        first_row = (
+            df.select(pl.col(activity_key))
+            .head(1)
+            .collect()
+        )
+        if first_row.height == 0:
+            raise ValueError("The provided Polars LazyFrame must contain at least one event.")
+        first_activity = first_row[activity_key].to_list()[0]
+
+        last_row = (
+            df.select(pl.col(activity_key))
+            .tail(1)
+            .collect()
+        )
+        last_activity = last_row[activity_key].to_list()[0]
+    else:
+        # code for Pandas dataframes
+        first_activity = df[activity_key].iloc[0]
+        last_activity = df[activity_key].iloc[-1]
 
     from pm4py.algo.discovery.correlation_mining import (
         algorithm as correlation_miner,
@@ -1490,3 +1516,87 @@ def correlation_miner(
         return dfg, start_activities, end_activities
     else:
         return perf_dfg, start_activities, end_activities
+
+
+def discover_otg(
+    ocel: OCEL,
+    variant=None,
+    parameters: Optional[Dict[Any, Any]] = None,
+) -> Tuple[Set[str], Dict[Tuple[str, str, str], int]]:
+    """
+    Discovers an Object-Type Graph (OTG) from an object-centric event log.
+
+    Published in: https://publications.rwth-aachen.de/record/1014107
+
+    An OTG summarizes how object types are related across different interaction graphs extracted from the OCEL.
+    Specifically, an OTG is a tuple containing:
+    - The set of object types
+    - The edges along with the frequency, where each edge is (object_type1, relationship, object_type2).
+
+    Relationship can be:
+    * object_interaction (objects related in some event)
+    * object_descendants (lifecycle of the first event starts before the other object)
+    * object_inheritance (lifecycle of the first object ends exactly when the second one starts)
+    * object_cobirth (objects start their lifecycle in the same event)
+    * object_codeath (objects end their lifecycle in the sae event)
+
+    :param ocel: Object-centric event log.
+    :param variant: Variant of the OTG discovery algorithm to use (default: classic variant).
+    :param parameters: Optional variant-specific parameters.
+    :return: Tuple containing the set of object types and the OTG edges with their frequencies.
+    :rtype: ``Tuple[Set[str], Dict[Tuple[str, str, str], int]]``
+
+    .. code-block:: python3
+
+        import pm4py
+
+        otg = pm4py.discover_otg(ocel)
+    """
+    from pm4py.algo.discovery.ocel.otg import algorithm as otg_discovery
+
+    if variant is None:
+        variant = otg_discovery.Variants.CLASSIC
+
+    return otg_discovery.apply(ocel, variant=variant, parameters=parameters)
+
+
+def discover_etot(
+    ocel: OCEL,
+    variant=None,
+    parameters: Optional[Dict[Any, Any]] = None,
+) -> Tuple[
+    Set[str],
+    Set[str],
+    Set[Tuple[str, str]],
+    Dict[Tuple[str, str], int],
+]:
+    """
+    Discovers the ET-OT (Event Type - Object Type) graph from an object-centric event log.
+
+    Published in: https://publications.rwth-aachen.de/record/1014107
+
+    The ET-OT graph captures the relationships between event types and object types along with their frequencies.
+    Specifically, an ET-OT graph is a tuple consisting of:
+    - Set of activities
+    - Set of object types
+    - Set of relationships, where an edge (a, ot) indicates that events of type a are associated with objects of type ot
+    - A dictionary associating each relationship to a weight (frequency)
+
+    :param ocel: Object-centric event log.
+    :param variant: Variant of the ET-OT discovery algorithm to use (default: classic variant).
+    :param parameters: Optional variant-specific parameters.
+    :return: Tuple containing the set of activities, the set of object types, the ET-OT edges, and their frequencies.
+    :rtype: ``Tuple[Set[str], Set[str], Set[Tuple[str, str]], Dict[Tuple[str, str], int]]``
+
+    .. code-block:: python3
+
+        import pm4py
+
+        etot = pm4py.discover_etot(ocel)
+    """
+    from pm4py.algo.discovery.ocel.etot import algorithm as etot_discovery
+
+    if variant is None:
+        variant = etot_discovery.Variants.CLASSIC
+
+    return etot_discovery.apply(ocel, variant=variant, parameters=parameters)

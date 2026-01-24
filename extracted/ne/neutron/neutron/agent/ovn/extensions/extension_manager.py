@@ -19,6 +19,7 @@ import threading
 from neutron_lib.agent import extension
 from neutron_lib import exceptions
 from oslo_log import log as logging
+from oslo_service import service
 
 from neutron._i18n import _
 from neutron.agent import agent_extensions_manager as agent_ext_mgr
@@ -31,6 +32,44 @@ OVN_AGENT_EXT_MANAGER_NAMESPACE = 'neutron.agent.ovn.extensions'
 class ConfigException(exceptions.NeutronException):
     """Misconfiguration of the OVN Neutron Agent"""
     message = _('Error configuring the OVN Neutron Agent: %(description)s.')
+
+
+class OVNExtensionEventEmptyExtensionName(exceptions.NeutronException):
+    """OVNExtensionEvent class without a mandatory extension name defined"""
+    message = _('The class %(class_name)s has no extension name defined.')
+
+
+class OVNExtensionEvent(metaclass=abc.ABCMeta):
+    """Implements a method to retrieve the correct caller agent
+
+    The events inheriting from this class could be called from the OVN metadata
+    agent or as part of an extension of the OVN agent ("metadata" extension,
+    for example). In future releases, the OVN metadata agent will be superseded
+    by the OVN agent (with the "metadata" extension) and this class removed,
+    keeping only the compatibility with the OVN agent (to be removed in C+2).
+    """
+    def __init__(self, *args, extension_name=None, **kwargs):
+        if extension_name is None:
+            raise OVNExtensionEventEmptyExtensionName(
+                class_name=self.__class__.__name__)
+        super().__init__(*args, **kwargs)
+        self._agent_or_extension = None
+        self._agent = None
+        self._extension_name = extension_name
+
+    @property
+    def agent(self):
+        """This method provide support for the OVN agent
+
+        This event can be used in the OVN metadata agent and in the OVN
+        agent metadata extension.
+        """
+        if not self._agent_or_extension:
+            if isinstance(self._agent, service.Service):
+                self._agent_or_extension = self._agent[self._extension_name]
+            else:
+                self._agent_or_extension = self._agent
+        return self._agent_or_extension
 
 
 class OVNAgentExtensionManager(agent_ext_mgr.AgentExtensionsManager):

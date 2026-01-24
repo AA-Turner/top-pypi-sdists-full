@@ -9,6 +9,9 @@ from typing import Any, Dict
 
 from . import context
 
+search_direction_values = ["forwards", "backwards"]
+page_sort_order_values = ["asc", "desc"]
+
 
 def update_if_not_none(obj: dict, new_values: dict):
     for k, v in new_values.items():

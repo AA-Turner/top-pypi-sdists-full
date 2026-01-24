@@ -44,10 +44,15 @@ class V1ModelVersionArchive(object):
         'cluster_id': 'str',
         'created_at': 'datetime',
         'downloads': 'str',
+        'index': 'int',
         'metadata': 'dict(str, str)',
         'model_id': 'str',
+        'number_of_files': 'str',
         'project_id': 'str',
+        'size_bytes': 'str',
         'updated_at': 'datetime',
+        'upload_complete': 'bool',
+        'user_id': 'str',
         'version': 'str'
     }
 
@@ -55,22 +60,32 @@ class V1ModelVersionArchive(object):
         'cluster_id': 'clusterId',
         'created_at': 'createdAt',
         'downloads': 'downloads',
+        'index': 'index',
         'metadata': 'metadata',
         'model_id': 'modelId',
+        'number_of_files': 'numberOfFiles',
         'project_id': 'projectId',
+        'size_bytes': 'sizeBytes',
         'updated_at': 'updatedAt',
+        'upload_complete': 'uploadComplete',
+        'user_id': 'userId',
         'version': 'version'
     }
 
-    def __init__(self, cluster_id: 'str' =None, created_at: 'datetime' =None, downloads: 'str' =None, metadata: 'dict(str, str)' =None, model_id: 'str' =None, project_id: 'str' =None, updated_at: 'datetime' =None, version: 'str' =None):  # noqa: E501
+    def __init__(self, cluster_id: 'str' =None, created_at: 'datetime' =None, downloads: 'str' =None, index: 'int' =None, metadata: 'dict(str, str)' =None, model_id: 'str' =None, number_of_files: 'str' =None, project_id: 'str' =None, size_bytes: 'str' =None, updated_at: 'datetime' =None, upload_complete: 'bool' =None, user_id: 'str' =None, version: 'str' =None):  # noqa: E501
         """V1ModelVersionArchive - a model defined in Swagger"""  # noqa: E501
         self._cluster_id = None
         self._created_at = None
         self._downloads = None
+        self._index = None
         self._metadata = None
         self._model_id = None
+        self._number_of_files = None
         self._project_id = None
+        self._size_bytes = None
         self._updated_at = None
+        self._upload_complete = None
+        self._user_id = None
         self._version = None
         self.discriminator = None
         if cluster_id is not None:
@@ -79,14 +94,24 @@ class V1ModelVersionArchive(object):
             self.created_at = created_at
         if downloads is not None:
             self.downloads = downloads
+        if index is not None:
+            self.index = index
         if metadata is not None:
             self.metadata = metadata
         if model_id is not None:
             self.model_id = model_id
+        if number_of_files is not None:
+            self.number_of_files = number_of_files
         if project_id is not None:
             self.project_id = project_id
+        if size_bytes is not None:
+            self.size_bytes = size_bytes
         if updated_at is not None:
             self.updated_at = updated_at
+        if upload_complete is not None:
+            self.upload_complete = upload_complete
+        if user_id is not None:
+            self.user_id = user_id
         if version is not None:
             self.version = version
 
@@ -154,6 +179,27 @@ class V1ModelVersionArchive(object):
         self._downloads = downloads
 
     @property
+    def index(self) -> 'int':
+        """Gets the index of this V1ModelVersionArchive.  # noqa: E501
+
+
+        :return: The index of this V1ModelVersionArchive.  # noqa: E501
+        :rtype: int
+        """
+        return self._index
+
+    @index.setter
+    def index(self, index: 'int'):
+        """Sets the index of this V1ModelVersionArchive.
+
+
+        :param index: The index of this V1ModelVersionArchive.  # noqa: E501
+        :type: int
+        """
+
+        self._index = index
+
+    @property
     def metadata(self) -> 'dict(str, str)':
         """Gets the metadata of this V1ModelVersionArchive.  # noqa: E501
 
@@ -196,6 +242,27 @@ class V1ModelVersionArchive(object):
         self._model_id = model_id
 
     @property
+    def number_of_files(self) -> 'str':
+        """Gets the number_of_files of this V1ModelVersionArchive.  # noqa: E501
+
+
+        :return: The number_of_files of this V1ModelVersionArchive.  # noqa: E501
+        :rtype: str
+        """
+        return self._number_of_files
+
+    @number_of_files.setter
+    def number_of_files(self, number_of_files: 'str'):
+        """Sets the number_of_files of this V1ModelVersionArchive.
+
+
+        :param number_of_files: The number_of_files of this V1ModelVersionArchive.  # noqa: E501
+        :type: str
+        """
+
+        self._number_of_files = number_of_files
+
+    @property
     def project_id(self) -> 'str':
         """Gets the project_id of this V1ModelVersionArchive.  # noqa: E501
 
@@ -215,6 +282,27 @@ class V1ModelVersionArchive(object):
         """
 
         self._project_id = project_id
+
+    @property
+    def size_bytes(self) -> 'str':
+        """Gets the size_bytes of this V1ModelVersionArchive.  # noqa: E501
+
+
+        :return: The size_bytes of this V1ModelVersionArchive.  # noqa: E501
+        :rtype: str
+        """
+        return self._size_bytes
+
+    @size_bytes.setter
+    def size_bytes(self, size_bytes: 'str'):
+        """Sets the size_bytes of this V1ModelVersionArchive.
+
+
+        :param size_bytes: The size_bytes of this V1ModelVersionArchive.  # noqa: E501
+        :type: str
+        """
+
+        self._size_bytes = size_bytes
 
     @property
     def updated_at(self) -> 'datetime':
@@ -238,9 +326,52 @@ class V1ModelVersionArchive(object):
         self._updated_at = updated_at
 
     @property
+    def upload_complete(self) -> 'bool':
+        """Gets the upload_complete of this V1ModelVersionArchive.  # noqa: E501
+
+
+        :return: The upload_complete of this V1ModelVersionArchive.  # noqa: E501
+        :rtype: bool
+        """
+        return self._upload_complete
+
+    @upload_complete.setter
+    def upload_complete(self, upload_complete: 'bool'):
+        """Sets the upload_complete of this V1ModelVersionArchive.
+
+
+        :param upload_complete: The upload_complete of this V1ModelVersionArchive.  # noqa: E501
+        :type: bool
+        """
+
+        self._upload_complete = upload_complete
+
+    @property
+    def user_id(self) -> 'str':
+        """Gets the user_id of this V1ModelVersionArchive.  # noqa: E501
+
+
+        :return: The user_id of this V1ModelVersionArchive.  # noqa: E501
+        :rtype: str
+        """
+        return self._user_id
+
+    @user_id.setter
+    def user_id(self, user_id: 'str'):
+        """Sets the user_id of this V1ModelVersionArchive.
+
+
+        :param user_id: The user_id of this V1ModelVersionArchive.  # noqa: E501
+        :type: str
+        """
+
+        self._user_id = user_id
+
+    @property
     def version(self) -> 'str':
         """Gets the version of this V1ModelVersionArchive.  # noqa: E501
 
+        v1, v2, v3, etc.  # noqa: E501
 
         :return: The version of this V1ModelVersionArchive.  # noqa: E501
         :rtype: str
@@ -251,6 +382,7 @@ class V1ModelVersionArchive(object):
     def version(self, version: 'str'):
         """Sets the version of this V1ModelVersionArchive.
 
+        v1, v2, v3, etc.  # noqa: E501
 
         :param version: The version of this V1ModelVersionArchive.  # noqa: E501
         :type: str

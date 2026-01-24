@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: async-substrate-interface
-Version: 1.5.4
+Version: 1.5.15
 Summary: Asyncio library for interacting with substrate. Mostly API-compatible with py-substrate-interface
 Author: Opentensor Foundation
 Author-email: BD Himes <b@latent.to>
@@ -40,11 +40,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: wheel
-Requires-Dist: bt-decode==v0.6.0
+Requires-Dist: bt-decode==v0.8.0
 Requires-Dist: scalecodec~=1.2.11
 Requires-Dist: websockets>=14.1
 Requires-Dist: xxhash
@@ -57,7 +57,8 @@ Requires-Dist: pytest-mock==3.14.0; extra == "dev"
 Requires-Dist: pytest-split==0.10.0; extra == "dev"
 Requires-Dist: pytest-xdist==3.6.1; extra == "dev"
 Requires-Dist: pytest-rerunfailures==10.2; extra == "dev"
-Requires-Dist: substrate-interface; extra == "dev"
+Requires-Dist: bittensor-wallet>=4.0.0; extra == "dev"
+Requires-Dist: pytest-forked; extra == "dev"
 
 # Async Substrate Interface
 This project provides an asynchronous interface for interacting with [Substrate](https://substrate.io/)-based blockchains. It is based on the [py-substrate-interface](https://github.com/polkascan/py-substrate-interface) project.

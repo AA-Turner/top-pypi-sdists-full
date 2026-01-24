@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 from importlib import import_module
 
 import django
@@ -22,6 +23,7 @@ def pytest_configure(config):
         'dj_rest_auth.registration',
         'allauth',
         'allauth.account',
+        'allauth.socialaccount',
         'oauth2_provider',
         'django_filters',
         'knox',
@@ -30,7 +32,18 @@ def pytest_configure(config):
         # 'polymorphic',
         # 'rest_framework_jwt',
     ]
+    try:
+        from allauth import __version__ as allauth_version
+    except ImportError:
+        allauth_version = ""
 
+    # GIS lib hack for Mac OSX
+    if sys.platform == 'darwin':
+        os.environ['DYLD_LIBRARY_PATH'] = ':'.join([
+            os.environ.get('DYLD_LIBRARY_PATH', ''),
+            '/opt/homebrew/opt/gdal/lib',
+            '/opt/homebrew/opt/geos/lib'
+        ])
     # only load GIS if library is installed. This is required for the GIS test to work
     if is_gis_installed():
         contrib_apps.append('rest_framework_gis')
@@ -71,6 +84,7 @@ def pytest_configure(config):
         MIDDLEWARE=(
             'django.contrib.sessions.middleware.SessionMiddleware',
             'django.middleware.common.CommonMiddleware',
+            *(['allauth.account.middleware.AccountMiddleware'] if allauth_version > "0.60.0" else []),
             'django.contrib.auth.middleware.AuthenticationMiddleware',
             'django.middleware.locale.LocaleMiddleware',
         ),

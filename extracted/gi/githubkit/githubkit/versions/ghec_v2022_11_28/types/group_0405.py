@@ -12,16 +12,30 @@ from __future__ import annotations
 from typing import Literal
 from typing_extensions import NotRequired, TypedDict
 
-
-class MergedUpstreamType(TypedDict):
-    """Merged upstream
-
-    Results of a successful merge upstream request
-    """
-
-    message: NotRequired[str]
-    merge_type: NotRequired[Literal["merge", "fast-forward", "none"]]
-    base_branch: NotRequired[str]
+from .group_0404 import MetadataType, MetadataTypeForResponse
 
 
-__all__ = ("MergedUpstreamType",)
+class DependencyType(TypedDict):
+    """Dependency"""
+
+    package_url: NotRequired[str]
+    metadata: NotRequired[MetadataType]
+    relationship: NotRequired[Literal["direct", "indirect"]]
+    scope: NotRequired[Literal["runtime", "development"]]
+    dependencies: NotRequired[list[str]]
+
+
+class DependencyTypeForResponse(TypedDict):
+    """Dependency"""
+
+    package_url: NotRequired[str]
+    metadata: NotRequired[MetadataTypeForResponse]
+    relationship: NotRequired[Literal["direct", "indirect"]]
+    scope: NotRequired[Literal["runtime", "development"]]
+    dependencies: NotRequired[list[str]]
+
+
+__all__ = (
+    "DependencyType",
+    "DependencyTypeForResponse",
+)

@@ -1,7 +1,6 @@
 # imagecodecs/libtiff.pxd
-# cython: language_level = 3
 
-# Cython declarations for the `libtiff 4.7.0` library.
+# Cython declarations for the `libtiff 4.7.1` library.
 # https://gitlab.com/libtiff/libtiff
 
 from libc.stddef cimport wchar_t
@@ -21,7 +20,6 @@ from libc.stdio cimport FILE
 cdef extern from '<stdarg.h>' nogil:
     ctypedef struct va_list:
         pass
-
 
 cdef extern from 'tiffio.h' nogil:
 
@@ -443,7 +441,7 @@ cdef extern from 'tiffio.h' nogil:
     )
 
     int TIFFFieldIsAnonymous(
-        const TIFFField *
+        const TIFFField*
     )
 
     ctypedef int (*TIFFVSetMethod)(
@@ -975,7 +973,7 @@ cdef extern from 'tiffio.h' nogil:
     ctypedef struct TIFFOpenOptions:
         pass
 
-    TIFFOpenOptions *TIFFOpenOptionsAlloc()
+    TIFFOpenOptions* TIFFOpenOptionsAlloc()
 
     void TIFFOpenOptionsFree(
         TIFFOpenOptions*
@@ -987,8 +985,13 @@ cdef extern from 'tiffio.h' nogil:
     )
 
     void TIFFOpenOptionsSetMaxCumulatedMemAlloc(
-        TIFFOpenOptions *opts,
+        TIFFOpenOptions* opts,
         tmsize_t max_cumulated_mem_alloc
+    )
+
+    void TIFFOpenOptionsSetWarnAboutUnknownTags(
+        TIFFOpenOptions* opts,
+        int warn_about_unknown_tags
     )
 
     void TIFFOpenOptionsSetErrorHandlerExtR(
@@ -1062,7 +1065,7 @@ cdef extern from 'tiffio.h' nogil:
         TIFFSizeProc,
         TIFFMapFileProc,
         TIFFUnmapFileProc,
-        TIFFOpenOptions *opts
+        TIFFOpenOptions* opts
     )
 
     TIFFExtendProc TIFFSetTagExtender(
@@ -1370,7 +1373,7 @@ cdef extern from 'tiffio.h' nogil:
     )
 
     # ctypedef struct TIFFFieldInfo:
-    #     ttag_t field_tag
+    #     uint32_t field_tag
     #     short field_readcount
     #     short field_writecount
     #     TIFFDataType field_type
@@ -1430,6 +1433,7 @@ cdef extern from 'tiffio.h' nogil:
     int     COMPRESSION_ZSTD
     int     COMPRESSION_WEBP
     int     COMPRESSION_JXL
+    int     COMPRESSION_JXL_DNG_1_7
     int TIFFTAG_PHOTOMETRIC
     int     PHOTOMETRIC_MINISWHITE
     int     PHOTOMETRIC_MINISBLACK

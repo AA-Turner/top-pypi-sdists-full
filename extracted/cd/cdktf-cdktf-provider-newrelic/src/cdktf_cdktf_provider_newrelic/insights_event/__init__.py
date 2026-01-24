@@ -1,7 +1,7 @@
 r'''
 # `newrelic_insights_event`
 
-Refer to the Terraform Registry for docs: [`newrelic_insights_event`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event).
+Refer to the Terraform Registry for docs: [`newrelic_insights_event`](https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class InsightsEvent(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.insightsEvent.InsightsEvent",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event newrelic_insights_event}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event newrelic_insights_event}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class InsightsEvent(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event newrelic_insights_event} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event newrelic_insights_event} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param event: event block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#event InsightsEvent#event}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#id InsightsEvent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param event: event block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#event InsightsEvent#event}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#id InsightsEvent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class InsightsEvent(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the InsightsEvent to import.
-        :param import_from_id: The id of the existing InsightsEvent that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing InsightsEvent that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the InsightsEvent to import is found.
         '''
         if __debug__:
@@ -214,8 +214,8 @@ class InsightsEventConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param event: event block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#event InsightsEvent#event}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#id InsightsEvent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param event: event block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#event InsightsEvent#event}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#id InsightsEvent#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -320,7 +320,7 @@ class InsightsEventConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["InsightsEventEvent"]]:
         '''event block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#event InsightsEvent#event}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#event InsightsEvent#event}
         '''
         result = self._values.get("event")
         assert result is not None, "Required property 'event' is missing"
@@ -328,7 +328,7 @@ class InsightsEventConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#id InsightsEvent#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#id InsightsEvent#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -362,9 +362,9 @@ class InsightsEventEvent:
         timestamp: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param attribute: attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#attribute InsightsEvent#attribute}
-        :param type: The event's name. Can be a combination of alphanumeric characters, underscores, and colons. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#type InsightsEvent#type}
-        :param timestamp: Must be a Unix epoch timestamp. You can define timestamps either in seconds or in milliseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#timestamp InsightsEvent#timestamp}
+        :param attribute: attribute block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#attribute InsightsEvent#attribute}
+        :param type: The event's name. Can be a combination of alphanumeric characters, underscores, and colons. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#type InsightsEvent#type}
+        :param timestamp: Must be a Unix epoch timestamp. You can define timestamps either in seconds or in milliseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#timestamp InsightsEvent#timestamp}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00bcc97ae199cb7b71ab4d8127a1e295c30ab5379ae18fe08091a3c4c938aea3)
@@ -384,7 +384,7 @@ class InsightsEventEvent:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["InsightsEventEventAttribute"]]:
         '''attribute block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#attribute InsightsEvent#attribute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#attribute InsightsEvent#attribute}
         '''
         result = self._values.get("attribute")
         assert result is not None, "Required property 'attribute' is missing"
@@ -394,7 +394,7 @@ class InsightsEventEvent:
     def type(self) -> builtins.str:
         '''The event's name. Can be a combination of alphanumeric characters, underscores, and colons.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#type InsightsEvent#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#type InsightsEvent#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -404,7 +404,7 @@ class InsightsEventEvent:
     def timestamp(self) -> typing.Optional[jsii.Number]:
         '''Must be a Unix epoch timestamp. You can define timestamps either in seconds or in milliseconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#timestamp InsightsEvent#timestamp}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#timestamp InsightsEvent#timestamp}
         '''
         result = self._values.get("timestamp")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -435,9 +435,9 @@ class InsightsEventEventAttribute:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key: The name of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#key InsightsEvent#key}
-        :param value: The value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#value InsightsEvent#value}
-        :param type: Specify the type for the attribute value. This is useful when passing integer or float values to Insights. Allowed values are string, int, or float. Defaults to string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#type InsightsEvent#type}
+        :param key: The name of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#key InsightsEvent#key}
+        :param value: The value of the attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#value InsightsEvent#value}
+        :param type: Specify the type for the attribute value. This is useful when passing integer or float values to Insights. Allowed values are string, int, or float. Defaults to string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#type InsightsEvent#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18d1d08e1e67d71273644f36398cd0dd9072920ac4416f29110daa203f572e92)
@@ -455,7 +455,7 @@ class InsightsEventEventAttribute:
     def key(self) -> builtins.str:
         '''The name of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#key InsightsEvent#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#key InsightsEvent#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -465,7 +465,7 @@ class InsightsEventEventAttribute:
     def value(self) -> builtins.str:
         '''The value of the attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#value InsightsEvent#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#value InsightsEvent#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -477,7 +477,7 @@ class InsightsEventEventAttribute:
 
         This is useful when passing integer or float values to Insights. Allowed values are string, int, or float. Defaults to string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/insights_event#type InsightsEvent#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.76.3/docs/resources/insights_event#type InsightsEvent#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)

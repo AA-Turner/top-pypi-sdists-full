@@ -21,7 +21,7 @@ class ReceiptItem(BaseObject):
     """Суммарная стоимость покупаемого товара в копейках/центах."""  # noqa: E501
 
     __vat_code = None
-    """Ставка НДС, число 1-10 (тег в 54 ФЗ — 1199). Перечень возможных значений:  * %[для Чеков от ЮKassa](/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#vat-codes) * %[для сторонних онлайн-касс](/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#vat-codes) """  # noqa: E501
+    """Ставка НДС, число 1-12 (тег в 54 ФЗ — 1199). Перечень возможных значений:  * %[для Чеков от ЮKassa](/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#vat-codes) * %[для сторонних онлайн-касс](/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#vat-codes) """  # noqa: E501
 
     __quantity = None
     """Количество товара (тег в 54 ФЗ — 1023). Формат: десятичное число, дробная часть — три знака или больше (количество знаков зависит от `quantity` в запросе). Разделитель дробной части — точка, разделитель тысяч отсутствует. Пример: ~`5.000` """  # noqa: E501
@@ -49,6 +49,9 @@ class ReceiptItem(BaseObject):
 
     __product_code = None
     """Код товара — уникальный номер, который присваивается экземпляру товара при [маркировке](http://docs.cntd.ru/document/902192509) (тег в 54 ФЗ — 1162). <br/>Формат: число в шестнадцатеричном представлении с пробелами. Максимальная длина — 32 байта. Пример: ~`00 00 00 01 00 21 FA 41 00 23 05 41 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 12 00 AB 00`. <br/>Обязательный параметр, если товар нужно [маркировать](http://docs.cntd.ru/document/557297080). """  # noqa: E501
+
+    __planned_status = None
+    """Планируемый статус товара. Тег в 54 ФЗ — 2003. Указывается только для товаров, которые подлежат обязательной маркировке (в `items.mark_code_info` передается параметр `gs_1m`, `short` или `fur`).  Перечень возможных значений:  * [для Чеков от ЮKassa](/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#planned-status) * [для сторонних онлайн-касс](/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#planned-status) """  # noqa: E501
 
     __mark_code_info = None
     """Код товара (тег в 54 ФЗ — 1163)."""  # noqa: E501
@@ -308,6 +311,24 @@ class ReceiptItem(BaseObject):
         :type value: str
         """
         self.__product_code = str(value)
+
+    @property
+    def planned_status(self):
+        """Возвращает planned_status модели ReceiptItem.
+
+        :return: planned_status модели ReceiptItem.
+        :rtype: int
+        """
+        return self.__planned_status
+
+    @planned_status.setter
+    def planned_status(self, value):
+        """Устанавливает planned_status модели ReceiptItem.
+
+        :param value: planned_status модели ReceiptItem.
+        :type value: int
+        """
+        self.__planned_status = int(value)
 
     @property
     def mark_code_info(self):

@@ -7,7 +7,7 @@ __all__ = ["ComparableRecord", "MaxScalarRecord", "MinScalarRecord"]
 from numbers import Number
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coola.utils import str_indent, str_mapping
+from coola.utils.format import str_indent, str_mapping
 
 from minrecord.base import EmptyRecordError
 from minrecord.comparator import (
@@ -37,28 +37,26 @@ class ComparableRecord(Record[T]):
         comparator: The comparator to use to find the best value.
         elements: The initial elements. Each element is a tuple with
             the step and its associated value.
-        max_size: The maximum number of elements to store inthe record.
+        max_size: The maximum number of elements to store in the record.
         best_value: The initial best value. If ``None``, the initial
             best value of the ``comparator`` is used.
         improved: Indicate if the last value is the best value or not.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from minrecord import ComparableRecord
+        >>> from minrecord.comparator import MaxScalarComparator
+        >>> record = ComparableRecord("value", MaxScalarComparator())
+        >>> record.add_value(64.0)
+        >>> record.add_value(42.0)
+        >>> record.get_last_value()
+        42.0
+        >>> record.get_most_recent()
+        ((None, 64.0), (None, 42.0))
+        >>> record.get_best_value()
+        64.0
 
-    ```pycon
-
-    >>> from minrecord import ComparableRecord
-    >>> from minrecord.comparator import MaxScalarComparator
-    >>> record = ComparableRecord("value", MaxScalarComparator())
-    >>> record.add_value(64.0)
-    >>> record.add_value(42.0)
-    >>> record.get_last_value()
-    42.0
-    >>> record.get_most_recent()
-    ((None, 64.0), (None, 42.0))
-    >>> record.get_best_value()
-    64.0
-
-    ```
+        ```
     """
 
     def __init__(
@@ -96,7 +94,7 @@ class ComparableRecord(Record[T]):
             self._best_value = value
         super().add_value(value, step)
 
-    def clone(self) -> ComparableRecord:
+    def clone(self) -> ComparableRecord[T]:
         return self.__class__(
             name=self.name,
             elements=self._record,
@@ -117,19 +115,17 @@ class ComparableRecord(Record[T]):
             ``True`` if the new value is better than the old value,
                 otherwise ``False``.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> from minrecord import ComparableRecord
+            >>> from minrecord.comparator import MaxScalarComparator
+            >>> record = ComparableRecord("accuracy", MaxScalarComparator())
+            >>> record.is_better(new_value=1, old_value=0)
+            True
+            >>> record.is_better(new_value=0, old_value=1)
+            False
 
-        ```pycon
-
-        >>> from minrecord import ComparableRecord
-        >>> from minrecord.comparator import MaxScalarComparator
-        >>> record = ComparableRecord("accuracy", MaxScalarComparator())
-        >>> record.is_better(new_value=1, old_value=0)
-        True
-        >>> record.is_better(new_value=0, old_value=1)
-        False
-
-        ```
+            ```
         """
         return self._comparator.is_better(new_value=new_value, old_value=old_value)
 
@@ -189,22 +185,20 @@ class MaxScalarRecord(ComparableRecord[Number]):
             best value of the ``comparator`` is used.
         improved: Indicate if the last value is the best value or not.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from minrecord import MaxScalarRecord
+        >>> record = MaxScalarRecord("value")
+        >>> record.add_value(64.0)
+        >>> record.add_value(42.0)
+        >>> record.get_most_recent()
+        ((None, 64.0), (None, 42.0))
+        >>> record.get_last_value()
+        42.0
+        >>> record.get_best_value()
+        64.0
 
-    ```pycon
-
-    >>> from minrecord import MaxScalarRecord
-    >>> record = MaxScalarRecord("value")
-    >>> record.add_value(64.0)
-    >>> record.add_value(42.0)
-    >>> record.get_most_recent()
-    ((None, 64.0), (None, 42.0))
-    >>> record.get_last_value()
-    42.0
-    >>> record.get_best_value()
-    64.0
-
-    ```
+        ```
     """
 
     def __init__(
@@ -241,20 +235,18 @@ class MaxScalarRecord(ComparableRecord[Number]):
         Returns:
             The instantiated record.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> from minrecord import MaxScalarRecord
+            >>> record = MaxScalarRecord.from_elements("value", ((None, 64.0), (None, 42.0)))
+            >>> record.get_most_recent()
+            ((None, 64.0), (None, 42.0))
+            >>> record.get_last_value()
+            42.0
+            >>> record.get_best_value()
+            64.0
 
-        ```pycon
-
-        >>> from minrecord import MaxScalarRecord
-        >>> record = MaxScalarRecord.from_elements("value", ((None, 64.0), (None, 42.0)))
-        >>> record.get_most_recent()
-        ((None, 64.0), (None, 42.0))
-        >>> record.get_last_value()
-        42.0
-        >>> record.get_best_value()
-        64.0
-
-        ```
+            ```
         """
         record = cls(name)
         record.update(elements)
@@ -277,22 +269,20 @@ class MinScalarRecord(ComparableRecord[Number]):
             best  value of the ``comparator`` is used.
         improved: Indicate if the last value is the best value or not.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from minrecord import MinScalarRecord
+        >>> record = MinScalarRecord("value")
+        >>> record.add_value(64.0)
+        >>> record.add_value(42.0)
+        >>> record.get_most_recent()
+        ((None, 64.0), (None, 42.0))
+        >>> record.get_last_value()
+        42.0
+        >>> record.get_best_value()
+        42.0
 
-    ```pycon
-
-    >>> from minrecord import MinScalarRecord
-    >>> record = MinScalarRecord("value")
-    >>> record.add_value(64.0)
-    >>> record.add_value(42.0)
-    >>> record.get_most_recent()
-    ((None, 64.0), (None, 42.0))
-    >>> record.get_last_value()
-    42.0
-    >>> record.get_best_value()
-    42.0
-
-    ```
+        ```
     """
 
     def __init__(
@@ -329,20 +319,18 @@ class MinScalarRecord(ComparableRecord[Number]):
         Returns:
             The instantiated record.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> from minrecord import MinScalarRecord
+            >>> record = MinScalarRecord.from_elements("value", ((None, 64.0), (None, 42.0)))
+            >>> record.get_most_recent()
+            ((None, 64.0), (None, 42.0))
+            >>> record.get_last_value()
+            42.0
+            >>> record.get_best_value()
+            42.0
 
-        ```pycon
-
-        >>> from minrecord import MinScalarRecord
-        >>> record = MinScalarRecord.from_elements("value", ((None, 64.0), (None, 42.0)))
-        >>> record.get_most_recent()
-        ((None, 64.0), (None, 42.0))
-        >>> record.get_last_value()
-        42.0
-        >>> record.get_best_value()
-        42.0
-
-        ```
+            ```
         """
         record = cls(name)
         record.update(elements)

@@ -48,6 +48,10 @@ SNAKEFILE_CHOICES = list(
 )
 
 
+def func_true(job):
+    return True
+
+
 def get_snakemake_searchpaths():
     paths = [str(Path(__file__).parent.parent.parent)] + [
         path for path in sys.path if os.path.isdir(path)
@@ -89,24 +93,86 @@ def dict_to_key_value_args(
     return items
 
 
-def async_run(coroutine):
-    """Attaches to running event loop or creates a new one to execute a
-    coroutine.
-    .. seealso::
-         https://github.com/snakemake/snakemake/issues/1105
-         https://stackoverflow.com/a/65696398
+def async_runner(loop_factory=None, executor=None):
     """
-    try:
-        return asyncio.run(coroutine)
-    except RuntimeError as e:
-        coroutine.close()
+    Creates a new async Runner after checking we are outside of a running event loop.
+
+    Parameters
+    ----------
+    loop_factory : callable, optional
+        Optional callable that creates and returns a new event loop.
+        If provided, executor must be None.
+    executor : Executor, optional
+        Optional executor to use as the default executor for the event loop.
+        If provided, loop_factory must be None.
+
+    Returns
+    -------
+    asyncio.Runner
+        A runner object that can execute coroutines.
+
+    Raises
+    ------
+    WorkflowError
+        If called from within an already running event loop.
+    ValueError
+        If both executor and loop_factory are provided.
+
+    See Also
+    --------
+    https://github.com/snakemake/snakemake/issues/1105
+    https://stackoverflow.com/a/65696398
+    """
+
+    # asyncio.run fast-path to detect a running event loop, which we do not support yet
+    if asyncio.events._get_running_loop() is not None:
         raise WorkflowError(
             "Error running coroutine in event loop. Snakemake currently does not "
             "support being executed from an already running event loop. "
             "If you run Snakemake e.g. from a Jupyter notebook, make sure to spawn a "
             "separate process for Snakemake.",
-            e,
         )
+
+    if executor is not None:
+        if loop_factory is not None:
+            raise ValueError(
+                "only executor or loop_factory can be given as an argument"
+            )
+
+        def loop_factory():
+            loop = asyncio.new_event_loop()
+            loop.set_default_executor(executor)
+            asyncio.set_event_loop(loop)
+            return loop
+
+    return asyncio.Runner(loop_factory=loop_factory)
+
+
+def async_run(coroutine):
+    """
+    Creates a new event loop to execute a coroutine.
+
+    This is a convenience wrapper around async_runner() that creates a new runner,
+    executes the given coroutine, and returns its result. The event loop is properly
+    cleaned up after execution.
+
+    Parameters
+    ----------
+    coroutine : coroutine
+        An async coroutine to execute.
+
+    Returns
+    -------
+    any
+        The return value of the coroutine.
+
+    Raises
+    ------
+    WorkflowError
+        If called from within an already running event loop.
+    """
+    with async_runner() as runner:
+        return runner.run(coroutine)
 
 
 APPDIRS = None
@@ -140,13 +206,13 @@ def parse_uri(path_or_uri):
         # Fall back to a simple split if we encounter something which isn't supported.
         scheme, _, uri_path = path_or_uri.partition("://")
         if scheme and uri_path:
-            uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
-            return uri(scheme, uri_path)
+            Uri = collections.namedtuple("Uri", ["scheme", "uri_path"])
+            return Uri(scheme, uri_path)
         else:
             raise e
 
 
-def smart_join(base, path, abspath=False):
+def smart_join(base, path, abspath=False) -> str:
     if is_local_file(base):
         full = os.path.join(base, path)
         if abspath:
@@ -263,13 +329,15 @@ class Rules:
     def __getattr__(self, name):
         from snakemake.exceptions import WorkflowError
 
-        try:
+        if name in self._rules:
             return self._rules[name]
-        except KeyError:
-            raise WorkflowError(
-                f"Rule {name} is not defined in this workflow. "
-                f"Available rules: {', '.join(self._rules)}"
-            )
+        raise WorkflowError(
+            f"Rule {name} is not defined in this workflow. "
+            f"Available rules: {', '.join(self._rules)}"
+        )
+
+    def has(self, name):
+        return name in self._rules
 
 
 class Scatter:

@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=46.4", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "TatSu"
@@ -10,9 +10,9 @@ authors = [
 ]
 description = "TatSu takes a grammar in a variation of EBNF as input, and outputs a memoizing PEG/Packrat parser in Python."
 readme = "README.rst"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 keywords = []
-license = {file = "LICENSE.TXT"}
+license = {file = "LICENSE"}
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: BSD License",
@@ -23,6 +23,8 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Code Generators",
     "Topic :: Software Development :: Compilers",
     "Topic :: Software Development :: Interpreters",
@@ -34,6 +36,29 @@ dependencies = []
 colorization = ["colorama"]
 parproc = ["rich"]
 
+[dependency-groups]
+dev = [
+    "pip",
+    "docutils",
+    "colorama",
+    "hatch",
+    "ipython",
+    "mypy",
+    "progress",
+    "psutil",
+    "pytest",
+    "pytest-cov",
+    "pytest-rerunfailures",
+    "pytest-xdist",
+    "rich",
+    "rst2html5",
+    "ruff",
+    "sphinx",
+    "sphinx-rtd-theme",
+    "ty",
+    "types-decorator",
+]
+
 [project.scripts]
 tatsu = "tatsu:main"
 g2e = "tatsu.g2e:main"
@@ -44,17 +69,137 @@ Repository = "https://github.com/neogeny/TatSu"
 Documentation = "https://tatsu.readthedocs.io/en/stable/"
 Questions = "https://stackoverflow.com/questions/tagged/tatsu"
 
-[tool.setuptools]
-include-package-data = false
+[tool.hatch.version]
+path = "tatsu/_version.py"
 
-[tool.setuptools.dynamic]
-version = {attr = "tatsu._version.__version__"}
+[tool.hatch.build.targets.wheel]
+packages = ["tatsu"]
 
-[tool.setuptools.packages.find]
-include = ["tatsu*"]
+[tool.hatch.build.targets.sdist]
+#ignore-vcs = true
+#include = [
+#    "/tatsu",
+#    "/docs",
+#    "/test",
+#    "/grammar",
+#    "/examples",
+#    "*.yaml",
+#]
+exclude = [
+    "/parsers",
+    "/deprecated",
+    "/examples/markdown",
+    "req*.txt",
+]
+[tool.hatch.envs.default]
+env-vars = {CFLAGS = "-I/opt/homebrew/include", LDFLAGS = "-L/opt/homebrew/lib"}
 
+[tool.hatch.build.targets.sdist.force-include]
+"./tatsu" = "tatsu"
 
-[tool.blue]
-target-version = ["py310"]
-line-length=79
-skip-magic-trailing-comma=true
+[tool.hatch.envs.hatch-test]
+default-args = ["test"]
+dependencies = [
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "pytest-rerunfailures",
+    "pytest-xdist", # For parallel execution
+    "ruff",
+    "ty",
+]
+
+# Set default arguments for the pytest command
+extra-args = ["-v", "--cov"]
+
+# Enable built-in features
+randomize = false  # Randomize test order
+parallel = false   # Run tests in parallel
+retries = 0
+
+[tool.pytest.ini_options]
+# minversion = "6.0"
+#addopts = "-ra -q"
+addopts = "-q --ignore=.venv"
+testpaths = [
+    "tests",
+]
+norecursedirs = [
+    "*.egg",
+    ".git",
+    ".tox",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.mypy]
+python_version = 3.14
+#ignore_missing_imports = true
+exclude = "parsers|docs|dist|build|tmp"
+
+[tool.ty.rules]
+unused-ignore-comment = "ignore"  # needed for mypy
+
+[tool.ruff]
+line-length = 88
+
+# The minimum Python version to support
+# target-version = "py311"
+
+# Files or directories to exclude from linting/formatting
+exclude = [
+    ".git",
+    "__pycache__",
+    "dist",
+]
+
+[tool.coverage.run]
+omit = [
+    "/private/*",  # note: don't know how this gets into coverage
+    "test/*",
+    "tatsu/diagrams.py",
+    "**/test.py",
+]
+data_file = ".cache/coverage/.coverage"
+parallel = false
+
+[tool.coverage.report]
+ignore_errors = true
+
+[tool.hatch.envs.test]
+# non-lint packages included for the benefit of `ty`
+dependencies = [
+    "colorama",
+    "psutil",
+    "pytest",
+    "rich",
+    "ruff",
+    "ty",
+]
+
+[tool.hatch.envs.test.scripts]
+version = "echo `python --version`"
+lint = "ruff check -q --preview tatsu test examples"
+types = "ty check tatsu"
+more_types = "mypy --install-types --exclude dist --exclude parsers ."
+tests = "pytest"
+
+checks = [
+    "version",
+    "lint",
+    "types",
+    "more_types",
+    "tests"
+]
+
+run = [
+    "version",
+    "lint",
+    "types",
+    "more_types",
+    "tests"
+]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.12", "3.13", "3.14", "3.15"]

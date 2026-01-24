@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2025, Jice and the libtcod contributors.
+ * Copyright © 2008-2026, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -591,6 +591,13 @@ void TCOD_console_set_keyboard_repeat(int initial_delay, int interval) {
 }
 void TCOD_console_disable_keyboard_repeat(void) {}
 #endif  // NO_SDL
+
+void TCOD_console_set_fade(uint8_t val, TCOD_color_t fade_color) {
+  TCOD_ctx.fade = val;
+  TCOD_ctx.fading_color = fade_color;
+}
+uint8_t TCOD_console_get_fade(void) { return TCOD_ctx.fade; }
+TCOD_color_t TCOD_console_get_fading_color(void) { return TCOD_ctx.fading_color; }
 
 static void TCOD_console_read_asc(TCOD_console_t con, FILE* f, int width, int height, float version) {
   con = TCOD_console_validate_(con);

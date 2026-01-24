@@ -1,48 +1,59 @@
-import json
-from typing import Optional, Union
+import os
+from typing import Any, Dict, Optional
 
-from . import llm
-from .helpers.path import find_closest
-from .schemas.df_config import Config
+from pydantic import BaseModel, ConfigDict
+
+from pandasai.helpers.filemanager import DefaultFileManager, FileManager
+from pandasai.llm.base import LLM
 
 
-def load_config_from_json(
-    override_config: Optional[Union[Config, dict]] = None,
-):
-    """
-    Load the configuration from the pandasai.json file.
+class Config(BaseModel):
+    save_logs: bool = True
+    verbose: bool = False
+    max_retries: int = 3
+    llm: Optional[LLM] = None
+    file_manager: FileManager = DefaultFileManager()
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    Args:
-        override_config (Optional[Union[Config, dict]], optional): The configuration to
-        override the one in the file. Defaults to None.
+    @classmethod
+    def from_dict(cls, config: Dict[str, Any]) -> "Config":
+        return cls(**config)
 
-    Returns:
-        dict: The configuration.
-    """
 
-    config = {}
+class ConfigManager:
+    """A singleton class to manage the global configuration."""
 
-    if override_config is None:
-        override_config = {}
+    _config: Config = Config()
 
-    if isinstance(override_config, Config):
-        override_config = override_config.dict()
+    @classmethod
+    def set(cls, config_dict: Dict[str, Any]) -> None:
+        """Set the global configuration."""
+        cls._config = Config.from_dict(config_dict)
 
-    try:
-        with open(find_closest("pandasai.json"), "r") as f:
-            config = json.load(f)
+    @classmethod
+    def get(cls) -> Config:
+        """Get the global configuration."""
+        if cls._config is None:
+            cls._config = Config()
 
-            # if config is a dict
-            if config.get("llm") and not override_config.get("llm"):
-                options = config.get("llm_options") or {}
-                config["llm"] = getattr(llm, config["llm"])(**options)
-            elif not config.get("llm") and not override_config.get("llm"):
-                config["llm"] = llm.BambooLLM()
-    except FileNotFoundError:
-        # Ignore the error if the file does not exist, will use the default config
-        pass
+        return cls._config
 
-    if override_config:
-        config.update(override_config)
+    @classmethod
+    def update(cls, config_dict: Dict[str, Any]) -> None:
+        """Update the existing configuration with new values."""
+        current_config = cls._config.model_dump()
+        current_config.update(config_dict)
+        cls._config = Config.from_dict(current_config)
 
-    return config
+
+class APIKeyManager:
+    _api_key: Optional[str] = None
+
+    @classmethod
+    def set(cls, api_key: str):
+        os.environ["PANDABI_API_KEY"] = api_key
+        cls._api_key = api_key
+
+    @classmethod
+    def get(cls) -> Optional[str]:
+        return cls._api_key

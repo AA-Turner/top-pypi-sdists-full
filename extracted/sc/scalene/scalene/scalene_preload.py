@@ -19,25 +19,15 @@ class ScalenePreload:
             "SCALENE_ALLOCATION_SAMPLING_WINDOW": str(args.allocation_sampling_window)
         }
 
-        # Disable JITting in PyTorch and JAX to improve profiling,
-        # unless the environment variables are already set.
-        # JAX_DISABLE_JIT: https://jax.readthedocs.io/en/latest/debugging/flags.html#id1
-        # PYTORCH_JIT: https://pytorch.org/docs/stable/jit.html#disable-jit-for-debugging
-        jit_flags = [
-            ("JAX_DISABLE_JIT", "1"),  # truthy => disable JIT
-            ("PYTORCH_JIT", "0"),
-        ]  # falsy => disable JIT
-
-        try:
-            # If we are running on Neuron, we don't disable the JITs
-            # because it leads to unacceptably high overheads.
-            from scalene.scalene_neuron import ScaleneNeuron
-
-            accelerator = ScaleneNeuron()
-            on_neuron = accelerator.has_gpu()
-        except Exception:
-            on_neuron = False
-        if not on_neuron:
+        # JIT disabling is opt-in via --disable-jit flag.
+        # See https://github.com/plasma-umass/scalene/issues/908
+        # Disabling JIT allows for more accurate Python-level profiling
+        # but breaks torch.jit.load() and similar functionality.
+        if hasattr(args, "disable_jit") and args.disable_jit:
+            jit_flags = [
+                ("JAX_DISABLE_JIT", "1"),  # truthy => disable JIT
+                ("PYTORCH_JIT", "0"),  # falsy => disable JIT
+            ]
             for name, val in jit_flags:
                 if name not in os.environ:
                     env[name] = val
@@ -87,8 +77,21 @@ class ScalenePreload:
                     env["PYTHONMALLOC"] = "default"
 
         elif sys.platform == "win32":
-            # Force no memory profiling on Windows for now.
-            args.memory = False
+            if args.memory:
+                # On Windows, we use DLL injection via ctypes
+                # The DLL is loaded at runtime when the profiler starts
+                library_path = scalene.__path__[0]
+
+                # Set library path so the DLL can be found
+                if "PATH" not in os.environ:
+                    env["PATH"] = library_path
+                elif library_path not in os.environ["PATH"]:
+                    env["PATH"] = f'{library_path};{os.environ["PATH"]}'
+
+                # Tell Scalene to load the DLL
+                env["SCALENE_WINDOWS_DLL"] = os.path.join(
+                    library_path, "libscalene.dll"
+                )
 
         return env
 
@@ -102,8 +105,9 @@ class ScalenePreload:
 
         # First, check that we are on a supported platform.
         # (x86-64 and ARM only for now.)
+        machine = platform.machine().lower()
         if args.memory and (
-            platform.machine() not in ["x86_64", "AMD64", "arm64", "aarch64"]
+            machine not in ["x86_64", "amd64", "arm64", "aarch64"]
             or struct.calcsize("P") != 8
         ):
             args.memory = False

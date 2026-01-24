@@ -466,6 +466,14 @@ class CosS3Client(object):
                 if len(exception_logbuf) > 0:
                     logger.exception(exception_logbuf) # 最终重试失败, 输出前几次重试失败的exception
                 raise CosServiceError(method, info, res.status_code)
+            elif 'x-cos-error-code' in res.headers: # 兼容向量桶，向量桶错误码在头部，错误信息在body
+                info = dict()
+                info['code'] = res.headers['x-cos-error-code']
+                if 'x-cos-request-id' in res.headers:
+                    info['requestid'] = res.headers['x-cos-request-id']
+                info['message'] = res.text
+                logger.error(info)
+                raise CosServiceError(method, info, res.status_code)
             else:
                 msg = res.text
                 if msg == u'':  # 服务器没有返回Error Body时 给出头部的信息
@@ -4037,7 +4045,8 @@ class CosS3Client(object):
             already_exist_parts[part_num] = part['ETag']
         return True
 
-    def download_file(self, Bucket, Key, DestFilePath, PartSize=20, MAXThread=5, EnableCRC=False, progress_callback=None, DumpRecordDir=None, KeySimplifyCheck=True, DisableTempDestFilePath=False, **Kwargs):
+    def download_file(self, Bucket, Key, DestFilePath, PartSize=20, MAXThread=5, EnableCRC=False, progress_callback=None,
+                      DumpRecordDir=None, KeySimplifyCheck=True, DisableTempDestFilePath=False, MaxPartCount=10000, **Kwargs):
         """小于等于20MB的文件简单下载，大于20MB的文件使用续传下载
 
         :param Bucket(string): 存储桶名称.
@@ -4049,10 +4058,11 @@ class CosS3Client(object):
         :param DumpRecordDir(string): 指定保存断点信息的文件路径
         :param KeySimplifyCheck(bool): 是否对Key进行posix路径语义归并检查
         :param DisableTempDestFilePath(bool): 简单下载写入目标文件时,不使用临时文件
+        :param MaxPartCount(int): 分块下载的最大分块数
         :param kwargs(dict): 设置请求headers.
         """
         logger.debug("Start to download file, bucket: {0}, key: {1}, dest_filename: {2}, part_size: {3}MB,\
-                     max_thread: {4}".format(Bucket, Key, DestFilePath, PartSize, MAXThread))
+                     max_thread: {4}, max_part_count: {5}".format(Bucket, Key, DestFilePath, PartSize, MAXThread, MaxPartCount))
 
         head_headers = dict()
         # SSE-C对象在head时也要求传入加密头域
@@ -4075,7 +4085,7 @@ class CosS3Client(object):
         if progress_callback:
             callback = ProgressCallback(file_size, progress_callback)
 
-        downloader = ResumableDownLoader(self, Bucket, Key, DestFilePath, object_info, PartSize, MAXThread, EnableCRC,
+        downloader = ResumableDownLoader(self, Bucket, Key, DestFilePath, object_info, PartSize, MAXThread, MaxPartCount, EnableCRC,
                                          callback, DumpRecordDir, KeySimplifyCheck, **Kwargs)
         downloader.start()
 
@@ -4572,6 +4582,86 @@ class CosS3Client(object):
             CopyStatus='Replaced',
             **kwargs
         )
+        return response
+
+    def put_symlink(self, Bucket, SymlinkName, SymlinkTarget, **kwargs):
+        """创建软链接
+
+        :param Bucket(string): 存储桶名称.
+        :param SymlinkName(string): 软链接路径.
+        :param SymlinkTarget(string): 目标路径.
+        :kwargs(dict): 公共请求头部.
+        :return: 请求的响应头部.
+
+        .. code-block:: python
+
+            config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Token=token)  # 获取配置对象
+            client = CosS3Client(config)
+            # 创建软链接
+            response = client.put_symlink(
+                Bucket='bucket-1250000000',
+                SymlinkName='testsym.txt',
+                SymlinkTarget='test.txt',
+            )
+        """
+
+        headers = mapped(kwargs)
+        headers['x-cos-symlink-target'] = SymlinkTarget
+        params = {'symlink': ''}
+
+        url = self._conf.uri(bucket=Bucket, path=SymlinkName)
+        logger.debug("put symlink, url=:{url} ,headers=:{headers}".format(
+            url=url,
+            headers=headers))
+        rt = self.send_request(
+            method='PUT',
+            url=url,
+            bucket=Bucket,
+            auth=CosS3Auth(self._conf, SymlinkName, params=params),
+            headers=headers,
+            params=params)
+        response = dict(**rt.headers)
+        return response
+
+    def get_symlink(self, Bucket, SymlinkName, **kwargs):
+        """获取软链接本身
+
+        :param Bucket(string): 存储桶名称.
+        :param SymlinkName(string): 软链接路径.
+        :kwargs(dict): 公共请求头部.
+        :return: 请求的响应头部.
+
+        .. code-block:: python
+
+            config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key, Token=token)  # 获取配置对象
+            client = CosS3Client(config)
+            # 获取软链接本身
+            response = client.get_symlink(
+                Bucket='bucket-1250000000',
+                SymlinkName='testsym.txt',
+            )
+        """
+
+        headers = mapped(kwargs)
+        params = {'symlink': ''}
+
+        if 'versionId' in headers:
+            params['versionId'] = headers['versionId']
+            del headers['versionId']
+        params = format_values(params)
+
+        url = self._conf.uri(bucket=Bucket, path=SymlinkName)
+        logger.debug("get symlink, url=:{url} ,headers=:{headers}".format(
+            url=url,
+            headers=headers))
+        rt = self.send_request(
+            method='GET',
+            url=url,
+            bucket=Bucket,
+            auth=CosS3Auth(self._conf, SymlinkName, params=params),
+            headers=headers,
+            params=params)
+        response = dict(**rt.headers)
         return response
 
     def put_bucket_encryption(self, Bucket, ServerSideEncryptionConfiguration={}, **kwargs):
@@ -9566,7 +9656,7 @@ class CosS3Client(object):
 
     def ci_create_asr_template(self, Bucket, Name, EngineModelType, ChannelNum=None,
                                ResTextFormat=None, FilterDirty=0, FilterModal=0, ConvertNumMode=0, SpeakerDiarization=0,
-                               SpeakerNumber=0, FilterPunc=0, OutputFileType='txt', FlashAsr=False, Format=None, FirstChannelOnly=1, WordInfo=0, **kwargs):
+                               SpeakerNumber=0, FilterPunc=0, OutputFileType='txt', FlashAsr=False, Format=None, FirstChannelOnly=1, WordInfo=0, HotVocabularyTableId=None, **kwargs):
         """ 创建语音识别模板接口 https://cloud.tencent.com/document/product/460/78939
 
         :param Bucket(string): 存储桶名称.
@@ -9652,6 +9742,8 @@ class CosS3Client(object):
             body['SpeechRecognition']['Format'] = Format
         body['SpeechRecognition']['FirstChannelOnly'] = FirstChannelOnly
         body['SpeechRecognition']['WordInfo'] = WordInfo
+        if HotVocabularyTableId:
+            body['SpeechRecognition']['HotVocabularyTableId'] = HotVocabularyTableId
 
         xml_config = format_xml(data=body, root='Request')
         path = "/template"
@@ -9676,7 +9768,7 @@ class CosS3Client(object):
 
     def ci_update_asr_template(self, Bucket, TemplateId, Name, EngineModelType, ChannelNum,
                                ResTextFormat, FilterDirty=0, FilterModal=0, ConvertNumMode=0, SpeakerDiarization=0,
-                               SpeakerNumber=0, FilterPunc=0, OutputFileType='txt', FlashAsr=False, Format=None, FirstChannelOnly=1, WordInfo=0, **kwargs):
+                               SpeakerNumber=0, FilterPunc=0, OutputFileType='txt', FlashAsr=False, Format=None, FirstChannelOnly=1, WordInfo=0, HotVocabularyTableId=None, **kwargs):
         """ 更新语音识别模板接口 https://cloud.tencent.com/document/product/460/78942
 
         :param Bucket(string): 存储桶名称.
@@ -9764,6 +9856,8 @@ class CosS3Client(object):
             body['SpeechRecognition']['Format'] = Format
         body['SpeechRecognition']['FirstChannelOnly'] = FirstChannelOnly
         body['SpeechRecognition']['WordInfo'] = WordInfo
+        if HotVocabularyTableId:
+            body['SpeechRecognition']['HotVocabularyTableId'] = HotVocabularyTableId
         xml_config = format_xml(data=body, root='Request')
         path = "/template/" + TemplateId
         url = self._conf.uri(bucket=Bucket, path=path, endpoint=self._conf._endpoint_ci)

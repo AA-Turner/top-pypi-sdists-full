@@ -5,29 +5,33 @@ use axum::{
     routing::{get, patch, post},
     Json, Router, ServiceExt,
 };
+use chroma_api_types::{ForkCollectionPayload, GetUserIdentityResponse, HeartbeatResponse};
 use chroma_metering::{
     CollectionForkContext, CollectionReadContext, CollectionWriteContext, Enterable,
     ExternalCollectionReadContext, MeteredFutureExt, ReadAction, StartRequest, WriteAction,
 };
 use chroma_system::System;
-use chroma_types::plan::SearchPayload;
+use chroma_tracing::add_tracing_middleware;
 use chroma_types::{
-    AddCollectionRecordsResponse, ChecklistResponse, Collection, CollectionConfiguration,
-    CollectionMetadataUpdate, CollectionUuid, CountCollectionsRequest, CountCollectionsResponse,
-    CountRequest, CountResponse, CreateCollectionRequest, CreateDatabaseRequest,
+    decode_embeddings, maybe_decode_update_embeddings, AddCollectionRecordsPayload,
+    AddCollectionRecordsResponse, AttachFunctionRequest, AttachFunctionResponse, ChecklistResponse,
+    Collection, CollectionConfiguration, CollectionMetadataUpdate, CollectionUuid,
+    CountCollectionsRequest, CountCollectionsResponse, CountRequest, CountResponse,
+    CreateCollectionPayload, CreateCollectionRequest, CreateDatabaseRequest,
     CreateDatabaseResponse, CreateTenantRequest, CreateTenantResponse,
-    DeleteCollectionRecordsResponse, DeleteDatabaseRequest, DeleteDatabaseResponse,
-    GetCollectionByCrnRequest, GetCollectionRequest, GetDatabaseRequest, GetDatabaseResponse,
-    GetRequest, GetResponse, GetTenantRequest, GetTenantResponse, GetUserIdentityResponse,
-    HeartbeatResponse, IncludeList, InternalCollectionConfiguration,
+    DeleteCollectionRecordsPayload, DeleteCollectionRecordsResponse, DeleteDatabaseRequest,
+    DeleteDatabaseResponse, DetachFunctionRequest, DetachFunctionResponse, ForkCollectionResponse,
+    GetAttachedFunctionResponse, GetCollectionByCrnRequest, GetCollectionRequest,
+    GetDatabaseRequest, GetDatabaseResponse, GetRequest, GetRequestPayload, GetResponse,
+    GetTenantRequest, GetTenantResponse, IndexStatusResponse, InternalCollectionConfiguration,
     InternalUpdateCollectionConfiguration, ListCollectionsRequest, ListCollectionsResponse,
-    ListDatabasesRequest, ListDatabasesResponse, Metadata, QueryRequest, QueryResponse,
-    SearchRequest, SearchResponse, UpdateCollectionConfiguration, UpdateCollectionRecordsResponse,
-    UpdateCollectionResponse, UpdateMetadata, UpdateTenantRequest, UpdateTenantResponse,
+    ListDatabasesRequest, ListDatabasesResponse, QueryRequest, QueryRequestPayload, QueryResponse,
+    SearchRequest, SearchRequestPayload, SearchResponse, UpdateCollectionPayload,
+    UpdateCollectionRecordsPayload, UpdateCollectionRecordsResponse, UpdateCollectionResponse,
+    UpdateTenantRequest, UpdateTenantResponse, UpsertCollectionRecordsPayload,
     UpsertCollectionRecordsResponse,
 };
-use chroma_types::{ForkCollectionResponse, RawWhereFields};
-use mdac::{Rule, Scorecard, ScorecardTicket};
+use mdac::{Rule, Scorecard, ScorecardGuard};
 use opentelemetry::global;
 use opentelemetry::metrics::{Counter, Meter};
 use serde::{Deserialize, Serialize};
@@ -51,31 +55,13 @@ use uuid::Uuid;
 use crate::{
     ac::AdmissionControlledService,
     auth::{AuthenticateAndAuthorize, AuthzAction, AuthzResource},
-    base64_decode::{
-        decode_embeddings, maybe_decode_update_embeddings, EmbeddingsPayload,
-        UpdateEmbeddingsPayload,
-    },
     config::FrontendServerConfig,
     quota::{Action, QuotaEnforcer, QuotaPayload},
     server_middleware::{always_json_errors_middleware, default_json_content_type_middleware},
-    tower_tracing::add_tracing_middleware,
     traced_json::TracedJson,
     types::errors::{ErrorResponse, ServerError, ValidationError},
     Frontend,
 };
-
-struct ScorecardGuard {
-    scorecard: Arc<Scorecard<'static>>,
-    ticket: Option<ScorecardTicket>,
-}
-
-impl Drop for ScorecardGuard {
-    fn drop(&mut self) {
-        if let Some(ticket) = self.ticket.take() {
-            self.scorecard.untrack(ticket);
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, thiserror::Error)]
 #[error("Too many requests; backoff and try again")]
@@ -148,8 +134,12 @@ pub struct Metrics {
     collection_delete: Counter<u64>,
     collection_count: Counter<u64>,
     collection_get: Counter<u64>,
+    collection_index_status: Counter<u64>,
     collection_query: Counter<u64>,
     collection_search: Counter<u64>,
+    attach_function: Counter<u64>,
+    get_attached_function: Counter<u64>,
+    detach_function: Counter<u64>,
 }
 
 impl Metrics {
@@ -182,8 +172,12 @@ impl Metrics {
             collection_delete: meter.u64_counter("collection_delete").build(),
             collection_count: meter.u64_counter("collection_count").build(),
             collection_get: meter.u64_counter("collection_get").build(),
+            collection_index_status: meter.u64_counter("collection_index_status").build(),
             collection_query: meter.u64_counter("collection_query").build(),
             collection_search: meter.u64_counter("collection_search").build(),
+            attach_function: meter.u64_counter("attach_function").build(),
+            get_attached_function: meter.u64_counter("get_attached_function").build(),
+            detach_function: meter.u64_counter("detach_function").build(),
         }
     }
 }
@@ -314,6 +308,10 @@ impl FrontendServer {
                 get(collection_count),
             )
             .route(
+                "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/indexing_status",
+                get(indexing_status),
+            )
+            .route(
                 "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/get",
                 post(collection_get),
             )
@@ -324,6 +322,18 @@ impl FrontendServer {
             .route(
                 "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/search",
                 post(collection_search),
+            )
+            .route(
+                "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/functions/attach",
+                post(attach_function),
+            )
+            .route(
+                "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/functions/{function_name}",
+                get(get_attached_function),
+            )
+            .route(
+                "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/attached_functions/{name}/detach",
+                post(detach_function),
             )
             .merge(docs_router)
             .with_state(self)
@@ -390,16 +400,10 @@ impl FrontendServer {
         if self.scorecard_enabled.load(Ordering::Relaxed) {
             self.scorecard
                 .track(tags)
-                .map(|ticket| ScorecardGuard {
-                    scorecard: Arc::clone(&self.scorecard),
-                    ticket: Some(ticket),
-                })
+                .map(|ticket| ScorecardGuard::new(Arc::clone(&self.scorecard), Some(ticket)))
                 .ok_or_else(|| Box::new(RateLimitError) as _)
         } else {
-            Ok(ScorecardGuard {
-                scorecard: Arc::clone(&self.scorecard),
-                ticket: None,
-            })
+            Ok(ScorecardGuard::new(Arc::clone(&self.scorecard), None))
         }
     }
 }
@@ -710,6 +714,9 @@ async fn create_database(
             },
         )
         .await?;
+    // enforce scorecard
+    let _guard =
+        server.scorecard_request(&["op:create_database", format!("tenant:{}", tenant).as_str()])?;
     // Enforce quota.
     let api_token = headers
         .get("x-chroma-token")
@@ -718,8 +725,6 @@ async fn create_database(
     let mut quota_payload = QuotaPayload::new(Action::CreateDatabase, tenant.clone(), api_token);
     quota_payload = quota_payload.with_collection_name(&name);
     let _ = server.quota_enforcer.enforce(&quota_payload).await?;
-    let _guard =
-        server.scorecard_request(&["op:create_database", format!("tenant:{}", tenant).as_str()])?;
     let create_database_request = CreateDatabaseRequest::try_new(tenant, name)?;
     let res = server
         .frontend
@@ -897,6 +902,8 @@ async fn list_collections(
             },
         )
         .await?;
+    let _guard = server
+        .scorecard_request(&["op:list_collections", format!("tenant:{}", tenant).as_str()])?;
     let api_token = headers
         .get("x-chroma-token")
         .map(|val| val.to_str().unwrap_or_default())
@@ -913,9 +920,6 @@ async fn list_collections(
         Some(overrides) => Some(overrides.limit),
         None => limit,
     };
-
-    let _guard = server
-        .scorecard_request(&["op:list_collections", format!("tenant:{}", tenant).as_str()])?;
 
     // TODO: Limit shouldn't be optional here
     let request = ListCollectionsRequest::try_new(tenant, database, validated_limit, offset)?;
@@ -963,15 +967,6 @@ async fn count_collections(
     Ok(Json(server.frontend.count_collections(request).await?))
 }
 
-#[derive(Deserialize, Serialize, ToSchema, Debug, Clone)]
-pub struct CreateCollectionPayload {
-    pub name: String,
-    pub configuration: Option<CollectionConfiguration>,
-    pub metadata: Option<Metadata>,
-    #[serde(default)]
-    pub get_or_create: bool,
-}
-
 /// Creates a new collection under the specified database.
 #[utoipa::path(
     post,
@@ -1006,6 +1001,10 @@ async fn create_collection(
             },
         )
         .await?;
+    let _guard = server.scorecard_request(&[
+        "op:create_collection",
+        format!("tenant:{}", tenant).as_str(),
+    ])?;
     let api_token = headers
         .get("x-chroma-token")
         .map(|val| val.to_str().unwrap_or_default())
@@ -1016,10 +1015,6 @@ async fn create_collection(
         quota_payload = quota_payload.with_create_collection_metadata(metadata);
     }
     let _ = server.quota_enforcer.enforce(&quota_payload).await?;
-    let _guard = server.scorecard_request(&[
-        "op:create_collection",
-        format!("tenant:{}", tenant).as_str(),
-    ])?;
 
     let payload_clone = payload.clone();
 
@@ -1042,6 +1037,7 @@ async fn create_collection(
         payload.name,
         payload.metadata,
         configuration,
+        payload.schema,
         payload.get_or_create,
     )?;
     let collection = server.frontend.create_collection(request).await?;
@@ -1127,13 +1123,6 @@ async fn get_collection_by_crn(
     Ok(Json(collection))
 }
 
-#[derive(Deserialize, Serialize, ToSchema, Debug, Clone)]
-pub struct UpdateCollectionPayload {
-    pub new_name: Option<String>,
-    pub new_metadata: Option<UpdateMetadata>,
-    pub new_configuration: Option<UpdateCollectionConfiguration>,
-}
-
 /// Updates an existing collection's name or metadata.
 #[utoipa::path(
     put,
@@ -1171,6 +1160,10 @@ async fn update_collection(
             CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
         )
         .await?;
+    let _guard = server.scorecard_request(&[
+        "op:update_collection",
+        format!("tenant:{}", tenant).as_str(),
+    ])?;
     let api_token = headers
         .get("x-chroma-token")
         .map(|val| val.to_str().unwrap_or_default())
@@ -1183,10 +1176,6 @@ async fn update_collection(
         quota_payload = quota_payload.with_update_collection_metadata(new_metadata);
     }
     let _ = server.quota_enforcer.enforce(&quota_payload).await?;
-    let _guard = server.scorecard_request(&[
-        "op:update_collection",
-        format!("tenant:{}", tenant).as_str(),
-    ])?;
     let collection_id =
         CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?;
 
@@ -1254,11 +1243,6 @@ async fn delete_collection(
     Ok(Json(UpdateCollectionResponse {}))
 }
 
-#[derive(Deserialize, Serialize, ToSchema, Debug, Clone)]
-pub struct ForkCollectionPayload {
-    pub new_name: String,
-}
-
 /// Forks an existing collection.
 #[utoipa::path(
     post,
@@ -1295,6 +1279,11 @@ async fn fork_collection(
             },
         )
         .await?;
+    let _guard = server.scorecard_request(&[
+        "op:fork_collection",
+        format!("tenant:{}", tenant).as_str(),
+        format!("collection:{}", collection_id).as_str(),
+    ])?;
 
     let api_token = headers
         .get("x-chroma-token")
@@ -1315,12 +1304,6 @@ async fn fork_collection(
             collection_id.0.to_string(),
         ));
 
-    let _guard = server.scorecard_request(&[
-        "op:fork_collection",
-        format!("tenant:{}", tenant).as_str(),
-        format!("collection:{}", collection_id).as_str(),
-    ])?;
-
     let request = chroma_types::ForkCollectionRequest::try_new(
         tenant,
         database,
@@ -1335,33 +1318,6 @@ async fn fork_collection(
             .meter(metering_context_container)
             .await?,
     ))
-}
-
-#[derive(Serialize, Deserialize, ToSchema, Debug, Clone)]
-pub struct AddCollectionRecordsPayload {
-    ids: Vec<String>,
-    embeddings: EmbeddingsPayload,
-    documents: Option<Vec<Option<String>>>,
-    uris: Option<Vec<Option<String>>>,
-    metadatas: Option<Vec<Option<Metadata>>>,
-}
-
-impl AddCollectionRecordsPayload {
-    pub fn new(
-        ids: Vec<String>,
-        embeddings: Vec<Vec<f32>>,
-        documents: Option<Vec<Option<String>>>,
-        uris: Option<Vec<Option<String>>>,
-        metadatas: Option<Vec<Option<Metadata>>>,
-    ) -> Self {
-        Self {
-            ids,
-            embeddings: EmbeddingsPayload::JsonArrays(embeddings),
-            documents,
-            uris,
-            metadatas,
-        }
-    }
 }
 
 /// Adds records to a collection.
@@ -1399,6 +1355,11 @@ async fn collection_add(
         .await?;
     let collection_id =
         CollectionUuid(Uuid::parse_str(&collection_id).map_err(|_| ValidationError::CollectionId)?);
+    let _guard = server.scorecard_request(&[
+        "op:write",
+        format!("tenant:{}", tenant).as_str(),
+        format!("collection:{}", collection_id).as_str(),
+    ])?;
     let api_token = headers
         .get("x-chroma-token")
         .map(|val| val.to_str().unwrap_or_default())
@@ -1419,11 +1380,6 @@ async fn collection_add(
     }
     quota_payload = quota_payload.with_collection_uuid(collection_id);
     let _ = server.quota_enforcer.enforce(&quota_payload).await?;
-    let _guard = server.scorecard_request(&[
-        "op:write",
-        format!("tenant:{}", tenant).as_str(),
-        format!("collection:{}", collection_id).as_str(),
-    ])?;
 
     // Create a metering context
     let metering_context_container =
@@ -1461,15 +1417,6 @@ async fn collection_add(
     Ok((StatusCode::CREATED, Json(res)))
 }
 
-#[derive(Deserialize, Debug, Clone, ToSchema, Serialize)]
-pub struct UpdateCollectionRecordsPayload {
-    ids: Vec<String>,
-    embeddings: Option<UpdateEmbeddingsPayload>,
-    documents: Option<Vec<Option<String>>>,
-    uris: Option<Vec<Option<String>>>,
-    metadatas: Option<Vec<Option<UpdateMetadata>>>,
-}
-
 /// Updates records in a collection by ID.
 #[utoipa::path(
     post,
@@ -1505,6 +1452,11 @@ async fn collection_update(
         .await?;
     let collection_id =
         CollectionUuid(Uuid::parse_str(&collection_id).map_err(|_| ValidationError::CollectionId)?);
+    let _guard = server.scorecard_request(&[
+        "op:write",
+        format!("tenant:{}", tenant).as_str(),
+        format!("collection:{}", collection_id).as_str(),
+    ])?;
     let api_token = headers
         .get("x-chroma-token")
         .map(|val| val.to_str().unwrap_or_default())
@@ -1526,11 +1478,6 @@ async fn collection_update(
         quota_payload = quota_payload.with_uris(uris);
     }
     let _ = server.quota_enforcer.enforce(&quota_payload).await?;
-    let _guard = server.scorecard_request(&[
-        "op:write",
-        format!("tenant:{}", tenant).as_str(),
-        format!("collection:{}", collection_id).as_str(),
-    ])?;
 
     // Create a metering context
     let metering_context_container =
@@ -1568,15 +1515,6 @@ async fn collection_update(
     ))
 }
 
-#[derive(Deserialize, Debug, Clone, ToSchema, Serialize)]
-pub struct UpsertCollectionRecordsPayload {
-    ids: Vec<String>,
-    embeddings: EmbeddingsPayload,
-    documents: Option<Vec<Option<String>>>,
-    uris: Option<Vec<Option<String>>>,
-    metadatas: Option<Vec<Option<UpdateMetadata>>>,
-}
-
 /// Upserts records in a collection (create if not exists, otherwise update).
 #[utoipa::path(
     post,
@@ -1608,7 +1546,7 @@ async fn collection_upsert(
     server
         .authenticate_and_authorize_collection(
             &headers,
-            AuthzAction::Update,
+            AuthzAction::Upsert,
             AuthzResource {
                 tenant: Some(tenant.clone()),
                 database: Some(database.clone()),
@@ -1619,6 +1557,11 @@ async fn collection_upsert(
         .await?;
     let collection_id =
         CollectionUuid(Uuid::parse_str(&collection_id).map_err(|_| ValidationError::CollectionId)?);
+    let _guard = server.scorecard_request(&[
+        "op:write",
+        format!("tenant:{}", tenant).as_str(),
+        format!("collection:{}", collection_id).as_str(),
+    ])?;
     let api_token = headers
         .get("x-chroma-token")
         .map(|val| val.to_str().unwrap_or_default())
@@ -1638,11 +1581,6 @@ async fn collection_upsert(
     }
     quota_payload = quota_payload.with_collection_uuid(collection_id);
     let _ = server.quota_enforcer.enforce(&quota_payload).await?;
-    let _guard = server.scorecard_request(&[
-        "op:write",
-        format!("tenant:{}", tenant).as_str(),
-        format!("collection:{}", collection_id).as_str(),
-    ])?;
 
     // Create a metering context
     let metering_context_container =
@@ -1678,13 +1616,6 @@ async fn collection_upsert(
             .meter(metering_context_container)
             .await?,
     ))
-}
-
-#[derive(Deserialize, Debug, Clone, ToSchema, Serialize)]
-pub struct DeleteCollectionRecordsPayload {
-    ids: Option<Vec<String>>,
-    #[serde(flatten)]
-    where_fields: RawWhereFields,
 }
 
 /// Deletes records in a collection. Can filter by IDs or metadata.
@@ -1725,6 +1656,11 @@ async fn collection_delete(
         .await?;
     let collection_id =
         CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?;
+    let _guard = server.scorecard_request(&[
+        "op:write",
+        format!("tenant:{}", tenant).as_str(),
+        format!("collection:{}", collection_id).as_str(),
+    ])?;
     let r#where = payload.where_fields.parse()?;
     let api_token = headers
         .get("x-chroma-token")
@@ -1738,11 +1674,6 @@ async fn collection_delete(
         quota_payload = quota_payload.with_where(r#where);
     }
     let _ = server.quota_enforcer.enforce(&quota_payload).await?;
-    let _guard = server.scorecard_request(&[
-        "op:write",
-        format!("tenant:{}", tenant).as_str(),
-        format!("collection:{}", collection_id).as_str(),
-    ])?;
 
     // Create a metering context
     // NOTE(c-gamble): This is a read context because read happens first on delete, then write.
@@ -1763,11 +1694,13 @@ async fn collection_delete(
         r#where,
     )?;
 
-    server
-        .frontend
-        .delete(request)
-        .meter(metering_context_container)
-        .await?;
+    Box::pin(
+        server
+            .frontend
+            .delete(request)
+            .meter(metering_context_container),
+    )
+    .await?;
 
     Ok(Json(DeleteCollectionRecordsResponse {}))
 }
@@ -1853,15 +1786,78 @@ async fn collection_count(
     ))
 }
 
-#[derive(Debug, Clone, Deserialize, ToSchema)]
-pub struct GetRequestPayload {
-    ids: Option<Vec<String>>,
-    #[serde(flatten)]
-    where_fields: RawWhereFields,
-    limit: Option<u32>,
-    offset: Option<u32>,
-    #[serde(default = "IncludeList::default_get")]
-    include: IncludeList,
+/// Retrieves the indexing status of a collection.
+#[utoipa::path(
+    get,
+    path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/indexing_status",
+    responses(
+        (status = 200, description = "Index status retrieved successfully", body = IndexStatusResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 404, description = "Collection not found", body = ErrorResponse),
+        (status = 500, description = "Server error", body = ErrorResponse)
+    ),
+    params(
+        ("tenant" = String, Path, description = "Tenant ID"),
+        ("database" = String, Path, description = "Database name for the collection"),
+        ("collection_id" = String, Path, description = "Collection ID to get index status for")
+    )
+)]
+async fn indexing_status(
+    headers: HeaderMap,
+    Path((tenant, database, collection_id)): Path<(String, String, String)>,
+    State(mut server): State<FrontendServer>,
+) -> Result<Json<IndexStatusResponse>, ServerError> {
+    server.metrics.collection_index_status.add(1, &[]);
+    tracing::info!(
+        name: "index_status",
+        tenant = tenant,
+        database = database,
+        collection_id = collection_id
+    );
+
+    let _guard = server.scorecard_request(&[
+        "op:indexing_status",
+        format!("tenant:{}", tenant).as_str(),
+        format!("collection:{}", collection_id).as_str(),
+    ])?;
+
+    server
+        .authenticate_and_authorize_collection(
+            &headers,
+            AuthzAction::Count,
+            AuthzResource {
+                tenant: Some(tenant.clone()),
+                database: Some(database.clone()),
+                collection: Some(collection_id.clone()),
+            },
+            CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?,
+        )
+        .await?;
+
+    let metering_context_container =
+        chroma_metering::create::<CollectionReadContext>(CollectionReadContext::new(
+            tenant.clone(),
+            database.clone(),
+            collection_id.clone(),
+            ReadAction::Query,
+        ));
+
+    metering_context_container.enter();
+
+    chroma_metering::with_current(|context| {
+        context.start_request(Instant::now());
+    });
+
+    let collection_id =
+        CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?;
+
+    Ok(Json(
+        server
+            .frontend
+            .indexing_status(collection_id)
+            .meter(metering_context_container)
+            .await?,
+    ))
 }
 
 /// Retrieves records from a collection by ID or metadata filter.
@@ -1902,6 +1898,12 @@ async fn collection_get(
         .await?;
     let collection_id =
         CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?;
+    let _guard = server.scorecard_request(&[
+        "op:read",
+        format!("tenant:{}", tenant).as_str(),
+        format!("collection:{}", collection_id).as_str(),
+        format!("requester:{}", requester_identity.tenant).as_str(),
+    ])?;
     let parsed_where = payload.where_fields.parse()?;
     let api_token = headers
         .get("x-chroma-token")
@@ -1924,13 +1926,6 @@ async fn collection_get(
         Some(overrides) => Some(overrides.limit),
         None => payload.limit,
     };
-
-    let _guard = server.scorecard_request(&[
-        "op:read",
-        format!("tenant:{}", tenant).as_str(),
-        format!("collection:{}", collection_id).as_str(),
-        format!("requester:{}", requester_identity.tenant).as_str(),
-    ])?;
 
     // Create a metering context
     let metering_context_container = if requester_identity.tenant == tenant {
@@ -1975,23 +1970,14 @@ async fn collection_get(
         payload.offset.unwrap_or(0),
         payload.include,
     )?;
-    let res = server
-        .frontend
-        .get(request)
-        .meter(metering_context_container)
-        .await?;
+    let res = Box::pin(
+        server
+            .frontend
+            .get(request)
+            .meter(metering_context_container),
+    )
+    .await?;
     Ok(Json(res))
-}
-
-#[derive(Deserialize, Debug, Clone, Serialize, ToSchema)]
-pub struct QueryRequestPayload {
-    ids: Option<Vec<String>>,
-    #[serde(flatten)]
-    where_fields: RawWhereFields,
-    query_embeddings: Vec<Vec<f32>>,
-    n_results: Option<u32>,
-    #[serde(default = "IncludeList::default_query")]
-    include: IncludeList,
 }
 
 /// Query a collection in a variety of ways, including vector search, metadata filtering, and full-text search
@@ -2035,6 +2021,12 @@ async fn collection_query(
         .await?;
     let collection_id =
         CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?;
+    let _guard = server.scorecard_request(&[
+        "op:read",
+        format!("tenant:{}", tenant).as_str(),
+        format!("collection:{}", collection_id).as_str(),
+        format!("requester:{}", requester_identity.tenant).as_str(),
+    ])?;
     let parsed_where = payload.where_fields.parse()?;
     let api_token = headers
         .get("x-chroma-token")
@@ -2055,12 +2047,6 @@ async fn collection_query(
         quota_payload = quota_payload.with_query_ids(ids);
     }
     let _ = server.quota_enforcer.enforce(&quota_payload).await?;
-    let _guard = server.scorecard_request(&[
-        "op:read",
-        format!("tenant:{}", tenant).as_str(),
-        format!("collection:{}", collection_id).as_str(),
-        format!("requester:{}", requester_identity.tenant).as_str(),
-    ])?;
 
     // Create a metering context
     let metering_context_container = if requester_identity.tenant == tenant {
@@ -2105,18 +2091,17 @@ async fn collection_query(
         payload.include,
     )?;
 
-    let res = server
-        .frontend
-        .query(request)
-        .meter(metering_context_container)
-        .await?;
+    // pin the request since future exceeds size limit (16KB)
+    // Box::pin is required to avoid stack overflow by moving future to heap
+    let res = Box::pin(
+        server
+            .frontend
+            .query(request)
+            .meter(metering_context_container),
+    )
+    .await?;
 
     Ok(Json(res))
-}
-
-#[derive(Debug, Clone, Deserialize, ToSchema)]
-pub struct SearchRequestPayload {
-    searches: Vec<SearchPayload>,
 }
 
 /// Search records from a collection with hybrid criterias.
@@ -2157,6 +2142,14 @@ async fn collection_search(
         .await?;
     let collection_id =
         CollectionUuid::from_str(&collection_id).map_err(|_| ValidationError::CollectionId)?;
+    let _guard = server.scorecard_request(&[
+        // TODO: Make this a read operation once we stablize this
+        // "op:read",
+        "op:search",
+        format!("tenant:{}", tenant).as_str(),
+        format!("collection:{}", collection_id).as_str(),
+        format!("requester:{}", requester_identity.tenant).as_str(),
+    ])?;
 
     let api_token = headers
         .get("x-chroma-token")
@@ -2166,14 +2159,6 @@ async fn collection_search(
     let quota_payload = QuotaPayload::new(Action::Search, tenant.clone(), api_token)
         .with_search_payloads(payload.searches.as_slice());
     let quota_override = server.quota_enforcer.enforce(&quota_payload).await?;
-    let _guard = server.scorecard_request(&[
-        // TODO: Make this a read operation once we stablize this
-        // "op:read",
-        "op:search",
-        format!("tenant:{}", tenant).as_str(),
-        format!("collection:{}", collection_id).as_str(),
-        format!("requester:{}", requester_identity.tenant).as_str(),
-    ])?;
 
     // Create a metering context
     let metering_context_container = if requester_identity.tenant == tenant {
@@ -2217,11 +2202,166 @@ async fn collection_search(
         }
     }
 
-    let request = SearchRequest::try_new(tenant, database, collection_id, searches)?;
+    let request = SearchRequest::try_new(
+        tenant,
+        database,
+        collection_id,
+        searches,
+        payload.read_level,
+    )?;
     let res = server
         .frontend
         .search(request)
         .meter(metering_context_container)
+        .await?;
+    Ok(Json(res))
+}
+
+/// Attach a function to a collection
+#[utoipa::path(
+    post,
+    path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/functions/attach",
+    request_body = AttachFunctionRequest,
+    responses(
+        (status = 200, description = " Function attached successfully", body = AttachFunctionResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 500, description = "Server error", body = ErrorResponse)
+    ),
+    params(
+        ("tenant" = String, Path, description = "Tenant ID"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Collection ID")
+    )
+)]
+async fn attach_function(
+    headers: HeaderMap,
+    Path((tenant, database, collection_id)): Path<(String, String, String)>,
+    State(mut server): State<FrontendServer>,
+    TracedJson(request): TracedJson<AttachFunctionRequest>,
+) -> Result<Json<AttachFunctionResponse>, ServerError> {
+    server.metrics.attach_function.add(1, &[]);
+    server
+        .authenticate_and_authorize(
+            &headers,
+            AuthzAction::CreateAttachedFunction,
+            AuthzResource {
+                tenant: Some(tenant.clone()),
+                database: Some(database.clone()),
+                collection: Some(collection_id.clone()),
+            },
+        )
+        .await?;
+
+    let _guard = server.scorecard_request(&[
+        "op:attach_function",
+        format!("tenant:{}", tenant).as_str(),
+        format!("database:{}", database).as_str(),
+    ])?;
+
+    let res = server
+        .frontend
+        .attach_function(tenant, database, collection_id, request)
+        .await?;
+    Ok(Json(res))
+}
+
+/// Get an attached function by name
+#[utoipa::path(
+    get,
+    path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/functions/{function_name}",
+    responses(
+        (status = 200, description = "Attached function retrieved successfully", body = GetAttachedFunctionResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 404, description = "Attached function not found", body = ErrorResponse),
+        (status = 500, description = "Server error", body = ErrorResponse)
+    ),
+    params(
+        ("tenant" = String, Path, description = "Tenant ID"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Collection ID"),
+        ("function_name" = String, Path, description = "Attached function name")
+    )
+)]
+async fn get_attached_function(
+    headers: HeaderMap,
+    Path((tenant, database, collection_id, function_name)): Path<(String, String, String, String)>,
+    State(mut server): State<FrontendServer>,
+) -> Result<Json<GetAttachedFunctionResponse>, ServerError> {
+    server.metrics.get_attached_function.add(1, &[]);
+    server
+        .authenticate_and_authorize(
+            &headers,
+            AuthzAction::GetCollection, // Using GetCollection as the auth action for getting attached functions
+            AuthzResource {
+                tenant: Some(tenant.clone()),
+                database: Some(database.clone()),
+                collection: Some(collection_id.clone()),
+            },
+        )
+        .await?;
+
+    let _guard = server.scorecard_request(&[
+        "op:get_attached_function",
+        format!("tenant:{}", tenant).as_str(),
+        format!("database:{}", database).as_str(),
+    ])?;
+
+    let attached_function = server
+        .frontend
+        .get_attached_function(tenant, database, collection_id, function_name)
+        .await?;
+    let attached_function_api =
+        chroma_types::AttachedFunctionApiResponse::from_attached_function(attached_function)?;
+    Ok(Json(GetAttachedFunctionResponse {
+        attached_function: attached_function_api,
+    }))
+}
+
+/// Detach a function
+#[utoipa::path(
+    post,
+    path = "/api/v2/tenants/{tenant}/databases/{database}/collections/{collection_id}/attached_functions/{name}/detach",
+    request_body = DetachFunctionRequest,
+    responses(
+        (status = 200, description = "Function detached successfully", body = DetachFunctionResponse),
+        (status = 401, description = "Unauthorized", body = ErrorResponse),
+        (status = 500, description = "Server error", body = ErrorResponse)
+    ),
+    params(
+        ("tenant" = String, Path, description = "Tenant ID"),
+        ("database" = String, Path, description = "Database name"),
+        ("collection_id" = String, Path, description = "Input collection ID"),
+        ("name" = String, Path, description = "Attached function name")
+    )
+)]
+async fn detach_function(
+    headers: HeaderMap,
+    Path((tenant, database_name, collection_id, name)): Path<(String, String, String, String)>,
+    State(mut server): State<FrontendServer>,
+    TracedJson(request): TracedJson<DetachFunctionRequest>,
+) -> Result<Json<DetachFunctionResponse>, ServerError> {
+    server.metrics.detach_function.add(1, &[]);
+    server
+        .authenticate_and_authorize(
+            &headers,
+            AuthzAction::RemoveAttachedFunction,
+            AuthzResource {
+                tenant: Some(tenant.clone()),
+                database: Some(database_name.clone()),
+                collection: Some(collection_id.clone()),
+            },
+        )
+        .await?;
+
+    let _guard = server.scorecard_request(&[
+        "op:detach_function",
+        format!("tenant:{}", tenant).as_str(),
+        format!("database:{}", database_name).as_str(),
+    ])?;
+
+    let res = server
+        .frontend
+        .detach_function(tenant, database_name, collection_id, name, request)
         .await?;
     Ok(Json(res))
 }
@@ -2284,6 +2424,10 @@ impl Modify for ChromaTokenSecurityAddon {
         collection_get,
         collection_query,
         collection_search,
+        attach_function,
+        get_attached_function,
+        detach_function,
+        indexing_status,
     ),
     // Apply our new security scheme here
     modifiers(&ChromaTokenSecurityAddon)

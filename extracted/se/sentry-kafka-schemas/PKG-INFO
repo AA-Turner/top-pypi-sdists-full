@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: sentry-kafka-schemas
+Version: 2.1.20
+Summary: Kafka topics and schemas for Sentry
+Home-page: https://github.com/getsentry/sentry-kafka-schemas
+Author: Sentry
+Author-email: oss@sentry.io
+License-File: LICENSE.md
+Requires-Dist: python-rapidjson>=1.8
+Requires-Dist: PyYAML<7.0,>=5.4
+Requires-Dist: typing-extensions>=4.0.0
+Requires-Dist: fastjsonschema>=2.16.2
+Requires-Dist: msgpack>=1.0.4
+Requires-Dist: sentry-protos>=0.2.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

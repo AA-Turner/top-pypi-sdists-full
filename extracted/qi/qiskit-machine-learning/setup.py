@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2021, 2024.
+# (C) Copyright IBM 2021, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -45,7 +45,7 @@ with open(README_PATH) as readme_file:
 setuptools.setup(
     name="qiskit-machine-learning",
     version=VERSION,
-    description="Qiskit Machine Learning: A library of quantum computing machine learning experiments",
+    description="Qiskit Machine Learning: A library of quantum machine learning experiments",
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/qiskit-community/qiskit-machine-learning",
@@ -61,10 +61,10 @@ setuptools.setup(
         "Operating System :: MacOS",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Scientific/Engineering",
     ],
     keywords="qiskit sdk quantum machine learning ml",
@@ -73,7 +73,7 @@ setuptools.setup(
     ),
     install_requires=REQUIREMENTS,
     include_package_data=True,
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     extras_require={
         "torch": ["torch"],
         "sparse": ["sparse"],

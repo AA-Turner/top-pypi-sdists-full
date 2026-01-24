@@ -25,7 +25,7 @@ def read(*rnames):
 
 
 setup(name='RestrictedPython',
-      version='8.0',
+      version='8.1',
       url='https://github.com/zopefoundation/RestrictedPython',
       license='ZPL-2.1',
       description=(
@@ -44,6 +44,7 @@ setup(name='RestrictedPython',
           'Programming Language :: Python :: 3.11',
           'Programming Language :: Python :: 3.12',
           'Programming Language :: Python :: 3.13',
+          'Programming Language :: Python :: 3.14',
           'Programming Language :: Python :: Implementation :: CPython',
           'Topic :: Security',
       ],
@@ -59,7 +60,7 @@ setup(name='RestrictedPython',
       packages=find_packages('src'),
       package_dir={'': 'src'},
       install_requires=[],
-      python_requires=">=3.9, <3.14",
+      python_requires=">=3.9, <3.15",
       extras_require={
           'test': ['pytest', 'pytest-mock'],
           'docs': ['Sphinx', 'furo'],

@@ -35,7 +35,7 @@ if sys.version_info >= (3, 8):
         def test_create_default_config(self):
             """Test creation of default configuration."""
             config = self.service_config.create_default_config()
-            self.assertEqual(config["title"], "Commander Service Mode")
+            self.assertEqual(config["title"], "Commander Service Mode Config")
             self.assertIsNone(config["port"])
             self.assertEqual(config["ngrok"], "n")
             self.assertEqual(config["ngrok_auth_token"], "")
@@ -105,21 +105,21 @@ if sys.version_info >= (3, 8):
         def test_validate_command_list_valid(self, mock_cli_handler):
             """Test command list validation with valid commands."""
             mock_cli_handler.get_help_output.return_value = """
-            Vault Commands:
-            ls  list      List vault records
-            get info     Display record details
+  Vault Commands
+    ls (list)      List vault records
+    get (info)     Display record details
             """
             params = MagicMock(spec=KeeperParams)
             result = self.service_config.validate_command_list("ls, get", params)
-            self.assertEqual(result, "ls, get")
+            self.assertEqual(result, "ls,get")
 
         @patch.object(ServiceConfig, 'cli_handler')
         def test_validate_command_list_invalid(self, mock_cli_handler):
             """Test command list validation with invalid commands."""
             mock_cli_handler.get_help_output.return_value = """
-            Vault Commands:
-            ls  list      List vault records
-            get info     Display record details
+  Vault Commands
+    ls (list)      List vault records
+    get (info)     Display record details
             """
             params = MagicMock(spec=KeeperParams)
             with self.assertRaises(ValidationError):

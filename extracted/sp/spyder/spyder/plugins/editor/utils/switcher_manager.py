@@ -13,7 +13,7 @@ import os.path as osp
 
 # Local imports
 from spyder.api.config.mixins import SpyderConfigurationAccessor
-from spyder.config.base import _
+from spyder.api.translations import _
 from spyder.utils.icon_manager import ima
 from spyder.plugins.switcher.utils import shorten_paths, get_file_icon
 from spyder.plugins.completion.api import SymbolKind, SYMBOL_KIND_ICON
@@ -241,8 +241,10 @@ class EditorSwitcherManager(SpyderConfigurationAccessor):
 
         if mode == '@' and current is not None:
             editorstack = self._editorstack()
-            line_number = int(current.get_data()['line_number'])
-            editorstack.go_to_line(line_number)
+            data = current.get_data()
+            if isinstance(data, dict):
+                line_number = int(data['line_number'])
+                editorstack.go_to_line(line_number)
 
     def editor_switcher_handler(self, data):
         """Populate switcher with FileInfo data."""

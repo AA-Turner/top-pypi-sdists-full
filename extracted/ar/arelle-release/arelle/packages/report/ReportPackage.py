@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 import zipfile
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, cast
@@ -215,15 +215,19 @@ class ReportPackage:
         if reportPackageJsonFile:
             reportPackageJson = getPackageJson(filesource, reportPackageJsonFile)
         reports = getAllReportEntries(filesource, stld)
-        if reportPackageJsonFile is None and reports is None:
+        identifedByInspection = reportPackageJsonFile is not None or reports is not None
+        if reportType == Const.ReportType.UNCONSTRAINED_REPORT_PACKAGE and not identifedByInspection:
+            # A zip file, but not a report package.
             return None
-        reportEntriesBySubDir = Counter(report.dir for report in reports or [] if not report.isTopLevel)
+        if reportType is None:
+            # Archive with unrecognized file extension.
+            if not identifedByInspection:
+                # Not a report package
+                return None
+            # Invalid file extension. Validate as report package and block loading reports.
+            reports = None
         if reports is not None and any(report.isTopLevel for report in reports):
             reports = [report for report in reports if report.isTopLevel]
-        if any(subdirCount > 1 for subdirCount in reportEntriesBySubDir.values()):
-            return None
-        if reportType and reportType.isConstrained and len(reports or []) > 1:
-            return None
         return ReportPackage(
             reportPackageZip=filesource.fs,
             stld=stld,

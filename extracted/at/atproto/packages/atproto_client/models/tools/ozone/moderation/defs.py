@@ -46,6 +46,9 @@ class ModEventView(base.ModelBase):
             'models.ToolsOzoneModerationDefs.ModEventPriorityScore',
             'models.ToolsOzoneModerationDefs.AgeAssuranceEvent',
             'models.ToolsOzoneModerationDefs.AgeAssuranceOverrideEvent',
+            'models.ToolsOzoneModerationDefs.RevokeAccountCredentialsEvent',
+            'models.ToolsOzoneModerationDefs.ScheduleTakedownEvent',
+            'models.ToolsOzoneModerationDefs.CancelScheduledTakedownEvent',
         ],
         Field(discriminator='py_type'),
     ]  #: Event.
@@ -96,6 +99,9 @@ class ModEventViewDetail(base.ModelBase):
             'models.ToolsOzoneModerationDefs.ModEventPriorityScore',
             'models.ToolsOzoneModerationDefs.AgeAssuranceEvent',
             'models.ToolsOzoneModerationDefs.AgeAssuranceOverrideEvent',
+            'models.ToolsOzoneModerationDefs.RevokeAccountCredentialsEvent',
+            'models.ToolsOzoneModerationDefs.ScheduleTakedownEvent',
+            'models.ToolsOzoneModerationDefs.CancelScheduledTakedownEvent',
         ],
         Field(discriminator='py_type'),
     ]  #: Event.
@@ -139,6 +145,9 @@ class SubjectStatusView(base.ModelBase):
     account_stats: t.Optional['models.ToolsOzoneModerationDefs.AccountStats'] = (
         None  #: Statistics related to the account subject.
     )
+    account_strike: t.Optional['models.ToolsOzoneModerationDefs.AccountStrike'] = (
+        None  #: Strike information for the account (account-level only).
+    )
     age_assurance_state: t.Optional[
         t.Union[
             t.Literal['pending'],
@@ -159,7 +168,7 @@ class SubjectStatusView(base.ModelBase):
     hosting: t.Optional[
         te.Annotated[
             t.Union['models.ToolsOzoneModerationDefs.AccountHosting', 'models.ToolsOzoneModerationDefs.RecordHosting'],
-            Field(default=None, discriminator='py_type'),
+            Field(discriminator='py_type'),
         ]
     ] = None  #: Hosting.
     last_appealed_at: t.Optional[string_formats.DateTime] = (
@@ -170,9 +179,9 @@ class SubjectStatusView(base.ModelBase):
     last_reviewed_by: t.Optional[string_formats.Did] = None  #: Last reviewed by.
     mute_reporting_until: t.Optional[string_formats.DateTime] = None  #: Mute reporting until.
     mute_until: t.Optional[string_formats.DateTime] = None  #: Mute until.
-    priority_score: t.Optional[int] = Field(
-        default=None, ge=0, le=100
-    )  #: Numeric value representing the level of priority. Higher score means higher priority.
+    priority_score: te.Annotated[t.Optional[int], Field(ge=0, le=100)] = (
+        None  #: Numeric value representing the level of priority. Higher score means higher priority.
+    )
     records_stats: t.Optional['models.ToolsOzoneModerationDefs.RecordsStats'] = (
         None  #: Statistics related to the record subjects authored by the subject's account.
     )
@@ -192,7 +201,7 @@ class SubjectView(base.ModelBase):
 
     subject: str  #: Subject.
     type: 'models.ComAtprotoModerationDefs.SubjectType'  #: Type.
-    profile: t.Optional[te.Annotated[t.Union['base.UnknownUnionModel'], Field(default=None)]] = None  #: Profile.
+    profile: t.Optional[te.Annotated[t.Union['base.UnknownUnionModel'], Field()]] = None  #: Profile.
     record: t.Optional['models.ToolsOzoneModerationDefs.RecordViewDetail'] = None  #: Record.
     repo: t.Optional['models.ToolsOzoneModerationDefs.RepoViewDetail'] = None  #: Repo.
     status: t.Optional['models.ToolsOzoneModerationDefs.SubjectStatusView'] = None  #: Status.
@@ -233,6 +242,19 @@ class RecordsStats(base.ModelBase):
     )
 
 
+class AccountStrike(base.ModelBase):
+    """Definition model for :obj:`tools.ozone.moderation.defs`. Strike information for an account."""
+
+    active_strike_count: t.Optional[int] = None  #: Current number of active strikes (excluding expired strikes).
+    first_strike_at: t.Optional[string_formats.DateTime] = None  #: Timestamp of the first strike received.
+    last_strike_at: t.Optional[string_formats.DateTime] = None  #: Timestamp of the most recent strike received.
+    total_strike_count: t.Optional[int] = None  #: Total number of strikes ever received (including expired strikes).
+
+    py_type: t.Literal['tools.ozone.moderation.defs#accountStrike'] = Field(
+        default='tools.ozone.moderation.defs#accountStrike', alias='$type', frozen=True
+    )
+
+
 SubjectReviewState = t.Union[
     'models.ToolsOzoneModerationDefs.ReviewOpen',
     'models.ToolsOzoneModerationDefs.ReviewEscalated',
@@ -268,9 +290,17 @@ class ModEventTakedown(base.ModelBase):
     duration_in_hours: t.Optional[int] = (
         None  #: Indicates how long the takedown should be in effect before automatically expiring.
     )
-    policies: t.Optional[t.List[str]] = Field(
-        default=None, max_length=5
-    )  #: Names/Keywords of the policies that drove the decision.
+    policies: te.Annotated[t.Optional[t.List[str]], Field(max_length=5)] = (
+        None  #: Names/Keywords of the policies that drove the decision.
+    )
+    severity_level: t.Optional[str] = None  #: Severity level of the violation (e.g., 'sev-0', 'sev-1', 'sev-2', etc.).
+    strike_count: t.Optional[int] = None  #: Number of strikes to assign to the user for this violation.
+    strike_expires_at: t.Optional[string_formats.DateTime] = (
+        None  #: When the strike should expire. If not provided, the strike never expires.
+    )
+    target_services: t.Optional[t.List[t.Union[t.Literal['appview'], t.Literal['pds'], str]]] = (
+        None  #: List of services where the takedown should be applied. If empty or not provided, takedown is applied on all configured services.
+    )
 
     py_type: t.Literal['tools.ozone.moderation.defs#modEventTakedown'] = Field(
         default='tools.ozone.moderation.defs#modEventTakedown', alias='$type', frozen=True
@@ -281,6 +311,15 @@ class ModEventReverseTakedown(base.ModelBase):
     """Definition model for :obj:`tools.ozone.moderation.defs`. Revert take down action on a subject."""
 
     comment: t.Optional[str] = None  #: Describe reasoning behind the reversal.
+    policies: te.Annotated[t.Optional[t.List[str]], Field(max_length=5)] = (
+        None  #: Names/Keywords of the policy infraction for which takedown is being reversed.
+    )
+    severity_level: t.Optional[str] = (
+        None  #: Severity level of the violation. Usually set from the last policy infraction's severity.
+    )
+    strike_count: t.Optional[int] = (
+        None  #: Number of strikes to subtract from the user's strike count. Usually set from the last policy infraction's severity.
+    )
 
     py_type: t.Literal['tools.ozone.moderation.defs#modEventReverseTakedown'] = Field(
         default='tools.ozone.moderation.defs#modEventReverseTakedown', alias='$type', frozen=True
@@ -355,11 +394,16 @@ class AgeAssuranceEvent(base.ModelBase):
     created_at: string_formats.DateTime  #: The date and time of this write operation.
     status: t.Union[
         t.Literal['unknown'], t.Literal['pending'], t.Literal['assured'], str
-    ]  #: The status of the age assurance process.
+    ]  #: The status of the Age Assurance process.
+    access: t.Optional['models.AppBskyAgeassuranceDefs.Access'] = None  #: Access.
     complete_ip: t.Optional[str] = None  #: The IP address used when completing the AA flow.
     complete_ua: t.Optional[str] = None  #: The user agent used when completing the AA flow.
+    country_code: t.Optional[str] = (
+        None  #: The ISO 3166-1 alpha-2 country code provided when beginning the Age Assurance flow.
+    )
     init_ip: t.Optional[str] = None  #: The IP address used when initiating the AA flow.
     init_ua: t.Optional[str] = None  #: The user agent used when initiating the AA flow.
+    region_code: t.Optional[str] = None  #: The ISO 3166-2 region code provided when beginning the Age Assurance flow.
 
     py_type: t.Literal['tools.ozone.moderation.defs#ageAssuranceEvent'] = Field(
         default='tools.ozone.moderation.defs#ageAssuranceEvent', alias='$type', frozen=True
@@ -369,13 +413,24 @@ class AgeAssuranceEvent(base.ModelBase):
 class AgeAssuranceOverrideEvent(base.ModelBase):
     """Definition model for :obj:`tools.ozone.moderation.defs`. Age assurance status override by moderators. Only works on DID subjects."""
 
-    comment: str  #: Comment describing the reason for the override.
+    comment: str = Field(min_length=1)  #: Comment describing the reason for the override.
     status: t.Union[
         t.Literal['assured'], t.Literal['reset'], t.Literal['blocked'], str
     ]  #: The status to be set for the user decided by a moderator, overriding whatever value the user had previously. Use reset to default to original state.
+    access: t.Optional['models.AppBskyAgeassuranceDefs.Access'] = None  #: Access.
 
     py_type: t.Literal['tools.ozone.moderation.defs#ageAssuranceOverrideEvent'] = Field(
         default='tools.ozone.moderation.defs#ageAssuranceOverrideEvent', alias='$type', frozen=True
+    )
+
+
+class RevokeAccountCredentialsEvent(base.ModelBase):
+    """Definition model for :obj:`tools.ozone.moderation.defs`. Account credentials revocation by moderators. Only works on DID subjects."""
+
+    comment: str = Field(min_length=1)  #: Comment describing the reason for the revocation.
+
+    py_type: t.Literal['tools.ozone.moderation.defs#revokeAccountCredentialsEvent'] = Field(
+        default='tools.ozone.moderation.defs#revokeAccountCredentialsEvent', alias='$type', frozen=True
     )
 
 
@@ -452,6 +507,21 @@ class ModEventEmail(base.ModelBase):
     subject_line: str  #: The subject line of the email sent to the user.
     comment: t.Optional[str] = None  #: Additional comment about the outgoing comm.
     content: t.Optional[str] = None  #: The content of the email sent to the user.
+    is_delivered: t.Optional[bool] = (
+        None  #: Indicates whether the email was successfully delivered to the user's inbox.
+    )
+    policies: te.Annotated[t.Optional[t.List[str]], Field(max_length=5)] = (
+        None  #: Names/Keywords of the policies that necessitated the email.
+    )
+    severity_level: t.Optional[str] = (
+        None  #: Severity level of the violation. Normally 'sev-1' that adds strike on repeat offense.
+    )
+    strike_count: t.Optional[int] = (
+        None  #: Number of strikes to assign to the user for this violation. Normally 0 as an indicator of a warning and only added as a strike on a repeat offense.
+    )
+    strike_expires_at: t.Optional[string_formats.DateTime] = (
+        None  #: When the strike should expire. If not provided, the strike never expires.
+    )
 
     py_type: t.Literal['tools.ozone.moderation.defs#modEventEmail'] = Field(
         default='tools.ozone.moderation.defs#modEventEmail', alias='$type', frozen=True
@@ -529,6 +599,29 @@ class RecordEvent(base.ModelBase):
 
     py_type: t.Literal['tools.ozone.moderation.defs#recordEvent'] = Field(
         default='tools.ozone.moderation.defs#recordEvent', alias='$type', frozen=True
+    )
+
+
+class ScheduleTakedownEvent(base.ModelBase):
+    """Definition model for :obj:`tools.ozone.moderation.defs`. Logs a scheduled takedown action for an account."""
+
+    comment: t.Optional[str] = None  #: Comment.
+    execute_after: t.Optional[string_formats.DateTime] = None  #: Execute after.
+    execute_at: t.Optional[string_formats.DateTime] = None  #: Execute at.
+    execute_until: t.Optional[string_formats.DateTime] = None  #: Execute until.
+
+    py_type: t.Literal['tools.ozone.moderation.defs#scheduleTakedownEvent'] = Field(
+        default='tools.ozone.moderation.defs#scheduleTakedownEvent', alias='$type', frozen=True
+    )
+
+
+class CancelScheduledTakedownEvent(base.ModelBase):
+    """Definition model for :obj:`tools.ozone.moderation.defs`. Logs cancellation of a scheduled takedown action for an account."""
+
+    comment: t.Optional[str] = None  #: Comment.
+
+    py_type: t.Literal['tools.ozone.moderation.defs#cancelScheduledTakedownEvent'] = Field(
+        default='tools.ozone.moderation.defs#cancelScheduledTakedownEvent', alias='$type', frozen=True
     )
 
 
@@ -658,7 +751,7 @@ class BlobView(base.ModelBase):
     details: t.Optional[
         te.Annotated[
             t.Union['models.ToolsOzoneModerationDefs.ImageDetails', 'models.ToolsOzoneModerationDefs.VideoDetails'],
-            Field(default=None, discriminator='py_type'),
+            Field(discriminator='py_type'),
         ]
     ] = None  #: Details.
     moderation: t.Optional['models.ToolsOzoneModerationDefs.Moderation'] = None  #: Moderation.
@@ -766,3 +859,39 @@ TimelineEventPlcOperation = t.Literal[
 TimelineEventPlcTombstone = t.Literal[
     'tools.ozone.moderation.defs#timelineEventPlcTombstone'
 ]  #: Moderation event timeline event for a PLC tombstone operation
+
+
+class ScheduledActionView(base.ModelBase):
+    """Definition model for :obj:`tools.ozone.moderation.defs`. View of a scheduled moderation action."""
+
+    action: t.Union[t.Literal['takedown'], str]  #: Type of action to be executed.
+    created_at: string_formats.DateTime  #: When the scheduled action was created.
+    created_by: string_formats.Did  #: DID of the user who created this scheduled action.
+    did: string_formats.Did  #: Subject DID for the action.
+    id: int  #: Auto-incrementing row ID.
+    status: t.Union[
+        t.Literal['pending'], t.Literal['executed'], t.Literal['cancelled'], t.Literal['failed'], str
+    ]  #: Current status of the scheduled action.
+    event_data: t.Optional['UnknownType'] = (
+        None  #: Serialized event object that will be propagated to the event when performed.
+    )
+    execute_after: t.Optional[string_formats.DateTime] = (
+        None  #: Earliest time to execute the action (for randomized scheduling).
+    )
+    execute_at: t.Optional[string_formats.DateTime] = None  #: Exact time to execute the action.
+    execute_until: t.Optional[string_formats.DateTime] = (
+        None  #: Latest time to execute the action (for randomized scheduling).
+    )
+    execution_event_id: t.Optional[int] = (
+        None  #: ID of the moderation event created when action was successfully executed.
+    )
+    last_executed_at: t.Optional[string_formats.DateTime] = None  #: When the action was last attempted to be executed.
+    last_failure_reason: t.Optional[str] = None  #: Reason for the last execution failure.
+    randomize_execution: t.Optional[bool] = (
+        None  #: Whether execution time should be randomized within the specified range.
+    )
+    updated_at: t.Optional[string_formats.DateTime] = None  #: When the scheduled action was last updated.
+
+    py_type: t.Literal['tools.ozone.moderation.defs#scheduledActionView'] = Field(
+        default='tools.ozone.moderation.defs#scheduledActionView', alias='$type', frozen=True
+    )

@@ -1,314 +1,293 @@
 package filetransfer_test
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/wandb/wandb/core/internal/filetransfer"
 	"github.com/wandb/wandb/core/internal/observabilitytest"
 )
 
-func TestDefaultFileTransfer_Download(t *testing.T) {
-	// Content to be downloaded
-	contentExpected := []byte("test content for download")
+// newFileTransfer returns a new DefaultFileTransfer for tests that uses
+// a non-retrying HTTP client.
+func newFileTransfer(t *testing.T) *filetransfer.DefaultFileTransfer {
+	t.Helper()
 
-	// Creating a mock HTTP server
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := retryablehttp.NewClient()
+	client.RetryMax = 0
 
-		// add body to the response
-		_, err := w.Write(contentExpected)
-		assert.NoError(t, err)
-
-		// Assertions
-		// Compare the method
-		assert.Equal(t, r.Method, http.MethodGet)
-	}))
-	defer mockServer.Close()
-
-	// Creating a file transfer
-	ft := filetransfer.NewDefaultFileTransfer(
-		retryablehttp.NewClient(),
+	return filetransfer.NewDefaultFileTransfer(
+		client,
 		observabilitytest.NewTestLogger(t),
 		filetransfer.NewFileTransferStats(),
 	)
+}
 
-	// Mocking task
+// runServer starts a server for the duration of the test running the given
+// handler function.
+//
+// Returns the server's URL.
+func runServer(
+	t *testing.T,
+	handler func(w http.ResponseWriter, r *http.Request),
+) string {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(server.Close)
+
+	return server.URL
+}
+
+// writeTempFile creates a temporary file with the given contents and returns
+// its path.
+func writeTempFile(t *testing.T, content []byte) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "test-data.txt")
+	err := os.WriteFile(path, content, 0o644)
+	require.NoError(t, err)
+
+	return path
+}
+
+func TestDefaultFileTransfer_Download(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test-file.txt")
+	contentExpected := []byte("test content for download")
+	testURL := runServer(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, r.Method, http.MethodGet)
+
+		_, err := w.Write(contentExpected)
+		assert.NoError(t, err)
+	})
+
 	task := &filetransfer.DefaultDownloadTask{
-		Path: "test-download-file.txt",
-		Url:  mockServer.URL,
+		Path: path,
+		Url:  testURL,
 	}
-	defer func() {
-		_ = os.Remove(task.Path)
-	}()
+	err := newFileTransfer(t).Download(task)
 
-	// Performing the download
-	err := ft.Download(task)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	// Read the downloaded file
-	content, err := os.ReadFile(task.Path)
+	content, err := os.ReadFile(path)
 	assert.NoError(t, err)
 	assert.Equal(t, contentExpected, content)
 	assert.Equal(t, task.Response.StatusCode, http.StatusOK)
 }
 
 func TestDefaultFileTransfer_Upload(t *testing.T) {
-	// Content to be uploaded
-	contentExpected := []byte("test content for upload")
-
-	// Headers to be tested
-	headers := []string{
+	expectedContent := []byte("test content for upload")
+	path := writeTempFile(t, expectedContent)
+	expectedHeaders := []string{
 		"X-Test-1:x:: test",
 		"X-Test-2:",
 		"X-Test-3",
 		"X-Test-4: test",
 	}
-
-	// Creating a mock HTTP server
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		// Reading the body
+	testURL := runServer(t, func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
-		// Assertions
-
-		// Compare the content
-		assert.Equal(t, contentExpected, body)
-
-		// Compare the method
+		assert.Equal(t, expectedContent, body)
 		assert.Equal(t, r.Method, http.MethodPut)
-
-		// Compare the headers
 		assert.Equal(t, r.Header.Get("X-Test-1"), "x:: test")
 		assert.Equal(t, r.Header.Get("X-Test-2"), "")
 		assert.Equal(t, r.Header.Get("X-Test-3"), "")
 		assert.Equal(t, r.Header.Get("X-Test-4"), "test")
-	}))
-	defer mockServer.Close()
+	})
 
-	// Creating a file transfer
-	ft := filetransfer.NewDefaultFileTransfer(
-		retryablehttp.NewClient(),
-		observabilitytest.NewTestLogger(t),
-		filetransfer.NewFileTransferStats(),
-	)
-
-	// Creating a file to be uploaded
-	filename := "test-upload-file.txt"
-	err := os.WriteFile(filename, contentExpected, 0644)
-	assert.NoError(t, err)
-	defer func() {
-		_ = os.Remove(filename)
-	}()
-
-	// Mocking task
 	task := &filetransfer.DefaultUploadTask{
-		Path:    filename,
-		Url:     mockServer.URL,
-		Headers: headers,
+		Path:    path,
+		Url:     testURL,
+		Headers: expectedHeaders,
 	}
+	err := newFileTransfer(t).Upload(task)
 
-	// Performing the upload
-	err = ft.Upload(task)
 	assert.NoError(t, err)
 	assert.Equal(t, task.Response.StatusCode, http.StatusOK)
 }
 
 func TestDefaultFileTransfer_UploadOffsetChunk(t *testing.T) {
-	entireContent := []byte("test content for upload")
+	path := writeTempFile(t, []byte("test content for upload"))
 	expectedContent := []byte("content")
-
-	chunkCheckHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testURL := runServer(t, func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedContent, body)
 	})
-	server := httptest.NewServer(chunkCheckHandler)
 
-	ft := filetransfer.NewDefaultFileTransfer(
-		impatientClient(),
-		observabilitytest.NewTestLogger(t),
-		filetransfer.NewFileTransferStats(),
-	)
-
-	tempFile, err := os.CreateTemp("", "")
-	assert.NoError(t, err)
-	_, err = tempFile.Write(entireContent)
-	assert.NoError(t, err)
-	_ = tempFile.Close()
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
-
-	task := &filetransfer.DefaultUploadTask{
-		Path:   tempFile.Name(),
-		Url:    server.URL,
+	err := newFileTransfer(t).Upload(&filetransfer.DefaultUploadTask{
+		Path:   path,
+		Url:    testURL,
 		Offset: 5,
 		Size:   7,
-	}
+	})
 
-	err = ft.Upload(task)
 	assert.NoError(t, err)
 }
 
 func TestDefaultFileTransfer_UploadOffsetChunkOverlong(t *testing.T) {
-	entireContent := []byte("test content for upload")
+	path := writeTempFile(t, []byte("test content for upload"))
+	testURL := runServer(t, func(w http.ResponseWriter, r *http.Request) {})
 
-	chunkCheckHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	})
-	server := httptest.NewServer(chunkCheckHandler)
-
-	ft := filetransfer.NewDefaultFileTransfer(
-		impatientClient(),
-		observabilitytest.NewTestLogger(t),
-		filetransfer.NewFileTransferStats(),
-	)
-
-	tempFile, err := os.CreateTemp("", "")
-	assert.NoError(t, err)
-	_, err = tempFile.Write(entireContent)
-	assert.NoError(t, err)
-	_ = tempFile.Close()
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
-
-	task := &filetransfer.DefaultUploadTask{
-		Path:   tempFile.Name(),
-		Url:    server.URL,
+	err := newFileTransfer(t).Upload(&filetransfer.DefaultUploadTask{
+		Path:   path,
+		Url:    testURL,
 		Offset: 17,
 		Size:   1000,
-	}
+	})
 
-	err = ft.Upload(task)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "offset + size exceeds the file size")
+	assert.ErrorContains(t, err, "offset + size exceeds the file size")
 }
 
 func TestDefaultFileTransfer_UploadNotFound(t *testing.T) {
-	fnfHandler := func(w http.ResponseWriter, r *http.Request) {
+	path := writeTempFile(t, []byte("test data"))
+	testURL := runServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-	}
-	err := uploadToServerWithHandler(t, fnfHandler)
+	})
+
+	err := newFileTransfer(t).Upload(&filetransfer.DefaultUploadTask{
+		Path: path,
+		Url:  testURL,
+	})
+
+	assert.ErrorContains(t, err, "404")
+}
+
+func TestDefaultFileTransfer_UploadErrorWithBody(t *testing.T) {
+	path := writeTempFile(t, []byte("test data"))
+	errorBody := "detailed error message from server"
+	testURL := runServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(errorBody))
+	})
+
+	err := newFileTransfer(t).Upload(&filetransfer.DefaultUploadTask{
+		Path: path,
+		Url:  testURL,
+	})
+
+	assert.ErrorContains(t, err, "400")
+	assert.ErrorContains(t, err, errorBody)
+}
+
+func TestDefaultFileTransfer_UploadErrorWithLargeBody(t *testing.T) {
+	path := writeTempFile(t, []byte("test data"))
+	largeErrorBody := strings.Repeat("error message ", 100)
+	testURL := runServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(largeErrorBody))
+	})
+
+	err := newFileTransfer(t).Upload(&filetransfer.DefaultUploadTask{
+		Path: path,
+		Url:  testURL,
+	})
+
+	assert.ErrorContains(t, err, "400")
+	assert.ErrorContains(t, err, "error message")
+	// 100 bytes for the prefix in the error
+	assert.Less(t, len(err.Error()), 1024+100)
+}
+
+func TestDefaultFileTransfer_UploadErrorWithUnreadableBody(t *testing.T) {
+	path := writeTempFile(t, []byte("test data"))
+	testURL := runServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(http.StatusBadRequest)
+		// Close connection without sending body to simulate read error
+		hj, ok := w.(http.Hijacker)
+		require.True(t, ok, "webserver doesn't support hijacking")
+
+		conn, _, err := hj.Hijack()
+		require.NoError(t, err, "hijacking error")
+
+		_ = conn.Close()
+	})
+
+	err := newFileTransfer(t).Upload(&filetransfer.DefaultUploadTask{
+		Path: path,
+		Url:  testURL,
+	})
+
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "404")
-	// 404s shouldn't be retried.
-	assert.NotContains(t, err.Error(), "giving up after 2 attempt(s)")
+	assert.Contains(t, err.Error(), "400")
+	assert.Contains(t, err.Error(), "error reading body")
 }
 
 func TestDefaultFileTransfer_UploadConnectionClosed(t *testing.T) {
-	closeHandler := func(w http.ResponseWriter, r *http.Request) {
+	path := writeTempFile(t, []byte("test data"))
+	testURL := runServer(t, func(w http.ResponseWriter, r *http.Request) {
 		hj, ok := w.(http.Hijacker)
-		assert.True(t, ok, "webserver doesn't support hijacking")
+		require.True(t, ok, "webserver doesn't support hijacking")
+
 		conn, _, err := hj.Hijack()
-		assert.NoError(t, err, "hijacking error")
+		require.NoError(t, err, "hijacking error")
+
 		_ = conn.Close()
-	}
-	err := uploadToServerWithHandler(t, closeHandler)
-	assert.Error(t, err)
-	assert.Condition(t, func() bool {
-		return strings.Contains(err.Error(), "EOF") ||
-			strings.Contains(err.Error(), "connection reset")
 	})
-	assert.Contains(t, err.Error(), "giving up after 2 attempt(s)")
+
+	err := newFileTransfer(t).Upload(&filetransfer.DefaultUploadTask{
+		Path: path,
+		Url:  testURL,
+	})
+
+	// Can be "EOF", "use of closed network connection" or others.
+	assert.Error(t, err)
 }
 
 func TestDefaultFileTransfer_UploadContextCancelled(t *testing.T) {
+	path := writeTempFile(t, []byte("test data"))
 	ctx, cancel := context.WithCancel(context.Background())
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testURL := runServer(t, func(w http.ResponseWriter, r *http.Request) {
 		cancel()
-	}))
-	ft := filetransfer.NewDefaultFileTransfer(
-		impatientClient(),
-		observabilitytest.NewTestLogger(t),
-		filetransfer.NewFileTransferStats(),
-	)
+	})
 
-	tempFile, err := os.CreateTemp("", "")
-	assert.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
-
-	err = ft.Upload(&filetransfer.DefaultUploadTask{
-		Path:    tempFile.Name(),
-		Url:     server.URL,
+	err := newFileTransfer(t).Upload(&filetransfer.DefaultUploadTask{
+		Path:    path,
+		Url:     testURL,
 		Context: ctx,
 	})
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "context canceled")
-	// Context cancellation shouldn't result in a retry.
-	assert.NotContains(t, err.Error(), "giving up after 2 attempt(s)")
 }
 
-func TestDefaultFileTransfer_UploadNoServer(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
-	ft := filetransfer.NewDefaultFileTransfer(
-		impatientClient(),
-		observabilitytest.NewTestLogger(t),
-		filetransfer.NewFileTransferStats(),
+func TestProgressReader_TracksProgress(t *testing.T) {
+	var lastProcessed, lastTotal int64
+	callback := func(processed, total int64) {
+		lastProcessed = processed
+		lastTotal = total
+	}
+	data := bytes.NewReader([]byte("some data"))
+	progressReader := filetransfer.NewProgressReader(
+		data,
+		int64(data.Len()),
+		callback,
 	)
 
-	tempFile, err := os.CreateTemp("", "")
+	_, err := progressReader.Read(make([]byte, 2))
 	assert.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
+	assert.EqualValues(t, 2, lastProcessed)
+	assert.EqualValues(t, 9, lastTotal)
 
-	task := &filetransfer.DefaultUploadTask{
-		Path: tempFile.Name(),
-		Url:  server.URL,
-	}
-
-	// Close the server before the upload begins.
-	server.Close()
-
-	err = ft.Upload(task)
-	assert.Error(t, err)
-	assert.Nil(t, task.Response)
-	assert.Contains(t, err.Error(), "connection refused")
-	assert.Contains(t, err.Error(), "giving up after 2 attempt(s)")
-}
-
-func uploadToServerWithHandler(
-	t *testing.T,
-	handler func(w http.ResponseWriter, r *http.Request),
-) error {
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
-	ft := filetransfer.NewDefaultFileTransfer(
-		impatientClient(),
-		observabilitytest.NewTestLogger(t),
-		filetransfer.NewFileTransferStats(),
-	)
-
-	tempFile, err := os.CreateTemp("", "")
+	_, err = progressReader.Seek(2, io.SeekCurrent)
 	assert.NoError(t, err)
-	defer func() {
-		_ = os.Remove(tempFile.Name())
-	}()
+	assert.EqualValues(t, 4, lastProcessed)
+	assert.EqualValues(t, 9, lastTotal)
 
-	task := &filetransfer.DefaultUploadTask{
-		Path: tempFile.Name(),
-		Url:  server.URL,
-	}
-
-	return ft.Upload(task)
-}
-
-func impatientClient() *retryablehttp.Client {
-	client := retryablehttp.NewClient()
-	client.RetryMax = 1
-	client.RetryWaitMin = 1 * time.Millisecond
-	return client
+	_, err = progressReader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	assert.EqualValues(t, 0, lastProcessed)
+	assert.EqualValues(t, 9, lastTotal)
 }

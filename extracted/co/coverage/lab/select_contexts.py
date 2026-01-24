@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """\
 Select certain contexts from a coverage.py data file.
@@ -19,7 +19,7 @@ def main(argv):
     args = parser.parse_args(argv)
 
     print("** Note: this is a proof-of-concept. Support is not promised. **")
-    print("Feedback is appreciated: https://github.com/nedbat/coveragepy/issues/668")
+    print("Feedback is appreciated: https://github.com/coveragepy/coveragepy/issues/668")
 
     cov_in = coverage.Coverage()
     cov_in.load()

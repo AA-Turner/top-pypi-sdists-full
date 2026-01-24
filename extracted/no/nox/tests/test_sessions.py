@@ -40,9 +40,6 @@ import nox.virtualenv
 from nox import _options
 from nox.logger import logger
 
-HAS_CONDA = shutil.which("conda") is not None
-has_conda = pytest.mark.skipif(not HAS_CONDA, reason="Missing conda command.")
-
 DIR = Path(__file__).parent.resolve()
 
 
@@ -197,6 +194,13 @@ class TestSession:
             _ = session.virtualenv
 
         assert session.venv_backend == "none"
+
+    def test_virtualenv_directory(self) -> None:
+        session, runner = self.make_session_and_runner()
+
+        with tempfile.TemporaryDirectory() as root:
+            runner.global_config.envdir = root
+            assert session.env_dir == Path(runner.envdir)
 
     def test_interactive(self) -> None:
         session, _runner = self.make_session_and_runner()
@@ -399,7 +403,7 @@ class TestSession:
     ) -> None:
         monkeypatch.setenv("I_SHOULD_NOT_BE_INCLUDED", "sad")
         monkeypatch.setenv("AND_NEITHER_SHOULD_I", "unhappy")
-        session, runner = self.make_session_and_runner()
+        session, _runner = self.make_session_and_runner()
         result = session.run(
             sys.executable,
             "-c",
@@ -433,7 +437,7 @@ class TestSession:
         runner.venv.allowed_globals = ("conda",)  # type: ignore[misc]
         runner.venv.env = {}
         runner.venv.bin_paths = ["/path/to/env/bin"]  # type: ignore[misc]
-        runner.venv.create.return_value = True  # type: ignore[attr-defined]
+        runner.venv.create.return_value = True  # type: ignore[union-attr]
 
         with mock.patch("nox.command.run", autospec=True) as run:
             session.run("conda", "--version")
@@ -633,8 +637,8 @@ class TestSession:
         assert runner.venv
         runner.venv.location = "/path/to/conda/env"
         runner.venv.env = {}
-        runner.venv.is_offline = lambda: offline  # type: ignore[attr-defined]
-        runner.venv.conda_cmd = conda  # type: ignore[attr-defined]
+        runner.venv.is_offline = lambda: offline  # type: ignore[union-attr]
+        runner.venv.conda_cmd = conda  # type: ignore[union-attr]
 
         class SessionNoSlots(nox.sessions.Session):
             pass
@@ -680,8 +684,8 @@ class TestSession:
         assert runner.venv
         runner.venv.location = "/path/to/conda/env"
         runner.venv.env = {}
-        runner.venv.is_offline = lambda: True  # type: ignore[attr-defined]
-        runner.venv.conda_cmd = "conda"  # type: ignore[attr-defined]
+        runner.venv.is_offline = lambda: True  # type: ignore[union-attr]
+        runner.venv.conda_cmd = "conda"  # type: ignore[union-attr]
 
         runner.global_config.no_install = no_install
         runner.venv._reused = reused
@@ -708,8 +712,8 @@ class TestSession:
         assert runner.venv
         runner.venv.location = "/path/to/conda/env"
         runner.venv.env = {}
-        runner.venv.is_offline = lambda: False  # type: ignore[attr-defined]
-        runner.venv.conda_cmd = "conda"  # type: ignore[attr-defined]
+        runner.venv.is_offline = lambda: False  # type: ignore[union-attr]
+        runner.venv.conda_cmd = "conda"  # type: ignore[union-attr]
 
         class SessionNoSlots(nox.sessions.Session):
             pass
@@ -839,6 +843,80 @@ class TestSession:
             ),
         ):
             session.install("requests", "urllib3")
+
+    @pytest.mark.parametrize(
+        ("verbose", "expected_silent"),
+        [
+            (True, False),
+            (False, True),
+        ],
+    )
+    def test_install_verbose(self, verbose: bool, expected_silent: bool) -> None:
+        runner = nox.sessions.SessionRunner(
+            name="test",
+            signatures=["test"],
+            func=mock.sentinel.func,
+            global_config=_options.options.namespace(posargs=[], verbose=verbose),
+            manifest=mock.create_autospec(nox.manifest.Manifest),
+        )
+        runner.venv = make_fake_env()
+
+        class SessionNoSlots(nox.sessions.Session):
+            pass
+
+        session = SessionNoSlots(runner=runner)
+
+        with mock.patch.object(session, "_run", autospec=True) as run:
+            session.install("requests", "urllib3")
+            run.assert_called_once_with(
+                "python",
+                "-m",
+                "pip",
+                "install",
+                "requests",
+                "urllib3",
+                **_run_with_defaults(silent=expected_silent, external="error"),
+            )
+
+    @pytest.mark.parametrize(
+        ("verbose", "expected_silent"),
+        [
+            (True, False),
+            (False, True),
+        ],
+    )
+    def test_conda_install_verbose(self, verbose: bool, expected_silent: bool) -> None:
+        runner = nox.sessions.SessionRunner(
+            name="test",
+            signatures=["test"],
+            func=mock.sentinel.func,
+            global_config=_options.options.namespace(posargs=[], verbose=verbose),
+            manifest=mock.create_autospec(nox.manifest.Manifest),
+        )
+        runner.venv = mock.create_autospec(nox.virtualenv.CondaEnv)
+        assert runner.venv
+        runner.venv.location = "/path/to/conda/env"
+        runner.venv.env = {}
+        runner.venv.is_offline = lambda: False  # type: ignore[union-attr]
+        runner.venv.conda_cmd = "conda"  # type: ignore[union-attr]
+
+        class SessionNoSlots(nox.sessions.Session):
+            pass
+
+        session = SessionNoSlots(runner=runner)
+
+        with mock.patch.object(session, "_run", autospec=True) as run:
+            session.conda_install("requests", "urllib3")
+            run.assert_called_once_with(
+                "conda",
+                "install",
+                "--yes",
+                "--prefix",
+                "/path/to/conda/env",
+                "requests",
+                "urllib3",
+                **_run_with_defaults(silent=expected_silent, external="error"),
+            )
 
     def test_notify(self) -> None:
         session, runner = self.make_session_and_runner()
@@ -1044,7 +1122,8 @@ class TestSession:
         session, _ = self.make_session_and_runner()
 
         with pytest.raises(
-            ValueError, match="First argument to `session.run` is a list. Did you mean"
+            ValueError,
+            match=re.escape("First argument to `session.run` is a list. Did you mean"),
         ):
             session.run(["ls", "-al"])  # type: ignore[arg-type]
 
@@ -1150,7 +1229,7 @@ class TestSessionRunner:
                 "nox.virtualenv.CondaEnv.create",
                 "conda",
                 nox.virtualenv.CondaEnv,
-                marks=has_conda,
+                marks=pytest.mark.conda,
             ),
         ],
     )
@@ -1221,7 +1300,7 @@ class TestSessionRunner:
             "nox.virtualenv.VirtualEnv.create", autospec=True
         ), pytest.raises(
             ValueError,
-            match="No backends present|Only optional backends|Expected venv_backend",
+            match=r"No backends present|Only optional backends|Expected venv_backend",
         ):
             runner._create_venv()
 
@@ -1423,30 +1502,32 @@ class TestResult:
     def test__bool_true(self) -> None:
         for status in (nox.sessions.Status.SUCCESS, nox.sessions.Status.SKIPPED):
             result = nox.sessions.Result(
-                session=typing.cast(nox.sessions.SessionRunner, object()), status=status
+                session=typing.cast("nox.sessions.SessionRunner", object()),
+                status=status,
             )
             assert bool(result)
 
     def test__bool_false(self) -> None:
         for status in (nox.sessions.Status.FAILED, nox.sessions.Status.ABORTED):
             result = nox.sessions.Result(
-                session=typing.cast(nox.sessions.SessionRunner, object()), status=status
+                session=typing.cast("nox.sessions.SessionRunner", object()),
+                status=status,
             )
             assert not bool(result)
 
     def test__imperfect(self) -> None:
         result = nox.sessions.Result(
-            typing.cast(nox.sessions.SessionRunner, object()),
+            typing.cast("nox.sessions.SessionRunner", object()),
             nox.sessions.Status.SUCCESS,
         )
         assert result.imperfect == "was successful"
         result = nox.sessions.Result(
-            typing.cast(nox.sessions.SessionRunner, object()),
+            typing.cast("nox.sessions.SessionRunner", object()),
             nox.sessions.Status.FAILED,
         )
         assert result.imperfect == "failed"
         result = nox.sessions.Result(
-            typing.cast(nox.sessions.SessionRunner, object()),
+            typing.cast("nox.sessions.SessionRunner", object()),
             nox.sessions.Status.FAILED,
             reason="meep",
         )
@@ -1454,7 +1535,7 @@ class TestResult:
 
     def test__log_success(self) -> None:
         result = nox.sessions.Result(
-            typing.cast(nox.sessions.SessionRunner, object()),
+            typing.cast("nox.sessions.SessionRunner", object()),
             nox.sessions.Status.SUCCESS,
         )
         with mock.patch.object(logger, "success") as success:
@@ -1463,7 +1544,7 @@ class TestResult:
 
     def test__log_warning(self) -> None:
         result = nox.sessions.Result(
-            typing.cast(nox.sessions.SessionRunner, object()),
+            typing.cast("nox.sessions.SessionRunner", object()),
             nox.sessions.Status.SKIPPED,
         )
         with mock.patch.object(logger, "warning") as warning:
@@ -1472,7 +1553,7 @@ class TestResult:
 
     def test__log_error(self) -> None:
         result = nox.sessions.Result(
-            typing.cast(nox.sessions.SessionRunner, object()),
+            typing.cast("nox.sessions.SessionRunner", object()),
             nox.sessions.Status.FAILED,
         )
         with mock.patch.object(logger, "error") as error:
@@ -1482,7 +1563,7 @@ class TestResult:
     def test__serialize(self) -> None:
         result = nox.sessions.Result(
             session=typing.cast(
-                nox.sessions.SessionRunner,
+                "nox.sessions.SessionRunner",
                 argparse.Namespace(
                     signatures=["siggy"], name="namey", func=mock.Mock()
                 ),

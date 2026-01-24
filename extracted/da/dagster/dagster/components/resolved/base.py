@@ -3,15 +3,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import MISSING, fields, is_dataclass
 from enum import Enum, auto
 from functools import partial
-from types import GenericAlias
+from types import UnionType
 from typing import Annotated, Any, Final, Literal, Optional, TypeVar, Union, get_args, get_origin
 
 import yaml
 from dagster_shared.record import get_record_annotations, get_record_defaults, is_record, record
+from dagster_shared.utils import safe_is_subclass
 from dagster_shared.yaml_utils import try_parse_yaml_with_source_position
 from pydantic import BaseModel, PydanticSchemaGenerationError, create_model
 from pydantic.fields import Field, FieldInfo
-from typing_extensions import TypeGuard
 
 from dagster import _check as check
 from dagster._annotations import public
@@ -19,12 +19,6 @@ from dagster._utils.pydantic_yaml import _parse_and_populate_model_with_annotate
 from dagster.components.resolved.context import ResolutionContext
 from dagster.components.resolved.errors import ResolutionException
 from dagster.components.resolved.model import Model, Resolver
-
-try:
-    # this type only exists in python 3.10+
-    from types import UnionType  # type: ignore
-except ImportError:
-    UnionType = Union
 
 
 class _TypeContainer(Enum):
@@ -184,7 +178,11 @@ def derive_model_type(
 
             field_infos = []
             if annotation_info.field_info:
-                field_infos.append(annotation_info.field_info)
+                # remove the default_factory as we set a `default` marker field on the Model type
+                # for unserializable defaults (and functions are not serializable)
+                field_infos.append(
+                    FieldInfo.merge_field_infos(annotation_info.field_info, default_factory=None)
+                )
 
             if annotation_info.has_default:
                 # if the annotation has a serializable default
@@ -237,15 +235,15 @@ def _is_implicitly_resolved_type(annotation):
     if annotation in (int, float, str, bool, Any, type(None), list, dict):
         return True
 
-    if _safe_is_subclass(annotation, Enum):
+    if safe_is_subclass(annotation, Enum):
         return True
 
-    if _safe_is_subclass(annotation, Resolvable):
+    if safe_is_subclass(annotation, Resolvable):
         # ensure valid Resolvable subclass
         annotation.model()
         return False
 
-    if _safe_is_subclass(annotation, BaseModel):
+    if safe_is_subclass(annotation, BaseModel):
         _ensure_non_resolvable_model_compliance(annotation)
         return True
 
@@ -264,7 +262,7 @@ def _is_implicitly_resolved_type(annotation):
 
 
 def _is_resolvable_type(annotation):
-    return _is_implicitly_resolved_type(annotation) or _safe_is_subclass(annotation, Resolvable)
+    return _is_implicitly_resolved_type(annotation) or safe_is_subclass(annotation, Resolvable)
 
 
 @record
@@ -290,7 +288,7 @@ def _get_annotations(
                 field_info=None,
             )
         return annotations
-    elif _safe_is_subclass(resolved_type, BaseModel):
+    elif safe_is_subclass(resolved_type, BaseModel):
         for name, field_info in resolved_type.model_fields.items():
             has_default = not field_info.is_required()
             annotations[name] = AnnotationInfo(
@@ -389,14 +387,6 @@ def resolve_fields(
 T = TypeVar("T")
 
 
-def _safe_is_subclass(obj, cls: type[T]) -> TypeGuard[type[T]]:
-    return (
-        isinstance(obj, type)
-        and not isinstance(obj, GenericAlias)  # prevent exceptions on 3.9
-        and issubclass(obj, cls)
-    )
-
-
 def _get_resolver(annotation: Any, field_name: str) -> "Resolver":
     origin = get_origin(annotation)
     args = get_args(annotation)
@@ -447,7 +437,7 @@ def _dig_for_resolver(annotation, path: Sequence[_TypeContainer]) -> Optional[Re
 
     origin = get_origin(annotation)
     args = get_args(annotation)
-    if _safe_is_subclass(annotation, Resolvable):
+    if safe_is_subclass(annotation, Resolvable):
         return Resolver(
             partial(
                 _resolve_at_path,

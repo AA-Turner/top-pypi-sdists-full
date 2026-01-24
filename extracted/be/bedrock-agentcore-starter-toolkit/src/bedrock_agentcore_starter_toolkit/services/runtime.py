@@ -5,6 +5,7 @@ import logging
 import time
 import urllib.parse
 import uuid
+from importlib.metadata import version
 from typing import Any, Dict, Optional
 
 import boto3
@@ -19,9 +20,50 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
+def _get_user_agent() -> str:
+    """Get user-agent string for agentcore-st.
+
+    Returns:
+        User-agent string in format: agentcore-st/{version}
+    """
+    try:
+        pkg_version = version("bedrock-agentcore-starter-toolkit")
+    except Exception:
+        pkg_version = "unknown"
+    return f"agentcore-st/{pkg_version}"
+
+
 def generate_session_id() -> str:
     """Generate session ID."""
     return str(uuid.uuid4())
+
+
+def _validate_runtime_type(runtime_type: Optional[str]) -> str:
+    """Validate runtime type format.
+
+    Args:
+        runtime_type: Runtime type (e.g., 'PYTHON_3_10', 'PYTHON_3_11')
+
+    Returns:
+        Runtime type or default 'PYTHON_3_11'
+
+    Raises:
+        ValueError: If runtime_type format is invalid
+    """
+    if not runtime_type:
+        return "PYTHON_3_11"  # Default to Python 3.11
+
+    # Valid formats: PYTHON_3_10, PYTHON_3_11, PYTHON_3_12, PYTHON_3_13
+    valid_runtimes = ["PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13"]
+
+    if runtime_type not in valid_runtimes:
+        raise ValueError(
+            f"Invalid runtime_type: '{runtime_type}'. "
+            f"Must be one of: {', '.join(valid_runtimes)}. "
+            f"Update your .bedrock_agentcore.yaml file."
+        )
+
+    return runtime_type
 
 
 def _handle_http_response(response) -> dict:
@@ -98,6 +140,8 @@ class BedrockAgentCoreClient:
         control_plane_url = get_control_plane_endpoint(region)
         data_plane_url = get_data_plane_endpoint(region)
 
+        self.dp_endpoint = data_plane_url
+
         self.logger.debug("Initializing Bedrock AgentCore client for region: %s", region)
         self.logger.debug("Control plane: %s", control_plane_url)
         self.logger.debug("Data plane: %s", data_plane_url)
@@ -106,6 +150,7 @@ class BedrockAgentCoreClient:
             read_timeout=900,
             connect_timeout=60,
             retries={"max_attempts": 3},
+            user_agent_extra=_get_user_agent(),
         )
 
         self.client = boto3.client(
@@ -118,21 +163,73 @@ class BedrockAgentCoreClient:
     def create_agent(
         self,
         agent_name: str,
-        image_uri: str,
         execution_role_arn: str,
+        # Code zip parameters (for direct_code_deploy deployment)
+        deployment_type: str = "direct_code_deploy",
+        code_s3_bucket: Optional[str] = None,
+        code_s3_key: Optional[str] = None,
+        runtime_type: Optional[str] = None,
+        entrypoint_array: Optional[list] = None,
+        entrypoint_handler: Optional[str] = None,
+        # Container parameters (for container deployment)
+        image_uri: Optional[str] = None,
+        # Common parameters
         network_config: Optional[Dict] = None,
         authorizer_config: Optional[Dict] = None,
+        request_header_config: Optional[Dict] = None,
         protocol_config: Optional[Dict] = None,
         env_vars: Optional[Dict] = None,
         auto_update_on_conflict: bool = False,
+        lifecycle_config: Optional[Dict] = None,
     ) -> Dict[str, str]:
-        """Create new agent."""
-        self.logger.info("Creating agent '%s' with image URI: %s", agent_name, image_uri)
+        """Create new agent with either direct_code_deploy or container deployment.
+
+        Args:
+            agent_name: Name of the agent
+            execution_role_arn: IAM role ARN for execution
+            deployment_type: "direct_code_deploy" or "container"
+            code_s3_bucket: S3 bucket for code zip (direct_code_deploy only)
+            code_s3_key: S3 key for code zip (direct_code_deploy only)
+            runtime_type: Python runtime version (direct_code_deploy only, e.g., "PYTHON_3_10")
+            entrypoint_array: Entrypoint as array (direct_code_deploy only)
+                Examples: ["agent.py"] or ["opentelemetry-instrument", "agent.py"]
+            entrypoint_handler: Handler function name (direct_code_deploy only, e.g., "app")
+            image_uri: Container image URI (container only)
+            network_config: Network configuration
+            authorizer_config: Authorizer configuration
+            request_header_config: Request header configuration
+            protocol_config: Protocol configuration
+            env_vars: Environment variables
+            auto_update_on_conflict: Whether to auto-update on conflict
+            lifecycle_config: Lifecycle configuration for session timeouts
+
+        Returns:
+            Dict with agent id and arn
+        """
+        if deployment_type == "direct_code_deploy":
+            self.logger.info(
+                "Creating agent '%s' with direct_code_deploy deployment (runtime: %s)", agent_name, runtime_type
+            )
+        else:
+            self.logger.info("Creating agent '%s' with container deployment (image: %s)", agent_name, image_uri)
+
         try:
+            # Build artifact configuration based on deployment type
+            if deployment_type == "direct_code_deploy":
+                artifact_config = {
+                    "codeConfiguration": {
+                        "code": {"s3": {"bucket": code_s3_bucket, "prefix": code_s3_key}},
+                        "runtime": _validate_runtime_type(runtime_type),  # Validate and default to PYTHON_3_11
+                        "entryPoint": entrypoint_array or [],  # Array already formatted
+                    }
+                }
+            else:  # container
+                artifact_config = {"containerConfiguration": {"containerUri": image_uri}}
+
             # Build parameters dict, only including optional configs when present
             params = {
                 "agentRuntimeName": agent_name,
-                "agentRuntimeArtifact": {"containerConfiguration": {"containerUri": image_uri}},
+                "agentRuntimeArtifact": artifact_config,
                 "roleArn": execution_role_arn,
             }
 
@@ -142,23 +239,29 @@ class BedrockAgentCoreClient:
             if authorizer_config is not None:
                 params["authorizerConfiguration"] = authorizer_config
 
+            if request_header_config is not None:
+                params["requestHeaderConfiguration"] = request_header_config
+
             if protocol_config is not None:
                 params["protocolConfiguration"] = protocol_config
 
             if env_vars is not None:
                 params["environmentVariables"] = env_vars
 
+            if lifecycle_config is not None:
+                params["lifecycleConfiguration"] = lifecycle_config
+
             resp = self.client.create_agent_runtime(**params)
             agent_id = resp["agentRuntimeId"]
             agent_arn = resp["agentRuntimeArn"]
             self.logger.info("Successfully created agent '%s' with ID: %s, ARN: %s", agent_name, agent_id, agent_arn)
             return {"id": agent_id, "arn": agent_arn}
+
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code")
             if error_code == "ConflictException":
                 if not auto_update_on_conflict:
                     self.logger.error("Agent '%s' already exists and auto_update_on_conflict is disabled", agent_name)
-                    # Create a more helpful error message
                     raise ClientError(
                         {
                             "Error": {
@@ -192,12 +295,19 @@ class BedrockAgentCoreClient:
                 # Update the existing agent
                 self.update_agent(
                     existing_agent_id,
-                    image_uri,
                     execution_role_arn,
-                    network_config,
-                    authorizer_config,
-                    protocol_config,
-                    env_vars,
+                    deployment_type=deployment_type,
+                    code_s3_bucket=code_s3_bucket,
+                    code_s3_key=code_s3_key,
+                    runtime_type=runtime_type,
+                    entrypoint_array=entrypoint_array,
+                    entrypoint_handler=entrypoint_handler,
+                    image_uri=image_uri,
+                    network_config=network_config,
+                    authorizer_config=authorizer_config,
+                    request_header_config=request_header_config,
+                    protocol_config=protocol_config,
+                    env_vars=env_vars,
                 )
 
                 # Return the existing agent info (keeping the original ID and ARN)
@@ -212,20 +322,71 @@ class BedrockAgentCoreClient:
     def update_agent(
         self,
         agent_id: str,
-        image_uri: str,
         execution_role_arn: str,
+        # Code zip parameters (for direct_code_deploy deployment)
+        deployment_type: str = "direct_code_deploy",
+        code_s3_bucket: Optional[str] = None,
+        code_s3_key: Optional[str] = None,
+        runtime_type: Optional[str] = None,
+        entrypoint_array: Optional[list] = None,
+        entrypoint_handler: Optional[str] = None,
+        # Container parameters (for container deployment)
+        image_uri: Optional[str] = None,
+        # Common parameters
         network_config: Optional[Dict] = None,
         authorizer_config: Optional[Dict] = None,
+        request_header_config: Optional[Dict] = None,
         protocol_config: Optional[Dict] = None,
         env_vars: Optional[Dict] = None,
+        lifecycle_config: Optional[Dict] = None,
     ) -> Dict[str, str]:
-        """Update existing agent."""
-        self.logger.info("Updating agent ID '%s' with image URI: %s", agent_id, image_uri)
+        """Update existing agent with either direct_code_deploy or container deployment.
+
+        Args:
+            agent_id: Agent ID to update
+            execution_role_arn: IAM role ARN for execution
+            deployment_type: "direct_code_deploy" or "container"
+            code_s3_bucket: S3 bucket for code zip (direct_code_deploy only)
+            code_s3_key: S3 key for code zip (direct_code_deploy only)
+            runtime_type: Python runtime version (direct_code_deploy only)
+            entrypoint_array: Entrypoint as array (direct_code_deploy only)
+                Examples: ["agent.py"] or ["opentelemetry-instrument", "agent.py"]
+            entrypoint_handler: Handler function name (direct_code_deploy only)
+            image_uri: Container image URI (container only)
+            network_config: Network configuration
+            authorizer_config: Authorizer configuration
+            request_header_config: Request header configuration
+            protocol_config: Protocol configuration
+            env_vars: Environment variables
+            lifecycle_config: Lifecycle configuration for session timeouts
+
+        Returns:
+            Dict with agent id and arn
+        """
+        if deployment_type == "direct_code_deploy":
+            self.logger.info(
+                "Updating agent ID '%s' with direct_code_deploy deployment (runtime: %s)", agent_id, runtime_type
+            )
+        else:
+            self.logger.info("Updating agent ID '%s' with container deployment (image: %s)", agent_id, image_uri)
+
         try:
+            # Build artifact configuration based on deployment type
+            if deployment_type == "direct_code_deploy":
+                artifact_config = {
+                    "codeConfiguration": {
+                        "code": {"s3": {"bucket": code_s3_bucket, "prefix": code_s3_key}},
+                        "runtime": _validate_runtime_type(runtime_type),  # Validate and default to PYTHON_3_11
+                        "entryPoint": entrypoint_array or [],  # Array already formatted
+                    }
+                }
+            else:  # container
+                artifact_config = {"containerConfiguration": {"containerUri": image_uri}}
+
             # Build parameters dict, only including optional configs when present
             params = {
                 "agentRuntimeId": agent_id,
-                "agentRuntimeArtifact": {"containerConfiguration": {"containerUri": image_uri}},
+                "agentRuntimeArtifact": artifact_config,
                 "roleArn": execution_role_arn,
             }
 
@@ -235,11 +396,17 @@ class BedrockAgentCoreClient:
             if authorizer_config is not None:
                 params["authorizerConfiguration"] = authorizer_config
 
+            if request_header_config is not None:
+                params["requestHeaderConfiguration"] = request_header_config
+
             if protocol_config is not None:
                 params["protocolConfiguration"] = protocol_config
 
             if env_vars is not None:
                 params["environmentVariables"] = env_vars
+
+            if lifecycle_config is not None:
+                params["lifecycleConfiguration"] = lifecycle_config
 
             resp = self.client.update_agent_runtime(**params)
             agent_arn = resp["agentRuntimeArn"]
@@ -293,28 +460,61 @@ class BedrockAgentCoreClient:
         self,
         agent_id: Optional[str],
         agent_name: str,
-        image_uri: str,
         execution_role_arn: str,
+        # Code zip parameters
+        deployment_type: str = "direct_code_deploy",
+        code_s3_bucket: Optional[str] = None,
+        code_s3_key: Optional[str] = None,
+        runtime_type: Optional[str] = None,
+        entrypoint_array: Optional[list] = None,
+        entrypoint_handler: Optional[str] = None,
+        # Container parameters
+        image_uri: Optional[str] = None,
+        # Common parameters
         network_config: Optional[Dict] = None,
         authorizer_config: Optional[Dict] = None,
+        request_header_config: Optional[Dict] = None,
         protocol_config: Optional[Dict] = None,
         env_vars: Optional[Dict] = None,
         auto_update_on_conflict: bool = False,
+        lifecycle_config: Optional[Dict] = None,
     ) -> Dict[str, str]:
-        """Create or update agent."""
+        """Create or update agent with either direct_code_deploy or container deployment."""
         if agent_id:
             return self.update_agent(
-                agent_id, image_uri, execution_role_arn, network_config, authorizer_config, protocol_config, env_vars
+                agent_id,
+                execution_role_arn,
+                deployment_type=deployment_type,
+                code_s3_bucket=code_s3_bucket,
+                code_s3_key=code_s3_key,
+                runtime_type=runtime_type,
+                entrypoint_array=entrypoint_array,
+                entrypoint_handler=entrypoint_handler,
+                image_uri=image_uri,
+                network_config=network_config,
+                authorizer_config=authorizer_config,
+                request_header_config=request_header_config,
+                protocol_config=protocol_config,
+                env_vars=env_vars,
+                lifecycle_config=lifecycle_config,
             )
         return self.create_agent(
             agent_name,
-            image_uri,
             execution_role_arn,
-            network_config,
-            authorizer_config,
-            protocol_config,
-            env_vars,
-            auto_update_on_conflict,
+            deployment_type=deployment_type,
+            code_s3_bucket=code_s3_bucket,
+            code_s3_key=code_s3_key,
+            runtime_type=runtime_type,
+            entrypoint_array=entrypoint_array,
+            entrypoint_handler=entrypoint_handler,
+            image_uri=image_uri,
+            network_config=network_config,
+            authorizer_config=authorizer_config,
+            request_header_config=request_header_config,
+            protocol_config=protocol_config,
+            env_vars=env_vars,
+            auto_update_on_conflict=auto_update_on_conflict,
+            lifecycle_config=lifecycle_config,
         )
 
     def wait_for_agent_endpoint_ready(self, agent_id: str, endpoint_name: str = "DEFAULT", max_wait: int = 120) -> str:
@@ -416,20 +616,148 @@ class BedrockAgentCoreClient:
         session_id: str,
         endpoint_name: str = "DEFAULT",
         user_id: Optional[str] = None,
+        custom_headers: Optional[dict] = None,
     ) -> Dict:
-        """Invoke agent endpoint."""
+        """Invoke agent endpoint.
+
+        Args:
+            agent_arn: Agent ARN to invoke
+            payload: Payload to send as string
+            session_id: Session ID for the request
+            endpoint_name: Endpoint name, defaults to "DEFAULT"
+            user_id: Optional user ID for authorization
+            custom_headers: Optional custom headers to include in the request
+
+        Returns:
+            Response from the agent endpoint
+        """
         req = {
             "agentRuntimeArn": agent_arn,
             "qualifier": endpoint_name,
             "runtimeSessionId": session_id,
             "payload": payload,
+            "contentType": "application/json",
         }
 
         if user_id:
             req["runtimeUserId"] = user_id
 
-        response = self.dataplane_client.invoke_agent_runtime(**req)
-        return _handle_aws_response(response)
+        # Always add Accept header for streaming support
+        accept_header = {"Accept": "text/event-stream, application/json"}
+
+        # Merge with custom headers if provided
+        all_headers = {**accept_header, **(custom_headers or {})}
+
+        # Handle headers using boto3 event system
+        handler_id = None
+        if all_headers:
+            # Register a single event handler for all headers
+            def add_all_headers(request, **kwargs):
+                for header_name, header_value in all_headers.items():
+                    request.headers.add_header(header_name, header_value)
+
+            handler_id = self.dataplane_client.meta.events.register_first(
+                "before-sign.bedrock-agentcore.InvokeAgentRuntime", add_all_headers
+            )
+
+        try:
+            response = self.dataplane_client.invoke_agent_runtime(**req)
+            return _handle_aws_response(response)
+        finally:
+            # Always clean up event handler
+            if handler_id is not None:
+                self.dataplane_client.meta.events.unregister(
+                    "before-sign.bedrock-agentcore.InvokeAgentRuntime", handler_id
+                )
+
+    def stop_runtime_session(
+        self,
+        agent_arn: str,
+        session_id: str,
+        endpoint_name: str = "DEFAULT",
+    ) -> Dict:
+        """Stop a runtime session.
+
+        Args:
+            agent_arn: Agent ARN
+            session_id: Session ID to stop
+            endpoint_name: Endpoint name, defaults to "DEFAULT"
+
+        Returns:
+            Response with status code
+
+        Raises:
+            ClientError: If the operation fails, including ResourceNotFoundException
+                        if the session doesn't exist
+        """
+        self.logger.info("Stopping runtime session: %s", session_id)
+
+        response = self.dataplane_client.stop_runtime_session(
+            agentRuntimeArn=agent_arn,
+            qualifier=endpoint_name,
+            runtimeSessionId=session_id,
+        )
+
+        self.logger.info("Successfully stopped session: %s", session_id)
+        return response
+
+    def _update_api_key_credential_provider(
+        self, api_key_credential_provider_name: str, api_key: str, agent_name: str
+    ) -> Dict[Any, Any]:
+        try:
+            response = self.client.update_api_key_credential_provider(
+                name=api_key_credential_provider_name, apiKey=api_key
+            )
+
+            self.logger.info(
+                "Succesfully updated API Key Credential Provider: %s for agent %s",
+                api_key_credential_provider_name,
+                agent_name,
+            )
+            return response
+        except Exception as e:
+            self.logger.error(
+                "Failed to update API Key Credential Provider '%s' for agent'%s': %s",
+                api_key_credential_provider_name,
+                str(e),
+            )
+            raise
+
+    def _create_api_key_credential_provider(
+        self, api_key_credential_provider_name: str, api_key: str, agent_name: str
+    ) -> Dict[Any, Any]:
+        try:
+            response = self.client.create_api_key_credential_provider(
+                name=api_key_credential_provider_name, apiKey=api_key
+            )
+
+            self.logger.info(
+                "Succesfully create API Key Credential Provider: %s for agent %s",
+                api_key_credential_provider_name,
+                agent_name,
+            )
+            return response
+        except Exception as e:
+            self.logger.error(
+                "Failed to create API Key Credential Provider '%s' for agent'%s': %s",
+                api_key_credential_provider_name,
+                str(e),
+            )
+            raise
+
+    def create_or_update_api_key_credential_provider(
+        self, api_key_credential_provider_name: Optional[str], api_key: str, agent_name: str, key_name: str
+    ) -> Dict[Any, Any]:
+        """Get or Create an API Key Credential provider for an agent."""
+        if api_key_credential_provider_name:
+            return self._update_api_key_credential_provider(api_key_credential_provider_name, api_key, agent_name)
+        api_key_credential_provider_name = f"{agent_name.lower()}_{key_name.lower()}"
+
+        return self._create_api_key_credential_provider(api_key_credential_provider_name, api_key, agent_name)
+
+    def delete_api_key_credential_provider(self, api_key_credential_provider_name: str) -> Dict[Any, Any]:
+        """Delete an API Key Credential provider."""
+        return self.client.delete_api_key_credential_provider(name=api_key_credential_provider_name)
 
 
 class HttpBedrockAgentCoreClient:
@@ -454,7 +782,9 @@ class HttpBedrockAgentCoreClient:
         payload,
         session_id: str,
         bearer_token: Optional[str],
+        user_id: Optional[str] = None,
         endpoint_name: str = "DEFAULT",
+        custom_headers: Optional[dict] = None,
     ) -> Dict:
         """Invoke agent endpoint using HTTP request with bearer token.
 
@@ -463,7 +793,9 @@ class HttpBedrockAgentCoreClient:
             payload: Payload to send (dict or string)
             session_id: Session ID for the request
             bearer_token: Bearer token for authentication
+            user_id: User ID (required for Identity 3LO OAuth flows)
             endpoint_name: Endpoint name, defaults to "DEFAULT"
+            custom_headers: Optional custom headers to include in the request
 
         Returns:
             Response from the agent endpoint
@@ -475,10 +807,25 @@ class HttpBedrockAgentCoreClient:
         url = f"{self.dp_endpoint}/runtimes/{escaped_arn}/invocations"
         # Headers
         headers = {
-            "Authorization": f"Bearer {bearer_token}",
             "Content-Type": "application/json",
+            "Accept": "text/event-stream, application/json",
             "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": session_id,
+            "User-Agent": _get_user_agent(),
         }
+
+        if bearer_token:
+            # JWT authentication mode
+            headers["Authorization"] = f"Bearer {bearer_token}"
+            # DO NOT add user_id header with JWT - Runtime extracts from token
+
+        elif user_id:
+            # SIGV4 authentication mode (no bearer token)
+            # Only add user_id header when NOT using JWT
+            headers["X-Amzn-Bedrock-AgentCore-Runtime-User-Id"] = user_id
+
+        # Merge custom headers if provided
+        if custom_headers:
+            headers.update(custom_headers)
 
         # Parse the payload string back to JSON object to send properly
         # This ensures consistent payload structure between boto3 and HTTP clients
@@ -513,17 +860,31 @@ class LocalBedrockAgentCoreClient:
         self.endpoint = endpoint
         self.logger = logging.getLogger("bedrock_agentcore.http_local")
 
-    def invoke_endpoint(self, session_id: str, payload: str, workload_access_token: str):
+    def invoke_endpoint(
+        self,
+        session_id: str,
+        payload: str,
+        workload_access_token: str,
+        oauth2_callback_url: str,
+        custom_headers: Optional[dict] = None,
+    ):
         """Invoke the endpoint with the given parameters."""
-        from bedrock_agentcore.runtime.models import ACCESS_TOKEN_HEADER, SESSION_HEADER
+        from bedrock_agentcore.runtime.models import ACCESS_TOKEN_HEADER, OAUTH2_CALLBACK_URL_HEADER, SESSION_HEADER
 
         url = f"{self.endpoint}/invocations"
 
         headers = {
             "Content-Type": "application/json",
+            "Accept": "text/event-stream, application/json",
             ACCESS_TOKEN_HEADER: workload_access_token,
             SESSION_HEADER: session_id,
+            OAUTH2_CALLBACK_URL_HEADER: oauth2_callback_url,
+            "User-Agent": _get_user_agent(),
         }
+
+        # Merge custom headers if provided
+        if custom_headers:
+            headers.update(custom_headers)
 
         try:
             body = json.loads(payload) if isinstance(payload, str) else payload

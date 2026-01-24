@@ -3,7 +3,7 @@ Type annotations for rekognition service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rekognition/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -182,12 +183,6 @@ from .type_defs import (
 )
 from .waiter import ProjectVersionRunningWaiter, ProjectVersionTrainingCompletedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -196,30 +191,30 @@ else:
 __all__ = ("RekognitionClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    HumanLoopQuotaExceededException: Type[BotocoreClientError]
-    IdempotentParameterMismatchException: Type[BotocoreClientError]
-    ImageTooLargeException: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    InvalidImageFormatException: Type[BotocoreClientError]
-    InvalidManifestException: Type[BotocoreClientError]
-    InvalidPaginationTokenException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidPolicyRevisionIdException: Type[BotocoreClientError]
-    InvalidS3ObjectException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MalformedPolicyDocumentException: Type[BotocoreClientError]
-    ProvisionedThroughputExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceNotReadyException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    SessionNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    VideoTooLargeException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    HumanLoopQuotaExceededException: type[BotocoreClientError]
+    IdempotentParameterMismatchException: type[BotocoreClientError]
+    ImageTooLargeException: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    InvalidImageFormatException: type[BotocoreClientError]
+    InvalidManifestException: type[BotocoreClientError]
+    InvalidPaginationTokenException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidPolicyRevisionIdException: type[BotocoreClientError]
+    InvalidS3ObjectException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MalformedPolicyDocumentException: type[BotocoreClientError]
+    ProvisionedThroughputExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceNotReadyException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    SessionNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    VideoTooLargeException: type[BotocoreClientError]
 
 class RekognitionClient(AioBaseClient):
     """
@@ -349,7 +344,7 @@ class RekognitionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rekognition/client/#create_stream_processor)
         """
 
-    async def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> Dict[str, Any]:
+    async def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a new User within a collection specified by <code>CollectionId</code>.
 
@@ -367,7 +362,7 @@ class RekognitionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rekognition/client/#delete_collection)
         """
 
-    async def delete_dataset(self, **kwargs: Unpack[DeleteDatasetRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_dataset(self, **kwargs: Unpack[DeleteDatasetRequestTypeDef]) -> dict[str, Any]:
         """
         This operation applies only to Amazon Rekognition Custom Labels.
 
@@ -397,7 +392,7 @@ class RekognitionClient(AioBaseClient):
 
     async def delete_project_policy(
         self, **kwargs: Unpack[DeleteProjectPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation applies only to Amazon Rekognition Custom Labels.
 
@@ -418,7 +413,7 @@ class RekognitionClient(AioBaseClient):
 
     async def delete_stream_processor(
         self, **kwargs: Unpack[DeleteStreamProcessorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the stream processor identified by <code>Name</code>.
 
@@ -426,7 +421,7 @@ class RekognitionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rekognition/client/#delete_stream_processor)
         """
 
-    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified UserID within the collection.
 
@@ -559,7 +554,7 @@ class RekognitionClient(AioBaseClient):
 
     async def distribute_dataset_entries(
         self, **kwargs: Unpack[DistributeDatasetEntriesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation applies only to Amazon Rekognition Custom Labels.
 
@@ -977,7 +972,7 @@ class RekognitionClient(AioBaseClient):
 
     async def stop_stream_processor(
         self, **kwargs: Unpack[StopStreamProcessorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops a running stream processor that was created by
         <a>CreateStreamProcessor</a>.
@@ -986,7 +981,7 @@ class RekognitionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rekognition/client/#stop_stream_processor)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more key-value tags to an Amazon Rekognition collection, stream
         processor, or Custom Labels model.
@@ -995,7 +990,7 @@ class RekognitionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_rekognition/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from an Amazon Rekognition collection, stream
         processor, or Custom Labels model.
@@ -1006,7 +1001,7 @@ class RekognitionClient(AioBaseClient):
 
     async def update_dataset_entries(
         self, **kwargs: Unpack[UpdateDatasetEntriesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation applies only to Amazon Rekognition Custom Labels.
 
@@ -1016,7 +1011,7 @@ class RekognitionClient(AioBaseClient):
 
     async def update_stream_processor(
         self, **kwargs: Unpack[UpdateStreamProcessorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Allows you to update a stream processor.
 
@@ -1153,7 +1148,7 @@ class RekognitionClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

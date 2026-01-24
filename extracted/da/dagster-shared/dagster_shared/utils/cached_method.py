@@ -1,9 +1,9 @@
-import asyncio
-from collections.abc import Hashable, Mapping
+from collections.abc import Callable, Hashable, Mapping
 from functools import wraps
-from typing import Any, Callable, TypeVar, cast
+from inspect import iscoroutinefunction
+from typing import Any, Concatenate, TypeVar, cast
 
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import ParamSpec
 
 from dagster_shared.seven import get_arg_names
 
@@ -93,7 +93,7 @@ def cached_method(method: Callable[Concatenate[S, P], T]) -> Callable[Concatenat
 
         return canonical_kwargs
 
-    if asyncio.iscoroutinefunction(method):
+    if iscoroutinefunction(method):
 
         @wraps(method)
         async def _async_cached_method_wrapper(self: S, *args: P.args, **kwargs: P.kwargs) -> T:

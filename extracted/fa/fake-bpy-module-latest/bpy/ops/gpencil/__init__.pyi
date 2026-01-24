@@ -28,8 +28,6 @@ def annotate(
 ) -> None:
     """Make annotations on the active data
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param mode: Mode, Way to interpret mouse movements
 
     DRAW
@@ -43,7 +41,6 @@ def annotate(
 
     ERASER
     Eraser -- Erase Annotation strokes.
-        :type mode: typing.Literal['DRAW','DRAW_STRAIGHT','DRAW_POLY','ERASER'] | None
         :param arrowstyle_start: Start Arrow Style, Stroke start style
 
     NONE
@@ -60,7 +57,6 @@ def annotate(
 
     DIAMOND
     Square -- Use square style.
-        :type arrowstyle_start: typing.Literal['NONE','ARROW','ARROW_OPEN','ARROW_OPEN_INVERTED','DIAMOND'] | None
         :param arrowstyle_end: End Arrow Style, Stroke end style
 
     NONE
@@ -77,17 +73,11 @@ def annotate(
 
     DIAMOND
     Square -- Use square style.
-        :type arrowstyle_end: typing.Literal['NONE','ARROW','ARROW_OPEN','ARROW_OPEN_INVERTED','DIAMOND'] | None
         :param use_stabilizer: Stabilize Stroke, Helper to draw smooth and clean lines. Press Shift for an invert effect (even if this option is not active)
-        :type use_stabilizer: bool | None
         :param stabilizer_factor: Stabilizer Stroke Factor, Higher values gives a smoother stroke
-        :type stabilizer_factor: float | None
         :param stabilizer_radius: Stabilizer Stroke Radius, Minimum distance from last point before stroke continues
-        :type stabilizer_radius: int | None
         :param stroke: Stroke
-        :type stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement] | None
         :param wait_for_input: Wait for Input, Wait for first click instead of painting immediately
-        :type wait_for_input: bool | None
     """
 
 def annotation_active_frame_delete(
@@ -95,44 +85,28 @@ def annotation_active_frame_delete(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete the active frame for the active Annotation Layer
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete the active frame for the active Annotation Layer"""
 
 def annotation_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add new Annotation data-block
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add new Annotation data-block"""
 
 def data_unlink(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Unlink active Annotation data-block
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Unlink active Annotation data-block"""
 
 def layer_annotation_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add new Annotation layer or note for the active data-block
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add new Annotation layer or note for the active data-block"""
 
 def layer_annotation_move(
     execution_context: int | str | None = None,
@@ -143,10 +117,7 @@ def layer_annotation_move(
 ) -> None:
     """Move the active Annotation layer up/down in the list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: typing.Literal['UP','DOWN'] | None
     """
 
 def layer_annotation_remove(
@@ -154,8 +125,4 @@ def layer_annotation_remove(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove active Annotation layer
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove active Annotation layer"""

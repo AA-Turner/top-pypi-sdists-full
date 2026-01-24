@@ -5,11 +5,15 @@ import time
 from collections.abc import Generator
 
 import uvicorn
+from dirty_equals import IsStr
 from mcp.server.websocket import websocket_server
 from starlette.applications import Starlette
 from starlette.routing import WebSocketRoute
 
 from tests.servers.time_server import mcp as time_mcp
+
+# Helper for matching auto-generated LangChain content block IDs
+IsLangChainID = IsStr(regex=r"lc_.*")
 
 
 def make_server_app() -> Starlette:
@@ -60,7 +64,7 @@ def run_streamable_http(
 ) -> Generator[None, None, None]:
     """Run the server in a separate process exposing a streamable HTTP endpoint.
 
-    The endpoint will be available at `http://localhost:{server_port}/mcp/`.
+    The endpoint will be available at `http://localhost:{server_port}/mcp`.
     """
     proc = multiprocessing.Process(
         target=run_streamable_http_server,

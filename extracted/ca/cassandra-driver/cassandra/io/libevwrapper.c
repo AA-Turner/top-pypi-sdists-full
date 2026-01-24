@@ -583,7 +583,6 @@ static PyMethodDef module_methods[] = {
 PyDoc_STRVAR(module_doc,
 "libev wrapper methods");
 
-#if PY_MAJOR_VERSION >= 3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "libevwrapper",
@@ -600,13 +599,6 @@ static struct PyModuleDef moduledef = {
 
 PyObject *
 PyInit_libevwrapper(void)
-
-# else
-# define INITERROR return
-
-void
-initlibevwrapper(void)
-#endif
 {
     PyObject *module = NULL;
 
@@ -629,11 +621,7 @@ initlibevwrapper(void)
     if (PyType_Ready(&libevwrapper_TimerType) < 0)
         INITERROR;
 
-# if PY_MAJOR_VERSION >= 3
     module = PyModule_Create(&moduledef);
-# else
-    module = Py_InitModule3("libevwrapper", module_methods, module_doc);
-# endif
 
     if (module == NULL)
         INITERROR;
@@ -665,11 +653,14 @@ initlibevwrapper(void)
     if (PyModule_AddObject(module, "Timer", (PyObject *)&libevwrapper_TimerType) == -1)
         INITERROR;
 
+#if PY_MAJOR_VERSION < 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 7)
+    // Since CPython 3.7, `Py_Initialize()` routing always initializes GIL.
+    // Routine `PyEval_ThreadsInitialized()` has been deprecated in CPython 3.7
+    // and completely removed in CPython 3.13.
     if (!PyEval_ThreadsInitialized()) {
         PyEval_InitThreads();
     }
-
-#if PY_MAJOR_VERSION >= 3
-    return module;
 #endif
+
+    return module;
 }

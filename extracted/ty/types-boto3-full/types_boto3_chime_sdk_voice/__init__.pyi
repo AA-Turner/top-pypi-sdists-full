@@ -3,7 +3,7 @@ Main interface for chime-sdk-voice service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_chime_sdk_voice/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

@@ -120,8 +120,8 @@ impl Policy {
 }
 
 #[cfg(test)]
-mod test {
-    use super::{Arch, Policy, MANYLINUX_POLICIES, MUSLLINUX_POLICIES};
+mod tests {
+    use super::{Arch, MANYLINUX_POLICIES, MUSLLINUX_POLICIES, Policy};
     use crate::PlatformTag;
     use pretty_assertions::assert_eq;
 

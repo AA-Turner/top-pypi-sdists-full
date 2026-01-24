@@ -28,6 +28,7 @@ import numpy as np
 _TPU_V2 = 'TPU v2'
 _TPU_V3 = 'TPU v3'
 _TPU_V4 = 'TPU v4'
+_TPU_V4_LITE = "TPU v4 lite"
 _TPU_V5_LITE = "TPU v5 lite"
 _TPU_V5E = "TPU v5e"
 _TPU_V5P = "TPU v5p"
@@ -71,7 +72,7 @@ _TRAY_4x4_RING_ORDER = (0, 1, 2, 3, 7, 6, 5, 9, 10, 11, 15, 14, 13, 12, 8, 4)
 _V5E_TRAY_RING_ORDER = (0, 1, 2, 3, 7, 6, 5, 4)
 _V5E_TRAY_IOTA_ORDER = (0, 4, 2, 6, 1, 5, 3, 7)
 _V5P_2x2x2_ORDER = (0, 1, 3, 2, 6, 7, 5, 4)
-_7X_TRAY_2x4_RING_ORDER = (0, 1, 2, 3, 7, 6, 5, 4)
+_7X_TRAY_2x2x2_RING_ORDER = (0, 1, 2, 3, 6, 7, 4, 5)
 
 
 def _tpu_v2_v3_create_device_mesh(
@@ -94,6 +95,19 @@ def _tpu_v2_v3_create_device_mesh(
     # https://github.com/tensorflow/lingvo/blob/0df40cf604dfcd14e28f7087d73687a0bd2fe5c6/lingvo/core/gshard_utils.py#L187
     # (possibly replaces above mesh_shape[-1] == 8 case)
     return np.asarray(devices).reshape(mesh_shape)
+
+
+# TODO(b/303712469): Unit test these handler functions.
+# Creates a physical ring 0->1->3->2 if on v4i.
+def _v4i_create_device_mesh(
+    mesh_shape: Sequence[int], devices: Sequence[Any], **unused_kwargs
+) -> np.ndarray | None:
+  if len(devices) == 4:
+    device_mesh = np.asarray(devices)
+    device_mesh = device_mesh[np.array(_TRAY_2x2_RING_ORDER)]
+    device_mesh = device_mesh.reshape(mesh_shape)
+    return device_mesh
+  return None
 
 
 def _v5e_create_device_mesh(
@@ -197,13 +211,12 @@ def _7x_create_device_mesh(
   physical_mesh_shape = _get_physical_tpu_mesh(devices).shape
   # For the x and y axes, we only support at most 2x2 since we can make one ring
   # along those axes and repeat with other separate rings along the z axis.
-  assert (
-      physical_mesh_shape[0] <= 2 and physical_mesh_shape[1] <= 2
-  ), f'Unexpected physical mesh shape: {physical_mesh_shape}.'
+  if physical_mesh_shape[0] > 2 or physical_mesh_shape[1] > 2:
+    return None
 
   indices = []
   for i in range(0, len(devices), 8):
-    new_indices = [x + i for x in _7X_TRAY_2x4_RING_ORDER]
+    new_indices = [x + i for x in _7X_TRAY_2x2x2_RING_ORDER]
     indices.extend(new_indices)
 
   device_mesh = np.asarray(devices)
@@ -221,6 +234,7 @@ device_kind_handler_dict: dict[
 ] = {
     _TPU_V2: _tpu_v2_v3_create_device_mesh,
     _TPU_V3: _tpu_v2_v3_create_device_mesh,
+    _TPU_V4_LITE: _v4i_create_device_mesh,
     _TPU_V5_LITE: _v5e_create_device_mesh,
     _TPU_V5P: _v5p_create_device_mesh,
     _TPU_V6_LITE: _v5e_create_device_mesh,
@@ -687,7 +701,8 @@ def _get_physical_tpu_mesh(jax_devices: Sequence[Any]) -> np.ndarray:
           coords[1] - min_coords[1],
           d.core_on_chip - min_cores_per_chip,
       ] = d
-  elif device_kind in (_TPU_7X,):
+  elif (device_kind in (_TPU_7X,) or
+        (device_kind in (_TPU_V5P,) and cores_per_chip == 2)):
     out = np.empty(dims + (cores_per_chip,), dtype=object)
     for d in jax_devices:
       coords = d.coords

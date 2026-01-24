@@ -2,17 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Iterable, Sequence
+from collections.abc import AsyncIterator, Callable, Iterable, Sequence
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 import orjson
-from psycopg import AsyncConnection, AsyncCursor, AsyncPipeline, Capabilities
-from psycopg.rows import DictRow, dict_row
-from psycopg_pool import AsyncConnectionPool
-
-from langgraph.checkpoint.postgres import _ainternal
 from langgraph.store.base import (
     GetOp,
     ListNamespacesOp,
@@ -22,6 +17,11 @@ from langgraph.store.base import (
     SearchOp,
 )
 from langgraph.store.base.batch import AsyncBatchedBaseStore
+from psycopg import AsyncConnection, AsyncCursor, AsyncPipeline, Capabilities
+from psycopg.rows import DictRow, dict_row
+from psycopg_pool import AsyncConnectionPool
+
+from langgraph.checkpoint.postgres import _ainternal
 from langgraph.store.postgres.base import (
     PLACEHOLDER,
     BasePostgresStore,
@@ -266,6 +266,27 @@ class AsyncPostgresStore(AsyncBatchedBaseStore, BasePostgresStore[_ainternal.Con
                             k: v(self) if v is not None and callable(v) else v
                             for k, v in migration.params.items()
                         }
+                        if "dims" in params:
+                            try:
+                                params["dims"] = int(params["dims"])
+                            except Exception as e:
+                                raise ValueError(
+                                    f"Invalid dims for vector index: {params['dims']}"
+                                ) from e
+                        if "vector_type" in params:
+                            vt = str(params["vector_type"])
+                            if vt not in ("vector", "halfvec"):
+                                raise ValueError(
+                                    f"Invalid vector_type for pgvector: {vt}"
+                                )
+                            params["vector_type"] = vt
+                        if "index_type" in params:
+                            it = str(params["index_type"])
+                            if it not in ("hnsw", "ivfflat"):
+                                raise ValueError(
+                                    f"Invalid index_type for pgvector: {it}"
+                                )
+                            params["index_type"] = it
                         sql = sql % params
                     await cur.execute(sql)
                     await cur.execute(
@@ -339,7 +360,7 @@ class AsyncPostgresStore(AsyncBatchedBaseStore, BasePostgresStore[_ainternal.Con
 
         Args:
             timeout: Maximum time to wait for the task to stop, in seconds.
-                If None, wait indefinitely.
+                If `None`, wait indefinitely.
 
         Returns:
             bool: True if the task was successfully stopped or wasn't running,
@@ -465,7 +486,9 @@ class AsyncPostgresStore(AsyncBatchedBaseStore, BasePostgresStore[_ainternal.Con
                     query,
                     [
                         p
-                        for (ns, k, pathname, _), vector in zip(txt_params, vectors)
+                        for (ns, k, pathname, _), vector in zip(
+                            txt_params, vectors, strict=False
+                        )
                         for p in (ns, k, pathname, vector)
                     ],
                 )
@@ -486,13 +509,13 @@ class AsyncPostgresStore(AsyncBatchedBaseStore, BasePostgresStore[_ainternal.Con
             vectors = await self.embeddings.aembed_documents(
                 [query for _, query in embedding_requests]
             )
-            for (idx, _), vector in zip(embedding_requests, vectors):
+            for (idx, _), vector in zip(embedding_requests, vectors, strict=False):
                 _paramslist = queries[idx][1]
                 for i in range(len(_paramslist)):
                     if _paramslist[i] is PLACEHOLDER:
                         _paramslist[i] = vector
 
-        for (idx, _), (query, params) in zip(search_ops, queries):
+        for (idx, _), (query, params) in zip(search_ops, queries, strict=False):
             await cur.execute(query, params)
             rows = cast(list[Row], await cur.fetchall())
             items = [
@@ -510,7 +533,7 @@ class AsyncPostgresStore(AsyncBatchedBaseStore, BasePostgresStore[_ainternal.Con
         cur: AsyncCursor[DictRow],
     ) -> None:
         queries = self._get_batch_list_namespaces_queries(list_ops)
-        for (query, params), (idx, _) in zip(queries, list_ops):
+        for (query, params), (idx, _) in zip(queries, list_ops, strict=False):
             await cur.execute(query, params)
             rows = cast(list[dict], await cur.fetchall())
             namespaces = [_decode_ns_bytes(row["truncated_prefix"]) for row in rows]

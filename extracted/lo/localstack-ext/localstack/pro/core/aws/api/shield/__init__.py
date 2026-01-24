@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -167,7 +167,7 @@ class ValidationExceptionField(TypedDict, total=False):
     message: String
 
 
-ValidationExceptionFieldList = List[ValidationExceptionField]
+ValidationExceptionFieldList = list[ValidationExceptionField]
 
 
 class InvalidParameterException(ServiceException):
@@ -179,8 +179,8 @@ class InvalidParameterException(ServiceException):
     code: str = "InvalidParameterException"
     sender_fault: bool = False
     status_code: int = 400
-    reason: Optional[ValidationExceptionReason]
-    fields: Optional[ValidationExceptionFieldList]
+    reason: ValidationExceptionReason | None
+    fields: ValidationExceptionFieldList | None
 
 
 class InvalidResourceException(ServiceException):
@@ -202,8 +202,8 @@ class LimitsExceededException(ServiceException):
     code: str = "LimitsExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[LimitType]
-    Limit: Optional[LimitNumber]
+    Type: LimitType | None
+    Limit: LimitNumber | None
 
 
 class LockedSubscriptionException(ServiceException):
@@ -244,7 +244,7 @@ class ResourceAlreadyExistsException(ServiceException):
     code: str = "ResourceAlreadyExistsException"
     sender_fault: bool = False
     status_code: int = 400
-    resourceType: Optional[String]
+    resourceType: String | None
 
 
 class ResourceNotFoundException(ServiceException):
@@ -255,7 +255,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    resourceType: Optional[String]
+    resourceType: String | None
 
 
 class CountAction(TypedDict, total=False):
@@ -292,8 +292,8 @@ class ResponseAction(TypedDict, total=False):
     associated with the resource.
     """
 
-    Block: Optional[BlockAction]
-    Count: Optional[CountAction]
+    Block: BlockAction | None
+    Count: CountAction | None
 
 
 class ApplicationLayerAutomaticResponseConfiguration(TypedDict, total=False):
@@ -340,11 +340,11 @@ class EmergencyContact(TypedDict, total=False):
     """
 
     EmailAddress: EmailAddress
-    PhoneNumber: Optional[PhoneNumber]
-    ContactNotes: Optional[ContactNotes]
+    PhoneNumber: PhoneNumber | None
+    ContactNotes: ContactNotes | None
 
 
-EmergencyContactList = List[EmergencyContact]
+EmergencyContactList = list[EmergencyContact]
 
 
 class AssociateProactiveEngagementDetailsRequest(ServiceRequest):
@@ -358,48 +358,48 @@ class AssociateProactiveEngagementDetailsResponse(TypedDict, total=False):
 class Mitigation(TypedDict, total=False):
     """The mitigation applied to a DDoS attack."""
 
-    MitigationName: Optional[String]
+    MitigationName: String | None
 
 
-MitigationList = List[Mitigation]
+MitigationList = list[Mitigation]
 Long = int
 
 
 class Contributor(TypedDict, total=False):
     """A contributor to the attack and their contribution."""
 
-    Name: Optional[String]
-    Value: Optional[Long]
+    Name: String | None
+    Value: Long | None
 
 
-TopContributors = List[Contributor]
+TopContributors = list[Contributor]
 
 
 class AttackProperty(TypedDict, total=False):
     """Details of a Shield event. This is provided as part of an AttackDetail."""
 
-    AttackLayer: Optional[AttackLayer]
-    AttackPropertyIdentifier: Optional[AttackPropertyIdentifier]
-    TopContributors: Optional[TopContributors]
-    Unit: Optional[Unit]
-    Total: Optional[Long]
+    AttackLayer: AttackLayer | None
+    AttackPropertyIdentifier: AttackPropertyIdentifier | None
+    TopContributors: TopContributors | None
+    Unit: Unit | None
+    Total: Long | None
 
 
-AttackProperties = List[AttackProperty]
+AttackProperties = list[AttackProperty]
 
 
 class SummarizedCounter(TypedDict, total=False):
     """The counter that describes a DDoS attack."""
 
-    Name: Optional[String]
-    Max: Optional[Double]
-    Average: Optional[Double]
-    Sum: Optional[Double]
-    N: Optional[Integer]
-    Unit: Optional[String]
+    Name: String | None
+    Max: Double | None
+    Average: Double | None
+    Sum: Double | None
+    N: Integer | None
+    Unit: String | None
 
 
-SummarizedCounterList = List[SummarizedCounter]
+SummarizedCounterList = list[SummarizedCounter]
 AttackTimestamp = datetime
 
 
@@ -407,35 +407,35 @@ class SummarizedAttackVector(TypedDict, total=False):
     """A summary of information about the attack."""
 
     VectorType: String
-    VectorCounters: Optional[SummarizedCounterList]
+    VectorCounters: SummarizedCounterList | None
 
 
-SummarizedAttackVectorList = List[SummarizedAttackVector]
+SummarizedAttackVectorList = list[SummarizedAttackVector]
 
 
 class SubResourceSummary(TypedDict, total=False):
     """The attack information for the specified SubResource."""
 
-    Type: Optional[SubResourceType]
-    Id: Optional[String]
-    AttackVectors: Optional[SummarizedAttackVectorList]
-    Counters: Optional[SummarizedCounterList]
+    Type: SubResourceType | None
+    Id: String | None
+    AttackVectors: SummarizedAttackVectorList | None
+    Counters: SummarizedCounterList | None
 
 
-SubResourceSummaryList = List[SubResourceSummary]
+SubResourceSummaryList = list[SubResourceSummary]
 
 
 class AttackDetail(TypedDict, total=False):
     """The details of a DDoS attack."""
 
-    AttackId: Optional[AttackId]
-    ResourceArn: Optional[ResourceArn]
-    SubResources: Optional[SubResourceSummaryList]
-    StartTime: Optional[AttackTimestamp]
-    EndTime: Optional[AttackTimestamp]
-    AttackCounters: Optional[SummarizedCounterList]
-    AttackProperties: Optional[AttackProperties]
-    Mitigations: Optional[MitigationList]
+    AttackId: AttackId | None
+    ResourceArn: ResourceArn | None
+    SubResources: SubResourceSummaryList | None
+    StartTime: AttackTimestamp | None
+    EndTime: AttackTimestamp | None
+    AttackCounters: SummarizedCounterList | None
+    AttackProperties: AttackProperties | None
+    Mitigations: MitigationList | None
 
 
 class AttackVolumeStatistics(TypedDict, total=False):
@@ -450,9 +450,9 @@ class AttackVolume(TypedDict, total=False):
     the statistics object is zero, this setting might be empty.
     """
 
-    BitsPerSecond: Optional[AttackVolumeStatistics]
-    PacketsPerSecond: Optional[AttackVolumeStatistics]
-    RequestsPerSecond: Optional[AttackVolumeStatistics]
+    BitsPerSecond: AttackVolumeStatistics | None
+    PacketsPerSecond: AttackVolumeStatistics | None
+    RequestsPerSecond: AttackVolumeStatistics | None
 
 
 class AttackStatisticsDataItem(TypedDict, total=False):
@@ -461,11 +461,11 @@ class AttackStatisticsDataItem(TypedDict, total=False):
     period that the attack statistics apply to.
     """
 
-    AttackVolume: Optional[AttackVolume]
+    AttackVolume: AttackVolume | None
     AttackCount: Long
 
 
-AttackStatisticsDataList = List[AttackStatisticsDataItem]
+AttackStatisticsDataList = list[AttackStatisticsDataItem]
 
 
 class AttackVectorDescription(TypedDict, total=False):
@@ -474,20 +474,20 @@ class AttackVectorDescription(TypedDict, total=False):
     VectorType: String
 
 
-AttackVectorDescriptionList = List[AttackVectorDescription]
+AttackVectorDescriptionList = list[AttackVectorDescription]
 
 
 class AttackSummary(TypedDict, total=False):
     """Summarizes all DDoS attacks for a specified time period."""
 
-    AttackId: Optional[String]
-    ResourceArn: Optional[String]
-    StartTime: Optional[AttackTimestamp]
-    EndTime: Optional[AttackTimestamp]
-    AttackVectors: Optional[AttackVectorDescriptionList]
+    AttackId: String | None
+    ResourceArn: String | None
+    StartTime: AttackTimestamp | None
+    EndTime: AttackTimestamp | None
+    AttackVectors: AttackVectorDescriptionList | None
 
 
-AttackSummaries = List[AttackSummary]
+AttackSummaries = list[AttackSummary]
 
 
 class Tag(TypedDict, total=False):
@@ -502,21 +502,21 @@ class Tag(TypedDict, total=False):
     for a resource.
     """
 
-    Key: Optional[TagKey]
-    Value: Optional[TagValue]
+    Key: TagKey | None
+    Value: TagValue | None
 
 
-TagList = List[Tag]
-ProtectionGroupMembers = List[ResourceArn]
+TagList = list[Tag]
+ProtectionGroupMembers = list[ResourceArn]
 
 
 class CreateProtectionGroupRequest(ServiceRequest):
     ProtectionGroupId: ProtectionGroupId
     Aggregation: ProtectionGroupAggregation
     Pattern: ProtectionGroupPattern
-    ResourceType: Optional[ProtectedResourceType]
-    Members: Optional[ProtectionGroupMembers]
-    Tags: Optional[TagList]
+    ResourceType: ProtectedResourceType | None
+    Members: ProtectionGroupMembers | None
+    Tags: TagList | None
 
 
 class CreateProtectionGroupResponse(TypedDict, total=False):
@@ -526,11 +526,11 @@ class CreateProtectionGroupResponse(TypedDict, total=False):
 class CreateProtectionRequest(ServiceRequest):
     Name: ProtectionName
     ResourceArn: ResourceArn
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateProtectionResponse(TypedDict, total=False):
-    ProtectionId: Optional[ProtectionId]
+    ProtectionId: ProtectionId | None
 
 
 class CreateSubscriptionRequest(ServiceRequest):
@@ -570,7 +570,7 @@ class DescribeAttackRequest(ServiceRequest):
 
 
 class DescribeAttackResponse(TypedDict, total=False):
-    Attack: Optional[AttackDetail]
+    Attack: AttackDetail | None
 
 
 class DescribeAttackStatisticsRequest(ServiceRequest):
@@ -583,8 +583,8 @@ Timestamp = datetime
 class TimeRange(TypedDict, total=False):
     """The time range."""
 
-    FromInclusive: Optional[Timestamp]
-    ToExclusive: Optional[Timestamp]
+    FromInclusive: Timestamp | None
+    ToExclusive: Timestamp | None
 
 
 class DescribeAttackStatisticsResponse(TypedDict, total=False):
@@ -596,12 +596,12 @@ class DescribeDRTAccessRequest(ServiceRequest):
     pass
 
 
-LogBucketList = List[LogBucket]
+LogBucketList = list[LogBucket]
 
 
 class DescribeDRTAccessResponse(TypedDict, total=False):
-    RoleArn: Optional[RoleArn]
-    LogBucketList: Optional[LogBucketList]
+    RoleArn: RoleArn | None
+    LogBucketList: LogBucketList | None
 
 
 class DescribeEmergencyContactSettingsRequest(ServiceRequest):
@@ -609,7 +609,7 @@ class DescribeEmergencyContactSettingsRequest(ServiceRequest):
 
 
 class DescribeEmergencyContactSettingsResponse(TypedDict, total=False):
-    EmergencyContactList: Optional[EmergencyContactList]
+    EmergencyContactList: EmergencyContactList | None
 
 
 class DescribeProtectionGroupRequest(ServiceRequest):
@@ -625,9 +625,9 @@ class ProtectionGroup(TypedDict, total=False):
     ProtectionGroupId: ProtectionGroupId
     Aggregation: ProtectionGroupAggregation
     Pattern: ProtectionGroupPattern
-    ResourceType: Optional[ProtectedResourceType]
+    ResourceType: ProtectedResourceType | None
     Members: ProtectionGroupMembers
-    ProtectionGroupArn: Optional[ResourceArn]
+    ProtectionGroupArn: ResourceArn | None
 
 
 class DescribeProtectionGroupResponse(TypedDict, total=False):
@@ -635,28 +635,28 @@ class DescribeProtectionGroupResponse(TypedDict, total=False):
 
 
 class DescribeProtectionRequest(ServiceRequest):
-    ProtectionId: Optional[ProtectionId]
-    ResourceArn: Optional[ResourceArn]
+    ProtectionId: ProtectionId | None
+    ResourceArn: ResourceArn | None
 
 
-HealthCheckIds = List[HealthCheckId]
+HealthCheckIds = list[HealthCheckId]
 
 
 class Protection(TypedDict, total=False):
     """An object that represents a resource that is under DDoS protection."""
 
-    Id: Optional[ProtectionId]
-    Name: Optional[ProtectionName]
-    ResourceArn: Optional[ResourceArn]
-    HealthCheckIds: Optional[HealthCheckIds]
-    ProtectionArn: Optional[ResourceArn]
-    ApplicationLayerAutomaticResponseConfiguration: Optional[
-        ApplicationLayerAutomaticResponseConfiguration
-    ]
+    Id: ProtectionId | None
+    Name: ProtectionName | None
+    ResourceArn: ResourceArn | None
+    HealthCheckIds: HealthCheckIds | None
+    ProtectionArn: ResourceArn | None
+    ApplicationLayerAutomaticResponseConfiguration: (
+        ApplicationLayerAutomaticResponseConfiguration | None
+    )
 
 
 class DescribeProtectionResponse(TypedDict, total=False):
-    Protection: Optional[Protection]
+    Protection: Protection | None
 
 
 class DescribeSubscriptionRequest(ServiceRequest):
@@ -687,11 +687,11 @@ class ProtectionGroupLimits(TypedDict, total=False):
 class Limit(TypedDict, total=False):
     """Specifies how many protections of a given type you can create."""
 
-    Type: Optional[String]
-    Max: Optional[Long]
+    Type: String | None
+    Max: Long | None
 
 
-Limits = List[Limit]
+Limits = list[Limit]
 
 
 class ProtectionLimits(TypedDict, total=False):
@@ -713,18 +713,18 @@ DurationInSeconds = int
 class Subscription(TypedDict, total=False):
     """Information about the Shield Advanced subscription for an account."""
 
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    TimeCommitmentInSeconds: Optional[DurationInSeconds]
-    AutoRenew: Optional[AutoRenew]
-    Limits: Optional[Limits]
-    ProactiveEngagementStatus: Optional[ProactiveEngagementStatus]
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    TimeCommitmentInSeconds: DurationInSeconds | None
+    AutoRenew: AutoRenew | None
+    Limits: Limits | None
+    ProactiveEngagementStatus: ProactiveEngagementStatus | None
     SubscriptionLimits: SubscriptionLimits
-    SubscriptionArn: Optional[ResourceArn]
+    SubscriptionArn: ResourceArn | None
 
 
 class DescribeSubscriptionResponse(TypedDict, total=False):
-    Subscription: Optional[Subscription]
+    Subscription: Subscription | None
 
 
 class DisableApplicationLayerAutomaticResponseRequest(ServiceRequest):
@@ -793,9 +793,9 @@ class GetSubscriptionStateResponse(TypedDict, total=False):
     SubscriptionState: SubscriptionState
 
 
-ProtectedResourceTypeFilters = List[ProtectedResourceType]
-ProtectionNameFilters = List[ProtectionName]
-ResourceArnFilters = List[ResourceArn]
+ProtectedResourceTypeFilters = list[ProtectedResourceType]
+ProtectionNameFilters = list[ProtectionName]
+ResourceArnFilters = list[ResourceArn]
 
 
 class InclusionProtectionFilters(TypedDict, total=False):
@@ -807,14 +807,14 @@ class InclusionProtectionFilters(TypedDict, total=False):
     of the filter criteria that you provide.
     """
 
-    ResourceArns: Optional[ResourceArnFilters]
-    ProtectionNames: Optional[ProtectionNameFilters]
-    ResourceTypes: Optional[ProtectedResourceTypeFilters]
+    ResourceArns: ResourceArnFilters | None
+    ProtectionNames: ProtectionNameFilters | None
+    ResourceTypes: ProtectedResourceTypeFilters | None
 
 
-ProtectionGroupAggregationFilters = List[ProtectionGroupAggregation]
-ProtectionGroupPatternFilters = List[ProtectionGroupPattern]
-ProtectionGroupIdFilters = List[ProtectionGroupId]
+ProtectionGroupAggregationFilters = list[ProtectionGroupAggregation]
+ProtectionGroupPatternFilters = list[ProtectionGroupPattern]
+ProtectionGroupIdFilters = list[ProtectionGroupId]
 
 
 class InclusionProtectionGroupFilters(TypedDict, total=False):
@@ -826,68 +826,68 @@ class InclusionProtectionGroupFilters(TypedDict, total=False):
     match all of the search criteria that you provide.
     """
 
-    ProtectionGroupIds: Optional[ProtectionGroupIdFilters]
-    Patterns: Optional[ProtectionGroupPatternFilters]
-    ResourceTypes: Optional[ProtectedResourceTypeFilters]
-    Aggregations: Optional[ProtectionGroupAggregationFilters]
+    ProtectionGroupIds: ProtectionGroupIdFilters | None
+    Patterns: ProtectionGroupPatternFilters | None
+    ResourceTypes: ProtectedResourceTypeFilters | None
+    Aggregations: ProtectionGroupAggregationFilters | None
 
 
-ResourceArnFilterList = List[ResourceArn]
+ResourceArnFilterList = list[ResourceArn]
 
 
 class ListAttacksRequest(ServiceRequest):
-    ResourceArns: Optional[ResourceArnFilterList]
-    StartTime: Optional[TimeRange]
-    EndTime: Optional[TimeRange]
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxResults]
+    ResourceArns: ResourceArnFilterList | None
+    StartTime: TimeRange | None
+    EndTime: TimeRange | None
+    NextToken: Token | None
+    MaxResults: MaxResults | None
 
 
 class ListAttacksResponse(TypedDict, total=False):
-    AttackSummaries: Optional[AttackSummaries]
-    NextToken: Optional[Token]
+    AttackSummaries: AttackSummaries | None
+    NextToken: Token | None
 
 
 class ListProtectionGroupsRequest(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxResults]
-    InclusionFilters: Optional[InclusionProtectionGroupFilters]
+    NextToken: Token | None
+    MaxResults: MaxResults | None
+    InclusionFilters: InclusionProtectionGroupFilters | None
 
 
-ProtectionGroups = List[ProtectionGroup]
+ProtectionGroups = list[ProtectionGroup]
 
 
 class ListProtectionGroupsResponse(TypedDict, total=False):
     ProtectionGroups: ProtectionGroups
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class ListProtectionsRequest(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxResults]
-    InclusionFilters: Optional[InclusionProtectionFilters]
+    NextToken: Token | None
+    MaxResults: MaxResults | None
+    InclusionFilters: InclusionProtectionFilters | None
 
 
-Protections = List[Protection]
+Protections = list[Protection]
 
 
 class ListProtectionsResponse(TypedDict, total=False):
-    Protections: Optional[Protections]
-    NextToken: Optional[Token]
+    Protections: Protections | None
+    NextToken: Token | None
 
 
 class ListResourcesInProtectionGroupRequest(ServiceRequest):
     ProtectionGroupId: ProtectionGroupId
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxResults]
+    NextToken: Token | None
+    MaxResults: MaxResults | None
 
 
-ResourceArnList = List[ResourceArn]
+ResourceArnList = list[ResourceArn]
 
 
 class ListResourcesInProtectionGroupResponse(TypedDict, total=False):
     ResourceArns: ResourceArnList
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -895,10 +895,10 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -929,7 +929,7 @@ class UpdateApplicationLayerAutomaticResponseResponse(TypedDict, total=False):
 
 
 class UpdateEmergencyContactSettingsRequest(ServiceRequest):
-    EmergencyContactList: Optional[EmergencyContactList]
+    EmergencyContactList: EmergencyContactList | None
 
 
 class UpdateEmergencyContactSettingsResponse(TypedDict, total=False):
@@ -940,8 +940,8 @@ class UpdateProtectionGroupRequest(ServiceRequest):
     ProtectionGroupId: ProtectionGroupId
     Aggregation: ProtectionGroupAggregation
     Pattern: ProtectionGroupPattern
-    ResourceType: Optional[ProtectedResourceType]
-    Members: Optional[ProtectionGroupMembers]
+    ResourceType: ProtectedResourceType | None
+    Members: ProtectionGroupMembers | None
 
 
 class UpdateProtectionGroupResponse(TypedDict, total=False):
@@ -949,7 +949,7 @@ class UpdateProtectionGroupResponse(TypedDict, total=False):
 
 
 class UpdateSubscriptionRequest(ServiceRequest):
-    AutoRenew: Optional[AutoRenew]
+    AutoRenew: AutoRenew | None
 
 
 class UpdateSubscriptionResponse(TypedDict, total=False):
@@ -957,8 +957,8 @@ class UpdateSubscriptionResponse(TypedDict, total=False):
 
 
 class ShieldApi:
-    service = "shield"
-    version = "2016-06-02"
+    service: str = "shield"
+    version: str = "2016-06-02"
 
     @handler("AssociateDRTLogBucket")
     def associate_drt_log_bucket(

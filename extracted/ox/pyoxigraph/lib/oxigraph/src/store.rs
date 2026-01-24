@@ -657,8 +657,6 @@ impl Store {
 
     /// Adds a quad to this store.
     ///
-    /// Returns `true` if the quad was not already in the store.
-    ///
     /// Usage example:
     /// ```
     /// use oxigraph::model::*;
@@ -698,8 +696,6 @@ impl Store {
     }
 
     /// Removes a quad from this store.
-    ///
-    /// Returns `true` if the quad was in the store and has been removed.
     ///
     /// Usage example:
     /// ```
@@ -834,8 +830,6 @@ impl Store {
 
     /// Inserts a graph into this store.
     ///
-    /// Returns `true` if the graph was not already in the store.
-    ///
     /// Usage example:
     /// ```
     /// use oxigraph::model::NamedNodeRef;
@@ -896,8 +890,6 @@ impl Store {
     }
 
     /// Removes a graph from this store.
-    ///
-    /// Returns `true` if the graph was in the store and has been removed.
     ///
     /// Usage example:
     /// ```
@@ -1367,8 +1359,6 @@ impl<'a> Transaction<'a> {
 
     /// Adds a quad to this store.
     ///
-    /// Returns `true` if the quad was not already in the store.
-    ///
     /// Usage example:
     /// ```
     /// use oxigraph::model::*;
@@ -1413,8 +1403,6 @@ impl<'a> Transaction<'a> {
 
     /// Removes a quad from this store.
     ///
-    /// Returns `true` if the quad was in the store and has been removed.
-    ///
     /// Usage example:
     /// ```
     /// use oxigraph::model::*;
@@ -1454,8 +1442,6 @@ impl<'a> Transaction<'a> {
     }
 
     /// Inserts a graph into this store.
-    ///
-    /// Returns `true` if the graph was not already in the store.
     ///
     /// Usage example:
     /// ```
@@ -1503,8 +1489,6 @@ impl<'a> Transaction<'a> {
     }
 
     /// Removes a graph from this store.
-    ///
-    /// Returns `true` if the graph was in the store and has been removed.
     ///
     /// Usage example:
     /// ```
@@ -1708,6 +1692,14 @@ impl BulkLoader<'_> {
         } else {
             DEFAULT_BULK_LOAD_BATCH_SIZE
         }
+    }
+
+    /// Allow the bulk loader to save also data to the database during the bulk loading instead of only when [`commit`](Self::commit) is called.
+    ///
+    /// When used with the RocksDB storage, it allows the storage to compact the data while the loading continues.
+    pub fn without_atomicity(mut self) -> Self {
+        self.storage = self.storage.without_atomicity();
+        self
     }
 
     /// Adds a `callback` evaluated from time to time with the number of loaded triples.
@@ -2147,7 +2139,7 @@ mod tests {
         use crate::model::*;
 
         let main_s = NamedOrBlankNode::from(BlankNode::default());
-        let main_p = NamedNode::new("http://example.com").unwrap();
+        let main_p = NamedNode::new_unchecked("http://example.com");
         let main_o = Term::from(Literal::from(1));
         let main_g = GraphName::from(BlankNode::default());
 

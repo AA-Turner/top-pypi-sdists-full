@@ -103,9 +103,7 @@ class TestInspection(unittest.TestCase):
         self.assertEqual(inspect.getsource(encoding_latin1.foo), foo_non_ascii)
 
     def test_get_source_file(self):
-        path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "fodder"
-        )
+        path = os.path.join(os.path.dirname(__file__), "fodder")
 
         encoding = inspection.get_encoding_file(
             os.path.join(path, "encoding_ascii.py")
@@ -162,7 +160,7 @@ class TestInspection(unittest.TestCase):
             """
             return lst + [number]
 
-        def fun_annotations(number: int, lst: List[int] = []) -> List[int]:
+        def fun_annotations(number: int, lst: list[int] = []) -> list[int]:
             """
             Return a list of numbers
 
@@ -185,7 +183,7 @@ class TestInspection(unittest.TestCase):
     def test_issue_966_class_method(self):
         class Issue966(Sequence):
             @classmethod
-            def cmethod(cls, number: int, lst: List[int] = []):
+            def cmethod(cls, number: int, lst: list[int] = []):
                 """
                 Return a list of numbers
 
@@ -222,7 +220,7 @@ class TestInspection(unittest.TestCase):
     def test_issue_966_static_method(self):
         class Issue966(Sequence):
             @staticmethod
-            def cmethod(number: int, lst: List[int] = []):
+            def cmethod(number: int, lst: list[int] = []):
                 """
                 Return a list of numbers
 

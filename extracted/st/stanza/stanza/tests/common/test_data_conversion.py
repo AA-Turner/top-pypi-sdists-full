@@ -305,6 +305,55 @@ def test_mwt_ner_conversion():
     conll = "{:C}".format(doc)
     assert conll == MWT_NER
 
+ALL_OFFSETS_CONLLU = """
+# text = This makes John's headache worse
+# sent_id = 0
+1	This	_	_	_	_	0	_	_	start_char=0|end_char=4
+2	makes	_	_	_	_	1	_	_	start_char=5|end_char=10
+3-4	John's	_	_	_	_	_	_	_	start_char=11|end_char=17
+3	John	_	_	_	_	2	_	_	start_char=11|end_char=15
+4	's	_	_	_	_	3	_	_	start_char=15|end_char=17
+5	headache	_	_	_	_	4	_	_	start_char=18|end_char=26
+6	worse	_	_	_	_	5	_	_	SpaceAfter=No|start_char=27|end_char=32
+""".strip()
+
+NO_OFFSETS_CONLLU = """
+# text = This makes John's headache worse
+# sent_id = 0
+1	This	_	_	_	_	0	_	_	_
+2	makes	_	_	_	_	1	_	_	_
+3-4	John's	_	_	_	_	_	_	_	_
+3	John	_	_	_	_	2	_	_	_
+4	's	_	_	_	_	3	_	_	_
+5	headache	_	_	_	_	4	_	_	_
+6	worse	_	_	_	_	5	_	_	SpaceAfter=No
+""".strip()
+
+NO_COMMENTS_NO_OFFSETS_CONLLU = """
+1	This	_	_	_	_	0	_	_	_
+2	makes	_	_	_	_	1	_	_	_
+3-4	John's	_	_	_	_	_	_	_	_
+3	John	_	_	_	_	2	_	_	_
+4	's	_	_	_	_	3	_	_	_
+5	headache	_	_	_	_	4	_	_	_
+6	worse	_	_	_	_	5	_	_	SpaceAfter=No
+""".strip()
+
+
+def test_no_offsets_output():
+    doc = CoNLL.conll2doc(input_str=ALL_OFFSETS_CONLLU)
+    assert len(doc.sentences) == 1
+    sentence = doc.sentences[0]
+    assert len(sentence.tokens) == 5
+
+    conll = "{:C}".format(doc)
+    assert conll == ALL_OFFSETS_CONLLU
+
+    conll = "{:C-o}".format(doc)
+    assert conll == NO_OFFSETS_CONLLU
+
+    conll = "{:c-o}".format(doc)
+    assert conll == NO_COMMENTS_NO_OFFSETS_CONLLU
 
 # A random sentence from et_ewt-ud-train.conllu
 # which we use to test the deps conversion for multiple deps
@@ -505,7 +554,7 @@ ENGLISH_TEST_SENTENCE = """
 1	This	this	PRON	DT	Number=Sing|PronType=Dem	4	nsubj	_	start_char=0|end_char=4
 2	is	be	AUX	VBZ	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	4	cop	_	start_char=5|end_char=7
 3	a	a	DET	DT	Definite=Ind|PronType=Art	4	det	_	start_char=8|end_char=9
-4	test	test	NOUN	NN	Number=Sing	0	root	_	start_char=10|end_char=14|SpaceAfter=No
+4	test	test	NOUN	NN	Number=Sing	0	root	_	SpaceAfter=No|start_char=10|end_char=14
 """.lstrip()
 
 def test_convert_dict():
@@ -518,3 +567,21 @@ def test_convert_dict():
                  ['4', 'test', 'test', 'NOUN', 'NN', 'Number=Sing', '0', 'root', '_', 'SpaceAfter=No|start_char=10|end_char=14']]]
 
     assert converted == expected
+
+def test_line_numbers():
+    doc = CoNLL.conll2doc(input_str=ENGLISH_TEST_SENTENCE, keep_line_numbers=True)
+    # currently the line numbers are not output in the conllu format
+    doc_conllu = "{:C}\n".format(doc)
+    assert doc_conllu == ENGLISH_TEST_SENTENCE
+
+    # currently the line numbers are not output in the dict format
+    converted = CoNLL.convert_dict(doc.to_dict())
+    expected = [[['1', 'This', 'this', 'PRON', 'DT', 'Number=Sing|PronType=Dem', '4', 'nsubj', '_', 'start_char=0|end_char=4'],
+                 ['2', 'is', 'be', 'AUX', 'VBZ', 'Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin', '4', 'cop', '_', 'start_char=5|end_char=7'],
+                 ['3', 'a', 'a', 'DET', 'DT', 'Definite=Ind|PronType=Art', '4', 'det', '_', 'start_char=8|end_char=9'],
+                 ['4', 'test', 'test', 'NOUN', 'NN', 'Number=Sing', '0', 'root', '_', 'SpaceAfter=No|start_char=10|end_char=14']]]
+    assert converted == expected
+
+    for word_idx, word in enumerate(doc.sentences[0].words):
+        # the test sentence has two comments in it
+        assert word.line_number == word_idx + 2

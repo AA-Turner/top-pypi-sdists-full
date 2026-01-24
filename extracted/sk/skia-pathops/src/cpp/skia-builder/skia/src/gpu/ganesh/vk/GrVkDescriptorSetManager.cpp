@@ -7,27 +7,39 @@
 
 #include "src/gpu/ganesh/vk/GrVkDescriptorSetManager.h"
 
+#include "include/core/SkTypes.h"
+#include "include/private/base/SkTo.h"
+#include "include/private/gpu/ganesh/GrTypesPriv.h"
+#include "src/gpu/ganesh/vk/GrVkCaps.h"
 #include "src/gpu/ganesh/vk/GrVkDescriptorPool.h"
 #include "src/gpu/ganesh/vk/GrVkDescriptorSet.h"
 #include "src/gpu/ganesh/vk/GrVkGpu.h"
+#include "src/gpu/ganesh/vk/GrVkResourceProvider.h"
+#include "src/gpu/ganesh/vk/GrVkSampler.h"
 #include "src/gpu/ganesh/vk/GrVkUniformHandler.h"
+#include "src/gpu/ganesh/vk/GrVkUtil.h"
+
+#include <string.h>
+#include <memory>
+
+using namespace skia_private;
 
 #if defined(SK_ENABLE_SCOPED_LSAN_SUPPRESSIONS)
 #include <sanitizer/lsan_interface.h>
 #endif
 
 GrVkDescriptorSetManager* GrVkDescriptorSetManager::CreateUniformManager(GrVkGpu* gpu) {
-    SkSTArray<1, uint32_t> visibilities;
+    STArray<1, uint32_t> visibilities;
     uint32_t stages = kVertex_GrShaderFlag | kFragment_GrShaderFlag;
     visibilities.push_back(stages);
-    SkTArray<const GrVkSampler*> samplers;
+    TArray<const GrVkSampler*> samplers;
     return Create(gpu, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, visibilities, samplers);
 }
 
 GrVkDescriptorSetManager* GrVkDescriptorSetManager::CreateSamplerManager(
         GrVkGpu* gpu, VkDescriptorType type, const GrVkUniformHandler& uniformHandler) {
-    SkSTArray<4, uint32_t> visibilities;
-    SkSTArray<4, const GrVkSampler*> immutableSamplers;
+    STArray<4, uint32_t> visibilities;
+    STArray<4, const GrVkSampler*> immutableSamplers;
     SkASSERT(type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     for (int i = 0 ; i < uniformHandler.numSamplers(); ++i) {
         visibilities.push_back(uniformHandler.samplerVisibility(i));
@@ -37,15 +49,15 @@ GrVkDescriptorSetManager* GrVkDescriptorSetManager::CreateSamplerManager(
 }
 
 GrVkDescriptorSetManager* GrVkDescriptorSetManager::CreateZeroSamplerManager(GrVkGpu* gpu) {
-    SkTArray<uint32_t> visibilities;
-    SkTArray<const GrVkSampler*> immutableSamplers;
+    TArray<uint32_t> visibilities;
+    TArray<const GrVkSampler*> immutableSamplers;
     return Create(gpu, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, visibilities, immutableSamplers);
 }
 
 GrVkDescriptorSetManager* GrVkDescriptorSetManager::CreateInputManager(GrVkGpu* gpu) {
-    SkSTArray<1, uint32_t> visibilities;
+    STArray<1, uint32_t> visibilities;
     visibilities.push_back(kFragment_GrShaderFlag);
-    SkTArray<const GrVkSampler*> samplers;
+    TArray<const GrVkSampler*> samplers;
     return Create(gpu, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, visibilities, samplers);
 }
 
@@ -63,8 +75,8 @@ VkShaderStageFlags visibility_to_vk_stage_flags(uint32_t visibility) {
 
 static bool get_layout_and_desc_count(GrVkGpu* gpu,
                                       VkDescriptorType type,
-                                      const SkTArray<uint32_t>& visibilities,
-                                      const SkTArray<const GrVkSampler*>& immutableSamplers,
+                                      const TArray<uint32_t>& visibilities,
+                                      const TArray<const GrVkSampler*>& immutableSamplers,
                                       VkDescriptorSetLayout* descSetLayout,
                                       uint32_t* descCountPerSet) {
     if (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER == type ||
@@ -102,7 +114,7 @@ static bool get_layout_and_desc_count(GrVkGpu* gpu,
         dsSamplerLayoutCreateInfo.pBindings = numBindings ? dsSamplerBindings.get() : nullptr;
 
 #if defined(SK_ENABLE_SCOPED_LSAN_SUPPRESSIONS)
-        // skia:8713
+        // skbug.com/40040004
         __lsan::ScopedDisabler lsanDisabler;
 #endif
         VkResult result;
@@ -133,7 +145,7 @@ static bool get_layout_and_desc_count(GrVkGpu* gpu,
         uniformLayoutCreateInfo.pBindings = &dsUniBinding;
 
 #if defined(SK_ENABLE_SCOPED_LSAN_SUPPRESSIONS)
-        // skia:8713
+        // skbug.com/40040004
         __lsan::ScopedDisabler lsanDisabler;
 #endif
         VkResult result;
@@ -168,7 +180,7 @@ static bool get_layout_and_desc_count(GrVkGpu* gpu,
         inputLayoutCreateInfo.pBindings = &dsInpuBinding;
 
 #if defined(SK_ENABLE_SCOPED_LSAN_SUPPRESSIONS)
-        // skia:8713
+        // skbug.com/40040004
         __lsan::ScopedDisabler lsanDisabler;
 #endif
         VkResult result;
@@ -186,8 +198,8 @@ static bool get_layout_and_desc_count(GrVkGpu* gpu,
 
 GrVkDescriptorSetManager* GrVkDescriptorSetManager::Create(
         GrVkGpu* gpu, VkDescriptorType type,
-        const SkTArray<uint32_t>& visibilities,
-        const SkTArray<const GrVkSampler*>& immutableSamplers) {
+        const TArray<uint32_t>& visibilities,
+        const TArray<const GrVkSampler*>& immutableSamplers) {
 #ifdef SK_DEBUG
     if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
         SkASSERT(visibilities.size() == immutableSamplers.size());
@@ -208,8 +220,8 @@ GrVkDescriptorSetManager* GrVkDescriptorSetManager::Create(
 
 GrVkDescriptorSetManager::GrVkDescriptorSetManager(
         GrVkGpu* gpu, VkDescriptorType type, VkDescriptorSetLayout descSetLayout,
-        uint32_t descCountPerSet, const SkTArray<uint32_t>& visibilities,
-        const SkTArray<const GrVkSampler*>& immutableSamplers)
+        uint32_t descCountPerSet, const TArray<uint32_t>& visibilities,
+        const TArray<const GrVkSampler*>& immutableSamplers)
     : fPoolManager(descSetLayout, type, descCountPerSet) {
     for (int i = 0; i < visibilities.size(); ++i) {
         fBindingVisibilities.push_back(visibilities[i]);
@@ -287,7 +299,7 @@ bool GrVkDescriptorSetManager::isZeroSampler() const {
     if (VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER != fPoolManager.fDescType) {
         return false;
     }
-    if (fBindingVisibilities.size()) {
+    if (!fBindingVisibilities.empty()) {
         return false;
     }
     return true;

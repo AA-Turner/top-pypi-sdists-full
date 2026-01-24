@@ -3,11 +3,13 @@
 This module defines the base-class for storing the settings for performing
 Cluster Expansion in different conditions.
 """
+
 from __future__ import annotations
 
+from collections.abc import Sequence
 from copy import deepcopy
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Set, Union
+from typing import Any
 
 from ase import Atoms
 from ase.db import connect
@@ -39,14 +41,21 @@ class PrimitiveCellNotFound(Exception):
 class ClusterExpansionSettings:
     """Base class for all Cluster Expansion settings.
 
+    .. note::
+        This class should not be instantiated directly. Use one of the factory
+        functions instead:
+        - :func:`clease.settings.CEBulk` for bulk materials with crystal structures
+        - :func:`clease.settings.CECrystal` for bulk materials with space groups
+        - :func:`clease.settings.CESlab` for slab/surface calculations
+
     Args:
         prim (Atoms): The primitive atoms object.
 
-        concentration (Union[Concentration, dict]): Concentration object or
+        concentration (Concentration | dict): Concentration object or
             dictionary specifying the basis elements and
             concentration range of constituting species.
 
-        size (List[int] | None, optional): Size of the supercell
+        size (list[int] | None, optional): Size of the supercell
             (e.g., [2, 2, 2] for 2x2x2 cell).
             ``supercell_factor`` is ignored if both ``size`` and ``supercell_factor``
             are specified. Defaults to None.
@@ -92,14 +101,24 @@ class ClusterExpansionSettings:
     def __init__(
         self,
         prim: Atoms,
-        concentration: Union[Concentration, dict],
-        size: Optional[List[int]] = None,
-        supercell_factor: Optional[int] = 27,
+        concentration: Concentration | dict,
+        size: list[int] | None = None,
+        supercell_factor: int | None = 27,
         db_name: str = "clease.db",
         max_cluster_dia: Sequence[float] = (5.0, 5.0, 5.0),
         include_background_atoms: bool = False,
         basis_func_type="polynomial",
+        _allow_direct_instantiation: bool = False,
     ) -> None:
+        if not _allow_direct_instantiation:
+            raise TypeError(
+                "ClusterExpansionSettings cannot be instantiated directly. "
+                "Please use one of the factory functions instead:\n"
+                "  - CEBulk() for bulk materials with crystal structures\n"
+                "  - CECrystal() for bulk materials with space groups\n"
+                "  - CESlab() for slab/surface calculations\n"
+                "See clease.settings documentation for details."
+            )
         self._include_background_atoms = include_background_atoms
         self._cluster_mng = None
         self._trans_matrix = None
@@ -205,7 +224,7 @@ class ClusterExpansionSettings:
         return len(self.max_cluster_dia) + 1
 
     @property
-    def all_elements(self) -> List[str]:
+    def all_elements(self) -> list[str]:
         return sorted([item for row in self.basis_elements for item in row])
 
     @property
@@ -213,7 +232,7 @@ class ClusterExpansionSettings:
         return len(self.all_elements)
 
     @property
-    def unique_elements(self) -> List[str]:
+    def unique_elements(self) -> list[str]:
         return sorted(list(set(deepcopy(self.all_elements))))
 
     @property
@@ -221,7 +240,7 @@ class ClusterExpansionSettings:
         return len(self.unique_elements)
 
     @property
-    def ref_index_trans_symm(self) -> List[int]:
+    def ref_index_trans_symm(self) -> list[int]:
         return [i[0] for i in self.index_by_sublattice]
 
     @property
@@ -237,7 +256,7 @@ class ClusterExpansionSettings:
         self.template_atoms.skew_threshold = threshold
 
     @property
-    def background_indices(self) -> List[int]:
+    def background_indices(self) -> list[int]:
         """Get indices of the background atoms."""
         # check if any basis consists of only one element type
         basis = [i for i, b in enumerate(self.basis_elements) if len(b) == 1]
@@ -248,7 +267,7 @@ class ClusterExpansionSettings:
         return bkg_indices
 
     @property
-    def non_background_indices(self) -> List[int]:
+    def non_background_indices(self) -> list[int]:
         """Indices of sites which are not background"""
         bkg = set(self.background_indices)
 
@@ -277,7 +296,7 @@ class ClusterExpansionSettings:
         raise NotImplementedError(msg)
 
     @property
-    def spin_dict(self) -> Dict[str, float]:
+    def spin_dict(self) -> dict[str, float]:
         return self.basis_func_type.spin_dict
 
     @property
@@ -289,13 +308,13 @@ class ClusterExpansionSettings:
         return not self.include_background_atoms
 
     @property
-    def multiplicity_factor(self) -> Dict[str, float]:
+    def multiplicity_factor(self) -> dict[str, float]:
         """Return the multiplicity factor of each cluster."""
         num_sites_in_group = [len(x) for x in self.index_by_sublattice]
         return self.cluster_list.multiplicity_factors(num_sites_in_group)
 
     @property
-    def all_cf_names(self) -> List[str]:
+    def all_cf_names(self) -> list[str]:
         num_bf = len(self.basis_functions)
         return self.cluster_list.get_all_cf_names(num_bf)
 
@@ -305,12 +324,12 @@ class ClusterExpansionSettings:
         return len(self.all_cf_names)
 
     @property
-    def index_by_basis(self) -> List[List[int]]:
+    def index_by_basis(self) -> list[list[int]]:
         first_symb_in_basis = [x[0] for x in self.basis_elements]
         return self.atoms_mng.index_by_symbol(first_symb_in_basis)
 
     @property
-    def index_by_sublattice(self) -> List[List[int]]:
+    def index_by_sublattice(self) -> list[list[int]]:
         return self.atoms_mng.index_by_tag()
 
     @property
@@ -322,7 +341,7 @@ class ClusterExpansionSettings:
         return self._basis_func_type
 
     @property
-    def size(self) -> Union[np.ndarray, None]:
+    def size(self) -> np.ndarray | None:
         return self.template_atoms.size
 
     @size.setter
@@ -331,7 +350,7 @@ class ClusterExpansionSettings:
         self.template_atoms.size = value
 
     @property
-    def supercell_factor(self) -> Union[int, None]:
+    def supercell_factor(self) -> int | None:
         return self.template_atoms.supercell_factor
 
     @supercell_factor.setter
@@ -351,14 +370,14 @@ class ClusterExpansionSettings:
         """Number of active sublattices"""
         return sum(self.get_active_sublattices())
 
-    def get_active_sublattices(self) -> List[bool]:
+    def get_active_sublattices(self) -> list[bool]:
         """List of booleans indicating if a (grouped) sublattice is active"""
         unique_no_bkg = self.unique_element_without_background()
 
         return [basis[0] in unique_no_bkg for basis in self.concentration.basis_elements]
 
     @property
-    def ignored_species_and_conc(self) -> Dict[str, float]:
+    def ignored_species_and_conc(self) -> dict[str, float]:
         """
         Return the ignored species and their concentrations normalised to the total number
         of atoms.
@@ -375,10 +394,8 @@ class ClusterExpansionSettings:
             if elem not in unique_no_bkg:
                 if len(basis) != 1:
                     raise ValueError(
-                        (
-                            "Ignored sublattice contains multiple elements -"
-                            "this does not make any sense"
-                        )
+                        "Ignored sublattice contains multiple elements -"
+                        "this does not make any sense"
                     )
                 if elem not in ignored:
                     ignored[elem] = ratio
@@ -431,7 +448,7 @@ class ClusterExpansionSettings:
         else:
             raise ValueError("basis_function has to be an instance of BasisFunction or a string")
 
-    def get_bg_syms(self) -> Set[str]:
+    def get_bg_syms(self) -> set[str]:
         """
         Return the symbols in the basis where there is only one element
         """
@@ -589,7 +606,7 @@ class ClusterExpansionSettings:
         gui.show_name = True
         gui.run()
 
-    def get_all_figures_as_atoms(self) -> List[Atoms]:
+    def get_all_figures_as_atoms(self) -> list[Atoms]:
         """Get the list of all possible figures, in their
         ASE Atoms representation."""
         self.ensure_clusters_exist()
@@ -637,7 +654,7 @@ class ClusterExpansionSettings:
         if len(set(first_elements)) != num_basis:
             raise ValueError("First element of different basis should not be the same.")
 
-    def todict(self) -> Dict:
+    def todict(self) -> dict:
         """Return a dictionary representation of the settings class.
 
         Example:
@@ -655,7 +672,7 @@ class ClusterExpansionSettings:
         return dct
 
     @classmethod
-    def from_dict(cls, dct: Dict[str, Any]) -> ClusterExpansionSettings:
+    def from_dict(cls, dct: dict[str, Any]) -> ClusterExpansionSettings:
         """Load a new ClusterExpansionSettings class from a dictionary representation.
 
         Example:
@@ -685,6 +702,8 @@ class ClusterExpansionSettings:
             # Avoid crashing.
             dct.pop("max_cluster_size")
 
+        # Allow instantiation from from_dict (legitimate use case)
+        kwargs["_allow_direct_instantiation"] = True
         settings = cls(*args, **kwargs)
 
         for key in cls.OTHER_KEYS:
@@ -759,7 +778,7 @@ class ClusterExpansionSettings:
         raise RuntimeError(f"Didn't find cluster corresponding to name: {cf_name}")
 
 
-def _get_concentration(concentration: Union[Concentration, dict]) -> Concentration:
+def _get_concentration(concentration: Concentration | dict) -> Concentration:
     """Helper function to format the concentration"""
     if isinstance(concentration, Concentration):
         conc = concentration

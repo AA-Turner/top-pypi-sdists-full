@@ -1,10 +1,10 @@
 """Factory functions for creating ChromaDB clients."""
 
-import os
 from hashlib import md5
+import os
 
-import portalocker
 from chromadb import PersistentClient
+import portalocker
 
 from crewai.rag.chromadb.client import ChromaDBClient
 from crewai.rag.chromadb.config import ChromaDBConfig
@@ -41,4 +41,5 @@ def create_client(config: ChromaDBConfig) -> ChromaDBClient:
         embedding_function=config.embedding_function,
         default_limit=config.limit,
         default_score_threshold=config.score_threshold,
+        default_batch_size=config.batch_size,
     )

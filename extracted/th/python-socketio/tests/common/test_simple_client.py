@@ -64,7 +64,7 @@ class TestSimpleClient:
 
     def test_properties(self):
         client = SimpleClient()
-        client.client = mock.MagicMock(transport='websocket')
+        client.client = mock.MagicMock(transport=lambda: 'websocket')
         client.client.get_sid.return_value = 'sid'
         client.connected_event.set()
         client.connected = True
@@ -129,6 +129,16 @@ class TestSimpleClient:
         assert client.call('foo', 'bar') == 'result'
         client.client.call.assert_called_with('foo', 'bar', namespace='/',
                                               timeout=60)
+
+    def test_call_timeout(self):
+        client = SimpleClient()
+        client.connected_event.set()
+        client.connected = True
+        client.client = mock.MagicMock()
+        client.client.call.side_effect = TimeoutError()
+
+        with pytest.raises(TimeoutError):
+            client.call('foo', 'bar')
 
     def test_receive_with_input_buffer(self):
         client = SimpleClient()

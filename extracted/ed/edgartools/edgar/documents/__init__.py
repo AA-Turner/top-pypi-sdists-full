@@ -4,7 +4,16 @@ EdgarTools HTML Parser v2.0
 A high-performance, semantically-aware HTML parser for SEC filings.
 """
 
+from typing import Optional
+
 from edgar.documents.config import ParserConfig
+from edgar.documents.cross_reference_index import (
+    CrossReferenceIndex,
+    IndexEntry,
+    PageRange,
+    detect_cross_reference_index,
+    parse_cross_reference_index,
+)
 from edgar.documents.document import Document
 from edgar.documents.exceptions import ParsingError
 from edgar.documents.parser import HTMLParser
@@ -14,33 +23,38 @@ from edgar.documents.types import NodeType, SemanticType, TableType
 
 __version__ = "2.0.0"
 __all__ = [
-    'HTMLParser', 
-    'Document', 
-    'ParserConfig', 
+    'HTMLParser',
+    'Document',
+    'ParserConfig',
     'ParsingError',
     'NodeType',
-    'SemanticType', 
+    'SemanticType',
     'TableType',
     'DocumentSearch',
     'SearchResult',
     'SearchMode',
     'MarkdownRenderer',
     'TextRenderer',
-    'parse_html'
+    'parse_html',
+    'CrossReferenceIndex',
+    'PageRange',
+    'IndexEntry',
+    'detect_cross_reference_index',
+    'parse_cross_reference_index'
 ]
 
 
-def parse_html(html: str, config: ParserConfig = None) -> Document:
+def parse_html(html: str, config: Optional[ParserConfig] = None) -> Document:
     """
     Convenience function for parsing HTML.
-
+    
     Args:
         html: HTML content to parse
         config: Optional parser configuration
-
+        
     Returns:
         Parsed Document object
-
+        
     Example:
         >>> document = parse_html(html_content)
         >>> print(document.text()[:100])

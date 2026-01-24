@@ -70,6 +70,22 @@ GET_PROJECT_RESPONSE = {
     },
 }
 
+GET_DOMAIN_RESPONSE_EXPRESS = {
+    "id": "dzd_1234",
+    "name": "test-domain",
+    "iamSignIns": ["IAM_ROLE", "IAM_USER"],
+    "domainVersion": "V2",
+}
+
+GET_DOMAIN_RESPONSE_STANDARD = {"id": "dzd_1234", "name": "test-domain"}
+
+GET_DOMAIN_RESPONSE_MISSING_VERSION = {
+    "id": "dzd_1234",
+    "name": "test-domain",
+    "iamSignIns": ["IAM_ROLE", "IAM_USER"],
+    # domainVersion is missing - should be treated as non-express
+}
+
 DEFAULT_TOOLING_ENV = {
     "awsAccountId": "1234567890",
     "awsAccountRegion": "us-east-1",
@@ -120,6 +136,9 @@ class TestProject(TestCase):
         self.mock_datazone_api.get_paginator.side_effect = lambda x: self.list_projects_paginator
         self.mock_datazone_api.get_project = Mock()
         self.mock_datazone_api.get_project.return_value = GET_PROJECT_RESPONSE
+        # Mock get_domain to return STANDARD mode by default
+        self.mock_datazone_api.get_domain = Mock()
+        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_STANDARD
         with open(
             TestSageMakerUIHelper.get_mock_sagemaker_space_metadata_path(), "w"
         ) as metadata_json:
@@ -482,30 +501,95 @@ class TestProject(TestCase):
     @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
     @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
     @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
-    def get_project_iam_connection_returned_env_usr_role(
+    def test_get_project_iam_role_from_default_iam_environment(
         self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
     ):
+        """Test iam_role property in EXPRESS domain mode (uses default.iam)"""
         get_domain_id_mock.return_value = "dzd_1234"
         get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        # Set domain to EXPRESS mode
+        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_EXPRESS
         get_connection_by_name_mock.return_value = Connection(
-            {"environmentUserRole": "arn:aws:iam:env_usr_role"}, Mock(), Mock(), Mock(), Mock()
+            {"environmentUserRole": "arn:aws:iam:default_env_usr_role"},
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
         )
         project = Project(id="aa76bmnbd042v")
-        self.assertEqual(project.iam_role, "arn:aws:iam:env_usr_role")
+        self.assertEqual(project.iam_role, "arn:aws:iam:default_env_usr_role")
+        get_connection_by_name_mock.assert_called_with(name="default.iam")
 
     @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
     @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
     @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
-    def get_project_iam_connection_did_not_return_env_usr_role(
+    def test_get_project_iam_role_from_project_iam_environment(
         self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
     ):
+        """Test iam_role property in STANDARD domain mode (uses project.iam)"""
         get_domain_id_mock.return_value = "dzd_1234"
         get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
-        get_connection_by_name_mock.return_value = Connection({}, Mock(), Mock(), Mock(), Mock())
+        # Set domain to STANDARD mode (default behavior)
+        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_STANDARD
+        get_connection_by_name_mock.return_value = Connection(
+            {"environmentUserRole": "arn:aws:iam:project_env_usr_role"},
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+        )
         project = Project(id="aa76bmnbd042v")
-        with self.assertRaises(RuntimeError) as context:
+        self.assertEqual(project.iam_role, "arn:aws:iam:project_env_usr_role")
+        get_connection_by_name_mock.assert_called_with(name="project.iam")
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_get_project_iam_role_connection_fails(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        """Test iam_role property when the domain-determined IAM connection fails"""
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        # Set domain to STANDARD mode (uses project.iam)
+        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_STANDARD
+
+        # Connection lookup fails
+        get_connection_by_name_mock.side_effect = AttributeError("project.iam not found")
+        project = Project(id="aa76bmnbd042v")
+
+        with self.assertRaises(AttributeError) as context:
             project.iam_role
-            self.assertTrue("Could not find project iam role" in str(context.exception))
+        self.assertTrue("project.iam not found" in str(context.exception))
+        get_connection_by_name_mock.assert_called_with(name="project.iam")
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.list_connections")
+    def test_connections_property_fallback_to_project_iam(
+        self, list_connections_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        """Test connections property in environment that has project.iam but not default.iam"""
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+
+        # Create mock connections without default.iam
+        project_iam_conn = Mock()
+        project_iam_conn.name = "project.iam"
+        other_conn = Mock()
+        other_conn.name = "other.connection"
+
+        # Return connections without default.iam
+        list_connections_mock.return_value = [other_conn, project_iam_conn]
+
+        project = Project(id="aa76bmnbd042v")
+        connections = project.connections
+
+        # project.iam should be first since default.iam doesn't exist
+        self.assertEqual(connections[0], project_iam_conn)
+        self.assertEqual(len(connections), 2)
 
     @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
     @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
@@ -609,3 +693,121 @@ class TestProject(TestCase):
             project.shared_files
         error_message = str(context.exception)
         self.assertIn("Encountered an error getting the shared files path", error_message)
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_connection_by_name_default_in_express_mode(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        """Test connection() method in EXPRESS domain mode (uses default.iam)"""
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        # Set domain to EXPRESS mode
+        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_EXPRESS
+        mock_connection = Mock()
+        get_connection_by_name_mock.return_value = mock_connection
+        project = Project(id="aa76bmnbd042v")
+
+        result = project.connection()
+        get_connection_by_name_mock.assert_called_once_with(name="default.iam")
+        self.assertEqual(result, mock_connection)
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_connection_by_name_default_in_standard_mode(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        """Test connection() method in STANDARD domain mode (uses project.iam)"""
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        # Set domain to STANDARD mode (default behavior)
+        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_STANDARD
+        mock_connection = Mock()
+        get_connection_by_name_mock.return_value = mock_connection
+        project = Project(id="aa76bmnbd042v")
+
+        result = project.connection()
+        get_connection_by_name_mock.assert_called_once_with(name="project.iam")
+        self.assertEqual(result, mock_connection)
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_connection_by_name_explicit(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        mock_connection = Mock()
+        get_connection_by_name_mock.return_value = mock_connection
+        project = Project(id="aa76bmnbd042v")
+
+        result = project.connection("test_connection")
+        get_connection_by_name_mock.assert_called_once_with(name="test_connection")
+        self.assertEqual(result, mock_connection)
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_connection_by_name_keyword(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        mock_connection = Mock()
+        get_connection_by_name_mock.return_value = mock_connection
+        project = Project(id="aa76bmnbd042v")
+
+        result = project.connection(name="test_connection")
+        get_connection_by_name_mock.assert_called_once_with(name="test_connection")
+        self.assertEqual(result, mock_connection)
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_id")
+    def test_connection_by_id(
+        self, get_connection_by_id_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        mock_connection = Mock()
+        get_connection_by_id_mock.return_value = mock_connection
+        project = Project(id="aa76bmnbd042v")
+
+        result = project.connection(id="12345")
+        get_connection_by_id_mock.assert_called_once_with(connection_id="12345")
+        self.assertEqual(result, mock_connection)
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    def test_connection_both_name_and_id_raises_error(
+        self, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        project = Project(id="aa76bmnbd042v")
+
+        with self.assertRaises(ValueError) as context:
+            project.connection(name="test_connection", id="12345")
+        self.assertIn("Cannot specify both 'name' and 'id' parameters", str(context.exception))
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_connection_missing_domain_version_uses_project_iam(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        """Test that domain with iamSignIns but missing domainVersion is treated as non-express"""
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        # Set domain with iamSignIns but missing domainVersion - should be treated as non-express
+        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_MISSING_VERSION
+        mock_connection = Mock()
+        get_connection_by_name_mock.return_value = mock_connection
+        project = Project(id="aa76bmnbd042v")
+
+        result = project.connection()
+        get_connection_by_name_mock.assert_called_once_with(name="project.iam")
+        self.assertEqual(result, mock_connection)

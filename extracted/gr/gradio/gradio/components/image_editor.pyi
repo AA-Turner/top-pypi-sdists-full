@@ -21,7 +21,7 @@ from gradio_client import handle_file
 from gradio_client.documentation import document
 from typing_extensions import TypedDict
 
-from gradio import image_utils, utils
+from gradio import image_utils
 from gradio.components.base import Component, server
 from gradio.data_classes import FileData, GradioModel
 from gradio.events import Events
@@ -145,6 +145,53 @@ class WebcamOptions:
     mirror: bool = True
     constraints: dict[str, Any] | None = None
 
+
+@document()
+@dataclasses.dataclass
+class WatermarkOptions:
+    """
+    A dataclass for specifying options for the watermark tool in the ImageEditor component.
+
+    Parameters:
+        watermark: str, Path, PIL.Image.Image, np.ndarray to use as the watermark
+        position: (x,y) coordinates as tuple[int, int] or string position ('top-left', 'top-right', 'bottom-left', 'bottom-right'). Default is 'bottom-right'.
+    """
+
+    watermark: Union[str, Path, PIL.Image.Image, np.ndarray, None] = None
+    position: Union[
+        tuple[int, int],
+        Literal[
+            "top-left",
+            "top-right",
+            "bottom-left",
+            "bottom-right",
+        ],
+    ] = "bottom-right"
+
+    def __post_init__(self):
+        # Validate watermark input
+        if self.watermark is not None and not isinstance(
+            self.watermark, (str, Path, PIL.Image.Image, np.ndarray)
+        ):
+            raise ValueError(
+                "Watermark must be a string path, Path, PIL Image, numpy array, or None"
+            )
+
+        if isinstance(self.position, str):
+            valid_positions = {
+                "top-left",
+                "top-right",
+                "bottom-left",
+                "bottom-right",
+            }
+            if self.position not in valid_positions:
+                raise ValueError(f"String position must be one of: {valid_positions}")
+        elif isinstance(self.position, tuple):
+            if len(self.position) != 2:
+                raise ValueError("Position tuple must have exactly 2 values (x,y)")
+            if not all(isinstance(x, int) for x in self.position):
+                raise ValueError("Position coordinates must be integers")
+
 from gradio.events import Dependency
 
 @document()
@@ -190,7 +237,7 @@ class ImageEditor(Component):
         every: Timer | float | None = None,
         inputs: Component | Sequence[Component] | set[Component] | None = None,
         show_label: bool | None = None,
-        show_download_button: bool = True,
+        buttons: list[Literal["download", "share", "fullscreen"]] | None = None,
         container: bool = True,
         scale: int | None = None,
         min_width: int = 160,
@@ -202,10 +249,7 @@ class ImageEditor(Component):
         key: int | str | tuple[int | str, ...] | None = None,
         preserved_by_key: list[str] | str | None = "value",
         placeholder: str | None = None,
-        mirror_webcam: bool | None = None,
-        show_share_button: bool | None = None,
         _selectable: bool = False,
-        crop_size: tuple[int | float, int | float] | str | None = None,
         transforms: Iterable[Literal["crop", "resize"]] | None = ("crop", "resize"),
         eraser: Eraser | None | Literal[False] = None,
         brush: Brush | None | Literal[False] = None,
@@ -213,14 +257,13 @@ class ImageEditor(Component):
         layers: bool | LayerOptions = True,
         canvas_size: tuple[int, int] = (800, 800),
         fixed_canvas: bool = False,
-        show_fullscreen_button: bool = True,
         webcam_options: WebcamOptions | None = None,
     ):
         """
         Parameters:
             value: Optional initial image(s) to populate the image editor. Should be a dictionary with keys: `background`, `layers`, and `composite`. The values corresponding to `background` and `composite` should be images or None, while `layers` should be a list of images. Images can be of type PIL.Image, np.array, or str filepath/URL. Or, the value can be a callable, in which case the function will be called whenever the app loads to set the initial value of the component.
-            height: The height of the component, specified in pixels if a number is passed, or in CSS units if a string is passed. This has no effect on the preprocessed image files or numpy arrays, but will affect the displayed images. Beware of conflicting values with the canvas_size paramter. If the canvas_size is larger than the height, the editing canvas will not fit in the component.
-            width: The width of the component, specified in pixels if a number is passed, or in CSS units if a string is passed. This has no effect on the preprocessed image files or numpy arrays, but will affect the displayed images. Beware of conflicting values with the canvas_size paramter. If the canvas_size is larger than the height, the editing canvas will not fit in the component.
+            height: The height of the component, specified in pixels if a number is passed, or in CSS units if a string is passed. This has no effect on the preprocessed image files or numpy arrays, but will affect the displayed images. Beware of conflicting values with the canvas_size parameter. If the canvas_size is larger than the height, the editing canvas will not fit in the component.
+            width: The width of the component, specified in pixels if a number is passed, or in CSS units if a string is passed. This has no effect on the preprocessed image files or numpy arrays, but will affect the displayed images. Beware of conflicting values with the canvas_size parameter. If the canvas_size is larger than the height, the editing canvas will not fit in the component.
             image_mode: "RGB" if color, or "L" if black and white. See https://pillow.readthedocs.io/en/stable/handbook/concepts.html for other supported image modes and their meaning.
             sources: List of sources that can be used to set the background image. "upload" creates a box where user can drop an image file, "webcam" allows user to take snapshot from their webcam, "clipboard" allows users to paste an image from the clipboard.
             type: The format the images are converted to before being passed into the prediction function. "numpy" converts the images to numpy arrays with shape (height, width, 3) and values from 0 to 255, "pil" converts the images to PIL image objects, "filepath" passes images as str filepaths to temporary copies of the images.
@@ -228,7 +271,7 @@ class ImageEditor(Component):
             every: Continously calls `value` to recalculate it if `value` is a function (has no effect otherwise). Can provide a Timer whose tick resets `value`, or a float that provides the regular interval for the reset Timer.
             inputs: Components that are used as inputs to calculate `value` if `value` is a function (has no effect otherwise). `value` is recalculated any time the inputs change.
             show_label: if True, will display label.
-            show_download_button: If True, will display button to download image.
+            buttons: A list of buttons to show in the corner of the component. Valid options are "download" to download the image, "share" to share to Hugging Face Spaces Discussions, and "fullscreen" to view in fullscreen mode. By default, all buttons are shown.
             container: If True, will place the component in a container - providing some extra padding around the border.
             scale: relative size compared to adjacent Components. For example if Components A and B are in a Row, and A has scale=2, and B has scale=1, A will be twice as wide as B. Should be an integer. scale applies in Rows, and to top-level Components in Blocks where fill_height=True.
             min_width: minimum pixel width, will wrap if not sufficient screen space to satisfy this value. If a certain scale value results in this Component being narrower than min_width, the min_width parameter will be respected first.
@@ -240,8 +283,6 @@ class ImageEditor(Component):
             key: in a gr.render, Components with the same key across re-renders are treated as the same component, not a new component. Properties set in 'preserved_by_key' are not reset across a re-render.
             preserved_by_key: A list of parameters from this component's constructor. Inside a gr.render() function, if a component is re-rendered with the same key, these (and only these) parameters will be preserved in the UI (if they have been changed by the user or an event listener) instead of re-rendered based on the values provided during constructor.
             placeholder: Custom text for the upload area. Overrides default upload messages when provided. Accepts new lines and `#` to designate a heading.
-            show_share_button: If True, will show a share icon in the corner of the component that allows user to share outputs to Hugging Face Spaces Discussions. If False, icon does not appear. If set to None (default behavior), then the icon appears if this Gradio app is launched on Spaces, but not otherwise.
-            crop_size: Deprecated. Used to set the `canvas_size` parameter.
             transforms: The transforms tools to make available to users. "crop" allows the user to crop the image.
             eraser: The options for the eraser tool in the image editor. Should be an instance of the `gr.Eraser` class, or None to use the default settings. Can also be False to hide the eraser tool. [See `gr.Eraser` docs](#eraser).
             brush: The options for the brush tool in the image editor. Should be an instance of the `gr.Brush` class, or None to use the default settings. Can also be False to hide the brush tool, which will also hide the eraser tool. [See `gr.Brush` docs](#brush).
@@ -249,7 +290,6 @@ class ImageEditor(Component):
             layers: The options for the layer tool in the image editor. Can be a boolean     or an instance of the `gr.LayerOptions` class. If True, will allow users to add layers to the image. If False, the layers option will be hidden. If an instance of `gr.LayerOptions`, it will be used to configure the layer tool. [See `gr.LayerOptions` docs](#layer-options).
             canvas_size: The initial size of the canvas in pixels. The first value is the width and the second value is the height. If `fixed_canvas` is `True`, uploaded images will be rescaled to fit the canvas size while preserving the aspect ratio. Otherwise, the canvas size will change to match the size of an uploaded image.
             fixed_canvas: If True, the canvas size will not change based on the size of the background image and the image will be rescaled to fit (while preserving the aspect ratio) and placed in the center of the canvas.
-            show_fullscreen_button: If True, will display button to view image in fullscreen mode.
             webcam_options: The options for the webcam tool in the image editor. Can be an instance of the `gr.WebcamOptions` class, or None to use the default settings. [See `gr.WebcamOptions` docs](#webcam-options).
         """
         self._selectable = _selectable
@@ -257,13 +297,6 @@ class ImageEditor(Component):
         self.webcam_options = (
             webcam_options if webcam_options is not None else WebcamOptions()
         )
-
-        if mirror_webcam is not None:
-            warnings.warn(
-                "The `mirror_webcam` parameter is deprecated. Please use the `webcam_options` parameter with a `gr.WebcamOptions` instance instead."
-            )
-            self.webcam_options.mirror = mirror_webcam
-
         valid_types = ["numpy", "pil", "filepath"]
         if type not in valid_types:
             raise ValueError(
@@ -275,7 +308,7 @@ class ImageEditor(Component):
         self.image_mode = image_mode
         valid_sources = ["upload", "webcam", "clipboard"]
         if isinstance(sources, str):
-            sources = [sources]
+            sources = [sources]  # type: ignore
         if sources is not None:
             for source in sources:
                 if source not in valid_sources:
@@ -286,30 +319,7 @@ class ImageEditor(Component):
         else:
             self.sources = []
 
-        self.show_download_button = show_download_button
-
-        self.show_share_button = (
-            (utils.get_space() is not None)
-            if show_share_button is None
-            else show_share_button
-        )
-
-        if crop_size is not None and canvas_size is None:
-            warnings.warn(
-                "`crop_size` parameter is deprecated. Please use `canvas_size` instead."
-            )
-            if isinstance(crop_size, str):
-                # convert ratio to tuple
-                proportion = [
-                    int(crop_size.split(":")[0]),
-                    int(crop_size.split(":")[1]),
-                ]
-                ratio = proportion[0] / proportion[1]
-                canvas_size = (
-                    (int(800 * ratio), 800) if ratio > 1 else (800, int(800 / ratio))
-                )
-            else:
-                canvas_size = (int(crop_size[0]), int(crop_size[1]))
+        self.buttons = buttons
 
         self.transforms = transforms
         self.eraser = Eraser() if eraser is None else eraser
@@ -325,7 +335,6 @@ class ImageEditor(Component):
         )
         self.canvas_size = canvas_size
         self.fixed_canvas = fixed_canvas
-        self.show_fullscreen_button = show_fullscreen_button
         self.placeholder = placeholder
         super().__init__(
             label=label,
@@ -541,7 +550,7 @@ class ImageEditor(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -556,7 +565,7 @@ class ImageEditor(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -567,7 +576,7 @@ class ImageEditor(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -582,7 +591,7 @@ class ImageEditor(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
@@ -594,7 +603,7 @@ class ImageEditor(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -609,7 +618,7 @@ class ImageEditor(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -620,7 +629,7 @@ class ImageEditor(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -635,7 +644,7 @@ class ImageEditor(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
@@ -647,7 +656,7 @@ class ImageEditor(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -662,7 +671,7 @@ class ImageEditor(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -673,7 +682,7 @@ class ImageEditor(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -688,7 +697,7 @@ class ImageEditor(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
@@ -700,7 +709,7 @@ class ImageEditor(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -715,7 +724,7 @@ class ImageEditor(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -726,7 +735,7 @@ class ImageEditor(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -741,7 +750,7 @@ class ImageEditor(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
@@ -753,7 +762,7 @@ class ImageEditor(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -768,7 +777,7 @@ class ImageEditor(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -779,7 +788,7 @@ class ImageEditor(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -794,7 +803,7 @@ class ImageEditor(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
@@ -806,7 +815,7 @@ class ImageEditor(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -821,7 +830,7 @@ class ImageEditor(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -832,7 +841,7 @@ class ImageEditor(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -847,7 +856,7 @@ class ImageEditor(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.

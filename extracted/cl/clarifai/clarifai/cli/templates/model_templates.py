@@ -99,9 +99,9 @@ class MyModel(MCPModelClass):
 '''
 
 
-def get_openai_model_class_template() -> str:
+def get_openai_model_class_template(port: str = "8000") -> str:
     """Return the template for an OpenAIModelClass-based model."""
-    return '''from typing import List
+    return f'''from typing import List, Iterator
 from openai import OpenAI
 from clarifai.runners.models.openai_class import OpenAIModelClass
 from clarifai.runners.utils.data_utils import Param
@@ -114,12 +114,11 @@ class MyModel(OpenAIModelClass):
     # Configure your OpenAI-compatible client for local model
     client = OpenAI(
         api_key="local-key",  # TODO: please fill in - use your local API key
-        base_url="http://localhost:8000/v1",  # TODO: please fill in - your local model server endpoint
+        base_url="http://localhost:{port}/v1",  # TODO: please fill in - your local model server endpoint
     )
 
-    # TODO: please fill in
-    # Specify the model name to use
-    model = "my-local-model"  # TODO: please fill in - replace with your local model name
+    # Automatically get the first available model
+    model = client.models.list().data[0].id
 
     def load_model(self):
         """Optional: Add any additional model loading logic here."""
@@ -157,7 +156,7 @@ class MyModel(OpenAIModelClass):
         max_tokens: int = Param(default=256, description="The maximum number of tokens to generate. Shorter token lengths will provide faster performance."),
         temperature: float = Param(default=1.0, description="A decimal number that determines the degree of randomness in the response"),
         top_p: float = Param(default=1.0, description="An alternative to sampling with temperature, where the model considers the results of the tokens with top_p probability mass."),
-    ):
+    ) -> Iterator[str]:
         """Stream a completion response using the OpenAI client."""
         # TODO: please fill in
         # Implement your streaming logic here
@@ -178,18 +177,19 @@ class MyModel(OpenAIModelClass):
 '''
 
 
-def get_config_template(model_type_id: str = "text-to-text") -> str:
+def get_config_template(user_id: str = None, model_type_id: str = "any-to-any") -> str:
     """Return the template for config.yaml."""
     return f'''# Configuration file for your Clarifai model
 
 model:
   id: "my-model"  # TODO: please fill in - replace with your model ID
-  user_id: "user_id"  # TODO: please fill in - replace with your user ID
+  user_id: "{user_id}"  # TODO: please fill in - replace with your user ID
   app_id: "app_id"  # TODO: please fill in - replace with your app ID
   model_type_id: "{model_type_id}"  # TODO: please fill in - replace if different model type ID
 
 build_info:
   python_version: "3.12"
+  # platform: "linux/amd64,linux/arm64"  # Optional: Specify target platform(s) for Docker image build
 
 # TODO: please fill in - adjust compute requirements for your model
 inference_compute_info:
@@ -207,6 +207,9 @@ inference_compute_info:
 #   repo_id: "your-model-repo"  # for huggingface like openai/gpt-oss-20b
 #   # hf_token: "your-huggingface-token"  # if private repo
 #   when: "runtime"  # or "build", "upload"
+
+# Uncomment if model needs to work with streaming video runners (adds additional packages):
+# streaming_video_consumer: true
 '''
 
 
@@ -237,8 +240,16 @@ MODEL_TYPE_TEMPLATES = {
 }
 
 
-def get_model_template(model_type_id: str = None) -> str:
+def get_model_template(model_type_id: str = None, **kwargs) -> str:
     """Get the appropriate model template based on model_type_id."""
     if model_type_id in MODEL_TYPE_TEMPLATES:
-        return MODEL_TYPE_TEMPLATES[model_type_id]()
+        template_func = MODEL_TYPE_TEMPLATES[model_type_id]
+        # Check if the template function accepts additional parameters
+        import inspect
+
+        sig = inspect.signature(template_func)
+        if len(sig.parameters) > 0:
+            return template_func(**kwargs)
+        else:
+            return template_func()
     return get_model_class_template()

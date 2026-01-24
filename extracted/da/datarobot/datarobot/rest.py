@@ -11,6 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 """This module is not considered part of the public interface. As of 2.3, anything here
 may change or be removed without warning."""
+
 from __future__ import annotations
 
 from functools import wraps
@@ -47,7 +48,7 @@ from ._version import __version__
 from .context import Context
 from .enums import DEFAULT_TIMEOUT
 from .errors import ClientError, JobAlreadyRequested, PlatformDeprecationWarning, ServerError
-from .utils import to_api
+from .utils import is_convertable_to_api, to_api
 
 if TYPE_CHECKING:
     from io import BufferedReader, IOBase
@@ -72,8 +73,7 @@ def handle_connection_reset(func: Callable[P, T]) -> Callable[..., T]:
             if isinstance(self, RESTClientObject):
                 max_retries = (
                     self._kwargs["max_retries"].connect  # type: ignore[assignment]
-                    if self._kwargs.get("max_retries")
-                    and isinstance(self._kwargs["max_retries"], Retry)
+                    if self._kwargs.get("max_retries") and isinstance(self._kwargs["max_retries"], Retry)
                     else self._kwargs.get("max_retries")
                 )
         except (IndexError, TypeError, AttributeError, KeyError):
@@ -141,9 +141,7 @@ class RESTClientObject(requests.Session, BrowserMixin):
         }
         # Note: As of 2.3, `endpoint` is required
         self.endpoint = endpoint
-        self.domain = "{}://{}".format(
-            urlparse(self.endpoint).scheme, urlparse(self.endpoint).netloc
-        )
+        self.domain = "{}://{}".format(urlparse(self.endpoint).scheme, urlparse(self.endpoint).netloc)
         self.token = auth
         if connect_timeout is None:
             connect_timeout = DEFAULT_TIMEOUT.CONNECT
@@ -199,6 +197,9 @@ class RESTClientObject(requests.Session, BrowserMixin):
         ]
         return {"User-Agent": " ".join(agent_components)}
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.endpoint}, {__version__})"
+
     def copy(self) -> RESTClientObject:
         """
         Get a copy of this RESTClientObject with the same configuration
@@ -244,8 +245,14 @@ class RESTClientObject(requests.Session, BrowserMixin):
     @handle_connection_reset
     # pylint: disable-next=arguments-differ
     def request(
-        self, method: str, url: str, join_endpoint: bool = False, **kwargs: Any
+        self, method: str, url: str, join_endpoint: bool = False, keep_attrs: Optional[Any] = None, **kwargs: Any
     ) -> Response:
+        if method.upper() in ('POST', 'PATCH', 'PUT'):
+            for data_param in ('data', 'json'):
+                if kwargs.get(data_param) and is_convertable_to_api(kwargs[data_param]):
+                    kwargs['json'] = to_api(kwargs.pop(data_param), keep_attrs=keep_attrs)
+                    break
+
         if "headers" not in kwargs:
             kwargs["headers"] = {}
         if Context.enable_api_consumer_tracking:
@@ -262,29 +269,6 @@ class RESTClientObject(requests.Session, BrowserMixin):
 
     def get(self, url: str, params: Optional[Any] = None, **kwargs: Any) -> Response:  # type: ignore[override]
         return self.request("get", url, params=to_api(params), **kwargs)
-
-    # pylint: disable-next=arguments-renamed
-    def post(  # type: ignore[override]
-        self,
-        url: str,
-        data: Optional[Any] = None,
-        keep_attrs: Optional[Any] = None,
-        **kwargs: Any,
-    ) -> Response:
-        if data:
-            kwargs["json"] = to_api(data, keep_attrs)
-        return self.request("post", url, **kwargs)
-
-    def patch(  # type: ignore[override]
-        self,
-        url: str,
-        data: Optional[Any] = None,
-        keep_attrs: Optional[Any] = None,
-        **kwargs: Any,
-    ) -> Response:
-        if data:
-            kwargs["json"] = to_api(data, keep_attrs=keep_attrs)
-        return self.request("patch", url, **kwargs)
 
     def build_request_with_file(
         self,
@@ -380,9 +364,7 @@ class RESTClientObject(requests.Session, BrowserMixin):
 
         encoder = MultipartEncoder(fields=data_for_encoder)
         headers = {"Content-Type": encoder.content_type}
-        return self.request(
-            method, url, headers=headers, data=encoder, timeout=(self.connect_timeout, read_timeout)
-        )
+        return self.request(method, url, headers=headers, data=encoder, timeout=(self.connect_timeout, read_timeout))
 
     def get_uri(self) -> str:
         """
@@ -410,11 +392,7 @@ def _http_message(response: Response) -> str:
     Helper function to retrieve the message from a Response object.
     """
     if response.status_code == 401:
-        message = (
-            "The server is saying you are not properly "
-            "authenticated. Please make sure your API "
-            "token is valid."
-        )
+        message = "The server is saying you are not properly authenticated. Please make sure your API token is valid."
     elif response.headers["content-type"] == "application/json":
         message = response.json()
     else:
@@ -426,9 +404,7 @@ def handle_http_error(  # pylint: disable=missing-function-docstring
     response: Response, **kwargs: Any
 ) -> None:
     message = _http_message(response)
-    request_id = response.headers.get(
-        "x-request-id", response.headers.get("X-DataRobot-Request-ID")
-    )
+    request_id = response.headers.get("x-request-id", response.headers.get("X-DataRobot-Request-ID"))
     if 400 <= response.status_code < 500:
         exception_type = ClientError
         # One-off approach to raising special exception for now. We'll do something more
@@ -485,20 +461,18 @@ class DataRobotClientConfig:
     provide any defaults that should be applied if the user does not specify in the config
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("endpoint"): String(),
-            t.Key("token"): String(),
-            t.Key("connect_timeout", optional=True): Int(),
-            t.Key("ssl_verify", optional=True): t.Or(t.Bool(), String()),
-            t.Key("max_retries", optional=True): Int(),
-            t.Key("token_type", optional=True): String(),
-            t.Key("default_use_case", optional=True): String(),
-            t.Key("enable_api_consumer_tracking", optional=True): t.Bool(),
-            t.Key("trace_context", optional=True): String(),
-            t.Key("use_tcp_keepalive", optional=True): t.Bool(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("endpoint"): String(),
+        t.Key("token"): String(),
+        t.Key("connect_timeout", optional=True): Int(),
+        t.Key("ssl_verify", optional=True): t.Or(t.Bool(), String()),
+        t.Key("max_retries", optional=True): Int(),
+        t.Key("token_type", optional=True): String(),
+        t.Key("default_use_case", optional=True): String(),
+        t.Key("enable_api_consumer_tracking", optional=True): t.Bool(),
+        t.Key("trace_context", optional=True): String(),
+        t.Key("use_tcp_keepalive", optional=True): t.Bool(),
+    }).allow_extra("*")
     _fields = {k.to_name or k.name for k in _converter.keys}
 
     def __init__(

@@ -89,7 +89,11 @@ class BaseVendorAPI(BaseModel):
 
     @model_serializer
     def _ser_model(self, info: SerializationInfo) -> dict[str, Any]:
-        _ = {self.model_fields[k].alias or k if info.by_alias else k: v for k, v in dict(self).items() if v is not None}
+        _ = {
+            type(self).model_fields[k].alias or k if info.by_alias else k: v
+            for k, v in dict(self).items()
+            if v is not None
+        }
         return _
 
     def verify_connection(self, ipf: IPFClient) -> int:
@@ -151,7 +155,7 @@ class AWS(BaseVendorAPI):
     @field_validator("assumeRoles")
     @classmethod
     def check_roles(cls, roles):
-        validated_roles = list()
+        validated_roles = []
         for role in roles:
             if isinstance(role, str):
                 validated_roles.append(AssumeRole(role=role))

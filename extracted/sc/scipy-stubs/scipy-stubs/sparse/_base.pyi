@@ -47,11 +47,11 @@ _ScalarT_co = TypeVar("_ScalarT_co", bound=_Numeric, default=Any, covariant=True
 
 _Numeric: TypeAlias = npc.number | np.bool_
 
-_COOShapeT = TypeVar("_COOShapeT", bound=onp.AtLeast1D, default=onp.AtLeast0D[Any])
-_CSRShapeT = TypeVar("_CSRShapeT", bound=tuple[int] | tuple[int, int], default=onp.AtLeast0D[Any])
-_DOKShapeT = TypeVar("_DOKShapeT", bound=tuple[int] | tuple[int, int], default=onp.AtLeast0D[Any])
-_ShapeT = TypeVar("_ShapeT", bound=onp.AtLeast0D[Any])
-_ShapeT_co = TypeVar("_ShapeT_co", bound=onp.AtLeast1D, default=onp.AtLeast0D[Any], covariant=True)
+_COOShapeT = TypeVar("_COOShapeT", bound=tuple[int, *tuple[int, ...]], default=tuple[Any, ...])
+_CSRShapeT = TypeVar("_CSRShapeT", bound=tuple[int] | tuple[int, int], default=tuple[Any, ...])
+_DOKShapeT = TypeVar("_DOKShapeT", bound=tuple[int] | tuple[int, int], default=tuple[Any, ...])
+_ShapeT = TypeVar("_ShapeT", bound=tuple[Any, ...])
+_ShapeT_co = TypeVar("_ShapeT_co", bound=tuple[int, *tuple[int, ...]], default=tuple[Any, ...], covariant=True)
 
 _Sp1dT = TypeVar("_Sp1dT", bound=_spbase[_Numeric, _1D])
 _Sp2dT = TypeVar("_Sp2dT", bound=_spbase[_Numeric, _2D])
@@ -126,9 +126,11 @@ _SpArrayOut: TypeAlias = bsr_array[_ScalarT] | csc_array[_ScalarT] | csr_array[_
 _ToCSRArray: TypeAlias = coo_array[_ScalarT] | csr_array[_ScalarT] | dia_array[_ScalarT] | dok_array[_ScalarT]
 _ToCSRMatrix: TypeAlias = coo_matrix[_ScalarT] | csr_matrix[_ScalarT] | dia_matrix[_ScalarT] | dok_matrix[_ScalarT]
 
-_SparseLike: TypeAlias = _T | _ScalarT | _spbase[_ScalarT]
-_To2D: TypeAlias = Sequence[Sequence[_T | _ScalarT] | onp.CanArrayND[_ScalarT]] | onp.CanArrayND[_ScalarT]
-_To2DLike: TypeAlias = Sequence[_T | _ScalarT] | _To2D[_T, _ScalarT]
+_SparseLike = TypeAliasType("_SparseLike", _T | _ScalarT | _spbase[_ScalarT], type_params=(_T, _ScalarT))
+_To2D = TypeAliasType(
+    "_To2D", Sequence[Sequence[_T | _ScalarT] | onp.CanArrayND[_ScalarT]] | onp.CanArrayND[_ScalarT], type_params=(_T, _ScalarT)
+)
+_To2DLike = TypeAliasType("_To2DLike", Sequence[_T | _ScalarT] | _To2D[_T, _ScalarT], type_params=(_T, _ScalarT))
 
 _BinOp: TypeAlias = Callable[[object, object], Any]
 
@@ -194,20 +196,20 @@ class _spbase(SparseABC, Generic[_ScalarT_co, _ShapeT_co]):
     #
     @overload  # shape
     def __init__(
-        self: _spbase[np.float64], /, arg1: tuple[SupportsIndex, *tuple[SupportsIndex, ...]], *, maxprint: int | None = 50
+        self: _spbase[np.float64], /, arg1: tuple[SupportsIndex, *tuple[SupportsIndex, ...]], *, maxprint: int | None = None
     ) -> None: ...
     @overload  # sparse
-    def __init__(self, /, arg1: _spbase[_ScalarT_co], *, maxprint: int | None = 50) -> None: ...
+    def __init__(self, /, arg1: _spbase[_ScalarT_co], *, maxprint: int | None = None) -> None: ...
     @overload  # dense array-like
-    def __init__(self, /, arg1: _ToSparseArray[_ScalarT_co], *, maxprint: int | None = 50) -> None: ...
+    def __init__(self, /, arg1: _ToSparseArray[_ScalarT_co], *, maxprint: int | None = None) -> None: ...
     @overload  # dense array-like bool
-    def __init__(self: _spbase[np.bool_], /, arg1: _ToSparseSeq[bool], *, maxprint: int | None = 50) -> None: ...
+    def __init__(self: _spbase[np.bool_], /, arg1: _ToSparseSeq[bool], *, maxprint: int | None = None) -> None: ...
     @overload  # dense array-like int
-    def __init__(self: _spbase[np.int_], /, arg1: _ToSparseSeq[op.JustInt], *, maxprint: int | None = 50) -> None: ...
+    def __init__(self: _spbase[np.int_], /, arg1: _ToSparseSeq[op.JustInt], *, maxprint: int | None = None) -> None: ...
     @overload  # dense array-like float
-    def __init__(self: _spbase[np.float64], /, arg1: _ToSparseSeq[op.JustFloat], *, maxprint: int | None = 50) -> None: ...
+    def __init__(self: _spbase[np.float64], /, arg1: _ToSparseSeq[op.JustFloat], *, maxprint: int | None = None) -> None: ...
     @overload  # dense array-like cfloat
-    def __init__(self: _spbase[np.complex128], /, arg1: _ToSparseSeq[op.JustComplex], *, maxprint: int | None = 50) -> None: ...
+    def __init__(self: _spbase[np.complex128], /, arg1: _ToSparseSeq[op.JustComplex], *, maxprint: int | None = None) -> None: ...
 
     #
     def __bool__(self, /) -> bool: ...

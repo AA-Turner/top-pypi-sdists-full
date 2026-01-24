@@ -1,11 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: requests-hardened
-Version: 1.1.1
+Version: 1.2.0
 Summary: A library that overrides the default behaviors of the requests library, and adds new security features.
 License: BSD-3-Clause
+License-File: LICENSE
 Author: Saleor Commerce
 Author-email: hello@saleor.io
-Requires-Python: >=3.9.2,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -21,8 +22,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Security

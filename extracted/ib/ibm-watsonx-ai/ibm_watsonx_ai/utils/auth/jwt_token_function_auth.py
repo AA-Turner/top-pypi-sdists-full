@@ -1,10 +1,10 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from ibm_watsonx_ai.utils.auth.base_auth import RefreshableTokenAuth, TokenInfo
 from ibm_watsonx_ai.wml_client_error import WMLClientError
@@ -36,27 +36,50 @@ class JWTTokenFunctionAuth(RefreshableTokenAuth):
             self, api_client, on_token_creation, on_token_refresh
         )
 
-        if (
-            not hasattr(self._credentials, "token_function")
-            or not self._credentials.token_function
+        if all(
+            not callable(getattr(self._api_client.credentials, attr_name, None))
+            for attr_name in ("token_function", "atoken_function")
         ):
             raise WMLClientError(
-                'Error getting token with token function: "token_function" is mandatory element in credentials.'
+                "Error getting token with token function: "
+                "One of: 'token_function', 'atoken_function' is mandatory in credentials."
             )
 
+    @staticmethod
+    def _handle_token_function_result(token_function_result: Any):
+        match token_function_result:
+            case TokenInfo() as token_info:
+                return token_info
+            case str() as token:
+                return TokenInfo(token)
+            case _:
+                raise WMLClientError(
+                    "Value returned from `token_function` must be either "
+                    "string containing token or `TokenInfo` object."
+                )
+
     def _generate_token(self) -> TokenInfo:
-        """Generate token using token_function provided by user.
+        """Generate token using ``token_function`` provided in credentials.
 
         :returns: token info to be used by auth method
         :rtype: TokenInfo
         """
-        result = self._credentials.token_function(self._session)
 
-        if isinstance(result, str):
-            return TokenInfo(result)
-        elif isinstance(result, TokenInfo):
-            return result
-        else:
-            raise WMLClientError(
-                "Value returned from `token_function` can be only string containing token, or TokenInfo object."
-            )
+        token_function = getattr(self._api_client.credentials, "token_function")
+
+        return self._handle_token_function_result(
+            token_function(self._api_client.httpx_client)
+        )
+
+    async def _agenerate_token(self) -> TokenInfo:
+        """Generate token asynchronously using ``atoken_function`` provided in credentials.
+
+        :returns: token info to be used by auth method
+        :rtype: TokenInfo
+        """
+
+        atoken_function = getattr(self._api_client.credentials, "atoken_function")
+
+        return self._handle_token_function_result(
+            await atoken_function(self._api_client.async_httpx_client)
+        )

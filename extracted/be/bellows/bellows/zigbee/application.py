@@ -1,19 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from asyncio import timeout as asyncio_timeout
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
+import importlib.metadata
 import logging
 import os
 import statistics
-import sys
-from typing import AsyncGenerator
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout  # pragma: no cover
-else:
-    from asyncio import timeout as asyncio_timeout  # pragma: no cover
-
-import importlib.metadata
 
 import zigpy.application
 import zigpy.config
@@ -38,7 +32,12 @@ from bellows.config import (
     CONF_USE_THREAD,
     CONFIG_SCHEMA,
 )
-from bellows.exception import ControllerError, EzspError, StackAlreadyRunning
+from bellows.exception import (
+    ControllerError,
+    EzspError,
+    InvalidCommandError,
+    StackAlreadyRunning,
+)
 import bellows.ezsp
 from bellows.ezsp.xncp import FirmwareFeatures
 import bellows.multicast
@@ -73,6 +72,8 @@ IEEE_PREFIX_MFG_ID = {
     "04:CF:8C": 0x115F,  # Xiaomi
     "54:EF:44": 0x115F,  # Lumi
 }
+
+DEFAULT_TX_POWER = 8  # dBm
 
 LIB_VERSION = importlib.metadata.version("bellows")
 LOGGER = logging.getLogger(__name__)
@@ -151,6 +152,34 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             LOGGER.info("EZSP Radio does not support getMfgToken command: %r", exc)
 
         return None, None, None
+
+    async def _get_recommended_tx_power(self, country: str) -> float:
+        """Get firmware recommended TX power for the given country."""
+        if FirmwareFeatures.TX_POWER_INFO not in self._ezsp._xncp_features:
+            return await super()._get_recommended_tx_power(country)
+
+        tx_power_info = await self._ezsp.xncp_get_tx_power_info(country)
+        return tx_power_info.recommended_power_dbm
+
+    async def _get_maximum_tx_power(self, country: str) -> float:
+        """Get firmware maximum TX power for the given country."""
+        if FirmwareFeatures.TX_POWER_INFO not in self._ezsp._xncp_features:
+            return await super()._get_maximum_tx_power(country)
+
+        tx_power_info = await self._ezsp.xncp_get_tx_power_info(country)
+        return tx_power_info.max_power_dbm
+
+    async def _set_tx_power(self, tx_power: float) -> float | None:
+        """Set TX power (if supported by the radio), returning the actual TX power."""
+        actual_power = int(tx_power)
+        await self._ezsp.setRadioPower(power=actual_power)
+
+        # We intentionally do not reset after changing the TX power. Instead, we just
+        # persist the changes to NVRAM (if necessary), they will be reloaded on next
+        # boot.
+        await repairs.update_tx_power(self._ezsp, tx_power=actual_power)
+
+        return float(actual_power)
 
     async def connect(self) -> None:
         self._ezsp = bellows.ezsp.EZSP(self.config[zigpy.config.CONF_DEVICE], self)
@@ -265,6 +294,29 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         LOGGER.debug("Setting adapter concurrency to %d", max_concurrent_requests)
         self._concurrent_requests_semaphore.max_concurrency = max_concurrent_requests
 
+        backup = self.backups.most_recent_backup()
+        if backup is not None:
+            await self._restore_route_table(backup.network_info.route_table)
+
+    async def _restore_route_table(self, route_table: dict[t.NWK, t.NWK]) -> None:
+        if FirmwareFeatures.RESTORE_ROUTE_TABLE not in self._ezsp._xncp_features:
+            LOGGER.debug(
+                "Firmware does not support writing route table, cannot restore"
+            )
+            return
+
+        LOGGER.debug("Restoring route table: %s", route_table)
+
+        for index, (dest, next_hop) in enumerate(route_table.items()):
+            # We unconditionally restore route table entries
+            await self._ezsp.xncp_set_route_table_entry(
+                index=index,
+                destination=dest,
+                next_hop=next_hop,
+                status=t.RouteRecordStatus.ACTIVE_AGE_2,
+                cost=0,  # unused
+            )
+
     async def load_network_info(self, *, load_devices=False) -> None:
         ezsp = self._ezsp
 
@@ -342,6 +394,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             key_table=[],
             children=[],
             nwk_addresses={},
+            tx_power=nwk_params.radioTxPower,
             stack_specific=stack_specific,
             metadata={
                 "ezsp": {
@@ -357,6 +410,8 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                         flow_control.name.lower() if flow_control is not None else None
                     ),
                 },
+                # Z2M will not load EZSP backups without this internal key
+                "ezspVersion": ezsp.ezsp_version,
             },
         )
 
@@ -372,6 +427,31 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         async for nwk, eui64 in ezsp.read_address_table():
             self.state.network_info.nwk_addresses[eui64] = nwk
+
+        if FirmwareFeatures.RESTORE_ROUTE_TABLE in ezsp._xncp_features:
+            (status, route_table_size) = await ezsp.getConfigurationValue(
+                t.EzspConfigId.CONFIG_ROUTE_TABLE_SIZE
+            )
+
+            for index in range(route_table_size):
+                try:
+                    rsp = await ezsp.xncp_get_route_table_entry(index=index)
+                except InvalidCommandError:
+                    break
+
+                if (
+                    rsp.status
+                    not in (
+                        t.RouteRecordStatus.ACTIVE_AGE_0,
+                        t.RouteRecordStatus.ACTIVE_AGE_1,
+                        t.RouteRecordStatus.ACTIVE_AGE_2,
+                    )
+                    or rsp.destination == 0xFFFF
+                    or rsp.next_hop == 0xFFFF
+                ):
+                    continue
+
+                self.state.network_info.route_table[rsp.destination] = rsp.next_hop
 
     async def can_write_network_settings(
         self,
@@ -472,7 +552,11 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         parameters = t.EmberNetworkParameters()
         parameters.panId = t.EmberPanId(network_info.pan_id)
         parameters.extendedPanId = t.EUI64(network_info.extended_pan_id)
-        parameters.radioTxPower = t.uint8_t(8)
+        parameters.radioTxPower = (
+            t.uint8_t(network_info.tx_power)
+            if network_info.tx_power is not None
+            else DEFAULT_TX_POWER
+        )
         parameters.radioChannel = t.uint8_t(network_info.channel)
         parameters.joinMethod = t.EmberJoinMethod.USE_MAC_ASSOCIATION
         parameters.nwkManagerId = t.EmberNodeId(network_info.nwk_manager_id)
@@ -498,6 +582,8 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         await self._reset()
 
         await self._ensure_network_running()
+
+        await self._restore_route_table(network_info.route_table)
 
     async def reset_network_info(self):
         await self._ezsp.factory_reset()
@@ -843,7 +929,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             with self._ezsp.callback_for_commands(
                 {"mfglibRxHandler"},
                 callback=lambda _, response: queue.put_nowait(
-                    (datetime.now(timezone.utc), response)
+                    (datetime.now(UTC), response)
                 ),
             ):
                 while True:
@@ -1096,7 +1182,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
                     cnt._last_reset_value = 0
 
                 LOGGER.debug("%s", counters)
-        except (asyncio.TimeoutError, EzspError) as exc:
+        except (TimeoutError, EzspError) as exc:
             # TODO: converted Silvercrest gateways break without this
             LOGGER.warning("Watchdog heartbeat timeout: %s", repr(exc))
             self._watchdog_failures += 1

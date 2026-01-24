@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, iter::zip};
 
-use arrow2::{
+use daft_arrow::{
     array::{
         Array, BinaryArray, BooleanArray, FixedSizeBinaryArray, PrimitiveArray, Utf8Array,
         ord::{DynComparator, build_compare},
@@ -347,8 +347,8 @@ macro_rules! with_match_searching_primitive_type {(
     $key_type:expr, | $_:tt $T:ident | $($body:tt)*
 ) => ({
     macro_rules! __with_ty__ {( $_ $T:ident ) => ( $($body)* )}
-    use arrow2::datatypes::PrimitiveType::*;
-    // use arrow2::types::{days_ms, months_days_ns};
+    use daft_arrow::datatypes::PrimitiveType::*;
+    // use daft_arrow::types::{days_ms, months_days_ns};
     match $key_type {
         Int8 => __with_ty__! { i8 },
         Int16 => __with_ty__! { i16 },
@@ -372,9 +372,9 @@ macro_rules! with_match_searching_primitive_type {(
 
 type IsValid = Box<dyn Fn(usize) -> bool + Send + Sync>;
 pub fn build_is_valid(array: &dyn Array) -> IsValid {
-    if let Some(validity) = array.validity() {
-        let validity = validity.clone();
-        Box::new(move |x| unsafe { validity.get_bit_unchecked(x) })
+    if let Some(nulls) = array.validity() {
+        let nulls = nulls.clone();
+        Box::new(move |x| unsafe { nulls.get_bit_unchecked(x) })
     } else {
         Box::new(move |_| true)
     }

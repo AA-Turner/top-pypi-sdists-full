@@ -1,8 +1,6 @@
 import logging
 import os
-import re
 from enum import Enum
-from typing import Optional
 
 import httpx
 
@@ -17,18 +15,18 @@ class UiPathEndpoints(Enum):
     AH_EMBEDDING_ENDPOINT = (
         "agenthub_/llm/openai/deployments/{model}/embeddings?api-version={api_version}"
     )
+    AH_VENDOR_COMPLETION_ENDPOINT = (
+        "agenthub_/llm/raw/vendor/{vendor}/model/{model}/completions"
+    )
     AH_CAPABILITIES_ENDPOINT = "agenthub_/llm/api/capabilities"
 
     OR_NORMALIZED_COMPLETION_ENDPOINT = "orchestrator_/llm/api/chat/completions"
     OR_PASSTHROUGH_COMPLETION_ENDPOINT = "orchestrator_/llm/openai/deployments/{model}/chat/completions?api-version={api_version}"
     OR_EMBEDDING_ENDPOINT = "orchestrator_/llm/openai/deployments/{model}/embeddings?api-version={api_version}"
-    OR_CAPABILITIES_ENDPOINT = "orchestrator_/llm/api/capabilities"
-
-    LG_NORMALIZED_COMPLETION_ENDPOINT = "llmgateway_/api/chat/completions"
-    LG_PASSTHROUGH_COMPLETION_ENDPOINT = "llmgateway_/openai/deployments/{model}/chat/completions?api-version={api_version}"
-    LG_EMBEDDING_ENDPOINT = (
-        "llmgateway_/openai/deployments/{model}/embeddings?api-version={api_version}"
+    OR_VENDOR_COMPLETION_ENDPOINT = (
+        "orchestrator_/llm/raw/vendor/{vendor}/model/{model}/completions"
     )
+    OR_CAPABILITIES_ENDPOINT = "orchestrator_/llm/api/capabilities"
 
 
 class EndpointManager:
@@ -40,13 +38,11 @@ class EndpointManager:
     The endpoint selection follows a fallback order:
     1. AgentHub (if available)
     2. Orchestrator (if available)
-    3. LLMGateway (default fallback)
 
     Environment Variable Override:
     The fallback behavior can be bypassed using the UIPATH_LLM_SERVICE environment variable:
     - 'agenthub' or 'ah': Force use of AgentHub endpoints (skips capability checks)
     - 'orchestrator' or 'or': Force use of Orchestrator endpoints (skips capability checks)
-    - 'llmgateway' or 'gateway': Force use of LLMGateway endpoints (skips capability checks)
 
     Class Attributes:
         _base_url (str): The base URL for UiPath services, retrieved from the UIPATH_URL
@@ -60,13 +56,14 @@ class EndpointManager:
         get_passthrough_endpoint(): Returns the appropriate passthrough completion endpoint.
         get_normalized_endpoint(): Returns the appropriate normalized completion endpoint.
         get_embeddings_endpoint(): Returns the appropriate embeddings endpoint.
+        get_vendor_endpoint(): Returns the appropriate vendor completion endpoint.
     All endpoint methods automatically select the best available endpoint using the fallback order,
     unless overridden by the UIPATH_LLM_SERVICE environment variable.
     """  # noqa: D205
 
     _base_url = os.getenv("UIPATH_URL", "")
-    _agenthub_available: Optional[bool] = None
-    _orchestrator_available: Optional[bool] = None
+    _agenthub_available: bool | None = None
+    _orchestrator_available: bool | None = None
 
     @classmethod
     def is_agenthub_available(cls) -> bool:
@@ -134,9 +131,7 @@ class EndpointManager:
         )
 
     @classmethod
-    def _select_endpoint(
-        cls, ah: UiPathEndpoints, orc: UiPathEndpoints, gw: UiPathEndpoints
-    ) -> str:
+    def _select_endpoint(cls, ah: UiPathEndpoints, orc: UiPathEndpoints) -> str:
         """Select an endpoint based on UIPATH_LLM_SERVICE override or capability checks."""
         service_override = os.getenv("UIPATH_LLM_SERVICE", "").lower()
 
@@ -144,14 +139,9 @@ class EndpointManager:
             return ah.value
         if service_override in ("orchestrator", "or"):
             return orc.value
-        if service_override in ("llmgateway", "gateway"):
-            return gw.value
 
         # Determine fallback order based on environment hints
-        uipath_url = os.getenv("UIPATH_URL", "")
         hdens_env = os.getenv("HDENS_ENV", "").lower()
-
-        is_cloud_url = re.match(r"https?://[^/]+\.uipath\.com", uipath_url)
 
         # Default order: AgentHub -> Orchestrator
         check_order = [
@@ -159,9 +149,9 @@ class EndpointManager:
             ("orc", orc, cls.is_orchestrator_available),
         ]
 
-        # Prioritize Orchestrator if HDENS_ENV is 'sf' or url is cloud-based
+        # Prioritize Orchestrator if HDENS_ENV is 'sf'
         # Note: The default order already prioritizes AgentHub
-        if hdens_env == "sf" or is_cloud_url:
+        if hdens_env == "sf":
             check_order.reverse()
 
         # Execute fallback checks in the determined order
@@ -169,8 +159,11 @@ class EndpointManager:
             if is_available():
                 return endpoint.value
 
-        # Final fallback to LLMGateway
-        return gw.value
+        url = os.getenv("UIPATH_URL", "")
+        if ".uipath.com" in url:
+            return ah.value
+        else:
+            return orc.value
 
     @classmethod
     def get_passthrough_endpoint(cls) -> str:
@@ -178,7 +171,6 @@ class EndpointManager:
         return cls._select_endpoint(
             UiPathEndpoints.AH_PASSTHROUGH_COMPLETION_ENDPOINT,
             UiPathEndpoints.OR_PASSTHROUGH_COMPLETION_ENDPOINT,
-            UiPathEndpoints.LG_PASSTHROUGH_COMPLETION_ENDPOINT,
         )
 
     @classmethod
@@ -187,7 +179,6 @@ class EndpointManager:
         return cls._select_endpoint(
             UiPathEndpoints.AH_NORMALIZED_COMPLETION_ENDPOINT,
             UiPathEndpoints.OR_NORMALIZED_COMPLETION_ENDPOINT,
-            UiPathEndpoints.LG_NORMALIZED_COMPLETION_ENDPOINT,
         )
 
     @classmethod
@@ -196,5 +187,12 @@ class EndpointManager:
         return cls._select_endpoint(
             UiPathEndpoints.AH_EMBEDDING_ENDPOINT,
             UiPathEndpoints.OR_EMBEDDING_ENDPOINT,
-            UiPathEndpoints.LG_EMBEDDING_ENDPOINT,
+        )
+
+    @classmethod
+    def get_vendor_endpoint(cls) -> str:
+        """Get the vendor completion endpoint."""
+        return cls._select_endpoint(
+            UiPathEndpoints.AH_VENDOR_COMPLETION_ENDPOINT,
+            UiPathEndpoints.OR_VENDOR_COMPLETION_ENDPOINT,
         )

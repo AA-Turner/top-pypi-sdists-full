@@ -98,6 +98,10 @@ class Note(_VCardTextElementBase):
     name = plugin_attrib = "note"
 
 
+class Pronouns(_VCardTextElementBase):
+    name = plugin_attrib = "pronouns"
+
+
 class _VCardUriElementBase(_VCardElementBase):
     interfaces = {"uri"}
     sub_interfaces = {"uri"}
@@ -164,4 +168,5 @@ register_stanza_plugin(Parameters, Type)
 register_stanza_plugin(Tel, Parameters)
 for p in N, Fn, Nickname, Note, Url, Impp, Email, BDay, Tel, Adr:
     register_stanza_plugin(VCard4, p, iterable=True)
+register_stanza_plugin(VCard4, Pronouns)
 register_stanza_plugin(Iq, VCard4)

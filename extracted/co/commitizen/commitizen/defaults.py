@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import pathlib
 import warnings
 from collections import OrderedDict
 from collections.abc import Iterable, MutableMapping, Sequence
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
-from commitizen.question import CzQuestion
+if TYPE_CHECKING:
+    import pathlib
+
+    from commitizen.question import CzQuestion
 
 
 class CzSettings(TypedDict, total=False):
@@ -46,6 +48,7 @@ class Settings(TypedDict, total=False):
     ignored_tag_formats: Sequence[str]
     legacy_tag_formats: Sequence[str]
     major_version_zero: bool
+    message_length_limit: int | None
     name: str
     post_bump_hooks: list[str] | None
     pre_bump_hooks: list[str] | None
@@ -61,17 +64,18 @@ class Settings(TypedDict, total=False):
     version_scheme: str | None
     version_type: str | None
     version: str | None
+    breaking_change_exclamation_in_title: bool
 
 
-CONFIG_FILES: list[str] = [
-    "pyproject.toml",
+CONFIG_FILES: tuple[str, ...] = (
     ".cz.toml",
+    "cz.toml",
     ".cz.json",
     "cz.json",
     ".cz.yaml",
     "cz.yaml",
-    "cz.toml",
-]
+    "pyproject.toml",
+)
 ENCODING = "utf-8"
 
 DEFAULT_SETTINGS: Settings = {
@@ -92,6 +96,7 @@ DEFAULT_SETTINGS: Settings = {
         "Pull request",
         "fixup!",
         "squash!",
+        "amend!",
     ],
     "changelog_file": "CHANGELOG.md",
     "changelog_format": None,  # default guessed from changelog_file
@@ -108,6 +113,8 @@ DEFAULT_SETTINGS: Settings = {
     "always_signoff": False,
     "template": None,  # default provided by plugin
     "extras": {},
+    "breaking_change_exclamation_in_title": False,
+    "message_length_limit": None,  # None for no limit
 }
 
 MAJOR = "MAJOR"

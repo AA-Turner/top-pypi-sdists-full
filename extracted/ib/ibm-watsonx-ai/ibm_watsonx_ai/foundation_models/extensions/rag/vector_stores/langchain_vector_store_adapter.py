@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import hashlib
@@ -7,27 +7,30 @@ import logging
 from collections import defaultdict
 from typing import Any, Generic, TypeVar, cast
 
-from ibm_watsonx_ai.wml_client_error import MissingExtension, MissingMetadata
-from ibm_watsonx_ai.wml_resource import WMLResource
-
-try:
-    from langchain_core.documents import Document
-    from langchain_core.vectorstores import VectorStore as LangChainVectorStore
-    from langchain_core.vectorstores import (
-        VectorStoreRetriever as LangChainVectorStoreRetriever,
-    )
-except ImportError:
-    raise MissingExtension("langchain")
-
 from ibm_watsonx_ai.foundation_models.embeddings import BaseEmbeddings
 from ibm_watsonx_ai.foundation_models.extensions.rag.utils.utils import verbose_search
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.base_vector_store import (
     BaseVectorStore,
 )
+from ibm_watsonx_ai.utils.utils import is_lib_installed
+from ibm_watsonx_ai.wml_client_error import MissingExtension, MissingMetadata
+from ibm_watsonx_ai.wml_resource import WMLResource
+
+if not is_lib_installed(ext := "langchain-core"):
+    raise MissingExtension(ext, extra_info="rag")
+
+from langchain_core.documents import Document
+from langchain_core.vectorstores import VectorStore as LangChainVectorStore
+from langchain_core.vectorstores import (
+    VectorStoreRetriever as LangChainVectorStoreRetriever,
+)
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=LangChainVectorStore)
+
+DEFAULT_DOCUMENT_NAME_FIELD = "document_id"
+DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD = "sequence_number"
 
 
 def merge_window_into_a_document(window: list[Document]) -> Document:
@@ -130,11 +133,24 @@ class LangChainVectorStoreAdapter(Generic[T], BaseVectorStore):
 
     :param vector_store: concrete LangChain vector store object
     :type vector_store: langchain_core.vectorstore.VectorStore
+
+    :param document_name_field: mapping field for document name, defaults to `document_id`
+    :type document_name_field: str, optional
+
+    :param chunk_sequence_number_field: mapping field for chunk sequence number, defaults to `sequence_number`
+    :type chunk_sequence_number_field: str, optional
     """
 
-    def __init__(self, vector_store: T) -> None:
+    def __init__(
+        self,
+        vector_store: T,
+        document_name_field: str = DEFAULT_DOCUMENT_NAME_FIELD,
+        chunk_sequence_number_field: str = DEFAULT_CHUNK_SEQUENCE_NUMBER_FIELD,
+    ) -> None:
         super().__init__()
         self._langchain_vector_store: T = vector_store
+        self._document_name_field = document_name_field
+        self._chunk_sequence_number_field = chunk_sequence_number_field
 
     def get_client(self) -> T:
         return self._langchain_vector_store
@@ -281,183 +297,6 @@ class LangChainVectorStoreAdapter(Generic[T], BaseVectorStore):
             ]
             return list(zip(extended_documents, scores))
 
-    def _get_window_documents_chroma(
-        self, doc_id: str, seq_nums_window: list[int]
-    ) -> list[Document]:
-        """
-        Receives a document ID and a list of chunks' sequence_numbers,
-        and searches the vector store according to the metadata.
-
-        :param doc_id: ID of document
-        :type doc_id: str
-
-        :param seq_nums_window: list of sequence numbers
-        :type seq_nums_window: list[int]
-
-        :return: list of documents from that document with these sequence_numbers
-        :rtype: list[Document]
-        """
-        expr = {
-            "$and": [
-                {"document_id": {"$eq": doc_id}},
-                {"sequence_number": {"$gte": seq_nums_window[0]}},
-                {"sequence_number": {"$lte": seq_nums_window[-1]}},
-            ]
-        }
-        res = self._langchain_vector_store.get(where=expr)  # type: ignore[attr-defined]
-        texts, metadatas = res["documents"], res["metadatas"]
-        window_documents = [
-            Document(
-                page_content=text,
-                metadata={
-                    "sequence_number": metadata["sequence_number"],
-                    "document_id": doc_id,
-                },
-            )
-            for text, metadata in zip(texts, metadatas)
-        ]
-        return window_documents
-
-    def _get_window_documents_milvus(
-        self, doc_id: str, seq_nums_window: list[int]
-    ) -> list[Document]:
-        """
-        Receives a document ID and a list of chunks' sequence_numbers,
-        and searches the vector store according to the metadata.
-
-        :param doc_id: ID of document
-        :type doc_id: str
-
-        :param seq_nums_window: list of sequence numbers
-        :type seq_nums_window: list[int]
-
-        :return: list of documents from that document with these sequence_numbers
-        :rtype: list[Document]
-        """
-        expr = f"document_id LIKE '{doc_id}' && sequence_number in {seq_nums_window}"
-        docs = self._langchain_vector_store.col.query(  # type: ignore[attr-defined]
-            expr=expr,
-            output_fields=["sequence_number", "text"],
-            limit=len(seq_nums_window),
-        )
-        window_documents = [
-            Document(
-                page_content=doc["text"],
-                metadata={
-                    "sequence_number": doc["sequence_number"],
-                    "document_id": doc_id,
-                },
-            )
-            for doc in docs
-        ]
-        return window_documents
-
-    def _get_window_documents_elasticsearch(
-        self, doc_id: str, seq_nums_window: list[int]
-    ) -> list[Document]:
-        """
-        Receives a document ID and a list of chunks' sequence_numbers,
-        and searches the vector store according to the metadata.
-
-        :param doc_id: ID of document
-        :type doc_id: str
-
-        :param seq_nums_window: list of sequence numbers
-        :type seq_nums_window: list[int]
-
-        :return: list of documents from that document with these sequence_numbers
-        :rtype: list[Document]
-        """
-
-        query = {
-            "bool": {
-                "must": [{"term": {"metadata.document_id.keyword": doc_id}}],
-                "filter": [
-                    {
-                        "range": {
-                            "metadata.sequence_number": {
-                                "gte": seq_nums_window[0],
-                                "lte": seq_nums_window[-1],
-                            }
-                        }
-                    }
-                ],
-            }
-        }
-
-        response = self._langchain_vector_store.search(
-            query="*:*", search_type="similarity", filter=query, k=len(seq_nums_window)
-        )
-
-        window_documents = [
-            Document(
-                page_content=doc.page_content,
-                metadata={
-                    "sequence_number": doc.metadata["sequence_number"],
-                    "document_id": doc.metadata["document_id"],
-                },
-            )
-            for doc in response
-        ]
-
-        return window_documents
-
-    def _get_window_documents_db2(
-        self, doc_id: str, seq_nums_window: list[int]
-    ) -> list[Document]:
-        """
-        Receives a document ID and a list of chunks' sequence_numbers,
-        and searches the vector store according to the metadata.
-
-        :param doc_id: ID of document
-        :type doc_id: str
-
-        :param seq_nums_window: list of sequence numbers
-        :type seq_nums_window: list[int]
-
-        :return: list of documents from that document with these sequence_numbers
-        :rtype: list[Document]
-        """
-        table_name = self._langchain_vector_store.table_name  # type: ignore[attr-defined]
-
-        placeholders = ",".join("?" for _ in seq_nums_window)
-
-        sql = f"""
-            WITH extracted AS (
-              SELECT
-                JSON_VALUE(metadata, '$.sequence_number' RETURNING INTEGER) AS seq_num,
-                JSON_VALUE(metadata, '$.document_id') AS doc_id,
-                text AS page_content
-              FROM {table_name}
-            )
-            SELECT
-              seq_num,
-              doc_id,
-              page_content
-            FROM extracted
-            WHERE doc_id = ?
-              AND seq_num IN ({placeholders})
-            ORDER BY seq_num;
-        """
-
-        params = [doc_id] + seq_nums_window
-
-        cursor = self._langchain_vector_store.client.cursor()  # type: ignore[attr-defined]
-        cursor.execute(sql, tuple(params))
-        rows = cursor.fetchall()
-
-        window_documents = [
-            Document(
-                page_content=row[2],
-                metadata={
-                    "sequence_number": row[0],
-                    "document_id": row[1],
-                },
-            )
-            for row in rows
-        ]
-        return window_documents
-
     def delete(self, ids: list[str], **kwargs: Any) -> None:
         """Delete by vector ID or other criteria. Sor more details see LangChain documentation
         https://python.langchain.com/api_reference/core/vectorstores/langchain_core.vectorstores.base.VectorStore.html#langchain_core.vectorstores.base.VectorStore
@@ -580,60 +419,48 @@ class LangChainVectorStoreAdapter(Generic[T], BaseVectorStore):
         :return: merged window
         :rtype: Document
         """
-        if "document_id" not in document.metadata:
-            raise MissingMetadata('document must have "document_id" in its metadata')
-        if "sequence_number" not in document.metadata:
+        if self._document_name_field not in document.metadata:
             raise MissingMetadata(
-                'document must have "sequence_number" in its metadata'
+                f'document must have "{self._document_name_field}" in its metadata'
             )
-        doc_id = document.metadata["document_id"]
-        seq_num = document.metadata["sequence_number"]
+        if self._chunk_sequence_number_field not in document.metadata:
+            raise MissingMetadata(
+                f'document must have "{self._chunk_sequence_number_field}" in its metadata'
+            )
+        doc_id = document.metadata[self._document_name_field]
+        seq_num = document.metadata[self._chunk_sequence_number_field]
         seq_nums_window = [seq_num + i for i in range(-window_size, window_size + 1, 1)]
 
         vs_type = self._langchain_vector_store.__class__.__name__
 
         match vs_type:
-            case "Milvus":
-                try:
-                    from langchain_milvus.vectorstores import Milvus  # noqa: F401
-                except ImportError:
-                    raise MissingExtension("langchain_milvus")
-
-                window_documents = self._get_window_documents_milvus(
-                    doc_id, seq_nums_window
-                )
-            case "Chroma":
-                try:
-                    from langchain_chroma import Chroma  # noqa: F401
-                except ImportError:
-                    raise MissingExtension("langchain_chroma")
-
-                window_documents = self._get_window_documents_chroma(
-                    doc_id, seq_nums_window
-                )
-            case "ElasticsearchStore":
-                try:
-                    from langchain_elasticsearch.vectorstores import (
-                        ElasticsearchStore,  # noqa: F401
-                    )
-                except ImportError:
-                    raise MissingExtension("langchain_elasticsearch")
-                window_documents = self._get_window_documents_elasticsearch(
-                    doc_id, seq_nums_window
-                )
-            case "DB2VS":
-                try:
-                    from langchain_db2 import DB2VS  # noqa: F401
-                except ImportError:
-                    raise MissingExtension("langchain_db2")
-                window_documents = self._get_window_documents_db2(
-                    doc_id, seq_nums_window
-                )
+            case "Milvus" | "Chroma" | "ElasticsearchStore" | "DB2VS":
+                window_documents = self._get_window_documents(doc_id, seq_nums_window)
             case _:
                 raise TypeError(
                     f"Currently we only support Milvus, Chroma, Elasticsearch and DB2VS. "
                     f"Received {type(self._langchain_vector_store)}."
                 )
 
-        window_documents.sort(key=lambda x: x.metadata["sequence_number"])
+        window_documents.sort(
+            key=lambda x: x.metadata[self._chunk_sequence_number_field]
+        )
         return merge_window_into_a_document(window_documents)
+
+    def _get_window_documents(
+        self, doc_id: str, seq_nums_window: list[int]
+    ) -> list[Document]:
+        """
+        Receives a document ID and a list of chunks' sequence_numbers,
+        and searches the vector store according to the metadata.
+
+        :param doc_id: ID of document
+        :type doc_id: str
+
+        :param seq_nums_window: list of sequence numbers
+        :type seq_nums_window: list[int]
+
+        :return: list of documents from that document with these sequence_numbers
+        :rtype: list[Document]
+        """
+        raise NotImplementedError()

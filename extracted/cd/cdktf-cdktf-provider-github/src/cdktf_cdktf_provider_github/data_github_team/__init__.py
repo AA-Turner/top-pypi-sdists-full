@@ -1,7 +1,7 @@
 r'''
 # `data_github_team`
 
-Refer to the Terraform Registry for docs: [`data_github_team`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team).
+Refer to the Terraform Registry for docs: [`data_github_team`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGithubTeam(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.dataGithubTeam.DataGithubTeam",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team github_team}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team github_team}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataGithubTeam(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team github_team} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team github_team} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param slug: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#slug DataGithubTeam#slug}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#id DataGithubTeam#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param membership_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#membership_type DataGithubTeam#membership_type}.
-        :param results_per_page: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#results_per_page DataGithubTeam#results_per_page}.
-        :param summary_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#summary_only DataGithubTeam#summary_only}.
+        :param slug: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#slug DataGithubTeam#slug}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#id DataGithubTeam#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param membership_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#membership_type DataGithubTeam#membership_type}.
+        :param results_per_page: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#results_per_page DataGithubTeam#results_per_page}.
+        :param summary_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#summary_only DataGithubTeam#summary_only}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataGithubTeam(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGithubTeam to import.
-        :param import_from_id: The id of the existing DataGithubTeam that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGithubTeam that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGithubTeam to import is found.
         '''
         if __debug__:
@@ -329,11 +329,11 @@ class DataGithubTeamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param slug: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#slug DataGithubTeam#slug}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#id DataGithubTeam#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param membership_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#membership_type DataGithubTeam#membership_type}.
-        :param results_per_page: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#results_per_page DataGithubTeam#results_per_page}.
-        :param summary_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#summary_only DataGithubTeam#summary_only}.
+        :param slug: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#slug DataGithubTeam#slug}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#id DataGithubTeam#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param membership_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#membership_type DataGithubTeam#membership_type}.
+        :param results_per_page: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#results_per_page DataGithubTeam#results_per_page}.
+        :param summary_only: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#summary_only DataGithubTeam#summary_only}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -443,14 +443,14 @@ class DataGithubTeamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def slug(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#slug DataGithubTeam#slug}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#slug DataGithubTeam#slug}.'''
         result = self._values.get("slug")
         assert result is not None, "Required property 'slug' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#id DataGithubTeam#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#id DataGithubTeam#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -460,13 +460,13 @@ class DataGithubTeamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def membership_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#membership_type DataGithubTeam#membership_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#membership_type DataGithubTeam#membership_type}.'''
         result = self._values.get("membership_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def results_per_page(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#results_per_page DataGithubTeam#results_per_page}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#results_per_page DataGithubTeam#results_per_page}.'''
         result = self._values.get("results_per_page")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -474,7 +474,7 @@ class DataGithubTeamConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def summary_only(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/team#summary_only DataGithubTeam#summary_only}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/team#summary_only DataGithubTeam#summary_only}.'''
         result = self._values.get("summary_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -617,6 +617,11 @@ class DataGithubTeamRepositoriesDetailedOutputReference(
     @jsii.member(jsii_name="repoId")
     def repo_id(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "repoId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="repoName")
+    def repo_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "repoName"))
 
     @builtins.property
     @jsii.member(jsii_name="roleName")

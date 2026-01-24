@@ -10,19 +10,20 @@ use std::str::FromStr;
 
 use fs_err as fs;
 use itertools::Itertools;
-use same_file::is_same_file;
 use thiserror::Error;
 use tracing::{debug, warn};
 use uv_preview::{Preview, PreviewFeatures};
 #[cfg(windows)]
 use windows::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT;
 
-use uv_fs::{LockedFile, Simplified, replace_symlink, symlink_or_copy_file};
+use uv_fs::{
+    LockedFile, LockedFileError, LockedFileMode, Simplified, replace_symlink, symlink_or_copy_file,
+};
 use uv_platform::{Error as PlatformError, Os};
 use uv_platform::{LibcDetectionError, Platform};
 use uv_state::{StateBucket, StateStore};
 use uv_static::EnvVars;
-use uv_trampoline_builder::{Launcher, windows_python_launcher};
+use uv_trampoline_builder::{Launcher, LauncherKind};
 
 use crate::downloads::{Error as DownloadError, ManagedPythonDownload};
 use crate::implementation::{
@@ -38,6 +39,8 @@ use crate::{
 pub enum Error {
     #[error(transparent)]
     Io(#[from] io::Error),
+    #[error(transparent)]
+    LockedFile(#[from] LockedFileError),
     #[error(transparent)]
     Download(#[from] DownloadError),
     #[error(transparent)]
@@ -124,7 +127,12 @@ impl ManagedPythonInstallations {
     /// Grab a file lock for the managed Python distribution directory to prevent concurrent access
     /// across processes.
     pub async fn lock(&self) -> Result<LockedFile, Error> {
-        Ok(LockedFile::acquire(self.root.join(".lock"), self.root.user_display()).await?)
+        Ok(LockedFile::acquire(
+            self.root.join(".lock"),
+            LockedFileMode::Exclusive,
+            self.root.user_display(),
+        )
+        .await?)
     }
 
     /// Prefer, in order:
@@ -392,7 +400,7 @@ impl ManagedPythonInstallation {
         let variant = if self.implementation() == ImplementationName::GraalPy {
             ""
         } else if cfg!(unix) {
-            self.key.variant.suffix()
+            self.key.variant.executable_suffix()
         } else if cfg!(windows) && windowed {
             // Use windowed Python that doesn't open a terminal.
             "w"
@@ -626,7 +634,7 @@ impl ManagedPythonInstallation {
                         "{}python{}{}{}",
                         std::env::consts::DLL_PREFIX,
                         self.key.version().python_version(),
-                        self.key.variant().suffix(),
+                        self.key.variant().executable_suffix(),
                         std::env::consts::DLL_SUFFIX
                     ));
                     macos_dylib::patch_dylib_install_name(dylib_path)?;
@@ -649,12 +657,12 @@ impl ManagedPythonInstallation {
     /// [`create_bin_link`].
     pub fn is_bin_link(&self, path: &Path) -> bool {
         if cfg!(unix) {
-            is_same_file(path, self.executable(false)).unwrap_or_default()
+            same_file::is_same_file(path, self.executable(false)).unwrap_or_default()
         } else if cfg!(windows) {
             let Some(launcher) = Launcher::try_from_path(path).unwrap_or_default() else {
                 return false;
             };
-            if !matches!(launcher.kind, uv_trampoline_builder::LauncherKind::Python) {
+            if !matches!(launcher.kind, LauncherKind::Python) {
                 return false;
             }
             // We canonicalize the target path of the launcher in case it includes a minor version
@@ -681,19 +689,22 @@ impl ManagedPythonInstallation {
         if (self.key.major, self.key.minor) != (other.key.major, other.key.minor) {
             return false;
         }
-        // Require a newer, or equal patch version (for pre-release upgrades)
+        // If the patch versions are the same, we're handling a pre-release upgrade
+        if self.key.patch == other.key.patch {
+            return match (self.key.prerelease, other.key.prerelease) {
+                // Require a newer pre-release, if present on both
+                (Some(self_pre), Some(other_pre)) => self_pre > other_pre,
+                // Allow upgrade from pre-release to stable
+                (None, Some(_)) => true,
+                // Do not upgrade from pre-release to stable, or for matching versions
+                (_, None) => false,
+            };
+        }
+        // Require a newer patch version
         if self.key.patch < other.key.patch {
             return false;
         }
-        if let Some(other_pre) = other.key.prerelease {
-            if let Some(self_pre) = self.key.prerelease {
-                return self_pre > other_pre;
-            }
-            // Do not upgrade from non-prerelease to prerelease
-            return false;
-        }
-        // Do not upgrade if the patch versions are the same
-        self.key.patch != other.key.patch
+        true
     }
 
     pub fn url(&self) -> Option<&str> {
@@ -919,6 +930,8 @@ pub fn create_link_to_executable(link: &Path, executable: &Path) -> Result<(), E
             }),
         }
     } else if cfg!(windows) {
+        use uv_trampoline_builder::windows_python_launcher;
+
         // TODO(zanieb): Install GUI launchers as well
         let launcher = windows_python_launcher(executable, false)?;
 
@@ -935,7 +948,7 @@ pub fn create_link_to_executable(link: &Path, executable: &Path) -> Result<(), E
                 })
         }
     } else {
-        unimplemented!("Only Windows and Unix systems are supported.")
+        unimplemented!("Only Windows and Unix are supported.")
     }
 }
 
@@ -1136,9 +1149,10 @@ mod tests {
             PythonVariant::Default,
         );
 
-        // Stable version should not upgrade from prerelease
-        assert!(!stable.is_upgrade_of(&prerelease));
-        // Prerelease should not upgrade to stable (same patch version)
+        // A stable version is an upgrade from prerelease
+        assert!(stable.is_upgrade_of(&prerelease));
+
+        // Prerelease are not upgrades of stable versions
         assert!(!prerelease.is_upgrade_of(&stable));
     }
 

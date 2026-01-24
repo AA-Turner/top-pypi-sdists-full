@@ -40,6 +40,9 @@
 #include "mkl_vml.h"
 #include "mkl_service.h"
 #endif
+#include <cmath>
+//no single precision version of signbit in C++ standard
+inline bool signbitf(float x) { return signbit((double)x); }
 
 #ifdef _WIN32
   #ifndef __MINGW32__
@@ -48,15 +51,21 @@
   #include "msvc_function_stubs.hpp"
 #else
 /* GCC/Clang version: use std:: (can't use it for windows)
-msvc_function_stubs contains windows alternatives
+   msvc_function_stubs contains windows alternatives */
 /* Due to casting problems (normally return ints not bools, easiest to define
-non-overloaded wrappers for these functions) */
-inline bool isfinitef_(float x) { return !!::isfinite(x); }
-inline bool isnanf_(float x)    { return !!::isnan(x); }
-inline bool isfinited(double x) { return !!::isfinite(x); }
-inline bool isnand(double x)    { return !!::isnan(x); }
-inline bool isinff_(float x) { return !!::isinf(x); }
-inline bool isinfd(double x)    { return !!::isinf(x); }
+   non-overloaded wrappers for these functions) */
+inline bool isfinitef_(float x) { return !!std::isfinite(x); }
+inline bool isnanf_(float x)    { return !!std::isnan(x); }
+inline bool isfinited(double x) { return !!std::isfinite(x); }
+inline bool isnand(double x)    { return !!std::isnan(x); }
+inline bool isinff_(float x) { return !!std::isinf(x); }
+inline bool isinfd(double x)    { return !!std::isinf(x); }
+
+// To handle overloading of fmax/fmin in cmath and match NumPy behaviour for NaNs
+inline double fmaxd(double x, double y)    { return (isnand(x) | isnand(y))? NAN : fmax(x, y); }
+inline double fmind(double x, double y)    { return (isnand(x) | isnand(y))? NAN : fmin(x, y); }
+inline float fmaxf_(float x, float y)    { return (isnanf_(x) | isnanf_(y))? NAN : fmaxf(x, y); }
+inline float fminf_(float x, float y)    { return (isnanf_(x) | isnanf_(y))? NAN : fminf(x, y); }
 #endif
 
 #endif // NUMEXPR_CONFIG_HPP

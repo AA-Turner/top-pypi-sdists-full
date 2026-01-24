@@ -3,7 +3,7 @@ Main interface for ssm service.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

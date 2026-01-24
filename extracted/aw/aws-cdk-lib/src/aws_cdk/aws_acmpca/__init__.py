@@ -99,6 +99,16 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
+from ..interfaces.aws_acmpca import (
+    CertificateAuthorityActivationReference as _CertificateAuthorityActivationReference_efbb95ed,
+    CertificateAuthorityReference as _CertificateAuthorityReference_4a9960c9,
+    CertificateReference as _CertificateReference_b07032bd,
+    ICertificateAuthorityActivationRef as _ICertificateAuthorityActivationRef_eac4783f,
+    ICertificateAuthorityRef as _ICertificateAuthorityRef_240f71c8,
+    ICertificateRef as _ICertificateRef_d3019a6f,
+    IPermissionRef as _IPermissionRef_f04c5632,
+    PermissionReference as _PermissionReference_cddcccb3,
+)
 
 
 class CertificateAuthority(
@@ -118,7 +128,7 @@ class CertificateAuthority(
         
         cluster = msk.Cluster(self, "Cluster",
             cluster_name="myCluster",
-            kafka_version=msk.KafkaVersion.V4_0_X_KRAFT,
+            kafka_version=msk.KafkaVersion.V4_1_X_KRAFT,
             vpc=vpc,
             encryption_in_transit=msk.EncryptionInTransitConfig(
                 client_broker=msk.ClientBrokerEncryption.TLS
@@ -135,7 +145,7 @@ class CertificateAuthority(
     @builtins.classmethod
     def from_certificate_authority_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         certificate_authority_arn: builtins.str,
     ) -> "ICertificateAuthority":
@@ -153,1158 +163,7 @@ class CertificateAuthority(
         return typing.cast("ICertificateAuthority", jsii.sinvoke(cls, "fromCertificateAuthorityArn", [scope, id, certificate_authority_arn]))
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_acmpca.CertificateAuthorityActivationReference",
-    jsii_struct_bases=[],
-    name_mapping={"certificate_authority_arn": "certificateAuthorityArn"},
-)
-class CertificateAuthorityActivationReference:
-    def __init__(self, *, certificate_authority_arn: builtins.str) -> None:
-        '''A reference to a CertificateAuthorityActivation resource.
-
-        :param certificate_authority_arn: The CertificateAuthorityArn of the CertificateAuthorityActivation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_acmpca as acmpca
-            
-            certificate_authority_activation_reference = acmpca.CertificateAuthorityActivationReference(
-                certificate_authority_arn="certificateAuthorityArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24e80602b2c458899c6f133c2206e3ab21858cc68d7f743f4c5d8fa4994caf75)
-            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate_authority_arn": certificate_authority_arn,
-        }
-
-    @builtins.property
-    def certificate_authority_arn(self) -> builtins.str:
-        '''The CertificateAuthorityArn of the CertificateAuthorityActivation resource.'''
-        result = self._values.get("certificate_authority_arn")
-        assert result is not None, "Required property 'certificate_authority_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CertificateAuthorityActivationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_acmpca.CertificateAuthorityReference",
-    jsii_struct_bases=[],
-    name_mapping={"certificate_authority_arn": "certificateAuthorityArn"},
-)
-class CertificateAuthorityReference:
-    def __init__(self, *, certificate_authority_arn: builtins.str) -> None:
-        '''A reference to a CertificateAuthority resource.
-
-        :param certificate_authority_arn: The Arn of the CertificateAuthority resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_acmpca as acmpca
-            
-            certificate_authority_reference = acmpca.CertificateAuthorityReference(
-                certificate_authority_arn="certificateAuthorityArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f60bd9d54b0efdbb36b0ff3f3f50cb13378e2e698cb53ce844a8bf94211a3250)
-            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate_authority_arn": certificate_authority_arn,
-        }
-
-    @builtins.property
-    def certificate_authority_arn(self) -> builtins.str:
-        '''The Arn of the CertificateAuthority resource.'''
-        result = self._values.get("certificate_authority_arn")
-        assert result is not None, "Required property 'certificate_authority_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CertificateAuthorityReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_acmpca.CertificateReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "certificate_arn": "certificateArn",
-        "certificate_authority_arn": "certificateAuthorityArn",
-    },
-)
-class CertificateReference:
-    def __init__(
-        self,
-        *,
-        certificate_arn: builtins.str,
-        certificate_authority_arn: builtins.str,
-    ) -> None:
-        '''A reference to a Certificate resource.
-
-        :param certificate_arn: The Arn of the Certificate resource.
-        :param certificate_authority_arn: The CertificateAuthorityArn of the Certificate resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_acmpca as acmpca
-            
-            certificate_reference = acmpca.CertificateReference(
-                certificate_arn="certificateArn",
-                certificate_authority_arn="certificateAuthorityArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__790d806896861c27d6977b1614342e77ff02d62d565865b464f96bfd5cc7f9ab)
-            check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
-            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate_arn": certificate_arn,
-            "certificate_authority_arn": certificate_authority_arn,
-        }
-
-    @builtins.property
-    def certificate_arn(self) -> builtins.str:
-        '''The Arn of the Certificate resource.'''
-        result = self._values.get("certificate_arn")
-        assert result is not None, "Required property 'certificate_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def certificate_authority_arn(self) -> builtins.str:
-        '''The CertificateAuthorityArn of the Certificate resource.'''
-        result = self._values.get("certificate_authority_arn")
-        assert result is not None, "Required property 'certificate_authority_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CertificateReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_acmpca.CfnCertificateAuthorityActivationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "certificate": "certificate",
-        "certificate_authority_arn": "certificateAuthorityArn",
-        "certificate_chain": "certificateChain",
-        "status": "status",
-    },
-)
-class CfnCertificateAuthorityActivationProps:
-    def __init__(
-        self,
-        *,
-        certificate: builtins.str,
-        certificate_authority_arn: builtins.str,
-        certificate_chain: typing.Optional[builtins.str] = None,
-        status: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCertificateAuthorityActivation``.
-
-        :param certificate: The Base64 PEM-encoded certificate authority certificate.
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) of your private CA.
-        :param certificate_chain: The Base64 PEM-encoded certificate chain that chains up to the root CA certificate that you used to sign your private CA certificate.
-        :param status: Status of your private CA.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthorityactivation.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_acmpca as acmpca
-            
-            cfn_certificate_authority_activation_props = acmpca.CfnCertificateAuthorityActivationProps(
-                certificate="certificate",
-                certificate_authority_arn="certificateAuthorityArn",
-            
-                # the properties below are optional
-                certificate_chain="certificateChain",
-                status="status"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b63918960d16b9d2632b9277b07b10494327c3d038ba9f5522225f20dfed02d)
-            check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
-            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
-            check_type(argname="argument certificate_chain", value=certificate_chain, expected_type=type_hints["certificate_chain"])
-            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate": certificate,
-            "certificate_authority_arn": certificate_authority_arn,
-        }
-        if certificate_chain is not None:
-            self._values["certificate_chain"] = certificate_chain
-        if status is not None:
-            self._values["status"] = status
-
-    @builtins.property
-    def certificate(self) -> builtins.str:
-        '''The Base64 PEM-encoded certificate authority certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthorityactivation.html#cfn-acmpca-certificateauthorityactivation-certificate
-        '''
-        result = self._values.get("certificate")
-        assert result is not None, "Required property 'certificate' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def certificate_authority_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of your private CA.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthorityactivation.html#cfn-acmpca-certificateauthorityactivation-certificateauthorityarn
-        '''
-        result = self._values.get("certificate_authority_arn")
-        assert result is not None, "Required property 'certificate_authority_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def certificate_chain(self) -> typing.Optional[builtins.str]:
-        '''The Base64 PEM-encoded certificate chain that chains up to the root CA certificate that you used to sign your private CA certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthorityactivation.html#cfn-acmpca-certificateauthorityactivation-certificatechain
-        '''
-        result = self._values.get("certificate_chain")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def status(self) -> typing.Optional[builtins.str]:
-        '''Status of your private CA.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthorityactivation.html#cfn-acmpca-certificateauthorityactivation-status
-        '''
-        result = self._values.get("status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCertificateAuthorityActivationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_acmpca.CfnCertificateAuthorityProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "key_algorithm": "keyAlgorithm",
-        "signing_algorithm": "signingAlgorithm",
-        "subject": "subject",
-        "type": "type",
-        "csr_extensions": "csrExtensions",
-        "key_storage_security_standard": "keyStorageSecurityStandard",
-        "revocation_configuration": "revocationConfiguration",
-        "tags": "tags",
-        "usage_mode": "usageMode",
-    },
-)
-class CfnCertificateAuthorityProps:
-    def __init__(
-        self,
-        *,
-        key_algorithm: builtins.str,
-        signing_algorithm: builtins.str,
-        subject: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.SubjectProperty", typing.Dict[builtins.str, typing.Any]]],
-        type: builtins.str,
-        csr_extensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.CsrExtensionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        key_storage_security_standard: typing.Optional[builtins.str] = None,
-        revocation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.RevocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        usage_mode: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCertificateAuthority``.
-
-        :param key_algorithm: Type of the public key algorithm and size, in bits, of the key pair that your CA creates when it issues a certificate. When you create a subordinate CA, you must use a key algorithm supported by the parent CA.
-        :param signing_algorithm: Name of the algorithm your private CA uses to sign certificate requests. This parameter should not be confused with the ``SigningAlgorithm`` parameter used to sign certificates when they are issued.
-        :param subject: Structure that contains X.500 distinguished name information for your private CA.
-        :param type: Type of your private CA.
-        :param csr_extensions: Specifies information to be added to the extension section of the certificate signing request (CSR).
-        :param key_storage_security_standard: Specifies a cryptographic key management compliance standard for handling and protecting CA keys. Default: FIPS_140_2_LEVEL_3_OR_HIGHER .. epigraph:: Some AWS Regions don't support the default value. When you create a CA in these Regions, you must use ``CCPC_LEVEL_1_OR_HIGHER`` for the ``KeyStorageSecurityStandard`` parameter. If you don't, the operation returns an ``InvalidArgsException`` with this message: "A certificate authority cannot be created in this region with the specified security standard." For information about security standard support in different AWS Regions, see `Storage and security compliance of AWS Private CA private keys <https://docs.aws.amazon.com/privateca/latest/userguide/data-protection.html#private-keys>`_ .
-        :param revocation_configuration: Information about the Online Certificate Status Protocol (OCSP) configuration or certificate revocation list (CRL) created and maintained by your private CA.
-        :param tags: Key-value pairs that will be attached to the new private CA. You can associate up to 50 tags with a private CA. For information using tags with IAM to manage permissions, see `Controlling Access Using IAM Tags <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_iam-tags.html>`_ .
-        :param usage_mode: Specifies whether the CA issues general-purpose certificates that typically require a revocation mechanism, or short-lived certificates that may optionally omit revocation because they expire quickly. Short-lived certificate validity is limited to seven days. The default value is GENERAL_PURPOSE.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html
-        :exampleMetadata: infused
-
-        Example::
-
-            cfn_certificate_authority = acmpca.CfnCertificateAuthority(self, "CA",
-                type="ROOT",
-                key_algorithm="RSA_2048",
-                signing_algorithm="SHA256WITHRSA",
-                subject=acmpca.CfnCertificateAuthority.SubjectProperty(
-                    country="US",
-                    organization="string",
-                    organizational_unit="string",
-                    distinguished_name_qualifier="string",
-                    state="string",
-                    common_name="123",
-                    serial_number="string",
-                    locality="string",
-                    title="string",
-                    surname="string",
-                    given_name="string",
-                    initials="DG",
-                    pseudonym="string",
-                    generation_qualifier="DBG"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__052831322c2ba10fea8b5f47de894be5f1f8c54474bf38a71f380e37f9733c87)
-            check_type(argname="argument key_algorithm", value=key_algorithm, expected_type=type_hints["key_algorithm"])
-            check_type(argname="argument signing_algorithm", value=signing_algorithm, expected_type=type_hints["signing_algorithm"])
-            check_type(argname="argument subject", value=subject, expected_type=type_hints["subject"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument csr_extensions", value=csr_extensions, expected_type=type_hints["csr_extensions"])
-            check_type(argname="argument key_storage_security_standard", value=key_storage_security_standard, expected_type=type_hints["key_storage_security_standard"])
-            check_type(argname="argument revocation_configuration", value=revocation_configuration, expected_type=type_hints["revocation_configuration"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument usage_mode", value=usage_mode, expected_type=type_hints["usage_mode"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "key_algorithm": key_algorithm,
-            "signing_algorithm": signing_algorithm,
-            "subject": subject,
-            "type": type,
-        }
-        if csr_extensions is not None:
-            self._values["csr_extensions"] = csr_extensions
-        if key_storage_security_standard is not None:
-            self._values["key_storage_security_standard"] = key_storage_security_standard
-        if revocation_configuration is not None:
-            self._values["revocation_configuration"] = revocation_configuration
-        if tags is not None:
-            self._values["tags"] = tags
-        if usage_mode is not None:
-            self._values["usage_mode"] = usage_mode
-
-    @builtins.property
-    def key_algorithm(self) -> builtins.str:
-        '''Type of the public key algorithm and size, in bits, of the key pair that your CA creates when it issues a certificate.
-
-        When you create a subordinate CA, you must use a key algorithm supported by the parent CA.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-keyalgorithm
-        '''
-        result = self._values.get("key_algorithm")
-        assert result is not None, "Required property 'key_algorithm' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def signing_algorithm(self) -> builtins.str:
-        '''Name of the algorithm your private CA uses to sign certificate requests.
-
-        This parameter should not be confused with the ``SigningAlgorithm`` parameter used to sign certificates when they are issued.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-signingalgorithm
-        '''
-        result = self._values.get("signing_algorithm")
-        assert result is not None, "Required property 'signing_algorithm' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subject(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.SubjectProperty"]:
-        '''Structure that contains X.500 distinguished name information for your private CA.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-subject
-        '''
-        result = self._values.get("subject")
-        assert result is not None, "Required property 'subject' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.SubjectProperty"], result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''Type of your private CA.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def csr_extensions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CsrExtensionsProperty"]]:
-        '''Specifies information to be added to the extension section of the certificate signing request (CSR).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-csrextensions
-        '''
-        result = self._values.get("csr_extensions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CsrExtensionsProperty"]], result)
-
-    @builtins.property
-    def key_storage_security_standard(self) -> typing.Optional[builtins.str]:
-        '''Specifies a cryptographic key management compliance standard for handling and protecting CA keys.
-
-        Default: FIPS_140_2_LEVEL_3_OR_HIGHER
-        .. epigraph::
-
-           Some AWS Regions don't support the default value. When you create a CA in these Regions, you must use ``CCPC_LEVEL_1_OR_HIGHER`` for the ``KeyStorageSecurityStandard`` parameter. If you don't, the operation returns an ``InvalidArgsException`` with this message: "A certificate authority cannot be created in this region with the specified security standard."
-
-           For information about security standard support in different AWS Regions, see `Storage and security compliance of AWS Private CA private keys <https://docs.aws.amazon.com/privateca/latest/userguide/data-protection.html#private-keys>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-keystoragesecuritystandard
-        '''
-        result = self._values.get("key_storage_security_standard")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def revocation_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.RevocationConfigurationProperty"]]:
-        '''Information about the Online Certificate Status Protocol (OCSP) configuration or certificate revocation list (CRL) created and maintained by your private CA.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-revocationconfiguration
-        '''
-        result = self._values.get("revocation_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.RevocationConfigurationProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key-value pairs that will be attached to the new private CA.
-
-        You can associate up to 50 tags with a private CA. For information using tags with IAM to manage permissions, see `Controlling Access Using IAM Tags <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_iam-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def usage_mode(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether the CA issues general-purpose certificates that typically require a revocation mechanism, or short-lived certificates that may optionally omit revocation because they expire quickly.
-
-        Short-lived certificate validity is limited to seven days.
-
-        The default value is GENERAL_PURPOSE.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-usagemode
-        '''
-        result = self._values.get("usage_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCertificateAuthorityProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_acmpca.CfnCertificateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "certificate_authority_arn": "certificateAuthorityArn",
-        "certificate_signing_request": "certificateSigningRequest",
-        "signing_algorithm": "signingAlgorithm",
-        "validity": "validity",
-        "api_passthrough": "apiPassthrough",
-        "template_arn": "templateArn",
-        "validity_not_before": "validityNotBefore",
-    },
-)
-class CfnCertificateProps:
-    def __init__(
-        self,
-        *,
-        certificate_authority_arn: builtins.str,
-        certificate_signing_request: builtins.str,
-        signing_algorithm: builtins.str,
-        validity: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.ValidityProperty", typing.Dict[builtins.str, typing.Any]]],
-        api_passthrough: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.ApiPassthroughProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        template_arn: typing.Optional[builtins.str] = None,
-        validity_not_before: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.ValidityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCertificate``.
-
-        :param certificate_authority_arn: The Amazon Resource Name (ARN) for the private CA issues the certificate.
-        :param certificate_signing_request: The certificate signing request (CSR) for the certificate.
-        :param signing_algorithm: The name of the algorithm that will be used to sign the certificate to be issued. This parameter should not be confused with the ``SigningAlgorithm`` parameter used to sign a CSR in the ``CreateCertificateAuthority`` action. .. epigraph:: The specified signing algorithm family (RSA or ECDSA) must match the algorithm family of the CA's secret key.
-        :param validity: The period of time during which the certificate will be valid.
-        :param api_passthrough: Specifies X.509 certificate information to be included in the issued certificate. An ``APIPassthrough`` or ``APICSRPassthrough`` template variant must be selected, or else this parameter is ignored.
-        :param template_arn: Specifies a custom configuration template to use when issuing a certificate. If this parameter is not provided, AWS Private CA defaults to the ``EndEntityCertificate/V1`` template. For more information about AWS Private CA templates, see `Using Templates <https://docs.aws.amazon.com/privateca/latest/userguide/UsingTemplates.html>`_ .
-        :param validity_not_before: Information describing the start of the validity period of the certificate. This parameter sets the “Not Before" date for the certificate. By default, when issuing a certificate, AWS Private CA sets the "Not Before" date to the issuance time minus 60 minutes. This compensates for clock inconsistencies across computer systems. The ``ValidityNotBefore`` parameter can be used to customize the “Not Before” value. Unlike the ``Validity`` parameter, the ``ValidityNotBefore`` parameter is optional. The ``ValidityNotBefore`` value is expressed as an explicit date and time, using the ``Validity`` type value ``ABSOLUTE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_acmpca as acmpca
-            
-            cfn_certificate_props = acmpca.CfnCertificateProps(
-                certificate_authority_arn="certificateAuthorityArn",
-                certificate_signing_request="certificateSigningRequest",
-                signing_algorithm="signingAlgorithm",
-                validity=acmpca.CfnCertificate.ValidityProperty(
-                    type="type",
-                    value=123
-                ),
-            
-                # the properties below are optional
-                api_passthrough=acmpca.CfnCertificate.ApiPassthroughProperty(
-                    extensions=acmpca.CfnCertificate.ExtensionsProperty(
-                        certificate_policies=[acmpca.CfnCertificate.PolicyInformationProperty(
-                            cert_policy_id="certPolicyId",
-            
-                            # the properties below are optional
-                            policy_qualifiers=[acmpca.CfnCertificate.PolicyQualifierInfoProperty(
-                                policy_qualifier_id="policyQualifierId",
-                                qualifier=acmpca.CfnCertificate.QualifierProperty(
-                                    cps_uri="cpsUri"
-                                )
-                            )]
-                        )],
-                        custom_extensions=[acmpca.CfnCertificate.CustomExtensionProperty(
-                            object_identifier="objectIdentifier",
-                            value="value",
-            
-                            # the properties below are optional
-                            critical=False
-                        )],
-                        extended_key_usage=[acmpca.CfnCertificate.ExtendedKeyUsageProperty(
-                            extended_key_usage_object_identifier="extendedKeyUsageObjectIdentifier",
-                            extended_key_usage_type="extendedKeyUsageType"
-                        )],
-                        key_usage=acmpca.CfnCertificate.KeyUsageProperty(
-                            crl_sign=False,
-                            data_encipherment=False,
-                            decipher_only=False,
-                            digital_signature=False,
-                            encipher_only=False,
-                            key_agreement=False,
-                            key_cert_sign=False,
-                            key_encipherment=False,
-                            non_repudiation=False
-                        ),
-                        subject_alternative_names=[acmpca.CfnCertificate.GeneralNameProperty(
-                            directory_name=acmpca.CfnCertificate.SubjectProperty(
-                                common_name="commonName",
-                                country="country",
-                                custom_attributes=[acmpca.CfnCertificate.CustomAttributeProperty(
-                                    object_identifier="objectIdentifier",
-                                    value="value"
-                                )],
-                                distinguished_name_qualifier="distinguishedNameQualifier",
-                                generation_qualifier="generationQualifier",
-                                given_name="givenName",
-                                initials="initials",
-                                locality="locality",
-                                organization="organization",
-                                organizational_unit="organizationalUnit",
-                                pseudonym="pseudonym",
-                                serial_number="serialNumber",
-                                state="state",
-                                surname="surname",
-                                title="title"
-                            ),
-                            dns_name="dnsName",
-                            edi_party_name=acmpca.CfnCertificate.EdiPartyNameProperty(
-                                name_assigner="nameAssigner",
-                                party_name="partyName"
-                            ),
-                            ip_address="ipAddress",
-                            other_name=acmpca.CfnCertificate.OtherNameProperty(
-                                type_id="typeId",
-                                value="value"
-                            ),
-                            registered_id="registeredId",
-                            rfc822_name="rfc822Name",
-                            uniform_resource_identifier="uniformResourceIdentifier"
-                        )]
-                    ),
-                    subject=acmpca.CfnCertificate.SubjectProperty(
-                        common_name="commonName",
-                        country="country",
-                        custom_attributes=[acmpca.CfnCertificate.CustomAttributeProperty(
-                            object_identifier="objectIdentifier",
-                            value="value"
-                        )],
-                        distinguished_name_qualifier="distinguishedNameQualifier",
-                        generation_qualifier="generationQualifier",
-                        given_name="givenName",
-                        initials="initials",
-                        locality="locality",
-                        organization="organization",
-                        organizational_unit="organizationalUnit",
-                        pseudonym="pseudonym",
-                        serial_number="serialNumber",
-                        state="state",
-                        surname="surname",
-                        title="title"
-                    )
-                ),
-                template_arn="templateArn",
-                validity_not_before=acmpca.CfnCertificate.ValidityProperty(
-                    type="type",
-                    value=123
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acca39b375eaa0ca77d761ffe82a05a53633d418331265d827cb5959406a431b)
-            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
-            check_type(argname="argument certificate_signing_request", value=certificate_signing_request, expected_type=type_hints["certificate_signing_request"])
-            check_type(argname="argument signing_algorithm", value=signing_algorithm, expected_type=type_hints["signing_algorithm"])
-            check_type(argname="argument validity", value=validity, expected_type=type_hints["validity"])
-            check_type(argname="argument api_passthrough", value=api_passthrough, expected_type=type_hints["api_passthrough"])
-            check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
-            check_type(argname="argument validity_not_before", value=validity_not_before, expected_type=type_hints["validity_not_before"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate_authority_arn": certificate_authority_arn,
-            "certificate_signing_request": certificate_signing_request,
-            "signing_algorithm": signing_algorithm,
-            "validity": validity,
-        }
-        if api_passthrough is not None:
-            self._values["api_passthrough"] = api_passthrough
-        if template_arn is not None:
-            self._values["template_arn"] = template_arn
-        if validity_not_before is not None:
-            self._values["validity_not_before"] = validity_not_before
-
-    @builtins.property
-    def certificate_authority_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) for the private CA issues the certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-certificateauthorityarn
-        '''
-        result = self._values.get("certificate_authority_arn")
-        assert result is not None, "Required property 'certificate_authority_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def certificate_signing_request(self) -> builtins.str:
-        '''The certificate signing request (CSR) for the certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-certificatesigningrequest
-        '''
-        result = self._values.get("certificate_signing_request")
-        assert result is not None, "Required property 'certificate_signing_request' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def signing_algorithm(self) -> builtins.str:
-        '''The name of the algorithm that will be used to sign the certificate to be issued.
-
-        This parameter should not be confused with the ``SigningAlgorithm`` parameter used to sign a CSR in the ``CreateCertificateAuthority`` action.
-        .. epigraph::
-
-           The specified signing algorithm family (RSA or ECDSA) must match the algorithm family of the CA's secret key.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-signingalgorithm
-        '''
-        result = self._values.get("signing_algorithm")
-        assert result is not None, "Required property 'signing_algorithm' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def validity(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCertificate.ValidityProperty"]:
-        '''The period of time during which the certificate will be valid.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-validity
-        '''
-        result = self._values.get("validity")
-        assert result is not None, "Required property 'validity' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCertificate.ValidityProperty"], result)
-
-    @builtins.property
-    def api_passthrough(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ApiPassthroughProperty"]]:
-        '''Specifies X.509 certificate information to be included in the issued certificate. An ``APIPassthrough`` or ``APICSRPassthrough`` template variant must be selected, or else this parameter is ignored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-apipassthrough
-        '''
-        result = self._values.get("api_passthrough")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ApiPassthroughProperty"]], result)
-
-    @builtins.property
-    def template_arn(self) -> typing.Optional[builtins.str]:
-        '''Specifies a custom configuration template to use when issuing a certificate.
-
-        If this parameter is not provided, AWS Private CA defaults to the ``EndEntityCertificate/V1`` template. For more information about AWS Private CA templates, see `Using Templates <https://docs.aws.amazon.com/privateca/latest/userguide/UsingTemplates.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-templatearn
-        '''
-        result = self._values.get("template_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def validity_not_before(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ValidityProperty"]]:
-        '''Information describing the start of the validity period of the certificate.
-
-        This parameter sets the “Not Before" date for the certificate.
-
-        By default, when issuing a certificate, AWS Private CA sets the "Not Before" date to the issuance time minus 60 minutes. This compensates for clock inconsistencies across computer systems. The ``ValidityNotBefore`` parameter can be used to customize the “Not Before” value.
-
-        Unlike the ``Validity`` parameter, the ``ValidityNotBefore`` parameter is optional.
-
-        The ``ValidityNotBefore`` value is expressed as an explicit date and time, using the ``Validity`` type value ``ABSOLUTE`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-validitynotbefore
-        '''
-        result = self._values.get("validity_not_before")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ValidityProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCertificateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_acmpca.CfnPermissionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "actions": "actions",
-        "certificate_authority_arn": "certificateAuthorityArn",
-        "principal": "principal",
-        "source_account": "sourceAccount",
-    },
-)
-class CfnPermissionProps:
-    def __init__(
-        self,
-        *,
-        actions: typing.Sequence[builtins.str],
-        certificate_authority_arn: builtins.str,
-        principal: builtins.str,
-        source_account: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPermission``.
-
-        :param actions: The private CA actions that can be performed by the designated AWS service. Supported actions are ``IssueCertificate`` , ``GetCertificate`` , and ``ListPermissions`` .
-        :param certificate_authority_arn: The Amazon Resource Number (ARN) of the private CA from which the permission was issued.
-        :param principal: The AWS service or entity that holds the permission. At this time, the only valid principal is ``acm.amazonaws.com`` .
-        :param source_account: The ID of the account that assigned the permission.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-permission.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_acmpca as acmpca
-            
-            cfn_permission_props = acmpca.CfnPermissionProps(
-                actions=["actions"],
-                certificate_authority_arn="certificateAuthorityArn",
-                principal="principal",
-            
-                # the properties below are optional
-                source_account="sourceAccount"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e4f8a50d06c841025fd393d8e235b3e62339c693e4dbb7a9ab17b5554c6a581)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
-            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
-            check_type(argname="argument source_account", value=source_account, expected_type=type_hints["source_account"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actions": actions,
-            "certificate_authority_arn": certificate_authority_arn,
-            "principal": principal,
-        }
-        if source_account is not None:
-            self._values["source_account"] = source_account
-
-    @builtins.property
-    def actions(self) -> typing.List[builtins.str]:
-        '''The private CA actions that can be performed by the designated AWS service.
-
-        Supported actions are ``IssueCertificate`` , ``GetCertificate`` , and ``ListPermissions`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-permission.html#cfn-acmpca-permission-actions
-        '''
-        result = self._values.get("actions")
-        assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def certificate_authority_arn(self) -> builtins.str:
-        '''The Amazon Resource Number (ARN) of the private CA from which the permission was issued.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-permission.html#cfn-acmpca-permission-certificateauthorityarn
-        '''
-        result = self._values.get("certificate_authority_arn")
-        assert result is not None, "Required property 'certificate_authority_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def principal(self) -> builtins.str:
-        '''The AWS service or entity that holds the permission.
-
-        At this time, the only valid principal is ``acm.amazonaws.com`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-permission.html#cfn-acmpca-permission-principal
-        '''
-        result = self._values.get("principal")
-        assert result is not None, "Required property 'principal' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source_account(self) -> typing.Optional[builtins.str]:
-        '''The ID of the account that assigned the permission.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-permission.html#cfn-acmpca-permission-sourceaccount
-        '''
-        result = self._values.get("source_account")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPermissionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_acmpca.ICertificateAuthority")
-class ICertificateAuthority(_IResource_c80c4260, typing_extensions.Protocol):
-    '''Interface which all CertificateAuthority based class must implement.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateAuthorityArn")
-    def certificate_authority_arn(self) -> builtins.str:
-        '''The Amazon Resource Name of the Certificate.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _ICertificateAuthorityProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''Interface which all CertificateAuthority based class must implement.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_acmpca.ICertificateAuthority"
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateAuthorityArn")
-    def certificate_authority_arn(self) -> builtins.str:
-        '''The Amazon Resource Name of the Certificate.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "certificateAuthorityArn"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICertificateAuthority).__jsii_proxy_class__ = lambda : _ICertificateAuthorityProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_acmpca.ICertificateAuthorityActivationRef")
-class ICertificateAuthorityActivationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CertificateAuthorityActivation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateAuthorityActivationRef")
-    def certificate_authority_activation_ref(
-        self,
-    ) -> CertificateAuthorityActivationReference:
-        '''(experimental) A reference to a CertificateAuthorityActivation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICertificateAuthorityActivationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CertificateAuthorityActivation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_acmpca.ICertificateAuthorityActivationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateAuthorityActivationRef")
-    def certificate_authority_activation_ref(
-        self,
-    ) -> CertificateAuthorityActivationReference:
-        '''(experimental) A reference to a CertificateAuthorityActivation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CertificateAuthorityActivationReference, jsii.get(self, "certificateAuthorityActivationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICertificateAuthorityActivationRef).__jsii_proxy_class__ = lambda : _ICertificateAuthorityActivationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_acmpca.ICertificateAuthorityRef")
-class ICertificateAuthorityRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CertificateAuthority.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateAuthorityRef")
-    def certificate_authority_ref(self) -> CertificateAuthorityReference:
-        '''(experimental) A reference to a CertificateAuthority resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICertificateAuthorityRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CertificateAuthority.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_acmpca.ICertificateAuthorityRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateAuthorityRef")
-    def certificate_authority_ref(self) -> CertificateAuthorityReference:
-        '''(experimental) A reference to a CertificateAuthority resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CertificateAuthorityReference, jsii.get(self, "certificateAuthorityRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICertificateAuthorityRef).__jsii_proxy_class__ = lambda : _ICertificateAuthorityRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_acmpca.ICertificateRef")
-class ICertificateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Certificate.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateRef")
-    def certificate_ref(self) -> CertificateReference:
-        '''(experimental) A reference to a Certificate resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICertificateRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Certificate.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_acmpca.ICertificateRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateRef")
-    def certificate_ref(self) -> CertificateReference:
-        '''(experimental) A reference to a Certificate resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CertificateReference, jsii.get(self, "certificateRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICertificateRef).__jsii_proxy_class__ = lambda : _ICertificateRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_acmpca.IPermissionRef")
-class IPermissionRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Permission.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="permissionRef")
-    def permission_ref(self) -> "PermissionReference":
-        '''(experimental) A reference to a Permission resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPermissionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Permission.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_acmpca.IPermissionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="permissionRef")
-    def permission_ref(self) -> "PermissionReference":
-        '''(experimental) A reference to a Permission resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PermissionReference", jsii.get(self, "permissionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPermissionRef).__jsii_proxy_class__ = lambda : _IPermissionRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_acmpca.PermissionReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "certificate_authority_arn": "certificateAuthorityArn",
-        "principal": "principal",
-    },
-)
-class PermissionReference:
-    def __init__(
-        self,
-        *,
-        certificate_authority_arn: builtins.str,
-        principal: builtins.str,
-    ) -> None:
-        '''A reference to a Permission resource.
-
-        :param certificate_authority_arn: The CertificateAuthorityArn of the Permission resource.
-        :param principal: The Principal of the Permission resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_acmpca as acmpca
-            
-            permission_reference = acmpca.PermissionReference(
-                certificate_authority_arn="certificateAuthorityArn",
-                principal="principal"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecedbde7f5c8677b1a685aa1039c38c2f558e1728ecf2c547491fa121882bc0e)
-            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
-            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate_authority_arn": certificate_authority_arn,
-            "principal": principal,
-        }
-
-    @builtins.property
-    def certificate_authority_arn(self) -> builtins.str:
-        '''The CertificateAuthorityArn of the Permission resource.'''
-        result = self._values.get("certificate_authority_arn")
-        assert result is not None, "Required property 'certificate_authority_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def principal(self) -> builtins.str:
-        '''The Principal of the Permission resource.'''
-        result = self._values.get("principal")
-        assert result is not None, "Required property 'principal' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PermissionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, ICertificateRef)
+@jsii.implements(_IInspectable_c2943556, _ICertificateRef_d3019a6f)
 class CfnCertificate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1436,18 +295,19 @@ class CfnCertificate(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        certificate_authority_arn: builtins.str,
+        certificate_authority_arn: typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"],
         certificate_signing_request: builtins.str,
         signing_algorithm: builtins.str,
-        validity: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.ValidityProperty", typing.Dict[builtins.str, typing.Any]]],
-        api_passthrough: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.ApiPassthroughProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        template_arn: typing.Optional[builtins.str] = None,
-        validity_not_before: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.ValidityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        validity: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.ValidityProperty", typing.Dict[builtins.str, typing.Any]]],
+        api_passthrough: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.ApiPassthroughProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        template_arn: typing.Optional[typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"]] = None,
+        validity_not_before: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.ValidityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ACMPCA::Certificate``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param certificate_authority_arn: The Amazon Resource Name (ARN) for the private CA issues the certificate.
@@ -1474,8 +334,31 @@ class CfnCertificate(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForCertificate")
+    @builtins.classmethod
+    def arn_for_certificate(cls, resource: "_ICertificateRef_d3019a6f") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1f5c1fa47f7744fe019bb051687823e3da05420a4306997d356feb2a7de3182)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCertificate", [resource]))
+
+    @jsii.member(jsii_name="isCfnCertificate")
+    @builtins.classmethod
+    def is_cfn_certificate(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCertificate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8dadb9c2a09b7a38bf69946d35d03f26ea5b4690737ba6389ec2b6c204c4eb9c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCertificate", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1524,9 +407,9 @@ class CfnCertificate(
 
     @builtins.property
     @jsii.member(jsii_name="certificateRef")
-    def certificate_ref(self) -> CertificateReference:
+    def certificate_ref(self) -> "_CertificateReference_b07032bd":
         '''A reference to a Certificate resource.'''
-        return typing.cast(CertificateReference, jsii.get(self, "certificateRef"))
+        return typing.cast("_CertificateReference_b07032bd", jsii.get(self, "certificateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1576,14 +459,14 @@ class CfnCertificate(
     @jsii.member(jsii_name="validity")
     def validity(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCertificate.ValidityProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCertificate.ValidityProperty"]:
         '''The period of time during which the certificate will be valid.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCertificate.ValidityProperty"], jsii.get(self, "validity"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCertificate.ValidityProperty"], jsii.get(self, "validity"))
 
     @validity.setter
     def validity(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnCertificate.ValidityProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnCertificate.ValidityProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b0f98fada0460f1013060888886a3c2a49f08cade3f294d7b78ab8077353d28)
@@ -1594,14 +477,14 @@ class CfnCertificate(
     @jsii.member(jsii_name="apiPassthrough")
     def api_passthrough(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ApiPassthroughProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ApiPassthroughProperty"]]:
         '''Specifies X.509 certificate information to be included in the issued certificate. An ``APIPassthrough`` or ``APICSRPassthrough`` template variant must be selected, or else this parameter is ignored.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ApiPassthroughProperty"]], jsii.get(self, "apiPassthrough"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ApiPassthroughProperty"]], jsii.get(self, "apiPassthrough"))
 
     @api_passthrough.setter
     def api_passthrough(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ApiPassthroughProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ApiPassthroughProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07edd7fc55218dbdda428adf3aa29d974595465ca0c1084ed6f98a79f08d4841)
@@ -1625,14 +508,14 @@ class CfnCertificate(
     @jsii.member(jsii_name="validityNotBefore")
     def validity_not_before(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ValidityProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ValidityProperty"]]:
         '''Information describing the start of the validity period of the certificate.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ValidityProperty"]], jsii.get(self, "validityNotBefore"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ValidityProperty"]], jsii.get(self, "validityNotBefore"))
 
     @validity_not_before.setter
     def validity_not_before(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ValidityProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ValidityProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce4f5fb71e1d9798d96fd2e8524ac910685f8e895b03a85141518face166fd7e)
@@ -1648,8 +531,8 @@ class CfnCertificate(
         def __init__(
             self,
             *,
-            extensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.ExtensionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            subject: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.SubjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            extensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.ExtensionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            subject: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.SubjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains X.509 certificate information to be placed in an issued certificate. An ``APIPassthrough`` or ``APICSRPassthrough`` template variant must be selected, or else this parameter is ignored.
 
@@ -1773,18 +656,18 @@ class CfnCertificate(
         @builtins.property
         def extensions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ExtensionsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ExtensionsProperty"]]:
             '''Specifies X.509 extension information for a certificate.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-apipassthrough.html#cfn-acmpca-certificate-apipassthrough-extensions
             '''
             result = self._values.get("extensions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ExtensionsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ExtensionsProperty"]], result)
 
         @builtins.property
         def subject(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.SubjectProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.SubjectProperty"]]:
             '''Contains information about the certificate subject.
 
             The Subject field in the certificate identifies the entity that owns or controls the public key in the certificate. The entity can be a user, computer, device, or service. The Subject must contain an X.500 distinguished name (DN). A DN is a sequence of relative distinguished names (RDNs). The RDNs are separated by commas in the certificate.
@@ -1792,7 +675,7 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-apipassthrough.html#cfn-acmpca-certificate-apipassthrough-subject
             '''
             result = self._values.get("subject")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.SubjectProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.SubjectProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1891,7 +774,7 @@ class CfnCertificate(
             *,
             object_identifier: builtins.str,
             value: builtins.str,
-            critical: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            critical: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Specifies the X.509 extension information for a certificate.
 
@@ -1953,13 +836,13 @@ class CfnCertificate(
         @builtins.property
         def critical(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies the critical flag of the X.509 extension.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-customextension.html#cfn-acmpca-certificate-customextension-critical
             '''
             result = self._values.get("critical")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2131,11 +1014,11 @@ class CfnCertificate(
         def __init__(
             self,
             *,
-            certificate_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.PolicyInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            custom_extensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.CustomExtensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            extended_key_usage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.ExtendedKeyUsageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            key_usage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.KeyUsageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            subject_alternative_names: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.GeneralNameProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            certificate_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.PolicyInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            custom_extensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.CustomExtensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            extended_key_usage: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.ExtendedKeyUsageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            key_usage: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.KeyUsageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            subject_alternative_names: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.GeneralNameProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Contains X.509 extension information for a certificate.
 
@@ -2247,7 +1130,7 @@ class CfnCertificate(
         @builtins.property
         def certificate_policies(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.PolicyInformationProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.PolicyInformationProperty"]]]]:
             '''Contains a sequence of one or more policy information terms, each of which consists of an object identifier (OID) and optional qualifiers.
 
             For more information, see NIST's definition of `Object Identifier (OID) <https://docs.aws.amazon.com/https://csrc.nist.gov/glossary/term/Object_Identifier>`_ .
@@ -2257,34 +1140,34 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-extensions.html#cfn-acmpca-certificate-extensions-certificatepolicies
             '''
             result = self._values.get("certificate_policies")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.PolicyInformationProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.PolicyInformationProperty"]]]], result)
 
         @builtins.property
         def custom_extensions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.CustomExtensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.CustomExtensionProperty"]]]]:
             '''Contains a sequence of one or more X.509 extensions, each of which consists of an object identifier (OID), a base64-encoded value, and the critical flag. For more information, see the `Global OID reference database. <https://docs.aws.amazon.com/https://oidref.com/2.5.29>`_.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-extensions.html#cfn-acmpca-certificate-extensions-customextensions
             '''
             result = self._values.get("custom_extensions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.CustomExtensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.CustomExtensionProperty"]]]], result)
 
         @builtins.property
         def extended_key_usage(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ExtendedKeyUsageProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ExtendedKeyUsageProperty"]]]]:
             '''Specifies additional purposes for which the certified public key may be used other than basic purposes indicated in the ``KeyUsage`` extension.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-extensions.html#cfn-acmpca-certificate-extensions-extendedkeyusage
             '''
             result = self._values.get("extended_key_usage")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.ExtendedKeyUsageProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ExtendedKeyUsageProperty"]]]], result)
 
         @builtins.property
         def key_usage(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.KeyUsageProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.KeyUsageProperty"]]:
             '''Defines one or more purposes for which the key contained in the certificate can be used.
 
             Default value for each option is false.
@@ -2292,12 +1175,12 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-extensions.html#cfn-acmpca-certificate-extensions-keyusage
             '''
             result = self._values.get("key_usage")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.KeyUsageProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.KeyUsageProperty"]], result)
 
         @builtins.property
         def subject_alternative_names(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.GeneralNameProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.GeneralNameProperty"]]]]:
             '''The subject alternative name extension allows identities to be bound to the subject of the certificate.
 
             These identities may be included in addition to or in place of the identity in the subject field of the certificate.
@@ -2305,7 +1188,7 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-extensions.html#cfn-acmpca-certificate-extensions-subjectalternativenames
             '''
             result = self._values.get("subject_alternative_names")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.GeneralNameProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.GeneralNameProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2336,11 +1219,11 @@ class CfnCertificate(
         def __init__(
             self,
             *,
-            directory_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.SubjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            directory_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.SubjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dns_name: typing.Optional[builtins.str] = None,
-            edi_party_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.EdiPartyNameProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            edi_party_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.EdiPartyNameProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ip_address: typing.Optional[builtins.str] = None,
-            other_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.OtherNameProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            other_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.OtherNameProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             registered_id: typing.Optional[builtins.str] = None,
             rfc822_name: typing.Optional[builtins.str] = None,
             uniform_resource_identifier: typing.Optional[builtins.str] = None,
@@ -2432,7 +1315,7 @@ class CfnCertificate(
         @builtins.property
         def directory_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.SubjectProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.SubjectProperty"]]:
             '''Contains information about the certificate subject.
 
             The certificate can be one issued by your private certificate authority (CA) or it can be your private CA certificate. The Subject field in the certificate identifies the entity that owns or controls the public key in the certificate. The entity can be a user, computer, device, or service. The Subject must contain an X.500 distinguished name (DN). A DN is a sequence of relative distinguished names (RDNs). The RDNs are separated by commas in the certificate. The DN must be unique for each entity, but your private CA can issue more than one certificate with the same DN to the same entity.
@@ -2440,7 +1323,7 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-generalname.html#cfn-acmpca-certificate-generalname-directoryname
             '''
             result = self._values.get("directory_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.SubjectProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.SubjectProperty"]], result)
 
         @builtins.property
         def dns_name(self) -> typing.Optional[builtins.str]:
@@ -2454,13 +1337,13 @@ class CfnCertificate(
         @builtins.property
         def edi_party_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.EdiPartyNameProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.EdiPartyNameProperty"]]:
             '''Represents ``GeneralName`` as an ``EdiPartyName`` object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-generalname.html#cfn-acmpca-certificate-generalname-edipartyname
             '''
             result = self._values.get("edi_party_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.EdiPartyNameProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.EdiPartyNameProperty"]], result)
 
         @builtins.property
         def ip_address(self) -> typing.Optional[builtins.str]:
@@ -2474,13 +1357,13 @@ class CfnCertificate(
         @builtins.property
         def other_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.OtherNameProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.OtherNameProperty"]]:
             '''Represents ``GeneralName`` using an ``OtherName`` object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-generalname.html#cfn-acmpca-certificate-generalname-othername
             '''
             result = self._values.get("other_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificate.OtherNameProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.OtherNameProperty"]], result)
 
         @builtins.property
         def registered_id(self) -> typing.Optional[builtins.str]:
@@ -2539,15 +1422,15 @@ class CfnCertificate(
         def __init__(
             self,
             *,
-            crl_sign: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            data_encipherment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            decipher_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            digital_signature: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            encipher_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            key_agreement: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            key_cert_sign: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            key_encipherment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            non_repudiation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            crl_sign: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            data_encipherment: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            decipher_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            digital_signature: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            encipher_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            key_agreement: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            key_cert_sign: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            key_encipherment: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            non_repudiation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Defines one or more purposes for which the key contained in the certificate can be used.
 
@@ -2618,7 +1501,7 @@ class CfnCertificate(
         @builtins.property
         def crl_sign(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used to sign CRLs.
 
             :default: - false
@@ -2626,12 +1509,12 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-keyusage.html#cfn-acmpca-certificate-keyusage-crlsign
             '''
             result = self._values.get("crl_sign")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def data_encipherment(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used to decipher data.
 
             :default: - false
@@ -2639,12 +1522,12 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-keyusage.html#cfn-acmpca-certificate-keyusage-dataencipherment
             '''
             result = self._values.get("data_encipherment")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def decipher_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used only to decipher data.
 
             :default: - false
@@ -2652,12 +1535,12 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-keyusage.html#cfn-acmpca-certificate-keyusage-decipheronly
             '''
             result = self._values.get("decipher_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def digital_signature(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used for digital signing.
 
             :default: - false
@@ -2665,12 +1548,12 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-keyusage.html#cfn-acmpca-certificate-keyusage-digitalsignature
             '''
             result = self._values.get("digital_signature")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def encipher_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used only to encipher data.
 
             :default: - false
@@ -2678,12 +1561,12 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-keyusage.html#cfn-acmpca-certificate-keyusage-encipheronly
             '''
             result = self._values.get("encipher_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def key_agreement(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used in a key-agreement protocol.
 
             :default: - false
@@ -2691,12 +1574,12 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-keyusage.html#cfn-acmpca-certificate-keyusage-keyagreement
             '''
             result = self._values.get("key_agreement")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def key_cert_sign(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used to sign certificates.
 
             :default: - false
@@ -2704,12 +1587,12 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-keyusage.html#cfn-acmpca-certificate-keyusage-keycertsign
             '''
             result = self._values.get("key_cert_sign")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def key_encipherment(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used to encipher data.
 
             :default: - false
@@ -2717,12 +1600,12 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-keyusage.html#cfn-acmpca-certificate-keyusage-keyencipherment
             '''
             result = self._values.get("key_encipherment")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def non_repudiation(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used for non-repudiation.
 
             :default: - false
@@ -2730,7 +1613,7 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-keyusage.html#cfn-acmpca-certificate-keyusage-nonrepudiation
             '''
             result = self._values.get("non_repudiation")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2822,7 +1705,7 @@ class CfnCertificate(
             self,
             *,
             cert_policy_id: builtins.str,
-            policy_qualifiers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.PolicyQualifierInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            policy_qualifiers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.PolicyQualifierInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Defines the X.509 ``CertificatePolicies`` extension.
 
@@ -2875,7 +1758,7 @@ class CfnCertificate(
         @builtins.property
         def policy_qualifiers(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.PolicyQualifierInfoProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.PolicyQualifierInfoProperty"]]]]:
             '''Modifies the given ``CertPolicyId`` with a qualifier.
 
             AWS Private CA supports the certification practice statement (CPS) qualifier.
@@ -2883,7 +1766,7 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-policyinformation.html#cfn-acmpca-certificate-policyinformation-policyqualifiers
             '''
             result = self._values.get("policy_qualifiers")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.PolicyQualifierInfoProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.PolicyQualifierInfoProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2909,7 +1792,7 @@ class CfnCertificate(
             self,
             *,
             policy_qualifier_id: builtins.str,
-            qualifier: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.QualifierProperty", typing.Dict[builtins.str, typing.Any]]],
+            qualifier: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.QualifierProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Modifies the ``CertPolicyId`` of a ``PolicyInformation`` object with a qualifier.
 
@@ -2956,7 +1839,7 @@ class CfnCertificate(
         @builtins.property
         def qualifier(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCertificate.QualifierProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCertificate.QualifierProperty"]:
             '''Defines the qualifier type.
 
             AWS Private CA supports the use of a URI for a CPS qualifier in this field.
@@ -2965,7 +1848,7 @@ class CfnCertificate(
             '''
             result = self._values.get("qualifier")
             assert result is not None, "Required property 'qualifier' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCertificate.QualifierProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCertificate.QualifierProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3059,7 +1942,7 @@ class CfnCertificate(
             *,
             common_name: typing.Optional[builtins.str] = None,
             country: typing.Optional[builtins.str] = None,
-            custom_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificate.CustomAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            custom_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.CustomAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             distinguished_name_qualifier: typing.Optional[builtins.str] = None,
             generation_qualifier: typing.Optional[builtins.str] = None,
             given_name: typing.Optional[builtins.str] = None,
@@ -3195,7 +2078,7 @@ class CfnCertificate(
         @builtins.property
         def custom_attributes(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.CustomAttributeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.CustomAttributeProperty"]]]]:
             '''Contains a sequence of one or more X.500 relative distinguished names (RDNs), each of which consists of an object identifier (OID) and a value. For more information, see NIST’s definition of `Object Identifier (OID) <https://docs.aws.amazon.com/https://csrc.nist.gov/glossary/term/Object_Identifier>`_ .
 
             .. epigraph::
@@ -3205,7 +2088,7 @@ class CfnCertificate(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificate-subject.html#cfn-acmpca-certificate-subject-customattributes
             '''
             result = self._values.get("custom_attributes")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificate.CustomAttributeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificate.CustomAttributeProperty"]]]], result)
 
         @builtins.property
         def distinguished_name_qualifier(self) -> typing.Optional[builtins.str]:
@@ -3403,7 +2286,7 @@ class CfnCertificate(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ICertificateAuthorityRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _ICertificateAuthorityRef_240f71c8, _ITaggable_36806126)
 class CfnCertificateAuthority(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3447,20 +2330,21 @@ class CfnCertificateAuthority(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         key_algorithm: builtins.str,
         signing_algorithm: builtins.str,
-        subject: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.SubjectProperty", typing.Dict[builtins.str, typing.Any]]],
+        subject: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.SubjectProperty", typing.Dict[builtins.str, typing.Any]]],
         type: builtins.str,
-        csr_extensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.CsrExtensionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        csr_extensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.CsrExtensionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         key_storage_security_standard: typing.Optional[builtins.str] = None,
-        revocation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.RevocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        revocation_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.RevocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         usage_mode: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ACMPCA::CertificateAuthority``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param key_algorithm: Type of the public key algorithm and size, in bits, of the key pair that your CA creates when it issues a certificate. When you create a subordinate CA, you must use a key algorithm supported by the parent CA.
@@ -3491,8 +2375,34 @@ class CfnCertificateAuthority(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForCertificateAuthority")
+    @builtins.classmethod
+    def arn_for_certificate_authority(
+        cls,
+        resource: "_ICertificateAuthorityRef_240f71c8",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32b205233fe72445e1a32e054d2e5d3082fecea1ea19004275e3d0dfb2c04504)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCertificateAuthority", [resource]))
+
+    @jsii.member(jsii_name="isCfnCertificateAuthority")
+    @builtins.classmethod
+    def is_cfn_certificate_authority(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCertificateAuthority.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__81cf6d0b04fbb4be6751d2305796e2f667a6be400525e76955a90214a45f8563)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCertificateAuthority", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3541,9 +2451,9 @@ class CfnCertificateAuthority(
 
     @builtins.property
     @jsii.member(jsii_name="certificateAuthorityRef")
-    def certificate_authority_ref(self) -> CertificateAuthorityReference:
+    def certificate_authority_ref(self) -> "_CertificateAuthorityReference_4a9960c9":
         '''A reference to a CertificateAuthority resource.'''
-        return typing.cast(CertificateAuthorityReference, jsii.get(self, "certificateAuthorityRef"))
+        return typing.cast("_CertificateAuthorityReference_4a9960c9", jsii.get(self, "certificateAuthorityRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3552,9 +2462,9 @@ class CfnCertificateAuthority(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="keyAlgorithm")
@@ -3586,14 +2496,14 @@ class CfnCertificateAuthority(
     @jsii.member(jsii_name="subject")
     def subject(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.SubjectProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.SubjectProperty"]:
         '''Structure that contains X.500 distinguished name information for your private CA.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.SubjectProperty"], jsii.get(self, "subject"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.SubjectProperty"], jsii.get(self, "subject"))
 
     @subject.setter
     def subject(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.SubjectProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.SubjectProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65bb497527ac064e6e2dac08377e39c6239f7e846ca18078132927a75d6471bb)
@@ -3617,14 +2527,14 @@ class CfnCertificateAuthority(
     @jsii.member(jsii_name="csrExtensions")
     def csr_extensions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CsrExtensionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CsrExtensionsProperty"]]:
         '''Specifies information to be added to the extension section of the certificate signing request (CSR).'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CsrExtensionsProperty"]], jsii.get(self, "csrExtensions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CsrExtensionsProperty"]], jsii.get(self, "csrExtensions"))
 
     @csr_extensions.setter
     def csr_extensions(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CsrExtensionsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CsrExtensionsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__672400fc9d101cb3557ef2b74a3ed2c3389e8f619013c4b2a84263707b9ad5d3)
@@ -3651,14 +2561,14 @@ class CfnCertificateAuthority(
     @jsii.member(jsii_name="revocationConfiguration")
     def revocation_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.RevocationConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.RevocationConfigurationProperty"]]:
         '''Information about the Online Certificate Status Protocol (OCSP) configuration or certificate revocation list (CRL) created and maintained by your private CA.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.RevocationConfigurationProperty"]], jsii.get(self, "revocationConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.RevocationConfigurationProperty"]], jsii.get(self, "revocationConfiguration"))
 
     @revocation_configuration.setter
     def revocation_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.RevocationConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.RevocationConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__203567ece18e0659c536811874601c021c570afc77b0834d25d2e06ac2849f57)
@@ -3667,12 +2577,12 @@ class CfnCertificateAuthority(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Key-value pairs that will be attached to the new private CA.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01bad6d3cb4db9f6f71a433aa44c7435297b8f644c8fdcbe06a0550035a76fa5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -3703,8 +2613,8 @@ class CfnCertificateAuthority(
         def __init__(
             self,
             *,
-            access_location: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.GeneralNameProperty", typing.Dict[builtins.str, typing.Any]]],
-            access_method: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.AccessMethodProperty", typing.Dict[builtins.str, typing.Any]]],
+            access_location: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.GeneralNameProperty", typing.Dict[builtins.str, typing.Any]]],
+            access_method: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.AccessMethodProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Provides access information used by the ``authorityInfoAccess`` and ``subjectInfoAccess`` extensions described in `RFC 5280 <https://docs.aws.amazon.com/https://datatracker.ietf.org/doc/html/rfc5280>`_ .
 
@@ -3776,26 +2686,26 @@ class CfnCertificateAuthority(
         @builtins.property
         def access_location(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.GeneralNameProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.GeneralNameProperty"]:
             '''The location of ``AccessDescription`` information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-accessdescription.html#cfn-acmpca-certificateauthority-accessdescription-accesslocation
             '''
             result = self._values.get("access_location")
             assert result is not None, "Required property 'access_location' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.GeneralNameProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.GeneralNameProperty"], result)
 
         @builtins.property
         def access_method(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.AccessMethodProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.AccessMethodProperty"]:
             '''The type and format of ``AccessDescription`` information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-accessdescription.html#cfn-acmpca-certificateauthority-accessdescription-accessmethod
             '''
             result = self._values.get("access_method")
             assert result is not None, "Required property 'access_method' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.AccessMethodProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.AccessMethodProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3903,8 +2813,8 @@ class CfnCertificateAuthority(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            crl_distribution_point_extension_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.CrlDistributionPointExtensionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            crl_distribution_point_extension_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.CrlDistributionPointExtensionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             crl_type: typing.Optional[builtins.str] = None,
             custom_cname: typing.Optional[builtins.str] = None,
             custom_path: typing.Optional[builtins.str] = None,
@@ -4008,7 +2918,7 @@ class CfnCertificateAuthority(
                 self._values["s3_object_acl"] = s3_object_acl
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Boolean value that specifies whether certificate revocation lists (CRLs) are enabled.
 
             You can use this value to enable certificate revocation for a new CA when you call the ``CreateCertificateAuthority`` operation or for an existing CA when you call the ``UpdateCertificateAuthority`` operation.
@@ -4017,12 +2927,12 @@ class CfnCertificateAuthority(
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def crl_distribution_point_extension_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CrlDistributionPointExtensionConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CrlDistributionPointExtensionConfigurationProperty"]]:
             '''Configures the default behavior of the CRL Distribution Point extension for certificates issued by your CA.
 
             If this field is not provided, then the CRL Distribution Point extension will be present and contain the default CRL URL.
@@ -4030,7 +2940,7 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-crlconfiguration.html#cfn-acmpca-certificateauthority-crlconfiguration-crldistributionpointextensionconfiguration
             '''
             result = self._values.get("crl_distribution_point_extension_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CrlDistributionPointExtensionConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CrlDistributionPointExtensionConfigurationProperty"]], result)
 
         @builtins.property
         def crl_type(self) -> typing.Optional[builtins.str]:
@@ -4135,7 +3045,7 @@ class CfnCertificateAuthority(
         def __init__(
             self,
             *,
-            omit_extension: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            omit_extension: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Contains configuration information for the default behavior of the CRL Distribution Point (CDP) extension in certificates issued by your CA.
 
@@ -4164,7 +3074,9 @@ class CfnCertificateAuthority(
             }
 
         @builtins.property
-        def omit_extension(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def omit_extension(
+            self,
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Configures whether the CRL Distribution Point extension should be populated with the default URL to the CRL.
 
             If set to ``true`` , then the CDP extension will not be present in any certificates issued by that CA unless otherwise specified through CSR or API passthrough.
@@ -4178,7 +3090,7 @@ class CfnCertificateAuthority(
             '''
             result = self._values.get("omit_extension")
             assert result is not None, "Required property 'omit_extension' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4203,8 +3115,8 @@ class CfnCertificateAuthority(
         def __init__(
             self,
             *,
-            key_usage: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.KeyUsageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            subject_information_access: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.AccessDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            key_usage: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.KeyUsageProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            subject_information_access: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.AccessDescriptionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Describes the certificate extensions to be added to the certificate signing request (CSR).
 
@@ -4290,18 +3202,18 @@ class CfnCertificateAuthority(
         @builtins.property
         def key_usage(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.KeyUsageProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.KeyUsageProperty"]]:
             '''Indicates the purpose of the certificate and of the key contained in the certificate.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-csrextensions.html#cfn-acmpca-certificateauthority-csrextensions-keyusage
             '''
             result = self._values.get("key_usage")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.KeyUsageProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.KeyUsageProperty"]], result)
 
         @builtins.property
         def subject_information_access(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.AccessDescriptionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.AccessDescriptionProperty"]]]]:
             '''For CA certificates, provides a path to additional information pertaining to the CA, such as revocation and policy.
 
             For more information, see `Subject Information Access <https://docs.aws.amazon.com/https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.2.2>`_ in RFC 5280.
@@ -4309,7 +3221,7 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-csrextensions.html#cfn-acmpca-certificateauthority-csrextensions-subjectinformationaccess
             '''
             result = self._values.get("subject_information_access")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.AccessDescriptionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.AccessDescriptionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4484,11 +3396,11 @@ class CfnCertificateAuthority(
         def __init__(
             self,
             *,
-            directory_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.SubjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            directory_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.SubjectProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dns_name: typing.Optional[builtins.str] = None,
-            edi_party_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.EdiPartyNameProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            edi_party_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.EdiPartyNameProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ip_address: typing.Optional[builtins.str] = None,
-            other_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.OtherNameProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            other_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.OtherNameProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             registered_id: typing.Optional[builtins.str] = None,
             rfc822_name: typing.Optional[builtins.str] = None,
             uniform_resource_identifier: typing.Optional[builtins.str] = None,
@@ -4582,7 +3494,7 @@ class CfnCertificateAuthority(
         @builtins.property
         def directory_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.SubjectProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.SubjectProperty"]]:
             '''Contains information about the certificate subject.
 
             The certificate can be one issued by your private certificate authority (CA) or it can be your private CA certificate. The Subject field in the certificate identifies the entity that owns or controls the public key in the certificate. The entity can be a user, computer, device, or service. The Subject must contain an X.500 distinguished name (DN). A DN is a sequence of relative distinguished names (RDNs). The RDNs are separated by commas in the certificate. The DN must be unique for each entity, but your private CA can issue more than one certificate with the same DN to the same entity.
@@ -4590,7 +3502,7 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-generalname.html#cfn-acmpca-certificateauthority-generalname-directoryname
             '''
             result = self._values.get("directory_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.SubjectProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.SubjectProperty"]], result)
 
         @builtins.property
         def dns_name(self) -> typing.Optional[builtins.str]:
@@ -4604,13 +3516,13 @@ class CfnCertificateAuthority(
         @builtins.property
         def edi_party_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.EdiPartyNameProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.EdiPartyNameProperty"]]:
             '''Represents ``GeneralName`` as an ``EdiPartyName`` object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-generalname.html#cfn-acmpca-certificateauthority-generalname-edipartyname
             '''
             result = self._values.get("edi_party_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.EdiPartyNameProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.EdiPartyNameProperty"]], result)
 
         @builtins.property
         def ip_address(self) -> typing.Optional[builtins.str]:
@@ -4624,13 +3536,13 @@ class CfnCertificateAuthority(
         @builtins.property
         def other_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.OtherNameProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.OtherNameProperty"]]:
             '''Represents ``GeneralName`` using an ``OtherName`` object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-generalname.html#cfn-acmpca-certificateauthority-generalname-othername
             '''
             result = self._values.get("other_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.OtherNameProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.OtherNameProperty"]], result)
 
         @builtins.property
         def registered_id(self) -> typing.Optional[builtins.str]:
@@ -4689,15 +3601,15 @@ class CfnCertificateAuthority(
         def __init__(
             self,
             *,
-            crl_sign: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            data_encipherment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            decipher_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            digital_signature: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            encipher_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            key_agreement: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            key_cert_sign: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            key_encipherment: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            non_repudiation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            crl_sign: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            data_encipherment: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            decipher_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            digital_signature: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            encipher_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            key_agreement: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            key_cert_sign: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            key_encipherment: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            non_repudiation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Defines one or more purposes for which the key contained in the certificate can be used.
 
@@ -4768,7 +3680,7 @@ class CfnCertificateAuthority(
         @builtins.property
         def crl_sign(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used to sign CRLs.
 
             :default: - false
@@ -4776,12 +3688,12 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-keyusage.html#cfn-acmpca-certificateauthority-keyusage-crlsign
             '''
             result = self._values.get("crl_sign")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def data_encipherment(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used to decipher data.
 
             :default: - false
@@ -4789,12 +3701,12 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-keyusage.html#cfn-acmpca-certificateauthority-keyusage-dataencipherment
             '''
             result = self._values.get("data_encipherment")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def decipher_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used only to decipher data.
 
             :default: - false
@@ -4802,12 +3714,12 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-keyusage.html#cfn-acmpca-certificateauthority-keyusage-decipheronly
             '''
             result = self._values.get("decipher_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def digital_signature(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used for digital signing.
 
             :default: - false
@@ -4815,12 +3727,12 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-keyusage.html#cfn-acmpca-certificateauthority-keyusage-digitalsignature
             '''
             result = self._values.get("digital_signature")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def encipher_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used only to encipher data.
 
             :default: - false
@@ -4828,12 +3740,12 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-keyusage.html#cfn-acmpca-certificateauthority-keyusage-encipheronly
             '''
             result = self._values.get("encipher_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def key_agreement(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used in a key-agreement protocol.
 
             :default: - false
@@ -4841,12 +3753,12 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-keyusage.html#cfn-acmpca-certificateauthority-keyusage-keyagreement
             '''
             result = self._values.get("key_agreement")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def key_cert_sign(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used to sign certificates.
 
             :default: - false
@@ -4854,12 +3766,12 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-keyusage.html#cfn-acmpca-certificateauthority-keyusage-keycertsign
             '''
             result = self._values.get("key_cert_sign")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def key_encipherment(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used to encipher data.
 
             :default: - false
@@ -4867,12 +3779,12 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-keyusage.html#cfn-acmpca-certificateauthority-keyusage-keyencipherment
             '''
             result = self._values.get("key_encipherment")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def non_repudiation(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Key can be used for non-repudiation.
 
             :default: - false
@@ -4880,7 +3792,7 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-keyusage.html#cfn-acmpca-certificateauthority-keyusage-nonrepudiation
             '''
             result = self._values.get("non_repudiation")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4902,7 +3814,7 @@ class CfnCertificateAuthority(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
             ocsp_custom_cname: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains information to enable and configure Online Certificate Status Protocol (OCSP) for validating certificate revocation status.
@@ -4937,14 +3849,14 @@ class CfnCertificateAuthority(
                 self._values["ocsp_custom_cname"] = ocsp_custom_cname
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Flag enabling use of the Online Certificate Status Protocol (OCSP) for validating certificate revocation status.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-ocspconfiguration.html#cfn-acmpca-certificateauthority-ocspconfiguration-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def ocsp_custom_cname(self) -> typing.Optional[builtins.str]:
@@ -5049,8 +3961,8 @@ class CfnCertificateAuthority(
         def __init__(
             self,
             *,
-            crl_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.CrlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ocsp_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.OcspConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            crl_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.CrlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ocsp_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.OcspConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Certificate revocation information used by the `CreateCertificateAuthority <https://docs.aws.amazon.com/privateca/latest/APIReference/API_CreateCertificateAuthority.html>`_ and `UpdateCertificateAuthority <https://docs.aws.amazon.com/privateca/latest/APIReference/API_UpdateCertificateAuthority.html>`_ actions. Your private certificate authority (CA) can configure Online Certificate Status Protocol (OCSP) support and/or maintain a certificate revocation list (CRL). OCSP returns validation information about certificates as requested by clients, and a CRL contains an updated list of certificates revoked by your CA. For more information, see `RevokeCertificate <https://docs.aws.amazon.com/privateca/latest/APIReference/API_RevokeCertificate.html>`_ in the *AWS Private CA API Reference* and `Setting up a certificate revocation method <https://docs.aws.amazon.com/privateca/latest/userguide/revocation-setup.html>`_ in the *AWS Private CA User Guide* .
 
@@ -5110,24 +4022,24 @@ class CfnCertificateAuthority(
         @builtins.property
         def crl_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CrlConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CrlConfigurationProperty"]]:
             '''Configuration of the certificate revocation list (CRL), if any, maintained by your private CA.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-revocationconfiguration.html#cfn-acmpca-certificateauthority-revocationconfiguration-crlconfiguration
             '''
             result = self._values.get("crl_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CrlConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CrlConfigurationProperty"]], result)
 
         @builtins.property
         def ocsp_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.OcspConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.OcspConfigurationProperty"]]:
             '''Configuration of Online Certificate Status Protocol (OCSP) support, if any, maintained by your private CA.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-revocationconfiguration.html#cfn-acmpca-certificateauthority-revocationconfiguration-ocspconfiguration
             '''
             result = self._values.get("ocsp_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.OcspConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.OcspConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5167,7 +4079,7 @@ class CfnCertificateAuthority(
             *,
             common_name: typing.Optional[builtins.str] = None,
             country: typing.Optional[builtins.str] = None,
-            custom_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCertificateAuthority.CustomAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            custom_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.CustomAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             distinguished_name_qualifier: typing.Optional[builtins.str] = None,
             generation_qualifier: typing.Optional[builtins.str] = None,
             given_name: typing.Optional[builtins.str] = None,
@@ -5299,7 +4211,7 @@ class CfnCertificateAuthority(
         @builtins.property
         def custom_attributes(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CustomAttributeProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CustomAttributeProperty"]]]]:
             '''Contains a sequence of one or more X.500 relative distinguished names (RDNs), each of which consists of an object identifier (OID) and a value. For more information, see NIST’s definition of `Object Identifier (OID) <https://docs.aws.amazon.com/https://csrc.nist.gov/glossary/term/Object_Identifier>`_ .
 
             .. epigraph::
@@ -5309,7 +4221,7 @@ class CfnCertificateAuthority(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-acmpca-certificateauthority-subject.html#cfn-acmpca-certificateauthority-subject-customattributes
             '''
             result = self._values.get("custom_attributes")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCertificateAuthority.CustomAttributeProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CustomAttributeProperty"]]]], result)
 
         @builtins.property
         def distinguished_name_qualifier(self) -> typing.Optional[builtins.str]:
@@ -5435,7 +4347,7 @@ class CfnCertificateAuthority(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ICertificateAuthorityActivationRef)
+@jsii.implements(_IInspectable_c2943556, _ICertificateAuthorityActivationRef_eac4783f)
 class CfnCertificateAuthorityActivation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5467,15 +4379,16 @@ class CfnCertificateAuthorityActivation(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         certificate: builtins.str,
-        certificate_authority_arn: builtins.str,
+        certificate_authority_arn: typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"],
         certificate_chain: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ACMPCA::CertificateAuthorityActivation``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param certificate: The Base64 PEM-encoded certificate authority certificate.
@@ -5496,8 +4409,20 @@ class CfnCertificateAuthorityActivation(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnCertificateAuthorityActivation")
+    @builtins.classmethod
+    def is_cfn_certificate_authority_activation(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCertificateAuthorityActivation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a2ff70db423d39c109c9ca710db7a9430f35b57a5d9bc328354e1f41a120f2a2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCertificateAuthorityActivation", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5539,9 +4464,9 @@ class CfnCertificateAuthorityActivation(
     @jsii.member(jsii_name="certificateAuthorityActivationRef")
     def certificate_authority_activation_ref(
         self,
-    ) -> CertificateAuthorityActivationReference:
+    ) -> "_CertificateAuthorityActivationReference_efbb95ed":
         '''A reference to a CertificateAuthorityActivation resource.'''
-        return typing.cast(CertificateAuthorityActivationReference, jsii.get(self, "certificateAuthorityActivationRef"))
+        return typing.cast("_CertificateAuthorityActivationReference_efbb95ed", jsii.get(self, "certificateAuthorityActivationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5601,13 +4526,619 @@ class CfnCertificateAuthorityActivation(
         jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IPermissionRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_acmpca.CfnCertificateAuthorityActivationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate": "certificate",
+        "certificate_authority_arn": "certificateAuthorityArn",
+        "certificate_chain": "certificateChain",
+        "status": "status",
+    },
+)
+class CfnCertificateAuthorityActivationProps:
+    def __init__(
+        self,
+        *,
+        certificate: builtins.str,
+        certificate_authority_arn: typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"],
+        certificate_chain: typing.Optional[builtins.str] = None,
+        status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCertificateAuthorityActivation``.
+
+        :param certificate: The Base64 PEM-encoded certificate authority certificate.
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) of your private CA.
+        :param certificate_chain: The Base64 PEM-encoded certificate chain that chains up to the root CA certificate that you used to sign your private CA certificate.
+        :param status: Status of your private CA.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthorityactivation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_acmpca as acmpca
+            
+            cfn_certificate_authority_activation_props = acmpca.CfnCertificateAuthorityActivationProps(
+                certificate="certificate",
+                certificate_authority_arn="certificateAuthorityArn",
+            
+                # the properties below are optional
+                certificate_chain="certificateChain",
+                status="status"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b63918960d16b9d2632b9277b07b10494327c3d038ba9f5522225f20dfed02d)
+            check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
+            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
+            check_type(argname="argument certificate_chain", value=certificate_chain, expected_type=type_hints["certificate_chain"])
+            check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate": certificate,
+            "certificate_authority_arn": certificate_authority_arn,
+        }
+        if certificate_chain is not None:
+            self._values["certificate_chain"] = certificate_chain
+        if status is not None:
+            self._values["status"] = status
+
+    @builtins.property
+    def certificate(self) -> builtins.str:
+        '''The Base64 PEM-encoded certificate authority certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthorityactivation.html#cfn-acmpca-certificateauthorityactivation-certificate
+        '''
+        result = self._values.get("certificate")
+        assert result is not None, "Required property 'certificate' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate_authority_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"]:
+        '''The Amazon Resource Name (ARN) of your private CA.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthorityactivation.html#cfn-acmpca-certificateauthorityactivation-certificateauthorityarn
+        '''
+        result = self._values.get("certificate_authority_arn")
+        assert result is not None, "Required property 'certificate_authority_arn' is missing"
+        return typing.cast(typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"], result)
+
+    @builtins.property
+    def certificate_chain(self) -> typing.Optional[builtins.str]:
+        '''The Base64 PEM-encoded certificate chain that chains up to the root CA certificate that you used to sign your private CA certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthorityactivation.html#cfn-acmpca-certificateauthorityactivation-certificatechain
+        '''
+        result = self._values.get("certificate_chain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def status(self) -> typing.Optional[builtins.str]:
+        '''Status of your private CA.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthorityactivation.html#cfn-acmpca-certificateauthorityactivation-status
+        '''
+        result = self._values.get("status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCertificateAuthorityActivationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_acmpca.CfnCertificateAuthorityProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "key_algorithm": "keyAlgorithm",
+        "signing_algorithm": "signingAlgorithm",
+        "subject": "subject",
+        "type": "type",
+        "csr_extensions": "csrExtensions",
+        "key_storage_security_standard": "keyStorageSecurityStandard",
+        "revocation_configuration": "revocationConfiguration",
+        "tags": "tags",
+        "usage_mode": "usageMode",
+    },
+)
+class CfnCertificateAuthorityProps:
+    def __init__(
+        self,
+        *,
+        key_algorithm: builtins.str,
+        signing_algorithm: builtins.str,
+        subject: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.SubjectProperty", typing.Dict[builtins.str, typing.Any]]],
+        type: builtins.str,
+        csr_extensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.CsrExtensionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        key_storage_security_standard: typing.Optional[builtins.str] = None,
+        revocation_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificateAuthority.RevocationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        usage_mode: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCertificateAuthority``.
+
+        :param key_algorithm: Type of the public key algorithm and size, in bits, of the key pair that your CA creates when it issues a certificate. When you create a subordinate CA, you must use a key algorithm supported by the parent CA.
+        :param signing_algorithm: Name of the algorithm your private CA uses to sign certificate requests. This parameter should not be confused with the ``SigningAlgorithm`` parameter used to sign certificates when they are issued.
+        :param subject: Structure that contains X.500 distinguished name information for your private CA.
+        :param type: Type of your private CA.
+        :param csr_extensions: Specifies information to be added to the extension section of the certificate signing request (CSR).
+        :param key_storage_security_standard: Specifies a cryptographic key management compliance standard for handling and protecting CA keys. Default: FIPS_140_2_LEVEL_3_OR_HIGHER .. epigraph:: Some AWS Regions don't support the default value. When you create a CA in these Regions, you must use ``CCPC_LEVEL_1_OR_HIGHER`` for the ``KeyStorageSecurityStandard`` parameter. If you don't, the operation returns an ``InvalidArgsException`` with this message: "A certificate authority cannot be created in this region with the specified security standard." For information about security standard support in different AWS Regions, see `Storage and security compliance of AWS Private CA private keys <https://docs.aws.amazon.com/privateca/latest/userguide/data-protection.html#private-keys>`_ .
+        :param revocation_configuration: Information about the Online Certificate Status Protocol (OCSP) configuration or certificate revocation list (CRL) created and maintained by your private CA.
+        :param tags: Key-value pairs that will be attached to the new private CA. You can associate up to 50 tags with a private CA. For information using tags with IAM to manage permissions, see `Controlling Access Using IAM Tags <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_iam-tags.html>`_ .
+        :param usage_mode: Specifies whether the CA issues general-purpose certificates that typically require a revocation mechanism, or short-lived certificates that may optionally omit revocation because they expire quickly. Short-lived certificate validity is limited to seven days. The default value is GENERAL_PURPOSE.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html
+        :exampleMetadata: infused
+
+        Example::
+
+            cfn_certificate_authority = acmpca.CfnCertificateAuthority(self, "CA",
+                type="ROOT",
+                key_algorithm="RSA_2048",
+                signing_algorithm="SHA256WITHRSA",
+                subject=acmpca.CfnCertificateAuthority.SubjectProperty(
+                    country="US",
+                    organization="string",
+                    organizational_unit="string",
+                    distinguished_name_qualifier="string",
+                    state="string",
+                    common_name="123",
+                    serial_number="string",
+                    locality="string",
+                    title="string",
+                    surname="string",
+                    given_name="string",
+                    initials="DG",
+                    pseudonym="string",
+                    generation_qualifier="DBG"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__052831322c2ba10fea8b5f47de894be5f1f8c54474bf38a71f380e37f9733c87)
+            check_type(argname="argument key_algorithm", value=key_algorithm, expected_type=type_hints["key_algorithm"])
+            check_type(argname="argument signing_algorithm", value=signing_algorithm, expected_type=type_hints["signing_algorithm"])
+            check_type(argname="argument subject", value=subject, expected_type=type_hints["subject"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument csr_extensions", value=csr_extensions, expected_type=type_hints["csr_extensions"])
+            check_type(argname="argument key_storage_security_standard", value=key_storage_security_standard, expected_type=type_hints["key_storage_security_standard"])
+            check_type(argname="argument revocation_configuration", value=revocation_configuration, expected_type=type_hints["revocation_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument usage_mode", value=usage_mode, expected_type=type_hints["usage_mode"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "key_algorithm": key_algorithm,
+            "signing_algorithm": signing_algorithm,
+            "subject": subject,
+            "type": type,
+        }
+        if csr_extensions is not None:
+            self._values["csr_extensions"] = csr_extensions
+        if key_storage_security_standard is not None:
+            self._values["key_storage_security_standard"] = key_storage_security_standard
+        if revocation_configuration is not None:
+            self._values["revocation_configuration"] = revocation_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+        if usage_mode is not None:
+            self._values["usage_mode"] = usage_mode
+
+    @builtins.property
+    def key_algorithm(self) -> builtins.str:
+        '''Type of the public key algorithm and size, in bits, of the key pair that your CA creates when it issues a certificate.
+
+        When you create a subordinate CA, you must use a key algorithm supported by the parent CA.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-keyalgorithm
+        '''
+        result = self._values.get("key_algorithm")
+        assert result is not None, "Required property 'key_algorithm' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def signing_algorithm(self) -> builtins.str:
+        '''Name of the algorithm your private CA uses to sign certificate requests.
+
+        This parameter should not be confused with the ``SigningAlgorithm`` parameter used to sign certificates when they are issued.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-signingalgorithm
+        '''
+        result = self._values.get("signing_algorithm")
+        assert result is not None, "Required property 'signing_algorithm' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subject(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.SubjectProperty"]:
+        '''Structure that contains X.500 distinguished name information for your private CA.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-subject
+        '''
+        result = self._values.get("subject")
+        assert result is not None, "Required property 'subject' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.SubjectProperty"], result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''Type of your private CA.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def csr_extensions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CsrExtensionsProperty"]]:
+        '''Specifies information to be added to the extension section of the certificate signing request (CSR).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-csrextensions
+        '''
+        result = self._values.get("csr_extensions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.CsrExtensionsProperty"]], result)
+
+    @builtins.property
+    def key_storage_security_standard(self) -> typing.Optional[builtins.str]:
+        '''Specifies a cryptographic key management compliance standard for handling and protecting CA keys.
+
+        Default: FIPS_140_2_LEVEL_3_OR_HIGHER
+        .. epigraph::
+
+           Some AWS Regions don't support the default value. When you create a CA in these Regions, you must use ``CCPC_LEVEL_1_OR_HIGHER`` for the ``KeyStorageSecurityStandard`` parameter. If you don't, the operation returns an ``InvalidArgsException`` with this message: "A certificate authority cannot be created in this region with the specified security standard."
+
+           For information about security standard support in different AWS Regions, see `Storage and security compliance of AWS Private CA private keys <https://docs.aws.amazon.com/privateca/latest/userguide/data-protection.html#private-keys>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-keystoragesecuritystandard
+        '''
+        result = self._values.get("key_storage_security_standard")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def revocation_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.RevocationConfigurationProperty"]]:
+        '''Information about the Online Certificate Status Protocol (OCSP) configuration or certificate revocation list (CRL) created and maintained by your private CA.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-revocationconfiguration
+        '''
+        result = self._values.get("revocation_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificateAuthority.RevocationConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key-value pairs that will be attached to the new private CA.
+
+        You can associate up to 50 tags with a private CA. For information using tags with IAM to manage permissions, see `Controlling Access Using IAM Tags <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_iam-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def usage_mode(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether the CA issues general-purpose certificates that typically require a revocation mechanism, or short-lived certificates that may optionally omit revocation because they expire quickly.
+
+        Short-lived certificate validity is limited to seven days.
+
+        The default value is GENERAL_PURPOSE.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificateauthority.html#cfn-acmpca-certificateauthority-usagemode
+        '''
+        result = self._values.get("usage_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCertificateAuthorityProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_acmpca.CfnCertificateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "certificate_authority_arn": "certificateAuthorityArn",
+        "certificate_signing_request": "certificateSigningRequest",
+        "signing_algorithm": "signingAlgorithm",
+        "validity": "validity",
+        "api_passthrough": "apiPassthrough",
+        "template_arn": "templateArn",
+        "validity_not_before": "validityNotBefore",
+    },
+)
+class CfnCertificateProps:
+    def __init__(
+        self,
+        *,
+        certificate_authority_arn: typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"],
+        certificate_signing_request: builtins.str,
+        signing_algorithm: builtins.str,
+        validity: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.ValidityProperty", typing.Dict[builtins.str, typing.Any]]],
+        api_passthrough: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.ApiPassthroughProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        template_arn: typing.Optional[typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"]] = None,
+        validity_not_before: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCertificate.ValidityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCertificate``.
+
+        :param certificate_authority_arn: The Amazon Resource Name (ARN) for the private CA issues the certificate.
+        :param certificate_signing_request: The certificate signing request (CSR) for the certificate.
+        :param signing_algorithm: The name of the algorithm that will be used to sign the certificate to be issued. This parameter should not be confused with the ``SigningAlgorithm`` parameter used to sign a CSR in the ``CreateCertificateAuthority`` action. .. epigraph:: The specified signing algorithm family (RSA or ECDSA) must match the algorithm family of the CA's secret key.
+        :param validity: The period of time during which the certificate will be valid.
+        :param api_passthrough: Specifies X.509 certificate information to be included in the issued certificate. An ``APIPassthrough`` or ``APICSRPassthrough`` template variant must be selected, or else this parameter is ignored.
+        :param template_arn: Specifies a custom configuration template to use when issuing a certificate. If this parameter is not provided, AWS Private CA defaults to the ``EndEntityCertificate/V1`` template. For more information about AWS Private CA templates, see `Using Templates <https://docs.aws.amazon.com/privateca/latest/userguide/UsingTemplates.html>`_ .
+        :param validity_not_before: Information describing the start of the validity period of the certificate. This parameter sets the “Not Before" date for the certificate. By default, when issuing a certificate, AWS Private CA sets the "Not Before" date to the issuance time minus 60 minutes. This compensates for clock inconsistencies across computer systems. The ``ValidityNotBefore`` parameter can be used to customize the “Not Before” value. Unlike the ``Validity`` parameter, the ``ValidityNotBefore`` parameter is optional. The ``ValidityNotBefore`` value is expressed as an explicit date and time, using the ``Validity`` type value ``ABSOLUTE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_acmpca as acmpca
+            
+            cfn_certificate_props = acmpca.CfnCertificateProps(
+                certificate_authority_arn="certificateAuthorityArn",
+                certificate_signing_request="certificateSigningRequest",
+                signing_algorithm="signingAlgorithm",
+                validity=acmpca.CfnCertificate.ValidityProperty(
+                    type="type",
+                    value=123
+                ),
+            
+                # the properties below are optional
+                api_passthrough=acmpca.CfnCertificate.ApiPassthroughProperty(
+                    extensions=acmpca.CfnCertificate.ExtensionsProperty(
+                        certificate_policies=[acmpca.CfnCertificate.PolicyInformationProperty(
+                            cert_policy_id="certPolicyId",
+            
+                            # the properties below are optional
+                            policy_qualifiers=[acmpca.CfnCertificate.PolicyQualifierInfoProperty(
+                                policy_qualifier_id="policyQualifierId",
+                                qualifier=acmpca.CfnCertificate.QualifierProperty(
+                                    cps_uri="cpsUri"
+                                )
+                            )]
+                        )],
+                        custom_extensions=[acmpca.CfnCertificate.CustomExtensionProperty(
+                            object_identifier="objectIdentifier",
+                            value="value",
+            
+                            # the properties below are optional
+                            critical=False
+                        )],
+                        extended_key_usage=[acmpca.CfnCertificate.ExtendedKeyUsageProperty(
+                            extended_key_usage_object_identifier="extendedKeyUsageObjectIdentifier",
+                            extended_key_usage_type="extendedKeyUsageType"
+                        )],
+                        key_usage=acmpca.CfnCertificate.KeyUsageProperty(
+                            crl_sign=False,
+                            data_encipherment=False,
+                            decipher_only=False,
+                            digital_signature=False,
+                            encipher_only=False,
+                            key_agreement=False,
+                            key_cert_sign=False,
+                            key_encipherment=False,
+                            non_repudiation=False
+                        ),
+                        subject_alternative_names=[acmpca.CfnCertificate.GeneralNameProperty(
+                            directory_name=acmpca.CfnCertificate.SubjectProperty(
+                                common_name="commonName",
+                                country="country",
+                                custom_attributes=[acmpca.CfnCertificate.CustomAttributeProperty(
+                                    object_identifier="objectIdentifier",
+                                    value="value"
+                                )],
+                                distinguished_name_qualifier="distinguishedNameQualifier",
+                                generation_qualifier="generationQualifier",
+                                given_name="givenName",
+                                initials="initials",
+                                locality="locality",
+                                organization="organization",
+                                organizational_unit="organizationalUnit",
+                                pseudonym="pseudonym",
+                                serial_number="serialNumber",
+                                state="state",
+                                surname="surname",
+                                title="title"
+                            ),
+                            dns_name="dnsName",
+                            edi_party_name=acmpca.CfnCertificate.EdiPartyNameProperty(
+                                name_assigner="nameAssigner",
+                                party_name="partyName"
+                            ),
+                            ip_address="ipAddress",
+                            other_name=acmpca.CfnCertificate.OtherNameProperty(
+                                type_id="typeId",
+                                value="value"
+                            ),
+                            registered_id="registeredId",
+                            rfc822_name="rfc822Name",
+                            uniform_resource_identifier="uniformResourceIdentifier"
+                        )]
+                    ),
+                    subject=acmpca.CfnCertificate.SubjectProperty(
+                        common_name="commonName",
+                        country="country",
+                        custom_attributes=[acmpca.CfnCertificate.CustomAttributeProperty(
+                            object_identifier="objectIdentifier",
+                            value="value"
+                        )],
+                        distinguished_name_qualifier="distinguishedNameQualifier",
+                        generation_qualifier="generationQualifier",
+                        given_name="givenName",
+                        initials="initials",
+                        locality="locality",
+                        organization="organization",
+                        organizational_unit="organizationalUnit",
+                        pseudonym="pseudonym",
+                        serial_number="serialNumber",
+                        state="state",
+                        surname="surname",
+                        title="title"
+                    )
+                ),
+                template_arn="templateArn",
+                validity_not_before=acmpca.CfnCertificate.ValidityProperty(
+                    type="type",
+                    value=123
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__acca39b375eaa0ca77d761ffe82a05a53633d418331265d827cb5959406a431b)
+            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
+            check_type(argname="argument certificate_signing_request", value=certificate_signing_request, expected_type=type_hints["certificate_signing_request"])
+            check_type(argname="argument signing_algorithm", value=signing_algorithm, expected_type=type_hints["signing_algorithm"])
+            check_type(argname="argument validity", value=validity, expected_type=type_hints["validity"])
+            check_type(argname="argument api_passthrough", value=api_passthrough, expected_type=type_hints["api_passthrough"])
+            check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
+            check_type(argname="argument validity_not_before", value=validity_not_before, expected_type=type_hints["validity_not_before"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate_authority_arn": certificate_authority_arn,
+            "certificate_signing_request": certificate_signing_request,
+            "signing_algorithm": signing_algorithm,
+            "validity": validity,
+        }
+        if api_passthrough is not None:
+            self._values["api_passthrough"] = api_passthrough
+        if template_arn is not None:
+            self._values["template_arn"] = template_arn
+        if validity_not_before is not None:
+            self._values["validity_not_before"] = validity_not_before
+
+    @builtins.property
+    def certificate_authority_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"]:
+        '''The Amazon Resource Name (ARN) for the private CA issues the certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-certificateauthorityarn
+        '''
+        result = self._values.get("certificate_authority_arn")
+        assert result is not None, "Required property 'certificate_authority_arn' is missing"
+        return typing.cast(typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"], result)
+
+    @builtins.property
+    def certificate_signing_request(self) -> builtins.str:
+        '''The certificate signing request (CSR) for the certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-certificatesigningrequest
+        '''
+        result = self._values.get("certificate_signing_request")
+        assert result is not None, "Required property 'certificate_signing_request' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def signing_algorithm(self) -> builtins.str:
+        '''The name of the algorithm that will be used to sign the certificate to be issued.
+
+        This parameter should not be confused with the ``SigningAlgorithm`` parameter used to sign a CSR in the ``CreateCertificateAuthority`` action.
+        .. epigraph::
+
+           The specified signing algorithm family (RSA or ECDSA) must match the algorithm family of the CA's secret key.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-signingalgorithm
+        '''
+        result = self._values.get("signing_algorithm")
+        assert result is not None, "Required property 'signing_algorithm' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def validity(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCertificate.ValidityProperty"]:
+        '''The period of time during which the certificate will be valid.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-validity
+        '''
+        result = self._values.get("validity")
+        assert result is not None, "Required property 'validity' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCertificate.ValidityProperty"], result)
+
+    @builtins.property
+    def api_passthrough(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ApiPassthroughProperty"]]:
+        '''Specifies X.509 certificate information to be included in the issued certificate. An ``APIPassthrough`` or ``APICSRPassthrough`` template variant must be selected, or else this parameter is ignored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-apipassthrough
+        '''
+        result = self._values.get("api_passthrough")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ApiPassthroughProperty"]], result)
+
+    @builtins.property
+    def template_arn(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"]]:
+        '''Specifies a custom configuration template to use when issuing a certificate.
+
+        If this parameter is not provided, AWS Private CA defaults to the ``EndEntityCertificate/V1`` template. For more information about AWS Private CA templates, see `Using Templates <https://docs.aws.amazon.com/privateca/latest/userguide/UsingTemplates.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-templatearn
+        '''
+        result = self._values.get("template_arn")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"]], result)
+
+    @builtins.property
+    def validity_not_before(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ValidityProperty"]]:
+        '''Information describing the start of the validity period of the certificate.
+
+        This parameter sets the “Not Before" date for the certificate.
+
+        By default, when issuing a certificate, AWS Private CA sets the "Not Before" date to the issuance time minus 60 minutes. This compensates for clock inconsistencies across computer systems. The ``ValidityNotBefore`` parameter can be used to customize the “Not Before” value.
+
+        Unlike the ``Validity`` parameter, the ``ValidityNotBefore`` parameter is optional.
+
+        The ``ValidityNotBefore`` value is expressed as an explicit date and time, using the ``Validity`` type value ``ABSOLUTE`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-certificate.html#cfn-acmpca-certificate-validitynotbefore
+        '''
+        result = self._values.get("validity_not_before")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCertificate.ValidityProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCertificateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPermissionRef_f04c5632)
 class CfnPermission(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_acmpca.CfnPermission",
 ):
-    '''Grants permissions to the AWS Certificate Manager ( ACM ) service principal ( ``acm.amazonaws.com`` ) to perform `IssueCertificate <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html>`_ , `GetCertificate <https://docs.aws.amazon.com/privateca/latest/APIReference/API_GetCertificate.html>`_ , and `ListPermissions <https://docs.aws.amazon.com/privateca/latest/APIReference/API_ListPermissions.html>`_ actions on a CA. These actions are needed for the ACM principal to renew private PKI certificates requested through ACM and residing in the same AWS account as the CA.
+    '''Grants permissions to the Certificate Manager ( ACM ) service principal ( ``acm.amazonaws.com`` ) to perform `IssueCertificate <https://docs.aws.amazon.com/privateca/latest/APIReference/API_IssueCertificate.html>`_ , `GetCertificate <https://docs.aws.amazon.com/privateca/latest/APIReference/API_GetCertificate.html>`_ , and `ListPermissions <https://docs.aws.amazon.com/privateca/latest/APIReference/API_ListPermissions.html>`_ actions on a CA. These actions are needed for the ACM principal to renew private PKI certificates requested through ACM and residing in the same AWS account as the CA.
 
     **About permissions** - If the private CA and the certificates it issues reside in the same account, you can use ``AWS::ACMPCA::Permission`` to grant permissions for ACM to carry out automatic certificate renewals.
 
@@ -5640,15 +5171,16 @@ class CfnPermission(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         actions: typing.Sequence[builtins.str],
-        certificate_authority_arn: builtins.str,
+        certificate_authority_arn: typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"],
         principal: builtins.str,
         source_account: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ACMPCA::Permission``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param actions: The private CA actions that can be performed by the designated AWS service. Supported actions are ``IssueCertificate`` , ``GetCertificate`` , and ``ListPermissions`` .
@@ -5669,8 +5201,20 @@ class CfnPermission(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnPermission")
+    @builtins.classmethod
+    def is_cfn_permission(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPermission.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad7d87bb1032f74a5fbe2b52361ebe95a00a52788ee530ef3e81ea010668a8a6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPermission", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5706,9 +5250,9 @@ class CfnPermission(
 
     @builtins.property
     @jsii.member(jsii_name="permissionRef")
-    def permission_ref(self) -> PermissionReference:
+    def permission_ref(self) -> "_PermissionReference_cddcccb3":
         '''A reference to a Permission resource.'''
-        return typing.cast(PermissionReference, jsii.get(self, "permissionRef"))
+        return typing.cast("_PermissionReference_cddcccb3", jsii.get(self, "permissionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="actions")
@@ -5763,11 +5307,162 @@ class CfnPermission(
         jsii.set(self, "sourceAccount", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_acmpca.CfnPermissionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "actions": "actions",
+        "certificate_authority_arn": "certificateAuthorityArn",
+        "principal": "principal",
+        "source_account": "sourceAccount",
+    },
+)
+class CfnPermissionProps:
+    def __init__(
+        self,
+        *,
+        actions: typing.Sequence[builtins.str],
+        certificate_authority_arn: typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"],
+        principal: builtins.str,
+        source_account: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPermission``.
+
+        :param actions: The private CA actions that can be performed by the designated AWS service. Supported actions are ``IssueCertificate`` , ``GetCertificate`` , and ``ListPermissions`` .
+        :param certificate_authority_arn: The Amazon Resource Number (ARN) of the private CA from which the permission was issued.
+        :param principal: The AWS service or entity that holds the permission. At this time, the only valid principal is ``acm.amazonaws.com`` .
+        :param source_account: The ID of the account that assigned the permission.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-permission.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_acmpca as acmpca
+            
+            cfn_permission_props = acmpca.CfnPermissionProps(
+                actions=["actions"],
+                certificate_authority_arn="certificateAuthorityArn",
+                principal="principal",
+            
+                # the properties below are optional
+                source_account="sourceAccount"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e4f8a50d06c841025fd393d8e235b3e62339c693e4dbb7a9ab17b5554c6a581)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
+            check_type(argname="argument source_account", value=source_account, expected_type=type_hints["source_account"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+            "certificate_authority_arn": certificate_authority_arn,
+            "principal": principal,
+        }
+        if source_account is not None:
+            self._values["source_account"] = source_account
+
+    @builtins.property
+    def actions(self) -> typing.List[builtins.str]:
+        '''The private CA actions that can be performed by the designated AWS service.
+
+        Supported actions are ``IssueCertificate`` , ``GetCertificate`` , and ``ListPermissions`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-permission.html#cfn-acmpca-permission-actions
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def certificate_authority_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"]:
+        '''The Amazon Resource Number (ARN) of the private CA from which the permission was issued.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-permission.html#cfn-acmpca-permission-certificateauthorityarn
+        '''
+        result = self._values.get("certificate_authority_arn")
+        assert result is not None, "Required property 'certificate_authority_arn' is missing"
+        return typing.cast(typing.Union[builtins.str, "_ICertificateAuthorityRef_240f71c8"], result)
+
+    @builtins.property
+    def principal(self) -> builtins.str:
+        '''The AWS service or entity that holds the permission.
+
+        At this time, the only valid principal is ``acm.amazonaws.com`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-permission.html#cfn-acmpca-permission-principal
+        '''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_account(self) -> typing.Optional[builtins.str]:
+        '''The ID of the account that assigned the permission.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-acmpca-permission.html#cfn-acmpca-permission-sourceaccount
+        '''
+        result = self._values.get("source_account")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPermissionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_acmpca.ICertificateAuthority")
+class ICertificateAuthority(
+    _IResource_c80c4260,
+    _ICertificateAuthorityRef_240f71c8,
+    typing_extensions.Protocol,
+):
+    '''Interface which all CertificateAuthority based class must implement.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAuthorityArn")
+    def certificate_authority_arn(self) -> builtins.str:
+        '''The Amazon Resource Name of the Certificate.
+
+        :attribute: true
+        '''
+        ...
+
+
+class _ICertificateAuthorityProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_ICertificateAuthorityRef_240f71c8), # type: ignore[misc]
+):
+    '''Interface which all CertificateAuthority based class must implement.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_acmpca.ICertificateAuthority"
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAuthorityArn")
+    def certificate_authority_arn(self) -> builtins.str:
+        '''The Amazon Resource Name of the Certificate.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "certificateAuthorityArn"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICertificateAuthority).__jsii_proxy_class__ = lambda : _ICertificateAuthorityProxy
+
+
 __all__ = [
     "CertificateAuthority",
-    "CertificateAuthorityActivationReference",
-    "CertificateAuthorityReference",
-    "CertificateReference",
     "CfnCertificate",
     "CfnCertificateAuthority",
     "CfnCertificateAuthorityActivation",
@@ -5777,11 +5472,6 @@ __all__ = [
     "CfnPermission",
     "CfnPermissionProps",
     "ICertificateAuthority",
-    "ICertificateAuthorityActivationRef",
-    "ICertificateAuthorityRef",
-    "ICertificateRef",
-    "IPermissionRef",
-    "PermissionReference",
 ]
 
 publication.publish()
@@ -5794,95 +5484,29 @@ def _typecheckingstub__e1395360f89634b836bfd8f83f0cbc2f4dbb936a9ba23c531cd8ffe39
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__24e80602b2c458899c6f133c2206e3ab21858cc68d7f743f4c5d8fa4994caf75(
-    *,
-    certificate_authority_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f60bd9d54b0efdbb36b0ff3f3f50cb13378e2e698cb53ce844a8bf94211a3250(
-    *,
-    certificate_authority_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__790d806896861c27d6977b1614342e77ff02d62d565865b464f96bfd5cc7f9ab(
-    *,
-    certificate_arn: builtins.str,
-    certificate_authority_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7b63918960d16b9d2632b9277b07b10494327c3d038ba9f5522225f20dfed02d(
-    *,
-    certificate: builtins.str,
-    certificate_authority_arn: builtins.str,
-    certificate_chain: typing.Optional[builtins.str] = None,
-    status: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__052831322c2ba10fea8b5f47de894be5f1f8c54474bf38a71f380e37f9733c87(
-    *,
-    key_algorithm: builtins.str,
-    signing_algorithm: builtins.str,
-    subject: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificateAuthority.SubjectProperty, typing.Dict[builtins.str, typing.Any]]],
-    type: builtins.str,
-    csr_extensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificateAuthority.CsrExtensionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    key_storage_security_standard: typing.Optional[builtins.str] = None,
-    revocation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificateAuthority.RevocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    usage_mode: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__acca39b375eaa0ca77d761ffe82a05a53633d418331265d827cb5959406a431b(
-    *,
-    certificate_authority_arn: builtins.str,
-    certificate_signing_request: builtins.str,
-    signing_algorithm: builtins.str,
-    validity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.ValidityProperty, typing.Dict[builtins.str, typing.Any]]],
-    api_passthrough: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.ApiPassthroughProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    template_arn: typing.Optional[builtins.str] = None,
-    validity_not_before: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.ValidityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9e4f8a50d06c841025fd393d8e235b3e62339c693e4dbb7a9ab17b5554c6a581(
-    *,
-    actions: typing.Sequence[builtins.str],
-    certificate_authority_arn: builtins.str,
-    principal: builtins.str,
-    source_account: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ecedbde7f5c8677b1a685aa1039c38c2f558e1728ecf2c547491fa121882bc0e(
-    *,
-    certificate_authority_arn: builtins.str,
-    principal: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__3c63a1f66d359048e3b7f539f55f0320982cfa96588aa92aa5a52d4f490ff7c7(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    certificate_authority_arn: builtins.str,
+    certificate_authority_arn: typing.Union[builtins.str, _ICertificateAuthorityRef_240f71c8],
     certificate_signing_request: builtins.str,
     signing_algorithm: builtins.str,
     validity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.ValidityProperty, typing.Dict[builtins.str, typing.Any]]],
     api_passthrough: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.ApiPassthroughProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    template_arn: typing.Optional[builtins.str] = None,
+    template_arn: typing.Optional[typing.Union[builtins.str, _ICertificateAuthorityRef_240f71c8]] = None,
     validity_not_before: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.ValidityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1f5c1fa47f7744fe019bb051687823e3da05420a4306997d356feb2a7de3182(
+    resource: _ICertificateRef_d3019a6f,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8dadb9c2a09b7a38bf69946d35d03f26ea5b4690737ba6389ec2b6c204c4eb9c(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6099,6 +5723,18 @@ def _typecheckingstub__a6947ebcc03e9e02f9fc5dee73eaa3cd88dd10713851f61d2ce61f621
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__32b205233fe72445e1a32e054d2e5d3082fecea1ea19004275e3d0dfb2c04504(
+    resource: _ICertificateAuthorityRef_240f71c8,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81cf6d0b04fbb4be6751d2305796e2f667a6be400525e76955a90214a45f8563(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__97a6fe8ac6bf6021d6476713901b5d434081cdc009d802a3f665c0611673e27e(
     inspector: _TreeInspector_488e0dd5,
 ) -> None:
@@ -6305,9 +5941,15 @@ def _typecheckingstub__e91763a1b089310141664991133bb321cced18cd10da038baa589bcc1
     id: builtins.str,
     *,
     certificate: builtins.str,
-    certificate_authority_arn: builtins.str,
+    certificate_authority_arn: typing.Union[builtins.str, _ICertificateAuthorityRef_240f71c8],
     certificate_chain: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2ff70db423d39c109c9ca710db7a9430f35b57a5d9bc328354e1f41a120f2a2(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6348,14 +5990,58 @@ def _typecheckingstub__4bb84ac3ee8ec3f7d2297504aaca248c351bd9fd6b388a9a80a5c547a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7b63918960d16b9d2632b9277b07b10494327c3d038ba9f5522225f20dfed02d(
+    *,
+    certificate: builtins.str,
+    certificate_authority_arn: typing.Union[builtins.str, _ICertificateAuthorityRef_240f71c8],
+    certificate_chain: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__052831322c2ba10fea8b5f47de894be5f1f8c54474bf38a71f380e37f9733c87(
+    *,
+    key_algorithm: builtins.str,
+    signing_algorithm: builtins.str,
+    subject: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificateAuthority.SubjectProperty, typing.Dict[builtins.str, typing.Any]]],
+    type: builtins.str,
+    csr_extensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificateAuthority.CsrExtensionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    key_storage_security_standard: typing.Optional[builtins.str] = None,
+    revocation_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificateAuthority.RevocationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    usage_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__acca39b375eaa0ca77d761ffe82a05a53633d418331265d827cb5959406a431b(
+    *,
+    certificate_authority_arn: typing.Union[builtins.str, _ICertificateAuthorityRef_240f71c8],
+    certificate_signing_request: builtins.str,
+    signing_algorithm: builtins.str,
+    validity: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.ValidityProperty, typing.Dict[builtins.str, typing.Any]]],
+    api_passthrough: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.ApiPassthroughProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    template_arn: typing.Optional[typing.Union[builtins.str, _ICertificateAuthorityRef_240f71c8]] = None,
+    validity_not_before: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCertificate.ValidityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7403df10c7598bb11bc4b6722147156ca094291bc6367ca41ea832274c8ba866(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     actions: typing.Sequence[builtins.str],
-    certificate_authority_arn: builtins.str,
+    certificate_authority_arn: typing.Union[builtins.str, _ICertificateAuthorityRef_240f71c8],
     principal: builtins.str,
     source_account: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad7d87bb1032f74a5fbe2b52361ebe95a00a52788ee530ef3e81ea010668a8a6(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6395,3 +6081,16 @@ def _typecheckingstub__336a294e18ad34a8379580ec71e5c0dca499ba44efb4e2cad4bf5190b
 ) -> None:
     """Type checking stubs"""
     pass
+
+def _typecheckingstub__9e4f8a50d06c841025fd393d8e235b3e62339c693e4dbb7a9ab17b5554c6a581(
+    *,
+    actions: typing.Sequence[builtins.str],
+    certificate_authority_arn: typing.Union[builtins.str, _ICertificateAuthorityRef_240f71c8],
+    principal: builtins.str,
+    source_account: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [ICertificateAuthority]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

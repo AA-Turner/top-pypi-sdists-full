@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -15,6 +15,7 @@ Certificate = str
 CertificateBodyType = str
 CertificateChainType = str
 CertificateId = str
+ConnectorErrorMessage = str
 ConnectorId = str
 ConnectorSecurityPolicyName = str
 CustomStepTarget = str
@@ -79,6 +80,7 @@ ServiceManagedEgressIpAddress = str
 SessionId = str
 SftpConnectorHostKey = str
 SftpConnectorTrustedHostKey = str
+SftpPort = int
 SourceFileLocation = str
 SourceIp = str
 SshPublicKeyBody = str
@@ -97,6 +99,7 @@ UserName = str
 UserPassword = str
 VpcEndpointId = str
 VpcId = str
+VpcLatticeResourceConfigurationArn = str
 WebAppAccessEndpoint = str
 WebAppEndpoint = str
 WebAppId = str
@@ -136,6 +139,17 @@ class CertificateUsageType(StrEnum):
 class CompressionEnum(StrEnum):
     ZLIB = "ZLIB"
     DISABLED = "DISABLED"
+
+
+class ConnectorEgressType(StrEnum):
+    SERVICE_MANAGED = "SERVICE_MANAGED"
+    VPC_LATTICE = "VPC_LATTICE"
+
+
+class ConnectorStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    ERRORED = "ERRORED"
+    PENDING = "PENDING"
 
 
 class CustomStepStatus(StrEnum):
@@ -314,6 +328,11 @@ class WebAppEndpointPolicy(StrEnum):
     STANDARD = "STANDARD"
 
 
+class WebAppEndpointType(StrEnum):
+    PUBLIC = "PUBLIC"
+    VPC = "VPC"
+
+
 class WorkflowStepType(StrEnum):
     COPY = "COPY"
     CUSTOM = "CUSTOM"
@@ -407,10 +426,10 @@ class ThrottlingException(ServiceException):
     code: str = "ThrottlingException"
     sender_fault: bool = False
     status_code: int = 400
-    RetryAfterSeconds: Optional[RetryAfterSeconds]
+    RetryAfterSeconds: RetryAfterSeconds | None
 
 
-AddressAllocationIds = List[AddressAllocationId]
+AddressAllocationIds = list[AddressAllocationId]
 
 
 class As2ConnectorConfig(TypedDict, total=False):
@@ -419,21 +438,41 @@ class As2ConnectorConfig(TypedDict, total=False):
     customer with the trading partner.
     """
 
-    LocalProfileId: Optional[ProfileId]
-    PartnerProfileId: Optional[ProfileId]
-    MessageSubject: Optional[MessageSubject]
-    Compression: Optional[CompressionEnum]
-    EncryptionAlgorithm: Optional[EncryptionAlg]
-    SigningAlgorithm: Optional[SigningAlg]
-    MdnSigningAlgorithm: Optional[MdnSigningAlg]
-    MdnResponse: Optional[MdnResponse]
-    BasicAuthSecretId: Optional[As2ConnectorSecretId]
-    PreserveContentType: Optional[PreserveContentType]
+    LocalProfileId: ProfileId | None
+    PartnerProfileId: ProfileId | None
+    MessageSubject: MessageSubject | None
+    Compression: CompressionEnum | None
+    EncryptionAlgorithm: EncryptionAlg | None
+    SigningAlgorithm: SigningAlg | None
+    MdnSigningAlgorithm: MdnSigningAlg | None
+    MdnResponse: MdnResponse | None
+    BasicAuthSecretId: As2ConnectorSecretId | None
+    PreserveContentType: PreserveContentType | None
 
 
-As2Transports = List[As2Transport]
+As2Transports = list[As2Transport]
 CertDate = datetime
-CertificateIds = List[CertificateId]
+CertificateIds = list[CertificateId]
+
+
+class ConnectorVpcLatticeEgressConfig(TypedDict, total=False):
+    """VPC_LATTICE egress configuration that specifies the Resource
+    Configuration ARN and port for connecting to SFTP servers through
+    customer VPCs. Requires a valid Resource Configuration with appropriate
+    network access.
+    """
+
+    ResourceConfigurationArn: VpcLatticeResourceConfigurationArn
+    PortNumber: SftpPort | None
+
+
+class ConnectorEgressConfig(TypedDict, total=False):
+    """Configuration structure that defines how traffic is routed from the
+    connector to the SFTP server. Contains VPC Lattice settings when using
+    VPC_LATTICE egress type for private connectivity through customer VPCs.
+    """
+
+    VpcLattice: ConnectorVpcLatticeEgressConfig | None
 
 
 class ConnectorFileTransferResult(TypedDict, total=False):
@@ -443,11 +482,11 @@ class ConnectorFileTransferResult(TypedDict, total=False):
 
     FilePath: FilePath
     StatusCode: TransferTableStatus
-    FailureCode: Optional[FailureCode]
-    FailureMessage: Optional[Message]
+    FailureCode: FailureCode | None
+    FailureMessage: Message | None
 
 
-ConnectorFileTransferResults = List[ConnectorFileTransferResult]
+ConnectorFileTransferResults = list[ConnectorFileTransferResult]
 
 
 class EfsFileLocation(TypedDict, total=False):
@@ -456,8 +495,8 @@ class EfsFileLocation(TypedDict, total=False):
     File Systems (Amazon EFS) for storage.
     """
 
-    FileSystemId: Optional[EfsFileSystemId]
-    Path: Optional[EfsPath]
+    FileSystemId: EfsFileSystemId | None
+    Path: EfsPath | None
 
 
 class S3InputFileLocation(TypedDict, total=False):
@@ -480,28 +519,28 @@ class S3InputFileLocation(TypedDict, total=False):
     previous version of the *bob* file.
     """
 
-    Bucket: Optional[S3Bucket]
-    Key: Optional[S3Key]
+    Bucket: S3Bucket | None
+    Key: S3Key | None
 
 
 class InputFileLocation(TypedDict, total=False):
     """Specifies the location for the file that's being processed."""
 
-    S3FileLocation: Optional[S3InputFileLocation]
-    EfsFileLocation: Optional[EfsFileLocation]
+    S3FileLocation: S3InputFileLocation | None
+    EfsFileLocation: EfsFileLocation | None
 
 
 class CopyStepDetails(TypedDict, total=False):
     """Each step type has its own ``StepDetails`` structure."""
 
-    Name: Optional[WorkflowStepName]
-    DestinationFileLocation: Optional[InputFileLocation]
-    OverwriteExisting: Optional[OverwriteExisting]
-    SourceFileLocation: Optional[SourceFileLocation]
+    Name: WorkflowStepName | None
+    DestinationFileLocation: InputFileLocation | None
+    OverwriteExisting: OverwriteExisting | None
+    SourceFileLocation: SourceFileLocation | None
 
 
 PosixId = int
-SecondaryGids = List[PosixId]
+SecondaryGids = list[PosixId]
 
 
 class PosixProfile(TypedDict, total=False):
@@ -515,7 +554,7 @@ class PosixProfile(TypedDict, total=False):
 
     Uid: PosixId
     Gid: PosixId
-    SecondaryGids: Optional[SecondaryGids]
+    SecondaryGids: SecondaryGids | None
 
 
 class HomeDirectoryMapEntry(TypedDict, total=False):
@@ -530,18 +569,18 @@ class HomeDirectoryMapEntry(TypedDict, total=False):
 
     Entry: MapEntry
     Target: MapTarget
-    Type: Optional[MapType]
+    Type: MapType | None
 
 
-HomeDirectoryMappings = List[HomeDirectoryMapEntry]
+HomeDirectoryMappings = list[HomeDirectoryMapEntry]
 
 
 class CreateAccessRequest(ServiceRequest):
-    HomeDirectory: Optional[HomeDirectory]
-    HomeDirectoryType: Optional[HomeDirectoryType]
-    HomeDirectoryMappings: Optional[HomeDirectoryMappings]
-    Policy: Optional[Policy]
-    PosixProfile: Optional[PosixProfile]
+    HomeDirectory: HomeDirectory | None
+    HomeDirectoryType: HomeDirectoryType | None
+    HomeDirectoryMappings: HomeDirectoryMappings | None
+    Policy: Policy | None
+    PosixProfile: PosixProfile | None
     Role: Role
     ServerId: ServerId
     ExternalId: ExternalId
@@ -577,28 +616,28 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-Tags = List[Tag]
+Tags = list[Tag]
 
 
 class CreateAgreementRequest(ServiceRequest):
-    Description: Optional[Description]
+    Description: Description | None
     ServerId: ServerId
     LocalProfileId: ProfileId
     PartnerProfileId: ProfileId
-    BaseDirectory: Optional[HomeDirectory]
+    BaseDirectory: HomeDirectory | None
     AccessRole: Role
-    Status: Optional[AgreementStatusType]
-    Tags: Optional[Tags]
-    PreserveFilename: Optional[PreserveFilenameType]
-    EnforceMessageSigning: Optional[EnforceMessageSigningType]
-    CustomDirectories: Optional[CustomDirectoriesType]
+    Status: AgreementStatusType | None
+    Tags: Tags | None
+    PreserveFilename: PreserveFilenameType | None
+    EnforceMessageSigning: EnforceMessageSigningType | None
+    CustomDirectories: CustomDirectoriesType | None
 
 
 class CreateAgreementResponse(TypedDict, total=False):
     AgreementId: AgreementId
 
 
-SftpConnectorTrustedHostKeyList = List[SftpConnectorTrustedHostKey]
+SftpConnectorTrustedHostKeyList = list[SftpConnectorTrustedHostKey]
 
 
 class SftpConnectorConfig(TypedDict, total=False):
@@ -606,19 +645,20 @@ class SftpConnectorConfig(TypedDict, total=False):
     is used for transferring files to and from a partner's SFTP server.
     """
 
-    UserSecretId: Optional[SecretId]
-    TrustedHostKeys: Optional[SftpConnectorTrustedHostKeyList]
-    MaxConcurrentConnections: Optional[MaxConcurrentConnections]
+    UserSecretId: SecretId | None
+    TrustedHostKeys: SftpConnectorTrustedHostKeyList | None
+    MaxConcurrentConnections: MaxConcurrentConnections | None
 
 
 class CreateConnectorRequest(ServiceRequest):
-    Url: Url
-    As2Config: Optional[As2ConnectorConfig]
+    Url: Url | None
+    As2Config: As2ConnectorConfig | None
     AccessRole: Role
-    LoggingRole: Optional[Role]
-    Tags: Optional[Tags]
-    SftpConfig: Optional[SftpConnectorConfig]
-    SecurityPolicyName: Optional[ConnectorSecurityPolicyName]
+    LoggingRole: Role | None
+    Tags: Tags | None
+    SftpConfig: SftpConnectorConfig | None
+    SecurityPolicyName: ConnectorSecurityPolicyName | None
+    EgressConfig: ConnectorEgressConfig | None
 
 
 class CreateConnectorResponse(TypedDict, total=False):
@@ -628,8 +668,8 @@ class CreateConnectorResponse(TypedDict, total=False):
 class CreateProfileRequest(ServiceRequest):
     As2Id: As2Id
     ProfileType: ProfileType
-    CertificateIds: Optional[CertificateIds]
-    Tags: Optional[Tags]
+    CertificateIds: CertificateIds | None
+    Tags: Tags | None
 
 
 class CreateProfileResponse(TypedDict, total=False):
@@ -639,10 +679,10 @@ class CreateProfileResponse(TypedDict, total=False):
 class S3StorageOptions(TypedDict, total=False):
     """The Amazon S3 storage options that are configured for your server."""
 
-    DirectoryListingOptimization: Optional[DirectoryListingOptimization]
+    DirectoryListingOptimization: DirectoryListingOptimization | None
 
 
-StructuredLogDestinations = List[Arn]
+StructuredLogDestinations = list[Arn]
 
 
 class WorkflowDetail(TypedDict, total=False):
@@ -660,8 +700,8 @@ class WorkflowDetail(TypedDict, total=False):
     ExecutionRole: Role
 
 
-OnPartialUploadWorkflowDetails = List[WorkflowDetail]
-OnUploadWorkflowDetails = List[WorkflowDetail]
+OnPartialUploadWorkflowDetails = list[WorkflowDetail]
+OnUploadWorkflowDetails = list[WorkflowDetail]
 
 
 class WorkflowDetails(TypedDict, total=False):
@@ -669,20 +709,20 @@ class WorkflowDetails(TypedDict, total=False):
     that trigger a workflow to begin execution.
     """
 
-    OnUpload: Optional[OnUploadWorkflowDetails]
-    OnPartialUpload: Optional[OnPartialUploadWorkflowDetails]
+    OnUpload: OnUploadWorkflowDetails | None
+    OnPartialUpload: OnPartialUploadWorkflowDetails | None
 
 
 class ProtocolDetails(TypedDict, total=False):
     """The protocol settings that are configured for your server."""
 
-    PassiveIp: Optional[PassiveIp]
-    TlsSessionResumptionMode: Optional[TlsSessionResumptionMode]
-    SetStatOption: Optional[SetStatOption]
-    As2Transports: Optional[As2Transports]
+    PassiveIp: PassiveIp | None
+    TlsSessionResumptionMode: TlsSessionResumptionMode | None
+    SetStatOption: SetStatOption | None
+    As2Transports: As2Transports | None
 
 
-Protocols = List[Protocol]
+Protocols = list[Protocol]
 
 
 class IdentityProviderDetails(TypedDict, total=False):
@@ -691,15 +731,15 @@ class IdentityProviderDetails(TypedDict, total=False):
     have only one method of authentication.
     """
 
-    Url: Optional[Url]
-    InvocationRole: Optional[Role]
-    DirectoryId: Optional[DirectoryId]
-    Function: Optional[Function]
-    SftpAuthenticationMethods: Optional[SftpAuthenticationMethods]
+    Url: Url | None
+    InvocationRole: Role | None
+    DirectoryId: DirectoryId | None
+    Function: Function | None
+    SftpAuthenticationMethods: SftpAuthenticationMethods | None
 
 
-SecurityGroupIds = List[SecurityGroupId]
-SubnetIds = List[SubnetId]
+SecurityGroupIds = list[SecurityGroupId]
+SubnetIds = list[SubnetId]
 
 
 class EndpointDetails(TypedDict, total=False):
@@ -727,32 +767,32 @@ class EndpointDetails(TypedDict, total=False):
     ``VPC_ENDPOINT``.
     """
 
-    AddressAllocationIds: Optional[AddressAllocationIds]
-    SubnetIds: Optional[SubnetIds]
-    VpcEndpointId: Optional[VpcEndpointId]
-    VpcId: Optional[VpcId]
-    SecurityGroupIds: Optional[SecurityGroupIds]
+    AddressAllocationIds: AddressAllocationIds | None
+    SubnetIds: SubnetIds | None
+    VpcEndpointId: VpcEndpointId | None
+    VpcId: VpcId | None
+    SecurityGroupIds: SecurityGroupIds | None
 
 
 class CreateServerRequest(ServiceRequest):
-    Certificate: Optional[Certificate]
-    Domain: Optional[Domain]
-    EndpointDetails: Optional[EndpointDetails]
-    EndpointType: Optional[EndpointType]
-    HostKey: Optional[HostKey]
-    IdentityProviderDetails: Optional[IdentityProviderDetails]
-    IdentityProviderType: Optional[IdentityProviderType]
-    LoggingRole: Optional[NullableRole]
-    PostAuthenticationLoginBanner: Optional[PostAuthenticationLoginBanner]
-    PreAuthenticationLoginBanner: Optional[PreAuthenticationLoginBanner]
-    Protocols: Optional[Protocols]
-    ProtocolDetails: Optional[ProtocolDetails]
-    SecurityPolicyName: Optional[SecurityPolicyName]
-    Tags: Optional[Tags]
-    WorkflowDetails: Optional[WorkflowDetails]
-    StructuredLogDestinations: Optional[StructuredLogDestinations]
-    S3StorageOptions: Optional[S3StorageOptions]
-    IpAddressType: Optional[IpAddressType]
+    Certificate: Certificate | None
+    Domain: Domain | None
+    EndpointDetails: EndpointDetails | None
+    EndpointType: EndpointType | None
+    HostKey: HostKey | None
+    IdentityProviderDetails: IdentityProviderDetails | None
+    IdentityProviderType: IdentityProviderType | None
+    LoggingRole: NullableRole | None
+    PostAuthenticationLoginBanner: PostAuthenticationLoginBanner | None
+    PreAuthenticationLoginBanner: PreAuthenticationLoginBanner | None
+    Protocols: Protocols | None
+    ProtocolDetails: ProtocolDetails | None
+    SecurityPolicyName: SecurityPolicyName | None
+    Tags: Tags | None
+    WorkflowDetails: WorkflowDetails | None
+    StructuredLogDestinations: StructuredLogDestinations | None
+    S3StorageOptions: S3StorageOptions | None
+    IpAddressType: IpAddressType | None
 
 
 class CreateServerResponse(TypedDict, total=False):
@@ -760,15 +800,15 @@ class CreateServerResponse(TypedDict, total=False):
 
 
 class CreateUserRequest(ServiceRequest):
-    HomeDirectory: Optional[HomeDirectory]
-    HomeDirectoryType: Optional[HomeDirectoryType]
-    HomeDirectoryMappings: Optional[HomeDirectoryMappings]
-    Policy: Optional[Policy]
-    PosixProfile: Optional[PosixProfile]
+    HomeDirectory: HomeDirectory | None
+    HomeDirectoryType: HomeDirectoryType | None
+    HomeDirectoryMappings: HomeDirectoryMappings | None
+    Policy: Policy | None
+    PosixProfile: PosixProfile | None
     Role: Role
     ServerId: ServerId
-    SshPublicKeyBody: Optional[SshPublicKeyBody]
-    Tags: Optional[Tags]
+    SshPublicKeyBody: SshPublicKeyBody | None
+    Tags: Tags | None
     UserName: UserName
 
 
@@ -777,12 +817,31 @@ class CreateUserResponse(TypedDict, total=False):
     UserName: UserName
 
 
+class WebAppVpcConfig(TypedDict, total=False):
+    """Contains the VPC configuration settings for hosting a web app endpoint,
+    including the VPC ID, subnet IDs, and security group IDs for access
+    control.
+    """
+
+    SubnetIds: SubnetIds | None
+    VpcId: VpcId | None
+    SecurityGroupIds: SecurityGroupIds | None
+
+
+class WebAppEndpointDetails(TypedDict, total=False):
+    """Contains the endpoint configuration for a web app, including VPC
+    settings when the endpoint is hosted within a VPC.
+    """
+
+    Vpc: WebAppVpcConfig | None
+
+
 class WebAppUnits(TypedDict, total=False):
     """Contains an integer value that represents the value for number of
     concurrent connections or the user sessions on your web app.
     """
 
-    Provisioned: Optional[WebAppUnitCount]
+    Provisioned: WebAppUnitCount | None
 
 
 class IdentityCenterConfig(TypedDict, total=False):
@@ -790,22 +849,23 @@ class IdentityCenterConfig(TypedDict, total=False):
     settings when you create or update a web app.
     """
 
-    InstanceArn: Optional[IdentityCenterInstanceArn]
-    Role: Optional[Role]
+    InstanceArn: IdentityCenterInstanceArn | None
+    Role: Role | None
 
 
 class WebAppIdentityProviderDetails(TypedDict, total=False):
     """A union that contains the ``IdentityCenterConfig`` object."""
 
-    IdentityCenterConfig: Optional[IdentityCenterConfig]
+    IdentityCenterConfig: IdentityCenterConfig | None
 
 
 class CreateWebAppRequest(ServiceRequest):
     IdentityProviderDetails: WebAppIdentityProviderDetails
-    AccessEndpoint: Optional[WebAppAccessEndpoint]
-    WebAppUnits: Optional[WebAppUnits]
-    Tags: Optional[Tags]
-    WebAppEndpointPolicy: Optional[WebAppEndpointPolicy]
+    AccessEndpoint: WebAppAccessEndpoint | None
+    WebAppUnits: WebAppUnits | None
+    Tags: Tags | None
+    WebAppEndpointPolicy: WebAppEndpointPolicy | None
+    EndpointDetails: WebAppEndpointDetails | None
 
 
 class CreateWebAppResponse(TypedDict, total=False):
@@ -815,10 +875,10 @@ class CreateWebAppResponse(TypedDict, total=False):
 class DecryptStepDetails(TypedDict, total=False):
     """Each step type has its own ``StepDetails`` structure."""
 
-    Name: Optional[WorkflowStepName]
+    Name: WorkflowStepName | None
     Type: EncryptionType
-    SourceFileLocation: Optional[SourceFileLocation]
-    OverwriteExisting: Optional[OverwriteExisting]
+    SourceFileLocation: SourceFileLocation | None
+    OverwriteExisting: OverwriteExisting | None
     DestinationFileLocation: InputFileLocation
 
 
@@ -831,7 +891,7 @@ class S3Tag(TypedDict, total=False):
     Value: S3TagValue
 
 
-S3Tags = List[S3Tag]
+S3Tags = list[S3Tag]
 
 
 class TagStepDetails(TypedDict, total=False):
@@ -841,46 +901,46 @@ class TagStepDetails(TypedDict, total=False):
     workflow step.
     """
 
-    Name: Optional[WorkflowStepName]
-    Tags: Optional[S3Tags]
-    SourceFileLocation: Optional[SourceFileLocation]
+    Name: WorkflowStepName | None
+    Tags: S3Tags | None
+    SourceFileLocation: SourceFileLocation | None
 
 
 class DeleteStepDetails(TypedDict, total=False):
     """The name of the step, used to identify the delete step."""
 
-    Name: Optional[WorkflowStepName]
-    SourceFileLocation: Optional[SourceFileLocation]
+    Name: WorkflowStepName | None
+    SourceFileLocation: SourceFileLocation | None
 
 
 class CustomStepDetails(TypedDict, total=False):
     """Each step type has its own ``StepDetails`` structure."""
 
-    Name: Optional[WorkflowStepName]
-    Target: Optional[CustomStepTarget]
-    TimeoutSeconds: Optional[CustomStepTimeoutSeconds]
-    SourceFileLocation: Optional[SourceFileLocation]
+    Name: WorkflowStepName | None
+    Target: CustomStepTarget | None
+    TimeoutSeconds: CustomStepTimeoutSeconds | None
+    SourceFileLocation: SourceFileLocation | None
 
 
 class WorkflowStep(TypedDict, total=False):
     """The basic building block of a workflow."""
 
-    Type: Optional[WorkflowStepType]
-    CopyStepDetails: Optional[CopyStepDetails]
-    CustomStepDetails: Optional[CustomStepDetails]
-    DeleteStepDetails: Optional[DeleteStepDetails]
-    TagStepDetails: Optional[TagStepDetails]
-    DecryptStepDetails: Optional[DecryptStepDetails]
+    Type: WorkflowStepType | None
+    CopyStepDetails: CopyStepDetails | None
+    CustomStepDetails: CustomStepDetails | None
+    DeleteStepDetails: DeleteStepDetails | None
+    TagStepDetails: TagStepDetails | None
+    DecryptStepDetails: DecryptStepDetails | None
 
 
-WorkflowSteps = List[WorkflowStep]
+WorkflowSteps = list[WorkflowStep]
 
 
 class CreateWorkflowRequest(ServiceRequest):
-    Description: Optional[WorkflowDescription]
+    Description: WorkflowDescription | None
     Steps: WorkflowSteps
-    OnExceptionSteps: Optional[WorkflowSteps]
-    Tags: Optional[Tags]
+    OnExceptionSteps: WorkflowSteps | None
+    Tags: Tags | None
 
 
 class CreateWorkflowResponse(TypedDict, total=False):
@@ -952,13 +1012,13 @@ class DescribeAccessRequest(ServiceRequest):
 class DescribedAccess(TypedDict, total=False):
     """Describes the properties of the access that was specified."""
 
-    HomeDirectory: Optional[HomeDirectory]
-    HomeDirectoryMappings: Optional[HomeDirectoryMappings]
-    HomeDirectoryType: Optional[HomeDirectoryType]
-    Policy: Optional[Policy]
-    PosixProfile: Optional[PosixProfile]
-    Role: Optional[Role]
-    ExternalId: Optional[ExternalId]
+    HomeDirectory: HomeDirectory | None
+    HomeDirectoryMappings: HomeDirectoryMappings | None
+    HomeDirectoryType: HomeDirectoryType | None
+    Policy: Policy | None
+    PosixProfile: PosixProfile | None
+    Role: Role | None
+    ExternalId: ExternalId | None
 
 
 class DescribeAccessResponse(TypedDict, total=False):
@@ -975,18 +1035,18 @@ class DescribedAgreement(TypedDict, total=False):
     """Describes the properties of an agreement."""
 
     Arn: Arn
-    AgreementId: Optional[AgreementId]
-    Description: Optional[Description]
-    Status: Optional[AgreementStatusType]
-    ServerId: Optional[ServerId]
-    LocalProfileId: Optional[ProfileId]
-    PartnerProfileId: Optional[ProfileId]
-    BaseDirectory: Optional[HomeDirectory]
-    AccessRole: Optional[Role]
-    Tags: Optional[Tags]
-    PreserveFilename: Optional[PreserveFilenameType]
-    EnforceMessageSigning: Optional[EnforceMessageSigningType]
-    CustomDirectories: Optional[CustomDirectoriesType]
+    AgreementId: AgreementId | None
+    Description: Description | None
+    Status: AgreementStatusType | None
+    ServerId: ServerId | None
+    LocalProfileId: ProfileId | None
+    PartnerProfileId: ProfileId | None
+    BaseDirectory: HomeDirectory | None
+    AccessRole: Role | None
+    Tags: Tags | None
+    PreserveFilename: PreserveFilenameType | None
+    EnforceMessageSigning: EnforceMessageSigningType | None
+    CustomDirectories: CustomDirectoriesType | None
 
 
 class DescribeAgreementResponse(TypedDict, total=False):
@@ -1001,19 +1061,19 @@ class DescribedCertificate(TypedDict, total=False):
     """Describes the properties of a certificate."""
 
     Arn: Arn
-    CertificateId: Optional[CertificateId]
-    Usage: Optional[CertificateUsageType]
-    Status: Optional[CertificateStatusType]
-    Certificate: Optional[CertificateBodyType]
-    CertificateChain: Optional[CertificateChainType]
-    ActiveDate: Optional[CertDate]
-    InactiveDate: Optional[CertDate]
-    Serial: Optional[CertSerial]
-    NotBeforeDate: Optional[CertDate]
-    NotAfterDate: Optional[CertDate]
-    Type: Optional[CertificateType]
-    Description: Optional[Description]
-    Tags: Optional[Tags]
+    CertificateId: CertificateId | None
+    Usage: CertificateUsageType | None
+    Status: CertificateStatusType | None
+    Certificate: CertificateBodyType | None
+    CertificateChain: CertificateChainType | None
+    ActiveDate: CertDate | None
+    InactiveDate: CertDate | None
+    Serial: CertSerial | None
+    NotBeforeDate: CertDate | None
+    NotAfterDate: CertDate | None
+    Type: CertificateType | None
+    Description: Description | None
+    Tags: Tags | None
 
 
 class DescribeCertificateResponse(TypedDict, total=False):
@@ -1024,7 +1084,26 @@ class DescribeConnectorRequest(ServiceRequest):
     ConnectorId: ConnectorId
 
 
-ServiceManagedEgressIpAddresses = List[ServiceManagedEgressIpAddress]
+class DescribedConnectorVpcLatticeEgressConfig(TypedDict, total=False):
+    """VPC_LATTICE egress configuration details in the response, containing the
+    Resource Configuration ARN and port number currently configured for the
+    connector.
+    """
+
+    ResourceConfigurationArn: VpcLatticeResourceConfigurationArn
+    PortNumber: SftpPort | None
+
+
+class DescribedConnectorEgressConfig(TypedDict, total=False):
+    """Response structure containing the current egress configuration details
+    for the connector. Shows how traffic is currently routed from the
+    connector to the SFTP server.
+    """
+
+    VpcLattice: DescribedConnectorVpcLatticeEgressConfig | None
+
+
+ServiceManagedEgressIpAddresses = list[ServiceManagedEgressIpAddress]
 
 
 class DescribedConnector(TypedDict, total=False):
@@ -1033,15 +1112,19 @@ class DescribedConnector(TypedDict, total=False):
     """
 
     Arn: Arn
-    ConnectorId: Optional[ConnectorId]
-    Url: Optional[Url]
-    As2Config: Optional[As2ConnectorConfig]
-    AccessRole: Optional[Role]
-    LoggingRole: Optional[Role]
-    Tags: Optional[Tags]
-    SftpConfig: Optional[SftpConnectorConfig]
-    ServiceManagedEgressIpAddresses: Optional[ServiceManagedEgressIpAddresses]
-    SecurityPolicyName: Optional[ConnectorSecurityPolicyName]
+    ConnectorId: ConnectorId | None
+    Url: Url | None
+    As2Config: As2ConnectorConfig | None
+    AccessRole: Role | None
+    LoggingRole: Role | None
+    Tags: Tags | None
+    SftpConfig: SftpConnectorConfig | None
+    ServiceManagedEgressIpAddresses: ServiceManagedEgressIpAddresses | None
+    SecurityPolicyName: ConnectorSecurityPolicyName | None
+    EgressConfig: DescribedConnectorEgressConfig | None
+    EgressType: ConnectorEgressType
+    ErrorMessage: ConnectorErrorMessage | None
+    Status: ConnectorStatus
 
 
 class DescribeConnectorResponse(TypedDict, total=False):
@@ -1067,12 +1150,12 @@ class ExecutionStepResult(TypedDict, total=False):
     (if any), and the step type.
     """
 
-    StepType: Optional[WorkflowStepType]
-    Outputs: Optional[StepResultOutputsJson]
-    Error: Optional[ExecutionError]
+    StepType: WorkflowStepType | None
+    Outputs: StepResultOutputsJson | None
+    Error: ExecutionError | None
 
 
-ExecutionStepResults = List[ExecutionStepResult]
+ExecutionStepResults = list[ExecutionStepResult]
 
 
 class ExecutionResults(TypedDict, total=False):
@@ -1080,15 +1163,15 @@ class ExecutionResults(TypedDict, total=False):
     case of any errors during workflow execution.
     """
 
-    Steps: Optional[ExecutionStepResults]
-    OnExceptionSteps: Optional[ExecutionStepResults]
+    Steps: ExecutionStepResults | None
+    OnExceptionSteps: ExecutionStepResults | None
 
 
 class LoggingConfiguration(TypedDict, total=False):
     """Consists of the logging role and the log group name."""
 
-    LoggingRole: Optional[Role]
-    LogGroupName: Optional[LogGroupName]
+    LoggingRole: Role | None
+    LogGroupName: LogGroupName | None
 
 
 class UserDetails(TypedDict, total=False):
@@ -1096,7 +1179,7 @@ class UserDetails(TypedDict, total=False):
 
     UserName: UserName
     ServerId: ServerId
-    SessionId: Optional[SessionId]
+    SessionId: SessionId | None
 
 
 class ServiceMetadata(TypedDict, total=False):
@@ -1112,30 +1195,30 @@ class S3FileLocation(TypedDict, total=False):
     used in the workflow. Only applicable if you are using S3 storage.
     """
 
-    Bucket: Optional[S3Bucket]
-    Key: Optional[S3Key]
-    VersionId: Optional[S3VersionId]
-    Etag: Optional[S3Etag]
+    Bucket: S3Bucket | None
+    Key: S3Key | None
+    VersionId: S3VersionId | None
+    Etag: S3Etag | None
 
 
 class FileLocation(TypedDict, total=False):
     """Specifies the Amazon S3 or EFS file details to be used in the step."""
 
-    S3FileLocation: Optional[S3FileLocation]
-    EfsFileLocation: Optional[EfsFileLocation]
+    S3FileLocation: S3FileLocation | None
+    EfsFileLocation: EfsFileLocation | None
 
 
 class DescribedExecution(TypedDict, total=False):
     """The details for an execution object."""
 
-    ExecutionId: Optional[ExecutionId]
-    InitialFileLocation: Optional[FileLocation]
-    ServiceMetadata: Optional[ServiceMetadata]
-    ExecutionRole: Optional[Role]
-    LoggingConfiguration: Optional[LoggingConfiguration]
-    PosixProfile: Optional[PosixProfile]
-    Status: Optional[ExecutionStatus]
-    Results: Optional[ExecutionResults]
+    ExecutionId: ExecutionId | None
+    InitialFileLocation: FileLocation | None
+    ServiceMetadata: ServiceMetadata | None
+    ExecutionRole: Role | None
+    LoggingConfiguration: LoggingConfiguration | None
+    PosixProfile: PosixProfile | None
+    Status: ExecutionStatus | None
+    Results: ExecutionResults | None
 
 
 class DescribeExecutionResponse(TypedDict, total=False):
@@ -1152,12 +1235,12 @@ class DescribedHostKey(TypedDict, total=False):
     """The details for a server host key."""
 
     Arn: Arn
-    HostKeyId: Optional[HostKeyId]
-    HostKeyFingerprint: Optional[HostKeyFingerprint]
-    Description: Optional[HostKeyDescription]
-    Type: Optional[HostKeyType]
-    DateImported: Optional[DateImported]
-    Tags: Optional[Tags]
+    HostKeyId: HostKeyId | None
+    HostKeyFingerprint: HostKeyFingerprint | None
+    Description: HostKeyDescription | None
+    Type: HostKeyType | None
+    DateImported: DateImported | None
+    Tags: Tags | None
 
 
 class DescribeHostKeyResponse(TypedDict, total=False):
@@ -1172,11 +1255,11 @@ class DescribedProfile(TypedDict, total=False):
     """The details for a local or partner AS2 profile."""
 
     Arn: Arn
-    ProfileId: Optional[ProfileId]
-    ProfileType: Optional[ProfileType]
-    As2Id: Optional[As2Id]
-    CertificateIds: Optional[CertificateIds]
-    Tags: Optional[Tags]
+    ProfileId: ProfileId | None
+    ProfileType: ProfileType | None
+    As2Id: As2Id | None
+    CertificateIds: CertificateIds | None
+    Tags: Tags | None
 
 
 class DescribeProfileResponse(TypedDict, total=False):
@@ -1187,8 +1270,8 @@ class DescribeSecurityPolicyRequest(ServiceRequest):
     SecurityPolicyName: SecurityPolicyName
 
 
-SecurityPolicyProtocols = List[SecurityPolicyProtocol]
-SecurityPolicyOptions = List[SecurityPolicyOption]
+SecurityPolicyProtocols = list[SecurityPolicyProtocol]
+SecurityPolicyOptions = list[SecurityPolicyOption]
 
 
 class DescribedSecurityPolicy(TypedDict, total=False):
@@ -1200,15 +1283,15 @@ class DescribedSecurityPolicy(TypedDict, total=False):
     connectors <https://docs.aws.amazon.com/transfer/latest/userguide/security-policies-connectors.html>`__.
     """
 
-    Fips: Optional[Fips]
+    Fips: Fips | None
     SecurityPolicyName: SecurityPolicyName
-    SshCiphers: Optional[SecurityPolicyOptions]
-    SshKexs: Optional[SecurityPolicyOptions]
-    SshMacs: Optional[SecurityPolicyOptions]
-    TlsCiphers: Optional[SecurityPolicyOptions]
-    SshHostKeyAlgorithms: Optional[SecurityPolicyOptions]
-    Type: Optional[SecurityPolicyResourceType]
-    Protocols: Optional[SecurityPolicyProtocols]
+    SshCiphers: SecurityPolicyOptions | None
+    SshKexs: SecurityPolicyOptions | None
+    SshMacs: SecurityPolicyOptions | None
+    TlsCiphers: SecurityPolicyOptions | None
+    SshHostKeyAlgorithms: SecurityPolicyOptions | None
+    Type: SecurityPolicyResourceType | None
+    Protocols: SecurityPolicyProtocols | None
 
 
 class DescribeSecurityPolicyResponse(TypedDict, total=False):
@@ -1225,28 +1308,28 @@ class DescribedServer(TypedDict, total=False):
     """
 
     Arn: Arn
-    Certificate: Optional[Certificate]
-    ProtocolDetails: Optional[ProtocolDetails]
-    Domain: Optional[Domain]
-    EndpointDetails: Optional[EndpointDetails]
-    EndpointType: Optional[EndpointType]
-    HostKeyFingerprint: Optional[HostKeyFingerprint]
-    IdentityProviderDetails: Optional[IdentityProviderDetails]
-    IdentityProviderType: Optional[IdentityProviderType]
-    LoggingRole: Optional[NullableRole]
-    PostAuthenticationLoginBanner: Optional[PostAuthenticationLoginBanner]
-    PreAuthenticationLoginBanner: Optional[PreAuthenticationLoginBanner]
-    Protocols: Optional[Protocols]
-    SecurityPolicyName: Optional[SecurityPolicyName]
-    ServerId: Optional[ServerId]
-    State: Optional[State]
-    Tags: Optional[Tags]
-    UserCount: Optional[UserCount]
-    WorkflowDetails: Optional[WorkflowDetails]
-    StructuredLogDestinations: Optional[StructuredLogDestinations]
-    S3StorageOptions: Optional[S3StorageOptions]
-    As2ServiceManagedEgressIpAddresses: Optional[ServiceManagedEgressIpAddresses]
-    IpAddressType: Optional[IpAddressType]
+    Certificate: Certificate | None
+    ProtocolDetails: ProtocolDetails | None
+    Domain: Domain | None
+    EndpointDetails: EndpointDetails | None
+    EndpointType: EndpointType | None
+    HostKeyFingerprint: HostKeyFingerprint | None
+    IdentityProviderDetails: IdentityProviderDetails | None
+    IdentityProviderType: IdentityProviderType | None
+    LoggingRole: NullableRole | None
+    PostAuthenticationLoginBanner: PostAuthenticationLoginBanner | None
+    PreAuthenticationLoginBanner: PreAuthenticationLoginBanner | None
+    Protocols: Protocols | None
+    SecurityPolicyName: SecurityPolicyName | None
+    ServerId: ServerId | None
+    State: State | None
+    Tags: Tags | None
+    UserCount: UserCount | None
+    WorkflowDetails: WorkflowDetails | None
+    StructuredLogDestinations: StructuredLogDestinations | None
+    S3StorageOptions: S3StorageOptions | None
+    As2ServiceManagedEgressIpAddresses: ServiceManagedEgressIpAddresses | None
+    IpAddressType: IpAddressType | None
 
 
 class DescribeServerResponse(TypedDict, total=False):
@@ -1272,22 +1355,22 @@ class SshPublicKey(TypedDict, total=False):
     SshPublicKeyId: SshPublicKeyId
 
 
-SshPublicKeys = List[SshPublicKey]
+SshPublicKeys = list[SshPublicKey]
 
 
 class DescribedUser(TypedDict, total=False):
     """Describes the properties of a user that was specified."""
 
     Arn: Arn
-    HomeDirectory: Optional[HomeDirectory]
-    HomeDirectoryMappings: Optional[HomeDirectoryMappings]
-    HomeDirectoryType: Optional[HomeDirectoryType]
-    Policy: Optional[Policy]
-    PosixProfile: Optional[PosixProfile]
-    Role: Optional[Role]
-    SshPublicKeys: Optional[SshPublicKeys]
-    Tags: Optional[Tags]
-    UserName: Optional[UserName]
+    HomeDirectory: HomeDirectory | None
+    HomeDirectoryMappings: HomeDirectoryMappings | None
+    HomeDirectoryType: HomeDirectoryType | None
+    Policy: Policy | None
+    PosixProfile: PosixProfile | None
+    Role: Role | None
+    SshPublicKeys: SshPublicKeys | None
+    Tags: Tags | None
+    UserName: UserName | None
 
 
 class DescribeUserResponse(TypedDict, total=False):
@@ -1311,9 +1394,9 @@ class DescribedWebAppCustomization(TypedDict, total=False):
 
     Arn: Arn
     WebAppId: WebAppId
-    Title: Optional[WebAppTitle]
-    LogoFile: Optional[WebAppLogoFile]
-    FaviconFile: Optional[WebAppFaviconFile]
+    Title: WebAppTitle | None
+    LogoFile: WebAppLogoFile | None
+    FaviconFile: WebAppFaviconFile | None
 
 
 class DescribeWebAppCustomizationResponse(TypedDict, total=False):
@@ -1324,14 +1407,33 @@ class DescribeWebAppRequest(ServiceRequest):
     WebAppId: WebAppId
 
 
+class DescribedWebAppVpcConfig(TypedDict, total=False):
+    """Contains the VPC configuration details for a web app endpoint, including
+    the VPC identifier, subnet IDs, and VPC endpoint ID used for hosting the
+    endpoint.
+    """
+
+    SubnetIds: SubnetIds | None
+    VpcId: VpcId | None
+    VpcEndpointId: VpcEndpointId | None
+
+
+class DescribedWebAppEndpointDetails(TypedDict, total=False):
+    """Contains the endpoint configuration details for a web app, including VPC
+    configuration when the endpoint is hosted within a VPC.
+    """
+
+    Vpc: DescribedWebAppVpcConfig | None
+
+
 class DescribedIdentityCenterConfig(TypedDict, total=False):
     """A structure that contains the details of the IAM Identity Center used
     for your web app. Returned during a call to ``DescribeWebApp``.
     """
 
-    ApplicationArn: Optional[IdentityCenterApplicationArn]
-    InstanceArn: Optional[IdentityCenterInstanceArn]
-    Role: Optional[Role]
+    ApplicationArn: IdentityCenterApplicationArn | None
+    InstanceArn: IdentityCenterInstanceArn | None
+    Role: Role | None
 
 
 class DescribedWebAppIdentityProviderDetails(TypedDict, total=False):
@@ -1339,7 +1441,7 @@ class DescribedWebAppIdentityProviderDetails(TypedDict, total=False):
     web app.
     """
 
-    IdentityCenterConfig: Optional[DescribedIdentityCenterConfig]
+    IdentityCenterConfig: DescribedIdentityCenterConfig | None
 
 
 class DescribedWebApp(TypedDict, total=False):
@@ -1349,12 +1451,14 @@ class DescribedWebApp(TypedDict, total=False):
 
     Arn: Arn
     WebAppId: WebAppId
-    DescribedIdentityProviderDetails: Optional[DescribedWebAppIdentityProviderDetails]
-    AccessEndpoint: Optional[WebAppAccessEndpoint]
-    WebAppEndpoint: Optional[WebAppEndpoint]
-    WebAppUnits: Optional[WebAppUnits]
-    Tags: Optional[Tags]
-    WebAppEndpointPolicy: Optional[WebAppEndpointPolicy]
+    DescribedIdentityProviderDetails: DescribedWebAppIdentityProviderDetails | None
+    AccessEndpoint: WebAppAccessEndpoint | None
+    WebAppEndpoint: WebAppEndpoint | None
+    WebAppUnits: WebAppUnits | None
+    Tags: Tags | None
+    WebAppEndpointPolicy: WebAppEndpointPolicy | None
+    EndpointType: WebAppEndpointType | None
+    DescribedEndpointDetails: DescribedWebAppEndpointDetails | None
 
 
 class DescribeWebAppResponse(TypedDict, total=False):
@@ -1369,29 +1473,29 @@ class DescribedWorkflow(TypedDict, total=False):
     """Describes the properties of the specified workflow"""
 
     Arn: Arn
-    Description: Optional[WorkflowDescription]
-    Steps: Optional[WorkflowSteps]
-    OnExceptionSteps: Optional[WorkflowSteps]
-    WorkflowId: Optional[WorkflowId]
-    Tags: Optional[Tags]
+    Description: WorkflowDescription | None
+    Steps: WorkflowSteps | None
+    OnExceptionSteps: WorkflowSteps | None
+    WorkflowId: WorkflowId | None
+    Tags: Tags | None
 
 
 class DescribeWorkflowResponse(TypedDict, total=False):
     Workflow: DescribedWorkflow
 
 
-FilePaths = List[FilePath]
+FilePaths = list[FilePath]
 
 
 class ImportCertificateRequest(ServiceRequest):
     Usage: CertificateUsageType
     Certificate: CertificateBodyType
-    CertificateChain: Optional[CertificateChainType]
-    PrivateKey: Optional[PrivateKeyType]
-    ActiveDate: Optional[CertDate]
-    InactiveDate: Optional[CertDate]
-    Description: Optional[Description]
-    Tags: Optional[Tags]
+    CertificateChain: CertificateChainType | None
+    PrivateKey: PrivateKeyType | None
+    ActiveDate: CertDate | None
+    InactiveDate: CertDate | None
+    Description: Description | None
+    Tags: Tags | None
 
 
 class ImportCertificateResponse(TypedDict, total=False):
@@ -1401,8 +1505,8 @@ class ImportCertificateResponse(TypedDict, total=False):
 class ImportHostKeyRequest(ServiceRequest):
     ServerId: ServerId
     HostKeyBody: HostKey
-    Description: Optional[HostKeyDescription]
-    Tags: Optional[Tags]
+    Description: HostKeyDescription | None
+    Tags: Tags | None
 
 
 class ImportHostKeyResponse(TypedDict, total=False):
@@ -1428,122 +1532,122 @@ class ImportSshPublicKeyResponse(TypedDict, total=False):
 
 
 class ListAccessesRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
     ServerId: ServerId
 
 
 class ListedAccess(TypedDict, total=False):
     """Lists the properties for one or more specified associated accesses."""
 
-    HomeDirectory: Optional[HomeDirectory]
-    HomeDirectoryType: Optional[HomeDirectoryType]
-    Role: Optional[Role]
-    ExternalId: Optional[ExternalId]
+    HomeDirectory: HomeDirectory | None
+    HomeDirectoryType: HomeDirectoryType | None
+    Role: Role | None
+    ExternalId: ExternalId | None
 
 
-ListedAccesses = List[ListedAccess]
+ListedAccesses = list[ListedAccess]
 
 
 class ListAccessesResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     ServerId: ServerId
     Accesses: ListedAccesses
 
 
 class ListAgreementsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
     ServerId: ServerId
 
 
 class ListedAgreement(TypedDict, total=False):
     """Describes the properties of an agreement."""
 
-    Arn: Optional[Arn]
-    AgreementId: Optional[AgreementId]
-    Description: Optional[Description]
-    Status: Optional[AgreementStatusType]
-    ServerId: Optional[ServerId]
-    LocalProfileId: Optional[ProfileId]
-    PartnerProfileId: Optional[ProfileId]
+    Arn: Arn | None
+    AgreementId: AgreementId | None
+    Description: Description | None
+    Status: AgreementStatusType | None
+    ServerId: ServerId | None
+    LocalProfileId: ProfileId | None
+    PartnerProfileId: ProfileId | None
 
 
-ListedAgreements = List[ListedAgreement]
+ListedAgreements = list[ListedAgreement]
 
 
 class ListAgreementsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     Agreements: ListedAgreements
 
 
 class ListCertificatesRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListedCertificate(TypedDict, total=False):
     """Describes the properties of a certificate."""
 
-    Arn: Optional[Arn]
-    CertificateId: Optional[CertificateId]
-    Usage: Optional[CertificateUsageType]
-    Status: Optional[CertificateStatusType]
-    ActiveDate: Optional[CertDate]
-    InactiveDate: Optional[CertDate]
-    Type: Optional[CertificateType]
-    Description: Optional[Description]
+    Arn: Arn | None
+    CertificateId: CertificateId | None
+    Usage: CertificateUsageType | None
+    Status: CertificateStatusType | None
+    ActiveDate: CertDate | None
+    InactiveDate: CertDate | None
+    Type: CertificateType | None
+    Description: Description | None
 
 
-ListedCertificates = List[ListedCertificate]
+ListedCertificates = list[ListedCertificate]
 
 
 class ListCertificatesResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     Certificates: ListedCertificates
 
 
 class ListConnectorsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListedConnector(TypedDict, total=False):
     """Returns details of the connector that is specified."""
 
-    Arn: Optional[Arn]
-    ConnectorId: Optional[ConnectorId]
-    Url: Optional[Url]
+    Arn: Arn | None
+    ConnectorId: ConnectorId | None
+    Url: Url | None
 
 
-ListedConnectors = List[ListedConnector]
+ListedConnectors = list[ListedConnector]
 
 
 class ListConnectorsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     Connectors: ListedConnectors
 
 
 class ListExecutionsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
     WorkflowId: WorkflowId
 
 
 class ListedExecution(TypedDict, total=False):
     """Returns properties of the execution that is specified."""
 
-    ExecutionId: Optional[ExecutionId]
-    InitialFileLocation: Optional[FileLocation]
-    ServiceMetadata: Optional[ServiceMetadata]
-    Status: Optional[ExecutionStatus]
+    ExecutionId: ExecutionId | None
+    InitialFileLocation: FileLocation | None
+    ServiceMetadata: ServiceMetadata | None
+    Status: ExecutionStatus | None
 
 
-ListedExecutions = List[ListedExecution]
+ListedExecutions = list[ListedExecution]
 
 
 class ListExecutionsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     WorkflowId: WorkflowId
     Executions: ListedExecutions
 
@@ -1551,18 +1655,18 @@ class ListExecutionsResponse(TypedDict, total=False):
 class ListFileTransferResultsRequest(ServiceRequest):
     ConnectorId: ConnectorId
     TransferId: TransferId
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListFileTransferResultsResponse(TypedDict, total=False):
     FileTransferResults: ConnectorFileTransferResults
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListHostKeysRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
     ServerId: ServerId
 
 
@@ -1570,61 +1674,61 @@ class ListedHostKey(TypedDict, total=False):
     """Returns properties of the host key that's specified."""
 
     Arn: Arn
-    HostKeyId: Optional[HostKeyId]
-    Fingerprint: Optional[HostKeyFingerprint]
-    Description: Optional[HostKeyDescription]
-    Type: Optional[HostKeyType]
-    DateImported: Optional[DateImported]
+    HostKeyId: HostKeyId | None
+    Fingerprint: HostKeyFingerprint | None
+    Description: HostKeyDescription | None
+    Type: HostKeyType | None
+    DateImported: DateImported | None
 
 
-ListedHostKeys = List[ListedHostKey]
+ListedHostKeys = list[ListedHostKey]
 
 
 class ListHostKeysResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     ServerId: ServerId
     HostKeys: ListedHostKeys
 
 
 class ListProfilesRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    ProfileType: Optional[ProfileType]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    ProfileType: ProfileType | None
 
 
 class ListedProfile(TypedDict, total=False):
     """Returns the properties of the profile that was specified."""
 
-    Arn: Optional[Arn]
-    ProfileId: Optional[ProfileId]
-    As2Id: Optional[As2Id]
-    ProfileType: Optional[ProfileType]
+    Arn: Arn | None
+    ProfileId: ProfileId | None
+    As2Id: As2Id | None
+    ProfileType: ProfileType | None
 
 
-ListedProfiles = List[ListedProfile]
+ListedProfiles = list[ListedProfile]
 
 
 class ListProfilesResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     Profiles: ListedProfiles
 
 
 class ListSecurityPoliciesRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
-SecurityPolicyNames = List[SecurityPolicyName]
+SecurityPolicyNames = list[SecurityPolicyName]
 
 
 class ListSecurityPoliciesResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     SecurityPolicyNames: SecurityPolicyNames
 
 
 class ListServersRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListedServer(TypedDict, total=False):
@@ -1633,38 +1737,38 @@ class ListedServer(TypedDict, total=False):
     """
 
     Arn: Arn
-    Domain: Optional[Domain]
-    IdentityProviderType: Optional[IdentityProviderType]
-    EndpointType: Optional[EndpointType]
-    LoggingRole: Optional[Role]
-    ServerId: Optional[ServerId]
-    State: Optional[State]
-    UserCount: Optional[UserCount]
+    Domain: Domain | None
+    IdentityProviderType: IdentityProviderType | None
+    EndpointType: EndpointType | None
+    LoggingRole: Role | None
+    ServerId: ServerId | None
+    State: State | None
+    UserCount: UserCount | None
 
 
-ListedServers = List[ListedServer]
+ListedServers = list[ListedServer]
 
 
 class ListServersResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     Servers: ListedServers
 
 
 class ListTagsForResourceRequest(ServiceRequest):
     Arn: Arn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Arn: Optional[Arn]
-    NextToken: Optional[NextToken]
-    Tags: Optional[Tags]
+    Arn: Arn | None
+    NextToken: NextToken | None
+    Tags: Tags | None
 
 
 class ListUsersRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
     ServerId: ServerId
 
 
@@ -1672,25 +1776,25 @@ class ListedUser(TypedDict, total=False):
     """Returns properties of the user that you specify."""
 
     Arn: Arn
-    HomeDirectory: Optional[HomeDirectory]
-    HomeDirectoryType: Optional[HomeDirectoryType]
-    Role: Optional[Role]
-    SshPublicKeyCount: Optional[SshPublicKeyCount]
-    UserName: Optional[UserName]
+    HomeDirectory: HomeDirectory | None
+    HomeDirectoryType: HomeDirectoryType | None
+    Role: Role | None
+    SshPublicKeyCount: SshPublicKeyCount | None
+    UserName: UserName | None
 
 
-ListedUsers = List[ListedUser]
+ListedUsers = list[ListedUser]
 
 
 class ListUsersResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     ServerId: ServerId
     Users: ListedUsers
 
 
 class ListWebAppsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListedWebApp(TypedDict, total=False):
@@ -1698,21 +1802,22 @@ class ListedWebApp(TypedDict, total=False):
 
     Arn: Arn
     WebAppId: WebAppId
-    AccessEndpoint: Optional[WebAppAccessEndpoint]
-    WebAppEndpoint: Optional[WebAppEndpoint]
+    AccessEndpoint: WebAppAccessEndpoint | None
+    WebAppEndpoint: WebAppEndpoint | None
+    EndpointType: WebAppEndpointType | None
 
 
-ListedWebApps = List[ListedWebApp]
+ListedWebApps = list[ListedWebApp]
 
 
 class ListWebAppsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     WebApps: ListedWebApps
 
 
 class ListWorkflowsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListedWorkflow(TypedDict, total=False):
@@ -1720,16 +1825,16 @@ class ListedWorkflow(TypedDict, total=False):
     (ARN) for the workflow.
     """
 
-    WorkflowId: Optional[WorkflowId]
-    Description: Optional[WorkflowDescription]
-    Arn: Optional[Arn]
+    WorkflowId: WorkflowId | None
+    Description: WorkflowDescription | None
+    Arn: Arn | None
 
 
-ListedWorkflows = List[ListedWorkflow]
+ListedWorkflows = list[ListedWorkflow]
 
 
 class ListWorkflowsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     Workflows: ListedWorkflows
 
 
@@ -1747,13 +1852,13 @@ class SendWorkflowStepStateResponse(TypedDict, total=False):
 class SftpConnectorConnectionDetails(TypedDict, total=False):
     """Contains the details for an SFTP connector connection."""
 
-    HostKey: Optional[SftpConnectorHostKey]
+    HostKey: SftpConnectorHostKey | None
 
 
 class StartDirectoryListingRequest(ServiceRequest):
     ConnectorId: ConnectorId
     RemoteDirectoryPath: FilePath
-    MaxItems: Optional[MaxItems]
+    MaxItems: MaxItems | None
     OutputDirectoryPath: FilePath
 
 
@@ -1764,10 +1869,10 @@ class StartDirectoryListingResponse(TypedDict, total=False):
 
 class StartFileTransferRequest(ServiceRequest):
     ConnectorId: ConnectorId
-    SendFilePaths: Optional[FilePaths]
-    RetrieveFilePaths: Optional[FilePaths]
-    LocalDirectoryPath: Optional[FilePath]
-    RemoteDirectoryPath: Optional[FilePath]
+    SendFilePaths: FilePaths | None
+    RetrieveFilePaths: FilePaths | None
+    LocalDirectoryPath: FilePath | None
+    RemoteDirectoryPath: FilePath | None
 
 
 class StartFileTransferResponse(TypedDict, total=False):
@@ -1801,7 +1906,7 @@ class StopServerRequest(ServiceRequest):
     ServerId: ServerId
 
 
-TagKeys = List[TagKey]
+TagKeys = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1814,24 +1919,24 @@ class TestConnectionRequest(ServiceRequest):
 
 
 class TestConnectionResponse(TypedDict, total=False):
-    ConnectorId: Optional[ConnectorId]
-    Status: Optional[Status]
-    StatusMessage: Optional[Message]
-    SftpConnectionDetails: Optional[SftpConnectorConnectionDetails]
+    ConnectorId: ConnectorId | None
+    Status: Status | None
+    StatusMessage: Message | None
+    SftpConnectionDetails: SftpConnectorConnectionDetails | None
 
 
 class TestIdentityProviderRequest(ServiceRequest):
     ServerId: ServerId
-    ServerProtocol: Optional[Protocol]
-    SourceIp: Optional[SourceIp]
+    ServerProtocol: Protocol | None
+    SourceIp: SourceIp | None
     UserName: UserName
-    UserPassword: Optional[UserPassword]
+    UserPassword: UserPassword | None
 
 
 class TestIdentityProviderResponse(TypedDict, total=False):
-    Response: Optional[Response]
+    Response: Response | None
     StatusCode: StatusCode
-    Message: Optional[Message]
+    Message: Message | None
     Url: Url
 
 
@@ -1841,12 +1946,12 @@ class UntagResourceRequest(ServiceRequest):
 
 
 class UpdateAccessRequest(ServiceRequest):
-    HomeDirectory: Optional[HomeDirectory]
-    HomeDirectoryType: Optional[HomeDirectoryType]
-    HomeDirectoryMappings: Optional[HomeDirectoryMappings]
-    Policy: Optional[Policy]
-    PosixProfile: Optional[PosixProfile]
-    Role: Optional[Role]
+    HomeDirectory: HomeDirectory | None
+    HomeDirectoryType: HomeDirectoryType | None
+    HomeDirectoryMappings: HomeDirectoryMappings | None
+    Policy: Policy | None
+    PosixProfile: PosixProfile | None
+    Role: Role | None
     ServerId: ServerId
     ExternalId: ExternalId
 
@@ -1859,15 +1964,15 @@ class UpdateAccessResponse(TypedDict, total=False):
 class UpdateAgreementRequest(ServiceRequest):
     AgreementId: AgreementId
     ServerId: ServerId
-    Description: Optional[Description]
-    Status: Optional[AgreementStatusType]
-    LocalProfileId: Optional[ProfileId]
-    PartnerProfileId: Optional[ProfileId]
-    BaseDirectory: Optional[HomeDirectory]
-    AccessRole: Optional[Role]
-    PreserveFilename: Optional[PreserveFilenameType]
-    EnforceMessageSigning: Optional[EnforceMessageSigningType]
-    CustomDirectories: Optional[CustomDirectoriesType]
+    Description: Description | None
+    Status: AgreementStatusType | None
+    LocalProfileId: ProfileId | None
+    PartnerProfileId: ProfileId | None
+    BaseDirectory: HomeDirectory | None
+    AccessRole: Role | None
+    PreserveFilename: PreserveFilenameType | None
+    EnforceMessageSigning: EnforceMessageSigningType | None
+    CustomDirectories: CustomDirectoriesType | None
 
 
 class UpdateAgreementResponse(TypedDict, total=False):
@@ -1876,23 +1981,43 @@ class UpdateAgreementResponse(TypedDict, total=False):
 
 class UpdateCertificateRequest(ServiceRequest):
     CertificateId: CertificateId
-    ActiveDate: Optional[CertDate]
-    InactiveDate: Optional[CertDate]
-    Description: Optional[Description]
+    ActiveDate: CertDate | None
+    InactiveDate: CertDate | None
+    Description: Description | None
 
 
 class UpdateCertificateResponse(TypedDict, total=False):
     CertificateId: CertificateId
 
 
+class UpdateConnectorVpcLatticeEgressConfig(TypedDict, total=False):
+    """VPC_LATTICE egress configuration updates for modifying how the connector
+    routes traffic through customer VPCs. Changes to these settings may
+    require connector restart to take effect.
+    """
+
+    ResourceConfigurationArn: VpcLatticeResourceConfigurationArn | None
+    PortNumber: SftpPort | None
+
+
+class UpdateConnectorEgressConfig(TypedDict, total=False):
+    """Structure for updating the egress configuration of an existing
+    connector. Allows modification of how traffic is routed from the
+    connector to the SFTP server, including VPC_LATTICE settings.
+    """
+
+    VpcLattice: UpdateConnectorVpcLatticeEgressConfig | None
+
+
 class UpdateConnectorRequest(ServiceRequest):
     ConnectorId: ConnectorId
-    Url: Optional[Url]
-    As2Config: Optional[As2ConnectorConfig]
-    AccessRole: Optional[Role]
-    LoggingRole: Optional[Role]
-    SftpConfig: Optional[SftpConnectorConfig]
-    SecurityPolicyName: Optional[ConnectorSecurityPolicyName]
+    Url: Url | None
+    As2Config: As2ConnectorConfig | None
+    AccessRole: Role | None
+    LoggingRole: Role | None
+    SftpConfig: SftpConnectorConfig | None
+    SecurityPolicyName: ConnectorSecurityPolicyName | None
+    EgressConfig: UpdateConnectorEgressConfig | None
 
 
 class UpdateConnectorResponse(TypedDict, total=False):
@@ -1912,7 +2037,7 @@ class UpdateHostKeyResponse(TypedDict, total=False):
 
 class UpdateProfileRequest(ServiceRequest):
     ProfileId: ProfileId
-    CertificateIds: Optional[CertificateIds]
+    CertificateIds: CertificateIds | None
 
 
 class UpdateProfileResponse(TypedDict, total=False):
@@ -1920,22 +2045,23 @@ class UpdateProfileResponse(TypedDict, total=False):
 
 
 class UpdateServerRequest(ServiceRequest):
-    Certificate: Optional[Certificate]
-    ProtocolDetails: Optional[ProtocolDetails]
-    EndpointDetails: Optional[EndpointDetails]
-    EndpointType: Optional[EndpointType]
-    HostKey: Optional[HostKey]
-    IdentityProviderDetails: Optional[IdentityProviderDetails]
-    LoggingRole: Optional[NullableRole]
-    PostAuthenticationLoginBanner: Optional[PostAuthenticationLoginBanner]
-    PreAuthenticationLoginBanner: Optional[PreAuthenticationLoginBanner]
-    Protocols: Optional[Protocols]
-    SecurityPolicyName: Optional[SecurityPolicyName]
+    Certificate: Certificate | None
+    ProtocolDetails: ProtocolDetails | None
+    EndpointDetails: EndpointDetails | None
+    EndpointType: EndpointType | None
+    HostKey: HostKey | None
+    IdentityProviderDetails: IdentityProviderDetails | None
+    LoggingRole: NullableRole | None
+    PostAuthenticationLoginBanner: PostAuthenticationLoginBanner | None
+    PreAuthenticationLoginBanner: PreAuthenticationLoginBanner | None
+    Protocols: Protocols | None
+    SecurityPolicyName: SecurityPolicyName | None
     ServerId: ServerId
-    WorkflowDetails: Optional[WorkflowDetails]
-    StructuredLogDestinations: Optional[StructuredLogDestinations]
-    S3StorageOptions: Optional[S3StorageOptions]
-    IpAddressType: Optional[IpAddressType]
+    WorkflowDetails: WorkflowDetails | None
+    StructuredLogDestinations: StructuredLogDestinations | None
+    S3StorageOptions: S3StorageOptions | None
+    IpAddressType: IpAddressType | None
+    IdentityProviderType: IdentityProviderType | None
 
 
 class UpdateServerResponse(TypedDict, total=False):
@@ -1943,12 +2069,12 @@ class UpdateServerResponse(TypedDict, total=False):
 
 
 class UpdateUserRequest(ServiceRequest):
-    HomeDirectory: Optional[HomeDirectory]
-    HomeDirectoryType: Optional[HomeDirectoryType]
-    HomeDirectoryMappings: Optional[HomeDirectoryMappings]
-    Policy: Optional[Policy]
-    PosixProfile: Optional[PosixProfile]
-    Role: Optional[Role]
+    HomeDirectory: HomeDirectory | None
+    HomeDirectoryType: HomeDirectoryType | None
+    HomeDirectoryMappings: HomeDirectoryMappings | None
+    Policy: Policy | None
+    PosixProfile: PosixProfile | None
+    Role: Role | None
     ServerId: ServerId
     UserName: UserName
 
@@ -1964,13 +2090,29 @@ class UpdateUserResponse(TypedDict, total=False):
 
 class UpdateWebAppCustomizationRequest(ServiceRequest):
     WebAppId: WebAppId
-    Title: Optional[WebAppTitle]
-    LogoFile: Optional[WebAppLogoFile]
-    FaviconFile: Optional[WebAppFaviconFile]
+    Title: WebAppTitle | None
+    LogoFile: WebAppLogoFile | None
+    FaviconFile: WebAppFaviconFile | None
 
 
 class UpdateWebAppCustomizationResponse(TypedDict, total=False):
     WebAppId: WebAppId
+
+
+class UpdateWebAppVpcConfig(TypedDict, total=False):
+    """Contains the VPC configuration settings for updating a web app endpoint,
+    including the subnet IDs where the endpoint should be deployed.
+    """
+
+    SubnetIds: SubnetIds | None
+
+
+class UpdateWebAppEndpointDetails(TypedDict, total=False):
+    """Contains the endpoint configuration details for updating a web app,
+    including VPC settings for endpoints hosted within a VPC.
+    """
+
+    Vpc: UpdateWebAppVpcConfig | None
 
 
 class UpdateWebAppIdentityCenterConfig(TypedDict, total=False):
@@ -1978,20 +2120,21 @@ class UpdateWebAppIdentityCenterConfig(TypedDict, total=False):
     settings when you update a web app.
     """
 
-    Role: Optional[Role]
+    Role: Role | None
 
 
 class UpdateWebAppIdentityProviderDetails(TypedDict, total=False):
     """A union that contains the ``UpdateWebAppIdentityCenterConfig`` object."""
 
-    IdentityCenterConfig: Optional[UpdateWebAppIdentityCenterConfig]
+    IdentityCenterConfig: UpdateWebAppIdentityCenterConfig | None
 
 
 class UpdateWebAppRequest(ServiceRequest):
     WebAppId: WebAppId
-    IdentityProviderDetails: Optional[UpdateWebAppIdentityProviderDetails]
-    AccessEndpoint: Optional[WebAppAccessEndpoint]
-    WebAppUnits: Optional[WebAppUnits]
+    IdentityProviderDetails: UpdateWebAppIdentityProviderDetails | None
+    AccessEndpoint: WebAppAccessEndpoint | None
+    WebAppUnits: WebAppUnits | None
+    EndpointDetails: UpdateWebAppEndpointDetails | None
 
 
 class UpdateWebAppResponse(TypedDict, total=False):
@@ -1999,8 +2142,8 @@ class UpdateWebAppResponse(TypedDict, total=False):
 
 
 class TransferApi:
-    service = "transfer"
-    version = "2018-11-05"
+    service: str = "transfer"
+    version: str = "2018-11-05"
 
     @handler("CreateAccess")
     def create_access(
@@ -2110,13 +2253,14 @@ class TransferApi:
     def create_connector(
         self,
         context: RequestContext,
-        url: Url,
         access_role: Role,
+        url: Url | None = None,
         as2_config: As2ConnectorConfig | None = None,
         logging_role: Role | None = None,
         tags: Tags | None = None,
         sftp_config: SftpConnectorConfig | None = None,
         security_policy_name: ConnectorSecurityPolicyName | None = None,
+        egress_config: ConnectorEgressConfig | None = None,
         **kwargs,
     ) -> CreateConnectorResponse:
         """Creates the connector, which captures the parameters for a connection
@@ -2132,8 +2276,8 @@ class TransferApi:
         You must specify exactly one configuration object: either for AS2
         (``As2Config``) or SFTP (``SftpConfig``).
 
-        :param url: The URL of the partner's AS2 or SFTP endpoint.
         :param access_role: Connectors are used to send files using either the AS2 or SFTP protocol.
+        :param url: The URL of the partner's AS2 or SFTP endpoint.
         :param as2_config: A structure that contains the parameters for an AS2 connector object.
         :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management
         (IAM) role that allows a connector to turn on CloudWatch logging for
@@ -2141,6 +2285,8 @@ class TransferApi:
         :param tags: Key-value pairs that can be used to group and search for connectors.
         :param sftp_config: A structure that contains the parameters for an SFTP connector object.
         :param security_policy_name: Specifies the name of the security policy for the connector.
+        :param egress_config: Specifies the egress configuration for the connector, which determines
+        how traffic is routed from the connector to the SFTP server.
         :returns: CreateConnectorResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -2313,10 +2459,16 @@ class TransferApi:
         web_app_units: WebAppUnits | None = None,
         tags: Tags | None = None,
         web_app_endpoint_policy: WebAppEndpointPolicy | None = None,
+        endpoint_details: WebAppEndpointDetails | None = None,
         **kwargs,
     ) -> CreateWebAppResponse:
         """Creates a web app based on specified parameters, and returns the ID for
-        the new web app.
+        the new web app. You can configure the web app to be publicly accessible
+        or hosted within a VPC.
+
+        For more information about using VPC endpoints with Transfer Family, see
+        `Create a Transfer Family web app in a
+        VPC <https://docs.aws.amazon.com/transfer/latest/userguide/create-webapp-in-vpc.html>`__.
 
         :param identity_provider_details: You can provide a structure that contains the details for the identity
         provider to use with your web app.
@@ -2326,6 +2478,7 @@ class TransferApi:
         the user sessions on your web app.
         :param tags: Key-value pairs that can be used to group and search for web apps.
         :param web_app_endpoint_policy: Setting for the type of endpoint policy for the web app.
+        :param endpoint_details: The endpoint configuration for the web app.
         :returns: CreateWebAppResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -2608,6 +2761,12 @@ class TransferApi:
     ) -> DescribeCertificateResponse:
         """Describes the certificate that's identified by the ``CertificateId``.
 
+        Transfer Family automatically publishes a Amazon CloudWatch metric
+        called ``DaysUntilExpiry`` for imported certificates. This metric tracks
+        the number of days until the certificate expires based on the
+        ``InactiveDate``. The metric is available in the ``AWS/Transfer``
+        namespace and includes the ``CertificateId`` as a dimension.
+
         :param certificate_id: An array of identifiers for the imported certificates.
         :returns: DescribeCertificateResponse
         :raises ResourceNotFoundException:
@@ -2756,7 +2915,13 @@ class TransferApi:
     def describe_web_app(
         self, context: RequestContext, web_app_id: WebAppId, **kwargs
     ) -> DescribeWebAppResponse:
-        """Describes the web app that's identified by ``WebAppId``.
+        """Describes the web app that's identified by ``WebAppId``. The response
+        includes endpoint configuration details such as whether the web app is
+        publicly accessible or VPC hosted.
+
+        For more information about using VPC endpoints with Transfer Family, see
+        `Create a Transfer Family web app in a
+        VPC <https://docs.aws.amazon.com/transfer/latest/userguide/create-webapp-in-vpc.html>`__.
 
         :param web_app_id: Provide the unique identifier for the web app.
         :returns: DescribeWebAppResponse
@@ -2820,8 +2985,30 @@ class TransferApi:
         You can import both the certificate and its chain in the ``Certificate``
         parameter.
 
+        After importing a certificate, Transfer Family automatically creates a
+        Amazon CloudWatch metric called ``DaysUntilExpiry`` that tracks the
+        number of days until the certificate expires. The metric is based on the
+        ``InactiveDate`` parameter and is published daily in the
+        ``AWS/Transfer`` namespace.
+
+        It can take up to a full day after importing a certificate for Transfer
+        Family to emit the ``DaysUntilExpiry`` metric to your account.
+
         If you use the ``Certificate`` parameter to upload both the certificate
         and its chain, don't use the ``CertificateChain`` parameter.
+
+        **CloudWatch monitoring**
+
+        The ``DaysUntilExpiry`` metric includes the following specifications:
+
+        -  **Units:** Count (days)
+
+        -  **Dimensions:** ``CertificateId`` (always present), ``Description``
+           (if provided during certificate import)
+
+        -  **Statistics:** Minimum, Maximum, Average
+
+        -  **Frequency:** Published daily
 
         :param usage: Specifies how this certificate is used.
         :param certificate: -  For the CLI, provide a file path for a certificate in URI format.
@@ -3226,7 +3413,12 @@ class TransferApi:
         **kwargs,
     ) -> ListWebAppsResponse:
         """Lists all web apps associated with your Amazon Web Services account for
-        your current region.
+        your current region. The response includes the endpoint type for each
+        web app, showing whether it is publicly accessible or VPC hosted.
+
+        For more information about using VPC endpoints with Transfer Family, see
+        `Create a Transfer Family web app in a
+        VPC <https://docs.aws.amazon.com/transfer/latest/userguide/create-webapp-in-vpc.html>`__.
 
         :param max_results: The maximum number of items to return.
         :param next_token: Returns the ``NextToken`` parameter in the output.
@@ -3752,6 +3944,7 @@ class TransferApi:
         logging_role: Role | None = None,
         sftp_config: SftpConnectorConfig | None = None,
         security_policy_name: ConnectorSecurityPolicyName | None = None,
+        egress_config: UpdateConnectorEgressConfig | None = None,
         **kwargs,
     ) -> UpdateConnectorResponse:
         """Updates some of the parameters for an existing connector. Provide the
@@ -3767,6 +3960,8 @@ class TransferApi:
         Amazon S3 events.
         :param sftp_config: A structure that contains the parameters for an SFTP connector object.
         :param security_policy_name: Specifies the name of the security policy for the connector.
+        :param egress_config: Updates the egress configuration for the connector, allowing you to
+        modify how traffic is routed from the connector to the SFTP server.
         :returns: UpdateConnectorResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -3845,6 +4040,7 @@ class TransferApi:
         structured_log_destinations: StructuredLogDestinations | None = None,
         s3_storage_options: S3StorageOptions | None = None,
         ip_address_type: IpAddressType | None = None,
+        identity_provider_type: IdentityProviderType | None = None,
         **kwargs,
     ) -> UpdateServerResponse:
         """Updates the file transfer protocol-enabled server's properties after
@@ -3880,6 +4076,7 @@ class TransferApi:
         optimized.
         :param ip_address_type: Specifies whether to use IPv4 only, or to use dual-stack (IPv4 and IPv6)
         for your Transfer Family endpoint.
+        :param identity_provider_type: The mode of authentication for a server.
         :returns: UpdateServerResponse
         :raises ConflictException:
         :raises ResourceNotFoundException:
@@ -3963,10 +4160,16 @@ class TransferApi:
         identity_provider_details: UpdateWebAppIdentityProviderDetails | None = None,
         access_endpoint: WebAppAccessEndpoint | None = None,
         web_app_units: WebAppUnits | None = None,
+        endpoint_details: UpdateWebAppEndpointDetails | None = None,
         **kwargs,
     ) -> UpdateWebAppResponse:
         """Assigns new properties to a web app. You can modify the access point,
-        identity provider details, and the web app units.
+        identity provider details, endpoint configuration, and the web app
+        units.
+
+        For more information about using VPC endpoints with Transfer Family, see
+        `Create a Transfer Family web app in a
+        VPC <https://docs.aws.amazon.com/transfer/latest/userguide/create-webapp-in-vpc.html>`__.
 
         :param web_app_id: Provide the identifier of the web app that you are updating.
         :param identity_provider_details: Provide updated identity provider values in a
@@ -3975,6 +4178,7 @@ class TransferApi:
         them to interact with the Transfer Family web app.
         :param web_app_units: A union that contains the value for number of concurrent connections or
         the user sessions on your web app.
+        :param endpoint_details: The updated endpoint configuration for the web app.
         :returns: UpdateWebAppResponse
         :raises ConflictException:
         :raises ResourceNotFoundException:

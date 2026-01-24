@@ -3,7 +3,7 @@ Type annotations for securitylake service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securitylake/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -82,12 +83,6 @@ from .type_defs import (
     UpdateSubscriberResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -96,13 +91,13 @@ else:
 __all__ = ("SecurityLakeClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 class SecurityLakeClient(AioBaseClient):
     """
@@ -174,7 +169,7 @@ class SecurityLakeClient(AioBaseClient):
 
     async def create_data_lake_exception_subscription(
         self, **kwargs: Unpack[CreateDataLakeExceptionSubscriptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates the specified notification subscription in Amazon Security Lake for the
         organization you specify.
@@ -185,7 +180,7 @@ class SecurityLakeClient(AioBaseClient):
 
     async def create_data_lake_organization_configuration(
         self, **kwargs: Unpack[CreateDataLakeOrganizationConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Automatically enables Amazon Security Lake for new member accounts in your
         organization.
@@ -229,7 +224,7 @@ class SecurityLakeClient(AioBaseClient):
 
     async def delete_custom_log_source(
         self, **kwargs: Unpack[DeleteCustomLogSourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a custom log source from Amazon Security Lake, to stop sending data
         from the custom source to Security Lake.
@@ -240,7 +235,7 @@ class SecurityLakeClient(AioBaseClient):
 
     async def delete_data_lake(
         self, **kwargs: Unpack[DeleteDataLakeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         When you disable Amazon Security Lake from your account, Security Lake is
         disabled in all Amazon Web Services Regions and it stops collecting data from
@@ -250,7 +245,7 @@ class SecurityLakeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securitylake/client/#delete_data_lake)
         """
 
-    async def delete_data_lake_exception_subscription(self) -> Dict[str, Any]:
+    async def delete_data_lake_exception_subscription(self) -> dict[str, Any]:
         """
         Deletes the specified notification subscription in Amazon Security Lake for the
         organization you specify.
@@ -261,7 +256,7 @@ class SecurityLakeClient(AioBaseClient):
 
     async def delete_data_lake_organization_configuration(
         self, **kwargs: Unpack[DeleteDataLakeOrganizationConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Turns off automatic enablement of Amazon Security Lake for member accounts that
         are added to an organization in Organizations.
@@ -272,7 +267,7 @@ class SecurityLakeClient(AioBaseClient):
 
     async def delete_subscriber(
         self, **kwargs: Unpack[DeleteSubscriberRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the subscription permission and all notification settings for accounts
         that are already enabled in Amazon Security Lake.
@@ -283,7 +278,7 @@ class SecurityLakeClient(AioBaseClient):
 
     async def delete_subscriber_notification(
         self, **kwargs: Unpack[DeleteSubscriberNotificationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified subscription notification in Amazon Security Lake for the
         organization you specify.
@@ -292,7 +287,7 @@ class SecurityLakeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securitylake/client/#delete_subscriber_notification)
         """
 
-    async def deregister_data_lake_delegated_administrator(self) -> Dict[str, Any]:
+    async def deregister_data_lake_delegated_administrator(self) -> dict[str, Any]:
         """
         Deletes the Amazon Security Lake delegated administrator account for the
         organization.
@@ -402,7 +397,7 @@ class SecurityLakeClient(AioBaseClient):
 
     async def register_data_lake_delegated_administrator(
         self, **kwargs: Unpack[RegisterDataLakeDelegatedAdministratorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Designates the Amazon Security Lake delegated administrator account for the
         organization.
@@ -411,7 +406,7 @@ class SecurityLakeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securitylake/client/#register_data_lake_delegated_administrator)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or updates one or more tags that are associated with an Amazon Security
         Lake resource: a subscriber, or the data lake configuration for your Amazon Web
@@ -421,7 +416,7 @@ class SecurityLakeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securitylake/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags (keys and values) from an Amazon Security Lake
         resource: a subscriber, or the data lake configuration for your Amazon Web
@@ -444,7 +439,7 @@ class SecurityLakeClient(AioBaseClient):
 
     async def update_data_lake_exception_subscription(
         self, **kwargs: Unpack[UpdateDataLakeExceptionSubscriptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the specified notification subscription in Amazon Security Lake for the
         organization you specify.
@@ -526,7 +521,7 @@ class SecurityLakeClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

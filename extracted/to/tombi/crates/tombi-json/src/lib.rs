@@ -2,7 +2,7 @@ mod node;
 mod parser;
 
 pub use node::{ArrayNode, BoolNode, NullNode, NumberNode, ObjectNode, StringNode, ValueNode};
-pub use parser::{parse, Error as ParserError};
+pub use parser::{Error as ParserError, parse};
 pub use tombi_json_value::{Number, Object, Value};
 pub use tombi_text::Range;
 
@@ -136,7 +136,7 @@ impl<'de> SerdeDeserializer<'de> for ValueNodeDeserializer<'de> {
         V: Visitor<'de>,
     {
         match &self.node {
-            ValueNode::Number(ref n) => {
+            ValueNode::Number(n) => {
                 if let Some(i) = n.value.as_i64() {
                     visitor.visit_i64(i)
                 } else if let Some(f) = n.value.as_f64() {
@@ -181,7 +181,7 @@ impl<'de> SerdeDeserializer<'de> for ValueNodeDeserializer<'de> {
         V: Visitor<'de>,
     {
         match &self.node {
-            ValueNode::Number(ref n) => {
+            ValueNode::Number(n) => {
                 if let Some(i) = n.value.as_i64() {
                     if i >= 0 {
                         visitor.visit_u64(i as u64)
@@ -224,7 +224,7 @@ impl<'de> SerdeDeserializer<'de> for ValueNodeDeserializer<'de> {
         V: Visitor<'de>,
     {
         match &self.node {
-            ValueNode::Number(ref n) => {
+            ValueNode::Number(n) => {
                 if let Some(f) = n.value.as_f64() {
                     visitor.visit_f64(f)
                 } else if let Some(i) = n.value.as_i64() {
@@ -248,7 +248,7 @@ impl<'de> SerdeDeserializer<'de> for ValueNodeDeserializer<'de> {
         V: Visitor<'de>,
     {
         match &self.node {
-            ValueNode::String(ref s) => {
+            ValueNode::String(s) => {
                 let mut chars = s.value.chars();
                 match (chars.next(), chars.next()) {
                     (Some(c), None) => visitor.visit_char(c),

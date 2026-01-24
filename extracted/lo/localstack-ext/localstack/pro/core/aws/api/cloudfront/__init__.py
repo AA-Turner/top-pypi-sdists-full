@@ -1,10 +1,12 @@
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
-from typing import IO, Iterable, List, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
 AnycastIpListName = str
+CaCertificatesBundleS3LocationRegionString = str
 CommentType = str
 CreateDistributionTenantRequestNameString = str
 FunctionARN = str
@@ -17,6 +19,7 @@ OriginShieldRegion = str
 ParameterName = str
 ParameterValue = str
 ResourceARN = str
+ResourceId = str
 SamplingRate = float
 ServerCertificateId = str
 TagKey = str
@@ -152,6 +155,21 @@ class IpAddressType(StrEnum):
     dualstack = "dualstack"
 
 
+class IpamCidrStatus(StrEnum):
+    provisioned = "provisioned"
+    failed_provision = "failed-provision"
+    provisioning = "provisioning"
+    deprovisioned = "deprovisioned"
+    failed_deprovision = "failed-deprovision"
+    deprovisioning = "deprovisioning"
+    advertised = "advertised"
+    failed_advertise = "failed-advertise"
+    advertising = "advertising"
+    withdrawn = "withdrawn"
+    failed_withdraw = "failed-withdraw"
+    withdrawing = "withdrawing"
+
+
 class ItemSelection(StrEnum):
     none = "none"
     whitelist = "whitelist"
@@ -187,6 +205,7 @@ class MinimumProtocolVersion(StrEnum):
     TLSv1_2_2019 = "TLSv1.2_2019"
     TLSv1_2_2021 = "TLSv1.2_2021"
     TLSv1_3_2025 = "TLSv1.3_2025"
+    TLSv1_2_2025 = "TLSv1.2_2025"
 
 
 class OriginAccessControlOriginTypes(StrEnum):
@@ -296,9 +315,20 @@ class SslProtocol(StrEnum):
     TLSv1_2 = "TLSv1.2"
 
 
+class TrustStoreStatus(StrEnum):
+    pending = "pending"
+    active = "active"
+    failed = "failed"
+
+
 class ValidationTokenHost(StrEnum):
     cloudfront = "cloudfront"
     self_hosted = "self-hosted"
+
+
+class ViewerMtlsMode(StrEnum):
+    required = "required"
+    optional = "optional"
 
 
 class ViewerProtocolPolicy(StrEnum):
@@ -1755,18 +1785,18 @@ class UnsupportedOperation(ServiceException):
     status_code: int = 400
 
 
-AccessControlAllowHeadersList = List[string]
-AccessControlAllowMethodsList = List[ResponseHeadersPolicyAccessControlAllowMethodsValues]
-AccessControlAllowOriginsList = List[string]
-AccessControlExposeHeadersList = List[string]
-KeyPairIdList = List[string]
+AccessControlAllowHeadersList = list[string]
+AccessControlAllowMethodsList = list[ResponseHeadersPolicyAccessControlAllowMethodsValues]
+AccessControlAllowOriginsList = list[string]
+AccessControlExposeHeadersList = list[string]
+KeyPairIdList = list[string]
 
 
 class KeyPairIds(TypedDict, total=False):
     """A list of CloudFront key pair identifiers."""
 
     Quantity: integer
-    Items: Optional[KeyPairIdList]
+    Items: KeyPairIdList | None
 
 
 class KGKeyPairIds(TypedDict, total=False):
@@ -1774,11 +1804,11 @@ class KGKeyPairIds(TypedDict, total=False):
     verify the signatures of signed URLs and signed cookies.
     """
 
-    KeyGroupId: Optional[string]
-    KeyPairIds: Optional[KeyPairIds]
+    KeyGroupId: string | None
+    KeyPairIds: KeyPairIds | None
 
 
-KGKeyPairIdsList = List[KGKeyPairIds]
+KGKeyPairIdsList = list[KGKeyPairIds]
 
 
 class ActiveTrustedKeyGroups(TypedDict, total=False):
@@ -1789,7 +1819,7 @@ class ActiveTrustedKeyGroups(TypedDict, total=False):
 
     Enabled: boolean
     Quantity: integer
-    Items: Optional[KGKeyPairIdsList]
+    Items: KGKeyPairIdsList | None
 
 
 class Signer(TypedDict, total=False):
@@ -1798,11 +1828,11 @@ class Signer(TypedDict, total=False):
     of signed URLs and signed cookies.
     """
 
-    AwsAccountNumber: Optional[string]
-    KeyPairIds: Optional[KeyPairIds]
+    AwsAccountNumber: string | None
+    KeyPairIds: KeyPairIds | None
 
 
-SignerList = List[Signer]
+SignerList = list[Signer]
 
 
 class ActiveTrustedSigners(TypedDict, total=False):
@@ -1813,7 +1843,7 @@ class ActiveTrustedSigners(TypedDict, total=False):
 
     Enabled: boolean
     Quantity: integer
-    Items: Optional[SignerList]
+    Items: SignerList | None
 
 
 class AliasICPRecordal(TypedDict, total=False):
@@ -1829,12 +1859,12 @@ class AliasICPRecordal(TypedDict, total=False):
     in *Getting Started with Amazon Web Services services in China*.
     """
 
-    CNAME: Optional[string]
-    ICPRecordalStatus: Optional[ICPRecordalStatus]
+    CNAME: string | None
+    ICPRecordalStatus: ICPRecordalStatus | None
 
 
-AliasICPRecordals = List[AliasICPRecordal]
-AliasList = List[string]
+AliasICPRecordals = list[AliasICPRecordal]
+AliasList = list[string]
 
 
 class Aliases(TypedDict, total=False):
@@ -1843,10 +1873,10 @@ class Aliases(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[AliasList]
+    Items: AliasList | None
 
 
-MethodsList = List[Method]
+MethodsList = list[Method]
 
 
 class CachedMethods(TypedDict, total=False):
@@ -1887,11 +1917,34 @@ class AllowedMethods(TypedDict, total=False):
 
     Quantity: integer
     Items: MethodsList
-    CachedMethods: Optional[CachedMethods]
+    CachedMethods: CachedMethods | None
 
 
 timestamp = datetime
-AnycastIps = List[string]
+AnycastIps = list[string]
+
+
+class IpamCidrConfig(TypedDict, total=False):
+    """Configuration for an IPAM CIDR that defines a specific IP address range,
+    IPAM pool, and associated Anycast IP address.
+    """
+
+    Cidr: string
+    IpamPoolArn: string
+    AnycastIp: string | None
+    Status: IpamCidrStatus | None
+
+
+IpamCidrConfigList = list[IpamCidrConfig]
+
+
+class IpamConfig(TypedDict, total=False):
+    """The configuration IPAM settings that includes the quantity of CIDR
+    configurations and the list of IPAM CIDR configurations.
+    """
+
+    Quantity: integer
+    IpamCidrConfigs: IpamCidrConfigList
 
 
 class AnycastIpList(TypedDict, total=False):
@@ -1905,6 +1958,8 @@ class AnycastIpList(TypedDict, total=False):
     Name: AnycastIpListName
     Status: string
     Arn: string
+    IpAddressType: IpAddressType | None
+    IpamConfig: IpamConfig | None
     AnycastIps: AnycastIps
     IpCount: integer
     LastModifiedTime: timestamp
@@ -1921,17 +1976,20 @@ class AnycastIpListSummary(TypedDict, total=False):
     Arn: string
     IpCount: integer
     LastModifiedTime: timestamp
+    IpAddressType: IpAddressType | None
+    ETag: string | None
+    IpamConfig: IpamConfig | None
 
 
-AnycastIpListSummaries = List[AnycastIpListSummary]
+AnycastIpListSummaries = list[AnycastIpListSummary]
 
 
 class AnycastIpListCollection(TypedDict, total=False):
     """The Anycast static IP list collection."""
 
-    Items: Optional[AnycastIpListSummaries]
+    Items: AnycastIpListSummaries | None
     Marker: string
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     IsTruncated: boolean
     Quantity: integer
@@ -1945,30 +2003,47 @@ class AssociateAliasRequest(ServiceRequest):
 class AssociateDistributionTenantWebACLRequest(ServiceRequest):
     Id: string
     WebACLArn: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class AssociateDistributionTenantWebACLResult(TypedDict, total=False):
-    Id: Optional[string]
-    WebACLArn: Optional[string]
-    ETag: Optional[string]
+    Id: string | None
+    WebACLArn: string | None
+    ETag: string | None
 
 
 class AssociateDistributionWebACLRequest(ServiceRequest):
     Id: string
     WebACLArn: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class AssociateDistributionWebACLResult(TypedDict, total=False):
-    Id: Optional[string]
-    WebACLArn: Optional[string]
-    ETag: Optional[string]
+    Id: string | None
+    WebACLArn: string | None
+    ETag: string | None
 
 
-AwsAccountNumberList = List[string]
+AwsAccountNumberList = list[string]
+
+
+class CaCertificatesBundleS3Location(TypedDict, total=False):
+    """The CA certificates bundle location in Amazon S3."""
+
+    Bucket: string
+    Key: string
+    Region: CaCertificatesBundleS3LocationRegionString
+    Version: string | None
+
+
+class CaCertificatesBundleSource(TypedDict, total=False):
+    """A CA certificates bundle source."""
+
+    CaCertificatesBundleS3Location: CaCertificatesBundleS3Location | None
+
+
 long = int
-QueryStringCacheKeysList = List[string]
+QueryStringCacheKeysList = list[string]
 
 
 class QueryStringCacheKeys(TypedDict, total=False):
@@ -1988,27 +2063,27 @@ class QueryStringCacheKeys(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[QueryStringCacheKeysList]
+    Items: QueryStringCacheKeysList | None
 
 
-HeaderList = List[string]
+HeaderList = list[string]
 
 
 class Headers(TypedDict, total=False):
     """Contains a list of HTTP header names."""
 
     Quantity: integer
-    Items: Optional[HeaderList]
+    Items: HeaderList | None
 
 
-CookieNameList = List[string]
+CookieNameList = list[string]
 
 
 class CookieNames(TypedDict, total=False):
     """Contains a list of cookie names."""
 
     Quantity: integer
-    Items: Optional[CookieNameList]
+    Items: CookieNameList | None
 
 
 class CookiePreference(TypedDict, total=False):
@@ -2030,7 +2105,7 @@ class CookiePreference(TypedDict, total=False):
     """
 
     Forward: ItemSelection
-    WhitelistedNames: Optional[CookieNames]
+    WhitelistedNames: CookieNames | None
 
 
 class ForwardedValues(TypedDict, total=False):
@@ -2060,8 +2135,8 @@ class ForwardedValues(TypedDict, total=False):
 
     QueryString: boolean
     Cookies: CookiePreference
-    Headers: Optional[Headers]
-    QueryStringCacheKeys: Optional[QueryStringCacheKeys]
+    Headers: Headers | None
+    QueryStringCacheKeys: QueryStringCacheKeys | None
 
 
 class GrpcConfig(TypedDict, total=False):
@@ -2091,7 +2166,7 @@ class FunctionAssociation(TypedDict, total=False):
     EventType: EventType
 
 
-FunctionAssociationList = List[FunctionAssociation]
+FunctionAssociationList = list[FunctionAssociation]
 
 
 class FunctionAssociations(TypedDict, total=False):
@@ -2101,7 +2176,7 @@ class FunctionAssociations(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[FunctionAssociationList]
+    Items: FunctionAssociationList | None
 
 
 class LambdaFunctionAssociation(TypedDict, total=False):
@@ -2109,10 +2184,10 @@ class LambdaFunctionAssociation(TypedDict, total=False):
 
     LambdaFunctionARN: LambdaFunctionARN
     EventType: EventType
-    IncludeBody: Optional[boolean]
+    IncludeBody: boolean | None
 
 
-LambdaFunctionAssociationList = List[LambdaFunctionAssociation]
+LambdaFunctionAssociationList = list[LambdaFunctionAssociation]
 
 
 class LambdaFunctionAssociations(TypedDict, total=False):
@@ -2132,10 +2207,10 @@ class LambdaFunctionAssociations(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[LambdaFunctionAssociationList]
+    Items: LambdaFunctionAssociationList | None
 
 
-TrustedKeyGroupIdList = List[string]
+TrustedKeyGroupIdList = list[string]
 
 
 class TrustedKeyGroups(TypedDict, total=False):
@@ -2145,7 +2220,7 @@ class TrustedKeyGroups(TypedDict, total=False):
 
     Enabled: boolean
     Quantity: integer
-    Items: Optional[TrustedKeyGroupIdList]
+    Items: TrustedKeyGroupIdList | None
 
 
 class TrustedSigners(TypedDict, total=False):
@@ -2155,7 +2230,7 @@ class TrustedSigners(TypedDict, total=False):
 
     Enabled: boolean
     Quantity: integer
-    Items: Optional[AwsAccountNumberList]
+    Items: AwsAccountNumberList | None
 
 
 class CacheBehavior(TypedDict, total=False):
@@ -2200,44 +2275,44 @@ class CacheBehavior(TypedDict, total=False):
 
     PathPattern: string
     TargetOriginId: string
-    TrustedSigners: Optional[TrustedSigners]
-    TrustedKeyGroups: Optional[TrustedKeyGroups]
+    TrustedSigners: TrustedSigners | None
+    TrustedKeyGroups: TrustedKeyGroups | None
     ViewerProtocolPolicy: ViewerProtocolPolicy
-    AllowedMethods: Optional[AllowedMethods]
-    SmoothStreaming: Optional[boolean]
-    Compress: Optional[boolean]
-    LambdaFunctionAssociations: Optional[LambdaFunctionAssociations]
-    FunctionAssociations: Optional[FunctionAssociations]
-    FieldLevelEncryptionId: Optional[string]
-    RealtimeLogConfigArn: Optional[string]
-    CachePolicyId: Optional[string]
-    OriginRequestPolicyId: Optional[string]
-    ResponseHeadersPolicyId: Optional[string]
-    GrpcConfig: Optional[GrpcConfig]
-    ForwardedValues: Optional[ForwardedValues]
-    MinTTL: Optional[long]
-    DefaultTTL: Optional[long]
-    MaxTTL: Optional[long]
+    AllowedMethods: AllowedMethods | None
+    SmoothStreaming: boolean | None
+    Compress: boolean | None
+    LambdaFunctionAssociations: LambdaFunctionAssociations | None
+    FunctionAssociations: FunctionAssociations | None
+    FieldLevelEncryptionId: string | None
+    RealtimeLogConfigArn: string | None
+    CachePolicyId: string | None
+    OriginRequestPolicyId: string | None
+    ResponseHeadersPolicyId: string | None
+    GrpcConfig: GrpcConfig | None
+    ForwardedValues: ForwardedValues | None
+    MinTTL: long | None
+    DefaultTTL: long | None
+    MaxTTL: long | None
 
 
-CacheBehaviorList = List[CacheBehavior]
+CacheBehaviorList = list[CacheBehavior]
 
 
 class CacheBehaviors(TypedDict, total=False):
     """A complex type that contains zero or more ``CacheBehavior`` elements."""
 
     Quantity: integer
-    Items: Optional[CacheBehaviorList]
+    Items: CacheBehaviorList | None
 
 
-QueryStringNamesList = List[string]
+QueryStringNamesList = list[string]
 
 
 class QueryStringNames(TypedDict, total=False):
     """Contains a list of query string names."""
 
     Quantity: integer
-    Items: Optional[QueryStringNamesList]
+    Items: QueryStringNamesList | None
 
 
 class CachePolicyQueryStringsConfig(TypedDict, total=False):
@@ -2247,7 +2322,7 @@ class CachePolicyQueryStringsConfig(TypedDict, total=False):
     """
 
     QueryStringBehavior: CachePolicyQueryStringBehavior
-    QueryStrings: Optional[QueryStringNames]
+    QueryStrings: QueryStringNames | None
 
 
 class CachePolicyCookiesConfig(TypedDict, total=False):
@@ -2257,7 +2332,7 @@ class CachePolicyCookiesConfig(TypedDict, total=False):
     """
 
     CookieBehavior: CachePolicyCookieBehavior
-    Cookies: Optional[CookieNames]
+    Cookies: CookieNames | None
 
 
 class CachePolicyHeadersConfig(TypedDict, total=False):
@@ -2267,7 +2342,7 @@ class CachePolicyHeadersConfig(TypedDict, total=False):
     """
 
     HeaderBehavior: CachePolicyHeaderBehavior
-    Headers: Optional[Headers]
+    Headers: Headers | None
 
 
 class ParametersInCacheKeyAndForwardedToOrigin(TypedDict, total=False):
@@ -2285,7 +2360,7 @@ class ParametersInCacheKeyAndForwardedToOrigin(TypedDict, total=False):
     """
 
     EnableAcceptEncodingGzip: boolean
-    EnableAcceptEncodingBrotli: Optional[boolean]
+    EnableAcceptEncodingBrotli: boolean | None
     HeadersConfig: CachePolicyHeadersConfig
     CookiesConfig: CachePolicyCookiesConfig
     QueryStringsConfig: CachePolicyQueryStringsConfig
@@ -2317,12 +2392,12 @@ class CachePolicyConfig(TypedDict, total=False):
     ``OriginRequestPolicy``.
     """
 
-    Comment: Optional[string]
+    Comment: string | None
     Name: string
-    DefaultTTL: Optional[long]
-    MaxTTL: Optional[long]
+    DefaultTTL: long | None
+    MaxTTL: long | None
     MinTTL: long
-    ParametersInCacheKeyAndForwardedToOrigin: Optional[ParametersInCacheKeyAndForwardedToOrigin]
+    ParametersInCacheKeyAndForwardedToOrigin: ParametersInCacheKeyAndForwardedToOrigin | None
 
 
 class CachePolicy(TypedDict, total=False):
@@ -2359,16 +2434,16 @@ class CachePolicySummary(TypedDict, total=False):
     CachePolicy: CachePolicy
 
 
-CachePolicySummaryList = List[CachePolicySummary]
+CachePolicySummaryList = list[CachePolicySummary]
 
 
 class CachePolicyList(TypedDict, total=False):
     """A list of cache policies."""
 
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     Quantity: integer
-    Items: Optional[CachePolicySummaryList]
+    Items: CachePolicySummaryList | None
 
 
 class Certificate(TypedDict, total=False):
@@ -2393,7 +2468,7 @@ class CloudFrontOriginAccessIdentity(TypedDict, total=False):
 
     Id: string
     S3CanonicalUserId: string
-    CloudFrontOriginAccessIdentityConfig: Optional[CloudFrontOriginAccessIdentityConfig]
+    CloudFrontOriginAccessIdentityConfig: CloudFrontOriginAccessIdentityConfig | None
 
 
 class CloudFrontOriginAccessIdentitySummary(TypedDict, total=False):
@@ -2404,7 +2479,7 @@ class CloudFrontOriginAccessIdentitySummary(TypedDict, total=False):
     Comment: string
 
 
-CloudFrontOriginAccessIdentitySummaryList = List[CloudFrontOriginAccessIdentitySummary]
+CloudFrontOriginAccessIdentitySummaryList = list[CloudFrontOriginAccessIdentitySummary]
 
 
 class CloudFrontOriginAccessIdentityList(TypedDict, total=False):
@@ -2418,11 +2493,11 @@ class CloudFrontOriginAccessIdentityList(TypedDict, total=False):
     """
 
     Marker: string
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     IsTruncated: boolean
     Quantity: integer
-    Items: Optional[CloudFrontOriginAccessIdentitySummaryList]
+    Items: CloudFrontOriginAccessIdentitySummaryList | None
 
 
 class ConflictingAlias(TypedDict, total=False):
@@ -2433,12 +2508,12 @@ class ConflictingAlias(TypedDict, total=False):
     and helps to protect the information of ones that you don't own.
     """
 
-    Alias: Optional[string]
-    DistributionId: Optional[string]
-    AccountId: Optional[string]
+    Alias: string | None
+    DistributionId: string | None
+    AccountId: string | None
 
 
-ConflictingAliases = List[ConflictingAlias]
+ConflictingAliases = list[ConflictingAlias]
 
 
 class ConflictingAliasesList(TypedDict, total=False):
@@ -2450,26 +2525,83 @@ class ConflictingAliasesList(TypedDict, total=False):
     information of ones that you don't own.
     """
 
-    NextMarker: Optional[string]
-    MaxItems: Optional[integer]
-    Quantity: Optional[integer]
-    Items: Optional[ConflictingAliases]
+    NextMarker: string | None
+    MaxItems: integer | None
+    Quantity: integer | None
+    Items: ConflictingAliases | None
+
+
+class ConnectionFunctionAssociation(TypedDict, total=False):
+    """A connection function association."""
+
+    Id: ResourceId
+
+
+class KeyValueStoreAssociation(TypedDict, total=False):
+    """The key value store association."""
+
+    KeyValueStoreARN: KeyValueStoreARN
+
+
+KeyValueStoreAssociationList = list[KeyValueStoreAssociation]
+
+
+class KeyValueStoreAssociations(TypedDict, total=False):
+    """The key value store associations."""
+
+    Quantity: integer
+    Items: KeyValueStoreAssociationList | None
+
+
+class FunctionConfig(TypedDict, total=False):
+    """Contains configuration information about a CloudFront function."""
+
+    Comment: string
+    Runtime: FunctionRuntime
+    KeyValueStoreAssociations: KeyValueStoreAssociations | None
+
+
+class ConnectionFunctionSummary(TypedDict, total=False):
+    """A connection function summary."""
+
+    Name: FunctionName
+    Id: ResourceId
+    ConnectionFunctionConfig: FunctionConfig
+    ConnectionFunctionArn: string
+    Status: string
+    Stage: FunctionStage
+    CreatedTime: timestamp
+    LastModifiedTime: timestamp
+
+
+ConnectionFunctionSummaryList = list[ConnectionFunctionSummary]
+FunctionExecutionLogList = list[string]
+
+
+class ConnectionFunctionTestResult(TypedDict, total=False):
+    """A connection function test result."""
+
+    ConnectionFunctionSummary: ConnectionFunctionSummary | None
+    ComputeUtilization: string | None
+    ConnectionFunctionExecutionLogs: FunctionExecutionLogList | None
+    ConnectionFunctionErrorMessage: sensitiveStringType | None
+    ConnectionFunctionOutput: sensitiveStringType | None
 
 
 class Tag(TypedDict, total=False):
     """A complex type that contains ``Tag`` key and ``Tag`` value."""
 
     Key: TagKey
-    Value: Optional[TagValue]
+    Value: TagValue | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class Tags(TypedDict, total=False):
     """A complex type that contains zero or more ``Tag`` elements."""
 
-    Items: Optional[TagList]
+    Items: TagList | None
 
 
 class ConnectionGroup(TypedDict, total=False):
@@ -2480,18 +2612,18 @@ class ConnectionGroup(TypedDict, total=False):
     group, the default one will be associated with your distribution tenant.
     """
 
-    Id: Optional[string]
-    Name: Optional[string]
-    Arn: Optional[string]
-    CreatedTime: Optional[timestamp]
-    LastModifiedTime: Optional[timestamp]
-    Tags: Optional[Tags]
-    Ipv6Enabled: Optional[boolean]
-    RoutingEndpoint: Optional[string]
-    AnycastIpListId: Optional[string]
-    Status: Optional[string]
-    Enabled: Optional[boolean]
-    IsDefault: Optional[boolean]
+    Id: string | None
+    Name: string | None
+    Arn: string | None
+    CreatedTime: timestamp | None
+    LastModifiedTime: timestamp | None
+    Tags: Tags | None
+    Ipv6Enabled: boolean | None
+    RoutingEndpoint: string | None
+    AnycastIpListId: string | None
+    Status: string | None
+    Enabled: boolean | None
+    IsDefault: boolean | None
 
 
 class ConnectionGroupAssociationFilter(TypedDict, total=False):
@@ -2499,7 +2631,7 @@ class ConnectionGroupAssociationFilter(TypedDict, total=False):
     groups are associated with.
     """
 
-    AnycastIpListId: Optional[string]
+    AnycastIpListId: string | None
 
 
 class ConnectionGroupSummary(TypedDict, total=False):
@@ -2512,31 +2644,31 @@ class ConnectionGroupSummary(TypedDict, total=False):
     CreatedTime: timestamp
     LastModifiedTime: timestamp
     ETag: string
-    AnycastIpListId: Optional[string]
-    Enabled: Optional[boolean]
-    Status: Optional[string]
-    IsDefault: Optional[boolean]
+    AnycastIpListId: string | None
+    Enabled: boolean | None
+    Status: string | None
+    IsDefault: boolean | None
 
 
-ConnectionGroupSummaryList = List[ConnectionGroupSummary]
+ConnectionGroupSummaryList = list[ConnectionGroupSummary]
 
 
 class ContentTypeProfile(TypedDict, total=False):
     """A field-level encryption content type profile."""
 
     Format: Format
-    ProfileId: Optional[string]
+    ProfileId: string | None
     ContentType: string
 
 
-ContentTypeProfileList = List[ContentTypeProfile]
+ContentTypeProfileList = list[ContentTypeProfile]
 
 
 class ContentTypeProfiles(TypedDict, total=False):
     """Field-level encryption content type-profile."""
 
     Quantity: integer
-    Items: Optional[ContentTypeProfileList]
+    Items: ContentTypeProfileList | None
 
 
 class ContentTypeProfileConfig(TypedDict, total=False):
@@ -2545,7 +2677,7 @@ class ContentTypeProfileConfig(TypedDict, total=False):
     """
 
     ForwardWhenContentTypeIsUnknown: boolean
-    ContentTypeProfiles: Optional[ContentTypeProfiles]
+    ContentTypeProfiles: ContentTypeProfiles | None
 
 
 class ContinuousDeploymentSingleHeaderConfig(TypedDict, total=False):
@@ -2575,25 +2707,25 @@ class ContinuousDeploymentSingleWeightConfig(TypedDict, total=False):
     """Contains the percentage of traffic to send to a staging distribution."""
 
     Weight: float
-    SessionStickinessConfig: Optional[SessionStickinessConfig]
+    SessionStickinessConfig: SessionStickinessConfig | None
 
 
 class TrafficConfig(TypedDict, total=False):
     """The traffic configuration of your continuous deployment."""
 
-    SingleWeightConfig: Optional[ContinuousDeploymentSingleWeightConfig]
-    SingleHeaderConfig: Optional[ContinuousDeploymentSingleHeaderConfig]
+    SingleWeightConfig: ContinuousDeploymentSingleWeightConfig | None
+    SingleHeaderConfig: ContinuousDeploymentSingleHeaderConfig | None
     Type: ContinuousDeploymentPolicyType
 
 
-StagingDistributionDnsNameList = List[string]
+StagingDistributionDnsNameList = list[string]
 
 
 class StagingDistributionDnsNames(TypedDict, total=False):
     """The CloudFront domain name of the staging distribution."""
 
     Quantity: integer
-    Items: Optional[StagingDistributionDnsNameList]
+    Items: StagingDistributionDnsNameList | None
 
 
 class ContinuousDeploymentPolicyConfig(TypedDict, total=False):
@@ -2601,7 +2733,7 @@ class ContinuousDeploymentPolicyConfig(TypedDict, total=False):
 
     StagingDistributionDnsNames: StagingDistributionDnsNames
     Enabled: boolean
-    TrafficConfig: Optional[TrafficConfig]
+    TrafficConfig: TrafficConfig | None
 
 
 class ContinuousDeploymentPolicy(TypedDict, total=False):
@@ -2618,38 +2750,53 @@ class ContinuousDeploymentPolicySummary(TypedDict, total=False):
     ContinuousDeploymentPolicy: ContinuousDeploymentPolicy
 
 
-ContinuousDeploymentPolicySummaryList = List[ContinuousDeploymentPolicySummary]
+ContinuousDeploymentPolicySummaryList = list[ContinuousDeploymentPolicySummary]
 
 
 class ContinuousDeploymentPolicyList(TypedDict, total=False):
     """Contains a list of continuous deployment policies."""
 
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     Quantity: integer
-    Items: Optional[ContinuousDeploymentPolicySummaryList]
+    Items: ContinuousDeploymentPolicySummaryList | None
 
 
 class CopyDistributionRequest(ServiceRequest):
     PrimaryDistributionId: string
-    Staging: Optional[boolean]
-    IfMatch: Optional[string]
+    Staging: boolean | None
+    IfMatch: string | None
     CallerReference: string
-    Enabled: Optional[boolean]
+    Enabled: boolean | None
+
+
+class TrustStoreConfig(TypedDict, total=False):
+    """A trust store configuration."""
+
+    TrustStoreId: string
+    AdvertiseTrustStoreCaNames: boolean | None
+    IgnoreCertificateExpiry: boolean | None
+
+
+class ViewerMtlsConfig(TypedDict, total=False):
+    """A viewer mTLS configuration."""
+
+    Mode: ViewerMtlsMode | None
+    TrustStoreConfig: TrustStoreConfig | None
 
 
 class StringSchemaConfig(TypedDict, total=False):
     """The configuration for a string schema."""
 
-    Comment: Optional[sensitiveStringType]
-    DefaultValue: Optional[ParameterValue]
+    Comment: sensitiveStringType | None
+    DefaultValue: ParameterValue | None
     Required: boolean
 
 
 class ParameterDefinitionSchema(TypedDict, total=False):
     """An object that contains information about the parameter definition."""
 
-    StringSchema: Optional[StringSchemaConfig]
+    StringSchema: StringSchemaConfig | None
 
 
 class ParameterDefinition(TypedDict, total=False):
@@ -2663,7 +2810,7 @@ class ParameterDefinition(TypedDict, total=False):
     Definition: ParameterDefinitionSchema
 
 
-ParameterDefinitions = List[ParameterDefinition]
+ParameterDefinitions = list[ParameterDefinition]
 
 
 class TenantConfig(TypedDict, total=False):
@@ -2676,10 +2823,10 @@ class TenantConfig(TypedDict, total=False):
     The configuration for a distribution tenant.
     """
 
-    ParameterDefinitions: Optional[ParameterDefinitions]
+    ParameterDefinitions: ParameterDefinitions | None
 
 
-LocationList = List[string]
+LocationList = list[string]
 
 
 class GeoRestriction(TypedDict, total=False):
@@ -2690,7 +2837,7 @@ class GeoRestriction(TypedDict, total=False):
 
     RestrictionType: GeoRestrictionType
     Quantity: integer
-    Items: Optional[LocationList]
+    Items: LocationList | None
 
 
 class Restrictions(TypedDict, total=False):
@@ -2759,13 +2906,13 @@ class ViewerCertificate(TypedDict, total=False):
     in the *Amazon CloudFront Developer Guide*.
     """
 
-    CloudFrontDefaultCertificate: Optional[boolean]
-    IAMCertificateId: Optional[ServerCertificateId]
-    ACMCertificateArn: Optional[string]
-    SSLSupportMethod: Optional[SSLSupportMethod]
-    MinimumProtocolVersion: Optional[MinimumProtocolVersion]
-    Certificate: Optional[string]
-    CertificateSource: Optional[CertificateSource]
+    CloudFrontDefaultCertificate: boolean | None
+    IAMCertificateId: ServerCertificateId | None
+    ACMCertificateArn: string | None
+    SSLSupportMethod: SSLSupportMethod | None
+    MinimumProtocolVersion: MinimumProtocolVersion | None
+    Certificate: string | None
+    CertificateSource: CertificateSource | None
 
 
 class LoggingConfig(TypedDict, total=False):
@@ -2784,10 +2931,10 @@ class LoggingConfig(TypedDict, total=False):
     in the *Amazon CloudFront Developer Guide*.
     """
 
-    Enabled: Optional[boolean]
-    IncludeCookies: Optional[boolean]
-    Bucket: Optional[string]
-    Prefix: Optional[string]
+    Enabled: boolean | None
+    IncludeCookies: boolean | None
+    Bucket: string | None
+    Prefix: string | None
 
 
 class CustomErrorResponse(TypedDict, total=False):
@@ -2806,12 +2953,12 @@ class CustomErrorResponse(TypedDict, total=False):
     """
 
     ErrorCode: integer
-    ResponsePagePath: Optional[string]
-    ResponseCode: Optional[string]
-    ErrorCachingMinTTL: Optional[long]
+    ResponsePagePath: string | None
+    ResponseCode: string | None
+    ErrorCachingMinTTL: long | None
 
 
-CustomErrorResponseList = List[CustomErrorResponse]
+CustomErrorResponseList = list[CustomErrorResponse]
 
 
 class CustomErrorResponses(TypedDict, total=False):
@@ -2830,7 +2977,7 @@ class CustomErrorResponses(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[CustomErrorResponseList]
+    Items: CustomErrorResponseList | None
 
 
 class DefaultCacheBehavior(TypedDict, total=False):
@@ -2846,24 +2993,24 @@ class DefaultCacheBehavior(TypedDict, total=False):
     """
 
     TargetOriginId: string
-    TrustedSigners: Optional[TrustedSigners]
-    TrustedKeyGroups: Optional[TrustedKeyGroups]
+    TrustedSigners: TrustedSigners | None
+    TrustedKeyGroups: TrustedKeyGroups | None
     ViewerProtocolPolicy: ViewerProtocolPolicy
-    AllowedMethods: Optional[AllowedMethods]
-    SmoothStreaming: Optional[boolean]
-    Compress: Optional[boolean]
-    LambdaFunctionAssociations: Optional[LambdaFunctionAssociations]
-    FunctionAssociations: Optional[FunctionAssociations]
-    FieldLevelEncryptionId: Optional[string]
-    RealtimeLogConfigArn: Optional[string]
-    CachePolicyId: Optional[string]
-    OriginRequestPolicyId: Optional[string]
-    ResponseHeadersPolicyId: Optional[string]
-    GrpcConfig: Optional[GrpcConfig]
-    ForwardedValues: Optional[ForwardedValues]
-    MinTTL: Optional[long]
-    DefaultTTL: Optional[long]
-    MaxTTL: Optional[long]
+    AllowedMethods: AllowedMethods | None
+    SmoothStreaming: boolean | None
+    Compress: boolean | None
+    LambdaFunctionAssociations: LambdaFunctionAssociations | None
+    FunctionAssociations: FunctionAssociations | None
+    FieldLevelEncryptionId: string | None
+    RealtimeLogConfigArn: string | None
+    CachePolicyId: string | None
+    OriginRequestPolicyId: string | None
+    ResponseHeadersPolicyId: string | None
+    GrpcConfig: GrpcConfig | None
+    ForwardedValues: ForwardedValues | None
+    MinTTL: long | None
+    DefaultTTL: long | None
+    MaxTTL: long | None
 
 
 class OriginGroupMember(TypedDict, total=False):
@@ -2872,7 +3019,7 @@ class OriginGroupMember(TypedDict, total=False):
     OriginId: string
 
 
-OriginGroupMemberList = List[OriginGroupMember]
+OriginGroupMemberList = list[OriginGroupMember]
 
 
 class OriginGroupMembers(TypedDict, total=False):
@@ -2882,7 +3029,7 @@ class OriginGroupMembers(TypedDict, total=False):
     Items: OriginGroupMemberList
 
 
-StatusCodeList = List[integer]
+StatusCodeList = list[integer]
 
 
 class StatusCodes(TypedDict, total=False):
@@ -2921,17 +3068,17 @@ class OriginGroup(TypedDict, total=False):
     Id: string
     FailoverCriteria: OriginGroupFailoverCriteria
     Members: OriginGroupMembers
-    SelectionCriteria: Optional[OriginGroupSelectionCriteria]
+    SelectionCriteria: OriginGroupSelectionCriteria | None
 
 
-OriginGroupList = List[OriginGroup]
+OriginGroupList = list[OriginGroup]
 
 
 class OriginGroups(TypedDict, total=False):
     """A complex data type for the origin groups specified for a distribution."""
 
     Quantity: integer
-    Items: Optional[OriginGroupList]
+    Items: OriginGroupList | None
 
 
 class OriginShield(TypedDict, total=False):
@@ -2944,18 +3091,19 @@ class OriginShield(TypedDict, total=False):
     """
 
     Enabled: boolean
-    OriginShieldRegion: Optional[OriginShieldRegion]
+    OriginShieldRegion: OriginShieldRegion | None
 
 
 class VpcOriginConfig(TypedDict, total=False):
     """An Amazon CloudFront VPC origin configuration."""
 
     VpcOriginId: string
-    OriginReadTimeout: Optional[integer]
-    OriginKeepaliveTimeout: Optional[integer]
+    OwnerAccountId: string | None
+    OriginReadTimeout: integer | None
+    OriginKeepaliveTimeout: integer | None
 
 
-SslProtocolsList = List[SslProtocol]
+SslProtocolsList = list[SslProtocol]
 
 
 class OriginSslProtocols(TypedDict, total=False):
@@ -2979,10 +3127,10 @@ class CustomOriginConfig(TypedDict, total=False):
     HTTPPort: integer
     HTTPSPort: integer
     OriginProtocolPolicy: OriginProtocolPolicy
-    OriginSslProtocols: Optional[OriginSslProtocols]
-    OriginReadTimeout: Optional[integer]
-    OriginKeepaliveTimeout: Optional[integer]
-    IpAddressType: Optional[IpAddressType]
+    OriginSslProtocols: OriginSslProtocols | None
+    OriginReadTimeout: integer | None
+    OriginKeepaliveTimeout: integer | None
+    IpAddressType: IpAddressType | None
 
 
 class S3OriginConfig(TypedDict, total=False):
@@ -2992,7 +3140,7 @@ class S3OriginConfig(TypedDict, total=False):
     """
 
     OriginAccessIdentity: string
-    OriginReadTimeout: Optional[integer]
+    OriginReadTimeout: integer | None
 
 
 class OriginCustomHeader(TypedDict, total=False):
@@ -3004,14 +3152,14 @@ class OriginCustomHeader(TypedDict, total=False):
     HeaderValue: sensitiveStringType
 
 
-OriginCustomHeadersList = List[OriginCustomHeader]
+OriginCustomHeadersList = list[OriginCustomHeader]
 
 
 class CustomHeaders(TypedDict, total=False):
     """A complex type that contains the list of Custom Headers for each origin."""
 
     Quantity: integer
-    Items: Optional[OriginCustomHeadersList]
+    Items: OriginCustomHeadersList | None
 
 
 class Origin(TypedDict, total=False):
@@ -3048,19 +3196,19 @@ class Origin(TypedDict, total=False):
 
     Id: string
     DomainName: string
-    OriginPath: Optional[string]
-    CustomHeaders: Optional[CustomHeaders]
-    S3OriginConfig: Optional[S3OriginConfig]
-    CustomOriginConfig: Optional[CustomOriginConfig]
-    VpcOriginConfig: Optional[VpcOriginConfig]
-    ConnectionAttempts: Optional[integer]
-    ConnectionTimeout: Optional[integer]
-    ResponseCompletionTimeout: Optional[integer]
-    OriginShield: Optional[OriginShield]
-    OriginAccessControlId: Optional[string]
+    OriginPath: string | None
+    CustomHeaders: CustomHeaders | None
+    S3OriginConfig: S3OriginConfig | None
+    CustomOriginConfig: CustomOriginConfig | None
+    VpcOriginConfig: VpcOriginConfig | None
+    ConnectionAttempts: integer | None
+    ConnectionTimeout: integer | None
+    ResponseCompletionTimeout: integer | None
+    OriginShield: OriginShield | None
+    OriginAccessControlId: string | None
 
 
-OriginList = List[Origin]
+OriginList = list[Origin]
 
 
 class Origins(TypedDict, total=False):
@@ -3074,27 +3222,29 @@ class DistributionConfig(TypedDict, total=False):
     """A distribution configuration."""
 
     CallerReference: string
-    Aliases: Optional[Aliases]
-    DefaultRootObject: Optional[string]
+    Aliases: Aliases | None
+    DefaultRootObject: string | None
     Origins: Origins
-    OriginGroups: Optional[OriginGroups]
+    OriginGroups: OriginGroups | None
     DefaultCacheBehavior: DefaultCacheBehavior
-    CacheBehaviors: Optional[CacheBehaviors]
-    CustomErrorResponses: Optional[CustomErrorResponses]
+    CacheBehaviors: CacheBehaviors | None
+    CustomErrorResponses: CustomErrorResponses | None
     Comment: CommentType
-    Logging: Optional[LoggingConfig]
-    PriceClass: Optional[PriceClass]
+    Logging: LoggingConfig | None
+    PriceClass: PriceClass | None
     Enabled: boolean
-    ViewerCertificate: Optional[ViewerCertificate]
-    Restrictions: Optional[Restrictions]
-    WebACLId: Optional[string]
-    HttpVersion: Optional[HttpVersion]
-    IsIPV6Enabled: Optional[boolean]
-    ContinuousDeploymentPolicyId: Optional[string]
-    Staging: Optional[boolean]
-    AnycastIpListId: Optional[string]
-    TenantConfig: Optional[TenantConfig]
-    ConnectionMode: Optional[ConnectionMode]
+    ViewerCertificate: ViewerCertificate | None
+    Restrictions: Restrictions | None
+    WebACLId: string | None
+    HttpVersion: HttpVersion | None
+    IsIPV6Enabled: boolean | None
+    ContinuousDeploymentPolicyId: string | None
+    Staging: boolean | None
+    AnycastIpListId: string | None
+    TenantConfig: TenantConfig | None
+    ConnectionMode: ConnectionMode | None
+    ViewerMtlsConfig: ViewerMtlsConfig | None
+    ConnectionFunctionAssociation: ConnectionFunctionAssociation | None
 
 
 class Distribution(TypedDict, total=False):
@@ -3108,27 +3258,29 @@ class Distribution(TypedDict, total=False):
     LastModifiedTime: timestamp
     InProgressInvalidationBatches: integer
     DomainName: string
-    ActiveTrustedSigners: Optional[ActiveTrustedSigners]
-    ActiveTrustedKeyGroups: Optional[ActiveTrustedKeyGroups]
+    ActiveTrustedSigners: ActiveTrustedSigners | None
+    ActiveTrustedKeyGroups: ActiveTrustedKeyGroups | None
     DistributionConfig: DistributionConfig
-    AliasICPRecordals: Optional[AliasICPRecordals]
+    AliasICPRecordals: AliasICPRecordals | None
 
 
 class CopyDistributionResult(TypedDict, total=False):
-    Distribution: Optional[Distribution]
-    Location: Optional[string]
-    ETag: Optional[string]
+    Distribution: Distribution | None
+    Location: string | None
+    ETag: string | None
 
 
 class CreateAnycastIpListRequest(ServiceRequest):
     Name: AnycastIpListName
     IpCount: integer
-    Tags: Optional[Tags]
+    Tags: Tags | None
+    IpAddressType: IpAddressType | None
+    IpamCidrConfigs: IpamCidrConfigList | None
 
 
 class CreateAnycastIpListResult(TypedDict, total=False):
-    AnycastIpList: Optional[AnycastIpList]
-    ETag: Optional[string]
+    AnycastIpList: AnycastIpList | None
+    ETag: string | None
 
 
 class CreateCachePolicyRequest(ServiceRequest):
@@ -3136,9 +3288,9 @@ class CreateCachePolicyRequest(ServiceRequest):
 
 
 class CreateCachePolicyResult(TypedDict, total=False):
-    CachePolicy: Optional[CachePolicy]
-    Location: Optional[string]
-    ETag: Optional[string]
+    CachePolicy: CachePolicy | None
+    Location: string | None
+    ETag: string | None
 
 
 class CreateCloudFrontOriginAccessIdentityRequest(ServiceRequest):
@@ -3157,22 +3309,38 @@ class CreateCloudFrontOriginAccessIdentityRequest(ServiceRequest):
 class CreateCloudFrontOriginAccessIdentityResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    CloudFrontOriginAccessIdentity: Optional[CloudFrontOriginAccessIdentity]
-    Location: Optional[string]
-    ETag: Optional[string]
+    CloudFrontOriginAccessIdentity: CloudFrontOriginAccessIdentity | None
+    Location: string | None
+    ETag: string | None
+
+
+FunctionBlob = bytes
+
+
+class CreateConnectionFunctionRequest(ServiceRequest):
+    Name: FunctionName
+    ConnectionFunctionConfig: FunctionConfig
+    ConnectionFunctionCode: FunctionBlob
+    Tags: Tags | None
+
+
+class CreateConnectionFunctionResult(TypedDict, total=False):
+    ConnectionFunctionSummary: ConnectionFunctionSummary | None
+    Location: string | None
+    ETag: string | None
 
 
 class CreateConnectionGroupRequest(ServiceRequest):
     Name: string
-    Ipv6Enabled: Optional[boolean]
-    Tags: Optional[Tags]
-    AnycastIpListId: Optional[string]
-    Enabled: Optional[boolean]
+    Ipv6Enabled: boolean | None
+    Tags: Tags | None
+    AnycastIpListId: string | None
+    Enabled: boolean | None
 
 
 class CreateConnectionGroupResult(TypedDict, total=False):
-    ConnectionGroup: Optional[ConnectionGroup]
-    ETag: Optional[string]
+    ConnectionGroup: ConnectionGroup | None
+    ETag: string | None
 
 
 class CreateContinuousDeploymentPolicyRequest(ServiceRequest):
@@ -3180,9 +3348,9 @@ class CreateContinuousDeploymentPolicyRequest(ServiceRequest):
 
 
 class CreateContinuousDeploymentPolicyResult(TypedDict, total=False):
-    ContinuousDeploymentPolicy: Optional[ContinuousDeploymentPolicy]
-    Location: Optional[string]
-    ETag: Optional[string]
+    ContinuousDeploymentPolicy: ContinuousDeploymentPolicy | None
+    Location: string | None
+    ETag: string | None
 
 
 class CreateDistributionRequest(ServiceRequest):
@@ -3194,9 +3362,9 @@ class CreateDistributionRequest(ServiceRequest):
 class CreateDistributionResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    Distribution: Optional[Distribution]
-    Location: Optional[string]
-    ETag: Optional[string]
+    Distribution: Distribution | None
+    Location: string | None
+    ETag: string | None
 
 
 class ManagedCertificateRequest(TypedDict, total=False):
@@ -3205,8 +3373,8 @@ class ManagedCertificateRequest(TypedDict, total=False):
     """
 
     ValidationTokenHost: ValidationTokenHost
-    PrimaryDomainName: Optional[string]
-    CertificateTransparencyLoggingPreference: Optional[CertificateTransparencyLoggingPreference]
+    PrimaryDomainName: string | None
+    CertificateTransparencyLoggingPreference: CertificateTransparencyLoggingPreference | None
 
 
 class Parameter(TypedDict, total=False):
@@ -3220,7 +3388,7 @@ class Parameter(TypedDict, total=False):
     Value: ParameterValue
 
 
-Parameters = List[Parameter]
+Parameters = list[Parameter]
 
 
 class GeoRestrictionCustomization(TypedDict, total=False):
@@ -3229,14 +3397,14 @@ class GeoRestrictionCustomization(TypedDict, total=False):
     """
 
     RestrictionType: GeoRestrictionType
-    Locations: Optional[LocationList]
+    Locations: LocationList | None
 
 
 class WebAclCustomization(TypedDict, total=False):
     """The WAF web ACL customization specified for the distribution tenant."""
 
     Action: CustomizationActionType
-    Arn: Optional[string]
+    Arn: string | None
 
 
 class Customizations(TypedDict, total=False):
@@ -3247,9 +3415,9 @@ class Customizations(TypedDict, total=False):
     distribution that was used to create the distribution tenant.
     """
 
-    WebAcl: Optional[WebAclCustomization]
-    Certificate: Optional[Certificate]
-    GeoRestrictions: Optional[GeoRestrictionCustomization]
+    WebAcl: WebAclCustomization | None
+    Certificate: Certificate | None
+    GeoRestrictions: GeoRestrictionCustomization | None
 
 
 class DomainItem(TypedDict, total=False):
@@ -3258,52 +3426,52 @@ class DomainItem(TypedDict, total=False):
     Domain: string
 
 
-DomainList = List[DomainItem]
+DomainList = list[DomainItem]
 
 
 class CreateDistributionTenantRequest(ServiceRequest):
     DistributionId: string
     Name: CreateDistributionTenantRequestNameString
     Domains: DomainList
-    Tags: Optional[Tags]
-    Customizations: Optional[Customizations]
-    Parameters: Optional[Parameters]
-    ConnectionGroupId: Optional[string]
-    ManagedCertificateRequest: Optional[ManagedCertificateRequest]
-    Enabled: Optional[boolean]
+    Tags: Tags | None
+    Customizations: Customizations | None
+    Parameters: Parameters | None
+    ConnectionGroupId: string | None
+    ManagedCertificateRequest: ManagedCertificateRequest | None
+    Enabled: boolean | None
 
 
 class DomainResult(TypedDict, total=False):
     """The details about the domain result."""
 
     Domain: string
-    Status: Optional[DomainStatus]
+    Status: DomainStatus | None
 
 
-DomainResultList = List[DomainResult]
+DomainResultList = list[DomainResult]
 
 
 class DistributionTenant(TypedDict, total=False):
     """The distribution tenant."""
 
-    Id: Optional[string]
-    DistributionId: Optional[string]
-    Name: Optional[string]
-    Arn: Optional[string]
-    Domains: Optional[DomainResultList]
-    Tags: Optional[Tags]
-    Customizations: Optional[Customizations]
-    Parameters: Optional[Parameters]
-    ConnectionGroupId: Optional[string]
-    CreatedTime: Optional[timestamp]
-    LastModifiedTime: Optional[timestamp]
-    Enabled: Optional[boolean]
-    Status: Optional[string]
+    Id: string | None
+    DistributionId: string | None
+    Name: string | None
+    Arn: string | None
+    Domains: DomainResultList | None
+    Tags: Tags | None
+    Customizations: Customizations | None
+    Parameters: Parameters | None
+    ConnectionGroupId: string | None
+    CreatedTime: timestamp | None
+    LastModifiedTime: timestamp | None
+    Enabled: boolean | None
+    Status: string | None
 
 
 class CreateDistributionTenantResult(TypedDict, total=False):
-    DistributionTenant: Optional[DistributionTenant]
-    ETag: Optional[string]
+    DistributionTenant: DistributionTenant | None
+    ETag: string | None
 
 
 class DistributionConfigWithTags(TypedDict, total=False):
@@ -3324,9 +3492,9 @@ class CreateDistributionWithTagsRequest(ServiceRequest):
 class CreateDistributionWithTagsResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    Distribution: Optional[Distribution]
-    Location: Optional[string]
-    ETag: Optional[string]
+    Distribution: Distribution | None
+    Location: string | None
+    ETag: string | None
 
 
 class QueryArgProfile(TypedDict, total=False):
@@ -3336,14 +3504,14 @@ class QueryArgProfile(TypedDict, total=False):
     ProfileId: string
 
 
-QueryArgProfileList = List[QueryArgProfile]
+QueryArgProfileList = list[QueryArgProfile]
 
 
 class QueryArgProfiles(TypedDict, total=False):
     """Query argument-profile mapping for field-level encryption."""
 
     Quantity: integer
-    Items: Optional[QueryArgProfileList]
+    Items: QueryArgProfileList | None
 
 
 class QueryArgProfileConfig(TypedDict, total=False):
@@ -3352,7 +3520,7 @@ class QueryArgProfileConfig(TypedDict, total=False):
     """
 
     ForwardWhenQueryArgProfileIsUnknown: boolean
-    QueryArgProfiles: Optional[QueryArgProfiles]
+    QueryArgProfiles: QueryArgProfiles | None
 
 
 class FieldLevelEncryptionConfig(TypedDict, total=False):
@@ -3361,9 +3529,9 @@ class FieldLevelEncryptionConfig(TypedDict, total=False):
     """
 
     CallerReference: string
-    Comment: Optional[string]
-    QueryArgProfileConfig: Optional[QueryArgProfileConfig]
-    ContentTypeProfileConfig: Optional[ContentTypeProfileConfig]
+    Comment: string | None
+    QueryArgProfileConfig: QueryArgProfileConfig | None
+    ContentTypeProfileConfig: ContentTypeProfileConfig | None
 
 
 class CreateFieldLevelEncryptionConfigRequest(ServiceRequest):
@@ -3381,12 +3549,12 @@ class FieldLevelEncryption(TypedDict, total=False):
 
 
 class CreateFieldLevelEncryptionConfigResult(TypedDict, total=False):
-    FieldLevelEncryption: Optional[FieldLevelEncryption]
-    Location: Optional[string]
-    ETag: Optional[string]
+    FieldLevelEncryption: FieldLevelEncryption | None
+    Location: string | None
+    ETag: string | None
 
 
-FieldPatternList = List[string]
+FieldPatternList = list[string]
 
 
 class FieldPatterns(TypedDict, total=False):
@@ -3395,7 +3563,7 @@ class FieldPatterns(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[FieldPatternList]
+    Items: FieldPatternList | None
 
 
 class EncryptionEntity(TypedDict, total=False):
@@ -3408,7 +3576,7 @@ class EncryptionEntity(TypedDict, total=False):
     FieldPatterns: FieldPatterns
 
 
-EncryptionEntityList = List[EncryptionEntity]
+EncryptionEntityList = list[EncryptionEntity]
 
 
 class EncryptionEntities(TypedDict, total=False):
@@ -3417,7 +3585,7 @@ class EncryptionEntities(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[EncryptionEntityList]
+    Items: EncryptionEntityList | None
 
 
 class FieldLevelEncryptionProfileConfig(TypedDict, total=False):
@@ -3425,7 +3593,7 @@ class FieldLevelEncryptionProfileConfig(TypedDict, total=False):
 
     Name: string
     CallerReference: string
-    Comment: Optional[string]
+    Comment: string | None
     EncryptionEntities: EncryptionEntities
 
 
@@ -3442,36 +3610,9 @@ class FieldLevelEncryptionProfile(TypedDict, total=False):
 
 
 class CreateFieldLevelEncryptionProfileResult(TypedDict, total=False):
-    FieldLevelEncryptionProfile: Optional[FieldLevelEncryptionProfile]
-    Location: Optional[string]
-    ETag: Optional[string]
-
-
-FunctionBlob = bytes
-
-
-class KeyValueStoreAssociation(TypedDict, total=False):
-    """The key value store association."""
-
-    KeyValueStoreARN: KeyValueStoreARN
-
-
-KeyValueStoreAssociationList = List[KeyValueStoreAssociation]
-
-
-class KeyValueStoreAssociations(TypedDict, total=False):
-    """The key value store associations."""
-
-    Quantity: integer
-    Items: Optional[KeyValueStoreAssociationList]
-
-
-class FunctionConfig(TypedDict, total=False):
-    """Contains configuration information about a CloudFront function."""
-
-    Comment: string
-    Runtime: FunctionRuntime
-    KeyValueStoreAssociations: Optional[KeyValueStoreAssociations]
+    FieldLevelEncryptionProfile: FieldLevelEncryptionProfile | None
+    Location: string | None
+    ETag: string | None
 
 
 class CreateFunctionRequest(ServiceRequest):
@@ -3484,8 +3625,8 @@ class FunctionMetadata(TypedDict, total=False):
     """Contains metadata about a CloudFront function."""
 
     FunctionARN: string
-    Stage: Optional[FunctionStage]
-    CreatedTime: Optional[timestamp]
+    Stage: FunctionStage | None
+    CreatedTime: timestamp | None
     LastModifiedTime: timestamp
 
 
@@ -3495,18 +3636,18 @@ class FunctionSummary(TypedDict, total=False):
     """
 
     Name: FunctionName
-    Status: Optional[string]
+    Status: string | None
     FunctionConfig: FunctionConfig
     FunctionMetadata: FunctionMetadata
 
 
 class CreateFunctionResult(TypedDict, total=False):
-    FunctionSummary: Optional[FunctionSummary]
-    Location: Optional[string]
-    ETag: Optional[string]
+    FunctionSummary: FunctionSummary | None
+    Location: string | None
+    ETag: string | None
 
 
-PathList = List[string]
+PathList = list[string]
 
 
 class Paths(TypedDict, total=False):
@@ -3517,7 +3658,7 @@ class Paths(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[PathList]
+    Items: PathList | None
 
 
 class InvalidationBatch(TypedDict, total=False):
@@ -3542,8 +3683,8 @@ class Invalidation(TypedDict, total=False):
 
 
 class CreateInvalidationForDistributionTenantResult(TypedDict, total=False):
-    Location: Optional[string]
-    Invalidation: Optional[Invalidation]
+    Location: string | None
+    Invalidation: Invalidation | None
 
 
 class CreateInvalidationRequest(ServiceRequest):
@@ -3556,11 +3697,11 @@ class CreateInvalidationRequest(ServiceRequest):
 class CreateInvalidationResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    Location: Optional[string]
-    Invalidation: Optional[Invalidation]
+    Location: string | None
+    Invalidation: Invalidation | None
 
 
-PublicKeyIdList = List[string]
+PublicKeyIdList = list[string]
 
 
 class KeyGroupConfig(TypedDict, total=False):
@@ -3573,7 +3714,7 @@ class KeyGroupConfig(TypedDict, total=False):
 
     Name: string
     Items: PublicKeyIdList
-    Comment: Optional[string]
+    Comment: string | None
 
 
 class CreateKeyGroupRequest(ServiceRequest):
@@ -3594,9 +3735,9 @@ class KeyGroup(TypedDict, total=False):
 
 
 class CreateKeyGroupResult(TypedDict, total=False):
-    KeyGroup: Optional[KeyGroup]
-    Location: Optional[string]
-    ETag: Optional[string]
+    KeyGroup: KeyGroup | None
+    Location: string | None
+    ETag: string | None
 
 
 class ImportSource(TypedDict, total=False):
@@ -3608,8 +3749,8 @@ class ImportSource(TypedDict, total=False):
 
 class CreateKeyValueStoreRequest(ServiceRequest):
     Name: KeyValueStoreName
-    Comment: Optional[KeyValueStoreComment]
-    ImportSource: Optional[ImportSource]
+    Comment: KeyValueStoreComment | None
+    ImportSource: ImportSource | None
 
 
 class KeyValueStore(TypedDict, total=False):
@@ -3622,14 +3763,14 @@ class KeyValueStore(TypedDict, total=False):
     Id: string
     Comment: string
     ARN: string
-    Status: Optional[string]
+    Status: string | None
     LastModifiedTime: timestamp
 
 
 class CreateKeyValueStoreResult(TypedDict, total=False):
-    KeyValueStore: Optional[KeyValueStore]
-    ETag: Optional[string]
-    Location: Optional[string]
+    KeyValueStore: KeyValueStore | None
+    ETag: string | None
+    Location: string | None
 
 
 class RealtimeMetricsSubscriptionConfig(TypedDict, total=False):
@@ -3644,7 +3785,7 @@ class MonitoringSubscription(TypedDict, total=False):
     distribution.
     """
 
-    RealtimeMetricsSubscriptionConfig: Optional[RealtimeMetricsSubscriptionConfig]
+    RealtimeMetricsSubscriptionConfig: RealtimeMetricsSubscriptionConfig | None
 
 
 class CreateMonitoringSubscriptionRequest(ServiceRequest):
@@ -3653,14 +3794,14 @@ class CreateMonitoringSubscriptionRequest(ServiceRequest):
 
 
 class CreateMonitoringSubscriptionResult(TypedDict, total=False):
-    MonitoringSubscription: Optional[MonitoringSubscription]
+    MonitoringSubscription: MonitoringSubscription | None
 
 
 class OriginAccessControlConfig(TypedDict, total=False):
     """A CloudFront origin access control configuration."""
 
     Name: string
-    Description: Optional[string]
+    Description: string | None
     SigningProtocol: OriginAccessControlSigningProtocols
     SigningBehavior: OriginAccessControlSigningBehaviors
     OriginAccessControlOriginType: OriginAccessControlOriginTypes
@@ -3674,13 +3815,13 @@ class OriginAccessControl(TypedDict, total=False):
     """A CloudFront origin access control, including its unique identifier."""
 
     Id: string
-    OriginAccessControlConfig: Optional[OriginAccessControlConfig]
+    OriginAccessControlConfig: OriginAccessControlConfig | None
 
 
 class CreateOriginAccessControlResult(TypedDict, total=False):
-    OriginAccessControl: Optional[OriginAccessControl]
-    Location: Optional[string]
-    ETag: Optional[string]
+    OriginAccessControl: OriginAccessControl | None
+    Location: string | None
+    ETag: string | None
 
 
 class OriginRequestPolicyQueryStringsConfig(TypedDict, total=False):
@@ -3690,7 +3831,7 @@ class OriginRequestPolicyQueryStringsConfig(TypedDict, total=False):
     """
 
     QueryStringBehavior: OriginRequestPolicyQueryStringBehavior
-    QueryStrings: Optional[QueryStringNames]
+    QueryStrings: QueryStringNames | None
 
 
 class OriginRequestPolicyCookiesConfig(TypedDict, total=False):
@@ -3700,7 +3841,7 @@ class OriginRequestPolicyCookiesConfig(TypedDict, total=False):
     """
 
     CookieBehavior: OriginRequestPolicyCookieBehavior
-    Cookies: Optional[CookieNames]
+    Cookies: CookieNames | None
 
 
 class OriginRequestPolicyHeadersConfig(TypedDict, total=False):
@@ -3709,7 +3850,7 @@ class OriginRequestPolicyHeadersConfig(TypedDict, total=False):
     """
 
     HeaderBehavior: OriginRequestPolicyHeaderBehavior
-    Headers: Optional[Headers]
+    Headers: Headers | None
 
 
 class OriginRequestPolicyConfig(TypedDict, total=False):
@@ -3735,7 +3876,7 @@ class OriginRequestPolicyConfig(TypedDict, total=False):
     also include them in the cache key, use ``CachePolicy``.
     """
 
-    Comment: Optional[string]
+    Comment: string | None
     Name: string
     HeadersConfig: OriginRequestPolicyHeadersConfig
     CookiesConfig: OriginRequestPolicyCookiesConfig
@@ -3776,9 +3917,9 @@ class OriginRequestPolicy(TypedDict, total=False):
 
 
 class CreateOriginRequestPolicyResult(TypedDict, total=False):
-    OriginRequestPolicy: Optional[OriginRequestPolicy]
-    Location: Optional[string]
-    ETag: Optional[string]
+    OriginRequestPolicy: OriginRequestPolicy | None
+    Location: string | None
+    ETag: string | None
 
 
 class PublicKeyConfig(TypedDict, total=False):
@@ -3787,12 +3928,16 @@ class PublicKeyConfig(TypedDict, total=False):
     cookies <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PrivateContent.html>`__,
     or with `field-level
     encryption <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/field-level-encryption.html>`__.
+
+    CloudFront supports signed URLs and signed cookies with RSA 2048 or
+    ECDSA 256 key signatures. Field-level encryption is only compatible with
+    RSA 2048 key signatures.
     """
 
     CallerReference: string
     Name: string
     EncodedKey: string
-    Comment: Optional[string]
+    Comment: string | None
 
 
 class CreatePublicKeyRequest(ServiceRequest):
@@ -3804,6 +3949,10 @@ class PublicKey(TypedDict, total=False):
     cookies <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PrivateContent.html>`__,
     or with `field-level
     encryption <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/field-level-encryption.html>`__.
+
+    CloudFront supports signed URLs and signed cookies with RSA 2048 or
+    ECDSA 256 key signatures. Field-level encryption is only compatible with
+    RSA 2048 key signatures.
     """
 
     Id: string
@@ -3812,12 +3961,12 @@ class PublicKey(TypedDict, total=False):
 
 
 class CreatePublicKeyResult(TypedDict, total=False):
-    PublicKey: Optional[PublicKey]
-    Location: Optional[string]
-    ETag: Optional[string]
+    PublicKey: PublicKey | None
+    Location: string | None
+    ETag: string | None
 
 
-FieldList = List[string]
+FieldList = list[string]
 
 
 class KinesisStreamConfig(TypedDict, total=False):
@@ -3835,10 +3984,10 @@ class EndPoint(TypedDict, total=False):
     """
 
     StreamType: string
-    KinesisStreamConfig: Optional[KinesisStreamConfig]
+    KinesisStreamConfig: KinesisStreamConfig | None
 
 
-EndPointList = List[EndPoint]
+EndPointList = list[EndPoint]
 
 
 class CreateRealtimeLogConfigRequest(ServiceRequest):
@@ -3859,7 +4008,7 @@ class RealtimeLogConfig(TypedDict, total=False):
 
 
 class CreateRealtimeLogConfigResult(TypedDict, total=False):
-    RealtimeLogConfig: Optional[RealtimeLogConfig]
+    RealtimeLogConfig: RealtimeLogConfig | None
 
 
 class ResponseHeadersPolicyRemoveHeader(TypedDict, total=False):
@@ -3871,7 +4020,7 @@ class ResponseHeadersPolicyRemoveHeader(TypedDict, total=False):
     Header: string
 
 
-ResponseHeadersPolicyRemoveHeaderList = List[ResponseHeadersPolicyRemoveHeader]
+ResponseHeadersPolicyRemoveHeaderList = list[ResponseHeadersPolicyRemoveHeader]
 
 
 class ResponseHeadersPolicyRemoveHeadersConfig(TypedDict, total=False):
@@ -3881,7 +4030,7 @@ class ResponseHeadersPolicyRemoveHeadersConfig(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[ResponseHeadersPolicyRemoveHeaderList]
+    Items: ResponseHeadersPolicyRemoveHeaderList | None
 
 
 class ResponseHeadersPolicyCustomHeader(TypedDict, total=False):
@@ -3895,7 +4044,7 @@ class ResponseHeadersPolicyCustomHeader(TypedDict, total=False):
     Override: boolean
 
 
-ResponseHeadersPolicyCustomHeaderList = List[ResponseHeadersPolicyCustomHeader]
+ResponseHeadersPolicyCustomHeaderList = list[ResponseHeadersPolicyCustomHeader]
 
 
 class ResponseHeadersPolicyCustomHeadersConfig(TypedDict, total=False):
@@ -3906,7 +4055,7 @@ class ResponseHeadersPolicyCustomHeadersConfig(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[ResponseHeadersPolicyCustomHeaderList]
+    Items: ResponseHeadersPolicyCustomHeaderList | None
 
 
 class ResponseHeadersPolicyServerTimingHeadersConfig(TypedDict, total=False):
@@ -3927,7 +4076,7 @@ class ResponseHeadersPolicyServerTimingHeadersConfig(TypedDict, total=False):
     """
 
     Enabled: boolean
-    SamplingRate: Optional[SamplingRate]
+    SamplingRate: SamplingRate | None
 
 
 class ResponseHeadersPolicyStrictTransportSecurity(TypedDict, total=False):
@@ -3941,8 +4090,8 @@ class ResponseHeadersPolicyStrictTransportSecurity(TypedDict, total=False):
     """
 
     Override: boolean
-    IncludeSubdomains: Optional[boolean]
-    Preload: Optional[boolean]
+    IncludeSubdomains: boolean | None
+    Preload: boolean | None
     AccessControlMaxAgeSec: integer
 
 
@@ -4013,8 +4162,8 @@ class ResponseHeadersPolicyXSSProtection(TypedDict, total=False):
 
     Override: boolean
     Protection: boolean
-    ModeBlock: Optional[boolean]
-    ReportUri: Optional[string]
+    ModeBlock: boolean | None
+    ReportUri: string | None
 
 
 class ResponseHeadersPolicySecurityHeadersConfig(TypedDict, total=False):
@@ -4024,12 +4173,12 @@ class ResponseHeadersPolicySecurityHeadersConfig(TypedDict, total=False):
     headers policy.
     """
 
-    XSSProtection: Optional[ResponseHeadersPolicyXSSProtection]
-    FrameOptions: Optional[ResponseHeadersPolicyFrameOptions]
-    ReferrerPolicy: Optional[ResponseHeadersPolicyReferrerPolicy]
-    ContentSecurityPolicy: Optional[ResponseHeadersPolicyContentSecurityPolicy]
-    ContentTypeOptions: Optional[ResponseHeadersPolicyContentTypeOptions]
-    StrictTransportSecurity: Optional[ResponseHeadersPolicyStrictTransportSecurity]
+    XSSProtection: ResponseHeadersPolicyXSSProtection | None
+    FrameOptions: ResponseHeadersPolicyFrameOptions | None
+    ReferrerPolicy: ResponseHeadersPolicyReferrerPolicy | None
+    ContentSecurityPolicy: ResponseHeadersPolicyContentSecurityPolicy | None
+    ContentTypeOptions: ResponseHeadersPolicyContentTypeOptions | None
+    StrictTransportSecurity: ResponseHeadersPolicyStrictTransportSecurity | None
 
 
 class ResponseHeadersPolicyAccessControlExposeHeaders(TypedDict, total=False):
@@ -4043,7 +4192,7 @@ class ResponseHeadersPolicyAccessControlExposeHeaders(TypedDict, total=False):
     """
 
     Quantity: integer
-    Items: Optional[AccessControlExposeHeadersList]
+    Items: AccessControlExposeHeadersList | None
 
 
 class ResponseHeadersPolicyAccessControlAllowMethods(TypedDict, total=False):
@@ -4103,8 +4252,8 @@ class ResponseHeadersPolicyCorsConfig(TypedDict, total=False):
     AccessControlAllowHeaders: ResponseHeadersPolicyAccessControlAllowHeaders
     AccessControlAllowMethods: ResponseHeadersPolicyAccessControlAllowMethods
     AccessControlAllowCredentials: boolean
-    AccessControlExposeHeaders: Optional[ResponseHeadersPolicyAccessControlExposeHeaders]
-    AccessControlMaxAgeSec: Optional[integer]
+    AccessControlExposeHeaders: ResponseHeadersPolicyAccessControlExposeHeaders | None
+    AccessControlMaxAgeSec: integer | None
     OriginOverride: boolean
 
 
@@ -4116,13 +4265,13 @@ class ResponseHeadersPolicyConfig(TypedDict, total=False):
     headers.
     """
 
-    Comment: Optional[string]
+    Comment: string | None
     Name: string
-    CorsConfig: Optional[ResponseHeadersPolicyCorsConfig]
-    SecurityHeadersConfig: Optional[ResponseHeadersPolicySecurityHeadersConfig]
-    ServerTimingHeadersConfig: Optional[ResponseHeadersPolicyServerTimingHeadersConfig]
-    CustomHeadersConfig: Optional[ResponseHeadersPolicyCustomHeadersConfig]
-    RemoveHeadersConfig: Optional[ResponseHeadersPolicyRemoveHeadersConfig]
+    CorsConfig: ResponseHeadersPolicyCorsConfig | None
+    SecurityHeadersConfig: ResponseHeadersPolicySecurityHeadersConfig | None
+    ServerTimingHeadersConfig: ResponseHeadersPolicyServerTimingHeadersConfig | None
+    CustomHeadersConfig: ResponseHeadersPolicyCustomHeadersConfig | None
+    RemoveHeadersConfig: ResponseHeadersPolicyRemoveHeadersConfig | None
 
 
 class CreateResponseHeadersPolicyRequest(ServiceRequest):
@@ -4153,9 +4302,9 @@ class ResponseHeadersPolicy(TypedDict, total=False):
 
 
 class CreateResponseHeadersPolicyResult(TypedDict, total=False):
-    ResponseHeadersPolicy: Optional[ResponseHeadersPolicy]
-    Location: Optional[string]
-    ETag: Optional[string]
+    ResponseHeadersPolicy: ResponseHeadersPolicy | None
+    Location: string | None
+    ETag: string | None
 
 
 class StreamingLoggingConfig(TypedDict, total=False):
@@ -4182,11 +4331,11 @@ class StreamingDistributionConfig(TypedDict, total=False):
 
     CallerReference: string
     S3Origin: S3Origin
-    Aliases: Optional[Aliases]
+    Aliases: Aliases | None
     Comment: string
-    Logging: Optional[StreamingLoggingConfig]
+    Logging: StreamingLoggingConfig | None
     TrustedSigners: TrustedSigners
-    PriceClass: Optional[PriceClass]
+    PriceClass: PriceClass | None
     Enabled: boolean
 
 
@@ -4205,7 +4354,7 @@ class StreamingDistribution(TypedDict, total=False):
     Id: string
     ARN: string
     Status: string
-    LastModifiedTime: Optional[timestamp]
+    LastModifiedTime: timestamp | None
     DomainName: string
     ActiveTrustedSigners: ActiveTrustedSigners
     StreamingDistributionConfig: StreamingDistributionConfig
@@ -4214,9 +4363,9 @@ class StreamingDistribution(TypedDict, total=False):
 class CreateStreamingDistributionResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    StreamingDistribution: Optional[StreamingDistribution]
-    Location: Optional[string]
-    ETag: Optional[string]
+    StreamingDistribution: StreamingDistribution | None
+    Location: string | None
+    ETag: string | None
 
 
 class StreamingDistributionConfigWithTags(TypedDict, total=False):
@@ -4237,9 +4386,32 @@ class CreateStreamingDistributionWithTagsRequest(ServiceRequest):
 class CreateStreamingDistributionWithTagsResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    StreamingDistribution: Optional[StreamingDistribution]
-    Location: Optional[string]
-    ETag: Optional[string]
+    StreamingDistribution: StreamingDistribution | None
+    Location: string | None
+    ETag: string | None
+
+
+class CreateTrustStoreRequest(ServiceRequest):
+    Name: string
+    CaCertificatesBundleSource: CaCertificatesBundleSource
+    Tags: Tags | None
+
+
+class TrustStore(TypedDict, total=False):
+    """A trust store."""
+
+    Id: string | None
+    Arn: string | None
+    Name: string | None
+    Status: TrustStoreStatus | None
+    NumberOfCaCertificates: integer | None
+    LastModifiedTime: timestamp | None
+    Reason: string | None
+
+
+class CreateTrustStoreResult(TypedDict, total=False):
+    TrustStore: TrustStore | None
+    ETag: string | None
 
 
 class VpcOriginEndpointConfig(TypedDict, total=False):
@@ -4250,12 +4422,12 @@ class VpcOriginEndpointConfig(TypedDict, total=False):
     HTTPPort: integer
     HTTPSPort: integer
     OriginProtocolPolicy: OriginProtocolPolicy
-    OriginSslProtocols: Optional[OriginSslProtocols]
+    OriginSslProtocols: OriginSslProtocols | None
 
 
 class CreateVpcOriginRequest(ServiceRequest):
     VpcOriginEndpointConfig: VpcOriginEndpointConfig
-    Tags: Optional[Tags]
+    Tags: Tags | None
 
 
 class VpcOrigin(TypedDict, total=False):
@@ -4263,6 +4435,7 @@ class VpcOrigin(TypedDict, total=False):
 
     Id: string
     Arn: string
+    AccountId: string | None
     Status: string
     CreatedTime: timestamp
     LastModifiedTime: timestamp
@@ -4270,9 +4443,9 @@ class VpcOrigin(TypedDict, total=False):
 
 
 class CreateVpcOriginResult(TypedDict, total=False):
-    VpcOrigin: Optional[VpcOrigin]
-    Location: Optional[string]
-    ETag: Optional[string]
+    VpcOrigin: VpcOrigin | None
+    Location: string | None
+    ETag: string | None
 
 
 class DeleteAnycastIpListRequest(ServiceRequest):
@@ -4282,14 +4455,19 @@ class DeleteAnycastIpListRequest(ServiceRequest):
 
 class DeleteCachePolicyRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DeleteCloudFrontOriginAccessIdentityRequest(ServiceRequest):
     """Deletes a origin access identity."""
 
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
+
+
+class DeleteConnectionFunctionRequest(ServiceRequest):
+    Id: ResourceId
+    IfMatch: string
 
 
 class DeleteConnectionGroupRequest(ServiceRequest):
@@ -4299,7 +4477,7 @@ class DeleteConnectionGroupRequest(ServiceRequest):
 
 class DeleteContinuousDeploymentPolicyRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DeleteDistributionRequest(ServiceRequest):
@@ -4346,7 +4524,7 @@ class DeleteDistributionRequest(ServiceRequest):
     """
 
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DeleteDistributionTenantRequest(ServiceRequest):
@@ -4356,12 +4534,12 @@ class DeleteDistributionTenantRequest(ServiceRequest):
 
 class DeleteFieldLevelEncryptionConfigRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DeleteFieldLevelEncryptionProfileRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DeleteFunctionRequest(ServiceRequest):
@@ -4371,7 +4549,7 @@ class DeleteFunctionRequest(ServiceRequest):
 
 class DeleteKeyGroupRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DeleteKeyValueStoreRequest(ServiceRequest):
@@ -4389,34 +4567,43 @@ class DeleteMonitoringSubscriptionResult(TypedDict, total=False):
 
 class DeleteOriginAccessControlRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DeleteOriginRequestPolicyRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DeletePublicKeyRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DeleteRealtimeLogConfigRequest(ServiceRequest):
-    Name: Optional[string]
-    ARN: Optional[string]
+    Name: string | None
+    ARN: string | None
+
+
+class DeleteResourcePolicyRequest(ServiceRequest):
+    ResourceArn: string
 
 
 class DeleteResponseHeadersPolicyRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DeleteStreamingDistributionRequest(ServiceRequest):
     """The request to delete a streaming distribution."""
 
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
+
+
+class DeleteTrustStoreRequest(ServiceRequest):
+    Id: ResourceId
+    IfMatch: string
 
 
 class DeleteVpcOriginRequest(ServiceRequest):
@@ -4425,18 +4612,28 @@ class DeleteVpcOriginRequest(ServiceRequest):
 
 
 class DeleteVpcOriginResult(TypedDict, total=False):
-    VpcOrigin: Optional[VpcOrigin]
-    ETag: Optional[string]
+    VpcOrigin: VpcOrigin | None
+    ETag: string | None
+
+
+class DescribeConnectionFunctionRequest(ServiceRequest):
+    Identifier: string
+    Stage: FunctionStage | None
+
+
+class DescribeConnectionFunctionResult(TypedDict, total=False):
+    ConnectionFunctionSummary: ConnectionFunctionSummary | None
+    ETag: string | None
 
 
 class DescribeFunctionRequest(ServiceRequest):
     Name: FunctionName
-    Stage: Optional[FunctionStage]
+    Stage: FunctionStage | None
 
 
 class DescribeFunctionResult(TypedDict, total=False):
-    FunctionSummary: Optional[FunctionSummary]
-    ETag: Optional[string]
+    FunctionSummary: FunctionSummary | None
+    ETag: string | None
 
 
 class DescribeKeyValueStoreRequest(ServiceRequest):
@@ -4444,42 +4641,67 @@ class DescribeKeyValueStoreRequest(ServiceRequest):
 
 
 class DescribeKeyValueStoreResult(TypedDict, total=False):
-    KeyValueStore: Optional[KeyValueStore]
-    ETag: Optional[string]
+    KeyValueStore: KeyValueStore | None
+    ETag: string | None
 
 
 class DisassociateDistributionTenantWebACLRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DisassociateDistributionTenantWebACLResult(TypedDict, total=False):
-    Id: Optional[string]
-    ETag: Optional[string]
+    Id: string | None
+    ETag: string | None
 
 
 class DisassociateDistributionWebACLRequest(ServiceRequest):
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class DisassociateDistributionWebACLResult(TypedDict, total=False):
-    Id: Optional[string]
-    ETag: Optional[string]
+    Id: string | None
+    ETag: string | None
 
 
-DistributionIdListSummary = List[string]
+DistributionIdListSummary = list[string]
 
 
 class DistributionIdList(TypedDict, total=False):
     """A list of distribution IDs."""
 
     Marker: string
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     IsTruncated: boolean
     Quantity: integer
-    Items: Optional[DistributionIdListSummary]
+    Items: DistributionIdListSummary | None
+
+
+class DistributionIdOwner(TypedDict, total=False):
+    """A structure that pairs a CloudFront distribution ID with its owning
+    Amazon Web Services account ID.
+    """
+
+    DistributionId: string
+    OwnerAccountId: string
+
+
+DistributionIdOwnerItemList = list[DistributionIdOwner]
+
+
+class DistributionIdOwnerList(TypedDict, total=False):
+    """The list of distribution IDs and the Amazon Web Services accounts that
+    they belong to.
+    """
+
+    Marker: string
+    NextMarker: string | None
+    MaxItems: integer
+    IsTruncated: boolean
+    Quantity: integer
+    Items: DistributionIdOwnerItemList | None
 
 
 class DistributionSummary(TypedDict, total=False):
@@ -4487,13 +4709,13 @@ class DistributionSummary(TypedDict, total=False):
 
     Id: string
     ARN: string
-    ETag: Optional[string]
+    ETag: string | None
     Status: string
     LastModifiedTime: timestamp
     DomainName: string
     Aliases: Aliases
     Origins: Origins
-    OriginGroups: Optional[OriginGroups]
+    OriginGroups: OriginGroups | None
     DefaultCacheBehavior: DefaultCacheBehavior
     CacheBehaviors: CacheBehaviors
     CustomErrorResponses: CustomErrorResponses
@@ -4505,38 +4727,40 @@ class DistributionSummary(TypedDict, total=False):
     WebACLId: string
     HttpVersion: HttpVersion
     IsIPV6Enabled: boolean
-    AliasICPRecordals: Optional[AliasICPRecordals]
+    AliasICPRecordals: AliasICPRecordals | None
     Staging: boolean
-    ConnectionMode: Optional[ConnectionMode]
-    AnycastIpListId: Optional[string]
+    ConnectionMode: ConnectionMode | None
+    AnycastIpListId: string | None
+    ViewerMtlsConfig: ViewerMtlsConfig | None
+    ConnectionFunctionAssociation: ConnectionFunctionAssociation | None
 
 
-DistributionSummaryList = List[DistributionSummary]
+DistributionSummaryList = list[DistributionSummary]
 
 
 class DistributionList(TypedDict, total=False):
     """A distribution list."""
 
     Marker: string
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     IsTruncated: boolean
     Quantity: integer
-    Items: Optional[DistributionSummaryList]
+    Items: DistributionSummaryList | None
 
 
 class DistributionResourceId(TypedDict, total=False):
     """The IDs for the distribution resources."""
 
-    DistributionId: Optional[string]
-    DistributionTenantId: Optional[string]
+    DistributionId: string | None
+    DistributionTenantId: string | None
 
 
 class DistributionTenantAssociationFilter(TypedDict, total=False):
     """Filter by the associated distribution ID or connection group ID."""
 
-    DistributionId: Optional[string]
-    ConnectionGroupId: Optional[string]
+    DistributionId: string | None
+    ConnectionGroupId: string | None
 
 
 class DistributionTenantSummary(TypedDict, total=False):
@@ -4547,16 +4771,16 @@ class DistributionTenantSummary(TypedDict, total=False):
     Name: string
     Arn: string
     Domains: DomainResultList
-    ConnectionGroupId: Optional[string]
-    Customizations: Optional[Customizations]
+    ConnectionGroupId: string | None
+    Customizations: Customizations | None
     CreatedTime: timestamp
     LastModifiedTime: timestamp
     ETag: string
-    Enabled: Optional[boolean]
-    Status: Optional[string]
+    Enabled: boolean | None
+    Status: string | None
 
 
-DistributionTenantList = List[DistributionTenantSummary]
+DistributionTenantList = list[DistributionTenantSummary]
 
 
 class DnsConfiguration(TypedDict, total=False):
@@ -4564,10 +4788,10 @@ class DnsConfiguration(TypedDict, total=False):
 
     Domain: string
     Status: DnsConfigurationStatus
-    Reason: Optional[string]
+    Reason: string | None
 
 
-DnsConfigurationList = List[DnsConfiguration]
+DnsConfigurationList = list[DnsConfiguration]
 
 
 class DomainConflict(TypedDict, total=False):
@@ -4582,7 +4806,7 @@ class DomainConflict(TypedDict, total=False):
     AccountId: string
 
 
-DomainConflictsList = List[DomainConflict]
+DomainConflictsList = list[DomainConflict]
 
 
 class FieldLevelEncryptionSummary(TypedDict, total=False):
@@ -4590,21 +4814,21 @@ class FieldLevelEncryptionSummary(TypedDict, total=False):
 
     Id: string
     LastModifiedTime: timestamp
-    Comment: Optional[string]
-    QueryArgProfileConfig: Optional[QueryArgProfileConfig]
-    ContentTypeProfileConfig: Optional[ContentTypeProfileConfig]
+    Comment: string | None
+    QueryArgProfileConfig: QueryArgProfileConfig | None
+    ContentTypeProfileConfig: ContentTypeProfileConfig | None
 
 
-FieldLevelEncryptionSummaryList = List[FieldLevelEncryptionSummary]
+FieldLevelEncryptionSummaryList = list[FieldLevelEncryptionSummary]
 
 
 class FieldLevelEncryptionList(TypedDict, total=False):
     """List of field-level encryption configurations."""
 
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     Quantity: integer
-    Items: Optional[FieldLevelEncryptionSummaryList]
+    Items: FieldLevelEncryptionSummaryList | None
 
 
 class FieldLevelEncryptionProfileSummary(TypedDict, total=False):
@@ -4614,33 +4838,32 @@ class FieldLevelEncryptionProfileSummary(TypedDict, total=False):
     LastModifiedTime: timestamp
     Name: string
     EncryptionEntities: EncryptionEntities
-    Comment: Optional[string]
+    Comment: string | None
 
 
-FieldLevelEncryptionProfileSummaryList = List[FieldLevelEncryptionProfileSummary]
+FieldLevelEncryptionProfileSummaryList = list[FieldLevelEncryptionProfileSummary]
 
 
 class FieldLevelEncryptionProfileList(TypedDict, total=False):
     """List of field-level encryption profiles."""
 
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     Quantity: integer
-    Items: Optional[FieldLevelEncryptionProfileSummaryList]
+    Items: FieldLevelEncryptionProfileSummaryList | None
 
 
 FunctionEventObject = bytes
-FunctionExecutionLogList = List[string]
-FunctionSummaryList = List[FunctionSummary]
+FunctionSummaryList = list[FunctionSummary]
 
 
 class FunctionList(TypedDict, total=False):
     """A list of CloudFront functions."""
 
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     Quantity: integer
-    Items: Optional[FunctionSummaryList]
+    Items: FunctionSummaryList | None
 
 
 class GetAnycastIpListRequest(ServiceRequest):
@@ -4648,8 +4871,8 @@ class GetAnycastIpListRequest(ServiceRequest):
 
 
 class GetAnycastIpListResult(TypedDict, total=False):
-    AnycastIpList: Optional[AnycastIpList]
-    ETag: Optional[string]
+    AnycastIpList: AnycastIpList | None
+    ETag: string | None
 
 
 class GetCachePolicyConfigRequest(ServiceRequest):
@@ -4657,8 +4880,8 @@ class GetCachePolicyConfigRequest(ServiceRequest):
 
 
 class GetCachePolicyConfigResult(TypedDict, total=False):
-    CachePolicyConfig: Optional[CachePolicyConfig]
-    ETag: Optional[string]
+    CachePolicyConfig: CachePolicyConfig | None
+    ETag: string | None
 
 
 class GetCachePolicyRequest(ServiceRequest):
@@ -4666,8 +4889,8 @@ class GetCachePolicyRequest(ServiceRequest):
 
 
 class GetCachePolicyResult(TypedDict, total=False):
-    CachePolicy: Optional[CachePolicy]
-    ETag: Optional[string]
+    CachePolicy: CachePolicy | None
+    ETag: string | None
 
 
 class GetCloudFrontOriginAccessIdentityConfigRequest(ServiceRequest):
@@ -4682,8 +4905,8 @@ class GetCloudFrontOriginAccessIdentityConfigRequest(ServiceRequest):
 class GetCloudFrontOriginAccessIdentityConfigResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    CloudFrontOriginAccessIdentityConfig: Optional[CloudFrontOriginAccessIdentityConfig]
-    ETag: Optional[string]
+    CloudFrontOriginAccessIdentityConfig: CloudFrontOriginAccessIdentityConfig | None
+    ETag: string | None
 
 
 class GetCloudFrontOriginAccessIdentityRequest(ServiceRequest):
@@ -4695,8 +4918,19 @@ class GetCloudFrontOriginAccessIdentityRequest(ServiceRequest):
 class GetCloudFrontOriginAccessIdentityResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    CloudFrontOriginAccessIdentity: Optional[CloudFrontOriginAccessIdentity]
-    ETag: Optional[string]
+    CloudFrontOriginAccessIdentity: CloudFrontOriginAccessIdentity | None
+    ETag: string | None
+
+
+class GetConnectionFunctionRequest(ServiceRequest):
+    Identifier: string
+    Stage: FunctionStage | None
+
+
+class GetConnectionFunctionResult(TypedDict, total=False):
+    ConnectionFunctionCode: FunctionBlob | IO[FunctionBlob] | Iterable[FunctionBlob] | None
+    ETag: string | None
+    ContentType: string | None
 
 
 class GetConnectionGroupByRoutingEndpointRequest(ServiceRequest):
@@ -4704,8 +4938,8 @@ class GetConnectionGroupByRoutingEndpointRequest(ServiceRequest):
 
 
 class GetConnectionGroupByRoutingEndpointResult(TypedDict, total=False):
-    ConnectionGroup: Optional[ConnectionGroup]
-    ETag: Optional[string]
+    ConnectionGroup: ConnectionGroup | None
+    ETag: string | None
 
 
 class GetConnectionGroupRequest(ServiceRequest):
@@ -4713,8 +4947,8 @@ class GetConnectionGroupRequest(ServiceRequest):
 
 
 class GetConnectionGroupResult(TypedDict, total=False):
-    ConnectionGroup: Optional[ConnectionGroup]
-    ETag: Optional[string]
+    ConnectionGroup: ConnectionGroup | None
+    ETag: string | None
 
 
 class GetContinuousDeploymentPolicyConfigRequest(ServiceRequest):
@@ -4722,8 +4956,8 @@ class GetContinuousDeploymentPolicyConfigRequest(ServiceRequest):
 
 
 class GetContinuousDeploymentPolicyConfigResult(TypedDict, total=False):
-    ContinuousDeploymentPolicyConfig: Optional[ContinuousDeploymentPolicyConfig]
-    ETag: Optional[string]
+    ContinuousDeploymentPolicyConfig: ContinuousDeploymentPolicyConfig | None
+    ETag: string | None
 
 
 class GetContinuousDeploymentPolicyRequest(ServiceRequest):
@@ -4731,8 +4965,8 @@ class GetContinuousDeploymentPolicyRequest(ServiceRequest):
 
 
 class GetContinuousDeploymentPolicyResult(TypedDict, total=False):
-    ContinuousDeploymentPolicy: Optional[ContinuousDeploymentPolicy]
-    ETag: Optional[string]
+    ContinuousDeploymentPolicy: ContinuousDeploymentPolicy | None
+    ETag: string | None
 
 
 class GetDistributionConfigRequest(ServiceRequest):
@@ -4744,8 +4978,8 @@ class GetDistributionConfigRequest(ServiceRequest):
 class GetDistributionConfigResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    DistributionConfig: Optional[DistributionConfig]
-    ETag: Optional[string]
+    DistributionConfig: DistributionConfig | None
+    ETag: string | None
 
 
 class GetDistributionRequest(ServiceRequest):
@@ -4757,8 +4991,8 @@ class GetDistributionRequest(ServiceRequest):
 class GetDistributionResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    Distribution: Optional[Distribution]
-    ETag: Optional[string]
+    Distribution: Distribution | None
+    ETag: string | None
 
 
 class GetDistributionTenantByDomainRequest(ServiceRequest):
@@ -4766,8 +5000,8 @@ class GetDistributionTenantByDomainRequest(ServiceRequest):
 
 
 class GetDistributionTenantByDomainResult(TypedDict, total=False):
-    DistributionTenant: Optional[DistributionTenant]
-    ETag: Optional[string]
+    DistributionTenant: DistributionTenant | None
+    ETag: string | None
 
 
 class GetDistributionTenantRequest(ServiceRequest):
@@ -4775,8 +5009,8 @@ class GetDistributionTenantRequest(ServiceRequest):
 
 
 class GetDistributionTenantResult(TypedDict, total=False):
-    DistributionTenant: Optional[DistributionTenant]
-    ETag: Optional[string]
+    DistributionTenant: DistributionTenant | None
+    ETag: string | None
 
 
 class GetFieldLevelEncryptionConfigRequest(ServiceRequest):
@@ -4784,8 +5018,8 @@ class GetFieldLevelEncryptionConfigRequest(ServiceRequest):
 
 
 class GetFieldLevelEncryptionConfigResult(TypedDict, total=False):
-    FieldLevelEncryptionConfig: Optional[FieldLevelEncryptionConfig]
-    ETag: Optional[string]
+    FieldLevelEncryptionConfig: FieldLevelEncryptionConfig | None
+    ETag: string | None
 
 
 class GetFieldLevelEncryptionProfileConfigRequest(ServiceRequest):
@@ -4793,8 +5027,8 @@ class GetFieldLevelEncryptionProfileConfigRequest(ServiceRequest):
 
 
 class GetFieldLevelEncryptionProfileConfigResult(TypedDict, total=False):
-    FieldLevelEncryptionProfileConfig: Optional[FieldLevelEncryptionProfileConfig]
-    ETag: Optional[string]
+    FieldLevelEncryptionProfileConfig: FieldLevelEncryptionProfileConfig | None
+    ETag: string | None
 
 
 class GetFieldLevelEncryptionProfileRequest(ServiceRequest):
@@ -4802,8 +5036,8 @@ class GetFieldLevelEncryptionProfileRequest(ServiceRequest):
 
 
 class GetFieldLevelEncryptionProfileResult(TypedDict, total=False):
-    FieldLevelEncryptionProfile: Optional[FieldLevelEncryptionProfile]
-    ETag: Optional[string]
+    FieldLevelEncryptionProfile: FieldLevelEncryptionProfile | None
+    ETag: string | None
 
 
 class GetFieldLevelEncryptionRequest(ServiceRequest):
@@ -4811,19 +5045,19 @@ class GetFieldLevelEncryptionRequest(ServiceRequest):
 
 
 class GetFieldLevelEncryptionResult(TypedDict, total=False):
-    FieldLevelEncryption: Optional[FieldLevelEncryption]
-    ETag: Optional[string]
+    FieldLevelEncryption: FieldLevelEncryption | None
+    ETag: string | None
 
 
 class GetFunctionRequest(ServiceRequest):
     Name: FunctionName
-    Stage: Optional[FunctionStage]
+    Stage: FunctionStage | None
 
 
 class GetFunctionResult(TypedDict, total=False):
-    FunctionCode: Optional[Union[FunctionBlob, IO[FunctionBlob], Iterable[FunctionBlob]]]
-    ETag: Optional[string]
-    ContentType: Optional[string]
+    FunctionCode: FunctionBlob | IO[FunctionBlob] | Iterable[FunctionBlob] | None
+    ETag: string | None
+    ContentType: string | None
 
 
 class GetInvalidationForDistributionTenantRequest(ServiceRequest):
@@ -4832,7 +5066,7 @@ class GetInvalidationForDistributionTenantRequest(ServiceRequest):
 
 
 class GetInvalidationForDistributionTenantResult(TypedDict, total=False):
-    Invalidation: Optional[Invalidation]
+    Invalidation: Invalidation | None
 
 
 class GetInvalidationRequest(ServiceRequest):
@@ -4845,7 +5079,7 @@ class GetInvalidationRequest(ServiceRequest):
 class GetInvalidationResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    Invalidation: Optional[Invalidation]
+    Invalidation: Invalidation | None
 
 
 class GetKeyGroupConfigRequest(ServiceRequest):
@@ -4853,8 +5087,8 @@ class GetKeyGroupConfigRequest(ServiceRequest):
 
 
 class GetKeyGroupConfigResult(TypedDict, total=False):
-    KeyGroupConfig: Optional[KeyGroupConfig]
-    ETag: Optional[string]
+    KeyGroupConfig: KeyGroupConfig | None
+    ETag: string | None
 
 
 class GetKeyGroupRequest(ServiceRequest):
@@ -4862,8 +5096,8 @@ class GetKeyGroupRequest(ServiceRequest):
 
 
 class GetKeyGroupResult(TypedDict, total=False):
-    KeyGroup: Optional[KeyGroup]
-    ETag: Optional[string]
+    KeyGroup: KeyGroup | None
+    ETag: string | None
 
 
 class GetManagedCertificateDetailsRequest(ServiceRequest):
@@ -4874,24 +5108,24 @@ class ValidationTokenDetail(TypedDict, total=False):
     """Contains details about the validation token."""
 
     Domain: string
-    RedirectTo: Optional[string]
-    RedirectFrom: Optional[string]
+    RedirectTo: string | None
+    RedirectFrom: string | None
 
 
-ValidationTokenDetailList = List[ValidationTokenDetail]
+ValidationTokenDetailList = list[ValidationTokenDetail]
 
 
 class ManagedCertificateDetails(TypedDict, total=False):
     """Contains details about the CloudFront managed ACM certificate."""
 
-    CertificateArn: Optional[string]
-    CertificateStatus: Optional[ManagedCertificateStatus]
-    ValidationTokenHost: Optional[ValidationTokenHost]
-    ValidationTokenDetails: Optional[ValidationTokenDetailList]
+    CertificateArn: string | None
+    CertificateStatus: ManagedCertificateStatus | None
+    ValidationTokenHost: ValidationTokenHost | None
+    ValidationTokenDetails: ValidationTokenDetailList | None
 
 
 class GetManagedCertificateDetailsResult(TypedDict, total=False):
-    ManagedCertificateDetails: Optional[ManagedCertificateDetails]
+    ManagedCertificateDetails: ManagedCertificateDetails | None
 
 
 class GetMonitoringSubscriptionRequest(ServiceRequest):
@@ -4899,7 +5133,7 @@ class GetMonitoringSubscriptionRequest(ServiceRequest):
 
 
 class GetMonitoringSubscriptionResult(TypedDict, total=False):
-    MonitoringSubscription: Optional[MonitoringSubscription]
+    MonitoringSubscription: MonitoringSubscription | None
 
 
 class GetOriginAccessControlConfigRequest(ServiceRequest):
@@ -4907,8 +5141,8 @@ class GetOriginAccessControlConfigRequest(ServiceRequest):
 
 
 class GetOriginAccessControlConfigResult(TypedDict, total=False):
-    OriginAccessControlConfig: Optional[OriginAccessControlConfig]
-    ETag: Optional[string]
+    OriginAccessControlConfig: OriginAccessControlConfig | None
+    ETag: string | None
 
 
 class GetOriginAccessControlRequest(ServiceRequest):
@@ -4916,8 +5150,8 @@ class GetOriginAccessControlRequest(ServiceRequest):
 
 
 class GetOriginAccessControlResult(TypedDict, total=False):
-    OriginAccessControl: Optional[OriginAccessControl]
-    ETag: Optional[string]
+    OriginAccessControl: OriginAccessControl | None
+    ETag: string | None
 
 
 class GetOriginRequestPolicyConfigRequest(ServiceRequest):
@@ -4925,8 +5159,8 @@ class GetOriginRequestPolicyConfigRequest(ServiceRequest):
 
 
 class GetOriginRequestPolicyConfigResult(TypedDict, total=False):
-    OriginRequestPolicyConfig: Optional[OriginRequestPolicyConfig]
-    ETag: Optional[string]
+    OriginRequestPolicyConfig: OriginRequestPolicyConfig | None
+    ETag: string | None
 
 
 class GetOriginRequestPolicyRequest(ServiceRequest):
@@ -4934,8 +5168,8 @@ class GetOriginRequestPolicyRequest(ServiceRequest):
 
 
 class GetOriginRequestPolicyResult(TypedDict, total=False):
-    OriginRequestPolicy: Optional[OriginRequestPolicy]
-    ETag: Optional[string]
+    OriginRequestPolicy: OriginRequestPolicy | None
+    ETag: string | None
 
 
 class GetPublicKeyConfigRequest(ServiceRequest):
@@ -4943,8 +5177,8 @@ class GetPublicKeyConfigRequest(ServiceRequest):
 
 
 class GetPublicKeyConfigResult(TypedDict, total=False):
-    PublicKeyConfig: Optional[PublicKeyConfig]
-    ETag: Optional[string]
+    PublicKeyConfig: PublicKeyConfig | None
+    ETag: string | None
 
 
 class GetPublicKeyRequest(ServiceRequest):
@@ -4952,17 +5186,26 @@ class GetPublicKeyRequest(ServiceRequest):
 
 
 class GetPublicKeyResult(TypedDict, total=False):
-    PublicKey: Optional[PublicKey]
-    ETag: Optional[string]
+    PublicKey: PublicKey | None
+    ETag: string | None
 
 
 class GetRealtimeLogConfigRequest(ServiceRequest):
-    Name: Optional[string]
-    ARN: Optional[string]
+    Name: string | None
+    ARN: string | None
 
 
 class GetRealtimeLogConfigResult(TypedDict, total=False):
-    RealtimeLogConfig: Optional[RealtimeLogConfig]
+    RealtimeLogConfig: RealtimeLogConfig | None
+
+
+class GetResourcePolicyRequest(ServiceRequest):
+    ResourceArn: string
+
+
+class GetResourcePolicyResult(TypedDict, total=False):
+    ResourceArn: string | None
+    PolicyDocument: string | None
 
 
 class GetResponseHeadersPolicyConfigRequest(ServiceRequest):
@@ -4970,8 +5213,8 @@ class GetResponseHeadersPolicyConfigRequest(ServiceRequest):
 
 
 class GetResponseHeadersPolicyConfigResult(TypedDict, total=False):
-    ResponseHeadersPolicyConfig: Optional[ResponseHeadersPolicyConfig]
-    ETag: Optional[string]
+    ResponseHeadersPolicyConfig: ResponseHeadersPolicyConfig | None
+    ETag: string | None
 
 
 class GetResponseHeadersPolicyRequest(ServiceRequest):
@@ -4979,8 +5222,8 @@ class GetResponseHeadersPolicyRequest(ServiceRequest):
 
 
 class GetResponseHeadersPolicyResult(TypedDict, total=False):
-    ResponseHeadersPolicy: Optional[ResponseHeadersPolicy]
-    ETag: Optional[string]
+    ResponseHeadersPolicy: ResponseHeadersPolicy | None
+    ETag: string | None
 
 
 class GetStreamingDistributionConfigRequest(ServiceRequest):
@@ -4992,8 +5235,8 @@ class GetStreamingDistributionConfigRequest(ServiceRequest):
 class GetStreamingDistributionConfigResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    StreamingDistributionConfig: Optional[StreamingDistributionConfig]
-    ETag: Optional[string]
+    StreamingDistributionConfig: StreamingDistributionConfig | None
+    ETag: string | None
 
 
 class GetStreamingDistributionRequest(ServiceRequest):
@@ -5005,8 +5248,17 @@ class GetStreamingDistributionRequest(ServiceRequest):
 class GetStreamingDistributionResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    StreamingDistribution: Optional[StreamingDistribution]
-    ETag: Optional[string]
+    StreamingDistribution: StreamingDistribution | None
+    ETag: string | None
+
+
+class GetTrustStoreRequest(ServiceRequest):
+    Identifier: string
+
+
+class GetTrustStoreResult(TypedDict, total=False):
+    TrustStore: TrustStore | None
+    ETag: string | None
 
 
 class GetVpcOriginRequest(ServiceRequest):
@@ -5014,8 +5266,8 @@ class GetVpcOriginRequest(ServiceRequest):
 
 
 class GetVpcOriginResult(TypedDict, total=False):
-    VpcOrigin: Optional[VpcOrigin]
-    ETag: Optional[string]
+    VpcOrigin: VpcOrigin | None
+    ETag: string | None
 
 
 class InvalidationSummary(TypedDict, total=False):
@@ -5026,7 +5278,7 @@ class InvalidationSummary(TypedDict, total=False):
     Status: string
 
 
-InvalidationSummaryList = List[InvalidationSummary]
+InvalidationSummaryList = list[InvalidationSummary]
 
 
 class InvalidationList(TypedDict, total=False):
@@ -5038,11 +5290,11 @@ class InvalidationList(TypedDict, total=False):
     """
 
     Marker: string
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     IsTruncated: boolean
     Quantity: integer
-    Items: Optional[InvalidationSummaryList]
+    Items: InvalidationSummaryList | None
 
 
 class KeyGroupSummary(TypedDict, total=False):
@@ -5051,195 +5303,236 @@ class KeyGroupSummary(TypedDict, total=False):
     KeyGroup: KeyGroup
 
 
-KeyGroupSummaryList = List[KeyGroupSummary]
+KeyGroupSummaryList = list[KeyGroupSummary]
 
 
 class KeyGroupList(TypedDict, total=False):
     """A list of key groups."""
 
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     Quantity: integer
-    Items: Optional[KeyGroupSummaryList]
+    Items: KeyGroupSummaryList | None
 
 
-KeyValueStoreSummaryList = List[KeyValueStore]
+KeyValueStoreSummaryList = list[KeyValueStore]
 
 
 class KeyValueStoreList(TypedDict, total=False):
     """The key value store list."""
 
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     Quantity: integer
-    Items: Optional[KeyValueStoreSummaryList]
+    Items: KeyValueStoreSummaryList | None
 
 
 class ListAnycastIpListsRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[integer]
+    Marker: string | None
+    MaxItems: integer | None
 
 
 class ListAnycastIpListsResult(TypedDict, total=False):
-    AnycastIpLists: Optional[AnycastIpListCollection]
+    AnycastIpLists: AnycastIpListCollection | None
 
 
 class ListCachePoliciesRequest(ServiceRequest):
-    Type: Optional[CachePolicyType]
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Type: CachePolicyType | None
+    Marker: string | None
+    MaxItems: string | None
 
 
 class ListCachePoliciesResult(TypedDict, total=False):
-    CachePolicyList: Optional[CachePolicyList]
+    CachePolicyList: CachePolicyList | None
 
 
 class ListCloudFrontOriginAccessIdentitiesRequest(ServiceRequest):
     """The request to list origin access identities."""
 
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class ListCloudFrontOriginAccessIdentitiesResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    CloudFrontOriginAccessIdentityList: Optional[CloudFrontOriginAccessIdentityList]
+    CloudFrontOriginAccessIdentityList: CloudFrontOriginAccessIdentityList | None
 
 
 class ListConflictingAliasesRequest(ServiceRequest):
     DistributionId: distributionIdString
     Alias: aliasString
-    Marker: Optional[string]
-    MaxItems: Optional[listConflictingAliasesMaxItemsInteger]
+    Marker: string | None
+    MaxItems: listConflictingAliasesMaxItemsInteger | None
 
 
 class ListConflictingAliasesResult(TypedDict, total=False):
-    ConflictingAliasesList: Optional[ConflictingAliasesList]
+    ConflictingAliasesList: ConflictingAliasesList | None
+
+
+class ListConnectionFunctionsRequest(ServiceRequest):
+    Marker: string | None
+    MaxItems: integer | None
+    Stage: FunctionStage | None
+
+
+class ListConnectionFunctionsResult(TypedDict, total=False):
+    NextMarker: string | None
+    ConnectionFunctions: ConnectionFunctionSummaryList | None
 
 
 class ListConnectionGroupsRequest(ServiceRequest):
-    AssociationFilter: Optional[ConnectionGroupAssociationFilter]
-    Marker: Optional[string]
-    MaxItems: Optional[integer]
+    AssociationFilter: ConnectionGroupAssociationFilter | None
+    Marker: string | None
+    MaxItems: integer | None
 
 
 class ListConnectionGroupsResult(TypedDict, total=False):
-    NextMarker: Optional[string]
-    ConnectionGroups: Optional[ConnectionGroupSummaryList]
+    NextMarker: string | None
+    ConnectionGroups: ConnectionGroupSummaryList | None
 
 
 class ListContinuousDeploymentPoliciesRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class ListContinuousDeploymentPoliciesResult(TypedDict, total=False):
-    ContinuousDeploymentPolicyList: Optional[ContinuousDeploymentPolicyList]
+    ContinuousDeploymentPolicyList: ContinuousDeploymentPolicyList | None
 
 
 class ListDistributionTenantsByCustomizationRequest(ServiceRequest):
-    WebACLArn: Optional[string]
-    CertificateArn: Optional[string]
-    Marker: Optional[string]
-    MaxItems: Optional[integer]
+    WebACLArn: string | None
+    CertificateArn: string | None
+    Marker: string | None
+    MaxItems: integer | None
 
 
 class ListDistributionTenantsByCustomizationResult(TypedDict, total=False):
-    NextMarker: Optional[string]
-    DistributionTenantList: Optional[DistributionTenantList]
+    NextMarker: string | None
+    DistributionTenantList: DistributionTenantList | None
 
 
 class ListDistributionTenantsRequest(ServiceRequest):
-    AssociationFilter: Optional[DistributionTenantAssociationFilter]
-    Marker: Optional[string]
-    MaxItems: Optional[integer]
+    AssociationFilter: DistributionTenantAssociationFilter | None
+    Marker: string | None
+    MaxItems: integer | None
 
 
 class ListDistributionTenantsResult(TypedDict, total=False):
-    NextMarker: Optional[string]
-    DistributionTenantList: Optional[DistributionTenantList]
+    NextMarker: string | None
+    DistributionTenantList: DistributionTenantList | None
 
 
 class ListDistributionsByAnycastIpListIdRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
     AnycastIpListId: string
 
 
 class ListDistributionsByAnycastIpListIdResult(TypedDict, total=False):
-    DistributionList: Optional[DistributionList]
+    DistributionList: DistributionList | None
 
 
 class ListDistributionsByCachePolicyIdRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
     CachePolicyId: string
 
 
 class ListDistributionsByCachePolicyIdResult(TypedDict, total=False):
-    DistributionIdList: Optional[DistributionIdList]
+    DistributionIdList: DistributionIdList | None
+
+
+class ListDistributionsByConnectionFunctionRequest(ServiceRequest):
+    Marker: string | None
+    MaxItems: integer | None
+    ConnectionFunctionIdentifier: string
+
+
+class ListDistributionsByConnectionFunctionResult(TypedDict, total=False):
+    DistributionList: DistributionList | None
 
 
 class ListDistributionsByConnectionModeRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[integer]
+    Marker: string | None
+    MaxItems: integer | None
     ConnectionMode: ConnectionMode
 
 
 class ListDistributionsByConnectionModeResult(TypedDict, total=False):
-    DistributionList: Optional[DistributionList]
+    DistributionList: DistributionList | None
 
 
 class ListDistributionsByKeyGroupRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
     KeyGroupId: string
 
 
 class ListDistributionsByKeyGroupResult(TypedDict, total=False):
-    DistributionIdList: Optional[DistributionIdList]
+    DistributionIdList: DistributionIdList | None
 
 
 class ListDistributionsByOriginRequestPolicyIdRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
     OriginRequestPolicyId: string
 
 
 class ListDistributionsByOriginRequestPolicyIdResult(TypedDict, total=False):
-    DistributionIdList: Optional[DistributionIdList]
+    DistributionIdList: DistributionIdList | None
+
+
+class ListDistributionsByOwnedResourceRequest(ServiceRequest):
+    ResourceArn: string
+    Marker: string | None
+    MaxItems: string | None
+
+
+class ListDistributionsByOwnedResourceResult(TypedDict, total=False):
+    DistributionList: DistributionIdOwnerList | None
 
 
 class ListDistributionsByRealtimeLogConfigRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
-    RealtimeLogConfigName: Optional[string]
-    RealtimeLogConfigArn: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
+    RealtimeLogConfigName: string | None
+    RealtimeLogConfigArn: string | None
 
 
 class ListDistributionsByRealtimeLogConfigResult(TypedDict, total=False):
-    DistributionList: Optional[DistributionList]
+    DistributionList: DistributionList | None
 
 
 class ListDistributionsByResponseHeadersPolicyIdRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
     ResponseHeadersPolicyId: string
 
 
 class ListDistributionsByResponseHeadersPolicyIdResult(TypedDict, total=False):
-    DistributionIdList: Optional[DistributionIdList]
+    DistributionIdList: DistributionIdList | None
+
+
+class ListDistributionsByTrustStoreRequest(ServiceRequest):
+    TrustStoreIdentifier: string
+    Marker: string | None
+    MaxItems: string | None
+
+
+class ListDistributionsByTrustStoreResult(TypedDict, total=False):
+    DistributionList: DistributionList | None
 
 
 class ListDistributionsByVpcOriginIdRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
     VpcOriginId: string
 
 
 class ListDistributionsByVpcOriginIdResult(TypedDict, total=False):
-    DistributionIdList: Optional[DistributionIdList]
+    DistributionIdList: DistributionIdList | None
 
 
 class ListDistributionsByWebACLIdRequest(ServiceRequest):
@@ -5247,8 +5540,8 @@ class ListDistributionsByWebACLIdRequest(ServiceRequest):
     WAF web ACL.
     """
 
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
     WebACLId: string
 
 
@@ -5257,108 +5550,108 @@ class ListDistributionsByWebACLIdResult(TypedDict, total=False):
     with a specified WAF web ACL.
     """
 
-    DistributionList: Optional[DistributionList]
+    DistributionList: DistributionList | None
 
 
 class ListDistributionsRequest(ServiceRequest):
     """The request to list your distributions."""
 
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class ListDistributionsResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    DistributionList: Optional[DistributionList]
+    DistributionList: DistributionList | None
 
 
 class ListDomainConflictsRequest(ServiceRequest):
     Domain: string
     DomainControlValidationResource: DistributionResourceId
-    MaxItems: Optional[integer]
-    Marker: Optional[string]
+    MaxItems: integer | None
+    Marker: string | None
 
 
 class ListDomainConflictsResult(TypedDict, total=False):
-    DomainConflicts: Optional[DomainConflictsList]
-    NextMarker: Optional[string]
+    DomainConflicts: DomainConflictsList | None
+    NextMarker: string | None
 
 
 class ListFieldLevelEncryptionConfigsRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class ListFieldLevelEncryptionConfigsResult(TypedDict, total=False):
-    FieldLevelEncryptionList: Optional[FieldLevelEncryptionList]
+    FieldLevelEncryptionList: FieldLevelEncryptionList | None
 
 
 class ListFieldLevelEncryptionProfilesRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class ListFieldLevelEncryptionProfilesResult(TypedDict, total=False):
-    FieldLevelEncryptionProfileList: Optional[FieldLevelEncryptionProfileList]
+    FieldLevelEncryptionProfileList: FieldLevelEncryptionProfileList | None
 
 
 class ListFunctionsRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
-    Stage: Optional[FunctionStage]
+    Marker: string | None
+    MaxItems: string | None
+    Stage: FunctionStage | None
 
 
 class ListFunctionsResult(TypedDict, total=False):
-    FunctionList: Optional[FunctionList]
+    FunctionList: FunctionList | None
 
 
 class ListInvalidationsForDistributionTenantRequest(ServiceRequest):
     Id: string
-    Marker: Optional[string]
-    MaxItems: Optional[integer]
+    Marker: string | None
+    MaxItems: integer | None
 
 
 class ListInvalidationsForDistributionTenantResult(TypedDict, total=False):
-    InvalidationList: Optional[InvalidationList]
+    InvalidationList: InvalidationList | None
 
 
 class ListInvalidationsRequest(ServiceRequest):
     """The request to list invalidations."""
 
     DistributionId: string
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class ListInvalidationsResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    InvalidationList: Optional[InvalidationList]
+    InvalidationList: InvalidationList | None
 
 
 class ListKeyGroupsRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class ListKeyGroupsResult(TypedDict, total=False):
-    KeyGroupList: Optional[KeyGroupList]
+    KeyGroupList: KeyGroupList | None
 
 
 class ListKeyValueStoresRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
-    Status: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
+    Status: string | None
 
 
 class ListKeyValueStoresResult(TypedDict, total=False):
-    KeyValueStoreList: Optional[KeyValueStoreList]
+    KeyValueStoreList: KeyValueStoreList | None
 
 
 class ListOriginAccessControlsRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class OriginAccessControlSummary(TypedDict, total=False):
@@ -5372,28 +5665,28 @@ class OriginAccessControlSummary(TypedDict, total=False):
     OriginAccessControlOriginType: OriginAccessControlOriginTypes
 
 
-OriginAccessControlSummaryList = List[OriginAccessControlSummary]
+OriginAccessControlSummaryList = list[OriginAccessControlSummary]
 
 
 class OriginAccessControlList(TypedDict, total=False):
     """A list of CloudFront origin access controls."""
 
     Marker: string
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     IsTruncated: boolean
     Quantity: integer
-    Items: Optional[OriginAccessControlSummaryList]
+    Items: OriginAccessControlSummaryList | None
 
 
 class ListOriginAccessControlsResult(TypedDict, total=False):
-    OriginAccessControlList: Optional[OriginAccessControlList]
+    OriginAccessControlList: OriginAccessControlList | None
 
 
 class ListOriginRequestPoliciesRequest(ServiceRequest):
-    Type: Optional[OriginRequestPolicyType]
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Type: OriginRequestPolicyType | None
+    Marker: string | None
+    MaxItems: string | None
 
 
 class OriginRequestPolicySummary(TypedDict, total=False):
@@ -5403,25 +5696,25 @@ class OriginRequestPolicySummary(TypedDict, total=False):
     OriginRequestPolicy: OriginRequestPolicy
 
 
-OriginRequestPolicySummaryList = List[OriginRequestPolicySummary]
+OriginRequestPolicySummaryList = list[OriginRequestPolicySummary]
 
 
 class OriginRequestPolicyList(TypedDict, total=False):
     """A list of origin request policies."""
 
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     Quantity: integer
-    Items: Optional[OriginRequestPolicySummaryList]
+    Items: OriginRequestPolicySummaryList | None
 
 
 class ListOriginRequestPoliciesResult(TypedDict, total=False):
-    OriginRequestPolicyList: Optional[OriginRequestPolicyList]
+    OriginRequestPolicyList: OriginRequestPolicyList | None
 
 
 class ListPublicKeysRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class PublicKeySummary(TypedDict, total=False):
@@ -5431,10 +5724,10 @@ class PublicKeySummary(TypedDict, total=False):
     Name: string
     CreatedTime: timestamp
     EncodedKey: string
-    Comment: Optional[string]
+    Comment: string | None
 
 
-PublicKeySummaryList = List[PublicKeySummary]
+PublicKeySummaryList = list[PublicKeySummary]
 
 
 class PublicKeyList(TypedDict, total=False):
@@ -5444,42 +5737,42 @@ class PublicKeyList(TypedDict, total=False):
     encryption <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/field-level-encryption.html>`__.
     """
 
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     Quantity: integer
-    Items: Optional[PublicKeySummaryList]
+    Items: PublicKeySummaryList | None
 
 
 class ListPublicKeysResult(TypedDict, total=False):
-    PublicKeyList: Optional[PublicKeyList]
+    PublicKeyList: PublicKeyList | None
 
 
 class ListRealtimeLogConfigsRequest(ServiceRequest):
-    MaxItems: Optional[string]
-    Marker: Optional[string]
+    MaxItems: string | None
+    Marker: string | None
 
 
-RealtimeLogConfigList = List[RealtimeLogConfig]
+RealtimeLogConfigList = list[RealtimeLogConfig]
 
 
 class RealtimeLogConfigs(TypedDict, total=False):
     """A list of real-time log configurations."""
 
     MaxItems: integer
-    Items: Optional[RealtimeLogConfigList]
+    Items: RealtimeLogConfigList | None
     IsTruncated: boolean
     Marker: string
-    NextMarker: Optional[string]
+    NextMarker: string | None
 
 
 class ListRealtimeLogConfigsResult(TypedDict, total=False):
-    RealtimeLogConfigs: Optional[RealtimeLogConfigs]
+    RealtimeLogConfigs: RealtimeLogConfigs | None
 
 
 class ListResponseHeadersPoliciesRequest(ServiceRequest):
-    Type: Optional[ResponseHeadersPolicyType]
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Type: ResponseHeadersPolicyType | None
+    Marker: string | None
+    MaxItems: string | None
 
 
 class ResponseHeadersPolicySummary(TypedDict, total=False):
@@ -5489,27 +5782,27 @@ class ResponseHeadersPolicySummary(TypedDict, total=False):
     ResponseHeadersPolicy: ResponseHeadersPolicy
 
 
-ResponseHeadersPolicySummaryList = List[ResponseHeadersPolicySummary]
+ResponseHeadersPolicySummaryList = list[ResponseHeadersPolicySummary]
 
 
 class ResponseHeadersPolicyList(TypedDict, total=False):
     """A list of response headers policies."""
 
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     Quantity: integer
-    Items: Optional[ResponseHeadersPolicySummaryList]
+    Items: ResponseHeadersPolicySummaryList | None
 
 
 class ListResponseHeadersPoliciesResult(TypedDict, total=False):
-    ResponseHeadersPolicyList: Optional[ResponseHeadersPolicyList]
+    ResponseHeadersPolicyList: ResponseHeadersPolicyList | None
 
 
 class ListStreamingDistributionsRequest(ServiceRequest):
     """The request to list your streaming distributions."""
 
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class StreamingDistributionSummary(TypedDict, total=False):
@@ -5528,24 +5821,24 @@ class StreamingDistributionSummary(TypedDict, total=False):
     Enabled: boolean
 
 
-StreamingDistributionSummaryList = List[StreamingDistributionSummary]
+StreamingDistributionSummaryList = list[StreamingDistributionSummary]
 
 
 class StreamingDistributionList(TypedDict, total=False):
     """A streaming distribution list."""
 
     Marker: string
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     IsTruncated: boolean
     Quantity: integer
-    Items: Optional[StreamingDistributionSummaryList]
+    Items: StreamingDistributionSummaryList | None
 
 
 class ListStreamingDistributionsResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    StreamingDistributionList: Optional[StreamingDistributionList]
+    StreamingDistributionList: StreamingDistributionList | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -5560,9 +5853,35 @@ class ListTagsForResourceResult(TypedDict, total=False):
     Tags: Tags
 
 
+class ListTrustStoresRequest(ServiceRequest):
+    Marker: string | None
+    MaxItems: integer | None
+
+
+class TrustStoreSummary(TypedDict, total=False):
+    """A trust store summary."""
+
+    Id: string
+    Arn: string
+    Name: string
+    Status: TrustStoreStatus
+    NumberOfCaCertificates: integer
+    LastModifiedTime: timestamp
+    Reason: string | None
+    ETag: string
+
+
+TrustStoreList = list[TrustStoreSummary]
+
+
+class ListTrustStoresResult(TypedDict, total=False):
+    NextMarker: string | None
+    TrustStoreList: TrustStoreList | None
+
+
 class ListVpcOriginsRequest(ServiceRequest):
-    Marker: Optional[string]
-    MaxItems: Optional[string]
+    Marker: string | None
+    MaxItems: string | None
 
 
 class VpcOriginSummary(TypedDict, total=False):
@@ -5574,25 +5893,35 @@ class VpcOriginSummary(TypedDict, total=False):
     CreatedTime: timestamp
     LastModifiedTime: timestamp
     Arn: string
+    AccountId: string | None
     OriginEndpointArn: string
 
 
-VpcOriginSummaryList = List[VpcOriginSummary]
+VpcOriginSummaryList = list[VpcOriginSummary]
 
 
 class VpcOriginList(TypedDict, total=False):
     """A list of CloudFront VPC origins."""
 
     Marker: string
-    NextMarker: Optional[string]
+    NextMarker: string | None
     MaxItems: integer
     IsTruncated: boolean
     Quantity: integer
-    Items: Optional[VpcOriginSummaryList]
+    Items: VpcOriginSummaryList | None
 
 
 class ListVpcOriginsResult(TypedDict, total=False):
-    VpcOriginList: Optional[VpcOriginList]
+    VpcOriginList: VpcOriginList | None
+
+
+class PublishConnectionFunctionRequest(ServiceRequest):
+    Id: ResourceId
+    IfMatch: string
+
+
+class PublishConnectionFunctionResult(TypedDict, total=False):
+    ConnectionFunctionSummary: ConnectionFunctionSummary | None
 
 
 class PublishFunctionRequest(ServiceRequest):
@@ -5601,16 +5930,25 @@ class PublishFunctionRequest(ServiceRequest):
 
 
 class PublishFunctionResult(TypedDict, total=False):
-    FunctionSummary: Optional[FunctionSummary]
+    FunctionSummary: FunctionSummary | None
 
 
-TagKeyList = List[TagKey]
+class PutResourcePolicyRequest(ServiceRequest):
+    ResourceArn: string
+    PolicyDocument: string
+
+
+class PutResourcePolicyResult(TypedDict, total=False):
+    ResourceArn: string | None
+
+
+TagKeyList = list[TagKey]
 
 
 class TagKeys(TypedDict, total=False):
     """A complex type that contains zero or more ``Tag`` elements."""
 
-    Items: Optional[TagKeyList]
+    Items: TagKeyList | None
 
 
 class TagResourceRequest(ServiceRequest):
@@ -5620,10 +5958,21 @@ class TagResourceRequest(ServiceRequest):
     Tags: Tags
 
 
+class TestConnectionFunctionRequest(ServiceRequest):
+    Id: ResourceId
+    IfMatch: string
+    Stage: FunctionStage | None
+    ConnectionObject: FunctionEventObject
+
+
+class TestConnectionFunctionResult(TypedDict, total=False):
+    ConnectionFunctionTestResult: ConnectionFunctionTestResult | None
+
+
 class TestFunctionRequest(ServiceRequest):
     Name: FunctionName
     IfMatch: string
-    Stage: Optional[FunctionStage]
+    Stage: FunctionStage | None
     EventObject: FunctionEventObject
 
 
@@ -5632,15 +5981,15 @@ class TestResult(TypedDict, total=False):
     ``TestFunction``.
     """
 
-    FunctionSummary: Optional[FunctionSummary]
-    ComputeUtilization: Optional[string]
-    FunctionExecutionLogs: Optional[FunctionExecutionLogList]
-    FunctionErrorMessage: Optional[sensitiveStringType]
-    FunctionOutput: Optional[sensitiveStringType]
+    FunctionSummary: FunctionSummary | None
+    ComputeUtilization: string | None
+    FunctionExecutionLogs: FunctionExecutionLogList | None
+    FunctionErrorMessage: sensitiveStringType | None
+    FunctionOutput: sensitiveStringType | None
 
 
 class TestFunctionResult(TypedDict, total=False):
-    TestResult: Optional[TestResult]
+    TestResult: TestResult | None
 
 
 class UntagResourceRequest(ServiceRequest):
@@ -5650,15 +5999,26 @@ class UntagResourceRequest(ServiceRequest):
     TagKeys: TagKeys
 
 
+class UpdateAnycastIpListRequest(ServiceRequest):
+    Id: string
+    IpAddressType: IpAddressType | None
+    IfMatch: string
+
+
+class UpdateAnycastIpListResult(TypedDict, total=False):
+    AnycastIpList: AnycastIpList | None
+    ETag: string | None
+
+
 class UpdateCachePolicyRequest(ServiceRequest):
     CachePolicyConfig: CachePolicyConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateCachePolicyResult(TypedDict, total=False):
-    CachePolicy: Optional[CachePolicy]
-    ETag: Optional[string]
+    CachePolicy: CachePolicy | None
+    ETag: string | None
 
 
 class UpdateCloudFrontOriginAccessIdentityRequest(ServiceRequest):
@@ -5666,38 +6026,50 @@ class UpdateCloudFrontOriginAccessIdentityRequest(ServiceRequest):
 
     CloudFrontOriginAccessIdentityConfig: CloudFrontOriginAccessIdentityConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateCloudFrontOriginAccessIdentityResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    CloudFrontOriginAccessIdentity: Optional[CloudFrontOriginAccessIdentity]
-    ETag: Optional[string]
+    CloudFrontOriginAccessIdentity: CloudFrontOriginAccessIdentity | None
+    ETag: string | None
+
+
+class UpdateConnectionFunctionRequest(ServiceRequest):
+    Id: ResourceId
+    IfMatch: string
+    ConnectionFunctionConfig: FunctionConfig
+    ConnectionFunctionCode: FunctionBlob
+
+
+class UpdateConnectionFunctionResult(TypedDict, total=False):
+    ConnectionFunctionSummary: ConnectionFunctionSummary | None
+    ETag: string | None
 
 
 class UpdateConnectionGroupRequest(ServiceRequest):
     Id: string
-    Ipv6Enabled: Optional[boolean]
+    Ipv6Enabled: boolean | None
     IfMatch: string
-    AnycastIpListId: Optional[string]
-    Enabled: Optional[boolean]
+    AnycastIpListId: string | None
+    Enabled: boolean | None
 
 
 class UpdateConnectionGroupResult(TypedDict, total=False):
-    ConnectionGroup: Optional[ConnectionGroup]
-    ETag: Optional[string]
+    ConnectionGroup: ConnectionGroup | None
+    ETag: string | None
 
 
 class UpdateContinuousDeploymentPolicyRequest(ServiceRequest):
     ContinuousDeploymentPolicyConfig: ContinuousDeploymentPolicyConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateContinuousDeploymentPolicyResult(TypedDict, total=False):
-    ContinuousDeploymentPolicy: Optional[ContinuousDeploymentPolicy]
-    ETag: Optional[string]
+    ContinuousDeploymentPolicy: ContinuousDeploymentPolicy | None
+    ETag: string | None
 
 
 class UpdateDistributionRequest(ServiceRequest):
@@ -5705,76 +6077,76 @@ class UpdateDistributionRequest(ServiceRequest):
 
     DistributionConfig: DistributionConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateDistributionResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    Distribution: Optional[Distribution]
-    ETag: Optional[string]
+    Distribution: Distribution | None
+    ETag: string | None
 
 
 class UpdateDistributionTenantRequest(ServiceRequest):
     Id: string
-    DistributionId: Optional[string]
-    Domains: Optional[DomainList]
-    Customizations: Optional[Customizations]
-    Parameters: Optional[Parameters]
-    ConnectionGroupId: Optional[string]
+    DistributionId: string | None
+    Domains: DomainList | None
+    Customizations: Customizations | None
+    Parameters: Parameters | None
+    ConnectionGroupId: string | None
     IfMatch: string
-    ManagedCertificateRequest: Optional[ManagedCertificateRequest]
-    Enabled: Optional[boolean]
+    ManagedCertificateRequest: ManagedCertificateRequest | None
+    Enabled: boolean | None
 
 
 class UpdateDistributionTenantResult(TypedDict, total=False):
-    DistributionTenant: Optional[DistributionTenant]
-    ETag: Optional[string]
+    DistributionTenant: DistributionTenant | None
+    ETag: string | None
 
 
 class UpdateDistributionWithStagingConfigRequest(ServiceRequest):
     Id: string
-    StagingDistributionId: Optional[string]
-    IfMatch: Optional[string]
+    StagingDistributionId: string | None
+    IfMatch: string | None
 
 
 class UpdateDistributionWithStagingConfigResult(TypedDict, total=False):
-    Distribution: Optional[Distribution]
-    ETag: Optional[string]
+    Distribution: Distribution | None
+    ETag: string | None
 
 
 class UpdateDomainAssociationRequest(ServiceRequest):
     Domain: string
     TargetResource: DistributionResourceId
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateDomainAssociationResult(TypedDict, total=False):
-    Domain: Optional[string]
-    ResourceId: Optional[string]
-    ETag: Optional[string]
+    Domain: string | None
+    ResourceId: string | None
+    ETag: string | None
 
 
 class UpdateFieldLevelEncryptionConfigRequest(ServiceRequest):
     FieldLevelEncryptionConfig: FieldLevelEncryptionConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateFieldLevelEncryptionConfigResult(TypedDict, total=False):
-    FieldLevelEncryption: Optional[FieldLevelEncryption]
-    ETag: Optional[string]
+    FieldLevelEncryption: FieldLevelEncryption | None
+    ETag: string | None
 
 
 class UpdateFieldLevelEncryptionProfileRequest(ServiceRequest):
     FieldLevelEncryptionProfileConfig: FieldLevelEncryptionProfileConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateFieldLevelEncryptionProfileResult(TypedDict, total=False):
-    FieldLevelEncryptionProfile: Optional[FieldLevelEncryptionProfile]
-    ETag: Optional[string]
+    FieldLevelEncryptionProfile: FieldLevelEncryptionProfile | None
+    ETag: string | None
 
 
 class UpdateFunctionRequest(ServiceRequest):
@@ -5785,19 +6157,19 @@ class UpdateFunctionRequest(ServiceRequest):
 
 
 class UpdateFunctionResult(TypedDict, total=False):
-    FunctionSummary: Optional[FunctionSummary]
-    ETag: Optional[string]
+    FunctionSummary: FunctionSummary | None
+    ETag: string | None
 
 
 class UpdateKeyGroupRequest(ServiceRequest):
     KeyGroupConfig: KeyGroupConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateKeyGroupResult(TypedDict, total=False):
-    KeyGroup: Optional[KeyGroup]
-    ETag: Optional[string]
+    KeyGroup: KeyGroup | None
+    ETag: string | None
 
 
 class UpdateKeyValueStoreRequest(ServiceRequest):
@@ -5807,64 +6179,64 @@ class UpdateKeyValueStoreRequest(ServiceRequest):
 
 
 class UpdateKeyValueStoreResult(TypedDict, total=False):
-    KeyValueStore: Optional[KeyValueStore]
-    ETag: Optional[string]
+    KeyValueStore: KeyValueStore | None
+    ETag: string | None
 
 
 class UpdateOriginAccessControlRequest(ServiceRequest):
     OriginAccessControlConfig: OriginAccessControlConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateOriginAccessControlResult(TypedDict, total=False):
-    OriginAccessControl: Optional[OriginAccessControl]
-    ETag: Optional[string]
+    OriginAccessControl: OriginAccessControl | None
+    ETag: string | None
 
 
 class UpdateOriginRequestPolicyRequest(ServiceRequest):
     OriginRequestPolicyConfig: OriginRequestPolicyConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateOriginRequestPolicyResult(TypedDict, total=False):
-    OriginRequestPolicy: Optional[OriginRequestPolicy]
-    ETag: Optional[string]
+    OriginRequestPolicy: OriginRequestPolicy | None
+    ETag: string | None
 
 
 class UpdatePublicKeyRequest(ServiceRequest):
     PublicKeyConfig: PublicKeyConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdatePublicKeyResult(TypedDict, total=False):
-    PublicKey: Optional[PublicKey]
-    ETag: Optional[string]
+    PublicKey: PublicKey | None
+    ETag: string | None
 
 
 class UpdateRealtimeLogConfigRequest(ServiceRequest):
-    EndPoints: Optional[EndPointList]
-    Fields: Optional[FieldList]
-    Name: Optional[string]
-    ARN: Optional[string]
-    SamplingRate: Optional[long]
+    EndPoints: EndPointList | None
+    Fields: FieldList | None
+    Name: string | None
+    ARN: string | None
+    SamplingRate: long | None
 
 
 class UpdateRealtimeLogConfigResult(TypedDict, total=False):
-    RealtimeLogConfig: Optional[RealtimeLogConfig]
+    RealtimeLogConfig: RealtimeLogConfig | None
 
 
 class UpdateResponseHeadersPolicyRequest(ServiceRequest):
     ResponseHeadersPolicyConfig: ResponseHeadersPolicyConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateResponseHeadersPolicyResult(TypedDict, total=False):
-    ResponseHeadersPolicy: Optional[ResponseHeadersPolicy]
-    ETag: Optional[string]
+    ResponseHeadersPolicy: ResponseHeadersPolicy | None
+    ETag: string | None
 
 
 class UpdateStreamingDistributionRequest(ServiceRequest):
@@ -5872,14 +6244,25 @@ class UpdateStreamingDistributionRequest(ServiceRequest):
 
     StreamingDistributionConfig: StreamingDistributionConfig
     Id: string
-    IfMatch: Optional[string]
+    IfMatch: string | None
 
 
 class UpdateStreamingDistributionResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
-    StreamingDistribution: Optional[StreamingDistribution]
-    ETag: Optional[string]
+    StreamingDistribution: StreamingDistribution | None
+    ETag: string | None
+
+
+class UpdateTrustStoreRequest(ServiceRequest):
+    Id: ResourceId
+    CaCertificatesBundleSource: CaCertificatesBundleSource
+    IfMatch: string
+
+
+class UpdateTrustStoreResult(TypedDict, total=False):
+    TrustStore: TrustStore | None
+    ETag: string | None
 
 
 class UpdateVpcOriginRequest(ServiceRequest):
@@ -5889,22 +6272,22 @@ class UpdateVpcOriginRequest(ServiceRequest):
 
 
 class UpdateVpcOriginResult(TypedDict, total=False):
-    VpcOrigin: Optional[VpcOrigin]
-    ETag: Optional[string]
+    VpcOrigin: VpcOrigin | None
+    ETag: string | None
 
 
 class VerifyDnsConfigurationRequest(ServiceRequest):
-    Domain: Optional[string]
+    Domain: string | None
     Identifier: string
 
 
 class VerifyDnsConfigurationResult(TypedDict, total=False):
-    DnsConfigurationList: Optional[DnsConfigurationList]
+    DnsConfigurationList: DnsConfigurationList | None
 
 
 class CloudfrontApi:
-    service = "cloudfront"
-    version = "2020-05-31"
+    service: str = "cloudfront"
+    version: str = "2020-05-31"
 
     @handler("AssociateAlias")
     def associate_alias(
@@ -6108,6 +6491,8 @@ class CloudfrontApi:
         name: AnycastIpListName,
         ip_count: integer,
         tags: Tags | None = None,
+        ip_address_type: IpAddressType | None = None,
+        ipam_cidr_configs: IpamCidrConfigList | None = None,
         **kwargs,
     ) -> CreateAnycastIpListResult:
         """Creates an Anycast static IP list.
@@ -6116,6 +6501,9 @@ class CloudfrontApi:
         :param ip_count: The number of static IP addresses that are allocated to the Anycast
         static IP list.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
+        :param ip_address_type: The IP address type for the Anycast static IP list.
+        :param ipam_cidr_configs: A list of IPAM CIDR configurations that specify the IP address ranges
+        and IPAM pool settings for creating the Anycast static IP list.
         :returns: CreateAnycastIpListResult
         :raises AccessDenied:
         :raises UnsupportedOperation:
@@ -6195,6 +6583,33 @@ class CloudfrontApi:
         :raises InconsistentQuantities:
         :raises CloudFrontOriginAccessIdentityAlreadyExists:
         :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
+    @handler("CreateConnectionFunction")
+    def create_connection_function(
+        self,
+        context: RequestContext,
+        name: FunctionName,
+        connection_function_config: FunctionConfig,
+        connection_function_code: FunctionBlob,
+        tags: Tags | None = None,
+        **kwargs,
+    ) -> CreateConnectionFunctionResult:
+        """Creates a connection function.
+
+        :param name: A name for the connection function.
+        :param connection_function_config: Contains configuration information about a CloudFront function.
+        :param connection_function_code: The code for the connection function.
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
+        :returns: CreateConnectionFunctionResult
+        :raises AccessDenied:
+        :raises UnsupportedOperation:
+        :raises EntityAlreadyExists:
+        :raises InvalidTagging:
+        :raises EntityLimitExceeded:
+        :raises InvalidArgument:
+        :raises EntitySizeLimitExceeded:
         """
         raise NotImplementedError
 
@@ -6900,6 +7315,30 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("CreateTrustStore")
+    def create_trust_store(
+        self,
+        context: RequestContext,
+        name: string,
+        ca_certificates_bundle_source: CaCertificatesBundleSource,
+        tags: Tags | None = None,
+        **kwargs,
+    ) -> CreateTrustStoreResult:
+        """Creates a trust store.
+
+        :param name: A name for the trust store.
+        :param ca_certificates_bundle_source: The CA certificates bundle source for the trust store.
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
+        :returns: CreateTrustStoreResult
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises EntityAlreadyExists:
+        :raises InvalidTagging:
+        :raises EntityLimitExceeded:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
     @handler("CreateVpcOrigin")
     def create_vpc_origin(
         self,
@@ -6985,6 +7424,25 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteConnectionFunction")
+    def delete_connection_function(
+        self, context: RequestContext, id: ResourceId, if_match: string, **kwargs
+    ) -> None:
+        """Deletes a connection function.
+
+        :param id: The connection function's ID.
+        :param if_match: The current version (``ETag`` value) of the connection function you are
+        deleting.
+        :raises CannotDeleteEntityWhileInUse:
+        :raises PreconditionFailed:
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises UnsupportedOperation:
+        :raises InvalidArgument:
+        :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
     @handler("DeleteConnectionGroup")
     def delete_connection_group(
         self, context: RequestContext, id: string, if_match: string, **kwargs
@@ -7031,6 +7489,10 @@ class CloudfrontApi:
         self, context: RequestContext, id: string, if_match: string | None = None, **kwargs
     ) -> None:
         """Delete a distribution.
+
+        Before you can delete a distribution, you must disable it, which
+        requires permission to update the distribution. Once deleted, a
+        distribution cannot be recovered.
 
         :param id: The distribution ID.
         :param if_match: The value of the ``ETag`` header that you received when you disabled the
@@ -7275,6 +7737,23 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteResourcePolicy")
+    def delete_resource_policy(
+        self, context: RequestContext, resource_arn: string, **kwargs
+    ) -> None:
+        """Deletes the resource policy attached to the CloudFront resource.
+
+        :param resource_arn: The Amazon Resource Name (ARN) of the CloudFront resource for which the
+        resource policy should be deleted.
+        :raises PreconditionFailed:
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises IllegalDelete:
+        :raises UnsupportedOperation:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
     @handler("DeleteResponseHeadersPolicy")
     def delete_response_headers_policy(
         self, context: RequestContext, id: string, if_match: string | None = None, **kwargs
@@ -7357,6 +7836,24 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteTrustStore")
+    def delete_trust_store(
+        self, context: RequestContext, id: ResourceId, if_match: string, **kwargs
+    ) -> None:
+        """Deletes a trust store.
+
+        :param id: The trust store's ID.
+        :param if_match: The current version (``ETag`` value) of the trust store you are
+        deleting.
+        :raises CannotDeleteEntityWhileInUse:
+        :raises PreconditionFailed:
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises InvalidArgument:
+        :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
     @handler("DeleteVpcOrigin")
     def delete_vpc_origin(
         self, context: RequestContext, id: string, if_match: string, **kwargs
@@ -7374,6 +7871,26 @@ class CloudfrontApi:
         :raises UnsupportedOperation:
         :raises InvalidArgument:
         :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeConnectionFunction")
+    def describe_connection_function(
+        self,
+        context: RequestContext,
+        identifier: string,
+        stage: FunctionStage | None = None,
+        **kwargs,
+    ) -> DescribeConnectionFunctionResult:
+        """Describes a connection function.
+
+        :param identifier: The connection function's identifier.
+        :param stage: The connection function's stage.
+        :returns: DescribeConnectionFunctionResult
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises UnsupportedOperation:
+        :raises InvalidArgument:
         """
         raise NotImplementedError
 
@@ -7533,6 +8050,25 @@ class CloudfrontApi:
         :returns: GetCloudFrontOriginAccessIdentityConfigResult
         :raises AccessDenied:
         :raises NoSuchCloudFrontOriginAccessIdentity:
+        """
+        raise NotImplementedError
+
+    @handler("GetConnectionFunction")
+    def get_connection_function(
+        self,
+        context: RequestContext,
+        identifier: string,
+        stage: FunctionStage | None = None,
+        **kwargs,
+    ) -> GetConnectionFunctionResult:
+        """Gets a connection function.
+
+        :param identifier: The connection function's identifier.
+        :param stage: The connection function's stage.
+        :returns: GetConnectionFunctionResult
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises UnsupportedOperation:
         """
         raise NotImplementedError
 
@@ -7936,6 +8472,23 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("GetResourcePolicy")
+    def get_resource_policy(
+        self, context: RequestContext, resource_arn: string, **kwargs
+    ) -> GetResourcePolicyResult:
+        """Retrieves the resource policy for the specified CloudFront resource that
+        you own and have shared.
+
+        :param resource_arn: The Amazon Resource Name (ARN) of the CloudFront resource that is
+        associated with the resource policy.
+        :returns: GetResourcePolicyResult
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises UnsupportedOperation:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
     @handler("GetResponseHeadersPolicy")
     def get_response_headers_policy(
         self, context: RequestContext, id: string, **kwargs
@@ -8001,6 +8554,20 @@ class CloudfrontApi:
         :returns: GetStreamingDistributionConfigResult
         :raises AccessDenied:
         :raises NoSuchStreamingDistribution:
+        """
+        raise NotImplementedError
+
+    @handler("GetTrustStore")
+    def get_trust_store(
+        self, context: RequestContext, identifier: string, **kwargs
+    ) -> GetTrustStoreResult:
+        """Gets a trust store.
+
+        :param identifier: The trust store's identifier.
+        :returns: GetTrustStoreResult
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises InvalidArgument:
         """
         raise NotImplementedError
 
@@ -8146,6 +8713,29 @@ class CloudfrontApi:
         :param max_items: The maximum number of conflicting aliases that you want in the response.
         :returns: ListConflictingAliasesResult
         :raises NoSuchDistribution:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
+    @handler("ListConnectionFunctions")
+    def list_connection_functions(
+        self,
+        context: RequestContext,
+        marker: string | None = None,
+        max_items: integer | None = None,
+        stage: FunctionStage | None = None,
+        **kwargs,
+    ) -> ListConnectionFunctionsResult:
+        """Lists connection functions.
+
+        :param marker: Use this field when paginating results to indicate where to begin in
+        your list.
+        :param max_items: The maximum number of connection functions that you want returned in the
+        response.
+        :param stage: The connection function's stage.
+        :returns: ListConnectionFunctionsResult
+        :raises AccessDenied:
+        :raises UnsupportedOperation:
         :raises InvalidArgument:
         """
         raise NotImplementedError
@@ -8322,6 +8912,29 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("ListDistributionsByConnectionFunction")
+    def list_distributions_by_connection_function(
+        self,
+        context: RequestContext,
+        connection_function_identifier: string,
+        marker: string | None = None,
+        max_items: integer | None = None,
+        **kwargs,
+    ) -> ListDistributionsByConnectionFunctionResult:
+        """Lists distributions by connection function.
+
+        :param connection_function_identifier: The distributions by connection function identifier.
+        :param marker: Use this field when paginating results to indicate where to begin in
+        your list.
+        :param max_items: The maximum number of distributions that you want returned in the
+        response.
+        :returns: ListDistributionsByConnectionFunctionResult
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
     @handler("ListDistributionsByConnectionMode")
     def list_distributions_by_connection_mode(
         self,
@@ -8405,6 +9018,31 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("ListDistributionsByOwnedResource")
+    def list_distributions_by_owned_resource(
+        self,
+        context: RequestContext,
+        resource_arn: string,
+        marker: string | None = None,
+        max_items: string | None = None,
+        **kwargs,
+    ) -> ListDistributionsByOwnedResourceResult:
+        """Lists the CloudFront distributions that are associated with the
+        specified resource that you own.
+
+        :param resource_arn: The ARN of the CloudFront resource that you've shared with other Amazon
+        Web Services accounts.
+        :param marker: Use this field when paginating results to indicate where to begin in
+        your list of distributions.
+        :param max_items: The maximum number of distributions to return.
+        :returns: ListDistributionsByOwnedResourceResult
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises UnsupportedOperation:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
     @handler("ListDistributionsByRealtimeLogConfig")
     def list_distributions_by_realtime_log_config(
         self,
@@ -8470,6 +9108,29 @@ class CloudfrontApi:
         :returns: ListDistributionsByResponseHeadersPolicyIdResult
         :raises AccessDenied:
         :raises NoSuchResponseHeadersPolicy:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
+    @handler("ListDistributionsByTrustStore")
+    def list_distributions_by_trust_store(
+        self,
+        context: RequestContext,
+        trust_store_identifier: string,
+        marker: string | None = None,
+        max_items: string | None = None,
+        **kwargs,
+    ) -> ListDistributionsByTrustStoreResult:
+        """Lists distributions by trust store.
+
+        :param trust_store_identifier: The distributions by trust store identifier.
+        :param marker: Use this field when paginating results to indicate where to begin in
+        your list.
+        :param max_items: The maximum number of distributions that you want returned in the
+        response.
+        :returns: ListDistributionsByTrustStoreResult
+        :raises AccessDenied:
+        :raises EntityNotFound:
         :raises InvalidArgument:
         """
         raise NotImplementedError
@@ -8918,6 +9579,27 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("ListTrustStores")
+    def list_trust_stores(
+        self,
+        context: RequestContext,
+        marker: string | None = None,
+        max_items: integer | None = None,
+        **kwargs,
+    ) -> ListTrustStoresResult:
+        """Lists trust stores.
+
+        :param marker: Use this field when paginating results to indicate where to begin in
+        your list.
+        :param max_items: The maximum number of trust stores that you want returned in the
+        response.
+        :returns: ListTrustStoresResult
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
     @handler("ListVpcOrigins")
     def list_vpc_origins(
         self,
@@ -8935,6 +9617,24 @@ class CloudfrontApi:
         :raises EntityNotFound:
         :raises UnsupportedOperation:
         :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
+    @handler("PublishConnectionFunction")
+    def publish_connection_function(
+        self, context: RequestContext, id: ResourceId, if_match: string, **kwargs
+    ) -> PublishConnectionFunctionResult:
+        """Publishes a connection function.
+
+        :param id: The connection function ID.
+        :param if_match: The current version (``ETag`` value) of the connection function.
+        :returns: PublishConnectionFunctionResult
+        :raises PreconditionFailed:
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises UnsupportedOperation:
+        :raises InvalidArgument:
+        :raises InvalidIfMatchVersion:
         """
         raise NotImplementedError
 
@@ -8967,6 +9667,25 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("PutResourcePolicy")
+    def put_resource_policy(
+        self, context: RequestContext, resource_arn: string, policy_document: string, **kwargs
+    ) -> PutResourcePolicyResult:
+        """Creates a resource control policy for a given CloudFront resource.
+
+        :param resource_arn: The Amazon Resource Name (ARN) of the CloudFront resource for which the
+        policy is being created.
+        :param policy_document: The JSON-formatted resource policy to create.
+        :returns: PutResourcePolicyResult
+        :raises PreconditionFailed:
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises UnsupportedOperation:
+        :raises InvalidArgument:
+        :raises IllegalUpdate:
+        """
+        raise NotImplementedError
+
     @handler("TagResource")
     def tag_resource(
         self, context: RequestContext, resource: ResourceARN, tags: Tags, **kwargs
@@ -8981,6 +9700,32 @@ class CloudfrontApi:
         :raises InvalidTagging:
         :raises InvalidArgument:
         :raises NoSuchResource:
+        """
+        raise NotImplementedError
+
+    @handler("TestConnectionFunction")
+    def test_connection_function(
+        self,
+        context: RequestContext,
+        id: ResourceId,
+        if_match: string,
+        connection_object: FunctionEventObject,
+        stage: FunctionStage | None = None,
+        **kwargs,
+    ) -> TestConnectionFunctionResult:
+        """Tests a connection function.
+
+        :param id: The connection function ID.
+        :param if_match: The current version (``ETag`` value) of the connection function.
+        :param connection_object: The connection object.
+        :param stage: The connection function stage.
+        :returns: TestConnectionFunctionResult
+        :raises TestFunctionFailed:
+        :raises PreconditionFailed:
+        :raises EntityNotFound:
+        :raises UnsupportedOperation:
+        :raises InvalidArgument:
+        :raises InvalidIfMatchVersion:
         """
         raise NotImplementedError
 
@@ -9040,6 +9785,31 @@ class CloudfrontApi:
         :raises InvalidTagging:
         :raises InvalidArgument:
         :raises NoSuchResource:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateAnycastIpList")
+    def update_anycast_ip_list(
+        self,
+        context: RequestContext,
+        id: string,
+        if_match: string,
+        ip_address_type: IpAddressType | None = None,
+        **kwargs,
+    ) -> UpdateAnycastIpListResult:
+        """Updates an Anycast static IP list.
+
+        :param id: The ID of the Anycast static IP list.
+        :param if_match: The current version (ETag value) of the Anycast static IP list that you
+        are updating.
+        :param ip_address_type: The IP address type for the Anycast static IP list.
+        :returns: UpdateAnycastIpListResult
+        :raises PreconditionFailed:
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises UnsupportedOperation:
+        :raises InvalidArgument:
+        :raises InvalidIfMatchVersion:
         """
         raise NotImplementedError
 
@@ -9114,6 +9884,34 @@ class CloudfrontApi:
         :raises InvalidArgument:
         :raises InvalidIfMatchVersion:
         :raises NoSuchCloudFrontOriginAccessIdentity:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateConnectionFunction")
+    def update_connection_function(
+        self,
+        context: RequestContext,
+        id: ResourceId,
+        if_match: string,
+        connection_function_config: FunctionConfig,
+        connection_function_code: FunctionBlob,
+        **kwargs,
+    ) -> UpdateConnectionFunctionResult:
+        """Updates a connection function.
+
+        :param id: The connection function ID.
+        :param if_match: The current version (``ETag`` value) of the connection function you are
+        updating.
+        :param connection_function_config: Contains configuration information about a CloudFront function.
+        :param connection_function_code: The connection function code.
+        :returns: UpdateConnectionFunctionResult
+        :raises PreconditionFailed:
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises UnsupportedOperation:
+        :raises InvalidArgument:
+        :raises EntitySizeLimitExceeded:
+        :raises InvalidIfMatchVersion:
         """
         raise NotImplementedError
 
@@ -9864,6 +10662,30 @@ class CloudfrontApi:
         :raises TrustedSignerDoesNotExist:
         :raises CNAMEAlreadyExists:
         :raises NoSuchStreamingDistribution:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateTrustStore")
+    def update_trust_store(
+        self,
+        context: RequestContext,
+        id: ResourceId,
+        ca_certificates_bundle_source: CaCertificatesBundleSource,
+        if_match: string,
+        **kwargs,
+    ) -> UpdateTrustStoreResult:
+        """Updates a trust store.
+
+        :param id: The trust store ID.
+        :param ca_certificates_bundle_source: The CA certificates bundle source.
+        :param if_match: The current version (``ETag`` value) of the trust store you are
+        updating.
+        :returns: UpdateTrustStoreResult
+        :raises PreconditionFailed:
+        :raises AccessDenied:
+        :raises EntityNotFound:
+        :raises InvalidArgument:
+        :raises InvalidIfMatchVersion:
         """
         raise NotImplementedError
 

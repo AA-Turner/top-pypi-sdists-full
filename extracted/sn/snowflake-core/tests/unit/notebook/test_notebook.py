@@ -176,13 +176,11 @@ def test_rename_notebook(fake_root, notebook, notebooks):
             "POST",
             BASE_URL
             + f"/databases/my_db/schemas/my_schema/notebooks/{notebook_name}:rename?"
-            + "targetDatabase=my_db&targetSchema=my_schema&targetName=new_notebook",
+            + "targetName=new_notebook",
         )
 
     kwargs = extra_params(
         query_params=[
-            ("targetDatabase", notebooks.database.name),
-            ("targetSchema", notebooks.schema.name),
             ("targetName", "new_notebook"),
         ]
     )
@@ -235,13 +233,11 @@ def test_rename_notebook_with_if_exists(fake_root, notebook):
         "POST",
         BASE_URL
         + "/databases/my_db/schemas/my_schema/notebooks/my_notebook:rename?"
-        + "ifExists=True&targetDatabase=my_db&targetSchema=my_schema&targetName=new_notebook",
+        + "ifExists=True&targetName=new_notebook",
     )
     kwargs = extra_params(
         query_params=[
             ("ifExists", True),
-            ("targetDatabase", "my_db"),
-            ("targetSchema", "my_schema"),
             ("targetName", "new_notebook"),
         ]
     )

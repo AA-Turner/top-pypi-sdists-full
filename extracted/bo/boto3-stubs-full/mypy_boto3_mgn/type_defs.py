@@ -3,7 +3,7 @@ Type annotations for mgn service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
 from .literals import (
@@ -34,6 +35,7 @@ from .literals import (
     ImportErrorTypeType,
     ImportStatusType,
     InitiatedByType,
+    InternetProtocolType,
     JobLogEventType,
     JobStatusType,
     JobTypeType,
@@ -48,22 +50,17 @@ from .literals import (
     ReplicationConfigurationReplicatedDiskStagingDiskTypeType,
     ReplicationTypeType,
     SsmDocumentTypeType,
+    SsmParameterStoreParameterTypeType,
     TargetInstanceTypeRightSizingMethodType,
     VolumeTypeType,
     WaveHealthStatusType,
     WaveProgressStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
-    from typing import Literal, NotRequired, TypedDict
+    from typing import NotRequired, TypedDict
 else:
-    from typing_extensions import Literal, NotRequired, TypedDict
+    from typing_extensions import NotRequired, TypedDict
 
 
 __all__ = (
@@ -264,8 +261,8 @@ __all__ = (
 
 
 class ApplicationAggregatedStatusTypeDef(TypedDict):
-    healthStatus: NotRequired[ApplicationHealthStatusType]
     lastUpdateDateTime: NotRequired[str]
+    healthStatus: NotRequired[ApplicationHealthStatusType]
     progressStatus: NotRequired[ApplicationProgressStatusType]
     totalSourceServers: NotRequired[int]
 
@@ -273,7 +270,7 @@ class ApplicationAggregatedStatusTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -289,8 +286,8 @@ class ArchiveWaveRequestTypeDef(TypedDict):
 
 
 class AssociateApplicationsRequestTypeDef(TypedDict):
-    applicationIDs: Sequence[str]
     waveID: str
+    applicationIDs: Sequence[str]
     accountID: NotRequired[str]
 
 
@@ -310,23 +307,23 @@ class ChangeServerLifeCycleStateSourceServerLifecycleTypeDef(TypedDict):
 
 
 class ConnectorSsmCommandConfigTypeDef(TypedDict):
-    cloudWatchOutputEnabled: bool
     s3OutputEnabled: bool
-    cloudWatchLogGroupName: NotRequired[str]
+    cloudWatchOutputEnabled: bool
     outputS3BucketName: NotRequired[str]
+    cloudWatchLogGroupName: NotRequired[str]
 
 
 class CreateApplicationRequestTypeDef(TypedDict):
     name: str
-    accountID: NotRequired[str]
     description: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    accountID: NotRequired[str]
 
 
 class LaunchTemplateDiskConfTypeDef(TypedDict):
+    volumeType: NotRequired[VolumeTypeType]
     iops: NotRequired[int]
     throughput: NotRequired[int]
-    volumeType: NotRequired[VolumeTypeType]
 
 
 class LicensingTypeDef(TypedDict):
@@ -334,27 +331,28 @@ class LicensingTypeDef(TypedDict):
 
 
 class CreateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
+    stagingAreaSubnetId: str
     associateDefaultSecurityGroup: bool
-    bandwidthThrottling: int
-    createPublicIP: bool
-    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
+    replicationServersSecurityGroupsIDs: Sequence[str]
+    replicationServerInstanceType: str
+    useDedicatedReplicationServer: bool
     defaultLargeStagingDiskType: ReplicationConfigurationDefaultLargeStagingDiskTypeType
     ebsEncryption: ReplicationConfigurationEbsEncryptionType
-    replicationServerInstanceType: str
-    replicationServersSecurityGroupsIDs: Sequence[str]
-    stagingAreaSubnetId: str
+    bandwidthThrottling: int
+    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
+    createPublicIP: bool
     stagingAreaTags: Mapping[str, str]
-    useDedicatedReplicationServer: bool
     ebsEncryptionKeyArn: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
     useFipsEndpoint: NotRequired[bool]
+    tags: NotRequired[Mapping[str, str]]
+    internetProtocol: NotRequired[InternetProtocolType]
 
 
 class CreateWaveRequestTypeDef(TypedDict):
     name: str
-    accountID: NotRequired[str]
     description: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    accountID: NotRequired[str]
 
 
 class DataReplicationErrorTypeDef(TypedDict):
@@ -363,11 +361,11 @@ class DataReplicationErrorTypeDef(TypedDict):
 
 
 class DataReplicationInfoReplicatedDiskTypeDef(TypedDict):
-    backloggedStorageBytes: NotRequired[int]
     deviceName: NotRequired[str]
+    totalStorageBytes: NotRequired[int]
     replicatedStorageBytes: NotRequired[int]
     rescannedStorageBytes: NotRequired[int]
-    totalStorageBytes: NotRequired[int]
+    backloggedStorageBytes: NotRequired[int]
 
 
 class DataReplicationInitiationStepTypeDef(TypedDict):
@@ -419,14 +417,14 @@ class PaginatorConfigTypeDef(TypedDict):
 
 class DescribeJobLogItemsRequestTypeDef(TypedDict):
     jobID: str
-    accountID: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    accountID: NotRequired[str]
 
 
 class DescribeJobsRequestFiltersTypeDef(TypedDict):
-    fromDate: NotRequired[str]
     jobIDs: NotRequired[Sequence[str]]
+    fromDate: NotRequired[str]
     toDate: NotRequired[str]
 
 
@@ -437,38 +435,39 @@ class DescribeLaunchConfigurationTemplatesRequestTypeDef(TypedDict):
 
 
 class DescribeReplicationConfigurationTemplatesRequestTypeDef(TypedDict):
+    replicationConfigurationTemplateIDs: NotRequired[Sequence[str]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-    replicationConfigurationTemplateIDs: NotRequired[Sequence[str]]
 
 
 class ReplicationConfigurationTemplateTypeDef(TypedDict):
     replicationConfigurationTemplateID: str
     arn: NotRequired[str]
+    stagingAreaSubnetId: NotRequired[str]
     associateDefaultSecurityGroup: NotRequired[bool]
-    bandwidthThrottling: NotRequired[int]
-    createPublicIP: NotRequired[bool]
-    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
+    replicationServersSecurityGroupsIDs: NotRequired[list[str]]
+    replicationServerInstanceType: NotRequired[str]
+    useDedicatedReplicationServer: NotRequired[bool]
     defaultLargeStagingDiskType: NotRequired[
         ReplicationConfigurationDefaultLargeStagingDiskTypeType
     ]
     ebsEncryption: NotRequired[ReplicationConfigurationEbsEncryptionType]
     ebsEncryptionKeyArn: NotRequired[str]
-    replicationServerInstanceType: NotRequired[str]
-    replicationServersSecurityGroupsIDs: NotRequired[List[str]]
-    stagingAreaSubnetId: NotRequired[str]
-    stagingAreaTags: NotRequired[Dict[str, str]]
-    tags: NotRequired[Dict[str, str]]
-    useDedicatedReplicationServer: NotRequired[bool]
+    bandwidthThrottling: NotRequired[int]
+    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
+    createPublicIP: NotRequired[bool]
+    stagingAreaTags: NotRequired[dict[str, str]]
     useFipsEndpoint: NotRequired[bool]
+    tags: NotRequired[dict[str, str]]
+    internetProtocol: NotRequired[InternetProtocolType]
 
 
 class DescribeSourceServersRequestFiltersTypeDef(TypedDict):
-    applicationIDs: NotRequired[Sequence[str]]
-    isArchived: NotRequired[bool]
-    lifeCycleStates: NotRequired[Sequence[LifeCycleStateType]]
-    replicationTypes: NotRequired[Sequence[ReplicationTypeType]]
     sourceServerIDs: NotRequired[Sequence[str]]
+    isArchived: NotRequired[bool]
+    replicationTypes: NotRequired[Sequence[ReplicationTypeType]]
+    lifeCycleStates: NotRequired[Sequence[LifeCycleStateType]]
+    applicationIDs: NotRequired[Sequence[str]]
 
 
 class DescribeVcenterClientsRequestTypeDef(TypedDict):
@@ -477,19 +476,19 @@ class DescribeVcenterClientsRequestTypeDef(TypedDict):
 
 
 class VcenterClientTypeDef(TypedDict):
-    arn: NotRequired[str]
-    datacenterName: NotRequired[str]
-    hostname: NotRequired[str]
-    lastSeenDatetime: NotRequired[str]
-    sourceServerTags: NotRequired[Dict[str, str]]
-    tags: NotRequired[Dict[str, str]]
     vcenterClientID: NotRequired[str]
+    arn: NotRequired[str]
+    hostname: NotRequired[str]
     vcenterUUID: NotRequired[str]
+    datacenterName: NotRequired[str]
+    lastSeenDatetime: NotRequired[str]
+    sourceServerTags: NotRequired[dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class DisassociateApplicationsRequestTypeDef(TypedDict):
-    applicationIDs: Sequence[str]
     waveID: str
+    applicationIDs: Sequence[str]
     accountID: NotRequired[str]
 
 
@@ -507,8 +506,8 @@ class DisconnectFromServiceRequestTypeDef(TypedDict):
 DiskTypeDef = TypedDict(
     "DiskTypeDef",
     {
-        "bytes": NotRequired[int],
         "deviceName": NotRequired[str],
+        "bytes": NotRequired[int],
     },
 )
 
@@ -518,8 +517,8 @@ class ExportErrorDataTypeDef(TypedDict):
 
 
 class ExportTaskSummaryTypeDef(TypedDict):
-    applicationsCount: NotRequired[int]
     serversCount: NotRequired[int]
+    applicationsCount: NotRequired[int]
     wavesCount: NotRequired[int]
 
 
@@ -539,21 +538,21 @@ class GetReplicationConfigurationRequestTypeDef(TypedDict):
 
 
 class IdentificationHintsTypeDef(TypedDict):
-    awsInstanceID: NotRequired[str]
     fqdn: NotRequired[str]
     hostname: NotRequired[str]
-    vmPath: NotRequired[str]
     vmWareUuid: NotRequired[str]
+    awsInstanceID: NotRequired[str]
+    vmPath: NotRequired[str]
 
 
 class ImportErrorDataTypeDef(TypedDict):
-    accountID: NotRequired[str]
-    applicationID: NotRequired[str]
-    ec2LaunchTemplateID: NotRequired[str]
-    rawError: NotRequired[str]
-    rowNumber: NotRequired[int]
     sourceServerID: NotRequired[str]
+    applicationID: NotRequired[str]
     waveID: NotRequired[str]
+    ec2LaunchTemplateID: NotRequired[str]
+    rowNumber: NotRequired[int]
+    rawError: NotRequired[str]
+    accountID: NotRequired[str]
 
 
 class ImportTaskSummaryApplicationsTypeDef(TypedDict):
@@ -578,16 +577,18 @@ class S3BucketSourceTypeDef(TypedDict):
 
 
 class JobLogEventDataTypeDef(TypedDict):
-    conversionServerID: NotRequired[str]
-    rawError: NotRequired[str]
     sourceServerID: NotRequired[str]
+    conversionServerID: NotRequired[str]
     targetInstanceID: NotRequired[str]
+    rawError: NotRequired[str]
+    attemptCount: NotRequired[int]
+    maxAttemptsCount: NotRequired[int]
 
 
 class LaunchedInstanceTypeDef(TypedDict):
     ec2InstanceID: NotRequired[str]
-    firstBoot: NotRequired[FirstBootType]
     jobID: NotRequired[str]
+    firstBoot: NotRequired[FirstBootType]
 
 
 class LifeCycleLastCutoverFinalizedTypeDef(TypedDict):
@@ -668,8 +669,8 @@ class TemplateActionsRequestFiltersTypeDef(TypedDict):
 
 
 class ListWavesRequestFiltersTypeDef(TypedDict):
-    isArchived: NotRequired[bool]
     waveIDs: NotRequired[Sequence[str]]
+    isArchived: NotRequired[bool]
 
 
 class MarkAsArchivedRequestTypeDef(TypedDict):
@@ -678,9 +679,9 @@ class MarkAsArchivedRequestTypeDef(TypedDict):
 
 
 class NetworkInterfaceTypeDef(TypedDict):
-    ips: NotRequired[List[str]]
-    isPrimary: NotRequired[bool]
     macAddress: NotRequired[str]
+    ips: NotRequired[list[str]]
+    isPrimary: NotRequired[bool]
 
 
 class OSTypeDef(TypedDict):
@@ -697,26 +698,26 @@ class SsmExternalParameterTypeDef(TypedDict):
 
 
 class SsmParameterStoreParameterTypeDef(TypedDict):
+    parameterType: SsmParameterStoreParameterTypeType
     parameterName: str
-    parameterType: Literal["STRING"]
 
 
 class RemoveSourceServerActionRequestTypeDef(TypedDict):
-    actionID: str
     sourceServerID: str
+    actionID: str
     accountID: NotRequired[str]
 
 
 class RemoveTemplateActionRequestTypeDef(TypedDict):
-    actionID: str
     launchConfigurationTemplateID: str
+    actionID: str
 
 
 class ReplicationConfigurationReplicatedDiskTypeDef(TypedDict):
     deviceName: NotRequired[str]
-    iops: NotRequired[int]
     isBootDisk: NotRequired[bool]
     stagingDiskType: NotRequired[ReplicationConfigurationReplicatedDiskStagingDiskTypeType]
+    iops: NotRequired[int]
     throughput: NotRequired[int]
 
 
@@ -731,20 +732,21 @@ class RetryDataReplicationRequestTypeDef(TypedDict):
 
 
 class SourceServerConnectorActionTypeDef(TypedDict):
-    connectorArn: NotRequired[str]
     credentialsSecretArn: NotRequired[str]
+    connectorArn: NotRequired[str]
 
 
 class StartCutoverRequestTypeDef(TypedDict):
     sourceServerIDs: Sequence[str]
-    accountID: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    accountID: NotRequired[str]
 
 
 class StartExportRequestTypeDef(TypedDict):
     s3Bucket: str
     s3Key: str
     s3BucketOwner: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class StartReplicationRequestTypeDef(TypedDict):
@@ -754,8 +756,8 @@ class StartReplicationRequestTypeDef(TypedDict):
 
 class StartTestRequestTypeDef(TypedDict):
     sourceServerIDs: Sequence[str]
-    accountID: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    accountID: NotRequired[str]
 
 
 class StopReplicationRequestTypeDef(TypedDict):
@@ -770,8 +772,8 @@ class TagResourceRequestTypeDef(TypedDict):
 
 class TerminateTargetInstancesRequestTypeDef(TypedDict):
     sourceServerIDs: Sequence[str]
-    accountID: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    accountID: NotRequired[str]
 
 
 class UnarchiveApplicationRequestTypeDef(TypedDict):
@@ -791,75 +793,76 @@ class UntagResourceRequestTypeDef(TypedDict):
 
 class UpdateApplicationRequestTypeDef(TypedDict):
     applicationID: str
-    accountID: NotRequired[str]
-    description: NotRequired[str]
     name: NotRequired[str]
+    description: NotRequired[str]
+    accountID: NotRequired[str]
 
 
 class UpdateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
     replicationConfigurationTemplateID: str
     arn: NotRequired[str]
+    stagingAreaSubnetId: NotRequired[str]
     associateDefaultSecurityGroup: NotRequired[bool]
-    bandwidthThrottling: NotRequired[int]
-    createPublicIP: NotRequired[bool]
-    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
+    replicationServersSecurityGroupsIDs: NotRequired[Sequence[str]]
+    replicationServerInstanceType: NotRequired[str]
+    useDedicatedReplicationServer: NotRequired[bool]
     defaultLargeStagingDiskType: NotRequired[
         ReplicationConfigurationDefaultLargeStagingDiskTypeType
     ]
     ebsEncryption: NotRequired[ReplicationConfigurationEbsEncryptionType]
     ebsEncryptionKeyArn: NotRequired[str]
-    replicationServerInstanceType: NotRequired[str]
-    replicationServersSecurityGroupsIDs: NotRequired[Sequence[str]]
-    stagingAreaSubnetId: NotRequired[str]
+    bandwidthThrottling: NotRequired[int]
+    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
+    createPublicIP: NotRequired[bool]
     stagingAreaTags: NotRequired[Mapping[str, str]]
-    useDedicatedReplicationServer: NotRequired[bool]
     useFipsEndpoint: NotRequired[bool]
+    internetProtocol: NotRequired[InternetProtocolType]
 
 
 class UpdateSourceServerReplicationTypeRequestTypeDef(TypedDict):
-    replicationType: ReplicationTypeType
     sourceServerID: str
+    replicationType: ReplicationTypeType
     accountID: NotRequired[str]
 
 
 class UpdateWaveRequestTypeDef(TypedDict):
     waveID: str
-    accountID: NotRequired[str]
-    description: NotRequired[str]
     name: NotRequired[str]
+    description: NotRequired[str]
+    accountID: NotRequired[str]
 
 
 class WaveAggregatedStatusTypeDef(TypedDict):
-    healthStatus: NotRequired[WaveHealthStatusType]
     lastUpdateDateTime: NotRequired[str]
-    progressStatus: NotRequired[WaveProgressStatusType]
     replicationStartedDateTime: NotRequired[str]
+    healthStatus: NotRequired[WaveHealthStatusType]
+    progressStatus: NotRequired[WaveProgressStatusType]
     totalApplications: NotRequired[int]
 
 
 class ApplicationTypeDef(TypedDict):
-    applicationAggregatedStatus: NotRequired[ApplicationAggregatedStatusTypeDef]
     applicationID: NotRequired[str]
     arn: NotRequired[str]
-    creationDateTime: NotRequired[str]
+    name: NotRequired[str]
     description: NotRequired[str]
     isArchived: NotRequired[bool]
+    applicationAggregatedStatus: NotRequired[ApplicationAggregatedStatusTypeDef]
+    creationDateTime: NotRequired[str]
     lastModifiedDateTime: NotRequired[str]
-    name: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     waveID: NotRequired[str]
 
 
 class ApplicationResponseTypeDef(TypedDict):
-    applicationAggregatedStatus: ApplicationAggregatedStatusTypeDef
     applicationID: str
     arn: str
-    creationDateTime: str
+    name: str
     description: str
     isArchived: bool
+    applicationAggregatedStatus: ApplicationAggregatedStatusTypeDef
+    creationDateTime: str
     lastModifiedDateTime: str
-    name: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     waveID: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -869,60 +872,61 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ReplicationConfigurationTemplateResponseTypeDef(TypedDict):
+    replicationConfigurationTemplateID: str
     arn: str
+    stagingAreaSubnetId: str
     associateDefaultSecurityGroup: bool
-    bandwidthThrottling: int
-    createPublicIP: bool
-    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
+    replicationServersSecurityGroupsIDs: list[str]
+    replicationServerInstanceType: str
+    useDedicatedReplicationServer: bool
     defaultLargeStagingDiskType: ReplicationConfigurationDefaultLargeStagingDiskTypeType
     ebsEncryption: ReplicationConfigurationEbsEncryptionType
     ebsEncryptionKeyArn: str
-    replicationConfigurationTemplateID: str
-    replicationServerInstanceType: str
-    replicationServersSecurityGroupsIDs: List[str]
-    stagingAreaSubnetId: str
-    stagingAreaTags: Dict[str, str]
-    tags: Dict[str, str]
-    useDedicatedReplicationServer: bool
+    bandwidthThrottling: int
+    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
+    createPublicIP: bool
+    stagingAreaTags: dict[str, str]
     useFipsEndpoint: bool
+    tags: dict[str, str]
+    internetProtocol: InternetProtocolType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ChangeServerLifeCycleStateRequestTypeDef(TypedDict):
-    lifeCycle: ChangeServerLifeCycleStateSourceServerLifecycleTypeDef
     sourceServerID: str
+    lifeCycle: ChangeServerLifeCycleStateSourceServerLifecycleTypeDef
     accountID: NotRequired[str]
 
 
 class ConnectorResponseTypeDef(TypedDict):
-    arn: str
     connectorID: str
     name: str
-    ssmCommandConfig: ConnectorSsmCommandConfigTypeDef
     ssmInstanceID: str
-    tags: Dict[str, str]
+    arn: str
+    tags: dict[str, str]
+    ssmCommandConfig: ConnectorSsmCommandConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ConnectorTypeDef(TypedDict):
-    arn: NotRequired[str]
     connectorID: NotRequired[str]
     name: NotRequired[str]
-    ssmCommandConfig: NotRequired[ConnectorSsmCommandConfigTypeDef]
     ssmInstanceID: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    arn: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
+    ssmCommandConfig: NotRequired[ConnectorSsmCommandConfigTypeDef]
 
 
 class CreateConnectorRequestTypeDef(TypedDict):
     name: str
     ssmInstanceID: str
-    ssmCommandConfig: NotRequired[ConnectorSsmCommandConfigTypeDef]
     tags: NotRequired[Mapping[str, str]]
+    ssmCommandConfig: NotRequired[ConnectorSsmCommandConfigTypeDef]
 
 
 class UpdateConnectorRequestTypeDef(TypedDict):
@@ -932,9 +936,9 @@ class UpdateConnectorRequestTypeDef(TypedDict):
 
 
 class DataReplicationInitiationTypeDef(TypedDict):
-    nextAttemptDateTime: NotRequired[str]
     startDateTime: NotRequired[str]
-    steps: NotRequired[List[DataReplicationInitiationStepTypeDef]]
+    nextAttemptDateTime: NotRequired[str]
+    steps: NotRequired[list[DataReplicationInitiationStepTypeDef]]
 
 
 class DescribeJobLogItemsRequestPaginateTypeDef(TypedDict):
@@ -972,106 +976,109 @@ class ListManagedAccountsRequestPaginateTypeDef(TypedDict):
 
 
 class DescribeJobsRequestPaginateTypeDef(TypedDict):
-    accountID: NotRequired[str]
     filters: NotRequired[DescribeJobsRequestFiltersTypeDef]
+    accountID: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class DescribeJobsRequestTypeDef(TypedDict):
-    accountID: NotRequired[str]
     filters: NotRequired[DescribeJobsRequestFiltersTypeDef]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    accountID: NotRequired[str]
 
 
 class DescribeReplicationConfigurationTemplatesResponseTypeDef(TypedDict):
-    items: List[ReplicationConfigurationTemplateTypeDef]
+    items: list[ReplicationConfigurationTemplateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DescribeSourceServersRequestPaginateTypeDef(TypedDict):
-    accountID: NotRequired[str]
     filters: NotRequired[DescribeSourceServersRequestFiltersTypeDef]
+    accountID: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class DescribeSourceServersRequestTypeDef(TypedDict):
-    accountID: NotRequired[str]
     filters: NotRequired[DescribeSourceServersRequestFiltersTypeDef]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    accountID: NotRequired[str]
 
 
 class DescribeVcenterClientsResponseTypeDef(TypedDict):
-    items: List[VcenterClientTypeDef]
+    items: list[VcenterClientTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ExportTaskErrorTypeDef(TypedDict):
-    errorData: NotRequired[ExportErrorDataTypeDef]
     errorDateTime: NotRequired[str]
+    errorData: NotRequired[ExportErrorDataTypeDef]
 
 
 class ExportTaskTypeDef(TypedDict):
+    exportID: NotRequired[str]
+    arn: NotRequired[str]
+    s3Bucket: NotRequired[str]
+    s3Key: NotRequired[str]
+    s3BucketOwner: NotRequired[str]
     creationDateTime: NotRequired[str]
     endDateTime: NotRequired[str]
-    exportID: NotRequired[str]
-    progressPercentage: NotRequired[float]
-    s3Bucket: NotRequired[str]
-    s3BucketOwner: NotRequired[str]
-    s3Key: NotRequired[str]
     status: NotRequired[ExportStatusType]
+    progressPercentage: NotRequired[float]
     summary: NotRequired[ExportTaskSummaryTypeDef]
+    tags: NotRequired[dict[str, str]]
 
 
 class ImportTaskErrorTypeDef(TypedDict):
-    errorData: NotRequired[ImportErrorDataTypeDef]
     errorDateTime: NotRequired[str]
     errorType: NotRequired[ImportErrorTypeType]
+    errorData: NotRequired[ImportErrorDataTypeDef]
 
 
 class ImportTaskSummaryTypeDef(TypedDict):
+    waves: NotRequired[ImportTaskSummaryWavesTypeDef]
     applications: NotRequired[ImportTaskSummaryApplicationsTypeDef]
     servers: NotRequired[ImportTaskSummaryServersTypeDef]
-    waves: NotRequired[ImportTaskSummaryWavesTypeDef]
 
 
 class StartImportRequestTypeDef(TypedDict):
     s3BucketSource: S3BucketSourceTypeDef
     clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class JobLogTypeDef(TypedDict):
+    logDateTime: NotRequired[str]
     event: NotRequired[JobLogEventType]
     eventData: NotRequired[JobLogEventDataTypeDef]
-    logDateTime: NotRequired[str]
 
 
 class LifeCycleLastCutoverTypeDef(TypedDict):
-    finalized: NotRequired[LifeCycleLastCutoverFinalizedTypeDef]
     initiated: NotRequired[LifeCycleLastCutoverInitiatedTypeDef]
     reverted: NotRequired[LifeCycleLastCutoverRevertedTypeDef]
+    finalized: NotRequired[LifeCycleLastCutoverFinalizedTypeDef]
 
 
 class LifeCycleLastTestTypeDef(TypedDict):
-    finalized: NotRequired[LifeCycleLastTestFinalizedTypeDef]
     initiated: NotRequired[LifeCycleLastTestInitiatedTypeDef]
     reverted: NotRequired[LifeCycleLastTestRevertedTypeDef]
+    finalized: NotRequired[LifeCycleLastTestFinalizedTypeDef]
 
 
 class ListApplicationsRequestPaginateTypeDef(TypedDict):
-    accountID: NotRequired[str]
     filters: NotRequired[ListApplicationsRequestFiltersTypeDef]
+    accountID: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListApplicationsRequestTypeDef(TypedDict):
-    accountID: NotRequired[str]
     filters: NotRequired[ListApplicationsRequestFiltersTypeDef]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    accountID: NotRequired[str]
 
 
 class ListConnectorsRequestPaginateTypeDef(TypedDict):
@@ -1108,24 +1115,24 @@ class ListImportsRequestTypeDef(TypedDict):
 
 
 class ListManagedAccountsResponseTypeDef(TypedDict):
-    items: List[ManagedAccountTypeDef]
+    items: list[ManagedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSourceServerActionsRequestPaginateTypeDef(TypedDict):
     sourceServerID: str
-    accountID: NotRequired[str]
     filters: NotRequired[SourceServerActionsRequestFiltersTypeDef]
+    accountID: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListSourceServerActionsRequestTypeDef(TypedDict):
     sourceServerID: str
-    accountID: NotRequired[str]
     filters: NotRequired[SourceServerActionsRequestFiltersTypeDef]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    accountID: NotRequired[str]
 
 
 class ListTemplateActionsRequestPaginateTypeDef(TypedDict):
@@ -1142,185 +1149,187 @@ class ListTemplateActionsRequestTypeDef(TypedDict):
 
 
 class ListWavesRequestPaginateTypeDef(TypedDict):
-    accountID: NotRequired[str]
     filters: NotRequired[ListWavesRequestFiltersTypeDef]
+    accountID: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListWavesRequestTypeDef(TypedDict):
-    accountID: NotRequired[str]
     filters: NotRequired[ListWavesRequestFiltersTypeDef]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    accountID: NotRequired[str]
 
 
 class SourcePropertiesTypeDef(TypedDict):
-    cpus: NotRequired[List[CPUTypeDef]]
-    disks: NotRequired[List[DiskTypeDef]]
-    identificationHints: NotRequired[IdentificationHintsTypeDef]
     lastUpdatedDateTime: NotRequired[str]
-    networkInterfaces: NotRequired[List[NetworkInterfaceTypeDef]]
-    os: NotRequired[OSTypeDef]
-    ramBytes: NotRequired[int]
     recommendedInstanceType: NotRequired[str]
+    identificationHints: NotRequired[IdentificationHintsTypeDef]
+    networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
+    disks: NotRequired[list[DiskTypeDef]]
+    cpus: NotRequired[list[CPUTypeDef]]
+    ramBytes: NotRequired[int]
+    os: NotRequired[OSTypeDef]
 
 
 class PutSourceServerActionRequestTypeDef(TypedDict):
-    actionID: str
+    sourceServerID: str
     actionName: str
     documentIdentifier: str
     order: int
-    sourceServerID: str
-    accountID: NotRequired[str]
-    active: NotRequired[bool]
-    category: NotRequired[ActionCategoryType]
-    description: NotRequired[str]
+    actionID: str
     documentVersion: NotRequired[str]
-    externalParameters: NotRequired[Mapping[str, SsmExternalParameterTypeDef]]
+    active: NotRequired[bool]
+    timeoutSeconds: NotRequired[int]
     mustSucceedForCutover: NotRequired[bool]
     parameters: NotRequired[Mapping[str, Sequence[SsmParameterStoreParameterTypeDef]]]
-    timeoutSeconds: NotRequired[int]
+    externalParameters: NotRequired[Mapping[str, SsmExternalParameterTypeDef]]
+    description: NotRequired[str]
+    category: NotRequired[ActionCategoryType]
+    accountID: NotRequired[str]
 
 
 class PutTemplateActionRequestTypeDef(TypedDict):
-    actionID: str
+    launchConfigurationTemplateID: str
     actionName: str
     documentIdentifier: str
-    launchConfigurationTemplateID: str
     order: int
-    active: NotRequired[bool]
-    category: NotRequired[ActionCategoryType]
-    description: NotRequired[str]
+    actionID: str
     documentVersion: NotRequired[str]
-    externalParameters: NotRequired[Mapping[str, SsmExternalParameterTypeDef]]
-    mustSucceedForCutover: NotRequired[bool]
-    operatingSystem: NotRequired[str]
-    parameters: NotRequired[Mapping[str, Sequence[SsmParameterStoreParameterTypeDef]]]
+    active: NotRequired[bool]
     timeoutSeconds: NotRequired[int]
+    mustSucceedForCutover: NotRequired[bool]
+    parameters: NotRequired[Mapping[str, Sequence[SsmParameterStoreParameterTypeDef]]]
+    operatingSystem: NotRequired[str]
+    externalParameters: NotRequired[Mapping[str, SsmExternalParameterTypeDef]]
+    description: NotRequired[str]
+    category: NotRequired[ActionCategoryType]
 
 
 class SourceServerActionDocumentResponseTypeDef(TypedDict):
     actionID: str
     actionName: str
-    active: bool
-    category: ActionCategoryType
-    description: str
     documentIdentifier: str
-    documentVersion: str
-    externalParameters: Dict[str, SsmExternalParameterTypeDef]
-    mustSucceedForCutover: bool
     order: int
-    parameters: Dict[str, List[SsmParameterStoreParameterTypeDef]]
+    documentVersion: str
+    active: bool
     timeoutSeconds: int
+    mustSucceedForCutover: bool
+    parameters: dict[str, list[SsmParameterStoreParameterTypeDef]]
+    externalParameters: dict[str, SsmExternalParameterTypeDef]
+    description: str
+    category: ActionCategoryType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SourceServerActionDocumentTypeDef(TypedDict):
     actionID: NotRequired[str]
     actionName: NotRequired[str]
-    active: NotRequired[bool]
-    category: NotRequired[ActionCategoryType]
-    description: NotRequired[str]
     documentIdentifier: NotRequired[str]
-    documentVersion: NotRequired[str]
-    externalParameters: NotRequired[Dict[str, SsmExternalParameterTypeDef]]
-    mustSucceedForCutover: NotRequired[bool]
     order: NotRequired[int]
-    parameters: NotRequired[Dict[str, List[SsmParameterStoreParameterTypeDef]]]
+    documentVersion: NotRequired[str]
+    active: NotRequired[bool]
     timeoutSeconds: NotRequired[int]
+    mustSucceedForCutover: NotRequired[bool]
+    parameters: NotRequired[dict[str, list[SsmParameterStoreParameterTypeDef]]]
+    externalParameters: NotRequired[dict[str, SsmExternalParameterTypeDef]]
+    description: NotRequired[str]
+    category: NotRequired[ActionCategoryType]
 
 
 class SsmDocumentOutputTypeDef(TypedDict):
     actionName: str
     ssmDocumentName: str
-    externalParameters: NotRequired[Dict[str, SsmExternalParameterTypeDef]]
-    mustSucceedForCutover: NotRequired[bool]
-    parameters: NotRequired[Dict[str, List[SsmParameterStoreParameterTypeDef]]]
     timeoutSeconds: NotRequired[int]
+    mustSucceedForCutover: NotRequired[bool]
+    parameters: NotRequired[dict[str, list[SsmParameterStoreParameterTypeDef]]]
+    externalParameters: NotRequired[dict[str, SsmExternalParameterTypeDef]]
 
 
 class SsmDocumentTypeDef(TypedDict):
     actionName: str
     ssmDocumentName: str
-    externalParameters: NotRequired[Mapping[str, SsmExternalParameterTypeDef]]
+    timeoutSeconds: NotRequired[int]
     mustSucceedForCutover: NotRequired[bool]
     parameters: NotRequired[Mapping[str, Sequence[SsmParameterStoreParameterTypeDef]]]
-    timeoutSeconds: NotRequired[int]
+    externalParameters: NotRequired[Mapping[str, SsmExternalParameterTypeDef]]
 
 
 class TemplateActionDocumentResponseTypeDef(TypedDict):
     actionID: str
     actionName: str
-    active: bool
-    category: ActionCategoryType
-    description: str
     documentIdentifier: str
-    documentVersion: str
-    externalParameters: Dict[str, SsmExternalParameterTypeDef]
-    mustSucceedForCutover: bool
-    operatingSystem: str
     order: int
-    parameters: Dict[str, List[SsmParameterStoreParameterTypeDef]]
+    documentVersion: str
+    active: bool
     timeoutSeconds: int
+    mustSucceedForCutover: bool
+    parameters: dict[str, list[SsmParameterStoreParameterTypeDef]]
+    operatingSystem: str
+    externalParameters: dict[str, SsmExternalParameterTypeDef]
+    description: str
+    category: ActionCategoryType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class TemplateActionDocumentTypeDef(TypedDict):
     actionID: NotRequired[str]
     actionName: NotRequired[str]
-    active: NotRequired[bool]
-    category: NotRequired[ActionCategoryType]
-    description: NotRequired[str]
     documentIdentifier: NotRequired[str]
-    documentVersion: NotRequired[str]
-    externalParameters: NotRequired[Dict[str, SsmExternalParameterTypeDef]]
-    mustSucceedForCutover: NotRequired[bool]
-    operatingSystem: NotRequired[str]
     order: NotRequired[int]
-    parameters: NotRequired[Dict[str, List[SsmParameterStoreParameterTypeDef]]]
+    documentVersion: NotRequired[str]
+    active: NotRequired[bool]
     timeoutSeconds: NotRequired[int]
+    mustSucceedForCutover: NotRequired[bool]
+    parameters: NotRequired[dict[str, list[SsmParameterStoreParameterTypeDef]]]
+    operatingSystem: NotRequired[str]
+    externalParameters: NotRequired[dict[str, SsmExternalParameterTypeDef]]
+    description: NotRequired[str]
+    category: NotRequired[ActionCategoryType]
 
 
 class ReplicationConfigurationTypeDef(TypedDict):
+    sourceServerID: str
+    name: str
+    stagingAreaSubnetId: str
     associateDefaultSecurityGroup: bool
-    bandwidthThrottling: int
-    createPublicIP: bool
-    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
+    replicationServersSecurityGroupsIDs: list[str]
+    replicationServerInstanceType: str
+    useDedicatedReplicationServer: bool
     defaultLargeStagingDiskType: ReplicationConfigurationDefaultLargeStagingDiskTypeType
+    replicatedDisks: list[ReplicationConfigurationReplicatedDiskTypeDef]
     ebsEncryption: ReplicationConfigurationEbsEncryptionType
     ebsEncryptionKeyArn: str
-    name: str
-    replicatedDisks: List[ReplicationConfigurationReplicatedDiskTypeDef]
-    replicationServerInstanceType: str
-    replicationServersSecurityGroupsIDs: List[str]
-    sourceServerID: str
-    stagingAreaSubnetId: str
-    stagingAreaTags: Dict[str, str]
-    useDedicatedReplicationServer: bool
+    bandwidthThrottling: int
+    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
+    createPublicIP: bool
+    stagingAreaTags: dict[str, str]
     useFipsEndpoint: bool
+    internetProtocol: InternetProtocolType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateReplicationConfigurationRequestTypeDef(TypedDict):
     sourceServerID: str
-    accountID: NotRequired[str]
+    name: NotRequired[str]
+    stagingAreaSubnetId: NotRequired[str]
     associateDefaultSecurityGroup: NotRequired[bool]
-    bandwidthThrottling: NotRequired[int]
-    createPublicIP: NotRequired[bool]
-    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
+    replicationServersSecurityGroupsIDs: NotRequired[Sequence[str]]
+    replicationServerInstanceType: NotRequired[str]
+    useDedicatedReplicationServer: NotRequired[bool]
     defaultLargeStagingDiskType: NotRequired[
         ReplicationConfigurationDefaultLargeStagingDiskTypeType
     ]
+    replicatedDisks: NotRequired[Sequence[ReplicationConfigurationReplicatedDiskTypeDef]]
     ebsEncryption: NotRequired[ReplicationConfigurationEbsEncryptionType]
     ebsEncryptionKeyArn: NotRequired[str]
-    name: NotRequired[str]
-    replicatedDisks: NotRequired[Sequence[ReplicationConfigurationReplicatedDiskTypeDef]]
-    replicationServerInstanceType: NotRequired[str]
-    replicationServersSecurityGroupsIDs: NotRequired[Sequence[str]]
-    stagingAreaSubnetId: NotRequired[str]
+    bandwidthThrottling: NotRequired[int]
+    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
+    createPublicIP: NotRequired[bool]
     stagingAreaTags: NotRequired[Mapping[str, str]]
-    useDedicatedReplicationServer: NotRequired[bool]
     useFipsEndpoint: NotRequired[bool]
+    accountID: NotRequired[str]
+    internetProtocol: NotRequired[InternetProtocolType]
 
 
 class UpdateSourceServerRequestTypeDef(TypedDict):
@@ -1330,60 +1339,61 @@ class UpdateSourceServerRequestTypeDef(TypedDict):
 
 
 class WaveResponseTypeDef(TypedDict):
+    waveID: str
     arn: str
-    creationDateTime: str
+    name: str
     description: str
     isArchived: bool
-    lastModifiedDateTime: str
-    name: str
-    tags: Dict[str, str]
     waveAggregatedStatus: WaveAggregatedStatusTypeDef
-    waveID: str
+    creationDateTime: str
+    lastModifiedDateTime: str
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class WaveTypeDef(TypedDict):
+    waveID: NotRequired[str]
     arn: NotRequired[str]
-    creationDateTime: NotRequired[str]
+    name: NotRequired[str]
     description: NotRequired[str]
     isArchived: NotRequired[bool]
-    lastModifiedDateTime: NotRequired[str]
-    name: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
     waveAggregatedStatus: NotRequired[WaveAggregatedStatusTypeDef]
-    waveID: NotRequired[str]
+    creationDateTime: NotRequired[str]
+    lastModifiedDateTime: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
 
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    items: List[ApplicationTypeDef]
+    items: list[ApplicationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListConnectorsResponseTypeDef(TypedDict):
-    items: List[ConnectorTypeDef]
+    items: list[ConnectorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DataReplicationInfoTypeDef(TypedDict):
-    dataReplicationError: NotRequired[DataReplicationErrorTypeDef]
-    dataReplicationInitiation: NotRequired[DataReplicationInitiationTypeDef]
-    dataReplicationState: NotRequired[DataReplicationStateType]
-    etaDateTime: NotRequired[str]
     lagDuration: NotRequired[str]
+    etaDateTime: NotRequired[str]
+    replicatedDisks: NotRequired[list[DataReplicationInfoReplicatedDiskTypeDef]]
+    dataReplicationState: NotRequired[DataReplicationStateType]
+    dataReplicationInitiation: NotRequired[DataReplicationInitiationTypeDef]
+    dataReplicationError: NotRequired[DataReplicationErrorTypeDef]
     lastSnapshotDateTime: NotRequired[str]
-    replicatedDisks: NotRequired[List[DataReplicationInfoReplicatedDiskTypeDef]]
+    replicatorId: NotRequired[str]
 
 
 class ListExportErrorsResponseTypeDef(TypedDict):
-    items: List[ExportTaskErrorTypeDef]
+    items: list[ExportTaskErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListExportsResponseTypeDef(TypedDict):
-    items: List[ExportTaskTypeDef]
+    items: list[ExportTaskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1394,81 +1404,83 @@ class StartExportResponseTypeDef(TypedDict):
 
 
 class ListImportErrorsResponseTypeDef(TypedDict):
-    items: List[ImportTaskErrorTypeDef]
+    items: list[ImportTaskErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ImportTaskTypeDef(TypedDict):
+    importID: NotRequired[str]
+    arn: NotRequired[str]
+    s3BucketSource: NotRequired[S3BucketSourceTypeDef]
     creationDateTime: NotRequired[str]
     endDateTime: NotRequired[str]
-    importID: NotRequired[str]
-    progressPercentage: NotRequired[float]
-    s3BucketSource: NotRequired[S3BucketSourceTypeDef]
     status: NotRequired[ImportStatusType]
+    progressPercentage: NotRequired[float]
     summary: NotRequired[ImportTaskSummaryTypeDef]
+    tags: NotRequired[dict[str, str]]
 
 
 class DescribeJobLogItemsResponseTypeDef(TypedDict):
-    items: List[JobLogTypeDef]
+    items: list[JobLogTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class LifeCycleTypeDef(TypedDict):
     addedToServiceDateTime: NotRequired[str]
-    elapsedReplicationDuration: NotRequired[str]
     firstByteDateTime: NotRequired[str]
-    lastCutover: NotRequired[LifeCycleLastCutoverTypeDef]
+    elapsedReplicationDuration: NotRequired[str]
     lastSeenByServiceDateTime: NotRequired[str]
     lastTest: NotRequired[LifeCycleLastTestTypeDef]
+    lastCutover: NotRequired[LifeCycleLastCutoverTypeDef]
     state: NotRequired[LifeCycleStateType]
 
 
 class ListSourceServerActionsResponseTypeDef(TypedDict):
-    items: List[SourceServerActionDocumentTypeDef]
+    items: list[SourceServerActionDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class JobPostLaunchActionsLaunchStatusTypeDef(TypedDict):
+    ssmDocument: NotRequired[SsmDocumentOutputTypeDef]
+    ssmDocumentType: NotRequired[SsmDocumentTypeType]
     executionID: NotRequired[str]
     executionStatus: NotRequired[PostLaunchActionExecutionStatusType]
     failureReason: NotRequired[str]
-    ssmDocument: NotRequired[SsmDocumentOutputTypeDef]
-    ssmDocumentType: NotRequired[SsmDocumentTypeType]
 
 
 class PostLaunchActionsOutputTypeDef(TypedDict):
-    cloudWatchLogGroupName: NotRequired[str]
     deployment: NotRequired[PostLaunchActionsDeploymentTypeType]
     s3LogBucket: NotRequired[str]
     s3OutputKeyPrefix: NotRequired[str]
-    ssmDocuments: NotRequired[List[SsmDocumentOutputTypeDef]]
+    cloudWatchLogGroupName: NotRequired[str]
+    ssmDocuments: NotRequired[list[SsmDocumentOutputTypeDef]]
 
 
 class PostLaunchActionsTypeDef(TypedDict):
-    cloudWatchLogGroupName: NotRequired[str]
     deployment: NotRequired[PostLaunchActionsDeploymentTypeType]
     s3LogBucket: NotRequired[str]
     s3OutputKeyPrefix: NotRequired[str]
+    cloudWatchLogGroupName: NotRequired[str]
     ssmDocuments: NotRequired[Sequence[SsmDocumentTypeDef]]
 
 
 class ListTemplateActionsResponseTypeDef(TypedDict):
-    items: List[TemplateActionDocumentTypeDef]
+    items: list[TemplateActionDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListWavesResponseTypeDef(TypedDict):
-    items: List[WaveTypeDef]
+    items: list[WaveTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListImportsResponseTypeDef(TypedDict):
-    items: List[ImportTaskTypeDef]
+    items: list[ImportTaskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1479,99 +1491,103 @@ class StartImportResponseTypeDef(TypedDict):
 
 
 class SourceServerResponseTypeDef(TypedDict):
-    applicationID: str
-    arn: str
-    connectorAction: SourceServerConnectorActionTypeDef
-    dataReplicationInfo: DataReplicationInfoTypeDef
-    fqdnForActionFramework: str
-    isArchived: bool
-    launchedInstance: LaunchedInstanceTypeDef
-    lifeCycle: LifeCycleTypeDef
-    replicationType: ReplicationTypeType
-    sourceProperties: SourcePropertiesTypeDef
     sourceServerID: str
-    tags: Dict[str, str]
-    userProvidedID: str
+    arn: str
+    isArchived: bool
+    tags: dict[str, str]
+    launchedInstance: LaunchedInstanceTypeDef
+    dataReplicationInfo: DataReplicationInfoTypeDef
+    lifeCycle: LifeCycleTypeDef
+    sourceProperties: SourcePropertiesTypeDef
+    replicationType: ReplicationTypeType
     vcenterClientID: str
+    applicationID: str
+    userProvidedID: str
+    fqdnForActionFramework: str
+    connectorAction: SourceServerConnectorActionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SourceServerTypeDef(TypedDict):
-    applicationID: NotRequired[str]
-    arn: NotRequired[str]
-    connectorAction: NotRequired[SourceServerConnectorActionTypeDef]
-    dataReplicationInfo: NotRequired[DataReplicationInfoTypeDef]
-    fqdnForActionFramework: NotRequired[str]
-    isArchived: NotRequired[bool]
-    launchedInstance: NotRequired[LaunchedInstanceTypeDef]
-    lifeCycle: NotRequired[LifeCycleTypeDef]
-    replicationType: NotRequired[ReplicationTypeType]
-    sourceProperties: NotRequired[SourcePropertiesTypeDef]
     sourceServerID: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
-    userProvidedID: NotRequired[str]
+    arn: NotRequired[str]
+    isArchived: NotRequired[bool]
+    tags: NotRequired[dict[str, str]]
+    launchedInstance: NotRequired[LaunchedInstanceTypeDef]
+    dataReplicationInfo: NotRequired[DataReplicationInfoTypeDef]
+    lifeCycle: NotRequired[LifeCycleTypeDef]
+    sourceProperties: NotRequired[SourcePropertiesTypeDef]
+    replicationType: NotRequired[ReplicationTypeType]
     vcenterClientID: NotRequired[str]
+    applicationID: NotRequired[str]
+    userProvidedID: NotRequired[str]
+    fqdnForActionFramework: NotRequired[str]
+    connectorAction: NotRequired[SourceServerConnectorActionTypeDef]
 
 
 class PostLaunchActionsStatusTypeDef(TypedDict):
-    postLaunchActionsLaunchStatusList: NotRequired[List[JobPostLaunchActionsLaunchStatusTypeDef]]
     ssmAgentDiscoveryDatetime: NotRequired[str]
+    postLaunchActionsLaunchStatusList: NotRequired[list[JobPostLaunchActionsLaunchStatusTypeDef]]
 
 
 class LaunchConfigurationTemplateResponseTypeDef(TypedDict):
-    arn: str
-    associatePublicIpAddress: bool
-    bootMode: BootModeType
-    copyPrivateIp: bool
-    copyTags: bool
-    ec2LaunchTemplateID: str
-    enableMapAutoTagging: bool
-    largeVolumeConf: LaunchTemplateDiskConfTypeDef
     launchConfigurationTemplateID: str
-    launchDisposition: LaunchDispositionType
-    licensing: LicensingTypeDef
-    mapAutoTaggingMpeID: str
+    arn: str
     postLaunchActions: PostLaunchActionsOutputTypeDef
-    smallVolumeConf: LaunchTemplateDiskConfTypeDef
-    smallVolumeMaxSize: int
-    tags: Dict[str, str]
+    enableMapAutoTagging: bool
+    mapAutoTaggingMpeID: str
+    tags: dict[str, str]
+    ec2LaunchTemplateID: str
+    launchDisposition: LaunchDispositionType
     targetInstanceTypeRightSizingMethod: TargetInstanceTypeRightSizingMethodType
+    copyPrivateIp: bool
+    associatePublicIpAddress: bool
+    copyTags: bool
+    licensing: LicensingTypeDef
+    bootMode: BootModeType
+    smallVolumeMaxSize: int
+    smallVolumeConf: LaunchTemplateDiskConfTypeDef
+    largeVolumeConf: LaunchTemplateDiskConfTypeDef
+    enableParametersEncryption: bool
+    parametersEncryptionKey: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class LaunchConfigurationTemplateTypeDef(TypedDict):
     launchConfigurationTemplateID: str
     arn: NotRequired[str]
-    associatePublicIpAddress: NotRequired[bool]
-    bootMode: NotRequired[BootModeType]
-    copyPrivateIp: NotRequired[bool]
-    copyTags: NotRequired[bool]
-    ec2LaunchTemplateID: NotRequired[str]
-    enableMapAutoTagging: NotRequired[bool]
-    largeVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
-    launchDisposition: NotRequired[LaunchDispositionType]
-    licensing: NotRequired[LicensingTypeDef]
-    mapAutoTaggingMpeID: NotRequired[str]
     postLaunchActions: NotRequired[PostLaunchActionsOutputTypeDef]
-    smallVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
-    smallVolumeMaxSize: NotRequired[int]
-    tags: NotRequired[Dict[str, str]]
+    enableMapAutoTagging: NotRequired[bool]
+    mapAutoTaggingMpeID: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
+    ec2LaunchTemplateID: NotRequired[str]
+    launchDisposition: NotRequired[LaunchDispositionType]
     targetInstanceTypeRightSizingMethod: NotRequired[TargetInstanceTypeRightSizingMethodType]
+    copyPrivateIp: NotRequired[bool]
+    associatePublicIpAddress: NotRequired[bool]
+    copyTags: NotRequired[bool]
+    licensing: NotRequired[LicensingTypeDef]
+    bootMode: NotRequired[BootModeType]
+    smallVolumeMaxSize: NotRequired[int]
+    smallVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
+    largeVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
+    enableParametersEncryption: NotRequired[bool]
+    parametersEncryptionKey: NotRequired[str]
 
 
 class LaunchConfigurationTypeDef(TypedDict):
-    bootMode: BootModeType
+    sourceServerID: str
+    name: str
+    ec2LaunchTemplateID: str
+    launchDisposition: LaunchDispositionType
+    targetInstanceTypeRightSizingMethod: TargetInstanceTypeRightSizingMethodType
     copyPrivateIp: bool
     copyTags: bool
-    ec2LaunchTemplateID: str
-    enableMapAutoTagging: bool
-    launchDisposition: LaunchDispositionType
     licensing: LicensingTypeDef
-    mapAutoTaggingMpeID: str
-    name: str
+    bootMode: BootModeType
     postLaunchActions: PostLaunchActionsOutputTypeDef
-    sourceServerID: str
-    targetInstanceTypeRightSizingMethod: TargetInstanceTypeRightSizingMethodType
+    enableMapAutoTagging: bool
+    mapAutoTaggingMpeID: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1579,7 +1595,7 @@ PostLaunchActionsUnionTypeDef = Union[PostLaunchActionsTypeDef, PostLaunchAction
 
 
 class DescribeSourceServersResponseTypeDef(TypedDict):
-    items: List[SourceServerTypeDef]
+    items: list[SourceServerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1592,58 +1608,62 @@ class ParticipatingServerTypeDef(TypedDict):
 
 
 class DescribeLaunchConfigurationTemplatesResponseTypeDef(TypedDict):
-    items: List[LaunchConfigurationTemplateTypeDef]
+    items: list[LaunchConfigurationTemplateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class CreateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
-    associatePublicIpAddress: NotRequired[bool]
-    bootMode: NotRequired[BootModeType]
-    copyPrivateIp: NotRequired[bool]
-    copyTags: NotRequired[bool]
-    enableMapAutoTagging: NotRequired[bool]
-    largeVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
-    launchDisposition: NotRequired[LaunchDispositionType]
-    licensing: NotRequired[LicensingTypeDef]
-    mapAutoTaggingMpeID: NotRequired[str]
     postLaunchActions: NotRequired[PostLaunchActionsUnionTypeDef]
-    smallVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
-    smallVolumeMaxSize: NotRequired[int]
+    enableMapAutoTagging: NotRequired[bool]
+    mapAutoTaggingMpeID: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    launchDisposition: NotRequired[LaunchDispositionType]
     targetInstanceTypeRightSizingMethod: NotRequired[TargetInstanceTypeRightSizingMethodType]
+    copyPrivateIp: NotRequired[bool]
+    associatePublicIpAddress: NotRequired[bool]
+    copyTags: NotRequired[bool]
+    licensing: NotRequired[LicensingTypeDef]
+    bootMode: NotRequired[BootModeType]
+    smallVolumeMaxSize: NotRequired[int]
+    smallVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
+    largeVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
+    enableParametersEncryption: NotRequired[bool]
+    parametersEncryptionKey: NotRequired[str]
 
 
 class UpdateLaunchConfigurationRequestTypeDef(TypedDict):
     sourceServerID: str
-    accountID: NotRequired[str]
-    bootMode: NotRequired[BootModeType]
+    name: NotRequired[str]
+    launchDisposition: NotRequired[LaunchDispositionType]
+    targetInstanceTypeRightSizingMethod: NotRequired[TargetInstanceTypeRightSizingMethodType]
     copyPrivateIp: NotRequired[bool]
     copyTags: NotRequired[bool]
-    enableMapAutoTagging: NotRequired[bool]
-    launchDisposition: NotRequired[LaunchDispositionType]
     licensing: NotRequired[LicensingTypeDef]
-    mapAutoTaggingMpeID: NotRequired[str]
-    name: NotRequired[str]
+    bootMode: NotRequired[BootModeType]
     postLaunchActions: NotRequired[PostLaunchActionsUnionTypeDef]
-    targetInstanceTypeRightSizingMethod: NotRequired[TargetInstanceTypeRightSizingMethodType]
+    enableMapAutoTagging: NotRequired[bool]
+    mapAutoTaggingMpeID: NotRequired[str]
+    accountID: NotRequired[str]
 
 
 class UpdateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
     launchConfigurationTemplateID: str
-    associatePublicIpAddress: NotRequired[bool]
-    bootMode: NotRequired[BootModeType]
-    copyPrivateIp: NotRequired[bool]
-    copyTags: NotRequired[bool]
-    enableMapAutoTagging: NotRequired[bool]
-    largeVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
-    launchDisposition: NotRequired[LaunchDispositionType]
-    licensing: NotRequired[LicensingTypeDef]
-    mapAutoTaggingMpeID: NotRequired[str]
     postLaunchActions: NotRequired[PostLaunchActionsUnionTypeDef]
-    smallVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
-    smallVolumeMaxSize: NotRequired[int]
+    enableMapAutoTagging: NotRequired[bool]
+    mapAutoTaggingMpeID: NotRequired[str]
+    launchDisposition: NotRequired[LaunchDispositionType]
     targetInstanceTypeRightSizingMethod: NotRequired[TargetInstanceTypeRightSizingMethodType]
+    copyPrivateIp: NotRequired[bool]
+    associatePublicIpAddress: NotRequired[bool]
+    copyTags: NotRequired[bool]
+    licensing: NotRequired[LicensingTypeDef]
+    bootMode: NotRequired[BootModeType]
+    smallVolumeMaxSize: NotRequired[int]
+    smallVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
+    largeVolumeConf: NotRequired[LaunchTemplateDiskConfTypeDef]
+    enableParametersEncryption: NotRequired[bool]
+    parametersEncryptionKey: NotRequired[str]
 
 
 JobTypeDef = TypedDict(
@@ -1651,19 +1671,19 @@ JobTypeDef = TypedDict(
     {
         "jobID": str,
         "arn": NotRequired[str],
+        "type": NotRequired[JobTypeType],
+        "initiatedBy": NotRequired[InitiatedByType],
         "creationDateTime": NotRequired[str],
         "endDateTime": NotRequired[str],
-        "initiatedBy": NotRequired[InitiatedByType],
-        "participatingServers": NotRequired[List[ParticipatingServerTypeDef]],
         "status": NotRequired[JobStatusType],
-        "tags": NotRequired[Dict[str, str]],
-        "type": NotRequired[JobTypeType],
+        "participatingServers": NotRequired[list[ParticipatingServerTypeDef]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
 
 class DescribeJobsResponseTypeDef(TypedDict):
-    items: List[JobTypeDef]
+    items: list[JobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

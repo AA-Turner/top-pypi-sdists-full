@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: scout_apm
-Version: 3.4.0
+Version: 3.5.2
 Summary: Scout Application Performance Monitoring Agent
 Home-page: https://github.com/scoutapp/scout_apm_python
 Author: Scout
@@ -9,7 +9,6 @@ License: MIT
 Project-URL: Documentation, https://docs.scoutapm.com/#python-agent
 Project-URL: Changelog, https://github.com/scoutapp/scout_apm_python/blob/master/CHANGELOG.md
 Keywords: apm,performance monitoring,development
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Bottle
 Classifier: Framework :: Django
@@ -32,6 +31,24 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.8, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: asgiref
+Requires-Dist: psutil>=5
+Requires-Dist: urllib3
+Requires-Dist: certifi
+Requires-Dist: wrapt<2.0,>=1.10
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Scout Python APM Agent
 
@@ -54,6 +71,7 @@ Scout APM has integrations for the following frameworks:
 * Django 3.2+
 * Dramatiq 1.0+
 * Falcon 2.0+
+* FastMCP 2.9.0+
 * Flask 0.10+
 * Huey 2.0+
 * Hug 2.5.1+
@@ -76,5 +94,3 @@ via environment variables and troubleshooting, see our
 
 Please email us at support@scoutapm.com or [create a GitHub
 issue](https://github.com/scoutapp/scout_apm_python/issues/).
-
-

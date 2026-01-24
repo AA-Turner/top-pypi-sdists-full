@@ -13,16 +13,26 @@ from zoneinfo import ZoneInfo
 
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import StatusCode
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
 def _simple_serialize_defaults(obj):
-    if hasattr(obj, "model_dump"):
+    # Handle Pydantic BaseModel instances
+    if hasattr(obj, "model_dump") and not isinstance(obj, type):
         return obj.model_dump(exclude_none=True, mode="json")
-    if hasattr(obj, "dict"):
+
+    # Handle classes - convert to schema representation
+    if isinstance(obj, type) and issubclass(obj, BaseModel):
+        return {
+            "__class__": obj.__name__,
+            "__module__": obj.__module__,
+            "schema": obj.model_json_schema(),
+        }
+    if hasattr(obj, "dict") and not isinstance(obj, type):
         return obj.dict()
-    if hasattr(obj, "to_dict"):
+    if hasattr(obj, "to_dict") and not isinstance(obj, type):
         return obj.to_dict()
 
     # Handle dataclasses
@@ -31,7 +41,7 @@ def _simple_serialize_defaults(obj):
 
     # Handle enums
     if isinstance(obj, Enum):
-        return obj.value
+        return _simple_serialize_defaults(obj.value)
 
     if isinstance(obj, (set, tuple)):
         if hasattr(obj, "_asdict") and callable(obj._asdict):
@@ -44,17 +54,24 @@ def _simple_serialize_defaults(obj):
     if isinstance(obj, (timezone, ZoneInfo)):
         return obj.tzname(None)
 
+    # Allow JSON-serializable primitives to pass through unchanged
+    if obj is None or isinstance(obj, (bool, int, float, str)):
+        return obj
+
     return str(obj)
 
 
 @dataclass
 class UiPathSpan:
-    """Represents a span in the UiPath tracing system."""
+    """Represents a span in the UiPath tracing system.
+
+    Note: attributes can be either a JSON string (backwards compatible) or a dict (optimized).
+    """
 
     id: uuid.UUID
     trace_id: uuid.UUID
     name: str
-    attributes: str
+    attributes: str | Dict[str, Any]  # Support both str (legacy) and dict (optimized)
     parent_id: Optional[uuid.UUID] = None
     start_time: str = field(default_factory=lambda: datetime.now().isoformat())
     end_time: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -82,16 +99,36 @@ class UiPathSpan:
 
     job_key: Optional[str] = field(default_factory=lambda: env.get("UIPATH_JOB_KEY"))
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert the Span to a dictionary suitable for JSON serialization."""
+    # Top-level fields for internal tracing schema
+    execution_type: Optional[int] = None
+    agent_version: Optional[str] = None
+
+    def to_dict(self, serialize_attributes: bool = True) -> Dict[str, Any]:
+        """Convert the Span to a dictionary suitable for JSON serialization.
+
+        Args:
+            serialize_attributes: If True and attributes is a dict, serialize to JSON string.
+                                 If False, keep attributes as-is (dict or str).
+                                 Default True for backwards compatibility.
+        """
+        # Cache UUID string conversions to avoid repeated str() calls
+        id_str = str(self.id)
+        trace_id_str = str(self.trace_id)
+        parent_id_str = str(self.parent_id) if self.parent_id else None
+
+        # Handle attributes serialization
+        attributes_out = self.attributes
+        if serialize_attributes and isinstance(self.attributes, dict):
+            attributes_out = json.dumps(self.attributes)
+
         return {
-            "Id": str(self.id),
-            "TraceId": str(self.trace_id),
-            "ParentId": str(self.parent_id) if self.parent_id else None,
+            "Id": id_str,
+            "TraceId": trace_id_str,
+            "ParentId": parent_id_str,
             "Name": self.name,
             "StartTime": self.start_time,
             "EndTime": self.end_time,
-            "Attributes": self.attributes,
+            "Attributes": attributes_out,
             "Status": self.status,
             "CreatedAt": self.created_at,
             "UpdatedAt": self.updated_at,
@@ -104,6 +141,8 @@ class UiPathSpan:
             "ProcessKey": self.process_key,
             "JobKey": self.job_key,
             "ReferenceId": self.reference_id,
+            "ExecutionType": self.execution_type,
+            "AgentVersion": self.agent_version,
         }
 
 
@@ -154,9 +193,18 @@ class _SpanUtils:
 
     @staticmethod
     def otel_span_to_uipath_span(
-        otel_span: ReadableSpan, custom_trace_id: Optional[str] = None
+        otel_span: ReadableSpan,
+        custom_trace_id: Optional[str] = None,
+        serialize_attributes: bool = True,
     ) -> UiPathSpan:
-        """Convert an OpenTelemetry span to a UiPathSpan."""
+        """Convert an OpenTelemetry span to a UiPathSpan.
+
+        Args:
+            otel_span: The OpenTelemetry span to convert
+            custom_trace_id: Optional custom trace ID to use
+            serialize_attributes: If True, serialize attributes to JSON string (backwards compatible).
+                                 If False, keep as dict for optimized processing. Default True.
+        """
         # Extract the context information from the OTel span
         span_context = otel_span.get_span_context()
 
@@ -172,16 +220,17 @@ class _SpanUtils:
         parent_id = None
         if otel_span.parent is not None:
             parent_id = _SpanUtils.span_id_to_uuid4(otel_span.parent.span_id)
+        else:
+            # Only set UIPATH_PARENT_SPAN_ID for root spans (spans without a parent)
+            parent_span_id_str = env.get("UIPATH_PARENT_SPAN_ID")
+            if parent_span_id_str:
+                parent_id = uuid.UUID(parent_span_id_str)
 
-        parent_span_id_str = env.get("UIPATH_PARENT_SPAN_ID")
-
-        if parent_span_id_str:
-            parent_id = uuid.UUID(parent_span_id_str)
-
-        # Convert attributes to a format compatible with UiPathSpan
-        attributes_dict: dict[str, Any] = (
-            dict(otel_span.attributes) if otel_span.attributes else {}
-        )
+        # Build attributes dict efficiently
+        # Use the otel attributes as base - we only add new keys, don't modify existing
+        otel_attrs = otel_span.attributes if otel_span.attributes else {}
+        # Only copy if we need to modify - we'll build attributes_dict lazily
+        attributes_dict: dict[str, Any] = dict(otel_attrs) if otel_attrs else {}
 
         # Map status
         status = 1  # Default to OK
@@ -189,32 +238,31 @@ class _SpanUtils:
             status = 2  # Error
             attributes_dict["error"] = otel_span.status.description
 
-        original_inputs = attributes_dict.get("input", None)
-        original_outputs = attributes_dict.get("output", None)
-
+        # Process inputs - avoid redundant parsing if already parsed
+        original_inputs = otel_attrs.get("input", None)
         if original_inputs:
-            try:
-                if isinstance(original_inputs, str):
-                    json_inputs = json.loads(original_inputs)
-                    attributes_dict["input.value"] = json_inputs
+            if isinstance(original_inputs, str):
+                try:
+                    attributes_dict["input.value"] = json.loads(original_inputs)
                     attributes_dict["input.mime_type"] = "application/json"
-                else:
+                except Exception as e:
+                    logger.warning(f"Error parsing inputs: {e}")
                     attributes_dict["input.value"] = original_inputs
-            except Exception as e:
-                logger.warning(f"Error parsing inputs: {e}")
-                attributes_dict["input.value"] = str(original_inputs)
+            else:
+                attributes_dict["input.value"] = original_inputs
 
+        # Process outputs - avoid redundant parsing if already parsed
+        original_outputs = otel_attrs.get("output", None)
         if original_outputs:
-            try:
-                if isinstance(original_outputs, str):
-                    json_outputs = json.loads(original_outputs)
-                    attributes_dict["output.value"] = json_outputs
+            if isinstance(original_outputs, str):
+                try:
+                    attributes_dict["output.value"] = json.loads(original_outputs)
                     attributes_dict["output.mime_type"] = "application/json"
-                else:
+                except Exception as e:
+                    logger.warning(f"Error parsing output: {e}")
                     attributes_dict["output.value"] = original_outputs
-            except Exception as e:
-                logger.warning(f"Error parsing output: {e}")
-                attributes_dict["output.value"] = str(original_outputs)
+            else:
+                attributes_dict["output.value"] = original_outputs
 
         # Add events as additional attributes if they exist
         if otel_span.events:
@@ -243,6 +291,10 @@ class _SpanUtils:
         span_type_value = attributes_dict.get("span_type", "OpenTelemetry")
         span_type = str(span_type_value)
 
+        # Top-level fields for internal tracing schema
+        execution_type = attributes_dict.get("executionType")
+        agent_version = attributes_dict.get("agentVersion")
+
         # Create UiPathSpan from OpenTelemetry span
         start_time = datetime.fromtimestamp(
             (otel_span.start_time or 0) / 1e9
@@ -261,20 +313,16 @@ class _SpanUtils:
             trace_id=trace_id,
             parent_id=parent_id,
             name=otel_span.name,
-            attributes=json.dumps(attributes_dict),
+            attributes=json.dumps(attributes_dict)
+            if serialize_attributes
+            else attributes_dict,
             start_time=start_time,
             end_time=end_time_str,
             status=status,
             span_type=span_type,
+            execution_type=execution_type,
+            agent_version=agent_version,
         )
-
-    @staticmethod
-    def format_args_for_trace_json(
-        signature: inspect.Signature, *args: Any, **kwargs: Any
-    ) -> str:
-        """Return a JSON string of inputs from the function signature."""
-        result = _SpanUtils.format_args_for_trace(signature, *args, **kwargs)
-        return json.dumps(result, default=_simple_serialize_defaults)
 
     @staticmethod
     def format_object_for_trace_json(
@@ -319,3 +367,30 @@ class _SpanUtils:
                 f"Error formatting arguments for trace: {e}. Using args and kwargs directly."
             )
             return {"args": args, "kwargs": kwargs}
+
+    @staticmethod
+    def spans_to_llm_context(spans: list[ReadableSpan]) -> str:
+        """Convert spans to a formatted conversation history string suitable for LLM context.
+
+        Includes function calls (including LLM calls) with their inputs and outputs.
+        """
+        history = []
+        for span in spans:
+            attributes = dict(span.attributes) if span.attributes else {}
+
+            input_value = attributes.get("input.value")
+            output_value = attributes.get("output.value")
+            telemetry_filter = attributes.get("telemetry.filter")
+
+            if not input_value or not output_value or telemetry_filter == "drop":
+                continue
+
+            history.append(f"Function: {span.name}")
+            history.append(f"Input: {input_value}")
+            history.append(f"Output: {output_value}")
+            history.append("")
+
+        if not history:
+            return "(empty)"
+
+        return "\n".join(history)

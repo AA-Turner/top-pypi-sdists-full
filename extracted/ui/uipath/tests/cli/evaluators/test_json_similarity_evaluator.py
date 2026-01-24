@@ -8,15 +8,20 @@ import json
 import pytest
 
 from uipath._cli._evals._models._evaluator_base_params import EvaluatorBaseParams
-from uipath.eval.evaluators import JsonSimilarityEvaluator
-from uipath.eval.models.models import AgentExecution, EvaluatorCategory, EvaluatorType
+from uipath.eval.evaluators import LegacyJsonSimilarityEvaluator
+from uipath.eval.evaluators.legacy_base_evaluator import LegacyEvaluationCriteria
+from uipath.eval.models.models import (
+    AgentExecution,
+    LegacyEvaluatorCategory,
+    LegacyEvaluatorType,
+)
 
 
 def _make_base_params() -> EvaluatorBaseParams:
     return EvaluatorBaseParams(
         id="json-sim",
-        category=EvaluatorCategory.Deterministic,
-        evaluator_type=EvaluatorType.JsonSimilarity,
+        category=LegacyEvaluatorCategory.Deterministic,
+        evaluator_type=LegacyEvaluatorType.JsonSimilarity,
         name="JSON Similarity",
         description="Compares JSON structures",
         created_at="2025-01-01T00:00:00Z",
@@ -28,8 +33,9 @@ def _make_base_params() -> EvaluatorBaseParams:
 class TestJsonSimilarityEvaluator:
     @pytest.mark.asyncio
     async def test_json_similarity_exact_score_1(self) -> None:
-        evaluator = JsonSimilarityEvaluator(
+        evaluator = LegacyJsonSimilarityEvaluator(
             **_make_base_params().model_dump(),
+            config={},
         )
         expected_json = """
             {
@@ -66,15 +72,19 @@ class TestJsonSimilarityEvaluator:
                 agent_trace=[],
                 agent_output=json.loads(actual_json),
             ),
-            evaluation_criteria=json.loads(expected_json),
+            evaluation_criteria=LegacyEvaluationCriteria(
+                expected_output=json.loads(expected_json),
+                expected_agent_behavior="",
+            ),
         )
 
         assert result.score == 68.0
 
     @pytest.mark.asyncio
     async def test_json_similarity_exact_score_2(self) -> None:
-        evaluator = JsonSimilarityEvaluator(
+        evaluator = LegacyJsonSimilarityEvaluator(
             **_make_base_params().model_dump(),
+            config={},
         )
         expected_json = """
         {
@@ -101,7 +111,10 @@ class TestJsonSimilarityEvaluator:
                 agent_trace=[],
                 agent_output=json.loads(actual_json),
             ),
-            evaluation_criteria=json.loads(expected_json),
+            evaluation_criteria=LegacyEvaluationCriteria(
+                expected_output=json.loads(expected_json),
+                expected_agent_behavior="",
+            ),
         )
 
         assert result.score >= 82.333
@@ -109,8 +122,9 @@ class TestJsonSimilarityEvaluator:
 
     @pytest.mark.asyncio
     async def test_json_similarity_exact_score_3(self) -> None:
-        evaluator = JsonSimilarityEvaluator(
+        evaluator = LegacyJsonSimilarityEvaluator(
             **_make_base_params().model_dump(),
+            config={},
         )
         expected_json = """
         {
@@ -134,7 +148,10 @@ class TestJsonSimilarityEvaluator:
                 agent_trace=[],
                 agent_output=json.loads(actual_json),
             ),
-            evaluation_criteria=json.loads(expected_json),
+            evaluation_criteria=LegacyEvaluationCriteria(
+                expected_output=json.loads(expected_json),
+                expected_agent_behavior="",
+            ),
         )
 
         assert result.score >= 33.333
@@ -142,8 +159,9 @@ class TestJsonSimilarityEvaluator:
 
     @pytest.mark.asyncio
     async def test_json_similarity_exact_score_4(self) -> None:
-        evaluator = JsonSimilarityEvaluator(
+        evaluator = LegacyJsonSimilarityEvaluator(
             **_make_base_params().model_dump(),
+            config={},
         )
         expected_json = """
         {
@@ -227,7 +245,10 @@ class TestJsonSimilarityEvaluator:
                 agent_trace=[],
                 agent_output=json.loads(actual_json),
             ),
-            evaluation_criteria=json.loads(expected_json),
+            evaluation_criteria=LegacyEvaluationCriteria(
+                expected_output=json.loads(expected_json),
+                expected_agent_behavior="",
+            ),
         )
 
         assert result.score == 43.24977043158861

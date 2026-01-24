@@ -5,8 +5,10 @@ import numbers
 from typing import cast
 
 import pytest
+from rich.text import Text
 
 import cmd2
+import cmd2.string_utils as su
 from cmd2 import (
     Cmd2ArgumentParser,
     CompletionError,
@@ -15,15 +17,13 @@ from cmd2 import (
     argparse_custom,
     with_argparser,
 )
-from cmd2.utils import (
-    StdSim,
-    align_right,
-)
+from cmd2 import rich_utils as ru
 
 from .conftest import (
     complete_tester,
     normalize,
     run_cmd,
+    with_ansi_style,
 )
 
 # Data and functions for testing standalone choice_provider and completer
@@ -105,17 +105,26 @@ class ArgparseCompleterTester(cmd2.Cmd):
     ############################################################################################################
     STR_METAVAR = "HEADLESS"
     TUPLE_METAVAR = ('arg1', 'others')
-    CUSTOM_DESC_HEADER = "Custom Header"
+    CUSTOM_DESC_HEADERS = ("Custom Headers",)
 
     # tuples (for sake of immutability) used in our tests (there is a mix of sorted and unsorted on purpose)
     non_negative_num_choices = (1, 2, 3, 0.5, 22)
     num_choices = (-1, 1, -2, 2.5, 0, -12)
     static_choices_list = ('static', 'choices', 'stop', 'here')
     choices_from_provider = ('choices', 'provider', 'probably', 'improved')
-    completion_item_choices = (CompletionItem('choice_1', 'A description'), CompletionItem('choice_2', 'Another description'))
+    completion_item_choices = (
+        CompletionItem('choice_1', ['Description 1']),
+        # Make this the longest description so we can test display width.
+        CompletionItem('choice_2', [su.stylize("String with style", style=cmd2.Color.BLUE)]),
+        CompletionItem('choice_3', [Text("Text with style", style=cmd2.Color.RED)]),
+    )
 
     # This tests that CompletionItems created with numerical values are sorted as numbers.
-    num_completion_items = (CompletionItem(5, "Five"), CompletionItem(1.5, "One.Five"), CompletionItem(2, "Five"))
+    num_completion_items = (
+        CompletionItem(5, ["Five"]),
+        CompletionItem(1.5, ["One.Five"]),
+        CompletionItem(2, ["Five"]),
+    )
 
     def choices_provider(self) -> tuple[str]:
         """Method that provides choices"""
@@ -126,7 +135,7 @@ class ArgparseCompleterTester(cmd2.Cmd):
         items = []
         for i in range(10):
             main_str = f'main_str{i}'
-            items.append(CompletionItem(main_str, description='blah blah'))
+            items.append(CompletionItem(main_str, ['blah blah']))
         return items
 
     choices_parser = Cmd2ArgumentParser()
@@ -140,7 +149,7 @@ class ArgparseCompleterTester(cmd2.Cmd):
         "--desc_header",
         help='this arg has a descriptive header',
         choices_provider=completion_item_method,
-        descriptive_header=CUSTOM_DESC_HEADER,
+        descriptive_headers=CUSTOM_DESC_HEADERS,
     )
     choices_parser.add_argument(
         "--no_header",
@@ -334,23 +343,21 @@ class ArgparseCompleterTester(cmd2.Cmd):
 
 @pytest.fixture
 def ac_app():
-    app = ArgparseCompleterTester()
-    app.stdout = StdSim(app.stdout)
-    return app
+    return ArgparseCompleterTester()
 
 
 @pytest.mark.parametrize('command', ['music', 'music create', 'music create rock', 'music create jazz'])
 def test_help(ac_app, command) -> None:
-    out1, err1 = run_cmd(ac_app, f'{command} -h')
-    out2, err2 = run_cmd(ac_app, f'help {command}')
+    out1, _err1 = run_cmd(ac_app, f'{command} -h')
+    out2, _err2 = run_cmd(ac_app, f'help {command}')
     assert out1 == out2
 
 
 def test_bad_subcommand_help(ac_app) -> None:
     # These should give the same output because the second one isn't using a
     # real subcommand, so help will be called on the music command instead.
-    out1, err1 = run_cmd(ac_app, 'help music')
-    out2, err2 = run_cmd(ac_app, 'help music fake')
+    out1, _err1 = run_cmd(ac_app, 'help music')
+    out2, _err2 = run_cmd(ac_app, 'help music fake')
     assert out1 == out2
 
 
@@ -707,6 +714,7 @@ def test_autocomp_blank_token(ac_app) -> None:
     assert sorted(completions) == sorted(ArgparseCompleterTester.completions_for_pos_2)
 
 
+@with_ansi_style(ru.AllowStyle.ALWAYS)
 def test_completion_items(ac_app) -> None:
     # First test CompletionItems created from strings
     text = ''
@@ -719,16 +727,20 @@ def test_completion_items(ac_app) -> None:
     assert len(ac_app.completion_matches) == len(ac_app.completion_item_choices)
     assert len(ac_app.display_matches) == len(ac_app.completion_item_choices)
 
-    # Look for both the value and description in the hint table
-    line_found = False
-    for line in ac_app.formatted_completions.splitlines():
-        # Since the CompletionItems were created from strings, the left-most column is left-aligned.
-        # Therefore choice_1 will begin the line.
-        if line.startswith('choice_1') and 'A description' in line:
-            line_found = True
-            break
+    lines = ac_app.formatted_completions.splitlines()
 
-    assert line_found
+    # Since the CompletionItems were created from strings, the left-most column is left-aligned.
+    # Therefore choice_1 will begin the line (with 1 space for padding).
+    assert lines[2].startswith(' choice_1')
+    assert lines[2].strip().endswith('Description 1')
+
+    # Verify that the styled string was converted to a Rich Text object so that
+    # Rich could correctly calculate its display width. Since it was the longest
+    # description in the table, we should only see one space of padding after it.
+    assert lines[3].endswith("\x1b[34mString with style\x1b[0m ")
+
+    # Verify that the styled Rich Text also rendered.
+    assert lines[4].endswith("\x1b[31mText with style  \x1b[0m ")
 
     # Now test CompletionItems created from numbers
     text = ''
@@ -741,17 +753,12 @@ def test_completion_items(ac_app) -> None:
     assert len(ac_app.completion_matches) == len(ac_app.num_completion_items)
     assert len(ac_app.display_matches) == len(ac_app.num_completion_items)
 
-    # Look for both the value and description in the hint table
-    line_found = False
-    aligned_val = align_right('1.5', width=cmd2.ansi.style_aware_wcswidth('num_completion_items'))
-    for line in ac_app.formatted_completions.splitlines():
-        # Since the CompletionItems were created from numbers, the left-most column is right-aligned.
-        # Therefore 1.5 will be right-aligned in a field as wide as the arg ("num_completion_items").
-        if line.startswith(aligned_val) and 'One.Five' in line:
-            line_found = True
-            break
+    lines = ac_app.formatted_completions.splitlines()
 
-    assert line_found
+    # Since the CompletionItems were created from numbers, the left-most column is right-aligned.
+    # Therefore 1.5 will be right-aligned.
+    assert lines[2].startswith("                  1.5")
+    assert lines[2].strip().endswith('One.Five')
 
 
 @pytest.mark.parametrize(
@@ -900,7 +907,7 @@ def test_unfinished_flag_error(ac_app, command_and_args, text, is_error, capsys)
 
     complete_tester(text, line, begidx, endidx, ac_app)
 
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert is_error == all(x in out for x in ["Error: argument", "expected"])
 
 
@@ -953,9 +960,9 @@ def test_completion_items_arg_header(ac_app) -> None:
     assert ac_app.TUPLE_METAVAR[1].upper() in normalize(ac_app.formatted_completions)[0]
 
 
-def test_completion_items_descriptive_header(ac_app) -> None:
+def test_completion_items_descriptive_headers(ac_app) -> None:
     from cmd2.argparse_completer import (
-        DEFAULT_DESCRIPTIVE_HEADER,
+        DEFAULT_DESCRIPTIVE_HEADERS,
     )
 
     # This argument provided a descriptive header
@@ -965,16 +972,16 @@ def test_completion_items_descriptive_header(ac_app) -> None:
     begidx = endidx - len(text)
 
     complete_tester(text, line, begidx, endidx, ac_app)
-    assert ac_app.CUSTOM_DESC_HEADER in normalize(ac_app.formatted_completions)[0]
+    assert ac_app.CUSTOM_DESC_HEADERS[0] in normalize(ac_app.formatted_completions)[0]
 
-    # This argument did not provide a descriptive header, so it should be DEFAULT_DESCRIPTIVE_HEADER
+    # This argument did not provide a descriptive header, so it should be DEFAULT_DESCRIPTIVE_HEADERS
     text = ''
     line = f'choices --no_header {text}'
     endidx = len(line)
     begidx = endidx - len(text)
 
     complete_tester(text, line, begidx, endidx, ac_app)
-    assert DEFAULT_DESCRIPTIVE_HEADER in normalize(ac_app.formatted_completions)[0]
+    assert DEFAULT_DESCRIPTIVE_HEADERS[0] in normalize(ac_app.formatted_completions)[0]
 
 
 @pytest.mark.parametrize(
@@ -1009,7 +1016,7 @@ def test_autocomp_hint(ac_app, command_and_args, text, has_hint, capsys) -> None
     begidx = endidx - len(text)
 
     complete_tester(text, line, begidx, endidx, ac_app)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     if has_hint:
         assert "Hint:\n" in out
     else:
@@ -1023,7 +1030,7 @@ def test_autocomp_hint_no_help_text(ac_app, capsys) -> None:
     begidx = endidx - len(text)
 
     first_match = complete_tester(text, line, begidx, endidx, ac_app)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
 
     assert first_match is None
     assert out != '''\nHint:\n  NO_HELP_POS\n\n'''
@@ -1044,7 +1051,7 @@ def test_completion_error(ac_app, capsys, args, text) -> None:
     begidx = endidx - len(text)
 
     first_match = complete_tester(text, line, begidx, endidx, ac_app)
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
 
     assert first_match is None
     assert f"{text} broke something" in out
@@ -1106,7 +1113,7 @@ def test_complete_mutex_group(ac_app, command_and_args, text, output_contains, f
 
     assert first_match == complete_tester(text, line, begidx, endidx, ac_app)
 
-    out, err = capsys.readouterr()
+    out, _err = capsys.readouterr()
     assert output_contains in out
 
 

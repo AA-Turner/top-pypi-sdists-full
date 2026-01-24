@@ -20,6 +20,8 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 #
+from __future__ import annotations
+
 import ctypes
 import hashlib
 import os
@@ -30,10 +32,13 @@ import sys
 import time as _time
 import zlib
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import Optional, Union
+from typing import TYPE_CHECKING
 
 from py7zr import Bad7zFile
 from py7zr.win32compat import is_windows_native_python, is_windows_unc_path
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
 
 # String used at the beginning of relative paths
 RELATIVE_PATH_MARKER = "./"
@@ -242,7 +247,7 @@ class ArchiveTimestamp(int):
     """Windows FILETIME timestamp."""
 
     def __repr__(self):
-        return "%s(%d)" % (type(self).__name__, self)
+        return f"{type(self).__name__}({self})"
 
     def __index__(self):
         return self.__int__()
@@ -252,20 +257,20 @@ class ArchiveTimestamp(int):
         # FILETIME is 100-nanosecond intervals since 1601/01/01 (UTC)
         return (self / 10000000.0) + TIMESTAMP_ADJUST
 
-    def as_datetime(self):
+    def as_datetime(self) -> datetime:
         """Convert FILETIME to Python datetime object."""
         return datetime.fromtimestamp(self.totimestamp(), UTC())
 
-    @staticmethod
-    def from_datetime(val):
-        return ArchiveTimestamp((val - TIMESTAMP_ADJUST) * 10000000.0)
+    @classmethod
+    def from_datetime(cls, val: float | int) -> Self:
+        return cls((val - TIMESTAMP_ADJUST) * 10000000.0)
 
-    @staticmethod
-    def from_now():
-        return ArchiveTimestamp((_time.time() - TIMESTAMP_ADJUST) * 10000000.0)
+    @classmethod
+    def from_now(cls) -> Self:
+        return cls((_time.time() - TIMESTAMP_ADJUST) * 10000000.0)
 
 
-def islink(path: Union[str, pathlib.Path]) -> bool:
+def islink(path: str | pathlib.Path) -> bool:
     """
     Cross-platform islink implementation.
     Support Windows NT symbolic links and reparse points.
@@ -273,7 +278,7 @@ def islink(path: Union[str, pathlib.Path]) -> bool:
     return os.path.islink(path)
 
 
-def readlink(path: Union[str, pathlib.Path], *, dir_fd=None) -> Union[str, pathlib.Path]:
+def readlink(path: str | pathlib.Path, *, dir_fd=None) -> str | pathlib.Path:
     """
     Cross-platform compat implementation of os.readlink and Path.readlink().
     Support Windows NT symbolic links and reparse points.
@@ -331,13 +336,14 @@ def canonical_path(target: pathlib.Path) -> pathlib.Path:
 def is_relative_to(my: pathlib.Path, *other) -> bool:
     """Return True when path is relative to other path, otherwise False."""
     try:
-        my.relative_to(canonical_path(*other))
-    except ValueError:
+        # resolve symlinks to catch Zip-Slip style vulnerability
+        my.resolve(strict=False).relative_to(canonical_path(*other).resolve(strict=False))
+    except (ValueError, RuntimeError):
         return False
     return True
 
 
-def get_sanitized_output_path(fname: str, path: Optional[pathlib.Path]) -> pathlib.Path:
+def get_sanitized_output_path(fname: str, path: pathlib.Path | None) -> pathlib.Path:
     """
     check f.filename has invalid directory traversals
     When condition is not satisfied, raise Bad7zFile
@@ -373,12 +379,14 @@ def check_archive_path(arcname: str) -> bool:
     return is_path_valid(path.joinpath(arcname), path)
 
 
-def is_path_valid(target: pathlib.Path, parent: pathlib.Path) -> bool:
+def is_path_valid(target: pathlib.Path, parent: pathlib.Path | None) -> bool:
     """
     Check if target path is valid against parent path.
     It returns False when target path has '..' and point out of parent path.
     Otherwise, returns True.
     """
+    if parent is None:
+        parent = pathlib.Path.cwd()
     if parent.is_absolute():
         return is_relative_to(canonical_path(target), parent)
     else:

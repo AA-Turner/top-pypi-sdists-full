@@ -3,7 +3,7 @@ Type annotations for personalize-runtime service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_personalize_runtime/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,13 +17,8 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -60,7 +55,7 @@ class PredictedActionTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -79,8 +74,8 @@ class PredictedItemTypeDef(TypedDict):
     itemId: NotRequired[str]
     score: NotRequired[float]
     promotionName: NotRequired[str]
-    metadata: NotRequired[Dict[str, str]]
-    reason: NotRequired[List[str]]
+    metadata: NotRequired[dict[str, str]]
+    reason: NotRequired[list[str]]
 
 
 class PromotionTypeDef(TypedDict):
@@ -91,19 +86,19 @@ class PromotionTypeDef(TypedDict):
 
 
 class GetActionRecommendationsResponseTypeDef(TypedDict):
-    actionList: List[PredictedActionTypeDef]
+    actionList: list[PredictedActionTypeDef]
     recommendationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetPersonalizedRankingResponseTypeDef(TypedDict):
-    personalizedRanking: List[PredictedItemTypeDef]
+    personalizedRanking: list[PredictedItemTypeDef]
     recommendationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetRecommendationsResponseTypeDef(TypedDict):
-    itemList: List[PredictedItemTypeDef]
+    itemList: list[PredictedItemTypeDef]
     recommendationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 

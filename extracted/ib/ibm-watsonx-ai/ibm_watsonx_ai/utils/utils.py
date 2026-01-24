@@ -1,13 +1,11 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
 import functools
-import importlib
-import importlib.util
 import inspect
 import json
 import logging
@@ -21,12 +19,16 @@ import tarfile
 import urllib
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum as _StrEnum
+from importlib.metadata import PackageNotFoundError, distributions
+from importlib.metadata import version as get_installed_version
+from importlib.util import find_spec
 from pathlib import Path
 from subprocess import check_call
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncGenerator,
     Callable,
     Generator,
     Iterable,
@@ -37,17 +39,20 @@ from typing import (
 from warnings import warn
 
 import httpx
-import numpy
+from anyio import AsyncFile
 from packaging import version
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai import __version__ as package_version
 from ibm_watsonx_ai import package_name
-from ibm_watsonx_ai._wrappers.requests import HTTPX_DEFAULT_LIMIT, HTTPX_DEFAULT_TIMEOUT
+from ibm_watsonx_ai._wrappers.httpx_wrapper import (
+    HTTPX_DEFAULT_LIMIT,
+    HTTPX_DEFAULT_TIMEOUT,
+)
 from ibm_watsonx_ai.href_definitions import HrefDefinitions
 from ibm_watsonx_ai.wml_client_error import (
     CannotInstallLibrary,
     GovCloudEnvironmentConsentError,
+    MissingExtension,
     WMLClientError,
 )
 
@@ -55,9 +60,10 @@ if TYPE_CHECKING:
     import collections
     from types import TracebackType
 
+    import numpy
     import pyspark
+    import pyspark.ml.pipeline
     from IPython.display import HTML
-    from requests import Response
 
     from ibm_watsonx_ai import APIClient
 
@@ -94,6 +100,12 @@ XGBOOST_FRAMEWORK = "xgboost"
 SCIKIT_LEARN_FRAMEWORK = "scikit-learn"
 PMML_FRAMEWORK = "pmml"
 
+RETRY_CONFIG = {
+    "retries": 3,
+    "backoff_factor": 0.3,
+    "status_forcelist": (500, 502, 503, 504, 520, 521, 524),
+}
+
 
 def _get_id_from_deprecated_uid(
     kwargs: dict, resource_id: str | None, resource_name: str, can_be_none: bool = False
@@ -114,15 +126,6 @@ def _get_id_from_deprecated_uid(
     return resource_id
 
 
-def get_url(
-    url: str, headers: dict, params: dict | None = None, isIcp: bool = False
-) -> Response:
-    if isIcp:
-        return requests.get(url, headers=headers, params=params)
-    else:
-        return requests.get(url, headers=headers, params=params)
-
-
 @dataclass
 class HttpClientConfig:
     """
@@ -135,10 +138,10 @@ class HttpClientConfig:
     :type limits: httpx.Limits, optional
     """
 
-    timeout: float | httpx.Timeout = field(
-        default_factory=lambda: HTTPX_DEFAULT_TIMEOUT
-    )
-    limits: httpx.Limits = field(default_factory=lambda: HTTPX_DEFAULT_LIMIT)
+    from httpx import Limits, Timeout
+
+    timeout: float | Timeout = field(default_factory=lambda: HTTPX_DEFAULT_TIMEOUT)
+    limits: Limits = field(default_factory=lambda: HTTPX_DEFAULT_LIMIT)
 
 
 DEFAULT_HTTP_CLIENT_CONFIG = HttpClientConfig(
@@ -335,8 +338,11 @@ def get_type_of_details(details: dict) -> str:
 
 
 def load_model_from_directory(
-    framework: dict, directory_path: str
+    framework: dict, directory_path: str | Path
 ) -> pyspark.ml.pipeline.PipelineModel | None:
+    if isinstance(directory_path, Path):
+        directory_path = str(directory_path)
+
     if "mllib" in framework:
         from pyspark.ml import PipelineModel
 
@@ -367,8 +373,13 @@ def load_model_from_directory(
 
 
 def save_model_to_file(
-    model: MLModelType, framework: str, base_path: str, filename: str
+    model: MLModelType, framework: str, base_path: str | Path, filename: str | Path
 ) -> None:
+    if isinstance(base_path, Path):
+        base_path = str(base_path)
+    if isinstance(filename, Path):
+        filename = str(filename)
+
     if filename.find(".") != -1:
         base_name = filename[: filename.find(".") + 1]
     else:
@@ -420,60 +431,65 @@ def format_metrics(latest_metrics_list: list[dict]) -> str:
     return formatted_metrics
 
 
-def inherited_docstring(f: Callable, mapping: dict = {}) -> Callable:
+def inherited_docstring(
+    f: Callable, mapping: dict | None = None, actual_type_override: str | None = None
+) -> Callable:
     def dec(obj: Callable) -> Callable:
-        if not obj.__doc__:
-            possible_types = {
-                "model": "model",
-                "function": "function",
-                "space": "space",
-                "pipeline": "pipeline",
-                "experiment": "experiment",
-                "member": "space",
-                "ai_service": "ai_service",
-            }
+        if obj.__doc__ or not f.__doc__:
+            return obj
 
-            available_metanames = {
-                "model": "ModelMetaNames",
-                "experiment": "ExperimentMetaNames",
-                "function": "FunctionMetaNames",
-                "pipeline": "PipelineMetaNames",
-                "ai_service": "AIServiceMetaNames",
-            }
+        possible_types = {
+            "model": "model",
+            "function": "function",
+            "space": "space",
+            "pipeline": "pipeline",
+            "experiment": "experiment",
+            "member": "space",
+            "ai_service": "ai_service",
+        }
 
-            actual_type = None
+        available_metanames = {
+            "model": "ModelMetaNames",
+            "experiment": "ExperimentMetaNames",
+            "function": "FunctionMetaNames",
+            "pipeline": "PipelineMetaNames",
+            "ai_service": "AIServiceMetaNames",
+        }
 
-            for t in possible_types:
-                if t in obj.__name__:
-                    actual_type = possible_types[t]
+        actual_type = actual_type_override
+        for possible, actual in possible_types.items():
+            if possible in obj.__name__:
+                actual_type = actual
 
-            docs = cast(str, f.__doc__)
+        docs = f.__doc__
 
-            if actual_type:
+        if actual_type:
+            docs = docs.replace(
+                f"client.{actual_type}s.{f.__name__}",
+                "client.repository." + obj.__name__,
+            )
+            docs = docs.replace(
+                f"client._{actual_type}s.{f.__name__}",
+                "client.repository." + obj.__name__,
+            )
+
+            if actual_type in available_metanames:
+                repository_meta_names = available_metanames[actual_type]
                 docs = docs.replace(
-                    f"client.{actual_type}s.{f.__name__}",
-                    "client.repository." + obj.__name__,
+                    f"_{actual_type}s.ConfigurationMetaNames",
+                    f"repository.{repository_meta_names}",
                 )
                 docs = docs.replace(
-                    f"client._{actual_type}s.{f.__name__}",
-                    "client.repository." + obj.__name__,
+                    f"{actual_type}s.ConfigurationMetaNames",
+                    f"repository.{repository_meta_names}",
                 )
+                docs = docs.replace("ConfigurationMetaNames", repository_meta_names)
 
-                if actual_type in available_metanames:
-                    repository_meta_names = available_metanames[actual_type]
-                    docs = docs.replace(
-                        f"_{actual_type}s.ConfigurationMetaNames",
-                        f"repository.{repository_meta_names}",
-                    )
-                    docs = docs.replace(
-                        f"{actual_type}s.ConfigurationMetaNames",
-                        f"repository.{repository_meta_names}",
-                    )
-                    docs = docs.replace("ConfigurationMetaNames", repository_meta_names)
-
+            if mapping:
                 for k in mapping:
                     docs = docs.replace(k, mapping[k])
-            obj.__doc__ = docs
+
+        obj.__doc__ = docs
         return obj
 
     return dec
@@ -577,18 +593,21 @@ def extract_model_from_repository(
 
 
 def extract_mlmodel_from_archive(
-    archive_path: str, model_id: str, **kwargs: Any
+    archive_path: str | Path, model_id: str, **kwargs: Any
 ) -> str:
     """Extract archived model under model id directory.
 
     :param model_id: ID of model
     :type model_id: str
     :param archive_path: path to archived model
-    :type archive_path: str
+    :type archive_path: str | Path
 
     :return: extracted directory path
     :rtype: str
     """
+    if isinstance(archive_path, Path):
+        archive_path = str(archive_path)
+
     model_id = _get_id_from_deprecated_uid(kwargs, model_id, "model")
     create_empty_directory(model_id)
     current_dir = os.getcwd()
@@ -657,18 +676,21 @@ def is_ipython() -> bool:
         return False
 
 
-def create_download_link(file_path: str, title: str = "Download file.") -> HTML | None:
+def create_download_link(
+    file_path: str | Path, title: str = "Download file."
+) -> HTML | None:
     # creates download link for binary files on notebook filesystem (Watson Studio)
+    if isinstance(file_path, str):
+        file_path = Path(file_path)
 
     if is_ipython():
         import base64
 
         from IPython.display import HTML
 
-        filename = os.path.basename(file_path)
+        filename = file_path.name
 
-        with open(file_path, "rb") as file:
-            b_model = file.read()
+        b_model = file_path.read_bytes()
         b64 = base64.b64encode(b_model)
         payload = b64.decode()
         html = '<a download="{file_path}" href="data:binary;base64,{payload}" target="_blank">{title}</a>'
@@ -705,6 +727,41 @@ def is_of_python_basic_type(el: object | list | None) -> bool:
         return False
 
 
+def _handle_next_details_response(
+    response: httpx.Response,
+    _all: bool,
+    _filter_func: Callable | None,
+    _silent_response_logging: bool,
+) -> tuple[str | None, dict[str, Any]]:
+    # Import needs to be inside of function body,
+    # because WMLResource imports utils
+    from ibm_watsonx_ai.wml_resource import (
+        WMLResource,  # pylint: disable=import-outside-toplevel
+    )
+
+    details_json = WMLResource._handle_response(
+        200,
+        "Get next details",
+        response,
+        _silent_response_logging=_silent_response_logging,
+    )
+
+    next_href = details_json.get("next", {"href": None})["href"] if _all else None
+
+    if "resources" in details_json:
+        resources = details_json["resources"]
+        if not resources:
+            next_href = None
+    elif "metadata" in details_json:
+        resources = [details_json]
+    else:
+        resources = details_json.get("results", [])
+
+    return next_href, {
+        "resources": (_filter_func(resources) if _filter_func else resources)
+    }
+
+
 def next_resource_generator(
     client: APIClient,
     url: str,
@@ -712,7 +769,6 @@ def next_resource_generator(
     params: dict | None = None,
     _all: bool = False,
     _filter_func: Callable | None = None,
-    use_httpx: bool = False,
     _silent_response_logging: bool = False,
 ) -> Generator[dict, None, None]:
     """
@@ -736,47 +792,73 @@ def next_resource_generator(
     :param _filter_func: filtering function
     :type _filter_func: function, optional
 
-    :param use_httpx: use httpx.Client
-    :type use_httpx: bool, optional
     """
     next_href: str | None = href
-
-    request_handler = client.httpx_client if use_httpx else requests
 
     while next_href is not None:
         if "http" not in next_href:
             next_href = f"{url}/{next_href}"
-        response = request_handler.get(
+
+        response = client.httpx_client.get(
             url=next_href,
             headers=client._get_headers(),
             params=(params if params is not None else client._params()),
         )
-        details_json = client.training._handle_response(
-            200,
-            "Get next details",
-            response,
-            _silent_response_logging=_silent_response_logging,
+
+        next_href, resources = _handle_next_details_response(
+            response, _all, _filter_func, _silent_response_logging
         )
 
-        if _all:
-            next_href = details_json.get("next", {"href": None})["href"]
+        yield resources
 
-        else:
-            next_href = None
 
-        if "resources" in details_json:
-            resources = details_json["resources"]
+async def anext_resource_generator(
+    client: APIClient,
+    url: str,
+    href: str,
+    params: dict | None = None,
+    _all: bool = False,
+    _filter_func: Callable | None = None,
+    _silent_response_logging: bool = False,
+) -> AsyncGenerator[dict, None]:
+    """
+    Generator to produce next list of resources from REST API asynchronously.
 
-            if not resources:
-                next_href = None
+    :param client: api client Instance
+    :type client: APIClient
 
-        elif "metadata" in details_json:
-            resources = [details_json]
+    :param url: url to the resource
+    :type url: str
 
-        else:
-            resources = details_json.get("results", [])
+    :param href: href to the resource
+    :type href: str
 
-        yield {"resources": (_filter_func(resources) if _filter_func else resources)}
+    :param params: parameters of request
+    :type params: dict
+
+    :param _all: if `True`, it will get all entries in 'limited' chunks
+    :type _all: bool, optional
+
+    :param _filter_func: filtering function
+    :type _filter_func: function, optional
+    """
+    next_href: str | None = href
+
+    while next_href is not None:
+        if "http" not in next_href:
+            next_href = f"{url}/{next_href}"
+
+        response = await client.async_httpx_client.get(
+            url=next_href,
+            headers=await client._aget_headers(),
+            params=(params if params is not None else client._params()),
+        )
+
+        next_href, resources = _handle_next_details_response(
+            response, _all, _filter_func, _silent_response_logging
+        )
+
+        yield resources
 
 
 class DisableWarningsLogger:
@@ -825,31 +907,23 @@ def is_lib_installed(
     :return: information if library is installed: `True` is library is installed, `False` otherwise
     :rtype: bool
     """
-    if lib_name in sys.modules:
-        installed = True
+    installed_version = find_installed_version(lib_name)
 
-    elif importlib.util.find_spec(lib_name) is not None:
-        installed = True
-
-    else:
-        installed = False
-
-    if installed:
-        installed_module_version = get_module_version(lib_name)
-
-        if minimum_version is not None:
-            if version.parse(installed_module_version) < version.parse(minimum_version):
-                if install:
-                    install_library(
-                        lib_name=lib_name, version=minimum_version, strict=False
-                    )
-
-    else:
+    if not installed_version:
         if install:
-            install_library(lib_name=lib_name, version=minimum_version, strict=False)
-            installed = True
+            install_library(lib_name, minimum_version)
+            return True
+        return False
 
-    return installed
+    if minimum_version and version.parse(installed_version) < version.parse(
+        minimum_version
+    ):
+        if install:
+            install_library(lib_name, minimum_version)
+            return True
+        return False
+
+    return True
 
 
 def install_library(
@@ -867,29 +941,77 @@ def install_library(
     :type strict: bool, optional
     """
     try:
-        if version is not None:
-            check_call(
-                [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    f"{lib_name}{'==' if strict else '>='}{version}",
-                ]
-            )
-
-        else:
-            check_call([sys.executable, "-m", "pip", "install", lib_name])
-
+        pkg = (
+            f"{lib_name}=={version}"
+            if version and strict
+            else f"{lib_name}>={version}"
+            if version
+            else lib_name
+        )
+        check_call([sys.executable, "-m", "pip", "install", pkg])
     except Exception as e:
-        raise CannotInstallLibrary(lib_name=lib_name, reason=str(e))
+        raise CannotInstallLibrary(lib_name, str(e))
 
 
 def get_module_version(lib_name: str) -> str:
     """Use only when you need to check package version by package name with pip."""
-    from importlib.metadata import version
+    return get_installed_version(lib_name)
 
-    return version(lib_name)
+
+def normalize_lib_name(name: str) -> str:
+    """Helper to standardize library names for comparison or lookup.
+
+    :param name: the original library name
+    :type name: str
+
+    :return: normalized library name
+    :rtype: str
+    """
+    return re.sub(r"[-_.]+", "_", name).lower()
+
+
+def find_installed_version(lib_name: str) -> str | None:
+    """Find the installed version of a given library, if available.
+
+    :param lib_name: library name to check
+    :type lib_name: str
+
+    :return: installed version as a string if found, otherwise None
+    :rtype: str | None
+    """
+    try:
+        return get_installed_version(lib_name)
+    except PackageNotFoundError:
+        normalized = normalize_lib_name(lib_name)
+        for dist in distributions():
+            if normalize_lib_name(dist.metadata["Name"]) == normalized:
+                return dist.version
+    return None
+
+
+def ensure_submodule_available(
+    package: str, submodule: str, extra_hint: str | None = None
+):
+    """Checks whether the specified submodule can be imported. If it is not available,
+    raises a `MissingExtension` error.
+
+    :param package: main package name
+    :type package: str
+
+    :param submodule: submodule name to verify
+    :type submodule: str
+
+    :param extra_hint: optional hint to include in the error message
+    :type extra_hint: str, optional
+
+    :raises MissingExtension: if the specified submodule cannot be found
+    """
+    import_name = package.replace("-", "_")
+    full_name = f"{import_name}.{submodule}"
+
+    if find_spec(full_name) is None:
+        msg = f"{package}[{extra_hint or submodule}]"
+        raise MissingExtension(msg)
 
 
 def prepare_interaction_props_for_cos(source_params: dict, file_name: str) -> dict:
@@ -970,6 +1092,8 @@ class NumpyTypeEncoder(json.JSONEncoder):
     def default(
         self, obj: numpy.integer | numpy.bool_ | numpy.floating | numpy.ndarray
     ) -> int | bool | float | list | None:
+        import numpy
+
         if isinstance(obj, numpy.integer):
             return int(obj)
         elif isinstance(obj, numpy.bool_):
@@ -989,8 +1113,8 @@ def _requests_convert_json_to_data(
     if (js := json_arg) is not None and data_arg is None:
         data = json.dumps(js, cls=NumpyTypeEncoder)
 
-        if kwargs_arg.get("headers") and not kwargs_arg.get("headers", {}).get(
-            "Content-Type"
+        if kwargs_arg.get("headers") and not get_from_json(
+            kwargs_arg, ["headers", "Content-Type"]
         ):
             kwargs_arg["headers"]["Content-Type"] = "application/json"
     return (
@@ -1040,40 +1164,27 @@ def _get_expiration_datetime_from_headers(headers: dict) -> datetime | None:
         return
 
 
-class StrEnum(str, Enum):
+class StrEnum(_StrEnum):
     """
     External class created for the needs of auto-generated enums
 
     UseCase of StrEnum:
-    When we call print function on StrEnum attribute we are getting value ot them instead of Enum object
+    When we call print function on StrEnum attribute we are getting value of them instead of Enum object
 
     Example of StrEnum
     TestEnum.Enum1 == "enum1" --> True
 
     Example of Enum
-    TestEnum.Enum1 == "enum1 --> False
+    TestEnum.Enum1 == "enum1" --> False
     """
 
-    def __str__(self) -> str:
-        return self.value
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
 
     @classmethod
     def show(cls) -> None:
         elements_dict = {element.name: element.value for element in cls}
         print(elements_dict)
-
-
-class _APIClientSession(requests.Session):
-    """Wrapper for requests.Session to use in APIClient initialization."""
-
-    def __init__(self, client: APIClient):
-        super().__init__()
-        self._client = client
-
-    def __exit__(self, *args):
-        super().__exit__(*args)
-        # when APIClient initialization is over we use requests module instead of requests.Session
-        self._client._session = requests
 
 
 def _get_default_args(func: Callable) -> dict[str, Any]:
@@ -1103,43 +1214,7 @@ def _create_href_definitions(client: APIClient) -> HrefDefinitions:
         cp4d_platform_spaces=client.ICP_PLATFORM_SPACES,
         platform_url=client.PLATFORM_URL,
         project_type=client.project_type,
-        _use_fm_ga_api=client._use_fm_ga_api,
     )
-
-
-def _handle_fl_removal(client: APIClient):
-    if client.ICP_PLATFORM_SPACES and client.CPD_version >= 5.2:
-        raise WMLClientError(
-            "Federated Learning is removed in IBM Cloud Pak for Data 5.2 and above."
-        )
-    else:
-        FL_DEPRECATED_WARNING = "Federated Learning is deprecated and will be removed in IBM Cloud Pak for Data 5.2."
-
-        warn(FL_DEPRECATED_WARNING, category=DeprecationWarning)
-
-
-def _requests_retry_session(
-    retries: int = 3,
-    backoff_factor: float = 0.3,
-    status_forcelist: Iterable[int] = (500, 502, 503, 504, 520, 521, 524),
-    session: requests.Session | None = None,
-) -> requests.Session:
-    from requests.adapters import HTTPAdapter
-    from requests.packages.urllib3.util.retry import Retry
-
-    session = session or requests.Session()
-    retry = Retry(
-        total=retries,
-        read=retries,
-        connect=retries,
-        backoff_factor=backoff_factor,
-        status_forcelist=status_forcelist,
-        raise_on_status=False,
-    )
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-    return session
 
 
 def raise_exception_about_unsupported_on_cloud(func: Callable) -> Callable:
@@ -1156,15 +1231,20 @@ def raise_exception_about_unsupported_on_cloud(func: Callable) -> Callable:
     return wrapper
 
 
-def content_type_for(filepath: str, default: str = "application/octet-stream") -> str:
+def content_type_for(
+    filepath: str | Path, default: str = "application/octet-stream"
+) -> str:
     """
     Return the best‐guess Content-Type for a file path, falling back to `default` if unknown.
     """
+    if isinstance(filepath, str):
+        filepath = Path(filepath)
+
     # 1) Make sure .yaml/.yml map to text/yaml
     mimetypes.add_type("text/yaml", ".yaml")
     mimetypes.add_type("text/yaml", ".yml")
 
-    ext = Path(filepath).suffix
+    ext = filepath.suffix
     mime = mimetypes.types_map.get(ext.lower())
     return mime or default
 
@@ -1216,3 +1296,38 @@ def _validate_gov_cloud_env(url: str, logger: logging.Logger) -> None:
         ) + GOV_CLOUD_CONSENT_FORMULA
 
         logger.warning(gov_cloud_warn_msg)
+
+
+class AsyncFileReader(httpx.AsyncByteStream):
+    """File reader for async httpx requests."""
+
+    def __init__(self, file_path: str | Path, chunk_size: int = 8192) -> None:
+        self.file_path = file_path if isinstance(file_path, Path) else Path(file_path)
+        self.chunk_size = chunk_size
+
+    async def __aiter__(self) -> AsyncGenerator[bytes, None]:
+        with self.file_path.open("rb") as file:
+            async_file = AsyncFile(file)
+            while chunk := await async_file.read(self.chunk_size):
+                yield chunk
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, AsyncFileReader):
+            return False
+
+        return self.file_path == other.file_path and self.chunk_size == other.chunk_size
+
+    def __repr__(self):
+        return (
+            f"AsyncFileReader(file_path={self.file_path}, chunk_size={self.chunk_size})"
+        )
+
+
+def get_from_json(json_object: Any, key_chain: list[Any], default: Any = None) -> Any:
+    try:
+        for key in key_chain:
+            json_object = json_object[key]
+    except (LookupError, TypeError):
+        return default
+
+    return json_object

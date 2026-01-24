@@ -3,7 +3,7 @@ Type annotations for lakeformation service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -84,6 +85,8 @@ from .type_defs import (
     GetResourceLFTagsResponseTypeDef,
     GetTableObjectsRequestTypeDef,
     GetTableObjectsResponseTypeDef,
+    GetTemporaryDataLocationCredentialsRequestTypeDef,
+    GetTemporaryDataLocationCredentialsResponseTypeDef,
     GetTemporaryGluePartitionCredentialsRequestTypeDef,
     GetTemporaryGluePartitionCredentialsResponseTypeDef,
     GetTemporaryGlueTableCredentialsRequestTypeDef,
@@ -132,12 +135,6 @@ from .type_defs import (
     UpdateTableStorageOptimizerResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -148,25 +145,26 @@ __all__ = ("LakeFormationClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AlreadyExistsException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    EntityNotFoundException: Type[BotocoreClientError]
-    ExpiredException: Type[BotocoreClientError]
-    GlueEncryptionException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    OperationTimeoutException: Type[BotocoreClientError]
-    PermissionTypeMismatchException: Type[BotocoreClientError]
-    ResourceNotReadyException: Type[BotocoreClientError]
-    ResourceNumberLimitExceededException: Type[BotocoreClientError]
-    StatisticsNotReadyYetException: Type[BotocoreClientError]
-    ThrottledException: Type[BotocoreClientError]
-    TransactionCanceledException: Type[BotocoreClientError]
-    TransactionCommitInProgressException: Type[BotocoreClientError]
-    TransactionCommittedException: Type[BotocoreClientError]
-    WorkUnitsNotReadyYetException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    EntityNotFoundException: type[BotocoreClientError]
+    ExpiredException: type[BotocoreClientError]
+    GlueEncryptionException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    OperationTimeoutException: type[BotocoreClientError]
+    PermissionTypeMismatchException: type[BotocoreClientError]
+    ResourceNotReadyException: type[BotocoreClientError]
+    ResourceNumberLimitExceededException: type[BotocoreClientError]
+    StatisticsNotReadyYetException: type[BotocoreClientError]
+    ThrottledException: type[BotocoreClientError]
+    TransactionCanceledException: type[BotocoreClientError]
+    TransactionCommitInProgressException: type[BotocoreClientError]
+    TransactionCommittedException: type[BotocoreClientError]
+    WorkUnitsNotReadyYetException: type[BotocoreClientError]
 
 
 class LakeFormationClient(BaseClient):
@@ -247,7 +245,7 @@ class LakeFormationClient(BaseClient):
 
     def cancel_transaction(
         self, **kwargs: Unpack[CancelTransactionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attempts to cancel the specified transaction.
 
@@ -267,7 +265,7 @@ class LakeFormationClient(BaseClient):
 
     def create_data_cells_filter(
         self, **kwargs: Unpack[CreateDataCellsFilterRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a data cell filter to allow one to grant access to certain columns on
         certain rows.
@@ -276,7 +274,7 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#create_data_cells_filter)
         """
 
-    def create_lf_tag(self, **kwargs: Unpack[CreateLFTagRequestTypeDef]) -> Dict[str, Any]:
+    def create_lf_tag(self, **kwargs: Unpack[CreateLFTagRequestTypeDef]) -> dict[str, Any]:
         """
         Creates an LF-tag with the specified name and values.
 
@@ -286,7 +284,7 @@ class LakeFormationClient(BaseClient):
 
     def create_lf_tag_expression(
         self, **kwargs: Unpack[CreateLFTagExpressionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a new LF-Tag expression with the provided name, description, catalog
         ID, and expression body.
@@ -308,7 +306,7 @@ class LakeFormationClient(BaseClient):
 
     def create_lake_formation_opt_in(
         self, **kwargs: Unpack[CreateLakeFormationOptInRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enforce Lake Formation permissions for the given databases, tables, and
         principals.
@@ -319,7 +317,7 @@ class LakeFormationClient(BaseClient):
 
     def delete_data_cells_filter(
         self, **kwargs: Unpack[DeleteDataCellsFilterRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a data cell filter.
 
@@ -327,9 +325,9 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#delete_data_cells_filter)
         """
 
-    def delete_lf_tag(self, **kwargs: Unpack[DeleteLFTagRequestTypeDef]) -> Dict[str, Any]:
+    def delete_lf_tag(self, **kwargs: Unpack[DeleteLFTagRequestTypeDef]) -> dict[str, Any]:
         """
-        Deletes the specified LF-tag given a key name.
+        Deletes an LF-tag by its key name.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/delete_lf_tag.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#delete_lf_tag)
@@ -337,7 +335,7 @@ class LakeFormationClient(BaseClient):
 
     def delete_lf_tag_expression(
         self, **kwargs: Unpack[DeleteLFTagExpressionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the LF-Tag expression.
 
@@ -347,7 +345,7 @@ class LakeFormationClient(BaseClient):
 
     def delete_lake_formation_identity_center_configuration(
         self, **kwargs: Unpack[DeleteLakeFormationIdentityCenterConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an IAM Identity Center connection with Lake Formation.
 
@@ -357,7 +355,7 @@ class LakeFormationClient(BaseClient):
 
     def delete_lake_formation_opt_in(
         self, **kwargs: Unpack[DeleteLakeFormationOptInRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Remove the Lake Formation permissions enforcement of the given databases,
         tables, and principals.
@@ -368,7 +366,7 @@ class LakeFormationClient(BaseClient):
 
     def delete_objects_on_cancel(
         self, **kwargs: Unpack[DeleteObjectsOnCancelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         For a specific governed table, provides a list of Amazon S3 objects that will
         be written during the current transaction and that can be automatically deleted
@@ -380,7 +378,7 @@ class LakeFormationClient(BaseClient):
 
     def deregister_resource(
         self, **kwargs: Unpack[DeregisterResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deregisters the resource as managed by the Data Catalog.
 
@@ -421,7 +419,7 @@ class LakeFormationClient(BaseClient):
 
     def extend_transaction(
         self, **kwargs: Unpack[ExtendTransactionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Indicates to the service that the specified transaction is still active and
         should not be treated as idle and aborted.
@@ -528,6 +526,19 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_table_objects)
         """
 
+    def get_temporary_data_location_credentials(
+        self, **kwargs: Unpack[GetTemporaryDataLocationCredentialsRequestTypeDef]
+    ) -> GetTemporaryDataLocationCredentialsResponseTypeDef:
+        """
+        Allows a user or application in a secure environment to access data in a
+        specific Amazon S3 location registered with Lake Formation by providing
+        temporary scoped credentials that are limited to the requested data location
+        and the caller's authorized access level.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lakeformation/client/get_temporary_data_location_credentials.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_temporary_data_location_credentials)
+        """
+
     def get_temporary_glue_partition_credentials(
         self, **kwargs: Unpack[GetTemporaryGluePartitionCredentialsRequestTypeDef]
     ) -> GetTemporaryGluePartitionCredentialsResponseTypeDef:
@@ -571,7 +582,7 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#get_work_units)
         """
 
-    def grant_permissions(self, **kwargs: Unpack[GrantPermissionsRequestTypeDef]) -> Dict[str, Any]:
+    def grant_permissions(self, **kwargs: Unpack[GrantPermissionsRequestTypeDef]) -> dict[str, Any]:
         """
         Grants permissions to the principal to access metadata in the Data Catalog and
         data organized in underlying data storage such as Amazon S3.
@@ -664,7 +675,7 @@ class LakeFormationClient(BaseClient):
 
     def put_data_lake_settings(
         self, **kwargs: Unpack[PutDataLakeSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets the list of data lake administrators who have admin privileges on all
         resources managed by Lake Formation.
@@ -673,7 +684,7 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#put_data_lake_settings)
         """
 
-    def register_resource(self, **kwargs: Unpack[RegisterResourceRequestTypeDef]) -> Dict[str, Any]:
+    def register_resource(self, **kwargs: Unpack[RegisterResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Registers the resource as managed by the Data Catalog.
 
@@ -693,7 +704,7 @@ class LakeFormationClient(BaseClient):
 
     def revoke_permissions(
         self, **kwargs: Unpack[RevokePermissionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Revokes permissions to the principal to access metadata in the Data Catalog and
         data organized in underlying data storage such as Amazon S3.
@@ -746,7 +757,7 @@ class LakeFormationClient(BaseClient):
 
     def update_data_cells_filter(
         self, **kwargs: Unpack[UpdateDataCellsFilterRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a data cell filter.
 
@@ -754,7 +765,7 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#update_data_cells_filter)
         """
 
-    def update_lf_tag(self, **kwargs: Unpack[UpdateLFTagRequestTypeDef]) -> Dict[str, Any]:
+    def update_lf_tag(self, **kwargs: Unpack[UpdateLFTagRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the list of possible values for the specified LF-tag key.
 
@@ -764,7 +775,7 @@ class LakeFormationClient(BaseClient):
 
     def update_lf_tag_expression(
         self, **kwargs: Unpack[UpdateLFTagExpressionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the name of the LF-Tag expression to the new description and expression
         body provided.
@@ -775,7 +786,7 @@ class LakeFormationClient(BaseClient):
 
     def update_lake_formation_identity_center_configuration(
         self, **kwargs: Unpack[UpdateLakeFormationIdentityCenterConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the IAM Identity Center connection parameters.
 
@@ -783,7 +794,7 @@ class LakeFormationClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lakeformation/client/#update_lake_formation_identity_center_configuration)
         """
 
-    def update_resource(self, **kwargs: Unpack[UpdateResourceRequestTypeDef]) -> Dict[str, Any]:
+    def update_resource(self, **kwargs: Unpack[UpdateResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the data access role used for vending access to the given (registered)
         resource in Lake Formation.
@@ -794,7 +805,7 @@ class LakeFormationClient(BaseClient):
 
     def update_table_objects(
         self, **kwargs: Unpack[UpdateTableObjectsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the manifest of Amazon S3 objects that make up the specified governed
         table.

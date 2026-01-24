@@ -128,7 +128,7 @@ class TestImportSourceModel:
         assert model.name != comparison_model.name
 
     def test_process_wrongly_formatted_import_data(self, handler, import_source):
-        with pytest.raises(Exception):
+        with pytest.raises(KeyError):
             handler.process(dict(a=1, b="b"))
 
     def test_process_basic(self, handler, import_source, parser_handler_factory):

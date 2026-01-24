@@ -12,8 +12,6 @@ from montecarlodata.integrations.info.status import OnboardingStatusService
 from montecarlodata.integrations.keys import IntegrationKeyScope, IntegrationKeyService
 from montecarlodata.integrations.onboarding.bi.reports import ReportsOnboardingService
 from montecarlodata.integrations.onboarding.data_lake.databricks import (
-    DEFAULT_SECRET_NAME,
-    DEFAULT_SECRET_SCOPE,
     DatabricksOnboardingService,
 )
 from montecarlodata.integrations.onboarding.data_lake.events import (
@@ -28,7 +26,6 @@ from montecarlodata.integrations.onboarding.data_lake.presto import (
 )
 from montecarlodata.integrations.onboarding.data_lake.spark import (
     SPARK_BINARY_MODE_CONFIG_TYPE,
-    SPARK_DATABRICKS_CONFIG_TYPE,
     SPARK_HTTP_MODE_CONFIG_TYPE,
     SparkOnboardingService,
 )
@@ -48,10 +45,9 @@ from montecarlodata.integrations.onboarding.fields import (
     AZURE_SQL_DATABASE_TYPE,
     CLICKHOUSE_DATABASE_TYPE,
     CONNECTION_TO_WAREHOUSE_TYPE_MAP,
-    DATABRICKS_DELTA_CONNECTION_TYPE,
-    DATABRICKS_METASTORE_CONNECTION_TYPE,
     DATABRICKS_METASTORE_SQL_WAREHOUSE_CONNECTION_TYPE,
     DATABRICKS_SQL_WAREHOUSE_CONNECTION_TYPE,
+    DB2_DB_TYPE,
     DREMIO_DATABASE_TYPE,
     GLUE_CONNECTION_TYPE,
     GQL_TO_FRIENDLY_CONNECTION_MAP,
@@ -69,6 +65,8 @@ from montecarlodata.integrations.onboarding.fields import (
     SECRETS_MANAGER_CREDENTIAL_MECHANISM,
     SELF_HOSTING_MECHANISMS,
     SQL_SERVER_DB_TYPE,
+    STARBURST_ENTERPRISE_DATABASE_TYPE,
+    STARBURST_GALAXY_DATABASE_TYPE,
     TERADATA_DB_TYPE,
 )
 from montecarlodata.integrations.onboarding.operations.connection_ops import (
@@ -112,6 +110,14 @@ BI_VERBIAGE = "For reports"
 PASSWORD_VERBIAGE = f"If you prefer a prompt (with hidden input) enter {settings.SHOW_PROMPT_VALUE}"
 RESOURCE_VERBIAGE = "This can be helpful if the resources are in different accounts"
 CONNECTION_ID_VERBIAGE = "ID for the connection."
+
+_SELF_HOSTED_CREDENTIALS_TYPES = [
+    "ENV_VAR",
+    "AWS_SECRETS_MANAGER",
+    "GCP_SECRET_MANAGER",
+    "AZURE_KEY_VAULT",
+    "FILE",
+]
 
 
 # Options shared across commands
@@ -227,7 +233,7 @@ CONNECTION_OPTIONS = [
     )
 ]
 
-SSL_OPTIONS = [
+BASIC_SSL_OPTIONS = [
     click.option(
         "--ssl-ca",
         help="Path to the file that contains a PEM-formatted CA certificate.",
@@ -236,6 +242,17 @@ SSL_OPTIONS = [
         cls=AdvancedOptions,
         mutually_exclusive_options=["ssl_disabled"],
     ),
+    click.option(
+        "--ssl-disabled",
+        help="A boolean value that disables usage of TLS.",
+        required=False,
+        type=click.BOOL,
+        cls=AdvancedOptions,
+        mutually_exclusive_options=["ssl_ca", "ssl_cert", "ssl_key"],
+    ),
+]
+
+SSL_OPTIONS = BASIC_SSL_OPTIONS + [
     click.option(
         "--ssl-cert",
         help="Path to the file that contains a PEM-formatted client certificate.",
@@ -253,14 +270,6 @@ SSL_OPTIONS = [
         cls=AdvancedOptions,
         required_with_options=["ssl_cert"],
         mutually_exclusive_options=["ssl_disabled"],
-    ),
-    click.option(
-        "--ssl-disabled",
-        help="A boolean value that disables usage of TLS.",
-        required=False,
-        type=click.BOOL,
-        cls=AdvancedOptions,
-        mutually_exclusive_options=["ssl_ca", "ssl_cert", "ssl_key"],
     ),
     click.option(
         "--ssl-key-password",
@@ -360,12 +369,6 @@ BASE_DATABRICKS_OPTIONS = [
     ),
 ]
 
-DATABRICKS_OPTIONS = [
-    *BASE_DATABRICKS_OPTIONS,
-    click.option("--databricks-workspace-id", help="Databricks workspace ID.", required=True),
-    click.option("--databricks-cluster-id", help="Databricks cluster ID.", required=True),
-]
-
 DATABRICKS_SQL_WAREHOUSE_OPTIONS = [
     *BASE_DATABRICKS_OPTIONS,
     click.option("--databricks-warehouse-id", help="Databricks warehouse ID.", required=True),
@@ -387,71 +390,25 @@ DATABRICKS_SQL_WAREHOUSE_OPTIONS = [
         required_with_options=["databricks_client_id"],
         at_least_one_set=["databricks_client_id", "databricks_client_secret", "databricks_token"],
     ),
-]
-
-DATABRICKS_DATA_COLLECTOR_OPTIONS = [
     click.option(
-        "--skip-secret-creation",
-        help="Skip secret creation. Warning: Advanced use-case only.",
-        default=False,
-        show_default=True,
-        is_flag=True,
-    ),
-    click.option(
-        "--databricks-secret-key",
-        help="Databricks secret key. This is a secret used by Databricks to communicate "
-        "back to Monte Carlo.",
-        default=DEFAULT_SECRET_NAME,
-        show_default=True,
-    ),
-    click.option(
-        "--databricks-secret-scope",
-        help="Databricks secret scope. This is a secret used by Databricks to communicate "
-        "back to Monte Carlo.",
-        default=DEFAULT_SECRET_SCOPE,
-        show_default=True,
-    ),
-    click.option(
-        "--skip-notebook-creation",
-        help="Skip notebook creation.",
-        default=False,
-        show_default=True,
-        is_flag=True,
-        cls=AdvancedOptions,
-        required_with_options=[
-            "databricks_job_id",
-            "databricks_job_name",
-            "databricks_notebook_path",
-        ],
-    ),
-    click.option(
-        "--databricks-job-id",
-        help="Databricks job id, required if notebook creation is skipped.",
+        "--azure-tenant-id",
+        help="Azure Tenant ID, needed when using an Entra-ID managed service principal.",
         required=False,
         cls=AdvancedOptions,
-        required_with_options=["skip_notebook_creation"],
+        prompt_if_requested=True,
+        mutually_exclusive_options=["databricks_token"],
+        required_with_options=["azure_workspace_resource_id"],
+        at_least_one_set=["databricks_client_id", "databricks_client_secret", "databricks_token"],
     ),
     click.option(
-        "--databricks-job-name",
-        help="Databricks job name, required if notebook creation is skipped.",
+        "--azure-workspace-resource-id",
+        help="Azure Workspace Resource, needed when using an Entra-ID managed service principal.",
         required=False,
         cls=AdvancedOptions,
-        required_with_options=["skip_notebook_creation"],
-    ),
-    click.option(
-        "--databricks-notebook-path",
-        help="Databricks notebook path, required if notebook creation is skipped.",
-        required=False,
-        cls=AdvancedOptions,
-        required_with_options=["skip_notebook_creation"],
-    ),
-    click.option(
-        "--databricks-notebook-source",
-        help="Databricks notebook source, required if notebook creation is "
-        'skipped. (e.g. "resources/databricks/notebook/v1/collection.py")',
-        required=False,
-        cls=AdvancedOptions,
-        required_with_options=["skip_notebook_creation"],
+        prompt_if_requested=True,
+        mutually_exclusive_options=["databricks_token"],
+        required_with_options=["azure_tenant_id"],
+        at_least_one_set=["databricks_client_id", "databricks_client_secret", "databricks_token"],
     ),
 ]
 
@@ -933,73 +890,6 @@ def add_spark_http_mode(ctx, user, name, **kwargs):
     )
 
 
-@integrations.command(help=f"Setup a Spark integration for Databricks. {SQL_VERBIAGE}.")
-@click.pass_obj
-@add_common_options(DATABRICKS_OPTIONS)
-@add_common_options(warehouse_select_option())
-@add_common_options(ONBOARDING_CONFIGURATION_OPTIONS)
-@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
-def add_spark_databricks(ctx, name, **kwargs):
-    """
-    Onboard a spark connection, databricks
-    """
-    SparkOnboardingService(
-        config=ctx["config"],
-        command_name="integrations add_spark_databricks",
-    ).onboard_spark(
-        SPARK_DATABRICKS_CONFIG_TYPE,
-        warehouseName=name,
-        **kwargs,
-    )
-
-
-@integrations.command(
-    help="Setup a Databricks metastore integration. For metadata and health queries."
-)
-@click.pass_obj
-@add_common_options(warehouse_create_option())
-@add_common_options(DATABRICKS_OPTIONS)
-@add_common_options(DATABRICKS_DATA_COLLECTOR_OPTIONS)
-@add_common_options(ONBOARDING_CONFIGURATION_OPTIONS)
-@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
-def add_databricks_metastore(ctx, name, **kwargs):
-    """
-    Onboard a databricks metastore
-    """
-    DatabricksOnboardingService(
-        config=ctx["config"],
-        mc_client=create_mc_client(ctx),
-        command_name="integrations add_databricks_metastore",
-    ).onboard_databricks_metastore(
-        connection_type=DATABRICKS_METASTORE_CONNECTION_TYPE,
-        warehouseName=name,
-        **kwargs,
-    )
-
-
-@integrations.command(
-    help="Setup a Databricks Delta integration. For metadata queries on delta tables "
-    "when using an external metastore in databricks."
-)
-@click.pass_obj
-@add_common_options(DATABRICKS_OPTIONS)
-@add_common_options(warehouse_select_option())
-@add_common_options(DATABRICKS_DATA_COLLECTOR_OPTIONS)
-@add_common_options(ONBOARDING_CONFIGURATION_OPTIONS)
-@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
-def add_databricks_delta(ctx, name, **kwargs):
-    """
-    Onboard a databricks delta service
-    """
-    DatabricksOnboardingService(
-        config=ctx["config"],
-        mc_client=create_mc_client(ctx),
-        command_name="integrations add_databricks_delta",
-    ).onboard_databricks_metastore(
-        connection_type=DATABRICKS_DELTA_CONNECTION_TYPE, warehouseName=name, **kwargs
-    )
-
-
 @integrations.command(help=f"Setup a Databricks SQL Warehouse integration. {SQL_VERBIAGE}")
 @click.pass_obj
 @add_common_options(DATABRICKS_SQL_WAREHOUSE_OPTIONS)
@@ -1012,7 +902,6 @@ def add_databricks_sql_warehouse(ctx, name, **kwargs):
     """
     DatabricksOnboardingService(
         config=ctx["config"],
-        mc_client=create_mc_client(ctx),
         command_name="integrations add_databricks_sql_warehouse",
     ).onboard_databricks_sql_warehouse(
         connection_type=DATABRICKS_SQL_WAREHOUSE_CONNECTION_TYPE,
@@ -1034,7 +923,6 @@ def add_databricks_metastore_sql_warehouse(ctx, name, **kwargs):
     """
     DatabricksOnboardingService(
         config=ctx["config"],
-        mc_client=create_mc_client(ctx),
         command_name="integrations add_databricks_metastore_sql_warehouse",
     ).onboard_databricks_sql_warehouse(
         connection_type=DATABRICKS_METASTORE_SQL_WAREHOUSE_CONNECTION_TYPE,
@@ -1053,7 +941,6 @@ def add_databricks_metastore_sql_warehouse(ctx, name, **kwargs):
 def create_databricks_webhook_key(ctx, integration_name: Optional[str], **kwargs):
     DatabricksOnboardingService(
         config=ctx["config"],
-        mc_client=create_mc_client(ctx),
         command_name="integrations create_databricks_webhook_key",
     ).create_webhook_key(
         warehouse_name=integration_name,
@@ -1227,8 +1114,19 @@ def add_self_hosted_credentials(ctx, mechanism, key, role, name, **kwargs):
     "--self-hosted-credentials-type",
     help="Self-hosted credentials type (e.g. 'env_var', 'aws_secrets_manager').",
     required=True,
-    type=click.Choice(["ENV_VAR", "AWS_SECRETS_MANAGER"], case_sensitive=False),
+    type=click.Choice(
+        _SELF_HOSTED_CREDENTIALS_TYPES,
+        case_sensitive=False,
+    ),
     cls=AdvancedOptions,
+    values_with_required_options=_SELF_HOSTED_CREDENTIALS_TYPES,
+    required_options_by_value={
+        "ENV_VAR": ["env_var_name"],
+        "AWS_SECRETS_MANAGER": ["aws_secret"],
+        "GCP_SECRET_MANAGER": ["gcp_secret"],
+        "AZURE_KEY_VAULT": ["akv_secret", "akv_vault_name"],
+        "FILE": ["file_path"],
+    },
 )
 @click.option(
     "--decryption-service-type",
@@ -1244,7 +1142,7 @@ def add_self_hosted_credentials(ctx, mechanism, key, role, name, **kwargs):
     required=False,
     cls=AdvancedOptions,
     required_with_options=["self_hosted_credentials_type"],
-    mutually_exclusive_options=["aws_secret"],
+    mutually_exclusive_options=["aws_secret", "gcp_secret", "akv_secret", "file_path"],
 )
 @click.option(
     "--kms-key-id",
@@ -1259,7 +1157,39 @@ def add_self_hosted_credentials(ctx, mechanism, key, role, name, **kwargs):
     required=False,
     cls=AdvancedOptions,
     required_with_options=["self_hosted_credentials_type"],
-    mutually_exclusive_options=["env_var_name"],
+    mutually_exclusive_options=["env_var_name", "gcp_secret", "akv_secret", "file_path"],
+)
+@click.option(
+    "--gcp-secret",
+    help="Name of GCP Secret Manager secret version containing credentials "
+    "(e.g. 'projects/<project_id>/secrets/<secret_name>/versions/latest').",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["self_hosted_credentials_type"],
+    mutually_exclusive_options=["env_var_name", "aws_secret", "akv_secret", "file_path"],
+)
+@click.option(
+    "--akv-secret",
+    help="Name of the secret in the Azure Key Vault to use to retrieve credentials.",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["self_hosted_credentials_type", "akv_vault_name"],
+    mutually_exclusive_options=["env_var_name", "aws_secret", "gcp_secret", "file_path"],
+)
+@click.option(
+    "--akv-vault-name",
+    help="Name of the Azure Key Vault used to retrieve the secret.",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["akv_secret"],
+)
+@click.option(
+    "--file-path",
+    help="Path to file containing credentials on the agent.",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["self_hosted_credentials_type"],
+    mutually_exclusive_options=["env_var_name", "aws_secret", "akv_secret"],
 )
 @click.option(
     "--aws-region",
@@ -1277,6 +1207,12 @@ def add_self_hosted_credentials(ctx, mechanism, key, role, name, **kwargs):
     required=False,
     cls=AdvancedOptions,
     required_with_options=["assumable_role"],
+)
+@click.option(
+    "--bq-project-id",
+    help="BigQuery project ID for running queries. "
+    "Required for BigQuery connections with self-hosted credentials.",
+    required=False,
 )
 @click.option("--name", help="Friendly name for the warehouse.", required=False)
 @add_common_options(ONBOARDING_CONFIGURATION_OPTIONS)
@@ -1321,7 +1257,6 @@ def add_airflow(ctx, host, name, **kwargs):
     mutually_exclusive_options=["connection_id"],
     type=click.Choice(
         [
-            DATABRICKS_METASTORE_CONNECTION_TYPE,
             GLUE_CONNECTION_TYPE,
             HIVE_MYSQL_CONNECTION_TYPE,
         ],
@@ -1638,8 +1573,8 @@ def refresh_bi_to_warehouse_connections(ctx, bi_container_id, warehouse_source_d
 )
 @click.option(
     "--repo-url",
-    help="Repository URL as ssh://[user@]server/project.git or the shorter "
-    "form [user@]server:project.git for ssh. For https, use https://server/project.git.",
+    help="Repository URL as ssh://\\[user@\\]server/project.git or the shorter "
+    "form \\[user@\\]server:project.git for ssh. For https, use https://server/project.git.",
     required=True,
 )
 @click.option(
@@ -1957,6 +1892,7 @@ def add_mysql(ctx, name, **kwargs):
     + port_create_option(default_port=1521)
     + DATABASE_OPTIONS
     + ONBOARDING_CONFIGURATION_OPTIONS
+    + SSL_OPTIONS
 )
 @click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
 def add_oracle(ctx, database, name, **kwargs):
@@ -1968,6 +1904,79 @@ def add_oracle(ctx, database, name, **kwargs):
         mc_client=create_mc_client(ctx),
         command_name="integrations add_oracle",
     ).onboard_transactional_db(warehouseName=name, dbName=database, dbType=ORACLE_DB_TYPE, **kwargs)
+
+
+@integrations.command(help=f"Update an Oracle integration. {LIGHTWEIGHT_VERBIAGE}.")
+@click.pass_obj
+@click.option("--host", help="Hostname.", required=False)
+@click.option("--port", help="Port to use for connection.", required=False)
+@click.option("--user", help="Username with access to the database.", required=False)
+@click.option(
+    "--password",
+    help=f"User's password. {PASSWORD_VERBIAGE}.",
+    required=False,
+    cls=AdvancedOptions,
+    prompt_if_requested=True,
+)
+@click.option("--database", help="Name of database/site.", required=False)
+@add_common_options(SSL_OPTIONS)
+@add_common_options(UPDATE_VALIDATION_OPTIONS)
+def update_oracle(ctx, connection_id, **kwargs):
+    """
+    Update an Oracle connection
+    """
+    TransactionalOnboardingService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="integrations update_oracle",
+    ).update_transactional_db(connection_id=connection_id, connection_type="oracle", **kwargs)
+
+
+@integrations.command(help=f"Setup a Db2 integration. {LIGHTWEIGHT_VERBIAGE}.")
+@click.pass_obj
+@add_common_options(
+    warehouse_create_option(required=True)
+    + port_create_option(default_port=50000)
+    + DATABASE_OPTIONS
+    + ONBOARDING_CONFIGURATION_OPTIONS
+    + BASIC_SSL_OPTIONS
+)
+@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
+def add_db2(ctx, database, name, **kwargs):
+    """
+    Onboard a Db2 connection
+    """
+    TransactionalOnboardingService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="integrations add_db2",
+    ).onboard_transactional_db(warehouseName=name, dbName=database, dbType=DB2_DB_TYPE, **kwargs)
+
+
+@integrations.command(help=f"Update a Db2 integration. {LIGHTWEIGHT_VERBIAGE}.")
+@click.pass_obj
+@click.option("--host", help="Hostname.", required=False)
+@click.option("--port", help="Port to use for connection.", required=False)
+@click.option("--user", help="Username with access to the database.", required=False)
+@click.option(
+    "--password",
+    help=f"User's password. {PASSWORD_VERBIAGE}.",
+    required=False,
+    cls=AdvancedOptions,
+    prompt_if_requested=True,
+)
+@click.option("--database", help="Name of database/site.", required=False)
+@add_common_options(BASIC_SSL_OPTIONS)
+@add_common_options(UPDATE_VALIDATION_OPTIONS)
+def update_db2(ctx, connection_id, **kwargs):
+    """
+    Update a Db2 connection
+    """
+    TransactionalOnboardingService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="integrations update_db2",
+    ).update_transactional_db(connection_id=connection_id, connection_type="db2", **kwargs)
 
 
 @integrations.command(help=f"Setup an MariaDB integration. {LIGHTWEIGHT_VERBIAGE}.")
@@ -2327,6 +2336,82 @@ def add_clickhouse(ctx, database, name, **kwargs):
     )
 
 
+@integrations.command(help=f"Setup a Starburst Galaxy integration. {LIGHTWEIGHT_VERBIAGE}.")
+@click.pass_obj
+@add_common_options(
+    warehouse_create_option(required=True)
+    + port_create_option(default_port=443)
+    + BASIC_DATABASE_OPTIONS
+    + ONBOARDING_CONFIGURATION_OPTIONS
+)
+@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
+def add_starburst_galaxy(ctx, name, **kwargs):
+    """
+    Onboard a Starburst Galaxy connection
+    """
+    TransactionalOnboardingService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="integrations add_starburst_galaxy",
+    ).onboard_transactional_db(
+        warehouseName=name,
+        dbType=STARBURST_GALAXY_DATABASE_TYPE,
+        **kwargs,
+    )
+
+
+@integrations.command(help=f"Setup a Starburst Enterprise integration. {LIGHTWEIGHT_VERBIAGE}.")
+@click.pass_obj
+@add_common_options(
+    warehouse_create_option(required=True)
+    + port_create_option(default_port=443)
+    + BASIC_DATABASE_OPTIONS
+    + ONBOARDING_CONFIGURATION_OPTIONS
+    + BASIC_SSL_OPTIONS
+)
+@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
+def add_starburst_enterprise(ctx, name, **kwargs):
+    """
+    Onboard a Starburst Enterprise connection
+    """
+    TransactionalOnboardingService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="integrations add_starburst_enterprise",
+    ).onboard_transactional_db(
+        warehouseName=name,
+        dbType=STARBURST_ENTERPRISE_DATABASE_TYPE,
+        **kwargs,
+    )
+
+
+@integrations.command(help=f"Update a Starburst Enterprise integration. {LIGHTWEIGHT_VERBIAGE}.")
+@click.pass_obj
+@click.option("--host", help="Hostname.", required=False)
+@click.option("--port", help="Port to use for connection.", required=False)
+@click.option("--user", help="Username with access to the database.", required=False)
+@click.option(
+    "--password",
+    help=f"User's password. {PASSWORD_VERBIAGE}.",
+    required=False,
+    cls=AdvancedOptions,
+    prompt_if_requested=True,
+)
+@add_common_options(BASIC_SSL_OPTIONS)
+@add_common_options(UPDATE_VALIDATION_OPTIONS)
+def update_starburst_enterprise(ctx, connection_id, **kwargs):
+    """
+    Update a Starburst Enterprise connection
+    """
+    TransactionalOnboardingService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="integrations update_starburst_enterprise",
+    ).update_transactional_db(
+        connection_id=connection_id, connection_type="starburst-enterprise", **kwargs
+    )
+
+
 @integrations.command(help="List all active connections.", name="list")
 @click.pass_obj
 @click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
@@ -2583,38 +2668,6 @@ def set_bi_connection_name(ctx, **kwargs):
         config=ctx["config"],
         command_name="integrations set_bi_connection_name",
     ).set_bi_connection_name(**kwargs)
-
-
-@integrations.command(help="Update Databricks Notebook to the latest version.")
-@click.pass_obj
-@add_common_options(CONNECTION_OPTIONS)
-def update_databricks_notebook(ctx, **kwargs):
-    DatabricksOnboardingService(
-        config=ctx["config"],
-        mc_client=create_mc_client(ctx),
-        command_name="integrations update_databricks_notebook",
-    ).update_databricks_notebook(**kwargs)
-
-
-@integrations.command(help="Get the Databricks job info for your connection.")
-@click.pass_obj
-@add_common_options(CONNECTION_OPTIONS)
-def show_databricks_metadata_job_info(ctx, **kwargs):
-    DatabricksOnboardingService(
-        config=ctx["config"],
-        mc_client=create_mc_client(ctx),
-        command_name="integrations show_databricks_metadata_job_info",
-    ).get_databricks_job_info(**kwargs)
-
-
-@integrations.command(help="Get the most up to date databricks notebook version.")
-@click.pass_obj
-def show_current_notebook_version(ctx):
-    DatabricksOnboardingService(
-        config=ctx["config"],
-        mc_client=create_mc_client(ctx),
-        command_name="integrations show_current_notebook_version",
-    ).get_current_databricks_notebook_version()
 
 
 @integrations.command(help="Setup a streaming system.")

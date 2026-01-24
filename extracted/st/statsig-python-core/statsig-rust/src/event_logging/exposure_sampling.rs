@@ -274,8 +274,8 @@ pub struct ExposureSamplingKey {
 
 impl ExposureSamplingKey {
     pub fn new(evaluation: Option<&BaseEvaluation>, user: &UserData, additional_hash: u64) -> Self {
-        let spec_name_hash = evaluation.as_ref().map_or(0, |e| e.name.hash_value);
-        let rule_id_hash = evaluation.as_ref().map_or(0, |e| e.rule_id.hash_value);
+        let spec_name_hash = evaluation.as_ref().map_or(0, |e| e.name.hash);
+        let rule_id_hash = evaluation.as_ref().map_or(0, |e| e.rule_id.hash);
 
         let user_values_hash = user.create_user_values_hash();
 
@@ -296,6 +296,6 @@ impl ExposureSamplingKey {
         let final_hash =
             self.spec_name_hash ^ self.rule_id_hash ^ self.user_values_hash ^ self.additional_hash;
 
-        final_hash % sampling_rate == 0
+        final_hash.is_multiple_of(sampling_rate)
     }
 }

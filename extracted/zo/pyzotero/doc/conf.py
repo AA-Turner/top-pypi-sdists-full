@@ -16,7 +16,6 @@ import sys
 
 sys.path.insert(1, "..")
 import pyzotero
-from pyzotero import zotero as zot
 
 # Tell Jinja2 templates the build is running on Read the Docs
 if os.environ.get("READTHEDOCS", "") == "True":
@@ -24,7 +23,7 @@ if os.environ.get("READTHEDOCS", "") == "True":
         html_context = {}
     html_context["READTHEDOCS"] = True
 
-author = zot.__author__
+author = "Stephan Hügel"
 current_year = datetime.datetime.now(tz=datetime.timezone.utc).date().year
 
 html_context = {
@@ -117,7 +116,9 @@ RTD_NEW_THEME = True
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-# html_theme_options = {}
+html_theme_options = {
+    "collapse_navigation": False,
+}
 
 # Add any paths that contain custom themes here, relative to this directory.
 # html_theme_path = []

@@ -595,9 +595,9 @@ def _read_parquet(
         if source.startswith("file://"):
             # Polars cannot handle local file uris properly
             source = source[len("file://") :]
-        if source.startswith("gs://"):
+        if source.startswith("gcs://"):
             # Fsspec expects gcs instead of gs
-            source = "gcs://" + source[len("gs://") :]
+            source = "gs://" + source[len("gcs://") :]
 
     try:
         # Polars added a crash bug in polars 0.20 that isn't fixed until polars 1.8.0; this fallback case handles
@@ -641,6 +641,13 @@ def record_batch_to_arrow_ipc(rb: pa.RecordBatch, compression: Literal["lz4", "z
 def arrow_ipc_to_record_batch(b: bytes) -> pa.RecordBatch:
     bio = io.BytesIO(b)
     reader = pa_ipc.RecordBatchFileReader(bio)
+    t: pa.Table = reader.read_all()
+    return pa_table_to_recordbatch(t)
+
+
+def arrow_ipc_stream_to_record_batch(b: bytes) -> pa.RecordBatch:
+    bio = io.BytesIO(b)
+    reader = pa_ipc.RecordBatchStreamReader(bio)
     t: pa.Table = reader.read_all()
     return pa_table_to_recordbatch(t)
 

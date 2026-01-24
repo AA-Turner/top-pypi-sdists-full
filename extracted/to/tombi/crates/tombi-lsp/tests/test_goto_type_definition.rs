@@ -11,7 +11,8 @@ mod goto_type_definition_tests {
                 r#"
                 toml-version = "█v1.0.0"
                 "#,
-                tombi_schema_path(),
+                SourcePath(tombi_schema_path()),
+                SchemaPath(tombi_schema_path()),
             ) -> Ok(tombi_schema_path());
         );
 
@@ -20,9 +21,10 @@ mod goto_type_definition_tests {
             async fn tombi_schema_catalog_path(
                 r#"
                 [schema.catalog]
-                path = "█https://json.schemastore.org/api/json/catalog.json"
+                path = "█https://www.schemastore.org/api/json/catalog.json"
                 "#,
-                tombi_schema_path(),
+                SourcePath(tombi_schema_path()),
+                SchemaPath(tombi_schema_path()),
             ) -> Ok(tombi_schema_path());
         );
 
@@ -32,7 +34,8 @@ mod goto_type_definition_tests {
                 r#"
                 [[schemas█]]
                 "#,
-                tombi_schema_path(),
+                SourcePath(tombi_schema_path()),
+                SchemaPath(tombi_schema_path()),
             ) -> Ok(tombi_schema_path());
         );
     }
@@ -48,7 +51,8 @@ mod goto_type_definition_tests {
                 [package]
                 name█ = "tombi"
                 "#,
-                cargo_schema_path(),
+                SourcePath(cargo_schema_path()),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(cargo_schema_path());
         );
 
@@ -59,7 +63,8 @@ mod goto_type_definition_tests {
                 [package]
                 readme = "█README.md"
                 "#,
-                cargo_schema_path(),
+                SourcePath(cargo_schema_path()),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(cargo_schema_path());
         );
 
@@ -70,7 +75,8 @@ mod goto_type_definition_tests {
                 [dependencies]
                 serde█ = { workspace = true }
                 "#,
-                cargo_schema_path(),
+                SourcePath(cargo_schema_path()),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(cargo_schema_path());
         );
 
@@ -81,7 +87,8 @@ mod goto_type_definition_tests {
                 [profile.release]
                 strip = "debuginfo█"
                 "#,
-                cargo_schema_path(),
+                SourcePath(cargo_schema_path()),
+                SchemaPath(cargo_schema_path()),
             ) -> Ok(cargo_schema_path());
         );
     }
@@ -98,7 +105,8 @@ mod goto_type_definition_tests {
                 [project]
                 readme = "█1.0.0"
                 "#,
-                pyproject_schema_path(),
+                SourcePath(pyproject_schema_path()),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(pyproject_schema_path());
         );
 
@@ -111,7 +119,8 @@ mod goto_type_definition_tests {
                     "█pytest>=8.3.3",
                 ]
                 "#,
-                pyproject_schema_path(),
+                SourcePath(pyproject_schema_path()),
+                SchemaPath(pyproject_schema_path()),
             ) -> Ok(pyproject_schema_path());
         );
 
@@ -122,8 +131,9 @@ mod goto_type_definition_tests {
                 [tool.taskipy.tasks]
                 format█ = "ruff"
                 "#,
-                pyproject_schema_path(),
-            ) -> Ok("https://json.schemastore.org/partial-taskipy.json");
+                SourcePath(pyproject_schema_path()),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok("https://www.schemastore.org/partial-taskipy.json");
         );
 
         test_goto_type_definition!(
@@ -134,8 +144,9 @@ mod goto_type_definition_tests {
                 [project]
                 name = "tombi"
                 "#,
-                pyproject_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-document-directive.json");
+                SourcePath(pyproject_schema_path()),
+                SchemaPath(pyproject_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-document-directive.json");
         );
     }
 
@@ -153,8 +164,9 @@ mod goto_type_definition_tests {
                 [table]
                 integer = 42
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-document-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-document-directive.json");
         );
 
         test_goto_type_definition!(
@@ -164,8 +176,9 @@ mod goto_type_definition_tests {
                 #:tombi schema.strict█ = true
                 integer = 42
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-document-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-document-directive.json");
         );
 
         test_goto_type_definition!(
@@ -177,8 +190,9 @@ mod goto_type_definition_tests {
                 [table]
                 integer = 42
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-document-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-document-directive.json");
         );
 
         test_goto_type_definition!(
@@ -189,8 +203,9 @@ mod goto_type_definition_tests {
 
                 key = "value"
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-root-table-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-root-table-directive.json");
         );
 
         test_goto_type_definition!(
@@ -201,8 +216,9 @@ mod goto_type_definition_tests {
 
                 # tombi: lint.rules.const-value.disabled█ = true
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-root-table-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-root-table-directive.json");
         );
 
         test_goto_type_definition!(
@@ -212,8 +228,9 @@ mod goto_type_definition_tests {
                 # tombi: lint.rules.key-empty█ = "off"
                 string = "string"
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-key-string-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-key-string-directive.json");
         );
 
         test_goto_type_definition!(
@@ -226,8 +243,9 @@ mod goto_type_definition_tests {
                   "string"
                 ]
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-key-array-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-key-array-directive.json");
         );
 
         test_goto_type_definition!(
@@ -240,8 +258,9 @@ mod goto_type_definition_tests {
                   "string"
                 ]
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-array-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-array-directive.json");
         );
 
         test_goto_type_definition!(
@@ -253,8 +272,9 @@ mod goto_type_definition_tests {
                   "string"
                 ]
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-string-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-string-directive.json");
         );
 
         test_goto_type_definition!(
@@ -265,8 +285,9 @@ mod goto_type_definition_tests {
                   "string" # tombi: lint.rules.string-min-length█ = "off"
                 ]
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-string-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-string-directive.json");
         );
 
         test_goto_type_definition!(
@@ -277,8 +298,9 @@ mod goto_type_definition_tests {
                   "string", # tombi: lint.rules.string-min-length█ = "off"
                 ]
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-string-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-string-directive.json");
         );
 
         test_goto_type_definition!(
@@ -290,8 +312,9 @@ mod goto_type_definition_tests {
                   , # tombi: lint.rules.string-min-length█ = "off"
                 ]
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-string-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-string-directive.json");
         );
 
         test_goto_type_definition!(
@@ -303,8 +326,9 @@ mod goto_type_definition_tests {
                   # tombi: lint.rules.array-min-items█ = "off"
                 ]
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-array-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-array-directive.json");
         );
 
         test_goto_type_definition!(
@@ -316,8 +340,9 @@ mod goto_type_definition_tests {
                   ,
                 ] # tombi: lint.rules.array-min-items█ = "off"
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-key-array-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-key-array-directive.json");
         );
 
         test_goto_type_definition!(
@@ -326,8 +351,9 @@ mod goto_type_definition_tests {
                 r#"
                 inline-table = { key = "value", } # tombi: lint.rules.table-min-properties█ = "off"
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-key-inline-table-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-key-inline-table-directive.json");
         );
 
         test_goto_type_definition!(
@@ -337,8 +363,9 @@ mod goto_type_definition_tests {
                 # tombi: lint.rules.const-value.disabled█ = true
                 [table]
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-key-table-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-key-table-directive.json");
         );
 
         test_goto_type_definition!(
@@ -348,8 +375,9 @@ mod goto_type_definition_tests {
                 [table]
                 # tombi: lint.rules.const-value.disabled█ = true
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-table-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-table-directive.json");
         );
 
         test_goto_type_definition!(
@@ -359,8 +387,9 @@ mod goto_type_definition_tests {
                 # tombi: lint.rules.const-value.disabled█ = true
                 [[array]]
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-key-array-of-table-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-key-array-of-table-directive.json");
         );
 
         test_goto_type_definition!(
@@ -369,8 +398,9 @@ mod goto_type_definition_tests {
                 r#"
                 [[array]] # tombi: lint.rules.const-value.disabled█ = true
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-key-array-of-table-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-key-array-of-table-directive.json");
         );
 
         test_goto_type_definition!(
@@ -380,8 +410,9 @@ mod goto_type_definition_tests {
                 [[array]]
                 # tombi: lint.rules.const-value.disabled█ = true
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-table-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-table-directive.json");
         );
 
         test_goto_type_definition!(
@@ -390,8 +421,9 @@ mod goto_type_definition_tests {
                 r#"
                 key = "value"  # tombi: lint.rules.string-pattern.disabled█ = true
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-key-string-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-key-string-directive.json");
         );
 
         test_goto_type_definition!(
@@ -400,43 +432,17 @@ mod goto_type_definition_tests {
                 r#"
                 key1.key2 = "value"  # tombi: lint.rules.string-pattern.disabled█ = true
                 "#,
-                type_test_schema_path(),
-            ) -> Ok("tombi://json.tombi.dev/tombi-key-string-directive.json");
+                SourcePath(type_test_schema_path()),
+                SchemaPath(type_test_schema_path()),
+            ) -> Ok("tombi://www.schemastore.tombi/tombi-key-string-directive.json");
         );
     }
 
     #[macro_export]
     macro_rules! test_goto_type_definition {
         (#[tokio::test] async fn $name:ident(
-            $source:expr,
-            $schema_file_path:expr$(,)?
-        ) -> Ok(_)$(;)?) => {
-            test_goto_type_definition!(
-                #[tokio::test]
-                async fn $name(
-                    $source,
-                    $schema_file_path,
-                ) -> Ok($schema_file_path);
-            );
-        };
-
-        (#[tokio::test] async fn $name:ident(
-            $source:expr,
-            $schema_file_path:expr$(,)?
+            $source:expr $(, $arg:expr )* $(,)?
         ) -> Ok($expected_schema_path:expr)$(;)?) => {
-            test_goto_type_definition!(
-                #[tokio::test]
-                async fn _$name(
-                    $source,
-                    Some($schema_file_path),
-                ) -> Ok($expected_schema_path);
-            );
-        };
-
-        (#[tokio::test] async fn _$name:ident(
-            $source:expr,
-            $schema_file_path:expr,
-        ) -> Ok($expected_schema_path:expr);) => {
             #[tokio::test]
             async fn $name() -> Result<(), Box<dyn std::error::Error>> {
                 use std::io::Write;
@@ -450,31 +456,86 @@ mod goto_type_definition_tests {
                     },
                     LspService,
                 };
+                use tombi_text::IntoLsp;
 
                 tombi_test_lib::init_tracing();
 
+                #[allow(unused)]
+                #[derive(Default)]
+                struct TestConfig {
+                    source_file_path: Option<std::path::PathBuf>,
+                    schema_file_path: Option<std::path::PathBuf>,
+                    subschemas: Vec<SubSchemaPath>,
+                    backend_options: tombi_lsp::backend::Options,
+                }
+
+                #[allow(unused)]
+                trait ApplyTestArg {
+                    fn apply(self, config: &mut TestConfig);
+                }
+
+                #[allow(unused)]
+                struct SourcePath(std::path::PathBuf);
+
+                impl ApplyTestArg for SourcePath {
+                    fn apply(self, config: &mut TestConfig) {
+                        config.source_file_path = Some(self.0);
+                    }
+                }
+
+                #[allow(unused)]
+                struct SchemaPath(std::path::PathBuf);
+
+                impl ApplyTestArg for SchemaPath {
+                    fn apply(self, config: &mut TestConfig) {
+                        config.schema_file_path = Some(self.0);
+                    }
+                }
+
+                #[allow(unused)]
+                struct SubSchemaPath {
+                    pub root: String,
+                    pub path: std::path::PathBuf,
+                }
+
+                impl ApplyTestArg for SubSchemaPath {
+                    fn apply(self, config: &mut TestConfig) {
+                        config.subschemas.push(self);
+                    }
+                }
+
+                impl ApplyTestArg for tombi_lsp::backend::Options {
+                    fn apply(self, config: &mut TestConfig) {
+                        config.backend_options = self;
+                    }
+                }
+
+                #[allow(unused_mut)]
+                let mut config = TestConfig::default();
+                $(ApplyTestArg::apply($arg, &mut config);)*
+
                 let (service, _) = LspService::new(|client| {
-                    Backend::new(client, &tombi_lsp::backend::Options::default())
+                    Backend::new(client, &config.backend_options)
                 });
 
                 let backend = service.inner();
 
-                // Load schema file
-                if let Some(schema_file_path) = $schema_file_path {
-                    let schema_file_url =
-                        tombi_schema_store::SchemaUri::from_file_path(&schema_file_path).expect(
+                if let Some(schema_file_path) = config.schema_file_path.as_ref() {
+                    let schema_uri = tombi_schema_store::SchemaUri::from_file_path(schema_file_path)
+                        .expect(
                             format!(
                                 "failed to convert schema path to URL: {}",
                                 schema_file_path.display()
                             )
                             .as_str(),
                         );
+
                     backend
                         .config_manager
                         .load_config_schemas(
-                            &[tombi_config::Schema::Root(tombi_config::RootSchema {
+                            &[tombi_config::SchemaItem::Root(tombi_config::RootSchema {
                                 toml_version: None,
-                                path: schema_file_url.to_string(),
+                                path: schema_uri.to_string(),
                                 include: vec!["*.toml".to_string()],
                             })],
                             None,
@@ -482,9 +543,38 @@ mod goto_type_definition_tests {
                         .await;
                 }
 
+                for subschema in &config.subschemas {
+                    let subschema_uri = tombi_schema_store::SchemaUri::from_file_path(&subschema.path)
+                        .expect(
+                            format!(
+                                "failed to convert subschema path to URL: {}",
+                                subschema.path.display()
+                            )
+                            .as_str(),
+                        );
+
+                    backend
+                        .config_manager
+                        .load_config_schemas(
+                            &[tombi_config::SchemaItem::Sub(tombi_config::SubSchema {
+                                path: subschema_uri.to_string(),
+                                include: vec!["*.toml".to_string()],
+                                root: subschema.root.clone(),
+                            })],
+                            None,
+                        )
+                        .await;
+                }
+
+                let source_path = config
+                    .source_file_path
+                    .as_ref()
+                    .ok_or("SourcePath must be provided for goto_type_definition tests")?;
+
+                let temp_dir = source_path.parent().ok_or("failed to get parent directory")?;
                 let Ok(temp_file) = tempfile::NamedTempFile::with_suffix_in(
                     ".toml",
-                    std::env::current_dir().expect("failed to get current directory"),
+                    temp_dir,
                 ) else {
                     return Err("failed to create a temporary file for the test data".into());
                 };
@@ -499,6 +589,8 @@ mod goto_type_definition_tests {
                 if temp_file.as_file().write_all(toml_text.as_bytes()).is_err() {
                     return Err("failed to write to temporary file".into());
                 };
+                let line_index =
+                tombi_text::LineIndex::new(&toml_text, tombi_text::EncodingKind::Utf16);
 
                 let Ok(toml_file_url) = Url::from_file_path(temp_file.path()) else {
                     return Err("failed to convert temporary file path to URL".into());
@@ -522,7 +614,7 @@ mod goto_type_definition_tests {
                         text_document: TextDocumentIdentifier { uri: toml_file_url },
                         position: (tombi_text::Position::default()
                             + tombi_text::RelativePosition::of(&toml_text[..index]))
-                        .into(),
+                        .into_lsp(&line_index),
                     },
                     work_done_progress_params: WorkDoneProgressParams::default(),
                     partial_result_params: PartialResultParams::default(),

@@ -50,4 +50,21 @@ def post_snapshot(snapshot,pkg,**kwargs):
         logger.debug(f'post snapshot failed : {msg}')
         raise Exception(f'post snapshot failed')
 
-
+def get_snapshot_status(snapshot_name,context_id,timeout):
+    try:
+        response = requests.get(f'{get_smart_ui_server_address()}/snapshot/status?contextId={context_id}&snapshotName={snapshot_name}&pollTimeout={timeout}')
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logger.debug(f'get snapshot status failed : {e}')
+        raise Exception(f'get snapshot status failed')
+    
+def fetch_build_info():
+    try:
+        response = requests.get(f'{get_smart_ui_server_address()}/build/info')
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logger.debug(f'fetch build info failed : {e}')
+        raise Exception(f'fetch build info failed')
+        

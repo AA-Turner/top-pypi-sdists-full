@@ -38,13 +38,10 @@ LEGACY_HOSTS = {
     "https://api.wadus3.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus3",
     "https://api.wadus4.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus4",
     "https://api.wadus5.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus5",
-    "https://api.wadus6.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus6",
     "https://api.wadus1.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus1",
     "https://api.wadus2.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus2",
     "https://api.wadus3.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus3",
     "https://api.wadus4.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus4",
-    "https://api.wadus5.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus5",
-    "https://api.wadus6.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus6",
     "https://ui.tinybird.co": "https://app.tinybird.co/gcp/europe-west3",
     "https://ui.us-east.tinybird.co": "https://app.tinybird.co/gcp/us-east4",
     "https://ui.us-east.aws.tinybird.co": "https://app.tinybird.co/aws/us-east-1",
@@ -62,13 +59,10 @@ LEGACY_HOSTS = {
     "https://ui.wadus3.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus3",
     "https://ui.wadus4.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus4",
     "https://ui.wadus5.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus5",
-    "https://ui.wadus6.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus6",
     "https://ui.wadus1.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus1",
     "https://ui.wadus2.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus2",
     "https://ui.wadus3.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus3",
     "https://ui.wadus4.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus4",
-    "https://ui.wadus5.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus5",
-    "https://ui.wadus6.aws.tinybird.co": "https://app.wadus.tinybird.co/aws/wadus6",
 }
 
 

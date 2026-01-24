@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import json
@@ -13,6 +13,7 @@ from ast import literal_eval
 from contextlib import nullcontext
 from functools import partial
 from math import ceil
+from pathlib import Path
 from random import random
 from typing import Generator, Iterable, List, Optional
 from warnings import warn
@@ -102,19 +103,18 @@ class BaseFlightConnection:
             )
             flight_port = os.getenv("FLIGHT_SERVICE_PORT", "443")
 
-            if flight_location is None or "api." not in flight_location:
-                default_service_parsed_url = urlparse(
-                    os.getenv(
-                        "RUNTIME_FLIGHT_SERVICE_URL",
-                        "grpc+tls://wdp-connect-flight:443",
-                    )
-                )
+            # if not flight_location or CPD env
+            if not flight_location or ("api." not in flight_location):
+                runtime_flight_service_url = os.getenv("RUNTIME_FLIGHT_SERVICE_URL")
 
-                if flight_location is None or flight_location == "":
-                    flight_location = default_service_parsed_url.hostname
-
-                if flight_port is None or flight_port == "":
-                    flight_port = default_service_parsed_url.port
+                if runtime_flight_service_url:
+                    parsed_url = urlparse(runtime_flight_service_url)
+                    flight_location = parsed_url.hostname
+                    flight_port = parsed_url.port
+                elif not flight_location:
+                    # setting default values
+                    flight_location = "wdp-connect-flight"
+                    flight_port = "443"
 
         self.flight_location = urlparse(flight_location).hostname or flight_location
         self.flight_port = flight_port
@@ -679,7 +679,7 @@ class FlightConnection(BaseFlightConnection):
             self._q_put_nowait((thread_number, 0))  # finish this thread
 
         except StopIteration:
-            # Reading of batch finished, result commited."
+            # Reading of batch finished, result committed."
             self._logger.debug("GD %s: StopIteration occurred.", thread_number)
             self._q_put_nowait((thread_number, 0))
 
@@ -691,6 +691,8 @@ class FlightConnection(BaseFlightConnection):
     @staticmethod
     def _cast_columns_to_float64_and_bool(data: pd.DataFrame) -> pd.DataFrame:
         def check_bool_value(value: str):
+            if not isinstance(value, str):
+                raise TypeError("Value is expected to be a string")
             if value.lower() == "true":
                 return True
             elif value.lower() == "false":
@@ -702,16 +704,21 @@ class FlightConnection(BaseFlightConnection):
         for i, (col_name, col_type) in enumerate(zip(data.dtypes.index, data.dtypes)):
             if col_type == "object":
                 try:
-                    data[col_name] = data[col_name].astype("float64")
-                except (
-                    ValueError
-                ):  # ignore when column cannot be cast to other type than string
-                    # logger.debug(f"Column '{col_name}' cannot be cast to float64 as it has normal strings inside")
+                    # working on column copy, so if any of the operations performed to convert to numeric will not work,
+                    # the original column will not be affected
+                    column_copy = data[col_name].replace("null", None)
+                    data[col_name] = pd.to_numeric(column_copy)
+                except ValueError:
                     try:
                         data[col_name] = data[col_name].apply(check_bool_value)
-                    except ValueError:  # ignore when column cannot be cast to bool
+                    except ValueError:  # proceed if cannot be cast to bool
                         logger.debug(
                             "Column '%s' cannot be cast to bool as it has normal strings inside",
+                            col_name,
+                        )
+                    except TypeError:
+                        logger.debug(
+                            "Column '%s' type is not supported to be cast to bool",
                             col_name,
                         )
                     except Exception as e:
@@ -731,8 +738,8 @@ class FlightConnection(BaseFlightConnection):
 
     def _process_data(self, data: pd.DataFrame) -> pd.DataFrame:
         """Process data columns and log data size"""
-        self._logger.debug("Process data: Casting string data to numerical columns")
         if self.cast_strings:
+            self._logger.debug("Process data: Casting string data to numerical columns")
             data = self._cast_columns_to_float64_and_bool(data)
 
         if self.apply_literal_eval:
@@ -940,7 +947,7 @@ class FlightConnection(BaseFlightConnection):
                     yield data, data_stats
                 else:
                     yield data
-                # rerurn stats here
+                # return stats here
 
             self.enable_subsampling = False
 
@@ -968,6 +975,7 @@ class FlightConnection(BaseFlightConnection):
             self._logger.debug("IR: Logical batch number %s received.", n)
             self._logger.debug("IR: Passing batch to upper layer.")
             self._check_for_breaking_exceptions()
+
             self.yielded_nrows += len(batch)
             if (n == 0 and self.stop_after_first_batch) or (
                 self.total_nrows_limit
@@ -1442,9 +1450,10 @@ class FlightConnection(BaseFlightConnection):
             command["asset_id"] = self.connection_id
 
         if "bucket" in self.data_location["location"]:
-            if self.data_location.get("location", {}).get(
-                "path", None
-            ) is None and "file_name" in self.data_location.get("location", ""):
+            if (
+                self.data_location["location"].get("path") is None
+                and "file_name" in self.data_location["location"]
+            ):
                 self.data_location["location"]["path"] = self.data_location["location"][
                     "file_name"
                 ]
@@ -1526,19 +1535,22 @@ class FlightConnection(BaseFlightConnection):
 
     def read_binary_data(
         self,
-        read_to_file: str | None = None,
-    ) -> Generator | list:
+        read_to_file: str | Path | None = None,
+    ) -> Generator | list[str]:
         """Try to read data from flight service using the 'read_raw' parameter. This will allow to fetch binary data.
         Binary read should be used for small data, like json files, zip files etc. not for the big datasets as
         each data batch is joined to the previous one in-memory.
         """
+        if isinstance(read_to_file, str):
+            read_to_file = Path(read_to_file)
+
         self.read_binary = True
 
         if self.flight_parameters.get("num_partitions") is None:
             self.flight_parameters["num_partitions"] = 1
             self.max_flight_batch_number = 1
 
-        cm = open(read_to_file, "wb") if read_to_file else nullcontext()
+        cm = read_to_file.open("wb") if read_to_file else nullcontext()
         with cm as sink:
             binary_data_array = []
             for endpoints in self.get_endpoints():
@@ -1547,26 +1559,29 @@ class FlightConnection(BaseFlightConnection):
                     try:
                         while True:
                             mini_batch, metadata = reader.read_chunk()
-                            if read_to_file:
+                            if sink is not None:
                                 sink.write(b"".join(mini_batch.columns[0].tolist()))
                             else:
                                 binary_data_array.extend(mini_batch.columns[0].tolist())
                     except StopIteration:
                         pass
         if read_to_file:
-            return [read_to_file]
+            return [str(read_to_file)]
         else:
             binary_data_container = b"".join(binary_data_array)
             yield binary_data_container
 
-    def write_binary_data(self, file_path: str) -> None:
+    def write_binary_data(self, file_path: str | Path) -> None:
         """Write data in 16MB binary data blocks. 16MB upper limit is set by the Flight Service.
         The writer will open the source local file and will stream one batch of 16MB to the Flight.
         Only 16MB of data is loaded into the memory at a time.
 
         :param file_path: path to the source file
-        :type file_path: str
+        :type file_path: str | Path
         """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
+
         self.write_binary = True
         schema = pa.schema([("content", pa.binary())])
         commands = self._select_source_command(infer_schema=False)
@@ -1578,7 +1593,7 @@ class FlightConnection(BaseFlightConnection):
         with writer:
             batch_max_size = 16770000  # almost 16MB
 
-            with open(file_path, "rb") as file:
+            with file_path.open("rb") as file:
                 for block in iter(partial(file.read, batch_max_size), b""):
                     writer.write_batch(
                         pa.record_batch(
@@ -1621,6 +1636,8 @@ class FlightConnection(BaseFlightConnection):
             )
 
             for msg in self.threads_exceptions:
+                if "Server concurrency limit reached" in msg:
+                    raise flight.FlightUnavailableError(msg)
                 if "Data could not be read" in msg:
                     raise TypeError(msg)
                 if "Internal error occurred" in msg:

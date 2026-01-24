@@ -2,32 +2,30 @@
 
 import argparse
 import sys
-from contextlib import (
-    redirect_stderr,
-    redirect_stdout,
-)
+from collections.abc import Callable
+from contextlib import redirect_stderr
 from typing import (
-    Optional,
-    Union,
+    TYPE_CHECKING,
+    ParamSpec,
+    TextIO,
+    TypeVar,
+    cast,
 )
-from unittest import (
-    mock,
-)
+from unittest import mock
 
 import pytest
 
 import cmd2
-from cmd2.rl_utils import (
-    readline,
-)
-from cmd2.utils import (
-    StdSim,
-)
+from cmd2 import rich_utils as ru
+from cmd2.rl_utils import readline
+from cmd2.utils import StdSim
+
+# For type hinting decorators
+P = ParamSpec('P')
+T = TypeVar('T')
 
 
-def verify_help_text(
-    cmd2_app: cmd2.Cmd, help_output: Union[str, list[str]], verbose_strings: Optional[list[str]] = None
-) -> None:
+def verify_help_text(cmd2_app: cmd2.Cmd, help_output: str | list[str], verbose_strings: list[str] | None = None) -> None:
     """This function verifies that all expected commands are present in the help text.
 
     :param cmd2_app: instance of cmd2.Cmd
@@ -44,42 +42,6 @@ def verify_help_text(
             assert verbose_string in help_text
 
 
-# Help text for the history command
-HELP_HISTORY = """Usage: history [-h] [-r | -e | -o FILE | -t TRANSCRIPT_FILE | -c] [-s] [-x]
-               [-v] [-a]
-               [arg]
-
-View, run, edit, save, or clear previously entered commands
-
-positional arguments:
-  arg                   empty               all history items
-                        a                   one history item by number
-                        a..b, a:b, a:, ..b  items by indices (inclusive)
-                        string              items containing string
-                        /regex/             items matching regular expression
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -r, --run             run selected history items
-  -e, --edit            edit and then run selected history items
-  -o, --output_file FILE
-                        output commands to a script file, implies -s
-  -t, --transcript TRANSCRIPT_FILE
-                        create a transcript file by re-running the commands,
-                        implies both -r and -s
-  -c, --clear           clear all history
-
-formatting:
-  -s, --script          output commands in script format, i.e. without command
-                        numbers
-  -x, --expanded        output fully parsed commands with any aliases and
-                        macros expanded, instead of typed commands
-  -v, --verbose         display history and include expanded commands if they
-                        differ from the typed command
-  -a, --all             display all commands, including ones persisted from
-                        previous sessions
-"""
-
 # Output from the shortcuts command with default built-in shortcuts
 SHORTCUTS_TXT = """Shortcuts for other commands:
 !: shell
@@ -88,27 +50,8 @@ SHORTCUTS_TXT = """Shortcuts for other commands:
 @@: _relative_run_script
 """
 
-# Output from the set command
-SET_TXT = (
-    "Name                    Value                           Description                                                 \n"
-    "====================================================================================================================\n"
-    "allow_style             Terminal                        Allow ANSI text style sequences in output (valid values:    \n"
-    "                                                        Always, Never, Terminal)                                    \n"
-    "always_show_hint        False                           Display tab completion hint even when completion suggestions\n"
-    "                                                        print                                                       \n"
-    "debug                   False                           Show full traceback on exception                            \n"
-    "echo                    False                           Echo command issued into output                             \n"
-    "editor                  vim                             Program used by 'edit'                                      \n"
-    "feedback_to_output      False                           Include nonessentials in '|', '>' results                   \n"
-    "max_completion_items    50                              Maximum number of CompletionItems to display during tab     \n"
-    "                                                        completion                                                  \n"
-    "quiet                   False                           Don't print nonessential feedback                           \n"
-    "scripts_add_to_history  True                            Scripts and pyscripts add commands to history               \n"
-    "timing                  False                           Report execution times                                      \n"
-)
 
-
-def normalize(block):
+def normalize(block: str) -> list[str]:
     """Normalize a block of text to perform comparison.
 
     Strip newlines from the very beginning and very end  Then split into separate lines and strip trailing whitespace
@@ -119,24 +62,28 @@ def normalize(block):
     return [line.rstrip() for line in block.splitlines()]
 
 
-def run_cmd(app, cmd):
+def run_cmd(app: cmd2.Cmd, cmd: str) -> tuple[list[str], list[str]]:
     """Clear out and err StdSim buffers, run the command, and return out and err"""
-    saved_sysout = sys.stdout
-    sys.stdout = app.stdout
+
+    # Only capture sys.stdout if it's the same stream as self.stdout
+    stdouts_match = app.stdout == sys.stdout
 
     # This will be used to capture app.stdout and sys.stdout
-    copy_cmd_stdout = StdSim(app.stdout)
+    copy_cmd_stdout = StdSim(cast(TextIO, app.stdout))
 
     # This will be used to capture sys.stderr
     copy_stderr = StdSim(sys.stderr)
 
     try:
-        app.stdout = copy_cmd_stdout
-        with redirect_stdout(copy_cmd_stdout), redirect_stderr(copy_stderr):
+        app.stdout = cast(TextIO, copy_cmd_stdout)
+        if stdouts_match:
+            sys.stdout = app.stdout
+        with redirect_stderr(cast(TextIO, copy_stderr)):
             app.onecmd_plus_hooks(cmd)
     finally:
-        app.stdout = copy_cmd_stdout.inner_stream
-        sys.stdout = saved_sysout
+        app.stdout = cast(TextIO, copy_cmd_stdout.inner_stream)
+        if stdouts_match:
+            sys.stdout = app.stdout
 
     out = copy_cmd_stdout.getvalue()
     err = copy_stderr.getvalue()
@@ -144,15 +91,36 @@ def run_cmd(app, cmd):
 
 
 @pytest.fixture
-def base_app():
+def base_app() -> cmd2.Cmd:
     return cmd2.Cmd(include_py=True, include_ipy=True)
+
+
+def with_ansi_style(style: ru.AllowStyle) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Decorator which sets ru.ALLOW_STYLE before a function runs and restores it when it's done."""
+
+    def arg_decorator(func: Callable[P, T]) -> Callable[P, T]:
+        import functools
+
+        @functools.wraps(func)
+        def cmd_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            old = ru.ALLOW_STYLE
+            ru.ALLOW_STYLE = style
+            try:
+                retval = func(*args, **kwargs)
+            finally:
+                ru.ALLOW_STYLE = old
+            return retval
+
+        return cmd_wrapper
+
+    return arg_decorator
 
 
 # These are odd file names for testing quoting of them
 odd_file_names = ['nothingweird', 'has   spaces', '"is_double_quoted"', "'is_single_quoted'"]
 
 
-def complete_tester(text: str, line: str, begidx: int, endidx: int, app) -> Optional[str]:
+def complete_tester(text: str, line: str, begidx: int, endidx: int, app: cmd2.Cmd) -> str | None:
     """This is a convenience function to test cmd2.complete() since
     in a unit test environment there is no actual console readline
     is monitoring. Therefore we use mock to provide readline data
@@ -168,13 +136,13 @@ def complete_tester(text: str, line: str, begidx: int, endidx: int, app) -> Opti
              These matches also have been sorted by complete()
     """
 
-    def get_line():
+    def get_line() -> str:
         return line
 
-    def get_begidx():
+    def get_begidx() -> int:
         return begidx
 
-    def get_endidx():
+    def get_endidx() -> int:
         return endidx
 
     # Run the readline tab completion function with readline mocks in place
@@ -197,3 +165,87 @@ def find_subcommand(action: argparse.ArgumentParser, subcmd_names: list[str]) ->
                     return find_subcommand(choice, subcmd_names)
             break
     raise ValueError(f"Could not find subcommand '{subcmd_names}'")
+
+
+if TYPE_CHECKING:
+    _Base = cmd2.Cmd
+else:
+    _Base = object
+
+
+class ExternalTestMixin(_Base):
+    """A cmd2 plugin (mixin class) that exposes an interface to execute application commands from python"""
+
+    def __init__(self, *args, **kwargs):
+        """Initializes the ExternalTestMixin.
+
+        This class is intended to be used in multiple inheritance alongside `cmd2.Cmd` for an application class.
+        When doing this multiple inheritance, it is imperative that this mixin class come first.
+
+        :type self: cmd2.Cmd
+        :param args: arguments to pass to the superclass
+        :param kwargs: keyword arguments to pass to the superclass
+        """
+        # code placed here runs before cmd2 initializes
+        super().__init__(*args, **kwargs)
+        if not isinstance(self, cmd2.Cmd):
+            raise TypeError('The ExternalTestMixin class is intended to be used in multiple inheritance with cmd2.Cmd')
+        # code placed here runs after cmd2 initializes
+        self._pybridge = cmd2.py_bridge.PyBridge(self)
+
+    def app_cmd(self, command: str, echo: bool | None = None) -> cmd2.CommandResult:
+        """
+        Run the application command
+
+        :param command: The application command as it would be written on the cmd2 application prompt
+        :param echo: Flag whether the command's output should be echoed to stdout/stderr
+        :return: A CommandResult object that captures stdout, stderr, and the command's result object
+        """
+        try:
+            self._in_py = True
+            return self._pybridge(command, echo=echo)
+
+        finally:
+            self._in_py = False
+
+    def fixture_setup(self):
+        """Replicates the behavior of `cmdloop()` to prepare the application state for testing.
+
+        This method runs all preloop hooks and the preloop method to ensure the
+        application is in the correct state before running a test.
+
+        :type self: cmd2.Cmd
+        """
+
+        for func in self._preloop_hooks:
+            func()
+        self.preloop()
+
+    def fixture_teardown(self):
+        """Replicates the behavior of `cmdloop()` to tear down the application after a test.
+
+        This method runs all postloop hooks and the postloop method to clean up
+        the application state and ensure test isolation.
+
+        :type self: cmd2.Cmd
+        """
+        for func in self._postloop_hooks:
+            func()
+        self.postloop()
+
+
+class WithCommandSets(ExternalTestMixin, cmd2.Cmd):
+    """Class for testing custom help_* methods which override docstring help."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+
+@pytest.fixture
+def autoload_command_sets_app():
+    return WithCommandSets(auto_load_commands=True)
+
+
+@pytest.fixture
+def manual_command_sets_app():
+    return WithCommandSets(auto_load_commands=False)

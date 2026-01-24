@@ -10,6 +10,7 @@ import pytest
 
 import dclab
 from dclab import dfn, new_dataset, RTDCWriter
+from dclab.rtdc_dataset import rtdc_copy, writer
 from dclab.rtdc_dataset.export import (
     ContourNotExportedWarning,
     store_filtered_feature,
@@ -38,6 +39,132 @@ def test_hdf5():
     assert np.allclose(ds2["time"], ds1["time"])
     assert np.allclose(ds2["frame"], ds1["frame"])
     assert np.allclose(ds2["fl3_width"], ds1["fl3_width"])
+
+
+def test_hdf5_basin_ignore_internal_basin():
+    """
+    Internal basin definitions should not be written to exported file.
+    """
+    h5path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
+    h5path_small = h5path.with_name("input_file.rtdc")
+    h5path_out = h5path.with_name("exported.rtdc")
+
+    # Dataset creation
+    with h5py.File(h5path) as src, RTDCWriter(h5path_small) as hw:
+        # first, copy all the scalar features to the new file
+        rtdc_copy(src_h5file=src,
+                  dst_h5file=hw.h5file,
+                  features="scalar")
+        assert "basins" not in hw.h5file, "no basins in input file"
+        # store scalar and non-scalar internal basins in the input file
+        hw.store_basin(basin_name="scalar and non-scalar basin data",
+                       basin_type="internal",
+                       basin_format="h5dataset",
+                       basin_locs=["basin_events"],
+                       basin_descr="an example test basin",
+                       internal_data={"userdef1": np.arange(2),
+                                      "image_bg": np.zeros((2, 80, 320)),
+                                      },
+                       basin_map=np.zeros(src["events/deform"].shape[0]),
+                       basin_feats=["image_bg", "userdef1"],
+                       )
+
+    with new_dataset(h5path_small) as ds:
+        # sanity check
+        assert "userdef1" in ds.features_basin
+        assert "userdef1" not in ds.features_innate
+        assert "image_bg" in ds.features_basin
+        assert "image_bg" not in ds.features_innate
+        # export that
+        ds.export.hdf5(h5path_out,
+                       features=["userdef1", "deform"],
+                       basins=True)
+
+    with new_dataset(h5path_out) as dso:
+        assert "userdef1" in dso.features_innate
+        assert "image_bg" in dso.features_basin
+
+    with h5py.File(h5path_out) as h5:
+        assert "basin_events" not in h5
+
+
+def test_hdf5_basin_ignore_unknown_basin_format():
+    """
+    When exporting basins, unknown basin formats (those that are not in
+    `get_basin_classes`) should not be exported to the output file.
+    """
+    h5path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
+    h5path_small = h5path.with_name("input_file.rtdc")
+    h5path_out = h5path.with_name("exported.rtdc")
+
+    # Dataset creation
+    with h5py.File(h5path) as src, RTDCWriter(h5path_small) as hw:
+        # first, copy all the scalar features to the new file
+        rtdc_copy(src_h5file=src,
+                  dst_h5file=hw.h5file,
+                  features="scalar")
+        assert "basins" not in hw.h5file, "no basins in input file"
+        # store an unknown basin format in the input file
+        hw.store_basin(basin_name="scalar and non-scalar basin data",
+                       basin_type="file",
+                       basin_format="hdf5",
+                       basin_descr="a test basin with an unknown format",
+                       basin_locs=[str(h5path)]
+                       )
+
+    with new_dataset(h5path_small) as ds:
+        # sanity check
+        assert len(ds.basins) == 1
+        # modify the basins (this is a bit hacky)
+        ds._basins[0].basin_format = "unknown"
+        # export that
+        ds.export.hdf5(h5path_out,
+                       features=["deform"],
+                       basins=True)
+
+    with new_dataset(h5path_out) as dso:
+        assert len(ds.basins) == 1, "because the unknown basin is ignored"
+        assert "deform" in dso.features_innate
+        assert "image" in dso.features_basin
+
+
+def test_hdf5_basin_ignore_perishable_basins():
+    h5path = retrieve_data("fmt-hdf5_fl_wide-channel_2023.zip")
+    h5path_small = h5path.with_name("input_file.rtdc")
+    h5path_out = h5path.with_name("exported.rtdc")
+
+    # Dataset creation
+    with h5py.File(h5path) as src, RTDCWriter(h5path_small) as hw:
+        # first, copy all the scalar features to the new file
+        rtdc_copy(src_h5file=src,
+                  dst_h5file=hw.h5file,
+                  features="scalar")
+        assert "basins" not in hw.h5file, "no basins in input file"
+        # store an unknown basin format in the input file
+        with pytest.warns(writer.StoringPerishableBasinWarning,
+                          match="perishable basin"):
+            hw.store_basin(basin_name="scalar and non-scalar basin data",
+                           basin_type="file",
+                           basin_format="hdf5",
+                           basin_descr="a test basin with an unknown format",
+                           basin_locs=[str(h5path)],
+                           perishable=True,
+                           )
+
+    with new_dataset(h5path_small) as ds:
+        # sanity check
+        assert len(ds.basins) == 1
+        # Make sure there is a perishable record
+        assert ds.basins[0].perishable
+        # export, should ignore the perishable basin
+        ds.export.hdf5(h5path_out,
+                       features=["deform"],
+                       basins=True)
+
+    with new_dataset(h5path_out) as dso:
+        assert len(ds.basins) == 1, "because the perishable basin is ignored"
+        assert "deform" in dso.features_innate
+        assert "image" in dso.features_basin
 
 
 def test_hdf5_compressed():
@@ -309,11 +436,16 @@ def test_hdf5_filtered_index():
     assert ds2.config["experiment"]["event count"] == n - 1
 
 
-def test_hdf5_hierarchy_basin_only_export():
+@pytest.mark.parametrize("export_filtering", [True, False])
+def test_hdf5_hierarchy_basin_only_export(export_filtering):
     """
     When the dataset that is exported is a hierarchy child,
     then there should be a mapped basin in the output file
     referring to the input data.
+
+    The parametrization of this method checks whether the output
+    is the same when `filtered` is set or not. It should be the
+    same, because the hierarchy child has no filters defined.
     """
     h5path = retrieve_data("fmt-hdf5_image-mask-blood_2021.zip")
     path_exp = h5path.with_name("exported.rtdc")
@@ -326,6 +458,7 @@ def test_hdf5_hierarchy_basin_only_export():
             dsc.export.hdf5(path_exp,
                             features=[],
                             basins=True,
+                            filtered=export_filtering,
                             )
 
     with h5py.File(path_exp) as h5:
@@ -350,8 +483,12 @@ def test_hdf5_hierarchy_basin_only_export():
 
 def test_hdf5_hierarchy_basin_only_export_with_filters():
     """
-    Same as above, only this time we additionally apply filters
-    to the child dataset before exporting.
+    When the dataset that is exported is a hierarchy child,
+    then there should be a mapped basin in the output file
+    referring to the input data.
+
+    This test performs the export after an additional filter
+    is applied to the hierarchy dataset.
     """
     h5path = retrieve_data("fmt-hdf5_image-mask-blood_2021.zip")
     path_exp = h5path.with_name("exported.rtdc")
@@ -390,9 +527,14 @@ def test_hdf5_hierarchy_basin_only_export_with_filters():
         assert np.all(dse["deform"][:] == ds["deform"][5:][1::2]), "sanity"
 
 
-def test_hdf5_hierarchy_basin_only_export_with_filters_inception():
+def test_hdf5_hierarchy_basin_export_filter_hierarchy_depth_two():
     """
-    Same as above, here with an export from a hierarchy of depth 2.
+    When the dataset that is exported is a hierarchy child,
+    then there should be a mapped basin in the output file
+    referring to the input data.
+
+    This test performs the export after two hierarchy children are
+    created with an additional filter applied to the last hierarchy dataset.
     """
     h5path = retrieve_data("fmt-hdf5_image-mask-blood_2021.zip")
     path_exp = h5path.with_name("exported.rtdc")
@@ -432,6 +574,244 @@ def test_hdf5_hierarchy_basin_only_export_with_filters_inception():
                            atol=1e-7, rtol=0)
         assert np.all(dse["deform"][:] == ds["deform"][6::2][:-1])
         assert np.all(dse["deform"][:] == ds["deform"][5:][1::2][:-1]), "sane"
+
+
+@pytest.mark.parametrize("export_filtering", [True, False])
+def test_hdf5_hierarchy_basin_export_filter_hierarchy_depth_two_no_filter(
+        export_filtering):
+    """
+    When the dataset that is exported is a hierarchy child,
+    then there should be a mapped basin in the output file
+    referring to the input data.
+
+    This test performs the export after two hierarchy children are
+    created without a final filter in the last hierarchy dataset.
+
+    The parametrization of this method checks whether the output
+    is the same when `filtered` is set or not. It should be the
+    same, because the hierarchy child has no filters defined.
+    """
+    h5path = retrieve_data("fmt-hdf5_image-mask-blood_2021.zip")
+    path_exp = h5path.with_name("exported.rtdc")
+
+    with dclab.new_dataset(h5path) as ds:
+        ds.filter.manual[:5] = False
+        ds.apply_filter()
+
+        with dclab.new_dataset(ds) as dsc:
+            dsc.filter.manual[::2] = False
+            dsc.apply_filter()
+            with dclab.new_dataset(dsc) as dsci:
+                dsci.export.hdf5(path_exp,
+                                 filtered=export_filtering,
+                                 features=[],
+                                 basins=True,
+                                 )
+
+    with h5py.File(path_exp) as h5:
+        assert "basinmap0" in h5["events"]
+        assert "basins" in h5
+        assert len(h5["basins"]) == 1
+
+    with dclab.new_dataset(path_exp) as dse, dclab.new_dataset(h5path) as ds:
+        assert "image" in dse.features_basin
+        assert "mask" in dse.features_basin
+        assert "area_um" in dse.features_basin
+
+        assert "image" not in dse.features_innate
+        assert "mask" not in dse.features_innate
+        assert "area_um" not in dse.features_innate
+
+        # check for inception filtering
+        assert np.allclose(dse["deform"][0], 0.15025392,
+                           atol=1e-7, rtol=0)
+        assert np.all(dse["deform"][:] == ds["deform"][6::2])
+        assert np.all(dse["deform"][:] == ds["deform"][5:][1::2]), "sane"
+
+
+def test_hdf5_hierarchy_basin_export_filter_basins_depth_two():
+    """
+    When the dataset that is exported is a hierarchy child,
+    then there should be a mapped basin in the output file
+    referring to the input data.
+
+    This test makes sure this works if you do this twice,
+    opening the exported file with dclab, filtering, and exporting again.
+    """
+    h5path = retrieve_data("fmt-hdf5_image-mask-blood_2021.zip")
+    path_exp1 = h5path.with_name("exported-1.rtdc")
+    path_exp2 = h5path.with_name("exported-2.rtdc")
+
+    with dclab.new_dataset(h5path) as ds:
+        ds.filter.manual[:5] = False
+        ds.apply_filter()
+        ds.export.hdf5(path_exp1,
+                       filtered=True,
+                       features=[],
+                       basins=True,
+                       )
+
+    with h5py.File(path_exp1) as h5:
+        assert "basinmap0" in h5["events"]
+        assert "basins" in h5
+        assert len(h5["basins"]) == 1
+
+    with dclab.new_dataset(path_exp1) as dsc:
+        dsc.filter.manual[::2] = False
+        dsc.apply_filter()
+        with dclab.new_dataset(dsc) as dsci:
+            dsci.filter.manual[-1] = False
+            dsci.apply_filter()
+            dsci.export.hdf5(path_exp2,
+                             filtered=True,
+                             features=[],
+                             basins=True,
+                             )
+
+    with h5py.File(path_exp2) as h5:
+        assert "basinmap1" in h5["events"]
+        assert "basins" in h5
+        assert len(h5["basins"]) == 2
+
+    with dclab.new_dataset(path_exp2) as dse, dclab.new_dataset(h5path) as ds:
+        assert "image" in dse.features_basin
+        assert "mask" in dse.features_basin
+        assert "area_um" in dse.features_basin
+
+        assert "image" not in dse.features_innate
+        assert "mask" not in dse.features_innate
+        assert "area_um" not in dse.features_innate
+
+        # check for inception filtering
+        assert np.allclose(dse["deform"][0], 0.15025392,
+                           atol=1e-7, rtol=0)
+        assert np.all(dse["deform"][:] == ds["deform"][6::2][:-1])
+        assert np.all(dse["deform"][:] == ds["deform"][5:][1::2][:-1]), "sane"
+
+
+@pytest.mark.parametrize("export_filtering", [True, False])
+def test_hdf5_hierarchy_basin_export_filter_basins_depth_two_no_filter(
+        export_filtering):
+    """
+    When the dataset that is exported is a hierarchy child,
+    then there should be a mapped basin in the output file
+    referring to the input data.
+
+    This test makes sure this works if you do this twice,
+    opening the exported file with dclab, filtering, and exporting again.
+
+    The parametrization of this method checks whether the output
+    is the same when `filtered` is set or not. It should be the
+    same, because the hierarchy child has no filters defined.
+    """
+    h5path = retrieve_data("fmt-hdf5_image-mask-blood_2021.zip")
+    path_exp1 = h5path.with_name("exported-1.rtdc")
+    path_exp2 = h5path.with_name("exported-2.rtdc")
+
+    with dclab.new_dataset(h5path) as ds:
+        ds.filter.manual[:5] = False
+        ds.apply_filter()
+        ds.export.hdf5(path_exp1,
+                       filtered=True,
+                       features=[],
+                       basins=True,
+                       )
+
+    with h5py.File(path_exp1) as h5:
+        assert "basinmap0" in h5["events"]
+        assert "basins" in h5
+        assert len(h5["basins"]) == 1
+
+    with dclab.new_dataset(path_exp1) as dsc:
+        dsc.filter.manual[::2] = False
+        dsc.apply_filter()
+        with dclab.new_dataset(dsc) as dsci:
+            dsci.apply_filter()
+            dsci.export.hdf5(path_exp2,
+                             filtered=export_filtering,
+                             features=[],
+                             basins=True,
+                             )
+
+    with h5py.File(path_exp2) as h5:
+        assert "basinmap1" in h5["events"]
+        assert "basins" in h5
+        assert len(h5["basins"]) == 2
+
+    with dclab.new_dataset(path_exp2) as dse, dclab.new_dataset(h5path) as ds:
+        assert "image" in dse.features_basin
+        assert "mask" in dse.features_basin
+        assert "area_um" in dse.features_basin
+
+        assert "image" not in dse.features_innate
+        assert "mask" not in dse.features_innate
+        assert "area_um" not in dse.features_innate
+
+        # check for inception filtering
+        assert np.allclose(dse["deform"][0], 0.15025392,
+                           atol=1e-7, rtol=0)
+        assert np.all(dse["deform"][:] == ds["deform"][6::2])
+        assert np.all(dse["deform"][:] == ds["deform"][5:][1::2]), "sane"
+
+
+@pytest.mark.parametrize("export_filtering", [True, False])
+def test_hdf5_normal_basin_export_filter_basins_depth_two_no_filter(
+        export_filtering):
+    """
+    Filter and export a dataset, then open and export that dataset unfiltered.
+
+    The parametrization of this method checks whether the output
+    is the same when `filtered` is set or not. It should be the
+    same, because the hierarchy child has no filters defined.
+    """
+    h5path = retrieve_data("fmt-hdf5_image-mask-blood_2021.zip")
+    path_exp1 = h5path.with_name("exported-1.rtdc")
+    path_exp2 = h5path.with_name("exported-2.rtdc")
+
+    with dclab.new_dataset(h5path) as ds:
+        ds.filter.manual[:5] = False
+        ds.apply_filter()
+        ds.export.hdf5(path_exp1,
+                       filtered=True,
+                       features=[],
+                       basins=True,
+                       )
+
+    with h5py.File(path_exp1) as h5:
+        assert "basinmap0" in h5["events"]
+        assert "basins" in h5
+        assert len(h5["basins"]) == 1
+
+    with dclab.new_dataset(path_exp1) as dsc:
+        dsc.apply_filter()
+        dsc.export.hdf5(path_exp2,
+                        filtered=export_filtering,
+                        features=[],
+                        basins=True,
+                        )
+
+    with h5py.File(path_exp2) as h5:
+        assert "basinmap0" in h5["events"]
+        if export_filtering:
+            assert "basinmap1" in h5["events"]
+        else:
+            assert "basinmap1" not in h5["events"]
+        assert "basins" in h5
+        assert len(h5["basins"]) == 2
+
+    with dclab.new_dataset(path_exp2) as dse, dclab.new_dataset(h5path) as ds:
+        assert "image" in dse.features_basin
+        assert "mask" in dse.features_basin
+        assert "area_um" in dse.features_basin
+
+        assert "image" not in dse.features_innate
+        assert "mask" not in dse.features_innate
+        assert "area_um" not in dse.features_innate
+
+        # check for inception filtering
+        assert np.allclose(dse["deform"][1], 0.15025392,
+                           atol=1e-7, rtol=0)
+        assert np.all(dse["deform"][:] == ds["deform"][5:]), "sane"
 
 
 @pytest.mark.filterwarnings(

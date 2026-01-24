@@ -35,7 +35,7 @@ class TestDAGDetailsResponse(unittest.TestCase):
         model = DAGDetailsResponse()
         if include_optional:
             return DAGDetailsResponse(
-                asset_expression = airflow_client.client.models.extra.extra(),
+                asset_expression = { },
                 bundle_name = '',
                 bundle_version = '',
                 catchup = True,
@@ -43,6 +43,7 @@ class TestDAGDetailsResponse(unittest.TestCase):
                 dag_display_name = '',
                 dag_id = '',
                 dag_run_timeout = '',
+                default_args = { },
                 description = '',
                 doc_md = '',
                 end_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
@@ -50,10 +51,12 @@ class TestDAGDetailsResponse(unittest.TestCase):
                 fileloc = '',
                 has_import_errors = True,
                 has_task_concurrency_limits = True,
+                is_favorite = True,
                 is_paused = True,
                 is_paused_upon_creation = True,
                 is_stale = True,
                 last_expired = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                last_parse_duration = 1.337,
                 last_parsed = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 last_parsed_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 latest_dag_version = airflow_client.client.models.dag_version_response.DagVersionResponse(
@@ -61,6 +64,7 @@ class TestDAGDetailsResponse(unittest.TestCase):
                     bundle_url = '', 
                     bundle_version = '', 
                     created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                    dag_display_name = '', 
                     dag_id = '', 
                     id = '', 
                     version_number = 56, ),
@@ -77,12 +81,13 @@ class TestDAGDetailsResponse(unittest.TestCase):
                 owners = [
                     ''
                     ],
-                params = airflow_client.client.models.extra.extra(),
+                params = { },
                 relative_fileloc = '',
                 render_template_as_native_obj = True,
                 start_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 tags = [
                     airflow_client.client.models.dag_tag_response.DagTagResponse(
+                        dag_display_name = '', 
                         dag_id = '', 
                         name = '', )
                     ],
@@ -113,6 +118,7 @@ class TestDAGDetailsResponse(unittest.TestCase):
                 render_template_as_native_obj = True,
                 tags = [
                     airflow_client.client.models.dag_tag_response.DagTagResponse(
+                        dag_display_name = '', 
                         dag_id = '', 
                         name = '', )
                     ],

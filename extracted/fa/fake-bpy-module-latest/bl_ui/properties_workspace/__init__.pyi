@@ -21,14 +21,12 @@ class WORKSPACE_PT_addons(WorkSpaceButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -64,14 +62,12 @@ class WORKSPACE_PT_custom_props(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class WORKSPACE_PT_main(WorkSpaceButtonsPanel, _bpy_types.Panel):
@@ -87,14 +83,12 @@ class WORKSPACE_PT_main(WorkSpaceButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -111,14 +105,12 @@ class WORKSPACE_UL_addons_items(_bpy_types.UIList):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_item(

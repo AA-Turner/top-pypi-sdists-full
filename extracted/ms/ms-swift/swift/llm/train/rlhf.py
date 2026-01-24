@@ -1,11 +1,16 @@
 # Copyright (c) Alibaba, Inc. and its affiliates.
 import os
+from contextlib import nullcontext
 from typing import List, Optional, Union
+
+import peft
+from packaging import version
 
 from swift.llm import safe_snapshot_download
 from swift.plugin import Tuner, extra_tuners
 from swift.tuners import Swift
 from swift.utils import get_logger, get_model_parameter_info
+from swift.utils.utils import disable_deepspeed_zero3
 from ..argument import BaseArguments, RLHFArguments
 from ..model import HfConfigFactory
 from .kto import prepare_kto_dataset
@@ -53,6 +58,12 @@ class SwiftRLHF(SwiftSft):
         model_id_or_path = getattr(args, f'{key}_model')
         if model_id_or_path is None:
             return
+
+        if model_type is None:
+            from swift.llm.model.register import get_model_info_meta
+            model_info, _ = get_model_info_meta(model_id_or_path)
+            model_type = model_info.model_type
+
         if isinstance(model_id_or_path, list):
             # value model in PPO
             model_id_or_path = model_id_or_path[0]
@@ -65,19 +76,25 @@ class SwiftRLHF(SwiftSft):
             hub_token=args.hub_token,
         )
         task_type, num_labels = self._get_model_task_type(model_dir)
-        model, processor = args.get_model_processor(
-            model=model_id_or_path,
-            model_type=model_type,
-            model_revision=model_revision,
-            task_type=task_type,
-            num_labels=num_labels)
+        context = nullcontext()
+        if key == 'teacher' and args.teacher_deepspeed:
+            if args.teacher_deepspeed.get('zero_optimization', {}).get('stage') != 3:
+                context = disable_deepspeed_zero3()
+        with context:
+            model, processor = args.get_model_processor(
+                model=model_id_or_path,
+                model_type=model_type,
+                model_revision=model_revision,
+                task_type=task_type,
+                num_labels=num_labels)
 
         adapters = args.adapters if key == 'ref' else args.reward_adapters
         model = prepare_adapter(args, model, adapters)
         if origin_key in {'ref', 'reward', 'teacher'}:
             if self.args.sequence_parallel_size > 1:
                 from swift.trainers.sequence_parallel import sequence_parallel
-                sequence_parallel.prepare_model(model, processor)
+                sequence_parallel.prepare(
+                    self.args.sequence_parallel_size, model, processor, padding_free=args.padding_free)
             model.requires_grad_(False).eval()
         else:
             model = self.prepare_model(args, model, task_type=task_type)
@@ -90,11 +107,6 @@ class SwiftRLHF(SwiftSft):
         return model, processor
 
     def _prepare_model_tokenizer(self):
-        if self.args.sequence_parallel_size > 1:
-            # Duplicate calling is allowd to promise this function will
-            # be called before model initializing.
-            from swift.trainers.sequence_parallel import sequence_parallel
-            sequence_parallel.init_sequence_parallel(self.args.sequence_parallel_size)
         # prepare ref/reward/value model
         args = self.args
         # Handle ref and value models
@@ -159,7 +171,11 @@ class SwiftRLHF(SwiftSft):
             else:
                 tuner = Swift
             assert len(args.ref_adapters) == 1, f'args.ref_adapters: {args.ref_adapters}'
-            model = tuner.from_pretrained(model, args.ref_adapters[0], adapter_name='ref_adapter')
+            # is_trainable: fix peft0.18.1
+            kwargs = {}
+            if version.parse(peft.__version__) >= version.parse('0.18'):
+                kwargs['is_trainable'] = True
+            model = tuner.from_pretrained(model, args.ref_adapters[0], adapter_name='ref_adapter', **kwargs)
             assert args.rlhf_type in {'dpo', 'kto',
                                       'grpo'}, 'Currently, only DPO, KTO, and GRPO support `ref_adapters`.'
             args.training_args.ref_adapter_name = 'ref_adapter'
@@ -168,8 +184,8 @@ class SwiftRLHF(SwiftSft):
     def _prepare_template(self) -> None:
         args = self.args
         super()._prepare_template()
-        model_mapping = {'kto': 'kto', 'gkd': 'gkd', 'ppo': 'pt', 'grpo': 'pt'}
-        self.template.set_mode(model_mapping.get(args.rlhf_type, 'rlhf'))
+        mode_mapping = {'kto': 'kto', 'gkd': 'train', 'ppo': 'pt', 'grpo': 'train'}
+        self.template.set_mode(mode_mapping.get(args.rlhf_type, 'rlhf'))
 
         if args.rlhf_type == 'ppo':
             args.training_args.stop_token_id = self.template.template_meta.stop_token_id
@@ -181,6 +197,25 @@ class SwiftRLHF(SwiftSft):
             train_dataset, val_dataset = prepare_kto_dataset(args, train_dataset, val_dataset)
         return train_dataset, val_dataset
 
+    def _prepare_chord_sft_dataset(self):
+        from ..dataset import load_dataset
+        from swift.llm.dataset.loader import DatasetLoader
+
+        # prepare expert sft dataset for chord
+        args = self.args
+        assert hasattr(args, 'chord_sft_dataset') and args.chord_sft_dataset
+        dataset_kwargs = args.get_dataset_kwargs()
+        chord_sft_datasets = []
+        # TODO: validatition
+        chord_sft_dataset, _ = load_dataset(
+            args.chord_sft_dataset, split_dataset_ratio=0, shuffle=args.dataset_shuffle, **dataset_kwargs)
+        chord_sft_dataset, _ = self._encode_dataset(chord_sft_dataset, None, pre_process=True)
+        chord_sft_datasets.append(chord_sft_dataset)
+        chord_sft_dataset = DatasetLoader._concat_datasets(chord_sft_datasets)
+        datasets = [chord_sft_dataset, None]
+        datasets = self._post_process_datasets(datasets)
+        return datasets
+
     def _get_trainer_kwargs(self):
         trainer_kwargs = {}
         for key in ['ref', 'reward', 'value', 'teacher']:
@@ -190,9 +225,14 @@ class SwiftRLHF(SwiftSft):
                 trainer_kwargs[key] = model
         if hasattr(self, 'reward_template'):
             trainer_kwargs['reward_template'] = self.reward_template
+        if self.args.rlhf_type in ['grpo', 'gkd']:
+            trainer_kwargs['vllm_client'] = self.args.vllm_client
         if self.args.rlhf_type == 'grpo':
             trainer_kwargs['reward_funcs'] = self.args.reward_funcs
-            trainer_kwargs['vllm_client'] = self.args.vllm_client
+            if self.args.chord_sft_dataset:
+                trainer_kwargs['chord_sft_dataset'], _ = self._prepare_chord_sft_dataset()
+        if self.args.rlhf_type == 'gkd' and self.args.teacher_deepspeed:
+            trainer_kwargs['teacher_deepspeed_config'] = self.args.teacher_deepspeed
         return trainer_kwargs
 
 

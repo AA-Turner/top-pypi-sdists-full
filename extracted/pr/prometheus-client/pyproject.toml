@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "prometheus_client"
-version = "0.23.1"
+version = "0.24.1"
 description = "Python client for the Prometheus monitoring system."
 readme = "README.md"
 license = "Apache-2.0 AND BSD-2-Clause"
@@ -34,6 +34,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: System :: Monitoring",
@@ -42,6 +43,12 @@ classifiers = [
 [project.optional-dependencies]
 twisted = [
     "twisted",
+]
+aiohttp = [
+	"aiohttp",
+]
+django = [
+	"django",
 ]
 
 [project.urls]

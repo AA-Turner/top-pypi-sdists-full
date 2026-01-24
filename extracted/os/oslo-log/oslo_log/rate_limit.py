@@ -12,13 +12,27 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
+import collections.abc
 import logging
 from time import monotonic as monotonic_clock
+from typing import Any
 
 
 class _LogRateLimit(logging.Filter):
-    def __init__(self, burst, interval, except_level=None):
+    burst: float
+    interval: float
+    except_level: int | None
+    logger: logging.Logger
+    counter: int
+    end_time: float
+    emit_warn: bool
+
+    def __init__(
+        self,
+        burst: float,
+        interval: float,
+        except_level: int | None = None,
+    ) -> None:
         logging.Filter.__init__(self)
         self.burst = burst
         self.interval = interval
@@ -26,16 +40,18 @@ class _LogRateLimit(logging.Filter):
         self.logger = logging.getLogger()
         self._reset()
 
-    def _reset(self, now=None):
+    def _reset(self, now: float | None = None) -> None:
         if now is None:
             now = monotonic_clock()
         self.counter = 0
         self.end_time = now + self.interval
         self.emit_warn = False
 
-    def filter(self, record):
-        if (self.except_level is not None
-           and record.levelno >= self.except_level):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if (
+            self.except_level is not None
+            and record.levelno >= self.except_level
+        ):
             # don't limit levels >= except_level
             return True
 
@@ -55,16 +71,18 @@ class _LogRateLimit(logging.Filter):
 
         if self.counter == self.burst + 1:
             self.emit_warn = True
-            self.logger.error("Logging rate limit: "
-                              "drop after %s records/%s sec",
-                              self.burst, self.interval)
+            self.logger.error(
+                "Logging rate limit: drop after %s records/%s sec",
+                self.burst,
+                self.interval,
+            )
             self.emit_warn = False
 
         # Drop the log
         return False
 
 
-def _iter_loggers():
+def _iter_loggers() -> collections.abc.Iterator[logging.Logger]:
     """Iterate on existing loggers."""
 
     # Sadly, Logger.manager and Manager.loggerDict are not documented,
@@ -88,8 +106,14 @@ _LOG_LEVELS = {
     'DEBUG': logging.DEBUG,
 }
 
+# Module-level state for the rate limit filter
+_log_filter: _LogRateLimit | None = None
+_logger_class: type[logging.Logger] | None = None
 
-def install_filter(burst, interval, except_level='CRITICAL'):
+
+def install_filter(
+    burst: float, interval: float, except_level: str = 'CRITICAL'
+) -> None:
     """Install a rate limit filter on existing and future loggers.
 
     Limit logs to *burst* messages every *interval* seconds, except of levels
@@ -101,22 +125,23 @@ def install_filter(burst, interval, except_level='CRITICAL'):
 
     Raise an exception if a rate limit filter is already installed.
     """
+    global _log_filter, _logger_class
 
-    if install_filter.log_filter is not None:
+    if _log_filter is not None:
         raise RuntimeError("rate limit filter already installed")
 
     try:
         except_levelno = _LOG_LEVELS[except_level]
     except KeyError:
-        raise ValueError("invalid log level name: %r" % except_level)
+        raise ValueError(f"invalid log level name: {except_level!r}")
 
     log_filter = _LogRateLimit(burst, interval, except_levelno)
 
-    install_filter.log_filter = log_filter
-    install_filter.logger_class = logging.getLoggerClass()
+    _log_filter = log_filter
+    _logger_class = logging.getLoggerClass()
 
-    class RateLimitLogger(install_filter.logger_class):
-        def __init__(self, *args, **kw):
+    class RateLimitLogger(_logger_class):  # type: ignore[misc,valid-type]
+        def __init__(self, *args: Any, **kw: Any) -> None:
             logging.Logger.__init__(self, *args, **kw)
             self.addFilter(log_filter)
 
@@ -129,26 +154,24 @@ def install_filter(burst, interval, except_level='CRITICAL'):
         logger.addFilter(log_filter)
 
 
-install_filter.log_filter = None
-install_filter.logger_class = None
-
-
-def uninstall_filter():
+def uninstall_filter() -> None:
     """Uninstall the rate filter installed by install_filter().
 
     Do nothing if the filter was already uninstalled.
     """
+    global _log_filter, _logger_class
 
-    if install_filter.log_filter is None:
+    if _log_filter is None:
         # not installed (or already uninstalled)
         return
 
     # Restore the old logger class
-    logging.setLoggerClass(install_filter.logger_class)
+    if _logger_class is not None:
+        logging.setLoggerClass(_logger_class)
 
     # Remove the filter from all existing loggers
     for logger in _iter_loggers():
-        logger.removeFilter(install_filter.log_filter)
+        logger.removeFilter(_log_filter)
 
-    install_filter.logger_class = None
-    install_filter.log_filter = None
+    _logger_class = None
+    _log_filter = None

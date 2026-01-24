@@ -1,0 +1,76 @@
+Metadata-Version: 2.4
+Name: databricks-langchain
+Version: 0.13.0
+Summary: Support for Databricks AI support in LangChain
+Author-email: Databricks <agent-feedback@databricks.com>
+License: Apache-2.0
+Requires-Python: >=3.10
+Requires-Dist: databricks-ai-bridge>=0.4.2
+Requires-Dist: databricks-mcp>=0.5.1
+Requires-Dist: databricks-sdk>=0.65.0
+Requires-Dist: databricks-vectorsearch>=0.50
+Requires-Dist: langchain-mcp-adapters>=0.1.13
+Requires-Dist: langchain>=1.0.0
+Requires-Dist: mlflow>=3.0.0
+Requires-Dist: openai>=1.99.9
+Requires-Dist: pydantic>2.10.0
+Requires-Dist: unitycatalog-langchain[databricks]>=0.3.0
+Provides-Extra: memory
+Requires-Dist: databricks-ai-bridge[memory]>=0.10.0; extra == 'memory'
+Requires-Dist: langgraph-checkpoint-postgres>=2.0.5; extra == 'memory'
+Description-Content-Type: text/markdown
+
+# 🦜🔗 Databricks LangChain Integration
+
+The `databricks-langchain` package provides seamless integration of Databricks AI features into LangChain applications. This repository is now the central hub for all Databricks-related LangChain components, consolidating previous packages such as `langchain-databricks` and `langchain-community`.
+
+## Installation
+
+### From PyPI
+```sh
+pip install databricks-langchain
+```
+
+### From Source
+```sh
+pip install git+https://git@github.com/databricks/databricks-ai-bridge.git#subdirectory=integrations/langchain
+```
+
+## Key Features
+
+- **LLMs Integration:** Use Databricks-hosted large language models (LLMs) like Llama and Mixtral through `ChatDatabricks`.
+- **Vector Search:** Store and query vector representations using `DatabricksVectorSearch`.
+- **Embeddings:** Generate embeddings with `DatabricksEmbeddings`.
+- **Genie:** Use [Genie](https://www.databricks.com/product/ai-bi/genie) in Langchain.
+
+## Getting Started
+
+### Use LLMs on Databricks
+```python
+from databricks_langchain import ChatDatabricks
+
+llm = ChatDatabricks(endpoint="databricks-meta-llama-3-1-70b-instruct")
+```
+
+### Use a Genie Space as an Agent (Preview)
+> **Note:** Requires Genie API Private Preview. Contact your Databricks account team for enablement.
+
+```python
+from databricks_langchain.genie import GenieAgent
+
+genie_agent = GenieAgent(
+    "space-id", "Genie",
+    description="This Genie space has access to sales data in Europe"
+)
+```
+
+---
+
+## Contribution Guide
+We welcome contributions! Please see our [contribution guidelines](https://github.com/databricks/databricks-ai-bridge/tree/main/integrations/langchain) for details.
+
+## License
+This project is licensed under the [MIT License](LICENSE).
+
+Thank you for using Databricks LangChain!
+

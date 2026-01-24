@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import io
+import sys
 from itertools import permutations
 from typing import TYPE_CHECKING
 
 import pytest
 
 import ry
-from ry import AsyncFile, aiopen
+from ry import AsyncFile, aopen
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -56,9 +57,7 @@ async def test_async_iteration(tmp_path: Path) -> None:
     f = AsyncFile(temp_file_path, "rb")
     await f.open()
 
-    collected = []
-    async for line in f:
-        collected.append(line)
+    collected = [line async for line in f]
     assert collected == [b"line1\n", b"line2\n", b"line3\n"]
 
 
@@ -90,8 +89,8 @@ class FileFixtures:
     test_file_path: Path
 
 
-@pytest.fixture()
-def aiopen_fixtures(tmp_path: Path) -> FileFixtures:
+@pytest.fixture
+def aopen_fixtures(tmp_path: Path) -> FileFixtures:
     """Fixture to create a temporary file and return its path and an AsyncFile object."""
     ry.mkdir(tmp_path / "resources")
     multiline_file_path = tmp_path / "resources" / "multiline_file.txt"
@@ -113,16 +112,15 @@ def _mode_permutations(modes: list[str]) -> list[str]:
 
 
 class TestAsyncFileAiopen:
-    @pytest.mark.anyio()
+    @pytest.mark.anyio
     @pytest.mark.parametrize("mode", _mode_permutations(["rb", "rb+", "ab+"]))
     @pytest.mark.parametrize("buffering", [-1, 0])
     async def test_simple_iteration(
-        self, aiopen_fixtures: FileFixtures, mode: str, buffering: int
+        self, aopen_fixtures: FileFixtures, mode: str, buffering: int
     ) -> None:
         """Test iterating over lines from a file."""
-
-        async with aiopen(
-            aiopen_fixtures.multiline_file_path, mode=mode, buffering=buffering
+        async with aopen(
+            aopen_fixtures.multiline_file_path, mode=mode, buffering=buffering
         ) as file:
             # Append mode needs us to seek.
             await file.seek(0)
@@ -145,18 +143,18 @@ class TestAsyncFileAiopen:
 
         assert file.closed
 
-    @pytest.mark.anyio()
+    @pytest.mark.anyio
     @pytest.mark.parametrize("mode", _mode_permutations(["rb", "rb+", "ab+"]))
     @pytest.mark.parametrize("buffering", [-1, 0])
     async def test_simple_readlines(
-        self, aiopen_fixtures: FileFixtures, mode: str, buffering: int
+        self, aopen_fixtures: FileFixtures, mode: str, buffering: int
     ) -> None:
         """Test the readlines functionality."""
-        with open(aiopen_fixtures.multiline_file_path, mode="rb") as f:
+        with open(aopen_fixtures.multiline_file_path, mode="rb") as f:
             expected = f.readlines()
 
-        async with aiopen(
-            aiopen_fixtures.multiline_file_path, mode=mode, buffering=buffering
+        async with aopen(
+            aopen_fixtures.multiline_file_path, mode=mode, buffering=buffering
         ) as file:
             # Append mode needs us to seek.
             await file.seek(0)
@@ -166,7 +164,7 @@ class TestAsyncFileAiopen:
         assert actual == expected
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 @pytest.mark.parametrize("mode", _mode_permutations(["rb+", "wb", "ab"]))
 @pytest.mark.parametrize("buffering", [-1, 0])
 async def test_simple_flush(mode: str, buffering: int, tmp_path: Path) -> None:
@@ -179,8 +177,8 @@ async def test_simple_flush(mode: str, buffering: int, tmp_path: Path) -> None:
         full_file.touch()  # Read modes want it to already exist.
 
     if buffering == 0:
-        pytest.skip("not supported by the current implementation of aiopen")
-    async with aiopen(str(full_file), mode=mode, buffering=buffering) as file:
+        pytest.skip("not supported by the current implementation of aopen")
+    async with aopen(str(full_file), mode=mode, buffering=buffering) as file:
         await file.write(b"0")  # Shouldn't flush.
 
         if buffering == -1:
@@ -193,7 +191,7 @@ async def test_simple_flush(mode: str, buffering: int, tmp_path: Path) -> None:
         assert full_file.read_bytes() == b"0"
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 @pytest.mark.parametrize("mode", _mode_permutations(["rb+", "wb+", "ab+"]))
 async def test_simple_peek(mode: str, tmp_path: Path) -> None:
     """Test flushing to a file."""
@@ -202,7 +200,7 @@ async def test_simple_peek(mode: str, tmp_path: Path) -> None:
     full_file = tmp_path.joinpath(filename)
     full_file.write_bytes(b"0123456789")
 
-    async with aiopen(str(full_file), mode=mode) as file:
+    async with aopen(str(full_file), mode=mode) as file:
         if "a" in mode:
             await file.seek(0)  # Rewind for append modes.
 
@@ -217,32 +215,34 @@ async def test_simple_peek(mode: str, tmp_path: Path) -> None:
             assert peeked.startswith(read)
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 @pytest.mark.parametrize("mode", _mode_permutations(["rb", "rb+", "ab+"]))
 @pytest.mark.parametrize("buffering", [-1, 0])
 async def test_simple_read(
-    aiopen_fixtures: FileFixtures, mode: str, buffering: int
+    aopen_fixtures: FileFixtures, mode: str, buffering: int
 ) -> None:
     """Just read some bytes from a test file."""
-    filename = str(aiopen_fixtures.multiline_file_path)
-    async with aiopen(filename, mode=mode, buffering=buffering) as file:
+    filename = str(aopen_fixtures.multiline_file_path)
+    async with aopen(filename, mode=mode, buffering=buffering) as file:
         await file.seek(0)  # Needed for the append mode.
 
         actual = await file.read()
 
         assert (await file.read()) == b""
-    assert actual == open(filename, mode="rb").read()
+    with open(filename, mode="rb") as f:
+        data = f.read()
+    assert actual == data
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 @pytest.mark.parametrize("mode", _mode_permutations(["rb", "rb+", "ab+"]))
 @pytest.mark.parametrize("buffering", [-1, 0])
 async def test_staggered_read(
-    aiopen_fixtures: FileFixtures, mode: str, buffering: int
+    aopen_fixtures: FileFixtures, mode: str, buffering: int
 ) -> None:
     """Read bytes repeatedly."""
-    filename = str(aiopen_fixtures.multiline_file_path)
-    async with aiopen(filename, mode=mode, buffering=buffering) as file:
+    filename = str(aopen_fixtures.multiline_file_path)
+    async with aopen(filename, mode=mode, buffering=buffering) as file:
         await file.seek(0)  # Needed for the append mode.
 
         actual = []
@@ -267,7 +267,7 @@ async def test_staggered_read(
     assert actual == expected
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 @pytest.mark.parametrize("mode", _mode_permutations(["rb", "rb+", "ab+"]))
 @pytest.mark.parametrize("buffering", [-1, 0])
 async def test_simple_seek(mode: str, buffering: int, tmp_path: Path) -> None:
@@ -278,13 +278,13 @@ async def test_simple_seek(mode: str, buffering: int, tmp_path: Path) -> None:
     full_file = tmp_path.joinpath(filename)
     full_file.write_bytes(content)
 
-    async with aiopen(str(full_file), mode=mode, buffering=buffering) as file:
+    async with aopen(str(full_file), mode=mode, buffering=buffering) as file:
         await file.seek(4)
 
         assert (await file.read(1)) == b"4"
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "mode", _mode_permutations(["wb", "rb", "rb+", "wb+", "ab", "ab+"])
 )
@@ -297,13 +297,13 @@ async def test_simple_close_ctx_mgr(mode: str, buffering: int, tmp_path: Path) -
     full_file = tmp_path.joinpath(filename)
     full_file.write_bytes(content)
 
-    async with aiopen(str(full_file), mode=mode, buffering=buffering) as file:
+    async with aopen(str(full_file), mode=mode, buffering=buffering) as file:
         assert not file.closed
 
     assert file.closed
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "mode", _mode_permutations(["wb", "rb", "rb+", "wb+", "ab", "ab+"])
 )
@@ -318,7 +318,7 @@ async def test_simple_close_no_ctx_mgr(
     full_file = tmp_path.joinpath(filename)
     full_file.write_bytes(content)
 
-    file = await aiopen(str(full_file), mode=mode, buffering=buffering)
+    file = await aopen(str(full_file), mode=mode, buffering=buffering)
     assert not file.closed
 
     await file.close()
@@ -327,7 +327,7 @@ async def test_simple_close_no_ctx_mgr(
 
 
 # TODO: FIGURE OUT WHY "ab+" DONT WORK ON WINDOWS
-@pytest.mark.anyio()
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "mode",
     [
@@ -344,7 +344,7 @@ async def test_simple_truncate(mode: str, buffering: int, tmp_path: Path) -> Non
     full_file = tmp_path.joinpath(filename)
     full_file.write_bytes(content)
 
-    async with aiopen(str(full_file), mode=mode, buffering=buffering) as file:
+    async with aopen(str(full_file), mode=mode, buffering=buffering) as file:
         # The append modes want us to seek first.
         await file.seek(0)
 
@@ -359,7 +359,7 @@ async def test_simple_truncate(mode: str, buffering: int, tmp_path: Path) -> Non
     assert full_file.read_bytes() == b""
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 @pytest.mark.parametrize("mode", _mode_permutations(["wb", "rb+", "wb+", "ab", "ab+"]))
 @pytest.mark.parametrize("buffering", [-1, 0])
 async def test_simple_write(mode: str, buffering: int, tmp_path: Path) -> None:
@@ -372,14 +372,14 @@ async def test_simple_write(mode: str, buffering: int, tmp_path: Path) -> None:
     if "r" in mode:
         full_file.touch()  # Read modes want it to already exist.
 
-    async with aiopen(str(full_file), mode=mode, buffering=buffering) as file:
+    async with aopen(str(full_file), mode=mode, buffering=buffering) as file:
         bytes_written = await file.write(content)
 
     assert bytes_written == len(content)
     assert content == full_file.read_bytes()
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 async def test_simple_readall(tmp_path: Path) -> None:
     """Test the readall function by reading a large file in.
 
@@ -391,7 +391,7 @@ async def test_simple_readall(tmp_path: Path) -> None:
     sync_file = tmp_path.joinpath(filename)
     sync_file.write_bytes(content)
 
-    file = await aiopen(str(sync_file), mode="rb", buffering=0)
+    file = await aopen(str(sync_file), mode="rb", buffering=0)
 
     actual = await file.readall()
 
@@ -401,25 +401,25 @@ async def test_simple_readall(tmp_path: Path) -> None:
     assert file.closed
 
 
-@pytest.mark.anyio()
-async def test_file_async_context_aexit(aiopen_fixtures: FileFixtures) -> None:
-    test_file = aiopen_fixtures.test_file_path
-    async with aiopen(test_file) as fp:
+@pytest.mark.anyio
+async def test_file_async_context_aexit(aopen_fixtures: FileFixtures) -> None:
+    test_file = aopen_fixtures.test_file_path
+    async with aopen(test_file) as fp:
         ...
 
     with pytest.raises(RuntimeError):
         _line = await fp.read()
 
-    async with aiopen(test_file) as fp:
+    async with aopen(test_file) as fp:
         line = await fp.read()
         assert line.decode() == "0123456789"
 
 
-@pytest.mark.anyio()
+@pytest.mark.anyio
 async def test_filetask_async_context_aexit(
-    aiopen_fixtures: FileFixtures,
+    aopen_fixtures: FileFixtures,
 ) -> None:
-    test_file = aiopen_fixtures.test_file_path
+    test_file = aopen_fixtures.test_file_path
     file_ref = None
 
     async def _process_test_file(file_ctx: AsyncFile, sleep_time: float = 1.0) -> None:
@@ -433,7 +433,7 @@ async def test_filetask_async_context_aexit(
     assert cancel_time <= (sleep_time / 10)
 
     file_ref = None
-    file_ctx = aiopen(test_file)
+    file_ctx = aopen(test_file)
 
     task = asyncio.create_task(
         _process_test_file(file_ctx=file_ctx, sleep_time=sleep_time)
@@ -444,3 +444,19 @@ async def test_filetask_async_context_aexit(
         assert task.cancelled  # type: ignore[truthy-function]
     assert file_ref is not None
     assert file_ref.closed
+
+
+@pytest.mark.anyio
+async def test_async_file_flushes_on_drop(tmp_path: Path) -> None:
+    """Test that the file is flushed when the object is dropped."""
+    if sys.implementation.name == "pypy":
+        pytest.skip("something is messed up w/ pypy")
+    temp_file_path = tmp_path / "test_file_drop.txt"
+    f = AsyncFile(temp_file_path, "wb")
+    await f
+    await f.write(b"some data")
+    del f
+    await asyncio.sleep(0.1)
+    # check that got flusshed
+    contents = ry.read_bytes(temp_file_path)
+    assert contents == b"some data"

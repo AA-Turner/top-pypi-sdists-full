@@ -1,0 +1,93 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tom-swe"
+version = "1.0.3"
+description = "Theory of Mind modeling for Software Engineering assistants"
+authors = [
+    {name = "Research Team"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+keywords = [
+    "theory-of-mind",
+    "software-engineering",
+    "llm",
+    "user-modeling",
+    "ai-assistant",
+    "psychology",
+    "rag",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "litellm>=1.0.0",
+    "pydantic>=2.0.0",
+    "json-repair>=0.1.0",
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.65.0",
+    # Template engine
+    "jinja2>=3.0.0",
+    "tiktoken>=0.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/All-Hands-AI/ToM-SWE"
+Repository = "https://github.com/All-Hands-AI/ToM-SWE"
+Issues = "https://github.com/All-Hands-AI/ToM-SWE/issues"
+Documentation = "https://github.com/All-Hands-AI/ToM-SWE#readme"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=6.2.1",
+    "black>=22.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.3.0",
+    "pre-commit>=3.6.0",
+    # Additional dev dependencies (not used in tom_swe package)
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "rich>=13.0.0",
+    "typing-extensions>=4.0.0",
+    "aiofiles>=23.0.0",
+    # API dependencies
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "httpx>=0.25.0",
+    # HuggingFace dependencies
+    "datasets>=2.0.0",
+    "huggingface_hub>=0.0.0",
+]
+
+search = [
+    "bm25s>=0.2.0",
+    "PyStemmer>=2.2.0",
+]
+
+[tool.hatch.build]
+# Include Python source files and non-Python assets required at runtime
+include = [
+  "tom_swe/**/*.py",
+  "tom_swe/py.typed",
+  "tom_swe/prompts/templates/*.jinja2",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["tom_swe"]

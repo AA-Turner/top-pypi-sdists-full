@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: roman
-Version: 5.1
+Version: 5.2
 Summary: Integer to Roman numerals converter
 Home-page: https://github.com/zopefoundation/roman
 Author: Mark Pilgrim
@@ -12,18 +12,18 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Dynamic: author
@@ -92,6 +92,13 @@ There are two ways to use this library.
 
 Change log
 ==========
+
+5.2 (2025-11-11)
+----------------
+
+- Add support for Python 3.14.
+
+- Drop support for Python 3.9.
 
 5.1 (2025-07-18)
 ----------------

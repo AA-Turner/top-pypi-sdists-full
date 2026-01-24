@@ -22,7 +22,7 @@ from beartype.typing import (
 from beartype._check.code.codemagic import EXCEPTION_PREFIX_FUNC_WRAPPER_LOCAL
 from beartype._check.code.codescope import add_func_scope_type_or_types
 from beartype._check.code.snip.codesnipcls import PITH_INDEX_TO_VAR_NAME
-from beartype._check.convert.convsanify import sanify_hint_child
+from beartype._check.convert.convmain import sanify_hint_child
 from beartype._check.metadata.hint.hintmeta import HintMeta
 from beartype._check.metadata.hint.hintsane import HintSane
 from beartype._conf.confmain import BeartypeConf
@@ -30,8 +30,8 @@ from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
 from beartype._data.code.datacodeindent import INDENT_LEVEL_TO_CODE
 from beartype._data.error.dataerrmagic import (
     EXCEPTION_PLACEHOLDER as EXCEPTION_PREFIX)
-from beartype._data.hint.datahintpep import Hint
-from beartype._data.hint.datahinttyping import (
+from beartype._data.typing.datatypingport import Hint
+from beartype._data.typing.datatyping import (
     HintSignOrNoneOrSentinel,
     LexicalScope,
     TypeOrSetOrTupleTypes,
@@ -51,7 +51,7 @@ class HintsMeta(FixedList):
     **Type hint type-checking metadata queue** (i.e., low-level fixed list of
     metadata describing all visitable type hints currently discovered by the
     breadth-first search (BFS) dynamically generating pure-Python type-checking
-    code snippets in the :func:`beartype._check.code.codemake.make_check_expr`
+    code snippets in the :func:`beartype._check.code.codemain.make_check_expr`
     factory).
 
     This list acts as a standard First In First Out (FILO) queue, enabling that
@@ -313,7 +313,7 @@ class HintsMeta(FixedList):
         **Type hint type-checking metadata** (i.e., :class:`.HintMeta` object)
         describing the currently visited type hint at the passed index by the
         breadth-first search (BFS) in the
-        :func:`beartype._check.code.codemake.make_check_expr` factory.
+        :func:`beartype._check.code.codemain.make_check_expr` factory.
 
         For both efficiency and simplicity, this dunder method *always* returns
         a valid :class:`HintMeta` object for all valid indices. This list thus
@@ -501,7 +501,7 @@ class HintsMeta(FixedList):
         hint_sane : HintSane
             **Sanified child type hint metadata** (i.e., immutable and thus
             hashable object encapsulating *all* metadata returned by
-            :mod:`beartype._check.convert.convsanify` sanifiers after sanitizing
+            :mod:`beartype._check.convert.convmain` sanifiers after sanitizing
             this possibly PEP-noncompliant hint into a fully PEP-compliant hint)
             describing this child hint.
         pith_expr : str
@@ -536,7 +536,7 @@ class HintsMeta(FixedList):
               another sign. Prominent examples include:
 
               * **Generic typed dictionaries** identifiable as both the
-                :data:`.HintSignPep484585GenericUnsubscripted` sign *and* the
+                :data:`.HintSignPep484585GenericUnsubbed` sign *and* the
                 :data:`HintSignTypedDict` sign for :pep:`589`-compliant typed
                 dictionaries: e.g.,
 
@@ -547,7 +547,7 @@ class HintsMeta(FixedList):
                        generic_item: T
 
               * **Generic named tuples** identifiable as both the
-                :data:`.HintSignPep484585GenericUnsubscripted` sign *and* the
+                :data:`.HintSignPep484585GenericUnsubbed` sign *and* the
                 :data:`HintSignNamedTuple` sign for :pep:`484`-compliant named
                 tuples: e.g.,
 
@@ -669,7 +669,7 @@ class HintsMeta(FixedList):
         hint_parent_sane : Optional[HintSane], default: None
             **Sanified parent type hint metadata** (i.e., immutable and thus
             hashable object encapsulating *all* metadata previously returned by
-            :mod:`beartype._check.convert.convsanify` sanifiers after sanitizing
+            :mod:`beartype._check.convert.convmain` sanifiers after sanitizing
             the possibly PEP-noncompliant parent hint of this child hint into a
             fully PEP-compliant parent hint). Defaults to :data:`None`, in which
             case this parameter actually defaults to

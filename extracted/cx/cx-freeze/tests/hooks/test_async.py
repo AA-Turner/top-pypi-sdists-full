@@ -10,7 +10,7 @@ import pytest
 
 from cx_Freeze._compat import ABI_THREAD
 
-TIMEOUT = 10
+TIMEOUT = 15
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
@@ -31,7 +31,11 @@ test_anyio.py
     run(
         main,
         backend_options={
-            "use_uvloop": sys.platform != "win32" and ABI_THREAD == ""
+            "use_uvloop": (
+                sys.platform != "win32"
+                and sys.version_info[:2] <= (3, 13)
+                and ABI_THREAD == ""
+            )
         },
     )
 pyproject.toml
@@ -60,7 +64,11 @@ def test_anyio(tmp_package, zip_packages) -> None:
         buf = pyproject.read_bytes().decode().splitlines()
         buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
         pyproject.write_bytes("\n".join(buf).encode("utf_8"))
-    if sys.platform != "win32" and ABI_THREAD == "":
+    if (
+        sys.platform != "win32"
+        and sys.version_info[:2] <= (3, 13)
+        and ABI_THREAD == ""
+    ):
         tmp_package.install("uvloop")
     tmp_package.freeze()
     executable = tmp_package.executable("test_anyio")

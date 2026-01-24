@@ -732,6 +732,7 @@ street_type_list = [
     "Tunnl",
     "Turnpike",
     "Turnpk",
+    "Twig",
     "Un",
     "Underpass",
     "Union",
@@ -847,7 +848,7 @@ floor = r"""
                 )
                 |
                 (?:
-                    {floor_indic}\ \d+[A-Za-z]{{0,2}}
+                    {floor_indic}\ \#?\d+[A-Za-z]{{0,2}}
                 )
             )
         """.format(
@@ -925,7 +926,7 @@ occupancy = r"""
                     )
                     |
                     (?:
-                        \#?\ ?[0-9]{{1,4}}
+                        \#?\ ?[0-9]{{1,4}}[A-Za-z]{{,1}}
                     )
                     |
                     (?:\b\d{{2}}-\d{{4}})
@@ -950,25 +951,33 @@ mail_stop = r"""
             )
             """
 
-po_box = r"""
+po_marker = r"""
             (?:
                 [Pp]\.?\ ?[Oo]\.?\ ?
                 |
                 [Pp][Oo][Ss][Tt]\ [Oo][Ff][Ff][Ii][Cc][Ee]\ ?
-            )?
+            )
+            """
+
+po_box = r"""
+            {po_marker}?
             (?:
                 (?:
                     (?:
                         [Bb][Oo][Xx]
                         |
                         [Pp][Mm][Bb]
+                        |
+                        {po_marker}
                     )
                     \ \#?\ ?A?\d+
                 )
                 |
                 (?:[Dd][Rr][Aa][Ww][Ee][Rr]\ +[A-Z]\b)
             )
-        """
+        """.format(
+    po_marker=po_marker
+)
 
 phone_number = r"""
             (?:

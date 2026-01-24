@@ -12,7 +12,7 @@ from edgar.documents.table_nodes import TableNode
 class MarkdownRenderer:
     """
     Renders parsed documents to Markdown format.
-
+    
     Features:
     - Preserves document structure
     - Handles tables with proper formatting
@@ -29,7 +29,7 @@ class MarkdownRenderer:
                  wrap_width: Optional[int] = None):
         """
         Initialize markdown renderer.
-
+        
         Args:
             include_metadata: Include metadata annotations
             include_toc: Generate table of contents
@@ -52,10 +52,10 @@ class MarkdownRenderer:
     def render(self, document: Document) -> str:
         """
         Render document to Markdown.
-
+        
         Args:
             document: Document to render
-
+            
         Returns:
             Markdown formatted text
         """
@@ -91,10 +91,10 @@ class MarkdownRenderer:
     def render_node(self, node: Node) -> str:
         """
         Render a specific node to Markdown.
-
+        
         Args:
             node: Node to render
-
+            
         Returns:
             Markdown formatted text
         """
@@ -231,28 +231,38 @@ class MarkdownRenderer:
         return "\n".join(parts)
 
     def _render_table_pipe(self, node: TableNode) -> str:
-        """Render table in pipe format."""
+        """Render table in pipe format with proper column spanning support."""
+        # Handle complex SEC filing tables with column spanning
+        expanded_headers, expanded_data_rows = self._expand_table_structure(node)
+
+        # Identify and filter to meaningful columns
+        content_columns = self._identify_content_columns(expanded_headers, expanded_data_rows)
+
+        if not content_columns:
+            return ""
+
         rows = []
 
-        # Render headers
-        if node.headers:
-            for header_row in node.headers:
-                cells = [cell.text() for cell in header_row]
-                row_md = "| " + " | ".join(cells) + " |"
-                rows.append(row_md)
+        # Render headers with intelligent multi-row combination
+        if expanded_headers:
+            combined_headers = self._combine_multi_row_headers(expanded_headers)
+            filtered_headers = [combined_headers[i] if i < len(combined_headers) else "" for i in content_columns]
 
-            # Add separator after headers
-            if node.headers[0]:
-                separator = "|"
-                for _ in node.headers[0]:
-                    separator += " --- |"
-                rows.append(separator)
+            row_md = "| " + " | ".join(filtered_headers) + " |"
+            rows.append(row_md)
+
+            # Add separator
+            separator = "| " + " | ".join(["---"] * len(filtered_headers)) + " |"
+            rows.append(separator)
 
         # Render data rows
-        for row in node.rows:
-            cells = [cell.text() for cell in row.cells]
-            row_md = "| " + " | ".join(cells) + " |"
-            rows.append(row_md)
+        for expanded_row in expanded_data_rows:
+            filtered_row = [expanded_row[i] if i < len(expanded_row) else "" for i in content_columns]
+
+            # Only add rows with meaningful content
+            if any(cell.strip() for cell in filtered_row):
+                row_md = "| " + " | ".join(filtered_row) + " |"
+                rows.append(row_md)
 
         return "\n".join(rows)
 
@@ -374,8 +384,8 @@ class MarkdownRenderer:
 
         if document.metadata.company:
             lines.append(f"company: {document.metadata.company}")
-        if document.metadata.filing_type:
-            lines.append(f"filing_type: {document.metadata.filing_type}")
+        if document.metadata.form:
+            lines.append(f"form: {document.metadata.form}")
         if document.metadata.filing_date:
             lines.append(f"filing_date: {document.metadata.filing_date}")
         if document.metadata.cik:
@@ -391,7 +401,7 @@ class MarkdownRenderer:
         """Generate table of contents."""
         lines = ["## Table of Contents", ""]
 
-        for level, text, _node_id in self._toc_entries:
+        for level, text, node_id in self._toc_entries:
             # Create anchor link
             anchor = self._create_anchor(text)
 
@@ -450,3 +460,154 @@ class MarkdownRenderer:
         """Wrap text at specified width."""
         import textwrap
         return textwrap.fill(text, width=width, break_long_words=False)
+
+    def _expand_table_structure(self, node: TableNode) -> tuple:
+        """
+        Expand table structure to handle column spanning properly.
+        Returns (expanded_headers, expanded_data_rows).
+        """
+        # Calculate the logical column count from colspan
+        max_columns = 0
+
+        # Check all rows for maximum column span
+        all_rows = []
+        if node.headers:
+            for header_row in node.headers:
+                all_rows.append(header_row)
+        for row in node.rows:
+            all_rows.append(row.cells)
+
+        for row in all_rows:
+            column_count = sum(cell.colspan for cell in row)
+            max_columns = max(max_columns, column_count)
+
+        # Expand headers
+        expanded_headers = []
+        if node.headers:
+            for header_row in node.headers:
+                expanded = self._expand_row_to_columns(header_row, max_columns)
+                expanded_headers.append(expanded)
+
+        # Expand data rows
+        expanded_data_rows = []
+        for row in node.rows:
+            expanded = self._expand_row_to_columns(row.cells, max_columns)
+            expanded_data_rows.append(expanded)
+
+        return expanded_headers, expanded_data_rows
+
+    def _expand_row_to_columns(self, cells: List, target_columns: int) -> List[str]:
+        """Expand a row with colspan cells to match the target column count."""
+        expanded = []
+        current_column = 0
+
+        for cell in cells:
+            cell_text = cell.text().strip()
+
+            # Add the cell content
+            expanded.append(cell_text)
+            current_column += 1
+
+            # Add empty cells for remaining colspan
+            for _ in range(cell.colspan - 1):
+                if current_column < target_columns:
+                    expanded.append("")
+                    current_column += 1
+
+        # Pad to target column count if needed
+        while len(expanded) < target_columns:
+            expanded.append("")
+
+        return expanded[:target_columns]
+
+    def _identify_content_columns(self, expanded_headers: List[List[str]], 
+                                 expanded_data_rows: List[List[str]]) -> List[int]:
+        """Identify which columns actually contain meaningful content."""
+        if not expanded_headers and not expanded_data_rows:
+            return []
+
+        # Get the column count
+        max_cols = 0
+        if expanded_headers:
+            max_cols = max(max_cols, max(len(row) for row in expanded_headers))
+        if expanded_data_rows:
+            max_cols = max(max_cols, max(len(row) for row in expanded_data_rows))
+
+        content_columns = []
+
+        for col in range(max_cols):
+            has_content = False
+
+            # Check headers
+            for header_row in expanded_headers:
+                if col < len(header_row) and header_row[col].strip():
+                    has_content = True
+                    break
+
+            # Check data rows
+            if not has_content:
+                for data_row in expanded_data_rows:
+                    if col < len(data_row) and data_row[col].strip():
+                        has_content = True
+                        break
+
+            if has_content:
+                content_columns.append(col)
+
+        return content_columns
+
+    def _combine_multi_row_headers(self, header_rows: List[List[str]]) -> List[str]:
+        """
+        Combine multi-row headers intelligently for SEC filing tables.
+        Prioritizes specific dates/periods over generic labels.
+        """
+        if not header_rows:
+            return []
+
+        num_columns = len(header_rows[0])
+        combined = [""] * num_columns
+
+        for col in range(num_columns):
+            # Collect all values for this column across header rows
+            column_values = []
+            for row in header_rows:
+                if col < len(row) and row[col].strip():
+                    column_values.append(row[col].strip())
+
+            if column_values:
+                # Prioritize date-like values over generic labels
+                date_values = [v for v in column_values if self._looks_like_date(v)]
+                if date_values:
+                    # Clean up line breaks in dates
+                    combined[col] = date_values[0].replace('\n', ' ')
+                elif len(column_values) == 1:
+                    combined[col] = column_values[0].replace('\n', ' ')
+                else:
+                    # Skip generic terms like "Year Ended" if we have something more specific
+                    specific_values = [v for v in column_values 
+                                     if v.lower() not in ['year ended', 'years ended']]
+                    if specific_values:
+                        combined[col] = specific_values[0].replace('\n', ' ')
+                    else:
+                        combined[col] = column_values[0].replace('\n', ' ')
+
+        return combined
+
+    def _looks_like_date(self, text: str) -> bool:
+        """Check if text looks like a date."""
+        import re
+
+        # Common date patterns in SEC filings
+        date_patterns = [
+            r'\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s*\d{4}',
+            r'\d{1,2}/\d{1,2}/\d{4}',
+            r'\d{4}-\d{2}-\d{2}',
+            r'^\d{4}$',  # Just a year
+        ]
+
+        text_clean = text.replace('\n', ' ').strip()
+        for pattern in date_patterns:
+            if re.search(pattern, text_clean, re.IGNORECASE):
+                return True
+
+        return False

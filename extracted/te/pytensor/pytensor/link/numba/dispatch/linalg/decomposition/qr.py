@@ -1,218 +1,24 @@
+from typing import Literal
+
 import numpy as np
 from numba.core.extending import overload
+from numba.core.types import Complex, Float
 from numba.np.linalg import _copy_to_fortran_order, ensure_lapack
-from scipy.linalg import get_lapack_funcs, qr
+from scipy.linalg import qr
 
 from pytensor.link.numba.dispatch.linalg._LAPACK import (
     _LAPACK,
     _get_underlying_float,
-    int_ptr_to_val,
     val_to_int_ptr,
 )
-
-
-def _xgeqrf(A: np.ndarray, overwrite_a: bool, lwork: int):
-    """LAPACK geqrf: Computes a QR factorization of a general M-by-N matrix A."""
-    (geqrf,) = get_lapack_funcs(("geqrf",), (A,))
-    return geqrf(A, overwrite_a=overwrite_a, lwork=lwork)
-
-
-@overload(_xgeqrf)
-def xgeqrf_impl(A, overwrite_a, lwork):
-    ensure_lapack()
-    dtype = A.dtype
-    w_type = _get_underlying_float(dtype)
-    geqrf = _LAPACK().numba_xgeqrf(dtype)
-
-    def impl(A, overwrite_a, lwork):
-        M = np.int32(A.shape[0])
-        N = np.int32(A.shape[1])
-
-        if overwrite_a and A.flags.f_contiguous:
-            A_copy = A
-        else:
-            A_copy = _copy_to_fortran_order(A)
-
-        LDA = val_to_int_ptr(M)
-        TAU = np.empty(min(M, N), dtype=dtype)
-
-        if lwork == -1:
-            WORK = np.empty(1, dtype=dtype)
-            LWORK = val_to_int_ptr(-1)
-        else:
-            WORK = np.empty(lwork if lwork > 0 else 1, dtype=dtype)
-            LWORK = val_to_int_ptr(WORK.size)
-        INFO = val_to_int_ptr(1)
-
-        geqrf(
-            val_to_int_ptr(M),
-            val_to_int_ptr(N),
-            A_copy.view(w_type).ctypes,
-            LDA,
-            TAU.view(w_type).ctypes,
-            WORK.view(w_type).ctypes,
-            LWORK,
-            INFO,
-        )
-        return A_copy, TAU, WORK, int_ptr_to_val(INFO)
-
-    return impl
-
-
-def _xgeqp3(A: np.ndarray, overwrite_a: bool, lwork: int):
-    """LAPACK geqp3: Computes a QR factorization with column pivoting of a general M-by-N matrix A."""
-    (geqp3,) = get_lapack_funcs(("geqp3",), (A,))
-    return geqp3(A, overwrite_a=overwrite_a, lwork=lwork)
-
-
-@overload(_xgeqp3)
-def xgeqp3_impl(A, overwrite_a, lwork):
-    ensure_lapack()
-    dtype = A.dtype
-    w_type = _get_underlying_float(dtype)
-    geqp3 = _LAPACK().numba_xgeqp3(dtype)
-
-    def impl(A, overwrite_a, lwork):
-        M = np.int32(A.shape[0])
-        N = np.int32(A.shape[1])
-
-        if overwrite_a and A.flags.f_contiguous:
-            A_copy = A
-        else:
-            A_copy = _copy_to_fortran_order(A)
-
-        LDA = val_to_int_ptr(M)
-        JPVT = np.zeros(N, dtype=np.int32)
-        TAU = np.empty(min(M, N), dtype=dtype)
-
-        if lwork == -1:
-            WORK = np.empty(1, dtype=dtype)
-            LWORK = val_to_int_ptr(-1)
-        else:
-            WORK = np.empty(lwork if lwork > 0 else 1, dtype=dtype)
-            LWORK = val_to_int_ptr(WORK.size)
-        INFO = val_to_int_ptr(1)
-
-        geqp3(
-            val_to_int_ptr(M),
-            val_to_int_ptr(N),
-            A_copy.view(w_type).ctypes,
-            LDA,
-            JPVT.ctypes,
-            TAU.view(w_type).ctypes,
-            WORK.view(w_type).ctypes,
-            LWORK,
-            INFO,
-        )
-        return A_copy, JPVT, TAU, WORK, int_ptr_to_val(INFO)
-
-    return impl
-
-
-def _xorgqr(A: np.ndarray, tau: np.ndarray, overwrite_a: bool, lwork: int):
-    """LAPACK orgqr: Generates the M-by-N matrix Q with orthonormal columns from a QR factorization (real types)."""
-    (orgqr,) = get_lapack_funcs(("orgqr",), (A,))
-    return orgqr(A, tau, overwrite_a=overwrite_a, lwork=lwork)
-
-
-@overload(_xorgqr)
-def xorgqr_impl(A, tau, overwrite_a, lwork):
-    ensure_lapack()
-    dtype = A.dtype
-    w_type = _get_underlying_float(dtype)
-    orgqr = _LAPACK().numba_xorgqr(dtype)
-
-    def impl(A, tau, overwrite_a, lwork):
-        M = np.int32(A.shape[0])
-        N = np.int32(A.shape[1])
-        K = np.int32(tau.shape[0])
-
-        if overwrite_a and A.flags.f_contiguous:
-            A_copy = A
-        else:
-            A_copy = _copy_to_fortran_order(A)
-
-        if lwork == -1:
-            WORK = np.empty(1, dtype=dtype)
-            LWORK = val_to_int_ptr(-1)
-        else:
-            WORK = np.empty(lwork if lwork > 0 else 1, dtype=dtype)
-            LWORK = val_to_int_ptr(WORK.size)
-
-        LDA = val_to_int_ptr(M)
-        INFO = val_to_int_ptr(1)
-
-        orgqr(
-            val_to_int_ptr(M),
-            val_to_int_ptr(N),
-            val_to_int_ptr(K),
-            A_copy.view(w_type).ctypes,
-            LDA,
-            tau.view(w_type).ctypes,
-            WORK.view(w_type).ctypes,
-            LWORK,
-            INFO,
-        )
-        return A_copy, WORK, int_ptr_to_val(INFO)
-
-    return impl
-
-
-def _xungqr(A: np.ndarray, tau: np.ndarray, overwrite_a: bool, lwork: int):
-    """LAPACK ungqr: Generates the M-by-N matrix Q with orthonormal columns from a QR factorization (complex types)."""
-    (ungqr,) = get_lapack_funcs(("ungqr",), (A,))
-    return ungqr(A, tau, overwrite_a=overwrite_a, lwork=lwork)
-
-
-@overload(_xungqr)
-def xungqr_impl(A, tau, overwrite_a, lwork):
-    ensure_lapack()
-    dtype = A.dtype
-    w_type = _get_underlying_float(dtype)
-    ungqr = _LAPACK().numba_xungqr(dtype)
-
-    def impl(A, tau, overwrite_a, lwork):
-        M = np.int32(A.shape[0])
-        N = np.int32(A.shape[1])
-        K = np.int32(tau.shape[0])
-
-        if overwrite_a and A.flags.f_contiguous:
-            A_copy = A
-        else:
-            A_copy = _copy_to_fortran_order(A)
-        LDA = val_to_int_ptr(M)
-
-        if lwork == -1:
-            WORK = np.empty(1, dtype=dtype)
-            LWORK = val_to_int_ptr(-1)
-        else:
-            WORK = np.empty(lwork if lwork > 0 else 1, dtype=dtype)
-            LWORK = val_to_int_ptr(WORK.size)
-        INFO = val_to_int_ptr(1)
-
-        ungqr(
-            val_to_int_ptr(M),
-            val_to_int_ptr(N),
-            val_to_int_ptr(K),
-            A_copy.view(w_type).ctypes,
-            LDA,
-            tau.view(w_type).ctypes,
-            WORK.view(w_type).ctypes,
-            LWORK,
-            INFO,
-        )
-
-        return A_copy, WORK, int_ptr_to_val(INFO)
-
-    return impl
+from pytensor.link.numba.dispatch.linalg.utils import _check_linalg_matrix
 
 
 def _qr_full_pivot(
     x: np.ndarray,
-    mode: str = "full",
-    pivoting: bool = True,
+    mode: Literal["full", "economic"] = "full",
+    pivoting: Literal[True] = True,
     overwrite_a: bool = False,
-    check_finite: bool = False,
     lwork: int | None = None,
 ):
     """
@@ -227,17 +33,16 @@ def _qr_full_pivot(
         mode=mode,
         pivoting=pivoting,
         overwrite_a=overwrite_a,
-        check_finite=check_finite,
+        check_finite=False,
         lwork=lwork,
     )
 
 
 def _qr_full_no_pivot(
     x: np.ndarray,
-    mode: str = "full",
-    pivoting: bool = False,
+    mode: Literal["full", "economic"] = "full",
+    pivoting: Literal[False] = False,
     overwrite_a: bool = False,
-    check_finite: bool = False,
     lwork: int | None = None,
 ):
     """
@@ -251,17 +56,16 @@ def _qr_full_no_pivot(
         mode=mode,
         pivoting=pivoting,
         overwrite_a=overwrite_a,
-        check_finite=check_finite,
+        check_finite=False,
         lwork=lwork,
     )
 
 
 def _qr_r_pivot(
     x: np.ndarray,
-    mode: str = "r",
-    pivoting: bool = True,
+    mode: Literal["r", "raw"] = "r",
+    pivoting: Literal[True] = True,
     overwrite_a: bool = False,
-    check_finite: bool = False,
     lwork: int | None = None,
 ):
     """
@@ -275,17 +79,16 @@ def _qr_r_pivot(
         mode=mode,
         pivoting=pivoting,
         overwrite_a=overwrite_a,
-        check_finite=check_finite,
+        check_finite=False,
         lwork=lwork,
     )
 
 
 def _qr_r_no_pivot(
     x: np.ndarray,
-    mode: str = "r",
-    pivoting: bool = False,
+    mode: Literal["r", "raw"] = "r",
+    pivoting: Literal[False] = False,
     overwrite_a: bool = False,
-    check_finite: bool = False,
     lwork: int | None = None,
 ):
     """
@@ -299,17 +102,16 @@ def _qr_r_no_pivot(
         mode=mode,
         pivoting=pivoting,
         overwrite_a=overwrite_a,
-        check_finite=check_finite,
+        check_finite=False,
         lwork=lwork,
     )
 
 
 def _qr_raw_no_pivot(
     x: np.ndarray,
-    mode: str = "raw",
-    pivoting: bool = False,
+    mode: Literal["raw"] = "raw",
+    pivoting: Literal[False] = False,
     overwrite_a: bool = False,
-    check_finite: bool = False,
     lwork: int | None = None,
 ):
     """
@@ -323,7 +125,7 @@ def _qr_raw_no_pivot(
         mode=mode,
         pivoting=pivoting,
         overwrite_a=overwrite_a,
-        check_finite=check_finite,
+        check_finite=False,
         lwork=lwork,
     )
 
@@ -332,10 +134,9 @@ def _qr_raw_no_pivot(
 
 def _qr_raw_pivot(
     x: np.ndarray,
-    mode: str = "raw",
-    pivoting: bool = True,
+    mode: Literal["raw"] = "raw",
+    pivoting: Literal[True] = True,
     overwrite_a: bool = False,
-    check_finite: bool = False,
     lwork: int | None = None,
 ):
     """
@@ -349,7 +150,7 @@ def _qr_raw_pivot(
         mode=mode,
         pivoting=pivoting,
         overwrite_a=overwrite_a,
-        check_finite=check_finite,
+        check_finite=False,
         lwork=lwork,
     )
 
@@ -357,21 +158,26 @@ def _qr_raw_pivot(
 
 
 @overload(_qr_full_pivot)
-def qr_full_pivot_impl(
-    x, mode="full", pivoting=True, overwrite_a=False, check_finite=False, lwork=None
-):
+def qr_full_pivot_impl(x, mode="full", pivoting=True, overwrite_a=False, lwork=None):
     ensure_lapack()
+    _check_linalg_matrix(x, ndim=2, dtype=(Float, Complex), func_name="qr")
     dtype = x.dtype
+
+    is_complex = isinstance(dtype, Complex)
+
     w_type = _get_underlying_float(dtype)
     geqp3 = _LAPACK().numba_xgeqp3(dtype)
-    orgqr = _LAPACK().numba_xorgqr(dtype)
+    orgqr = (
+        _LAPACK().numba_xorgqr(dtype)
+        if isinstance(dtype, Float)
+        else _LAPACK().numba_xungqr(dtype)
+    )
 
     def impl(
         x,
         mode="full",
         pivoting=True,
         overwrite_a=False,
-        check_finite=False,
         lwork=None,
     ):
         M = np.int32(x.shape[0])
@@ -386,41 +192,71 @@ def qr_full_pivot_impl(
         LDA = val_to_int_ptr(M)
         TAU = np.empty(K, dtype=dtype)
         JPVT = np.zeros(N, dtype=np.int32)
+        if is_complex:
+            RWORK = np.empty(2 * N, dtype=w_type)
 
         if lwork is None:
             lwork = -1
 
         if lwork == -1:
             WORK = np.empty(1, dtype=dtype)
-            geqp3(
-                val_to_int_ptr(M),
-                val_to_int_ptr(N),
-                x_copy.view(w_type).ctypes,
-                LDA,
-                JPVT.ctypes,
-                TAU.view(w_type).ctypes,
-                WORK.view(w_type).ctypes,
-                val_to_int_ptr(-1),
-                val_to_int_ptr(1),
-            )
-            lwork_val = int(WORK.item())
-
+            if is_complex:
+                geqp3(
+                    val_to_int_ptr(M),
+                    val_to_int_ptr(N),
+                    x_copy.ctypes,
+                    LDA,
+                    JPVT.ctypes,
+                    TAU.ctypes,
+                    WORK.ctypes,
+                    val_to_int_ptr(-1),  # LWORK
+                    RWORK.ctypes,
+                    val_to_int_ptr(1),  # INFO
+                )
+            else:
+                geqp3(
+                    val_to_int_ptr(M),
+                    val_to_int_ptr(N),
+                    x_copy.ctypes,
+                    LDA,
+                    JPVT.ctypes,
+                    TAU.ctypes,
+                    WORK.ctypes,
+                    val_to_int_ptr(-1),
+                    val_to_int_ptr(1),
+                )
+            lwork_val = int(WORK.item().real)
         else:
             lwork_val = lwork
 
         WORK = np.empty(lwork_val, dtype=dtype)
         INFO = val_to_int_ptr(1)
-        geqp3(
-            val_to_int_ptr(M),
-            val_to_int_ptr(N),
-            x_copy.view(w_type).ctypes,
-            LDA,
-            JPVT.ctypes,
-            TAU.view(w_type).ctypes,
-            WORK.view(w_type).ctypes,
-            val_to_int_ptr(lwork_val),
-            INFO,
-        )
+
+        if is_complex:
+            geqp3(
+                val_to_int_ptr(M),
+                val_to_int_ptr(N),
+                x_copy.ctypes,
+                LDA,
+                JPVT.ctypes,
+                TAU.ctypes,
+                WORK.ctypes,
+                val_to_int_ptr(lwork_val),
+                RWORK.ctypes,
+                INFO,
+            )
+        else:
+            geqp3(
+                val_to_int_ptr(M),
+                val_to_int_ptr(N),
+                x_copy.ctypes,
+                LDA,
+                JPVT.ctypes,
+                TAU.ctypes,
+                WORK.ctypes,
+                val_to_int_ptr(lwork_val),
+                INFO,
+            )
         JPVT = (JPVT - 1).astype(np.int32)
 
         if mode == "full" or M < N:
@@ -443,14 +279,14 @@ def qr_full_pivot_impl(
                 val_to_int_ptr(M),
                 val_to_int_ptr(Q_in.shape[1]),
                 val_to_int_ptr(K),
-                Q_in.view(w_type).ctypes,
+                Q_in.ctypes,
                 val_to_int_ptr(M),
-                TAU.view(w_type).ctypes,
-                WORKQ.view(w_type).ctypes,
+                TAU.ctypes,
+                WORKQ.ctypes,
                 val_to_int_ptr(-1),
                 val_to_int_ptr(1),
             )
-            lwork_q = int(WORKQ.item())
+            lwork_q = int(WORKQ.item().real)
 
         else:
             lwork_q = lwork
@@ -461,10 +297,10 @@ def qr_full_pivot_impl(
             val_to_int_ptr(M),
             val_to_int_ptr(Q_in.shape[1]),
             val_to_int_ptr(K),
-            Q_in.view(w_type).ctypes,
+            Q_in.ctypes,
             val_to_int_ptr(M),
-            TAU.view(w_type).ctypes,
-            WORKQ.view(w_type).ctypes,
+            TAU.ctypes,
+            WORKQ.ctypes,
             val_to_int_ptr(lwork_q),
             INFOQ,
         )
@@ -475,20 +311,23 @@ def qr_full_pivot_impl(
 
 @overload(_qr_full_no_pivot)
 def qr_full_no_pivot_impl(
-    x, mode="full", pivoting=False, overwrite_a=False, check_finite=False, lwork=None
+    x, mode="full", pivoting=False, overwrite_a=False, lwork=None
 ):
     ensure_lapack()
+    _check_linalg_matrix(x, ndim=2, dtype=(Float, Complex), func_name="qr")
     dtype = x.dtype
-    w_type = _get_underlying_float(dtype)
     geqrf = _LAPACK().numba_xgeqrf(dtype)
-    orgqr = _LAPACK().numba_xorgqr(dtype)
+    orgqr = (
+        _LAPACK().numba_xorgqr(dtype)
+        if isinstance(dtype, Float)
+        else _LAPACK().numba_xungqr(dtype)
+    )
 
     def impl(
         x,
         mode="full",
         pivoting=False,
         overwrite_a=False,
-        check_finite=False,
         lwork=None,
     ):
         M = np.int32(x.shape[0])
@@ -511,14 +350,14 @@ def qr_full_no_pivot_impl(
             geqrf(
                 val_to_int_ptr(M),
                 val_to_int_ptr(N),
-                x_copy.view(w_type).ctypes,
+                x_copy.ctypes,
                 LDA,
-                TAU.view(w_type).ctypes,
-                WORK.view(w_type).ctypes,
+                TAU.ctypes,
+                WORK.ctypes,
                 val_to_int_ptr(-1),
                 val_to_int_ptr(1),
             )
-            lwork_val = int(WORK.item())
+            lwork_val = int(WORK.item().real)
         else:
             lwork_val = lwork
 
@@ -528,10 +367,10 @@ def qr_full_no_pivot_impl(
         geqrf(
             val_to_int_ptr(M),
             val_to_int_ptr(N),
-            x_copy.view(w_type).ctypes,
+            x_copy.ctypes,
             LDA,
-            TAU.view(w_type).ctypes,
-            WORK.view(w_type).ctypes,
+            TAU.ctypes,
+            WORK.ctypes,
             val_to_int_ptr(lwork_val),
             INFO,
         )
@@ -556,14 +395,14 @@ def qr_full_no_pivot_impl(
                 val_to_int_ptr(M),
                 val_to_int_ptr(Q_in.shape[1]),
                 val_to_int_ptr(K),
-                Q_in.view(w_type).ctypes,
+                Q_in.ctypes,
                 val_to_int_ptr(M),
-                TAU.view(w_type).ctypes,
-                WORKQ.view(w_type).ctypes,
+                TAU.ctypes,
+                WORKQ.ctypes,
                 val_to_int_ptr(-1),
                 val_to_int_ptr(1),
             )
-            lwork_q = int(WORKQ.item())
+            lwork_q = int(WORKQ.real.item())
         else:
             lwork_q = lwork
 
@@ -574,10 +413,10 @@ def qr_full_no_pivot_impl(
             val_to_int_ptr(M),  # M
             val_to_int_ptr(Q_in.shape[1]),  # N
             val_to_int_ptr(K),  # K
-            Q_in.view(w_type).ctypes,  # A
+            Q_in.ctypes,  # A
             val_to_int_ptr(M),  # LDA
-            TAU.view(w_type).ctypes,  # TAU
-            WORKQ.view(w_type).ctypes,  # WORK
+            TAU.ctypes,  # TAU
+            WORKQ.ctypes,  # WORK
             val_to_int_ptr(lwork_q),  # LWORK
             INFOQ,  # INFO
         )
@@ -587,12 +426,10 @@ def qr_full_no_pivot_impl(
 
 
 @overload(_qr_r_pivot)
-def qr_r_pivot_impl(
-    x, mode="r", pivoting=True, overwrite_a=False, check_finite=False, lwork=None
-):
+def qr_r_pivot_impl(x, mode="r", pivoting=True, overwrite_a=False, lwork=None):
     ensure_lapack()
+    _check_linalg_matrix(x, ndim=2, dtype=(Float, Complex), func_name="qr")
     dtype = x.dtype
-    w_type = _get_underlying_float(dtype)
     geqp3 = _LAPACK().numba_xgeqp3(dtype)
 
     def impl(
@@ -600,7 +437,6 @@ def qr_r_pivot_impl(
         mode="r",
         pivoting=True,
         overwrite_a=False,
-        check_finite=False,
         lwork=None,
     ):
         M = np.int32(x.shape[0])
@@ -623,15 +459,15 @@ def qr_r_pivot_impl(
             geqp3(
                 val_to_int_ptr(M),
                 val_to_int_ptr(N),
-                x_copy.view(w_type).ctypes,
+                x_copy.ctypes,
                 LDA,
                 JPVT.ctypes,
-                TAU.view(w_type).ctypes,
-                WORK.view(w_type).ctypes,
+                TAU.ctypes,
+                WORK.ctypes,
                 val_to_int_ptr(-1),
                 val_to_int_ptr(1),
             )
-            lwork_val = int(WORK.item())
+            lwork_val = int(WORK.item().real)
         else:
             lwork_val = lwork
 
@@ -641,11 +477,11 @@ def qr_r_pivot_impl(
         geqp3(
             val_to_int_ptr(M),
             val_to_int_ptr(N),
-            x_copy.view(w_type).ctypes,
+            x_copy.ctypes,
             LDA,
             JPVT.ctypes,
-            TAU.view(w_type).ctypes,
-            WORK.view(w_type).ctypes,
+            TAU.ctypes,
+            WORK.ctypes,
             val_to_int_ptr(lwork_val),
             INFO,
         )
@@ -662,12 +498,10 @@ def qr_r_pivot_impl(
 
 
 @overload(_qr_r_no_pivot)
-def qr_r_no_pivot_impl(
-    x, mode="r", pivoting=False, overwrite_a=False, check_finite=False, lwork=None
-):
+def qr_r_no_pivot_impl(x, mode="r", pivoting=False, overwrite_a=False, lwork=None):
     ensure_lapack()
+    _check_linalg_matrix(x, ndim=2, dtype=(Float, Complex), func_name="qr")
     dtype = x.dtype
-    w_type = _get_underlying_float(dtype)
     geqrf = _LAPACK().numba_xgeqrf(dtype)
 
     def impl(
@@ -675,7 +509,6 @@ def qr_r_no_pivot_impl(
         mode="r",
         pivoting=False,
         overwrite_a=False,
-        check_finite=False,
         lwork=None,
     ):
         M = np.int32(x.shape[0])
@@ -697,14 +530,14 @@ def qr_r_no_pivot_impl(
             geqrf(
                 val_to_int_ptr(M),
                 val_to_int_ptr(N),
-                x_copy.view(w_type).ctypes,
+                x_copy.ctypes,
                 LDA,
-                TAU.view(w_type).ctypes,
-                WORK.view(w_type).ctypes,
+                TAU.ctypes,
+                WORK.ctypes,
                 val_to_int_ptr(-1),
                 val_to_int_ptr(1),
             )
-            lwork_val = int(WORK.item())
+            lwork_val = int(WORK.item().real)
         else:
             lwork_val = lwork
 
@@ -714,10 +547,10 @@ def qr_r_no_pivot_impl(
         geqrf(
             val_to_int_ptr(M),
             val_to_int_ptr(N),
-            x_copy.view(w_type).ctypes,
+            x_copy.ctypes,
             LDA,
-            TAU.view(w_type).ctypes,
-            WORK.view(w_type).ctypes,
+            TAU.ctypes,
+            WORK.ctypes,
             val_to_int_ptr(lwork_val),
             INFO,
         )
@@ -734,12 +567,10 @@ def qr_r_no_pivot_impl(
 
 
 @overload(_qr_raw_no_pivot)
-def qr_raw_no_pivot_impl(
-    x, mode="raw", pivoting=False, overwrite_a=False, check_finite=False, lwork=None
-):
+def qr_raw_no_pivot_impl(x, mode="raw", pivoting=False, overwrite_a=False, lwork=None):
     ensure_lapack()
+    _check_linalg_matrix(x, ndim=2, dtype=(Float, Complex), func_name="qr")
     dtype = x.dtype
-    w_type = _get_underlying_float(dtype)
     geqrf = _LAPACK().numba_xgeqrf(dtype)
 
     def impl(
@@ -747,7 +578,6 @@ def qr_raw_no_pivot_impl(
         mode="raw",
         pivoting=False,
         overwrite_a=False,
-        check_finite=False,
         lwork=None,
     ):
         M = np.int32(x.shape[0])
@@ -769,14 +599,14 @@ def qr_raw_no_pivot_impl(
             geqrf(
                 val_to_int_ptr(M),
                 val_to_int_ptr(N),
-                x_copy.view(w_type).ctypes,
+                x_copy.ctypes,
                 LDA,
-                TAU.view(w_type).ctypes,
-                WORK.view(w_type).ctypes,
+                TAU.ctypes,
+                WORK.ctypes,
                 val_to_int_ptr(-1),
                 val_to_int_ptr(1),
             )
-            lwork_val = int(WORK.item())
+            lwork_val = int(WORK.item().real)
         else:
             lwork_val = lwork
 
@@ -786,10 +616,10 @@ def qr_raw_no_pivot_impl(
         geqrf(
             val_to_int_ptr(M),
             val_to_int_ptr(N),
-            x_copy.view(w_type).ctypes,
+            x_copy.ctypes,
             LDA,
-            TAU.view(w_type).ctypes,
-            WORK.view(w_type).ctypes,
+            TAU.ctypes,
+            WORK.ctypes,
             val_to_int_ptr(lwork_val),
             INFO,
         )
@@ -805,11 +635,13 @@ def qr_raw_no_pivot_impl(
 
 
 @overload(_qr_raw_pivot)
-def qr_raw_pivot_impl(
-    x, mode="raw", pivoting=True, overwrite_a=False, check_finite=False, lwork=None
-):
+def qr_raw_pivot_impl(x, mode="raw", pivoting=True, overwrite_a=False, lwork=None):
     ensure_lapack()
+    _check_linalg_matrix(x, ndim=2, dtype=(Float, Complex), func_name="qr")
+
     dtype = x.dtype
+    is_complex = isinstance(dtype, Complex)
+
     w_type = _get_underlying_float(dtype)
     geqp3 = _LAPACK().numba_xgeqp3(dtype)
 
@@ -818,7 +650,6 @@ def qr_raw_pivot_impl(
         mode="raw",
         pivoting=True,
         overwrite_a=False,
-        check_finite=False,
         lwork=None,
     ):
         M = np.int32(x.shape[0])
@@ -833,40 +664,70 @@ def qr_raw_pivot_impl(
         K = min(M, N)
         TAU = np.empty(K, dtype=dtype)
         JPVT = np.zeros(N, dtype=np.int32)
+        if is_complex:
+            RWORK = np.empty(2 * N, dtype=w_type)
 
         if lwork is None:
             lwork = -1
         if lwork == -1:
             WORK = np.empty(1, dtype=dtype)
-            geqp3(
-                val_to_int_ptr(M),
-                val_to_int_ptr(N),
-                x_copy.view(w_type).ctypes,
-                LDA,
-                JPVT.ctypes,
-                TAU.view(w_type).ctypes,
-                WORK.view(w_type).ctypes,
-                val_to_int_ptr(-1),
-                val_to_int_ptr(1),
-            )
-            lwork_val = int(WORK.item())
+            if is_complex:
+                geqp3(
+                    val_to_int_ptr(M),
+                    val_to_int_ptr(N),
+                    x_copy.ctypes,
+                    LDA,
+                    JPVT.ctypes,
+                    TAU.ctypes,
+                    WORK.ctypes,
+                    val_to_int_ptr(-1),  # LWORK
+                    RWORK.ctypes,
+                    val_to_int_ptr(1),  # INFO
+                )
+            else:
+                geqp3(
+                    val_to_int_ptr(M),
+                    val_to_int_ptr(N),
+                    x_copy.ctypes,
+                    LDA,
+                    JPVT.ctypes,
+                    TAU.ctypes,
+                    WORK.ctypes,
+                    val_to_int_ptr(-1),
+                    val_to_int_ptr(1),
+                )
+            lwork_val = int(WORK.item().real)
         else:
             lwork_val = lwork
 
         WORK = np.empty(lwork_val, dtype=dtype)
         INFO = val_to_int_ptr(1)
 
-        geqp3(
-            val_to_int_ptr(M),
-            val_to_int_ptr(N),
-            x_copy.view(w_type).ctypes,
-            LDA,
-            JPVT.ctypes,
-            TAU.view(w_type).ctypes,
-            WORK.view(w_type).ctypes,
-            val_to_int_ptr(lwork_val),
-            INFO,
-        )
+        if is_complex:
+            geqp3(
+                val_to_int_ptr(M),
+                val_to_int_ptr(N),
+                x_copy.ctypes,
+                LDA,
+                JPVT.ctypes,
+                TAU.ctypes,
+                WORK.ctypes,
+                val_to_int_ptr(lwork_val),
+                RWORK.ctypes,
+                INFO,
+            )
+        else:
+            geqp3(
+                val_to_int_ptr(M),
+                val_to_int_ptr(N),
+                x_copy.ctypes,
+                LDA,
+                JPVT.ctypes,
+                TAU.ctypes,
+                WORK.ctypes,
+                val_to_int_ptr(lwork_val),
+                INFO,
+            )
 
         JPVT = (JPVT - 1).astype(np.int32)
 

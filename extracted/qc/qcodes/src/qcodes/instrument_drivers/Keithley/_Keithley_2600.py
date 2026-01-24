@@ -257,7 +257,7 @@ class _ParameterWithStatus(Parameter):
             for i in bin(int(float(meas_status))).replace("0b", "").zfill(16)[::-1]
         ]
 
-        status = _from_bits_tuple_to_status[(status_bits[0], status_bits[1])]  # pyright: ignore[reportArgumentType]
+        status = _from_bits_tuple_to_status[(status_bits[0], status_bits[1])]
 
         return float(value), status
 
@@ -660,6 +660,7 @@ class Keithley2600Channel(InstrumentChannel):
 
         """
         try:
+            # lazy import to avoid a geneal dependency on qcodes_loop
             from qcodes_loop.measure import Measure
         except ImportError as e:
             raise ImportError(

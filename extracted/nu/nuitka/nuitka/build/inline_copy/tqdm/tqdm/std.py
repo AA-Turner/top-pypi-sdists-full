@@ -456,7 +456,7 @@ class tqdm(Comparable):
             total_fmt = str(total) if total is not None else '?'
 
         try:
-            postfix = ', ' + postfix if postfix else ''
+            postfix = ' - ' + postfix if postfix else ''
         except TypeError:
             pass
 
@@ -1142,7 +1142,10 @@ class tqdm(Comparable):
             warn("AttributeError ignored", TqdmWarning, stacklevel=2)
 
     def __del__(self):
-        self.close()
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def __str__(self):
         return self.format_meter(**self.format_dict)

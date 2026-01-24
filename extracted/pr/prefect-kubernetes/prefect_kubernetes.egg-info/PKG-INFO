@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-kubernetes
-Version: 0.6.5
+Version: 0.7.3
 Summary: Prefect integrations for interacting with Kubernetes.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -11,13 +11,12 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: prefect>=3.3.5
@@ -26,6 +25,7 @@ Requires-Dist: tenacity>=8.2.3
 Requires-Dist: exceptiongroup
 Requires-Dist: pyopenssl>=24.1.0
 Requires-Dist: kopf>=1.37.4
+Requires-Dist: python-json-logger>=3.3.0
 Dynamic: license-file
 
 # prefect-kubernetes

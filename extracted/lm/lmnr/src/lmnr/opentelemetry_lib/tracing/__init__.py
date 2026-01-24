@@ -4,7 +4,6 @@ import threading
 
 from lmnr.opentelemetry_lib.tracing.processor import LaminarSpanProcessor
 from lmnr.sdk.client.asynchronous.async_client import AsyncLaminarClient
-from lmnr.sdk.client.synchronous.sync_client import LaminarClient
 from lmnr.sdk.types import SessionRecordingOptions
 from lmnr.sdk.log import VerboseColorfulFormatter
 from lmnr.opentelemetry_lib.tracing.instruments import (
@@ -13,11 +12,11 @@ from lmnr.opentelemetry_lib.tracing.instruments import (
 )
 from lmnr.opentelemetry_lib.tracing.context import (
     attach_context,
-    detach_context,
+    clear_context,
+    pop_span_context as ctx_pop_span_context,
     get_current_context,
     get_token_stack,
-    _isolated_token_stack,
-    _isolated_token_stack_storage,
+    push_span_context as ctx_push_span_context,
     set_token_stack,
 )
 
@@ -43,7 +42,6 @@ class TracerWrapper(object):
     _lock = threading.Lock()
     _tracer_provider: TracerProvider | None = None
     _logger: logging.Logger
-    _client: LaminarClient
     _async_client: AsyncLaminarClient
     _resource: Resource
     _span_processor: SpanProcessor
@@ -79,16 +77,11 @@ class TracerWrapper(object):
                 cls.session_recording_options = session_recording_options or {}
 
                 if project_api_key:
-                    obj._client = LaminarClient(
-                        base_url=base_http_url or "https://api.lmnr.ai",
-                        project_api_key=project_api_key,
-                    )
                     obj._async_client = AsyncLaminarClient(
                         base_url=base_http_url or "https://api.lmnr.ai",
                         project_api_key=project_api_key,
                     )
                 else:
-                    obj._client = None
                     obj._async_client = None
 
                 obj._resource = Resource(attributes=TracerWrapper.resource_attributes)
@@ -96,7 +89,8 @@ class TracerWrapper(object):
                 obj._span_processor = LaminarSpanProcessor(
                     base_url=base_url,
                     api_key=project_api_key,
-                    port=http_port if force_http else port,
+                    http_port=http_port,
+                    grpc_port=port,
                     exporter=exporter,
                     max_export_batch_size=max_export_batch_size,
                     timeout_seconds=timeout_seconds,
@@ -129,7 +123,6 @@ class TracerWrapper(object):
                     tracer_provider=obj._tracer_provider,
                     instruments=instruments,
                     block_instruments=block_instruments,
-                    client=obj._client,
                     async_client=obj._async_client,
                 )
 
@@ -196,22 +189,12 @@ class TracerWrapper(object):
         """Push a new context with the given span onto the stack."""
         current_ctx = get_current_context()
         new_context = trace.set_span_in_context(span, current_ctx)
-        token = attach_context(new_context)
-
-        # Store the token for later detachment - tokens are much lighter than contexts
-        current_stack = get_token_stack().copy()
-        current_stack.append(token)
-        set_token_stack(current_stack)
-
+        ctx_push_span_context(new_context)
         return new_context
 
     def pop_span_context(self) -> None:
         """Pop the current span context from the stack."""
-        current_stack = get_token_stack().copy()
-        if current_stack:
-            token = current_stack.pop()
-            set_token_stack(current_stack)
-            detach_context(token)
+        ctx_pop_span_context()
 
     @staticmethod
     def set_static_params(
@@ -245,14 +228,7 @@ class TracerWrapper(object):
         if isinstance(cls.instance._span_processor, LaminarSpanProcessor):
             cls.instance._span_processor.clear()
         # Clear the isolated context state for clean test state
-        try:
-            _isolated_token_stack.set([])
-        except LookupError:
-            pass
-        if hasattr(_isolated_token_stack_storage, "token_stack"):
-            _isolated_token_stack_storage.token_stack = []
-        # Reset the isolated context to a fresh state
-        attach_context(Context())
+        clear_context()
 
     def shutdown(self):
         if self._tracer_provider is None:
@@ -269,6 +245,9 @@ class TracerWrapper(object):
         if isinstance(self._span_processor, LaminarSpanProcessor):
             self._span_processor.force_flush()
             self._span_processor.force_reinit()
+            # Clear the isolated context to prevent subsequent invocations
+            # (e.g., in Lambda) from continuing traces from previous invocations
+            clear_context()
         else:
             self._logger.warning(
                 "Not using LaminarSpanProcessor, cannot force reinit processor"

@@ -1,24 +1,44 @@
-[build-system]
-requires = [
-    "poetry>=1.0.0",
+[project]
+name = "sqlalchemy_exasol"
+version = "6.0.0"
+# pytest-exasol-backend requires Python <3.14. When pytest-exasol-backend has been
+# updated to allow Python 3.14, then we can remove the override for python_versions.
+# Keeping track of pytest-exasol-backend and removing the override is tracked in
+# this issue:
+#     https://github.com/exasol/sqlalchemy-exasol/issues/674
+requires-python = ">=3.10,<3.14"
+description = "EXASOL dialect for SQLAlchemy"
+authors = [
+    { name = "Exasol AG", email = "opensource@exasol.com" },
+    { name = "Blue Yonder GmbH" },
 ]
+readme = "README.rst"
+license = "BSD"
+keywords = [
+    "exasol",
+    "sql",
+    "sqlalchemy",
+    "data science",
+    "database",
+]
+dynamic = ["classifiers", "dependencies"]
+
+[project.urls]
+Homepage = "https://www.exasol.com/"
+Documentation = "https://exasol.github.io/sqlalchemy-exasol/"
+Source = "https://github.com/exasol/sqlalchemy-exasol"
+Issues = "https://github.com/exasol/sqlalchemy-exasol/issues"
+Changelog = "https://exasol.github.io/sqlalchemy-exasol/changelog.html"
+
+[build-system]
+requires = ["poetry_core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "sqlalchemy_exasol"
+requires-poetry = ">=2.1.0"
 packages = [
     { include = "sqlalchemy_exasol" },
-    { include = "exasol" }
 ]
-version = "5.1.0"
-description = "EXASOL dialect for SQLAlchemy"
-readme = "README.rst"
-authors = [
-    "Exasol AG <opensource@exasol.com>",
-    "Blue Yonder GmbH",
-]
-license = "BSD"
-
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Operating System :: POSIX :: Linux",
@@ -27,21 +47,17 @@ classifiers = [
     "Intended Audience :: Information Technology",
     "Programming Language :: SQL",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Database",
     "Topic :: Software Development",
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Information Analysis",
-]
-keywords = [
-    "exasol",
-    "sql",
-    "sqlalchemy",
-    "data science",
-    "database",
 ]
 include = [
     "README.rst",
@@ -50,69 +66,34 @@ include = [
 ]
 exclude = []
 
-[tool.poetry.urls]
-"Homepage" = "https://www.exasol.com/"
-"Documentation" = "https://exasol.github.io/sqlalchemy-exasol/"
-"Source" = "https://github.com/exasol/sqlalchemy-exasol"
-"Issues" = "https://github.com/exasol/sqlalchemy-exasol/issues"
-"Changelog" = "https://exasol.github.io/sqlalchemy-exasol/changelog.html"
-
-
 [tool.poetry.dependencies]
-python = ">=3.9.2,<4.0"
 packaging = ">=21.3"
-pyexasol = ">=0.26.0,<1"
-sqlalchemy = ">=1.4,<2"
-
-[tool.poetry.dependencies.turbodbc]
-version = "==4.5.4"
-optional = true
-
-[tool.poetry.dependencies.pyodbc]
-version = ">=4.0.34,<6"
-optional = true
+pyexasol = ">=0.26.0,<2"
+sqlalchemy = "^2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 nox = ">=2022.1.7"
-urlscan = ">=0.9.9"
 pytest-json-report = ">=1.5.0"
-# The excluded versions mirror the excluded versions of sqla 1.3.X.
-# The limitation/issue pytest <6 is tracked in https://github.com/exasol/sqlalchemy-exasol/issues/144
 pytest = ">=6,<9"
-pytest-cov = ">=2.7.0"
-pre-commit = ">=2.19.0"
-black = ">=22.6.0"
-isort = "^5.10.1"
-pylint = ">=2.14.5,<4.0.0"
-Sphinx = ">=6"
-furo = ">=2022.6.21"
-sphinx-copybutton = "^0.5.0"
-mypy = ">=0.982"
-pyupgrade = ">=3.0.0"
 rich = "^13.3.1"
-exasol-integration-test-docker-environment = "^3.1.0"
-pytest-history = ">=0.2.0"
-pyodbc = ">=4.0.34,<6"
-pytest-exasol-itde = ">=0.2.0,<1"
-exasol-toolbox = "^0.20.0"
-
-[tool.poetry.extras]
-pyodbc = ["pyodbc"]
-turbodbc = ["turbodbc"]
+exasol-integration-test-docker-environment = "^5.0.0"
+pytest-exasol-backend = "^1.0.0"
+exasol-toolbox = "^3.0.0"
 
 [tool.poetry.plugins."sqlalchemy.dialects"]
-"exa.pyodbc" = "sqlalchemy_exasol.pyodbc:EXADialect_pyodbc"
-"exa.turbodbc" = "sqlalchemy_exasol.turbodbc:EXADialect_turbodbc"
 "exa.websocket" = "sqlalchemy_exasol.websocket:EXADialect_websocket"
 
 
 [tool.pytest.ini_options]
 addopts = "--tb native -v -r fxX"
 filterwarnings = [
-    "error::DeprecationWarning",
-    "ignore::DeprecationWarning:sqlalchemy.testing.plugin.*",
-    "ignore::DeprecationWarning:sqlalchemy_exasol.*",
+    "error",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
 ]
+markers = [
+    "backend: backend tests.",
+]
+xfail_strict = true
 
 [tool.black]
 line-length = 88
@@ -124,19 +105,30 @@ profile = "black"
 force_grid_wrap = 2
 
 [tool.pylint.master]
-fail-under = 5.5
+fail-under = 4.9
 
 [tool.pylint.format]
 max-line-length = 88
 max-module-lines = 800
 
+[tool.ruff.lint]
+extend-ignore = [
+    "E",      # Syntax errors
+    "F",      # Pyflakes rules (excluding F401)
+    "UP",     # pyupgrade rules
+    "D",      # Docstring rules
+]
+extend-select = ["F401"]
+unfixable = []
+
 [[tool.mypy.overrides]]
 module = [
-    "noxfile",
-    "noxconfig",
-    "sqlalchemy_exasol.*", 
-    "exasol.odbc",
     "test.*",
 ]
 ignore_errors = true
+follow_untyped_imports = true
 
+[tool.sonar]
+projectKey = "com.exasol:sqlalchemy-exasol"
+hostUrl = "https://sonarcloud.io"
+organization = "exasol"

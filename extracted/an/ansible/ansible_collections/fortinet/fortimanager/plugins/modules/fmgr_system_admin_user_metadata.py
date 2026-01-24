@@ -16,7 +16,6 @@ short_description: Configure meta data.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -156,7 +155,7 @@ EXAMPLES = '''
           selector: "system_admin_user_metadata"
           params:
             user: "ansible-test" # userid
-            meta-data: "your_value"
+            meta_data: "your_value"
 '''
 
 RETURN = '''

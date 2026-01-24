@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <random>
+#include <set>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -280,8 +281,29 @@ class StateVectorCudaManaged
                         const std::vector<std::size_t> &wires, bool adjoint,
                         const std::vector<Precision> &params,
                         const std::vector<ComplexT> &matrix) {
-        std::vector<CFP_t> matrix_cu(matrix.size());
-        std::transform(matrix.begin(), matrix.end(), matrix_cu.begin(),
+        applyOperation(opName, wires, adjoint, params, matrix.data(),
+                       matrix.size());
+    }
+
+    /**
+     * @brief Apply a single gate to the state-vector. Offloads to custatevec
+     * specific API calls if available. If unable, attempts to use prior cached
+     * gate values on the device. Lastly, accepts a host-provided matrix if
+     * otherwise, and caches on the device for later reuse.
+     *
+     * @param opName Name of gate to apply.
+     * @param wires Wires to apply gate to.
+     * @param adjoint Indicates whether to use adjoint of gate.
+     * @param params Optional parameter list for parametric gates.
+     * @param matrix Gate data (in row-major format).
+     * @param mat_size The number of components in the gate matrix
+     */
+    void applyOperation(const std::string &opName,
+                        const std::vector<std::size_t> &wires, bool adjoint,
+                        const std::vector<Precision> &params,
+                        const ComplexT *matrix, const size_t mat_size) {
+        std::vector<CFP_t> matrix_cu(mat_size);
+        std::transform(matrix, matrix + mat_size, matrix_cu.begin(),
                        [](const std::complex<Precision> &x) {
                            return cuUtil::complexToCu<std::complex<Precision>>(
                                x);
@@ -418,6 +440,7 @@ class StateVectorCudaManaged
         PL_ABORT_IF(controlled_wires.size() != controlled_values.size(),
                     "`controlled_wires` and `controlled_values` must have the "
                     "same size.");
+
         auto ctrlsInt = NormalizeCastIndices<std::size_t, int>(
             controlled_wires, BaseType::getNumQubits());
         auto tgtsInt = NormalizeCastIndices<std::size_t, int>(
@@ -430,6 +453,42 @@ class StateVectorCudaManaged
             applyParametricPauliGeneralGate_(names, ctrlsInt, ctrls_valuesInt,
                                              tgtsInt, params.front(), adjoint);
         } else if (opName == "GlobalPhase") {
+            // Handle GlobalPhase with zero-qubit target wires by computing the
+            // complement wires in parity with other state-vector simulators.
+            if (tgt_wires.empty()) {
+                const std::set<std::size_t> controlled_set(
+                    controlled_wires.begin(), controlled_wires.end());
+
+                std::vector<std::size_t> comp_wires;
+                const auto num_qubits = BaseType::getNumQubits();
+                comp_wires.reserve(num_qubits);
+
+                for (std::size_t i = 0; i < num_qubits; ++i) {
+                    if (controlled_set.find(i) == controlled_set.end()) {
+                        comp_wires.push_back(i);
+                    }
+                }
+
+                tgtsInt = NormalizeCastIndices<std::size_t, int>(
+                    comp_wires, BaseType::getNumQubits());
+            }
+
+            // Special cases for single controlled wires
+            if (controlled_wires.size() == 1 && controlled_values[0]) {
+                std::vector<Precision> neg_params = {-params[0]};
+                applyOperation("PhaseShift", {}, {}, controlled_wires, adjoint,
+                               neg_params);
+                return;
+            }
+
+            if (controlled_wires.size() == 1 && !controlled_values[0] &&
+                BaseType::getNumQubits() == 1) {
+                applyOperation("PhaseShift", {}, {}, controlled_wires, adjoint,
+                               params);
+                applyOperation("GlobalPhase", {}, {}, {}, adjoint, params);
+                return;
+            }
+
             const std::vector<std::string> names(tgtsInt.size(), "I");
             applyParametricPauliGeneralGate_(names, ctrlsInt, ctrls_valuesInt,
                                              tgtsInt, 2 * params[0], adjoint);
@@ -669,6 +728,10 @@ class StateVectorCudaManaged
             /* const uint32_t nBasisBits */ basisBits.size()));
 
         const double norm = branch ? abs2sum1 : abs2sum0;
+
+        PL_ABORT_IF(norm < std::numeric_limits<PrecisionT>::epsilon() * 1e2,
+                    "Chosen branch has vector norm close to zero and cannot be "
+                    "normalized");
 
         const int parity = static_cast<int>(branch);
 

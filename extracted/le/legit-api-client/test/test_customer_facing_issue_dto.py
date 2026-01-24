@@ -54,9 +54,14 @@ class TestCustomerFacingIssueDto(unittest.TestCase):
                     ai_validation_result = null, 
                     validity_status = null, 
                     validity_check_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                    verified_validation_url = '', ),
+                    verified_validation_url = '', 
+                    commit_author_names = [
+                        ''
+                        ], ),
                 dependency_vulnerability_data_dto = legit_api_client.models.dependency_vulnerability_data_dto.DependencyVulnerabilityDataDto(
-                    minimal_dependency_fix_type = null, ),
+                    minimal_dependency_fix_type = null, 
+                    vulnerability_id = '', 
+                    reachability = null, ),
                 dast_data_dto = legit_api_client.models.dast_data_dto.DastDataDto(
                     dast_confidence_level = null, ),
                 origin_id = '',
@@ -64,7 +69,20 @@ class TestCustomerFacingIssueDto(unittest.TestCase):
                 origin_link = '',
                 action_id = '',
                 policy_name = '',
-                assigned_user_id = ''
+                assigned_user_id = '',
+                sources = [
+                    legit_api_client.models.source_dto.SourceDto(
+                        integration_id = '', 
+                        source_name = '', )
+                    ],
+                product_units = [
+                    legit_api_client.models.product_unit_issue_dto.ProductUnitIssueDto(
+                        product_unit_id = '', 
+                        product_unit_name = '', )
+                    ],
+                remediation_steps = [
+                    ''
+                    ]
             )
         else:
             return CustomerFacingIssueDto(

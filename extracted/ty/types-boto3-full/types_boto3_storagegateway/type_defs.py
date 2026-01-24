@@ -3,7 +3,7 @@ Type annotations for storagegateway service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_storagegateway/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -38,12 +39,6 @@ from .literals import (
     TapeStorageClassType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -309,7 +304,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -360,7 +355,7 @@ class BandwidthRateLimitIntervalOutputTypeDef(TypedDict):
     StartMinuteOfHour: int
     EndHourOfDay: int
     EndMinuteOfHour: int
-    DaysOfWeek: List[int]
+    DaysOfWeek: list[int]
     AverageUploadRateLimitInBitsPerSec: NotRequired[int]
     AverageDownloadRateLimitInBitsPerSec: NotRequired[int]
 
@@ -377,7 +372,7 @@ class BandwidthRateLimitIntervalTypeDef(TypedDict):
 
 class CacheReportFilterOutputTypeDef(TypedDict):
     Name: CacheReportFilterNameType
-    Values: List[str]
+    Values: list[str]
 
 
 class CacheReportFilterTypeDef(TypedDict):
@@ -534,7 +529,7 @@ class DescribeSMBSettingsInputTypeDef(TypedDict):
 
 
 class SMBLocalGroupsOutputTypeDef(TypedDict):
-    GatewayAdmins: NotRequired[List[str]]
+    GatewayAdmins: NotRequired[list[str]]
 
 
 class DescribeSnapshotScheduleInputTypeDef(TypedDict):
@@ -653,11 +648,11 @@ class DiskTypeDef(TypedDict):
     DiskSizeInBytes: NotRequired[int]
     DiskAllocationType: NotRequired[str]
     DiskAllocationResource: NotRequired[str]
-    DiskAttributeList: NotRequired[List[str]]
+    DiskAttributeList: NotRequired[list[str]]
 
 
 class EndpointNetworkConfigurationOutputTypeDef(TypedDict):
-    IpAddresses: NotRequired[List[str]]
+    IpAddresses: NotRequired[list[str]]
 
 
 class EndpointNetworkConfigurationTypeDef(TypedDict):
@@ -1101,7 +1096,7 @@ class CreateTapeWithBarcodeOutputTypeDef(TypedDict):
 
 
 class CreateTapesOutputTypeDef(TypedDict):
-    TapeARNs: List[str]
+    TapeARNs: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1177,7 +1172,7 @@ class DescribeBandwidthRateLimitOutputTypeDef(TypedDict):
 
 class DescribeCacheOutputTypeDef(TypedDict):
     GatewayARN: str
-    DiskIds: List[str]
+    DiskIds: list[str]
     CacheAllocatedInBytes: int
     CacheUsedPercentage: float
     CacheDirtyPercentage: float
@@ -1192,13 +1187,13 @@ class DescribeSnapshotScheduleOutputTypeDef(TypedDict):
     RecurrenceInHours: int
     Description: str
     Timezone: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeUploadBufferOutputTypeDef(TypedDict):
     GatewayARN: str
-    DiskIds: List[str]
+    DiskIds: list[str]
     UploadBufferUsedInBytes: int
     UploadBufferAllocatedInBytes: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1206,7 +1201,7 @@ class DescribeUploadBufferOutputTypeDef(TypedDict):
 
 class DescribeWorkingStorageOutputTypeDef(TypedDict):
     GatewayARN: str
-    DiskIds: List[str]
+    DiskIds: list[str]
     WorkingStorageUsedInBytes: int
     WorkingStorageAllocatedInBytes: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1241,12 +1236,12 @@ class JoinDomainOutputTypeDef(TypedDict):
 class ListTagsForResourceOutputTypeDef(TypedDict):
     ResourceARN: str
     Marker: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListVolumeInitiatorsOutputTypeDef(TypedDict):
-    Initiators: List[str]
+    Initiators: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1441,13 +1436,13 @@ SMBFileShareInfoTypeDef = TypedDict(
         "RequesterPays": NotRequired[bool],
         "SMBACLEnabled": NotRequired[bool],
         "AccessBasedEnumeration": NotRequired[bool],
-        "AdminUserList": NotRequired[List[str]],
-        "ValidUserList": NotRequired[List[str]],
-        "InvalidUserList": NotRequired[List[str]],
+        "AdminUserList": NotRequired[list[str]],
+        "ValidUserList": NotRequired[list[str]],
+        "InvalidUserList": NotRequired[list[str]],
         "AuditDestinationARN": NotRequired[str],
         "Authentication": NotRequired[str],
         "CaseSensitivity": NotRequired[CaseSensitivityType],
-        "Tags": NotRequired[List[TagTypeDef]],
+        "Tags": NotRequired[list[TagTypeDef]],
         "FileShareName": NotRequired[str],
         "CacheAttributes": NotRequired[CacheAttributesTypeDef],
         "NotificationPolicy": NotRequired[str],
@@ -1494,7 +1489,7 @@ UpdateSMBFileShareInputTypeDef = TypedDict(
 
 
 class AutomaticTapeCreationPolicyInfoTypeDef(TypedDict):
-    AutomaticTapeCreationRules: NotRequired[List[AutomaticTapeCreationRuleTypeDef]]
+    AutomaticTapeCreationRules: NotRequired[list[AutomaticTapeCreationRuleTypeDef]]
     GatewayARN: NotRequired[str]
 
 
@@ -1505,7 +1500,7 @@ class UpdateAutomaticTapeCreationPolicyInputTypeDef(TypedDict):
 
 class DescribeBandwidthRateLimitScheduleOutputTypeDef(TypedDict):
     GatewayARN: str
-    BandwidthRateLimitIntervals: List[BandwidthRateLimitIntervalOutputTypeDef]
+    BandwidthRateLimitIntervals: list[BandwidthRateLimitIntervalOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1523,10 +1518,10 @@ class CacheReportInfoTypeDef(TypedDict):
     FileShareARN: NotRequired[str]
     LocationARN: NotRequired[str]
     StartTime: NotRequired[datetime]
-    InclusionFilters: NotRequired[List[CacheReportFilterOutputTypeDef]]
-    ExclusionFilters: NotRequired[List[CacheReportFilterOutputTypeDef]]
+    InclusionFilters: NotRequired[list[CacheReportFilterOutputTypeDef]]
+    ExclusionFilters: NotRequired[list[CacheReportFilterOutputTypeDef]]
     ReportName: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 CacheReportFilterUnionTypeDef = Union[CacheReportFilterTypeDef, CacheReportFilterOutputTypeDef]
@@ -1567,7 +1562,7 @@ class StorediSCSIVolumeTypeDef(TypedDict):
 
 
 class DescribeChapCredentialsOutputTypeDef(TypedDict):
-    ChapCredentials: List[ChapInfoTypeDef]
+    ChapCredentials: list[ChapInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1614,12 +1609,12 @@ NFSFileShareInfoTypeDef = TypedDict(
         "LocationARN": NotRequired[str],
         "DefaultStorageClass": NotRequired[str],
         "ObjectACL": NotRequired[ObjectACLType],
-        "ClientList": NotRequired[List[str]],
+        "ClientList": NotRequired[list[str]],
         "Squash": NotRequired[str],
         "ReadOnly": NotRequired[bool],
         "GuessMIMETypeEnabled": NotRequired[bool],
         "RequesterPays": NotRequired[bool],
-        "Tags": NotRequired[List[TagTypeDef]],
+        "Tags": NotRequired[list[TagTypeDef]],
         "FileShareName": NotRequired[str],
         "CacheAttributes": NotRequired[CacheAttributesTypeDef],
         "NotificationPolicy": NotRequired[str],
@@ -1657,13 +1652,13 @@ class DescribeGatewayInformationOutputTypeDef(TypedDict):
     GatewayName: str
     GatewayTimezone: str
     GatewayState: str
-    GatewayNetworkInterfaces: List[NetworkInterfaceTypeDef]
+    GatewayNetworkInterfaces: list[NetworkInterfaceTypeDef]
     GatewayType: str
     NextUpdateAvailabilityDate: str
     LastSoftwareUpdate: str
     Ec2InstanceId: str
     Ec2InstanceRegion: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     VPCEndpoint: str
     CloudWatchLogGroupARN: str
     HostEnvironment: HostEnvironmentType
@@ -1671,7 +1666,7 @@ class DescribeGatewayInformationOutputTypeDef(TypedDict):
     SoftwareUpdatesEndDate: str
     DeprecationDate: str
     GatewayCapacity: GatewayCapacityType
-    SupportedGatewayCapacities: List[GatewayCapacityType]
+    SupportedGatewayCapacities: list[GatewayCapacityType]
     HostEnvironmentId: str
     SoftwareVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1769,20 +1764,20 @@ class ListVolumesInputPaginateTypeDef(TypedDict):
 
 
 class DescribeTapeArchivesOutputTypeDef(TypedDict):
-    TapeArchives: List[TapeArchiveTypeDef]
+    TapeArchives: list[TapeArchiveTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeTapeRecoveryPointsOutputTypeDef(TypedDict):
     GatewayARN: str
-    TapeRecoveryPointInfos: List[TapeRecoveryPointInfoTypeDef]
+    TapeRecoveryPointInfos: list[TapeRecoveryPointInfoTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeTapesOutputTypeDef(TypedDict):
-    Tapes: List[TapeTypeDef]
+    Tapes: list[TapeTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1797,7 +1792,7 @@ class VTLDeviceTypeDef(TypedDict):
 
 class ListLocalDisksOutputTypeDef(TypedDict):
     GatewayARN: str
-    Disks: List[DiskTypeDef]
+    Disks: list[DiskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1809,7 +1804,7 @@ EndpointNetworkConfigurationUnionTypeDef = Union[
 class ListFileSharesOutputTypeDef(TypedDict):
     Marker: str
     NextMarker: str
-    FileShareInfoList: List[FileShareInfoTypeDef]
+    FileShareInfoList: list[FileShareInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1819,47 +1814,47 @@ class FileSystemAssociationInfoTypeDef(TypedDict):
     FileSystemAssociationStatus: NotRequired[str]
     AuditDestinationARN: NotRequired[str]
     GatewayARN: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     CacheAttributes: NotRequired[CacheAttributesTypeDef]
     EndpointNetworkConfiguration: NotRequired[EndpointNetworkConfigurationOutputTypeDef]
-    FileSystemAssociationStatusDetails: NotRequired[List[FileSystemAssociationStatusDetailTypeDef]]
+    FileSystemAssociationStatusDetails: NotRequired[list[FileSystemAssociationStatusDetailTypeDef]]
 
 
 class ListFileSystemAssociationsOutputTypeDef(TypedDict):
     Marker: str
     NextMarker: str
-    FileSystemAssociationSummaryList: List[FileSystemAssociationSummaryTypeDef]
+    FileSystemAssociationSummaryList: list[FileSystemAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListGatewaysOutputTypeDef(TypedDict):
-    Gateways: List[GatewayInfoTypeDef]
+    Gateways: list[GatewayInfoTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTapePoolsOutputTypeDef(TypedDict):
-    PoolInfos: List[PoolInfoTypeDef]
+    PoolInfos: list[PoolInfoTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTapesOutputTypeDef(TypedDict):
-    TapeInfos: List[TapeInfoTypeDef]
+    TapeInfos: list[TapeInfoTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListVolumeRecoveryPointsOutputTypeDef(TypedDict):
     GatewayARN: str
-    VolumeRecoveryPointInfos: List[VolumeRecoveryPointInfoTypeDef]
+    VolumeRecoveryPointInfos: list[VolumeRecoveryPointInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListVolumesOutputTypeDef(TypedDict):
     GatewayARN: str
     Marker: str
-    VolumeInfos: List[VolumeInfoTypeDef]
+    VolumeInfos: list[VolumeInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1867,12 +1862,12 @@ SMBLocalGroupsUnionTypeDef = Union[SMBLocalGroupsTypeDef, SMBLocalGroupsOutputTy
 
 
 class DescribeSMBFileSharesOutputTypeDef(TypedDict):
-    SMBFileShareInfoList: List[SMBFileShareInfoTypeDef]
+    SMBFileShareInfoList: list[SMBFileShareInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListAutomaticTapeCreationPoliciesOutputTypeDef(TypedDict):
-    AutomaticTapeCreationPolicyInfos: List[AutomaticTapeCreationPolicyInfoTypeDef]
+    AutomaticTapeCreationPolicyInfos: list[AutomaticTapeCreationPolicyInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1887,7 +1882,7 @@ class DescribeCacheReportOutputTypeDef(TypedDict):
 
 
 class ListCacheReportsOutputTypeDef(TypedDict):
-    CacheReportList: List[CacheReportInfoTypeDef]
+    CacheReportList: list[CacheReportInfoTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1905,23 +1900,23 @@ class StartCacheReportInputTypeDef(TypedDict):
 
 
 class DescribeCachediSCSIVolumesOutputTypeDef(TypedDict):
-    CachediSCSIVolumes: List[CachediSCSIVolumeTypeDef]
+    CachediSCSIVolumes: list[CachediSCSIVolumeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeStorediSCSIVolumesOutputTypeDef(TypedDict):
-    StorediSCSIVolumes: List[StorediSCSIVolumeTypeDef]
+    StorediSCSIVolumes: list[StorediSCSIVolumeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeNFSFileSharesOutputTypeDef(TypedDict):
-    NFSFileShareInfoList: List[NFSFileShareInfoTypeDef]
+    NFSFileShareInfoList: list[NFSFileShareInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeVTLDevicesOutputTypeDef(TypedDict):
     GatewayARN: str
-    VTLDevices: List[VTLDeviceTypeDef]
+    VTLDevices: list[VTLDeviceTypeDef]
     Marker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1939,7 +1934,7 @@ class AssociateFileSystemInputTypeDef(TypedDict):
 
 
 class DescribeFileSystemAssociationsOutputTypeDef(TypedDict):
-    FileSystemAssociationInfoList: List[FileSystemAssociationInfoTypeDef]
+    FileSystemAssociationInfoList: list[FileSystemAssociationInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

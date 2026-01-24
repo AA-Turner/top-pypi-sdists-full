@@ -34,7 +34,6 @@ pub enum SyntaxKind {
     LOCAL_TIME,
     WHITESPACE,
     LINE_BREAK,
-    BARE_KEY,
     COMMENT,
     ERROR,
     ROOT,
@@ -42,6 +41,7 @@ pub enum SyntaxKind {
     KEY,
     VALUE,
     KEY_VALUE,
+    BARE_KEY,
     ARRAY,
     TABLE,
     INLINE_TABLE,
@@ -66,7 +66,7 @@ impl From<SyntaxKind> for tombi_rg_tree::SyntaxKind {
 impl From<u16> for SyntaxKind {
     #[inline]
     fn from(d: u16) -> SyntaxKind {
-        assert!(d <= (SyntaxKind::__LAST as u16));
+        debug_assert!(d <= (SyntaxKind::__LAST as u16));
         unsafe { std::mem::transmute::<u16, SyntaxKind>(d) }
     }
 }

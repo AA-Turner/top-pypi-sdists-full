@@ -767,7 +767,7 @@ class Interface(AsyncObject):
                 except Exception as e_s:
                     e_s.trace = traceback.format_stack()
                     ret.append(e_s)
-            if not ret:
+            if spec and not ret:
                 ret = [KeyError('no address records matched')]
             return ret
 
@@ -867,7 +867,7 @@ class Interface(AsyncObject):
         if isinstance(key, dict):
             ret_key = key
         else:
-            ret_key = {'target': self.ndb.localhost}
+            ret_key = {'target': self.ndb.config.localhost}
         if isinstance(key, basestring):
             ret_key['ifname'] = key
         elif isinstance(key, int):

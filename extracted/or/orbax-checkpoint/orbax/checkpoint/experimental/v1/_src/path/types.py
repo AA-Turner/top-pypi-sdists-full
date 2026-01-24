@@ -21,8 +21,9 @@ from typing import Protocol
 
 from etils import epath
 
+
 Path = epath.Path
-PathLike = epath.PathLike
+PathLike = Path | str
 
 
 @typing.runtime_checkable
@@ -31,11 +32,12 @@ class PathAwaitingCreation(Protocol):
 
   This construct is used to represent a path in the process of being created.
   The underlying path can be accessed logically, but the actual location in
-  the filesystem should not be accessed until `await_creation` is called.
+  the filesystem should not be accessed until :py:meth:`.await_creation` is
+  called.
 
   Usage::
 
-    path: PathAwaitingCreation = ...
+    path: :py:class:`.PathAwaitingCreation` = ...
     # Logical accesses are OK.
     print(path.path)
     # Block until the path is known to exist.
@@ -43,9 +45,7 @@ class PathAwaitingCreation(Protocol):
     path.exists()  # True.
   """
 
-  def __truediv__(
-      self, other: PathAwaitingCreation | PathLike
-  ) -> PathAwaitingCreation:
+  def __truediv__(self, other: PathLike) -> PathAwaitingCreation:
     ...
 
   @property
@@ -53,4 +53,17 @@ class PathAwaitingCreation(Protocol):
     ...
 
   async def await_creation(self) -> Path:
+    """Waits for the directory to be created.
+
+    This is a blocking operation, though it should return immediately if the
+    path has already been created. Be cautious about where this method is
+    called, since implementations may trigger the creation if `await_creation`
+    is called before the directory creation has been triggered.
+
+    It is recommended to only call this from background awaitables, or to
+    delay as long as possible.
+
+    Returns:
+      The path that was created.
+    """
     ...

@@ -1,8 +1,8 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _10_testInputs : packoffset(c0);
-    float4 _10_colorGreen : packoffset(c1);
-    float4 _10_colorRed : packoffset(c2);
+    float4 _11_testInputs : packoffset(c0);
+    float4 _11_colorGreen : packoffset(c1);
+    float4 _11_colorRed : packoffset(c2);
 };
 
 
@@ -13,91 +13,91 @@ struct SPIRV_Cross_Output
     float4 sk_FragColor : SV_Target0;
 };
 
-float4 main(float2 _24)
+float4 main(float2 _25)
 {
-    float4 _35 = 0.0f.xxxx / _10_testInputs.yyyy;
+    float4 _35 = 0.0f.xxxx / _11_testInputs.yyyy;
     float4 valueIsNaN = _35;
-    float4 _41 = 1.0f.xxxx / _10_testInputs;
+    float4 _41 = 1.0f.xxxx / _11_testInputs;
     float4 valueIsNumber = _41;
-    bool _51 = false;
+    bool _52 = false;
     if (isnan(_35.x))
     {
-        _51 = all(isnan(_35.xy));
+        _52 = all(isnan(_35.xy));
     }
     else
     {
-        _51 = false;
+        _52 = false;
     }
-    bool _59 = false;
-    if (_51)
+    bool _60 = false;
+    if (_52)
     {
-        _59 = all(isnan(_35.xyz));
+        _60 = all(isnan(_35.xyz));
     }
     else
     {
-        _59 = false;
+        _60 = false;
     }
-    bool _65 = false;
-    if (_59)
+    bool _66 = false;
+    if (_60)
     {
-        _65 = all(isnan(_35));
+        _66 = all(isnan(_35));
     }
     else
     {
-        _65 = false;
+        _66 = false;
     }
-    bool _71 = false;
-    if (_65)
+    bool _72 = false;
+    if (_66)
     {
-        _71 = !isnan(_41.x);
+        _72 = !isnan(_41.x);
     }
     else
     {
-        _71 = false;
+        _72 = false;
     }
-    bool _78 = false;
-    if (_71)
+    bool _79 = false;
+    if (_72)
     {
-        _78 = !any(isnan(_41.xy));
+        _79 = !any(isnan(_41.xy));
     }
     else
     {
-        _78 = false;
+        _79 = false;
     }
-    bool _85 = false;
-    if (_78)
+    bool _86 = false;
+    if (_79)
     {
-        _85 = !any(isnan(_41.xyz));
+        _86 = !any(isnan(_41.xyz));
     }
     else
     {
-        _85 = false;
+        _86 = false;
     }
-    bool _91 = false;
-    if (_85)
+    bool _92 = false;
+    if (_86)
     {
-        _91 = !any(isnan(_41));
+        _92 = !any(isnan(_41));
     }
     else
     {
-        _91 = false;
+        _92 = false;
     }
-    float4 _92 = 0.0f.xxxx;
-    if (_91)
+    float4 _93 = 0.0f.xxxx;
+    if (_92)
     {
-        _92 = _10_colorGreen;
+        _93 = _11_colorGreen;
     }
     else
     {
-        _92 = _10_colorRed;
+        _93 = _11_colorRed;
     }
-    return _92;
+    return _93;
 }
 
 void frag_main()
 {
-    float2 _20 = 0.0f.xx;
-    sk_FragColor = main(_20);
+    float2 _21 = 0.0f.xx;
+    sk_FragColor = main(_21);
 }
 
 SPIRV_Cross_Output main()

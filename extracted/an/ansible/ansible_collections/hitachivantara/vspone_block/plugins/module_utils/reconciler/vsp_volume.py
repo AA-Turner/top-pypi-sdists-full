@@ -129,6 +129,7 @@ class VSPVolumeReconciler:
             if volume.attributes and "CMD" in volume.attributes:
                 self.provisioner.fill_cmd_device_info(volume)
 
+            additional_change = False
             if spec.should_shred_volume_enable:
                 unused = self.provisioner.shredding_volume(
                     spec.ldev_id, spec.should_shred_volume_enable
@@ -139,19 +140,23 @@ class VSPVolumeReconciler:
                 self.provisioner.change_qos_settings(spec.ldev_id, spec.qos_settings)
                 logger.writeInfo("RC:volume_reconcile:qos_settings finished")
                 self.connection_info.changed = True
+                additional_change = True
 
             if spec.mp_blade_id is not None and spec.mp_blade_id != volume.mpBladeId:
                 self.provisioner.change_mp_blade(spec.ldev_id, spec.mp_blade_id)
                 self.connection_info.changed = True
+                additional_change = True
 
             if spec.clpr_id is not None and spec.clpr_id != volume.clprId:
                 self.provisioner.assign_ldev_to_clpr(spec.ldev_id, spec.clpr_id)
                 self.connection_info.changed = True
+                additional_change = True
 
             if spec.should_reclaim_zero_pages:
                 self.provisioner.reclaim_zero_pages(spec.ldev_id)
                 logger.writeInfo("RC:volume_reconcile:reclaim_zero_pages finished")
                 self.connection_info.changed = True
+                additional_change = True
 
             # Keep this logic always at the end of the volume creation
             if spec.should_format_volume:
@@ -183,12 +188,24 @@ class VSPVolumeReconciler:
                 logger.writeInfo("RC:volume_reconcile:format volume finished")
                 self.connection_info.changed = True
 
-            if self.connection_info.changed:
+            if additional_change:
                 volume = self.provisioner.get_volume_by_ldev(spec.ldev_id)
 
             if new_vol:
                 if spec and hasattr(spec, "comment") is not None:
                     spec.comment = "Volume created successfully."
+            create_qos_settings = True if spec.qos_settings else False
+            return self.get_volume_detail_info(
+                volume, create_qos_setting=create_qos_settings
+            )
+
+        elif state == StateValue.ASSIGN_VIRTUAL_LDEV:
+            if spec.ldev_id is None and spec.vldev_id is None:
+                raise ValueError(VSPVolValidationMsg.BOTH_LDEV_VLDEV_ID_REQD.value)
+            volume = self.provisioner.get_volume_by_ldev(spec.ldev_id)
+            logger.writeDebug("RC:volume_reconcile:state=absent:volume={}", volume)
+            changed = self.provisioner.change_volume_settings_vldev(spec, volume)
+            self.connection_info.changed = changed
             return self.get_volume_detail_info(volume)
 
         elif state == StateValue.ABSENT:
@@ -303,7 +320,7 @@ class VSPVolumeReconciler:
 
         if found:
             self.process_update_nvme(found, spec)
-
+        logger.writeDebug("RC:update_volume:changed={}", self.connection_info.changed)
         return volume_data.ldevId
 
     @log_entry_exit
@@ -689,7 +706,6 @@ class VSPVolumeReconciler:
 
     @log_entry_exit
     def create_volume(self, spec: CreateVolumeSpec):
-        logger.writeDebug("RC:create_volume:spec={}", spec)
         if spec.pool_id is not None and (
             spec.parity_group or spec.external_parity_group
         ):
@@ -839,10 +855,8 @@ class VSPVolumeReconciler:
         volume.iscsiTargets = iscsi_targets
 
         if spec.is_detailed is not None and spec.is_detailed is True:
-            logger.writeDebug("RC:get_volume_detail_with_spec:spec={}", spec)
             return self.get_volume_detail_info(volume, self.get_all_snapshots())
         else:
-            logger.writeDebug("RC:get_volume_detail_with_spec:else:spec={}", spec)
             if spec.query:
                 if "cmd_device_settings" in spec.query:
                     if volume.attributes and "CMD" in volume.attributes:
@@ -869,7 +883,9 @@ class VSPVolumeReconciler:
         return volume
 
     @log_entry_exit
-    def get_volume_detail_info(self, volume, all_snapshots=None, single_vol=True):
+    def get_volume_detail_info(
+        self, volume, all_snapshots=None, single_vol=True, create_qos_setting=True
+    ):
         logger.writeDebug("RC:get_volume_detail_info:volume={}", volume)
         if all_snapshots:
             snapshots = self.get_snapshot_list_for_volume(volume, all_snapshots)
@@ -884,9 +900,11 @@ class VSPVolumeReconciler:
             )
             volume.nvmSubsystems = nvm_subsystems
 
-        qos_settings = self.provisioner.get_qos_settings(volume.ldevId)
-        if qos_settings:
-            volume.qosSettings = qos_settings
+        qos_settings = None
+        if create_qos_setting:
+            qos_settings = self.provisioner.get_qos_settings(volume.ldevId)
+
+        volume.qosSettings = qos_settings
 
         # Check if the ldev is a command device
         # This get call is needed for newly created cmd device
@@ -991,7 +1009,6 @@ class VSPVolumeReconciler:
 
     @log_entry_exit
     def get_volumes(self, get_volume_spec: VolumeFactSpec):
-        logger.writeDebug("RC:get_volumes:spec={}", get_volume_spec)
 
         if get_volume_spec.query and "free_ldev_id" in get_volume_spec.query:
             return self.provisioner.get_free_ldevs_from_meta(
@@ -1238,6 +1255,7 @@ class VolumeCommonPropertiesExtractor:
         self.serial = serial
         self.common_properties = {
             "ldev_id": int,
+            "ldev_id_hex": str,
             "deduplication_compression_mode": str,
             "emulation_type": str,
             "name": str,
@@ -1249,7 +1267,7 @@ class VolumeCommonPropertiesExtractor:
             "used_capacity": str,
             "path_count": int,
             "provision_type": str,
-            "logical_unit_id_hex_format": str,
+            # "logical_unit_id_hex_format": str,
             "canonical_name": str,
             "dedup_compression_progress": int,
             "dedup_compression_status": str,
@@ -1275,6 +1293,7 @@ class VolumeCommonPropertiesExtractor:
             "tier_level": str,  # tier_level='all' if is_relocation_enabled: false
             "qos_settings": dict,
             "virtual_ldev_id": int,
+            "virtual_ldev_id_hex": str,
             "is_command_device": bool,
             "is_security_enabled": bool,
             "is_user_authentication_enabled": bool,
@@ -1425,8 +1444,6 @@ class VolumeCommonPropertiesExtractor:
                     logger.writeDebug(
                         "tieringProperties={}", response["tieringPropertiesDto"]
                     )
-                    logger.writeDebug("response_key={}", response_key)
-                    logger.writeDebug("key={}", key)
                     new_dict[key] = camel_to_snake_case_dict(response_key)
                     new_dict["tiering_policy"]["tier1_used_capacity_mb"] = new_dict[
                         "tiering_policy"
@@ -1445,7 +1462,23 @@ class VolumeCommonPropertiesExtractor:
                     del new_dict["tiering_policy"]["tier3_used_capacity_m_b"]
                 if key == "qos_settings":
                     new_dict[key] = camel_to_snake_case_dict(response_key)
-
+            if new_dict.get("ldev_id_hex") == "":
+                if (
+                    new_dict.get("ldev_id") is not None
+                    and new_dict.get("ldev_id") != ""
+                ):
+                    new_dict["ldev_id_hex"] = volume_id_to_hex_format(
+                        new_dict.get("ldev_id")
+                    )
+            if new_dict.get("vldev_id_hex") == "":
+                if (
+                    new_dict.get("vldev_id") is not None
+                    and new_dict.get("vldev_id") != ""
+                    and new_dict.get("vldev_id") != -1
+                ):
+                    new_dict["ldev_id_hex"] = volume_id_to_hex_format(
+                        new_dict.get("vldev_id")
+                    )
             if new_dict.get("storage_serial_number") is None:
                 new_dict["storage_serial_number"] = self.serial
 

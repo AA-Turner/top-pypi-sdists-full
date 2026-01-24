@@ -9,6 +9,7 @@ from git import GitError
 from git.cmd import Git
 from git.repo import Repo
 
+from .constants import DEFAULT_DOWNLOAD_BUFFER_SIZE
 from .delete_files import delete_out_of_scope_files
 from .download_file import download_file
 
@@ -30,8 +31,8 @@ def _safe_extract_tar(tar_handler: tarfile.TarFile, file_path: Path) -> bool:
             continue
         try:
             tar_handler.extract(member, path=file_path, numeric_owner=True)
-        except tarfile.ExtractError as ex:
-            LOGGER.error("Error extracting %s: %s", member.name, ex)
+        except tarfile.ExtractError:
+            LOGGER.exception("Error extracting %s", member.name)
 
     return True
 
@@ -39,7 +40,7 @@ def _safe_extract_tar(tar_handler: tarfile.TarFile, file_path: Path) -> bool:
 def remove_symlinks_in_directory(directory: str) -> None:
     for root, _, files in os.walk(directory):
         for file in files:
-            file_path = os.path.join(root, file)
+            file_path = os.path.join(root, file)  # noqa: PTH118
             if Path(file_path).is_symlink():
                 Path(file_path).unlink(missing_ok=True)
 
@@ -47,10 +48,8 @@ def remove_symlinks_in_directory(directory: str) -> None:
 async def reset_repo(repo_path: str) -> bool:
     try:
         Path.cwd()
-    except OSError as exc:
-        LOGGER.error("Failed to get the working directory: %s", repo_path)
-        LOGGER.error(exc)
-        LOGGER.error("\n")
+    except OSError:
+        LOGGER.exception("Failed to get the working directory: %s", repo_path)
         os.chdir(repo_path)
 
     try:
@@ -64,19 +63,14 @@ async def reset_repo(repo_path: str) -> bool:
                 "*",
             ],
         )
-    except GitError as exc:
-        LOGGER.error("Failed to add safe directory %s", repo_path)
-        LOGGER.error(exc)
-        LOGGER.error("\n")
+    except GitError:
+        LOGGER.exception("Failed to add safe directory %s", repo_path)
 
     try:
         repo = Repo(repo_path)
         repo.git.reset("--hard", "HEAD")
-    except GitError as exc:
-        LOGGER.error("Expand repositories has failed:")
-        LOGGER.error("Repository: %s", repo_path)
-        LOGGER.error(exc)
-        LOGGER.error("\n")
+    except GitError:
+        LOGGER.exception("Expand repositories has failed for repository %s", repo_path)
 
         return False
 
@@ -90,12 +84,18 @@ async def download_repo_from_s3(
     download_url: str,
     destination_path: Path,
     git_ignore: list[str] | None = None,
+    *,
+    download_buffer_size: int = DEFAULT_DOWNLOAD_BUFFER_SIZE,
 ) -> bool:
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="fluidattacks_", ignore_cleanup_errors=True) as tmpdir:
         tmp_path = Path(tmpdir)
         file_path = tmp_path / "repo.tar.gz"
-        result = await download_file(download_url, str(file_path.absolute()))
+        result = await download_file(
+            url=download_url,
+            destination_path=str(file_path.absolute()),
+            download_buffer_size=download_buffer_size,
+        )
         if not result:
             LOGGER.error("Failed to download repository from %s", download_url)
             return False
@@ -121,8 +121,10 @@ async def download_repo_from_s3(
 
             shutil.move(extracted_dir, destination_path)
 
-        except OSError as ex:
-            LOGGER.exception(ex, extra={"extra": {"path": destination_path}})
+        except OSError:
+            LOGGER.exception(
+                "Error downloading repository", extra={"extra": {"path": destination_path}}
+            )
             return False
 
     if not await reset_repo(str(destination_path.absolute())):

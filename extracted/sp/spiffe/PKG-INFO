@@ -1,0 +1,100 @@
+Metadata-Version: 2.4
+Name: spiffe
+Version: 0.2.3
+Summary: Python library for SPIFFE support
+License: Apache-2.0
+License-File: LICENSE
+Author: Max Lambrecht
+Author-email: maxlambrecht@gmail.com
+Requires-Python: >=3.10,<4.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: cryptography (>=45,<47)
+Requires-Dist: grpcio (>=1.62,<2.0)
+Requires-Dist: pem (>=23.0,<24.0)
+Requires-Dist: protobuf (>=5,<7)
+Requires-Dist: pyasn1 (>=0.6.0,<0.7.0)
+Requires-Dist: pyasn1-modules (>=0.4.0,<0.5.0)
+Requires-Dist: pyjwt[crypto] (>=2.0,<3.0)
+Project-URL: Repository, https://github.com/HewlettPackard/py-spiffe
+Description-Content-Type: text/markdown
+
+# `spiffe` package
+
+## Overview
+
+The `spiffe` package, part of the [py-spiffe library](https://github.com/HewlettPackard/py-spiffe),
+provides [SPIFFE](https://spiffe.io) support and essential
+tools for interacting with
+the [SPIFFE Workload API](https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE_Workload_API.md). It simplifies
+the management and validation of SPIFFE identities,
+supporting [X509-SVIDs](https://github.com/spiffe/spiffe/blob/main/standards/X509-SVID.md), [JWT-SVIDs](https://github.com/spiffe/spiffe/blob/main/standards/JWT-SVID.md),
+and X.509 CA and JWKS Bundles.
+
+# Features
+
+- Automatic Management of SPIFFE Identities: Streamlines fetching, renewing, and validation of X.509 and JWT SVIDs.
+- Seamless Integration with SPIFFE Workload API: Facilitates communication with [SPIRE](https://github.com/spiffe/spire)
+  or other SPIFFE Workload API compliant systems.
+- Continuous Update Handling: Automatically receives and applies updates for SVIDs and bundles, ensuring your
+  application always uses valid certificates.
+
+## Prerequisites
+
+- A running instance of [SPIRE](https://github.com/spiffe/spire) or another SPIFFE Workload API implementation.
+- The `SPIFFE_ENDPOINT_SOCKET` environment variable set to the address of the Workload API (e.g., `unix:
+  /tmp/spire-agent/public/api.sock`), or provided programmatically.
+
+## Usage
+
+Below are examples demonstrating the core functionalities of the `spiffe` package.
+
+### WorkloadApiClient
+
+```python
+from spiffe import WorkloadApiClient
+
+# Fetch X.509 and JWT SVIDs
+with WorkloadApiClient() as client:
+    x509_svid = client.fetch_x509_svid()
+    print(f'SPIFFE ID: {x509_svid.spiffe_id}')
+
+    jwt_svid = client.fetch_jwt_svid(audience={"test"})
+    print(f'SPIFFE ID: {jwt_svid.spiffe_id}')
+```
+
+### X509Source
+
+```python
+from spiffe import X509Source
+
+# Automatically manage X.509 SVIDs and CA bundles
+with X509Source() as source:
+    x509_svid = source.svid
+    print(f'SPIFFE ID: {x509_svid.spiffe_id}')
+```
+
+### JwtSource
+
+```python
+from spiffe import JwtSource
+
+# Manage and validate JWT SVIDs and JWKS bundles
+with JwtSource() as source:
+    jwt_svid = source.fetch_svid(audience={'test'})
+    print(f'SPIFFE ID: {jwt_svid.spiffe_id}')
+    print(f'Token: {jwt_svid.token}')
+```
+
+## Contributing
+
+We welcome contributions to the `spiffe` package! Please see
+our [contribution guidelines](https://github.com/HewlettPackard/py-spiffe/blob/main/CONTRIBUTING.md) for more
+details. For feedback and issues, please submit them through
+the [GitHub issue tracker](https://github.com/HewlettPackard/py-spiffe/issues).
+

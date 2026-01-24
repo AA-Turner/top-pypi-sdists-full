@@ -1,28 +1,51 @@
 use std::{path::PathBuf, sync::Arc};
 
-use arrow_array::RecordBatch as ArrowRecordBatch;
 use arrow_json::{LineDelimitedWriter, WriterBuilder, writer::LineDelimited};
-use async_trait::async_trait;
 use common_error::{DaftError, DaftResult};
-use common_runtime::get_io_runtime;
 use daft_core::prelude::*;
-use daft_io::{IOConfig, SourceType, parse_url};
+use daft_io::{IOConfig, SourceType, parse_url, utils::ObjectPath};
 use daft_micropartition::MicroPartition;
 use daft_recordbatch::RecordBatch;
 
 use crate::{
     AsyncFileWriter,
-    storage_backend::{FileStorageBackend, S3StorageBackend, StorageBackend},
+    batch_file_writer::BatchFileWriter,
+    storage_backend::{FileStorageBackend, ObjectStorageBackend, StorageBackend},
     utils::build_filename,
 };
 
-/// Helper function that checks if we support native writes given the file format, root directory, and schema.
+type JsonFinishFn<B> =
+    Arc<dyn Fn(LineDelimitedWriter<<B as StorageBackend>::Writer>) -> DaftResult<()> + Send + Sync>;
+
+fn native_json_field_supported(field: &Arc<arrow_schema::Field>) -> bool {
+    if field.extension_type_name().is_some() {
+        return false;
+    }
+
+    match field.data_type() {
+        arrow_schema::DataType::Duration(_) => false,
+        arrow_schema::DataType::Binary
+        | arrow_schema::DataType::FixedSizeBinary(_)
+        | arrow_schema::DataType::LargeBinary => false,
+        arrow_schema::DataType::List(inner)
+        | arrow_schema::DataType::FixedSizeList(inner, _)
+        | arrow_schema::DataType::LargeList(inner) => native_json_field_supported(inner),
+        arrow_schema::DataType::Struct(fields) => fields.iter().all(native_json_field_supported),
+        arrow_schema::DataType::Union(fields, _) => fields
+            .iter()
+            .all(|(_, field)| native_json_field_supported(field)),
+        arrow_schema::DataType::Map(inner, _) => native_json_field_supported(inner),
+        _ => true,
+    }
+}
+
+/// Helper function that checks if we support native writes given the schema
 pub(crate) fn native_json_writer_supported(file_schema: &SchemaRef) -> DaftResult<bool> {
-    // TODO(desmond): Currently we do not support extension and timestamp types.
-    let datatypes_convertable = file_schema.to_arrow()?.fields.iter().all(|field| {
-        field.data_type().can_convert_to_arrow_rs() && field.data_type().can_convert_to_json()
-    });
-    Ok(datatypes_convertable)
+    Ok(file_schema
+        .to_arrow()?
+        .fields
+        .iter()
+        .all(native_json_field_supported))
 }
 
 pub(crate) fn create_native_json_writer(
@@ -44,19 +67,19 @@ pub(crate) fn create_native_json_writer(
     match source_type {
         SourceType::File => {
             let storage_backend = FileStorageBackend {};
-            Ok(Box::new(JsonWriter::new(
+            Ok(Box::new(make_json_writer(
                 filename,
                 partition_values.cloned(),
                 storage_backend,
             )))
         }
-        SourceType::S3 => {
-            let (scheme, _, _) = daft_io::s3_like::parse_s3_url(root_dir.as_ref())?;
+        source if source.supports_native_writer() => {
+            let ObjectPath { scheme, .. } = daft_io::utils::parse_object_url(root_dir.as_ref())?;
             let io_config = io_config.ok_or_else(|| {
                 DaftError::InternalError("IO config is required for S3 writes".to_string())
             })?;
-            let storage_backend = S3StorageBackend::new(scheme, io_config);
-            Ok(Box::new(JsonWriter::new(
+            let storage_backend = ObjectStorageBackend::new(scheme, io_config);
+            Ok(Box::new(make_json_writer(
                 filename,
                 partition_values.cloned(),
                 storage_backend,
@@ -69,122 +92,35 @@ pub(crate) fn create_native_json_writer(
     }
 }
 
-struct JsonWriter<B: StorageBackend> {
+fn make_json_writer<B: StorageBackend + Send + Sync>(
     filename: PathBuf,
     partition_values: Option<RecordBatch>,
     storage_backend: B,
-    file_writer: Option<LineDelimitedWriter<B::Writer>>,
-    bytes_written: usize,
-}
-
-impl<B: StorageBackend> JsonWriter<B> {
-    const PATH_FIELD_NAME: &str = "path";
-    const INFLATION_FACTOR: f64 = 0.5;
-
-    fn new(filename: PathBuf, partition_values: Option<RecordBatch>, storage_backend: B) -> Self {
-        Self {
-            filename,
-            partition_values,
-            storage_backend,
-            file_writer: None,
-            bytes_written: 0,
-        }
-    }
-
-    /// Estimates the number of bytes that will be written for the given data.
-    /// This is a temporary workaround since arrow-json doesn't provide bytes written or access to the underlying writer.
-    fn estimate_bytes_to_write(&self, data: &MicroPartition) -> DaftResult<usize> {
-        let base_size = data.size_bytes().unwrap_or(0);
-        let estimated_size = (base_size as f64 * Self::INFLATION_FACTOR) as usize;
-        Ok(estimated_size)
-    }
-
-    async fn create_writer(&mut self) -> DaftResult<()> {
-        let backend_writer = self.storage_backend.create_writer(&self.filename).await?;
-        let builder = WriterBuilder::new().with_explicit_nulls(true);
-        let file_writer = builder.build::<_, LineDelimited>(backend_writer);
-        self.file_writer = Some(file_writer);
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl<B: StorageBackend> AsyncFileWriter for JsonWriter<B> {
-    type Input = Arc<MicroPartition>;
-    type Result = Option<RecordBatch>;
-
-    async fn write(&mut self, data: Self::Input) -> DaftResult<usize> {
-        if self.file_writer.is_none() {
-            self.create_writer().await?;
-        }
-        // TODO(desmond): This is a hack to estimate the size in bytes. Arrow-json currently doesn't support getting the
-        // bytes written, nor does it allow us to access the LineDelimitedWriter's inner writer which prevents
-        // us from using a counting writer. We need to fix this upstream.
-        let est_bytes_to_write = self.estimate_bytes_to_write(&data)?;
-        self.bytes_written += est_bytes_to_write;
-        let record_batches = data.get_tables()?;
-        let record_batches: Vec<ArrowRecordBatch> = record_batches
-            .iter()
-            .map(|rb| rb.clone().try_into())
-            .collect::<DaftResult<_>>()?;
-
-        let mut file_writer = self
-            .file_writer
-            .take()
-            .expect("File writer should be created by now");
-        let io_runtime = get_io_runtime(true);
-        let row_group_writer_thread_handle =
-            io_runtime.spawn_blocking(move || -> DaftResult<LineDelimitedWriter<_>> {
-                let record_batch_refs: Vec<&ArrowRecordBatch> = record_batches.iter().collect();
-                file_writer.write_batches(&record_batch_refs)?;
-                Ok(file_writer)
-            });
-        let file_writer = row_group_writer_thread_handle
-            .await
-            .map_err(|e| DaftError::ParquetError(e.to_string()))??;
-        self.file_writer.replace(file_writer);
-
-        Ok(est_bytes_to_write)
-    }
-
-    async fn close(&mut self) -> DaftResult<Self::Result> {
-        let io_runtime = get_io_runtime(true);
-        let mut file_writer = self.file_writer.take().unwrap();
-        self.file_writer = Some(
-            io_runtime
-                .spawn_blocking(move || -> DaftResult<LineDelimitedWriter<_>> {
-                    file_writer.finish()?;
-
-                    Ok(file_writer)
-                })
-                .await
-                .map_err(|e| DaftError::ParquetError(e.to_string()))??,
-        );
-        self.storage_backend.finalize().await?;
-        // Return a recordbatch containing the filename that we wrote to.
-        let field = Field::new(Self::PATH_FIELD_NAME, DataType::Utf8);
-        let filename_series = Series::from_arrow(
-            Arc::new(field.clone()),
-            Box::new(arrow2::array::Utf8Array::<i64>::from_slice([&self
-                .filename
-                .to_string_lossy()])),
-        )?;
-        let record_batch =
-            RecordBatch::new_with_size(Schema::new(vec![field]), vec![filename_series], 1)?;
-        let record_batch_with_partition_values =
-            if let Some(partition_values) = self.partition_values.take() {
-                record_batch.union(&partition_values)?
-            } else {
-                record_batch
-            };
-        Ok(Some(record_batch_with_partition_values))
-    }
-
-    fn bytes_written(&self) -> usize {
-        self.bytes_written
-    }
-
-    fn bytes_per_file(&self) -> Vec<usize> {
-        vec![self.bytes_written()]
-    }
+) -> BatchFileWriter<B, LineDelimitedWriter<B::Writer>> {
+    let builder = Arc::new(|backend: B::Writer| {
+        WriterBuilder::new()
+            .with_explicit_nulls(true)
+            .build::<_, LineDelimited>(backend)
+    });
+    let write_fn = Arc::new(
+        |writer: &mut LineDelimitedWriter<B::Writer>, batches: &[arrow_array::RecordBatch]| {
+            let refs: Vec<&arrow_array::RecordBatch> = batches.iter().collect();
+            writer.write_batches(&refs)?;
+            Ok(())
+        },
+    );
+    let finish_fn: Option<JsonFinishFn<B>> =
+        Some(Arc::new(|mut writer: LineDelimitedWriter<B::Writer>| {
+            writer.finish()?;
+            Ok(())
+        }));
+    BatchFileWriter::new(
+        filename,
+        partition_values,
+        storage_backend,
+        0.5,
+        builder,
+        write_fn,
+        finish_fn,
+    )
 }

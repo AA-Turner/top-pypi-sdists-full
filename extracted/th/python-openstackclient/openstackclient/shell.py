@@ -26,16 +26,27 @@ from osc_lib import shell
 import openstackclient
 from openstackclient.common import clientmanager
 
-
 DEFAULT_DOMAIN = 'default'
+# list of modules that were originally out-of-tree and are now in
+# core OSC
+IGNORED_MODULES = (
+    'neutron_taas.taas_client.osc',
+    'neutronclient.osc.v2.taas',
+)
 
 
 class OpenStackShell(shell.OpenStackShell):
+    client_manager: clientmanager.ClientManager
+
     def __init__(self):
+        command_manager = commandmanager.CommandManager(
+            'openstack.cli', ignored_modules=IGNORED_MODULES
+        )
+
         super().__init__(
             description=__doc__.strip(),
             version=openstackclient.__version__,
-            command_manager=commandmanager.CommandManager('openstack.cli'),
+            command_manager=command_manager,
             deferred_help=True,
         )
 
@@ -48,8 +59,10 @@ class OpenStackShell(shell.OpenStackShell):
         # about them
         warnings.filterwarnings('ignore', module='openstack')
 
-    def build_option_parser(self, description, version):
-        parser = super().build_option_parser(description, version)
+    def build_option_parser(self, description, version, argparse_kwargs=None):
+        parser = super().build_option_parser(
+            description, version, argparse_kwargs
+        )
         parser = clientmanager.build_plugin_option_parser(parser)
         parser = auth.build_auth_plugins_option_parser(parser)
         return parser
@@ -65,10 +78,7 @@ class OpenStackShell(shell.OpenStackShell):
             self._auth_type = 'password'
 
     def _load_plugins(self):
-        """Load plugins via stevedore
-
-        osc-lib has no opinion on what plugins should be loaded
-        """
+        """Load plugins via stevedore."""
         # Loop through extensions to get API versions
         for mod in clientmanager.PLUGIN_MODULES:
             default_version = getattr(mod, 'DEFAULT_API_VERSION', None)

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=48", "setuptools_scm[toml]>=6.3.1"]
+requires = ["setuptools>=77", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
@@ -8,8 +8,9 @@ build-backend = "setuptools.build_meta"
 name = "dvc-objects"
 description = "dvc objects - filesystem and object-db level abstractions to use in dvc and dvc-data"
 readme = "README.rst"
-license = {text = "Apache-2.0"}
-authors = [{ name = "Iterative", email = "support@dvc.org" }]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Treeverse", email = "support@dvc.org" }]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
@@ -17,6 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Development Status :: 4 - Beta",
 ]
 requires-python = ">=3.9"
@@ -27,8 +29,8 @@ dependencies = [
 ]
 
 [project.urls]
-Issues = "https://github.com/iterative/dvc-objects/issues"
-Source = "https://github.com/iterative/dvc-objects"
+Issues = "https://github.com/treeverse/dvc-objects/issues"
+Source = "https://github.com/treeverse/dvc-objects"
 
 [project.optional-dependencies]
 tests = [
@@ -37,12 +39,12 @@ tests = [
     "pytest-cov>=4.1.0",
     "pytest-mock",
     "pytest-benchmark",
-    "pytest-asyncio>=0.23.2,<1",
+    "pytest-asyncio>=0.23.2,<2",
     "reflink",
 ]
 dev = [
     "dvc-objects[tests]",
-    "mypy==1.16.0",
+    "mypy==1.19.1",
 ]
 
 [tool.setuptools.packages.find]
@@ -111,6 +113,7 @@ show-fixes = true
 [tool.ruff.lint]
 ignore = [
     "ISC001", # single-line-implicit-string-concatenation
+    "PLC0415", # import-outside-top-level
     "PLR2004", # magic-value-comparison
     "PLW2901", # redefined-loop-name
     "RET501", # unnecessary-return-none

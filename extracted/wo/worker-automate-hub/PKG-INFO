@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: worker-automate-hub
-Version: 0.5.799
+Version: 0.5.983
 Summary: Worker Automate HUB é uma aplicação para automatizar rotinas de RPA nos ambientes Argenta.
 Author: Joel Paim
 Requires-Python: >=3.12,<4.0
@@ -9,8 +9,6 @@ Classifier: Environment :: Console
 Classifier: Natural Language :: Portuguese (Brazilian)
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Utilities
 Requires-Dist: aiohttp (>=3.9.5,<4.0.0)
 Requires-Dist: beautifulsoup4 (>=4.12.3,<5.0.0)
@@ -26,6 +24,7 @@ Requires-Dist: opencv-python-headless (>=4.10.0.84,<5.0.0.0)
 Requires-Dist: openpyxl (>=3.1.4,<4.0.0)
 Requires-Dist: packaging (>=24.1,<25.0)
 Requires-Dist: pandas (>=2.2.2,<3.0.0)
+Requires-Dist: paramiko (>=4.0.0,<5.0.0)
 Requires-Dist: pathlib3x (>=2.0.3,<3.0.0)
 Requires-Dist: pillow (>=10.4.0,<11.0.0)
 Requires-Dist: playwright (>=1.45.1,<2.0.0)
@@ -50,6 +49,7 @@ Requires-Dist: timedelta (>=2020.12.3,<2021.0.0)
 Requires-Dist: toml (>=0.10.2,<0.11.0)
 Requires-Dist: torch (>=2.4.0,<3.0.0)
 Requires-Dist: typer (>=0.12.3,<0.13.0)
+Requires-Dist: unidecode (>=1.4.0,<2.0.0)
 Requires-Dist: webdriver-manager (>=4.0.2,<5.0.0)
 Requires-Dist: win10toast (>=0.9,<0.10)
 Requires-Dist: xhtml2pdf (>=0.2.16,<0.3.0)

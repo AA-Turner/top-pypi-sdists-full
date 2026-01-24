@@ -22,7 +22,6 @@
 // Other headers must be included after pybind11 to ensure header-order
 // inclusion constraints are satisfied.
 
-#include "python/tensorstore/data_type.h"
 
 // Other headers
 #include <stddef.h>
@@ -36,6 +35,7 @@
 #include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
+#include "python/tensorstore/data_type.h"
 #include "python/tensorstore/json_type_caster.h"
 #include "python/tensorstore/serialization.h"
 #include "python/tensorstore/tensorstore_module_components.h"
@@ -85,6 +85,7 @@ class CustomDTypes {
   }                                                                     \
   /**/
     TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(TENSORSTORE_INTERNAL_DO_ADD_TO_MAP)
+    TENSORSTORE_FOR_EACH_MXFLOAT_DATA_TYPE(TENSORSTORE_INTERNAL_DO_ADD_TO_MAP)
     TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(
         TENSORSTORE_INTERNAL_DO_ADD_TO_MAP)
 #undef TENSORSTORE_INTERNAL_DO_ADD_TO_MAP
@@ -151,6 +152,8 @@ int GetNumpyTypeNum(DataType dtype) {
       TENSORSTORE_INTERNAL_DO_GET_NPY_TYPE_NUM_CASE(bfloat16_t)
       TENSORSTORE_FOR_EACH_FLOAT8_DATA_TYPE(
           TENSORSTORE_INTERNAL_DO_GET_NPY_TYPE_NUM_CASE)
+      TENSORSTORE_FOR_EACH_MXFLOAT_DATA_TYPE(
+          TENSORSTORE_INTERNAL_DO_GET_NPY_TYPE_NUM_CASE)
       TENSORSTORE_FOR_EACH_LOW_PRECISION_INT_DATA_TYPE(
           TENSORSTORE_INTERNAL_DO_GET_NPY_TYPE_NUM_CASE)
 #undef TENSORSTORE_INTERNAL_DO_GET_NPY_TYPE_NUM_CASE
@@ -193,19 +196,19 @@ DataType GetDataTypeOrThrow(py::dtype dt) {
       py::cast<std::string>(py::repr(dt))));
 }
 
-py::object GetTypeObjectOrThrow(DataType dtype) {
+py::type GetTypeObjectOrThrow(DataType dtype) {
   switch (dtype.id()) {
     case DataTypeId::ustring_t:
-      return py::reinterpret_borrow<py::object>(
+      return py::reinterpret_borrow<py::type>(
           reinterpret_cast<PyObject*>(&PyUnicode_Type));
     case DataTypeId::string_t:
-      return py::reinterpret_borrow<py::object>(
+      return py::reinterpret_borrow<py::type>(
           reinterpret_cast<PyObject*>(&PyBytes_Type));
     default:
       break;
   }
   auto numpy_dtype = GetNumpyDtypeOrThrow(dtype);
-  return py::reinterpret_borrow<py::object>(
+  return py::reinterpret_borrow<py::type>(
       py::detail::array_descriptor_proxy(numpy_dtype.ptr())->typeobj);
 }
 
@@ -222,46 +225,60 @@ Group:
 }
 
 void DefineDataTypeAttributes(DataTypeCls& cls) {
-  cls.def(py::init([](std::string name) { return GetDataTypeOrThrow(name); }),
-          R"(
-Construct by name.
-
-Overload:
-  name
-)",
-          py::arg("name"));
-
   cls.def(py::init([](DataTypeLike dtype) { return dtype.value; }),
           R"(
-Construct from an existing TensorStore or NumPy data type.
-
-Overload:
-  dtype
+Construct by name or from an existing TensorStore or NumPy data type.
 )",
           py::arg("dtype"));
 
   cls.def_property_readonly(
-      "name", [](DataType self) { return std::string(self.name()); });
+      "name", [](DataType self) { return std::string(self.name()); },
+      R"(Name of the data type.
+
+This is equivalent to the :json:schema:`JSON representation<dtype>`.
+
+Group:
+  Accessors
+)");
 
   cls.def("__repr__", [](DataType self) {
     return tensorstore::StrCat("dtype(", QuoteString(self.name()), ")");
   });
 
-  EnablePicklingFromSerialization(cls);
+  EnablePicklingFromSerialization</*WithLocking=*/false>(cls);
 
-  cls.def("to_json", [](DataType self) { return std::string(self.name()); });
+  cls.def(
+      "to_json", [](DataType self) { return std::string(self.name()); },
+      R"(:json:schema:`JSON representation<dtype>` of the data type.
+
+Group:
+  Accessors
+)");
 
   cls.def_property_readonly(
-      "numpy_dtype", [](DataType self) { return GetNumpyDtypeOrThrow(self); });
+      "numpy_dtype", [](DataType self) { return GetNumpyDtypeOrThrow(self); },
+      R"(NumPy data type corresponding to this TensorStore data type.
+
+For TensorStore data types without a specific associated NumPy data type, the
+NumPy object data type ``np.dtype("O")`` is returned.
+
+Group:
+  Accessors
+)");
 
   cls.def("__hash__", [](DataType self) {
     absl::Hash<DataType> h;
     return h(self);
   });
 
-  cls.def_property_readonly("type", [](DataType self) -> py::object {
-    return GetTypeObjectOrThrow(self);
-  });
+  cls.def_property_readonly(
+      "type",
+      [](DataType self) -> py::type { return GetTypeObjectOrThrow(self); },
+      R"(Python type object corresponding to this TensorStore data type.
+
+Group:
+  Accessors
+)");
 
   cls.def(
       "__call__",
@@ -271,7 +288,12 @@ Overload:
         }
         return GetTypeObjectOrThrow(self)(std::move(arg));
       },
-      "Construct a scalar instance of this data type");
+      R"(Construct a scalar instance of this data type.
+
+Group:
+  Conversion
+)",
+      py::arg("arg"));
 
   cls.def(
       "__eq__",
@@ -323,7 +345,21 @@ bool type_caster<tensorstore::internal_python::DataTypeLike>::load(
     value.value = dtype_v<tensorstore::dtypes::string_t>;
     return true;
   }
+  if (PyUnicode_Check(src.ptr())) {
+    Py_ssize_t size;
+    const char* data = PyUnicode_AsUTF8AndSize(src.ptr(), &size);
+    if (!data) {
+      PyErr_Clear();
+      return false;
+    }
+    value.value = tensorstore::internal_python::GetDataTypeOrThrow(
+        std::string_view(data, size));
+    return true;
+  }
   PyArray_Descr* ptr = nullptr;
+  if (!PyArray_DescrCheck(src.ptr()) && !PyType_Check(src.ptr())) {
+    return false;
+  }
   if (!PyArray_DescrConverter(
           pybind11::reinterpret_borrow<pybind11::object>(src).release().ptr(),
           &ptr) ||
@@ -334,6 +370,7 @@ bool type_caster<tensorstore::internal_python::DataTypeLike>::load(
   value.value = tensorstore::internal_python::GetDataTypeOrThrow(
       pybind11::reinterpret_steal<pybind11::dtype>(
           reinterpret_cast<PyObject*>(ptr)));
+
   return true;
 }
 

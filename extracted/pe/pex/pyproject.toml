@@ -14,6 +14,7 @@ plugins = ["pex_build"]
 command = [
   "uv",
   "export",
+  "--frozen",
   "--format",
   "pylock.toml",
   "--no-header",
@@ -38,7 +39,7 @@ license-files = ["LICENSE"]
 name = "pex"
 
 # N.B.: This must be kept in sync with the same setting in setup.cfg to support Python 2.7.
-requires-python = ">=2.7,<3.15,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*"
+requires-python = ">=2.7,<3.16,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*"
 
 dynamic = [
   "authors",
@@ -110,7 +111,6 @@ gen-scie-platform = [
   "pynacl==1.5.0; python_version >= '3.8'",
 
   "httpx; python_version >= '3.8'",
-  "toml"
 ]
 lint = [
   {include-group = "dev-cmd"},
@@ -150,6 +150,7 @@ mypy = [
   "types-docutils==0.20.0.20240310; python_version >= '3.8'",
   "types-mock==5.1.0.20240106; python_version >= '3.8'",
   "types-pexpect==4.9.0.20240207; python_version >= '3.8'",
+  "types-python-dateutil==2.9.0.20241206; python_version >= '3.8'",
   "types-setuptools==69.1.0.20240302; python_version >= '3.8'",
 
   # 0.10.6 stubs are not compatible with Python 2.7
@@ -182,6 +183,7 @@ test = [
   "pytest-md-report; python_version >= '3.9'",
   "pytest-retry; python_version >= '3.9'",
   "pytest-xdist",
+  "python-dateutil",
   "subprocess32",
 
   {include-group = "devpi-server"},
@@ -256,11 +258,15 @@ hidden = true
 
 [tool.dev-cmd.commands.format]
 description = "Auto-format the source code."
-when = "python_version >= '3.9'"
+# N.B.: Our old version of black does not run under 3.14; so we pin to 3.11 for now to cover all
+# cases.
+python = "python3.11"
 args = ["scripts/format.py"]
 
 [tool.dev-cmd.commands.format-check]
-when = "python_version >= '3.9'"
+# N.B.: Our old version of black does not run under 3.14; so we pin to 3.11 for now to cover all
+# cases.
+python = "python3.11"
 args = ["scripts/format.py", "--check"]
 hidden = true
 
@@ -270,6 +276,7 @@ args = ["scripts/gen-scie-platform.py"]
 accepts-extra-args = true
 dependency-group = "gen-scie-platform"
 hidden = true
+
 [tool.dev-cmd.commands.gen-scie-platform.env]
 PYTHONPATH = "."
 # Used to get wheels for armv7l and riscv64.
@@ -279,11 +286,17 @@ PIP_EXTRA_INDEX_URL = """\
 """
 
 [tool.dev-cmd.commands.lint]
+# N.B.: Our old version of autoflake does not run correctly under 3.14 (fails to remove unused
+# imports); so we pin to 3.11 for now to cover all cases.
+python = "python3.11"
 description = "Currently removes unused imports and code."
 when = "python_version >= '3.9'"
 args = ["scripts/lint.py"]
 
 [tool.dev-cmd.commands.lint-check]
+# N.B.: Our old version of autoflake does not run correctly under 3.14 (fails to remove unused
+# imports); so we pin to 3.11 for now to cover all cases.
+python = "python3.11"
 when = "python_version >= '3.9'"
 args = ["scripts/lint.py", "--check"]
 hidden = true
@@ -328,12 +341,13 @@ args = ["testing/bin/run_tests.py", {discard_empty = "{-integration?--it:}"}]
 accepts-extra-args = true
 dependency-group = "test"
 
-[tool.dev-cmd.commands.test-gte39-lt314.factors]
+[tool.dev-cmd.commands.test-gte39-lt316.factors]
 py = "The Python version to run the tests under."
 pip = "The Pip version to default to in test runs."
 integration = "Run the integration tests (also available via `--it` pass through arg)."
 
-[tool.dev-cmd.commands.test-gte39-lt314]
+
+[tool.dev-cmd.commands.test-gte39-lt316]
 description = """
 Run tests using pytest.
 
@@ -346,7 +360,7 @@ For example:
 The factors mix and match and are useful for parallel run of many setups; e.g.:
 $ dev-cmd --parallel test-py3{9..13} -- -k test_compiler
 """
-when = "python_version >= '3.9' and python_version < '3.15'"
+when = "python_version >= '3.9' and python_version < '3.16'"
 python = "{-py:}"
 name = "test"
 env = {PYTHONHASHSEED = "{--hashseed}", _PEX_PIP_VERSION = "{-pip:}"}
@@ -393,7 +407,7 @@ default = "checks"
 exit-style = "immediate"
 
 [[tool.dev-cmd.python]]
-when = "python_version >= '3.7' and python_version < '3.15' and platform_machine != 'armv7l' and platform_machine != 'riscv64'"
+when = "python_version >= '3.7' and python_version < '3.16' and platform_machine != 'armv7l' and platform_machine != 'riscv64'"
 
 # Suppress pyproject cache keys since uv.lock is enough to uniquely determine venv content.
 pyproject-cache-keys = []
@@ -401,6 +415,7 @@ extra-cache-keys = ["uv.lock"]
 
 3rdparty-export-command = [
   "uv", "export", "-q",
+  "--frozen",
   "--no-emit-project",
   # Both uv and Pip can't handle VCS URLs in hashed requirements; so we handle this ourselves.
   "--no-emit-package", "attrs",
@@ -428,6 +443,7 @@ when = "platform_machine == 'armv7l' or platform_machine == 'riscv64'"
 
 3rdparty-export-command = [
   "uv", "export", "-q",
+  "--frozen",
   "--no-emit-project",
   # We get some wheels from https://www.piwheels.org/simple and
   # https://gitlab.com/api/v4/projects/riseproject%2Fpython%2Fwheel_builder/packages/pypi/simple

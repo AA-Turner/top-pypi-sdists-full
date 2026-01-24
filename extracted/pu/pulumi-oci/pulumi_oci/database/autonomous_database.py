@@ -30,6 +30,7 @@ class AutonomousDatabaseArgs:
                  autonomous_container_database_id: Optional[pulumi.Input[_builtins.str]] = None,
                  autonomous_database_backup_id: Optional[pulumi.Input[_builtins.str]] = None,
                  autonomous_database_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 autonomous_database_maintenance_window: Optional[pulumi.Input['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs']] = None,
                  autonomous_maintenance_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
                  backup_retention_period_in_days: Optional[pulumi.Input[_builtins.int]] = None,
                  byol_compute_count_limit: Optional[pulumi.Input[_builtins.float]] = None,
@@ -76,6 +77,7 @@ class AutonomousDatabaseArgs:
                  kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  license_model: Optional[pulumi.Input[_builtins.str]] = None,
                  local_adg_auto_failover_max_data_loss_limit: Optional[pulumi.Input[_builtins.int]] = None,
+                 local_adg_resource_pool_leader_id: Optional[pulumi.Input[_builtins.str]] = None,
                  long_term_backup_schedules: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseLongTermBackupScheduleArgs']]]] = None,
                  max_cpu_core_count: Optional[pulumi.Input[_builtins.int]] = None,
                  ncharacter_set: Optional[pulumi.Input[_builtins.str]] = None,
@@ -105,115 +107,126 @@ class AutonomousDatabaseArgs:
                  subscription_id: Optional[pulumi.Input[_builtins.str]] = None,
                  switchover_to: Optional[pulumi.Input[_builtins.str]] = None,
                  switchover_to_remote_peer_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 time_maintenance_pause_until: Optional[pulumi.Input[_builtins.str]] = None,
                  time_of_auto_refresh_start: Optional[pulumi.Input[_builtins.str]] = None,
                  time_scheduled_db_version_upgrade: Optional[pulumi.Input[_builtins.str]] = None,
                  timestamp: Optional[pulumi.Input[_builtins.str]] = None,
+                 transportable_tablespace: Optional[pulumi.Input['AutonomousDatabaseTransportableTablespaceArgs']] = None,
                  use_latest_available_backup_time_stamp: Optional[pulumi.Input[_builtins.bool]] = None,
+                 vanity_url_details: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityUrlDetailArgs']]]] = None,
                  vault_id: Optional[pulumi.Input[_builtins.str]] = None,
                  whitelisted_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a AutonomousDatabase resource.
-        :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous Database.
+        :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous AI Database.
         :param pulumi.Input[_builtins.str] db_name: The database name. The name must begin with an alphabetic character and can contain a maximum of 30 alphanumeric characters. Special characters are not permitted. The database name must be unique in the tenancy. It is required in all cases except when creating a cross-region Autonomous Data Guard standby instance or a cross-region disaster recovery standby instance.
         :param pulumi.Input[_builtins.str] admin_password: (Updatable) The password must be between 12 and 30 characters long, and must contain at least 1 uppercase, 1 lowercase, and 1 numeric character. It cannot contain the double quote symbol (") or the username "admin", regardless of casing. The password is mandatory if source value is "BACKUP_FROM_ID", "BACKUP_FROM_TIMESTAMP", "DATABASE" or "NONE".
-        :param pulumi.Input[_builtins.bool] are_primary_whitelisted_ips_used: (Updatable) This field will be null if the Autonomous Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses different IP access control list (ACL) for standby compared to primary.
+        :param pulumi.Input[_builtins.bool] are_primary_whitelisted_ips_used: (Updatable) This field will be null if the Autonomous AI Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses different IP access control list (ACL) for standby compared to primary.
         :param pulumi.Input[_builtins.int] auto_refresh_frequency_in_seconds: (Updatable) The frequency a refreshable clone is refreshed after auto-refresh is enabled. The minimum is 1 hour. The maximum is 7 days. The date and time that auto-refresh is enabled is controlled by the `timeOfAutoRefreshStart` parameter.
         :param pulumi.Input[_builtins.int] auto_refresh_point_lag_in_seconds: (Updatable) The time, in seconds, the data of the refreshable clone lags the primary database at the point of refresh. The minimum is 0 minutes (0 mins means refresh to the latest available timestamp). The maximum is 7 days. The lag time increases after refreshing until the next data refresh happens.
-        :param pulumi.Input[_builtins.str] autonomous_container_database_id: The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous Database on Dedicated Exadata Infrastructure.
-        :param pulumi.Input[_builtins.str] autonomous_database_backup_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database Backup that you will clone to create a new Autonomous Database.
-        :param pulumi.Input[_builtins.str] autonomous_database_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that you will clone to create a new Autonomous Database.
-        :param pulumi.Input[_builtins.str] autonomous_maintenance_schedule_type: (Updatable) The maintenance schedule type of the Autonomous Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
+        :param pulumi.Input[_builtins.str] autonomous_container_database_id: The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous AI Database on Dedicated Exadata Infrastructure.
+        :param pulumi.Input[_builtins.str] autonomous_database_backup_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database Backup that you will clone to create a new Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] autonomous_database_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that you will clone to create a new Autonomous AI Database.
+        :param pulumi.Input['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs'] autonomous_database_maintenance_window: (Updatable) Autonomous Database maintenance window. The maintenance window can be configured during database creation. To change the maintenance window of an existing Autonomous Database Serverless instance, clone the database and specify the maintenance window for the new cloned instance.
+        :param pulumi.Input[_builtins.str] autonomous_maintenance_schedule_type: (Updatable) The maintenance schedule type of the Autonomous AI Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
         :param pulumi.Input[_builtins.int] backup_retention_period_in_days: (Updatable) Retention period, in days, for long-term backups
         :param pulumi.Input[_builtins.float] byol_compute_count_limit: (Updatable) The maximum number of CPUs allowed with a Bring Your Own License (BYOL), including those used for auto-scaling, disaster recovery, tools, etc. Any CPU usage above this limit is considered as License Included and billed.
-        :param pulumi.Input[_builtins.str] character_set: The character set for the autonomous database. The default is AL32UTF8. Allowed values for an Autonomous Database Serverless instance as as returned by [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
+        :param pulumi.Input[_builtins.str] character_set: The character set for the Autonomous AI Database. The default is AL32UTF8. Allowed values for an Autonomous AI Database Serverless instance as as returned by [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
                
-               For an Autonomous Database on dedicated infrastructure, the allowed values are:
+               For an Autonomous AI Database on dedicated infrastructure, the allowed values are:
                
                AL32UTF8, AR8ADOS710, AR8ADOS720, AR8APTEC715, AR8ARABICMACS, AR8ASMO8X, AR8ISO8859P6, AR8MSWIN1256, AR8MUSSAD768, AR8NAFITHA711, AR8NAFITHA721, AR8SAKHR706, AR8SAKHR707, AZ8ISO8859P9E, BG8MSWIN, BG8PC437S, BLT8CP921, BLT8ISO8859P13, BLT8MSWIN1257, BLT8PC775, BN8BSCII, CDN8PC863, CEL8ISO8859P14, CL8ISO8859P5, CL8ISOIR111, CL8KOI8R, CL8KOI8U, CL8MACCYRILLICS, CL8MSWIN1251, EE8ISO8859P2, EE8MACCES, EE8MACCROATIANS, EE8MSWIN1250, EE8PC852, EL8DEC, EL8ISO8859P7, EL8MACGREEKS, EL8MSWIN1253, EL8PC437S, EL8PC851, EL8PC869, ET8MSWIN923, HU8ABMOD, HU8CWI2, IN8ISCII, IS8PC861, IW8ISO8859P8, IW8MACHEBREWS, IW8MSWIN1255, IW8PC1507, JA16EUC, JA16EUCTILDE, JA16SJIS, JA16SJISTILDE, JA16VMS, KO16KSC5601, KO16KSCCS, KO16MSWIN949, LA8ISO6937, LA8PASSPORT, LT8MSWIN921, LT8PC772, LT8PC774, LV8PC1117, LV8PC8LR, LV8RST104090, N8PC865, NE8ISO8859P10, NEE8ISO8859P4, RU8BESTA, RU8PC855, RU8PC866, SE8ISO8859P3, TH8MACTHAIS, TH8TISASCII, TR8DEC, TR8MACTURKISHS, TR8MSWIN1254, TR8PC857, US7ASCII, US8PC437, UTF8, VN8MSWIN1258, VN8VN3, WE8DEC, WE8DG, WE8ISO8859P1, WE8ISO8859P15, WE8ISO8859P9, WE8MACROMAN8S, WE8MSWIN1252, WE8NCR4970, WE8NEXTSTEP, WE8PC850, WE8PC858, WE8PC860, WE8ROMAN8, ZHS16CGB231280, ZHS16GBK, ZHT16BIG5, ZHT16CCDC, ZHT16DBT, ZHT16HKSCS, ZHT16MSWIN950, ZHT32EUC, ZHT32SOPS, ZHT32TRIS
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] clone_table_space_lists: A list of the source Autonomous Database's table space number(s) used to create this partial clone from the backup.
-        :param pulumi.Input[_builtins.str] clone_type: The Autonomous Database clone type.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] clone_table_space_lists: A list of the source Autonomous AI Database's table space number(s) used to create this partial clone from the backup.
+        :param pulumi.Input[_builtins.str] clone_type: The Autonomous AI Database clone type.
                * `FULL` - This option creates a new database that includes all source database data.
                * `METADATA` - This option creates a new database that includes the source database schema and select metadata, but not the source database data.
-        :param pulumi.Input[_builtins.float] compute_count: (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
-        :param pulumi.Input[_builtins.str] compute_model: (Updatable) The compute model of the Autonomous Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
-        :param pulumi.Input[_builtins.int] cpu_core_count: (Updatable) The number of CPU cores to be made available to the database. For Autonomous Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        :param pulumi.Input[_builtins.float] compute_count: (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
+        :param pulumi.Input[_builtins.str] compute_model: (Updatable) The compute model of the Autonomous AI Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
+        :param pulumi.Input[_builtins.int] cpu_core_count: (Updatable) The number of CPU cores to be made available to the database. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Note:** This parameter cannot be used with the `ocpuCount` parameter. This input is ignored for Always Free resources.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseCustomerContactArgs']]] customer_contacts: (Updatable) Customer Contacts.
         :param pulumi.Input[_builtins.str] data_safe_status: (Updatable) Status of the Data Safe registration for this Autonomous Database. Could be REGISTERED or NOT_REGISTERED.
-        :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Notes**
                * This parameter is only supported for dedicated Exadata infrastructure.
                * This parameter cannot be used with the `dataStorageSizeInTBs` parameter.
-        :param pulumi.Input[_builtins.int] data_storage_size_in_tbs: (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details. A full Exadata service is allocated when the Autonomous Database size is set to the upper limit (384 TB).
+        :param pulumi.Input[_builtins.int] data_storage_size_in_tbs: (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details. A full Exadata service is allocated when the Autonomous AI Database size is set to the upper limit (384 TB).
                
                **Note:** This parameter cannot be used with the `dataStorageSizeInGBs` parameter. This input is ignored for Always Free resources.
-        :param pulumi.Input[_builtins.str] database_edition: (Updatable) The Oracle Database Edition that applies to the Autonomous databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
-        :param pulumi.Input[_builtins.str] database_management_status: Status of Database Management for this Autonomous Database.
+        :param pulumi.Input[_builtins.str] database_edition: (Updatable) The Oracle AI Database Edition that applies to the Autonomous AI Databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
+        :param pulumi.Input[_builtins.str] database_management_status: Status of Database Management for this Autonomous AI Database.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseDbToolsDetailArgs']]] db_tools_details: (Updatable) The list of database tools details.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, isLocalDataGuardEnabled, or isFreeTier.
-        :param pulumi.Input[_builtins.str] db_version: (Updatable) A valid Oracle Database version for Autonomous Database.`db_workload` AJD is only supported for `db_version` `19c` and above.
-        :param pulumi.Input[_builtins.str] db_workload: (Updatable) The Autonomous Database workload type. The following values are valid:
-               * OLTP - indicates an Autonomous Transaction Processing database
-               * DW - indicates an Autonomous Data Warehouse database
-               * AJD - indicates an Autonomous JSON Database
-               * APEX - indicates an Autonomous Database with the Oracle APEX Application Development workload type.
+        :param pulumi.Input[_builtins.str] db_version: (Updatable) A valid Oracle AI Database version for Autonomous AI Database. When you specify 23ai for dbversion, the system will provision a 23ai database, but the UI will display it as 26ai. When you specify 26ai for dbversion, the system will provision and display a 26ai database as expected. For new databases, it is recommended to use either 19c or 26ai. `db_workload` AJD is only supported for `db_version` `19c` and above.
+        :param pulumi.Input[_builtins.str] db_workload: (Updatable) The Autonomous AI Database workload type. The following values are valid:
+               * OLTP - indicates an Autonomous AI Transaction Processing database
+               * DW - indicates an Autonomous AI Lakehouse database
+               * AJD - indicates an Autonomous AI JSON Database
+               * APEX - indicates an Autonomous AI Database with the Oracle APEX AI Application Development workload type.
+               * LH - indicates an Oracle Autonomous AI Lakehouse database
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. *Note: `db_workload` can only be updated from AJD to OLTP or from a free OLTP to AJD.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
-        :param pulumi.Input[_builtins.str] disaster_recovery_type: Indicates the disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
-        :param pulumi.Input[_builtins.str] display_name: (Updatable) The user-friendly name for the Autonomous Database. The name does not have to be unique.
-        :param pulumi.Input['AutonomousDatabaseEncryptionKeyArgs'] encryption_key: (Updatable) Details of the Autonomous Database encryption key.
+        :param pulumi.Input[_builtins.str] disaster_recovery_type: Indicates the disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        :param pulumi.Input[_builtins.str] display_name: (Updatable) The user-friendly name for the Autonomous AI Database. The name does not have to be unique.
+        :param pulumi.Input['AutonomousDatabaseEncryptionKeyArgs'] encryption_key: (Updatable) Details of the Autonomous AI Database encryption key.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] freeform_tags: (Updatable) Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
-        :param pulumi.Input[_builtins.int] in_memory_percentage: (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous Database. This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform.
+        :param pulumi.Input[_builtins.int] in_memory_percentage: (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous AI Database. This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform.
         :param pulumi.Input[_builtins.bool] is_access_control_enabled: (Updatable) Indicates if the database-level access control is enabled. If disabled, database access is defined by the network security rules. If enabled, database access is restricted to the IP addresses defined by the rules specified with the `whitelistedIps` property. While specifying `whitelistedIps` rules is optional, if database-level access control is enabled and no rules are specified, the database will become inaccessible. The rules can be added later using the `UpdateAutonomousDatabase` API operation or edit option in console. When creating a database clone, the desired access control setting should be specified. By default, database-level access control will be disabled for the clone.
                
-               This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform. For Autonomous Database Serverless instances, `whitelistedIps` is used.
-        :param pulumi.Input[_builtins.bool] is_auto_scaling_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous Database CPU core count. The default value is `TRUE`.
-        :param pulumi.Input[_builtins.bool] is_auto_scaling_for_storage_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous Database storage. The default value is `FALSE`.
-        :param pulumi.Input[_builtins.bool] is_backup_retention_locked: (Updatable) True if the Autonomous Database is backup retention locked.
-        :param pulumi.Input[_builtins.bool] is_data_guard_enabled: (Updatable) **Deprecated.** Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+               This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform. For Autonomous AI Database Serverless instances, `whitelistedIps` is used.
+        :param pulumi.Input[_builtins.bool] is_auto_scaling_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database CPU core count. The default value is `TRUE`.
+        :param pulumi.Input[_builtins.bool] is_auto_scaling_for_storage_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database storage. The default value is `FALSE`.
+        :param pulumi.Input[_builtins.bool] is_backup_retention_locked: (Updatable) True if the Autonomous AI Database is backup retention locked.
+        :param pulumi.Input[_builtins.bool] is_data_guard_enabled: (Updatable) **Deprecated.** Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         :param pulumi.Input[_builtins.bool] is_dedicated: True if the database is on [dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html).
-        :param pulumi.Input[_builtins.bool] is_dev_tier: (Updatable) Autonomous Database for Developers are fixed-shape Autonomous Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
-        :param pulumi.Input[_builtins.bool] is_free_tier: (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
+        :param pulumi.Input[_builtins.bool] is_dev_tier: (Updatable) Autonomous AI Database for Developers are fixed-shape Autonomous AI Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
+        :param pulumi.Input[_builtins.bool] is_free_tier: (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous AI Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isLocalDataGuardEnabled When `db_workload` is `AJD` it cannot be `true`.
-        :param pulumi.Input[_builtins.bool] is_local_data_guard_enabled: (Updatable) Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
-        :param pulumi.Input[_builtins.bool] is_preview_version_with_service_terms_accepted: If set to `TRUE`, indicates that an Autonomous Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
-        :param pulumi.Input[_builtins.bool] is_refreshable_clone: Indicates if the Autonomous Database is a refreshable clone.
+        :param pulumi.Input[_builtins.bool] is_local_data_guard_enabled: (Updatable) Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        :param pulumi.Input[_builtins.bool] is_preview_version_with_service_terms_accepted: If set to `TRUE`, indicates that an Autonomous AI Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous AI Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
+        :param pulumi.Input[_builtins.bool] is_refreshable_clone: Indicates if the Autonomous AI Database is a refreshable clone.
         :param pulumi.Input[_builtins.bool] is_replicate_automatic_backups: If true, 7 days worth of backups are replicated across regions for Cross-Region ADB or Backup-Based DR between Primary and Standby. If false, the backups taken on the Primary are not replicated to the Standby database.
+        :param pulumi.Input[_builtins.bool] is_shrink_only: (Updatable) An optional property when enabled triggers the Shrinking of Autonomous Database once. To trigger Shrinking of ADB once again, this flag needs to be disabled and re-enabled again. It should not be passed during create database operation. It is only applicable on Serverless databases i.e. where `is_dedicated` is false.
+               
+               ** IMPORTANT **
+               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[_builtins.str] kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
-        :param pulumi.Input[_builtins.str] license_model: (Updatable) The Oracle license model that applies to the Oracle Autonomous Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle Database software licenses and the Oracle Database service. Note that when provisioning an [Autonomous Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
+        :param pulumi.Input[_builtins.str] license_model: (Updatable) The Oracle license model that applies to the Oracle Autonomous AI Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle AI Database software licenses and the Oracle AI Database service. Note that when provisioning an [Autonomous AI Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
                
                This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, dataStorageSizeInTBs, adminPassword, isMTLSConnectionRequired, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, dbName, scheduledOperations, dbToolsDetails, or isFreeTier. It is a required field when `db_workload` is AJD and needs to be set to `LICENSE_INCLUDED` as AJD does not support default `license_model` value `BRING_YOUR_OWN_LICENSE`.
         :param pulumi.Input[_builtins.int] local_adg_auto_failover_max_data_loss_limit: Parameter that allows users to select an acceptable maximum data loss limit in seconds, up to which Automatic Failover will be triggered when necessary for a Local Autonomous Data Guard
+        :param pulumi.Input[_builtins.str] local_adg_resource_pool_leader_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the dedicated resource pool leader Autonomous Database in the same region, associated with local Autonomous Data Guard for a dedicated resource pool member.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseLongTermBackupScheduleArgs']]] long_term_backup_schedules: Details for the long-term backup schedule.
-        :param pulumi.Input[_builtins.str] ncharacter_set: The character set for the Autonomous Database. The default is AL32UTF8. Use [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous Database Serverless instance. For an Autonomous Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
+        :param pulumi.Input[_builtins.str] ncharacter_set: The character set for the Autonomous AI Database. The default is AL32UTF8. Use [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous AI Database Serverless instance. For an Autonomous AI Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] nsg_ids: (Updatable) The list of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the network security groups (NSGs) to which this resource belongs. Setting this to an empty list removes all resources from all NSGs. For more information about NSGs, see [Security Rules](https://docs.cloud.oracle.com/iaas/Content/Network/Concepts/securityrules.htm). **NsgIds restrictions:**
-               * A network security group (NSG) is optional for Autonomous Databases with private access. The nsgIds list can be empty.
+               * A network security group (NSG) is optional for Autonomous AI Databases with private access. The nsgIds list can be empty.
         :param pulumi.Input[_builtins.float] ocpu_count: (Updatable) The number of OCPU cores to be made available to the database.
                
                The following points apply:
-               * For Autonomous Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous Database Serverless instances.)
-               * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure.
-               * For Autonomous Database Serverless instances, this parameter is not used.
+               * For Autonomous AI Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous AI Database Serverless instances.)
+               * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure.
+               * For Autonomous AI Database Serverless instances, this parameter is not used.
                
-               For Autonomous Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+               For Autonomous AI Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Note:** This parameter cannot be used with the `cpuCoreCount` parameter.
-        :param pulumi.Input[_builtins.str] open_mode: (Updatable) Indicates the Autonomous Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
+        :param pulumi.Input[_builtins.str] open_mode: (Updatable) Indicates the Autonomous AI Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
                
                This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isFreeTier.
-        :param pulumi.Input[_builtins.str] operations_insights_status: Status of Operations Insights for this Autonomous Database.
-        :param pulumi.Input[_builtins.str] permission_level: The Autonomous Database permission level. Restricted mode allows access only by admin users.
+        :param pulumi.Input[_builtins.str] operations_insights_status: Status of Operations Insights for this Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] permission_level: The Autonomous AI Database permission level. Restricted mode allows access only by admin users.
         :param pulumi.Input[_builtins.str] private_endpoint_ip: (Updatable) The private endpoint Ip address for the resource.
         :param pulumi.Input[_builtins.str] private_endpoint_label: (Updatable) The private endpoint label for the resource.
-        :param pulumi.Input[_builtins.str] refreshable_mode: (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous Database.
-        :param pulumi.Input[_builtins.str] remote_disaster_recovery_type: Indicates the cross-region disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
-        :param pulumi.Input[_builtins.str] resource_pool_leader_id: (Updatable) The unique identifier for leader autonomous database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        :param pulumi.Input[_builtins.str] refreshable_mode: (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] remote_disaster_recovery_type: Indicates the cross-region disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        :param pulumi.Input[_builtins.str] resource_pool_leader_id: (Updatable) The unique identifier for leader Autonomous AI Database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
         :param pulumi.Input['AutonomousDatabaseResourcePoolSummaryArgs'] resource_pool_summary: (Updatable) The configuration details for resource pool
+        :param pulumi.Input[_builtins.bool] rotate_key_trigger: (Updatable) An optional property when flipped triggers rotation of KMS key. It is only applicable on dedicated databases i.e. where `is_dedicated` is true.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseScheduledOperationArgs']]] scheduled_operations: (Updatable) The list of scheduled operations. Consists of values such as dayOfWeek, scheduledStartTime, scheduledStopTime.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier.
@@ -222,43 +235,44 @@ class AutonomousDatabaseArgs:
                This cannot be used in conjunction with adminPassword.
         :param pulumi.Input[_builtins.int] secret_version_number: (Updatable) The version of the vault secret. If no version is specified, the latest version will be used.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
-        :param pulumi.Input[_builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous Database. Use `DATABASE` for creating a new Autonomous Database by cloning an existing Autonomous Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
+        :param pulumi.Input[_builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous AI Database. Use `DATABASE` for creating a new Autonomous AI Database by cloning an existing Autonomous AI Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
                
-               For [Autonomous Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous Database clone using backups. For more information, see [Cloning and Moving an Autonomous Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
-        :param pulumi.Input[_builtins.str] source_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that will be used to create a new peer database for the Data Guard association.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] standby_whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+               For [Autonomous AI Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous AI Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous AI Database clone using backups. For more information, see [Cloning and Moving an Autonomous AI Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
+        :param pulumi.Input[_builtins.str] source_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that will be used to create a new peer database for the Data Guard association.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] standby_whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
                
-               For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+               For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
                
                For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier.
-        :param pulumi.Input[_builtins.str] state: The current state of the Autonomous Database.
+        :param pulumi.Input[_builtins.str] state: The current state of the Autonomous AI Database.
         :param pulumi.Input[_builtins.str] subnet_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet the resource is associated with.
                
                **Subnet Restrictions:**
                * For bare metal DB systems and for single node virtual machine DB systems, do not use a subnet that overlaps with 192.168.16.16/28.
                * For Exadata and virtual machine 2-node RAC systems, do not use a subnet that overlaps with 192.168.128.0/20.
-               * For Autonomous Database, setting this will disable public secure access to the database.
+               * For Autonomous AI Database, setting this will disable public secure access to the database.
                
                These subnets are used by the Oracle Clusterware private interconnect on the database instance. Specifying an overlapping subnet will cause the private interconnect to malfunction. This restriction applies to both the client subnet and the backup subnet.
         :param pulumi.Input[_builtins.str] subscription_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
-        :param pulumi.Input[_builtins.str] time_of_auto_refresh_start: (Updatable) The the date and time that auto-refreshing will begin for an Autonomous Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
-        :param pulumi.Input[_builtins.str] time_scheduled_db_version_upgrade: The date and time the Autonomous Database scheduled to upgrade to 23ai. Send this value along with the target db_version value to schedule the database version upgrade. After the upgrade is scheduled and before the scheduled upgrade time arrives, please keep the db_version value the same as the backend's current db_version.
-        :param pulumi.Input[_builtins.str] timestamp: The timestamp specified for the point-in-time clone of the source Autonomous Database. The timestamp must be in the past.
+        :param pulumi.Input[_builtins.str] switchover_to: It is applicable only when `is_local_data_guard_enabled` is true. Could be set to `PRIMARY` or `STANDBY`. Default value is `PRIMARY`.
+        :param pulumi.Input[_builtins.str] switchover_to_remote_peer_id: (Updatable) It is applicable only when `dataguard_region_type` and `role` are set, and `is_dedicated` is false. For Autonomous Database Serverless instances, Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. It takes the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the remote peer to switchover to and the API is called from the remote region.
+        :param pulumi.Input[_builtins.str] time_maintenance_pause_until: The date until which maintenance of Autonomous Database is temporarily paused.
+        :param pulumi.Input[_builtins.str] time_of_auto_refresh_start: (Updatable) The the date and time that auto-refreshing will begin for an Autonomous AI Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
+        :param pulumi.Input[_builtins.str] time_scheduled_db_version_upgrade: The date and time the Autonomous AI Database scheduled to upgrade to 26ai.
+        :param pulumi.Input[_builtins.str] timestamp: The timestamp specified for the point-in-time clone of the source Autonomous AI Database. The timestamp must be in the past.
+        :param pulumi.Input['AutonomousDatabaseTransportableTablespaceArgs'] transportable_tablespace: Details for importing transportable tablespace for an Autonomous Database.
         :param pulumi.Input[_builtins.bool] use_latest_available_backup_time_stamp: Clone from latest available backup timestamp.
+        :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityUrlDetailArgs']]] vanity_url_details: Details for api gateway and vanity url(custom url) for dbTools.
         :param pulumi.Input[_builtins.str] vault_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Oracle Cloud Infrastructure [vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts). This parameter and `secretId` are required for Customer Managed Keys.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
                
-               For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+               For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
                
                For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. To remove all whitelisted IPs, set the field to a list with an empty string `[""]`.
-               
-               
-               ** IMPORTANT **
-               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
         pulumi.set(__self__, "compartment_id", compartment_id)
         pulumi.set(__self__, "db_name", db_name)
@@ -276,6 +290,8 @@ class AutonomousDatabaseArgs:
             pulumi.set(__self__, "autonomous_database_backup_id", autonomous_database_backup_id)
         if autonomous_database_id is not None:
             pulumi.set(__self__, "autonomous_database_id", autonomous_database_id)
+        if autonomous_database_maintenance_window is not None:
+            pulumi.set(__self__, "autonomous_database_maintenance_window", autonomous_database_maintenance_window)
         if autonomous_maintenance_schedule_type is not None:
             pulumi.set(__self__, "autonomous_maintenance_schedule_type", autonomous_maintenance_schedule_type)
         if backup_retention_period_in_days is not None:
@@ -371,6 +387,8 @@ class AutonomousDatabaseArgs:
             pulumi.set(__self__, "license_model", license_model)
         if local_adg_auto_failover_max_data_loss_limit is not None:
             pulumi.set(__self__, "local_adg_auto_failover_max_data_loss_limit", local_adg_auto_failover_max_data_loss_limit)
+        if local_adg_resource_pool_leader_id is not None:
+            pulumi.set(__self__, "local_adg_resource_pool_leader_id", local_adg_resource_pool_leader_id)
         if long_term_backup_schedules is not None:
             pulumi.set(__self__, "long_term_backup_schedules", long_term_backup_schedules)
         if max_cpu_core_count is not None:
@@ -429,14 +447,20 @@ class AutonomousDatabaseArgs:
             pulumi.set(__self__, "switchover_to", switchover_to)
         if switchover_to_remote_peer_id is not None:
             pulumi.set(__self__, "switchover_to_remote_peer_id", switchover_to_remote_peer_id)
+        if time_maintenance_pause_until is not None:
+            pulumi.set(__self__, "time_maintenance_pause_until", time_maintenance_pause_until)
         if time_of_auto_refresh_start is not None:
             pulumi.set(__self__, "time_of_auto_refresh_start", time_of_auto_refresh_start)
         if time_scheduled_db_version_upgrade is not None:
             pulumi.set(__self__, "time_scheduled_db_version_upgrade", time_scheduled_db_version_upgrade)
         if timestamp is not None:
             pulumi.set(__self__, "timestamp", timestamp)
+        if transportable_tablespace is not None:
+            pulumi.set(__self__, "transportable_tablespace", transportable_tablespace)
         if use_latest_available_backup_time_stamp is not None:
             pulumi.set(__self__, "use_latest_available_backup_time_stamp", use_latest_available_backup_time_stamp)
+        if vanity_url_details is not None:
+            pulumi.set(__self__, "vanity_url_details", vanity_url_details)
         if vault_id is not None:
             pulumi.set(__self__, "vault_id", vault_id)
         if whitelisted_ips is not None:
@@ -446,7 +470,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="compartmentId")
     def compartment_id(self) -> pulumi.Input[_builtins.str]:
         """
-        (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous Database.
+        (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous AI Database.
         """
         return pulumi.get(self, "compartment_id")
 
@@ -482,7 +506,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="arePrimaryWhitelistedIpsUsed")
     def are_primary_whitelisted_ips_used(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) This field will be null if the Autonomous Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses different IP access control list (ACL) for standby compared to primary.
+        (Updatable) This field will be null if the Autonomous AI Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses different IP access control list (ACL) for standby compared to primary.
         """
         return pulumi.get(self, "are_primary_whitelisted_ips_used")
 
@@ -518,7 +542,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="autonomousContainerDatabaseId")
     def autonomous_container_database_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous Database on Dedicated Exadata Infrastructure.
+        The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous AI Database on Dedicated Exadata Infrastructure.
         """
         return pulumi.get(self, "autonomous_container_database_id")
 
@@ -530,7 +554,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="autonomousDatabaseBackupId")
     def autonomous_database_backup_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database Backup that you will clone to create a new Autonomous Database.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database Backup that you will clone to create a new Autonomous AI Database.
         """
         return pulumi.get(self, "autonomous_database_backup_id")
 
@@ -542,7 +566,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="autonomousDatabaseId")
     def autonomous_database_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that you will clone to create a new Autonomous Database.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that you will clone to create a new Autonomous AI Database.
         """
         return pulumi.get(self, "autonomous_database_id")
 
@@ -551,10 +575,22 @@ class AutonomousDatabaseArgs:
         pulumi.set(self, "autonomous_database_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="autonomousDatabaseMaintenanceWindow")
+    def autonomous_database_maintenance_window(self) -> Optional[pulumi.Input['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs']]:
+        """
+        (Updatable) Autonomous Database maintenance window. The maintenance window can be configured during database creation. To change the maintenance window of an existing Autonomous Database Serverless instance, clone the database and specify the maintenance window for the new cloned instance.
+        """
+        return pulumi.get(self, "autonomous_database_maintenance_window")
+
+    @autonomous_database_maintenance_window.setter
+    def autonomous_database_maintenance_window(self, value: Optional[pulumi.Input['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs']]):
+        pulumi.set(self, "autonomous_database_maintenance_window", value)
+
+    @_builtins.property
     @pulumi.getter(name="autonomousMaintenanceScheduleType")
     def autonomous_maintenance_schedule_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The maintenance schedule type of the Autonomous Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
+        (Updatable) The maintenance schedule type of the Autonomous AI Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
         """
         return pulumi.get(self, "autonomous_maintenance_schedule_type")
 
@@ -590,9 +626,9 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="characterSet")
     def character_set(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The character set for the autonomous database. The default is AL32UTF8. Allowed values for an Autonomous Database Serverless instance as as returned by [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
+        The character set for the Autonomous AI Database. The default is AL32UTF8. Allowed values for an Autonomous AI Database Serverless instance as as returned by [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
 
-        For an Autonomous Database on dedicated infrastructure, the allowed values are:
+        For an Autonomous AI Database on dedicated infrastructure, the allowed values are:
 
         AL32UTF8, AR8ADOS710, AR8ADOS720, AR8APTEC715, AR8ARABICMACS, AR8ASMO8X, AR8ISO8859P6, AR8MSWIN1256, AR8MUSSAD768, AR8NAFITHA711, AR8NAFITHA721, AR8SAKHR706, AR8SAKHR707, AZ8ISO8859P9E, BG8MSWIN, BG8PC437S, BLT8CP921, BLT8ISO8859P13, BLT8MSWIN1257, BLT8PC775, BN8BSCII, CDN8PC863, CEL8ISO8859P14, CL8ISO8859P5, CL8ISOIR111, CL8KOI8R, CL8KOI8U, CL8MACCYRILLICS, CL8MSWIN1251, EE8ISO8859P2, EE8MACCES, EE8MACCROATIANS, EE8MSWIN1250, EE8PC852, EL8DEC, EL8ISO8859P7, EL8MACGREEKS, EL8MSWIN1253, EL8PC437S, EL8PC851, EL8PC869, ET8MSWIN923, HU8ABMOD, HU8CWI2, IN8ISCII, IS8PC861, IW8ISO8859P8, IW8MACHEBREWS, IW8MSWIN1255, IW8PC1507, JA16EUC, JA16EUCTILDE, JA16SJIS, JA16SJISTILDE, JA16VMS, KO16KSC5601, KO16KSCCS, KO16MSWIN949, LA8ISO6937, LA8PASSPORT, LT8MSWIN921, LT8PC772, LT8PC774, LV8PC1117, LV8PC8LR, LV8RST104090, N8PC865, NE8ISO8859P10, NEE8ISO8859P4, RU8BESTA, RU8PC855, RU8PC866, SE8ISO8859P3, TH8MACTHAIS, TH8TISASCII, TR8DEC, TR8MACTURKISHS, TR8MSWIN1254, TR8PC857, US7ASCII, US8PC437, UTF8, VN8MSWIN1258, VN8VN3, WE8DEC, WE8DG, WE8ISO8859P1, WE8ISO8859P15, WE8ISO8859P9, WE8MACROMAN8S, WE8MSWIN1252, WE8NCR4970, WE8NEXTSTEP, WE8PC850, WE8PC858, WE8PC860, WE8ROMAN8, ZHS16CGB231280, ZHS16GBK, ZHT16BIG5, ZHT16CCDC, ZHT16DBT, ZHT16HKSCS, ZHT16MSWIN950, ZHT32EUC, ZHT32SOPS, ZHT32TRIS
         """
@@ -606,7 +642,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="cloneTableSpaceLists")
     def clone_table_space_lists(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]]:
         """
-        A list of the source Autonomous Database's table space number(s) used to create this partial clone from the backup.
+        A list of the source Autonomous AI Database's table space number(s) used to create this partial clone from the backup.
         """
         return pulumi.get(self, "clone_table_space_lists")
 
@@ -618,7 +654,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="cloneType")
     def clone_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Autonomous Database clone type.
+        The Autonomous AI Database clone type.
         * `FULL` - This option creates a new database that includes all source database data.
         * `METADATA` - This option creates a new database that includes the source database schema and select metadata, but not the source database data.
         """
@@ -632,7 +668,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="computeCount")
     def compute_count(self) -> Optional[pulumi.Input[_builtins.float]]:
         """
-        (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
+        (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
         """
         return pulumi.get(self, "compute_count")
 
@@ -644,7 +680,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="computeModel")
     def compute_model(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The compute model of the Autonomous Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
+        (Updatable) The compute model of the Autonomous AI Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
         """
         return pulumi.get(self, "compute_model")
 
@@ -656,7 +692,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="cpuCoreCount")
     def cpu_core_count(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        (Updatable) The number of CPU cores to be made available to the database. For Autonomous Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        (Updatable) The number of CPU cores to be made available to the database. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
 
         **Note:** This parameter cannot be used with the `ocpuCount` parameter. This input is ignored for Always Free resources.
         """
@@ -694,7 +730,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="dataStorageSizeInGb")
     def data_storage_size_in_gb(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
 
         **Notes**
         * This parameter is only supported for dedicated Exadata infrastructure.
@@ -710,7 +746,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="dataStorageSizeInTbs")
     def data_storage_size_in_tbs(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details. A full Exadata service is allocated when the Autonomous Database size is set to the upper limit (384 TB).
+        (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details. A full Exadata service is allocated when the Autonomous AI Database size is set to the upper limit (384 TB).
 
         **Note:** This parameter cannot be used with the `dataStorageSizeInGBs` parameter. This input is ignored for Always Free resources.
         """
@@ -724,7 +760,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="databaseEdition")
     def database_edition(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The Oracle Database Edition that applies to the Autonomous databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
+        (Updatable) The Oracle AI Database Edition that applies to the Autonomous AI Databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
         """
         return pulumi.get(self, "database_edition")
 
@@ -736,7 +772,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="databaseManagementStatus")
     def database_management_status(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Status of Database Management for this Autonomous Database.
+        Status of Database Management for this Autonomous AI Database.
         """
         return pulumi.get(self, "database_management_status")
 
@@ -762,7 +798,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="dbVersion")
     def db_version(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) A valid Oracle Database version for Autonomous Database.`db_workload` AJD is only supported for `db_version` `19c` and above.
+        (Updatable) A valid Oracle AI Database version for Autonomous AI Database. When you specify 23ai for dbversion, the system will provision a 23ai database, but the UI will display it as 26ai. When you specify 26ai for dbversion, the system will provision and display a 26ai database as expected. For new databases, it is recommended to use either 19c or 26ai. `db_workload` AJD is only supported for `db_version` `19c` and above.
         """
         return pulumi.get(self, "db_version")
 
@@ -774,11 +810,12 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="dbWorkload")
     def db_workload(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The Autonomous Database workload type. The following values are valid:
-        * OLTP - indicates an Autonomous Transaction Processing database
-        * DW - indicates an Autonomous Data Warehouse database
-        * AJD - indicates an Autonomous JSON Database
-        * APEX - indicates an Autonomous Database with the Oracle APEX Application Development workload type.
+        (Updatable) The Autonomous AI Database workload type. The following values are valid:
+        * OLTP - indicates an Autonomous AI Transaction Processing database
+        * DW - indicates an Autonomous AI Lakehouse database
+        * AJD - indicates an Autonomous AI JSON Database
+        * APEX - indicates an Autonomous AI Database with the Oracle APEX AI Application Development workload type.
+        * LH - indicates an Oracle Autonomous AI Lakehouse database
 
         This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. *Note: `db_workload` can only be updated from AJD to OLTP or from a free OLTP to AJD.
         """
@@ -804,7 +841,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="disasterRecoveryType")
     def disaster_recovery_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Indicates the disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        Indicates the disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
         """
         return pulumi.get(self, "disaster_recovery_type")
 
@@ -816,7 +853,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="displayName")
     def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The user-friendly name for the Autonomous Database. The name does not have to be unique.
+        (Updatable) The user-friendly name for the Autonomous AI Database. The name does not have to be unique.
         """
         return pulumi.get(self, "display_name")
 
@@ -837,7 +874,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="encryptionKey")
     def encryption_key(self) -> Optional[pulumi.Input['AutonomousDatabaseEncryptionKeyArgs']]:
         """
-        (Updatable) Details of the Autonomous Database encryption key.
+        (Updatable) Details of the Autonomous AI Database encryption key.
         """
         return pulumi.get(self, "encryption_key")
 
@@ -861,7 +898,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="inMemoryPercentage")
     def in_memory_percentage(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous Database. This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform.
+        (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous AI Database. This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform.
         """
         return pulumi.get(self, "in_memory_percentage")
 
@@ -875,7 +912,7 @@ class AutonomousDatabaseArgs:
         """
         (Updatable) Indicates if the database-level access control is enabled. If disabled, database access is defined by the network security rules. If enabled, database access is restricted to the IP addresses defined by the rules specified with the `whitelistedIps` property. While specifying `whitelistedIps` rules is optional, if database-level access control is enabled and no rules are specified, the database will become inaccessible. The rules can be added later using the `UpdateAutonomousDatabase` API operation or edit option in console. When creating a database clone, the desired access control setting should be specified. By default, database-level access control will be disabled for the clone.
 
-        This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform. For Autonomous Database Serverless instances, `whitelistedIps` is used.
+        This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform. For Autonomous AI Database Serverless instances, `whitelistedIps` is used.
         """
         return pulumi.get(self, "is_access_control_enabled")
 
@@ -887,7 +924,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="isAutoScalingEnabled")
     def is_auto_scaling_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) Indicates if auto scaling is enabled for the Autonomous Database CPU core count. The default value is `TRUE`.
+        (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database CPU core count. The default value is `TRUE`.
         """
         return pulumi.get(self, "is_auto_scaling_enabled")
 
@@ -899,7 +936,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="isAutoScalingForStorageEnabled")
     def is_auto_scaling_for_storage_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) Indicates if auto scaling is enabled for the Autonomous Database storage. The default value is `FALSE`.
+        (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database storage. The default value is `FALSE`.
         """
         return pulumi.get(self, "is_auto_scaling_for_storage_enabled")
 
@@ -911,7 +948,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="isBackupRetentionLocked")
     def is_backup_retention_locked(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) True if the Autonomous Database is backup retention locked.
+        (Updatable) True if the Autonomous AI Database is backup retention locked.
         """
         return pulumi.get(self, "is_backup_retention_locked")
 
@@ -923,7 +960,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="isDataGuardEnabled")
     def is_data_guard_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) **Deprecated.** Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        (Updatable) **Deprecated.** Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         """
         return pulumi.get(self, "is_data_guard_enabled")
 
@@ -947,7 +984,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="isDevTier")
     def is_dev_tier(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) Autonomous Database for Developers are fixed-shape Autonomous Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
+        (Updatable) Autonomous AI Database for Developers are fixed-shape Autonomous AI Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
         """
         return pulumi.get(self, "is_dev_tier")
 
@@ -977,7 +1014,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="isFreeTier")
     def is_free_tier(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
+        (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous AI Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
 
         This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isLocalDataGuardEnabled When `db_workload` is `AJD` it cannot be `true`.
         """
@@ -991,7 +1028,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="isLocalDataGuardEnabled")
     def is_local_data_guard_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        (Updatable) Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         """
         return pulumi.get(self, "is_local_data_guard_enabled")
 
@@ -1012,7 +1049,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="isPreviewVersionWithServiceTermsAccepted")
     def is_preview_version_with_service_terms_accepted(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        If set to `TRUE`, indicates that an Autonomous Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
+        If set to `TRUE`, indicates that an Autonomous AI Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous AI Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
         """
         return pulumi.get(self, "is_preview_version_with_service_terms_accepted")
 
@@ -1024,7 +1061,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="isRefreshableClone")
     def is_refreshable_clone(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        Indicates if the Autonomous Database is a refreshable clone.
+        Indicates if the Autonomous AI Database is a refreshable clone.
         """
         return pulumi.get(self, "is_refreshable_clone")
 
@@ -1057,6 +1094,12 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="isShrinkOnly")
     @_utilities.deprecated("""The 'is_shrink_only' field has been deprecated. Please use 'shrink_adb_trigger' instead.""")
     def is_shrink_only(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Updatable) An optional property when enabled triggers the Shrinking of Autonomous Database once. To trigger Shrinking of ADB once again, this flag needs to be disabled and re-enabled again. It should not be passed during create database operation. It is only applicable on Serverless databases i.e. where `is_dedicated` is false.
+
+        ** IMPORTANT **
+        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        """
         return pulumi.get(self, "is_shrink_only")
 
     @is_shrink_only.setter
@@ -1088,7 +1131,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="licenseModel")
     def license_model(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The Oracle license model that applies to the Oracle Autonomous Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle Database software licenses and the Oracle Database service. Note that when provisioning an [Autonomous Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
+        (Updatable) The Oracle license model that applies to the Oracle Autonomous AI Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle AI Database software licenses and the Oracle AI Database service. Note that when provisioning an [Autonomous AI Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
 
         This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, dataStorageSizeInTBs, adminPassword, isMTLSConnectionRequired, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, dbName, scheduledOperations, dbToolsDetails, or isFreeTier. It is a required field when `db_workload` is AJD and needs to be set to `LICENSE_INCLUDED` as AJD does not support default `license_model` value `BRING_YOUR_OWN_LICENSE`.
         """
@@ -1109,6 +1152,18 @@ class AutonomousDatabaseArgs:
     @local_adg_auto_failover_max_data_loss_limit.setter
     def local_adg_auto_failover_max_data_loss_limit(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "local_adg_auto_failover_max_data_loss_limit", value)
+
+    @_builtins.property
+    @pulumi.getter(name="localAdgResourcePoolLeaderId")
+    def local_adg_resource_pool_leader_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the dedicated resource pool leader Autonomous Database in the same region, associated with local Autonomous Data Guard for a dedicated resource pool member.
+        """
+        return pulumi.get(self, "local_adg_resource_pool_leader_id")
+
+    @local_adg_resource_pool_leader_id.setter
+    def local_adg_resource_pool_leader_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "local_adg_resource_pool_leader_id", value)
 
     @_builtins.property
     @pulumi.getter(name="longTermBackupSchedules")
@@ -1135,7 +1190,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="ncharacterSet")
     def ncharacter_set(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The character set for the Autonomous Database. The default is AL32UTF8. Use [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous Database Serverless instance. For an Autonomous Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
+        The character set for the Autonomous AI Database. The default is AL32UTF8. Use [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous AI Database Serverless instance. For an Autonomous AI Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
         """
         return pulumi.get(self, "ncharacter_set")
 
@@ -1148,7 +1203,7 @@ class AutonomousDatabaseArgs:
     def nsg_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         (Updatable) The list of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the network security groups (NSGs) to which this resource belongs. Setting this to an empty list removes all resources from all NSGs. For more information about NSGs, see [Security Rules](https://docs.cloud.oracle.com/iaas/Content/Network/Concepts/securityrules.htm). **NsgIds restrictions:**
-        * A network security group (NSG) is optional for Autonomous Databases with private access. The nsgIds list can be empty.
+        * A network security group (NSG) is optional for Autonomous AI Databases with private access. The nsgIds list can be empty.
         """
         return pulumi.get(self, "nsg_ids")
 
@@ -1163,11 +1218,11 @@ class AutonomousDatabaseArgs:
         (Updatable) The number of OCPU cores to be made available to the database.
 
         The following points apply:
-        * For Autonomous Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous Database Serverless instances.)
-        * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure.
-        * For Autonomous Database Serverless instances, this parameter is not used.
+        * For Autonomous AI Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous AI Database Serverless instances.)
+        * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure.
+        * For Autonomous AI Database Serverless instances, this parameter is not used.
 
-        For Autonomous Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        For Autonomous AI Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
 
         **Note:** This parameter cannot be used with the `cpuCoreCount` parameter.
         """
@@ -1181,7 +1236,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="openMode")
     def open_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) Indicates the Autonomous Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
+        (Updatable) Indicates the Autonomous AI Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
 
         This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isFreeTier.
         """
@@ -1195,7 +1250,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="operationsInsightsStatus")
     def operations_insights_status(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Status of Operations Insights for this Autonomous Database.
+        Status of Operations Insights for this Autonomous AI Database.
         """
         return pulumi.get(self, "operations_insights_status")
 
@@ -1216,7 +1271,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="permissionLevel")
     def permission_level(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Autonomous Database permission level. Restricted mode allows access only by admin users.
+        The Autonomous AI Database permission level. Restricted mode allows access only by admin users.
         """
         return pulumi.get(self, "permission_level")
 
@@ -1252,7 +1307,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="refreshableMode")
     def refreshable_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous Database.
+        (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous AI Database.
         """
         return pulumi.get(self, "refreshable_mode")
 
@@ -1264,7 +1319,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="remoteDisasterRecoveryType")
     def remote_disaster_recovery_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Indicates the cross-region disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        Indicates the cross-region disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
         """
         return pulumi.get(self, "remote_disaster_recovery_type")
 
@@ -1276,7 +1331,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="resourcePoolLeaderId")
     def resource_pool_leader_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The unique identifier for leader autonomous database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        (Updatable) The unique identifier for leader Autonomous AI Database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
         """
         return pulumi.get(self, "resource_pool_leader_id")
 
@@ -1299,6 +1354,9 @@ class AutonomousDatabaseArgs:
     @_builtins.property
     @pulumi.getter(name="rotateKeyTrigger")
     def rotate_key_trigger(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Updatable) An optional property when flipped triggers rotation of KMS key. It is only applicable on dedicated databases i.e. where `is_dedicated` is true.
+        """
         return pulumi.get(self, "rotate_key_trigger")
 
     @rotate_key_trigger.setter
@@ -1370,9 +1428,9 @@ class AutonomousDatabaseArgs:
     @pulumi.getter
     def source(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The source of the database: Use `NONE` for creating a new Autonomous Database. Use `DATABASE` for creating a new Autonomous Database by cloning an existing Autonomous Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
+        The source of the database: Use `NONE` for creating a new Autonomous AI Database. Use `DATABASE` for creating a new Autonomous AI Database by cloning an existing Autonomous AI Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
 
-        For [Autonomous Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous Database clone using backups. For more information, see [Cloning and Moving an Autonomous Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
+        For [Autonomous AI Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous AI Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous AI Database clone using backups. For more information, see [Cloning and Moving an Autonomous AI Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
         """
         return pulumi.get(self, "source")
 
@@ -1384,7 +1442,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="sourceId")
     def source_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that will be used to create a new peer database for the Data Guard association.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that will be used to create a new peer database for the Data Guard association.
         """
         return pulumi.get(self, "source_id")
 
@@ -1396,9 +1454,9 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="standbyWhitelistedIps")
     def standby_whitelisted_ips(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
 
-        For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+        For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
 
         For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
 
@@ -1414,7 +1472,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter
     def state(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The current state of the Autonomous Database.
+        The current state of the Autonomous AI Database.
         """
         return pulumi.get(self, "state")
 
@@ -1431,7 +1489,7 @@ class AutonomousDatabaseArgs:
         **Subnet Restrictions:**
         * For bare metal DB systems and for single node virtual machine DB systems, do not use a subnet that overlaps with 192.168.16.16/28.
         * For Exadata and virtual machine 2-node RAC systems, do not use a subnet that overlaps with 192.168.128.0/20.
-        * For Autonomous Database, setting this will disable public secure access to the database.
+        * For Autonomous AI Database, setting this will disable public secure access to the database.
 
         These subnets are used by the Oracle Clusterware private interconnect on the database instance. Specifying an overlapping subnet will cause the private interconnect to malfunction. This restriction applies to both the client subnet and the backup subnet.
         """
@@ -1456,6 +1514,9 @@ class AutonomousDatabaseArgs:
     @_builtins.property
     @pulumi.getter(name="switchoverTo")
     def switchover_to(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        It is applicable only when `is_local_data_guard_enabled` is true. Could be set to `PRIMARY` or `STANDBY`. Default value is `PRIMARY`.
+        """
         return pulumi.get(self, "switchover_to")
 
     @switchover_to.setter
@@ -1465,6 +1526,9 @@ class AutonomousDatabaseArgs:
     @_builtins.property
     @pulumi.getter(name="switchoverToRemotePeerId")
     def switchover_to_remote_peer_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Updatable) It is applicable only when `dataguard_region_type` and `role` are set, and `is_dedicated` is false. For Autonomous Database Serverless instances, Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. It takes the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the remote peer to switchover to and the API is called from the remote region.
+        """
         return pulumi.get(self, "switchover_to_remote_peer_id")
 
     @switchover_to_remote_peer_id.setter
@@ -1472,10 +1536,22 @@ class AutonomousDatabaseArgs:
         pulumi.set(self, "switchover_to_remote_peer_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="timeMaintenancePauseUntil")
+    def time_maintenance_pause_until(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The date until which maintenance of Autonomous Database is temporarily paused.
+        """
+        return pulumi.get(self, "time_maintenance_pause_until")
+
+    @time_maintenance_pause_until.setter
+    def time_maintenance_pause_until(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "time_maintenance_pause_until", value)
+
+    @_builtins.property
     @pulumi.getter(name="timeOfAutoRefreshStart")
     def time_of_auto_refresh_start(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The the date and time that auto-refreshing will begin for an Autonomous Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
+        (Updatable) The the date and time that auto-refreshing will begin for an Autonomous AI Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
         """
         return pulumi.get(self, "time_of_auto_refresh_start")
 
@@ -1487,7 +1563,7 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="timeScheduledDbVersionUpgrade")
     def time_scheduled_db_version_upgrade(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The date and time the Autonomous Database scheduled to upgrade to 23ai. Send this value along with the target db_version value to schedule the database version upgrade. After the upgrade is scheduled and before the scheduled upgrade time arrives, please keep the db_version value the same as the backend's current db_version.
+        The date and time the Autonomous AI Database scheduled to upgrade to 26ai.
         """
         return pulumi.get(self, "time_scheduled_db_version_upgrade")
 
@@ -1499,13 +1575,25 @@ class AutonomousDatabaseArgs:
     @pulumi.getter
     def timestamp(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The timestamp specified for the point-in-time clone of the source Autonomous Database. The timestamp must be in the past.
+        The timestamp specified for the point-in-time clone of the source Autonomous AI Database. The timestamp must be in the past.
         """
         return pulumi.get(self, "timestamp")
 
     @timestamp.setter
     def timestamp(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "timestamp", value)
+
+    @_builtins.property
+    @pulumi.getter(name="transportableTablespace")
+    def transportable_tablespace(self) -> Optional[pulumi.Input['AutonomousDatabaseTransportableTablespaceArgs']]:
+        """
+        Details for importing transportable tablespace for an Autonomous Database.
+        """
+        return pulumi.get(self, "transportable_tablespace")
+
+    @transportable_tablespace.setter
+    def transportable_tablespace(self, value: Optional[pulumi.Input['AutonomousDatabaseTransportableTablespaceArgs']]):
+        pulumi.set(self, "transportable_tablespace", value)
 
     @_builtins.property
     @pulumi.getter(name="useLatestAvailableBackupTimeStamp")
@@ -1518,6 +1606,18 @@ class AutonomousDatabaseArgs:
     @use_latest_available_backup_time_stamp.setter
     def use_latest_available_backup_time_stamp(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "use_latest_available_backup_time_stamp", value)
+
+    @_builtins.property
+    @pulumi.getter(name="vanityUrlDetails")
+    def vanity_url_details(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityUrlDetailArgs']]]]:
+        """
+        Details for api gateway and vanity url(custom url) for dbTools.
+        """
+        return pulumi.get(self, "vanity_url_details")
+
+    @vanity_url_details.setter
+    def vanity_url_details(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityUrlDetailArgs']]]]):
+        pulumi.set(self, "vanity_url_details", value)
 
     @_builtins.property
     @pulumi.getter(name="vaultId")
@@ -1535,17 +1635,13 @@ class AutonomousDatabaseArgs:
     @pulumi.getter(name="whitelistedIps")
     def whitelisted_ips(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
 
-        For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+        For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
 
         For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
 
         This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. To remove all whitelisted IPs, set the field to a list with an empty string `[""]`.
-
-
-        ** IMPORTANT **
-        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
         return pulumi.get(self, "whitelisted_ips")
 
@@ -1558,6 +1654,7 @@ class AutonomousDatabaseArgs:
 class _AutonomousDatabaseState:
     def __init__(__self__, *,
                  actual_used_data_storage_size_in_tbs: Optional[pulumi.Input[_builtins.float]] = None,
+                 additional_attributes: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  admin_password: Optional[pulumi.Input[_builtins.str]] = None,
                  allocated_storage_size_in_tbs: Optional[pulumi.Input[_builtins.float]] = None,
                  apex_details: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseApexDetailArgs']]]] = None,
@@ -1567,6 +1664,7 @@ class _AutonomousDatabaseState:
                  autonomous_container_database_id: Optional[pulumi.Input[_builtins.str]] = None,
                  autonomous_database_backup_id: Optional[pulumi.Input[_builtins.str]] = None,
                  autonomous_database_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 autonomous_database_maintenance_window: Optional[pulumi.Input['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs']] = None,
                  autonomous_maintenance_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
                  availability_domain: Optional[pulumi.Input[_builtins.str]] = None,
                  available_upgrade_versions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -1601,6 +1699,7 @@ class _AutonomousDatabaseState:
                  enable_delete_scheduled_operations: Optional[pulumi.Input[_builtins.bool]] = None,
                  encryption_key: Optional[pulumi.Input['AutonomousDatabaseEncryptionKeyArgs']] = None,
                  encryption_key_history_entries: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseEncryptionKeyHistoryEntryArgs']]]] = None,
+                 encryption_key_location_details: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseEncryptionKeyLocationDetailArgs']]]] = None,
                  failed_data_recovery_in_seconds: Optional[pulumi.Input[_builtins.int]] = None,
                  freeform_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  in_memory_area_in_gbs: Optional[pulumi.Input[_builtins.int]] = None,
@@ -1636,11 +1735,13 @@ class _AutonomousDatabaseState:
                  license_model: Optional[pulumi.Input[_builtins.str]] = None,
                  lifecycle_details: Optional[pulumi.Input[_builtins.str]] = None,
                  local_adg_auto_failover_max_data_loss_limit: Optional[pulumi.Input[_builtins.int]] = None,
+                 local_adg_resource_pool_leader_id: Optional[pulumi.Input[_builtins.str]] = None,
                  local_disaster_recovery_type: Optional[pulumi.Input[_builtins.str]] = None,
                  local_standby_dbs: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseLocalStandbyDbArgs']]]] = None,
                  long_term_backup_schedules: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseLongTermBackupScheduleArgs']]]] = None,
                  maintenance_target_component: Optional[pulumi.Input[_builtins.str]] = None,
                  max_cpu_core_count: Optional[pulumi.Input[_builtins.int]] = None,
+                 memory_per_compute_unit_in_gbs: Optional[pulumi.Input[_builtins.float]] = None,
                  memory_per_oracle_compute_unit_in_gbs: Optional[pulumi.Input[_builtins.int]] = None,
                  ncharacter_set: Optional[pulumi.Input[_builtins.str]] = None,
                  net_services_architecture: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1692,6 +1793,7 @@ class _AutonomousDatabaseState:
                  time_local_data_guard_enabled: Optional[pulumi.Input[_builtins.str]] = None,
                  time_maintenance_begin: Optional[pulumi.Input[_builtins.str]] = None,
                  time_maintenance_end: Optional[pulumi.Input[_builtins.str]] = None,
+                 time_maintenance_pause_until: Optional[pulumi.Input[_builtins.str]] = None,
                  time_of_auto_refresh_start: Optional[pulumi.Input[_builtins.str]] = None,
                  time_of_joining_resource_pool: Optional[pulumi.Input[_builtins.str]] = None,
                  time_of_last_failover: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1705,152 +1807,165 @@ class _AutonomousDatabaseState:
                  time_until_reconnect_clone_enabled: Optional[pulumi.Input[_builtins.str]] = None,
                  timestamp: Optional[pulumi.Input[_builtins.str]] = None,
                  total_backup_storage_size_in_gbs: Optional[pulumi.Input[_builtins.float]] = None,
+                 transportable_tablespace: Optional[pulumi.Input['AutonomousDatabaseTransportableTablespaceArgs']] = None,
                  use_latest_available_backup_time_stamp: Optional[pulumi.Input[_builtins.bool]] = None,
                  used_data_storage_size_in_gbs: Optional[pulumi.Input[_builtins.int]] = None,
                  used_data_storage_size_in_tbs: Optional[pulumi.Input[_builtins.int]] = None,
+                 vanity_connection_urls: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityConnectionUrlArgs']]]] = None,
+                 vanity_url_details: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityUrlDetailArgs']]]] = None,
                  vault_id: Optional[pulumi.Input[_builtins.str]] = None,
                  whitelisted_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Input properties used for looking up and filtering AutonomousDatabase resources.
         :param pulumi.Input[_builtins.float] actual_used_data_storage_size_in_tbs: The current amount of storage in use for user and system data, in terabytes (TB).
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] additional_attributes: Additional attributes for this resource. Each attribute is a simple key-value pair with no predefined name, type, or namespace. Example: `{ "gcpAccountName": "gcpName" }`
         :param pulumi.Input[_builtins.str] admin_password: (Updatable) The password must be between 12 and 30 characters long, and must contain at least 1 uppercase, 1 lowercase, and 1 numeric character. It cannot contain the double quote symbol (") or the username "admin", regardless of casing. The password is mandatory if source value is "BACKUP_FROM_ID", "BACKUP_FROM_TIMESTAMP", "DATABASE" or "NONE".
         :param pulumi.Input[_builtins.float] allocated_storage_size_in_tbs: The amount of storage currently allocated for the database tables and billed for, rounded up. When auto-scaling is not enabled, this value is equal to the `dataStorageSizeInTBs` value. You can compare this value to the `actualUsedDataStorageSizeInTBs` value to determine if a manual shrink operation is appropriate for your allocated storage.
-        :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseApexDetailArgs']]] apex_details: Information about Oracle APEX Application Development.
-        :param pulumi.Input[_builtins.bool] are_primary_whitelisted_ips_used: (Updatable) This field will be null if the Autonomous Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses different IP access control list (ACL) for standby compared to primary.
+        :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseApexDetailArgs']]] apex_details: Information about Oracle APEX AI Application Development.
+        :param pulumi.Input[_builtins.bool] are_primary_whitelisted_ips_used: (Updatable) This field will be null if the Autonomous AI Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses different IP access control list (ACL) for standby compared to primary.
         :param pulumi.Input[_builtins.int] auto_refresh_frequency_in_seconds: (Updatable) The frequency a refreshable clone is refreshed after auto-refresh is enabled. The minimum is 1 hour. The maximum is 7 days. The date and time that auto-refresh is enabled is controlled by the `timeOfAutoRefreshStart` parameter.
         :param pulumi.Input[_builtins.int] auto_refresh_point_lag_in_seconds: (Updatable) The time, in seconds, the data of the refreshable clone lags the primary database at the point of refresh. The minimum is 0 minutes (0 mins means refresh to the latest available timestamp). The maximum is 7 days. The lag time increases after refreshing until the next data refresh happens.
-        :param pulumi.Input[_builtins.str] autonomous_container_database_id: The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous Database on Dedicated Exadata Infrastructure.
-        :param pulumi.Input[_builtins.str] autonomous_database_backup_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database Backup that you will clone to create a new Autonomous Database.
-        :param pulumi.Input[_builtins.str] autonomous_database_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that you will clone to create a new Autonomous Database.
-        :param pulumi.Input[_builtins.str] autonomous_maintenance_schedule_type: (Updatable) The maintenance schedule type of the Autonomous Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
-        :param pulumi.Input[_builtins.str] availability_domain: The availability domain of a local Autonomous Data Guard standby database of an Autonomous Database Serverless instance.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] available_upgrade_versions: List of Oracle Database versions available for a database upgrade. If there are no version upgrades available, this list is empty.
-        :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseBackupConfigArgs']]] backup_configs: Autonomous Database configuration details for storing [manual backups](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/backup-restore.html#GUID-9035DFB8-4702-4CEB-8281-C2A303820809) in the [Object Storage](https://docs.cloud.oracle.com/iaas/Content/Object/Concepts/objectstorageoverview.htm) service.
+        :param pulumi.Input[_builtins.str] autonomous_container_database_id: The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous AI Database on Dedicated Exadata Infrastructure.
+        :param pulumi.Input[_builtins.str] autonomous_database_backup_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database Backup that you will clone to create a new Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] autonomous_database_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that you will clone to create a new Autonomous AI Database.
+        :param pulumi.Input['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs'] autonomous_database_maintenance_window: (Updatable) Autonomous Database maintenance window. The maintenance window can be configured during database creation. To change the maintenance window of an existing Autonomous Database Serverless instance, clone the database and specify the maintenance window for the new cloned instance.
+        :param pulumi.Input[_builtins.str] autonomous_maintenance_schedule_type: (Updatable) The maintenance schedule type of the Autonomous AI Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
+        :param pulumi.Input[_builtins.str] availability_domain: The availability domain of a local Autonomous Data Guard standby database of an Autonomous AI Database Serverless instance.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] available_upgrade_versions: List of Oracle AI Database versions available for a database upgrade. If there are no version upgrades available, this list is empty.
+        :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseBackupConfigArgs']]] backup_configs: Autonomous AI Database configuration details for storing [manual backups](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/backup-restore.html#GUID-9035DFB8-4702-4CEB-8281-C2A303820809) in the [Object Storage](https://docs.cloud.oracle.com/iaas/Content/Object/Concepts/objectstorageoverview.htm) service.
         :param pulumi.Input[_builtins.int] backup_retention_period_in_days: (Updatable) Retention period, in days, for long-term backups
         :param pulumi.Input[_builtins.float] byol_compute_count_limit: (Updatable) The maximum number of CPUs allowed with a Bring Your Own License (BYOL), including those used for auto-scaling, disaster recovery, tools, etc. Any CPU usage above this limit is considered as License Included and billed.
-        :param pulumi.Input[_builtins.str] character_set: The character set for the autonomous database. The default is AL32UTF8. Allowed values for an Autonomous Database Serverless instance as as returned by [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
+        :param pulumi.Input[_builtins.str] character_set: The character set for the Autonomous AI Database. The default is AL32UTF8. Allowed values for an Autonomous AI Database Serverless instance as as returned by [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
                
-               For an Autonomous Database on dedicated infrastructure, the allowed values are:
+               For an Autonomous AI Database on dedicated infrastructure, the allowed values are:
                
                AL32UTF8, AR8ADOS710, AR8ADOS720, AR8APTEC715, AR8ARABICMACS, AR8ASMO8X, AR8ISO8859P6, AR8MSWIN1256, AR8MUSSAD768, AR8NAFITHA711, AR8NAFITHA721, AR8SAKHR706, AR8SAKHR707, AZ8ISO8859P9E, BG8MSWIN, BG8PC437S, BLT8CP921, BLT8ISO8859P13, BLT8MSWIN1257, BLT8PC775, BN8BSCII, CDN8PC863, CEL8ISO8859P14, CL8ISO8859P5, CL8ISOIR111, CL8KOI8R, CL8KOI8U, CL8MACCYRILLICS, CL8MSWIN1251, EE8ISO8859P2, EE8MACCES, EE8MACCROATIANS, EE8MSWIN1250, EE8PC852, EL8DEC, EL8ISO8859P7, EL8MACGREEKS, EL8MSWIN1253, EL8PC437S, EL8PC851, EL8PC869, ET8MSWIN923, HU8ABMOD, HU8CWI2, IN8ISCII, IS8PC861, IW8ISO8859P8, IW8MACHEBREWS, IW8MSWIN1255, IW8PC1507, JA16EUC, JA16EUCTILDE, JA16SJIS, JA16SJISTILDE, JA16VMS, KO16KSC5601, KO16KSCCS, KO16MSWIN949, LA8ISO6937, LA8PASSPORT, LT8MSWIN921, LT8PC772, LT8PC774, LV8PC1117, LV8PC8LR, LV8RST104090, N8PC865, NE8ISO8859P10, NEE8ISO8859P4, RU8BESTA, RU8PC855, RU8PC866, SE8ISO8859P3, TH8MACTHAIS, TH8TISASCII, TR8DEC, TR8MACTURKISHS, TR8MSWIN1254, TR8PC857, US7ASCII, US8PC437, UTF8, VN8MSWIN1258, VN8VN3, WE8DEC, WE8DG, WE8ISO8859P1, WE8ISO8859P15, WE8ISO8859P9, WE8MACROMAN8S, WE8MSWIN1252, WE8NCR4970, WE8NEXTSTEP, WE8PC850, WE8PC858, WE8PC860, WE8ROMAN8, ZHS16CGB231280, ZHS16GBK, ZHT16BIG5, ZHT16CCDC, ZHT16DBT, ZHT16HKSCS, ZHT16MSWIN950, ZHT32EUC, ZHT32SOPS, ZHT32TRIS
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] clone_table_space_lists: A list of the source Autonomous Database's table space number(s) used to create this partial clone from the backup.
-        :param pulumi.Input[_builtins.str] clone_type: The Autonomous Database clone type.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] clone_table_space_lists: A list of the source Autonomous AI Database's table space number(s) used to create this partial clone from the backup.
+        :param pulumi.Input[_builtins.str] clone_type: The Autonomous AI Database clone type.
                * `FULL` - This option creates a new database that includes all source database data.
                * `METADATA` - This option creates a new database that includes the source database schema and select metadata, but not the source database data.
         :param pulumi.Input[_builtins.str] cluster_placement_group_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the cluster placement group of the Autonomous Serverless Database.
-        :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous Database.
-        :param pulumi.Input[_builtins.float] compute_count: (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
-        :param pulumi.Input[_builtins.str] compute_model: (Updatable) The compute model of the Autonomous Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
-        :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseConnectionStringArgs']]] connection_strings: The connection string used to connect to the Autonomous Database. The username for the Service Console is ADMIN. Use the password you entered when creating the Autonomous Database for the password value.
+        :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous AI Database.
+        :param pulumi.Input[_builtins.float] compute_count: (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
+        :param pulumi.Input[_builtins.str] compute_model: (Updatable) The compute model of the Autonomous AI Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
+        :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseConnectionStringArgs']]] connection_strings: The connection string used to connect to the Autonomous AI Database. The username for the Service Console is ADMIN. Use the password you entered when creating the Autonomous AI Database for the password value.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseConnectionUrlArgs']]] connection_urls: The URLs for accessing Oracle Application Express (APEX) and SQL Developer Web with a browser from a Compute instance within your VCN or that has a direct connection to your VCN. Note that these URLs are provided by the console only for databases on [dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html).  Example: `{"sqlDevWebUrl": "https://<hostname>/ords...", "apexUrl", "https://<hostname>/ords..."}`
-        :param pulumi.Input[_builtins.int] cpu_core_count: (Updatable) The number of CPU cores to be made available to the database. For Autonomous Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        :param pulumi.Input[_builtins.int] cpu_core_count: (Updatable) The number of CPU cores to be made available to the database. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Note:** This parameter cannot be used with the `ocpuCount` parameter. This input is ignored for Always Free resources.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseCustomerContactArgs']]] customer_contacts: (Updatable) Customer Contacts.
         :param pulumi.Input[_builtins.str] data_safe_status: (Updatable) Status of the Data Safe registration for this Autonomous Database. Could be REGISTERED or NOT_REGISTERED.
-        :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Notes**
                * This parameter is only supported for dedicated Exadata infrastructure.
                * This parameter cannot be used with the `dataStorageSizeInTBs` parameter.
-        :param pulumi.Input[_builtins.int] data_storage_size_in_tbs: (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details. A full Exadata service is allocated when the Autonomous Database size is set to the upper limit (384 TB).
+        :param pulumi.Input[_builtins.int] data_storage_size_in_tbs: (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details. A full Exadata service is allocated when the Autonomous AI Database size is set to the upper limit (384 TB).
                
                **Note:** This parameter cannot be used with the `dataStorageSizeInGBs` parameter. This input is ignored for Always Free resources.
-        :param pulumi.Input[_builtins.str] database_edition: (Updatable) The Oracle Database Edition that applies to the Autonomous databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
-        :param pulumi.Input[_builtins.str] database_management_status: Status of Database Management for this Autonomous Database.
-        :param pulumi.Input[_builtins.str] dataguard_region_type: **Deprecated.** The Autonomous Data Guard region type of the Autonomous Database. For Autonomous Database Serverless, Autonomous Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. The standby regions in Autonomous Data Guard associations can be the same region designated as the primary region, or they can be remote regions. Certain database administrative operations may be available only in the primary region of the Autonomous Data Guard association, and cannot be performed when the database using the primary role is operating in a remote Autonomous Data Guard standby region.
+        :param pulumi.Input[_builtins.str] database_edition: (Updatable) The Oracle AI Database Edition that applies to the Autonomous AI Databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
+        :param pulumi.Input[_builtins.str] database_management_status: Status of Database Management for this Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] dataguard_region_type: **Deprecated.** The Autonomous Data Guard region type of the Autonomous AI Database. For Autonomous AI Database Serverless, Autonomous Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. The standby regions in Autonomous Data Guard associations can be the same region designated as the primary region, or they can be remote regions. Certain database administrative operations may be available only in the primary region of the Autonomous Data Guard association, and cannot be performed when the database using the primary role is operating in a remote Autonomous Data Guard standby region.
         :param pulumi.Input[_builtins.str] db_name: The database name. The name must begin with an alphabetic character and can contain a maximum of 30 alphanumeric characters. Special characters are not permitted. The database name must be unique in the tenancy. It is required in all cases except when creating a cross-region Autonomous Data Guard standby instance or a cross-region disaster recovery standby instance.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseDbToolsDetailArgs']]] db_tools_details: (Updatable) The list of database tools details.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, isLocalDataGuardEnabled, or isFreeTier.
-        :param pulumi.Input[_builtins.str] db_version: (Updatable) A valid Oracle Database version for Autonomous Database.`db_workload` AJD is only supported for `db_version` `19c` and above.
-        :param pulumi.Input[_builtins.str] db_workload: (Updatable) The Autonomous Database workload type. The following values are valid:
-               * OLTP - indicates an Autonomous Transaction Processing database
-               * DW - indicates an Autonomous Data Warehouse database
-               * AJD - indicates an Autonomous JSON Database
-               * APEX - indicates an Autonomous Database with the Oracle APEX Application Development workload type.
+        :param pulumi.Input[_builtins.str] db_version: (Updatable) A valid Oracle AI Database version for Autonomous AI Database. When you specify 23ai for dbversion, the system will provision a 23ai database, but the UI will display it as 26ai. When you specify 26ai for dbversion, the system will provision and display a 26ai database as expected. For new databases, it is recommended to use either 19c or 26ai. `db_workload` AJD is only supported for `db_version` `19c` and above.
+        :param pulumi.Input[_builtins.str] db_workload: (Updatable) The Autonomous AI Database workload type. The following values are valid:
+               * OLTP - indicates an Autonomous AI Transaction Processing database
+               * DW - indicates an Autonomous AI Lakehouse database
+               * AJD - indicates an Autonomous AI JSON Database
+               * APEX - indicates an Autonomous AI Database with the Oracle APEX AI Application Development workload type.
+               * LH - indicates an Oracle Autonomous AI Lakehouse database
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. *Note: `db_workload` can only be updated from AJD to OLTP or from a free OLTP to AJD.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
-        :param pulumi.Input[_builtins.str] disaster_recovery_region_type: **Deprecated.** The disaster recovery (DR) region type of the Autonomous Database. For Autonomous Database Serverless instances, DR associations have designated primary and standby regions. These region types do not change when the database changes roles. The standby region in DR associations can be the same region as the primary region, or they can be in a remote regions. Some database administration operations may be available only in the primary region of the DR association, and cannot be performed when the database using the primary role is operating in a remote region.
-        :param pulumi.Input[_builtins.str] disaster_recovery_type: Indicates the disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
-        :param pulumi.Input[_builtins.str] display_name: (Updatable) The user-friendly name for the Autonomous Database. The name does not have to be unique.
-        :param pulumi.Input['AutonomousDatabaseEncryptionKeyArgs'] encryption_key: (Updatable) Details of the Autonomous Database encryption key.
+        :param pulumi.Input[_builtins.str] disaster_recovery_region_type: **Deprecated.** The disaster recovery (DR) region type of the Autonomous AI Database. For Autonomous AI Database Serverless instances, DR associations have designated primary and standby regions. These region types do not change when the database changes roles. The standby region in DR associations can be the same region as the primary region, or they can be in a remote regions. Some database administration operations may be available only in the primary region of the DR association, and cannot be performed when the database using the primary role is operating in a remote region.
+        :param pulumi.Input[_builtins.str] disaster_recovery_type: Indicates the disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        :param pulumi.Input[_builtins.str] display_name: (Updatable) The user-friendly name for the Autonomous AI Database. The name does not have to be unique.
+        :param pulumi.Input['AutonomousDatabaseEncryptionKeyArgs'] encryption_key: (Updatable) Details of the Autonomous AI Database encryption key.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseEncryptionKeyHistoryEntryArgs']]] encryption_key_history_entries: Key History Entry.
         :param pulumi.Input[_builtins.int] failed_data_recovery_in_seconds: Indicates the number of seconds of data loss for a Data Guard failover.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] freeform_tags: (Updatable) Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
-        :param pulumi.Input[_builtins.int] in_memory_area_in_gbs: The area assigned to In-Memory tables in Autonomous Database.
-        :param pulumi.Input[_builtins.int] in_memory_percentage: (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous Database. This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform.
+        :param pulumi.Input[_builtins.int] in_memory_area_in_gbs: The area assigned to In-Memory tables in Autonomous AI Database.
+        :param pulumi.Input[_builtins.int] in_memory_percentage: (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous AI Database. This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform.
         :param pulumi.Input[_builtins.str] infrastructure_type: The infrastructure type this resource belongs to.
         :param pulumi.Input[_builtins.bool] is_access_control_enabled: (Updatable) Indicates if the database-level access control is enabled. If disabled, database access is defined by the network security rules. If enabled, database access is restricted to the IP addresses defined by the rules specified with the `whitelistedIps` property. While specifying `whitelistedIps` rules is optional, if database-level access control is enabled and no rules are specified, the database will become inaccessible. The rules can be added later using the `UpdateAutonomousDatabase` API operation or edit option in console. When creating a database clone, the desired access control setting should be specified. By default, database-level access control will be disabled for the clone.
                
-               This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform. For Autonomous Database Serverless instances, `whitelistedIps` is used.
-        :param pulumi.Input[_builtins.bool] is_auto_scaling_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous Database CPU core count. The default value is `TRUE`.
-        :param pulumi.Input[_builtins.bool] is_auto_scaling_for_storage_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous Database storage. The default value is `FALSE`.
-        :param pulumi.Input[_builtins.bool] is_backup_retention_locked: (Updatable) True if the Autonomous Database is backup retention locked.
-        :param pulumi.Input[_builtins.bool] is_data_guard_enabled: (Updatable) **Deprecated.** Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+               This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform. For Autonomous AI Database Serverless instances, `whitelistedIps` is used.
+        :param pulumi.Input[_builtins.bool] is_auto_scaling_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database CPU core count. The default value is `TRUE`.
+        :param pulumi.Input[_builtins.bool] is_auto_scaling_for_storage_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database storage. The default value is `FALSE`.
+        :param pulumi.Input[_builtins.bool] is_backup_retention_locked: (Updatable) True if the Autonomous AI Database is backup retention locked.
+        :param pulumi.Input[_builtins.bool] is_data_guard_enabled: (Updatable) **Deprecated.** Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         :param pulumi.Input[_builtins.bool] is_dedicated: True if the database is on [dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html).
-        :param pulumi.Input[_builtins.bool] is_dev_tier: (Updatable) Autonomous Database for Developers are fixed-shape Autonomous Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
-        :param pulumi.Input[_builtins.bool] is_free_tier: (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
+        :param pulumi.Input[_builtins.bool] is_dev_tier: (Updatable) Autonomous AI Database for Developers are fixed-shape Autonomous AI Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
+        :param pulumi.Input[_builtins.bool] is_free_tier: (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous AI Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isLocalDataGuardEnabled When `db_workload` is `AJD` it cannot be `true`.
-        :param pulumi.Input[_builtins.bool] is_local_data_guard_enabled: (Updatable) Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
-        :param pulumi.Input[_builtins.bool] is_preview: Indicates if the Autonomous Database version is a preview version.
-        :param pulumi.Input[_builtins.bool] is_preview_version_with_service_terms_accepted: If set to `TRUE`, indicates that an Autonomous Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
+        :param pulumi.Input[_builtins.bool] is_local_data_guard_enabled: (Updatable) Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        :param pulumi.Input[_builtins.bool] is_preview: Indicates if the Autonomous AI Database version is a preview version.
+        :param pulumi.Input[_builtins.bool] is_preview_version_with_service_terms_accepted: If set to `TRUE`, indicates that an Autonomous AI Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous AI Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
         :param pulumi.Input[_builtins.bool] is_reconnect_clone_enabled: Indicates if the refreshable clone can be reconnected to its source database.
-        :param pulumi.Input[_builtins.bool] is_refreshable_clone: Indicates if the Autonomous Database is a refreshable clone.
-        :param pulumi.Input[_builtins.bool] is_remote_data_guard_enabled: Indicates whether the Autonomous Database has Cross Region Data Guard enabled. Not applicable to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        :param pulumi.Input[_builtins.bool] is_refreshable_clone: Indicates if the Autonomous AI Database is a refreshable clone.
+        :param pulumi.Input[_builtins.bool] is_remote_data_guard_enabled: Indicates whether the Autonomous AI Database has Cross Region Data Guard enabled. Not applicable to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         :param pulumi.Input[_builtins.bool] is_replicate_automatic_backups: If true, 7 days worth of backups are replicated across regions for Cross-Region ADB or Backup-Based DR between Primary and Standby. If false, the backups taken on the Primary are not replicated to the Standby database.
+        :param pulumi.Input[_builtins.bool] is_shrink_only: (Updatable) An optional property when enabled triggers the Shrinking of Autonomous Database once. To trigger Shrinking of ADB once again, this flag needs to be disabled and re-enabled again. It should not be passed during create database operation. It is only applicable on Serverless databases i.e. where `is_dedicated` is false.
+               
+               ** IMPORTANT **
+               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseKeyHistoryEntryArgs']]] key_history_entries: Key History Entry.
         :param pulumi.Input[_builtins.str] key_store_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the key store of Oracle Vault.
         :param pulumi.Input[_builtins.str] key_store_wallet_name: The wallet name for Oracle Key Vault.
         :param pulumi.Input[_builtins.str] kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
         :param pulumi.Input[_builtins.str] kms_key_lifecycle_details: KMS key lifecycle details.
-        :param pulumi.Input[_builtins.str] kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
-        :param pulumi.Input[_builtins.str] license_model: (Updatable) The Oracle license model that applies to the Oracle Autonomous Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle Database software licenses and the Oracle Database service. Note that when provisioning an [Autonomous Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
+        :param pulumi.Input[_builtins.str] kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous AI Database Serverless does not use key versions, hence is not applicable for Autonomous AI Database Serverless instances.
+        :param pulumi.Input[_builtins.str] license_model: (Updatable) The Oracle license model that applies to the Oracle Autonomous AI Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle AI Database software licenses and the Oracle AI Database service. Note that when provisioning an [Autonomous AI Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
                
                This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, dataStorageSizeInTBs, adminPassword, isMTLSConnectionRequired, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, dbName, scheduledOperations, dbToolsDetails, or isFreeTier. It is a required field when `db_workload` is AJD and needs to be set to `LICENSE_INCLUDED` as AJD does not support default `license_model` value `BRING_YOUR_OWN_LICENSE`.
         :param pulumi.Input[_builtins.str] lifecycle_details: Additional information about the current lifecycle state.
         :param pulumi.Input[_builtins.int] local_adg_auto_failover_max_data_loss_limit: Parameter that allows users to select an acceptable maximum data loss limit in seconds, up to which Automatic Failover will be triggered when necessary for a Local Autonomous Data Guard
-        :param pulumi.Input[_builtins.str] local_disaster_recovery_type: Indicates the local disaster recovery (DR) type of the Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        :param pulumi.Input[_builtins.str] local_adg_resource_pool_leader_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the dedicated resource pool leader Autonomous Database in the same region, associated with local Autonomous Data Guard for a dedicated resource pool member.
+        :param pulumi.Input[_builtins.str] local_disaster_recovery_type: Indicates the local disaster recovery (DR) type of the Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseLocalStandbyDbArgs']]] local_standby_dbs: Autonomous Data Guard standby database details.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseLongTermBackupScheduleArgs']]] long_term_backup_schedules: Details for the long-term backup schedule.
         :param pulumi.Input[_builtins.str] maintenance_target_component: The component chosen for maintenance.
-        :param pulumi.Input[_builtins.int] memory_per_oracle_compute_unit_in_gbs: The amount of memory (in GBs) enabled per ECPU or OCPU.
-        :param pulumi.Input[_builtins.str] ncharacter_set: The character set for the Autonomous Database. The default is AL32UTF8. Use [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous Database Serverless instance. For an Autonomous Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
+        :param pulumi.Input[_builtins.float] memory_per_compute_unit_in_gbs: The amount of memory (in GBs) to be enabled per OCPU or ECPU.
+        :param pulumi.Input[_builtins.int] memory_per_oracle_compute_unit_in_gbs: The amount of memory (in GBs, rounded off to nearest integer value) to be enabled per OCPU or ECPU. This is deprecated. Please refer to memoryPerComputeUnitInGBs for accurate value.
+        :param pulumi.Input[_builtins.str] ncharacter_set: The character set for the Autonomous AI Database. The default is AL32UTF8. Use [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous AI Database Serverless instance. For an Autonomous AI Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
         :param pulumi.Input[_builtins.str] net_services_architecture: Enabling SHARED server architecture enables a database server to allow many client processes to share very few server processes, thereby increasing the number of supported users.
         :param pulumi.Input[_builtins.str] next_long_term_backup_time_stamp: The date and time when the next long-term backup would be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] nsg_ids: (Updatable) The list of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the network security groups (NSGs) to which this resource belongs. Setting this to an empty list removes all resources from all NSGs. For more information about NSGs, see [Security Rules](https://docs.cloud.oracle.com/iaas/Content/Network/Concepts/securityrules.htm). **NsgIds restrictions:**
-               * A network security group (NSG) is optional for Autonomous Databases with private access. The nsgIds list can be empty.
+               * A network security group (NSG) is optional for Autonomous AI Databases with private access. The nsgIds list can be empty.
         :param pulumi.Input[_builtins.float] ocpu_count: (Updatable) The number of OCPU cores to be made available to the database.
                
                The following points apply:
-               * For Autonomous Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous Database Serverless instances.)
-               * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure.
-               * For Autonomous Database Serverless instances, this parameter is not used.
+               * For Autonomous AI Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous AI Database Serverless instances.)
+               * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure.
+               * For Autonomous AI Database Serverless instances, this parameter is not used.
                
-               For Autonomous Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+               For Autonomous AI Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Note:** This parameter cannot be used with the `cpuCoreCount` parameter.
-        :param pulumi.Input[_builtins.str] open_mode: (Updatable) Indicates the Autonomous Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
+        :param pulumi.Input[_builtins.str] open_mode: (Updatable) Indicates the Autonomous AI Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
                
                This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isFreeTier.
-        :param pulumi.Input[_builtins.str] operations_insights_status: Status of Operations Insights for this Autonomous Database.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] peer_db_ids: The list of [OCIDs](https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of standby databases located in Autonomous Data Guard remote regions that are associated with the source database. Note that for Autonomous Database Serverless instances, standby databases located in the same region as the source primary database do not have OCIDs.
-        :param pulumi.Input[_builtins.str] permission_level: The Autonomous Database permission level. Restricted mode allows access only by admin users.
+        :param pulumi.Input[_builtins.str] operations_insights_status: Status of Operations Insights for this Autonomous AI Database.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] peer_db_ids: The list of [OCIDs](https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of standby databases located in Autonomous Data Guard remote regions that are associated with the source database. Note that for Autonomous AI Database Serverless instances, standby databases located in the same region as the source primary database do not have OCIDs.
+        :param pulumi.Input[_builtins.str] permission_level: The Autonomous AI Database permission level. Restricted mode allows access only by admin users.
         :param pulumi.Input[_builtins.str] private_endpoint: The private endpoint for the resource.
         :param pulumi.Input[_builtins.str] private_endpoint_ip: (Updatable) The private endpoint Ip address for the resource.
         :param pulumi.Input[_builtins.str] private_endpoint_label: (Updatable) The private endpoint label for the resource.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.float]]] provisionable_cpuses: An array of CPU values that an Autonomous Database can be scaled to.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.float]]] provisionable_cpuses: An array of CPU values that an Autonomous AI Database can be scaled to.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabasePublicConnectionUrlArgs']]] public_connection_urls: The Public URLs of Private Endpoint database for accessing Oracle Application Express (APEX) and SQL Developer Web with a browser from a Compute instance within your VCN or that has a direct connection to your VCN.
         :param pulumi.Input[_builtins.str] public_endpoint: The public endpoint for the private endpoint enabled resource.
-        :param pulumi.Input[_builtins.str] refreshable_mode: (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous Database.
-        :param pulumi.Input[_builtins.str] refreshable_status: The refresh status of the clone. REFRESHING indicates that the clone is currently being refreshed with data from the source Autonomous Database.
+        :param pulumi.Input[_builtins.str] refreshable_mode: (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] refreshable_status: The refresh status of the clone. REFRESHING indicates that the clone is currently being refreshed with data from the source Autonomous AI Database.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseRemoteDisasterRecoveryConfigurationArgs']]] remote_disaster_recovery_configurations: Configurations of a Disaster Recovery.
-        :param pulumi.Input[_builtins.str] remote_disaster_recovery_type: Indicates the cross-region disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
-        :param pulumi.Input[_builtins.str] resource_pool_leader_id: (Updatable) The unique identifier for leader autonomous database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        :param pulumi.Input[_builtins.str] remote_disaster_recovery_type: Indicates the cross-region disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        :param pulumi.Input[_builtins.str] resource_pool_leader_id: (Updatable) The unique identifier for leader Autonomous AI Database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
         :param pulumi.Input['AutonomousDatabaseResourcePoolSummaryArgs'] resource_pool_summary: (Updatable) The configuration details for resource pool
-        :param pulumi.Input[_builtins.str] role: The Data Guard role of the Autonomous Container Database or Autonomous Database, if Autonomous Data Guard is enabled.
+        :param pulumi.Input[_builtins.str] role: The Data Guard role of the Autonomous Container Database or Autonomous AI Database, if Autonomous Data Guard is enabled.
+        :param pulumi.Input[_builtins.bool] rotate_key_trigger: (Updatable) An optional property when flipped triggers rotation of KMS key. It is only applicable on dedicated databases i.e. where `is_dedicated` is true.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseScheduledOperationArgs']]] scheduled_operations: (Updatable) The list of scheduled operations. Consists of values such as dayOfWeek, scheduledStartTime, scheduledStopTime.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier.
@@ -1859,71 +1974,75 @@ class _AutonomousDatabaseState:
                This cannot be used in conjunction with adminPassword.
         :param pulumi.Input[_builtins.int] secret_version_number: (Updatable) The version of the vault secret. If no version is specified, the latest version will be used.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
-        :param pulumi.Input[_builtins.str] service_console_url: The URL of the Service Console for the Autonomous Database.
-        :param pulumi.Input[_builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous Database. Use `DATABASE` for creating a new Autonomous Database by cloning an existing Autonomous Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
+        :param pulumi.Input[_builtins.str] service_console_url: The URL of the Service Console for the Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous AI Database. Use `DATABASE` for creating a new Autonomous AI Database by cloning an existing Autonomous AI Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
                
-               For [Autonomous Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous Database clone using backups. For more information, see [Cloning and Moving an Autonomous Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
-        :param pulumi.Input[_builtins.str] source_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that will be used to create a new peer database for the Data Guard association.
+               For [Autonomous AI Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous AI Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous AI Database clone using backups. For more information, see [Cloning and Moving an Autonomous AI Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
+        :param pulumi.Input[_builtins.str] source_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that will be used to create a new peer database for the Data Guard association.
         :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseStandbyDbArgs']]] standby_dbs: **Deprecated** Autonomous Data Guard standby database details.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] standby_whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] standby_whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
                
-               For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+               For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
                
                For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier.
-        :param pulumi.Input[_builtins.str] state: The current state of the Autonomous Database.
+        :param pulumi.Input[_builtins.str] state: The current state of the Autonomous AI Database.
         :param pulumi.Input[_builtins.str] subnet_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet the resource is associated with.
                
                **Subnet Restrictions:**
                * For bare metal DB systems and for single node virtual machine DB systems, do not use a subnet that overlaps with 192.168.16.16/28.
                * For Exadata and virtual machine 2-node RAC systems, do not use a subnet that overlaps with 192.168.128.0/20.
-               * For Autonomous Database, setting this will disable public secure access to the database.
+               * For Autonomous AI Database, setting this will disable public secure access to the database.
                
                These subnets are used by the Oracle Clusterware private interconnect on the database instance. Specifying an overlapping subnet will cause the private interconnect to malfunction. This restriction applies to both the client subnet and the backup subnet.
         :param pulumi.Input[_builtins.str] subscription_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] supported_regions_to_clone_tos: The list of regions that support the creation of an Autonomous Database clone or an Autonomous Data Guard standby database.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] supported_regions_to_clone_tos: The list of regions that support the creation of an Autonomous AI Database clone or an Autonomous Data Guard standby database.
+        :param pulumi.Input[_builtins.str] switchover_to: It is applicable only when `is_local_data_guard_enabled` is true. Could be set to `PRIMARY` or `STANDBY`. Default value is `PRIMARY`.
+        :param pulumi.Input[_builtins.str] switchover_to_remote_peer_id: (Updatable) It is applicable only when `dataguard_region_type` and `role` are set, and `is_dedicated` is false. For Autonomous Database Serverless instances, Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. It takes the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the remote peer to switchover to and the API is called from the remote region.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
-        :param pulumi.Input[_builtins.str] time_created: The date and time the Autonomous Database was created.
-        :param pulumi.Input[_builtins.str] time_data_guard_role_changed: The date and time the Autonomous Data Guard role was switched for the Autonomous Database. For databases that have standbys in both the primary Data Guard region and a remote Data Guard standby region, this is the latest timestamp of either the database using the "primary" role in the primary Data Guard region, or database located in the remote Data Guard standby region.
+        :param pulumi.Input[_builtins.str] time_created: The date and time the Autonomous AI Database was created.
+        :param pulumi.Input[_builtins.str] time_data_guard_role_changed: The date and time the Autonomous Data Guard role was switched for the Autonomous AI Database. For databases that have standbys in both the primary Data Guard region and a remote Data Guard standby region, this is the latest timestamp of either the database using the "primary" role in the primary Data Guard region, or database located in the remote Data Guard standby region.
         :param pulumi.Input[_builtins.str] time_deletion_of_free_autonomous_database: The date and time the Always Free database will be automatically deleted because of inactivity. If the database is in the STOPPED state and without activity until this time, it will be deleted.
-        :param pulumi.Input[_builtins.str] time_disaster_recovery_role_changed: The date and time the Disaster Recovery role was switched for the standby Autonomous Database.
-        :param pulumi.Input[_builtins.str] time_earliest_available_db_version_upgrade: The earliest(min) date and time the Autonomous Database can be scheduled to upgrade to 23ai.
-        :param pulumi.Input[_builtins.str] time_latest_available_db_version_upgrade: The max date and time the Autonomous Database can be scheduled to upgrade to 23ai.
-        :param pulumi.Input[_builtins.str] time_local_data_guard_enabled: The date and time that Autonomous Data Guard was enabled for an Autonomous Database where the standby was provisioned in the same region as the primary database.
+        :param pulumi.Input[_builtins.str] time_disaster_recovery_role_changed: The date and time the Disaster Recovery role was switched for the standby Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] time_earliest_available_db_version_upgrade: The earliest(min) date and time the Autonomous AI Database can be scheduled to upgrade to 26ai.
+        :param pulumi.Input[_builtins.str] time_latest_available_db_version_upgrade: The max date and time the Autonomous AI Database can be scheduled to upgrade to 26ai.
+        :param pulumi.Input[_builtins.str] time_local_data_guard_enabled: The date and time that Autonomous Data Guard was enabled for an Autonomous AI Database where the standby was provisioned in the same region as the primary database.
         :param pulumi.Input[_builtins.str] time_maintenance_begin: The date and time when maintenance will begin.
         :param pulumi.Input[_builtins.str] time_maintenance_end: The date and time when maintenance will end.
-        :param pulumi.Input[_builtins.str] time_of_auto_refresh_start: (Updatable) The the date and time that auto-refreshing will begin for an Autonomous Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
+        :param pulumi.Input[_builtins.str] time_maintenance_pause_until: The date until which maintenance of Autonomous Database is temporarily paused.
+        :param pulumi.Input[_builtins.str] time_of_auto_refresh_start: (Updatable) The the date and time that auto-refreshing will begin for an Autonomous AI Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
         :param pulumi.Input[_builtins.str] time_of_joining_resource_pool: The time the member joined the resource pool.
         :param pulumi.Input[_builtins.str] time_of_last_failover: The timestamp of the last failover operation.
         :param pulumi.Input[_builtins.str] time_of_last_refresh: The date and time when last refresh happened.
         :param pulumi.Input[_builtins.str] time_of_last_refresh_point: The refresh point timestamp (UTC). The refresh point is the time to which the database was most recently refreshed. Data created after the refresh point is not included in the refresh.
-        :param pulumi.Input[_builtins.str] time_of_last_switchover: The timestamp of the last switchover operation for the Autonomous Database.
+        :param pulumi.Input[_builtins.str] time_of_last_switchover: The timestamp of the last switchover operation for the Autonomous AI Database.
         :param pulumi.Input[_builtins.str] time_of_next_refresh: The date and time of next refresh.
         :param pulumi.Input[_builtins.str] time_reclamation_of_free_autonomous_database: The date and time the Always Free database will be stopped because of inactivity. If this time is reached without any database activity, the database will automatically be put into the STOPPED state.
-        :param pulumi.Input[_builtins.str] time_scheduled_db_version_upgrade: The date and time the Autonomous Database scheduled to upgrade to 23ai. Send this value along with the target db_version value to schedule the database version upgrade. After the upgrade is scheduled and before the scheduled upgrade time arrives, please keep the db_version value the same as the backend's current db_version.
-        :param pulumi.Input[_builtins.str] time_undeleted: The date and time the Autonomous Database was most recently undeleted.
+        :param pulumi.Input[_builtins.str] time_scheduled_db_version_upgrade: The date and time the Autonomous AI Database scheduled to upgrade to 26ai.
+        :param pulumi.Input[_builtins.str] time_undeleted: The date and time the Autonomous AI Database was most recently undeleted.
         :param pulumi.Input[_builtins.str] time_until_reconnect_clone_enabled: The time and date as an RFC3339 formatted string, e.g., 2022-01-01T12:00:00.000Z, to set the limit for a refreshable clone to be reconnected to its source database.
-        :param pulumi.Input[_builtins.str] timestamp: The timestamp specified for the point-in-time clone of the source Autonomous Database. The timestamp must be in the past.
+        :param pulumi.Input[_builtins.str] timestamp: The timestamp specified for the point-in-time clone of the source Autonomous AI Database. The timestamp must be in the past.
         :param pulumi.Input[_builtins.float] total_backup_storage_size_in_gbs: The backup storage to the database.
+        :param pulumi.Input['AutonomousDatabaseTransportableTablespaceArgs'] transportable_tablespace: Details for importing transportable tablespace for an Autonomous Database.
         :param pulumi.Input[_builtins.bool] use_latest_available_backup_time_stamp: Clone from latest available backup timestamp.
-        :param pulumi.Input[_builtins.int] used_data_storage_size_in_gbs: The storage space consumed by Autonomous Database in GBs.
-        :param pulumi.Input[_builtins.int] used_data_storage_size_in_tbs: The amount of storage that has been used for Autonomous Databases in dedicated infrastructure, in terabytes.
+        :param pulumi.Input[_builtins.int] used_data_storage_size_in_gbs: The storage space consumed by Autonomous AI Database in GBs.
+        :param pulumi.Input[_builtins.int] used_data_storage_size_in_tbs: The amount of storage that has been used for Autonomous AI Databases in dedicated infrastructure, in terabytes.
+        :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityConnectionUrlArgs']]] vanity_connection_urls: The URLs for accessing Oracle Application Express (APEX) and SQL Developer Web with a browser from a Compute instance within your VCN or that has a direct connection to your VCN. Note that these URLs are provided by the console only for databases on [dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html).  Example: `{"sqlDevWebUrl": "https://<hostname>/ords...", "apexUrl", "https://<hostname>/ords..."}`
+        :param pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityUrlDetailArgs']]] vanity_url_details: Details for api gateway and vanity url(custom url) for dbTools.
         :param pulumi.Input[_builtins.str] vault_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Oracle Cloud Infrastructure [vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts). This parameter and `secretId` are required for Customer Managed Keys.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
                
-               For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+               For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
                
                For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. To remove all whitelisted IPs, set the field to a list with an empty string `[""]`.
-               
-               
-               ** IMPORTANT **
-               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
         if actual_used_data_storage_size_in_tbs is not None:
             pulumi.set(__self__, "actual_used_data_storage_size_in_tbs", actual_used_data_storage_size_in_tbs)
+        if additional_attributes is not None:
+            pulumi.set(__self__, "additional_attributes", additional_attributes)
         if admin_password is not None:
             pulumi.set(__self__, "admin_password", admin_password)
         if allocated_storage_size_in_tbs is not None:
@@ -1942,6 +2061,8 @@ class _AutonomousDatabaseState:
             pulumi.set(__self__, "autonomous_database_backup_id", autonomous_database_backup_id)
         if autonomous_database_id is not None:
             pulumi.set(__self__, "autonomous_database_id", autonomous_database_id)
+        if autonomous_database_maintenance_window is not None:
+            pulumi.set(__self__, "autonomous_database_maintenance_window", autonomous_database_maintenance_window)
         if autonomous_maintenance_schedule_type is not None:
             pulumi.set(__self__, "autonomous_maintenance_schedule_type", autonomous_maintenance_schedule_type)
         if availability_domain is not None:
@@ -2010,6 +2131,8 @@ class _AutonomousDatabaseState:
             pulumi.set(__self__, "encryption_key", encryption_key)
         if encryption_key_history_entries is not None:
             pulumi.set(__self__, "encryption_key_history_entries", encryption_key_history_entries)
+        if encryption_key_location_details is not None:
+            pulumi.set(__self__, "encryption_key_location_details", encryption_key_location_details)
         if failed_data_recovery_in_seconds is not None:
             pulumi.set(__self__, "failed_data_recovery_in_seconds", failed_data_recovery_in_seconds)
         if freeform_tags is not None:
@@ -2083,6 +2206,8 @@ class _AutonomousDatabaseState:
             pulumi.set(__self__, "lifecycle_details", lifecycle_details)
         if local_adg_auto_failover_max_data_loss_limit is not None:
             pulumi.set(__self__, "local_adg_auto_failover_max_data_loss_limit", local_adg_auto_failover_max_data_loss_limit)
+        if local_adg_resource_pool_leader_id is not None:
+            pulumi.set(__self__, "local_adg_resource_pool_leader_id", local_adg_resource_pool_leader_id)
         if local_disaster_recovery_type is not None:
             pulumi.set(__self__, "local_disaster_recovery_type", local_disaster_recovery_type)
         if local_standby_dbs is not None:
@@ -2093,6 +2218,8 @@ class _AutonomousDatabaseState:
             pulumi.set(__self__, "maintenance_target_component", maintenance_target_component)
         if max_cpu_core_count is not None:
             pulumi.set(__self__, "max_cpu_core_count", max_cpu_core_count)
+        if memory_per_compute_unit_in_gbs is not None:
+            pulumi.set(__self__, "memory_per_compute_unit_in_gbs", memory_per_compute_unit_in_gbs)
         if memory_per_oracle_compute_unit_in_gbs is not None:
             pulumi.set(__self__, "memory_per_oracle_compute_unit_in_gbs", memory_per_oracle_compute_unit_in_gbs)
         if ncharacter_set is not None:
@@ -2195,6 +2322,8 @@ class _AutonomousDatabaseState:
             pulumi.set(__self__, "time_maintenance_begin", time_maintenance_begin)
         if time_maintenance_end is not None:
             pulumi.set(__self__, "time_maintenance_end", time_maintenance_end)
+        if time_maintenance_pause_until is not None:
+            pulumi.set(__self__, "time_maintenance_pause_until", time_maintenance_pause_until)
         if time_of_auto_refresh_start is not None:
             pulumi.set(__self__, "time_of_auto_refresh_start", time_of_auto_refresh_start)
         if time_of_joining_resource_pool is not None:
@@ -2221,12 +2350,18 @@ class _AutonomousDatabaseState:
             pulumi.set(__self__, "timestamp", timestamp)
         if total_backup_storage_size_in_gbs is not None:
             pulumi.set(__self__, "total_backup_storage_size_in_gbs", total_backup_storage_size_in_gbs)
+        if transportable_tablespace is not None:
+            pulumi.set(__self__, "transportable_tablespace", transportable_tablespace)
         if use_latest_available_backup_time_stamp is not None:
             pulumi.set(__self__, "use_latest_available_backup_time_stamp", use_latest_available_backup_time_stamp)
         if used_data_storage_size_in_gbs is not None:
             pulumi.set(__self__, "used_data_storage_size_in_gbs", used_data_storage_size_in_gbs)
         if used_data_storage_size_in_tbs is not None:
             pulumi.set(__self__, "used_data_storage_size_in_tbs", used_data_storage_size_in_tbs)
+        if vanity_connection_urls is not None:
+            pulumi.set(__self__, "vanity_connection_urls", vanity_connection_urls)
+        if vanity_url_details is not None:
+            pulumi.set(__self__, "vanity_url_details", vanity_url_details)
         if vault_id is not None:
             pulumi.set(__self__, "vault_id", vault_id)
         if whitelisted_ips is not None:
@@ -2243,6 +2378,18 @@ class _AutonomousDatabaseState:
     @actual_used_data_storage_size_in_tbs.setter
     def actual_used_data_storage_size_in_tbs(self, value: Optional[pulumi.Input[_builtins.float]]):
         pulumi.set(self, "actual_used_data_storage_size_in_tbs", value)
+
+    @_builtins.property
+    @pulumi.getter(name="additionalAttributes")
+    def additional_attributes(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        Additional attributes for this resource. Each attribute is a simple key-value pair with no predefined name, type, or namespace. Example: `{ "gcpAccountName": "gcpName" }`
+        """
+        return pulumi.get(self, "additional_attributes")
+
+    @additional_attributes.setter
+    def additional_attributes(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "additional_attributes", value)
 
     @_builtins.property
     @pulumi.getter(name="adminPassword")
@@ -2272,7 +2419,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="apexDetails")
     def apex_details(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseApexDetailArgs']]]]:
         """
-        Information about Oracle APEX Application Development.
+        Information about Oracle APEX AI Application Development.
         """
         return pulumi.get(self, "apex_details")
 
@@ -2284,7 +2431,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="arePrimaryWhitelistedIpsUsed")
     def are_primary_whitelisted_ips_used(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) This field will be null if the Autonomous Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses different IP access control list (ACL) for standby compared to primary.
+        (Updatable) This field will be null if the Autonomous AI Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses different IP access control list (ACL) for standby compared to primary.
         """
         return pulumi.get(self, "are_primary_whitelisted_ips_used")
 
@@ -2320,7 +2467,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="autonomousContainerDatabaseId")
     def autonomous_container_database_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous Database on Dedicated Exadata Infrastructure.
+        The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous AI Database on Dedicated Exadata Infrastructure.
         """
         return pulumi.get(self, "autonomous_container_database_id")
 
@@ -2332,7 +2479,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="autonomousDatabaseBackupId")
     def autonomous_database_backup_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database Backup that you will clone to create a new Autonomous Database.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database Backup that you will clone to create a new Autonomous AI Database.
         """
         return pulumi.get(self, "autonomous_database_backup_id")
 
@@ -2344,7 +2491,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="autonomousDatabaseId")
     def autonomous_database_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that you will clone to create a new Autonomous Database.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that you will clone to create a new Autonomous AI Database.
         """
         return pulumi.get(self, "autonomous_database_id")
 
@@ -2353,10 +2500,22 @@ class _AutonomousDatabaseState:
         pulumi.set(self, "autonomous_database_id", value)
 
     @_builtins.property
+    @pulumi.getter(name="autonomousDatabaseMaintenanceWindow")
+    def autonomous_database_maintenance_window(self) -> Optional[pulumi.Input['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs']]:
+        """
+        (Updatable) Autonomous Database maintenance window. The maintenance window can be configured during database creation. To change the maintenance window of an existing Autonomous Database Serverless instance, clone the database and specify the maintenance window for the new cloned instance.
+        """
+        return pulumi.get(self, "autonomous_database_maintenance_window")
+
+    @autonomous_database_maintenance_window.setter
+    def autonomous_database_maintenance_window(self, value: Optional[pulumi.Input['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs']]):
+        pulumi.set(self, "autonomous_database_maintenance_window", value)
+
+    @_builtins.property
     @pulumi.getter(name="autonomousMaintenanceScheduleType")
     def autonomous_maintenance_schedule_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The maintenance schedule type of the Autonomous Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
+        (Updatable) The maintenance schedule type of the Autonomous AI Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
         """
         return pulumi.get(self, "autonomous_maintenance_schedule_type")
 
@@ -2368,7 +2527,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="availabilityDomain")
     def availability_domain(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The availability domain of a local Autonomous Data Guard standby database of an Autonomous Database Serverless instance.
+        The availability domain of a local Autonomous Data Guard standby database of an Autonomous AI Database Serverless instance.
         """
         return pulumi.get(self, "availability_domain")
 
@@ -2380,7 +2539,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="availableUpgradeVersions")
     def available_upgrade_versions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        List of Oracle Database versions available for a database upgrade. If there are no version upgrades available, this list is empty.
+        List of Oracle AI Database versions available for a database upgrade. If there are no version upgrades available, this list is empty.
         """
         return pulumi.get(self, "available_upgrade_versions")
 
@@ -2392,7 +2551,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="backupConfigs")
     def backup_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseBackupConfigArgs']]]]:
         """
-        Autonomous Database configuration details for storing [manual backups](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/backup-restore.html#GUID-9035DFB8-4702-4CEB-8281-C2A303820809) in the [Object Storage](https://docs.cloud.oracle.com/iaas/Content/Object/Concepts/objectstorageoverview.htm) service.
+        Autonomous AI Database configuration details for storing [manual backups](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/backup-restore.html#GUID-9035DFB8-4702-4CEB-8281-C2A303820809) in the [Object Storage](https://docs.cloud.oracle.com/iaas/Content/Object/Concepts/objectstorageoverview.htm) service.
         """
         return pulumi.get(self, "backup_configs")
 
@@ -2428,9 +2587,9 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="characterSet")
     def character_set(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The character set for the autonomous database. The default is AL32UTF8. Allowed values for an Autonomous Database Serverless instance as as returned by [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
+        The character set for the Autonomous AI Database. The default is AL32UTF8. Allowed values for an Autonomous AI Database Serverless instance as as returned by [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
 
-        For an Autonomous Database on dedicated infrastructure, the allowed values are:
+        For an Autonomous AI Database on dedicated infrastructure, the allowed values are:
 
         AL32UTF8, AR8ADOS710, AR8ADOS720, AR8APTEC715, AR8ARABICMACS, AR8ASMO8X, AR8ISO8859P6, AR8MSWIN1256, AR8MUSSAD768, AR8NAFITHA711, AR8NAFITHA721, AR8SAKHR706, AR8SAKHR707, AZ8ISO8859P9E, BG8MSWIN, BG8PC437S, BLT8CP921, BLT8ISO8859P13, BLT8MSWIN1257, BLT8PC775, BN8BSCII, CDN8PC863, CEL8ISO8859P14, CL8ISO8859P5, CL8ISOIR111, CL8KOI8R, CL8KOI8U, CL8MACCYRILLICS, CL8MSWIN1251, EE8ISO8859P2, EE8MACCES, EE8MACCROATIANS, EE8MSWIN1250, EE8PC852, EL8DEC, EL8ISO8859P7, EL8MACGREEKS, EL8MSWIN1253, EL8PC437S, EL8PC851, EL8PC869, ET8MSWIN923, HU8ABMOD, HU8CWI2, IN8ISCII, IS8PC861, IW8ISO8859P8, IW8MACHEBREWS, IW8MSWIN1255, IW8PC1507, JA16EUC, JA16EUCTILDE, JA16SJIS, JA16SJISTILDE, JA16VMS, KO16KSC5601, KO16KSCCS, KO16MSWIN949, LA8ISO6937, LA8PASSPORT, LT8MSWIN921, LT8PC772, LT8PC774, LV8PC1117, LV8PC8LR, LV8RST104090, N8PC865, NE8ISO8859P10, NEE8ISO8859P4, RU8BESTA, RU8PC855, RU8PC866, SE8ISO8859P3, TH8MACTHAIS, TH8TISASCII, TR8DEC, TR8MACTURKISHS, TR8MSWIN1254, TR8PC857, US7ASCII, US8PC437, UTF8, VN8MSWIN1258, VN8VN3, WE8DEC, WE8DG, WE8ISO8859P1, WE8ISO8859P15, WE8ISO8859P9, WE8MACROMAN8S, WE8MSWIN1252, WE8NCR4970, WE8NEXTSTEP, WE8PC850, WE8PC858, WE8PC860, WE8ROMAN8, ZHS16CGB231280, ZHS16GBK, ZHT16BIG5, ZHT16CCDC, ZHT16DBT, ZHT16HKSCS, ZHT16MSWIN950, ZHT32EUC, ZHT32SOPS, ZHT32TRIS
         """
@@ -2444,7 +2603,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="cloneTableSpaceLists")
     def clone_table_space_lists(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]]:
         """
-        A list of the source Autonomous Database's table space number(s) used to create this partial clone from the backup.
+        A list of the source Autonomous AI Database's table space number(s) used to create this partial clone from the backup.
         """
         return pulumi.get(self, "clone_table_space_lists")
 
@@ -2456,7 +2615,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="cloneType")
     def clone_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Autonomous Database clone type.
+        The Autonomous AI Database clone type.
         * `FULL` - This option creates a new database that includes all source database data.
         * `METADATA` - This option creates a new database that includes the source database schema and select metadata, but not the source database data.
         """
@@ -2482,7 +2641,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="compartmentId")
     def compartment_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous Database.
+        (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous AI Database.
         """
         return pulumi.get(self, "compartment_id")
 
@@ -2494,7 +2653,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="computeCount")
     def compute_count(self) -> Optional[pulumi.Input[_builtins.float]]:
         """
-        (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
+        (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
         """
         return pulumi.get(self, "compute_count")
 
@@ -2506,7 +2665,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="computeModel")
     def compute_model(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The compute model of the Autonomous Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
+        (Updatable) The compute model of the Autonomous AI Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
         """
         return pulumi.get(self, "compute_model")
 
@@ -2518,7 +2677,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="connectionStrings")
     def connection_strings(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseConnectionStringArgs']]]]:
         """
-        The connection string used to connect to the Autonomous Database. The username for the Service Console is ADMIN. Use the password you entered when creating the Autonomous Database for the password value.
+        The connection string used to connect to the Autonomous AI Database. The username for the Service Console is ADMIN. Use the password you entered when creating the Autonomous AI Database for the password value.
         """
         return pulumi.get(self, "connection_strings")
 
@@ -2542,7 +2701,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="cpuCoreCount")
     def cpu_core_count(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        (Updatable) The number of CPU cores to be made available to the database. For Autonomous Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        (Updatable) The number of CPU cores to be made available to the database. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
 
         **Note:** This parameter cannot be used with the `ocpuCount` parameter. This input is ignored for Always Free resources.
         """
@@ -2580,7 +2739,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="dataStorageSizeInGb")
     def data_storage_size_in_gb(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
 
         **Notes**
         * This parameter is only supported for dedicated Exadata infrastructure.
@@ -2596,7 +2755,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="dataStorageSizeInTbs")
     def data_storage_size_in_tbs(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details. A full Exadata service is allocated when the Autonomous Database size is set to the upper limit (384 TB).
+        (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details. A full Exadata service is allocated when the Autonomous AI Database size is set to the upper limit (384 TB).
 
         **Note:** This parameter cannot be used with the `dataStorageSizeInGBs` parameter. This input is ignored for Always Free resources.
         """
@@ -2610,7 +2769,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="databaseEdition")
     def database_edition(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The Oracle Database Edition that applies to the Autonomous databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
+        (Updatable) The Oracle AI Database Edition that applies to the Autonomous AI Databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
         """
         return pulumi.get(self, "database_edition")
 
@@ -2622,7 +2781,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="databaseManagementStatus")
     def database_management_status(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Status of Database Management for this Autonomous Database.
+        Status of Database Management for this Autonomous AI Database.
         """
         return pulumi.get(self, "database_management_status")
 
@@ -2634,7 +2793,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="dataguardRegionType")
     def dataguard_region_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        **Deprecated.** The Autonomous Data Guard region type of the Autonomous Database. For Autonomous Database Serverless, Autonomous Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. The standby regions in Autonomous Data Guard associations can be the same region designated as the primary region, or they can be remote regions. Certain database administrative operations may be available only in the primary region of the Autonomous Data Guard association, and cannot be performed when the database using the primary role is operating in a remote Autonomous Data Guard standby region.
+        **Deprecated.** The Autonomous Data Guard region type of the Autonomous AI Database. For Autonomous AI Database Serverless, Autonomous Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. The standby regions in Autonomous Data Guard associations can be the same region designated as the primary region, or they can be remote regions. Certain database administrative operations may be available only in the primary region of the Autonomous Data Guard association, and cannot be performed when the database using the primary role is operating in a remote Autonomous Data Guard standby region.
         """
         return pulumi.get(self, "dataguard_region_type")
 
@@ -2672,7 +2831,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="dbVersion")
     def db_version(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) A valid Oracle Database version for Autonomous Database.`db_workload` AJD is only supported for `db_version` `19c` and above.
+        (Updatable) A valid Oracle AI Database version for Autonomous AI Database. When you specify 23ai for dbversion, the system will provision a 23ai database, but the UI will display it as 26ai. When you specify 26ai for dbversion, the system will provision and display a 26ai database as expected. For new databases, it is recommended to use either 19c or 26ai. `db_workload` AJD is only supported for `db_version` `19c` and above.
         """
         return pulumi.get(self, "db_version")
 
@@ -2684,11 +2843,12 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="dbWorkload")
     def db_workload(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The Autonomous Database workload type. The following values are valid:
-        * OLTP - indicates an Autonomous Transaction Processing database
-        * DW - indicates an Autonomous Data Warehouse database
-        * AJD - indicates an Autonomous JSON Database
-        * APEX - indicates an Autonomous Database with the Oracle APEX Application Development workload type.
+        (Updatable) The Autonomous AI Database workload type. The following values are valid:
+        * OLTP - indicates an Autonomous AI Transaction Processing database
+        * DW - indicates an Autonomous AI Lakehouse database
+        * AJD - indicates an Autonomous AI JSON Database
+        * APEX - indicates an Autonomous AI Database with the Oracle APEX AI Application Development workload type.
+        * LH - indicates an Oracle Autonomous AI Lakehouse database
 
         This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. *Note: `db_workload` can only be updated from AJD to OLTP or from a free OLTP to AJD.
         """
@@ -2714,7 +2874,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="disasterRecoveryRegionType")
     def disaster_recovery_region_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        **Deprecated.** The disaster recovery (DR) region type of the Autonomous Database. For Autonomous Database Serverless instances, DR associations have designated primary and standby regions. These region types do not change when the database changes roles. The standby region in DR associations can be the same region as the primary region, or they can be in a remote regions. Some database administration operations may be available only in the primary region of the DR association, and cannot be performed when the database using the primary role is operating in a remote region.
+        **Deprecated.** The disaster recovery (DR) region type of the Autonomous AI Database. For Autonomous AI Database Serverless instances, DR associations have designated primary and standby regions. These region types do not change when the database changes roles. The standby region in DR associations can be the same region as the primary region, or they can be in a remote regions. Some database administration operations may be available only in the primary region of the DR association, and cannot be performed when the database using the primary role is operating in a remote region.
         """
         return pulumi.get(self, "disaster_recovery_region_type")
 
@@ -2726,7 +2886,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="disasterRecoveryType")
     def disaster_recovery_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Indicates the disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        Indicates the disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
         """
         return pulumi.get(self, "disaster_recovery_type")
 
@@ -2738,7 +2898,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="displayName")
     def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The user-friendly name for the Autonomous Database. The name does not have to be unique.
+        (Updatable) The user-friendly name for the Autonomous AI Database. The name does not have to be unique.
         """
         return pulumi.get(self, "display_name")
 
@@ -2759,7 +2919,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="encryptionKey")
     def encryption_key(self) -> Optional[pulumi.Input['AutonomousDatabaseEncryptionKeyArgs']]:
         """
-        (Updatable) Details of the Autonomous Database encryption key.
+        (Updatable) Details of the Autonomous AI Database encryption key.
         """
         return pulumi.get(self, "encryption_key")
 
@@ -2778,6 +2938,15 @@ class _AutonomousDatabaseState:
     @encryption_key_history_entries.setter
     def encryption_key_history_entries(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseEncryptionKeyHistoryEntryArgs']]]]):
         pulumi.set(self, "encryption_key_history_entries", value)
+
+    @_builtins.property
+    @pulumi.getter(name="encryptionKeyLocationDetails")
+    def encryption_key_location_details(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseEncryptionKeyLocationDetailArgs']]]]:
+        return pulumi.get(self, "encryption_key_location_details")
+
+    @encryption_key_location_details.setter
+    def encryption_key_location_details(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseEncryptionKeyLocationDetailArgs']]]]):
+        pulumi.set(self, "encryption_key_location_details", value)
 
     @_builtins.property
     @pulumi.getter(name="failedDataRecoveryInSeconds")
@@ -2807,7 +2976,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="inMemoryAreaInGbs")
     def in_memory_area_in_gbs(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The area assigned to In-Memory tables in Autonomous Database.
+        The area assigned to In-Memory tables in Autonomous AI Database.
         """
         return pulumi.get(self, "in_memory_area_in_gbs")
 
@@ -2819,7 +2988,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="inMemoryPercentage")
     def in_memory_percentage(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous Database. This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform.
+        (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous AI Database. This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform.
         """
         return pulumi.get(self, "in_memory_percentage")
 
@@ -2845,7 +3014,7 @@ class _AutonomousDatabaseState:
         """
         (Updatable) Indicates if the database-level access control is enabled. If disabled, database access is defined by the network security rules. If enabled, database access is restricted to the IP addresses defined by the rules specified with the `whitelistedIps` property. While specifying `whitelistedIps` rules is optional, if database-level access control is enabled and no rules are specified, the database will become inaccessible. The rules can be added later using the `UpdateAutonomousDatabase` API operation or edit option in console. When creating a database clone, the desired access control setting should be specified. By default, database-level access control will be disabled for the clone.
 
-        This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform. For Autonomous Database Serverless instances, `whitelistedIps` is used.
+        This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform. For Autonomous AI Database Serverless instances, `whitelistedIps` is used.
         """
         return pulumi.get(self, "is_access_control_enabled")
 
@@ -2857,7 +3026,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isAutoScalingEnabled")
     def is_auto_scaling_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) Indicates if auto scaling is enabled for the Autonomous Database CPU core count. The default value is `TRUE`.
+        (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database CPU core count. The default value is `TRUE`.
         """
         return pulumi.get(self, "is_auto_scaling_enabled")
 
@@ -2869,7 +3038,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isAutoScalingForStorageEnabled")
     def is_auto_scaling_for_storage_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) Indicates if auto scaling is enabled for the Autonomous Database storage. The default value is `FALSE`.
+        (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database storage. The default value is `FALSE`.
         """
         return pulumi.get(self, "is_auto_scaling_for_storage_enabled")
 
@@ -2881,7 +3050,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isBackupRetentionLocked")
     def is_backup_retention_locked(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) True if the Autonomous Database is backup retention locked.
+        (Updatable) True if the Autonomous AI Database is backup retention locked.
         """
         return pulumi.get(self, "is_backup_retention_locked")
 
@@ -2893,7 +3062,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isDataGuardEnabled")
     def is_data_guard_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) **Deprecated.** Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        (Updatable) **Deprecated.** Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         """
         return pulumi.get(self, "is_data_guard_enabled")
 
@@ -2917,7 +3086,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isDevTier")
     def is_dev_tier(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) Autonomous Database for Developers are fixed-shape Autonomous Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
+        (Updatable) Autonomous AI Database for Developers are fixed-shape Autonomous AI Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
         """
         return pulumi.get(self, "is_dev_tier")
 
@@ -2947,7 +3116,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isFreeTier")
     def is_free_tier(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
+        (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous AI Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
 
         This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isLocalDataGuardEnabled When `db_workload` is `AJD` it cannot be `true`.
         """
@@ -2961,7 +3130,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isLocalDataGuardEnabled")
     def is_local_data_guard_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        (Updatable) Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        (Updatable) Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         """
         return pulumi.get(self, "is_local_data_guard_enabled")
 
@@ -2982,7 +3151,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isPreview")
     def is_preview(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        Indicates if the Autonomous Database version is a preview version.
+        Indicates if the Autonomous AI Database version is a preview version.
         """
         return pulumi.get(self, "is_preview")
 
@@ -2994,7 +3163,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isPreviewVersionWithServiceTermsAccepted")
     def is_preview_version_with_service_terms_accepted(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        If set to `TRUE`, indicates that an Autonomous Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
+        If set to `TRUE`, indicates that an Autonomous AI Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous AI Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
         """
         return pulumi.get(self, "is_preview_version_with_service_terms_accepted")
 
@@ -3018,7 +3187,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isRefreshableClone")
     def is_refreshable_clone(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        Indicates if the Autonomous Database is a refreshable clone.
+        Indicates if the Autonomous AI Database is a refreshable clone.
         """
         return pulumi.get(self, "is_refreshable_clone")
 
@@ -3030,7 +3199,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isRemoteDataGuardEnabled")
     def is_remote_data_guard_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        Indicates whether the Autonomous Database has Cross Region Data Guard enabled. Not applicable to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        Indicates whether the Autonomous AI Database has Cross Region Data Guard enabled. Not applicable to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         """
         return pulumi.get(self, "is_remote_data_guard_enabled")
 
@@ -3063,6 +3232,12 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="isShrinkOnly")
     @_utilities.deprecated("""The 'is_shrink_only' field has been deprecated. Please use 'shrink_adb_trigger' instead.""")
     def is_shrink_only(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Updatable) An optional property when enabled triggers the Shrinking of Autonomous Database once. To trigger Shrinking of ADB once again, this flag needs to be disabled and re-enabled again. It should not be passed during create database operation. It is only applicable on Serverless databases i.e. where `is_dedicated` is false.
+
+        ** IMPORTANT **
+        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        """
         return pulumi.get(self, "is_shrink_only")
 
     @is_shrink_only.setter
@@ -3142,7 +3317,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="kmsKeyVersionId")
     def kms_key_version_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
+        The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous AI Database Serverless does not use key versions, hence is not applicable for Autonomous AI Database Serverless instances.
         """
         return pulumi.get(self, "kms_key_version_id")
 
@@ -3154,7 +3329,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="licenseModel")
     def license_model(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The Oracle license model that applies to the Oracle Autonomous Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle Database software licenses and the Oracle Database service. Note that when provisioning an [Autonomous Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
+        (Updatable) The Oracle license model that applies to the Oracle Autonomous AI Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle AI Database software licenses and the Oracle AI Database service. Note that when provisioning an [Autonomous AI Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
 
         This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, dataStorageSizeInTBs, adminPassword, isMTLSConnectionRequired, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, dbName, scheduledOperations, dbToolsDetails, or isFreeTier. It is a required field when `db_workload` is AJD and needs to be set to `LICENSE_INCLUDED` as AJD does not support default `license_model` value `BRING_YOUR_OWN_LICENSE`.
         """
@@ -3189,10 +3364,22 @@ class _AutonomousDatabaseState:
         pulumi.set(self, "local_adg_auto_failover_max_data_loss_limit", value)
 
     @_builtins.property
+    @pulumi.getter(name="localAdgResourcePoolLeaderId")
+    def local_adg_resource_pool_leader_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the dedicated resource pool leader Autonomous Database in the same region, associated with local Autonomous Data Guard for a dedicated resource pool member.
+        """
+        return pulumi.get(self, "local_adg_resource_pool_leader_id")
+
+    @local_adg_resource_pool_leader_id.setter
+    def local_adg_resource_pool_leader_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "local_adg_resource_pool_leader_id", value)
+
+    @_builtins.property
     @pulumi.getter(name="localDisasterRecoveryType")
     def local_disaster_recovery_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Indicates the local disaster recovery (DR) type of the Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        Indicates the local disaster recovery (DR) type of the Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
         """
         return pulumi.get(self, "local_disaster_recovery_type")
 
@@ -3246,10 +3433,22 @@ class _AutonomousDatabaseState:
         pulumi.set(self, "max_cpu_core_count", value)
 
     @_builtins.property
+    @pulumi.getter(name="memoryPerComputeUnitInGbs")
+    def memory_per_compute_unit_in_gbs(self) -> Optional[pulumi.Input[_builtins.float]]:
+        """
+        The amount of memory (in GBs) to be enabled per OCPU or ECPU.
+        """
+        return pulumi.get(self, "memory_per_compute_unit_in_gbs")
+
+    @memory_per_compute_unit_in_gbs.setter
+    def memory_per_compute_unit_in_gbs(self, value: Optional[pulumi.Input[_builtins.float]]):
+        pulumi.set(self, "memory_per_compute_unit_in_gbs", value)
+
+    @_builtins.property
     @pulumi.getter(name="memoryPerOracleComputeUnitInGbs")
     def memory_per_oracle_compute_unit_in_gbs(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The amount of memory (in GBs) enabled per ECPU or OCPU.
+        The amount of memory (in GBs, rounded off to nearest integer value) to be enabled per OCPU or ECPU. This is deprecated. Please refer to memoryPerComputeUnitInGBs for accurate value.
         """
         return pulumi.get(self, "memory_per_oracle_compute_unit_in_gbs")
 
@@ -3261,7 +3460,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="ncharacterSet")
     def ncharacter_set(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The character set for the Autonomous Database. The default is AL32UTF8. Use [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous Database Serverless instance. For an Autonomous Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
+        The character set for the Autonomous AI Database. The default is AL32UTF8. Use [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous AI Database Serverless instance. For an Autonomous AI Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
         """
         return pulumi.get(self, "ncharacter_set")
 
@@ -3298,7 +3497,7 @@ class _AutonomousDatabaseState:
     def nsg_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         (Updatable) The list of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the network security groups (NSGs) to which this resource belongs. Setting this to an empty list removes all resources from all NSGs. For more information about NSGs, see [Security Rules](https://docs.cloud.oracle.com/iaas/Content/Network/Concepts/securityrules.htm). **NsgIds restrictions:**
-        * A network security group (NSG) is optional for Autonomous Databases with private access. The nsgIds list can be empty.
+        * A network security group (NSG) is optional for Autonomous AI Databases with private access. The nsgIds list can be empty.
         """
         return pulumi.get(self, "nsg_ids")
 
@@ -3313,11 +3512,11 @@ class _AutonomousDatabaseState:
         (Updatable) The number of OCPU cores to be made available to the database.
 
         The following points apply:
-        * For Autonomous Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous Database Serverless instances.)
-        * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure.
-        * For Autonomous Database Serverless instances, this parameter is not used.
+        * For Autonomous AI Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous AI Database Serverless instances.)
+        * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure.
+        * For Autonomous AI Database Serverless instances, this parameter is not used.
 
-        For Autonomous Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        For Autonomous AI Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
 
         **Note:** This parameter cannot be used with the `cpuCoreCount` parameter.
         """
@@ -3331,7 +3530,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="openMode")
     def open_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) Indicates the Autonomous Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
+        (Updatable) Indicates the Autonomous AI Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
 
         This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isFreeTier.
         """
@@ -3345,7 +3544,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="operationsInsightsStatus")
     def operations_insights_status(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Status of Operations Insights for this Autonomous Database.
+        Status of Operations Insights for this Autonomous AI Database.
         """
         return pulumi.get(self, "operations_insights_status")
 
@@ -3366,7 +3565,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="peerDbIds")
     def peer_db_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        The list of [OCIDs](https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of standby databases located in Autonomous Data Guard remote regions that are associated with the source database. Note that for Autonomous Database Serverless instances, standby databases located in the same region as the source primary database do not have OCIDs.
+        The list of [OCIDs](https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of standby databases located in Autonomous Data Guard remote regions that are associated with the source database. Note that for Autonomous AI Database Serverless instances, standby databases located in the same region as the source primary database do not have OCIDs.
         """
         return pulumi.get(self, "peer_db_ids")
 
@@ -3378,7 +3577,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="permissionLevel")
     def permission_level(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Autonomous Database permission level. Restricted mode allows access only by admin users.
+        The Autonomous AI Database permission level. Restricted mode allows access only by admin users.
         """
         return pulumi.get(self, "permission_level")
 
@@ -3426,7 +3625,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="provisionableCpuses")
     def provisionable_cpuses(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.float]]]]:
         """
-        An array of CPU values that an Autonomous Database can be scaled to.
+        An array of CPU values that an Autonomous AI Database can be scaled to.
         """
         return pulumi.get(self, "provisionable_cpuses")
 
@@ -3462,7 +3661,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="refreshableMode")
     def refreshable_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous Database.
+        (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous AI Database.
         """
         return pulumi.get(self, "refreshable_mode")
 
@@ -3474,7 +3673,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="refreshableStatus")
     def refreshable_status(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The refresh status of the clone. REFRESHING indicates that the clone is currently being refreshed with data from the source Autonomous Database.
+        The refresh status of the clone. REFRESHING indicates that the clone is currently being refreshed with data from the source Autonomous AI Database.
         """
         return pulumi.get(self, "refreshable_status")
 
@@ -3498,7 +3697,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="remoteDisasterRecoveryType")
     def remote_disaster_recovery_type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Indicates the cross-region disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        Indicates the cross-region disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
         """
         return pulumi.get(self, "remote_disaster_recovery_type")
 
@@ -3510,7 +3709,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="resourcePoolLeaderId")
     def resource_pool_leader_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The unique identifier for leader autonomous database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        (Updatable) The unique identifier for leader Autonomous AI Database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
         """
         return pulumi.get(self, "resource_pool_leader_id")
 
@@ -3534,7 +3733,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter
     def role(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Data Guard role of the Autonomous Container Database or Autonomous Database, if Autonomous Data Guard is enabled.
+        The Data Guard role of the Autonomous Container Database or Autonomous AI Database, if Autonomous Data Guard is enabled.
         """
         return pulumi.get(self, "role")
 
@@ -3545,6 +3744,9 @@ class _AutonomousDatabaseState:
     @_builtins.property
     @pulumi.getter(name="rotateKeyTrigger")
     def rotate_key_trigger(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Updatable) An optional property when flipped triggers rotation of KMS key. It is only applicable on dedicated databases i.e. where `is_dedicated` is true.
+        """
         return pulumi.get(self, "rotate_key_trigger")
 
     @rotate_key_trigger.setter
@@ -3607,7 +3809,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="serviceConsoleUrl")
     def service_console_url(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The URL of the Service Console for the Autonomous Database.
+        The URL of the Service Console for the Autonomous AI Database.
         """
         return pulumi.get(self, "service_console_url")
 
@@ -3628,9 +3830,9 @@ class _AutonomousDatabaseState:
     @pulumi.getter
     def source(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The source of the database: Use `NONE` for creating a new Autonomous Database. Use `DATABASE` for creating a new Autonomous Database by cloning an existing Autonomous Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
+        The source of the database: Use `NONE` for creating a new Autonomous AI Database. Use `DATABASE` for creating a new Autonomous AI Database by cloning an existing Autonomous AI Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
 
-        For [Autonomous Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous Database clone using backups. For more information, see [Cloning and Moving an Autonomous Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
+        For [Autonomous AI Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous AI Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous AI Database clone using backups. For more information, see [Cloning and Moving an Autonomous AI Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
         """
         return pulumi.get(self, "source")
 
@@ -3642,7 +3844,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="sourceId")
     def source_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that will be used to create a new peer database for the Data Guard association.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that will be used to create a new peer database for the Data Guard association.
         """
         return pulumi.get(self, "source_id")
 
@@ -3666,9 +3868,9 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="standbyWhitelistedIps")
     def standby_whitelisted_ips(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
 
-        For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+        For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
 
         For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
 
@@ -3684,7 +3886,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter
     def state(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The current state of the Autonomous Database.
+        The current state of the Autonomous AI Database.
         """
         return pulumi.get(self, "state")
 
@@ -3701,7 +3903,7 @@ class _AutonomousDatabaseState:
         **Subnet Restrictions:**
         * For bare metal DB systems and for single node virtual machine DB systems, do not use a subnet that overlaps with 192.168.16.16/28.
         * For Exadata and virtual machine 2-node RAC systems, do not use a subnet that overlaps with 192.168.128.0/20.
-        * For Autonomous Database, setting this will disable public secure access to the database.
+        * For Autonomous AI Database, setting this will disable public secure access to the database.
 
         These subnets are used by the Oracle Clusterware private interconnect on the database instance. Specifying an overlapping subnet will cause the private interconnect to malfunction. This restriction applies to both the client subnet and the backup subnet.
         """
@@ -3727,7 +3929,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="supportedRegionsToCloneTos")
     def supported_regions_to_clone_tos(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        The list of regions that support the creation of an Autonomous Database clone or an Autonomous Data Guard standby database.
+        The list of regions that support the creation of an Autonomous AI Database clone or an Autonomous Data Guard standby database.
         """
         return pulumi.get(self, "supported_regions_to_clone_tos")
 
@@ -3738,6 +3940,9 @@ class _AutonomousDatabaseState:
     @_builtins.property
     @pulumi.getter(name="switchoverTo")
     def switchover_to(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        It is applicable only when `is_local_data_guard_enabled` is true. Could be set to `PRIMARY` or `STANDBY`. Default value is `PRIMARY`.
+        """
         return pulumi.get(self, "switchover_to")
 
     @switchover_to.setter
@@ -3747,6 +3952,9 @@ class _AutonomousDatabaseState:
     @_builtins.property
     @pulumi.getter(name="switchoverToRemotePeerId")
     def switchover_to_remote_peer_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Updatable) It is applicable only when `dataguard_region_type` and `role` are set, and `is_dedicated` is false. For Autonomous Database Serverless instances, Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. It takes the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the remote peer to switchover to and the API is called from the remote region.
+        """
         return pulumi.get(self, "switchover_to_remote_peer_id")
 
     @switchover_to_remote_peer_id.setter
@@ -3769,7 +3977,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="timeCreated")
     def time_created(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The date and time the Autonomous Database was created.
+        The date and time the Autonomous AI Database was created.
         """
         return pulumi.get(self, "time_created")
 
@@ -3781,7 +3989,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="timeDataGuardRoleChanged")
     def time_data_guard_role_changed(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The date and time the Autonomous Data Guard role was switched for the Autonomous Database. For databases that have standbys in both the primary Data Guard region and a remote Data Guard standby region, this is the latest timestamp of either the database using the "primary" role in the primary Data Guard region, or database located in the remote Data Guard standby region.
+        The date and time the Autonomous Data Guard role was switched for the Autonomous AI Database. For databases that have standbys in both the primary Data Guard region and a remote Data Guard standby region, this is the latest timestamp of either the database using the "primary" role in the primary Data Guard region, or database located in the remote Data Guard standby region.
         """
         return pulumi.get(self, "time_data_guard_role_changed")
 
@@ -3805,7 +4013,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="timeDisasterRecoveryRoleChanged")
     def time_disaster_recovery_role_changed(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The date and time the Disaster Recovery role was switched for the standby Autonomous Database.
+        The date and time the Disaster Recovery role was switched for the standby Autonomous AI Database.
         """
         return pulumi.get(self, "time_disaster_recovery_role_changed")
 
@@ -3817,7 +4025,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="timeEarliestAvailableDbVersionUpgrade")
     def time_earliest_available_db_version_upgrade(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The earliest(min) date and time the Autonomous Database can be scheduled to upgrade to 23ai.
+        The earliest(min) date and time the Autonomous AI Database can be scheduled to upgrade to 26ai.
         """
         return pulumi.get(self, "time_earliest_available_db_version_upgrade")
 
@@ -3829,7 +4037,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="timeLatestAvailableDbVersionUpgrade")
     def time_latest_available_db_version_upgrade(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The max date and time the Autonomous Database can be scheduled to upgrade to 23ai.
+        The max date and time the Autonomous AI Database can be scheduled to upgrade to 26ai.
         """
         return pulumi.get(self, "time_latest_available_db_version_upgrade")
 
@@ -3841,7 +4049,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="timeLocalDataGuardEnabled")
     def time_local_data_guard_enabled(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The date and time that Autonomous Data Guard was enabled for an Autonomous Database where the standby was provisioned in the same region as the primary database.
+        The date and time that Autonomous Data Guard was enabled for an Autonomous AI Database where the standby was provisioned in the same region as the primary database.
         """
         return pulumi.get(self, "time_local_data_guard_enabled")
 
@@ -3874,10 +4082,22 @@ class _AutonomousDatabaseState:
         pulumi.set(self, "time_maintenance_end", value)
 
     @_builtins.property
+    @pulumi.getter(name="timeMaintenancePauseUntil")
+    def time_maintenance_pause_until(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The date until which maintenance of Autonomous Database is temporarily paused.
+        """
+        return pulumi.get(self, "time_maintenance_pause_until")
+
+    @time_maintenance_pause_until.setter
+    def time_maintenance_pause_until(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "time_maintenance_pause_until", value)
+
+    @_builtins.property
     @pulumi.getter(name="timeOfAutoRefreshStart")
     def time_of_auto_refresh_start(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        (Updatable) The the date and time that auto-refreshing will begin for an Autonomous Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
+        (Updatable) The the date and time that auto-refreshing will begin for an Autonomous AI Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
         """
         return pulumi.get(self, "time_of_auto_refresh_start")
 
@@ -3937,7 +4157,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="timeOfLastSwitchover")
     def time_of_last_switchover(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The timestamp of the last switchover operation for the Autonomous Database.
+        The timestamp of the last switchover operation for the Autonomous AI Database.
         """
         return pulumi.get(self, "time_of_last_switchover")
 
@@ -3973,7 +4193,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="timeScheduledDbVersionUpgrade")
     def time_scheduled_db_version_upgrade(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The date and time the Autonomous Database scheduled to upgrade to 23ai. Send this value along with the target db_version value to schedule the database version upgrade. After the upgrade is scheduled and before the scheduled upgrade time arrives, please keep the db_version value the same as the backend's current db_version.
+        The date and time the Autonomous AI Database scheduled to upgrade to 26ai.
         """
         return pulumi.get(self, "time_scheduled_db_version_upgrade")
 
@@ -3985,7 +4205,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="timeUndeleted")
     def time_undeleted(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The date and time the Autonomous Database was most recently undeleted.
+        The date and time the Autonomous AI Database was most recently undeleted.
         """
         return pulumi.get(self, "time_undeleted")
 
@@ -4009,7 +4229,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter
     def timestamp(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The timestamp specified for the point-in-time clone of the source Autonomous Database. The timestamp must be in the past.
+        The timestamp specified for the point-in-time clone of the source Autonomous AI Database. The timestamp must be in the past.
         """
         return pulumi.get(self, "timestamp")
 
@@ -4030,6 +4250,18 @@ class _AutonomousDatabaseState:
         pulumi.set(self, "total_backup_storage_size_in_gbs", value)
 
     @_builtins.property
+    @pulumi.getter(name="transportableTablespace")
+    def transportable_tablespace(self) -> Optional[pulumi.Input['AutonomousDatabaseTransportableTablespaceArgs']]:
+        """
+        Details for importing transportable tablespace for an Autonomous Database.
+        """
+        return pulumi.get(self, "transportable_tablespace")
+
+    @transportable_tablespace.setter
+    def transportable_tablespace(self, value: Optional[pulumi.Input['AutonomousDatabaseTransportableTablespaceArgs']]):
+        pulumi.set(self, "transportable_tablespace", value)
+
+    @_builtins.property
     @pulumi.getter(name="useLatestAvailableBackupTimeStamp")
     def use_latest_available_backup_time_stamp(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -4045,7 +4277,7 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="usedDataStorageSizeInGbs")
     def used_data_storage_size_in_gbs(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The storage space consumed by Autonomous Database in GBs.
+        The storage space consumed by Autonomous AI Database in GBs.
         """
         return pulumi.get(self, "used_data_storage_size_in_gbs")
 
@@ -4057,13 +4289,37 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="usedDataStorageSizeInTbs")
     def used_data_storage_size_in_tbs(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The amount of storage that has been used for Autonomous Databases in dedicated infrastructure, in terabytes.
+        The amount of storage that has been used for Autonomous AI Databases in dedicated infrastructure, in terabytes.
         """
         return pulumi.get(self, "used_data_storage_size_in_tbs")
 
     @used_data_storage_size_in_tbs.setter
     def used_data_storage_size_in_tbs(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "used_data_storage_size_in_tbs", value)
+
+    @_builtins.property
+    @pulumi.getter(name="vanityConnectionUrls")
+    def vanity_connection_urls(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityConnectionUrlArgs']]]]:
+        """
+        The URLs for accessing Oracle Application Express (APEX) and SQL Developer Web with a browser from a Compute instance within your VCN or that has a direct connection to your VCN. Note that these URLs are provided by the console only for databases on [dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html).  Example: `{"sqlDevWebUrl": "https://<hostname>/ords...", "apexUrl", "https://<hostname>/ords..."}`
+        """
+        return pulumi.get(self, "vanity_connection_urls")
+
+    @vanity_connection_urls.setter
+    def vanity_connection_urls(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityConnectionUrlArgs']]]]):
+        pulumi.set(self, "vanity_connection_urls", value)
+
+    @_builtins.property
+    @pulumi.getter(name="vanityUrlDetails")
+    def vanity_url_details(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityUrlDetailArgs']]]]:
+        """
+        Details for api gateway and vanity url(custom url) for dbTools.
+        """
+        return pulumi.get(self, "vanity_url_details")
+
+    @vanity_url_details.setter
+    def vanity_url_details(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AutonomousDatabaseVanityUrlDetailArgs']]]]):
+        pulumi.set(self, "vanity_url_details", value)
 
     @_builtins.property
     @pulumi.getter(name="vaultId")
@@ -4081,17 +4337,13 @@ class _AutonomousDatabaseState:
     @pulumi.getter(name="whitelistedIps")
     def whitelisted_ips(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
 
-        For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+        For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
 
         For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
 
         This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. To remove all whitelisted IPs, set the field to a list with an empty string `[""]`.
-
-
-        ** IMPORTANT **
-        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
         return pulumi.get(self, "whitelisted_ips")
 
@@ -4113,6 +4365,7 @@ class AutonomousDatabase(pulumi.CustomResource):
                  autonomous_container_database_id: Optional[pulumi.Input[_builtins.str]] = None,
                  autonomous_database_backup_id: Optional[pulumi.Input[_builtins.str]] = None,
                  autonomous_database_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 autonomous_database_maintenance_window: Optional[pulumi.Input[Union['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs', 'AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgsDict']]] = None,
                  autonomous_maintenance_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
                  backup_retention_period_in_days: Optional[pulumi.Input[_builtins.int]] = None,
                  byol_compute_count_limit: Optional[pulumi.Input[_builtins.float]] = None,
@@ -4161,6 +4414,7 @@ class AutonomousDatabase(pulumi.CustomResource):
                  kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  license_model: Optional[pulumi.Input[_builtins.str]] = None,
                  local_adg_auto_failover_max_data_loss_limit: Optional[pulumi.Input[_builtins.int]] = None,
+                 local_adg_resource_pool_leader_id: Optional[pulumi.Input[_builtins.str]] = None,
                  long_term_backup_schedules: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseLongTermBackupScheduleArgs', 'AutonomousDatabaseLongTermBackupScheduleArgsDict']]]]] = None,
                  max_cpu_core_count: Optional[pulumi.Input[_builtins.int]] = None,
                  ncharacter_set: Optional[pulumi.Input[_builtins.str]] = None,
@@ -4190,17 +4444,18 @@ class AutonomousDatabase(pulumi.CustomResource):
                  subscription_id: Optional[pulumi.Input[_builtins.str]] = None,
                  switchover_to: Optional[pulumi.Input[_builtins.str]] = None,
                  switchover_to_remote_peer_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 time_maintenance_pause_until: Optional[pulumi.Input[_builtins.str]] = None,
                  time_of_auto_refresh_start: Optional[pulumi.Input[_builtins.str]] = None,
                  time_scheduled_db_version_upgrade: Optional[pulumi.Input[_builtins.str]] = None,
                  timestamp: Optional[pulumi.Input[_builtins.str]] = None,
+                 transportable_tablespace: Optional[pulumi.Input[Union['AutonomousDatabaseTransportableTablespaceArgs', 'AutonomousDatabaseTransportableTablespaceArgsDict']]] = None,
                  use_latest_available_backup_time_stamp: Optional[pulumi.Input[_builtins.bool]] = None,
+                 vanity_url_details: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseVanityUrlDetailArgs', 'AutonomousDatabaseVanityUrlDetailArgsDict']]]]] = None,
                  vault_id: Optional[pulumi.Input[_builtins.str]] = None,
                  whitelisted_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
-        This resource provides the Autonomous Database resource in Oracle Cloud Infrastructure Database service.
-
-        Creates a new Autonomous Database.
+        ## Example Usage
 
         ## Import
 
@@ -4213,106 +4468,114 @@ class AutonomousDatabase(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] admin_password: (Updatable) The password must be between 12 and 30 characters long, and must contain at least 1 uppercase, 1 lowercase, and 1 numeric character. It cannot contain the double quote symbol (") or the username "admin", regardless of casing. The password is mandatory if source value is "BACKUP_FROM_ID", "BACKUP_FROM_TIMESTAMP", "DATABASE" or "NONE".
-        :param pulumi.Input[_builtins.bool] are_primary_whitelisted_ips_used: (Updatable) This field will be null if the Autonomous Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses different IP access control list (ACL) for standby compared to primary.
+        :param pulumi.Input[_builtins.bool] are_primary_whitelisted_ips_used: (Updatable) This field will be null if the Autonomous AI Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses different IP access control list (ACL) for standby compared to primary.
         :param pulumi.Input[_builtins.int] auto_refresh_frequency_in_seconds: (Updatable) The frequency a refreshable clone is refreshed after auto-refresh is enabled. The minimum is 1 hour. The maximum is 7 days. The date and time that auto-refresh is enabled is controlled by the `timeOfAutoRefreshStart` parameter.
         :param pulumi.Input[_builtins.int] auto_refresh_point_lag_in_seconds: (Updatable) The time, in seconds, the data of the refreshable clone lags the primary database at the point of refresh. The minimum is 0 minutes (0 mins means refresh to the latest available timestamp). The maximum is 7 days. The lag time increases after refreshing until the next data refresh happens.
-        :param pulumi.Input[_builtins.str] autonomous_container_database_id: The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous Database on Dedicated Exadata Infrastructure.
-        :param pulumi.Input[_builtins.str] autonomous_database_backup_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database Backup that you will clone to create a new Autonomous Database.
-        :param pulumi.Input[_builtins.str] autonomous_database_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that you will clone to create a new Autonomous Database.
-        :param pulumi.Input[_builtins.str] autonomous_maintenance_schedule_type: (Updatable) The maintenance schedule type of the Autonomous Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
+        :param pulumi.Input[_builtins.str] autonomous_container_database_id: The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous AI Database on Dedicated Exadata Infrastructure.
+        :param pulumi.Input[_builtins.str] autonomous_database_backup_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database Backup that you will clone to create a new Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] autonomous_database_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that you will clone to create a new Autonomous AI Database.
+        :param pulumi.Input[Union['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs', 'AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgsDict']] autonomous_database_maintenance_window: (Updatable) Autonomous Database maintenance window. The maintenance window can be configured during database creation. To change the maintenance window of an existing Autonomous Database Serverless instance, clone the database and specify the maintenance window for the new cloned instance.
+        :param pulumi.Input[_builtins.str] autonomous_maintenance_schedule_type: (Updatable) The maintenance schedule type of the Autonomous AI Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
         :param pulumi.Input[_builtins.int] backup_retention_period_in_days: (Updatable) Retention period, in days, for long-term backups
         :param pulumi.Input[_builtins.float] byol_compute_count_limit: (Updatable) The maximum number of CPUs allowed with a Bring Your Own License (BYOL), including those used for auto-scaling, disaster recovery, tools, etc. Any CPU usage above this limit is considered as License Included and billed.
-        :param pulumi.Input[_builtins.str] character_set: The character set for the autonomous database. The default is AL32UTF8. Allowed values for an Autonomous Database Serverless instance as as returned by [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
+        :param pulumi.Input[_builtins.str] character_set: The character set for the Autonomous AI Database. The default is AL32UTF8. Allowed values for an Autonomous AI Database Serverless instance as as returned by [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
                
-               For an Autonomous Database on dedicated infrastructure, the allowed values are:
+               For an Autonomous AI Database on dedicated infrastructure, the allowed values are:
                
                AL32UTF8, AR8ADOS710, AR8ADOS720, AR8APTEC715, AR8ARABICMACS, AR8ASMO8X, AR8ISO8859P6, AR8MSWIN1256, AR8MUSSAD768, AR8NAFITHA711, AR8NAFITHA721, AR8SAKHR706, AR8SAKHR707, AZ8ISO8859P9E, BG8MSWIN, BG8PC437S, BLT8CP921, BLT8ISO8859P13, BLT8MSWIN1257, BLT8PC775, BN8BSCII, CDN8PC863, CEL8ISO8859P14, CL8ISO8859P5, CL8ISOIR111, CL8KOI8R, CL8KOI8U, CL8MACCYRILLICS, CL8MSWIN1251, EE8ISO8859P2, EE8MACCES, EE8MACCROATIANS, EE8MSWIN1250, EE8PC852, EL8DEC, EL8ISO8859P7, EL8MACGREEKS, EL8MSWIN1253, EL8PC437S, EL8PC851, EL8PC869, ET8MSWIN923, HU8ABMOD, HU8CWI2, IN8ISCII, IS8PC861, IW8ISO8859P8, IW8MACHEBREWS, IW8MSWIN1255, IW8PC1507, JA16EUC, JA16EUCTILDE, JA16SJIS, JA16SJISTILDE, JA16VMS, KO16KSC5601, KO16KSCCS, KO16MSWIN949, LA8ISO6937, LA8PASSPORT, LT8MSWIN921, LT8PC772, LT8PC774, LV8PC1117, LV8PC8LR, LV8RST104090, N8PC865, NE8ISO8859P10, NEE8ISO8859P4, RU8BESTA, RU8PC855, RU8PC866, SE8ISO8859P3, TH8MACTHAIS, TH8TISASCII, TR8DEC, TR8MACTURKISHS, TR8MSWIN1254, TR8PC857, US7ASCII, US8PC437, UTF8, VN8MSWIN1258, VN8VN3, WE8DEC, WE8DG, WE8ISO8859P1, WE8ISO8859P15, WE8ISO8859P9, WE8MACROMAN8S, WE8MSWIN1252, WE8NCR4970, WE8NEXTSTEP, WE8PC850, WE8PC858, WE8PC860, WE8ROMAN8, ZHS16CGB231280, ZHS16GBK, ZHT16BIG5, ZHT16CCDC, ZHT16DBT, ZHT16HKSCS, ZHT16MSWIN950, ZHT32EUC, ZHT32SOPS, ZHT32TRIS
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] clone_table_space_lists: A list of the source Autonomous Database's table space number(s) used to create this partial clone from the backup.
-        :param pulumi.Input[_builtins.str] clone_type: The Autonomous Database clone type.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] clone_table_space_lists: A list of the source Autonomous AI Database's table space number(s) used to create this partial clone from the backup.
+        :param pulumi.Input[_builtins.str] clone_type: The Autonomous AI Database clone type.
                * `FULL` - This option creates a new database that includes all source database data.
                * `METADATA` - This option creates a new database that includes the source database schema and select metadata, but not the source database data.
-        :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous Database.
-        :param pulumi.Input[_builtins.float] compute_count: (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
-        :param pulumi.Input[_builtins.str] compute_model: (Updatable) The compute model of the Autonomous Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
-        :param pulumi.Input[_builtins.int] cpu_core_count: (Updatable) The number of CPU cores to be made available to the database. For Autonomous Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous AI Database.
+        :param pulumi.Input[_builtins.float] compute_count: (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
+        :param pulumi.Input[_builtins.str] compute_model: (Updatable) The compute model of the Autonomous AI Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
+        :param pulumi.Input[_builtins.int] cpu_core_count: (Updatable) The number of CPU cores to be made available to the database. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Note:** This parameter cannot be used with the `ocpuCount` parameter. This input is ignored for Always Free resources.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseCustomerContactArgs', 'AutonomousDatabaseCustomerContactArgsDict']]]] customer_contacts: (Updatable) Customer Contacts.
         :param pulumi.Input[_builtins.str] data_safe_status: (Updatable) Status of the Data Safe registration for this Autonomous Database. Could be REGISTERED or NOT_REGISTERED.
-        :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Notes**
                * This parameter is only supported for dedicated Exadata infrastructure.
                * This parameter cannot be used with the `dataStorageSizeInTBs` parameter.
-        :param pulumi.Input[_builtins.int] data_storage_size_in_tbs: (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details. A full Exadata service is allocated when the Autonomous Database size is set to the upper limit (384 TB).
+        :param pulumi.Input[_builtins.int] data_storage_size_in_tbs: (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details. A full Exadata service is allocated when the Autonomous AI Database size is set to the upper limit (384 TB).
                
                **Note:** This parameter cannot be used with the `dataStorageSizeInGBs` parameter. This input is ignored for Always Free resources.
-        :param pulumi.Input[_builtins.str] database_edition: (Updatable) The Oracle Database Edition that applies to the Autonomous databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
-        :param pulumi.Input[_builtins.str] database_management_status: Status of Database Management for this Autonomous Database.
+        :param pulumi.Input[_builtins.str] database_edition: (Updatable) The Oracle AI Database Edition that applies to the Autonomous AI Databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
+        :param pulumi.Input[_builtins.str] database_management_status: Status of Database Management for this Autonomous AI Database.
         :param pulumi.Input[_builtins.str] db_name: The database name. The name must begin with an alphabetic character and can contain a maximum of 30 alphanumeric characters. Special characters are not permitted. The database name must be unique in the tenancy. It is required in all cases except when creating a cross-region Autonomous Data Guard standby instance or a cross-region disaster recovery standby instance.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseDbToolsDetailArgs', 'AutonomousDatabaseDbToolsDetailArgsDict']]]] db_tools_details: (Updatable) The list of database tools details.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, isLocalDataGuardEnabled, or isFreeTier.
-        :param pulumi.Input[_builtins.str] db_version: (Updatable) A valid Oracle Database version for Autonomous Database.`db_workload` AJD is only supported for `db_version` `19c` and above.
-        :param pulumi.Input[_builtins.str] db_workload: (Updatable) The Autonomous Database workload type. The following values are valid:
-               * OLTP - indicates an Autonomous Transaction Processing database
-               * DW - indicates an Autonomous Data Warehouse database
-               * AJD - indicates an Autonomous JSON Database
-               * APEX - indicates an Autonomous Database with the Oracle APEX Application Development workload type.
+        :param pulumi.Input[_builtins.str] db_version: (Updatable) A valid Oracle AI Database version for Autonomous AI Database. When you specify 23ai for dbversion, the system will provision a 23ai database, but the UI will display it as 26ai. When you specify 26ai for dbversion, the system will provision and display a 26ai database as expected. For new databases, it is recommended to use either 19c or 26ai. `db_workload` AJD is only supported for `db_version` `19c` and above.
+        :param pulumi.Input[_builtins.str] db_workload: (Updatable) The Autonomous AI Database workload type. The following values are valid:
+               * OLTP - indicates an Autonomous AI Transaction Processing database
+               * DW - indicates an Autonomous AI Lakehouse database
+               * AJD - indicates an Autonomous AI JSON Database
+               * APEX - indicates an Autonomous AI Database with the Oracle APEX AI Application Development workload type.
+               * LH - indicates an Oracle Autonomous AI Lakehouse database
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. *Note: `db_workload` can only be updated from AJD to OLTP or from a free OLTP to AJD.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
-        :param pulumi.Input[_builtins.str] disaster_recovery_type: Indicates the disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
-        :param pulumi.Input[_builtins.str] display_name: (Updatable) The user-friendly name for the Autonomous Database. The name does not have to be unique.
-        :param pulumi.Input[Union['AutonomousDatabaseEncryptionKeyArgs', 'AutonomousDatabaseEncryptionKeyArgsDict']] encryption_key: (Updatable) Details of the Autonomous Database encryption key.
+        :param pulumi.Input[_builtins.str] disaster_recovery_type: Indicates the disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        :param pulumi.Input[_builtins.str] display_name: (Updatable) The user-friendly name for the Autonomous AI Database. The name does not have to be unique.
+        :param pulumi.Input[Union['AutonomousDatabaseEncryptionKeyArgs', 'AutonomousDatabaseEncryptionKeyArgsDict']] encryption_key: (Updatable) Details of the Autonomous AI Database encryption key.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] freeform_tags: (Updatable) Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
-        :param pulumi.Input[_builtins.int] in_memory_percentage: (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous Database. This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform.
+        :param pulumi.Input[_builtins.int] in_memory_percentage: (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous AI Database. This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform.
         :param pulumi.Input[_builtins.bool] is_access_control_enabled: (Updatable) Indicates if the database-level access control is enabled. If disabled, database access is defined by the network security rules. If enabled, database access is restricted to the IP addresses defined by the rules specified with the `whitelistedIps` property. While specifying `whitelistedIps` rules is optional, if database-level access control is enabled and no rules are specified, the database will become inaccessible. The rules can be added later using the `UpdateAutonomousDatabase` API operation or edit option in console. When creating a database clone, the desired access control setting should be specified. By default, database-level access control will be disabled for the clone.
                
-               This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform. For Autonomous Database Serverless instances, `whitelistedIps` is used.
-        :param pulumi.Input[_builtins.bool] is_auto_scaling_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous Database CPU core count. The default value is `TRUE`.
-        :param pulumi.Input[_builtins.bool] is_auto_scaling_for_storage_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous Database storage. The default value is `FALSE`.
-        :param pulumi.Input[_builtins.bool] is_backup_retention_locked: (Updatable) True if the Autonomous Database is backup retention locked.
-        :param pulumi.Input[_builtins.bool] is_data_guard_enabled: (Updatable) **Deprecated.** Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+               This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform. For Autonomous AI Database Serverless instances, `whitelistedIps` is used.
+        :param pulumi.Input[_builtins.bool] is_auto_scaling_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database CPU core count. The default value is `TRUE`.
+        :param pulumi.Input[_builtins.bool] is_auto_scaling_for_storage_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database storage. The default value is `FALSE`.
+        :param pulumi.Input[_builtins.bool] is_backup_retention_locked: (Updatable) True if the Autonomous AI Database is backup retention locked.
+        :param pulumi.Input[_builtins.bool] is_data_guard_enabled: (Updatable) **Deprecated.** Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         :param pulumi.Input[_builtins.bool] is_dedicated: True if the database is on [dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html).
-        :param pulumi.Input[_builtins.bool] is_dev_tier: (Updatable) Autonomous Database for Developers are fixed-shape Autonomous Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
-        :param pulumi.Input[_builtins.bool] is_free_tier: (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
+        :param pulumi.Input[_builtins.bool] is_dev_tier: (Updatable) Autonomous AI Database for Developers are fixed-shape Autonomous AI Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
+        :param pulumi.Input[_builtins.bool] is_free_tier: (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous AI Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isLocalDataGuardEnabled When `db_workload` is `AJD` it cannot be `true`.
-        :param pulumi.Input[_builtins.bool] is_local_data_guard_enabled: (Updatable) Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
-        :param pulumi.Input[_builtins.bool] is_preview_version_with_service_terms_accepted: If set to `TRUE`, indicates that an Autonomous Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
-        :param pulumi.Input[_builtins.bool] is_refreshable_clone: Indicates if the Autonomous Database is a refreshable clone.
+        :param pulumi.Input[_builtins.bool] is_local_data_guard_enabled: (Updatable) Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        :param pulumi.Input[_builtins.bool] is_preview_version_with_service_terms_accepted: If set to `TRUE`, indicates that an Autonomous AI Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous AI Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
+        :param pulumi.Input[_builtins.bool] is_refreshable_clone: Indicates if the Autonomous AI Database is a refreshable clone.
         :param pulumi.Input[_builtins.bool] is_replicate_automatic_backups: If true, 7 days worth of backups are replicated across regions for Cross-Region ADB or Backup-Based DR between Primary and Standby. If false, the backups taken on the Primary are not replicated to the Standby database.
+        :param pulumi.Input[_builtins.bool] is_shrink_only: (Updatable) An optional property when enabled triggers the Shrinking of Autonomous Database once. To trigger Shrinking of ADB once again, this flag needs to be disabled and re-enabled again. It should not be passed during create database operation. It is only applicable on Serverless databases i.e. where `is_dedicated` is false.
+               
+               ** IMPORTANT **
+               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[_builtins.str] kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
-        :param pulumi.Input[_builtins.str] license_model: (Updatable) The Oracle license model that applies to the Oracle Autonomous Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle Database software licenses and the Oracle Database service. Note that when provisioning an [Autonomous Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
+        :param pulumi.Input[_builtins.str] license_model: (Updatable) The Oracle license model that applies to the Oracle Autonomous AI Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle AI Database software licenses and the Oracle AI Database service. Note that when provisioning an [Autonomous AI Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
                
                This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, dataStorageSizeInTBs, adminPassword, isMTLSConnectionRequired, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, dbName, scheduledOperations, dbToolsDetails, or isFreeTier. It is a required field when `db_workload` is AJD and needs to be set to `LICENSE_INCLUDED` as AJD does not support default `license_model` value `BRING_YOUR_OWN_LICENSE`.
         :param pulumi.Input[_builtins.int] local_adg_auto_failover_max_data_loss_limit: Parameter that allows users to select an acceptable maximum data loss limit in seconds, up to which Automatic Failover will be triggered when necessary for a Local Autonomous Data Guard
+        :param pulumi.Input[_builtins.str] local_adg_resource_pool_leader_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the dedicated resource pool leader Autonomous Database in the same region, associated with local Autonomous Data Guard for a dedicated resource pool member.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseLongTermBackupScheduleArgs', 'AutonomousDatabaseLongTermBackupScheduleArgsDict']]]] long_term_backup_schedules: Details for the long-term backup schedule.
-        :param pulumi.Input[_builtins.str] ncharacter_set: The character set for the Autonomous Database. The default is AL32UTF8. Use [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous Database Serverless instance. For an Autonomous Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
+        :param pulumi.Input[_builtins.str] ncharacter_set: The character set for the Autonomous AI Database. The default is AL32UTF8. Use [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous AI Database Serverless instance. For an Autonomous AI Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] nsg_ids: (Updatable) The list of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the network security groups (NSGs) to which this resource belongs. Setting this to an empty list removes all resources from all NSGs. For more information about NSGs, see [Security Rules](https://docs.cloud.oracle.com/iaas/Content/Network/Concepts/securityrules.htm). **NsgIds restrictions:**
-               * A network security group (NSG) is optional for Autonomous Databases with private access. The nsgIds list can be empty.
+               * A network security group (NSG) is optional for Autonomous AI Databases with private access. The nsgIds list can be empty.
         :param pulumi.Input[_builtins.float] ocpu_count: (Updatable) The number of OCPU cores to be made available to the database.
                
                The following points apply:
-               * For Autonomous Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous Database Serverless instances.)
-               * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure.
-               * For Autonomous Database Serverless instances, this parameter is not used.
+               * For Autonomous AI Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous AI Database Serverless instances.)
+               * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure.
+               * For Autonomous AI Database Serverless instances, this parameter is not used.
                
-               For Autonomous Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+               For Autonomous AI Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Note:** This parameter cannot be used with the `cpuCoreCount` parameter.
-        :param pulumi.Input[_builtins.str] open_mode: (Updatable) Indicates the Autonomous Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
+        :param pulumi.Input[_builtins.str] open_mode: (Updatable) Indicates the Autonomous AI Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
                
                This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isFreeTier.
-        :param pulumi.Input[_builtins.str] operations_insights_status: Status of Operations Insights for this Autonomous Database.
-        :param pulumi.Input[_builtins.str] permission_level: The Autonomous Database permission level. Restricted mode allows access only by admin users.
+        :param pulumi.Input[_builtins.str] operations_insights_status: Status of Operations Insights for this Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] permission_level: The Autonomous AI Database permission level. Restricted mode allows access only by admin users.
         :param pulumi.Input[_builtins.str] private_endpoint_ip: (Updatable) The private endpoint Ip address for the resource.
         :param pulumi.Input[_builtins.str] private_endpoint_label: (Updatable) The private endpoint label for the resource.
-        :param pulumi.Input[_builtins.str] refreshable_mode: (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous Database.
-        :param pulumi.Input[_builtins.str] remote_disaster_recovery_type: Indicates the cross-region disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
-        :param pulumi.Input[_builtins.str] resource_pool_leader_id: (Updatable) The unique identifier for leader autonomous database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        :param pulumi.Input[_builtins.str] refreshable_mode: (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] remote_disaster_recovery_type: Indicates the cross-region disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        :param pulumi.Input[_builtins.str] resource_pool_leader_id: (Updatable) The unique identifier for leader Autonomous AI Database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
         :param pulumi.Input[Union['AutonomousDatabaseResourcePoolSummaryArgs', 'AutonomousDatabaseResourcePoolSummaryArgsDict']] resource_pool_summary: (Updatable) The configuration details for resource pool
+        :param pulumi.Input[_builtins.bool] rotate_key_trigger: (Updatable) An optional property when flipped triggers rotation of KMS key. It is only applicable on dedicated databases i.e. where `is_dedicated` is true.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseScheduledOperationArgs', 'AutonomousDatabaseScheduledOperationArgsDict']]]] scheduled_operations: (Updatable) The list of scheduled operations. Consists of values such as dayOfWeek, scheduledStartTime, scheduledStopTime.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier.
@@ -4321,43 +4584,44 @@ class AutonomousDatabase(pulumi.CustomResource):
                This cannot be used in conjunction with adminPassword.
         :param pulumi.Input[_builtins.int] secret_version_number: (Updatable) The version of the vault secret. If no version is specified, the latest version will be used.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
-        :param pulumi.Input[_builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous Database. Use `DATABASE` for creating a new Autonomous Database by cloning an existing Autonomous Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
+        :param pulumi.Input[_builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous AI Database. Use `DATABASE` for creating a new Autonomous AI Database by cloning an existing Autonomous AI Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
                
-               For [Autonomous Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous Database clone using backups. For more information, see [Cloning and Moving an Autonomous Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
-        :param pulumi.Input[_builtins.str] source_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that will be used to create a new peer database for the Data Guard association.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] standby_whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+               For [Autonomous AI Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous AI Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous AI Database clone using backups. For more information, see [Cloning and Moving an Autonomous AI Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
+        :param pulumi.Input[_builtins.str] source_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that will be used to create a new peer database for the Data Guard association.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] standby_whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
                
-               For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+               For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
                
                For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier.
-        :param pulumi.Input[_builtins.str] state: The current state of the Autonomous Database.
+        :param pulumi.Input[_builtins.str] state: The current state of the Autonomous AI Database.
         :param pulumi.Input[_builtins.str] subnet_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet the resource is associated with.
                
                **Subnet Restrictions:**
                * For bare metal DB systems and for single node virtual machine DB systems, do not use a subnet that overlaps with 192.168.16.16/28.
                * For Exadata and virtual machine 2-node RAC systems, do not use a subnet that overlaps with 192.168.128.0/20.
-               * For Autonomous Database, setting this will disable public secure access to the database.
+               * For Autonomous AI Database, setting this will disable public secure access to the database.
                
                These subnets are used by the Oracle Clusterware private interconnect on the database instance. Specifying an overlapping subnet will cause the private interconnect to malfunction. This restriction applies to both the client subnet and the backup subnet.
         :param pulumi.Input[_builtins.str] subscription_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
-        :param pulumi.Input[_builtins.str] time_of_auto_refresh_start: (Updatable) The the date and time that auto-refreshing will begin for an Autonomous Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
-        :param pulumi.Input[_builtins.str] time_scheduled_db_version_upgrade: The date and time the Autonomous Database scheduled to upgrade to 23ai. Send this value along with the target db_version value to schedule the database version upgrade. After the upgrade is scheduled and before the scheduled upgrade time arrives, please keep the db_version value the same as the backend's current db_version.
-        :param pulumi.Input[_builtins.str] timestamp: The timestamp specified for the point-in-time clone of the source Autonomous Database. The timestamp must be in the past.
+        :param pulumi.Input[_builtins.str] switchover_to: It is applicable only when `is_local_data_guard_enabled` is true. Could be set to `PRIMARY` or `STANDBY`. Default value is `PRIMARY`.
+        :param pulumi.Input[_builtins.str] switchover_to_remote_peer_id: (Updatable) It is applicable only when `dataguard_region_type` and `role` are set, and `is_dedicated` is false. For Autonomous Database Serverless instances, Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. It takes the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the remote peer to switchover to and the API is called from the remote region.
+        :param pulumi.Input[_builtins.str] time_maintenance_pause_until: The date until which maintenance of Autonomous Database is temporarily paused.
+        :param pulumi.Input[_builtins.str] time_of_auto_refresh_start: (Updatable) The the date and time that auto-refreshing will begin for an Autonomous AI Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
+        :param pulumi.Input[_builtins.str] time_scheduled_db_version_upgrade: The date and time the Autonomous AI Database scheduled to upgrade to 26ai.
+        :param pulumi.Input[_builtins.str] timestamp: The timestamp specified for the point-in-time clone of the source Autonomous AI Database. The timestamp must be in the past.
+        :param pulumi.Input[Union['AutonomousDatabaseTransportableTablespaceArgs', 'AutonomousDatabaseTransportableTablespaceArgsDict']] transportable_tablespace: Details for importing transportable tablespace for an Autonomous Database.
         :param pulumi.Input[_builtins.bool] use_latest_available_backup_time_stamp: Clone from latest available backup timestamp.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseVanityUrlDetailArgs', 'AutonomousDatabaseVanityUrlDetailArgsDict']]]] vanity_url_details: Details for api gateway and vanity url(custom url) for dbTools.
         :param pulumi.Input[_builtins.str] vault_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Oracle Cloud Infrastructure [vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts). This parameter and `secretId` are required for Customer Managed Keys.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
                
-               For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+               For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
                
                For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. To remove all whitelisted IPs, set the field to a list with an empty string `[""]`.
-               
-               
-               ** IMPORTANT **
-               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
         ...
     @overload
@@ -4366,9 +4630,7 @@ class AutonomousDatabase(pulumi.CustomResource):
                  args: AutonomousDatabaseArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Autonomous Database resource in Oracle Cloud Infrastructure Database service.
-
-        Creates a new Autonomous Database.
+        ## Example Usage
 
         ## Import
 
@@ -4400,6 +4662,7 @@ class AutonomousDatabase(pulumi.CustomResource):
                  autonomous_container_database_id: Optional[pulumi.Input[_builtins.str]] = None,
                  autonomous_database_backup_id: Optional[pulumi.Input[_builtins.str]] = None,
                  autonomous_database_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 autonomous_database_maintenance_window: Optional[pulumi.Input[Union['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs', 'AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgsDict']]] = None,
                  autonomous_maintenance_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
                  backup_retention_period_in_days: Optional[pulumi.Input[_builtins.int]] = None,
                  byol_compute_count_limit: Optional[pulumi.Input[_builtins.float]] = None,
@@ -4448,6 +4711,7 @@ class AutonomousDatabase(pulumi.CustomResource):
                  kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  license_model: Optional[pulumi.Input[_builtins.str]] = None,
                  local_adg_auto_failover_max_data_loss_limit: Optional[pulumi.Input[_builtins.int]] = None,
+                 local_adg_resource_pool_leader_id: Optional[pulumi.Input[_builtins.str]] = None,
                  long_term_backup_schedules: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseLongTermBackupScheduleArgs', 'AutonomousDatabaseLongTermBackupScheduleArgsDict']]]]] = None,
                  max_cpu_core_count: Optional[pulumi.Input[_builtins.int]] = None,
                  ncharacter_set: Optional[pulumi.Input[_builtins.str]] = None,
@@ -4477,10 +4741,13 @@ class AutonomousDatabase(pulumi.CustomResource):
                  subscription_id: Optional[pulumi.Input[_builtins.str]] = None,
                  switchover_to: Optional[pulumi.Input[_builtins.str]] = None,
                  switchover_to_remote_peer_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 time_maintenance_pause_until: Optional[pulumi.Input[_builtins.str]] = None,
                  time_of_auto_refresh_start: Optional[pulumi.Input[_builtins.str]] = None,
                  time_scheduled_db_version_upgrade: Optional[pulumi.Input[_builtins.str]] = None,
                  timestamp: Optional[pulumi.Input[_builtins.str]] = None,
+                 transportable_tablespace: Optional[pulumi.Input[Union['AutonomousDatabaseTransportableTablespaceArgs', 'AutonomousDatabaseTransportableTablespaceArgsDict']]] = None,
                  use_latest_available_backup_time_stamp: Optional[pulumi.Input[_builtins.bool]] = None,
+                 vanity_url_details: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseVanityUrlDetailArgs', 'AutonomousDatabaseVanityUrlDetailArgsDict']]]]] = None,
                  vault_id: Optional[pulumi.Input[_builtins.str]] = None,
                  whitelisted_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
@@ -4499,6 +4766,7 @@ class AutonomousDatabase(pulumi.CustomResource):
             __props__.__dict__["autonomous_container_database_id"] = autonomous_container_database_id
             __props__.__dict__["autonomous_database_backup_id"] = autonomous_database_backup_id
             __props__.__dict__["autonomous_database_id"] = autonomous_database_id
+            __props__.__dict__["autonomous_database_maintenance_window"] = autonomous_database_maintenance_window
             __props__.__dict__["autonomous_maintenance_schedule_type"] = autonomous_maintenance_schedule_type
             __props__.__dict__["backup_retention_period_in_days"] = backup_retention_period_in_days
             __props__.__dict__["byol_compute_count_limit"] = byol_compute_count_limit
@@ -4551,6 +4819,7 @@ class AutonomousDatabase(pulumi.CustomResource):
             __props__.__dict__["kms_key_id"] = kms_key_id
             __props__.__dict__["license_model"] = license_model
             __props__.__dict__["local_adg_auto_failover_max_data_loss_limit"] = local_adg_auto_failover_max_data_loss_limit
+            __props__.__dict__["local_adg_resource_pool_leader_id"] = local_adg_resource_pool_leader_id
             __props__.__dict__["long_term_backup_schedules"] = long_term_backup_schedules
             __props__.__dict__["max_cpu_core_count"] = max_cpu_core_count
             __props__.__dict__["ncharacter_set"] = ncharacter_set
@@ -4580,13 +4849,17 @@ class AutonomousDatabase(pulumi.CustomResource):
             __props__.__dict__["subscription_id"] = subscription_id
             __props__.__dict__["switchover_to"] = switchover_to
             __props__.__dict__["switchover_to_remote_peer_id"] = switchover_to_remote_peer_id
+            __props__.__dict__["time_maintenance_pause_until"] = time_maintenance_pause_until
             __props__.__dict__["time_of_auto_refresh_start"] = time_of_auto_refresh_start
             __props__.__dict__["time_scheduled_db_version_upgrade"] = time_scheduled_db_version_upgrade
             __props__.__dict__["timestamp"] = timestamp
+            __props__.__dict__["transportable_tablespace"] = transportable_tablespace
             __props__.__dict__["use_latest_available_backup_time_stamp"] = use_latest_available_backup_time_stamp
+            __props__.__dict__["vanity_url_details"] = vanity_url_details
             __props__.__dict__["vault_id"] = vault_id
             __props__.__dict__["whitelisted_ips"] = whitelisted_ips
             __props__.__dict__["actual_used_data_storage_size_in_tbs"] = None
+            __props__.__dict__["additional_attributes"] = None
             __props__.__dict__["allocated_storage_size_in_tbs"] = None
             __props__.__dict__["apex_details"] = None
             __props__.__dict__["availability_domain"] = None
@@ -4598,6 +4871,7 @@ class AutonomousDatabase(pulumi.CustomResource):
             __props__.__dict__["dataguard_region_type"] = None
             __props__.__dict__["disaster_recovery_region_type"] = None
             __props__.__dict__["encryption_key_history_entries"] = None
+            __props__.__dict__["encryption_key_location_details"] = None
             __props__.__dict__["failed_data_recovery_in_seconds"] = None
             __props__.__dict__["in_memory_area_in_gbs"] = None
             __props__.__dict__["infrastructure_type"] = None
@@ -4613,6 +4887,7 @@ class AutonomousDatabase(pulumi.CustomResource):
             __props__.__dict__["local_disaster_recovery_type"] = None
             __props__.__dict__["local_standby_dbs"] = None
             __props__.__dict__["maintenance_target_component"] = None
+            __props__.__dict__["memory_per_compute_unit_in_gbs"] = None
             __props__.__dict__["memory_per_oracle_compute_unit_in_gbs"] = None
             __props__.__dict__["net_services_architecture"] = None
             __props__.__dict__["next_long_term_backup_time_stamp"] = None
@@ -4649,6 +4924,7 @@ class AutonomousDatabase(pulumi.CustomResource):
             __props__.__dict__["total_backup_storage_size_in_gbs"] = None
             __props__.__dict__["used_data_storage_size_in_gbs"] = None
             __props__.__dict__["used_data_storage_size_in_tbs"] = None
+            __props__.__dict__["vanity_connection_urls"] = None
         secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["adminPassword"])
         opts = pulumi.ResourceOptions.merge(opts, secret_opts)
         super(AutonomousDatabase, __self__).__init__(
@@ -4662,6 +4938,7 @@ class AutonomousDatabase(pulumi.CustomResource):
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
             actual_used_data_storage_size_in_tbs: Optional[pulumi.Input[_builtins.float]] = None,
+            additional_attributes: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             admin_password: Optional[pulumi.Input[_builtins.str]] = None,
             allocated_storage_size_in_tbs: Optional[pulumi.Input[_builtins.float]] = None,
             apex_details: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseApexDetailArgs', 'AutonomousDatabaseApexDetailArgsDict']]]]] = None,
@@ -4671,6 +4948,7 @@ class AutonomousDatabase(pulumi.CustomResource):
             autonomous_container_database_id: Optional[pulumi.Input[_builtins.str]] = None,
             autonomous_database_backup_id: Optional[pulumi.Input[_builtins.str]] = None,
             autonomous_database_id: Optional[pulumi.Input[_builtins.str]] = None,
+            autonomous_database_maintenance_window: Optional[pulumi.Input[Union['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs', 'AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgsDict']]] = None,
             autonomous_maintenance_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
             availability_domain: Optional[pulumi.Input[_builtins.str]] = None,
             available_upgrade_versions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -4705,6 +4983,7 @@ class AutonomousDatabase(pulumi.CustomResource):
             enable_delete_scheduled_operations: Optional[pulumi.Input[_builtins.bool]] = None,
             encryption_key: Optional[pulumi.Input[Union['AutonomousDatabaseEncryptionKeyArgs', 'AutonomousDatabaseEncryptionKeyArgsDict']]] = None,
             encryption_key_history_entries: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseEncryptionKeyHistoryEntryArgs', 'AutonomousDatabaseEncryptionKeyHistoryEntryArgsDict']]]]] = None,
+            encryption_key_location_details: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseEncryptionKeyLocationDetailArgs', 'AutonomousDatabaseEncryptionKeyLocationDetailArgsDict']]]]] = None,
             failed_data_recovery_in_seconds: Optional[pulumi.Input[_builtins.int]] = None,
             freeform_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             in_memory_area_in_gbs: Optional[pulumi.Input[_builtins.int]] = None,
@@ -4740,11 +5019,13 @@ class AutonomousDatabase(pulumi.CustomResource):
             license_model: Optional[pulumi.Input[_builtins.str]] = None,
             lifecycle_details: Optional[pulumi.Input[_builtins.str]] = None,
             local_adg_auto_failover_max_data_loss_limit: Optional[pulumi.Input[_builtins.int]] = None,
+            local_adg_resource_pool_leader_id: Optional[pulumi.Input[_builtins.str]] = None,
             local_disaster_recovery_type: Optional[pulumi.Input[_builtins.str]] = None,
             local_standby_dbs: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseLocalStandbyDbArgs', 'AutonomousDatabaseLocalStandbyDbArgsDict']]]]] = None,
             long_term_backup_schedules: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseLongTermBackupScheduleArgs', 'AutonomousDatabaseLongTermBackupScheduleArgsDict']]]]] = None,
             maintenance_target_component: Optional[pulumi.Input[_builtins.str]] = None,
             max_cpu_core_count: Optional[pulumi.Input[_builtins.int]] = None,
+            memory_per_compute_unit_in_gbs: Optional[pulumi.Input[_builtins.float]] = None,
             memory_per_oracle_compute_unit_in_gbs: Optional[pulumi.Input[_builtins.int]] = None,
             ncharacter_set: Optional[pulumi.Input[_builtins.str]] = None,
             net_services_architecture: Optional[pulumi.Input[_builtins.str]] = None,
@@ -4796,6 +5077,7 @@ class AutonomousDatabase(pulumi.CustomResource):
             time_local_data_guard_enabled: Optional[pulumi.Input[_builtins.str]] = None,
             time_maintenance_begin: Optional[pulumi.Input[_builtins.str]] = None,
             time_maintenance_end: Optional[pulumi.Input[_builtins.str]] = None,
+            time_maintenance_pause_until: Optional[pulumi.Input[_builtins.str]] = None,
             time_of_auto_refresh_start: Optional[pulumi.Input[_builtins.str]] = None,
             time_of_joining_resource_pool: Optional[pulumi.Input[_builtins.str]] = None,
             time_of_last_failover: Optional[pulumi.Input[_builtins.str]] = None,
@@ -4809,9 +5091,12 @@ class AutonomousDatabase(pulumi.CustomResource):
             time_until_reconnect_clone_enabled: Optional[pulumi.Input[_builtins.str]] = None,
             timestamp: Optional[pulumi.Input[_builtins.str]] = None,
             total_backup_storage_size_in_gbs: Optional[pulumi.Input[_builtins.float]] = None,
+            transportable_tablespace: Optional[pulumi.Input[Union['AutonomousDatabaseTransportableTablespaceArgs', 'AutonomousDatabaseTransportableTablespaceArgsDict']]] = None,
             use_latest_available_backup_time_stamp: Optional[pulumi.Input[_builtins.bool]] = None,
             used_data_storage_size_in_gbs: Optional[pulumi.Input[_builtins.int]] = None,
             used_data_storage_size_in_tbs: Optional[pulumi.Input[_builtins.int]] = None,
+            vanity_connection_urls: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseVanityConnectionUrlArgs', 'AutonomousDatabaseVanityConnectionUrlArgsDict']]]]] = None,
+            vanity_url_details: Optional[pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseVanityUrlDetailArgs', 'AutonomousDatabaseVanityUrlDetailArgsDict']]]]] = None,
             vault_id: Optional[pulumi.Input[_builtins.str]] = None,
             whitelisted_ips: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'AutonomousDatabase':
         """
@@ -4822,144 +5107,154 @@ class AutonomousDatabase(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.float] actual_used_data_storage_size_in_tbs: The current amount of storage in use for user and system data, in terabytes (TB).
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] additional_attributes: Additional attributes for this resource. Each attribute is a simple key-value pair with no predefined name, type, or namespace. Example: `{ "gcpAccountName": "gcpName" }`
         :param pulumi.Input[_builtins.str] admin_password: (Updatable) The password must be between 12 and 30 characters long, and must contain at least 1 uppercase, 1 lowercase, and 1 numeric character. It cannot contain the double quote symbol (") or the username "admin", regardless of casing. The password is mandatory if source value is "BACKUP_FROM_ID", "BACKUP_FROM_TIMESTAMP", "DATABASE" or "NONE".
         :param pulumi.Input[_builtins.float] allocated_storage_size_in_tbs: The amount of storage currently allocated for the database tables and billed for, rounded up. When auto-scaling is not enabled, this value is equal to the `dataStorageSizeInTBs` value. You can compare this value to the `actualUsedDataStorageSizeInTBs` value to determine if a manual shrink operation is appropriate for your allocated storage.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseApexDetailArgs', 'AutonomousDatabaseApexDetailArgsDict']]]] apex_details: Information about Oracle APEX Application Development.
-        :param pulumi.Input[_builtins.bool] are_primary_whitelisted_ips_used: (Updatable) This field will be null if the Autonomous Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses different IP access control list (ACL) for standby compared to primary.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseApexDetailArgs', 'AutonomousDatabaseApexDetailArgsDict']]]] apex_details: Information about Oracle APEX AI Application Development.
+        :param pulumi.Input[_builtins.bool] are_primary_whitelisted_ips_used: (Updatable) This field will be null if the Autonomous AI Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses different IP access control list (ACL) for standby compared to primary.
         :param pulumi.Input[_builtins.int] auto_refresh_frequency_in_seconds: (Updatable) The frequency a refreshable clone is refreshed after auto-refresh is enabled. The minimum is 1 hour. The maximum is 7 days. The date and time that auto-refresh is enabled is controlled by the `timeOfAutoRefreshStart` parameter.
         :param pulumi.Input[_builtins.int] auto_refresh_point_lag_in_seconds: (Updatable) The time, in seconds, the data of the refreshable clone lags the primary database at the point of refresh. The minimum is 0 minutes (0 mins means refresh to the latest available timestamp). The maximum is 7 days. The lag time increases after refreshing until the next data refresh happens.
-        :param pulumi.Input[_builtins.str] autonomous_container_database_id: The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous Database on Dedicated Exadata Infrastructure.
-        :param pulumi.Input[_builtins.str] autonomous_database_backup_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database Backup that you will clone to create a new Autonomous Database.
-        :param pulumi.Input[_builtins.str] autonomous_database_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that you will clone to create a new Autonomous Database.
-        :param pulumi.Input[_builtins.str] autonomous_maintenance_schedule_type: (Updatable) The maintenance schedule type of the Autonomous Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
-        :param pulumi.Input[_builtins.str] availability_domain: The availability domain of a local Autonomous Data Guard standby database of an Autonomous Database Serverless instance.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] available_upgrade_versions: List of Oracle Database versions available for a database upgrade. If there are no version upgrades available, this list is empty.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseBackupConfigArgs', 'AutonomousDatabaseBackupConfigArgsDict']]]] backup_configs: Autonomous Database configuration details for storing [manual backups](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/backup-restore.html#GUID-9035DFB8-4702-4CEB-8281-C2A303820809) in the [Object Storage](https://docs.cloud.oracle.com/iaas/Content/Object/Concepts/objectstorageoverview.htm) service.
+        :param pulumi.Input[_builtins.str] autonomous_container_database_id: The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous AI Database on Dedicated Exadata Infrastructure.
+        :param pulumi.Input[_builtins.str] autonomous_database_backup_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database Backup that you will clone to create a new Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] autonomous_database_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that you will clone to create a new Autonomous AI Database.
+        :param pulumi.Input[Union['AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgs', 'AutonomousDatabaseAutonomousDatabaseMaintenanceWindowArgsDict']] autonomous_database_maintenance_window: (Updatable) Autonomous Database maintenance window. The maintenance window can be configured during database creation. To change the maintenance window of an existing Autonomous Database Serverless instance, clone the database and specify the maintenance window for the new cloned instance.
+        :param pulumi.Input[_builtins.str] autonomous_maintenance_schedule_type: (Updatable) The maintenance schedule type of the Autonomous AI Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
+        :param pulumi.Input[_builtins.str] availability_domain: The availability domain of a local Autonomous Data Guard standby database of an Autonomous AI Database Serverless instance.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] available_upgrade_versions: List of Oracle AI Database versions available for a database upgrade. If there are no version upgrades available, this list is empty.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseBackupConfigArgs', 'AutonomousDatabaseBackupConfigArgsDict']]]] backup_configs: Autonomous AI Database configuration details for storing [manual backups](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/backup-restore.html#GUID-9035DFB8-4702-4CEB-8281-C2A303820809) in the [Object Storage](https://docs.cloud.oracle.com/iaas/Content/Object/Concepts/objectstorageoverview.htm) service.
         :param pulumi.Input[_builtins.int] backup_retention_period_in_days: (Updatable) Retention period, in days, for long-term backups
         :param pulumi.Input[_builtins.float] byol_compute_count_limit: (Updatable) The maximum number of CPUs allowed with a Bring Your Own License (BYOL), including those used for auto-scaling, disaster recovery, tools, etc. Any CPU usage above this limit is considered as License Included and billed.
-        :param pulumi.Input[_builtins.str] character_set: The character set for the autonomous database. The default is AL32UTF8. Allowed values for an Autonomous Database Serverless instance as as returned by [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
+        :param pulumi.Input[_builtins.str] character_set: The character set for the Autonomous AI Database. The default is AL32UTF8. Allowed values for an Autonomous AI Database Serverless instance as as returned by [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
                
-               For an Autonomous Database on dedicated infrastructure, the allowed values are:
+               For an Autonomous AI Database on dedicated infrastructure, the allowed values are:
                
                AL32UTF8, AR8ADOS710, AR8ADOS720, AR8APTEC715, AR8ARABICMACS, AR8ASMO8X, AR8ISO8859P6, AR8MSWIN1256, AR8MUSSAD768, AR8NAFITHA711, AR8NAFITHA721, AR8SAKHR706, AR8SAKHR707, AZ8ISO8859P9E, BG8MSWIN, BG8PC437S, BLT8CP921, BLT8ISO8859P13, BLT8MSWIN1257, BLT8PC775, BN8BSCII, CDN8PC863, CEL8ISO8859P14, CL8ISO8859P5, CL8ISOIR111, CL8KOI8R, CL8KOI8U, CL8MACCYRILLICS, CL8MSWIN1251, EE8ISO8859P2, EE8MACCES, EE8MACCROATIANS, EE8MSWIN1250, EE8PC852, EL8DEC, EL8ISO8859P7, EL8MACGREEKS, EL8MSWIN1253, EL8PC437S, EL8PC851, EL8PC869, ET8MSWIN923, HU8ABMOD, HU8CWI2, IN8ISCII, IS8PC861, IW8ISO8859P8, IW8MACHEBREWS, IW8MSWIN1255, IW8PC1507, JA16EUC, JA16EUCTILDE, JA16SJIS, JA16SJISTILDE, JA16VMS, KO16KSC5601, KO16KSCCS, KO16MSWIN949, LA8ISO6937, LA8PASSPORT, LT8MSWIN921, LT8PC772, LT8PC774, LV8PC1117, LV8PC8LR, LV8RST104090, N8PC865, NE8ISO8859P10, NEE8ISO8859P4, RU8BESTA, RU8PC855, RU8PC866, SE8ISO8859P3, TH8MACTHAIS, TH8TISASCII, TR8DEC, TR8MACTURKISHS, TR8MSWIN1254, TR8PC857, US7ASCII, US8PC437, UTF8, VN8MSWIN1258, VN8VN3, WE8DEC, WE8DG, WE8ISO8859P1, WE8ISO8859P15, WE8ISO8859P9, WE8MACROMAN8S, WE8MSWIN1252, WE8NCR4970, WE8NEXTSTEP, WE8PC850, WE8PC858, WE8PC860, WE8ROMAN8, ZHS16CGB231280, ZHS16GBK, ZHT16BIG5, ZHT16CCDC, ZHT16DBT, ZHT16HKSCS, ZHT16MSWIN950, ZHT32EUC, ZHT32SOPS, ZHT32TRIS
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] clone_table_space_lists: A list of the source Autonomous Database's table space number(s) used to create this partial clone from the backup.
-        :param pulumi.Input[_builtins.str] clone_type: The Autonomous Database clone type.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] clone_table_space_lists: A list of the source Autonomous AI Database's table space number(s) used to create this partial clone from the backup.
+        :param pulumi.Input[_builtins.str] clone_type: The Autonomous AI Database clone type.
                * `FULL` - This option creates a new database that includes all source database data.
                * `METADATA` - This option creates a new database that includes the source database schema and select metadata, but not the source database data.
         :param pulumi.Input[_builtins.str] cluster_placement_group_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the cluster placement group of the Autonomous Serverless Database.
-        :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous Database.
-        :param pulumi.Input[_builtins.float] compute_count: (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
-        :param pulumi.Input[_builtins.str] compute_model: (Updatable) The compute model of the Autonomous Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseConnectionStringArgs', 'AutonomousDatabaseConnectionStringArgsDict']]]] connection_strings: The connection string used to connect to the Autonomous Database. The username for the Service Console is ADMIN. Use the password you entered when creating the Autonomous Database for the password value.
+        :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous AI Database.
+        :param pulumi.Input[_builtins.float] compute_count: (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
+        :param pulumi.Input[_builtins.str] compute_model: (Updatable) The compute model of the Autonomous AI Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseConnectionStringArgs', 'AutonomousDatabaseConnectionStringArgsDict']]]] connection_strings: The connection string used to connect to the Autonomous AI Database. The username for the Service Console is ADMIN. Use the password you entered when creating the Autonomous AI Database for the password value.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseConnectionUrlArgs', 'AutonomousDatabaseConnectionUrlArgsDict']]]] connection_urls: The URLs for accessing Oracle Application Express (APEX) and SQL Developer Web with a browser from a Compute instance within your VCN or that has a direct connection to your VCN. Note that these URLs are provided by the console only for databases on [dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html).  Example: `{"sqlDevWebUrl": "https://<hostname>/ords...", "apexUrl", "https://<hostname>/ords..."}`
-        :param pulumi.Input[_builtins.int] cpu_core_count: (Updatable) The number of CPU cores to be made available to the database. For Autonomous Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        :param pulumi.Input[_builtins.int] cpu_core_count: (Updatable) The number of CPU cores to be made available to the database. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Note:** This parameter cannot be used with the `ocpuCount` parameter. This input is ignored for Always Free resources.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseCustomerContactArgs', 'AutonomousDatabaseCustomerContactArgsDict']]]] customer_contacts: (Updatable) Customer Contacts.
         :param pulumi.Input[_builtins.str] data_safe_status: (Updatable) Status of the Data Safe registration for this Autonomous Database. Could be REGISTERED or NOT_REGISTERED.
-        :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        :param pulumi.Input[_builtins.int] data_storage_size_in_gb: (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Notes**
                * This parameter is only supported for dedicated Exadata infrastructure.
                * This parameter cannot be used with the `dataStorageSizeInTBs` parameter.
-        :param pulumi.Input[_builtins.int] data_storage_size_in_tbs: (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details. A full Exadata service is allocated when the Autonomous Database size is set to the upper limit (384 TB).
+        :param pulumi.Input[_builtins.int] data_storage_size_in_tbs: (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details. A full Exadata service is allocated when the Autonomous AI Database size is set to the upper limit (384 TB).
                
                **Note:** This parameter cannot be used with the `dataStorageSizeInGBs` parameter. This input is ignored for Always Free resources.
-        :param pulumi.Input[_builtins.str] database_edition: (Updatable) The Oracle Database Edition that applies to the Autonomous databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
-        :param pulumi.Input[_builtins.str] database_management_status: Status of Database Management for this Autonomous Database.
-        :param pulumi.Input[_builtins.str] dataguard_region_type: **Deprecated.** The Autonomous Data Guard region type of the Autonomous Database. For Autonomous Database Serverless, Autonomous Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. The standby regions in Autonomous Data Guard associations can be the same region designated as the primary region, or they can be remote regions. Certain database administrative operations may be available only in the primary region of the Autonomous Data Guard association, and cannot be performed when the database using the primary role is operating in a remote Autonomous Data Guard standby region.
+        :param pulumi.Input[_builtins.str] database_edition: (Updatable) The Oracle AI Database Edition that applies to the Autonomous AI Databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
+        :param pulumi.Input[_builtins.str] database_management_status: Status of Database Management for this Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] dataguard_region_type: **Deprecated.** The Autonomous Data Guard region type of the Autonomous AI Database. For Autonomous AI Database Serverless, Autonomous Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. The standby regions in Autonomous Data Guard associations can be the same region designated as the primary region, or they can be remote regions. Certain database administrative operations may be available only in the primary region of the Autonomous Data Guard association, and cannot be performed when the database using the primary role is operating in a remote Autonomous Data Guard standby region.
         :param pulumi.Input[_builtins.str] db_name: The database name. The name must begin with an alphabetic character and can contain a maximum of 30 alphanumeric characters. Special characters are not permitted. The database name must be unique in the tenancy. It is required in all cases except when creating a cross-region Autonomous Data Guard standby instance or a cross-region disaster recovery standby instance.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseDbToolsDetailArgs', 'AutonomousDatabaseDbToolsDetailArgsDict']]]] db_tools_details: (Updatable) The list of database tools details.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, isLocalDataGuardEnabled, or isFreeTier.
-        :param pulumi.Input[_builtins.str] db_version: (Updatable) A valid Oracle Database version for Autonomous Database.`db_workload` AJD is only supported for `db_version` `19c` and above.
-        :param pulumi.Input[_builtins.str] db_workload: (Updatable) The Autonomous Database workload type. The following values are valid:
-               * OLTP - indicates an Autonomous Transaction Processing database
-               * DW - indicates an Autonomous Data Warehouse database
-               * AJD - indicates an Autonomous JSON Database
-               * APEX - indicates an Autonomous Database with the Oracle APEX Application Development workload type.
+        :param pulumi.Input[_builtins.str] db_version: (Updatable) A valid Oracle AI Database version for Autonomous AI Database. When you specify 23ai for dbversion, the system will provision a 23ai database, but the UI will display it as 26ai. When you specify 26ai for dbversion, the system will provision and display a 26ai database as expected. For new databases, it is recommended to use either 19c or 26ai. `db_workload` AJD is only supported for `db_version` `19c` and above.
+        :param pulumi.Input[_builtins.str] db_workload: (Updatable) The Autonomous AI Database workload type. The following values are valid:
+               * OLTP - indicates an Autonomous AI Transaction Processing database
+               * DW - indicates an Autonomous AI Lakehouse database
+               * AJD - indicates an Autonomous AI JSON Database
+               * APEX - indicates an Autonomous AI Database with the Oracle APEX AI Application Development workload type.
+               * LH - indicates an Oracle Autonomous AI Lakehouse database
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. *Note: `db_workload` can only be updated from AJD to OLTP or from a free OLTP to AJD.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
-        :param pulumi.Input[_builtins.str] disaster_recovery_region_type: **Deprecated.** The disaster recovery (DR) region type of the Autonomous Database. For Autonomous Database Serverless instances, DR associations have designated primary and standby regions. These region types do not change when the database changes roles. The standby region in DR associations can be the same region as the primary region, or they can be in a remote regions. Some database administration operations may be available only in the primary region of the DR association, and cannot be performed when the database using the primary role is operating in a remote region.
-        :param pulumi.Input[_builtins.str] disaster_recovery_type: Indicates the disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
-        :param pulumi.Input[_builtins.str] display_name: (Updatable) The user-friendly name for the Autonomous Database. The name does not have to be unique.
-        :param pulumi.Input[Union['AutonomousDatabaseEncryptionKeyArgs', 'AutonomousDatabaseEncryptionKeyArgsDict']] encryption_key: (Updatable) Details of the Autonomous Database encryption key.
+        :param pulumi.Input[_builtins.str] disaster_recovery_region_type: **Deprecated.** The disaster recovery (DR) region type of the Autonomous AI Database. For Autonomous AI Database Serverless instances, DR associations have designated primary and standby regions. These region types do not change when the database changes roles. The standby region in DR associations can be the same region as the primary region, or they can be in a remote regions. Some database administration operations may be available only in the primary region of the DR association, and cannot be performed when the database using the primary role is operating in a remote region.
+        :param pulumi.Input[_builtins.str] disaster_recovery_type: Indicates the disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        :param pulumi.Input[_builtins.str] display_name: (Updatable) The user-friendly name for the Autonomous AI Database. The name does not have to be unique.
+        :param pulumi.Input[Union['AutonomousDatabaseEncryptionKeyArgs', 'AutonomousDatabaseEncryptionKeyArgsDict']] encryption_key: (Updatable) Details of the Autonomous AI Database encryption key.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseEncryptionKeyHistoryEntryArgs', 'AutonomousDatabaseEncryptionKeyHistoryEntryArgsDict']]]] encryption_key_history_entries: Key History Entry.
         :param pulumi.Input[_builtins.int] failed_data_recovery_in_seconds: Indicates the number of seconds of data loss for a Data Guard failover.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] freeform_tags: (Updatable) Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
-        :param pulumi.Input[_builtins.int] in_memory_area_in_gbs: The area assigned to In-Memory tables in Autonomous Database.
-        :param pulumi.Input[_builtins.int] in_memory_percentage: (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous Database. This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform.
+        :param pulumi.Input[_builtins.int] in_memory_area_in_gbs: The area assigned to In-Memory tables in Autonomous AI Database.
+        :param pulumi.Input[_builtins.int] in_memory_percentage: (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous AI Database. This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform.
         :param pulumi.Input[_builtins.str] infrastructure_type: The infrastructure type this resource belongs to.
         :param pulumi.Input[_builtins.bool] is_access_control_enabled: (Updatable) Indicates if the database-level access control is enabled. If disabled, database access is defined by the network security rules. If enabled, database access is restricted to the IP addresses defined by the rules specified with the `whitelistedIps` property. While specifying `whitelistedIps` rules is optional, if database-level access control is enabled and no rules are specified, the database will become inaccessible. The rules can be added later using the `UpdateAutonomousDatabase` API operation or edit option in console. When creating a database clone, the desired access control setting should be specified. By default, database-level access control will be disabled for the clone.
                
-               This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform. For Autonomous Database Serverless instances, `whitelistedIps` is used.
-        :param pulumi.Input[_builtins.bool] is_auto_scaling_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous Database CPU core count. The default value is `TRUE`.
-        :param pulumi.Input[_builtins.bool] is_auto_scaling_for_storage_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous Database storage. The default value is `FALSE`.
-        :param pulumi.Input[_builtins.bool] is_backup_retention_locked: (Updatable) True if the Autonomous Database is backup retention locked.
-        :param pulumi.Input[_builtins.bool] is_data_guard_enabled: (Updatable) **Deprecated.** Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+               This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform. For Autonomous AI Database Serverless instances, `whitelistedIps` is used.
+        :param pulumi.Input[_builtins.bool] is_auto_scaling_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database CPU core count. The default value is `TRUE`.
+        :param pulumi.Input[_builtins.bool] is_auto_scaling_for_storage_enabled: (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database storage. The default value is `FALSE`.
+        :param pulumi.Input[_builtins.bool] is_backup_retention_locked: (Updatable) True if the Autonomous AI Database is backup retention locked.
+        :param pulumi.Input[_builtins.bool] is_data_guard_enabled: (Updatable) **Deprecated.** Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         :param pulumi.Input[_builtins.bool] is_dedicated: True if the database is on [dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html).
-        :param pulumi.Input[_builtins.bool] is_dev_tier: (Updatable) Autonomous Database for Developers are fixed-shape Autonomous Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
-        :param pulumi.Input[_builtins.bool] is_free_tier: (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
+        :param pulumi.Input[_builtins.bool] is_dev_tier: (Updatable) Autonomous AI Database for Developers are fixed-shape Autonomous AI Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
+        :param pulumi.Input[_builtins.bool] is_free_tier: (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous AI Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isLocalDataGuardEnabled When `db_workload` is `AJD` it cannot be `true`.
-        :param pulumi.Input[_builtins.bool] is_local_data_guard_enabled: (Updatable) Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
-        :param pulumi.Input[_builtins.bool] is_preview: Indicates if the Autonomous Database version is a preview version.
-        :param pulumi.Input[_builtins.bool] is_preview_version_with_service_terms_accepted: If set to `TRUE`, indicates that an Autonomous Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
+        :param pulumi.Input[_builtins.bool] is_local_data_guard_enabled: (Updatable) Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        :param pulumi.Input[_builtins.bool] is_preview: Indicates if the Autonomous AI Database version is a preview version.
+        :param pulumi.Input[_builtins.bool] is_preview_version_with_service_terms_accepted: If set to `TRUE`, indicates that an Autonomous AI Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous AI Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
         :param pulumi.Input[_builtins.bool] is_reconnect_clone_enabled: Indicates if the refreshable clone can be reconnected to its source database.
-        :param pulumi.Input[_builtins.bool] is_refreshable_clone: Indicates if the Autonomous Database is a refreshable clone.
-        :param pulumi.Input[_builtins.bool] is_remote_data_guard_enabled: Indicates whether the Autonomous Database has Cross Region Data Guard enabled. Not applicable to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        :param pulumi.Input[_builtins.bool] is_refreshable_clone: Indicates if the Autonomous AI Database is a refreshable clone.
+        :param pulumi.Input[_builtins.bool] is_remote_data_guard_enabled: Indicates whether the Autonomous AI Database has Cross Region Data Guard enabled. Not applicable to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         :param pulumi.Input[_builtins.bool] is_replicate_automatic_backups: If true, 7 days worth of backups are replicated across regions for Cross-Region ADB or Backup-Based DR between Primary and Standby. If false, the backups taken on the Primary are not replicated to the Standby database.
+        :param pulumi.Input[_builtins.bool] is_shrink_only: (Updatable) An optional property when enabled triggers the Shrinking of Autonomous Database once. To trigger Shrinking of ADB once again, this flag needs to be disabled and re-enabled again. It should not be passed during create database operation. It is only applicable on Serverless databases i.e. where `is_dedicated` is false.
+               
+               ** IMPORTANT **
+               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseKeyHistoryEntryArgs', 'AutonomousDatabaseKeyHistoryEntryArgsDict']]]] key_history_entries: Key History Entry.
         :param pulumi.Input[_builtins.str] key_store_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the key store of Oracle Vault.
         :param pulumi.Input[_builtins.str] key_store_wallet_name: The wallet name for Oracle Key Vault.
         :param pulumi.Input[_builtins.str] kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
         :param pulumi.Input[_builtins.str] kms_key_lifecycle_details: KMS key lifecycle details.
-        :param pulumi.Input[_builtins.str] kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
-        :param pulumi.Input[_builtins.str] license_model: (Updatable) The Oracle license model that applies to the Oracle Autonomous Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle Database software licenses and the Oracle Database service. Note that when provisioning an [Autonomous Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
+        :param pulumi.Input[_builtins.str] kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous AI Database Serverless does not use key versions, hence is not applicable for Autonomous AI Database Serverless instances.
+        :param pulumi.Input[_builtins.str] license_model: (Updatable) The Oracle license model that applies to the Oracle Autonomous AI Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle AI Database software licenses and the Oracle AI Database service. Note that when provisioning an [Autonomous AI Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
                
                This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, dataStorageSizeInTBs, adminPassword, isMTLSConnectionRequired, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, dbName, scheduledOperations, dbToolsDetails, or isFreeTier. It is a required field when `db_workload` is AJD and needs to be set to `LICENSE_INCLUDED` as AJD does not support default `license_model` value `BRING_YOUR_OWN_LICENSE`.
         :param pulumi.Input[_builtins.str] lifecycle_details: Additional information about the current lifecycle state.
         :param pulumi.Input[_builtins.int] local_adg_auto_failover_max_data_loss_limit: Parameter that allows users to select an acceptable maximum data loss limit in seconds, up to which Automatic Failover will be triggered when necessary for a Local Autonomous Data Guard
-        :param pulumi.Input[_builtins.str] local_disaster_recovery_type: Indicates the local disaster recovery (DR) type of the Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        :param pulumi.Input[_builtins.str] local_adg_resource_pool_leader_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the dedicated resource pool leader Autonomous Database in the same region, associated with local Autonomous Data Guard for a dedicated resource pool member.
+        :param pulumi.Input[_builtins.str] local_disaster_recovery_type: Indicates the local disaster recovery (DR) type of the Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseLocalStandbyDbArgs', 'AutonomousDatabaseLocalStandbyDbArgsDict']]]] local_standby_dbs: Autonomous Data Guard standby database details.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseLongTermBackupScheduleArgs', 'AutonomousDatabaseLongTermBackupScheduleArgsDict']]]] long_term_backup_schedules: Details for the long-term backup schedule.
         :param pulumi.Input[_builtins.str] maintenance_target_component: The component chosen for maintenance.
-        :param pulumi.Input[_builtins.int] memory_per_oracle_compute_unit_in_gbs: The amount of memory (in GBs) enabled per ECPU or OCPU.
-        :param pulumi.Input[_builtins.str] ncharacter_set: The character set for the Autonomous Database. The default is AL32UTF8. Use [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous Database Serverless instance. For an Autonomous Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
+        :param pulumi.Input[_builtins.float] memory_per_compute_unit_in_gbs: The amount of memory (in GBs) to be enabled per OCPU or ECPU.
+        :param pulumi.Input[_builtins.int] memory_per_oracle_compute_unit_in_gbs: The amount of memory (in GBs, rounded off to nearest integer value) to be enabled per OCPU or ECPU. This is deprecated. Please refer to memoryPerComputeUnitInGBs for accurate value.
+        :param pulumi.Input[_builtins.str] ncharacter_set: The character set for the Autonomous AI Database. The default is AL32UTF8. Use [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous AI Database Serverless instance. For an Autonomous AI Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
         :param pulumi.Input[_builtins.str] net_services_architecture: Enabling SHARED server architecture enables a database server to allow many client processes to share very few server processes, thereby increasing the number of supported users.
         :param pulumi.Input[_builtins.str] next_long_term_backup_time_stamp: The date and time when the next long-term backup would be created.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] nsg_ids: (Updatable) The list of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the network security groups (NSGs) to which this resource belongs. Setting this to an empty list removes all resources from all NSGs. For more information about NSGs, see [Security Rules](https://docs.cloud.oracle.com/iaas/Content/Network/Concepts/securityrules.htm). **NsgIds restrictions:**
-               * A network security group (NSG) is optional for Autonomous Databases with private access. The nsgIds list can be empty.
+               * A network security group (NSG) is optional for Autonomous AI Databases with private access. The nsgIds list can be empty.
         :param pulumi.Input[_builtins.float] ocpu_count: (Updatable) The number of OCPU cores to be made available to the database.
                
                The following points apply:
-               * For Autonomous Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous Database Serverless instances.)
-               * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure.
-               * For Autonomous Database Serverless instances, this parameter is not used.
+               * For Autonomous AI Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous AI Database Serverless instances.)
+               * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure.
+               * For Autonomous AI Database Serverless instances, this parameter is not used.
                
-               For Autonomous Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+               For Autonomous AI Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
                
                **Note:** This parameter cannot be used with the `cpuCoreCount` parameter.
-        :param pulumi.Input[_builtins.str] open_mode: (Updatable) Indicates the Autonomous Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
+        :param pulumi.Input[_builtins.str] open_mode: (Updatable) Indicates the Autonomous AI Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
                
                This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isFreeTier.
-        :param pulumi.Input[_builtins.str] operations_insights_status: Status of Operations Insights for this Autonomous Database.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] peer_db_ids: The list of [OCIDs](https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of standby databases located in Autonomous Data Guard remote regions that are associated with the source database. Note that for Autonomous Database Serverless instances, standby databases located in the same region as the source primary database do not have OCIDs.
-        :param pulumi.Input[_builtins.str] permission_level: The Autonomous Database permission level. Restricted mode allows access only by admin users.
+        :param pulumi.Input[_builtins.str] operations_insights_status: Status of Operations Insights for this Autonomous AI Database.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] peer_db_ids: The list of [OCIDs](https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of standby databases located in Autonomous Data Guard remote regions that are associated with the source database. Note that for Autonomous AI Database Serverless instances, standby databases located in the same region as the source primary database do not have OCIDs.
+        :param pulumi.Input[_builtins.str] permission_level: The Autonomous AI Database permission level. Restricted mode allows access only by admin users.
         :param pulumi.Input[_builtins.str] private_endpoint: The private endpoint for the resource.
         :param pulumi.Input[_builtins.str] private_endpoint_ip: (Updatable) The private endpoint Ip address for the resource.
         :param pulumi.Input[_builtins.str] private_endpoint_label: (Updatable) The private endpoint label for the resource.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.float]]] provisionable_cpuses: An array of CPU values that an Autonomous Database can be scaled to.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.float]]] provisionable_cpuses: An array of CPU values that an Autonomous AI Database can be scaled to.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabasePublicConnectionUrlArgs', 'AutonomousDatabasePublicConnectionUrlArgsDict']]]] public_connection_urls: The Public URLs of Private Endpoint database for accessing Oracle Application Express (APEX) and SQL Developer Web with a browser from a Compute instance within your VCN or that has a direct connection to your VCN.
         :param pulumi.Input[_builtins.str] public_endpoint: The public endpoint for the private endpoint enabled resource.
-        :param pulumi.Input[_builtins.str] refreshable_mode: (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous Database.
-        :param pulumi.Input[_builtins.str] refreshable_status: The refresh status of the clone. REFRESHING indicates that the clone is currently being refreshed with data from the source Autonomous Database.
+        :param pulumi.Input[_builtins.str] refreshable_mode: (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] refreshable_status: The refresh status of the clone. REFRESHING indicates that the clone is currently being refreshed with data from the source Autonomous AI Database.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseRemoteDisasterRecoveryConfigurationArgs', 'AutonomousDatabaseRemoteDisasterRecoveryConfigurationArgsDict']]]] remote_disaster_recovery_configurations: Configurations of a Disaster Recovery.
-        :param pulumi.Input[_builtins.str] remote_disaster_recovery_type: Indicates the cross-region disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
-        :param pulumi.Input[_builtins.str] resource_pool_leader_id: (Updatable) The unique identifier for leader autonomous database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        :param pulumi.Input[_builtins.str] remote_disaster_recovery_type: Indicates the cross-region disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        :param pulumi.Input[_builtins.str] resource_pool_leader_id: (Updatable) The unique identifier for leader Autonomous AI Database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
         :param pulumi.Input[Union['AutonomousDatabaseResourcePoolSummaryArgs', 'AutonomousDatabaseResourcePoolSummaryArgsDict']] resource_pool_summary: (Updatable) The configuration details for resource pool
-        :param pulumi.Input[_builtins.str] role: The Data Guard role of the Autonomous Container Database or Autonomous Database, if Autonomous Data Guard is enabled.
+        :param pulumi.Input[_builtins.str] role: The Data Guard role of the Autonomous Container Database or Autonomous AI Database, if Autonomous Data Guard is enabled.
+        :param pulumi.Input[_builtins.bool] rotate_key_trigger: (Updatable) An optional property when flipped triggers rotation of KMS key. It is only applicable on dedicated databases i.e. where `is_dedicated` is true.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseScheduledOperationArgs', 'AutonomousDatabaseScheduledOperationArgsDict']]]] scheduled_operations: (Updatable) The list of scheduled operations. Consists of values such as dayOfWeek, scheduledStartTime, scheduledStopTime.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier.
@@ -4968,74 +5263,77 @@ class AutonomousDatabase(pulumi.CustomResource):
                This cannot be used in conjunction with adminPassword.
         :param pulumi.Input[_builtins.int] secret_version_number: (Updatable) The version of the vault secret. If no version is specified, the latest version will be used.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
-        :param pulumi.Input[_builtins.str] service_console_url: The URL of the Service Console for the Autonomous Database.
-        :param pulumi.Input[_builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous Database. Use `DATABASE` for creating a new Autonomous Database by cloning an existing Autonomous Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
+        :param pulumi.Input[_builtins.str] service_console_url: The URL of the Service Console for the Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] source: The source of the database: Use `NONE` for creating a new Autonomous AI Database. Use `DATABASE` for creating a new Autonomous AI Database by cloning an existing Autonomous AI Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
                
-               For [Autonomous Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous Database clone using backups. For more information, see [Cloning and Moving an Autonomous Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
-        :param pulumi.Input[_builtins.str] source_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that will be used to create a new peer database for the Data Guard association.
+               For [Autonomous AI Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous AI Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous AI Database clone using backups. For more information, see [Cloning and Moving an Autonomous AI Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
+        :param pulumi.Input[_builtins.str] source_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that will be used to create a new peer database for the Data Guard association.
         :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseStandbyDbArgs', 'AutonomousDatabaseStandbyDbArgsDict']]]] standby_dbs: **Deprecated** Autonomous Data Guard standby database details.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] standby_whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] standby_whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
                
-               For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+               For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
                
                For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier.
-        :param pulumi.Input[_builtins.str] state: The current state of the Autonomous Database.
+        :param pulumi.Input[_builtins.str] state: The current state of the Autonomous AI Database.
         :param pulumi.Input[_builtins.str] subnet_id: (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet the resource is associated with.
                
                **Subnet Restrictions:**
                * For bare metal DB systems and for single node virtual machine DB systems, do not use a subnet that overlaps with 192.168.16.16/28.
                * For Exadata and virtual machine 2-node RAC systems, do not use a subnet that overlaps with 192.168.128.0/20.
-               * For Autonomous Database, setting this will disable public secure access to the database.
+               * For Autonomous AI Database, setting this will disable public secure access to the database.
                
                These subnets are used by the Oracle Clusterware private interconnect on the database instance. Specifying an overlapping subnet will cause the private interconnect to malfunction. This restriction applies to both the client subnet and the backup subnet.
         :param pulumi.Input[_builtins.str] subscription_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subscription with which resource needs to be associated with.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] supported_regions_to_clone_tos: The list of regions that support the creation of an Autonomous Database clone or an Autonomous Data Guard standby database.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] supported_regions_to_clone_tos: The list of regions that support the creation of an Autonomous AI Database clone or an Autonomous Data Guard standby database.
+        :param pulumi.Input[_builtins.str] switchover_to: It is applicable only when `is_local_data_guard_enabled` is true. Could be set to `PRIMARY` or `STANDBY`. Default value is `PRIMARY`.
+        :param pulumi.Input[_builtins.str] switchover_to_remote_peer_id: (Updatable) It is applicable only when `dataguard_region_type` and `role` are set, and `is_dedicated` is false. For Autonomous Database Serverless instances, Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. It takes the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the remote peer to switchover to and the API is called from the remote region.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] system_tags: System tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).
-        :param pulumi.Input[_builtins.str] time_created: The date and time the Autonomous Database was created.
-        :param pulumi.Input[_builtins.str] time_data_guard_role_changed: The date and time the Autonomous Data Guard role was switched for the Autonomous Database. For databases that have standbys in both the primary Data Guard region and a remote Data Guard standby region, this is the latest timestamp of either the database using the "primary" role in the primary Data Guard region, or database located in the remote Data Guard standby region.
+        :param pulumi.Input[_builtins.str] time_created: The date and time the Autonomous AI Database was created.
+        :param pulumi.Input[_builtins.str] time_data_guard_role_changed: The date and time the Autonomous Data Guard role was switched for the Autonomous AI Database. For databases that have standbys in both the primary Data Guard region and a remote Data Guard standby region, this is the latest timestamp of either the database using the "primary" role in the primary Data Guard region, or database located in the remote Data Guard standby region.
         :param pulumi.Input[_builtins.str] time_deletion_of_free_autonomous_database: The date and time the Always Free database will be automatically deleted because of inactivity. If the database is in the STOPPED state and without activity until this time, it will be deleted.
-        :param pulumi.Input[_builtins.str] time_disaster_recovery_role_changed: The date and time the Disaster Recovery role was switched for the standby Autonomous Database.
-        :param pulumi.Input[_builtins.str] time_earliest_available_db_version_upgrade: The earliest(min) date and time the Autonomous Database can be scheduled to upgrade to 23ai.
-        :param pulumi.Input[_builtins.str] time_latest_available_db_version_upgrade: The max date and time the Autonomous Database can be scheduled to upgrade to 23ai.
-        :param pulumi.Input[_builtins.str] time_local_data_guard_enabled: The date and time that Autonomous Data Guard was enabled for an Autonomous Database where the standby was provisioned in the same region as the primary database.
+        :param pulumi.Input[_builtins.str] time_disaster_recovery_role_changed: The date and time the Disaster Recovery role was switched for the standby Autonomous AI Database.
+        :param pulumi.Input[_builtins.str] time_earliest_available_db_version_upgrade: The earliest(min) date and time the Autonomous AI Database can be scheduled to upgrade to 26ai.
+        :param pulumi.Input[_builtins.str] time_latest_available_db_version_upgrade: The max date and time the Autonomous AI Database can be scheduled to upgrade to 26ai.
+        :param pulumi.Input[_builtins.str] time_local_data_guard_enabled: The date and time that Autonomous Data Guard was enabled for an Autonomous AI Database where the standby was provisioned in the same region as the primary database.
         :param pulumi.Input[_builtins.str] time_maintenance_begin: The date and time when maintenance will begin.
         :param pulumi.Input[_builtins.str] time_maintenance_end: The date and time when maintenance will end.
-        :param pulumi.Input[_builtins.str] time_of_auto_refresh_start: (Updatable) The the date and time that auto-refreshing will begin for an Autonomous Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
+        :param pulumi.Input[_builtins.str] time_maintenance_pause_until: The date until which maintenance of Autonomous Database is temporarily paused.
+        :param pulumi.Input[_builtins.str] time_of_auto_refresh_start: (Updatable) The the date and time that auto-refreshing will begin for an Autonomous AI Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
         :param pulumi.Input[_builtins.str] time_of_joining_resource_pool: The time the member joined the resource pool.
         :param pulumi.Input[_builtins.str] time_of_last_failover: The timestamp of the last failover operation.
         :param pulumi.Input[_builtins.str] time_of_last_refresh: The date and time when last refresh happened.
         :param pulumi.Input[_builtins.str] time_of_last_refresh_point: The refresh point timestamp (UTC). The refresh point is the time to which the database was most recently refreshed. Data created after the refresh point is not included in the refresh.
-        :param pulumi.Input[_builtins.str] time_of_last_switchover: The timestamp of the last switchover operation for the Autonomous Database.
+        :param pulumi.Input[_builtins.str] time_of_last_switchover: The timestamp of the last switchover operation for the Autonomous AI Database.
         :param pulumi.Input[_builtins.str] time_of_next_refresh: The date and time of next refresh.
         :param pulumi.Input[_builtins.str] time_reclamation_of_free_autonomous_database: The date and time the Always Free database will be stopped because of inactivity. If this time is reached without any database activity, the database will automatically be put into the STOPPED state.
-        :param pulumi.Input[_builtins.str] time_scheduled_db_version_upgrade: The date and time the Autonomous Database scheduled to upgrade to 23ai. Send this value along with the target db_version value to schedule the database version upgrade. After the upgrade is scheduled and before the scheduled upgrade time arrives, please keep the db_version value the same as the backend's current db_version.
-        :param pulumi.Input[_builtins.str] time_undeleted: The date and time the Autonomous Database was most recently undeleted.
+        :param pulumi.Input[_builtins.str] time_scheduled_db_version_upgrade: The date and time the Autonomous AI Database scheduled to upgrade to 26ai.
+        :param pulumi.Input[_builtins.str] time_undeleted: The date and time the Autonomous AI Database was most recently undeleted.
         :param pulumi.Input[_builtins.str] time_until_reconnect_clone_enabled: The time and date as an RFC3339 formatted string, e.g., 2022-01-01T12:00:00.000Z, to set the limit for a refreshable clone to be reconnected to its source database.
-        :param pulumi.Input[_builtins.str] timestamp: The timestamp specified for the point-in-time clone of the source Autonomous Database. The timestamp must be in the past.
+        :param pulumi.Input[_builtins.str] timestamp: The timestamp specified for the point-in-time clone of the source Autonomous AI Database. The timestamp must be in the past.
         :param pulumi.Input[_builtins.float] total_backup_storage_size_in_gbs: The backup storage to the database.
+        :param pulumi.Input[Union['AutonomousDatabaseTransportableTablespaceArgs', 'AutonomousDatabaseTransportableTablespaceArgsDict']] transportable_tablespace: Details for importing transportable tablespace for an Autonomous Database.
         :param pulumi.Input[_builtins.bool] use_latest_available_backup_time_stamp: Clone from latest available backup timestamp.
-        :param pulumi.Input[_builtins.int] used_data_storage_size_in_gbs: The storage space consumed by Autonomous Database in GBs.
-        :param pulumi.Input[_builtins.int] used_data_storage_size_in_tbs: The amount of storage that has been used for Autonomous Databases in dedicated infrastructure, in terabytes.
+        :param pulumi.Input[_builtins.int] used_data_storage_size_in_gbs: The storage space consumed by Autonomous AI Database in GBs.
+        :param pulumi.Input[_builtins.int] used_data_storage_size_in_tbs: The amount of storage that has been used for Autonomous AI Databases in dedicated infrastructure, in terabytes.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseVanityConnectionUrlArgs', 'AutonomousDatabaseVanityConnectionUrlArgsDict']]]] vanity_connection_urls: The URLs for accessing Oracle Application Express (APEX) and SQL Developer Web with a browser from a Compute instance within your VCN or that has a direct connection to your VCN. Note that these URLs are provided by the console only for databases on [dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html).  Example: `{"sqlDevWebUrl": "https://<hostname>/ords...", "apexUrl", "https://<hostname>/ords..."}`
+        :param pulumi.Input[Sequence[pulumi.Input[Union['AutonomousDatabaseVanityUrlDetailArgs', 'AutonomousDatabaseVanityUrlDetailArgsDict']]]] vanity_url_details: Details for api gateway and vanity url(custom url) for dbTools.
         :param pulumi.Input[_builtins.str] vault_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the Oracle Cloud Infrastructure [vault](https://docs.cloud.oracle.com/iaas/Content/KeyManagement/Concepts/keyoverview.htm#concepts). This parameter and `secretId` are required for Customer Managed Keys.
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] whitelisted_ips: (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
                
-               For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+               For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
                
                For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
                
                This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. To remove all whitelisted IPs, set the field to a list with an empty string `[""]`.
-               
-               
-               ** IMPORTANT **
-               Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
         __props__ = _AutonomousDatabaseState.__new__(_AutonomousDatabaseState)
 
         __props__.__dict__["actual_used_data_storage_size_in_tbs"] = actual_used_data_storage_size_in_tbs
+        __props__.__dict__["additional_attributes"] = additional_attributes
         __props__.__dict__["admin_password"] = admin_password
         __props__.__dict__["allocated_storage_size_in_tbs"] = allocated_storage_size_in_tbs
         __props__.__dict__["apex_details"] = apex_details
@@ -5045,6 +5343,7 @@ class AutonomousDatabase(pulumi.CustomResource):
         __props__.__dict__["autonomous_container_database_id"] = autonomous_container_database_id
         __props__.__dict__["autonomous_database_backup_id"] = autonomous_database_backup_id
         __props__.__dict__["autonomous_database_id"] = autonomous_database_id
+        __props__.__dict__["autonomous_database_maintenance_window"] = autonomous_database_maintenance_window
         __props__.__dict__["autonomous_maintenance_schedule_type"] = autonomous_maintenance_schedule_type
         __props__.__dict__["availability_domain"] = availability_domain
         __props__.__dict__["available_upgrade_versions"] = available_upgrade_versions
@@ -5079,6 +5378,7 @@ class AutonomousDatabase(pulumi.CustomResource):
         __props__.__dict__["enable_delete_scheduled_operations"] = enable_delete_scheduled_operations
         __props__.__dict__["encryption_key"] = encryption_key
         __props__.__dict__["encryption_key_history_entries"] = encryption_key_history_entries
+        __props__.__dict__["encryption_key_location_details"] = encryption_key_location_details
         __props__.__dict__["failed_data_recovery_in_seconds"] = failed_data_recovery_in_seconds
         __props__.__dict__["freeform_tags"] = freeform_tags
         __props__.__dict__["in_memory_area_in_gbs"] = in_memory_area_in_gbs
@@ -5114,11 +5414,13 @@ class AutonomousDatabase(pulumi.CustomResource):
         __props__.__dict__["license_model"] = license_model
         __props__.__dict__["lifecycle_details"] = lifecycle_details
         __props__.__dict__["local_adg_auto_failover_max_data_loss_limit"] = local_adg_auto_failover_max_data_loss_limit
+        __props__.__dict__["local_adg_resource_pool_leader_id"] = local_adg_resource_pool_leader_id
         __props__.__dict__["local_disaster_recovery_type"] = local_disaster_recovery_type
         __props__.__dict__["local_standby_dbs"] = local_standby_dbs
         __props__.__dict__["long_term_backup_schedules"] = long_term_backup_schedules
         __props__.__dict__["maintenance_target_component"] = maintenance_target_component
         __props__.__dict__["max_cpu_core_count"] = max_cpu_core_count
+        __props__.__dict__["memory_per_compute_unit_in_gbs"] = memory_per_compute_unit_in_gbs
         __props__.__dict__["memory_per_oracle_compute_unit_in_gbs"] = memory_per_oracle_compute_unit_in_gbs
         __props__.__dict__["ncharacter_set"] = ncharacter_set
         __props__.__dict__["net_services_architecture"] = net_services_architecture
@@ -5170,6 +5472,7 @@ class AutonomousDatabase(pulumi.CustomResource):
         __props__.__dict__["time_local_data_guard_enabled"] = time_local_data_guard_enabled
         __props__.__dict__["time_maintenance_begin"] = time_maintenance_begin
         __props__.__dict__["time_maintenance_end"] = time_maintenance_end
+        __props__.__dict__["time_maintenance_pause_until"] = time_maintenance_pause_until
         __props__.__dict__["time_of_auto_refresh_start"] = time_of_auto_refresh_start
         __props__.__dict__["time_of_joining_resource_pool"] = time_of_joining_resource_pool
         __props__.__dict__["time_of_last_failover"] = time_of_last_failover
@@ -5183,9 +5486,12 @@ class AutonomousDatabase(pulumi.CustomResource):
         __props__.__dict__["time_until_reconnect_clone_enabled"] = time_until_reconnect_clone_enabled
         __props__.__dict__["timestamp"] = timestamp
         __props__.__dict__["total_backup_storage_size_in_gbs"] = total_backup_storage_size_in_gbs
+        __props__.__dict__["transportable_tablespace"] = transportable_tablespace
         __props__.__dict__["use_latest_available_backup_time_stamp"] = use_latest_available_backup_time_stamp
         __props__.__dict__["used_data_storage_size_in_gbs"] = used_data_storage_size_in_gbs
         __props__.__dict__["used_data_storage_size_in_tbs"] = used_data_storage_size_in_tbs
+        __props__.__dict__["vanity_connection_urls"] = vanity_connection_urls
+        __props__.__dict__["vanity_url_details"] = vanity_url_details
         __props__.__dict__["vault_id"] = vault_id
         __props__.__dict__["whitelisted_ips"] = whitelisted_ips
         return AutonomousDatabase(resource_name, opts=opts, __props__=__props__)
@@ -5197,6 +5503,14 @@ class AutonomousDatabase(pulumi.CustomResource):
         The current amount of storage in use for user and system data, in terabytes (TB).
         """
         return pulumi.get(self, "actual_used_data_storage_size_in_tbs")
+
+    @_builtins.property
+    @pulumi.getter(name="additionalAttributes")
+    def additional_attributes(self) -> pulumi.Output[Mapping[str, _builtins.str]]:
+        """
+        Additional attributes for this resource. Each attribute is a simple key-value pair with no predefined name, type, or namespace. Example: `{ "gcpAccountName": "gcpName" }`
+        """
+        return pulumi.get(self, "additional_attributes")
 
     @_builtins.property
     @pulumi.getter(name="adminPassword")
@@ -5218,7 +5532,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="apexDetails")
     def apex_details(self) -> pulumi.Output[Sequence['outputs.AutonomousDatabaseApexDetail']]:
         """
-        Information about Oracle APEX Application Development.
+        Information about Oracle APEX AI Application Development.
         """
         return pulumi.get(self, "apex_details")
 
@@ -5226,7 +5540,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="arePrimaryWhitelistedIpsUsed")
     def are_primary_whitelisted_ips_used(self) -> pulumi.Output[_builtins.bool]:
         """
-        (Updatable) This field will be null if the Autonomous Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous Database is Data Guard enabled and Access Control is enabled and if the Autonomous Database uses different IP access control list (ACL) for standby compared to primary.
+        (Updatable) This field will be null if the Autonomous AI Database is not Data Guard enabled or Access Control is disabled. It's value would be `TRUE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses primary IP access control list (ACL) for standby. It's value would be `FALSE` if Autonomous AI Database is Data Guard enabled and Access Control is enabled and if the Autonomous AI Database uses different IP access control list (ACL) for standby compared to primary.
         """
         return pulumi.get(self, "are_primary_whitelisted_ips_used")
 
@@ -5250,7 +5564,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="autonomousContainerDatabaseId")
     def autonomous_container_database_id(self) -> pulumi.Output[_builtins.str]:
         """
-        The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous Database on Dedicated Exadata Infrastructure.
+        The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm). Used only by Autonomous AI Database on Dedicated Exadata Infrastructure.
         """
         return pulumi.get(self, "autonomous_container_database_id")
 
@@ -5258,7 +5572,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="autonomousDatabaseBackupId")
     def autonomous_database_backup_id(self) -> pulumi.Output[_builtins.str]:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database Backup that you will clone to create a new Autonomous Database.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database Backup that you will clone to create a new Autonomous AI Database.
         """
         return pulumi.get(self, "autonomous_database_backup_id")
 
@@ -5266,15 +5580,23 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="autonomousDatabaseId")
     def autonomous_database_id(self) -> pulumi.Output[_builtins.str]:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that you will clone to create a new Autonomous Database.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that you will clone to create a new Autonomous AI Database.
         """
         return pulumi.get(self, "autonomous_database_id")
+
+    @_builtins.property
+    @pulumi.getter(name="autonomousDatabaseMaintenanceWindow")
+    def autonomous_database_maintenance_window(self) -> pulumi.Output['outputs.AutonomousDatabaseAutonomousDatabaseMaintenanceWindow']:
+        """
+        (Updatable) Autonomous Database maintenance window. The maintenance window can be configured during database creation. To change the maintenance window of an existing Autonomous Database Serverless instance, clone the database and specify the maintenance window for the new cloned instance.
+        """
+        return pulumi.get(self, "autonomous_database_maintenance_window")
 
     @_builtins.property
     @pulumi.getter(name="autonomousMaintenanceScheduleType")
     def autonomous_maintenance_schedule_type(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) The maintenance schedule type of the Autonomous Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
+        (Updatable) The maintenance schedule type of the Autonomous AI Database Serverless. An EARLY maintenance schedule follows a schedule applying patches prior to the REGULAR schedule. A REGULAR maintenance schedule follows the normal cycle
         """
         return pulumi.get(self, "autonomous_maintenance_schedule_type")
 
@@ -5282,7 +5604,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="availabilityDomain")
     def availability_domain(self) -> pulumi.Output[_builtins.str]:
         """
-        The availability domain of a local Autonomous Data Guard standby database of an Autonomous Database Serverless instance.
+        The availability domain of a local Autonomous Data Guard standby database of an Autonomous AI Database Serverless instance.
         """
         return pulumi.get(self, "availability_domain")
 
@@ -5290,7 +5612,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="availableUpgradeVersions")
     def available_upgrade_versions(self) -> pulumi.Output[Sequence[_builtins.str]]:
         """
-        List of Oracle Database versions available for a database upgrade. If there are no version upgrades available, this list is empty.
+        List of Oracle AI Database versions available for a database upgrade. If there are no version upgrades available, this list is empty.
         """
         return pulumi.get(self, "available_upgrade_versions")
 
@@ -5298,7 +5620,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="backupConfigs")
     def backup_configs(self) -> pulumi.Output[Sequence['outputs.AutonomousDatabaseBackupConfig']]:
         """
-        Autonomous Database configuration details for storing [manual backups](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/backup-restore.html#GUID-9035DFB8-4702-4CEB-8281-C2A303820809) in the [Object Storage](https://docs.cloud.oracle.com/iaas/Content/Object/Concepts/objectstorageoverview.htm) service.
+        Autonomous AI Database configuration details for storing [manual backups](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/backup-restore.html#GUID-9035DFB8-4702-4CEB-8281-C2A303820809) in the [Object Storage](https://docs.cloud.oracle.com/iaas/Content/Object/Concepts/objectstorageoverview.htm) service.
         """
         return pulumi.get(self, "backup_configs")
 
@@ -5322,9 +5644,9 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="characterSet")
     def character_set(self) -> pulumi.Output[_builtins.str]:
         """
-        The character set for the autonomous database. The default is AL32UTF8. Allowed values for an Autonomous Database Serverless instance as as returned by [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
+        The character set for the Autonomous AI Database. The default is AL32UTF8. Allowed values for an Autonomous AI Database Serverless instance as as returned by [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html)
 
-        For an Autonomous Database on dedicated infrastructure, the allowed values are:
+        For an Autonomous AI Database on dedicated infrastructure, the allowed values are:
 
         AL32UTF8, AR8ADOS710, AR8ADOS720, AR8APTEC715, AR8ARABICMACS, AR8ASMO8X, AR8ISO8859P6, AR8MSWIN1256, AR8MUSSAD768, AR8NAFITHA711, AR8NAFITHA721, AR8SAKHR706, AR8SAKHR707, AZ8ISO8859P9E, BG8MSWIN, BG8PC437S, BLT8CP921, BLT8ISO8859P13, BLT8MSWIN1257, BLT8PC775, BN8BSCII, CDN8PC863, CEL8ISO8859P14, CL8ISO8859P5, CL8ISOIR111, CL8KOI8R, CL8KOI8U, CL8MACCYRILLICS, CL8MSWIN1251, EE8ISO8859P2, EE8MACCES, EE8MACCROATIANS, EE8MSWIN1250, EE8PC852, EL8DEC, EL8ISO8859P7, EL8MACGREEKS, EL8MSWIN1253, EL8PC437S, EL8PC851, EL8PC869, ET8MSWIN923, HU8ABMOD, HU8CWI2, IN8ISCII, IS8PC861, IW8ISO8859P8, IW8MACHEBREWS, IW8MSWIN1255, IW8PC1507, JA16EUC, JA16EUCTILDE, JA16SJIS, JA16SJISTILDE, JA16VMS, KO16KSC5601, KO16KSCCS, KO16MSWIN949, LA8ISO6937, LA8PASSPORT, LT8MSWIN921, LT8PC772, LT8PC774, LV8PC1117, LV8PC8LR, LV8RST104090, N8PC865, NE8ISO8859P10, NEE8ISO8859P4, RU8BESTA, RU8PC855, RU8PC866, SE8ISO8859P3, TH8MACTHAIS, TH8TISASCII, TR8DEC, TR8MACTURKISHS, TR8MSWIN1254, TR8PC857, US7ASCII, US8PC437, UTF8, VN8MSWIN1258, VN8VN3, WE8DEC, WE8DG, WE8ISO8859P1, WE8ISO8859P15, WE8ISO8859P9, WE8MACROMAN8S, WE8MSWIN1252, WE8NCR4970, WE8NEXTSTEP, WE8PC850, WE8PC858, WE8PC860, WE8ROMAN8, ZHS16CGB231280, ZHS16GBK, ZHT16BIG5, ZHT16CCDC, ZHT16DBT, ZHT16HKSCS, ZHT16MSWIN950, ZHT32EUC, ZHT32SOPS, ZHT32TRIS
         """
@@ -5334,7 +5656,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="cloneTableSpaceLists")
     def clone_table_space_lists(self) -> pulumi.Output[Sequence[_builtins.int]]:
         """
-        A list of the source Autonomous Database's table space number(s) used to create this partial clone from the backup.
+        A list of the source Autonomous AI Database's table space number(s) used to create this partial clone from the backup.
         """
         return pulumi.get(self, "clone_table_space_lists")
 
@@ -5342,7 +5664,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="cloneType")
     def clone_type(self) -> pulumi.Output[_builtins.str]:
         """
-        The Autonomous Database clone type.
+        The Autonomous AI Database clone type.
         * `FULL` - This option creates a new database that includes all source database data.
         * `METADATA` - This option creates a new database that includes the source database schema and select metadata, but not the source database data.
         """
@@ -5360,7 +5682,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="compartmentId")
     def compartment_id(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous Database.
+        (Updatable) The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the compartment of the Autonomous AI Database.
         """
         return pulumi.get(self, "compartment_id")
 
@@ -5368,7 +5690,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="computeCount")
     def compute_count(self) -> pulumi.Output[_builtins.float]:
         """
-        (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
+        (Updatable) The compute amount (CPUs) available to the database. Minimum and maximum values depend on the compute model and whether the database is an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure. The 'ECPU' compute model requires a minimum value of one, for databases in the elastic resource pool and minimum value of two, otherwise. Required when using the `computeModel` parameter. When using `cpuCoreCount` parameter, it is an error to specify computeCount to a non-null value. Providing `computeModel` and `computeCount` is the preferred method for both OCPU and ECPU.
         """
         return pulumi.get(self, "compute_count")
 
@@ -5376,7 +5698,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="computeModel")
     def compute_model(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) The compute model of the Autonomous Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
+        (Updatable) The compute model of the Autonomous AI Database. This is required if using the `computeCount` parameter. If using `cpuCoreCount` then it is an error to specify `computeModel` to a non-null value. ECPU compute model is the recommended model and OCPU compute model is legacy.
         """
         return pulumi.get(self, "compute_model")
 
@@ -5384,7 +5706,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="connectionStrings")
     def connection_strings(self) -> pulumi.Output[Sequence['outputs.AutonomousDatabaseConnectionString']]:
         """
-        The connection string used to connect to the Autonomous Database. The username for the Service Console is ADMIN. Use the password you entered when creating the Autonomous Database for the password value.
+        The connection string used to connect to the Autonomous AI Database. The username for the Service Console is ADMIN. Use the password you entered when creating the Autonomous AI Database for the password value.
         """
         return pulumi.get(self, "connection_strings")
 
@@ -5400,7 +5722,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="cpuCoreCount")
     def cpu_core_count(self) -> pulumi.Output[_builtins.int]:
         """
-        (Updatable) The number of CPU cores to be made available to the database. For Autonomous Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        (Updatable) The number of CPU cores to be made available to the database. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
 
         **Note:** This parameter cannot be used with the `ocpuCount` parameter. This input is ignored for Always Free resources.
         """
@@ -5426,7 +5748,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="dataStorageSizeInGb")
     def data_storage_size_in_gb(self) -> pulumi.Output[_builtins.int]:
         """
-        (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        (Updatable) The size, in gigabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. The maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
 
         **Notes**
         * This parameter is only supported for dedicated Exadata infrastructure.
@@ -5438,7 +5760,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="dataStorageSizeInTbs")
     def data_storage_size_in_tbs(self) -> pulumi.Output[_builtins.int]:
         """
-        (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details. A full Exadata service is allocated when the Autonomous Database size is set to the upper limit (384 TB).
+        (Updatable) The size, in terabytes, of the data volume that will be created and attached to the database. This storage can later be scaled up if needed. For Autonomous AI Databases on dedicated Exadata infrastructure, the maximum storage value is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details. A full Exadata service is allocated when the Autonomous AI Database size is set to the upper limit (384 TB).
 
         **Note:** This parameter cannot be used with the `dataStorageSizeInGBs` parameter. This input is ignored for Always Free resources.
         """
@@ -5448,7 +5770,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="databaseEdition")
     def database_edition(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) The Oracle Database Edition that applies to the Autonomous databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
+        (Updatable) The Oracle AI Database Edition that applies to the Autonomous AI Databases. This parameter accepts options `STANDARD_EDITION` and `ENTERPRISE_EDITION`.
         """
         return pulumi.get(self, "database_edition")
 
@@ -5456,7 +5778,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="databaseManagementStatus")
     def database_management_status(self) -> pulumi.Output[_builtins.str]:
         """
-        Status of Database Management for this Autonomous Database.
+        Status of Database Management for this Autonomous AI Database.
         """
         return pulumi.get(self, "database_management_status")
 
@@ -5464,7 +5786,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="dataguardRegionType")
     def dataguard_region_type(self) -> pulumi.Output[_builtins.str]:
         """
-        **Deprecated.** The Autonomous Data Guard region type of the Autonomous Database. For Autonomous Database Serverless, Autonomous Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. The standby regions in Autonomous Data Guard associations can be the same region designated as the primary region, or they can be remote regions. Certain database administrative operations may be available only in the primary region of the Autonomous Data Guard association, and cannot be performed when the database using the primary role is operating in a remote Autonomous Data Guard standby region.
+        **Deprecated.** The Autonomous Data Guard region type of the Autonomous AI Database. For Autonomous AI Database Serverless, Autonomous Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. The standby regions in Autonomous Data Guard associations can be the same region designated as the primary region, or they can be remote regions. Certain database administrative operations may be available only in the primary region of the Autonomous Data Guard association, and cannot be performed when the database using the primary role is operating in a remote Autonomous Data Guard standby region.
         """
         return pulumi.get(self, "dataguard_region_type")
 
@@ -5490,7 +5812,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="dbVersion")
     def db_version(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) A valid Oracle Database version for Autonomous Database.`db_workload` AJD is only supported for `db_version` `19c` and above.
+        (Updatable) A valid Oracle AI Database version for Autonomous AI Database. When you specify 23ai for dbversion, the system will provision a 23ai database, but the UI will display it as 26ai. When you specify 26ai for dbversion, the system will provision and display a 26ai database as expected. For new databases, it is recommended to use either 19c or 26ai. `db_workload` AJD is only supported for `db_version` `19c` and above.
         """
         return pulumi.get(self, "db_version")
 
@@ -5498,11 +5820,12 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="dbWorkload")
     def db_workload(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) The Autonomous Database workload type. The following values are valid:
-        * OLTP - indicates an Autonomous Transaction Processing database
-        * DW - indicates an Autonomous Data Warehouse database
-        * AJD - indicates an Autonomous JSON Database
-        * APEX - indicates an Autonomous Database with the Oracle APEX Application Development workload type.
+        (Updatable) The Autonomous AI Database workload type. The following values are valid:
+        * OLTP - indicates an Autonomous AI Transaction Processing database
+        * DW - indicates an Autonomous AI Lakehouse database
+        * AJD - indicates an Autonomous AI JSON Database
+        * APEX - indicates an Autonomous AI Database with the Oracle APEX AI Application Development workload type.
+        * LH - indicates an Oracle Autonomous AI Lakehouse database
 
         This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. *Note: `db_workload` can only be updated from AJD to OLTP or from a free OLTP to AJD.
         """
@@ -5520,7 +5843,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="disasterRecoveryRegionType")
     def disaster_recovery_region_type(self) -> pulumi.Output[_builtins.str]:
         """
-        **Deprecated.** The disaster recovery (DR) region type of the Autonomous Database. For Autonomous Database Serverless instances, DR associations have designated primary and standby regions. These region types do not change when the database changes roles. The standby region in DR associations can be the same region as the primary region, or they can be in a remote regions. Some database administration operations may be available only in the primary region of the DR association, and cannot be performed when the database using the primary role is operating in a remote region.
+        **Deprecated.** The disaster recovery (DR) region type of the Autonomous AI Database. For Autonomous AI Database Serverless instances, DR associations have designated primary and standby regions. These region types do not change when the database changes roles. The standby region in DR associations can be the same region as the primary region, or they can be in a remote regions. Some database administration operations may be available only in the primary region of the DR association, and cannot be performed when the database using the primary role is operating in a remote region.
         """
         return pulumi.get(self, "disaster_recovery_region_type")
 
@@ -5528,7 +5851,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="disasterRecoveryType")
     def disaster_recovery_type(self) -> pulumi.Output[_builtins.str]:
         """
-        Indicates the disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        Indicates the disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
         """
         return pulumi.get(self, "disaster_recovery_type")
 
@@ -5536,7 +5859,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="displayName")
     def display_name(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) The user-friendly name for the Autonomous Database. The name does not have to be unique.
+        (Updatable) The user-friendly name for the Autonomous AI Database. The name does not have to be unique.
         """
         return pulumi.get(self, "display_name")
 
@@ -5549,7 +5872,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="encryptionKey")
     def encryption_key(self) -> pulumi.Output['outputs.AutonomousDatabaseEncryptionKey']:
         """
-        (Updatable) Details of the Autonomous Database encryption key.
+        (Updatable) Details of the Autonomous AI Database encryption key.
         """
         return pulumi.get(self, "encryption_key")
 
@@ -5560,6 +5883,11 @@ class AutonomousDatabase(pulumi.CustomResource):
         Key History Entry.
         """
         return pulumi.get(self, "encryption_key_history_entries")
+
+    @_builtins.property
+    @pulumi.getter(name="encryptionKeyLocationDetails")
+    def encryption_key_location_details(self) -> pulumi.Output[Sequence['outputs.AutonomousDatabaseEncryptionKeyLocationDetail']]:
+        return pulumi.get(self, "encryption_key_location_details")
 
     @_builtins.property
     @pulumi.getter(name="failedDataRecoveryInSeconds")
@@ -5581,7 +5909,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="inMemoryAreaInGbs")
     def in_memory_area_in_gbs(self) -> pulumi.Output[_builtins.int]:
         """
-        The area assigned to In-Memory tables in Autonomous Database.
+        The area assigned to In-Memory tables in Autonomous AI Database.
         """
         return pulumi.get(self, "in_memory_area_in_gbs")
 
@@ -5589,7 +5917,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="inMemoryPercentage")
     def in_memory_percentage(self) -> pulumi.Output[_builtins.int]:
         """
-        (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous Database. This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform.
+        (Updatable) The percentage of the System Global Area(SGA) assigned to In-Memory tables in Autonomous AI Database. This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform.
         """
         return pulumi.get(self, "in_memory_percentage")
 
@@ -5607,7 +5935,7 @@ class AutonomousDatabase(pulumi.CustomResource):
         """
         (Updatable) Indicates if the database-level access control is enabled. If disabled, database access is defined by the network security rules. If enabled, database access is restricted to the IP addresses defined by the rules specified with the `whitelistedIps` property. While specifying `whitelistedIps` rules is optional, if database-level access control is enabled and no rules are specified, the database will become inaccessible. The rules can be added later using the `UpdateAutonomousDatabase` API operation or edit option in console. When creating a database clone, the desired access control setting should be specified. By default, database-level access control will be disabled for the clone.
 
-        This property is applicable only to Autonomous Databases on the Exadata Cloud@Customer platform. For Autonomous Database Serverless instances, `whitelistedIps` is used.
+        This property is applicable only to Autonomous AI Databases on the Exadata Cloud@Customer platform. For Autonomous AI Database Serverless instances, `whitelistedIps` is used.
         """
         return pulumi.get(self, "is_access_control_enabled")
 
@@ -5615,7 +5943,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isAutoScalingEnabled")
     def is_auto_scaling_enabled(self) -> pulumi.Output[_builtins.bool]:
         """
-        (Updatable) Indicates if auto scaling is enabled for the Autonomous Database CPU core count. The default value is `TRUE`.
+        (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database CPU core count. The default value is `TRUE`.
         """
         return pulumi.get(self, "is_auto_scaling_enabled")
 
@@ -5623,7 +5951,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isAutoScalingForStorageEnabled")
     def is_auto_scaling_for_storage_enabled(self) -> pulumi.Output[_builtins.bool]:
         """
-        (Updatable) Indicates if auto scaling is enabled for the Autonomous Database storage. The default value is `FALSE`.
+        (Updatable) Indicates if auto scaling is enabled for the Autonomous AI Database storage. The default value is `FALSE`.
         """
         return pulumi.get(self, "is_auto_scaling_for_storage_enabled")
 
@@ -5631,7 +5959,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isBackupRetentionLocked")
     def is_backup_retention_locked(self) -> pulumi.Output[_builtins.bool]:
         """
-        (Updatable) True if the Autonomous Database is backup retention locked.
+        (Updatable) True if the Autonomous AI Database is backup retention locked.
         """
         return pulumi.get(self, "is_backup_retention_locked")
 
@@ -5639,7 +5967,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isDataGuardEnabled")
     def is_data_guard_enabled(self) -> pulumi.Output[_builtins.bool]:
         """
-        (Updatable) **Deprecated.** Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        (Updatable) **Deprecated.** Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         """
         return pulumi.get(self, "is_data_guard_enabled")
 
@@ -5655,7 +5983,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isDevTier")
     def is_dev_tier(self) -> pulumi.Output[_builtins.bool]:
         """
-        (Updatable) Autonomous Database for Developers are fixed-shape Autonomous Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
+        (Updatable) Autonomous AI Database for Developers are fixed-shape Autonomous AI Databases that developers can use to build and test new applications. On Serverless, these are low-cost and billed per instance, on Dedicated and Cloud@Customer there is no additional cost to create Developer databases. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. When you need more compute or storage resources, you may upgrade to a full paid production database.
         """
         return pulumi.get(self, "is_dev_tier")
 
@@ -5673,7 +6001,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isFreeTier")
     def is_free_tier(self) -> pulumi.Output[_builtins.bool]:
         """
-        (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
+        (Updatable) Indicates if this is an Always Free resource. The default value is false. Note that Always Free Autonomous AI Databases have 1 CPU and 20GB of memory. For Always Free databases, memory and CPU cannot be scaled.
 
         This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, openMode, permissionLevel, privateEndpointLabel, nsgIds, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isLocalDataGuardEnabled When `db_workload` is `AJD` it cannot be `true`.
         """
@@ -5683,7 +6011,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isLocalDataGuardEnabled")
     def is_local_data_guard_enabled(self) -> pulumi.Output[_builtins.bool]:
         """
-        (Updatable) Indicates whether the Autonomous Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        (Updatable) Indicates whether the Autonomous AI Database has local (in-region) Data Guard enabled. Not applicable to cross-region Autonomous Data Guard associations, or to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         """
         return pulumi.get(self, "is_local_data_guard_enabled")
 
@@ -5696,7 +6024,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isPreview")
     def is_preview(self) -> pulumi.Output[_builtins.bool]:
         """
-        Indicates if the Autonomous Database version is a preview version.
+        Indicates if the Autonomous AI Database version is a preview version.
         """
         return pulumi.get(self, "is_preview")
 
@@ -5704,7 +6032,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isPreviewVersionWithServiceTermsAccepted")
     def is_preview_version_with_service_terms_accepted(self) -> pulumi.Output[_builtins.bool]:
         """
-        If set to `TRUE`, indicates that an Autonomous Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
+        If set to `TRUE`, indicates that an Autonomous AI Database preview version is being provisioned, and that the preview version's terms of service have been accepted. Note that preview version software is only available for Autonomous AI Database Serverless instances (https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/).
         """
         return pulumi.get(self, "is_preview_version_with_service_terms_accepted")
 
@@ -5720,7 +6048,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isRefreshableClone")
     def is_refreshable_clone(self) -> pulumi.Output[_builtins.bool]:
         """
-        Indicates if the Autonomous Database is a refreshable clone.
+        Indicates if the Autonomous AI Database is a refreshable clone.
         """
         return pulumi.get(self, "is_refreshable_clone")
 
@@ -5728,7 +6056,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isRemoteDataGuardEnabled")
     def is_remote_data_guard_enabled(self) -> pulumi.Output[_builtins.bool]:
         """
-        Indicates whether the Autonomous Database has Cross Region Data Guard enabled. Not applicable to Autonomous Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
+        Indicates whether the Autonomous AI Database has Cross Region Data Guard enabled. Not applicable to Autonomous AI Databases using dedicated Exadata infrastructure or Exadata Cloud@Customer infrastructure.
         """
         return pulumi.get(self, "is_remote_data_guard_enabled")
 
@@ -5749,6 +6077,12 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="isShrinkOnly")
     @_utilities.deprecated("""The 'is_shrink_only' field has been deprecated. Please use 'shrink_adb_trigger' instead.""")
     def is_shrink_only(self) -> pulumi.Output[Optional[_builtins.bool]]:
+        """
+        (Updatable) An optional property when enabled triggers the Shrinking of Autonomous Database once. To trigger Shrinking of ADB once again, this flag needs to be disabled and re-enabled again. It should not be passed during create database operation. It is only applicable on Serverless databases i.e. where `is_dedicated` is false.
+
+        ** IMPORTANT **
+        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        """
         return pulumi.get(self, "is_shrink_only")
 
     @_builtins.property
@@ -5800,7 +6134,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="kmsKeyVersionId")
     def kms_key_version_id(self) -> pulumi.Output[_builtins.str]:
         """
-        The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous Database Serverless does not use key versions, hence is not applicable for Autonomous Database Serverless instances.
+        The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation. Autonomous AI Database Serverless does not use key versions, hence is not applicable for Autonomous AI Database Serverless instances.
         """
         return pulumi.get(self, "kms_key_version_id")
 
@@ -5808,7 +6142,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="licenseModel")
     def license_model(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) The Oracle license model that applies to the Oracle Autonomous Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle Database software licenses and the Oracle Database service. Note that when provisioning an [Autonomous Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
+        (Updatable) The Oracle license model that applies to the Oracle Autonomous AI Database. Bring your own license (BYOL) allows you to apply your current on-premises Oracle software licenses to equivalent, highly automated Oracle services in the cloud. License Included allows you to subscribe to new Oracle AI Database software licenses and the Oracle AI Database service. Note that when provisioning an [Autonomous AI Database on dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html), this attribute must be null. It is already set at the Autonomous Exadata Infrastructure level. When provisioning an [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) database, if a value is not specified, the system defaults the value to `BRING_YOUR_OWN_LICENSE`. Bring your own license (BYOL) also allows you to select the DB edition using the optional parameter.
 
         This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, dataStorageSizeInTBs, adminPassword, isMTLSConnectionRequired, dbWorkload, privateEndpointLabel, nsgIds, dbVersion, dbName, scheduledOperations, dbToolsDetails, or isFreeTier. It is a required field when `db_workload` is AJD and needs to be set to `LICENSE_INCLUDED` as AJD does not support default `license_model` value `BRING_YOUR_OWN_LICENSE`.
         """
@@ -5831,10 +6165,18 @@ class AutonomousDatabase(pulumi.CustomResource):
         return pulumi.get(self, "local_adg_auto_failover_max_data_loss_limit")
 
     @_builtins.property
+    @pulumi.getter(name="localAdgResourcePoolLeaderId")
+    def local_adg_resource_pool_leader_id(self) -> pulumi.Output[_builtins.str]:
+        """
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the dedicated resource pool leader Autonomous Database in the same region, associated with local Autonomous Data Guard for a dedicated resource pool member.
+        """
+        return pulumi.get(self, "local_adg_resource_pool_leader_id")
+
+    @_builtins.property
     @pulumi.getter(name="localDisasterRecoveryType")
     def local_disaster_recovery_type(self) -> pulumi.Output[_builtins.str]:
         """
-        Indicates the local disaster recovery (DR) type of the Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        Indicates the local disaster recovery (DR) type of the Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
         """
         return pulumi.get(self, "local_disaster_recovery_type")
 
@@ -5868,10 +6210,18 @@ class AutonomousDatabase(pulumi.CustomResource):
         return pulumi.get(self, "max_cpu_core_count")
 
     @_builtins.property
+    @pulumi.getter(name="memoryPerComputeUnitInGbs")
+    def memory_per_compute_unit_in_gbs(self) -> pulumi.Output[_builtins.float]:
+        """
+        The amount of memory (in GBs) to be enabled per OCPU or ECPU.
+        """
+        return pulumi.get(self, "memory_per_compute_unit_in_gbs")
+
+    @_builtins.property
     @pulumi.getter(name="memoryPerOracleComputeUnitInGbs")
     def memory_per_oracle_compute_unit_in_gbs(self) -> pulumi.Output[_builtins.int]:
         """
-        The amount of memory (in GBs) enabled per ECPU or OCPU.
+        The amount of memory (in GBs, rounded off to nearest integer value) to be enabled per OCPU or ECPU. This is deprecated. Please refer to memoryPerComputeUnitInGBs for accurate value.
         """
         return pulumi.get(self, "memory_per_oracle_compute_unit_in_gbs")
 
@@ -5879,7 +6229,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="ncharacterSet")
     def ncharacter_set(self) -> pulumi.Output[_builtins.str]:
         """
-        The character set for the Autonomous Database. The default is AL32UTF8. Use [List Autonomous Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous Database Serverless instance. For an Autonomous Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
+        The character set for the Autonomous AI Database. The default is AL32UTF8. Use [List Autonomous AI Database Character Sets](https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-character-set-selection.html) to list the allowed values for an Autonomous AI Database Serverless instance. For an Autonomous AI Database on dedicated Exadata infrastructure, the allowed values are: AL16UTF16 or UTF8.
         """
         return pulumi.get(self, "ncharacter_set")
 
@@ -5904,7 +6254,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     def nsg_ids(self) -> pulumi.Output[Sequence[_builtins.str]]:
         """
         (Updatable) The list of [OCIDs](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) for the network security groups (NSGs) to which this resource belongs. Setting this to an empty list removes all resources from all NSGs. For more information about NSGs, see [Security Rules](https://docs.cloud.oracle.com/iaas/Content/Network/Concepts/securityrules.htm). **NsgIds restrictions:**
-        * A network security group (NSG) is optional for Autonomous Databases with private access. The nsgIds list can be empty.
+        * A network security group (NSG) is optional for Autonomous AI Databases with private access. The nsgIds list can be empty.
         """
         return pulumi.get(self, "nsg_ids")
 
@@ -5915,11 +6265,11 @@ class AutonomousDatabase(pulumi.CustomResource):
         (Updatable) The number of OCPU cores to be made available to the database.
 
         The following points apply:
-        * For Autonomous Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous Database Serverless instances.)
-        * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous Database Serverless instance or an Autonomous Database on Dedicated Exadata Infrastructure.
-        * For Autonomous Database Serverless instances, this parameter is not used.
+        * For Autonomous AI Databases on Dedicated Exadata infrastructure, to provision less than 1 core, enter a fractional value in an increment of 0.1. For example, you can provision 0.3 or 0.4 cores, but not 0.35 cores. (Note that fractional OCPU values are not supported for Autonomous AI Database Serverless instances.)
+        * To provision 1 or more cores, you must enter an integer between 1 and the maximum number of cores available for the infrastructure shape. For example, you can provision 2 cores or 3 cores, but not 2.5 cores. This applies to an Autonomous AI Database Serverless instance or an Autonomous AI Database on Dedicated Exadata Infrastructure.
+        * For Autonomous AI Database Serverless instances, this parameter is not used.
 
-        For Autonomous Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://www.oracle.com/pls/topic/lookup?ctx=en/cloud/paas/autonomous-database&id=ATPFG-GUID-B0F033C1-CC5A-42F0-B2E7-3CECFEDA1FD1) for shape details.
+        For Autonomous AI Databases on Dedicated Exadata infrastructure, the maximum number of cores is determined by the infrastructure shape. See [Characteristics of Infrastructure Shapes](https://docs.oracle.com/en/cloud/paas/autonomous-database/dedicated/adbde/) for shape details.
 
         **Note:** This parameter cannot be used with the `cpuCoreCount` parameter.
         """
@@ -5929,7 +6279,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="openMode")
     def open_mode(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) Indicates the Autonomous Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
+        (Updatable) Indicates the Autonomous AI Database mode. The database can be opened in `READ_ONLY` or `READ_WRITE` mode.
 
         This cannot be updated in parallel with any of the following: cpuCoreCount, computeCount, computeModel, adminPassword, whitelistedIps, isMTLSConnectionRequired, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, or isFreeTier.
         """
@@ -5939,7 +6289,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="operationsInsightsStatus")
     def operations_insights_status(self) -> pulumi.Output[_builtins.str]:
         """
-        Status of Operations Insights for this Autonomous Database.
+        Status of Operations Insights for this Autonomous AI Database.
         """
         return pulumi.get(self, "operations_insights_status")
 
@@ -5952,7 +6302,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="peerDbIds")
     def peer_db_ids(self) -> pulumi.Output[Sequence[_builtins.str]]:
         """
-        The list of [OCIDs](https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of standby databases located in Autonomous Data Guard remote regions that are associated with the source database. Note that for Autonomous Database Serverless instances, standby databases located in the same region as the source primary database do not have OCIDs.
+        The list of [OCIDs](https://docs.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of standby databases located in Autonomous Data Guard remote regions that are associated with the source database. Note that for Autonomous AI Database Serverless instances, standby databases located in the same region as the source primary database do not have OCIDs.
         """
         return pulumi.get(self, "peer_db_ids")
 
@@ -5960,7 +6310,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="permissionLevel")
     def permission_level(self) -> pulumi.Output[_builtins.str]:
         """
-        The Autonomous Database permission level. Restricted mode allows access only by admin users.
+        The Autonomous AI Database permission level. Restricted mode allows access only by admin users.
         """
         return pulumi.get(self, "permission_level")
 
@@ -5992,7 +6342,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="provisionableCpuses")
     def provisionable_cpuses(self) -> pulumi.Output[Sequence[_builtins.float]]:
         """
-        An array of CPU values that an Autonomous Database can be scaled to.
+        An array of CPU values that an Autonomous AI Database can be scaled to.
         """
         return pulumi.get(self, "provisionable_cpuses")
 
@@ -6016,7 +6366,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="refreshableMode")
     def refreshable_mode(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous Database.
+        (Updatable) The refresh mode of the clone. AUTOMATIC indicates that the clone is automatically being refreshed with data from the source Autonomous AI Database.
         """
         return pulumi.get(self, "refreshable_mode")
 
@@ -6024,7 +6374,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="refreshableStatus")
     def refreshable_status(self) -> pulumi.Output[_builtins.str]:
         """
-        The refresh status of the clone. REFRESHING indicates that the clone is currently being refreshed with data from the source Autonomous Database.
+        The refresh status of the clone. REFRESHING indicates that the clone is currently being refreshed with data from the source Autonomous AI Database.
         """
         return pulumi.get(self, "refreshable_status")
 
@@ -6040,7 +6390,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="remoteDisasterRecoveryType")
     def remote_disaster_recovery_type(self) -> pulumi.Output[_builtins.str]:
         """
-        Indicates the cross-region disaster recovery (DR) type of the standby Autonomous Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
+        Indicates the cross-region disaster recovery (DR) type of the standby Autonomous AI Database Serverless instance. Autonomous Data Guard (ADG) DR type provides business critical DR with a faster recovery time objective (RTO) during failover or switchover. Backup-based DR type provides lower cost DR with a slower RTO during failover or switchover.
         """
         return pulumi.get(self, "remote_disaster_recovery_type")
 
@@ -6048,7 +6398,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="resourcePoolLeaderId")
     def resource_pool_leader_id(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) The unique identifier for leader autonomous database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
+        (Updatable) The unique identifier for leader Autonomous AI Database OCID [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
         """
         return pulumi.get(self, "resource_pool_leader_id")
 
@@ -6064,13 +6414,16 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter
     def role(self) -> pulumi.Output[_builtins.str]:
         """
-        The Data Guard role of the Autonomous Container Database or Autonomous Database, if Autonomous Data Guard is enabled.
+        The Data Guard role of the Autonomous Container Database or Autonomous AI Database, if Autonomous Data Guard is enabled.
         """
         return pulumi.get(self, "role")
 
     @_builtins.property
     @pulumi.getter(name="rotateKeyTrigger")
     def rotate_key_trigger(self) -> pulumi.Output[Optional[_builtins.bool]]:
+        """
+        (Updatable) An optional property when flipped triggers rotation of KMS key. It is only applicable on dedicated databases i.e. where `is_dedicated` is true.
+        """
         return pulumi.get(self, "rotate_key_trigger")
 
     @_builtins.property
@@ -6113,7 +6466,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="serviceConsoleUrl")
     def service_console_url(self) -> pulumi.Output[_builtins.str]:
         """
-        The URL of the Service Console for the Autonomous Database.
+        The URL of the Service Console for the Autonomous AI Database.
         """
         return pulumi.get(self, "service_console_url")
 
@@ -6126,9 +6479,9 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter
     def source(self) -> pulumi.Output[_builtins.str]:
         """
-        The source of the database: Use `NONE` for creating a new Autonomous Database. Use `DATABASE` for creating a new Autonomous Database by cloning an existing Autonomous Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
+        The source of the database: Use `NONE` for creating a new Autonomous AI Database. Use `DATABASE` for creating a new Autonomous AI Database by cloning an existing Autonomous AI Database. Use `CROSS_REGION_DATAGUARD` to create a standby Data Guard database in another region.
 
-        For [Autonomous Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous Database clone using backups. For more information, see [Cloning and Moving an Autonomous Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
+        For [Autonomous AI Database Serverless instances](https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/), the following cloning options are available: Use `BACKUP_FROM_ID` for creating a new Autonomous AI Database from a specified backup. Use `BACKUP_FROM_TIMESTAMP` for creating a point-in-time Autonomous AI Database clone using backups. For more information, see [Cloning and Moving an Autonomous AI Database](https://docs.oracle.com/en/cloud/paas/autonomous-database/adbsa/clone-autonomous-database.html#GUID-D771796F-5081-4CFB-A7FF-0F893EABD7BC).
         """
         return pulumi.get(self, "source")
 
@@ -6136,7 +6489,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="sourceId")
     def source_id(self) -> pulumi.Output[_builtins.str]:
         """
-        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that will be used to create a new peer database for the Data Guard association.
+        The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the source Autonomous AI Database that will be used to create a new peer database for the Data Guard association.
         """
         return pulumi.get(self, "source_id")
 
@@ -6152,9 +6505,9 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="standbyWhitelistedIps")
     def standby_whitelisted_ips(self) -> pulumi.Output[Sequence[_builtins.str]]:
         """
-        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
 
-        For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+        For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
 
         For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
 
@@ -6166,7 +6519,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter
     def state(self) -> pulumi.Output[_builtins.str]:
         """
-        The current state of the Autonomous Database.
+        The current state of the Autonomous AI Database.
         """
         return pulumi.get(self, "state")
 
@@ -6179,7 +6532,7 @@ class AutonomousDatabase(pulumi.CustomResource):
         **Subnet Restrictions:**
         * For bare metal DB systems and for single node virtual machine DB systems, do not use a subnet that overlaps with 192.168.16.16/28.
         * For Exadata and virtual machine 2-node RAC systems, do not use a subnet that overlaps with 192.168.128.0/20.
-        * For Autonomous Database, setting this will disable public secure access to the database.
+        * For Autonomous AI Database, setting this will disable public secure access to the database.
 
         These subnets are used by the Oracle Clusterware private interconnect on the database instance. Specifying an overlapping subnet will cause the private interconnect to malfunction. This restriction applies to both the client subnet and the backup subnet.
         """
@@ -6197,18 +6550,24 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="supportedRegionsToCloneTos")
     def supported_regions_to_clone_tos(self) -> pulumi.Output[Sequence[_builtins.str]]:
         """
-        The list of regions that support the creation of an Autonomous Database clone or an Autonomous Data Guard standby database.
+        The list of regions that support the creation of an Autonomous AI Database clone or an Autonomous Data Guard standby database.
         """
         return pulumi.get(self, "supported_regions_to_clone_tos")
 
     @_builtins.property
     @pulumi.getter(name="switchoverTo")
     def switchover_to(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        It is applicable only when `is_local_data_guard_enabled` is true. Could be set to `PRIMARY` or `STANDBY`. Default value is `PRIMARY`.
+        """
         return pulumi.get(self, "switchover_to")
 
     @_builtins.property
     @pulumi.getter(name="switchoverToRemotePeerId")
     def switchover_to_remote_peer_id(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        (Updatable) It is applicable only when `dataguard_region_type` and `role` are set, and `is_dedicated` is false. For Autonomous Database Serverless instances, Data Guard associations have designated primary and standby regions, and these region types do not change when the database changes roles. It takes the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the remote peer to switchover to and the API is called from the remote region.
+        """
         return pulumi.get(self, "switchover_to_remote_peer_id")
 
     @_builtins.property
@@ -6223,7 +6582,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="timeCreated")
     def time_created(self) -> pulumi.Output[_builtins.str]:
         """
-        The date and time the Autonomous Database was created.
+        The date and time the Autonomous AI Database was created.
         """
         return pulumi.get(self, "time_created")
 
@@ -6231,7 +6590,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="timeDataGuardRoleChanged")
     def time_data_guard_role_changed(self) -> pulumi.Output[_builtins.str]:
         """
-        The date and time the Autonomous Data Guard role was switched for the Autonomous Database. For databases that have standbys in both the primary Data Guard region and a remote Data Guard standby region, this is the latest timestamp of either the database using the "primary" role in the primary Data Guard region, or database located in the remote Data Guard standby region.
+        The date and time the Autonomous Data Guard role was switched for the Autonomous AI Database. For databases that have standbys in both the primary Data Guard region and a remote Data Guard standby region, this is the latest timestamp of either the database using the "primary" role in the primary Data Guard region, or database located in the remote Data Guard standby region.
         """
         return pulumi.get(self, "time_data_guard_role_changed")
 
@@ -6247,7 +6606,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="timeDisasterRecoveryRoleChanged")
     def time_disaster_recovery_role_changed(self) -> pulumi.Output[_builtins.str]:
         """
-        The date and time the Disaster Recovery role was switched for the standby Autonomous Database.
+        The date and time the Disaster Recovery role was switched for the standby Autonomous AI Database.
         """
         return pulumi.get(self, "time_disaster_recovery_role_changed")
 
@@ -6255,7 +6614,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="timeEarliestAvailableDbVersionUpgrade")
     def time_earliest_available_db_version_upgrade(self) -> pulumi.Output[_builtins.str]:
         """
-        The earliest(min) date and time the Autonomous Database can be scheduled to upgrade to 23ai.
+        The earliest(min) date and time the Autonomous AI Database can be scheduled to upgrade to 26ai.
         """
         return pulumi.get(self, "time_earliest_available_db_version_upgrade")
 
@@ -6263,7 +6622,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="timeLatestAvailableDbVersionUpgrade")
     def time_latest_available_db_version_upgrade(self) -> pulumi.Output[_builtins.str]:
         """
-        The max date and time the Autonomous Database can be scheduled to upgrade to 23ai.
+        The max date and time the Autonomous AI Database can be scheduled to upgrade to 26ai.
         """
         return pulumi.get(self, "time_latest_available_db_version_upgrade")
 
@@ -6271,7 +6630,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="timeLocalDataGuardEnabled")
     def time_local_data_guard_enabled(self) -> pulumi.Output[_builtins.str]:
         """
-        The date and time that Autonomous Data Guard was enabled for an Autonomous Database where the standby was provisioned in the same region as the primary database.
+        The date and time that Autonomous Data Guard was enabled for an Autonomous AI Database where the standby was provisioned in the same region as the primary database.
         """
         return pulumi.get(self, "time_local_data_guard_enabled")
 
@@ -6292,10 +6651,18 @@ class AutonomousDatabase(pulumi.CustomResource):
         return pulumi.get(self, "time_maintenance_end")
 
     @_builtins.property
+    @pulumi.getter(name="timeMaintenancePauseUntil")
+    def time_maintenance_pause_until(self) -> pulumi.Output[_builtins.str]:
+        """
+        The date until which maintenance of Autonomous Database is temporarily paused.
+        """
+        return pulumi.get(self, "time_maintenance_pause_until")
+
+    @_builtins.property
     @pulumi.getter(name="timeOfAutoRefreshStart")
     def time_of_auto_refresh_start(self) -> pulumi.Output[_builtins.str]:
         """
-        (Updatable) The the date and time that auto-refreshing will begin for an Autonomous Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
+        (Updatable) The the date and time that auto-refreshing will begin for an Autonomous AI Database refreshable clone. This value controls only the start time for the first refresh operation. Subsequent (ongoing) refresh operations have start times controlled by the value of the `autoRefreshFrequencyInSeconds` parameter.
         """
         return pulumi.get(self, "time_of_auto_refresh_start")
 
@@ -6335,7 +6702,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="timeOfLastSwitchover")
     def time_of_last_switchover(self) -> pulumi.Output[_builtins.str]:
         """
-        The timestamp of the last switchover operation for the Autonomous Database.
+        The timestamp of the last switchover operation for the Autonomous AI Database.
         """
         return pulumi.get(self, "time_of_last_switchover")
 
@@ -6359,7 +6726,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="timeScheduledDbVersionUpgrade")
     def time_scheduled_db_version_upgrade(self) -> pulumi.Output[_builtins.str]:
         """
-        The date and time the Autonomous Database scheduled to upgrade to 23ai. Send this value along with the target db_version value to schedule the database version upgrade. After the upgrade is scheduled and before the scheduled upgrade time arrives, please keep the db_version value the same as the backend's current db_version.
+        The date and time the Autonomous AI Database scheduled to upgrade to 26ai.
         """
         return pulumi.get(self, "time_scheduled_db_version_upgrade")
 
@@ -6367,7 +6734,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="timeUndeleted")
     def time_undeleted(self) -> pulumi.Output[_builtins.str]:
         """
-        The date and time the Autonomous Database was most recently undeleted.
+        The date and time the Autonomous AI Database was most recently undeleted.
         """
         return pulumi.get(self, "time_undeleted")
 
@@ -6383,7 +6750,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter
     def timestamp(self) -> pulumi.Output[_builtins.str]:
         """
-        The timestamp specified for the point-in-time clone of the source Autonomous Database. The timestamp must be in the past.
+        The timestamp specified for the point-in-time clone of the source Autonomous AI Database. The timestamp must be in the past.
         """
         return pulumi.get(self, "timestamp")
 
@@ -6394,6 +6761,14 @@ class AutonomousDatabase(pulumi.CustomResource):
         The backup storage to the database.
         """
         return pulumi.get(self, "total_backup_storage_size_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="transportableTablespace")
+    def transportable_tablespace(self) -> pulumi.Output['outputs.AutonomousDatabaseTransportableTablespace']:
+        """
+        Details for importing transportable tablespace for an Autonomous Database.
+        """
+        return pulumi.get(self, "transportable_tablespace")
 
     @_builtins.property
     @pulumi.getter(name="useLatestAvailableBackupTimeStamp")
@@ -6407,7 +6782,7 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="usedDataStorageSizeInGbs")
     def used_data_storage_size_in_gbs(self) -> pulumi.Output[_builtins.int]:
         """
-        The storage space consumed by Autonomous Database in GBs.
+        The storage space consumed by Autonomous AI Database in GBs.
         """
         return pulumi.get(self, "used_data_storage_size_in_gbs")
 
@@ -6415,9 +6790,25 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="usedDataStorageSizeInTbs")
     def used_data_storage_size_in_tbs(self) -> pulumi.Output[_builtins.int]:
         """
-        The amount of storage that has been used for Autonomous Databases in dedicated infrastructure, in terabytes.
+        The amount of storage that has been used for Autonomous AI Databases in dedicated infrastructure, in terabytes.
         """
         return pulumi.get(self, "used_data_storage_size_in_tbs")
+
+    @_builtins.property
+    @pulumi.getter(name="vanityConnectionUrls")
+    def vanity_connection_urls(self) -> pulumi.Output[Sequence['outputs.AutonomousDatabaseVanityConnectionUrl']]:
+        """
+        The URLs for accessing Oracle Application Express (APEX) and SQL Developer Web with a browser from a Compute instance within your VCN or that has a direct connection to your VCN. Note that these URLs are provided by the console only for databases on [dedicated Exadata infrastructure](https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html).  Example: `{"sqlDevWebUrl": "https://<hostname>/ords...", "apexUrl", "https://<hostname>/ords..."}`
+        """
+        return pulumi.get(self, "vanity_connection_urls")
+
+    @_builtins.property
+    @pulumi.getter(name="vanityUrlDetails")
+    def vanity_url_details(self) -> pulumi.Output[Sequence['outputs.AutonomousDatabaseVanityUrlDetail']]:
+        """
+        Details for api gateway and vanity url(custom url) for dbTools.
+        """
+        return pulumi.get(self, "vanity_url_details")
 
     @_builtins.property
     @pulumi.getter(name="vaultId")
@@ -6431,17 +6822,13 @@ class AutonomousDatabase(pulumi.CustomResource):
     @pulumi.getter(name="whitelistedIps")
     def whitelisted_ips(self) -> pulumi.Output[Optional[Sequence[_builtins.str]]]:
         """
-        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
+        (Updatable) The client IP access control list (ACL). This feature is available for [Autonomous AI Database Serverless] (https://docs.oracle.com/en/cloud/paas/autonomous-database/index.html) and on Exadata Cloud@Customer. Only clients connecting from an IP address included in the ACL may access the Autonomous AI Database instance. If `arePrimaryWhitelistedIpsUsed` is 'TRUE' then Autonomous AI Database uses this primary's IP access control list (ACL) for the disaster recovery peer called `standbywhitelistedips`.
 
-        For Autonomous Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
+        For Autonomous AI Database Serverless, this is an array of CIDR (classless inter-domain routing) notations for a subnet or VCN OCID (virtual cloud network Oracle Cloud ID). Multiple IPs and VCN OCIDs should be separate strings separated by commas, but if it’s other configurations that need multiple pieces of information then its each piece is connected with semicolon (;) as a delimiter. Example: `["1.1.1.1","1.1.1.0/24","ocid1.vcn.oc1.sea.<unique_id>","ocid1.vcn.oc1.sea.<unique_id1>;1.1.1.1","ocid1.vcn.oc1.sea.<unique_id2>;1.1.0.0/16"]` For Exadata Cloud@Customer, this is an array of IP addresses or CIDR notations. Example: `["1.1.1.1","1.1.1.0/24","1.1.2.25"]`
 
         For an update operation, if you want to delete all the IPs in the ACL, use an array with a single empty string entry.
 
         This cannot be updated in parallel with any of the following: licenseModel, dbEdition, cpuCoreCount, computeCount, computeModel, adminPassword, isMTLSConnectionRequired, openMode, permissionLevel, dbWorkload, dbVersion, isRefreshable, dbName, scheduledOperations, dbToolsDetails, isLocalDataGuardEnabled, or isFreeTier. To remove all whitelisted IPs, set the field to a list with an empty string `[""]`.
-
-
-        ** IMPORTANT **
-        Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
         """
         return pulumi.get(self, "whitelisted_ips")
 

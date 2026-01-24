@@ -7,6 +7,7 @@ import os
 import ssl
 import typing
 
+from decimal import Decimal
 from typing import Optional
 from urllib.parse import quote
 
@@ -70,6 +71,8 @@ def sanitize_for_serialization(obj: None) -> None: ...
 @typing.overload
 def sanitize_for_serialization(obj: PrimitiveTypes) -> PrimitiveTypes: ...
 @typing.overload
+def sanitize_for_serialization(obj: Decimal) -> str: ...
+@typing.overload
 def sanitize_for_serialization(obj: list[typing.Any]) -> list[typing.Any]: ...
 @typing.overload
 def sanitize_for_serialization(obj: tuple[typing.Any, ...]) -> tuple[typing.Any, ...]: ...
@@ -87,6 +90,7 @@ def sanitize_for_serialization(
         bytes,
         str,
         int,
+        Decimal,
         list[typing.Any],
         tuple[typing.Any, ...],
         datetime.datetime,
@@ -101,6 +105,7 @@ def sanitize_for_serialization(
 
     If obj is None, return None.
     If obj is str, int, long, float, bool, return directly.
+    if obj is decimal.Decimal, convert to string, using scientific notation if needed.
     If obj is datetime.datetime, datetime.date
         convert to string in iso8601 format.
     If obj is list, sanitize each element in the list.
@@ -114,6 +119,8 @@ def sanitize_for_serialization(
         return None
     elif isinstance(obj, PRIMITIVE_TYPES):
         return obj
+    elif isinstance(obj, Decimal):
+        return str(obj)
     elif isinstance(obj, SecretStr):
         return obj.get_secret_value()
     elif isinstance(obj, list):

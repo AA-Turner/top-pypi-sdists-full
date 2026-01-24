@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -69,39 +69,39 @@ class Warehouse(BaseModel):
     size : str, optional
         [Deprecated] names of size: X-Small, Small, Medium, Large, X-Large, 2X-Large, 3X-Large, 4X-Large, 5X-Large, 6X-Large
     state : str, optional
-        The state of warehouse, possible states: STARTED, STARTING, DYNAMIC, SUSPENDED, RESIZING, RESUMING, SUSPENDING
+        The state of warehouse, possible states: STARTED, STARTING, DYNAMIC, SUSPENDED, RESIZING, RESUMING, SUSPENDING — **Read-only:** *any user-provided value will be ignored.*
     started_clusters : int, optional
-        Number of clusters currently started.
+        Number of clusters currently started — **Read-only:** *any user-provided value will be ignored.*
     running : int, optional
-        Number of SQL statements that are being executed by the warehouse.
+        Number of SQL statements that are being executed by the warehouse — **Read-only:** *any user-provided value will be ignored.*
     queued : int, optional
-        Number of SQL statements that are queued for the warehouse.
+        Number of SQL statements that are queued for the warehouse — **Read-only:** *any user-provided value will be ignored.*
     is_default : bool, optional
-        Whether the warehouse is the default for the current user.
+        Whether the warehouse is the default for the current user — **Read-only:** *any user-provided value will be ignored.*
     is_current : bool, optional
-        Whether the warehouse is in use for the session. Only one warehouse can be in use at a time for a session.  To specify or change the warehouse for a session, use the USE WAREHOUSE command.
+        Whether the warehouse is in use for the session. Only one warehouse can be in use at a time for a session.  To specify or change the warehouse for a session, use the USE WAREHOUSE command — **Read-only:** *any user-provided value will be ignored.*
     available : str, optional
-        Percentage of the warehouse compute resources that are provisioned and available.
+        Percentage of the warehouse compute resources that are provisioned and available — **Read-only:** *any user-provided value will be ignored.*
     provisioning : str, optional
-        Percentage of the warehouse compute resources that are in the process of provisioning.
+        Percentage of the warehouse compute resources that are in the process of provisioning — **Read-only:** *any user-provided value will be ignored.*
     quiescing : str, optional
-        Percentage of the warehouse compute resources that are executing SQL statements,  but will be shut down once the queries complete.
+        Percentage of the warehouse compute resources that are executing SQL statements,  but will be shut down once the queries complete — **Read-only:** *any user-provided value will be ignored.*
     other : str, optional
-        Percentage of the warehouse compute resources that are in a state other than available,  provisioning, or quiescing.
+        Percentage of the warehouse compute resources that are in a state other than available,  provisioning, or quiescing — **Read-only:** *any user-provided value will be ignored.*
     created_on : datetime, optional
-        Date and time when the warehouse was created.
+        Date and time when the warehouse was created — **Read-only:** *any user-provided value will be ignored.*
     resumed_on : datetime, optional
-        Date and time when the warehouse was last started or restarted.
+        Date and time when the warehouse was last started or restarted — **Read-only:** *any user-provided value will be ignored.*
     updated_on : datetime, optional
-        Date and time when the warehouse was last updated,  which includes changing any of the properties of the warehouse or changing the state (STARTED, SUSPENDED, RESIZING) of the warehouse.
+        Date and time when the warehouse was last updated,  which includes changing any of the properties of the warehouse or changing the state (STARTED, SUSPENDED, RESIZING) of the warehouse — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the warehouse.
+        Role that owns the warehouse — **Read-only:** *any user-provided value will be ignored.*
     budget : str, optional
-        Comment representing budget for warehouse.
+        Comment representing budget for warehouse — **Read-only:** *any user-provided value will be ignored.*
     kind : str, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the object.
+        The type of role that owns the object — **Read-only:** *any user-provided value will be ignored.*
     warehouse_credit_limit : int, optional
         Credit limit that are can be executed by the warehouse.
     target_statement_size : str, optional
@@ -271,9 +271,10 @@ class Warehouse(BaseModel):
             raise ValueError("must validate the enum values ('true','false')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -318,7 +319,7 @@ class Warehouse(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -333,9 +334,9 @@ class Warehouse(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Warehouse.parse_obj(obj)
+            return Warehouse.model_validate(obj)
 
-        _obj = Warehouse.parse_obj(
+        _obj = Warehouse.model_validate(
             {
                 "name": obj.get("name"),
                 "warehouse_type": obj.get("warehouse_type"),

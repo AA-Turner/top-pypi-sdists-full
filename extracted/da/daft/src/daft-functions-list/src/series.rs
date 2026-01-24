@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use arrow2::offset::OffsetsBuffer;
 use common_error::{DaftError, DaftResult};
+use daft_arrow::offset::OffsetsBuffer;
 use daft_core::{
     array::{ListArray, growable::make_growable, ops::GroupIndices},
     prelude::{CountMode, DataType, Field, Int64Array, UInt64Array, Utf8Array},
@@ -100,13 +100,9 @@ impl SeriesListExtension for Series {
                 let struct_array = self.as_physical()?;
                 let data_array = struct_array.struct_()?.children[0].list().unwrap();
                 let offsets = data_array.offsets();
-                let array = Box::new(
-                    arrow2::array::PrimitiveArray::from_vec(
-                        offsets.lengths().map(|l| l as u64).collect(),
-                    )
-                    .with_validity(data_array.validity().cloned()),
-                );
-                Ok(UInt64Array::from((self.name(), array)))
+                UInt64Array::from_iter_values(offsets.lengths().map(|l| l as u64))
+                    .rename(self.name())
+                    .with_nulls(data_array.nulls().cloned())
             }
             dt => Err(DaftError::TypeError(format!(
                 "Count not implemented for {}",
@@ -316,7 +312,7 @@ impl SeriesListExtension for Series {
             Arc::new(Field::new(input.name(), input.data_type().clone())),
             growable.build()?,
             OffsetsBuffer::try_from(offsets)?,
-            input.validity().cloned(),
+            input.nulls().cloned(),
         );
 
         Ok(list_array.into_series())
@@ -356,7 +352,7 @@ impl SeriesListExtension for Series {
         }
 
         let child_arr = growable.build()?;
-        let new_offsets = arrow2::offset::Offsets::try_from_lengths(new_lengths.into_iter())?;
+        let new_offsets = daft_arrow::offset::Offsets::try_from_lengths(new_lengths.into_iter())?;
         let list_array = ListArray::new(
             input.field.clone(),
             child_arr,

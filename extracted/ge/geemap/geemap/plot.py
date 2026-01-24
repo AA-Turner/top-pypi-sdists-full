@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.express as px
 
 from .common import *
+from . import coreutils
 
 
 def bar_chart(
@@ -238,7 +239,7 @@ def bar_chart(
 
     if isinstance(data, str):
         if data.startswith("http"):
-            data = github_raw_url(data)
+            data = coreutils.github_raw_url(data)
             data = get_direct_url(data)
 
         try:
@@ -271,12 +272,12 @@ def bar_chart(
         labels = {}
 
     if x_label is not None:
-        labels[x] = x_label
+        labels[x] = x_label  # pytype: disable=unsupported-operands
     if y_label is not None:
         if isinstance(y, str):
-            labels[y] = y_label
+            labels[y] = y_label  # pytype: disable=unsupported-operands
         elif isinstance(y, list):
-            labels[y[0]] = y_label
+            labels[y[0]] = y_label  # pytype: disable=unsupported-operands
 
     if isinstance(legend_title, str):
         if "legend" not in layout_args:
@@ -529,7 +530,7 @@ def line_chart(
 
     if isinstance(data, str):
         if data.startswith("http"):
-            data = github_raw_url(data)
+            data = coreutils.github_raw_url(data)
             data = get_direct_url(data)
 
         try:
@@ -808,7 +809,7 @@ def histogram(
 
     if isinstance(data, str):
         if data.startswith("http"):
-            data = github_raw_url(data)
+            data = coreutils.github_raw_url(data)
             data = get_direct_url(data)
 
         try:
@@ -963,7 +964,7 @@ def pie_chart(
     """
     if isinstance(data, str):
         if data.startswith("http"):
-            data = github_raw_url(data)
+            data = coreutils.github_raw_url(data)
             data = get_direct_url(data)
 
         try:

@@ -426,7 +426,7 @@ class DatabaseRoleApi:
         # process the body parameter
         _body_params = None
 
-        if _params["database_role"]:
+        if _params["database_role"] is not None:
             _body_params = _params["database_role"]
 
         # set the HTTP header `Accept`
@@ -743,7 +743,7 @@ class DatabaseRoleApi:
         # process the body parameter
         _body_params = None
 
-        if _params["database_role_clone"]:
+        if _params["database_role_clone"] is not None:
             _body_params = _params["database_role_clone"]
 
         # set the HTTP header `Accept`
@@ -990,7 +990,7 @@ class DatabaseRoleApi:
         # process the body parameter
         _body_params = None
 
-        if _params["grant"]:
+        if _params["grant"] is not None:
             _body_params = _params["grant"]
 
         # set the HTTP header `Accept`
@@ -1237,7 +1237,7 @@ class DatabaseRoleApi:
         # process the body parameter
         _body_params = None
 
-        if _params["grant"]:
+        if _params["grant"] is not None:
             _body_params = _params["grant"]
 
         # set the HTTP header `Accept`
@@ -2311,7 +2311,7 @@ class DatabaseRoleApi:
         # process the body parameter
         _body_params = None
 
-        if _params["grant"]:
+        if _params["grant"] is not None:
             _body_params = _params["grant"]
 
         # set the HTTP header `Accept`
@@ -2595,7 +2595,7 @@ class DatabaseRoleApi:
         # process the body parameter
         _body_params = None
 
-        if _params["grant"]:
+        if _params["grant"] is not None:
             _body_params = _params["grant"]
 
         # set the HTTP header `Accept`

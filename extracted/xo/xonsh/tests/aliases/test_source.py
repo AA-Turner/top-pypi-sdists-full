@@ -1,12 +1,14 @@
 import builtins
 import os.path
+import shlex
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-from xonsh.aliases import make_default_aliases, source_alias
+from xonsh.aliases import make_default_aliases, source_alias_fn, source_foreign_fn
+from xonsh.tools import argvquote
 
 
 @pytest.fixture
@@ -29,19 +31,39 @@ def mocked_execx_checker(xession, monkeypatch):
     return checker
 
 
-def test_source_current_dir(mockopen, monkeypatch, mocked_execx_checker):
+def test_source_files(mockopen, monkeypatch, mocked_execx_checker):
     monkeypatch.setattr(os.path, "isfile", lambda x: True)
-    source_alias(["foo", "bar"])
-    assert mocked_execx_checker == ["foo", "bar"]
+    files = [".xonshrc", "foo.xsh", "bar.xonshrc", "py.py"]
+    source_alias_fn(files)
+    assert mocked_execx_checker == files
 
 
-def test_source_path(mockopen, mocked_execx_checker, xession):
+def test_source_files_any_ext_exception(mockopen, monkeypatch, mocked_execx_checker):
+    monkeypatch.setattr(os.path, "isfile", lambda x: True)
+    with pytest.raises(RuntimeError):
+        source_alias_fn(["foo.bar", "bar.foo", ".foobar"])
+
+
+def test_source_files_any_ext(mockopen, monkeypatch, mocked_execx_checker):
+    monkeypatch.setattr(os.path, "isfile", lambda x: True)
+    files = [
+        "foo.bar",
+        "bar.foo",
+        ".foobar",
+        ".xonshrc",
+        "foo.xsh",
+        "bar.xonshrc",
+        "py.py",
+    ]
+    source_alias_fn(files, ignore_ext=True)
+    assert mocked_execx_checker == files
+
+
+def test_source_from_env_path(mockopen, mocked_execx_checker, xession):
     with xession.env.swap(PATH=[Path(__file__).parent.parent / "bin"]):
-        source_alias(["foo", "bar"])
-    path_foo = os.path.join("bin", "foo")
-    path_bar = os.path.join("bin", "bar")
-    assert mocked_execx_checker[0].endswith(path_foo)
-    assert mocked_execx_checker[1].endswith(path_bar)
+        source_alias_fn(["foo", "bar"], ignore_ext=True)
+    assert mocked_execx_checker[0].endswith("foo")
+    assert mocked_execx_checker[1].endswith("bar")
 
 
 @pytest.mark.parametrize(
@@ -80,3 +102,39 @@ def test_source_foreign_fn_parser(alias, xession):
         "dryrun",
         "interactive",
     ]
+
+
+def _spy_foreign_shell(monkeypatch):
+    calls = {}
+
+    def fake_foreign_shell_data(*args, **kwargs):
+        calls["kwargs"] = kwargs
+        return {}, {}
+
+    fake_foreign_shell_data.cache_clear = lambda: None
+    monkeypatch.setattr(
+        "xonsh.aliases.foreign_shell_data", fake_foreign_shell_data, raising=False
+    )
+    return calls
+
+
+def test_source_foreign_quotes_posix_paths(monkeypatch, xession):
+    calls = _spy_foreign_shell(monkeypatch)
+    monkeypatch.setattr(os.path, "isfile", lambda _: True)
+    target = "/Applications/Visual Studio Code.app/foo.sh"
+
+    source_foreign_fn("bash", [target], sourcer="source")
+
+    expected = f"source {shlex.quote(target)}\n"
+    assert calls["kwargs"]["prevcmd"] == expected
+
+
+def test_source_foreign_quotes_cmd_paths(monkeypatch, xession):
+    calls = _spy_foreign_shell(monkeypatch)
+    monkeypatch.setattr(os.path, "isfile", lambda _: True)
+    target = r"C:\\Program Files\\foo.bat"
+
+    source_foreign_fn("cmd.exe", [target], sourcer="call")
+
+    expected = f"call {argvquote(target, force=True)}\n"
+    assert calls["kwargs"]["prevcmd"] == expected

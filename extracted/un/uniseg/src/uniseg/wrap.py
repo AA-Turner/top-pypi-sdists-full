@@ -1,12 +1,12 @@
 """Wrap text based on Unicode line breaking algorithm."""
 
 from collections.abc import Iterator, Sequence
-from typing import Optional, Protocol
+from typing import Callable, Optional, Protocol
 
-from uniseg.breaking import TailorBreakables
-from uniseg.graphemecluster import grapheme_cluster_boundaries, grapheme_clusters
-from uniseg.linebreak import line_break_boundaries
-from uniseg.unicodedata_ import EA, east_asian_width_
+from uniseg.breaking import Breakables, boundaries
+from uniseg.graphemecluster import grapheme_clusters
+from uniseg.linebreak import line_break_breakables
+from uniseg.unicodedatawrapper import EA, east_asian_width
 
 __all__ = [
     'Formatter',
@@ -80,8 +80,7 @@ class Wrapper:
         cur: int = 0,
         offset: int = 0,
         *,
-        char_wrap: bool = False,
-        tailor: Optional[TailorBreakables] = None,
+        iter_breakables: Callable[[str], Breakables] = line_break_breakables,
     ) -> int:
         """Wrap string `s` with `formatter` and invoke its handlers.
 
@@ -101,9 +100,6 @@ class Wrapper:
         _wrap_width = formatter.wrap_width
         _tab_width = formatter.tab_width
         _get_text_extents = formatter.text_extents
-        _iter_boundaries = (
-            grapheme_cluster_boundaries if char_wrap else line_break_boundaries
-        )
         iline = 0
         start = offset + cur
         for para in s.splitlines(True):
@@ -112,7 +108,7 @@ class Wrapper:
                 iline += 1
                 extents = _get_text_extents(para)
                 extents = _expand_tabs(para, extents, _tab_width, start)
-                for end in _iter_boundaries(para, tailor=tailor):
+                for end in boundaries(iter_breakables(para)):
                     extent = extents[end-1]
                     if _wrap_width is not None and _wrap_width < extent and 0 < start:
                         # do wrap
@@ -157,15 +153,14 @@ def wrap(
     cur: int = 0,
     offset: int = 0,
     *,
-    char_wrap: bool = False,
-    tailor: Optional[TailorBreakables] = None,
+    iter_breakables: Callable[[str], Breakables] = line_break_breakables,
 ) -> int:
     """Wrap string `s` with `formatter` using the module's static
     :class:`Wrapper` instance
 
     See :meth:`Wrapper.wrap` for further details of the parameters.
     """
-    return _wrapper.wrap(formatter, s, cur, offset, char_wrap=char_wrap, tailor=tailor)
+    return _wrapper.wrap(formatter, s, cur, offset, iter_breakables=iter_breakables)
 
 
 # TT
@@ -212,7 +207,7 @@ class TTFormatter:
 
     @tab_char.setter
     def tab_char(self, value: str):
-        if (east_asian_width_(value) not in (EA.N, EA.Na, EA.H)):
+        if (east_asian_width(value) not in (EA.N, EA.NA, EA.H)):
             raise ValueError('only narrow code point is available for tab_char')
         self._tab_char = value
 
@@ -283,7 +278,7 @@ def tt_width(s: str, /, index: int = 0, *, ambiguous_as_wide: bool = False) -> i
     2
     """
     cp = s[index]
-    eaw = east_asian_width_(cp)
+    eaw = east_asian_width(cp)
     if eaw in (EA.W, EA.F) or (eaw == EA.A and ambiguous_as_wide):
         return 2
     return 1
@@ -330,8 +325,7 @@ def tt_wrap(
     ambiguous_as_wide: bool = False,
     cur: int = 0,
     offset: int = 0,
-    char_wrap: bool = False,
-    tailor: Optional[TailorBreakables] = None,
+    iter_breakables: Callable[[str], Breakables] = line_break_breakables,
 ) -> Iterator[str]:
     R"""Wrap string `s` based on fixed-width typography algorithm and return
     a list of wrapped lines.
@@ -397,7 +391,7 @@ def tt_wrap(
         tab_char=tab_char,
         ambiguous_as_wide=ambiguous_as_wide,
     )
-    _wrapper.wrap(formatter, s, cur, offset, char_wrap=char_wrap, tailor=tailor)
+    _wrapper.wrap(formatter, s, cur, offset, iter_breakables=iter_breakables)
     return formatter.lines()
 
 

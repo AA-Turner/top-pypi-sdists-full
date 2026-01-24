@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from functools import partial
@@ -15,6 +15,7 @@ from typing import (
 )
 
 import mcp.types as mt
+from mcp.server.lowlevel.helper_types import ReadResourceContents
 from typing_extensions import TypeVar
 
 from fastmcp.prompts.prompt import Prompt
@@ -26,9 +27,9 @@ if TYPE_CHECKING:
     from fastmcp.server.context import Context
 
 __all__ = [
+    "CallNext",
     "Middleware",
     "MiddlewareContext",
-    "CallNext",
 ]
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,8 @@ class Middleware:
         handler = call_next
 
         match context.method:
+            case "initialize":
+                handler = partial(self.on_initialize, call_next=handler)
             case "tools/call":
                 handler = partial(self.on_call_tool, call_next=handler)
             case "resources/read":
@@ -132,16 +135,23 @@ class Middleware:
 
     async def on_request(
         self,
-        context: MiddlewareContext[mt.Request],
-        call_next: CallNext[mt.Request, Any],
+        context: MiddlewareContext[mt.Request[Any, Any]],
+        call_next: CallNext[mt.Request[Any, Any], Any],
     ) -> Any:
         return await call_next(context)
 
     async def on_notification(
         self,
-        context: MiddlewareContext[mt.Notification],
-        call_next: CallNext[mt.Notification, Any],
+        context: MiddlewareContext[mt.Notification[Any, Any]],
+        call_next: CallNext[mt.Notification[Any, Any], Any],
     ) -> Any:
+        return await call_next(context)
+
+    async def on_initialize(
+        self,
+        context: MiddlewareContext[mt.InitializeRequest],
+        call_next: CallNext[mt.InitializeRequest, mt.InitializeResult | None],
+    ) -> mt.InitializeResult | None:
         return await call_next(context)
 
     async def on_call_tool(
@@ -154,8 +164,10 @@ class Middleware:
     async def on_read_resource(
         self,
         context: MiddlewareContext[mt.ReadResourceRequestParams],
-        call_next: CallNext[mt.ReadResourceRequestParams, mt.ReadResourceResult],
-    ) -> mt.ReadResourceResult:
+        call_next: CallNext[
+            mt.ReadResourceRequestParams, Sequence[ReadResourceContents]
+        ],
+    ) -> Sequence[ReadResourceContents]:
         return await call_next(context)
 
     async def on_get_prompt(
@@ -168,27 +180,29 @@ class Middleware:
     async def on_list_tools(
         self,
         context: MiddlewareContext[mt.ListToolsRequest],
-        call_next: CallNext[mt.ListToolsRequest, list[Tool]],
-    ) -> list[Tool]:
+        call_next: CallNext[mt.ListToolsRequest, Sequence[Tool]],
+    ) -> Sequence[Tool]:
         return await call_next(context)
 
     async def on_list_resources(
         self,
         context: MiddlewareContext[mt.ListResourcesRequest],
-        call_next: CallNext[mt.ListResourcesRequest, list[Resource]],
-    ) -> list[Resource]:
+        call_next: CallNext[mt.ListResourcesRequest, Sequence[Resource]],
+    ) -> Sequence[Resource]:
         return await call_next(context)
 
     async def on_list_resource_templates(
         self,
         context: MiddlewareContext[mt.ListResourceTemplatesRequest],
-        call_next: CallNext[mt.ListResourceTemplatesRequest, list[ResourceTemplate]],
-    ) -> list[ResourceTemplate]:
+        call_next: CallNext[
+            mt.ListResourceTemplatesRequest, Sequence[ResourceTemplate]
+        ],
+    ) -> Sequence[ResourceTemplate]:
         return await call_next(context)
 
     async def on_list_prompts(
         self,
         context: MiddlewareContext[mt.ListPromptsRequest],
-        call_next: CallNext[mt.ListPromptsRequest, list[Prompt]],
-    ) -> list[Prompt]:
+        call_next: CallNext[mt.ListPromptsRequest, Sequence[Prompt]],
+    ) -> Sequence[Prompt]:
         return await call_next(context)

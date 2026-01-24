@@ -49,36 +49,30 @@ class DataEngineQueryGenerator(APIObject):
     """
 
     _path = "dataEngineQueryGenerators/"
-    _converter = t.Dict(
-        {
-            t.Key("datasets", optional=True): t.List(
-                t.Dict(
-                    {
-                        t.Key("alias"): String,
-                        t.Key("dataset_id"): String,
-                        t.Key("dataset_version_id", optional=True): String,
-                    }
-                )
-            ),
-            t.Key("generator_settings"): t.Dict(
-                {
-                    t.Key("datetime_partition_column"): String,
-                    t.Key("time_unit"): String,
-                    t.Key("time_step"): t.Int,
-                    t.Key("default_numeric_aggregation_method"): String,
-                    t.Key("default_categorical_aggregation_method"): String,
-                    t.Key("target", optional=True): String,
-                    t.Key("multiseries_id_columns", optional=True): t.List(String),
-                    t.Key("default_text_aggregation_method", optional=True): String,
-                    t.Key("start_from_series_min_datetime", optional=True): t.Bool,
-                    t.Key("end_to_series_max_datetime", optional=True): t.Bool,
-                }
-            ).allow_extra("*"),
-            t.Key("generator_type"): String,
-            t.Key("id"): String,
-            t.Key("query"): String,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("datasets", optional=True): t.List(
+            t.Dict({
+                t.Key("alias"): String,
+                t.Key("dataset_id"): String,
+                t.Key("dataset_version_id", optional=True): String,
+            })
+        ),
+        t.Key("generator_settings"): t.Dict({
+            t.Key("datetime_partition_column"): String,
+            t.Key("time_unit"): String,
+            t.Key("time_step"): t.Int,
+            t.Key("default_numeric_aggregation_method"): String,
+            t.Key("default_categorical_aggregation_method"): String,
+            t.Key("target", optional=True): String,
+            t.Key("multiseries_id_columns", optional=True): t.List(String),
+            t.Key("default_text_aggregation_method", optional=True): String,
+            t.Key("start_from_series_min_datetime", optional=True): t.Bool,
+            t.Key("end_to_series_max_datetime", optional=True): t.Bool,
+        }).allow_extra("*"),
+        t.Key("generator_type"): String,
+        t.Key("id"): String,
+        t.Key("query"): String,
+    }).allow_extra("*")
 
     def __init__(self, **generator_kwargs):
         self.datasets = generator_kwargs["datasets"]
@@ -88,9 +82,7 @@ class DataEngineQueryGenerator(APIObject):
         self.query = generator_kwargs["query"]
 
     def __repr__(self):
-        return (
-            "{}(generator_id={}, datasets={}, generator_type={}, " "generator_settings={}, query={}"
-        ).format(
+        return ("{}(generator_id={}, datasets={}, generator_type={}, generator_settings={}, query={}").format(
             self.__class__.__name__,
             self.id,
             self.datasets,
@@ -210,9 +202,7 @@ class DataEngineQueryGenerator(APIObject):
         response: Dataset
             The Dataset created from the query generator
         """
-        return Dataset.create_from_query_generator(
-            self.id, dataset_id, dataset_version_id, max_wait
-        )
+        return Dataset.create_from_query_generator(self.id, dataset_id, dataset_version_id, max_wait)
 
     def prepare_prediction_dataset_from_catalog(
         self,
@@ -308,9 +298,7 @@ class DataEngineQueryGenerator(APIObject):
             LocalSourceType.DATA_FRAME,
             LocalSourceType.FILELIKE,
         ):
-            raise InvalidUsageError(
-                f"Unable to parse source ({sourcedata}) as filepath, DataFrame, or file."
-            )
+            raise InvalidUsageError(f"Unable to parse source ({sourcedata}) as filepath, DataFrame, or file.")
 
         dataset = Dataset.upload(sourcedata)
         prediction_dataset = self.create_dataset(dataset.id, dataset.version_id, max_wait)

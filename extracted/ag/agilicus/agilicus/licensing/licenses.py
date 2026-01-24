@@ -88,6 +88,7 @@ def update_license(
     vars=None,
     replace_constraints=None,
     replace_vars=None,
+    subscription_reconcile=None,
     **kwargs,
 ):
     apiclient = context.get_apiclient_from_ctx(ctx)
@@ -102,7 +103,10 @@ def update_license(
         agilicus_api.LicenseSpec, mapping.spec, kwargs, check_type=False
     )
 
-    return apiclient.licensing_api.replace_license(license_id, license=mapping)
+    query = {}
+    if subscription_reconcile:
+        query["subscription_reconcile"] = subscription_reconcile
+    return apiclient.licensing_api.replace_license(license_id, license=mapping, **query)
 
 
 def apply_constraint_and_vars(obj, constraints, vars, replace_constraints, replace_vars):

@@ -37,6 +37,8 @@ from .stanfit import (
 from .utils import (
     cmdstan_path,
     cmdstan_version,
+    disable_logging,
+    enable_logging,
     install_cmdstan,
     set_cmdstan_path,
     set_make_env,
@@ -63,4 +65,6 @@ __all__ = [
     'show_versions',
     'rebuild_cmdstan',
     'cmdstan_version',
+    "enable_logging",
+    "disable_logging",
 ]

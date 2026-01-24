@@ -19,6 +19,7 @@ import (
 	"github.com/wandb/wandb/core/internal/nullify"
 	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/randomid"
+	"github.com/wandb/wandb/core/internal/settings"
 	"github.com/wandb/wandb/core/pkg/artifacts"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 )
@@ -172,7 +173,7 @@ type JobBuilder struct {
 	verbose bool
 
 	Disable  bool
-	settings *spb.Settings
+	settings *settings.Settings
 
 	runCodeArtifact   ArtifactInfoForJob
 	runCodeArtifactMu sync.Mutex
@@ -200,12 +201,16 @@ func MakeArtifactNameSafe(name string) string {
 
 }
 
-func NewJobBuilder(settings *spb.Settings, logger *observability.CoreLogger, verbose bool) *JobBuilder {
+func NewJobBuilder(
+	settings *settings.Settings,
+	logger *observability.CoreLogger,
+	verbose bool,
+) *JobBuilder {
 	jobBuilder := JobBuilder{
 		settings:            settings,
-		isNotebookRun:       settings.GetXJupyter().GetValue(),
+		isNotebookRun:       settings.Proto.GetXJupyter().GetValue(),
 		logger:              logger,
-		Disable:             settings.GetDisableJobCreation().GetValue(),
+		Disable:             settings.Proto.GetDisableJobCreation().GetValue(),
 		saveShapeToMetadata: false,
 		verbose:             verbose,
 	}
@@ -233,7 +238,7 @@ func (j *JobBuilder) logIfVerbose(msg string, level LogLevel) {
 }
 
 func (j *JobBuilder) handleMetadataFile() (*RunMetadata, error) {
-	file, err := os.Open(filepath.Join(j.settings.FilesDir.Value, WANDB_METADATA_FNAME))
+	file, err := os.Open(filepath.Join(j.settings.GetFilesDir(), WANDB_METADATA_FNAME))
 	if err != nil {
 		return nil, err
 	}
@@ -275,11 +280,13 @@ func (j *JobBuilder) getProgramRelpath(metadata RunMetadata, sourceType SourceTy
 func (j *JobBuilder) GetSourceType(metadata RunMetadata) (*SourceType, error) {
 	var finalSourceType SourceType
 	// user set source type via settings
-	switch j.settings.GetJobSource().GetValue() {
+	switch j.settings.Proto.GetJobSource().GetValue() {
 	case string(ArtifactSourceType):
 		if !j.hasArtifactJobIngredients() {
 			j.logIfVerbose("No artifact job ingredients found, not creating job artifact", Warn)
-			return nil, fmt.Errorf("no artifact job ingredients found, but source type set to artifact")
+			return nil, fmt.Errorf(
+				"no artifact job ingredients found, but source type set to artifact",
+			)
 		}
 		finalSourceType = ArtifactSourceType
 		return &finalSourceType, nil
@@ -340,8 +347,8 @@ func (j *JobBuilder) getEntrypoint(programPath string, metadata RunMetadata) ([]
 }
 
 func (j *JobBuilder) makeJobName(derivedName string) string {
-	if j.settings.JobName != nil {
-		return j.settings.JobName.Value
+	if j.settings.Proto.JobName != nil {
+		return j.settings.Proto.JobName.Value
 	}
 	return MakeArtifactNameSafe(fmt.Sprintf("job-%s", derivedName))
 }
@@ -367,7 +374,11 @@ func (j *JobBuilder) hasImageJobIngredients(metadata RunMetadata) bool {
 	return metadata.Docker != nil
 }
 
-func (j *JobBuilder) getSourceAndName(sourceType SourceType, programRelpath *string, metadata RunMetadata) (Source, *string, error) {
+func (j *JobBuilder) getSourceAndName(
+	sourceType SourceType,
+	programRelpath *string,
+	metadata RunMetadata,
+) (Source, *string, error) {
 	switch sourceType {
 	case RepoSourceType:
 		if programRelpath == nil {
@@ -392,7 +403,10 @@ func (j *JobBuilder) HandlePathsAboveRoot(programRelpath, root string) (string, 
 	// XJupyterRoot contains the path where the jupyter notebook was started
 	// programRelpath contains the path from XJupyterRoot to the file
 	// fullProgramPath here is actually the relpath from the root to the program
-	rootRelPath, err := filepath.Rel(root, j.settings.GetXJupyterRoot().GetValue())
+	rootRelPath, err := filepath.Rel(
+		root,
+		j.settings.Proto.GetXJupyterRoot().GetValue(),
+	)
 	if err != nil {
 		return "", err
 	}
@@ -410,7 +424,10 @@ func (j *JobBuilder) HandlePathsAboveRoot(programRelpath, root string) (string, 
 	return fullProgramPath, nil
 }
 
-func (j *JobBuilder) createRepoJobSource(programRelpath string, metadata RunMetadata) (*GitSource, *string, error) {
+func (j *JobBuilder) createRepoJobSource(
+	programRelpath string,
+	metadata RunMetadata,
+) (*GitSource, *string, error) {
 	j.logger.Debug("jobBuilder: creating repo job source")
 	fullProgramPath := programRelpath
 	if j.isNotebookRun {
@@ -421,14 +438,19 @@ func (j *JobBuilder) createRepoJobSource(programRelpath string, metadata RunMeta
 
 		_, err = os.Stat(filepath.Join(cwd, filepath.Base(programRelpath)))
 		if os.IsNotExist(err) {
-			j.logIfVerbose("Unable to find program entrypoint in current directory, not creating job artifact.", Warn)
+			j.logIfVerbose(
+				"Unable to find program entrypoint in current directory, not creating job artifact.",
+				Warn,
+			)
 			return nil, nil, nil
 		} else if err != nil {
 			return nil, nil, err
 		}
 
-		if metadata.Root == nil || j.settings.XJupyterRoot == nil {
-			return nil, nil, fmt.Errorf("no root path in metadata, or settings missing jupyter root, not creating job artifact")
+		if metadata.Root == nil || j.settings.Proto.XJupyterRoot == nil {
+			return nil, nil, fmt.Errorf(
+				"no root path in metadata, or settings missing jupyter root, not creating job artifact",
+			)
 		}
 		fullProgramPath, err = j.HandlePathsAboveRoot(programRelpath, *metadata.Root)
 		if err != nil {
@@ -450,11 +472,14 @@ func (j *JobBuilder) createRepoJobSource(programRelpath string, metadata RunMeta
 
 }
 
-func (j *JobBuilder) createArtifactJobSource(programRelPath string, metadata RunMetadata) (*ArtifactSource, *string, error) {
+func (j *JobBuilder) createArtifactJobSource(
+	programRelPath string,
+	metadata RunMetadata,
+) (*ArtifactSource, *string, error) {
 	j.logger.Debug("jobBuilder: creating artifact job source")
 	var fullProgramRelPath string
 	// TODO: should we just always exit early if the path doesn't exist?
-	if j.isNotebookRun && !j.settings.GetXColab().GetValue() {
+	if j.isNotebookRun && !j.settings.Proto.GetXColab().GetValue() {
 		fullProgramRelPath = programRelPath
 		// if the resolved path doesn't exist, then we shouldn't make a job because it will fail
 		// but we should check because when users call log code in a notebook the code artifact
@@ -462,7 +487,10 @@ func (j *JobBuilder) createArtifactJobSource(programRelPath string, metadata Run
 		if _, err := os.Stat(programRelPath); os.IsNotExist(err) {
 			fullProgramRelPath = filepath.Base(programRelPath)
 			if _, err := os.Stat(filepath.Base(fullProgramRelPath)); os.IsNotExist(err) {
-				j.logIfVerbose("No program path found when generating artifact job source for a non-colab notebook run. See https://docs.wandb.ai/guides/launch/create-job", Warn)
+				j.logIfVerbose(
+					"No program path found when generating artifact job source for a non-colab notebook run. See https://docs.wandb.ai/guides/launch/create-job",
+					Warn,
+				)
 				return nil, nil, err
 			}
 		}
@@ -554,7 +582,7 @@ func (j *JobBuilder) Build(
 		return nil, nil
 	}
 
-	fileDir := j.settings.FilesDir.GetValue()
+	fileDir := j.settings.GetFilesDir()
 	_, err := os.Stat(filepath.Join(fileDir, REQUIREMENTS_FNAME))
 	if os.IsNotExist(err) {
 		j.logger.Debug("jobBuilder: no requirements.txt found")
@@ -573,7 +601,10 @@ func (j *JobBuilder) Build(
 
 	if metadata.Python == nil {
 		j.logger.Debug("jobBuilder: no python version found in metadata")
-		j.logIfVerbose("No python version found in metadata, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job", Warn)
+		j.logIfVerbose(
+			"No python version found in metadata, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job",
+			Warn,
+		)
 		return nil, nil
 	}
 
@@ -594,7 +625,10 @@ func (j *JobBuilder) Build(
 	// all jobs except image jobs need to specify a program path
 	if *sourceType != ImageSourceType && programRelpath == nil {
 		j.logger.Debug("jobBuilder: no program path found")
-		j.logIfVerbose("No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job", Warn)
+		j.logIfVerbose(
+			"No program path found, not creating job artifact. See https://docs.wandb.ai/guides/launch/create-job",
+			Warn,
+		)
 		return nil, nil
 	}
 
@@ -636,9 +670,9 @@ func (j *JobBuilder) Build(
 	}
 
 	baseArtifact := &spb.ArtifactRecord{
-		Entity:           j.settings.GetEntity().GetValue(),
-		Project:          j.settings.Project.Value,
-		RunId:            j.settings.RunId.Value,
+		Entity:           j.settings.GetEntity(),
+		Project:          j.settings.GetProject(),
+		RunId:            j.settings.GetRunID(),
 		Name:             *name,
 		Metadata:         metadataString,
 		Type:             "job",
@@ -661,7 +695,10 @@ func (j *JobBuilder) buildArtifact(
 ) (*spb.ArtifactRecord, error) {
 	artifactBuilder := artifacts.NewArtifactBuilder(baseArtifact)
 
-	err := artifactBuilder.AddFile(filepath.Join(fileDir, REQUIREMENTS_FNAME), FROZEN_REQUIREMENTS_FNAME)
+	err := artifactBuilder.AddFile(
+		filepath.Join(fileDir, REQUIREMENTS_FNAME),
+		FROZEN_REQUIREMENTS_FNAME,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -702,7 +739,9 @@ func (j *JobBuilder) HandleUseArtifactRecord(record *spb.Record) {
 
 	// if empty job name, disable job builder
 	if useArtifact.Partial != nil && len(useArtifact.Partial.JobName) == 0 {
-		j.logger.Debug("jobBuilder: no job name found in partial use artifact record, disabling job builder")
+		j.logger.Debug(
+			"jobBuilder: no job name found in partial use artifact record, disabling job builder",
+		)
 		j.Disable = true
 		return
 	}

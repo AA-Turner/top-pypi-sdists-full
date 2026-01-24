@@ -19,7 +19,7 @@ import webbrowser
 from collections import defaultdict
 from collections.abc import AsyncIterator, Callable, Coroutine, Sequence, Set
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import TYPE_CHECKING, Any, Literal, Union, cast
 from urllib.parse import urlparse, urlunparse
 
@@ -37,7 +37,6 @@ from gradio import (
     networking,
     processing_utils,
     queueing,
-    themes,
     utils,
 )
 from gradio.block_function import BlockFunction
@@ -76,7 +75,6 @@ from gradio.node_server import start_node_server
 from gradio.route_utils import API_PREFIX, MediaStream, slugify
 from gradio.routes import INTERNAL_ROUTES, VERSION, App, Request
 from gradio.state_holder import SessionState, StateHolder
-from gradio.themes import Default as DefaultTheme
 from gradio.themes import ThemeClass as Theme
 from gradio.tunneling import (
     BINARY_FILENAME,
@@ -105,20 +103,6 @@ if TYPE_CHECKING:  # Only import for type checking (is False at runtime).
     from gradio.components.base import Component
     from gradio.mcp import GradioMCPServer
     from gradio.renderable import Renderable
-
-BUILT_IN_THEMES: dict[str, Theme] = {
-    t.name: t
-    for t in [
-        themes.Base(),
-        themes.Default(),
-        themes.Monochrome(),
-        themes.Soft(),
-        themes.Glass(),
-        themes.Origin(),
-        themes.Citrus(),
-        themes.Ocean(),
-    ]
-}
 
 
 class Block:
@@ -286,21 +270,41 @@ class Block:
         """
         return True
 
-    def get_config(self):
+    def get_config(self, cls: type[Block] | None = None) -> dict[str, Any]:
         config = {}
-        signature = inspect.signature(self.__class__.__init__)
+        if cls is None:
+            cls = self.__class__
+        signature = inspect.signature(cls.__init__)
         for parameter in signature.parameters.values():
             if hasattr(self, parameter.name):
                 value = getattr(self, parameter.name)
                 if dataclasses.is_dataclass(value):
                     value = dataclasses.asdict(value)  # type: ignore
+                elif isinstance(value, Block):
+                    block_instance = value
+                    value = block_instance.get_config()
+                    value["id"] = block_instance._id
+                elif isinstance(value, (list, tuple)):
+                    serialized_list = []
+                    for item in value:
+                        if isinstance(item, Block):
+                            item_config = item.get_config()
+                            item_config["id"] = item._id
+                            serialized_list.append(item_config)
+                        else:
+                            serialized_list.append(item)
+                    value = serialized_list
                 config[parameter.name] = value
         for e in self.events:
             to_add = e.config_data()
             if to_add:
                 config = {**to_add, **config}
         config.pop("render", None)
-        config = {**config, "proxy_url": self.proxy_url, "name": self.get_block_class()}
+        config = {
+            **config,
+            "proxy_url": getattr(self, "proxy_url", None),
+            "name": self.get_block_class(),
+        }
         for event_attribute in ["_selectable", "_undoable", "_retryable", "likeable"]:
             if (attributable := getattr(self, event_attribute, None)) is not None:
                 config[event_attribute] = attributable
@@ -469,8 +473,10 @@ class BlockContext(Block):
 
     @classmethod
     def get_component_class_id(cls) -> str:
-        module_name = cls.__module__
-        module_path = sys.modules[module_name].__file__
+        try:
+            module_path = inspect.getfile(cls)
+        except OSError:
+            module_path = cls.__module__
         module_hash = hashlib.sha256(
             f"{cls.__name__}_{module_path}".encode()
         ).hexdigest()
@@ -551,8 +557,19 @@ def postprocess_update_dict(
         update_dict: The original update dictionary
         postprocess: Whether to postprocess the "value" key of the update dictionary.
     """
+    from gradio.components import HTML
+
     value = update_dict.pop("value", components._Keywords.NO_VALUE)
+
+    props = None
+    if isinstance(block, HTML):
+        sig = inspect.signature(HTML.__init__)
+        constructor_params = set(sig.parameters.keys())
+        props = {k: v for k, v in update_dict.items() if k not in constructor_params}
     update_dict = {k: getattr(block, k) for k in update_dict if hasattr(block, k)}
+    if props:
+        update_dict["props"] = props
+
     if value is not components._Keywords.NO_VALUE:
         if postprocess:
             update_dict["value"] = block.postprocess(value)
@@ -622,7 +639,7 @@ class BlocksConfig:
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         api_description: str | None | Literal[False] = None,
         js: str | Literal[True] | None = None,
         no_target: bool = False,
@@ -637,17 +654,17 @@ class BlocksConfig:
         trigger_mode: Literal["once", "multiple", "always_last"] | None = "once",
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         renderable: Renderable | None = None,
         is_cancel_function: bool = False,
         connection: Literal["stream", "sse"] = "sse",
         time_limit: float | None = None,
         stream_every: float = 0.5,
-        like_user_message: bool = False,
         event_specific_args: list[str] | None = None,
         js_implementation: str | None = None,
         key: str | int | tuple[int | str, ...] | None = None,
         validator: Callable | None = None,
+        component_prop_inputs: list[int] | None = None,
     ) -> tuple[BlockFunction, int]:
         """
         Adds an event to the component's dependencies.
@@ -661,7 +678,7 @@ class BlocksConfig:
             scroll_to_output: whether to scroll to output of dependency on trigger
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
-            api_name: Defines how the endpoint appears in the API docs. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given name. If None, the name of the function will be used as the API endpoint. If False, the endpoint will not be exposed in the API docs and downstream apps (including those that `gr.load` this app) will not be able to use this event.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             js: Optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components
             no_target: if True, sets "targets" to [], used for the Blocks.load() event and .then() events
@@ -676,7 +693,7 @@ class BlocksConfig:
             trigger_mode: If "once" (default for all events except `.change()`) would not allow any submissions while an event is pending. If set to "multiple", unlimited submissions are allowed while pending, and "always_last" (default for `.change()` and `.key_up()` events) would allow a second submission after the pending event is complete.
             concurrency_limit: If set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `queue()`, which itself is 1 by default).
             concurrency_id: If set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             is_cancel_function: whether this event cancels another running event.
             connection: The connection format, either "sse" or "stream".
             time_limit: The time limit for the function to run. Parameter only used for the `.stream()` event.
@@ -727,9 +744,11 @@ class BlocksConfig:
             )
 
         fn_to_analyze = renderable.fn if renderable else fn
-        _, progress_index, event_data_index = (
-            special_args(fn_to_analyze) if fn_to_analyze else (None, None, None)
+        _, progress_index, event_data_index, component_prop_indices = (
+            special_args(fn_to_analyze) if fn_to_analyze else (None, None, None, [])
         )
+        if component_prop_inputs is None:
+            component_prop_inputs = component_prop_indices or []
 
         # If api_name is None or empty string, use the function name
         if api_name is None or isinstance(api_name, str) and api_name.strip() == "":
@@ -750,25 +769,18 @@ class BlocksConfig:
                 )
             elif js is not None:
                 api_name = "js_fn"
-                show_api = False
+                api_visibility = "private"
             else:
                 api_name = "unnamed"
-                show_api = False
+                api_visibility = "private"
 
-        if api_name is not False:
-            api_name = utils.append_unique_suffix(
-                api_name,
-                [
-                    fn.api_name
-                    for fn in self.fns.values()
-                    if isinstance(fn.api_name, str)
-                ],
-            )
-        else:
-            show_api = False
+        api_name = utils.append_unique_suffix(
+            api_name,
+            [fn.api_name for fn in self.fns.values() if isinstance(fn.api_name, str)],
+        )
 
-        # The `show_api` parameter is False if: (1) the user explicitly sets it (2) the user sets `api_name` to False
-        # or (3) the user sets `fn` to None (there's no backend function)
+        # The `api_visibility` parameter is "private" if: (1) the user explicitly sets it (2) fn is None (there's no backend function)
+        # or (3) the function is a js function
 
         if collects_event_data is None:
             collects_event_data = event_data_index is not None
@@ -793,8 +805,8 @@ class BlocksConfig:
 
         block_fn = BlockFunction(
             fn,
-            inputs,
-            outputs,
+            inputs,  # type: ignore
+            outputs,  # type: ignore
             preprocess,
             postprocess,
             _id=fn_id,
@@ -809,7 +821,7 @@ class BlocksConfig:
             api_description=api_description,
             js=js,
             show_progress=show_progress,
-            show_progress_on=show_progress_on
+            show_progress_on=show_progress_on  # type: ignore
             if isinstance(show_progress_on, (list, tuple)) or show_progress_on is None
             else [show_progress_on],
             cancels=cancels,
@@ -820,7 +832,7 @@ class BlocksConfig:
             trigger_mode=trigger_mode,
             queue=queue,
             scroll_to_output=scroll_to_output,
-            show_api=show_api,
+            api_visibility=api_visibility,
             renderable=renderable,
             rendered_in=rendered_in,
             render_iteration=render_iteration,
@@ -828,8 +840,8 @@ class BlocksConfig:
             connection=connection,
             time_limit=time_limit,
             stream_every=stream_every,
-            like_user_message=like_user_message,
             event_specific_args=event_specific_args,
+            component_prop_inputs=component_prop_inputs,
             page=self.root_block.current_page,
             js_implementation=js_implementation,
             key=key,
@@ -897,7 +909,7 @@ class BlocksConfig:
         for page_tuple in self.root_block.pages:
             page = page_tuple[0]
             if page not in config["page"]:
-                config["page"][page] = {
+                config["page"][page] = {  # type: ignore
                     "layout": {"id": self.root_block._id, "children": []},
                     "components": [],
                     "dependencies": [],
@@ -925,7 +937,7 @@ class BlocksConfig:
         for root_child in layout.get("children", []):
             if isinstance(root_child, dict) and root_child["id"] in self.blocks:
                 block = self.blocks[root_child["id"]]
-                config["page"][block.page]["layout"]["children"].append(root_child)
+                config["page"][block.page]["layout"]["children"].append(root_child)  # type: ignore
 
         blocks_items = list(
             self.blocks.items()
@@ -934,15 +946,15 @@ class BlocksConfig:
             block_config = self.config_for_block(_id, rendered_ids, block, renderable)
             if not block_config:
                 continue
-            config["components"].append(block_config)
-            config["page"][block.page]["components"].append(block._id)
+            config["components"].append(block_config)  # type: ignore
+            config["page"][block.page]["components"].append(block._id)  # type: ignore
 
         dependencies = []
         for fn in self.fns.values():
             if renderable is None or fn.rendered_in == renderable:
                 dependency_config = fn.get_config()
                 dependencies.append(dependency_config)
-                config["page"][fn.page]["dependencies"].append(dependency_config["id"])
+                config["page"][fn.page]["dependencies"].append(dependency_config["id"])  # type: ignore
 
         config["dependencies"] = dependencies
         return config
@@ -1012,7 +1024,7 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
 
         demo.launch()
     Demos: blocks_hello, blocks_flipper, blocks_kinematics
-    Guides: blocks-and-event-listeners, controlling-layout, state-in-blocks, custom-CSS-and-JS, using-blocks-like-functions
+    Guides: blocks-and-event-listeners, controlling-layout, state-in-blocks, more-blocks-features, using-blocks-like-functions
     """
 
     # stores references to all currently existing Blocks instances
@@ -1027,15 +1039,9 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
 
     def __init__(
         self,
-        theme: Theme | str | None = None,
         analytics_enabled: bool | None = None,
         mode: str = "blocks",
         title: str | I18nData = "Gradio",
-        css: str | None = None,
-        css_paths: str | Path | Sequence[str | Path] | None = None,
-        js: str | Literal[True] | None = None,
-        head: str | None = None,
-        head_paths: str | Path | Sequence[str | Path] | None = None,
         fill_height: bool = False,
         fill_width: bool = False,
         delete_cache: tuple[int, int] | None = None,
@@ -1043,41 +1049,15 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
     ):
         """
         Parameters:
-            theme: A Theme object or a string representing a theme. If a string, will look for a built-in theme with that name (e.g. "soft" or "default"), or will attempt to load a theme from the Hugging Face Hub (e.g. "gradio/monochrome"). If None, will use the Default theme.
             analytics_enabled: Whether to allow basic telemetry. If None, will use GRADIO_ANALYTICS_ENABLED environment variable or default to True.
             mode: A human-friendly name for the kind of Blocks or Interface being created. Used internally for analytics.
             title: The tab title to display when this is opened in a browser window.
-            css: Custom css as a code string. This css will be included in the demo webpage.
-            css_paths: Custom css as a pathlib.Path to a css file or a list of such paths. This css files will be read, concatenated, and included in the demo webpage. If the `css` parameter is also set, the css from `css` will be included first.
-            js: Custom js as a code string. The custom js should be in the form of a single js function. This function will automatically be executed when the page loads. For more flexibility, use the head parameter to insert js inside <script> tags.
-            head: Custom html code to insert into the head of the demo webpage. This can be used to add custom meta tags, multiple scripts, stylesheets, etc. to the page.
-            head_paths: Custom html code as a pathlib.Path to a html file or a list of such paths. This html files will be read, concatenated, and included in the head of the demo webpage. If the `head` parameter is also set, the html from `head` will be included first.
             fill_height: Whether to vertically expand top-level child components to the height of the window. If True, expansion occurs when the scale value of the child components >= 1.
             fill_width: Whether to horizontally expand to fill container fully. If False, centers and constrains app to a maximum width. Only applies if this is the outermost `Blocks` in your Gradio app.
             delete_cache: A tuple corresponding [frequency, age] both expressed in number of seconds. Every `frequency` seconds, the temporary files created by this Blocks instance will be deleted if more than `age` seconds have passed since the file was created. For example, setting this to (86400, 86400) will delete temporary files every day. The cache will be deleted entirely when the server restarts. If None, no cache deletion will occur.
         """
-        self.limiter = None
-        if theme is None:
-            theme = DefaultTheme()
-        elif isinstance(theme, str):
-            if theme.lower() in BUILT_IN_THEMES:
-                theme = BUILT_IN_THEMES[theme.lower()]
-            else:
-                try:
-                    theme = Theme.from_hub(theme)
-                except Exception as e:
-                    warnings.warn(f"Cannot load {theme}. Caught Exception: {str(e)}")
-                    theme = DefaultTheme()
-        if not isinstance(theme, Theme):
-            warnings.warn("Theme should be a class loaded from gradio.themes")
-            theme = DefaultTheme()
-        self.theme: Theme = theme
-        self.theme_css = theme._get_theme_css()
-        self.stylesheets = theme._stylesheets
-        theme_hasher = hashlib.sha256()
-        theme_hasher.update(self.theme_css.encode("utf-8"))
-        self.theme_hash = theme_hasher.hexdigest()
 
+        self.limiter = None
         self.encrypt = False
         self.mcp_server_obj: None | GradioMCPServer = None
         self.mcp_error: None | str = None
@@ -1091,17 +1071,6 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
         self.fill_width = fill_width
         self.delete_cache = delete_cache
         self.extra_startup_events: list[Callable[..., Coroutine[Any, Any, Any]]] = []
-        self.css = css or ""
-        css_paths = utils.none_or_singleton_to_list(css_paths)
-        for css_path in css_paths or []:
-            with open(css_path, encoding="utf-8") as css_file:
-                self.css += "\n" + css_file.read()
-        self.js = js or ""
-        self.head = head or ""
-        head_paths = utils.none_or_singleton_to_list(head_paths)
-        for head_path in head_paths or []:
-            with open(head_path, encoding="utf-8") as head_file:
-                self.head += "\n" + head_file.read()
         self.renderables: list[Renderable] = []
         self.state_holder: StateHolder
         self.custom_mount_path: str | None = None
@@ -1121,6 +1090,23 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
         else:
             os.environ["HF_HUB_DISABLE_TELEMETRY"] = "True"
         self.enable_monitoring: bool | None = None
+
+        deprecated_params = ["theme", "css", "css_paths", "js", "head", "head_paths"]
+        deprecated_kwargs = {k: kwargs.pop(k) for k in deprecated_params if k in kwargs}
+        if deprecated_kwargs:
+            param_list = ", ".join(deprecated_kwargs.keys())
+            warnings.warn(
+                f"The parameters have been moved from the Blocks constructor to the launch() method in Gradio 6.0: {param_list}. "
+                f"Please pass these parameters to launch() instead.",
+                UserWarning,
+                stacklevel=2,
+            )
+        self._deprecated_theme = deprecated_kwargs.get("theme")
+        self._deprecated_css = deprecated_kwargs.get("css")
+        self._deprecated_css_paths = deprecated_kwargs.get("css_paths")
+        self._deprecated_js = deprecated_kwargs.get("js")
+        self._deprecated_head = deprecated_kwargs.get("head")
+        self._deprecated_head_paths = deprecated_kwargs.get("head_paths")
 
         self.default_config = BlocksConfig(self)
         super().__init__(render=False, **kwargs)
@@ -1160,16 +1146,15 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
         self.pages: list[tuple[str, str, bool]] = [("", "Home", True)]
         self.current_page = ""
 
+        self.css = None
+        self.js = None
+        self.head = None
+        self.theme = None  # type: ignore
+        self.head_paths = None
+
         if self.analytics_enabled:
-            is_custom_theme = not any(
-                self.theme.to_dict() == built_in_theme.to_dict()
-                for built_in_theme in BUILT_IN_THEMES.values()
-            )
             data = {
                 "mode": self.mode,
-                "custom_css": self.css is not None,
-                "theme": self.theme.name,
-                "is_custom_theme": is_custom_theme,
                 "version": get_package_version(),
             }
             analytics.initiated_analytics(data)
@@ -1220,7 +1205,6 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
         """
         config = copy.deepcopy(config)
         components_config = config["components"]
-        theme = config.get("theme", "default")
         original_mapping: dict[int, Block] = {}
         proxy_urls = {proxy_url}
 
@@ -1272,7 +1256,7 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
 
         derived_fields = ["types"]
 
-        with Blocks(theme=theme) as blocks:
+        with Blocks() as blocks:
             # ID 0 should be the root Blocks component
             original_mapping[0] = root_block = Context.root_block or blocks
 
@@ -1330,6 +1314,20 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
                 dependency.pop("rendered_in", None)
                 dependency.pop("render_id", None)
                 dependency.pop("every", None)
+
+                # Older versions of Gradio had a show_api field, which has been replaced
+                # by api_visibility.
+                api_visibility = dependency.pop("api_visibility", None)
+                if api_visibility is None:
+                    show_api = dependency.pop("show_api", None)
+                    if dependency["api_name"] is False:
+                        api_visibility = "private"
+                    elif show_api is True:
+                        api_visibility = "public"
+                    else:
+                        api_visibility = "undocumented"
+                    dependency["api_visibility"] = api_visibility
+
                 dependency["preprocess"] = False
                 dependency["postprocess"] = False
                 if is_then_event:
@@ -1428,7 +1426,7 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
             trigger_mode="once",
             concurrency_limit="default",
             concurrency_id=None,
-            show_api=False,
+            api_visibility="private",
         )
 
     def render(self):
@@ -1603,11 +1601,19 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
             fn_to_analyze = (
                 block_fn.renderable.fn if block_fn.renderable else block_fn.fn
             )
-            processed_input, progress_index, _ = special_args(
+            component_props = {}
+            for idx in block_fn.component_prop_inputs:
+                if idx < len(processed_input) and isinstance(
+                    processed_input[idx], dict
+                ):
+                    component_props[idx] = processed_input[idx]
+
+            processed_input, progress_index, _, _ = special_args(
                 fn_to_analyze,
                 processed_input,
                 request,  # type: ignore
                 event_data,  # type: ignore
+                component_props=component_props,
             )
             progress_tracker = (
                 processed_input[progress_index] if progress_index is not None else None
@@ -1751,8 +1757,16 @@ Received inputs:
             else:
                 if block._id in state:
                     block = state[block._id]
+
+                is_prop_input = i in block_fn.component_prop_inputs
+                if is_prop_input:
+                    processing_utils.check_all_files_in_cache(inputs[i])
+                value_to_process = (
+                    inputs[i].get("value", None) if is_prop_input else inputs[i]
+                )
+
                 inputs_cached = await processing_utils.async_move_files_to_cache(
-                    inputs[i],
+                    value_to_process,
                     block,
                     check_in_upload_folder=not explicit_call,
                 )
@@ -1767,13 +1781,21 @@ Received inputs:
                     inputs_serialized = inputs_cached.model_dump()
                 else:
                     inputs_serialized = inputs_cached
+
                 if block._id not in state:
                     state[block._id] = block
                 state._update_value_in_config(block._id, inputs_serialized)
+
                 if block_fn.preprocess:
-                    processed_input.append(block.preprocess(inputs_cached))
+                    processed_value = block.preprocess(inputs_cached)
                 else:
-                    processed_input.append(inputs_serialized)
+                    processed_value = inputs_serialized
+
+                if is_prop_input:
+                    inputs[i]["value"] = processed_value
+                    processed_input.append(inputs[i])
+                else:
+                    processed_input.append(processed_value)
         return processed_input
 
     def validate_outputs(self, block_fn: BlockFunction, predictions: Any | list[Any]):
@@ -1861,8 +1883,13 @@ Received inputs:
                 ) from err
 
             if block.stateful:
-                if not utils.is_prop_update(predictions[i]):
-                    state[block._id] = predictions[i]
+                prediction_value = predictions[i]
+                if utils.is_prop_update(prediction_value):
+                    # Support gr.update(value=...) for State components
+                    if "value" in prediction_value:
+                        state[block._id] = prediction_value["value"]
+                else:
+                    state[block._id] = prediction_value
                 output.append(None)
             else:
                 prediction_value = predictions[i]
@@ -1875,6 +1902,15 @@ Received inputs:
 
                 if isinstance(prediction_value, Block):
                     prediction_value = prediction_value.constructor_args.copy()
+                    prediction_value["__type__"] = "update"
+                elif isinstance(prediction_value, SimpleNamespace) and getattr(
+                    prediction_value, "_is_component_update", False
+                ):
+                    prediction_value = vars(prediction_value).copy()
+                    keys = inspect.signature(block.__class__.__init__).parameters.keys()
+                    prediction_value = {
+                        k: v for k, v in prediction_value.items() if k in keys
+                    }
                     prediction_value["__type__"] = "update"
                 if utils.is_prop_update(prediction_value):
                     kwargs = state[block._id].constructor_args.copy()
@@ -2203,7 +2239,7 @@ Received inputs:
             else CapacityLimiter(total_tokens=self.max_threads)
         )
 
-    def get_config(self):
+    def get_config(self):  # type: ignore[override]
         return {"type": "column"}
 
     def get_config_file(self) -> BlocksConfigDict:
@@ -2218,19 +2254,19 @@ Received inputs:
             "components": [],
             "css": self.css,
             "connect_heartbeat": False,
-            "js": cast(str | Literal[True] | None, self.js),
+            "js": self.js,
             "head": self.head,
             "title": self.title or "Gradio",
             "space_id": self.space_id,
             "enable_queue": True,  # launch attributes
             "show_error": getattr(self, "show_error", False),
-            "show_api": getattr(self, "show_api", True),
+            "footer_links": getattr(self, "footer_links", []),
             "is_colab": utils.colab_check(),
             "max_file_size": getattr(self, "max_file_size", None),
-            "stylesheets": self.stylesheets,
-            "theme": self.theme.name,
+            "stylesheets": getattr(self, "stylesheets", []),
+            "theme": self.theme.name if self.theme is not None else None,
             "protocol": "sse_v3",
-            "body_css": {
+            "body_css": {  # type: ignore
                 "body_background_fill": self.theme._get_computed_value(
                     "body_background_fill"
                 ),
@@ -2241,12 +2277,14 @@ Received inputs:
                 "body_text_color_dark": self.theme._get_computed_value(
                     "body_text_color_dark"
                 ),
-            },
+            }
+            if getattr(self, "theme", None) is not None
+            else None,
             "fill_height": self.fill_height,
             "fill_width": self.fill_width,
-            "theme_hash": self.theme_hash,
+            "theme_hash": getattr(self, "theme_hash", None),  # type: ignore
             "pwa": self.pwa,
-            "pages": self.pages,
+            "pages": self.pages,  # type: ignore
             "page": {},
             "mcp_server": self.mcp_server,
             "i18n_translations": (
@@ -2271,7 +2309,7 @@ Received inputs:
             print("* Trying to transpile functions from Python -> JS for performance\n")
         for index, fn in enumerate(fns_to_transpile):
             if not quiet:
-                print(f"* ({index + 1}/{num_to_transpile}) {fn.__name__}: ", end="")
+                print(f"* ({index + 1}/{num_to_transpile}) {fn.__name__}: ", end="")  # type: ignore
             if getattr(fn, "__js_implementation__", None) is None:  # type: ignore
                 try:
                     fn.__js_implementation__ = transpile(fn, validate=True)  # type: ignore
@@ -2392,6 +2430,39 @@ Received inputs:
                     )
                 navbar_pages.add(block.page)
 
+    def _set_html_css_theme_variables(self):
+        self.theme_css = self.theme._get_theme_css()
+        self.stylesheets = self.theme._stylesheets
+        theme_hasher = hashlib.sha256()
+        theme_hasher.update(self.theme_css.encode("utf-8"))
+        self.theme_hash = theme_hasher.hexdigest()
+        css_paths = utils.none_or_singleton_to_list(self.css_paths)
+        for css_path in css_paths or []:
+            self.css = self.css or ""
+            with open(css_path, encoding="utf-8") as css_file:
+                self.css += "\n" + css_file.read()
+
+        head_paths = utils.none_or_singleton_to_list(self.head_paths)
+        for head_path in head_paths or []:
+            self.head = self.head or ""
+            with open(head_path, encoding="utf-8") as head_file:
+                self.head += "\n" + head_file.read()
+
+    def _resolve_ssr_mode(
+        self, ssr_mode: bool | None, disable_when_multi_page: bool = True
+    ) -> bool:
+        if disable_when_multi_page and len(self.config.get("pages", [])) > 1:
+            warnings.warn(
+                "SSR mode is not supported with multi-page apps when mounting on a FastAPI app. Disabling SSR mode.",
+                UserWarning,
+            )
+            return False
+        return (
+            ssr_mode
+            if ssr_mode is not None
+            else os.getenv("GRADIO_SSR_MODE", "False").lower() == "true"
+        )
+
     def launch(
         self,
         inline: bool | None = None,
@@ -2416,7 +2487,8 @@ Received inputs:
         ssl_keyfile_password: str | None = None,
         ssl_verify: bool = True,
         quiet: bool = False,
-        show_api: bool = True,
+        footer_links: list[Literal["api", "gradio", "settings"] | dict[str, str]]
+        | None = None,
         allowed_paths: list[str] | None = None,
         blocked_paths: list[str] | None = None,
         root_path: str | None = None,
@@ -2436,6 +2508,12 @@ Received inputs:
         mcp_server: bool | None = None,
         _frontend: bool = True,
         i18n: I18n | None = None,
+        theme: Theme | str | None = None,
+        css: str | None = None,
+        css_paths: str | Path | Sequence[str | Path] | None = None,
+        js: str | Literal[True] | None = None,
+        head: str | None = None,
+        head_paths: str | Path | Sequence[str | Path] | None = None,
     ) -> tuple[App, str, str]:
         """
         Launches a simple web server that serves the demo. Can also be used to create a
@@ -2460,7 +2538,7 @@ Received inputs:
             ssl_keyfile_password: If a password is provided, will use this with the ssl certificate for https.
             ssl_verify: If False, skips certificate validation which allows self-signed certificates to be used.
             quiet: If True, suppresses most print statements.
-            show_api: If True, shows the api docs in the footer of the app. Default True.
+            footer_links: The links to display in the footer of the app. Accepts a list, where each element of the list must be one of "api", "gradio", or "settings" corresponding to the API docs, "built with Gradio", and settings pages respectively. If None, all three links will be shown in the footer. An empty list means that no footer is shown.
             allowed_paths: List of complete filepaths or parent directories that gradio is allowed to serve. Must be absolute paths. Warning: if you provide directories, any files in these directories or their subdirectories are accessible to all users of your app. Can be set by comma separated environment variable GRADIO_ALLOWED_PATHS. These files are generally assumed to be secure and will be displayed in the browser when possible.
             blocked_paths: List of complete filepaths or parent directories that gradio is not allowed to serve (i.e. users of your app are not allowed to access). Must be absolute paths. Warning: takes precedence over `allowed_paths` and all other directories exposed by Gradio by default. Can be set by comma separated environment variable GRADIO_BLOCKED_PATHS.
             root_path: The root path (or "mount point") of the application, if it's not served from the root ("/") of the domain. Often used when the application is behind a reverse proxy that forwards requests to the application. For example, if the application is served at "https://example.com/myapp", the `root_path` should be set to "/myapp". A full URL beginning with http:// or https:// can be provided, which will be used as the root path in its entirety. Can be set by environment variable GRADIO_ROOT_PATH. Defaults to "".
@@ -2476,7 +2554,13 @@ Received inputs:
             ssr_mode: If True, the Gradio app will be rendered using server-side rendering mode, which is typically more performant and provides better SEO, but this requires Node 20+ to be installed on the system. If False, the app will be rendered using client-side rendering mode. If None, will use GRADIO_SSR_MODE environment variable or default to False.
             pwa: If True, the Gradio app will be set up as an installable PWA (Progressive Web App). If set to None (default behavior), then the PWA feature will be enabled if this Gradio app is launched on Spaces, but not otherwise.
             i18n: An I18n instance containing custom translations, which are used to translate strings in our components (e.g. the labels of components or Markdown strings). This feature can only be used to translate static text in the frontend, not values in the backend.
-            mcp_server: If True, the Gradio app will be set up as an MCP server and documented functions will be added as MCP tools. If None (default behavior), then the GRADIO_MCP_SERVER environment variable will be used to determine if the MCP server should be enabled (which is "True" on Hugging Face Spaces).
+            mcp_server: If True, the Gradio app will be set up as an MCP server and documented functions will be added as MCP tools. If None (default behavior), then the GRADIO_MCP_SERVER environment variable will be used to determine if the MCP server should be enabled.
+            theme: A Theme object or a string representing a theme. If a string, will look for a built-in theme with that name (e.g. "soft" or "default"), or will attempt to load a theme from the Hugging Face Hub (e.g. "gradio/monochrome"). If None, will use the Default theme.
+            css: Custom css as a code string. This css will be included in the demo webpage.
+            css_paths: Custom css as a pathlib.Path to a css file or a list of such paths. This css files will be read, concatenated, and included in the demo webpage. If the `css` parameter is also set, the css from `css` will be included first.
+            js: Custom js as a code string. The js code will automatically be executed when the page loads. For more flexibility, use the head parameter to insert js inside <script> tags.
+            head: Custom html code to insert into the head of the demo webpage. This can be used to add custom meta tags, multiple scripts, stylesheets, etc. to the page.
+            head_paths: Custom html code as a pathlib.Path to a html file or a list of such paths. This html files will be read, concatenated, and included in the head of the demo webpage. If the `head` parameter is also set, the html from `head` will be included first.
         Returns:
             app: FastAPI app object that is running the demo
             local_url: Locally accessible link to the demo
@@ -2497,6 +2581,23 @@ Received inputs:
             demo.launch(share=True, auth=("username", "password"))
         """
         from gradio.routes import App
+
+        theme = theme if theme is not None else self._deprecated_theme
+        css = css if css is not None else self._deprecated_css
+        css_paths = css_paths if css_paths is not None else self._deprecated_css_paths
+        js = js if js is not None else self._deprecated_js
+        head = head if head is not None else self._deprecated_head
+        head_paths = (
+            head_paths if head_paths is not None else self._deprecated_head_paths
+        )
+
+        self.theme: Theme = utils.get_theme(theme)
+        self.css = css
+        self.css_paths = css_paths or []
+        self.js = js
+        self.head = head
+        self.head_paths = head_paths
+        self._set_html_css_theme_variables()
 
         if self._is_running_in_reload_thread:
             # We have already launched the demo
@@ -2520,11 +2621,11 @@ Received inputs:
             self.auth = auth
 
         if self.auth and not callable(self.auth):
-            if any(not authenticable[0] for authenticable in self.auth):
+            if any(not authenticable[0] for authenticable in self.auth):  # type: ignore
                 warnings.warn(
                     "You have provided an empty username in `auth`. Please provide a valid username."
                 )
-            if any(not authenticable[1] for authenticable in self.auth):
+            if any(not authenticable[1] for authenticable in self.auth):  # type: ignore
                 warnings.warn(
                     "You have provided an empty password in `auth`. Please provide a valid password."
                 )
@@ -2540,7 +2641,9 @@ Received inputs:
             self.root_path = os.environ.get("GRADIO_ROOT_PATH", "")
         else:
             self.root_path = root_path
-        self.show_api = show_api
+        self.footer_links = (
+            footer_links if footer_links is not None else ["api", "gradio", "settings"]
+        )
 
         if allowed_paths:
             self.allowed_paths = allowed_paths
@@ -2581,12 +2684,9 @@ Received inputs:
         self.max_threads = max_threads
         self._queue.max_thread_count = max_threads
         self.transpile_to_js(quiet=quiet)
+        self.config = self.get_config_file()
 
-        self.ssr_mode = (
-            ssr_mode
-            if ssr_mode is not None
-            else os.getenv("GRADIO_SSR_MODE", "False").lower() == "true"
-        )
+        self.ssr_mode = self._resolve_ssr_mode(ssr_mode, disable_when_multi_page=False)
         if self.ssr_mode:
             self.node_path = os.environ.get("GRADIO_NODE_PATH", get_node_path())
             self.node_server_name, self.node_process, self.node_port = (
@@ -2614,8 +2714,6 @@ Received inputs:
         )
         if self.mcp_error and not quiet:
             print(self.mcp_error)
-
-        self.config = self.get_config_file()
 
         if self.is_running:
             if not isinstance(self.local_url, str):
@@ -2773,8 +2871,7 @@ Received inputs:
         if self.mcp_server:
             print(
                 "\n🔨 Launching MCP server:"
-                f"\n** Streamable HTTP URL: {self.share_url or self.local_url.rstrip('/')}/{mcp_subpath.lstrip('/')}/"
-                f"\n* [Deprecated] SSE URL: {self.share_url or self.local_url.rstrip('/')}/{mcp_subpath.lstrip('/')}/sse"
+                f"\n* Streamable HTTP URL: {self.share_url or self.local_url.rstrip('/')}/{mcp_subpath.lstrip('/')}/"
             )
 
         if inbrowser:
@@ -2840,12 +2937,23 @@ Received inputs:
                 pass
 
         if getattr(self, "analytics_enabled", False):
+            is_custom_theme = not any(
+                self.theme.to_dict() == built_in_theme.to_dict()
+                for built_in_theme in utils.BUILT_IN_THEMES.values()
+            )
             data = {
                 "launch_method": "browser" if inbrowser else "inline",
                 "is_google_colab": self.is_colab,
                 "is_sharing_on": self.share,
                 "is_space": self.space_id is not None,
                 "mode": self.mode,
+                "custom_css": self.css is not None,
+                "theme": self.theme.name,
+                "is_custom_theme": is_custom_theme,
+                "custom_js": self.js is not None,
+                "custom_head": self.head is not None,
+                "custom_css_paths": bool(self.css_paths),
+                "custom_head_paths": bool(head_paths),
             }
             analytics.launched_analytics(self, data)
 
@@ -2954,7 +3062,7 @@ Received inputs:
     ) -> None:
         """Block main thread until interrupted by user."""
         try:
-            while True:
+            while self.is_running:
                 time.sleep(0.1)
         except (KeyboardInterrupt, OSError):
             print("Keyboard interruption in main thread... closing server.")
@@ -2979,21 +3087,23 @@ Received inputs:
         """
         Gets the information needed to generate the API docs from a Blocks.
         Parameters:
-            all_endpoints: If True, returns information about all endpoints, including those with show_api=False.
+            all_endpoints: If True, returns information about all endpoints, including those with api_visibility="undocumented".
         """
         config = self.config
         api_info: APIInfo = {"named_endpoints": {}, "unnamed_endpoints": {}}
 
         for fn in self.fns.values():
-            if not fn.fn or fn.api_name is False:
+            if not fn.fn or fn.api_visibility == "private":
                 continue
-            if not all_endpoints and not fn.show_api:
+            if not all_endpoints and fn.api_visibility != "public":
                 continue
 
             dependency_info: APIEndpointInfo = {
                 "parameters": [],
                 "returns": [],
-                "show_api": fn.show_api,
+                "api_visibility": cast(
+                    Literal["public", "private", "undocumented"], fn.api_visibility
+                ),
             }
             fn_info = utils.get_function_params(fn.fn)
             if fn.api_description is False:

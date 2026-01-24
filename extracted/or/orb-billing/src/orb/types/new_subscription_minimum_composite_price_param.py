@@ -10,10 +10,12 @@ from .shared_params.tiered_conversion_rate_config import TieredConversionRateCon
 from .shared_params.new_billing_cycle_configuration import NewBillingCycleConfiguration
 from .shared_params.new_dimensional_price_configuration import NewDimensionalPriceConfiguration
 
-__all__ = ["NewSubscriptionMinimumCompositePriceParam", "MinimumConfig", "ConversionRateConfig"]
+__all__ = ["NewSubscriptionMinimumCompositePriceParam", "MinimumCompositeConfig", "ConversionRateConfig"]
 
 
-class MinimumConfig(TypedDict, total=False):
+class MinimumCompositeConfig(TypedDict, total=False):
+    """Configuration for minimum_composite pricing"""
+
     minimum_amount: Required[str]
     """The minimum amount to apply"""
 
@@ -31,10 +33,10 @@ class NewSubscriptionMinimumCompositePriceParam(TypedDict, total=False):
     item_id: Required[str]
     """The id of the item the price will be associated with."""
 
-    minimum_config: Required[MinimumConfig]
-    """Configuration for minimum pricing"""
+    minimum_composite_config: Required[MinimumCompositeConfig]
+    """Configuration for minimum_composite pricing"""
 
-    model_type: Required[Literal["minimum"]]
+    model_type: Required[Literal["minimum_composite"]]
     """The pricing model type"""
 
     name: Required[str]

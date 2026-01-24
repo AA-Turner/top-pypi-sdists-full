@@ -18,7 +18,8 @@ from typing import (
 
 import strawberry
 from django.db.models import Q, QuerySet
-from strawberry import UNSET, relay
+from strawberry import UNSET, Some, relay
+from strawberry.annotation import StrawberryAnnotation
 from strawberry.tools import create_type
 from strawberry.types import has_object_definition
 from strawberry.types.base import WithStrawberryObjectDefinition
@@ -67,17 +68,16 @@ def get_django_model_filter_input_type():
     if _DjangoModelFilterInput is None:
         settings = strawberry_django_settings()
 
-        def _get_id(root) -> str:
-            return root.pk
-
         id_field_name = settings["DEFAULT_PK_FIELD_NAME"]
-        id_field = field(
-            name=id_field_name, graphql_type=strawberry.ID, resolver=_get_id
+        id_field = StrawberryField(
+            python_name=id_field_name,
+            graphql_name=id_field_name,
+            type_annotation=StrawberryAnnotation(strawberry.ID),
         )
 
         _DjangoModelFilterInput = create_type(
             "DjangoModelFilterInput",
-            [id_field],  # type: ignore
+            [id_field],
             is_input=True,
         )
 
@@ -121,6 +121,11 @@ lookup_name_conversion_map = {
 def resolve_value(value: Any) -> Any:
     if isinstance(value, list):
         return [resolve_value(v) for v in value]
+
+    # Handle strawberry.Some (the wrapped value inside Maybe)
+    if isinstance(value, Some):
+        # Extract .value from Some and recursively resolve it
+        return resolve_value(value.value)
 
     if isinstance(value, relay.GlobalID):
         return value.node_id
@@ -379,7 +384,7 @@ class StrawberryDjangoFieldFilters(StrawberryDjangoFieldBase):
         **kwargs,
     ) -> _QS:
         settings = strawberry_django_settings()
-        pk = kwargs.get(settings["DEFAULT_PK_FIELD_NAME"], None)
+        pk = kwargs.get(settings["DEFAULT_PK_FIELD_NAME"])
         queryset = super().get_queryset(queryset, info, **kwargs)
         return apply(filters, queryset, info, pk)
 

@@ -1,50 +1,34 @@
+use std::sync::Arc;
+
 use crate::{
-    compiler, ecma,
+    compiler,
     error::{no_error, ErrorIterator, ValidationError},
+    evaluation::Annotations,
     keywords::CompilationResult,
     node::SchemaNode,
     options::PatternEngineOptions,
-    output::BasicOutput,
-    paths::{LazyLocation, Location},
-    regex::{build_fancy_regex, build_regex, RegexEngine},
+    paths::{LazyEvaluationPath, LazyLocation, Location, RefTracker},
+    regex::RegexEngine,
     types::JsonType,
-    validator::{PartialApplication, Validate},
+    validator::{EvaluationResult, Validate, ValidationContext},
 };
 use serde_json::{Map, Value};
 
 pub(crate) struct PatternPropertiesValidator<R> {
-    patterns: Vec<(R, SchemaNode)>,
+    patterns: Vec<(Arc<R>, SchemaNode)>,
 }
 
 impl<R: RegexEngine> Validate for PatternPropertiesValidator<R> {
-    #[allow(clippy::needless_collect)]
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Object(item) = instance {
-            let errors: Vec<_> = self
-                .patterns
-                .iter()
-                .flat_map(move |(re, node)| {
-                    item.iter()
-                        .filter(move |(key, _)| re.is_match(key).unwrap_or(false))
-                        .flat_map(move |(key, value)| {
-                            let location = location.push(key.as_str());
-                            node.iter_errors(value, &location)
-                        })
-                })
-                .collect();
-            Box::new(errors.into_iter())
-        } else {
-            no_error()
-        }
-    }
-
-    fn is_valid(&self, instance: &Value) -> bool {
-        if let Value::Object(item) = instance {
-            self.patterns.iter().all(move |(re, node)| {
-                item.iter()
-                    .filter(move |(key, _)| re.is_match(key).unwrap_or(false))
-                    .all(move |(_key, value)| node.is_valid(value))
-            })
+            for (re, node) in &self.patterns {
+                for (key, value) in item {
+                    if re.is_match(key).unwrap_or(false) && !node.is_valid(value, ctx) {
+                        return false;
+                    }
+                }
+            }
+            true
         } else {
             true
         }
@@ -54,12 +38,14 @@ impl<R: RegexEngine> Validate for PatternPropertiesValidator<R> {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Object(item) = instance {
-            for (re, node) in &self.patterns {
-                for (key, value) in item {
+            for (key, value) in item {
+                for (re, node) in &self.patterns {
                     if re.is_match(key).unwrap_or(false) {
-                        node.validate(value, &location.push(key))?;
+                        node.validate(value, &location.push(key), tracker, ctx)?;
                     }
                 }
             }
@@ -67,56 +53,79 @@ impl<R: RegexEngine> Validate for PatternPropertiesValidator<R> {
         Ok(())
     }
 
-    fn apply<'a>(&'a self, instance: &Value, location: &LazyLocation) -> PartialApplication<'a> {
+    fn iter_errors<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> ErrorIterator<'i> {
         if let Value::Object(item) = instance {
-            let mut matched_propnames = Vec::with_capacity(item.len());
-            let mut sub_results = BasicOutput::default();
-            for (pattern, node) in &self.patterns {
+            let mut errors = Vec::new();
+            for (re, node) in &self.patterns {
                 for (key, value) in item {
-                    if pattern.is_match(key).unwrap_or(false) {
-                        let path = location.push(key.as_str());
-                        matched_propnames.push(key.clone());
-                        sub_results += node.apply_rooted(value, &path);
+                    if re.is_match(key).unwrap_or(false) {
+                        errors.extend(node.iter_errors(
+                            value,
+                            &location.push(key.as_str()),
+                            tracker,
+                            ctx,
+                        ));
                     }
                 }
             }
-            let mut result: PartialApplication = sub_results.into();
-            result.annotate(Value::from(matched_propnames).into());
+            ErrorIterator::from_iterator(errors.into_iter())
+        } else {
+            no_error()
+        }
+    }
+
+    fn evaluate(
+        &self,
+        instance: &Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        if let Value::Object(item) = instance {
+            let mut matched_propnames = Vec::with_capacity(item.len());
+            let mut children = Vec::new();
+            for (pattern, node) in &self.patterns {
+                for (key, value) in item {
+                    if pattern.is_match(key).unwrap_or(false) {
+                        matched_propnames.push(key.clone());
+                        children.push(node.evaluate_instance(
+                            value,
+                            &location.push(key.as_str()),
+                            tracker,
+                            ctx,
+                        ));
+                    }
+                }
+            }
+            let mut result = EvaluationResult::from_children(children);
+            result.annotate(Annotations::new(Value::from(matched_propnames)));
             result
         } else {
-            PartialApplication::valid_empty()
+            EvaluationResult::valid_empty()
         }
     }
 }
 
 pub(crate) struct SingleValuePatternPropertiesValidator<R> {
-    regex: R,
+    regex: Arc<R>,
     node: SchemaNode,
 }
 
 impl<R: RegexEngine> Validate for SingleValuePatternPropertiesValidator<R> {
-    #[allow(clippy::needless_collect)]
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Object(item) = instance {
-            let errors: Vec<_> = item
-                .iter()
-                .filter(move |(key, _)| self.regex.is_match(key).unwrap_or(false))
-                .flat_map(move |(key, value)| {
-                    let instance_path = location.push(key.as_str());
-                    self.node.iter_errors(value, &instance_path)
-                })
-                .collect();
-            Box::new(errors.into_iter())
-        } else {
-            no_error()
-        }
-    }
-
-    fn is_valid(&self, instance: &Value) -> bool {
-        if let Value::Object(item) = instance {
-            item.iter()
-                .filter(move |(key, _)| self.regex.is_match(key).unwrap_or(false))
-                .all(move |(_key, value)| self.node.is_valid(value))
+            for (key, value) in item {
+                if self.regex.is_match(key).unwrap_or(false) && !self.node.is_valid(value, ctx) {
+                    return false;
+                }
+            }
+            true
         } else {
             true
         }
@@ -126,33 +135,71 @@ impl<R: RegexEngine> Validate for SingleValuePatternPropertiesValidator<R> {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Object(item) = instance {
             for (key, value) in item {
                 if self.regex.is_match(key).unwrap_or(false) {
-                    self.node.validate(value, &location.push(key))?;
+                    self.node
+                        .validate(value, &location.push(key), tracker, ctx)?;
                 }
             }
         }
         Ok(())
     }
 
-    fn apply<'a>(&'a self, instance: &Value, location: &LazyLocation) -> PartialApplication<'a> {
+    fn iter_errors<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> ErrorIterator<'i> {
         if let Value::Object(item) = instance {
-            let mut matched_propnames = Vec::with_capacity(item.len());
-            let mut outputs = BasicOutput::default();
+            let mut errors = Vec::new();
             for (key, value) in item {
                 if self.regex.is_match(key).unwrap_or(false) {
-                    let path = location.push(key.as_str());
-                    matched_propnames.push(key.clone());
-                    outputs += self.node.apply_rooted(value, &path);
+                    errors.extend(self.node.iter_errors(
+                        value,
+                        &location.push(key.as_str()),
+                        tracker,
+                        ctx,
+                    ));
                 }
             }
-            let mut result: PartialApplication = outputs.into();
-            result.annotate(Value::from(matched_propnames).into());
+            ErrorIterator::from_iterator(errors.into_iter())
+        } else {
+            no_error()
+        }
+    }
+
+    fn evaluate(
+        &self,
+        instance: &Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
+        if let Value::Object(item) = instance {
+            let mut matched_propnames = Vec::with_capacity(item.len());
+            let mut children = Vec::new();
+            for (key, value) in item {
+                if self.regex.is_match(key).unwrap_or(false) {
+                    matched_propnames.push(key.clone());
+                    children.push(self.node.evaluate_instance(
+                        value,
+                        &location.push(key.as_str()),
+                        tracker,
+                        ctx,
+                    ));
+                }
+            }
+            let mut result = EvaluationResult::from_children(children);
+            result.annotate(Annotations::new(Value::from(matched_propnames)));
             result
         } else {
-            PartialApplication::valid_empty()
+            EvaluationResult::valid_empty()
         }
     }
 }
@@ -163,132 +210,97 @@ pub(crate) fn compile<'a>(
     parent: &'a Map<String, Value>,
     schema: &'a Value,
 ) -> Option<CompilationResult<'a>> {
-    match parent.get("additionalProperties") {
+    if matches!(
+        parent.get("additionalProperties"),
+        Some(Value::Bool(false) | Value::Object(_))
+    ) {
         // This type of `additionalProperties` validator handles `patternProperties` logic
-        Some(Value::Bool(false) | Value::Object(_)) => None,
-        _ => {
-            if let Value::Object(map) = schema {
-                if map.len() == 1 {
-                    let (key, value) = map.iter().next().expect("Map is not empty");
-                    let kctx = ctx.new_at_location("patternProperties");
-                    let pctx = kctx.new_at_location(key);
-                    match ctx.config().pattern_options() {
-                        PatternEngineOptions::FancyRegex {
-                            backtrack_limit,
-                            size_limit,
-                            dfa_size_limit,
-                        } => Some(Ok(Box::new(SingleValuePatternPropertiesValidator {
-                            regex: {
-                                match ecma::to_rust_regex(key).map(|pattern| {
-                                    build_fancy_regex(
-                                        &pattern,
-                                        backtrack_limit,
-                                        size_limit,
-                                        dfa_size_limit,
-                                    )
-                                }) {
-                                    Ok(Ok(r)) => r,
-                                    _ => {
-                                        return Some(Err(invalid_regex(&kctx, schema)));
-                                    }
-                                }
-                            },
-                            node: match compiler::compile(&pctx, pctx.as_resource_ref(value)) {
-                                Ok(node) => node,
-                                Err(error) => return Some(Err(error)),
-                            },
-                        }))),
-                        PatternEngineOptions::Regex {
-                            size_limit,
-                            dfa_size_limit,
-                        } => Some(Ok(Box::new(SingleValuePatternPropertiesValidator {
-                            regex: {
-                                match ecma::to_rust_regex(key).map(|pattern| {
-                                    build_regex(&pattern, size_limit, dfa_size_limit)
-                                }) {
-                                    Ok(Ok(r)) => r,
-                                    _ => {
-                                        return Some(Err(invalid_regex(&kctx, schema)));
-                                    }
-                                }
-                            },
-                            node: match compiler::compile(&pctx, pctx.as_resource_ref(value)) {
-                                Ok(node) => node,
-                                Err(error) => return Some(Err(error)),
-                            },
-                        }))),
-                    }
-                } else {
-                    let ctx = ctx.new_at_location("patternProperties");
-                    match ctx.config().pattern_options() {
-                        PatternEngineOptions::FancyRegex {
-                            backtrack_limit,
-                            size_limit,
-                            dfa_size_limit,
-                        } => {
-                            let mut patterns = Vec::with_capacity(map.len());
-                            for (pattern, subschema) in map {
-                                let pctx = ctx.new_at_location(pattern.as_str());
-                                patterns.push((
-                                    match ecma::to_rust_regex(pattern).map(|pattern| {
-                                        build_fancy_regex(
-                                            &pattern,
-                                            backtrack_limit,
-                                            size_limit,
-                                            dfa_size_limit,
-                                        )
-                                    }) {
-                                        Ok(Ok(r)) => r,
-                                        _ => return Some(Err(invalid_regex(&ctx, subschema))),
-                                    },
-                                    match compiler::compile(&pctx, pctx.as_resource_ref(subschema))
-                                    {
-                                        Ok(node) => node,
-                                        Err(error) => return Some(Err(error)),
-                                    },
-                                ));
-                            }
-                            Some(Ok(Box::new(PatternPropertiesValidator { patterns })))
-                        }
-                        PatternEngineOptions::Regex {
-                            size_limit,
-                            dfa_size_limit,
-                        } => {
-                            let mut patterns = Vec::with_capacity(map.len());
-                            for (pattern, subschema) in map {
-                                let pctx = ctx.new_at_location(pattern.as_str());
-                                patterns.push((
-                                    match ecma::to_rust_regex(pattern).map(|pattern| {
-                                        build_regex(&pattern, size_limit, dfa_size_limit)
-                                    }) {
-                                        Ok(Ok(r)) => r,
-                                        _ => return Some(Err(invalid_regex(&ctx, subschema))),
-                                    },
-                                    match compiler::compile(&pctx, pctx.as_resource_ref(subschema))
-                                    {
-                                        Ok(node) => node,
-                                        Err(error) => return Some(Err(error)),
-                                    },
-                                ));
-                            }
-                            Some(Ok(Box::new(PatternPropertiesValidator { patterns })))
-                        }
-                    }
-                }
-            } else {
-                Some(Err(ValidationError::single_type_error(
-                    Location::new(),
-                    ctx.location().clone(),
-                    schema,
-                    JsonType::Object,
-                )))
-            }
-        }
+        return None;
     }
+
+    let Value::Object(map) = schema else {
+        let location = ctx.location().join("patternProperties");
+        return Some(Err(ValidationError::single_type_error(
+            location.clone(),
+            location,
+            Location::new(),
+            schema,
+            JsonType::Object,
+        )));
+    };
+    let ctx = ctx.new_at_location("patternProperties");
+    let result = match ctx.config().pattern_options() {
+        PatternEngineOptions::FancyRegex { .. } => {
+            compile_pattern_entries(&ctx, map, |pctx, pattern, subschema| {
+                pctx.get_or_compile_regex(pattern)
+                    .map_err(|()| invalid_regex(pctx, subschema))
+            })
+            .map(|patterns| {
+                build_validator_from_entries(patterns, |regex, node| {
+                    Box::new(SingleValuePatternPropertiesValidator { regex, node })
+                        as Box<dyn Validate>
+                })
+            })
+        }
+        PatternEngineOptions::Regex { .. } => {
+            compile_pattern_entries(&ctx, map, |pctx, pattern, subschema| {
+                pctx.get_or_compile_standard_regex(pattern)
+                    .map_err(|()| invalid_regex(pctx, subschema))
+            })
+            .map(|patterns| {
+                build_validator_from_entries(patterns, |regex, node| {
+                    Box::new(SingleValuePatternPropertiesValidator { regex, node })
+                        as Box<dyn Validate>
+                })
+            })
+        }
+    };
+    Some(result)
 }
 
 fn invalid_regex<'a>(ctx: &compiler::Context, schema: &'a Value) -> ValidationError<'a> {
-    ValidationError::format(Location::new(), ctx.location().clone(), schema, "regex")
+    ValidationError::format(
+        ctx.location().clone(),
+        LazyEvaluationPath::SameAsSchemaPath,
+        Location::new(),
+        schema,
+        "regex",
+    )
+}
+
+/// Compile every `(pattern, subschema)` pair into `(regex, node)` tuples.
+fn compile_pattern_entries<'a, R, F>(
+    ctx: &compiler::Context,
+    map: &'a Map<String, Value>,
+    mut compile_regex: F,
+) -> Result<Vec<(Arc<R>, SchemaNode)>, ValidationError<'a>>
+where
+    F: FnMut(&compiler::Context, &str, &'a Value) -> Result<Arc<R>, ValidationError<'a>>,
+{
+    let mut patterns = Vec::with_capacity(map.len());
+    for (pattern, subschema) in map {
+        let pctx = ctx.new_at_location(pattern.as_str());
+        let regex = compile_regex(&pctx, pattern, subschema)?;
+        let node = compiler::compile(&pctx, pctx.as_resource_ref(subschema))?;
+        patterns.push((regex, node));
+    }
+    Ok(patterns)
+}
+
+/// Pick the optimal validator representation for the compiled pattern entries.
+fn build_validator_from_entries<R>(
+    mut entries: Vec<(Arc<R>, SchemaNode)>,
+    single_factory: impl FnOnce(Arc<R>, SchemaNode) -> Box<dyn Validate>,
+) -> Box<dyn Validate>
+where
+    R: RegexEngine + 'static,
+{
+    if entries.len() == 1 {
+        let (regex, node) = entries.pop().expect("len checked");
+        single_factory(regex, node)
+    } else {
+        Box::new(PatternPropertiesValidator { patterns: entries })
+    }
 }
 
 #[cfg(test)]
@@ -301,5 +313,26 @@ mod tests {
     #[test_case(&json!({"patternProperties": {"^f": {"type": "string"}, "^x": {"type": "string"}}}), &json!({"f": 42}), "/patternProperties/^f/type")]
     fn location(schema: &Value, instance: &Value, expected: &str) {
         tests_util::assert_schema_location(schema, instance, expected);
+    }
+
+    // Invalid regex in `patternProperties` without `additionalProperties`
+    #[test_case(&json!({"patternProperties": {"[invalid": {"type": "string"}}}))]
+    // Invalid regex with `additionalProperties: true` (default behavior)
+    #[test_case(&json!({"additionalProperties": true, "patternProperties": {"[invalid": {"type": "string"}}}))]
+    fn invalid_regex_fancy_regex(schema: &Value) {
+        let error = crate::validator_for(schema).expect_err("Should fail to compile");
+        assert!(error.to_string().contains("regex"));
+    }
+
+    #[test_case(&json!({"patternProperties": {"[invalid": {"type": "string"}}}))]
+    #[test_case(&json!({"additionalProperties": true, "patternProperties": {"[invalid": {"type": "string"}}}))]
+    fn invalid_regex_standard_regex(schema: &Value) {
+        use crate::PatternOptions;
+
+        let error = crate::options()
+            .with_pattern_options(PatternOptions::regex())
+            .build(schema)
+            .expect_err("Should fail to compile");
+        assert!(error.to_string().contains("regex"));
     }
 }

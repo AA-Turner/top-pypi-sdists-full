@@ -2,9 +2,12 @@ import os
 import re
 from os import PathLike
 from pathlib import Path, PurePath
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from snowflake.ml._internal.utils import identifier
+
+if TYPE_CHECKING:
+    from snowflake.ml.jobs._utils import types
 
 PROTOCOL_NAME = "snow"
 _SNOWURL_PATH_RE = re.compile(
@@ -33,6 +36,10 @@ class StagePath:
         self._path = Path(relpath or "")
 
     @property
+    def stem(self) -> str:
+        return self._path.stem
+
+    @property
     def parts(self) -> tuple[str, ...]:
         return self._path.parts
 
@@ -45,7 +52,7 @@ class StagePath:
         if self._path.parent == Path(""):
             return StagePath(self._root)
         else:
-            return StagePath(f"{self._root}/{self._path.parent}")
+            return StagePath(f"{self._root}/{self._path.parent.as_posix()}")
 
     @property
     def root(self) -> str:
@@ -60,7 +67,7 @@ class StagePath:
         if path == Path(""):
             return self.root
         else:
-            return f"{self.root}/{path}"
+            return f"{self.root}/{path.as_posix()}"
 
     def is_relative_to(self, *other: Union[str, os.PathLike[str]]) -> bool:
         if not other:
@@ -146,3 +153,21 @@ class StagePath:
                 # the arg might be an absolute path, so we need to remove the leading '/'
                 path = StagePath(f"{path.root}/{path._path.joinpath(arg).as_posix().lstrip('/')}")
         return path
+
+
+def resolve_path(path: Union[str, Path]) -> "types.PayloadPath":
+    """
+    Resolve a path to either a StagePath or a local Path.
+
+    Args:
+        path: A string or Path object representing a local or stage path.
+
+    Returns:
+        A StagePath if the input is a valid stage path, otherwise a local Path.
+    """
+    path_str = path.as_posix() if isinstance(path, Path) else path
+    try:
+        stage_path = StagePath(path_str)
+    except ValueError:
+        return Path(path_str)
+    return stage_path

@@ -1,6 +1,6 @@
 import asyncio
 
-from asgiref.sync import async_to_sync
+from asgiref.sync import async_to_sync, sync_to_async
 from django.http import Http404
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import GenericAPIView as DRFGenericAPIView
@@ -9,13 +9,13 @@ from adrf import mixins, views
 from adrf.shortcuts import aget_object_or_404 as _aget_object_or_404
 
 
-def aget_object_or_404(queryset, *filter_args, **filter_kwargs):
+async def aget_object_or_404(queryset, *filter_args, **filter_kwargs):
     """
     Same as Django's standard shortcut, but make sure to also raise 404
     if the filter_kwargs don't match the required types.
     """
     try:
-        return _aget_object_or_404(queryset, *filter_args, **filter_kwargs)
+        return await _aget_object_or_404(queryset, *filter_args, **filter_kwargs)
     except (TypeError, ValueError, ValidationError):
         raise Http404
 
@@ -31,7 +31,7 @@ class GenericAPIView(views.APIView, DRFGenericAPIView):
         queryset lookups.  Eg if objects are referenced using multiple
         keyword arguments in the url conf.
         """
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = await self.afilter_queryset(self.get_queryset())
 
         # Perform the lookup filtering.
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
@@ -47,9 +47,25 @@ class GenericAPIView(views.APIView, DRFGenericAPIView):
         obj = await aget_object_or_404(queryset, **filter_kwargs)
 
         # May raise a permission denied
-        self.check_object_permissions(self.request, obj)
+        await sync_to_async(self.check_object_permissions)(self.request, obj)
 
         return obj
+
+    async def afilter_queryset(self, queryset):
+        """
+        Given a queryset, filter it with whichever filter backend is in use.
+        """
+        for backend in list(self.filter_backends):
+            backend_instance = backend()
+            if asyncio.iscoroutinefunction(backend_instance.filter_queryset):
+                queryset = await backend_instance.filter_queryset(
+                    self.request, queryset, self
+                )
+            else:
+                queryset = await sync_to_async(backend_instance.filter_queryset)(
+                    self.request, queryset, self
+                )
+        return queryset
 
     def paginate_queryset(self, queryset):
         """
@@ -82,7 +98,9 @@ class GenericAPIView(views.APIView, DRFGenericAPIView):
             return await self.paginator.paginate_queryset(
                 queryset, self.request, view=self
             )
-        return self.paginator.paginate_queryset(queryset, self.request, view=self)
+        return await sync_to_async(self.paginator.paginate_queryset)(
+            queryset, self.request, view=self
+        )
 
     async def get_apaginated_response(self, data):
         """
@@ -91,7 +109,7 @@ class GenericAPIView(views.APIView, DRFGenericAPIView):
         assert self.paginator is not None
         if asyncio.iscoroutinefunction(self.paginator.get_paginated_response):
             return await self.paginator.get_paginated_response(data)
-        return self.paginator.get_paginated_response(data)
+        return await sync_to_async(self.paginator.get_paginated_response)(data)
 
 
 # Concrete view classes that provide method handlers

@@ -11,8 +11,8 @@ from typing import Literal, TypeVar
 from unittest import mock
 
 import pytest
-
 from jaraco.classes import properties
+
 from jaraco.functools import Throttler, method_cache, retry, retry_call
 
 _T = TypeVar("_T")

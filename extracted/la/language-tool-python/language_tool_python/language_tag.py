@@ -1,8 +1,12 @@
 """LanguageTool language tag normalization module."""
 
+import logging
 import re
-from typing import Iterable, Any
 from functools import total_ordering
+from typing import Any, Iterable
+
+logger = logging.getLogger(__name__)
+
 
 @total_ordering
 class LanguageTag:
@@ -13,14 +17,19 @@ class LanguageTag:
     :type tag: str
     :param languages: An iterable of supported language tags.
     :type languages: Iterable[str]
-
-    Attributes:
-        tag (str): The language tag to be normalized.
-        languages (Iterable[str]): An iterable of supported language tags.
-        normalized_tag (str): The normalized language tag.
-        _LANGUAGE_RE (re.Pattern): A regular expression to match language tags. 
     """
+
+    tag: str
+    """The language tag to be normalized."""
+
+    languages: Iterable[str]
+    """An iterable of supported language tags."""
+
+    normalized_tag: str
+    """The normalized language tag."""
+
     _LANGUAGE_RE = re.compile(r"^([a-z]{2,3})(?:[_-]([a-z]{2}))?$", re.I)
+    """A regular expression to match language tags."""
 
     def __init__(self, tag: str, languages: Iterable[str]) -> None:
         """
@@ -80,14 +89,37 @@ class LanguageTag:
         :return: The normalized language tag.
         :rtype: str
         """
+        logger.debug("Normalizing language tag: %r", tag)
+
         if not tag:
-            raise ValueError('empty language tag')
-        languages = {language.lower().replace('-', '_'): language
-                     for language in self.languages}
+            err = "empty language tag"
+            raise ValueError(err)
+        languages = {
+            language.lower().replace("-", "_"): language for language in self.languages
+        }
+        logger.debug("Available languages: %s", list(languages.keys()))
+
+        # If POSIX, default to English variants
+        if tag.lower() in {"c", "posix"} or tag.lower().startswith("c."):
+            logger.debug("Detected POSIX/C locale for tag %r", tag)
+            for candidate in ("en_us", "en_gb", "en"):
+                if candidate in languages:
+                    logger.debug("Using POSIX fallback language %r", candidate)
+                    return languages[candidate]
+            err = f"unsupported language (no default for POSIX locale): {tag!r}"
+            raise ValueError(err)
+
         try:
-            return languages[tag.lower().replace('-', '_')]
-        except KeyError:
+            return languages[tag.lower().replace("-", "_")]
+        except KeyError as e:
+            logger.debug("Tag %r not found directly, attempting regex match", tag)
             try:
-                return languages[self._LANGUAGE_RE.match(tag).group(1).lower()]
-            except (KeyError, AttributeError):
-                raise ValueError(f'unsupported language: {tag!r}')
+                match = self._LANGUAGE_RE.match(tag)
+                if match is None:
+                    err = "tag does not match pattern"
+                    raise AttributeError(err) from e
+                logger.debug("Regex match groups: %s", match.groups())
+                return languages[match.group(1).lower()]
+            except (KeyError, AttributeError) as e:
+                err = f"unsupported language: {tag!r}"
+                raise ValueError(err) from e

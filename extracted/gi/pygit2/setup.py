@@ -57,7 +57,7 @@ class sdist_files_from_git(sdist):
             sys.exit()
 
         def exclude(line: str) -> bool:
-            for prefix in ['.', 'appveyor.yml', 'docs/', 'misc/']:
+            for prefix in ['.', 'docs/', 'misc/']:
                 if line.startswith(prefix):
                     return True
             return False
@@ -77,10 +77,10 @@ classifiers = [
     'Intended Audience :: Developers',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Programming Language :: Python :: Implementation :: PyPy',
     'Programming Language :: Python :: Implementation :: CPython',
     'Topic :: Software Development :: Version Control',
@@ -153,9 +153,9 @@ setup(
     cffi_modules=['pygit2/_run.py:ffi'],
     ext_modules=ext_modules,
     # Requirements
-    python_requires='>=3.10',
-    setup_requires=['cffi>=1.17.0'],
-    install_requires=['cffi>=1.17.0'],
+    python_requires='>=3.11',
+    setup_requires=['cffi>=2.0'],
+    install_requires=['cffi>=2.0'],
     # URLs
     url='https://github.com/libgit2/pygit2',
     project_urls={

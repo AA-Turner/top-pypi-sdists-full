@@ -16,7 +16,6 @@ short_description: Configure virtual IP for IPv4.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -866,7 +868,7 @@ EXAMPLES = '''
           _scope: # Required
             - name: FGT_AWS # need a valid device name
               vdom: root # need a valid vdom name under the device
-          arp-reply: enable
+          arp_reply: enable
           color: 2
           comment: "ansible-comment"
           id: 1
@@ -945,6 +947,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'vip': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_vip_dynamicmapping': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -1001,7 +1004,7 @@ def main():
                         'type': {'v_range': [['6.4.0', '']], 'choices': ['ip', 'address'], 'type': 'str'},
                         'translate-host': {'v_range': [['7.2.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'health-check-proto': {'v_range': [['7.2.3', '']], 'choices': ['ping', 'http'], 'type': 'str'},
-                        'verify-cert': {'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                        'verify-cert': {'v_range': [['7.4.7', '7.4.8'], ['7.6.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
                     },
                     'elements': 'dict'
                 },

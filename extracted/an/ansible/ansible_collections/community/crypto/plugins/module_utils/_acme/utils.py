@@ -15,6 +15,7 @@ import re
 import textwrap
 import traceback
 import typing as t
+from collections.abc import Callable
 from urllib.parse import unquote
 
 from ansible_collections.community.crypto.plugins.module_utils._acme.errors import (
@@ -26,7 +27,6 @@ from ansible_collections.community.crypto.plugins.module_utils._crypto.math impo
 from ansible_collections.community.crypto.plugins.module_utils._time import (
     get_now_datetime,
 )
-
 
 if t.TYPE_CHECKING:
     from ansible_collections.community.crypto.plugins.module_utils._acme.backends import (  # pragma: no cover
@@ -85,7 +85,7 @@ def pem_to_der(
 
 
 def process_links(
-    *, info: dict[str, t.Any], callback: t.Callable[[str, str], None]
+    *, info: dict[str, t.Any], callback: Callable[[str, str], None]
 ) -> None:
     """
     Process link header, calls callback for every link header with the URL and relation as options.
@@ -164,10 +164,10 @@ def compute_cert_id(
 
 
 __all__ = (
-    "nopad_b64",
+    "compute_cert_id",
     "der_to_pem",
+    "nopad_b64",
+    "parse_retry_after",
     "pem_to_der",
     "process_links",
-    "parse_retry_after",
-    "compute_cert_id",
 )

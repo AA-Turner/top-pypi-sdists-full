@@ -141,7 +141,6 @@ ext_modules = [
 setup(
     name="tabmat",
     use_scm_version={"version_scheme": "post-release"},
-    setup_requires=["setuptools_scm"],
     description="Efficient matrix representations for working with tabular data.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -150,7 +149,6 @@ setup(
     author_email="noreply@quantco.com",
     classifiers=[  # Optional
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
@@ -158,8 +156,8 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    install_requires=["formulaic>=0.6", "narwhals", "numpy", "scipy"],
-    python_requires=">=3.9",
+    install_requires=["formulaic>=1.2", "narwhals", "numpy", "scipy"],
+    python_requires=">=3.10",
     ext_modules=cythonize(
         ext_modules,
         annotate=False,

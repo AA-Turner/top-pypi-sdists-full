@@ -39,14 +39,14 @@ class TestAuth:
         [
             (
                 "auth_with_uipath_url_env_variable",
-                [],
+                ["--force"],
                 {"UIPATH_URL": "https://custom.automationsuite.org/org/tenant"},
                 "https://custom.automationsuite.org/identity_/connect/authorize",
                 "https://custom.automationsuite.org/DefaultOrg/DefaultTenant",
             ),
             (
                 "auth_with_uipath_url_env_variable_with_trailing_slash",
-                [],
+                ["--force"],
                 {"UIPATH_URL": "https://custom.uipath.com/org/tenant/"},
                 "https://custom.uipath.com/identity_/connect/authorize",
                 "https://custom.uipath.com/DefaultOrg/DefaultTenant",
@@ -82,11 +82,11 @@ class TestAuth:
         ],
         ids=[
             "uipath_url_env",
+            "uipath_url_env_with_trailing_slash",
             "alpha_flag_overrides_env",
             "staging_flag_overrides_env",
             "cloud_flag",
             "default_to_cloud",
-            "uipath_url_env_with_trailing_slash",
         ],
     )
     def test_auth_scenarios(
@@ -115,7 +115,10 @@ class TestAuth:
                 "tenants": [{"name": "DefaultTenant", "id": "tenant-id"}],
                 "organization": {"name": "DefaultOrg", "id": "org-id"},
             }
-            mock_portal_service.return_value.__enter__.return_value.select_tenant.return_value = expected_select_tenant_return
+            mock_portal_service.return_value.__enter__.return_value._select_tenant.return_value = {
+                "tenant_id": "tenant-id",
+                "organization_id": "org-id",
+            }
 
             with runner.isolated_filesystem():
                 for key, value in env_vars.items():
@@ -146,3 +149,47 @@ class TestAuth:
             assert result.exit_code == 1
             assert "Malformed UIPATH_URL" in result.output
             assert "custom.uipath.com" in result.output
+
+    def test_auth_with_tenant_flag(self):
+        """
+        Test that providing --tenant bypasses interactive tenant selection
+        and uses the specified tenant name.
+        """
+        runner = CliRunner()
+        with (
+            patch("uipath._cli._auth._auth_service.webbrowser.open") as mock_open,
+            patch("uipath._cli._auth._auth_service.HTTPServer") as mock_server,
+            patch(
+                "uipath._cli._auth._auth_service.PortalService"
+            ) as mock_portal_service,
+            patch(
+                "uipath._cli._auth._url_utils.resolve_domain",
+                return_value="https://alpha.uipath.com",
+            ),
+        ):
+            mock_server.return_value.start = AsyncMock(
+                return_value={"access_token": "test_token"}
+            )
+
+            portal = mock_portal_service.return_value.__enter__.return_value
+            portal.get_tenants_and_organizations.return_value = {
+                "tenants": [
+                    {"name": "MyTenantName", "id": "tenant-id"},
+                    {"name": "OtherTenant", "id": "other-id"},
+                ],
+                "organization": {"name": "MyOrg", "id": "org-id"},
+            }
+            portal.resolve_tenant_info.return_value = {
+                "tenant_id": "tenant-id",
+                "organization_id": "org-id",
+            }
+            portal.selected_tenant = "MyTenantName"
+            with runner.isolated_filesystem():
+                result = runner.invoke(
+                    cli, ["auth", "--alpha", "--tenant", "MyTenantName", "--force"]
+                )
+
+                assert result.exit_code == 0, result.output
+                mock_open.assert_called_once()
+
+                portal.resolve_tenant_info.assert_called_once_with("MyTenantName")

@@ -109,7 +109,7 @@ Crash test dummy used for anything dangerous.
 
 class Periodic(behaviour.Behaviour):
     """
-    Simply periodically rotates it's status over all each status.
+    Simply periodically rotates its status over all each status.
 
     That is, :data:`~py_trees.common.Status.RUNNING` for N ticks,
     :data:`~py_trees.common.Status.SUCCESS` for N ticks,
@@ -210,7 +210,7 @@ class SuccessEveryN(behaviour.Behaviour):
     """
     Non-blocking, periodic success.
 
-    This behaviour updates it's status with :data:`~py_trees.common.Status.SUCCESS`
+    This behaviour updates its status with :data:`~py_trees.common.Status.SUCCESS`
     once every N ticks, :data:`~py_trees.common.Status.FAILURE` otherwise.
 
     Args:
@@ -570,10 +570,10 @@ class CheckBlackboardVariableValue(behaviour.Behaviour):
         """
         self.logger.debug("%s.update()" % self.__class__.__name__)
         try:
-            value = self.blackboard.get(self.key)
+            lhs_value = self.blackboard.get(self.key)
             if self.key_attributes:
                 try:
-                    value = operator.attrgetter(self.key_attributes)(value)
+                    lhs_value = operator.attrgetter(self.key_attributes)(lhs_value)
                 except AttributeError:
                     self.feedback_message = (
                         "blackboard key-value pair exists, but the value does not "
@@ -588,20 +588,95 @@ class CheckBlackboardVariableValue(behaviour.Behaviour):
             )
             return common.Status.FAILURE
 
-        success = self.check.operator(value, self.check.value)
+        rhs_value = self.check.value_generator()
+        success = self.check.operator(lhs_value, rhs_value)
 
         if success:
             self.feedback_message = "'%s' comparison succeeded [v: %s][e: %s]" % (
                 self.check.variable,
-                value,
-                self.check.value,
+                lhs_value,
+                rhs_value,
             )
             return common.Status.SUCCESS
         else:
             self.feedback_message = "'%s' comparison failed [v: %s][e: %s]" % (
                 self.check.variable,
-                value,
-                self.check.value,
+                lhs_value,
+                rhs_value,
+            )
+            return common.Status.FAILURE
+
+
+class CompareBlackboardVariables(behaviour.Behaviour):
+    """
+    Non-blocking comparison between two blackboard variables.
+
+    Gets two blackboard variables and applies the given operator between them,
+    returning SUCCESS if the comparison holds.
+    This is non-blocking, so it will always tick with
+    :data:`~py_trees.common.Status.SUCCESS` or
+    :data:`~py_trees.common.Status.FAILURE`.
+
+    Args:
+        name: name of the behaviour
+        var1_key: blackboard key for the first variable
+        var2_key: blackboard key for the second variable
+        operator: a callable comparison operator
+
+    .. note::
+        If the variables do not yet exist on the blackboard, the behaviour will
+        return with status :data:`~py_trees.common.Status.FAILURE`.
+
+    .. tip::
+        The python `operator module`_ includes many useful comparison operations.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        var1_key: str,
+        var2_key: str,
+        operator: typing.Callable[[common.ComparisonV, common.ComparisonV], bool],
+    ):
+        super().__init__(name=name)
+
+        self.var1_key = var1_key
+        self.var2_key = var2_key
+        self.operator = operator
+        self.blackboard = self.attach_blackboard_client()
+        self.blackboard.register_key(key=self.var1_key, access=common.Access.READ)
+        self.blackboard.register_key(key=self.var2_key, access=common.Access.READ)
+
+    def update(self) -> common.Status:
+        """
+        Check for the two variables and applies the operator between them.
+
+        Returns:
+             :class:`~py_trees.common.Status`: :data:`~py_trees.common.Status.FAILURE`
+                 if not matched, :data:`~py_trees.common.Status.SUCCESS` otherwise.
+        """
+        self.logger.debug("%s.update()" % self.__class__.__name__)
+        try:
+            lhs_value = self.blackboard.get(self.var1_key)
+            rhs_value = self.blackboard.get(self.var2_key)
+        except KeyError as err:
+            self.logger.error(str(err))
+            return common.Status.FAILURE
+
+        if self.operator(lhs_value, rhs_value):
+            self.feedback_message = "'%s, %s' comparison succeeded [v1: %s][v2: %s]" % (
+                self.var1_key,
+                self.var2_key,
+                lhs_value,
+                rhs_value,
+            )
+            return common.Status.SUCCESS
+        else:
+            self.feedback_message = "'%s, %s' comparison failed [v1: %s][v2: %s]" % (
+                self.var1_key,
+                self.var2_key,
+                lhs_value,
+                rhs_value,
             )
             return common.Status.FAILURE
 
@@ -722,7 +797,7 @@ class CheckBlackboardVariableValues(behaviour.Behaviour):
                     )
                 )
                 return common.Status.FAILURE
-            results.append(check.operator(value, check.value))
+            results.append(check.operator(value, check.value_generator()))
         if self.blackboard_results is not None:
             for counter in range(1, len(results) + 1):
                 self.blackboard_results.set(str(counter), results[counter - 1])

@@ -377,17 +377,27 @@ class ChassisAgentTypeChangeEvent(ChassisEvent):
         n_agent.AgentCache().update(ovn_const.OVN_CONTROLLER_AGENT, ch_private)
 
 
-class ChassisMetadataAgentWriteEvent(ChassisAgentEvent):
+class ChassisOVNAgentWriteEvent(ChassisAgentEvent):
     events = (BaseEvent.ROW_CREATE, BaseEvent.ROW_UPDATE)
 
     @staticmethod
-    def _metadata_nb_cfg(row):
+    def _agent_sb_cfg(row):
+        external_ids = row.external_ids
+        # Try the OVN agent SB cfg first, then fallback to the OVN Metadata
+        # agent
+        ovn_sb_cfg = external_ids.get(ovn_const.OVN_AGENT_NEUTRON_SB_CFG_KEY)
+        if ovn_sb_cfg:
+            return int(ovn_sb_cfg)
+        # NOTE(ralonsoh): to remove when the OVN Metadata agent is removed.
         return int(
-            row.external_ids.get(ovn_const.OVN_AGENT_METADATA_SB_CFG_KEY, -1))
+            external_ids.get(ovn_const.OVN_AGENT_METADATA_SB_CFG_KEY, -1))
 
     @staticmethod
     def agent_id(row):
-        return row.external_ids.get(ovn_const.OVN_AGENT_METADATA_ID_KEY)
+        external_ids = row.external_ids
+        # NOTE(ralonsoh): to update when the OVN Metadata agent is removed.
+        return (external_ids.get(ovn_const.OVN_AGENT_NEUTRON_ID_KEY) or
+                external_ids.get(ovn_const.OVN_AGENT_METADATA_ID_KEY))
 
     def match_fn(self, event, row, old=None):
         if not self.agent_id(row):
@@ -395,19 +405,35 @@ class ChassisMetadataAgentWriteEvent(ChassisAgentEvent):
             return False
         if event == self.ROW_CREATE:
             return True
+
+        # On updates to Chassis_Private because the Chassis has been
+        # deleted, don't update the AgentCache. We use
+        # chassis_private.chassis to return data about the agent.
+        if not getattr(row, 'chassis', None):
+            return False
+
+        # Check if both rows have external_ids before comparing nb_cfg
+        if not (hasattr(old, 'external_ids') and row.external_ids):
+            return False
+
         try:
-            # On updates to Chassis_Private because the Chassis has been
-            # deleted, don't update the AgentCache. We use
-            # chassis_private.chassis to return data about the agent.
-            if not row.chassis:
-                return False
-            return self._metadata_nb_cfg(row) != self._metadata_nb_cfg(old)
-        except (AttributeError, KeyError):
+            # Cache the nb_cfg values to avoid duplicate calculations
+            row_sb_cfg = self._agent_sb_cfg(row)
+            old_sb_cfg = self._agent_sb_cfg(old)
+            return row_sb_cfg != old_sb_cfg
+        except (AttributeError, KeyError, TypeError):
             return False
 
     def run(self, event, row, old):
-        n_agent.AgentCache().update(ovn_const.OVN_METADATA_AGENT, row,
-                                    clear_down=True)
+        external_ids = row.external_ids
+        if external_ids.get(ovn_const.OVN_AGENT_NEUTRON_ID_KEY):
+            n_agent.AgentCache().update(ovn_const.OVN_NEUTRON_AGENT, row,
+                                        clear_down=True)
+        else:
+            # NOTE(ralonsoh): to remove when the OVN Metadata agent is
+            # removed.
+            n_agent.AgentCache().update(ovn_const.OVN_METADATA_AGENT, row,
+                                        clear_down=True)
 
 
 class PortBindingChassisEvent(row_event.RowEvent):
@@ -693,8 +719,10 @@ class HAChassisGroupRouterEvent(row_event.RowEvent):
         self.event_name = 'HAChassisGroupRouterEvent'
 
     def match_fn(self, event, row, old):
-        if (ovn_const.OVN_ROUTER_ID_EXT_ID_KEY in row.external_ids or
-                hasattr(old, 'ha_chassis')):
+        if ovn_const.OVN_ROUTER_ID_EXT_ID_KEY not in row.external_ids:
+            # This is not a router "HA_Chassis_Group".
+            return False
+        if hasattr(old, 'ha_chassis'):
             # "HA_Chassis_Group" has been assigned to a router or there are
             # changes in the "ha_chassis" list.
             return True
@@ -818,7 +846,6 @@ class OvnIdlDistributedLock(BaseOvnIdl):
         self._node_uuid = self.driver.node_uuid
         self._hash_ring = hash_ring_manager.HashRingManager(
             self.driver.hash_ring_group)
-        self._last_touch = None
 
     def notify(self, event, row, updates=None):
         try:
@@ -834,11 +861,9 @@ class OvnIdlDistributedLock(BaseOvnIdl):
 
             # If the worker hasn't been health checked by the maintenance
             # thread (see bug #1834498), indicate that it's alive here
-            self._last_touch = node_last_touch
-            time_now = timeutils.utcnow()
-            touch_timeout = time_now - datetime.timedelta(
+            touch_timeout = timeutils.utcnow() - datetime.timedelta(
                 seconds=ovn_const.HASH_RING_TOUCH_INTERVAL)
-            if not self._last_touch or touch_timeout >= self._last_touch:
+            if not node_last_touch or touch_timeout >= node_last_touch:
                 # NOTE(lucasagomes): Guard the db operation with an exception
                 # handler. If heartbeating fails for whatever reason, log
                 # the error and continue with processing the event
@@ -903,7 +928,7 @@ class OvnSbIdl(OvnIdlDistributedLock):
             ChassisAgentDownEvent(self.driver),
             ChassisAgentWriteEvent(self.driver),
             ChassisAgentTypeChangeEvent(self.driver),
-            ChassisMetadataAgentWriteEvent(self.driver),
+            ChassisOVNAgentWriteEvent(self.driver),
             PortBindingUpdateVirtualPortsEvent(driver),
             placement.ChassisBandwidthConfigEvent(driver),
         ])

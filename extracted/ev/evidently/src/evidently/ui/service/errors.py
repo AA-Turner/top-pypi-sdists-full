@@ -45,6 +45,18 @@ class SnapshotNotFound(EntityNotFound):
     entity_name = "Snapshot"
 
 
+class DatasetNotFound(EntityNotFound):
+    entity_name = "Dataset"
+
+
+class ArtifactNotFound(EntityNotFound):
+    entity_name = "Artifact"
+
+
+class ArtifactVersionNotFound(EntityNotFound):
+    entity_name = "Artifact version"
+
+
 class NotEnoughPermissions(EvidentlyServiceError):
     def to_response(self) -> Response:
         return Response(

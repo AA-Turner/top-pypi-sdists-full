@@ -18,6 +18,7 @@ from ......schema_classes import DataFlowKeyClass
 from ......schema_classes import DataHubAccessTokenKeyClass
 from ......schema_classes import DataHubActionKeyClass
 from ......schema_classes import DataHubConnectionKeyClass
+from ......schema_classes import DataHubFileKeyClass
 from ......schema_classes import DataHubIngestionSourceKeyClass
 from ......schema_classes import DataHubOpenAPISchemaKeyClass
 from ......schema_classes import DataHubPageModuleKeyClass
@@ -36,6 +37,7 @@ from ......schema_classes import DataPlatformKeyClass
 from ......schema_classes import DataProcessInstanceKeyClass
 from ......schema_classes import DataProcessKeyClass
 from ......schema_classes import DatasetKeyClass
+from ......schema_classes import DocumentKeyClass
 from ......schema_classes import DomainKeyClass
 from ......schema_classes import ERModelRelationshipKeyClass
 from ......schema_classes import ExecutionRequestKeyClass
@@ -74,6 +76,7 @@ DataFlowKey = DataFlowKeyClass
 DataHubAccessTokenKey = DataHubAccessTokenKeyClass
 DataHubActionKey = DataHubActionKeyClass
 DataHubConnectionKey = DataHubConnectionKeyClass
+DataHubFileKey = DataHubFileKeyClass
 DataHubIngestionSourceKey = DataHubIngestionSourceKeyClass
 DataHubOpenAPISchemaKey = DataHubOpenAPISchemaKeyClass
 DataHubPageModuleKey = DataHubPageModuleKeyClass
@@ -92,6 +95,7 @@ DataPlatformKey = DataPlatformKeyClass
 DataProcessInstanceKey = DataProcessInstanceKeyClass
 DataProcessKey = DataProcessKeyClass
 DatasetKey = DatasetKeyClass
+DocumentKey = DocumentKeyClass
 DomainKey = DomainKeyClass
 ERModelRelationshipKey = ERModelRelationshipKeyClass
 ExecutionRequestKey = ExecutionRequestKeyClass

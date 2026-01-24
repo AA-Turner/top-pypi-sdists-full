@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 from pydantic import BaseModel, Field
 from pymatgen.analysis.piezo import PiezoTensor as BasePiezoTensor
-from pymatgen.core.structure import Structure
 from pymatgen.core.tensors import Tensor
 
 from emmet.core.material_property import PropertyDoc
 from emmet.core.math import Matrix3D
-from emmet.core.mpid import MPID
 from emmet.core.settings import EmmetSettings
+from emmet.core.types.pymatgen_types.ir_dielectric_tensor_adapter import (
+    IRDielectricTensorType,
+)
+
+if TYPE_CHECKING:
+    from pymatgen.core.structure import Structure
+
+    from emmet.core.types.typing import IdentifierType
+
 
 SETTINGS = EmmetSettings()
 
@@ -48,7 +57,7 @@ class DielectricDoc(PropertyDoc):
         ionic: Matrix3D,
         electronic: Matrix3D,
         structure: Structure,
-        material_id: MPID | None = None,
+        material_id: IdentifierType | None = None,
         **kwargs,
     ):
         ionic_tensor = Tensor(ionic).convert_to_ieee(structure)
@@ -101,7 +110,7 @@ class PiezoelectricDoc(PropertyDoc):
         ionic: PiezoTensor,
         electronic: PiezoTensor,
         structure: Structure,
-        material_id: MPID | None = None,
+        material_id: IdentifierType | None = None,
         **kwargs,
     ):
         ionic_tensor = BasePiezoTensor.from_vasp_voigt(ionic)
@@ -165,6 +174,6 @@ class IRDielectric(BaseModel):
     A block for the pymatgen IRDielectricTensor object
     """
 
-    ir_dielectric_tensor: dict | None = Field(
+    ir_dielectric_tensor: IRDielectricTensorType | None = Field(
         None, description="Serialized version of a pymatgen IRDielectricTensor object."
     )

@@ -210,7 +210,7 @@ async def gerar_nosso_numero(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
             return RpaRetornoProcessoDTO(
             sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
         )
-    
+        await worker_sleep(60)
         app = Application().connect(title="Seleciona Cobrança Bancária")
         main_window = app["Seleciona Cobrança Bancária"]
         code = main_window.child_window(class_name="TDBIEditCode", found_index=0)
@@ -226,7 +226,7 @@ async def gerar_nosso_numero(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
         button_ok.click()
         pyautogui.click(855, 740)
         
-        await worker_sleep(80)
+        await worker_sleep(120)
         boleto_argenta = None
         max_trys = 5
         trys = 0

@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -105,12 +106,6 @@ from .type_defs import (
     ValidatePolicyResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -119,16 +114,16 @@ else:
 __all__ = ("AccessAnalyzerClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnprocessableEntityException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnprocessableEntityException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class AccessAnalyzerClient(BaseClient):
     """
@@ -178,7 +173,7 @@ class AccessAnalyzerClient(BaseClient):
 
     def cancel_policy_generation(
         self, **kwargs: Unpack[CancelPolicyGenerationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels the requested policy generation.
 
@@ -481,7 +476,7 @@ class AccessAnalyzerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_accessanalyzer/client/#start_resource_scan)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds a tag to the specified resource.
 
@@ -489,7 +484,7 @@ class AccessAnalyzerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_accessanalyzer/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from the specified resource.
 

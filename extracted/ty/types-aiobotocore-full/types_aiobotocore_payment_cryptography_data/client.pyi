@@ -3,7 +3,7 @@ Type annotations for payment-cryptography-data service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography_data/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -33,6 +34,8 @@ from .type_defs import (
     DecryptDataOutputTypeDef,
     EncryptDataInputTypeDef,
     EncryptDataOutputTypeDef,
+    GenerateAs2805KekValidationInputTypeDef,
+    GenerateAs2805KekValidationOutputTypeDef,
     GenerateCardValidationDataInputTypeDef,
     GenerateCardValidationDataOutputTypeDef,
     GenerateMacEmvPinChangeInputTypeDef,
@@ -43,6 +46,8 @@ from .type_defs import (
     GeneratePinDataOutputTypeDef,
     ReEncryptDataInputTypeDef,
     ReEncryptDataOutputTypeDef,
+    TranslateKeyMaterialInputTypeDef,
+    TranslateKeyMaterialOutputTypeDef,
     TranslatePinDataInputTypeDef,
     TranslatePinDataOutputTypeDef,
     VerifyAuthRequestCryptogramInputTypeDef,
@@ -55,11 +60,6 @@ from .type_defs import (
     VerifyPinDataOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -68,13 +68,13 @@ else:
 __all__ = ("PaymentCryptographyDataPlaneClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
-    VerificationFailedException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
+    VerificationFailedException: type[BotocoreClientError]
 
 class PaymentCryptographyDataPlaneClient(AioBaseClient):
     """
@@ -133,6 +133,18 @@ class PaymentCryptographyDataPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography_data/client/#encrypt_data)
         """
 
+    async def generate_as2805_kek_validation(
+        self, **kwargs: Unpack[GenerateAs2805KekValidationInputTypeDef]
+    ) -> GenerateAs2805KekValidationOutputTypeDef:
+        """
+        Establishes node-to-node initialization between payment processing nodes such
+        as an acquirer, issuer or payment network using Australian Standard 2805
+        (AS2805).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography-data/client/generate_as2805_kek_validation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography_data/client/#generate_as2805_kek_validation)
+        """
+
     async def generate_card_validation_data(
         self, **kwargs: Unpack[GenerateCardValidationDataInputTypeDef]
     ) -> GenerateCardValidationDataOutputTypeDef:
@@ -186,6 +198,17 @@ class PaymentCryptographyDataPlaneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography-data/client/re_encrypt_data.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography_data/client/#re_encrypt_data)
+        """
+
+    async def translate_key_material(
+        self, **kwargs: Unpack[TranslateKeyMaterialInputTypeDef]
+    ) -> TranslateKeyMaterialOutputTypeDef:
+        """
+        Translates an cryptographic key between different wrapping keys without
+        importing the key into Amazon Web Services Payment Cryptography.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography-data/client/translate_key_material.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography_data/client/#translate_key_material)
         """
 
     async def translate_pin_data(
@@ -248,7 +271,7 @@ class PaymentCryptographyDataPlaneClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

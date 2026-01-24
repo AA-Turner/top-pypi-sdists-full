@@ -48,6 +48,7 @@ class DecoratedJobQueue(object):
         'cluster_id': 'str',
         'project_id': 'str',
         'cloud_id': 'str',
+        'sealed_at': 'datetime',
         'total_jobs': 'int',
         'successful_jobs': 'int',
         'failed_jobs': 'int',
@@ -70,13 +71,14 @@ class DecoratedJobQueue(object):
         'cluster_id': 'cluster_id',
         'project_id': 'project_id',
         'cloud_id': 'cloud_id',
+        'sealed_at': 'sealed_at',
         'total_jobs': 'total_jobs',
         'successful_jobs': 'successful_jobs',
         'failed_jobs': 'failed_jobs',
         'active_jobs': 'active_jobs'
     }
 
-    def __init__(self, id=None, user_provided_id=None, name=None, current_job_queue_state=None, execution_mode=None, max_concurrency=None, idle_timeout_sec=None, created_at=None, creator_id=None, creator_email=None, compute_config_id=None, current_cluster_state=None, cluster_id=None, project_id=None, cloud_id=None, total_jobs=None, successful_jobs=None, failed_jobs=None, active_jobs=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, user_provided_id=None, name=None, current_job_queue_state=None, execution_mode=None, max_concurrency=None, idle_timeout_sec=None, created_at=None, creator_id=None, creator_email=None, compute_config_id=None, current_cluster_state=None, cluster_id=None, project_id=None, cloud_id=None, sealed_at=None, total_jobs=None, successful_jobs=None, failed_jobs=None, active_jobs=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedJobQueue - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -97,6 +99,7 @@ class DecoratedJobQueue(object):
         self._cluster_id = None
         self._project_id = None
         self._cloud_id = None
+        self._sealed_at = None
         self._total_jobs = None
         self._successful_jobs = None
         self._failed_jobs = None
@@ -122,6 +125,8 @@ class DecoratedJobQueue(object):
             self.cluster_id = cluster_id
         self.project_id = project_id
         self.cloud_id = cloud_id
+        if sealed_at is not None:
+            self.sealed_at = sealed_at
         if total_jobs is not None:
             self.total_jobs = total_jobs
         if successful_jobs is not None:
@@ -497,6 +502,29 @@ class DecoratedJobQueue(object):
             raise ValueError("Invalid value for `cloud_id`, must not be `None`")  # noqa: E501
 
         self._cloud_id = cloud_id
+
+    @property
+    def sealed_at(self):
+        """Gets the sealed_at of this DecoratedJobQueue.  # noqa: E501
+
+        Time at which job queue was sealed (archived).  # noqa: E501
+
+        :return: The sealed_at of this DecoratedJobQueue.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._sealed_at
+
+    @sealed_at.setter
+    def sealed_at(self, sealed_at):
+        """Sets the sealed_at of this DecoratedJobQueue.
+
+        Time at which job queue was sealed (archived).  # noqa: E501
+
+        :param sealed_at: The sealed_at of this DecoratedJobQueue.  # noqa: E501
+        :type: datetime
+        """
+
+        self._sealed_at = sealed_at
 
     @property
     def total_jobs(self):

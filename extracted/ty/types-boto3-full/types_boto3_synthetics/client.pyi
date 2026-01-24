@@ -3,7 +3,7 @@ Type annotations for synthetics service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_synthetics/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -63,12 +64,6 @@ from .type_defs import (
     UpdateCanaryRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -77,18 +72,18 @@ else:
 __all__ = ("SyntheticsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    RequestEntityTooLargeException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    RequestEntityTooLargeException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class SyntheticsClient(BaseClient):
     """
@@ -127,7 +122,7 @@ class SyntheticsClient(BaseClient):
 
     def associate_resource(
         self, **kwargs: Unpack[AssociateResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a canary with a group.
 
@@ -156,7 +151,7 @@ class SyntheticsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_synthetics/client/#create_group)
         """
 
-    def delete_canary(self, **kwargs: Unpack[DeleteCanaryRequestTypeDef]) -> Dict[str, Any]:
+    def delete_canary(self, **kwargs: Unpack[DeleteCanaryRequestTypeDef]) -> dict[str, Any]:
         """
         Permanently deletes the specified canary.
 
@@ -164,7 +159,7 @@ class SyntheticsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_synthetics/client/#delete_canary)
         """
 
-    def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> Dict[str, Any]:
+    def delete_group(self, **kwargs: Unpack[DeleteGroupRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a group.
 
@@ -206,7 +201,7 @@ class SyntheticsClient(BaseClient):
 
     def disassociate_resource(
         self, **kwargs: Unpack[DisassociateResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a canary from a group.
 
@@ -280,7 +275,7 @@ class SyntheticsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_synthetics/client/#list_tags_for_resource)
         """
 
-    def start_canary(self, **kwargs: Unpack[StartCanaryRequestTypeDef]) -> Dict[str, Any]:
+    def start_canary(self, **kwargs: Unpack[StartCanaryRequestTypeDef]) -> dict[str, Any]:
         """
         Use this operation to run a canary that has already been created.
 
@@ -299,7 +294,7 @@ class SyntheticsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_synthetics/client/#start_canary_dry_run)
         """
 
-    def stop_canary(self, **kwargs: Unpack[StopCanaryRequestTypeDef]) -> Dict[str, Any]:
+    def stop_canary(self, **kwargs: Unpack[StopCanaryRequestTypeDef]) -> dict[str, Any]:
         """
         Stops the canary to prevent all future runs.
 
@@ -307,7 +302,7 @@ class SyntheticsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_synthetics/client/#stop_canary)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified canary or group.
 
@@ -315,7 +310,7 @@ class SyntheticsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_synthetics/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified resource.
 
@@ -323,7 +318,7 @@ class SyntheticsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_synthetics/client/#untag_resource)
         """
 
-    def update_canary(self, **kwargs: Unpack[UpdateCanaryRequestTypeDef]) -> Dict[str, Any]:
+    def update_canary(self, **kwargs: Unpack[UpdateCanaryRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the configuration of a canary that has already been created.
 

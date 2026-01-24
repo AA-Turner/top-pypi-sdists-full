@@ -1,6 +1,10 @@
-"""Interfaces implemented by serializable objects."""
+"""Interfaces implemented by serializable objects.
 
-from typing import Any, Callable
+This file has no implementation, only interfaces.
+"""
+
+from collections.abc import Callable
+from typing import Any
 
 
 class Encodable:

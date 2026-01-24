@@ -251,8 +251,6 @@ class TestOvnIdlDistributedLock(base.BaseTestCase):
 
     @mock.patch.object(ovn_hash_ring_db, 'touch_node')
     def test_notify_skip_touch_node(self, mock_touch_node):
-        # Set a time for last touch
-        self.idl._last_touch = timeutils.utcnow()
         self.idl.notify(self.fake_event, self.fake_row)
 
         # Assert that touch_node() wasn't called
@@ -261,15 +259,12 @@ class TestOvnIdlDistributedLock(base.BaseTestCase):
 
     @mock.patch.object(ovn_hash_ring_db, 'touch_node')
     def test_notify_last_touch_expired(self, mock_touch_node):
-        # Set a time for last touch
-        self.idl._last_touch = timeutils.utcnow()
+        # make the node old enough to require a touch
+        updated_at = timeutils.utcnow() - datetime.timedelta(
+            seconds=ovn_const.HASH_RING_TOUCH_INTERVAL + 1)
+        self.mock_get_node.return_value = (self.node_uuid, updated_at)
 
-        # Let's expire the touch node interval for the next utcnow()
-        with mock.patch.object(timeutils, 'utcnow') as mock_utcnow:
-            mock_utcnow.return_value = (
-                self.idl._last_touch + datetime.timedelta(
-                    seconds=ovn_const.HASH_RING_TOUCH_INTERVAL + 1))
-            self.idl.notify(self.fake_event, self.fake_row)
+        self.idl.notify(self.fake_event, self.fake_row)
 
         # Assert that touch_node() was invoked
         mock_touch_node.assert_called_once_with(mock.ANY, self.node_uuid)
@@ -761,3 +756,97 @@ class TestChassisEvent(base.BaseTestCase):
         # after it became a Gateway chassis
         self._test_handle_ha_chassis_group_changes_create(
             self.event.ROW_UPDATE)
+
+
+class TestChassisOVNAgentWriteEvent(base.BaseTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.driver = mock.MagicMock()
+        self.event = ovsdb_monitor.ChassisOVNAgentWriteEvent(self.driver)
+
+        self.chassis_private_table = fakes.FakeOvsdbTable.create_one_ovsdb_table(
+            attrs={'name': 'Chassis_Private'})
+        self.ovsdb_row = fakes.FakeOvsdbRow.create_one_ovsdb_row
+
+    def test_match_fn_no_agent_id(self):
+        # Should not match if no agent ID
+        row = self.ovsdb_row(attrs={'external_ids': {}})
+        self.assertFalse(self.event.match_fn(self.event.ROW_CREATE, row))
+
+    def test_match_fn_create_event(self):
+        # Should match CREATE events with valid agent ID
+        row = self.ovsdb_row(
+            attrs={'external_ids': {
+                ovn_const.OVN_AGENT_NEUTRON_ID_KEY: 'neutron-123'}})
+        self.assertTrue(self.event.match_fn(self.event.ROW_CREATE, row))
+
+    def test_match_fn_update_no_chassis(self):
+        # Should not match UPDATE events if no chassis
+        row = self.ovsdb_row(
+            attrs={'external_ids': {
+                ovn_const.OVN_AGENT_NEUTRON_ID_KEY: 'neutron-123'},
+                   'chassis': None})
+        old = self.ovsdb_row(attrs={'external_ids': {}})
+        self.assertFalse(self.event.match_fn(self.event.ROW_UPDATE, row, old))
+
+    def test_match_fn_update_no_old_external_ids(self):
+        # Should not match UPDATE events if old row has no external_ids
+        row = self.ovsdb_row(
+            attrs={'external_ids': {
+                ovn_const.OVN_AGENT_NEUTRON_ID_KEY: 'neutron-123'},
+                   'chassis': 'chassis-1'})
+        old = self.ovsdb_row(attrs={})
+        self.assertFalse(self.event.match_fn(self.event.ROW_UPDATE, row, old))
+
+    def test_match_fn_update_sb_cfg_changed(self):
+        # Should match UPDATE events when sb_cfg changes
+        row = self.ovsdb_row(
+            attrs={'external_ids': {
+                ovn_const.OVN_AGENT_NEUTRON_ID_KEY: 'neutron-123',
+                ovn_const.OVN_AGENT_NEUTRON_SB_CFG_KEY: '456'},
+                   'chassis': 'chassis-1'})
+        old = self.ovsdb_row(
+            attrs={'external_ids': {
+                ovn_const.OVN_AGENT_NEUTRON_ID_KEY: 'neutron-123',
+                ovn_const.OVN_AGENT_NEUTRON_SB_CFG_KEY: '123'}})
+        self.assertTrue(self.event.match_fn(self.event.ROW_UPDATE, row, old))
+
+    def test_match_fn_update_sb_cfg_unchanged(self):
+        # Should not match UPDATE events when sb_cfg is unchanged
+        row = self.ovsdb_row(
+            attrs={'external_ids': {
+                ovn_const.OVN_AGENT_NEUTRON_ID_KEY: 'neutron-123',
+                ovn_const.OVN_AGENT_NEUTRON_SB_CFG_KEY: '123'},
+                   'chassis': 'chassis-1'})
+        old = self.ovsdb_row(
+            attrs={'external_ids': {
+                ovn_const.OVN_AGENT_NEUTRON_ID_KEY: 'neutron-123',
+                ovn_const.OVN_AGENT_NEUTRON_SB_CFG_KEY: '123'}})
+        self.assertFalse(self.event.match_fn(self.event.ROW_UPDATE, row, old))
+
+    def test_run_ovn_neutron_agent(self):
+        # Test run method with neutron agent
+        row = self.ovsdb_row(
+            attrs={'external_ids': {
+                ovn_const.OVN_AGENT_NEUTRON_ID_KEY: 'neutron-123'}})
+
+        with mock.patch('neutron.plugins.ml2.drivers.ovn.agent.neutron_agent.'
+                        'AgentCache') as agent_cache:
+            self.event.run(self.event.ROW_CREATE, row, None)
+            agent_cache.assert_has_calls([
+                mock.call().update(
+                    ovn_const.OVN_NEUTRON_AGENT, row, clear_down=True)])
+
+    def test_run_metadata_agent(self):
+        # Test run method with metadata agent
+        row = self.ovsdb_row(
+            attrs={'external_ids': {
+                ovn_const.OVN_AGENT_METADATA_ID_KEY: 'metadata-456'}})
+
+        with mock.patch('neutron.plugins.ml2.drivers.ovn.agent.neutron_agent.'
+                        'AgentCache') as agent_cache:
+            self.event.run(self.event.ROW_CREATE, row, None)
+            agent_cache.assert_has_calls([
+                mock.call().update(
+                    ovn_const.OVN_METADATA_AGENT, row, clear_down=True)])

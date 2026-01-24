@@ -17,7 +17,7 @@ from wbcore.contrib.example_app.viewsets import TeamResultsModelViewSet
 @pytest.mark.django_db
 class TestTeamResultsModelViewSet(TestCase):
     def setUp(self):
-        self.user = SuperUserFactory()
+        self.user = SuperUserFactory.create()
         self.client = Client()
         self.client.force_login(user=self.user)
         self.list_url = reverse("example_app:teamresults-list")
@@ -28,31 +28,31 @@ class TestTeamResultsModelViewSet(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_create_view(self):
-        team_result = TeamResultsFactory()
+        team_result = TeamResultsFactory.create()
         response = get_create_view(self.client, team_result, self.user, self.list_url, TeamResultsModelViewSet)
         # It is not possible to create an team results, since the get_endpoint_url returns None.
         self.assertEqual(response.status_code, 405)
 
     def test_detail_view(self):
-        instance = TeamResultsFactory()
+        instance = TeamResultsFactory.create()
         response = get_detail_view(self.client, instance.pk, self.detail_url_str)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["instance"]["id"], instance.id)
 
     def test_update_view(self):
-        instance = TeamResultsFactory()
+        instance = TeamResultsFactory.create()
         instance.points = 5
         response = get_update_view(self.client, instance, TeamResultsModelSerializer, self.detail_url_str)
         # It is not possible to update an team results, since the get_endpoint_url returns None.
         self.assertEqual(response.status_code, 405)
 
     def test_partial_update_view(self):
-        instance = TeamResultsFactory()
+        instance = TeamResultsFactory.create()
         response = get_partial_view(self.client, instance.id, {"points": 5}, self.detail_url_str)
         self.assertEqual(response.status_code, 405)
 
     def test_delete_view(self):
-        instance = TeamResultsFactory()
+        instance = TeamResultsFactory.create()
         response = get_delete_view(self.client, self.detail_url_str, instance.pk)
         # It is not possible to delete an team results, since the get_endpoint_url returns None.
         self.assertEqual(response.status_code, 405)

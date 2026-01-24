@@ -47,10 +47,10 @@ class NoOpIntegration(Integration):
     identifier = "noop"
 
     @staticmethod
-    def setup_once():  # type: () -> None
+    def setup_once() -> None:
         pass
 
-    def __eq__(self, __value):  # type: (object) -> bool
+    def __eq__(self, __value: object) -> bool:
         """
         All instances of NoOpIntegration should be considered equal to each other.
         """
@@ -1218,6 +1218,6 @@ def test_stacktrace_big_recursion(sentry_init, capture_events):
 
     # On my machine, it takes about 100-200ms to capture the exception,
     # so this limit should be generous enough.
-    assert (
-        capture_end_time - capture_start_time < 10**9 * 2
-    ), "stacktrace capture took too long, check that frame limit is set correctly"
+    assert capture_end_time - capture_start_time < 10**9 * 2, (
+        "stacktrace capture took too long, check that frame limit is set correctly"
+    )

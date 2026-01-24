@@ -358,7 +358,7 @@ class BayesianCompressiveSensing(LinearRegression):
     def load(fname):
         bayes = BayesianCompressiveSensing()
         bayes.fname = fname
-        with open(fname, "r") as infile:
+        with open(fname) as infile:
             data = json.load(infile)
 
         for key, value in data.items():
@@ -438,12 +438,12 @@ class BayesianCompressiveSensing(LinearRegression):
         while iteration < self.maxiter:
             if time.perf_counter() - now > self.output_rate_sec:
                 msg = f"Iter: {iteration} "
-                msg += f"RMSE: {1000.0*self.rmse():.3E} "
-                msg += f"LOOCV (approx.): {1000.0*self.estimate_loocv():.3E} "
+                msg += f"RMSE: {1000.0 * self.rmse():.3E} "
+                msg += f"LOOCV (approx.): {1000.0 * self.estimate_loocv():.3E} "
                 msg += f"Num ECI: {self.num_ecis} "
                 msg += f"Lamb: {self.lamb:.3E} "
                 msg += f"Shape lamb: {self.shape_lamb:.3E} "
-                msg += f"Noise: {np.sqrt(1.0/self.inv_variance):.3E}"
+                msg += f"Noise: {np.sqrt(1.0 / self.inv_variance):.3E}"
                 logger.info(msg)
                 now = time.perf_counter()
 

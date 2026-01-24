@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2021, 2024.
+# (C) Copyright IBM 2021, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -11,17 +11,14 @@
 # that they have been altered from the originals.
 
 """Tests for the SPSA optimizer."""
-
 from test import QiskitAlgorithmsTestCase
-from ddt import ddt, data
 
 import numpy as np
-
-from qiskit.circuit.library import PauliTwoDesign
-from qiskit.primitives import Estimator, Sampler
+from ddt import data, ddt
+from qiskit.circuit.library import pauli_two_design
 from qiskit.quantum_info import SparsePauliOp, Statevector
-
-from qiskit_machine_learning.optimizers import SPSA, QNSPSA
+from qiskit_machine_learning.primitives import QMLSampler as Sampler, QMLEstimator as Estimator
+from qiskit_machine_learning.optimizers import QNSPSA, SPSA
 from qiskit_machine_learning.utils import algorithm_globals
 
 
@@ -38,7 +35,7 @@ class TestSPSA(QiskitAlgorithmsTestCase):
     @data("spsa", "2spsa", "qnspsa")
     def test_pauli_two_design(self, method):
         """Test SPSA on the Pauli two-design example."""
-        circuit = PauliTwoDesign(3, reps=1, seed=1)
+        circuit = pauli_two_design(3, reps=1, seed=1)
         parameters = list(circuit.parameters)
         obs = SparsePauliOp("ZZI")  # Z^Z^I
 
@@ -200,7 +197,7 @@ class TestSPSA(QiskitAlgorithmsTestCase):
 
     def test_qnspsa_fidelity_primitives(self):
         """Test the primitives can be used in get_fidelity."""
-        ansatz = PauliTwoDesign(2, reps=1, seed=2)
+        ansatz = pauli_two_design(2, reps=1, seed=2)
         initial_point = np.random.random(ansatz.num_parameters)
 
         with self.subTest(msg="pass as kwarg"):
@@ -211,11 +208,11 @@ class TestSPSA(QiskitAlgorithmsTestCase):
 
     def test_qnspsa_max_evals_grouped(self):
         """Test using max_evals_grouped with QNSPSA."""
-        circuit = PauliTwoDesign(3, reps=1, seed=1)
+        circuit = pauli_two_design(3, reps=1, seed=1)
         num_parameters = circuit.num_parameters
 
         obs = SparsePauliOp("ZZI")  # Z^Z^I
-        estimator = Estimator(options={"seed": 12})
+        estimator = Estimator(seed=12)
 
         initial_point = np.array(
             [0.82311034, 0.02611798, 0.21077064, 0.61842177, 0.09828447, 0.62013131]
@@ -223,8 +220,9 @@ class TestSPSA(QiskitAlgorithmsTestCase):
 
         def objective(x):
             x = np.reshape(x, (-1, num_parameters)).tolist()
-            n = len(x)
-            return estimator.run(n * [circuit], n * [obs], x).result().values.real
+            job = estimator.run([(circuit, obs, x)])
+            evs = job.result()[0].data.evs.real
+            return evs
 
         fidelity = QNSPSA.get_fidelity(circuit, sampler=Sampler())
         optimizer = QNSPSA(fidelity)

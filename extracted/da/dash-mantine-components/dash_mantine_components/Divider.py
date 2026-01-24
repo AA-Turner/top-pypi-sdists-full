@@ -160,7 +160,7 @@ Keyword arguments:
 - ml (number; optional):
     MarginLeft, theme key: theme.spacing.
 
-- mod (string; optional):
+- mod (string | dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Element modifiers transformed into `data-` attributes, for
     example, `{ 'data-size': 'xl' }`, falsy values are removed.
 
@@ -249,7 +249,7 @@ Keyword arguments:
 
 - w (string | number; optional):
     Width, theme key: theme.spacing."""
-    _children_props = ['label']
+    _children_props: typing.List[str] = ['label']
     _base_nodes = ['label', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Divider'
@@ -276,7 +276,7 @@ Keyword arguments:
         visibleFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
-        mod: typing.Optional[typing.Union[str]] = None,
+        mod: typing.Optional[typing.Union[str, typing.Dict[typing.Union[str, float, int], typing.Any]]] = None,
         m: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         my: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         mx: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,

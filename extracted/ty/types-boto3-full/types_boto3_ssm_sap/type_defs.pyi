@@ -3,7 +3,7 @@ Type annotations for ssm-sap service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ssm_sap/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -41,12 +42,6 @@ from .literals import (
     RuleResultStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -152,7 +147,7 @@ ApplicationSummaryTypeDef = TypedDict(
         "DiscoveryStatus": NotRequired[ApplicationDiscoveryStatusType],
         "Type": NotRequired[ApplicationTypeType],
         "Arn": NotRequired[str],
-        "Tags": NotRequired[Dict[str, str]],
+        "Tags": NotRequired[dict[str, str]],
     },
 )
 ApplicationTypeDef = TypedDict(
@@ -164,10 +159,10 @@ ApplicationTypeDef = TypedDict(
         "AppRegistryArn": NotRequired[str],
         "Status": NotRequired[ApplicationStatusType],
         "DiscoveryStatus": NotRequired[ApplicationDiscoveryStatusType],
-        "Components": NotRequired[List[str]],
+        "Components": NotRequired[list[str]],
         "LastUpdated": NotRequired[datetime],
         "StatusMessage": NotRequired[str],
-        "AssociatedApplicationArns": NotRequired[List[str]],
+        "AssociatedApplicationArns": NotRequired[list[str]],
     },
 )
 
@@ -189,7 +184,7 @@ class ComponentSummaryTypeDef(TypedDict):
     ApplicationId: NotRequired[str]
     ComponentId: NotRequired[str]
     ComponentType: NotRequired[ComponentTypeType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     Arn: NotRequired[str]
 
 class DatabaseConnectionTypeDef(TypedDict):
@@ -216,7 +211,7 @@ class ConfigurationCheckDefinitionTypeDef(TypedDict):
     Id: NotRequired[ConfigurationCheckTypeType]
     Name: NotRequired[str]
     Description: NotRequired[str]
-    ApplicableApplicationTypes: NotRequired[List[ApplicationTypeType]]
+    ApplicableApplicationTypes: NotRequired[list[ApplicationTypeType]]
 
 RuleStatusCountsTypeDef = TypedDict(
     "RuleStatusCountsTypeDef",
@@ -235,7 +230,7 @@ class DatabaseSummaryTypeDef(TypedDict):
     DatabaseId: NotRequired[str]
     DatabaseType: NotRequired[DatabaseTypeType]
     Arn: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 class DeleteResourcePermissionInputTypeDef(TypedDict):
     ResourceArn: str
@@ -245,7 +240,7 @@ class DeleteResourcePermissionInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -285,7 +280,7 @@ OperationTypeDef = TypedDict(
         "Type": NotRequired[str],
         "Status": NotRequired[OperationStatusType],
         "StatusMessage": NotRequired[str],
-        "Properties": NotRequired[Dict[str, str]],
+        "Properties": NotRequired[dict[str, str]],
         "ResourceType": NotRequired[str],
         "ResourceId": NotRequired[str],
         "ResourceArn": NotRequired[str],
@@ -328,7 +323,7 @@ class SubCheckResultTypeDef(TypedDict):
     Id: NotRequired[str]
     Name: NotRequired[str]
     Description: NotRequired[str]
-    References: NotRequired[List[str]]
+    References: NotRequired[list[str]]
 
 class ListSubCheckRuleResultsInputTypeDef(TypedDict):
     SubCheckResultId: str
@@ -340,7 +335,7 @@ class RuleResultTypeDef(TypedDict):
     Description: NotRequired[str]
     Status: NotRequired[RuleResultStatusType]
     Message: NotRequired[str]
-    Metadata: NotRequired[Dict[str, str]]
+    Metadata: NotRequired[dict[str, str]]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -380,7 +375,7 @@ class UntagResourceRequestTypeDef(TypedDict):
 class DatabaseTypeDef(TypedDict):
     ApplicationId: NotRequired[str]
     ComponentId: NotRequired[str]
-    Credentials: NotRequired[List[ApplicationCredentialTypeDef]]
+    Credentials: NotRequired[list[ApplicationCredentialTypeDef]]
     DatabaseId: NotRequired[str]
     DatabaseName: NotRequired[str]
     DatabaseType: NotRequired[DatabaseTypeType]
@@ -389,12 +384,12 @@ class DatabaseTypeDef(TypedDict):
     PrimaryHost: NotRequired[str]
     SQLPort: NotRequired[int]
     LastUpdated: NotRequired[datetime]
-    ConnectedComponentArns: NotRequired[List[str]]
+    ConnectedComponentArns: NotRequired[list[str]]
 
 class AssociatedHostTypeDef(TypedDict):
     Hostname: NotRequired[str]
     Ec2InstanceId: NotRequired[str]
-    IpAddresses: NotRequired[List[IpAddressMemberTypeDef]]
+    IpAddresses: NotRequired[list[IpAddressMemberTypeDef]]
     OsVersion: NotRequired[str]
 
 class UpdateApplicationSettingsInputTypeDef(TypedDict):
@@ -433,7 +428,7 @@ class DeleteResourcePermissionOutputTypeDef(TypedDict):
 
 class GetApplicationOutputTypeDef(TypedDict):
     Application: ApplicationTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetResourcePermissionOutputTypeDef(TypedDict):
@@ -441,27 +436,27 @@ class GetResourcePermissionOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApplicationsOutputTypeDef(TypedDict):
-    Applications: List[ApplicationSummaryTypeDef]
+    Applications: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListComponentsOutputTypeDef(TypedDict):
-    Components: List[ComponentSummaryTypeDef]
+    Components: list[ComponentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListConfigurationCheckDefinitionsOutputTypeDef(TypedDict):
-    ConfigurationChecks: List[ConfigurationCheckDefinitionTypeDef]
+    ConfigurationChecks: list[ConfigurationCheckDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListDatabasesOutputTypeDef(TypedDict):
-    Databases: List[DatabaseSummaryTypeDef]
+    Databases: list[DatabaseSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutResourcePermissionOutputTypeDef(TypedDict):
@@ -487,7 +482,7 @@ class StopApplicationOutputTypeDef(TypedDict):
 
 class UpdateApplicationSettingsOutputTypeDef(TypedDict):
     Message: str
-    OperationIds: List[str]
+    OperationIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApplicationsInputTypeDef(TypedDict):
@@ -519,7 +514,7 @@ class GetOperationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListOperationsOutputTypeDef(TypedDict):
-    Operations: List[OperationTypeDef]
+    Operations: list[OperationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -564,12 +559,12 @@ class ListSubCheckRuleResultsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSubCheckResultsOutputTypeDef(TypedDict):
-    SubCheckResults: List[SubCheckResultTypeDef]
+    SubCheckResults: list[SubCheckResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListSubCheckRuleResultsOutputTypeDef(TypedDict):
-    RuleResults: List[RuleResultTypeDef]
+    RuleResults: list[RuleResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -582,7 +577,7 @@ class OperationEventTypeDef(TypedDict):
 
 class GetDatabaseOutputTypeDef(TypedDict):
     Database: DatabaseTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ComponentTypeDef(TypedDict):
@@ -590,7 +585,7 @@ class ComponentTypeDef(TypedDict):
     Sid: NotRequired[str]
     SystemNumber: NotRequired[str]
     ParentComponent: NotRequired[str]
-    ChildComponents: NotRequired[List[str]]
+    ChildComponents: NotRequired[list[str]]
     ApplicationId: NotRequired[str]
     ComponentType: NotRequired[ComponentTypeType]
     Status: NotRequired[ComponentStatusType]
@@ -600,8 +595,8 @@ class ComponentTypeDef(TypedDict):
     HdbVersion: NotRequired[str]
     Resilience: NotRequired[ResilienceTypeDef]
     AssociatedHost: NotRequired[AssociatedHostTypeDef]
-    Databases: NotRequired[List[str]]
-    Hosts: NotRequired[List[HostTypeDef]]
+    Databases: NotRequired[list[str]]
+    Hosts: NotRequired[list[HostTypeDef]]
     PrimaryHost: NotRequired[str]
     DatabaseConnection: NotRequired[DatabaseConnectionTypeDef]
     LastUpdated: NotRequired[datetime]
@@ -612,20 +607,20 @@ class GetConfigurationCheckOperationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListConfigurationCheckOperationsOutputTypeDef(TypedDict):
-    ConfigurationCheckOperations: List[ConfigurationCheckOperationTypeDef]
+    ConfigurationCheckOperations: list[ConfigurationCheckOperationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class StartConfigurationChecksOutputTypeDef(TypedDict):
-    ConfigurationCheckOperations: List[ConfigurationCheckOperationTypeDef]
+    ConfigurationCheckOperations: list[ConfigurationCheckOperationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListOperationEventsOutputTypeDef(TypedDict):
-    OperationEvents: List[OperationEventTypeDef]
+    OperationEvents: list[OperationEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class GetComponentOutputTypeDef(TypedDict):
     Component: ComponentTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef

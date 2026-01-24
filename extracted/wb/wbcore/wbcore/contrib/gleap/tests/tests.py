@@ -23,7 +23,7 @@ def test_different_secret():
     assert hash1 != hash2
 
 
-def test_gleap_config(config_registry: ConfigRegistry):
-    gleap = config_registry.get_config_dict()["gleap"]
+def test_gleap_config(config_registry: ConfigRegistry, api_request):
+    gleap = config_registry.get_config_dict(api_request)["gleap"]
     assert gleap["user_identity_endpoint"]
     assert gleap["api_token"]

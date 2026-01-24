@@ -1,8 +1,8 @@
 import json
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from inspect import isfunction
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 import dagster._check as check
 from dagster._config.pythonic_config import (
@@ -123,12 +123,17 @@ def _resolve_unresolved_job_def_lambda(
     default_logger_defs: Optional[Mapping[str, LoggerDefinition]],
 ) -> Callable[[], JobDefinition]:
     def resolve_unresolved_job_def() -> JobDefinition:
-        job_def = unresolved_job_def.resolve(
-            asset_graph=asset_graph,
-            default_executor_def=default_executor_def,
-            resource_defs=top_level_resources,
-        )
-        return _process_resolved_job(job_def, default_executor_def, default_logger_defs)
+        try:
+            job_def = unresolved_job_def.resolve(
+                asset_graph=asset_graph,
+                default_executor_def=default_executor_def,
+                resource_defs=top_level_resources,
+            )
+            return _process_resolved_job(job_def, default_executor_def, default_logger_defs)
+        except Exception as e:
+            raise DagsterInvalidDefinitionError(
+                f"Failed to resolve asset job {unresolved_job_def.name}"
+            ) from e
 
     return resolve_unresolved_job_def
 

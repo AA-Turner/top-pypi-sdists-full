@@ -515,3 +515,10 @@ class LiteralDataLayer(BaseDataLayer):
             metadata=metadata,
             tags=tags,
         )
+
+    async def get_favorite_steps(self, user_id: str) -> List[StepDict]:
+        """noop for literalai"""
+        return []
+
+    async def close(self):
+        self.client.flush_and_stop()

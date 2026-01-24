@@ -1,28 +1,31 @@
 Metadata-Version: 2.4
 Name: emmet-api
-Version: 0.84.9
-Summary: Emmet API Library
-Home-page: https://github.com/materialsproject/emmet
-Author: The Materials Project
-Author-email: feedback@materialsproject.org
-License: modified BSD
-Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-Requires-Dist: emmet-core>=0.78.0rc1
-Requires-Dist: fastapi
+Version: 0.86.2
+Summary: Emmet API Server
+Author-email: The Materials Project <feedback@materialsproject.org>
+License: Modified BSD
+Project-URL: Homepage, https://github.com/materialsproject/emmet/tree/main/emmet-api/
+Project-URL: Documentation, https://materialsproject.github.io/emmet/
+Requires-Python: >=3.11
+Requires-Dist: emmet-core>=0.86.1
+Requires-Dist: fastapi>=0.123.1
 Requires-Dist: gunicorn
 Requires-Dist: boto3
-Requires-Dist: maggma[api]
-Requires-Dist: ddtrace<3
+Requires-Dist: ddtrace
 Requires-Dist: setproctitle
 Requires-Dist: shapely
 Requires-Dist: asgi-logger
 Requires-Dist: pymatgen-analysis-alloys>=0.0.3
 Requires-Dist: pymatgen-analysis-defects>=2024.10.22
+Requires-Dist: pymatgen-io-validation>=0.1.1
+Requires-Dist: uvicorn>=0.18.3
+Requires-Dist: pymongo>=4.10.1
 Provides-Extra: test
 Requires-Dist: pre-commit; extra == "test"
 Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pycodestyle; extra == "test"
 Requires-Dist: pydocstyle; extra == "test"
 Requires-Dist: flake8; extra == "test"
@@ -30,7 +33,10 @@ Requires-Dist: mypy; extra == "test"
 Requires-Dist: mypy-extensions; extra == "test"
 Requires-Dist: types-setuptools; extra == "test"
 Requires-Dist: types-requests; extra == "test"
+Requires-Dist: starlette[full]; extra == "test"
 Requires-Dist: wincertstore; extra == "test"
+Requires-Dist: pymongo==4.10.1; extra == "test"
+Requires-Dist: mongomock; extra == "test"
 Provides-Extra: docs
 Requires-Dist: mkdocs; extra == "docs"
 Requires-Dist: mkdocs-material<8.3; extra == "docs"
@@ -42,15 +48,3 @@ Requires-Dist: mkdocs-markdownextradata-plugin; extra == "docs"
 Requires-Dist: mkdocstrings[python]; extra == "docs"
 Requires-Dist: livereload; extra == "docs"
 Requires-Dist: jinja2; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
-
-see README

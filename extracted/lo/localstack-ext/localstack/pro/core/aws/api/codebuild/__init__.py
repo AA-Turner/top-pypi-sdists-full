@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -459,13 +459,13 @@ class ResourceNotFoundException(ServiceException):
 class AutoRetryConfig(TypedDict, total=False):
     """Information about the auto-retry configuration for the build."""
 
-    autoRetryLimit: Optional[WrapperInt]
-    autoRetryNumber: Optional[WrapperInt]
-    nextAutoRetry: Optional[String]
-    previousAutoRetry: Optional[String]
+    autoRetryLimit: WrapperInt | None
+    autoRetryNumber: WrapperInt | None
+    nextAutoRetry: String | None
+    previousAutoRetry: String | None
 
 
-BuildIds = List[NonEmptyString]
+BuildIds = list[NonEmptyString]
 
 
 class BatchDeleteBuildsInput(ServiceRequest):
@@ -475,50 +475,50 @@ class BatchDeleteBuildsInput(ServiceRequest):
 class BuildNotDeleted(TypedDict, total=False):
     """Information about a build that could not be successfully deleted."""
 
-    id: Optional[NonEmptyString]
-    statusCode: Optional[String]
+    id: NonEmptyString | None
+    statusCode: String | None
 
 
-BuildsNotDeleted = List[BuildNotDeleted]
+BuildsNotDeleted = list[BuildNotDeleted]
 
 
 class BatchDeleteBuildsOutput(TypedDict, total=False):
-    buildsDeleted: Optional[BuildIds]
-    buildsNotDeleted: Optional[BuildsNotDeleted]
+    buildsDeleted: BuildIds | None
+    buildsNotDeleted: BuildsNotDeleted | None
 
 
-BuildBatchIds = List[NonEmptyString]
+BuildBatchIds = list[NonEmptyString]
 
 
 class BatchGetBuildBatchesInput(ServiceRequest):
     ids: BuildBatchIds
 
 
-BuildReportArns = List[String]
+BuildReportArns = list[String]
 
 
 class ResolvedArtifact(TypedDict, total=False):
-    type: Optional[ArtifactsType]
-    location: Optional[String]
-    identifier: Optional[String]
+    type: ArtifactsType | None
+    location: String | None
+    identifier: String | None
 
 
-ResolvedSecondaryArtifacts = List[ResolvedArtifact]
+ResolvedSecondaryArtifacts = list[ResolvedArtifact]
 Timestamp = datetime
 
 
 class BuildSummary(TypedDict, total=False):
     """Contains summary information about a batch build group."""
 
-    arn: Optional[String]
-    requestedOn: Optional[Timestamp]
-    buildStatus: Optional[StatusType]
-    primaryArtifact: Optional[ResolvedArtifact]
-    secondaryArtifacts: Optional[ResolvedSecondaryArtifacts]
+    arn: String | None
+    requestedOn: Timestamp | None
+    buildStatus: StatusType | None
+    primaryArtifact: ResolvedArtifact | None
+    secondaryArtifacts: ResolvedSecondaryArtifacts | None
 
 
-BuildSummaries = List[BuildSummary]
-Identifiers = List[NonEmptyString]
+BuildSummaries = list[BuildSummary]
+Identifiers = list[NonEmptyString]
 
 
 class BuildGroup(TypedDict, total=False):
@@ -527,73 +527,73 @@ class BuildGroup(TypedDict, total=False):
     to set dependencies on other build groups.
     """
 
-    identifier: Optional[String]
-    dependsOn: Optional[Identifiers]
-    ignoreFailure: Optional[Boolean]
-    currentBuildSummary: Optional[BuildSummary]
-    priorBuildSummaryList: Optional[BuildSummaries]
+    identifier: String | None
+    dependsOn: Identifiers | None
+    ignoreFailure: Boolean | None
+    currentBuildSummary: BuildSummary | None
+    priorBuildSummaryList: BuildSummaries | None
 
 
-BuildGroups = List[BuildGroup]
-FleetsAllowed = List[NonEmptyString]
-ComputeTypesAllowed = List[NonEmptyString]
+BuildGroups = list[BuildGroup]
+FleetsAllowed = list[NonEmptyString]
+ComputeTypesAllowed = list[NonEmptyString]
 
 
 class BatchRestrictions(TypedDict, total=False):
     """Specifies restrictions for the batch build."""
 
-    maximumBuildsAllowed: Optional[WrapperInt]
-    computeTypesAllowed: Optional[ComputeTypesAllowed]
-    fleetsAllowed: Optional[FleetsAllowed]
+    maximumBuildsAllowed: WrapperInt | None
+    computeTypesAllowed: ComputeTypesAllowed | None
+    fleetsAllowed: FleetsAllowed | None
 
 
 class ProjectBuildBatchConfig(TypedDict, total=False):
     """Contains configuration information about a batch build project."""
 
-    serviceRole: Optional[NonEmptyString]
-    combineArtifacts: Optional[WrapperBoolean]
-    restrictions: Optional[BatchRestrictions]
-    timeoutInMins: Optional[WrapperInt]
-    batchReportMode: Optional[BatchReportModeType]
+    serviceRole: NonEmptyString | None
+    combineArtifacts: WrapperBoolean | None
+    restrictions: BatchRestrictions | None
+    timeoutInMins: WrapperInt | None
+    batchReportMode: BatchReportModeType | None
 
 
 class ProjectFileSystemLocation(TypedDict, total=False):
-    type: Optional[FileSystemType]
-    location: Optional[String]
-    mountPoint: Optional[String]
-    identifier: Optional[String]
-    mountOptions: Optional[String]
+    type: FileSystemType | None
+    location: String | None
+    mountPoint: String | None
+    identifier: String | None
+    mountOptions: String | None
 
 
-ProjectFileSystemLocations = List[ProjectFileSystemLocation]
+ProjectFileSystemLocations = list[ProjectFileSystemLocation]
 WrapperLong = int
-SecurityGroupIds = List[NonEmptyString]
-Subnets = List[NonEmptyString]
+SecurityGroupIds = list[NonEmptyString]
+Subnets = list[NonEmptyString]
 
 
 class VpcConfig(TypedDict, total=False):
     """Information about the VPC configuration that CodeBuild accesses."""
 
-    vpcId: Optional[NonEmptyString]
-    subnets: Optional[Subnets]
-    securityGroupIds: Optional[SecurityGroupIds]
+    vpcId: NonEmptyString | None
+    subnets: Subnets | None
+    securityGroupIds: SecurityGroupIds | None
 
 
 class S3LogsConfig(TypedDict, total=False):
     """Information about S3 logs for a build project."""
 
     status: LogsConfigStatusType
-    location: Optional[String]
-    encryptionDisabled: Optional[WrapperBoolean]
-    bucketOwnerAccess: Optional[BucketOwnerAccess]
+    location: String | None
+    encryptionDisabled: WrapperBoolean | None
+    bucketOwnerAccess: BucketOwnerAccess | None
 
 
 class CloudWatchLogsConfig(TypedDict, total=False):
     """Information about CloudWatch Logs for a build project."""
 
     status: LogsConfigStatusType
-    groupName: Optional[String]
-    streamName: Optional[String]
+    groupName: String | None
+    streamName: String | None
 
 
 class LogsConfig(TypedDict, total=False):
@@ -601,23 +601,23 @@ class LogsConfig(TypedDict, total=False):
     CloudWatch Logs, built in a specified S3 bucket, or both.
     """
 
-    cloudWatchLogs: Optional[CloudWatchLogsConfig]
-    s3Logs: Optional[S3LogsConfig]
+    cloudWatchLogs: CloudWatchLogsConfig | None
+    s3Logs: S3LogsConfig | None
 
 
 class DockerServerStatus(TypedDict, total=False):
     """Contains information about the status of the docker server."""
 
-    status: Optional[String]
-    message: Optional[String]
+    status: String | None
+    message: String | None
 
 
 class DockerServer(TypedDict, total=False):
     """Contains docker server information."""
 
     computeType: ComputeType
-    securityGroupIds: Optional[SecurityGroupIds]
-    status: Optional[DockerServerStatus]
+    securityGroupIds: SecurityGroupIds | None
+    status: DockerServerStatus | None
 
 
 class RegistryCredential(TypedDict, total=False):
@@ -640,10 +640,10 @@ class RegistryCredential(TypedDict, total=False):
 class EnvironmentVariable(TypedDict, total=False):
     name: NonEmptyString
     value: String
-    type: Optional[EnvironmentVariableType]
+    type: EnvironmentVariableType | None
 
 
-EnvironmentVariables = List[EnvironmentVariable]
+EnvironmentVariables = list[EnvironmentVariable]
 
 
 class ProjectFleet(TypedDict, total=False):
@@ -652,7 +652,7 @@ class ProjectFleet(TypedDict, total=False):
     CodeBuild <https://docs.aws.amazon.com/codebuild/latest/userguide/fleets.html>`__.
     """
 
-    fleetArn: Optional[String]
+    fleetArn: String | None
 
 
 class ComputeConfiguration(TypedDict, total=False):
@@ -661,50 +661,50 @@ class ComputeConfiguration(TypedDict, total=False):
     ``ATTRIBUTE_BASED_COMPUTE`` or ``CUSTOM_INSTANCE_TYPE``.
     """
 
-    vCpu: Optional[WrapperLong]
-    memory: Optional[WrapperLong]
-    disk: Optional[WrapperLong]
-    machineType: Optional[MachineType]
-    instanceType: Optional[NonEmptyString]
+    vCpu: WrapperLong | None
+    memory: WrapperLong | None
+    disk: WrapperLong | None
+    machineType: MachineType | None
+    instanceType: NonEmptyString | None
 
 
 class ProjectEnvironment(TypedDict, total=False):
     type: EnvironmentType
     image: NonEmptyString
     computeType: ComputeType
-    computeConfiguration: Optional[ComputeConfiguration]
-    fleet: Optional[ProjectFleet]
-    environmentVariables: Optional[EnvironmentVariables]
-    privilegedMode: Optional[WrapperBoolean]
-    certificate: Optional[String]
-    registryCredential: Optional[RegistryCredential]
-    imagePullCredentialsType: Optional[ImagePullCredentialsType]
-    dockerServer: Optional[DockerServer]
+    computeConfiguration: ComputeConfiguration | None
+    fleet: ProjectFleet | None
+    environmentVariables: EnvironmentVariables | None
+    privilegedMode: WrapperBoolean | None
+    certificate: String | None
+    registryCredential: RegistryCredential | None
+    imagePullCredentialsType: ImagePullCredentialsType | None
+    dockerServer: DockerServer | None
 
 
-ProjectCacheModes = List[CacheMode]
+ProjectCacheModes = list[CacheMode]
 
 
 class ProjectCache(TypedDict, total=False):
     type: CacheType
-    location: Optional[String]
-    modes: Optional[ProjectCacheModes]
-    cacheNamespace: Optional[String]
+    location: String | None
+    modes: ProjectCacheModes | None
+    cacheNamespace: String | None
 
 
 class BuildArtifacts(TypedDict, total=False):
     """Information about build output artifacts."""
 
-    location: Optional[String]
-    sha256sum: Optional[String]
-    md5sum: Optional[String]
-    overrideArtifactName: Optional[WrapperBoolean]
-    encryptionDisabled: Optional[WrapperBoolean]
-    artifactIdentifier: Optional[String]
-    bucketOwnerAccess: Optional[BucketOwnerAccess]
+    location: String | None
+    sha256sum: String | None
+    md5sum: String | None
+    overrideArtifactName: WrapperBoolean | None
+    encryptionDisabled: WrapperBoolean | None
+    artifactIdentifier: String | None
+    bucketOwnerAccess: BucketOwnerAccess | None
 
 
-BuildArtifactsList = List[BuildArtifacts]
+BuildArtifactsList = list[BuildArtifacts]
 
 
 class ProjectSourceVersion(TypedDict, total=False):
@@ -714,7 +714,7 @@ class ProjectSourceVersion(TypedDict, total=False):
     sourceVersion: String
 
 
-ProjectSecondarySourceVersions = List[ProjectSourceVersion]
+ProjectSecondarySourceVersions = list[ProjectSourceVersion]
 
 
 class BuildStatusConfig(TypedDict, total=False):
@@ -722,13 +722,13 @@ class BuildStatusConfig(TypedDict, total=False):
     reports the build status to the source provider.
     """
 
-    context: Optional[String]
-    targetUrl: Optional[String]
+    context: String | None
+    targetUrl: String | None
 
 
 class SourceAuth(TypedDict, total=False):
     type: SourceAuthType
-    resource: Optional[String]
+    resource: String | None
 
 
 class GitSubmodulesConfig(TypedDict, total=False):
@@ -741,18 +741,18 @@ class GitSubmodulesConfig(TypedDict, total=False):
 
 class ProjectSource(TypedDict, total=False):
     type: SourceType
-    location: Optional[String]
-    gitCloneDepth: Optional[GitCloneDepth]
-    gitSubmodulesConfig: Optional[GitSubmodulesConfig]
-    buildspec: Optional[String]
-    auth: Optional[SourceAuth]
-    reportBuildStatus: Optional[WrapperBoolean]
-    buildStatusConfig: Optional[BuildStatusConfig]
-    insecureSsl: Optional[WrapperBoolean]
-    sourceIdentifier: Optional[String]
+    location: String | None
+    gitCloneDepth: GitCloneDepth | None
+    gitSubmodulesConfig: GitSubmodulesConfig | None
+    buildspec: String | None
+    auth: SourceAuth | None
+    reportBuildStatus: WrapperBoolean | None
+    buildStatusConfig: BuildStatusConfig | None
+    insecureSsl: WrapperBoolean | None
+    sourceIdentifier: String | None
 
 
-ProjectSources = List[ProjectSource]
+ProjectSources = list[ProjectSource]
 
 
 class PhaseContext(TypedDict, total=False):
@@ -760,69 +760,69 @@ class PhaseContext(TypedDict, total=False):
     use this information for troubleshooting.
     """
 
-    statusCode: Optional[String]
-    message: Optional[String]
+    statusCode: String | None
+    message: String | None
 
 
-PhaseContexts = List[PhaseContext]
+PhaseContexts = list[PhaseContext]
 
 
 class BuildBatchPhase(TypedDict, total=False):
     """Contains information about a stage for a batch build."""
 
-    phaseType: Optional[BuildBatchPhaseType]
-    phaseStatus: Optional[StatusType]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    durationInSeconds: Optional[WrapperLong]
-    contexts: Optional[PhaseContexts]
+    phaseType: BuildBatchPhaseType | None
+    phaseStatus: StatusType | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    durationInSeconds: WrapperLong | None
+    contexts: PhaseContexts | None
 
 
-BuildBatchPhases = List[BuildBatchPhase]
+BuildBatchPhases = list[BuildBatchPhase]
 
 
 class BuildBatch(TypedDict, total=False):
     """Contains information about a batch build."""
 
-    id: Optional[NonEmptyString]
-    arn: Optional[NonEmptyString]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    currentPhase: Optional[String]
-    buildBatchStatus: Optional[StatusType]
-    sourceVersion: Optional[NonEmptyString]
-    resolvedSourceVersion: Optional[NonEmptyString]
-    projectName: Optional[NonEmptyString]
-    phases: Optional[BuildBatchPhases]
-    source: Optional[ProjectSource]
-    secondarySources: Optional[ProjectSources]
-    secondarySourceVersions: Optional[ProjectSecondarySourceVersions]
-    artifacts: Optional[BuildArtifacts]
-    secondaryArtifacts: Optional[BuildArtifactsList]
-    cache: Optional[ProjectCache]
-    environment: Optional[ProjectEnvironment]
-    serviceRole: Optional[NonEmptyString]
-    logConfig: Optional[LogsConfig]
-    buildTimeoutInMinutes: Optional[WrapperInt]
-    queuedTimeoutInMinutes: Optional[WrapperInt]
-    complete: Optional[Boolean]
-    initiator: Optional[String]
-    vpcConfig: Optional[VpcConfig]
-    encryptionKey: Optional[NonEmptyString]
-    buildBatchNumber: Optional[WrapperLong]
-    fileSystemLocations: Optional[ProjectFileSystemLocations]
-    buildBatchConfig: Optional[ProjectBuildBatchConfig]
-    buildGroups: Optional[BuildGroups]
-    debugSessionEnabled: Optional[WrapperBoolean]
-    reportArns: Optional[BuildReportArns]
+    id: NonEmptyString | None
+    arn: NonEmptyString | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    currentPhase: String | None
+    buildBatchStatus: StatusType | None
+    sourceVersion: NonEmptyString | None
+    resolvedSourceVersion: NonEmptyString | None
+    projectName: NonEmptyString | None
+    phases: BuildBatchPhases | None
+    source: ProjectSource | None
+    secondarySources: ProjectSources | None
+    secondarySourceVersions: ProjectSecondarySourceVersions | None
+    artifacts: BuildArtifacts | None
+    secondaryArtifacts: BuildArtifactsList | None
+    cache: ProjectCache | None
+    environment: ProjectEnvironment | None
+    serviceRole: NonEmptyString | None
+    logConfig: LogsConfig | None
+    buildTimeoutInMinutes: WrapperInt | None
+    queuedTimeoutInMinutes: WrapperInt | None
+    complete: Boolean | None
+    initiator: String | None
+    vpcConfig: VpcConfig | None
+    encryptionKey: NonEmptyString | None
+    buildBatchNumber: WrapperLong | None
+    fileSystemLocations: ProjectFileSystemLocations | None
+    buildBatchConfig: ProjectBuildBatchConfig | None
+    buildGroups: BuildGroups | None
+    debugSessionEnabled: WrapperBoolean | None
+    reportArns: BuildReportArns | None
 
 
-BuildBatches = List[BuildBatch]
+BuildBatches = list[BuildBatch]
 
 
 class BatchGetBuildBatchesOutput(TypedDict, total=False):
-    buildBatches: Optional[BuildBatches]
-    buildBatchesNotFound: Optional[BuildBatchIds]
+    buildBatches: BuildBatches | None
+    buildBatchesNotFound: BuildBatchIds | None
 
 
 class BatchGetBuildsInput(ServiceRequest):
@@ -835,8 +835,8 @@ class DebugSession(TypedDict, total=False):
     Manager <https://docs.aws.amazon.com/codebuild/latest/userguide/session-manager.html>`__.
     """
 
-    sessionEnabled: Optional[WrapperBoolean]
-    sessionTarget: Optional[NonEmptyString]
+    sessionEnabled: WrapperBoolean | None
+    sessionTarget: NonEmptyString | None
 
 
 class ExportedEnvironmentVariable(TypedDict, total=False):
@@ -856,94 +856,94 @@ class ExportedEnvironmentVariable(TypedDict, total=False):
     change.
     """
 
-    name: Optional[NonEmptyString]
-    value: Optional[String]
+    name: NonEmptyString | None
+    value: String | None
 
 
-ExportedEnvironmentVariables = List[ExportedEnvironmentVariable]
+ExportedEnvironmentVariables = list[ExportedEnvironmentVariable]
 
 
 class NetworkInterface(TypedDict, total=False):
     """Describes a network interface."""
 
-    subnetId: Optional[NonEmptyString]
-    networkInterfaceId: Optional[NonEmptyString]
+    subnetId: NonEmptyString | None
+    networkInterfaceId: NonEmptyString | None
 
 
 class LogsLocation(TypedDict, total=False):
     """Information about build logs in CloudWatch Logs."""
 
-    groupName: Optional[String]
-    streamName: Optional[String]
-    deepLink: Optional[String]
-    s3DeepLink: Optional[String]
-    cloudWatchLogsArn: Optional[String]
-    s3LogsArn: Optional[String]
-    cloudWatchLogs: Optional[CloudWatchLogsConfig]
-    s3Logs: Optional[S3LogsConfig]
+    groupName: String | None
+    streamName: String | None
+    deepLink: String | None
+    s3DeepLink: String | None
+    cloudWatchLogsArn: String | None
+    s3LogsArn: String | None
+    cloudWatchLogs: CloudWatchLogsConfig | None
+    s3Logs: S3LogsConfig | None
 
 
 class BuildPhase(TypedDict, total=False):
     """Information about a stage for a build."""
 
-    phaseType: Optional[BuildPhaseType]
-    phaseStatus: Optional[StatusType]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    durationInSeconds: Optional[WrapperLong]
-    contexts: Optional[PhaseContexts]
+    phaseType: BuildPhaseType | None
+    phaseStatus: StatusType | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    durationInSeconds: WrapperLong | None
+    contexts: PhaseContexts | None
 
 
-BuildPhases = List[BuildPhase]
+BuildPhases = list[BuildPhase]
 
 
 class Build(TypedDict, total=False):
     """Information about a build."""
 
-    id: Optional[NonEmptyString]
-    arn: Optional[NonEmptyString]
-    buildNumber: Optional[WrapperLong]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    currentPhase: Optional[String]
-    buildStatus: Optional[StatusType]
-    sourceVersion: Optional[NonEmptyString]
-    resolvedSourceVersion: Optional[NonEmptyString]
-    projectName: Optional[NonEmptyString]
-    phases: Optional[BuildPhases]
-    source: Optional[ProjectSource]
-    secondarySources: Optional[ProjectSources]
-    secondarySourceVersions: Optional[ProjectSecondarySourceVersions]
-    artifacts: Optional[BuildArtifacts]
-    secondaryArtifacts: Optional[BuildArtifactsList]
-    cache: Optional[ProjectCache]
-    environment: Optional[ProjectEnvironment]
-    serviceRole: Optional[NonEmptyString]
-    logs: Optional[LogsLocation]
-    timeoutInMinutes: Optional[WrapperInt]
-    queuedTimeoutInMinutes: Optional[WrapperInt]
-    buildComplete: Optional[Boolean]
-    initiator: Optional[String]
-    vpcConfig: Optional[VpcConfig]
-    networkInterface: Optional[NetworkInterface]
-    encryptionKey: Optional[NonEmptyString]
-    exportedEnvironmentVariables: Optional[ExportedEnvironmentVariables]
-    reportArns: Optional[BuildReportArns]
-    fileSystemLocations: Optional[ProjectFileSystemLocations]
-    debugSession: Optional[DebugSession]
-    buildBatchArn: Optional[String]
-    autoRetryConfig: Optional[AutoRetryConfig]
+    id: NonEmptyString | None
+    arn: NonEmptyString | None
+    buildNumber: WrapperLong | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    currentPhase: String | None
+    buildStatus: StatusType | None
+    sourceVersion: NonEmptyString | None
+    resolvedSourceVersion: NonEmptyString | None
+    projectName: NonEmptyString | None
+    phases: BuildPhases | None
+    source: ProjectSource | None
+    secondarySources: ProjectSources | None
+    secondarySourceVersions: ProjectSecondarySourceVersions | None
+    artifacts: BuildArtifacts | None
+    secondaryArtifacts: BuildArtifactsList | None
+    cache: ProjectCache | None
+    environment: ProjectEnvironment | None
+    serviceRole: NonEmptyString | None
+    logs: LogsLocation | None
+    timeoutInMinutes: WrapperInt | None
+    queuedTimeoutInMinutes: WrapperInt | None
+    buildComplete: Boolean | None
+    initiator: String | None
+    vpcConfig: VpcConfig | None
+    networkInterface: NetworkInterface | None
+    encryptionKey: NonEmptyString | None
+    exportedEnvironmentVariables: ExportedEnvironmentVariables | None
+    reportArns: BuildReportArns | None
+    fileSystemLocations: ProjectFileSystemLocations | None
+    debugSession: DebugSession | None
+    buildBatchArn: String | None
+    autoRetryConfig: AutoRetryConfig | None
 
 
-Builds = List[Build]
+Builds = list[Build]
 
 
 class BatchGetBuildsOutput(TypedDict, total=False):
-    builds: Optional[Builds]
-    buildsNotFound: Optional[BuildIds]
+    builds: Builds | None
+    buildsNotFound: BuildIds | None
 
 
-CommandExecutionIds = List[NonEmptyString]
+CommandExecutionIds = list[NonEmptyString]
 
 
 class BatchGetCommandExecutionsInput(ServiceRequest):
@@ -952,30 +952,30 @@ class BatchGetCommandExecutionsInput(ServiceRequest):
 
 
 class CommandExecution(TypedDict, total=False):
-    id: Optional[NonEmptyString]
-    sandboxId: Optional[NonEmptyString]
-    submitTime: Optional[Timestamp]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    status: Optional[NonEmptyString]
-    command: Optional[SensitiveNonEmptyString]
-    type: Optional[CommandType]
-    exitCode: Optional[NonEmptyString]
-    standardOutputContent: Optional[SensitiveNonEmptyString]
-    standardErrContent: Optional[SensitiveNonEmptyString]
-    logs: Optional[LogsLocation]
-    sandboxArn: Optional[NonEmptyString]
+    id: NonEmptyString | None
+    sandboxId: NonEmptyString | None
+    submitTime: Timestamp | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    status: NonEmptyString | None
+    command: SensitiveNonEmptyString | None
+    type: CommandType | None
+    exitCode: NonEmptyString | None
+    standardOutputContent: SensitiveNonEmptyString | None
+    standardErrContent: SensitiveNonEmptyString | None
+    logs: LogsLocation | None
+    sandboxArn: NonEmptyString | None
 
 
-CommandExecutions = List[CommandExecution]
+CommandExecutions = list[CommandExecution]
 
 
 class BatchGetCommandExecutionsOutput(TypedDict, total=False):
-    commandExecutions: Optional[CommandExecutions]
-    commandExecutionsNotFound: Optional[CommandExecutionIds]
+    commandExecutions: CommandExecutions | None
+    commandExecutionsNotFound: CommandExecutionIds | None
 
 
-FleetNames = List[NonEmptyString]
+FleetNames = list[NonEmptyString]
 
 
 class BatchGetFleetsInput(ServiceRequest):
@@ -989,12 +989,12 @@ class Tag(TypedDict, total=False):
     support tags in CodeBuild.
     """
 
-    key: Optional[KeyInput]
-    value: Optional[ValueInput]
+    key: KeyInput | None
+    value: ValueInput | None
 
 
-TagList = List[Tag]
-FleetProxyRuleEntities = List[String]
+TagList = list[Tag]
+FleetProxyRuleEntities = list[String]
 
 
 class FleetProxyRule(TypedDict, total=False):
@@ -1003,7 +1003,7 @@ class FleetProxyRule(TypedDict, total=False):
     entities: FleetProxyRuleEntities
 
 
-FleetProxyRules = List[FleetProxyRule]
+FleetProxyRules = list[FleetProxyRule]
 
 
 class ProxyConfiguration(TypedDict, total=False):
@@ -1011,68 +1011,68 @@ class ProxyConfiguration(TypedDict, total=False):
     control to your reserved capacity instances.
     """
 
-    defaultBehavior: Optional[FleetProxyRuleBehavior]
-    orderedProxyRules: Optional[FleetProxyRules]
+    defaultBehavior: FleetProxyRuleBehavior | None
+    orderedProxyRules: FleetProxyRules | None
 
 
 class TargetTrackingScalingConfiguration(TypedDict, total=False):
     """Defines when a new instance is auto-scaled into the compute fleet."""
 
-    metricType: Optional[FleetScalingMetricType]
-    targetValue: Optional[WrapperDouble]
+    metricType: FleetScalingMetricType | None
+    targetValue: WrapperDouble | None
 
 
-TargetTrackingScalingConfigurations = List[TargetTrackingScalingConfiguration]
+TargetTrackingScalingConfigurations = list[TargetTrackingScalingConfiguration]
 
 
 class ScalingConfigurationOutput(TypedDict, total=False):
     """The scaling configuration output of a compute fleet."""
 
-    scalingType: Optional[FleetScalingType]
-    targetTrackingScalingConfigs: Optional[TargetTrackingScalingConfigurations]
-    maxCapacity: Optional[FleetCapacity]
-    desiredCapacity: Optional[FleetCapacity]
+    scalingType: FleetScalingType | None
+    targetTrackingScalingConfigs: TargetTrackingScalingConfigurations | None
+    maxCapacity: FleetCapacity | None
+    desiredCapacity: FleetCapacity | None
 
 
 class FleetStatus(TypedDict, total=False):
     """The status of the compute fleet."""
 
-    statusCode: Optional[FleetStatusCode]
-    context: Optional[FleetContextCode]
-    message: Optional[String]
+    statusCode: FleetStatusCode | None
+    context: FleetContextCode | None
+    message: String | None
 
 
 class Fleet(TypedDict, total=False):
     """A set of dedicated instances for your build environment."""
 
-    arn: Optional[NonEmptyString]
-    name: Optional[FleetName]
-    id: Optional[NonEmptyString]
-    created: Optional[Timestamp]
-    lastModified: Optional[Timestamp]
-    status: Optional[FleetStatus]
-    baseCapacity: Optional[FleetCapacity]
-    environmentType: Optional[EnvironmentType]
-    computeType: Optional[ComputeType]
-    computeConfiguration: Optional[ComputeConfiguration]
-    scalingConfiguration: Optional[ScalingConfigurationOutput]
-    overflowBehavior: Optional[FleetOverflowBehavior]
-    vpcConfig: Optional[VpcConfig]
-    proxyConfiguration: Optional[ProxyConfiguration]
-    imageId: Optional[NonEmptyString]
-    fleetServiceRole: Optional[NonEmptyString]
-    tags: Optional[TagList]
+    arn: NonEmptyString | None
+    name: FleetName | None
+    id: NonEmptyString | None
+    created: Timestamp | None
+    lastModified: Timestamp | None
+    status: FleetStatus | None
+    baseCapacity: FleetCapacity | None
+    environmentType: EnvironmentType | None
+    computeType: ComputeType | None
+    computeConfiguration: ComputeConfiguration | None
+    scalingConfiguration: ScalingConfigurationOutput | None
+    overflowBehavior: FleetOverflowBehavior | None
+    vpcConfig: VpcConfig | None
+    proxyConfiguration: ProxyConfiguration | None
+    imageId: NonEmptyString | None
+    fleetServiceRole: NonEmptyString | None
+    tags: TagList | None
 
 
-Fleets = List[Fleet]
+Fleets = list[Fleet]
 
 
 class BatchGetFleetsOutput(TypedDict, total=False):
-    fleets: Optional[Fleets]
-    fleetsNotFound: Optional[FleetNames]
+    fleets: Fleets | None
+    fleetsNotFound: FleetNames | None
 
 
-ProjectNames = List[NonEmptyString]
+ProjectNames = list[NonEmptyString]
 
 
 class BatchGetProjectsInput(ServiceRequest):
@@ -1082,11 +1082,11 @@ class BatchGetProjectsInput(ServiceRequest):
 class ProjectBadge(TypedDict, total=False):
     """Information about the build badge for the build project."""
 
-    badgeEnabled: Optional[Boolean]
-    badgeRequestUrl: Optional[String]
+    badgeEnabled: Boolean | None
+    badgeRequestUrl: String | None
 
 
-PullRequestBuildApproverRoles = List[PullRequestBuildApproverRole]
+PullRequestBuildApproverRoles = list[PullRequestBuildApproverRole]
 
 
 class PullRequestBuildPolicy(TypedDict, total=False):
@@ -1097,25 +1097,25 @@ class PullRequestBuildPolicy(TypedDict, total=False):
     """
 
     requiresCommentApproval: PullRequestBuildCommentApproval
-    approverRoles: Optional[PullRequestBuildApproverRoles]
+    approverRoles: PullRequestBuildApproverRoles | None
 
 
 class ScopeConfiguration(TypedDict, total=False):
     """Contains configuration information about the scope for a webhook."""
 
     name: String
-    domain: Optional[String]
+    domain: String | None
     scope: WebhookScopeType
 
 
 class WebhookFilter(TypedDict, total=False):
     type: WebhookFilterType
     pattern: String
-    excludeMatchedPattern: Optional[WrapperBoolean]
+    excludeMatchedPattern: WrapperBoolean | None
 
 
-FilterGroup = List[WebhookFilter]
-FilterGroups = List[FilterGroup]
+FilterGroup = list[WebhookFilter]
+FilterGroups = list[FilterGroup]
 
 
 class Webhook(TypedDict, total=False):
@@ -1123,79 +1123,79 @@ class Webhook(TypedDict, total=False):
     project in CodeBuild.
     """
 
-    url: Optional[NonEmptyString]
-    payloadUrl: Optional[NonEmptyString]
-    secret: Optional[NonEmptyString]
-    branchFilter: Optional[String]
-    filterGroups: Optional[FilterGroups]
-    buildType: Optional[WebhookBuildType]
-    manualCreation: Optional[WrapperBoolean]
-    lastModifiedSecret: Optional[Timestamp]
-    scopeConfiguration: Optional[ScopeConfiguration]
-    status: Optional[WebhookStatus]
-    statusMessage: Optional[String]
-    pullRequestBuildPolicy: Optional[PullRequestBuildPolicy]
+    url: NonEmptyString | None
+    payloadUrl: NonEmptyString | None
+    secret: NonEmptyString | None
+    branchFilter: String | None
+    filterGroups: FilterGroups | None
+    buildType: WebhookBuildType | None
+    manualCreation: WrapperBoolean | None
+    lastModifiedSecret: Timestamp | None
+    scopeConfiguration: ScopeConfiguration | None
+    status: WebhookStatus | None
+    statusMessage: String | None
+    pullRequestBuildPolicy: PullRequestBuildPolicy | None
 
 
 class ProjectArtifacts(TypedDict, total=False):
     type: ArtifactsType
-    location: Optional[String]
-    path: Optional[String]
-    namespaceType: Optional[ArtifactNamespace]
-    name: Optional[String]
-    packaging: Optional[ArtifactPackaging]
-    overrideArtifactName: Optional[WrapperBoolean]
-    encryptionDisabled: Optional[WrapperBoolean]
-    artifactIdentifier: Optional[String]
-    bucketOwnerAccess: Optional[BucketOwnerAccess]
+    location: String | None
+    path: String | None
+    namespaceType: ArtifactNamespace | None
+    name: String | None
+    packaging: ArtifactPackaging | None
+    overrideArtifactName: WrapperBoolean | None
+    encryptionDisabled: WrapperBoolean | None
+    artifactIdentifier: String | None
+    bucketOwnerAccess: BucketOwnerAccess | None
 
 
-ProjectArtifactsList = List[ProjectArtifacts]
+ProjectArtifactsList = list[ProjectArtifacts]
 
 
 class Project(TypedDict, total=False):
     """Information about a build project."""
 
-    name: Optional[ProjectName]
-    arn: Optional[String]
-    description: Optional[ProjectDescription]
-    source: Optional[ProjectSource]
-    secondarySources: Optional[ProjectSources]
-    sourceVersion: Optional[String]
-    secondarySourceVersions: Optional[ProjectSecondarySourceVersions]
-    artifacts: Optional[ProjectArtifacts]
-    secondaryArtifacts: Optional[ProjectArtifactsList]
-    cache: Optional[ProjectCache]
-    environment: Optional[ProjectEnvironment]
-    serviceRole: Optional[NonEmptyString]
-    timeoutInMinutes: Optional[BuildTimeOut]
-    queuedTimeoutInMinutes: Optional[TimeOut]
-    encryptionKey: Optional[NonEmptyString]
-    tags: Optional[TagList]
-    created: Optional[Timestamp]
-    lastModified: Optional[Timestamp]
-    webhook: Optional[Webhook]
-    vpcConfig: Optional[VpcConfig]
-    badge: Optional[ProjectBadge]
-    logsConfig: Optional[LogsConfig]
-    fileSystemLocations: Optional[ProjectFileSystemLocations]
-    buildBatchConfig: Optional[ProjectBuildBatchConfig]
-    concurrentBuildLimit: Optional[WrapperInt]
-    projectVisibility: Optional[ProjectVisibilityType]
-    publicProjectAlias: Optional[NonEmptyString]
-    resourceAccessRole: Optional[NonEmptyString]
-    autoRetryLimit: Optional[WrapperInt]
+    name: ProjectName | None
+    arn: String | None
+    description: ProjectDescription | None
+    source: ProjectSource | None
+    secondarySources: ProjectSources | None
+    sourceVersion: String | None
+    secondarySourceVersions: ProjectSecondarySourceVersions | None
+    artifacts: ProjectArtifacts | None
+    secondaryArtifacts: ProjectArtifactsList | None
+    cache: ProjectCache | None
+    environment: ProjectEnvironment | None
+    serviceRole: NonEmptyString | None
+    timeoutInMinutes: BuildTimeOut | None
+    queuedTimeoutInMinutes: TimeOut | None
+    encryptionKey: NonEmptyString | None
+    tags: TagList | None
+    created: Timestamp | None
+    lastModified: Timestamp | None
+    webhook: Webhook | None
+    vpcConfig: VpcConfig | None
+    badge: ProjectBadge | None
+    logsConfig: LogsConfig | None
+    fileSystemLocations: ProjectFileSystemLocations | None
+    buildBatchConfig: ProjectBuildBatchConfig | None
+    concurrentBuildLimit: WrapperInt | None
+    projectVisibility: ProjectVisibilityType | None
+    publicProjectAlias: NonEmptyString | None
+    resourceAccessRole: NonEmptyString | None
+    autoRetryLimit: WrapperInt | None
 
 
-Projects = List[Project]
+Projects = list[Project]
 
 
 class BatchGetProjectsOutput(TypedDict, total=False):
-    projects: Optional[Projects]
-    projectsNotFound: Optional[ProjectNames]
+    projects: Projects | None
+    projectsNotFound: ProjectNames | None
 
 
-ReportGroupArns = List[NonEmptyString]
+ReportGroupArns = list[NonEmptyString]
 
 
 class BatchGetReportGroupsInput(ServiceRequest):
@@ -1207,41 +1207,41 @@ class S3ReportExportConfig(TypedDict, total=False):
     exported.
     """
 
-    bucket: Optional[NonEmptyString]
-    bucketOwner: Optional[String]
-    path: Optional[String]
-    packaging: Optional[ReportPackagingType]
-    encryptionKey: Optional[NonEmptyString]
-    encryptionDisabled: Optional[WrapperBoolean]
+    bucket: NonEmptyString | None
+    bucketOwner: String | None
+    path: String | None
+    packaging: ReportPackagingType | None
+    encryptionKey: NonEmptyString | None
+    encryptionDisabled: WrapperBoolean | None
 
 
 class ReportExportConfig(TypedDict, total=False):
     """Information about the location where the run of a report is exported."""
 
-    exportConfigType: Optional[ReportExportConfigType]
-    s3Destination: Optional[S3ReportExportConfig]
+    exportConfigType: ReportExportConfigType | None
+    s3Destination: S3ReportExportConfig | None
 
 
 class ReportGroup(TypedDict, total=False):
-    arn: Optional[NonEmptyString]
-    name: Optional[ReportGroupName]
-    type: Optional[ReportType]
-    exportConfig: Optional[ReportExportConfig]
-    created: Optional[Timestamp]
-    lastModified: Optional[Timestamp]
-    tags: Optional[TagList]
-    status: Optional[ReportGroupStatusType]
+    arn: NonEmptyString | None
+    name: ReportGroupName | None
+    type: ReportType | None
+    exportConfig: ReportExportConfig | None
+    created: Timestamp | None
+    lastModified: Timestamp | None
+    tags: TagList | None
+    status: ReportGroupStatusType | None
 
 
-ReportGroups = List[ReportGroup]
+ReportGroups = list[ReportGroup]
 
 
 class BatchGetReportGroupsOutput(TypedDict, total=False):
-    reportGroups: Optional[ReportGroups]
-    reportGroupsNotFound: Optional[ReportGroupArns]
+    reportGroups: ReportGroups | None
+    reportGroupsNotFound: ReportGroupArns | None
 
 
-ReportArns = List[NonEmptyString]
+ReportArns = list[NonEmptyString]
 
 
 class BatchGetReportsInput(ServiceRequest):
@@ -1258,15 +1258,15 @@ class CodeCoverageReportSummary(TypedDict, total=False):
     a control structure, such as an ``if`` or ``case`` statement.
     """
 
-    lineCoveragePercentage: Optional[Percentage]
-    linesCovered: Optional[NonNegativeInt]
-    linesMissed: Optional[NonNegativeInt]
-    branchCoveragePercentage: Optional[Percentage]
-    branchesCovered: Optional[NonNegativeInt]
-    branchesMissed: Optional[NonNegativeInt]
+    lineCoveragePercentage: Percentage | None
+    linesCovered: NonNegativeInt | None
+    linesMissed: NonNegativeInt | None
+    branchCoveragePercentage: Percentage | None
+    branchesCovered: NonNegativeInt | None
+    branchesMissed: NonNegativeInt | None
 
 
-ReportStatusCounts = Dict[String, WrapperInt]
+ReportStatusCounts = dict[String, WrapperInt]
 
 
 class TestReportSummary(TypedDict, total=False):
@@ -1278,29 +1278,29 @@ class TestReportSummary(TypedDict, total=False):
 
 
 class Report(TypedDict, total=False):
-    arn: Optional[NonEmptyString]
-    type: Optional[ReportType]
-    name: Optional[String]
-    reportGroupArn: Optional[NonEmptyString]
-    executionId: Optional[String]
-    status: Optional[ReportStatusType]
-    created: Optional[Timestamp]
-    expired: Optional[Timestamp]
-    exportConfig: Optional[ReportExportConfig]
-    truncated: Optional[WrapperBoolean]
-    testSummary: Optional[TestReportSummary]
-    codeCoverageSummary: Optional[CodeCoverageReportSummary]
+    arn: NonEmptyString | None
+    type: ReportType | None
+    name: String | None
+    reportGroupArn: NonEmptyString | None
+    executionId: String | None
+    status: ReportStatusType | None
+    created: Timestamp | None
+    expired: Timestamp | None
+    exportConfig: ReportExportConfig | None
+    truncated: WrapperBoolean | None
+    testSummary: TestReportSummary | None
+    codeCoverageSummary: CodeCoverageReportSummary | None
 
 
-Reports = List[Report]
+Reports = list[Report]
 
 
 class BatchGetReportsOutput(TypedDict, total=False):
-    reports: Optional[Reports]
-    reportsNotFound: Optional[ReportArns]
+    reports: Reports | None
+    reportsNotFound: ReportArns | None
 
 
-SandboxIds = List[NonEmptyString]
+SandboxIds = list[NonEmptyString]
 
 
 class BatchGetSandboxesInput(ServiceRequest):
@@ -1310,68 +1310,68 @@ class BatchGetSandboxesInput(ServiceRequest):
 class SandboxSessionPhase(TypedDict, total=False):
     """Contains information about the sandbox phase."""
 
-    phaseType: Optional[String]
-    phaseStatus: Optional[StatusType]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    durationInSeconds: Optional[WrapperLong]
-    contexts: Optional[PhaseContexts]
+    phaseType: String | None
+    phaseStatus: StatusType | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    durationInSeconds: WrapperLong | None
+    contexts: PhaseContexts | None
 
 
-SandboxSessionPhases = List[SandboxSessionPhase]
+SandboxSessionPhases = list[SandboxSessionPhase]
 
 
 class SandboxSession(TypedDict, total=False):
     """Contains information about the sandbox session."""
 
-    id: Optional[NonEmptyString]
-    status: Optional[String]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    currentPhase: Optional[String]
-    phases: Optional[SandboxSessionPhases]
-    resolvedSourceVersion: Optional[NonEmptyString]
-    logs: Optional[LogsLocation]
-    networkInterface: Optional[NetworkInterface]
+    id: NonEmptyString | None
+    status: String | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    currentPhase: String | None
+    phases: SandboxSessionPhases | None
+    resolvedSourceVersion: NonEmptyString | None
+    logs: LogsLocation | None
+    networkInterface: NetworkInterface | None
 
 
 class Sandbox(TypedDict, total=False):
     """Contains sandbox information."""
 
-    id: Optional[NonEmptyString]
-    arn: Optional[NonEmptyString]
-    projectName: Optional[NonEmptyString]
-    requestTime: Optional[Timestamp]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    status: Optional[String]
-    source: Optional[ProjectSource]
-    sourceVersion: Optional[NonEmptyString]
-    secondarySources: Optional[ProjectSources]
-    secondarySourceVersions: Optional[ProjectSecondarySourceVersions]
-    environment: Optional[ProjectEnvironment]
-    fileSystemLocations: Optional[ProjectFileSystemLocations]
-    timeoutInMinutes: Optional[WrapperInt]
-    queuedTimeoutInMinutes: Optional[WrapperInt]
-    vpcConfig: Optional[VpcConfig]
-    logConfig: Optional[LogsConfig]
-    encryptionKey: Optional[NonEmptyString]
-    serviceRole: Optional[NonEmptyString]
-    currentSession: Optional[SandboxSession]
+    id: NonEmptyString | None
+    arn: NonEmptyString | None
+    projectName: NonEmptyString | None
+    requestTime: Timestamp | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    status: String | None
+    source: ProjectSource | None
+    sourceVersion: NonEmptyString | None
+    secondarySources: ProjectSources | None
+    secondarySourceVersions: ProjectSecondarySourceVersions | None
+    environment: ProjectEnvironment | None
+    fileSystemLocations: ProjectFileSystemLocations | None
+    timeoutInMinutes: WrapperInt | None
+    queuedTimeoutInMinutes: WrapperInt | None
+    vpcConfig: VpcConfig | None
+    logConfig: LogsConfig | None
+    encryptionKey: NonEmptyString | None
+    serviceRole: NonEmptyString | None
+    currentSession: SandboxSession | None
 
 
-Sandboxes = List[Sandbox]
+Sandboxes = list[Sandbox]
 
 
 class BatchGetSandboxesOutput(TypedDict, total=False):
-    sandboxes: Optional[Sandboxes]
-    sandboxesNotFound: Optional[SandboxIds]
+    sandboxes: Sandboxes | None
+    sandboxesNotFound: SandboxIds | None
 
 
 class BuildBatchFilter(TypedDict, total=False):
     """Specifies filters when retrieving batch builds."""
 
-    status: Optional[StatusType]
+    status: StatusType | None
 
 
 class CodeCoverage(TypedDict, total=False):
@@ -1384,27 +1384,27 @@ class CodeCoverage(TypedDict, total=False):
     a control structure, such as an ``if`` or ``case`` statement.
     """
 
-    id: Optional[NonEmptyString]
-    reportARN: Optional[NonEmptyString]
-    filePath: Optional[NonEmptyString]
-    lineCoveragePercentage: Optional[Percentage]
-    linesCovered: Optional[NonNegativeInt]
-    linesMissed: Optional[NonNegativeInt]
-    branchCoveragePercentage: Optional[Percentage]
-    branchesCovered: Optional[NonNegativeInt]
-    branchesMissed: Optional[NonNegativeInt]
-    expired: Optional[Timestamp]
+    id: NonEmptyString | None
+    reportARN: NonEmptyString | None
+    filePath: NonEmptyString | None
+    lineCoveragePercentage: Percentage | None
+    linesCovered: NonNegativeInt | None
+    linesMissed: NonNegativeInt | None
+    branchCoveragePercentage: Percentage | None
+    branchesCovered: NonNegativeInt | None
+    branchesMissed: NonNegativeInt | None
+    expired: Timestamp | None
 
 
-CodeCoverages = List[CodeCoverage]
+CodeCoverages = list[CodeCoverage]
 
 
 class ScalingConfigurationInput(TypedDict, total=False):
     """The scaling configuration input of a compute fleet."""
 
-    scalingType: Optional[FleetScalingType]
-    targetTrackingScalingConfigs: Optional[TargetTrackingScalingConfigurations]
-    maxCapacity: Optional[FleetCapacity]
+    scalingType: FleetScalingType | None
+    targetTrackingScalingConfigs: TargetTrackingScalingConfigurations | None
+    maxCapacity: FleetCapacity | None
 
 
 class CreateFleetInput(ServiceRequest):
@@ -1412,72 +1412,72 @@ class CreateFleetInput(ServiceRequest):
     baseCapacity: FleetCapacity
     environmentType: EnvironmentType
     computeType: ComputeType
-    computeConfiguration: Optional[ComputeConfiguration]
-    scalingConfiguration: Optional[ScalingConfigurationInput]
-    overflowBehavior: Optional[FleetOverflowBehavior]
-    vpcConfig: Optional[VpcConfig]
-    proxyConfiguration: Optional[ProxyConfiguration]
-    imageId: Optional[NonEmptyString]
-    fleetServiceRole: Optional[NonEmptyString]
-    tags: Optional[TagList]
+    computeConfiguration: ComputeConfiguration | None
+    scalingConfiguration: ScalingConfigurationInput | None
+    overflowBehavior: FleetOverflowBehavior | None
+    vpcConfig: VpcConfig | None
+    proxyConfiguration: ProxyConfiguration | None
+    imageId: NonEmptyString | None
+    fleetServiceRole: NonEmptyString | None
+    tags: TagList | None
 
 
 class CreateFleetOutput(TypedDict, total=False):
-    fleet: Optional[Fleet]
+    fleet: Fleet | None
 
 
 class CreateProjectInput(ServiceRequest):
     name: ProjectName
-    description: Optional[ProjectDescription]
+    description: ProjectDescription | None
     source: ProjectSource
-    secondarySources: Optional[ProjectSources]
-    sourceVersion: Optional[String]
-    secondarySourceVersions: Optional[ProjectSecondarySourceVersions]
+    secondarySources: ProjectSources | None
+    sourceVersion: String | None
+    secondarySourceVersions: ProjectSecondarySourceVersions | None
     artifacts: ProjectArtifacts
-    secondaryArtifacts: Optional[ProjectArtifactsList]
-    cache: Optional[ProjectCache]
+    secondaryArtifacts: ProjectArtifactsList | None
+    cache: ProjectCache | None
     environment: ProjectEnvironment
     serviceRole: NonEmptyString
-    timeoutInMinutes: Optional[BuildTimeOut]
-    queuedTimeoutInMinutes: Optional[TimeOut]
-    encryptionKey: Optional[NonEmptyString]
-    tags: Optional[TagList]
-    vpcConfig: Optional[VpcConfig]
-    badgeEnabled: Optional[WrapperBoolean]
-    logsConfig: Optional[LogsConfig]
-    fileSystemLocations: Optional[ProjectFileSystemLocations]
-    buildBatchConfig: Optional[ProjectBuildBatchConfig]
-    concurrentBuildLimit: Optional[WrapperInt]
-    autoRetryLimit: Optional[WrapperInt]
+    timeoutInMinutes: BuildTimeOut | None
+    queuedTimeoutInMinutes: TimeOut | None
+    encryptionKey: NonEmptyString | None
+    tags: TagList | None
+    vpcConfig: VpcConfig | None
+    badgeEnabled: WrapperBoolean | None
+    logsConfig: LogsConfig | None
+    fileSystemLocations: ProjectFileSystemLocations | None
+    buildBatchConfig: ProjectBuildBatchConfig | None
+    concurrentBuildLimit: WrapperInt | None
+    autoRetryLimit: WrapperInt | None
 
 
 class CreateProjectOutput(TypedDict, total=False):
-    project: Optional[Project]
+    project: Project | None
 
 
 class CreateReportGroupInput(TypedDict, total=False):
     name: ReportGroupName
     type: ReportType
     exportConfig: ReportExportConfig
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreateReportGroupOutput(TypedDict, total=False):
-    reportGroup: Optional[ReportGroup]
+    reportGroup: ReportGroup | None
 
 
 class CreateWebhookInput(ServiceRequest):
     projectName: ProjectName
-    branchFilter: Optional[String]
-    filterGroups: Optional[FilterGroups]
-    buildType: Optional[WebhookBuildType]
-    manualCreation: Optional[WrapperBoolean]
-    scopeConfiguration: Optional[ScopeConfiguration]
-    pullRequestBuildPolicy: Optional[PullRequestBuildPolicy]
+    branchFilter: String | None
+    filterGroups: FilterGroups | None
+    buildType: WebhookBuildType | None
+    manualCreation: WrapperBoolean | None
+    scopeConfiguration: ScopeConfiguration | None
+    pullRequestBuildPolicy: PullRequestBuildPolicy | None
 
 
 class CreateWebhookOutput(TypedDict, total=False):
-    webhook: Optional[Webhook]
+    webhook: Webhook | None
 
 
 class DeleteBuildBatchInput(ServiceRequest):
@@ -1485,9 +1485,9 @@ class DeleteBuildBatchInput(ServiceRequest):
 
 
 class DeleteBuildBatchOutput(TypedDict, total=False):
-    statusCode: Optional[String]
-    buildsDeleted: Optional[BuildIds]
-    buildsNotDeleted: Optional[BuildsNotDeleted]
+    statusCode: String | None
+    buildsDeleted: BuildIds | None
+    buildsNotDeleted: BuildsNotDeleted | None
 
 
 class DeleteFleetInput(ServiceRequest):
@@ -1508,7 +1508,7 @@ class DeleteProjectOutput(TypedDict, total=False):
 
 class DeleteReportGroupInput(ServiceRequest):
     arn: NonEmptyString
-    deleteReports: Optional[Boolean]
+    deleteReports: Boolean | None
 
 
 class DeleteReportGroupOutput(TypedDict, total=False):
@@ -1536,7 +1536,7 @@ class DeleteSourceCredentialsInput(ServiceRequest):
 
 
 class DeleteSourceCredentialsOutput(TypedDict, total=False):
-    arn: Optional[NonEmptyString]
+    arn: NonEmptyString | None
 
 
 class DeleteWebhookInput(ServiceRequest):
@@ -1549,17 +1549,17 @@ class DeleteWebhookOutput(TypedDict, total=False):
 
 class DescribeCodeCoveragesInput(ServiceRequest):
     reportArn: NonEmptyString
-    nextToken: Optional[String]
-    maxResults: Optional[PageSize]
-    sortOrder: Optional[SortOrderType]
-    sortBy: Optional[ReportCodeCoverageSortByType]
-    minLineCoveragePercentage: Optional[Percentage]
-    maxLineCoveragePercentage: Optional[Percentage]
+    nextToken: String | None
+    maxResults: PageSize | None
+    sortOrder: SortOrderType | None
+    sortBy: ReportCodeCoverageSortByType | None
+    minLineCoveragePercentage: Percentage | None
+    maxLineCoveragePercentage: Percentage | None
 
 
 class DescribeCodeCoveragesOutput(TypedDict, total=False):
-    nextToken: Optional[String]
-    codeCoverages: Optional[CodeCoverages]
+    nextToken: String | None
+    codeCoverages: CodeCoverages | None
 
 
 class TestCaseFilter(TypedDict, total=False):
@@ -1567,15 +1567,15 @@ class TestCaseFilter(TypedDict, total=False):
     the filter, the report must meet all of the filter properties.
     """
 
-    status: Optional[String]
-    keyword: Optional[String]
+    status: String | None
+    keyword: String | None
 
 
 class DescribeTestCasesInput(ServiceRequest):
     reportArn: String
-    nextToken: Optional[String]
-    maxResults: Optional[PageSize]
-    filter: Optional[TestCaseFilter]
+    nextToken: String | None
+    maxResults: PageSize | None
+    filter: TestCaseFilter | None
 
 
 class TestCase(TypedDict, total=False):
@@ -1583,37 +1583,37 @@ class TestCase(TypedDict, total=False):
     Cucumber. A test case might be a unit test or a configuration test.
     """
 
-    reportArn: Optional[NonEmptyString]
-    testRawDataPath: Optional[String]
-    prefix: Optional[String]
-    name: Optional[String]
-    status: Optional[String]
-    durationInNanoSeconds: Optional[WrapperLong]
-    message: Optional[String]
-    expired: Optional[Timestamp]
-    testSuiteName: Optional[String]
+    reportArn: NonEmptyString | None
+    testRawDataPath: String | None
+    prefix: String | None
+    name: String | None
+    status: String | None
+    durationInNanoSeconds: WrapperLong | None
+    message: String | None
+    expired: Timestamp | None
+    testSuiteName: String | None
 
 
-TestCases = List[TestCase]
+TestCases = list[TestCase]
 
 
 class DescribeTestCasesOutput(TypedDict, total=False):
-    nextToken: Optional[String]
-    testCases: Optional[TestCases]
+    nextToken: String | None
+    testCases: TestCases | None
 
 
-ImageVersions = List[String]
+ImageVersions = list[String]
 
 
 class EnvironmentImage(TypedDict, total=False):
     """Information about a Docker image that is managed by CodeBuild."""
 
-    name: Optional[String]
-    description: Optional[String]
-    versions: Optional[ImageVersions]
+    name: String | None
+    description: String | None
+    versions: ImageVersions | None
 
 
-EnvironmentImages = List[EnvironmentImage]
+EnvironmentImages = list[EnvironmentImage]
 
 
 class EnvironmentLanguage(TypedDict, total=False):
@@ -1621,11 +1621,11 @@ class EnvironmentLanguage(TypedDict, total=False):
     managed by CodeBuild.
     """
 
-    language: Optional[LanguageType]
-    images: Optional[EnvironmentImages]
+    language: LanguageType | None
+    images: EnvironmentImages | None
 
 
-EnvironmentLanguages = List[EnvironmentLanguage]
+EnvironmentLanguages = list[EnvironmentLanguage]
 
 
 class EnvironmentPlatform(TypedDict, total=False):
@@ -1633,28 +1633,28 @@ class EnvironmentPlatform(TypedDict, total=False):
     CodeBuild.
     """
 
-    platform: Optional[PlatformType]
-    languages: Optional[EnvironmentLanguages]
+    platform: PlatformType | None
+    languages: EnvironmentLanguages | None
 
 
-EnvironmentPlatforms = List[EnvironmentPlatform]
-FleetArns = List[NonEmptyString]
+EnvironmentPlatforms = list[EnvironmentPlatform]
+FleetArns = list[NonEmptyString]
 
 
 class GetReportGroupTrendInput(ServiceRequest):
     reportGroupArn: NonEmptyString
-    numOfReports: Optional[PageSize]
+    numOfReports: PageSize | None
     trendField: ReportGroupTrendFieldType
 
 
 class ReportWithRawData(TypedDict, total=False):
     """Contains the unmodified data for the report. For more information, see ."""
 
-    reportArn: Optional[NonEmptyString]
-    data: Optional[String]
+    reportArn: NonEmptyString | None
+    data: String | None
 
 
-ReportGroupTrendRawDataList = List[ReportWithRawData]
+ReportGroupTrendRawDataList = list[ReportWithRawData]
 
 
 class ReportGroupTrendStats(TypedDict, total=False):
@@ -1662,14 +1662,14 @@ class ReportGroupTrendStats(TypedDict, total=False):
     on the type of trend being collected. For more information, see .
     """
 
-    average: Optional[String]
-    max: Optional[String]
-    min: Optional[String]
+    average: String | None
+    max: String | None
+    min: String | None
 
 
 class GetReportGroupTrendOutput(TypedDict, total=False):
-    stats: Optional[ReportGroupTrendStats]
-    rawData: Optional[ReportGroupTrendRawDataList]
+    stats: ReportGroupTrendStats | None
+    rawData: ReportGroupTrendRawDataList | None
 
 
 class GetResourcePolicyInput(ServiceRequest):
@@ -1677,19 +1677,19 @@ class GetResourcePolicyInput(ServiceRequest):
 
 
 class GetResourcePolicyOutput(TypedDict, total=False):
-    policy: Optional[NonEmptyString]
+    policy: NonEmptyString | None
 
 
 class ImportSourceCredentialsInput(ServiceRequest):
-    username: Optional[NonEmptyString]
+    username: NonEmptyString | None
     token: SensitiveNonEmptyString
     serverType: ServerType
     authType: AuthType
-    shouldOverwrite: Optional[WrapperBoolean]
+    shouldOverwrite: WrapperBoolean | None
 
 
 class ImportSourceCredentialsOutput(TypedDict, total=False):
-    arn: Optional[NonEmptyString]
+    arn: NonEmptyString | None
 
 
 class InvalidateProjectCacheInput(ServiceRequest):
@@ -1701,61 +1701,61 @@ class InvalidateProjectCacheOutput(TypedDict, total=False):
 
 
 class ListBuildBatchesForProjectInput(ServiceRequest):
-    projectName: Optional[NonEmptyString]
-    filter: Optional[BuildBatchFilter]
-    maxResults: Optional[PageSize]
-    sortOrder: Optional[SortOrderType]
-    nextToken: Optional[String]
+    projectName: NonEmptyString | None
+    filter: BuildBatchFilter | None
+    maxResults: PageSize | None
+    sortOrder: SortOrderType | None
+    nextToken: String | None
 
 
 class ListBuildBatchesForProjectOutput(TypedDict, total=False):
-    ids: Optional[BuildBatchIds]
-    nextToken: Optional[String]
+    ids: BuildBatchIds | None
+    nextToken: String | None
 
 
 class ListBuildBatchesInput(ServiceRequest):
-    filter: Optional[BuildBatchFilter]
-    maxResults: Optional[PageSize]
-    sortOrder: Optional[SortOrderType]
-    nextToken: Optional[String]
+    filter: BuildBatchFilter | None
+    maxResults: PageSize | None
+    sortOrder: SortOrderType | None
+    nextToken: String | None
 
 
 class ListBuildBatchesOutput(TypedDict, total=False):
-    ids: Optional[BuildBatchIds]
-    nextToken: Optional[String]
+    ids: BuildBatchIds | None
+    nextToken: String | None
 
 
 class ListBuildsForProjectInput(ServiceRequest):
     projectName: NonEmptyString
-    sortOrder: Optional[SortOrderType]
-    nextToken: Optional[String]
+    sortOrder: SortOrderType | None
+    nextToken: String | None
 
 
 class ListBuildsForProjectOutput(TypedDict, total=False):
-    ids: Optional[BuildIds]
-    nextToken: Optional[String]
+    ids: BuildIds | None
+    nextToken: String | None
 
 
 class ListBuildsInput(ServiceRequest):
-    sortOrder: Optional[SortOrderType]
-    nextToken: Optional[String]
+    sortOrder: SortOrderType | None
+    nextToken: String | None
 
 
 class ListBuildsOutput(TypedDict, total=False):
-    ids: Optional[BuildIds]
-    nextToken: Optional[String]
+    ids: BuildIds | None
+    nextToken: String | None
 
 
 class ListCommandExecutionsForSandboxInput(ServiceRequest):
     sandboxId: NonEmptyString
-    maxResults: Optional[PageSize]
-    sortOrder: Optional[SortOrderType]
-    nextToken: Optional[SensitiveString]
+    maxResults: PageSize | None
+    sortOrder: SortOrderType | None
+    nextToken: SensitiveString | None
 
 
 class ListCommandExecutionsForSandboxOutput(TypedDict, total=False):
-    commandExecutions: Optional[CommandExecutions]
-    nextToken: Optional[String]
+    commandExecutions: CommandExecutions | None
+    nextToken: String | None
 
 
 class ListCuratedEnvironmentImagesInput(ServiceRequest):
@@ -1763,42 +1763,42 @@ class ListCuratedEnvironmentImagesInput(ServiceRequest):
 
 
 class ListCuratedEnvironmentImagesOutput(TypedDict, total=False):
-    platforms: Optional[EnvironmentPlatforms]
+    platforms: EnvironmentPlatforms | None
 
 
 class ListFleetsInput(ServiceRequest):
-    nextToken: Optional[SensitiveString]
-    maxResults: Optional[PageSize]
-    sortOrder: Optional[SortOrderType]
-    sortBy: Optional[FleetSortByType]
+    nextToken: SensitiveString | None
+    maxResults: PageSize | None
+    sortOrder: SortOrderType | None
+    sortBy: FleetSortByType | None
 
 
 class ListFleetsOutput(TypedDict, total=False):
-    nextToken: Optional[String]
-    fleets: Optional[FleetArns]
+    nextToken: String | None
+    fleets: FleetArns | None
 
 
 class ListProjectsInput(ServiceRequest):
-    sortBy: Optional[ProjectSortByType]
-    sortOrder: Optional[SortOrderType]
-    nextToken: Optional[NonEmptyString]
+    sortBy: ProjectSortByType | None
+    sortOrder: SortOrderType | None
+    nextToken: NonEmptyString | None
 
 
 class ListProjectsOutput(TypedDict, total=False):
-    nextToken: Optional[String]
-    projects: Optional[ProjectNames]
+    nextToken: String | None
+    projects: ProjectNames | None
 
 
 class ListReportGroupsInput(ServiceRequest):
-    sortOrder: Optional[SortOrderType]
-    sortBy: Optional[ReportGroupSortByType]
-    nextToken: Optional[String]
-    maxResults: Optional[PageSize]
+    sortOrder: SortOrderType | None
+    sortBy: ReportGroupSortByType | None
+    nextToken: String | None
+    maxResults: PageSize | None
 
 
 class ListReportGroupsOutput(TypedDict, total=False):
-    nextToken: Optional[String]
-    reportGroups: Optional[ReportGroupArns]
+    nextToken: String | None
+    reportGroups: ReportGroupArns | None
 
 
 class ReportFilter(TypedDict, total=False):
@@ -1806,82 +1806,82 @@ class ReportFilter(TypedDict, total=False):
     ``status`` parameter.
     """
 
-    status: Optional[ReportStatusType]
+    status: ReportStatusType | None
 
 
 class ListReportsForReportGroupInput(ServiceRequest):
     reportGroupArn: String
-    nextToken: Optional[String]
-    sortOrder: Optional[SortOrderType]
-    maxResults: Optional[PageSize]
-    filter: Optional[ReportFilter]
+    nextToken: String | None
+    sortOrder: SortOrderType | None
+    maxResults: PageSize | None
+    filter: ReportFilter | None
 
 
 class ListReportsForReportGroupOutput(TypedDict, total=False):
-    nextToken: Optional[String]
-    reports: Optional[ReportArns]
+    nextToken: String | None
+    reports: ReportArns | None
 
 
 class ListReportsInput(ServiceRequest):
-    sortOrder: Optional[SortOrderType]
-    nextToken: Optional[String]
-    maxResults: Optional[PageSize]
-    filter: Optional[ReportFilter]
+    sortOrder: SortOrderType | None
+    nextToken: String | None
+    maxResults: PageSize | None
+    filter: ReportFilter | None
 
 
 class ListReportsOutput(TypedDict, total=False):
-    nextToken: Optional[String]
-    reports: Optional[ReportArns]
+    nextToken: String | None
+    reports: ReportArns | None
 
 
 class ListSandboxesForProjectInput(ServiceRequest):
     projectName: NonEmptyString
-    maxResults: Optional[PageSize]
-    sortOrder: Optional[SortOrderType]
-    nextToken: Optional[SensitiveString]
+    maxResults: PageSize | None
+    sortOrder: SortOrderType | None
+    nextToken: SensitiveString | None
 
 
 class ListSandboxesForProjectOutput(TypedDict, total=False):
-    ids: Optional[SandboxIds]
-    nextToken: Optional[String]
+    ids: SandboxIds | None
+    nextToken: String | None
 
 
 class ListSandboxesInput(ServiceRequest):
-    maxResults: Optional[PageSize]
-    sortOrder: Optional[SortOrderType]
-    nextToken: Optional[String]
+    maxResults: PageSize | None
+    sortOrder: SortOrderType | None
+    nextToken: String | None
 
 
 class ListSandboxesOutput(TypedDict, total=False):
-    ids: Optional[SandboxIds]
-    nextToken: Optional[String]
+    ids: SandboxIds | None
+    nextToken: String | None
 
 
 class ListSharedProjectsInput(ServiceRequest):
-    sortBy: Optional[SharedResourceSortByType]
-    sortOrder: Optional[SortOrderType]
-    maxResults: Optional[PageSize]
-    nextToken: Optional[NonEmptyString]
+    sortBy: SharedResourceSortByType | None
+    sortOrder: SortOrderType | None
+    maxResults: PageSize | None
+    nextToken: NonEmptyString | None
 
 
-ProjectArns = List[NonEmptyString]
+ProjectArns = list[NonEmptyString]
 
 
 class ListSharedProjectsOutput(TypedDict, total=False):
-    nextToken: Optional[String]
-    projects: Optional[ProjectArns]
+    nextToken: String | None
+    projects: ProjectArns | None
 
 
 class ListSharedReportGroupsInput(ServiceRequest):
-    sortOrder: Optional[SortOrderType]
-    sortBy: Optional[SharedResourceSortByType]
-    nextToken: Optional[String]
-    maxResults: Optional[PageSize]
+    sortOrder: SortOrderType | None
+    sortBy: SharedResourceSortByType | None
+    nextToken: String | None
+    maxResults: PageSize | None
 
 
 class ListSharedReportGroupsOutput(TypedDict, total=False):
-    nextToken: Optional[String]
-    reportGroups: Optional[ReportGroupArns]
+    nextToken: String | None
+    reportGroups: ReportGroupArns | None
 
 
 class ListSourceCredentialsInput(ServiceRequest):
@@ -1893,17 +1893,17 @@ class SourceCredentialsInfo(TypedDict, total=False):
     GitLab, GitLab Self Managed, or Bitbucket repository.
     """
 
-    arn: Optional[NonEmptyString]
-    serverType: Optional[ServerType]
-    authType: Optional[AuthType]
-    resource: Optional[String]
+    arn: NonEmptyString | None
+    serverType: ServerType | None
+    authType: AuthType | None
+    resource: String | None
 
 
-SourceCredentialsInfos = List[SourceCredentialsInfo]
+SourceCredentialsInfos = list[SourceCredentialsInfo]
 
 
 class ListSourceCredentialsOutput(TypedDict, total=False):
-    sourceCredentialsInfos: Optional[SourceCredentialsInfos]
+    sourceCredentialsInfos: SourceCredentialsInfos | None
 
 
 class PutResourcePolicyInput(ServiceRequest):
@@ -1912,122 +1912,122 @@ class PutResourcePolicyInput(ServiceRequest):
 
 
 class PutResourcePolicyOutput(TypedDict, total=False):
-    resourceArn: Optional[NonEmptyString]
+    resourceArn: NonEmptyString | None
 
 
 class RetryBuildBatchInput(ServiceRequest):
-    id: Optional[NonEmptyString]
-    idempotencyToken: Optional[String]
-    retryType: Optional[RetryBuildBatchType]
+    id: NonEmptyString | None
+    idempotencyToken: String | None
+    retryType: RetryBuildBatchType | None
 
 
 class RetryBuildBatchOutput(TypedDict, total=False):
-    buildBatch: Optional[BuildBatch]
+    buildBatch: BuildBatch | None
 
 
 class RetryBuildInput(ServiceRequest):
-    id: Optional[NonEmptyString]
-    idempotencyToken: Optional[String]
+    id: NonEmptyString | None
+    idempotencyToken: String | None
 
 
 class RetryBuildOutput(TypedDict, total=False):
-    build: Optional[Build]
+    build: Build | None
 
 
 class SSMSession(TypedDict, total=False):
     """Contains information about the Session Manager session."""
 
-    sessionId: Optional[String]
-    tokenValue: Optional[String]
-    streamUrl: Optional[String]
+    sessionId: String | None
+    tokenValue: String | None
+    streamUrl: String | None
 
 
 class StartBuildBatchInput(ServiceRequest):
     projectName: NonEmptyString
-    secondarySourcesOverride: Optional[ProjectSources]
-    secondarySourcesVersionOverride: Optional[ProjectSecondarySourceVersions]
-    sourceVersion: Optional[String]
-    artifactsOverride: Optional[ProjectArtifacts]
-    secondaryArtifactsOverride: Optional[ProjectArtifactsList]
-    environmentVariablesOverride: Optional[EnvironmentVariables]
-    sourceTypeOverride: Optional[SourceType]
-    sourceLocationOverride: Optional[String]
-    sourceAuthOverride: Optional[SourceAuth]
-    gitCloneDepthOverride: Optional[GitCloneDepth]
-    gitSubmodulesConfigOverride: Optional[GitSubmodulesConfig]
-    buildspecOverride: Optional[String]
-    insecureSslOverride: Optional[WrapperBoolean]
-    reportBuildBatchStatusOverride: Optional[WrapperBoolean]
-    environmentTypeOverride: Optional[EnvironmentType]
-    imageOverride: Optional[NonEmptyString]
-    computeTypeOverride: Optional[ComputeType]
-    certificateOverride: Optional[String]
-    cacheOverride: Optional[ProjectCache]
-    serviceRoleOverride: Optional[NonEmptyString]
-    privilegedModeOverride: Optional[WrapperBoolean]
-    buildTimeoutInMinutesOverride: Optional[BuildTimeOut]
-    queuedTimeoutInMinutesOverride: Optional[TimeOut]
-    encryptionKeyOverride: Optional[NonEmptyString]
-    idempotencyToken: Optional[String]
-    logsConfigOverride: Optional[LogsConfig]
-    registryCredentialOverride: Optional[RegistryCredential]
-    imagePullCredentialsTypeOverride: Optional[ImagePullCredentialsType]
-    buildBatchConfigOverride: Optional[ProjectBuildBatchConfig]
-    debugSessionEnabled: Optional[WrapperBoolean]
+    secondarySourcesOverride: ProjectSources | None
+    secondarySourcesVersionOverride: ProjectSecondarySourceVersions | None
+    sourceVersion: String | None
+    artifactsOverride: ProjectArtifacts | None
+    secondaryArtifactsOverride: ProjectArtifactsList | None
+    environmentVariablesOverride: EnvironmentVariables | None
+    sourceTypeOverride: SourceType | None
+    sourceLocationOverride: String | None
+    sourceAuthOverride: SourceAuth | None
+    gitCloneDepthOverride: GitCloneDepth | None
+    gitSubmodulesConfigOverride: GitSubmodulesConfig | None
+    buildspecOverride: String | None
+    insecureSslOverride: WrapperBoolean | None
+    reportBuildBatchStatusOverride: WrapperBoolean | None
+    environmentTypeOverride: EnvironmentType | None
+    imageOverride: NonEmptyString | None
+    computeTypeOverride: ComputeType | None
+    certificateOverride: String | None
+    cacheOverride: ProjectCache | None
+    serviceRoleOverride: NonEmptyString | None
+    privilegedModeOverride: WrapperBoolean | None
+    buildTimeoutInMinutesOverride: BuildTimeOut | None
+    queuedTimeoutInMinutesOverride: TimeOut | None
+    encryptionKeyOverride: NonEmptyString | None
+    idempotencyToken: String | None
+    logsConfigOverride: LogsConfig | None
+    registryCredentialOverride: RegistryCredential | None
+    imagePullCredentialsTypeOverride: ImagePullCredentialsType | None
+    buildBatchConfigOverride: ProjectBuildBatchConfig | None
+    debugSessionEnabled: WrapperBoolean | None
 
 
 class StartBuildBatchOutput(TypedDict, total=False):
-    buildBatch: Optional[BuildBatch]
+    buildBatch: BuildBatch | None
 
 
 class StartBuildInput(ServiceRequest):
     projectName: NonEmptyString
-    secondarySourcesOverride: Optional[ProjectSources]
-    secondarySourcesVersionOverride: Optional[ProjectSecondarySourceVersions]
-    sourceVersion: Optional[String]
-    artifactsOverride: Optional[ProjectArtifacts]
-    secondaryArtifactsOverride: Optional[ProjectArtifactsList]
-    environmentVariablesOverride: Optional[EnvironmentVariables]
-    sourceTypeOverride: Optional[SourceType]
-    sourceLocationOverride: Optional[String]
-    sourceAuthOverride: Optional[SourceAuth]
-    gitCloneDepthOverride: Optional[GitCloneDepth]
-    gitSubmodulesConfigOverride: Optional[GitSubmodulesConfig]
-    buildspecOverride: Optional[String]
-    insecureSslOverride: Optional[WrapperBoolean]
-    reportBuildStatusOverride: Optional[WrapperBoolean]
-    buildStatusConfigOverride: Optional[BuildStatusConfig]
-    environmentTypeOverride: Optional[EnvironmentType]
-    imageOverride: Optional[NonEmptyString]
-    computeTypeOverride: Optional[ComputeType]
-    certificateOverride: Optional[String]
-    cacheOverride: Optional[ProjectCache]
-    serviceRoleOverride: Optional[NonEmptyString]
-    privilegedModeOverride: Optional[WrapperBoolean]
-    timeoutInMinutesOverride: Optional[BuildTimeOut]
-    queuedTimeoutInMinutesOverride: Optional[TimeOut]
-    encryptionKeyOverride: Optional[NonEmptyString]
-    idempotencyToken: Optional[String]
-    logsConfigOverride: Optional[LogsConfig]
-    registryCredentialOverride: Optional[RegistryCredential]
-    imagePullCredentialsTypeOverride: Optional[ImagePullCredentialsType]
-    debugSessionEnabled: Optional[WrapperBoolean]
-    fleetOverride: Optional[ProjectFleet]
-    autoRetryLimitOverride: Optional[WrapperInt]
+    secondarySourcesOverride: ProjectSources | None
+    secondarySourcesVersionOverride: ProjectSecondarySourceVersions | None
+    sourceVersion: String | None
+    artifactsOverride: ProjectArtifacts | None
+    secondaryArtifactsOverride: ProjectArtifactsList | None
+    environmentVariablesOverride: EnvironmentVariables | None
+    sourceTypeOverride: SourceType | None
+    sourceLocationOverride: String | None
+    sourceAuthOverride: SourceAuth | None
+    gitCloneDepthOverride: GitCloneDepth | None
+    gitSubmodulesConfigOverride: GitSubmodulesConfig | None
+    buildspecOverride: String | None
+    insecureSslOverride: WrapperBoolean | None
+    reportBuildStatusOverride: WrapperBoolean | None
+    buildStatusConfigOverride: BuildStatusConfig | None
+    environmentTypeOverride: EnvironmentType | None
+    imageOverride: NonEmptyString | None
+    computeTypeOverride: ComputeType | None
+    certificateOverride: String | None
+    cacheOverride: ProjectCache | None
+    serviceRoleOverride: NonEmptyString | None
+    privilegedModeOverride: WrapperBoolean | None
+    timeoutInMinutesOverride: BuildTimeOut | None
+    queuedTimeoutInMinutesOverride: TimeOut | None
+    encryptionKeyOverride: NonEmptyString | None
+    idempotencyToken: String | None
+    logsConfigOverride: LogsConfig | None
+    registryCredentialOverride: RegistryCredential | None
+    imagePullCredentialsTypeOverride: ImagePullCredentialsType | None
+    debugSessionEnabled: WrapperBoolean | None
+    fleetOverride: ProjectFleet | None
+    autoRetryLimitOverride: WrapperInt | None
 
 
 class StartBuildOutput(TypedDict, total=False):
-    build: Optional[Build]
+    build: Build | None
 
 
 class StartCommandExecutionInput(TypedDict, total=False):
     sandboxId: NonEmptyString
     command: SensitiveNonEmptyString
-    type: Optional[CommandType]
+    type: CommandType | None
 
 
 class StartCommandExecutionOutput(TypedDict, total=False):
-    commandExecution: Optional[CommandExecution]
+    commandExecution: CommandExecution | None
 
 
 class StartSandboxConnectionInput(ServiceRequest):
@@ -2035,16 +2035,16 @@ class StartSandboxConnectionInput(ServiceRequest):
 
 
 class StartSandboxConnectionOutput(TypedDict, total=False):
-    ssmSession: Optional[SSMSession]
+    ssmSession: SSMSession | None
 
 
 class StartSandboxInput(ServiceRequest):
-    projectName: Optional[NonEmptyString]
-    idempotencyToken: Optional[SensitiveString]
+    projectName: NonEmptyString | None
+    idempotencyToken: SensitiveString | None
 
 
 class StartSandboxOutput(TypedDict, total=False):
-    sandbox: Optional[Sandbox]
+    sandbox: Sandbox | None
 
 
 class StopBuildBatchInput(ServiceRequest):
@@ -2052,7 +2052,7 @@ class StopBuildBatchInput(ServiceRequest):
 
 
 class StopBuildBatchOutput(TypedDict, total=False):
-    buildBatch: Optional[BuildBatch]
+    buildBatch: BuildBatch | None
 
 
 class StopBuildInput(ServiceRequest):
@@ -2060,7 +2060,7 @@ class StopBuildInput(ServiceRequest):
 
 
 class StopBuildOutput(TypedDict, total=False):
-    build: Optional[Build]
+    build: Build | None
 
 
 class StopSandboxInput(ServiceRequest):
@@ -2068,95 +2068,95 @@ class StopSandboxInput(ServiceRequest):
 
 
 class StopSandboxOutput(TypedDict, total=False):
-    sandbox: Optional[Sandbox]
+    sandbox: Sandbox | None
 
 
 class UpdateFleetInput(ServiceRequest):
     arn: NonEmptyString
-    baseCapacity: Optional[FleetCapacity]
-    environmentType: Optional[EnvironmentType]
-    computeType: Optional[ComputeType]
-    computeConfiguration: Optional[ComputeConfiguration]
-    scalingConfiguration: Optional[ScalingConfigurationInput]
-    overflowBehavior: Optional[FleetOverflowBehavior]
-    vpcConfig: Optional[VpcConfig]
-    proxyConfiguration: Optional[ProxyConfiguration]
-    imageId: Optional[NonEmptyString]
-    fleetServiceRole: Optional[NonEmptyString]
-    tags: Optional[TagList]
+    baseCapacity: FleetCapacity | None
+    environmentType: EnvironmentType | None
+    computeType: ComputeType | None
+    computeConfiguration: ComputeConfiguration | None
+    scalingConfiguration: ScalingConfigurationInput | None
+    overflowBehavior: FleetOverflowBehavior | None
+    vpcConfig: VpcConfig | None
+    proxyConfiguration: ProxyConfiguration | None
+    imageId: NonEmptyString | None
+    fleetServiceRole: NonEmptyString | None
+    tags: TagList | None
 
 
 class UpdateFleetOutput(TypedDict, total=False):
-    fleet: Optional[Fleet]
+    fleet: Fleet | None
 
 
 class UpdateProjectInput(ServiceRequest):
     name: NonEmptyString
-    description: Optional[ProjectDescription]
-    source: Optional[ProjectSource]
-    secondarySources: Optional[ProjectSources]
-    sourceVersion: Optional[String]
-    secondarySourceVersions: Optional[ProjectSecondarySourceVersions]
-    artifacts: Optional[ProjectArtifacts]
-    secondaryArtifacts: Optional[ProjectArtifactsList]
-    cache: Optional[ProjectCache]
-    environment: Optional[ProjectEnvironment]
-    serviceRole: Optional[NonEmptyString]
-    timeoutInMinutes: Optional[BuildTimeOut]
-    queuedTimeoutInMinutes: Optional[TimeOut]
-    encryptionKey: Optional[NonEmptyString]
-    tags: Optional[TagList]
-    vpcConfig: Optional[VpcConfig]
-    badgeEnabled: Optional[WrapperBoolean]
-    logsConfig: Optional[LogsConfig]
-    fileSystemLocations: Optional[ProjectFileSystemLocations]
-    buildBatchConfig: Optional[ProjectBuildBatchConfig]
-    concurrentBuildLimit: Optional[WrapperInt]
-    autoRetryLimit: Optional[WrapperInt]
+    description: ProjectDescription | None
+    source: ProjectSource | None
+    secondarySources: ProjectSources | None
+    sourceVersion: String | None
+    secondarySourceVersions: ProjectSecondarySourceVersions | None
+    artifacts: ProjectArtifacts | None
+    secondaryArtifacts: ProjectArtifactsList | None
+    cache: ProjectCache | None
+    environment: ProjectEnvironment | None
+    serviceRole: NonEmptyString | None
+    timeoutInMinutes: BuildTimeOut | None
+    queuedTimeoutInMinutes: TimeOut | None
+    encryptionKey: NonEmptyString | None
+    tags: TagList | None
+    vpcConfig: VpcConfig | None
+    badgeEnabled: WrapperBoolean | None
+    logsConfig: LogsConfig | None
+    fileSystemLocations: ProjectFileSystemLocations | None
+    buildBatchConfig: ProjectBuildBatchConfig | None
+    concurrentBuildLimit: WrapperInt | None
+    autoRetryLimit: WrapperInt | None
 
 
 class UpdateProjectOutput(TypedDict, total=False):
-    project: Optional[Project]
+    project: Project | None
 
 
 class UpdateProjectVisibilityInput(ServiceRequest):
     projectArn: NonEmptyString
     projectVisibility: ProjectVisibilityType
-    resourceAccessRole: Optional[NonEmptyString]
+    resourceAccessRole: NonEmptyString | None
 
 
 class UpdateProjectVisibilityOutput(TypedDict, total=False):
-    projectArn: Optional[NonEmptyString]
-    publicProjectAlias: Optional[NonEmptyString]
-    projectVisibility: Optional[ProjectVisibilityType]
+    projectArn: NonEmptyString | None
+    publicProjectAlias: NonEmptyString | None
+    projectVisibility: ProjectVisibilityType | None
 
 
 class UpdateReportGroupInput(ServiceRequest):
     arn: NonEmptyString
-    exportConfig: Optional[ReportExportConfig]
-    tags: Optional[TagList]
+    exportConfig: ReportExportConfig | None
+    tags: TagList | None
 
 
 class UpdateReportGroupOutput(TypedDict, total=False):
-    reportGroup: Optional[ReportGroup]
+    reportGroup: ReportGroup | None
 
 
 class UpdateWebhookInput(ServiceRequest):
     projectName: ProjectName
-    branchFilter: Optional[String]
-    rotateSecret: Optional[Boolean]
-    filterGroups: Optional[FilterGroups]
-    buildType: Optional[WebhookBuildType]
-    pullRequestBuildPolicy: Optional[PullRequestBuildPolicy]
+    branchFilter: String | None
+    rotateSecret: Boolean | None
+    filterGroups: FilterGroups | None
+    buildType: WebhookBuildType | None
+    pullRequestBuildPolicy: PullRequestBuildPolicy | None
 
 
 class UpdateWebhookOutput(TypedDict, total=False):
-    webhook: Optional[Webhook]
+    webhook: Webhook | None
 
 
 class CodebuildApi:
-    service = "codebuild"
-    version = "2016-10-06"
+    service: str = "codebuild"
+    version: str = "2016-10-06"
 
     @handler("BatchDeleteBuilds")
     def batch_delete_builds(

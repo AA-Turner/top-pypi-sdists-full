@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from snowflake.core.cortex.analyst_service._generated.models.verified_query import VerifiedQuery, VerifiedQueryModel
 
@@ -37,9 +37,10 @@ class Confidence(BaseModel):
 
     __properties = ["verified_query_used"]
 
-    class Config:  # noqa: D106
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -64,7 +65,7 @@ class Confidence(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of verified_query_used
         if self.verified_query_used:
@@ -83,9 +84,9 @@ class Confidence(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Confidence.parse_obj(obj)
+            return Confidence.model_validate(obj)
 
-        _obj = Confidence.parse_obj(
+        _obj = Confidence.model_validate(
             {
                 "verified_query_used": VerifiedQuery.from_dict(obj.get("verified_query_used"))
                 if obj.get("verified_query_used") is not None

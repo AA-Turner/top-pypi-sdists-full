@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Implementation of :py:class:`.CheckpointableHandler` for PyTrees."""
+"""Implementation of :py:class:`~.v1.handlers.CheckpointableHandler` for PyTrees."""
 
 from __future__ import annotations
 
@@ -27,15 +27,13 @@ from orbax.checkpoint._src.futures import future
 from orbax.checkpoint._src.futures import synchronization
 from orbax.checkpoint._src.handlers import base_pytree_checkpoint_handler
 from orbax.checkpoint._src.metadata import array_metadata_store as array_metadata_store_lib
-from orbax.checkpoint._src.serialization import type_handlers
+from orbax.checkpoint._src.serialization import types as v0_serialization_types
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.context import options as options_lib
 from orbax.checkpoint.experimental.v1._src.handlers import types as handler_types
 from orbax.checkpoint.experimental.v1._src.metadata import types as metadata_types
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
-from orbax.checkpoint.experimental.v1._src.serialization import array_leaf_handler
 from orbax.checkpoint.experimental.v1._src.serialization import compatibility
-from orbax.checkpoint.experimental.v1._src.serialization import numpy_leaf_handler
 from orbax.checkpoint.experimental.v1._src.serialization import protocol_utils
 from orbax.checkpoint.experimental.v1._src.serialization import registry
 from orbax.checkpoint.experimental.v1._src.serialization import scalar_leaf_handler
@@ -47,6 +45,10 @@ from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
 Path = path_types.Path
 CheckpointableHandler = handler_types.CheckpointableHandler
 PyTree = tree_types.PyTree
+PartialSaveError = base_pytree_checkpoint_handler.PartialSaveError
+PartialSaveReplacementError = (
+    base_pytree_checkpoint_handler.PartialSaveReplacementError
+)
 
 PYTREE_CHECKPOINTABLE_KEY = 'pytree'
 
@@ -68,7 +70,7 @@ def _get_v0_save_args(
         if array_storage_options.dtype
         else None
     )
-    return type_handlers.SaveArgs(
+    return v0_serialization_types.SaveArgs(
         dtype=save_dtype,
         chunk_byte_size=array_storage_options.chunk_byte_size,
         shard_axes=array_storage_options.shard_axes,
@@ -80,7 +82,7 @@ def _get_v0_save_args(
 def _create_v0_handler(
     context: context_lib.Context,
     *,
-    type_handler_registry: type_handlers.TypeHandlerRegistry,
+    type_handler_registry: v0_serialization_types.TypeHandlerRegistry,
     array_metadata_validator: array_metadata_store_lib.Validator = array_metadata_store_lib.Validator(),
 ) -> base_pytree_checkpoint_handler.BasePyTreeCheckpointHandler:
   """Creates a V0 handler from a V1 context."""
@@ -89,6 +91,7 @@ def _create_v0_handler(
       restore_concurrent_bytes=context.array_options.loading.concurrent_bytes,
       use_ocdbt=context.array_options.saving.use_ocdbt,
       use_zarr3=context.array_options.saving.use_zarr3,
+      use_compression=context.array_options.saving.use_compression,
       multiprocessing_options=v0_options_lib.MultiprocessingOptions(
           primary_host=context.multiprocessing_options.primary_host,
           active_processes=context.multiprocessing_options.active_processes,
@@ -120,24 +123,24 @@ def create_v0_save_args(
 def _restore_type_by_abstract_type(
     abstract_checkpointable: Any,
 ) -> Any:
-  """This is to allow users to override the restored type.
+  """Allows users to override the restored type.
 
-  When users pass in the `value` in the DeserializationParam, the PytreeHandler
-  will try to restore to the specified type. T. This only supports the standard
+  When users pass the `value` in the `DeserializationParam`, the `PyTreeHandler`
+  will try to restore to the specified type `T`. This only supports the standard
   types supported by Orbax.
   For example:
-    - jax.ShapeDtype -> jax.Array
-    - NumpyAbstractType -> jax.Array
-    - int | float | Type[int] | Type[float] -> int | float | int | float
+    - `jax.ShapeDtype` -> `jax.Array`
+    - `NumpyAbstractType` -> `jax.Array`
+    - `int` | `float` | `Type[int]` | `Type[float]` -> `int` | `float` | `int` |
+    `float`
 
   Args:
-    abstract_checkpointable: The abstract checkpointable that passed in by the
-      user.
+    abstract_checkpointable: The abstract checkpointable passed in by the user.
 
   Returns:
-    Return the restore_type parameter for the V0RestoreArgs.  This is needed to
-    determine which LeafHandler will eventually handle this
-    abstract_checkpointable.
+    Returns the `restore_type` parameter for `V0RestoreArgs`. This is needed to
+    determine which `LeafHandler` will eventually handle this
+    `abstract_checkpointable`.
   """
 
   if abstract_checkpointable is None:
@@ -150,14 +153,14 @@ def _restore_type_by_abstract_type(
     else:
       abstract_type = type(abstract_checkpointable)
 
-    # Make sure test with AbstractArray before AbstractNumpy otherwise Numpy
-    # will be matched first.
+    # Make sure test with AbstractShardedArray before AbstractArray otherwise
+    # Numpy will be matched first.
     if protocol_utils.is_subclass_protocol(
-        abstract_type, array_leaf_handler.AbstractArray
+        abstract_type, serialization_types.AbstractShardedArray
     ):
       ret = jax.Array
     elif protocol_utils.is_subclass_protocol(
-        abstract_type, numpy_leaf_handler.AbstractNumpy
+        abstract_type, serialization_types.AbstractArray
     ):
       ret = np.ndarray
     elif issubclass(abstract_type, get_args(scalar_leaf_handler.Scalar)):
@@ -256,7 +259,7 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
     # save operations before proceeding to finalize.
     barrier_name = f'save_and_finalize_{operation_id}_commit_complete'
     await multihost.sync_global_processes(
-        barrier_name, processes=active_processes
+        barrier_name, operation_id=operation_id, processes=active_processes
     )
     # Finalize.
     await self._finalize(directory)
@@ -264,7 +267,7 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
     # has completed before returning to the user.
     barrier_name = f'save_and_finalize_{operation_id}_finalize_complete'
     await multihost.sync_global_processes(
-        barrier_name, processes=active_processes
+        barrier_name, operation_id=operation_id, processes=active_processes
     )
 
   async def save(
@@ -305,6 +308,25 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
       directory: path_types.Path,
       abstract_checkpointable: PyTree | None = None,
   ) -> Awaitable[PyTree]:
+    """Loads a PyTree from a checkpoint directory.
+
+    Args:
+      directory: The directory to load from.
+      abstract_checkpointable: The abstract checkpointable to load into. If
+        None, the handler will attempt to load the entire checkpoint using the
+        recorded metadata. Otherwise, the `abstract_checkpointable` is expected
+        to be a PyTree of abstract leaves. See
+        :py:class:`~.v1.serialization.LeafHandler` for more details. The
+        abstract leaf may be a value of type `AbstractLeaf`,
+        `Type[AbstractLeaf]`, or `None`. E.g. if the `AbstractLeaf` is
+        `AbstractFoo`, it is always valid to pass `AbstractFoo()` or
+        `AbstractFoo` or `None`. Passing the latter two indicates that metadata
+        should be used to restore the leaf.
+
+    Returns:
+      A awaitable which can be awaited to complete the load operation and
+      obtain a PyTree.
+    """
     self._validate_abstract_leaves_handleable(abstract_checkpointable)
     return self._background_load(directory, abstract_checkpointable)
 

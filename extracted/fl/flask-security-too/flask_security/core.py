@@ -137,7 +137,7 @@ _default_config: dict[str, t.Any] = {
     "SUBDOMAIN": None,
     "FLASH_MESSAGES": True,
     "RETURN_GENERIC_RESPONSES": False,
-    "USE_REGISTER_V2": False,
+    "USE_REGISTER_V2": True,
     "I18N_DOMAIN": "flask_security",
     "I18N_DIRNAME": "builtin",
     "EMAIL_VALIDATOR_ARGS": None,
@@ -360,7 +360,6 @@ _default_config: dict[str, t.Any] = {
     },
     "CSRF_HEADER": "X-XSRF-Token",
     "CSRF_COOKIE_REFRESH_EACH_REQUEST": False,
-    "BACKWARDS_COMPAT_UNAUTHN": False,
     "BACKWARDS_COMPAT_AUTH_TOKEN": False,
     "JOIN_USER_ROLES": True,
     "USERNAME_ENABLE": False,
@@ -589,15 +588,15 @@ _default_messages = {
         "error",
     ),
     "WEBAUTHN_EXPIRED": (
-        _("WebAuthn operation must be completed within %(within)s. Please start over."),
+        _("Passkey operations must be completed within %(within)s. Please start over."),
         "error",
     ),
     "WEBAUTHN_NAME_REQUIRED": (
-        _("Nickname for new credential is required."),
+        _("Nickname for new passkey is required."),
         "error",
     ),
     "WEBAUTHN_NAME_INUSE": (
-        _("%(name)s is already associated with a credential."),
+        _("%(name)s is already associated with a passkey."),
         "error",
     ),
     "WEBAUTHN_NAME_NOT_FOUND": (
@@ -605,31 +604,31 @@ _default_messages = {
         "error",
     ),
     "WEBAUTHN_CREDENTIAL_DELETED": (
-        _("Successfully deleted WebAuthn credential with name: %(name)s"),
+        _("Successfully deleted the passkey with name: %(name)s"),
         "info",
     ),
     "WEBAUTHN_REGISTER_SUCCESSFUL": (
-        _("Successfully added WebAuthn credential with name: %(name)s"),
+        _("Successfully added the passkey with name: %(name)s"),
         "info",
     ),
     "WEBAUTHN_CREDENTIAL_ID_INUSE": (
-        _("WebAuthn credential id already registered."),
+        _("Passkey already registered."),
         "error",
     ),
     "WEBAUTHN_UNKNOWN_CREDENTIAL_ID": (
-        _("Unregistered WebAuthn credential id."),
+        _("Unregistered passkey."),
         "error",
     ),
     "WEBAUTHN_ORPHAN_CREDENTIAL_ID": (
-        _("WebAuthn credential doesn't belong to any user."),
+        _("Passkey doesn't belong to any user."),
         "error",
     ),
     "WEBAUTHN_NO_VERIFY": (
-        _("Could not verify WebAuthn credential: %(cause)s."),
+        _("Could not verify passkey: %(cause)s."),
         "error",
     ),
     "WEBAUTHN_CREDENTIAL_WRONG_USAGE": (
-        _("Credential not registered for this use (first or secondary)"),
+        _("Passkey not registered for this use (first or secondary)"),
         "error",
     ),
     "WEBAUTHN_MISMATCH_USER_HANDLE": (
@@ -693,7 +692,12 @@ class FormInfo:
 
 
 def _user_loader(user_id):
-    """Load based on fs_uniquifier (alternative_id)."""
+    """Load based on fs_uniquifier (alternative_id).
+    If the db model and db are properly configured and set there is no way we should
+    ever see a null user_id. But it is clearly wrong.
+    """
+    if not user_id:
+        return None
     user = _security.datastore.find_user(fs_uniquifier=str(user_id))
     if user and user.active:
         set_request_attr("fs_authn_via", "session")
@@ -1239,6 +1243,10 @@ class Security:
     .. versionadded:: 5.6.0
         ``username_recovery_form``, ``change_username_form``,
 
+    .. versionchanged:: 5.7.0
+        ``register_form`` default value is RegisterFormV2 and
+        ``confirm_register_form`` default is now ``None``.
+
     .. deprecated:: 4.0.0
         ``send_mail`` and ``send_mail_task``. Replaced with ``mail_util_cls``.
         ``two_factor_verify_password_form`` removed.
@@ -1263,8 +1271,8 @@ class Security:
         verify_form: t.Type[VerifyForm] = VerifyForm,
         change_email_form: t.Type[ChangeEmailForm] = ChangeEmailForm,
         change_username_form: t.Type[ChangeUsernameForm] = ChangeUsernameForm,
-        confirm_register_form: t.Type[ConfirmRegisterForm] = ConfirmRegisterForm,
-        register_form: t.Type[RegisterForm] | t.Type[RegisterFormV2] = RegisterForm,
+        confirm_register_form: t.Type[ConfirmRegisterForm] | None = None,
+        register_form: t.Type[RegisterForm] | t.Type[RegisterFormV2] = RegisterFormV2,
         forgot_password_form: t.Type[ForgotPasswordForm] = ForgotPasswordForm,
         reset_password_form: t.Type[ResetPasswordForm] = ResetPasswordForm,
         change_password_form: t.Type[ChangePasswordForm] = ChangePasswordForm,
@@ -1511,9 +1519,8 @@ class Security:
             ):
                 self.forms[form_name].cls = form_cls
 
-        self._use_confirm_form = True
         # deprecate confirm_register_form, ConfirmRegisterForm and RegisterForm
-        if self.forms["confirm_register_form"].cls != ConfirmRegisterForm:
+        if self.forms["confirm_register_form"].cls:
             warnings.warn(
                 "The ConfirmRegisterForm and the confirm_register_form"
                 " option are"
@@ -1522,10 +1529,8 @@ class Security:
                 DeprecationWarning,
                 stacklevel=2,
             )
-        if (
-            self.forms["register_form"].cls
-            and self.forms["register_form"].cls != RegisterForm
-            and issubclass(self.forms["register_form"].cls, RegisterForm)
+        if self.forms["register_form"].cls and issubclass(
+            self.forms["register_form"].cls, RegisterForm
         ):
             warnings.warn(
                 "The RegisterForm is"
@@ -1534,15 +1539,20 @@ class Security:
                 DeprecationWarning,
                 stacklevel=2,
             )
-        if cv("USE_REGISTER_V2", app=app):
+        if not cv("USE_REGISTER_V2", app=app):
+            warnings.warn(
+                "The SECURITY_USE_REGISTER_V2 configuration option is"
+                " deprecated as of version 5.7.0 and will be removed in a future"
+                " release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            # Switch back to old register and confirm_register forms
             # Only do this is they haven't subclassed
-            if self.forms["register_form"].cls == RegisterForm:
-                self.forms["register_form"].cls = RegisterFormV2
-                self.forms["confirm_register_form"].cls = None
-        if self.forms["register_form"].cls and issubclass(
-            self.forms["register_form"].cls, RegisterFormV2
-        ):
-            self._use_confirm_form = False
+            if self.forms["register_form"].cls == RegisterFormV2:
+                self.forms["register_form"].cls = RegisterForm
+            if not self.forms["confirm_register_form"].cls:
+                self.forms["confirm_register_form"].cls = ConfirmRegisterForm
 
         # The following will be set as attributes and initialized from constructor or
         # kwargs or config.
@@ -1565,26 +1575,6 @@ class Security:
         for attr in attr_names:
             if ov := kwargs.get(attr, cv(attr.upper(), app, strict=False)):
                 setattr(self, attr, ov)
-
-        # Deprecated BC attrs - only settable at constructor time. Noter that newer
-        # _util classes (username_util_cls) already are this way
-        dep_attr_names = [
-            "mail_util_cls",
-            "password_util_cls",
-            "phone_util_cls",
-            "totp_cls",
-            "webauthn_util_cls",
-        ]
-        for attr in dep_attr_names:
-            if ov := kwargs.get(attr, cv(attr.upper(), app, strict=False)):
-                setattr(self, f"_{attr}", ov)
-                warnings.warn(
-                    f"Setting {attr} via kwargs or config is"
-                    " deprecated as of version 5.6.1 and will be removed in a future"
-                    " release. Use the Flask-Security constructor.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
 
         identity_loaded.connect_via(app)(_on_identity_loaded)
 
@@ -1648,14 +1638,6 @@ class Security:
             warnings.warn(
                 "The auto-login after successful password reset functionality"
                 " has been deprecated and will be removed in a future release.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        if cv("BACKWARDS_COMPAT_UNAUTHN", app=app):
-            warnings.warn(
-                "The BACKWARDS_COMPAT_UNAUTHN configuration variable is"
-                " deprecated as of version 5.4.0 and will be removed in a future"
-                " release.",
                 DeprecationWarning,
                 stacklevel=2,
             )

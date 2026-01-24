@@ -6,12 +6,11 @@ import logging
 import pathlib
 import shutil
 import typing as t
+from contextlib import nullcontext as does_not_raise
 
 import pytest
 
 from libtmux import exc
-from libtmux._internal.types import StrPath
-from libtmux.common import has_gte_version, has_lt_version
 from libtmux.constants import WindowDirection
 from libtmux.pane import Pane
 from libtmux.session import Session
@@ -20,6 +19,16 @@ from libtmux.test.random import namer
 from libtmux.window import Window
 
 if t.TYPE_CHECKING:
+    from typing import TypeAlias
+
+    try:
+        from _pytest.raises import RaisesExc
+    except ImportError:
+        from _pytest.python_api import RaisesContext  # type: ignore[attr-defined]
+
+        RaisesExc: TypeAlias = RaisesContext[Exception]  # type: ignore[no-redef]
+
+    from libtmux._internal.types import StrPath
     from libtmux.server import Server
 
 logger = logging.getLogger(__name__)
@@ -30,9 +39,8 @@ def test_has_session(server: Server, session: Session) -> None:
     TEST_SESSION_NAME = session.session_name
     assert TEST_SESSION_NAME is not None
     assert server.has_session(TEST_SESSION_NAME)
-    if has_gte_version("2.1"):
-        assert not server.has_session(TEST_SESSION_NAME[:-2])
-        assert server.has_session(TEST_SESSION_NAME[:-2], exact=False)
+    assert not server.has_session(TEST_SESSION_NAME[:-2])
+    assert server.has_session(TEST_SESSION_NAME[:-2], exact=False)
     assert not server.has_session("asdf2314324321")
 
 
@@ -119,50 +127,47 @@ def test_new_session(server: Server) -> None:
 
 
 def test_show_options(session: Session) -> None:
-    """Session.show_options() returns dict."""
-    options = session.show_options()
+    """Session._show_options() returns dict."""
+    options = session._show_options()
     assert isinstance(options, dict)
 
 
 def test_set_show_options_single(session: Session) -> None:
-    """Set option then Session.show_options(key)."""
+    """Set option then Session._show_options(key)."""
     session.set_option("history-limit", 20)
-    assert session.show_option("history-limit") == 20
+    assert session._show_option("history-limit") == 20
 
     session.set_option("history-limit", 40)
-    assert session.show_option("history-limit") == 40
+    assert session._show_option("history-limit") == 40
 
-    assert session.show_options()["history-limit"] == 40
+    assert session._show_options()["history-limit"] == 40
 
 
 def test_set_show_option(session: Session) -> None:
-    """Set option then Session.show_option(key)."""
+    """Set option then Session._show_option(key)."""
     session.set_option("history-limit", 20)
-    assert session.show_option("history-limit") == 20
+    assert session._show_option("history-limit") == 20
 
     session.set_option("history-limit", 40)
 
-    assert session.show_option("history-limit") == 40
+    assert session._show_option("history-limit") == 40
 
 
 def test_empty_session_option_returns_None(session: Session) -> None:
-    """Verify Session.show_option returns None for unset option."""
-    assert session.show_option("default-shell") is None
+    """Verify Session._show_option returns None for unset option."""
+    assert session._show_option("default-shell") is None
 
 
 def test_show_option_unknown(session: Session) -> None:
-    """Session.show_option raises UnknownOption for invalid option."""
-    cmd_exception: type[exc.OptionError] = exc.UnknownOption
-    if has_gte_version("3.0"):
-        cmd_exception = exc.InvalidOption
-    with pytest.raises(cmd_exception):
+    """Session.show_option raises InvalidOption for invalid option."""
+    with pytest.raises(exc.InvalidOption):
         session.show_option("moooz")
 
 
 def test_show_option_ambiguous(session: Session) -> None:
-    """Session.show_option raises AmbiguousOption for ambiguous option."""
+    """Session._show_option raises AmbiguousOption for ambiguous option."""
     with pytest.raises(exc.AmbiguousOption):
-        session.show_option("default-")
+        session._show_option("default-")
 
 
 def test_set_option_ambiguous(session: Session) -> None:
@@ -172,13 +177,9 @@ def test_set_option_ambiguous(session: Session) -> None:
 
 
 def test_set_option_invalid(session: Session) -> None:
-    """Session.set_option raises UnknownOption for invalid option."""
-    if has_gte_version("2.4"):
-        with pytest.raises(exc.InvalidOption):
-            session.set_option("afewewfew", 43)
-    else:
-        with pytest.raises(exc.UnknownOption):
-            session.set_option("afewewfew", 43)
+    """Session.set_option raises InvalidOption for invalid option."""
+    with pytest.raises(exc.InvalidOption):
+        session.set_option("afewewfew", 43)
 
 
 def test_show_environment(session: Session) -> None:
@@ -315,10 +316,6 @@ SESSION_WINDOW_ENV_FIXTURES: list[SessionWindowEnvironmentFixture] = [
 ]
 
 
-@pytest.mark.skipif(
-    has_lt_version("3.0"),
-    reason="needs -e flag for new-window which was introduced in 3.0",
-)
 @pytest.mark.parametrize(
     list(SessionWindowEnvironmentFixture._fields),
     SESSION_WINDOW_ENV_FIXTURES,
@@ -346,34 +343,6 @@ def test_new_window_with_environment(
         assert pane.capture_pane()[-2] == v
 
 
-@pytest.mark.skipif(
-    has_gte_version("3.0"),
-    reason="3.0 has the -e flag on new-window",
-)
-def test_new_window_with_environment_logs_warning_for_old_tmux(
-    session: Session,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Verify new window with environment vars create a warning if tmux is too old."""
-    env = shutil.which("env")
-    assert env is not None, "Cannot find usable `env` in PATH."
-
-    session.new_window(
-        attach=True,
-        window_name="window_with_environment",
-        window_shell=f"{env} PS1='$ ' sh",
-        environment={"ENV_VAR": "window"},
-    )
-
-    assert any("Environment flag ignored" in record.msg for record in caplog.records), (
-        "Warning missing"
-    )
-
-
-@pytest.mark.skipif(
-    has_lt_version("3.2"),
-    reason="Only 3.2+ has the -a and -b flag on new-window",
-)
 def test_session_new_window_with_direction(
     session: Session,
 ) -> None:
@@ -401,25 +370,6 @@ def test_session_new_window_with_direction(
     assert window_after.window_index == "3"
     assert window_initial.window_index == "4"
     assert window_before.window_index == "1"
-
-
-@pytest.mark.skipif(
-    has_gte_version("3.1"),
-    reason="Only 3.1 has the -a and -b flag on new-window",
-)
-def test_session_new_window_with_direction_logs_warning_for_old_tmux(
-    session: Session,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Verify new window with direction create a warning if tmux is too old."""
-    session.new_window(
-        window_name="session_window_with_direction",
-        direction=WindowDirection.After,
-    )
-
-    assert any("Direction flag ignored" in record.msg for record in caplog.records), (
-        "Warning missing"
-    )
 
 
 def test_session_context_manager(server: Server) -> None:
@@ -488,8 +438,8 @@ def test_new_window_start_directory(
     actual_start_directory = start_directory
     expected_path = None
 
-    if start_directory and str(start_directory) not in ["", "None"]:
-        if "{user_path}" in str(start_directory):
+    if start_directory and str(start_directory) not in {"", "None"}:
+        if f"{user_path}" in str(start_directory):
             # Replace placeholder with actual user_path
             actual_start_directory = str(start_directory).format(user_path=user_path)
             expected_path = str(user_path)
@@ -520,7 +470,8 @@ def test_new_window_start_directory(
 
 
 def test_new_window_start_directory_pathlib(
-    session: Session, user_path: pathlib.Path
+    session: Session,
+    user_path: pathlib.Path,
 ) -> None:
     """Test Session.new_window accepts pathlib.Path for start_directory."""
     # Pass pathlib.Path directly to test pathlib.Path acceptance
@@ -540,3 +491,86 @@ def test_new_window_start_directory_pathlib(
     actual_path = str(pathlib.Path(active_pane.pane_current_path).resolve())
     expected_path = str(user_path.resolve())
     assert actual_path == expected_path
+
+
+class SessionAttachRefreshFixture(t.NamedTuple):
+    """Test fixture for Session.attach() refresh behavior regression.
+
+    This tests the scenario where a session is killed while the user is attached,
+    and then attach() tries to call refresh() which fails because the session
+    no longer exists.
+
+    See: https://github.com/tmux-python/tmuxp/issues/1002
+    """
+
+    test_id: str
+    raises: type[Exception] | bool
+
+
+SESSION_ATTACH_REFRESH_FIXTURES: list[SessionAttachRefreshFixture] = [
+    SessionAttachRefreshFixture(
+        test_id="session_killed_during_attach_should_not_raise",
+        raises=False,  # attach() should NOT raise if session gone
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    list(SessionAttachRefreshFixture._fields),
+    SESSION_ATTACH_REFRESH_FIXTURES,
+    ids=[test.test_id for test in SESSION_ATTACH_REFRESH_FIXTURES],
+)
+def test_session_attach_does_not_fail_if_session_killed_during_attach(
+    server: Server,
+    monkeypatch: pytest.MonkeyPatch,
+    test_id: str,
+    raises: type[Exception] | bool,
+) -> None:
+    """Regression test: Session.attach() should not fail if session is killed.
+
+    When a user is attached to a tmux session via `tmuxp load`, then kills the
+    session from within tmux (e.g., kills all windows), and then detaches,
+    the attach() method should not raise an exception.
+
+    Currently, attach() calls self.refresh() after attach-session returns, which
+    fails with TmuxObjectDoesNotExist if the session no longer exists.
+
+    The fix is to remove the refresh() call from attach() since:
+    1. attach-session is a blocking interactive command
+    2. Session state can change arbitrarily while the user is attached
+    3. Refreshing after such a command makes no semantic sense
+    """
+    from libtmux.common import tmux_cmd
+
+    # Create a new session specifically for this test
+    test_session = server.new_session(detach=True)
+
+    # Store original cmd method
+    original_cmd = test_session.cmd
+
+    # Create a mock tmux_cmd result that simulates successful attach-session
+    class MockTmuxCmd:
+        def __init__(self) -> None:
+            self.stdout: list[str] = []
+            self.stderr: list[str] = []
+            self.cmd: list[str] = ["tmux", "attach-session"]
+
+    def patched_cmd(cmd_name: str, *args: t.Any, **kwargs: t.Any) -> tmux_cmd:
+        """Patched cmd that kills session after attach-session."""
+        if cmd_name == "attach-session":
+            # Simulate: attach-session succeeded, user worked, then killed session
+            # This happens BEFORE refresh() is called
+            test_session.kill()
+            return MockTmuxCmd()  # type: ignore[return-value]
+        return original_cmd(cmd_name, *args, **kwargs)
+
+    monkeypatch.setattr(test_session, "cmd", patched_cmd)
+
+    # Use context manager pattern for exception handling
+    raises_ctx: RaisesExc = (
+        pytest.raises(t.cast("type[Exception]", raises))
+        if raises
+        else t.cast("RaisesExc", does_not_raise())
+    )
+    with raises_ctx:
+        test_session.attach()

@@ -3,7 +3,7 @@ Type annotations for security-ir service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -15,6 +15,7 @@ Usage::
         ListCaseEditsPaginator,
         ListCasesPaginator,
         ListCommentsPaginator,
+        ListInvestigationsPaginator,
         ListMembershipsPaginator,
     )
 
@@ -25,6 +26,7 @@ Usage::
         list_case_edits_paginator: ListCaseEditsPaginator = client.get_paginator("list_case_edits")
         list_cases_paginator: ListCasesPaginator = client.get_paginator("list_cases")
         list_comments_paginator: ListCommentsPaginator = client.get_paginator("list_comments")
+        list_investigations_paginator: ListInvestigationsPaginator = client.get_paginator("list_investigations")
         list_memberships_paginator: ListMembershipsPaginator = client.get_paginator("list_memberships")
     ```
 """
@@ -43,6 +45,8 @@ from .type_defs import (
     ListCasesResponseTypeDef,
     ListCommentsRequestPaginateTypeDef,
     ListCommentsResponseTypeDef,
+    ListInvestigationsRequestPaginateTypeDef,
+    ListInvestigationsResponseTypeDef,
     ListMembershipsRequestPaginateTypeDef,
     ListMembershipsResponseTypeDef,
 )
@@ -56,6 +60,7 @@ __all__ = (
     "ListCaseEditsPaginator",
     "ListCasesPaginator",
     "ListCommentsPaginator",
+    "ListInvestigationsPaginator",
     "ListMembershipsPaginator",
 )
 
@@ -111,6 +116,24 @@ class ListCommentsPaginator(_ListCommentsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/paginator/ListComments.html#SecurityIncidentResponse.Paginator.ListComments.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/paginators/#listcommentspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListInvestigationsPaginatorBase = AioPaginator[ListInvestigationsResponseTypeDef]
+else:
+    _ListInvestigationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListInvestigationsPaginator(_ListInvestigationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/paginator/ListInvestigations.html#SecurityIncidentResponse.Paginator.ListInvestigations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/paginators/#listinvestigationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListInvestigationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListInvestigationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/security-ir/paginator/ListInvestigations.html#SecurityIncidentResponse.Paginator.ListInvestigations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_security_ir/paginators/#listinvestigationspaginator)
         """
 
 if TYPE_CHECKING:

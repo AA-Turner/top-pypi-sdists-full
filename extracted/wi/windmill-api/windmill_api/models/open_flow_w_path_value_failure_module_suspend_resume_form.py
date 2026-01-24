@@ -16,9 +16,10 @@ T = TypeVar("T", bound="OpenFlowWPathValueFailureModuleSuspendResumeForm")
 
 @_attrs_define
 class OpenFlowWPathValueFailureModuleSuspendResumeForm:
-    """
+    """Form schema for collecting input when resuming
+
     Attributes:
-        schema (Union[Unset, OpenFlowWPathValueFailureModuleSuspendResumeFormSchema]):
+        schema (Union[Unset, OpenFlowWPathValueFailureModuleSuspendResumeFormSchema]): JSON Schema for the resume form
     """
 
     schema: Union[Unset, "OpenFlowWPathValueFailureModuleSuspendResumeFormSchema"] = UNSET

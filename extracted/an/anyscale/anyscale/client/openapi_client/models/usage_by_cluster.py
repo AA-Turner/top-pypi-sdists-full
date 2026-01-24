@@ -34,6 +34,7 @@ class UsageByCluster(object):
     """
     openapi_types = {
         'anyscale_credits': 'float',
+        'dollar_value': 'float',
         'date': 'date',
         'user_id': 'str',
         'user_email': 'str',
@@ -55,6 +56,7 @@ class UsageByCluster(object):
 
     attribute_map = {
         'anyscale_credits': 'anyscale_credits',
+        'dollar_value': 'dollar_value',
         'date': 'date',
         'user_id': 'user_id',
         'user_email': 'user_email',
@@ -74,13 +76,14 @@ class UsageByCluster(object):
         'workspace_name': 'workspace_name'
     }
 
-    def __init__(self, anyscale_credits=None, date=None, user_id=None, user_email=None, user_name=None, cloud_id=None, cloud_name=None, project_id=None, project_name=None, cluster_id=None, job_id=None, job_name=None, job_queue_id=None, job_queue_name=None, service_id=None, service_name=None, workspace_id=None, workspace_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, anyscale_credits=None, dollar_value=None, date=None, user_id=None, user_email=None, user_name=None, cloud_id=None, cloud_name=None, project_id=None, project_name=None, cluster_id=None, job_id=None, job_name=None, job_queue_id=None, job_queue_name=None, service_id=None, service_name=None, workspace_id=None, workspace_name=None, local_vars_configuration=None):  # noqa: E501
         """UsageByCluster - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._anyscale_credits = None
+        self._dollar_value = None
         self._date = None
         self._user_id = None
         self._user_email = None
@@ -101,6 +104,8 @@ class UsageByCluster(object):
         self.discriminator = None
 
         self.anyscale_credits = anyscale_credits
+        if dollar_value is not None:
+            self.dollar_value = dollar_value
         if date is not None:
             self.date = date
         self.user_id = user_id
@@ -150,6 +155,27 @@ class UsageByCluster(object):
             raise ValueError("Invalid value for `anyscale_credits`, must not be `None`")  # noqa: E501
 
         self._anyscale_credits = anyscale_credits
+
+    @property
+    def dollar_value(self):
+        """Gets the dollar_value of this UsageByCluster.  # noqa: E501
+
+
+        :return: The dollar_value of this UsageByCluster.  # noqa: E501
+        :rtype: float
+        """
+        return self._dollar_value
+
+    @dollar_value.setter
+    def dollar_value(self, dollar_value):
+        """Sets the dollar_value of this UsageByCluster.
+
+
+        :param dollar_value: The dollar_value of this UsageByCluster.  # noqa: E501
+        :type: float
+        """
+
+        self._dollar_value = dollar_value
 
     @property
     def date(self):

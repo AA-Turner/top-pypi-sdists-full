@@ -28,7 +28,9 @@ def reset_memories_command(
     """
 
     try:
-        if not any([long, short, entity, kickoff_outputs, knowledge, agent_knowledge, all]):
+        if not any(
+            [long, short, entity, kickoff_outputs, knowledge, agent_knowledge, all]
+        ):
             click.echo(
                 "No memory type specified. Please specify at least one type to reset."
             )

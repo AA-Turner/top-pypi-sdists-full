@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Literal
-from typing import Union
 
 from packaging.licenses import InvalidLicenseExpression
 from packaging.licenses import canonicalize_license_expression
@@ -28,10 +27,8 @@ if TYPE_CHECKING:
     from poetry.core.poetry import Poetry
     from poetry.core.pyproject.toml import PyProjectTOML
 
-    DependencyConstraint = Union[str, Mapping[str, Any]]
-    DependencyConfig = Mapping[
-        str, Union[list[DependencyConstraint], DependencyConstraint]
-    ]
+    DependencyConstraint = str | Mapping[str, Any]
+    DependencyConfig = Mapping[str, list[DependencyConstraint] | DependencyConstraint]
 
 
 logger = logging.getLogger(__name__)
@@ -377,12 +374,14 @@ class Factory:
         from poetry.core.packages.dependency_group import MAIN_GROUP
         from poetry.core.packages.dependency_group import DependencyGroup
 
-        dependencies = project.get("dependencies", {})
+        dependencies = project.get("dependencies")
         optional_dependencies = project.get("optional-dependencies", {})
         dynamic = project.get("dynamic", [])
 
         package_extras: dict[NormalizedName, list[Dependency]]
-        if dependencies or optional_dependencies:
+        if dependencies is not None or optional_dependencies:
+            dependencies = dependencies or {}
+
             group = DependencyGroup(
                 MAIN_GROUP,
                 mixed_dynamic=(

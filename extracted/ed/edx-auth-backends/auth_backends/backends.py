@@ -2,9 +2,14 @@
 
 For more information visit https://docs.djangoproject.com/en/dev/topics/auth/customizing/.
 """
+import logging
 import jwt
+from django.contrib.auth import logout
 from django.dispatch import Signal
 from social_core.backends.oauth import BaseOAuth2
+from edx_django_utils.monitoring import set_custom_attribute
+
+logger = logging.getLogger(__name__)
 
 PROFILE_CLAIMS_TO_DETAILS_KEY_MAP = {
     'preferred_username': 'username',
@@ -31,7 +36,6 @@ def _to_language(locale):
     return locale.replace('_', '-').lower()
 
 
-# pylint: disable=abstract-method
 class EdXOAuth2(BaseOAuth2):
     """
     IMPORTANT: The oauth2 application must have access to the ``user_id`` scope in order
@@ -69,6 +73,34 @@ class EdXOAuth2(BaseOAuth2):
                    f"redirect_url={self.setting('LOGOUT_REDIRECT_URL')}"
         else:
             return self.end_session_url()
+
+    def start(self):
+        """Initialize OAuth authentication with session cleanup."""
+
+        request = self.strategy.request if hasattr(self.strategy, 'request') else None
+
+        user_authenticated = (
+            request is not None and
+            hasattr(request, 'user') and
+            request.user.is_authenticated
+        )
+
+        # .. custom_attribute_name: session_cleanup.logout_required
+        # .. custom_attribute_description: Tracks whether a user was authenticated
+        #    before session cleanup. True if user was logged in, False otherwise.
+        set_custom_attribute('session_cleanup.logout_required', user_authenticated)
+
+        if user_authenticated:
+            existing_username = getattr(request.user, 'username', 'unknown')
+
+            logger.info(
+                "OAuth start: Performing session cleanup for user '%s'",
+                existing_username
+            )
+
+            logout(request)
+
+        return super().start()
 
     def authorization_url(self):
         url_root = self.get_public_or_internal_url_root()

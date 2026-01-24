@@ -52,13 +52,15 @@ class TestCertificateRevocationList:
     @pytest.mark.parametrize(
         "revoked_peer_url",
         [
-            "https://revoked-rsa-ev.ssl.com/",
+            # "https://revoked-rsa-ev.ssl.com/",
+            # "https://digicert-tls-ecc-p384-root-g5-revoked.chain-demos.digicert.com/",
+            "https://revoked.badssl.com/",
         ],
     )
     def test_sync_revoked_certificate(self, revoked_peer_url: str) -> None:
         """This test may fail at any moment. Using several known revoked certs as targets tester."""
 
-        with patch("niquests.sessions.is_ocsp_capable", return_value=False):
+        with patch("niquests.sessions.should_check_ocsp", return_value=False):
             with Session() as s:
                 assert s._ocsp_cache is None
                 assert s._crl_cache is None
@@ -83,14 +85,16 @@ class TestCertificateRevocationList:
     @pytest.mark.parametrize(
         "revoked_peer_url",
         [
-            "https://revoked-rsa-ev.ssl.com/",
+            # "https://revoked-rsa-ev.ssl.com/",
+            # "https://digicert-tls-ecc-p384-root-g5-revoked.chain-demos.digicert.com/",
+            "https://revoked.badssl.com/",
         ],
     )
     @pytest.mark.asyncio
     async def test_async_revoked_certificate(self, revoked_peer_url: str) -> None:
         """This test may fail at any moment. Using several known revoked certs as targets tester."""
 
-        with patch("niquests.async_session.is_ocsp_capable", return_value=False):
+        with patch("niquests.async_session.should_check_ocsp", return_value=False):
             async with AsyncSession() as s:
                 assert s._ocsp_cache is None
                 assert s._crl_cache is None

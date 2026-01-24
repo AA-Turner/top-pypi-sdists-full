@@ -9,62 +9,27 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0128 import ProjectsV2StatusUpdate
 
+class CodespacesPublicKey(GitHubModel):
+    """CodespacesPublicKey
 
-class ProjectsV2(GitHubModel):
-    """Projects v2 Project
-
-    A projects v2 project
+    The public key used for setting Codespaces secrets.
     """
 
-    id: float = Field(description="The unique identifier of the project.")
-    node_id: str = Field(description="The node ID of the project.")
-    owner: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-    creator: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-    title: str = Field(description="The project title.")
-    description: Union[str, None] = Field(
-        description="A short description of the project."
-    )
-    public: bool = Field(
-        description="Whether the project is visible to anyone with access to the owner."
-    )
-    closed_at: Union[datetime, None] = Field(
-        description="The time when the project was closed."
-    )
-    created_at: datetime = Field(description="The time when the project was created.")
-    updated_at: datetime = Field(
-        description="The time when the project was last updated."
-    )
-    number: int = Field(description="The project number.")
-    short_description: Union[str, None] = Field(
-        description="A concise summary of the project."
-    )
-    deleted_at: Union[datetime, None] = Field(
-        description="The time when the project was deleted."
-    )
-    deleted_by: Union[None, SimpleUser] = Field()
-    state: Missing[Literal["open", "closed"]] = Field(
-        default=UNSET, description="The current state of the project."
-    )
-    latest_status_update: Missing[Union[None, ProjectsV2StatusUpdate]] = Field(
-        default=UNSET
-    )
-    is_template: Missing[bool] = Field(
-        default=UNSET, description="Whether this project is a template"
-    )
+    key_id: str = Field(description="The identifier for the key.")
+    key: str = Field(description="The Base64 encoded public key.")
+    id: Missing[int] = Field(default=UNSET)
+    url: Missing[str] = Field(default=UNSET)
+    title: Missing[str] = Field(default=UNSET)
+    created_at: Missing[str] = Field(default=UNSET)
 
 
-model_rebuild(ProjectsV2)
+model_rebuild(CodespacesPublicKey)
 
-__all__ = ("ProjectsV2",)
+__all__ = ("CodespacesPublicKey",)

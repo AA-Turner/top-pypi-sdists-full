@@ -21,11 +21,12 @@ from __future__ import annotations
 
 import pytest
 
-from docstring_inheritance import NumpyDocstringInheritor
-from docstring_inheritance.docstring_inheritors.bases import SUMMARY_SECTION_NAME
-from docstring_inheritance.docstring_inheritors.bases.parser import NoSectionFound
-from docstring_inheritance.docstring_inheritors.numpy import DocstringParser
-from docstring_inheritance.docstring_inheritors.numpy import DocstringRenderer
+from docstring_inheritance._internal import NumpyDocstringInheritor
+from docstring_inheritance._internal.docstring_inheritors.bases import (
+    SUMMARY_SECTION_NAME,
+)
+from docstring_inheritance._internal.docstring_inheritors.numpy import DocstringParser
+from docstring_inheritance._internal.docstring_inheritors.numpy import DocstringRenderer
 
 from .test_base_parser import _test_parse_sections
 
@@ -178,8 +179,7 @@ def test_render_section(section_name, section_body, expected_docstring):
     ],
 )
 def test_parse_one_section_no_section(line1, line2s):
-    with pytest.raises(NoSectionFound):
-        DocstringParser._parse_one_section(line1, line2s, [])
+    assert not DocstringParser._parse_one_section(line1, line2s, [])[0]
 
 
 @pytest.mark.parametrize(
@@ -204,28 +204,28 @@ def test_parse_one_section(line1, line2s, expected):
     ("parent_sections", "child_sections", "expected_sections"),
     [
         # Section missing in child.
-        ({0: 0}, {}, {0: 0}),
+        ({0: "0"}, {}, {0: "0"}),
         # Section missing in parent.
-        ({}, {0: 0}, {0: 0}),
+        ({}, {0: "0"}, {0: "0"}),
         # Child override parent when section_items has no items.
-        ({0: 0}, {0: 1}, {0: 1}),
+        ({0: "0"}, {0: "1"}, {0: "1"}),
         # Merge sections that are not common.
-        ({0: 0}, {1: 0}, {0: 0, 1: 0}),
+        ({0: "0"}, {1: "0"}, {0: "0", 1: "0"}),
         # Section with items missing in child.
-        ({"Methods": {0: 0}}, {}, {"Methods": {0: 0}}),
+        ({"Methods": {0: "0"}}, {}, {"Methods": {0: "0"}}),
         # Section with items missing in parent.
-        ({}, {"Methods": {0: 0}}, {"Methods": {0: 0}}),
+        ({}, {"Methods": {0: "0"}}, {"Methods": {0: "0"}}),
         # Child override parent when section_items has items.
         (
-            {"Methods": {0: 0}},
-            {"Methods": {0: 1}},
-            {"Methods": {0: 1}},
+            {"Methods": {0: "0"}},
+            {"Methods": {0: "1"}},
+            {"Methods": {0: "1"}},
         ),
         # Merge section_items with common items that are not args.
         (
-            {"Methods": {0: 0}},
-            {"Methods": {1: 0}},
-            {"Methods": {0: 0, 1: 0}},
+            {"Methods": {0: "0"}},
+            {"Methods": {1: "0"}},
+            {"Methods": {0: "0", 1: "0"}},
         ),
         # Merge section_items with common items that are args.
         (
@@ -233,15 +233,13 @@ def test_parse_one_section(line1, line2s, expected):
             {"Parameters": {}},
             {},
         ),
-        # Standard section_items names come before non-standard ones.
-        ({0: 0, "Notes": 0}, {}, {"Notes": 0, 0: 0}),
     ],
 )
 def test_inherit_sections(parent_sections, child_sections, expected_sections):
-    NumpyDocstringInheritor(lambda: None)._inherit_sections(  # pragma: no cover
-        parent_sections,
-        child_sections,
-    )
+    child_sections = NumpyDocstringInheritor(
+        lambda: None,
+        child_sections=child_sections,
+    )._inherit_sections(parent_sections)
     assert child_sections == expected_sections
     # Verify the order of the keys.
     assert list(child_sections.keys()) == list(expected_sections.keys())

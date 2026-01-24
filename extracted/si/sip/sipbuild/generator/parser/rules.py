@@ -5,14 +5,16 @@
 
 from ...exceptions import UserException
 from ...module import parse_abi_version
+from ...sip_module_configuration import apply_module_option
 
 from ..scoped_name import ScopedName
 from ..specification import (AccessSpecifier, Argument, ArgumentType,
         ArrayArgument, ClassKey, Docstring, DocstringFormat, Extract,
-        FunctionCall, IfaceFile, IfaceFileType, KwArgs, License, MappedType,
-        MappedTypeTemplate, Overload, Property, PyQtMethodSpecifier,
-        QualifierType, Signature, Template, ThrowArguments, Value, ValueType,
-        VirtualErrorHandler, WrappedTypedef, WrappedVariable)
+        FunctionCall, GILUse, IfaceFile, IfaceFileType, KwArgs, License,
+        MappedType, MappedTypeTemplate, MultiInterpreterSupport, Overload,
+        Property, PyQtMethodSpecifier, QualifierType, Signature, Template,
+        ThrowArguments, Value, ValueType, VirtualErrorHandler, WrappedTypedef,
+        WrappedVariable)
 from ..templates import same_template_signature
 from ..utils import cached_name, normalised_scoped_name, search_typedefs
 
@@ -83,6 +85,7 @@ def p_statement(p):
         | plugin
         | preinit_code
         | postinit_code
+        | sip_module_configuration
         | timeline
         | type_hint_code
         | unit_code
@@ -1091,6 +1094,10 @@ def p_module(p):
     module.default_virtual_error_handler = args.get(
             'default_VirtualErrorHandler')
     module_state.call_super_init = args.get('call_super_init')
+
+    if 'gil_use' in args:
+        module.gil_use = args['gil_use']
+
     module_state.kw_args = args.get('keyword_arguments', KwArgs.NONE)
 
     c_bindings = args.get('language')
@@ -1099,6 +1106,9 @@ def p_module(p):
             pm.c_bindings = c_bindings
         elif pm.c_bindings != c_bindings:
             pm.parser_error(p, 1, "cannot mix 'C' and 'C++' modules")
+
+    if 'multi_interpreter_support' in args:
+        module.multi_interpreter_support = args['multi_interpreter_support']
 
     # Deprecate and remove when Python v3.12 is no longer supported.
     if 'py_ssize_t_clean' in args:
@@ -1131,8 +1141,10 @@ def p_module_arg(p):
     """module_arg : all_raise_py_exception '=' bool_value
         | call_super_init '=' bool_value
         | default_VirtualErrorHandler '=' NAME
+        | gil_use '=' STRING
         | keyword_arguments '=' STRING
         | language '=' STRING
+        | multi_interpreter_support '=' STRING
         | name '=' dotted_name
         | py_ssize_t_clean '=' bool_value
         | use_argument_names '=' bool_value
@@ -1140,8 +1152,21 @@ def p_module_arg(p):
 
     pm = p.parser.pm
 
-    if p[1] == 'keyword_arguments':
+    if p[1] == 'gil_use':
+        if p[3] == 'Used':
+            value = GILUse.USED
+        elif p[3] == 'NotUsed':
+            value = GILUse.NOT_USED
+        else:
+            pm.parser_error(p, 3,
+                    "'{0}' is not a valid value for 'gil_use'".format(p[3]))
+
+            # Use any value of the right type.
+            value = GILUse.USED
+
+    elif p[1] == 'keyword_arguments':
         value = pm.convert_kw_args(p, 3)
+
     elif p[1] == 'language':
         if p[3] == 'C':
             value = True
@@ -1150,6 +1175,22 @@ def p_module_arg(p):
         else:
             pm.parser_error(p, 3, "unsupported language '{0}'".format(p[3]))
             value = None
+
+    elif p[1] == 'multi_interpreter_support':
+        if p[3] == 'NotSupported':
+            value = MultiInterpreterSupport.NOT_SUPPORTED
+        elif p[3] == 'PerInterpreterGILSupported':
+            value = MultiInterpreterSupport.PER_INTERPRETER_GIL_SUPPORTED
+        elif p[3] == 'Supported':
+            value = MultiInterpreterSupport.SUPPORTED
+        else:
+            pm.parser_error(p, 3,
+                    "'{0}' is not a valid value for 'multi_interpreter_support'".format(
+                            p[3]))
+
+            # Use any value of the right type.
+            value = MultiInterpreterSupport.NOT_SUPPORTED
+
     else:
         value = p[3]
 
@@ -1221,7 +1262,7 @@ def p_pickle_code(p):
 # %Platforms ##################################################################
 
 def p_platforms(p):
-    "platforms : Platforms '{' qualifier_list '}'"
+    "platforms : Platforms '{' name_list '}'"
 
     pm = p.parser.pm
 
@@ -1384,10 +1425,30 @@ def p_release_code(p):
     pm.scope.release_code = p[2]
 
 
+# %SipModuleConfiguration #####################################################
+
+def p_sip_module_configuration (p):
+    "sip_module_configuration : SipModuleConfiguration '{' name_list '}'"
+
+    pm = p.parser.pm
+
+    if pm.skipping:
+        return
+
+    spec = pm.spec
+
+    for opt in p[3]:
+        try:
+            spec.sip_module_configuration = apply_module_option(
+                    spec.sip_module_configuration, opt)
+        except UserException as e:
+            pm.parser_error(p, 1, e.text)
+
+
 # %Timeline ###################################################################
 
 def p_timeline(p):
-    "timeline : Timeline '{' qualifier_list '}'"
+    "timeline : Timeline '{' name_list '}'"
 
     pm = p.parser.pm
 
@@ -1425,6 +1486,19 @@ def p_type_code(p):
         return
 
     pm.scope.type_code.append(p[2])
+
+
+# %TypeDerivedCode ############################################################
+
+def p_type_derived_code(p):
+    "type_derived_code : TypeDerivedCode CODE_BLOCK"
+
+    pm = p.parser.pm
+
+    if pm.skipping:
+        return
+
+    pm.scope.type_derived_code.append(p[2])
 
 
 # %TypeHeaderCode #############################################################
@@ -1620,6 +1694,7 @@ _ONE_WORD_MAP = {
     '...':              ArgumentType.ELLIPSIS,
     'void':             ArgumentType.VOID,
     'bool':             ArgumentType.BOOL,
+    '_Bool':            ArgumentType.BOOL,
     'char':             ArgumentType.STRING,
     'double':           ArgumentType.DOUBLE,
     'float':            ArgumentType.FLOAT,
@@ -1659,6 +1734,7 @@ def p_pod_type(p):
         | float
         | double
         | bool
+        | _Bool
         | char
         | wchar_t
         | void
@@ -1741,6 +1817,7 @@ _CLASS_ANNOTATIONS = (
     'DelayDtor',
     'Deprecated',
     'ExportDerived',
+    'ExportDerivedLocally',
     'External',
     'FileExtension',
     'Metatype',
@@ -1882,6 +1959,9 @@ def p_superclass(p):
         return
 
     if p[1] != 'public':
+        # In SIP v7 this will be an error.
+        pm.deprecated(p, 1)
+
         p[0] = None
         return
 
@@ -1905,6 +1985,9 @@ def p_simple_superclass(p):
         | scoped_name '<' cpp_types '>'"""
 
     pm = p.parser.pm
+
+    if pm.skipping:
+        return
 
     # Handle templates.
     if len(p) == 5:
@@ -1990,6 +2073,7 @@ def p_class_line(p):
         | property
         | release_buffer_code
         | type_code
+        | type_derived_code
         | type_header_code
         | type_hint_code
         | deprecated_code_directives CODE_BLOCK"""
@@ -3058,7 +3142,6 @@ def p_opt_namespace_body(p):
     """opt_namespace_body : '{' namespace_body '}'
         | empty"""
 
-
 def p_namespace_body(p):
     """namespace_body : namespace_statement
         | namespace_body namespace_statement"""
@@ -3153,7 +3236,7 @@ _UNION_ANNOTATIONS = (
     'AllowNone',
     'DelayDtor',
     'Deprecated',
-    'ExportDerived',
+    'ExportDerivedLocally',
     'External',
     'FileExtension',
     'Metatype',
@@ -3474,9 +3557,9 @@ def p_ored_qualifiers(p):
         p[0] = p[1] or pm.evaluate_feature_or_platform(p, 4, inverted=True)
 
 
-def p_qualifier_list(p):
-    """qualifier_list : NAME
-        | qualifier_list NAME"""
+def p_name_list(p):
+    """name_list : NAME
+        | name_list NAME"""
 
     if len(p) == 2:
         value = [p[1]]

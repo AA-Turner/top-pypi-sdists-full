@@ -59,6 +59,7 @@ COMPLEX_TYPES = {
         'VendorSearchBasic',
         'SubsidiarySearchBasic',
         'EmployeeSearchBasic',
+        'ExpenseCategorySearchBasic',
         'FolderSearchBasic',
         'FileSearchBasic',
         'CustomRecordSearchBasic',
@@ -71,7 +72,9 @@ COMPLEX_TYPES = {
         'ClassificationSearchBasic',
         'CurrencyRateSearchBasic',
         'ConsolidatedExchangeRateSearchBasic',
-        'BillingAccountSearchBasic'
+        'BillingAccountSearchBasic',
+        'SalesTaxItemSearchBasic',
+        'TaxGroupSearchBasic'
     ],
 
     'ns6': [

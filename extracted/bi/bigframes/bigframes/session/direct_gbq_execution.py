@@ -21,6 +21,7 @@ import google.cloud.bigquery.table as bq_table
 
 from bigframes.core import compile, nodes
 from bigframes.core.compile import sqlglot
+import bigframes.core.events
 from bigframes.session import executor, semi_executor
 import bigframes.session._io.bigquery as bq_io
 
@@ -31,14 +32,17 @@ import bigframes.session._io.bigquery as bq_io
 # reference for validating more complex executors.
 class DirectGbqExecutor(semi_executor.SemiExecutor):
     def __init__(
-        self, bqclient: bigquery.Client, compiler: Literal["ibis", "sqlglot"] = "ibis"
+        self,
+        bqclient: bigquery.Client,
+        compiler: Literal["ibis", "sqlglot"] = "ibis",
+        *,
+        publisher: bigframes.core.events.Publisher,
     ):
         self.bqclient = bqclient
         self._compile_fn = (
-            compile.compile_sql
-            if compiler == "ibis"
-            else sqlglot.SQLGlotCompiler()._compile_sql
+            compile.compile_sql if compiler == "ibis" else sqlglot.compile_sql
         )
+        self._publisher = publisher
 
     def execute(
         self,
@@ -56,20 +60,23 @@ class DirectGbqExecutor(semi_executor.SemiExecutor):
 
         iterator, query_job = self._run_execute_query(
             sql=compiled.sql,
+            session=plan.session,
         )
 
-        return executor.ExecuteResult(
-            _arrow_batches=iterator.to_arrow_iterable(),
-            schema=plan.schema,
-            query_job=query_job,
-            total_rows=iterator.total_rows,
-            total_bytes_processed=iterator.total_bytes_processed,
+        # just immediately downlaod everything for simplicity
+        return executor.LocalExecuteResult(
+            data=iterator.to_arrow(),
+            bf_schema=plan.schema,
+            execution_metadata=executor.ExecutionMetadata.from_iterator_and_job(
+                iterator, query_job
+            ),
         )
 
     def _run_execute_query(
         self,
         sql: str,
         job_config: Optional[bq_job.QueryJobConfig] = None,
+        session=None,
     ) -> Tuple[bq_table.RowIterator, Optional[bigquery.QueryJob]]:
         """
         Starts BigQuery query job and waits for results.
@@ -83,4 +90,6 @@ class DirectGbqExecutor(semi_executor.SemiExecutor):
             timeout=None,
             metrics=None,
             query_with_job=False,
+            publisher=self._publisher,
+            session=session,
         )

@@ -60,11 +60,11 @@ class Window(WindowProperties):
 
         if not fullscreen:
             if forced_aspect_ratio is None:
-                loadPrcFileData('', f'win-size {self.windowed_size[0]} {self.windowed_size[1]}')
+                loadPrcFileData('', f'win-size {int(self.windowed_size[0])} {int(self.windowed_size[1])}')
             else:
-                loadPrcFileData('', f'win-size {self.windowed_size[1] * forced_aspect_ratio} {self.windowed_size[1]}')
+                loadPrcFileData('', f'win-size {int(self.windowed_size[1] * forced_aspect_ratio)} {int(self.windowed_size[1])}')
         else:
-            loadPrcFileData('', f'win-size {self.fullscreen_size[0]} {self.fullscreen_size[1]}')
+            loadPrcFileData('', f'win-size {int(self.fullscreen_size[0])} {int(self.fullscreen_size[1])}')
 
         self.windowed_position = None   # gets set when entering fullscreen so position will be correct when going back to windowed mode
         self.show_ursina_splash = False
@@ -249,6 +249,8 @@ class Window(WindowProperties):
 
         camera.ui_lens.set_film_size(camera._ui_size * .5 * self.aspect_ratio, camera._ui_size * .5)
         for e in [e for e in scene.entities if e.parent == camera.ui] + self.editor_ui.children:
+            if e in scene._entities_marked_for_removal:
+                continue
             e.x /= self.prev_aspect_ratio / self.aspect_ratio
 
         if camera.orthographic:
@@ -333,31 +335,22 @@ class Window(WindowProperties):
         base.wireframeOff()
 
         # disable collision display mode
-        if hasattr(self, 'original_colors'):
-            for i, e in enumerate([e for e in scene.entities if hasattr(e, 'color')]):
-                e.color = self.original_colors[i]
-                if e.collider:
-                    e.collider.visible = False
+        for e in [e for e in scene.entities if e.model or e.collider]:
+            e.show_collider = False
 
         for e in [e for e in scene.entities if e.model and e.alpha]:
-            e.setShaderAuto()
+            e.show_normals = False
 
         if value == 'wireframe':
             base.wireframeOn()
 
         elif value == 'colliders':
-            self.original_colors = [e.color for e in scene.entities if hasattr(e, 'color')]
-            for e in scene.entities:
-                e.color = color.clear
-                if e.collider:
-                    # e.visible = False
-                    e.collider.visible = True
+            for e in [e for e in scene.entities if e.model or e.collider]:
+                e.show_collider = True
 
         elif value == 'normals':
-            from ursina.shaders import normals_shader
             for e in [e for e in scene.entities if e.model and e.alpha]:
-                e.shader = normals_shader
-                e.set_shader_input('transform_matrix', e.getNetTransform().getMat())
+                e.show_normals = True
 
 
     def next_render_mode(self):

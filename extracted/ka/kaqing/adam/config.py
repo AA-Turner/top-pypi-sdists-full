@@ -1,12 +1,13 @@
+import os
 from typing import TypeVar, cast
 import yaml
 
 from . import __version__
-from adam.utils import copy_config_file, get_deep_keys, log2
+from adam.utils import ConfigHolder, ConfigReadable, copy_config_file, get_deep_keys, log2
 
 T = TypeVar('T')
 
-class Config:
+class Config(ConfigReadable):
     EMBEDDED_PARAMS = {}
 
     # the singleton pattern
@@ -17,12 +18,15 @@ class Config:
 
     def __init__(self, path: str = None, is_user_entry = False):
         if path:
+            self.wait_log_flag = False
             try:
                 with open(path) as f:
                     self.params = cast(dict[str, any], yaml.safe_load(f))
             except:
                 with open(copy_config_file(f'params.yaml.{__version__}', 'adam.embedded_params', show_out=not is_user_entry)) as f:
                     self.params = cast(dict[str, any], yaml.safe_load(f))
+
+            ConfigHolder().config = self
         elif not hasattr(self, 'params'):
             with open(copy_config_file(f'params.yaml.{__version__}', 'adam.embedded_params', show_out=not is_user_entry)) as f:
                 self.params = cast(dict[str, any], yaml.safe_load(f))
@@ -37,11 +41,7 @@ class Config:
         return get_deep_keys(self.params)
 
     def is_debug(self):
-        return Config().get('debug', False)
-
-    def debug(self, s: None):
-        if self.is_debug():
-            log2(f'DEBUG {s}')
+        return os.getenv('QING_DEV', 'false').lower() == 'true' or Config().get('debug', False)
 
     def get(self, key: str, default: T) -> T:
         # params['nodetool']['status']['max-nodes']

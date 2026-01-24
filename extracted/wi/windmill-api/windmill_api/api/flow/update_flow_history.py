@@ -12,7 +12,6 @@ from ...types import Response
 def _get_kwargs(
     workspace: str,
     version: float,
-    path: str,
     *,
     json_body: UpdateFlowHistoryJsonBody,
 ) -> Dict[str, Any]:
@@ -22,10 +21,9 @@ def _get_kwargs(
 
     return {
         "method": "post",
-        "url": "/w/{workspace}/flows/history_update/v/{version}/p/{path}".format(
+        "url": "/w/{workspace}/flows/history_update/v/{version}".format(
             workspace=workspace,
             version=version,
-            path=path,
         ),
         "json": json_json_body,
     }
@@ -50,7 +48,6 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     workspace: str,
     version: float,
-    path: str,
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: UpdateFlowHistoryJsonBody,
@@ -60,7 +57,6 @@ def sync_detailed(
     Args:
         workspace (str):
         version (float):
-        path (str):
         json_body (UpdateFlowHistoryJsonBody):
 
     Raises:
@@ -74,7 +70,6 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         version=version,
-        path=path,
         json_body=json_body,
     )
 
@@ -88,7 +83,6 @@ def sync_detailed(
 async def asyncio_detailed(
     workspace: str,
     version: float,
-    path: str,
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: UpdateFlowHistoryJsonBody,
@@ -98,7 +92,6 @@ async def asyncio_detailed(
     Args:
         workspace (str):
         version (float):
-        path (str):
         json_body (UpdateFlowHistoryJsonBody):
 
     Raises:
@@ -112,7 +105,6 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         version=version,
-        path=path,
         json_body=json_body,
     )
 

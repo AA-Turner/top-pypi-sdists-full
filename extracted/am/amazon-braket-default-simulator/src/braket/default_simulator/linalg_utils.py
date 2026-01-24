@@ -14,10 +14,10 @@
 import itertools
 from collections.abc import Sequence
 from types import MappingProxyType
-from typing import Union
 
 import numba as nb
 import numpy as np
+from scipy.linalg import block_diag
 
 nb.config.NUMBA_OPT = 3
 nb.config.NUMBA_CPU_NAME = "native"
@@ -30,7 +30,7 @@ nb.config.CAPTURED_ERRORS = "new_style"
 
 _NEG_CONTROL_SLICE = slice(None, 1)
 _CONTROL_SLICE = slice(1, None)
-_NO_CONTROL_SLICE = slice(None, None)
+_NO_CONTROL_SLICE = slice(None)
 
 BASIS_MAPPING = {0: (0, 0), 1: (0, 1), 2: (1, 0), 3: (1, 1)}
 
@@ -104,7 +104,7 @@ def multiply_matrix(
     dispatcher: QuantumGateDispatcher | None = None,
     return_swap_info: bool = False,
     gate_type: str | None = None,
-) -> Union[np.ndarray, tuple[np.ndarray, bool]]:
+) -> np.ndarray | tuple[np.ndarray, bool]:
     """Multiplies the given matrix by the given state, applying the matrix on the target qubits,
     controlling the operation as specified.
 
@@ -122,7 +122,7 @@ def multiply_matrix(
         return_swap_info (bool): For backwards comp. Used to indicate whether the ping-pong buffer swaps should happen.
 
     Returns:
-        Union[np.ndarray, tuple[np.ndarray, bool]]: The state after the matrix has been applied.
+        np.ndarray | tuple[np.ndarray, bool]: The state after the matrix has been applied.
             When return_swap_info is True, returns a tuple of (state, swap_occurred).
             When return_swap_info is False, returns just the state array.
     """
@@ -204,33 +204,6 @@ def _apply_single_qubit_gate_large(  # pragma: no cover
     return out, True
 
 
-@nb.njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def _apply_x_gate_large(  # pragma: no cover
-    state: np.ndarray, matrix: np.ndarray, target: int, out: np.ndarray
-) -> tuple[np.ndarray, bool]:
-    """Applies X gate using bit masking.
-
-    Matrix: [[0, 1],
-             [1, 0]]
-    """
-    target_bit = state.ndim - target - 1
-    target_mask = np.int64(1 << target_bit)
-    shifted_target_mask = np.int64(target_mask - 1)
-
-    half_size = state.size >> 1
-    state_flat = state.reshape(-1)
-    out_flat = out.reshape(-1)
-
-    for i in nb.prange(half_size):
-        idx0 = (i & ~(shifted_target_mask)) << 1 | (i & (shifted_target_mask))
-        idx1 = idx0 | target_mask
-
-        out_flat[idx0] = state_flat[idx1]
-        out_flat[idx1] = state_flat[idx0]
-
-    return out, True
-
-
 def _apply_diagonal_gate_small(
     state: np.ndarray, matrix: np.ndarray, target: int, out: np.ndarray
 ) -> tuple[np.ndarray, bool]:
@@ -304,130 +277,6 @@ def _apply_diagonal_gate_large(  # pragma: no cover
 
 
 @nb.njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def _apply_y_gate_large(  # pragma: no cover
-    state: np.ndarray, matrix: np.ndarray, target: int, out: np.ndarray
-) -> tuple[np.ndarray, bool]:
-    """Applies Y gate using bit masking.
-
-    Matrix: [[0, -1j],
-             [1j,  0]]
-    """
-    b, c = matrix[0, 1], matrix[1, 0]
-    target_bit = state.ndim - target - 1
-    target_mask = np.int64(1 << target_bit)
-    shifted_target_mask = np.int64(target_mask - 1)
-
-    half_size = state.size >> 1
-    state_flat = state.reshape(-1)
-    out_flat = out.reshape(-1)
-
-    for i in nb.prange(half_size):
-        idx0 = (i & ~(shifted_target_mask)) << 1 | (i & (shifted_target_mask))
-        idx1 = idx0 | target_mask
-
-        state0 = state_flat[idx0]
-        state1 = state_flat[idx1]
-
-        out_flat[idx0] = b * state1
-        out_flat[idx1] = c * state0
-
-    return out, True
-
-
-@nb.njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def _apply_hadamard_gate_large(  # pragma: no cover
-    state: np.ndarray, matrix: np.ndarray, target: int, out: np.ndarray
-) -> tuple[np.ndarray, bool]:
-    """Applies Hadamard gate using bit masking with hardcoded values.
-
-    Matrix: [[1,  1],
-             [1, -1]] / √2
-    """
-    val = matrix[0, 0]
-    target_bit = state.ndim - target - 1
-    target_mask = np.int64(1 << target_bit)
-    shifted_target_mask = np.int64(target_mask - 1)
-
-    half_size = state.size >> 1
-    state_flat = state.reshape(-1)
-    out_flat = out.reshape(-1)
-
-    for i in nb.prange(half_size):
-        idx0 = (i & ~(shifted_target_mask)) << 1 | (i & (shifted_target_mask))
-        idx1 = idx0 | target_mask
-
-        state0 = state_flat[idx0]
-        state1 = state_flat[idx1]
-
-        out_flat[idx0] = val * (state0 + state1)
-        out_flat[idx1] = val * (state0 - state1)
-
-    return out, True
-
-
-@nb.njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def _apply_v_gate_large(  # pragma: no cover
-    state: np.ndarray, matrix: np.ndarray, target: int, out: np.ndarray
-) -> tuple[np.ndarray, bool]:
-    """Applies V gate (sqrt(X)) using bit masking.
-
-    Matrix: [[0.5+0.5j, 0.5-0.5j],
-             [0.5-0.5j, 0.5+0.5j]]
-    """
-    a, b = matrix[0, 0], matrix[0, 1]
-    target_bit = state.ndim - target - 1
-    target_mask = np.int64(1 << target_bit)
-    shifted_target_mask = np.int64(target_mask - 1)
-
-    half_size = state.size >> 1
-    state_flat = state.reshape(-1)
-    out_flat = out.reshape(-1)
-
-    for i in nb.prange(half_size):
-        idx0 = (i & ~(shifted_target_mask)) << 1 | (i & (shifted_target_mask))
-        idx1 = idx0 | target_mask
-
-        state0 = state_flat[idx0]
-        state1 = state_flat[idx1]
-
-        out_flat[idx0] = a * state0 + b * state1
-        out_flat[idx1] = b * state0 + a * state1
-
-    return out, True
-
-
-@nb.njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def _apply_vi_gate_large(  # pragma: no cover
-    state: np.ndarray, matrix: np.ndarray, target: int, out: np.ndarray
-) -> tuple[np.ndarray, bool]:
-    """Applies V† gate (sqrt(X)†) using bit masking.
-
-    Matrix: [[0.5-0.5j, 0.5+0.5j],
-             [0.5+0.5j, 0.5-0.5j]]
-    """
-    a, b = matrix[0, 0], matrix[0, 1]
-    target_bit = state.ndim - target - 1
-    target_mask = np.int64(1 << target_bit)
-    shifted_target_mask = np.int64(target_mask - 1)
-
-    half_size = state.size >> 1
-    state_flat = state.reshape(-1)
-    out_flat = out.reshape(-1)
-
-    for i in nb.prange(half_size):
-        idx0 = (i & ~(shifted_target_mask)) << 1 | (i & (shifted_target_mask))
-        idx1 = idx0 | target_mask
-
-        state0 = state_flat[idx0]
-        state1 = state_flat[idx1]
-
-        out_flat[idx0] = a * state0 + b * state1
-        out_flat[idx1] = b * state0 + a * state1
-
-    return out, True
-
-
-@nb.njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def _apply_cnot_large(
     state: np.ndarray, control: int, target: int, out: np.ndarray
 ) -> tuple[np.ndarray, bool]:  # pragma: no cover
@@ -495,9 +344,9 @@ def _apply_cnot_small(
     """CNOT optimization path."""
     n_qubits = state.ndim
 
-    slice_list = [slice(None)] * n_qubits
+    slice_list = [_NO_CONTROL_SLICE] * n_qubits
 
-    slice_list[control] = 1
+    slice_list[control] = _CONTROL_SLICE
     slice_list[target] = 0
     slices_c1t0 = tuple(slice_list)
 
@@ -643,7 +492,7 @@ def _apply_controlled_phase_shift_small(
     state: np.ndarray, phase_factor: complex, controls, target: int
 ) -> tuple[np.ndarray, bool]:
     """C Phase shift gate optimization path for smaller vectors using numpy slicing."""
-    slices = [slice(None)] * len(state.shape)
+    slices = [_NO_CONTROL_SLICE] * len(state.shape)
     for c in controls:
         slices[c] = 1
     slices[target] = 1
@@ -705,13 +554,13 @@ def _apply_two_qubit_gate_small(
     target1: int,
     out: np.ndarray,
 ) -> tuple[np.ndarray, bool]:
-    """Two qubit gate application with numppy."""
+    """Two qubit gate application with numpy."""
     n_qubits = state.ndim
     out.fill(0)
 
     slices = {}
     for bits in [(0, 0), (0, 1), (1, 0), (1, 1)]:
-        slice_list = [slice(None)] * n_qubits
+        slice_list = [_NO_CONTROL_SLICE] * n_qubits
         slice_list[target0] = bits[0]
         slice_list[target1] = bits[1]
         slices[bits] = tuple(slice_list)
@@ -831,6 +680,37 @@ def _multiply_matrix(
 
     np.copyto(out, np.transpose(product, np.argsort([*targets, *unused_idxs])))
     return out, True
+
+
+def controlled_matrix(matrix: np.ndarray, control_state: tuple[int, ...]) -> np.ndarray:
+    """Returns the controlled form of the given matrix
+
+    A controlled matrix is produced by successively taking the direct sum of the matrix :math:`U_n`
+    with an equal-rank identity matrix :math:`I_n`, with regular control (indicated by a control
+    value of 1) taking the direct sum on the left
+
+        .. math:: C_1(U_n) := I_n \oplus U_n
+
+    and negative control (indicated by a control value of 0) taking the direct sum on the right
+
+        .. math:: C_0(U_n) := U_n \oplus I_n
+
+    The control state is read from left to right, with each control bit doubling the size of the
+    matrix. The output matrix will have rank `2**len(ctrl_state)` times that of the input matrix.
+
+    Args:
+        matrix (np.ndarray): The matrix to control
+        control_state (tuple[int, ...]): Basis state on which to control the operation.
+            Each appearance of 1 yields a left direct sum, and 0 yields a right direct sum.
+
+    Returns:
+        np.ndarray: The controlled form of the matrix
+    """
+    new_matrix = matrix
+    for state in control_state:
+        identity = np.eye(len(new_matrix))
+        new_matrix = block_diag(identity, new_matrix) if state else block_diag(new_matrix, identity)
+    return new_matrix
 
 
 def marginal_probability(

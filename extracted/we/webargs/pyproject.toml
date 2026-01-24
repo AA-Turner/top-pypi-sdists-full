@@ -1,6 +1,6 @@
 [project]
 name = "webargs"
-version = "8.7.0"
+version = "8.7.1"
 description = "Declarative parsing and validation of HTTP request objects, with built-in support for popular web frameworks, including Flask, Django, Bottle, Tornado, Pyramid, Falcon, and aiohttp."
 readme = "README.rst"
 license = { file = "LICENSE" }
@@ -21,6 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
   "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
 ]
@@ -41,7 +42,12 @@ keywords = [
   "marshmallow",
 ]
 requires-python = ">=3.9"
-dependencies = ["marshmallow>=3.0.0", "packaging>=17.0"]
+dependencies = [
+    "marshmallow>=3.13.0,<5.0.0",
+    "packaging>=17.0",
+    # depend on typing-extensions conditionally for annotations
+    'typing_extensions>=4.0; python_version<"3.10"',
+]
 
 [project.urls]
 Changelog = "https://webargs.readthedocs.io/en/latest/changelog.html"
@@ -64,7 +70,7 @@ tests = [
   "webargs[frameworks]",
   "pytest",
   "pytest-asyncio",
-  "webtest==3.0.4",
+  "webtest==3.0.7",
   "webtest-aiohttp==2.0.0",
   "pytest-aiohttp>=0.3.0",
   "packaging>=17.0",
@@ -73,7 +79,7 @@ docs = [
   "webargs[frameworks]",
   "Sphinx==8.2.3",
   "sphinx-issues==5.0.1",
-  "furo==2024.8.6",
+  "furo==2025.9.25",
 ]
 dev = ["webargs[tests]", "tox", "pre-commit>=3.5,<5.0"]
 

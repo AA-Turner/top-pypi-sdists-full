@@ -1,4 +1,3 @@
-import datetime
 from urllib.parse import urljoin
 
 import numpy as np
@@ -8,8 +7,6 @@ import pytest
 import tiledbsoma as soma
 from tiledbsoma import _factory
 
-from tests._util import raises_no_typeguard
-
 
 # ----------------------------------------------------------------
 def create_and_populate_obs(uri: str) -> soma.DataFrame:
@@ -18,7 +15,7 @@ def create_and_populate_obs(uri: str) -> soma.DataFrame:
             ("foo", pa.int32()),
             ("bar", pa.float64()),
             ("baz", pa.large_string()),
-        ]
+        ],
     )
 
     pydict = {}
@@ -32,7 +29,6 @@ def create_and_populate_obs(uri: str) -> soma.DataFrame:
 
     # TODO: indexing option ...
     with soma.DataFrame.create(uri, schema=obs_arrow_schema, domain=domain) as obs:
-
         obs.write(rb)
 
     return _factory.open(uri)
@@ -44,7 +40,7 @@ def create_and_populate_var(uri: str) -> soma.DataFrame:
         [
             ("quux", pa.large_string()),
             ("xyzzy", pa.float64()),
-        ]
+        ],
     )
 
     pydict = {}
@@ -73,9 +69,7 @@ def create_and_populate_sparse_nd_array(uri: str) -> soma.SparseNDArray:
     # 3 . 8 .
     # 4 . . 9
 
-    with soma.SparseNDArray.create(
-        uri, type=pa.int64(), shape=[nr, nc]
-    ) as sparse_nd_array:
+    with soma.SparseNDArray.create(uri, type=pa.int64(), shape=[nr, nc]) as sparse_nd_array:
         tensor = pa.SparseCOOTensor.from_numpy(
             data=np.asarray([7, 8, 9]),
             coords=[[0, 2], [3, 1], [4, 2]],
@@ -129,7 +123,7 @@ def test_experiment_basic(tmp_path):
     assert isinstance(experiment.ms["RNA"].X, soma.Collection)
 
     assert experiment.ms["RNA"].var == experiment["ms"]["RNA"]["var"]
-    assert experiment.ms["RNA"].X == experiment["ms"]["RNA"]["X"]
+    assert experiment["ms"]["RNA"]["X"] == experiment.ms["RNA"].X
 
     assert len(experiment.ms["RNA"].X) == 1
     assert "data" in experiment.ms["RNA"].X
@@ -225,17 +219,13 @@ def test_experiment_obs_type_constraint(tmp_path):
     with pytest.raises(TypeError):
         se["obs"] = soma.Collection.create((tmp_path / "A").as_uri())
     with pytest.raises(TypeError):
-        se["obs"] = soma.SparseNDArray.create(
-            (tmp_path / "B").as_uri(), type=pa.float32(), shape=(10,)
-        )
+        se["obs"] = soma.SparseNDArray.create((tmp_path / "B").as_uri(), type=pa.float32(), shape=(10,))
     with pytest.raises(TypeError):
-        se["obs"] = soma.DenseNDArray.create(
-            (tmp_path / "C").as_uri(), type=pa.float32(), shape=(10,)
-        )
+        se["obs"] = soma.DenseNDArray.create((tmp_path / "C").as_uri(), type=pa.float32(), shape=(10,))
     with pytest.raises(TypeError):
         se["obs"] = soma.Measurement.create((tmp_path / "D").as_uri())
     se["obs"] = soma.DataFrame.create(
-        (tmp_path / "E").as_uri(), schema=pa.schema([("A", pa.int32())])
+        (tmp_path / "E").as_uri(), schema=pa.schema([("A", pa.int32())]), domain=((0, 100),)
     )
 
 
@@ -244,60 +234,19 @@ def test_experiment_ms_type_constraint(tmp_path):
 
     se["ms"] = soma.Collection.create((tmp_path / "A").as_uri())
     with pytest.raises(TypeError):
-        se["ms"] = soma.SparseNDArray.create(
-            (tmp_path / "B").as_uri(), type=pa.float32(), shape=(10,)
-        )
+        se["ms"] = soma.SparseNDArray.create((tmp_path / "B").as_uri(), type=pa.float32(), shape=(10,))
     with pytest.raises(TypeError):
-        se["ms"] = soma.DenseNDArray.create(
-            (tmp_path / "C").as_uri(), type=pa.float32(), shape=(10,)
-        )
+        se["ms"] = soma.DenseNDArray.create((tmp_path / "C").as_uri(), type=pa.float32(), shape=(10,))
     with pytest.raises(TypeError):
         se["ms"] = soma.Measurement.create((tmp_path / "D").as_uri())
     with pytest.raises(TypeError):
         se["ms"] = soma.DataFrame.create(
-            (tmp_path / "E").as_uri(), schema=pa.schema([("A", pa.int32())])
+            (tmp_path / "E").as_uri(), schema=pa.schema([("A", pa.int32())]), domain=((0, 100),)
         )
     with pytest.raises(TypeError):
         se["ms"] = soma.DataFrame.create(
             (tmp_path / "F").as_uri(),
             schema=pa.schema([("A", pa.int32())]),
             index_column_names=["A"],
+            domain=((0, 100),),
         )
-
-
-def test_experiment_reopen(tmp_path):
-    # Ensure that reopen uses the correct mode
-    soma.Experiment.create(tmp_path.as_uri(), tiledb_timestamp=1)
-
-    with soma.Experiment.open(tmp_path.as_posix(), "r", tiledb_timestamp=1) as exp1:
-        with raises_no_typeguard(ValueError):
-            exp1.reopen("invalid")
-
-        with exp1.reopen("w", tiledb_timestamp=2) as exp2:
-            with exp2.reopen("r", tiledb_timestamp=3) as exp3:
-                assert exp1.mode == "r"
-                assert exp2.mode == "w"
-                assert exp3.mode == "r"
-                assert exp1.tiledb_timestamp_ms == 1
-                assert exp2.tiledb_timestamp_ms == 2
-                assert exp3.tiledb_timestamp_ms == 3
-
-    ts1 = datetime.datetime(2023, 1, 1, 1, 0, tzinfo=datetime.timezone.utc)
-    ts2 = datetime.datetime(2024, 1, 1, 1, 0, tzinfo=datetime.timezone.utc)
-    with soma.Experiment.open(tmp_path.as_posix(), "r", tiledb_timestamp=ts1) as exp1:
-        with exp1.reopen("r", tiledb_timestamp=ts2) as exp2:
-            assert exp1.mode == "r"
-            assert exp2.mode == "r"
-            assert exp1.tiledb_timestamp == ts1
-            assert exp2.tiledb_timestamp == ts2
-
-    with soma.Experiment.open(tmp_path.as_posix(), "w") as exp1:
-        with exp1.reopen("w", tiledb_timestamp=None) as exp2:
-            with exp2.reopen("w") as exp3:
-                assert exp1.mode == "w"
-                assert exp2.mode == "w"
-                assert exp3.mode == "w"
-                now = datetime.datetime.now(datetime.timezone.utc)
-                assert exp1.tiledb_timestamp <= now
-                assert exp2.tiledb_timestamp <= now
-                assert exp2.tiledb_timestamp <= now

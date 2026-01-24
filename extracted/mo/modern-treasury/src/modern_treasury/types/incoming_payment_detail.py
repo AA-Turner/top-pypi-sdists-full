@@ -118,6 +118,9 @@ class IncomingPaymentDetail(BaseModel):
     ] = None
     """The type of the originating routing number for the incoming payment detail."""
 
+    reconciliation_status: Literal["unreconciled", "tentatively_reconciled", "reconciled"]
+    """One of `unreconciled`, `tentatively_reconciled` or `reconciled`."""
+
     status: Literal["completed", "pending", "returned"]
     """The current status of the incoming payment order.
 
@@ -131,7 +134,24 @@ class IncomingPaymentDetail(BaseModel):
     """The ID of the reconciled Transaction Line Item or `null`."""
 
     type: Literal[
-        "ach", "au_becs", "bacs", "book", "check", "eft", "interac", "neft", "nz_becs", "rtp", "sepa", "signet", "wire"
+        "ach",
+        "au_becs",
+        "bacs",
+        "base",
+        "book",
+        "check",
+        "eft",
+        "ethereum",
+        "interac",
+        "neft",
+        "nz_becs",
+        "polygon",
+        "rtp",
+        "sepa",
+        "signet",
+        "solana",
+        "wire",
+        "zengin",
     ]
     """
     One of: `ach`, `book`, `check`, `eft`, `interac`, `rtp`, `sepa`, `signet`, or

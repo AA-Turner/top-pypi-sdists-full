@@ -7,6 +7,25 @@ from pydantic import BaseModel, Field, conint, model_validator
 
 
 class CrawlRequest(BaseModel):
+    """
+    Request model for the crawl endpoint.
+
+    The crawl endpoint supports two modes:
+    1. AI Extraction Mode (extraction_mode=True): Uses AI to extract structured data
+    2. Markdown Conversion Mode (extraction_mode=False): Converts pages to markdown (80% cheaper)
+
+    Sitemap Support:
+    - When sitemap=True, the crawler uses sitemap.xml for better page discovery
+    - Recommended for structured websites (e-commerce, news sites, blogs)
+    - Provides more comprehensive crawling coverage
+    - Works with both AI extraction and markdown conversion modes
+
+    Path Filtering:
+    - include_paths: Specify which paths to crawl (e.g., ['/products/*', '/blog/**'])
+    - exclude_paths: Specify which paths to skip (e.g., ['/admin/*', '/api/*'])
+    - Supports wildcards: * (any characters), ** (any path segments)
+    - exclude_paths takes precedence over include_paths
+    """
     url: str = Field(
         ...,
         example="https://scrapegraphai.com/",
@@ -45,7 +64,10 @@ class CrawlRequest(BaseModel):
         default=None, description="Batch size for processing pages (1-10)"
     )
     sitemap: bool = Field(
-        default=False, description="Whether to use sitemap for better page discovery"
+        default=False, 
+        description="Whether to use sitemap.xml for better page discovery and more comprehensive crawling. "
+        "When enabled, the crawler will use the website's sitemap.xml to discover pages more efficiently, "
+        "providing better coverage for structured websites like e-commerce sites, news portals, and content-heavy websites."
     )
     headers: Optional[dict[str, str]] = Field(
         None,
@@ -57,6 +79,27 @@ class CrawlRequest(BaseModel):
         "and user agent",
     )
     render_heavy_js: bool = Field(default=False, description="Whether to render heavy JavaScript on the page")
+    stealth: bool = Field(default=False, description="Enable stealth mode to avoid bot detection")
+    include_paths: Optional[list[str]] = Field(
+        default=None,
+        description="List of path patterns to include (e.g., ['/products/*', '/blog/**']). "
+        "Supports wildcards: * matches any characters, ** matches any path segments. "
+        "If empty, all paths are included.",
+        example=["/products/*", "/blog/**"]
+    )
+    exclude_paths: Optional[list[str]] = Field(
+        default=None,
+        description="List of path patterns to exclude (e.g., ['/admin/*', '/api/*']). "
+        "Supports wildcards: * matches any characters, ** matches any path segments. "
+        "Takes precedence over include_paths.",
+        example=["/admin/*", "/api/**"]
+    )
+    webhook_url: Optional[str] = Field(
+        default=None,
+        description="URL to receive webhook notifications when the crawl job completes. "
+        "The webhook will receive a POST request with the crawl results.",
+        example="https://example.com/webhook"
+    )
 
     @model_validator(mode="after")
     def validate_url(self) -> "CrawlRequest":
@@ -105,6 +148,46 @@ class CrawlRequest(BaseModel):
             self.batch_size < 1 or self.batch_size > 10
         ):
             raise ValueError("Batch size must be between 1 and 10")
+        return self
+
+    @model_validator(mode="after")
+    def validate_sitemap_usage(self) -> "CrawlRequest":
+        """Validate sitemap usage and provide recommendations"""
+        if self.sitemap:
+            # Log recommendation for sitemap usage
+            if self.max_pages < 5:
+                # This is just a recommendation, not an error
+                pass  # Could add logging here if needed
+        return self
+
+    @model_validator(mode="after")
+    def validate_path_patterns(self) -> "CrawlRequest":
+        """Validate path patterns start with '/'"""
+        if self.include_paths:
+            for path in self.include_paths:
+                if not path.startswith("/"):
+                    raise ValueError(f"Include path must start with '/': {path}")
+
+        if self.exclude_paths:
+            for path in self.exclude_paths:
+                if not path.startswith("/"):
+                    raise ValueError(f"Exclude path must start with '/': {path}")
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_webhook_url(self) -> "CrawlRequest":
+        """Validate webhook URL format if provided"""
+        if self.webhook_url is not None:
+            if not self.webhook_url.strip():
+                raise ValueError("Webhook URL cannot be empty")
+            if not (
+                self.webhook_url.startswith("http://")
+                or self.webhook_url.startswith("https://")
+            ):
+                raise ValueError(
+                    "Invalid webhook URL - must start with http:// or https://"
+                )
         return self
 
 

@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@ from __future__ import annotations
 
 from typing import Any
 from typing import Optional
+from typing import TYPE_CHECKING
 
 from google.genai import types
 
 from ..agents.base_agent import BaseAgent
 from ..agents.callback_context import CallbackContext
-from ..agents.invocation_context import InvocationContext
 from ..events.event import Event
 from ..models.llm_request import LlmRequest
 from ..models.llm_response import LlmResponse
@@ -29,11 +29,14 @@ from ..tools.base_tool import BaseTool
 from ..tools.tool_context import ToolContext
 from .base_plugin import BasePlugin
 
+if TYPE_CHECKING:
+  from ..agents.invocation_context import InvocationContext
+
 
 class LoggingPlugin(BasePlugin):
   """A plugin that logs important information at each callback point.
 
-  This plugin helps printing all critical events in the console. It is not a
+  This plugin helps print all critical events in the console. It is not a
   replacement of existing logging in ADK. It rather helps terminal based
   debugging by showing all logs in the console, and serves as a simple demo for
   everyone to leverage when developing new plugins.

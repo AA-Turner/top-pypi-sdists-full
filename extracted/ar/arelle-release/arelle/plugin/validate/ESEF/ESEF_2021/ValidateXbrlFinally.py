@@ -27,7 +27,7 @@ from arelle.PythonUtil import isLegacyAbs, strTruncate
 from arelle.utils.Contexts import partitionModelXbrlContexts
 from arelle.utils.Units import partitionModelXbrlUnits
 from arelle.utils.validate.DetectScriptsInXhtml import containsScriptMarkers
-from arelle.UrlUtil import decodeBase64DataImage, isHttpUrl, scheme
+from arelle.UrlUtil import decodeBase64DataImage, isHttpUrl, isExternalUrl
 from arelle.ValidateFilingText import parseImageDataURL
 from arelle.ValidateUtr import ValidateUtr
 from arelle.ValidateXbrl import ValidateXbrl
@@ -60,7 +60,6 @@ from ..Const import (
     esefStatementsOfMonetaryDeclarationNames,
     mandatory,
     styleCssHiddenPattern,
-    styleIxHiddenPattern,
     untransformableTypes,
 )
 from ..Dimensions import checkFilingDimensions
@@ -269,6 +268,9 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                        "%(documentSets)s (Document files appear to be in multiple document sets)"),
                 modelObject=doc, documentSets=", ".join(sorted(ixdsDocDirs)))
         ixTargetUsage = val.authParam["ixTargetUsage"]
+        styleIxHiddenProperty = val.authParam.get("styleIxHiddenProperty")
+        if styleIxHiddenProperty:
+            styleIxHiddenPattern = re.compile(rf"(.*[^\w]|^){styleIxHiddenProperty}\s*:\s*([\w.-]+).*")
         if modelDocument.type in (ModelDocument.Type.INLINEXBRL, ModelDocument.Type.INLINEXBRLDOCUMENTSET, ModelDocument.Type.UnknownXML):
             hiddenEltIds = {}
             presentedHiddenEltIds = defaultdict(list)
@@ -307,7 +309,7 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                                 modelObject=elt, element=eltTag)
                         elif eltTag == "img":
                             src = elt.get("src","").strip()
-                            if scheme(src) in ("http", "https", "ftp"):
+                            if isExternalUrl(src):
                                 modelXbrl.error("ESEF.4.1.6.xHTMLDocumentContainsExternalReferences" if val.unconsolidated
                                                 else "ESEF.3.5.1.inlineXbrlDocumentContainsExternalReferences",
                                     _("Inline XBRL instance documents MUST NOT contain any reference pointing to resources outside the reporting package: %(element)s"),
@@ -341,7 +343,7 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                                         _("Images included in the XHTML document SHOULD be base64 encoded: %(src)s."),
                                         modelObject=elt, src=src[:128])
                                     if dataURLParts and dataURLParts.mimeSubtype and dataURLParts.data:
-                                        checkImageContents(modelXbrl, elt, dataURLParts.mimeSubtype, False, dataURLParts.data, val.consolidated)
+                                        checkImageContents(modelXbrl, elt, dataURLParts.mimeSubtype, False, dataURLParts.data, val.consolidated)  # type: ignore[arg-type]
                                 else:
                                     if not dataURLParts.mimeSubtype:
                                         modelXbrl.error(f"{contentOtherThanXHTMLGuidance}.MIMETypeNotSpecified",
@@ -353,7 +355,7 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                                             modelObject=elt, src=src[:128])
                                     # check for malicious image contents
                                     try: # allow embedded newlines
-                                        checkImageContents(modelXbrl, elt, dataURLParts.mimeSubtype, False, decodeBase64DataImage(dataURLParts.data), val.consolidated)
+                                        checkImageContents(modelXbrl, elt, dataURLParts.mimeSubtype, False, decodeBase64DataImage(dataURLParts.data), val.consolidated)  # type: ignore[arg-type]
                                         imgContents = None # deref, may be very large
                                     except binascii.Error as err:
                                         modelXbrl.error(f"{contentOtherThanXHTMLGuidance}.embeddedImageNotUsingBase64Encoding",
@@ -365,7 +367,7 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                         #    or to other sections of the annual financial report.'''
                         #elif eltTag == "a":
                         #    href = elt.get("href","").strip()
-                        #    if scheme(href) in ("http", "https", "ftp"):
+                        #    if isExternalUrl(href):
                         #        modelXbrl.error("ESEF.4.1.6.xHTMLDocumentContainsExternalReferences" if val.unconsolidated
                         #                        else "ESEF.3.5.1.inlineXbrlDocumentContainsExternalReferences",
                         #            _("Inline XBRL instance documents MUST NOT contain any reference pointing to resources outside the reporting package: %(element)s"),
@@ -420,7 +422,7 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                     if isinstance(elt, ModelInlineFootnote):
                         checkFootnote(elt, elt.value)
                     elif isinstance(elt, ModelResource) and elt.qname == XbrlConst.qnLinkFootnote:
-                        checkFootnote(elt, elt.value)
+                        checkFootnote(elt, elt.value) # type: ignore[attr-defined]
                     elif isinstance(elt, ModelInlineFact):
                         if elt.format is not None and elt.format.namespaceURI not in IXT_NAMESPACES:
                             transformRegistryErrors.add(elt)
@@ -461,17 +463,18 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
                     modelObject=eligibleForTransformHiddenFacts,
                     countEligible=len(eligibleForTransformHiddenFacts),
                     elements=", ".join(sorted(set(str(f.qname) for f in eligibleForTransformHiddenFacts))))
-            for ixdsHtmlRootElt in modelXbrl.ixdsHtmlElements:
-                for ixElt in ixdsHtmlRootElt.getroottree().iterfind(".//{http://www.w3.org/1999/xhtml}*[@style]"):
-                    hiddenFactRefMatch = styleIxHiddenPattern.match(ixElt.get("style",""))
-                    if hiddenFactRefMatch:
-                        hiddenFactRef = hiddenFactRefMatch.group(2)
-                        if hiddenFactRef not in hiddenEltIds:
-                            modelXbrl.error("ESEF.2.4.1.esefIxHiddenStyleNotLinkingFactInHiddenSection",
-                                _("\"-esef-ix-hidden\" style identifies id attribute of a fact that is not in ix:hidden section: %(factId)s"),
-                                modelObject=ixElt, factId=hiddenFactRef)
-                        else:
-                            presentedHiddenEltIds[hiddenFactRef].append(ixElt)
+            if styleIxHiddenProperty:
+                for ixdsHtmlRootElt in modelXbrl.ixdsHtmlElements:
+                    for ixElt in ixdsHtmlRootElt.getroottree().iterfind(".//{http://www.w3.org/1999/xhtml}*[@style]"):
+                        hiddenFactRefMatch = styleIxHiddenPattern.match(ixElt.get("style",""))
+                        if hiddenFactRefMatch:
+                            hiddenFactRef = hiddenFactRefMatch.group(2)
+                            if hiddenFactRef not in hiddenEltIds:
+                                modelXbrl.error("ESEF.2.4.1.esefIxHiddenStyleNotLinkingFactInHiddenSection",
+                                    _("\"%(styleIxHiddenProperty)s\" style identifies id attribute of a fact that is not in ix:hidden section: %(factId)s"),
+                                    modelObject=ixElt, styleIxHiddenProperty=styleIxHiddenProperty, factId=hiddenFactRef)
+                            else:
+                                presentedHiddenEltIds[hiddenFactRef].append(ixElt)
             for hiddenEltId, ixElt in hiddenEltIds.items():
                 if (hiddenEltId not in presentedHiddenEltIds and
                     getattr(ixElt, "xValid", 0) >= VALID and # may not be validated
@@ -538,7 +541,7 @@ def validateXbrlFinally(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
             modelXbrl.error("ESEF.2.1.4.multipleIdentifiers",
                 _("All entity identifiers in contexts MUST have identical content: %(contextIds)s"),
                 modelObject=modelXbrl, contextIds=", ".join(i[1] for i in contextIdentifiers))
-        requiredScheme = val.authParam["identiferScheme"]
+        requiredScheme = val.authParam["identifierScheme"]
         for (contextScheme, contextIdentifier), contextElts in contextIdentifiers.items():
             if contextScheme != requiredScheme:
                 modelXbrl.warning("ESEF.2.1.1.nonLEIContextScheme" if requiredScheme == iso17442 else "UK.ESEF.2.1.1.contextScheme",

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: bcrypt
-Version: 4.3.0
+Version: 5.0.0
 Summary: Modern password hashing for your software and your servers
 Author-email: The Python Cryptographic Authority developers <cryptography-dev@python.org>
 License: Apache-2.0
@@ -17,6 +17,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -24,6 +26,7 @@ Provides-Extra: tests
 Requires-Dist: pytest!=3.3.0,>=3.2.1; extra == "tests"
 Provides-Extra: typecheck
 Requires-Dist: mypy; extra == "typecheck"
+Dynamic: license-file
 
 bcrypt
 ======
@@ -78,8 +81,18 @@ While bcrypt remains an acceptable choice for password storage, depending on you
 Changelog
 =========
 
-Unreleased
-----------
+5.0.0
+-----
+
+* Bumped MSRV to 1.74.
+* Added support for Python 3.14 and free-threaded Python 3.14.
+* Added support for Windows on ARM.
+* Passing ``hashpw`` a password longer than 72 bytes now raises a
+  ``ValueError``. Previously the password was silently truncated, following the
+  behavior of the original OpenBSD ``bcrypt`` implementation.
+
+4.3.0
+-----
 
 * Dropped support for Python 3.7.
 * We now support free-threaded Python 3.13.

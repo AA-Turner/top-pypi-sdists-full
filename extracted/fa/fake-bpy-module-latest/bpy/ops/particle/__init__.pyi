@@ -15,12 +15,8 @@ def brush_edit(
 ) -> None:
     """Apply a stroke of brush to the particles
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param stroke: Stroke
-    :type stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement] | None
     :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
-    :type pen_flip: bool | None
     """
 
 def connect_hair(
@@ -32,10 +28,7 @@ def connect_hair(
 ) -> None:
     """Connect hair to the emitter mesh
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All Hair, Connect all hair systems to the emitter mesh
-    :type all: bool | None
     """
 
 def copy_particle_systems(
@@ -49,8 +42,6 @@ def copy_particle_systems(
 ) -> None:
     """Copy particle systems from the active object to selected objects
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param space: Space, Space transform for copying from one object to another
 
     OBJECT
@@ -58,11 +49,8 @@ def copy_particle_systems(
 
     WORLD
     World -- Copy in world space.
-        :type space: typing.Literal['OBJECT','WORLD'] | None
         :param remove_target_particles: Remove Target Particles, Remove particle systems on the target objects
-        :type remove_target_particles: bool | None
         :param use_active: Use Active, Use the active particle system from the context
-        :type use_active: bool | None
     """
 
 def delete(
@@ -74,10 +62,7 @@ def delete(
 ) -> None:
     """Delete selected particles or keys
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type, Delete a full particle or only keys
-    :type type: typing.Literal['PARTICLE','KEY'] | None
     """
 
 def disconnect_hair(
@@ -89,10 +74,7 @@ def disconnect_hair(
 ) -> None:
     """Disconnect hair from the emitter mesh
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param all: All Hair, Disconnect all hair systems from the emitter mesh
-    :type all: bool | None
     """
 
 def duplicate_particle_system(
@@ -104,10 +86,7 @@ def duplicate_particle_system(
 ) -> None:
     """Duplicate particle system within the active object
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_duplicate_settings: Duplicate Settings, Duplicate settings as well, so the new particle system uses its own settings
-    :type use_duplicate_settings: bool | None
     """
 
 def dupliob_copy(
@@ -115,66 +94,42 @@ def dupliob_copy(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Duplicate the current instance object
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Duplicate the current instance object"""
 
 def dupliob_move_down(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move instance object down in the list
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move instance object down in the list"""
 
 def dupliob_move_up(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move instance object up in the list
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move instance object up in the list"""
 
 def dupliob_refresh(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Refresh list of instance objects and their weights
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Refresh list of instance objects and their weights"""
 
 def dupliob_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the selected instance object
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the selected instance object"""
 
 def edited_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Undo all edition performed on the particle system
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Undo all edition performed on the particle system"""
 
 def hair_dynamics_preset_add(
     execution_context: int | str | None = None,
@@ -187,14 +142,9 @@ def hair_dynamics_preset_add(
 ) -> None:
     """Add or remove a Hair Dynamics Preset
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the preset, used to make the path name
-    :type name: str
     :param remove_name: remove_name
-    :type remove_name: bool | None
     :param remove_active: remove_active
-    :type remove_active: bool | None
     """
 
 def hide(
@@ -206,10 +156,7 @@ def hide(
 ) -> None:
     """Hide selected particles
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param unselected: Unselected, Hide unselected rather than selected
-    :type unselected: bool | None
     """
 
 def mirror(
@@ -217,55 +164,35 @@ def mirror(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Duplicate and mirror the selected particles along the local X axis
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Duplicate and mirror the selected particles along the local X axis"""
 
 def new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add new particle settings
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add new particle settings"""
 
 def new_target(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a new particle target
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a new particle target"""
 
 def particle_edit_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle particle edit mode
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle particle edit mode"""
 
 def particle_system_remove_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove all particle system within the active object
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove all particle system within the active object"""
 
 def rekey(
     execution_context: int | str | None = None,
@@ -276,10 +203,7 @@ def rekey(
 ) -> None:
     """Change the number of keys of selected particles (root and tip keys included)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param keys_number: Number of Keys
-    :type keys_number: int | None
     """
 
 def remove_doubles(
@@ -291,10 +215,7 @@ def remove_doubles(
 ) -> None:
     """Remove selected particles close enough of others
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param threshold: Merge Distance, Threshold distance within which particles are removed
-    :type threshold: float | None
     """
 
 def reveal(
@@ -306,10 +227,7 @@ def reveal(
 ) -> None:
     """Show hidden particles
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param select: Select
-    :type select: bool | None
     """
 
 def select_all(
@@ -321,8 +239,6 @@ def select_all(
 ) -> None:
     """(De)select all particles keys
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -336,7 +252,6 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_less(
@@ -344,22 +259,14 @@ def select_less(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Deselect boundary selected keys of each particle
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Deselect boundary selected keys of each particle"""
 
 def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select all keys linked to already selected ones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select all keys linked to already selected ones"""
 
 def select_linked_pick(
     execution_context: int | str | None = None,
@@ -371,12 +278,8 @@ def select_linked_pick(
 ) -> None:
     """Select nearest particle from mouse pointer
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param deselect: Deselect, Deselect linked keys rather than selecting them
-    :type deselect: bool | None
     :param location: Location
-    :type location: collections.abc.Iterable[int] | None
     """
 
 def select_more(
@@ -384,11 +287,7 @@ def select_more(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select keys linked to boundary selected keys of each particle
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select keys linked to boundary selected keys of each particle"""
 
 def select_random(
     execution_context: int | str | None = None,
@@ -402,12 +301,8 @@ def select_random(
 ) -> None:
     """Select a randomly distributed set of hair or points
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param ratio: Ratio, Portion of items to select randomly
-        :type ratio: float | None
         :param seed: Random Seed, Seed for the random number generator
-        :type seed: int | None
         :param action: Action, Selection action to execute
 
     SELECT
@@ -415,9 +310,7 @@ def select_random(
 
     DESELECT
     Deselect -- Deselect all elements.
-        :type action: typing.Literal['SELECT','DESELECT'] | None
         :param type: Type, Select either hair or points
-        :type type: typing.Literal['HAIR','POINTS'] | None
     """
 
 def select_roots(
@@ -429,8 +322,6 @@ def select_roots(
 ) -> None:
     """Select roots of all visible particles
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -444,7 +335,6 @@ def select_roots(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_tips(
@@ -456,8 +346,6 @@ def select_tips(
 ) -> None:
     """Select tips of all visible particles
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -471,7 +359,6 @@ def select_tips(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def shape_cut(
@@ -479,66 +366,42 @@ def shape_cut(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Cut hair to conform to the set shape object
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Cut hair to conform to the set shape object"""
 
 def subdivide(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Subdivide selected particles segments (adds keys)
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Subdivide selected particles segments (adds keys)"""
 
 def target_move_down(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move particle target down in the list
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move particle target down in the list"""
 
 def target_move_up(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move particle target up in the list
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move particle target up in the list"""
 
 def target_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the selected particle target
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the selected particle target"""
 
 def unify_length(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Make selected hair the same length
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Make selected hair the same length"""
 
 def weight_set(
     execution_context: int | str | None = None,
@@ -549,8 +412,5 @@ def weight_set(
 ) -> None:
     """Set the weight of selected keys
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param factor: Factor, Interpolation factor between current brush weight, and keys weights
-    :type factor: float | None
     """

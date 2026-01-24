@@ -1,9 +1,9 @@
 import json
 import shlex
 from argparse import ArgumentParser, Namespace
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
-from typing import Any, Callable, Optional, Union, cast
+from typing import Any, Optional, Union, cast
 
 import dagster._check as check
 from dagster import (
@@ -33,7 +33,6 @@ from dagster_dbt.asset_utils import (
     default_asset_key_fn,
     default_auto_materialize_policy_fn,
     default_description_fn,
-    default_freshness_policy_fn,
     default_group_from_dbt_resource_props,
     get_node,
 )
@@ -73,8 +72,10 @@ class DbtCloudCacheableAssetsDefinition(CacheableAssetsDefinition):
             else dbt_cloud_resource_def(build_init_resource_context())
         )
         self._job_id = job_id
+        self._account_id: int = self._dbt_cloud._account_id  # noqa: SLF001
         self._project_id: int
         self._has_generate_docs: bool
+        self._environment_id: Optional[int] = None
         self._job_commands: list[str]
         self._job_materialization_command_step: int
         self._node_info_to_asset_key = node_info_to_asset_key
@@ -241,6 +242,7 @@ class DbtCloudCacheableAssetsDefinition(CacheableAssetsDefinition):
         job = self._dbt_cloud.get_job(job_id=self._job_id)
         self._project_id = job["project_id"]
         self._has_generate_docs = job["generate_docs"]
+        self._environment_id = job.get("environment_id")
 
         # We constraint the kinds of dbt Cloud jobs that we support running.
         #
@@ -327,10 +329,6 @@ class DbtCloudCacheableAssetsDefinition(CacheableAssetsDefinition):
                 return self._node_info_to_group_fn(dbt_resource_props)
 
             @classmethod
-            def get_freshness_policy(cls, dbt_resource_props):  # pyright: ignore[reportIncompatibleMethodOverride]
-                return self._node_info_to_freshness_policy_fn(dbt_resource_props)
-
-            @classmethod
             def get_auto_materialize_policy(cls, dbt_resource_props):  # pyright: ignore[reportIncompatibleMethodOverride]
                 return self._node_info_to_auto_materialize_policy_fn(dbt_resource_props)
 
@@ -375,11 +373,6 @@ class DbtCloudCacheableAssetsDefinition(CacheableAssetsDefinition):
                     for spec in specs
                 },
             },
-            legacy_freshness_policies_by_output_name={
-                spec.key.to_python_identifier(): spec.legacy_freshness_policy
-                for spec in specs
-                if spec.legacy_freshness_policy
-            },
             auto_materialize_policies_by_output_name={
                 spec.key.to_python_identifier(): spec.auto_materialize_policy
                 for spec in specs
@@ -390,7 +383,7 @@ class DbtCloudCacheableAssetsDefinition(CacheableAssetsDefinition):
     def _build_dbt_cloud_assets_metadata(
         self, resource_props: Mapping[str, Any]
     ) -> RawMetadataMapping:
-        metadata = {
+        metadata: dict[str, Any] = {
             "dbt Cloud Job": MetadataValue.url(
                 self._dbt_cloud.build_url_for_job(
                     project_id=self._project_id,
@@ -407,6 +400,12 @@ class DbtCloudCacheableAssetsDefinition(CacheableAssetsDefinition):
                     unique_id=resource_props["unique_id"],
                 )
             )
+
+        # Add internal metadata for tracking/debugging
+        metadata["dagster_dbt/cloud_account_id"] = MetadataValue.int(self._account_id)
+        metadata["dagster_dbt/cloud_project_id"] = MetadataValue.int(self._project_id)
+        if self._environment_id is not None:
+            metadata["dagster_dbt/cloud_environment_id"] = MetadataValue.int(self._environment_id)
 
         return metadata
 
@@ -546,9 +545,6 @@ def load_assets_from_dbt_cloud_job(
     node_info_to_group_fn: Callable[
         [Mapping[str, Any]], Optional[str]
     ] = default_group_from_dbt_resource_props,
-    node_info_to_freshness_policy_fn: Callable[
-        [Mapping[str, Any]], Optional[LegacyFreshnessPolicy]
-    ] = default_freshness_policy_fn,
     node_info_to_auto_materialize_policy_fn: Callable[
         [Mapping[str, Any]], Optional[AutoMaterializePolicy]
     ] = default_auto_materialize_policy_fn,
@@ -570,13 +566,6 @@ def load_assets_from_dbt_cloud_job(
             dbt source -> AssetKey([source_name, table_name])
         node_info_to_group_fn (Dict[str, Any] -> Optional[str]): A function that takes a
             dictionary of dbt node info and returns the group that this node should be assigned to.
-        node_info_to_freshness_policy_fn (Dict[str, Any] -> Optional[FreshnessPolicy]): A function
-            that takes a dictionary of dbt node info and optionally returns a FreshnessPolicy that
-            should be applied to this node. By default, freshness policies will be created from
-            config applied to dbt models, i.e.:
-            `dagster_freshness_policy={"maximum_lag_minutes": 60, "cron_schedule": "0 9 * * *"}`
-            will result in that model being assigned
-            `FreshnessPolicy(maximum_lag_minutes=60, cron_schedule="0 9 * * *")`
         node_info_to_auto_materialize_policy_fn (Dict[str, Any] -> Optional[AutoMaterializePolicy]):
             A function that takes a dictionary of dbt node info and optionally returns a AutoMaterializePolicy
             that should be applied to this node. By default, AutoMaterializePolicies will be created from
@@ -631,7 +620,7 @@ def load_assets_from_dbt_cloud_job(
         job_id=job_id,
         node_info_to_asset_key=node_info_to_asset_key,
         node_info_to_group_fn=node_info_to_group_fn,
-        node_info_to_freshness_policy_fn=node_info_to_freshness_policy_fn,
+        node_info_to_freshness_policy_fn=lambda _: None,
         node_info_to_auto_materialize_policy_fn=node_info_to_auto_materialize_policy_fn,
         partitions_def=partitions_def,
         partition_key_to_vars_fn=partition_key_to_vars_fn,

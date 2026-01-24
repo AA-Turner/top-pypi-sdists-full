@@ -3,7 +3,7 @@ Type annotations for kms service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kms/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -51,12 +52,6 @@ from .literals import (
     XksProxyConnectivityTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -201,7 +196,7 @@ class CancelKeyDeletionRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -231,6 +226,7 @@ class XksProxyConfigurationTypeTypeDef(TypedDict):
     UriEndpoint: NotRequired[str]
     UriPath: NotRequired[str]
     VpcEndpointServiceName: NotRequired[str]
+    VpcEndpointServiceOwner: NotRequired[str]
 
 
 class DeleteAliasRequestTypeDef(TypedDict):
@@ -323,8 +319,8 @@ class GetPublicKeyRequestTypeDef(TypedDict):
 
 
 class GrantConstraintsOutputTypeDef(TypedDict):
-    EncryptionContextSubset: NotRequired[Dict[str, str]]
-    EncryptionContextEquals: NotRequired[Dict[str, str]]
+    EncryptionContextSubset: NotRequired[dict[str, str]]
+    EncryptionContextEquals: NotRequired[dict[str, str]]
 
 
 class GrantConstraintsTypeDef(TypedDict):
@@ -645,9 +641,9 @@ class GetPublicKeyResponseTypeDef(TypedDict):
     CustomerMasterKeySpec: CustomerMasterKeySpecType
     KeySpec: KeySpecType
     KeyUsage: KeyUsageTypeType
-    EncryptionAlgorithms: List[EncryptionAlgorithmSpecType]
-    SigningAlgorithms: List[SigningAlgorithmSpecType]
-    KeyAgreementAlgorithms: List[Literal["ECDH"]]
+    EncryptionAlgorithms: list[EncryptionAlgorithmSpecType]
+    SigningAlgorithms: list[SigningAlgorithmSpecType]
+    KeyAgreementAlgorithms: list[Literal["ECDH"]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -658,14 +654,14 @@ class ImportKeyMaterialResponseTypeDef(TypedDict):
 
 
 class ListAliasesResponseTypeDef(TypedDict):
-    Aliases: List[AliasListEntryTypeDef]
+    Aliases: list[AliasListEntryTypeDef]
     NextMarker: str
     Truncated: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListKeyPoliciesResponseTypeDef(TypedDict):
-    PolicyNames: List[str]
+    PolicyNames: list[str]
     NextMarker: str
     Truncated: bool
     ResponseMetadata: ResponseMetadataTypeDef
@@ -725,6 +721,7 @@ class CreateCustomKeyStoreRequestTypeDef(TypedDict):
     XksProxyUriEndpoint: NotRequired[str]
     XksProxyUriPath: NotRequired[str]
     XksProxyVpcEndpointServiceName: NotRequired[str]
+    XksProxyVpcEndpointServiceOwner: NotRequired[str]
     XksProxyAuthenticationCredential: NotRequired[XksProxyAuthenticationCredentialTypeTypeDef]
     XksProxyConnectivity: NotRequired[XksProxyConnectivityTypeType]
 
@@ -737,6 +734,7 @@ class UpdateCustomKeyStoreRequestTypeDef(TypedDict):
     XksProxyUriEndpoint: NotRequired[str]
     XksProxyUriPath: NotRequired[str]
     XksProxyVpcEndpointServiceName: NotRequired[str]
+    XksProxyVpcEndpointServiceOwner: NotRequired[str]
     XksProxyAuthenticationCredential: NotRequired[XksProxyAuthenticationCredentialTypeTypeDef]
     XksProxyConnectivity: NotRequired[XksProxyConnectivityTypeType]
 
@@ -756,7 +754,7 @@ class CreateKeyRequestTypeDef(TypedDict):
 
 
 class ListResourceTagsResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     NextMarker: str
     Truncated: bool
     ResponseMetadata: ResponseMetadataTypeDef
@@ -839,7 +837,7 @@ class GrantListEntryTypeDef(TypedDict):
     GranteePrincipal: NotRequired[str]
     RetiringPrincipal: NotRequired[str]
     IssuingAccount: NotRequired[str]
-    Operations: NotRequired[List[GrantOperationType]]
+    Operations: NotRequired[list[GrantOperationType]]
     Constraints: NotRequired[GrantConstraintsOutputTypeDef]
 
 
@@ -858,14 +856,14 @@ class ImportKeyMaterialRequestTypeDef(TypedDict):
 
 
 class ListKeysResponseTypeDef(TypedDict):
-    Keys: List[KeyListEntryTypeDef]
+    Keys: list[KeyListEntryTypeDef]
     NextMarker: str
     Truncated: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListKeyRotationsResponseTypeDef(TypedDict):
-    Rotations: List[RotationsListEntryTypeDef]
+    Rotations: list[RotationsListEntryTypeDef]
     NextMarker: str
     Truncated: bool
     ResponseMetadata: ResponseMetadataTypeDef
@@ -874,7 +872,7 @@ class ListKeyRotationsResponseTypeDef(TypedDict):
 class MultiRegionConfigurationTypeDef(TypedDict):
     MultiRegionKeyType: NotRequired[MultiRegionKeyTypeType]
     PrimaryKey: NotRequired[MultiRegionKeyTypeDef]
-    ReplicaKeys: NotRequired[List[MultiRegionKeyTypeDef]]
+    ReplicaKeys: NotRequired[list[MultiRegionKeyTypeDef]]
 
 
 class DecryptRequestTypeDef(TypedDict):
@@ -922,14 +920,14 @@ class GenerateRandomRequestTypeDef(TypedDict):
 
 
 class DescribeCustomKeyStoresResponseTypeDef(TypedDict):
-    CustomKeyStores: List[CustomKeyStoresListEntryTypeDef]
+    CustomKeyStores: list[CustomKeyStoresListEntryTypeDef]
     NextMarker: str
     Truncated: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListGrantsResponseTypeDef(TypedDict):
-    Grants: List[GrantListEntryTypeDef]
+    Grants: list[GrantListEntryTypeDef]
     NextMarker: str
     Truncated: bool
     ResponseMetadata: ResponseMetadataTypeDef
@@ -964,13 +962,13 @@ class KeyMetadataTypeDef(TypedDict):
     KeyManager: NotRequired[KeyManagerTypeType]
     CustomerMasterKeySpec: NotRequired[CustomerMasterKeySpecType]
     KeySpec: NotRequired[KeySpecType]
-    EncryptionAlgorithms: NotRequired[List[EncryptionAlgorithmSpecType]]
-    SigningAlgorithms: NotRequired[List[SigningAlgorithmSpecType]]
-    KeyAgreementAlgorithms: NotRequired[List[Literal["ECDH"]]]
+    EncryptionAlgorithms: NotRequired[list[EncryptionAlgorithmSpecType]]
+    SigningAlgorithms: NotRequired[list[SigningAlgorithmSpecType]]
+    KeyAgreementAlgorithms: NotRequired[list[Literal["ECDH"]]]
     MultiRegion: NotRequired[bool]
     MultiRegionConfiguration: NotRequired[MultiRegionConfigurationTypeDef]
     PendingDeletionWindowInDays: NotRequired[int]
-    MacAlgorithms: NotRequired[List[MacAlgorithmSpecType]]
+    MacAlgorithms: NotRequired[list[MacAlgorithmSpecType]]
     XksKeyConfiguration: NotRequired[XksKeyConfigurationTypeTypeDef]
     CurrentKeyMaterialId: NotRequired[str]
 
@@ -988,5 +986,5 @@ class DescribeKeyResponseTypeDef(TypedDict):
 class ReplicateKeyResponseTypeDef(TypedDict):
     ReplicaKeyMetadata: KeyMetadataTypeDef
     ReplicaPolicy: str
-    ReplicaTags: List[TagTypeDef]
+    ReplicaTags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

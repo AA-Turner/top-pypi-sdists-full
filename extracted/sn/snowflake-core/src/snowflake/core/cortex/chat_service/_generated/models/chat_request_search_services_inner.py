@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
 
 
 class ChatRequestSearchServicesInner(BaseModel):
@@ -56,9 +56,10 @@ class ChatRequestSearchServicesInner(BaseModel):
 
     __properties = ["name", "max_results", "title_column", "id_column", "filter", "experimental"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -83,7 +84,7 @@ class ChatRequestSearchServicesInner(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -98,9 +99,9 @@ class ChatRequestSearchServicesInner(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ChatRequestSearchServicesInner.parse_obj(obj)
+            return ChatRequestSearchServicesInner.model_validate(obj)
 
-        _obj = ChatRequestSearchServicesInner.parse_obj(
+        _obj = ChatRequestSearchServicesInner.model_validate(
             {
                 "name": obj.get("name"),
                 "max_results": obj.get("max_results"),

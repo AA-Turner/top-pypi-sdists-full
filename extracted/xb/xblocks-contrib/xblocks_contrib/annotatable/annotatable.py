@@ -12,18 +12,30 @@ import uuid
 import markupsafe
 from django.utils.translation import gettext_noop as _
 from lxml import etree
+from opaque_keys.edx.keys import UsageKey
 from web_fragments.fragment import Fragment
 from xblock.core import XBlock
 from xblock.fields import Scope, String, XMLString
 from xblock.utils.resources import ResourceLoader
+
+from xblocks_contrib.common.xml_utils import LegacyXmlMixin
 
 log = logging.getLogger(__name__)
 
 resource_loader = ResourceLoader(__name__)
 
 
+class SerializationError(Exception):
+    """
+    Thrown when a module cannot be exported to XML
+    """
+    def __init__(self, location, msg):
+        super().__init__(msg)
+        self.location = location
+
+
 @XBlock.needs("i18n")
-class AnnotatableBlock(XBlock):
+class AnnotatableBlock(LegacyXmlMixin, XBlock):
     """
     AnnotatableXBlock allows instructors to create annotated content that students can view interactively.
     Annotations can be styled and customized, with internationalization support for multilingual environments.
@@ -83,6 +95,18 @@ class AnnotatableBlock(XBlock):
 
     # List of supported highlight colors for annotations
     HIGHLIGHT_COLORS = ["yellow", "orange", "purple", "blue", "green"]
+
+    @property
+    def location(self):
+        return self.scope_ids.usage_id
+
+    @location.setter
+    def location(self, value):
+        assert isinstance(value, UsageKey)
+        self.scope_ids = self.scope_ids._replace(
+            def_id=value,  # Note: assigning a UsageKey as def_id is OK in old mongo / import system but wrong in split
+            usage_id=value,
+        )
 
     def _get_annotation_class_attr(self, index, el):  # pylint: disable=unused-argument
         """Returns a dict with the CSS class attribute to set on the annotation
@@ -234,3 +258,45 @@ class AnnotatableBlock(XBlock):
             """,
             ),
         ]
+
+    @classmethod
+    def definition_from_xml(cls, xml_object, system):
+        if len(xml_object) == 0 and len(list(xml_object.items())) == 0:
+            return {'data': ''}, []
+        return {'data': etree.tostring(xml_object, pretty_print=True, encoding='unicode')}, []
+
+    def definition_to_xml(self, resource_fs):
+        """
+        Return an Element if we've kept the import OLX, or None otherwise.
+        """
+        # If there's no self.data, it means that an XBlock/XModule originally
+        # existed for this data at the time of import/editing, but was later
+        # uninstalled. RawDescriptor therefore never got to preserve the
+        # original OLX that came in, and we have no idea how it should be
+        # serialized for export. It's possible that we could do some smarter
+        # fallback here and attempt to extract the data, but it's reasonable
+        # and simpler to just skip this node altogether.
+        if not self.data:
+            log.warning(
+                "Could not serialize %s: No XBlock installed for '%s' tag.",
+                self.location,
+                self.location.block_type,
+            )
+            return None
+
+        # Normal case: Just echo back the original OLX we saved.
+        try:
+            return etree.fromstring(self.data)
+        except etree.XMLSyntaxError as err:
+            # Can't recover here, so just add some info and
+            # re-raise
+            lines = self.data.split('\n')
+            line, offset = err.position  # lint-amnesty, pylint: disable=unpacking-non-sequence
+            msg = (
+                "Unable to create xml for block {loc}. "
+                "Context: '{context}'"
+            ).format(
+                context=lines[line - 1][offset - 40:offset + 40],
+                loc=self.location,
+            )
+            raise SerializationError(self.location, msg) from err

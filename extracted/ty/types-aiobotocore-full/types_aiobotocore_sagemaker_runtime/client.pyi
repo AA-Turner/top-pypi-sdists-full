@@ -3,7 +3,7 @@ Type annotations for sagemaker-runtime service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_runtime/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -37,11 +38,6 @@ from .type_defs import (
     InvokeEndpointWithResponseStreamOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -50,15 +46,15 @@ else:
 __all__ = ("SageMakerRuntimeClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalDependencyException: Type[BotocoreClientError]
-    InternalFailure: Type[BotocoreClientError]
-    InternalStreamFailure: Type[BotocoreClientError]
-    ModelError: Type[BotocoreClientError]
-    ModelNotReadyException: Type[BotocoreClientError]
-    ModelStreamError: Type[BotocoreClientError]
-    ServiceUnavailable: Type[BotocoreClientError]
-    ValidationError: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalDependencyException: type[BotocoreClientError]
+    InternalFailure: type[BotocoreClientError]
+    InternalStreamFailure: type[BotocoreClientError]
+    ModelError: type[BotocoreClientError]
+    ModelNotReadyException: type[BotocoreClientError]
+    ModelStreamError: type[BotocoreClientError]
+    ServiceUnavailable: type[BotocoreClientError]
+    ValidationError: type[BotocoreClientError]
 
 class SageMakerRuntimeClient(AioBaseClient):
     """
@@ -138,7 +134,7 @@ class SageMakerRuntimeClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

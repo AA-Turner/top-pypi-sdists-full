@@ -84,7 +84,7 @@ workspace_routing_sandbox:
   org_id: wildcard
   ws_id: wildcard
 workspace_routing_production:
-  # write: can modify production routing (change default, publish flows)
+  # write: can modify production routing (change default, publish flows, publish agents)
   org_id: wildcard
   ws_id: wildcard
 workspace_decision_history:
@@ -117,6 +117,12 @@ workspace_connection_secret:
   # read: can read the list of connection secrets
   # write: can modify the connection secrets
   # delete: can delete the connection secrets
+  org_id: wildcard
+  ws_id: wildcard
+workspace_agent_management:
+  # read: can view agents and agent versions
+  # write: can create and update agents and agent versions
+  # delete: can delete agents and agent versions
   org_id: wildcard
   ws_id: wildcard
 workspace_file:

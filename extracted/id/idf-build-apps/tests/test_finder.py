@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -138,7 +138,7 @@ examples/get-started:
         for app in apps:
             assert app.build_status == BuildStatus.DISABLED
             app.build()
-            assert app.build_comment == 'Build disabled. Skipping...'
+            assert app.build_comment.startswith('Not enabled by manifest rules:')
 
 
 class TestFindWithModifiedFilesComponents:
@@ -192,6 +192,10 @@ class TestFindWithModifiedFilesComponents:
                     os.path.join(IDF_PATH, 'examples', 'get-started', 'hello_world', 'main', 'hello_world_main.c'),
                 ],
                 True,
+            ),
+            (
+                [os.path.join(IDF_PATH, 'examples', 'get-started', 'hello_world_longer', 'main', 'hello_world_main.c')],
+                False,
             ),
         ],
     )
@@ -504,6 +508,7 @@ class TestFindWithSdkconfigFiles:
         (tmp_path / 'test1' / 'sdkconfig.defaults').touch()
         (tmp_path / 'test1' / 'sdkconfig.defaults_new').touch()
         (tmp_path / 'test1' / 'sdkconfig.ci.foo').touch()
+        (tmp_path / 'test1' / 'sdkconfig.ci.foo.esp32p4').touch()
 
         apps = find_apps(str(tmp_path / 'test1'), 'esp32', recursive=True, config_rules_str='sdkconfig.ci.*=')
         assert len(apps) == 1

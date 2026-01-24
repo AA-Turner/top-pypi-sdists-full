@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) TorchGeo Contributors. All rights reserved.
 # Licensed under the MIT License.
 
 """Common dataset utilities."""
@@ -12,15 +12,18 @@ import importlib
 import os
 import shutil
 import subprocess
-import sys
+import warnings
 from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, TypeAlias, cast, overload
 
 import numpy as np
+import pandas as pd
 import rasterio
+import shapely
 import torch
+from rasterio import Affine
 from torch import Tensor
 from torchvision.datasets.utils import (
     check_integrity,
@@ -29,6 +32,7 @@ from torchvision.datasets.utils import (
     extract_archive,
 )
 from torchvision.utils import draw_segmentation_masks
+from typing_extensions import deprecated
 
 from .errors import DependencyNotFoundError
 
@@ -41,9 +45,13 @@ __all__ = (
 )
 
 
+GeoSlice: TypeAlias = (
+    slice | tuple[slice] | tuple[slice, slice] | tuple[slice, slice, slice]
+)
 Path: TypeAlias = str | os.PathLike[str]
 
 
+@deprecated('Use torchgeo.datasets.utils.GeoSlice or shapely.Polygon instead')
 @dataclass(frozen=True)
 class BoundingBox:
     """Data class for indexing spatiotemporal data."""
@@ -57,9 +65,9 @@ class BoundingBox:
     #: northern boundary
     maxy: float
     #: earliest boundary
-    mint: float
+    mint: datetime
     #: latest boundary
-    maxt: float
+    maxt: datetime
 
     def __post_init__(self) -> None:
         """Validate the arguments passed to :meth:`__init__`.
@@ -84,14 +92,14 @@ class BoundingBox:
             )
 
     @overload
-    def __getitem__(self, key: int) -> float:
+    def __getitem__(self, key: int) -> Any:
         pass
 
     @overload
-    def __getitem__(self, key: slice) -> list[float]:
+    def __getitem__(self, key: slice) -> list[Any]:
         pass
 
-    def __getitem__(self, key: int | slice) -> float | list[float]:
+    def __getitem__(self, key: int | slice) -> Any | list[Any]:
         """Index the (minx, maxx, miny, maxy, mint, maxt) tuple.
 
         Args:
@@ -105,7 +113,7 @@ class BoundingBox:
         """
         return [self.minx, self.maxx, self.miny, self.maxy, self.mint, self.maxt][key]
 
-    def __iter__(self) -> Iterator[float]:
+    def __iter__(self) -> Iterator[Any]:
         """Container iterator.
 
         Returns:
@@ -193,7 +201,7 @@ class BoundingBox:
         return (self.maxx - self.minx) * (self.maxy - self.miny)
 
     @property
-    def volume(self) -> float:
+    def volume(self) -> timedelta:
         """Volume of bounding box.
 
         Volume is defined as spatial area times temporal range.
@@ -290,10 +298,12 @@ class Executable:
         return subprocess.run((self.name, *args), **kwargs)
 
 
-def disambiguate_timestamp(date_str: str, format: str) -> tuple[float, float]:
+def disambiguate_timestamp(
+    date_str: str | None, format: str
+) -> tuple[datetime, datetime]:
     """Disambiguate partial timestamps.
 
-    TorchGeo stores the timestamp of each file in a spatiotemporal R-tree. If the full
+    TorchGeo stores the timestamp of each file in a pandas IntervalIndex. If the full
     timestamp isn't known, a file could represent a range of time. For example, in the
     CDL dataset, each mask spans an entire year. This method returns the maximum
     possible range of timestamps that ``date_str`` could belong to. It does this by
@@ -306,6 +316,9 @@ def disambiguate_timestamp(date_str: str, format: str) -> tuple[float, float]:
     Returns:
         (mint, maxt) tuple for indexing
     """
+    if not isinstance(date_str, str):
+        return pd.NaT, pd.NaT
+
     mint = datetime.strptime(date_str, format)
     format = format.replace('%%', '')
 
@@ -314,7 +327,7 @@ def disambiguate_timestamp(date_str: str, format: str) -> tuple[float, float]:
 
     if not any([f'%{c}' in format for c in 'yYcxG']):
         # No temporal info
-        return 0, sys.maxsize
+        return pd.Timestamp.min, pd.Timestamp.max
     elif not any([f'%{c}' in format for c in 'bBmjUWcxV']):
         # Year resolution
         maxt = datetime(mint.year + 1, 1, 1)
@@ -342,7 +355,7 @@ def disambiguate_timestamp(date_str: str, format: str) -> tuple[float, float]:
 
     maxt -= timedelta(microseconds=1)
 
-    return mint.timestamp(), maxt.timestamp()
+    return mint, maxt
 
 
 @contextlib.contextmanager
@@ -407,6 +420,55 @@ def _dict_list_to_list_dict(
         for i, value in enumerate(values):
             uncollated[i][key] = value
     return uncollated
+
+
+def pad_across_batches(
+    batch: list[dict[str, Tensor]], padding_length: int, padding_value: float = 0.0
+) -> dict[str, Any]:
+    """Custom time-series collate fn to handle variable length sequences.
+
+    Args:
+        batch: list of sample dicts returned by dataset
+        padding_length: the length to pad the sequences to
+        padding_value: value for padded elements
+
+    Returns:
+        batch dict output
+
+    .. versionadded:: 0.8
+    """
+    output: dict[str, Any] = {}
+    images = [sample['image'] for sample in batch]
+    feature_shape = images[0].shape[1:]
+
+    padded_images = torch.full(
+        (len(batch), padding_length, *feature_shape),
+        padding_value,
+        dtype=images[0].dtype,
+        device=images[0].device,
+    )
+
+    truncated = 0
+    for i, img in enumerate(images):
+        seq_len = img.size(0)
+        if seq_len > padding_length:
+            padded_images[i, :padding_length] = img[:padding_length]
+            truncated += 1
+        else:
+            padded_images[i, :seq_len] = img
+
+    if truncated > 0:
+        warnings.warn(f'Truncated {truncated} sequences to length {padding_length}.')
+
+    output['image'] = padded_images
+    if 'mask' in batch[0]:
+        output['mask'] = torch.stack([sample['mask'] for sample in batch])
+    if 'bbox_xyxy' in batch[0]:
+        output['bbox_xyxy'] = torch.stack([sample['bbox_xyxy'] for sample in batch])
+    if 'label' in batch[0]:
+        output['label'] = torch.stack([sample['label'] for sample in batch])
+
+    return output
 
 
 def stack_samples(samples: Iterable[Mapping[Any, Any]]) -> dict[Any, Any]:
@@ -683,15 +745,15 @@ def lazy_import(name: str) -> Any:
         module_to_pypi |= {'cv2': 'opencv-python', 'skimage': 'scikit-image'}
         name = module_to_pypi[name]
         msg = f"""\
-{name} is not installed and is required to use this dataset. Either run:
+{name} is not installed and is required to use this feature. Either run:
 
 $ pip install {name}
 
 to install just this dependency, or:
 
-$ pip install torchgeo[datasets]
+$ pip install torchgeo[datasets,models]
 
-to install all optional dataset dependencies."""
+to install all optional dependencies."""
         raise DependencyNotFoundError(msg) from None
 
 
@@ -714,3 +776,35 @@ def which(name: Path) -> Executable:
     else:
         msg = f'{name} is not installed and is required to use this dataset.'
         raise DependencyNotFoundError(msg) from None
+
+
+def convert_poly_coords(
+    geom: shapely.geometry.shape, affine_obj: Affine, inverse: bool = False
+) -> shapely.geometry.shape:
+    """Convert geocoordinates to pixel coordinates and vice versa, based on `affine_obj`.
+
+    Args:
+        geom: shapely.geometry.shape to convert
+        affine_obj: rasterio.Affine object to use for geoconversion
+        inverse: If true, convert geocoordinates to pixel coordinates
+
+    Returns:
+        input shape converted to pixel coordinates
+
+    .. versionadded:: 0.8
+    """
+    if inverse:
+        affine_obj = ~affine_obj
+
+    xformed_shape = shapely.affinity.affine_transform(
+        geom,
+        [
+            affine_obj.a,
+            affine_obj.b,
+            affine_obj.d,
+            affine_obj.e,
+            affine_obj.xoff,
+            affine_obj.yoff,
+        ],
+    )
+    return xformed_shape

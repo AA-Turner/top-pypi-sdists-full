@@ -3,8 +3,9 @@
 #
 # Utilities for communicating directly with the user.
 # Documentation can be found at inform.readthedocs.io.
-#
-# Copyright (c) 2014-2025 Kenneth S. Kundert
+
+# License {{{1
+# Copyright (c) 2014-2026 Kenneth S. Kundert
 # This software is licensed under the `MIT Licents <https://mit-license.org>`_.
 
 # Imports {{{1
@@ -17,8 +18,8 @@ from codecs import open
 from textwrap import dedent as tw_dedent, fill
 
 # Globals {{{1
-__version__ = '1.35'
-__released__ = '2025-07-30'
+__version__ = '1.36'
+__released__ = '2026-01-10'
 INFORMER = None
 NOTIFIER = 'notify-send'
 STREAM_POLICIES = {
@@ -1143,6 +1144,8 @@ def did_you_mean(invalid_str, valid_strs):
 
     """
     from difflib import SequenceMatcher
+    if not valid_strs:
+        return ""  # or "Ø"  # null set
     similarity = lambda x: SequenceMatcher(a=invalid_str, b=x).ratio()
     return max(valid_strs, key=similarity)
 
@@ -1489,6 +1492,9 @@ class plural:
     def __str__(self):
         return self.format()
 
+    def __bool__(self):
+        return bool(self.value)
+
     def __repr__(self):
         return f"{self.__class__.__name__}({self.count})"
 
@@ -1560,17 +1566,55 @@ class truth:
 
     If '/', or '%' are inconvenient, you can change them by passing the
     *slash* and *interpolate* arguments to truth().
+
+    By default *bool*() is used to determine whether the value is true or false.
+    However you can override this behavior by passing a value to *is_true*.  It
+    may be a simple value or it may be a callable that accepts the given value 
+    as its only argument.
+
+    The formatter may contain a third section, which if present is taken to be a
+    format specification that is applied to value before it is interpolated into
+    the output.
+
+    As an example of these features, consider this example:
+
+        >>> contestants = [
+        ...     dict(name="Elinor", index=27, wins="car" ),
+        ...     dict(name="Vernon", index=130, wins="phone"),
+        ...     dict(name="Lee",    index=0),
+        ...     dict(name="Lita", comment='disqualified'),
+        ... ]
+
+        >>> for contestant in contestants:
+        ...     name = contestant.get('name')
+        ...     index = contestant.get('index')
+        ...     index = truth(index, is_true=index is not None)
+        ...     wins = truth(contestant.get('wins'))
+        ...     comment = truth(contestant.get('comment'))
+        ...     print(f"{index:%/  ✗/>3}: {name}{wins: wins a %/ loses}{comment: (%)/}")
+         27: Elinor wins a car
+        130: Vernon wins a phone
+          0: Lee loses
+          ✗: Lita loses (disqualified)
+
     """
 
-    def __init__(self, value, formatter=None, *, interpolate='%', slash='/'):
+    def __init__(self, value, formatter=None, *, is_true=None, interpolate='%', slash='/'):
         self.value = value
+        if is_true is None:
+            self.is_true = bool(value)
+        elif callable(is_true):
+            self.is_true = is_true(value)
+        else:
+            self.is_true = bool(is_true)
         self.interpolate = interpolate
         self.slash = slash
         if formatter:
-            use_if_true, _, use_if_false = formatter.partition(self.slash)
-            self.defaults = use_if_true, use_if_false
+            use_if_true, _, rest = formatter.partition(self.slash)
+            use_if_false, _, preformatter = rest.partition(self.slash)
+            self.defaults = use_if_true, use_if_false, preformatter
         else:
-            self.defaults = 'yes', 'no'
+            self.defaults = 'yes', 'no', ''
 
     def format(self, formatter=None):
         """Expand truth to a string.
@@ -1587,22 +1631,25 @@ class truth:
         return self.__format__(formatter)
 
     def __format__(self, formatter):
-        value = self.value
         if formatter:
-            use_if_true, _, use_if_false = formatter.partition(self.slash)
+            use_if_true, _, rest = formatter.partition(self.slash)
+            use_if_false, _, preformatter = rest.partition(self.slash)
         else:
-            use_if_true, use_if_false = self.defaults
-        out = use_if_true if bool(value) else use_if_false
-        return out.replace(self.interpolate, str(value))
+            use_if_true, use_if_false, preformatter = self.defaults
+        out = use_if_true if self.is_true else use_if_false
+        value = str(self.value)
+        if preformatter and self.interpolate in out:
+            value = f"{self.value:{preformatter}}"
+        return out.replace(self.interpolate, value)
 
     def __str__(self):
-        return self.defaults[0] if self.value else self.defaults[1]
+        return self.defaults[0] if self.is_true else self.defaults[1]
+
+    def __bool__(self):
+        return self.is_true
 
     def __repr__(self):
         return f"{self.__class__.__name__}({bool(self.value)})"
-
-    def __bool__(self):
-        return bool(self.value)
 
 # full_stop {{{2
 def full_stop(sentence, end='.', allow='.?!', remove=r'\\'):
@@ -3267,7 +3314,7 @@ class Inform:
             | 2: invalid invocation
             | 3: panic
 
-        Of, if your program naturally want to signal pass or failure using its exit status:
+        Of, if your program naturally wants to signal pass or failure using its exit status:
             | 0: success
             | 1: failure
             | 2: error
@@ -3421,6 +3468,7 @@ class Inform:
             warning: pyproject.toml, 25: empty line.
             warning: pyproject.toml, 37: empty line.
             warning: pyproject.toml, 43: empty line.
+            ...
 
         """
         return self.CulpritContextManager(self, culprit, append=False)
@@ -3809,3 +3857,5 @@ class Error(Exception):
         if name.startswith('__'):
             raise AttributeError(name)
         return self.kwargs.get(name)
+
+# vim: set sw=4 sts=4 tw=80 fo=ntcqwa12 et spell:

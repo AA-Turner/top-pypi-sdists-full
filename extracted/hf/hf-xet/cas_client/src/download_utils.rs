@@ -10,8 +10,8 @@ use deduplication::constants::MAX_XORB_BYTES;
 use derivative::Derivative;
 use error_printer::ErrorPrinter;
 use futures::TryStreamExt;
-use http::header::RANGE;
 use http::StatusCode;
+use http::header::RANGE;
 use merklehash::MerkleHash;
 use reqwest::Response;
 use reqwest_middleware::ClientWithMiddleware;
@@ -22,7 +22,7 @@ use utils::singleflight::Group;
 use crate::error::{CasClientError, Result};
 use crate::http_client::Api;
 use crate::output_provider::OutputProvider;
-use crate::remote_client::{get_reconstruction_with_endpoint_and_client, PREFIX_DEFAULT};
+use crate::remote_client::{PREFIX_DEFAULT, get_reconstruction_with_endpoint_and_client};
 use crate::retry_wrapper::{RetryWrapper, RetryableReqwestError};
 
 utils::configurable_constants! {
@@ -398,6 +398,9 @@ impl DownloadSegmentLengthTuner {
     pub fn tune_on<T>(&self, metrics: TermDownloadResult<T>) -> Result<()> {
         let mut num_range_in_segment = self.n_range_in_segment.lock()?;
         debug_assert!(*num_range_in_segment <= self.max_segments);
+
+        info!(retried_on_403=metrics.n_retries_on_403, duration=?metrics.duration, "Download metrics");
+
         if metrics.n_retries_on_403 > 0 {
             if *num_range_in_segment > 1 {
                 let delta = NUM_RANGE_IN_SEGMENT_DELTA.min(*num_range_in_segment - 1);
@@ -449,7 +452,10 @@ pub(crate) async fn get_one_fetch_term_data(
             hash,
         };
         if let Ok(Some(cached)) = cache.get(&key, &fetch_term.range).await.log_error("cache error") {
+            info!(%hash, range=?fetch_term.range, "Cache hit");
             return Ok(cached.into());
+        } else {
+            info!(%hash, range=?fetch_term.range, "Cache miss");
         }
     }
 
@@ -469,11 +475,13 @@ pub(crate) async fn get_one_fetch_term_data(
             prefix: PREFIX_DEFAULT.to_string(),
             hash,
         };
-        if let Err(e) = cache
+        if let Err(err) = cache
             .put(&key, &fetch_term.range, &term_download_output.chunk_byte_indices, &term_download_output.data)
             .await
         {
-            info!("Writing to local cache failed, continuing. Error: {}", e);
+            info!(%hash, range=?fetch_term.range, ?err, "Writing to local cache failed, continuing");
+        } else {
+            info!(%hash, range=?fetch_term.range, "Cache write successful");
         }
     }
 
@@ -572,7 +580,7 @@ mod tests {
     use tokio::time::sleep;
 
     use super::*;
-    use crate::{build_http_client, RetryConfig};
+    use crate::{RetryConfig, build_http_client};
 
     #[tokio::test]
     async fn test_fetch_info_query_and_find() -> Result<()> {

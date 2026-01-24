@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, conlist, constr, validator 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.trigger import Trigger
 
 class UpdateInstanceRequest(BaseModel):
@@ -30,9 +32,9 @@ class UpdateInstanceRequest(BaseModel):
     integration_type:  StrictStr = Field(...,alias="integrationType") 
     name:  StrictStr = Field(...,alias="name") 
     description:  StrictStr = Field(...,alias="description") 
-    enabled: StrictBool = Field(...)
-    triggers: conlist(Trigger) = Field(...)
-    details: Dict[str, Any] = Field(...)
+    enabled: StrictBool
+    triggers: List[Trigger]
+    details: Dict[str, Any]
     __properties = ["id", "integrationType", "name", "description", "enabled", "triggers", "details"]
 
     class Config:
@@ -95,3 +97,5 @@ class UpdateInstanceRequest(BaseModel):
             "details": obj.get("details")
         })
         return _obj
+
+UpdateInstanceRequest.update_forward_refs()

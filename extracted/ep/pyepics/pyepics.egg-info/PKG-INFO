@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyepics
-Version: 3.5.8
+Version: 3.5.9
 Summary: Epics Channel Access for Python
 Author-email: Matthew Newville <newville@cars.uchicago.edu>
 Project-URL: Homepage, https://github.com/pyepics/pyepics/
@@ -12,16 +12,16 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: numpy>=1.23
+Requires-Dist: numpy>=1.26
 Requires-Dist: pyparsing
 Provides-Extra: doc
 Requires-Dist: Sphinx; extra == "doc"
@@ -39,13 +39,7 @@ PyEpics:  Epics Channel Access for Python
 ==============================================
 
 .. image:: https://github.com/pyepics/pyepics/actions/workflows/test-with-conda.yml/badge.svg
-   :target: https://github.com/pyepics/pyepics/actions/workflows/test-with-conda.yml/
-
-.. image:: https://github.com/pyepics/pyepics/actions/workflows/test-python38.yml/badge.svg
-   :target: https://github.com/pyepics/pyepics/actions/workflows/test-python38.yml/
-
-.. image:: https://codecov.io/gh/pyepics/pyepics/branch/master/graph/badge.svg
-  :target: https://codecov.io/gh/pyepics/pyepics
+  :target: https://github.com/pyepics/pyepics/actions/workflows/test-with-conda.yml/
 
 .. image:: https://img.shields.io/pypi/v/pyepics.svg
    :target: https://pypi.org/project/pyepics

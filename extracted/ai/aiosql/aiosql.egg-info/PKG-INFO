@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiosql
-Version: 13.4
+Version: 15.0
 Summary: Simple SQL in Python
 Author-email: "William Vaughn et al." <vaughnwilld@gmail.com>
 License-Expression: BSD-2-Clause
@@ -8,14 +8,14 @@ Project-URL: repository, https://github.com/nackjicholson/aiosql
 Project-URL: documentation, https://nackjicholson.github.io/aiosql/
 Project-URL: issues, https://github.com/nackjicholson/aiosql/issues
 Project-URL: package, https://pypi.org/project/aiosql/
-Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: SQL
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: dev
@@ -25,7 +25,8 @@ Requires-Dist: coverage; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
+Requires-Dist: mypy<1.19; implementation_name == "pypy" and extra == "dev"
+Requires-Dist: mypy; implementation_name != "pypy" and extra == "dev"
 Requires-Dist: pyright; extra == "dev"
 Requires-Dist: types-setuptools; extra == "dev"
 Provides-Extra: dev-duckdb
@@ -59,8 +60,8 @@ Requires-Dist: wheel; extra == "dist"
 Requires-Dist: twine; extra == "dist"
 Dynamic: license-file
 
-aiosql - Simple SQL in Python
-=============================
+aiosql - Simple SQL in Python (aka YeSQL for Python)
+====================================================
 
 `SQL <https://en.wikipedia.org/wiki/SQL>`__ is code.
 Write it, version control it, comment it, and run it using files.
@@ -81,6 +82,7 @@ based drivers for
 `apsw <https://pypi.org/project/apsw/>`__),
 `PostgreSQL <https://postgresql.org/>`__
 (`psycopg (3) <https://www.psycopg.org/psycopg3/>`__,
+`apsycopg (3) <https://www.psycopg.org/psycopg3/>`__,
 `psycopg2 <https://www.psycopg.org/docs/>`__,
 `pg8000 <https://pypi.org/project/pg8000/>`__,
 `pygresql <http://www.pygresql.org/>`__,
@@ -134,9 +136,9 @@ Badges
    :target: https://github.com/nackjicholson/aiosql/actions/
 ..
    NOTE all tests
-   # MIST
+   # MISC
    loading: 17
-   patterns: 5
+   patterns: 6
    # SYNC
    sqlite3: 17
    apsw: 16
@@ -153,7 +155,8 @@ Badges
    # ASYNC
    aiosqlite: 13
    asyncpg: 18
-.. image:: https://img.shields.io/badge/tests-247%20✓-success
+   apsycopg3: 14
+.. image:: https://img.shields.io/badge/tests-262%20✓-success
    :alt: Tests
    :target: https://github.com/nackjicholson/aiosql/actions/
 .. image:: https://img.shields.io/github/issues/nackjicholson/aiosql?style=flat
@@ -177,7 +180,7 @@ Badges
 .. image:: https://img.shields.io/badge/databases-6-informational
    :alt: Databases
    :target: https://github.com/nackjicholson/aiosql/
-.. image:: https://img.shields.io/badge/drivers-15-informational
+.. image:: https://img.shields.io/badge/drivers-16-informational
    :alt: Drivers
    :target: https://github.com/nackjicholson/aiosql/
 .. image:: https://img.shields.io/github/languages/count/nackjicholson/aiosql?style=flat
@@ -262,13 +265,9 @@ using ``aiosqlite`` and ``asyncio``:
 
     async def main():
         async with aiosqlite.connect("greetings.db") as conn:
-            # possibly in parallel…
-            greetings, user = await asyncio.gather(
-                queries.get_all_greetings(conn),
-                queries.get_user_by_username(conn, username="willvaughn")
-            )
+            user = await queries.get_user_by_username(conn, username="willvaughn")
 
-            for _, greeting in greetings:
+            async for _, greeting in queries.get_all_greetings(conn):
                 print(f"{greeting}, {user[2]}!")
 
     asyncio.run(main())

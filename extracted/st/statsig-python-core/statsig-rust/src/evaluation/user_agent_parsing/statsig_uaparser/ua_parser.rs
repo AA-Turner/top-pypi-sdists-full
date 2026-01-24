@@ -3,7 +3,7 @@ use super::tokenizer::{Token, Tokenizer};
 pub struct UaParser;
 
 impl UaParser {
-    pub fn parse_os<'a>(agent: &'a str) -> ParserResult<'a> {
+    pub fn parse_os(agent: &str) -> ParserResult<'_> {
         let result = Tokenizer::run(agent);
 
         if let Some(token) = &result.possible_os_token {
@@ -15,7 +15,7 @@ impl UaParser {
                 return create_res("ATV OS X", None);
             }
 
-            if token.tag == "iPhone OS" {
+            if token.tag == "iPhone OS" || token.tag == "iOS" {
                 return create_res("iOS", token.get_version());
             }
 
@@ -33,6 +33,10 @@ impl UaParser {
 
             if token.tag == "Android" {
                 return create_res(token.tag, token.get_version());
+            }
+
+            if token.tag.starts_with("Android") {
+                return create_res("Android", None);
             }
 
             if token.tag == "Chromecast" {
@@ -71,7 +75,7 @@ impl UaParser {
         create_res("Other", None)
     }
 
-    pub fn parse_browser<'a>(agent: &'a str) -> ParserResult<'a> {
+    pub fn parse_browser(agent: &str) -> ParserResult<'_> {
         let result = Tokenizer::run(agent);
 
         if let Some(token) = &result.possible_browser_token {
@@ -105,10 +109,6 @@ impl UaParser {
                 return create_res("Yahoo! Slurp", None);
             }
 
-            if token.tag == "ChatGPT" {
-                return create_res("ChatGPT", token.get_version());
-            }
-
             if token.tag == "Silk" {
                 if result.playstation_hint {
                     return create_res("NetFront NX", None);
@@ -133,9 +133,24 @@ impl UaParser {
                 return create_res("Edge", token.get_version());
             }
 
+            if token.tag == "Opera" {
+                if result.mobile_hint {
+                    return create_res("Opera Mobile", token.get_version());
+                }
+                return create_res("Opera", token.get_version());
+            }
+
             if token.tag == "Chrome" {
                 chrome_token = Some(token);
                 continue;
+            }
+
+            if token.tag == "axios" {
+                return create_res("axios", token.get_version());
+            }
+
+            if token.tag == "HeadlessChrome" {
+                return create_res("HeadlessChrome", token.get_version());
             }
         }
 
@@ -161,10 +176,21 @@ impl UaParser {
             return create_res("Android", token.get_version());
         }
 
+        if result.cfnetwork_hint && !result.tokens.is_empty() {
+            if result.tokens[0].tag == "NetworkingExtension" {
+                return create_res(
+                    "CFNetwork",
+                    result.tokens.get(1).and_then(|t| t.get_version()),
+                );
+            }
+            return create_res(result.tokens[0].tag, result.tokens[0].get_version());
+        }
+
         if result.safari_hint {
             let version = version_token.and_then(|t| t.get_version());
 
-            if result.mobile_hint {
+            if result.mobile_hint && !result.macos_hint {
+                // UA string has this “Mobile” flag likely for compatibility or simulation purposes but it's running ins macos
                 return create_res("Mobile Safari", version);
             }
 
@@ -172,9 +198,15 @@ impl UaParser {
         }
 
         if result.ios_hint {
-            return create_res("Mobile Safari UI/WKWebView", None);
+            return create_res(
+                "Mobile Safari UI/WKWebView",
+                result.possible_os_token.and_then(|o| o.get_version()),
+            );
         }
 
+        if result.crawler_hint {
+            return create_res("crawler", None);
+        }
         create_res("Other", None)
     }
 }

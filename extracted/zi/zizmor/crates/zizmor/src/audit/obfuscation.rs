@@ -4,6 +4,7 @@ use yamlpatch::{Op, Patch};
 
 use crate::{
     Confidence, Severity,
+    audit::AuditError,
     config::Config,
     finding::{
         Finding, Fix, FixDisposition, Persona,
@@ -25,14 +26,14 @@ audit_meta!(
 );
 
 impl Obfuscation {
-    fn obfuscated_repo_uses(&self, uses: &RepositoryUses) -> Vec<&str> {
+    fn obfuscated_repo_uses(&self, uses: &RepositoryUses) -> Vec<&'static str> {
         let mut annotations = vec![];
 
         // Users can put all kinds of nonsense in `uses:` clauses, which
         // GitHub happily interprets but otherwise gums up pattern matching
         // in audits like unpinned-uses, forbidden-uses, and cache-poisoning.
         // We check for some of these forms of nonsense here and report them.
-        if let Some(subpath) = uses.subpath.as_deref() {
+        if let Some(subpath) = uses.subpath() {
             for component in subpath.split('/') {
                 match component {
                     // . and .. are valid in uses subpaths, but are impossible to
@@ -59,7 +60,7 @@ impl Obfuscation {
 
     /// Normalizes a uses path by removing unnecessary components like empty slashes, `.`, and `..`.
     fn normalize_uses_path(&self, uses: &RepositoryUses) -> Option<String> {
-        let subpath = uses.subpath.as_deref()?;
+        let subpath = uses.subpath()?;
 
         let mut components = Vec::new();
         for component in subpath.split('/') {
@@ -82,14 +83,19 @@ impl Obfuscation {
 
         // If all components were removed, the subpath should be empty
         if components.is_empty() {
-            Some(format!("{}/{}@{}", uses.owner, uses.repo, uses.git_ref))
+            Some(format!(
+                "{}/{}@{}",
+                uses.owner(),
+                uses.repo(),
+                uses.git_ref()
+            ))
         } else {
             Some(format!(
                 "{}/{}/{}@{}",
-                uses.owner,
-                uses.repo,
+                uses.owner(),
+                uses.repo(),
                 components.join("/"),
-                uses.git_ref
+                uses.git_ref()
             ))
         }
     }
@@ -145,7 +151,7 @@ impl Obfuscation {
     fn obfuscated_exprs<'src>(
         &self,
         expr: &SpannedExpr<'src>,
-    ) -> Vec<(&str, Origin<'src>, Persona)> {
+    ) -> Vec<(&'static str, Origin<'src>, Persona)> {
         let mut annotations = vec![];
 
         // Check for some common expression obfuscation patterns.
@@ -186,10 +192,14 @@ impl Obfuscation {
     fn process_step<'doc>(
         &self,
         step: &impl StepCommon<'doc>,
-    ) -> anyhow::Result<Vec<Finding<'doc>>> {
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
         let mut findings = vec![];
 
-        if let Some(Uses::Repository(uses)) = step.uses() {
+        if let crate::models::StepBodyCommon::Uses {
+            uses: Uses::Repository(uses),
+            ..
+        } = step.body()
+        {
             let obfuscated_annotations = self.obfuscated_repo_uses(uses);
             if !obfuscated_annotations.is_empty() {
                 let mut finding_builder = Self::finding()
@@ -211,7 +221,7 @@ impl Obfuscation {
                     finding_builder = finding_builder.fix(fix);
                 }
 
-                findings.push(finding_builder.build(step)?);
+                findings.push(finding_builder.build(step).map_err(Self::err)?);
             }
         }
 
@@ -219,6 +229,7 @@ impl Obfuscation {
     }
 }
 
+#[async_trait::async_trait]
 impl Audit for Obfuscation {
     fn new(_state: &AuditState) -> Result<Self, AuditLoadError>
     where
@@ -227,11 +238,11 @@ impl Audit for Obfuscation {
         Ok(Self)
     }
 
-    fn audit_raw<'doc>(
+    async fn audit_raw<'doc>(
         &self,
         input: &'doc AuditInput,
         _config: &Config,
-    ) -> anyhow::Result<Vec<Finding<'doc>>> {
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
         let mut findings = vec![];
 
         for (expr, expr_span) in parse_fenced_expressions_from_input(input) {
@@ -289,26 +300,26 @@ impl Audit for Obfuscation {
                     }
                 }
 
-                findings.push(finding_builder.build(input)?);
+                findings.push(finding_builder.build(input).map_err(Self::err)?);
             }
         }
 
         Ok(findings)
     }
 
-    fn audit_step<'doc>(
+    async fn audit_step<'doc>(
         &self,
         step: &Step<'doc>,
         _config: &Config,
-    ) -> anyhow::Result<Vec<Finding<'doc>>> {
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
         self.process_step(step)
     }
 
-    fn audit_composite_step<'a>(
+    async fn audit_composite_step<'a>(
         &self,
         step: &CompositeStep<'a>,
         _config: &Config,
-    ) -> anyhow::Result<Vec<Finding<'a>>> {
+    ) -> Result<Vec<Finding<'a>>, AuditError> {
         self.process_step(step)
     }
 }
@@ -322,8 +333,8 @@ mod tests {
     use crate::state::AuditState;
 
     /// Helper function to apply a fix and return the result for snapshot testing
-    fn apply_fix_for_snapshot(workflow_content: &str, _audit_name: &str) -> String {
-        let key = InputKey::local("dummy".into(), "test.yml", None::<&str>).unwrap();
+    async fn apply_fix_for_snapshot(workflow_content: &str, _audit_name: &str) -> String {
+        let key = InputKey::local("dummy".into(), "test.yml", None::<&str>);
         let workflow = Workflow::from_string(workflow_content.to_string(), key).unwrap();
         let audit_state = AuditState {
             no_online_audits: false,
@@ -332,6 +343,7 @@ mod tests {
         let audit = Obfuscation::new(&audit_state).unwrap();
         let findings = audit
             .audit_workflow(&workflow, &Default::default())
+            .await
             .unwrap();
 
         assert!(!findings.is_empty(), "Expected findings but got none");
@@ -355,8 +367,8 @@ mod tests {
         fixed_document.source().to_string()
     }
 
-    #[test]
-    fn test_obfuscation_fix_uses_path_empty_components() {
+    #[tokio::test]
+    async fn test_obfuscation_fix_uses_path_empty_components() {
         let workflow_content = r#"
 name: Test Workflow
 on: push
@@ -368,8 +380,9 @@ jobs:
       - uses: actions/checkout////@v4
 "#;
 
-        let result = apply_fix_for_snapshot(workflow_content, "obfuscation");
-        insta::assert_snapshot!(result, @r#"
+        let result = apply_fix_for_snapshot(workflow_content, "obfuscation").await;
+        insta::assert_snapshot!(result, @r"
+
         name: Test Workflow
         on: push
 
@@ -378,11 +391,11 @@ jobs:
             runs-on: ubuntu-latest
             steps:
               - uses: actions/checkout@v4
-        "#);
+        ");
     }
 
-    #[test]
-    fn test_obfuscation_fix_uses_path_dot() {
+    #[tokio::test]
+    async fn test_obfuscation_fix_uses_path_dot() {
         let workflow_content = r#"
 name: Test Workflow
 on: push
@@ -394,8 +407,9 @@ jobs:
       - uses: github/codeql-action/./init@v2
 "#;
 
-        let result = apply_fix_for_snapshot(workflow_content, "obfuscation");
-        insta::assert_snapshot!(result, @r#"
+        let result = apply_fix_for_snapshot(workflow_content, "obfuscation").await;
+        insta::assert_snapshot!(result, @r"
+
         name: Test Workflow
         on: push
 
@@ -404,11 +418,11 @@ jobs:
             runs-on: ubuntu-latest
             steps:
               - uses: github/codeql-action/init@v2
-        "#);
+        ");
     }
 
-    #[test]
-    fn test_obfuscation_fix_uses_path_double_dot() {
+    #[tokio::test]
+    async fn test_obfuscation_fix_uses_path_double_dot() {
         let workflow_content = r#"
 name: Test Workflow
 on: push
@@ -420,8 +434,9 @@ jobs:
       - uses: actions/cache/save/../save@v4
 "#;
 
-        let result = apply_fix_for_snapshot(workflow_content, "obfuscation");
-        insta::assert_snapshot!(result, @r#"
+        let result = apply_fix_for_snapshot(workflow_content, "obfuscation").await;
+        insta::assert_snapshot!(result, @r"
+
         name: Test Workflow
         on: push
 
@@ -430,6 +445,6 @@ jobs:
             runs-on: ubuntu-latest
             steps:
               - uses: actions/cache/save@v4
-        "#);
+        ");
     }
 }

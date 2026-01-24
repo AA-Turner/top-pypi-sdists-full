@@ -68,7 +68,7 @@ if TYPE_CHECKING:
 DEFAULT_RUN_SCOPED_EVENT_TAILER_OFFSET = 20000
 
 
-from .queries import (
+from dagster_cloud.storage.event_logs.queries import (
     ADD_DYNAMIC_PARTITIONS_MUTATION,
     CHECK_CONCURRENCY_CLAIM_QUERY,
     CLAIM_CONCURRENCY_SLOT_MUTATION,
@@ -957,7 +957,7 @@ class GraphQLEventLogStorage(EventLogStorage, ConfigurableClass):
         ]
 
         # Translate list to tuple
-        return {key: tuple(val) for key, val in result.items()}  # type: ignore
+        return {key: tuple(val) for key, val in result.items()}
 
     def get_event_tags_for_asset(
         self,

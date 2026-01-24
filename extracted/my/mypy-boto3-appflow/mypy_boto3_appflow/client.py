@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -72,12 +73,6 @@ from .type_defs import (
     UpdateFlowResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -88,17 +83,17 @@ __all__ = ("AppflowClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ConnectorAuthenticationException: Type[BotocoreClientError]
-    ConnectorServerException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ConnectorAuthenticationException: type[BotocoreClientError]
+    ConnectorServerException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class AppflowClient(BaseClient):
@@ -167,7 +162,7 @@ class AppflowClient(BaseClient):
 
     def delete_connector_profile(
         self, **kwargs: Unpack[DeleteConnectorProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables you to delete an existing connector profile.
 
@@ -175,7 +170,7 @@ class AppflowClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appflow/client/#delete_connector_profile)
         """
 
-    def delete_flow(self, **kwargs: Unpack[DeleteFlowRequestTypeDef]) -> Dict[str, Any]:
+    def delete_flow(self, **kwargs: Unpack[DeleteFlowRequestTypeDef]) -> dict[str, Any]:
         """
         Enables your application to delete an existing flow.
 
@@ -297,7 +292,7 @@ class AppflowClient(BaseClient):
 
     def reset_connector_metadata_cache(
         self, **kwargs: Unpack[ResetConnectorMetadataCacheRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Resets metadata about your connector entities that Amazon AppFlow stored in its
         cache.
@@ -322,7 +317,7 @@ class AppflowClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appflow/client/#stop_flow)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Applies a tag to the specified flow.
 
@@ -332,7 +327,7 @@ class AppflowClient(BaseClient):
 
     def unregister_connector(
         self, **kwargs: Unpack[UnregisterConnectorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Unregisters the custom connector registered in your account that matches the
         connector label provided in the request.
@@ -341,7 +336,7 @@ class AppflowClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appflow/client/#unregister_connector)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from the specified flow.
 

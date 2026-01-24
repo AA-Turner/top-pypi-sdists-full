@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: authheaders
+Version: 0.16.3
+Summary: A library wrapping email authentication header verification and generation.
+Home-page: https://github.com/ValiMail/authentication-headers
+Author: Gene Shuman
+Author-email: gene@valimail.com
+License: MIT
+Keywords: email,headers,SPF,DKIM,DMARC,ARC
+Classifier: Development Status :: 4 - Beta
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Communications :: Email :: Mail Transport Agents
+Classifier: Topic :: Communications :: Email :: Filters
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >3.7
+Description-Content-Type: text/plain
+License-File: COPYING
+
+Python module for generating email authentication headers: Authheaders can generate both authentication results header fields and DKIM/ ARC signatures. It can perform DKIM, SPF, and DMARC validation, and the results are packaged into a single Authentication-Results header. It can also DKIM and ARC sign messages and output the corresponding signature header fields. 

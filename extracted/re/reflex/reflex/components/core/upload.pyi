@@ -7,11 +7,19 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, ClassVar
 
+import reflex
+from reflex.app import UploadFile
 from reflex.components.base.fragment import Fragment
 from reflex.components.component import Component, ComponentNamespace, MemoizationLeaf
 from reflex.components.core.breakpoints import Breakpoints
 from reflex.constants import Dirs
-from reflex.event import CallableEventSpec, EventSpec, EventType, PointerEventInfo
+from reflex.event import (
+    CallableEventSpec,
+    EventSpec,
+    EventType,
+    PointerEventInfo,
+    passthrough_event_spec,
+)
 from reflex.style import Style
 from reflex.utils.imports import ImportVar
 from reflex.vars import VarData
@@ -38,6 +46,8 @@ uploaded_files_url_prefix = Var(
 ).to(str)
 
 def get_upload_url(file_path: str | Var[str]) -> Var[str]: ...
+
+_on_drop_spec = passthrough_event_spec(list[UploadFile])
 
 class UploadFilesProvider(Component):
     @classmethod
@@ -107,8 +117,10 @@ class GhostUpload(Fragment):
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
-        on_drop: EventType[()] | EventType[Any] | None = None,
-        on_drop_rejected: EventType[()] | EventType[Any] | None = None,
+        on_drop: EventType[()] | EventType[list[reflex.app.UploadFile]] | None = None,
+        on_drop_rejected: EventType[()]
+        | EventType[list[reflex.app.UploadFile]]
+        | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -172,8 +184,10 @@ class Upload(MemoizationLeaf):
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
-        on_drop: EventType[()] | EventType[Any] | None = None,
-        on_drop_rejected: EventType[()] | EventType[Any] | None = None,
+        on_drop: EventType[()] | EventType[list[reflex.app.UploadFile]] | None = None,
+        on_drop_rejected: EventType[()]
+        | EventType[list[reflex.app.UploadFile]]
+        | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -245,8 +259,10 @@ class StyledUpload(Upload):
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
-        on_drop: EventType[()] | EventType[Any] | None = None,
-        on_drop_rejected: EventType[()] | EventType[Any] | None = None,
+        on_drop: EventType[()] | EventType[list[reflex.app.UploadFile]] | None = None,
+        on_drop_rejected: EventType[()]
+        | EventType[list[reflex.app.UploadFile]]
+        | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -319,8 +335,10 @@ class UploadNamespace(ComponentNamespace):
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
-        on_drop: EventType[()] | EventType[Any] | None = None,
-        on_drop_rejected: EventType[()] | EventType[Any] | None = None,
+        on_drop: EventType[()] | EventType[list[reflex.app.UploadFile]] | None = None,
+        on_drop_rejected: EventType[()]
+        | EventType[list[reflex.app.UploadFile]]
+        | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,

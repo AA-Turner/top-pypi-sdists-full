@@ -520,7 +520,7 @@ class Server:
             timeout = getattr(self, "death_timeout", None)
 
             async def _close_on_failure(exc: Exception) -> None:
-                await self.close(reason=f"failure-to-start-{str(type(exc))}")
+                await self.close(reason=f"failure-to-start-{type(exc)}")
                 self.status = Status.failed
                 self.__startup_exc = exc
 
@@ -1546,7 +1546,7 @@ class ConnectionPool:
         """
         Reuse an open communication to the given address.  For internal use.
         """
-        # if the pool is asked to re-use a comm it does not know about, ignore
+        # if the pool is asked to reuse a comm it does not know about, ignore
         # this comm: just close it.
         if comm not in self.occupied[addr]:
             IOLoop.current().add_callback(comm.close)

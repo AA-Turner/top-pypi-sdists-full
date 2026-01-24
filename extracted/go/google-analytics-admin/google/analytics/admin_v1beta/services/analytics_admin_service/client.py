@@ -157,6 +157,34 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
     _DEFAULT_ENDPOINT_TEMPLATE = "analyticsadmin.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -570,12 +598,8 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = AnalyticsAdminServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -583,7 +607,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -615,20 +639,14 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = AnalyticsAdminServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -1320,8 +1338,8 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (for example, "field_to_update").
                 Omitted fields will not be updated. To replace the
-                entire entity, use one path with the string "*" to match
-                all fields.
+                entire entity, use one path with the string "\*" to
+                match all fields.
 
                 This corresponds to the ``update_mask`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2056,7 +2074,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -2646,7 +2664,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -4059,7 +4077,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -4669,7 +4687,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -5245,7 +5263,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             update_mask (google.protobuf.field_mask_pb2.FieldMask):
                 Required. The list of fields to be updated. Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -5821,7 +5839,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             update_mask (google.protobuf.field_mask_pb2.FieldMask):
                 Required. The list of fields to be updated. Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -6395,7 +6413,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
                 Required. The list of fields to be updated. Field names
                 must be in snake case (e.g., "field_to_update"). Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field
@@ -6738,7 +6756,7 @@ class AnalyticsAdminServiceClient(metaclass=AnalyticsAdminServiceClientMeta):
             update_mask (google.protobuf.field_mask_pb2.FieldMask):
                 Required. The list of fields to be updated. Omitted
                 fields will not be updated. To replace the entire
-                entity, use one path with the string "*" to match all
+                entity, use one path with the string "\*" to match all
                 fields.
 
                 This corresponds to the ``update_mask`` field

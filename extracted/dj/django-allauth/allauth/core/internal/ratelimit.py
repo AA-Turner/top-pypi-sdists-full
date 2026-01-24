@@ -14,12 +14,14 @@ import hashlib
 import time
 from collections import namedtuple
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Dict, List, Optional, Tuple, Union
 
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.template.exceptions import TemplateDoesNotExist
 
 from allauth.core.exceptions import RateLimited
 
@@ -55,7 +57,7 @@ def parse_duration(duration) -> Union[int, float]:
     value = duration[0:-1]
     unit_map = {"s": 1, "m": 60, "h": 3600, "d": 86400}
     if unit not in unit_map:
-        raise ValueError("Invalid duration unit: %s" % unit)
+        raise ValueError(f"Invalid duration unit: {unit}")
     if len(value) == 0:
         value = 1
     else:
@@ -183,7 +185,25 @@ def consume(
 def handler429(request) -> HttpResponse:
     from allauth.account import app_settings
 
-    return render(request, "429." + app_settings.TEMPLATE_EXTENSION, status=429)
+    try:
+        return render(
+            request,
+            f"429.{app_settings.TEMPLATE_EXTENSION}",
+            status=HTTPStatus.TOO_MANY_REQUESTS,
+        )
+    except TemplateDoesNotExist:
+        content = """<html>
+    <head><title>Too Many Requests</title></head>
+    <body>
+        <h1>429 Too Many Requests</h1>
+        <p>You have sent too many requests. Please try again later.</p>
+    </body>
+</html>"""
+        return HttpResponse(
+            content=content,
+            content_type="text/html",
+            status=HTTPStatus.TOO_MANY_REQUESTS,
+        )
 
 
 def clear(request, *, config: dict, action: str, key=None, user=None):

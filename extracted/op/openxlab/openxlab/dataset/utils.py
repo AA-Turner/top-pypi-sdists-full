@@ -8,6 +8,7 @@ from typing import List
 from urllib.parse import urlparse
 
 import requests
+import urllib3.exceptions
 
 
 def parse_url(url: str):
@@ -39,17 +40,28 @@ def bytes2human(n, format="%(value).1f%(symbol)s", symbols="customary"):
     see: http://goo.gl/kTQMs
     """
 
+    # Ensure n is an integer
     n = int(n)
+    
+    # Handle special case for zero bytes
+    if n == 0:
+        symbols = SYMBOLS[symbols]
+        return format % dict(symbol=symbols[0], value=0)
+        
     if n < 0:
         raise ValueError("n < 0")
+        
     symbols = SYMBOLS[symbols]
     prefix = {}
     for i, s in enumerate(symbols[1:]):
         prefix[s] = 1 << (i + 1) * 10
+    
+    # Ensure proper handling of very small values
     for symbol in reversed(symbols[1:]):
         if n >= prefix[symbol]:
             value = float(n) / prefix[symbol]
             return format % locals()
+    
     return format % dict(symbol=symbols[0], value=n)
 
 
@@ -190,7 +202,7 @@ def get_file_content(file_path: str, buf_size: int = 131072) -> str:
 
 def retry_with_backoff(max_retries=3, base_delay=1, max_delay=32):
     """
-    Decorator to retry a function in case of ConnectionError, with exponential backoff.
+    Decorator to retry a function in case of ConnectionError or TimeoutError, with exponential backoff.
 
     Args:
         max_retries (int, optional): Maximum number of retries. Defaults to 3.
@@ -208,15 +220,17 @@ def retry_with_backoff(max_retries=3, base_delay=1, max_delay=32):
             while retry_count < max_retries:
                 try:
                     return func(*args, **kwargs)
-                except requests.exceptions.ConnectionError:
-                    # print(f"ConnectionError: {e}")
+                except (requests.exceptions.ConnectionError, 
+                        requests.exceptions.ReadTimeout, 
+                        urllib3.exceptions.ReadTimeoutError):
+                    # print(f"ConnectionError or TimeoutError: {e}")
                     time.sleep(delay)
                     retry_count += 1
-                    # delay = min(delay * 2, max_delay)
+                    delay = min(delay * 2, max_delay)
 
             # print(f"Function {func.__name__} failed after {max_retries} retries.")
             raise Exception(
-                f"requests.exceptions.ConnectionError: function {func.__name__} failed after {max_retries} retries."
+                f"requests.exceptions.ConnectionError or TimeoutError: function {func.__name__} failed after {max_retries} retries."
             )
 
         return wrapper

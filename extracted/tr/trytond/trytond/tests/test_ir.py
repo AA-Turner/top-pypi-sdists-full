@@ -207,11 +207,161 @@ class IrTestCase(ModuleTestCase):
             list(sequence.get_many(10)), list(map(str, range(1, 11))))
 
     @with_transaction()
+    def test_ui_view_tree_width_set(self):
+        "Test set view tree width"
+        pool = Pool()
+        ViewTreeWidth = pool.get('ir.ui.view_tree_width')
+
+        model = 'ir.ui.view_tree_width'
+        ViewTreeWidth.set_width(model, {
+                'user': 100,
+                'screen_width': 50,
+                }, 1000)
+
+        records = ViewTreeWidth.search([
+                ('model', '=', model),
+                ])
+        self.assertEqual(len(records), 2)
+        self.assertEqual({r.screen_width for r in records}, {992})
+        self.assertEqual(
+            {r.field: r.width for r in records}, {
+                'user': 100,
+                'screen_width': 50,
+                })
+
+    @with_transaction()
+    def test_ui_view_tree_width_set_duplicate(self):
+        "Test set view tree width with existing duplicate"
+        pool = Pool()
+        ViewTreeWidth = pool.get('ir.ui.view_tree_width')
+
+        model = 'ir.ui.view_tree_width'
+        ViewTreeWidth.create([{
+                    'user': Transaction().user,
+                    'model': model,
+                    'field': 'user',
+                    'screen_width': 992,
+                    'width': 200,
+                    }, {
+                    'user': Transaction().user,
+                    'model': model,
+                    'field': 'user',
+                    'screen_width': 992,
+                    'width': 300,
+                    }])
+        ViewTreeWidth.set_width(model, {
+                'user': 100,
+                'screen_width': 50,
+                }, 1000)
+
+        records = ViewTreeWidth.search([
+                ('model', '=', model),
+                ])
+        self.assertEqual(len(records), 2)
+        self.assertEqual({r.screen_width for r in records}, {992})
+        self.assertEqual(
+            {r.field: r.width for r in records}, {
+                'user': 100,
+                'screen_width': 50,
+                })
+
+    @with_transaction()
+    def test_ui_view_tree_width_reset(self):
+        "Test reset view tree width"
+        pool = Pool()
+        ViewTreeWidth = pool.get('ir.ui.view_tree_width')
+
+        model = 'ir.ui.view_tree_width'
+        ViewTreeWidth.create([{
+                    'user': Transaction().user,
+                    'model': model,
+                    'field': 'user',
+                    'screen_width': 992,
+                    'width': 200,
+                    }, {
+                    'user': Transaction().user,
+                    'model': model,
+                    'field': 'user',
+                    'screen_width': None,
+                    'width': 200,
+                    }, {
+                    'user': Transaction().user,
+                    'model': model,
+                    'field': 'user',
+                    'screen_width': 1400,
+                    'width': 200,
+                    }])
+
+        ViewTreeWidth.reset_width(model, 1000)
+
+        record, = ViewTreeWidth.search([
+                ('model', '=', model),
+                ])
+        self.assertEqual(record.screen_width, 1400)
+
+    @with_transaction()
+    def test_ui_view_tree_width_get(self):
+        "Test get view tree width"
+        pool = Pool()
+        ViewTreeWidth = pool.get('ir.ui.view_tree_width')
+
+        model = 'ir.ui.view_tree_width'
+        ViewTreeWidth.set_width(model, {
+                'user': 100,
+                'screen_width': 50,
+                }, 1000)
+
+        widths = ViewTreeWidth.get_width(model, 1000)
+
+        self.assertEqual(
+            widths, {
+                'user': 100,
+                'screen_width': 50,
+                })
+
+    @with_transaction()
+    def test_ui_view_tree_width_get_fallback(self):
+        "Test get view tree width"
+        pool = Pool()
+        ViewTreeWidth = pool.get('ir.ui.view_tree_width')
+
+        model = 'ir.ui.view_tree_width'
+        ViewTreeWidth.set_width(model, {
+                'user': 100,
+                'screen_width': 50,
+                }, 500)
+
+        widths = ViewTreeWidth.get_width(model, 1000)
+
+        self.assertEqual(
+            widths, {
+                'user': 100,
+                'screen_width': 50,
+                })
+
+    @with_transaction()
     def test_global_search(self):
         'Test Global Search'
         pool = Pool()
         Model = pool.get('ir.model')
         Model.global_search('User', 10)
+
+    @with_transaction()
+    def test_lang_get_subtags(self):
+        "Test Lang.get with subtags"
+        pool = Pool()
+        Lang = pool.get('ir.lang')
+
+        self.assertEqual(Lang.get('fr_CA').code, 'fr')
+        self.assertEqual(Lang.get('fr-BE').code, 'fr')
+
+    @with_transaction()
+    def test_lang_get_unknown(self):
+        "Test Lang.get with unknown language"
+        pool = Pool()
+        Lang = pool.get('ir.lang')
+
+        self.assertEqual(Lang.get('foo').code, 'en')
 
     @with_transaction()
     def test_lang_currency(self):
@@ -387,9 +537,13 @@ class IrTestCase(ModuleTestCase):
             )
         report.save()
 
+        def set_message_id(msg, *args, **kwargs):
+            msg['Message-ID'] = 'test'
+
         with patch(
                 'trytond.ir.email_.send_message_transactional'
                 ) as send_message:
+            send_message.side_effect = set_message_id
             email = Email.send(
                 to='"John Doe" <john@example.com>, Jane <jane@example.com>',
                 cc='User <user@example.com>',
@@ -418,12 +572,13 @@ class IrTestCase(ModuleTestCase):
         self.assertEqual(
             [a.address for a in email.addresses],
             addresses)
+        self.assertEqual(email.message_id, 'test')
         self.assertEqual(email.subject, "Email subject")
         self.assertEqual(email.body, '<p>Hello</p>')
         self.assertEqual(len(attachments), 2)
         self.assertEqual(
             {a.name for a in attachments},
-            {'file.txt', 'Test Email-Administrator.txt'})
+            {'file.txt', 'Test-Email-Administrator.txt'})
         self.assertEqual(
             {a.data for a in attachments}, {b'data', b'report'})
 
@@ -646,6 +801,27 @@ class IrCronTestCase(TestCase):
         cron = self._get_cron()
 
         self.assertIsInstance(cron.get_timezone('timezone'), str)
+
+    @with_transaction()
+    def test_clean(self):
+        "Test cleaning cron logs"
+        pool = Pool()
+        Cron = pool.get('ir.cron')
+        Log = pool.get('ir.cron.log')
+        dt = datetime
+
+        cron = Cron(
+            interval_number=2, interval_type='hours',
+            method='ir.trigger|trigger_time')
+        cron.logs = [{
+                'started': dt.datetime.now() - dt.timedelta(hours=i),
+                'ended': dt.datetime.now() - dt.timedelta(hours=i + 1)}
+            for i in range(0, 20, 2)]
+        cron.save()
+
+        Log.clean(5)
+
+        self.assertEqual(len(cron.logs), 5)
 
 
 del ModuleTestCase

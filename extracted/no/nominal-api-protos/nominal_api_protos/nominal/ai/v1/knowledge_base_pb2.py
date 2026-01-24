@@ -24,19 +24,37 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"nominal/ai/v1/knowledge_base.proto\x12\rnominal.ai.v1\"~\n\x17\x41\x64\x64KnowledgeBaseRequest\x12\x16\n\x0e\x61ttachment_rid\x18\x01 \x01(\t\x12\x1b\n\x13summary_description\x18\x02 \x01(\t\x12.\n\x04type\x18\x03 \x01(\x0e\x32 .nominal.ai.v1.KnowledgeBaseType\"5\n\x18\x41\x64\x64KnowledgeBaseResponse\x12\x19\n\x11knowledge_base_id\x18\x01 \x01(\t*X\n\x11KnowledgeBaseType\x12#\n\x1fKNOWLEDGE_BASE_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1aKNOWLEDGE_BASE_TYPE_PROMPT\x10\x01\x32{\n\x14KnowledgeBaseService\x12\x63\n\x10\x41\x64\x64KnowledgeBase\x12&.nominal.ai.v1.AddKnowledgeBaseRequest\x1a\'.nominal.ai.v1.AddKnowledgeBaseResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"nominal/ai/v1/knowledge_base.proto\x12\rnominal.ai.v1\"\x97\x01\n\"CreateOrUpdateKnowledgeBaseRequest\x12\x16\n\x0e\x61ttachment_rid\x18\x01 \x01(\t\x12\x1b\n\x13summary_description\x18\x02 \x01(\t\x12\x33\n\x04type\x18\x03 \x01(\x0e\x32 .nominal.ai.v1.KnowledgeBaseTypeH\x00\x88\x01\x01\x42\x07\n\x05_type\"A\n#CreateOrUpdateKnowledgeBaseResponse\x12\x1a\n\x12knowledge_base_rid\x18\x01 \x01(\t\"\xb8\x01\n\rKnowledgeBase\x12\x1a\n\x12knowledge_base_rid\x18\x01 \x01(\t\x12\x16\n\x0e\x61ttachment_rid\x18\x02 \x01(\t\x12\x15\n\rworkspace_rid\x18\x03 \x01(\t\x12\x1b\n\x13summary_description\x18\x04 \x01(\t\x12.\n\x04type\x18\x05 \x01(\x0e\x32 .nominal.ai.v1.KnowledgeBaseType\x12\x0f\n\x07version\x18\x06 \x01(\x05\"$\n\x0bListRequest\x12\x15\n\rworkspace_rid\x18\x01 \x01(\t\"E\n\x0cListResponse\x12\x35\n\x0fknowledge_bases\x18\x01 \x03(\x0b\x32\x1c.nominal.ai.v1.KnowledgeBase\"+\n\rDeleteRequest\x12\x1a\n\x12knowledge_base_rid\x18\x01 \x01(\t\"!\n\x0e\x44\x65leteResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\".\n\x0fGetBatchRequest\x12\x1b\n\x13knowledge_base_rids\x18\x01 \x03(\t\"I\n\x10GetBatchResponse\x12\x35\n\x0fknowledge_bases\x18\x01 \x03(\x0b\x32\x1c.nominal.ai.v1.KnowledgeBase\";\n!GenerateSummaryDescriptionRequest\x12\x16\n\x0e\x61ttachment_rid\x18\x01 \x01(\t\"A\n\"GenerateSummaryDescriptionResponse\x12\x1b\n\x13summary_description\x18\x01 \x01(\t*{\n\x11KnowledgeBaseType\x12#\n\x1fKNOWLEDGE_BASE_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n\x1aKNOWLEDGE_BASE_TYPE_PROMPT\x10\x01\x12!\n\x1dKNOWLEDGE_BASE_TYPE_EMBEDDING\x10\x02\x32\xf6\x03\n\x14KnowledgeBaseService\x12\x84\x01\n\x1b\x43reateOrUpdateKnowledgeBase\x12\x31.nominal.ai.v1.CreateOrUpdateKnowledgeBaseRequest\x1a\x32.nominal.ai.v1.CreateOrUpdateKnowledgeBaseResponse\x12?\n\x04List\x12\x1a.nominal.ai.v1.ListRequest\x1a\x1b.nominal.ai.v1.ListResponse\x12\x45\n\x06\x44\x65lete\x12\x1c.nominal.ai.v1.DeleteRequest\x1a\x1d.nominal.ai.v1.DeleteResponse\x12K\n\x08GetBatch\x12\x1e.nominal.ai.v1.GetBatchRequest\x1a\x1f.nominal.ai.v1.GetBatchResponse\x12\x81\x01\n\x1aGenerateSummaryDescription\x12\x30.nominal.ai.v1.GenerateSummaryDescriptionRequest\x1a\x31.nominal.ai.v1.GenerateSummaryDescriptionResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'nominal.ai.v1.knowledge_base_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_KNOWLEDGEBASETYPE']._serialized_start=236
-  _globals['_KNOWLEDGEBASETYPE']._serialized_end=324
-  _globals['_ADDKNOWLEDGEBASEREQUEST']._serialized_start=53
-  _globals['_ADDKNOWLEDGEBASEREQUEST']._serialized_end=179
-  _globals['_ADDKNOWLEDGEBASERESPONSE']._serialized_start=181
-  _globals['_ADDKNOWLEDGEBASERESPONSE']._serialized_end=234
-  _globals['_KNOWLEDGEBASESERVICE']._serialized_start=326
-  _globals['_KNOWLEDGEBASESERVICE']._serialized_end=449
+  _globals['_KNOWLEDGEBASETYPE']._serialized_start=901
+  _globals['_KNOWLEDGEBASETYPE']._serialized_end=1024
+  _globals['_CREATEORUPDATEKNOWLEDGEBASEREQUEST']._serialized_start=54
+  _globals['_CREATEORUPDATEKNOWLEDGEBASEREQUEST']._serialized_end=205
+  _globals['_CREATEORUPDATEKNOWLEDGEBASERESPONSE']._serialized_start=207
+  _globals['_CREATEORUPDATEKNOWLEDGEBASERESPONSE']._serialized_end=272
+  _globals['_KNOWLEDGEBASE']._serialized_start=275
+  _globals['_KNOWLEDGEBASE']._serialized_end=459
+  _globals['_LISTREQUEST']._serialized_start=461
+  _globals['_LISTREQUEST']._serialized_end=497
+  _globals['_LISTRESPONSE']._serialized_start=499
+  _globals['_LISTRESPONSE']._serialized_end=568
+  _globals['_DELETEREQUEST']._serialized_start=570
+  _globals['_DELETEREQUEST']._serialized_end=613
+  _globals['_DELETERESPONSE']._serialized_start=615
+  _globals['_DELETERESPONSE']._serialized_end=648
+  _globals['_GETBATCHREQUEST']._serialized_start=650
+  _globals['_GETBATCHREQUEST']._serialized_end=696
+  _globals['_GETBATCHRESPONSE']._serialized_start=698
+  _globals['_GETBATCHRESPONSE']._serialized_end=771
+  _globals['_GENERATESUMMARYDESCRIPTIONREQUEST']._serialized_start=773
+  _globals['_GENERATESUMMARYDESCRIPTIONREQUEST']._serialized_end=832
+  _globals['_GENERATESUMMARYDESCRIPTIONRESPONSE']._serialized_start=834
+  _globals['_GENERATESUMMARYDESCRIPTIONRESPONSE']._serialized_end=899
+  _globals['_KNOWLEDGEBASESERVICE']._serialized_start=1027
+  _globals['_KNOWLEDGEBASESERVICE']._serialized_end=1529
 # @@protoc_insertion_point(module_scope)

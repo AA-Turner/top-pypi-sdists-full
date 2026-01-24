@@ -1,21 +1,12 @@
 import sys
 from collections.abc import Awaitable, Coroutine, Generator
+from dataclasses import Field as DataclassField
 from enum import Enum
-from typing import Any, Literal, TypeAlias, TypeGuard, TypeVar
-
-from pydantic import BaseModel
+from typing import Any, ClassVar, Literal, Protocol, TypeAlias, TypeVar
 
 
-def is_basemodel_subclass(model: Any) -> TypeGuard[type[BaseModel]]:
-    try:
-        return issubclass(model, BaseModel)
-    except TypeError:
-        return False
-
-
-class TaskIOValidator(BaseModel):
-    workflow_input: type[BaseModel] | None = None
-    step_output: type[BaseModel] | None = None
+class DataclassInstance(Protocol):
+    __dataclass_fields__: ClassVar[dict[str, DataclassField[Any]]]
 
 
 JSONSerializableMapping = dict[str, Any]

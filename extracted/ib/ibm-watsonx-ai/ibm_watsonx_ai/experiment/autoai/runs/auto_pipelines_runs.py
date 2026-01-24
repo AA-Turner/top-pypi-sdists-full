@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -20,6 +20,7 @@ from ibm_watsonx_ai.utils.autoai.enums import ForecastingPipelineTypes
 from ibm_watsonx_ai.utils.autoai.utils import (
     get_node_and_runtime_index,
 )
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     UnsupportedOperation,
@@ -97,14 +98,14 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
         runs_pipeline_ids = [
             run["entity"]["pipeline"]["id"]
             for run in data
-            if run["entity"].get("pipeline", {}).get("id")
+            if get_from_json(run, ["entity", "pipeline", "id"])
         ]
         runs_timestamps = [
             run["metadata"].get("modified_at")
             for run in data
-            if run["entity"].get("pipeline", {}).get("id")
+            if get_from_json(run, ["entity", "pipeline", "id"])
         ]
-        data = [run for run in data if run["entity"].get("pipeline", {}).get("id")]
+        data = [run for run in data if get_from_json(run, ["entity", "pipeline", "id"])]
         # --- end note
 
         def get_value(pipeline_id, timestamp, run):
@@ -137,7 +138,7 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
 
             return (
                 timestamp,
-                run["metadata"].get("id", run["metadata"].get("guid")),
+                run["metadata"].get("id") or run["metadata"].get("guid"),
                 run["entity"]["status"]["state"],
                 pipeline_name,
             )
@@ -218,9 +219,12 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
 
-            experiment.runs.get_params(run_id='02bab973-ae83-4283-9d73-87b9fd462d35')
+            experiment.runs.get_params(
+                run_id="02bab973-ae83-4283-9d73-87b9fd462d35"
+            )
             experiment.runs.get_params()
 
             # Result:
@@ -242,12 +246,12 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
         if run_id is None:
             optimizer_id = client.training.get_details(
                 limit=1, training_type="pipeline", _internal=True
-            ).get("resources")[0]["entity"]["pipeline"]["id"]
+            )["resources"][0]["entity"]["pipeline"]["id"]
 
         else:
             optimizer_id = client.training.get_details(
                 training_id=run_id, _internal=True
-            ).get("entity")["pipeline"]["id"]
+            )["entity"]["pipeline"]["id"]
 
         optimizer_config = client.pipelines.get_details(pipeline_id=optimizer_id)
 
@@ -483,9 +487,12 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
 
-            experiment.runs.get_run_details(run_id='02bab973-ae83-4283-9d73-87b9fd462d35')
+            experiment.runs.get_run_details(
+                run_id="02bab973-ae83-4283-9d73-87b9fd462d35"
+            )
             experiment.runs.get_run_details()
         """
         client = (
@@ -565,9 +572,12 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
 
-            historical_optimizer = experiment.runs.get_optimizer(run_id='02bab973-ae83-4283-9d73-87b9fd462d35')
+            historical_optimizer = experiment.runs.get_optimizer(
+                run_id="02bab973-ae83-4283-9d73-87b9fd462d35"
+            )
         """
         # note: normal scenario
         if metadata is None:
@@ -619,9 +629,12 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
 
-            experiment.runs.get_rag_params(run_id='02bab973-ae83-4283-9d73-87b9fd462d35')
+            experiment.runs.get_rag_params(
+                run_id="02bab973-ae83-4283-9d73-87b9fd462d35"
+            )
             experiment.runs.get_rag_params()
 
             # Result:
@@ -646,13 +659,13 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
         else:
             details = rag_engine.get_details()["resources"][0]
 
-        parameters_constraints = (
-            details.get("entity", {}).get("parameters", {}).get("constraints", {})
+        parameters_constraints = get_from_json(
+            details, ["entity", "parameters", "constraints"], {}
         )
 
         params = {
-            "name": details.get("metadata", {}).get("name", {}),
-            "description": details.get("metadata", {}).get("description", {}),
+            "name": get_from_json(details, ["metadata", "name"], {}),
+            "description": get_from_json(details, ["metadata", "description"], {}),
             "chunking_methods": parameters_constraints.get(
                 "chunking_methods"
             ),  # note: it will be in final params only for CPD 5.1
@@ -665,10 +678,9 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
             ),
             "generation": parameters_constraints.get("generation"),
             "retrieval": parameters_constraints.get("retrieval"),
-            "optimization_metrics": details.get("entity", {})
-            .get("parameters", {})
-            .get("optimization", {})
-            .get("metrics"),
+            "optimization_metrics": get_from_json(
+                details, ["entity", "parameters", "optimization", "metrics"]
+            ),
         }
 
         params_without_none = {k: v for k, v in params.items() if v is not None}
@@ -688,9 +700,12 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
 
-            historical_rag_optimizer = experiment.runs.get_rag_optimizer(run_id='02bab973-ae83-4283-9d73-87b9fd462d35')
+            historical_rag_optimizer = experiment.runs.get_rag_optimizer(
+                run_id="02bab973-ae83-4283-9d73-87b9fd462d35"
+            )
 
         """
         from ibm_watsonx_ai.experiment.autoai.engines import RAGEngine
@@ -721,9 +736,12 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
+
             experiment = AutoAI(credentials, ...)
 
-            data_connections = experiment.runs.get_data_connections(run_id='02bab973-ae83-4283-9d73-87b9fd462d35')
+            data_connections = experiment.runs.get_data_connections(
+                run_id="02bab973-ae83-4283-9d73-87b9fd462d35"
+            )
         """
         optimizer_parameters = self.get_params(run_id=run_id)
         training_data_references = self.get_run_details(run_id=run_id)["entity"][

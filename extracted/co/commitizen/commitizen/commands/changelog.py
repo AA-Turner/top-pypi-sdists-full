@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import os
 import os.path
-from collections.abc import Generator, Iterable
 from difflib import SequenceMatcher
 from operator import itemgetter
 from pathlib import Path
-from typing import Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 from commitizen import changelog, defaults, factory, git, out
 from commitizen.changelog_formats import get_changelog_format
-from commitizen.config import BaseConfig
 from commitizen.cz.utils import strip_local_version
 from commitizen.exceptions import (
     DryRunExit,
@@ -23,6 +21,11 @@ from commitizen.exceptions import (
 from commitizen.git import GitTag, smart_open
 from commitizen.tags import TagRules
 from commitizen.version_schemes import get_version_scheme
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
+
+    from commitizen.config import BaseConfig
 
 
 class ChangelogArgs(TypedDict, total=False):
@@ -41,6 +44,7 @@ class ChangelogArgs(TypedDict, total=False):
     template: str
     extras: dict[str, Any]
     export_template: str
+    during_version_bump: bool | None
 
 
 class Changelog:
@@ -67,7 +71,6 @@ class Changelog:
             else changelog_file_name
         )
 
-        self.encoding = self.config.settings["encoding"]
         self.cz = factory.committer_factory(self.config)
 
         self.start_rev = arguments.get("start_rev") or self.config.settings.get(
@@ -98,18 +101,16 @@ class Changelog:
             self.config.settings.get("change_type_map") or self.cz.change_type_map
         )
         self.change_type_order = cast(
-            list[str],
+            "list[str]",
             self.config.settings.get("change_type_order")
             or self.cz.change_type_order
             or defaults.CHANGE_TYPE_ORDER,
         )
         self.rev_range = arguments.get("rev_range")
-        self.tag_format = (
-            arguments.get("tag_format") or self.config.settings["tag_format"]
-        )
         self.tag_rules = TagRules(
             scheme=self.scheme,
-            tag_format=self.tag_format,
+            tag_format=arguments.get("tag_format")
+            or self.config.settings["tag_format"],
             legacy_tag_formats=self.config.settings["legacy_tag_formats"],
             ignored_tag_formats=self.config.settings["ignored_tag_formats"],
             merge_prereleases=arguments.get("merge_prerelease")
@@ -123,6 +124,8 @@ class Changelog:
         )
         self.extras = arguments.get("extras") or {}
         self.export_template_to = arguments.get("export_template")
+
+        self.during_version_bump: bool = arguments.get("during_version_bump") or False
 
     def _find_incremental_rev(self, latest_version: str, tags: Iterable[GitTag]) -> str:
         """Try to find the 'start_rev'.
@@ -159,7 +162,9 @@ class Changelog:
     def _write_changelog(
         self, changelog_out: str, lines: list[str], changelog_meta: changelog.Metadata
     ) -> None:
-        with smart_open(self.file_name, "w", encoding=self.encoding) as changelog_file:
+        with smart_open(
+            self.file_name, "w", encoding=self.config.settings["encoding"]
+        ) as changelog_file:
             partial_changelog: str | None = None
             if self.incremental:
                 new_lines = changelog.incremental_build(
@@ -200,7 +205,8 @@ class Changelog:
             raise NotAllowed("--incremental cannot be combined with a rev_range")
 
         # Don't continue if no `file_name` specified.
-        assert self.file_name
+        if not self.file_name:
+            raise NotAllowed("filename is required.")
 
         tags = self.tag_rules.get_version_tags(git.get_tags(), warn=True)
         changelog_meta = changelog.Metadata()
@@ -219,6 +225,21 @@ class Changelog:
                 self.tag_rules,
             )
 
+        if self.during_version_bump and self.tag_rules.merge_prereleases:
+            latest_full_release_info = self.changelog_format.get_latest_full_release(
+                self.file_name
+            )
+            if latest_full_release_info.index:
+                changelog_meta.unreleased_start = 0
+                changelog_meta.latest_version_position = latest_full_release_info.index
+                changelog_meta.unreleased_end = latest_full_release_info.index - 1
+
+            start_rev = latest_full_release_info.name or ""
+            if not start_rev and latest_full_release_info.index:
+                # Only pre-releases in changelog
+                changelog_meta.latest_version_position = None
+                changelog_meta.unreleased_end = latest_full_release_info.index + 1
+
         commits = git.get_commits(start=start_rev, end=end_rev, args="--topo-order")
         if not commits and (
             self.current_version is None or not self.current_version.is_prerelease
@@ -235,6 +256,7 @@ class Changelog:
             changelog_message_builder_hook=self.cz.changelog_message_builder_hook,
             changelog_release_hook=self.cz.changelog_release_hook,
             rules=self.tag_rules,
+            during_version_bump=self.during_version_bump,
         )
         if self.change_type_order:
             tree = changelog.generate_ordered_changelog_tree(
@@ -261,7 +283,9 @@ class Changelog:
 
         lines = []
         if self.incremental and os.path.isfile(self.file_name):
-            with open(self.file_name, encoding=self.encoding) as changelog_file:
+            with open(
+                self.file_name, encoding=self.config.settings["encoding"]
+            ) as changelog_file:
                 lines = changelog_file.readlines()
 
         self._write_changelog(changelog_out, lines, changelog_meta)

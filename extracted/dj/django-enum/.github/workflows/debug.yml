@@ -28,14 +28,14 @@ jobs:
     env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ github.event.inputs.python-version }}
         uses: actions/setup-python@v6
         id: sp
         with:
           python-version: ${{ github.event.inputs.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - name: Install Just
@@ -47,7 +47,7 @@ jobs:
         run: |
           sudo apt install emacs
       - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3.22
+        uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
         timeout-minutes: 60

@@ -1,0 +1,25 @@
+# .readthedocs.yaml
+# Configuration file for Read the Docs.
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details.
+
+version: 2
+
+# Set the OS, Python version, and other tools you might need
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.13"
+    rust: "1.86"
+
+# Build the documentation in the "docs/" directory with Sphinx
+sphinx:
+  configuration: docs/conf.py
+
+# Define the Python requirements required to build your docs
+python:
+  install:
+    # First, install documentation-specific dependencies
+    - requirements: docs/requirements.txt
+    # Then, build and install the Rust extension itself
+    - method: pip
+      path: .

@@ -9,6 +9,9 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .dynamic_variable_assignment import DynamicVariableAssignment
 from .dynamic_variables_config import DynamicVariablesConfig
+from .tool_call_sound_behavior import ToolCallSoundBehavior
+from .tool_call_sound_type import ToolCallSoundType
+from .tool_execution_mode import ToolExecutionMode
 
 
 class ClientToolConfigOutput(UncheckedBaseModel):
@@ -42,6 +45,16 @@ class ClientToolConfigOutput(UncheckedBaseModel):
     Configuration for extracting values from tool responses and assigning them to dynamic variables
     """
 
+    tool_call_sound: typing.Optional[ToolCallSoundType] = pydantic.Field(default=None)
+    """
+    Predefined tool call sound type to play during tool execution. If not specified, no tool call sound will be played.
+    """
+
+    tool_call_sound_behavior: typing.Optional[ToolCallSoundBehavior] = pydantic.Field(default=None)
+    """
+    Determines when the tool call sound should play. 'auto' only plays when there's pre-tool speech, 'always' plays for every tool call.
+    """
+
     parameters: typing.Optional["ObjectJsonSchemaPropertyOutput"] = pydantic.Field(default=None)
     """
     Schema for any parameters to pass to the client
@@ -57,6 +70,11 @@ class ClientToolConfigOutput(UncheckedBaseModel):
     Configuration for dynamic variables
     """
 
+    execution_mode: typing.Optional[ToolExecutionMode] = pydantic.Field(default=None)
+    """
+    Determines when and how the tool executes: 'immediate' executes the tool right away when requested by the LLM, 'post_tool_speech' waits for the agent to finish speaking before executing, 'async' runs the tool in the background without blocking - best for long-running operations.
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:
@@ -67,7 +85,6 @@ class ClientToolConfigOutput(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
-from .array_json_schema_property_output import ArrayJsonSchemaPropertyOutput  # noqa: E402, F401, I001
-from .object_json_schema_property_output import ObjectJsonSchemaPropertyOutput  # noqa: E402, F401, I001
+from .object_json_schema_property_output import ObjectJsonSchemaPropertyOutput  # noqa: E402, I001
 
 update_forward_refs(ClientToolConfigOutput)

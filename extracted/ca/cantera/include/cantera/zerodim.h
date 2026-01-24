@@ -33,10 +33,10 @@
 
 // factories
 #include "cantera/zeroD/ReactorFactory.h"
-#include "cantera/zeroD/FlowDeviceFactory.h"
-#include "cantera/zeroD/WallFactory.h"
+#include "cantera/zeroD/ConnectorFactory.h"
 
 // func1
 #include "cantera/numerics/Func1.h"
+#include "cantera/numerics/Func1Factory.h"
 
 #endif

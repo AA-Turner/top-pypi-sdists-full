@@ -1,7 +1,6 @@
 from adam.commands.command import Command
-from adam.k8s_utils.jobs import Jobs
+from adam.utils_k8s.jobs import Jobs
 from adam.repl_state import ReplState, RequiredState
-from adam.config import Config
 
 class RepairStop(Command):
     COMMAND = 'repair stop'
@@ -25,20 +24,14 @@ class RepairStop(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
+        with self.validate(args, state) as (args, state):
+            ns = state.namespace
+            Jobs.delete('cassrepair-'+state.sts, ns)
+
             return state
 
-        ns = state.namespace
-        Jobs.delete('cassrepair-'+state.sts, ns)
-
-        return state
-
     def completion(self, state: ReplState):
-        if state.sts:
-            return super().completion(state)
+        return super().completion(state)
 
-        return {}
-
-    def help(self, _: ReplState):
-        return f'{RepairStop.COMMAND}\t delete a repair job'
+    def help(self, state: ReplState):
+        return super().help(state, 'delete a repair job')

@@ -1,0 +1,347 @@
+# (C) 2026 GoodData Corporation
+version: 1
+interactions:
+  - request:
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute
+      body:
+        execution:
+          attributes:
+            - label:
+                identifier:
+                  id: region
+                  type: label
+              localIdentifier: region
+            - label:
+                identifier:
+                  id: state
+                  type: label
+              localIdentifier: state
+          filters: []
+          measures:
+            - definition:
+                measure:
+                  item:
+                    identifier:
+                      id: price
+                      type: fact
+                  aggregation: SUM
+                  computeRatio: false
+                  filters: []
+              localIdentifier: price
+            - definition:
+                measure:
+                  item:
+                    identifier:
+                      id: order_amount
+                      type: metric
+                  computeRatio: false
+                  filters: []
+              localIdentifier: order_amount
+        resultSpec:
+          dimensions:
+            - itemIdentifiers:
+                - state
+                - region
+              localIdentifier: dim_0
+            - itemIdentifiers:
+                - measureGroup
+              localIdentifier: dim_1
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '907'
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-Gdc-Cancel-Token:
+          - 3e801432-93fe-4e7d-8073-be9259dadf62
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          executionResponse:
+            dimensions:
+              - headers:
+                  - attributeHeader:
+                      localIdentifier: state
+                      label:
+                        id: state
+                        type: label
+                      labelName: State
+                      attribute:
+                        id: state
+                        type: attribute
+                      attributeName: State
+                      granularity: null
+                      primaryLabel:
+                        id: state
+                        type: label
+                      valueType: TEXT
+                  - attributeHeader:
+                      localIdentifier: region
+                      label:
+                        id: region
+                        type: label
+                      labelName: Region
+                      attribute:
+                        id: region
+                        type: attribute
+                      attributeName: Region
+                      granularity: null
+                      primaryLabel:
+                        id: region
+                        type: label
+                      valueType: TEXT
+                localIdentifier: dim_0
+              - headers:
+                  - measureGroupHeaders:
+                      - localIdentifier: price
+                      - localIdentifier: order_amount
+                        format: $#,##0
+                        name: Order Amount
+                localIdentifier: dim_1
+            links:
+              executionResult: 63c011b100bfecc92df78732030c718c0d2aaf69:178e63b0dfe54792764751ad8d6146516aa1d2932762b21b757459b2db72abe3
+  - request:
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular
+      body:
+        fileName: test_csv
+        format: CSV
+        executionResult: 63c011b100bfecc92df78732030c718c0d2aaf69:178e63b0dfe54792764751ad8d6146516aa1d2932762b21b757459b2db72abe3
+        customOverride:
+          labels:
+            region:
+              title: Custom Title Region
+          metrics:
+            price:
+              format: ''
+              title: Sum Of Price
+            order_amount:
+              format: '#,##0.00'
+              title: Order Amount Metric
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 201
+        message: Created
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '59'
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          exportResult: f96d9216fb09f7d74935e8029e390be2f9eb634b
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/f96d9216fb09f7d74935e8029e390be2f9eb634b
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 202
+        message: Accepted
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '0'
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string: ''
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/f96d9216fb09f7d74935e8029e390be2f9eb634b
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 202
+        message: Accepted
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '0'
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string: ''
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/export/tabular/f96d9216fb09f7d74935e8029e390be2f9eb634b
+      body: null
+      headers:
+        Accept:
+          - application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+            application/zip, text/csv, text/html
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Disposition:
+          - attachment; filename="=?UTF-8?Q?test=5Fcsv.csv?="; filename*=UTF-8''test_csv.csv
+        Content-Length:
+          - '1837'
+        Content-Type:
+          - text/csv
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string: "\uFEFF\"state\",\"Custom Title Region\",\"Sum Of Price\",\"Order\
+          \ Amount Metric\"\n\"Alabama\",\"South\",6198.55,6675.95\n\"Alaska\",\"\
+          West\",4983.36,5444.84\n\"Arizona\",\"West\",10279.68,10941.25\n\"Arkansas\"\
+          ,\"South\",4683.68,5000.96\n\"California\",\"West\",57411.81,67385.27\n\"\
+          Colorado\",\"West\",10012.02,10869.87\n\"Connecticut\",\"Northeast\",2892.16,3196.51\n\
+          \"Delaware\",\"South\",3239.72,3535.36\n\"District of Columbia\",\"South\"\
+          ,16394.17,18114.51\n\"Florida\",\"South\",41989.67,53493.27\n\"Georgia\"\
+          ,\"South\",9865.27,12035.21\n\"Hawaii\",\"West\",5219.91,5474.07\n\"Idaho\"\
+          ,\"West\",1840.64,4400.52\n\"Illinois\",\"Midwest\",8804.49,9733.34\n\"\
+          Indiana\",\"Midwest\",5982.7,6594.58\n\"Iowa\",\"Midwest\",8467.68,9771.41\n\
+          \"Kansas\",\"Midwest\",4503.79,4769.79\n\"Kentucky\",\"South\",2879.09,3582.94\n\
+          \"Louisiana\",\"South\",6511.79,7247.22\n\"Maryland\",\"South\",8417.93,12307.01\n\
+          \"Massachusetts\",\"Northeast\",4050.87,4828.45\n\"Michigan\",\"Midwest\"\
+          ,7745.42,11153.4\n\"Minnesota\",\"Midwest\",8189.13,9664.77\n\"Mississippi\"\
+          ,\"South\",3967.36,4446.13\n\"Missouri\",\"Midwest\",8546.58,10919.34\n\"\
+          Montana\",\"West\",1384.39,1671.55\n\"Nebraska\",\"Midwest\",2558.1,2714.19\n\
+          \"Nevada\",\"West\",1444.77,2036.04\n\"New Hampshire\",\"Northeast\",382.19,521.89\n\
+          \"New Jersey\",\"Northeast\",2132.86,2443.28\n\"New Mexico\",\"West\",1328.97,1505.25\n\
+          \"New York\",\"Northeast\",21687.02,30318.88\n\"North Carolina\",\"South\"\
+          ,8876.18,10445.63\n\"North Dakota\",\"Midwest\",176.71,176.71\n\"Ohio\"\
+          ,\"Midwest\",13572.17,19917.4\n\"Oklahoma\",\"South\",8748.77,9111.91\n\"\
+          Oregon\",\"West\",4465.11,5625.17\n\"Pennsylvania\",\"Northeast\",13555.43,15401.82\n\
+          \"Rhode Island\",\"Unknown\",18.7,18.7\n\"South Carolina\",\"South\",3435.73,3598.61\n\
+          \"South Dakota\",\"Midwest\",640.05,893.55\n\"Tennessee\",\"South\",5143.92,5790.24\n\
+          \"Texas\",\"South\",44253.95,52551.19\n\"Utah\",\"West\",8360.6,9701.28\n\
+          \"Virginia\",\"South\",15696.93,17324.89\n\"Washington\",\"West\",6219.38,7456.11\n\
+          \"West Virginia\",\"South\",2654.63,3131.36\n\"Wisconsin\",\"Midwest\",10650.42,12116.72\n"

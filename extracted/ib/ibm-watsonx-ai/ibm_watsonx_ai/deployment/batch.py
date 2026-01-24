@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -9,6 +9,8 @@ import time
 from typing import TYPE_CHECKING, Any, cast
 
 from pandas import DataFrame
+
+from ibm_watsonx_ai.utils.utils import get_from_json
 
 from ..helpers import AssetLocation, DataConnection
 from ..utils import StatusLogger, print_text_header_h1
@@ -103,7 +105,7 @@ class Batch(BaseDeployment):
         training_data: DataFrame | ndarray | None = None,
         training_target: DataFrame | ndarray | None = None,
         experiment_run_id: str | None = None,
-        hardware_spec: str | None = None,
+        hardware_spec: str | dict | None = None,
         astype: str = "hybrid",
     ) -> None:
         """Create a deployment from a model.
@@ -127,7 +129,7 @@ class Batch(BaseDeployment):
         :type experiment_run_id: str, optional
 
         :param hardware_spec: hardware specification name of the deployment
-        :type hardware_spec: str, optional
+        :type hardware_spec: str | dict, optional
 
         :param astype: type of stored model [hybrid, onnx]
         :type astype: str, optional
@@ -139,16 +141,17 @@ class Batch(BaseDeployment):
             from ibm_watsonx_ai.deployment import Batch
 
             deployment = Batch(
-                    source_instance_credentials=Credentials(...),
-                    source_project_id="...",
-                    target_space_id="...")
+                source_instance_credentials=Credentials(...),
+                source_project_id="...",
+                target_space_id="...",
+            )
 
             deployment.create(
-                   experiment_run_id="...",
-                   model=model,
-                   deployment_name='My new deployment'
-                   hardware_spec='L'
-               )
+                experiment_run_id="...",
+                model=model,
+                deployment_name="My new deployment"
+                hardware_spec="L",
+            )
         """
         return super().create(
             model=model,
@@ -179,7 +182,7 @@ class Batch(BaseDeployment):
         output_data_reference: DataConnection | None = None,
         transaction_id: str | None = None,
         background_mode: bool = True,
-        hardware_spec: str | None = None,
+        hardware_spec: str | dict | None = None,
     ) -> dict | DataConnection:
         """Batch scoring job. Payload or Payload data reference is required.
         Passed to the Service where the model has been deployed.
@@ -200,7 +203,7 @@ class Batch(BaseDeployment):
         :type background_mode: bool, optional
 
         :param hardware_spec: hardware specification name for the scoring job
-        :type hardware_spec: str, optional
+        :type hardware_spec: str | dict, optional
 
         :return: details of the scoring job
         :rtype: dict
@@ -210,27 +213,60 @@ class Batch(BaseDeployment):
         .. code-block:: python
 
             score_details = batch_service.run_job(payload=test_data)
-            print(score_details['entity']['scoring'])
+            print(score_details["entity"]["scoring"])
 
             # Result:
-            # {'input_data': [{'fields': ['sepal_length',
-            #               'sepal_width',
-            #               'petal_length',
-            #               'petal_width'],
-            #              'values': [[4.9, 3.0, 1.4, 0.2]]}],
-            # 'predictions': [{'fields': ['prediction', 'probability'],
-            #               'values': [['setosa',
-            #                 [0.9999320742502246,
-            #                  5.1519823540224506e-05,
-            #                  1.6405926235405522e-05]]]}]
+            # {
+            #     "input_data": [
+            #         {
+            #             "fields": [
+            #                 "sepal_length",
+            #                 "sepal_width",
+            #                 "petal_length",
+            #                 "petal_width",
+            #             ],
+            #             "values": [[4.9, 3.0, 1.4, 0.2]],
+            #         }
+            #     ],
+            #     "predictions": [
+            #         {
+            #             "fields": ["prediction", "probability"],
+            #             "values": [
+            #                 [
+            #                     "setosa",
+            #                     [
+            #                         0.9999320742502246,
+            #                         5.1519823540224506e-05,
+            #                         1.6405926235405522e-05,
+            #                     ],
+            #                 ]
+            #             ],
+            #         }
+            #     ],
+            # }
 
-            payload_reference = DataConnection(location=DSLocation(asset_id=asset_id))
-            score_details = batch_service.run_job(payload=payload_reference, output_data_filename = "scoring_output.csv")
-            score_details = batch_service.run_job(payload={'observations': payload_reference})
+            payload_reference = DataConnection(
+                location=DSLocation(asset_id=asset_id)
+            )
+            score_details = batch_service.run_job(
+                payload=payload_reference, output_data_filename="scoring_output.csv"
+            )
+            score_details = batch_service.run_job(
+                payload={"observations": payload_reference}
+            )
             score_details = batch_service.run_job(payload=[payload_reference])
-            score_details = batch_service.run_job(payload={'observations': payload_reference, 'supporting_features': supporting_features_reference})  # supporting features time series forecasting sceanrio
-            score_details = batch_service.run_job(payload=test_df, hardware_spec='S')
-            score_details = batch_service.run_job(payload=test_df, hardware_spec=TShirtSize.L)
+            score_details = batch_service.run_job(
+                payload={
+                    "observations": payload_reference,
+                    "supporting_features": supporting_features_reference,  # supporting features time series forecasting scenario
+                }
+            )
+            score_details = batch_service.run_job(
+                payload=test_df, hardware_spec="S"
+            )
+            score_details = batch_service.run_job(
+                payload=test_df, hardware_spec=TShirtSize.L
+            )
         """
         self._target_workspace: WorkSpace
         input_data: list[DataConnection] | list[dict]
@@ -244,7 +280,7 @@ class Batch(BaseDeployment):
                 or supporting_features is None
             ):
                 observations_payload = convert_dataframe_to_fields_values_payload(
-                    observations, return_values_only=True
+                    observations, return_values_only=True, onnx_mode=False
                 )
                 observations_payload["id"] = "observations"
                 input_data = [observations_payload]
@@ -252,7 +288,9 @@ class Batch(BaseDeployment):
                 if supporting_features is not None:
                     supporting_features_payload = (
                         convert_dataframe_to_fields_values_payload(
-                            supporting_features, return_values_only=True
+                            supporting_features,
+                            return_values_only=True,
+                            onnx_mode=False,
                         )
                     )
                     supporting_features_payload["id"] = "supporting_features"
@@ -360,7 +398,7 @@ class Batch(BaseDeployment):
                     workspace=self._target_workspace,
                     deployment=True,
                 )
-                payload = [data_connection._to_dict() for data_connection in payload]  # type: ignore[assignment]
+                payload = [data_connection._to_dict() for data_connection in payload]
             elif isinstance(payload[0], dict):
                 pass
             else:
@@ -397,16 +435,25 @@ class Batch(BaseDeployment):
                 f"Incorrect payload type. Required: DataFrame or List[DataConnection], Passed: {type(payload)}"
             )
 
-        if hardware_spec:
-            hw_spec = [
-                {
-                    "node_runtime_id": "auto_ai.kb",
-                    "hardware_spec": {"name": hardware_spec.upper()},
-                }
-            ]
-        else:  # default
-            details = self._target_workspace.api_client.deployments.get_details(self.id)
-            hw_spec = details.get("entity", {}).get("hybrid_pipeline_hardware_specs")
+        match hardware_spec:
+            case str():
+                hw_spec = [
+                    {
+                        "node_runtime_id": "auto_ai.kb",
+                        "hardware_spec": {"name": hardware_spec.upper()},
+                    }
+                ]
+            case dict():
+                hw_spec = [
+                    {"node_runtime_id": "auto_ai.kb", "hardware_spec": hardware_spec}
+                ]
+            case _:
+                details = self._target_workspace.api_client.deployments.get_details(
+                    self.id
+                )
+                hw_spec = get_from_json(
+                    details, ["entity", "hybrid_pipeline_hardware_specs"]
+                )
 
         scoring_payload["hybrid_pipeline_hardware_specs"] = hw_spec
         if self._is_onnx:
@@ -509,7 +556,7 @@ class Batch(BaseDeployment):
             # Delete current deployment
             deployment.delete()
             # Or delete a specific deployment
-            deployment.delete(deployment_id='...')
+            deployment.delete(deployment_id="...")
         """
         super().delete(deployment_id=deployment_id, deployment_type="batch")
 
@@ -645,7 +692,7 @@ class Batch(BaseDeployment):
         resources = self._target_workspace.api_client.deployments.get_job_details()[
             "resources"
         ]
-        columns = ["job id", "state", "creted", "deployment id"]
+        columns = ["job id", "state", "created", "deployment id"]
         values = []
         for scoring_details in resources:
             if "scoring" in scoring_details["entity"]:
@@ -674,7 +721,7 @@ class Batch(BaseDeployment):
             str | None
         ) = None,  # Not used, but added to match unified parameters for _deploy
         result_client: str | None = None,
-        hardware_spec: str | None = None,
+        hardware_spec: str | dict | None = None,
     ) -> dict:  # Not used, but added to match unified parameters for _deploy
         """Deploy a model into the Service.
 
@@ -691,7 +738,7 @@ class Batch(BaseDeployment):
         :type result_client: tuple[DataConnection, resource]
 
         :param hardware_spec: hardware specification for deployment
-        :type hardware_spec: str, optional
+        :type hardware_spec: str | dict, optional
         """
         deployment_details: dict | None = {}
         deployment_props: dict[str, Any]
@@ -710,21 +757,23 @@ class Batch(BaseDeployment):
             self._target_workspace.api_client.deployments.ConfigurationMetaNames.ASSET
         ] = {"id": asset_uid}
 
+        hardware_spec_dict: dict[str, str | dict] = {"node_runtime_id": "auto_ai.kb"}
+        match hardware_spec:
+            case str():
+                hardware_spec_dict["hardware_spec"] = {"name": hardware_spec.upper()}
+            case dict():
+                hardware_spec_dict["hardware_spec"] = hardware_spec
+            case _:
+                hardware_spec_dict["hardware_spec"] = {"name": "M"}
+
         deployment_props[
             self._target_workspace.api_client.deployments.ConfigurationMetaNames.HYBRID_PIPELINE_HARDWARE_SPECS
-        ] = [
-            {
-                "node_runtime_id": "auto_ai.kb",
-                "hardware_spec": {
-                    "name": hardware_spec.upper() if hardware_spec else "M"
-                },
-            }
-        ]
+        ] = [hardware_spec_dict]
 
         print("Deploying model {} using V4 client.".format(asset_uid))
         try:
             deployment_details = self._target_workspace.api_client.deployments.create(
-                artifact_uid=asset_uid,  # type: ignore[arg-type]
+                artifact_uid=asset_uid,
                 meta_props=deployment_props,
             )
 

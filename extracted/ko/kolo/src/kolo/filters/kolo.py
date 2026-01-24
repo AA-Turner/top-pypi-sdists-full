@@ -6,6 +6,7 @@ import types
 KOLO_PATHS = (
     "/kolo/checks.py",
     "/kolo/config.py",
+    "/kolo/core.py",
     "/kolo/db.py",
     "/kolo/django_schema.py",
     "/kolo/filters/",
@@ -17,6 +18,7 @@ KOLO_PATHS = (
     "/kolo/monitoring.py",
     "/kolo/plugins.py",
     "/kolo/profiler.py",
+    "/kolo/pth_init.py",
     "/kolo/pytest_plugin.py",
     "/kolo/serialize.py",
     "/kolo/utils.py",

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, cast
+from typing import Optional
 
 import httpx
 
@@ -69,7 +69,7 @@ class FilesResource(SyncAPIResource):
               page. The cursor is used to paginate through the items. The cursor is not
               required for the first page.
 
-          limit: Number of items per page
+          limit: Number of items per page, max allowed is 1000
 
           tool_slug: Filter files by action slug. Example: "convert-to-pdf"
 
@@ -124,17 +124,18 @@ class FilesResource(SyncAPIResource):
         deduplication by checking if a file with the same MD5 hash already exists.
 
         Args:
-          filename: Name of the original file. Example: "photo.jpg"
+          filename: Name of the original file. Example: "quarterly_report.pdf"
 
           md5:
               MD5 hash of the file for deduplication and integrity verification. Example:
-              "d41d8cd98f00b204e9800998ecf8427e"
+              "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
 
-          mimetype: Mime type of the original file. Example: "image/jpeg"
+          mimetype: Mime type of the original file. Example: "application/pdf", "image/png"
 
-          tool_slug: Slug of the action where this file belongs to. Example: "resize-image"
+          tool_slug: Slug of the action where this file belongs to. Example: "GMAIL_SEND_EMAIL",
+              "SLACK_UPLOAD_FILE"
 
-          toolkit_slug: Slug of the app where this file belongs to. Example: "image-processing"
+          toolkit_slug: Slug of the app where this file belongs to. Example: "gmail", "slack", "github"
 
           extra_headers: Send extra headers
 
@@ -144,27 +145,22 @@ class FilesResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return cast(
-            FileCreatePresignedURLResponse,
-            self._post(
-                "/api/v3/files/upload/request",
-                body=maybe_transform(
-                    {
-                        "filename": filename,
-                        "md5": md5,
-                        "mimetype": mimetype,
-                        "tool_slug": tool_slug,
-                        "toolkit_slug": toolkit_slug,
-                    },
-                    file_create_presigned_url_params.FileCreatePresignedURLParams,
-                ),
-                options=make_request_options(
-                    extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-                ),
-                cast_to=cast(
-                    Any, FileCreatePresignedURLResponse
-                ),  # Union types cannot be passed in as arguments in the type system
+        return self._post(
+            "/api/v3/files/upload/request",
+            body=maybe_transform(
+                {
+                    "filename": filename,
+                    "md5": md5,
+                    "mimetype": mimetype,
+                    "tool_slug": tool_slug,
+                    "toolkit_slug": toolkit_slug,
+                },
+                file_create_presigned_url_params.FileCreatePresignedURLParams,
             ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=FileCreatePresignedURLResponse,
         )
 
 
@@ -213,7 +209,7 @@ class AsyncFilesResource(AsyncAPIResource):
               page. The cursor is used to paginate through the items. The cursor is not
               required for the first page.
 
-          limit: Number of items per page
+          limit: Number of items per page, max allowed is 1000
 
           tool_slug: Filter files by action slug. Example: "convert-to-pdf"
 
@@ -268,17 +264,18 @@ class AsyncFilesResource(AsyncAPIResource):
         deduplication by checking if a file with the same MD5 hash already exists.
 
         Args:
-          filename: Name of the original file. Example: "photo.jpg"
+          filename: Name of the original file. Example: "quarterly_report.pdf"
 
           md5:
               MD5 hash of the file for deduplication and integrity verification. Example:
-              "d41d8cd98f00b204e9800998ecf8427e"
+              "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
 
-          mimetype: Mime type of the original file. Example: "image/jpeg"
+          mimetype: Mime type of the original file. Example: "application/pdf", "image/png"
 
-          tool_slug: Slug of the action where this file belongs to. Example: "resize-image"
+          tool_slug: Slug of the action where this file belongs to. Example: "GMAIL_SEND_EMAIL",
+              "SLACK_UPLOAD_FILE"
 
-          toolkit_slug: Slug of the app where this file belongs to. Example: "image-processing"
+          toolkit_slug: Slug of the app where this file belongs to. Example: "gmail", "slack", "github"
 
           extra_headers: Send extra headers
 
@@ -288,27 +285,22 @@ class AsyncFilesResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return cast(
-            FileCreatePresignedURLResponse,
-            await self._post(
-                "/api/v3/files/upload/request",
-                body=await async_maybe_transform(
-                    {
-                        "filename": filename,
-                        "md5": md5,
-                        "mimetype": mimetype,
-                        "tool_slug": tool_slug,
-                        "toolkit_slug": toolkit_slug,
-                    },
-                    file_create_presigned_url_params.FileCreatePresignedURLParams,
-                ),
-                options=make_request_options(
-                    extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
-                ),
-                cast_to=cast(
-                    Any, FileCreatePresignedURLResponse
-                ),  # Union types cannot be passed in as arguments in the type system
+        return await self._post(
+            "/api/v3/files/upload/request",
+            body=await async_maybe_transform(
+                {
+                    "filename": filename,
+                    "md5": md5,
+                    "mimetype": mimetype,
+                    "tool_slug": tool_slug,
+                    "toolkit_slug": toolkit_slug,
+                },
+                file_create_presigned_url_params.FileCreatePresignedURLParams,
             ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=FileCreatePresignedURLResponse,
         )
 
 

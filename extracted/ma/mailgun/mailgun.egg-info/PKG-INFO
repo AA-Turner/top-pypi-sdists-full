@@ -1,90 +1,96 @@
 Metadata-Version: 2.4
 Name: mailgun
-Version: 1.1.0
+Version: 1.6.0
 Summary: Python SDK for Mailgun
 Author-email: diskovod <diskovodik@gmail.com>, Mailgun <api@mailgun.com>
 Maintainer-email: Serhii Kupriienko <kupriienko.serhii@gmail.com>
 License-Expression: Apache-2.0
-Project-URL: Homepage, https://www.mailgun.com
 Project-URL: Documentation, https://documentation.mailgun.com
-Project-URL: Repository, https://github.com/mailgun/mailgun-python
+Project-URL: Homepage, https://www.mailgun.com
 Project-URL: Issue Tracker, https://github.com/mailgun/mailgun-python/issues
-Keywords: Python SDK for Mailgun,Mailgun API Python Wrapper,wrapper,email python-wrapper,transactional-emails,mailgun,mailgun-api
+Project-URL: Repository, https://github.com/mailgun/mailgun-python
+Keywords: email python-wrapper,mailgun,Mailgun API Python Wrapper,mailgun-api,Python SDK for Mailgun,transactional-emails,wrapper
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Communications :: Email
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests>=2.32.4
-Provides-Extra: linting
-Requires-Dist: make; extra == "linting"
-Requires-Dist: toml; extra == "linting"
-Requires-Dist: autopep8; extra == "linting"
-Requires-Dist: bandit; extra == "linting"
-Requires-Dist: black>=21.7; extra == "linting"
-Requires-Dist: autoflake; extra == "linting"
-Requires-Dist: flake8>=3.7.8; extra == "linting"
-Requires-Dist: pep8-naming; extra == "linting"
-Requires-Dist: isort; extra == "linting"
-Requires-Dist: yapf; extra == "linting"
-Requires-Dist: pycodestyle; extra == "linting"
-Requires-Dist: pydocstyle; extra == "linting"
-Requires-Dist: pyupgrade; extra == "linting"
-Requires-Dist: refurb; extra == "linting"
-Requires-Dist: pre-commit; extra == "linting"
-Requires-Dist: ruff; extra == "linting"
-Requires-Dist: mypy; extra == "linting"
-Requires-Dist: types-requests; extra == "linting"
-Requires-Dist: pandas-stubs; extra == "linting"
-Requires-Dist: types-PyYAML; extra == "linting"
-Requires-Dist: monkeytype; extra == "linting"
-Requires-Dist: pyright; extra == "linting"
-Requires-Dist: pylint; extra == "linting"
-Requires-Dist: pytype; extra == "linting"
-Requires-Dist: radon; extra == "linting"
-Requires-Dist: safety; extra == "linting"
-Requires-Dist: vulture; extra == "linting"
-Requires-Dist: python-dotenv>=0.19.2; extra == "linting"
+Requires-Dist: httpx>=0.24
+Requires-Dist: requests>=2.32.5
+Requires-Dist: typing-extensions>=4.7.1; python_version < "3.11"
+Provides-Extra: conda-build
+Requires-Dist: conda-build; extra == "conda-build"
 Provides-Extra: docs
 Requires-Dist: docconvert; extra == "docs"
 Requires-Dist: pyment>=0.3.3; extra == "docs"
+Provides-Extra: linting
+Requires-Dist: autoflake; extra == "linting"
+Requires-Dist: autopep8; extra == "linting"
+Requires-Dist: bandit; extra == "linting"
+Requires-Dist: black>=21.7; extra == "linting"
+Requires-Dist: flake8>=3.7.8; extra == "linting"
+Requires-Dist: isort; extra == "linting"
+Requires-Dist: make; extra == "linting"
+Requires-Dist: monkeytype; extra == "linting"
+Requires-Dist: mypy; extra == "linting"
+Requires-Dist: pandas-stubs; extra == "linting"
+Requires-Dist: pep8-naming; extra == "linting"
+Requires-Dist: pre-commit; extra == "linting"
+Requires-Dist: pycodestyle; extra == "linting"
+Requires-Dist: pydocstyle; extra == "linting"
+Requires-Dist: pylint; extra == "linting"
+Requires-Dist: pyright; extra == "linting"
+Requires-Dist: python-dotenv>=0.19.2; extra == "linting"
+Requires-Dist: pytype; extra == "linting"
+Requires-Dist: pyupgrade; extra == "linting"
+Requires-Dist: radon; extra == "linting"
+Requires-Dist: refurb; extra == "linting"
+Requires-Dist: ruff; extra == "linting"
+Requires-Dist: safety; extra == "linting"
+Requires-Dist: toml; extra == "linting"
+Requires-Dist: types-pyyaml; extra == "linting"
+Requires-Dist: types-requests; extra == "linting"
+Requires-Dist: vulture; extra == "linting"
+Requires-Dist: yapf; extra == "linting"
 Provides-Extra: metrics
 Requires-Dist: pystra; extra == "metrics"
-Requires-Dist: wily>=1.2.0; extra == "metrics"
+Requires-Dist: wily>=1.2; extra == "metrics"
+Provides-Extra: other
+Requires-Dist: toml; extra == "other"
 Provides-Extra: profilers
 Requires-Dist: scalene>=1.3.16; extra == "profilers"
 Requires-Dist: snakeviz; extra == "profilers"
-Provides-Extra: tests
-Requires-Dist: pytest>=7.0.0; extra == "tests"
-Requires-Dist: pytest-benchmark; extra == "tests"
-Requires-Dist: pytest-cov; extra == "tests"
-Requires-Dist: coverage>=4.5.4; extra == "tests"
-Requires-Dist: codecov; extra == "tests"
-Provides-Extra: conda-build
-Requires-Dist: conda-build; extra == "conda-build"
 Provides-Extra: spelling
 Requires-Dist: typos; extra == "spelling"
-Provides-Extra: other
-Requires-Dist: toml; extra == "other"
+Provides-Extra: tests
+Requires-Dist: codecov; extra == "tests"
+Requires-Dist: coverage>=4.5.4; extra == "tests"
+Requires-Dist: openssl; extra == "tests"
+Requires-Dist: pytest>=7; extra == "tests"
+Requires-Dist: pytest-asyncio; extra == "tests"
+Requires-Dist: pytest-benchmark; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pytest-order; extra == "tests"
 Dynamic: license-file
 
 # Mailgun Python SDK
 
 Welcome to the official Python SDK for [Mailgun](http://www.mailgun.com/)!
 
-Check out all the resources and Python code examples in the official [Mailgun Documentation](https://documentation.mailgun.com/docs/mailgun/).
+Check out all the resources and Python code examples in the official
+[Mailgun Documentation](https://documentation.mailgun.com/docs/mailgun/).
 
 ## Table of contents
 
@@ -104,6 +110,8 @@ Check out all the resources and Python code examples in the official [Mailgun Do
   - [Overview](#overview)
     - [Base URL](#base-url)
     - [Authentication](#authentication)
+    - [Client](#client)
+    - [AsyncClient](#asyncclient)
     - [API Response Codes](#api-response-codes)
   - [Request examples](#request-examples)
     - [Full list of supported endpoints](#full-list-of-supported-endpoints)
@@ -118,6 +126,8 @@ Check out all the resources and Python code examples in the official [Mailgun Do
       - [Update a domain](#update-a-domain)
       - [Domain connections](#domain-connections)
       - [Domain keys](#domain-keys)
+        - [List keys for all domains](#list-keys-for-all-domains)
+        - [Create a domain key](#create-a-domain-key)
         - [Update DKIM authority](#update-dkim-authority)
       - [Domain Tracking](#domain-tracking)
         - [Get tracking settings](#get-tracking-settings)
@@ -128,6 +138,15 @@ Check out all the resources and Python code examples in the official [Mailgun Do
     - [Events](#events)
       - [Retrieves a paginated list of events](#retrieves-a-paginated-list-of-events)
       - [Get events by recipient](#get-events-by-recipient)
+    - [Bounce Classification](#bounce-classification)
+      - [List statistic v2](#list-statistic-v2)
+    - [Logs](#logs)
+      - [List logs](#list-logs)
+    - [Tags New](#tags-new)
+      - [Update account tag](#update-account-tag)
+      - [Post query to list account tags or search for single tag](#post-query-to-list-account-tags-or-search-for-single-tag)
+      - [Delete account tag](#delete-account-tag)
+      - [Get account tag limit information](#get-account-tag-limit-information)
     - [Metrics](#metrics)
       - [Get account metrics](#get-account-metrics)
       - [Get account usage metrics](#get-account-usage-metrics)
@@ -167,6 +186,12 @@ Check out all the resources and Python code examples in the official [Mailgun Do
       - [Create a single validation](#create-a-single-validation)
     - [Inbox placement](#inbox-placement)
       - [Get all inbox](#get-all-inbox)
+    - [Credentials](#credentials)
+      - [List Mailgun SMTP credential metadata for a given domain](#list-mailgun-smtp-credential-metadata-for-a-given-domain)
+      - [Create Mailgun SMTP credentials for a given domain](#create-mailgun-smtp-credentials-for-a-given-domain)
+    - [Users](#users)
+      - [Get users on an account](#get-users-on-an-account)
+      - [Get a user's details](#get-a-users-details)
   - [License](#license)
   - [Contribute](#contribute)
   - [Contributors](#contributors)
@@ -175,15 +200,16 @@ Check out all the resources and Python code examples in the official [Mailgun Do
 
 This library `mailgun` officially supports the following Python versions:
 
-- python >=3.10,\<3.14
+- python >=3.10,\<3.15
 
-It's tested up to 3.13 (including).
+It's tested up to 3.14 (including).
 
 ## Requirements
 
 ### Build backend dependencies
 
-To build the `mailgun` package from the sources you need `setuptools` (as a build backend), `wheel`, and `setuptools-scm`.
+To build the `mailgun` package from the sources you need `setuptools` (as a build backend), `wheel`, and
+`setuptools-scm`.
 
 ### Runtime dependencies
 
@@ -191,8 +217,8 @@ At runtime the package requires only `requests >=2.32.4`.
 
 ### Test dependencies
 
-For running test you need `pytest >=7.0.0` at least.
-Make sure to provide the environment variables from [Authentication](#authentication).
+For running test you need `pytest >=7.0.0` at least. Make sure to provide the environment variables from
+[Authentication](#authentication).
 
 ## Installation
 
@@ -256,9 +282,12 @@ The Mailgun API is part of the Sinch family and enables you to send, track, and 
 
 ### Base URL
 
-All API calls referenced in our documentation start with a base URL. Mailgun allows the ability to send and receive email in both US and EU regions. Be sure to use the appropriate base URL based on which region you have created for your domain.
+All API calls referenced in our documentation start with a base URL. Mailgun allows the ability to send and receive
+email in both US and EU regions. Be sure to use the appropriate base URL based on which region you have created for your
+domain.
 
-It is also important to note that Mailgun uses URI versioning for our API endpoints, and some endpoints may have different versions than others. Please reference the version stated in the URL for each endpoint.
+It is also important to note that Mailgun uses URI versioning for our API endpoints, and some endpoints may have
+different versions than others. Please reference the version stated in the URL for each endpoint.
 
 For domains created in our US region the base URL is:
 
@@ -272,7 +301,8 @@ For domains created in our EU region the base URL is:
 https://api.eu.mailgun.net/
 ```
 
-Your Mailgun account may contain multiple sending domains. To avoid passing the domain name as a query parameter, most API URLs must include the name of the domain you are interested in:
+Your Mailgun account may contain multiple sending domains. To avoid passing the domain name as a query parameter, most
+API URLs must include the name of the domain you are interested in:
 
 ```sh
 https://api.mailgun.net/v3/mydomain.com
@@ -280,12 +310,13 @@ https://api.mailgun.net/v3/mydomain.com
 
 ### Authentication
 
-The Mailgun Send API uses your API key for authentication. [Grab](https://app.mailgun.com/settings/api_security) and save your Mailgun API credentials.
+The Mailgun Send API uses your API key for authentication. [Grab](https://app.mailgun.com/settings/api_security) and
+save your Mailgun API credentials.
 
 To run tests and examples please use virtualenv or conda environment with next environment variables:
 
 ```bash
-export APIKEY="API_KEY"
+export APIKEY="API_KEY"  # pragma: allowlist secret
 export DOMAIN="DOMAIN_NAME"
 export MESSAGES_FROM="Name Surname <mailgun@domain_name>"
 export MESSAGES_TO="Name Surname <username@gmail.com>"
@@ -294,7 +325,13 @@ export DOMAINS_DEDICATED_IP="127.0.0.1"
 export MAILLIST_ADDRESS="everyone@mailgun.domain.com"
 export VALIDATION_ADDRESS_1="test1@i.ua"
 export VALIDATION_ADDRESS_2="test2@gmail.com"
+export MAILGUN_EMAIL="username@example.com"
+export USER_ID="123456789012345678901234"
+export USER_NAME="Name Surname"
+export ROLE="admin"
 ```
+
+### Client
 
 Initialize your [Mailgun](http://www.mailgun.com/) client:
 
@@ -306,19 +343,70 @@ auth = ("api", os.environ["APIKEY"])
 client = Client(auth=auth)
 ```
 
+### AsyncClient
+
+SDK provides also async version of the client to use in asynchronous applications. The AsyncClient offers the same functionality as the sync client but with non-blocking I/O, making it ideal for concurrent operations and integration with asyncio-based applications.
+
+```python
+from mailgun.client import AsyncClient
+import os
+
+auth = ("api", os.environ["APIKEY"])
+client = AsyncClient(auth=auth)
+```
+
+The `AsyncClient` provides async equivalents for all methods available in the sync `Client`. The method signatures and parameters are identical - simply add `await` when calling methods:
+
+```python
+# Sync version
+client = Client(auth=auth)
+result = client.domainlist.get()
+
+# Async version
+client = AsyncClient(auth=auth)
+result = await client.domainlist.get()
+```
+
+Additionally `AsyncClient` can be used as async context manager to automatically close connection when execution is finished:
+
+```python
+import asyncio
+import os
+from mailgun.client import AsyncClient
+
+
+async def main():
+    auth = ("api", os.environ["APIKEY"])
+    async with AsyncClient(auth=auth) as client:
+        result = await client.domainlist.get()
+        print(result)
+
+
+asyncio.run(main())
+```
+
+For detailed examples of all available methods, parameters, and use cases, refer to the [mailgun/examples](mailgun/examples) section. All examples can be adapted to async by using `AsyncClient` and adding `await` to method calls.
+
 ### API Response Codes
 
-All of Mailgun's HTTP response codes follow standard HTTP definitions. For some additional information and troubleshooting steps, please see below.
+All of Mailgun's HTTP response codes follow standard HTTP definitions. For some additional information and
+troubleshooting steps, please see below.
 
-**400** - Will typically contain a JSON response with a "message" key which contains a human readable message / action to interpret.
+**400** - Will typically contain a JSON response with a "message" key which contains a human readable message / action
+to interpret.
 
-**403** - Auth error or access denied. Please ensure your API key is correct and that you are part of a group that has access to the desired resource.
+**403** - Auth error or access denied. Please ensure your API key is correct and that you are part of a group that has
+access to the desired resource.
 
-**404** - Resource not found. NOTE: this one can be temporal as our system is an eventually-consistent system but requires diligence. If a JSON response is missing for a 404 - that's usually a sign that there was a mistake in the API request, such as a non-existing endpoint.
+**404** - Resource not found. NOTE: this one can be temporal as our system is an eventually-consistent system but
+requires diligence. If a JSON response is missing for a 404 - that's usually a sign that there was a mistake in the API
+request, such as a non-existing endpoint.
 
-**429** - Mailgun does have rate limits in place to protect our system. Please retry these requests as defined in the response. In the unlikely case you encounter them and need them raised, please reach out to our support team.
+**429** - Mailgun does have rate limits in place to protect our system. Please retry these requests as defined in the
+response. In the unlikely case you encounter them and need them raised, please reach out to our support team.
 
-**500** - Internal Error on the Mailgun side. Retries are recommended with exponential or logarithmic retry intervals. If the issue persists, please reach out to our support team.
+**500** - Internal Error on the Mailgun side. Retries are recommended with exponential or logarithmic retry intervals.
+If the issue persists, please reach out to our support team.
 
 ## Request examples
 
@@ -331,7 +419,9 @@ All of Mailgun's HTTP response codes follow standard HTTP definitions. For some 
 
 #### Send an email
 
-Pass the components of the messages such as To, From, Subject, HTML and text parts, attachments, etc. Mailgun will build a MIME representation of the message and send it. Note: In order to send you must provide one of the following parameters: 'text', 'html', 'amp-html' or 'template'
+Pass the components of the messages such as To, From, Subject, HTML and text parts, attachments, etc. Mailgun will build
+a MIME representation of the message and send it. Note: In order to send you must provide one of the following
+parameters: 'text', 'html', 'amp-html' or 'template'
 
 ```python
 import os
@@ -472,7 +562,7 @@ def add_domain() -> None:
     # Post domain
     data = {
         "name": "python.test.domain5",
-        # "smtp_password": "random123456"
+        # "smtp_password": ""
     }
 
     request = client.domains.create(data=data)
@@ -507,6 +597,68 @@ def get_connections() -> None:
 ```
 
 #### Domain keys
+
+### List keys for all domains
+
+List domain keys, and optionally filter by signing domain or selector. The page & limit data is only required when paging through the data.
+
+```python
+def get_dkim_keys() -> None:
+    """
+    GET /v1/dkim/keys
+    :return:
+    """
+    data = {
+        "page": "string",
+        "limit": "0",
+        "signing_domain": "python.test.domain5",
+        "selector": "smtp",
+    }
+
+    request = client.dkim_keys.get(data=data)
+    print(request.json())
+```
+
+#### Create a domain key
+
+Create a domain key.
+Note that once private keys are created or imported they are never exported.
+Alternatively, you can import an existing PEM file containing a RSA private key in PKCS #1, ASn.1 DER format.
+Note, the pem can be passed as a file attachment or as a form-string parameter.
+
+```python
+def post_dkim_keys() -> None:
+    """
+    POST /v1/dkim/keys
+    :return:
+    """
+    import subprocess
+    from pathlib import Path
+
+    # Private key PEM file must be generated in PKCS1 format. You need 'openssl' on your machine
+    # example:
+    # openssl genrsa -traditional -out .server.key 2048
+    subprocess.run(["openssl", "genrsa", "-traditional", "-out", ".server.key", "2048"])
+
+    files = [
+        (
+            "pem",
+            ("server.key", Path(".server.key").read_bytes()),
+        )
+    ]
+
+    data = {
+        "signing_domain": "python.test.domain5",
+        "selector": "smtp",
+        "bits": "2048",
+        "pem": files,
+    }
+
+    headers = {"Content-Type": "multipart/form-data"}
+
+    request = client.dkim_keys.create(data=data, headers=headers, files=files)
+    print(request.json())
+```
 
 ##### Update DKIM authority
 
@@ -632,10 +784,186 @@ def events_by_recipient() -> None:
     print(req.json())
 ```
 
+### Bounce Classification
+
+[API endpoint](https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/bounce-classification).
+
+#### List statistic v2
+
+Items that have no bounces and no delays(classified_failures_count==0) are not returned.
+
+```python
+def post_list_statistic_v2() -> None:
+    """
+    # Bounce Classification
+    # POST /v2/bounce-classification/metrics
+    :return:
+    """
+
+    payload = {
+        "start": "Wed, 12 Nov 2025 23:00:00 UTC",
+        "end": "Thu, 13 Nov 2025 23:00:00 UTC",
+        "resolution": "day",
+        "duration": "24h0m0s",
+        "dimensions": ["entity-name", "domain.name"],
+        "metrics": [
+            "critical_bounce_count",
+            "non_critical_bounce_count",
+            "critical_delay_count",
+            "non_critical_delay_count",
+            "delivered_smtp_count",
+            "classified_failures_count",
+            "critical_bounce_rate",
+            "non_critical_bounce_rate",
+            "critical_delay_rate",
+            "non_critical_delay_rate",
+        ],
+        "filter": {
+            "AND": [
+                {
+                    "attribute": "domain.name",
+                    "comparator": "=",
+                    "values": [{"value": domain}],
+                }
+            ]
+        },
+        "include_subaccounts": True,
+        "pagination": {"sort": "entity-name:asc", "limit": 10},
+    }
+
+    headers = {"Content-Type": "application/json"}
+
+    req = client.bounceclassification_metrics.create(data=payload, headers=headers)
+    print(req.json())
+```
+
+### Logs
+
+Mailgun keeps track of every inbound and outbound message event and stores this log data. This data can be queried and
+filtered to provide insights into the health of your email infrastructure
+[API endpoint](https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/logs/post-v1-analytics-logs).
+
+#### List Logs
+
+Gets customer event logs for an account.
+
+```python
+def post_analytics_logs() -> None:
+    """
+    # Metrics
+    # POST /analytics/logs
+    :return:
+    """
+
+    data = {
+        "start": "Wed, 24 Sep 2025 00:00:00 +0000",
+        "end": "Thu, 25 Sep 2025 00:00:00 +0000",
+        "filter": {
+            "AND": [
+                {
+                    "attribute": "domain",
+                    "comparator": "=",
+                    "values": [{"label": domain, "value": domain}],
+                }
+            ]
+        },
+        "include_subaccounts": True,
+        "pagination": {
+            "sort": "timestamp:asc",
+            "limit": 50,
+        },
+    }
+
+    req = client.analytics_logs.create(data=data)
+    print(req.json())
+```
+
+### Tags New
+
+Mailgun allows you to tag your email with unique identifiers. Tags are visible via our analytics tags
+[API endpoint](https://documentation.mailgun.com/docs/inboxready/api-reference/optimize/mailgun/tags-new).
+
+#### Update account tag
+
+Updates the tag description for an account.
+
+```python
+def update_analytics_tags() -> None:
+    """
+    # Metrics
+    # PUT /v1/analytics/tags
+    :return:
+    """
+
+    data = {
+        "tag": "name-of-tag-to-update",
+        "description": "updated tag description",
+    }
+
+    req = client.analytics_tags.update(data=data)
+    print(req.json())
+```
+
+#### Post query to list account tags or search for single tag
+
+Gets the list of all tags, or filtered by tag prefix, for an account.
+
+```python
+def post_analytics_tags() -> None:
+    """
+    # Metrics
+    # POST /v1/analytics/tags
+    :return:
+    """
+
+    data = {
+        "pagination": {"sort": "lastseen:desc", "limit": 10},
+        "include_subaccounts": True,
+    }
+
+    req = client.analytics_tags.create(data=data)
+    print(req.json())
+```
+
+#### Delete account tag
+
+Deletes the tag for an account.
+
+```python
+def delete_analytics_tags() -> None:
+    """
+    # Metrics
+    # DELETE /v1/analytics/tags
+    :return:
+    """
+
+    data = {"tag": "name-of-tag-to-delete"}
+
+    req = client.analytics_tags.delete(data=data)
+    print(req.json())
+```
+
+#### Get account tag limit information
+
+Gets the tag limit and current number of unique tags for an account.
+
+```python
+def get_account_analytics_tag_limit_information() -> None:
+    """
+    # Metrics
+    # GET /v1/analytics/tags/limits
+    :return:
+    """
+
+    req = client.analytics_tags_limits.get()
+    print(req.json())
+```
+
 ### Metrics
 
-Mailgun collects many different events and generates event metrics which are available in your Control Panel.
-This data is also available via our analytics metrics [API endpoint](https://documentation.mailgun.com/docs/mailgun/api-reference/openapi-final/tag/Metrics/#tag/Metrics).
+Mailgun collects many different events and generates event metrics which are available in your Control Panel. This data
+is also available via our analytics metrics
+[API endpoint](https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/metrics).
 
 #### Get account metrics
 
@@ -734,14 +1062,15 @@ domain: str = os.environ["DOMAIN"]
 
 client: Client = Client(auth=("api", key))
 
+
 def post_bounces() -> None:
-"""
-POST /<domain>/bounces
-:return:
-"""
-data = {"address": "test120@gmail.com", "code": 550, "error": "Test error"}
-req = client.bounces.create(data=data, domain=domain)
-print(req.json())
+    """
+    POST /<domain>/bounces
+    :return:
+    """
+    data = {"address": "test120@gmail.com", "code": 550, "error": "Test error"}
+    req = client.bounces.create(data=data, domain=domain)
+    print(req.json())
 ```
 
 #### Unsubscribe
@@ -760,11 +1089,9 @@ def get_unsubs() -> None:
 
 ##### Import list of unsubscribes
 
-> [!IMPORTANT]
-> It is strongly recommended that you open files in binary mode.
-> Because the Content-Length header may be provided for you,
-> and if it does this value will be set to the number of bytes in the file.
-> Errors may occur if you open the file in text mode.
+> [!IMPORTANT] It is strongly recommended that you open files in binary mode. Because the Content-Length header may be
+> provided for you, and if it does this value will be set to the number of bytes in the file. Errors may occur if you
+> open the file in text mode.
 
 ```python
 def import_list_unsubs() -> None:
@@ -773,9 +1100,7 @@ def import_list_unsubs() -> None:
     :return:
     """
     files = {
-        "unsubscribe2_csv": Path(
-            "mailgun/doc_tests/files/mailgun_unsubscribes.csv"
-        ).read_bytes()
+        "unsubscribe2_csv": Path("mailgun/doc_tests/files/mailgun_unsubscribes.csv").read_bytes()
     }
     req = client.unsubscribes_import.create(domain=domain, files=files)
     print(req.json())
@@ -798,11 +1123,9 @@ def add_complaints() -> None:
 
 ##### Import list of complaints
 
-> [!IMPORTANT]
-> It is strongly recommended that you open files in binary mode.
-> Because the Content-Length header may be provided for you,
-> and if it does this value will be set to the number of bytes in the file.
-> Errors may occur if you open the file in text mode.
+> [!IMPORTANT] It is strongly recommended that you open files in binary mode. Because the Content-Length header may be
+> provided for you, and if it does this value will be set to the number of bytes in the file. Errors may occur if you
+> open the file in text mode.
 
 ```python
 def import_complaint_list() -> None:
@@ -810,11 +1133,7 @@ def import_complaint_list() -> None:
     POST /<domain>/complaints/import, Content-Type: multipart/form-data
     :return:
     """
-    files = {
-        "complaints_csv": Path(
-            "mailgun/doc_tests/files/mailgun_complaints.csv"
-        ).read_bytes()
-    }
+    files = {"complaints_csv": Path("mailgun/doc_tests/files/mailgun_complaints.csv").read_bytes()}
     req = client.complaints_import.create(domain=domain, files=files)
     print(req.json())
 ```
@@ -999,9 +1318,7 @@ def get_all_versions() -> None:
     GET /<domain>/templates/<template>/versions
     :return:
     """
-    req = client.templates.get(
-        domain=domain, template_name="template.name1", versions=True
-    )
+    req = client.templates.get(domain=domain, template_name="template.name1", versions=True)
     print(req.json())
 ```
 
@@ -1030,9 +1347,7 @@ def update_ippool() -> None:
         "name": "test_pool3",
         "description": "Test3",
     }
-    req = client.ippools.patch(
-        domain=domain, data=data, pool_id="60140bc1fee3e84dec5abeeb"
-    )
+    req = client.ippools.patch(domain=domain, data=data, pool_id="60140bc1fee3e84dec5abeeb")
     print(req.json())
 ```
 
@@ -1088,6 +1403,9 @@ def delete_domain_ip() -> None:
 
 ### Tags
 
+> [!WARNING]
+> This API is deprecated in favor of our new [Tags API](https://documentation.mailgun.com/docs/inboxready/api-reference/optimize/mailgun/tags-new).
+
 #### Get tags
 
 ```python
@@ -1108,9 +1426,7 @@ def get_aggregate_countries() -> None:
     GET /<domain>/tags/<tag>/stats/aggregates/countries
     :return:
     """
-    req = client.tags_stats_aggregates_countries.get(
-        domain=domain, tag_name="September newsletter"
-    )
+    req = client.tags_stats_aggregates_countries.get(domain=domain, tag_name="September newsletter")
     print(req.json())
 ```
 
@@ -1144,27 +1460,158 @@ def get_all_inbox() -> None:
     print(req.json())
 ```
 
+### Keys
+
+The Keys API lets you view and manage api keys.
+
+#### List Mailgun API keys
+
+```python
+def get_keys() -> None:
+    """
+    GET /v1/keys
+    :return:
+    """
+    query = {"domain_name": "python.test.domain5", "kind": "web"}
+    req = client.keys.get(filters=query)
+    print(req.json())
+```
+
+#### Create Mailgun API key
+
+```python
+import os
+
+from mailgun.client import Client
+
+
+key: str = os.environ["APIKEY"]
+domain: str = os.environ["DOMAIN"]
+mailgun_email = os.environ["MAILGUN_EMAIL"]
+role = os.environ["ROLE"]
+user_id = os.environ["USER_ID"]
+user_name = os.environ["USER_NAME"]
+
+client: Client = Client(auth=("api", key))
+
+
+def post_keys() -> None:
+    """
+    POST /v1/keys
+
+    This code generate a Web API key tied to the account user associated with the data inputted for the USER_EMAIL field and USER_ID  values.
+    This is returned by the API in the "secret":"API_KEY" key/value pair. This key will authenticate the call (Get one's own user details) made to the /v5/users/me endpoint,   # pragma: allowlist secret
+    and will return the user's data associated with the USER_EMAIL and USER_ID values.
+
+    Important Notes:
+    USER_EMAIL - The user login email address of the user that is trying to make the call to the /v5/users/me endpoint.
+    SECONDS - How many seconds you want the key to be active before it expires.
+    ROLE - The role of the API Key. This dictates what permissions the key has (https://help.mailgun.com/hc/en-us/articles/26016288026907-API-Key-Roles)
+    USER_ID - The internal User ID of the user that is trying to call the /v5/users/me endpoint. This is present in the URL in the address bar when viewing the User details in the GUI or in Admin. Both will show /users/USER_ID in the address.
+    DESCRIPTION - Description of the key.
+
+    :return:
+    """
+
+    data = {
+        "email": mailgun_email,
+        "domain_name": "python.test.domain5",
+        "kind": "web",
+        "expiration": "3600",
+        "role": role,
+        "user_id": user_id,
+        "user_name": user_name,
+        "description": "a new key",
+    }
+
+    headers = {"Content-Type": "multipart/form-data"}
+
+    req = client.keys.create(data=data, headers=headers)
+    print(req.json())
+```
+
+### Credentials
+
+#### List Mailgun SMTP credential metadata for a given domain
+
+```python
+def get_credentials() -> None:
+    """
+    GET /domains/<domain>/credentials
+    :return:
+    """
+    request = client.domains_credentials.get(domain=domain)
+    print(request.json())
+```
+
+#### Create Mailgun SMTP credentials for a given domain
+
+```python
+def post_credentials() -> None:
+    """
+    POST /domains/<domain>/credentials
+    :return:
+    """
+    data = {
+        "login": f"alice_bob@{domain}",
+        "password": "test_new_creds123",  # pragma: allowlist secret
+    }
+    request = client.domains_credentials.create(domain=domain, data=data)
+    print(request.json())
+```
+
+### Users
+
+#### Get users on an account
+
+```python
+def get_users() -> None:
+    """
+    GET /v5/users
+    :return:
+    """
+    query = {"role": "admin", "limit": "0", "skip": "0"}
+    req = client.users.get(filters=query)
+    print(req.json())
+```
+
+#### Get a user's details
+
+```python
+mailgun_email = os.environ["MAILGUN_EMAIL"]
+role = os.environ["ROLE"]
+user_name = os.environ["USER_NAME"]
+
+
+def get_user_details() -> None:
+    """
+    GET /v5/users/{user_id}
+    :return:
+    """
+    query = {"role": role, "limit": "0", "skip": "0"}
+    req1 = client.users.get(filters=query)
+    users = req1.json()["users"]
+
+    for user in users:
+        if mailgun_email == user["email"]:
+            req2 = client.users.get(user_id=user["id"])
+            print(req2.json())
+```
+
 ## License
 
 [Apache-2.0](https://choosealicense.com/licenses/apache-2.0/)
 
 ## Contribute
 
-Mailgun loves developers. You can be part of this project!
+See for details [CONTRIBUTING.md](CONTRIBUTING.md)
 
-This Python SDK is a great introduction to the open source world, check out the code!
+## Security
 
-Feel free to ask anything, and contribute:
-
-- Fork the project.
-- Create a new branch.
-- Implement your feature or bug fix.
-- Add documentation to it.
-- Commit, push, open a pull request and voila.
-
-If you have suggestions on how to improve the guides, please submit an issue in our [Official API Documentation](https://documentation.mailgun.com).
+See for details [SECURITY.md](SECURITY.md)
 
 ## Contributors
 
 - [@diskovod](https://github.com/diskovod)
 - [@skupriienko](https://github.com/skupriienko)
+- [@erz9engel](https://github.com/erz9engel)

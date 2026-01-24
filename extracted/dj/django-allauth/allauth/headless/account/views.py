@@ -5,6 +5,7 @@ from django.utils.decorators import method_decorator
 from allauth.account import app_settings as account_settings
 from allauth.account.adapter import get_adapter as get_account_adapter
 from allauth.account.internal import flows
+from allauth.account.internal.constants import LoginStageKey
 from allauth.account.internal.flows import (
     email_verification,
     manage_email,
@@ -80,7 +81,7 @@ class ConfirmLoginCodeView(APIView):
     def dispatch(self, request, *args, **kwargs):
         auth_status = authkit.AuthenticationStatus(request)
         self.stage = auth_status.get_pending_stage()
-        if not self.stage:
+        if not self.stage or self.stage.key != LoginStageKey.LOGIN_BY_CODE:
             return ConflictResponse(request)
         self.process = flows.login_by_code.LoginCodeVerificationProcess.resume(
             self.stage
@@ -420,7 +421,10 @@ class ManageEmailView(APIView):
 
     def delete(self, request, *args, **kwargs):
         addr = self.input.cleaned_data["email"]
-        flows.manage_email.delete_email(request, addr)
+        if addr.pk:
+            flows.manage_email.delete_email(request, addr)
+        else:
+            self.input.process.abort()
         return self._respond_email_list()
 
     def patch(self, request, *args, **kwargs):

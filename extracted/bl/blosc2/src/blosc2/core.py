@@ -920,6 +920,13 @@ def set_nthreads(nthreads: int) -> int:
 
     Notes
     -----
+    The number of threads can also be set via the ``BLOSC_NTHREADS`` environment
+    variable (e.g., ``export BLOSC_NTHREADS=1``). Additionally, you may want to set
+    ``NUMEXPR_NUM_THREADS`` (e.g., ``export NUMEXPR_NUM_THREADS=1``) as well since
+    numexpr is used under the hood when performing some operations.  Note that
+    this function only sets the number of threads used by Blosc, not the number
+    of threads used by numexpr.
+
     The maximum number of threads for Blosc is :math:`2^{31} - 1`. In some
     cases, Blosc gets better results if you set the number of threads
     to a value slightly below your number of cores
@@ -1163,10 +1170,14 @@ def apple_silicon_cache_size(cache_level: int) -> int:
 
 
 def get_cache_info(cache_level: int) -> tuple:
-    result = subprocess.run(["lscpu", "--json"], capture_output=True, text=True)
-    lscpu_info = json.loads(result.stdout)
     if cache_level == 0:
         cache_level = "1d"
+
+    try:
+        result = subprocess.run(["lscpu", "--json"], capture_output=True, check=True, text=True)
+    except (FileNotFoundError, subprocess.CalledProcessError) as err:
+        raise ValueError("lscpu not found or error running lscpu") from err
+    lscpu_info = json.loads(result.stdout)
     for entry in lscpu_info["lscpu"]:
         if entry["field"] == f"L{cache_level} cache:":
             size_str, instances_str = entry["data"].split(" (")
@@ -1307,9 +1318,12 @@ def get_cbuffer_sizes(src: object) -> tuple[(int, int, int)]:
 
 
 # Compute a decent value for chunksize based on L3 and/or heuristics
-def get_chunksize(blocksize, l3_minimum=4 * 2**20, l3_maximum=2**26):
-    # Find a decent default when L3 cannot be detected by cpuinfo
-    # Based mainly in heuristics
+def get_chunksize(blocksize, l3_minimum=4 * 2**20, l3_maximum=2**26, reduc_factor=4):
+    # Find a decent default when L3 cannot be detected by cpuinfo.
+    # `reduc_factor` means that the chunk will be divided by this factor
+    # 4 stems for 3 operands + 1 result, but some functions (e.g., linalg ones) may
+    # decide to use another one (e.g., 1 for matmul has proved to be better).
+    # Most of this is based mainly on heuristics and experimentation.
     chunksize = blocksize
     if blocksize * 32 < l3_maximum:
         chunksize = blocksize * 32
@@ -1328,15 +1342,14 @@ def get_chunksize(blocksize, l3_minimum=4 * 2**20, l3_maximum=2**26):
             if isinstance(l2_cache_size, int) and l3_cache_size > l2_cache_size:
                 chunksize = l3_cache_size
         # When computing expressions, it is convenient to keep chunks for all operands
-        # in L3 cache, so let's divide by 4 (3 operands + result is a typical situation
-        # for moderately complex expressions)
-        chunksize //= 4
+        # in L3 cache (reduc_factor will account for this).
+        chunksize //= reduc_factor
 
     # Chunksize should be at least the size of L2
     l2_cache_size = cpu_info.get("l2_cache_size", "Not found")
     if isinstance(l2_cache_size, int) and l2_cache_size > chunksize:
         # Apple Silicon has a large L2 cache, and memory bandwidth is high,
-        # so we can use a larger chunksize based on L2 cache size
+        # so we can use a larger chunksize based on L2 cache size.
         chunksize = l2_cache_size * 4
 
     # Ensure a minimum size
@@ -1566,7 +1579,8 @@ def compute_chunks_blocks(  # noqa: C901
     # Finally, the chunks
     if chunks is None:
         blocksize = math.prod(blocks) * itemsize
-        chunksize = get_chunksize(blocksize)
+        reduc_factor = kwargs.get("_chunksize_reduc_factor", 4)
+        chunksize = get_chunksize(blocksize, reduc_factor=reduc_factor)
         # Make chunksize to be a multiple of the blocksize. This allows for:
         # 1. Avoid unnecessary padding in chunks
         # 2. Avoid exceeding the maximum buffer size (see #392)

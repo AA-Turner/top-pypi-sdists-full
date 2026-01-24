@@ -6,7 +6,7 @@ from setuptools import setup, find_packages, Command
 from setuptools.command.install import install
 
 NAME = 'orange-widget-base'
-VERSION = '4.26.0'
+VERSION = '4.27.0'
 ISRELEASED = True
 # full version identifier including a git revision identifier for development
 # build/releases (this is filled/updated in `write_version_py`)

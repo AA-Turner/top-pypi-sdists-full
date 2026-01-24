@@ -1,13 +1,11 @@
+import inspect
 import itertools
+import json
 import logging
 from dataclasses import dataclass
-import inspect
+from typing import Any, Callable, ForwardRef, Sequence, cast, get_type_hints
 
-from pydantic import Field, create_model
-from pydantic.fields import FieldInfo
-import json
-from typing import cast, Callable, Sequence, Any, ForwardRef, get_type_hints, Union
-
+import opentelemetry.semconv._incubating.attributes.gen_ai_attributes as gen_ai_attributes
 from griffe import (
     Docstring,
     DocstringSectionKind,
@@ -15,9 +13,13 @@ from griffe import (
     DocstringParameter,
     DocstringSection,
 )
+from opentelemetry import trace
+from pydantic import Field, create_model
+from pydantic.fields import FieldInfo
 
 from mistralai.extra.exceptions import RunException
 from mistralai.extra.mcp.base import MCPClientProtocol
+from mistralai.extra.observability.otel import GenAISpanEnum, MistralAIAttributes, set_available_attributes
 from mistralai.extra.run.result import RunOutputEntries
 from mistralai.models import (
     FunctionResultEntry,
@@ -51,7 +53,7 @@ class RunMCPTool:
     mcp_client: MCPClientProtocol
 
 
-RunTool = Union[RunFunction, RunCoroutine, RunMCPTool]
+RunTool = RunFunction | RunCoroutine | RunMCPTool
 
 
 def _get_function_description(docstring_sections: list[DocstringSection]) -> str:
@@ -191,22 +193,31 @@ async def create_function_result(
         if isinstance(function_call.arguments, str)
         else function_call.arguments
     )
-    try:
-        if isinstance(run_tool, RunFunction):
-            res = run_tool.callable(**arguments)
-        elif isinstance(run_tool, RunCoroutine):
-            res = await run_tool.awaitable(**arguments)
-        elif isinstance(run_tool, RunMCPTool):
-            res = await run_tool.mcp_client.execute_tool(function_call.name, arguments)
-    except Exception as e:
-        if continue_on_fn_error is True:
-            return FunctionResultEntry(
-                tool_call_id=function_call.tool_call_id,
-                result=f"Error while executing {function_call.name}: {str(e)}",
-            )
-        raise RunException(
-            f"Failed to execute tool {function_call.name} with arguments '{function_call.arguments}'"
-        ) from e
+    tracer = trace.get_tracer(__name__)
+    with tracer.start_as_current_span(GenAISpanEnum.function_call(function_call.name)) as span:
+        try:
+            if isinstance(run_tool, RunFunction):
+                res = run_tool.callable(**arguments)
+            elif isinstance(run_tool, RunCoroutine):
+                res = await run_tool.awaitable(**arguments)
+            elif isinstance(run_tool, RunMCPTool):
+                res = await run_tool.mcp_client.execute_tool(function_call.name, arguments)
+            function_call_attributes = {
+                    gen_ai_attributes.GEN_AI_OPERATION_NAME: gen_ai_attributes.GenAiOperationNameValues.EXECUTE_TOOL.value,
+                    gen_ai_attributes.GEN_AI_TOOL_CALL_ID: function_call.id,
+                    MistralAIAttributes.MISTRAL_AI_TOOL_CALL_ARGUMENTS: str(function_call.arguments),
+                    gen_ai_attributes.GEN_AI_TOOL_NAME: function_call.name
+                }
+            set_available_attributes(span, function_call_attributes)
+        except Exception as e:
+            if continue_on_fn_error is True:
+                return FunctionResultEntry(
+                    tool_call_id=function_call.tool_call_id,
+                    result=f"Error while executing {function_call.name}: {str(e)}",
+                )
+            raise RunException(
+                f"Failed to execute tool {function_call.name} with arguments '{function_call.arguments}'"
+            ) from e
 
     return FunctionResultEntry(
         tool_call_id=function_call.tool_call_id,

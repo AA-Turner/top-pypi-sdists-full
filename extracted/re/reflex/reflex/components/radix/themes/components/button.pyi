@@ -19,79 +19,6 @@ class Button(elements.Button, RadixLoadingProp, RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
-        size: Breakpoints[str, Literal["1", "2", "3", "4"]]
-        | Literal["1", "2", "3", "4"]
-        | Var[
-            Breakpoints[str, Literal["1", "2", "3", "4"]] | Literal["1", "2", "3", "4"]
-        ]
-        | None = None,
-        variant: Literal["classic", "ghost", "outline", "soft", "solid", "surface"]
-        | Var[Literal["classic", "ghost", "outline", "soft", "solid", "surface"]]
-        | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        high_contrast: Var[bool] | bool | None = None,
-        radius: Literal["full", "large", "medium", "none", "small"]
-        | Var[Literal["full", "large", "medium", "none", "small"]]
-        | None = None,
         auto_focus: Var[bool] | bool | None = None,
         disabled: Var[bool] | bool | None = None,
         form: Var[str] | str | None = None,
@@ -105,185 +32,6 @@ class Button(elements.Button, RadixLoadingProp, RadixThemesComponent):
         | Var[Literal["button", "reset", "submit"]]
         | None = None,
         value: Var[float | int | str] | float | int | str | None = None,
-        access_key: Var[str] | str | None = None,
-        auto_capitalize: Literal[
-            "characters", "none", "off", "on", "sentences", "words"
-        ]
-        | Var[Literal["characters", "none", "off", "on", "sentences", "words"]]
-        | None = None,
-        content_editable: Literal["inherit", "plaintext-only", False, True]
-        | Var[Literal["inherit", "plaintext-only", False, True]]
-        | None = None,
-        context_menu: Var[str] | str | None = None,
-        dir: Var[str] | str | None = None,
-        draggable: Var[bool] | bool | None = None,
-        enter_key_hint: Literal[
-            "done", "enter", "go", "next", "previous", "search", "send"
-        ]
-        | Var[Literal["done", "enter", "go", "next", "previous", "search", "send"]]
-        | None = None,
-        hidden: Var[bool] | bool | None = None,
-        input_mode: Literal[
-            "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
-        ]
-        | Var[
-            Literal[
-                "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
-            ]
-        ]
-        | None = None,
-        item_prop: Var[str] | str | None = None,
-        lang: Var[str] | str | None = None,
-        role: Literal[
-            "alert",
-            "alertdialog",
-            "application",
-            "article",
-            "banner",
-            "button",
-            "cell",
-            "checkbox",
-            "columnheader",
-            "combobox",
-            "complementary",
-            "contentinfo",
-            "definition",
-            "dialog",
-            "directory",
-            "document",
-            "feed",
-            "figure",
-            "form",
-            "grid",
-            "gridcell",
-            "group",
-            "heading",
-            "img",
-            "link",
-            "list",
-            "listbox",
-            "listitem",
-            "log",
-            "main",
-            "marquee",
-            "math",
-            "menu",
-            "menubar",
-            "menuitem",
-            "menuitemcheckbox",
-            "menuitemradio",
-            "navigation",
-            "none",
-            "note",
-            "option",
-            "presentation",
-            "progressbar",
-            "radio",
-            "radiogroup",
-            "region",
-            "row",
-            "rowgroup",
-            "rowheader",
-            "scrollbar",
-            "search",
-            "searchbox",
-            "separator",
-            "slider",
-            "spinbutton",
-            "status",
-            "switch",
-            "tab",
-            "table",
-            "tablist",
-            "tabpanel",
-            "term",
-            "textbox",
-            "timer",
-            "toolbar",
-            "tooltip",
-            "tree",
-            "treegrid",
-            "treeitem",
-        ]
-        | Var[
-            Literal[
-                "alert",
-                "alertdialog",
-                "application",
-                "article",
-                "banner",
-                "button",
-                "cell",
-                "checkbox",
-                "columnheader",
-                "combobox",
-                "complementary",
-                "contentinfo",
-                "definition",
-                "dialog",
-                "directory",
-                "document",
-                "feed",
-                "figure",
-                "form",
-                "grid",
-                "gridcell",
-                "group",
-                "heading",
-                "img",
-                "link",
-                "list",
-                "listbox",
-                "listitem",
-                "log",
-                "main",
-                "marquee",
-                "math",
-                "menu",
-                "menubar",
-                "menuitem",
-                "menuitemcheckbox",
-                "menuitemradio",
-                "navigation",
-                "none",
-                "note",
-                "option",
-                "presentation",
-                "progressbar",
-                "radio",
-                "radiogroup",
-                "region",
-                "row",
-                "rowgroup",
-                "rowheader",
-                "scrollbar",
-                "search",
-                "searchbox",
-                "separator",
-                "slider",
-                "spinbutton",
-                "status",
-                "switch",
-                "tab",
-                "table",
-                "tablist",
-                "tabpanel",
-                "term",
-                "textbox",
-                "timer",
-                "toolbar",
-                "tooltip",
-                "tree",
-                "treegrid",
-                "treeitem",
-            ]
-        ]
-        | None = None,
-        slot: Var[str] | str | None = None,
-        spell_check: Var[bool] | bool | None = None,
-        tab_index: Var[int] | int | None = None,
-        title: Var[str] | str | None = None,
-        loading: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -294,6 +42,7 @@ class Button(elements.Button, RadixLoadingProp, RadixThemesComponent):
         ref: Var | None = None,
         class_name: Any | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
+        loading: Var[bool] | bool | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -319,12 +68,6 @@ class Button(elements.Button, RadixLoadingProp, RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior.
-            size: Button size "1" - "4"
-            variant: Variant of button: "solid" | "soft" | "outline" | "ghost"
-            color_scheme: Override theme color for button
-            high_contrast: Whether to render the button with higher contrast color against background
-            radius: Override theme radius for button: "none" | "small" | "medium" | "large" | "full"
             auto_focus: Automatically focuses the button when the page loads
             disabled: Disables the button
             form: Associates the button with a form (by id)
@@ -336,22 +79,6 @@ class Button(elements.Button, RadixLoadingProp, RadixThemesComponent):
             name: Name of the button, used when sending form data
             type: Type of the button (submit, reset, or button)
             value: Value of the button, used when sending form data
-            access_key: Provides a hint for generating a keyboard shortcut for the current element.
-            auto_capitalize: Controls whether and how text input is automatically capitalized as it is entered/edited by the user.
-            content_editable: Indicates whether the element's content is editable.
-            context_menu: Defines the ID of a <menu> element which will serve as the element's context menu.
-            dir: Defines the text direction. Allowed values are ltr (Left-To-Right) or rtl (Right-To-Left)
-            draggable: Defines whether the element can be dragged.
-            enter_key_hint: Hints what media types the media element is able to play.
-            hidden: Defines whether the element is hidden.
-            input_mode: Defines the type of the element.
-            item_prop: Defines the name of the element for metadata purposes.
-            lang: Defines the language used in the element.
-            role: Defines the role of the element.
-            slot: Assigns a slot in a shadow DOM shadow tree to an element.
-            spell_check: Defines whether the element may be checked for spelling errors.
-            tab_index: Defines the position of the current element in the tabbing order.
-            title: Defines a tooltip for the element.
             loading: If set, show an rx.spinner instead of the component children.
             style: The style of the component.
             key: A unique key for the component.

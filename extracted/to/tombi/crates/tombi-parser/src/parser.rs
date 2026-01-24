@@ -3,7 +3,7 @@ use tombi_syntax::{
     T,
 };
 
-use crate::{marker::Marker, token_set::TokenSet, Event};
+use crate::{Event, marker::Marker, token_set::TokenSet};
 
 #[derive(Debug)]
 pub(crate) struct Parser<'t> {
@@ -162,7 +162,8 @@ impl<'t> Parser<'t> {
 
     /// Consume the next token. Panics if the parser isn't currently at `kind`.
     pub(crate) fn bump(&mut self, kind: SyntaxKind) {
-        assert!(self.eat(kind));
+        let eaten = self.eat(kind);
+        debug_assert!(eaten);
     }
 
     /// Advances the parser by one token
@@ -189,7 +190,7 @@ impl<'t> Parser<'t> {
     }
 
     pub(crate) fn bump_float_key(&mut self) {
-        assert!(self.nth(0) == FLOAT);
+        debug_assert!(self.nth(0) == FLOAT);
         let token = self.nth_token(0);
         let text = &self.source[token.span()];
 
@@ -201,7 +202,7 @@ impl<'t> Parser<'t> {
         }
 
         let parts: Vec<&str> = text.split('.').collect();
-        assert!(parts.len() == 2);
+        debug_assert!(parts.len() == 2);
 
         let key1 = {
             let m = self.start();

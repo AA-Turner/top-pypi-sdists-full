@@ -14,13 +14,14 @@
 
 from __future__ import annotations
 
-import sqlglot.expressions as sge
+import bigframes_vendored.sqlglot.expressions as sge
 
 from bigframes import operations as ops
 from bigframes.core.compile.sqlglot.expressions.typed_expr import TypedExpr
 import bigframes.core.compile.sqlglot.scalar_compiler as scalar_compiler
 
 register_unary_op = scalar_compiler.scalar_op_compiler.register_unary_op
+register_binary_op = scalar_compiler.scalar_op_compiler.register_binary_op
 
 
 @register_unary_op(ops.JSONExtract, pass_op=True)
@@ -36,6 +37,11 @@ def _(expr: TypedExpr, op: ops.JSONExtractArray) -> sge.Expression:
 @register_unary_op(ops.JSONExtractStringArray, pass_op=True)
 def _(expr: TypedExpr, op: ops.JSONExtractStringArray) -> sge.Expression:
     return sge.func("JSON_EXTRACT_STRING_ARRAY", expr.expr, sge.convert(op.json_path))
+
+
+@register_unary_op(ops.JSONKeys, pass_op=True)
+def _(expr: TypedExpr, op: ops.JSONKeys) -> sge.Expression:
+    return sge.func("JSON_KEYS", expr.expr, sge.convert(op.max_depth))
 
 
 @register_unary_op(ops.JSONQuery, pass_op=True)
@@ -63,6 +69,16 @@ def _(expr: TypedExpr) -> sge.Expression:
     return sge.func("PARSE_JSON", expr.expr)
 
 
+@register_unary_op(ops.ToJSON)
+def _(expr: TypedExpr) -> sge.Expression:
+    return sge.func("TO_JSON", expr.expr)
+
+
 @register_unary_op(ops.ToJSONString)
 def _(expr: TypedExpr) -> sge.Expression:
     return sge.func("TO_JSON_STRING", expr.expr)
+
+
+@register_binary_op(ops.JSONSet, pass_op=True)
+def _(left: TypedExpr, right: TypedExpr, op) -> sge.Expression:
+    return sge.func("JSON_SET", left.expr, sge.convert(op.json_path), right.expr)

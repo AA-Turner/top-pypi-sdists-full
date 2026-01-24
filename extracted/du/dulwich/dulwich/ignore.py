@@ -26,11 +26,22 @@ Important: When checking if directories are ignored, include a trailing slash in
 For example, use "dir/" instead of "dir" to check if a directory is ignored.
 """
 
+__all__ = [
+    "IgnoreFilter",
+    "IgnoreFilterManager",
+    "IgnoreFilterStack",
+    "Pattern",
+    "default_user_ignore_filter_path",
+    "match_pattern",
+    "read_ignore_patterns",
+    "translate",
+]
+
 import os.path
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from contextlib import suppress
-from typing import TYPE_CHECKING, BinaryIO, Optional, Union
+from typing import TYPE_CHECKING, BinaryIO
 
 if TYPE_CHECKING:
     from .repo import Repo
@@ -38,16 +49,16 @@ if TYPE_CHECKING:
 from .config import Config, get_xdg_config_home_path
 
 
-def _pattern_to_str(pattern: Union["Pattern", bytes, str]) -> str:
+def _pattern_to_str(pattern: "Pattern | bytes | str") -> str:
     """Convert a pattern to string, handling both Pattern objects and raw patterns."""
     if isinstance(pattern, Pattern):
-        pattern_data: Union[bytes, str] = pattern.pattern
+        pattern_data: bytes | str = pattern.pattern
     else:
         pattern_data = pattern
     return pattern_data.decode() if isinstance(pattern_data, bytes) else pattern_data
 
 
-def _check_parent_exclusion(path: str, matching_patterns: list) -> bool:
+def _check_parent_exclusion(path: str, matching_patterns: Sequence["Pattern"]) -> bool:
     """Check if a parent directory exclusion prevents negation patterns from taking effect.
 
     Args:
@@ -163,7 +174,7 @@ def _translate_segment(segment: bytes) -> bytes:
     return res
 
 
-def _handle_double_asterisk(segments: list[bytes], i: int) -> tuple[bytes, bool]:
+def _handle_double_asterisk(segments: Sequence[bytes], i: int) -> tuple[bytes, bool]:
     """Handle ** segment processing, returns (regex_part, skip_next)."""
     # Check if ** is at end
     remaining = segments[i + 1 :]
@@ -308,6 +319,12 @@ class Pattern:
     """A single ignore pattern."""
 
     def __init__(self, pattern: bytes, ignorecase: bool = False) -> None:
+        """Initialize a Pattern object.
+
+        Args:
+            pattern: The gitignore pattern as bytes.
+            ignorecase: Whether to perform case-insensitive matching.
+        """
         self.pattern = pattern
         self.ignorecase = ignorecase
 
@@ -334,12 +351,30 @@ class Pattern:
         self._re = re.compile(translate(pattern), flags)
 
     def __bytes__(self) -> bytes:
+        """Return the pattern as bytes.
+
+        Returns:
+            The original pattern as bytes.
+        """
         return self.pattern
 
     def __str__(self) -> str:
+        """Return the pattern as a string.
+
+        Returns:
+            The pattern decoded as a string.
+        """
         return os.fsdecode(self.pattern)
 
     def __eq__(self, other: object) -> bool:
+        """Check equality with another Pattern object.
+
+        Args:
+            other: The object to compare with.
+
+        Returns:
+            True if patterns and ignorecase flags are equal, False otherwise.
+        """
         return (
             isinstance(other, type(self))
             and self.pattern == other.pattern
@@ -347,6 +382,11 @@ class Pattern:
         )
 
     def __repr__(self) -> str:
+        """Return a string representation of the Pattern object.
+
+        Returns:
+            A string representation for debugging.
+        """
         return f"{type(self).__name__}({self.pattern!r}, {self.ignorecase!r})"
 
     def match(self, path: bytes) -> bool:
@@ -387,8 +427,15 @@ class IgnoreFilter:
         self,
         patterns: Iterable[bytes],
         ignorecase: bool = False,
-        path: Optional[str] = None,
+        path: str | None = None,
     ) -> None:
+        """Initialize an IgnoreFilter with a set of patterns.
+
+        Args:
+            patterns: An iterable of gitignore patterns as bytes.
+            ignorecase: Whether to perform case-insensitive matching.
+            path: Optional path to the ignore file for debugging purposes.
+        """
         self._patterns: list[Pattern] = []
         self._ignorecase = ignorecase
         self._path = path
@@ -399,7 +446,7 @@ class IgnoreFilter:
         """Add a pattern to the set."""
         self._patterns.append(Pattern(pattern, self._ignorecase))
 
-    def find_matching(self, path: Union[bytes, str]) -> Iterable[Pattern]:
+    def find_matching(self, path: bytes | str) -> Iterable[Pattern]:
         """Yield all matching patterns for path.
 
         Args:
@@ -413,7 +460,7 @@ class IgnoreFilter:
             if pattern.match(path):
                 yield pattern
 
-    def is_ignored(self, path: Union[bytes, str]) -> Optional[bool]:
+    def is_ignored(self, path: bytes | str) -> bool | None:
         """Check whether a path is ignored using Git-compliant logic.
 
         For directories, include a trailing slash.
@@ -448,12 +495,22 @@ class IgnoreFilter:
 
     @classmethod
     def from_path(
-        cls, path: Union[str, os.PathLike], ignorecase: bool = False
+        cls, path: str | os.PathLike[str], ignorecase: bool = False
     ) -> "IgnoreFilter":
+        """Create an IgnoreFilter from a file path.
+
+        Args:
+            path: Path to the ignore file.
+            ignorecase: Whether to perform case-insensitive matching.
+
+        Returns:
+            An IgnoreFilter instance with patterns loaded from the file.
+        """
         with open(path, "rb") as f:
             return cls(read_ignore_patterns(f), ignorecase, path=str(path))
 
     def __repr__(self) -> str:
+        """Return string representation of IgnoreFilter."""
         path = getattr(self, "_path", None)
         if path is not None:
             return f"{type(self).__name__}.from_path({path!r})"
@@ -465,9 +522,14 @@ class IgnoreFilterStack:
     """Check for ignore status in multiple filters."""
 
     def __init__(self, filters: list[IgnoreFilter]) -> None:
+        """Initialize an IgnoreFilterStack with multiple filters.
+
+        Args:
+            filters: A list of IgnoreFilter objects to check in order.
+        """
         self._filters = filters
 
-    def is_ignored(self, path: str) -> Optional[bool]:
+    def is_ignored(self, path: str) -> bool | None:
         """Check whether a path is explicitly included or excluded in ignores.
 
         Args:
@@ -481,6 +543,14 @@ class IgnoreFilterStack:
             if status is not None:
                 return status
         return None
+
+    def __repr__(self) -> str:
+        """Return a string representation of the IgnoreFilterStack.
+
+        Returns:
+            A string representation for debugging.
+        """
+        return f"{type(self).__name__}({self._filters!r})"
 
 
 def default_user_ignore_filter_path(config: Config) -> str:
@@ -514,15 +584,23 @@ class IgnoreFilterManager:
         global_filters: list[IgnoreFilter],
         ignorecase: bool,
     ) -> None:
-        self._path_filters: dict[str, Optional[IgnoreFilter]] = {}
+        """Initialize an IgnoreFilterManager.
+
+        Args:
+            top_path: The top-level directory path to manage ignores for.
+            global_filters: List of global ignore filters to apply.
+            ignorecase: Whether to perform case-insensitive matching.
+        """
+        self._path_filters: dict[str, IgnoreFilter | None] = {}
         self._top_path = top_path
         self._global_filters = global_filters
         self._ignorecase = ignorecase
 
     def __repr__(self) -> str:
+        """Return string representation of IgnoreFilterManager."""
         return f"{type(self).__name__}({self._top_path}, {self._global_filters!r}, {self._ignorecase!r})"
 
-    def _load_path(self, path: str) -> Optional[IgnoreFilter]:
+    def _load_path(self, path: str) -> IgnoreFilter | None:
         try:
             return self._path_filters[path]
         except KeyError:
@@ -571,7 +649,7 @@ class IgnoreFilterManager:
                 filters.insert(0, (i, ignore_filter))
         return iter(matches)
 
-    def is_ignored(self, path: str) -> Optional[bool]:
+    def is_ignored(self, path: str) -> bool | None:
         """Check whether a path is explicitly included or excluded in ignores.
 
         Args:
@@ -598,7 +676,9 @@ class IgnoreFilterManager:
 
         return result
 
-    def _apply_directory_traversal_rule(self, path: str, matches: list) -> bool:
+    def _apply_directory_traversal_rule(
+        self, path: str, matches: list["Pattern"]
+    ) -> bool:
         """Apply directory traversal rule for issue #1203.
 
         If a directory would be ignored by a ** pattern, but there are negation

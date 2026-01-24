@@ -5,6 +5,7 @@ from valohai_yaml.objs.pipelines.edge_merge_mode import EdgeMergeMode
 from valohai_yaml.objs.pipelines.node import ErrorAction, Node
 from valohai_yaml.objs.pipelines.node_action import NodeAction
 from valohai_yaml.objs.pipelines.override import Override
+from valohai_yaml.objs.pipelines.validation import lint_step_reference
 from valohai_yaml.types import LintContext, NodeOverrideDict, SerializedDict
 
 
@@ -19,6 +20,7 @@ class ExecutionNode(Node):
         *,
         name: str,
         step: str,
+        commit: Optional[str] = None,
         actions: Optional[List[NodeAction]] = None,
         override: Optional[Union[Override, NodeOverrideDict]] = None,
         on_error: Union[str, ErrorAction] = ErrorAction.STOP_ALL,
@@ -26,6 +28,7 @@ class ExecutionNode(Node):
     ) -> None:
         super().__init__(name=name, actions=actions, on_error=on_error)
         self.step = step
+        self.commit = str(commit) if commit else None
         if override is None or isinstance(override, Override):
             self.override = override
         else:
@@ -34,29 +37,16 @@ class ExecutionNode(Node):
 
     def lint(self, lint_result: LintResult, context: LintContext) -> None:
         super().lint(lint_result, context)
-        config = context["config"]
-        pipeline = context["pipeline"]
-        step = config.steps.get(self.step)
-        error_prefix = f"Pipeline {pipeline.name} node {self.name} step {self.step}"
-        if not step:
-            lint_result.add_error(f"{error_prefix} does not exist")
-            return
-        if self.override is not None:
-            self.override.lint(lint_result, context)
-            step_inputs = step.inputs.keys()
-            step_parameters = step.parameters.keys()
-            for input_name in self.override.inputs:
-                if input_name not in step_inputs:
-                    lint_result.add_error(
-                        f"{error_prefix}: input {input_name} does not exist in step",
-                    )
-            for parameter_name in self.override.parameters:
-                if parameter_name not in step_parameters:
-                    lint_result.add_error(
-                        f"{error_prefix}: parameter {parameter_name} does not exist in step",
-                    )
+        if not self.commit:
+            # We can only lint step-related things if the step is defined in
+            # this configuration. If a commit is specified, and thus step comes
+            # from a different YAML, we can't know that.
+            lint_step_reference(self, self.step, lint_result, context)
 
     def get_parameter_defaults(self) -> Dict[str, Any]:
+        # this function is not used by us anymore, should it be deprecated?
+        # iiuc, Override.merge_with_step was introduced to replace its usage
+
         if not self.override or self.override.parameters is None:
             return {}
         return {

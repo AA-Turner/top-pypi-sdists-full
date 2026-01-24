@@ -682,6 +682,11 @@ class Peer(Source, Sink, NeighborConfListener, Activity):
         # Start sink processing
         self._process_outgoing_msg_list()
 
+    def stop(self):
+        LOG.debug('Stopped peer %s', self)
+        if self._neigh_conf.stats_log_enabled:
+            self._periodic_stats_logger.stop()
+
     def _send_outgoing_route_refresh_msg(self, rr_msg):
         """Sends given message `rr_msg` to peer.
 

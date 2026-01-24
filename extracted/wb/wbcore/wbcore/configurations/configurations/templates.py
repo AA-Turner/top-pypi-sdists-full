@@ -1,7 +1,7 @@
 class Templates:
     TEMPLATES = [
         {
-            "BACKEND": "django.template.backends.django.DjangoTemplates",
+            "BACKEND": "wbcore.template.DjangoTemplates",
             "NAME": "django",
             "DIRS": [],
             "APP_DIRS": True,

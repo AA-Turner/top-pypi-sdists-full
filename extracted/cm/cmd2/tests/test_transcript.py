@@ -115,7 +115,6 @@ def test_commands_at_invocation() -> None:
         ('multiline_regex.txt', False),
         ('no_output.txt', False),
         ('no_output_last.txt', False),
-        ('regex_set.txt', False),
         ('singleslash.txt', False),
         ('slashes_escaped.txt', False),
         ('slashslash.txt', False),
@@ -186,7 +185,7 @@ def test_history_transcript_bad_path(mocker) -> None:
 
     # Bad directory
     history_fname = '~/fakedir/this_does_not_exist.txt'
-    out, err = run_cmd(app, f'history -t "{history_fname}"')
+    _out, err = run_cmd(app, f'history -t "{history_fname}"')
     assert "is not a directory" in err[0]
 
     # Cause os.open to fail and make sure error gets printed
@@ -194,7 +193,7 @@ def test_history_transcript_bad_path(mocker) -> None:
     mock_remove.side_effect = OSError
 
     history_fname = 'outfile.txt'
-    out, err = run_cmd(app, f'history -t "{history_fname}"')
+    _out, err = run_cmd(app, f'history -t "{history_fname}"')
     assert "Error saving transcript file" in err[0]
 
 

@@ -50,52 +50,132 @@ options:
     suboptions:
       name:
         description: The name of the NVM subsystem.If not given, it assigns the name of the NVM subsystem to "smrha-<10 digit random number>".
+          Optional for the Create an NVM Subsystem with a specific ID
+          /Create an NVM Subsystem with a free ID tasks.
+          Required for the Add host NQNs to an NVM Subsystem with a specific Name
+          /Add namespaces and namespace paths to an NVM Subsystem with a specific name
+          /Add ports to an NVM Subsystem with a specific Name
+          /Remove ports from an NVM Subsystem with a specific Name or ID
+          /Remove namespace from an NVM Subsystem with specific Id or Name
+          /Remove namespace from an NVM Subsystem with specific Id or Name using force
+          /Remove host NQNs from an NVM Subsystem with a specific Id or Name
+          /Remove host NQNs from an NVM Subsystem with a specific Id or Name using force
+          /Update host NQNs nickname of an NVM Subsystem with a specific Id or Name
+          /Update namespace nicknames of an NVM Subsystem with a specific Id or Name
+          /Delete an NVM Subsystem with a specific name
+          /Delete an NVM Subsystem with a specific name forcefully tasks.
         type: str
         required: false
       id:
         description: The ID of the NVM subsystem.
+          Required for the Create an NVM Subsystem with a specific ID
+          /Add host NQNs to an NVM Subsystem with a specific ID
+          /Add namespaces and namespace paths to an NVM Subsystem with a specific ID
+          /Add ports to an NVM Subsystem with a specific ID
+          /Remove ports from an NVM Subsystem with a specific Name or ID
+          /Remove namespace paths from an NVM Subsystem with specific Id or Name
+          /Remove namespace from an NVM Subsystem with specific Id or Name
+          /Remove namespace from an NVM Subsystem with specific Id or Name using force
+          /Remove host NQNs from an NVM Subsystem with a specific Id or Name
+          /Remove host NQNs from an NVM Subsystem with a specific Id or Name using force
+          /Update host NQNs nickname of an NVM Subsystem with a specific Id or Name
+          /Update namespace nicknames of an NVM Subsystem with a specific Id or Name
+          /Delete an NVM Subsystem with a specific Id
+          /Delete an NVM Subsystem with a specific Id forcefully tasks.
         type: int
         required: false
       host_mode:
         description: The host mode of the NVM subsystem.
+          Required for the Create an NVM Subsystem with a specific ID
+          /Create an NVM Subsystem with a free ID tasks.
         type: str
         required: false
       enable_namespace_security:
         description: Namespace security settings.
+          Required for the Create an NVM Subsystem with a specific ID task.
+          Optional for the Create an NVM Subsystem with a free ID task.
         type: bool
         required: false
         default: true
       ports:
         description: The ports of the NVM subsystem.
+          Required for the Create an NVM Subsystem with a specific ID
+          /Create an NVM Subsystem with a free ID
+          /Add ports to an NVM Subsystem with a specific ID
+          /Add ports to an NVM Subsystem with a specific Name
+          /Remove ports from an NVM Subsystem with a specific Name or ID tasks.
         type: list
         elements: str
         required: false
       host_nqns:
         description: The host NQNs of the NVM subsystem.
+          Required for the Create an NVM Subsystem with a specific ID
+          /Add host NQNs to an NVM Subsystem with a specific ID
+          /Add host NQNs to an NVM Subsystem with a specific Name
+          /Remove host NQNs from an NVM Subsystem with a specific Id or Name
+          /Remove host NQNs from an NVM Subsystem with a specific Id or Name using force
+          /Update host NQNs nickname of an NVM Subsystem with a specific Id or Name tasks.
+          Optional for the Create an NVM Subsystem with a free ID task.
         type: list
         elements: dict
         required: false
       namespaces:
         description: The namespaces of the NVM subsystem.
+          Required for the Create an NVM Subsystem with a specific ID
+          /Add namespaces and namespace paths to an NVM Subsystem with a specific ID
+          /Add namespaces and namespace paths to an NVM Subsystem with a specific name
+          /Remove namespace paths from an NVM Subsystem with specific Id or Name
+          /Remove namespace from an NVM Subsystem with specific Id or Name
+          /Remove namespace from an NVM Subsystem with specific Id or Name using force
+          /Update namespace nicknames of an NVM Subsystem with a specific Id or Name tasks.
+          Optional for the Create an NVM Subsystem with a free ID task.
         type: list
         elements: dict
         required: false
         suboptions:
           ldev_id:
             description: The LDEV ID of the namespace.
-            type: int
+              Required for the Create an NVM Subsystem with a specific ID
+              /Create an NVM Subsystem with a free ID
+              /Add namespaces and namespace paths to an NVM Subsystem with a specific ID
+              /Add namespaces and namespace paths to an NVM Subsystem with a specific name
+              /Remove namespace paths from an NVM Subsystem with specific Id or Name
+              /Remove namespace from an NVM Subsystem with specific Id or Name
+              /Remove namespace from an NVM Subsystem with specific Id or Name using force
+              /Update namespace nicknames of an NVM Subsystem with a specific Id or Name tasks.
+            type: str
             required: true
           nickname:
             description: The nickname of the namespace.
+              Required for the Create an NVM Subsystem with a specific ID
+              /Create an NVM Subsystem with a free ID
+              /Add namespaces and namespace paths to an NVM Subsystem with a specific ID
+              /Add namespaces and namespace paths to an NVM Subsystem with a specific name
+              /Remove namespace paths from an NVM Subsystem with specific Id or Name
+              /Remove namespace from an NVM Subsystem with specific Id or Name
+              /Remove namespace from an NVM Subsystem with specific Id or Name using force
+              /Update namespace nicknames of an NVM Subsystem with a specific Id or Name tasks.
             type: str
             required: false
           paths:
             description: The paths of the namespace.
+              Required for the Create an NVM Subsystem with a specific ID
+              /Create an NVM Subsystem with a free ID
+              /Add namespaces and namespace paths to an NVM Subsystem with a specific ID
+              /Add namespaces and namespace paths to an NVM Subsystem with a specific name
+              /Remove namespace paths from an NVM Subsystem with specific Id or Name
+              /Remove namespace from an NVM Subsystem with specific Id or Name
+              /Remove namespace from an NVM Subsystem with specific Id or Name using force
+              /Update namespace nicknames of an NVM Subsystem with a specific Id or Name tasks.
             type: list
             elements: str
             required: false
       force:
         description: This flag is used to force the operation.
+          Required for the Remove namespace from an NVM Subsystem with specific Id or Name using force
+          /Remove host NQNs from an NVM Subsystem with a specific Id or Name using force
+          /Delete an NVM Subsystem with a specific Id forcefully
+          /Delete an NVM Subsystem with a specific name forcefully tasks.
         type: bool
         required: false
         default: false
@@ -179,46 +259,46 @@ EXAMPLES = """
 RETURN = """
 nvm_subsystems:
   description: The NVM subsystem information.
-  returned: always
   type: list
   elements: dict
+  returned: success
   contains:
     storage_serial_number:
       description: The serial number of the storage system.
       type: str
-      sample: "810005"
+      sample: "810045"
     host_nqn_info:
-      description: List of host NQNs and their nicknames.
+      description: List of host NQN information.
       type: list
       elements: dict
       contains:
         host_nqn:
-          description: The host NQN.
+          description: Host NQN.
           type: str
-          sample: "nqn.2014-08.org.example:uuid:4b73e622-ddc1-449a-99f7-412c0d3baa40"
+          sample: "nqn.2014-08.com.ucpa-sc-hv:nvme:scpodl-esxi235"
         host_nqn_nickname:
-          description: The nickname of the host NQN.
+          description: Nickname for the host NQN.
           type: str
-          sample: "my_host_nqn_40"
+          sample: ""
     namespace_paths_info:
       description: List of namespace paths information.
       type: list
       elements: dict
       contains:
         host_nqn:
-          description: The host NQN.
+          description: Host NQN.
           type: str
-          sample: "nqn.2014-08.org.example:uuid:4b73e622-ddc1-449a-99f7-412c0d3baa40"
+          sample: "nqn.2014-08.com.ucpa-sc-hv:nvme:scpodl-esxi235"
         ldev_id:
-          description: The LDEV ID of the namespace.
+          description: Logical device ID.
           type: int
-          sample: 11101
-        ldev_hex_id:
-          description: The hexadecimal ID of the LDEV.
+          sample: 5555
+        ldev_id_hex:
+          description: Logical device hex ID.
           type: str
-          sample: "00:2b:5c"
+          sample: "00:15:B3"
         namespace_id:
-          description: The ID of the namespace.
+          description: Namespace ID.
           type: int
           sample: 3
     namespaces_info:
@@ -227,68 +307,72 @@ nvm_subsystems:
       elements: dict
       contains:
         block_capacity:
-          description: The block capacity of the namespace.
+          description: Block capacity of the namespace.
           type: int
-          sample: 23068672
+          sample: 20971520
+        capacity_in_mb:
+          description: Capacity in MB.
+          type: float
+          sample: 10240.0
         capacity_in_unit:
-          description: The capacity of the namespace in human-readable format.
+          description: Capacity in human-readable unit.
           type: str
-          sample: "11.00 G"
+          sample: "10.00GB"
         ldev_id:
-          description: The LDEV ID of the namespace.
+          description: Logical device ID.
           type: int
-          sample: 11101
-        ldev_hex_id:
-          description: The hexadecimal ID of the LDEV.
+          sample: 2000
+        ldev_id_hex:
+          description: Logical device hex ID.
           type: str
-          sample: "00:2b:5c"
+          sample: "00:07:D0"
         namespace_id:
-          description: The ID of the namespace.
+          description: Namespace ID.
           type: int
-          sample: 3
+          sample: 2
         namespace_nickname:
-          description: The nickname of the namespace.
+          description: Nickname for the namespace.
           type: str
-          sample: "nickname"
+          sample: ""
     nvm_subsystem_info:
       description: Information about the NVM subsystem.
       type: dict
       contains:
         host_mode:
-          description: The host mode of the NVM subsystem.
+          description: Host mode.
           type: str
           sample: "VMWARE_EX"
         namespace_security_setting:
-          description: The namespace security setting.
+          description: Namespace security setting.
           type: str
           sample: "Enable"
         nvm_subsystem_id:
-          description: The ID of the NVM subsystem.
+          description: NVM subsystem ID.
           type: int
-          sample: 1000
+          sample: 1
         nvm_subsystem_name:
-          description: The name of the NVM subsystem.
+          description: NVM subsystem name.
           type: str
-          sample: "nvm_tcp_01"
+          sample: "NVME-TCP-CL1-D-01"
         resource_group_id:
-          description: The resource group ID of the NVM subsystem.
+          description: Resource group ID.
           type: int
-          sample: 0
+          sample: 8
         t10pi_mode:
-          description: The T10PI mode of the NVM subsystem.
+          description: T10PI mode.
           type: str
           sample: "Disable"
-    port:
-      description: List of ports of the NVM subsystem.
+    port_info:
+      description: List of port information.
       type: list
       elements: dict
       contains:
         port_id:
-          description: The ID of the port.
+          description: Port ID.
           type: str
           sample: "CL1-D"
         port_type:
-          description: The type of the port.
+          description: Port type.
           type: str
           sample: "NVME_TCP"
 """

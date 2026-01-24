@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::sync::GILOnceCell;
+use pyo3::sync::PyOnceLock;
 use pyo3::types::{
     PyBool, PyByteArray, PyBytes, PyComplex, PyDate, PyDateTime, PyDelta, PyDict, PyFloat, PyFrozenSet, PyInt,
     PyIterator, PyList, PyNone, PySet, PyString, PyTime, PyTuple, PyType,
@@ -22,7 +22,7 @@ pub struct ObTypeLookup {
     list: usize,
     dict: usize,
     // other numeric types
-    decimal_object: PyObject,
+    decimal_object: Py<PyAny>,
     // other string types
     bytes: usize,
     bytearray: usize,
@@ -39,21 +39,27 @@ pub struct ObTypeLookup {
     url: usize,
     multi_host_url: usize,
     // enum type
-    enum_object: PyObject,
+    enum_object: Py<PyAny>,
     // generator
-    generator_object: PyObject,
+    generator_object: Py<PyAny>,
     // path
-    path_object: PyObject,
+    path_object: Py<PyAny>,
     // pattern
-    pattern_object: PyObject,
+    pattern_object: Py<PyAny>,
     // uuid type
-    uuid_object: PyObject,
+    uuid_object: Py<PyAny>,
+    // `complex` builtin
     complex: usize,
+    // ip address types
+    ipv4_address: Py<PyAny>,
+    ipv6_address: Py<PyAny>,
+    ipv4_network: Py<PyAny>,
+    ipv6_network: Py<PyAny>,
 }
 
-static TYPE_LOOKUP: GILOnceCell<ObTypeLookup> = GILOnceCell::new();
+static TYPE_LOOKUP: PyOnceLock<ObTypeLookup> = PyOnceLock::new();
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IsType {
     Exact,
     Subclass,
@@ -88,6 +94,10 @@ impl ObTypeLookup {
             pattern_object: py.import("re").unwrap().getattr("Pattern").unwrap().unbind(),
             uuid_object: py.import("uuid").unwrap().getattr("UUID").unwrap().unbind(),
             complex: PyComplex::type_object_raw(py) as usize,
+            ipv4_address: py.import("ipaddress").unwrap().getattr("IPv4Address").unwrap().unbind(),
+            ipv6_address: py.import("ipaddress").unwrap().getattr("IPv6Address").unwrap().unbind(),
+            ipv4_network: py.import("ipaddress").unwrap().getattr("IPv4Network").unwrap().unbind(),
+            ipv6_network: py.import("ipaddress").unwrap().getattr("IPv6Network").unwrap().unbind(),
         }
     }
 
@@ -155,10 +165,14 @@ impl ObTypeLookup {
             ObType::Enum => self.enum_object.as_ptr() as usize == ob_type,
             ObType::Generator => self.generator_object.as_ptr() as usize == ob_type,
             ObType::Path => self.path_object.as_ptr() as usize == ob_type,
-            ObType::Pattern => self.path_object.as_ptr() as usize == ob_type,
+            ObType::Pattern => self.pattern_object.as_ptr() as usize == ob_type,
             ObType::Uuid => self.uuid_object.as_ptr() as usize == ob_type,
-            ObType::Unknown => false,
             ObType::Complex => self.complex == ob_type,
+            ObType::Ipv4Address => self.ipv4_address.as_ptr() as usize == ob_type,
+            ObType::Ipv6Address => self.ipv6_address.as_ptr() as usize == ob_type,
+            ObType::Ipv4Network => self.ipv4_network.as_ptr() as usize == ob_type,
+            ObType::Ipv6Network => self.ipv6_network.as_ptr() as usize == ob_type,
+            ObType::Unknown => false,
         };
 
         if ans {
@@ -253,6 +267,10 @@ impl ObTypeLookup {
             ObType::Path
         } else if ob_type == self.pattern_object.as_ptr() as usize {
             ObType::Pattern
+        } else if ob_type == self.ipv4_address.as_ptr() as usize {
+            ObType::Ipv4Address
+        } else if ob_type == self.ipv6_address.as_ptr() as usize {
+            ObType::Ipv6Address
         } else {
             // this allows for subtypes of the supported class types,
             // if `ob_type` didn't match any member of self, we try again with the next base type pointer
@@ -333,6 +351,16 @@ impl ObTypeLookup {
             ObType::Path
         } else if value.is_instance(self.pattern_object.bind(py)).unwrap_or(false) {
             ObType::Pattern
+        } else if value.is_instance_of::<PyComplex>() {
+            ObType::Complex
+        } else if value.is_instance(self.ipv4_address.bind(py)).unwrap_or(false) {
+            ObType::Ipv4Address
+        } else if value.is_instance(self.ipv6_address.bind(py)).unwrap_or(false) {
+            ObType::Ipv6Address
+        } else if value.is_instance(self.ipv4_network.bind(py)).unwrap_or(false) {
+            ObType::Ipv4Network
+        } else if value.is_instance(self.ipv6_network.bind(py)).unwrap_or(false) {
+            ObType::Ipv6Network
         } else {
             ObType::Unknown
         }
@@ -414,9 +442,15 @@ pub enum ObType {
     Pattern,
     // Uuid
     Uuid,
+    // complex builtin
+    Complex,
+    // ip address types
+    Ipv4Address,
+    Ipv6Address,
+    Ipv4Network,
+    Ipv6Network,
     // unknown type
     Unknown,
-    Complex,
 }
 
 impl PartialEq for ObType {
@@ -427,12 +461,12 @@ impl PartialEq for ObType {
         } else {
             match (self, other) {
                 // special cases for subclasses
-                (Self::IntSubclass, Self::Int) => true,
-                (Self::Int, Self::IntSubclass) => true,
-                (Self::FloatSubclass, Self::Float) => true,
-                (Self::Float, Self::FloatSubclass) => true,
-                (Self::StrSubclass, Self::Str) => true,
-                (Self::Str, Self::StrSubclass) => true,
+                (Self::IntSubclass, Self::Int)
+                | (Self::Int, Self::IntSubclass)
+                | (Self::FloatSubclass, Self::Float)
+                | (Self::Float, Self::FloatSubclass)
+                | (Self::StrSubclass, Self::Str)
+                | (Self::Str, Self::StrSubclass) => true,
                 _ => false,
             }
         }

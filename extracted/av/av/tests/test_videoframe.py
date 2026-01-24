@@ -32,7 +32,9 @@ def test_frame_duration_matches_packet() -> None:
         packet_durations.sort(key=lambda x: x[0])
 
     with av.open(fate_suite("h264/interlaced_crop.mp4")) as container:
-        frame_durations = [(f.pts, f.duration) for f in container.decode(video=0)]
+        frame_durations = [
+            (f.pts, f.duration) for f in container.decode(video=0) if f.pts is not None
+        ]
         frame_durations.sort(key=lambda x: x[0])
 
     assert len(packet_durations) == len(frame_durations)
@@ -643,6 +645,14 @@ def test_ndarray_yuv420p() -> None:
     frame = VideoFrame.from_ndarray(array, format="yuv420p")
     assert frame.width == 640 and frame.height == 480
     assert frame.format.name == "yuv420p"
+    assertNdarraysEqual(frame.to_ndarray(), array)
+
+
+def test_ndarray_yuv422p() -> None:
+    array = numpy.random.randint(0, 256, size=(960, 640), dtype=numpy.uint8)
+    frame = VideoFrame.from_ndarray(array, format="yuv422p")
+    assert frame.width == 640 and frame.height == 480
+    assert frame.format.name == "yuv422p"
     assertNdarraysEqual(frame.to_ndarray(), array)
 
 

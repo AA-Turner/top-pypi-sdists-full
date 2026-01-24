@@ -26,14 +26,13 @@ macro(FindCatalyst target_name)
 
     else()
         if(NOT CATALYST_GIT_TAG)
-            set(CATALYST_GIT_TAG "0127da3a6d8f545426e72f5bc82a656a17bcc545" CACHE STRING "GIT_TAG value to build Catalyst")
+            set(CATALYST_GIT_TAG "b42c86e8b51ef67c3370dc1bd5d6b4c55af58937" CACHE STRING "GIT_TAG value to build Catalyst")
         endif()
         message(INFO " Building against Catalyst GIT TAG ${CATALYST_GIT_TAG}")
 
         # Fetching /lib/backend/common hpp headers
         set(LIB_BACKEND_COMMON_HEADERS  CacheManager.hpp
-                                    QubitManager.hpp
-                                    Utils.hpp
+                                        Utils.hpp
         )
 
         foreach(HEADER ${LIB_BACKEND_COMMON_HEADERS})

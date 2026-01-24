@@ -3488,3 +3488,93 @@ endfunction
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
 }
+
+TEST_CASE("Dist constraints on struct members count as rand") {
+    auto tree = SyntaxTree::fromText(R"(
+class C;
+    typedef struct {
+        logic a;
+        logic b;
+        logic c;
+    } s_t;
+
+    rand s_t s;
+
+    constraint c {
+        s.a dist {
+            0 :/ 90,
+            1 :/ 10
+        };
+    }
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Dist ranges with $") {
+    auto tree = SyntaxTree::fromText(R"(
+class c;
+    rand logic [15:0] a;
+
+    constraint a_c {
+        a dist {
+            [1:9]    :/ 8,
+            [10:100] :/ 8,
+            [101:$]  :/ 1
+        };
+    }
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Inherited members incorrect used before decl error -- GH #1513") {
+    auto tree = SyntaxTree::fromText(R"(
+class A;
+    typedef enum {
+        X,
+        Y
+    } e_t;
+endclass
+
+class B extends A;
+    e_t e;
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Generic class crash regress") {
+    auto tree = SyntaxTree::fromText(R"(
+class G#(G#(,)b,b
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    compilation.getAllDiagnostics();
+}
+
+TEST_CASE("Class cycles with arrays regress -- GH #1639") {
+    auto tree = SyntaxTree::fromText(R"(
+class uvm_domain;
+  uvm_domain m_domains[string];
+  function uvm_domain get_common_domain();
+    uvm_domain domain;
+    return m_domains[domain];
+  endfunction
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    compilation.getAllDiagnostics();
+}

@@ -13,7 +13,7 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype._check.checkmagic import (
+from beartype._data.code.datacodename import (
     ARG_NAME_GETRANDBITS,
 )
 from beartype._check.signature._sigsnip import (
@@ -21,7 +21,7 @@ from beartype._check.signature._sigsnip import (
     CODE_INIT_RANDOM_INT,
 )
 from beartype._conf.confmain import BeartypeConf
-from beartype._data.hint.datahinttyping import (
+from beartype._data.typing.datatyping import (
     LexicalScope,
 )
 from beartype._util.text.utiltextrepr import represent_object

@@ -59,6 +59,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_class, False, False, "json", shared.LmsClass
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -75,7 +76,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createLmsClass",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -148,6 +149,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_class, False, False, "json", shared.LmsClass
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -164,7 +166,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createLmsClass",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -238,6 +240,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_course, False, False, "json", shared.LmsCourse
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -254,7 +257,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createLmsCourse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -330,6 +333,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_course, False, False, "json", shared.LmsCourse
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -346,7 +350,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createLmsCourse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -422,6 +426,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_instructor, False, False, "json", shared.LmsInstructor
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -438,7 +443,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createLmsInstructor",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -514,6 +519,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_instructor, False, False, "json", shared.LmsInstructor
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -530,7 +536,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createLmsInstructor",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -606,6 +612,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_student, False, False, "json", shared.LmsStudent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -622,7 +629,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createLmsStudent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -698,6 +705,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_student, False, False, "json", shared.LmsStudent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -714,7 +722,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createLmsStudent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -786,6 +794,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -802,7 +811,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getLmsClass",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -872,6 +881,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -888,7 +898,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getLmsClass",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -958,6 +968,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -974,7 +985,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getLmsCourse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1046,6 +1057,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1062,7 +1074,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getLmsCourse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1135,6 +1147,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1151,7 +1164,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getLmsInstructor",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1224,6 +1237,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1240,7 +1254,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getLmsInstructor",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1312,6 +1326,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1328,7 +1343,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getLmsStudent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1400,6 +1415,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1416,7 +1432,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getLmsStudent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1488,6 +1504,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1504,7 +1521,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listLmsClasses",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1576,6 +1593,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1592,7 +1610,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listLmsClasses",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1664,6 +1682,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1680,7 +1699,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listLmsCourses",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1752,6 +1771,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1768,7 +1788,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listLmsCourses",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1841,6 +1861,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1857,7 +1878,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listLmsInstructors",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1930,6 +1951,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1946,7 +1968,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listLmsInstructors",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2019,6 +2041,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2035,7 +2058,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listLmsStudents",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2108,6 +2131,7 @@ class Lms(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2124,7 +2148,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listLmsStudents",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2199,6 +2223,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_class, False, False, "json", shared.LmsClass
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2215,7 +2240,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchLmsClass",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2288,6 +2313,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_class, False, False, "json", shared.LmsClass
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2304,7 +2330,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchLmsClass",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2377,6 +2403,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_course, False, False, "json", shared.LmsCourse
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2393,7 +2420,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchLmsCourse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2468,6 +2495,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_course, False, False, "json", shared.LmsCourse
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2484,7 +2512,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchLmsCourse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2560,6 +2588,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_instructor, False, False, "json", shared.LmsInstructor
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2576,7 +2605,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchLmsInstructor",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2652,6 +2681,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_instructor, False, False, "json", shared.LmsInstructor
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2668,7 +2698,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchLmsInstructor",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2744,6 +2774,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_student, False, False, "json", shared.LmsStudent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2760,7 +2791,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchLmsStudent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2836,6 +2867,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_student, False, False, "json", shared.LmsStudent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2852,7 +2884,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchLmsStudent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2924,6 +2956,7 @@ class Lms(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2940,7 +2973,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeLmsClass",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3017,6 +3050,7 @@ class Lms(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3033,7 +3067,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeLmsClass",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3111,6 +3145,7 @@ class Lms(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3127,7 +3162,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeLmsCourse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3205,6 +3240,7 @@ class Lms(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3221,7 +3257,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeLmsCourse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3299,6 +3335,7 @@ class Lms(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3315,7 +3352,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeLmsInstructor",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3393,6 +3430,7 @@ class Lms(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3409,7 +3447,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeLmsInstructor",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3487,6 +3525,7 @@ class Lms(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3503,7 +3542,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeLmsStudent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3581,6 +3620,7 @@ class Lms(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3597,7 +3637,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeLmsStudent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3677,6 +3717,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_class, False, False, "json", shared.LmsClass
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3693,7 +3734,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateLmsClass",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3766,6 +3807,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_class, False, False, "json", shared.LmsClass
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3782,7 +3824,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateLmsClass",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3856,6 +3898,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_course, False, False, "json", shared.LmsCourse
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3872,7 +3915,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateLmsCourse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3948,6 +3991,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_course, False, False, "json", shared.LmsCourse
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3964,7 +4008,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateLmsCourse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4040,6 +4084,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_instructor, False, False, "json", shared.LmsInstructor
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4056,7 +4101,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateLmsInstructor",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4132,6 +4177,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_instructor, False, False, "json", shared.LmsInstructor
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4148,7 +4194,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateLmsInstructor",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4224,6 +4270,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_student, False, False, "json", shared.LmsStudent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4240,7 +4287,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateLmsStudent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4316,6 +4363,7 @@ class Lms(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.lms_student, False, False, "json", shared.LmsStudent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4332,7 +4380,7 @@ class Lms(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateLmsStudent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

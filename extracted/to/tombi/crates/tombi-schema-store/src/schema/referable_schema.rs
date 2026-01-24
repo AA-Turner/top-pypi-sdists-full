@@ -60,12 +60,11 @@ impl Referable<ValueSchema> {
         object: &tombi_json::ObjectNode,
         string_formats: Option<&[StringFormat]>,
     ) -> Option<Self> {
-        if let Some(x_taplo) = object.get("x-taplo") {
-            if let Ok(x_taplo) = tombi_json::from_value_node::<XTaplo>(x_taplo.to_owned()) {
-                if x_taplo.hidden == Some(true) {
-                    return None;
-                }
-            }
+        if let Some(x_taplo) = object.get("x-taplo")
+            && let Ok(x_taplo) = tombi_json::from_value_node::<XTaplo>(x_taplo.to_owned())
+            && x_taplo.hidden == Some(true)
+        {
+            return None;
         }
         if let Some(tombi_json::ValueNode::String(ref_string)) = object.get("$ref") {
             return Some(Referable::Ref {
@@ -121,7 +120,7 @@ impl Referable<ValueSchema> {
                     if let Some(definition_schema) = definitions.read().await.get(reference) {
                         let mut referable_schema = definition_schema.to_owned();
                         if let Referable::Resolved {
-                            value: ref mut value_schema,
+                            value: value_schema,
                             ..
                         } = &mut referable_schema
                         {
@@ -169,13 +168,7 @@ impl Referable<ValueSchema> {
                             // Offline Mode
                             return Ok(None);
                         }
-                    } else if is_online_url(reference) {
-                        let schema_uri = SchemaUri::from_str(reference).map_err(|_| {
-                            crate::Error::InvalidSchemaUri {
-                                schema_uri: reference.to_owned(),
-                            }
-                        })?;
-
+                    } else if let Ok(schema_uri) = SchemaUri::from_str(reference) {
                         if let Some(mut document_schema) =
                             schema_store.try_get_document_schema(&schema_uri).await?
                         {
@@ -212,7 +205,7 @@ impl Referable<ValueSchema> {
                     } else {
                         return Err(crate::Error::UnsupportedReference {
                             reference: reference.to_owned(),
-                            schema_uri: schema_uri.as_ref().clone(),
+                            schema_uri: schema_uri.as_ref().to_owned(),
                         });
                     }
 
@@ -357,11 +350,11 @@ fn percent_decode(input: &str) -> String {
                 }
             }
 
-            if hex_chars.len() == 2 {
-                if let Ok(byte) = u8::from_str_radix(&hex_chars, 16) {
-                    result.push(byte);
-                    continue;
-                }
+            if hex_chars.len() == 2
+                && let Ok(byte) = u8::from_str_radix(&hex_chars, 16)
+            {
+                result.push(byte);
+                continue;
             }
 
             // If percent decoding failed, keep the original '%' and hex chars
@@ -380,7 +373,7 @@ fn percent_decode(input: &str) -> String {
 mod test {
     use std::str::FromStr;
 
-    use crate::{schema::referable_schema::resolve_json_pointer, ValueSchema};
+    use crate::{ValueSchema, schema::referable_schema::resolve_json_pointer};
 
     #[test]
     fn test_json_pointer_percent_decode() {

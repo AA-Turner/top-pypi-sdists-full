@@ -73,7 +73,7 @@ def build_request(doc, ssurgeon_edits):
             for token in sentence.tokens:
                 for word in token.words:
                     java_protobuf_requests.add_token(graph.token, word, token)
-                    java_protobuf_requests.add_word_to_graph(graph, word, sent_idx, word_idx)
+                    java_protobuf_requests.add_word_to_graph(graph, word, sent_idx)
 
                     word_idx = word_idx + 1
     except Exception as e:
@@ -126,7 +126,7 @@ def build_word_entry(word_index, graph_word):
         word_entry[MISC] = java_protobuf_requests.substitute_space_misc(graph_word.conllUMisc, word_entry[MISC])
     return word_entry
 
-def convert_response_to_doc(doc, semgrex_response):
+def convert_response_to_doc(doc, semgrex_response, add_missing_text):
     doc = copy.deepcopy(doc)
     try:
         for sent_idx, (sentence, ssurgeon_result) in enumerate(zip(doc.sentences, semgrex_response.result)):
@@ -137,20 +137,23 @@ def convert_response_to_doc(doc, semgrex_response):
 
             ssurgeon_graph = ssurgeon_result.graph
             tokens = []
+            token_id_to_idx = {}
             for graph_node, graph_word in zip(ssurgeon_graph.node, ssurgeon_graph.token):
                 word_entry = build_word_entry(graph_node.index, graph_word)
+                token_id_to_idx[graph_node.index] = len(tokens)
                 tokens.append(word_entry)
-            tokens.sort(key=lambda x: x[ID])
             for root in ssurgeon_graph.root:
-                tokens[root-1][HEAD] = 0
-                tokens[root-1][DEPREL] = "root"
+                tokens[token_id_to_idx[root]][HEAD] = 0
+                tokens[token_id_to_idx[root]][DEPREL] = "root"
             for edge in ssurgeon_graph.edge:
                 # can't do anything about the extra dependencies for now
                 # TODO: put them all in .deps
                 if edge.isExtra:
                     continue
-                tokens[edge.target-1][HEAD] = edge.source
-                tokens[edge.target-1][DEPREL] = edge.dep
+                tokens[token_id_to_idx[edge.target]][HEAD] = edge.source
+                tokens[token_id_to_idx[edge.target]][DEPREL] = edge.dep
+
+            tokens.sort(key=lambda x: x[ID])
 
             # for any MWT, produce a token_entry which represents the word range
             mwt_tokens = []
@@ -190,11 +193,15 @@ def convert_response_to_doc(doc, semgrex_response):
 
             sentence_text = "".join(token_text)
 
+            found_text = False
             for comment in old_comments:
                 if comment.startswith("# text ") or comment.startswith("#text ") or comment.startswith("# text=") or comment.startswith("#text="):
                     sentence.add_comment("# text = " + sentence_text)
+                    found_text = True
                 else:
                     sentence.add_comment(comment)
+            if not found_text and add_missing_text:
+                sentence.add_comment("# text = " + sentence_text)
 
             doc.sentences[sent_idx] = sentence
 
@@ -252,17 +259,17 @@ def main():
     # The default ssurgeon transforms the unwanted csubj to advcl
     # See https://github.com/UniversalDependencies/docs/issues/923
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_file', type=str, default=None, help="Input file to process (otherwise will process a sample text)")
-    parser.add_argument('--output_file', type=str, default=None, help="Output file (otherwise will write to stdout)")
-    parser.add_argument('--input_dir', type=str, default=None, help="Input dir to process instead of a single file.  Allows for reusing the Java program")
-    parser.add_argument('--input_filter', type=str, default=".*[.]conllu", help="Only process files from the input_dir that match this filter - regex, not shell filter.  Default: %(default)s")
-    parser.add_argument('--no_input_filter', action='store_const', const=None, help="Remove the default input filename filter")
-    parser.add_argument('--output_dir', type=str, default=None, help="Output dir for writing files, necessary if using --input_dir")
+    parser.add_argument('--input', type=str, default=None, help="Input file / directory to process (otherwise will process a sample text)")
+    parser.add_argument('--output', type=str, default=None, help="Output location (otherwise will write back to the input directory)")
+    parser.add_argument('--stdout', action='store_true', default=False, help='Output to stdout')
+    parser.add_argument('--input_filter', type=str, default=".*[.]conllu", help="If processing a directory, only process files from --input that match this filter - regex, not shell filter.  Default: %(default)s")
+    parser.add_argument('--no_input_filter', action='store_const', const=None, dest="input_filter", help="Remove the default input filename filter")
     parser.add_argument('--edit_file', type=str, default=None, help="File to get semgrex and ssurgeon rules from")
     parser.add_argument('--semgrex', type=str, default="{}=source >nsubj {} >csubj=bad {}", help="Semgrex to apply to the text.  A default detects words which have both an nsubj and a csubj.  Default: %(default)s")
     parser.add_argument('ssurgeon', type=str, default=["relabelNamedEdge -edge bad -reln advcl"], nargs="*", help="Ssurgeon edits to apply based on the Semgrex.  Can have multiple edits in a row.  A default exists to transform csubj into advcl.  Default: %(default)s")
     parser.add_argument('--print_input', dest='print_input', action='store_true', default=False, help="Print the input alongside the output - gets kind of noisy.  Default: %(default)s")
     parser.add_argument('--no_print_input', dest='print_input', action='store_false', help="Don't print the input alongside the output - gets kind of noisy")
+    parser.add_argument('--no_add_missing_text', dest='add_missing_text', action='store_false', help="By default, the tool will add a #text comment if one does not exist.  This leaves that blank")
     args = parser.parse_args()
 
     if args.edit_file:
@@ -270,40 +277,48 @@ def main():
     else:
         ssurgeon_edits = [SsurgeonEdit(args.semgrex, args.ssurgeon)]
 
-    if args.input_file:
-        docs = [CoNLL.conll2doc(input_file=args.input_file)]
-        outputs = [args.output_file]
-        input_output = zip(docs, outputs)
-    elif args.input_dir:
-        if not args.output_dir:
-            raise ValueError("Cannot process multiple files without knowing where to send them - please set --output_dir in order to use --input_dir")
-        if not os.path.exists(args.output_dir):
-            os.makedirs(args.output_dir)
-        def read_docs():
-            for doc_filename in os.listdir(args.input_dir):
-                if args.input_filter:
-                    if not re.match(args.input_filter, doc_filename):
+    if args.input:
+        if os.path.isfile(args.input):
+            docs = [CoNLL.conll2doc(input_file=args.input)]
+            if args.output is None:
+                outputs = [args.input]
+            else:
+                # TODO: could check if --output is a directory
+                outputs = [args.output]
+            input_output = zip(docs, outputs)
+        else:
+            if not args.output:
+                args.output = args.input
+            if not os.path.exists(args.output):
+                os.makedirs(args.output)
+            def read_docs():
+                for doc_filename in os.listdir(args.input):
+                    if args.input_filter:
+                        if not re.match(args.input_filter, doc_filename):
+                            continue
+                    doc_path = os.path.join(args.input, doc_filename)
+                    if not os.path.isfile(doc_path):
                         continue
-                doc_path = os.path.join(args.input_dir, doc_filename)
-                output_path = os.path.join(args.output_dir, doc_filename)
-                print("Processing %s to %s" % (doc_path, output_path))
-                yield CoNLL.conll2doc(input_file=doc_path), output_path
-        input_output = read_docs()
+                    output_path = os.path.join(args.output, doc_filename)
+                    print("Processing %s to %s" % (doc_path, output_path))
+                    yield CoNLL.conll2doc(input_file=doc_path), output_path
+            input_output = read_docs()
     else:
         docs = [CoNLL.conll2doc(input_str=SAMPLE_DOC)]
         outputs = [None]
         input_output = zip(docs, outputs)
+        args.stdout = True
 
     for doc, output in input_output:
         if args.print_input:
             print("{:C}".format(doc))
         ssurgeon_request = build_request(doc, ssurgeon_edits)
         ssurgeon_response = send_ssurgeon_request(ssurgeon_request)
-        updated_doc = convert_response_to_doc(doc, ssurgeon_response)
+        updated_doc = convert_response_to_doc(doc, ssurgeon_response, args.add_missing_text)
         if output is not None:
             with open(output, "w", encoding="utf-8") as fout:
                 fout.write("{:C}\n\n".format(updated_doc))
-        else:
+        if args.stdout:
             print("{:C}\n".format(updated_doc))
 
 if __name__ == '__main__':

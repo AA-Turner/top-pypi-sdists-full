@@ -31,6 +31,7 @@ def update_current_span(
     if not current_span:
         return
     if test_case:
+
         current_span.input = test_case.input
         current_span.output = test_case.actual_output
         current_span.expected_output = test_case.expected_output
@@ -72,6 +73,7 @@ def update_current_trace(
     tools_called: Optional[List[ToolCall]] = None,
     expected_tools: Optional[List[ToolCall]] = None,
     test_case: Optional[LLMTestCase] = None,
+    confident_api_key: Optional[str] = None,
 ):
     current_trace = current_trace_context.get()
     if not current_trace:
@@ -108,6 +110,8 @@ def update_current_trace(
         current_trace.tools_called = tools_called
     if expected_tools:
         current_trace.expected_tools = expected_tools
+    if confident_api_key:
+        current_trace.confident_api_key = confident_api_key
 
 
 def update_llm_span(

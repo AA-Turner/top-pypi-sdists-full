@@ -11,6 +11,7 @@ from collections.abc import (
 )
 from typing import (
     Any,
+    Literal,
     NewType,
     Optional,
     Union,
@@ -23,7 +24,6 @@ import attrs
 import pytest
 
 from typed_settings import cli_utils, default_converter, types
-from typed_settings._compat import PY_310
 
 
 NewInt = NewType("NewInt", int)
@@ -52,12 +52,12 @@ def _none_or_default(default: Any, is_optional: bool) -> Any:
     return default
 
 
-def handle_int(type: type, default: Any, is_optional: bool) -> cli_utils.StrDict:
+def handle_int(typ: type, default: Any, is_optional: bool) -> cli_utils.StrDict:
     """
     An example handler function for the test TypeHandler.
     """
     return {
-        "type": type,
+        "type": typ,
         "default": default,
         "is_optional": is_optional,
         "called": "special",
@@ -76,7 +76,7 @@ class TypeHandler:
 
     def handle_scalar(
         self,
-        type: Optional[type],
+        type: type | None,
         default: Any,
         is_optional: bool,
     ) -> cli_utils.StrDict:
@@ -87,11 +87,24 @@ class TypeHandler:
             "called": "scalar",
         }
 
+    def handle_literal(
+        self,
+        type: type | None,
+        default: Any,
+        is_optional: bool,
+    ) -> cli_utils.StrDict:
+        return {
+            "type": type,
+            "default": default,
+            "is_optional": is_optional,
+            "called": "literal",
+        }
+
     def handle_tuple(
         self,
         type_args_maker: cli_utils.TypeArgsMaker,
         args: tuple[Any, ...],
-        default: Optional[tuple],
+        default: tuple | None,
         is_optional: bool,
     ) -> cli_utils.StrDict:
         return {
@@ -106,7 +119,7 @@ class TypeHandler:
         self,
         type_args_maker: cli_utils.TypeArgsMaker,
         args: tuple[Any, ...],
-        default: Optional[list[Any]],
+        default: list[Any] | None,
         is_optional: bool,
     ) -> cli_utils.StrDict:
         return {
@@ -154,7 +167,7 @@ class TestTypeArgsMaker:
         TAM calls calls "TypeHandler.get_scalar_handlers()", then the correct
         handler and returns its results.
         """
-        t = Optional[int] if is_optional else int
+        t = int | None if is_optional else int
         result = tam.get_kwargs(t, default)
         assert result == {
             "type": int,
@@ -174,7 +187,7 @@ class TestTypeArgsMaker:
         """
         "NewType" and "Optional[NewType]" can be used as option types.
         """
-        t = Optional[NewInt] if is_optional else NewInt
+        t = NewInt | None if is_optional else NewInt
         result = tam.get_kwargs(t, default)
         assert result == {
             "type": int,
@@ -194,13 +207,33 @@ class TestTypeArgsMaker:
         """
         TAM calls calls "TypeHandler.handle_scalar()" and returns its results.
         """
-        t = Optional[str] if is_optional else str
+        t = str | None if is_optional else str
         result = tam.get_kwargs(t, default)
         assert result == {
             "type": str,
             "default": _none_or_default(default, is_optional),
             "is_optional": is_optional,
             "called": "scalar",
+        }
+
+    @pytest.mark.parametrize("default", ["x", None, cli_utils.NO_DEFAULT])
+    @pytest.mark.parametrize("is_optional", [True, False])
+    def test_literal(
+        self,
+        default: Any,
+        is_optional: bool,
+        tam: cli_utils.TypeArgsMaker,
+    ) -> None:
+        """
+        TAM calls calls "TypeHandler.handle_literal()" and returns its results.
+        """
+        t = Literal["x", "y"] | None if is_optional else Literal["x", "y"]
+        result = tam.get_kwargs(t, default)
+        assert result == {
+            "type": Literal["x", "y"],
+            "default": _none_or_default(default, is_optional),
+            "is_optional": is_optional,
+            "called": "literal",
         }
 
     @pytest.mark.parametrize("default", [(1, "x"), None, cli_utils.NO_DEFAULT])
@@ -214,7 +247,7 @@ class TestTypeArgsMaker:
         """
         TAM calls calls "TypeHandler.handle_tuple()" and returns its results.
         """
-        t = Optional[tuple[int, str]] if is_optional else tuple[int, str]
+        t = tuple[int, str] | None if is_optional else tuple[int, str]
         result = tam.get_kwargs(t, default)
         assert result == {
             "type_args_maker": tam,
@@ -231,7 +264,7 @@ class TestTypeArgsMaker:
         """
         TAM raises an error if a tuple default has the wrong length.
         """
-        with pytest.raises(TypeError, match="Default value must be of len 2: 3"):
+        with pytest.raises(TypeError, match=r"Default value must be of len 2: 3"):
             tam.get_kwargs(tuple[int, str], (1, "x", True))
 
     @pytest.mark.parametrize("default", [[1, 2], None, cli_utils.NO_DEFAULT])
@@ -246,7 +279,7 @@ class TestTypeArgsMaker:
         TAM calls calls "TypeHandler.handle_collection()" for list-like tuples
         and returns its results.
         """
-        t = Optional[tuple[int, ...]] if is_optional else tuple[int, ...]
+        t = tuple[int, ...] | None if is_optional else tuple[int, ...]
         result = tam.get_kwargs(t, default)
         assert result == {
             "type_args_maker": tam,
@@ -272,7 +305,7 @@ class TestTypeArgsMaker:
         TAM calls calls "TypeHandler.handle_collection()" and returns its
         results.
         """
-        t = Optional[ctype[int]] if is_optional else ctype[int]
+        t = ctype[int] | None if is_optional else ctype[int]
         result = tam.get_kwargs(t, default)
         assert result == {
             "type_args_maker": tam,
@@ -295,7 +328,7 @@ class TestTypeArgsMaker:
         """
         TAM calls calls "TypeHandler.handle_mapping()" and returns its results.
         """
-        t = Optional[ctype[str, int]] if is_optional else ctype[str, int]
+        t = ctype[str, int] | None if is_optional else ctype[str, int]
         result = tam.get_kwargs(t, default)
         assert result == {
             "type_args_maker": tam,
@@ -326,8 +359,8 @@ class TestTypeArgsMaker:
         """
         TAM raises a TypeError if it encounters an unsupported type.
         """
-        with pytest.raises(TypeError, match="Cannot create CLI option for"):
-            tam.get_kwargs(Union[int, str], 3)
+        with pytest.raises(TypeError, match=r"Cannot create CLI option for"):
+            tam.get_kwargs(int | str, 3)
 
 
 @pytest.mark.parametrize(
@@ -429,7 +462,7 @@ def test_get_default_cattrs_error() -> None:
         has_no_default=True,
         default_is_factory=False,
     )
-    with pytest.raises(ValueError, match="Invalid default .* for option 'test'"):
+    with pytest.raises(ValueError, match=r"Invalid default .* for option 'test'"):
         cli_utils.get_default(
             oinfo,
             {"test": types.LoadedValue(["spam"], types.LoaderMeta("Dummy"))},
@@ -440,32 +473,29 @@ def test_get_default_cattrs_error() -> None:
 OPTIONAL_TEST_DATA = [
     (int, 3, (int, 3, None, (), False)),
     (int, cli_utils.NO_DEFAULT, (int, cli_utils.NO_DEFAULT, None, (), False)),
-    (Optional[int], 3, (int, 3, None, (), True)),
-    (Optional[int], None, (int, None, None, (), True)),
-    (Optional[int], cli_utils.NO_DEFAULT, (int, None, None, (), True)),
-    (Union[int, None], 3, (int, 3, None, (), True)),
-    (Union[int, None], None, (int, None, None, (), True)),
-    (Union[int, None], cli_utils.NO_DEFAULT, (int, None, None, (), True)),
-    (Union[None, int], 3, (int, 3, None, (), True)),
-    (Union[None, int], None, (int, None, None, (), True)),
-    (Union[None, int], cli_utils.NO_DEFAULT, (int, None, None, (), True)),
+    (int | None, 3, (int, 3, None, (), True)),
+    (int | None, None, (int, None, None, (), True)),
+    (int | None, cli_utils.NO_DEFAULT, (int, None, None, (), True)),
+    (Optional[int], 3, (int, 3, None, (), True)),  # noqa: UP045
+    (Optional[int], None, (int, None, None, (), True)),  # noqa: UP045
+    (Optional[int], cli_utils.NO_DEFAULT, (int, None, None, (), True)),  # noqa: UP045
+    (Union[int, None], 3, (int, 3, None, (), True)),  # noqa: UP007
+    (Union[int, None], None, (int, None, None, (), True)),  # noqa: UP007
+    (Union[int, None], cli_utils.NO_DEFAULT, (int, None, None, (), True)),  # noqa: UP007
+    (Union[None, int], 3, (int, 3, None, (), True)),  # noqa: UP007
+    (Union[None, int], None, (int, None, None, (), True)),  # noqa: UP007
+    (Union[None, int], cli_utils.NO_DEFAULT, (int, None, None, (), True)),  # noqa: UP007
     (list[int], None, (list[int], None, list, (int,), False)),
-    (Optional[list[int]], None, (list[int], None, list, (int,), True)),
+    (Optional[list[int]], None, (list[int], None, list, (int,), True)),  # noqa: UP045
     (None, None, (None, None, None, (), False)),
 ]
-if PY_310:
-    OPTIONAL_TEST_DATA += [  # type: ignore[misc]  # type: ignore[misc]
-        (int | None, 3, (int, 3, None, (), True)),
-        (int | None, None, (int, None, None, (), True)),
-        (int | None, cli_utils.NO_DEFAULT, (int, None, None, (), True)),
-    ]
 
 
 @pytest.mark.parametrize("t, d, expected", OPTIONAL_TEST_DATA)
 def test_is_optional(
-    t: Optional[type],
+    t: type | None,
     d: Any,
-    expected: tuple[Optional[type], Any, Any, tuple[Any, ...], bool],
+    expected: tuple[type | None, Any, Any, tuple[Any, ...], bool],
 ) -> None:
     """
     Check if optional detects "Optional[T]", Union[T, None], and "T | None".

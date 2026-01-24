@@ -10,7 +10,9 @@ from .base import (
     ScanType,
     Stage,
     VulnerabilitySeverityLabels,
-    IgnoreCodes
+    IgnoreCodes,
+    PackageEcosystem,
+    InstallationAction
 )
 from .config import ConfigModel, SecurityUpdates
 from .file import FileModel
@@ -51,4 +53,6 @@ __all__ = [
     "IgnoredItemDetail",
     "IgnoredItems",
     "IgnoreCodes",
+    "InstallationAction",
+    "PackageEcosystem",
 ]

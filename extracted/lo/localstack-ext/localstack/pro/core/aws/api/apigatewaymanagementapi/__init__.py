@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import IO, Optional, TypedDict
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -60,9 +60,9 @@ class Identity(TypedDict, total=False):
 
 
 class GetConnectionResponse(TypedDict, total=False):
-    ConnectedAt: Optional[_timestampIso8601]
-    Identity: Optional[Identity]
-    LastActiveAt: Optional[_timestampIso8601]
+    ConnectedAt: _timestampIso8601 | None
+    Identity: Identity | None
+    LastActiveAt: _timestampIso8601 | None
 
 
 class PostToConnectionRequest(ServiceRequest):
@@ -71,8 +71,8 @@ class PostToConnectionRequest(ServiceRequest):
 
 
 class ApigatewaymanagementapiApi:
-    service = "apigatewaymanagementapi"
-    version = "2018-11-29"
+    service: str = "apigatewaymanagementapi"
+    version: str = "2018-11-29"
 
     @handler("DeleteConnection")
     def delete_connection(self, context: RequestContext, connection_id: _string, **kwargs) -> None:

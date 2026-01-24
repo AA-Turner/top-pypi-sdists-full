@@ -35,6 +35,8 @@ from .ActionIcon import ActionIcon
 from .ActionIconGroup import ActionIconGroup
 from .Button import Button
 from .ButtonGroup import ButtonGroup
+from .CopyButton import CopyButton
+from .CustomCopyButton import CustomCopyButton
 from .UnstyledButton import UnstyledButton
 from .Card import Card
 from .CardSection import CardSection
@@ -230,6 +232,8 @@ __all__ = [
     "ActionIconGroup",
     "Button",
     "ButtonGroup",
+    "CopyButton",
+    "CustomCopyButton",
     "UnstyledButton",
     "Card",
     "CardSection",

@@ -44,6 +44,7 @@ SERVICE_PARTNER = {
     "location": LOCATION,
 }
 FORMATTED_ADDRESS = "1600 Pennsylvania Ave NW, Washington, DC 20500, USA"
+PROFILE_NAME = "Example Profile"
 
 
 def anonymize_info(data: dict) -> dict:
@@ -106,6 +107,13 @@ def anonymize_chargingprofiles(data: dict) -> dict:
     Returns:
         dict
     """
+    if len(data["chargingProfiles"]) >= 1:
+        for profile in data["chargingProfiles"]:
+            profile["name"] = PROFILE_NAME
+            if "location" in profile:
+                profile["location"] = LOCATION
+    if "currentVehiclePositionProfile" in data:
+        data["currentVehiclePositionProfile"]["name"] = PROFILE_NAME
     return data
 
 

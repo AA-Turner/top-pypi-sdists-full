@@ -13,12 +13,13 @@ ListModelsType = Literal[
     "chat",
     "completion",
     "embedding",
-    "vision",
     "image",
     "tts",
     "stt",
     "rerank",
-    "moderations",
+    "ocr",
+    "moderation",
+    "vision",
 ]
 r"""The modality of the model"""
 

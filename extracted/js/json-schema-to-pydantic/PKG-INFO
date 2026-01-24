@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json-schema-to-pydantic
-Version: 0.4.1
+Version: 0.4.8
 Summary: A Python library for automatically generating Pydantic v2 models from JSON Schema definitions
 Project-URL: Homepage, https://github.com/richard-gyiko/json-schema-to-pydantic
 Project-URL: Bug-Tracker, https://github.com/richard-gyiko/json-schema-to-pydantic/issues
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.9
 Requires-Dist: pydantic>=2.10.4
 Provides-Extra: dev
 Requires-Dist: pytest-cov>=6.0.0; extra == 'dev'
@@ -95,12 +95,22 @@ user = UserModel(
     age=30
 )
 
-# Example with relaxed array item validation
+# Example with relaxed validation
 RelaxedModel = create_model(
-    {"type": "object", "properties": {"tags": {"type": "array"}}},
-    allow_undefined_array_items=True
+    {
+        "type": "object",
+        "properties": {
+            "tags": {"type": "array"},  # Array without items schema
+            "metadata": {}  # Field without type
+        }
+    },
+    allow_undefined_array_items=True,  # Allows arrays without items schema
+    allow_undefined_type=True  # Allows fields without type (defaults to Any)
 )
-relaxed_instance = RelaxedModel(tags=[1, "two", True])
+relaxed_instance = RelaxedModel(
+    tags=[1, "two", True],
+    metadata={"custom": "data"}
+)
 ```
 
 ## Advanced Usage

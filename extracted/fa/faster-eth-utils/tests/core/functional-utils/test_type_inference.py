@@ -1,13 +1,11 @@
 import pytest
-from typing import (
-    List,
-)
+import sys
 
 from mypy import (
     api,
 )
 
-MYPY_ARGS = ["--ignore-missing-imports"]
+MYPY_ARGS = ["--ignore-missing-imports", "--disable-error-code=unused-ignore"]
 FIXTURE_DIR = "fixtures/mypy/"
 
 
@@ -16,7 +14,7 @@ def fixture_dir(val: str):
 
 
 def check_mypy_run(
-    cmd_line: List[str],
+    cmd_line: list[str],
     expected_out: str,
     expected_err: str = "",
     expected_returncode: int = 0,
@@ -30,43 +28,47 @@ def check_mypy_run(
 
 # The following tests all run code snippets through mypy that contain a
 # `reveal_type` statement, and then match the mypy output against our expectations
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="This test's file path string matching doesn't work for Windows paths.",
+)
 @pytest.mark.parametrize(
     "fixture,message",
     (
         (
             fixture_dir("to_tuple_decorator.py"),
             fixture_dir(
-                'to_tuple_decorator.py:16: note: Revealed type is "builtins.tuple[builtins.int, ...]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
+                'to_tuple_decorator.py:12: note: Revealed type is "builtins.tuple[builtins.int, ...]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
             ),
         ),
         (
             fixture_dir("to_list_decorator.py"),
             fixture_dir(
-                'to_list_decorator.py:16: note: Revealed type is "builtins.list[builtins.int]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
+                'to_list_decorator.py:12: note: Revealed type is "builtins.list[builtins.int]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
             ),
         ),
         (
             fixture_dir("to_set_decorator.py"),
             fixture_dir(
-                'to_set_decorator.py:16: note: Revealed type is "builtins.set[builtins.int]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
+                'to_set_decorator.py:12: note: Revealed type is "builtins.set[builtins.int]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
             ),
         ),
         (
             fixture_dir("to_dict_decorator.py"),
             fixture_dir(
-                'to_dict_decorator.py:17: note: Revealed type is "builtins.dict[builtins.int, builtins.int]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
+                'to_dict_decorator.py:12: note: Revealed type is "builtins.dict[builtins.int, builtins.int]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
             ),
         ),
         (
             fixture_dir("to_ordered_dict_decorator.py"),
             fixture_dir(
-                'to_ordered_dict_decorator.py:17: note: Revealed type is "collections.OrderedDict[builtins.int, builtins.int]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
+                'to_ordered_dict_decorator.py:12: note: Revealed type is "collections.OrderedDict[builtins.int, builtins.int]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
             ),
         ),
         (
             fixture_dir("apply_to_return_value_decorator.py"),
             fixture_dir(
-                'apply_to_return_value_decorator.py:20: note: Revealed type is "builtins.list[builtins.int]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
+                'apply_to_return_value_decorator.py:16: note: Revealed type is "builtins.list[builtins.int]"\nSuccess: no issues found in 1 source file\n'  # noqa: E501
             ),
         ),
     ),

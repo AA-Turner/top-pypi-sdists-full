@@ -1,11 +1,11 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 import json
 from inspect import Parameter, signature
-from typing import Any, Callable, Optional, Union, get_args
+from typing import Any, Callable, Union, get_args
 
 from mcp.server.fastmcp import FastMCP
 
@@ -93,10 +93,8 @@ class MCPServer(FastMCP):
     @staticmethod
     def _json_schema_to_type(schema: dict) -> dict:
         properties = schema.get("properties", {})
-        required_fields = set(schema.get("required", []))
-        fields = {}
 
-        type_mapping = {
+        type_mapping: dict[str, type[Any]] = {
             "string": str,
             "integer": int,
             "number": float,
@@ -105,18 +103,17 @@ class MCPServer(FastMCP):
             "object": dict,
         }
 
+        fields: dict[str, type[Any]] = {}
+
         for field_name, field_schema in properties.items():
             field_type = field_schema.get("type", "string")
-            py_type = type_mapping.get(field_type, Any)
-            if field_name not in required_fields:
-                py_type = Optional[py_type]
-
+            py_type = type_mapping.get(field_type, object)
             fields[field_name] = py_type
 
         return fields
 
     @staticmethod
-    def _modify_argument_types(fn: Callable, new_types: dict) -> Callable:
+    def _modify_argument_types(fn: Callable, new_types: dict[str, Any]) -> Callable:
         sig = signature(fn)
 
         new_params = []

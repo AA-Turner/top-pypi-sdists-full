@@ -8,7 +8,10 @@ T = TypeVar("T", bound="GetFlowByPathWithDraftResponse200DraftSchema")
 
 @_attrs_define
 class GetFlowByPathWithDraftResponse200DraftSchema:
-    """ """
+    """JSON Schema for flow inputs. Use this to define input parameters, their types, defaults, and validation. For
+    resource inputs, set type to 'object' and format to 'resource-<type>' (e.g., 'resource-stripe')
+
+    """
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

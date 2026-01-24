@@ -243,6 +243,7 @@ class VSPCopyGroupsDirectGateway:
             remote_connection_info.password,
             remote_connection_info.api_token,
         )
+
         return self.remote_connection_manager.getAuthToken()
 
     @log_entry_exit
@@ -371,7 +372,6 @@ class VSPCopyGroupsDirectGateway:
 
     @log_entry_exit
     def get_all_copy_pairs(self, spec):
-        # logger.writeDebug(f"GW:get_all_copy_pairs spec={spec}")
 
         if spec.copy_group_name:
             response = self.get_all_copy_pairs_by_copygroup_name(spec)
@@ -404,7 +404,6 @@ class VSPCopyGroupsDirectGateway:
 
     @log_entry_exit
     def get_all_copy_pairs_by_type(self, spec, replication_type):
-        logger.writeDebug(f"GW:get_all_copy_pairs_by_type spec={spec}")
 
         if spec.copy_group_name:
             response = self.get_all_copy_pairs_by_copygroup_name(spec)

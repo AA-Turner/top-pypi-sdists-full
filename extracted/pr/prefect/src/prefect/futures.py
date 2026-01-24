@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import concurrent.futures
 import threading
+import time
 import uuid
 import warnings
 from collections.abc import Generator, Iterator
@@ -373,7 +374,7 @@ class PrefectFlowRunFuture(PrefectFuture[R]):
     async def wait_async(self, timeout: float | None = None) -> None:
         if self._final_state:
             logger.debug(
-                "Final state already set for %s. Returning...", self.task_run_id
+                "Final state already set for %s. Returning...", self.flow_run_id
             )
             return
 
@@ -425,7 +426,7 @@ class PrefectFlowRunFuture(PrefectFuture[R]):
             await self.wait_async(timeout=timeout)
             if not self._final_state:
                 raise TimeoutError(
-                    f"Task run {self.task_run_id} did not complete within {timeout} seconds"
+                    f"Flow run {self.flow_run_id} did not complete within {timeout} seconds"
                 )
 
         return await self._final_state.aresult(raise_on_failure=raise_on_failure)
@@ -604,6 +605,7 @@ def wait(
     # With timeout, monitor all futures concurrently
     try:
         with timeout_context(timeout):
+            deadline = time.monotonic() + timeout
             finished_event = threading.Event()
             finished_lock = threading.Lock()
             finished_futures: list[PrefectFuture[R]] = []
@@ -619,8 +621,16 @@ def wait(
 
             # Wait for futures to complete within timeout
             while not_done:
-                # Wait for at least one future to complete
-                finished_event.wait()
+                # Calculate remaining time until deadline
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+
+                # Wait for at least one future to complete, with timeout to respect deadline
+                # The timeout parameter ensures we don't block indefinitely even if
+                # WatcherThreadCancelScope is used (which can't interrupt blocking calls)
+                finished_event.wait(timeout=remaining)
+
                 with finished_lock:
                     newly_done = finished_futures[:]
                     finished_futures.clear()

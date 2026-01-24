@@ -1833,10 +1833,7 @@ class _Persistent_Base:
 
     def _normalize_repr(self, r):
         # addresses
-        r = re.sub(r'at 0x[0-9a-fA-F]*', 'at 0xdeadbeef', r)
-        # Python 3.7 removed the trailing , in exception reprs
-        r = r.replace("',)", "')")
-        return r
+        return re.sub(r'at 0x[0-9a-fA-F]*', 'at 0xdeadbeef', r)
 
     def _normalized_repr(self, o):
         return self._normalize_repr(repr(o))
@@ -1886,6 +1883,14 @@ class _Persistent_Base:
             result,
             '<persistent.Persistent object at 0xdeadbeef oid'
             ' 0x8000000000000000>')
+
+    def test_short_odd_oid(self):
+        p = self._makeOne()
+        p._p_oid = b'\x00\x00\x00\x00\x00\x00\x01#'
+        result = self._normalized_repr(p)
+        self.assertEqual(
+            result,
+            '<persistent.Persistent object at 0xdeadbeef oid 0x0123>')
 
     def test_repr_no_oid_repr_jar_raises_exception(self):
         p = self._makeOne()

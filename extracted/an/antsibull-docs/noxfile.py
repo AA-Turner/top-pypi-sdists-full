@@ -75,7 +75,7 @@ def other_antsibull(
     return to_install
 
 
-@nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13"])
+@nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"])
 def test(session: nox.Session):
     install(
         session,
@@ -85,7 +85,7 @@ def test(session: nox.Session):
     )
     covfile = Path(session.create_tmp(), ".coverage")
     more_args = []
-    if session.python in {"3.11", "3.12", "3.13"}:
+    if session.python not in {"3.9", "3.10"}:
         more_args.append("--error-for-skips")
     session.run(
         "pytest",
@@ -150,7 +150,7 @@ def codeqa(session: nox.Session):
 def typing(session: nox.Session):
     others = other_antsibull()
     install(session, ".[typing]", *others)
-    session.run("mypy", "src/antsibull_docs", "src/sphinx_antsibull_ext")
+    session.run("mypy", "src/antsibull_docs", "src/sphinx_antsibull_ext", "tests")
 
 
 def check_no_modifications(session: nox.Session) -> None:

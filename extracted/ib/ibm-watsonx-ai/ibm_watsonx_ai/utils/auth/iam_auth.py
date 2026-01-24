@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -7,13 +7,13 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any, Callable
 
+import httpx
+
 from ibm_watsonx_ai.utils.auth.base_auth import (
-    STATUS_FORCELIST,
     RefreshableTokenAuth,
     TokenInfo,
     _get_token_info,
 )
-from ibm_watsonx_ai.utils.utils import _requests_retry_session
 from ibm_watsonx_ai.wml_client_error import (
     AuthenticationError,
     InvalidCredentialsError,
@@ -52,30 +52,58 @@ class IAMTokenAuth(RefreshableTokenAuth):
                 "api_key for IAM token is not provided in credentials for the client."
             )
 
+    def _get_token_request_arguments(self) -> tuple[str, str, dict[str, str]]:
+        url = self._api_client._href_definitions.get_iam_token_url()
+
+        data = "apikey=" + self._api_client._href_definitions.get_iam_token_api(
+            self._api_client.credentials.api_key
+        )
+
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": "Basic Yng6Yng=",
+        }
+
+        return url, data, headers
+
+    def _handle_token_response(self, response: httpx.Response) -> TokenInfo:
+        if response.status_code == 200:
+            return TokenInfo(response.json().get("access_token"))
+        if 400 <= response.status_code < 500:
+            raise InvalidCredentialsError(reason=response.text)
+
+        raise AuthenticationError("IAM", response)
+
     def _generate_token(self) -> TokenInfo:
         """Generate token using IAM authentication.
 
         :returns: token info to be used by auth method
         :rtype: TokenInfo
         """
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": "Basic Yng6Yng=",
-        }
 
-        mystr = "apikey=" + self._href_definitions.get_iam_token_api(
-            self._credentials.api_key
-        )
-        response = _requests_retry_session(status_forcelist=STATUS_FORCELIST).post(
-            self._href_definitions.get_iam_token_url(), data=mystr, headers=headers
+        url, data, headers = self._get_token_request_arguments()
+        response = self._api_client.httpx_client.post(
+            url=url, content=data, headers=headers
         )
 
-        if response.status_code == 200:
-            return TokenInfo(response.json().get("access_token"))
-        elif 400 <= response.status_code < 500:
-            raise InvalidCredentialsError(reason=response.text)
-        else:
-            raise AuthenticationError("IAM", response)
+        return self._handle_token_response(response)
+
+    async def _agenerate_token(self) -> TokenInfo:
+        """Generate token from scratch using user provided credentials.
+
+        :returns: token info to be used by auth method
+        :rtype: TokenInfo
+        """
+
+        url, data, headers = self._get_token_request_arguments()
+
+        response = await self._api_client.async_httpx_client.post(
+            url=url,
+            headers=headers,
+            content=data,
+        )
+
+        return self._handle_token_response(response)
 
 
 def get_iam_user_details(token: str) -> dict[str, Any]:

@@ -3,9 +3,7 @@ use std::iter;
 use common_error::{DaftError, DaftResult, ensure};
 use daft_core::{
     array::DataArray,
-    prelude::{
-        AsArrow, DaftIntegerType, DaftNumericType, DataType, Field, FullNull, Schema, Utf8Array,
-    },
+    prelude::{DaftIntegerType, DaftNumericType, DataType, Field, FullNull, Schema, Utf8Array},
     series::{IntoSeries, Series},
     with_match_integer_daft_types,
 };
@@ -18,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::{BroadcastedStrIter, create_broadcasted_str_iter, parse_inputs};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Substr;
 
 #[derive(FunctionArgs)]
@@ -152,7 +150,7 @@ where
                     (Some(length_repeat), None)
                 }
                 _ => {
-                    let length_iter = length.as_arrow().iter().map(|l| match l {
+                    let length_iter = length.into_iter().map(|l| match l {
                         Some(l) => {
                             let l: usize = NumCast::from(*l).ok_or_else(|| {
                                 DaftError::ComputeError(format!(
@@ -187,7 +185,7 @@ where
             (Some(start_repeat), None)
         }
         _ => {
-            let start_iter = start.as_arrow().iter().map(|s| match s {
+            let start_iter = start.into_iter().map(|s| match s {
                 Some(s) => {
                     let s: usize = NumCast::from(*s).ok_or_else(|| {
                         DaftError::ComputeError(format!(
@@ -259,7 +257,7 @@ where
                 _ => Ok(None),
             }
         })
-        .collect::<DaftResult<arrow2::array::Utf8Array<i64>>>()?;
+        .collect::<DaftResult<daft_arrow::array::Utf8Array<i64>>>()?;
 
     Ok(Utf8Array::from((name, Box::new(arrow_result))))
 }

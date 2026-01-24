@@ -400,7 +400,7 @@ def cog_translate(  # noqa: C901
                 tags = src_dst.tags()
                 tags.update(
                     {
-                        "OVR_RESAMPLING_ALG": ResamplingEnums[
+                        "OVERVIEW_RESAMPLING": ResamplingEnums[
                             overview_resampling
                         ].name.upper()
                     }
@@ -459,7 +459,6 @@ def cog_translate(  # noqa: C901
                     dst_kwargs.pop("blockxsize", None)
                     dst_kwargs.pop("blockysize", None)
                     dst_kwargs.pop("tiled", None)
-                    dst_kwargs.pop("interleave", None)
                     dst_kwargs.pop("photometric", None)
 
                     copy(tmp_dst, dst_path, **dst_kwargs)
@@ -849,6 +848,6 @@ def cog_info(
         Profile=profile,
         GEO=geo,
         Tags=tags,
-        Band_Metadata=band_metadata,
+        Band_Metadata=band_metadata,  # type: ignore [call-arg]
         IFD=ifds,
     )

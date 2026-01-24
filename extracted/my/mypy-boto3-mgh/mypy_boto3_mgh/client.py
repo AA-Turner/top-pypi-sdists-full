@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -67,12 +68,6 @@ from .type_defs import (
     PutResourceAttributesRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -83,17 +78,17 @@ __all__ = ("MigrationHubClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DryRunOperation: Type[BotocoreClientError]
-    HomeRegionNotSetException: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    PolicyErrorException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnauthorizedOperation: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DryRunOperation: type[BotocoreClientError]
+    HomeRegionNotSetException: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    PolicyErrorException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnauthorizedOperation: type[BotocoreClientError]
 
 
 class MigrationHubClient(BaseClient):
@@ -133,7 +128,7 @@ class MigrationHubClient(BaseClient):
 
     def associate_created_artifact(
         self, **kwargs: Unpack[AssociateCreatedArtifactRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a created artifact of an AWS cloud resource, the target receiving
         the migration, with the migration task performed by a migration tool.
@@ -144,7 +139,7 @@ class MigrationHubClient(BaseClient):
 
     def associate_discovered_resource(
         self, **kwargs: Unpack[AssociateDiscoveredResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a discovered resource ID from Application Discovery Service with a
         migration task.
@@ -155,7 +150,7 @@ class MigrationHubClient(BaseClient):
 
     def associate_source_resource(
         self, **kwargs: Unpack[AssociateSourceResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a source resource with a migration task.
 
@@ -165,7 +160,7 @@ class MigrationHubClient(BaseClient):
 
     def create_progress_update_stream(
         self, **kwargs: Unpack[CreateProgressUpdateStreamRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a progress update stream which is an AWS resource used for access
         control as well as a namespace for migration task names that is implicitly
@@ -177,7 +172,7 @@ class MigrationHubClient(BaseClient):
 
     def delete_progress_update_stream(
         self, **kwargs: Unpack[DeleteProgressUpdateStreamRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a progress update stream, including all of its tasks, which was
         previously created as an AWS resource used for access control.
@@ -208,7 +203,7 @@ class MigrationHubClient(BaseClient):
 
     def disassociate_created_artifact(
         self, **kwargs: Unpack[DisassociateCreatedArtifactRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a created artifact of an AWS resource with a migration task
         performed by a migration tool that was previously associated.
@@ -219,7 +214,7 @@ class MigrationHubClient(BaseClient):
 
     def disassociate_discovered_resource(
         self, **kwargs: Unpack[DisassociateDiscoveredResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociate an Application Discovery Service discovered resource from a
         migration task.
@@ -230,7 +225,7 @@ class MigrationHubClient(BaseClient):
 
     def disassociate_source_resource(
         self, **kwargs: Unpack[DisassociateSourceResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the association between a source resource and a migration task.
 
@@ -240,7 +235,7 @@ class MigrationHubClient(BaseClient):
 
     def import_migration_task(
         self, **kwargs: Unpack[ImportMigrationTaskRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Registers a new migration task which represents a server, database, etc., being
         migrated to AWS by a migration tool.
@@ -325,7 +320,7 @@ class MigrationHubClient(BaseClient):
 
     def notify_application_state(
         self, **kwargs: Unpack[NotifyApplicationStateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets the migration state of an application.
 
@@ -335,7 +330,7 @@ class MigrationHubClient(BaseClient):
 
     def notify_migration_task_state(
         self, **kwargs: Unpack[NotifyMigrationTaskStateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Notifies Migration Hub of the current status, progress, or other detail
         regarding a migration task.
@@ -346,7 +341,7 @@ class MigrationHubClient(BaseClient):
 
     def put_resource_attributes(
         self, **kwargs: Unpack[PutResourceAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Provides identifying details of the resource being migrated so that it can be
         associated in the Application Discovery Service repository.

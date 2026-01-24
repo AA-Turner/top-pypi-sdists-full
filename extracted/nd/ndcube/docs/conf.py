@@ -73,8 +73,7 @@ extensions = [
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-source_suffix = ".rst"
+source_suffix = {".rst": "restructuredtext"}
 
 # The master toctree document.
 master_doc = "index"
@@ -95,7 +94,8 @@ intersphinx_mapping = {
     'sunpy': ('https://docs.sunpy.org/en/stable/', None),
     'mpl_animators': ('https://docs.sunpy.org/projects/mpl-animators/en/stable/', None),
     'gwcs': ('https://gwcs.readthedocs.io/en/stable/', None),
-    'reproject': ("https://reproject.readthedocs.io/en/stable/", None)
+    'reproject': ("https://reproject.readthedocs.io/en/stable/", None),
+    'asdf': ("https://www.asdf-format.org/projects/asdf/en/stable/", None),
     }
 
 # -- Options for HTML output -------------------------------------------------
@@ -103,9 +103,7 @@ intersphinx_mapping = {
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "sunpy"
-
 html_logo = png_icon = 'logo/ndcube.png'
-
 html_favicon = 'logo/favicon.png'
 
 # Render inheritance diagrams in SVG
@@ -135,10 +133,6 @@ graphviz_dot_args = [
 autoclass_content = "both"
 
 # -- Other options ----------------------------------------------------------
-
-napoleon_use_rtype = False
-napoleon_google_docstring = False
-napoleon_use_param = False
 
 nitpicky = True
 # This is not used. See docs/nitpick-exceptions file for the actual listing.
@@ -172,6 +166,4 @@ sphinx_gallery_conf = {
 ogp_image = "https://github.com/sunpy/ndcube/raw/main/docs/logo/ndcube.png"
 ogp_use_first_image = True
 ogp_description_length = 160
-ogp_custom_meta_tags = [
-    '<meta property="og:ignore_canonical" content="true" />',
-]
+ogp_custom_meta_tags = ('<meta property="og:ignore_canonical" content="true" />',)

@@ -3,7 +3,7 @@ Type annotations for iotanalytics service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iotanalytics/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -93,12 +94,6 @@ from .type_defs import (
     UpdatePipelineRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -109,14 +104,14 @@ __all__ = ("IoTAnalyticsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 
 class IoTAnalyticsClient(AioBaseClient):
@@ -166,7 +161,7 @@ class IoTAnalyticsClient(AioBaseClient):
 
     async def cancel_pipeline_reprocessing(
         self, **kwargs: Unpack[CancelPipelineReprocessingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels the reprocessing of data through the pipeline.
 
@@ -435,7 +430,7 @@ class IoTAnalyticsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iotanalytics/client/#start_pipeline_reprocessing)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds to or modifies the tags of the given resource.
 
@@ -443,7 +438,7 @@ class IoTAnalyticsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iotanalytics/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the given tags (metadata) from the resource.
 
@@ -554,7 +549,7 @@ class IoTAnalyticsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

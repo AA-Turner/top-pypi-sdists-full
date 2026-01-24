@@ -59,8 +59,8 @@ class ProcedureCollection(ProcedureCollectionBase):
 class ProcedureResource(ProcedureResourceBase):
     """Represents a reference to a Snowflake procedure.
 
-    With this procedure reference, you can create and fetch information about procedures, as well as
-    perform certain actions on them.
+    With this procedure reference, you can fetch information about a procedure, as well as
+    perform certain actions on it.
     """
 
     _identifier_requires_args = True

@@ -5,7 +5,7 @@ import sys
 import typing as t
 from collections import defaultdict
 from pathlib import Path
-from typing import OrderedDict
+from typing import Optional, OrderedDict
 
 import click
 import yaml
@@ -17,7 +17,7 @@ from clarifai.utils.logging import logger
 
 def from_yaml(filename: str):
     try:
-        with open(filename, 'r') as f:
+        with open(filename, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
     except yaml.YAMLError as e:
         click.echo(f"Error reading YAML file: {e}", err=True)
@@ -26,7 +26,7 @@ def from_yaml(filename: str):
 
 def dump_yaml(data, filename: str):
     try:
-        with open(filename, 'w') as f:
+        with open(filename, 'w', encoding='utf-8') as f:
             yaml.dump(data, f)
     except Exception as e:
         click.echo(f"Error writing YAML file: {e}", err=True)
@@ -229,7 +229,7 @@ def validate_context_auth(pat: str, user_id: str, api_base: str = None):
 
 
 def customize_ollama_model(
-    model_path, model_name=None, port=None, context_length=None, verbose=False
+    model_path, user_id, model_name=None, port=None, context_length=None, verbose=False
 ):
     """Customize the Ollama model name in the cloned template files.
     Args:
@@ -240,6 +240,24 @@ def customize_ollama_model(
      verbose: Whether to enable verbose logging - optional (defaults to False)
 
     """
+    config_path = os.path.join(model_path, 'config.yaml')
+    if os.path.exists(config_path):
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+
+        # Update the user_id in the model section
+        config['model']['user_id'] = user_id
+        if 'toolkit' not in config or config['toolkit'] is None:
+            config['toolkit'] = {}
+        if model_name is not None:
+            config['toolkit']['model'] = model_name
+        if port is not None:
+            config['toolkit']['port'] = port
+        if context_length is not None:
+            config['toolkit']['context_length'] = context_length
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
     model_py_path = os.path.join(model_path, "1", "model.py")
 
     if not os.path.exists(model_py_path):
@@ -248,7 +266,7 @@ def customize_ollama_model(
 
     try:
         # Read the model.py file
-        with open(model_py_path, 'r') as file:
+        with open(model_py_path, 'r', encoding='utf-8') as file:
             content = file.read()
         if model_name:
             # Replace the default model name in the load_model method
@@ -274,7 +292,7 @@ def customize_ollama_model(
             content = content.replace("VERBOSE_OLLAMA = False", f"VERBOSE_OLLAMA = {verbose_str}")
 
         # Write the modified content back to model.py
-        with open(model_py_path, 'w') as file:
+        with open(model_py_path, 'w', encoding='utf-8') as file:
             file.write(content)
 
     except Exception as e:
@@ -290,6 +308,20 @@ def check_ollama_installed():
         result = subprocess.run(
             ['ollama', '--version'], capture_output=True, text=True, check=False
         )
+        if result.returncode == 0:
+            return True
+        else:
+            return False
+    except FileNotFoundError:
+        return False
+
+
+def check_lmstudio_installed():
+    """Check if the LM Studio CLI is installed."""
+    try:
+        import subprocess
+
+        result = subprocess.run(['lms', 'version'], capture_output=True, text=True, check=False)
         if result.returncode == 0:
             return True
         else:
@@ -337,32 +369,37 @@ def parse_requirements(model_path: str):
     return deps
 
 
-def check_requirements_installed(model_path):
-    """Check if all dependencies in requirements.txt are installed."""
+def check_requirements_installed(model_path: str = None, dependencies: dict = None):
+    """Check if all dependencies in requirements.txt are installed.
+    Args:
+        model_path: Path to the model directory
+        dependencies: Dictionary of dependencies
+    Returns:
+        True if all dependencies are installed, False otherwise
+    """
+
+    if model_path and dependencies:
+        logger.warning(
+            "model_path and dependencies cannot be provided together, using dependencies instead"
+        )
+        dependencies = parse_requirements(model_path)
 
     try:
-        # Getting package name and version (for logging)
-        requirements = parse_requirements(model_path)
-
-        if not requirements:
-            logger.info("No dependencies found in requirements.txt")
-            return True
-
-        logger.info(f"Checking {len(requirements)} dependencies...")
-
+        if not dependencies:
+            dependencies = parse_requirements(model_path)
         missing = [
             full_req
-            for package_name, full_req in requirements.items()
+            for package_name, full_req in dependencies.items()
             if not _is_package_installed(package_name)
         ]
 
         if not missing:
-            logger.info(f"✅ All {len(requirements)} dependencies are installed!")
+            logger.info(f"✅ All {len(dependencies)} dependencies are installed!")
             return True
 
         # Report missing packages
         logger.error(
-            f"❌ {len(missing)} of {len(requirements)} required packages are missing in the current environment"
+            f"❌ {len(missing)} of {len(dependencies)} required packages are missing in the current environment"
         )
         logger.error("\n".join(f"  - {pkg}" for pkg in missing))
         requirements_path = Path(model_path) / "requirements.txt"
@@ -389,3 +426,180 @@ def convert_timestamp_to_string(timestamp: Timestamp) -> str:
     datetime_obj = timestamp.ToDatetime()
 
     return datetime_obj.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+def customize_huggingface_model(model_path, user_id, model_name):
+    config_path = os.path.join(model_path, 'config.yaml')
+    if os.path.exists(config_path):
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+
+        # Update the user_id in the model section
+        config['model']['user_id'] = user_id
+
+        if model_name:
+            # Update the repo_id in checkpoints section
+            if 'checkpoints' not in config:
+                config['checkpoints'] = {}
+            config['checkpoints']['repo_id'] = model_name
+
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+
+        logger.info(f"Updated Hugging Face model repo_id to: {model_name}")
+    else:
+        logger.warning(f"config.yaml not found at {config_path}, skipping model configuration")
+
+
+def customize_lmstudio_model(model_path, user_id, model_name=None, port=None, context_length=None):
+    """Customize the LM Studio model name in the cloned template files.
+    Args:
+     model_path: Path to the cloned model directory
+     model_name: The model name to set (e.g., 'qwen/qwen3-4b-thinking-2507') - optional
+     port: Port for LM Studio server - optional
+     context_length: Context length for the model - optional
+
+    """
+    config_path = os.path.join(model_path, 'config.yaml')
+
+    if os.path.exists(config_path):
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        # Update the user_id in the model section
+        config['model']['user_id'] = user_id
+        if 'toolkit' not in config or config['toolkit'] is None:
+            config['toolkit'] = {}
+        if model_name is not None:
+            config['toolkit']['model'] = model_name
+        if port is not None:
+            config['toolkit']['port'] = port
+        if context_length is not None:
+            config['toolkit']['context_length'] = context_length
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+        logger.info(f"Updated LM Studio model configuration in: {config_path}")
+    else:
+        logger.warning(f"config.yaml not found at {config_path}, skipping model configuration")
+
+
+def prompt_required_field(message: str, default: Optional[str] = None) -> str:
+    """Prompt the user for a required field, optionally with a default.
+    Used inside the model CLI to prompt the user for required fields if config.yaml is missing.
+    Args:
+        message (str): The message to display to the user.
+        default (Optional[str]): The default value to use if the user does not enter a value.
+
+    Returns:
+        str: The value entered by the user.
+    """
+    while True:
+        prompt = f"{message}"
+        if default:
+            prompt += f" [{default}]"
+        prompt += ": "
+        value = input(prompt).strip()
+        if not value and default:
+            return default
+        if value:
+            return value
+        click.echo("❌ This field is required. Please enter a value.")
+
+
+def prompt_optional_field(message: str, default: Optional[str] = None) -> Optional[str]:
+    """Prompt the user for an optional field.
+    Used inside the model CLI to prompt the user for optional fields if config.yaml is missing.
+    Args:
+        message (str): The message to display to the user.
+        default (Optional[str]): The default value to use if the user does not enter a value.
+
+    Returns:
+        Optional[str]: The value entered by the user.
+    """
+    prompt = f"{message}"
+    if default:
+        prompt += f" [{default}]"
+    prompt += ": "
+    value = input(prompt).strip()
+    if not value:
+        return default
+    return value
+
+
+def prompt_int_field(message: str, default: Optional[int] = None) -> int:
+    """Prompt the user for an integer field (required).
+    Used inside the model CLI to prompt the user for integer fields if config.yaml is missing.
+    Args:
+        message (str): The message to display to the user.
+        default (Optional[int]): The default value to use if the user does not enter a value.
+
+    Returns:
+        int: The value entered by the user.
+    """
+    while True:
+        prompt = f"{message}"
+        if default is not None:
+            prompt += f" [{default}]"
+        prompt += ": "
+        raw = input(prompt).strip()
+        if not raw and default is not None:
+            return default
+        try:
+            return int(raw)
+        except ValueError:
+            click.echo("❌ Please enter a valid integer.")
+
+
+def prompt_yes_no(message: str, default: Optional[bool] = None) -> bool:
+    """Prompt the user for a yes/no decision.
+    Used inside the model CLI to prompt the user for yes/no fields if config.yaml is missing.
+    Args:
+        message (str): The message to display to the user.
+        default (Optional[bool]): The default value to use if the user does not enter a value.
+
+    Returns:
+        bool: The value entered by the user.
+    """
+    if default is True:
+        suffix = " [Y/n]"
+    elif default is False:
+        suffix = " [y/N]"
+    else:
+        suffix = " [y/n]"
+    prompt = f"{message}{suffix}: "
+    while True:
+        response = input(prompt).strip().lower()
+        if not response and default is not None:
+            return default
+        if response in ("y", "yes"):
+            return True
+        if response in ("n", "no"):
+            return False
+        click.echo("❌ Please respond with 'y' or 'n'.")
+
+
+def print_section(title: str, description: str, note: Optional[str] = None) -> None:
+    """Print a section with a title, description, and note.
+    Used inside the model CLI to print sections if config.yaml is missing.
+    Args:
+        title (str): The title of the section.
+        description (str): The description of the section.
+        note (Optional[str]): The note to display below the section.
+    """
+    click.echo()
+    click.echo(click.style(title, fg="bright_cyan", bold=True))
+    if description:
+        click.echo(description)
+    if note:
+        click.echo(click.style(note, fg="yellow"))
+
+
+def print_field_help(name: str, description: str) -> None:
+    """Print a field with a name and description.
+    Used inside the model CLI to print fields if config.yaml is missing.
+    Args:
+        name (str): The name of the field.
+        description (str): The description of the field.
+    """
+    click.echo(click.style(f"➤ {name}", fg="bright_green", bold=True))
+    if description:
+        click.echo(click.style(f"    {description}", fg="green"))

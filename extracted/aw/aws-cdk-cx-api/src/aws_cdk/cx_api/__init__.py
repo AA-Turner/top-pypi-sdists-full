@@ -529,48 +529,6 @@ If the flag is set to false then a custom resource will be created when using `U
 }
 ```
 
-* `@aws-cdk/aws-ecs:disableEcsImdsBlocking`
-
-When set to true, CDK synth will throw exception if canContainersAccessInstanceRole is false.
-
-In an ECS Cluster with `MachineImageType.AMAZON_LINUX_2`, the canContainersAccessInstanceRole=false option attempts to add commands to block containers from
-accessing IMDS. CDK cannot guarantee the correct execution of the feature in all platforms. Setting this feature flag
-to true will ensure CDK does not attempt to implement IMDS blocking. By <ins>**end of 2025**</ins>, CDK will remove the
-IMDS blocking feature. See [Github discussion](https://github.com/aws/aws-cdk/discussions/32609) for more information.
-
-**It is recommended to follow ECS documentation to block IMDS for your specific platform and cluster configuration.**
-
-*cdk.json*
-
-```json
-{
-  "context": {
-    "@aws-cdk/aws-ecs:disableEcsImdsBlocking": true
-  }
-}
-```
-
-* `@aws-cdk/aws-ecs:enableImdsBlockingDeprecatedFeature`
-
-When set to true along with canContainersAccessInstanceRole=false in ECS cluster, new updated commands will be added to UserData to block container accessing IMDS. **Applicable to Linux only.**
-
-In an ECS Cluster with `MachineImageType.AMAZON_LINUX_2`, the canContainersAccessInstanceRole=false option attempts to add commands to block containers from
-accessing IMDS. Set this flag to true in order to use new and updated commands. Please note that this
-feature alone with this feature flag will be deprecated by <ins>end of 2025</ins> as CDK cannot
-guarantee the correct execution of the feature in all platforms. See [Github discussion](https://github.com/aws/aws-cdk/discussions/32609) for more information.
-
-**It is recommended to follow ECS documentation to block IMDS for your specific platform and cluster configuration.**
-
-*cdk.json*
-
-```json
-{
-  "context": {
-    "@aws-cdk/aws-ecs:enableImdsBlockingDeprecatedFeature": false,
-  },
-}
-```
-
 * `@aws-cdk/aws-elasticloadbalancingV2:albDualstackWithoutPublicIpv4SecurityGroupRulesDefault`
 
 When enabled, the default security group ingress rules will allow IPv6 ingress from anywhere,
@@ -766,6 +724,21 @@ When this feature flag is disabled, EgressOnlyGateway resource is created for al
 }
 ```
 
+* `@aws-cdk/aws-stepfunctions-tasks:httpInvokeDynamicJsonPathEndpoint`
+
+When this feature flag is enabled, the JSONPath apiEndpoint value will be resolved dynamically at runtime, while slightly increasing the size of the state machine definition.
+When disabled, the JSONPath apiEndpoint property will only support a static string value.
+
+_cdk.json
+
+```json
+{
+  "context": {
+    "@aws-cdk/aws-stepfunctions-tasks:httpInvokeDynamicJsonPathEndpoint": true
+  }
+}
+```
+
 * `@aws-cdk/aws-signer:signingProfileNamePassedToCfn`
 
 When this feature flag is enabled, the `signingProfileName` property is passed to the L1 `CfnSigningProfile` construct,
@@ -784,6 +757,22 @@ in the CloudFormation template.
 {
   "context": {
     "@aws-cdk/aws-signer:signingProfileNamePassedToCfn": true
+  }
+}
+```
+
+* `@aws-cdk/aws-ecs-patterns:uniqueTargetGroupId`
+
+When enabled, ECS patterns will generate unique target group IDs that include the load balancer name and type (public/private). This prevents CloudFormation conflicts when switching between public and private load balancers.
+
+Without this flag, switching an ApplicationLoadBalancedFargateService from public to private (or vice versa) fails with "target group cannot be associated with more than one load balancer" error.
+
+*cdk.json*
+
+```json
+{
+  "context": {
+    "@aws-cdk/aws-ecs-patterns:uniqueTargetGroupId": true
   }
 }
 ```
@@ -1068,12 +1057,12 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
         assembly: "CloudAssembly",
         id: builtins.str,
         *,
-        type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+        type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -1107,12 +1096,12 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
         assembly: "CloudAssembly",
         id: builtins.str,
         *,
-        type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+        type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> typing.Optional["CloudArtifact"]:
         '''Returns a subclass of ``CloudArtifact`` based on the artifact type defined in the artifact manifest.
 
@@ -1185,9 +1174,9 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
 
     @builtins.property
     @jsii.member(jsii_name="manifest")
-    def manifest(self) -> _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest:
+    def manifest(self) -> "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest":
         '''The artifact's manifest.'''
-        return typing.cast(_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest, jsii.get(self, "manifest"))
+        return typing.cast("_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest", jsii.get(self, "manifest"))
 
     @builtins.property
     @jsii.member(jsii_name="messages")
@@ -1240,6 +1229,45 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         )
 
         jsii.create(self.__class__, self, [directory, load_options])
+
+    @jsii.member(jsii_name="cleanupTemporaryDirectories")
+    @builtins.classmethod
+    def cleanup_temporary_directories(cls) -> None:
+        '''Cleans up any temporary assembly directories that got created in this process.
+
+        If a Cloud Assembly is emitted to a temporary directory, its directory gets
+        added to a list. This function iterates over that list and deletes each
+        directory in it, to free up disk space.
+
+        This function will normally be called automatically during Node process
+        exit and so you don't need to call this. However, some test environments do
+        not properly trigger Node's ``exit`` event. Notably: Jest does not trigger
+        the ``exit`` event (`https://github.com/jestjs/jest/issues/10927 <https://github.com/jestjs/jest/issues/10927>`_).
+
+
+        Cleaning up temporary directories in jest
+
+        For Jest, you have to make sure this function is called at the end of the
+        test suite instead::
+
+           import { CloudAssembly } from 'aws-cdk-lib/cx-api';
+
+           afterAll(CloudAssembly.cleanupTemporaryDirectories);
+
+        Alternatively, you can use the ``setupFilesAfterEnv`` feature and use a
+        provided helper script to automatically inject the above into every
+        test file, so you don't have to do it by hand::
+
+           $ npx jest --setupFilesAfterEnv aws-cdk-lib/testhelpers/jest-autoclean
+
+        Or put the following into ``jest.config.js``::
+
+           module.exports = {
+             // ...
+             setupFilesAfterEnv: ['aws-cdk-lib/testhelpers/jest-cleanup'],
+           };
+        '''
+        return typing.cast(None, jsii.sinvoke(cls, "cleanupTemporaryDirectories", []))
 
     @jsii.member(jsii_name="isCloudAssembly")
     @builtins.classmethod
@@ -1347,7 +1375,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         return typing.cast(typing.Optional["TreeCloudArtifact"], jsii.invoke(self, "tree", []))
 
     @jsii.member(jsii_name="tryGetArtifact")
-    def try_get_artifact(self, id: builtins.str) -> typing.Optional[CloudArtifact]:
+    def try_get_artifact(self, id: builtins.str) -> typing.Optional["CloudArtifact"]:
         '''Attempts to find an artifact with a specific identity.
 
         :param id: The artifact ID.
@@ -1357,13 +1385,13 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e63d4b9de8dea3f9eae2c52ce338ea515eba253503b1e6e804b839ce0360de2f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        return typing.cast(typing.Optional[CloudArtifact], jsii.invoke(self, "tryGetArtifact", [id]))
+        return typing.cast(typing.Optional["CloudArtifact"], jsii.invoke(self, "tryGetArtifact", [id]))
 
     @builtins.property
     @jsii.member(jsii_name="artifacts")
-    def artifacts(self) -> typing.List[CloudArtifact]:
+    def artifacts(self) -> typing.List["CloudArtifact"]:
         '''All artifacts included in this assembly.'''
-        return typing.cast(typing.List[CloudArtifact], jsii.get(self, "artifacts"))
+        return typing.cast(typing.List["CloudArtifact"], jsii.get(self, "artifacts"))
 
     @builtins.property
     @jsii.member(jsii_name="directory")
@@ -1373,9 +1401,9 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
 
     @builtins.property
     @jsii.member(jsii_name="manifest")
-    def manifest(self) -> _aws_cdk_cloud_assembly_schema_cae1d136.AssemblyManifest:
+    def manifest(self) -> "_aws_cdk_cloud_assembly_schema_cae1d136.AssemblyManifest":
         '''The raw assembly manifest.'''
-        return typing.cast(_aws_cdk_cloud_assembly_schema_cae1d136.AssemblyManifest, jsii.get(self, "manifest"))
+        return typing.cast("_aws_cdk_cloud_assembly_schema_cae1d136.AssemblyManifest", jsii.get(self, "manifest"))
 
     @builtins.property
     @jsii.member(jsii_name="nestedAssemblies")
@@ -1385,9 +1413,9 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
 
     @builtins.property
     @jsii.member(jsii_name="runtime")
-    def runtime(self) -> _aws_cdk_cloud_assembly_schema_cae1d136.RuntimeInfo:
+    def runtime(self) -> "_aws_cdk_cloud_assembly_schema_cae1d136.RuntimeInfo":
         '''Runtime information such as module versions used to synthesize this assembly.'''
-        return typing.cast(_aws_cdk_cloud_assembly_schema_cae1d136.RuntimeInfo, jsii.get(self, "runtime"))
+        return typing.cast("_aws_cdk_cloud_assembly_schema_cae1d136.RuntimeInfo", jsii.get(self, "runtime"))
 
     @builtins.property
     @jsii.member(jsii_name="stacks")
@@ -1459,12 +1487,12 @@ class CloudAssemblyBuilder(
         self,
         id: builtins.str,
         *,
-        type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+        type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Adds an artifact into the cloud assembly.
 
@@ -1495,8 +1523,8 @@ class CloudAssemblyBuilder(
         self,
         *,
         key: builtins.str,
-        props: typing.Union[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AmiContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AvailabilityZonesContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.HostedZoneContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.SSMParameterContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.VpcContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.EndpointServiceAvailabilityZonesContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.LoadBalancerContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.LoadBalancerListenerContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.SecurityGroupContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.KeyContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.CcApiContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.PluginContextQuery, typing.Dict[builtins.str, typing.Any]]],
-        provider: _aws_cdk_cloud_assembly_schema_cae1d136.ContextProvider,
+        props: typing.Union[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AmiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AvailabilityZonesContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.HostedZoneContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.SSMParameterContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.VpcContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.EndpointServiceAvailabilityZonesContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.LoadBalancerContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.LoadBalancerListenerContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.SecurityGroupContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.KeyContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.CcApiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.PluginContextQuery", typing.Dict[builtins.str, typing.Any]]],
+        provider: "_aws_cdk_cloud_assembly_schema_cae1d136.ContextProvider",
     ) -> None:
         '''Reports that some context is missing in order for this cloud assembly to be fully synthesized.
 
@@ -1515,14 +1543,14 @@ class CloudAssemblyBuilder(
         self,
         *,
         runtime_info: typing.Optional[typing.Union["RuntimeInfo", typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> CloudAssembly:
+    ) -> "CloudAssembly":
         '''Finalizes the cloud assembly into the output directory returns a ``CloudAssembly`` object that can be used to inspect the assembly.
 
         :param runtime_info: (deprecated) Include the specified runtime information (module versions) in manifest. Default: - if this option is not specified, runtime info will not be included
         '''
         options = AssemblyBuildOptions(runtime_info=runtime_info)
 
-        return typing.cast(CloudAssembly, jsii.invoke(self, "buildAssembly", [options]))
+        return typing.cast("CloudAssembly", jsii.invoke(self, "buildAssembly", [options]))
 
     @jsii.member(jsii_name="createNestedAssembly")
     def create_nested_assembly(
@@ -1569,7 +1597,7 @@ class CloudAssemblyBuilderProps:
         self,
         *,
         asset_outdir: typing.Optional[builtins.str] = None,
-        parent_builder: typing.Optional[CloudAssemblyBuilder] = None,
+        parent_builder: typing.Optional["CloudAssemblyBuilder"] = None,
     ) -> None:
         '''Construction properties for CloudAssemblyBuilder.
 
@@ -1611,13 +1639,13 @@ class CloudAssemblyBuilderProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent_builder(self) -> typing.Optional[CloudAssemblyBuilder]:
+    def parent_builder(self) -> typing.Optional["CloudAssemblyBuilder"]:
         '''If this builder is for a nested assembly, the parent assembly builder.
 
         :default: - This is a root assembly
         '''
         result = self._values.get("parent_builder")
-        return typing.cast(typing.Optional[CloudAssemblyBuilder], result)
+        return typing.cast(typing.Optional["CloudAssemblyBuilder"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1705,15 +1733,15 @@ class CloudFormationStackArtifact(
 
     def __init__(
         self,
-        assembly: CloudAssembly,
+        assembly: "CloudAssembly",
         artifact_id: builtins.str,
         *,
-        type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+        type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -1770,9 +1798,9 @@ class CloudFormationStackArtifact(
     @jsii.member(jsii_name="assets")
     def assets(
         self,
-    ) -> typing.List[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, _aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry]]:
+    ) -> typing.List[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry"]]:
         '''Any assets associated with this stack.'''
-        return typing.cast(typing.List[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, _aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry]], jsii.get(self, "assets"))
+        return typing.cast(typing.List[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry"]], jsii.get(self, "assets"))
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -1902,12 +1930,12 @@ class CloudFormationStackArtifact(
     @jsii.member(jsii_name="lookupRole")
     def lookup_role(
         self,
-    ) -> typing.Optional[_aws_cdk_cloud_assembly_schema_cae1d136.BootstrapRole]:
+    ) -> typing.Optional["_aws_cdk_cloud_assembly_schema_cae1d136.BootstrapRole"]:
         '''The role to use to look up values from the target AWS account.
 
         :default: - No role is assumed (current credentials are used)
         '''
-        return typing.cast(typing.Optional[_aws_cdk_cloud_assembly_schema_cae1d136.BootstrapRole], jsii.get(self, "lookupRole"))
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_cae1d136.BootstrapRole"], jsii.get(self, "lookupRole"))
 
     @builtins.property
     @jsii.member(jsii_name="notificationArns")
@@ -2311,7 +2339,7 @@ class EnvironmentUtils(
 
     @jsii.member(jsii_name="make")
     @builtins.classmethod
-    def make(cls, account: builtins.str, region: builtins.str) -> Environment:
+    def make(cls, account: builtins.str, region: builtins.str) -> "Environment":
         '''Build an environment object from an account and region.
 
         :param account: -
@@ -2321,18 +2349,18 @@ class EnvironmentUtils(
             type_hints = typing.get_type_hints(_typecheckingstub__0cfb55df07761ce610adba5578402205172bce1da7a531dc6bee64c6545f6202)
             check_type(argname="argument account", value=account, expected_type=type_hints["account"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-        return typing.cast(Environment, jsii.sinvoke(cls, "make", [account, region]))
+        return typing.cast("Environment", jsii.sinvoke(cls, "make", [account, region]))
 
     @jsii.member(jsii_name="parse")
     @builtins.classmethod
-    def parse(cls, environment: builtins.str) -> Environment:
+    def parse(cls, environment: builtins.str) -> "Environment":
         '''
         :param environment: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2ed84c3997c13929dd0a6a30eb314cba65838a150b4138c07d5a1ae458e1a45)
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
-        return typing.cast(Environment, jsii.sinvoke(cls, "parse", [environment]))
+        return typing.cast("Environment", jsii.sinvoke(cls, "parse", [environment]))
 
 
 @jsii.interface(jsii_type="@aws-cdk/cx-api.IEnvironmentPlaceholderProvider")
@@ -2651,7 +2679,7 @@ class MetadataEntry(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry):
         self,
         *,
         type: builtins.str,
-        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.Tag, typing.Dict[builtins.str, typing.Any]]]]] = None,
+        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.Tag", typing.Dict[builtins.str, typing.Any]]]]] = None,
         trace: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''(deprecated) Backwards compatibility for when ``MetadataEntry`` was defined here.
@@ -2706,13 +2734,13 @@ class MetadataEntry(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry):
     @builtins.property
     def data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, _aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, _aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry, typing.List[_aws_cdk_cloud_assembly_schema_cae1d136.Tag]]]:
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.List["_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]]:
         '''The data.
 
         :default: - no data.
         '''
         result = self._values.get("data")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, _aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, _aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry, typing.List[_aws_cdk_cloud_assembly_schema_cae1d136.Tag]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.List["_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]], result)
 
     @builtins.property
     def trace(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2745,7 +2773,7 @@ class MetadataEntryResult(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry)
         self,
         *,
         type: builtins.str,
-        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.Tag, typing.Dict[builtins.str, typing.Any]]]]] = None,
+        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.Tag", typing.Dict[builtins.str, typing.Any]]]]] = None,
         trace: typing.Optional[typing.Sequence[builtins.str]] = None,
         path: builtins.str,
     ) -> None:
@@ -2797,13 +2825,13 @@ class MetadataEntryResult(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry)
     @builtins.property
     def data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, _aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, _aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry, typing.List[_aws_cdk_cloud_assembly_schema_cae1d136.Tag]]]:
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.List["_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]]:
         '''The data.
 
         :default: - no data.
         '''
         result = self._values.get("data")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, _aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry, _aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry, typing.List[_aws_cdk_cloud_assembly_schema_cae1d136.Tag]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "_aws_cdk_cloud_assembly_schema_cae1d136.FileAssetMetadataEntry", "_aws_cdk_cloud_assembly_schema_cae1d136.ContainerImageAssetMetadataEntry", typing.List["_aws_cdk_cloud_assembly_schema_cae1d136.Tag"]]], result)
 
     @builtins.property
     def trace(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3011,15 +3039,15 @@ class NestedCloudAssemblyArtifact(
 
     def __init__(
         self,
-        assembly: CloudAssembly,
+        assembly: "CloudAssembly",
         name: builtins.str,
         *,
-        type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+        type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -3092,9 +3120,9 @@ class NestedCloudAssemblyArtifact(
 
     @builtins.property
     @jsii.member(jsii_name="nestedAssembly")
-    def nested_assembly(self) -> CloudAssembly:
+    def nested_assembly(self) -> "CloudAssembly":
         '''The nested Assembly.'''
-        return typing.cast(CloudAssembly, jsii.get(self, "nestedAssembly"))
+        return typing.cast("CloudAssembly", jsii.get(self, "nestedAssembly"))
 
 
 @jsii.data_type(
@@ -3241,7 +3269,7 @@ class SynthesisMessage:
     def __init__(
         self,
         *,
-        entry: typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry, typing.Dict[builtins.str, typing.Any]],
+        entry: typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry", typing.Dict[builtins.str, typing.Any]],
         id: builtins.str,
         level: "SynthesisMessageLevel",
     ) -> None:
@@ -3254,6 +3282,7 @@ class SynthesisMessage:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import MetadataEntry
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             import aws_cdk.cx_api as cx_api
@@ -3284,10 +3313,10 @@ class SynthesisMessage:
         }
 
     @builtins.property
-    def entry(self) -> _aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry:
+    def entry(self) -> "_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry":
         result = self._values.get("entry")
         assert result is not None, "Required property 'entry' is missing"
-        return typing.cast(_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry, result)
+        return typing.cast("_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry", result)
 
     @builtins.property
     def id(self) -> builtins.str:
@@ -3394,15 +3423,15 @@ class TreeCloudArtifact(
 
     def __init__(
         self,
-        assembly: CloudAssembly,
+        assembly: "CloudAssembly",
         name: builtins.str,
         *,
-        type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+        type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -3883,7 +3912,7 @@ class VpcSubnetGroup:
         self,
         *,
         name: builtins.str,
-        subnets: typing.Sequence[typing.Union[VpcSubnet, typing.Dict[builtins.str, typing.Any]]],
+        subnets: typing.Sequence[typing.Union["VpcSubnet", typing.Dict[builtins.str, typing.Any]]],
         type: "VpcSubnetGroupType",
     ) -> None:
         '''A group of subnets returned by the VPC provider.
@@ -3934,7 +3963,7 @@ class VpcSubnetGroup:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def subnets(self) -> typing.List[VpcSubnet]:
+    def subnets(self) -> typing.List["VpcSubnet"]:
         '''The subnets that are part of this group.
 
         There is no condition that the subnets have to be symmetric
@@ -3942,7 +3971,7 @@ class VpcSubnetGroup:
         '''
         result = self._values.get("subnets")
         assert result is not None, "Required property 'subnets' is missing"
-        return typing.cast(typing.List[VpcSubnet], result)
+        return typing.cast(typing.List["VpcSubnet"], result)
 
     @builtins.property
     def type(self) -> "VpcSubnetGroupType":
@@ -4054,15 +4083,15 @@ class AssetManifestArtifact(
 
     def __init__(
         self,
-        assembly: CloudAssembly,
+        assembly: "CloudAssembly",
         name: builtins.str,
         *,
-        type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+        type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
-        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        properties: typing.Optional[typing.Union[typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties, typing.Dict[builtins.str, typing.Any]], typing.Union[_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties, typing.Dict[builtins.str, typing.Any]]]] = None,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        properties: typing.Optional[typing.Union[typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AwsCloudFormationStackProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifestProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.TreeArtifactProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.NestedCloudAssemblyProperties", typing.Dict[builtins.str, typing.Any]], typing.Union["_aws_cdk_cloud_assembly_schema_cae1d136.FeatureFlagReportProperties", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param assembly: -
@@ -4117,9 +4146,9 @@ class AssetManifestArtifact(
 
     @builtins.property
     @jsii.member(jsii_name="contents")
-    def contents(self) -> _aws_cdk_cloud_assembly_schema_cae1d136.AssetManifest:
+    def contents(self) -> "_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifest":
         '''The Asset Manifest contents.'''
-        return typing.cast(_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifest, jsii.get(self, "contents"))
+        return typing.cast("_aws_cdk_cloud_assembly_schema_cae1d136.AssetManifest", jsii.get(self, "contents"))
 
     @builtins.property
     @jsii.member(jsii_name="file")
@@ -4583,3 +4612,6 @@ def _typecheckingstub__0f13a4defa9d74d578442cc9dbb25cbe53318785930cd66e40d43ac92
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IEnvironmentPlaceholderProvider]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

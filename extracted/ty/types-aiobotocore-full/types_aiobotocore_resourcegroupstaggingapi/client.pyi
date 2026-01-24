@@ -3,7 +3,7 @@ Type annotations for resourcegroupstaggingapi service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resourcegroupstaggingapi/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -33,6 +34,7 @@ from .paginator import (
     GetResourcesPaginator,
     GetTagKeysPaginator,
     GetTagValuesPaginator,
+    ListRequiredTagsPaginator,
 )
 from .type_defs import (
     DescribeReportCreationOutputTypeDef,
@@ -44,6 +46,8 @@ from .type_defs import (
     GetTagKeysOutputTypeDef,
     GetTagValuesInputTypeDef,
     GetTagValuesOutputTypeDef,
+    ListRequiredTagsInputTypeDef,
+    ListRequiredTagsOutputTypeDef,
     StartReportCreationInputTypeDef,
     TagResourcesInputTypeDef,
     TagResourcesOutputTypeDef,
@@ -51,12 +55,6 @@ from .type_defs import (
     UntagResourcesOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -65,13 +63,13 @@ else:
 __all__ = ("ResourceGroupsTaggingAPIClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConstraintViolationException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    PaginationTokenExpiredException: Type[BotocoreClientError]
-    ThrottledException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConstraintViolationException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    PaginationTokenExpiredException: type[BotocoreClientError]
+    ThrottledException: type[BotocoreClientError]
 
 class ResourceGroupsTaggingAPIClient(AioBaseClient):
     """
@@ -160,9 +158,20 @@ class ResourceGroupsTaggingAPIClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resourcegroupstaggingapi/client/#get_tag_values)
         """
 
+    async def list_required_tags(
+        self, **kwargs: Unpack[ListRequiredTagsInputTypeDef]
+    ) -> ListRequiredTagsOutputTypeDef:
+        """
+        Lists the required tags for supported resource types in an Amazon Web Services
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resourcegroupstaggingapi/client/list_required_tags.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resourcegroupstaggingapi/client/#list_required_tags)
+        """
+
     async def start_report_creation(
         self, **kwargs: Unpack[StartReportCreationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generates a report that lists all tagged resources in the accounts across your
         organization and tells whether each resource is compliant with the effective
@@ -236,6 +245,17 @@ class ResourceGroupsTaggingAPIClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resourcegroupstaggingapi/client/#get_paginator)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_required_tags"]
+    ) -> ListRequiredTagsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resourcegroupstaggingapi/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resourcegroupstaggingapi/client/#get_paginator)
+        """
+
     async def __aenter__(self) -> Self:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resourcegroupstaggingapi.html#ResourceGroupsTaggingAPI.Client)
@@ -244,7 +264,7 @@ class ResourceGroupsTaggingAPIClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

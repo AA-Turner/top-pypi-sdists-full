@@ -15,8 +15,8 @@
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkTypes.h"
-#include "include/private/SkColorData.h"
-#include "src/core/SkOpts.h"
+#include "src/core/SkColorData.h"
+#include "src/core/SkMemset.h"
 #include "tests/Test.h"
 #include "tools/ToolUtils.h"
 
@@ -104,7 +104,7 @@ DEF_TEST(Image_NewFromGenerator, r) {
         TestImageGenerator::TestType test = testTypes[i];
         for (const SkColorType testColorType : testColorTypes) {
             auto gen = std::make_unique<TestImageGenerator>(test, r, testColorType);
-            sk_sp<SkImage> image(SkImage::MakeFromGenerator(std::move(gen)));
+            sk_sp<SkImage> image(SkImages::DeferredFromGenerator(std::move(gen)));
             if (nullptr == image) {
                 ERRORF(r, "SkImage::NewFromGenerator unexpecedly failed [%zu]", i);
                 continue;

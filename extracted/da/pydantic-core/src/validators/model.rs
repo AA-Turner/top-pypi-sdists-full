@@ -1,4 +1,5 @@
 use std::ptr::null_mut;
+use std::sync::Arc;
 
 use pyo3::exceptions::PyTypeError;
 use pyo3::types::{PyDict, PySet, PyString, PyTuple, PyType};
@@ -33,9 +34,8 @@ pub(super) enum Revalidate {
 impl Revalidate {
     pub fn from_str(s: Option<&str>) -> PyResult<Self> {
         match s {
-            None => Ok(Self::Never),
             Some("always") => Ok(Self::Always),
-            Some("never") => Ok(Self::Never),
+            Some("never") | None => Ok(Self::Never),
             Some("subclass-instances") => Ok(Self::SubclassInstances),
             Some(s) => py_schema_err!("Invalid revalidate_instances value: {}", s),
         }
@@ -53,14 +53,14 @@ impl Revalidate {
 #[derive(Debug)]
 pub struct ModelValidator {
     revalidate: Revalidate,
-    validator: Box<CombinedValidator>,
+    validator: Arc<CombinedValidator>,
     class: Py<PyType>,
     generic_origin: Option<Py<PyType>>,
     post_init: Option<Py<PyString>>,
     frozen: bool,
     custom_init: bool,
     root_model: bool,
-    undefined: PyObject,
+    undefined: Py<PyAny>,
     name: String,
 }
 
@@ -70,8 +70,8 @@ impl BuildValidator for ModelValidator {
     fn build(
         schema: &Bound<'_, PyDict>,
         _config: Option<&Bound<'_, PyDict>>,
-        definitions: &mut DefinitionsBuilder<CombinedValidator>,
-    ) -> PyResult<CombinedValidator> {
+        definitions: &mut DefinitionsBuilder<Arc<CombinedValidator>>,
+    ) -> PyResult<Arc<CombinedValidator>> {
         let py = schema.py();
         // models ignore the parent config and always use the config from this model
         let config = schema.get_as(intern!(py, "config"))?;
@@ -82,7 +82,7 @@ impl BuildValidator for ModelValidator {
         let validator = build_validator(&sub_schema, config.as_ref(), definitions)?;
         let name = class.getattr(intern!(py, "__name__"))?.extract()?;
 
-        Ok(Self {
+        Ok(CombinedValidator::Model(Self {
             revalidate: Revalidate::from_str(
                 schema_or_config_same::<Bound<'_, PyString>>(
                     schema,
@@ -93,17 +93,17 @@ impl BuildValidator for ModelValidator {
                 .map(|s| s.to_str())
                 .transpose()?,
             )?,
-            validator: Box::new(validator),
+            validator,
             class: class.into(),
             generic_origin: generic_origin.map(std::convert::Into::into),
             post_init: schema.get_as(intern!(py, "post_init"))?,
             frozen: schema.get_as(intern!(py, "frozen"))?.unwrap_or(false),
             custom_init: schema.get_as(intern!(py, "custom_init"))?.unwrap_or(false),
             root_model: schema.get_as(intern!(py, "root_model"))?.unwrap_or(false),
-            undefined: PydanticUndefinedType::new(py).into_any(),
+            undefined: PydanticUndefinedType::get(py).clone_ref(schema.py()).into_any(),
             // Get the class's `__name__`, not using `class.qualname()`
             name,
-        }
+        })
         .into())
     }
 }
@@ -120,7 +120,7 @@ impl Validator for ModelValidator {
         py: Python<'py>,
         input: &(impl Input<'py> + ?Sized),
         state: &mut ValidationState<'_, 'py>,
-    ) -> ValResult<PyObject> {
+    ) -> ValResult<Py<PyAny>> {
         if let Some(self_instance) = state.extra().self_instance {
             // in the case that self_instance is Some, we're calling validation from within `BaseModel.__init__`
             return self.validate_init(py, self_instance, input, state);
@@ -188,7 +188,7 @@ impl Validator for ModelValidator {
         field_name: &str,
         field_value: &Bound<'py, PyAny>,
         state: &mut ValidationState<'_, 'py>,
-    ) -> ValResult<PyObject> {
+    ) -> ValResult<Py<PyAny>> {
         if self.frozen {
             return Err(ValError::new(ErrorTypeDefaults::FrozenInstance, field_value));
         } else if self.root_model {
@@ -252,7 +252,7 @@ impl ModelValidator {
         self_instance: &Bound<'py, PyAny>,
         input: &(impl Input<'py> + ?Sized),
         state: &mut ValidationState<'_, 'py>,
-    ) -> ValResult<PyObject> {
+    ) -> ValResult<Py<PyAny>> {
         // we need to set `self_instance` to None for nested validators as we don't want to operate on self_instance
         // anymore
         let state = &mut state.rebind_extra(|extra| extra.self_instance = None);
@@ -284,7 +284,7 @@ impl ModelValidator {
         input: &(impl Input<'py> + ?Sized),
         existing_fields_set: Option<&Bound<'_, PyAny>>,
         state: &mut ValidationState<'_, 'py>,
-    ) -> ValResult<PyObject> {
+    ) -> ValResult<Py<PyAny>> {
         if self.custom_init {
             // If we wanted, we could introspect the __init__ signature, and store the
             // keyword arguments and types, and create a validator for them.
@@ -299,11 +299,12 @@ impl ModelValidator {
             }
         }
 
-        let instance = create_class(self.class.bind(py))?;
+        let instance;
 
         if self.root_model {
             let state = &mut state.rebind_extra(|extra| extra.field_name = Some(PyString::new(py, ROOT_FIELD)));
             let output = self.validator.validate(py, input, state)?;
+            instance = create_class(self.class.bind(py))?;
 
             let fields_set = if input.as_python().is_some_and(|py_input| py_input.is(&self.undefined)) {
                 PySet::empty(py)?
@@ -314,6 +315,7 @@ impl ModelValidator {
             force_setattr(py, &instance, intern!(py, ROOT_FIELD), output)?;
         } else {
             let output = self.validator.validate(py, input, state)?;
+            instance = create_class(self.class.bind(py))?;
 
             let (model_dict, model_extra, val_fields_set): (Bound<PyAny>, Bound<PyAny>, Bound<PyAny>) =
                 output.extract(py)?;
@@ -328,8 +330,8 @@ impl ModelValidator {
         py: Python<'py>,
         instance: Bound<'_, PyAny>,
         input: &(impl Input<'py> + ?Sized),
-        extra: &Extra,
-    ) -> ValResult<PyObject> {
+        extra: &Extra<'_, 'py>,
+    ) -> ValResult<Py<PyAny>> {
         if let Some(ref post_init) = self.post_init {
             instance
                 .call_method1(post_init.bind(py), (extra.context,))

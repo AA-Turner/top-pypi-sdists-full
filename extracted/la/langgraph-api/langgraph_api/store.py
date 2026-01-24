@@ -12,7 +12,8 @@ from langgraph.graph import StateGraph
 from langgraph.pregel import Pregel
 from langgraph.store.base import BaseStore
 
-from langgraph_api import config
+from langgraph_api import config, timing
+from langgraph_api.timing import profiled_import
 from langgraph_api.utils.config import run_in_executor
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -83,22 +84,30 @@ async def collect_store_from_env() -> None:
     CUSTOM_STORE = value
 
 
+@timing.timer(
+    message="Loading store {store_path}",
+    metadata_fn=lambda store_path: {"store_path": store_path},
+    warn_threshold_secs=5,
+    warn_message="Loading store '{store_path}' took longer than expected",
+    error_threshold_secs=10,
+)
 def _load_store(store_path: str) -> Any:
-    if "/" in store_path or ".py:" in store_path:
-        modname = "".join(choice("abcdefghijklmnopqrstuvwxyz") for _ in range(24))
-        path_name, function = store_path.rsplit(":", 1)
-        module_name = path_name.rstrip(":")
-        # Load from file path
-        modspec = importlib.util.spec_from_file_location(modname, module_name)
-        if modspec is None:
-            raise ValueError(f"Could not find store file: {path_name}")
-        module = importlib.util.module_from_spec(modspec)
-        sys.modules[module_name] = module
-        modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
+    with profiled_import(store_path):
+        if "/" in store_path or ".py:" in store_path:
+            modname = "".join(choice("abcdefghijklmnopqrstuvwxyz") for _ in range(24))
+            path_name, function = store_path.rsplit(":", 1)
+            module_name = path_name.rstrip(":")
+            # Load from file path
+            modspec = importlib.util.spec_from_file_location(modname, module_name)
+            if modspec is None:
+                raise ValueError(f"Could not find store file: {path_name}")
+            module = importlib.util.module_from_spec(modspec)
+            sys.modules[module_name] = module
+            modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
 
-    else:
-        path_name, function = store_path.rsplit(".", 1)
-        module = importlib.import_module(path_name)
+        else:
+            path_name, function = store_path.rsplit(".", 1)
+            module = importlib.import_module(path_name)
 
     try:
         store: BaseStore | Callable[[config.StoreConfig], BaseStore] = module.__dict__[

@@ -6,35 +6,11 @@
 
 from datetime import datetime
 from typing import Optional, Tuple, Dict, Any
-from azure.core import MatchConditions
 
-
-def quote_etag(etag: Optional[str]) -> Optional[str]:
-    if not etag or etag == "*":
-        return etag
-    if etag.startswith('"') and etag.endswith('"'):
-        return etag
-    if etag.startswith("'") and etag.endswith("'"):
-        return etag
-    return '"' + etag + '"'
-
-
-def prep_if_match(etag: Optional[str], match_condition: Optional[MatchConditions]) -> Optional[str]:
-    if match_condition == MatchConditions.IfNotModified:
-        if_match = quote_etag(etag) if etag else None
-        return if_match
-    if match_condition == MatchConditions.IfPresent:
-        return "*"
-    return None
-
-
-def prep_if_none_match(etag: Optional[str], match_condition: Optional[MatchConditions]) -> Optional[str]:
-    if match_condition == MatchConditions.IfModified:
-        if_none_match = quote_etag(etag) if etag else None
-        return if_none_match
-    if match_condition == MatchConditions.IfMissing:
-        return "*"
-    return None
+# Connection string component prefixes
+_ENDPOINT_PREFIX = "Endpoint="
+_ID_PREFIX = "Id="
+_SECRET_PREFIX = "Secret="
 
 
 def parse_connection_string(connection_string: str) -> Tuple[str, str, str]:
@@ -48,12 +24,12 @@ def parse_connection_string(connection_string: str) -> Tuple[str, str, str]:
     secret = ""
     for segment in segments:
         segment = segment.strip()
-        if segment.startswith("Endpoint"):
-            endpoint = str(segment[17:])
-        elif segment.startswith("Id"):
-            id_ = str(segment[3:])
-        elif segment.startswith("Secret"):
-            secret = str(segment[7:])
+        if segment.startswith(_ENDPOINT_PREFIX):
+            endpoint = str(segment[len(_ENDPOINT_PREFIX) :])
+        elif segment.startswith(_ID_PREFIX):
+            id_ = str(segment[len(_ID_PREFIX) :])
+        elif segment.startswith(_SECRET_PREFIX):
+            secret = str(segment[len(_SECRET_PREFIX) :])
         else:
             raise ValueError("Invalid connection string.")
 
@@ -67,7 +43,7 @@ def get_current_utc_time() -> str:
     return str(datetime.utcnow().strftime("%b, %d %Y %H:%M:%S.%f ")) + "GMT"
 
 
-def get_key_filter(*args, **kwargs) -> Tuple[Optional[str], Dict[str, Any]]:
+def get_key_filter(*args: Optional[str], **kwargs: Any) -> Tuple[Optional[str], Dict[str, Any]]:
     key_filter = None
     if len(args) > 0:
         key_filter = args[0]
@@ -79,7 +55,7 @@ def get_key_filter(*args, **kwargs) -> Tuple[Optional[str], Dict[str, Any]]:
     return key_filter or kwargs.pop("key_filter", None), kwargs
 
 
-def get_label_filter(*args, **kwargs) -> Tuple[Optional[str], Dict[str, Any]]:
+def get_label_filter(*args: Optional[str], **kwargs: Any) -> Tuple[Optional[str], Dict[str, Any]]:
     label_filter = None
     if len(args) > 1:
         label_filter = args[1]

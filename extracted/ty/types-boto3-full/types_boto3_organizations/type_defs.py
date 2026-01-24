@@ -3,7 +3,7 @@ Type annotations for organizations service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_organizations/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,8 +17,9 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any
+from typing import Any, Union
 
 from .literals import (
     AccountJoinedMethodType,
@@ -37,19 +38,14 @@ from .literals import (
     ParentTypeType,
     PolicyTypeStatusType,
     PolicyTypeType,
+    ResponsibilityTransferStatusType,
     TargetTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 
 __all__ = (
@@ -93,6 +89,8 @@ __all__ = (
     "DescribePolicyRequestTypeDef",
     "DescribePolicyResponseTypeDef",
     "DescribeResourcePolicyResponseTypeDef",
+    "DescribeResponsibilityTransferRequestTypeDef",
+    "DescribeResponsibilityTransferResponseTypeDef",
     "DetachPolicyRequestTypeDef",
     "DisableAWSServiceAccessRequestTypeDef",
     "DisablePolicyTypeRequestTypeDef",
@@ -113,6 +111,8 @@ __all__ = (
     "HandshakeTypeDef",
     "InviteAccountToOrganizationRequestTypeDef",
     "InviteAccountToOrganizationResponseTypeDef",
+    "InviteOrganizationToTransferResponsibilityRequestTypeDef",
+    "InviteOrganizationToTransferResponsibilityResponseTypeDef",
     "ListAWSServiceAccessForOrganizationRequestPaginateTypeDef",
     "ListAWSServiceAccessForOrganizationRequestTypeDef",
     "ListAWSServiceAccessForOrganizationResponseTypeDef",
@@ -148,9 +148,13 @@ __all__ = (
     "ListHandshakesForOrganizationRequestTypeDef",
     "ListHandshakesForOrganizationResponsePaginatorTypeDef",
     "ListHandshakesForOrganizationResponseTypeDef",
+    "ListInboundResponsibilityTransfersRequestTypeDef",
+    "ListInboundResponsibilityTransfersResponseTypeDef",
     "ListOrganizationalUnitsForParentRequestPaginateTypeDef",
     "ListOrganizationalUnitsForParentRequestTypeDef",
     "ListOrganizationalUnitsForParentResponseTypeDef",
+    "ListOutboundResponsibilityTransfersRequestTypeDef",
+    "ListOutboundResponsibilityTransfersResponseTypeDef",
     "ListParentsRequestPaginateTypeDef",
     "ListParentsRequestTypeDef",
     "ListParentsResponseTypeDef",
@@ -185,14 +189,21 @@ __all__ = (
     "ResourcePolicySummaryTypeDef",
     "ResourcePolicyTypeDef",
     "ResponseMetadataTypeDef",
+    "ResponsibilityTransferTypeDef",
     "RootTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
+    "TerminateResponsibilityTransferRequestTypeDef",
+    "TerminateResponsibilityTransferResponseTypeDef",
+    "TimestampTypeDef",
+    "TransferParticipantTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateOrganizationalUnitRequestTypeDef",
     "UpdateOrganizationalUnitResponseTypeDef",
     "UpdatePolicyRequestTypeDef",
     "UpdatePolicyResponseTypeDef",
+    "UpdateResponsibilityTransferRequestTypeDef",
+    "UpdateResponsibilityTransferResponseTypeDef",
 )
 
 
@@ -203,7 +214,7 @@ class AcceptHandshakeRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -277,6 +288,7 @@ class DelegatedAdministratorTypeDef(TypedDict):
     Email: NotRequired[str]
     Name: NotRequired[str]
     Status: NotRequired[AccountStatusType]
+    State: NotRequired[AccountStateType]
     JoinedMethod: NotRequired[AccountJoinedMethodType]
     JoinedTimestamp: NotRequired[datetime]
     DelegationEnabledDate: NotRequired[datetime]
@@ -332,6 +344,10 @@ class DescribePolicyRequestTypeDef(TypedDict):
     PolicyId: str
 
 
+class DescribeResponsibilityTransferRequestTypeDef(TypedDict):
+    Id: str
+
+
 class DetachPolicyRequestTypeDef(TypedDict):
     PolicyId: str
     TargetId: str
@@ -350,7 +366,7 @@ class EffectivePolicyValidationErrorTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
     ErrorMessage: NotRequired[str]
     PathToError: NotRequired[str]
-    ContributingPolicies: NotRequired[List[str]]
+    ContributingPolicies: NotRequired[list[str]]
 
 
 class EnableAWSServiceAccessRequestTypeDef(TypedDict):
@@ -384,7 +400,7 @@ HandshakeResourcePaginatorTypeDef = TypedDict(
     {
         "Value": NotRequired[str],
         "Type": NotRequired[HandshakeResourceTypeType],
-        "Resources": NotRequired[List[Dict[str, Any]]],
+        "Resources": NotRequired[list[dict[str, Any]]],
     },
 )
 HandshakeResourceTypeDef = TypedDict(
@@ -392,9 +408,10 @@ HandshakeResourceTypeDef = TypedDict(
     {
         "Value": NotRequired[str],
         "Type": NotRequired[HandshakeResourceTypeType],
-        "Resources": NotRequired[List[Dict[str, Any]]],
+        "Resources": NotRequired[list[dict[str, Any]]],
     },
 )
+TimestampTypeDef = Union[datetime, str]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -457,10 +474,31 @@ class ListEffectivePolicyValidationErrorsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
+ListInboundResponsibilityTransfersRequestTypeDef = TypedDict(
+    "ListInboundResponsibilityTransfersRequestTypeDef",
+    {
+        "Type": Literal["BILLING"],
+        "Id": NotRequired[str],
+        "NextToken": NotRequired[str],
+        "MaxResults": NotRequired[int],
+    },
+)
+
+
 class ListOrganizationalUnitsForParentRequestTypeDef(TypedDict):
     ParentId: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+ListOutboundResponsibilityTransfersRequestTypeDef = TypedDict(
+    "ListOutboundResponsibilityTransfersRequestTypeDef",
+    {
+        "Type": Literal["BILLING"],
+        "NextToken": NotRequired[str],
+        "MaxResults": NotRequired[int],
+    },
+)
 
 
 class ListParentsRequestTypeDef(TypedDict):
@@ -560,6 +598,11 @@ class ResourcePolicySummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
 
 
+class TransferParticipantTypeDef(TypedDict):
+    ManagementAccountId: NotRequired[str]
+    ManagementAccountEmail: NotRequired[str]
+
+
 class UntagResourceRequestTypeDef(TypedDict):
     ResourceId: str
     TagKeys: Sequence[str]
@@ -577,6 +620,11 @@ class UpdatePolicyRequestTypeDef(TypedDict):
     Content: NotRequired[str]
 
 
+class UpdateResponsibilityTransferRequestTypeDef(TypedDict):
+    Id: str
+    Name: str
+
+
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -587,26 +635,26 @@ class DescribeAccountResponseTypeDef(TypedDict):
 
 
 class ListAccountsForParentResponseTypeDef(TypedDict):
-    Accounts: List[AccountTypeDef]
+    Accounts: list[AccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListAccountsResponseTypeDef(TypedDict):
-    Accounts: List[AccountTypeDef]
+    Accounts: list[AccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListAccountsWithInvalidEffectivePolicyResponseTypeDef(TypedDict):
-    Accounts: List[AccountTypeDef]
+    Accounts: list[AccountTypeDef]
     PolicyType: EffectivePolicyTypeType
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListChildrenResponseTypeDef(TypedDict):
-    Children: List[ChildTypeDef]
+    Children: list[ChildTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -646,7 +694,7 @@ CreatePolicyRequestTypeDef = TypedDict(
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -677,7 +725,7 @@ class DescribeCreateAccountStatusResponseTypeDef(TypedDict):
 
 
 class ListCreateAccountStatusResponseTypeDef(TypedDict):
-    CreateAccountStatuses: List[CreateAccountStatusTypeDef]
+    CreateAccountStatuses: list[CreateAccountStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -693,7 +741,7 @@ class DescribeOrganizationalUnitResponseTypeDef(TypedDict):
 
 
 class ListOrganizationalUnitsForParentResponseTypeDef(TypedDict):
-    OrganizationalUnits: List[OrganizationalUnitTypeDef]
+    OrganizationalUnits: list[OrganizationalUnitTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -704,13 +752,13 @@ class UpdateOrganizationalUnitResponseTypeDef(TypedDict):
 
 
 class ListDelegatedAdministratorsResponseTypeDef(TypedDict):
-    DelegatedAdministrators: List[DelegatedAdministratorTypeDef]
+    DelegatedAdministrators: list[DelegatedAdministratorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDelegatedServicesForAccountResponseTypeDef(TypedDict):
-    DelegatedServices: List[DelegatedServiceTypeDef]
+    DelegatedServices: list[DelegatedServiceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -725,13 +773,13 @@ class ListEffectivePolicyValidationErrorsResponseTypeDef(TypedDict):
     PolicyType: EffectivePolicyTypeType
     Path: str
     EvaluationTimestamp: datetime
-    EffectivePolicyValidationErrors: List[EffectivePolicyValidationErrorTypeDef]
+    EffectivePolicyValidationErrors: list[EffectivePolicyValidationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListAWSServiceAccessForOrganizationResponseTypeDef(TypedDict):
-    EnabledServicePrincipals: List[EnabledServicePrincipalTypeDef]
+    EnabledServicePrincipals: list[EnabledServicePrincipalTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -757,23 +805,41 @@ class InviteAccountToOrganizationRequestTypeDef(TypedDict):
 class HandshakePaginatorTypeDef(TypedDict):
     Id: NotRequired[str]
     Arn: NotRequired[str]
-    Parties: NotRequired[List[HandshakePartyTypeDef]]
+    Parties: NotRequired[list[HandshakePartyTypeDef]]
     State: NotRequired[HandshakeStateType]
     RequestedTimestamp: NotRequired[datetime]
     ExpirationTimestamp: NotRequired[datetime]
     Action: NotRequired[ActionTypeType]
-    Resources: NotRequired[List[HandshakeResourcePaginatorTypeDef]]
+    Resources: NotRequired[list[HandshakeResourcePaginatorTypeDef]]
 
 
 class HandshakeTypeDef(TypedDict):
     Id: NotRequired[str]
     Arn: NotRequired[str]
-    Parties: NotRequired[List[HandshakePartyTypeDef]]
+    Parties: NotRequired[list[HandshakePartyTypeDef]]
     State: NotRequired[HandshakeStateType]
     RequestedTimestamp: NotRequired[datetime]
     ExpirationTimestamp: NotRequired[datetime]
     Action: NotRequired[ActionTypeType]
-    Resources: NotRequired[List[HandshakeResourceTypeDef]]
+    Resources: NotRequired[list[HandshakeResourceTypeDef]]
+
+
+InviteOrganizationToTransferResponsibilityRequestTypeDef = TypedDict(
+    "InviteOrganizationToTransferResponsibilityRequestTypeDef",
+    {
+        "Type": Literal["BILLING"],
+        "Target": HandshakePartyTypeDef,
+        "StartTimestamp": TimestampTypeDef,
+        "SourceName": str,
+        "Notes": NotRequired[str],
+        "Tags": NotRequired[Sequence[TagTypeDef]],
+    },
+)
+
+
+class TerminateResponsibilityTransferRequestTypeDef(TypedDict):
+    Id: str
+    EndTimestamp: NotRequired[TimestampTypeDef]
 
 
 class ListAWSServiceAccessForOrganizationRequestPaginateTypeDef(TypedDict):
@@ -867,19 +933,19 @@ class ListTargetsForPolicyRequestPaginateTypeDef(TypedDict):
 
 
 class ListParentsResponseTypeDef(TypedDict):
-    Parents: List[ParentTypeDef]
+    Parents: list[ParentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPoliciesForTargetResponseTypeDef(TypedDict):
-    Policies: List[PolicySummaryTypeDef]
+    Policies: list[PolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPoliciesResponseTypeDef(TypedDict):
-    Policies: List[PolicySummaryTypeDef]
+    Policies: list[PolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -890,7 +956,7 @@ class PolicyTypeDef(TypedDict):
 
 
 class ListTargetsForPolicyResponseTypeDef(TypedDict):
-    Targets: List[PolicyTargetSummaryTypeDef]
+    Targets: list[PolicyTargetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -902,14 +968,14 @@ class OrganizationTypeDef(TypedDict):
     MasterAccountArn: NotRequired[str]
     MasterAccountId: NotRequired[str]
     MasterAccountEmail: NotRequired[str]
-    AvailablePolicyTypes: NotRequired[List[PolicyTypeSummaryTypeDef]]
+    AvailablePolicyTypes: NotRequired[list[PolicyTypeSummaryTypeDef]]
 
 
 class RootTypeDef(TypedDict):
     Id: NotRequired[str]
     Arn: NotRequired[str]
     Name: NotRequired[str]
-    PolicyTypes: NotRequired[List[PolicyTypeSummaryTypeDef]]
+    PolicyTypes: NotRequired[list[PolicyTypeSummaryTypeDef]]
 
 
 class ResourcePolicyTypeDef(TypedDict):
@@ -917,14 +983,31 @@ class ResourcePolicyTypeDef(TypedDict):
     Content: NotRequired[str]
 
 
+ResponsibilityTransferTypeDef = TypedDict(
+    "ResponsibilityTransferTypeDef",
+    {
+        "Arn": NotRequired[str],
+        "Name": NotRequired[str],
+        "Id": NotRequired[str],
+        "Type": NotRequired[Literal["BILLING"]],
+        "Status": NotRequired[ResponsibilityTransferStatusType],
+        "Source": NotRequired[TransferParticipantTypeDef],
+        "Target": NotRequired[TransferParticipantTypeDef],
+        "StartTimestamp": NotRequired[datetime],
+        "EndTimestamp": NotRequired[datetime],
+        "ActiveHandshakeId": NotRequired[str],
+    },
+)
+
+
 class ListHandshakesForAccountResponsePaginatorTypeDef(TypedDict):
-    Handshakes: List[HandshakePaginatorTypeDef]
+    Handshakes: list[HandshakePaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListHandshakesForOrganizationResponsePaginatorTypeDef(TypedDict):
-    Handshakes: List[HandshakePaginatorTypeDef]
+    Handshakes: list[HandshakePaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -959,14 +1042,19 @@ class InviteAccountToOrganizationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class InviteOrganizationToTransferResponsibilityResponseTypeDef(TypedDict):
+    Handshake: HandshakeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListHandshakesForAccountResponseTypeDef(TypedDict):
-    Handshakes: List[HandshakeTypeDef]
+    Handshakes: list[HandshakeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListHandshakesForOrganizationResponseTypeDef(TypedDict):
-    Handshakes: List[HandshakeTypeDef]
+    Handshakes: list[HandshakeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1007,7 +1095,7 @@ class EnablePolicyTypeResponseTypeDef(TypedDict):
 
 
 class ListRootsResponseTypeDef(TypedDict):
-    Roots: List[RootTypeDef]
+    Roots: list[RootTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1019,4 +1107,31 @@ class DescribeResourcePolicyResponseTypeDef(TypedDict):
 
 class PutResourcePolicyResponseTypeDef(TypedDict):
     ResourcePolicy: ResourcePolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeResponsibilityTransferResponseTypeDef(TypedDict):
+    ResponsibilityTransfer: ResponsibilityTransferTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListInboundResponsibilityTransfersResponseTypeDef(TypedDict):
+    ResponsibilityTransfers: list[ResponsibilityTransferTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListOutboundResponsibilityTransfersResponseTypeDef(TypedDict):
+    ResponsibilityTransfers: list[ResponsibilityTransferTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class TerminateResponsibilityTransferResponseTypeDef(TypedDict):
+    ResponsibilityTransfer: ResponsibilityTransferTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateResponsibilityTransferResponseTypeDef(TypedDict):
+    ResponsibilityTransfer: ResponsibilityTransferTypeDef
     ResponseMetadata: ResponseMetadataTypeDef

@@ -352,6 +352,10 @@ class DerivedTypeVariable(TypeVariable):
     def one_label(self) -> BaseLabel | None:
         return self.labels[0] if len(self.labels) == 1 else None
 
+    def first_label(self) -> BaseLabel:
+        assert self.labels
+        return self.labels[0]
+
     def path(self) -> tuple[BaseLabel, ...]:
         return self.labels
 
@@ -559,20 +563,27 @@ class ReinterpretAs(BaseLabel):
 
 
 class HasField(BaseLabel):
+    """
+    Has a field of the given bit size * elem_count at the given offset.
+    """
+
     __slots__ = (
         "bits",
+        "elem_count",
         "offset",
     )
 
-    def __init__(self, bits, offset):
+    def __init__(self, bits, offset, elem_count: int = 1):
         self.bits = bits
         self.offset = offset
+        self.elem_count = elem_count
         super().__init__()
 
     def __repr__(self):
         if self.bits == MAX_POINTSTO_BITS:
             return f"<MAX_POINTSTO_BITS>@{self.offset}"
-        return f"<{self.bits} bits>@{self.offset}"
+        elem_str = str(self.elem_count) if self.elem_count != 1 else ""
+        return f"<{self.bits} bits>@{self.offset}{elem_str}"
 
 
 class IsArray(BaseLabel):

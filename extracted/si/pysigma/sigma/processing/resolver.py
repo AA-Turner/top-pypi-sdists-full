@@ -1,11 +1,13 @@
 from dataclasses import dataclass, field
+from functools import reduce
 from pathlib import Path
 from sigma.exceptions import (
     SigmaPipelineNotAllowedForBackendError,
     SigmaPipelineNotFoundError,
 )
 from sigma.processing.pipeline import ProcessingPipeline
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Iterable, Optional, Tuple, Union, cast, Callable
+from collections import namedtuple
 
 
 @dataclass
@@ -15,7 +17,7 @@ class ProcessingPipelineResolver:
     It takes care of sorting by priority and resolution of filenames as well as pipeline name identifiers.
     """
 
-    pipelines: Dict[str, Union[ProcessingPipeline, Callable[[], ProcessingPipeline]]] = field(
+    pipelines: dict[str, Union[ProcessingPipeline, Callable[[], ProcessingPipeline]]] = field(
         default_factory=dict
     )
 
@@ -30,9 +32,9 @@ class ProcessingPipelineResolver:
         cls, pipelines: Iterable[ProcessingPipeline]
     ) -> "ProcessingPipelineResolver":
         """Instantiate processing pipeline resolver from list of pipeline objects."""
-        return cls({pipeline.name: pipeline for pipeline in pipelines})
+        return cls({pipeline.name: pipeline for pipeline in pipelines if pipeline.name is not None})
 
-    def list_pipelines(self) -> Iterable[Tuple[str, ProcessingPipeline]]:
+    def list_pipelines(self) -> Iterable[tuple[str, ProcessingPipeline]]:
         """List identifier/processing pipeline tuples."""
         return ((id, self.resolve_pipeline(id)) for id in self.pipelines.keys())
 
@@ -48,7 +50,7 @@ class ProcessingPipelineResolver:
         """
         try:
             pipeline = self.pipelines[spec]
-            if isinstance(pipeline, Callable):
+            if callable(pipeline):
                 resolved_pipeline = pipeline()
             else:
                 resolved_pipeline = pipeline
@@ -65,7 +67,7 @@ class ProcessingPipelineResolver:
                 raise SigmaPipelineNotFoundError(spec)
 
     def resolve(
-        self, pipeline_specs: List[str], target: Optional[str] = None
+        self, pipeline_specs: list[str], target: Optional[str] = None
     ) -> ProcessingPipeline:
         """
         Resolve a list of
@@ -79,20 +81,25 @@ class ProcessingPipelineResolver:
         If *target* is specified this is passed in each *resolve_pipeline* call to perform a
         compatibility check for the usage of the specified backend with the pipeline.
         """
-        pipelines = []
-        for spec in pipeline_specs:
+
+        PipelineInfo = namedtuple("PipelineInfo", ["pipeline", "priority", "path"])
+
+        def resolve_path(spec: str) -> PipelineInfo:
+            pipeline = self.resolve_pipeline(spec, target)
+            return PipelineInfo(pipeline=pipeline, priority=pipeline.priority, path=spec)
+
+        def resolve_spec(pipelines: list[PipelineInfo], spec: str) -> list[PipelineInfo]:
             spec_path = Path(spec.rstrip("/*"))
             if spec_path.is_dir():
-                for path in spec_path.glob("**/*.yml"):
-                    pipelines.append(self.resolve_pipeline(str(path), target))
+                pipelines.extend([resolve_path(str(path)) for path in spec_path.glob("**/*.yml")])
             else:
-                pipelines.append(self.resolve_pipeline(spec, target))
+                pipelines.append(resolve_path(spec))
+
+            return pipelines
+
+        pipelines: list[PipelineInfo] = reduce(resolve_spec, pipeline_specs, [])
+
         return (
-            sum(
-                sorted(
-                    pipelines,
-                    key=lambda p: p.priority,
-                )
-            )
+            sum([p.pipeline for p in sorted(pipelines, key=lambda p: (p.priority, p.path))])
             or ProcessingPipeline()
         )

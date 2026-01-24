@@ -3,7 +3,7 @@ Type annotations for ec2 service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -35,6 +36,7 @@ from .paginator import (
     DescribeCapacityBlockOfferingsPaginator,
     DescribeCapacityBlocksPaginator,
     DescribeCapacityBlockStatusPaginator,
+    DescribeCapacityManagerDataExportsPaginator,
     DescribeCapacityReservationBillingRequestsPaginator,
     DescribeCapacityReservationFleetsPaginator,
     DescribeCapacityReservationsPaginator,
@@ -75,6 +77,8 @@ from .paginator import (
     DescribeInstanceTypesPaginator,
     DescribeInternetGatewaysPaginator,
     DescribeIpamPoolsPaginator,
+    DescribeIpamPrefixListResolversPaginator,
+    DescribeIpamPrefixListResolverTargetsPaginator,
     DescribeIpamResourceDiscoveriesPaginator,
     DescribeIpamResourceDiscoveryAssociationsPaginator,
     DescribeIpamScopesPaginator,
@@ -156,8 +160,11 @@ from .paginator import (
     DescribeVpcEndpointsPaginator,
     DescribeVpcPeeringConnectionsPaginator,
     DescribeVpcsPaginator,
+    DescribeVpnConcentratorsPaginator,
     GetAssociatedIpv6PoolCidrsPaginator,
     GetAwsNetworkPerformanceDataPaginator,
+    GetCapacityManagerMetricDataPaginator,
+    GetCapacityManagerMetricDimensionsPaginator,
     GetGroupsForCapacityReservationPaginator,
     GetInstanceTypesFromInstanceRequirementsPaginator,
     GetIpamAddressHistoryPaginator,
@@ -165,6 +172,9 @@ from .paginator import (
     GetIpamDiscoveredResourceCidrsPaginator,
     GetIpamPoolAllocationsPaginator,
     GetIpamPoolCidrsPaginator,
+    GetIpamPrefixListResolverRulesPaginator,
+    GetIpamPrefixListResolverVersionEntriesPaginator,
+    GetIpamPrefixListResolverVersionsPaginator,
     GetIpamResourceCidrsPaginator,
     GetManagedPrefixListAssociationsPaginator,
     GetManagedPrefixListEntriesPaginator,
@@ -301,6 +311,10 @@ from .type_defs import (
     CopyImageResultTypeDef,
     CopySnapshotRequestTypeDef,
     CopySnapshotResultTypeDef,
+    CopyVolumesRequestTypeDef,
+    CopyVolumesResultTypeDef,
+    CreateCapacityManagerDataExportRequestTypeDef,
+    CreateCapacityManagerDataExportResultTypeDef,
     CreateCapacityReservationBySplittingRequestTypeDef,
     CreateCapacityReservationBySplittingResultTypeDef,
     CreateCapacityReservationFleetRequestTypeDef,
@@ -347,10 +361,18 @@ from .type_defs import (
     CreateInstanceExportTaskResultTypeDef,
     CreateInternetGatewayRequestTypeDef,
     CreateInternetGatewayResultTypeDef,
+    CreateInterruptibleCapacityReservationAllocationRequestTypeDef,
+    CreateInterruptibleCapacityReservationAllocationResultTypeDef,
     CreateIpamExternalResourceVerificationTokenRequestTypeDef,
     CreateIpamExternalResourceVerificationTokenResultTypeDef,
+    CreateIpamPolicyRequestTypeDef,
+    CreateIpamPolicyResultTypeDef,
     CreateIpamPoolRequestTypeDef,
     CreateIpamPoolResultTypeDef,
+    CreateIpamPrefixListResolverRequestTypeDef,
+    CreateIpamPrefixListResolverResultTypeDef,
+    CreateIpamPrefixListResolverTargetRequestTypeDef,
+    CreateIpamPrefixListResolverTargetResultTypeDef,
     CreateIpamRequestTypeDef,
     CreateIpamResourceDiscoveryRequestTypeDef,
     CreateIpamResourceDiscoveryResultTypeDef,
@@ -436,6 +458,10 @@ from .type_defs import (
     CreateTransitGatewayConnectPeerResultTypeDef,
     CreateTransitGatewayConnectRequestTypeDef,
     CreateTransitGatewayConnectResultTypeDef,
+    CreateTransitGatewayMeteringPolicyEntryRequestTypeDef,
+    CreateTransitGatewayMeteringPolicyEntryResultTypeDef,
+    CreateTransitGatewayMeteringPolicyRequestTypeDef,
+    CreateTransitGatewayMeteringPolicyResultTypeDef,
     CreateTransitGatewayMulticastDomainRequestTypeDef,
     CreateTransitGatewayMulticastDomainResultTypeDef,
     CreateTransitGatewayPeeringAttachmentRequestTypeDef,
@@ -465,6 +491,8 @@ from .type_defs import (
     CreateVolumeRequestTypeDef,
     CreateVpcBlockPublicAccessExclusionRequestTypeDef,
     CreateVpcBlockPublicAccessExclusionResultTypeDef,
+    CreateVpcEncryptionControlRequestTypeDef,
+    CreateVpcEncryptionControlResultTypeDef,
     CreateVpcEndpointConnectionNotificationRequestTypeDef,
     CreateVpcEndpointConnectionNotificationResultTypeDef,
     CreateVpcEndpointRequestTypeDef,
@@ -475,11 +503,15 @@ from .type_defs import (
     CreateVpcPeeringConnectionResultTypeDef,
     CreateVpcRequestTypeDef,
     CreateVpcResultTypeDef,
+    CreateVpnConcentratorRequestTypeDef,
+    CreateVpnConcentratorResultTypeDef,
     CreateVpnConnectionRequestTypeDef,
     CreateVpnConnectionResultTypeDef,
     CreateVpnConnectionRouteRequestTypeDef,
     CreateVpnGatewayRequestTypeDef,
     CreateVpnGatewayResultTypeDef,
+    DeleteCapacityManagerDataExportRequestTypeDef,
+    DeleteCapacityManagerDataExportResultTypeDef,
     DeleteCarrierGatewayRequestTypeDef,
     DeleteCarrierGatewayResultTypeDef,
     DeleteClientVpnEndpointRequestTypeDef,
@@ -509,8 +541,14 @@ from .type_defs import (
     DeleteInternetGatewayRequestTypeDef,
     DeleteIpamExternalResourceVerificationTokenRequestTypeDef,
     DeleteIpamExternalResourceVerificationTokenResultTypeDef,
+    DeleteIpamPolicyRequestTypeDef,
+    DeleteIpamPolicyResultTypeDef,
     DeleteIpamPoolRequestTypeDef,
     DeleteIpamPoolResultTypeDef,
+    DeleteIpamPrefixListResolverRequestTypeDef,
+    DeleteIpamPrefixListResolverResultTypeDef,
+    DeleteIpamPrefixListResolverTargetRequestTypeDef,
+    DeleteIpamPrefixListResolverTargetResultTypeDef,
     DeleteIpamRequestTypeDef,
     DeleteIpamResourceDiscoveryRequestTypeDef,
     DeleteIpamResourceDiscoveryResultTypeDef,
@@ -584,6 +622,10 @@ from .type_defs import (
     DeleteTransitGatewayConnectPeerResultTypeDef,
     DeleteTransitGatewayConnectRequestTypeDef,
     DeleteTransitGatewayConnectResultTypeDef,
+    DeleteTransitGatewayMeteringPolicyEntryRequestTypeDef,
+    DeleteTransitGatewayMeteringPolicyEntryResultTypeDef,
+    DeleteTransitGatewayMeteringPolicyRequestTypeDef,
+    DeleteTransitGatewayMeteringPolicyResultTypeDef,
     DeleteTransitGatewayMulticastDomainRequestTypeDef,
     DeleteTransitGatewayMulticastDomainResultTypeDef,
     DeleteTransitGatewayPeeringAttachmentRequestTypeDef,
@@ -613,6 +655,8 @@ from .type_defs import (
     DeleteVolumeRequestTypeDef,
     DeleteVpcBlockPublicAccessExclusionRequestTypeDef,
     DeleteVpcBlockPublicAccessExclusionResultTypeDef,
+    DeleteVpcEncryptionControlRequestTypeDef,
+    DeleteVpcEncryptionControlResultTypeDef,
     DeleteVpcEndpointConnectionNotificationsRequestTypeDef,
     DeleteVpcEndpointConnectionNotificationsResultTypeDef,
     DeleteVpcEndpointServiceConfigurationsRequestTypeDef,
@@ -622,6 +666,8 @@ from .type_defs import (
     DeleteVpcPeeringConnectionRequestTypeDef,
     DeleteVpcPeeringConnectionResultTypeDef,
     DeleteVpcRequestTypeDef,
+    DeleteVpnConcentratorRequestTypeDef,
+    DeleteVpnConcentratorResultTypeDef,
     DeleteVpnConnectionRequestTypeDef,
     DeleteVpnConnectionRouteRequestTypeDef,
     DeleteVpnGatewayRequestTypeDef,
@@ -669,12 +715,16 @@ from .type_defs import (
     DescribeCapacityBlocksResultTypeDef,
     DescribeCapacityBlockStatusRequestTypeDef,
     DescribeCapacityBlockStatusResultTypeDef,
+    DescribeCapacityManagerDataExportsRequestTypeDef,
+    DescribeCapacityManagerDataExportsResultTypeDef,
     DescribeCapacityReservationBillingRequestsRequestTypeDef,
     DescribeCapacityReservationBillingRequestsResultTypeDef,
     DescribeCapacityReservationFleetsRequestTypeDef,
     DescribeCapacityReservationFleetsResultTypeDef,
     DescribeCapacityReservationsRequestTypeDef,
     DescribeCapacityReservationsResultTypeDef,
+    DescribeCapacityReservationTopologyRequestTypeDef,
+    DescribeCapacityReservationTopologyResultTypeDef,
     DescribeCarrierGatewaysRequestTypeDef,
     DescribeCarrierGatewaysResultTypeDef,
     DescribeClassicLinkInstancesRequestTypeDef,
@@ -759,6 +809,10 @@ from .type_defs import (
     DescribeInstanceEventWindowsResultTypeDef,
     DescribeInstanceImageMetadataRequestTypeDef,
     DescribeInstanceImageMetadataResultTypeDef,
+    DescribeInstanceSqlHaHistoryStatesRequestTypeDef,
+    DescribeInstanceSqlHaHistoryStatesResultTypeDef,
+    DescribeInstanceSqlHaStatesRequestTypeDef,
+    DescribeInstanceSqlHaStatesResultTypeDef,
     DescribeInstancesRequestTypeDef,
     DescribeInstancesResultTypeDef,
     DescribeInstanceStatusRequestTypeDef,
@@ -775,8 +829,14 @@ from .type_defs import (
     DescribeIpamByoasnResultTypeDef,
     DescribeIpamExternalResourceVerificationTokensRequestTypeDef,
     DescribeIpamExternalResourceVerificationTokensResultTypeDef,
+    DescribeIpamPoliciesRequestTypeDef,
+    DescribeIpamPoliciesResultTypeDef,
     DescribeIpamPoolsRequestTypeDef,
     DescribeIpamPoolsResultTypeDef,
+    DescribeIpamPrefixListResolversRequestTypeDef,
+    DescribeIpamPrefixListResolversResultTypeDef,
+    DescribeIpamPrefixListResolverTargetsRequestTypeDef,
+    DescribeIpamPrefixListResolverTargetsResultTypeDef,
     DescribeIpamResourceDiscoveriesRequestTypeDef,
     DescribeIpamResourceDiscoveriesResultTypeDef,
     DescribeIpamResourceDiscoveryAssociationsRequestTypeDef,
@@ -917,6 +977,8 @@ from .type_defs import (
     DescribeTransitGatewayConnectPeersResultTypeDef,
     DescribeTransitGatewayConnectsRequestTypeDef,
     DescribeTransitGatewayConnectsResultTypeDef,
+    DescribeTransitGatewayMeteringPoliciesRequestTypeDef,
+    DescribeTransitGatewayMeteringPoliciesResultTypeDef,
     DescribeTransitGatewayMulticastDomainsRequestTypeDef,
     DescribeTransitGatewayMulticastDomainsResultTypeDef,
     DescribeTransitGatewayPeeringAttachmentsRequestTypeDef,
@@ -961,6 +1023,8 @@ from .type_defs import (
     DescribeVpcClassicLinkDnsSupportResultTypeDef,
     DescribeVpcClassicLinkRequestTypeDef,
     DescribeVpcClassicLinkResultTypeDef,
+    DescribeVpcEncryptionControlsRequestTypeDef,
+    DescribeVpcEncryptionControlsResultTypeDef,
     DescribeVpcEndpointAssociationsRequestTypeDef,
     DescribeVpcEndpointAssociationsResultTypeDef,
     DescribeVpcEndpointConnectionNotificationsRequestTypeDef,
@@ -979,6 +1043,8 @@ from .type_defs import (
     DescribeVpcPeeringConnectionsResultTypeDef,
     DescribeVpcsRequestTypeDef,
     DescribeVpcsResultTypeDef,
+    DescribeVpnConcentratorsRequestTypeDef,
+    DescribeVpnConcentratorsResultTypeDef,
     DescribeVpnConnectionsRequestTypeDef,
     DescribeVpnConnectionsResultTypeDef,
     DescribeVpnGatewaysRequestTypeDef,
@@ -997,6 +1063,8 @@ from .type_defs import (
     DisableAllowedImagesSettingsResultTypeDef,
     DisableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef,
     DisableAwsNetworkPerformanceMetricSubscriptionResultTypeDef,
+    DisableCapacityManagerRequestTypeDef,
+    DisableCapacityManagerResultTypeDef,
     DisableEbsEncryptionByDefaultRequestTypeDef,
     DisableEbsEncryptionByDefaultResultTypeDef,
     DisableFastLaunchRequestTypeDef,
@@ -1011,8 +1079,12 @@ from .type_defs import (
     DisableImageDeregistrationProtectionResultTypeDef,
     DisableImageRequestTypeDef,
     DisableImageResultTypeDef,
+    DisableInstanceSqlHaStandbyDetectionsRequestTypeDef,
+    DisableInstanceSqlHaStandbyDetectionsResultTypeDef,
     DisableIpamOrganizationAdminAccountRequestTypeDef,
     DisableIpamOrganizationAdminAccountResultTypeDef,
+    DisableIpamPolicyRequestTypeDef,
+    DisableIpamPolicyResultTypeDef,
     DisableRouteServerPropagationRequestTypeDef,
     DisableRouteServerPropagationResultTypeDef,
     DisableSerialConsoleAccessRequestTypeDef,
@@ -1067,6 +1139,8 @@ from .type_defs import (
     EnableAllowedImagesSettingsResultTypeDef,
     EnableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef,
     EnableAwsNetworkPerformanceMetricSubscriptionResultTypeDef,
+    EnableCapacityManagerRequestTypeDef,
+    EnableCapacityManagerResultTypeDef,
     EnableEbsEncryptionByDefaultRequestTypeDef,
     EnableEbsEncryptionByDefaultResultTypeDef,
     EnableFastLaunchRequestTypeDef,
@@ -1081,8 +1155,12 @@ from .type_defs import (
     EnableImageDeregistrationProtectionResultTypeDef,
     EnableImageRequestTypeDef,
     EnableImageResultTypeDef,
+    EnableInstanceSqlHaStandbyDetectionsRequestTypeDef,
+    EnableInstanceSqlHaStandbyDetectionsResultTypeDef,
     EnableIpamOrganizationAdminAccountRequestTypeDef,
     EnableIpamOrganizationAdminAccountResultTypeDef,
+    EnableIpamPolicyRequestTypeDef,
+    EnableIpamPolicyResultTypeDef,
     EnableReachabilityAnalyzerOrganizationSharingRequestTypeDef,
     EnableReachabilityAnalyzerOrganizationSharingResultTypeDef,
     EnableRouteServerPropagationRequestTypeDef,
@@ -1119,6 +1197,12 @@ from .type_defs import (
     GetAssociatedIpv6PoolCidrsResultTypeDef,
     GetAwsNetworkPerformanceDataRequestTypeDef,
     GetAwsNetworkPerformanceDataResultTypeDef,
+    GetCapacityManagerAttributesRequestTypeDef,
+    GetCapacityManagerAttributesResultTypeDef,
+    GetCapacityManagerMetricDataRequestTypeDef,
+    GetCapacityManagerMetricDataResultTypeDef,
+    GetCapacityManagerMetricDimensionsRequestTypeDef,
+    GetCapacityManagerMetricDimensionsResultTypeDef,
     GetCapacityReservationUsageRequestTypeDef,
     GetCapacityReservationUsageResultTypeDef,
     GetCoipPoolUsageRequestTypeDef,
@@ -1135,12 +1219,16 @@ from .type_defs import (
     GetEbsDefaultKmsKeyIdResultTypeDef,
     GetEbsEncryptionByDefaultRequestTypeDef,
     GetEbsEncryptionByDefaultResultTypeDef,
+    GetEnabledIpamPolicyRequestTypeDef,
+    GetEnabledIpamPolicyResultTypeDef,
     GetFlowLogsIntegrationTemplateRequestTypeDef,
     GetFlowLogsIntegrationTemplateResultTypeDef,
     GetGroupsForCapacityReservationRequestTypeDef,
     GetGroupsForCapacityReservationResultTypeDef,
     GetHostReservationPurchasePreviewRequestTypeDef,
     GetHostReservationPurchasePreviewResultTypeDef,
+    GetImageAncestryRequestTypeDef,
+    GetImageAncestryResultTypeDef,
     GetImageBlockPublicAccessStateRequestTypeDef,
     GetImageBlockPublicAccessStateResultTypeDef,
     GetInstanceMetadataDefaultsRequestTypeDef,
@@ -1159,10 +1247,20 @@ from .type_defs import (
     GetIpamDiscoveredPublicAddressesResultTypeDef,
     GetIpamDiscoveredResourceCidrsRequestTypeDef,
     GetIpamDiscoveredResourceCidrsResultTypeDef,
+    GetIpamPolicyAllocationRulesRequestTypeDef,
+    GetIpamPolicyAllocationRulesResultTypeDef,
+    GetIpamPolicyOrganizationTargetsRequestTypeDef,
+    GetIpamPolicyOrganizationTargetsResultTypeDef,
     GetIpamPoolAllocationsRequestTypeDef,
     GetIpamPoolAllocationsResultTypeDef,
     GetIpamPoolCidrsRequestTypeDef,
     GetIpamPoolCidrsResultTypeDef,
+    GetIpamPrefixListResolverRulesRequestTypeDef,
+    GetIpamPrefixListResolverRulesResultTypeDef,
+    GetIpamPrefixListResolverVersionEntriesRequestTypeDef,
+    GetIpamPrefixListResolverVersionEntriesResultTypeDef,
+    GetIpamPrefixListResolverVersionsRequestTypeDef,
+    GetIpamPrefixListResolverVersionsResultTypeDef,
     GetIpamResourceCidrsRequestTypeDef,
     GetIpamResourceCidrsResultTypeDef,
     GetLaunchTemplateDataRequestTypeDef,
@@ -1197,6 +1295,8 @@ from .type_defs import (
     GetSubnetCidrReservationsResultTypeDef,
     GetTransitGatewayAttachmentPropagationsRequestTypeDef,
     GetTransitGatewayAttachmentPropagationsResultTypeDef,
+    GetTransitGatewayMeteringPolicyEntriesRequestTypeDef,
+    GetTransitGatewayMeteringPolicyEntriesResultTypeDef,
     GetTransitGatewayMulticastDomainAssociationsRequestTypeDef,
     GetTransitGatewayMulticastDomainAssociationsResultTypeDef,
     GetTransitGatewayPolicyTableAssociationsRequestTypeDef,
@@ -1215,6 +1315,8 @@ from .type_defs import (
     GetVerifiedAccessEndpointTargetsResultTypeDef,
     GetVerifiedAccessGroupPolicyRequestTypeDef,
     GetVerifiedAccessGroupPolicyResultTypeDef,
+    GetVpcResourcesBlockingEncryptionEnforcementRequestTypeDef,
+    GetVpcResourcesBlockingEncryptionEnforcementResultTypeDef,
     GetVpnConnectionDeviceSampleConfigurationRequestTypeDef,
     GetVpnConnectionDeviceSampleConfigurationResultTypeDef,
     GetVpnConnectionDeviceTypesRequestTypeDef,
@@ -1240,6 +1342,8 @@ from .type_defs import (
     ListImagesInRecycleBinResultTypeDef,
     ListSnapshotsInRecycleBinRequestTypeDef,
     ListSnapshotsInRecycleBinResultTypeDef,
+    ListVolumesInRecycleBinRequestTypeDef,
+    ListVolumesInRecycleBinResultTypeDef,
     LockSnapshotRequestTypeDef,
     LockSnapshotResultTypeDef,
     ModifyAddressAttributeRequestTypeDef,
@@ -1288,8 +1392,14 @@ from .type_defs import (
     ModifyInstanceNetworkPerformanceResultTypeDef,
     ModifyInstancePlacementRequestTypeDef,
     ModifyInstancePlacementResultTypeDef,
+    ModifyIpamPolicyAllocationRulesRequestTypeDef,
+    ModifyIpamPolicyAllocationRulesResultTypeDef,
     ModifyIpamPoolRequestTypeDef,
     ModifyIpamPoolResultTypeDef,
+    ModifyIpamPrefixListResolverRequestTypeDef,
+    ModifyIpamPrefixListResolverResultTypeDef,
+    ModifyIpamPrefixListResolverTargetRequestTypeDef,
+    ModifyIpamPrefixListResolverTargetResultTypeDef,
     ModifyIpamRequestTypeDef,
     ModifyIpamResourceCidrRequestTypeDef,
     ModifyIpamResourceCidrResultTypeDef,
@@ -1327,6 +1437,8 @@ from .type_defs import (
     ModifyTrafficMirrorFilterRuleResultTypeDef,
     ModifyTrafficMirrorSessionRequestTypeDef,
     ModifyTrafficMirrorSessionResultTypeDef,
+    ModifyTransitGatewayMeteringPolicyRequestTypeDef,
+    ModifyTransitGatewayMeteringPolicyResultTypeDef,
     ModifyTransitGatewayPrefixListReferenceRequestTypeDef,
     ModifyTransitGatewayPrefixListReferenceResultTypeDef,
     ModifyTransitGatewayRequestTypeDef,
@@ -1355,6 +1467,8 @@ from .type_defs import (
     ModifyVpcBlockPublicAccessExclusionResultTypeDef,
     ModifyVpcBlockPublicAccessOptionsRequestTypeDef,
     ModifyVpcBlockPublicAccessOptionsResultTypeDef,
+    ModifyVpcEncryptionControlRequestTypeDef,
+    ModifyVpcEncryptionControlResultTypeDef,
     ModifyVpcEndpointConnectionNotificationRequestTypeDef,
     ModifyVpcEndpointConnectionNotificationResultTypeDef,
     ModifyVpcEndpointRequestTypeDef,
@@ -1469,6 +1583,8 @@ from .type_defs import (
     RestoreSnapshotFromRecycleBinResultTypeDef,
     RestoreSnapshotTierRequestTypeDef,
     RestoreSnapshotTierResultTypeDef,
+    RestoreVolumeFromRecycleBinRequestTypeDef,
+    RestoreVolumeFromRecycleBinResultTypeDef,
     RevokeClientVpnIngressRequestTypeDef,
     RevokeClientVpnIngressResultTypeDef,
     RevokeSecurityGroupEgressRequestTypeDef,
@@ -1511,6 +1627,10 @@ from .type_defs import (
     UnlockSnapshotResultTypeDef,
     UnmonitorInstancesRequestTypeDef,
     UnmonitorInstancesResultTypeDef,
+    UpdateCapacityManagerOrganizationsAccessRequestTypeDef,
+    UpdateCapacityManagerOrganizationsAccessResultTypeDef,
+    UpdateInterruptibleCapacityReservationAllocationRequestTypeDef,
+    UpdateInterruptibleCapacityReservationAllocationResultTypeDef,
     UpdateSecurityGroupRuleDescriptionsEgressRequestTypeDef,
     UpdateSecurityGroupRuleDescriptionsEgressResultTypeDef,
     UpdateSecurityGroupRuleDescriptionsIngressRequestTypeDef,
@@ -1562,11 +1682,6 @@ from .waiter import (
     VpnConnectionDeletedWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -1577,7 +1692,7 @@ __all__ = ("EC2Client",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
 
 
 class EC2Client(BaseClient):
@@ -2235,6 +2350,25 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#copy_snapshot)
         """
 
+    def copy_volumes(self, **kwargs: Unpack[CopyVolumesRequestTypeDef]) -> CopyVolumesResultTypeDef:
+        """
+        Creates a crash-consistent, point-in-time copy of an existing Amazon EBS volume
+        within the same Availability Zone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/copy_volumes.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#copy_volumes)
+        """
+
+    def create_capacity_manager_data_export(
+        self, **kwargs: Unpack[CreateCapacityManagerDataExportRequestTypeDef]
+    ) -> CreateCapacityManagerDataExportResultTypeDef:
+        """
+        Creates a new data export configuration for EC2 Capacity Manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_capacity_manager_data_export.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_capacity_manager_data_export)
+        """
+
     def create_capacity_reservation(
         self, **kwargs: Unpack[CreateCapacityReservationRequestTypeDef]
     ) -> CreateCapacityReservationResultTypeDef:
@@ -2470,6 +2604,17 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_internet_gateway)
         """
 
+    def create_interruptible_capacity_reservation_allocation(
+        self, **kwargs: Unpack[CreateInterruptibleCapacityReservationAllocationRequestTypeDef]
+    ) -> CreateInterruptibleCapacityReservationAllocationResultTypeDef:
+        """
+        Creates an interruptible Capacity Reservation by specifying the number of
+        unused instances you want to allocate from your source reservation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_interruptible_capacity_reservation_allocation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_interruptible_capacity_reservation_allocation)
+        """
+
     def create_ipam(self, **kwargs: Unpack[CreateIpamRequestTypeDef]) -> CreateIpamResultTypeDef:
         """
         Create an IPAM.
@@ -2488,6 +2633,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_ipam_external_resource_verification_token)
         """
 
+    def create_ipam_policy(
+        self, **kwargs: Unpack[CreateIpamPolicyRequestTypeDef]
+    ) -> CreateIpamPolicyResultTypeDef:
+        """
+        Creates an IPAM policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_ipam_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_ipam_policy)
+        """
+
     def create_ipam_pool(
         self, **kwargs: Unpack[CreateIpamPoolRequestTypeDef]
     ) -> CreateIpamPoolResultTypeDef:
@@ -2496,6 +2651,26 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_ipam_pool.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_ipam_pool)
+        """
+
+    def create_ipam_prefix_list_resolver(
+        self, **kwargs: Unpack[CreateIpamPrefixListResolverRequestTypeDef]
+    ) -> CreateIpamPrefixListResolverResultTypeDef:
+        """
+        Creates an IPAM prefix list resolver.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_ipam_prefix_list_resolver.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_ipam_prefix_list_resolver)
+        """
+
+    def create_ipam_prefix_list_resolver_target(
+        self, **kwargs: Unpack[CreateIpamPrefixListResolverTargetRequestTypeDef]
+    ) -> CreateIpamPrefixListResolverTargetResultTypeDef:
+        """
+        Creates an IPAM prefix list resolver target.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_ipam_prefix_list_resolver_target.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_ipam_prefix_list_resolver_target)
         """
 
     def create_ipam_resource_discovery(
@@ -2958,6 +3133,28 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_transit_gateway_connect_peer)
         """
 
+    def create_transit_gateway_metering_policy(
+        self, **kwargs: Unpack[CreateTransitGatewayMeteringPolicyRequestTypeDef]
+    ) -> CreateTransitGatewayMeteringPolicyResultTypeDef:
+        """
+        Creates a metering policy for a transit gateway to track and measure network
+        traffic.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_transit_gateway_metering_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_transit_gateway_metering_policy)
+        """
+
+    def create_transit_gateway_metering_policy_entry(
+        self, **kwargs: Unpack[CreateTransitGatewayMeteringPolicyEntryRequestTypeDef]
+    ) -> CreateTransitGatewayMeteringPolicyEntryResultTypeDef:
+        """
+        Creates an entry in a transit gateway metering policy to define traffic
+        measurement rules.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_transit_gateway_metering_policy_entry.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_transit_gateway_metering_policy_entry)
+        """
+
     def create_transit_gateway_multicast_domain(
         self, **kwargs: Unpack[CreateTransitGatewayMulticastDomainRequestTypeDef]
     ) -> CreateTransitGatewayMulticastDomainResultTypeDef:
@@ -3113,6 +3310,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_vpc_block_public_access_exclusion)
         """
 
+    def create_vpc_encryption_control(
+        self, **kwargs: Unpack[CreateVpcEncryptionControlRequestTypeDef]
+    ) -> CreateVpcEncryptionControlResultTypeDef:
+        """
+        Creates a VPC Encryption Control configuration for a specified VPC.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_vpc_encryption_control.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_vpc_encryption_control)
+        """
+
     def create_vpc_endpoint(
         self, **kwargs: Unpack[CreateVpcEndpointRequestTypeDef]
     ) -> CreateVpcEndpointResultTypeDef:
@@ -3156,6 +3363,17 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_vpc_peering_connection)
         """
 
+    def create_vpn_concentrator(
+        self, **kwargs: Unpack[CreateVpnConcentratorRequestTypeDef]
+    ) -> CreateVpnConcentratorResultTypeDef:
+        """
+        Creates a VPN concentrator that aggregates multiple VPN connections to a
+        transit gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_vpn_concentrator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_vpn_concentrator)
+        """
+
     def create_vpn_connection(
         self, **kwargs: Unpack[CreateVpnConnectionRequestTypeDef]
     ) -> CreateVpnConnectionResultTypeDef:
@@ -3186,6 +3404,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_vpn_gateway.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_vpn_gateway)
+        """
+
+    def delete_capacity_manager_data_export(
+        self, **kwargs: Unpack[DeleteCapacityManagerDataExportRequestTypeDef]
+    ) -> DeleteCapacityManagerDataExportResultTypeDef:
+        """
+        Deletes an existing Capacity Manager data export configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_capacity_manager_data_export.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_capacity_manager_data_export)
         """
 
     def delete_carrier_gateway(
@@ -3356,6 +3584,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_ipam_external_resource_verification_token)
         """
 
+    def delete_ipam_policy(
+        self, **kwargs: Unpack[DeleteIpamPolicyRequestTypeDef]
+    ) -> DeleteIpamPolicyResultTypeDef:
+        """
+        Deletes an IPAM policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_ipam_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_ipam_policy)
+        """
+
     def delete_ipam_pool(
         self, **kwargs: Unpack[DeleteIpamPoolRequestTypeDef]
     ) -> DeleteIpamPoolResultTypeDef:
@@ -3364,6 +3602,26 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_ipam_pool.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_ipam_pool)
+        """
+
+    def delete_ipam_prefix_list_resolver(
+        self, **kwargs: Unpack[DeleteIpamPrefixListResolverRequestTypeDef]
+    ) -> DeleteIpamPrefixListResolverResultTypeDef:
+        """
+        Deletes an IPAM prefix list resolver.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_ipam_prefix_list_resolver.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_ipam_prefix_list_resolver)
+        """
+
+    def delete_ipam_prefix_list_resolver_target(
+        self, **kwargs: Unpack[DeleteIpamPrefixListResolverTargetRequestTypeDef]
+    ) -> DeleteIpamPrefixListResolverTargetResultTypeDef:
+        """
+        Deletes an IPAM prefix list resolver target.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_ipam_prefix_list_resolver_target.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_ipam_prefix_list_resolver_target)
         """
 
     def delete_ipam_resource_discovery(
@@ -3788,6 +4046,26 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_transit_gateway_connect_peer)
         """
 
+    def delete_transit_gateway_metering_policy(
+        self, **kwargs: Unpack[DeleteTransitGatewayMeteringPolicyRequestTypeDef]
+    ) -> DeleteTransitGatewayMeteringPolicyResultTypeDef:
+        """
+        Deletes a transit gateway metering policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway_metering_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_transit_gateway_metering_policy)
+        """
+
+    def delete_transit_gateway_metering_policy_entry(
+        self, **kwargs: Unpack[DeleteTransitGatewayMeteringPolicyEntryRequestTypeDef]
+    ) -> DeleteTransitGatewayMeteringPolicyEntryResultTypeDef:
+        """
+        Deletes an entry from a transit gateway metering policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway_metering_policy_entry.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_transit_gateway_metering_policy_entry)
+        """
+
     def delete_transit_gateway_multicast_domain(
         self, **kwargs: Unpack[DeleteTransitGatewayMulticastDomainRequestTypeDef]
     ) -> DeleteTransitGatewayMulticastDomainResultTypeDef:
@@ -3937,6 +4215,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_vpc_block_public_access_exclusion)
         """
 
+    def delete_vpc_encryption_control(
+        self, **kwargs: Unpack[DeleteVpcEncryptionControlRequestTypeDef]
+    ) -> DeleteVpcEncryptionControlResultTypeDef:
+        """
+        Deletes a VPC Encryption Control configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_vpc_encryption_control.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_vpc_encryption_control)
+        """
+
     def delete_vpc_endpoint_connection_notifications(
         self, **kwargs: Unpack[DeleteVpcEndpointConnectionNotificationsRequestTypeDef]
     ) -> DeleteVpcEndpointConnectionNotificationsResultTypeDef:
@@ -3975,6 +4263,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_vpc_peering_connection.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_vpc_peering_connection)
+        """
+
+    def delete_vpn_concentrator(
+        self, **kwargs: Unpack[DeleteVpnConcentratorRequestTypeDef]
+    ) -> DeleteVpnConcentratorResultTypeDef:
+        """
+        Deletes the specified VPN concentrator.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_vpn_concentrator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_vpn_concentrator)
         """
 
     def delete_vpn_connection(
@@ -4243,6 +4541,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_capacity_blocks)
         """
 
+    def describe_capacity_manager_data_exports(
+        self, **kwargs: Unpack[DescribeCapacityManagerDataExportsRequestTypeDef]
+    ) -> DescribeCapacityManagerDataExportsResultTypeDef:
+        """
+        Describes one or more Capacity Manager data export configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_manager_data_exports.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_capacity_manager_data_exports)
+        """
+
     def describe_capacity_reservation_billing_requests(
         self, **kwargs: Unpack[DescribeCapacityReservationBillingRequestsRequestTypeDef]
     ) -> DescribeCapacityReservationBillingRequestsResultTypeDef:
@@ -4262,6 +4570,18 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_reservation_fleets.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_capacity_reservation_fleets)
+        """
+
+    def describe_capacity_reservation_topology(
+        self, **kwargs: Unpack[DescribeCapacityReservationTopologyRequestTypeDef]
+    ) -> DescribeCapacityReservationTopologyResultTypeDef:
+        """
+        Describes a tree-based hierarchy that represents the physical host placement of
+        your pending or active Capacity Reservations within an Availability Zone or
+        Local Zone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_reservation_topology.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_capacity_reservation_topology)
         """
 
     def describe_capacity_reservations(
@@ -4720,6 +5040,29 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_instance_image_metadata)
         """
 
+    def describe_instance_sql_ha_history_states(
+        self, **kwargs: Unpack[DescribeInstanceSqlHaHistoryStatesRequestTypeDef]
+    ) -> DescribeInstanceSqlHaHistoryStatesResultTypeDef:
+        """
+        Describes the historical SQL Server High Availability states for Amazon EC2
+        instances that are enabled for Amazon EC2 High Availability for SQL Server
+        monitoring.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instance_sql_ha_history_states.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_instance_sql_ha_history_states)
+        """
+
+    def describe_instance_sql_ha_states(
+        self, **kwargs: Unpack[DescribeInstanceSqlHaStatesRequestTypeDef]
+    ) -> DescribeInstanceSqlHaStatesResultTypeDef:
+        """
+        Describes the SQL Server High Availability states for Amazon EC2 instances that
+        are enabled for Amazon EC2 High Availability for SQL Server monitoring.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_instance_sql_ha_states.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_instance_sql_ha_states)
+        """
+
     def describe_instance_status(
         self, **kwargs: Unpack[DescribeInstanceStatusRequestTypeDef]
     ) -> DescribeInstanceStatusResultTypeDef:
@@ -4802,6 +5145,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_ipam_external_resource_verification_tokens)
         """
 
+    def describe_ipam_policies(
+        self, **kwargs: Unpack[DescribeIpamPoliciesRequestTypeDef]
+    ) -> DescribeIpamPoliciesResultTypeDef:
+        """
+        Describes one or more IPAM policies.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_policies.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_ipam_policies)
+        """
+
     def describe_ipam_pools(
         self, **kwargs: Unpack[DescribeIpamPoolsRequestTypeDef]
     ) -> DescribeIpamPoolsResultTypeDef:
@@ -4810,6 +5163,26 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_pools.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_ipam_pools)
+        """
+
+    def describe_ipam_prefix_list_resolver_targets(
+        self, **kwargs: Unpack[DescribeIpamPrefixListResolverTargetsRequestTypeDef]
+    ) -> DescribeIpamPrefixListResolverTargetsResultTypeDef:
+        """
+        Describes one or more IPAM prefix list resolver Targets.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_prefix_list_resolver_targets.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_ipam_prefix_list_resolver_targets)
+        """
+
+    def describe_ipam_prefix_list_resolvers(
+        self, **kwargs: Unpack[DescribeIpamPrefixListResolversRequestTypeDef]
+    ) -> DescribeIpamPrefixListResolversResultTypeDef:
+        """
+        Describes one or more IPAM prefix list resolvers.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_prefix_list_resolvers.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_ipam_prefix_list_resolvers)
         """
 
     def describe_ipam_resource_discoveries(
@@ -5531,6 +5904,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_transit_gateway_connects)
         """
 
+    def describe_transit_gateway_metering_policies(
+        self, **kwargs: Unpack[DescribeTransitGatewayMeteringPoliciesRequestTypeDef]
+    ) -> DescribeTransitGatewayMeteringPoliciesResultTypeDef:
+        """
+        Describes one or more transit gateway metering policies.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_transit_gateway_metering_policies.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_transit_gateway_metering_policies)
+        """
+
     def describe_transit_gateway_multicast_domains(
         self, **kwargs: Unpack[DescribeTransitGatewayMulticastDomainsRequestTypeDef]
     ) -> DescribeTransitGatewayMulticastDomainsResultTypeDef:
@@ -5752,6 +6135,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_vpc_classic_link_dns_support)
         """
 
+    def describe_vpc_encryption_controls(
+        self, **kwargs: Unpack[DescribeVpcEncryptionControlsRequestTypeDef]
+    ) -> DescribeVpcEncryptionControlsResultTypeDef:
+        """
+        Describes one or more VPC Encryption Control configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_vpc_encryption_controls.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_vpc_encryption_controls)
+        """
+
     def describe_vpc_endpoint_associations(
         self, **kwargs: Unpack[DescribeVpcEndpointAssociationsRequestTypeDef]
     ) -> DescribeVpcEndpointAssociationsResultTypeDef:
@@ -5845,6 +6238,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_vpcs.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_vpcs)
+        """
+
+    def describe_vpn_concentrators(
+        self, **kwargs: Unpack[DescribeVpnConcentratorsRequestTypeDef]
+    ) -> DescribeVpnConcentratorsResultTypeDef:
+        """
+        Describes one or more of your VPN concentrators.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_vpn_concentrators.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_vpn_concentrators)
         """
 
     def describe_vpn_connections(
@@ -5960,6 +6363,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#disable_aws_network_performance_metric_subscription)
         """
 
+    def disable_capacity_manager(
+        self, **kwargs: Unpack[DisableCapacityManagerRequestTypeDef]
+    ) -> DisableCapacityManagerResultTypeDef:
+        """
+        Disables EC2 Capacity Manager for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disable_capacity_manager.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#disable_capacity_manager)
+        """
+
     def disable_ebs_encryption_by_default(
         self, **kwargs: Unpack[DisableEbsEncryptionByDefaultRequestTypeDef]
     ) -> DisableEbsEncryptionByDefaultResultTypeDef:
@@ -6034,6 +6447,17 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#disable_image_deregistration_protection)
         """
 
+    def disable_instance_sql_ha_standby_detections(
+        self, **kwargs: Unpack[DisableInstanceSqlHaStandbyDetectionsRequestTypeDef]
+    ) -> DisableInstanceSqlHaStandbyDetectionsResultTypeDef:
+        """
+        Disable Amazon EC2 instances running in an SQL Server High Availability cluster
+        from SQL Server High Availability instance standby detection monitoring.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disable_instance_sql_ha_standby_detections.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#disable_instance_sql_ha_standby_detections)
+        """
+
     def disable_ipam_organization_admin_account(
         self, **kwargs: Unpack[DisableIpamOrganizationAdminAccountRequestTypeDef]
     ) -> DisableIpamOrganizationAdminAccountResultTypeDef:
@@ -6042,6 +6466,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disable_ipam_organization_admin_account.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#disable_ipam_organization_admin_account)
+        """
+
+    def disable_ipam_policy(
+        self, **kwargs: Unpack[DisableIpamPolicyRequestTypeDef]
+    ) -> DisableIpamPolicyResultTypeDef:
+        """
+        Disables an IPAM policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disable_ipam_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#disable_ipam_policy)
         """
 
     def disable_route_server_propagation(
@@ -6333,6 +6767,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#enable_aws_network_performance_metric_subscription)
         """
 
+    def enable_capacity_manager(
+        self, **kwargs: Unpack[EnableCapacityManagerRequestTypeDef]
+    ) -> EnableCapacityManagerResultTypeDef:
+        """
+        Enables EC2 Capacity Manager for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/enable_capacity_manager.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#enable_capacity_manager)
+        """
+
     def enable_ebs_encryption_by_default(
         self, **kwargs: Unpack[EnableEbsEncryptionByDefaultRequestTypeDef]
     ) -> EnableEbsEncryptionByDefaultResultTypeDef:
@@ -6404,6 +6848,17 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#enable_image_deregistration_protection)
         """
 
+    def enable_instance_sql_ha_standby_detections(
+        self, **kwargs: Unpack[EnableInstanceSqlHaStandbyDetectionsRequestTypeDef]
+    ) -> EnableInstanceSqlHaStandbyDetectionsResultTypeDef:
+        """
+        Enable Amazon EC2 instances running in an SQL Server High Availability cluster
+        for SQL Server High Availability instance standby detection monitoring.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/enable_instance_sql_ha_standby_detections.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#enable_instance_sql_ha_standby_detections)
+        """
+
     def enable_ipam_organization_admin_account(
         self, **kwargs: Unpack[EnableIpamOrganizationAdminAccountRequestTypeDef]
     ) -> EnableIpamOrganizationAdminAccountResultTypeDef:
@@ -6412,6 +6867,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/enable_ipam_organization_admin_account.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#enable_ipam_organization_admin_account)
+        """
+
+    def enable_ipam_policy(
+        self, **kwargs: Unpack[EnableIpamPolicyRequestTypeDef]
+    ) -> EnableIpamPolicyResultTypeDef:
+        """
+        Enables an IPAM policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/enable_ipam_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#enable_ipam_policy)
         """
 
     def enable_reachability_analyzer_organization_sharing(
@@ -6615,6 +7080,39 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_aws_network_performance_data)
         """
 
+    def get_capacity_manager_attributes(
+        self, **kwargs: Unpack[GetCapacityManagerAttributesRequestTypeDef]
+    ) -> GetCapacityManagerAttributesResultTypeDef:
+        """
+        Retrieves the current configuration and status of EC2 Capacity Manager for your
+        account, including enablement status, Organizations access settings, and data
+        ingestion status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_capacity_manager_attributes.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_capacity_manager_attributes)
+        """
+
+    def get_capacity_manager_metric_data(
+        self, **kwargs: Unpack[GetCapacityManagerMetricDataRequestTypeDef]
+    ) -> GetCapacityManagerMetricDataResultTypeDef:
+        """
+        Retrieves capacity usage metrics for your EC2 resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_capacity_manager_metric_data.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_capacity_manager_metric_data)
+        """
+
+    def get_capacity_manager_metric_dimensions(
+        self, **kwargs: Unpack[GetCapacityManagerMetricDimensionsRequestTypeDef]
+    ) -> GetCapacityManagerMetricDimensionsResultTypeDef:
+        """
+        Retrieves the available dimension values for capacity metrics within a
+        specified time range.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_capacity_manager_metric_dimensions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_capacity_manager_metric_dimensions)
+        """
+
     def get_capacity_reservation_usage(
         self, **kwargs: Unpack[GetCapacityReservationUsageRequestTypeDef]
     ) -> GetCapacityReservationUsageResultTypeDef:
@@ -6699,6 +7197,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ebs_encryption_by_default)
         """
 
+    def get_enabled_ipam_policy(
+        self, **kwargs: Unpack[GetEnabledIpamPolicyRequestTypeDef]
+    ) -> GetEnabledIpamPolicyResultTypeDef:
+        """
+        Gets the enabled IPAM policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_enabled_ipam_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_enabled_ipam_policy)
+        """
+
     def get_flow_logs_integration_template(
         self, **kwargs: Unpack[GetFlowLogsIntegrationTemplateRequestTypeDef]
     ) -> GetFlowLogsIntegrationTemplateResultTypeDef:
@@ -6729,6 +7237,17 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_host_reservation_purchase_preview.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_host_reservation_purchase_preview)
+        """
+
+    def get_image_ancestry(
+        self, **kwargs: Unpack[GetImageAncestryRequestTypeDef]
+    ) -> GetImageAncestryResultTypeDef:
+        """
+        Retrieves the ancestry chain of the specified AMI, tracing its lineage back to
+        the root AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_image_ancestry.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_image_ancestry)
         """
 
     def get_image_block_public_access_state(
@@ -6824,6 +7343,26 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_discovered_resource_cidrs)
         """
 
+    def get_ipam_policy_allocation_rules(
+        self, **kwargs: Unpack[GetIpamPolicyAllocationRulesRequestTypeDef]
+    ) -> GetIpamPolicyAllocationRulesResultTypeDef:
+        """
+        Gets the allocation rules for an IPAM policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_policy_allocation_rules.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_policy_allocation_rules)
+        """
+
+    def get_ipam_policy_organization_targets(
+        self, **kwargs: Unpack[GetIpamPolicyOrganizationTargetsRequestTypeDef]
+    ) -> GetIpamPolicyOrganizationTargetsResultTypeDef:
+        """
+        Gets the Amazon Web Services Organizations targets for an IPAM policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_policy_organization_targets.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_policy_organization_targets)
+        """
+
     def get_ipam_pool_allocations(
         self, **kwargs: Unpack[GetIpamPoolAllocationsRequestTypeDef]
     ) -> GetIpamPoolAllocationsResultTypeDef:
@@ -6842,6 +7381,37 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_pool_cidrs.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_pool_cidrs)
+        """
+
+    def get_ipam_prefix_list_resolver_rules(
+        self, **kwargs: Unpack[GetIpamPrefixListResolverRulesRequestTypeDef]
+    ) -> GetIpamPrefixListResolverRulesResultTypeDef:
+        """
+        Retrieves the CIDR selection rules for an IPAM prefix list resolver.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_prefix_list_resolver_rules.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_prefix_list_resolver_rules)
+        """
+
+    def get_ipam_prefix_list_resolver_version_entries(
+        self, **kwargs: Unpack[GetIpamPrefixListResolverVersionEntriesRequestTypeDef]
+    ) -> GetIpamPrefixListResolverVersionEntriesResultTypeDef:
+        """
+        Retrieves the CIDR entries for a specific version of an IPAM prefix list
+        resolver.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_prefix_list_resolver_version_entries.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_prefix_list_resolver_version_entries)
+        """
+
+    def get_ipam_prefix_list_resolver_versions(
+        self, **kwargs: Unpack[GetIpamPrefixListResolverVersionsRequestTypeDef]
+    ) -> GetIpamPrefixListResolverVersionsResultTypeDef:
+        """
+        Retrieves version information for an IPAM prefix list resolver.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_prefix_list_resolver_versions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_prefix_list_resolver_versions)
         """
 
     def get_ipam_resource_cidrs(
@@ -7021,6 +7591,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_transit_gateway_attachment_propagations)
         """
 
+    def get_transit_gateway_metering_policy_entries(
+        self, **kwargs: Unpack[GetTransitGatewayMeteringPolicyEntriesRequestTypeDef]
+    ) -> GetTransitGatewayMeteringPolicyEntriesResultTypeDef:
+        """
+        Retrieves the entries for a transit gateway metering policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_transit_gateway_metering_policy_entries.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_transit_gateway_metering_policy_entries)
+        """
+
     def get_transit_gateway_multicast_domain_associations(
         self, **kwargs: Unpack[GetTransitGatewayMulticastDomainAssociationsRequestTypeDef]
     ) -> GetTransitGatewayMulticastDomainAssociationsResultTypeDef:
@@ -7113,6 +7693,17 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_verified_access_group_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_verified_access_group_policy)
+        """
+
+    def get_vpc_resources_blocking_encryption_enforcement(
+        self, **kwargs: Unpack[GetVpcResourcesBlockingEncryptionEnforcementRequestTypeDef]
+    ) -> GetVpcResourcesBlockingEncryptionEnforcementResultTypeDef:
+        """
+        Gets information about resources in a VPC that are blocking encryption
+        enforcement.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_vpc_resources_blocking_encryption_enforcement.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_vpc_resources_blocking_encryption_enforcement)
         """
 
     def get_vpn_connection_device_sample_configuration(
@@ -7232,6 +7823,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/list_snapshots_in_recycle_bin.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#list_snapshots_in_recycle_bin)
+        """
+
+    def list_volumes_in_recycle_bin(
+        self, **kwargs: Unpack[ListVolumesInRecycleBinRequestTypeDef]
+    ) -> ListVolumesInRecycleBinResultTypeDef:
+        """
+        Lists one or more volumes that are currently in the Recycle Bin.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/list_volumes_in_recycle_bin.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#list_volumes_in_recycle_bin)
         """
 
     def lock_snapshot(
@@ -7510,6 +8111,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_ipam)
         """
 
+    def modify_ipam_policy_allocation_rules(
+        self, **kwargs: Unpack[ModifyIpamPolicyAllocationRulesRequestTypeDef]
+    ) -> ModifyIpamPolicyAllocationRulesResultTypeDef:
+        """
+        Modifies the allocation rules in an IPAM policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_ipam_policy_allocation_rules.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_ipam_policy_allocation_rules)
+        """
+
     def modify_ipam_pool(
         self, **kwargs: Unpack[ModifyIpamPoolRequestTypeDef]
     ) -> ModifyIpamPoolResultTypeDef:
@@ -7518,6 +8129,26 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_ipam_pool.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_ipam_pool)
+        """
+
+    def modify_ipam_prefix_list_resolver(
+        self, **kwargs: Unpack[ModifyIpamPrefixListResolverRequestTypeDef]
+    ) -> ModifyIpamPrefixListResolverResultTypeDef:
+        """
+        Modifies an IPAM prefix list resolver.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_ipam_prefix_list_resolver.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_ipam_prefix_list_resolver)
+        """
+
+    def modify_ipam_prefix_list_resolver_target(
+        self, **kwargs: Unpack[ModifyIpamPrefixListResolverTargetRequestTypeDef]
+    ) -> ModifyIpamPrefixListResolverTargetResultTypeDef:
+        """
+        Modifies an IPAM prefix list resolver target.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_ipam_prefix_list_resolver_target.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_ipam_prefix_list_resolver_target)
         """
 
     def modify_ipam_resource_cidr(
@@ -7721,6 +8352,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_transit_gateway)
         """
 
+    def modify_transit_gateway_metering_policy(
+        self, **kwargs: Unpack[ModifyTransitGatewayMeteringPolicyRequestTypeDef]
+    ) -> ModifyTransitGatewayMeteringPolicyResultTypeDef:
+        """
+        Modifies a transit gateway metering policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_transit_gateway_metering_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_transit_gateway_metering_policy)
+        """
+
     def modify_transit_gateway_prefix_list_reference(
         self, **kwargs: Unpack[ModifyTransitGatewayPrefixListReferenceRequestTypeDef]
     ) -> ModifyTransitGatewayPrefixListReferenceResultTypeDef:
@@ -7865,6 +8506,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_vpc_block_public_access_options.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_vpc_block_public_access_options)
+        """
+
+    def modify_vpc_encryption_control(
+        self, **kwargs: Unpack[ModifyVpcEncryptionControlRequestTypeDef]
+    ) -> ModifyVpcEncryptionControlResultTypeDef:
+        """
+        Modifies the encryption control configuration for a VPC.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_vpc_encryption_control.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_vpc_encryption_control)
         """
 
     def modify_vpc_endpoint(
@@ -8495,6 +9146,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#restore_snapshot_tier)
         """
 
+    def restore_volume_from_recycle_bin(
+        self, **kwargs: Unpack[RestoreVolumeFromRecycleBinRequestTypeDef]
+    ) -> RestoreVolumeFromRecycleBinResultTypeDef:
+        """
+        Restores a volume from the Recycle Bin.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/restore_volume_from_recycle_bin.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#restore_volume_from_recycle_bin)
+        """
+
     def revoke_client_vpn_ingress(
         self, **kwargs: Unpack[RevokeClientVpnIngressRequestTypeDef]
     ) -> RevokeClientVpnIngressResultTypeDef:
@@ -8664,7 +9325,7 @@ class EC2Client(BaseClient):
         self, **kwargs: Unpack[TerminateInstancesRequestTypeDef]
     ) -> TerminateInstancesResultTypeDef:
         """
-        Shuts down the specified instances.
+        Terminates (deletes) the specified instances.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/terminate_instances.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#terminate_instances)
@@ -8721,6 +9382,28 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/unmonitor_instances.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#unmonitor_instances)
+        """
+
+    def update_capacity_manager_organizations_access(
+        self, **kwargs: Unpack[UpdateCapacityManagerOrganizationsAccessRequestTypeDef]
+    ) -> UpdateCapacityManagerOrganizationsAccessResultTypeDef:
+        """
+        Updates the Organizations access setting for EC2 Capacity Manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/update_capacity_manager_organizations_access.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#update_capacity_manager_organizations_access)
+        """
+
+    def update_interruptible_capacity_reservation_allocation(
+        self, **kwargs: Unpack[UpdateInterruptibleCapacityReservationAllocationRequestTypeDef]
+    ) -> UpdateInterruptibleCapacityReservationAllocationResultTypeDef:
+        """
+        Modifies the number of instances allocated to an interruptible reservation,
+        allowing you to add more capacity or reclaim capacity to your source Capacity
+        Reservation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/update_interruptible_capacity_reservation_allocation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#update_interruptible_capacity_reservation_allocation)
         """
 
     def update_security_group_rule_descriptions_egress(
@@ -8845,6 +9528,17 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_capacity_blocks"]
     ) -> DescribeCapacityBlocksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_capacity_manager_data_exports"]
+    ) -> DescribeCapacityManagerDataExportsPaginator:
         """
         Create a paginator for an operation.
 
@@ -9285,6 +9979,28 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_ipam_pools"]
     ) -> DescribeIpamPoolsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_ipam_prefix_list_resolver_targets"]
+    ) -> DescribeIpamPrefixListResolverTargetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_ipam_prefix_list_resolvers"]
+    ) -> DescribeIpamPrefixListResolversPaginator:
         """
         Create a paginator for an operation.
 
@@ -10188,6 +10904,17 @@ class EC2Client(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_vpn_concentrators"]
+    ) -> DescribeVpnConcentratorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_associated_ipv6_pool_cidrs"]
     ) -> GetAssociatedIpv6PoolCidrsPaginator:
         """
@@ -10201,6 +10928,28 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_aws_network_performance_data"]
     ) -> GetAwsNetworkPerformanceDataPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_capacity_manager_metric_data"]
+    ) -> GetCapacityManagerMetricDataPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_capacity_manager_metric_dimensions"]
+    ) -> GetCapacityManagerMetricDimensionsPaginator:
         """
         Create a paginator for an operation.
 
@@ -10278,6 +11027,39 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_ipam_pool_cidrs"]
     ) -> GetIpamPoolCidrsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_ipam_prefix_list_resolver_rules"]
+    ) -> GetIpamPrefixListResolverRulesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_ipam_prefix_list_resolver_version_entries"]
+    ) -> GetIpamPrefixListResolverVersionEntriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_ipam_prefix_list_resolver_versions"]
+    ) -> GetIpamPrefixListResolverVersionsPaginator:
         """
         Create a paginator for an operation.
 

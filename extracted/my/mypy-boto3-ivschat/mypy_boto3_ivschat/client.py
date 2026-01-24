@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -58,12 +59,6 @@ from .type_defs import (
     UpdateRoomResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -74,15 +69,15 @@ __all__ = ("IvschatClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    PendingVerification: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    PendingVerification: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class IvschatClient(BaseClient):
@@ -182,7 +177,7 @@ class IvschatClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivschat/client/#delete_room)
         """
 
-    def disconnect_user(self, **kwargs: Unpack[DisconnectUserRequestTypeDef]) -> Dict[str, Any]:
+    def disconnect_user(self, **kwargs: Unpack[DisconnectUserRequestTypeDef]) -> dict[str, Any]:
         """
         Disconnects all connections using a specified user ID from a room.
 
@@ -246,7 +241,7 @@ class IvschatClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivschat/client/#send_event)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or updates tags for the AWS resource with the specified ARN.
 
@@ -254,7 +249,7 @@ class IvschatClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivschat/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from the resource with the specified ARN.
 

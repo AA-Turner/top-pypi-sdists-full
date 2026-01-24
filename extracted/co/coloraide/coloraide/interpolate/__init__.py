@@ -104,8 +104,12 @@ class Interpolator(Generic[AnyColor], metaclass=ABCMeta):
         cs = self.color_cls.CS_MAP[space]
         if cs.is_polar():
             self.hue_index = cs.hue_index()  # type: ignore[attr-defined]
+            self.max_hue = cs.channels[self.hue_index].high
+            self.half_hue = self.max_hue / 2
         else:
             self.hue_index = -1
+            self.max_hue = 0.0
+            self.half_hue = 0.0
         self.premultiplied = premultiplied
 
         # Calculate padded start and end
@@ -581,7 +585,7 @@ def carryforward_convert(color: Color, space: str, hue_index: int, powerless: bo
     needs_conversion = space != color.space()
 
     # Only look to "carry forward" if we have undefined channels
-    if needs_conversion and any(math.isnan(c) for c in color):  # type: ignore[attr-defined]
+    if needs_conversion and any(math.isnan(c) for c in color):
         cs1 = color._space
         cs2 = color.CS_MAP[space]
         channels = {

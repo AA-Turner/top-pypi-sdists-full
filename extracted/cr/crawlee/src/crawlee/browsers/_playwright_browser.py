@@ -10,12 +10,15 @@ from typing import TYPE_CHECKING, Any
 from playwright.async_api import Browser
 from typing_extensions import override
 
+from crawlee._utils.docs import docs_group
+
 if TYPE_CHECKING:
     from playwright.async_api import BrowserContext, BrowserType, CDPSession, Page
 
 logger = getLogger(__name__)
 
 
+@docs_group('Browser management')
 class PlaywrightPersistentBrowser(Browser):
     """A wrapper for Playwright's `Browser` that operates with a persistent context.
 
@@ -75,7 +78,8 @@ class PlaywrightPersistentBrowser(Browser):
 
     async def _delete_temp_dir(self, _: BrowserContext | None) -> None:
         if self._temp_dir and self._temp_dir.exists():
-            await asyncio.to_thread(shutil.rmtree, self._temp_dir, ignore_errors=True)
+            temp_dir = self._temp_dir
+            await asyncio.to_thread(shutil.rmtree, temp_dir, ignore_errors=True)
 
     @override
     async def close(self, **kwargs: Any) -> None:

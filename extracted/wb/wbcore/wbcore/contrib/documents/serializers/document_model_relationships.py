@@ -1,5 +1,5 @@
 from wbcore import serializers
-from wbcore.content_type.serializers import (
+from wbcore.contrib.content_type.serializers import (
     ContentTypeRepresentationSerializer,
     DynamicObjectIDRepresentationSerializer,
 )

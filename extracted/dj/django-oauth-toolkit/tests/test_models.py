@@ -16,6 +16,7 @@ from oauth2_provider.models import (
     get_grant_model,
     get_id_token_model,
     get_refresh_token_model,
+    redirect_to_uri_allowed,
 )
 
 from . import presets
@@ -70,6 +71,22 @@ class TestModels(BaseTestModels):
         )
 
         self.assertNotEqual(app.client_secret, CLEARTEXT_SECRET)
+        self.assertTrue(check_password(CLEARTEXT_SECRET, app.client_secret))
+
+    @override_settings(OAUTH2_PROVIDER={"CLIENT_SECRET_HASHER": "fast_pbkdf2"})
+    def test_hashed_from_settings(self):
+        app = Application.objects.create(
+            name="test_app",
+            redirect_uris="http://localhost http://example.com http://example.org",
+            user=self.user,
+            client_type=Application.CLIENT_CONFIDENTIAL,
+            authorization_grant_type=Application.GRANT_AUTHORIZATION_CODE,
+            client_secret=CLEARTEXT_SECRET,
+            hash_client_secret=True,
+        )
+
+        self.assertNotEqual(app.client_secret, CLEARTEXT_SECRET)
+        self.assertIn("fast_pbkdf2", app.client_secret)
         self.assertTrue(check_password(CLEARTEXT_SECRET, app.client_secret))
 
     def test_unhashed_secret(self):
@@ -151,7 +168,7 @@ class TestCustomModels(BaseTestModels):
         If a custom application model is installed, it should be present in
         the related objects and not the swapped out one.
 
-        See issue #90 (https://github.com/jazzband/django-oauth-toolkit/issues/90)
+        See issue #90 (https://github.com/django-oauth/django-oauth-toolkit/issues/90)
         """
         related_object_names = [
             f.name
@@ -416,25 +433,25 @@ class TestClearExpired(BaseTestModels):
         initial_at_count = AccessToken.objects.count()
         assert initial_at_count == 2 * self.num_tokens, f"{2 * self.num_tokens} access tokens should exist."
         initial_expired_at_count = AccessToken.objects.filter(expires__lte=self.now).count()
-        assert (
-            initial_expired_at_count == self.num_tokens
-        ), f"{self.num_tokens} expired access tokens should exist."
+        assert initial_expired_at_count == self.num_tokens, (
+            f"{self.num_tokens} expired access tokens should exist."
+        )
         initial_current_at_count = AccessToken.objects.filter(expires__gt=self.now).count()
-        assert (
-            initial_current_at_count == self.num_tokens
-        ), f"{self.num_tokens} current access tokens should exist."
+        assert initial_current_at_count == self.num_tokens, (
+            f"{self.num_tokens} current access tokens should exist."
+        )
         initial_rt_count = RefreshToken.objects.count()
-        assert (
-            initial_rt_count == self.num_tokens // 2
-        ), f"{self.num_tokens // 2} refresh tokens should exist."
+        assert initial_rt_count == self.num_tokens // 2, (
+            f"{self.num_tokens // 2} refresh tokens should exist."
+        )
         initial_rt_expired_at_count = RefreshToken.objects.filter(access_token__expires__lte=self.now).count()
-        assert (
-            initial_rt_expired_at_count == initial_rt_count / 2
-        ), "half the refresh tokens should be for expired access tokens."
+        assert initial_rt_expired_at_count == initial_rt_count / 2, (
+            "half the refresh tokens should be for expired access tokens."
+        )
         initial_rt_current_at_count = RefreshToken.objects.filter(access_token__expires__gt=self.now).count()
-        assert (
-            initial_rt_current_at_count == initial_rt_count / 2
-        ), "half the refresh tokens should be for current access tokens."
+        assert initial_rt_current_at_count == initial_rt_count / 2, (
+            "half the refresh tokens should be for current access tokens."
+        )
         initial_gt_count = Grant.objects.count()
         assert initial_gt_count == self.num_tokens * 2, f"{self.num_tokens * 2} grants should exist."
 
@@ -442,15 +459,15 @@ class TestClearExpired(BaseTestModels):
 
         # after clear_expired():
         remaining_at_count = AccessToken.objects.count()
-        assert (
-            remaining_at_count == initial_at_count // 2
-        ), "half the initial access tokens should still exist."
+        assert remaining_at_count == initial_at_count // 2, (
+            "half the initial access tokens should still exist."
+        )
         remaining_expired_at_count = AccessToken.objects.filter(expires__lte=self.now).count()
         assert remaining_expired_at_count == 0, "no remaining expired access tokens should still exist."
         remaining_current_at_count = AccessToken.objects.filter(expires__gt=self.now).count()
-        assert (
-            remaining_current_at_count == initial_current_at_count
-        ), "all current access tokens should still exist."
+        assert remaining_current_at_count == initial_current_at_count, (
+            "all current access tokens should still exist."
+        )
         remaining_rt_count = RefreshToken.objects.count()
         assert remaining_rt_count == initial_rt_count // 2, "half the refresh tokens should still exist."
         remaining_rt_expired_at_count = RefreshToken.objects.filter(
@@ -460,9 +477,9 @@ class TestClearExpired(BaseTestModels):
         remaining_rt_current_at_count = RefreshToken.objects.filter(
             access_token__expires__gt=self.now
         ).count()
-        assert (
-            remaining_rt_current_at_count == initial_rt_current_at_count
-        ), "all the refresh tokens for current access tokens should still exist."
+        assert remaining_rt_current_at_count == initial_rt_current_at_count, (
+            "all the refresh tokens for current access tokens should still exist."
+        )
         remaining_gt_count = Grant.objects.count()
         assert remaining_gt_count == initial_gt_count // 2, "half the remaining grants should still exist."
 
@@ -546,7 +563,7 @@ def test_clear_expired_id_tokens(oauth2_settings, oidc_tokens, rf):
 def test_application_key(oauth2_settings, application):
     # RS256 key
     key = application.jwk_key
-    assert key.key_type == "RSA"
+    assert key.kty == "RSA"
 
     # RS256 key, but not configured
     oauth2_settings.OIDC_RSA_PRIVATE_KEY = None
@@ -557,7 +574,7 @@ def test_application_key(oauth2_settings, application):
     # HS256 key
     application.algorithm = Application.HS256_ALGORITHM
     key = application.jwk_key
-    assert key.key_type == "oct"
+    assert key.kty == "oct"
 
     # No algorithm
     application.algorithm = Application.NO_ALGORITHM
@@ -606,6 +623,79 @@ def test_application_clean(oauth2_settings, application):
     application.clean()
 
 
+def _test_wildcard_redirect_uris_valid(oauth2_settings, application, uris):
+    oauth2_settings.ALLOW_URI_WILDCARDS = True
+    application.redirect_uris = uris
+    application.clean()
+
+
+def _test_wildcard_redirect_uris_invalid(oauth2_settings, application, uris):
+    oauth2_settings.ALLOW_URI_WILDCARDS = True
+    application.redirect_uris = uris
+    with pytest.raises(ValidationError):
+        application.clean()
+
+
+@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_application_clean_wildcard_redirect_uris_valid_3ld(oauth2_settings, application):
+    _test_wildcard_redirect_uris_valid(oauth2_settings, application, "https://*.example.com/path")
+
+
+@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_application_clean_wildcard_redirect_uris_valid_partial_3ld(oauth2_settings, application):
+    _test_wildcard_redirect_uris_valid(oauth2_settings, application, "https://*-partial.example.com/path")
+
+
+@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_application_clean_wildcard_redirect_uris_invalid_3ld_not_starting_with_wildcard(
+    oauth2_settings, application
+):
+    _test_wildcard_redirect_uris_invalid(oauth2_settings, application, "https://invalid-*.example.com/path")
+
+
+@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_application_clean_wildcard_redirect_uris_invalid_2ld(oauth2_settings, application):
+    _test_wildcard_redirect_uris_invalid(oauth2_settings, application, "https://*.com/path")
+
+
+@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_application_clean_wildcard_redirect_uris_invalid_partial_2ld(oauth2_settings, application):
+    _test_wildcard_redirect_uris_invalid(oauth2_settings, application, "https://*-partial.com/path")
+
+
+@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_application_clean_wildcard_redirect_uris_invalid_2ld_not_starting_with_wildcard(
+    oauth2_settings, application
+):
+    _test_wildcard_redirect_uris_invalid(oauth2_settings, application, "https://invalid-*.com/path")
+
+
+@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_application_clean_wildcard_redirect_uris_invalid_tld(oauth2_settings, application):
+    _test_wildcard_redirect_uris_invalid(oauth2_settings, application, "https://*/path")
+
+
+@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_application_clean_wildcard_redirect_uris_invalid_tld_partial(oauth2_settings, application):
+    _test_wildcard_redirect_uris_invalid(oauth2_settings, application, "https://*-partial/path")
+
+
+@pytest.mark.django_db(databases=retrieve_current_databases())
+@pytest.mark.oauth2_settings(presets.OIDC_SETTINGS_RW)
+def test_application_clean_wildcard_redirect_uris_invalid_tld_not_starting_with_wildcard(
+    oauth2_settings, application
+):
+    _test_wildcard_redirect_uris_invalid(oauth2_settings, application, "https://invalid-*/path")
+
+
 @pytest.mark.django_db(databases=retrieve_current_databases())
 @pytest.mark.oauth2_settings(presets.ALLOWED_SCHEMES_DEFAULT)
 def test_application_origin_allowed_default_https(oauth2_settings, cors_application):
@@ -620,3 +710,35 @@ def test_application_origin_allowed_http(oauth2_settings, cors_application):
     """Test that http schemes are allowed because http was added to ALLOWED_SCHEMES"""
     assert cors_application.origin_allowed("https://example.com")
     assert cors_application.origin_allowed("http://example.com")
+
+
+def test_redirect_to_uri_allowed_expects_allowed_uri_list():
+    with pytest.raises(ValueError):
+        redirect_to_uri_allowed("https://example.com", "https://example.com")
+    assert redirect_to_uri_allowed("https://example.com", ["https://example.com"])
+
+
+valid_wildcard_redirect_to_params = [
+    ("https://valid.example.com", ["https://*.example.com"]),
+    ("https://valid.valid.example.com", ["https://*.example.com"]),
+    ("https://valid-partial.example.com", ["https://*-partial.example.com"]),
+    ("https://valid.valid-partial.example.com", ["https://*-partial.example.com"]),
+]
+
+
+@pytest.mark.parametrize("uri, allowed_uri", valid_wildcard_redirect_to_params)
+def test_wildcard_redirect_to_uri_allowed_valid(uri, allowed_uri, oauth2_settings):
+    oauth2_settings.ALLOW_URI_WILDCARDS = True
+    assert redirect_to_uri_allowed(uri, allowed_uri)
+
+
+invalid_wildcard_redirect_to_params = [
+    ("https://invalid.com", ["https://*.example.com"]),
+    ("https://invalid.example.com", ["https://*-partial.example.com"]),
+]
+
+
+@pytest.mark.parametrize("uri, allowed_uri", invalid_wildcard_redirect_to_params)
+def test_wildcard_redirect_to_uri_allowed_invalid(uri, allowed_uri, oauth2_settings):
+    oauth2_settings.ALLOW_URI_WILDCARDS = True
+    assert not redirect_to_uri_allowed(uri, allowed_uri)

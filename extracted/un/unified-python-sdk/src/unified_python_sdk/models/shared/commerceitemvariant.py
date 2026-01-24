@@ -7,12 +7,12 @@ from .commerceitemprice import CommerceItemPrice, CommerceItemPriceTypedDict
 from .commercemetadata import CommerceMetadata, CommerceMetadataTypedDict
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class SizeUnit(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -89,9 +89,7 @@ class CommerceItemVariant(BaseModel):
 
     requires_shipping: Optional[bool] = None
 
-    size_unit: Annotated[
-        Optional[SizeUnit], PlainValidator(validate_open_enum(False))
-    ] = None
+    size_unit: Optional[SizeUnit] = None
 
     sku: Optional[str] = None
 
@@ -101,8 +99,67 @@ class CommerceItemVariant(BaseModel):
 
     weight: Optional[float] = None
 
-    weight_unit: Annotated[
-        Optional[WeightUnit], PlainValidator(validate_open_enum(False))
-    ] = None
+    weight_unit: Optional[WeightUnit] = None
 
     width: Optional[float] = None
+
+    @field_serializer("size_unit")
+    def serialize_size_unit(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.SizeUnit(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("weight_unit")
+    def serialize_weight_unit(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.WeightUnit(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "available_at",
+                "description",
+                "height",
+                "id",
+                "inventory_id",
+                "is_active",
+                "is_featured",
+                "is_visible",
+                "length",
+                "media",
+                "metadata",
+                "name",
+                "options",
+                "prices",
+                "public_description",
+                "public_name",
+                "requires_shipping",
+                "size_unit",
+                "sku",
+                "tags",
+                "total_stock",
+                "weight",
+                "weight_unit",
+                "width",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

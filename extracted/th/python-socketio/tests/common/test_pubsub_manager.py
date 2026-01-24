@@ -1,4 +1,5 @@
 import functools
+import json
 import logging
 from unittest import mock
 
@@ -68,7 +69,148 @@ class TestPubSubManager:
             {
                 'method': 'emit',
                 'event': 'foo',
-                'data': 'bar',
+                'binary': False,
+                'data': ['bar'],
+                'namespace': '/',
+                'room': None,
+                'skip_sid': None,
+                'callback': None,
+                'host_id': '123456',
+            }
+        )
+
+    def test_emit_binary(self):
+        self.pm.emit('foo', b'bar')
+        self.pm._publish.assert_called_once_with(
+            {
+                'method': 'emit',
+                'event': 'foo',
+                'binary': True,
+                'data': [[{'_placeholder': True, 'num': 0}], 'YmFy'],
+                'namespace': '/',
+                'room': None,
+                'skip_sid': None,
+                'callback': None,
+                'host_id': '123456',
+            }
+        )
+        self.pm.emit('foo', {'foo': b'bar'})
+        self.pm._publish.assert_called_with(
+            {
+                'method': 'emit',
+                'event': 'foo',
+                'binary': True,
+                'data': [[{'foo': {'_placeholder': True, 'num': 0}}], 'YmFy'],
+                'namespace': '/',
+                'room': None,
+                'skip_sid': None,
+                'callback': None,
+                'host_id': '123456',
+            }
+        )
+
+    def test_emit_bytearray(self):
+        self.pm.emit('foo', bytearray(b'bar'))
+        self.pm._publish.assert_called_once_with(
+            {
+                'method': 'emit',
+                'event': 'foo',
+                'binary': True,
+                'data': [[{'_placeholder': True, 'num': 0}], 'YmFy'],
+                'namespace': '/',
+                'room': None,
+                'skip_sid': None,
+                'callback': None,
+                'host_id': '123456',
+            }
+        )
+        self.pm.emit('foo', {'foo': bytearray(b'bar')})
+        self.pm._publish.assert_called_with(
+            {
+                'method': 'emit',
+                'event': 'foo',
+                'binary': True,
+                'data': [[{'foo': {'_placeholder': True, 'num': 0}}], 'YmFy'],
+                'namespace': '/',
+                'room': None,
+                'skip_sid': None,
+                'callback': None,
+                'host_id': '123456',
+            }
+        )
+
+    def test_emit_list(self):
+        self.pm.emit('foo', [1, 'two'])
+        self.pm._publish.assert_called_once_with(
+            {
+                'method': 'emit',
+                'event': 'foo',
+                'binary': False,
+                'data': [[1, 'two']],
+                'namespace': '/',
+                'room': None,
+                'skip_sid': None,
+                'callback': None,
+                'host_id': '123456',
+            }
+        )
+        self.pm.emit('foo', [1, b'two', 'three'])
+        self.pm._publish.assert_called_with(
+            {
+                'method': 'emit',
+                'event': 'foo',
+                'binary': True,
+                'data': [
+                    [[1, {'_placeholder': True, 'num': 0}, 'three']], 'dHdv',
+                ],
+                'namespace': '/',
+                'room': None,
+                'skip_sid': None,
+                'callback': None,
+                'host_id': '123456',
+            }
+        )
+
+    def test_emit_no_arguments(self):
+        self.pm.emit('foo', ())
+        self.pm._publish.assert_called_once_with(
+            {
+                'method': 'emit',
+                'event': 'foo',
+                'binary': False,
+                'data': [],
+                'namespace': '/',
+                'room': None,
+                'skip_sid': None,
+                'callback': None,
+                'host_id': '123456',
+            }
+        )
+
+    def test_emit_multiple_arguments(self):
+        self.pm.emit('foo', (1, 'two'))
+        self.pm._publish.assert_called_once_with(
+            {
+                'method': 'emit',
+                'event': 'foo',
+                'binary': False,
+                'data': [1, 'two'],
+                'namespace': '/',
+                'room': None,
+                'skip_sid': None,
+                'callback': None,
+                'host_id': '123456',
+            }
+        )
+        self.pm.emit('foo', (1, b'two', 'three'))
+        self.pm._publish.assert_called_with(
+            {
+                'method': 'emit',
+                'event': 'foo',
+                'binary': True,
+                'data': [
+                    [1, {'_placeholder': True, 'num': 0}, 'three'], 'dHdv',
+                ],
                 'namespace': '/',
                 'room': None,
                 'skip_sid': None,
@@ -84,7 +226,8 @@ class TestPubSubManager:
             {
                 'method': 'emit',
                 'event': 'foo',
-                'data': 'bar',
+                'binary': False,
+                'data': ['bar'],
                 'namespace': '/',
                 'room': sid,
                 'skip_sid': None,
@@ -99,7 +242,8 @@ class TestPubSubManager:
             {
                 'method': 'emit',
                 'event': 'foo',
-                'data': 'bar',
+                'binary': False,
+                'data': ['bar'],
                 'namespace': '/baz',
                 'room': None,
                 'skip_sid': None,
@@ -114,7 +258,8 @@ class TestPubSubManager:
             {
                 'method': 'emit',
                 'event': 'foo',
-                'data': 'bar',
+                'binary': False,
+                'data': ['bar'],
                 'namespace': '/',
                 'room': 'baz',
                 'skip_sid': None,
@@ -129,7 +274,8 @@ class TestPubSubManager:
             {
                 'method': 'emit',
                 'event': 'foo',
-                'data': 'bar',
+                'binary': False,
+                'data': ['bar'],
                 'namespace': '/',
                 'room': None,
                 'skip_sid': 'baz',
@@ -147,7 +293,8 @@ class TestPubSubManager:
                 {
                     'method': 'emit',
                     'event': 'foo',
-                    'data': 'bar',
+                    'binary': False,
+                    'data': ['bar'],
                     'namespace': '/',
                     'room': 'baz',
                     'skip_sid': None,
@@ -239,10 +386,146 @@ class TestPubSubManager:
 
     def test_handle_emit(self):
         with mock.patch.object(manager.Manager, 'emit') as super_emit:
+            self.pm._handle_emit({'event': 'foo', 'data': ['bar']})
+            super_emit.assert_called_once_with(
+                'foo',
+                'bar',
+                namespace=None,
+                room=None,
+                skip_sid=None,
+                callback=None,
+            )
+
+    def test_handle_legacy_emit(self):
+        with mock.patch.object(manager.Manager, 'emit') as super_emit:
             self.pm._handle_emit({'event': 'foo', 'data': 'bar'})
             super_emit.assert_called_once_with(
                 'foo',
                 'bar',
+                namespace=None,
+                room=None,
+                skip_sid=None,
+                callback=None,
+            )
+
+    def test_handle_emit_binary(self):
+        with mock.patch.object(manager.Manager, 'emit') as super_emit:
+            self.pm._handle_emit({
+                'event': 'foo',
+                'binary': True,
+                'data': [[{'_placeholder': True, 'num': 0}], 'YmFy'],
+            })
+            super_emit.assert_called_once_with(
+                'foo',
+                b'bar',
+                namespace=None,
+                room=None,
+                skip_sid=None,
+                callback=None,
+            )
+            self.pm._handle_emit({
+                'event': 'foo',
+                'binary': True,
+                'data': [[{'foo': {'_placeholder': True, 'num': 0}}], 'YmFy'],
+            })
+            super_emit.assert_called_with(
+                'foo',
+                {'foo': b'bar'},
+                namespace=None,
+                room=None,
+                skip_sid=None,
+                callback=None,
+            )
+
+    def test_handle_legacy_emit_binary(self):
+        with mock.patch.object(manager.Manager, 'emit') as super_emit:
+            self.pm._handle_emit({
+                'event': 'foo',
+                'binary': True,
+                'data': [{'_placeholder': True, 'num': 0}, 'YmFy'],
+            })
+            super_emit.assert_called_once_with(
+                'foo',
+                b'bar',
+                namespace=None,
+                room=None,
+                skip_sid=None,
+                callback=None,
+            )
+            self.pm._handle_emit({
+                'event': 'foo',
+                'binary': True,
+                'data': [{'foo': {'_placeholder': True, 'num': 0}}, 'YmFy'],
+            })
+            super_emit.assert_called_with(
+                'foo',
+                {'foo': b'bar'},
+                namespace=None,
+                room=None,
+                skip_sid=None,
+                callback=None,
+            )
+
+    def test_handle_emit_list(self):
+        with mock.patch.object(manager.Manager, 'emit') as super_emit:
+            self.pm._handle_emit({'event': 'foo', 'data': [[1, 'two']]})
+            super_emit.assert_called_once_with(
+                'foo',
+                [1, 'two'],
+                namespace=None,
+                room=None,
+                skip_sid=None,
+                callback=None,
+            )
+            self.pm._handle_emit({
+                'event': 'foo',
+                'binary': True,
+                'data': [
+                    [[1, {'_placeholder': True, 'num': 0}, 'three']], 'dHdv'
+                ],
+            })
+            super_emit.assert_called_with(
+                'foo',
+                [1, b'two', 'three'],
+                namespace=None,
+                room=None,
+                skip_sid=None,
+                callback=None,
+            )
+
+    def test_handle_emit_no_arguments(self):
+        with mock.patch.object(manager.Manager, 'emit') as super_emit:
+            self.pm._handle_emit({'event': 'foo', 'data': []})
+            super_emit.assert_called_once_with(
+                'foo',
+                (),
+                namespace=None,
+                room=None,
+                skip_sid=None,
+                callback=None,
+            )
+
+    def test_handle_emit_multiple_arguments(self):
+        with mock.patch.object(manager.Manager, 'emit') as super_emit:
+            self.pm._handle_emit({'event': 'foo', 'data': [1, 'two']})
+            super_emit.assert_called_once_with(
+                'foo',
+                (1, 'two'),
+                namespace=None,
+                room=None,
+                skip_sid=None,
+                callback=None,
+            )
+            self.pm._handle_emit({
+                'event': 'foo',
+                'binary': True,
+                'data': [
+                    [1, {'_placeholder': True, 'num': 0}, 'three'], 'dHdv'
+                ],
+            })
+            super_emit.assert_called_with(
+                'foo',
+                (1, b'two', 'three'),
                 namespace=None,
                 room=None,
                 skip_sid=None,
@@ -465,22 +748,20 @@ class TestPubSubManager:
         host_id = self.pm.host_id
 
         def messages():
-            import pickle
-
             yield {'method': 'emit', 'value': 'foo', 'host_id': 'x'}
             yield {'missing': 'method', 'host_id': 'x'}
             yield '{"method": "callback", "value": "bar", "host_id": "x"}'
             yield {'method': 'disconnect', 'sid': '123', 'namespace': '/foo',
                    'host_id': 'x'}
             yield {'method': 'bogus', 'host_id': 'x'}
-            yield pickle.dumps({'method': 'close_room', 'value': 'baz',
-                                'host_id': 'x'})
+            yield json.dumps({'method': 'close_room', 'value': 'baz',
+                              'host_id': 'x'})
             yield {'method': 'enter_room', 'sid': '123', 'namespace': '/foo',
                    'room': 'room', 'host_id': 'x'}
             yield {'method': 'leave_room', 'sid': '123', 'namespace': '/foo',
                    'room': 'room', 'host_id': 'x'}
             yield 'bad json'
-            yield b'bad pickled'
+            yield b'bad data'
 
             # these should not publish anything on the queue, as they come from
             # the same host
@@ -488,8 +769,8 @@ class TestPubSubManager:
             yield {'method': 'callback', 'value': 'bar', 'host_id': host_id}
             yield {'method': 'disconnect', 'sid': '123', 'namespace': '/foo',
                    'host_id': host_id}
-            yield pickle.dumps({'method': 'close_room', 'value': 'baz',
-                                'host_id': host_id})
+            yield json.dumps({'method': 'close_room', 'value': 'baz',
+                              'host_id': host_id})
 
         self.pm._listen = mock.MagicMock(side_effect=messages)
         try:

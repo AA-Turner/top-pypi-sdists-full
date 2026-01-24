@@ -276,7 +276,7 @@ def _merge_last_fold_if_too_small(splits: list[Fold], threshold: int) -> list[Fo
         ],
         test_bounds=[previous_fold.test_bounds[0].union(last_fold.test_bounds[0])],
     )
-    return splits[:-2] + [merged_fold]
+    return [*splits[:-2], merged_fold]
 
 
 def _get_end(end: int | pd.Timestamp | None, index: pd.Index) -> int:

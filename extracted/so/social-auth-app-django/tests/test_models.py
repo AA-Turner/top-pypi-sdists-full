@@ -4,7 +4,8 @@ from unittest import mock
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.db import IntegrityError
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from social_core.exceptions import AuthAlreadyAssociated
 
 from social_django.models import (
     AbstractUserSocialAuth,
@@ -101,22 +102,21 @@ class TestUserSocialAuth(TestCase):
         self.assertEqual(UserSocialAuth.get_username(self.user), self.user.username)
 
     def test_create_user(self):
-        # Catch integrity error and find existing user
-        UserSocialAuth.create_user(username=self.user.username)
+        UserSocialAuth.create_user(username="testuser")
 
     def test_create_user_reraise(self):
-        with self.assertRaises(IntegrityError):
+        with self.assertRaises(AuthAlreadyAssociated):
             UserSocialAuth.create_user(username=self.user.username, email=None)
 
     @mock.patch("social_django.models.UserSocialAuth.username_field", return_value="email")
-    @mock.patch("django.contrib.auth.models.UserManager.create_user", side_effect=IntegrityError)
+    @mock.patch("django.contrib.auth.models.UserManager.create_user", return_value="<User>")
     def test_create_user_custom_username(self, *args):
         UserSocialAuth.create_user(username=self.user.email)
 
-    @mock.patch("social_django.storage.transaction", spec=[])
-    def test_create_user_without_transaction_atomic(self, *args):
-        UserSocialAuth.create_user(username="test")
-        self.assertTrue(self.user_model._default_manager.filter(username="test").exists())  # noqa: SLF001
+    @mock.patch("django.contrib.auth.models.UserManager.create_user", side_effect=IntegrityError)
+    def test_create_user_existing(self, *args):
+        with self.assertRaises(AuthAlreadyAssociated):
+            UserSocialAuth.create_user(username=self.user.email)
 
     def test_get_user(self):
         self.assertEqual(UserSocialAuth.get_user(pk=self.user.pk), self.user)
@@ -125,6 +125,13 @@ class TestUserSocialAuth(TestCase):
     def test_get_users_by_email(self):
         qs = UserSocialAuth.get_users_by_email(email=self.user.email)
         self.assertEqual(qs.count(), 1)
+        self.user.is_active = False
+        self.user.save()
+        qs = UserSocialAuth.get_users_by_email(email=self.user.email)
+        self.assertEqual(qs.count(), 0)
+        with override_settings(SOCIAL_AUTH_ACTIVE_USERS_FILTER={}):
+            qs = UserSocialAuth.get_users_by_email(email=self.user.email)
+            self.assertEqual(qs.count(), 1)
 
     def test_get_social_auth(self):
         usa = self.usa
@@ -173,11 +180,6 @@ class TestUserSocialAuth(TestCase):
         usa = UserSocialAuth.create_social_auth(user=self.user, provider="test", uid=1)
         self.assertEqual(usa.uid, "1")
         self.assertEqual(str(usa), str(self.user))
-
-    @mock.patch("social_django.storage.transaction", spec=[])
-    def test_create_social_auth_without_transaction_atomic(self, *args):
-        with self.assertRaises(IntegrityError):
-            UserSocialAuth.create_social_auth(user=self.user, provider=self.usa.provider, uid=self.usa.uid)
 
     def test_username_max_length(self):
         self.assertEqual(UserSocialAuth.username_max_length(), 150)

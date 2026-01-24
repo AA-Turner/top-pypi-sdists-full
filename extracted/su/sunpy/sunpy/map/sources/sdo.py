@@ -1,6 +1,7 @@
 """SDO Map subclass definitions"""
 
 import numpy as np
+from matplotlib.colors import CenteredNorm
 
 import astropy.units as u
 from astropy.coordinates import CartesianRepresentation, HeliocentricMeanEcliptic
@@ -42,6 +43,18 @@ class AIAMap(GenericMap):
     * `Analysis Guide <https://www.lmsal.com/sdodocs/doc/dcur/SDOD0060.zip/zip/entry/>`__
     * Instrument Paper - :cite:t:`lemen_atmospheric_2012`
     * `wavelengths and temperature response reference <https://www.lmsal.com/sdodocs/doc/dcur/SDOD0060.zip/zip/entry/figures/aia_tel_resp.png>`__
+
+    Examples
+    --------
+    .. plot::
+        :include-source:
+        :context: reset
+
+        import sunpy.map
+        import astropy.units as u
+        from sunpy.data.sample import AIA_171_IMAGE
+        amap = sunpy.map.Map(AIA_171_IMAGE)
+        amap.plot(clip_interval=(1.25, 99.5)*u.percent)
     """
 
     def __init__(self, data, header, **kwargs):
@@ -117,6 +130,17 @@ class HMIMap(GenericMap):
     * `SDO Mission Page <https://sdo.gsfc.nasa.gov/>`__
     * `Instrument Page <http://hmi.stanford.edu>`__
     * `Analysis Guide <http://hmi.stanford.edu/doc/magnetic/guide.pdf>`__
+
+    Examples
+    --------
+    .. plot::
+        :include-source:
+        :context: reset
+
+        import sunpy.map
+        from sunpy.data.sample import HMI_LOS_IMAGE
+        hmi_map = sunpy.map.Map(HMI_LOS_IMAGE)
+        hmi_map.plot()
     """
 
     def __init__(self, data, header, **kwargs):
@@ -126,7 +150,7 @@ class HMIMap(GenericMap):
             # This means they are not scaled correctly.
             if self.plot_settings.get('norm') is not None:
                 # Magnetic field maps, not intensity maps
-                self._set_symmetric_vmin_vmax()
+                self.plot_settings['norm'] = CenteredNorm()
         self._nickname = self.detector
 
     @property

@@ -29,6 +29,7 @@ from jax._src import dispatch
 from jax._src import dtypes
 from jax._src import lax
 from jax._src import numpy as jnp
+from jax._src.numpy.ufuncs import isposinf, isneginf, sinc
 from jax._src.api import jit, jvp, vmap
 from jax._src.lax.lax import _const as _lax_const
 from jax._src.numpy import einsum as jnp_einsum
@@ -39,7 +40,6 @@ from jax._src.third_party.scipy.betaln import betaln as _betaln_impl
 from jax._src.typing import Array, ArrayLike
 from jax._src.nn.functions import softmax as nn_softmax
 from jax._src.nn.functions import log_softmax as nn_log_softmax
-
 
 def gammaln(x: ArrayLike) -> Array:
   r"""Natural log of the absolute value of the gamma function.
@@ -103,6 +103,8 @@ def gammasgn(x: ArrayLike) -> Array:
     - :func:`jax.scipy.special.gammaln`: the natural log of the gamma function
   """
   x, = promote_args_inexact("gammasgn", x)
+  if dtypes.issubdtype(x.dtype, np.complexfloating):
+    raise ValueError("gammasgn does not support complex-valued inputs.")
   typ = x.dtype.type
   floor_x = lax.floor(x)
   x_negative = x < 0
@@ -237,6 +239,8 @@ def beta(a: ArrayLike, b: ArrayLike) -> Array:
     - :func:`jax.scipy.special.betaln`
   """
   a, b = promote_args_inexact("beta", a, b)
+  if dtypes.issubdtype(a.dtype, np.complexfloating):
+    raise ValueError("beta does not support complex-valued inputs.")
   sign = gammasgn(a) * gammasgn(b) * gammasgn(a + b)
   return sign * lax.exp(betaln(a, b))
 
@@ -248,7 +252,7 @@ def betainc(a: ArrayLike, b: ArrayLike, x: ArrayLike) -> Array:
 
   .. math::
 
-     \mathrm{betainc}(a, b, x) = B(a, b)\int_0^x t^{a-1}(1-t^{b-1})\mathrm{d}t
+     \mathrm{betainc}(a, b, x) = \frac{1}{B(a, b)}\int_0^x t^{a-1}(1-t)^{b-1}\mathrm{d}t
 
   where :math:`B(a, b)` is the :func:`~jax.scipy.special.beta` function.
 
@@ -265,6 +269,8 @@ def betainc(a: ArrayLike, b: ArrayLike, x: ArrayLike) -> Array:
     - :func:`jax.scipy.special.betaln`
   """
   a, b, x = promote_args_inexact("betainc", a, b, x)
+  if dtypes.issubdtype(x.dtype, np.complexfloating):
+    raise ValueError("betainc does not support complex-valued inputs.")
   return lax.betainc(a, b, x)
 
 
@@ -570,6 +576,8 @@ def entr(x: ArrayLike) -> Array:
     - :func:`jax.scipy.special.rel_entr`
   """
   x, = promote_args_inexact("entr", x)
+  if dtypes.issubdtype(x.dtype, np.complexfloating):
+    raise ValueError("entr does not support complex-valued inputs.")
   return lax.select(lax.lt(x, _lax_const(x, 0)),
                     lax.full_like(x, -np.inf),
                     lax.neg(_xlogx(x)))
@@ -643,6 +651,8 @@ def kl_div(
     - :func:`jax.scipy.special.rel_entr`
   """
   p, q = promote_args_inexact("kl_div", p, q)
+  if dtypes.issubdtype(p.dtype, np.complexfloating):
+    raise ValueError("kl_div does not support complex-valued inputs.")
   return rel_entr(p, q) - p + q
 
 
@@ -674,6 +684,8 @@ def rel_entr(
     - :func:`jax.scipy.special.kl_div`
   """
   p, q = promote_args_inexact("rel_entr", p, q)
+  if dtypes.issubdtype(p.dtype, np.complexfloating):
+    raise ValueError("rel_entr does not support complex-valued inputs.")
   zero = _lax_const(p, 0.0)
   both_gt_zero_mask = lax.bitwise_and(lax.gt(p, zero), lax.gt(q, zero))
   one_zero_mask = lax.bitwise_and(lax.eq(p, zero), lax.ge(q, zero))
@@ -795,6 +807,8 @@ def polygamma(n: ArrayLike, x: ArrayLike) -> Array:
         f"Argument `n` to polygamma must be of integer type. Got dtype {lax.dtype(n)}."
     )
   n_arr, x_arr = promote_args_inexact("polygamma", n, x)
+  if dtypes.issubdtype(x_arr.dtype, np.complexfloating):
+    raise ValueError("polygamma does not support complex-valued inputs.")
   return lax.polygamma(n_arr, x_arr)
 
 
@@ -953,71 +967,62 @@ def ndtri(p: ArrayLike) -> Array:
 
 def _ndtri(p: ArrayLike) -> Array:
   """Implements ndtri core logic."""
+  dtype = lax.dtype(p).type
+  shape = np.shape(p)
 
   # Constants used in piece-wise rational approximations. Taken from the cephes
   # library:
   # https://root.cern.ch/doc/v608/SpecFuncCephesInv_8cxx_source.html
-  p0 = list(reversed([-5.99633501014107895267E1,
-                      9.80010754185999661536E1,
-                      -5.66762857469070293439E1,
-                      1.39312609387279679503E1,
-                      -1.23916583867381258016E0]))
-  q0 = list(reversed([1.0,
-                      1.95448858338141759834E0,
-                      4.67627912898881538453E0,
-                      8.63602421390890590575E1,
-                      -2.25462687854119370527E2,
-                      2.00260212380060660359E2,
-                      -8.20372256168333339912E1,
-                      1.59056225126211695515E1,
-                      -1.18331621121330003142E0]))
-  p1 = list(reversed([4.05544892305962419923E0,
-                      3.15251094599893866154E1,
-                      5.71628192246421288162E1,
-                      4.40805073893200834700E1,
-                      1.46849561928858024014E1,
-                      2.18663306850790267539E0,
-                      -1.40256079171354495875E-1,
-                      -3.50424626827848203418E-2,
-                      -8.57456785154685413611E-4]))
-  q1 = list(reversed([1.0,
-                      1.57799883256466749731E1,
-                      4.53907635128879210584E1,
-                      4.13172038254672030440E1,
-                      1.50425385692907503408E1,
-                      2.50464946208309415979E0,
-                      -1.42182922854787788574E-1,
-                      -3.80806407691578277194E-2,
-                      -9.33259480895457427372E-4]))
-  p2 = list(reversed([3.23774891776946035970E0,
-                      6.91522889068984211695E0,
-                      3.93881025292474443415E0,
-                      1.33303460815807542389E0,
-                      2.01485389549179081538E-1,
-                      1.23716634817820021358E-2,
-                      3.01581553508235416007E-4,
-                      2.65806974686737550832E-6,
-                      6.23974539184983293730E-9]))
-  q2 = list(reversed([1.0,
-                      6.02427039364742014255E0,
-                      3.67983563856160859403E0,
-                      1.37702099489081330271E0,
-                      2.16236993594496635890E-1,
-                      1.34204006088543189037E-2,
-                      3.28014464682127739104E-4,
-                      2.89247864745380683936E-6,
-                      6.79019408009981274425E-9]))
-
-  dtype = lax.dtype(p).type
-  shape = np.shape(p)
-
-  def _create_polynomial(var, coeffs):
-    """Compute n_th order polynomial via Horner's method."""
-    coeffs = np.array(coeffs, dtype)
-    if not coeffs.size:
-      return jnp.zeros_like(var)
-    return coeffs[0] + _create_polynomial(var, coeffs[1:]) * var
-
+  p0 = np.array([-5.99633501014107895267E1,
+                 9.80010754185999661536E1,
+                 -5.66762857469070293439E1,
+                 1.39312609387279679503E1,
+                 -1.23916583867381258016E0], dtype=dtype)
+  q0 = np.array([1.0,
+                 1.95448858338141759834E0,
+                 4.67627912898881538453E0,
+                 8.63602421390890590575E1,
+                 -2.25462687854119370527E2,
+                 2.00260212380060660359E2,
+                 -8.20372256168333339912E1,
+                 1.59056225126211695515E1,
+                 -1.18331621121330003142E0], dtype=dtype)
+  p1 = np.array([4.05544892305962419923E0,
+                 3.15251094599893866154E1,
+                 5.71628192246421288162E1,
+                 4.40805073893200834700E1,
+                 1.46849561928858024014E1,
+                 2.18663306850790267539E0,
+                 -1.40256079171354495875E-1,
+                 -3.50424626827848203418E-2,
+                 -8.57456785154685413611E-4], dtype=dtype)
+  q1 = np.array([1.0,
+                 1.57799883256466749731E1,
+                 4.53907635128879210584E1,
+                 4.13172038254672030440E1,
+                 1.50425385692907503408E1,
+                 2.50464946208309415979E0,
+                 -1.42182922854787788574E-1,
+                 -3.80806407691578277194E-2,
+                 -9.33259480895457427372E-4], dtype=dtype)
+  p2 = np.array([3.23774891776946035970E0,
+                 6.91522889068984211695E0,
+                 3.93881025292474443415E0,
+                 1.33303460815807542389E0,
+                 2.01485389549179081538E-1,
+                 1.23716634817820021358E-2,
+                 3.01581553508235416007E-4,
+                 2.65806974686737550832E-6,
+                 6.23974539184983293730E-9], dtype=dtype)
+  q2 = np.array([1.0,
+                 6.02427039364742014255E0,
+                 3.67983563856160859403E0,
+                 1.37702099489081330271E0,
+                 2.16236993594496635890E-1,
+                 1.34204006088543189037E-2,
+                 3.28014464682127739104E-4,
+                 2.89247864745380683936E-6,
+                 6.79019408009981274425E-9], dtype=dtype)
 
   maybe_complement_p = jnp.where(p > dtype(-np.expm1(-2.)), dtype(1.) - p, p)
   # Write in an arbitrary value in place of 0 for p since 0 will cause NaNs
@@ -1031,8 +1036,7 @@ def _ndtri(p: ArrayLike) -> Array:
   # Compute x for p > exp(-2): x/sqrt(2pi) = w + w**3 P0(w**2)/Q0(w**2).
   w = sanitized_mcp - dtype(0.5)
   ww = lax.square(w)
-  x_for_big_p = w + w * ww * (_create_polynomial(ww, p0)
-                              / _create_polynomial(ww, q0))
+  x_for_big_p = w + w * ww * (jnp.polyval(p0, ww) / jnp.polyval(q0, ww))
   x_for_big_p *= -dtype(np.sqrt(2. * np.pi))
 
   # Compute x for p <= exp(-2): x = z - log(z)/z - (1/z) P(1/z) / Q(1/z),
@@ -1040,12 +1044,8 @@ def _ndtri(p: ArrayLike) -> Array:
   # arrays based on whether p < exp(-32).
   z = lax.sqrt(dtype(-2.) * lax.log(sanitized_mcp))
   first_term = z - lax.log(z) / z
-  second_term_small_p = (
-      _create_polynomial(dtype(1.) / z, p2) /
-      _create_polynomial(dtype(1.) / z, q2) / z)
-  second_term_otherwise = (
-      _create_polynomial(dtype(1.) / z, p1) /
-      _create_polynomial(dtype(1.) / z, q1) / z)
+  second_term_small_p = jnp.polyval(p2, 1 / z) / jnp.polyval(q2, 1 / z) / z
+  second_term_otherwise = jnp.polyval(p1, 1 / z) / jnp.polyval(q1, 1 / z) / z
   x_for_small_p = first_term - second_term_small_p
   x_otherwise = first_term - second_term_otherwise
 
@@ -1355,7 +1355,7 @@ def _bessel_jn(z: ArrayLike, *, v: int, n_iter: int=50) -> Array:
   return j_vals
 
 
-@partial(jit, static_argnames=["v", "n_iter"])
+@jit(static_argnames=["v", "n_iter"])
 def bessel_jn(z: ArrayLike, *, v: int, n_iter: int=50) -> Array:
   """Bessel function of the first kind of integer order and real argument.
 
@@ -1448,7 +1448,7 @@ def _gen_recurrence_mask(
   return (d0_mask_3d, d1_mask_3d)
 
 
-@partial(jit, static_argnums=(2))
+@jit(static_argnums=(2))
 def _gen_derivatives(p: Array,
                      x: Array,
                      is_normalized: bool) -> Array:
@@ -1543,7 +1543,7 @@ def _gen_derivatives(p: Array,
   return p_derivative
 
 
-@partial(jit, static_argnums=(0, 2))
+@jit(static_argnums=(0, 2))
 def _gen_associated_legendre(l_max: int,
                              x: Array,
                              is_normalized: bool) -> Array:
@@ -1744,7 +1744,7 @@ def lpmn_values(m: int, n: int, z: Array, is_normalized: bool) -> Array:
 
 
 
-@partial(jit, static_argnums=(4,))
+@jit(static_argnums=(4,))
 def _sph_harm(n: Array,
               m: Array,
               theta: Array,
@@ -2104,8 +2104,9 @@ def expi(x: ArrayLike) -> Array:
     - :func:`jax.scipy.special.exp1`
   """
   x_arr, = promote_args_inexact("expi", x)
+  if dtypes.issubdtype(x_arr.dtype, np.complexfloating):
+    raise ValueError("expi does not support complex-valued inputs.")
   return jnp.piecewise(x_arr, [x_arr < 0], [_expi_neg, _expi_pos])
-
 
 @expi.defjvp
 @jit
@@ -2113,6 +2114,240 @@ def expi_jvp(primals, tangents):
   (x,) = primals
   (x_dot,) = tangents
   return expi(x), jnp.exp(x) / x * x_dot
+
+
+@custom_derivatives.custom_jvp
+@jit
+def sici(x: ArrayLike) -> tuple[Array, Array]:
+  r"""Sine and cosine integrals.
+
+  JAX implementation of :obj:`scipy.special.sici`.
+
+  .. math::
+
+    \mathrm{Si}(x) = \int_0^x \frac{\sin t}{t} \, dt
+
+  .. math::
+
+    \mathrm{Ci}(x) = \gamma + \ln(x) + \int_0^x \frac{\cos t - 1}{t} \, dt
+
+  where :math:`\gamma` is the Euler–Mascheroni constant.
+
+  Args:
+    x: array-like, real-valued input.
+
+  Returns:
+    A tuple of two arrays, each with the same shape as `x`:
+      - The first array contains the sine integral values `Si(x)`.
+      - The second array contains the cosine integral values `Ci(x)`.
+
+  See also:
+    - :func:`jax.numpy.sinc`
+  """
+
+  x, = promote_args_inexact("sici", x)
+
+  if dtypes.issubdtype(x.dtype, np.complexfloating):
+    raise ValueError(
+      f"Argument `x` to sici must be real-valued. Got dtype {x.dtype}."
+    )
+
+  x_abs = jnp.abs(x)
+
+  si_series, ci_series = _sici_series(x_abs)
+  si_asymp,  ci_asymp  = _sici_asympt(x_abs)
+  si_approx, ci_approx  = _sici_approx(x_abs)
+
+  cond1 = x_abs <= 4
+  cond2 = (x_abs > 4) & (x_abs <= 1e9)
+
+  si = jnp.select([cond1, cond2], [si_series, si_asymp], si_approx)
+  ci = jnp.select([cond1, cond2], [ci_series, ci_asymp], ci_approx)
+
+  si = jnp.sign(x) * si
+  ci = jnp.where(isneginf(x), np.nan, ci)
+
+  return si, ci
+
+def _sici_approx(x: Array):
+  # sici approximation valid for x >= 1E9
+  si = (np.pi / 2) - jnp.cos(x) / x
+  ci = jnp.sin(x) / x
+
+  si = jnp.where(isposinf(x), np.pi / 2, si)
+  ci = jnp.where(isposinf(x), 0.0, ci)
+
+  return si, ci
+
+def _sici_series(x: Array):
+  # sici series valid for x >= 0 and x <= 4
+  def si_series(x):
+    # Values come from Cephes Implementation used by Scipy https://github.com/jeremybarnes/cephes/blob/60f27df395b8322c2da22c83751a2366b82d50d1/misc/sici.c
+    SN = np.array([-8.39167827910303881427E-11,
+      4.62591714427012837309E-8,
+      -9.75759303843632795789E-6,
+      9.76945438170435310816E-4,
+      -4.13470316229406538752E-2,
+      1.00000000000000000302E0], dtype=x.dtype)
+    SD = np.array([ 2.03269266195951942049E-12,
+      1.27997891179943299903E-9,
+      4.41827842801218905784E-7,
+      9.96412122043875552487E-5,
+      1.42085239326149893930E-2,
+      9.99999999999999996984E-1], dtype=x.dtype)
+    t = x * x
+    return (x * jnp.polyval(SN, t)) / jnp.polyval(SD, t)
+
+  def ci_series(x):
+    # Values come from Cephes Implementation used by Scipy https://github.com/jeremybarnes/cephes/blob/60f27df395b8322c2da22c83751a2366b82d50d1/misc/sici.c
+    CN = np.array([ 2.02524002389102268789E-11,
+      -1.35249504915790756375E-8,
+      3.59325051419993077021E-6,
+      -4.74007206873407909465E-4,
+      2.89159652607555242092E-2,
+      -1.00000000000000000080E0], dtype=x.dtype)
+    CD = np.array([ 4.07746040061880559506E-12,
+      3.06780997581887812692E-9,
+      1.23210355685883423679E-6,
+      3.17442024775032769882E-4,
+      5.10028056236446052392E-2,
+      4.00000000000000000080E0], dtype=x.dtype)
+    t = x * x
+    return np.euler_gamma + jnp.log(x) + t * jnp.polyval(CN, t) / jnp.polyval(CD, t)
+
+  si = jnp.where(
+    x == 0,
+    0.0,
+    si_series(x)
+  )
+
+  ci = jnp.where(
+    x == 0,
+    -np.inf,
+    ci_series(x)
+  )
+
+  return si, ci
+
+def _sici_asympt(x: Array):
+  # sici asympt valid for x > 4 & x <= 1E9
+  s = jnp.sin(x)
+  c = jnp.cos(x)
+  z = 1.0 / (x * x)
+
+  # Values come from Cephes Implementation used by Scipy https://github.com/jeremybarnes/cephes/blob/60f27df395b8322c2da22c83751a2366b82d50d1/misc/sici.c
+  FN4 = np.array([
+    4.23612862892216586994E0,
+    5.45937717161812843388E0,
+    1.62083287701538329132E0,
+    1.67006611831323023771E-1,
+    6.81020132472518137426E-3,
+    1.08936580650328664411E-4,
+    5.48900223421373614008E-7,
+  ], dtype=x.dtype)
+  FD4 = np.array([
+    1,
+    8.16496634205391016773E0,
+    7.30828822505564552187E0,
+    1.86792257950184183883E0,
+    1.78792052963149907262E-1,
+    7.01710668322789753610E-3,
+    1.10034357153915731354E-4,
+    5.48900252756255700982E-7,
+  ], dtype=x.dtype)
+  GN4 = np.array([
+    8.71001698973114191777E-2,
+    6.11379109952219284151E-1,
+    3.97180296392337498885E-1,
+    7.48527737628469092119E-2,
+    5.38868681462177273157E-3,
+    1.61999794598934024525E-4,
+    1.97963874140963632189E-6,
+    7.82579040744090311069E-9,
+  ], dtype=x.dtype)
+  GD4 = np.array([
+    1,
+    1.64402202413355338886E0,
+    6.66296701268987968381E-1,
+    9.88771761277688796203E-2,
+    6.22396345441768420760E-3,
+    1.73221081474177119497E-4,
+    2.02659182086343991969E-6,
+    7.82579218933534490868E-9,
+  ], dtype=x.dtype)
+
+  FN8 = np.array([
+    4.55880873470465315206E-1,
+    7.13715274100146711374E-1,
+    1.60300158222319456320E-1,
+    1.16064229408124407915E-2,
+    3.49556442447859055605E-4,
+    4.86215430826454749482E-6,
+    3.20092790091004902806E-8,
+    9.41779576128512936592E-11,
+    9.70507110881952024631E-14,
+  ], dtype=x.dtype)
+  FD8 = np.array([
+    1.0,
+    9.17463611873684053703E-1,
+    1.78685545332074536321E-1,
+    1.22253594771971293032E-2,
+    3.58696481881851580297E-4,
+    4.92435064317881464393E-6,
+    3.21956939101046018377E-8,
+    9.43720590350276732376E-11,
+    9.70507110881952025725E-14,
+  ], dtype=x.dtype)
+  GN8 = np.array([
+    6.97359953443276214934E-1,
+    3.30410979305632063225E-1,
+    3.84878767649974295920E-2,
+    1.71718239052347903558E-3,
+    3.48941165502279436777E-5,
+    3.47131167084116673800E-7,
+    1.70404452782044526189E-9,
+    3.85945925430276600453E-12,
+    3.14040098946363334640E-15,
+  ], dtype=x.dtype)
+  GD8 = np.array([
+    1.0,
+    1.68548898811011640017E0,
+    4.87852258695304967486E-1,
+    4.67913194259625806320E-2,
+    1.90284426674399523638E-3,
+    3.68475504442561108162E-5,
+    3.57043223443740838771E-7,
+    1.72693748966316146736E-9,
+    3.87830166023954706752E-12,
+    3.14040098946363335242E-15,
+  ], dtype=x.dtype)
+
+  f4 = jnp.polyval(FN4, z) / (x * jnp.polyval(FD4, z))
+  g4 = z * jnp.polyval(GN4, z) / jnp.polyval(GD4, z)
+
+  f8 = jnp.polyval(FN8, z) / (x * jnp.polyval(FD8, z))
+  g8 = z * jnp.polyval(GN8, z) / jnp.polyval(GD8, z)
+
+  mask = x < 8.0
+  f = jnp.where(mask, f4, f8)
+  g = jnp.where(mask, g4, g8)
+
+  si = (np.pi / 2) - f * c - g * s
+  ci = f * s - g * c
+
+  return si, ci
+
+@sici.defjvp
+@jit
+def sici_jvp(primals, tangents):
+  (p,), (t,) = primals, tangents
+  primal_out = sici(p)
+
+  sin_term = sinc(p / np.pi)
+  cos_term = jnp.cos(p) / p
+
+  tangent_out = (sin_term * t, cos_term * t)
+  return primal_out, tangent_out
 
 
 def _expn1(x: Array, n: Array) -> Array:
@@ -2156,7 +2391,7 @@ def _expn2(x: Array, n: Array) -> Array:
   # x > 1.
   _c = _lax_const
   BIG = _c(x, 1.44115188075855872e17)
-  MACHEP = dtypes.finfo(BIG.dtype).eps  # ?
+  MACHEP = dtypes.finfo(x.dtype).eps
   zero = _c(x, 0.0)
   one = _c(x, 1.0)
 
@@ -2240,6 +2475,8 @@ def expn(n: ArrayLike, x: ArrayLike) -> Array:
     - :func:`jax.scipy.special.exp1`
   """
   n, x = promote_args_inexact("expn", n, x)
+  if dtypes.issubdtype(x.dtype, np.complexfloating):
+    raise ValueError("expn does not support complex-valued inputs.")
   _c = _lax_const
   zero = _c(x, 0)
   one = _c(x, 1)
@@ -2295,6 +2532,8 @@ def exp1(x: ArrayLike) -> Array:
     - :func:`jax.scipy.special.expn`
   """
   x, = promote_args_inexact("exp1", x)
+  if dtypes.issubdtype(x.dtype, np.complexfloating):
+    raise ValueError("exp1 does not support complex-valued inputs.")
   # Casting because custom_jvp generic does not work correctly with mypy.
   return cast(Array, expn(1, x))
 
@@ -2448,6 +2687,8 @@ def poch(z: ArrayLike, m: ArrayLike) -> Array:
     The JAX version supports only real-valued inputs.
   """
   z, m = promote_args_inexact("poch", z, m)
+  if dtypes.issubdtype(z.dtype, np.complexfloating):
+    raise ValueError("jnp.poch does not support complex-valued inputs.")
 
   return jnp.where(m == 0., jnp.array(1, dtype=z.dtype), gamma(z + m) / gamma(z))
 
@@ -2628,6 +2869,9 @@ def hyp1f1(a: ArrayLike, b: ArrayLike, x: ArrayLike) -> Array:
   # There is room for improvement in the implementation using recursion to
   # evaluate lower values of hyp1f1 when a or b or both are > 60-80
   a, b, x = promote_args_inexact('hyp1f1', a, b, x)
+
+  if dtypes.issubdtype(x.dtype, np.complexfloating):
+    raise ValueError("hyp1f1 does not support complex-valued inputs.")
 
   result = lax.cond(lax.abs(x) < 100, _hyp1f1_serie, _hyp1f1_asymptotic, a, b, x)
   index = (a == 0) * 1 + ((a == b) & (a != 0)) * 2 + ((b == 0) & (a != 0)) * 3
@@ -2840,6 +3084,101 @@ def _hyp2f1_digamma_transform(a, b, c, x):
 
 @jit
 @jnp_vectorize.vectorize
+def _hyp2f1_a_derivative(a, b, c, x):
+  """
+  Define it as a serie using :
+  https://functions.wolfram.com/HypergeometricFunctions/Hypergeometric2F1/20/01/01/
+  """
+
+  precision = dtypes.finfo(x.dtype).eps
+
+  def body(state):
+    serie, k, term = state
+    serie += term * (digamma(a + k) - digamma(a))
+    term *= (a + k) * (b + k) / (c + k) / (k + 1) * x
+    k += 1
+
+    return serie, k, term
+
+  def cond(state):
+    serie, k, term = state
+
+    return (k < 250) & (lax.abs(term) / lax.abs(serie) > precision)
+
+  init = 0, 1, a * b / c * x
+
+  return lax.while_loop(cond, body, init)[0]
+
+
+@jit
+@jnp_vectorize.vectorize
+def _hyp2f1_b_derivative(a, b, c, x):
+  """
+  Define it as a serie using :
+  https://functions.wolfram.com/HypergeometricFunctions/Hypergeometric2F1/20/01/02/
+  """
+
+  precision = dtypes.finfo(x.dtype).eps
+
+  def body(state):
+    serie, k, term = state
+    serie += term * (digamma(b + k) - digamma(b))
+    term *= (a + k) * (b + k) / (c + k) / (k + 1) * x
+    k += 1
+
+    return serie, k, term
+
+  def cond(state):
+    serie, k, term = state
+
+    return (k < 250) & (lax.abs(term) / lax.abs(serie) > precision)
+
+  init = 0, 1, a * b / c * x
+
+  return lax.while_loop(cond, body, init)[0]
+
+
+@jit
+@jnp_vectorize.vectorize
+def _hyp2f1_c_derivative(a, b, c, x):
+  """
+  Define it as a serie using :
+  https://functions.wolfram.com/HypergeometricFunctions/Hypergeometric2F1/20/01/03/
+  """
+
+  precision = dtypes.finfo(x.dtype).eps
+
+  def body(state):
+    serie, k, term = state
+    serie += term * (digamma(c) - digamma(c + k))
+    term *= (a + k) * (b + k) / (c + k) / (k + 1) * x
+    k += 1
+
+    return serie, k, term
+
+  def cond(state):
+    serie, k, term = state
+
+    return (k < 250) & (lax.abs(term) / lax.abs(serie) > precision)
+
+  init = 0, 1, a * b / c * x
+
+  return lax.while_loop(cond, body, init)[0]
+
+
+@jit
+def _hyp2f1_x_derivative(a, b, c, x):
+  """
+  Define the derivative with regard to ``x`` :
+  https://functions.wolfram.com/HypergeometricFunctions/Hypergeometric2F1/20/01/05/
+  """
+
+  return a * b / c * hyp2f1(a + 1, b + 1, c + 1, x)
+
+
+@custom_derivatives.custom_jvp
+@jit
+@jnp_vectorize.vectorize
 def hyp2f1(a: ArrayLike, b: ArrayLike, c: ArrayLike, x: ArrayLike) -> Array:
   r"""The 2F1 hypergeometric function.
 
@@ -2900,6 +3239,14 @@ def hyp2f1(a: ArrayLike, b: ArrayLike, c: ArrayLike, x: ArrayLike) -> Array:
                       _hyp2f1_terminal_or_serie(a, b, c, x))
 
 
+hyp2f1.defjvps(
+  lambda a_dot, primal_out, a, b, c, x: _hyp2f1_a_derivative(a, b, c, x) * a_dot,
+  lambda b_dot, primal_out, a, b, c, x: _hyp2f1_b_derivative(a, b, c, x) * b_dot,
+  lambda c_dot, primal_out, a, b, c, x: _hyp2f1_c_derivative(a, b, c, x) * c_dot,
+  lambda x_dot, primal_out, a, b, c, x: _hyp2f1_x_derivative(a, b, c, x) * x_dot
+)
+
+
 def softmax(x: ArrayLike,
             /,
             *,
@@ -2919,6 +3266,7 @@ def softmax(x: ArrayLike,
     x : input array
     axis: the axis or axes along which the softmax should be computed. The
       softmax output summed across these dimensions should sum to :math:`1`.
+      ``None`` means all axes.
 
   Returns:
     An array of the same shape as ``x``.
@@ -2953,7 +3301,7 @@ def log_softmax(x: ArrayLike,
   Args:
     x : input array
     axis: the axis or axes along which the :code:`log_softmax` should be
-      computed.
+      computed. ``None`` means all axes.
 
   Returns:
     An array of the same shape as ``x``

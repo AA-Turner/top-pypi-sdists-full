@@ -6,7 +6,7 @@ import respx
 from httpx import Response
 from typer.testing import CliRunner
 
-from fastapi_cloud_cli.cli import app
+from fastapi_cloud_cli.cli import cloud_app as app
 from fastapi_cloud_cli.config import Settings
 from tests.utils import Keys, changing_dir
 
@@ -122,8 +122,9 @@ def test_shows_selector_for_environment_variables(
         return_value=Response(204)
     )
 
-    with changing_dir(configured_app), patch(
-        "rich_toolkit.container.getchar", side_effect=steps
+    with (
+        changing_dir(configured_app),
+        patch("rich_toolkit.container.getchar", side_effect=steps),
     ):
         result = runner.invoke(app, ["env", "delete"])
 

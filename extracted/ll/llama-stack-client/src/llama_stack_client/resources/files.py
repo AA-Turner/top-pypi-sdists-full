@@ -1,14 +1,20 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Mapping, cast
+from typing import Mapping, Optional, cast
 from typing_extensions import Literal
 
 import httpx
 
 from ..types import file_list_params, file_create_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven, FileTypes
+from .._types import Body, Omit, Query, Headers, NotGiven, FileTypes, omit, not_given
 from .._utils import extract_files, maybe_transform, deepcopy_minimal, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -51,23 +57,34 @@ class FilesResource(SyncAPIResource):
         *,
         file: FileTypes,
         purpose: Literal["assistants", "batch"],
+        expires_after: Optional[file_create_params.ExpiresAfter] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> File:
-        """Upload a file that can be used across various endpoints.
+        """
+        Upload file.
 
-        The file upload should
-        be a multipart form request with:
+        Upload a file that can be used across various endpoints.
+
+        The file upload should be a multipart form request with:
 
         - file: The File object (not file name) to be uploaded.
         - purpose: The intended purpose of the uploaded file.
+        - expires_after: Optional form values describing expiration for the file.
 
         Args:
           purpose: Valid purpose values for OpenAI Files API.
+
+          expires_after: Control expiration of uploaded files.
+
+              Params:
+
+              - anchor, must be "created_at"
+              - seconds, must be int between 3600 and 2592000 (1 hour to 30 days)
 
           extra_headers: Send extra headers
 
@@ -81,6 +98,7 @@ class FilesResource(SyncAPIResource):
             {
                 "file": file,
                 "purpose": purpose,
+                "expires_after": expires_after,
             }
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
@@ -89,7 +107,7 @@ class FilesResource(SyncAPIResource):
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return self._post(
-            "/v1/openai/v1/files",
+            "/v1/files",
             body=maybe_transform(body, file_create_params.FileCreateParams),
             files=files,
             options=make_request_options(
@@ -107,9 +125,11 @@ class FilesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> File:
         """
+        Retrieve file.
+
         Returns information about a specific file.
 
         Args:
@@ -124,7 +144,7 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._get(
-            f"/v1/openai/v1/files/{file_id}",
+            f"/v1/files/{file_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -134,33 +154,26 @@ class FilesResource(SyncAPIResource):
     def list(
         self,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        purpose: Literal["assistants", "batch"] | NotGiven = NOT_GIVEN,
+        after: Optional[str] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        order: Optional[Literal["asc", "desc"]] | Omit = omit,
+        purpose: Optional[Literal["assistants", "batch"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncOpenAICursorPage[File]:
         """
+        List files.
+
         Returns a list of files that belong to the user's organization.
 
         Args:
-          after: A cursor for use in pagination. `after` is an object ID that defines your place
-              in the list. For instance, if you make a list request and receive 100 objects,
-              ending with obj_foo, your subsequent call can include after=obj_foo in order to
-              fetch the next page of the list.
+          order: Sort order for paginated responses.
 
-          limit: A limit on the number of objects to be returned. Limit can range between 1 and
-              10,000, and the default is 10,000.
-
-          order: Sort order by the `created_at` timestamp of the objects. `asc` for ascending
-              order and `desc` for descending order.
-
-          purpose: Only return files with the given purpose.
+          purpose: Valid purpose values for OpenAI Files API.
 
           extra_headers: Send extra headers
 
@@ -171,7 +184,7 @@ class FilesResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._get_api_list(
-            "/v1/openai/v1/files",
+            "/v1/files",
             page=SyncOpenAICursorPage[File],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -200,10 +213,10 @@ class FilesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DeleteFileResponse:
         """
-        Delete a file.
+        Delete file.
 
         Args:
           extra_headers: Send extra headers
@@ -217,7 +230,7 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._delete(
-            f"/v1/openai/v1/files/{file_id}",
+            f"/v1/files/{file_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -233,9 +246,11 @@ class FilesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
+        Retrieve file content.
+
         Returns the contents of the specified file.
 
         Args:
@@ -250,7 +265,7 @@ class FilesResource(SyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return self._get(
-            f"/v1/openai/v1/files/{file_id}/content",
+            f"/v1/files/{file_id}/content",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -283,23 +298,34 @@ class AsyncFilesResource(AsyncAPIResource):
         *,
         file: FileTypes,
         purpose: Literal["assistants", "batch"],
+        expires_after: Optional[file_create_params.ExpiresAfter] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> File:
-        """Upload a file that can be used across various endpoints.
+        """
+        Upload file.
 
-        The file upload should
-        be a multipart form request with:
+        Upload a file that can be used across various endpoints.
+
+        The file upload should be a multipart form request with:
 
         - file: The File object (not file name) to be uploaded.
         - purpose: The intended purpose of the uploaded file.
+        - expires_after: Optional form values describing expiration for the file.
 
         Args:
           purpose: Valid purpose values for OpenAI Files API.
+
+          expires_after: Control expiration of uploaded files.
+
+              Params:
+
+              - anchor, must be "created_at"
+              - seconds, must be int between 3600 and 2592000 (1 hour to 30 days)
 
           extra_headers: Send extra headers
 
@@ -313,6 +339,7 @@ class AsyncFilesResource(AsyncAPIResource):
             {
                 "file": file,
                 "purpose": purpose,
+                "expires_after": expires_after,
             }
         )
         files = extract_files(cast(Mapping[str, object], body), paths=[["file"]])
@@ -321,7 +348,7 @@ class AsyncFilesResource(AsyncAPIResource):
         # multipart/form-data; boundary=---abc--
         extra_headers = {"Content-Type": "multipart/form-data", **(extra_headers or {})}
         return await self._post(
-            "/v1/openai/v1/files",
+            "/v1/files",
             body=await async_maybe_transform(body, file_create_params.FileCreateParams),
             files=files,
             options=make_request_options(
@@ -339,9 +366,11 @@ class AsyncFilesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> File:
         """
+        Retrieve file.
+
         Returns information about a specific file.
 
         Args:
@@ -356,7 +385,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._get(
-            f"/v1/openai/v1/files/{file_id}",
+            f"/v1/files/{file_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -366,33 +395,26 @@ class AsyncFilesResource(AsyncAPIResource):
     def list(
         self,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
-        purpose: Literal["assistants", "batch"] | NotGiven = NOT_GIVEN,
+        after: Optional[str] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        order: Optional[Literal["asc", "desc"]] | Omit = omit,
+        purpose: Optional[Literal["assistants", "batch"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[File, AsyncOpenAICursorPage[File]]:
         """
+        List files.
+
         Returns a list of files that belong to the user's organization.
 
         Args:
-          after: A cursor for use in pagination. `after` is an object ID that defines your place
-              in the list. For instance, if you make a list request and receive 100 objects,
-              ending with obj_foo, your subsequent call can include after=obj_foo in order to
-              fetch the next page of the list.
+          order: Sort order for paginated responses.
 
-          limit: A limit on the number of objects to be returned. Limit can range between 1 and
-              10,000, and the default is 10,000.
-
-          order: Sort order by the `created_at` timestamp of the objects. `asc` for ascending
-              order and `desc` for descending order.
-
-          purpose: Only return files with the given purpose.
+          purpose: Valid purpose values for OpenAI Files API.
 
           extra_headers: Send extra headers
 
@@ -403,7 +425,7 @@ class AsyncFilesResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._get_api_list(
-            "/v1/openai/v1/files",
+            "/v1/files",
             page=AsyncOpenAICursorPage[File],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -432,10 +454,10 @@ class AsyncFilesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DeleteFileResponse:
         """
-        Delete a file.
+        Delete file.
 
         Args:
           extra_headers: Send extra headers
@@ -449,7 +471,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._delete(
-            f"/v1/openai/v1/files/{file_id}",
+            f"/v1/files/{file_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -465,9 +487,11 @@ class AsyncFilesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
+        Retrieve file content.
+
         Returns the contents of the specified file.
 
         Args:
@@ -482,7 +506,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not file_id:
             raise ValueError(f"Expected a non-empty value for `file_id` but received {file_id!r}")
         return await self._get(
-            f"/v1/openai/v1/files/{file_id}/content",
+            f"/v1/files/{file_id}/content",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

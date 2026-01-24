@@ -44,7 +44,7 @@ setup(
     install_requires=[
         'docopt>=0.6.2',
         'httpie>=3.2.4',
-        'pip>=23.3',
+        'pip>=25.3',
         'requests>=2.27.1',
         'setuptools>=70.0.0'
     ],

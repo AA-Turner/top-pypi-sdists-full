@@ -225,6 +225,14 @@ func CreateTestTables(db *gorm.DB) {
 	if !tableExist {
 		db.Migrator().CreateTable(&dbmodel.Segment{})
 	}
+	tableExist = db.Migrator().HasTable(&dbmodel.Function{})
+	if !tableExist {
+		db.Migrator().CreateTable(&dbmodel.Function{})
+	}
+	tableExist = db.Migrator().HasTable(&dbmodel.AttachedFunction{})
+	if !tableExist {
+		db.Migrator().CreateTable(&dbmodel.AttachedFunction{})
+	}
 
 	// create default tenant and database
 	CreateDefaultTenantAndDatabase(db)

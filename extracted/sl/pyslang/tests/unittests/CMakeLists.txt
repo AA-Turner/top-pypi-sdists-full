@@ -9,8 +9,10 @@ add_executable(
   analysis/CaseAnalysisTests.cpp
   analysis/DFATests.cpp
   analysis/MultiAssignTests.cpp
+  analysis/PortAnalysisTests.cpp
   analysis/UnusedTests.cpp
   ast/AssertionTests.cpp
+  ast/CheckerTests.cpp
   ast/ClassTests.cpp
   ast/ConfigTests.cpp
   ast/CoverTests.cpp
@@ -37,6 +39,7 @@ add_executable(
   parsing/RewriterExpandTests.cpp
   parsing/VisitorTests.cpp
   parsing/StatementParsingTests.cpp
+  parsing/SyntaxPrinterTests.cpp
   util/CommandLineTests.cpp
   util/IntervalMapTests.cpp
   util/NumericTests.cpp
@@ -60,18 +63,17 @@ if(CMAKE_SYSTEM_NAME MATCHES "Windows")
   target_sources(unittests PRIVATE ${PROJECT_SOURCE_DIR}/scripts/win32.manifest)
 endif()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  # Suppress annoying false positive Wstringop-overflow warnings
-  target_compile_options(unittests PUBLIC "-Wno-stringop-overflow")
-  target_link_options(unittests PUBLIC "-Wno-stringop-overflow")
-endif()
+# Copy the data directory for running tests from the build folder and build the
+# tests with a reference to that folder.
 
-# Copy the data directory for running tests from the build folder.
+set(TEST_DATA_DEST "${CMAKE_CURRENT_BINARY_DIR}/data")
+
 add_custom_command(
   TARGET unittests
   POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/data
-          ${CMAKE_CURRENT_BINARY_DIR}/data)
+          ${TEST_DATA_DEST})
+
 add_custom_command(
   TARGET unittests
   POST_BUILD
@@ -81,4 +83,8 @@ add_custom_command(
     ${CMAKE_CURRENT_BINARY_DIR}/../regression)
 
 add_test(NAME unittests COMMAND unittests)
+
+target_compile_definitions(unittests
+                           PRIVATE "TEST_DATA_DIR=\"${TEST_DATA_DEST}/\"")
+
 set_tests_properties(unittests PROPERTIES TIMEOUT 60)

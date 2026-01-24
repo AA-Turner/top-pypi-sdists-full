@@ -70,9 +70,9 @@ def load_yaml_file_as_dict(config_file: str) -> Dict[str, Any]:
 
 
 def apply_overrides_to_dict(start_dict, **overrides):
-    for key in overrides:
-        if overrides[key] is not None:
-            start_dict[key] = overrides[key]
+    for key, value in overrides.items():
+        if value is not None:
+            start_dict[key] = value
 
 
 def load_yaml_file_with_overrides(config_file: str, **overrides):

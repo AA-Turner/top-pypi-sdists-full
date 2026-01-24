@@ -333,3 +333,32 @@ class TestBadSingleInstructions:
             ContentStreamInstruction([d], Operator('Do'))
         with pytest.raises(TypeError):
             ContentStreamInstruction([Name.Him, stream], Operator('Do'))
+
+
+def test_string_parse_unparse_pdfdoc():
+    pdf = pikepdf.new()
+    parsed = pikepdf.parse_content_stream(pikepdf.Stream(pdf, b'(Hello, world!) Tj'))
+    assert pikepdf.unparse_content_stream(parsed) == b'(Hello, world!) Tj'
+
+
+def test_string_parse_unparse_not_pdfdoc_safe():
+    pdf = pikepdf.new()
+    hello_world_chinese = '你好世界'
+    hello_world_chinese_pdf_encoded = hello_world_chinese.encode('utf-16be').hex()
+    parsed = pikepdf.parse_content_stream(
+        pikepdf.Stream(pdf, f'<{hello_world_chinese_pdf_encoded}> Tj'.encode('ascii'))
+    )
+    assert pikepdf.unparse_content_stream(parsed) == b'<4f60597d4e16754c> Tj'
+
+
+def test_unparse_raw_tuples_preserve_literal_strings():
+    """Issue #689: Raw tuples should preserve literal strings when pdfdoc-safe."""
+    # Operator-only instruction should not be hex-encoded
+    instructions = [([], Operator('Q'))]
+    result = unparse_content_stream(instructions)
+    assert result == b'Q', f"Expected b'Q', got {result!r}"
+
+    # String operand should use literal when pdfdoc-safe
+    instructions = [([pikepdf.String("Hello")], Operator('Tj'))]
+    result = unparse_content_stream(instructions)
+    assert result == b'(Hello) Tj', f"Expected b'(Hello) Tj', got {result!r}"

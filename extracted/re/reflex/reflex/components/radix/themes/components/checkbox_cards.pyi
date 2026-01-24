@@ -5,7 +5,7 @@
 # ------------------------------------------------------
 from collections.abc import Mapping, Sequence
 from types import SimpleNamespace
-from typing import Any, Literal
+from typing import Any
 
 from reflex.components.core.breakpoints import Breakpoints
 from reflex.components.radix.themes.base import RadixThemesComponent
@@ -17,95 +17,6 @@ class CheckboxCardsRoot(RadixThemesComponent):
     def create(
         cls,
         *children,
-        size: Breakpoints[str, Literal["1", "2", "3"]]
-        | Literal["1", "2", "3"]
-        | Var[Breakpoints[str, Literal["1", "2", "3"]] | Literal["1", "2", "3"]]
-        | None = None,
-        variant: Literal["classic", "surface"]
-        | Var[Literal["classic", "surface"]]
-        | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        high_contrast: Var[bool] | bool | None = None,
-        columns: Breakpoints[
-            str, Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"] | str
-        ]
-        | Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-        | Var[
-            Breakpoints[str, Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"] | str]
-            | Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-            | str
-        ]
-        | str
-        | None = None,
-        gap: Breakpoints[
-            str, Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"] | str
-        ]
-        | Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-        | Var[
-            Breakpoints[str, Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"] | str]
-            | Literal["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-            | str
-        ]
-        | str
-        | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -141,12 +52,6 @@ class CheckboxCardsRoot(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            size: The size of the checkbox cards: "1" | "2" | "3"
-            variant: Variant of button: "classic" | "surface" | "soft"
-            color_scheme: Override theme color for button
-            high_contrast: Uses a higher contrast color for the component.
-            columns: The number of columns:
-            gap: The gap between the checkbox cards:
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

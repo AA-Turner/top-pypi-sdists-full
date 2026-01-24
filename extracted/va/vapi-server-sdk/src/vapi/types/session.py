@@ -10,9 +10,11 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .artifact import Artifact
 from .create_customer_dto import CreateCustomerDto
 from .create_squad_dto import CreateSquadDto
 from .import_twilio_phone_number_dto import ImportTwilioPhoneNumberDto
+from .session_costs_item import SessionCostsItem
 from .session_messages_item import SessionMessagesItem
 from .session_status import SessionStatus
 
@@ -36,6 +38,16 @@ class Session(UncheckedBaseModel):
     updated_at: typing_extensions.Annotated[dt.datetime, FieldMetadata(alias="updatedAt")] = pydantic.Field()
     """
     This is the ISO 8601 timestamp indicating when the session was last updated.
+    """
+
+    cost: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    This is the cost of the session in USD.
+    """
+
+    costs: typing.Optional[typing.List[SessionCostsItem]] = pydantic.Field(default=None)
+    """
+    These are the costs of individual components of the session in USD.
     """
 
     name: typing.Optional[str] = pydantic.Field(default=None)
@@ -105,6 +117,15 @@ class Session(UncheckedBaseModel):
     This is the phone number configuration for this session.
     """
 
+    artifact: typing.Optional[Artifact] = pydantic.Field(default=None)
+    """
+    These are the artifacts that were extracted from the session messages.
+    They are only available after the session has completed.
+    The artifact plan from the assistant or active assistant of squad is used to generate the artifact.
+    Currently the only supported fields of assistant artifact plan are:
+    - structuredOutputIds
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:
@@ -117,6 +138,7 @@ class Session(UncheckedBaseModel):
 
 from .anthropic_model import AnthropicModel  # noqa: E402, F401, I001
 from .anyscale_model import AnyscaleModel  # noqa: E402, F401, I001
+from .assistant_overrides import AssistantOverrides  # noqa: E402, F401, I001
 from .call_hook_assistant_speech_interrupted import CallHookAssistantSpeechInterrupted  # noqa: E402, F401, I001
 from .call_hook_call_ending import CallHookCallEnding  # noqa: E402, F401, I001
 from .call_hook_customer_speech_interrupted import CallHookCustomerSpeechInterrupted  # noqa: E402, F401, I001

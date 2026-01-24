@@ -8,7 +8,7 @@ from typing_extensions import Required, Annotated, TypedDict
 
 import pytest
 
-from turbopuffer._types import NOT_GIVEN, Base64FileInput
+from turbopuffer._types import Base64FileInput, omit, not_given
 from turbopuffer._utils import (
     PropertyInfo,
     transform as _transform,
@@ -17,6 +17,8 @@ from turbopuffer._utils import (
 )
 from turbopuffer._compat import PYDANTIC_V1
 from turbopuffer._models import BaseModel
+
+pytest.skip(reason="turbopuffer uses optimized transform that bypasses Stainless type-based transformations", allow_module_level=True)
 
 _T = TypeVar("_T")
 
@@ -450,4 +452,11 @@ async def test_transform_skipping(use_async: bool) -> None:
 @pytest.mark.asyncio
 async def test_strips_notgiven(use_async: bool) -> None:
     assert await transform({"foo_bar": "bar"}, Foo1, use_async) == {"fooBar": "bar"}
-    assert await transform({"foo_bar": NOT_GIVEN}, Foo1, use_async) == {}
+    assert await transform({"foo_bar": not_given}, Foo1, use_async) == {}
+
+
+@parametrize
+@pytest.mark.asyncio
+async def test_strips_omit(use_async: bool) -> None:
+    assert await transform({"foo_bar": "bar"}, Foo1, use_async) == {"fooBar": "bar"}
+    assert await transform({"foo_bar": omit}, Foo1, use_async) == {}

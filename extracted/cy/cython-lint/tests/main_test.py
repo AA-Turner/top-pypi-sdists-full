@@ -131,6 +131,39 @@ def test_useless_alias(capsys: Any, src: str, expected: str) -> None:
     ("src", "expected"),
     [
         (
+            "from ._common cimport foo\n_ = foo\n",
+            "t.py:1:0: Found relative import\n",
+        ),
+        (
+            "from ._common cimport foo as foot\n_ = foot\n",
+            "t.py:1:0: Found relative import\n",
+        ),
+        (
+            "from ._common import foo\n_ = foo\n",
+            "t.py:1:0: Found relative import\n",
+        ),
+        (
+            "from ._common import foo as foot\n_ = foot\n",
+            "t.py:1:0: Found relative import\n",
+        ),
+    ],
+)
+def test_relative_import(capsys: Any, src: str, expected: str) -> None:
+    ret = _main(src, "t.py", ext=".pyx", no_pycodestyle=True, ban_relative_imports=True)
+    out, _ = capsys.readouterr()
+    assert out == expected
+    assert ret == 1
+
+    ret = _main(src, "t.py", ext=".pyx", no_pycodestyle=True)
+    out, _ = capsys.readouterr()
+    assert out == ""
+    assert ret == 0
+
+
+@pytest.mark.parametrize(
+    ("src", "expected"),
+    [
+        (
             'def foo():\n    print()\n    "foobar"\n',
             "t.py:3:5: pointless string statement\n",
         ),
@@ -501,13 +534,8 @@ def test_pycodestyle_when_ast_parsing_fails(
         fd.write("[pycodestyle]\nstatistics=True\n")
     ret = _main(src, file, ext=".pyx")
     out, _ = capsys.readouterr()
-    expected = (
-        f"Skipping file {file}, as it cannot be parsed. Error: "
-        "AttributeError(\"'_thread._local' object has no attribute "
-        "'cython_errors_stack'\")\n"
-        f"{file}:4:11: E231 missing whitespace after ':'\n"
-    )
-    assert out == expected
+    assert f"Skipping file {file}, as it cannot be parsed. Error: CompileError" in out
+    assert f"{file}:4:11: E231 missing whitespace after ':'\n" in out
     assert ret == 1
 
 
@@ -585,6 +613,7 @@ def test_pycodestyle_when_ast_parsing_fails(
         "for i, v in enumerate(values):\n    pass\n    arr.extend(values[i])\n    pass\n",
         "for i, v in enumerate(values):\n    b = t[i]\n",
         "import numpy as np\n\n\ndef foo() -> np.ndarray:\n    pass\n",
+        "dict([x for x in foo])\n",
         "current_notification = 3\n"
         "\n"
         "\n"
@@ -597,10 +626,12 @@ def test_pycodestyle_when_ast_parsing_fails(
         "def foo():\n    cdef int size\n    asarray(<char[:size]> foo)\n",
         'include "heap_watershed.pxi"\n',
         "import foo\n\n\ndef bar():\n    a: foo\n",
+        "DevicePointerT: TypeAlias = Union[driver.CUdeviceptr, int, None]\n"
+        '"A type union of :obj:`~driver.CUdeviceptr`, `int` and `None` for hinting :attr:`Buffer.handle`."',
     ],
 )
 def test_noop(capsys: Any, src: str) -> None:
-    ret = _main(src, "t.py", ext=".pyx")
+    ret = _main(src, "test.py", ext=".pyx")
     out, _ = capsys.readouterr()
     assert out == ""
     assert ret == 0
@@ -719,5 +750,33 @@ def test_exported_imports(
     ret = _main(src, "t.py", ext=".pyx", no_pycodestyle=True)
     out, _ = capsys.readouterr()
     expected = "t.py:2:8: 'polars' imported but unused\n"
+    assert out == expected
+    assert ret == 1
+
+
+@pytest.mark.parametrize(
+    ("src", "expected"),
+    [
+        (
+            "list([x for x in [1,2,3]])\n",
+            "t.py:1:5: unnecessary list + generator (just use a list comprehension)\n",
+        ),
+        (
+            "set([x for x in [1,2,3]])\n",
+            "t.py:1:4: unnecessary set + generator (just use a set comprehension)\n",
+        ),
+        (
+            "dict([(x, y) for x,y in foo])\n",
+            "t.py:1:5: unnecessary dict + generator (just use a dict comprehension)\n",
+        ),
+    ],
+)
+def test_unnecessary_dict_list_set(
+    capsys: Any,
+    src: str,
+    expected: str,
+) -> None:
+    ret = _main(src, "t.py", ext=".pyx", no_pycodestyle=True)
+    out, _ = capsys.readouterr()
     assert out == expected
     assert ret == 1

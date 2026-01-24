@@ -19,17 +19,17 @@ from anyscale.project.commands import (
     _GET_PROJECT_EXAMPLE,
     _LIST_PROJECTS_DOCSTRINGS,
     _LIST_PROJECTS_EXAMPLE,
-    add_collaborators,
-    create,
-    delete,
-    get,
-    get_default,
-    list,
+    add_collaborators as add_collaborators,
+    create as create,
+    delete as delete,
+    get as get,
+    get_default as get_default,
+    list as list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
 )
 from anyscale.project.models import (
     CreateProjectCollaborator,
     Project,
-    ProjectPermissionLevel,
+    ProjectPermissionLevel as ProjectPermissionLevel,
     ProjectSortField,
     ProjectSortOrder,
 )

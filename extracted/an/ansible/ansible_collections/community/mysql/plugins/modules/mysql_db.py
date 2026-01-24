@@ -160,10 +160,8 @@ options:
     description:
     - Use C(bash) instead of C(sh) and add C(-o pipefail) to catch errors from the
       mysql_dump command when I(state=dump) and compression is used.
-    - The default is C(no) to prevent issues on systems without bash as a default interpreter.
-    - The default will change to C(yes) in community.mysql 4.0.0.
     type: bool
-    default: false
+    default: true
     version_added: '3.4.0'
   sql_log_bin:
     description:
@@ -637,7 +635,7 @@ def main():
         check_implicit_admin=dict(type='bool', default=False),
         config_overrides_defaults=dict(type='bool', default=False),
         chdir=dict(type='path'),
-        pipefail=dict(type='bool', default=False),
+        pipefail=dict(type='bool', default=True),
         sql_log_bin=dict(type='bool', default=True),
     )
 

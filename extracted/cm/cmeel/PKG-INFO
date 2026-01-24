@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cmeel
-Version: 0.57.3
+Version: 0.59.0
 Summary: Create Wheel from CMake projects
 Project-URL: Changelog, https://github.com/cmake-wheel/cmeel/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://cmeel.readthedocs.io/
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: System :: Archiving :: Packaging
 Classifier: Topic :: System :: Software Distribution
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: tomli>=2.1.0; python_full_version < '3.11'
 Provides-Extra: build
 Requires-Dist: cmake>=3.31.2; extra == 'build'

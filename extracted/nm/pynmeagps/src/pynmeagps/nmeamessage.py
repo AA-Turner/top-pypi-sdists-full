@@ -13,6 +13,8 @@ Created on 04 Mar 2021
 import struct
 from datetime import datetime, timezone
 from logging import getLogger
+from types import NoneType
+from typing import Literal
 
 import pynmeagps.exceptions as nme
 import pynmeagps.nmeatypes_core as nmt
@@ -28,6 +30,7 @@ from pynmeagps.nmeahelpers import (
     ddd2dmm,
     dmm2ddd,
     generate_checksum,
+    groupsize,
     time2str,
     time2utc,
 )
@@ -40,10 +43,11 @@ class NMEAMessage:
         self,
         talker: str,
         msgID: str,
-        msgmode: int,
+        msgmode: Literal[0, 1, 2],
         hpnmeamode: bool = False,
         validate: int = nmt.VALCKSUM,
-        userdefined: dict = None,
+        userdefined: dict | NoneType = None,
+        checksum: str | NoneType = None,
         **kwargs,
     ):
         """Constructor.
@@ -61,6 +65,8 @@ class NMEAMessage:
         :param int validate: VALNONE (0), VALCKSUM (1), VALMSGID (2),
             (can be OR'd) (1)
         :param dict userdefined: user-defined payload definition dictionary (None)
+        :param str | NoneType checksum: checksum from incoming message or
+            None if creating new message (None)
         :param kwargs: keyword arg(s) representing all or some payload attributes
         :raises: NMEAMessageError
         """
@@ -96,6 +102,9 @@ class NMEAMessage:
         self._hpnmeamode = hpnmeamode
         self._talker = talker
         self._msgID = msgID
+        self._checksum = checksum
+        # flag to show message is being streamed rather than generated
+        self._streaming = "payload" in kwargs
         self._do_attributes(**kwargs)
         self._immutable = True  # once initialised, object is immutable
 
@@ -110,10 +119,11 @@ class NMEAMessage:
 
         pindex = 0  # payload index
         gindex = []  # (nested) grouped attribute indices
+        key = ""
 
         try:
             self._payload = kwargs.get("payload", [])
-            self._checksum = kwargs.get("checksum", None)
+            # self._checksum = kwargs.get("checksum", None)
             pdict = self._get_dict(**kwargs)  # get payload definition dict
             if pdict is None:  # definition not yet implemented
                 if "payload" in kwargs:
@@ -164,7 +174,7 @@ class NMEAMessage:
         return (pindex, gindex)
 
     def _set_attribute_group(
-        self, att: tuple, pindex: int, gindex: list, **kwargs
+        self, att: tuple[int, dict], pindex: int, gindex: list, **kwargs
     ) -> tuple:
         """
         Process (nested) group of attributes.
@@ -185,7 +195,10 @@ class NMEAMessage:
             rng = numr
         elif numr == "None":  # indeterminate number of repeats
             pindexend = 0  # may need tweaking
-            rng = self._calc_num_repeats(attd, self._payload, pindex, pindexend)
+            if self._streaming:
+                rng = self._calc_num_repeats(attd, self._payload, pindex, pindexend)
+            else:
+                rng = groupsize(**kwargs)
         else:  # number of repeats is defined in named attribute
             rng = getattr(self, numr)
         # recursively process each group attribute,
@@ -225,7 +238,7 @@ class NMEAMessage:
 
         try:
             # all attribute values have been provided
-            if "payload" in kwargs:
+            if self._streaming:
                 # remove group delimiters in proprietary PSSNSNC message
                 if self.identity == "PSSNSNC":
                     self._payload[pindex] = (
@@ -257,7 +270,7 @@ class NMEAMessage:
             return pindex
 
         setattr(self, keyr, val)  # add attribute to NMEAMessage object
-        if "payload" in kwargs:
+        if self._streaming:
             # override sign of lat/lon according to NS and EW values
             if att == nmt.LND and hasattr(self, "lon"):
                 if isinstance(self.lon, (int, float)):
@@ -279,19 +292,20 @@ class NMEAMessage:
         for i, fld in enumerate(payload):
             setattr(self, f"field_{i+1:02d}", fld)
 
-    def _get_dict(self, **kwargs) -> dict:
+    def _get_dict(self, **kwargs) -> dict | NoneType:
         """
         Get payload dictionary.
 
         :return: dictionary representing payload definition
-        :rtype: dict
+        :rtype: dict | NoneType
         """
 
         dic = None
+        key = self.msgID
+
         try:
-            key = self.msgID
             if key in nmt.NMEA_PREFIX_PROP:  # proprietary, first element is msgId
-                if "payload" in kwargs:
+                if self._streaming:
                     if key == "ASHR" and self._payload[0][1].isdigit():
                         pass  # exception for PASHR pitch and roll sentence without msgId
                     else:
@@ -342,6 +356,10 @@ class NMEAMessage:
             key = self._get_dict_qtmcfgsat(key, self._mode, **kwargs)
         elif key == "QTMCFGUART":
             key = self._get_dict_qtmcfguart(key, self._mode, **kwargs)
+        elif key == "QTMSN":
+            key = self._get_dict_qtmsn(key, self._mode, **kwargs)
+        elif key == "STMDRSENMSG":
+            key = self._get_dict_stmdrsenmsg(key, self._mode, **kwargs)
         elif key[0:3] == "QTM":
             key = self._get_dict_qtmacknak(key, self._mode)
 
@@ -363,7 +381,7 @@ class NMEAMessage:
         """
 
         lp = len(self._payload)
-        py = "payload" in kwargs
+        py = self._streaming
         pt = "portid" in kwargs
         if mode == nmt.SET:
             bd = "baudrate" in kwargs
@@ -391,14 +409,23 @@ class NMEAMessage:
         """
 
         lp = len(self._payload)
-        py = "payload" in kwargs
+        py = self._streaming
         mv = "msgver" in kwargs
+        pt = "porttype" in kwargs
         if mode in (nmt.SET, nmt.GET):
-            if (py and lp == 3) or (not py and not mv):
+            if (py and lp == 3) or (not py and not pt and not mv):
                 key += "_NOVER"
+            elif (py and lp == 5) or (not py and pt and not mv):
+                key += "_INTFNOVER"
+            elif (py and lp == 6) or (not py and pt and mv):
+                key += "_INTF"
         elif mode == nmt.POLL:
-            if (py and lp == 2) or (not py and not mv):
+            if (py and lp == 2) or (not py and not pt and not mv):
                 key += "_NOVER"
+            elif (py and lp == 4) or (not py and pt and not mv):
+                key += "_INTFNOVER"
+            elif (py and lp == 5) or (not py and pt and mv):
+                key += "_INTF"
         return key
 
     def _get_dict_qtmcfgpps(self, key: str, mode: int, **kwargs) -> str:
@@ -413,7 +440,7 @@ class NMEAMessage:
         """
 
         lp = len(self._payload)
-        py = "payload" in kwargs
+        py = self._streaming
         if mode == nmt.SET:
             if (py and lp == 3) or (not py and kwargs.get("enable", 1) == 0):
                 key += "_DIS"
@@ -431,7 +458,7 @@ class NMEAMessage:
         """
 
         lp = len(self._payload)
-        py = "payload" in kwargs
+        py = self._streaming
         mh = "maskhigh" in kwargs
         if mode == nmt.SET:
             if (py and lp == 4) or (not py and not mh):
@@ -455,7 +482,7 @@ class NMEAMessage:
         """
 
         lp = len(self._payload)
-        py = "payload" in kwargs
+        py = self._streaming
         l1 = "lon1" in kwargs
         if mode == nmt.SET:
             if (py and lp == 13) or (not py and l1):
@@ -469,12 +496,50 @@ class NMEAMessage:
                 key = self._get_dict_qtmacknak(key, mode)
         return key
 
+    def _get_dict_qtmsn(self, key: str, mode: int, **kwargs) -> str:
+        """
+        Get payload dictionary for proprietary Quectel QTMSN.
+        (bug in LG580P firmware - seems to transpose status field?)
+
+        :param str key: msgid
+        :param int mode: msgmode 1/2
+        :return: key of payload definition
+        :rtype: str
+        """
+
+        py = self._streaming
+        if mode == nmt.GET:
+            if py and kwargs["payload"][0].isnumeric():
+                key += "_ALT"
+        return key
+
+    def _get_dict_stmdrsenmsg(self, key: str, mode: int, **kwargs) -> str:
+        """
+        Get payload dictionary for proprietary Quectel PSTMDRSENMSG variants.
+
+        :param str key: msgid
+        :param int mode: msgmode 1/2
+        :return: key of payload definition
+        :rtype: str
+        """
+
+        py = self._streaming
+        mt = "msgtype" in kwargs
+        msgtype = ""
+        if py:
+            msgtype = self._payload[0]
+        elif not py and mt:
+            msgtype = kwargs["msgtype"]
+        key += f"_{msgtype}"
+        return key
+
     def _get_dict_qtmacknak(self, key: str, mode: int) -> str:
         """
         Get payload dictionary for proprietary Quectel command
         response variants.
 
         :param str key: msgid
+        :param int mode: msgmode 1/2
         :return: key of payload definition
         :rtype: str
         """

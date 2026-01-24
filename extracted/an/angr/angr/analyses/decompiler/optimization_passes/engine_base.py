@@ -73,7 +73,7 @@ class SimplifierAILEngine(
             self.state.store_variable(dst, src)
 
         if (src, dst) != (stmt.src, stmt.dst):
-            return ailment.statement.Assignment(stmt.idx, dst, src, **stmt.tags)  # type:ignore
+            return ailment.statement.Assignment(stmt.idx, dst, src, **stmt.tags)  # type: ignore
 
         return stmt
 
@@ -82,7 +82,7 @@ class SimplifierAILEngine(
         dst = self._expr(stmt.dst)
 
         if (src, dst) != (stmt.src, stmt.dst):
-            return ailment.statement.WeakAssignment(stmt.idx, dst, src, **stmt.tags)  # type:ignore
+            return ailment.statement.WeakAssignment(stmt.idx, dst, src, **stmt.tags)  # type: ignore
 
         return stmt
 
@@ -130,7 +130,7 @@ class SimplifierAILEngine(
 
         new_args = None
 
-        if stmt.args:
+        if stmt.args is not None:
             new_args = []
             for arg in stmt.args:
                 new_arg = self._expr(arg)
@@ -164,7 +164,7 @@ class SimplifierAILEngine(
     def _handle_stmt_DirtyStatement(self, stmt):
         expr = self._expr(stmt.dirty)
         if expr != stmt.dirty:
-            return ailment.statement.DirtyStatement(stmt.idx, expr, **stmt.tags)  # type:ignore
+            return ailment.statement.DirtyStatement(stmt.idx, expr, **stmt.tags)  # type: ignore
         return stmt
 
     def _handle_stmt_Label(self, stmt):
@@ -446,6 +446,8 @@ class SimplifierAILEngine(
     _handle_binop_CmpGT = _handle_binop_Default
 
     _handle_binop_CmpGE = _handle_binop_Default
+
+    _handle_binop_CmpORD = _handle_binop_Default
 
     _handle_binop_Concat = _handle_binop_Default
 

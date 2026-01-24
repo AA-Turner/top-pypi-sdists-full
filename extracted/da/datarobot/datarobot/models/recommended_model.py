@@ -37,13 +37,11 @@ class ModelRecommendation(APIObject):
     """
 
     _base_recommended_path_template = "projects/{}/recommendedModels/"
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("recommendation_type"): String,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("recommendation_type"): String,
+    }).ignore_extra("*")
 
     def __init__(self, project_id: str, model_id: str, recommendation_type: str) -> None:
         self.project_id = project_id
@@ -51,9 +49,7 @@ class ModelRecommendation(APIObject):
         self.recommendation_type = recommendation_type
 
     def __repr__(self) -> str:
-        return "ModelRecommendation({}, {}, {})".format(
-            self.project_id, self.model_id, self.recommendation_type
-        )
+        return "ModelRecommendation({}, {}, {})".format(self.project_id, self.model_id, self.recommendation_type)
 
     @classmethod
     def get(
@@ -100,10 +96,7 @@ class ModelRecommendation(APIObject):
         """
         url = cls._base_recommended_path_template.format(project_id)
         response = ModelRecommendation._server_data(url)
-        return [
-            ModelRecommendation.from_server_data(cast("ServerDataDictType", data))
-            for data in response
-        ]
+        return [ModelRecommendation.from_server_data(cast("ServerDataDictType", data)) for data in response]
 
     @classmethod
     def get_recommendation(
@@ -125,11 +118,7 @@ class ModelRecommendation(APIObject):
         """
 
         return next(
-            (
-                model
-                for model in recommended_models
-                if model.recommendation_type == recommendation_type
-            ),
+            (model for model in recommended_models if model.recommendation_type == recommendation_type),
             None,
         )
 

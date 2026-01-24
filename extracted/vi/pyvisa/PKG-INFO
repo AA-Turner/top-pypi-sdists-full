@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyVISA
-Version: 1.15.0
+Version: 1.16.1
 Summary: Python VISA bindings for GPIB, RS232, TCPIP and USB instruments
 Author: Gregor Thalhammer
 Author-email: Torsten Bronger <bronger@physik.rwth-aachen.de>, "Hernan E. Grecco" <hernan.grecco@gmail.com>
@@ -47,6 +47,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE

@@ -1,0 +1,39 @@
+file:
+- statement:
+  - select_statement:
+    - select_clause:
+      - keyword: SELECT
+      - select_clause_element:
+        - object_literal:
+          - start_curly_bracket: '{'
+          - object_literal_element:
+            - quoted_literal: '''a'''
+            - colon: ':'
+            - numeric_literal: '1'
+          - comma: ','
+          - object_literal_element:
+            - quoted_literal: '''b'''
+            - colon: ':'
+            - quoted_literal: '''foo'''
+          - comma: ','
+          - object_literal_element:
+            - quoted_literal: '''c'''
+            - colon: ':'
+            - expression:
+              - numeric_literal: '4'
+              - binary_operator: +
+              - numeric_literal: '5'
+          - comma: ','
+          - object_literal_element:
+            - quoted_literal: '''d'''
+            - colon: ':'
+            - column_reference:
+              - naked_identifier: some_column_ref
+          - end_curly_bracket: '}'
+    - from_clause:
+      - keyword: FROM
+      - from_expression:
+        - from_expression_element:
+          - table_expression:
+            - table_reference:
+              - naked_identifier: foo

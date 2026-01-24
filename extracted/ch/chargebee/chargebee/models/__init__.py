@@ -13,6 +13,7 @@ from chargebee.models.enums import (
     BillingPeriodUnit,
     BillingStartOption,
     CancelOption,
+    Category,
     ChangeOption,
     Channel,
     ChargeModel,
@@ -26,6 +27,7 @@ from chargebee.models.enums import (
     CustomerType,
     DedupeOption,
     DirectDebitScheme,
+    DiscountType,
     DispositionType,
     DunningType,
     DurationType,
@@ -36,6 +38,7 @@ from chargebee.models.enums import (
     EntityType,
     EventName,
     EventType,
+    ExcludeTaxType,
     ExportType,
     FreePeriodUnit,
     FriendOfferType,
@@ -65,6 +68,7 @@ from chargebee.models.enums import (
     RefundableCreditsHandling,
     ReportBy,
     ResumeOption,
+    RetryEngine,
     Role,
     ScheduleType,
     Source,
@@ -134,6 +138,8 @@ from chargebee.models.discount.operations import Discount
 
 from chargebee.models.download.operations import Download
 
+from chargebee.models.einvoice.operations import Einvoice
+
 from chargebee.models.entitlement.operations import Entitlement
 
 from chargebee.models.entitlement_override.operations import EntitlementOverride
@@ -178,6 +184,10 @@ from chargebee.models.item_price.operations import ItemPrice
 
 from chargebee.models.metadata.operations import Metadata
 
+from chargebee.models.offer_event.operations import OfferEvent
+
+from chargebee.models.offer_fulfillment.operations import OfferFulfillment
+
 from chargebee.models.omnichannel_one_time_order.operations import (
     OmnichannelOneTimeOrder,
 )
@@ -190,6 +200,10 @@ from chargebee.models.omnichannel_subscription.operations import OmnichannelSubs
 
 from chargebee.models.omnichannel_subscription_item.operations import (
     OmnichannelSubscriptionItem,
+)
+
+from chargebee.models.omnichannel_subscription_item_offer.operations import (
+    OmnichannelSubscriptionItemOffer,
 )
 
 from chargebee.models.omnichannel_subscription_item_scheduled_change.operations import (
@@ -216,6 +230,8 @@ from chargebee.models.payment_source.operations import PaymentSource
 
 from chargebee.models.payment_voucher.operations import PaymentVoucher
 
+from chargebee.models.personalized_offer.operations import PersonalizedOffer
+
 from chargebee.models.plan.operations import Plan
 
 from chargebee.models.portal_session.operations import PortalSession
@@ -233,6 +249,8 @@ from chargebee.models.quote.operations import Quote
 from chargebee.models.quote_line_group.operations import QuoteLineGroup
 
 from chargebee.models.quoted_charge.operations import QuotedCharge
+
+from chargebee.models.quoted_delta_ramp.operations import QuotedDeltaRamp
 
 from chargebee.models.quoted_ramp.operations import QuotedRamp
 

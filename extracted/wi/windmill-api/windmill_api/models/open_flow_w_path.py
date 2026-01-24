@@ -17,11 +17,13 @@ T = TypeVar("T", bound="OpenFlowWPath")
 class OpenFlowWPath:
     """
     Attributes:
-        summary (str):
-        value (OpenFlowWPathValue):
+        summary (str): Short description of what this flow does
+        value (OpenFlowWPathValue): The flow structure containing modules and optional preprocessor/failure handlers
         path (str):
-        description (Union[Unset, str]):
-        schema (Union[Unset, OpenFlowWPathSchema]):
+        description (Union[Unset, str]): Detailed documentation for this flow
+        schema (Union[Unset, OpenFlowWPathSchema]): JSON Schema for flow inputs. Use this to define input parameters,
+            their types, defaults, and validation. For resource inputs, set type to 'object' and format to 'resource-<type>'
+            (e.g., 'resource-stripe')
         tag (Union[Unset, str]):
         ws_error_handler_muted (Union[Unset, bool]):
         priority (Union[Unset, int]):

@@ -1,0 +1,261 @@
+[build-system]
+requires = [
+  "setuptools >= 77",
+  "setuptools_scm[toml]"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "src/napari_plugin_manager/_version.py"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["napari_plugin_manager"]
+exclude = []
+namespaces = false
+
+[project]
+name = "napari-plugin-manager"
+description = "Install plugins for napari, in napari."
+readme = "README.md"
+authors = [
+  {name = "napari team", email = "napari-steering-council@googlegroups.com"}
+]
+license = "BSD-3-Clause"
+license-files = [
+    "LICENSE",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Framework :: napari",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: C",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Utilities",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS"
+]
+requires-python = ">=3.10"
+dependencies = [
+  # "napari",  # FUTURE: Fully decouple from napari # bug in uv create problem with constraints files https://github.com/astral-sh/uv/issues/16372
+  "npe2",
+  "qtpy",
+  "superqt",
+  "pip",
+  "packaging",
+]
+dynamic = [
+  "version"
+]
+
+[project.optional-dependencies]
+dev = [
+  "PyQt6",
+  "pre-commit",
+]
+uv = [
+  "uv",
+]
+
+testing = [
+  "napari-plugin-manager[uv]",
+  "coverage",
+  "flaky",
+  "pytest",
+  "pytest-qt",
+  "virtualenv"
+]
+
+docs = [
+  "sphinx>6",
+  "sphinx-autobuild",
+  "sphinx-external-toc",
+  "sphinx-copybutton",
+  "sphinx-favicon",
+  "myst-nb",
+  "napari-sphinx-theme>=0.3.0",
+]
+
+[project.urls]
+homepage = "https://github.com/napari/napari-plugin-manager"
+
+[tool.black]
+target-version = ['py310', 'py311', 'py312', 'py313']
+skip-string-normalization = true
+line-length = 79
+
+[tool.check-manifest]
+ignore = [
+  ".pre-commit-config.yaml",
+  "napari_plugin_manager/_version.py",  # added during build by setuptools_scm
+  "*.pyi",  # added by make typestubs
+]
+
+[tool.ruff]
+line-length = 79
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".mypy_cache",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "*vendored*",
+    "*_vendor*",
+]
+
+fix = true
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W", #flake8
+    "UP", # pyupgrade
+    "I", # isort
+    "YTT", #flake8-2020
+    "TC", # flake8-type-checing
+    "BLE", # flake8-blind-exception
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "C4", # flake8-comprehensions
+    "ISC", # flake8-implicit-str-concat
+    "G", # flake8-logging-format
+    "PIE", # flake8-pie
+    "COM", # flake8-commas
+    "SIM", # flake8-simplify
+    "INP", # flake8-no-pep420
+    "PYI", # flake8-pyi
+    "Q", # flake8-quotes
+    "RSE", # flake8-raise
+    "RET", # flake8-return
+    "TID",  # flake8-tidy-imports # replace absolutify import
+    "TRY", # tryceratops
+    "ICN", # flake8-import-conventions
+    "RUF", # ruff specyfic rules
+    "NPY201", # checks compatibility with numpy version 2.0
+    "ASYNC", # flake8-async
+    "EXE", # flake8-executable
+    "FA", # flake8-future-annotations
+    "LOG", # flake8-logging
+    "SLOT", # flake8-slots
+    "PT", # flake8-pytest-style
+    "T20", # flake8-print
+]
+ignore = [
+    "E501", "TC001", "TC002", "TC003",
+    "A003", # flake8-builtins - we have class attributes violating these rule
+    "COM812", # flake8-commas - we don't like adding comma on single line of arguments
+    "COM819", # conflicts with ruff-format
+    "SIM117", # flake8-simplify - we some of merged with statements are not looking great with black, reanble after drop python 3.9
+    "RET504", # not fixed yet https://github.com/charliermarsh/ruff/issues/2950
+    "TRY003", # require implement multiple exception class
+    "RUF005", # problem with numpy compatibility, see https://github.com/charliermarsh/ruff/issues/2142#issuecomment-1451038741
+    "B028", # need to be fixed
+    "PYI015", # it produces bad looking files (@jni opinion)
+    "W191", "Q000", "Q001", "Q002", "Q003", "ISC001", # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "TC006", # put types in quotes in typing.cast
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/_tests/*.py" = ["B011", "INP001", "TRY301", "B018", "RUF012", "T20"]
+
+[tool.ruff.lint.flake8-builtins]
+builtins-allowed-modules = ["io", "types", "threading"]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "single"
+multiline-quotes = "double"
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+known-first-party=['napari_plugin_manager']
+combine-as-imports = true
+
+[tool.pytest.ini_options]
+# These follow standard library warnings filters syntax.  See more here:
+# https://docs.python.org/3/library/warnings.html#describing-warning-filters
+addopts = "--maxfail=5 --durations=10 -rXxs"
+
+# NOTE: only put things that will never change in here.
+# napari deprecation and future warnings should NOT go in here.
+# instead... assert the warning with `pytest.warns()` in the relevant test,
+# That way we can clean them up when no longer necessary
+filterwarnings = [
+  "error:::napari_plugin_manager", # turn warnings from napari into errors
+  "error:::test_.*", # turn warnings in our own tests into errors
+]
+
+markers = [
+  "enabledialog: Allow to use dialog in test"
+]
+
+[tool.mypy]
+files = "napari_plugin_manager"
+ignore_missing_imports = true
+exclude = [
+  "_tests",
+]
+show_error_codes = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+check_untyped_defs = true
+# # maybe someday :)
+# disallow_any_generics = true
+# no_implicit_reexport = true
+# disallow_untyped_defs = true
+
+
+[tool.coverage.run]
+omit = [
+  "src/napari_plugin_manager/_version.py",
+]
+source = ["src"]
+relative_files = true
+
+
+[tool.coverage.report]
+exclude_also = [
+  "raise NotImplementedError",
+]
+
+
+[tool.coverage.paths]
+source = [
+    "src/",
+    "*/src/",
+    "*\\src\\",
+]

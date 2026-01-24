@@ -5,8 +5,6 @@
 """
 Useful utilities for working with bitarrays.
 """
-from __future__ import absolute_import
-
 import os
 import sys
 import math
@@ -59,15 +57,8 @@ Return (pseudo-) random bitarray of length `n` with `k` elements
 set to one.  Mathematically equivalent to setting (in a bitarray of
 length `n`) all bits at indices `random.sample(range(n), k)` to one.
 The random bitarrays are reproducible when giving Python's `random.seed()`
-with a specific seed value.
-
-This function requires Python 3.9 or higher, as it depends on the standard
-library function `random.randbytes()`.  Raises `NotImplementedError`
-when Python version is too low.
+a specific seed value.
 """
-    if sys.version_info[:2] < (3, 9):
-        raise NotImplementedError("bitarray.util.random_k() requires "
-                                  "Python 3.9 or higher")
     r = _Random(__n, endian)
     if not isinstance(k, int):
         raise TypeError("int expected, got '%s'" % type(k).__name__)
@@ -93,6 +84,7 @@ when Python version is too low.
                                   "Python 3.12 or higher")
     r = _Random(__n, endian)
     return r.random_p(p)
+
 
 class _Random:
 
@@ -120,8 +112,10 @@ class _Random:
         """
         Return bitarray with each bit having probability p = 1/2 of being 1.
         """
-        # use randbytes() for reproducibility (not urandom())
-        a = bitarray(random.randbytes(self.nbytes), self.endian)
+        nbytes = self.nbytes
+        # use random module function for reproducibility (not urandom())
+        b = random.getrandbits(8 * nbytes).to_bytes(nbytes, 'little')
+        a = bitarray(b, self.endian)
         del a[self.n:]
         return a
 

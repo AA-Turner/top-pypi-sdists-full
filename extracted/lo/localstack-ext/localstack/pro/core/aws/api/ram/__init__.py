@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -385,7 +385,7 @@ class UnmatchedPolicyPermissionException(ServiceException):
 
 class AcceptResourceShareInvitationRequest(ServiceRequest):
     resourceShareInvitationArn: String
-    clientToken: Optional[String]
+    clientToken: String | None
 
 
 DateTime = datetime
@@ -396,18 +396,18 @@ class ResourceShareAssociation(TypedDict, total=False):
     or a resource.
     """
 
-    resourceShareArn: Optional[String]
-    resourceShareName: Optional[String]
-    associatedEntity: Optional[String]
-    associationType: Optional[ResourceShareAssociationType]
-    status: Optional[ResourceShareAssociationStatus]
-    statusMessage: Optional[String]
-    creationTime: Optional[DateTime]
-    lastUpdatedTime: Optional[DateTime]
-    external: Optional[Boolean]
+    resourceShareArn: String | None
+    resourceShareName: String | None
+    associatedEntity: String | None
+    associationType: ResourceShareAssociationType | None
+    status: ResourceShareAssociationStatus | None
+    statusMessage: String | None
+    creationTime: DateTime | None
+    lastUpdatedTime: DateTime | None
+    external: Boolean | None
 
 
-ResourceShareAssociationList = List[ResourceShareAssociation]
+ResourceShareAssociationList = list[ResourceShareAssociation]
 
 
 class ResourceShareInvitation(TypedDict, total=False):
@@ -415,51 +415,51 @@ class ResourceShareInvitation(TypedDict, total=False):
     resource share.
     """
 
-    resourceShareInvitationArn: Optional[String]
-    resourceShareName: Optional[String]
-    resourceShareArn: Optional[String]
-    senderAccountId: Optional[String]
-    receiverAccountId: Optional[String]
-    invitationTimestamp: Optional[DateTime]
-    status: Optional[ResourceShareInvitationStatus]
-    resourceShareAssociations: Optional[ResourceShareAssociationList]
-    receiverArn: Optional[String]
+    resourceShareInvitationArn: String | None
+    resourceShareName: String | None
+    resourceShareArn: String | None
+    senderAccountId: String | None
+    receiverAccountId: String | None
+    invitationTimestamp: DateTime | None
+    status: ResourceShareInvitationStatus | None
+    resourceShareAssociations: ResourceShareAssociationList | None
+    receiverArn: String | None
 
 
 class AcceptResourceShareInvitationResponse(TypedDict, total=False):
-    resourceShareInvitation: Optional[ResourceShareInvitation]
-    clientToken: Optional[String]
+    resourceShareInvitation: ResourceShareInvitation | None
+    clientToken: String | None
 
 
 class AssociateResourceSharePermissionRequest(ServiceRequest):
     resourceShareArn: String
     permissionArn: String
-    replace: Optional[Boolean]
-    clientToken: Optional[String]
-    permissionVersion: Optional[Integer]
+    replace: Boolean | None
+    clientToken: String | None
+    permissionVersion: Integer | None
 
 
 class AssociateResourceSharePermissionResponse(TypedDict, total=False):
-    returnValue: Optional[Boolean]
-    clientToken: Optional[String]
+    returnValue: Boolean | None
+    clientToken: String | None
 
 
-SourceArnOrAccountList = List[String]
-PrincipalArnOrIdList = List[String]
-ResourceArnList = List[String]
+SourceArnOrAccountList = list[String]
+PrincipalArnOrIdList = list[String]
+ResourceArnList = list[String]
 
 
 class AssociateResourceShareRequest(ServiceRequest):
     resourceShareArn: String
-    resourceArns: Optional[ResourceArnList]
-    principals: Optional[PrincipalArnOrIdList]
-    clientToken: Optional[String]
-    sources: Optional[SourceArnOrAccountList]
+    resourceArns: ResourceArnList | None
+    principals: PrincipalArnOrIdList | None
+    clientToken: String | None
+    sources: SourceArnOrAccountList | None
 
 
 class AssociateResourceShareResponse(TypedDict, total=False):
-    resourceShareAssociations: Optional[ResourceShareAssociationList]
-    clientToken: Optional[String]
+    resourceShareAssociations: ResourceShareAssociationList | None
+    clientToken: String | None
 
 
 class AssociatedPermission(TypedDict, total=False):
@@ -467,17 +467,17 @@ class AssociatedPermission(TypedDict, total=False):
     share.
     """
 
-    arn: Optional[String]
-    permissionVersion: Optional[String]
-    defaultVersion: Optional[Boolean]
-    resourceType: Optional[String]
-    status: Optional[String]
-    featureSet: Optional[PermissionFeatureSet]
-    lastUpdatedTime: Optional[DateTime]
-    resourceShareArn: Optional[String]
+    arn: String | None
+    permissionVersion: String | None
+    defaultVersion: Boolean | None
+    resourceType: String | None
+    status: String | None
+    featureSet: PermissionFeatureSet | None
+    lastUpdatedTime: DateTime | None
+    resourceShareArn: String | None
 
 
-AssociatedPermissionList = List[AssociatedPermission]
+AssociatedPermissionList = list[AssociatedPermission]
 
 
 class Tag(TypedDict, total=False):
@@ -492,161 +492,161 @@ class Tag(TypedDict, total=False):
     in the *Amazon Web Services General Reference Guide*.
     """
 
-    key: Optional[TagKey]
-    value: Optional[TagValue]
+    key: TagKey | None
+    value: TagValue | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreatePermissionRequest(ServiceRequest):
     name: PermissionName
     resourceType: String
     policyTemplate: Policy
-    clientToken: Optional[String]
-    tags: Optional[TagList]
+    clientToken: String | None
+    tags: TagList | None
 
 
 class ResourceSharePermissionSummary(TypedDict, total=False):
     """Information about an RAM permission."""
 
-    arn: Optional[String]
-    version: Optional[String]
-    defaultVersion: Optional[Boolean]
-    name: Optional[String]
-    resourceType: Optional[String]
-    status: Optional[String]
-    creationTime: Optional[DateTime]
-    lastUpdatedTime: Optional[DateTime]
-    isResourceTypeDefault: Optional[Boolean]
-    permissionType: Optional[PermissionType]
-    featureSet: Optional[PermissionFeatureSet]
-    tags: Optional[TagList]
+    arn: String | None
+    version: String | None
+    defaultVersion: Boolean | None
+    name: String | None
+    resourceType: String | None
+    status: String | None
+    creationTime: DateTime | None
+    lastUpdatedTime: DateTime | None
+    isResourceTypeDefault: Boolean | None
+    permissionType: PermissionType | None
+    featureSet: PermissionFeatureSet | None
+    tags: TagList | None
 
 
 class CreatePermissionResponse(TypedDict, total=False):
-    permission: Optional[ResourceSharePermissionSummary]
-    clientToken: Optional[String]
+    permission: ResourceSharePermissionSummary | None
+    clientToken: String | None
 
 
 class CreatePermissionVersionRequest(ServiceRequest):
     permissionArn: String
     policyTemplate: Policy
-    clientToken: Optional[String]
+    clientToken: String | None
 
 
 class ResourceSharePermissionDetail(TypedDict, total=False):
     """Information about a RAM managed permission."""
 
-    arn: Optional[String]
-    version: Optional[String]
-    defaultVersion: Optional[Boolean]
-    name: Optional[String]
-    resourceType: Optional[String]
-    permission: Optional[String]
-    creationTime: Optional[DateTime]
-    lastUpdatedTime: Optional[DateTime]
-    isResourceTypeDefault: Optional[Boolean]
-    permissionType: Optional[PermissionType]
-    featureSet: Optional[PermissionFeatureSet]
-    status: Optional[PermissionStatus]
-    tags: Optional[TagList]
+    arn: String | None
+    version: String | None
+    defaultVersion: Boolean | None
+    name: String | None
+    resourceType: String | None
+    permission: String | None
+    creationTime: DateTime | None
+    lastUpdatedTime: DateTime | None
+    isResourceTypeDefault: Boolean | None
+    permissionType: PermissionType | None
+    featureSet: PermissionFeatureSet | None
+    status: PermissionStatus | None
+    tags: TagList | None
 
 
 class CreatePermissionVersionResponse(TypedDict, total=False):
-    permission: Optional[ResourceSharePermissionDetail]
-    clientToken: Optional[String]
+    permission: ResourceSharePermissionDetail | None
+    clientToken: String | None
 
 
-PermissionArnList = List[String]
+PermissionArnList = list[String]
 
 
 class CreateResourceShareRequest(ServiceRequest):
     name: String
-    resourceArns: Optional[ResourceArnList]
-    principals: Optional[PrincipalArnOrIdList]
-    tags: Optional[TagList]
-    allowExternalPrincipals: Optional[Boolean]
-    clientToken: Optional[String]
-    permissionArns: Optional[PermissionArnList]
-    sources: Optional[SourceArnOrAccountList]
+    resourceArns: ResourceArnList | None
+    principals: PrincipalArnOrIdList | None
+    tags: TagList | None
+    allowExternalPrincipals: Boolean | None
+    clientToken: String | None
+    permissionArns: PermissionArnList | None
+    sources: SourceArnOrAccountList | None
 
 
 class ResourceShare(TypedDict, total=False):
     """Describes a resource share in RAM."""
 
-    resourceShareArn: Optional[String]
-    name: Optional[String]
-    owningAccountId: Optional[String]
-    allowExternalPrincipals: Optional[Boolean]
-    status: Optional[ResourceShareStatus]
-    statusMessage: Optional[String]
-    tags: Optional[TagList]
-    creationTime: Optional[DateTime]
-    lastUpdatedTime: Optional[DateTime]
-    featureSet: Optional[ResourceShareFeatureSet]
+    resourceShareArn: String | None
+    name: String | None
+    owningAccountId: String | None
+    allowExternalPrincipals: Boolean | None
+    status: ResourceShareStatus | None
+    statusMessage: String | None
+    tags: TagList | None
+    creationTime: DateTime | None
+    lastUpdatedTime: DateTime | None
+    featureSet: ResourceShareFeatureSet | None
 
 
 class CreateResourceShareResponse(TypedDict, total=False):
-    resourceShare: Optional[ResourceShare]
-    clientToken: Optional[String]
+    resourceShare: ResourceShare | None
+    clientToken: String | None
 
 
 class DeletePermissionRequest(ServiceRequest):
     permissionArn: String
-    clientToken: Optional[String]
+    clientToken: String | None
 
 
 class DeletePermissionResponse(TypedDict, total=False):
-    returnValue: Optional[Boolean]
-    clientToken: Optional[String]
-    permissionStatus: Optional[PermissionStatus]
+    returnValue: Boolean | None
+    clientToken: String | None
+    permissionStatus: PermissionStatus | None
 
 
 class DeletePermissionVersionRequest(ServiceRequest):
     permissionArn: String
     permissionVersion: Integer
-    clientToken: Optional[String]
+    clientToken: String | None
 
 
 class DeletePermissionVersionResponse(TypedDict, total=False):
-    returnValue: Optional[Boolean]
-    clientToken: Optional[String]
-    permissionStatus: Optional[PermissionStatus]
+    returnValue: Boolean | None
+    clientToken: String | None
+    permissionStatus: PermissionStatus | None
 
 
 class DeleteResourceShareRequest(ServiceRequest):
     resourceShareArn: String
-    clientToken: Optional[String]
+    clientToken: String | None
 
 
 class DeleteResourceShareResponse(TypedDict, total=False):
-    returnValue: Optional[Boolean]
-    clientToken: Optional[String]
+    returnValue: Boolean | None
+    clientToken: String | None
 
 
 class DisassociateResourceSharePermissionRequest(ServiceRequest):
     resourceShareArn: String
     permissionArn: String
-    clientToken: Optional[String]
+    clientToken: String | None
 
 
 class DisassociateResourceSharePermissionResponse(TypedDict, total=False):
-    returnValue: Optional[Boolean]
-    clientToken: Optional[String]
+    returnValue: Boolean | None
+    clientToken: String | None
 
 
 class DisassociateResourceShareRequest(ServiceRequest):
     resourceShareArn: String
-    resourceArns: Optional[ResourceArnList]
-    principals: Optional[PrincipalArnOrIdList]
-    clientToken: Optional[String]
-    sources: Optional[SourceArnOrAccountList]
+    resourceArns: ResourceArnList | None
+    principals: PrincipalArnOrIdList | None
+    clientToken: String | None
+    sources: SourceArnOrAccountList | None
 
 
 class DisassociateResourceShareResponse(TypedDict, total=False):
-    resourceShareAssociations: Optional[ResourceShareAssociationList]
-    clientToken: Optional[String]
+    resourceShareAssociations: ResourceShareAssociationList | None
+    clientToken: String | None
 
 
 class EnableSharingWithAwsOrganizationRequest(ServiceRequest):
@@ -654,70 +654,70 @@ class EnableSharingWithAwsOrganizationRequest(ServiceRequest):
 
 
 class EnableSharingWithAwsOrganizationResponse(TypedDict, total=False):
-    returnValue: Optional[Boolean]
+    returnValue: Boolean | None
 
 
 class GetPermissionRequest(ServiceRequest):
     permissionArn: String
-    permissionVersion: Optional[Integer]
+    permissionVersion: Integer | None
 
 
 class GetPermissionResponse(TypedDict, total=False):
-    permission: Optional[ResourceSharePermissionDetail]
+    permission: ResourceSharePermissionDetail | None
 
 
 class GetResourcePoliciesRequest(ServiceRequest):
     resourceArns: ResourceArnList
-    principal: Optional[String]
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
+    principal: String | None
+    nextToken: String | None
+    maxResults: MaxResults | None
 
 
-PolicyList = List[Policy]
+PolicyList = list[Policy]
 
 
 class GetResourcePoliciesResponse(TypedDict, total=False):
-    policies: Optional[PolicyList]
-    nextToken: Optional[String]
+    policies: PolicyList | None
+    nextToken: String | None
 
 
-ResourceShareArnList = List[String]
+ResourceShareArnList = list[String]
 
 
 class GetResourceShareAssociationsRequest(ServiceRequest):
     associationType: ResourceShareAssociationType
-    resourceShareArns: Optional[ResourceShareArnList]
-    resourceArn: Optional[String]
-    principal: Optional[String]
-    associationStatus: Optional[ResourceShareAssociationStatus]
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
+    resourceShareArns: ResourceShareArnList | None
+    resourceArn: String | None
+    principal: String | None
+    associationStatus: ResourceShareAssociationStatus | None
+    nextToken: String | None
+    maxResults: MaxResults | None
 
 
 class GetResourceShareAssociationsResponse(TypedDict, total=False):
-    resourceShareAssociations: Optional[ResourceShareAssociationList]
-    nextToken: Optional[String]
+    resourceShareAssociations: ResourceShareAssociationList | None
+    nextToken: String | None
 
 
-ResourceShareInvitationArnList = List[String]
+ResourceShareInvitationArnList = list[String]
 
 
 class GetResourceShareInvitationsRequest(ServiceRequest):
-    resourceShareInvitationArns: Optional[ResourceShareInvitationArnList]
-    resourceShareArns: Optional[ResourceShareArnList]
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
+    resourceShareInvitationArns: ResourceShareInvitationArnList | None
+    resourceShareArns: ResourceShareArnList | None
+    nextToken: String | None
+    maxResults: MaxResults | None
 
 
-ResourceShareInvitationList = List[ResourceShareInvitation]
+ResourceShareInvitationList = list[ResourceShareInvitation]
 
 
 class GetResourceShareInvitationsResponse(TypedDict, total=False):
-    resourceShareInvitations: Optional[ResourceShareInvitationList]
-    nextToken: Optional[String]
+    resourceShareInvitations: ResourceShareInvitationList | None
+    nextToken: String | None
 
 
-TagValueList = List[TagValue]
+TagValueList = list[TagValue]
 
 
 class TagFilter(TypedDict, total=False):
@@ -725,138 +725,138 @@ class TagFilter(TypedDict, total=False):
     filter results for tagged resources.
     """
 
-    tagKey: Optional[TagKey]
-    tagValues: Optional[TagValueList]
+    tagKey: TagKey | None
+    tagValues: TagValueList | None
 
 
-TagFilters = List[TagFilter]
+TagFilters = list[TagFilter]
 
 
 class GetResourceSharesRequest(ServiceRequest):
-    resourceShareArns: Optional[ResourceShareArnList]
-    resourceShareStatus: Optional[ResourceShareStatus]
+    resourceShareArns: ResourceShareArnList | None
+    resourceShareStatus: ResourceShareStatus | None
     resourceOwner: ResourceOwner
-    name: Optional[String]
-    tagFilters: Optional[TagFilters]
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
-    permissionArn: Optional[String]
-    permissionVersion: Optional[Integer]
+    name: String | None
+    tagFilters: TagFilters | None
+    nextToken: String | None
+    maxResults: MaxResults | None
+    permissionArn: String | None
+    permissionVersion: Integer | None
 
 
-ResourceShareList = List[ResourceShare]
+ResourceShareList = list[ResourceShare]
 
 
 class GetResourceSharesResponse(TypedDict, total=False):
-    resourceShares: Optional[ResourceShareList]
-    nextToken: Optional[String]
+    resourceShares: ResourceShareList | None
+    nextToken: String | None
 
 
 class ListPendingInvitationResourcesRequest(ServiceRequest):
     resourceShareInvitationArn: String
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
-    resourceRegionScope: Optional[ResourceRegionScopeFilter]
+    nextToken: String | None
+    maxResults: MaxResults | None
+    resourceRegionScope: ResourceRegionScopeFilter | None
 
 
 class Resource(TypedDict, total=False):
-    arn: Optional[String]
-    type: Optional[String]
-    resourceShareArn: Optional[String]
-    resourceGroupArn: Optional[String]
-    status: Optional[ResourceStatus]
-    statusMessage: Optional[String]
-    creationTime: Optional[DateTime]
-    lastUpdatedTime: Optional[DateTime]
-    resourceRegionScope: Optional[ResourceRegionScope]
+    arn: String | None
+    type: String | None
+    resourceShareArn: String | None
+    resourceGroupArn: String | None
+    status: ResourceStatus | None
+    statusMessage: String | None
+    creationTime: DateTime | None
+    lastUpdatedTime: DateTime | None
+    resourceRegionScope: ResourceRegionScope | None
 
 
-ResourceList = List[Resource]
+ResourceList = list[Resource]
 
 
 class ListPendingInvitationResourcesResponse(TypedDict, total=False):
-    resources: Optional[ResourceList]
-    nextToken: Optional[String]
+    resources: ResourceList | None
+    nextToken: String | None
 
 
 class ListPermissionAssociationsRequest(ServiceRequest):
-    permissionArn: Optional[String]
-    permissionVersion: Optional[Integer]
-    associationStatus: Optional[ResourceShareAssociationStatus]
-    resourceType: Optional[String]
-    featureSet: Optional[PermissionFeatureSet]
-    defaultVersion: Optional[Boolean]
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
+    permissionArn: String | None
+    permissionVersion: Integer | None
+    associationStatus: ResourceShareAssociationStatus | None
+    resourceType: String | None
+    featureSet: PermissionFeatureSet | None
+    defaultVersion: Boolean | None
+    nextToken: String | None
+    maxResults: MaxResults | None
 
 
 class ListPermissionAssociationsResponse(TypedDict, total=False):
-    permissions: Optional[AssociatedPermissionList]
-    nextToken: Optional[String]
+    permissions: AssociatedPermissionList | None
+    nextToken: String | None
 
 
 class ListPermissionVersionsRequest(ServiceRequest):
     permissionArn: String
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
+    nextToken: String | None
+    maxResults: MaxResults | None
 
 
-ResourceSharePermissionList = List[ResourceSharePermissionSummary]
+ResourceSharePermissionList = list[ResourceSharePermissionSummary]
 
 
 class ListPermissionVersionsResponse(TypedDict, total=False):
-    permissions: Optional[ResourceSharePermissionList]
-    nextToken: Optional[String]
+    permissions: ResourceSharePermissionList | None
+    nextToken: String | None
 
 
 class ListPermissionsRequest(ServiceRequest):
-    resourceType: Optional[String]
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
-    permissionType: Optional[PermissionTypeFilter]
+    resourceType: String | None
+    nextToken: String | None
+    maxResults: MaxResults | None
+    permissionType: PermissionTypeFilter | None
 
 
 class ListPermissionsResponse(TypedDict, total=False):
-    permissions: Optional[ResourceSharePermissionList]
-    nextToken: Optional[String]
+    permissions: ResourceSharePermissionList | None
+    nextToken: String | None
 
 
 class ListPrincipalsRequest(ServiceRequest):
     resourceOwner: ResourceOwner
-    resourceArn: Optional[String]
-    principals: Optional[PrincipalArnOrIdList]
-    resourceType: Optional[String]
-    resourceShareArns: Optional[ResourceShareArnList]
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
+    resourceArn: String | None
+    principals: PrincipalArnOrIdList | None
+    resourceType: String | None
+    resourceShareArns: ResourceShareArnList | None
+    nextToken: String | None
+    maxResults: MaxResults | None
 
 
 class Principal(TypedDict, total=False):
     """Describes a principal for use with Resource Access Manager."""
 
-    id: Optional[String]
-    resourceShareArn: Optional[String]
-    creationTime: Optional[DateTime]
-    lastUpdatedTime: Optional[DateTime]
-    external: Optional[Boolean]
+    id: String | None
+    resourceShareArn: String | None
+    creationTime: DateTime | None
+    lastUpdatedTime: DateTime | None
+    external: Boolean | None
 
 
-PrincipalList = List[Principal]
+PrincipalList = list[Principal]
 
 
 class ListPrincipalsResponse(TypedDict, total=False):
-    principals: Optional[PrincipalList]
-    nextToken: Optional[String]
+    principals: PrincipalList | None
+    nextToken: String | None
 
 
-ReplacePermissionAssociationsWorkIdList = List[String]
+ReplacePermissionAssociationsWorkIdList = list[String]
 
 
 class ListReplacePermissionAssociationsWorkRequest(ServiceRequest):
-    workIds: Optional[ReplacePermissionAssociationsWorkIdList]
-    status: Optional[ReplacePermissionAssociationsWorkStatus]
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
+    workIds: ReplacePermissionAssociationsWorkIdList | None
+    status: ReplacePermissionAssociationsWorkStatus | None
+    nextToken: String | None
+    maxResults: MaxResults | None
 
 
 class ReplacePermissionAssociationsWork(TypedDict, total=False):
@@ -864,40 +864,40 @@ class ReplacePermissionAssociationsWork(TypedDict, total=False):
     you invoke the ReplacePermissionAssociations operation.
     """
 
-    id: Optional[String]
-    fromPermissionArn: Optional[String]
-    fromPermissionVersion: Optional[String]
-    toPermissionArn: Optional[String]
-    toPermissionVersion: Optional[String]
-    status: Optional[ReplacePermissionAssociationsWorkStatus]
-    statusMessage: Optional[String]
-    creationTime: Optional[DateTime]
-    lastUpdatedTime: Optional[DateTime]
+    id: String | None
+    fromPermissionArn: String | None
+    fromPermissionVersion: String | None
+    toPermissionArn: String | None
+    toPermissionVersion: String | None
+    status: ReplacePermissionAssociationsWorkStatus | None
+    statusMessage: String | None
+    creationTime: DateTime | None
+    lastUpdatedTime: DateTime | None
 
 
-ReplacePermissionAssociationsWorkList = List[ReplacePermissionAssociationsWork]
+ReplacePermissionAssociationsWorkList = list[ReplacePermissionAssociationsWork]
 
 
 class ListReplacePermissionAssociationsWorkResponse(TypedDict, total=False):
-    replacePermissionAssociationsWorks: Optional[ReplacePermissionAssociationsWorkList]
-    nextToken: Optional[String]
+    replacePermissionAssociationsWorks: ReplacePermissionAssociationsWorkList | None
+    nextToken: String | None
 
 
 class ListResourceSharePermissionsRequest(ServiceRequest):
     resourceShareArn: String
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
+    nextToken: String | None
+    maxResults: MaxResults | None
 
 
 class ListResourceSharePermissionsResponse(TypedDict, total=False):
-    permissions: Optional[ResourceSharePermissionList]
-    nextToken: Optional[String]
+    permissions: ResourceSharePermissionList | None
+    nextToken: String | None
 
 
 class ListResourceTypesRequest(ServiceRequest):
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
-    resourceRegionScope: Optional[ResourceRegionScopeFilter]
+    nextToken: String | None
+    maxResults: MaxResults | None
+    resourceRegionScope: ResourceRegionScopeFilter | None
 
 
 class ServiceNameAndResourceType(TypedDict, total=False):
@@ -905,44 +905,44 @@ class ServiceNameAndResourceType(TypedDict, total=False):
     service to which resources of that type belong.
     """
 
-    resourceType: Optional[String]
-    serviceName: Optional[String]
-    resourceRegionScope: Optional[ResourceRegionScope]
+    resourceType: String | None
+    serviceName: String | None
+    resourceRegionScope: ResourceRegionScope | None
 
 
-ServiceNameAndResourceTypeList = List[ServiceNameAndResourceType]
+ServiceNameAndResourceTypeList = list[ServiceNameAndResourceType]
 
 
 class ListResourceTypesResponse(TypedDict, total=False):
-    resourceTypes: Optional[ServiceNameAndResourceTypeList]
-    nextToken: Optional[String]
+    resourceTypes: ServiceNameAndResourceTypeList | None
+    nextToken: String | None
 
 
 class ListResourcesRequest(ServiceRequest):
     resourceOwner: ResourceOwner
-    principal: Optional[String]
-    resourceType: Optional[String]
-    resourceArns: Optional[ResourceArnList]
-    resourceShareArns: Optional[ResourceShareArnList]
-    nextToken: Optional[String]
-    maxResults: Optional[MaxResults]
-    resourceRegionScope: Optional[ResourceRegionScopeFilter]
+    principal: String | None
+    resourceType: String | None
+    resourceArns: ResourceArnList | None
+    resourceShareArns: ResourceShareArnList | None
+    nextToken: String | None
+    maxResults: MaxResults | None
+    resourceRegionScope: ResourceRegionScopeFilter | None
 
 
 class ListResourcesResponse(TypedDict, total=False):
-    resources: Optional[ResourceList]
-    nextToken: Optional[String]
+    resources: ResourceList | None
+    nextToken: String | None
 
 
 class PromotePermissionCreatedFromPolicyRequest(ServiceRequest):
     permissionArn: String
     name: String
-    clientToken: Optional[String]
+    clientToken: String | None
 
 
 class PromotePermissionCreatedFromPolicyResponse(TypedDict, total=False):
-    permission: Optional[ResourceSharePermissionSummary]
-    clientToken: Optional[String]
+    permission: ResourceSharePermissionSummary | None
+    clientToken: String | None
 
 
 class PromoteResourceShareCreatedFromPolicyRequest(ServiceRequest):
@@ -950,49 +950,49 @@ class PromoteResourceShareCreatedFromPolicyRequest(ServiceRequest):
 
 
 class PromoteResourceShareCreatedFromPolicyResponse(TypedDict, total=False):
-    returnValue: Optional[Boolean]
+    returnValue: Boolean | None
 
 
 class RejectResourceShareInvitationRequest(ServiceRequest):
     resourceShareInvitationArn: String
-    clientToken: Optional[String]
+    clientToken: String | None
 
 
 class RejectResourceShareInvitationResponse(TypedDict, total=False):
-    resourceShareInvitation: Optional[ResourceShareInvitation]
-    clientToken: Optional[String]
+    resourceShareInvitation: ResourceShareInvitation | None
+    clientToken: String | None
 
 
 class ReplacePermissionAssociationsRequest(ServiceRequest):
     fromPermissionArn: String
-    fromPermissionVersion: Optional[Integer]
+    fromPermissionVersion: Integer | None
     toPermissionArn: String
-    clientToken: Optional[String]
+    clientToken: String | None
 
 
 class ReplacePermissionAssociationsResponse(TypedDict, total=False):
-    replacePermissionAssociationsWork: Optional[ReplacePermissionAssociationsWork]
-    clientToken: Optional[String]
+    replacePermissionAssociationsWork: ReplacePermissionAssociationsWork | None
+    clientToken: String | None
 
 
 class SetDefaultPermissionVersionRequest(ServiceRequest):
     permissionArn: String
     permissionVersion: Integer
-    clientToken: Optional[String]
+    clientToken: String | None
 
 
 class SetDefaultPermissionVersionResponse(TypedDict, total=False):
-    returnValue: Optional[Boolean]
-    clientToken: Optional[String]
+    returnValue: Boolean | None
+    clientToken: String | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
-    resourceShareArn: Optional[String]
+    resourceShareArn: String | None
     tags: TagList
-    resourceArn: Optional[String]
+    resourceArn: String | None
 
 
 class TagResourceResponse(TypedDict, total=False):
@@ -1000,9 +1000,9 @@ class TagResourceResponse(TypedDict, total=False):
 
 
 class UntagResourceRequest(ServiceRequest):
-    resourceShareArn: Optional[String]
+    resourceShareArn: String | None
     tagKeys: TagKeyList
-    resourceArn: Optional[String]
+    resourceArn: String | None
 
 
 class UntagResourceResponse(TypedDict, total=False):
@@ -1011,19 +1011,19 @@ class UntagResourceResponse(TypedDict, total=False):
 
 class UpdateResourceShareRequest(ServiceRequest):
     resourceShareArn: String
-    name: Optional[String]
-    allowExternalPrincipals: Optional[Boolean]
-    clientToken: Optional[String]
+    name: String | None
+    allowExternalPrincipals: Boolean | None
+    clientToken: String | None
 
 
 class UpdateResourceShareResponse(TypedDict, total=False):
-    resourceShare: Optional[ResourceShare]
-    clientToken: Optional[String]
+    resourceShare: ResourceShare | None
+    clientToken: String | None
 
 
 class RamApi:
-    service = "ram"
-    version = "2018-01-04"
+    service: str = "ram"
+    version: str = "2018-01-04"
 
     @handler("AcceptResourceShareInvitation")
     def accept_resource_share_invitation(

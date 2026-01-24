@@ -1,0 +1,245 @@
+Metadata-Version: 2.3
+Name: secscanner2junit
+Version: 1.1.0
+Summary: Convert Security Scanner Output to JUnit Format
+License: GPL-3.0-only
+Author: logchange team
+Author-email: team@logchange.dev
+Requires-Python: >=3.10,<4.0
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: PyYAML (>=6.0,<7.0)
+Requires-Dist: junit-xml (>=1.9,<2.0)
+Requires-Dist: pytest (>=7.2.0,<8.0.0)
+Requires-Dist: setuptools (>=75.5.0,<76.0.0)
+Project-URL: Homepage, https://github.com/logchange/SecScanner2JUnit
+Project-URL: Repository, https://github.com/logchange/SecScanner2JUnit
+Description-Content-Type: text/markdown
+
+# SecScanner2JUnit
+
+<p align="center">
+    <a href="https://pypi.org/project/secscanner2junit/">
+        <img src="https://badge.fury.io/py/secscanner2junit.svg" alt="PyPI version"/></a>
+    <a href="https://pepy.tech/project/secscanner2junit">
+        <img src="https://static.pepy.tech/badge/secscanner2junit/month" alt="Downloads"/></a>
+    <a href="https://github.com/logchange/SecScanner2JUnit/graphs/contributors">
+        <img src="https://img.shields.io/github/contributors/logchange/SecScanner2JUnit" alt="Contributors"/></a>
+    <a href="https://github.com/logchange/SecScanner2JUnit/pulse">
+        <img src="https://img.shields.io/github/commit-activity/m/logchange/SecScanner2JUnit" alt="Activity"/></a>
+    <a href="https://hub.docker.com/repository/docker/logchange/secscanner2junit/">
+        <img src="https://img.shields.io/docker/v/logchange/secscanner2junit?sort=semver&color=green&label=DockerHub" alt="DockerHub"/></a>
+    <a href="https://hub.docker.com/repository/docker/logchange/secscanner2junit/">
+        <img src="https://img.shields.io/docker/pulls/logchange/secscanner2junit" alt="DockerHub Pulls"/></a>
+    <a href="https://github.com/logchange/SecScanner2JUnit/actions/workflows/report-validate.yml">
+        <img src="https://github.com/logchange/SecScanner2JUnit/actions/workflows/report-validate.yml/badge.svg" alt="Supports latest GitLab version"/></a>
+    <a href="https://gitpod.io/#https://github.com/logchange/SecScanner2JUnit">
+        <img src="https://img.shields.io/badge/Open_in-GitPod-ffae33?style=flat-square&logo=gitpod" alt="Open in Gitpod"/></a>
+</p>
+
+GitLab offers [security scanning and visualization](https://docs.gitlab.com/ee/user/application_security/) directly via and on their platform.  
+One nice feature is direct insights on merge requests. However, this feature is only available with the Ultimate tier. To also use this feature on the free tier, one can build around it by taking the security tool output, converting it to the JUnit format, and uploading it as JUnit report.
+
+To summarize, this tool is for you if:
+- You use GitLab's free tier
+- You use Gitlabs [security templates](https://docs.gitlab.com/ee/user/application_security/)
+- You want to easily access security tool output in merge requests
+
+If you are on the GitLabs Ultimate tier, just use their tooling! No need to mess up your `.gitlab-ci.yml` file. :smile:
+
+## Which scanning types are supported?
+All scanning types available under the free tier:
+- Secret Scanning
+- Static Application Security Testing (SAST)
+- Container Scanning
+- Infrastructure as Code Scanning
+
+## How to use?
+Procedure:
+1. Overwrite the existing job so that the report can be used by future jobs.  
+2. Convert report
+3. Upload converted report as junit report
+
+### Report input types:
+You can use following report types as inputs with `ss2ju` command. (f.e `ss2ju sast ....`) 
+- [**sast**](https://docs.gitlab.com/ee/user/application_security/sast/)
+- [**secrets**](https://docs.gitlab.com/ee/user/application_security/secret_detection/pipeline/)
+- [**container_scanning**](https://docs.gitlab.com/ee/user/application_security/container_scanning/)
+- [**maven_dependency_check**](https://github.com/jeremylong/DependencyCheck)
+
+### Example for Secret Scanning
+This example can be used as is.
+```yaml
+stages:
+  - test
+  - convert
+  
+- include:
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  
+secret_detection:
+  artifacts:
+    paths:
+      - gl-secret-detection-report.json
+    when: always
+    
+secret_convert:
+  stage: convert
+  dependencies:
+    - secret_detection
+  script:
+    - pip3 install SecScanner2JUnit
+    - ss2ju secrets gl-secret-detection-report.json gl-secret-detection-report.xml
+  artifacts:
+    reports:
+      junit: gl-secret-detection-report.xml
+```
+
+### Example for SAST  
+Since GitLab decides dynamically which scanners to use depending on project languages, it makes sense to first perform a testrun only including the template. This way one can see which jobs are executed and then overwrite them. 
+```yaml
+stages:
+  - test
+  - convert
+  
+- include:
+  - template: Security/SAST.gitlab-ci.yml
+  
+semgrep-sast:
+  after_script:
+    - cp gl-sast-report.json gl-sast-semgrep-report.json
+  artifacts:
+    paths:
+      - gl-sast-semgrep-report.json
+    when: always
+
+brakeman-sast:
+  after_script:
+    - cp gl-sast-report.json gl-sast-brakeman-report.json
+  artifacts:
+    paths:
+      - gl-sast-brakeman-report.json
+    when: always
+
+semgrep-sast-convert:
+  stage: convert
+  dependencies:
+    - semgrep-sast
+  script:
+    - pip3 install SecScanner2JUnit
+    - ss2ju sast gl-sast-semgrep-report.json gl-sast-semgrep-report.xml
+  artifacts:
+    reports:
+      junit: gl-sast-semgrep-report.xml
+      
+brakeman-sast-convert:
+  stage: convert
+  dependencies:
+    - brakeman-sast
+  script:
+    - pip3 install SecScanner2JUnit
+    - ss2ju sast gl-sast-brakeman-report.json gl-sast-brakeman-report.xml
+  artifacts:
+    reports:
+      junit: gl-sast-brakeman-report.xml
+
+```
+
+### Example for Container Scanning
+
+```yaml
+- include:
+  - template: Jobs/Build.gitlab-ci.yml #Build and push the container image
+  - template: Security/Container-Scanning.gitlab-ci.yml #Scan the built image
+
+container_scanning:
+  artifacts:
+    paths:
+      - gl-container-scanning-report.json
+    when: always
+
+container_scanning-convert:
+  stage: convert
+  dependencies:
+    - container_scanning
+  script:
+    - pip3 install SecScanner2JUnit
+    - ss2ju container_scanning gl-container-scanning-report.json gl-container-scanning-report.xml
+  artifacts:
+    reports:
+      junit: gl-container-scanning-report.xml
+```
+
+### Suppression
+
+You can provide a file with suppression which will allow to ignore some vulnerabilities.
+
+You have to create a file `ss2ju-config.yml` f.e. in `.gitlab` directory which includes:
+
+```yml
+sast:
+  suppressions:
+    - type: "cwe"
+      value: "2555"
+    - type: "find_sec_bugs_type"
+      value: "SPRING_ENDPOINT"
+    - id: "db914ce5737b49650ae650fc3b0fe38a531eadd8ea780f48a013419c4adec7f0"
+```
+
+And now you can modify execution commands as follows:
+
+```bash
+    - ss2ju sast gl-sast-semgrep-report.json gl-sast-semgrep-report.xml .gitlab/ss2ju-config.yml
+```
+
+
+### Usage with docker
+For easier usage in CI, `Secscanner2JUnit` is also shipped in a docker container: https://hub.docker.com/r/logchange/secscanner2junit  
+Its' usage is similar to the ways described above:
+```yaml
+...
+
+secret_convert:
+  stage: convert
+  image:
+    name: logchange/secscanner2junit:latest
+    entrypoint: [""]
+  dependencies:
+    - secret_detection
+  script:
+    - ss2ju secrets gl-secret-detection-report.json gl-secret-detection-report.xml
+  artifacts:
+    reports:
+      junit: gl-secret-detection-report.xml
+```
+
+
+### Development
+
+Create Python Virtual Environment
+```bash
+python -m venv ./venv
+```
+
+Activate Python Virtual Environment
+```bash
+source ./venv/bin/activate
+```
+
+Install dependencies
+```bash
+poetry install
+```
+
+Run tests
+```bash
+poetry run pytest
+```
+
+
+
+

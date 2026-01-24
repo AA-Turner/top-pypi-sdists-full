@@ -17,7 +17,7 @@ This is a comment that won't be rendered
 
 {::options parse_block_html="true" /}"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Should not flag Kramdown extensions as HTML");
 }
@@ -40,7 +40,7 @@ puts "Hello"
 > Blockquote
 {:#special-quote}"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Should not flag block attributes as HTML");
 }
@@ -61,14 +61,12 @@ This is fine
 
 {::options key="value" /}"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    // MD033 reports opening and closing tags separately
-    assert_eq!(result.len(), 4, "Should only flag actual HTML tags");
+    // MD033 reports only opening tags
+    assert_eq!(result.len(), 2, "Should only flag actual HTML tags (opening tags only)");
     assert!(result[0].message.contains("<div>"));
-    assert!(result[1].message.contains("</div>"));
-    assert!(result[2].message.contains("<span>"));
-    assert!(result[3].message.contains("</span>"));
+    assert!(result[1].message.contains("<span>"));
 }
 
 #[test]
@@ -83,7 +81,7 @@ Nested comment
 Back to outer
 {:/comment}"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty(), "Should handle nested Kramdown extensions");
 }
@@ -103,18 +101,16 @@ fn test_md033_invalid_kramdown_patterns() {
 
 <span>More HTML</span>"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    // Should detect the actual HTML tags (opening and closing separately)
+    // Should detect the actual HTML tags (opening tags only)
     assert_eq!(
         result.len(),
-        4,
-        "Should detect HTML tags despite invalid Kramdown patterns"
+        2,
+        "Should detect HTML tags despite invalid Kramdown patterns (opening tags only)"
     );
     assert!(result[0].message.contains("<div>"));
-    assert!(result[1].message.contains("</div>"));
-    assert!(result[2].message.contains("<span>"));
-    assert!(result[3].message.contains("</span>"));
+    assert!(result[1].message.contains("<span>"));
 }
 
 #[test]
@@ -131,10 +127,9 @@ Comment here
 
 {:.class}"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    // Should flag opening and closing div tags separately
-    assert_eq!(result.len(), 2, "Should only flag non-allowed HTML");
+    // Should flag opening div tag only
+    assert_eq!(result.len(), 1, "Should only flag non-allowed HTML (opening tag only)");
     assert!(result[0].message.contains("<div>"));
-    assert!(result[1].message.contains("</div>"));
 }

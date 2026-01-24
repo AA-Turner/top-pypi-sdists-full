@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import itertools
@@ -12,6 +12,7 @@ from marimo._messaging.errors import (
     SetupRootError,
 )
 from marimo._runtime.dataflow import DirectedGraph
+from marimo._runtime.dataflow.topology import GraphTopology
 from marimo._types.ids import CellId_t
 
 
@@ -68,7 +69,7 @@ def check_for_multiple_definitions(
 
 
 def check_for_invalid_root(
-    graph: DirectedGraph,
+    graph: GraphTopology,
 ) -> dict[CellId_t, list[SetupRootError]]:
     """Setup cell cannot have parents."""
     errors: dict[CellId_t, list[SetupRootError]] = defaultdict(list)

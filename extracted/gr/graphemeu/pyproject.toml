@@ -1,9 +1,9 @@
 [project]
 name = "graphemeu"
-version = "0.8.0"
+version = "0.10.0"
 description = "Unicode grapheme helpers"
 readme = "README.rst"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [{ name = "Alvin Lindstam", email = "alvin.lindstam@gmail.com" }]
 maintainers = [{ name = "Timendum" }]
 license = { text = "MIT" }
@@ -20,7 +20,7 @@ Homepage = "https://github.com/timendum/grapheme"
 Documentation = "https://graphemeu.readthedocs.io/"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pytest-cov"]
 docs = ["sphinx", "sphinx-autobuild"]
 
 [build-system]
@@ -50,3 +50,6 @@ lint.select = [
 ]
 lint.ignore = ["ISC001"]
 line-length = 100
+
+[tool.pytest.ini_options]
+addopts = "--cov=grapheme tests"

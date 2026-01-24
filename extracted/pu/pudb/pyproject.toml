@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pudb"
-version = "2025.1.1"
+version = "2025.1.5"
 description = "A full-screen, console-based Python debugger"
 readme = "README.rst"
 license = "MIT"
@@ -33,12 +33,14 @@ classifiers = [
 dependencies = [
     "jedi>=0.18,<1",
     "packaging>=20.0",
-    "pygments>=2.7.4",
+
+    # https://github.com/inducer/pudb/issues/710
+    "pygments>=2.19",
+
     "urwid>=2.4",
 
-    # https://github.com/urwid/urwid/issues/1017
-    "urwid; python_version >= '3.9'",
-    "urwid!=3.0.0; python_version < '3.9'",
+    # https://github.com/inducer/pudb/issues/707#issuecomment-3468269346
+    "urwid>=2.5.1",
 
     "urwid_readline",
 
@@ -54,12 +56,14 @@ completion = [
 pudb = "pudb.run:main"
 
 [tool.hatch.build.targets.sdist]
-include = [
-    "/pudb",
-    "/doc",
-    "/try-the-debugger.sh",
-    "/debug_me.py",
-    "/examples",
+exclude = [
+    "/.github",
+    "/.gitlab-ci.yml",
+    "/.mailmap",
+    "*~",
+    "/.basedpyright",
+    "/.coveragerc",
+    "/.editorconfig",
 ]
 
 [tool.ruff]

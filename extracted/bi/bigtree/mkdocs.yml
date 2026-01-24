@@ -17,6 +17,7 @@ nav:
       - home/convention.md
     - Changes:
       - home/benchmarks.md
+      - home/Benchmark Library.ipynb
       - home/changelog.md
   - Getting Started:
     - Demonstration:
@@ -36,12 +37,15 @@ nav:
         - bigtree/node/binarynode.md
         - bigtree/node/dagnode.md
     - 🌵 Binary Tree:
+        - bigtree/binarytree/binarytree.md
         - bigtree/binarytree/construct.md
     - 🌴 DAG:
+        - bigtree/dag/dag.md
         - bigtree/dag/construct.md
         - bigtree/dag/export.md
         - bigtree/dag/parsing.md
     - 🌲 Tree:
+      - bigtree/tree/tree.md
       - bigtree/tree/construct.md
       - bigtree/tree/export.md
       - bigtree/tree/helper.md

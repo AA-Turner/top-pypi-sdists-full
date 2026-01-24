@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vt-py
-Version: 0.21.0
+Version: 0.22.0
 Summary: The official Python client library for VirusTotal
 Home-page: https://github.com/VirusTotal/vt-py
 License: Apache 2

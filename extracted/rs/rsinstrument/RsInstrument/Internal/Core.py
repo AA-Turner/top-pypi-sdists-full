@@ -22,6 +22,15 @@ class Core(object):
 
 		Version history:
 
+		1.111.0 (14.11.2025)
+		- Changed typing hints alternatives.Example 'int or bool' -> 'int | bool'
+
+		1.110.0 (15.10.2025)
+		- Added optional parameter mixed_mode to the method go_to_local().
+
+		1.105.1 (16.07.2025)
+		- Fixed VisaSession's clear_before_read().
+
 		1.105.0 (02.06.2025)
 		- Corrected duplicate time-statistics methods from logger.
 		- Improved help texts.
@@ -258,7 +267,7 @@ class Core(object):
 		"""Initializes new driver session. For cleaner code, use the class methods: \n
 		- Core.from_existing_session() - initializes a new Core with an existing pyvisa session."""
 
-		self.core_version = '1.105.0'
+		self.core_version = '1.106.0'
 		self.resource_name = resource_name
 		self.called_from_driver = called_from_driver
 

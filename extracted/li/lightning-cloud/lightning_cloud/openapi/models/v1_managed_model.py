@@ -41,44 +41,161 @@ class V1ManagedModel(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'abilities': 'V1ManagedModelAbilities',
+        'assistant_id': 'str',
         'completion_token_price': 'float',
+        'completion_token_price_above_threshold': 'float',
+        'context_length': 'str',
+        'deployment_details': 'V1DeploymentDetails',
         'description': 'str',
+        'display_name': 'str',
         'endpoint_id': 'str',
         'id': 'str',
+        'max_completion_tokens': 'str',
         'name': 'str',
-        'prompt_token_price': 'float'
+        'prompt_token_price': 'float',
+        'prompt_token_price_above_threshold': 'float',
+        'status': 'V1AssistantModelStatus',
+        'temperature': 'float',
+        'throughput': 'float',
+        'time_to_first_token': 'float',
+        'token_threshold': 'str',
+        'top_k': 'str',
+        'user_id': 'str'
     }
 
     attribute_map = {
+        'abilities': 'abilities',
+        'assistant_id': 'assistantId',
         'completion_token_price': 'completionTokenPrice',
+        'completion_token_price_above_threshold': 'completionTokenPriceAboveThreshold',
+        'context_length': 'contextLength',
+        'deployment_details': 'deploymentDetails',
         'description': 'description',
+        'display_name': 'displayName',
         'endpoint_id': 'endpointId',
         'id': 'id',
+        'max_completion_tokens': 'maxCompletionTokens',
         'name': 'name',
-        'prompt_token_price': 'promptTokenPrice'
+        'prompt_token_price': 'promptTokenPrice',
+        'prompt_token_price_above_threshold': 'promptTokenPriceAboveThreshold',
+        'status': 'status',
+        'temperature': 'temperature',
+        'throughput': 'throughput',
+        'time_to_first_token': 'timeToFirstToken',
+        'token_threshold': 'tokenThreshold',
+        'top_k': 'topK',
+        'user_id': 'userId'
     }
 
-    def __init__(self, completion_token_price: 'float' =None, description: 'str' =None, endpoint_id: 'str' =None, id: 'str' =None, name: 'str' =None, prompt_token_price: 'float' =None):  # noqa: E501
+    def __init__(self, abilities: 'V1ManagedModelAbilities' =None, assistant_id: 'str' =None, completion_token_price: 'float' =None, completion_token_price_above_threshold: 'float' =None, context_length: 'str' =None, deployment_details: 'V1DeploymentDetails' =None, description: 'str' =None, display_name: 'str' =None, endpoint_id: 'str' =None, id: 'str' =None, max_completion_tokens: 'str' =None, name: 'str' =None, prompt_token_price: 'float' =None, prompt_token_price_above_threshold: 'float' =None, status: 'V1AssistantModelStatus' =None, temperature: 'float' =None, throughput: 'float' =None, time_to_first_token: 'float' =None, token_threshold: 'str' =None, top_k: 'str' =None, user_id: 'str' =None):  # noqa: E501
         """V1ManagedModel - a model defined in Swagger"""  # noqa: E501
+        self._abilities = None
+        self._assistant_id = None
         self._completion_token_price = None
+        self._completion_token_price_above_threshold = None
+        self._context_length = None
+        self._deployment_details = None
         self._description = None
+        self._display_name = None
         self._endpoint_id = None
         self._id = None
+        self._max_completion_tokens = None
         self._name = None
         self._prompt_token_price = None
+        self._prompt_token_price_above_threshold = None
+        self._status = None
+        self._temperature = None
+        self._throughput = None
+        self._time_to_first_token = None
+        self._token_threshold = None
+        self._top_k = None
+        self._user_id = None
         self.discriminator = None
+        if abilities is not None:
+            self.abilities = abilities
+        if assistant_id is not None:
+            self.assistant_id = assistant_id
         if completion_token_price is not None:
             self.completion_token_price = completion_token_price
+        if completion_token_price_above_threshold is not None:
+            self.completion_token_price_above_threshold = completion_token_price_above_threshold
+        if context_length is not None:
+            self.context_length = context_length
+        if deployment_details is not None:
+            self.deployment_details = deployment_details
         if description is not None:
             self.description = description
+        if display_name is not None:
+            self.display_name = display_name
         if endpoint_id is not None:
             self.endpoint_id = endpoint_id
         if id is not None:
             self.id = id
+        if max_completion_tokens is not None:
+            self.max_completion_tokens = max_completion_tokens
         if name is not None:
             self.name = name
         if prompt_token_price is not None:
             self.prompt_token_price = prompt_token_price
+        if prompt_token_price_above_threshold is not None:
+            self.prompt_token_price_above_threshold = prompt_token_price_above_threshold
+        if status is not None:
+            self.status = status
+        if temperature is not None:
+            self.temperature = temperature
+        if throughput is not None:
+            self.throughput = throughput
+        if time_to_first_token is not None:
+            self.time_to_first_token = time_to_first_token
+        if token_threshold is not None:
+            self.token_threshold = token_threshold
+        if top_k is not None:
+            self.top_k = top_k
+        if user_id is not None:
+            self.user_id = user_id
+
+    @property
+    def abilities(self) -> 'V1ManagedModelAbilities':
+        """Gets the abilities of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The abilities of this V1ManagedModel.  # noqa: E501
+        :rtype: V1ManagedModelAbilities
+        """
+        return self._abilities
+
+    @abilities.setter
+    def abilities(self, abilities: 'V1ManagedModelAbilities'):
+        """Sets the abilities of this V1ManagedModel.
+
+
+        :param abilities: The abilities of this V1ManagedModel.  # noqa: E501
+        :type: V1ManagedModelAbilities
+        """
+
+        self._abilities = abilities
+
+    @property
+    def assistant_id(self) -> 'str':
+        """Gets the assistant_id of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The assistant_id of this V1ManagedModel.  # noqa: E501
+        :rtype: str
+        """
+        return self._assistant_id
+
+    @assistant_id.setter
+    def assistant_id(self, assistant_id: 'str'):
+        """Sets the assistant_id of this V1ManagedModel.
+
+
+        :param assistant_id: The assistant_id of this V1ManagedModel.  # noqa: E501
+        :type: str
+        """
+
+        self._assistant_id = assistant_id
 
     @property
     def completion_token_price(self) -> 'float':
@@ -102,6 +219,69 @@ class V1ManagedModel(object):
         self._completion_token_price = completion_token_price
 
     @property
+    def completion_token_price_above_threshold(self) -> 'float':
+        """Gets the completion_token_price_above_threshold of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The completion_token_price_above_threshold of this V1ManagedModel.  # noqa: E501
+        :rtype: float
+        """
+        return self._completion_token_price_above_threshold
+
+    @completion_token_price_above_threshold.setter
+    def completion_token_price_above_threshold(self, completion_token_price_above_threshold: 'float'):
+        """Sets the completion_token_price_above_threshold of this V1ManagedModel.
+
+
+        :param completion_token_price_above_threshold: The completion_token_price_above_threshold of this V1ManagedModel.  # noqa: E501
+        :type: float
+        """
+
+        self._completion_token_price_above_threshold = completion_token_price_above_threshold
+
+    @property
+    def context_length(self) -> 'str':
+        """Gets the context_length of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The context_length of this V1ManagedModel.  # noqa: E501
+        :rtype: str
+        """
+        return self._context_length
+
+    @context_length.setter
+    def context_length(self, context_length: 'str'):
+        """Sets the context_length of this V1ManagedModel.
+
+
+        :param context_length: The context_length of this V1ManagedModel.  # noqa: E501
+        :type: str
+        """
+
+        self._context_length = context_length
+
+    @property
+    def deployment_details(self) -> 'V1DeploymentDetails':
+        """Gets the deployment_details of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The deployment_details of this V1ManagedModel.  # noqa: E501
+        :rtype: V1DeploymentDetails
+        """
+        return self._deployment_details
+
+    @deployment_details.setter
+    def deployment_details(self, deployment_details: 'V1DeploymentDetails'):
+        """Sets the deployment_details of this V1ManagedModel.
+
+
+        :param deployment_details: The deployment_details of this V1ManagedModel.  # noqa: E501
+        :type: V1DeploymentDetails
+        """
+
+        self._deployment_details = deployment_details
+
+    @property
     def description(self) -> 'str':
         """Gets the description of this V1ManagedModel.  # noqa: E501
 
@@ -121,6 +301,27 @@ class V1ManagedModel(object):
         """
 
         self._description = description
+
+    @property
+    def display_name(self) -> 'str':
+        """Gets the display_name of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The display_name of this V1ManagedModel.  # noqa: E501
+        :rtype: str
+        """
+        return self._display_name
+
+    @display_name.setter
+    def display_name(self, display_name: 'str'):
+        """Sets the display_name of this V1ManagedModel.
+
+
+        :param display_name: The display_name of this V1ManagedModel.  # noqa: E501
+        :type: str
+        """
+
+        self._display_name = display_name
 
     @property
     def endpoint_id(self) -> 'str':
@@ -165,6 +366,27 @@ class V1ManagedModel(object):
         self._id = id
 
     @property
+    def max_completion_tokens(self) -> 'str':
+        """Gets the max_completion_tokens of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The max_completion_tokens of this V1ManagedModel.  # noqa: E501
+        :rtype: str
+        """
+        return self._max_completion_tokens
+
+    @max_completion_tokens.setter
+    def max_completion_tokens(self, max_completion_tokens: 'str'):
+        """Sets the max_completion_tokens of this V1ManagedModel.
+
+
+        :param max_completion_tokens: The max_completion_tokens of this V1ManagedModel.  # noqa: E501
+        :type: str
+        """
+
+        self._max_completion_tokens = max_completion_tokens
+
+    @property
     def name(self) -> 'str':
         """Gets the name of this V1ManagedModel.  # noqa: E501
 
@@ -205,6 +427,174 @@ class V1ManagedModel(object):
         """
 
         self._prompt_token_price = prompt_token_price
+
+    @property
+    def prompt_token_price_above_threshold(self) -> 'float':
+        """Gets the prompt_token_price_above_threshold of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The prompt_token_price_above_threshold of this V1ManagedModel.  # noqa: E501
+        :rtype: float
+        """
+        return self._prompt_token_price_above_threshold
+
+    @prompt_token_price_above_threshold.setter
+    def prompt_token_price_above_threshold(self, prompt_token_price_above_threshold: 'float'):
+        """Sets the prompt_token_price_above_threshold of this V1ManagedModel.
+
+
+        :param prompt_token_price_above_threshold: The prompt_token_price_above_threshold of this V1ManagedModel.  # noqa: E501
+        :type: float
+        """
+
+        self._prompt_token_price_above_threshold = prompt_token_price_above_threshold
+
+    @property
+    def status(self) -> 'V1AssistantModelStatus':
+        """Gets the status of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The status of this V1ManagedModel.  # noqa: E501
+        :rtype: V1AssistantModelStatus
+        """
+        return self._status
+
+    @status.setter
+    def status(self, status: 'V1AssistantModelStatus'):
+        """Sets the status of this V1ManagedModel.
+
+
+        :param status: The status of this V1ManagedModel.  # noqa: E501
+        :type: V1AssistantModelStatus
+        """
+
+        self._status = status
+
+    @property
+    def temperature(self) -> 'float':
+        """Gets the temperature of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The temperature of this V1ManagedModel.  # noqa: E501
+        :rtype: float
+        """
+        return self._temperature
+
+    @temperature.setter
+    def temperature(self, temperature: 'float'):
+        """Sets the temperature of this V1ManagedModel.
+
+
+        :param temperature: The temperature of this V1ManagedModel.  # noqa: E501
+        :type: float
+        """
+
+        self._temperature = temperature
+
+    @property
+    def throughput(self) -> 'float':
+        """Gets the throughput of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The throughput of this V1ManagedModel.  # noqa: E501
+        :rtype: float
+        """
+        return self._throughput
+
+    @throughput.setter
+    def throughput(self, throughput: 'float'):
+        """Sets the throughput of this V1ManagedModel.
+
+
+        :param throughput: The throughput of this V1ManagedModel.  # noqa: E501
+        :type: float
+        """
+
+        self._throughput = throughput
+
+    @property
+    def time_to_first_token(self) -> 'float':
+        """Gets the time_to_first_token of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The time_to_first_token of this V1ManagedModel.  # noqa: E501
+        :rtype: float
+        """
+        return self._time_to_first_token
+
+    @time_to_first_token.setter
+    def time_to_first_token(self, time_to_first_token: 'float'):
+        """Sets the time_to_first_token of this V1ManagedModel.
+
+
+        :param time_to_first_token: The time_to_first_token of this V1ManagedModel.  # noqa: E501
+        :type: float
+        """
+
+        self._time_to_first_token = time_to_first_token
+
+    @property
+    def token_threshold(self) -> 'str':
+        """Gets the token_threshold of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The token_threshold of this V1ManagedModel.  # noqa: E501
+        :rtype: str
+        """
+        return self._token_threshold
+
+    @token_threshold.setter
+    def token_threshold(self, token_threshold: 'str'):
+        """Sets the token_threshold of this V1ManagedModel.
+
+
+        :param token_threshold: The token_threshold of this V1ManagedModel.  # noqa: E501
+        :type: str
+        """
+
+        self._token_threshold = token_threshold
+
+    @property
+    def top_k(self) -> 'str':
+        """Gets the top_k of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The top_k of this V1ManagedModel.  # noqa: E501
+        :rtype: str
+        """
+        return self._top_k
+
+    @top_k.setter
+    def top_k(self, top_k: 'str'):
+        """Sets the top_k of this V1ManagedModel.
+
+
+        :param top_k: The top_k of this V1ManagedModel.  # noqa: E501
+        :type: str
+        """
+
+        self._top_k = top_k
+
+    @property
+    def user_id(self) -> 'str':
+        """Gets the user_id of this V1ManagedModel.  # noqa: E501
+
+
+        :return: The user_id of this V1ManagedModel.  # noqa: E501
+        :rtype: str
+        """
+        return self._user_id
+
+    @user_id.setter
+    def user_id(self, user_id: 'str'):
+        """Sets the user_id of this V1ManagedModel.
+
+
+        :param user_id: The user_id of this V1ManagedModel.  # noqa: E501
+        :type: str
+        """
+
+        self._user_id = user_id
 
     def to_dict(self) -> dict:
         """Returns the model properties as a dict"""

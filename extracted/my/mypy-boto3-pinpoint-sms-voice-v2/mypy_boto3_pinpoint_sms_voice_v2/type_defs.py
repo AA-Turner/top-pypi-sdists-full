@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -40,6 +41,7 @@ from .literals import (
     NumberTypeType,
     OwnerType,
     PhoneNumberFilterNameType,
+    PhoneNumberTypeType,
     PoolFilterNameType,
     PoolOriginationIdentitiesFilterNameType,
     PoolStatusType,
@@ -63,12 +65,6 @@ from .literals import (
     VoiceMessageBodyTextTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -83,6 +79,8 @@ __all__ = (
     "AssociateProtectConfigurationRequestTypeDef",
     "AssociateProtectConfigurationResultTypeDef",
     "BlobTypeDef",
+    "CarrierLookupRequestTypeDef",
+    "CarrierLookupResultTypeDef",
     "CloudWatchLogsDestinationTypeDef",
     "ConfigurationSetFilterTypeDef",
     "ConfigurationSetInformationTypeDef",
@@ -353,7 +351,7 @@ class AssociateOriginationIdentityRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -364,6 +362,10 @@ class AssociateProtectConfigurationRequestTypeDef(TypedDict):
 
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
+
+
+class CarrierLookupRequestTypeDef(TypedDict):
+    PhoneNumber: str
 
 
 class CloudWatchLogsDestinationTypeDef(TypedDict):
@@ -402,6 +404,7 @@ class CreateRegistrationVersionRequestTypeDef(TypedDict):
 class RegistrationVersionStatusHistoryTypeDef(TypedDict):
     DraftTimestamp: datetime
     SubmittedTimestamp: NotRequired[datetime]
+    AwsReviewingTimestamp: NotRequired[datetime]
     ReviewingTimestamp: NotRequired[datetime]
     RequiresAuthenticationTimestamp: NotRequired[datetime]
     ApprovedTimestamp: NotRequired[datetime]
@@ -538,7 +541,7 @@ class PhoneNumberInformationTypeDef(TypedDict):
     Status: NumberStatusType
     IsoCountryCode: str
     MessageType: MessageTypeType
-    NumberCapabilities: List[NumberCapabilityType]
+    NumberCapabilities: list[NumberCapabilityType]
     NumberType: NumberTypeType
     MonthlyLeasingPrice: str
     TwoWayEnabled: bool
@@ -619,10 +622,11 @@ class DescribeRegistrationFieldValuesRequestTypeDef(TypedDict):
 
 class RegistrationFieldValueInformationTypeDef(TypedDict):
     FieldPath: str
-    SelectChoices: NotRequired[List[str]]
+    SelectChoices: NotRequired[list[str]]
     TextValue: NotRequired[str]
     RegistrationAttachmentId: NotRequired[str]
     DeniedReason: NotRequired[str]
+    Feedback: NotRequired[str]
 
 
 class DescribeRegistrationSectionDefinitionsRequestTypeDef(TypedDict):
@@ -656,7 +660,7 @@ class RegistrationInformationTypeDef(TypedDict):
     CreatedTimestamp: datetime
     ApprovedVersionNumber: NotRequired[int]
     LatestDeniedVersionNumber: NotRequired[int]
-    AdditionalAttributes: NotRequired[Dict[str, str]]
+    AdditionalAttributes: NotRequired[dict[str, str]]
 
 
 class SenderIdAndCountryTypeDef(TypedDict):
@@ -673,7 +677,7 @@ class SenderIdInformationTypeDef(TypedDict):
     SenderIdArn: str
     SenderId: str
     IsoCountryCode: str
-    MessageTypes: List[MessageTypeType]
+    MessageTypes: list[MessageTypeType]
     MonthlyLeasingPrice: str
     DeletionProtectionEnabled: bool
     Registered: bool
@@ -743,7 +747,7 @@ class OriginationIdentityMetadataTypeDef(TypedDict):
     OriginationIdentityArn: str
     OriginationIdentity: str
     IsoCountryCode: str
-    NumberCapabilities: List[NumberCapabilityType]
+    NumberCapabilities: list[NumberCapabilityType]
     PhoneNumber: NotRequired[str]
 
 
@@ -821,7 +825,7 @@ class RegistrationDeniedReasonInformationTypeDef(TypedDict):
 class SelectValidationTypeDef(TypedDict):
     MinChoices: int
     MaxChoices: int
-    Options: List[str]
+    Options: list[str]
 
 
 TextValidationTypeDef = TypedDict(
@@ -960,6 +964,7 @@ class SetVoiceMessageSpendLimitOverrideRequestTypeDef(TypedDict):
 
 class SubmitRegistrationVersionRequestTypeDef(TypedDict):
     RegistrationId: str
+    AwsReview: NotRequired[bool]
 
 
 class UntagResourceRequestTypeDef(TypedDict):
@@ -1019,6 +1024,18 @@ class AssociateProtectConfigurationResultTypeDef(TypedDict):
     ConfigurationSetName: str
     ProtectConfigurationArn: str
     ProtectConfigurationId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CarrierLookupResultTypeDef(TypedDict):
+    E164PhoneNumber: str
+    DialingCountryCode: str
+    IsoCountryCode: str
+    Country: str
+    MCC: str
+    MNC: str
+    Carrier: str
+    PhoneNumberType: PhoneNumberTypeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1133,7 +1150,7 @@ class DeleteRegistrationFieldValueResultTypeDef(TypedDict):
     RegistrationId: str
     VersionNumber: int
     FieldPath: str
-    SelectChoices: List[str]
+    SelectChoices: list[str]
     TextValue: str
     RegistrationAttachmentId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1147,7 +1164,7 @@ class DeleteRegistrationResultTypeDef(TypedDict):
     CurrentVersionNumber: int
     ApprovedVersionNumber: int
     LatestDeniedVersionNumber: int
-    AdditionalAttributes: Dict[str, str]
+    AdditionalAttributes: dict[str, str]
     CreatedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1178,13 +1195,13 @@ class DeleteVoiceMessageSpendLimitOverrideResultTypeDef(TypedDict):
 
 
 class DescribeAccountAttributesResultTypeDef(TypedDict):
-    AccountAttributes: List[AccountAttributeTypeDef]
+    AccountAttributes: list[AccountAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeAccountLimitsResultTypeDef(TypedDict):
-    AccountLimits: List[AccountLimitTypeDef]
+    AccountLimits: list[AccountLimitTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1253,7 +1270,7 @@ class PutRegistrationFieldValueResultTypeDef(TypedDict):
     RegistrationId: str
     VersionNumber: int
     FieldPath: str
-    SelectChoices: List[str]
+    SelectChoices: list[str]
     TextValue: str
     RegistrationAttachmentId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1273,7 +1290,7 @@ class ReleasePhoneNumberResultTypeDef(TypedDict):
     Status: NumberStatusType
     IsoCountryCode: str
     MessageType: MessageTypeType
-    NumberCapabilities: List[NumberCapabilityType]
+    NumberCapabilities: list[NumberCapabilityType]
     NumberType: NumberTypeType
     MonthlyLeasingPrice: str
     TwoWayEnabled: bool
@@ -1290,7 +1307,7 @@ class ReleaseSenderIdResultTypeDef(TypedDict):
     SenderIdArn: str
     SenderId: str
     IsoCountryCode: str
-    MessageTypes: List[MessageTypeType]
+    MessageTypes: list[MessageTypeType]
     MonthlyLeasingPrice: str
     Registered: bool
     RegistrationId: str
@@ -1366,7 +1383,7 @@ class UpdatePhoneNumberResultTypeDef(TypedDict):
     Status: NumberStatusType
     IsoCountryCode: str
     MessageType: MessageTypeType
-    NumberCapabilities: List[NumberCapabilityType]
+    NumberCapabilities: list[NumberCapabilityType]
     NumberType: NumberTypeType
     MonthlyLeasingPrice: str
     TwoWayEnabled: bool
@@ -1410,7 +1427,7 @@ class UpdateSenderIdResultTypeDef(TypedDict):
     SenderIdArn: str
     SenderId: str
     IsoCountryCode: str
-    MessageTypes: List[MessageTypeType]
+    MessageTypes: list[MessageTypeType]
     MonthlyLeasingPrice: str
     DeletionProtectionEnabled: bool
     Registered: bool
@@ -1443,7 +1460,7 @@ class CreateConfigurationSetRequestTypeDef(TypedDict):
 class CreateConfigurationSetResultTypeDef(TypedDict):
     ConfigurationSetArn: str
     ConfigurationSetName: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     CreatedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1457,7 +1474,7 @@ class CreateOptOutListRequestTypeDef(TypedDict):
 class CreateOptOutListResultTypeDef(TypedDict):
     OptOutListArn: str
     OptOutListName: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     CreatedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1483,7 +1500,7 @@ class CreatePoolResultTypeDef(TypedDict):
     OptOutListName: str
     SharedRoutesEnabled: bool
     DeletionProtectionEnabled: bool
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     CreatedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1500,7 +1517,7 @@ class CreateProtectConfigurationResultTypeDef(TypedDict):
     CreatedTimestamp: datetime
     AccountDefault: bool
     DeletionProtectionEnabled: bool
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1515,7 +1532,7 @@ class CreateRegistrationAttachmentResultTypeDef(TypedDict):
     RegistrationAttachmentArn: str
     RegistrationAttachmentId: str
     AttachmentStatus: AttachmentStatusType
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     CreatedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1532,8 +1549,8 @@ class CreateRegistrationResultTypeDef(TypedDict):
     RegistrationType: str
     RegistrationStatus: RegistrationStatusType
     CurrentVersionNumber: int
-    AdditionalAttributes: Dict[str, str]
-    Tags: List[TagTypeDef]
+    AdditionalAttributes: dict[str, str]
+    Tags: list[TagTypeDef]
     CreatedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1549,14 +1566,14 @@ class CreateVerifiedDestinationNumberResultTypeDef(TypedDict):
     VerifiedDestinationNumberId: str
     DestinationPhoneNumber: str
     Status: VerificationStatusType
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     CreatedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceResultTypeDef(TypedDict):
     ResourceArn: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1581,7 +1598,7 @@ class RequestPhoneNumberResultTypeDef(TypedDict):
     Status: NumberStatusType
     IsoCountryCode: str
     MessageType: MessageTypeType
-    NumberCapabilities: List[NumberCapabilityType]
+    NumberCapabilities: list[NumberCapabilityType]
     NumberType: RequestableNumberTypeType
     MonthlyLeasingPrice: str
     TwoWayEnabled: bool
@@ -1593,7 +1610,7 @@ class RequestPhoneNumberResultTypeDef(TypedDict):
     DeletionProtectionEnabled: bool
     PoolId: str
     RegistrationId: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     CreatedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1611,11 +1628,11 @@ class RequestSenderIdResultTypeDef(TypedDict):
     SenderIdArn: str
     SenderId: str
     IsoCountryCode: str
-    MessageTypes: List[MessageTypeType]
+    MessageTypes: list[MessageTypeType]
     MonthlyLeasingPrice: str
     DeletionProtectionEnabled: bool
     Registered: bool
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1637,7 +1654,7 @@ class CreateEventDestinationRequestTypeDef(TypedDict):
 class EventDestinationTypeDef(TypedDict):
     EventDestinationName: str
     Enabled: bool
-    MatchingEventTypes: List[EventTypeType]
+    MatchingEventTypes: list[EventTypeType]
     CloudWatchLogsDestination: NotRequired[CloudWatchLogsDestinationTypeDef]
     KinesisFirehoseDestination: NotRequired[KinesisFirehoseDestinationTypeDef]
     SnsDestination: NotRequired[SnsDestinationTypeDef]
@@ -1677,6 +1694,7 @@ class SubmitRegistrationVersionResultTypeDef(TypedDict):
     VersionNumber: int
     RegistrationVersionStatus: RegistrationVersionStatusType
     RegistrationVersionStatusHistory: RegistrationVersionStatusHistoryTypeDef
+    AwsReview: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1743,13 +1761,13 @@ class DescribeKeywordsRequestTypeDef(TypedDict):
 class DescribeKeywordsResultTypeDef(TypedDict):
     OriginationIdentityArn: str
     OriginationIdentity: str
-    Keywords: List[KeywordInformationTypeDef]
+    Keywords: list[KeywordInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeOptOutListsResultTypeDef(TypedDict):
-    OptOutLists: List[OptOutListInformationTypeDef]
+    OptOutLists: list[OptOutListInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1772,7 +1790,7 @@ class DescribeOptedOutNumbersRequestTypeDef(TypedDict):
 class DescribeOptedOutNumbersResultTypeDef(TypedDict):
     OptOutListArn: str
     OptOutListName: str
-    OptedOutNumbers: List[OptedOutNumberInformationTypeDef]
+    OptedOutNumbers: list[OptedOutNumberInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1793,7 +1811,7 @@ class DescribePhoneNumbersRequestTypeDef(TypedDict):
 
 
 class DescribePhoneNumbersResultTypeDef(TypedDict):
-    PhoneNumbers: List[PhoneNumberInformationTypeDef]
+    PhoneNumbers: list[PhoneNumberInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1814,7 +1832,7 @@ class DescribePoolsRequestTypeDef(TypedDict):
 
 
 class DescribePoolsResultTypeDef(TypedDict):
-    Pools: List[PoolInformationTypeDef]
+    Pools: list[PoolInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1833,7 +1851,7 @@ class DescribeProtectConfigurationsRequestTypeDef(TypedDict):
 
 
 class DescribeProtectConfigurationsResultTypeDef(TypedDict):
-    ProtectConfigurations: List[ProtectConfigurationInformationTypeDef]
+    ProtectConfigurations: list[ProtectConfigurationInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1852,7 +1870,7 @@ class DescribeRegistrationAttachmentsRequestTypeDef(TypedDict):
 
 
 class DescribeRegistrationAttachmentsResultTypeDef(TypedDict):
-    RegistrationAttachments: List[RegistrationAttachmentsInformationTypeDef]
+    RegistrationAttachments: list[RegistrationAttachmentsInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1861,7 +1879,7 @@ class DescribeRegistrationFieldValuesResultTypeDef(TypedDict):
     RegistrationArn: str
     RegistrationId: str
     VersionNumber: int
-    RegistrationFieldValues: List[RegistrationFieldValueInformationTypeDef]
+    RegistrationFieldValues: list[RegistrationFieldValueInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1908,7 +1926,7 @@ class DescribeRegistrationsRequestTypeDef(TypedDict):
 
 
 class DescribeRegistrationsResultTypeDef(TypedDict):
-    Registrations: List[RegistrationInformationTypeDef]
+    Registrations: list[RegistrationInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1929,13 +1947,13 @@ class DescribeSenderIdsRequestTypeDef(TypedDict):
 
 
 class DescribeSenderIdsResultTypeDef(TypedDict):
-    SenderIds: List[SenderIdInformationTypeDef]
+    SenderIds: list[SenderIdInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeSpendLimitsResultTypeDef(TypedDict):
-    SpendLimits: List[SpendLimitTypeDef]
+    SpendLimits: list[SpendLimitTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1956,7 +1974,7 @@ class DescribeVerifiedDestinationNumbersRequestTypeDef(TypedDict):
 
 
 class DescribeVerifiedDestinationNumbersResultTypeDef(TypedDict):
-    VerifiedDestinationNumbers: List[VerifiedDestinationNumberInformationTypeDef]
+    VerifiedDestinationNumbers: list[VerifiedDestinationNumberInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1965,7 +1983,7 @@ class GetProtectConfigurationCountryRuleSetResultTypeDef(TypedDict):
     ProtectConfigurationArn: str
     ProtectConfigurationId: str
     NumberCapability: NumberCapabilityType
-    CountryRuleSet: Dict[str, ProtectConfigurationCountryRuleSetInformationTypeDef]
+    CountryRuleSet: dict[str, ProtectConfigurationCountryRuleSetInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1979,7 +1997,7 @@ class UpdateProtectConfigurationCountryRuleSetResultTypeDef(TypedDict):
     ProtectConfigurationArn: str
     ProtectConfigurationId: str
     NumberCapability: NumberCapabilityType
-    CountryRuleSet: Dict[str, ProtectConfigurationCountryRuleSetInformationTypeDef]
+    CountryRuleSet: dict[str, ProtectConfigurationCountryRuleSetInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1999,7 +2017,7 @@ class ListPoolOriginationIdentitiesRequestTypeDef(TypedDict):
 class ListPoolOriginationIdentitiesResultTypeDef(TypedDict):
     PoolArn: str
     PoolId: str
-    OriginationIdentities: List[OriginationIdentityMetadataTypeDef]
+    OriginationIdentities: list[OriginationIdentityMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2020,7 +2038,7 @@ class ListProtectConfigurationRuleSetNumberOverridesRequestTypeDef(TypedDict):
 class ListProtectConfigurationRuleSetNumberOverridesResultTypeDef(TypedDict):
     ProtectConfigurationArn: str
     ProtectConfigurationId: str
-    RuleSetNumberOverrides: List[ProtectConfigurationRuleSetNumberOverrideTypeDef]
+    RuleSetNumberOverrides: list[ProtectConfigurationRuleSetNumberOverrideTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2042,7 +2060,7 @@ class ListRegistrationAssociationsResultTypeDef(TypedDict):
     RegistrationArn: str
     RegistrationId: str
     RegistrationType: str
-    RegistrationAssociations: List[RegistrationAssociationMetadataTypeDef]
+    RegistrationAssociations: list[RegistrationAssociationMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2059,7 +2077,8 @@ class RegistrationVersionInformationTypeDef(TypedDict):
     VersionNumber: int
     RegistrationVersionStatus: RegistrationVersionStatusType
     RegistrationVersionStatusHistory: RegistrationVersionStatusHistoryTypeDef
-    DeniedReasons: NotRequired[List[RegistrationDeniedReasonInformationTypeDef]]
+    DeniedReasons: NotRequired[list[RegistrationDeniedReasonInformationTypeDef]]
+    Feedback: NotRequired[str]
 
 
 class RegistrationFieldDisplayHintsTypeDef(TypedDict):
@@ -2068,7 +2087,7 @@ class RegistrationFieldDisplayHintsTypeDef(TypedDict):
     LongDescription: NotRequired[str]
     DocumentationTitle: NotRequired[str]
     DocumentationLink: NotRequired[str]
-    SelectOptionDescriptions: NotRequired[List[SelectOptionDescriptionTypeDef]]
+    SelectOptionDescriptions: NotRequired[list[SelectOptionDescriptionTypeDef]]
     TextValidationDescription: NotRequired[str]
     ExampleTextValue: NotRequired[str]
 
@@ -2081,13 +2100,13 @@ class RegistrationSectionDefinitionTypeDef(TypedDict):
 class RegistrationTypeDefinitionTypeDef(TypedDict):
     RegistrationType: str
     DisplayHints: RegistrationTypeDisplayHintsTypeDef
-    SupportedAssociations: NotRequired[List[SupportedAssociationTypeDef]]
+    SupportedAssociations: NotRequired[list[SupportedAssociationTypeDef]]
 
 
 class ConfigurationSetInformationTypeDef(TypedDict):
     ConfigurationSetArn: str
     ConfigurationSetName: str
-    EventDestinations: List[EventDestinationTypeDef]
+    EventDestinations: list[EventDestinationTypeDef]
     CreatedTimestamp: datetime
     DefaultMessageType: NotRequired[MessageTypeType]
     DefaultSenderId: NotRequired[str]
@@ -2105,7 +2124,7 @@ class CreateEventDestinationResultTypeDef(TypedDict):
 class DeleteConfigurationSetResultTypeDef(TypedDict):
     ConfigurationSetArn: str
     ConfigurationSetName: str
-    EventDestinations: List[EventDestinationTypeDef]
+    EventDestinations: list[EventDestinationTypeDef]
     DefaultMessageType: MessageTypeType
     DefaultSenderId: str
     DefaultMessageFeedbackEnabled: bool
@@ -2130,7 +2149,7 @@ class UpdateEventDestinationResultTypeDef(TypedDict):
 class DescribeRegistrationVersionsResultTypeDef(TypedDict):
     RegistrationArn: str
     RegistrationId: str
-    RegistrationVersions: List[RegistrationVersionInformationTypeDef]
+    RegistrationVersions: list[RegistrationVersionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2147,25 +2166,25 @@ class RegistrationFieldDefinitionTypeDef(TypedDict):
 
 class DescribeRegistrationSectionDefinitionsResultTypeDef(TypedDict):
     RegistrationType: str
-    RegistrationSectionDefinitions: List[RegistrationSectionDefinitionTypeDef]
+    RegistrationSectionDefinitions: list[RegistrationSectionDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeRegistrationTypeDefinitionsResultTypeDef(TypedDict):
-    RegistrationTypeDefinitions: List[RegistrationTypeDefinitionTypeDef]
+    RegistrationTypeDefinitions: list[RegistrationTypeDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeConfigurationSetsResultTypeDef(TypedDict):
-    ConfigurationSets: List[ConfigurationSetInformationTypeDef]
+    ConfigurationSets: list[ConfigurationSetInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeRegistrationFieldDefinitionsResultTypeDef(TypedDict):
     RegistrationType: str
-    RegistrationFieldDefinitions: List[RegistrationFieldDefinitionTypeDef]
+    RegistrationFieldDefinitions: list[RegistrationFieldDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

@@ -1,21 +1,22 @@
 [project]
 name = "joblib-stubs"
-version = "1.5.2.0.20250831"
+version = "1.5.3.1.20260117"
 description = "joblib stubs"
 authors = [{ name = "phi", email = "phi.friday@gmail.com" }]
 dependencies = [
     "typing-extensions>=4.4.0",
 ]
 readme = "README.md"
-license = { file = "LICENSE" }
-requires-python = ">= 3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">= 3.11"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Typing :: Stubs Only",
 ]
@@ -25,38 +26,43 @@ Repository = "https://github.com/phi-friday/joblib-stubs"
 
 [project.optional-dependencies]
 mypy = [
-    "mypy>=1.17.1",
+    "mypy>=1.19.1",
 ]
 mypy-strict = [
-    "mypy==1.17.1",
+    "mypy==1.19.1",
     "joblib-stubs[mypy]",
 ]
 
 [dependency-groups]
 joblib-dependencies = [
-    "joblib>=1.5.2",
-    "numpy>=1.24.4",
-    "dask>=2023.5.0",
-    "distributed>=2023.5.0",
+    "joblib>=1.5.3",
+    "numpy>=2.4.0",
+    "dask>=2025.12.0",
+    "distributed>=2025.12.0",
+]
+test = [
+    { include-group = "joblib-dependencies" },
+    "pytest>=9.0.2",
 ]
 dev = [
     { include-group = "joblib-dependencies" },
-    "ruff==0.12.11",
-    "pre-commit>=3.5.0",
-    "poethepoet>=0.27.0",
+    "ruff==0.14.13",
+    "pyright==1.1.408",
+    "poethepoet>=0.40.0",
     "joblib-stubs[mypy-strict]",
 ]
 
 [tool.uv]
 managed = true
-default-groups = ["dev"]
+default-groups = ["dev", "test"]
 
 [tool.poe.tasks]
 lint = ["_lint:check", "_lint:format"]
 "_lint:check" = "ruff check src --fix"
 "_lint:format" = "ruff format src"
 mypy = "mypy src --strict"
-check = "pre-commit run --all-files --show-diff-on-failure"
+pyright = "pyright src"
+check = ["lint", "mypy", "pyright"]
 
 [build-system]
 requires = ["hatchling"]
@@ -69,7 +75,7 @@ packages = ["src/joblib-stubs"]
 include = ["src/joblib-stubs"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true
 disable_error_code = "import-untyped,overload-overlap,override"
 disallow_subclassing_any = false

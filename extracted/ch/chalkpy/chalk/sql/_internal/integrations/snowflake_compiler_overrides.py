@@ -109,7 +109,13 @@ class ArrayType(ARRAY):
     def bind_processor(self, dialect: Dialect, **kw: Any):
         # Convert any python values into a json string when serializing
         # Using orjson instead of json for performance and to coerce nan/+inf/-inf to null values
-        return lambda x: orjson.dumps(x).decode("utf8")
+        def default(obj: Any) -> str:
+            if isinstance(obj, bytes):
+                # Convert bytes to uppercase hex string for JSON serialization (matches Snowflake COPY INTO behavior)
+                return obj.hex().upper()
+            raise TypeError
+
+        return lambda x: orjson.dumps(x, default=default).decode("utf8")
 
     def result_processor(self, dialect: Dialect, coltype: Any):
         def _result_processor(val: str | None):
@@ -127,7 +133,13 @@ class ObjectType(OBJECT):
     def bind_processor(self, dialect: Dialect, **kw: Any):
         # Convert any python values into a json string when serializing
         # Using orjson instead of json for performance and to coerce nan/+inf/-inf to null values
-        return lambda x: orjson.dumps(x).decode("utf8")
+        def default(obj: Any) -> str:
+            if isinstance(obj, bytes):
+                # Convert bytes to uppercase hex string for JSON serialization (matches Snowflake COPY INTO behavior)
+                return obj.hex().upper()
+            raise TypeError
+
+        return lambda x: orjson.dumps(x, default=default).decode("utf8")
 
     def result_processor(self, dialect: Dialect, coltype: Any):
         def _result_processor(val: str | None):

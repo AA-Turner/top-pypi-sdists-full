@@ -168,9 +168,15 @@ from box_sdk_gen.managers.ai import AiManager
 
 from box_sdk_gen.managers.ai_studio import AiStudioManager
 
+from box_sdk_gen.managers.metadata_taxonomies import MetadataTaxonomiesManager
+
 from box_sdk_gen.managers.docgen_template import DocgenTemplateManager
 
 from box_sdk_gen.managers.docgen import DocgenManager
+
+from box_sdk_gen.managers.enterprise_configurations import (
+    EnterpriseConfigurationsManager,
+)
 
 from box_sdk_gen.managers.hubs import HubsManager
 
@@ -423,10 +429,16 @@ class BoxClient:
         self.ai_studio = AiStudioManager(
             auth=self.auth, network_session=self.network_session
         )
+        self.metadata_taxonomies = MetadataTaxonomiesManager(
+            auth=self.auth, network_session=self.network_session
+        )
         self.docgen_template = DocgenTemplateManager(
             auth=self.auth, network_session=self.network_session
         )
         self.docgen = DocgenManager(
+            auth=self.auth, network_session=self.network_session
+        )
+        self.enterprise_configurations = EnterpriseConfigurationsManager(
             auth=self.auth, network_session=self.network_session
         )
         self.hubs = HubsManager(auth=self.auth, network_session=self.network_session)

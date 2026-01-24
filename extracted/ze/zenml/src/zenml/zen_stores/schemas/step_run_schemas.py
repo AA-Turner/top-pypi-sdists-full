@@ -31,6 +31,7 @@ from zenml.constants import MEDIUMTEXT_MAX_LENGTH
 from zenml.enums import (
     ExecutionStatus,
     MetadataResourceTypes,
+    PipelineRunTriggeredByType,
     StepRunInputArtifactType,
 )
 from zenml.models import (
@@ -49,13 +50,16 @@ from zenml.models.v2.core.step_run import (
 from zenml.utils.time_utils import utc_now
 from zenml.zen_stores.schemas.base_schemas import NamedSchema
 from zenml.zen_stores.schemas.constants import MODEL_VERSION_TABLENAME
-from zenml.zen_stores.schemas.pipeline_deployment_schemas import (
-    PipelineDeploymentSchema,
+from zenml.zen_stores.schemas.pipeline_run_schemas import PipelineRunSchema
+from zenml.zen_stores.schemas.pipeline_snapshot_schemas import (
+    PipelineSnapshotSchema,
     StepConfigurationSchema,
 )
-from zenml.zen_stores.schemas.pipeline_run_schemas import PipelineRunSchema
 from zenml.zen_stores.schemas.project_schemas import ProjectSchema
-from zenml.zen_stores.schemas.schema_utils import build_foreign_key_field
+from zenml.zen_stores.schemas.schema_utils import (
+    build_foreign_key_field,
+    build_index,
+)
 from zenml.zen_stores.schemas.user_schemas import UserSchema
 from zenml.zen_stores.schemas.utils import (
     RunMetadataInterface,
@@ -80,28 +84,31 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
             "version",
             name="unique_step_name_for_pipeline_run",
         ),
+        build_index(
+            table_name=__tablename__,
+            column_names=[
+                "cache_key",
+            ],
+        ),
     )
 
     # Fields
     start_time: Optional[datetime] = Field(nullable=True)
     end_time: Optional[datetime] = Field(nullable=True)
+    latest_heartbeat: Optional[datetime] = Field(
+        nullable=True,
+        description="The latest execution heartbeat.",
+    )
     status: str = Field(nullable=False)
 
     docstring: Optional[str] = Field(sa_column=Column(TEXT, nullable=True))
     cache_key: Optional[str] = Field(nullable=True)
+    cache_expires_at: Optional[datetime] = Field(nullable=True)
     source_code: Optional[str] = Field(sa_column=Column(TEXT, nullable=True))
     code_hash: Optional[str] = Field(nullable=True)
     version: int = Field(nullable=False)
     is_retriable: bool = Field(nullable=False)
 
-    step_configuration: str = Field(
-        sa_column=Column(
-            String(length=MEDIUMTEXT_MAX_LENGTH).with_variant(
-                MEDIUMTEXT, "mysql"
-            ),
-            nullable=True,
-        )
-    )
     exception_info: Optional[str] = Field(
         sa_column=Column(
             String(length=MEDIUMTEXT_MAX_LENGTH).with_variant(
@@ -110,7 +117,7 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
             nullable=True,
         )
     )
-
+    heartbeat_threshold: Optional[int] = Field(nullable=True)
     # Foreign keys
     original_step_run_id: Optional[UUID] = build_foreign_key_field(
         source=__tablename__,
@@ -120,10 +127,10 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
         ondelete="SET NULL",
         nullable=True,
     )
-    deployment_id: Optional[UUID] = build_foreign_key_field(
+    snapshot_id: Optional[UUID] = build_foreign_key_field(
         source=__tablename__,
-        target=PipelineDeploymentSchema.__tablename__,
-        source_column="deployment_id",
+        target=PipelineSnapshotSchema.__tablename__,
+        source_column="snapshot_id",
         target_column="id",
         ondelete="CASCADE",
         nullable=True,
@@ -164,7 +171,7 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
     # Relationships
     project: "ProjectSchema" = Relationship(back_populates="step_runs")
     user: Optional["UserSchema"] = Relationship(back_populates="step_runs")
-    deployment: Optional["PipelineDeploymentSchema"] = Relationship(
+    snapshot: Optional["PipelineSnapshotSchema"] = Relationship(
         back_populates="step_runs"
     )
     run_metadata: List["RunMetadataSchema"] = Relationship(
@@ -181,9 +188,9 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
     output_artifacts: List["StepRunOutputArtifactSchema"] = Relationship(
         sa_relationship_kwargs={"cascade": "delete"}
     )
-    logs: Optional["LogsSchema"] = Relationship(
+    logs: List["LogsSchema"] = Relationship(
         back_populates="step_run",
-        sa_relationship_kwargs={"cascade": "delete", "uselist": False},
+        sa_relationship_kwargs={"cascade": "delete"},
     )
     parents: List["StepRunParentsSchema"] = Relationship(
         sa_relationship_kwargs={
@@ -197,15 +204,39 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
     model_version: "ModelVersionSchema" = Relationship(
         back_populates="step_runs",
     )
+    triggered_runs: List["PipelineRunSchema"] = Relationship(
+        sa_relationship_kwargs={
+            "viewonly": True,
+            "primaryjoin": f"and_(foreign(PipelineRunSchema.triggered_by) == StepRunSchema.id, foreign(PipelineRunSchema.triggered_by_type) == '{PipelineRunTriggeredByType.STEP_RUN.value}')",
+        },
+    )
+
     original_step_run: Optional["StepRunSchema"] = Relationship(
         sa_relationship_kwargs={"remote_side": "StepRunSchema.id"}
     )
-    step_configuration_schema: Optional["StepConfigurationSchema"] = (
-        Relationship(
-            sa_relationship_kwargs=dict(
-                viewonly=True,
-                primaryjoin="and_(foreign(StepConfigurationSchema.name) == StepRunSchema.name, foreign(StepConfigurationSchema.deployment_id) == StepRunSchema.deployment_id)",
+    # In static pipelines, we use the config that is compiled in the snapshot.
+    static_config: Optional["StepConfigurationSchema"] = Relationship(
+        sa_relationship_kwargs=dict(
+            viewonly=True,
+            primaryjoin="and_(foreign(StepConfigurationSchema.name) == StepRunSchema.name, foreign(StepConfigurationSchema.snapshot_id) == StepRunSchema.snapshot_id)",
+        ),
+    )
+    # In dynamic pipelines, the config is dynamically generated and cannot be
+    # included in the compiled snapshot. In this case, we link it directly to
+    # the step run.
+    dynamic_config: Optional["StepConfigurationSchema"] = Relationship(
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+        },
+    )
+    # In legacy pipelines (before snapshots, former deployments), the config
+    # is stored as a string in the step run.
+    step_configuration: str = Field(
+        sa_column=Column(
+            String(length=MEDIUMTEXT_MAX_LENGTH).with_variant(
+                MEDIUMTEXT, "mysql"
             ),
+            nullable=True,
         )
     )
 
@@ -236,23 +267,23 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
         )
 
         options = [
-            selectinload(jl_arg(StepRunSchema.deployment)).load_only(
-                jl_arg(PipelineDeploymentSchema.pipeline_configuration)
+            selectinload(jl_arg(StepRunSchema.snapshot)).load_only(
+                jl_arg(PipelineSnapshotSchema.pipeline_configuration)
             ),
             selectinload(jl_arg(StepRunSchema.pipeline_run)).load_only(
                 jl_arg(PipelineRunSchema.start_time)
             ),
-            joinedload(jl_arg(StepRunSchema.step_configuration_schema)),
+            joinedload(jl_arg(StepRunSchema.static_config)),
+            joinedload(jl_arg(StepRunSchema.dynamic_config)),
         ]
 
-        if include_metadata:
-            options.extend(
-                [
-                    selectinload(jl_arg(StepRunSchema.logs)),
-                    # joinedload(jl_arg(StepRunSchema.parents)),
-                    # joinedload(jl_arg(StepRunSchema.run_metadata)),
-                ]
-            )
+        # if include_metadata:
+        #     options.extend(
+        #         [
+        #             joinedload(jl_arg(StepRunSchema.parents)),
+        #             joinedload(jl_arg(StepRunSchema.run_metadata)),
+        #         ]
+        #     )
 
         if include_resources:
             options.extend(
@@ -279,6 +310,7 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
                     .joinedload(
                         jl_arg(ArtifactVersionSchema.artifact), innerjoin=True
                     ),
+                    selectinload(jl_arg(StepRunSchema.logs)),
                 ]
             )
 
@@ -288,7 +320,7 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
     def from_request(
         cls,
         request: StepRunRequest,
-        deployment_id: Optional[UUID],
+        snapshot_id: Optional[UUID],
         version: int,
         is_retriable: bool,
     ) -> "StepRunSchema":
@@ -296,7 +328,7 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
 
         Args:
             request: The step run request model.
-            deployment_id: The deployment ID.
+            snapshot_id: The snapshot ID.
             version: The version of the step run.
             is_retriable: Whether the step run is retriable.
 
@@ -310,11 +342,12 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
             start_time=request.start_time,
             end_time=request.end_time,
             status=request.status.value,
-            deployment_id=deployment_id,
+            snapshot_id=snapshot_id,
             original_step_run_id=request.original_step_run_id,
             pipeline_run_id=request.pipeline_run_id,
             docstring=request.docstring,
             cache_key=request.cache_key,
+            cache_expires_at=request.cache_expires_at,
             code_hash=request.code_hash,
             source_code=request.source_code,
             version=version,
@@ -335,11 +368,11 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
         """
         step = None
 
-        if self.deployment is not None:
-            if self.step_configuration_schema:
+        if self.snapshot is not None:
+            if config_schema := (self.dynamic_config or self.static_config):
                 pipeline_configuration = (
                     PipelineConfiguration.model_validate_json(
-                        self.deployment.pipeline_configuration
+                        self.snapshot.pipeline_configuration
                     )
                 )
                 pipeline_configuration.finalize_substitutions(
@@ -347,7 +380,7 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
                     inplace=True,
                 )
                 step = Step.from_dict(
-                    json.loads(self.step_configuration_schema.config),
+                    json.loads(config_schema.config),
                     pipeline_configuration=pipeline_configuration,
                 )
         if not step and self.step_configuration:
@@ -393,10 +426,12 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
             is_retriable=self.is_retriable,
             start_time=self.start_time,
             end_time=self.end_time,
+            latest_heartbeat=self.latest_heartbeat,
             created=self.created,
             updated=self.updated,
             model_version_id=self.model_version_id,
             substitutions=step.config.substitutions,
+            heartbeat_threshold=self.heartbeat_threshold,
         )
         metadata = None
         if include_metadata:
@@ -404,6 +439,7 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
                 config=step.config,
                 spec=step.spec,
                 cache_key=self.cache_key,
+                cache_expires_at=self.cache_expires_at,
                 code_hash=self.code_hash,
                 docstring=self.docstring,
                 source_code=self.source_code,
@@ -412,8 +448,7 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
                 )
                 if self.exception_info
                 else None,
-                logs=self.logs.to_model() if self.logs else None,
-                deployment_id=self.deployment_id,
+                snapshot_id=self.snapshot_id,
                 pipeline_run_id=self.pipeline_run_id,
                 original_step_run_id=self.original_step_run_id,
                 parent_step_ids=[p.parent_id for p in self.parents],
@@ -432,9 +467,15 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
                     input_artifacts[input_artifact.name] = []
                 step_run_input = StepRunInputResponse(
                     input_type=StepRunInputArtifactType(input_artifact.type),
+                    index=input_artifact.input_index,
+                    chunk_index=input_artifact.chunk_index,
+                    chunk_size=input_artifact.chunk_size,
                     **input_artifact.artifact_version.to_model().model_dump(),
                 )
                 input_artifacts[input_artifact.name].append(step_run_input)
+
+            for artifact_list in input_artifacts.values():
+                artifact_list.sort(key=lambda a: a.index or 0)
 
             output_artifacts: Dict[str, List["ArtifactVersionResponse"]] = {}
             for output_artifact in self.output_artifacts:
@@ -447,6 +488,7 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
             resources = StepRunResponseResources(
                 user=self.user.to_model() if self.user else None,
                 model_version=model_version,
+                log_collection=[log.to_model() for log in self.logs],
                 inputs=input_artifacts,
                 outputs=output_artifacts,
             )
@@ -477,6 +519,8 @@ class StepRunSchema(NamedSchema, RunMetadataInterface, table=True):
                 self.end_time = value
             if key == "exception_info":
                 self.exception_info = json.dumps(value)
+            if key == "cache_expires_at":
+                self.cache_expires_at = value
 
         self.updated = utc_now()
 
@@ -517,6 +561,9 @@ class StepRunInputArtifactSchema(SQLModel, table=True):
     # Fields
     name: str = Field(nullable=False, primary_key=True)
     type: str
+    input_index: int = Field(nullable=False, primary_key=True)
+    chunk_index: Optional[int] = None
+    chunk_size: Optional[int] = None
 
     # Foreign keys
     step_id: UUID = build_foreign_key_field(

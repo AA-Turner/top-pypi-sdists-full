@@ -265,7 +265,7 @@ if not HAS_APT:
             ]
             for file in self.files:
                 if file.is_dir():
-                    for fp in file.glob("**/*.list"):
+                    for fp in file.glob("*.list"):
                         self.add_file(file=fp)
                 else:
                     self.add_file(file)
@@ -1788,7 +1788,7 @@ def _get_opts(line):
     """
     Return all opts in [] for a repo line
     """
-    get_opts = re.search(r"\[(.*=.*)\]", line)
+    get_opts = re.search(r"\[(.*=.*?)\]", line)
 
     ret = OrderedDict()
     if not get_opts:

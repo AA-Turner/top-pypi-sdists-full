@@ -1,4 +1,4 @@
-# Copyright 2022 The TensorFlow Recommenders Authors.
+# Copyright 2025 The TensorFlow Recommenders Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 """Keras interface for TPU Embeddings in TF2."""
 
-from typing import Iterable, Optional, Union, Any, Dict
+from typing import Any, Dict, Iterable, Optional, Union
 
 import tensorflow.compat.v2 as tf
 
@@ -51,9 +51,28 @@ _OPTIMIZER_PARAMETERS = {
 }
 _DUMMY_NAME = "tpu_embedding_helper_dummy"
 
-_EMBEDDING_V2 = tf.tpu.experimental.HardwareFeature.EmbeddingFeature.V2
-_EMBEDDING_V1 = tf.tpu.experimental.HardwareFeature.EmbeddingFeature.V1
-_EMBEDDING_UNSUPPORTED = tf.tpu.experimental.HardwareFeature.EmbeddingFeature.UNSUPPORTED
+EmbeddingFeature = tf.tpu.experimental.HardwareFeature.EmbeddingFeature
+
+_EMBEDDING_V2 = EmbeddingFeature.V2
+_EMBEDDING_V1 = EmbeddingFeature.V1
+_EMBEDDING_UNSUPPORTED = EmbeddingFeature.UNSUPPORTED
+
+TPUEmbeddingType = Union[
+    tf.tpu.experimental.embedding.TPUEmbedding,
+    tf.tpu.experimental.embedding.TPUEmbeddingV0,
+    tf.tpu.experimental.embedding.TPUEmbeddingForServing,
+]
+
+if hasattr(tf.tpu.experimental.embedding, "TPUEmbeddingV2"):
+  TPUEmbeddingType = (
+      TPUEmbeddingType | tf.tpu.experimental.embedding.TPUEmbeddingV2
+  )
+if hasattr(tf.tpu.experimental.embedding, "SparseCoreEmbeddingConfig"):
+  SparseCoreEmbeddingConfig = (
+      tf.tpu.experimental.embedding.SparseCoreEmbeddingConfig
+  )
+else:
+  SparseCoreEmbeddingConfig = None  # pylint: disable=invalid-name
 
 
 def _normalize_and_prepare_optimizer(optimizer):
@@ -584,8 +603,8 @@ class TPUEmbedding(tf.keras.layers.Layer):
                                 tf.tpu.experimental.embedding.FTRL]],
       pipeline_execution_with_tensor_core: bool = False,
       batch_size: Optional[int] = None,
-      embedding_feature: Optional[
-          tf.tpu.experimental.HardwareFeature.EmbeddingFeature] = None):
+      embedding_feature: Optional[EmbeddingFeature] = None,
+      sparse_core_embedding_config: Optional[SparseCoreEmbeddingConfig] = None):
     """A Keras layer for accelerated embedding lookups on TPU.
 
     Args:
@@ -605,6 +624,8 @@ class TPUEmbedding(tf.keras.layers.Layer):
         compatibility.
       embedding_feature: EmbeddingFeature enum, inidicating which version of TPU
         hardware the layer should run on.
+      sparse_core_embedding_config: SparseCoreEmbeddingConfig, inidicating
+        configuration for sparse core embedding when using TPUEmbedding V2
     """
     super().__init__()
     self._feature_config, self._table_config_map = (
@@ -616,35 +637,44 @@ class TPUEmbedding(tf.keras.layers.Layer):
 
     self._embedding_feature = None
     if self._using_tpu:
-      self._embedding_feature = self._strategy.extended.tpu_hardware_feature.embedding_feature
+      self._embedding_feature = (
+          self._strategy.extended.tpu_hardware_feature.embedding_feature
+      )
       # Override the embedding feature setting if passed.
       if embedding_feature is not None:
         if embedding_feature == _EMBEDDING_UNSUPPORTED:
           self._embedding_feature = _EMBEDDING_UNSUPPORTED
-        if (embedding_feature != _EMBEDDING_UNSUPPORTED and
-            self._embedding_feature != embedding_feature):
+        if (
+            embedding_feature != _EMBEDDING_UNSUPPORTED
+            and self._embedding_feature != embedding_feature
+        ):
           raise ValueError(
               "TPU only supports {} and {}, but got {} which is not supported."
-              .format(_EMBEDDING_UNSUPPORTED, self._embedding_feature,
-                      embedding_feature))
+              .format(
+                  _EMBEDDING_UNSUPPORTED,
+                  self._embedding_feature,
+                  embedding_feature,
+              )
+          )
 
     # Create TPU embedding mid level APIs according to the embedding feature
     # setting.
     self._tpu_embedding = self._create_tpu_embedding_mid_level_api(
-        self._using_tpu, self._embedding_feature,
-        pipeline_execution_with_tensor_core)
-
+        self._using_tpu,
+        self._embedding_feature,
+        pipeline_execution_with_tensor_core,
+        sparse_core_embedding_config
+    )
     self.batch_size = batch_size
-
     self._tpu_call_id = 0
 
   def _create_tpu_embedding_mid_level_api(
-      self, using_tpu: bool, embedding_feature: Optional[
-          tf.tpu.experimental.HardwareFeature.EmbeddingFeature],
-      pipeline_execution_with_tensor_core: bool
-  ) -> Union[tf.tpu.experimental.embedding.TPUEmbedding,
-             tf.tpu.experimental.embedding.TPUEmbeddingV0,
-             tf.tpu.experimental.embedding.TPUEmbeddingForServing]:
+      self,
+      using_tpu: bool,
+      embedding_feature: Optional[EmbeddingFeature],
+      pipeline_execution_with_tensor_core: bool,
+      sparse_core_embedding_config: Optional[SparseCoreEmbeddingConfig],
+  ) -> TPUEmbeddingType:
     """Creates TPU Embedding mid level API instance based on settings.
 
     Args:
@@ -655,6 +685,8 @@ class TPUEmbedding(tf.keras.layers.Layer):
         computations will overlap with the TensorCore computations (and hence
         will be one step old with potential correctness drawbacks). Only used
         when the embedding feature is set to be v1.
+      sparse_core_embedding_config: SparseCoreEmbeddingConfig used by TPU
+      ` Embedding V2
 
     Returns:
       Instance of the TPUEmbedding mid level API.
@@ -675,7 +707,15 @@ class TPUEmbedding(tf.keras.layers.Layer):
           self._feature_config, self._optimizer,
           pipeline_execution_with_tensor_core)
     elif embedding_feature == _EMBEDDING_V2:
-      raise NotImplementedError("Embedding feature v2 is not supported yet!")
+      if hasattr(tf.tpu.experimental.embedding, "TPUEmbeddingV2"):
+        return tf.tpu.experimental.embedding.TPUEmbeddingV2(
+            self._feature_config,
+            self._optimizer,
+            pipeline_execution_with_tensor_core,
+            sparse_core_embedding_config,
+        )
+      else:
+        raise ValueError("TPUEmbeddingV2 is not supported in TF.")
     else:
       raise ValueError("Unknown embedding feature {}".format(embedding_feature))
 
@@ -693,7 +733,10 @@ class TPUEmbedding(tf.keras.layers.Layer):
     else:
       self._tpu_embedding.build()
 
-    if self._embedding_feature == _EMBEDDING_V1:
+    if (
+        self._embedding_feature == _EMBEDDING_V1
+        or self._embedding_feature == _EMBEDDING_V2
+    ):
       # Note that self.tpu_embedding_helper_dummy matches _DUMMY_NAME above,
       # or it will appear twice in the list of saveables. Note that the Python
       # variable name should be _DUMMY_NAME too, as it is used to name internal
@@ -731,61 +774,85 @@ class TPUEmbedding(tf.keras.layers.Layer):
       A dict of looked up embedding tensors with keys matching those of
       features_to_config_dict.
     """
-    # Each call to this function increments the _tpu_call_id by 1, this allows
-    # us to tag each of the main embedding ops with this call id so that we know
-    # during graph rewriting passes which ops correspond to the same layer call.
-    self._tpu_call_id += 1
-    name = "{}".format(self._tpu_call_id)
+    if self._embedding_feature == _EMBEDDING_V2:
 
-    # Set training to true, even during eval. When name is set, this will
-    # trigger a pass that updates the training based on if there is a send
-    # gradients with the same name.
-    self._tpu_embedding.enqueue(features, weights, training=True, name=name)
+      @tf.custom_gradient
+      def gradient_trap(dummy):
+        """Register a gradient function for activation."""
+        activations, preserved_result = self._tpu_embedding(features, weights)
 
-    # The gradient trap is a trick used to ensure we can compute the gradients
-    # at the correct point of the model. By default GradientTape only tracks
-    # the calculations which descend from variables. e.g. if you call
-    # tape.gradient on something that does not come from a variable involved in
-    # the computation, it will fail.
-    # We need to call tpu_embedding.apply_gradients on the gradients computed
-    # at tpu_embedding.dequeue. Since tpu_embedding.dequeue has no inputs, we
-    # can't compute the gradient at its output. To get around that we wrap
-    # the dequeue in a function with a custom gradient. This function takes one
-    # input, throws it away and returns the result of the dequeue. If we pass a
-    # dummy variable to this function and compute the gradient at the dummy
-    # variable, then the custom gradient function will be called with the
-    # graidents that we need to pass to tpu_embedding.apply_gradients.
-    @tf.custom_gradient
-    def gradient_trap(dummy):
-      """Register a gradient function for activation.
+        def grad(*grad_wrt_activations):
+          """Gradient function."""
+          gradients = tf.nest.pack_sequence_as(
+              self._feature_config, grad_wrt_activations
+          )
+          self._tpu_embedding.apply_gradients(
+              gradients, preserved_outputs=preserved_result
+          )
+          return tf.zeros_like(dummy)
 
-      Its purpose is to send gradients back to TPU.
+        return tf.nest.flatten(activations), grad
 
-      Args:
-        dummy: a variable to prevent this backward pass from being pruned.
+      activations_with_trap = gradient_trap(getattr(self, _DUMMY_NAME))
+    else:
+      # Each call to this function increments the _tpu_call_id by 1, this allows
+      # us to tag each of the main embedding ops with this call id so that we
+      # know during graph rewriting passes which ops correspond to the same
+      # layer call.
+      self._tpu_call_id += 1
+      name = "{}".format(self._tpu_call_id)
 
-      Returns:
-        a tuple of list of activations and their gradient function.
-      """
-      activations = self._tpu_embedding.dequeue(name=name)
+      # Set training to true, even during eval. When name is set, this will
+      # trigger a pass that updates the training based on if there is a send
+      # gradients with the same name.
+      self._tpu_embedding.enqueue(features, weights, training=True, name=name)
 
-      def grad(*grad_wrt_activations):
-        """Gradient function."""
-        # Since the output of the function is flattened, the gradients
-        # are also flattened. Hence we have to pack them back in to the correct
-        # nested structure.
-        gradients = tf.nest.pack_sequence_as(self._feature_config,
-                                             grad_wrt_activations)
-        self._tpu_embedding.apply_gradients(gradients, name=name)
+      # The gradient trap is a trick used to ensure we can compute the gradients
+      # at the correct point of the model. By default GradientTape only tracks
+      # the calculations which descend from variables. e.g. if you call
+      # tape.gradient on something that does not come from a variable involved
+      # in the computation, it will fail.
+      # We need to call tpu_embedding.apply_gradients on the gradients computed
+      # at tpu_embedding.dequeue. Since tpu_embedding.dequeue has no inputs, we
+      # can't compute the gradient at its output. To get around that we wrap
+      # the dequeue in a function with a custom gradient. This function takes
+      # one input, throws it away and returns the result of the dequeue. If we
+      # pass a dummy variable to this function and compute the gradient at the
+      # dummy variable, then the custom gradient function will be called with
+      # the graidents that we need to pass to tpu_embedding.apply_gradients.
+      @tf.custom_gradient
+      def gradient_trap(dummy):
+        """Register a gradient function for activation.
 
-        # This is the gradient for the input variable.
-        return tf.zeros_like(dummy)
+        Its purpose is to send gradients back to TPU.
 
-      # Custom gradient functions don't like nested structures of tensors, so we
-      # flatten them here.
-      return tf.nest.flatten(activations), grad
+        Args:
+          dummy: a variable to prevent this backward pass from being pruned.
 
-    activations_with_trap = gradient_trap(getattr(self, _DUMMY_NAME))
+        Returns:
+          a tuple of list of activations and their gradient function.
+        """
+        activations = self._tpu_embedding.dequeue(name=name)
+
+        def grad(*grad_wrt_activations):
+          """Gradient function."""
+          # Since the output of the function is flattened, the gradients
+          # are also flattened. Hence we have to pack them back in to the
+          # correct nested structure.
+          gradients = tf.nest.pack_sequence_as(
+              self._feature_config, grad_wrt_activations
+          )
+          self._tpu_embedding.apply_gradients(gradients, name=name)
+
+          # This is the gradient for the input variable.
+          return tf.zeros_like(dummy)
+
+        # Custom gradient functions don't like nested structures of tensors,
+        # so we flatten them here.
+        return tf.nest.flatten(activations), grad
+
+      activations_with_trap = gradient_trap(getattr(self, _DUMMY_NAME))
+
     return tf.nest.pack_sequence_as(self._feature_config, activations_with_trap)
 
   def call(
@@ -843,10 +910,32 @@ class TPUEmbedding(tf.keras.layers.Layer):
                          f"{tf.distribute.get_strategy()}. Please use "
                          "strategy.run when calling this layer.")
 
-    if self._embedding_feature == _EMBEDDING_V1:
+    if (
+        self._embedding_feature == _EMBEDDING_V1
+        or self._embedding_feature == _EMBEDDING_V2
+    ):
       return self._tpu_embedding_lookup(features, weights)
     else:
       return self._tpu_embedding(features, weights)
+
+  def update_embedding_table(
+      self,
+      table: tf.tpu.experimental.embedding.TableConfig,
+      embedding_table: tf.Variable,
+  ) -> None:
+    """Update the embedding tables."""
+    if table in self.embedding_tables:
+      if self._embedding_feature == _EMBEDDING_V2:
+        self._tpu_embedding.variables[table.name][
+            "parameters"
+        ] = embedding_table
+      else:
+        for old_config, new_config in self._table_config_map:
+          if old_config.name == table.name:
+            self._tpu_embedding.variables[new_config.name]["parameters"] = (
+                embedding_table
+            )
+            break
 
   @property
   def embedding_tables(
@@ -866,6 +955,10 @@ class TPUEmbedding(tf.keras.layers.Layer):
       `feature_config` passed to this layer's init.
     """
     tables = self._tpu_embedding.embedding_tables
+    # TODO(ziyinh): handle stacked table here.
+    if self._embedding_feature == _EMBEDDING_V2:
+      return tables
+
     # Use the table config map to map from the cloned configs back to the
     # configs that where passed into the layer on init.
     return {

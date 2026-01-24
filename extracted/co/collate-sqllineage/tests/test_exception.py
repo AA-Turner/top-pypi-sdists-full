@@ -2,6 +2,7 @@ import warnings
 
 import pytest
 
+from collate_sqllineage.core.parser.sqlfluff.analyzer import SqlFluffLineageAnalyzer
 from collate_sqllineage.exceptions import (
     InvalidSyntaxException,
     SQLLineageException,
@@ -17,20 +18,26 @@ def test_select_without_table():
 
 def test_full_unparsable_query_in_sqlfluff():
     with pytest.raises(InvalidSyntaxException):
-        LineageRunner("WRONG SELECT FROM tab1", dialect="ansi")._eval()
+        LineageRunner(
+            "WRONG SELECT FROM tab1", dialect="ansi", analyzer=SqlFluffLineageAnalyzer
+        )._eval()
 
 
 def test_partial_unparsable_query_in_sqlfluff():
     with pytest.raises(InvalidSyntaxException):
         LineageRunner(
-            "SELECT * FROM tab1 AS FULL FULL OUTER JOIN tab2", dialect="ansi"
+            "SELECT * FROM tab1 AS FULL FULL OUTER JOIN tab2",
+            dialect="ansi",
+            analyzer=SqlFluffLineageAnalyzer,
         )._eval()
 
 
 def test_unsupported_query_type_in_sqlfluff():
     with pytest.raises(UnsupportedStatementException):
         LineageRunner(
-            "CREATE UNIQUE INDEX title_idx ON films (title)", dialect="ansi"
+            "CREATE UNIQUE INDEX title_idx ON films (title)",
+            dialect="ansi",
+            analyzer=SqlFluffLineageAnalyzer,
         )._eval()
 
 

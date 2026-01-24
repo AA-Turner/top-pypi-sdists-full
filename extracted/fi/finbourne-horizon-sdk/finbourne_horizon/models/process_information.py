@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr 
 from finbourne_horizon.models.process_summary import ProcessSummary
 
 class ProcessInformation(BaseModel):
@@ -29,11 +31,11 @@ class ProcessInformation(BaseModel):
     domain:  StrictStr = Field(...,alias="domain", description="") 
     process_name:  StrictStr = Field(...,alias="processName", description="") 
     run_id:  StrictStr = Field(...,alias="runId", description="") 
-    start_time: datetime = Field(..., alias="startTime")
+    start_time: datetime = Field(alias="startTime")
     data_action:  StrictStr = Field(...,alias="dataAction", description="") 
     schema_version:  Optional[StrictStr] = Field(None,alias="schemaVersion", description="") 
     user_id:  StrictStr = Field(...,alias="userId", description="") 
-    process_summary: Optional[ProcessSummary] = Field(None, alias="processSummary")
+    process_summary: Optional[ProcessSummary] = Field(default=None, alias="processSummary")
     __properties = ["domain", "processName", "runId", "startTime", "dataAction", "schemaVersion", "userId", "processSummary"]
 
     class Config:
@@ -98,3 +100,5 @@ class ProcessInformation(BaseModel):
             "process_summary": ProcessSummary.from_dict(obj.get("processSummary")) if obj.get("processSummary") is not None else None
         })
         return _obj
+
+ProcessInformation.update_forward_refs()

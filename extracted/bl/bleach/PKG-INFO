@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: bleach
-Version: 6.2.0
+Version: 6.3.0
 Summary: An easy safelist-based HTML-sanitizing tool.
 Home-page: https://github.com/mozilla/bleach
 Maintainer: Will Kahn-Greene
@@ -9,25 +9,37 @@ License: Apache Software License
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+License-File: bleach/_vendor/html5lib-1.1.dist-info/LICENSE
 Requires-Dist: webencodings
 Provides-Extra: css
 Requires-Dist: tinycss2<1.5,>=1.1.0; extra == "css"
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ======
 Bleach
@@ -157,8 +169,26 @@ etiquette guidelines. For more details please see the `CODE_OF_CONDUCT.md
 Bleach changes
 ==============
 
+Version 6.3.0 (October 27th, 2025)
+----------------------------------
+
+**Backwards incompatible changes**
+
+* Dropped support for Python 3.9. (#756)
+
+**Security fixes**
+
+None
+
+**Bug fixes**
+
+* Add support for Python 3.14. (#758)
+* Fix wbr handling. (#488)
+
+
 Version 6.2.0 (October 29th, 2024)
 ----------------------------------
+
 **Backwards incompatible changes**
 
 * Dropped support for Python 3.8. (#737)

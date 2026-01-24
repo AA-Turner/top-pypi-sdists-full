@@ -1,7 +1,7 @@
 import logging
 import httpx
 
-from typing import Optional, Dict, overload, Union, Literal
+from typing import Optional, Dict, overload, Union, Literal, List
 from httpx import AsyncClient
 
 from e2b import (
@@ -20,8 +20,8 @@ from e2b_code_interpreter.models import (
     Context,
     Result,
     aextract_exception,
-    parse_output,
-    OutputHandler,
+    OutputHandlerWithAsync,
+    async_parse_output,
     OutputMessage,
 )
 from e2b_code_interpreter.exceptions import (
@@ -69,10 +69,10 @@ class AsyncSandbox(BaseAsyncSandbox):
         self,
         code: str,
         language: Union[Literal["python"], None] = None,
-        on_stdout: Optional[OutputHandler[OutputMessage]] = None,
-        on_stderr: Optional[OutputHandler[OutputMessage]] = None,
-        on_result: Optional[OutputHandler[Result]] = None,
-        on_error: Optional[OutputHandler[ExecutionError]] = None,
+        on_stdout: Optional[OutputHandlerWithAsync[OutputMessage]] = None,
+        on_stderr: Optional[OutputHandlerWithAsync[OutputMessage]] = None,
+        on_result: Optional[OutputHandlerWithAsync[Result]] = None,
+        on_error: Optional[OutputHandlerWithAsync[ExecutionError]] = None,
         envs: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
         request_timeout: Optional[float] = None,
@@ -103,10 +103,10 @@ class AsyncSandbox(BaseAsyncSandbox):
         self,
         code: str,
         language: Optional[str] = None,
-        on_stdout: Optional[OutputHandler[OutputMessage]] = None,
-        on_stderr: Optional[OutputHandler[OutputMessage]] = None,
-        on_result: Optional[OutputHandler[Result]] = None,
-        on_error: Optional[OutputHandler[ExecutionError]] = None,
+        on_stdout: Optional[OutputHandlerWithAsync[OutputMessage]] = None,
+        on_stderr: Optional[OutputHandlerWithAsync[OutputMessage]] = None,
+        on_result: Optional[OutputHandlerWithAsync[Result]] = None,
+        on_error: Optional[OutputHandlerWithAsync[ExecutionError]] = None,
         envs: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
         request_timeout: Optional[float] = None,
@@ -138,10 +138,10 @@ class AsyncSandbox(BaseAsyncSandbox):
         self,
         code: str,
         context: Optional[Context] = None,
-        on_stdout: Optional[OutputHandler[OutputMessage]] = None,
-        on_stderr: Optional[OutputHandler[OutputMessage]] = None,
-        on_result: Optional[OutputHandler[Result]] = None,
-        on_error: Optional[OutputHandler[ExecutionError]] = None,
+        on_stdout: Optional[OutputHandlerWithAsync[OutputMessage]] = None,
+        on_stderr: Optional[OutputHandlerWithAsync[OutputMessage]] = None,
+        on_result: Optional[OutputHandlerWithAsync[Result]] = None,
+        on_error: Optional[OutputHandlerWithAsync[ExecutionError]] = None,
         envs: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
         request_timeout: Optional[float] = None,
@@ -172,10 +172,10 @@ class AsyncSandbox(BaseAsyncSandbox):
         code: str,
         language: Optional[str] = None,
         context: Optional[Context] = None,
-        on_stdout: Optional[OutputHandler[OutputMessage]] = None,
-        on_stderr: Optional[OutputHandler[OutputMessage]] = None,
-        on_result: Optional[OutputHandler[Result]] = None,
-        on_error: Optional[OutputHandler[ExecutionError]] = None,
+        on_stdout: Optional[OutputHandlerWithAsync[OutputMessage]] = None,
+        on_stderr: Optional[OutputHandlerWithAsync[OutputMessage]] = None,
+        on_result: Optional[OutputHandlerWithAsync[Result]] = None,
+        on_error: Optional[OutputHandlerWithAsync[ExecutionError]] = None,
         envs: Optional[Dict[str, str]] = None,
         timeout: Optional[float] = None,
         request_timeout: Optional[float] = None,
@@ -190,8 +190,15 @@ class AsyncSandbox(BaseAsyncSandbox):
         timeout = None if timeout == 0 else (timeout or DEFAULT_TIMEOUT)
         request_timeout = request_timeout or self.connection_config.request_timeout
         context_id = context.id if context else None
-
         try:
+            headers = {
+                "Content-Type": "application/json",
+            }
+            if self._envd_access_token:
+                headers["X-Access-Token"] = self._envd_access_token
+            if self.traffic_access_token:
+                headers["E2B-Traffic-Access-Token"] = self.traffic_access_token
+
             async with self._client.stream(
                 "POST",
                 f"{self._jupyter_url}/execute",
@@ -201,10 +208,9 @@ class AsyncSandbox(BaseAsyncSandbox):
                     "language": language,
                     "env_vars": envs,
                 },
-                headers={"X-Access-Token": self._envd_access_token},
+                headers=headers,
                 timeout=(request_timeout, timeout, request_timeout, request_timeout),
             ) as response:
-
                 err = await aextract_exception(response)
                 if err:
                     raise err
@@ -212,7 +218,7 @@ class AsyncSandbox(BaseAsyncSandbox):
                 execution = Execution()
 
                 async for line in response.aiter_lines():
-                    parse_output(
+                    await async_parse_output(
                         execution,
                         line,
                         on_stdout=on_stdout,
@@ -251,9 +257,15 @@ class AsyncSandbox(BaseAsyncSandbox):
             data["cwd"] = cwd
 
         try:
+            headers = {
+                "Content-Type": "application/json",
+            }
+            if self.traffic_access_token:
+                headers["E2B-Traffic-Access-Token"] = self.traffic_access_token
+
             response = await self._client.post(
                 f"{self._jupyter_url}/contexts",
-                headers={"X-Access-Token": self._envd_access_token},
+                headers=headers,
                 json=data,
                 timeout=request_timeout or self.connection_config.request_timeout,
             )
@@ -264,5 +276,96 @@ class AsyncSandbox(BaseAsyncSandbox):
 
             data = response.json()
             return Context.from_json(data)
+        except httpx.TimeoutException:
+            raise format_request_timeout_error()
+
+    async def remove_code_context(
+        self,
+        context: Union[Context, str],
+    ) -> None:
+        """
+        Removes a context.
+
+        :param context: Context to remove. Can be a Context object or a context ID string.
+
+        :return: None
+        """
+        context_id = context.id if isinstance(context, Context) else context
+
+        try:
+            headers = {
+                "Content-Type": "application/json",
+            }
+            if self.traffic_access_token:
+                headers["E2B-Traffic-Access-Token"] = self.traffic_access_token
+
+            response = await self._client.delete(
+                f"{self._jupyter_url}/contexts/{context_id}",
+                headers=headers,
+                timeout=self.connection_config.request_timeout,
+            )
+
+            err = await aextract_exception(response)
+            if err:
+                raise err
+        except httpx.TimeoutException:
+            raise format_request_timeout_error()
+
+    async def list_code_contexts(self) -> List[Context]:
+        """
+        List all contexts.
+
+        :return: List of contexts.
+        """
+        try:
+            headers = {
+                "Content-Type": "application/json",
+            }
+            if self.traffic_access_token:
+                headers["E2B-Traffic-Access-Token"] = self.traffic_access_token
+
+            response = await self._client.get(
+                f"{self._jupyter_url}/contexts",
+                headers=headers,
+                timeout=self.connection_config.request_timeout,
+            )
+
+            err = await aextract_exception(response)
+            if err:
+                raise err
+
+            data = response.json()
+            return [Context.from_json(context_data) for context_data in data]
+        except httpx.TimeoutException:
+            raise format_request_timeout_error()
+
+    async def restart_code_context(
+        self,
+        context: Union[Context, str],
+    ) -> None:
+        """
+        Restart a context.
+
+        :param context: Context to restart. Can be a Context object or a context ID string.
+
+        :return: None
+        """
+        context_id = context.id if isinstance(context, Context) else context
+        try:
+            headers = {
+                "Content-Type": "application/json",
+            }
+            if self.traffic_access_token:
+                headers["E2B-Traffic-Access-Token"] = self.traffic_access_token
+
+            response = await self._client.post(
+                f"{self._jupyter_url}/contexts/{context_id}/restart",
+                headers=headers,
+                timeout=self.connection_config.request_timeout,
+            )
+
+            err = await aextract_exception(response)
+            if err:
+                raise err
         except httpx.TimeoutException:
             raise format_request_timeout_error()

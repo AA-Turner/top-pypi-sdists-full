@@ -7,9 +7,9 @@ from ._extern import wrap_extern
 from typing import Callable, Optional, Generic, TypeVar, List, Union, Tuple, cast as cast_type, Sequence, Any
 from ._exportable import AsExtern
 from ._store import Storelike
+from ._slab import Slab
 
 
-T = TypeVar('T')
 FUNCTIONS: "Slab[Tuple]"
 LAST_EXCEPTION: Optional[Exception] = None
 
@@ -103,7 +103,7 @@ class Func:
                     raise WasmtimeError._from_ptr(error)
         finally:
             for i in range(0, params_set):
-                ffi.wasmtime_val_unroot(store._context(), byref(params_ptr[i]))
+                ffi.wasmtime_val_unroot(byref(params_ptr[i]))
 
         results = []
         for i in range(0, len(result_tys)):
@@ -154,7 +154,7 @@ class Caller:
 
         # First convert to a raw name so we can typecheck our argument
         name_bytes = name.encode('utf-8')
-        name_buf = ffi.create_string_buffer(name_bytes)
+        name_buf = ctypes.create_string_buffer(name_bytes)
 
         # Next see if we've been invalidated
         if self.__ptr is None:
@@ -222,33 +222,6 @@ def trampoline(idx, caller, params, nparams, results, nresults):  # type: ignore
 def finalize(idx):  # type: ignore
     FUNCTIONS.deallocate(idx or 0)
 
-
-class Slab(Generic[T]):
-    list: List[Union[int, T]]
-    next: int
-
-    def __init__(self) -> None:
-        self.list = []
-        self.next = 0
-
-    def allocate(self, val: T) -> int:
-        idx = self.next
-
-        if len(self.list) == idx:
-            self.list.append(0)
-            self.next += 1
-        else:
-            self.next = cast_type(int, self.list[idx])
-
-        self.list[idx] = val
-        return idx
-
-    def get(self, idx: int) -> T:
-        return cast_type(T, self.list[idx])
-
-    def deallocate(self, idx: int) -> None:
-        self.list[idx] = self.next
-        self.next = idx
 
 
 FUNCTIONS = Slab()

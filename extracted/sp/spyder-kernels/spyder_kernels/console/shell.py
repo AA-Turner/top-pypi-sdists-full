@@ -12,6 +12,7 @@ Spyder shell for Jupyter kernels.
 
 # Standard library imports
 import bdb
+import itertools
 import logging
 import os
 import re
@@ -19,9 +20,13 @@ import signal
 import sys
 import traceback
 from _thread import interrupt_main
+from typing import List
 
 # Third-party imports
 from ipykernel.zmqshell import ZMQInteractiveShell
+from IPython.core import release as ipython_release
+from packaging.version import parse as parse_version
+
 
 # Local imports
 from spyder_kernels.customize.namespace_manager import NamespaceManager
@@ -71,6 +76,24 @@ class SpyderShell(ZMQInteractiveShell):
         # register post_execute
         self.events.register('post_execute', self.do_post_execute)
 
+        # Disable Python package managers because they don't work reliably for
+        # us when called from the kernel.
+        self._disabled_pkg_managers = [
+            "conda",
+            "mamba",
+            "micromamba",
+            "pip",
+            "pixi",
+            "uv",
+        ]
+        self._disable_pkg_managers_msg = (
+            "\\nInstalling packages through the IPython console doesn't work "
+            "reliably in Spyder. Please use a system terminal to do that, "
+            "i.e. cmd.exe on Windows, Terminal on macOS or xterm on "
+            "Linux."
+        )
+        self.input_transformers_cleanup.append(self._do_input_cleanup)
+
     def init_magics(self):
         """Init magics"""
         super().init_magics()
@@ -97,9 +120,11 @@ class SpyderShell(ZMQInteractiveShell):
             for line in stb:
                 if (
                     # Verbose mode
-                    re.match(r"File (.*)", line)
+                    re.match(r"File (.*)", line)  # IPython 8.x
+                    or re.match(r"\x1b(.*)File (.*)", line)  # IPython 9.x
                     # Plain mode
-                    or re.match(r"\x1b\[(.*)  File (.*)", line)
+                    or re.match(r"\x1b\[(.*)  File (.*)", line)  # IPython 8.x
+                    or re.match(r"  File (.*)", line)  # IPython 9.x
                 ) and (
                     # The file line should not contain a location where
                     # Spyder-kernels is installed
@@ -119,11 +144,11 @@ class SpyderShell(ZMQInteractiveShell):
     def set_spyder_theme(self, theme):
         """Set the theme for the console."""
         self._spyder_theme = theme
-        if theme == "dark":
-            # Needed to change the colors of tracebacks
-            self.run_line_magic("colors", "linux")
-        elif theme == "light":
-            self.run_line_magic("colors", "lightbg")
+
+        # Call `%colors` following theme for IPython 8.x tracebacks
+        if parse_version(ipython_release.version) < parse_version("9.0"):
+            colors = "linux" if theme == "dark" else "lightbg"
+            self.run_line_magic("colors", colors)
 
     def get_spyder_theme(self):
         """Get the theme for the console."""
@@ -456,3 +481,23 @@ class SpyderShell(ZMQInteractiveShell):
         sys.__stderr__.flush()
         sys.__stdout__.flush()
         self.kernel.publish_state()
+
+    def _do_input_cleanup(self, lines: List[str]):
+        """
+        Input transformations before the code is made valid Python by IPython.
+        """
+        for line in lines:
+            # Disable magics and commands to call Python package managers from
+            # the kernel because they don't work reliably.
+            # Fixes spyder-ide/spyder#21894
+            if any(
+                [
+                    line.startswith(f"{prefix}{command}")
+                    for prefix, command in itertools.product(
+                        ["%", "!"], self._disabled_pkg_managers
+                    )
+                ]
+            ):
+                return [f'print("{self._disable_pkg_managers_msg}")']
+
+        return lines

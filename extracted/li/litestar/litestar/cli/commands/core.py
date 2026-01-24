@@ -85,6 +85,7 @@ def _run_uvicorn_in_subprocess(
         "port": port,
         "workers": workers,
         "factory": env.is_app_factory,
+        "app-dir": env.cwd,
     }
     if fd is not None:
         process_args["fd"] = fd
@@ -356,7 +357,7 @@ class _RouteTree(Tree):
             else:
                 handler_info.append("[yellow]sync[/yellow]")
 
-            handler_info.append(f'[cyan]{", ".join(sorted(handler.http_methods))}[/cyan]')
+            handler_info.append(f"[cyan]{', '.join(sorted(handler.http_methods))}[/cyan]")
 
             if len(handler.paths) > 1:
                 for path in handler.paths:

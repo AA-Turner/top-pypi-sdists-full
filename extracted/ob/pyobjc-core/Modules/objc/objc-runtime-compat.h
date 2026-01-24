@@ -33,7 +33,7 @@ struct PyObjC_method {
  *  Both are a prefix for a basic type
  */
 #define _C_ATOMIC 'A'
-#define _C_COMPLEX 'j' /* XXX: Requires more work to support */
+#define _C_COMPLEX 'j'
 
 #ifndef _C_LNG_DBL
 #define _C_LNG_DBL 'D'
@@ -63,7 +63,7 @@ struct PyObjC_method {
 /* Some functions that are missing (oddly enough) */
 BOOL PyObjC_class_isSubclassOf(Class child, Class parent);
 
-extern BOOL PyObjC_class_addMethodList(Class, struct PyObjC_method*, unsigned int);
+extern void PyObjC_class_addMethodList(Class, struct PyObjC_method*, unsigned int);
 
 NS_ASSUME_NONNULL_END
 

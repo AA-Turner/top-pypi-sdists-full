@@ -1926,9 +1926,9 @@ class Whas500CIData(FixtureParameterFactory):
 def make_channing():
     def _make_channing(sex):  # pylint: disable=unused-argument
         data = pd.read_csv(CHANNING_FILE).query("entry < exit and sex == @sex")
-        time_enter_m = data.loc[:, "entry"].values
-        time_exit_m = data.loc[:, "exit"].values
-        event_m = data.loc[:, "cens"].values == 1
+        time_enter_m = data.loc[:, "entry"].to_numpy()
+        time_exit_m = data.loc[:, "exit"].to_numpy()
+        event_m = data.loc[:, "cens"].to_numpy() == 1
         return time_enter_m, time_exit_m, event_m
 
     return _make_channing
@@ -2404,7 +2404,7 @@ def make_aids():
 
 @pytest.fixture()
 def truncated_failure_data():
-    rnd = np.random.RandomState(2016)
+    rnd = np.random.default_rng(2016)
     time_exit = rnd.uniform(1, 100, size=25)
     time_enter = time_exit + 1
     event = rnd.binomial(1, 0.6, size=25).astype(bool)
@@ -2415,7 +2415,8 @@ def truncated_failure_data():
 def random_survival_data():
     event = np.ones(10, dtype=bool)
     event[:5] = False
-    return Surv.from_arrays(event=event, time=np.random.rand(10))
+    rng = np.random.default_rng()
+    return Surv.from_arrays(event=event, time=rng.random(10))
 
 
 @pytest.fixture()
@@ -2852,12 +2853,13 @@ class TestKaplanMeier:
         with pytest.raises(ValueError, match="dtype='numeric' is not compatible with arrays of bytes/strings"):
             est.predict_proba(np.array(["should", "not", "work"]))
 
+        rng = np.random.default_rng()
         with pytest.raises(
             ValueError,
             match=r"Found array with dim 3(\. SurvivalFunctionEstimator expected <= 2"
             r"|, while dim <= 2 is required by SurvivalFunctionEstimator)\.",
         ):
-            est.predict_proba(np.random.randn(10, 9, 5))
+            est.predict_proba(rng.standard_normal((10, 9, 5)))
 
     @staticmethod
     @pytest.mark.parametrize("conf_level", [None, -1, 1.0, 3.0, np.inf, np.nan])
@@ -5515,7 +5517,7 @@ class TestKaplanMeier:
     def test_right_truncated_children(make_aids):
         event, time_enter, time_exit = make_aids("children")
 
-        x, y, km_ci = kaplan_meier_estimator(event, time_exit.values, time_enter.values, conf_type="log-log")
+        x, y, km_ci = kaplan_meier_estimator(event, time_exit.to_numpy(), time_enter.to_numpy(), conf_type="log-log")
         true_x = np.array(
             [
                 7.75,
@@ -5639,7 +5641,7 @@ class TestKaplanMeier:
     def test_right_truncated_adults(make_aids):
         event, time_enter, time_exit = make_aids("adults")
 
-        x, y, km_ci = kaplan_meier_estimator(event, time_exit.values, time_enter.values, conf_type="log-log")
+        x, y, km_ci = kaplan_meier_estimator(event, time_exit.to_numpy(), time_enter.to_numpy(), conf_type="log-log")
 
         true_x = np.array(
             [
@@ -6249,7 +6251,7 @@ class SimpleDataBMTCases(FixtureParameterFactory):
         event = bmt["status"]
         time = bmt["ftime"]
         if dis is not None:
-            dis_np = dis_df["dis"].values
+            dis_np = dis_df["dis"].to_numpy()
             dis_filter = dis_np == dis
             event = event[dis_filter]
             time = time[dis_filter]

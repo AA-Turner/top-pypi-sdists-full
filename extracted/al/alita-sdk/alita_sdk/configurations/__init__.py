@@ -25,7 +25,6 @@ def _safe_import_configuration(
 _safe_import_configuration('github', 'github', 'GithubConfiguration')
 _safe_import_configuration('pgvector', 'pgvector', 'PgVectorConfiguration')
 _safe_import_configuration('ado', 'ado', 'AdoConfiguration')
-_safe_import_configuration('ado_repos', 'ado', 'AdoReposConfiguration')
 _safe_import_configuration('gitlab', 'gitlab', 'GitlabConfiguration')
 _safe_import_configuration('qtest', 'qtest', 'QtestConfiguration')
 _safe_import_configuration('bitbucket', 'bitbucket', 'BitbucketConfiguration')
@@ -53,6 +52,8 @@ _safe_import_configuration('sharepoint', 'sharepoint', 'SharepointConfiguration'
 _safe_import_configuration('carrier', 'carrier', 'CarrierConfiguration')
 _safe_import_configuration('report_portal', 'report_portal', 'ReportPortalConfiguration')
 _safe_import_configuration('testio', 'testio', 'TestIOConfiguration')
+_safe_import_configuration('openapi', 'openapi', 'OpenApiConfiguration')
+_safe_import_configuration('langfuse', 'langfuse', 'LangfuseConfiguration')
 
 # Log import summary
 available_count = len(AVAILABLE_CONFIGURATIONS)

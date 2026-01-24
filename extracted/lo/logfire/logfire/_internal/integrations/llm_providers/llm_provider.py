@@ -4,6 +4,11 @@ from collections.abc import AsyncIterator, Iterable, Iterator
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, Callable, cast
 
+from opentelemetry.trace import SpanKind
+
+from logfire import attach_context, get_context
+from logfire.propagate import ContextCarrier
+
 from ...constants import ONE_SECOND_IN_NANOSECONDS
 from ...utils import is_instrumentation_suppressed, log_internal_error, suppress_instrumentation
 
@@ -94,12 +99,15 @@ def instrument_llm_provider(
             if kwargs.get('stream') and stream_state_cls:
                 stream_cls = kwargs['stream_cls']
                 assert stream_cls is not None, 'Expected `stream_cls` when streaming'
+                original_context = get_context()
 
                 if is_async:
 
                     class LogfireInstrumentedAsyncStream(stream_cls):
                         async def __stream__(self) -> AsyncIterator[Any]:
-                            with record_streaming(logfire_llm, span_data, stream_state_cls) as record_chunk:
+                            with record_streaming(
+                                logfire_llm, span_data, stream_state_cls, original_context
+                            ) as record_chunk:
                                 async for chunk in super().__stream__():  # type: ignore
                                     record_chunk(chunk)
                                     yield chunk
@@ -109,7 +117,9 @@ def instrument_llm_provider(
 
                     class LogfireInstrumentedStream(stream_cls):
                         def __stream__(self) -> Iterator[Any]:
-                            with record_streaming(logfire_llm, span_data, stream_state_cls) as record_chunk:
+                            with record_streaming(
+                                logfire_llm, span_data, stream_state_cls, original_context
+                            ) as record_chunk:
                                 for chunk in super().__stream__():  # type: ignore
                                     record_chunk(chunk)
                                     yield chunk
@@ -128,7 +138,7 @@ def instrument_llm_provider(
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return original_request_method(*args, **kwargs)
-        with logfire_llm.span(message_template, **span_data) as span:
+        with logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if kwargs.get('stream'):
                     return original_request_method(*args, **kwargs)
@@ -140,7 +150,7 @@ def instrument_llm_provider(
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return await original_request_method(*args, **kwargs)
-        with logfire_llm.span(message_template, **span_data) as span:
+        with logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if kwargs.get('stream'):
                     return await original_request_method(*args, **kwargs)
@@ -186,6 +196,7 @@ def record_streaming(
     logire_llm: Logfire,
     span_data: dict[str, Any],
     stream_state_cls: type[StreamState],
+    original_context: ContextCarrier,
 ):
     stream_state = stream_state_cls()
 
@@ -199,9 +210,9 @@ def record_streaming(
         yield record_chunk
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
-        logire_llm.info(
-            'streaming response from {request_data[model]!r} took {duration:.2f}s',
-            **span_data,
-            duration=duration,
-            response_data=stream_state.get_response_data(),
-        )
+        with attach_context(original_context):
+            logire_llm.info(
+                'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                duration=duration,
+                **stream_state.get_attributes(span_data),
+            )

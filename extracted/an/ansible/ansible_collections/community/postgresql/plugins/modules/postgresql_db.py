@@ -278,7 +278,7 @@ import os
 import subprocess
 import traceback
 
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.six.moves import shlex_quote
 from ansible_collections.community.postgresql.plugins.module_utils.database import (
@@ -479,7 +479,7 @@ def db_update(cursor, db, owner, encoding, lc_collate, lc_ctype, icu_locale, loc
     if owner and owner != db_info['owner']:
         changed = set_owner(cursor, db, owner)
 
-    if conn_limit and conn_limit != str(db_info['conn_limit']):
+    if conn_limit != '' and conn_limit != str(db_info['conn_limit']):
         changed = set_conn_limit(cursor, db, conn_limit)
 
     if tablespace and tablespace != db_info['tablespace']:
@@ -513,7 +513,7 @@ def db_matches(cursor, db, owner, template, encoding, lc_collate, lc_ctype, icu_
             return False
         elif owner and owner != db_info['owner']:
             return False
-        elif conn_limit and conn_limit != str(db_info['conn_limit']):
+        elif conn_limit != '' and conn_limit != str(db_info['conn_limit']):
             return False
         elif tablespace and tablespace != db_info['tablespace']:
             return False
@@ -530,6 +530,7 @@ def db_dump(module, target, target_opts="",
             password=None,
             host=None,
             port=None,
+            session_role=None,
             **kw):
 
     flags = login_flags(db, host, port, user, db_prefix=False)
@@ -552,6 +553,9 @@ def db_dump(module, target, target_opts="",
         comp_prog_path = module.get_bin_path('bzip2', True)
     elif os.path.splitext(target)[-1] == '.xz':
         comp_prog_path = module.get_bin_path('xz', True)
+
+    if session_role:
+        flags.append(' --role={0}'.format(shlex_quote(session_role)))
 
     cmd += "".join(flags)
 
@@ -583,11 +587,13 @@ def db_restore(module, target, target_opts="",
                password=None,
                host=None,
                port=None,
+               session_role=None,
                **kw):
 
     flags = login_flags(db, host, port, user)
     comp_prog_path = None
     cmd = module.get_bin_path('psql', True)
+    pg_restore = False
 
     if os.path.splitext(target)[-1] == '.sql':
         flags.append(' --file={0}'.format(target))
@@ -595,14 +601,17 @@ def db_restore(module, target, target_opts="",
     elif os.path.splitext(target)[-1] == '.tar':
         flags.append(' --format=Tar')
         cmd = module.get_bin_path('pg_restore', True)
+        pg_restore = True
 
     elif os.path.splitext(target)[-1] == '.pgc':
         flags.append(' --format=Custom')
         cmd = module.get_bin_path('pg_restore', True)
+        pg_restore = True
 
     elif os.path.splitext(target)[-1] == '.dir':
         flags.append(' --format=Directory')
         cmd = module.get_bin_path('pg_restore', True)
+        pg_restore = True
 
     elif os.path.splitext(target)[-1] == '.gz':
         comp_prog_path = module.get_bin_path('zcat', True)
@@ -612,6 +621,9 @@ def db_restore(module, target, target_opts="",
 
     elif os.path.splitext(target)[-1] == '.xz':
         comp_prog_path = module.get_bin_path('xzcat', True)
+
+    if pg_restore and session_role:
+        flags.append(' --role={0}'.format(shlex_quote(session_role)))
 
     cmd += "".join(flags)
     if target_opts:
@@ -634,7 +646,7 @@ def db_restore(module, target, target_opts="",
     else:
         if any(substring in cmd for substring in ['--format=Directory', '--format=Custom']):
             cmd = '{0} {1}'.format(cmd, shlex_quote(target))
-        else:
+        elif '--file=' not in cmd:
             cmd = '{0} < {1}'.format(cmd, shlex_quote(target))
 
     return do_with_password(module, cmd, password)
@@ -843,9 +855,13 @@ def main():
             method = state == "dump" and db_dump or db_restore
 
             if state == 'dump':
-                rc, stdout, stderr, cmd = method(module, target, target_opts, db, dump_extra_args, **conn_params)
+                rc, stdout, stderr, cmd = method(
+                    module, target, target_opts, db, dump_extra_args, session_role=session_role, **conn_params
+                )
             else:
-                rc, stdout, stderr, cmd = method(module, target, target_opts, db, **conn_params)
+                rc, stdout, stderr, cmd = method(
+                    module, target, target_opts, db, session_role=session_role, **conn_params
+                )
 
             if rc != 0:
                 module.fail_json(msg=stderr, stdout=stdout, rc=rc, cmd=cmd)

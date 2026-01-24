@@ -16,7 +16,7 @@ from orso.types import OrsoTypes
 from opteryx.connectors.base.base_connector import BaseConnector
 from opteryx.connectors.capabilities import Asynchronous
 from opteryx.connectors.capabilities import Cacheable
-from opteryx.connectors.capabilities import Partitionable
+from opteryx.connectors.capabilities import Diachronic
 from opteryx.connectors.capabilities import PredicatePushable
 from opteryx.connectors.capabilities import Statistics
 from opteryx.exceptions import DatasetNotFoundError
@@ -39,8 +39,11 @@ def get_storage_credentials():
 
     try:
         from google.cloud import storage
-    except ImportError as err:  # pragma: no cover
-        raise MissingDependencyError(err.name) from err
+    except (ImportError, AttributeError) as err:  # pragma: no cover
+        # Handle partially-installed `google` namespace packages which can
+        # raise AttributeError (e.g. "module 'google' has no attribute 'protobuf'").
+        name = getattr(err, "name", None) or str(err)
+        raise MissingDependencyError(name) from err
 
     if os.environ.get("STORAGE_EMULATOR_HOST"):  # pragma: no cover
         from google.auth.credentials import AnonymousCredentials
@@ -52,7 +55,7 @@ def get_storage_credentials():
 
 
 class GcpCloudStorageConnector(
-    BaseConnector, Cacheable, Partitionable, PredicatePushable, Asynchronous, Statistics
+    BaseConnector, Cacheable, Diachronic, PredicatePushable, Asynchronous, Statistics
 ):
     __mode__ = "Blob"
     __type__ = "GCS"
@@ -81,19 +84,35 @@ class GcpCloudStorageConnector(
             import requests
             from google.auth.transport.requests import Request
             from requests.adapters import HTTPAdapter
-        except ImportError as err:  # pragma: no cover
-            raise MissingDependencyError(err.name) from err
+        except (ImportError, AttributeError) as err:  # pragma: no cover
+            name = getattr(err, "name", None) or str(err)
+            raise MissingDependencyError(name) from err
 
         BaseConnector.__init__(self, **kwargs)
-        Partitionable.__init__(self, **kwargs)
+        Diachronic.__init__(self, **kwargs)
         Cacheable.__init__(self, **kwargs)
         PredicatePushable.__init__(self, **kwargs)
         Asynchronous.__init__(self, **kwargs)
         Statistics.__init__(self, **kwargs)
 
-        self.dataset = self.dataset.replace(".", OS_SEP)
+        # Only convert dots to path separators if the dataset doesn't already contain slashes
+        # Dataset references like "my.dataset.table" use dots as separators
+        # File paths like "bucket/path/file.parquet" already have slashes and should not be converted
+        if OS_SEP not in self.dataset and "/" not in self.dataset:
+            self.dataset = self.dataset.replace(".", OS_SEP)
         self.credentials = credentials
-        self.bucket, _, _, _ = paths.get_parts(self.dataset)
+
+        # Check if dataset contains wildcards
+        self.has_wildcards = paths.has_wildcards(self.dataset)
+        if self.has_wildcards:
+            # For wildcards, we need to split into prefix and pattern
+            # The prefix is used for listing, pattern for filtering
+            self.wildcard_prefix, self.wildcard_pattern = paths.split_wildcard_path(self.dataset)
+            self.bucket, _, _, _ = paths.get_parts(self.wildcard_prefix or self.dataset)
+        else:
+            self.wildcard_prefix = None
+            self.wildcard_pattern = None
+            self.bucket, _, _, _ = paths.get_parts(self.dataset)
 
         # we're going to cache the first blob as the schema and dataset reader
         # sometimes both start here
@@ -168,11 +187,22 @@ class GcpCloudStorageConnector(
             raise DatasetReadError(f"Unable to read '{blob_name}' - {response.status}")
         data = await response.read()
         ref = await pool.commit(data)
-        while ref is None:
-            statistics.stalls_writing_to_read_buffer += 1
+        # treat both None and -1 as commit failure and retry, but cap retries to avoid hanging
+        max_retries = 10
+        attempts = 0
+        while (ref is None or ref == -1) and attempts < max_retries:
+            attempts += 1
+            statistics.stalls_io_waiting_on_engine += 1
             system_statistics.cpu_wait_seconds += 0.1
             await asyncio.sleep(0.1)
-            ref = await pool.commit(data)
+            try:
+                ref = await pool.commit(data)
+            except Exception as e:
+                ref = None
+
+        if ref is None or ref == -1:
+            # Give up and raise so caller can handle the failure instead of hanging
+            raise DatasetReadError(f"Unable to commit data to MemoryPool after {attempts} attempts")
         statistics.bytes_read += len(data)
         return ref
 
@@ -181,7 +211,15 @@ class GcpCloudStorageConnector(
         if prefix in self.blob_list:
             return self.blob_list[prefix]
 
-        bucket, object_path, _, _ = paths.get_parts(prefix)
+        # If we have wildcards, use the wildcard prefix for listing
+        if self.has_wildcards:
+            list_prefix = self.wildcard_prefix
+            filter_pattern = self.wildcard_pattern
+        else:
+            list_prefix = prefix
+            filter_pattern = None
+
+        bucket, object_path, _, _ = paths.get_parts(list_prefix)
         if "kh" not in bucket:
             bucket = bucket.replace("va_data", "va-data")
             bucket = bucket.replace("data_", "data-")
@@ -204,11 +242,19 @@ class GcpCloudStorageConnector(
                 raise DatasetReadError(f"Error fetching blob list: {response.text}")
 
             blob_data = response.json()
-            blob_names.extend(
-                f"{bucket}/{name}"
-                for name in (blob["name"] for blob in blob_data.get("items", []))
-                if name.endswith(TUPLE_OF_VALID_EXTENSIONS)
-            )
+            for blob in blob_data.get("items", []):
+                name = blob["name"]
+                if not name.endswith(TUPLE_OF_VALID_EXTENSIONS):
+                    continue
+
+                full_path = f"{bucket}/{name}"
+
+                # If we have a wildcard pattern, filter by it
+                if filter_pattern:
+                    if paths.match_wildcard(filter_pattern, full_path):
+                        blob_names.append(full_path)
+                else:
+                    blob_names.append(full_path)
 
             page_token = blob_data.get("nextPageToken")
             if not page_token:
@@ -248,16 +294,21 @@ class GcpCloudStorageConnector(
                     stats = self.read_blob_statistics(
                         blob_name=blob_name, blob_bytes=blob_bytes, decoder=decoder
                     )
-                    if len(blob_names) == 1:
-                        self.relation_statistics = stats
+                    # Aggregate statistics from all blobs
+                    if stats is not None:
+                        if self.relation_statistics is None:
+                            self.relation_statistics = stats
+                        else:
+                            self.relation_statistics.merge(stats)
                 except Exception as err:
                     raise DatasetReadError(f"Unable to read file {blob_name} ({err})") from err
 
                 if not just_schema:
-                    num_rows, num_columns, decoded = decoded
+                    num_rows, num_columns, raw_bytes, decoded = decoded
                     self.blobs_seen += 1
                     self.rows_seen += num_rows
                     self.statistics.rows_seen += num_rows
+                    self.statistics.bytes_raw += raw_bytes
                 yield decoded
             except UnsupportedFileTypeError:  # pragma: no cover
                 pass
@@ -275,7 +326,7 @@ class GcpCloudStorageConnector(
             break
 
         if self.schema is None:
-            raise DatasetNotFoundError(dataset=self.dataset)
+            raise DatasetNotFoundError(dataset=self.dataset, connector=self.__type__)
 
         # if we have more than one blob we need to estimate the row count
         if self.schema.row_count_metric and number_of_blobs > 1:

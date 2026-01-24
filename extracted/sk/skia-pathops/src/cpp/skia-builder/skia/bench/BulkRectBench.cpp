@@ -10,9 +10,11 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkPaint.h"
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkImageGanesh.h"
 #include "src/base/SkRandom.h"
 #include "src/core/SkCanvasPriv.h"
+#include "src/gpu/ganesh/GrCanvas.h"
 #include "src/gpu/ganesh/GrOpsTypes.h"
 #include "src/gpu/ganesh/SkGr.h"
 #include "src/gpu/ganesh/SurfaceDrawContext.h"
@@ -53,7 +55,7 @@ public:
         if (kDrawMode == DrawMode::kBatch && kImageMode == ImageMode::kNone) {
             // Currently the bulk color quad API is only available on
             // skgpu::ganesh::SurfaceDrawContext
-            return backend == kGPU_Backend;
+            return backend == Backend::kGanesh;
         } else {
             return this->INHERITED::isSuitableFor(backend);
         }
@@ -61,7 +63,7 @@ public:
 
 protected:
     SkRect         fRects[kRectCount];
-    sk_sp<SkImage> fImages[kImageCount];
+    sk_sp<SkImage> fImages[kImageCount > 0 ? kImageCount : 1];
     SkColor4f      fColors[kRectCount];
     SkString       fName;
 
@@ -132,8 +134,7 @@ protected:
         SkASSERT(kImageMode == ImageMode::kNone);
         SkASSERT(kDrawMode == DrawMode::kBatch);
 
-        auto context = canvas->recordingContext();
-        SkASSERT(context);
+        SkASSERT(canvas->recordingContext());
 
         GrQuadSetEntry batch[kRectCount];
         for (int i = 0; i < kRectCount; ++i) {
@@ -147,11 +148,11 @@ protected:
         paint.setColor(SK_ColorWHITE);
         paint.setAntiAlias(true);
 
-        auto sdc = SkCanvasPriv::TopDeviceSurfaceDrawContext(canvas);
+        auto sdc = skgpu::ganesh::TopDeviceSurfaceDrawContext(canvas);
         SkMatrix view = canvas->getLocalToDeviceAs3x3();
         SkSurfaceProps props;
         GrPaint grPaint;
-        SkPaintToGrPaint(context, sdc->colorInfo(), paint, view, props, &grPaint);
+        SkPaintToGrPaint(sdc, paint, view, &grPaint);
         sdc->drawQuadSet(nullptr, std::move(grPaint), view, batch, kRectCount);
     }
 
@@ -225,7 +226,11 @@ protected:
             bm.eraseColor(fColors[i].toSkColor());
             auto image = bm.asImage();
 
-            fImages[i] = direct ? image->makeTextureImage(direct) : std::move(image);
+            if (direct) {
+                fImages[i] = SkImages::TextureFromImage(direct, image);
+            } else {
+                fImages[i] = std::move(image);
+            }
         }
     }
 
@@ -256,7 +261,7 @@ protected:
         }
     }
 
-    SkIPoint onGetSize() override {
+    SkISize onGetSize() override {
         return { kWidth, kHeight };
     }
 

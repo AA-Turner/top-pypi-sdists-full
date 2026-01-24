@@ -134,10 +134,14 @@ enum class TileScheduler {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 enum class MultiCtasKvMode {
-  // No multiCtasKvMode.
+  // Disable the multiCtasKvMode.
   Disabled = 0,
   // Do the reduction through the global memory and atomic counters.
   GmemReduction,
+  // Same as GmemReduction, but use a separate kernel for the reduction.
+  // It is only supported/needed for 2-CTA or 1-CTA keepsMmaAbForGeneration MLA kernels with large
+  // reduction tiles.
+  GmemReductionWithSeparateKernel,
   // Do the reduction through the CGA remote shared memory.
   CgaSmemReduction
 };
@@ -156,6 +160,7 @@ inline bool isMultiCtasKvEnabled(MultiCtasKvMode multiCtasKvMode) {
 
 MULTI_CTAS_KV_MODE_FUNCTION(Disabled)
 MULTI_CTAS_KV_MODE_FUNCTION(GmemReduction)
+MULTI_CTAS_KV_MODE_FUNCTION(GmemReductionWithSeparateKernel)
 MULTI_CTAS_KV_MODE_FUNCTION(CgaSmemReduction)
 
 #undef MULTI_CTAS_KV_MODE_FUNCTION
@@ -227,6 +232,11 @@ struct TllmGenFmhaRunnerParams {
   // The output scaling factor buffer.
   void* oSfPtr;
 
+  // The stride between different tokens for Q.
+  int qStrideTokens;
+  // The stride between different heads for Q.
+  int qStrideHeads;
+
   // The stride between different keys.
   int kStrideKeysValues;
   // The stride between different heads for K.
@@ -282,6 +292,10 @@ struct TllmGenFmhaRunnerParams {
   float mScaleSfKv;
   // The SF scale for output.
   float mScaleSfO;
+  // Whether to use sparse MLA.
+  bool mSparseMla;
+  // The top k value for sparse MLA.
+  int mSparseMlaTopK;
   // The cuda stream.
   cudaStream_t stream;
   // Whether to enable PDL (Programmatic Dependent Launch).
@@ -334,12 +348,16 @@ struct TllmGenSelectKernelParams {
   bool mForceGmemReduction;
   // The mask type.
   TrtllmGenAttentionMaskType mMaskType;
+  // The number of tokens per page.
+  int mNumTokensPerPage;
   // Reuse smemK for V or not (only work with MLA generation kernels).
   bool mReuseSmemKForV;
   // Do we need to select a new kernel as the parameters have been updated.
   bool mSelectNewKernel;
   // The tile scheduler.
   TileScheduler mTileScheduler;
+  // The tile size for Q.
+  int mTileSizeQ;
   // The tile size for Kv.
   int mTileSizeKv;
   // Use 2 CTA MMA or not.
@@ -355,9 +373,11 @@ struct TllmGenSelectKernelParams {
                                                  : MultiCtasKvMode::Disabled),
         mForceGmemReduction(false),
         mMaskType(params.mMaskType),
+        mNumTokensPerPage(params.mNumTokensPerPage),
         mReuseSmemKForV(false),
         mSelectNewKernel(false),
         mTileScheduler(params.mTileScheduler),
+        mTileSizeQ(128),
         mTileSizeKv(128),
         mUses2CtaMma(false) {};
 };

@@ -1,61 +1,44 @@
 import math
 from collections import defaultdict
+from collections.abc import AsyncIterator, Iterable
 from decimal import Decimal
 from functools import cached_property, lru_cache
 from itertools import cycle, islice
 from logging import DEBUG, getLogger
-from typing import (
-    AsyncIterator,
-    DefaultDict,
-    Dict,
-    Iterable,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import DefaultDict, Final, Literal, Union
 
 import a_sync
 import eth_retry
 from a_sync import igather
 from a_sync.a_sync import HiddenMethodDescriptor
 from brownie.network.event import _EventItem
-from eth_typing import ChecksumAddress, HexAddress
+from eth_abi.exceptions import InvalidPointer
+from eth_typing import BlockNumber, HexAddress
+from faster_eth_abi.packed import encode_packed
 from typing_extensions import Self
 
-from y import convert
 from y import ENVIRONMENT_VARIABLES as ENVS
+from y import convert
 from y._decorators import stuck_coro_debugger
 from y.classes.common import ERC20, ContractBase
 from y.constants import CHAINID, CONNECTED_TO_MAINNET, usdc, weth
 from y.contracts import Contract, contract_creation_block_async
 from y.datatypes import Address, AnyAddressType, Block, Pool, UsdPrice
-from y.exceptions import (
-    ContractNotVerified,
-    NonStandardERC20,
-    TokenNotFound,
-    call_reverted,
-)
+from y.exceptions import ContractNotVerified, NonStandardERC20, TokenNotFound, call_reverted
 from y.interfaces.uniswap.quoterv3 import UNIV3_QUOTER_ABI
 from y.networks import Network
 from y.utils.events import ProcessedEvents
 
-try:
-    from eth_abi.packed import encode_packed
-except ImportError:
-    from eth_abi.packed import encode_abi_packed as encode_packed
-
 # https://github.com/Uniswap/uniswap-v3-periphery/blob/main/deploys.md
-UNISWAP_V3_FACTORY = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
-UNISWAP_V3_QUOTER = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
+UNISWAP_V3_FACTORY: Final = "0x1F98431c8aD98523631AE4a59f267346ea31F984"
+UNISWAP_V3_QUOTER: Final = "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6"
 
-logger = getLogger(__name__)
+logger: Final = getLogger(__name__)
 
 Path = Iterable[Union[Address, int]]
 
 # same addresses on all networks
-addresses = {
+addresses: Final = {
     Network.Mainnet: {
         "factory": UNISWAP_V3_FACTORY,
         "quoter": UNISWAP_V3_QUOTER,
@@ -78,7 +61,7 @@ addresses = {
     },
 }
 
-forked_deployments = {
+forked_deployments: Final = {
     Network.Optimism: [
         {
             # Velodrome slipstream
@@ -95,11 +78,27 @@ forked_deployments = {
             "fee_tiers": (3000, 500, 10_000, 100),
         },
     ],
+    Network.Berachain: [
+        {
+            # kodiak exchange https://documentation.kodiak.finance/overview/kodiak-contracts
+            "factory": "0xD84CBf0B02636E7f53dB9E5e45A616E05d710990",
+            "quoter": "0x644C8D6E501f7C994B74F5ceA96abe65d0BA662B",  # quoter v2
+            "fee_tiers": (3000, 500, 10_000, 20_000),
+        },
+    ],
+    Network.Katana: [
+        {
+            # sushiswap
+            "factory": "0x203e8740894c8955cB8950759876d7E7E45E04c1",
+            "quoter": "0x92dea23ED1C683940fF1a2f8fE23FE98C5d3041c",
+            "fee_tiers": (3000, 500, 10_000, 100),
+        },
+    ],
 }
 
-_FEE_DENOMINATOR = Decimal(1_000_000)
+_FEE_DENOMINATOR: Final = Decimal(1_000_000)
 
-_PATH_TYPE_STRINGS: Dict[int, Tuple[Literal["address", "uint24"], ...]] = {
+_PATH_TYPE_STRINGS: Final[dict[int, tuple[Literal["address", "uint24"], ...]]] = {
     3: tuple(islice(cycle(("address", "uint24")), 3)),
     5: tuple(islice(cycle(("address", "uint24")), 5)),
 }
@@ -117,7 +116,7 @@ class UniswapV3Pool(ContractBase):
         token1: Address,
         tick_spacing: int,
         fee: int,
-        deploy_block: int,
+        deploy_block: BlockNumber,
         asynchronous: bool = False,
     ) -> None:
         """
@@ -195,9 +194,8 @@ class UniswapV3Pool(ContractBase):
             raise TokenNotFound(token, self)
         return ERC20(token, asynchronous=self.asynchronous)
 
-    # DEBUG: lets try a semaphore here
-    @a_sync.a_sync(ram_cache_maxsize=100_000, ram_cache_ttl=60 * 60, semaphore=10000)
-    async def check_liquidity(self, token: AnyAddressType, block: Block) -> Optional[int]:
+    @a_sync.a_sync(ram_cache_maxsize=100_000, ram_cache_ttl=60 * 60)
+    async def check_liquidity(self, token: AnyAddressType, block: Block) -> int | None:
         """
         Check the liquidity of a token in the pool at a specific block.
 
@@ -250,7 +248,7 @@ class UniswapV3Pool(ContractBase):
     @a_sync.a_sync(ram_cache_maxsize=100_000, ram_cache_ttl=60 * 60)
     async def _check_liquidity_token_out(
         self, token_in: AnyAddressType, block: Block
-    ) -> Optional[int]:
+    ) -> int | None:
         """
         Check the liquidity of the token out for a given token in.
 
@@ -305,7 +303,7 @@ class UniswapV3(a_sync.ASyncGenericBase):
         self,
         factory: HexAddress,
         quoter: HexAddress,
-        fee_tiers: List[int],
+        fee_tiers: list[int],
         asynchronous: bool = True,
     ) -> None:
         """
@@ -415,7 +413,7 @@ class UniswapV3(a_sync.ASyncGenericBase):
 
     @a_sync.aka.cached_property
     @stuck_coro_debugger
-    async def pools(self) -> List[UniswapV3Pool]:
+    async def pools(self) -> list[UniswapV3Pool]:
         """
         Get the list of Uniswap V3 pools.
 
@@ -510,10 +508,10 @@ class UniswapV3(a_sync.ASyncGenericBase):
     async def get_price(
         self,
         token: Address,
-        block: Optional[Block] = None,
-        ignore_pools: Tuple[Pool, ...] = (),  # unused
+        block: Block | None = None,
+        ignore_pools: tuple[Pool, ...] = (),  # unused
         skip_cache: bool = ENVS.SKIP_CACHE,  # unused
-    ) -> Optional[UsdPrice]:
+    ) -> UsdPrice | None:
         """
         Get the price of a token in USD.
 
@@ -537,7 +535,7 @@ class UniswapV3(a_sync.ASyncGenericBase):
         if block and block < await contract_creation_block_async(quoter, True):
             return None
 
-        paths: List[Path] = [(token, fee, usdc.address) for fee in self.fee_tiers]
+        paths: list[Path] = [(token, fee, usdc.address) for fee in self.fee_tiers]
         if token != weth:
             paths += [
                 (token, fee, weth.address, self.fee_tiers[0], usdc.address)
@@ -561,7 +559,7 @@ class UniswapV3(a_sync.ASyncGenericBase):
     @stuck_coro_debugger
     @a_sync.a_sync(ram_cache_maxsize=100_000, ram_cache_ttl=60 * 60)
     async def check_liquidity(
-        self, token: Address, block: Block, ignore_pools: Tuple[Pool, ...] = ()
+        self, token: Address, block: Block, ignore_pools: tuple[Pool, ...] = ()
     ) -> int:
         """
         Check the liquidity of a token in the Uniswap V3 protocol.
@@ -632,7 +630,7 @@ class UniswapV3(a_sync.ASyncGenericBase):
         # Since uni v3 liquidity can be provided asymmetrically, the most liquid pool in terms of `token` might not actually be the most liquid pool in terms of `token_out`
         # We need some spaghetticode here to account for these erroneous liquidity values
         # TODO: Refactor this
-        token_out_liquidity: DefaultDict[ERC20, List[int]] = defaultdict(list)
+        token_out_liquidity: DefaultDict[ERC20, list[int]] = defaultdict(list)
         if debug_logs_enabled:
             async for pool, liquidity in token_out_tasks.map(pop=False):
                 await log_liquidity(pool, token, block, liquidity)
@@ -669,7 +667,9 @@ class UniswapV3(a_sync.ASyncGenericBase):
 
     @stuck_coro_debugger
     @eth_retry.auto_retry
-    async def _quote_exact_input(self, path: Path, amount_in: int, block: int) -> Optional[Decimal]:
+    async def _quote_exact_input(
+        self, path: Path, amount_in: int, block: BlockNumber
+    ) -> Decimal | None:
         """
         Quote the exact input for a given path and amount.
 
@@ -693,15 +693,26 @@ class UniswapV3(a_sync.ASyncGenericBase):
             amount = await quoter.quoteExactInput.coroutine(
                 _encode_path(path), amount_in, block_identifier=block
             )
-            return (
-                # Quoter v2 uses this weird return struct, we must unpack it to get amount out.
-                (amount if isinstance(amount, int) else amount[0])
-                / _undo_fees(path)
-                / _FEE_DENOMINATOR
-            )
+        except InvalidPointer:
+            # TODO: debug why this happens and handle it somewhere more appropriate
+            return None
         except Exception as e:
-            if not call_reverted(e):
-                raise
+            if call_reverted(e):
+                return None
+            raise
+
+        scaled = (
+            # Quoter v2 uses this weird return struct, we must unpack it to get amount out.
+            (amount if isinstance(amount, int) else amount[0])
+            / _undo_fees(path)
+            / _FEE_DENOMINATOR
+        )
+        if scaled > 100_000_000:
+            # this is a totally arbitrary value used as a sense check,
+            # we were getting crazy prices from some pools on occasion
+            # but not sure why
+            return None
+        return round(scaled, 18)
 
 
 def _encode_path(path: Path) -> bytes:
@@ -745,7 +756,7 @@ def _undo_fees(path: Path) -> Decimal:
 class UniV3Pools(ProcessedEvents[UniswapV3Pool]):
     """Represents a collection of Uniswap V3 Pools."""
 
-    _pools_by_token_cache: DefaultDict[Address, Dict[Block, List[UniswapV3Pool]]]
+    _pools_by_token_cache: DefaultDict[Address, dict[Block, list[UniswapV3Pool]]]
 
     __slots__ = "asynchronous", "_pools_by_token_cache"
 

@@ -1,7 +1,7 @@
 from collections import defaultdict
+from collections.abc import Sequence
 from datetime import datetime
 import logging
-from typing import Dict, List, Sequence, Set, Union
 
 import ase
 from ase.db import connect
@@ -48,7 +48,7 @@ class InvalidMetaKey(Exception):
 
 
 # Type aliasing
-_TABLE = Dict[str, Union[int, float, str, np.integer, np.floating]]  # Alias for a table
+_TABLE = dict[str, int | float | str | np.integer | np.floating]  # Alias for a table
 _ROW = ase.db.row.AtomsRow
 _CONNECTION = ase.db.core.Database
 
@@ -235,10 +235,8 @@ def new_row_with_many_tables(
     """
     if not len(table_names) == len(tables):
         raise ValueError(
-            (
-                f"Number of table names should match number of tables. Got {len(table_names)} "
-                f"table names, but {len(tables)} tables."
-            )
+            f"Number of table names should match number of tables. Got {len(table_names)} "
+            f"table names, but {len(tables)} tables."
         )
 
     metatable = {}
@@ -282,7 +280,7 @@ def update_table(ase_connection: _CONNECTION, row_id: int, table_name: str, tabl
     ase_connection.update(row_id, external_tables=tables)
 
 
-def get_all_cf_names(db_name: str, tab_name: str) -> Set[str]:
+def get_all_cf_names(db_name: str, tab_name: str) -> set[str]:
     """
     Return a list with all correlation function names
 
@@ -303,7 +301,7 @@ def get_all_cf_names(db_name: str, tab_name: str) -> Set[str]:
     return db_names
 
 
-def get_all_cf(db_name: str, tab_name: str, db_id: int) -> Dict[str, float]:
+def get_all_cf(db_name: str, tab_name: str, db_id: int) -> dict[str, float]:
     """
     Return all correlation functions associated with an entry in the database
 
@@ -326,7 +324,7 @@ def get_all_cf(db_name: str, tab_name: str, db_id: int) -> Dict[str, float]:
     return cf
 
 
-def get_cf_tables(db_name: str) -> List[str]:
+def get_cf_tables(db_name: str) -> list[str]:
     """
     Return a list with table names that contain correlation functions
 

@@ -3,7 +3,7 @@ Type annotations for efs service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_efs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -87,11 +88,6 @@ from .type_defs import (
     UpdateFileSystemRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -102,39 +98,39 @@ __all__ = ("EFSClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessPointAlreadyExists: Type[BotocoreClientError]
-    AccessPointLimitExceeded: Type[BotocoreClientError]
-    AccessPointNotFound: Type[BotocoreClientError]
-    AvailabilityZonesMismatch: Type[BotocoreClientError]
-    BadRequest: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DependencyTimeout: Type[BotocoreClientError]
-    FileSystemAlreadyExists: Type[BotocoreClientError]
-    FileSystemInUse: Type[BotocoreClientError]
-    FileSystemLimitExceeded: Type[BotocoreClientError]
-    FileSystemNotFound: Type[BotocoreClientError]
-    IncorrectFileSystemLifeCycleState: Type[BotocoreClientError]
-    IncorrectMountTargetState: Type[BotocoreClientError]
-    InsufficientThroughputCapacity: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    InvalidPolicyException: Type[BotocoreClientError]
-    IpAddressInUse: Type[BotocoreClientError]
-    MountTargetConflict: Type[BotocoreClientError]
-    MountTargetNotFound: Type[BotocoreClientError]
-    NetworkInterfaceLimitExceeded: Type[BotocoreClientError]
-    NoFreeAddressesInSubnet: Type[BotocoreClientError]
-    PolicyNotFound: Type[BotocoreClientError]
-    ReplicationAlreadyExists: Type[BotocoreClientError]
-    ReplicationNotFound: Type[BotocoreClientError]
-    SecurityGroupLimitExceeded: Type[BotocoreClientError]
-    SecurityGroupNotFound: Type[BotocoreClientError]
-    SubnetNotFound: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ThroughputLimitExceeded: Type[BotocoreClientError]
-    TooManyRequests: Type[BotocoreClientError]
-    UnsupportedAvailabilityZone: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessPointAlreadyExists: type[BotocoreClientError]
+    AccessPointLimitExceeded: type[BotocoreClientError]
+    AccessPointNotFound: type[BotocoreClientError]
+    AvailabilityZonesMismatch: type[BotocoreClientError]
+    BadRequest: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DependencyTimeout: type[BotocoreClientError]
+    FileSystemAlreadyExists: type[BotocoreClientError]
+    FileSystemInUse: type[BotocoreClientError]
+    FileSystemLimitExceeded: type[BotocoreClientError]
+    FileSystemNotFound: type[BotocoreClientError]
+    IncorrectFileSystemLifeCycleState: type[BotocoreClientError]
+    IncorrectMountTargetState: type[BotocoreClientError]
+    InsufficientThroughputCapacity: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    InvalidPolicyException: type[BotocoreClientError]
+    IpAddressInUse: type[BotocoreClientError]
+    MountTargetConflict: type[BotocoreClientError]
+    MountTargetNotFound: type[BotocoreClientError]
+    NetworkInterfaceLimitExceeded: type[BotocoreClientError]
+    NoFreeAddressesInSubnet: type[BotocoreClientError]
+    PolicyNotFound: type[BotocoreClientError]
+    ReplicationAlreadyExists: type[BotocoreClientError]
+    ReplicationNotFound: type[BotocoreClientError]
+    SecurityGroupLimitExceeded: type[BotocoreClientError]
+    SecurityGroupNotFound: type[BotocoreClientError]
+    SubnetNotFound: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ThroughputLimitExceeded: type[BotocoreClientError]
+    TooManyRequests: type[BotocoreClientError]
+    UnsupportedAvailabilityZone: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class EFSClient(AioBaseClient):
@@ -556,7 +552,7 @@ class EFSClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

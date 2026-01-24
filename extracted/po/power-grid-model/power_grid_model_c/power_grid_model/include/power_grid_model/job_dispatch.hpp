@@ -7,28 +7,25 @@
 #include "batch_parameter.hpp"
 #include "job_interface.hpp"
 
+#include "common/counting_iterator.hpp"
 #include "common/exception.hpp"
 #include "common/timer.hpp"
 #include "common/typing.hpp"
 
+#include <ranges>
 #include <thread>
 
 namespace power_grid_model {
 
 class JobDispatch {
   public:
-    static constexpr Idx sequential{-1};
-
     template <typename Adapter, typename ResultDataset, typename UpdateDataset>
-        requires std::is_base_of_v<JobInterface<Adapter>, Adapter>
+        requires std::is_base_of_v<JobInterface, Adapter>
     static BatchParameter batch_calculation(Adapter& adapter, ResultDataset const& result_data,
                                             UpdateDataset const& update_data, Idx threading,
                                             common::logging::MultiThreadedLogger& log) {
-        adapter.set_logger(log);
-
         if (update_data.empty()) {
-            adapter.calculate(result_data);
-            adapter.reset_logger();
+            adapter.calculate(result_data, log);
             return BatchParameter{};
         }
 
@@ -38,12 +35,11 @@ class JobDispatch {
         // if the batch_size is zero, it is a special case without doing any calculations at all
         // we consider in this case the batch set is independent but not topology cacheable
         if (n_scenarios == 0) {
-            adapter.reset_logger();
             return BatchParameter{};
         }
 
         // calculate once to cache, ignore results
-        adapter.cache_calculate();
+        adapter.cache_calculate(log);
 
         // error messages
         std::vector<std::string> exceptions(n_scenarios, "");
@@ -55,23 +51,21 @@ class JobDispatch {
 
         handle_batch_exceptions(exceptions);
 
-        adapter.reset_logger();
-
         return BatchParameter{};
     }
 
     // Lippincott pattern
     static auto scenario_exception_handler(std::vector<std::string>& messages) {
-        return [&messages](Idx scenario_idx) -> void {
+        return [&messages](Idx scenario_idx) {
             assert(0 <= scenario_idx);
             assert(scenario_idx < std::ssize(messages));
 
             std::exception_ptr const ex_ptr = std::current_exception();
             try {
                 std::rethrow_exception(ex_ptr);
-            } catch (std::exception const& ex) {
+            } catch (std::exception const& ex) { // NOSONAR(S1181)
                 messages[scenario_idx] = ex.what();
-            } catch (...) {
+            } catch (...) { // NOSONAR(S2738)
                 messages[scenario_idx] = "unknown exception";
             }
         };
@@ -92,7 +86,6 @@ class JobDispatch {
             auto const copy_adapter_functor = [&base_adapter, &thread_log]() {
                 Timer const t_copy_adapter_functor{thread_log, LogEvent::copy_model};
                 auto result = Adapter{base_adapter};
-                result.set_logger(thread_log);
                 return result;
             };
 
@@ -114,7 +107,9 @@ class JobDispatch {
                 adapter = copy_adapter_functor();
             };
 
-            auto run = [&adapter, &result_data](Idx scenario_idx) { adapter.calculate(result_data, scenario_idx); };
+            auto run = [&adapter, &result_data, &thread_log](Idx scenario_idx) {
+                adapter.calculate(result_data, scenario_idx, thread_log);
+            };
 
             auto calculate_scenario = JobDispatch::call_with<Idx>(std::move(run), std::move(setup), std::move(winddown),
                                                                   JobDispatch::scenario_exception_handler(exceptions),
@@ -172,6 +167,10 @@ class JobDispatch {
                  std::invocable<std::remove_cvref_t<RecoverFromBadFn>>
     static auto call_with(RunFn run, SetupFn setup, WinddownFn winddown, HandleExceptionFn handle_exception,
                           RecoverFromBadFn recover_from_bad) {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4702) // Unreachable if run_ is [[noreturn]]
+#endif                          // _MSC_VER
         return [setup_ = std::move(setup), run_ = std::move(run), winddown_ = std::move(winddown),
                 handle_exception_ = std::move(handle_exception),
                 recover_from_bad_ = std::move(recover_from_bad)](Args const&... args) {
@@ -179,32 +178,35 @@ class JobDispatch {
                 setup_(args...);
                 run_(args...);
                 winddown_();
-            } catch (...) {
+            } catch (...) { // NOSONAR(S2738)
                 handle_exception_(args...);
                 try {
                     winddown_();
-                } catch (...) {
+                } catch (...) { // NOSONAR(S2738)
                     recover_from_bad_();
                 }
             }
         };
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif // _MSC_VER
     }
 
     static void handle_batch_exceptions(std::vector<std::string> const& exceptions) {
-        std::string combined_error_message;
+        std::ostringstream combined_error_message;
         IdxVector failed_scenarios;
         std::vector<std::string> err_msgs;
-        for (Idx batch = 0; batch < static_cast<Idx>(exceptions.size()); ++batch) {
+        for (auto const& [batch, exception] : std::views::zip(IdxRange(std::ssize(exceptions)), exceptions)) {
             // append exception if it is not empty
-            if (!exceptions[batch].empty()) {
-                combined_error_message =
-                    std::format("{}Error in batch #{}: {}\n", combined_error_message, batch, exceptions[batch]);
+            if (!exception.empty()) {
+                combined_error_message << std::format("Error in batch #{}: {}\n", batch, exception);
                 failed_scenarios.push_back(batch);
-                err_msgs.push_back(exceptions[batch]);
+                err_msgs.push_back(exception);
             }
         }
-        if (!combined_error_message.empty()) {
-            throw BatchCalculationError(combined_error_message, failed_scenarios, err_msgs);
+        if (!combined_error_message.view().empty()) {
+            throw BatchCalculationError(std::move(combined_error_message).str(), std::move(failed_scenarios),
+                                        std::move(err_msgs));
         }
     }
 };

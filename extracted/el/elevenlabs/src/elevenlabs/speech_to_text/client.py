@@ -9,7 +9,9 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.additional_formats import AdditionalFormats
 from .raw_client import AsyncRawSpeechToTextClient, RawSpeechToTextClient
+from .types.speech_to_text_convert_request_entity_detection import SpeechToTextConvertRequestEntityDetection
 from .types.speech_to_text_convert_request_file_format import SpeechToTextConvertRequestFileFormat
+from .types.speech_to_text_convert_request_model_id import SpeechToTextConvertRequestModelId
 from .types.speech_to_text_convert_request_timestamps_granularity import SpeechToTextConvertRequestTimestampsGranularity
 from .types.speech_to_text_convert_request_webhook_metadata import SpeechToTextConvertRequestWebhookMetadata
 from .types.speech_to_text_convert_response import SpeechToTextConvertResponse
@@ -40,7 +42,7 @@ class SpeechToTextClient:
     def convert(
         self,
         *,
-        model_id: str,
+        model_id: SpeechToTextConvertRequestModelId,
         enable_logging: typing.Optional[bool] = None,
         file: typing.Optional[core.File] = OMIT,
         language_code: typing.Optional[str] = OMIT,
@@ -58,6 +60,8 @@ class SpeechToTextClient:
         seed: typing.Optional[int] = OMIT,
         use_multi_channel: typing.Optional[bool] = OMIT,
         webhook_metadata: typing.Optional[SpeechToTextConvertRequestWebhookMetadata] = OMIT,
+        entity_detection: typing.Optional[SpeechToTextConvertRequestEntityDetection] = OMIT,
+        keyterms: typing.Optional[typing.List[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SpeechToTextConvertResponse:
         """
@@ -65,8 +69,8 @@ class SpeechToTextClient:
 
         Parameters
         ----------
-        model_id : str
-            The ID of the model to use for transcription, currently only 'scribe_v1' and 'scribe_v1_experimental' are available.
+        model_id : SpeechToTextConvertRequestModelId
+            The ID of the model to use for transcription.
 
         enable_logging : typing.Optional[bool]
             When enable_logging is set to false zero retention mode will be used for the request. This will mean log and transcript storage features are unavailable for this request. Zero retention mode may only be used by enterprise customers.
@@ -119,6 +123,12 @@ class SpeechToTextClient:
         webhook_metadata : typing.Optional[SpeechToTextConvertRequestWebhookMetadata]
             Optional metadata to be included in the webhook response. This should be a JSON string representing an object with a maximum depth of 2 levels and maximum size of 16KB. Useful for tracking internal IDs, job references, or other contextual information.
 
+        entity_detection : typing.Optional[SpeechToTextConvertRequestEntityDetection]
+            Detect entities in the transcript. Can be 'all' to detect all entities, a single entity type or category string, or a list of entity types/categories. Categories include 'pii', 'phi', 'pci', 'other', 'offensive_language'. When enabled, detected entities will be returned in the 'entities' field with their text, type, and character positions.
+
+        keyterms : typing.Optional[typing.List[str]]
+            A list of keyterms to bias the transcription towards.           The keyterms are words or phrases you want the model to recognise more accurately.           The number of keyterms cannot exceed 100.           The length of each keyterm must be less than 50 characters.           Keyterms can contain at most 5 words (after normalisation).           For example ["hello", "world", "technical term"]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -135,7 +145,8 @@ class SpeechToTextClient:
             api_key="YOUR_API_KEY",
         )
         client.speech_to_text.convert(
-            model_id="model_id",
+            enable_logging=True,
+            model_id="scribe_v1",
         )
         """
         _response = self._raw_client.convert(
@@ -157,6 +168,8 @@ class SpeechToTextClient:
             seed=seed,
             use_multi_channel=use_multi_channel,
             webhook_metadata=webhook_metadata,
+            entity_detection=entity_detection,
+            keyterms=keyterms,
             request_options=request_options,
         )
         return _response.data
@@ -190,7 +203,7 @@ class AsyncSpeechToTextClient:
     async def convert(
         self,
         *,
-        model_id: str,
+        model_id: SpeechToTextConvertRequestModelId,
         enable_logging: typing.Optional[bool] = None,
         file: typing.Optional[core.File] = OMIT,
         language_code: typing.Optional[str] = OMIT,
@@ -208,6 +221,8 @@ class AsyncSpeechToTextClient:
         seed: typing.Optional[int] = OMIT,
         use_multi_channel: typing.Optional[bool] = OMIT,
         webhook_metadata: typing.Optional[SpeechToTextConvertRequestWebhookMetadata] = OMIT,
+        entity_detection: typing.Optional[SpeechToTextConvertRequestEntityDetection] = OMIT,
+        keyterms: typing.Optional[typing.List[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SpeechToTextConvertResponse:
         """
@@ -215,8 +230,8 @@ class AsyncSpeechToTextClient:
 
         Parameters
         ----------
-        model_id : str
-            The ID of the model to use for transcription, currently only 'scribe_v1' and 'scribe_v1_experimental' are available.
+        model_id : SpeechToTextConvertRequestModelId
+            The ID of the model to use for transcription.
 
         enable_logging : typing.Optional[bool]
             When enable_logging is set to false zero retention mode will be used for the request. This will mean log and transcript storage features are unavailable for this request. Zero retention mode may only be used by enterprise customers.
@@ -269,6 +284,12 @@ class AsyncSpeechToTextClient:
         webhook_metadata : typing.Optional[SpeechToTextConvertRequestWebhookMetadata]
             Optional metadata to be included in the webhook response. This should be a JSON string representing an object with a maximum depth of 2 levels and maximum size of 16KB. Useful for tracking internal IDs, job references, or other contextual information.
 
+        entity_detection : typing.Optional[SpeechToTextConvertRequestEntityDetection]
+            Detect entities in the transcript. Can be 'all' to detect all entities, a single entity type or category string, or a list of entity types/categories. Categories include 'pii', 'phi', 'pci', 'other', 'offensive_language'. When enabled, detected entities will be returned in the 'entities' field with their text, type, and character positions.
+
+        keyterms : typing.Optional[typing.List[str]]
+            A list of keyterms to bias the transcription towards.           The keyterms are words or phrases you want the model to recognise more accurately.           The number of keyterms cannot exceed 100.           The length of each keyterm must be less than 50 characters.           Keyterms can contain at most 5 words (after normalisation).           For example ["hello", "world", "technical term"]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -290,7 +311,8 @@ class AsyncSpeechToTextClient:
 
         async def main() -> None:
             await client.speech_to_text.convert(
-                model_id="model_id",
+                enable_logging=True,
+                model_id="scribe_v1",
             )
 
 
@@ -315,6 +337,8 @@ class AsyncSpeechToTextClient:
             seed=seed,
             use_multi_channel=use_multi_channel,
             webhook_metadata=webhook_metadata,
+            entity_detection=entity_detection,
+            keyterms=keyterms,
             request_options=request_options,
         )
         return _response.data

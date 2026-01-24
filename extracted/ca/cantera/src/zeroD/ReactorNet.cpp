@@ -9,8 +9,13 @@
 #include "cantera/zeroD/Wall.h"
 #include "cantera/base/utilities.h"
 #include "cantera/base/Array.h"
+#include "cantera/base/Solution.h"
 #include "cantera/numerics/Integrator.h"
 #include "cantera/zeroD/FlowReactor.h"
+#include "cantera/numerics/SystemJacobianFactory.h"
+#include "cantera/numerics/EigenSparseJacobian.h"
+#include "cantera/oneD/MultiJac.h"
+#include "cantera/oneD/MultiNewton.h"
 
 #include <cstdio>
 
@@ -20,6 +25,20 @@ namespace Cantera
 ReactorNet::ReactorNet()
 {
     suppressErrors(true);
+}
+
+ReactorNet::ReactorNet(shared_ptr<ReactorBase> reactor)
+{
+    suppressErrors(true);
+    addReactor(reactor);
+}
+
+ReactorNet::ReactorNet(vector<shared_ptr<ReactorBase>>& reactors)
+{
+    suppressErrors(true);
+    for (auto& reactor : reactors) {
+        addReactor(reactor);
+    }
 }
 
 ReactorNet::~ReactorNet()
@@ -92,9 +111,14 @@ void ReactorNet::initialize()
         throw CanteraError("ReactorNet::initialize",
                            "no reactors in network!");
     }
+    // Names of Reactors and ReactorSurfaces using each Solution; should be only one
+    map<Solution*, vector<string>> solutions;
+    // Unique ReactorSurface objects. Can be attached to multiple Reactor objects
+    set<ReactorBase*> surfaces;
     m_start.assign(1, 0);
     for (size_t n = 0; n < m_reactors.size(); n++) {
         Reactor& r = *m_reactors[n];
+        shared_ptr<Solution> bulk = r.phase();
         r.initialize(m_time);
         size_t nv = r.neq();
         m_nv += nv;
@@ -107,6 +131,33 @@ void ReactorNet::initialize()
         if (r.type() == "FlowReactor" && m_reactors.size() > 1) {
             throw CanteraError("ReactorNet::initialize",
                                "FlowReactors must be used alone.");
+        }
+        solutions[bulk.get()].push_back(r.name());
+        for (size_t i = 0; i < r.nSurfs(); i++) {
+            if (r.surface(i)->phase()->adjacent(bulk->name()) != bulk) {
+                throw CanteraError("ReactorNet::initialize",
+                    "Bulk phase '{}' used by interface '{}' must be the same object\n"
+                    "as the contents of the adjacent reactor '{}'.",
+                    bulk->name(), r.surface(i)->name(), r.name());
+            }
+            surfaces.insert(r.surface(i));
+        }
+    }
+    for (auto surf : surfaces) {
+        solutions[surf->phase().get()].push_back(surf->name());
+    }
+    for (auto& [soln, reactors] : solutions) {
+        if (reactors.size() > 1) {
+            string shared;
+            for (size_t i = 0; i < reactors.size() - 1; i++) {
+                shared += fmt::format("'{}', ", reactors[i]);
+            }
+            shared += fmt::format("'{}'", reactors.back());
+            warn_user("ReactorNet::initialize", "The following reactors / reactor"
+                " surfaces are using the same Solution object: {}. Use independent"
+                " Solution objects or set the 'clone' argument to 'true' when creating"
+                " the Reactor or ReactorSurface objects. Shared Solution objects within"
+                " a single ReactorNet will be an error after Cantera 3.2.", shared);
         }
     }
 
@@ -155,7 +206,7 @@ void ReactorNet::setLinearSolverType(const string& linSolverType)
     m_integrator_init = false;
 }
 
-void ReactorNet::setPreconditioner(shared_ptr<PreconditionerBase> preconditioner)
+void ReactorNet::setPreconditioner(shared_ptr<SystemJacobian> preconditioner)
 {
     m_precon = preconditioner;
     m_integrator_init = false;
@@ -179,7 +230,7 @@ void ReactorNet::advance(double time)
         reinitialize();
     }
     m_integ->integrate(time);
-    m_time = time;
+    m_time = m_integ->currentTime();
     updateState(m_integ->solution());
 }
 
@@ -191,51 +242,77 @@ double ReactorNet::advance(double time, bool applylimit)
         reinitialize();
     }
 
-    if (!applylimit) {
-        // take full step
+    if (!applylimit || !hasAdvanceLimits()) {
+        // No limit enforcement requested; integrate to requested time
         advance(time);
         return time;
     }
 
-    if (!hasAdvanceLimits()) {
-        // take full step
-        advance(time);
-        return time;
+    // Enable root-based limit detection and set the base state to the current state
+    m_ybase.assign(m_nv, 0.0);
+    getState(m_ybase.data());
+    m_ybase_time = m_time;
+    m_limit_check_active = true;
+    m_integ->setRootFunctionCount(nRootFunctions());
+
+    // Integrate toward the requested time; integrator will return early if a limit is
+    // reached (CV_ROOT_RETURN). The try/catch ensures the temporary root-finding state
+    // is cleared even when CVODE throws so subsequent calls start clean.
+    try {
+        m_integ->integrate(time);
+    } catch (...) {
+        m_limit_check_active = false;
+        m_integ->setRootFunctionCount(nRootFunctions());
+        throw;
     }
+    m_time = m_integ->currentTime();
 
-    getAdvanceLimits(m_advancelimits.data());
+    // Update reactor states to match the integrator solution at the time reached
+    // (which may be earlier than 'time' if a limit was triggered)
+    updateState(m_integ->solution());
 
-    // ensure that gradient is available
-    while (lastOrder() < 1) {
-        step();
-    }
+    // Disable limit checking after this call
+    m_limit_check_active = false;
+    m_integ->setRootFunctionCount(nRootFunctions());
 
-    int k = lastOrder();
-    double t = time, delta;
-    double* y = m_integ->solution();
-
-    // reduce time step if limits are exceeded
-    while (true) {
-        bool exceeded = false;
-        getEstimate(t, k, &m_yest[0]);
+    // When a root event stopped integration before reaching the requested time, report
+    // the most limiting component and details about the step.
+    if (m_verbose && m_time < time) {
+        // Ensure limits are available
+        if (m_advancelimits.size() != m_nv) {
+            m_advancelimits.assign(m_nv, -1.0);
+        }
+        getAdvanceLimits(m_advancelimits.data());
+        double* ycurr = m_integ->solution();
+        size_t jmax = npos;
+        double max_ratio = -1.0;
+        double best_limit = 0.0;
         for (size_t j = 0; j < m_nv; j++) {
-            delta = abs(m_yest[j] - y[j]);
-            if ( (m_advancelimits[j] > 0.) && ( delta > m_advancelimits[j]) ) {
-                exceeded = true;
-                if (m_verbose) {
-                    writelog("    Limiting global state vector component {:d} (dt = {:9.4g}):"
-                             "{:11.6g} > {:9.4g}\n",
-                             j, t - m_time, delta, m_advancelimits[j]);
+            double lim = m_advancelimits[j];
+            if (lim > 0.0) {
+                double delta = std::abs(ycurr[j] - m_ybase[j]);
+                double ratio = delta / lim;
+                if (ratio > max_ratio) {
+                    max_ratio = ratio;
+                    jmax = j;
+                    best_limit = lim;
                 }
             }
         }
-        if (!exceeded) {
-            break;
+        if (jmax != npos) {
+            double dt = m_time - m_ybase_time;
+            double y_start = m_ybase[jmax];
+            double y_end = ycurr[jmax];
+            double delta = y_end - y_start;
+            writelog("    Advance limit triggered for component {:d} (dt = {:9.4g}):"
+                     " y_start = {:11.6g}, y_end = {:11.6g},"
+                     " delta = {:11.6g}, limit = {:9.4g}\n",
+                     jmax, dt, y_start, y_end, delta, best_limit);
         }
-        t = .5 * (m_time + t);
     }
-    advance(t);
-    return t;
+
+    // m_time is tracked via callbacks during integration
+    return m_time;
 }
 
 double ReactorNet::step()
@@ -248,6 +325,40 @@ double ReactorNet::step()
     m_time = m_integ->step(m_time + 1.0);
     updateState(m_integ->solution());
     return m_time;
+}
+
+void ReactorNet::solveSteady(int loglevel)
+{
+    if (!m_init) {
+        initialize();
+    } else if (!m_integrator_init) {
+        reinitialize();
+    }
+    vector<double> y(neq());
+    getState(y.data());
+    SteadyReactorSolver solver(this, y.data());
+    solver.setMaxTimeStepCount(maxSteps());
+    solver.solve(loglevel);
+    solver.getState(y.data());
+    updateState(y.data());
+}
+
+Eigen::SparseMatrix<double> ReactorNet::steadyJacobian(double rdt)
+{
+    if (!m_init) {
+        initialize();
+    } else if (!m_integrator_init) {
+        reinitialize();
+    }
+    vector<double> y0(neq());
+    vector<double> y1(neq());
+    getState(y0.data());
+    SteadyReactorSolver solver(this, y0.data());
+    solver.evalJacobian(y0.data());
+    if (rdt) {
+        solver.linearSolver()->updateTransient(rdt, solver.transientMask().data());
+    }
+    return std::dynamic_pointer_cast<EigenSparseJacobian>(solver.linearSolver())->jacobian();
 }
 
 void ReactorNet::getEstimate(double time, int k, double* yest)
@@ -282,8 +393,45 @@ int ReactorNet::lastOrder() const
     }
 }
 
+size_t ReactorNet::nRootFunctions() const
+{
+    return (m_limit_check_active && hasAdvanceLimits()) ? 1 : 0;
+}
+
+void ReactorNet::evalRootFunctions(double t, const double* y, double* gout)
+{
+    // Default: no root detected
+    double g = 1.0;
+
+    if (m_limit_check_active) {
+        // Ensure limits vector is current
+        if (m_advancelimits.size() != m_nv) {
+            m_advancelimits.assign(m_nv, -1.0);
+        }
+        getAdvanceLimits(m_advancelimits.data());
+
+        double max_ratio = 0.0;
+        for (size_t i = 0; i < m_nv; i++) {
+            double lim = m_advancelimits[i];
+            if (lim > 0.0) {
+                double delta = std::abs(y[i] - m_ybase[i]);
+                double ratio = delta / lim;
+                if (ratio > max_ratio) {
+                    max_ratio = ratio;
+                }
+            }
+        }
+        g = 1.0 - max_ratio; // root at g = 0 when any component reaches its limit
+    }
+
+    gout[0] = g;
+}
+
 void ReactorNet::addReactor(Reactor& r)
 {
+    warn_deprecated("ReactorNet::addReactor",
+                    "To be removed after Cantera 3.2. Replaceable by reactor net "
+                    "instantiation with contents.");
     for (auto current : m_reactors) {
         if (current->isOde() != r.isOde()) {
             throw CanteraError("ReactorNet::addReactor",
@@ -307,6 +455,40 @@ void ReactorNet::addReactor(Reactor& r)
         m_integ->setLinearSolverType("DENSE");
     }
     updateNames(r);
+}
+
+void ReactorNet::addReactor(shared_ptr<ReactorBase> reactor)
+{
+    auto r = std::dynamic_pointer_cast<Reactor>(reactor);
+    if (!r) {
+        throw CanteraError("ReactorNet::addReactor",
+                           "Reactor with type '{}' cannot be added to network.",
+                           reactor->type());
+    }
+
+    for (auto current : m_reactors) {
+        if (current->isOde() != r->isOde()) {
+            throw CanteraError("ReactorNet::addReactor",
+                "Cannot mix Reactor types using both ODEs and DAEs ({} and {})",
+                current->type(), r->type());
+        }
+        if (current->timeIsIndependent() != r->timeIsIndependent()) {
+            throw CanteraError("ReactorNet::addReactor",
+                "Cannot mix Reactor types using time and space as independent variables"
+                "\n({} and {})", current->type(), r->type());
+        }
+    }
+    m_timeIsIndependent = r->timeIsIndependent();
+    r->setNetwork(this);
+    m_reactors.push_back(r.get());
+    if (!m_integ) {
+        m_integ.reset(newIntegrator(r->isOde() ? "CVODE" : "IDA"));
+        // use backward differencing, with a full Jacobian computed
+        // numerically, and use a Newton linear iterator
+        m_integ->setMethod(BDF_Method);
+        m_integ->setLinearSolverType("DENSE");
+    }
+    updateNames(*r);
 }
 
 void ReactorNet::updateNames(Reactor& r)
@@ -403,7 +585,7 @@ double ReactorNet::sensitivity(size_t k, size_t p)
     }
     if (p >= m_sens_params.size()) {
         throw IndexError("ReactorNet::sensitivity",
-                         "m_sens_params", p, m_sens_params.size()-1);
+                         "m_sens_params", p, m_sens_params.size());
     }
     double denom = m_integ->solution(k);
     if (denom == 0.0) {
@@ -505,14 +687,54 @@ size_t ReactorNet::globalComponentIndex(const string& component, size_t reactor)
 
 string ReactorNet::componentName(size_t i) const
 {
+    size_t iTot = 0;
+    size_t i0 = i;
     for (auto r : m_reactors) {
         if (i < r->neq()) {
             return r->name() + ": " + r->componentName(i);
         } else {
             i -= r->neq();
         }
+        iTot += r->neq();
     }
-    throw CanteraError("ReactorNet::componentName", "Index out of bounds");
+    throw IndexError("ReactorNet::componentName", "component", i0, iTot);
+}
+
+double ReactorNet::upperBound(size_t i) const
+{
+    size_t iTot = 0;
+    size_t i0 = i;
+    for (auto r : m_reactors) {
+        if (i < r->neq()) {
+            return r->upperBound(i);
+        } else {
+            i -= r->neq();
+        }
+        iTot += r->neq();
+    }
+    throw IndexError("ReactorNet::upperBound", "upperBound", i0, iTot);
+}
+
+double ReactorNet::lowerBound(size_t i) const
+{
+    size_t iTot = 0;
+    size_t i0 = i;
+    for (auto r : m_reactors) {
+        if (i < r->neq()) {
+            return r->lowerBound(i);
+        } else {
+            i -= r->neq();
+        }
+        iTot += r->neq();
+    }
+    throw IndexError("ReactorNet::lowerBound", "lowerBound", i0, iTot);
+}
+
+void ReactorNet::resetBadValues(double* y) {
+    size_t i = 0;
+    for (auto r : m_reactors) {
+        r->resetBadValues(y + m_start[i++]);
+    }
 }
 
 size_t ReactorNet::registerSensitivityParameter(
@@ -593,7 +815,7 @@ void ReactorNet::preconditionerSetup(double t, double* y, double gamma)
         }
     }
     // post reactor setup operations
-    precon->setup();
+    precon->updatePreconditioner();
 }
 
 void ReactorNet::updatePreconditioner(double gamma)
@@ -617,6 +839,142 @@ void ReactorNet::checkPreconditionerSupported() const {
                 reactor->type());
         }
     }
+}
+
+SteadyReactorSolver::SteadyReactorSolver(ReactorNet* net, double* x0)
+    : m_net(net)
+{
+    m_size = m_net->neq();
+    m_jac = newSystemJacobian("eigen-sparse-direct");
+    SteadyStateSystem::resize();
+    m_initialState.assign(x0, x0 + m_size);
+    setInitialGuess(x0);
+    m_mask.assign(m_size, 1);
+    size_t start = 0;
+    for (size_t i = 0; i < net->nReactors(); i++) {
+        auto& R = net->reactor(i);
+        for (auto& m : R.steadyConstraints()) {
+            m_algebraic.push_back(start + m);
+        }
+        start += R.neq();
+    }
+    for (auto& n : m_algebraic) {
+        m_mask[n] = 0;
+    }
+}
+
+void SteadyReactorSolver::eval(double* x, double* r, double rdt, int count)
+{
+    if (rdt < 0.0) {
+        rdt = m_rdt;
+    }
+    vector<double> xv(x, x + size());
+    m_net->eval(0.0, x, r, nullptr);
+    for (size_t i = 0; i < size(); i++) {
+        r[i] -= (x[i] - m_initialState[i]) * rdt;
+    }
+    // Hold algebraic constraints fixed
+    for (auto& n : m_algebraic) {
+        r[n] = x[n] - m_initialState[n];
+    }
+}
+
+void SteadyReactorSolver::initTimeInteg(double dt, double* x)
+{
+    SteadyStateSystem::initTimeInteg(dt, x);
+    m_initialState.assign(x, x + size());
+}
+
+void SteadyReactorSolver::evalJacobian(double* x0)
+{
+    m_jac->reset();
+    clock_t t0 = clock();
+    m_work1.resize(size());
+    m_work2.resize(size());
+    eval(x0, m_work1.data(), 0.0, 0);
+    for (size_t j = 0; j < size(); j++) {
+        // perturb x(n); preserve sign(x(n))
+        double xsave = x0[j];
+        double dx = fabs(xsave) * m_jacobianRelPerturb + m_jacobianAbsPerturb;
+        if (xsave < 0) {
+            dx = -dx;
+        }
+        x0[j] = xsave + dx;
+        double rdx = 1.0 / (x0[j] - xsave);
+
+        // calculate perturbed residual
+        eval(x0, m_work2.data(), 0.0, 0);
+
+        // compute nth column of Jacobian
+        for (size_t i = 0; i < size(); i++) {
+            double delta = m_work2[i] - m_work1[i];
+            if (std::abs(delta) > m_jacobianThreshold || i == j) {
+                m_jac->setValue(i, j, delta * rdx);
+            }
+        }
+        x0[j] = xsave;
+    }
+
+    m_jac->updateElapsed(double(clock() - t0) / CLOCKS_PER_SEC);
+    m_jac->incrementEvals();
+    m_jac->setAge(0);
+}
+
+double SteadyReactorSolver::weightedNorm(const double* step) const
+{
+    double sum = 0.0;
+    const double* x = m_state->data();
+    for (size_t i = 0; i < size(); i++) {
+        double ewt = m_net->rtol()*x[i] + m_net->atol();
+        double f = step[i] / ewt;
+        sum += f*f;
+    }
+    return sqrt(sum / size());
+}
+
+string SteadyReactorSolver::componentName(size_t i) const
+{
+    return m_net->componentName(i);
+}
+
+double SteadyReactorSolver::upperBound(size_t i) const
+{
+    return m_net->upperBound(i);
+}
+
+double SteadyReactorSolver::lowerBound(size_t i) const
+{
+    return m_net->lowerBound(i);
+}
+
+void SteadyReactorSolver::resetBadValues(double* x)
+{
+    m_net->resetBadValues(x);
+}
+
+void SteadyReactorSolver::writeDebugInfo(const string& header_suffix,
+    const string& message, int loglevel, int attempt_counter)
+{
+    if (loglevel >= 6 && !m_state->empty()) {
+        const auto& state = *m_state;
+        writelog("Current state ({}):\n[", header_suffix);
+        for (size_t i = 0; i < state.size() - 1; i++) {
+            writelog("{}, ", state[i]);
+        }
+        writelog("{}]\n", state.back());
+    }
+    if (loglevel >= 7 && !m_xnew.empty()) {
+        writelog("Current residual ({}):\n[", header_suffix);
+        for (size_t i = 0; i < m_xnew.size() - 1; i++) {
+            writelog("{}, ", m_xnew[i]);
+        }
+        writelog("{}]\n", m_xnew.back());
+    }
+}
+
+shared_ptr<ReactorNet> newReactorNet(vector<shared_ptr<ReactorBase>>& reactors)
+{
+    return make_shared<ReactorNet>(reactors);
 }
 
 }

@@ -3,7 +3,7 @@ Type annotations for servicecatalog service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_servicecatalog/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -199,12 +200,6 @@ from .type_defs import (
     UpdateTagOptionOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -215,15 +210,15 @@ __all__ = ("ServiceCatalogClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    DuplicateResourceException: Type[BotocoreClientError]
-    InvalidParametersException: Type[BotocoreClientError]
-    InvalidStateException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    OperationNotSupportedException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TagOptionNotMigratedException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DuplicateResourceException: type[BotocoreClientError]
+    InvalidParametersException: type[BotocoreClientError]
+    InvalidStateException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    OperationNotSupportedException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TagOptionNotMigratedException: type[BotocoreClientError]
 
 
 class ServiceCatalogClient(BaseClient):
@@ -263,7 +258,7 @@ class ServiceCatalogClient(BaseClient):
 
     def accept_portfolio_share(
         self, **kwargs: Unpack[AcceptPortfolioShareInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Accepts an offer to share the specified portfolio.
 
@@ -273,7 +268,7 @@ class ServiceCatalogClient(BaseClient):
 
     def associate_budget_with_resource(
         self, **kwargs: Unpack[AssociateBudgetWithResourceInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates the specified budget with the specified resource.
 
@@ -283,7 +278,7 @@ class ServiceCatalogClient(BaseClient):
 
     def associate_principal_with_portfolio(
         self, **kwargs: Unpack[AssociatePrincipalWithPortfolioInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates the specified principal ARN with the specified portfolio.
 
@@ -293,7 +288,7 @@ class ServiceCatalogClient(BaseClient):
 
     def associate_product_with_portfolio(
         self, **kwargs: Unpack[AssociateProductWithPortfolioInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates the specified product with the specified portfolio.
 
@@ -303,7 +298,7 @@ class ServiceCatalogClient(BaseClient):
 
     def associate_service_action_with_provisioning_artifact(
         self, **kwargs: Unpack[AssociateServiceActionWithProvisioningArtifactInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a self-service action with a provisioning artifact.
 
@@ -313,7 +308,7 @@ class ServiceCatalogClient(BaseClient):
 
     def associate_tag_option_with_resource(
         self, **kwargs: Unpack[AssociateTagOptionWithResourceInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associate the specified TagOption with the specified portfolio or product.
 
@@ -432,7 +427,7 @@ class ServiceCatalogClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_servicecatalog/client/#create_tag_option)
         """
 
-    def delete_constraint(self, **kwargs: Unpack[DeleteConstraintInputTypeDef]) -> Dict[str, Any]:
+    def delete_constraint(self, **kwargs: Unpack[DeleteConstraintInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified constraint.
 
@@ -440,7 +435,7 @@ class ServiceCatalogClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_servicecatalog/client/#delete_constraint)
         """
 
-    def delete_portfolio(self, **kwargs: Unpack[DeletePortfolioInputTypeDef]) -> Dict[str, Any]:
+    def delete_portfolio(self, **kwargs: Unpack[DeletePortfolioInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified portfolio.
 
@@ -459,7 +454,7 @@ class ServiceCatalogClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_servicecatalog/client/#delete_portfolio_share)
         """
 
-    def delete_product(self, **kwargs: Unpack[DeleteProductInputTypeDef]) -> Dict[str, Any]:
+    def delete_product(self, **kwargs: Unpack[DeleteProductInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified product.
 
@@ -469,7 +464,7 @@ class ServiceCatalogClient(BaseClient):
 
     def delete_provisioned_product_plan(
         self, **kwargs: Unpack[DeleteProvisionedProductPlanInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified plan.
 
@@ -479,7 +474,7 @@ class ServiceCatalogClient(BaseClient):
 
     def delete_provisioning_artifact(
         self, **kwargs: Unpack[DeleteProvisioningArtifactInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified provisioning artifact (also known as a version) for the
         specified product.
@@ -490,7 +485,7 @@ class ServiceCatalogClient(BaseClient):
 
     def delete_service_action(
         self, **kwargs: Unpack[DeleteServiceActionInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a self-service action.
 
@@ -498,7 +493,7 @@ class ServiceCatalogClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_servicecatalog/client/#delete_service_action)
         """
 
-    def delete_tag_option(self, **kwargs: Unpack[DeleteTagOptionInputTypeDef]) -> Dict[str, Any]:
+    def delete_tag_option(self, **kwargs: Unpack[DeleteTagOptionInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified TagOption.
 
@@ -670,7 +665,7 @@ class ServiceCatalogClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_servicecatalog/client/#describe_tag_option)
         """
 
-    def disable_aws_organizations_access(self) -> Dict[str, Any]:
+    def disable_aws_organizations_access(self) -> dict[str, Any]:
         """
         Disable portfolio sharing through the Organizations service.
 
@@ -680,7 +675,7 @@ class ServiceCatalogClient(BaseClient):
 
     def disassociate_budget_from_resource(
         self, **kwargs: Unpack[DisassociateBudgetFromResourceInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified budget from the specified resource.
 
@@ -690,7 +685,7 @@ class ServiceCatalogClient(BaseClient):
 
     def disassociate_principal_from_portfolio(
         self, **kwargs: Unpack[DisassociatePrincipalFromPortfolioInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a previously associated principal ARN from a specified portfolio.
 
@@ -700,7 +695,7 @@ class ServiceCatalogClient(BaseClient):
 
     def disassociate_product_from_portfolio(
         self, **kwargs: Unpack[DisassociateProductFromPortfolioInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified product from the specified portfolio.
 
@@ -710,7 +705,7 @@ class ServiceCatalogClient(BaseClient):
 
     def disassociate_service_action_from_provisioning_artifact(
         self, **kwargs: Unpack[DisassociateServiceActionFromProvisioningArtifactInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified self-service action association from the specified
         provisioning artifact.
@@ -721,7 +716,7 @@ class ServiceCatalogClient(BaseClient):
 
     def disassociate_tag_option_from_resource(
         self, **kwargs: Unpack[DisassociateTagOptionFromResourceInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified TagOption from the specified resource.
 
@@ -729,7 +724,7 @@ class ServiceCatalogClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_servicecatalog/client/#disassociate_tag_option_from_resource)
         """
 
-    def enable_aws_organizations_access(self) -> Dict[str, Any]:
+    def enable_aws_organizations_access(self) -> dict[str, Any]:
         """
         Enable portfolio sharing feature through Organizations.
 
@@ -978,7 +973,7 @@ class ServiceCatalogClient(BaseClient):
 
     def notify_provision_product_engine_workflow_result(
         self, **kwargs: Unpack[NotifyProvisionProductEngineWorkflowResultInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Notifies the result of the provisioning engine execution.
 
@@ -988,7 +983,7 @@ class ServiceCatalogClient(BaseClient):
 
     def notify_terminate_provisioned_product_engine_workflow_result(
         self, **kwargs: Unpack[NotifyTerminateProvisionedProductEngineWorkflowResultInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Notifies the result of the terminate engine execution.
 
@@ -998,7 +993,7 @@ class ServiceCatalogClient(BaseClient):
 
     def notify_update_provisioned_product_engine_workflow_result(
         self, **kwargs: Unpack[NotifyUpdateProvisionedProductEngineWorkflowResultInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Notifies the result of the update engine execution.
 
@@ -1018,7 +1013,7 @@ class ServiceCatalogClient(BaseClient):
 
     def reject_portfolio_share(
         self, **kwargs: Unpack[RejectPortfolioShareInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Rejects an offer to share the specified portfolio.
 

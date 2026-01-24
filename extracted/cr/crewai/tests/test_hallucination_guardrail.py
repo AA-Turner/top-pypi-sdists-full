@@ -1,7 +1,6 @@
 from unittest.mock import Mock
 
 import pytest
-
 from crewai.llm import LLM
 from crewai.tasks.hallucination_guardrail import HallucinationGuardrail
 from crewai.tasks.task_output import TaskOutput

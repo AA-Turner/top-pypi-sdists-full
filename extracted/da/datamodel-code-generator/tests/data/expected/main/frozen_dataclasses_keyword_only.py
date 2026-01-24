@@ -5,11 +5,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
-@dataclass(kw_only=True, frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class User:
     name: str
     age: int
-    email: Optional[str] = None
+    email: str | None = None

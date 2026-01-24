@@ -17,9 +17,8 @@ from lightning_utilities.core.imports import RequirementCache
 
 from lightning_fabric.utilities.testing import _runif_reasons as _fabric_run_if
 from pytorch_lightning.accelerators.cpu import _PSUTIL_AVAILABLE
-from pytorch_lightning.callbacks.progress.rich_progress import _RICH_AVAILABLE
-from pytorch_lightning.core.module import _ONNX_AVAILABLE, _ONNXSCRIPT_AVAILABLE
-from pytorch_lightning.utilities.imports import _OMEGACONF_AVAILABLE
+from pytorch_lightning.core.module import _ONNX_AVAILABLE, _ONNXSCRIPT_AVAILABLE, _TORCH_TRT_AVAILABLE
+from pytorch_lightning.utilities.imports import _OMEGACONF_AVAILABLE, _RICH_AVAILABLE
 
 _SKLEARN_AVAILABLE = RequirementCache("scikit-learn")
 
@@ -44,6 +43,7 @@ def _runif_reasons(
     onnx: bool = False,
     linux_only: bool = False,
     onnxscript: bool = False,
+    tensorrt: bool = False,
 ) -> tuple[list[str], dict[str, bool]]:
     """Construct reasons for pytest skipif.
 
@@ -67,6 +67,7 @@ def _runif_reasons(
         sklearn: Require that scikit-learn is installed.
         onnx: Require that onnx is installed.
         onnxscript: Require that onnxscript is installed.
+        tensorrt: Require that torch-tensorrt is installed.
 
     """
 
@@ -102,5 +103,8 @@ def _runif_reasons(
 
     if onnxscript and not _ONNXSCRIPT_AVAILABLE:
         reasons.append("onnxscript")
+
+    if tensorrt and not _TORCH_TRT_AVAILABLE:
+        reasons.append("torch-tensorrt")
 
     return reasons, kwargs

@@ -7,7 +7,7 @@ import traceback
 import zipfile
 from collections import defaultdict
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import lru_cache, cached_property
 from pathlib import Path
 from typing import cast
 
@@ -20,16 +20,21 @@ from arelle.FileSource import FileSource
 from arelle.ModelValue import QName, qname
 from arelle.typing import TypeGetText
 from . import Constants
+from .FilingFormat import Ordinance, DocumentType, FilingFormat, FILING_FORMATS
+from .FormType import FormType
+from .ReportFolderType import ReportFolderType
 
 _: TypeGetText
 
 
 @dataclass(frozen=True)
 class ManifestInstance:
+    filingFormat: FilingFormat | None
     id: str
     ixbrlFiles: list[Path]
     path: Path
     preferredFilename: str
+    reportFolderType: ReportFolderType | None
     titlesByLang: dict[str, str]
     tocItems: list[ManifestTocItem]
     type: str
@@ -45,6 +50,62 @@ class ManifestTocItem:
     ref: str
     start: QName | None
     end: QName | None
+
+
+def _getFilenameValues(reportFolderType: ReportFolderType, preferredFilename: str) -> dict[str, str]:
+    for pattern in reportFolderType.xbrlFilenamePatterns:
+        matchResult = pattern.match(preferredFilename)
+        if matchResult is not None:
+            return matchResult.groupdict()
+    return {}
+
+
+def _identifyFilingFormat(cntlr: Cntlr, reportFolderType: ReportFolderType | None, preferredFilename: str) ->  FilingFormat | None:
+    if reportFolderType is None or reportFolderType == ReportFolderType.AUDIT_DOC:
+        return None
+    filenameValues = _getFilenameValues(reportFolderType, preferredFilename)
+    documentType = DocumentType.parse(filenameValues.get('report'))
+    formType = FormType.lookup(filenameValues.get('form'))
+    ordinance = Ordinance.parse(filenameValues.get('ordinance'))
+    if documentType == DocumentType.SECURITIES_REGISTRATION_STATEMENT_DEEMED:
+        documentType = DocumentType.ANNUAL_SECURITIES_REPORT
+
+    filingFormats = []
+    for filingFormatIndex, filingFormat in enumerate(FILING_FORMATS):
+        if filingFormat.formType != formType:
+            continue
+        if filingFormat.documentType != documentType:
+            continue
+        if filingFormat.ordinance != ordinance:
+            continue
+        filingFormats.append((filingFormat, filingFormatIndex))
+    if len(filingFormats) == 0:
+        cntlr.error(
+            "NoMatchingEdinetFormat",
+            _("No matching EDINET filing formats could be identified based on form "
+              "type (%(formType)s) and document type (%(documentType)s)."),
+            formType=formType.value if formType is not None else "None",
+            documentType=documentType.value if documentType is not None else "None",
+        )
+        return None
+    if len(filingFormats) > 1:
+        cntlr.error(
+            "MultipleMatchingEdinetFormats",
+            _("Multiple EDINET filing formats (%(formatIndexes)s) matched based on form "
+              "type (%(formType)s) and document type (%(documentType)s)."),
+            formType=formType.value if formType is not None else "None",
+            documentType=documentType.value if documentType is not None else "None",
+        )
+        return None
+    filingFormat, filingFormatIndex = filingFormats[0]
+    cntlr.addToLog("Identified filing format: #{}, {}, {}, {}, {}".format(
+        filingFormatIndex + 1,
+        filingFormat.ordinance.value,
+        filingFormat.documentType.value,
+        filingFormat.formType.value,
+        ', '.join(taxonomy.value for taxonomy in filingFormat.taxonomies)
+    ), messageCode="info")
+    return filingFormat
 
 
 def _invalidManifestError(cntlr: Cntlr, file: str, message: str | None = None) -> None:
@@ -78,7 +139,7 @@ def _parseManifestTocItems(parentElt: _Element, parentQName: QName | None) -> li
     return tocItems
 
 
-def _parseManifestDoc(xmlRootElement: _Element, path: Path) -> list[ManifestInstance]:
+def _parseManifestDoc(cntlr: Cntlr, xmlRootElement: _Element, path: Path) -> list[ManifestInstance]:
     instances = []
     titlesByLang = {}
     base = path.parent
@@ -102,11 +163,17 @@ def _parseManifestDoc(xmlRootElement: _Element, path: Path) -> list[ManifestInst
             uri = ixbrlElt.text.strip() if ixbrlElt.text is not None else None
             if uri is not None and len(uri) > 0:
                 ixbrlFiles.append(base / uri)
+
+        reportFolderType = ReportFolderType.parse(base.name)
+        filingFormat = _identifyFilingFormat(cntlr, reportFolderType, preferredFilename)
+
         instances.append(ManifestInstance(
+            filingFormat=filingFormat,
             id=instanceId,
             ixbrlFiles=ixbrlFiles,
             path=path,
             preferredFilename=preferredFilename,
+            reportFolderType=reportFolderType,
             titlesByLang=titlesByLang,
             tocItems=tocItemsByRef.get(instanceId, []),
             type=instanceType,
@@ -137,7 +204,7 @@ def parseManifests(filesource: FileSource) -> list[ManifestInstance]:
                 try:
                     with filesource.fs.open(_archiveFile) as manifestDoc:
                         xmlRootElement = etree.fromstring(manifestDoc.read())
-                        instances.extend(_parseManifestDoc(xmlRootElement, Path(_archiveFile)))
+                        instances.extend(_parseManifestDoc(cntlr, xmlRootElement, Path(_archiveFile)))
                 except AssertionError as err:
                     _invalidManifestError(cntlr, str(_archiveFile), str(err))
                 except Exception as err:
@@ -156,7 +223,7 @@ def parseManifests(filesource: FileSource) -> list[ManifestInstance]:
             try:
                 with open(file, 'rb') as manifestDoc:
                     xmlRootElement = etree.fromstring(manifestDoc.read())
-                    instances.extend(_parseManifestDoc(xmlRootElement, file))
+                    instances.extend(_parseManifestDoc(cntlr, xmlRootElement, file))
             except AssertionError as err:
                 _invalidManifestError(cntlr, str(file), str(err))
             except Exception as err:

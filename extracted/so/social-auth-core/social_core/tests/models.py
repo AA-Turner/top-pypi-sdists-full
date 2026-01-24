@@ -13,6 +13,7 @@ from social_core.storage import (
     NonceMixin,
     PartialMixin,
     UserMixin,
+    UserProtocol,
 )
 
 ModelT = TypeVar("ModelT", bound="BaseModel")
@@ -33,12 +34,23 @@ class BaseModel:
         cls.cache = {}
 
 
-class User(BaseModel):
+class User(BaseModel, UserProtocol):
     NEXT_ID = 1
     cache = {}
     _is_active = True
+    is_authenticated = True
+    username: str
+    email: str | None
+    first_name: str | None
+    password: str | None
+    slug: str | None
+    social: list[TestUserSocialAuth]
+    extra_data: dict[str, str]
+    extra_user_fields: dict[str, str]
 
-    def __init__(self, username, email=None, **extra_user_fields) -> None:
+    def __init__(
+        self, username: str, email: str | None = None, **extra_user_fields
+    ) -> None:
         self.id = User.next_id()
         self.username = username
         self.email = email
@@ -50,7 +62,7 @@ class User(BaseModel):
         self.extra_user_fields = extra_user_fields
         self.save()
 
-    def is_active(self):
+    def is_active(self):  # pyright: ignore[reportIncompatibleVariableOverride]
         return self._is_active
 
     @classmethod
@@ -71,7 +83,7 @@ class TestUserSocialAuth(UserMixin, BaseModel):
     cache = {}
     cache_by_uid = {}
 
-    def __init__(self, user, provider, uid, extra_data=None) -> None:
+    def __init__(self, user: User, provider, uid, extra_data=None) -> None:
         self.id = TestUserSocialAuth.next_id()
         self.user = user
         self.provider = provider
@@ -97,7 +109,7 @@ class TestUserSocialAuth(UserMixin, BaseModel):
         return user.username
 
     @classmethod
-    def user_model(cls):
+    def user_model(cls) -> type[UserProtocol]:
         return User
 
     @classmethod
@@ -129,14 +141,19 @@ class TestUserSocialAuth(UserMixin, BaseModel):
         return None
 
     @classmethod
-    def get_social_auth(cls, provider, uid):
+    def get_social_auth(cls, provider: str, uid: int):
         social_user = cls.cache_by_uid.get(uid)
         if social_user and social_user.provider == provider:
             return social_user
         return None
 
     @classmethod
-    def get_social_auth_for_user(cls, user, provider=None, id=None):  # noqa: A002
+    def get_social_auth_for_user(  # type: ignore[override]
+        cls,
+        user: User,
+        provider: str | None = None,
+        id: int | None = None,  # noqa: A002
+    ):
         return [
             usa
             for usa in user.social
@@ -144,11 +161,11 @@ class TestUserSocialAuth(UserMixin, BaseModel):
         ]
 
     @classmethod
-    def create_social_auth(cls, user, uid, provider):
+    def create_social_auth(cls, user: User, uid: int, provider: str):  # type: ignore[override]
         return cls(user=user, provider=provider, uid=uid)
 
     @classmethod
-    def get_users_by_email(cls, email):
+    def get_users_by_email(cls, email: str):
         return [user for user in User.cache.values() if user.email == email]
 
 
@@ -247,7 +264,7 @@ class TestPartial(PartialMixin, BaseModel):
     __test__ = False
 
     NEXT_ID = 1
-    cache = {}
+    cache: dict[str, TestPartial] = {}
 
     def save(self) -> None:
         TestPartial.cache[self.token] = self

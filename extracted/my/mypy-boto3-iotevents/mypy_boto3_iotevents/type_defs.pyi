@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -32,12 +33,6 @@ from .literals import (
     PayloadTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -239,7 +234,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -387,7 +382,7 @@ AnalysisResultTypeDef = TypedDict(
         "type": NotRequired[str],
         "level": NotRequired[AnalysisResultLevelType],
         "message": NotRequired[str],
-        "locations": NotRequired[List[AnalysisResultLocationTypeDef]],
+        "locations": NotRequired[list[AnalysisResultLocationTypeDef]],
     },
 )
 
@@ -397,7 +392,7 @@ class AssetPropertyValueTypeDef(TypedDict):
     quality: NotRequired[str]
 
 class InputDefinitionOutputTypeDef(TypedDict):
-    attributes: List[AttributeTypeDef]
+    attributes: list[AttributeTypeDef]
 
 class InputDefinitionTypeDef(TypedDict):
     attributes: Sequence[AttributeTypeDef]
@@ -422,17 +417,17 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAlarmModelVersionsResponseTypeDef(TypedDict):
-    alarmModelVersionSummaries: List[AlarmModelVersionSummaryTypeDef]
+    alarmModelVersionSummaries: list[AlarmModelVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAlarmModelsResponseTypeDef(TypedDict):
-    alarmModelSummaries: List[AlarmModelSummaryTypeDef]
+    alarmModelSummaries: list[AlarmModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartDetectorModelAnalysisResponseTypeDef(TypedDict):
@@ -467,7 +462,7 @@ class LoggingOptionsOutputTypeDef(TypedDict):
     roleArn: str
     level: LoggingLevelType
     enabled: bool
-    detectorDebugOptions: NotRequired[List[DetectorDebugOptionTypeDef]]
+    detectorDebugOptions: NotRequired[list[DetectorDebugOptionTypeDef]]
 
 class LoggingOptionsTypeDef(TypedDict):
     roleArn: str
@@ -476,12 +471,12 @@ class LoggingOptionsTypeDef(TypedDict):
     detectorDebugOptions: NotRequired[Sequence[DetectorDebugOptionTypeDef]]
 
 class ListDetectorModelsResponseTypeDef(TypedDict):
-    detectorModelSummaries: List[DetectorModelSummaryTypeDef]
+    detectorModelSummaries: list[DetectorModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListDetectorModelVersionsResponseTypeDef(TypedDict):
-    detectorModelVersionSummaries: List[DetectorModelVersionSummaryTypeDef]
+    detectorModelVersionSummaries: list[DetectorModelVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -528,7 +523,7 @@ class SqsActionTypeDef(TypedDict):
     payload: NotRequired[PayloadTypeDef]
 
 class ListInputsResponseTypeDef(TypedDict):
-    inputSummaries: List[InputSummaryTypeDef]
+    inputSummaries: list[InputSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -538,7 +533,7 @@ class IotSiteWiseInputIdentifierTypeDef(TypedDict):
     ]
 
 class ListInputRoutingsResponseTypeDef(TypedDict):
-    routedResources: List[RoutedResourceTypeDef]
+    routedResources: list[RoutedResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -546,7 +541,7 @@ class RecipientDetailTypeDef(TypedDict):
     ssoIdentity: NotRequired[SSOIdentityTypeDef]
 
 class GetDetectorModelAnalysisResultsResponseTypeDef(TypedDict):
-    analysisResults: List[AnalysisResultTypeDef]
+    analysisResults: list[AnalysisResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -577,13 +572,13 @@ class InputIdentifierTypeDef(TypedDict):
     iotSiteWiseInputIdentifier: NotRequired[IotSiteWiseInputIdentifierTypeDef]
 
 class EmailRecipientsOutputTypeDef(TypedDict):
-    to: NotRequired[List[RecipientDetailTypeDef]]
+    to: NotRequired[list[RecipientDetailTypeDef]]
 
 class EmailRecipientsTypeDef(TypedDict):
     to: NotRequired[Sequence[RecipientDetailTypeDef]]
 
 class SMSConfigurationOutputTypeDef(TypedDict):
-    recipients: List[RecipientDetailTypeDef]
+    recipients: list[RecipientDetailTypeDef]
     senderId: NotRequired[str]
     additionalMessage: NotRequired[str]
 
@@ -671,7 +666,7 @@ EmailConfigurationTypeDef = TypedDict(
 class EventOutputTypeDef(TypedDict):
     eventName: str
     condition: NotRequired[str]
-    actions: NotRequired[List[ActionTypeDef]]
+    actions: NotRequired[list[ActionTypeDef]]
 
 class EventTypeDef(TypedDict):
     eventName: str
@@ -682,7 +677,7 @@ class TransitionEventOutputTypeDef(TypedDict):
     eventName: str
     condition: str
     nextState: str
-    actions: NotRequired[List[ActionTypeDef]]
+    actions: NotRequired[list[ActionTypeDef]]
 
 class TransitionEventTypeDef(TypedDict):
     eventName: str
@@ -691,15 +686,15 @@ class TransitionEventTypeDef(TypedDict):
     actions: NotRequired[Sequence[ActionTypeDef]]
 
 class AlarmEventActionsOutputTypeDef(TypedDict):
-    alarmActions: NotRequired[List[AlarmActionTypeDef]]
+    alarmActions: NotRequired[list[AlarmActionTypeDef]]
 
 class AlarmEventActionsTypeDef(TypedDict):
     alarmActions: NotRequired[Sequence[AlarmActionTypeDef]]
 
 class NotificationActionOutputTypeDef(TypedDict):
     action: NotificationTargetActionsTypeDef
-    smsConfigurations: NotRequired[List[SMSConfigurationOutputTypeDef]]
-    emailConfigurations: NotRequired[List[EmailConfigurationOutputTypeDef]]
+    smsConfigurations: NotRequired[list[SMSConfigurationOutputTypeDef]]
+    emailConfigurations: NotRequired[list[EmailConfigurationOutputTypeDef]]
 
 class NotificationActionTypeDef(TypedDict):
     action: NotificationTargetActionsTypeDef
@@ -707,10 +702,10 @@ class NotificationActionTypeDef(TypedDict):
     emailConfigurations: NotRequired[Sequence[EmailConfigurationTypeDef]]
 
 class OnEnterLifecycleOutputTypeDef(TypedDict):
-    events: NotRequired[List[EventOutputTypeDef]]
+    events: NotRequired[list[EventOutputTypeDef]]
 
 class OnExitLifecycleOutputTypeDef(TypedDict):
-    events: NotRequired[List[EventOutputTypeDef]]
+    events: NotRequired[list[EventOutputTypeDef]]
 
 class OnEnterLifecycleTypeDef(TypedDict):
     events: NotRequired[Sequence[EventTypeDef]]
@@ -719,8 +714,8 @@ class OnExitLifecycleTypeDef(TypedDict):
     events: NotRequired[Sequence[EventTypeDef]]
 
 class OnInputLifecycleOutputTypeDef(TypedDict):
-    events: NotRequired[List[EventOutputTypeDef]]
-    transitionEvents: NotRequired[List[TransitionEventOutputTypeDef]]
+    events: NotRequired[list[EventOutputTypeDef]]
+    transitionEvents: NotRequired[list[TransitionEventOutputTypeDef]]
 
 class OnInputLifecycleTypeDef(TypedDict):
     events: NotRequired[Sequence[EventTypeDef]]
@@ -729,7 +724,7 @@ class OnInputLifecycleTypeDef(TypedDict):
 AlarmEventActionsUnionTypeDef = Union[AlarmEventActionsTypeDef, AlarmEventActionsOutputTypeDef]
 
 class AlarmNotificationOutputTypeDef(TypedDict):
-    notificationActions: NotRequired[List[NotificationActionOutputTypeDef]]
+    notificationActions: NotRequired[list[NotificationActionOutputTypeDef]]
 
 class AlarmNotificationTypeDef(TypedDict):
     notificationActions: NotRequired[Sequence[NotificationActionTypeDef]]
@@ -767,7 +762,7 @@ class DescribeAlarmModelResponseTypeDef(TypedDict):
 AlarmNotificationUnionTypeDef = Union[AlarmNotificationTypeDef, AlarmNotificationOutputTypeDef]
 
 class DetectorModelDefinitionOutputTypeDef(TypedDict):
-    states: List[StateOutputTypeDef]
+    states: list[StateOutputTypeDef]
     initialStateName: str
 
 class DetectorModelDefinitionTypeDef(TypedDict):

@@ -65,7 +65,7 @@ def do_element(parser, token):
     tag_name, args, kwargs = parse_tag(token, parser)
     usage = f'{{% {tag_name} "element" argument=value %}} ... {{% end{tag_name} %}}'
     if len(args) > 1:
-        raise template.TemplateSyntaxError("Usage: %s" % usage)
+        raise template.TemplateSyntaxError(f"Usage: {usage}")
 
     parser.delete_first_token()
     return ElementNode(nodelist, args[0], kwargs)
@@ -111,16 +111,14 @@ class ElementNode(template.Node):
             tags = attrs.get("tags")
             if tags:
                 attrs["tags"] = [tag.strip() for tag in tags.split(",")]
-            return render_to_string(
-                template_names,
-                {
-                    "attrs": attrs,
-                    "slots": slots,
-                    "origin": self.origin.template_name.replace(
-                        f".{TEMPLATE_EXTENSION}", ""
-                    ),
-                },
-            )
+            with context.push(
+                slots=slots,
+                attrs=attrs,
+                origin=self.origin.template_name.replace(f".{TEMPLATE_EXTENSION}", ""),
+            ) as element_context:
+                return render_to_string(
+                    template_names, element_context.context.flatten()
+                )
 
 
 @register.tag(name="setvar")
@@ -130,7 +128,7 @@ def do_setvar(parser, token):
     if len(bits) != 2:
         tag_name = bits[0]
         usage = f'{{% {tag_name} "setvar" var %}} ... {{% end{tag_name} %}}'
-        raise template.TemplateSyntaxError("Usage: %s" % usage)
+        raise template.TemplateSyntaxError(f"Usage: {usage}")
     parser.delete_first_token()
     return SetVarNode(nodelist, bits[1])
 

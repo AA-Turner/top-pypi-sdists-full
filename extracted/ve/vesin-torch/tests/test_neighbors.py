@@ -12,7 +12,7 @@ def test_errors():
 
     calculator = NeighborList(cutoff=2.8, full_list=True)
 
-    message = "only float64 dtype is supported in vesin"
+    message = "only float64 is supported for `points` and `box"
     with pytest.raises(ValueError, match=message):
         calculator.compute(
             points.to(torch.float32),
@@ -102,8 +102,8 @@ def test_all_alone_no_neighbors(quantities):
 
 
 class NeighborListWrap:
-    def __init__(self, cutoff: float, full_list: bool):
-        self._c = NeighborList(cutoff=cutoff, full_list=full_list)
+    def __init__(self, cutoff: float, full_list: bool, sorted: bool):
+        self._c = NeighborList(cutoff=cutoff, full_list=full_list, sorted=sorted)
 
     def compute(
         self,

@@ -13,9 +13,11 @@ from . import (
     create,
     deploy,
     doctor,
+    environments,
     files,
     keys,
     profile,
+    queue,
     run,
     runners,
     secrets,
@@ -49,6 +51,8 @@ def _get_main_parser() -> argparse.ArgumentParser:
         api,
         auth,
         apps,
+        environments,
+        queue,
         deploy,
         run,
         keys,
@@ -87,6 +91,12 @@ def _check_latest_version():
     latest_version = get_latest_version()
     parsed = parse(latest_version)
     latest_version_tuple = (parsed.major, parsed.minor, parsed.micro)
+
+    # If we have a dev version, we don't want to check for updates
+    if len(version_tuple) >= 4:
+        if "dev" in str(version_tuple[3]):
+            return
+
     if latest_version_tuple <= version_tuple:
         return
 

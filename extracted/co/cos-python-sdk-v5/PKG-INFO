@@ -1,13 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cos_python_sdk_v5
-Version: 1.9.38
+Version: 1.9.41
 Summary: cos-python-sdk-v5
 Home-page: https://www.qcloud.com/
 Author: tiedu, lewzylu, channingliu
 Author-email: dutie123@qq.com
 License: MIT
-Platform: UNKNOWN
 License-File: LICENSE
+Requires-Dist: requests>=2.8
+Requires-Dist: xmltodict
+Requires-Dist: six
+Requires-Dist: crcmod
+Requires-Dist: pycryptodome
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 Qcloud COSv5 SDK
 #######################
@@ -45,5 +57,3 @@ cos最新可用地域，参照 https://cloud.tencent.com/document/product/436/62
 python sdk 快速入门，参照 https://cloud.tencent.com/document/product/436/12269
 
 python sdk 接口文档，参照 https://cloud.tencent.com/document/product/436/12270
-
-

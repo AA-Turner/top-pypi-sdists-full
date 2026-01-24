@@ -27,7 +27,7 @@ class Process(WBModel):
                 WBColor.GREEN_LIGHT.value,
                 WBColor.RED_LIGHT.value,
             ]
-            return [choice for choice in zip(cls, colors)]
+            return [choice for choice in zip(cls, colors, strict=False)]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name=_("UUID"))
     workflow = models.ForeignKey(
@@ -124,7 +124,7 @@ class ProcessStep(WBModel):
                 WBColor.RED_LIGHT.value,
                 WBColor.GREY.value,
             ]
-            return [choice for choice in zip(cls, colors)]
+            return [choice for choice in zip(cls, colors, strict=False)]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name=_("UUID"))
     process = models.ForeignKey(

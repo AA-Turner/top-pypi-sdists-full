@@ -32,7 +32,7 @@ from .objects import (
     TickAttribLast,
 )
 from .order import Order, OrderComboLeg, OrderCondition, OrderState
-from .util import parseIBDatetime, UNSET_DOUBLE, ZoneInfo
+from .util import UNSET_DOUBLE, ZoneInfo, parseIBDatetime
 from .wrapper import Wrapper
 
 

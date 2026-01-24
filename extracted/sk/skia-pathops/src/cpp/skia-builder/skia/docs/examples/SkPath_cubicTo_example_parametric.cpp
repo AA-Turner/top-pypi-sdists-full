@@ -27,7 +27,7 @@ SkPoint cubic(SkPoint p0, SkPoint p1, SkPoint p2, SkPoint p3, float t) {
 
 void draw(SkCanvas* canvas) {
     canvas->clear(SkColorSetARGB(255, 255, 255, 255));
-    SkFont font(nullptr, 32);
+    SkFont font(fontMgr->matchFamilyStyle(nullptr, {}), 32);
 
     SkPaint paint;
     paint.setAntiAlias(true);
@@ -39,19 +39,19 @@ void draw(SkCanvas* canvas) {
     SkPoint c{64, 448};
     SkPoint d{376, 64};
 
-    SkPath threeSegments;
+    SkPathBuilder threeSegments;
     threeSegments.moveTo(a);
     threeSegments.lineTo(b);
     threeSegments.lineTo(c);
     threeSegments.lineTo(d);
 
-    canvas->drawPath(threeSegments, paint);
+    canvas->drawPath(threeSegments.detach(), paint);
 
     paint.setColor(SkColorSetARGB(255, 0, 0, 255));
-    SkPath cubicCurve;
+    SkPathBuilder cubicCurve;
     cubicCurve.moveTo(a);
     cubicCurve.cubicTo(b, c, d);
-    canvas->drawPath(cubicCurve, paint);
+    canvas->drawPath(cubicCurve.detach(), paint);
 
     SkPaint textPaint;
     textPaint.setColor(SkColorSetARGB(255, 0, 255, 0));

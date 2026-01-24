@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pelican
-Version: 4.11.0
+Version: 4.11.0.post0
 Summary: Static site generator supporting Markdown and reStructuredText
 Keywords: static site generator,static sites,ssg
 Author-Email: Justin Mayer <authors@getpelican.com>

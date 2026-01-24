@@ -3,13 +3,16 @@
 This is an internal library and should not be used directly by consumers.
 """
 
-from abc import ABC
-from dataclasses import asdict, dataclass, fields
+import logging
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, fields
 from typing import ClassVar, Self
 
-from roborock.containers import RoborockBase
-from roborock.devices.v1_rpc_channel import V1RpcChannel
+from roborock.data import RoborockBase
+from roborock.protocols.v1_protocol import V1RpcChannel
 from roborock.roborock_typing import RoborockCommand
+
+_LOGGER = logging.getLogger(__name__)
 
 V1ResponseData = dict | list | int | str
 
@@ -25,8 +28,14 @@ class V1TraitMixin(ABC):
     Each trait subclass must define a class variable `command` that specifies
     the RoborockCommand used to fetch the trait data from the device. The
     `refresh()` method can be called to update the contents of the trait data
-    from the device. A trait can also support additional commands for updating
-    state associated with the trait.
+    from the device.
+
+    A trait can also support additional commands for updating state associated
+    with the trait. It is expected that a trait will update its own internal
+    state either reflecting the change optimistically or by refreshing the
+    trait state from the device. In cases where one trait caches data that is
+    also represented in another trait, it is the responsibility of the caller
+    to ensure that both traits are refreshed as needed to keep them in sync.
 
     The traits typically subclass RoborockBase to provide serialization
     and deserialization functionality, but this is not strictly required.
@@ -35,7 +44,7 @@ class V1TraitMixin(ABC):
     command: ClassVar[RoborockCommand]
 
     @classmethod
-    def _parse_type_response(cls, response: V1ResponseData) -> Self:
+    def _parse_type_response(cls, response: V1ResponseData) -> RoborockBase:
         """Parse the response from the device into a a RoborockBase.
 
         Subclasses should override this method to implement custom parsing
@@ -50,7 +59,7 @@ class V1TraitMixin(ABC):
             raise ValueError(f"Unexpected {cls} response format: {response!r}")
         return cls.from_dict(response)
 
-    def _parse_response(self, response: V1ResponseData) -> Self:
+    def _parse_response(self, response: V1ResponseData) -> RoborockBase:
         """Parse the response from the device into a a RoborockBase.
 
         This is used by subclasses that want to override the class
@@ -73,14 +82,20 @@ class V1TraitMixin(ABC):
             raise ValueError("Device trait in invalid state")
         return self._rpc_channel
 
-    async def refresh(self) -> Self:
+    async def refresh(self) -> None:
         """Refresh the contents of this trait."""
         response = await self.rpc_channel.send_command(self.command)
         new_data = self._parse_response(response)
-        for k, v in asdict(new_data).items():
-            if v is not None:
-                setattr(self, k, v)
-        return self
+        if not isinstance(new_data, RoborockBase):
+            raise ValueError(f"Internal error, unexpected response type: {new_data!r}")
+        _LOGGER.debug("Refreshed %s: %s", self.__class__.__name__, new_data)
+        self._update_trait_values(new_data)
+
+    def _update_trait_values(self, new_data: RoborockBase) -> None:
+        """Update the values of this trait from another instance."""
+        for field in fields(new_data):
+            new_value = getattr(new_data, field.name, None)
+            setattr(self, field.name, new_value)
 
 
 def _get_value_field(clazz: type[V1TraitMixin]) -> str:
@@ -113,3 +128,45 @@ class RoborockValueBase(V1TraitMixin, RoborockBase):
             raise ValueError(f"Unexpected response format: {response!r}")
         value_field = _get_value_field(cls)
         return cls(**{value_field: response})
+
+
+class RoborockSwitchBase(ABC):
+    """Base class for traits that represent a boolean switch."""
+
+    @property
+    @abstractmethod
+    def is_on(self) -> bool:
+        """Return whether the switch is on."""
+
+    @abstractmethod
+    async def enable(self) -> None:
+        """Enable the switch."""
+
+    @abstractmethod
+    async def disable(self) -> None:
+        """Disable the switch."""
+
+
+def mqtt_rpc_channel(cls):
+    """Decorator to mark a function as cloud only.
+
+    Normally a trait uses an adaptive rpc channel that can use either local
+    or cloud communication depending on what is available. This will force
+    the trait to always use the cloud rpc channel.
+    """
+
+    def wrapper(*args, **kwargs):
+        return cls(*args, **kwargs)
+
+    cls.mqtt_rpc_channel = True  # type: ignore[attr-defined]
+    return wrapper
+
+
+def map_rpc_channel(cls):
+    """Decorator to mark a function as cloud only using the map rpc format."""
+
+    def wrapper(*args, **kwargs):
+        return cls(*args, **kwargs)
+
+    cls.map_rpc_channel = True  # type: ignore[attr-defined]
+    return wrapper

@@ -23,6 +23,7 @@
 # is now called from commands/scan.py and commands/ci.py instead.
 # old: this file used to be called semgrep_main.py
 #
+import enum
 import json
 import sys
 import time
@@ -57,7 +58,6 @@ from semgrep import tracing
 from semgrep.autofix import apply_fixes
 from semgrep.config_resolver import Config
 from semgrep.config_resolver import ConfigLoader
-from semgrep.config_resolver import get_config
 from semgrep.console import console
 from semgrep.constants import DEFAULT_TIMEOUT
 from semgrep.constants import OutputFormat
@@ -82,6 +82,7 @@ from semgrep.output import OutputSettings
 from semgrep.output_extra import OutputExtra
 from semgrep.profile_manager import ProfileManager
 from semgrep.resolve_subprojects import resolve_subprojects
+from semgrep.rpc import RpcSession
 from semgrep.rpc_call import dump_rule_partitions
 from semgrep.rule import Rule
 from semgrep.rule_match import RuleMatches
@@ -95,11 +96,16 @@ from semgrep.semgrep_interfaces.semgrep_metrics import SupplyChainConfig
 from semgrep.semgrep_interfaces.semgrep_output_v1 import Ecosystem
 from semgrep.semgrep_interfaces.semgrep_output_v1 import Product
 from semgrep.semgrep_types import JOIN_MODE
+from semgrep.simple_profiling import profiling
+from semgrep.simple_profiling import simple_profiling
 from semgrep.state import get_state
 from semgrep.subproject import DependencyResolutionConfig
 from semgrep.subproject import get_all_source_files
 from semgrep.subproject import iter_found_dependencies
 from semgrep.subproject import make_dependencies_by_source_path
+from semgrep.symbol_analysis import dump_symbol_analysis_and_exit
+from semgrep.symbol_analysis import run_subproject_symbol_analysis
+from semgrep.symbol_analysis import SubprojectSymbolAnalysis
 from semgrep.target_manager import FileTargetingLog
 from semgrep.target_manager import SAST_PRODUCT
 from semgrep.target_manager import TargetManager
@@ -388,9 +394,10 @@ def baseline_run(
     disable_secrets_validation: bool,
     allow_local_builds: bool,
     ptt_enabled: bool,
-    dry_run: bool,
+    write_to_tr_cache: bool,
     fips_mode: bool,
-    x_eio: bool,
+    x_parmap: bool,
+    rpc_session: Optional[RpcSession] = None,
 ) -> RuleMatchMap:
     """
     Run baseline scan and return the updated rule_matches_by_rule with baseline matches removed.
@@ -489,6 +496,8 @@ def baseline_run(
                     _,
                     _plans,
                     _,
+                    _,
+                    _,
                 ) = run_rules(
                     # only the rules that had a match
                     [rule for rule, matches in rule_matches_by_rule.items() if matches],
@@ -505,9 +514,10 @@ def baseline_run(
                     disable_secrets_validation,
                     allow_local_builds=allow_local_builds,
                     ptt_enabled=ptt_enabled,
-                    dry_run=dry_run,
+                    write_to_tr_cache=write_to_tr_cache,
                     fips_mode=fips_mode,
-                    x_eio=x_eio,
+                    x_parmap=x_parmap,
+                    rpc_session=rpc_session,
                 )
                 rule_matches_by_rule = remove_matches_in_baseline(
                     rule_matches_by_rule,
@@ -560,6 +570,7 @@ def adjust_matches_for_join_rules(
 
 
 # ??
+@tracing.trace()
 def filter_dependency_aware_rules(
     dependency_aware_rules: List[Rule],
     resolved_deps: Dict[Ecosystem, List[out.ResolvedSubproject]],
@@ -601,14 +612,16 @@ def filter_dependency_aware_rules(
     return filtered_rules
 
 
+@tracing.trace()
+@simple_profiling
 def resolve_dependencies(
     dependency_aware_rules: List[Rule],
     target_manager: TargetManager,
-    output_handler: OutputHandler,
     allow_local_builds: bool,
     ptt_enabled: bool,
     resolve_all_deps_in_diff_scan: bool,
     download_dependency_source_code: bool,
+    rpc_session: Optional[RpcSession] = None,
 ) -> Tuple[
     List[Rule],  # filtered_dependency_aware_rules
     List[out.ScaError],  # dependency_parser_errors
@@ -622,7 +635,6 @@ def resolve_dependencies(
     Args:
         dependency_aware_rules: Rules that depend on project dependencies
         target_manager: Manager for scan targets
-        output_handler: Handler for semgrep errors
         allow_local_builds: Whether to allow local builds
         ptt_enabled: Whether PTT is enabled
         resolve_all_deps_in_diff_scan: Whether to resolve all dependencies in diff scan
@@ -664,7 +676,10 @@ def resolve_dependencies(
         resolved_subprojects,
         sca_dependency_targets,
     ) = resolve_subprojects(
-        target_manager, dependency_aware_rules, dependency_resolution_config
+        target_manager,
+        dependency_aware_rules,
+        dependency_resolution_config,
+        rpc_session=rpc_session,
     )
 
     # Process subprojects and their errors
@@ -690,6 +705,7 @@ def resolve_dependencies(
     )
 
 
+@tracing.trace()
 def adjust_matches_for_sca_rules(
     rule_matches_by_rule: RuleMatchMap,
     dependency_aware_rules: List[Rule],
@@ -698,8 +714,9 @@ def adjust_matches_for_sca_rules(
     output_handler: OutputHandler,
     output_extra: OutputExtra,
     fips_mode: bool,
-    dry_run: bool = False,
-    x_tr: bool = False,
+    write_to_tr_cache: bool = True,
+    rpc_session: Optional[RpcSession] = None,
+    enable_transitive_reachability: Optional[bool] = False,
 ) -> Dict[str, List[out.FoundDependency]]:
     """
     Generates SCA findings based on the dependency-aware rules and the resolved subprojects.
@@ -750,8 +767,9 @@ def adjust_matches_for_sca_rules(
                 already_reachable,
                 resolved_subprojects,
                 fips_mode=fips_mode,
-                x_tr=x_tr,
-                write_to_tr_cache=not dry_run,
+                enable_transitive_reachability=enable_transitive_reachability,
+                write_to_tr_cache=write_to_tr_cache,
+                rpc_session=rpc_session,
             )
 
             rule_matches_by_rule[rule].extend(dep_rule_matches)
@@ -766,8 +784,9 @@ def adjust_matches_for_sca_rules(
                 lambda p, d: False,
                 resolved_subprojects,
                 fips_mode=fips_mode,
-                x_tr=False,
-                write_to_tr_cache=not dry_run,
+                enable_transitive_reachability=False,
+                write_to_tr_cache=write_to_tr_cache,
+                rpc_session=rpc_session,
             )
 
             rule_matches_by_rule[rule] = dep_rule_matches
@@ -840,6 +859,7 @@ def adjust_matches_for_sca_rules(
 
 # This runs semgrep-core (and also handles SCA and join rules)
 @tracing.trace()
+@simple_profiling
 def run_rules(
     filtered_rules: List[Rule],
     target_manager: TargetManager,
@@ -861,10 +881,12 @@ def run_rules(
     allow_local_builds: bool = False,
     ptt_enabled: bool = False,
     resolve_all_deps_in_diff_scan: bool = False,
-    dry_run: bool = False,
+    write_to_tr_cache: bool = True,
     fips_mode: bool,
-    x_tr: bool = False,
-    x_eio: bool = False,
+    enable_transitive_reachability: Optional[bool] = None,
+    x_parmap: bool = False,
+    run_symbol_analysis: bool = False,
+    rpc_session: Optional[RpcSession] = None,
 ) -> Tuple[
     RuleMatchMap,
     List[SemgrepError],
@@ -873,6 +895,8 @@ def run_rules(
     List[DependencyParserError],
     List[Plan],
     List[Union[out.UnresolvedSubproject, out.ResolvedSubproject]],
+    Optional[out.SymbolAnalysis],
+    Optional[Sequence[SubprojectSymbolAnalysis]],
 ]:
     # ---------------------------------------
     # Step1: split the rules (Join, SCA, rest)
@@ -895,11 +919,11 @@ def run_rules(
     ) = resolve_dependencies(
         dependency_aware_rules=dependency_aware_rules,
         target_manager=target_manager,
-        output_handler=output_handler,
         allow_local_builds=allow_local_builds,
         ptt_enabled=ptt_enabled,
         resolve_all_deps_in_diff_scan=resolve_all_deps_in_diff_scan,
-        download_dependency_source_code=x_tr,
+        rpc_session=rpc_session,
+        download_dependency_source_code=(enable_transitive_reachability or False),
     )
     dependency_parser_errors = [
         e.value.value
@@ -949,8 +973,11 @@ def run_rules(
         disable_secrets_validation,
         target_mode_config,
         all_subprojects,
-        x_eio,
+        x_parmap,
     )
+
+    symbol_analysis = output_extra.core.symbol_analysis
+
     # ---------------------------------------
     # Step5: Adjusting rule_matches_by_rule
     # ---------------------------------------
@@ -965,7 +992,10 @@ def run_rules(
             fips_mode,
         )
 
-    if len(dependency_aware_rules) > 0:
+    running_sca_scan = len(dependency_aware_rules) > 0
+
+    sca_symbol_analysis = None
+    if running_sca_scan:
         deps_by_lockfile = adjust_matches_for_sca_rules(
             rule_matches_by_rule=rule_matches_by_rule,
             dependency_aware_rules=dependency_aware_rules,
@@ -973,10 +1003,25 @@ def run_rules(
             sca_dependency_targets=sca_dependency_targets,
             output_handler=output_handler,
             output_extra=output_extra,
-            dry_run=dry_run,
-            x_tr=x_tr,
+            write_to_tr_cache=write_to_tr_cache,
+            enable_transitive_reachability=enable_transitive_reachability,
             fips_mode=fips_mode,
+            rpc_session=rpc_session,
         )
+
+        if run_symbol_analysis:
+            try:
+                sca_symbol_analysis = list(
+                    run_subproject_symbol_analysis(
+                        target_manager=target_manager,
+                        subprojects_by_ecosystem=resolved_subprojects,
+                    )
+                )
+            except Exception as e:
+                logger.error(f"Error running subproject symbol analysis: {e}")
+        else:
+            sca_symbol_analysis = []
+
     else:
         logger.verbose("SCA findings adjustment: No SCA rules to adjust")
         deps_by_lockfile = {}
@@ -989,7 +1034,20 @@ def run_rules(
         dependency_parser_errors,
         plans,
         all_subprojects,
+        symbol_analysis,
+        sca_symbol_analysis,
     )
+
+
+class AutofixBehavior(enum.Enum):
+    # Don't do anything with rules' specified autofixes.
+    IGNORE = enum.auto()
+    # Generate rules' specified autofixes and report the fixed lines in the
+    # results, but don't actually apply them on disk.
+    REPORT = enum.auto()
+    # Generate rules' specified autofixes and apply them on disk, but don't
+    # report them in the results.
+    APPLY = enum.auto()
 
 
 ##############################################################################
@@ -1000,6 +1058,7 @@ def run_rules(
 # semgrep(entrypoint.py) -> main.py -> cli.py -> commands/scan.py -> run_scan()
 # old: this used to be called semgrep.semgrep_main.main
 @tracing.trace()
+@simple_profiling
 def run_scan(
     *,
     dump_command_for_core: bool = False,
@@ -1015,16 +1074,19 @@ def run_scan(
     lang: Optional[str],
     # NOTE: Since the `ci` command reuses this function, we intentionally do
     # not set a default at this level.
-    configs: Sequence[str],
+    config_strs: Optional[Sequence[str]],
+    rules_string: Optional[str] = None,
     no_rewrite_rule_ids: bool = False,
     jobs: Optional[int] = None,
     include: Optional[Sequence[str]] = None,
     exclude: Optional[Mapping[Product, Sequence[str]]] = None,
     exclude_rule: Optional[Sequence[str]] = None,
     strict: bool = False,
-    autofix: bool = False,
+    autofix: AutofixBehavior = AutofixBehavior.IGNORE,
     replacement: Optional[str] = None,
-    dryrun: bool = False,
+    # Whether to write to the transitive reachability cache
+    # (/tr_cache endpoint in the app).
+    write_to_tr_cache: bool = True,
     disable_nosem: bool = False,
     no_git_ignore: bool = False,
     force_novcs_project: bool = False,
@@ -1037,6 +1099,7 @@ def run_scan(
     interfile_timeout: int = 0,
     trace: bool = False,
     trace_endpoint: Optional[str] = None,
+    profile: bool = False,
     max_target_bytes: int = 0,
     timeout_threshold: int = 0,
     skip_unknown_extensions: bool = False,
@@ -1047,8 +1110,8 @@ def run_scan(
     baseline_commit_is_mergebase: bool = False,
     x_ls: bool = False,
     x_ls_long: bool = False,
-    x_tr: bool = False,
-    x_eio: bool = False,
+    enable_transitive_reachability: Optional[bool] = None,
+    x_parmap: bool = False,
     x_pro_naming: bool = False,
     x_no_python_schema_validation: bool = False,
     path_sensitive: bool = False,
@@ -1057,9 +1120,10 @@ def run_scan(
     dump_rule_partitions_params: Optional[out.DumpRulePartitionsParams] = None,
     ptt_enabled: bool = False,
     resolve_all_deps_in_diff_scan: bool = False,
-    symbol_analysis: bool = False,
+    run_symbol_analysis: bool = False,
     fips_mode: bool = False,
     x_group_taint_rules: bool = False,
+    x_dump_symbol_analysis: bool = False,
 ) -> Tuple[
     FilteredMatches,
     List[SemgrepError],
@@ -1074,6 +1138,8 @@ def run_scan(
     int,  # Executed Rule Count
     int,  # Missed Rule Count
     List[Union[out.UnresolvedSubproject, out.ResolvedSubproject]],
+    Optional[out.SymbolAnalysis],
+    Optional[Sequence[SubprojectSymbolAnalysis]],
 ]:
     logger.debug(f"semgrep version {__VERSION__}")
 
@@ -1085,29 +1151,45 @@ def run_scan(
     # Step1: loading the rules
     # ----------------------------
     rule_start_time = time.time()
-    includes_remote_config = ConfigLoader.includes_remote_config(configs)
+    includes_remote_config = ConfigLoader.includes_remote_config(config_strs)
     progress_msg = (
         "Loading rules from registry..."
         if includes_remote_config
         else "Loading rules..."
     )
-    with Progress(
-        SpinnerColumn(style="green"),
-        TextColumn("[bold]{task.description}[/bold]"),
-        transient=True,
-        console=console,
-        disable=(not sys.stderr.isatty()),
-    ) as progress:
-        task_id = progress.add_task(f"{progress_msg}", total=1)
-        configs_obj, config_errors = get_config(
-            pattern,
-            lang,
-            configs,
-            replacement=replacement,
-            project_url=project_url,
-            no_rewrite_rule_ids=no_rewrite_rule_ids,
-            no_python_schema_validation=x_no_python_schema_validation,
-        )
+    with profiling(progress_msg):
+        with Progress(
+            SpinnerColumn(style="green"),
+            TextColumn("[bold]{task.description}[/bold]"),
+            transient=True,
+            console=console,
+            disable=(not sys.stderr.isatty()),
+        ) as progress:
+            task_id = progress.add_task(f"{progress_msg}", total=1)
+            if pattern:
+                if not lang:
+                    raise SemgrepError(
+                        "language must be specified when a pattern is passed"
+                    )
+                configs_obj, config_errors = Config.from_pattern_lang(
+                    pattern, lang, replacement
+                )
+            elif rules_string is not None:
+                configs_obj, config_errors = Config.from_rules_string(
+                    rules_string,
+                    no_python_schema_validation=x_no_python_schema_validation,
+                )
+            elif config_strs is not None:
+                if replacement:
+                    raise SemgrepError(
+                        "command-line replacement flag can only be used with command-line pattern; when using a config file add the fix: key instead"
+                    )
+                configs_obj, config_errors = Config.from_config_list(
+                    config_strs or [],
+                    project_url,
+                    no_python_schema_validation=x_no_python_schema_validation,
+                )
+
         progress.remove_task(task_id)
     all_rules = configs_obj.get_rules(no_rewrite_rule_ids)
     profiler.save("config_time", rule_start_time)
@@ -1120,7 +1202,7 @@ def run_scan(
         metrics,
         project_url,
         engine_type,
-        configs,
+        config_strs or [],
         configs_obj,
         baseline_commit,
         run_secrets,
@@ -1212,104 +1294,114 @@ def run_scan(
         historical_secrets, baseline_handler, engine_type, target_manager
     )
 
+    if x_dump_symbol_analysis:
+        dump_symbol_analysis_and_exit(target_manager)
+
     # ----------------------------
     # Step3: running the core engine
     # ----------------------------
-    core_start_time = time.time()
-    core_runner = CoreRunner(
-        jobs=jobs,
-        engine_type=engine_type,
-        timeout=timeout,
-        max_memory=max_memory,
-        interfile_timeout=interfile_timeout,
-        timeout_threshold=timeout_threshold,
-        trace=trace,
-        trace_endpoint=trace_endpoint,
-        capture_stderr=capture_core_stderr,
-        optimizations=optimizations,
-        allow_untrusted_validators=allow_untrusted_validators,
-        respect_rule_paths=respect_rule_paths,
-        path_sensitive=path_sensitive,
-        symbol_analysis=symbol_analysis,
-        fips_mode=fips_mode,
-        use_pro_naming_for_intrafile=x_pro_naming,
-        group_taint_rules=x_group_taint_rules,
-    )
-    # TODO? why displayed here? why not closer to log_running_rules?
-    log_rules(filtered_rules, too_many_entries)
-
-    (
-        rule_matches_by_rule,
-        scan_errors,
-        output_extra,
-        dependencies,
-        dependency_parser_errors,
-        plans,
-        all_subprojects,
-    ) = run_rules(
-        filtered_rules,
-        target_manager,
-        target_mode_config,
-        core_runner,
-        output_handler,
-        dump_command_for_core,
-        time_flag,
-        matching_explanations,
-        engine_type,
-        strict,
-        run_secrets,
-        disable_secrets_validation,
-        with_code_rules=configs_obj.with_code_rules,
-        with_supply_chain=configs_obj.with_supply_chain,
-        allow_local_builds=allow_local_builds,
-        ptt_enabled=ptt_enabled,
-        resolve_all_deps_in_diff_scan=resolve_all_deps_in_diff_scan,
-        fips_mode=fips_mode,
-        dry_run=dryrun,
-        x_tr=x_tr,
-        x_eio=x_eio,
-    )
-    profiler.save("core_time", core_start_time)
-    semgrep_errors: List[SemgrepError] = config_errors + scan_errors
-    output_handler.handle_semgrep_errors(semgrep_errors)
-
-    # ---------------------------------
-    # Step3 bis: optional baseline run
-    # ---------------------------------
-
-    # Run baseline if needed
-    if baseline_handler:
-        rule_matches_by_rule = baseline_run(
-            baseline_handler=baseline_handler,
-            baseline_commit=baseline_commit,
-            rule_matches_by_rule=rule_matches_by_rule,
-            all_subprojects=all_subprojects,
-            scanning_root_strings=scanning_root_strings,
-            target_mode_config=target_mode_config,
-            output_extra=output_extra,
-            include=include,
-            exclude=exclude,
-            max_target_bytes=max_target_bytes,
-            respect_git_ignore=respect_git_ignore,
-            skip_unknown_extensions=skip_unknown_extensions,
-            too_many_entries=too_many_entries,
-            respect_semgrepignore=respect_semgrepignore,
-            semgrepignore_filename=semgrepignore_filename,
-            core_runner=core_runner,
-            output_handler=output_handler,
-            dump_command_for_core=dump_command_for_core,
-            time_flag=time_flag,
-            matching_explanations=matching_explanations,
+    with RpcSession.start() as rpc_session:
+        core_start_time = time.time()
+        core_runner = CoreRunner(
+            jobs=jobs,
             engine_type=engine_type,
-            strict=strict,
-            run_secrets=run_secrets,
-            disable_secrets_validation=disable_secrets_validation,
+            timeout=timeout,
+            max_memory=max_memory,
+            interfile_timeout=interfile_timeout,
+            timeout_threshold=timeout_threshold,
+            trace=trace,
+            trace_endpoint=trace_endpoint,
+            profile=profile,
+            capture_stderr=capture_core_stderr,
+            optimizations=optimizations,
+            allow_untrusted_validators=allow_untrusted_validators,
+            respect_rule_paths=respect_rule_paths,
+            path_sensitive=path_sensitive,
+            symbol_analysis=run_symbol_analysis,
+            fips_mode=fips_mode,
+            use_pro_naming_for_intrafile=x_pro_naming,
+            group_taint_rules=x_group_taint_rules,
+        )
+        # TODO? why displayed here? why not closer to log_running_rules?
+        log_rules(filtered_rules, too_many_entries)
+
+        (
+            rule_matches_by_rule,
+            scan_errors,
+            output_extra,
+            dependencies,
+            dependency_parser_errors,
+            plans,
+            all_subprojects,
+            symbol_analysis,
+            sca_symbol_analysis,
+        ) = run_rules(
+            filtered_rules,
+            target_manager,
+            target_mode_config,
+            core_runner,
+            output_handler,
+            dump_command_for_core,
+            time_flag,
+            matching_explanations,
+            engine_type,
+            strict,
+            run_secrets,
+            disable_secrets_validation,
+            with_code_rules=configs_obj.with_code_rules,
+            with_supply_chain=configs_obj.with_supply_chain,
             allow_local_builds=allow_local_builds,
             ptt_enabled=ptt_enabled,
-            dry_run=dryrun,
+            resolve_all_deps_in_diff_scan=resolve_all_deps_in_diff_scan,
             fips_mode=fips_mode,
-            x_eio=x_eio,
+            write_to_tr_cache=write_to_tr_cache,
+            enable_transitive_reachability=enable_transitive_reachability,
+            x_parmap=x_parmap,
+            run_symbol_analysis=run_symbol_analysis,
+            rpc_session=rpc_session,
         )
+        profiler.save("core_time", core_start_time)
+        semgrep_errors: List[SemgrepError] = config_errors + scan_errors
+        output_handler.handle_semgrep_errors(semgrep_errors)
+
+        # ---------------------------------
+        # Step3 bis: optional baseline run
+        # ---------------------------------
+
+        # Run baseline if needed
+        if baseline_handler:
+            rule_matches_by_rule = baseline_run(
+                baseline_handler=baseline_handler,
+                baseline_commit=baseline_commit,
+                rule_matches_by_rule=rule_matches_by_rule,
+                all_subprojects=all_subprojects,
+                scanning_root_strings=scanning_root_strings,
+                target_mode_config=target_mode_config,
+                output_extra=output_extra,
+                include=include,
+                exclude=exclude,
+                max_target_bytes=max_target_bytes,
+                respect_git_ignore=respect_git_ignore,
+                skip_unknown_extensions=skip_unknown_extensions,
+                too_many_entries=too_many_entries,
+                respect_semgrepignore=respect_semgrepignore,
+                semgrepignore_filename=semgrepignore_filename,
+                core_runner=core_runner,
+                output_handler=output_handler,
+                dump_command_for_core=dump_command_for_core,
+                time_flag=time_flag,
+                matching_explanations=matching_explanations,
+                engine_type=engine_type,
+                strict=strict,
+                run_secrets=run_secrets,
+                disable_secrets_validation=disable_secrets_validation,
+                allow_local_builds=allow_local_builds,
+                ptt_enabled=ptt_enabled,
+                write_to_tr_cache=write_to_tr_cache,
+                fips_mode=fips_mode,
+                x_parmap=x_parmap,
+                rpc_session=rpc_session,
+            )
 
     # ---------------------------------
     # Step4: Nosemgrep filtering
@@ -1340,8 +1432,16 @@ def run_scan(
     # ---------------------------------
     # Step5: Autofix
     # ---------------------------------
-    if autofix:
-        apply_fixes(filtered_matches_by_rule.kept, dryrun)
+
+    # semgrep doesn't like a match statement here
+    if autofix == AutofixBehavior.APPLY:
+        apply_fixes(filtered_matches_by_rule.kept, False)
+    elif autofix == AutofixBehavior.REPORT:
+        apply_fixes(filtered_matches_by_rule.kept, True)
+    elif autofix == AutofixBehavior.IGNORE:
+        pass
+    else:
+        raise ValueError(f"Unrecognized autofix behavior: {autofix}")
 
     renamed_targets = set(
         baseline_handler.status.renamed.values() if baseline_handler else []
@@ -1364,6 +1464,8 @@ def run_scan(
         executed_rule_count,
         missed_rule_count,
         all_subprojects,
+        symbol_analysis,
+        sca_symbol_analysis,
     )
 
 
@@ -1403,12 +1505,14 @@ def run_scan_and_return_json(
         _,
         _,
         _all_subprojects,
+        _,
+        _,
     ) = run_scan(
         output_handler=output_handler,
         scanning_roots=[str(t) for t in scanning_roots],
         pattern="",
         lang="",
-        configs=[str(config)],
+        config_strs=[str(config)],
         **kwargs,
     )
 

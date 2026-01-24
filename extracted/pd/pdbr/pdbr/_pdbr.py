@@ -373,35 +373,23 @@ def rich_pdb_klass(
             self._print(msg)
 
         def precmd(self, line):
+            # Python 3.13+: Ctrl-D comes as literal "EOF"
+            if line is None or line == "EOF":
+                return "continue"
+
             if line.endswith("??"):
                 line = "pinfo2 " + line[:-2]
             elif line.endswith("?"):
                 line = "pinfo " + line[:-1]
+            elif line.startswith("%"):
+                if line.startswith("%%"):
+                    self.error(
+                        "Cell magics (multiline) are not yet supported. "
+                        "Use a single '%' instead."
+                    )
+                return self.run_magic(line[1:])
 
             return super().precmd(line)
-
-        def onecmd(self, line: str) -> bool:
-            """
-            Invokes 'run_magic()' if the line starts with a '%'.
-            The loop stops of this function returns True.
-            (unless an overridden 'postcmd()' behaves differently)
-            """
-            try:
-                line = line.strip()
-                if line.startswith("%"):
-                    if line.startswith("%%"):
-                        self.error(
-                            "Cell magics (multiline) are not yet supported. "
-                            "Use a single '%' instead."
-                        )
-                        return False
-                    self.run_magic(line[1:])
-                    return False
-                return super().onecmd(line)
-
-            except Exception as e:
-                self.error(f"{type(e).__qualname__} in onecmd({line!r}): {e}")
-                return False
 
         def _print(self, val, prefix=None, style=None, print_layout=True):
             if val == "--Return--":
@@ -454,6 +442,13 @@ def rich_pdb_klass(
                 filename = frame.f_code.co_filename
                 self.shell.hooks.synchronize_with_editor(filename, lineno, 0)
                 # vds: <<
+
+        def print_stack_trace(self, count):
+            """
+            Use pdb stack trace due to hide hidden frames
+            IPython is not using traceback count (for only python3.14),
+            """
+            Pdb.print_stack_trace(self, count=count)
 
         def run_magic(self, line) -> str:
             """

@@ -1,19 +1,12 @@
 # Copyright 2025 Daytona Platforms Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-from daytona_api_client import SandboxState, SessionExecuteResponse
+from daytona_api_client import SandboxState
+from daytona_toolbox_api_client import SessionExecuteResponse
 
-from ._async.computer_use import (
-    AsyncComputerUse,
-    AsyncDisplay,
-    AsyncKeyboard,
-    AsyncMouse,
-    AsyncScreenshot,
-    ScreenshotOptions,
-    ScreenshotRegion,
-)
+from ._async.computer_use import AsyncComputerUse, AsyncDisplay, AsyncKeyboard, AsyncMouse, AsyncScreenshot
 from ._async.daytona import AsyncDaytona
-from ._async.sandbox import AsyncSandbox
+from ._async.sandbox import AsyncPaginatedSandboxes, AsyncSandbox
 from ._sync.daytona import Daytona
 from ._sync.sandbox import Sandbox
 from .common.charts import (
@@ -26,6 +19,8 @@ from .common.charts import (
     PieChart,
     ScatterChart,
 )
+from .common.code_interpreter import ExecutionError, ExecutionResult, OutputHandler, OutputMessage
+from .common.computer_use import ScreenshotOptions, ScreenshotRegion
 from .common.daytona import (
     CodeLanguage,
     CreateSandboxBaseParams,
@@ -33,11 +28,12 @@ from .common.daytona import (
     CreateSandboxFromSnapshotParams,
     DaytonaConfig,
 )
-from .common.errors import DaytonaError
-from .common.filesystem import FileUpload
+from .common.errors import DaytonaError, DaytonaNotFoundError, DaytonaRateLimitError, DaytonaTimeoutError
+from .common.filesystem import FileDownloadRequest, FileDownloadResponse, FileUpload
 from .common.image import Image
-from .common.lsp_server import LspLanguageId
-from .common.process import CodeRunParams, SessionExecuteRequest
+from .common.lsp_server import LspCompletionPosition, LspLanguageId
+from .common.process import CodeRunParams, ExecuteResponse, ExecutionArtifacts, SessionExecuteRequest
+from .common.pty import PtySize
 from .common.sandbox import Resources
 from .common.snapshot import CreateSnapshotParams
 from .common.volume import VolumeMount
@@ -49,6 +45,8 @@ __all__ = [
     "SessionExecuteRequest",
     "SessionExecuteResponse",
     "DaytonaError",
+    "DaytonaNotFoundError",
+    "DaytonaRateLimitError",
     "LspLanguageId",
     "CodeRunParams",
     "Sandbox",
@@ -62,10 +60,13 @@ __all__ = [
     "PieChart",
     "BoxAndWhiskerChart",
     "CompositeChart",
+    "FileDownloadRequest",
+    "FileDownloadResponse",
     "FileUpload",
     "VolumeMount",
     "AsyncDaytona",
     "AsyncSandbox",
+    "AsyncPaginatedSandboxes",
     "AsyncComputerUse",
     "AsyncMouse",
     "AsyncKeyboard",
@@ -78,4 +79,14 @@ __all__ = [
     "CreateSandboxFromImageParams",
     "CreateSandboxFromSnapshotParams",
     "CreateSnapshotParams",
+    "PtySize",
+    "LspCompletionPosition",
+    "ExecutionArtifacts",
+    "ExecuteResponse",
+    "ExecutionResult",
+    "ExecutionError",
+    "OutputMessage",
+    "OutputHandler",
+    "DaytonaTimeoutError",
+    "DaytonaNotFoundError",
 ]

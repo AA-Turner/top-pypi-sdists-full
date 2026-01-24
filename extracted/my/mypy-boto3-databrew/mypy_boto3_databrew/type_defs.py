@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -39,12 +40,6 @@ from .literals import (
     ThresholdUnitType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -220,7 +215,7 @@ __all__ = (
 
 
 class AllowedStatisticsOutputTypeDef(TypedDict):
-    Statistics: List[str]
+    Statistics: list[str]
 
 
 class AllowedStatisticsTypeDef(TypedDict):
@@ -241,7 +236,7 @@ class RecipeVersionErrorDetailTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -311,7 +306,7 @@ class DatetimeOptionsTypeDef(TypedDict):
 
 class FilterExpressionOutputTypeDef(TypedDict):
     Expression: str
-    ValuesMap: Dict[str, str]
+    ValuesMap: dict[str, str]
 
 
 class FilterExpressionTypeDef(TypedDict):
@@ -375,8 +370,8 @@ class DescribeScheduleRequestTypeDef(TypedDict):
 
 
 class ExcelOptionsOutputTypeDef(TypedDict):
-    SheetNames: NotRequired[List[str]]
-    SheetIndexes: NotRequired[List[int]]
+    SheetNames: NotRequired[list[str]]
+    SheetIndexes: NotRequired[list[int]]
     HeaderRow: NotRequired[bool]
 
 
@@ -458,7 +453,7 @@ class RulesetItemTypeDef(TypedDict):
     LastModifiedDate: NotRequired[datetime]
     ResourceArn: NotRequired[str]
     RuleCount: NotRequired[int]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListSchedulesRequestTypeDef(TypedDict):
@@ -472,12 +467,12 @@ class ScheduleTypeDef(TypedDict):
     AccountId: NotRequired[str]
     CreatedBy: NotRequired[str]
     CreateDate: NotRequired[datetime]
-    JobNames: NotRequired[List[str]]
+    JobNames: NotRequired[list[str]]
     LastModifiedBy: NotRequired[str]
     LastModifiedDate: NotRequired[datetime]
     ResourceArn: NotRequired[str]
     CronExpression: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -491,7 +486,7 @@ class PublishRecipeRequestTypeDef(TypedDict):
 
 class RecipeActionOutputTypeDef(TypedDict):
     Operation: str
-    Parameters: NotRequired[Dict[str, str]]
+    Parameters: NotRequired[dict[str, str]]
 
 
 class RecipeActionTypeDef(TypedDict):
@@ -529,7 +524,7 @@ class StartProjectSessionRequestTypeDef(TypedDict):
 
 class StatisticOverrideOutputTypeDef(TypedDict):
     Statistic: str
-    Parameters: Dict[str, str]
+    Parameters: dict[str, str]
 
 
 class StatisticOverrideTypeDef(TypedDict):
@@ -559,8 +554,8 @@ class UpdateScheduleRequestTypeDef(TypedDict):
 
 
 class EntityDetectorConfigurationOutputTypeDef(TypedDict):
-    EntityTypes: List[str]
-    AllowedStatistics: NotRequired[List[AllowedStatisticsOutputTypeDef]]
+    EntityTypes: list[str]
+    AllowedStatistics: NotRequired[list[AllowedStatisticsOutputTypeDef]]
 
 
 class EntityDetectorConfigurationTypeDef(TypedDict):
@@ -570,7 +565,7 @@ class EntityDetectorConfigurationTypeDef(TypedDict):
 
 class BatchDeleteRecipeVersionResponseTypeDef(TypedDict):
     Name: str
-    Errors: List[RecipeVersionErrorDetailTypeDef]
+    Errors: list[RecipeVersionErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -643,18 +638,18 @@ class DeleteScheduleResponseTypeDef(TypedDict):
 class DescribeScheduleResponseTypeDef(TypedDict):
     CreateDate: datetime
     CreatedBy: str
-    JobNames: List[str]
+    JobNames: list[str]
     LastModifiedBy: str
     LastModifiedDate: datetime
     ResourceArn: str
     CronExpression: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     Name: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -765,7 +760,7 @@ class DescribeProjectResponseTypeDef(TypedDict):
     ResourceArn: str
     Sample: SampleTypeDef
     RoleArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     SessionStatus: SessionStatusType
     OpenedBy: str
     OpenDate: datetime
@@ -783,7 +778,7 @@ class ProjectTypeDef(TypedDict):
     LastModifiedBy: NotRequired[str]
     ResourceArn: NotRequired[str]
     Sample: NotRequired[SampleTypeDef]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     RoleArn: NotRequired[str]
     OpenedBy: NotRequired[str]
     OpenDate: NotRequired[datetime]
@@ -873,20 +868,20 @@ class ListSchedulesRequestPaginateTypeDef(TypedDict):
 
 
 class ListRulesetsResponseTypeDef(TypedDict):
-    Rulesets: List[RulesetItemTypeDef]
+    Rulesets: list[RulesetItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSchedulesResponseTypeDef(TypedDict):
-    Schedules: List[ScheduleTypeDef]
+    Schedules: list[ScheduleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class RecipeStepOutputTypeDef(TypedDict):
     Action: RecipeActionOutputTypeDef
-    ConditionExpressions: NotRequired[List[ConditionExpressionTypeDef]]
+    ConditionExpressions: NotRequired[list[ConditionExpressionTypeDef]]
 
 
 RecipeActionUnionTypeDef = Union[RecipeActionTypeDef, RecipeActionOutputTypeDef]
@@ -896,9 +891,9 @@ class RuleOutputTypeDef(TypedDict):
     Name: str
     CheckExpression: str
     Disabled: NotRequired[bool]
-    SubstitutionMap: NotRequired[Dict[str, str]]
+    SubstitutionMap: NotRequired[dict[str, str]]
     Threshold: NotRequired[ThresholdTypeDef]
-    ColumnSelectors: NotRequired[List[ColumnSelectorTypeDef]]
+    ColumnSelectors: NotRequired[list[ColumnSelectorTypeDef]]
 
 
 class RuleTypeDef(TypedDict):
@@ -911,8 +906,8 @@ class RuleTypeDef(TypedDict):
 
 
 class StatisticsConfigurationOutputTypeDef(TypedDict):
-    IncludedStatistics: NotRequired[List[str]]
-    Overrides: NotRequired[List[StatisticOverrideOutputTypeDef]]
+    IncludedStatistics: NotRequired[list[str]]
+    Overrides: NotRequired[list[StatisticOverrideOutputTypeDef]]
 
 
 class StatisticsConfigurationTypeDef(TypedDict):
@@ -943,7 +938,7 @@ class DataCatalogOutputTypeDef(TypedDict):
 
 
 class ListProjectsResponseTypeDef(TypedDict):
-    Projects: List[ProjectTypeDef]
+    Projects: list[ProjectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -952,7 +947,7 @@ class ExtraTypeDef(TypedDict):
     Location: S3LocationTypeDef
     CompressionFormat: NotRequired[CompressionFormatType]
     Format: NotRequired[OutputFormatType]
-    PartitionColumns: NotRequired[List[str]]
+    PartitionColumns: NotRequired[list[str]]
     Overwrite: NotRequired[bool]
     FormatOptions: NotRequired[OutputFormatOptionsTypeDef]
     MaxOutputFiles: NotRequired[int]
@@ -971,7 +966,7 @@ class OutputTypeDef(TypedDict):
 class PathOptionsOutputTypeDef(TypedDict):
     LastModifiedDateCondition: NotRequired[FilterExpressionOutputTypeDef]
     FilesLimit: NotRequired[FilesLimitTypeDef]
-    Parameters: NotRequired[Dict[str, DatasetParameterOutputTypeDef]]
+    Parameters: NotRequired[dict[str, DatasetParameterOutputTypeDef]]
 
 
 class PathOptionsTypeDef(TypedDict):
@@ -993,8 +988,8 @@ class DescribeRecipeResponseTypeDef(TypedDict):
     PublishedDate: datetime
     Description: str
     Name: str
-    Steps: List[RecipeStepOutputTypeDef]
-    Tags: Dict[str, str]
+    Steps: list[RecipeStepOutputTypeDef]
+    Tags: dict[str, str]
     ResourceArn: str
     RecipeVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1011,8 +1006,8 @@ class RecipeTypeDef(TypedDict):
     PublishedDate: NotRequired[datetime]
     Description: NotRequired[str]
     ResourceArn: NotRequired[str]
-    Steps: NotRequired[List[RecipeStepOutputTypeDef]]
-    Tags: NotRequired[Dict[str, str]]
+    Steps: NotRequired[list[RecipeStepOutputTypeDef]]
+    Tags: NotRequired[dict[str, str]]
     RecipeVersion: NotRequired[str]
 
 
@@ -1025,13 +1020,13 @@ class DescribeRulesetResponseTypeDef(TypedDict):
     Name: str
     Description: str
     TargetArn: str
-    Rules: List[RuleOutputTypeDef]
+    Rules: list[RuleOutputTypeDef]
     CreateDate: datetime
     CreatedBy: str
     LastModifiedBy: str
     LastModifiedDate: datetime
     ResourceArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1040,7 +1035,7 @@ RuleUnionTypeDef = Union[RuleTypeDef, RuleOutputTypeDef]
 
 class ColumnStatisticsConfigurationOutputTypeDef(TypedDict):
     Statistics: StatisticsConfigurationOutputTypeDef
-    Selectors: NotRequired[List[ColumnSelectorTypeDef]]
+    Selectors: NotRequired[list[ColumnSelectorTypeDef]]
 
 
 class ColumnStatisticsConfigurationTypeDef(TypedDict):
@@ -1059,14 +1054,14 @@ class JobRunTypeDef(TypedDict):
     State: NotRequired[JobRunStateType]
     LogSubscription: NotRequired[LogSubscriptionType]
     LogGroupName: NotRequired[str]
-    Outputs: NotRequired[List[ExtraTypeDef]]
-    DataCatalogOutputs: NotRequired[List[DataCatalogOutputTypeDef]]
-    DatabaseOutputs: NotRequired[List[DatabaseOutputTypeDef]]
+    Outputs: NotRequired[list[ExtraTypeDef]]
+    DataCatalogOutputs: NotRequired[list[DataCatalogOutputTypeDef]]
+    DatabaseOutputs: NotRequired[list[DatabaseOutputTypeDef]]
     RecipeReference: NotRequired[RecipeReferenceTypeDef]
     StartedBy: NotRequired[str]
     StartedOn: NotRequired[datetime]
     JobSample: NotRequired[JobSampleTypeDef]
-    ValidationConfigurations: NotRequired[List[ValidationConfigurationTypeDef]]
+    ValidationConfigurations: NotRequired[list[ValidationConfigurationTypeDef]]
 
 
 JobTypeDef = TypedDict(
@@ -1085,17 +1080,17 @@ JobTypeDef = TypedDict(
         "LogSubscription": NotRequired[LogSubscriptionType],
         "MaxCapacity": NotRequired[int],
         "MaxRetries": NotRequired[int],
-        "Outputs": NotRequired[List[ExtraTypeDef]],
-        "DataCatalogOutputs": NotRequired[List[DataCatalogOutputTypeDef]],
-        "DatabaseOutputs": NotRequired[List[DatabaseOutputTypeDef]],
+        "Outputs": NotRequired[list[ExtraTypeDef]],
+        "DataCatalogOutputs": NotRequired[list[DataCatalogOutputTypeDef]],
+        "DatabaseOutputs": NotRequired[list[DatabaseOutputTypeDef]],
         "ProjectName": NotRequired[str],
         "RecipeReference": NotRequired[RecipeReferenceTypeDef],
         "ResourceArn": NotRequired[str],
         "RoleArn": NotRequired[str],
         "Timeout": NotRequired[int],
-        "Tags": NotRequired[Dict[str, str]],
+        "Tags": NotRequired[dict[str, str]],
         "JobSample": NotRequired[JobSampleTypeDef],
-        "ValidationConfigurations": NotRequired[List[ValidationConfigurationTypeDef]],
+        "ValidationConfigurations": NotRequired[list[ValidationConfigurationTypeDef]],
     },
 )
 UnionTypeDef = Union[OutputTypeDef, ExtraTypeDef]
@@ -1113,7 +1108,7 @@ class DatasetTypeDef(TypedDict):
     LastModifiedBy: NotRequired[str]
     Source: NotRequired[SourceType]
     PathOptions: NotRequired[PathOptionsOutputTypeDef]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     ResourceArn: NotRequired[str]
 
 
@@ -1128,7 +1123,7 @@ class DescribeDatasetResponseTypeDef(TypedDict):
     LastModifiedBy: str
     Source: SourceType
     PathOptions: PathOptionsOutputTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResourceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1137,13 +1132,13 @@ PathOptionsUnionTypeDef = Union[PathOptionsTypeDef, PathOptionsOutputTypeDef]
 
 
 class ListRecipeVersionsResponseTypeDef(TypedDict):
-    Recipes: List[RecipeTypeDef]
+    Recipes: list[RecipeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListRecipesResponseTypeDef(TypedDict):
-    Recipes: List[RecipeTypeDef]
+    Recipes: list[RecipeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1167,8 +1162,8 @@ class UpdateRulesetRequestTypeDef(TypedDict):
 
 class ProfileConfigurationOutputTypeDef(TypedDict):
     DatasetStatisticsConfiguration: NotRequired[StatisticsConfigurationOutputTypeDef]
-    ProfileColumns: NotRequired[List[ColumnSelectorTypeDef]]
-    ColumnStatisticsConfigurations: NotRequired[List[ColumnStatisticsConfigurationOutputTypeDef]]
+    ProfileColumns: NotRequired[list[ColumnSelectorTypeDef]]
+    ColumnStatisticsConfigurations: NotRequired[list[ColumnStatisticsConfigurationOutputTypeDef]]
     EntityDetectorConfiguration: NotRequired[EntityDetectorConfigurationOutputTypeDef]
 
 
@@ -1180,13 +1175,13 @@ class ProfileConfigurationTypeDef(TypedDict):
 
 
 class ListJobRunsResponseTypeDef(TypedDict):
-    JobRuns: List[JobRunTypeDef]
+    JobRuns: list[JobRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListJobsResponseTypeDef(TypedDict):
-    Jobs: List[JobTypeDef]
+    Jobs: list[JobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1224,7 +1219,7 @@ class UpdateRecipeJobRequestTypeDef(TypedDict):
 
 
 class ListDatasetsResponseTypeDef(TypedDict):
-    Datasets: List[DatasetTypeDef]
+    Datasets: list[DatasetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1283,16 +1278,16 @@ DescribeJobResponseTypeDef = TypedDict(
         "LogSubscription": LogSubscriptionType,
         "MaxCapacity": int,
         "MaxRetries": int,
-        "Outputs": List[ExtraTypeDef],
-        "DataCatalogOutputs": List[DataCatalogOutputTypeDef],
-        "DatabaseOutputs": List[DatabaseOutputTypeDef],
+        "Outputs": list[ExtraTypeDef],
+        "DataCatalogOutputs": list[DataCatalogOutputTypeDef],
+        "DatabaseOutputs": list[DatabaseOutputTypeDef],
         "ProjectName": str,
         "ProfileConfiguration": ProfileConfigurationOutputTypeDef,
-        "ValidationConfigurations": List[ValidationConfigurationTypeDef],
+        "ValidationConfigurations": list[ValidationConfigurationTypeDef],
         "RecipeReference": RecipeReferenceTypeDef,
         "ResourceArn": str,
         "RoleArn": str,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "Timeout": int,
         "JobSample": JobSampleTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -1308,14 +1303,14 @@ class DescribeJobRunResponseTypeDef(TypedDict):
     ExecutionTime: int
     JobName: str
     ProfileConfiguration: ProfileConfigurationOutputTypeDef
-    ValidationConfigurations: List[ValidationConfigurationTypeDef]
+    ValidationConfigurations: list[ValidationConfigurationTypeDef]
     RunId: str
     State: JobRunStateType
     LogSubscription: LogSubscriptionType
     LogGroupName: str
-    Outputs: List[ExtraTypeDef]
-    DataCatalogOutputs: List[DataCatalogOutputTypeDef]
-    DatabaseOutputs: List[DatabaseOutputTypeDef]
+    Outputs: list[ExtraTypeDef]
+    DataCatalogOutputs: list[DataCatalogOutputTypeDef]
+    DatabaseOutputs: list[DatabaseOutputTypeDef]
     RecipeReference: RecipeReferenceTypeDef
     StartedBy: str
     StartedOn: datetime

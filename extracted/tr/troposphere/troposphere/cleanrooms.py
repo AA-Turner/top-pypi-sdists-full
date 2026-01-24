@@ -107,6 +107,16 @@ class AnalysisSourceMetadata(AWSProperty):
     }
 
 
+class ErrorMessageConfiguration(AWSProperty):
+    """
+    `ErrorMessageConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-analysistemplate-errormessageconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Type": (str, True),
+    }
+
+
 class AnalysisTemplate(AWSObject):
     """
     `AnalysisTemplate <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-analysistemplate.html>`__
@@ -117,6 +127,7 @@ class AnalysisTemplate(AWSObject):
     props: PropsDictType = {
         "AnalysisParameters": ([AnalysisParameter], False),
         "Description": (str, False),
+        "ErrorMessageConfiguration": (ErrorMessageConfiguration, False),
         "Format": (str, True),
         "MembershipIdentifier": (str, True),
         "Name": (str, True),
@@ -235,7 +246,9 @@ class Collaboration(AWSObject):
     resource_type = "AWS::CleanRooms::Collaboration"
 
     props: PropsDictType = {
+        "AllowedResultRegions": ([str], False),
         "AnalyticsEngine": (str, False),
+        "AutoApprovedChangeTypes": ([str], False),
         "CreatorDisplayName": (str, True),
         "CreatorMLMemberAbilities": (MLMemberAbilities, False),
         "CreatorMemberAbilities": ([str], False),
@@ -378,6 +391,7 @@ class AthenaTableReference(AWSProperty):
     props: PropsDictType = {
         "DatabaseName": (str, True),
         "OutputLocation": (str, False),
+        "Region": (str, False),
         "TableName": (str, True),
         "WorkGroup": (str, True),
     }
@@ -390,6 +404,7 @@ class GlueTableReference(AWSProperty):
 
     props: PropsDictType = {
         "DatabaseName": (str, True),
+        "Region": (str, False),
         "TableName": (str, True),
     }
 
@@ -767,14 +782,28 @@ class Membership(AWSObject):
     }
 
 
+class BudgetParameter(AWSProperty):
+    """
+    `BudgetParameter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-privacybudgettemplate-budgetparameter.html>`__
+    """
+
+    props: PropsDictType = {
+        "AutoRefresh": (str, False),
+        "Budget": (integer, True),
+        "Type": (str, True),
+    }
+
+
 class Parameters(AWSProperty):
     """
     `Parameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-privacybudgettemplate-parameters.html>`__
     """
 
     props: PropsDictType = {
-        "Epsilon": (integer, True),
-        "UsersNoisePerQuery": (integer, True),
+        "BudgetParameters": ([BudgetParameter], False),
+        "Epsilon": (integer, False),
+        "ResourceArn": (str, False),
+        "UsersNoisePerQuery": (integer, False),
     }
 
 

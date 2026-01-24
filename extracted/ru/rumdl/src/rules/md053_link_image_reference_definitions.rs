@@ -2,39 +2,23 @@ use crate::rule::{LintError, LintResult, LintWarning, Rule, Severity};
 use crate::rule_config_serde::RuleConfig;
 use crate::utils::range_utils::calculate_line_range;
 use fancy_regex::Regex as FancyRegex;
-use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 
-lazy_static! {
-    // Link reference format: [text][reference]
-    // REMOVED: static ref LINK_REFERENCE_REGEX: FancyRegex = FancyRegex::new(r"\[([^\]]*)\]\s*\[([^\]]*)\]").unwrap();
+// Shortcut reference links: [reference] - must not be followed by another bracket
+// Allow references followed by punctuation like colon, period, comma (e.g., "[reference]:", "[reference].")
+// Don't exclude references followed by ": " in the middle of a line (only at start of line)
+static SHORTCUT_REFERENCE_REGEX: LazyLock<FancyRegex> =
+    LazyLock::new(|| FancyRegex::new(r"(?<!\!)\[([^\]]+)\](?!\[)").unwrap());
 
-    // Image reference format: ![text][reference]
-    // REMOVED: static ref IMAGE_REFERENCE_REGEX: FancyRegex = FancyRegex::new(r"!\[([^\]]*)\]\s*\[([^\]]*)\]").unwrap();
+// Link/image reference definition format: [reference]: URL
+static REFERENCE_DEFINITION_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\s*\[([^\]]+)\]:\s+(.+)$").unwrap());
 
-    // Shortcut reference links: [reference] - must not be followed by another bracket
-    // Allow references followed by punctuation like colon, period, comma (e.g., "[reference]:", "[reference].")
-    // Don't exclude references followed by ": " in the middle of a line (only at start of line)
-    static ref SHORTCUT_REFERENCE_REGEX: FancyRegex =
-        FancyRegex::new(r"(?<!\!)\[([^\]]+)\](?!\[)").unwrap();
-
-    // REMOVED: Empty reference links: [text][] or ![text][]
-    // static ref EMPTY_LINK_REFERENCE_REGEX: Regex = Regex::new(r"\[([^\]]+)\]\s*\[\s*\]").unwrap();
-    // static ref EMPTY_IMAGE_REFERENCE_REGEX: Regex = Regex::new(r"!\[([^\]]+)\]\s*\[\s*\]").unwrap();
-
-    // Link/image reference definition format: [reference]: URL
-    static ref REFERENCE_DEFINITION_REGEX: Regex =
-        Regex::new(r"^\s*\[([^\]]+)\]:\s+(.+)$").unwrap();
-
-    // Multi-line reference definition continuation pattern
-    static ref CONTINUATION_REGEX: Regex = Regex::new(r"^\s+(.+)$").unwrap();
-
-    // Code block regex - support indented code blocks for MkDocs tabs
-    static ref CODE_BLOCK_START_REGEX: Regex = Regex::new(r"^(\s*)(`{3,}|~{3,})").unwrap();
-    static ref CODE_BLOCK_END_REGEX: Regex = Regex::new(r"^(\s*)(`{3,}|~{3,})\s*$").unwrap();
-}
+// Multi-line reference definition continuation pattern
+static CONTINUATION_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s+(.+)$").unwrap());
 
 /// Configuration for MD053 rule
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -130,9 +114,8 @@ impl MD053LinkImageReferenceDefinitions {
         Self { config }
     }
 
-    /// Check if a pattern is likely NOT a markdown reference
-    /// Returns true if this pattern should be skipped
-    fn is_likely_not_reference(text: &str) -> bool {
+    /// Returns true if this pattern should be skipped during reference detection
+    fn should_skip_pattern(text: &str) -> bool {
         // Don't skip pure numeric patterns - they could be footnote references like [1]
         // Only skip numeric ranges like [1:3], [0:10], etc.
         if text.contains(':') && text.chars().all(|c| c.is_ascii_digit() || c == ':') {
@@ -155,10 +138,21 @@ impl MD053LinkImageReferenceDefinitions {
             return true;
         }
 
-        // Skip descriptive patterns with colon like [default: the project root]
-        // But allow simple numeric ranges which are handled above
-        if text.contains(':') && text.contains(' ') {
-            return true;
+        // Skip descriptive prose patterns with colon like [default: the project root]
+        // But allow reference-style patterns like [RFC: 1234], [Issue: 42], [See: Section 2]
+        // These are distinguished by having a short prefix (typically 1-2 words) before the colon
+        if text.contains(':') && text.contains(' ') && !text.contains('`') {
+            // Check if this looks like a reference pattern (short prefix before colon)
+            // vs a prose description (longer text before colon)
+            if let Some((before_colon, _)) = text.split_once(':') {
+                let before_trimmed = before_colon.trim();
+                // Count words before colon - references typically have 1-2 words
+                let word_count = before_trimmed.split_whitespace().count();
+                // If there are 3+ words before the colon, it's likely prose
+                if word_count >= 3 {
+                    return true;
+                }
+            }
         }
 
         // Skip alert/admonition patterns like [!WARN], [!NOTE], etc.
@@ -191,6 +185,53 @@ impl MD053LinkImageReferenceDefinitions {
         reference.replace("\\", "")
     }
 
+    /// Check if a reference definition is likely a comment-style reference.
+    ///
+    /// This recognizes common community patterns for comments in markdown:
+    /// - `[//]: # (comment)` - Most popular pattern
+    /// - `[comment]: # (text)` - Semantic pattern
+    /// - `[note]: # (text)` - Documentation pattern
+    /// - `[todo]: # (text)` - Task tracking pattern
+    /// - Any reference with just `#` as the URL (fragment-only, often unused)
+    ///
+    /// While not part of any official markdown spec (CommonMark, GFM), these patterns
+    /// are widely used across 23+ markdown implementations as documented in the community.
+    ///
+    /// # Arguments
+    /// * `ref_id` - The reference ID (already normalized to lowercase)
+    /// * `url` - The URL from the reference definition
+    ///
+    /// # Returns
+    /// `true` if this looks like a comment-style reference that should be ignored
+    fn is_likely_comment_reference(ref_id: &str, url: &str) -> bool {
+        // Common comment reference labels used in the community
+        const COMMENT_LABELS: &[&str] = &[
+            "//",      // [//]: # (comment) - most popular
+            "comment", // [comment]: # (text)
+            "note",    // [note]: # (text)
+            "todo",    // [todo]: # (text)
+            "fixme",   // [fixme]: # (text)
+            "hack",    // [hack]: # (text)
+        ];
+
+        let normalized_id = ref_id.trim().to_lowercase();
+        let normalized_url = url.trim();
+
+        // Pattern 1: Known comment labels with fragment URLs
+        // e.g., [//]: # (comment), [comment]: #section
+        if COMMENT_LABELS.contains(&normalized_id.as_str()) && normalized_url.starts_with('#') {
+            return true;
+        }
+
+        // Pattern 2: Any reference with just "#" as the URL
+        // This is often used as a comment placeholder or unused anchor
+        if normalized_url == "#" {
+            return true;
+        }
+
+        false
+    }
+
     /// Find all link and image reference definitions in the content.
     ///
     /// This method returns a HashMap where the key is the normalized reference ID and the value is a vector of (start_line, end_line) tuples.
@@ -199,6 +240,11 @@ impl MD053LinkImageReferenceDefinitions {
 
         // First, add all reference definitions from context
         for ref_def in &ctx.reference_defs {
+            // Skip comment-style references (e.g., [//]: # (comment))
+            if Self::is_likely_comment_reference(&ref_def.id, &ref_def.url) {
+                continue;
+            }
+
             // Apply unescape to handle escaped characters in definitions
             let normalized_id = Self::unescape_reference(&ref_def.id); // Already lowercase from context
             definitions
@@ -212,10 +258,10 @@ impl MD053LinkImageReferenceDefinitions {
         let mut i = 0;
         while i < lines.len() {
             let line_info = &lines[i];
-            let line = &line_info.content;
+            let line = line_info.content(ctx.content);
 
             // Skip code blocks and front matter using line info
-            if line_info.in_code_block || ctx.is_in_front_matter(i + 1) {
+            if line_info.in_code_block || line_info.in_front_matter {
                 i += 1;
                 continue;
             }
@@ -224,11 +270,11 @@ impl MD053LinkImageReferenceDefinitions {
             if i > 0 && CONTINUATION_REGEX.is_match(line) {
                 // Find the reference definition this continues
                 let mut def_start = i - 1;
-                while def_start > 0 && !REFERENCE_DEFINITION_REGEX.is_match(&lines[def_start].content) {
+                while def_start > 0 && !REFERENCE_DEFINITION_REGEX.is_match(lines[def_start].content(ctx.content)) {
                     def_start -= 1;
                 }
 
-                if let Some(caps) = REFERENCE_DEFINITION_REGEX.captures(&lines[def_start].content) {
+                if let Some(caps) = REFERENCE_DEFINITION_REGEX.captures(lines[def_start].content(ctx.content)) {
                     let ref_id = caps.get(1).unwrap().as_str().trim();
                     let normalized_id = Self::unescape_reference(ref_id).to_lowercase();
 
@@ -259,7 +305,7 @@ impl MD053LinkImageReferenceDefinitions {
                 && let Some(ref_id) = &link.reference_id
             {
                 // Ensure the link itself is not inside a code block line
-                if !ctx.is_in_code_block(link.line) {
+                if !ctx.line_info(link.line).is_some_and(|info| info.in_code_block) {
                     usages.insert(Self::unescape_reference(ref_id).to_lowercase());
                 }
             }
@@ -271,32 +317,44 @@ impl MD053LinkImageReferenceDefinitions {
                 && let Some(ref_id) = &image.reference_id
             {
                 // Ensure the image itself is not inside a code block line
-                if !ctx.is_in_code_block(image.line) {
+                if !ctx.line_info(image.line).is_some_and(|info| info.in_code_block) {
                     usages.insert(Self::unescape_reference(ref_id).to_lowercase());
                 }
             }
         }
 
-        // 3. Find shortcut references [ref] not already handled by DocumentStructure.links
+        // 3. Add usages from footnote references (e.g., [^1], [^note])
+        // pulldown-cmark returns the id without the ^ prefix, but definitions have it
+        for footnote_ref in &ctx.footnote_refs {
+            // Ensure the footnote reference is not inside a code block line
+            if !ctx.line_info(footnote_ref.line).is_some_and(|info| info.in_code_block) {
+                // Add ^ prefix to match definition format
+                let ref_id = format!("^{}", footnote_ref.id);
+                usages.insert(ref_id.to_lowercase());
+            }
+        }
+
+        // 4. Find shortcut references [ref] not already handled by DocumentStructure.links
         //    and ensure they are not within code spans or code blocks.
         // Cache code spans once before the loop
         let code_spans = ctx.code_spans();
 
-        for (i, line_info) in ctx.lines.iter().enumerate() {
-            let line_num = i + 1; // 1-indexed
-
+        for line_info in ctx.lines.iter() {
             // Skip lines in code blocks or front matter
-            if line_info.in_code_block || ctx.is_in_front_matter(line_num) {
+            if line_info.in_code_block || line_info.in_front_matter {
                 continue;
             }
 
             // Skip lines that are reference definitions (start with [ref]: at beginning)
-            if REFERENCE_DEFINITION_REGEX.is_match(&line_info.content) {
+            if REFERENCE_DEFINITION_REGEX.is_match(line_info.content(ctx.content)) {
                 continue;
             }
 
             // Find potential shortcut references
-            for caps in SHORTCUT_REFERENCE_REGEX.captures_iter(&line_info.content).flatten() {
+            for caps in SHORTCUT_REFERENCE_REGEX
+                .captures_iter(line_info.content(ctx.content))
+                .flatten()
+            {
                 if let Some(full_match) = caps.get(0)
                     && let Some(ref_id_match) = caps.get(1)
                 {
@@ -309,8 +367,7 @@ impl MD053LinkImageReferenceDefinitions {
                     if !in_code_span {
                         let ref_id = ref_id_match.as_str().trim();
 
-                        // Skip patterns that are likely not markdown references
-                        if !Self::is_likely_not_reference(ref_id) {
+                        if !Self::should_skip_pattern(ref_id) {
                             let normalized_id = Self::unescape_reference(ref_id).to_lowercase();
                             usages.insert(normalized_id);
                         }
@@ -407,12 +464,12 @@ impl Rule for MD053LinkImageReferenceDefinitions {
                     if i > 0 {
                         // Skip the first occurrence, report all others
                         let line_num = start_line + 1;
-                        let line_content = ctx.lines.get(start_line).map(|l| l.content.as_str()).unwrap_or("");
+                        let line_content = ctx.lines.get(start_line).map(|l| l.content(ctx.content)).unwrap_or("");
                         let (start_line_1idx, start_col, end_line, end_col) =
                             calculate_line_range(line_num, line_content);
 
                         warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
+                            rule_name: Some(self.name().to_string()),
                             line: start_line_1idx,
                             column: start_col,
                             end_line,
@@ -429,7 +486,7 @@ impl Rule for MD053LinkImageReferenceDefinitions {
             if let Some(&(start_line, _)) = ranges.first() {
                 // Find the original case version from the line
                 if let Some(line_info) = ctx.lines.get(start_line)
-                    && let Some(caps) = REFERENCE_DEFINITION_REGEX.captures(&line_info.content)
+                    && let Some(caps) = REFERENCE_DEFINITION_REGEX.captures(line_info.content(ctx.content))
                 {
                     let original_id = caps.get(1).unwrap().as_str().trim();
                     let lower_id = original_id.to_lowercase();
@@ -438,12 +495,12 @@ impl Rule for MD053LinkImageReferenceDefinitions {
                         // Found a case-variant duplicate
                         if first_original != original_id {
                             let line_num = start_line + 1;
-                            let line_content = &line_info.content;
+                            let line_content = line_info.content(ctx.content);
                             let (start_line_1idx, start_col, end_line, end_col) =
                                 calculate_line_range(line_num, line_content);
 
                             warnings.push(LintWarning {
-                                    rule_name: Some(self.name()),
+                                    rule_name: Some(self.name().to_string()),
                                     line: start_line_1idx,
                                     column: start_col,
                                     end_line,
@@ -464,13 +521,13 @@ impl Rule for MD053LinkImageReferenceDefinitions {
         // Create warnings for unused references
         for (definition, start, _end) in unused_refs {
             let line_num = start + 1; // 1-indexed line numbers
-            let line_content = ctx.lines.get(start).map(|l| l.content.as_str()).unwrap_or("");
+            let line_content = ctx.lines.get(start).map(|l| l.content(ctx.content)).unwrap_or("");
 
             // Calculate precise character range for the entire reference definition line
             let (start_line, start_col, end_line, end_col) = calculate_line_range(line_num, line_content);
 
             warnings.push(LintWarning {
-                rule_name: Some(self.name()),
+                rule_name: Some(self.name().to_string()),
                 line: start_line,
                 column: start_col,
                 end_line,
@@ -492,8 +549,8 @@ impl Rule for MD053LinkImageReferenceDefinitions {
 
     /// Check if this rule should be skipped for performance
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        // Skip if content is empty or has no reference definitions
-        ctx.content.is_empty() || !ctx.content.contains("]:")
+        // Skip if content is empty or has no links/images
+        ctx.content.is_empty() || !ctx.likely_has_links_or_images()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -533,7 +590,7 @@ mod tests {
     fn test_used_reference_link() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[text][ref]\n\n[ref]: https://example.com";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -543,7 +600,7 @@ mod tests {
     fn test_unused_reference_definition() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[unused]: https://example.com";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -554,7 +611,7 @@ mod tests {
     fn test_used_reference_image() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "![alt][img]\n\n[img]: image.jpg";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -564,7 +621,7 @@ mod tests {
     fn test_case_insensitive_matching() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[Text][REF]\n\n[ref]: https://example.com";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -574,7 +631,7 @@ mod tests {
     fn test_shortcut_reference() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[ref]\n\n[ref]: https://example.com";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -584,7 +641,7 @@ mod tests {
     fn test_collapsed_reference() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[ref][]\n\n[ref]: https://example.com";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -594,7 +651,7 @@ mod tests {
     fn test_multiple_unused_definitions() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[unused1]: url1\n[unused2]: url2\n[unused3]: url3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 3);
@@ -610,7 +667,7 @@ mod tests {
     fn test_mixed_used_and_unused() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[used]\n\n[used]: url1\n[unused]: url2";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -621,7 +678,7 @@ mod tests {
     fn test_multiline_definition() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[ref]: https://example.com\n  \"Title on next line\"";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1); // Still unused
@@ -631,7 +688,7 @@ mod tests {
     fn test_reference_in_code_block() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "```\n[ref]\n```\n\n[ref]: https://example.com";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Reference used only in code block is still considered unused
@@ -642,7 +699,7 @@ mod tests {
     fn test_reference_in_inline_code() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "`[ref]`\n\n[ref]: https://example.com";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Reference in inline code is not a usage
@@ -653,7 +710,7 @@ mod tests {
     fn test_escaped_reference() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[example\\-ref]\n\n[example-ref]: https://example.com";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should match despite escaping
@@ -664,7 +721,7 @@ mod tests {
     fn test_duplicate_definitions() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[ref]: url1\n[ref]: url2\n\n[ref]";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should flag the duplicate definition even though it's used (matches markdownlint)
@@ -676,7 +733,7 @@ mod tests {
         // MD053 is warning-only, fix should return original content
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[used]\n\n[used]: url1\n[unused]: url2\n\nMore content";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, content);
@@ -687,7 +744,7 @@ mod tests {
         // MD053 is warning-only, fix should preserve all content
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "Content\n\n[unused]: url\n\nMore content";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, content);
@@ -698,7 +755,7 @@ mod tests {
         // MD053 is warning-only, fix should not remove anything
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[unused1]: url1\n[unused2]: url2\n[unused3]: url3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, content);
@@ -708,7 +765,7 @@ mod tests {
     fn test_special_characters_in_reference() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[ref-with_special.chars]\n\n[ref-with_special.chars]: url";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -718,7 +775,7 @@ mod tests {
     fn test_find_definitions() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[ref1]: url1\n[ref2]: url2\nSome text\n[ref3]: url3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let defs = rule.find_definitions(&ctx);
 
         assert_eq!(defs.len(), 3);
@@ -731,7 +788,7 @@ mod tests {
     fn test_find_usages() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[text][ref1] and [ref2] and ![img][ref3]";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let usages = rule.find_usages(&ctx);
 
         assert!(usages.contains("ref1"));
@@ -748,7 +805,7 @@ mod tests {
         let rule = MD053LinkImageReferenceDefinitions::from_config_struct(config);
 
         let content = "[todo]: https://example.com/todo\n[draft]: https://example.com/draft\n[unused]: https://example.com/unused";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should only flag "unused", not "todo" or "draft"
@@ -767,7 +824,7 @@ mod tests {
         let rule = MD053LinkImageReferenceDefinitions::from_config_struct(config);
 
         let content = "[todo]: https://example.com/todo\n[unused]: https://example.com/unused";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should only flag "unused", not "todo" (matches "TODO" case-insensitively)
@@ -803,7 +860,7 @@ mod tests {
         let rule = MD053LinkImageReferenceDefinitions::from_config_struct(config);
 
         let content = "[template]: https://example.com/template\n[unused]: https://example.com/unused\n\nSome content.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         // Should keep everything since MD053 doesn't fix
@@ -814,7 +871,7 @@ mod tests {
     fn test_duplicate_definitions_exact_case() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[ref]: url1\n[ref]: url2\n[ref]: url3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should have 2 duplicate warnings (for the 2nd and 3rd definitions)
@@ -830,7 +887,7 @@ mod tests {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content =
             "[method resolution order]: url1\n[Method Resolution Order]: url2\n[METHOD RESOLUTION ORDER]: url3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should have 2 duplicate warnings (for the 2nd and 3rd definitions)
@@ -848,7 +905,7 @@ mod tests {
     fn test_duplicate_and_unused() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[used]\n[used]: url1\n[used]: url2\n[unused]: url3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should have 1 duplicate warning and 1 unused warning
@@ -866,7 +923,7 @@ mod tests {
         let rule = MD053LinkImageReferenceDefinitions::new();
         // Even if used, duplicates should still be reported
         let content = "[ref]\n\n[ref]: url1\n[ref]: url2";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should have 1 duplicate warning (no unused since it's referenced)
@@ -882,11 +939,193 @@ mod tests {
     fn test_no_duplicate_different_ids() {
         let rule = MD053LinkImageReferenceDefinitions::new();
         let content = "[ref1]: url1\n[ref2]: url2\n[ref3]: url3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should have no duplicate warnings, only unused warnings
         let duplicate_warnings: Vec<_> = result.iter().filter(|w| w.message.contains("Duplicate")).collect();
         assert_eq!(duplicate_warnings.len(), 0);
+    }
+
+    #[test]
+    fn test_comment_style_reference_double_slash() {
+        let rule = MD053LinkImageReferenceDefinitions::new();
+        // Most popular comment pattern: [//]: # (comment)
+        let content = "[//]: # (This is a comment)\n\nSome regular text.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should not report as unused - it's recognized as a comment
+        assert_eq!(result.len(), 0, "Comment-style reference [//]: # should not be flagged");
+    }
+
+    #[test]
+    fn test_comment_style_reference_comment_label() {
+        let rule = MD053LinkImageReferenceDefinitions::new();
+        // Semantic comment pattern: [comment]: # (text)
+        let content = "[comment]: # (This is a semantic comment)\n\n[note]: # (This is a note)";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should not report either as unused
+        assert_eq!(result.len(), 0, "Comment-style references should not be flagged");
+    }
+
+    #[test]
+    fn test_comment_style_reference_todo_fixme() {
+        let rule = MD053LinkImageReferenceDefinitions::new();
+        // Task tracking patterns: [todo]: # and [fixme]: #
+        let content = "[todo]: # (Add more examples)\n[fixme]: # (Fix this later)\n[hack]: # (Temporary workaround)";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should not report any as unused
+        assert_eq!(result.len(), 0, "TODO/FIXME comment patterns should not be flagged");
+    }
+
+    #[test]
+    fn test_comment_style_reference_fragment_only() {
+        let rule = MD053LinkImageReferenceDefinitions::new();
+        // Any reference with just "#" as URL should be treated as a comment
+        let content = "[anything]: #\n[ref]: #\n\nSome text.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should not report as unused - fragment-only URLs are often comments
+        assert_eq!(result.len(), 0, "References with just '#' URL should not be flagged");
+    }
+
+    #[test]
+    fn test_comment_vs_real_reference() {
+        let rule = MD053LinkImageReferenceDefinitions::new();
+        // Mix of comment and real reference - only real one should be flagged if unused
+        let content = "[//]: # (This is a comment)\n[real-ref]: https://example.com\n\nSome text.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should only report the real reference as unused
+        assert_eq!(result.len(), 1, "Only real unused references should be flagged");
+        assert!(result[0].message.contains("real-ref"), "Should flag the real reference");
+    }
+
+    #[test]
+    fn test_comment_with_fragment_section() {
+        let rule = MD053LinkImageReferenceDefinitions::new();
+        // Comment pattern with a fragment section (still a comment)
+        let content = "[//]: #section (Comment about section)\n\nSome text.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should not report as unused - it's still a comment pattern
+        assert_eq!(result.len(), 0, "Comment with fragment section should not be flagged");
+    }
+
+    #[test]
+    fn test_is_likely_comment_reference_helper() {
+        // Test the helper function directly
+        assert!(
+            MD053LinkImageReferenceDefinitions::is_likely_comment_reference("//", "#"),
+            "[//]: # should be recognized as comment"
+        );
+        assert!(
+            MD053LinkImageReferenceDefinitions::is_likely_comment_reference("comment", "#section"),
+            "[comment]: #section should be recognized as comment"
+        );
+        assert!(
+            MD053LinkImageReferenceDefinitions::is_likely_comment_reference("note", "#"),
+            "[note]: # should be recognized as comment"
+        );
+        assert!(
+            MD053LinkImageReferenceDefinitions::is_likely_comment_reference("todo", "#"),
+            "[todo]: # should be recognized as comment"
+        );
+        assert!(
+            MD053LinkImageReferenceDefinitions::is_likely_comment_reference("anything", "#"),
+            "Any label with just '#' should be recognized as comment"
+        );
+        assert!(
+            !MD053LinkImageReferenceDefinitions::is_likely_comment_reference("ref", "https://example.com"),
+            "Real URL should not be recognized as comment"
+        );
+        assert!(
+            !MD053LinkImageReferenceDefinitions::is_likely_comment_reference("link", "http://test.com"),
+            "Real URL should not be recognized as comment"
+        );
+    }
+
+    #[test]
+    fn test_reference_with_colon_in_name() {
+        // References containing colons and spaces should be recognized as valid references
+        let rule = MD053LinkImageReferenceDefinitions::new();
+        let content = "Check [RFC: 1234] for specs.\n\n[RFC: 1234]: https://example.com\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Reference with colon should be recognized as used, got warnings: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_reference_with_colon_various_styles() {
+        // Test various RFC-style and similar references with colons
+        let rule = MD053LinkImageReferenceDefinitions::new();
+        let content = r#"See [RFC: 1234] and [Issue: 42] and [PR: 100].
+
+[RFC: 1234]: https://example.com/rfc1234
+[Issue: 42]: https://example.com/issue42
+[PR: 100]: https://example.com/pr100
+"#;
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "All colon-style references should be recognized as used, got warnings: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_should_skip_pattern_allows_rfc_style() {
+        // Verify that should_skip_pattern does NOT skip RFC-style references with colons
+        // This tests the fix for the bug where references with ": " were incorrectly skipped
+        assert!(
+            !MD053LinkImageReferenceDefinitions::should_skip_pattern("RFC: 1234"),
+            "RFC-style references should NOT be skipped"
+        );
+        assert!(
+            !MD053LinkImageReferenceDefinitions::should_skip_pattern("Issue: 42"),
+            "Issue-style references should NOT be skipped"
+        );
+        assert!(
+            !MD053LinkImageReferenceDefinitions::should_skip_pattern("PR: 100"),
+            "PR-style references should NOT be skipped"
+        );
+        assert!(
+            !MD053LinkImageReferenceDefinitions::should_skip_pattern("See: Section 2"),
+            "References with 'See:' should NOT be skipped"
+        );
+        assert!(
+            !MD053LinkImageReferenceDefinitions::should_skip_pattern("foo:bar"),
+            "References without space after colon should NOT be skipped"
+        );
+    }
+
+    #[test]
+    fn test_should_skip_pattern_skips_prose() {
+        // Verify that prose-like patterns (3+ words before colon) are still skipped
+        assert!(
+            MD053LinkImageReferenceDefinitions::should_skip_pattern("default value is: something"),
+            "Prose with 3+ words before colon SHOULD be skipped"
+        );
+        assert!(
+            MD053LinkImageReferenceDefinitions::should_skip_pattern("this is a label: description"),
+            "Prose with 4 words before colon SHOULD be skipped"
+        );
+        assert!(
+            MD053LinkImageReferenceDefinitions::should_skip_pattern("the project root: path/to/dir"),
+            "Prose-like descriptions SHOULD be skipped"
+        );
     }
 }

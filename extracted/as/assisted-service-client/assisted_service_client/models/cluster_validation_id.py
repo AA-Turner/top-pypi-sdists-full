@@ -72,6 +72,8 @@ class ClusterValidationId(object):
     NUMA_RESOURCES_REQUIREMENTS_SATISFIED = "numa-resources-requirements-satisfied"
     OADP_REQUIREMENTS_SATISFIED = "oadp-requirements-satisfied"
     METALLB_REQUIREMENTS_SATISFIED = "metallb-requirements-satisfied"
+    LOKI_REQUIREMENTS_SATISFIED = "loki-requirements-satisfied"
+    OPENSHIFT_LOGGING_REQUIREMENTS_SATISFIED = "openshift-logging-requirements-satisfied"
 
     """
     Attributes:

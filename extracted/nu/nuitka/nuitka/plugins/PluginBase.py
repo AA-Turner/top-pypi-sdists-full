@@ -69,6 +69,7 @@ from nuitka.PythonVersions import (
 from nuitka.Tracing import plugins_logger
 from nuitka.utils.AppDirs import getAppdirsModule
 from nuitka.utils.Distributions import (
+    getCondaMetaDataVersion,
     getDistributionFromModuleName,
     getDistributionName,
     isDistributionCondaPackage,
@@ -86,6 +87,7 @@ from nuitka.utils.FileOperations import (
 from nuitka.utils.Importing import (
     getExtensionModuleSuffix,
     isBuiltinModuleName,
+    withTemporarySysPathExtension,
 )
 from nuitka.utils.ModuleNames import (
     ModuleName,
@@ -243,10 +245,15 @@ def _getEvaluationContext():
     return _context_dict
 
 
-def _convertVersionToTuple(version_str):
+def _convertVersionToTuple(distribution_name, version_str):
     def numberize(v):
         # For now, we ignore rc/post stuff, hoping it doesn't matter for us.
         return int("".join(d for d in v if d.isdigit()))
+
+    # Anaconda uses placeholders in packages, and different ones come up for
+    # pkg_resources and importlib_metadata
+    if version_str in ("$PKG_VERSION", "-PKG-VERSION") and isAnacondaPython():
+        version_str = getCondaMetaDataVersion(distribution_name)
 
     return tuple(numberize(d) for d in version_str.split("."))
 
@@ -286,7 +293,11 @@ def _getPackageVersion(distribution_name):
             else:
                 from importlib_metadata import version
 
-            result = _convertVersionToTuple(version(distribution_name))
+            version_str = version(distribution_name)
+            result = _convertVersionToTuple(
+                distribution_name=distribution_name,
+                version_str=version_str,
+            )
         except ImportError:
             try:
                 from pkg_resources import (
@@ -298,25 +309,37 @@ def _getPackageVersion(distribution_name):
                 result = None
             else:
                 try:
-                    result = _convertVersionToTuple(
-                        get_distribution(distribution_name).version
-                    )
+                    version_str = get_distribution(distribution_name).version
                 except DistributionNotFound:
                     result = None
                 except extern.packaging.version.InvalidVersion:
                     result = None
+                else:
+                    result = _convertVersionToTuple(
+                        distribution_name=distribution_name,
+                        version_str=version_str,
+                    )
 
         if result is None:
             # Fallback if nothing is available, which may happen if no package is installed,
             # but only source code is found.
+
+            # Circular imports
+            from nuitka.importing.Importing import getExtraSysPaths
+
+            package_name = _getPackageNameFromDistributionName(distribution_name)
+            extra_paths = getExtraSysPaths()
+
             try:
-                result = _convertVersionToTuple(
-                    __import__(
-                        _getPackageNameFromDistributionName(distribution_name)
-                    ).__version__
-                )
+                with withTemporarySysPathExtension(extra_paths):
+                    module = __import__(package_name)
             except ImportError:
                 result = None
+            else:
+                result = _convertVersionToTuple(
+                    distribution_name=distribution_name,
+                    version_str=module.__version__,
+                )
 
         _package_versions[distribution_name] = result
 
@@ -343,13 +366,9 @@ def _getModuleDirectory(module_name):
 
 
 def _hasModule(module_name):
-    from nuitka.importing.Importing import locateModule
+    from nuitka.importing.Importing import hasModule
 
-    _module_name, _module_filename, _module_kind, finding = locateModule(
-        module_name=ModuleName(module_name), parent_package=None, level=0
-    )
-
-    return finding != "not-found"
+    return hasModule(module_name)
 
 
 def _getPackageData(package_name, resource, default=None):
@@ -438,8 +457,7 @@ class NuitkaPluginBase(getMetaClassBase("Plugin", require_slots=False)):
     and invisible to the user.
 
     Nuitka comes with a number of "standard" plugins to be enabled as needed.
-    What they are can be displayed using "nuitka --plugin-list file.py" (filename
-    required but ignored).
+    What they are can be displayed using "--plugin-list" option.
 
     User plugins may be specified (and implicitly enabled) using their Python
     script pathname.
@@ -1155,6 +1173,10 @@ Unwanted import of '%(unwanted)s' that %(problem)s '%(binding_name)s' encountere
         # Virtual method, pylint: disable=no-self-use,unused-argument
         return None
 
+    def decideRecompileExtensionModules(self, module_name):
+        # Virtual method, pylint: disable=no-self-use,unused-argument
+        return None
+
     def decideAnnotations(self, module_name):
         # Virtual method, pylint: disable=no-self-use,unused-argument
         return None
@@ -1270,14 +1292,19 @@ Unwanted import of '%(unwanted)s' that %(problem)s '%(binding_name)s' encountere
         # Virtual method, pylint: disable=no-self-use
         return None
 
-    def warnUnusedPlugin(self, message):
+    def warnUnusedPlugin(self, message, key=None):
         """An inactive plugin may issue a warning if it believes this may be wrong.
 
         Returns:
             None
         """
-        if self.plugin_name not in _warned_unused_plugins:
-            _warned_unused_plugins.add(self.plugin_name)
+        if key is None:
+            key = self.plugin_name, message
+        else:
+            key = self.plugin_name, key
+
+        if key not in _warned_unused_plugins:
+            _warned_unused_plugins.add(key)
 
             plugins_logger.warning(
                 "Use '--enable-plugin=%s' for: %s" % (self.plugin_name, message)
@@ -1322,7 +1349,7 @@ Unwanted import of '%(unwanted)s' that %(problem)s '%(binding_name)s' encountere
             return self._runtime_information_cache[info_name]
 
         keys = []
-        query_codes = []
+        query_codes = ['print("-*-" * 15)']
 
         for key, value_expression in values:
             keys.append(key)
@@ -1401,6 +1428,9 @@ except Exception as e:
 
         # Ignore Windows newlines difference.
         feedback = [line.strip() for line in feedback.splitlines()]
+
+        while feedback and not feedback[0] != "-*-" * 15:
+            feedback.pop(0)
 
         if feedback.count("-" * 27) != len(keys):
             self.sysexit(
@@ -1850,6 +1880,42 @@ Error, expression '%s' for module '%s' did not evaluate to 'tuple[str]' or 'list
         plugins_logger.sysexit(
             cls.plugin_name + ": " + message, mnemonic=mnemonic, reporting=reporting
         )
+
+
+class NuitkaDetectorPluginBase(NuitkaPluginBase):
+    """Base class for detectors."""
+
+    @classmethod
+    def isRelevant(cls):
+        """Always relevant by default."""
+        return True
+
+    # Needs to be another plugin.
+    detector_for = None
+
+
+class NuitkaNamespaceDetectorPluginBase(NuitkaDetectorPluginBase):
+    """Base class for a detector just waiting for a namespace to appear."""
+
+    def _checkFor(self, module_name):
+        for detector_namespace in self.detector_namespaces:
+            if module_name.hasNamespace(detector_namespace):
+                self.warnUnusedPlugin("Missing '%s' support." % detector_namespace)
+
+    # TODO: This actually would be done best when the module set is complete, as
+    # in theory, this module using it could become unused again.
+    def onModuleDiscovered(self, module):
+        """This method checks whether detected plugin is required for a module."""
+        self._checkFor(module_name=module.getFullName())
+
+    def onModuleEncounter(
+        self, using_module_name, module_name, module_filename, module_kind
+    ):
+        if shallMakeModule():
+            self._checkFor(module_name=module_name)
+
+    # Should be a tuple
+    detector_namespaces = ()
 
 
 class TagContext(dict):

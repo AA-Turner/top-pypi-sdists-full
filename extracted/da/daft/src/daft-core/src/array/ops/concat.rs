@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
-use arrow2::array::Array;
 use common_error::{DaftError, DaftResult};
+use daft_arrow::array::Array;
 
 #[cfg(feature = "python")]
-use crate::array::pseudo_arrow::PseudoArrowArray;
-use crate::{array::DataArray, datatypes::DaftPhysicalType};
+use crate::prelude::PythonArray;
+use crate::{array::DataArray, datatypes::DaftPhysicalType, prelude::FromArrow};
 
 macro_rules! impl_variable_length_concat {
     ($fn_name:ident, $arrow_type:ty, $create_fn: ident) => {
-        fn $fn_name(arrays: &[&dyn arrow2::array::Array]) -> DaftResult<Box<$arrow_type>> {
+        fn $fn_name(arrays: &[&dyn daft_arrow::array::Array]) -> DaftResult<Box<$arrow_type>> {
             let mut num_rows: usize = 0;
             let mut num_bytes: usize = 0;
             let mut need_validity = false;
@@ -20,10 +20,10 @@ macro_rules! impl_variable_length_concat {
                 num_bytes += arr.values().len();
                 need_validity |= arr.validity().map(|v| v.unset_bits() > 0).unwrap_or(false);
             }
-            let mut offsets = arrow2::offset::Offsets::<i64>::with_capacity(num_rows);
+            let mut offsets = daft_arrow::offset::Offsets::<i64>::with_capacity(num_rows);
 
-            let mut validity = if need_validity {
-                Some(arrow2::bitmap::MutableBitmap::with_capacity(num_rows))
+            let mut nulls = if need_validity {
+                Some(daft_arrow::buffer::NullBufferBuilder::new(num_rows))
             } else {
                 None
             };
@@ -32,11 +32,14 @@ macro_rules! impl_variable_length_concat {
             for arr in arrays {
                 let arr = arr.as_any().downcast_ref::<$arrow_type>().unwrap();
                 offsets.try_extend_from_slice(arr.offsets(), 0, arr.len())?;
-                if let Some(ref mut bitmap) = validity {
-                    if let Some(b) = arr.validity() {
-                        bitmap.extend_from_bitmap(b);
+                if let Some(ref mut bitmap) = nulls {
+                    if let Some(v) = arr.validity() {
+                        for b in v.iter() {
+                            // TODO: Replace with .append_buffer in v57.1.0
+                            bitmap.append(b);
+                        }
                     } else {
-                        bitmap.extend_constant(arr.len(), true);
+                        bitmap.append_n_non_nulls(arr.len());
                     }
                 }
                 let range = (*arr.offsets().first() as usize)..(*arr.offsets().last() as usize);
@@ -49,7 +52,7 @@ macro_rules! impl_variable_length_concat {
                     dtype,
                     offsets.into(),
                     buffer.into(),
-                    validity.map(|v| v.into()),
+                    daft_arrow::buffer::wrap_null_buffer(nulls.map(|mut v| v.finish()).flatten()),
                 )
             }?;
             Ok(Box::new(result_array))
@@ -58,10 +61,10 @@ macro_rules! impl_variable_length_concat {
 }
 impl_variable_length_concat!(
     utf8_concat,
-    arrow2::array::Utf8Array<i64>,
+    daft_arrow::array::Utf8Array<i64>,
     try_new_unchecked
 );
-impl_variable_length_concat!(binary_concat, arrow2::array::BinaryArray<i64>, try_new);
+impl_variable_length_concat!(binary_concat, daft_arrow::array::BinaryArray<i64>, try_new);
 
 impl<T> DataArray<T>
 where
@@ -82,22 +85,6 @@ where
 
         let arrow_arrays: Vec<_> = arrays.iter().map(|s| s.data.as_ref()).collect();
         match field.dtype {
-            #[cfg(feature = "python")]
-            crate::datatypes::DataType::Python => {
-                use pyo3::prelude::*;
-
-                let cat_array = Box::new(PseudoArrowArray::concatenate(
-                    arrow_arrays
-                        .iter()
-                        .map(|s| {
-                            s.as_any()
-                                .downcast_ref::<PseudoArrowArray<Arc<PyObject>>>()
-                                .unwrap()
-                        })
-                        .collect(),
-                ));
-                Self::new(field.clone(), cat_array)
-            }
             crate::datatypes::DataType::Utf8 => {
                 let cat_array = utf8_concat(arrow_arrays.as_slice())?;
                 Self::new(field.clone(), cat_array)
@@ -108,9 +95,51 @@ where
             }
             _ => {
                 let cat_array: Box<dyn Array> =
-                    arrow2::compute::concatenate::concatenate(arrow_arrays.as_slice())?;
-                Self::try_from((field.clone(), cat_array))
+                    daft_arrow::compute::concatenate::concatenate(arrow_arrays.as_slice())?;
+                Self::from_arrow2(field.clone(), cat_array)
             }
         }
+    }
+}
+
+#[cfg(feature = "python")]
+impl PythonArray {
+    pub fn concat(arrays: &[&Self]) -> DaftResult<Self> {
+        use daft_arrow::buffer::{Buffer, NullBufferBuilder};
+        if arrays.is_empty() {
+            return Err(DaftError::ValueError(
+                "Need at least 1 array to perform concat".to_string(),
+            ));
+        }
+
+        if arrays.len() == 1 {
+            return Ok((*arrays.first().unwrap()).clone());
+        }
+
+        let field = Arc::new(arrays.first().unwrap().field().clone());
+
+        let nulls = if arrays.iter().any(|a| a.nulls().is_some()) {
+            let total_len = arrays.iter().map(|a| a.len()).sum();
+
+            let mut null_builder = NullBufferBuilder::new(total_len);
+
+            for a in arrays {
+                if let Some(v) = a.nulls() {
+                    for b in v {
+                        null_builder.append(b); // TODO: Replace with .append_buffer in v57.1.0
+                    }
+                } else {
+                    null_builder.append_n_non_nulls(a.len());
+                }
+            }
+
+            null_builder.finish()
+        } else {
+            None
+        };
+
+        let values = Buffer::from_iter(arrays.iter().flat_map(|a| a.values().iter().cloned()));
+
+        Ok(Self::new(field, values, nulls))
     }
 }

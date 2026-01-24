@@ -101,6 +101,21 @@ VernalEquinoxes = [
     Timestamp("2023-03-21"),
     Timestamp("2024-03-20"),
     Timestamp("2025-03-20"),
+    Timestamp("2026-03-20"),
+    Timestamp("2027-03-22"),
+    Timestamp("2028-03-20"),
+    Timestamp("2029-03-20"),
+    Timestamp("2030-03-20"),
+    Timestamp("2031-03-21"),
+    Timestamp("2032-03-20"),
+    Timestamp("2033-03-21"),
+    Timestamp("2034-03-20"),
+    Timestamp("2035-03-21"),
+    Timestamp("2036-03-20"),
+    Timestamp("2037-03-20"),
+    Timestamp("2038-03-20"),
+    Timestamp("2039-03-21"),
+    Timestamp("2040-03-20"),
 ]
 
 # The Golden Week holidays (late April - early May) are listed in reverse
@@ -267,6 +282,22 @@ AutumnalEquinoxes = [
     Timestamp("2023-09-23"),
     Timestamp("2024-09-23"),
     Timestamp("2025-09-23"),
+    Timestamp("2026-09-23"),
+    Timestamp("2027-09-23"),
+    Timestamp("2028-09-22"),
+    Timestamp("2029-09-24"),
+    Timestamp("2030-09-23"),
+    Timestamp("2031-09-23"),
+    Timestamp("2032-09-22"),
+    Timestamp("2033-09-23"),
+    Timestamp("2034-09-23"),
+    Timestamp("2035-09-24"),
+    Timestamp("2036-09-22"),
+    Timestamp("2036-09-22"),
+    Timestamp("2037-09-23"),
+    Timestamp("2038-09-23"),
+    Timestamp("2039-09-23"),
+    Timestamp("2040-09-22"),
 ]
 
 # If the Autumnal Equinox falls on a Wednesday, the Tuesday before
@@ -276,6 +307,9 @@ AutumnalEquinoxes = [
 CitizensHolidaySilverWeek = [
     Timestamp("2009-09-22"),
     Timestamp("2015-09-22"),
+    Timestamp("2026-09-22"),
+    Timestamp("2032-09-21"),
+    Timestamp("2037-09-22"),
 ]
 
 RespectForTheAgedDayThrough2002 = Holiday(

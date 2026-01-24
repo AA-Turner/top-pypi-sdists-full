@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -84,29 +84,25 @@ class ILabTuner(BaseTuner):
                 name="my_taxonomy",
                 data_reference=DataConnection(
                     location=GithubLocation(
-                        secret_manager_url="...",
-                        secret_id="...",
-                        path="."
+                        secret_manager_url="...", secret_id="...", path="."
                     )
                 ),
                 results_reference=DataConnection(
-                    location=ContainerLocation(path="."))
+                    location=ContainerLocation(path=".")
+                ),
             )
 
             taxonomy = taxonomy_import.get_taxonomy()
 
             sdg = ilab_tuner.synthetic_data.generate(
-                name="my_sdg",
-                taxonomy=taxonomy
+                name="my_sdg", taxonomy=taxonomy
             )
 
             ilab_tuner.run(
                 training_data_references=[sdg.get_results_reference()],
                 training_results_reference=DataConnection(
-                    location=ContainerLocation(
-                        path="fine_tuning_result"
-                    )
-                )
+                    location=ContainerLocation(path="fine_tuning_result")
+                ),
             )
         """
         WMLResource._validate_type(
@@ -292,6 +288,7 @@ class ILabTuner(BaseTuner):
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import TuneExperiment
+
             experiment = TuneExperiment(credentials, ...)
             ilab_tuner = experiment.ilab_tuner(...)
             ilab_tuner.run(...)

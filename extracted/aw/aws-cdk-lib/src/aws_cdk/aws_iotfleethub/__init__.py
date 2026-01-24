@@ -66,235 +66,13 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleethub.ApplicationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_arn": "applicationArn",
-        "application_id": "applicationId",
-    },
+from ..interfaces.aws_iotfleethub import (
+    ApplicationReference as _ApplicationReference_5cf37b87,
+    IApplicationRef as _IApplicationRef_acbdc0fc,
 )
-class ApplicationReference:
-    def __init__(
-        self,
-        *,
-        application_arn: builtins.str,
-        application_id: builtins.str,
-    ) -> None:
-        '''A reference to a Application resource.
-
-        :param application_arn: The ARN of the Application resource.
-        :param application_id: The ApplicationId of the Application resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleethub as iotfleethub
-            
-            application_reference = iotfleethub.ApplicationReference(
-                application_arn="applicationArn",
-                application_id="applicationId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b15403b6ebea8019d62500b534a1753a272c7e4c88903245a04b14d2c340f8f)
-            check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-            check_type(argname="argument application_id", value=application_id, expected_type=type_hints["application_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_arn": application_arn,
-            "application_id": application_id,
-        }
-
-    @builtins.property
-    def application_arn(self) -> builtins.str:
-        '''The ARN of the Application resource.'''
-        result = self._values.get("application_arn")
-        assert result is not None, "Required property 'application_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def application_id(self) -> builtins.str:
-        '''The ApplicationId of the Application resource.'''
-        result = self._values.get("application_id")
-        assert result is not None, "Required property 'application_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ApplicationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iotfleethub.CfnApplicationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_name": "applicationName",
-        "role_arn": "roleArn",
-        "application_description": "applicationDescription",
-        "tags": "tags",
-    },
-)
-class CfnApplicationProps:
-    def __init__(
-        self,
-        *,
-        application_name: builtins.str,
-        role_arn: builtins.str,
-        application_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplication``.
-
-        :param application_name: The name of the web application.
-        :param role_arn: The ARN of the role that the web application assumes when it interacts with AWS IoT Core . .. epigraph:: The name of the role must be in the form ``FleetHub_random_string`` . Pattern: ``^arn:[!-~]+$``
-        :param application_description: An optional description of the web application.
-        :param tags: A set of key/value pairs that you can use to manage the web application resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iotfleethub as iotfleethub
-            
-            cfn_application_props = iotfleethub.CfnApplicationProps(
-                application_name="applicationName",
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                application_description="applicationDescription",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75158fdff411a35ff5fc487845f81a066eb6d37f7532b0516846b2be9bbb3433)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument application_description", value=application_description, expected_type=type_hints["application_description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-            "role_arn": role_arn,
-        }
-        if application_description is not None:
-            self._values["application_description"] = application_description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''The name of the web application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html#cfn-iotfleethub-application-applicationname
-        '''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The ARN of the role that the web application assumes when it interacts with AWS IoT Core .
-
-        .. epigraph::
-
-           The name of the role must be in the form ``FleetHub_random_string`` .
-
-        Pattern: ``^arn:[!-~]+$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html#cfn-iotfleethub-application-rolearn
-        '''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def application_description(self) -> typing.Optional[builtins.str]:
-        '''An optional description of the web application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html#cfn-iotfleethub-application-applicationdescription
-        '''
-        result = self._values.get("application_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A set of key/value pairs that you can use to manage the web application resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html#cfn-iotfleethub-application-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iotfleethub.IApplicationRef")
-class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''(experimental) A reference to a Application resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IApplicationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iotfleethub.IApplicationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''(experimental) A reference to a Application resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
-
-
-@jsii.implements(_IInspectable_c2943556, IApplicationRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IApplicationRef_acbdc0fc, _ITaggable_36806126)
 class CfnApplication(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -308,6 +86,7 @@ class CfnApplication(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_iotfleethub as iotfleethub
@@ -327,15 +106,16 @@ class CfnApplication(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         application_name: builtins.str,
         role_arn: builtins.str,
         application_description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::IoTFleetHub::Application``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param application_name: The name of the web application.
@@ -356,8 +136,31 @@ class CfnApplication(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForApplication")
+    @builtins.classmethod
+    def arn_for_application(cls, resource: "_IApplicationRef_acbdc0fc") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__daddc7bf9dbe9c634b123431ba51b43c538323ae78e1edf32af6df6d5684ecca)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
+
+    @jsii.member(jsii_name="isCfnApplication")
+    @builtins.classmethod
+    def is_cfn_application(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApplication.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b0cf5b706d06c0dd6b1e93b0309f4e55fd74c03a64b97a9ac60c848b9632643d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -388,9 +191,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
+    def application_ref(self) -> "_ApplicationReference_5cf37b87":
         '''A reference to a Application resource.'''
-        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
+        return typing.cast("_ApplicationReference_5cf37b87", jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrApplicationArn")
@@ -473,9 +276,9 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationName")
@@ -518,44 +321,143 @@ class CfnApplication(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A set of key/value pairs that you can use to manage the web application resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b43c026e02cc2c3b3b72623cb3ba7d19a57e7fc258e370d84051f810254158d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotfleethub.CfnApplicationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_name": "applicationName",
+        "role_arn": "roleArn",
+        "application_description": "applicationDescription",
+        "tags": "tags",
+    },
+)
+class CfnApplicationProps:
+    def __init__(
+        self,
+        *,
+        application_name: builtins.str,
+        role_arn: builtins.str,
+        application_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplication``.
+
+        :param application_name: The name of the web application.
+        :param role_arn: The ARN of the role that the web application assumes when it interacts with AWS IoT Core . .. epigraph:: The name of the role must be in the form ``FleetHub_random_string`` . Pattern: ``^arn:[!-~]+$``
+        :param application_description: An optional description of the web application.
+        :param tags: A set of key/value pairs that you can use to manage the web application resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotfleethub as iotfleethub
+            
+            cfn_application_props = iotfleethub.CfnApplicationProps(
+                application_name="applicationName",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                application_description="applicationDescription",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75158fdff411a35ff5fc487845f81a066eb6d37f7532b0516846b2be9bbb3433)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument application_description", value=application_description, expected_type=type_hints["application_description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
+            "role_arn": role_arn,
+        }
+        if application_description is not None:
+            self._values["application_description"] = application_description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def application_name(self) -> builtins.str:
+        '''The name of the web application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html#cfn-iotfleethub-application-applicationname
+        '''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the role that the web application assumes when it interacts with AWS IoT Core .
+
+        .. epigraph::
+
+           The name of the role must be in the form ``FleetHub_random_string`` .
+
+        Pattern: ``^arn:[!-~]+$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html#cfn-iotfleethub-application-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_description(self) -> typing.Optional[builtins.str]:
+        '''An optional description of the web application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html#cfn-iotfleethub-application-applicationdescription
+        '''
+        result = self._values.get("application_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A set of key/value pairs that you can use to manage the web application resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotfleethub-application.html#cfn-iotfleethub-application-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "ApplicationReference",
     "CfnApplication",
     "CfnApplicationProps",
-    "IApplicationRef",
 ]
 
 publication.publish()
-
-def _typecheckingstub__6b15403b6ebea8019d62500b534a1753a272c7e4c88903245a04b14d2c340f8f(
-    *,
-    application_arn: builtins.str,
-    application_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__75158fdff411a35ff5fc487845f81a066eb6d37f7532b0516846b2be9bbb3433(
-    *,
-    application_name: builtins.str,
-    role_arn: builtins.str,
-    application_description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__b0980596631cbe713d270d139797274438ec1f918af98c8c9381e0d2b26b29f4(
     scope: _constructs_77d1e7e8.Construct,
@@ -565,6 +467,18 @@ def _typecheckingstub__b0980596631cbe713d270d139797274438ec1f918af98c8c9381e0d2b
     role_arn: builtins.str,
     application_description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__daddc7bf9dbe9c634b123431ba51b43c538323ae78e1edf32af6df6d5684ecca(
+    resource: _IApplicationRef_acbdc0fc,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0cf5b706d06c0dd6b1e93b0309f4e55fd74c03a64b97a9ac60c848b9632643d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -601,6 +515,16 @@ def _typecheckingstub__d72c646dc51aafdf0fd091cd5157b37d4b41fa584fc63ffd301d847b1
 
 def _typecheckingstub__7b43c026e02cc2c3b3b72623cb3ba7d19a57e7fc258e370d84051f810254158d(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75158fdff411a35ff5fc487845f81a066eb6d37f7532b0516846b2be9bbb3433(
+    *,
+    application_name: builtins.str,
+    role_arn: builtins.str,
+    application_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

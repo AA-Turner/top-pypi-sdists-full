@@ -1,8 +1,13 @@
 from .. import context
+from datetime import date
 import json
 from ..input_helpers import get_org_from_input_or_ctx, strip_none
 import agilicus
 import pem
+from cryptography.hazmat.backends import default_backend
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
+import httpx
 from ..output.table import (
     spec_column,
     format_table,
@@ -13,43 +18,95 @@ from ..output.table import (
 )
 
 
-def add_certificate(ctx, labels, certificate, **kwargs):
-    token = context.get_token(ctx)
-    apiclient = context.get_apiclient(ctx, token)
+def add_certificate(ctx, certificate=None, certificate_url=None, **kwargs):
+    results = []
+    if certificate:
+        for certificate in pem.parse_file(certificate):
+            results.append(_add_certificate_pem(ctx, str(certificate), **kwargs))
+    if certificate_url:
+        response = httpx.get(certificate_url)
+        if response.status_code != 200:
+            return results
+        crt_data = response.content
+        cert = x509.load_der_x509_certificate(crt_data, default_backend())
+        pem_data = cert.public_bytes(serialization.Encoding.PEM).decode()
+        results.append(_add_certificate_pem(ctx, str(pem_data), **kwargs))
+    return results
 
+
+def _add_certificate_pem(ctx, certificate, labels, **kwargs):
+    token = context.get_token(ctx)
     org_id = get_org_from_input_or_ctx(ctx, **kwargs)
     kwargs["org_id"] = org_id
 
-    results = []
-    for certificate in pem.parse_file(certificate):
-        spec = agilicus.TrustedCertificateSpec(str(certificate), **kwargs)
-        if labels:
-            spec.labels = [
-                agilicus.TrustedCertificateLabelName(label) for label in labels
-            ]
-        req = agilicus.TrustedCertificate(spec=spec)
+    apiclient = context.get_apiclient(ctx, token)
+    spec = agilicus.TrustedCertificateSpec(str(certificate), **kwargs)
+    if labels:
+        spec.labels = [agilicus.TrustedCertificateLabelName(label) for label in labels]
+    req = agilicus.TrustedCertificate(spec=spec)
 
-        try:
-            created_cert = apiclient.trusted_certs_api.create_trusted_cert(req)
-            results.append(created_cert)
-        except Exception as exc:
-            if exc.status == 409:
-                body = exc.body
-                if not body:
-                    raise
-                result = json.loads(body)
-                guid = agilicus.find_guid(result)
-                req = apiclient.trusted_certs_api.get_trusted_cert(guid, org_id=org_id)
-                req.spec.certificate = str(certificate)
-                if not req.spec.labels:
-                    req.spec.labels = []
-                for label in labels:
-                    req.spec.labels.append(agilicus.TrustedCertificateLabelName(label))
-                updated_cert = apiclient.trusted_certs_api.replace_trusted_cert(
-                    req.metadata.id,
-                    req,
-                )
-                results.append(updated_cert)
+    try:
+        return apiclient.trusted_certs_api.create_trusted_cert(req)
+    except Exception as exc:
+        if exc.status == 409:
+            body = exc.body
+            if not body:
+                raise
+            result = json.loads(body)
+            guid = agilicus.find_guid(result)
+            req = apiclient.trusted_certs_api.get_trusted_cert(guid, org_id=org_id)
+            req.spec.certificate = str(certificate)
+            if not req.spec.labels:
+                req.spec.labels = []
+            for label in labels:
+                req.spec.labels.append(agilicus.TrustedCertificateLabelName(label))
+            updated_cert = apiclient.trusted_certs_api.replace_trusted_cert(
+                req.metadata.id,
+                req,
+            )
+            return updated_cert
+        raise
+
+
+def globalsize_get_cert_url(common_name):
+    url = ""
+    mappings = {"GlobalSign": "gs"}
+    if "GlobalSign" not in common_name:
+        return None
+
+    for part in common_name.split(" "):
+        url += mappings.get(part, part.lower())
+    return f"https://secure.globalsign.com/cacert/{url}.crt"
+
+
+def get_globalsign_urls(**kwargs):
+    base = "https://secure.globalsign.com/cacert/gsatlasr3dvtlsca"
+    year = date.today().year
+    urls = []
+    for year in [year, year + 1]:
+        url = base + str(year)
+
+        for q in range(1, 5):
+            urls.append(url + f"q{str(q)}.crt")
+    return urls
+
+
+def update_globalsign_certs(ctx, **kwargs):
+    results = []
+    for url in get_globalsign_urls():
+        results.extend(add_certificate(ctx, certificate_url=url, labels=["all"]))
+    return results
+
+
+def update_trusted_certificates(ctx, common_name=None, globalsign=None, **kwargs):
+    results = []
+    if globalsign:
+        results.extend(update_globalsign_certs(ctx, **kwargs))
+    if common_name:
+        url = globalsize_get_cert_url(common_name)
+        if not url:
+            return "cannot find cert url from CN"
+        return add_certificate(ctx, certificate_url=url, labels=["all"], **kwargs)
     return results
 
 

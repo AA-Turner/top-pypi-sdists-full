@@ -1,27 +1,9 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import System
 import System.Runtime.ExceptionServices
-
-
-class ExceptionHandling(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def raise_app_domain_unhandled_exception_event(exception: typing.Any) -> None:
-        """
-        Raises the AppDomain.UnhandledException event.
-        
-        :param exception: Exception to pass to event handlers.
-        """
-        ...
-
-    @staticmethod
-    def set_unhandled_exception_handler(handler: typing.Callable[[System.Exception], bool]) -> None:
-        """Sets a handler for unhandled exceptions."""
-        ...
 
 
 class FirstChanceExceptionEventArgs(System.EventArgs):
@@ -48,23 +30,10 @@ class ExceptionDispatchInfo(System.Object):
 
     @staticmethod
     def set_current_stack_trace(source: System.Exception) -> System.Exception:
-        """
-        Stores the current stack trace into the specified Exception instance.
-        
-        :param source: The unthrown Exception instance.
-        :returns: The  exception instance.
-        """
         ...
 
     @staticmethod
     def set_remote_stack_trace(source: System.Exception, stack_trace: str) -> System.Exception:
-        """
-        Stores the provided stack trace into the specified Exception instance.
-        
-        :param source: The unthrown Exception instance.
-        :param stack_trace: The stack trace string to persist within . This is normally acquired from the Exception.StackTrace property from the remote exception instance.
-        :returns: The  exception instance.
-        """
         ...
 
     @overload
@@ -77,8 +46,20 @@ class ExceptionDispatchInfo(System.Object):
         ...
 
 
+class ExceptionHandling(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def raise_app_domain_unhandled_exception_event(exception: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def set_unhandled_exception_handler(handler: typing.Callable[[System.Exception], bool]) -> None:
+        ...
+
+
 class HandleProcessCorruptedStateExceptionsAttribute(System.Attribute):
-    """Obsoletions.CorruptedStateRecoveryMessage"""
+    """This class has no documentation."""
 
     def __init__(self) -> None:
         ...

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyzotero
-Version: 1.6.16
+Version: 1.8.0
 Summary: Python wrapper for the Zotero API
 Keywords: Zotero,DH
 Author: Stephan Hügel
@@ -57,10 +57,12 @@ Requires-Dist: feedparser>=6.0.12
 Requires-Dist: bibtexparser>=1.4.3,<2.0.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: whenever>=0.8.8
+Requires-Dist: click>=8.0.0 ; extra == 'cli'
 Requires-Python: >=3.9
 Project-URL: Repository, https://github.com/urschrei/pyzotero
 Project-URL: Tracker, https://github.com/urschrei/pyzotero/issues
 Project-URL: documentation, https://pyzotero.readthedocs.org
+Provides-Extra: cli
 Description-Content-Type: text/markdown
 
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/Pyzotero.svg?style=flat)](https://pypi.python.org/pypi/Pyzotero/) [![Docs](https://readthedocs.org/projects/pyzotero/badge/?version=latest)](http://pyzotero.readthedocs.org/en/latest/?badge=latest) [![PyPI Version](https://img.shields.io/pypi/v/Pyzotero.svg)](https://pypi.python.org/pypi/Pyzotero) [![Anaconda-Server Badge](https://anaconda.org/conda-forge/pyzotero/badges/version.svg)](https://anaconda.org/conda-forge/pyzotero) [![Downloads](https://pepy.tech/badge/pyzotero)](https://pepy.tech/project/pyzotero)  
@@ -80,8 +82,8 @@ Description-Content-Type: text/markdown
 Then:
 
 ``` python
-from pyzotero import zotero
-zot = zotero.Zotero(library_id, library_type, api_key) # local=True for read access to local Zotero
+from pyzotero import Zotero
+zot = Zotero(library_id, library_type, api_key)  # local=True for read access to local Zotero
 items = zot.top(limit=5)
 # we've retrieved the latest five top-level items in our library
 # we can print each item's item type and ID
@@ -93,11 +95,80 @@ for item in items:
 
 Full documentation of available Pyzotero methods, code examples, and sample output is available on [Read The Docs][3].
 
+# Command-Line Interface
+
+Pyzotero includes an optional command-line interface for searching and querying your local Zotero library. The CLI must be installed separately (see [Installation](#optional-command-line-interface)).
+
+## Basic Usage
+
+The CLI connects to your local Zotero installation and allows you to search your library, list collections, and view item types:
+
+```bash
+# Search for top-level items
+pyzotero search -q "machine learning"
+
+# Search with full-text mode
+pyzotero search -q "climate change" --fulltext
+
+# Filter by item type
+pyzotero search -q "methodology" --itemtype book --itemtype journalArticle
+
+# Search for top-level items within a collection
+pyzotero search --collection ABC123 -q "test"
+
+# Output as JSON for machine processing
+pyzotero search -q "climate" --json
+
+# List all collections
+pyzotero listcollections
+
+# List available item types
+pyzotero itemtypes
+```
+
+## Search Behaviour
+
+By default, `pyzotero search` searches only top-level item titles and metadata fields.
+
+When the `--fulltext` flag is used, the search expands to include all full-text indexed content, including PDFs and other attachments. Since most full-text content comes from PDF attachments rather than top-level items, the CLI automatically retrieves the parent bibliographic items for any matching attachments. This ensures you receive useful bibliographic records (journal articles, books, etc.) rather than raw attachment items.
+
+## Output Format
+
+By default, the CLI outputs human-readable text with a subset of metadata including:
+- Title, authors, date, publication
+- Volume, issue, DOI, URL
+- PDF attachments (with local file paths)
+
+Use the `--json` flag to output structured JSON.
+
 # Installation
 
 * Using [uv][11]: `uv add pyzotero`
 * Using [pip][10]: `pip install pyzotero`
 * Using Anaconda:`conda install conda-forge::pyzotero`
+
+## Optional: Command-Line Interface
+
+Pyzotero includes an optional command-line interface for searching and querying your local Zotero library. As it uses the local API server introduced in Zotero 7, it requires "Allow other applications on this computer to communicate with Zotero" to be enabled in Zotero's Settings > Advanced.
+
+### Installing the CLI
+
+To install Pyzotero with the CLI:
+
+* Using [uv][11]: `uv add "pyzotero[cli]"`
+* Using [pip][10]: `pip install "pyzotero[cli]"`
+
+### Using the CLI without installing
+
+If you just want to use the CLI without permanently installing Pyzotero, you can run it directly:
+
+* Using [uvx][11]: `uvx --from "pyzotero[cli]" pyzotero search -q "your query"`
+* Using [pipx][10]: `pipx run --spec "pyzotero[cli]" pyzotero search -q "your query"`
+
+See the [Command-Line Interface](#command-line-interface) section below for usage details.
+
+## Installing from Source
+
 * From a local clone, if you wish to install Pyzotero from a specific branch: 
 
 Example:

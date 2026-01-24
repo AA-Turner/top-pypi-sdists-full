@@ -22,6 +22,47 @@
 namespace Cantera
 {
 
+shared_ptr<Solution> Solution::clone(const vector<shared_ptr<Solution>>& adjacent,
+    bool withKinetics, bool withTransport) const
+{
+    shared_ptr<Solution> out = create();
+    out->setThermo(m_thermo->clone());
+    if (withKinetics) {
+        vector<shared_ptr<ThermoPhase>> kinPhases;
+        map<string, shared_ptr<Solution>> adjacentByName;
+        for (const auto& soln : adjacent) {
+            adjacentByName[soln->name()] = soln;
+            if (m_kinetics->phaseIndex(soln->name(),false) == npos) {
+                throw CanteraError("Solution::clone", "Provided adjacent phase '{}'"
+                    " not found in Kinetics object.", soln->name());
+            }
+        }
+
+        kinPhases.push_back(out->thermo());
+        for (size_t i = 1; i < m_kinetics->nPhases(); i++) {
+            string name = m_kinetics->phase(i)->name();
+            if (adjacentByName.count(name) != 0) {
+                kinPhases.push_back(adjacentByName[name]->thermo());
+                out->addAdjacent(adjacentByName[name]);
+                adjacentByName.erase(name);
+            } else {
+                auto soln = m_kinetics->phase(i)->root()->clone({}, false, false);
+                kinPhases.push_back(soln->thermo());
+                out->addAdjacent(soln);
+            }
+        }
+        out->setKinetics(m_kinetics->clone(kinPhases));
+    } else {
+        out->setKinetics(newKinetics("none"));
+    }
+    if (withTransport) {
+        out->setTransport(m_transport->clone(out->thermo()));
+    } else {
+        out->setTransport(newTransport(m_thermo, "none"));
+    }
+    return out;
+}
+
 string Solution::name() const {
     if (m_thermo) {
         return m_thermo->name();
@@ -42,6 +83,7 @@ void Solution::setName(const string& name) {
 
 void Solution::setThermo(shared_ptr<ThermoPhase> thermo) {
     m_thermo = thermo;
+    m_thermo->setSolution(weak_from_this());
     for (const auto& [id, callback] : m_changeCallbacks) {
         callback();
     }
@@ -60,6 +102,15 @@ void Solution::setKinetics(shared_ptr<Kinetics> kinetics) {
     }
 }
 
+string Solution::transportModel()
+{
+    if (!m_transport) {
+        throw CanteraError("Solution::transportModel",
+            "The Transport object is not initialized.");
+    }
+    return m_transport->transportModel();
+}
+
 void Solution::setTransport(shared_ptr<Transport> transport) {
     if (transport == m_transport) {
         return;
@@ -74,6 +125,9 @@ void Solution::setTransportModel(const string& model) {
     if (!m_thermo) {
         throw CanteraError("Solution::setTransportModel",
             "Unable to set Transport model without valid ThermoPhase object.");
+    }
+    if (m_transport && transportModel() == model) {
+        return;
     }
     setTransport(newTransport(m_thermo, model));
 }
@@ -95,6 +149,16 @@ void Solution::addAdjacent(shared_ptr<Solution> adjacent) {
     }
     m_adjacent.push_back(adjacent);
     m_adjacentByName[adjacent->name()] = adjacent;
+}
+
+shared_ptr<Solution> Solution::adjacent(const string& name)
+{
+    try {
+        return m_adjacentByName.at(name);
+    } catch (std::exception&) {
+        throw CanteraError("Solution::adjacent", "Solution '{}' does not have an "
+            "adjacent phase named '{}'", this->name(), name);
+    }
 }
 
 AnyMap Solution::parameters(bool withInput) const

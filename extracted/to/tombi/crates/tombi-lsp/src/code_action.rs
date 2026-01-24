@@ -1,5 +1,7 @@
-use tombi_document_tree::{dig_accessors, TableKind};
+use tombi_ast::AstNode;
+use tombi_document_tree::{TableKind, dig_accessors};
 use tombi_schema_store::{Accessor, AccessorContext, AccessorKeyKind};
+use tombi_text::IntoLsp;
 use tower_lsp::lsp_types::{
     CodeAction, CodeActionKind, DocumentChanges, OneOf, OptionalVersionedTextDocumentIdentifier,
     TextDocumentEdit, TextEdit, WorkspaceEdit,
@@ -25,6 +27,8 @@ impl std::fmt::Display for CodeActionRefactorRewriteName {
 
 pub fn dot_keys_to_inline_table_code_action(
     text_document_uri: &tombi_uri::Uri,
+    line_index: &tombi_text::LineIndex,
+    _root: &tombi_ast::Root,
     document_tree: &tombi_document_tree::DocumentTree,
     accessors: &[Accessor],
     contexts: &[AccessorContext],
@@ -66,7 +70,7 @@ pub fn dot_keys_to_inline_table_code_action(
                                     start: parent_key_context.range.start,
                                     end: value.range().start,
                                 }
-                                .into(),
+                                .into_lsp(line_index),
                                 new_text: format!(
                                     "{} = {{ {}{}",
                                     parent_key,
@@ -79,7 +83,8 @@ pub fn dot_keys_to_inline_table_code_action(
                                 ),
                             }),
                             OneOf::Left(TextEdit {
-                                range: tombi_text::Range::at(value.symbol_range().end).into(),
+                                range: tombi_text::Range::at(value.symbol_range().end)
+                                    .into_lsp(line_index),
                                 new_text: " }".to_string(),
                             }),
                         ],
@@ -95,6 +100,8 @@ pub fn dot_keys_to_inline_table_code_action(
 
 pub fn inline_table_to_dot_keys_code_action(
     text_document_uri: &tombi_uri::Uri,
+    line_index: &tombi_text::LineIndex,
+    root: &tombi_ast::Root,
     document_tree: &tombi_document_tree::DocumentTree,
     accessors: &[Accessor],
     contexts: &[AccessorContext],
@@ -114,7 +121,19 @@ pub fn inline_table_to_dot_keys_code_action(
             if table.len() == 1
                 && matches!(table.kind(), TableKind::InlineTable { has_comment: false }) =>
         {
-            let (key, value) = table.key_values().iter().next().unwrap();
+            let node = get_ast_inline_table_node(root, table)?;
+            if !node.inner_begin_dangling_comments().is_empty()
+                || node
+                    .inner_end_dangling_comments()
+                    .into_iter()
+                    .flatten()
+                    .next()
+                    .is_some()
+                || node.has_inner_comments()
+            {
+                return None;
+            }
+            let (key, value) = table.key_values().iter().next()?;
 
             Some(CodeAction {
                 title: CodeActionRefactorRewriteName::InlineTableToDottedKeys.to_string(),
@@ -132,7 +151,7 @@ pub fn inline_table_to_dot_keys_code_action(
                                     parent_context.range.end,
                                     key.range().start,
                                 )
-                                .into(),
+                                .into_lsp(line_index),
                                 new_text: ".".to_string(),
                             }),
                             OneOf::Left(TextEdit {
@@ -140,7 +159,7 @@ pub fn inline_table_to_dot_keys_code_action(
                                     value.range().end,
                                     table.symbol_range().end,
                                 )
-                                .into(),
+                                .into_lsp(line_index),
                                 new_text: "".to_string(),
                             }),
                         ],
@@ -152,4 +171,19 @@ pub fn inline_table_to_dot_keys_code_action(
         }
         _ => None,
     }
+}
+
+fn get_ast_inline_table_node(
+    root: &tombi_ast::Root,
+    table: &tombi_document_tree::Table,
+) -> Option<tombi_ast::InlineTable> {
+    let target_range = table.range();
+    for node in root.syntax().descendants() {
+        if let Some(inline_table) = tombi_ast::InlineTable::cast(node)
+            && inline_table.range() == target_range
+        {
+            return Some(inline_table);
+        }
+    }
+    None
 }

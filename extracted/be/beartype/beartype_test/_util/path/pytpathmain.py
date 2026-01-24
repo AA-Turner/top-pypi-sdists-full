@@ -4,8 +4,9 @@
 # See "LICENSE" for further details.
 
 '''
-Test-specific **main codebase paths** (i.e., :class:`pathlib.Path` instances
-encapsulating test-agnostic paths applicable to the codebase being tested).
+Test-wide **main codebase paths** (i.e., low-level callables creating and
+returning :class:`pathlib.Path` objects encapsulating test-agnostic paths
+applicable to the codebase being tested).
 '''
 
 # ....................{ IMPORTS                            }....................
@@ -28,7 +29,7 @@ from pathlib import Path
 @callable_cached
 def get_main_dir() -> Path:
     '''
-    :mod:`Path` encapsulating the absolute dirname of the **top-level project
+    :class:`.Path` encapsulating the absolute dirname of the **top-level project
     directory** (i.e., directory containing both a ``.git/`` subdirectory and a
     subdirectory providing this project's package) if found *or* raise an
     exception otherwise.
@@ -102,8 +103,8 @@ def get_main_sphinx_source_dir() -> Path:
 def get_main_mypy_config_file() -> Path:
     '''
     :mod:`Path` encapsulating the absolute filename of this project's **mypy
-    configuration file** (i.e., top-level ``.mypy.ini`` file) if found
-    *or* raise an exception otherwise.
+    configuration file** (i.e., top-level ``.mypy.ini`` file) if found *or*
+    raise an exception otherwise.
     '''
 
     # Obverse obviation!
@@ -114,10 +115,10 @@ def get_main_mypy_config_file() -> Path:
 def get_main_readme_file() -> Path:
     '''
     :mod:`Path` encapsulating the absolute filename of the **project readme
-    file** (i.e., this project's front-facing ``README.rst`` file) if found
-    *or* raise an exception otherwise.
+    file** (i.e., this project's front-facing ``README.rst`` file) if found *or*
+    raise an exception otherwise.
 
-    Note that the :meth:`Path.read_text` method of this object trivially yields
+    Note that the :meth:`.Path.read_text` method of this object trivially yields
     the decoded plaintext contents of this file as a string.
     '''
 

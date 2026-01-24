@@ -73,7 +73,7 @@ TASK_MANAGER_SYSTEM_MESSAGE = """
 
     New ingestions and queries may be raised from time to time, so use the initiate_tasks again if you see new ingestions/queries.
 
-    Transfer to the summary agent if all ingestion and query tasks are done.
+    Once the ingestion and query tasks are done, return to the summary agent, do not ask questions of the user.
     """
 
 DEFAULT_ERROR_GROUP_CHAT_MESSAGE: str = """
@@ -197,15 +197,6 @@ class DocAgent(ConversableAgent):
             human_input_mode="NEVER",
         )
         self.register_reply([ConversableAgent, None], self.generate_inner_group_chat_reply, position=0)
-
-        self.context_variables: ContextVariables = ContextVariables(
-            data={
-                "DocumentsToIngest": [],
-                "DocumentsIngested": [],
-                "QueriesToRun": [],
-                "QueryResults": [],
-            }
-        )
 
         self._triage_agent = DocumentTriageAgent(llm_config=llm_config)
 
@@ -396,7 +387,7 @@ class DocAgent(ConversableAgent):
             else:
                 # First time initialization - no deduplication needed
                 context_variables["DocumentsToIngest"] = ingestions
-                context_variables["QueriesToRun"] = [query for query in queries]
+                context_variables["QueriesToRun"] = list(queries)
                 context_variables["TaskInitiated"] = True
                 response_message = "Updated context variables with task decisions"
 

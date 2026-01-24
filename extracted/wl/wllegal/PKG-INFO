@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wllegal
-Version: 2025.6
+Version: 2026.1
 Summary: Hosted Weblate legal stuff
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later
@@ -32,15 +32,15 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Django<5.3,>=5.2
-Requires-Dist: weblate-language-data>=2024.14
+Requires-Dist: Django<6.1,>=5.2
+Requires-Dist: weblate-language-data>=2026.1
 Provides-Extra: dev
 Requires-Dist: wllegal[lint,test]; extra == "dev"
 Provides-Extra: lint
-Requires-Dist: pre-commit==4.3.0; extra == "lint"
+Requires-Dist: pre-commit==4.5.1; extra == "lint"
 Provides-Extra: test
 Requires-Dist: wllegal[weblate]; extra == "test"
-Requires-Dist: coverage==7.10.6; extra == "test"
+Requires-Dist: coverage==7.13.1; extra == "test"
 Requires-Dist: translate-toolkit; extra == "test"
 Provides-Extra: weblate
 Requires-Dist: Weblate[postgres]>=5.0; extra == "weblate"
@@ -96,7 +96,7 @@ Sources are available at <https://github.com/WeblateOrg/wllegal>.
 Usage
 -----
 
-Include the module in the `INSTALLED_APPS`, it has tbe placed prior to other
+Include the module in the `INSTALLED_APPS`, it has to be placed prior to other
 Weblate modules to override it's templates:
 
 .. code-block:: python

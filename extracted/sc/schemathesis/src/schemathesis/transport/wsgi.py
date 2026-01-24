@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Generator
+from typing import TYPE_CHECKING, Any
 
 from schemathesis.core import NotSet
 from schemathesis.core.rate_limit import ratelimit
@@ -115,6 +116,7 @@ class WSGITransport(BaseTransport["werkzeug.Client"]):
                 headers=kwargs.get("headers") or {},
                 cookies=kwargs.get("cookies") or {},
                 path_parameters={},
+                body={},
             ),
         )
 
@@ -154,14 +156,7 @@ def multipart_serializer(ctx: SerializationContext, value: Any) -> dict[str, Any
 
 @WSGI_TRANSPORT.serializer("application/xml", "text/xml")
 def xml_serializer(ctx: SerializationContext, value: Any) -> dict[str, Any]:
-    media_type = ctx.case.media_type
-
-    assert media_type is not None
-
-    raw_schema = ctx.case.operation.get_raw_payload_schema(media_type)
-    resolved_schema = ctx.case.operation.get_resolved_payload_schema(media_type)
-
-    return serialize_xml(value, raw_schema, resolved_schema)
+    return serialize_xml(ctx.case, value)
 
 
 @WSGI_TRANSPORT.serializer("application/x-www-form-urlencoded")

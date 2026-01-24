@@ -6,16 +6,18 @@ from kiota_abstractions.serialization import Parsable, ParseNode, SerializationW
 from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from ..entity import Entity
+    from .base_entity import BaseEntity
     from .device_link import DeviceLink
     from .forwarding_profile import ForwardingProfile
     from .region import Region
     from .remote_network_connectivity_configuration import RemoteNetworkConnectivityConfiguration
 
-from ..entity import Entity
+from .base_entity import BaseEntity
 
 @dataclass
-class RemoteNetwork(Entity, Parsable):
+class RemoteNetwork(BaseEntity, Parsable):
+    # The OdataType property
+    odata_type: Optional[str] = "#microsoft.graph.networkaccess.remoteNetwork"
     # Specifies the connectivity details of all device links associated with a remote network.
     connectivity_configuration: Optional[RemoteNetworkConnectivityConfiguration] = None
     # Each unique CPE device associated with a remote network is specified. Supports $expand.
@@ -24,10 +26,6 @@ class RemoteNetwork(Entity, Parsable):
     forwarding_profiles: Optional[list[ForwardingProfile]] = None
     # last modified time.
     last_modified_date_time: Optional[datetime.datetime] = None
-    # Name.
-    name: Optional[str] = None
-    # The OdataType property
-    odata_type: Optional[str] = None
     # The region property
     region: Optional[Region] = None
     # Remote network version.
@@ -49,13 +47,13 @@ class RemoteNetwork(Entity, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
-        from ..entity import Entity
+        from .base_entity import BaseEntity
         from .device_link import DeviceLink
         from .forwarding_profile import ForwardingProfile
         from .region import Region
         from .remote_network_connectivity_configuration import RemoteNetworkConnectivityConfiguration
 
-        from ..entity import Entity
+        from .base_entity import BaseEntity
         from .device_link import DeviceLink
         from .forwarding_profile import ForwardingProfile
         from .region import Region
@@ -66,7 +64,6 @@ class RemoteNetwork(Entity, Parsable):
             "deviceLinks": lambda n : setattr(self, 'device_links', n.get_collection_of_object_values(DeviceLink)),
             "forwardingProfiles": lambda n : setattr(self, 'forwarding_profiles', n.get_collection_of_object_values(ForwardingProfile)),
             "lastModifiedDateTime": lambda n : setattr(self, 'last_modified_date_time', n.get_datetime_value()),
-            "name": lambda n : setattr(self, 'name', n.get_str_value()),
             "region": lambda n : setattr(self, 'region', n.get_enum_value(Region)),
             "version": lambda n : setattr(self, 'version', n.get_str_value()),
         }
@@ -87,7 +84,6 @@ class RemoteNetwork(Entity, Parsable):
         writer.write_collection_of_object_values("deviceLinks", self.device_links)
         writer.write_collection_of_object_values("forwardingProfiles", self.forwarding_profiles)
         writer.write_datetime_value("lastModifiedDateTime", self.last_modified_date_time)
-        writer.write_str_value("name", self.name)
         writer.write_enum_value("region", self.region)
         writer.write_str_value("version", self.version)
     

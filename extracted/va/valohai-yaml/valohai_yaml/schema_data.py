@@ -1,8 +1,47 @@
+from __future__ import annotations
+
+from typing import Any
+
+from valohai_yaml.objs.pipelines.types import edge_types
+
 SCHEMATA = {}
+
+edge_types_list = " | ".join(edge_types)
 
 
 def register(schema: dict) -> None:
     SCHEMATA[schema["$id"]] = schema
+
+
+def _get_execution_and_task_node_props(type: str) -> dict[str, Any]:
+    properties = {
+        "actions": {"items": {"$ref": "/schemas/node-action"}, "type": "array"},
+        "commit": {"type": "string"},
+        "edge-merge-mode": {"$ref": "/schemas/node-edge-merge-mode"},
+        "name": {"type": "string"},
+        "on-error": {"enum": ["stop-all", "stop-next", "continue", "retry"], "type": "string"},
+        "override": {"$ref": "/schemas/overridden-properties"},
+        "step": {"type": "string"},
+        "type": {"const": type, "type": "string"},
+    }
+    result: dict[str, Any] = {
+        "additionalProperties": False,
+        "properties": properties,
+        "required": ["name", "step", "type"],
+    }
+
+    # task nodes reference either a `step` or a `task` blueprint;
+    # one of which must be present, but not both
+    if type == "task":
+        properties["task"] = {"type": "string"}
+        result["required"] = ["name", "type"]
+        result["oneOf"] = [
+            {"required": ["step"]},
+            {"required": ["task"]},
+        ]
+        result["not"] = {"required": ["step", "task"]}
+
+    return result
 
 
 register(
@@ -27,12 +66,18 @@ register(
         "description": "Optional deployment definitions with defaults for initializing deployments automatically "
         "when a related pipeline is run and no matching deployment is found in the project.",
         "properties": {
-            "name": {"type": "string", "description": "The unique, URL-friendly name of the deployment."},
+            "name": {
+                "type": "string",
+                "description": "The unique, URL-friendly name of the deployment.",
+            },
             "defaults": {
                 "additionalProperties": True,
                 "description": "Values to use if the deployment does not yet exist in the project context.",
                 "properties": {
-                    "target": {"type": "string", "description": "Deployment target identifier or UUID."},
+                    "target": {
+                        "type": "string",
+                        "description": "Deployment target identifier or UUID.",
+                    },
                 },
                 "required": ["target"],
                 "title": "DeploymentDefaults",
@@ -74,7 +119,10 @@ register(
                 "items": {"$ref": "/schemas/file-item"},
                 "type": "array",
             },
-            "image": {"description": "Docker image used to run the deployment code in.", "type": "string"},
+            "image": {
+                "description": "Docker image used to run the deployment code in.",
+                "type": "string",
+            },
             "name": {
                 "description": "Name of the endpoint, which is used as part of the URL (i.e. "
                 "/project/version/name) of the deployed endpoint. Endpoint names must be "
@@ -130,13 +178,19 @@ register(
         "$id": "https://valohai.com/schemas/environment-variable-item",
         "additionalProperties": False,
         "properties": {
-            "default": {"description": "The default value for the environment variable.", "type": "string"},
+            "default": {
+                "description": "The default value for the environment variable.",
+                "type": "string",
+            },
             "description": {
                 "description": "Describes the environment variable's meaning. This can be shown as a "
                 "help text in the user interface.",
                 "type": "string",
             },
-            "name": {"description": "The environment variable. This must be unique within a Step.", "type": "string"},
+            "name": {
+                "description": "The environment variable. This must be unique within a Step.",
+                "type": "string",
+            },
             "optional": {
                 "default": True,
                 "description": "Whether this environment variable is optional.\n"
@@ -154,19 +208,9 @@ register(
 register(
     {
         "$id": "https://valohai.com/schemas/execution-node",
-        "additionalProperties": False,
-        "properties": {
-            "actions": {"items": {"$ref": "/schemas/node-action"}, "type": "array"},
-            "edge-merge-mode": {"$ref": "/schemas/node-edge-merge-mode"},
-            "name": {"type": "string"},
-            "on-error": {"enum": ["stop-all", "stop-next", "continue", "retry"], "type": "string"},
-            "override": {"$ref": "/schemas/overridden-properties"},
-            "step": {"type": "string"},
-            "type": {"const": "execution", "type": "string"},
-        },
-        "required": ["name", "step", "type"],
         "title": "ExecutionNode",
         "type": "object",
+        **_get_execution_and_task_node_props("execution"),
     },
 )
 register(
@@ -215,7 +259,10 @@ register(
             "keep-directories": {
                 "default": False,
                 "description": "Whether to retain directories when using wildcards for this input.",
-                "oneOf": [{"type": "boolean"}, {"enum": ["none", "full", "suffix"], "type": "string"}],
+                "oneOf": [
+                    {"type": "boolean"},
+                    {"enum": ["none", "full", "suffix"], "type": "string"},
+                ],
             },
             "name": {
                 "description": "The symbolic name of this input. This must be unique within a Step.",
@@ -245,7 +292,11 @@ register(
             {
                 "additionalProperties": False,
                 "properties": {
-                    "destination": {"description": "Container path for data", "pattern": "^/.+$", "type": "string"},
+                    "destination": {
+                        "description": "Container path for data",
+                        "pattern": "^/.+$",
+                        "type": "string",
+                    },
                     "options": {"description": "Additional mount options", "type": "object"},
                     "readonly": {
                         "default": False,
@@ -444,6 +495,12 @@ register(
                 "items": {
                     "anyOf": [
                         {
+                            "description": (
+                                "A shorthand edge definition as a two-item array: [source, target]. "
+                                "Source and target format: `node-name.edge-type.edge-key`.<br>\n"
+                                f"Allowed edge types: {edge_types_list}.<br>\n"
+                                "Example: `[train-model.output.model.pkl, test-model.input.model]` "
+                            ),
                             "items": False,
                             "prefixItems": [{"type": "string"}, {"type": "string"}],
                             "title": "ShorthandEdge",
@@ -451,6 +508,11 @@ register(
                         },
                         {
                             "additionalProperties": False,
+                            "description": (
+                                "A full edge definition as an object with source, target and optional "
+                                "additional configuration. "
+                                "Same source and target format as in the shorthand edge definition."
+                            ),
                             "properties": {
                                 "configuration": {"type": "object"},
                                 "source": {"type": "string"},
@@ -506,7 +568,9 @@ register(
             },
             "name": {"type": "string"},
             "target": {"type": "string"},
-            "targets": {"oneOf": [{"type": "string"}, {"items": {"type": "string"}, "type": "array"}]},
+            "targets": {
+                "oneOf": [{"type": "string"}, {"items": {"type": "string"}, "type": "array"}],
+            },
         },
         "title": "Pipeline Parameter",
         "type": "object",
@@ -517,7 +581,10 @@ register(
         "$id": "https://valohai.com/schemas/step",
         "additionalProperties": False,
         "properties": {
-            "category": {"description": "Category name to group & organize steps in the UI", "type": "string"},
+            "category": {
+                "description": "Category name to group & organize steps in the UI",
+                "type": "string",
+            },
             "command": {
                 "description": "The command or commands to run.",
                 "oneOf": [{"type": "string"}, {"items": {"type": "string"}, "type": "array"}],
@@ -552,6 +619,11 @@ register(
                 "items": {"$ref": "/schemas/mount-item"},
                 "type": "array",
             },
+            "cache-volumes": {
+                "description": "Kubernetes persistent volume claim names to used as additional input cache volumes.",
+                "items": {"type": "string"},
+                "type": "array",
+            },
             "name": {"description": "The unique name for this step.", "type": "string"},
             "no-output-timeout": {
                 "description": "The time after which the step is considered to have died if no "
@@ -579,6 +651,10 @@ register(
                 },
                 "type": "object",
             },
+            "runtime-config-preset": {
+                "description": "The runtime configuration preset ID or slug to use for this step.",
+                "type": "string",
+            },
             "source-path": {
                 "description": "The original source file that this step comes from, relative to this config file.",
                 "type": "string",
@@ -589,7 +665,11 @@ register(
                 'An unspecified value means "no timeout".',
                 "oneOf": [{"type": "integer"}, {"type": "string"}],
             },
-            "upload-store": {"description": "The output data store name or UUID.", "maxLength": 64, "type": "string"},
+            "upload-store": {
+                "description": "The output data store name or UUID.",
+                "maxLength": 64,
+                "type": "string",
+            },
         },
         "required": ["command", "name", "image"],
         "type": "object",
@@ -632,40 +712,40 @@ register(
             "stop-condition": {"type": "string"},
             "type": {"type": "string"},
         },
-        "required": ["name", "step", "parameters"],
+        "required": ["name", "step"],
+        "anyOf": [
+            {"required": ["parameters"]},
+            {"required": ["parameter-sets"]},
+        ],
         "type": "object",
     },
 )
 register(
     {
         "$id": "https://valohai.com/schemas/task-node",
-        "additionalProperties": False,
-        "properties": {
-            "actions": {"items": {"$ref": "/schemas/node-action"}, "type": "array"},
-            "edge-merge-mode": {"$ref": "/schemas/node-edge-merge-mode"},
-            "name": {"type": "string"},
-            "on-error": {"enum": ["stop-all", "stop-next", "continue"], "type": "string"},
-            "override": {"$ref": "/schemas/overridden-properties"},
-            "step": {"type": "string"},
-            "type": {"const": "task", "type": "string"},
-        },
-        "required": ["name", "step", "type"],
         "title": "TaskNode",
         "type": "object",
+        **_get_execution_and_task_node_props("task"),
     },
 )
 register(
     {
         "$id": "https://valohai.com/schemas/toleration",
         "additionalProperties": False,
-        "oneOf": [{"required": ["key"]}, {"properties": {"key": {"not": {}}, "operator": {"const": "Exists"}}}],
+        "oneOf": [
+            {"required": ["key"]},
+            {"properties": {"key": {"not": {}}, "operator": {"const": "Exists"}}},
+        ],
         "properties": {
             "effect": {
                 "description": "Optional, empty tolerates all effects.",
                 "enum": ["PreferNoSchedule", "NoSchedule", "NoExecute"],
                 "type": "string",
             },
-            "key": {"description": 'Optional if operator is "Exists", to match all keys.', "type": "string"},
+            "key": {
+                "description": 'Optional if operator is "Exists", to match all keys.',
+                "type": "string",
+            },
             "operator": {
                 "description": 'Optional, empty means "Equal".',
                 "enum": ["Exists", "Equal"],
@@ -686,7 +766,10 @@ register(
         "properties": {
             "name": {"type": "string"},
             "rules": {"$ref": "/schemas/variant-param-rule-item"},
-            "style": {"enum": ["linear", "logspace", "multiple", "random", "single"], "type": "string"},
+            "style": {
+                "enum": ["linear", "logspace", "multiple", "random", "single"],
+                "type": "string",
+            },
         },
         "required": ["name", "rules", "style"],
         "type": "object",

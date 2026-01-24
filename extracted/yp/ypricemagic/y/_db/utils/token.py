@@ -1,19 +1,15 @@
 import logging
 import threading
+import time
 from functools import lru_cache
-from typing import Dict, Optional, Set
 
 import a_sync
-from a_sync import PruningThreadPoolExecutor
 from cachetools import TTLCache, cached
-from pony.orm import commit, db_session, select
+from pony.orm import ObjectNotFound, TransactionIntegrityError, commit, select
 
 from y import constants, convert
-from y._db.decorators import (
-    a_sync_read_db_session,
-    db_session_retry_locked,
-    log_result_count,
-)
+from y._db.common import make_executor
+from y._db.decorators import a_sync_read_db_session, db_session_retry_locked, log_result_count
 from y._db.entities import Address, Token, insert
 from y._db.exceptions import EEEError
 from y._db.utils._ep import _get_get_token
@@ -25,7 +21,7 @@ logger = logging.getLogger(__name__)
 _logger_debug = logger.debug
 
 
-_token_executor = PruningThreadPoolExecutor(10, "ypricemagic db executor [token]")
+_token_executor = make_executor(2, 10, "ypricemagic db executor [token]")
 
 
 @a_sync.a_sync(default="async", executor=_token_executor)
@@ -64,9 +60,26 @@ def get_token(address: str) -> Token:
                 return entity
             entity.delete()
             commit()
-        return insert(type=Token, chain=CHAINID, address=address) or Token.get(
-            chain=CHAINID, address=address
-        )
+        try:
+            return insert(type=Token, chain=CHAINID, address=address) or Token.get(
+                chain=CHAINID, address=address
+            )
+        except TransactionIntegrityError as e:
+            if "Address.chain, Address.address" in str(e).split(":")[-1]:
+                try:
+                    addr = Address[CHAINID, address]  # type: ignore [type-arg]
+                except ObjectNotFound:
+                    raise RuntimeError(
+                        "you probably have an eth-portfolio enhanced db but no eth-portfolio in your env"
+                    )
+                # TODO handle this more gracefully, instead of just
+                #      dropping the address and re-adding as a Token
+                addr.delete()
+                commit()
+                continue
+        if entity is not None:
+            return entity
+        time.sleep(1)
 
 
 @a_sync.a_sync(default="sync", ram_cache_maxsize=None)
@@ -86,7 +99,7 @@ def ensure_token(address: AnyAddressType) -> None:
     return _ensure_token(str(address))  # force to string for cache key
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=512)
 @db_session_retry_locked
 def _ensure_token(address: str) -> None:
     """Helper function to ensure a token entity exists.
@@ -106,7 +119,7 @@ def _ensure_token(address: str) -> None:
 
 
 @a_sync_read_db_session
-def get_bucket(address: str) -> Optional[str]:
+def get_bucket(address: str) -> str | None:
     """Retrieve the bucket for a given token address.
 
     This function retrieves the bucket associated with a token address from
@@ -154,11 +167,11 @@ def _set_bucket(address: str, bucket: str) -> None:
     _logger_debug("updated %s bucket in ydb: %s", address, bucket)
 
 
-set_bucket = a_sync.ProcessingQueue(_set_bucket, num_workers=10, return_data=False)
+set_bucket = a_sync.ProcessingQueue(_set_bucket, num_workers=2, return_data=False)
 
 
 @a_sync_read_db_session
-def get_symbol(address: str) -> Optional[str]:
+def get_symbol(address: str) -> str | None:
     """Retrieve the symbol for a given token address.
 
     This function retrieves the symbol associated with a token address from
@@ -211,7 +224,7 @@ def set_symbol(address: str, symbol: str):
 
 
 @a_sync_read_db_session
-def get_name(address: str) -> Optional[str]:
+def get_name(address: str) -> str | None:
     """Retrieve the name for a given token address.
 
     This function retrieves the name associated with a token address from
@@ -368,7 +381,7 @@ def _set_name(address: str, name: str) -> None:
 
 
 @a_sync_read_db_session
-def _get_token_decimals(address: str) -> Optional[int]:
+def _get_token_decimals(address: str) -> int | None:
     """Retrieve the decimals for a given token address.
 
     This function retrieves the decimals associated with a token address from
@@ -398,7 +411,7 @@ def _get_token_decimals(address: str) -> Optional[int]:
 @cached(TTLCache(maxsize=1, ttl=60 * 60), lock=threading.Lock())
 @db_session_retry_locked
 @log_result_count("tokens")
-def known_tokens() -> Set[str]:
+def known_tokens() -> set[str]:
     """Cache and return all known tokens for this chain.
 
     This function caches and returns all known tokens for the current chain
@@ -416,7 +429,7 @@ def known_tokens() -> Set[str]:
 
 @cached(TTLCache(maxsize=1, ttl=60 * 60), lock=threading.Lock())
 @log_result_count("buckets")
-def known_buckets() -> Dict[str, str]:
+def known_buckets() -> dict[str, str]:
     """Cache and return all known token buckets for this chain.
 
     This function caches and returns all known token buckets for the current
@@ -434,7 +447,7 @@ def known_buckets() -> Dict[str, str]:
 
 @cached(TTLCache(maxsize=1, ttl=60 * 60), lock=threading.Lock())
 @log_result_count("token decimals")
-def known_decimals() -> Dict[Address, int]:
+def known_decimals() -> dict[Address, int]:
     """Cache and return all known token decimals for this chain.
 
     This function caches and returns all known token decimals for the current
@@ -454,7 +467,7 @@ def known_decimals() -> Dict[Address, int]:
 
 @cached(TTLCache(maxsize=1, ttl=60 * 60), lock=threading.Lock())
 @log_result_count("token symbols")
-def known_symbols() -> Dict[Address, str]:
+def known_symbols() -> dict[Address, str]:
     """Cache and return all known token symbols for this chain.
 
     This function caches and returns all known token symbols for the current
@@ -472,7 +485,7 @@ def known_symbols() -> Dict[Address, str]:
 
 @cached(TTLCache(maxsize=1, ttl=60 * 60), lock=threading.Lock())
 @log_result_count("token names")
-def known_names() -> Dict[Address, str]:
+def known_names() -> dict[Address, str]:
     """Cache and return all known token names for this chain.
 
     This function caches and returns all known token names for the current

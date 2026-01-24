@@ -1,9 +1,17 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import Any, Generic, NamedTuple, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    NamedTuple,
+    Optional,
+    TypeVar,
+    Union,
+)
 
 from marimo._data.models import (
     BinValue,
@@ -12,6 +20,9 @@ from marimo._data.models import (
     ExternalDataType,
 )
 from marimo._plugins.ui._impl.tables.format import FormatMapping
+
+if TYPE_CHECKING:
+    from marimo._plugins.ui._impl.table import SortArgs
 
 T = TypeVar("T")
 
@@ -79,9 +90,7 @@ class TableManager(abc.ABC, Generic[T]):
         pass
 
     @abc.abstractmethod
-    def sort_values(
-        self, by: ColumnName, descending: bool
-    ) -> TableManager[Any]:
+    def sort_values(self, by: list[SortArgs]) -> TableManager[Any]:
         pass
 
     @abc.abstractmethod
@@ -94,20 +103,36 @@ class TableManager(abc.ABC, Generic[T]):
     def to_csv(
         self,
         format_mapping: Optional[FormatMapping] = None,
+        encoding: str | None = "utf-8",
     ) -> bytes:
-        return self.to_csv_str(format_mapping).encode("utf-8")
+        resolved_encoding = encoding or "utf-8"
+        return self.to_csv_str(format_mapping).encode(resolved_encoding)
 
     def to_arrow_ipc(self) -> bytes:
         raise NotImplementedError("Arrow format not supported")
 
     @abc.abstractmethod
     def to_json_str(
-        self, format_mapping: Optional[FormatMapping] = None
+        self,
+        format_mapping: Optional[FormatMapping] = None,
+        strict_json: bool = False,
+        ensure_ascii: bool = True,
     ) -> str:
         pass
 
-    def to_json(self, format_mapping: Optional[FormatMapping] = None) -> bytes:
-        return self.to_json_str(format_mapping).encode("utf-8")
+    def to_json(
+        self,
+        format_mapping: Optional[FormatMapping] = None,
+        strict_json: bool = False,  # Whether the result should be strictly JSON compliant (eg. nan -> null)
+        encoding: str | None = "utf-8",
+        ensure_ascii: bool = True,
+    ) -> bytes:
+        resolved_encoding = encoding or "utf-8"
+        return self.to_json_str(
+            format_mapping=format_mapping,
+            strict_json=strict_json,
+            ensure_ascii=ensure_ascii,
+        ).encode(resolved_encoding)
 
     @abc.abstractmethod
     def to_parquet(self) -> bytes:
@@ -140,8 +165,9 @@ class TableManager(abc.ABC, Generic[T]):
         pass
 
     def get_field_types(self) -> FieldTypes:
+        # Some column names may be non-string (sqlalchemy quoted names), so we convert them to strings
         return [
-            (column_name, self.get_field_type(column_name))
+            (str(column_name), self.get_field_type(column_name))
             for column_name in self.get_column_names()
         ]
 

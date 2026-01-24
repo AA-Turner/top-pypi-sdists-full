@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: dissect.esedb
-Version: 3.17
-Summary: A Dissect module implementing a parser for Microsofts Extensible Storage Engine Database (ESEDB), used for example in Active Directory, Exchange and Windows Update
+Version: 3.18
+Summary: Superseded by dissect.database. A Dissect module implementing a parser for Microsofts Extensible Storage Engine Database (ESEDB), used for example in Active Directory, Exchange and Windows Update
 Author-email: Dissect Team <dissect@fox-it.com>
-License: Apache License 2.0
+License-Expression: Apache-2.0
 Project-URL: homepage, https://dissect.tools
 Project-URL: documentation, https://docs.dissect.tools/en/latest/projects/dissect.esedb
 Project-URL: repository, https://github.com/fox-it/dissect.esedb
@@ -11,14 +11,13 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: OSI Approved
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Internet :: Log Analysis
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: Utilities
-Requires-Python: ~=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYRIGHT
@@ -34,6 +33,10 @@ Dynamic: license-file
 A Dissect module implementing a parser for Microsofts Extensible Storage Engine Database (ESEDB), used for example in
 Active Directory, Exchange and Windows Update. For more information, please see [the
 documentation](https://docs.dissect.tools/en/latest/projects/dissect.esedb/index.html).
+
+## Supersession notice
+
+This project has been **superseded** by [`dissect.database`](https://github.com/fox-it/dissect.database), which provides the same functionality along with broader database support.
 
 ## Requirements
 
@@ -56,7 +59,7 @@ This module is also automatically installed if you install the `dissect` package
 ### Impacket compatibility shim for secretsdump.py
 
 Impacket does not ([yet](https://github.com/fortra/impacket/pull/1452)) have native support for `dissect.esedb`,
-so in the meantime a compatibility shim is provided. To use this shim, simply install `dissect.esedb` using the 
+so in the meantime a compatibility shim is provided. To use this shim, simply install `dissect.esedb` using the
 instructions above, and execute `secretsdump.py` like so:
 
 ```bash

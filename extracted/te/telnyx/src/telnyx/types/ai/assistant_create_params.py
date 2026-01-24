@@ -8,6 +8,7 @@ from typing_extensions import Required, TypedDict
 from .enabled_features import EnabledFeatures
 from .assistant_tool_param import AssistantToolParam
 from .voice_settings_param import VoiceSettingsParam
+from .widget_settings_param import WidgetSettingsParam
 from .insight_settings_param import InsightSettingsParam
 from .privacy_settings_param import PrivacySettingsParam
 from .messaging_settings_param import MessagingSettingsParam
@@ -29,7 +30,7 @@ class AssistantCreateParams(TypedDict, total=False):
     """ID of the model to use.
 
     You can use the
-    [Get models API](https://developers.telnyx.com/api/inference/inference-embedding/get-models-public-models-get)
+    [Get models API](https://developers.telnyx.com/api-reference/chat/get-available-models)
     to see all of your available models,
     """
 
@@ -54,7 +55,10 @@ class AssistantCreateParams(TypedDict, total=False):
     """Text that the assistant will use to start the conversation.
 
     This may be templated with
-    [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+    [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables).
+    Use an empty string to have the assistant wait for the user to speak first. Use
+    the special value `<assistant-speaks-first-with-model-generated-message>` to
+    have the assistant generate the greeting based on the system instructions.
     """
 
     insight_settings: InsightSettingsParam
@@ -63,7 +67,7 @@ class AssistantCreateParams(TypedDict, total=False):
     """This is only needed when using third-party inference providers.
 
     The `identifier` for an integration secret
-    [/v2/integration_secrets](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+    [/v2/integration_secrets](https://developers.telnyx.com/api-reference/integration-secrets/create-a-secret)
     that refers to your LLM provider's API key. Warning: Free plans are unlikely to
     work with this integration.
     """
@@ -84,3 +88,6 @@ class AssistantCreateParams(TypedDict, total=False):
     transcription: TranscriptionSettingsParam
 
     voice_settings: VoiceSettingsParam
+
+    widget_settings: WidgetSettingsParam
+    """Configuration settings for the assistant's web widget."""

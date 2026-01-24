@@ -5,8 +5,8 @@
 
 #ifdef _MSC_VER
 #    pragma warning(push)
-#    pragma warning( \
-        disable : 4459) // annoying warning about global "alloc" being shadowed by locals
+#    pragma warning(disable \
+                    : 4459) // annoying warning about global "alloc" being shadowed by locals
 #endif
 
 #define CATCH_CONFIG_ENABLE_ALL_STRINGMAKERS
@@ -14,6 +14,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_templated.hpp>
 #include <filesystem>
+#include <initializer_list>
 
 #include "slang/ast/Compilation.h"
 #include "slang/diagnostics/AllDiags.h"
@@ -55,12 +56,15 @@ using namespace slang::ast;
             FAIL_CHECK(reportGlobalDiags());  \
     } while (0)
 
-#define NO_COMPILATION_ERRORS                          \
-    do {                                               \
-        auto& diags = compilation.getAllDiagnostics(); \
-        if (!diags.empty()) {                          \
-            FAIL_CHECK(report(diags));                 \
-        }                                              \
+// These are warnings that are annoying to see in tests so we filter them out by default.
+static constexpr std::initializer_list<DiagCode> DefaultIgnoreWarnings = {diag::UnnamedGenerate};
+
+#define NO_COMPILATION_ERRORS                                                       \
+    do {                                                                            \
+        auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings); \
+        if (!diags.empty()) {                                                       \
+            FAIL_CHECK(report(diags));                                              \
+        }                                                                           \
     } while (0)
 
 #define NO_SESSION_ERRORS                                                      \

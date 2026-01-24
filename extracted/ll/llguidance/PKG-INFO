@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: llguidance
-Version: 1.2.0
+Version: 1.4.0
 License-File: LICENSE
 Summary: Bindings for the Low-level Guidance (llguidance) Rust library for use within Guidance
 Author: Michal Moskal
 License-Expression: MIT
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: repository, https://github.com/microsoft/llguidance
 Project-URL: issue_tracker, https://github.com/microsoft/llguidance/issues
@@ -111,14 +111,14 @@ Thus, with 16 cores and a 10ms forward pass, llguidance can handle batch sizes u
 
 ## Building
 
-- [install rust](https://www.rust-lang.org/tools/install); 1.75 or later
+- [install rust](https://www.rust-lang.org/tools/install); 1.87 or later
 
 If you just need the C or Rust library (`llguidance`), 
 check the [parser](./parser/README.md) directory.
 
 For Python bindings:
 
-- install python 3.9 or later; very likely you'll need a virtual env/conda
+- install python 3.10 or later; very likely you'll need a virtual env/conda
 - run `./scripts/install-deps.sh`
 - to build and after any changes, run `./scripts/test-guidance.sh`
 

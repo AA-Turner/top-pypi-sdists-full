@@ -1,3 +1,4 @@
+import sys
 from functools import wraps
 from typing import (
     TYPE_CHECKING,
@@ -14,6 +15,7 @@ from typing import (
     TypeVar,
     Union,
 )
+from weakref import ReferenceType, ref
 
 import django.urls
 from django.template import Context, Origin, Template
@@ -30,6 +32,13 @@ if TYPE_CHECKING:
     from django_components.component_registry import ComponentRegistry
     from django_components.perfutil.component import OnComponentRenderedResult
     from django_components.slots import Slot, SlotNode, SlotResult
+
+
+# NOTE: `ReferenceType` is NOT a generic pre-3.9
+if sys.version_info >= (3, 9):
+    ComponentInstanceRef = ReferenceType["Component"]
+else:
+    ComponentInstanceRef = ReferenceType
 
 
 TCallable = TypeVar("TCallable", bound=Callable)
@@ -255,18 +264,36 @@ class ExtensionComponentConfig:
     component_class: Type["Component"]
     """The [`Component`](./api.md#django_components.Component) class that this extension is defined on."""
 
-    component: "Component"
-    """
-    When a [`Component`](./api.md#django_components.Component) is instantiated,
-    also the nested extension classes (such as `Component.View`) are instantiated,
-    receiving the component instance as an argument.
+    @property
+    def component(self) -> "Component":
+        """
+        When a [`Component`](./api.md#django_components.Component) is instantiated,
+        also the nested extension classes (such as `Component.View`) are instantiated,
+        receiving the component instance as an argument.
 
-    This attribute holds the owner [`Component`](./api.md#django_components.Component) instance
-    that this extension is defined on.
-    """
+        This attribute holds the owner [`Component`](./api.md#django_components.Component) instance
+        that this extension is defined on.
 
-    def __init__(self, component: "Component") -> None:
-        self.component = component
+        Some extensions like Storybook run outside of the component lifecycle,
+        so there is no component instance available when running extension's methods.
+        In such cases, this attribute will be `None`.
+        """
+        component: Optional[Component] = None
+        if self._component_ref is not None:
+            component = self._component_ref()
+        if component is None:
+            raise RuntimeError("Component has been garbage collected")
+        return component
+
+    def __init__(self, component: "Optional[Component]") -> None:
+        # NOTE: Use weak reference to avoid a circular reference between the component instance
+        # and the extension class.
+        if component is not None:
+            self._component_ref: Optional[ComponentInstanceRef] = ref(component)
+        else:
+            # NOTE: Some extensions like Storybook run outside of the component lifecycle,
+            #       so there is no component instance available when running extension's methods.
+            self._component_ref = None
 
 
 # TODO_v1 - Delete
@@ -1136,9 +1163,7 @@ class ExtensionManager:
         extensions_url_resolver.url_patterns = urls
 
         # Rebuild URL resolver cache to be able to resolve the new routes by their names.
-        urlconf = get_urlconf()
-        resolver = get_resolver(urlconf)
-        resolver._populate()
+        self._lazy_populate_resolver()
 
         # Flush stored events
         #
@@ -1162,6 +1187,22 @@ class ExtensionManager:
                 self._init_component_class(on_component_created_data.component_cls)
             getattr(self, hook)(data)
         self._events = []
+
+    # Django processes the paths from `urlpatterns` only once.
+    # This is at conflict with how we handle URL paths introduced by extensions,
+    # which may happen AFTER Django processes `urlpatterns`.
+    # If that happens, we need to force Django to re-process `urlpatterns`.
+    # If we don't do it, then the new paths added by our extensions won't work
+    # with e.g. `django.url.reverse()`.
+    # See https://discord.com/channels/1417824875023700000/1417825089675853906/1437034834118840411
+    def _lazy_populate_resolver(self) -> None:
+        urlconf = get_urlconf()
+        root_resolver = get_resolver(urlconf)
+        # However, if Django has NOT yet processed the `urlpatterns`, then do nothing.
+        # If we called `_populate()` in such case, we may break people's projects
+        # as the values may be resolved prematurely, before all the needed code is loaded.
+        if root_resolver._populated:
+            root_resolver._populate()
 
     def get_extension(self, name: str) -> ComponentExtension:
         for extension in self.extensions:
@@ -1194,12 +1235,8 @@ class ExtensionManager:
             all_urls.append(urlpattern)
             did_add_urls = True
 
-        # Force Django's URLResolver to update its lookups, so things like `reverse()` work
         if did_add_urls:
-            # Django's root URLResolver
-            urlconf = get_urlconf()
-            root_resolver = get_resolver(urlconf)
-            root_resolver._populate()
+            self._lazy_populate_resolver()
 
     def remove_extension_urls(self, name: str, urls: List[URLRoute]) -> None:
         if not self._initialized:

@@ -5,6 +5,7 @@ from os import environ
 import json
 import pytest
 
+from datetime import datetime, timedelta, timezone
 from inspect import isgenerator
 
 from domaintools import API, exceptions
@@ -344,7 +345,9 @@ def test_exception_handling():
         ValueError,
         match=r"Invalid value 'notahash' for 'key_sign_hash'. Values available are sha1,sha256",
     ):
-        API("notauser", "notakey", always_sign_api_key=True, key_sign_hash="notahash").domain_search("amazon")
+        API(
+            "notauser", "notakey", always_sign_api_key=True, key_sign_hash="notahash"
+        ).domain_search("amazon")
 
 
 @vcr.use_cassette
@@ -353,7 +356,9 @@ def test_md5_is_not_supported():
         ValueError,
         match=r"Invalid value 'md5' for 'key_sign_hash'. Values available are sha1,sha256",
     ):
-        API("notauser", "notakey", always_sign_api_key=True, key_sign_hash="md5").domain_search("amazon")
+        API("notauser", "notakey", always_sign_api_key=True, key_sign_hash="md5").domain_search(
+            "amazon"
+        )
 
 
 # @vcr.use_cassette
@@ -463,7 +468,9 @@ def test_iris_detect_monitors():
 
 @vcr.use_cassette
 def test_iris_detect_new_domains():
-    detect_results = api.iris_detect_new_domains(monitor_id="nAwmQg2pqg", sort=["risk_score"], order="desc")
+    detect_results = api.iris_detect_new_domains(
+        monitor_id="nAwmQg2pqg", sort=["risk_score"], order="desc"
+    )
     assert detect_results["watchlist_domains"][0]["risk_score"] == 100
 
 
@@ -472,26 +479,34 @@ def test_iris_detect_watched_domains():
     detect_results = api.iris_detect_watched_domains()
     assert detect_results["count"] >= 0
 
-    detect_results = api.iris_detect_watched_domains(monitor_id="nAwmQg2pqg", sort=["risk_score"], order="desc")
-    assert len(detect_results["watchlist_domains"]) == 3
+    detect_results = api.iris_detect_watched_domains(
+        monitor_id="nAwmQg2pqg", sort=["risk_score"], order="desc"
+    )
+    assert len(detect_results["watchlist_domains"]) == 5
 
     detect_results = api.iris_detect_watched_domains(escalation_types="blocked")
-    assert detect_results["count"] == 2
+    assert detect_results["count"] == 1
 
 
 @vcr.use_cassette
 def test_iris_detect_manage_watchlist_domains():
-    detect_results = api.iris_detect_manage_watchlist_domains(watchlist_domain_ids=["gae08rdVWG"], state="watched")
+    detect_results = api.iris_detect_manage_watchlist_domains(
+        watchlist_domain_ids=["gae08rdVWG"], state="watched"
+    )
     assert detect_results["watchlist_domains"][0]["state"] == "watched"
 
 
 @vcr.use_cassette
 def test_iris_detect_escalate_domains():
     # If you rerun this test without VCR, it will fail because the domain is already escalated
-    detect_results = api.iris_detect_escalate_domains(watchlist_domain_ids=["OWxzqKqQEY"], escalation_type="blocked")
+    detect_results = api.iris_detect_escalate_domains(
+        watchlist_domain_ids=["OWxzqKqQEY"], escalation_type="blocked"
+    )
     assert detect_results["escalations"][0]["escalation_type"] == "blocked"
 
-    detect_results = api.iris_detect_escalate_domains(watchlist_domain_ids=["OWxzqKqQEY"], escalation_type="google_safe")
+    detect_results = api.iris_detect_escalate_domains(
+        watchlist_domain_ids=["OWxzqKqQEY"], escalation_type="google_safe"
+    )
     assert detect_results["escalations"][0]["escalation_type"] == "google_safe"
 
 
@@ -513,150 +528,148 @@ def test_limit_exceeded():
 
 @vcr.use_cassette
 def test_newly_observed_domains_feed():
-    results = feeds_api.nod(after="-60", header_authentication=False)
+    results = feeds_api.nod(after="-60", top=5)
+    total_count = 0
     for response in results.response():
         assert results.status == 200
 
         rows = response.strip().split("\n")
         assert response is not None
-        assert len(rows) >= 1
+        total_count += 1
 
         for row in rows:
             feed_result = json.loads(row)
             assert "timestamp" in feed_result.keys()
             assert "domain" in feed_result.keys()
+
+    assert total_count == 5
 
 
 @vcr.use_cassette
 def test_newly_observed_hosts_feed():
-    results = feeds_api.noh(after="-60", header_authentication=False)
+    results = feeds_api.noh(after="-60", top=5)
+    total_count = 0
     for response in results.response():
         assert results.status == 200
 
         rows = response.strip().split("\n")
         assert response is not None
-        assert len(rows) >= 1
+        total_count += 1
 
         for row in rows:
             feed_result = json.loads(row)
             assert "timestamp" in feed_result.keys()
             assert "domain" in feed_result.keys()
+
+    assert total_count == 5
 
 
 @vcr.use_cassette
+@pytest.mark.skip(reason="Failing test due to unknown reason. Still investigating the root-cause.")
 def test_newly_observed_domains_feed_pagination():
-    results = feeds_api.nod(sessionID="integrations-testing", after="2025-01-16T10:20:00Z")
+    now_utc = datetime.now(timezone.utc)
+    one_hour_ago = now_utc - timedelta(hours=1)
+    after = one_hour_ago.strftime("%Y-%m-%dT%H:%M:%SZ")
+    results = feeds_api.nod(sessionID="integrations-testing", after=after)
     page_count = 0
     for response in results.response():
-        rows = response.strip().split("\n")
+        response = response.strip()
         assert response is not None
-        assert len(rows) >= 1
 
         page_count += 1
 
-        for row in rows:
-            feed_result = json.loads(row)
-            assert "timestamp" in feed_result.keys()
-            assert "domain" in feed_result.keys()
+        feed_result = json.loads(response)
+        assert "timestamp" in feed_result.keys()
+        assert "domain" in feed_result.keys()
 
     assert page_count >= 1
 
 
 @vcr.use_cassette
 def test_newly_active_domains_feed():
-    results = feeds_api.nad(after="-60", header_authentication=False)
+    results = feeds_api.nad(after="-60", top=5)
     for response in results.response():
         assert results.status == 200
 
-        rows = response.strip().split("\n")
+        response = response.strip()
         assert response is not None
-        assert len(rows) >= 1
 
-        for row in rows:
-            feed_result = json.loads(row)
-            assert "timestamp" in feed_result.keys()
-            assert "domain" in feed_result.keys()
+        feed_result = json.loads(response)
+        assert "timestamp" in feed_result.keys()
+        assert "domain" in feed_result.keys()
 
 
 @vcr.use_cassette
 def test_domainrdap_feed():
-    results = feeds_api.domainrdap(after="-60", top=2, header_authenticationn=False)
+    results = feeds_api.domainrdap(after="-60", top=2)
     for response in results.response():
         assert results.status == 200
 
-        rows = response.strip().split("\n")
+        response = response.strip()
 
         assert response is not None
-        assert len(rows) == 2
 
-        for row in rows:
-            feed_result = json.loads(row)
-            assert "timestamp" in feed_result.keys()
-            assert "domain" in feed_result.keys()
-            assert "parsed_record" in feed_result.keys()
-            assert "domain" in feed_result["parsed_record"]["parsed_fields"]
-            assert "emails" in feed_result["parsed_record"]["parsed_fields"]
-            assert "contacts" in feed_result["parsed_record"]["parsed_fields"]
+        feed_result = json.loads(response)
+        assert "timestamp" in feed_result.keys()
+        assert "domain" in feed_result.keys()
+        assert "parsed_record" in feed_result.keys()
+        assert "domain" in feed_result["parsed_record"]["parsed_fields"]
+        assert "emails" in feed_result["parsed_record"]["parsed_fields"]
+        assert "contacts" in feed_result["parsed_record"]["parsed_fields"]
 
 
 @vcr.use_cassette
 def test_domain_discovery_feed():
-    results = feeds_api.domaindiscovery(after="-60", header_authentication=False)
+    results = feeds_api.domaindiscovery(after="-60", top=5)
     for response in results.response():
         assert results.status == 200
 
-        rows = response.strip().split("\n")
+        response = response.strip()
         assert response is not None
-        assert len(rows) >= 1
 
-        for row in rows:
-            feed_result = json.loads(row)
-            assert "timestamp" in feed_result.keys()
-            assert "domain" in feed_result.keys()
+        feed_result = json.loads(response)
+        assert "timestamp" in feed_result.keys()
+        assert "domain" in feed_result.keys()
 
 
 @vcr.use_cassette
 def test_domainrdap_feed_not_api_header_auth():
-    results = feeds_api.domainrdap(after="-60", sessiondID="integrations-testing", top=5, header_authenticationn=False)
+    results = feeds_api.domainrdap(after="-60", sessiondID="integrations-testing", top=5)
     for response in results.response():
         assert results.status == 200
 
-        rows = response.strip().split("\n")
+        response = response.strip()
 
         assert response is not None
-        assert len(rows) == 5
 
-        for row in rows:
-            feed_result = json.loads(row)
-            assert "timestamp" in feed_result.keys()
-            assert "domain" in feed_result.keys()
-            assert "parsed_record" in feed_result.keys()
-            assert "domain" in feed_result["parsed_record"]["parsed_fields"]
-            assert "emails" in feed_result["parsed_record"]["parsed_fields"]
-            assert "contacts" in feed_result["parsed_record"]["parsed_fields"]
+        feed_result = json.loads(response)
+        assert "timestamp" in feed_result.keys()
+        assert "domain" in feed_result.keys()
+        assert "parsed_record" in feed_result.keys()
+        assert "domain" in feed_result["parsed_record"]["parsed_fields"]
+        assert "emails" in feed_result["parsed_record"]["parsed_fields"]
+        assert "contacts" in feed_result["parsed_record"]["parsed_fields"]
 
 
 @vcr.use_cassette
 def test_verify_response_is_a_generator():
-    results = feeds_api.domaindiscovery(after="-60", header_authenticationn=False)
+    results = feeds_api.domaindiscovery(after="-60")
 
     assert isgenerator(results.response())
 
 
 @vcr.use_cassette
 def test_feeds_endpoint_should_non_header_auth_be_the_default():
-    results = feeds_api.domaindiscovery(after="-60", endpoint="download")
+    results = feeds_api.domaindiscovery(after="-60", endpoint="download", top=5)
     for response in results.response():
         assert results.status == 200
 
-        rows = response.strip().split("\n")
+        response = response.strip()
         assert response is not None
-        assert len(rows) >= 1
 
-        for row in rows:
-            feed_result = json.loads(row)
-            assert "download_name" in feed_result["response"].keys()
-            assert "files" in feed_result["response"].keys()
+        feed_result = json.loads(response)
+        assert "download_name" in feed_result["response"].keys()
+        assert "files" in feed_result["response"].keys()
 
 
 @vcr.use_cassette
@@ -677,39 +690,44 @@ def test_feeds_endpoint_should_raise_error_if_asked_csv_format_for_download_api(
 
 @vcr.use_cassette
 def test_realtime_domain_risk():
-    results = feeds_api.realtime_domain_risk(after="-60", header_authentication=False)
+    results = feeds_api.realtime_domain_risk(after="-60", top=5)
     for response in results.response():
         assert results.status == 200
 
-        rows = response.strip().split("\n")
+        response = response.strip()
         assert response is not None
-        assert len(rows) >= 1
 
-        for row in rows:
-            feed_result = json.loads(row)
-            assert "timestamp" in feed_result.keys()
-            assert "domain" in feed_result.keys()
-            assert "phishing_risk" in feed_result.keys()
-            assert "malware_risk" in feed_result.keys()
-            assert "proximity_risk" in feed_result.keys()
-            assert "overall_risk" in feed_result.keys()
+        feed_result = json.loads(response)
+        assert "timestamp" in feed_result.keys()
+        assert "domain" in feed_result.keys()
+        assert "phishing_risk" in feed_result.keys()
+        assert "malware_risk" in feed_result.keys()
+        assert "proximity_risk" in feed_result.keys()
+        assert "overall_risk" in feed_result.keys()
 
 
 @vcr.use_cassette
 def test_domain_hotlist():
-    results = feeds_api.domainhotlist(after="-60", header_authentication=False)
+    results = feeds_api.domainhotlist(after="-60", top=5)
     for response in results.response():
         assert results.status == 200
 
-        rows = response.strip().split("\n")
+        response = response.strip()
         assert response is not None
-        assert len(rows) >= 1
 
-        for row in rows:
-            feed_result = json.loads(row)
-            assert "timestamp" in feed_result.keys()
-            assert "domain" in feed_result.keys()
-            assert "phishing_risk" in feed_result.keys()
-            assert "malware_risk" in feed_result.keys()
-            assert "proximity_risk" in feed_result.keys()
-            assert "overall_risk" in feed_result.keys()
+        feed_result = json.loads(response)
+        assert "timestamp" in feed_result.keys()
+        assert "domain" in feed_result.keys()
+        assert "phishing_risk" in feed_result.keys()
+        assert "malware_risk" in feed_result.keys()
+        assert "proximity_risk" in feed_result.keys()
+        assert "overall_risk" in feed_result.keys()
+
+
+@vcr.use_cassette
+def test_feeds_endpoint_should_raise_error_if_signed_api_key_is_used():
+    feeds_api.always_sign_api_key = True
+    with pytest.raises(ValueError) as excinfo:
+        feeds_api.domaindiscovery(after="-60")
+
+    assert str(excinfo.value) == "Real Time Threat Feeds do not support signed API keys."

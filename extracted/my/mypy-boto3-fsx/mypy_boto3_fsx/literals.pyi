@@ -62,6 +62,7 @@ __all__ = (
     "NetworkTypeType",
     "NfsVersionType",
     "OntapDeploymentTypeType",
+    "OntapFileSystemUserTypeType",
     "OntapVolumeTypeType",
     "OpenZFSCopyStrategyType",
     "OpenZFSDataCompressionTypeType",
@@ -189,6 +190,7 @@ MetadataConfigurationModeType = Literal["AUTOMATIC", "USER_PROVISIONED"]
 NetworkTypeType = Literal["DUAL", "IPV4"]
 NfsVersionType = Literal["NFS3"]
 OntapDeploymentTypeType = Literal["MULTI_AZ_1", "MULTI_AZ_2", "SINGLE_AZ_1", "SINGLE_AZ_2"]
+OntapFileSystemUserTypeType = Literal["UNIX", "WINDOWS"]
 OntapVolumeTypeType = Literal["DP", "LS", "RW"]
 OpenZFSCopyStrategyType = Literal["CLONE", "FULL_COPY", "INCREMENTAL_COPY"]
 OpenZFSDataCompressionTypeType = Literal["LZ4", "NONE", "ZSTD"]
@@ -209,9 +211,9 @@ RetentionPeriodTypeType = Literal[
     "DAYS", "HOURS", "INFINITE", "MINUTES", "MONTHS", "SECONDS", "UNSPECIFIED", "YEARS"
 ]
 S3AccessPointAttachmentLifecycleType = Literal[
-    "AVAILABLE", "CREATING", "DELETING", "FAILED", "UPDATING"
+    "AVAILABLE", "CREATING", "DELETING", "FAILED", "MISCONFIGURED", "UPDATING"
 ]
-S3AccessPointAttachmentTypeType = Literal["OPENZFS"]
+S3AccessPointAttachmentTypeType = Literal["ONTAP", "OPENZFS"]
 S3AccessPointAttachmentsFilterNameType = Literal["file-system-id", "type", "volume-id"]
 SecurityStyleType = Literal["MIXED", "NTFS", "UNIX"]
 SnaplockTypeType = Literal["COMPLIANCE", "ENTERPRISE"]
@@ -278,7 +280,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -291,6 +292,7 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
     "bcm-recommended-actions",
@@ -347,6 +349,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -445,7 +448,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -484,8 +486,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -520,6 +520,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -529,18 +530,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -562,8 +565,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -578,15 +579,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -617,8 +619,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -669,16 +671,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_backups",

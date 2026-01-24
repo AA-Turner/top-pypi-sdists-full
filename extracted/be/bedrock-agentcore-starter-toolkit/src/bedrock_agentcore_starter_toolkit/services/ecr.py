@@ -1,10 +1,54 @@
 """ECR (Elastic Container Registry) service integration."""
 
 import base64
+import re
+from datetime import datetime
+from typing import Optional
 
 import boto3
 
 from ..utils.runtime.container import ContainerRuntime
+
+
+def sanitize_ecr_repo_name(name: str) -> str:
+    """Sanitize agent name for ECR repository naming requirements.
+
+    ECR repository names must:
+    - Contain only lowercase letters, numbers, hyphens (-), underscores (_), and forward slashes (/)
+    - Start with a lowercase letter or number
+    - Be between 2 and 256 characters
+
+    Args:
+        name: Agent name to sanitize
+
+    Returns:
+        Sanitized repository name component
+    """
+    # Convert to lowercase
+    name = name.lower()
+
+    # Replace invalid characters with hyphens
+    name = re.sub(r"[^a-z0-9_\-/]", "-", name)
+
+    # Ensure starts with alphanumeric
+    if name and not name[0].isalnum():
+        name = "a" + name  # Prefix with 'a' if starts with non-alphanumeric
+
+    # Remove consecutive hyphens/underscores
+    name = re.sub(r"[-_]{2,}", "-", name)
+
+    # Strip trailing hyphens/underscores
+    name = name.rstrip("-_")
+
+    # Ensure minimum length
+    if len(name) < 2:
+        name = name + "-agent"
+
+    # Truncate if too long (leave room for prefix)
+    if len(name) > 200:
+        name = name[:200].rstrip("-_")
+
+    return name
 
 
 def get_account_id() -> str:
@@ -15,6 +59,11 @@ def get_account_id() -> str:
 def get_region() -> str:
     """Get AWS region."""
     return boto3.Session().region_name or "us-west-2"
+
+
+def generate_image_tag() -> str:
+    """Generate unique UTC timestamp tag (YYYYMMDD-HHMMSS-mmm)."""
+    return datetime.utcnow().strftime("%Y%m%d-%H%M%S-%f")[:19]
 
 
 def create_ecr_repository(repo_name: str, region: str) -> str:
@@ -38,8 +87,8 @@ def get_or_create_ecr_repository(agent_name: str, region: str) -> str:
     Returns:
         ECR repository URI
     """
-    # Generate deterministic repository name based on agent name
-    repo_name = f"bedrock-agentcore-{agent_name}"
+    # Generate deterministic repository name based on agent name (sanitized for ECR requirements)
+    repo_name = f"bedrock-agentcore-{sanitize_ecr_repo_name(agent_name)}"
 
     ecr = boto3.client("ecr", region_name=region)
 
@@ -57,8 +106,14 @@ def get_or_create_ecr_repository(agent_name: str, region: str) -> str:
         return create_ecr_repository(repo_name, region)
 
 
-def deploy_to_ecr(local_tag: str, repo_name: str, region: str, container_runtime: ContainerRuntime) -> str:
-    """Build and push image to ECR."""
+def deploy_to_ecr(
+    local_tag: str,
+    repo_name: str,
+    region: str,
+    container_runtime: ContainerRuntime,
+    image_tag: Optional[str] = None,
+) -> str:
+    """Build and push image to ECR with versioned tagging."""
     ecr = boto3.client("ecr", region_name=region)
 
     # Get or create repository
@@ -73,12 +128,19 @@ def deploy_to_ecr(local_tag: str, repo_name: str, region: str, container_runtime
     if not container_runtime.login(auth_data["proxyEndpoint"], username, password):
         raise RuntimeError("Failed to login to ECR")
 
-    # Tag and push
-    ecr_tag = f"{ecr_uri}:latest"
-    if not container_runtime.tag(local_tag, ecr_tag):
-        raise RuntimeError("Failed to tag image")
+    # Generate tag if not provided
+    if not image_tag:
+        image_tag = generate_image_tag()
 
-    if not container_runtime.push(ecr_tag):
-        raise RuntimeError("Failed to push image to ECR")
+    # Tag with versioned tag
+    ecr_versioned_tag = f"{ecr_uri}:{image_tag}"
 
-    return ecr_tag
+    if not container_runtime.tag(local_tag, ecr_versioned_tag):
+        raise RuntimeError(f"Failed to tag image as {image_tag}")
+
+    # Push versioned tag
+    if not container_runtime.push(ecr_versioned_tag):
+        raise RuntimeError(f"Failed to push versioned image {image_tag}")
+
+    # Return versioned tag
+    return ecr_versioned_tag

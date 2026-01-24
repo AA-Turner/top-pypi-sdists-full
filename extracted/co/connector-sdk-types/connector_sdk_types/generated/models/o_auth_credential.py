@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
-from connector_sdk_types.serializers.field import HiddenField
+from connector_sdk_types.serializers.field import HiddenField, AnnotatedField
 
 
 class OAuthCredential(BaseModel):
@@ -25,7 +25,9 @@ class OAuthCredential(BaseModel):
     OAuth access token and related authentication data.
     """
 
-    access_token: StrictStr = HiddenField(description="The OAuth access token.")
+    access_token: StrictStr = AnnotatedField(
+        description="The OAuth access token.", hidden=True, secret=True
+    )
     __properties: ClassVar[List[str]] = ["access_token"]
     model_config = ConfigDict(
         populate_by_name=True,

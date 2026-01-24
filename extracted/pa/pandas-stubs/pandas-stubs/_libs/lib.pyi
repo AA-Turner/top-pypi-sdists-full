@@ -2,19 +2,17 @@ from enum import Enum
 from typing import (
     Final,
     Literal,
-)
-
-import numpy as np
-from typing_extensions import (
     TypeAlias,
     TypeGuard,
 )
 
+import numpy as np
+
 class _NoDefault(Enum):
-    no_default = ...
+    no_default = "NO_DEFAULT"
 
 no_default: Final = _NoDefault.no_default
-_NoDefaultDoNotUse: TypeAlias = Literal[_NoDefault.no_default]  # noqa: PYI047
+NoDefaultDoNotUse: TypeAlias = Literal[_NoDefault.no_default]
 
 def infer_dtype(value: object, skipna: bool = True) -> str: ...
 def is_iterator(obj: object) -> bool: ...

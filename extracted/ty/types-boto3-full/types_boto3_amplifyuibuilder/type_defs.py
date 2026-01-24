@@ -3,7 +3,7 @@ Type annotations for amplifyuibuilder service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amplifyuibuilder/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -35,12 +36,6 @@ from .literals import (
     StorageAccessLevelType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -277,7 +272,7 @@ class CodegenFeatureFlagsTypeDef(TypedDict):
 
 
 class CodegenGenericDataEnumOutputTypeDef(TypedDict):
-    values: List[str]
+    values: list[str]
 
 
 class CodegenGenericDataEnumTypeDef(TypedDict):
@@ -289,12 +284,12 @@ CodegenGenericDataRelationshipTypeOutputTypeDef = TypedDict(
     {
         "type": GenericDataRelationshipTypeType,
         "relatedModelName": str,
-        "relatedModelFields": NotRequired[List[str]],
+        "relatedModelFields": NotRequired[list[str]],
         "canUnlinkAssociatedModel": NotRequired[bool],
         "relatedJoinFieldName": NotRequired[str],
         "relatedJoinTableName": NotRequired[str],
         "belongsToFieldOnRelatedModel": NotRequired[str],
-        "associatedFields": NotRequired[List[str]],
+        "associatedFields": NotRequired[list[str]],
         "isHasManyIndex": NotRequired[bool],
     },
 )
@@ -331,8 +326,8 @@ CodegenJobSummaryTypeDef = TypedDict(
 PredicateOutputTypeDef = TypedDict(
     "PredicateOutputTypeDef",
     {
-        "or": NotRequired[List[Dict[str, Any]]],
-        "and": NotRequired[List[Dict[str, Any]]],
+        "or": NotRequired[list[dict[str, Any]]],
+        "and": NotRequired[list[dict[str, Any]]],
         "field": NotRequired[str],
         "operator": NotRequired[str],
         "operand": NotRequired[str],
@@ -342,8 +337,8 @@ PredicateOutputTypeDef = TypedDict(
 PredicatePaginatorTypeDef = TypedDict(
     "PredicatePaginatorTypeDef",
     {
-        "or": NotRequired[List[Dict[str, Any]]],
-        "and": NotRequired[List[Dict[str, Any]]],
+        "or": NotRequired[list[dict[str, Any]]],
+        "and": NotRequired[list[dict[str, Any]]],
         "field": NotRequired[str],
         "operator": NotRequired[str],
         "operand": NotRequired[str],
@@ -357,8 +352,8 @@ ComponentConditionPropertyOutputTypeDef = TypedDict(
         "field": NotRequired[str],
         "operator": NotRequired[str],
         "operand": NotRequired[str],
-        "then": NotRequired[Dict[str, Any]],
-        "else": NotRequired[Dict[str, Any]],
+        "then": NotRequired[dict[str, Any]],
+        "else": NotRequired[dict[str, Any]],
         "operandType": NotRequired[str],
     },
 )
@@ -369,8 +364,8 @@ ComponentConditionPropertyPaginatorTypeDef = TypedDict(
         "field": NotRequired[str],
         "operator": NotRequired[str],
         "operand": NotRequired[str],
-        "then": NotRequired[Dict[str, Any]],
-        "else": NotRequired[Dict[str, Any]],
+        "then": NotRequired[dict[str, Any]],
+        "else": NotRequired[dict[str, Any]],
         "operandType": NotRequired[str],
     },
 )
@@ -394,8 +389,8 @@ class SortPropertyTypeDef(TypedDict):
 
 
 class ComponentVariantOutputTypeDef(TypedDict):
-    variantValues: NotRequired[Dict[str, str]]
-    overrides: NotRequired[Dict[str, Dict[str, str]]]
+    variantValues: NotRequired[dict[str, str]]
+    overrides: NotRequired[dict[str, dict[str, str]]]
 
 
 ComponentPropertyBindingPropertiesTypeDef = TypedDict(
@@ -432,7 +427,7 @@ class ComponentVariantTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -508,8 +503,8 @@ FieldValidationConfigurationOutputTypeDef = TypedDict(
     "FieldValidationConfigurationOutputTypeDef",
     {
         "type": str,
-        "strValues": NotRequired[List[str]],
-        "numValues": NotRequired[List[int]],
+        "strValues": NotRequired[list[str]],
+        "numValues": NotRequired[list[int]],
         "validationMessage": NotRequired[str],
     },
 )
@@ -517,7 +512,7 @@ FieldValidationConfigurationOutputTypeDef = TypedDict(
 
 class FileUploaderFieldConfigOutputTypeDef(TypedDict):
     accessLevel: StorageAccessLevelType
-    acceptedFileTypes: List[str]
+    acceptedFileTypes: list[str]
     showThumbnails: NotRequired[bool]
     isResumable: NotRequired[bool]
     maxFileCount: NotRequired[int]
@@ -673,12 +668,12 @@ class TagResourceRequestTypeDef(TypedDict):
 
 class ThemeValueOutputTypeDef(TypedDict):
     value: NotRequired[str]
-    children: NotRequired[List[Dict[str, Any]]]
+    children: NotRequired[list[dict[str, Any]]]
 
 
 class ThemeValuePaginatorTypeDef(TypedDict):
     value: NotRequired[str]
-    children: NotRequired[List[Dict[str, Any]]]
+    children: NotRequired[list[dict[str, Any]]]
 
 
 class ThemeValueTypeDef(TypedDict):
@@ -693,8 +688,8 @@ class UntagResourceRequestTypeDef(TypedDict):
 
 class ApiConfigurationOutputTypeDef(TypedDict):
     graphQLConfig: NotRequired[GraphQLRenderConfigTypeDef]
-    dataStoreConfig: NotRequired[Dict[str, Any]]
-    noApiConfig: NotRequired[Dict[str, Any]]
+    dataStoreConfig: NotRequired[dict[str, Any]]
+    noApiConfig: NotRequired[dict[str, Any]]
 
 
 class ApiConfigurationTypeDef(TypedDict):
@@ -725,7 +720,7 @@ CodegenGenericDataRelationshipTypeUnionTypeDef = Union[
 class ComponentBindingPropertiesValuePropertiesOutputTypeDef(TypedDict):
     model: NotRequired[str]
     field: NotRequired[str]
-    predicates: NotRequired[List[PredicateOutputTypeDef]]
+    predicates: NotRequired[list[PredicateOutputTypeDef]]
     userAttribute: NotRequired[str]
     bucket: NotRequired[str]
     key: NotRequired[str]
@@ -736,7 +731,7 @@ class ComponentBindingPropertiesValuePropertiesOutputTypeDef(TypedDict):
 class ComponentBindingPropertiesValuePropertiesPaginatorTypeDef(TypedDict):
     model: NotRequired[str]
     field: NotRequired[str]
-    predicates: NotRequired[List[PredicatePaginatorTypeDef]]
+    predicates: NotRequired[list[PredicatePaginatorTypeDef]]
     userAttribute: NotRequired[str]
     bucket: NotRequired[str]
     key: NotRequired[str]
@@ -751,16 +746,16 @@ ComponentConditionPropertyUnionTypeDef = Union[
 
 class ComponentDataConfigurationOutputTypeDef(TypedDict):
     model: str
-    sort: NotRequired[List[SortPropertyTypeDef]]
+    sort: NotRequired[list[SortPropertyTypeDef]]
     predicate: NotRequired[PredicateOutputTypeDef]
-    identifiers: NotRequired[List[str]]
+    identifiers: NotRequired[list[str]]
 
 
 class ComponentDataConfigurationPaginatorTypeDef(TypedDict):
     model: str
-    sort: NotRequired[List[SortPropertyTypeDef]]
+    sort: NotRequired[list[SortPropertyTypeDef]]
     predicate: NotRequired[PredicatePaginatorTypeDef]
-    identifiers: NotRequired[List[str]]
+    identifiers: NotRequired[list[str]]
 
 
 ComponentPropertyOutputTypeDef = TypedDict(
@@ -771,10 +766,10 @@ ComponentPropertyOutputTypeDef = TypedDict(
         "collectionBindingProperties": NotRequired[ComponentPropertyBindingPropertiesTypeDef],
         "defaultValue": NotRequired[str],
         "model": NotRequired[str],
-        "bindings": NotRequired[Dict[str, FormBindingElementTypeDef]],
+        "bindings": NotRequired[dict[str, FormBindingElementTypeDef]],
         "event": NotRequired[str],
         "userAttribute": NotRequired[str],
-        "concat": NotRequired[List[Dict[str, Any]]],
+        "concat": NotRequired[list[dict[str, Any]]],
         "condition": NotRequired[ComponentConditionPropertyOutputTypeDef],
         "configured": NotRequired[bool],
         "type": NotRequired[str],
@@ -791,10 +786,10 @@ ComponentPropertyPaginatorTypeDef = TypedDict(
         "collectionBindingProperties": NotRequired[ComponentPropertyBindingPropertiesTypeDef],
         "defaultValue": NotRequired[str],
         "model": NotRequired[str],
-        "bindings": NotRequired[Dict[str, FormBindingElementTypeDef]],
+        "bindings": NotRequired[dict[str, FormBindingElementTypeDef]],
         "event": NotRequired[str],
         "userAttribute": NotRequired[str],
-        "concat": NotRequired[List[Dict[str, Any]]],
+        "concat": NotRequired[list[dict[str, Any]]],
         "condition": NotRequired[ComponentConditionPropertyPaginatorTypeDef],
         "configured": NotRequired[bool],
         "type": NotRequired[str],
@@ -818,24 +813,24 @@ class ExchangeCodeForTokenResponseTypeDef(TypedDict):
 
 
 class GetMetadataResponseTypeDef(TypedDict):
-    features: Dict[str, str]
+    features: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListCodegenJobsResponseTypeDef(TypedDict):
-    entities: List[CodegenJobSummaryTypeDef]
+    entities: list[CodegenJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListComponentsResponseTypeDef(TypedDict):
-    entities: List[ComponentSummaryTypeDef]
+    entities: list[ComponentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -940,13 +935,13 @@ FormInputBindingPropertiesValueTypeDef = TypedDict(
 class FormInputValuePropertyOutputTypeDef(TypedDict):
     value: NotRequired[str]
     bindingProperties: NotRequired[FormInputValuePropertyBindingPropertiesTypeDef]
-    concat: NotRequired[List[Dict[str, Any]]]
+    concat: NotRequired[list[dict[str, Any]]]
 
 
 class FormInputValuePropertyPaginatorTypeDef(TypedDict):
     value: NotRequired[str]
     bindingProperties: NotRequired[FormInputValuePropertyBindingPropertiesTypeDef]
-    concat: NotRequired[List[Dict[str, Any]]]
+    concat: NotRequired[list[dict[str, Any]]]
 
 
 class FormInputValuePropertyTypeDef(TypedDict):
@@ -962,7 +957,7 @@ class FormStyleTypeDef(TypedDict):
 
 
 class ListThemesResponseTypeDef(TypedDict):
-    entities: List[ThemeSummaryTypeDef]
+    entities: list[ThemeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1002,20 +997,20 @@ class ReactStartCodegenJobDataOutputTypeDef(TypedDict):
     renderTypeDeclarations: NotRequired[bool]
     inlineSourceMap: NotRequired[bool]
     apiConfiguration: NotRequired[ApiConfigurationOutputTypeDef]
-    dependencies: NotRequired[Dict[str, str]]
+    dependencies: NotRequired[dict[str, str]]
 
 
 ApiConfigurationUnionTypeDef = Union[ApiConfigurationTypeDef, ApiConfigurationOutputTypeDef]
 
 
 class CodegenGenericDataModelOutputTypeDef(TypedDict):
-    fields: Dict[str, CodegenGenericDataFieldOutputTypeDef]
-    primaryKeys: List[str]
+    fields: dict[str, CodegenGenericDataFieldOutputTypeDef]
+    primaryKeys: list[str]
     isJoinTable: NotRequired[bool]
 
 
 class CodegenGenericDataNonModelOutputTypeDef(TypedDict):
-    fields: Dict[str, CodegenGenericDataFieldOutputTypeDef]
+    fields: dict[str, CodegenGenericDataFieldOutputTypeDef]
 
 
 class CodegenGenericDataFieldTypeDef(TypedDict):
@@ -1082,7 +1077,7 @@ MutationActionSetStateParameterPaginatorTypeDef = TypedDict(
 
 
 class ListFormsResponseTypeDef(TypedDict):
-    entities: List[FormSummaryTypeDef]
+    entities: list[FormSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1135,10 +1130,10 @@ ThemeTypeDef = TypedDict(
         "id": str,
         "name": str,
         "createdAt": datetime,
-        "values": List[ThemeValuesOutputTypeDef],
+        "values": list[ThemeValuesOutputTypeDef],
         "modifiedAt": NotRequired[datetime],
-        "overrides": NotRequired[List[ThemeValuesOutputTypeDef]],
-        "tags": NotRequired[Dict[str, str]],
+        "overrides": NotRequired[list[ThemeValuesOutputTypeDef]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 ThemePaginatorTypeDef = TypedDict(
@@ -1149,10 +1144,10 @@ ThemePaginatorTypeDef = TypedDict(
         "id": str,
         "name": str,
         "createdAt": datetime,
-        "values": List[ThemeValuesPaginatorTypeDef],
+        "values": list[ThemeValuesPaginatorTypeDef],
         "modifiedAt": NotRequired[datetime],
-        "overrides": NotRequired[List[ThemeValuesPaginatorTypeDef]],
-        "tags": NotRequired[Dict[str, str]],
+        "overrides": NotRequired[list[ThemeValuesPaginatorTypeDef]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -1178,9 +1173,9 @@ class ReactStartCodegenJobDataTypeDef(TypedDict):
 
 class CodegenJobGenericDataSchemaOutputTypeDef(TypedDict):
     dataSourceType: Literal["DataStore"]
-    models: Dict[str, CodegenGenericDataModelOutputTypeDef]
-    enums: Dict[str, CodegenGenericDataEnumOutputTypeDef]
-    nonModels: Dict[str, CodegenGenericDataNonModelOutputTypeDef]
+    models: dict[str, CodegenGenericDataModelOutputTypeDef]
+    enums: dict[str, CodegenGenericDataEnumOutputTypeDef]
+    nonModels: dict[str, CodegenGenericDataNonModelOutputTypeDef]
 
 
 CodegenGenericDataFieldUnionTypeDef = Union[
@@ -1205,7 +1200,7 @@ ActionParametersOutputTypeDef = TypedDict(
         "global": NotRequired[ComponentPropertyOutputTypeDef],
         "model": NotRequired[str],
         "id": NotRequired[ComponentPropertyOutputTypeDef],
-        "fields": NotRequired[Dict[str, ComponentPropertyOutputTypeDef]],
+        "fields": NotRequired[dict[str, ComponentPropertyOutputTypeDef]],
         "state": NotRequired[MutationActionSetStateParameterOutputTypeDef],
     },
 )
@@ -1219,20 +1214,20 @@ ActionParametersPaginatorTypeDef = TypedDict(
         "global": NotRequired[ComponentPropertyPaginatorTypeDef],
         "model": NotRequired[str],
         "id": NotRequired[ComponentPropertyPaginatorTypeDef],
-        "fields": NotRequired[Dict[str, ComponentPropertyPaginatorTypeDef]],
+        "fields": NotRequired[dict[str, ComponentPropertyPaginatorTypeDef]],
         "state": NotRequired[MutationActionSetStateParameterPaginatorTypeDef],
     },
 )
 
 
 class ValueMappingsOutputTypeDef(TypedDict):
-    values: List[ValueMappingOutputTypeDef]
-    bindingProperties: NotRequired[Dict[str, FormInputBindingPropertiesValueTypeDef]]
+    values: list[ValueMappingOutputTypeDef]
+    bindingProperties: NotRequired[dict[str, FormInputBindingPropertiesValueTypeDef]]
 
 
 class ValueMappingsPaginatorTypeDef(TypedDict):
-    values: List[ValueMappingPaginatorTypeDef]
-    bindingProperties: NotRequired[Dict[str, FormInputBindingPropertiesValueTypeDef]]
+    values: list[ValueMappingPaginatorTypeDef]
+    bindingProperties: NotRequired[dict[str, FormInputBindingPropertiesValueTypeDef]]
 
 
 class ValueMappingTypeDef(TypedDict):
@@ -1255,7 +1250,7 @@ class CreateThemeResponseTypeDef(TypedDict):
 
 
 class ExportThemesResponseTypeDef(TypedDict):
-    entities: List[ThemeTypeDef]
+    entities: list[ThemeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1271,7 +1266,7 @@ class UpdateThemeResponseTypeDef(TypedDict):
 
 
 class ExportThemesResponsePaginatorTypeDef(TypedDict):
-    entities: List[ThemePaginatorTypeDef]
+    entities: list[ThemePaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1293,10 +1288,10 @@ CodegenJobTypeDef = TypedDict(
         "status": NotRequired[CodegenJobStatusType],
         "statusMessage": NotRequired[str],
         "asset": NotRequired[CodegenJobAssetTypeDef],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "createdAt": NotRequired[datetime],
         "modifiedAt": NotRequired[datetime],
-        "dependencies": NotRequired[List[CodegenDependencyTypeDef]],
+        "dependencies": NotRequired[list[CodegenDependencyTypeDef]],
     },
 )
 
@@ -1426,18 +1421,18 @@ MutationActionSetStateParameterUnionTypeDef = Union[
 class ComponentChildOutputTypeDef(TypedDict):
     componentType: str
     name: str
-    properties: Dict[str, ComponentPropertyOutputTypeDef]
-    children: NotRequired[List[Dict[str, Any]]]
-    events: NotRequired[Dict[str, ComponentEventOutputTypeDef]]
+    properties: dict[str, ComponentPropertyOutputTypeDef]
+    children: NotRequired[list[dict[str, Any]]]
+    events: NotRequired[dict[str, ComponentEventOutputTypeDef]]
     sourceId: NotRequired[str]
 
 
 class ComponentChildPaginatorTypeDef(TypedDict):
     componentType: str
     name: str
-    properties: Dict[str, ComponentPropertyPaginatorTypeDef]
-    children: NotRequired[List[Dict[str, Any]]]
-    events: NotRequired[Dict[str, ComponentEventPaginatorTypeDef]]
+    properties: dict[str, ComponentPropertyPaginatorTypeDef]
+    children: NotRequired[list[dict[str, Any]]]
+    events: NotRequired[dict[str, ComponentEventPaginatorTypeDef]]
     sourceId: NotRequired[str]
 
 
@@ -1446,7 +1441,7 @@ class FieldConfigOutputTypeDef(TypedDict):
     position: NotRequired[FieldPositionTypeDef]
     excluded: NotRequired[bool]
     inputType: NotRequired[FieldInputConfigOutputTypeDef]
-    validations: NotRequired[List[FieldValidationConfigurationOutputTypeDef]]
+    validations: NotRequired[list[FieldValidationConfigurationOutputTypeDef]]
 
 
 class FieldConfigPaginatorTypeDef(TypedDict):
@@ -1454,7 +1449,7 @@ class FieldConfigPaginatorTypeDef(TypedDict):
     position: NotRequired[FieldPositionTypeDef]
     excluded: NotRequired[bool]
     inputType: NotRequired[FieldInputConfigPaginatorTypeDef]
-    validations: NotRequired[List[FieldValidationConfigurationOutputTypeDef]]
+    validations: NotRequired[list[FieldValidationConfigurationOutputTypeDef]]
 
 
 class ValueMappingsTypeDef(TypedDict):
@@ -1518,17 +1513,17 @@ ComponentTypeDef = TypedDict(
         "id": str,
         "name": str,
         "componentType": str,
-        "properties": Dict[str, ComponentPropertyOutputTypeDef],
-        "variants": List[ComponentVariantOutputTypeDef],
-        "overrides": Dict[str, Dict[str, str]],
-        "bindingProperties": Dict[str, ComponentBindingPropertiesValueOutputTypeDef],
+        "properties": dict[str, ComponentPropertyOutputTypeDef],
+        "variants": list[ComponentVariantOutputTypeDef],
+        "overrides": dict[str, dict[str, str]],
+        "bindingProperties": dict[str, ComponentBindingPropertiesValueOutputTypeDef],
         "createdAt": datetime,
         "sourceId": NotRequired[str],
-        "children": NotRequired[List[ComponentChildOutputTypeDef]],
-        "collectionProperties": NotRequired[Dict[str, ComponentDataConfigurationOutputTypeDef]],
+        "children": NotRequired[list[ComponentChildOutputTypeDef]],
+        "collectionProperties": NotRequired[dict[str, ComponentDataConfigurationOutputTypeDef]],
         "modifiedAt": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
-        "events": NotRequired[Dict[str, ComponentEventOutputTypeDef]],
+        "tags": NotRequired[dict[str, str]],
+        "events": NotRequired[dict[str, ComponentEventOutputTypeDef]],
         "schemaVersion": NotRequired[str],
     },
 )
@@ -1540,17 +1535,17 @@ ComponentPaginatorTypeDef = TypedDict(
         "id": str,
         "name": str,
         "componentType": str,
-        "properties": Dict[str, ComponentPropertyPaginatorTypeDef],
-        "variants": List[ComponentVariantOutputTypeDef],
-        "overrides": Dict[str, Dict[str, str]],
-        "bindingProperties": Dict[str, ComponentBindingPropertiesValuePaginatorTypeDef],
+        "properties": dict[str, ComponentPropertyPaginatorTypeDef],
+        "variants": list[ComponentVariantOutputTypeDef],
+        "overrides": dict[str, dict[str, str]],
+        "bindingProperties": dict[str, ComponentBindingPropertiesValuePaginatorTypeDef],
         "createdAt": datetime,
         "sourceId": NotRequired[str],
-        "children": NotRequired[List[ComponentChildPaginatorTypeDef]],
-        "collectionProperties": NotRequired[Dict[str, ComponentDataConfigurationPaginatorTypeDef]],
+        "children": NotRequired[list[ComponentChildPaginatorTypeDef]],
+        "collectionProperties": NotRequired[dict[str, ComponentDataConfigurationPaginatorTypeDef]],
         "modifiedAt": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
-        "events": NotRequired[Dict[str, ComponentEventPaginatorTypeDef]],
+        "tags": NotRequired[dict[str, str]],
+        "events": NotRequired[dict[str, ComponentEventPaginatorTypeDef]],
         "schemaVersion": NotRequired[str],
     },
 )
@@ -1564,10 +1559,10 @@ FormTypeDef = TypedDict(
         "formActionType": FormActionTypeType,
         "style": FormStyleTypeDef,
         "dataType": FormDataTypeConfigTypeDef,
-        "fields": Dict[str, FieldConfigOutputTypeDef],
-        "sectionalElements": Dict[str, SectionalElementTypeDef],
+        "fields": dict[str, FieldConfigOutputTypeDef],
+        "sectionalElements": dict[str, SectionalElementTypeDef],
         "schemaVersion": str,
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "cta": NotRequired[FormCTATypeDef],
         "labelDecorator": NotRequired[LabelDecoratorType],
     },
@@ -1582,10 +1577,10 @@ FormPaginatorTypeDef = TypedDict(
         "formActionType": FormActionTypeType,
         "style": FormStyleTypeDef,
         "dataType": FormDataTypeConfigTypeDef,
-        "fields": Dict[str, FieldConfigPaginatorTypeDef],
-        "sectionalElements": Dict[str, SectionalElementTypeDef],
+        "fields": dict[str, FieldConfigPaginatorTypeDef],
+        "sectionalElements": dict[str, SectionalElementTypeDef],
         "schemaVersion": str,
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "cta": NotRequired[FormCTATypeDef],
         "labelDecorator": NotRequired[LabelDecoratorType],
     },
@@ -1603,7 +1598,7 @@ class CreateComponentResponseTypeDef(TypedDict):
 
 
 class ExportComponentsResponseTypeDef(TypedDict):
-    entities: List[ComponentTypeDef]
+    entities: list[ComponentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1619,7 +1614,7 @@ class UpdateComponentResponseTypeDef(TypedDict):
 
 
 class ExportComponentsResponsePaginatorTypeDef(TypedDict):
-    entities: List[ComponentPaginatorTypeDef]
+    entities: list[ComponentPaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1630,7 +1625,7 @@ class CreateFormResponseTypeDef(TypedDict):
 
 
 class ExportFormsResponseTypeDef(TypedDict):
-    entities: List[FormTypeDef]
+    entities: list[FormTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1646,7 +1641,7 @@ class UpdateFormResponseTypeDef(TypedDict):
 
 
 class ExportFormsResponsePaginatorTypeDef(TypedDict):
-    entities: List[FormPaginatorTypeDef]
+    entities: list[FormPaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

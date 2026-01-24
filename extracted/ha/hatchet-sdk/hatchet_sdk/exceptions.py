@@ -144,7 +144,7 @@ class TaskRunError(Exception):
         )
 
 
-class FailedTaskRunExceptionGroup(Exception):  # noqa: N818
+class FailedTaskRunExceptionGroup(ValueError):  # noqa: N818
     def __init__(self, message: str, exceptions: list[TaskRunError]):
         self.message = message
         self.exceptions = exceptions
@@ -166,4 +166,8 @@ class LoopAlreadyRunningError(Exception):
 
 
 class IllegalTaskOutputError(Exception):
+    pass
+
+
+class LifespanSetupError(Exception):
     pass

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm>=7.0.5", "setuptools-golang"]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["version", "dependencies"]
+name = "certbot-dns-multi"
+description = "Certbot DNS plugin supporting multiple providers, using github.com/go-acme/lego"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+[tool.setuptools]
+packages = ["certbot_dns_multi", "certbot_dns_multi._internal", "certbot_dns_multi._internal.bridge"]
+
+[tool.setuptools.dynamic]
+version = {attr = "certbot_dns_multi._version.__version__"}
+
+[project.entry-points."certbot.plugins"]
+"dns-multi" = "certbot_dns_multi._internal.dns_multi:Authenticator"
+
+[project.optional-dependencies]
+dev = [
+    "black>=22.10.0",
+    "flake8>=5.0.4"
+]
+
+[tool.setuptools_scm]
+write_to = "certbot_dns_multi/_version.py"
+
+[tool.black]
+line-length = 88

@@ -790,7 +790,7 @@ Keyword arguments:
 
 - yearsListFormat (string; optional):
     dayjs format for years list, `'YYYY'` by default."""
-    _children_props = ['popoverProps.middlewares.flip.boundary', 'clearButtonProps.children', 'clearButtonProps.icon', 'leftSection', 'rightSection', 'label', 'description', 'error', 'nextIcon', 'previousIcon']
+    _children_props: typing.List[str] = ['popoverProps.middlewares.flip.boundary', 'clearButtonProps.children', 'clearButtonProps.icon', 'leftSection', 'rightSection', 'label', 'description', 'error', 'nextIcon', 'previousIcon']
     _base_nodes = ['leftSection', 'rightSection', 'label', 'description', 'error', 'nextIcon', 'previousIcon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'DateInput'

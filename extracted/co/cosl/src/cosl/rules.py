@@ -94,6 +94,7 @@ from .types import (
 
 logger = logging.getLogger(__name__)
 
+HOST_METRICS_MISSING_RULE_NAME = "HostMetricsMissing"
 
 _generic_alert_rules: Final = SimpleNamespace(
     # We use "5m" to avoid false positives on expected temporary "down", e.g. during intentional (re)start.
@@ -105,23 +106,29 @@ _generic_alert_rules: Final = SimpleNamespace(
         "labels": {"severity": "critical"},
         "annotations": {
             "summary": "Host '{{ $labels.instance }}' is down.",
-            "description": """Host '{{ $labels.instance }}' is down, failed to scrape.
-                            VALUE = {{ $value }}
-                            LABELS = {{ $labels }}""",
+            "description": "Juju application '{{ $labels.juju_application }}' in model '{{ $labels.juju_model }}' is down. Prometheus has been unable to scrape it during at least the past five minutes.",
         },
     },
     host_metrics_missing={
-        "alert": "HostMetricsMissing",
-        # We use "absent(up)" with "for: 5m" because the alert transitions from "Pending" to "Firing".
-        # If query portability is desired, "absent_over_time(up[5m])" is an alternative.
+        "alert": HOST_METRICS_MISSING_RULE_NAME,
+        "expr": "absent(up)",
+        "for": "5m",
+        "labels": {
+            "severity": "warning"
+        },  # The remote writer will set this to critical for machine charms when initializing PrometheusRemoteWriteConsumer.
+        "annotations": {
+            "summary": "Unit '{{ $labels.juju_unit }}' of application '{{ $labels.juju_application }}' is down or failing to remote write.",
+            "description": "`Up` missing for unit '{{ $labels.juju_unit }}' of application {{ $labels.juju_application }} in model {{ $labels.juju_model }}. Please ensure the unit or the collector scraping it is up and is able to successfully reach the metrics backend.",
+        },
+    },
+    aggregator_metrics_missing={
+        "alert": "AggregatorMetricsMissing",
         "expr": "absent(up)",
         "for": "5m",
         "labels": {"severity": "critical"},
         "annotations": {
-            "summary": "Metrics not received from host '{{ $labels.instance }}', failed to remote write.",
-            "description": """Metrics not received from host '{{ $labels.instance }}', failed to remote write.
-                            VALUE = {{ $value }}
-                            LABELS = {{ $labels }}""",
+            "summary": "Metrics not received from application '{{ $labels.juju_application }}'. All units are down or failing to remote write.",
+            "description": "`Up` missing for ALL units of application {{ $labels.juju_application }} in model {{ $labels.juju_model }}. This can also mean the units or the collector scraping them are unable to reach the remote write endpoint of the metrics backend. Please ensure the correct firewall rules are applied.",
         },
     },
 )
@@ -151,6 +158,7 @@ generic_alert_groups: Final = SimpleNamespace(
                 "name": "AggregatorHostHealth",
                 "rules": [
                     _generic_alert_rules.host_metrics_missing,
+                    _generic_alert_rules.aggregator_metrics_missing,
                 ],
             },
         ]

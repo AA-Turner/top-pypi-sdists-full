@@ -1,6 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import List, Optional
+from typing_extensions import Literal
 
 from .._models import BaseModel
 from .dtmf_type import DtmfType
@@ -11,6 +12,7 @@ from .transport_protocol import TransportProtocol
 from .anchorsite_override import AnchorsiteOverride
 from .webhook_api_version import WebhookAPIVersion
 from .connection_rtcp_settings import ConnectionRtcpSettings
+from .shared.connection_noise_suppression_details import ConnectionNoiseSuppressionDetails
 
 __all__ = ["FqdnConnection"]
 
@@ -37,6 +39,9 @@ class FqdnConnection(BaseModel):
 
     call_cost_enabled: Optional[bool] = None
     """Indicates whether call cost calculation is enabled."""
+
+    call_cost_in_webhooks: Optional[bool] = None
+    """Specifies if call cost webhooks should be sent for this connection."""
 
     created_at: Optional[str] = None
     """ISO 8601 formatted date indicating when the resource was created."""
@@ -78,8 +83,22 @@ class FqdnConnection(BaseModel):
     microsoft_teams_sbc: Optional[bool] = None
     """The connection is enabled for Microsoft Teams Direct Routing."""
 
-    noise_suppression: Optional[bool] = None
-    """Indicates whether noise suppression is enabled."""
+    noise_suppression: Optional[Literal["inbound", "outbound", "both", "disabled"]] = None
+    """Controls when noise suppression is applied to calls.
+
+    When set to 'inbound', noise suppression is applied to incoming audio. When set
+    to 'outbound', it's applied to outgoing audio. When set to 'both', it's applied
+    in both directions. When set to 'disabled', noise suppression is turned off.
+    """
+
+    noise_suppression_details: Optional[ConnectionNoiseSuppressionDetails] = None
+    """Configuration options for noise suppression.
+
+    These settings are stored regardless of the noise_suppression value, but only
+    take effect when noise_suppression is not 'disabled'. If you disable noise
+    suppression and later re-enable it, the previously configured settings will be
+    used.
+    """
 
     onnet_t38_passthrough_enabled: Optional[bool] = None
     """

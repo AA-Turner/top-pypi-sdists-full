@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 from dataclasses import dataclass
 
-from typing import Dict, List, NoReturn, Optional, Union, Set
+from typing import NoReturn
 
 from ._data import (
     _PART3_TO_CODES,
@@ -26,10 +26,7 @@ from ._data import (
 )
 
 
-_STRING_CLEANING_FUNCS = [
-    lambda x: x.strip().lower(),
-    lambda x: x.strip().title(),
-]
+_STRING_CLEANING_FUNCS = [lambda x: x.lower(), lambda x: x.title()]
 
 
 class LanguageNotFoundError(Exception):
@@ -73,31 +70,26 @@ class Language:
 
     # From the "codes" table
     part3: str
-    # Although Union[..., None] and Optional[...] are equivalent, I prefer Union.
-    # Optional simply doesn't sound right, as it would imply that the attribute in
-    # question is optional, which it's not.
-    # When support for Python 3.9 is dropped, we will switch to the pipe syntax
-    # for `... | None`.
-    part2b: Union[str, None]
-    part2t: Union[str, None]
-    part1: Union[str, None]
+    part2b: str | None
+    part2t: str | None
+    part1: str | None
     scope: str
-    type: Union[str, None]
+    type: str | None
     status: str
     name: str
-    comment: Union[str, None]
+    comment: str | None
 
     # From the "name_index" table
-    other_names: Union[List[Name], None]
+    other_names: list[Name] | None
 
     # From the "macrolanguages" table
-    macrolanguage: Union[str, None]
+    macrolanguage: str | None
 
     # From the "retirements" table
-    retire_reason: Union[str, None]
-    retire_change_to: Union[str, None]
-    retire_remedy: Union[str, None]
-    retire_date: Union[datetime.date, None]
+    retire_reason: str | None
+    retire_change_to: str | None
+    retire_remedy: str | None
+    retire_date: datetime.date | None
 
     def __hash__(self) -> int:
         return hash(self.part3)
@@ -106,17 +98,19 @@ class Language:
         return isinstance(other, Language) and self.part3 == other.part3
 
     @classmethod
-    def match(cls, user_input: str, /, *, exact: bool = False) -> Language:
+    def match(cls, user_input: str, /, *, strict_case: bool = True) -> Language:
         """Return a ``Language`` instance by matching on the user input.
 
         Parameters
         ----------
         user_input : str
             A language code or name.
-        exact : bool, optional
-            Whether to enforce exact matching against the user input.
-            Defaults to `False`. If `False`, matching is case-insensitive
-            and ignores leading/trailing whitespace.
+        strict_case : bool, optional
+            Defaults to ``True``, for enforcing strict case sensitivity.
+            If ``False`` and if ``user_input`` doesn't find a match,
+            further match attempts will be made with the all-lowercase version of
+            ``user_input`` (``"foobar"``) and the title-case version of ``user_input``
+            (``"Foobar"``).
 
         Returns
         -------
@@ -140,7 +134,7 @@ class Language:
         # Order of columns to query the data tables.
         # Bias towards (and therefore prioritize) the user input being
         # a language code rather than a language name.
-        query_order: List[_COLUMN_TYPE] = [
+        query_order: list[_COLUMN_TYPE] = [
             _CodesColumn.ID,
             _CodesColumn.PART2B,
             _CodesColumn.PART2T,
@@ -150,7 +144,7 @@ class Language:
             _NameIndexColumn.PRINT_NAME,
             _NameIndexColumn.INVERTED_NAME,
         ]
-        return _PART3_TO_LANGUAGES[_get_part3(user_input, query_order, exact)]
+        return _PART3_TO_LANGUAGES[_get_part3(user_input, query_order, strict_case)]
 
     @classmethod
     def from_part3(cls, user_input: str, /) -> Language:
@@ -177,7 +171,7 @@ class Language:
     @classmethod
     def from_name(cls, user_input: str, /) -> Language:
         """Return a ``Language`` instance from an ISO 639-3 reference language name."""
-        query_order: List[_COLUMN_TYPE] = [
+        query_order: list[_COLUMN_TYPE] = [
             _CodesColumn.REF_NAME,
             _NameIndexColumn.PRINT_NAME,
             _NameIndexColumn.INVERTED_NAME,
@@ -190,7 +184,7 @@ def _raise_language_not_found_error(user_input: str) -> NoReturn:
 
 
 def _get_part3(
-    user_input: str, query_order: List[_COLUMN_TYPE], exact: bool = True
+    user_input: str, query_order: list[_COLUMN_TYPE], strict_case: bool = True
 ) -> str:
     """Get the part 3 code of a language.
 
@@ -200,9 +194,12 @@ def _get_part3(
         The user-provided language code or name.
     query_order : List[_COLUMN_TYPE]
         A list of columns to specify query order.
-    exact : bool, optional
-        Whether to enforce exact matching against the user input. Defaults to `True`.
-        If `False`, basic string cleaning is applied to the user input.
+    strict_case : bool, optional
+        Defaults to ``True``, for enforcing strict case sensitivity.
+        If ``False`` and if ``user_input`` doesn't find a match,
+        further match attempts will be made with the all-lowercase version of
+        ``user_input`` (``"foobar"``) and the title-case version of ``user_input``
+        (``"Foobar"``).
 
     Returns
     -------
@@ -216,7 +213,7 @@ def _get_part3(
     try:
         return _get_part3_exact(user_input, query_order)
     except LanguageNotFoundError as e:
-        if exact:
+        if strict_case:
             raise e
         else:
             for func in _STRING_CLEANING_FUNCS:
@@ -230,8 +227,8 @@ def _get_part3(
 
 def _get_part3_exact(
     user_input: str,
-    query_order: List[_COLUMN_TYPE],
-    original_user_input: Optional[str] = None,
+    query_order: list[_COLUMN_TYPE],
+    original_user_input: str | None = None,
 ) -> str:
     """Get the part 3 code of a language.
 
@@ -239,7 +236,7 @@ def _get_part3_exact(
     ----------
     user_input : str
         The user-provided language code or name.
-    query_order : List[_COLUMN_TYPE]
+    query_order : list[_COLUMN_TYPE]
         A list of columns to specify query order.
     original_user_input : str, optional
         The original user input. Default is `None`.
@@ -254,7 +251,8 @@ def _get_part3_exact(
     LanguageNotFoundError
         If `part3` isn't a language name or code
     """
-    part3: Union[str, None] = None
+    user_input = user_input.strip()
+    part3: str | None = None
     for column in query_order:
         if column == _CodesColumn.ID:
             if user_input in _PART3_TO_CODES:
@@ -307,7 +305,7 @@ def _get_language(part3: str) -> Language:
         else from_retirements[_RetirementsColumn.REF_NAME]  # type: ignore
     )
 
-    other_names: Union[List[Name], None] = []
+    other_names: list[Name] | None = []
     for row in _PART3_TO_NAME_INDEX.get(part3, []):
         p, i = row[_NameIndexColumn.PRINT_NAME], row[_NameIndexColumn.INVERTED_NAME]
         if not ref_name == p == i:
@@ -370,7 +368,7 @@ def _get_language(part3: str) -> Language:
     return language
 
 
-def _get_all_languages() -> Dict[str, Language]:
+def _get_all_languages() -> dict[str, Language]:
     languages = {}
     for part3 in _PART3_TO_CODES:
         languages[part3] = _get_language(part3)
@@ -379,6 +377,6 @@ def _get_all_languages() -> Dict[str, Language]:
     return languages
 
 
-_PART3_TO_LANGUAGES: Dict[str, Language] = _get_all_languages()
+_PART3_TO_LANGUAGES: dict[str, Language] = _get_all_languages()
 
-ALL_LANGUAGES: Set[Language] = set(_PART3_TO_LANGUAGES.values())
+ALL_LANGUAGES: set[Language] = set(_PART3_TO_LANGUAGES.values())

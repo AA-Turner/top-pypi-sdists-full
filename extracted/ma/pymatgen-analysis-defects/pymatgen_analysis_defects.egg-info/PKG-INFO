@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pymatgen-analysis-defects
-Version: 2025.1.18
+Version: 2025.9.26
 Summary: Pymatgen extension for defects analysis
 Author-email: Jimmy-Xuan Shen <jmmshn@gmail.com>
 License: modified BSD
@@ -22,7 +22,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pymatgen>=2024.10.22
 Requires-Dist: scikit-image>=0.19.3
-Requires-Dist: numpy<2
+Requires-Dist: numpy<3.0.0,>=2.0.0
 Requires-Dist: mp-pyrho>=0.4.4
 Provides-Extra: finder
 Requires-Dist: dscribe>=2.0.0; extra == "finder"
@@ -38,6 +38,7 @@ Provides-Extra: tests
 Requires-Dist: pytest>=8.2.1; extra == "tests"
 Requires-Dist: pytest-cov>=5.0.0; extra == "tests"
 Requires-Dist: nbmake>=1.5.3; extra == "tests"
+Dynamic: license-file
 
 # pymatgen-analysis-defects
 

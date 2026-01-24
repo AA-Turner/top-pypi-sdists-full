@@ -1,5 +1,6 @@
 import warnings
 from collections import ChainMap
+from inspect import Signature, signature
 from functools import partial, partialmethod, wraps
 from itertools import chain
 from types import FunctionType
@@ -10,7 +11,7 @@ from .typing import AnyCallable
 from .utils import ROOT_KEY, in_ipython
 
 if TYPE_CHECKING:
-    from .typing import AnyClassMethod
+    from .typing import AnyClassMethod  # noqa: PLC0415 - codex_reason("gpt5.2", "type-checking import avoids runtime dependency")
 
 
 class Validator:
@@ -34,11 +35,9 @@ class Validator:
 
 
 if TYPE_CHECKING:
-    from inspect import Signature
-
-    from .config import BaseConfig
-    from .fields import ModelField
-    from .types import ModelOrDc
+    from .config import BaseConfig  # noqa: PLC0415 - codex_reason("gpt5.2", "type-checking import avoids runtime dependency")
+    from .fields import ModelField  # noqa: PLC0415 - codex_reason("gpt5.2", "type-checking import avoids runtime dependency")
+    from .types import ModelOrDc  # noqa: PLC0415 - codex_reason("gpt5.2", "type-checking import avoids runtime dependency")
 
     ValidatorCallable = Callable[[Optional[ModelOrDc], Any, Dict[str, Any], ModelField, Type[BaseConfig]], Any]
     ValidatorsList = List[ValidatorCallable]
@@ -207,8 +206,6 @@ def extract_validators(namespace: Dict[str, Any]) -> Dict[str, List[Validator]]:
 
 
 def extract_root_validators(namespace: Dict[str, Any]) -> Tuple[List[AnyCallable], List[Tuple[bool, AnyCallable]]]:
-    from inspect import signature
-
     pre_validators: List[AnyCallable] = []
     post_validators: List[Tuple[bool, AnyCallable]] = []
     for name, value in namespace.items():
@@ -249,8 +246,6 @@ def make_generic_validator(validator: AnyCallable) -> 'ValidatorCallable':
     It's done like this so validators don't all need **kwargs in their signature, eg. any combination of
     the arguments "values", "fields" and/or "config" are permitted.
     """
-    from inspect import signature
-
     if not isinstance(validator, (partial, partialmethod)):
         # This should be the default case, so overhead is reduced
         sig = signature(validator)

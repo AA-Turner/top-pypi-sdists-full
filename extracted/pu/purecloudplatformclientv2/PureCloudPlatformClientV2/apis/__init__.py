@@ -34,6 +34,7 @@ from .groups_api import GroupsApi
 from .identity_provider_api import IdentityProviderApi
 from .infrastructure_as_code_api import InfrastructureAsCodeApi
 from .integrations_api import IntegrationsApi
+from .intents_api import IntentsApi
 from .journey_api import JourneyApi
 from .knowledge_api import KnowledgeApi
 from .language_understanding_api import LanguageUnderstandingApi
@@ -76,6 +77,7 @@ from .uploads_api import UploadsApi
 from .usage_api import UsageApi
 from .user_recordings_api import UserRecordingsApi
 from .users_api import UsersApi
+from .users_rules_api import UsersRulesApi
 from .utilities_api import UtilitiesApi
 from .voicemail_api import VoicemailApi
 from .web_chat_api import WebChatApi
@@ -116,6 +118,7 @@ from .groups_api import GroupsApi
 from .identity_provider_api import IdentityProviderApi
 from .infrastructure_as_code_api import InfrastructureAsCodeApi
 from .integrations_api import IntegrationsApi
+from .intents_api import IntentsApi
 from .journey_api import JourneyApi
 from .knowledge_api import KnowledgeApi
 from .language_understanding_api import LanguageUnderstandingApi
@@ -158,6 +161,7 @@ from .uploads_api import UploadsApi
 from .usage_api import UsageApi
 from .user_recordings_api import UserRecordingsApi
 from .users_api import UsersApi
+from .users_rules_api import UsersRulesApi
 from .utilities_api import UtilitiesApi
 from .voicemail_api import VoicemailApi
 from .web_chat_api import WebChatApi

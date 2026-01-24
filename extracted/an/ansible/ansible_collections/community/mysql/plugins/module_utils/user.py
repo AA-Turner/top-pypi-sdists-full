@@ -15,8 +15,6 @@ import string
 import json
 import re
 
-from ansible.module_utils.six import iteritems
-
 from ansible_collections.community.mysql.plugins.module_utils.mysql import (
     mysql_driver,
     get_server_implementation,
@@ -165,7 +163,8 @@ def get_existing_authentication(cursor, user, host=None):
 
     existing_auth_list = []
 
-    # 'plugin_auth_string' contains the hash string. Must be removed in c.mysql 4.0
+    # 'plugin_auth_string' contains the hash string.
+    # Removed from mysql_info output in c.mysql 4.0.0
     # See https://github.com/ansible-collections/community.mysql/pull/629
     for r in rows:
         existing_auth_list.append({
@@ -258,7 +257,7 @@ def user_add(cursor, user, host, host_all, password, encrypted,
         set_password_expire(cursor, user, host, password_expire, password_expire_interval)
 
     if new_priv is not None:
-        for db_table, priv in iteritems(new_priv):
+        for db_table, priv in new_priv.items():
             privileges_grant(cursor, user, host, db_table, priv, tls_requires)
     if tls_requires is not None:
         privileges_grant(cursor, user, host, "*.*", get_grants(cursor, user, host), tls_requires)
@@ -449,7 +448,7 @@ def user_mod(cursor, user, host, host_all, password, encrypted,
             # If the user has privileges on a db.table that doesn't appear at all in
             # the new specification, then revoke all privileges on it.
             if not append_privs and not subtract_privs:
-                for db_table, priv in iteritems(curr_priv):
+                for db_table, priv in curr_priv.items():
                     # If the user has the GRANT OPTION on a db.table, revoke it first.
                     if "GRANT" in priv:
                         grant_option = True
@@ -463,7 +462,7 @@ def user_mod(cursor, user, host, host_all, password, encrypted,
             # If the user doesn't currently have any privileges on a db.table, then
             # we can perform a straight grant operation.
             if not subtract_privs:
-                for db_table, priv in iteritems(new_priv):
+                for db_table, priv in new_priv.items():
                     if db_table not in curr_priv:
                         msg = "New privileges granted"
                         if not module.check_mode:
@@ -886,7 +885,7 @@ def privileges_revoke(cursor, user, host, db_table, priv, grant_option, maria_ro
         cursor.execute(query, (user, host))
     priv_string = ",".join([p for p in priv if p not in ('GRANT', )])
 
-    if priv_string != "":
+    if priv_string != "" and not (grant_option and priv_string == "USAGE"):
         query = ["REVOKE %s ON %s" % (priv_string, db_table)]
 
         if not maria_role:
@@ -950,7 +949,7 @@ def convert_priv_dict_to_str(priv):
     Returns:
         priv (str): String representation of input argument.
     """
-    priv_list = ['%s:%s' % (key, val) for key, val in iteritems(priv)]
+    priv_list = ['%s:%s' % (key, val) for key, val in priv.items()]
 
     return '/'.join(priv_list)
 
@@ -1029,7 +1028,7 @@ def match_resource_limits(module, current, desired):
 
     needs_to_change = {}
 
-    for key, val in iteritems(desired):
+    for key, val in desired.items():
         if key not in current:
             # Supported keys are listed in the documentation
             # and must be determined in the get_resource_limits function
@@ -1082,7 +1081,7 @@ def limit_resources(module, cursor, user, host, resource_limits, check_mode):
 
     # If not check_mode
     tmp = []
-    for key, val in iteritems(needs_to_change):
+    for key, val in needs_to_change.items():
         tmp.append('%s %s' % (key, val))
 
     query = "ALTER USER %s@%s"

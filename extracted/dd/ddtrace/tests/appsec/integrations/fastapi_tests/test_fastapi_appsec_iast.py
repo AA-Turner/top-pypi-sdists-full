@@ -18,6 +18,7 @@ from starlette.responses import PlainTextResponse
 from ddtrace.appsec._constants import IAST
 from ddtrace.appsec._iast._handlers import _on_iast_fastapi_patch
 from ddtrace.appsec._iast._overhead_control_engine import oce
+from ddtrace.appsec._iast._taint_tracking import initialize_native_state
 from ddtrace.appsec._iast._taint_tracking import origin_to_str
 from ddtrace.appsec._iast._taint_tracking._taint_objects_base import get_tainted_ranges
 from ddtrace.appsec._iast.constants import VULN_INSECURE_COOKIE
@@ -74,6 +75,7 @@ def _restore_request_validations(original_validate):
 
 
 def _aux_appsec_prepare_tracer(tracer):
+    initialize_native_state()
     _on_iast_fastapi_patch()
     patch_fastapi()
     patch_sqlite_sqli()
@@ -283,7 +285,7 @@ def test_header_name_source(fastapi_application, client, tracer, test_spans):
 @pytest.mark.skipif(fastapi_version < (0, 95, 0), reason="Header annotation doesn't work on fastapi 94 or lower")
 def test_header_value_source_typing_param(fastapi_application, client, tracer, test_spans):
     @fastapi_application.get("/index.html")
-    async def test_route(iast_header: typing.Annotated[str, Header()] = None):
+    async def test_route(iast_header: typing.Annotated[str, Header()]):
         from ddtrace.appsec._iast._taint_tracking import origin_to_str
         from ddtrace.appsec._iast._taint_tracking._taint_objects_base import get_tainted_ranges
 
@@ -1202,6 +1204,6 @@ def test_fastapi_iast_sampling(fastapi_application, client, tracer, test_spans):
                     list_vulnerabilities.append(vuln["location"]["line"])
             else:
                 assert loaded is None
-        assert (
-            len(list_vulnerabilities) == 16
-        ), f"Num vulnerabilities: ({len(list_vulnerabilities)}): {list_vulnerabilities}"
+        assert len(list_vulnerabilities) == 16, (
+            f"Num vulnerabilities: ({len(list_vulnerabilities)}): {list_vulnerabilities}"
+        )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: locust-plugins
-Version: 4.7.0
+Version: 5.0.0
 Summary: Useful plugins/extensions for Locust
 Home-page: https://github.com/SvenskaSpel/locust-plugins
 Author: Lars Holmberg
@@ -32,8 +32,6 @@ Provides-Extra: kafka
 Requires-Dist: confluent-kafka; extra == "kafka"
 Provides-Extra: mongo
 Requires-Dist: pymongo; extra == "mongo"
-Provides-Extra: mqtt
-Requires-Dist: paho-mqtt>=2.1.0; extra == "mqtt"
 Provides-Extra: appinsights
 Requires-Dist: opencensus-ext-azure; extra == "appinsights"
 Provides-Extra: resource
@@ -49,7 +47,6 @@ Requires-Dist: psycogreen; extra == "all"
 Requires-Dist: psycopg2-binary; extra == "all"
 Requires-Dist: confluent-kafka; extra == "all"
 Requires-Dist: pymongo; extra == "all"
-Requires-Dist: paho-mqtt>=2.1.0; extra == "all"
 Requires-Dist: opencensus-ext-azure; extra == "all"
 Requires-Dist: lxml; extra == "all"
 Requires-Dist: boto3; extra == "all"

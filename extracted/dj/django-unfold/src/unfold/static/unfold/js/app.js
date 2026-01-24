@@ -8,7 +8,104 @@ window.addEventListener("load", (e) => {
   filterForm();
 
   warnWithoutSaving();
+
+  tabNavigation();
+
+  scrollSidebarNav();
 });
+
+/*************************************************************
+ * Scroll sidebar to active item
+ *************************************************************/
+function scrollSidebarNav() {
+  const sidebarNav = document.getElementById("nav-sidebar-apps");
+
+  if (!sidebarNav) {
+    return;
+  }
+
+  const instance = SimpleBar.instances.get(sidebarNav);
+  const activeItem = sidebarNav.querySelector("a.active");
+
+  if (!instance || !activeItem) {
+    return;
+  }
+
+  function isActiveItemVisible() {
+    const sidebarRect = sidebarNav.getBoundingClientRect();
+    const itemRect = activeItem.getBoundingClientRect();
+
+    return (
+      itemRect.top >= sidebarRect.top && itemRect.bottom <= sidebarRect.bottom
+    );
+  }
+
+  if (instance && !isActiveItemVisible()) {
+    instance.getScrollElement().scroll(0, activeItem.offsetTop);
+  }
+}
+
+/*************************************************************
+ * Move not visible tab items to dropdown
+ *************************************************************/
+function tabNavigation() {
+  const itemsDropdown = document.getElementById("tabs-dropdown");
+  const itemsList = document.getElementById("tabs-items");
+  const widths = [];
+
+  if (!itemsDropdown || !itemsList) {
+    return;
+  }
+
+  handleTabNavigationResize();
+
+  window.addEventListener("resize", function () {
+    handleTabNavigationResize();
+  });
+
+  function handleTabNavigationResize() {
+    const contentWidth = document.getElementById("content").offsetWidth;
+    const tabsWidth = document.getElementById("tabs-wrapper").scrollWidth;
+    const availableWidth =
+      itemsList.parentElement.offsetWidth - itemsList.offsetWidth - 48;
+
+    if (tabsWidth > contentWidth) {
+      const lastTabItem = itemsList ? itemsList.lastElementChild : null;
+
+      if (lastTabItem) {
+        widths.push(lastTabItem.offsetWidth);
+        itemsList.removeChild(lastTabItem);
+        itemsDropdown.appendChild(lastTabItem);
+
+        // If there is still not enough space, move the last item to the dropdown again
+        if (
+          document.getElementById("content").offsetWidth <
+          document.getElementById("tabs-wrapper").scrollWidth
+        ) {
+          handleTabNavigationResize();
+        }
+      }
+    } else if (
+      widths.length > 0 &&
+      widths[widths.length - 1] < availableWidth
+    ) {
+      const lastTabItem = itemsDropdown ? itemsDropdown.lastElementChild : null;
+
+      if (lastTabItem) {
+        itemsDropdown.removeChild(lastTabItem);
+        itemsList.appendChild(lastTabItem);
+        widths.pop();
+      }
+    }
+
+    // Show/hide dropdown based on the number of items in dropdown
+    if (itemsDropdown.childElementCount === 0) {
+      itemsDropdown.parentElement.classList.add("hidden");
+    } else {
+      itemsDropdown.parentElement.classList.remove("hidden");
+    }
+  }
+}
 
 /*************************************************************
  * Alpine.sort.js callback after sorting
@@ -17,7 +114,9 @@ const sortRecords = (e) => {
   const orderingField = e.from.dataset.orderingField;
 
   const weightInputs = Array.from(
-    e.from.querySelectorAll(`.has_original input[name$=-${orderingField}]`)
+    e.from.querySelectorAll(
+      `.has_original input[name$=-${orderingField}], td.field-${orderingField} input[name$=-${orderingField}]`
+    )
   );
 
   weightInputs.forEach((input, index) => {
@@ -416,6 +515,12 @@ const DEFAULT_CHART_OPTIONS = {
       pointBorderWidth: 0,
       pointStyle: false,
     },
+    pie: {
+      borderWidth: 0,
+    },
+    doughnut: {
+      borderWidth: 0,
+    },
   },
   plugins: {
     legend: {
@@ -436,6 +541,13 @@ const DEFAULT_CHART_OPTIONS = {
   },
   scales: {
     x: {
+      display: function (context) {
+        if (["pie", "doughnut", "radar"].includes(context.chart.config.type)) {
+          return false;
+        }
+
+        return true;
+      },
       border: {
         dash: [5, 5],
         dashOffset: 2,
@@ -456,6 +568,13 @@ const DEFAULT_CHART_OPTIONS = {
       },
     },
     y: {
+      display: function (context) {
+        if (["pie", "doughnut", "radar"].includes(context.chart.config.type)) {
+          return false;
+        }
+
+        return true;
+      },
       border: {
         dash: [5, 5],
         dashOffset: 5,
@@ -512,8 +631,17 @@ const renderCharts = () => {
     const borderColor = hasDarkClass ? baseColorDark : baseColorLight;
 
     for (const chart of charts) {
-      chart.options.scales.x.grid.color = borderColor;
-      chart.options.scales.y.grid.color = borderColor;
+      if (chart.options.scales.x) {
+        chart.options.scales.x.grid.color = borderColor;
+      }
+
+      if (chart.options.scales.y) {
+        chart.options.scales.y.grid.color = borderColor;
+      }
+
+      if (chart.options.scales.r) {
+        chart.options.scales.r.grid.color = borderColor;
+      }
       chart.update();
     }
   };
@@ -533,7 +661,17 @@ const renderCharts = () => {
     for (const key in parsedData.datasets) {
       const dataset = parsedData.datasets[key];
       const processColor = (colorProp) => {
-        if (dataset?.[colorProp]?.startsWith("var(")) {
+        if (Array.isArray(dataset?.[colorProp])) {
+          for (const [index, prop] of dataset?.[colorProp].entries()) {
+            if (prop.startsWith("var(")) {
+              const cssVar = prop.match(/var\((.*?)\)/)[1];
+              const color = getComputedStyle(document.documentElement)
+                .getPropertyValue(cssVar)
+                .trim();
+              dataset[colorProp][index] = color;
+            }
+          }
+        } else if (dataset?.[colorProp]?.startsWith("var(")) {
           const cssVar = dataset[colorProp].match(/var\((.*?)\)/)[1];
           const color = getComputedStyle(document.documentElement)
             .getPropertyValue(cssVar)
@@ -546,11 +684,30 @@ const renderCharts = () => {
       processColor("backgroundColor");
     }
 
+    CHART_OPTIONS = { ...DEFAULT_CHART_OPTIONS };
+    if (type === "radar") {
+      CHART_OPTIONS.scales = {
+        r: {
+          ticks: {
+            backdropColor: "transparent",
+          },
+          pointLabels: {
+            color: "#9ca3af",
+            font: {
+              size: 12,
+            },
+          },
+        },
+      };
+    }
+    Chart.defaults.font.family = "Inter";
+    Chart.defaults.font.size = 12;
+
     charts.push(
       new Chart(ctx, {
         type: type || "bar",
         data: parsedData,
-        options: options ? JSON.parse(options) : { ...DEFAULT_CHART_OPTIONS },
+        options: options ? JSON.parse(options) : { ...CHART_OPTIONS },
       })
     );
   }

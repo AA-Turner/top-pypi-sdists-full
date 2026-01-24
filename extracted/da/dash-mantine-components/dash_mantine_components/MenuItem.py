@@ -266,7 +266,7 @@ Keyword arguments:
 
 - w (string | number; optional):
     Width, theme key: theme.spacing."""
-    _children_props = ['leftSection', 'rightSection']
+    _children_props: typing.List[str] = ['leftSection', 'rightSection']
     _base_nodes = ['leftSection', 'rightSection', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'MenuItem'

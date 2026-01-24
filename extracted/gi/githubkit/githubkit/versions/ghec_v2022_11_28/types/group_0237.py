@@ -9,34 +9,67 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+from typing import Union
+from typing_extensions import TypedDict
 
-from .group_0003 import SimpleUserType
+from .group_0236 import MinimalRepositoryType, MinimalRepositoryTypeForResponse
 
 
-class ProjectType(TypedDict):
-    """Project
+class ThreadType(TypedDict):
+    """Thread
 
-    Projects are a way to organize columns and cards of work.
+    Thread
     """
 
-    owner_url: str
+    id: str
+    repository: MinimalRepositoryType
+    subject: ThreadPropSubjectType
+    reason: str
+    unread: bool
+    updated_at: str
+    last_read_at: Union[str, None]
     url: str
-    html_url: str
-    columns_url: str
-    id: int
-    node_id: str
-    name: str
-    body: Union[str, None]
-    number: int
-    state: str
-    creator: Union[None, SimpleUserType]
-    created_at: datetime
-    updated_at: datetime
-    organization_permission: NotRequired[Literal["read", "write", "admin", "none"]]
-    private: NotRequired[bool]
+    subscription_url: str
 
 
-__all__ = ("ProjectType",)
+class ThreadTypeForResponse(TypedDict):
+    """Thread
+
+    Thread
+    """
+
+    id: str
+    repository: MinimalRepositoryTypeForResponse
+    subject: ThreadPropSubjectTypeForResponse
+    reason: str
+    unread: bool
+    updated_at: str
+    last_read_at: Union[str, None]
+    url: str
+    subscription_url: str
+
+
+class ThreadPropSubjectType(TypedDict):
+    """ThreadPropSubject"""
+
+    title: str
+    url: str
+    latest_comment_url: str
+    type: str
+
+
+class ThreadPropSubjectTypeForResponse(TypedDict):
+    """ThreadPropSubject"""
+
+    title: str
+    url: str
+    latest_comment_url: str
+    type: str
+
+
+__all__ = (
+    "ThreadPropSubjectType",
+    "ThreadPropSubjectTypeForResponse",
+    "ThreadType",
+    "ThreadTypeForResponse",
+)

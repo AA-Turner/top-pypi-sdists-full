@@ -5,17 +5,17 @@ use mdb_shard::file_structs::{
     FileDataSequenceEntry, FileDataSequenceHeader, FileMetadataExt, FileVerificationEntry, MDBFileInfo,
 };
 use mdb_shard::hash_is_global_dedup_eligible;
-use merklehash::{file_hash, MerkleHash};
+use merklehash::{MerkleHash, file_hash};
 use more_asserts::{debug_assert_le, debug_assert_lt};
 use progress_tracking::upload_tracking::FileXorbDependency;
 
+use crate::Chunk;
 use crate::constants::{MAX_XORB_BYTES, MAX_XORB_CHUNKS};
 use crate::data_aggregator::DataAggregator;
 use crate::dedup_metrics::DeduplicationMetrics;
 use crate::defrag_prevention::DefragPrevention;
 use crate::interface::DeduplicationDataInterface;
 use crate::raw_xorb_data::RawXorbData;
-use crate::Chunk;
 
 pub struct FileDeduper<DataInterfaceType: DeduplicationDataInterface> {
     data_mng: DataInterfaceType,
@@ -49,7 +49,7 @@ pub struct FileDeduper<DataInterfaceType: DeduplicationDataInterface> {
     min_spacing_between_global_dedup_queries: usize,
 
     /// The next chunk index that is eligible for global dedup queries
-    next_chunk_index_elegible_for_global_dedup_query: usize,
+    next_chunk_index_eligible_for_global_dedup_query: usize,
 
     /// The tracked deduplication metrics for this file.
     deduplication_metrics: DeduplicationMetrics,
@@ -68,7 +68,7 @@ impl<DataInterfaceType: DeduplicationDataInterface> FileDeduper<DataInterfaceTyp
             internally_referencing_entries: Vec::new(),
             defrag_tracker: DefragPrevention::default(),
             min_spacing_between_global_dedup_queries: 0,
-            next_chunk_index_elegible_for_global_dedup_query: 0,
+            next_chunk_index_eligible_for_global_dedup_query: 0,
             deduplication_metrics: DeduplicationMetrics::default(),
         }
     }
@@ -125,7 +125,7 @@ impl<DataInterfaceType: DeduplicationDataInterface> FileDeduper<DataInterfaceTyp
                     // any shards are present that give us more dedup ability.
                     //
                     // If we've already queried these against the global dedup, then we can proceed on without
-                    // re-querying anything.  Only doing this on the first pass also gaurantees that in the case of
+                    // re-querying anything.  Only doing this on the first pass also guarantees that in the case of
                     // errors on shard retrieval, we don't get stuck in a loop trying to download
                     // and reprocess.
                 } else {
@@ -133,17 +133,17 @@ impl<DataInterfaceType: DeduplicationDataInterface> FileDeduper<DataInterfaceTyp
                     if
                     // Only do this query on the first pass.
                     first_pass
-                        // The first hash of every file and those maching a pattern are eligible. 
+                        // The first hash of every file and those matching a pattern are eligible. 
                         && (global_chunk_index == 0
                             || hash_is_global_dedup_eligible(&chunk_hashes[local_chunk_index]))
                         // Limit by enforcing at least 4MB between chunk queries.
-                        && global_chunk_index >= self.next_chunk_index_elegible_for_global_dedup_query
+                        && global_chunk_index >= self.next_chunk_index_eligible_for_global_dedup_query
                     {
                         self.data_mng
                             .register_global_dedup_query(chunk_hashes[local_chunk_index])
                             .await?;
 
-                        self.next_chunk_index_elegible_for_global_dedup_query =
+                        self.next_chunk_index_eligible_for_global_dedup_query =
                             global_chunk_index + self.min_spacing_between_global_dedup_queries;
                     }
 
@@ -350,12 +350,12 @@ impl<DataInterfaceType: DeduplicationDataInterface> FileDeduper<DataInterfaceTyp
 
             let mut end_idx = base_idx + 1;
             for (i, chunk) in chunks.iter().enumerate().skip(1) {
-                if let Some(&idx) = self.new_data_hash_lookup.get(chunk) {
-                    if idx == base_idx + i {
-                        end_idx = idx + 1;
-                        n_bytes += self.new_data[idx].data.len();
-                        continue;
-                    }
+                if let Some(&idx) = self.new_data_hash_lookup.get(chunk)
+                    && idx == base_idx + i
+                {
+                    end_idx = idx + 1;
+                    n_bytes += self.new_data[idx].data.len();
+                    continue;
                 }
                 break;
             }

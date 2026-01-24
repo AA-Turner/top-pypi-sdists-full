@@ -31,10 +31,12 @@ class DnaSequenceWithEntityType:
     _annotations: Union[Unset, List[DnaAnnotation]] = UNSET
     _api_url: Union[Unset, str] = UNSET
     _archive_record: Union[Unset, None, ArchiveRecord] = UNSET
+    _authors: Union[Unset, List[UserSummary]] = UNSET
     _bases: Union[Unset, str] = UNSET
     _created_at: Union[Unset, datetime.datetime] = UNSET
     _creator: Union[Unset, UserSummary] = UNSET
     _custom_fields: Union[Unset, CustomFields] = UNSET
+    _dna_alignment_ids: Union[Unset, List[str]] = UNSET
     _entity_registry_id: Union[Unset, None, str] = UNSET
     _fields: Union[Unset, Fields] = UNSET
     _folder_id: Union[Unset, None, str] = UNSET
@@ -50,6 +52,7 @@ class DnaSequenceWithEntityType:
     _schema: Union[Unset, None, SchemaSummary] = UNSET
     _transcriptions: Union[Unset, List[DnaSequenceTranscription]] = UNSET
     _translations: Union[Unset, List[Translation]] = UNSET
+    _url: Union[Unset, str] = UNSET
     _web_url: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
@@ -60,10 +63,12 @@ class DnaSequenceWithEntityType:
         fields.append("annotations={}".format(repr(self._annotations)))
         fields.append("api_url={}".format(repr(self._api_url)))
         fields.append("archive_record={}".format(repr(self._archive_record)))
+        fields.append("authors={}".format(repr(self._authors)))
         fields.append("bases={}".format(repr(self._bases)))
         fields.append("created_at={}".format(repr(self._created_at)))
         fields.append("creator={}".format(repr(self._creator)))
         fields.append("custom_fields={}".format(repr(self._custom_fields)))
+        fields.append("dna_alignment_ids={}".format(repr(self._dna_alignment_ids)))
         fields.append("entity_registry_id={}".format(repr(self._entity_registry_id)))
         fields.append("fields={}".format(repr(self._fields)))
         fields.append("folder_id={}".format(repr(self._folder_id)))
@@ -79,6 +84,7 @@ class DnaSequenceWithEntityType:
         fields.append("schema={}".format(repr(self._schema)))
         fields.append("transcriptions={}".format(repr(self._transcriptions)))
         fields.append("translations={}".format(repr(self._translations)))
+        fields.append("url={}".format(repr(self._url)))
         fields.append("web_url={}".format(repr(self._web_url)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "DnaSequenceWithEntityType({})".format(", ".join(fields))
@@ -105,6 +111,14 @@ class DnaSequenceWithEntityType:
         if not isinstance(self._archive_record, Unset):
             archive_record = self._archive_record.to_dict() if self._archive_record else None
 
+        authors: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._authors, Unset):
+            authors = []
+            for authors_item_data in self._authors:
+                authors_item = authors_item_data.to_dict()
+
+                authors.append(authors_item)
+
         bases = self._bases
         created_at: Union[Unset, str] = UNSET
         if not isinstance(self._created_at, Unset):
@@ -117,6 +131,10 @@ class DnaSequenceWithEntityType:
         custom_fields: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self._custom_fields, Unset):
             custom_fields = self._custom_fields.to_dict()
+
+        dna_alignment_ids: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._dna_alignment_ids, Unset):
+            dna_alignment_ids = self._dna_alignment_ids
 
         entity_registry_id = self._entity_registry_id
         fields: Union[Unset, Dict[str, Any]] = UNSET
@@ -173,6 +191,7 @@ class DnaSequenceWithEntityType:
 
                 translations.append(translations_item)
 
+        url = self._url
         web_url = self._web_url
 
         field_dict: Dict[str, Any] = {}
@@ -188,6 +207,8 @@ class DnaSequenceWithEntityType:
             field_dict["apiURL"] = api_url
         if archive_record is not UNSET:
             field_dict["archiveRecord"] = archive_record
+        if authors is not UNSET:
+            field_dict["authors"] = authors
         if bases is not UNSET:
             field_dict["bases"] = bases
         if created_at is not UNSET:
@@ -196,6 +217,8 @@ class DnaSequenceWithEntityType:
             field_dict["creator"] = creator
         if custom_fields is not UNSET:
             field_dict["customFields"] = custom_fields
+        if dna_alignment_ids is not UNSET:
+            field_dict["dnaAlignmentIds"] = dna_alignment_ids
         if entity_registry_id is not UNSET:
             field_dict["entityRegistryId"] = entity_registry_id
         if fields is not UNSET:
@@ -226,6 +249,8 @@ class DnaSequenceWithEntityType:
             field_dict["transcriptions"] = transcriptions
         if translations is not UNSET:
             field_dict["translations"] = translations
+        if url is not UNSET:
+            field_dict["url"] = url
         if web_url is not UNSET:
             field_dict["webURL"] = web_url
 
@@ -309,6 +334,23 @@ class DnaSequenceWithEntityType:
                 raise
             archive_record = cast(Union[Unset, None, ArchiveRecord], UNSET)
 
+        def get_authors() -> Union[Unset, List[UserSummary]]:
+            authors = []
+            _authors = d.pop("authors")
+            for authors_item_data in _authors or []:
+                authors_item = UserSummary.from_dict(authors_item_data, strict=False)
+
+                authors.append(authors_item)
+
+            return authors
+
+        try:
+            authors = get_authors()
+        except KeyError:
+            if strict:
+                raise
+            authors = cast(Union[Unset, List[UserSummary]], UNSET)
+
         def get_bases() -> Union[Unset, str]:
             bases = d.pop("bases")
             return bases
@@ -366,6 +408,18 @@ class DnaSequenceWithEntityType:
             if strict:
                 raise
             custom_fields = cast(Union[Unset, CustomFields], UNSET)
+
+        def get_dna_alignment_ids() -> Union[Unset, List[str]]:
+            dna_alignment_ids = cast(List[str], d.pop("dnaAlignmentIds"))
+
+            return dna_alignment_ids
+
+        try:
+            dna_alignment_ids = get_dna_alignment_ids()
+        except KeyError:
+            if strict:
+                raise
+            dna_alignment_ids = cast(Union[Unset, List[str]], UNSET)
 
         def get_entity_registry_id() -> Union[Unset, None, str]:
             entity_registry_id = d.pop("entityRegistryId")
@@ -577,6 +631,17 @@ class DnaSequenceWithEntityType:
                 raise
             translations = cast(Union[Unset, List[Translation]], UNSET)
 
+        def get_url() -> Union[Unset, str]:
+            url = d.pop("url")
+            return url
+
+        try:
+            url = get_url()
+        except KeyError:
+            if strict:
+                raise
+            url = cast(Union[Unset, str], UNSET)
+
         def get_web_url() -> Union[Unset, str]:
             web_url = d.pop("webURL")
             return web_url
@@ -594,10 +659,12 @@ class DnaSequenceWithEntityType:
             annotations=annotations,
             api_url=api_url,
             archive_record=archive_record,
+            authors=authors,
             bases=bases,
             created_at=created_at,
             creator=creator,
             custom_fields=custom_fields,
+            dna_alignment_ids=dna_alignment_ids,
             entity_registry_id=entity_registry_id,
             fields=fields,
             folder_id=folder_id,
@@ -613,6 +680,7 @@ class DnaSequenceWithEntityType:
             schema=schema,
             transcriptions=transcriptions,
             translations=translations,
+            url=url,
             web_url=web_url,
         )
 
@@ -710,6 +778,20 @@ class DnaSequenceWithEntityType:
         self._archive_record = UNSET
 
     @property
+    def authors(self) -> List[UserSummary]:
+        if isinstance(self._authors, Unset):
+            raise NotPresentError(self, "authors")
+        return self._authors
+
+    @authors.setter
+    def authors(self, value: List[UserSummary]) -> None:
+        self._authors = value
+
+    @authors.deleter
+    def authors(self) -> None:
+        self._authors = UNSET
+
+    @property
     def bases(self) -> str:
         if isinstance(self._bases, Unset):
             raise NotPresentError(self, "bases")
@@ -764,6 +846,21 @@ class DnaSequenceWithEntityType:
     @custom_fields.deleter
     def custom_fields(self) -> None:
         self._custom_fields = UNSET
+
+    @property
+    def dna_alignment_ids(self) -> List[str]:
+        """ API IDs of Nucleotide Alignments involving the RNA sequence """
+        if isinstance(self._dna_alignment_ids, Unset):
+            raise NotPresentError(self, "dna_alignment_ids")
+        return self._dna_alignment_ids
+
+    @dna_alignment_ids.setter
+    def dna_alignment_ids(self, value: List[str]) -> None:
+        self._dna_alignment_ids = value
+
+    @dna_alignment_ids.deleter
+    def dna_alignment_ids(self) -> None:
+        self._dna_alignment_ids = UNSET
 
     @property
     def entity_registry_id(self) -> Optional[str]:
@@ -974,6 +1071,21 @@ class DnaSequenceWithEntityType:
     @translations.deleter
     def translations(self) -> None:
         self._translations = UNSET
+
+    @property
+    def url(self) -> str:
+        """ The path of the web URL, omitting the tenant domain """
+        if isinstance(self._url, Unset):
+            raise NotPresentError(self, "url")
+        return self._url
+
+    @url.setter
+    def url(self, value: str) -> None:
+        self._url = value
+
+    @url.deleter
+    def url(self) -> None:
+        self._url = UNSET
 
     @property
     def web_url(self) -> str:

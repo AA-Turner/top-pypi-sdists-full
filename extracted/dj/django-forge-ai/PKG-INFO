@@ -1,0 +1,268 @@
+Metadata-Version: 2.4
+Name: django-forge-ai
+Version: 1.2.7
+Summary: A comprehensive AI toolbox for Django - seamless integration of LLM functionalities, RAG systems, and AI agents
+Home-page: https://github.com/vortex-hue/django_forge_ai.git
+Author: DjangoForgeAI Contributors
+Author-email: DjangoForgeAI Contributors <your-email@example.com>
+Maintainer-email: DjangoForgeAI Contributors <your-email@example.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/vortex-hue/django_forge_ai.git
+Project-URL: Documentation, https://github.com/vortex-hue/django_forge_ai.git#readme
+Project-URL: Repository, https://github.com/vortex-hue/django_forge_ai.git
+Project-URL: Issues, https://github.com/vortex-hue/django_forge_ai.git/issues
+Project-URL: Changelog, https://github.com/vortex-hue/django_forge_ai.git/blob/main/CHANGELOG.md
+Keywords: django,ai,llm,rag,vector-database,openai,anthropic,machine-learning
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 3.2
+Classifier: Framework :: Django :: 4.0
+Classifier: Framework :: Django :: 4.1
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: django>=3.2
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: openai>=1.0.0
+Requires-Dist: anthropic>=0.7.0
+Requires-Dist: chromadb>=0.4.0
+Requires-Dist: qdrant-client>=1.6.0
+Requires-Dist: psycopg2-binary>=2.9.0
+Requires-Dist: celery>=5.3.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: tiktoken>=0.5.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-django>=4.5.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: mypy>=1.5.0; extra == "dev"
+Requires-Dist: coverage>=7.0.0; extra == "dev"
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
+# DjangoForgeAI
+
+A comprehensive, plug-and-play toolkit that seamlessly integrates modern AI/LLM functionalities directly into your Django projects. DjangoForgeAI provides "batteries-included" solutions for common AI engineering tasks, including AI-powered admin fields, native RAG system integration, and configurable AI agents, all manageable through the Django admin interface.
+
+![DjangoForgeAI](image.png)
+
+## Demos
+
+**Demo 1**: [Watch on YouTube](https://youtu.be/Xa9G_AY5_ic)
+
+**Demo 2**: [Watch on YouTube](https://youtu.be/bmWhTSAQr5A)
+
+## Features
+
+### 1. AI-Powered Admin & Model Fields
+
+- **AICharField / AITextField**: Custom model fields that can automatically generate summaries or content from other fields in the model using an LLM.
+- **AIAdminMixin**: A mixin for ModelAdmin classes that adds a "Generate with AI" button next to specified text fields.
+- **AIModeratedField**: A field that automatically runs AI-powered content moderation upon save.
+
+### 2. Native RAG System Integration
+
+- **Knowledge Base Management**: Upload documents, define data sources (e.g., website URLs), and manage vector stores through the Django admin.
+- **Vector DB Connectors**: Pluggable backends for popular vector databases (ChromaDB, Qdrant, PGVector).
+- **SemanticSearchMixin**: A mixin for QuerySets that enables semantic search against your RAG knowledge base.
+
+### 3. Configurable AI Agents & Automation
+
+- **Agent Management Dashboard**: Define agents (persona, tools, goals) and assign them to specific tasks through the admin.
+- **AgentTaskQueue**: Integration with Celery to execute agent tasks in the background and log their progress.
+
+## Installation
+
+```bash
+pip install django-forge-ai
+```
+
+Or install from source:
+
+```bash
+git clone https://github.com/vortex-hue/django_forge_ai.git
+cd django-forge-ai
+pip install -e .
+```
+
+## Quick Start
+
+### 1. Add to INSTALLED_APPS
+
+```python
+# settings.py
+INSTALLED_APPS = [
+    # ... other apps
+    'django_forge_ai',
+    'django_forge_ai.rag_system',
+    'django_forge_ai.agents',
+]
+```
+
+### 2. Configure Settings
+
+```python
+# settings.py
+
+# LLM Configuration
+DJANGO_FORGE_AI_LLM_PROVIDER = "openai"  # or "anthropic"
+DJANGO_FORGE_AI_OPENAI_API_KEY = "your-openai-api-key"
+# or
+DJANGO_FORGE_AI_ANTHROPIC_API_KEY = "your-anthropic-api-key"
+
+# Vector Database Configuration
+DJANGO_FORGE_AI_VECTOR_DB = "chroma"  # or "qdrant", "pgvector"
+DJANGO_FORGE_AI_VECTOR_DB_PATH = "./vector_db"
+
+# Celery Configuration (optional, for async tasks)
+DJANGO_FORGE_AI_USE_CELERY = True
+```
+
+### 3. Run Migrations
+
+```bash
+python manage.py migrate
+```
+
+### 4. Use AI-Powered Fields
+
+```python
+# models.py
+from django.db import models
+from django_forge_ai.models import AICharField, AITextField, AIModeratedField
+
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    
+    # Auto-generate summary from title
+    summary = AICharField(
+        max_length=200,
+        ai_generate_from=['title'],
+        ai_prompt_template="Generate a summary of: {title}",
+        ai_auto_generate=True
+    )
+    
+    # Generate content with AI
+    content = AITextField(
+        ai_generate_from=['title'],
+        ai_prompt_template="Write an article about: {title}"
+    )
+    
+    # Moderated content
+    user_comment = AIModeratedField(
+        moderation_strict=True,
+        raise_on_violation=True
+    )
+```
+
+### 5. Use AIAdminMixin
+
+```python
+# admin.py
+from django.contrib import admin
+from django_forge_ai.admin_integration.mixins import AIAdminMixin
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(AIAdminMixin, admin.ModelAdmin):
+    ai_fields = ['summary', 'content']
+    ai_prompts = {
+        'summary': 'Generate a summary of: {title}',
+        'content': 'Write an article about: {title}'
+    }
+    ai_context_fields = {
+        'summary': ['title'],
+        'content': ['title']
+    }
+```
+
+### 6. Set Up RAG System
+
+1. Create a Knowledge Base in the Django admin
+2. Upload documents or add URLs
+3. Generate embeddings (admin action)
+4. Use semantic search:
+
+```python
+from django_forge_ai.rag_system.mixins import SemanticSearchMixin
+from django.db import models
+
+class ArticleQuerySet(SemanticSearchMixin, models.QuerySet):
+    pass
+
+class Article(models.Model):
+    objects = ArticleQuerySet.as_manager()
+    
+# Usage
+results = Article.objects.semantic_search("What is Django?")
+```
+
+### 7. Create AI Agents
+
+1. Create an Agent Configuration in the Django admin
+2. Define persona, goals, and tools
+3. Create tasks and execute them (async with Celery)
+
+## Configuration
+
+### LLM Providers
+
+DjangoForgeAI supports multiple LLM providers:
+
+- **OpenAI**: Set `DJANGO_FORGE_AI_LLM_PROVIDER = "openai"` and provide `DJANGO_FORGE_AI_OPENAI_API_KEY`
+- **Anthropic**: Set `DJANGO_FORGE_AI_LLM_PROVIDER = "anthropic"` and provide `DJANGO_FORGE_AI_ANTHROPIC_API_KEY`
+
+### Vector Databases
+
+- **ChromaDB**: Default, file-based storage
+- **Qdrant**: Requires Qdrant server running
+- **PGVector**: Requires PostgreSQL with pgvector extension
+
+### Celery Integration
+
+For async task execution, configure Celery:
+
+```python
+# celery.py
+from celery import Celery
+
+app = Celery('your_project')
+app.config_from_object('django.conf:settings', namespace='CELERY')
+app.autodiscover_tasks()
+```
+
+## Requirements
+
+- Python >= 3.8
+- Django >= 3.2
+- OpenAI API key or Anthropic API key
+- (Optional) Celery for async tasks
+- (Optional) Vector database (ChromaDB, Qdrant, or PostgreSQL with pgvector)
+
+## License
+
+MIT License
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Support
+
+For issues and questions, please open an issue on GitHub. 

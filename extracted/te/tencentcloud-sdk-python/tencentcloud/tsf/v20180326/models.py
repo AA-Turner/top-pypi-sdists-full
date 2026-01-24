@@ -3630,18 +3630,14 @@ class BusinessLogConfig(AbstractModel):
         :param _ConfigPath: 配置项日志路径
         :type ConfigPath: str
         :param _ConfigDesc: 配置项描述
-注意：此字段可能返回 null，表示取不到有效值。
         :type ConfigDesc: str
         :param _ConfigTags: 配置项标签
-注意：此字段可能返回 null，表示取不到有效值。
         :type ConfigTags: str
         :param _ConfigPipeline: 配置项对应的ES管道
         :type ConfigPipeline: str
         :param _ConfigCreateTime: 配置项创建时间，格式为yyyy-MM-dd HH:mm:ss
-注意：此字段可能返回 null，表示取不到有效值。
         :type ConfigCreateTime: str
         :param _ConfigUpdateTime: 配置项更新时间，格式为yyyy-MM-dd HH:mm:ss
-注意：此字段可能返回 null，表示取不到有效值。
         :type ConfigUpdateTime: str
         :param _ConfigSchema: 配置项解析规则
         :type ConfigSchema: :class:`tencentcloud.tsf.v20180326.models.BusinessLogConfigSchema`
@@ -3662,6 +3658,8 @@ class BusinessLogConfig(AbstractModel):
         :type FilebeatCloseInactive: int
         :param _FilebeatCleanInactive: filebeat clean_inactive参数
         :type FilebeatCleanInactive: int
+        :param _CustomMultilinePattern: 是否开启自定义pattern
+        :type CustomMultilinePattern: bool
         """
         self._ConfigId = None
         self._ConfigName = None
@@ -3680,6 +3678,7 @@ class BusinessLogConfig(AbstractModel):
         self._FilebeatHarvesterLimit = None
         self._FilebeatCloseInactive = None
         self._FilebeatCleanInactive = None
+        self._CustomMultilinePattern = None
 
     @property
     def ConfigId(self):
@@ -3717,7 +3716,6 @@ class BusinessLogConfig(AbstractModel):
     @property
     def ConfigDesc(self):
         r"""配置项描述
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._ConfigDesc
@@ -3729,7 +3727,6 @@ class BusinessLogConfig(AbstractModel):
     @property
     def ConfigTags(self):
         r"""配置项标签
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._ConfigTags
@@ -3752,7 +3749,6 @@ class BusinessLogConfig(AbstractModel):
     @property
     def ConfigCreateTime(self):
         r"""配置项创建时间，格式为yyyy-MM-dd HH:mm:ss
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._ConfigCreateTime
@@ -3764,7 +3760,6 @@ class BusinessLogConfig(AbstractModel):
     @property
     def ConfigUpdateTime(self):
         r"""配置项更新时间，格式为yyyy-MM-dd HH:mm:ss
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._ConfigUpdateTime
@@ -3877,6 +3872,17 @@ class BusinessLogConfig(AbstractModel):
     def FilebeatCleanInactive(self, FilebeatCleanInactive):
         self._FilebeatCleanInactive = FilebeatCleanInactive
 
+    @property
+    def CustomMultilinePattern(self):
+        r"""是否开启自定义pattern
+        :rtype: bool
+        """
+        return self._CustomMultilinePattern
+
+    @CustomMultilinePattern.setter
+    def CustomMultilinePattern(self, CustomMultilinePattern):
+        self._CustomMultilinePattern = CustomMultilinePattern
+
 
     def _deserialize(self, params):
         self._ConfigId = params.get("ConfigId")
@@ -3908,6 +3914,7 @@ class BusinessLogConfig(AbstractModel):
         self._FilebeatHarvesterLimit = params.get("FilebeatHarvesterLimit")
         self._FilebeatCloseInactive = params.get("FilebeatCloseInactive")
         self._FilebeatCleanInactive = params.get("FilebeatCleanInactive")
+        self._CustomMultilinePattern = params.get("CustomMultilinePattern")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4114,18 +4121,14 @@ class BusinessLogConfigSchema(AbstractModel):
         :param _SchemaType: 解析规则类型。可选值 0（SPRING_BOOT：默认Spring Boot格式），1（NONE：无解析规则），4（NGINX_ACCESS：nginx access日志），5（CUSTOM_LOGBACK：自定义Logback），6（CUSTOM_LOG4J：自定义Log4J），7（CUSTOM_LOG4J2：自定义Log4J2），8（TEXT：单行/多行文本），9（ENVOY_MSGW_ACCESS：envoy access日志）。
         :type SchemaType: int
         :param _SchemaContent: 解析规则内容
-注意：此字段可能返回 null，表示取不到有效值。
         :type SchemaContent: str
         :param _SchemaDateFormat: 解析规则时间格式
-注意：此字段可能返回 null，表示取不到有效值。
         :type SchemaDateFormat: str
         :param _SchemaMultilinePattern: 解析规则对应的多行匹配规则
-注意：此字段可能返回 null，表示取不到有效值。
         :type SchemaMultilinePattern: str
         :param _SchemaCreateTime: 解析规则创建时间，格式为yyyy-MM-dd HH:mm:ss
         :type SchemaCreateTime: str
         :param _SchemaPatternLayout: 用户填写的解析规则
-注意：此字段可能返回 null，表示取不到有效值。
         :type SchemaPatternLayout: str
         """
         self._SchemaType = None
@@ -4149,7 +4152,6 @@ class BusinessLogConfigSchema(AbstractModel):
     @property
     def SchemaContent(self):
         r"""解析规则内容
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._SchemaContent
@@ -4161,7 +4163,6 @@ class BusinessLogConfigSchema(AbstractModel):
     @property
     def SchemaDateFormat(self):
         r"""解析规则时间格式
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._SchemaDateFormat
@@ -4173,7 +4174,6 @@ class BusinessLogConfigSchema(AbstractModel):
     @property
     def SchemaMultilinePattern(self):
         r"""解析规则对应的多行匹配规则
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._SchemaMultilinePattern
@@ -4196,7 +4196,6 @@ class BusinessLogConfigSchema(AbstractModel):
     @property
     def SchemaPatternLayout(self):
         r"""用户填写的解析规则
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._SchemaPatternLayout
@@ -10978,7 +10977,7 @@ class CreateClusterRequest(AbstractModel):
         :type ProgramId: str
         :param _KuberneteApiServer: api地址
         :type KuberneteApiServer: str
-        :param _KuberneteNativeType: K : kubeconfig, S : service account
+        :param _KuberneteNativeType: K : kubeconfig, S : service account (公有云不支持通过kubeconfig和service account的方式创建集群)
         :type KuberneteNativeType: str
         :param _KuberneteNativeSecret: Kubernetes 原生 Secret 资源对象
         :type KuberneteNativeSecret: str
@@ -11153,7 +11152,7 @@ class CreateClusterRequest(AbstractModel):
 
     @property
     def KuberneteNativeType(self):
-        r"""K : kubeconfig, S : service account
+        r"""K : kubeconfig, S : service account (公有云不支持通过kubeconfig和service account的方式创建集群)
         :rtype: str
         """
         return self._KuberneteNativeType
@@ -14682,9 +14681,9 @@ class CreateTaskFlowRequest(AbstractModel):
         :type TriggerRule: :class:`tencentcloud.tsf.v20180326.models.TaskRule`
         :param _FlowEdges: 工作流任务节点列表
         :type FlowEdges: list of TaskFlowEdge
-        :param _TimeOut: 工作流执行超时时间
+        :param _TimeOut: 工作流执行超时时间，单位：毫秒
         :type TimeOut: int
-        :param _ProgramIdList: 无
+        :param _ProgramIdList: 数据集列表
         :type ProgramIdList: list of str
         """
         self._FlowName = None
@@ -14728,7 +14727,7 @@ class CreateTaskFlowRequest(AbstractModel):
 
     @property
     def TimeOut(self):
-        r"""工作流执行超时时间
+        r"""工作流执行超时时间，单位：毫秒
         :rtype: int
         """
         return self._TimeOut
@@ -14739,7 +14738,7 @@ class CreateTaskFlowRequest(AbstractModel):
 
     @property
     def ProgramIdList(self):
-        r"""无
+        r"""数据集列表
         :rtype: list of str
         """
         return self._ProgramIdList
@@ -18304,6 +18303,8 @@ class DeployContainerApplicationRequest(AbstractModel):
         :type PodManagementPolicyType: str
         :param _Partition: 滚动更新分区序号
         :type Partition: int
+        :param _IncrementalDeployment: 是否是增量部署，增量部署只运行增量覆盖一级参数，不支持对一级参数中的子参数进行增量更新，例如更新VolumeMountInfoList时必须传入VolumeMountInfoList更新后的全量参数
+        :type IncrementalDeployment: bool
         """
         self._ApplicationId = None
         self._ObservabilityConfig = None
@@ -18366,6 +18367,7 @@ class DeployContainerApplicationRequest(AbstractModel):
         self._StaticIpEnabled = None
         self._PodManagementPolicyType = None
         self._Partition = None
+        self._IncrementalDeployment = None
 
     @property
     def ApplicationId(self):
@@ -19038,6 +19040,17 @@ class DeployContainerApplicationRequest(AbstractModel):
     def Partition(self, Partition):
         self._Partition = Partition
 
+    @property
+    def IncrementalDeployment(self):
+        r"""是否是增量部署，增量部署只运行增量覆盖一级参数，不支持对一级参数中的子参数进行增量更新，例如更新VolumeMountInfoList时必须传入VolumeMountInfoList更新后的全量参数
+        :rtype: bool
+        """
+        return self._IncrementalDeployment
+
+    @IncrementalDeployment.setter
+    def IncrementalDeployment(self, IncrementalDeployment):
+        self._IncrementalDeployment = IncrementalDeployment
+
 
     def _deserialize(self, params):
         self._ApplicationId = params.get("ApplicationId")
@@ -19153,6 +19166,7 @@ class DeployContainerApplicationRequest(AbstractModel):
         self._StaticIpEnabled = params.get("StaticIpEnabled")
         self._PodManagementPolicyType = params.get("PodManagementPolicyType")
         self._Partition = params.get("Partition")
+        self._IncrementalDeployment = params.get("IncrementalDeployment")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -25932,7 +25946,7 @@ class DescribeGroupsRequest(AbstractModel):
         :type GroupResourceTypeList: list of str
         :param _Status: 部署组状态过滤字段
         :type Status: str
-        :param _GroupIdList: 无
+        :param _GroupIdList: 部署组ID列表
         :type GroupIdList: list of str
         """
         self._SearchWord = None
@@ -26059,7 +26073,7 @@ class DescribeGroupsRequest(AbstractModel):
 
     @property
     def GroupIdList(self):
-        r"""无
+        r"""部署组ID列表
         :rtype: list of str
         """
         return self._GroupIdList
@@ -26649,254 +26663,6 @@ class DescribeImageTagsResponse(AbstractModel):
     def _deserialize(self, params):
         if params.get("Result") is not None:
             self._Result = ImageTagsResult()
-            self._Result._deserialize(params.get("Result"))
-        self._RequestId = params.get("RequestId")
-
-
-class DescribeInovcationIndicatorsRequest(AbstractModel):
-    r"""DescribeInovcationIndicators请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Dimension: 维度
-        :type Dimension: str
-        :param _StartTime: 开始时间
-        :type StartTime: str
-        :param _EndTime: 结束时间
-        :type EndTime: str
-        :param _NamespaceId: 命名空间ID
-        :type NamespaceId: str
-        :param _ServiceId: 微服务ID
-        :type ServiceId: str
-        :param _CallerServiceName: 调用方服务名
-        :type CallerServiceName: str
-        :param _CalleeServiceName: 被调方服务名
-        :type CalleeServiceName: str
-        :param _CallerInterfaceName: 调用方接口名
-        :type CallerInterfaceName: str
-        :param _CalleeInterfaceName: 被调方接口名
-        :type CalleeInterfaceName: str
-        :param _ApplicationId: 应用ID
-        :type ApplicationId: str
-        :param _GroupId: 部署组ID
-        :type GroupId: str
-        :param _InstanceId: 实例ID
-        :type InstanceId: str
-        """
-        self._Dimension = None
-        self._StartTime = None
-        self._EndTime = None
-        self._NamespaceId = None
-        self._ServiceId = None
-        self._CallerServiceName = None
-        self._CalleeServiceName = None
-        self._CallerInterfaceName = None
-        self._CalleeInterfaceName = None
-        self._ApplicationId = None
-        self._GroupId = None
-        self._InstanceId = None
-
-    @property
-    def Dimension(self):
-        r"""维度
-        :rtype: str
-        """
-        return self._Dimension
-
-    @Dimension.setter
-    def Dimension(self, Dimension):
-        self._Dimension = Dimension
-
-    @property
-    def StartTime(self):
-        r"""开始时间
-        :rtype: str
-        """
-        return self._StartTime
-
-    @StartTime.setter
-    def StartTime(self, StartTime):
-        self._StartTime = StartTime
-
-    @property
-    def EndTime(self):
-        r"""结束时间
-        :rtype: str
-        """
-        return self._EndTime
-
-    @EndTime.setter
-    def EndTime(self, EndTime):
-        self._EndTime = EndTime
-
-    @property
-    def NamespaceId(self):
-        r"""命名空间ID
-        :rtype: str
-        """
-        return self._NamespaceId
-
-    @NamespaceId.setter
-    def NamespaceId(self, NamespaceId):
-        self._NamespaceId = NamespaceId
-
-    @property
-    def ServiceId(self):
-        r"""微服务ID
-        :rtype: str
-        """
-        return self._ServiceId
-
-    @ServiceId.setter
-    def ServiceId(self, ServiceId):
-        self._ServiceId = ServiceId
-
-    @property
-    def CallerServiceName(self):
-        r"""调用方服务名
-        :rtype: str
-        """
-        return self._CallerServiceName
-
-    @CallerServiceName.setter
-    def CallerServiceName(self, CallerServiceName):
-        self._CallerServiceName = CallerServiceName
-
-    @property
-    def CalleeServiceName(self):
-        r"""被调方服务名
-        :rtype: str
-        """
-        return self._CalleeServiceName
-
-    @CalleeServiceName.setter
-    def CalleeServiceName(self, CalleeServiceName):
-        self._CalleeServiceName = CalleeServiceName
-
-    @property
-    def CallerInterfaceName(self):
-        r"""调用方接口名
-        :rtype: str
-        """
-        return self._CallerInterfaceName
-
-    @CallerInterfaceName.setter
-    def CallerInterfaceName(self, CallerInterfaceName):
-        self._CallerInterfaceName = CallerInterfaceName
-
-    @property
-    def CalleeInterfaceName(self):
-        r"""被调方接口名
-        :rtype: str
-        """
-        return self._CalleeInterfaceName
-
-    @CalleeInterfaceName.setter
-    def CalleeInterfaceName(self, CalleeInterfaceName):
-        self._CalleeInterfaceName = CalleeInterfaceName
-
-    @property
-    def ApplicationId(self):
-        r"""应用ID
-        :rtype: str
-        """
-        return self._ApplicationId
-
-    @ApplicationId.setter
-    def ApplicationId(self, ApplicationId):
-        self._ApplicationId = ApplicationId
-
-    @property
-    def GroupId(self):
-        r"""部署组ID
-        :rtype: str
-        """
-        return self._GroupId
-
-    @GroupId.setter
-    def GroupId(self, GroupId):
-        self._GroupId = GroupId
-
-    @property
-    def InstanceId(self):
-        r"""实例ID
-        :rtype: str
-        """
-        return self._InstanceId
-
-    @InstanceId.setter
-    def InstanceId(self, InstanceId):
-        self._InstanceId = InstanceId
-
-
-    def _deserialize(self, params):
-        self._Dimension = params.get("Dimension")
-        self._StartTime = params.get("StartTime")
-        self._EndTime = params.get("EndTime")
-        self._NamespaceId = params.get("NamespaceId")
-        self._ServiceId = params.get("ServiceId")
-        self._CallerServiceName = params.get("CallerServiceName")
-        self._CalleeServiceName = params.get("CalleeServiceName")
-        self._CallerInterfaceName = params.get("CallerInterfaceName")
-        self._CalleeInterfaceName = params.get("CalleeInterfaceName")
-        self._ApplicationId = params.get("ApplicationId")
-        self._GroupId = params.get("GroupId")
-        self._InstanceId = params.get("InstanceId")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DescribeInovcationIndicatorsResponse(AbstractModel):
-    r"""DescribeInovcationIndicators返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Result: 服务调用监控指标
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Result: :class:`tencentcloud.tsf.v20180326.models.InvocationIndicator`
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._Result = None
-        self._RequestId = None
-
-    @property
-    def Result(self):
-        r"""服务调用监控指标
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: :class:`tencentcloud.tsf.v20180326.models.InvocationIndicator`
-        """
-        return self._Result
-
-    @Result.setter
-    def Result(self, Result):
-        self._Result = Result
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        if params.get("Result") is not None:
-            self._Result = InvocationIndicator()
             self._Result._deserialize(params.get("Result"))
         self._RequestId = params.get("RequestId")
 
@@ -31870,6 +31636,8 @@ class DescribeSimpleGroupsRequest(AbstractModel):
         :type SearchWord: str
         :param _AppMicroServiceType: 部署组类型，精确过滤字段，M：service mesh, P：原生应用， G：网关应用
         :type AppMicroServiceType: str
+        :param _GroupName: 按照【部署组名称】进行过滤，不填写时查询全量。可通过调用[DescribeContainerGroups](https://cloud.tencent.com/document/product/649/36068)查询已创建的部署组列表或登录[控制台](https://console.cloud.tencent.com/tsf/app-detail?rid=1&id=application-zvw6zp9a&tab=publish&subTab=group)进行查看；也可以调用[CreateGroup](https://cloud.tencent.com/document/product/649/36074)创建新的部署组。
+        :type GroupName: str
         """
         self._GroupIdList = None
         self._ApplicationId = None
@@ -31880,6 +31648,7 @@ class DescribeSimpleGroupsRequest(AbstractModel):
         self._GroupId = None
         self._SearchWord = None
         self._AppMicroServiceType = None
+        self._GroupName = None
 
     @property
     def GroupIdList(self):
@@ -31980,6 +31749,17 @@ class DescribeSimpleGroupsRequest(AbstractModel):
     def AppMicroServiceType(self, AppMicroServiceType):
         self._AppMicroServiceType = AppMicroServiceType
 
+    @property
+    def GroupName(self):
+        r"""按照【部署组名称】进行过滤，不填写时查询全量。可通过调用[DescribeContainerGroups](https://cloud.tencent.com/document/product/649/36068)查询已创建的部署组列表或登录[控制台](https://console.cloud.tencent.com/tsf/app-detail?rid=1&id=application-zvw6zp9a&tab=publish&subTab=group)进行查看；也可以调用[CreateGroup](https://cloud.tencent.com/document/product/649/36074)创建新的部署组。
+        :rtype: str
+        """
+        return self._GroupName
+
+    @GroupName.setter
+    def GroupName(self, GroupName):
+        self._GroupName = GroupName
+
 
     def _deserialize(self, params):
         self._GroupIdList = params.get("GroupIdList")
@@ -31991,6 +31771,7 @@ class DescribeSimpleGroupsRequest(AbstractModel):
         self._GroupId = params.get("GroupId")
         self._SearchWord = params.get("SearchWord")
         self._AppMicroServiceType = params.get("AppMicroServiceType")
+        self._GroupName = params.get("GroupName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -32319,6 +32100,8 @@ class DescribeStatisticsRequest(AbstractModel):
         :param _ConfigCenterInstanceId: 独占配置中心的ID。
 可通过调用[DescribeClusterInstances](https://cloud.tencent.com/document/product/649/36048)查询已导入的实例列表或登录[控制台](https://console.cloud.tencent.com/tsf/resource?rid=1&tab=instance)进行查询。实例ID例如：ins-6decplwk。
         :type ConfigCenterInstanceId: str
+        :param _ServiceFilter: 服务过滤
+        :type ServiceFilter: str
         """
         self._Type = None
         self._TimeStep = None
@@ -32336,6 +32119,7 @@ class DescribeStatisticsRequest(AbstractModel):
         self._DbName = None
         self._NamespaceIdList = None
         self._ConfigCenterInstanceId = None
+        self._ServiceFilter = None
 
     @property
     def Type(self):
@@ -32516,6 +32300,17 @@ class DescribeStatisticsRequest(AbstractModel):
     def ConfigCenterInstanceId(self, ConfigCenterInstanceId):
         self._ConfigCenterInstanceId = ConfigCenterInstanceId
 
+    @property
+    def ServiceFilter(self):
+        r"""服务过滤
+        :rtype: str
+        """
+        return self._ServiceFilter
+
+    @ServiceFilter.setter
+    def ServiceFilter(self, ServiceFilter):
+        self._ServiceFilter = ServiceFilter
+
 
     def _deserialize(self, params):
         self._Type = params.get("Type")
@@ -32539,6 +32334,7 @@ class DescribeStatisticsRequest(AbstractModel):
         self._DbName = params.get("DbName")
         self._NamespaceIdList = params.get("NamespaceIdList")
         self._ConfigCenterInstanceId = params.get("ConfigCenterInstanceId")
+        self._ServiceFilter = params.get("ServiceFilter")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -35175,6 +34971,15 @@ class ExclusiveInstance(AbstractModel):
         :type RegionId: str
         :param _InstanceNamespaceId: 实例命名空间ID，通过[北极星控制台](https://console.cloud.tencent.com/tse/governance)获取
         :type InstanceNamespaceId: str
+        :param _GroupId: 部署组Id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type GroupId: str
+        :param _CreateTime: 创建时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CreateTime: int
+        :param _UpdateTime: 更新时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UpdateTime: int
         """
         self._CenterType = None
         self._InstanceId = None
@@ -35182,6 +34987,9 @@ class ExclusiveInstance(AbstractModel):
         self._InstanceName = None
         self._RegionId = None
         self._InstanceNamespaceId = None
+        self._GroupId = None
+        self._CreateTime = None
+        self._UpdateTime = None
 
     @property
     def CenterType(self):
@@ -35249,6 +35057,42 @@ class ExclusiveInstance(AbstractModel):
     def InstanceNamespaceId(self, InstanceNamespaceId):
         self._InstanceNamespaceId = InstanceNamespaceId
 
+    @property
+    def GroupId(self):
+        r"""部署组Id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._GroupId
+
+    @GroupId.setter
+    def GroupId(self, GroupId):
+        self._GroupId = GroupId
+
+    @property
+    def CreateTime(self):
+        r"""创建时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def UpdateTime(self):
+        r"""更新时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._UpdateTime
+
+    @UpdateTime.setter
+    def UpdateTime(self, UpdateTime):
+        self._UpdateTime = UpdateTime
+
 
     def _deserialize(self, params):
         self._CenterType = params.get("CenterType")
@@ -35257,6 +35101,9 @@ class ExclusiveInstance(AbstractModel):
         self._InstanceName = params.get("InstanceName")
         self._RegionId = params.get("RegionId")
         self._InstanceNamespaceId = params.get("InstanceNamespaceId")
+        self._GroupId = params.get("GroupId")
+        self._CreateTime = params.get("CreateTime")
+        self._UpdateTime = params.get("UpdateTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -35434,7 +35281,7 @@ class ExpandGroupRequest(AbstractModel):
         r"""
         :param _GroupId: 部署组ID，可通过调用[DescribeGroups](https://cloud.tencent.com/document/api/649/36065)查询已创建的部署组列表或登录控制台进行查看；也可以调用[CreateGroup](https://cloud.tencent.com/document/api/649/36074)创建新的部署组。
         :type GroupId: str
-        :param _InstanceIdList: 扩容的机器实例ID列表，调用[DescribeClusters](https://console.cloud.tencent.com/tsf/resource?rid=1)接口，选定一个虚拟机集群，选择部署组，选择应用扩容可获取实例列表
+        :param _InstanceIdList: 扩容的机器实例ID列表，调用[DescribeGroupInstances](https://cloud.tencent.com/document/api/649/36066)查询虚拟机部署组云主机列表
         :type InstanceIdList: list of str
         """
         self._GroupId = None
@@ -35453,7 +35300,7 @@ class ExpandGroupRequest(AbstractModel):
 
     @property
     def InstanceIdList(self):
-        r"""扩容的机器实例ID列表，调用[DescribeClusters](https://console.cloud.tencent.com/tsf/resource?rid=1)接口，选定一个虚拟机集群，选择部署组，选择应用扩容可获取实例列表
+        r"""扩容的机器实例ID列表，调用[DescribeGroupInstances](https://cloud.tencent.com/document/api/649/36066)查询虚拟机部署组云主机列表
         :rtype: list of str
         """
         return self._InstanceIdList
@@ -39533,72 +39380,6 @@ class ImageTagsResult(AbstractModel):
         
 
 
-class IndicatorCoord(AbstractModel):
-    r"""监控指标坐标
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _CoordX: 指标横坐标值
-        :type CoordX: str
-        :param _CoordY: 指标纵坐标值
-        :type CoordY: str
-        :param _CoordTag: 指标标签，用于标识附加信息
-        :type CoordTag: str
-        """
-        self._CoordX = None
-        self._CoordY = None
-        self._CoordTag = None
-
-    @property
-    def CoordX(self):
-        r"""指标横坐标值
-        :rtype: str
-        """
-        return self._CoordX
-
-    @CoordX.setter
-    def CoordX(self, CoordX):
-        self._CoordX = CoordX
-
-    @property
-    def CoordY(self):
-        r"""指标纵坐标值
-        :rtype: str
-        """
-        return self._CoordY
-
-    @CoordY.setter
-    def CoordY(self, CoordY):
-        self._CoordY = CoordY
-
-    @property
-    def CoordTag(self):
-        r"""指标标签，用于标识附加信息
-        :rtype: str
-        """
-        return self._CoordTag
-
-    @CoordTag.setter
-    def CoordTag(self, CoordTag):
-        self._CoordTag = CoordTag
-
-
-    def _deserialize(self, params):
-        self._CoordX = params.get("CoordX")
-        self._CoordY = params.get("CoordY")
-        self._CoordTag = params.get("CoordTag")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
 class Instance(AbstractModel):
     r"""机器实例
 
@@ -40739,178 +40520,6 @@ class InstanceResourceConfig(AbstractModel):
         if params.get("Vm") is not None:
             self._Vm = VmInstanceResourceConfig()
             self._Vm._deserialize(params.get("Vm"))
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class InvocationIndicator(AbstractModel):
-    r"""服务调用监控指标
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _InvocationQuantity: 总请求数
-注意：此字段可能返回 null，表示取不到有效值。
-        :type InvocationQuantity: int
-        :param _InvocationSuccessRate: 请求成功率，百分比
-注意：此字段可能返回 null，表示取不到有效值。
-        :type InvocationSuccessRate: float
-        :param _InvocationAvgDuration: 请求平均耗时，单位毫秒
-注意：此字段可能返回 null，表示取不到有效值。
-        :type InvocationAvgDuration: float
-        :param _InvocationSuccessDistribution: 成功请求数时间分布
-        :type InvocationSuccessDistribution: list of IndicatorCoord
-        :param _InvocationFailedDistribution: 失败请求数时间分布
-        :type InvocationFailedDistribution: list of IndicatorCoord
-        :param _InvocationStatusDistribution: 状态码分布
-        :type InvocationStatusDistribution: list of IndicatorCoord
-        :param _InvocationDurationDistribution: 时延分布
-        :type InvocationDurationDistribution: list of IndicatorCoord
-        :param _InvocationQuantityDistribution: 并发请求次数时间分布
-        :type InvocationQuantityDistribution: list of IndicatorCoord
-        """
-        self._InvocationQuantity = None
-        self._InvocationSuccessRate = None
-        self._InvocationAvgDuration = None
-        self._InvocationSuccessDistribution = None
-        self._InvocationFailedDistribution = None
-        self._InvocationStatusDistribution = None
-        self._InvocationDurationDistribution = None
-        self._InvocationQuantityDistribution = None
-
-    @property
-    def InvocationQuantity(self):
-        r"""总请求数
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: int
-        """
-        return self._InvocationQuantity
-
-    @InvocationQuantity.setter
-    def InvocationQuantity(self, InvocationQuantity):
-        self._InvocationQuantity = InvocationQuantity
-
-    @property
-    def InvocationSuccessRate(self):
-        r"""请求成功率，百分比
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: float
-        """
-        return self._InvocationSuccessRate
-
-    @InvocationSuccessRate.setter
-    def InvocationSuccessRate(self, InvocationSuccessRate):
-        self._InvocationSuccessRate = InvocationSuccessRate
-
-    @property
-    def InvocationAvgDuration(self):
-        r"""请求平均耗时，单位毫秒
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: float
-        """
-        return self._InvocationAvgDuration
-
-    @InvocationAvgDuration.setter
-    def InvocationAvgDuration(self, InvocationAvgDuration):
-        self._InvocationAvgDuration = InvocationAvgDuration
-
-    @property
-    def InvocationSuccessDistribution(self):
-        r"""成功请求数时间分布
-        :rtype: list of IndicatorCoord
-        """
-        return self._InvocationSuccessDistribution
-
-    @InvocationSuccessDistribution.setter
-    def InvocationSuccessDistribution(self, InvocationSuccessDistribution):
-        self._InvocationSuccessDistribution = InvocationSuccessDistribution
-
-    @property
-    def InvocationFailedDistribution(self):
-        r"""失败请求数时间分布
-        :rtype: list of IndicatorCoord
-        """
-        return self._InvocationFailedDistribution
-
-    @InvocationFailedDistribution.setter
-    def InvocationFailedDistribution(self, InvocationFailedDistribution):
-        self._InvocationFailedDistribution = InvocationFailedDistribution
-
-    @property
-    def InvocationStatusDistribution(self):
-        r"""状态码分布
-        :rtype: list of IndicatorCoord
-        """
-        return self._InvocationStatusDistribution
-
-    @InvocationStatusDistribution.setter
-    def InvocationStatusDistribution(self, InvocationStatusDistribution):
-        self._InvocationStatusDistribution = InvocationStatusDistribution
-
-    @property
-    def InvocationDurationDistribution(self):
-        r"""时延分布
-        :rtype: list of IndicatorCoord
-        """
-        return self._InvocationDurationDistribution
-
-    @InvocationDurationDistribution.setter
-    def InvocationDurationDistribution(self, InvocationDurationDistribution):
-        self._InvocationDurationDistribution = InvocationDurationDistribution
-
-    @property
-    def InvocationQuantityDistribution(self):
-        r"""并发请求次数时间分布
-        :rtype: list of IndicatorCoord
-        """
-        return self._InvocationQuantityDistribution
-
-    @InvocationQuantityDistribution.setter
-    def InvocationQuantityDistribution(self, InvocationQuantityDistribution):
-        self._InvocationQuantityDistribution = InvocationQuantityDistribution
-
-
-    def _deserialize(self, params):
-        self._InvocationQuantity = params.get("InvocationQuantity")
-        self._InvocationSuccessRate = params.get("InvocationSuccessRate")
-        self._InvocationAvgDuration = params.get("InvocationAvgDuration")
-        if params.get("InvocationSuccessDistribution") is not None:
-            self._InvocationSuccessDistribution = []
-            for item in params.get("InvocationSuccessDistribution"):
-                obj = IndicatorCoord()
-                obj._deserialize(item)
-                self._InvocationSuccessDistribution.append(obj)
-        if params.get("InvocationFailedDistribution") is not None:
-            self._InvocationFailedDistribution = []
-            for item in params.get("InvocationFailedDistribution"):
-                obj = IndicatorCoord()
-                obj._deserialize(item)
-                self._InvocationFailedDistribution.append(obj)
-        if params.get("InvocationStatusDistribution") is not None:
-            self._InvocationStatusDistribution = []
-            for item in params.get("InvocationStatusDistribution"):
-                obj = IndicatorCoord()
-                obj._deserialize(item)
-                self._InvocationStatusDistribution.append(obj)
-        if params.get("InvocationDurationDistribution") is not None:
-            self._InvocationDurationDistribution = []
-            for item in params.get("InvocationDurationDistribution"):
-                obj = IndicatorCoord()
-                obj._deserialize(item)
-                self._InvocationDurationDistribution.append(obj)
-        if params.get("InvocationQuantityDistribution") is not None:
-            self._InvocationQuantityDistribution = []
-            for item in params.get("InvocationQuantityDistribution"):
-                obj = IndicatorCoord()
-                obj._deserialize(item)
-                self._InvocationQuantityDistribution.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -43756,7 +43365,7 @@ class ModifyContainerReplicasRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _GroupId: 部署组ID，部署组唯一标识，调用[DescribeClusters](https://console.cloud.tencent.com/tsf/resource?rid=1&tab=docker)接口，选定一个容器集群，选择部署组，查看DescribeSingleContainerGroups接口返回的GroupId
+        :param _GroupId: 部署组ID，部署组唯一标识，可以通过[DescribeContainerGroups](https://cloud.tencent.com/document/api/649/36068)查询已创建的容器部署组列表；也可以调用[CreateContainGroup](https://cloud.tencent.com/document/api/649/36075)创建新的容器部署组
         :type GroupId: str
         :param _InstanceNum: 实例数量
         :type InstanceNum: int
@@ -43766,7 +43375,7 @@ class ModifyContainerReplicasRequest(AbstractModel):
 
     @property
     def GroupId(self):
-        r"""部署组ID，部署组唯一标识，调用[DescribeClusters](https://console.cloud.tencent.com/tsf/resource?rid=1&tab=docker)接口，选定一个容器集群，选择部署组，查看DescribeSingleContainerGroups接口返回的GroupId
+        r"""部署组ID，部署组唯一标识，可以通过[DescribeContainerGroups](https://cloud.tencent.com/document/api/649/36068)查询已创建的容器部署组列表；也可以调用[CreateContainGroup](https://cloud.tencent.com/document/api/649/36075)创建新的容器部署组
         :rtype: str
         """
         return self._GroupId
@@ -43818,6 +43427,105 @@ class ModifyContainerReplicasResponse(AbstractModel):
     @property
     def Result(self):
         r"""结果true：成功；false：失败；
+        :rtype: bool
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Result = params.get("Result")
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyGroupLaneRequest(AbstractModel):
+    r"""ModifyGroupLane请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _GroupId: 部署组ID。该参数可以通过调用 [DescribeSimpleGroups](https://cloud.tencent.com/document/product/649/36064) 的返回值中的 GroupId 字段来获取或通过登录[控制台](https://console.cloud.tencent.com/tsf/resource)-查看部署组页查看；也可以调用[CreateGroup](https://cloud.tencent.com/document/product/649/36074)创建新的部署组。
+        :type GroupId: str
+        :param _LaneList: 泳道部署组列表。
+        :type LaneList: list of LaneGroup
+        """
+        self._GroupId = None
+        self._LaneList = None
+
+    @property
+    def GroupId(self):
+        r"""部署组ID。该参数可以通过调用 [DescribeSimpleGroups](https://cloud.tencent.com/document/product/649/36064) 的返回值中的 GroupId 字段来获取或通过登录[控制台](https://console.cloud.tencent.com/tsf/resource)-查看部署组页查看；也可以调用[CreateGroup](https://cloud.tencent.com/document/product/649/36074)创建新的部署组。
+        :rtype: str
+        """
+        return self._GroupId
+
+    @GroupId.setter
+    def GroupId(self, GroupId):
+        self._GroupId = GroupId
+
+    @property
+    def LaneList(self):
+        r"""泳道部署组列表。
+        :rtype: list of LaneGroup
+        """
+        return self._LaneList
+
+    @LaneList.setter
+    def LaneList(self, LaneList):
+        self._LaneList = LaneList
+
+
+    def _deserialize(self, params):
+        self._GroupId = params.get("GroupId")
+        if params.get("LaneList") is not None:
+            self._LaneList = []
+            for item in params.get("LaneList"):
+                obj = LaneGroup()
+                obj._deserialize(item)
+                self._LaneList.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyGroupLaneResponse(AbstractModel):
+    r"""ModifyGroupLane返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Result: 操作结果。- true：成功- false：失败
+        :type Result: bool
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Result = None
+        self._RequestId = None
+
+    @property
+    def Result(self):
+        r"""操作结果。- true：成功- false：失败
         :rtype: bool
         """
         return self._Result
@@ -48893,7 +48601,7 @@ class RemoveInstancesRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群 ID。调用[DescribeSimpleClusters](https://cloud.tencent.com/document/api/649/36047)查询已创建的集群或通过[CreateCluster](https://cloud.tencent.com/document/api/649/36049)接口创建新的集群。
         :type ClusterId: str
-        :param _InstanceIdList: 云主机 ID 列表
+        :param _InstanceIdList: 云主机 ID 列表，调用[DescribeInstances](https://cloud.tencent.com/document/api/649/72342)查询已有的云主机列表
         :type InstanceIdList: list of str
         """
         self._ClusterId = None
@@ -48912,7 +48620,7 @@ class RemoveInstancesRequest(AbstractModel):
 
     @property
     def InstanceIdList(self):
-        r"""云主机 ID 列表
+        r"""云主机 ID 列表，调用[DescribeInstances](https://cloud.tencent.com/document/api/649/72342)查询已有的云主机列表
         :rtype: list of str
         """
         return self._InstanceIdList
@@ -54840,10 +54548,8 @@ class TsfPageBusinessLogV2(AbstractModel):
         :param _Content: 业务日志列表
         :type Content: list of BusinessLogV2
         :param _ScrollId: 游标ID
-注意：此字段可能返回 null，表示取不到有效值。
         :type ScrollId: str
         :param _Status: 查询状态，SUCCESS：查询成功完成，ERROR_RANGE_EXCEED：查询范围过大异常，ERROR_COMPLEX_CONDITION：查询条件复杂异常，ERROR_OTHER_CAUSE：其他异常
-注意：此字段可能返回 null，表示取不到有效值。
         :type Status: str
         :param _SearchAfter: 查询es时，使用searchAfter返回的游标
         :type SearchAfter: list of str
@@ -54879,7 +54585,6 @@ class TsfPageBusinessLogV2(AbstractModel):
     @property
     def ScrollId(self):
         r"""游标ID
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._ScrollId
@@ -54891,7 +54596,6 @@ class TsfPageBusinessLogV2(AbstractModel):
     @property
     def Status(self):
         r"""查询状态，SUCCESS：查询成功完成，ERROR_RANGE_EXCEED：查询范围过大异常，ERROR_COMPLEX_CONDITION：查询条件复杂异常，ERROR_OTHER_CAUSE：其他异常
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._Status
@@ -55972,10 +55676,8 @@ class TsfPageStdoutLogV2(AbstractModel):
         :param _Content: 标准输出日志列表
         :type Content: list of StdoutLogV2
         :param _ScrollId: 游标ID
-注意：此字段可能返回 null，表示取不到有效值。
         :type ScrollId: str
         :param _Status: 查询状态，SUCCESS：查询成功完成，ERROR_RANGE_EXCEED：查询范围过大异常，ERROR_COMPLEX_CONDITION：查询条件复杂异常，ERROR_OTHER_CAUSE：其他异常
-注意：此字段可能返回 null，表示取不到有效值。
         :type Status: str
         :param _SearchAfter: 查询es使用searchAfter时，游标
         :type SearchAfter: list of str
@@ -56011,7 +55713,6 @@ class TsfPageStdoutLogV2(AbstractModel):
     @property
     def ScrollId(self):
         r"""游标ID
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._ScrollId
@@ -56023,7 +55724,6 @@ class TsfPageStdoutLogV2(AbstractModel):
     @property
     def Status(self):
         r"""查询状态，SUCCESS：查询成功完成，ERROR_RANGE_EXCEED：查询范围过大异常，ERROR_COMPLEX_CONDITION：查询条件复杂异常，ERROR_OTHER_CAUSE：其他异常
-注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
         return self._Status

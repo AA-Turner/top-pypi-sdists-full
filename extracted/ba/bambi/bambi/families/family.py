@@ -1,5 +1,3 @@
-from typing import Dict, Union
-
 import numpy as np
 import pymc as pm
 import xarray as xr
@@ -17,7 +15,7 @@ class Family:
         The name of the family. It can be any string.
     likelihood : Likelihood
         A `bambi.families.Likelihood` instance specifying the model likelihood function.
-    link : Union[str, Dict[str, Union[str, Link]]]
+    link : str or dict of str to (str or Link)
         The link function that's used for every parameter in the likelihood function.
         Keys are the names of the parameters and values are the link functions.
         These can be a `str` with a name or a `bambi.families.Link` instance.
@@ -25,20 +23,27 @@ class Family:
 
     Examples
     --------
-    >>> import bambi as bmb
+
+    ```python
+    import bambi as bmb
+    ```
 
     Replicate the Gaussian built-in family.
 
-    >>> sigma_prior = bmb.Prior("HalfNormal", sigma=1)
-    >>> likelihood = bmb.Likelihood("Gaussian", params=["mu", "sigma"], parent="mu")
-    >>> family = bmb.Family("gaussian", likelihood, "identity")
-    >>> bmb.Model("y ~ x", data, family=family, priors={"sigma": sigma_prior})
+    ```python
+    sigma_prior = bmb.Prior("HalfNormal", sigma=1)
+    likelihood = bmb.Likelihood("Gaussian", params=["mu", "sigma"], parent="mu")
+    family = bmb.Family("gaussian", likelihood, "identity")
+    bmb.Model("y ~ x", data, family=family, priors={"sigma": sigma_prior})
+    ```
 
     Replicate the Bernoulli built-in family.
 
-    >>> likelihood = bmb.Likelihood("Bernoulli", parent="p")
-    >>> family = bmb.Family("bernoulli", likelihood, "logit")
-    >>> bmb.Model("y ~ x", data, family=family)
+    ```python
+    likelihood = bmb.Likelihood("Bernoulli", parent="p")
+    family = bmb.Family("bernoulli", likelihood, "logit")
+    bmb.Model("y ~ x", data, family=family)
+    ```
     """
 
     SUPPORTED_LINKS = [
@@ -50,10 +55,9 @@ class Family:
         "logit",
         "probit",
         "softmax",
-        "tan_2",
     ]
 
-    def __init__(self, name, likelihood, link: Union[str, Dict[str, Union[str, Link]]]):
+    def __init__(self, name, likelihood, link: str | dict[str, str | Link]):
         self.name = name
         self.likelihood = likelihood
         self.link = link
@@ -118,7 +122,7 @@ class Family:
         priors = {k: v for k, v in priors.items() if k in self.auxiliary_parameters}
         self.default_priors.update(priors)
 
-    def posterior_predictive(self, model, posterior, **kwargs):
+    def posterior_predictive(self, model, posterior, random_seed, **kwargs):
         """Get draws from the posterior predictive distribution
 
         This function works for almost all the families. It grabs the draws for the parameters
@@ -134,7 +138,9 @@ class Family:
             The xarray dataset that contains the draws for all the parameters in the posterior.
             It must contain the parameters that are needed in the distribution of the response, or
             the parameters that allow to derive them.
-        kwargs :
+        random_seed : int, RandomState or Generator, optional
+            Seed for the random number generator.
+        kwargs : dict
             Parameters that are used to get draws but do not appear in the posterior object or
             other configuration parameters.
             For instance, the 'n' in binomial models and multinomial models.
@@ -158,7 +164,7 @@ class Family:
                 pm.Truncated.dist(response_dist.dist(**kwargs), lower=lower, upper=upper)
             )
         else:
-            output_array = pm.draw(response_dist.dist(**kwargs))
+            output_array = pm.draw(response_dist.dist(**kwargs), random_seed=random_seed)
 
         return xr.DataArray(output_array, coords=coords)
 
@@ -175,7 +181,10 @@ class Family:
             The xarray dataset that contains the draws for all the parameters in the posterior.
             It must contain the parameters that are needed in the distribution of the response, or
             the parameters that allow to derive them.
-        kwargs :
+        data : pd.DataFrame or None
+            A data frame with values for the predictors and the response on which the model's
+            log-likelihood function is evaluated. If omitted, the original dataset is used.
+        kwargs : dict
             Parameters that are used to get draws but do not appear in the posterior object or
             other configuration parameters.
             For instance, the 'n' in binomial models and multinomial models.

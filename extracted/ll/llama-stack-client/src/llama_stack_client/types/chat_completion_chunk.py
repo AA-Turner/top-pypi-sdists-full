@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import List, Optional
@@ -16,46 +22,56 @@ __all__ = [
     "ChoiceLogprobsContentTopLogprob",
     "ChoiceLogprobsRefusal",
     "ChoiceLogprobsRefusalTopLogprob",
+    "Usage",
+    "UsageCompletionTokensDetails",
+    "UsagePromptTokensDetails",
 ]
 
 
 class ChoiceDeltaToolCallFunction(BaseModel):
+    """Function call details for OpenAI-compatible tool calls."""
+
     arguments: Optional[str] = None
-    """(Optional) Arguments to pass to the function as a JSON string"""
 
     name: Optional[str] = None
-    """(Optional) Name of the function to call"""
 
 
 class ChoiceDeltaToolCall(BaseModel):
-    type: Literal["function"]
-    """Must be "function" to identify this as a function call"""
+    """Tool call specification for OpenAI-compatible chat completion responses."""
 
     id: Optional[str] = None
-    """(Optional) Unique identifier for the tool call"""
 
     function: Optional[ChoiceDeltaToolCallFunction] = None
-    """(Optional) Function call details"""
+    """Function call details for OpenAI-compatible tool calls."""
 
     index: Optional[int] = None
-    """(Optional) Index of the tool call in the list"""
+
+    type: Optional[Literal["function"]] = None
 
 
 class ChoiceDelta(BaseModel):
+    """A delta from an OpenAI-compatible chat completion streaming response."""
+
     content: Optional[str] = None
-    """(Optional) The content of the delta"""
+
+    reasoning_content: Optional[str] = None
 
     refusal: Optional[str] = None
-    """(Optional) The refusal of the delta"""
 
     role: Optional[str] = None
-    """(Optional) The role of the delta"""
 
     tool_calls: Optional[List[ChoiceDeltaToolCall]] = None
-    """(Optional) The tool calls of the delta"""
 
 
 class ChoiceLogprobsContentTopLogprob(BaseModel):
+    """
+    The top log probability for a token from an OpenAI-compatible chat completion response.
+
+    :token: The token
+    :bytes: (Optional) The bytes for the token
+    :logprob: The log probability of the token
+    """
+
     token: str
 
     logprob: float
@@ -64,16 +80,33 @@ class ChoiceLogprobsContentTopLogprob(BaseModel):
 
 
 class ChoiceLogprobsContent(BaseModel):
+    """
+    The log probability for a token from an OpenAI-compatible chat completion response.
+
+    :token: The token
+    :bytes: (Optional) The bytes for the token
+    :logprob: The log probability of the token
+    :top_logprobs: The top log probabilities for the token
+    """
+
     token: str
 
     logprob: float
 
-    top_logprobs: List[ChoiceLogprobsContentTopLogprob]
-
     bytes: Optional[List[int]] = None
+
+    top_logprobs: Optional[List[ChoiceLogprobsContentTopLogprob]] = None
 
 
 class ChoiceLogprobsRefusalTopLogprob(BaseModel):
+    """
+    The top log probability for a token from an OpenAI-compatible chat completion response.
+
+    :token: The token
+    :bytes: (Optional) The bytes for the token
+    :logprob: The log probability of the token
+    """
+
     token: str
 
     logprob: float
@@ -82,49 +115,93 @@ class ChoiceLogprobsRefusalTopLogprob(BaseModel):
 
 
 class ChoiceLogprobsRefusal(BaseModel):
+    """
+    The log probability for a token from an OpenAI-compatible chat completion response.
+
+    :token: The token
+    :bytes: (Optional) The bytes for the token
+    :logprob: The log probability of the token
+    :top_logprobs: The top log probabilities for the token
+    """
+
     token: str
 
     logprob: float
 
-    top_logprobs: List[ChoiceLogprobsRefusalTopLogprob]
-
     bytes: Optional[List[int]] = None
+
+    top_logprobs: Optional[List[ChoiceLogprobsRefusalTopLogprob]] = None
 
 
 class ChoiceLogprobs(BaseModel):
+    """
+    The log probabilities for the tokens in the message from an OpenAI-compatible chat completion response.
+    """
+
     content: Optional[List[ChoiceLogprobsContent]] = None
-    """(Optional) The log probabilities for the tokens in the message"""
 
     refusal: Optional[List[ChoiceLogprobsRefusal]] = None
-    """(Optional) The log probabilities for the tokens in the message"""
 
 
 class Choice(BaseModel):
+    """A chunk choice from an OpenAI-compatible chat completion streaming response."""
+
     delta: ChoiceDelta
-    """The delta from the chunk"""
+    """A delta from an OpenAI-compatible chat completion streaming response."""
 
     finish_reason: str
-    """The reason the model stopped generating"""
 
     index: int
-    """The index of the choice"""
 
     logprobs: Optional[ChoiceLogprobs] = None
-    """(Optional) The log probabilities for the tokens in the message"""
+    """
+    The log probabilities for the tokens in the message from an OpenAI-compatible
+    chat completion response.
+    """
+
+
+class UsageCompletionTokensDetails(BaseModel):
+    """Token details for output tokens in OpenAI chat completion usage."""
+
+    reasoning_tokens: Optional[int] = None
+
+
+class UsagePromptTokensDetails(BaseModel):
+    """Token details for prompt tokens in OpenAI chat completion usage."""
+
+    cached_tokens: Optional[int] = None
+
+
+class Usage(BaseModel):
+    """Usage information for OpenAI chat completion."""
+
+    completion_tokens: int
+
+    prompt_tokens: int
+
+    total_tokens: int
+
+    completion_tokens_details: Optional[UsageCompletionTokensDetails] = None
+    """Token details for output tokens in OpenAI chat completion usage."""
+
+    prompt_tokens_details: Optional[UsagePromptTokensDetails] = None
+    """Token details for prompt tokens in OpenAI chat completion usage."""
 
 
 class ChatCompletionChunk(BaseModel):
+    """
+    Chunk from a streaming response to an OpenAI-compatible chat completion request.
+    """
+
     id: str
-    """The ID of the chat completion"""
 
     choices: List[Choice]
-    """List of choices"""
 
     created: int
-    """The Unix timestamp in seconds when the chat completion was created"""
 
     model: str
-    """The model that was used to generate the chat completion"""
 
-    object: Literal["chat.completion.chunk"]
-    """The object type, which will be "chat.completion.chunk" """
+    object: Optional[Literal["chat.completion.chunk"]] = None
+
+    usage: Optional[Usage] = None
+    """Usage information for OpenAI chat completion."""

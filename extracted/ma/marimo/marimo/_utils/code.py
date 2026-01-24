@@ -1,7 +1,8 @@
-# Copyright 2025 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
 
 
 def hash_code(code: str) -> str:
     import hashlib
 
-    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+    return hashlib.md5(code.encode("utf-8"), usedforsecurity=False).hexdigest()

@@ -4,6 +4,8 @@ FILTER_PORT_MAPPING = {"443": "https", "25": "smtp", "80": "http", "53": "dns", 
 
 VALID_ETHER_TYPES = ["arp", "fcoe", "ip", "ipv4", "ipv6", "mac_security", "mpls_ucast", "trill", "unspecified"]
 
+VALID_QOS_CLASSES = ["unspecified", "level1", "level2", "level3", "level4", "level5", "level6"]
+
 # mapping dicts are used to normalize the proposed data to what the APIC expects, which will keep diffs accurate
 ARP_FLAG_MAPPING = dict(arp_reply="reply", arp_request="req", unspecified="unspecified")
 
@@ -529,3 +531,20 @@ MOCKED_CONSTRUCTED_INVENTORY_ARGUMENT_SPEC = dict(
     use_extra_vars=dict(type="bool"),
     leading_separator=dict(type="bool"),
 )
+
+SWITCH_CONFIG_FORMAT_MAP = {
+    "fabricNodeConfig": {
+        "rn": "fabric/nodeconfnode-{0}",
+        "type": "fabric",
+        "spine": "uni/fabric/funcprof/spnodepgrp-{0}",
+        "leaf": "uni/fabric/funcprof/lenodepgrp-{0}",
+    },
+    "infraNodeConfig": {
+        "rn": "infra/nodeconfnode-{0}",
+        "type": "access",
+        "spine": "uni/infra/funcprof/spaccnodepgrp-{0}",
+        "leaf": "uni/infra/funcprof/accnodepgrp-{0}",
+    },
+}
+
+CONTRACT_CLASS_MAPPING = {"standard": {"class": "vzBrCP", "rn": "brc-{0}"}, "oob": {"class": "vzOOBBrCP", "rn": "oobbrc-{0}"}}

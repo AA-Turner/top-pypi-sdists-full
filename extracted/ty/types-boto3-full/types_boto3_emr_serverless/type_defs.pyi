@@ -3,7 +3,7 @@ Type annotations for emr-serverless service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_emr_serverless/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
 from .literals import ApplicationStateType, ArchitectureType, JobRunModeType, JobRunStateType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -51,6 +46,9 @@ __all__ = (
     "CreateApplicationRequestTypeDef",
     "CreateApplicationResponseTypeDef",
     "DeleteApplicationRequestTypeDef",
+    "DiskEncryptionConfigurationOutputTypeDef",
+    "DiskEncryptionConfigurationTypeDef",
+    "DiskEncryptionConfigurationUnionTypeDef",
     "GetApplicationRequestTypeDef",
     "GetApplicationResponseTypeDef",
     "GetDashboardForJobRunRequestTypeDef",
@@ -67,6 +65,7 @@ __all__ = (
     "JobDriverOutputTypeDef",
     "JobDriverTypeDef",
     "JobDriverUnionTypeDef",
+    "JobLevelCostAllocationConfigurationTypeDef",
     "JobRunAttemptSummaryTypeDef",
     "JobRunExecutionIamPolicyOutputTypeDef",
     "JobRunExecutionIamPolicyTypeDef",
@@ -141,12 +140,17 @@ class AutoStopConfigTypeDef(TypedDict):
 
 class ConfigurationOutputTypeDef(TypedDict):
     classification: str
-    properties: NotRequired[Dict[str, str]]
-    configurations: NotRequired[List[Dict[str, Any]]]
+    properties: NotRequired[dict[str, str]]
+    configurations: NotRequired[list[dict[str, Any]]]
+
+class DiskEncryptionConfigurationOutputTypeDef(TypedDict):
+    encryptionContext: NotRequired[dict[str, str]]
+    encryptionKeyArn: NotRequired[str]
 
 class IdentityCenterConfigurationTypeDef(TypedDict):
     identityCenterInstanceArn: NotRequired[str]
     identityCenterApplicationArn: NotRequired[str]
+    userBackgroundSessionsEnabled: NotRequired[bool]
 
 class ImageConfigurationTypeDef(TypedDict):
     imageUri: str
@@ -156,14 +160,17 @@ class InteractiveConfigurationTypeDef(TypedDict):
     studioEnabled: NotRequired[bool]
     livyEndpointEnabled: NotRequired[bool]
 
+class JobLevelCostAllocationConfigurationTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+
 class MaximumAllowedResourcesTypeDef(TypedDict):
     cpu: str
     memory: str
     disk: NotRequired[str]
 
 class NetworkConfigurationOutputTypeDef(TypedDict):
-    subnetIds: NotRequired[List[str]]
-    securityGroupIds: NotRequired[List[str]]
+    subnetIds: NotRequired[list[str]]
+    securityGroupIds: NotRequired[list[str]]
 
 class SchedulerConfigurationTypeDef(TypedDict):
     queueTimeoutMinutes: NotRequired[int]
@@ -177,7 +184,7 @@ class CancelJobRunRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -186,7 +193,7 @@ class CloudWatchLoggingConfigurationOutputTypeDef(TypedDict):
     logGroupName: NotRequired[str]
     logStreamNamePrefix: NotRequired[str]
     encryptionKeyArn: NotRequired[str]
-    logTypes: NotRequired[Dict[str, List[str]]]
+    logTypes: NotRequired[dict[str, list[str]]]
 
 class CloudWatchLoggingConfigurationTypeDef(TypedDict):
     enabled: bool
@@ -200,8 +207,13 @@ class ConfigurationTypeDef(TypedDict):
     properties: NotRequired[Mapping[str, str]]
     configurations: NotRequired[Sequence[Mapping[str, Any]]]
 
+class DiskEncryptionConfigurationTypeDef(TypedDict):
+    encryptionContext: NotRequired[Mapping[str, str]]
+    encryptionKeyArn: NotRequired[str]
+
 class IdentityCenterConfigurationInputTypeDef(TypedDict):
     identityCenterInstanceArn: NotRequired[str]
+    userBackgroundSessionsEnabled: NotRequired[bool]
 
 class ImageConfigurationInputTypeDef(TypedDict):
     imageUri: NotRequired[str]
@@ -236,7 +248,7 @@ class WorkerResourceConfigTypeDef(TypedDict):
 
 class SparkSubmitOutputTypeDef(TypedDict):
     entryPoint: str
-    entryPointArguments: NotRequired[List[str]]
+    entryPointArguments: NotRequired[list[str]]
     sparkSubmitParameters: NotRequired[str]
 
 class SparkSubmitTypeDef(TypedDict):
@@ -267,7 +279,7 @@ JobRunAttemptSummaryTypeDef = TypedDict(
 
 class JobRunExecutionIamPolicyOutputTypeDef(TypedDict):
     policy: NotRequired[str]
-    policyArns: NotRequired[List[str]]
+    policyArns: NotRequired[list[str]]
 
 class JobRunExecutionIamPolicyTypeDef(TypedDict):
     policy: NotRequired[str]
@@ -378,12 +390,12 @@ class GetDashboardForJobRunResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    applications: List[ApplicationSummaryTypeDef]
+    applications: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartJobRunResponseTypeDef(TypedDict):
@@ -393,6 +405,9 @@ class StartJobRunResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 ConfigurationUnionTypeDef = Union[ConfigurationTypeDef, ConfigurationOutputTypeDef]
+DiskEncryptionConfigurationUnionTypeDef = Union[
+    DiskEncryptionConfigurationTypeDef, DiskEncryptionConfigurationOutputTypeDef
+]
 
 class WorkerTypeSpecificationInputTypeDef(TypedDict):
     imageConfiguration: NotRequired[ImageConfigurationInputTypeDef]
@@ -410,7 +425,7 @@ class JobDriverTypeDef(TypedDict):
     hive: NotRequired[HiveTypeDef]
 
 class ListJobRunAttemptsResponseTypeDef(TypedDict):
-    jobRunAttempts: List[JobRunAttemptSummaryTypeDef]
+    jobRunAttempts: list[JobRunAttemptSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -419,7 +434,7 @@ JobRunExecutionIamPolicyUnionTypeDef = Union[
 ]
 
 class ListJobRunsResponseTypeDef(TypedDict):
-    jobRuns: List[JobRunSummaryTypeDef]
+    jobRuns: list[JobRunSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -481,30 +496,36 @@ ApplicationTypeDef = TypedDict(
         "updatedAt": datetime,
         "name": NotRequired[str],
         "stateDetails": NotRequired[str],
-        "initialCapacity": NotRequired[Dict[str, InitialCapacityConfigTypeDef]],
+        "initialCapacity": NotRequired[dict[str, InitialCapacityConfigTypeDef]],
         "maximumCapacity": NotRequired[MaximumAllowedResourcesTypeDef],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "autoStartConfiguration": NotRequired[AutoStartConfigTypeDef],
         "autoStopConfiguration": NotRequired[AutoStopConfigTypeDef],
         "networkConfiguration": NotRequired[NetworkConfigurationOutputTypeDef],
         "architecture": NotRequired[ArchitectureType],
         "imageConfiguration": NotRequired[ImageConfigurationTypeDef],
-        "workerTypeSpecifications": NotRequired[Dict[str, WorkerTypeSpecificationTypeDef]],
-        "runtimeConfiguration": NotRequired[List[ConfigurationOutputTypeDef]],
+        "workerTypeSpecifications": NotRequired[dict[str, WorkerTypeSpecificationTypeDef]],
+        "runtimeConfiguration": NotRequired[list[ConfigurationOutputTypeDef]],
         "monitoringConfiguration": NotRequired[MonitoringConfigurationOutputTypeDef],
+        "diskEncryptionConfiguration": NotRequired[DiskEncryptionConfigurationOutputTypeDef],
         "interactiveConfiguration": NotRequired[InteractiveConfigurationTypeDef],
         "schedulerConfiguration": NotRequired[SchedulerConfigurationTypeDef],
         "identityCenterConfiguration": NotRequired[IdentityCenterConfigurationTypeDef],
+        "jobLevelCostAllocationConfiguration": NotRequired[
+            JobLevelCostAllocationConfigurationTypeDef
+        ],
     },
 )
 
 class ConfigurationOverridesOutputTypeDef(TypedDict):
-    applicationConfiguration: NotRequired[List[ConfigurationOutputTypeDef]]
+    applicationConfiguration: NotRequired[list[ConfigurationOutputTypeDef]]
     monitoringConfiguration: NotRequired[MonitoringConfigurationOutputTypeDef]
+    diskEncryptionConfiguration: NotRequired[DiskEncryptionConfigurationOutputTypeDef]
 
 class ConfigurationOverridesTypeDef(TypedDict):
     applicationConfiguration: NotRequired[Sequence[ConfigurationTypeDef]]
     monitoringConfiguration: NotRequired[MonitoringConfigurationTypeDef]
+    diskEncryptionConfiguration: NotRequired[DiskEncryptionConfigurationTypeDef]
 
 MonitoringConfigurationUnionTypeDef = Union[
     MonitoringConfigurationTypeDef, MonitoringConfigurationOutputTypeDef
@@ -533,7 +554,7 @@ class JobRunTypeDef(TypedDict):
     name: NotRequired[str]
     executionIamPolicy: NotRequired[JobRunExecutionIamPolicyOutputTypeDef]
     configurationOverrides: NotRequired[ConfigurationOverridesOutputTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     totalResourceUtilization: NotRequired[TotalResourceUtilizationTypeDef]
     networkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
     totalExecutionDurationSeconds: NotRequired[int]
@@ -569,9 +590,13 @@ CreateApplicationRequestTypeDef = TypedDict(
         "workerTypeSpecifications": NotRequired[Mapping[str, WorkerTypeSpecificationInputTypeDef]],
         "runtimeConfiguration": NotRequired[Sequence[ConfigurationUnionTypeDef]],
         "monitoringConfiguration": NotRequired[MonitoringConfigurationUnionTypeDef],
+        "diskEncryptionConfiguration": NotRequired[DiskEncryptionConfigurationUnionTypeDef],
         "interactiveConfiguration": NotRequired[InteractiveConfigurationTypeDef],
         "schedulerConfiguration": NotRequired[SchedulerConfigurationTypeDef],
         "identityCenterConfiguration": NotRequired[IdentityCenterConfigurationInputTypeDef],
+        "jobLevelCostAllocationConfiguration": NotRequired[
+            JobLevelCostAllocationConfigurationTypeDef
+        ],
     },
 )
 
@@ -590,8 +615,10 @@ class UpdateApplicationRequestTypeDef(TypedDict):
     releaseLabel: NotRequired[str]
     runtimeConfiguration: NotRequired[Sequence[ConfigurationUnionTypeDef]]
     monitoringConfiguration: NotRequired[MonitoringConfigurationUnionTypeDef]
+    diskEncryptionConfiguration: NotRequired[DiskEncryptionConfigurationUnionTypeDef]
     schedulerConfiguration: NotRequired[SchedulerConfigurationTypeDef]
     identityCenterConfiguration: NotRequired[IdentityCenterConfigurationInputTypeDef]
+    jobLevelCostAllocationConfiguration: NotRequired[JobLevelCostAllocationConfigurationTypeDef]
 
 class GetJobRunResponseTypeDef(TypedDict):
     jobRun: JobRunTypeDef

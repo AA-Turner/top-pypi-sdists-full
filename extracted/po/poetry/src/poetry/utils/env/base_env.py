@@ -51,6 +51,7 @@ class MarkerEnv(TypedDict):
     interpreter_name: str
     interpreter_version: str
     sysconfig_platform: str
+    free_threading: bool
 
 
 class Env(ABC):
@@ -445,9 +446,8 @@ class Env(ABC):
                 subprocess.check_call(cmd, stderr=stderr, env=env, **kwargs)
                 output = ""
             else:
-                encoding = "locale" if sys.version_info >= (3, 10) else None
                 output = subprocess.check_output(
-                    cmd, stderr=stderr, env=env, text=True, encoding=encoding, **kwargs
+                    cmd, stderr=stderr, env=env, text=True, encoding="locale", **kwargs
                 )
         except CalledProcessError as e:
             raise EnvCommandError(e)

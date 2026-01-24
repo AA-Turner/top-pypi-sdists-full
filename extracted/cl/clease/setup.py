@@ -29,12 +29,6 @@ def include_folder():
     raise RuntimeError("Cannot find include folder")
 
 
-def get_npy_include_folder():
-    import numpy as np
-
-    return np.get_include()
-
-
 def build_ext(ext_module):
     from Cython.Build import cythonize
 
@@ -52,8 +46,7 @@ def get_source_files():
     """Construct a list of all sources to be included."""
     cpp_sources = Path(cxx_src_folder).glob("*.cpp")
 
-    # C++ sources, excluding the ones which rely on NumPy
-    # those are included directly from the Cython source
+    # C++ sources
     sources = [str(f) for f in cpp_sources]
 
     # Cython sources
@@ -90,7 +83,6 @@ clease_cxx = Extension(
     sources=src_files,
     include_dirs=[
         cxx_inc_folder,
-        get_npy_include_folder(),
         cxx_src_folder,
         py_include,
         cython_folder,
@@ -123,9 +115,8 @@ EXTRAS_REQUIRE = {
         "pre-commit",
         "ipython",
         "twine",
-        "black>=22.1.0",  # Style formatting
-        "clang-format>=14.0.3",  # c++ style formatting
-        "ruff",
+        "clang-format==21.1.5",  # c++ style formatting
+        "ruff==0.14.5",  # Python style and formatting
         "pyclean>=2.0.0",  # For removing __pycache__ and .pyc files
         "pytest-cov",
         "build",

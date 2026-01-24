@@ -6,12 +6,12 @@ except ImportError:
 
 from scipy.io import savemat
 
-from .utils import cart_to_eeglab, logger
+from .utils import cart_to_eeglab, fname_to_setname, logger
 
 
 def export_set(fname, data, sfreq, events, tmin, tmax, ch_names, event_id=None,
                ch_locs=None, annotations=None, ref_channels="common",
-               precision="single"):
+               precision="single", *, epoch_indices=None):
     """Export epoch data to EEGLAB's .set format.
 
     Parameters
@@ -53,6 +53,15 @@ def export_set(fname, data, sfreq, events, tmin, tmax, ch_names, event_id=None,
         data for you.
     precision : "single" or "double"
         Precision of the exported data (specifically EEG.data in EEGLAB)
+    epoch_indices : numpy.ndarray or None
+        1D integer array with one entry per event (same length as ``events``).
+        Each value gives the 0-based epoch index that the corresponding event
+        belongs to. If None, events are assumed to map one-to-one with epochs
+        in order (first event → first epoch, second → second, etc.). Supplying
+        this is necessary if epochs were dropped or reordered in MNE-Python,
+        where events are no longer evenly aligned with epochs.
+
+        .. versionadded:: 0.1.2
 
     See Also
     --------
@@ -63,6 +72,9 @@ def export_set(fname, data, sfreq, events, tmin, tmax, ch_names, event_id=None,
     Channel locations are expanded to the full EEGLAB format.
     For more details see :func:`.utils.cart_to_eeglab_sph`.
     """
+
+    # Extact path stem for EEG.setname
+    setname = fname_to_setname(fname)
 
     data = data * 1e6  # convert to microvolts
     data = np.moveaxis(data, 0, 2)  # convert to EEGLAB 3D format
@@ -105,6 +117,9 @@ def export_set(fname, data, sfreq, events, tmin, tmax, ch_names, event_id=None,
 
     # indices of epochs each event belongs to
     ev_epoch = ev_lat // epoch_len + 1
+    if epoch_indices is not None:
+        # full-slice assigment to ensure epoch_indices.shape == ev_lat.shape
+        ev_epoch[:] = epoch_indices
     if len(ev_epoch) > 0 and max(ev_epoch) > trials:
         # probably due to shifted/wrong events latency
         # reset events to start at the beginning of each epoch
@@ -140,7 +155,10 @@ def export_set(fname, data, sfreq, events, tmin, tmax, ch_names, event_id=None,
 
     # check there's at least one event per epoch
     uniq_epochs = np.unique(all_epoch)
-    required_epochs = np.arange(1, trials + 1)
+    if epoch_indices is None:
+        required_epochs = np.arange(1, trials + 1)
+    else:
+        required_epochs = epoch_indices
     if not np.array_equal(uniq_epochs, required_epochs):
         # doesn't meet the requirement of at least one event per epoch
         # add dummy events to satisfy this
@@ -197,7 +215,7 @@ def export_set(fname, data, sfreq, events, tmin, tmax, ch_names, event_id=None,
         ref_channels = " ".join(ref_channels)
 
     eeg_d = dict(data=data,
-                 setname=fname,
+                 setname=setname,
                  nbchan=data.shape[0],
                  pnts=float(epoch_len),
                  trials=float(trials),

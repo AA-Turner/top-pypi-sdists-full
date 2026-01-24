@@ -46,6 +46,7 @@
 #       how-to-send-an-email-with-dynamic-transactional-templates/
 
 from json import dumps
+import logging
 
 import requests
 
@@ -53,6 +54,7 @@ from .. import exception
 from ..common import NotifyFormat, NotifyType
 from ..locale import gettext_lazy as _
 from ..utils.parse import is_email, parse_list, validate_regex
+from ..utils.sanitize import sanitize_payload
 from .base import NotifyBase
 
 # Extend HTTP Error Messages
@@ -82,7 +84,7 @@ class NotifySendGrid(NotifyBase):
     secure_protocol = "sendgrid"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_sendgrid"
+    setup_url = "https://appriseit.com/services/sendgrid/"
 
     # Default to markdown
     notify_format = NotifyFormat.HTML
@@ -216,16 +218,20 @@ class NotifySendGrid(NotifyBase):
         )
 
         # Validate recipients (to:) and drop bad ones:
-        for recipient in parse_list(targets):
+        if targets:
+            for recipient in parse_list(targets):
 
-            result = is_email(recipient)
-            if result:
-                self.targets.append(result["full_email"])
-                continue
+                result = is_email(recipient)
+                if result:
+                    self.targets.append(result["full_email"])
+                    continue
 
-            self.logger.warning(
-                f"Dropped invalid email ({recipient}) specified.",
-            )
+                self.logger.warning(
+                    f"Dropped invalid email ({recipient}) specified.",
+                )
+        else:
+            # add ourselves
+            self.targets.append(self.from_email)
 
         # Validate recipients (cc:) and drop bad ones:
         for recipient in parse_list(cc):
@@ -251,10 +257,6 @@ class NotifySendGrid(NotifyBase):
                 "Dropped invalid Blind Carbon Copy email "
                 f"({recipient}) specified.",
             )
-
-        if len(self.targets) == 0:
-            # Notify ourselves
-            self.targets.append(self.from_email)
 
         return
 
@@ -311,7 +313,7 @@ class NotifySendGrid(NotifyBase):
 
     def __len__(self):
         """Returns the number of targets associated with this notification."""
-        return len(self.targets)
+        return max(1, len(self.targets))
 
     def send(
         self,
@@ -322,6 +324,12 @@ class NotifySendGrid(NotifyBase):
         **kwargs,
     ):
         """Perform SendGrid Notification."""
+
+        if not self.targets:
+            # There is no one to email; we're done
+            self.logger.warning(
+                "There are no SendGrid email recipients to notify")
+            return False
 
         headers = {
             "User-Agent": self.app_id,
@@ -434,11 +442,19 @@ class NotifySendGrid(NotifyBase):
                     {"email": email} for email in bcc
                 ]
 
-            self.logger.debug(
-                "SendGrid POST URL:"
-                f" {self.notify_url} (cert_verify={self.verify_certificate!r})"
-            )
-            self.logger.debug(f"SendGrid Payload: {payload!s}")
+            # Some Debug Logging
+            if self.logger.isEnabledFor(logging.DEBUG):
+                # Due to attachments; output can be quite heavy and io
+                # intensive.
+                # To accommodate this, we only show our debug payload
+                # information if required.
+                self.logger.debug(
+                    "SendGrid POST URL:"
+                    f" {self.notify_url} "
+                    f"(cert_verify={self.verify_certificate!r})"
+                )
+                self.logger.debug(
+                    "SendGrid Payload: %s", sanitize_payload(payload))
 
             # Always call throttle before any remote server i/o is made
             self.throttle()
@@ -469,7 +485,8 @@ class NotifySendGrid(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     # Mark our failure
                     has_error = True

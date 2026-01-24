@@ -29,10 +29,12 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/log/absl_check.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -44,6 +46,7 @@
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/os/filesystem.h"
 #include "tensorstore/internal/testing/json_gtest.h"
+#include "tensorstore/internal/testing/on_windows.h"
 #include "tensorstore/internal/testing/scoped_directory.h"
 #include "tensorstore/internal/uri_utils.h"
 #include "tensorstore/kvstore/generation.h"
@@ -56,6 +59,7 @@
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_testutil.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 // Include system headers last to reduce impact of macros.
@@ -73,15 +77,14 @@ using ::tensorstore::IsOkAndHolds;
 using ::tensorstore::KeyRange;
 using ::tensorstore::KvStore;
 using ::tensorstore::MatchesJson;
-using ::tensorstore::MatchesStatus;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
 using ::tensorstore::internal::MatchesKvsReadResultNotFound;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::MatchesTimestampedStorageGeneration;
-using ::tensorstore::internal::OsPathToUriPath;
 using ::tensorstore::internal_os::GetDirectoryContents;
+using ::tensorstore::internal_testing::OnWindows;
 using ::tensorstore::internal_testing::ScopedCurrentWorkingDirectory;
 using ::tensorstore::internal_testing::ScopedTemporaryDirectory;
 using ::testing::HasSubstr;
@@ -90,7 +93,21 @@ KvStore GetStore(std::string root) {
   return kvstore::Open({{"driver", "file"}, {"path", root + "/"}}).value();
 }
 std::string AsFileUri(std::string_view path) {
-  return absl::StrCat("file://", OsPathToUriPath(path));
+  auto uri = tensorstore::internal::OsPathToFileUri(path);
+  TENSORSTORE_CHECK_OK(uri.status());
+  return std::move(uri).value();
+}
+
+// Convert the temporary directory path to a Windows network administrative
+// path, such as //localhost/c$/...
+[[maybe_unused]] std::string MakeWindowsAdministrativePath(
+    std::string_view path, std::string_view extra = {}) {
+  ABSL_CHECK_EQ(path[1], ':');
+  std::string result = absl::StrCat("\\\\localhost/", path, extra);
+  static constexpr size_t kOffset = std::string_view("\\\\localhost/c").size();
+  ABSL_CHECK_EQ(result[kOffset], ':');
+  result[kOffset] = '$';
+  return result;
 }
 
 TENSORSTORE_GLOBAL_INITIALIZER {
@@ -128,40 +145,52 @@ TENSORSTORE_GLOBAL_INITIALIZER {
     register_with_spec(
         "Lockfile",
         [](std::string path) -> ::nlohmann::json {
-          return {{"driver", "file"},
-                  {"path", path},
-                  {"file_io_locking", {{"mode", "lockfile"}}}};
+          return {
+              {"driver", "file"},
+              {"path", path},
+              {"file_io_locking", {{"mode", "lockfile"}}},
+          };
         },
         params);
     register_with_spec(
         "NoLocking",
         [](std::string path) -> ::nlohmann::json {
-          return {{"driver", "file"},
-                  {"path", path},
-                  {"file_io_locking", {{"mode", "none"}}}};
+          return {
+              {"driver", "file"},
+              {"path", path},
+              {"file_io_locking", {{"mode", "none"}}},
+          };
         },
         params);
     register_with_spec(
         "NoRename",
         [](std::string path) -> ::nlohmann::json {
-          return {{"driver", "file"},
-                  {"path", path},
-                  {"file_io_locking", {{"mode", "non_atomic"}}}};
+          return {
+              {"driver", "file"},
+              {"path", path},
+              {"file_io_locking", {{"mode", "non_atomic"}}},
+          };
         },
         params);
     register_with_spec(
         "NoSync",
         [](std::string path) -> ::nlohmann::json {
-          return {{"driver", "file"}, {"path", path}, {"file_io_sync", false}};
+          return {
+              {"driver", "file"},
+              {"path", path},
+              {"file_io_sync", false},
+          };
         },
         params);
 #ifndef __APPLE__
     register_with_spec(
         "Direct",
         [](std::string path) -> ::nlohmann::json {
-          return {{"driver", "file"},
-                  {"path", path},
-                  {"file_io_mode", {{"mode", "direct"}}}};
+          return {
+              {"driver", "file"},
+              {"path", path},
+              {"file_io_mode", {{"mode", "direct"}}},
+          };
         },
         params);
 #endif
@@ -171,9 +200,11 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       register_with_spec(
           "Memmap",
           [](std::string path) -> ::nlohmann::json {
-            return {{"driver", "file"},
-                    {"path", path},
-                    {"file_io_mode", {{"mode", "memmap"}}}};
+            return {
+                {"driver", "file"},
+                {"path", path},
+                {"file_io_mode", {{"mode", "memmap"}}},
+            };
           },
           p);
     }
@@ -181,6 +212,20 @@ TENSORSTORE_GLOBAL_INITIALIZER {
         "UrlOpen",
         [](std::string path) -> ::nlohmann::json { return AsFileUri(path); },
         params);
+#ifdef _WIN32
+    // Add a test for a Windows network share.
+    {
+      register_with_spec(
+          "WindowsNetworkShare",
+          [](std::string path) -> ::nlohmann::json {
+            return {
+                {"driver", "file"},
+                {"path", MakeWindowsAdministrativePath(path)},
+            };
+          },
+          params);
+    }
+#endif
   }
 }
 
@@ -414,6 +459,17 @@ TEST(FileKeyValueStoreTest, SpecRoundtrip) {
   tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
 }
 
+#ifdef _WIN32
+TEST(FileKeyValueStoreTest, SpecRoundtrip_WindowsNetworkPath) {
+  ScopedTemporaryDirectory tempdir;
+  std::string root = MakeWindowsAdministrativePath(tempdir.path(), "/root");
+  tensorstore::internal::KeyValueStoreSpecRoundtripOptions options;
+  options.full_spec = {{"driver", "file"}, {"path", root}};
+  options.url = AsFileUri(root);
+  tensorstore::internal::TestKeyValueStoreSpecRoundtrip(options);
+}
+#endif  // _WIN32
+
 TEST(FileKeyValueStoreTest, SpecRoundtripSync) {
   ScopedTemporaryDirectory tempdir;
   std::string root = absl::StrCat(tempdir.path(), "/root/");
@@ -454,18 +510,14 @@ TEST(FileKeyValueStoreTest, InvalidSpec) {
   // Test with invalid `"path"`
   EXPECT_THAT(kvstore::Open({{"driver", "file"}, {"path", "/a/../b/"}}, context)
                   .result(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Invalid file path.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Invalid file path")));
 }
 
 TEST(FileKeyValueStoreTest, UrlRoundtrip) {
   // Creates a spec with a / path:
   EXPECT_THAT(kvstore::Spec::FromUrl("file:///"), IsOk());
-  // Creates a spec with an empty path:
-  EXPECT_THAT(kvstore::Spec::FromUrl("file://"), IsOk());
 
-  tensorstore::internal::TestKeyValueStoreUrlRoundtrip({{"driver", "file"}},
-                                                       "file://");
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
       {{"driver", "file"}, {"path", "/"}}, "file:///");
 
@@ -478,15 +530,18 @@ TEST(FileKeyValueStoreTest, UrlRoundtrip) {
   {
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto spec_from_url, kvstore::Spec::FromUrl("file://localhost/abc"));
-    EXPECT_THAT(
-        spec_from_url.ToJson(),
-        IsOkAndHolds(MatchesJson({{"driver", "file"}, {"path", "/abc"}})));
-    EXPECT_THAT(spec_from_url.ToUrl(), IsOkAndHolds("file:///abc"));
+    EXPECT_THAT(spec_from_url.ToJson(),
+                IsOkAndHolds(MatchesJson(
+                    {{"driver", "file"},
+                     {"path", OnWindows("//localhost/abc", "/abc")}})));
+    EXPECT_THAT(spec_from_url.ToUrl(),
+                IsOkAndHolds(OnWindows("file://localhost/abc", "file:///abc")));
   }
 
-  // Windows-specific path. This works in both Windows and Linux.
+  // Windows-specific paths
   tensorstore::internal::TestKeyValueStoreUrlRoundtrip(
-      {{"driver", "file"}, {"path", "C:/tmp/"}}, "file:///C:/tmp/");
+      {{"driver", "file"}, {"path", OnWindows("C:/tmp/", "/C:/tmp/")}},
+      "file:///C:/tmp/");
 
 #ifdef _WIN32
   {
@@ -500,19 +555,21 @@ TEST(FileKeyValueStoreTest, UrlRoundtrip) {
 }
 
 TEST(FileKeyValueStoreTest, InvalidUri) {
-  EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc?query"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Query string not supported"));
-  EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc#fragment"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*: Fragment identifier not supported"));
-  EXPECT_THAT(kvstore::Spec::FromUrl("file://authority/path/to/resource"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*file uris do not support authority.*"));
+  // Creates a spec with an empty path:
+  EXPECT_THAT(kvstore::Spec::FromUrl("file://"),
+              StatusIs(absl::StatusCode::kInvalidArgument));
 
-  EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc/../b/"),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*Invalid file path.*"));
+  EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc?query"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Query string not supported")));
+  EXPECT_THAT(kvstore::Spec::FromUrl("file:///abc#fragment"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Fragment identifier not supported")));
+  EXPECT_THAT(
+      kvstore::Spec::FromUrl("file://authority/path/to/resource"),
+      OnWindows(IsOk(),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr("file: URIs do not support authority"))));
 }
 
 TEST(FileKeyValueStoreTest, RelativePath) {
@@ -522,8 +579,8 @@ TEST(FileKeyValueStoreTest, RelativePath) {
   TENSORSTORE_EXPECT_OK(kvstore::Write(store, "abc", {}).result());
 
   EXPECT_THAT(store.ToUrl(),
-              MatchesStatus(absl::StatusCode::kInvalidArgument,
-                            ".*file: URIs do not support relative paths.*"));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("file: URIs do not support relative paths")));
 }
 
 TEST(FileKeyValueStoreTest, BatchRead) {
@@ -564,17 +621,14 @@ TEST(FileKeyValueStoreTest, DirectoryInPath) {
       kvstore::Open({{"driver", "file"}, {"path", tempdir.path() + "/"}})
           .result());
   TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a/b", absl::Cord("")).result());
-#ifndef _WIN32
-  EXPECT_THAT(kvstore::Read(store, "a").result(),
-              MatchesKvsReadResultNotFound());
-#else
   // On Windows, attempting to open a directory as a file results in
   // `ERROR_ACCESS_DENIED`.  This can't unambiguously be converted to
   // `absl::StatusCode::kNotFound`. Instead it is generically translated to
   // `absl::StatusCode::kPermissionDenied`.
   EXPECT_THAT(kvstore::Read(store, "a").result(),
-              StatusIs(absl::StatusCode::kPermissionDenied));
-#endif
+              OnWindows(StatusIs(absl::StatusCode::kPermissionDenied),
+                        MatchesKvsReadResultNotFound()));
+
   EXPECT_THAT(kvstore::Read(store, "a/b/c").result(),
               MatchesKvsReadResultNotFound());
 }

@@ -25,11 +25,9 @@ class AccountSettingV2Args:
                  aibi_dashboard_embedding_approved_domains: Optional[pulumi.Input['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs']] = None,
                  automatic_cluster_update_workspace: Optional[pulumi.Input['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs']] = None,
                  boolean_val: Optional[pulumi.Input['AccountSettingV2BooleanValArgs']] = None,
-                 default_data_security_mode: Optional[pulumi.Input['AccountSettingV2DefaultDataSecurityModeArgs']] = None,
                  effective_aibi_dashboard_embedding_access_policy: Optional[pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs']] = None,
                  effective_aibi_dashboard_embedding_approved_domains: Optional[pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs']] = None,
                  effective_automatic_cluster_update_workspace: Optional[pulumi.Input['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs']] = None,
-                 effective_default_data_security_mode: Optional[pulumi.Input['AccountSettingV2EffectiveDefaultDataSecurityModeArgs']] = None,
                  effective_personal_compute: Optional[pulumi.Input['AccountSettingV2EffectivePersonalComputeArgs']] = None,
                  effective_restrict_workspace_admins: Optional[pulumi.Input['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs']] = None,
                  integer_val: Optional[pulumi.Input['AccountSettingV2IntegerValArgs']] = None,
@@ -39,8 +37,20 @@ class AccountSettingV2Args:
                  string_val: Optional[pulumi.Input['AccountSettingV2StringValArgs']] = None):
         """
         The set of arguments for constructing a AccountSettingV2 resource.
-        :param pulumi.Input['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs'] automatic_cluster_update_workspace: todo: Mark these Public after onboarded to DSL
+        :param pulumi.Input['AccountSettingV2AibiDashboardEmbeddingAccessPolicyArgs'] aibi_dashboard_embedding_access_policy: Setting value for aibi_dashboard_embedding_access_policy setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_access_policy for final setting value
+        :param pulumi.Input['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs'] aibi_dashboard_embedding_approved_domains: Setting value for aibi_dashboard_embedding_approved_domains setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_approved_domains for final setting value
+        :param pulumi.Input['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs'] automatic_cluster_update_workspace: Setting value for automatic_cluster_update_workspace setting. This is the setting value set by consumers, check effective_automatic_cluster_update_workspace for final setting value
+        :param pulumi.Input['AccountSettingV2BooleanValArgs'] boolean_val: Setting value for boolean type setting. This is the setting value set by consumers, check effective_boolean_val for final setting value
+        :param pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs'] effective_aibi_dashboard_embedding_access_policy: Effective setting value for aibi_dashboard_embedding_access_policy setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_access_policy
+        :param pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs'] effective_aibi_dashboard_embedding_approved_domains: Effective setting value for aibi_dashboard_embedding_approved_domains setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_approved_domains
+        :param pulumi.Input['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs'] effective_automatic_cluster_update_workspace: Effective setting value for automatic_cluster_update_workspace setting. This is the final effective value of setting. To set a value use automatic_cluster_update_workspace
+        :param pulumi.Input['AccountSettingV2EffectivePersonalComputeArgs'] effective_personal_compute: Effective setting value for personal_compute setting. This is the final effective value of setting. To set a value use personal_compute
+        :param pulumi.Input['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs'] effective_restrict_workspace_admins: Effective setting value for restrict_workspace_admins setting. This is the final effective value of setting. To set a value use restrict_workspace_admins
+        :param pulumi.Input['AccountSettingV2IntegerValArgs'] integer_val: Setting value for integer type setting. This is the setting value set by consumers, check effective_integer_val for final setting value
         :param pulumi.Input[_builtins.str] name: Name of the setting
+        :param pulumi.Input['AccountSettingV2PersonalComputeArgs'] personal_compute: Setting value for personal_compute setting. This is the setting value set by consumers, check effective_personal_compute for final setting value
+        :param pulumi.Input['AccountSettingV2RestrictWorkspaceAdminsArgs'] restrict_workspace_admins: Setting value for restrict_workspace_admins setting. This is the setting value set by consumers, check effective_restrict_workspace_admins for final setting value
+        :param pulumi.Input['AccountSettingV2StringValArgs'] string_val: Setting value for string type setting. This is the setting value set by consumers, check effective_string_val for final setting value
         """
         if aibi_dashboard_embedding_access_policy is not None:
             pulumi.set(__self__, "aibi_dashboard_embedding_access_policy", aibi_dashboard_embedding_access_policy)
@@ -50,16 +60,12 @@ class AccountSettingV2Args:
             pulumi.set(__self__, "automatic_cluster_update_workspace", automatic_cluster_update_workspace)
         if boolean_val is not None:
             pulumi.set(__self__, "boolean_val", boolean_val)
-        if default_data_security_mode is not None:
-            pulumi.set(__self__, "default_data_security_mode", default_data_security_mode)
         if effective_aibi_dashboard_embedding_access_policy is not None:
             pulumi.set(__self__, "effective_aibi_dashboard_embedding_access_policy", effective_aibi_dashboard_embedding_access_policy)
         if effective_aibi_dashboard_embedding_approved_domains is not None:
             pulumi.set(__self__, "effective_aibi_dashboard_embedding_approved_domains", effective_aibi_dashboard_embedding_approved_domains)
         if effective_automatic_cluster_update_workspace is not None:
             pulumi.set(__self__, "effective_automatic_cluster_update_workspace", effective_automatic_cluster_update_workspace)
-        if effective_default_data_security_mode is not None:
-            pulumi.set(__self__, "effective_default_data_security_mode", effective_default_data_security_mode)
         if effective_personal_compute is not None:
             pulumi.set(__self__, "effective_personal_compute", effective_personal_compute)
         if effective_restrict_workspace_admins is not None:
@@ -78,6 +84,9 @@ class AccountSettingV2Args:
     @_builtins.property
     @pulumi.getter(name="aibiDashboardEmbeddingAccessPolicy")
     def aibi_dashboard_embedding_access_policy(self) -> Optional[pulumi.Input['AccountSettingV2AibiDashboardEmbeddingAccessPolicyArgs']]:
+        """
+        Setting value for aibi_dashboard_embedding_access_policy setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_access_policy for final setting value
+        """
         return pulumi.get(self, "aibi_dashboard_embedding_access_policy")
 
     @aibi_dashboard_embedding_access_policy.setter
@@ -87,6 +96,9 @@ class AccountSettingV2Args:
     @_builtins.property
     @pulumi.getter(name="aibiDashboardEmbeddingApprovedDomains")
     def aibi_dashboard_embedding_approved_domains(self) -> Optional[pulumi.Input['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs']]:
+        """
+        Setting value for aibi_dashboard_embedding_approved_domains setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_approved_domains for final setting value
+        """
         return pulumi.get(self, "aibi_dashboard_embedding_approved_domains")
 
     @aibi_dashboard_embedding_approved_domains.setter
@@ -97,7 +109,7 @@ class AccountSettingV2Args:
     @pulumi.getter(name="automaticClusterUpdateWorkspace")
     def automatic_cluster_update_workspace(self) -> Optional[pulumi.Input['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs']]:
         """
-        todo: Mark these Public after onboarded to DSL
+        Setting value for automatic_cluster_update_workspace setting. This is the setting value set by consumers, check effective_automatic_cluster_update_workspace for final setting value
         """
         return pulumi.get(self, "automatic_cluster_update_workspace")
 
@@ -108,6 +120,9 @@ class AccountSettingV2Args:
     @_builtins.property
     @pulumi.getter(name="booleanVal")
     def boolean_val(self) -> Optional[pulumi.Input['AccountSettingV2BooleanValArgs']]:
+        """
+        Setting value for boolean type setting. This is the setting value set by consumers, check effective_boolean_val for final setting value
+        """
         return pulumi.get(self, "boolean_val")
 
     @boolean_val.setter
@@ -115,17 +130,11 @@ class AccountSettingV2Args:
         pulumi.set(self, "boolean_val", value)
 
     @_builtins.property
-    @pulumi.getter(name="defaultDataSecurityMode")
-    def default_data_security_mode(self) -> Optional[pulumi.Input['AccountSettingV2DefaultDataSecurityModeArgs']]:
-        return pulumi.get(self, "default_data_security_mode")
-
-    @default_data_security_mode.setter
-    def default_data_security_mode(self, value: Optional[pulumi.Input['AccountSettingV2DefaultDataSecurityModeArgs']]):
-        pulumi.set(self, "default_data_security_mode", value)
-
-    @_builtins.property
     @pulumi.getter(name="effectiveAibiDashboardEmbeddingAccessPolicy")
     def effective_aibi_dashboard_embedding_access_policy(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs']]:
+        """
+        Effective setting value for aibi_dashboard_embedding_access_policy setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_access_policy
+        """
         return pulumi.get(self, "effective_aibi_dashboard_embedding_access_policy")
 
     @effective_aibi_dashboard_embedding_access_policy.setter
@@ -135,6 +144,9 @@ class AccountSettingV2Args:
     @_builtins.property
     @pulumi.getter(name="effectiveAibiDashboardEmbeddingApprovedDomains")
     def effective_aibi_dashboard_embedding_approved_domains(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs']]:
+        """
+        Effective setting value for aibi_dashboard_embedding_approved_domains setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_approved_domains
+        """
         return pulumi.get(self, "effective_aibi_dashboard_embedding_approved_domains")
 
     @effective_aibi_dashboard_embedding_approved_domains.setter
@@ -144,6 +156,9 @@ class AccountSettingV2Args:
     @_builtins.property
     @pulumi.getter(name="effectiveAutomaticClusterUpdateWorkspace")
     def effective_automatic_cluster_update_workspace(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs']]:
+        """
+        Effective setting value for automatic_cluster_update_workspace setting. This is the final effective value of setting. To set a value use automatic_cluster_update_workspace
+        """
         return pulumi.get(self, "effective_automatic_cluster_update_workspace")
 
     @effective_automatic_cluster_update_workspace.setter
@@ -151,17 +166,11 @@ class AccountSettingV2Args:
         pulumi.set(self, "effective_automatic_cluster_update_workspace", value)
 
     @_builtins.property
-    @pulumi.getter(name="effectiveDefaultDataSecurityMode")
-    def effective_default_data_security_mode(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveDefaultDataSecurityModeArgs']]:
-        return pulumi.get(self, "effective_default_data_security_mode")
-
-    @effective_default_data_security_mode.setter
-    def effective_default_data_security_mode(self, value: Optional[pulumi.Input['AccountSettingV2EffectiveDefaultDataSecurityModeArgs']]):
-        pulumi.set(self, "effective_default_data_security_mode", value)
-
-    @_builtins.property
     @pulumi.getter(name="effectivePersonalCompute")
     def effective_personal_compute(self) -> Optional[pulumi.Input['AccountSettingV2EffectivePersonalComputeArgs']]:
+        """
+        Effective setting value for personal_compute setting. This is the final effective value of setting. To set a value use personal_compute
+        """
         return pulumi.get(self, "effective_personal_compute")
 
     @effective_personal_compute.setter
@@ -171,6 +180,9 @@ class AccountSettingV2Args:
     @_builtins.property
     @pulumi.getter(name="effectiveRestrictWorkspaceAdmins")
     def effective_restrict_workspace_admins(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs']]:
+        """
+        Effective setting value for restrict_workspace_admins setting. This is the final effective value of setting. To set a value use restrict_workspace_admins
+        """
         return pulumi.get(self, "effective_restrict_workspace_admins")
 
     @effective_restrict_workspace_admins.setter
@@ -180,6 +192,9 @@ class AccountSettingV2Args:
     @_builtins.property
     @pulumi.getter(name="integerVal")
     def integer_val(self) -> Optional[pulumi.Input['AccountSettingV2IntegerValArgs']]:
+        """
+        Setting value for integer type setting. This is the setting value set by consumers, check effective_integer_val for final setting value
+        """
         return pulumi.get(self, "integer_val")
 
     @integer_val.setter
@@ -201,6 +216,9 @@ class AccountSettingV2Args:
     @_builtins.property
     @pulumi.getter(name="personalCompute")
     def personal_compute(self) -> Optional[pulumi.Input['AccountSettingV2PersonalComputeArgs']]:
+        """
+        Setting value for personal_compute setting. This is the setting value set by consumers, check effective_personal_compute for final setting value
+        """
         return pulumi.get(self, "personal_compute")
 
     @personal_compute.setter
@@ -210,6 +228,9 @@ class AccountSettingV2Args:
     @_builtins.property
     @pulumi.getter(name="restrictWorkspaceAdmins")
     def restrict_workspace_admins(self) -> Optional[pulumi.Input['AccountSettingV2RestrictWorkspaceAdminsArgs']]:
+        """
+        Setting value for restrict_workspace_admins setting. This is the setting value set by consumers, check effective_restrict_workspace_admins for final setting value
+        """
         return pulumi.get(self, "restrict_workspace_admins")
 
     @restrict_workspace_admins.setter
@@ -219,6 +240,9 @@ class AccountSettingV2Args:
     @_builtins.property
     @pulumi.getter(name="stringVal")
     def string_val(self) -> Optional[pulumi.Input['AccountSettingV2StringValArgs']]:
+        """
+        Setting value for string type setting. This is the setting value set by consumers, check effective_string_val for final setting value
+        """
         return pulumi.get(self, "string_val")
 
     @string_val.setter
@@ -233,12 +257,10 @@ class _AccountSettingV2State:
                  aibi_dashboard_embedding_approved_domains: Optional[pulumi.Input['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs']] = None,
                  automatic_cluster_update_workspace: Optional[pulumi.Input['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs']] = None,
                  boolean_val: Optional[pulumi.Input['AccountSettingV2BooleanValArgs']] = None,
-                 default_data_security_mode: Optional[pulumi.Input['AccountSettingV2DefaultDataSecurityModeArgs']] = None,
                  effective_aibi_dashboard_embedding_access_policy: Optional[pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs']] = None,
                  effective_aibi_dashboard_embedding_approved_domains: Optional[pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs']] = None,
                  effective_automatic_cluster_update_workspace: Optional[pulumi.Input['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs']] = None,
                  effective_boolean_val: Optional[pulumi.Input['AccountSettingV2EffectiveBooleanValArgs']] = None,
-                 effective_default_data_security_mode: Optional[pulumi.Input['AccountSettingV2EffectiveDefaultDataSecurityModeArgs']] = None,
                  effective_integer_val: Optional[pulumi.Input['AccountSettingV2EffectiveIntegerValArgs']] = None,
                  effective_personal_compute: Optional[pulumi.Input['AccountSettingV2EffectivePersonalComputeArgs']] = None,
                  effective_restrict_workspace_admins: Optional[pulumi.Input['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs']] = None,
@@ -250,11 +272,23 @@ class _AccountSettingV2State:
                  string_val: Optional[pulumi.Input['AccountSettingV2StringValArgs']] = None):
         """
         Input properties used for looking up and filtering AccountSettingV2 resources.
-        :param pulumi.Input['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs'] automatic_cluster_update_workspace: todo: Mark these Public after onboarded to DSL
-        :param pulumi.Input['AccountSettingV2EffectiveBooleanValArgs'] effective_boolean_val: (BooleanMessage)
-        :param pulumi.Input['AccountSettingV2EffectiveIntegerValArgs'] effective_integer_val: (IntegerMessage)
-        :param pulumi.Input['AccountSettingV2EffectiveStringValArgs'] effective_string_val: (StringMessage)
+        :param pulumi.Input['AccountSettingV2AibiDashboardEmbeddingAccessPolicyArgs'] aibi_dashboard_embedding_access_policy: Setting value for aibi_dashboard_embedding_access_policy setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_access_policy for final setting value
+        :param pulumi.Input['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs'] aibi_dashboard_embedding_approved_domains: Setting value for aibi_dashboard_embedding_approved_domains setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_approved_domains for final setting value
+        :param pulumi.Input['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs'] automatic_cluster_update_workspace: Setting value for automatic_cluster_update_workspace setting. This is the setting value set by consumers, check effective_automatic_cluster_update_workspace for final setting value
+        :param pulumi.Input['AccountSettingV2BooleanValArgs'] boolean_val: Setting value for boolean type setting. This is the setting value set by consumers, check effective_boolean_val for final setting value
+        :param pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs'] effective_aibi_dashboard_embedding_access_policy: Effective setting value for aibi_dashboard_embedding_access_policy setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_access_policy
+        :param pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs'] effective_aibi_dashboard_embedding_approved_domains: Effective setting value for aibi_dashboard_embedding_approved_domains setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_approved_domains
+        :param pulumi.Input['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs'] effective_automatic_cluster_update_workspace: Effective setting value for automatic_cluster_update_workspace setting. This is the final effective value of setting. To set a value use automatic_cluster_update_workspace
+        :param pulumi.Input['AccountSettingV2EffectiveBooleanValArgs'] effective_boolean_val: (BooleanMessage) - Effective setting value for boolean type setting. This is the final effective value of setting. To set a value use boolean_val
+        :param pulumi.Input['AccountSettingV2EffectiveIntegerValArgs'] effective_integer_val: (IntegerMessage) - Effective setting value for integer type setting. This is the final effective value of setting. To set a value use integer_val
+        :param pulumi.Input['AccountSettingV2EffectivePersonalComputeArgs'] effective_personal_compute: Effective setting value for personal_compute setting. This is the final effective value of setting. To set a value use personal_compute
+        :param pulumi.Input['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs'] effective_restrict_workspace_admins: Effective setting value for restrict_workspace_admins setting. This is the final effective value of setting. To set a value use restrict_workspace_admins
+        :param pulumi.Input['AccountSettingV2EffectiveStringValArgs'] effective_string_val: (StringMessage) - Effective setting value for string type setting. This is the final effective value of setting. To set a value use string_val
+        :param pulumi.Input['AccountSettingV2IntegerValArgs'] integer_val: Setting value for integer type setting. This is the setting value set by consumers, check effective_integer_val for final setting value
         :param pulumi.Input[_builtins.str] name: Name of the setting
+        :param pulumi.Input['AccountSettingV2PersonalComputeArgs'] personal_compute: Setting value for personal_compute setting. This is the setting value set by consumers, check effective_personal_compute for final setting value
+        :param pulumi.Input['AccountSettingV2RestrictWorkspaceAdminsArgs'] restrict_workspace_admins: Setting value for restrict_workspace_admins setting. This is the setting value set by consumers, check effective_restrict_workspace_admins for final setting value
+        :param pulumi.Input['AccountSettingV2StringValArgs'] string_val: Setting value for string type setting. This is the setting value set by consumers, check effective_string_val for final setting value
         """
         if aibi_dashboard_embedding_access_policy is not None:
             pulumi.set(__self__, "aibi_dashboard_embedding_access_policy", aibi_dashboard_embedding_access_policy)
@@ -264,8 +298,6 @@ class _AccountSettingV2State:
             pulumi.set(__self__, "automatic_cluster_update_workspace", automatic_cluster_update_workspace)
         if boolean_val is not None:
             pulumi.set(__self__, "boolean_val", boolean_val)
-        if default_data_security_mode is not None:
-            pulumi.set(__self__, "default_data_security_mode", default_data_security_mode)
         if effective_aibi_dashboard_embedding_access_policy is not None:
             pulumi.set(__self__, "effective_aibi_dashboard_embedding_access_policy", effective_aibi_dashboard_embedding_access_policy)
         if effective_aibi_dashboard_embedding_approved_domains is not None:
@@ -274,8 +306,6 @@ class _AccountSettingV2State:
             pulumi.set(__self__, "effective_automatic_cluster_update_workspace", effective_automatic_cluster_update_workspace)
         if effective_boolean_val is not None:
             pulumi.set(__self__, "effective_boolean_val", effective_boolean_val)
-        if effective_default_data_security_mode is not None:
-            pulumi.set(__self__, "effective_default_data_security_mode", effective_default_data_security_mode)
         if effective_integer_val is not None:
             pulumi.set(__self__, "effective_integer_val", effective_integer_val)
         if effective_personal_compute is not None:
@@ -298,6 +328,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="aibiDashboardEmbeddingAccessPolicy")
     def aibi_dashboard_embedding_access_policy(self) -> Optional[pulumi.Input['AccountSettingV2AibiDashboardEmbeddingAccessPolicyArgs']]:
+        """
+        Setting value for aibi_dashboard_embedding_access_policy setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_access_policy for final setting value
+        """
         return pulumi.get(self, "aibi_dashboard_embedding_access_policy")
 
     @aibi_dashboard_embedding_access_policy.setter
@@ -307,6 +340,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="aibiDashboardEmbeddingApprovedDomains")
     def aibi_dashboard_embedding_approved_domains(self) -> Optional[pulumi.Input['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs']]:
+        """
+        Setting value for aibi_dashboard_embedding_approved_domains setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_approved_domains for final setting value
+        """
         return pulumi.get(self, "aibi_dashboard_embedding_approved_domains")
 
     @aibi_dashboard_embedding_approved_domains.setter
@@ -317,7 +353,7 @@ class _AccountSettingV2State:
     @pulumi.getter(name="automaticClusterUpdateWorkspace")
     def automatic_cluster_update_workspace(self) -> Optional[pulumi.Input['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs']]:
         """
-        todo: Mark these Public after onboarded to DSL
+        Setting value for automatic_cluster_update_workspace setting. This is the setting value set by consumers, check effective_automatic_cluster_update_workspace for final setting value
         """
         return pulumi.get(self, "automatic_cluster_update_workspace")
 
@@ -328,6 +364,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="booleanVal")
     def boolean_val(self) -> Optional[pulumi.Input['AccountSettingV2BooleanValArgs']]:
+        """
+        Setting value for boolean type setting. This is the setting value set by consumers, check effective_boolean_val for final setting value
+        """
         return pulumi.get(self, "boolean_val")
 
     @boolean_val.setter
@@ -335,17 +374,11 @@ class _AccountSettingV2State:
         pulumi.set(self, "boolean_val", value)
 
     @_builtins.property
-    @pulumi.getter(name="defaultDataSecurityMode")
-    def default_data_security_mode(self) -> Optional[pulumi.Input['AccountSettingV2DefaultDataSecurityModeArgs']]:
-        return pulumi.get(self, "default_data_security_mode")
-
-    @default_data_security_mode.setter
-    def default_data_security_mode(self, value: Optional[pulumi.Input['AccountSettingV2DefaultDataSecurityModeArgs']]):
-        pulumi.set(self, "default_data_security_mode", value)
-
-    @_builtins.property
     @pulumi.getter(name="effectiveAibiDashboardEmbeddingAccessPolicy")
     def effective_aibi_dashboard_embedding_access_policy(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs']]:
+        """
+        Effective setting value for aibi_dashboard_embedding_access_policy setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_access_policy
+        """
         return pulumi.get(self, "effective_aibi_dashboard_embedding_access_policy")
 
     @effective_aibi_dashboard_embedding_access_policy.setter
@@ -355,6 +388,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="effectiveAibiDashboardEmbeddingApprovedDomains")
     def effective_aibi_dashboard_embedding_approved_domains(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs']]:
+        """
+        Effective setting value for aibi_dashboard_embedding_approved_domains setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_approved_domains
+        """
         return pulumi.get(self, "effective_aibi_dashboard_embedding_approved_domains")
 
     @effective_aibi_dashboard_embedding_approved_domains.setter
@@ -364,6 +400,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="effectiveAutomaticClusterUpdateWorkspace")
     def effective_automatic_cluster_update_workspace(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs']]:
+        """
+        Effective setting value for automatic_cluster_update_workspace setting. This is the final effective value of setting. To set a value use automatic_cluster_update_workspace
+        """
         return pulumi.get(self, "effective_automatic_cluster_update_workspace")
 
     @effective_automatic_cluster_update_workspace.setter
@@ -374,7 +413,7 @@ class _AccountSettingV2State:
     @pulumi.getter(name="effectiveBooleanVal")
     def effective_boolean_val(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveBooleanValArgs']]:
         """
-        (BooleanMessage)
+        (BooleanMessage) - Effective setting value for boolean type setting. This is the final effective value of setting. To set a value use boolean_val
         """
         return pulumi.get(self, "effective_boolean_val")
 
@@ -383,19 +422,10 @@ class _AccountSettingV2State:
         pulumi.set(self, "effective_boolean_val", value)
 
     @_builtins.property
-    @pulumi.getter(name="effectiveDefaultDataSecurityMode")
-    def effective_default_data_security_mode(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveDefaultDataSecurityModeArgs']]:
-        return pulumi.get(self, "effective_default_data_security_mode")
-
-    @effective_default_data_security_mode.setter
-    def effective_default_data_security_mode(self, value: Optional[pulumi.Input['AccountSettingV2EffectiveDefaultDataSecurityModeArgs']]):
-        pulumi.set(self, "effective_default_data_security_mode", value)
-
-    @_builtins.property
     @pulumi.getter(name="effectiveIntegerVal")
     def effective_integer_val(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveIntegerValArgs']]:
         """
-        (IntegerMessage)
+        (IntegerMessage) - Effective setting value for integer type setting. This is the final effective value of setting. To set a value use integer_val
         """
         return pulumi.get(self, "effective_integer_val")
 
@@ -406,6 +436,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="effectivePersonalCompute")
     def effective_personal_compute(self) -> Optional[pulumi.Input['AccountSettingV2EffectivePersonalComputeArgs']]:
+        """
+        Effective setting value for personal_compute setting. This is the final effective value of setting. To set a value use personal_compute
+        """
         return pulumi.get(self, "effective_personal_compute")
 
     @effective_personal_compute.setter
@@ -415,6 +448,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="effectiveRestrictWorkspaceAdmins")
     def effective_restrict_workspace_admins(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs']]:
+        """
+        Effective setting value for restrict_workspace_admins setting. This is the final effective value of setting. To set a value use restrict_workspace_admins
+        """
         return pulumi.get(self, "effective_restrict_workspace_admins")
 
     @effective_restrict_workspace_admins.setter
@@ -425,7 +461,7 @@ class _AccountSettingV2State:
     @pulumi.getter(name="effectiveStringVal")
     def effective_string_val(self) -> Optional[pulumi.Input['AccountSettingV2EffectiveStringValArgs']]:
         """
-        (StringMessage)
+        (StringMessage) - Effective setting value for string type setting. This is the final effective value of setting. To set a value use string_val
         """
         return pulumi.get(self, "effective_string_val")
 
@@ -436,6 +472,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="integerVal")
     def integer_val(self) -> Optional[pulumi.Input['AccountSettingV2IntegerValArgs']]:
+        """
+        Setting value for integer type setting. This is the setting value set by consumers, check effective_integer_val for final setting value
+        """
         return pulumi.get(self, "integer_val")
 
     @integer_val.setter
@@ -457,6 +496,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="personalCompute")
     def personal_compute(self) -> Optional[pulumi.Input['AccountSettingV2PersonalComputeArgs']]:
+        """
+        Setting value for personal_compute setting. This is the setting value set by consumers, check effective_personal_compute for final setting value
+        """
         return pulumi.get(self, "personal_compute")
 
     @personal_compute.setter
@@ -466,6 +508,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="restrictWorkspaceAdmins")
     def restrict_workspace_admins(self) -> Optional[pulumi.Input['AccountSettingV2RestrictWorkspaceAdminsArgs']]:
+        """
+        Setting value for restrict_workspace_admins setting. This is the setting value set by consumers, check effective_restrict_workspace_admins for final setting value
+        """
         return pulumi.get(self, "restrict_workspace_admins")
 
     @restrict_workspace_admins.setter
@@ -475,6 +520,9 @@ class _AccountSettingV2State:
     @_builtins.property
     @pulumi.getter(name="stringVal")
     def string_val(self) -> Optional[pulumi.Input['AccountSettingV2StringValArgs']]:
+        """
+        Setting value for string type setting. This is the setting value set by consumers, check effective_string_val for final setting value
+        """
         return pulumi.get(self, "string_val")
 
     @string_val.setter
@@ -492,11 +540,9 @@ class AccountSettingV2(pulumi.CustomResource):
                  aibi_dashboard_embedding_approved_domains: Optional[pulumi.Input[Union['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs', 'AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgsDict']]] = None,
                  automatic_cluster_update_workspace: Optional[pulumi.Input[Union['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2AutomaticClusterUpdateWorkspaceArgsDict']]] = None,
                  boolean_val: Optional[pulumi.Input[Union['AccountSettingV2BooleanValArgs', 'AccountSettingV2BooleanValArgsDict']]] = None,
-                 default_data_security_mode: Optional[pulumi.Input[Union['AccountSettingV2DefaultDataSecurityModeArgs', 'AccountSettingV2DefaultDataSecurityModeArgsDict']]] = None,
                  effective_aibi_dashboard_embedding_access_policy: Optional[pulumi.Input[Union['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs', 'AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict']]] = None,
                  effective_aibi_dashboard_embedding_approved_domains: Optional[pulumi.Input[Union['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs', 'AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgsDict']]] = None,
                  effective_automatic_cluster_update_workspace: Optional[pulumi.Input[Union['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict']]] = None,
-                 effective_default_data_security_mode: Optional[pulumi.Input[Union['AccountSettingV2EffectiveDefaultDataSecurityModeArgs', 'AccountSettingV2EffectiveDefaultDataSecurityModeArgsDict']]] = None,
                  effective_personal_compute: Optional[pulumi.Input[Union['AccountSettingV2EffectivePersonalComputeArgs', 'AccountSettingV2EffectivePersonalComputeArgsDict']]] = None,
                  effective_restrict_workspace_admins: Optional[pulumi.Input[Union['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs', 'AccountSettingV2EffectiveRestrictWorkspaceAdminsArgsDict']]] = None,
                  integer_val: Optional[pulumi.Input[Union['AccountSettingV2IntegerValArgs', 'AccountSettingV2IntegerValArgsDict']]] = None,
@@ -506,6 +552,28 @@ class AccountSettingV2(pulumi.CustomResource):
                  string_val: Optional[pulumi.Input[Union['AccountSettingV2StringValArgs', 'AccountSettingV2StringValArgsDict']]] = None,
                  __props__=None):
         """
+        [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
+
+        Setting is a configurable value or control that determines how a feature or behavior works within the databricks platform.
+
+        [//]: # (todo: add public link to metadata api after production doc link available)
+        See settings-metadata api for list of settings that can be modified using this resource.
+
+        ## Example Usage
+
+        Getting an account level setting:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        this = databricks.AccountSettingV2("this",
+            name="llm_proxy_partner_powered",
+            boolean_val={
+                "value": False,
+            })
+        ```
+
         ## Import
 
         As of Pulumi v1.5, resources can be imported through configuration.
@@ -523,13 +591,25 @@ class AccountSettingV2(pulumi.CustomResource):
         If you are using an older version of Pulumi, import the resource using the `pulumi import` command as follows:
 
         ```sh
-        $ pulumi import databricks:index/accountSettingV2:AccountSettingV2 databricks_account_setting_v2 "name"
+        $ pulumi import databricks:index/accountSettingV2:AccountSettingV2 this "name"
         ```
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2AutomaticClusterUpdateWorkspaceArgsDict']] automatic_cluster_update_workspace: todo: Mark these Public after onboarded to DSL
+        :param pulumi.Input[Union['AccountSettingV2AibiDashboardEmbeddingAccessPolicyArgs', 'AccountSettingV2AibiDashboardEmbeddingAccessPolicyArgsDict']] aibi_dashboard_embedding_access_policy: Setting value for aibi_dashboard_embedding_access_policy setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_access_policy for final setting value
+        :param pulumi.Input[Union['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs', 'AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgsDict']] aibi_dashboard_embedding_approved_domains: Setting value for aibi_dashboard_embedding_approved_domains setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_approved_domains for final setting value
+        :param pulumi.Input[Union['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2AutomaticClusterUpdateWorkspaceArgsDict']] automatic_cluster_update_workspace: Setting value for automatic_cluster_update_workspace setting. This is the setting value set by consumers, check effective_automatic_cluster_update_workspace for final setting value
+        :param pulumi.Input[Union['AccountSettingV2BooleanValArgs', 'AccountSettingV2BooleanValArgsDict']] boolean_val: Setting value for boolean type setting. This is the setting value set by consumers, check effective_boolean_val for final setting value
+        :param pulumi.Input[Union['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs', 'AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict']] effective_aibi_dashboard_embedding_access_policy: Effective setting value for aibi_dashboard_embedding_access_policy setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_access_policy
+        :param pulumi.Input[Union['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs', 'AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgsDict']] effective_aibi_dashboard_embedding_approved_domains: Effective setting value for aibi_dashboard_embedding_approved_domains setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_approved_domains
+        :param pulumi.Input[Union['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict']] effective_automatic_cluster_update_workspace: Effective setting value for automatic_cluster_update_workspace setting. This is the final effective value of setting. To set a value use automatic_cluster_update_workspace
+        :param pulumi.Input[Union['AccountSettingV2EffectivePersonalComputeArgs', 'AccountSettingV2EffectivePersonalComputeArgsDict']] effective_personal_compute: Effective setting value for personal_compute setting. This is the final effective value of setting. To set a value use personal_compute
+        :param pulumi.Input[Union['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs', 'AccountSettingV2EffectiveRestrictWorkspaceAdminsArgsDict']] effective_restrict_workspace_admins: Effective setting value for restrict_workspace_admins setting. This is the final effective value of setting. To set a value use restrict_workspace_admins
+        :param pulumi.Input[Union['AccountSettingV2IntegerValArgs', 'AccountSettingV2IntegerValArgsDict']] integer_val: Setting value for integer type setting. This is the setting value set by consumers, check effective_integer_val for final setting value
         :param pulumi.Input[_builtins.str] name: Name of the setting
+        :param pulumi.Input[Union['AccountSettingV2PersonalComputeArgs', 'AccountSettingV2PersonalComputeArgsDict']] personal_compute: Setting value for personal_compute setting. This is the setting value set by consumers, check effective_personal_compute for final setting value
+        :param pulumi.Input[Union['AccountSettingV2RestrictWorkspaceAdminsArgs', 'AccountSettingV2RestrictWorkspaceAdminsArgsDict']] restrict_workspace_admins: Setting value for restrict_workspace_admins setting. This is the setting value set by consumers, check effective_restrict_workspace_admins for final setting value
+        :param pulumi.Input[Union['AccountSettingV2StringValArgs', 'AccountSettingV2StringValArgsDict']] string_val: Setting value for string type setting. This is the setting value set by consumers, check effective_string_val for final setting value
         """
         ...
     @overload
@@ -538,6 +618,28 @@ class AccountSettingV2(pulumi.CustomResource):
                  args: Optional[AccountSettingV2Args] = None,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        [![Public Beta](https://img.shields.io/badge/Release_Stage-Public_Beta-orange)](https://docs.databricks.com/aws/en/release-notes/release-types)
+
+        Setting is a configurable value or control that determines how a feature or behavior works within the databricks platform.
+
+        [//]: # (todo: add public link to metadata api after production doc link available)
+        See settings-metadata api for list of settings that can be modified using this resource.
+
+        ## Example Usage
+
+        Getting an account level setting:
+
+        ```python
+        import pulumi
+        import pulumi_databricks as databricks
+
+        this = databricks.AccountSettingV2("this",
+            name="llm_proxy_partner_powered",
+            boolean_val={
+                "value": False,
+            })
+        ```
+
         ## Import
 
         As of Pulumi v1.5, resources can be imported through configuration.
@@ -555,7 +657,7 @@ class AccountSettingV2(pulumi.CustomResource):
         If you are using an older version of Pulumi, import the resource using the `pulumi import` command as follows:
 
         ```sh
-        $ pulumi import databricks:index/accountSettingV2:AccountSettingV2 databricks_account_setting_v2 "name"
+        $ pulumi import databricks:index/accountSettingV2:AccountSettingV2 this "name"
         ```
 
         :param str resource_name: The name of the resource.
@@ -577,11 +679,9 @@ class AccountSettingV2(pulumi.CustomResource):
                  aibi_dashboard_embedding_approved_domains: Optional[pulumi.Input[Union['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs', 'AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgsDict']]] = None,
                  automatic_cluster_update_workspace: Optional[pulumi.Input[Union['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2AutomaticClusterUpdateWorkspaceArgsDict']]] = None,
                  boolean_val: Optional[pulumi.Input[Union['AccountSettingV2BooleanValArgs', 'AccountSettingV2BooleanValArgsDict']]] = None,
-                 default_data_security_mode: Optional[pulumi.Input[Union['AccountSettingV2DefaultDataSecurityModeArgs', 'AccountSettingV2DefaultDataSecurityModeArgsDict']]] = None,
                  effective_aibi_dashboard_embedding_access_policy: Optional[pulumi.Input[Union['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs', 'AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict']]] = None,
                  effective_aibi_dashboard_embedding_approved_domains: Optional[pulumi.Input[Union['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs', 'AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgsDict']]] = None,
                  effective_automatic_cluster_update_workspace: Optional[pulumi.Input[Union['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict']]] = None,
-                 effective_default_data_security_mode: Optional[pulumi.Input[Union['AccountSettingV2EffectiveDefaultDataSecurityModeArgs', 'AccountSettingV2EffectiveDefaultDataSecurityModeArgsDict']]] = None,
                  effective_personal_compute: Optional[pulumi.Input[Union['AccountSettingV2EffectivePersonalComputeArgs', 'AccountSettingV2EffectivePersonalComputeArgsDict']]] = None,
                  effective_restrict_workspace_admins: Optional[pulumi.Input[Union['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs', 'AccountSettingV2EffectiveRestrictWorkspaceAdminsArgsDict']]] = None,
                  integer_val: Optional[pulumi.Input[Union['AccountSettingV2IntegerValArgs', 'AccountSettingV2IntegerValArgsDict']]] = None,
@@ -602,11 +702,9 @@ class AccountSettingV2(pulumi.CustomResource):
             __props__.__dict__["aibi_dashboard_embedding_approved_domains"] = aibi_dashboard_embedding_approved_domains
             __props__.__dict__["automatic_cluster_update_workspace"] = automatic_cluster_update_workspace
             __props__.__dict__["boolean_val"] = boolean_val
-            __props__.__dict__["default_data_security_mode"] = default_data_security_mode
             __props__.__dict__["effective_aibi_dashboard_embedding_access_policy"] = effective_aibi_dashboard_embedding_access_policy
             __props__.__dict__["effective_aibi_dashboard_embedding_approved_domains"] = effective_aibi_dashboard_embedding_approved_domains
             __props__.__dict__["effective_automatic_cluster_update_workspace"] = effective_automatic_cluster_update_workspace
-            __props__.__dict__["effective_default_data_security_mode"] = effective_default_data_security_mode
             __props__.__dict__["effective_personal_compute"] = effective_personal_compute
             __props__.__dict__["effective_restrict_workspace_admins"] = effective_restrict_workspace_admins
             __props__.__dict__["integer_val"] = integer_val
@@ -631,12 +729,10 @@ class AccountSettingV2(pulumi.CustomResource):
             aibi_dashboard_embedding_approved_domains: Optional[pulumi.Input[Union['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs', 'AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgsDict']]] = None,
             automatic_cluster_update_workspace: Optional[pulumi.Input[Union['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2AutomaticClusterUpdateWorkspaceArgsDict']]] = None,
             boolean_val: Optional[pulumi.Input[Union['AccountSettingV2BooleanValArgs', 'AccountSettingV2BooleanValArgsDict']]] = None,
-            default_data_security_mode: Optional[pulumi.Input[Union['AccountSettingV2DefaultDataSecurityModeArgs', 'AccountSettingV2DefaultDataSecurityModeArgsDict']]] = None,
             effective_aibi_dashboard_embedding_access_policy: Optional[pulumi.Input[Union['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs', 'AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict']]] = None,
             effective_aibi_dashboard_embedding_approved_domains: Optional[pulumi.Input[Union['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs', 'AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgsDict']]] = None,
             effective_automatic_cluster_update_workspace: Optional[pulumi.Input[Union['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict']]] = None,
             effective_boolean_val: Optional[pulumi.Input[Union['AccountSettingV2EffectiveBooleanValArgs', 'AccountSettingV2EffectiveBooleanValArgsDict']]] = None,
-            effective_default_data_security_mode: Optional[pulumi.Input[Union['AccountSettingV2EffectiveDefaultDataSecurityModeArgs', 'AccountSettingV2EffectiveDefaultDataSecurityModeArgsDict']]] = None,
             effective_integer_val: Optional[pulumi.Input[Union['AccountSettingV2EffectiveIntegerValArgs', 'AccountSettingV2EffectiveIntegerValArgsDict']]] = None,
             effective_personal_compute: Optional[pulumi.Input[Union['AccountSettingV2EffectivePersonalComputeArgs', 'AccountSettingV2EffectivePersonalComputeArgsDict']]] = None,
             effective_restrict_workspace_admins: Optional[pulumi.Input[Union['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs', 'AccountSettingV2EffectiveRestrictWorkspaceAdminsArgsDict']]] = None,
@@ -653,11 +749,23 @@ class AccountSettingV2(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[Union['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2AutomaticClusterUpdateWorkspaceArgsDict']] automatic_cluster_update_workspace: todo: Mark these Public after onboarded to DSL
-        :param pulumi.Input[Union['AccountSettingV2EffectiveBooleanValArgs', 'AccountSettingV2EffectiveBooleanValArgsDict']] effective_boolean_val: (BooleanMessage)
-        :param pulumi.Input[Union['AccountSettingV2EffectiveIntegerValArgs', 'AccountSettingV2EffectiveIntegerValArgsDict']] effective_integer_val: (IntegerMessage)
-        :param pulumi.Input[Union['AccountSettingV2EffectiveStringValArgs', 'AccountSettingV2EffectiveStringValArgsDict']] effective_string_val: (StringMessage)
+        :param pulumi.Input[Union['AccountSettingV2AibiDashboardEmbeddingAccessPolicyArgs', 'AccountSettingV2AibiDashboardEmbeddingAccessPolicyArgsDict']] aibi_dashboard_embedding_access_policy: Setting value for aibi_dashboard_embedding_access_policy setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_access_policy for final setting value
+        :param pulumi.Input[Union['AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgs', 'AccountSettingV2AibiDashboardEmbeddingApprovedDomainsArgsDict']] aibi_dashboard_embedding_approved_domains: Setting value for aibi_dashboard_embedding_approved_domains setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_approved_domains for final setting value
+        :param pulumi.Input[Union['AccountSettingV2AutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2AutomaticClusterUpdateWorkspaceArgsDict']] automatic_cluster_update_workspace: Setting value for automatic_cluster_update_workspace setting. This is the setting value set by consumers, check effective_automatic_cluster_update_workspace for final setting value
+        :param pulumi.Input[Union['AccountSettingV2BooleanValArgs', 'AccountSettingV2BooleanValArgsDict']] boolean_val: Setting value for boolean type setting. This is the setting value set by consumers, check effective_boolean_val for final setting value
+        :param pulumi.Input[Union['AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgs', 'AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicyArgsDict']] effective_aibi_dashboard_embedding_access_policy: Effective setting value for aibi_dashboard_embedding_access_policy setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_access_policy
+        :param pulumi.Input[Union['AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgs', 'AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomainsArgsDict']] effective_aibi_dashboard_embedding_approved_domains: Effective setting value for aibi_dashboard_embedding_approved_domains setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_approved_domains
+        :param pulumi.Input[Union['AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgs', 'AccountSettingV2EffectiveAutomaticClusterUpdateWorkspaceArgsDict']] effective_automatic_cluster_update_workspace: Effective setting value for automatic_cluster_update_workspace setting. This is the final effective value of setting. To set a value use automatic_cluster_update_workspace
+        :param pulumi.Input[Union['AccountSettingV2EffectiveBooleanValArgs', 'AccountSettingV2EffectiveBooleanValArgsDict']] effective_boolean_val: (BooleanMessage) - Effective setting value for boolean type setting. This is the final effective value of setting. To set a value use boolean_val
+        :param pulumi.Input[Union['AccountSettingV2EffectiveIntegerValArgs', 'AccountSettingV2EffectiveIntegerValArgsDict']] effective_integer_val: (IntegerMessage) - Effective setting value for integer type setting. This is the final effective value of setting. To set a value use integer_val
+        :param pulumi.Input[Union['AccountSettingV2EffectivePersonalComputeArgs', 'AccountSettingV2EffectivePersonalComputeArgsDict']] effective_personal_compute: Effective setting value for personal_compute setting. This is the final effective value of setting. To set a value use personal_compute
+        :param pulumi.Input[Union['AccountSettingV2EffectiveRestrictWorkspaceAdminsArgs', 'AccountSettingV2EffectiveRestrictWorkspaceAdminsArgsDict']] effective_restrict_workspace_admins: Effective setting value for restrict_workspace_admins setting. This is the final effective value of setting. To set a value use restrict_workspace_admins
+        :param pulumi.Input[Union['AccountSettingV2EffectiveStringValArgs', 'AccountSettingV2EffectiveStringValArgsDict']] effective_string_val: (StringMessage) - Effective setting value for string type setting. This is the final effective value of setting. To set a value use string_val
+        :param pulumi.Input[Union['AccountSettingV2IntegerValArgs', 'AccountSettingV2IntegerValArgsDict']] integer_val: Setting value for integer type setting. This is the setting value set by consumers, check effective_integer_val for final setting value
         :param pulumi.Input[_builtins.str] name: Name of the setting
+        :param pulumi.Input[Union['AccountSettingV2PersonalComputeArgs', 'AccountSettingV2PersonalComputeArgsDict']] personal_compute: Setting value for personal_compute setting. This is the setting value set by consumers, check effective_personal_compute for final setting value
+        :param pulumi.Input[Union['AccountSettingV2RestrictWorkspaceAdminsArgs', 'AccountSettingV2RestrictWorkspaceAdminsArgsDict']] restrict_workspace_admins: Setting value for restrict_workspace_admins setting. This is the setting value set by consumers, check effective_restrict_workspace_admins for final setting value
+        :param pulumi.Input[Union['AccountSettingV2StringValArgs', 'AccountSettingV2StringValArgsDict']] string_val: Setting value for string type setting. This is the setting value set by consumers, check effective_string_val for final setting value
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -667,12 +775,10 @@ class AccountSettingV2(pulumi.CustomResource):
         __props__.__dict__["aibi_dashboard_embedding_approved_domains"] = aibi_dashboard_embedding_approved_domains
         __props__.__dict__["automatic_cluster_update_workspace"] = automatic_cluster_update_workspace
         __props__.__dict__["boolean_val"] = boolean_val
-        __props__.__dict__["default_data_security_mode"] = default_data_security_mode
         __props__.__dict__["effective_aibi_dashboard_embedding_access_policy"] = effective_aibi_dashboard_embedding_access_policy
         __props__.__dict__["effective_aibi_dashboard_embedding_approved_domains"] = effective_aibi_dashboard_embedding_approved_domains
         __props__.__dict__["effective_automatic_cluster_update_workspace"] = effective_automatic_cluster_update_workspace
         __props__.__dict__["effective_boolean_val"] = effective_boolean_val
-        __props__.__dict__["effective_default_data_security_mode"] = effective_default_data_security_mode
         __props__.__dict__["effective_integer_val"] = effective_integer_val
         __props__.__dict__["effective_personal_compute"] = effective_personal_compute
         __props__.__dict__["effective_restrict_workspace_admins"] = effective_restrict_workspace_admins
@@ -687,88 +793,105 @@ class AccountSettingV2(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="aibiDashboardEmbeddingAccessPolicy")
     def aibi_dashboard_embedding_access_policy(self) -> pulumi.Output[Optional['outputs.AccountSettingV2AibiDashboardEmbeddingAccessPolicy']]:
+        """
+        Setting value for aibi_dashboard_embedding_access_policy setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_access_policy for final setting value
+        """
         return pulumi.get(self, "aibi_dashboard_embedding_access_policy")
 
     @_builtins.property
     @pulumi.getter(name="aibiDashboardEmbeddingApprovedDomains")
     def aibi_dashboard_embedding_approved_domains(self) -> pulumi.Output[Optional['outputs.AccountSettingV2AibiDashboardEmbeddingApprovedDomains']]:
+        """
+        Setting value for aibi_dashboard_embedding_approved_domains setting. This is the setting value set by consumers, check effective_aibi_dashboard_embedding_approved_domains for final setting value
+        """
         return pulumi.get(self, "aibi_dashboard_embedding_approved_domains")
 
     @_builtins.property
     @pulumi.getter(name="automaticClusterUpdateWorkspace")
     def automatic_cluster_update_workspace(self) -> pulumi.Output[Optional['outputs.AccountSettingV2AutomaticClusterUpdateWorkspace']]:
         """
-        todo: Mark these Public after onboarded to DSL
+        Setting value for automatic_cluster_update_workspace setting. This is the setting value set by consumers, check effective_automatic_cluster_update_workspace for final setting value
         """
         return pulumi.get(self, "automatic_cluster_update_workspace")
 
     @_builtins.property
     @pulumi.getter(name="booleanVal")
     def boolean_val(self) -> pulumi.Output[Optional['outputs.AccountSettingV2BooleanVal']]:
+        """
+        Setting value for boolean type setting. This is the setting value set by consumers, check effective_boolean_val for final setting value
+        """
         return pulumi.get(self, "boolean_val")
-
-    @_builtins.property
-    @pulumi.getter(name="defaultDataSecurityMode")
-    def default_data_security_mode(self) -> pulumi.Output[Optional['outputs.AccountSettingV2DefaultDataSecurityMode']]:
-        return pulumi.get(self, "default_data_security_mode")
 
     @_builtins.property
     @pulumi.getter(name="effectiveAibiDashboardEmbeddingAccessPolicy")
     def effective_aibi_dashboard_embedding_access_policy(self) -> pulumi.Output[Optional['outputs.AccountSettingV2EffectiveAibiDashboardEmbeddingAccessPolicy']]:
+        """
+        Effective setting value for aibi_dashboard_embedding_access_policy setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_access_policy
+        """
         return pulumi.get(self, "effective_aibi_dashboard_embedding_access_policy")
 
     @_builtins.property
     @pulumi.getter(name="effectiveAibiDashboardEmbeddingApprovedDomains")
     def effective_aibi_dashboard_embedding_approved_domains(self) -> pulumi.Output[Optional['outputs.AccountSettingV2EffectiveAibiDashboardEmbeddingApprovedDomains']]:
+        """
+        Effective setting value for aibi_dashboard_embedding_approved_domains setting. This is the final effective value of setting. To set a value use aibi_dashboard_embedding_approved_domains
+        """
         return pulumi.get(self, "effective_aibi_dashboard_embedding_approved_domains")
 
     @_builtins.property
     @pulumi.getter(name="effectiveAutomaticClusterUpdateWorkspace")
     def effective_automatic_cluster_update_workspace(self) -> pulumi.Output[Optional['outputs.AccountSettingV2EffectiveAutomaticClusterUpdateWorkspace']]:
+        """
+        Effective setting value for automatic_cluster_update_workspace setting. This is the final effective value of setting. To set a value use automatic_cluster_update_workspace
+        """
         return pulumi.get(self, "effective_automatic_cluster_update_workspace")
 
     @_builtins.property
     @pulumi.getter(name="effectiveBooleanVal")
     def effective_boolean_val(self) -> pulumi.Output['outputs.AccountSettingV2EffectiveBooleanVal']:
         """
-        (BooleanMessage)
+        (BooleanMessage) - Effective setting value for boolean type setting. This is the final effective value of setting. To set a value use boolean_val
         """
         return pulumi.get(self, "effective_boolean_val")
-
-    @_builtins.property
-    @pulumi.getter(name="effectiveDefaultDataSecurityMode")
-    def effective_default_data_security_mode(self) -> pulumi.Output[Optional['outputs.AccountSettingV2EffectiveDefaultDataSecurityMode']]:
-        return pulumi.get(self, "effective_default_data_security_mode")
 
     @_builtins.property
     @pulumi.getter(name="effectiveIntegerVal")
     def effective_integer_val(self) -> pulumi.Output['outputs.AccountSettingV2EffectiveIntegerVal']:
         """
-        (IntegerMessage)
+        (IntegerMessage) - Effective setting value for integer type setting. This is the final effective value of setting. To set a value use integer_val
         """
         return pulumi.get(self, "effective_integer_val")
 
     @_builtins.property
     @pulumi.getter(name="effectivePersonalCompute")
     def effective_personal_compute(self) -> pulumi.Output[Optional['outputs.AccountSettingV2EffectivePersonalCompute']]:
+        """
+        Effective setting value for personal_compute setting. This is the final effective value of setting. To set a value use personal_compute
+        """
         return pulumi.get(self, "effective_personal_compute")
 
     @_builtins.property
     @pulumi.getter(name="effectiveRestrictWorkspaceAdmins")
     def effective_restrict_workspace_admins(self) -> pulumi.Output[Optional['outputs.AccountSettingV2EffectiveRestrictWorkspaceAdmins']]:
+        """
+        Effective setting value for restrict_workspace_admins setting. This is the final effective value of setting. To set a value use restrict_workspace_admins
+        """
         return pulumi.get(self, "effective_restrict_workspace_admins")
 
     @_builtins.property
     @pulumi.getter(name="effectiveStringVal")
     def effective_string_val(self) -> pulumi.Output['outputs.AccountSettingV2EffectiveStringVal']:
         """
-        (StringMessage)
+        (StringMessage) - Effective setting value for string type setting. This is the final effective value of setting. To set a value use string_val
         """
         return pulumi.get(self, "effective_string_val")
 
     @_builtins.property
     @pulumi.getter(name="integerVal")
     def integer_val(self) -> pulumi.Output[Optional['outputs.AccountSettingV2IntegerVal']]:
+        """
+        Setting value for integer type setting. This is the setting value set by consumers, check effective_integer_val for final setting value
+        """
         return pulumi.get(self, "integer_val")
 
     @_builtins.property
@@ -782,15 +905,24 @@ class AccountSettingV2(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="personalCompute")
     def personal_compute(self) -> pulumi.Output[Optional['outputs.AccountSettingV2PersonalCompute']]:
+        """
+        Setting value for personal_compute setting. This is the setting value set by consumers, check effective_personal_compute for final setting value
+        """
         return pulumi.get(self, "personal_compute")
 
     @_builtins.property
     @pulumi.getter(name="restrictWorkspaceAdmins")
     def restrict_workspace_admins(self) -> pulumi.Output[Optional['outputs.AccountSettingV2RestrictWorkspaceAdmins']]:
+        """
+        Setting value for restrict_workspace_admins setting. This is the setting value set by consumers, check effective_restrict_workspace_admins for final setting value
+        """
         return pulumi.get(self, "restrict_workspace_admins")
 
     @_builtins.property
     @pulumi.getter(name="stringVal")
     def string_val(self) -> pulumi.Output[Optional['outputs.AccountSettingV2StringVal']]:
+        """
+        Setting value for string type setting. This is the setting value set by consumers, check effective_string_val for final setting value
+        """
         return pulumi.get(self, "string_val")
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-modeltranslation
-Version: 0.19.17
+Version: 0.19.19
 Summary: Translates Django models using a registration approach.
 Project-URL: Homepage, https://github.com/deschler/django-modeltranslation
 Project-URL: Source, https://github.com/deschler/django-modeltranslation
@@ -17,13 +17,14 @@ Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: <4,>=3.9
-Requires-Dist: django>=4.2
-Requires-Dist: typing-extensions>=4.0.1; python_version < '3.11'
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4,>=3.10
+Requires-Dist: django>=5.1
+Requires-Dist: typing-extensions>=4.0.1
 Description-Content-Type: text/x-rst
 
 ================

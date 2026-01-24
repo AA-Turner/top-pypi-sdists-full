@@ -13,22 +13,27 @@ from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-from .group_0242 import Link
+
+class CustomDeploymentRuleApp(GitHubModel):
+    """Custom deployment protection rule app
+
+    A GitHub App that is providing a custom deployment protection rule.
+    """
+
+    id: int = Field(
+        description="The unique identifier of the deployment protection rule integration."
+    )
+    slug: str = Field(
+        description="The slugified name of the deployment protection rule integration."
+    )
+    integration_url: str = Field(
+        description="The URL for the endpoint to get details about the app."
+    )
+    node_id: str = Field(
+        description="The node ID for the deployment protection rule integration."
+    )
 
 
-class PullRequestPropLinks(GitHubModel):
-    """PullRequestPropLinks"""
+model_rebuild(CustomDeploymentRuleApp)
 
-    comments: Link = Field(title="Link", description="Hypermedia Link")
-    commits: Link = Field(title="Link", description="Hypermedia Link")
-    statuses: Link = Field(title="Link", description="Hypermedia Link")
-    html: Link = Field(title="Link", description="Hypermedia Link")
-    issue: Link = Field(title="Link", description="Hypermedia Link")
-    review_comments: Link = Field(title="Link", description="Hypermedia Link")
-    review_comment: Link = Field(title="Link", description="Hypermedia Link")
-    self_: Link = Field(alias="self", title="Link", description="Hypermedia Link")
-
-
-model_rebuild(PullRequestPropLinks)
-
-__all__ = ("PullRequestPropLinks",)
+__all__ = ("CustomDeploymentRuleApp",)

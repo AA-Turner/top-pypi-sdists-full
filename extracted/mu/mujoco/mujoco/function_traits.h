@@ -165,6 +165,17 @@ struct mj_parseXMLString {
   }
 };
 
+struct mj_parse {
+  static constexpr char name[] = "mj_parse";
+  static constexpr char doc[] = "Parse spec from a file.";
+  using type = mjSpec * (const char *, const char *, const mjVFS *, char *, int);
+  static constexpr auto param_names = std::make_tuple("filename", "content_type", "vfs", "error", "error_sz");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_parse;
+  }
+};
+
 struct mj_compile {
   static constexpr char name[] = "mj_compile";
   static constexpr char doc[] = "Compile spec to model.";
@@ -239,6 +250,17 @@ struct mj_saveXML {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mj_saveXML;
+  }
+};
+
+struct mju_getXMLDependencies {
+  static constexpr char name[] = "mju_getXMLDependencies";
+  static constexpr char doc[] = "Given MJCF filename, fills dependencies with a list of all other asset files it depends on. The search is recursive, and the list includes the filename itself.";
+  using type = void (const char *, mjStringVec *);
+  static constexpr auto param_names = std::make_tuple("filename", "dependencies");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mju_getXMLDependencies;
   }
 };
 
@@ -410,7 +432,7 @@ struct mj_deleteModel {
 struct mj_sizeModel {
   static constexpr char name[] = "mj_sizeModel";
   static constexpr char doc[] = "Return size of buffer needed to hold model.";
-  using type = int (const mjModel *);
+  using type = mjtSize (const mjModel *);
   static constexpr auto param_names = std::make_tuple("m");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -662,7 +684,7 @@ struct mj_printModel {
 
 struct mj_printFormattedData {
   static constexpr char name[] = "mj_printFormattedData";
-  static constexpr char doc[] = "Print mjData to text file, specifying format. float_format must be a valid printf-style format string for a single float value";
+  static constexpr char doc[] = "Print mjData to text file, specifying format. float_format must be a valid printf-style format string for a single float value.";
   using type = void (const mjModel *, const mjData *, const char *, const char *);
   static constexpr auto param_names = std::make_tuple("m", "d", "filename", "float_format");
 
@@ -712,6 +734,39 @@ struct mj_printSchema {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mj_printSchema;
+  }
+};
+
+struct mj_printScene {
+  static constexpr char name[] = "mj_printScene";
+  static constexpr char doc[] = "Print scene to text file.";
+  using type = void (const mjvScene *, const char *);
+  static constexpr auto param_names = std::make_tuple("s", "filename");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_printScene;
+  }
+};
+
+struct mj_printFormattedScene {
+  static constexpr char name[] = "mj_printFormattedScene";
+  static constexpr char doc[] = "Print scene to text file, specifying format. float_format must be a valid printf-style format string for a single float value.";
+  using type = void (const mjvScene *, const char *, const char *);
+  static constexpr auto param_names = std::make_tuple("s", "filename", "float_format");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_printFormattedScene;
+  }
+};
+
+struct mj_fwdKinematics {
+  static constexpr char name[] = "mj_fwdKinematics";
+  static constexpr char doc[] = "Run all kinematics-like computations (kinematics, comPos, camlight, flex, tendon).";
+  using type = void (const mjModel *, mjData *);
+  static constexpr auto param_names = std::make_tuple("m", "d");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_fwdKinematics;
   }
 };
 
@@ -1199,6 +1254,17 @@ struct mj_getState {
   }
 };
 
+struct mj_extractState {
+  static constexpr char name[] = "mj_extractState";
+  static constexpr char doc[] = "Extract a subset of components from a state previously obtained via mj_getState.";
+  using type = void (const mjModel *, const mjtNum *, unsigned int, mjtNum *, unsigned int);
+  static constexpr auto param_names = std::make_tuple("m", "src", "srcsig", "dst", "dstsig");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_extractState;
+  }
+};
+
 struct mj_setState {
   static constexpr char name[] = "mj_setState";
   static constexpr char doc[] = "Set state.";
@@ -1207,6 +1273,17 @@ struct mj_setState {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mj_setState;
+  }
+};
+
+struct mj_copyState {
+  static constexpr char name[] = "mj_copyState";
+  static constexpr char doc[] = "Copy state from src to dst.";
+  using type = void (const mjModel *, const mjData *, mjData *, unsigned int);
+  static constexpr auto param_names = std::make_tuple("m", "src", "dst", "sig");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_copyState;
   }
 };
 
@@ -1631,7 +1708,7 @@ struct mj_versionString {
 struct mj_multiRay {
   static constexpr char name[] = "mj_multiRay";
   static constexpr char doc[] = "Intersect multiple rays emanating from a single point. Similar semantics to mj_ray, but vec is an array of (nray x 3) directions.";
-  using type = void (const mjModel *, mjData *, const mjtNum (*)[3], const mjtNum *, const mjtByte *, mjtByte, int, int *, mjtNum *, int, mjtNum);
+  using type = void (const mjModel *, mjData *, const mjtNum (*)[3], const mjtNum (*)[3], const mjtByte *, mjtByte, int, int *, mjtNum *, int, mjtNum);
   static constexpr auto param_names = std::make_tuple("m", "d", "pnt", "vec", "geomgroup", "flg_static", "bodyexclude", "geomid", "dist", "nray", "cutoff");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -1686,7 +1763,7 @@ struct mju_rayGeom {
 struct mju_rayFlex {
   static constexpr char name[] = "mju_rayFlex";
   static constexpr char doc[] = "Intersect ray with flex, return nearest distance or -1 if no intersection, and also output nearest vertex id.";
-  using type = mjtNum (const mjModel *, const mjData *, int, mjtByte, mjtByte, mjtByte, mjtByte, int, const mjtNum *, const mjtNum *, int (*)[1]);
+  using type = mjtNum (const mjModel *, const mjData *, int, mjtByte, mjtByte, mjtByte, mjtByte, int, const mjtNum (*)[3], const mjtNum (*)[3], int (*)[1]);
   static constexpr auto param_names = std::make_tuple("m", "d", "flex_layer", "flg_vert", "flg_edge", "flg_face", "flg_skin", "flexid", "pnt", "vec", "vertid");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -2032,6 +2109,28 @@ struct mjv_updateSkin {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjv_updateSkin;
+  }
+};
+
+struct mjv_cameraFrame {
+  static constexpr char name[] = "mjv_cameraFrame";
+  static constexpr char doc[] = "Compute camera position and forward, up, and right vectors.";
+  using type = void (mjtNum (*)[3], mjtNum (*)[3], mjtNum (*)[3], mjtNum (*)[3], const mjData *, const mjvCamera *);
+  static constexpr auto param_names = std::make_tuple("headpos", "forward", "up", "right", "d", "cam");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return *reinterpret_cast<type*>(&::mjv_cameraFrame);
+  }
+};
+
+struct mjv_cameraFrustum {
+  static constexpr char name[] = "mjv_cameraFrustum";
+  static constexpr char doc[] = "Compute camera frustum: vertical, horizontal, and clip planes.";
+  using type = void (float (*)[2], float (*)[2], float (*)[2], const mjModel *, const mjvCamera *);
+  static constexpr auto param_names = std::make_tuple("zver", "zhor", "zclip", "m", "cam");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return *reinterpret_cast<type*>(&::mjv_cameraFrustum);
   }
 };
 
@@ -3534,7 +3633,7 @@ struct mju_isBad {
 struct mju_isZero {
   static constexpr char name[] = "mju_isZero";
   static constexpr char doc[] = "Return 1 if all elements are 0.";
-  using type = int (mjtNum *, int);
+  using type = int (const mjtNum *, int);
   static constexpr auto param_names = std::make_tuple("vec", "n");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -3836,6 +3935,39 @@ struct mjp_getResourceProviderAtSlot {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjp_getResourceProviderAtSlot;
+  }
+};
+
+struct mjp_registerDecoder {
+  static constexpr char name[] = "mjp_registerDecoder";
+  static constexpr char doc[] = "Globally register a decoder. This function is thread-safe. If an identical mjpDecoder is already registered, this function does nothing. If a non-identical mjpDecoder with the same name is already registered, an mju_error is raised.";
+  using type = void (const mjpDecoder *);
+  static constexpr auto param_names = std::make_tuple("decoder");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjp_registerDecoder;
+  }
+};
+
+struct mjp_defaultDecoder {
+  static constexpr char name[] = "mjp_defaultDecoder";
+  static constexpr char doc[] = "Set default resource decoder definition.";
+  using type = void (mjpDecoder *);
+  static constexpr auto param_names = std::make_tuple("decoder");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjp_defaultDecoder;
+  }
+};
+
+struct mjp_findDecoder {
+  static constexpr char name[] = "mjp_findDecoder";
+  static constexpr char doc[] = "Return the resource provider with the prefix that matches against the resource name. If no match, return NULL.";
+  using type = const mjpDecoder * (const mjResource *, const char *);
+  static constexpr auto param_names = std::make_tuple("resource", "content_type");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjp_findDecoder;
   }
 };
 
@@ -4532,6 +4664,50 @@ struct mjs_nextElement {
   }
 };
 
+struct mjs_getWrapTarget {
+  static constexpr char name[] = "mjs_getWrapTarget";
+  static constexpr char doc[] = "Get wrapped element in tendon path.";
+  using type = mjsElement * (mjsWrap *);
+  static constexpr auto param_names = std::make_tuple("wrap");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getWrapTarget;
+  }
+};
+
+struct mjs_getWrapSideSite {
+  static constexpr char name[] = "mjs_getWrapSideSite";
+  static constexpr char doc[] = "Get wrapped element side site in tendon path if it has one, nullptr otherwise.";
+  using type = mjsSite * (mjsWrap *);
+  static constexpr auto param_names = std::make_tuple("wrap");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getWrapSideSite;
+  }
+};
+
+struct mjs_getWrapDivisor {
+  static constexpr char name[] = "mjs_getWrapDivisor";
+  static constexpr char doc[] = "Get divisor of mjsWrap wrapping a puller.";
+  using type = double (mjsWrap *);
+  static constexpr auto param_names = std::make_tuple("wrap");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getWrapDivisor;
+  }
+};
+
+struct mjs_getWrapCoef {
+  static constexpr char name[] = "mjs_getWrapCoef";
+  static constexpr char doc[] = "Get coefficient of mjsWrap wrapping a joint.";
+  using type = double (mjsWrap *);
+  static constexpr auto param_names = std::make_tuple("wrap");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getWrapCoef;
+  }
+};
+
 struct mjs_setName {
   static constexpr char name[] = "mjs_setName";
   static constexpr char doc[] = "Set element's name, return 0 on success.";
@@ -4694,6 +4870,28 @@ struct mjs_getDouble {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjs_getDouble;
+  }
+};
+
+struct mjs_getWrapNum {
+  static constexpr char name[] = "mjs_getWrapNum";
+  static constexpr char doc[] = "Get number of elements a tendon wraps.";
+  using type = int (const mjsTendon *);
+  static constexpr auto param_names = std::make_tuple("tendonspec");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getWrapNum;
+  }
+};
+
+struct mjs_getWrap {
+  static constexpr char name[] = "mjs_getWrap";
+  static constexpr char doc[] = "Get mjsWrap element at position i in the tendon path.";
+  using type = mjsWrap * (const mjsTendon *, int);
+  static constexpr auto param_names = std::make_tuple("tendonspec", "i");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getWrap;
   }
 };
 

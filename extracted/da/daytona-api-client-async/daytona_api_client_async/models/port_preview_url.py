@@ -19,7 +19,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,11 +27,11 @@ class PortPreviewUrl(BaseModel):
     """
     PortPreviewUrl
     """ # noqa: E501
+    sandbox_id: StrictStr = Field(description="ID of the sandbox", serialization_alias="sandboxId")
     url: StrictStr = Field(description="Preview url")
     token: StrictStr = Field(description="Access token")
-    legacy_proxy_url: Optional[StrictStr] = Field(default=None, description="Legacy preview url using runner domain", alias="legacyProxyUrl")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["url", "token", "legacyProxyUrl"]
+    __properties: ClassVar[List[str]] = ["sandboxId", "url", "token"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -91,9 +91,9 @@ class PortPreviewUrl(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "sandbox_id": obj.get("sandboxId"),
             "url": obj.get("url"),
-            "token": obj.get("token"),
-            "legacyProxyUrl": obj.get("legacyProxyUrl")
+            "token": obj.get("token")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

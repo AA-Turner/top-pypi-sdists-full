@@ -15,18 +15,20 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any
 
-from jsonschema import Draft7Validator
-from sphinx.config import Config
+from jsonschema_rs import Draft7Validator, ValidationError
+from sphinx.environment import BuildEnvironment
 
 from sphinx_needs.config import NeedsSphinxConfig
-from sphinx_needs.data import NeedsCoreFields, NeedsInfoType
+from sphinx_needs.data import NeedsCoreFields, SphinxNeedsData
 from sphinx_needs.logging import get_logger, log_warning
+from sphinx_needs.need_item import NeedItem
+from sphinx_needs.needs_schema import FieldLiteralValue, FieldsSchema
 
 log = get_logger(__name__)
 
 
 def generate_needs_schema(
-    needs_config: NeedsSphinxConfig, exclude_properties: Iterable[str] = ()
+    needs_schema: FieldsSchema, exclude_properties: Iterable[str] = ()
 ) -> dict[str, Any]:
     """Generate a JSON schema for all fields in each need item.
 
@@ -38,13 +40,18 @@ def generate_needs_schema(
     """
     properties: dict[str, Any] = {}
 
-    for name, extra_params in needs_config.extra_options.items():
-        properties[name] = {
-            "type": "string",
-            "description": extra_params.description,
+    for field in needs_schema.iter_extra_fields():
+        properties[field.name] = {
+            "type": [field.type, "null"] if field.nullable else field.type,
+            "description": field.description,
             "field_type": "extra",
-            "default": "",
         }
+        if field.item_type is not None:
+            properties[field.name]["items"] = {"type": field.item_type}
+        if isinstance(field.default, FieldLiteralValue):
+            properties[field.name]["default"] = field.default.value
+        elif field.nullable:
+            properties[field.name]["default"] = None
 
     # TODO currently extra options can overlap with core fields,
     # in which case they are ignored,
@@ -55,15 +62,15 @@ def generate_needs_schema(
         properties[name]["description"] = f"{core_params['description']}"
         properties[name]["field_type"] = "core"
 
-    for link in needs_config.extra_links:
-        properties[link["option"]] = {
+    for link in needs_schema.iter_link_fields():
+        properties[link.name] = {
             "type": "array",
             "items": {"type": "string"},
-            "description": "Link field",
+            "description": link.description,
             "field_type": "links",
             "default": [],
         }
-        properties[link["option"] + "_back"] = {
+        properties[link.name + "_back"] = {
             "type": "array",
             "items": {"type": "string"},
             "description": "Backlink field",
@@ -72,8 +79,7 @@ def generate_needs_schema(
         }
 
     for name in exclude_properties:
-        if name in properties:
-            del properties[name]
+        properties.pop(name, None)
 
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -85,17 +91,17 @@ def generate_needs_schema(
 class NeedsList:
     def __init__(
         self,
-        config: Config,
+        env: BuildEnvironment,
         outdir: str | os.PathLike[str],
         confdir: str | os.PathLike[str],
         add_schema: bool = True,
     ) -> None:
-        self.config = config
-        self.needs_config = NeedsSphinxConfig(config)
+        self.config = env.config
+        self.needs_config = NeedsSphinxConfig(self.config)
         self.outdir = outdir
         self.confdir = confdir
-        self.current_version = config.version
-        self.project = config.project
+        self.current_version = self.config.version
+        self.project = self.config.project
         self.needs_list = {
             "project": self.project,
             "current_version": self.current_version,
@@ -107,10 +113,9 @@ class NeedsList:
 
         self._exclude_need_keys = set(self.needs_config.json_exclude_fields)
 
+        schema = SphinxNeedsData(env).get_schema()
         self._schema = (
-            generate_needs_schema(
-                self.needs_config, exclude_properties=self._exclude_need_keys
-            )
+            generate_needs_schema(schema, exclude_properties=self._exclude_need_keys)
             if add_schema
             else None
         )
@@ -149,7 +154,7 @@ class NeedsList:
         if not self.needs_config.reproducible_json:
             self.needs_list["versions"][version]["created"] = datetime.now().isoformat()
 
-    def add_need(self, version: str, need_info: NeedsInfoType) -> None:
+    def add_need(self, version: str, need_info: NeedItem) -> None:
         self.update_or_add_version(version)
         writable_needs = {
             key: value
@@ -207,7 +212,9 @@ class NeedsList:
             if errors.schema:
                 self.log.info(f"Schema validation errors detected in file {file}:")
                 for error in errors.schema:
-                    self.log.info(f"  {error.message} -> {'.'.join(error.path)}")
+                    self.log.info(
+                        f"  {error.message} -> {'.'.join(str(p) for p in error.instance_path)}"
+                    )
 
             with open(file) as needs_file:
                 try:
@@ -226,7 +233,7 @@ class NeedsList:
 
 
 class Errors:
-    def __init__(self, schema_errors: list[Any]):
+    def __init__(self, schema_errors: list[ValidationError]):
         self.schema = schema_errors
 
 

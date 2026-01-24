@@ -22,7 +22,7 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.Session]]:
+    ) -> List[models.Session]:
         r"""List all sessions
 
         Returns a list of all sessions.
@@ -33,9 +33,14 @@ class Sessions(BaseSDK):
         :param client_id: List sessions for the given client
         :param user_id: List sessions for the given user
         :param status: Filter sessions by the provided status
-        :param paginated: Whether to paginate the results. If true, the results will be paginated. If false, the results will not be paginated.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param paginated: Whether to paginate the results.
+            If true, the results will be paginated.
+            If false, the results will not be paginated.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -73,6 +78,7 @@ class Sessions(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -93,7 +99,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetSessionList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -103,7 +109,7 @@ class Sessions(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[List[models.Session]], http_res)
+            return unmarshal_json_response(List[models.Session], http_res)
         if utils.match_response(http_res, ["400", "401", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -129,7 +135,7 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[List[models.Session]]:
+    ) -> List[models.Session]:
         r"""List all sessions
 
         Returns a list of all sessions.
@@ -140,9 +146,14 @@ class Sessions(BaseSDK):
         :param client_id: List sessions for the given client
         :param user_id: List sessions for the given user
         :param status: Filter sessions by the provided status
-        :param paginated: Whether to paginate the results. If true, the results will be paginated. If false, the results will not be paginated.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param paginated: Whether to paginate the results.
+            If true, the results will be paginated.
+            If false, the results will not be paginated.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -180,6 +191,7 @@ class Sessions(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -200,7 +212,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetSessionList",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -210,7 +222,7 @@ class Sessions(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[List[models.Session]], http_res)
+            return unmarshal_json_response(List[models.Session], http_res)
         if utils.match_response(http_res, ["400", "401", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -236,7 +248,7 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Session]:
+    ) -> models.Session:
         r"""Create a new active session
 
         Create a new active session for the provided user ID.
@@ -282,6 +294,7 @@ class Sessions(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, True, "json", Optional[models.CreateSessionRequestBody]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -302,7 +315,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createSession",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -312,7 +325,7 @@ class Sessions(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Session], http_res)
+            return unmarshal_json_response(models.Session, http_res)
         if utils.match_response(
             http_res, ["400", "401", "404", "422"], "application/json"
         ):
@@ -340,7 +353,7 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Session]:
+    ) -> models.Session:
         r"""Create a new active session
 
         Create a new active session for the provided user ID.
@@ -386,6 +399,7 @@ class Sessions(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, True, "json", Optional[models.CreateSessionRequestBody]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -406,7 +420,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createSession",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -416,7 +430,7 @@ class Sessions(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Session], http_res)
+            return unmarshal_json_response(models.Session, http_res)
         if utils.match_response(
             http_res, ["400", "401", "404", "422"], "application/json"
         ):
@@ -439,7 +453,7 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Session]:
+    ) -> models.Session:
         r"""Retrieve a session
 
         Retrieve the details of a session
@@ -477,6 +491,7 @@ class Sessions(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -497,7 +512,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetSession",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -507,7 +522,7 @@ class Sessions(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Session], http_res)
+            return unmarshal_json_response(models.Session, http_res)
         if utils.match_response(http_res, ["400", "401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -528,7 +543,7 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Session]:
+    ) -> models.Session:
         r"""Retrieve a session
 
         Retrieve the details of a session
@@ -566,6 +581,7 @@ class Sessions(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -586,7 +602,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetSession",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -596,7 +612,7 @@ class Sessions(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Session], http_res)
+            return unmarshal_json_response(models.Session, http_res)
         if utils.match_response(http_res, ["400", "401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -623,15 +639,16 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SessionRefresh]:
+    ) -> models.SessionRefresh:
         r"""Refresh a session
 
         Refreshes a session by creating a new session token. A 401 is returned when there
         are validation errors, which signals the SDKs to fall back to the handshake flow.
 
         :param session_id: The ID of the session
-        :param expired_token: The JWT that is sent via the `__session` cookie from your frontend. Note: this JWT must be associated with the supplied session ID.
-        :param refresh_token: The JWT that is sent via the `__session` cookie from your frontend.
+        :param expired_token: The JWT that is sent via the `__session` cookie from your frontend.
+            Note: this JWT must be associated with the supplied session ID.
+        :param refresh_token: The refresh token from the `__refresh` cookie set via FAPI's handshake flow.
         :param request_origin: The origin of the request.
         :param request_headers: The headers of the request.
         :param format_: The format of the response.
@@ -683,6 +700,7 @@ class Sessions(BaseSDK):
                 "json",
                 Optional[models.RefreshSessionRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -703,7 +721,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RefreshSession",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -713,7 +731,7 @@ class Sessions(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.SessionRefresh], http_res)
+            return unmarshal_json_response(models.SessionRefresh, http_res)
         if utils.match_response(http_res, ["400", "401"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -740,15 +758,16 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SessionRefresh]:
+    ) -> models.SessionRefresh:
         r"""Refresh a session
 
         Refreshes a session by creating a new session token. A 401 is returned when there
         are validation errors, which signals the SDKs to fall back to the handshake flow.
 
         :param session_id: The ID of the session
-        :param expired_token: The JWT that is sent via the `__session` cookie from your frontend. Note: this JWT must be associated with the supplied session ID.
-        :param refresh_token: The JWT that is sent via the `__session` cookie from your frontend.
+        :param expired_token: The JWT that is sent via the `__session` cookie from your frontend.
+            Note: this JWT must be associated with the supplied session ID.
+        :param refresh_token: The refresh token from the `__refresh` cookie set via FAPI's handshake flow.
         :param request_origin: The origin of the request.
         :param request_headers: The headers of the request.
         :param format_: The format of the response.
@@ -800,6 +819,7 @@ class Sessions(BaseSDK):
                 "json",
                 Optional[models.RefreshSessionRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -820,7 +840,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RefreshSession",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -830,7 +850,7 @@ class Sessions(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.SessionRefresh], http_res)
+            return unmarshal_json_response(models.SessionRefresh, http_res)
         if utils.match_response(http_res, ["400", "401"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -851,7 +871,7 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Session]:
+    ) -> models.Session:
         r"""Revoke a session
 
         Sets the status of a session as \"revoked\", which is an unauthenticated state.
@@ -890,6 +910,7 @@ class Sessions(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -910,7 +931,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RevokeSession",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -920,7 +941,7 @@ class Sessions(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Session], http_res)
+            return unmarshal_json_response(models.Session, http_res)
         if utils.match_response(http_res, ["400", "401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -941,7 +962,7 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Session]:
+    ) -> models.Session:
         r"""Revoke a session
 
         Sets the status of a session as \"revoked\", which is an unauthenticated state.
@@ -980,6 +1001,7 @@ class Sessions(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1000,7 +1022,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RevokeSession",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1010,7 +1032,7 @@ class Sessions(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Session], http_res)
+            return unmarshal_json_response(models.Session, http_res)
         if utils.match_response(http_res, ["400", "401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1032,7 +1054,7 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.CreateSessionTokenResponseBody]:
+    ) -> models.CreateSessionTokenResponseBody:
         r"""Create a session token
 
         Creates a session JSON Web Token (JWT) based on a session.
@@ -1081,6 +1103,7 @@ class Sessions(BaseSDK):
                 "json",
                 Optional[models.CreateSessionTokenRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1101,7 +1124,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateSessionToken",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1112,7 +1135,7 @@ class Sessions(BaseSDK):
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.CreateSessionTokenResponseBody], http_res
+                models.CreateSessionTokenResponseBody, http_res
             )
         if utils.match_response(http_res, ["401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
@@ -1135,7 +1158,7 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.CreateSessionTokenResponseBody]:
+    ) -> models.CreateSessionTokenResponseBody:
         r"""Create a session token
 
         Creates a session JSON Web Token (JWT) based on a session.
@@ -1184,6 +1207,7 @@ class Sessions(BaseSDK):
                 "json",
                 Optional[models.CreateSessionTokenRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1204,7 +1228,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateSessionToken",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1215,7 +1239,7 @@ class Sessions(BaseSDK):
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.CreateSessionTokenResponseBody], http_res
+                models.CreateSessionTokenResponseBody, http_res
             )
         if utils.match_response(http_res, ["401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
@@ -1239,14 +1263,14 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.CreateSessionTokenFromTemplateResponseBody]:
-        r"""Create a session token from a jwt template
+    ) -> models.CreateSessionTokenFromTemplateResponseBody:
+        r"""Create a session token from a JWT template
 
-        Creates a JSON Web Token(JWT) based on a session and a JWT Template name defined for your instance
+        Creates a JSON Web Token (JWT) based on a session and a JWT Template name defined for your instance
 
         :param session_id: The ID of the session
-        :param template_name: The name of the JWT Template defined in your instance (e.g. `custom_hasura`).
-        :param expires_in_seconds: Use this parameter to override the JWT token lifetime.
+        :param template_name: The name of the JWT template defined in your instance (e.g. `custom_hasura`).
+        :param expires_in_seconds: Use this parameter to override the JWT lifetime.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1290,6 +1314,7 @@ class Sessions(BaseSDK):
                 "json",
                 Optional[models.CreateSessionTokenFromTemplateRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1310,7 +1335,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateSessionTokenFromTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1321,7 +1346,7 @@ class Sessions(BaseSDK):
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.CreateSessionTokenFromTemplateResponseBody], http_res
+                models.CreateSessionTokenFromTemplateResponseBody, http_res
             )
         if utils.match_response(http_res, ["401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
@@ -1345,14 +1370,14 @@ class Sessions(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.CreateSessionTokenFromTemplateResponseBody]:
-        r"""Create a session token from a jwt template
+    ) -> models.CreateSessionTokenFromTemplateResponseBody:
+        r"""Create a session token from a JWT template
 
-        Creates a JSON Web Token(JWT) based on a session and a JWT Template name defined for your instance
+        Creates a JSON Web Token (JWT) based on a session and a JWT Template name defined for your instance
 
         :param session_id: The ID of the session
-        :param template_name: The name of the JWT Template defined in your instance (e.g. `custom_hasura`).
-        :param expires_in_seconds: Use this parameter to override the JWT token lifetime.
+        :param template_name: The name of the JWT template defined in your instance (e.g. `custom_hasura`).
+        :param expires_in_seconds: Use this parameter to override the JWT lifetime.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1396,6 +1421,7 @@ class Sessions(BaseSDK):
                 "json",
                 Optional[models.CreateSessionTokenFromTemplateRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1416,7 +1442,7 @@ class Sessions(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateSessionTokenFromTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1427,7 +1453,7 @@ class Sessions(BaseSDK):
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.CreateSessionTokenFromTemplateResponseBody], http_res
+                models.CreateSessionTokenFromTemplateResponseBody, http_res
             )
         if utils.match_response(http_res, ["401", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)

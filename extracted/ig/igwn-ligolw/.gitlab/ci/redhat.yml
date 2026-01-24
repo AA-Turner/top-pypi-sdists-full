@@ -1,0 +1,44 @@
+include:
+  - local: .gitlab/ci/test.yml
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/redhat/all/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/redhat/all@2
+    inputs:
+      needs: [sdist]
+      redhat_versions:
+        - 8
+        - 9
+      test_install: >-
+        bzip2
+        igwn-ligolw
+        make
+        python3-coverage
+        python3-lal
+        python3-matplotlib
+        python3-pip
+        python3-pytest
+        python3-pytest-cov
+        python3-pytest-doctestplus
+        xz
+
+# -- overwrite test script with/without lal
+
+redhat_test:
+  script: !reference [.system_test, script]
+  variables:
+    PYTEST_ADDOPTS: !reference [.system_test, variables, PYTEST_ADDOPTS]
+
+redhat_test_el8:
+  before_script:
+    - !reference [redhat_test, before_script]
+    # install a newer version of pytest on EL8
+    - dnf install -y -q python3-pip &&
+      python3 -m pip install
+        --upgrade-strategy=only-if-needed
+        "coverage[toml]>=5"
+        "pytest==3.9.1"
+        pytest-benchmark
+
+# don't run a test job for EL9, no python3-lal package yet
+redhat_test_el9:
+  rules: [when: never]

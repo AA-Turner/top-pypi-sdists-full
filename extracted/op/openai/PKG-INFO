@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: openai
-Version: 1.109.0
+Version: 2.15.0
 Summary: The official Python library for the openai API
 Project-URL: Homepage, https://github.com/openai/openai-python
 Project-URL: Repository, https://github.com/openai/openai-python
@@ -13,26 +13,26 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
-Requires-Dist: jiter<1,>=0.4.0
+Requires-Dist: jiter<1,>=0.10.0
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
 Requires-Dist: tqdm>4
 Requires-Dist: typing-extensions<5,>=4.11
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Provides-Extra: datalib
 Requires-Dist: numpy>=1; extra == 'datalib'
 Requires-Dist: pandas-stubs>=1.1.0.11; extra == 'datalib'
@@ -49,7 +49,7 @@ Description-Content-Type: text/markdown
 <!-- prettier-ignore -->
 [![PyPI version](https://img.shields.io/pypi/v/openai.svg?label=pypi%20(stable))](https://pypi.org/project/openai/)
 
-The OpenAI Python library provides convenient access to the OpenAI REST API from any Python 3.8+
+The OpenAI Python library provides convenient access to the OpenAI REST API from any Python 3.9+
 application. The library includes type definitions for all request params and response fields,
 and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
 
@@ -206,6 +206,7 @@ pip install openai[aiohttp]
 Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
 
 ```python
+import os
 import asyncio
 from openai import DefaultAioHttpClient
 from openai import AsyncOpenAI
@@ -213,7 +214,7 @@ from openai import AsyncOpenAI
 
 async def main() -> None:
     async with AsyncOpenAI(
-        api_key="My API Key",
+        api_key=os.environ.get("OPENAI_API_KEY"),  # This is the default and can be omitted
         http_client=DefaultAioHttpClient(),
     ) as client:
         chat_completion = await client.chat.completions.create(
@@ -290,7 +291,9 @@ async def main():
     client = AsyncOpenAI()
 
     async with client.realtime.connect(model="gpt-realtime") as connection:
-        await connection.session.update(session={'modalities': ['text']})
+        await connection.session.update(
+            session={"type": "realtime", "output_modalities": ["text"]}
+        )
 
         await connection.conversation.item.create(
             item={
@@ -302,10 +305,10 @@ async def main():
         await connection.response.create()
 
         async for event in connection:
-            if event.type == 'response.text.delta':
+            if event.type == "response.output_text.delta":
                 print(event.delta, flush=True, end="")
 
-            elif event.type == 'response.text.done':
+            elif event.type == "response.output_text.done":
                 print()
 
             elif event.type == "response.done":
@@ -898,7 +901,7 @@ print(openai.__version__)
 
 ## Requirements
 
-Python 3.8 or higher.
+Python 3.9 or higher.
 
 ## Contributing
 

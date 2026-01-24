@@ -9,6 +9,7 @@
 #include "cantera/base/ct_defs.h"
 #include "cantera/base/global.h"
 #include "cantera/base/ctexceptions.h"
+#include "ConnectorNode.h"
 
 namespace Cantera
 {
@@ -18,35 +19,18 @@ class ReactorBase;
 /**
  * Base class for 'flow devices' (valves, pressure regulators, etc.)
  * connecting reactors.
- * @ingroup flowDeviceGroup
+ * @ingroup connectorGroup
  */
-class FlowDevice
+class FlowDevice : public ConnectorNode
 {
 public:
-    FlowDevice(const string& name="(none)") : m_name(name) {}
+    FlowDevice(shared_ptr<ReactorBase> r0, shared_ptr<ReactorBase> r1,
+               const string& name="(none)");
+    using ConnectorNode::ConnectorNode;  // inherit constructors
 
-    virtual ~FlowDevice() = default;
-    FlowDevice(const FlowDevice&) = delete;
-    FlowDevice& operator=(const FlowDevice&) = delete;
-
-    //! String indicating the flow device implemented. Usually
-    //! corresponds to the name of the derived class.
-    virtual string type() const {
+    string type() const override {
         return "FlowDevice";
     }
-
-    //! Retrieve flow device name.
-    string name() const {
-        return m_name;
-    }
-
-    //! Set flow device name.
-    void setName(const string& name) {
-        m_name = name;
-    }
-
-    //! Set the default name of a flow device. Returns `false` if it was previously set.
-    bool setDefaultName(map<string, int>& counts);
 
     //! Mass flow rate (kg/s).
     double massFlowRate() {
@@ -58,9 +42,32 @@ public:
         }
     }
 
-    //! Update the mass flow rate at time 'time'. This must be overloaded in
-    //! subclasses to update m_mdot.
+    //! Update the mass flow rate at time 'time'.
+    //! This must be overloaded in derived classes to update m_mdot.
     virtual void updateMassFlowRate(double time) {}
+
+    //! Set the fixed mass flow rate (kg/s) through a flow device.
+    virtual void setMassFlowRate(double mdot) {
+        throw NotImplementedError("FlowDevice::setMassFlowRate");
+    }
+
+    //! Get the device coefficient (defined by derived class).
+    //! @since  New in %Cantera 3.2.
+    double deviceCoefficient() const {
+        return m_coeff;
+    }
+
+    //! Set the device coefficient (defined by derived class).
+    //! @since  New in %Cantera 3.2.
+    void setDeviceCoefficient(double c) {
+        m_coeff = c;
+    }
+
+    //! Set the primary mass flow controller.
+    //! @since New in %Cantera 3.2.
+    virtual void setPrimary(shared_ptr<ConnectorNode> primary) {
+        throw NotImplementedError("FlowDevice::setPrimary");
+    }
 
     //! Mass flow rate (kg/s) of outlet species k. Returns zero if this species
     //! is not present in the upstream mixture.
@@ -73,6 +80,8 @@ public:
     /*!
      * @param in Upstream reactor.
      * @param out Downstream reactor.
+     * @deprecated To be removed after %Cantera 3.2. Reactors should be provided to
+     *      constructor instead.
      */
     bool install(ReactorBase& in, ReactorBase& out);
 
@@ -108,7 +117,18 @@ public:
     //! Set a function of pressure that is used in determining the
     //! mass flow rate through the device. The evaluation of mass flow
     //! depends on the derived flow device class.
+    //! @deprecated  To be removed after %Cantera 3.2. Replaceable by version using
+    //!     shared pointer.
     virtual void setPressureFunction(Func1* f);
+
+    //! Set a function of pressure to modify the pressure response.
+    //! Set a function of pressure that is used in determining the
+    //! mass flow rate through the device. The evaluation of mass flow
+    //! depends on the derived flow device class.
+    //! @since  Changed in %Cantera 3.2. Previous version used a raw pointer.
+    virtual void setPressureFunction(shared_ptr<Func1> f) {
+        m_pfunc = f.get();
+    }
 
     //! Return current value of the time function.
     /*!
@@ -122,7 +142,18 @@ public:
     //! Set a function of time that is used in determining
     //! the mass flow rate through the device. The evaluation of mass flow
     //! depends on the derived flow device class.
+    //! @deprecated  To be removed after %Cantera 3.2. Replaceable by version using
+    //!     shared pointer.
     virtual void setTimeFunction(Func1* g);
+
+    //! Set a function of time to modulate the mass flow rate.
+    //! Set a function of time that is used in determining
+    //! the mass flow rate through the device. The evaluation of mass flow
+    //! depends on the derived flow device class.
+    //! @since  Changed in %Cantera 3.2. Previous version used a raw pointer.
+    virtual void setTimeFunction(shared_ptr<Func1> g) {
+        m_tfunc = g.get();
+    }
 
     //! Set current reactor network time
     /*!
@@ -133,9 +164,6 @@ public:
     }
 
 protected:
-    string m_name;  //!< Flow device name.
-    bool m_defaultNameSet = false;  //!< `true` if default name has been previously set.
-
     double m_mdot = Undef;
 
     //! Function set by setPressureFunction; used by updateMassFlowRate

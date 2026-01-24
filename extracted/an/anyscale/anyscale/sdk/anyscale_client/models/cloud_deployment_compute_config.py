@@ -34,6 +34,7 @@ class CloudDeploymentComputeConfig(object):
     """
     openapi_types = {
         'cloud_deployment': 'str',
+        'cloud_resource_id': 'str',
         'allowed_azs': 'list[str]',
         'head_node_type': 'ComputeNodeType',
         'worker_node_types': 'list[WorkerNodeType]',
@@ -44,6 +45,7 @@ class CloudDeploymentComputeConfig(object):
 
     attribute_map = {
         'cloud_deployment': 'cloud_deployment',
+        'cloud_resource_id': 'cloud_resource_id',
         'allowed_azs': 'allowed_azs',
         'head_node_type': 'head_node_type',
         'worker_node_types': 'worker_node_types',
@@ -52,13 +54,14 @@ class CloudDeploymentComputeConfig(object):
         'flags': 'flags'
     }
 
-    def __init__(self, cloud_deployment=None, allowed_azs=None, head_node_type=None, worker_node_types=None, advanced_configurations_json=None, auto_select_worker_config=False, flags=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_deployment=None, cloud_resource_id=None, allowed_azs=None, head_node_type=None, worker_node_types=None, advanced_configurations_json=None, auto_select_worker_config=False, flags=None, local_vars_configuration=None):  # noqa: E501
         """CloudDeploymentComputeConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._cloud_deployment = None
+        self._cloud_resource_id = None
         self._allowed_azs = None
         self._head_node_type = None
         self._worker_node_types = None
@@ -69,6 +72,8 @@ class CloudDeploymentComputeConfig(object):
 
         if cloud_deployment is not None:
             self.cloud_deployment = cloud_deployment
+        if cloud_resource_id is not None:
+            self.cloud_resource_id = cloud_resource_id
         if allowed_azs is not None:
             self.allowed_azs = allowed_azs
         self.head_node_type = head_node_type
@@ -103,6 +108,29 @@ class CloudDeploymentComputeConfig(object):
         """
 
         self._cloud_deployment = cloud_deployment
+
+    @property
+    def cloud_resource_id(self):
+        """Gets the cloud_resource_id of this CloudDeploymentComputeConfig.  # noqa: E501
+
+        The ID of the cloud resource to use for this compute config. If not specified, the primary cloud resource for the cloud will be used.  # noqa: E501
+
+        :return: The cloud_resource_id of this CloudDeploymentComputeConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_resource_id
+
+    @cloud_resource_id.setter
+    def cloud_resource_id(self, cloud_resource_id):
+        """Sets the cloud_resource_id of this CloudDeploymentComputeConfig.
+
+        The ID of the cloud resource to use for this compute config. If not specified, the primary cloud resource for the cloud will be used.  # noqa: E501
+
+        :param cloud_resource_id: The cloud_resource_id of this CloudDeploymentComputeConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_resource_id = cloud_resource_id
 
     @property
     def allowed_azs(self):

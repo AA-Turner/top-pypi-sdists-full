@@ -196,12 +196,9 @@ class ExportToolsRequest(proto.Message):
                 Unspecified format. Treated as ``BLOB``.
             BLOB (1):
                 Tools will be exported as raw bytes.
-            JSON (2):
-                Tools will be exported in JSON format.
         """
         DATA_FORMAT_UNSPECIFIED = 0
         BLOB = 1
-        JSON = 2
 
     parent: str = proto.Field(
         proto.STRING,
@@ -304,10 +301,10 @@ class DeleteToolRequest(proto.Message):
             This field has no effect for Tools not being used. For Tools
             that are used:
 
-            -  If ``force`` is set to false, an error will be returned
-               with message indicating the referenced resources.
-            -  If ``force`` is set to true, Dialogflow will remove the
-               tool, as well as any references to the tool.
+            - If ``force`` is set to false, an error will be returned
+              with message indicating the referenced resources.
+            - If ``force`` is set to true, Dialogflow will remove the
+              tool, as well as any references to the tool.
     """
 
     name: str = proto.Field(
@@ -669,6 +666,11 @@ class Tool(proto.Message):
                 Config for bearer token auth.
 
                 This field is a member of `oneof`_ ``auth_config``.
+            service_account_auth_config (google.cloud.dialogflowcx_v3beta1.types.Tool.Authentication.ServiceAccountAuthConfig):
+                Configuration for service account
+                authentication.
+
+                This field is a member of `oneof`_ ``auth_config``.
         """
 
         class RequestLocation(proto.Enum):
@@ -698,6 +700,11 @@ class Tool(proto.Message):
                 api_key (str):
                     Optional. The API key. If the ``secret_version_for_api_key``
                     field is set, this field will be ignored.
+                secret_version_for_api_key (str):
+                    Optional. The name of the SecretManager secret version
+                    resource storing the API key. If this field is set, the
+                    ``api_key`` field will be ignored. Format:
+                    ``projects/{project}/secrets/{secret}/versions/{version}``
                 request_location (google.cloud.dialogflowcx_v3beta1.types.Tool.Authentication.RequestLocation):
                     Required. Key location in the request.
             """
@@ -709,6 +716,10 @@ class Tool(proto.Message):
             api_key: str = proto.Field(
                 proto.STRING,
                 number=2,
+            )
+            secret_version_for_api_key: str = proto.Field(
+                proto.STRING,
+                number=4,
             )
             request_location: "Tool.Authentication.RequestLocation" = proto.Field(
                 proto.ENUM,
@@ -729,6 +740,11 @@ class Tool(proto.Message):
                     Optional. The client secret from the OAuth provider. If the
                     ``secret_version_for_client_secret`` field is set, this
                     field will be ignored.
+                secret_version_for_client_secret (str):
+                    Optional. The name of the SecretManager secret version
+                    resource storing the client secret. If this field is set,
+                    the ``client_secret`` field will be ignored. Format:
+                    ``projects/{project}/secrets/{secret}/versions/{version}``
                 token_endpoint (str):
                     Required. The token endpoint in the OAuth
                     provider to exchange for an access token.
@@ -765,6 +781,10 @@ class Tool(proto.Message):
             client_secret: str = proto.Field(
                 proto.STRING,
                 number=3,
+            )
+            secret_version_for_client_secret: str = proto.Field(
+                proto.STRING,
+                number=6,
             )
             token_endpoint: str = proto.Field(
                 proto.STRING,
@@ -827,9 +847,40 @@ class Tool(proto.Message):
                     reference <https://cloud.google.com/dialogflow/cx/docs/concept/parameter#session-ref>`__
                     can be used to pass the token dynamically, e.g.
                     ``$session.params.parameter-id``.
+                secret_version_for_token (str):
+                    Optional. The name of the SecretManager secret version
+                    resource storing the Bearer token. If this field is set, the
+                    ``token`` field will be ignored. Format:
+                    ``projects/{project}/secrets/{secret}/versions/{version}``
             """
 
             token: str = proto.Field(
+                proto.STRING,
+                number=1,
+            )
+            secret_version_for_token: str = proto.Field(
+                proto.STRING,
+                number=2,
+            )
+
+        class ServiceAccountAuthConfig(proto.Message):
+            r"""Configuration for authentication using a service account.
+
+            Attributes:
+                service_account (str):
+                    Required. The email address of the service account used to
+                    authenticate the tool call. Dialogflow uses this service
+                    account to exchange an access token and the access token is
+                    then sent in the ``Authorization`` header of the tool
+                    request.
+
+                    The service account must have the
+                    ``roles/iam.serviceAccountTokenCreator`` role granted to the
+                    `Dialogflow service
+                    agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`__.
+            """
+
+            service_account: str = proto.Field(
                 proto.STRING,
                 number=1,
             )
@@ -859,6 +910,14 @@ class Tool(proto.Message):
             number=4,
             oneof="auth_config",
             message="Tool.Authentication.BearerTokenConfig",
+        )
+        service_account_auth_config: "Tool.Authentication.ServiceAccountAuthConfig" = (
+            proto.Field(
+                proto.MESSAGE,
+                number=5,
+                oneof="auth_config",
+                message="Tool.Authentication.ServiceAccountAuthConfig",
+            )
         )
 
     class TLSConfig(proto.Message):
@@ -1181,10 +1240,10 @@ class DeleteToolVersionRequest(proto.Message):
             Optional. This field has no effect for Tools not being used.
             For Tools that are used:
 
-            -  If ``force`` is set to false, an error will be returned
-               with message indicating the referenced resources.
-            -  If ``force`` is set to true, Dialogflow will remove the
-               tool, as well as any references to the tool.
+            - If ``force`` is set to false, an error will be returned
+              with message indicating the referenced resources.
+            - If ``force`` is set to true, Dialogflow will remove the
+              tool, as well as any references to the tool.
     """
 
     name: str = proto.Field(

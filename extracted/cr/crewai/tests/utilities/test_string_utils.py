@@ -1,7 +1,6 @@
 from typing import Any, Dict, List, Union
 
 import pytest
-
 from crewai.utilities.string_utils import interpolate_only
 
 

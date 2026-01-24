@@ -46,6 +46,7 @@ from telnyx.types.calls import (
     ActionStopNoiseSuppressionResponse,
     ActionSwitchSupervisorRoleResponse,
     ActionStartNoiseSuppressionResponse,
+    ActionAddAIAssistantMessagesResponse,
 )
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -53,6 +54,65 @@ base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
 class TestActions:
     parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_method_add_ai_assistant_messages(self, client: Telnyx) -> None:
+        action = client.calls.actions.add_ai_assistant_messages(
+            call_control_id="call_control_id",
+        )
+        assert_matches_type(ActionAddAIAssistantMessagesResponse, action, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_method_add_ai_assistant_messages_with_all_params(self, client: Telnyx) -> None:
+        action = client.calls.actions.add_ai_assistant_messages(
+            call_control_id="call_control_id",
+            client_state="aGF2ZSBhIG5pY2UgZGF5ID1d",
+            command_id="891510ac-f3e4-11e8-af5b-de00688a4901",
+            messages=[
+                {
+                    "content": "Get the user's favorite color",
+                    "role": "system",
+                    "metadata": {},
+                }
+            ],
+        )
+        assert_matches_type(ActionAddAIAssistantMessagesResponse, action, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_raw_response_add_ai_assistant_messages(self, client: Telnyx) -> None:
+        response = client.calls.actions.with_raw_response.add_ai_assistant_messages(
+            call_control_id="call_control_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        action = response.parse()
+        assert_matches_type(ActionAddAIAssistantMessagesResponse, action, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_streaming_response_add_ai_assistant_messages(self, client: Telnyx) -> None:
+        with client.calls.actions.with_streaming_response.add_ai_assistant_messages(
+            call_control_id="call_control_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            action = response.parse()
+            assert_matches_type(ActionAddAIAssistantMessagesResponse, action, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_path_params_add_ai_assistant_messages(self, client: Telnyx) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_control_id` but received ''"):
+            client.calls.actions.with_raw_response.add_ai_assistant_messages(
+                call_control_id="",
+            )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -98,7 +158,7 @@ class TestActions:
             ],
             sound_modifications={
                 "octaves": 0.1,
-                "pitch": 0,
+                "pitch": 0.8,
                 "semitone": -2,
                 "track": "both",
             },
@@ -112,10 +172,10 @@ class TestActions:
             transcription_config={
                 "client_state": "aGF2ZSBhIG5pY2UgZGF5ID1d",
                 "command_id": "891510ac-f3e4-11e8-af5b-de00688a4901",
-                "transcription_engine": "A",
+                "transcription_engine": "Google",
                 "transcription_engine_config": {
                     "enable_speaker_diarization": True,
-                    "hints": ["Telnyx"],
+                    "hints": ["string"],
                     "interim_results": True,
                     "language": "en",
                     "max_speaker_count": 4,
@@ -125,10 +185,10 @@ class TestActions:
                     "speech_context": [
                         {
                             "boost": 1,
-                            "phrases": ["Telnyx"],
+                            "phrases": ["string"],
                         }
                     ],
-                    "transcription_engine": "A",
+                    "transcription_engine": "Google",
                     "use_enhanced": True,
                 },
                 "transcription_tracks": "both",
@@ -176,8 +236,8 @@ class TestActions:
     @parametrize
     def test_method_bridge(self, client: Telnyx) -> None:
         action = client.calls.actions.bridge(
-            path_call_control_id="call_control_id",
-            body_call_control_id="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+            call_control_id_to_bridge="call_control_id",
+            call_control_id_to_bridge_with="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
         )
         assert_matches_type(ActionBridgeResponse, action, path=["response"])
 
@@ -185,8 +245,8 @@ class TestActions:
     @parametrize
     def test_method_bridge_with_all_params(self, client: Telnyx) -> None:
         action = client.calls.actions.bridge(
-            path_call_control_id="call_control_id",
-            body_call_control_id="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+            call_control_id_to_bridge="call_control_id",
+            call_control_id_to_bridge_with="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
             client_state="aGF2ZSBhIG5pY2UgZGF5ID1d",
             command_id="891510ac-f3e4-11e8-af5b-de00688a4901",
             mute_dtmf="opposite",
@@ -211,8 +271,8 @@ class TestActions:
     @parametrize
     def test_raw_response_bridge(self, client: Telnyx) -> None:
         response = client.calls.actions.with_raw_response.bridge(
-            path_call_control_id="call_control_id",
-            body_call_control_id="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+            call_control_id_to_bridge="call_control_id",
+            call_control_id_to_bridge_with="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
         )
 
         assert response.is_closed is True
@@ -224,8 +284,8 @@ class TestActions:
     @parametrize
     def test_streaming_response_bridge(self, client: Telnyx) -> None:
         with client.calls.actions.with_streaming_response.bridge(
-            path_call_control_id="call_control_id",
-            body_call_control_id="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+            call_control_id_to_bridge="call_control_id",
+            call_control_id_to_bridge_with="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -238,10 +298,12 @@ class TestActions:
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     def test_path_params_bridge(self, client: Telnyx) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `path_call_control_id` but received ''"):
+        with pytest.raises(
+            ValueError, match=r"Expected a non-empty value for `call_control_id_to_bridge` but received ''"
+        ):
             client.calls.actions.with_raw_response.bridge(
-                path_call_control_id="",
-                body_call_control_id="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+                call_control_id_to_bridge="",
+                call_control_id_to_bridge_with="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
             )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
@@ -261,6 +323,7 @@ class TestActions:
             queue_name="support",
             client_state="aGF2ZSBhIG5pY2UgZGF5ID1d",
             command_id="891510ac-f3e4-11e8-af5b-de00688a4901",
+            keep_after_hangup=True,
             max_size=20,
             max_wait_time_secs=600,
         )
@@ -369,18 +432,9 @@ class TestActions:
         action = client.calls.actions.gather_using_ai(
             call_control_id="call_control_id",
             parameters={
-                "properties": {
-                    "age": {
-                        "description": "The age of the customer.",
-                        "type": "integer",
-                    },
-                    "location": {
-                        "description": "The location of the customer.",
-                        "type": "string",
-                    },
-                },
-                "required": ["age", "location"],
-                "type": "object",
+                "properties": "bar",
+                "required": "bar",
+                "type": "bar",
             },
         )
         assert_matches_type(ActionGatherUsingAIResponse, action, path=["response"])
@@ -391,22 +445,13 @@ class TestActions:
         action = client.calls.actions.gather_using_ai(
             call_control_id="call_control_id",
             parameters={
-                "properties": {
-                    "age": {
-                        "description": "The age of the customer.",
-                        "type": "integer",
-                    },
-                    "location": {
-                        "description": "The location of the customer.",
-                        "type": "string",
-                    },
-                },
-                "required": ["age", "location"],
-                "type": "object",
+                "properties": "bar",
+                "required": "bar",
+                "type": "bar",
             },
             assistant={
                 "instructions": "You are a friendly voice assistant.",
-                "model": "meta-llama/Meta-Llama-3.1-70B-Instruct",
+                "model": "Qwen/Qwen3-235B-A22B",
                 "openai_api_key_ref": "my_openai_api_key",
                 "tools": [
                     {
@@ -440,7 +485,10 @@ class TestActions:
             transcription={"model": "distil-whisper/distil-large-v2"},
             user_response_timeout_ms=5000,
             voice="Telnyx.KokoroTTS.af",
-            voice_settings={"api_key_ref": "my_elevenlabs_api_key"},
+            voice_settings={
+                "type": "elevenlabs",
+                "api_key_ref": "my_elevenlabs_api_key",
+            },
         )
         assert_matches_type(ActionGatherUsingAIResponse, action, path=["response"])
 
@@ -450,18 +498,9 @@ class TestActions:
         response = client.calls.actions.with_raw_response.gather_using_ai(
             call_control_id="call_control_id",
             parameters={
-                "properties": {
-                    "age": {
-                        "description": "The age of the customer.",
-                        "type": "integer",
-                    },
-                    "location": {
-                        "description": "The location of the customer.",
-                        "type": "string",
-                    },
-                },
-                "required": ["age", "location"],
-                "type": "object",
+                "properties": "bar",
+                "required": "bar",
+                "type": "bar",
             },
         )
 
@@ -476,18 +515,9 @@ class TestActions:
         with client.calls.actions.with_streaming_response.gather_using_ai(
             call_control_id="call_control_id",
             parameters={
-                "properties": {
-                    "age": {
-                        "description": "The age of the customer.",
-                        "type": "integer",
-                    },
-                    "location": {
-                        "description": "The location of the customer.",
-                        "type": "string",
-                    },
-                },
-                "required": ["age", "location"],
-                "type": "object",
+                "properties": "bar",
+                "required": "bar",
+                "type": "bar",
             },
         ) as response:
             assert not response.is_closed
@@ -505,18 +535,9 @@ class TestActions:
             client.calls.actions.with_raw_response.gather_using_ai(
                 call_control_id="",
                 parameters={
-                    "properties": {
-                        "age": {
-                            "description": "The age of the customer.",
-                            "type": "integer",
-                        },
-                        "location": {
-                            "description": "The location of the customer.",
-                            "type": "string",
-                        },
-                    },
-                    "required": ["age", "location"],
-                    "type": "object",
+                    "properties": "bar",
+                    "required": "bar",
+                    "type": "bar",
                 },
             )
 
@@ -613,7 +634,10 @@ class TestActions:
             terminating_digit="#",
             timeout_millis=60000,
             valid_digits="123",
-            voice_settings={"api_key_ref": "my_elevenlabs_api_key"},
+            voice_settings={
+                "type": "elevenlabs",
+                "api_key_ref": "my_elevenlabs_api_key",
+            },
         )
         assert_matches_type(ActionGatherUsingSpeakResponse, action, path=["response"])
 
@@ -1142,7 +1166,10 @@ class TestActions:
             payload_type="text",
             service_level="basic",
             stop="current",
-            voice_settings={"api_key_ref": "my_elevenlabs_api_key"},
+            voice_settings={
+                "type": "elevenlabs",
+                "api_key_ref": "my_elevenlabs_api_key",
+            },
         )
         assert_matches_type(ActionSpeakResponse, action, path=["response"])
 
@@ -1210,7 +1237,10 @@ class TestActions:
             interruption_settings={"enable": True},
             transcription={"model": "distil-whisper/distil-large-v2"},
             voice="Telnyx.KokoroTTS.af",
-            voice_settings={"api_key_ref": "my_elevenlabs_api_key"},
+            voice_settings={
+                "type": "elevenlabs",
+                "api_key_ref": "my_elevenlabs_api_key",
+            },
         )
         assert_matches_type(ActionStartAIAssistantResponse, action, path=["response"])
 
@@ -1319,7 +1349,8 @@ class TestActions:
             client_state="aGF2ZSBhIG5pY2UgZGF5ID1d",
             command_id="891510ac-f3e4-11e8-af5b-de00688a4901",
             direction="both",
-            noise_suppression_engine="A",
+            noise_suppression_engine="DeepFilterNet",
+            noise_suppression_engine_config={"attenuation_limit": 100},
         )
         assert_matches_type(ActionStartNoiseSuppressionResponse, action, path=["response"])
 
@@ -1629,10 +1660,10 @@ class TestActions:
             call_control_id="call_control_id",
             client_state="aGF2ZSBhIG5pY2UgZGF5ID1d",
             command_id="891510ac-f3e4-11e8-af5b-de00688a4901",
-            transcription_engine="A",
+            transcription_engine="Google",
             transcription_engine_config={
                 "enable_speaker_diarization": True,
-                "hints": ["Telnyx"],
+                "hints": ["string"],
                 "interim_results": True,
                 "language": "en",
                 "max_speaker_count": 4,
@@ -1642,10 +1673,10 @@ class TestActions:
                 "speech_context": [
                     {
                         "boost": 1,
-                        "phrases": ["Telnyx"],
+                        "phrases": ["string"],
                     }
                 ],
-                "transcription_engine": "A",
+                "transcription_engine": "Google",
                 "use_enhanced": True,
             },
             transcription_tracks="both",
@@ -2269,10 +2300,11 @@ class TestActions:
                     "value": "value",
                 }
             ],
+            sip_region="Canada",
             sip_transport_protocol="TLS",
             sound_modifications={
                 "octaves": 0.1,
-                "pitch": 0,
+                "pitch": 0.8,
                 "semitone": -2,
                 "track": "both",
             },
@@ -2375,6 +2407,65 @@ class TestAsyncActions:
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
+    async def test_method_add_ai_assistant_messages(self, async_client: AsyncTelnyx) -> None:
+        action = await async_client.calls.actions.add_ai_assistant_messages(
+            call_control_id="call_control_id",
+        )
+        assert_matches_type(ActionAddAIAssistantMessagesResponse, action, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_method_add_ai_assistant_messages_with_all_params(self, async_client: AsyncTelnyx) -> None:
+        action = await async_client.calls.actions.add_ai_assistant_messages(
+            call_control_id="call_control_id",
+            client_state="aGF2ZSBhIG5pY2UgZGF5ID1d",
+            command_id="891510ac-f3e4-11e8-af5b-de00688a4901",
+            messages=[
+                {
+                    "content": "Get the user's favorite color",
+                    "role": "system",
+                    "metadata": {},
+                }
+            ],
+        )
+        assert_matches_type(ActionAddAIAssistantMessagesResponse, action, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_raw_response_add_ai_assistant_messages(self, async_client: AsyncTelnyx) -> None:
+        response = await async_client.calls.actions.with_raw_response.add_ai_assistant_messages(
+            call_control_id="call_control_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        action = await response.parse()
+        assert_matches_type(ActionAddAIAssistantMessagesResponse, action, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_streaming_response_add_ai_assistant_messages(self, async_client: AsyncTelnyx) -> None:
+        async with async_client.calls.actions.with_streaming_response.add_ai_assistant_messages(
+            call_control_id="call_control_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            action = await response.parse()
+            assert_matches_type(ActionAddAIAssistantMessagesResponse, action, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_path_params_add_ai_assistant_messages(self, async_client: AsyncTelnyx) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_control_id` but received ''"):
+            await async_client.calls.actions.with_raw_response.add_ai_assistant_messages(
+                call_control_id="",
+            )
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
     async def test_method_answer(self, async_client: AsyncTelnyx) -> None:
         action = await async_client.calls.actions.answer(
             call_control_id="call_control_id",
@@ -2417,7 +2508,7 @@ class TestAsyncActions:
             ],
             sound_modifications={
                 "octaves": 0.1,
-                "pitch": 0,
+                "pitch": 0.8,
                 "semitone": -2,
                 "track": "both",
             },
@@ -2431,10 +2522,10 @@ class TestAsyncActions:
             transcription_config={
                 "client_state": "aGF2ZSBhIG5pY2UgZGF5ID1d",
                 "command_id": "891510ac-f3e4-11e8-af5b-de00688a4901",
-                "transcription_engine": "A",
+                "transcription_engine": "Google",
                 "transcription_engine_config": {
                     "enable_speaker_diarization": True,
-                    "hints": ["Telnyx"],
+                    "hints": ["string"],
                     "interim_results": True,
                     "language": "en",
                     "max_speaker_count": 4,
@@ -2444,10 +2535,10 @@ class TestAsyncActions:
                     "speech_context": [
                         {
                             "boost": 1,
-                            "phrases": ["Telnyx"],
+                            "phrases": ["string"],
                         }
                     ],
-                    "transcription_engine": "A",
+                    "transcription_engine": "Google",
                     "use_enhanced": True,
                 },
                 "transcription_tracks": "both",
@@ -2495,8 +2586,8 @@ class TestAsyncActions:
     @parametrize
     async def test_method_bridge(self, async_client: AsyncTelnyx) -> None:
         action = await async_client.calls.actions.bridge(
-            path_call_control_id="call_control_id",
-            body_call_control_id="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+            call_control_id_to_bridge="call_control_id",
+            call_control_id_to_bridge_with="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
         )
         assert_matches_type(ActionBridgeResponse, action, path=["response"])
 
@@ -2504,8 +2595,8 @@ class TestAsyncActions:
     @parametrize
     async def test_method_bridge_with_all_params(self, async_client: AsyncTelnyx) -> None:
         action = await async_client.calls.actions.bridge(
-            path_call_control_id="call_control_id",
-            body_call_control_id="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+            call_control_id_to_bridge="call_control_id",
+            call_control_id_to_bridge_with="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
             client_state="aGF2ZSBhIG5pY2UgZGF5ID1d",
             command_id="891510ac-f3e4-11e8-af5b-de00688a4901",
             mute_dtmf="opposite",
@@ -2530,8 +2621,8 @@ class TestAsyncActions:
     @parametrize
     async def test_raw_response_bridge(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.calls.actions.with_raw_response.bridge(
-            path_call_control_id="call_control_id",
-            body_call_control_id="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+            call_control_id_to_bridge="call_control_id",
+            call_control_id_to_bridge_with="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
         )
 
         assert response.is_closed is True
@@ -2543,8 +2634,8 @@ class TestAsyncActions:
     @parametrize
     async def test_streaming_response_bridge(self, async_client: AsyncTelnyx) -> None:
         async with async_client.calls.actions.with_streaming_response.bridge(
-            path_call_control_id="call_control_id",
-            body_call_control_id="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+            call_control_id_to_bridge="call_control_id",
+            call_control_id_to_bridge_with="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -2557,10 +2648,12 @@ class TestAsyncActions:
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
     async def test_path_params_bridge(self, async_client: AsyncTelnyx) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `path_call_control_id` but received ''"):
+        with pytest.raises(
+            ValueError, match=r"Expected a non-empty value for `call_control_id_to_bridge` but received ''"
+        ):
             await async_client.calls.actions.with_raw_response.bridge(
-                path_call_control_id="",
-                body_call_control_id="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
+                call_control_id_to_bridge="",
+                call_control_id_to_bridge_with="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
             )
 
     @pytest.mark.skip(reason="Prism tests are disabled")
@@ -2580,6 +2673,7 @@ class TestAsyncActions:
             queue_name="support",
             client_state="aGF2ZSBhIG5pY2UgZGF5ID1d",
             command_id="891510ac-f3e4-11e8-af5b-de00688a4901",
+            keep_after_hangup=True,
             max_size=20,
             max_wait_time_secs=600,
         )
@@ -2688,18 +2782,9 @@ class TestAsyncActions:
         action = await async_client.calls.actions.gather_using_ai(
             call_control_id="call_control_id",
             parameters={
-                "properties": {
-                    "age": {
-                        "description": "The age of the customer.",
-                        "type": "integer",
-                    },
-                    "location": {
-                        "description": "The location of the customer.",
-                        "type": "string",
-                    },
-                },
-                "required": ["age", "location"],
-                "type": "object",
+                "properties": "bar",
+                "required": "bar",
+                "type": "bar",
             },
         )
         assert_matches_type(ActionGatherUsingAIResponse, action, path=["response"])
@@ -2710,22 +2795,13 @@ class TestAsyncActions:
         action = await async_client.calls.actions.gather_using_ai(
             call_control_id="call_control_id",
             parameters={
-                "properties": {
-                    "age": {
-                        "description": "The age of the customer.",
-                        "type": "integer",
-                    },
-                    "location": {
-                        "description": "The location of the customer.",
-                        "type": "string",
-                    },
-                },
-                "required": ["age", "location"],
-                "type": "object",
+                "properties": "bar",
+                "required": "bar",
+                "type": "bar",
             },
             assistant={
                 "instructions": "You are a friendly voice assistant.",
-                "model": "meta-llama/Meta-Llama-3.1-70B-Instruct",
+                "model": "Qwen/Qwen3-235B-A22B",
                 "openai_api_key_ref": "my_openai_api_key",
                 "tools": [
                     {
@@ -2759,7 +2835,10 @@ class TestAsyncActions:
             transcription={"model": "distil-whisper/distil-large-v2"},
             user_response_timeout_ms=5000,
             voice="Telnyx.KokoroTTS.af",
-            voice_settings={"api_key_ref": "my_elevenlabs_api_key"},
+            voice_settings={
+                "type": "elevenlabs",
+                "api_key_ref": "my_elevenlabs_api_key",
+            },
         )
         assert_matches_type(ActionGatherUsingAIResponse, action, path=["response"])
 
@@ -2769,18 +2848,9 @@ class TestAsyncActions:
         response = await async_client.calls.actions.with_raw_response.gather_using_ai(
             call_control_id="call_control_id",
             parameters={
-                "properties": {
-                    "age": {
-                        "description": "The age of the customer.",
-                        "type": "integer",
-                    },
-                    "location": {
-                        "description": "The location of the customer.",
-                        "type": "string",
-                    },
-                },
-                "required": ["age", "location"],
-                "type": "object",
+                "properties": "bar",
+                "required": "bar",
+                "type": "bar",
             },
         )
 
@@ -2795,18 +2865,9 @@ class TestAsyncActions:
         async with async_client.calls.actions.with_streaming_response.gather_using_ai(
             call_control_id="call_control_id",
             parameters={
-                "properties": {
-                    "age": {
-                        "description": "The age of the customer.",
-                        "type": "integer",
-                    },
-                    "location": {
-                        "description": "The location of the customer.",
-                        "type": "string",
-                    },
-                },
-                "required": ["age", "location"],
-                "type": "object",
+                "properties": "bar",
+                "required": "bar",
+                "type": "bar",
             },
         ) as response:
             assert not response.is_closed
@@ -2824,18 +2885,9 @@ class TestAsyncActions:
             await async_client.calls.actions.with_raw_response.gather_using_ai(
                 call_control_id="",
                 parameters={
-                    "properties": {
-                        "age": {
-                            "description": "The age of the customer.",
-                            "type": "integer",
-                        },
-                        "location": {
-                            "description": "The location of the customer.",
-                            "type": "string",
-                        },
-                    },
-                    "required": ["age", "location"],
-                    "type": "object",
+                    "properties": "bar",
+                    "required": "bar",
+                    "type": "bar",
                 },
             )
 
@@ -2932,7 +2984,10 @@ class TestAsyncActions:
             terminating_digit="#",
             timeout_millis=60000,
             valid_digits="123",
-            voice_settings={"api_key_ref": "my_elevenlabs_api_key"},
+            voice_settings={
+                "type": "elevenlabs",
+                "api_key_ref": "my_elevenlabs_api_key",
+            },
         )
         assert_matches_type(ActionGatherUsingSpeakResponse, action, path=["response"])
 
@@ -3461,7 +3516,10 @@ class TestAsyncActions:
             payload_type="text",
             service_level="basic",
             stop="current",
-            voice_settings={"api_key_ref": "my_elevenlabs_api_key"},
+            voice_settings={
+                "type": "elevenlabs",
+                "api_key_ref": "my_elevenlabs_api_key",
+            },
         )
         assert_matches_type(ActionSpeakResponse, action, path=["response"])
 
@@ -3529,7 +3587,10 @@ class TestAsyncActions:
             interruption_settings={"enable": True},
             transcription={"model": "distil-whisper/distil-large-v2"},
             voice="Telnyx.KokoroTTS.af",
-            voice_settings={"api_key_ref": "my_elevenlabs_api_key"},
+            voice_settings={
+                "type": "elevenlabs",
+                "api_key_ref": "my_elevenlabs_api_key",
+            },
         )
         assert_matches_type(ActionStartAIAssistantResponse, action, path=["response"])
 
@@ -3638,7 +3699,8 @@ class TestAsyncActions:
             client_state="aGF2ZSBhIG5pY2UgZGF5ID1d",
             command_id="891510ac-f3e4-11e8-af5b-de00688a4901",
             direction="both",
-            noise_suppression_engine="A",
+            noise_suppression_engine="DeepFilterNet",
+            noise_suppression_engine_config={"attenuation_limit": 100},
         )
         assert_matches_type(ActionStartNoiseSuppressionResponse, action, path=["response"])
 
@@ -3948,10 +4010,10 @@ class TestAsyncActions:
             call_control_id="call_control_id",
             client_state="aGF2ZSBhIG5pY2UgZGF5ID1d",
             command_id="891510ac-f3e4-11e8-af5b-de00688a4901",
-            transcription_engine="A",
+            transcription_engine="Google",
             transcription_engine_config={
                 "enable_speaker_diarization": True,
-                "hints": ["Telnyx"],
+                "hints": ["string"],
                 "interim_results": True,
                 "language": "en",
                 "max_speaker_count": 4,
@@ -3961,10 +4023,10 @@ class TestAsyncActions:
                 "speech_context": [
                     {
                         "boost": 1,
-                        "phrases": ["Telnyx"],
+                        "phrases": ["string"],
                     }
                 ],
-                "transcription_engine": "A",
+                "transcription_engine": "Google",
                 "use_enhanced": True,
             },
             transcription_tracks="both",
@@ -4588,10 +4650,11 @@ class TestAsyncActions:
                     "value": "value",
                 }
             ],
+            sip_region="Canada",
             sip_transport_protocol="TLS",
             sound_modifications={
                 "octaves": 0.1,
-                "pitch": 0,
+                "pitch": 0.8,
                 "semitone": -2,
                 "track": "both",
             },

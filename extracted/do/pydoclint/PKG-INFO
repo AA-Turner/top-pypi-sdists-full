@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: pydoclint
-Version: 0.7.3
+Version: 0.8.3
 Summary: A Python docstring linter that checks arguments, returns, yields, and raises sections
 Author: jsh9
 License: MIT
 Project-URL: Homepage, https://github.com/jsh9/pydoclint
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click>=8.1.0
@@ -39,8 +39,8 @@ Here is a comparison of linting time on some famous Python projects:
 | [numpy](https://github.com/numpy/numpy)                      | 2.0 sec   | 49 min 9 sec (1,475x slower)      |
 | [scikit-learn](https://github.com/scikit-learn/scikit-learn) | 2.4 sec   | 3 hr 5 min 33 sec (4,639x slower) |
 
-Additionally, _pydoclint_ can detect some quite a few style violations that
-darglint cannot.
+Additionally, _pydoclint_ can detect quite a few style violations that darglint
+cannot.
 
 Currently, _pydoclint_ supports three docstring styles:
 [numpy](https://numpydoc.readthedocs.io/en/latest/format.html),
@@ -59,11 +59,11 @@ here: [https://jsh9.github.io/pydoclint](https://jsh9.github.io/pydoclint)
 The corresponding Github repository of _pydoclint_ is:
 [https://github.com/jsh9/pydoclint](https://github.com/jsh9/pydoclint)
 
+<!--TOC-->
+
 ______________________________________________________________________
 
 **Table of Contents**
-
-<!--TOC-->
 
 - [1. Installation](#1-installation)
 - [2. Usage](#2-usage)
@@ -74,7 +74,7 @@ ______________________________________________________________________
     - [2.4.1. Native mode](#241-native-mode)
     - [2.4.2. As a _flake8_ plugin](#242-as-a-flake8-plugin)
   - [2.5. How to configure _pydoclint_](#25-how-to-configure-pydoclint)
-  - [2.6. How to ignore certain violations in _flake8_ mode](#26-how-to-ignore-certain-violations-in-flake8-mode)
+  - [2.6. How to ignore certain violations](#26-how-to-ignore-certain-violations)
   - [2.7. Additional tips, tricks, and pitfalls](#27-additional-tips-tricks-and-pitfalls)
     - [2.7.1. How to _not_ document certain functions?](#271-how-to-not-document-certain-functions)
     - [2.7.2. How to gradually adopt _pydoclint_?](#272-how-to-gradually-adopt-pydoclint)
@@ -82,6 +82,8 @@ ______________________________________________________________________
 - [3. Style violation codes](#3-style-violation-codes)
 - [4. Additional notes for users](#4-additional-notes-for-users)
 - [5. Notes for developers](#5-notes-for-developers)
+
+______________________________________________________________________
 
 <!--TOC-->
 
@@ -130,15 +132,21 @@ other built-in _flake8_ linters on your code.
 Should you use _pydoclint_ as a native command line tool or a _flake8_ plugin?
 Here's comparison:
 
-|                 | Pros                                      | Cons                                                          |
-| --------------- | ----------------------------------------- | ------------------------------------------------------------- |
-| Native tool     | Slightly faster; supports "baseline" [\*] | No inline or project-wide omission support right now [\*\*]   |
-| _flake8_ plugin | Supports inline or project-wide omission  | Slightly slower because other flake8 plugins are run together |
+|                 | Pros                                                                | Cons                                                          |
+| --------------- | ------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Native tool     | Slightly faster; supports "baseline" [\*]; supports inline `# noqa` | Project-wide omission support coming soon [\*\*]              |
+| _flake8_ plugin | Supports inline or project-wide omission                            | Slightly slower because other flake8 plugins are run together |
 
 \*) "Baseline" allows you to log the current violation state of your existing
 project, making adoption of _pydoclint_ much easier.
 
-\*\*) This feature may be added in the near future
+\*\*) Configuration-file / CLI-based suppression controls are planned for a
+future release.
+
+> **Tip:** In native mode you can suppress DOC violations inline with
+> `# noqa: DOCxxx`. Use the `--native-mode-noqa-location` option (valid values:
+> "docstring" or "definition") to decide whether the comment lives on the
+> definition line or at the end of the docstring (after the triple quotes).
 
 ### 2.4. As a pre-commit hook
 
@@ -175,11 +183,13 @@ https://github.com/jsh9/pydoclint/releases)
 _pydoclint_ offers many
 [configuration options](https://jsh9.github.io/pydoclint/config_options.html)
 for you to tune it according to your team's style convention and preference.
+Inline suppression is already available; broader suppression toggles via config
+files and CLI flags will arrive shortly.
 
 Please read this page for instructions on configuring _pydoclint_:
 [How to configure _pydoclint_](https://jsh9.github.io/pydoclint/how_to_config.html)
 
-### 2.6. How to ignore certain violations in _flake8_ mode
+### 2.6. How to ignore certain violations
 
 Please read this page:
 [How to ignore certain violations](https://jsh9.github.io/pydoclint/how_to_ignore.html)

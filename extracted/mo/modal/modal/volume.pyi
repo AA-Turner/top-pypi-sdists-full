@@ -265,7 +265,7 @@ class VolumeManager:
             """
             ...
 
-    create: __create_spec
+    create: typing.ClassVar[__create_spec]
 
     class __list_spec(typing_extensions.Protocol):
         def __call__(
@@ -338,7 +338,7 @@ class VolumeManager:
             """
             ...
 
-    list: __list_spec
+    list: typing.ClassVar[__list_spec]
 
     class __delete_spec(typing_extensions.Protocol):
         def __call__(
@@ -401,7 +401,7 @@ class VolumeManager:
             """
             ...
 
-    delete: __delete_spec
+    delete: typing.ClassVar[__delete_spec]
 
 class _Volume(modal._object._Object):
     """A writeable volume that can be used to share files between one or more Modal functions.
@@ -489,6 +489,7 @@ class _Volume(modal._object._Object):
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         version: typing.Optional[int] = None,
+        client: typing.Optional[modal.client._Client] = None,
     ) -> _Volume:
         """Reference a Volume by name, creating if necessary.
 
@@ -529,30 +530,6 @@ class _Volume(modal._object._Object):
         ```python notest
         async with modal.Volume.ephemeral() as vol:
             assert await vol.listdir("/") == []
-        ```
-        """
-        ...
-
-    @staticmethod
-    async def lookup(
-        name: str,
-        namespace=None,
-        client: typing.Optional[modal.client._Client] = None,
-        environment_name: typing.Optional[str] = None,
-        create_if_missing: bool = False,
-        version: typing.Optional[int] = None,
-    ) -> _Volume:
-        """mdmd:hidden
-        Lookup a named Volume.
-
-        DEPRECATED: This method is deprecated in favor of `modal.Volume.from_name`.
-
-        In contrast to `modal.Volume.from_name`, this is an eager method
-        that will hydrate the local object with metadata from Modal servers.
-
-        ```python notest
-        vol = modal.Volume.from_name("my-volume")
-        print(vol.listdir("/"))
         ```
         """
         ...
@@ -620,7 +597,7 @@ class _Volume(modal._object._Object):
         """
         ...
 
-    def read_file(self, path: str) -> collections.abc.AsyncIterator[bytes]:
+    def read_file(self, path: str) -> collections.abc.AsyncGenerator[bytes, None]:
         """Read a file from the modal.Volume.
 
         Note - this function is primarily intended to be used outside of a Modal App.
@@ -650,6 +627,14 @@ class _Volume(modal._object._Object):
         """
         ...
 
+    async def _read_file_into_fileobj(
+        self,
+        path: str,
+        fileobj: typing.IO[bytes],
+        concurrency: typing.Optional[int] = None,
+        download_semaphore: typing.Optional[asyncio.locks.Semaphore] = None,
+        progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
+    ) -> int: ...
     async def remove_file(self, path: str, recursive: bool = False) -> None:
         """Remove a file or directory from a volume."""
         ...
@@ -681,7 +666,7 @@ class _Volume(modal._object._Object):
         """
         ...
 
-    async def batch_upload(self, force: bool = False) -> _AbstractVolumeUploadContextManager:
+    def batch_upload(self, force: bool = False) -> typing.AsyncContextManager[_AbstractVolumeUploadContextManager]:
         """Initiate a batched upload to a volume.
 
         To allow overwriting existing files, set `force` to `True` (you cannot overwrite existing directories with
@@ -723,8 +708,6 @@ class _Volume(modal._object._Object):
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
     ): ...
-
-SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 class Volume(modal.object.Object):
     """A writeable volume that can be used to share files between one or more Modal functions.
@@ -806,11 +789,11 @@ class Volume(modal.object.Object):
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self) -> typing.Optional[google.protobuf.message.Message]: ...
 
-    class ___get_lock_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___get_lock_spec(typing_extensions.Protocol):
         def __call__(self, /): ...
         async def aio(self, /): ...
 
-    _get_lock: ___get_lock_spec[typing_extensions.Self]
+    _get_lock: ___get_lock_spec
 
     @property
     def _is_v1(self) -> bool: ...
@@ -822,6 +805,7 @@ class Volume(modal.object.Object):
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         version: typing.Optional[int] = None,
+        client: typing.Optional[modal.client.Client] = None,
     ) -> Volume:
         """Reference a Volume by name, creating if necessary.
 
@@ -842,82 +826,56 @@ class Volume(modal.object.Object):
         """
         ...
 
-    @classmethod
-    def ephemeral(
-        cls: type[Volume],
-        client: typing.Optional[modal.client.Client] = None,
-        environment_name: typing.Optional[str] = None,
-        version: typing.Optional[int] = None,
-        _heartbeat_sleep: float = 300,
-    ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Volume]:
-        """Creates a new ephemeral volume within a context manager:
-
-        Usage:
-        ```python
-        import modal
-        with modal.Volume.ephemeral() as vol:
-            assert vol.listdir("/") == []
-        ```
-
-        ```python notest
-        async with modal.Volume.ephemeral() as vol:
-            assert await vol.listdir("/") == []
-        ```
-        """
-        ...
-
-    class __lookup_spec(typing_extensions.Protocol):
+    class __ephemeral_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
-            name: str,
-            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
-            create_if_missing: bool = False,
             version: typing.Optional[int] = None,
-        ) -> Volume:
-            """mdmd:hidden
-            Lookup a named Volume.
+            _heartbeat_sleep: float = 300,
+        ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Volume]:
+            """Creates a new ephemeral volume within a context manager:
 
-            DEPRECATED: This method is deprecated in favor of `modal.Volume.from_name`.
-
-            In contrast to `modal.Volume.from_name`, this is an eager method
-            that will hydrate the local object with metadata from Modal servers.
+            Usage:
+            ```python
+            import modal
+            with modal.Volume.ephemeral() as vol:
+                assert vol.listdir("/") == []
+            ```
 
             ```python notest
-            vol = modal.Volume.from_name("my-volume")
-            print(vol.listdir("/"))
+            async with modal.Volume.ephemeral() as vol:
+                assert await vol.listdir("/") == []
             ```
             """
             ...
 
-        async def aio(
+        def aio(
             self,
             /,
-            name: str,
-            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
-            create_if_missing: bool = False,
             version: typing.Optional[int] = None,
-        ) -> Volume:
-            """mdmd:hidden
-            Lookup a named Volume.
+            _heartbeat_sleep: float = 300,
+        ) -> typing.AsyncContextManager[Volume]:
+            """Creates a new ephemeral volume within a context manager:
 
-            DEPRECATED: This method is deprecated in favor of `modal.Volume.from_name`.
-
-            In contrast to `modal.Volume.from_name`, this is an eager method
-            that will hydrate the local object with metadata from Modal servers.
+            Usage:
+            ```python
+            import modal
+            with modal.Volume.ephemeral() as vol:
+                assert vol.listdir("/") == []
+            ```
 
             ```python notest
-            vol = modal.Volume.from_name("my-volume")
-            print(vol.listdir("/"))
+            async with modal.Volume.ephemeral() as vol:
+                assert await vol.listdir("/") == []
             ```
             """
             ...
 
-    lookup: __lookup_spec
+    ephemeral: typing.ClassVar[__ephemeral_spec]
 
     class __create_deployed_spec(typing_extensions.Protocol):
         def __call__(
@@ -944,7 +902,7 @@ class Volume(modal.object.Object):
             """mdmd:hidden"""
             ...
 
-    create_deployed: __create_deployed_spec
+    create_deployed: typing.ClassVar[__create_deployed_spec]
 
     class ___create_deployed_spec(typing_extensions.Protocol):
         def __call__(
@@ -971,9 +929,9 @@ class Volume(modal.object.Object):
             """mdmd:hidden"""
             ...
 
-    _create_deployed: ___create_deployed_spec
+    _create_deployed: typing.ClassVar[___create_deployed_spec]
 
-    class __info_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __info_spec(typing_extensions.Protocol):
         def __call__(self, /) -> VolumeInfo:
             """Return information about the Volume object."""
             ...
@@ -982,15 +940,15 @@ class Volume(modal.object.Object):
             """Return information about the Volume object."""
             ...
 
-    info: __info_spec[typing_extensions.Self]
+    info: __info_spec
 
-    class ___do_reload_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___do_reload_spec(typing_extensions.Protocol):
         def __call__(self, /, lock=True): ...
         async def aio(self, /, lock=True): ...
 
-    _do_reload: ___do_reload_spec[typing_extensions.Self]
+    _do_reload: ___do_reload_spec
 
-    class __commit_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __commit_spec(typing_extensions.Protocol):
         def __call__(self, /):
             """Commit changes to a mounted volume.
 
@@ -1007,9 +965,9 @@ class Volume(modal.object.Object):
             """
             ...
 
-    commit: __commit_spec[typing_extensions.Self]
+    commit: __commit_spec
 
-    class __reload_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __reload_spec(typing_extensions.Protocol):
         def __call__(self, /):
             """Make latest committed state of volume available in the running container.
 
@@ -1030,9 +988,9 @@ class Volume(modal.object.Object):
             """
             ...
 
-    reload: __reload_spec[typing_extensions.Self]
+    reload: __reload_spec
 
-    class __iterdir_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __iterdir_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str, *, recursive: bool = True) -> typing.Iterator[FileEntry]:
             """Iterate over all files in a directory in the volume.
 
@@ -1051,9 +1009,9 @@ class Volume(modal.object.Object):
             """
             ...
 
-    iterdir: __iterdir_spec[typing_extensions.Self]
+    iterdir: __iterdir_spec
 
-    class __listdir_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __listdir_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str, *, recursive: bool = False) -> list[FileEntry]:
             """List all files under a path prefix in the modal.Volume.
 
@@ -1072,10 +1030,10 @@ class Volume(modal.object.Object):
             """
             ...
 
-    listdir: __listdir_spec[typing_extensions.Self]
+    listdir: __listdir_spec
 
-    class __read_file_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, path: str) -> typing.Iterator[bytes]:
+    class __read_file_spec(typing_extensions.Protocol):
+        def __call__(self, /, path: str) -> typing.Generator[bytes, None, None]:
             """Read a file from the modal.Volume.
 
             Note - this function is primarily intended to be used outside of a Modal App.
@@ -1094,7 +1052,7 @@ class Volume(modal.object.Object):
             """
             ...
 
-        def aio(self, /, path: str) -> collections.abc.AsyncIterator[bytes]:
+        def aio(self, /, path: str) -> collections.abc.AsyncGenerator[bytes, None]:
             """Read a file from the modal.Volume.
 
             Note - this function is primarily intended to be used outside of a Modal App.
@@ -1113,9 +1071,9 @@ class Volume(modal.object.Object):
             """
             ...
 
-    read_file: __read_file_spec[typing_extensions.Self]
+    read_file: __read_file_spec
 
-    class __read_file_into_fileobj_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __read_file_into_fileobj_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -1140,9 +1098,31 @@ class Volume(modal.object.Object):
             """
             ...
 
-    read_file_into_fileobj: __read_file_into_fileobj_spec[typing_extensions.Self]
+    read_file_into_fileobj: __read_file_into_fileobj_spec
 
-    class __remove_file_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___read_file_into_fileobj_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            path: str,
+            fileobj: typing.IO[bytes],
+            concurrency: typing.Optional[int] = None,
+            download_semaphore: typing.Optional[asyncio.locks.Semaphore] = None,
+            progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
+        ) -> int: ...
+        async def aio(
+            self,
+            /,
+            path: str,
+            fileobj: typing.IO[bytes],
+            concurrency: typing.Optional[int] = None,
+            download_semaphore: typing.Optional[asyncio.locks.Semaphore] = None,
+            progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
+        ) -> int: ...
+
+    _read_file_into_fileobj: ___read_file_into_fileobj_spec
+
+    class __remove_file_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str, recursive: bool = False) -> None:
             """Remove a file or directory from a volume."""
             ...
@@ -1151,9 +1131,9 @@ class Volume(modal.object.Object):
             """Remove a file or directory from a volume."""
             ...
 
-    remove_file: __remove_file_spec[typing_extensions.Self]
+    remove_file: __remove_file_spec
 
-    class __copy_files_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __copy_files_spec(typing_extensions.Protocol):
         def __call__(self, /, src_paths: collections.abc.Sequence[str], dst_path: str, recursive: bool = False) -> None:
             """Copy files within the volume from src_paths to dst_path.
             The semantics of the copy operation follow those of the UNIX cp command.
@@ -1206,10 +1186,12 @@ class Volume(modal.object.Object):
             """
             ...
 
-    copy_files: __copy_files_spec[typing_extensions.Self]
+    copy_files: __copy_files_spec
 
-    class __batch_upload_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, force: bool = False) -> AbstractVolumeUploadContextManager:
+    class __batch_upload_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /, force: bool = False
+        ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[AbstractVolumeUploadContextManager]:
             """Initiate a batched upload to a volume.
 
             To allow overwriting existing files, set `force` to `True` (you cannot overwrite existing directories with
@@ -1228,7 +1210,7 @@ class Volume(modal.object.Object):
             """
             ...
 
-        async def aio(self, /, force: bool = False) -> AbstractVolumeUploadContextManager:
+        def aio(self, /, force: bool = False) -> typing.AsyncContextManager[AbstractVolumeUploadContextManager]:
             """Initiate a batched upload to a volume.
 
             To allow overwriting existing files, set `force` to `True` (you cannot overwrite existing directories with
@@ -1247,13 +1229,13 @@ class Volume(modal.object.Object):
             """
             ...
 
-    batch_upload: __batch_upload_spec[typing_extensions.Self]
+    batch_upload: __batch_upload_spec
 
-    class ___instance_delete_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___instance_delete_spec(typing_extensions.Protocol):
         def __call__(self, /): ...
         async def aio(self, /): ...
 
-    _instance_delete: ___instance_delete_spec[typing_extensions.Self]
+    _instance_delete: ___instance_delete_spec
 
     class __delete_spec(typing_extensions.Protocol):
         def __call__(
@@ -1290,7 +1272,7 @@ class Volume(modal.object.Object):
             """
             ...
 
-    delete: __delete_spec
+    delete: typing.ClassVar[__delete_spec]
 
     class __rename_spec(typing_extensions.Protocol):
         def __call__(
@@ -1312,7 +1294,7 @@ class Volume(modal.object.Object):
             environment_name: typing.Optional[str] = None,
         ): ...
 
-    rename: __rename_spec
+    rename: typing.ClassVar[__rename_spec]
 
 class _AbstractVolumeUploadContextManager:
     async def __aenter__(self): ...
@@ -1472,11 +1454,11 @@ class VolumeUploadContextManager(AbstractVolumeUploadContextManager):
         """
         ...
 
-    class ___upload_file_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___upload_file_spec(typing_extensions.Protocol):
         def __call__(self, /, file_spec: modal._utils.blob_utils.FileUploadSpec) -> modal_proto.api_pb2.MountFile: ...
         async def aio(self, /, file_spec: modal._utils.blob_utils.FileUploadSpec) -> modal_proto.api_pb2.MountFile: ...
 
-    _upload_file: ___upload_file_spec[typing_extensions.Self]
+    _upload_file: ___upload_file_spec
 
 class _VolumeUploadContextManager2(_AbstractVolumeUploadContextManager):
     """Context manager for batch-uploading files to a Volume version 2."""
@@ -1501,7 +1483,7 @@ class _VolumeUploadContextManager2(_AbstractVolumeUploadContextManager):
         client: modal.client._Client,
         progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         force: bool = False,
-        hash_concurrency: int = 4,
+        hash_concurrency: int = 2,
         put_concurrency: int = 128,
     ):
         """mdmd:hidden"""
@@ -1560,7 +1542,7 @@ class VolumeUploadContextManager2(AbstractVolumeUploadContextManager):
         client: modal.client.Client,
         progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         force: bool = False,
-        hash_concurrency: int = 4,
+        hash_concurrency: int = 2,
         put_concurrency: int = 128,
     ):
         """mdmd:hidden"""
@@ -1596,11 +1578,11 @@ class VolumeUploadContextManager2(AbstractVolumeUploadContextManager):
         """
         ...
 
-    class ___put_file_specs_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___put_file_specs_spec(typing_extensions.Protocol):
         def __call__(self, /, file_specs: list[modal._utils.blob_utils.FileUploadSpec2]): ...
         async def aio(self, /, file_specs: list[modal._utils.blob_utils.FileUploadSpec2]): ...
 
-    _put_file_specs: ___put_file_specs_spec[typing_extensions.Self]
+    _put_file_specs: ___put_file_specs_spec
 
 async def _put_missing_blocks(
     file_specs: list[modal._utils.blob_utils.FileUploadSpec2],

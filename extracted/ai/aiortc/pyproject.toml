@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "aiortc"
 description = "An implementation of WebRTC and ORTC"
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "BSD-3-Clause"
 authors = [
     { name = "Jeremy Lainé", email = "jeremy.laine@m4x.org" },
@@ -18,16 +18,15 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "aioice>=0.10.1,<1.0.0",
-    "av>=14.0.0,<15.0.0",
-    "cffi>=1.0.0",
+    "av>=14.0.0,<17.0.0",
     "cryptography>=44.0.0",
     "google-crc32c>=1.1",
     "pyee>=13.0.0",
@@ -59,7 +58,6 @@ disallow_untyped_calls = true
 disallow_untyped_decorators = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-mypy_path = "stubs"
 strict_optional = false
 warn_redundant_casts = true
 warn_unused_ignores = true
@@ -79,5 +77,4 @@ known-third-party = ["aiortc"]
 version = {attr = "aiortc.__version__"}
 
 [tool.setuptools.packages.find]
-exclude = ["_cffi_src"]
 where = ["src"]

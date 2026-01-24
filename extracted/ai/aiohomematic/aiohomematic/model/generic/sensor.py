@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
-"""Module for data points implemented using the sensor category."""
+# Copyright (c) 2021-2026
+"""
+Generic sensor data points for numeric and text values.
+
+Public API of this module is defined by __all__.
+"""
 
 from __future__ import annotations
 
@@ -10,13 +14,12 @@ from typing import Any, Final, cast
 
 from aiohomematic.const import DataPointCategory, Parameter, ParameterType
 from aiohomematic.model.generic.data_point import GenericDataPoint
-from aiohomematic.model.support import check_length_and_log, get_value_from_value_list
-from aiohomematic.property_decorators import state_property
+from aiohomematic.model.mixins.sensor_value import SensorValueMixin, _ValueConverterProtocol
 
 _LOGGER: Final = logging.getLogger(__name__)
 
 
-class DpSensor[SensorT: float | int | str | None](GenericDataPoint[SensorT, None]):
+class DpSensor[SensorT: float | int | str | None](SensorValueMixin, GenericDataPoint[SensorT, None]):
     """
     Implementation of a sensor.
 
@@ -27,28 +30,26 @@ class DpSensor[SensorT: float | int | str | None](GenericDataPoint[SensorT, None
 
     _category = DataPointCategory.SENSOR
 
-    @state_property
-    def value(self) -> SensorT:
-        """Return the value."""
-        if (value := get_value_from_value_list(value=self._value, value_list=self.values)) is not None:
-            return cast(SensorT, value)
-        if convert_func := self._get_converter_func():
-            return cast(SensorT, convert_func(self._value))
-        return cast(
-            SensorT,
-            check_length_and_log(name=self.name, value=self._value)
-            if self._type == ParameterType.STRING
-            else self._value,
-        )
-
-    def _get_converter_func(self) -> Any:
+    def _get_converter_func(self) -> _ValueConverterProtocol | None:
         """Return a converter based on sensor."""
         if convert_func := _VALUE_CONVERTERS_BY_PARAM.get(self.parameter):
             return convert_func
         return None
 
+    def _get_value(self) -> SensorT:
+        """Return the value for readings."""
+        return cast(
+            SensorT,
+            self._transform_sensor_value(
+                raw_value=self._value,
+                value_list=self.values,
+                check_name=self.name,
+                is_string=self._type == ParameterType.STRING,
+            ),
+        )
 
-def _fix_rssi(value: Any) -> int | None:
+
+def _fix_rssi(*, value: Any) -> int | None:
     """
     Fix rssi value.
 
@@ -68,7 +69,7 @@ def _fix_rssi(value: Any) -> int | None:
     return None
 
 
-_VALUE_CONVERTERS_BY_PARAM: Mapping[str, Any] = {
+_VALUE_CONVERTERS_BY_PARAM: Mapping[str, _ValueConverterProtocol] = {
     Parameter.RSSI_PEER: _fix_rssi,
     Parameter.RSSI_DEVICE: _fix_rssi,
 }

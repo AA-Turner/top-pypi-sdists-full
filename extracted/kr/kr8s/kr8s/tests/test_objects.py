@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, Kr8s Developers (See LICENSE for list)
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, Kr8s Developers (See LICENSE for list)
 # SPDX-License-Identifier: BSD 3-Clause License
 import copy
 import datetime
@@ -1103,6 +1103,15 @@ async def test_to_dict(example_pod_spec):
 
 async def test_pod_exec(ubuntu_pod):
     ex = await ubuntu_pod.exec(["date"])
+    assert isinstance(ex, CompletedExec)
+    assert str(datetime.datetime.now().year) in ex.stdout.decode()
+    assert ex.args == ["date"]
+    assert ex.stderr == b""
+    assert ex.returncode == 0
+
+
+async def test_pod_exec_timeout(ubuntu_pod):
+    ex = await ubuntu_pod.exec(["date"], timeout=2)
     assert isinstance(ex, CompletedExec)
     assert str(datetime.datetime.now().year) in ex.stdout.decode()
     assert ex.args == ["date"]

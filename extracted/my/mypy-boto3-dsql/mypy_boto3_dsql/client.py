@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -31,15 +32,21 @@ from .type_defs import (
     CreateClusterOutputTypeDef,
     DeleteClusterInputTypeDef,
     DeleteClusterOutputTypeDef,
+    DeleteClusterPolicyInputTypeDef,
+    DeleteClusterPolicyOutputTypeDef,
     EmptyResponseMetadataTypeDef,
     GetClusterInputTypeDef,
     GetClusterOutputTypeDef,
+    GetClusterPolicyInputTypeDef,
+    GetClusterPolicyOutputTypeDef,
     GetVpcEndpointServiceNameInputTypeDef,
     GetVpcEndpointServiceNameOutputTypeDef,
     ListClustersInputTypeDef,
     ListClustersOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
+    PutClusterPolicyInputTypeDef,
+    PutClusterPolicyOutputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
     UpdateClusterInputTypeDef,
@@ -47,11 +54,6 @@ from .type_defs import (
 )
 from .waiter import ClusterActiveWaiter, ClusterNotExistsWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -62,14 +64,14 @@ __all__ = ("AuroraDSQLClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class AuroraDSQLClient(BaseClient):
@@ -111,7 +113,7 @@ class AuroraDSQLClient(BaseClient):
         self, **kwargs: Unpack[CreateClusterInputTypeDef]
     ) -> CreateClusterOutputTypeDef:
         """
-        The CreateCluster API allows you to create both single-region clusters and
+        The CreateCluster API allows you to create both single-Region clusters and
         multi-Region clusters.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/create_cluster.html)
@@ -128,12 +130,32 @@ class AuroraDSQLClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#delete_cluster)
         """
 
+    def delete_cluster_policy(
+        self, **kwargs: Unpack[DeleteClusterPolicyInputTypeDef]
+    ) -> DeleteClusterPolicyOutputTypeDef:
+        """
+        Deletes the resource-based policy attached to a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/delete_cluster_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#delete_cluster_policy)
+        """
+
     def get_cluster(self, **kwargs: Unpack[GetClusterInputTypeDef]) -> GetClusterOutputTypeDef:
         """
         Retrieves information about a cluster.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/get_cluster.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#get_cluster)
+        """
+
+    def get_cluster_policy(
+        self, **kwargs: Unpack[GetClusterPolicyInputTypeDef]
+    ) -> GetClusterPolicyOutputTypeDef:
+        """
+        Retrieves the resource-based policy document attached to a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/get_cluster_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#get_cluster_policy)
         """
 
     def get_vpc_endpoint_service_name(
@@ -164,6 +186,16 @@ class AuroraDSQLClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/list_tags_for_resource.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#list_tags_for_resource)
+        """
+
+    def put_cluster_policy(
+        self, **kwargs: Unpack[PutClusterPolicyInputTypeDef]
+    ) -> PutClusterPolicyOutputTypeDef:
+        """
+        Attaches a resource-based policy to a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dsql/client/put_cluster_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dsql/client/#put_cluster_policy)
         """
 
     def tag_resource(

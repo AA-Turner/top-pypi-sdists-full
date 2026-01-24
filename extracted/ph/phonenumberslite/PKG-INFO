@@ -1,15 +1,12 @@
 Metadata-Version: 2.4
 Name: phonenumberslite
-Version: 9.0.14
+Version: 9.0.22
 Summary: Python version of Google's common library for parsing, formatting, storing and validating international phone numbers.
-Home-page: https://github.com/daviddrysdale/python-phonenumbers
-Author: David Drysdale
-Author-email: dmd@lurklurk.org
-License: Apache License 2.0
-Platform: Posix; MacOS X; Windows
+Author-email: David Drysdale <dmd@lurklurk.org>
+License-Expression: Apache-2.0
+Project-URL: homepage, https://github.com/daviddrysdale/python-phonenumbers
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Communications :: Telephony
 Classifier: Programming Language :: Python :: 2
@@ -29,18 +26,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=2.5
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: platform
-Dynamic: summary
 
 phonenumbers Python Library
 ===========================

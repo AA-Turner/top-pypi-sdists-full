@@ -11,7 +11,7 @@ from textwrap import dedent
 from typing import Optional
 
 from ..api import usort, usort_path
-from ..config import Config
+from ..config import CAT_FIRST_PARTY, Config
 from ..translate import import_from_node
 from ..util import parse_import
 
@@ -332,6 +332,18 @@ numpy = ["numpy", "pandas"]
             """,
         )
 
+    def test_white_space_pytorch_example(self) -> None:
+        config = replace(DEFAULT_CONFIG, preserve_inline_comments=True)
+        self.assertUsortResult(
+            """
+            from package.test_save_load import TestSaveLoad  # noqa: F401
+            """,
+            """
+            from package.test_save_load import TestSaveLoad  # noqa: F401
+            """,
+            config,
+        )
+
     def test_case_insensitive_sorting(self) -> None:
         content = """
             import calendar
@@ -365,11 +377,10 @@ numpy = ["numpy", "pandas"]
         """
         self.assertUsortResult(content, content, config)
 
-    def test_match_black_blank_line_before_comment(self) -> None:
+    def test_collapse_blank_line_before_comment(self) -> None:
         content = """
             import a
             import b
-
             # comment
             import c
         """
@@ -618,19 +629,6 @@ numpy = ["numpy", "pandas"]
             """,
         )
 
-    def test_single_line_import_long_comment(self) -> None:
-        """
-        Basic import statements can't be reflowed to multiple lines
-        """
-        self.assertUsortResult(
-            """
-                import foo, bar, baz  # some really long inline comment that would can't be reflowed to a new line
-            """,
-            """
-                import bar, baz, foo  # some really long inline comment that would can't be reflowed to a new line
-            """,
-        )
-
     def test_sorting_import_items(self) -> None:
         self.assertUsortResult(
             """
@@ -640,7 +638,9 @@ numpy = ["numpy", "pandas"]
             """
                 from typing import Dict, List, Optional, Pattern, Set
 
-                import a, b, c
+                import a
+                import b
+                import c
             """,
         )
 
@@ -679,10 +679,113 @@ numpy = ["numpy", "pandas"]
             """,
             """
                 import difflib
+                import os
 
-                import attr, os
+                import attr
                 import third_party
             """,
+        )
+
+    def test_splitting_imports_simple(self) -> None:
+        self.assertUsortResult(
+            """
+                import sys, os, fancy, time, re
+                import math, usort, bisect
+            """,
+            """
+                import bisect
+                import math
+                import os
+                import re
+                import sys
+                import time
+
+                import fancy
+                import usort
+            """,
+        )
+
+    def test_splitting_imports_comments(self) -> None:
+        self.assertUsortResult(
+            """
+                import difflib
+                # directive: foo
+                import sys, os, fancy, time, re
+                import math, usort, bisect  # noqa
+                # after
+            """,
+            """
+                import bisect  # noqa
+                import difflib
+                import math  # noqa
+                # directive: foo
+                import os
+                # directive: foo
+                import re
+                # directive: foo
+                import sys
+                # directive: foo
+                import time
+
+                # directive: foo
+                import fancy
+                import usort  # noqa
+                # after
+            """,
+        )
+
+    def test_splitting_and_merging_with_comments(self) -> None:
+        self.assertUsortResult(
+            """
+                import math, usort  # noqa
+                import black, math  # fun
+            """,
+            """
+                import math  # noqa  # fun
+
+                import black  # fun
+                import usort  # noqa
+            """,
+        )
+
+    def test_magic_commas_disabled(self) -> None:
+        self.assertUsortResult(
+            """
+                from a import (
+                    b,
+                    c,
+                )
+                from foo import ( # important comment
+                    bar,
+                    baz  # @manual
+                )
+            """,
+            """
+                from a import b, c
+                from foo import bar, baz  # important comment  # @manual
+            """,
+        )
+
+    def test_magic_commas_enabled(self) -> None:
+        self.assertUsortResult(
+            """
+                from a import (
+                    b,
+                    c,
+                )
+                from foo import (  # important comment
+                    bar,
+                    baz  # @manual
+                )
+            """,
+            """
+                from a import (
+                    b,
+                    c,
+                )
+                from foo import bar, baz  # important comment  # @manual
+            """,
+            Config(magic_commas=True),
         )
 
     def test_merging_import_items(self) -> None:
@@ -759,7 +862,6 @@ numpy = ["numpy", "pandas"]
             """,
             """
                 import a
-
                 # one
                 # apple
                 from foo import (  # two  # banana
@@ -869,6 +971,21 @@ numpy = ["numpy", "pandas"]
             """,
         )
 
+    def test_sort_merging_and_implicit_blocks(self) -> None:
+        self.assertUsortResult(
+            """
+                from a import x
+                from b import y
+                from b import y
+                from c import x
+            """,
+            """
+                from a import x
+                from b import y
+                from c import x
+            """,
+        )
+
     def test_skip_directives(self) -> None:
         """Test both usort:skip and isort:skip on single line imports"""
         self.assertUsortResult(
@@ -964,6 +1081,246 @@ excludes = [
                 self.assertNotIn(result.path, excluded_paths)
                 self.assertEqual(sorted_content, result.output.replace(b"\r\n", b"\n"))
             self.assertEqual(len(sorted_paths), len(results))
+
+    def test_sorting_with_extra_blank_lines(self) -> None:
+        self.assertUsortResult(
+            """
+                import math
+
+                import beta
+                from . import foo
+                import alpha
+            """,
+            """
+                import math
+
+                import alpha
+                import beta
+
+                from . import foo
+            """,
+        )
+
+        self.assertUsortResult(
+            """
+                import math
+
+
+                import beta
+                from . import foo
+
+                import alpha
+            """,
+            """
+                import math
+
+                import alpha
+                import beta
+
+                from . import foo
+            """,
+        )
+
+        self.assertUsortResult(
+            """
+                import math
+
+                import gamma
+
+                import alpha
+
+
+                # special
+                import beta
+
+                from . import foo
+
+                import zeta
+
+            """,
+            """
+                import math
+
+                import alpha
+                # special
+                import beta
+                import gamma
+                import zeta
+
+                from . import foo
+
+            """,
+        )
+
+    def test_preserve_inline_comments(self) -> None:
+        config = replace(DEFAULT_CONFIG, preserve_inline_comments=True)
+        self.assertUsortResult(
+            """
+                from torch._C import _linalg  # pyrefly:
+                from torch._C import (
+                    _LinAlgError as LinAlgError,  # pyrefly: ignore  # missing-module-attribute
+                )
+                from torch._C import _add_docstr
+            """,
+            """
+                from torch._C import (
+                    _add_docstr,
+                    _linalg,  # pyrefly:
+                    _LinAlgError as LinAlgError,  # pyrefly: ignore  # missing-module-attribute
+                )
+            """,
+            config,
+        )
+
+    def test_preserve_inline_comments_multiple_modules(self) -> None:
+        config = replace(DEFAULT_CONFIG, preserve_inline_comments=True)
+        self.assertUsortResult(
+            """
+                from foo import bar  # comment1
+                from foo import baz  # comment2
+                from foo import alpha
+            """,
+            """
+                from foo import (
+                    alpha,
+                    bar,  # comment1
+                    baz,  # comment2
+                )
+            """,
+            config,
+        )
+
+    def test_preserve_inline_comments_disabled(self) -> None:
+        # Without preserve_inline_comments, comments become import-level
+        config = replace(DEFAULT_CONFIG, preserve_inline_comments=False)
+        self.assertUsortResult(
+            """
+                from torch._C import _linalg  # pyrefly:
+                from torch._C import _add_docstr
+            """,
+            """
+                from torch._C import _add_docstr, _linalg  # pyrefly:
+            """,
+            config,
+        )
+
+    def test_collapse_blank_lines_in_category_enabled(self) -> None:
+        """Test with collapse_blank_lines_in_category=True (default, post-commit 58c01556 behavior)"""
+        config = replace(DEFAULT_CONFIG, collapse_blank_lines_in_category=True)
+        self.assertUsortResult(
+            """
+                import math
+
+                import gamma
+
+                import alpha
+
+
+                # special
+                import beta
+
+                from . import foo
+
+                import zeta
+
+            """,
+            """
+                import math
+
+                import alpha
+                # special
+                import beta
+                import gamma
+                import zeta
+
+                from . import foo
+
+            """,
+            config,
+        )
+
+    def test_collapse_blank_lines_in_category_disabled(self) -> None:
+        """Test with collapse_blank_lines_in_category=False (pre-commit 58c01556 behavior)"""
+        config = replace(DEFAULT_CONFIG, collapse_blank_lines_in_category=False)
+        self.assertUsortResult(
+            """
+                import math
+
+                import gamma
+
+                import alpha
+
+
+                # special
+                import beta
+
+                from . import foo
+
+                import zeta
+
+            """,
+            """
+                import math
+
+                import alpha
+
+                # special
+                import beta
+
+                import gamma
+
+                import zeta
+
+                from . import foo
+
+            """,
+            config,
+        )
+
+    def test_collapse_blank_lines_in_category_default(self) -> None:
+        # Configure torch as first_party so both imports are in the same category
+        known = DEFAULT_CONFIG.known.copy()
+        known["torch"] = CAT_FIRST_PARTY
+        config = replace(
+            DEFAULT_CONFIG,
+            collapse_blank_lines_in_category=True,
+            known=known,
+        )
+        self.assertUsortResult(
+            """
+                import torch
+
+                from .runner import get_nn_runners
+            """,
+            """
+                import torch
+                from .runner import get_nn_runners
+            """,
+            config,
+        )
+
+    def test_collapse_blank_lines_in_category_false(self) -> None:
+        # Configure torch as first_party so both imports are in the same category
+        known = DEFAULT_CONFIG.known.copy()
+        known["torch"] = CAT_FIRST_PARTY
+        config = replace(
+            DEFAULT_CONFIG,
+            collapse_blank_lines_in_category=False,
+            known=known,
+        )
+        self.assertUsortResult(
+            """
+                import torch
+
+                from .runner import get_runners
+            """,
+            """
+                import torch
+
+                from .runner import get_runners
+            """,
+            config,
+        )
 
 
 if __name__ == "__main__":

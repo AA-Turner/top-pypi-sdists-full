@@ -1,10 +1,11 @@
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 from urllib.parse import parse_qs
 
 import pytest
 
 from requests_oauth2client import ApiClient, ClientSecretPost, OAuth2Client
-from tests.conftest import RequestsMocker
+from tests.utils import RequestsMocker
 
 session_key = "session_key"
 
@@ -17,30 +18,26 @@ def test_flask(
     scope: str,
     target_api: str,
 ) -> None:
-    try:
-        from flask import Flask, request
-
-        from requests_oauth2client.flask import FlaskOAuth2ClientCredentialsAuth
-    except ImportError:
-        pytest.skip("Flask is not available")
+    flask = pytest.importorskip("flask")
+    rof = pytest.importorskip("requests_oauth2client.flask")
 
     oauth_client = OAuth2Client(token_endpoint, ClientSecretPost(client_id, client_secret))
-    auth = FlaskOAuth2ClientCredentialsAuth(
+    auth = rof.FlaskOAuth2ClientCredentialsAuth(
         session_key=session_key,
         scope=scope,
         client=oauth_client,
     )
     api_client = ApiClient(target_api, auth=auth)
 
-    assert isinstance(api_client.auth, FlaskOAuth2ClientCredentialsAuth)
+    assert isinstance(api_client.auth, rof.FlaskOAuth2ClientCredentialsAuth)
 
-    app = Flask("testapp")
+    app = flask.Flask("testapp")
     app.config["TESTING"] = True
     app.config["SECRET_KEY"] = "thisissecret"
 
-    @app.route("/api")
+    @app.route("/api")  # type: ignore[untyped-decorator]
     def get() -> Any:
-        return api_client.get(params=request.args).json()
+        return api_client.get(params=flask.request.args).json()
 
     access_token = "access_token"
     json_resp = {"status": "success"}
@@ -101,19 +98,15 @@ def test_flask(
 
 
 def test_flask_token_kwarg() -> None:
-    try:
-        from flask import Flask
+    flask = pytest.importorskip("flask")
+    rof = pytest.importorskip("requests_oauth2client.flask")
 
-        from requests_oauth2client.flask import FlaskOAuth2ClientCredentialsAuth
-    except ImportError:
-        pytest.skip("Flask is not available")
-
-    app = Flask("testapp")
+    app = flask.Flask("testapp")
     app.config["TESTING"] = True
     app.config["SECRET_KEY"] = "thisissecret"
 
     with app.test_request_context("/"):
-        auth = FlaskOAuth2ClientCredentialsAuth(
+        auth = rof.FlaskOAuth2ClientCredentialsAuth(
             client=None,
             session_key=session_key,
             token="xyz",

@@ -393,7 +393,10 @@ class DaxClient(object):
             logger.debug('Sending endpoints request')
             Stubs.write_endpoints_455855874_1(tube)
 
-            return self._decode_result('endpoints', None, Assemblers.endpoints_455855874_1, tube)
+            all_endpoints = self._decode_result(
+                'endpoints', None, Assemblers.endpoints_455855874_1, tube
+            )
+            return [ep for ep in all_endpoints if ep['ip_version'] == tube.ip_version]
 
     def _defineKeySchema(self, table_name, tube):
         logger.debug('Sending defineKeySchema request')

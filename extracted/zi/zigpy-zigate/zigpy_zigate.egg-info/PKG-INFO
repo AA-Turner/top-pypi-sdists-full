@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zigpy-zigate
-Version: 0.13.3
+Version: 0.13.4
 Summary: A library which communicates with ZiGate radios for zigpy
 Author-email: Sébastien RAMAGE <sebatien.ramage@gmail.com>
 License: GPL-3.0

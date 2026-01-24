@@ -14,11 +14,11 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
-#include "tools/gpu/FenceSync.h"
 
 struct GrContextOptions;
 
@@ -44,7 +44,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(FlushSubmittedProcTest,
     auto ctx = ctxInfo.directContext();
 
     SkImageInfo info = SkImageInfo::Make(8, 8, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
-    sk_sp<SkSurface> surface = SkSurface::MakeRenderTarget(ctx, skgpu::Budgeted::kNo, info);
+    sk_sp<SkSurface> surface = SkSurfaces::RenderTarget(ctx, skgpu::Budgeted::kNo, info);
     SkCanvas* canvas = surface->getCanvas();
 
     canvas->clear(SK_ColorGREEN);
@@ -65,7 +65,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(FlushSubmittedProcTest,
     REPORTER_ASSERT(reporter, submittedSuccess);
 
     // There should be no work so if we flush again the submittedProc should be called immediately
-    surface->flush(SkSurface::BackendSurfaceAccess::kNoAccess, flushInfo);
+    ctx->flush(surface.get(), SkSurfaces::BackendSurfaceAccess::kNoAccess, flushInfo);
     REPORTER_ASSERT(reporter, submittedCount == 2);
     REPORTER_ASSERT(reporter, submittedSuccess);
 
@@ -80,10 +80,10 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(FlushSubmittedProcTest,
 
     // Testing that doing multiple flushes before a submit triggers both submittedProcs to be called
     canvas->clear(SK_ColorBLUE);
-    surface->flush(SkSurface::BackendSurfaceAccess::kNoAccess, flushInfo);
+    ctx->flush(surface.get(), SkSurfaces::BackendSurfaceAccess::kNoAccess, flushInfo);
     REPORTER_ASSERT(reporter, submittedCount == 3);
     canvas->clear(SK_ColorRED);
-    surface->flush(SkSurface::BackendSurfaceAccess::kNoAccess, flushInfo);
+    ctx->flush(surface.get(), SkSurfaces::BackendSurfaceAccess::kNoAccess, flushInfo);
     REPORTER_ASSERT(reporter, submittedCount == 3);
     ctx->submit();
 
@@ -93,7 +93,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(FlushSubmittedProcTest,
     // Test an abandoned context to get a failed submit immediately when flush is called
     canvas->clear(SK_ColorCYAN);
     ctx->abandonContext();
-    surface->flush(SkSurface::BackendSurfaceAccess::kNoAccess, flushInfo);
+    ctx->flush(surface.get(), SkSurfaces::BackendSurfaceAccess::kNoAccess, flushInfo);
     REPORTER_ASSERT(reporter, submittedCount == 6);
     REPORTER_ASSERT(reporter, !submittedSuccess);
     ctx->flush(flushInfo);

@@ -4,33 +4,33 @@
 
 from __future__ import annotations
 
-from typing import Annotated, List, Optional
+from typing import Annotated, TypeAlias
 
-from msgspec import Meta, Struct
+from msgspec import UNSET, Meta, Struct, UnsetType
 
 
 class Pet(Struct):
     id: int
     name: str
-    tag: Optional[str] = None
+    tag: str | UnsetType = UNSET
 
 
-Pets = List[Pet]
+Pets: TypeAlias = list[Pet]
 
 
 class User(Struct):
     id: int
     name: str
-    tag: Optional[str] = None
+    tag: str | UnsetType = UNSET
 
 
-Users = List[User]
+Users: TypeAlias = list[User]
 
 
-Id = str
+Id: TypeAlias = str
 
 
-Rules = List[str]
+Rules: TypeAlias = list[str]
 
 
 class Error(Struct):
@@ -39,26 +39,30 @@ class Error(Struct):
 
 
 class Api(Struct):
-    apiKey: Optional[
+    apiKey: (
         Annotated[str, Meta(description='To be used as a dataset parameter value')]
-    ] = None
-    apiVersionNumber: Optional[
+        | UnsetType
+    ) = UNSET
+    apiVersionNumber: (
         Annotated[str, Meta(description='To be used as a version parameter value')]
-    ] = None
-    apiUrl: Optional[
+        | UnsetType
+    ) = UNSET
+    apiUrl: (
         Annotated[str, Meta(description="The URL describing the dataset's fields")]
-    ] = None
-    apiDocumentationUrl: Optional[
+        | UnsetType
+    ) = UNSET
+    apiDocumentationUrl: (
         Annotated[str, Meta(description='A URL to the API console for each API')]
-    ] = None
+        | UnsetType
+    ) = UNSET
 
 
-Apis = List[Api]
+Apis: TypeAlias = list[Api]
 
 
 class Event(Struct):
-    name: Optional[str] = None
+    name: str | UnsetType = UNSET
 
 
 class Result(Struct):
-    event: Optional[Event] = None
+    event: Event | UnsetType = UNSET

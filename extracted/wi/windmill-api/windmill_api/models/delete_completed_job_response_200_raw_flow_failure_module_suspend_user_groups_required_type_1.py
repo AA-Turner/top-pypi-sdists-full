@@ -12,10 +12,13 @@ T = TypeVar("T", bound="DeleteCompletedJobResponse200RawFlowFailureModuleSuspend
 
 @_attrs_define
 class DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1:
-    """
-    Attributes:
-        expr (str):
-        type (DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1Type):
+    """JavaScript expression evaluated at runtime. Can reference previous step results via 'results.step_id' or flow inputs
+    via 'flow_input.property'. Inside loops, use 'flow_input.iter.value' for the current iteration value
+
+        Attributes:
+            expr (str): JavaScript expression returning the value. Available variables - results (object with all previous
+                step results), flow_input (flow inputs), flow_input.iter (in loops)
+            type (DeleteCompletedJobResponse200RawFlowFailureModuleSuspendUserGroupsRequiredType1Type):
     """
 
     expr: str

@@ -1,25 +1,23 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sphinx-lint
-Version: 1.0.0
+Version: 1.0.2
 Summary: Check for stylistic and formal issues in .rst and .py files included in the documentation.
 Project-URL: Changelog, https://github.com/sphinx-contrib/sphinx-lint/releases
 Project-URL: Repository, https://github.com/sphinx-contrib/sphinx-lint
 Author-email: Georg Brandl <georg@python.org>, Julien Palard <julien@palard.fr>
-License: PSF License
+License-Expression: PSF-2.0
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Python Software Foundation License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation :: Sphinx
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: polib
 Requires-Dist: regex
 Provides-Extra: tests

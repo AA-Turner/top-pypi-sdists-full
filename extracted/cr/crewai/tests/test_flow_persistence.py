@@ -3,11 +3,10 @@
 import os
 from typing import Dict, List
 
-from pydantic import BaseModel
-
 from crewai.flow.flow import Flow, FlowState, listen, start
 from crewai.flow.persistence import persist
 from crewai.flow.persistence.sqlite import SQLiteFlowPersistence
+from pydantic import BaseModel
 
 
 class TestState(FlowState):
@@ -209,7 +208,6 @@ def test_persist_decorator_verbose_logging(tmp_path, caplog):
     assert "Saving flow state" in caplog.text
 
 
-
 def test_persistence_with_base_model(tmp_path):
     db_path = os.path.join(tmp_path, "test_flows.db")
     persistence = SQLiteFlowPersistence(db_path)
@@ -229,14 +227,16 @@ def test_persistence_with_base_model(tmp_path):
 
         @start()
         def init_step(self):
-            self.state.latest_message = Message(role="user", type="text", content="Hello, World!")
+            self.state.latest_message = Message(
+                role="user", type="text", content="Hello, World!"
+            )
             self.state.history.append(self.state.latest_message)
 
     flow = BaseModelFlow(persistence=persistence)
     flow.kickoff()
 
     latest_message = flow.state.latest_message
-    message, = flow.state.history
+    (message,) = flow.state.history
 
     assert latest_message is not None
     assert latest_message.role == "user"

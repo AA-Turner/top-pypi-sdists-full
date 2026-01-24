@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: hatchet-sdk
-Version: 1.18.1
-Summary: 
+Version: 1.22.8
+Summary: This is the official Python SDK for Hatchet, a distributed, fault-tolerant task queue. The SDK allows you to easily integrate Hatchet's task scheduling and workflow orchestration capabilities into your Python applications.
 License: MIT
 Author: Alexander Belanger
 Author-email: alexander@hatchet.run
@@ -14,11 +14,8 @@ Classifier: Programming Language :: Python :: 3.12
 Provides-Extra: otel
 Provides-Extra: v0-sdk
 Requires-Dist: aiohttp (>=3.10.5,<4.0.0)
-Requires-Dist: cel-python (>=0.4.0,<0.5.0) ; extra == "v0-sdk"
-Requires-Dist: grpcio (>=1.64.1,!=1.68.*) ; python_version < "3.13"
-Requires-Dist: grpcio (>=1.69.0) ; python_version >= "3.13"
-Requires-Dist: grpcio-tools (>=1.64.1,!=1.68.*) ; python_version < "3.13"
-Requires-Dist: grpcio-tools (>=1.69.0) ; python_version >= "3.13"
+Requires-Dist: grpcio (>=1.76.0,<2.0.0)
+Requires-Dist: grpcio-tools (>=1.76.0,<2.0.0)
 Requires-Dist: opentelemetry-api (>=1.28.0,<2.0.0) ; extra == "otel"
 Requires-Dist: opentelemetry-distro (>=0.49b0) ; extra == "otel"
 Requires-Dist: opentelemetry-exporter-otlp (>=1.28.0,<2.0.0) ; extra == "otel"
@@ -26,12 +23,12 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http (>=1.28.0,<2.0.0) ; extra 
 Requires-Dist: opentelemetry-instrumentation (>=0.49b0) ; extra == "otel"
 Requires-Dist: opentelemetry-sdk (>=1.28.0,<2.0.0) ; extra == "otel"
 Requires-Dist: prometheus-client (>=0.21.1)
-Requires-Dist: protobuf (>=5.29.5,<6.0.0)
+Requires-Dist: protobuf (>=6.30.0,<7.0.0)
 Requires-Dist: pydantic (>=2.6.3,<3.0.0)
 Requires-Dist: pydantic-settings (>=2.7.1,<3.0.0)
 Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
 Requires-Dist: tenacity (>=8.4.1)
-Requires-Dist: urllib3 (>=1.26.20)
+Requires-Dist: urllib3 (>=2.6.0,<3.0.0)
 Description-Content-Type: text/markdown
 
 # Hatchet Python SDK

@@ -12,14 +12,27 @@ import rasterio
 from rasterio import warp
 from rasterio._base import DatasetBase
 from rasterio._features import _shapes, _sieve, _rasterize, _bounds
+from rasterio.dtypes import (
+    int8,
+    int16,
+    int32,
+    int64,
+    uint8,
+    uint16,
+    uint32,
+    uint64,
+    float16,
+    float32,
+    float64,
+)
 from rasterio.enums import MergeAlg
-from rasterio.env import ensure_env, GDALVersion
-from rasterio.errors import ShapeSkipWarning
+from rasterio.env import ensure_env, _GDAL_AT_LEAST_3_11
+from rasterio.errors import ShapeSkipWarning, RasterioDeprecationWarning
 from rasterio.io import DatasetWriter
 from rasterio.rio.helpers import coords
 from rasterio.transform import Affine
 from rasterio.transform import IDENTITY, guard_transform
-from rasterio.windows import Window
+from rasterio import windows
 
 log = logging.getLogger(__name__)
 
@@ -72,20 +85,26 @@ def geometry_mask(
         transform=transform,
         all_touched=all_touched,
         fill=fill,
-        default_value=mask_value).astype('bool')
+        default_value=mask_value,
+        dtype=uint8
+    ).view(bool)
 
 
 @ensure_env
 def shapes(source, mask=None, connectivity=4, transform=IDENTITY):
-    """Get shapes and values of connected regions in a dataset or array.
+    r"""Get shapes and values of connected regions in a dataset or array.
+
+    .. warning:: Because the low-level implementation uses either an int64 or float32
+                 buffer, uint64 and float64 data may encounter truncation issues.
 
     Parameters
     ----------
     source : numpy.ndarray, dataset object, Band, or tuple(dataset, bidx)
         Data type must be one of rasterio.int8, rasterio.int16, rasterio.int32,
-        rasterio.uint8, rasterio.uint16, rasterio.float32, or rasterio.float64.
+        rasterio.int64, rasterio.uint8, rasterio.uint16, rasterio.uint32,
+        rasterio.uint64, rasterio.float32, rasterio.float64.
     mask : numpy.ndarray or rasterio Band object, optional
-        Must evaluate to bool (rasterio.bool_ or rasterio.uint8). Values
+        Must evaluate to bool (rasterio.bool\_ or rasterio.uint8). Values
         of False or 0 will be excluded from feature generation.  Note
         well that this is the inverse sense from Numpy's, where a mask
         value of True indicates invalid data in an array. If `source` is
@@ -115,9 +134,10 @@ def shapes(source, mask=None, connectivity=4, transform=IDENTITY):
     variability, such as imagery, may produce one polygon per pixel and
     consume large amounts of memory.
 
-    Because the low-level implementation uses either an int32 or float32
-    buffer, uint32 and float64 data cannot be operated on without
-    truncation issues.
+    GDAL functions used:
+
+    - :cpp:func:`GDALPolygonize`
+    - :cpp:func:`GDALFPolygonize`
 
     """
     if hasattr(source, 'mask') and mask is None:
@@ -130,7 +150,7 @@ def shapes(source, mask=None, connectivity=4, transform=IDENTITY):
 
 @ensure_env
 def sieve(source, size, out=None, mask=None, connectivity=4):
-    """Remove small polygon regions from a raster.
+    r"""Remove small polygon regions from a raster.
 
     Polygons are found for each set of neighboring pixels of the same
     value.
@@ -140,8 +160,7 @@ def sieve(source, size, out=None, mask=None, connectivity=4):
     source : ndarray, dataset, or Band
         The source is a 2 or 3-D ndarray, a dataset opened in "r" mode,
         or a single or a multiple Rasterio Band object. Must be of type
-        rasterio.int16, rasterio.int32, rasterio.uint8, rasterio.uint16,
-        or rasterio.float32
+        rasterio.int16, rasterio.int32, rasterio.uint8 or rasterio.uint16.
     size : int
         minimum polygon size (number of pixels) to retain.
     out : numpy ndarray, optional
@@ -149,7 +168,7 @@ def sieve(source, size, out=None, mask=None, connectivity=4):
         results.
     mask : numpy ndarray or rasterio Band object, optional
         Values of False or 0 will be excluded from feature generation
-        Must evaluate to bool (rasterio.bool_ or rasterio.uint8)
+        Must evaluate to bool (rasterio.bool\_ or rasterio.uint8)
     connectivity : int, optional
         Use 4 or 8 pixel connectivity for grouping pixels into features
 
@@ -169,12 +188,16 @@ def sieve(source, size, out=None, mask=None, connectivity=4):
     high pixel-to-pixel variability, such as imagery, may produce one
     polygon per pixel and consume large amounts of memory.
 
+    GDAL functions used:
+
+    - :cpp:func:`GDALSieveFilter`
+
     """
     if isinstance(source, DatasetBase):
         source = rasterio.band(source, source.indexes)
 
     if out is None:
-        out = np.zeros(source.shape, source.dtype)
+        out = np.zeros(source.shape, dtype=source.dtype)
 
     return _sieve(source, size, out, mask, connectivity)
 
@@ -259,7 +282,7 @@ def rasterize(
     -----
     Valid data types for `fill`, `default_value`, `out`, `dtype` and
     shape values are "int16", "int32", "uint8", "uint16", "uint32",
-    "float32", and "float64".
+    "float16", "float32", and "float64".
 
     This function requires significant memory resources. The shapes
     iterator will be materialized to a Python list and another C copy of
@@ -272,12 +295,17 @@ def rasterize(
     shapes will be iterated multiple times. Performance is thus a linear
     function of buffer size. For maximum speed, ensure that
     GDAL_CACHEMAX is larger than the size of `out` or `out_shape`.
+
+    GDAL functions used:
+
+    - :cpp:func:`GDALRasterizeGeometries`
+
     """
     valid_dtypes = (
-        'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64', 'float32', 'float64'
+        int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64
     )
-    if GDALVersion.runtime().at_least("3.7"):
-        valid_dtypes += ("int8",)
+    if _GDAL_AT_LEAST_3_11:
+        valid_dtypes += (float16,)
 
     # The output data type is primarily determined by the output array
     # or dtype parameter. But if neither of these are specified, it will
@@ -347,16 +375,6 @@ def rasterize(
     if not dtype and valid_shapes:
         values_arr = np.array(shape_values)
         dtype = values_arr.dtype.name
-
-        # GDAL 3.5 doesn't support int64 output. We'll try int32.
-        if dtype not in valid_dtypes and dtype.startswith("int"):
-            lo, hi = values_arr.min(), values_arr.max()
-            if -2147483648 <= lo and hi <= 2147483647:
-                dtype = "int32"
-            elif 0 <= lo and hi <= 4294967295:
-                dtype = "uint32"
-            else:
-                raise ValueError("GDAL versions < 3.6 cannot rasterize int64 values.")
 
     with ExitStack() as exit_stack:
         if dst_path is not None:
@@ -467,8 +485,8 @@ def geometry_window(
         This parameter is ignored since version 1.2.1. A deprecation
         warning will be emitted in 1.3.0.
     pixel_precision : int or float, optional
-        Number of places of rounding precision or absolute precision for
-        evaluating bounds of shapes.
+        This parameter is ignored since version 1.5. A deprecation
+        warning will be emitted.
     boundless : bool, optional
         Whether to allow a boundless window or not.
 
@@ -477,36 +495,48 @@ def geometry_window(
     rasterio.windows.Window
 
     """
+    if north_up is not None:
+        warnings.warn("The north_up parameter is unused, deprecated, and will be removed in the future.",
+                       RasterioDeprecationWarning
+        )
+    if rotated is not None:
+        warnings.warn("The rotated parameter is unused, deprecated, and will be removed in the future.",
+                      RasterioDeprecationWarning
+        )
+    if pixel_precision is not None:
+        warnings.warn("The pixel_precision paramter is unused, deprecated, and will be removed in the future.",
+                      RasterioDeprecationWarning
+        )
 
-    all_bounds = [bounds(shape, transform=~dataset.transform) for shape in shapes]
+    shape_windows = []
+    for shape in shapes:
+        shape_bounds = bounds(shape)
+        try:
+            _window = windows.from_bounds(*shape_bounds, transform=dataset.transform)
+        except windows.WindowError:
+            shape_bounds = bounds(shape, north_up=False)
+            _window = windows.from_bounds(*shape_bounds, transform=dataset.transform)
 
-    cols = [
-        x
-        for (left, bottom, right, top) in all_bounds
-        for x in (left - pad_x, right + pad_x, right + pad_x, left - pad_x)
-    ]
-    rows = [
-        y
-        for (left, bottom, right, top) in all_bounds
-        for y in (top - pad_y, top - pad_y, bottom + pad_y, bottom + pad_y)
-    ]
+        # pad window
+        col_off = math.floor(_window.col_off - pad_x)
+        row_off = math.floor(_window.row_off - pad_y)
+        width = math.ceil(_window.col_off + _window.width + pad_x) - col_off
+        height = math.ceil(_window.row_off + _window.height + pad_y) - row_off
+        shape_windows.append(
+            windows.Window(col_off=col_off,
+                            row_off=row_off,
+                            width=width,
+                            height=height)
+        )
 
-    row_start, row_stop = int(math.floor(min(rows))), int(math.ceil(max(rows)))
-    col_start, col_stop = int(math.floor(min(cols))), int(math.ceil(max(cols)))
-
-    window = Window(
-        col_off=col_start,
-        row_off=row_start,
-        width=max(col_stop - col_start, 0.0),
-        height=max(row_stop - row_start, 0.0),
-    )
+    bounding_window = windows.union(*shape_windows)
 
     # Make sure that window overlaps raster
-    raster_window = Window(0, 0, dataset.width, dataset.height)
+    raster_window = windows.Window(0, 0, dataset.width, dataset.height)
     if not boundless:
-        window = window.intersection(raster_window)
+        bounding_window = bounding_window.intersection(raster_window)
 
-    return window
+    return bounding_window
 
 
 def is_valid_geom(geom):
@@ -674,14 +704,13 @@ def dataset_features(
             msk_shape = shape
             if bidx is None:
                 msk = np.zeros(
-                    (src.count,) + msk_shape, 'uint8')
+                    (src.count,) + msk_shape, dtype=np.uint8)
             else:
-                msk = np.zeros(msk_shape, 'uint8')
+                msk = np.zeros(msk_shape, dtype=np.uint8)
             msk = src.read_masks(bidx, msk)
 
         if bidx is None:
-            msk = np.logical_or.reduce(msk).astype('uint8')
-
+            msk = np.logical_or.reduce(msk).astype(np.uint8)
         # Possibly overridden below.
         img = msk
 
@@ -700,7 +729,7 @@ def dataset_features(
     # categories to 2 and likely reduces the number of
     # shapes.
     if as_mask:
-        tmp = np.ones_like(img, 'uint8') * 255
+        tmp = np.ones_like(img, np.uint8) * 255
         tmp[img == 0] = 0
         img = tmp
         if not with_nodata:

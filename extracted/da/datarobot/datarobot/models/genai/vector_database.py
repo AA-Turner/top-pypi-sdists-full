@@ -30,141 +30,109 @@ from datarobot.models.use_cases.utils import UseCaseLike, get_use_case_id, resol
 from datarobot.utils.pagination import unpaginate
 from datarobot.utils.waiters import wait_for_async_resolution
 
-chunking_parameters_trafaret = t.Dict(
-    {
-        t.Key("embedding_model", optional=True, default=None): str,
-        t.Key("embedding_validation_id", optional=True, default=None): str,
-        t.Key("chunking_method", optional=True, default=None): t.Or(str, t.Null),
-        t.Key("chunk_size", optional=True, default=None): t.Or(t.Int, t.Null),
-        t.Key("chunk_overlap_percentage", optional=True, default=None): t.Or(t.Int, t.Null),
-        t.Key("separators", optional=True, default=None): t.Or(t.List(t.String), t.Null),
-        t.Key("custom_chunking", default=False): t.Bool,
-    }
-).ignore_extra("*")
+chunking_parameters_trafaret = t.Dict({
+    t.Key("embedding_model", optional=True, default=None): str,
+    t.Key("embedding_validation_id", optional=True, default=None): str,
+    t.Key("chunking_method", optional=True, default=None): t.Or(str, t.Null),
+    t.Key("chunk_size", optional=True, default=None): t.Or(t.Int, t.Null),
+    t.Key("chunk_overlap_percentage", optional=True, default=None): t.Or(t.Int, t.Null),
+    t.Key("separators", optional=True, default=None): t.Or(t.List(t.String), t.Null),
+    t.Key("custom_chunking", default=False): t.Bool,
+}).ignore_extra("*")
 
-embedding_model_trafaret = t.Dict(
-    {
-        t.Key("embedding_model"): str,
-        t.Key("description"): str,
-        t.Key("max_sequence_length"): int,
-        t.Key("languages"): str,
-    }
-).ignore_extra("*")
+embedding_model_trafaret = t.Dict({
+    t.Key("embedding_model"): str,
+    t.Key("description"): str,
+    t.Key("max_sequence_length"): int,
+    t.Key("languages"): str,
+}).ignore_extra("*")
 
-supported_custom_model_embedding_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String,
-    }
-).ignore_extra("*")
+supported_custom_model_embedding_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String,
+}).ignore_extra("*")
 
-supported_embeddings_trafaret = t.Dict(
-    {
-        t.Key("embedding_models"): t.List(embedding_model_trafaret),
-        t.Key("default_embedding_model"): t.String,
-        t.Key("custom_model_embedding_validations"): t.List(
-            supported_custom_model_embedding_trafaret
-        ),
-    }
-).ignore_extra("*")
+supported_embeddings_trafaret = t.Dict({
+    t.Key("embedding_models"): t.List(embedding_model_trafaret),
+    t.Key("default_embedding_model"): t.String,
+    t.Key("custom_model_embedding_validations"): t.List(supported_custom_model_embedding_trafaret),
+}).ignore_extra("*")
 
-text_chunking_parameter_fields_trafaret = t.Dict(
-    {
-        t.Key("name"): t.String,
-        t.Key("type"): t.String,
-        t.Key("description"): t.String,
-        t.Key("default"): t.Or(t.Int, t.List(t.String(allow_blank=True))),
-        t.Key("min", optional=True): t.Or(t.Int, t.Null),
-        t.Key("max", optional=True): t.Or(t.Int, t.Null),
-    }
-).ignore_extra("*")
+text_chunking_parameter_fields_trafaret = t.Dict({
+    t.Key("name"): t.String,
+    t.Key("type"): t.String,
+    t.Key("description"): t.String,
+    t.Key("default"): t.Or(t.Int, t.List(t.String(allow_blank=True))),
+    t.Key("min", optional=True): t.Or(t.Int, t.Null),
+    t.Key("max", optional=True): t.Or(t.Int, t.Null),
+}).ignore_extra("*")
 
-text_chunking_method_trafaret = t.Dict(
-    {
-        t.Key("chunking_method"): t.Or(t.String, t.Null),
-        t.Key("chunking_parameters"): t.List(text_chunking_parameter_fields_trafaret),
-        t.Key("description"): t.String,
-    }
-).ignore_extra("*")
+text_chunking_method_trafaret = t.Dict({
+    t.Key("chunking_method"): t.Or(t.String, t.Null),
+    t.Key("chunking_parameters"): t.List(text_chunking_parameter_fields_trafaret),
+    t.Key("description"): t.String,
+}).ignore_extra("*")
 
-text_chunking_config_trafaret = t.Dict(
-    {
-        t.Key("embedding_model"): t.String,
-        t.Key("methods"): t.List(text_chunking_method_trafaret),
-        t.Key("default_method"): t.String,
-    }
-).ignore_extra("*")
+text_chunking_config_trafaret = t.Dict({
+    t.Key("embedding_model"): t.String,
+    t.Key("methods"): t.List(text_chunking_method_trafaret),
+    t.Key("default_method"): t.String,
+}).ignore_extra("*")
 
-supported_text_chunkings_trafaret = t.Dict(
-    {
-        t.Key("text_chunking_configs"): t.List(text_chunking_config_trafaret),
-    }
-).ignore_extra("*")
+supported_text_chunkings_trafaret = t.Dict({
+    t.Key("text_chunking_configs"): t.List(text_chunking_config_trafaret),
+}).ignore_extra("*")
 
-nested_supported_retrieval_setting_trafaret = t.Dict(
-    {
-        t.Key("name"): t.String,
-        t.Key("type"): t.Or(t.String, t.List(t.String)),
-        t.Key("description"): t.String,
-        t.Key("title"): t.String,
-        t.Key("default", optional=True, default=None): t.Or(t.String, t.Int, t.Bool, t.Null),
-        t.Key("minimum", optional=True, default=None): t.Or(t.Int, t.Null),
-        t.Key("maximum", optional=True, default=None): t.Or(t.Int, t.Null),
-        t.Key("enum", optional=True, default=None): t.Or(t.List(t.String), t.Null),
-        t.Key("settings", optional=True, default=None): t.Null,
-        t.Key("group_id", optional=True, default=None): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+nested_supported_retrieval_setting_trafaret = t.Dict({
+    t.Key("name"): t.String,
+    t.Key("type"): t.Or(t.String, t.List(t.String)),
+    t.Key("description"): t.String,
+    t.Key("title"): t.String,
+    t.Key("default", optional=True, default=None): t.Or(t.String, t.Int, t.Bool, t.Null),
+    t.Key("minimum", optional=True, default=None): t.Or(t.Int, t.Null),
+    t.Key("maximum", optional=True, default=None): t.Or(t.Int, t.Null),
+    t.Key("enum", optional=True, default=None): t.Or(t.List(t.String), t.Null),
+    t.Key("settings", optional=True, default=None): t.Null,
+    t.Key("group_id", optional=True, default=None): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
-supported_retrieval_setting_trafaret = t.Dict(
-    {
-        t.Key("name"): t.String,
-        t.Key("type"): t.Or(t.String, t.List(t.String)),
-        t.Key("description"): t.String,
-        t.Key("title"): t.String,
-        t.Key("default", optional=True, default=None): t.Or(t.String, t.Int, t.Bool, t.Null),
-        t.Key("minimum", optional=True, default=None): t.Or(t.Int, t.Null),
-        t.Key("maximum", optional=True, default=None): t.Or(t.Int, t.Null),
-        t.Key("enum", optional=True, default=None): t.Or(t.List(t.String), t.Null),
-        t.Key("settings", optional=True, default=None): t.Or(
-            t.List(nested_supported_retrieval_setting_trafaret), t.Null
-        ),
-        t.Key("group_id", optional=True, default=None): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+supported_retrieval_setting_trafaret = t.Dict({
+    t.Key("name"): t.String,
+    t.Key("type"): t.Or(t.String, t.List(t.String)),
+    t.Key("description"): t.String,
+    t.Key("title"): t.String,
+    t.Key("default", optional=True, default=None): t.Or(t.String, t.Int, t.Bool, t.Null),
+    t.Key("minimum", optional=True, default=None): t.Or(t.Int, t.Null),
+    t.Key("maximum", optional=True, default=None): t.Or(t.Int, t.Null),
+    t.Key("enum", optional=True, default=None): t.Or(t.List(t.String), t.Null),
+    t.Key("settings", optional=True, default=None): t.Or(t.List(nested_supported_retrieval_setting_trafaret), t.Null),
+    t.Key("group_id", optional=True, default=None): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
-supported_retrieval_settings_trafaret = t.Dict(
-    {
-        t.Key("settings"): t.List(supported_retrieval_setting_trafaret),
-    }
-).ignore_extra("*")
+supported_retrieval_settings_trafaret = t.Dict({
+    t.Key("settings"): t.List(supported_retrieval_setting_trafaret),
+}).ignore_extra("*")
 
 
-vector_database_dataset_export_job_trafaret = t.Dict(
-    {
-        t.Key("job_id"): t.String,
-        t.Key("vector_database_id"): t.String,
-        t.Key("export_dataset_id"): t.String,
-    }
-).ignore_extra("*")
+vector_database_dataset_export_job_trafaret = t.Dict({
+    t.Key("job_id"): t.String,
+    t.Key("vector_database_id"): t.String,
+    t.Key("export_dataset_id"): t.String,
+}).ignore_extra("*")
 
-PineconeConnection = t.Dict(
-    {
-        t.Key("type"): t.Atom("pinecone"),
-        t.Key("cloud"): t.Enum(*enum_to_list(PineconeCloud)),
-        t.Key("region"): t.String,
-        t.Key("credential_id"): t.String,
-    }
-).allow_extra("*")
+PineconeConnection = t.Dict({
+    t.Key("type"): t.Atom("pinecone"),
+    t.Key("cloud"): t.Enum(*enum_to_list(PineconeCloud)),
+    t.Key("region"): t.String,
+    t.Key("credential_id"): t.String,
+}).allow_extra("*")
 
-ElasticsearchConnection = t.Dict(
-    {
-        t.Key("type"): t.Atom("elasticsearch"),
-        t.Key("url", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("cloud_id", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("credential_id"): t.String(),
-    }
-).allow_extra("*")
+ElasticsearchConnection = t.Dict({
+    t.Key("type"): t.Atom("elasticsearch"),
+    t.Key("url", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("cloud_id", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("credential_id"): t.String(),
+}).allow_extra("*")
 
 AnyExternalVectorDatabaseConnection = t.Dict({t.Key("type"): t.String}).allow_extra("*")
 
@@ -174,65 +142,59 @@ ExternalVectorDatabaseConnection = t.Or(
     AnyExternalVectorDatabaseConnection,
 )
 
-vector_database_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String,
-        t.Key("size"): t.Int,
-        t.Key("use_case_id"): t.String,
-        t.Key("dataset_id", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("embedding_model", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("chunking_method", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("chunk_size", optional=True, default=None): t.Or(t.Int, t.Null),
-        t.Key("chunk_overlap_percentage", optional=True, default=None): t.Or(t.Int, t.Null),
-        t.Key("chunks_count"): t.Int,
-        t.Key("custom_chunking", default=False): t.Bool,
-        t.Key("separators", optional=True, default=None): t.Or(
-            t.List(t.String(allow_blank=True)), t.Null
+vector_database_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String,
+    t.Key("size"): t.Int,
+    t.Key("use_case_id"): t.String,
+    t.Key("dataset_id", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("embedding_model", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("chunking_method", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("chunk_size", optional=True, default=None): t.Or(t.Int, t.Null),
+    t.Key("chunk_overlap_percentage", optional=True, default=None): t.Or(t.Int, t.Null),
+    t.Key("chunks_count"): t.Int,
+    t.Key("custom_chunking", default=False): t.Bool,
+    t.Key("separators", optional=True, default=None): t.Or(t.List(t.String(allow_blank=True)), t.Null),
+    t.Key("creation_date"): t.String,
+    t.Key("creation_user_id"): t.String,
+    t.Key("organization_id"): t.String,
+    t.Key("tenant_id"): t.String,
+    t.Key("last_update_date"): t.String,
+    t.Key("execution_status"): t.String,
+    t.Key("playgrounds_count"): t.Int,
+    t.Key("dataset_name"): t.String(allow_blank=True),
+    t.Key("user_name"): t.String(allow_blank=True),
+    t.Key("source"): t.String,
+    t.Key("validation_id", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("error_message", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("embedding_validation_id", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("is_separator_regex"): t.Bool,
+    t.Key("parent_id", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("family_id", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("metadata_columns", optional=True, default=None): t.Or(t.Null, t.List(t.String)),
+    t.Key("added_dataset_ids", optional=True, default=None): t.Or(t.Null, t.List(t.String)),
+    t.Key("added_dataset_names", optional=True, default=None): t.Or(t.Null, t.List(t.String)),
+    t.Key("version", optional=True, default=None): t.Or(t.Null, t.Int),
+    t.Key("external_vector_database_connection", optional=True, default=None): t.Or(
+        t.Null, ExternalVectorDatabaseConnection
+    ),
+    t.Key("metadata_dataset_id", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("metadata_dataset_name", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("metadata_combination_strategy", optional=True, default=None): t.Or(
+        t.Null, t.Enum(*enum_to_list(VectorDatabaseMetadataCombinationStrategy))
+    ),
+    t.Key("added_metadata_dataset_pairs", optional=True, default=None): t.Or(
+        t.Null,
+        t.List(
+            t.Dict({
+                t.Key("dataset_id"): t.String,
+                t.Key("dataset_name"): t.String,
+                t.Key("metadata_dataset_id"): t.String,
+                t.Key("metadata_dataset_name"): t.String,
+            })
         ),
-        t.Key("creation_date"): t.String,
-        t.Key("creation_user_id"): t.String,
-        t.Key("organization_id"): t.String,
-        t.Key("tenant_id"): t.String,
-        t.Key("last_update_date"): t.String,
-        t.Key("execution_status"): t.String,
-        t.Key("playgrounds_count"): t.Int,
-        t.Key("dataset_name"): t.String(allow_blank=True),
-        t.Key("user_name"): t.String(allow_blank=True),
-        t.Key("source"): t.String,
-        t.Key("validation_id", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("error_message", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("embedding_validation_id", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("is_separator_regex"): t.Bool,
-        t.Key("parent_id", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("family_id", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("metadata_columns", optional=True, default=None): t.Or(t.Null, t.List(t.String)),
-        t.Key("added_dataset_ids", optional=True, default=None): t.Or(t.Null, t.List(t.String)),
-        t.Key("added_dataset_names", optional=True, default=None): t.Or(t.Null, t.List(t.String)),
-        t.Key("version", optional=True, default=None): t.Or(t.Null, t.Int),
-        t.Key("external_vector_database_connection", optional=True, default=None): t.Or(
-            t.Null, ExternalVectorDatabaseConnection
-        ),
-        t.Key("metadata_dataset_id", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("metadata_dataset_name", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("metadata_combination_strategy", optional=True, default=None): t.Or(
-            t.Null, t.Enum(*enum_to_list(VectorDatabaseMetadataCombinationStrategy))
-        ),
-        t.Key("added_metadata_dataset_pairs", optional=True, default=None): t.Or(
-            t.Null,
-            t.List(
-                t.Dict(
-                    {
-                        t.Key("dataset_id"): t.String,
-                        t.Key("dataset_name"): t.String,
-                        t.Key("metadata_dataset_id"): t.String,
-                        t.Key("metadata_dataset_name"): t.String,
-                    }
-                )
-            ),
-        ),
-    }
-).ignore_extra("*")
+    ),
+}).ignore_extra("*")
 
 
 class ChunkingParameters(APIObject):
@@ -292,9 +254,7 @@ class ChunkingParameters(APIObject):
         ] = None,
     ) -> Union[str, None]:
         """Get ID of custom embedding validation from supported objects"""
-        if isinstance(
-            embedding_validation, (CustomModelEmbeddingValidation, SupportedCustomModelEmbedding)
-        ):
+        if isinstance(embedding_validation, (CustomModelEmbeddingValidation, SupportedCustomModelEmbedding)):
             return embedding_validation.id
         return embedding_validation
 
@@ -381,9 +341,7 @@ class SupportedEmbeddings(APIObject):
         default_embedding_model: str,
         custom_model_embedding_validations: List[Dict[str, Any]],
     ):
-        self.embedding_models = [
-            EmbeddingModel.from_server_data(model) for model in embedding_models
-        ]
+        self.embedding_models = [EmbeddingModel.from_server_data(model) for model in embedding_models]
         self.default_embedding_model = default_embedding_model
         self.custom_model_embedding_validations = [
             SupportedCustomModelEmbedding.from_server_data(validation)
@@ -458,8 +416,7 @@ class TextChunkingMethod(APIObject):
     ):
         self.chunking_method = chunking_method
         self.chunking_parameters = [
-            TextChunkingParameterFields.from_server_data(parameter)
-            for parameter in chunking_parameters
+            TextChunkingParameterFields.from_server_data(parameter) for parameter in chunking_parameters
         ]
         self.description = description
 
@@ -509,9 +466,7 @@ class SupportedTextChunkings(APIObject):
     _converter = supported_text_chunkings_trafaret
 
     def __init__(self, text_chunking_configs: List[Dict[str, Any]]):
-        self.text_chunking_configs = [
-            TextChunkingConfig.from_server_data(config) for config in text_chunking_configs
-        ]
+        self.text_chunking_configs = [TextChunkingConfig.from_server_data(config) for config in text_chunking_configs]
 
 
 class SupportedRetrievalSetting(APIObject):
@@ -566,9 +521,7 @@ class SupportedRetrievalSetting(APIObject):
         self.maximum = maximum
         self.enum = enum
         self.settings = (
-            [SupportedRetrievalSetting.from_server_data(setting) for setting in settings]
-            if settings
-            else None
+            [SupportedRetrievalSetting.from_server_data(setting) for setting in settings] if settings else None
         )
         self.group_id = group_id
 
@@ -589,9 +542,7 @@ class SupportedRetrievalSettings(APIObject):
         self,
         settings: List[Union[Dict[str, Any], List[Dict[str, Any]]]],
     ):
-        self.settings = [
-            SupportedRetrievalSetting.from_server_data(setting) for setting in settings
-        ]
+        self.settings = [SupportedRetrievalSetting.from_server_data(setting) for setting in settings]
 
 
 class VectorDatabaseDatasetExportJob(APIObject):
@@ -787,10 +738,7 @@ class VectorDatabase(APIObject):
         self.added_metadata_dataset_pairs = added_metadata_dataset_pairs
 
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}(id={self.id}, name={self.name}, "
-            f"execution_status={self.execution_status})"
-        )
+        return f"{self.__class__.__name__}(id={self.id}, name={self.name}, execution_status={self.execution_status})"
 
     @classmethod
     def get_supported_embeddings(
@@ -963,14 +911,12 @@ class VectorDatabase(APIObject):
                 "Either validation_id or all of prompt_column_name, target_column_name, "
                 "deployment_id, model_id fields should be specified"
             )
-            payload.update(
-                {
-                    "prompt_column_name": prompt_column_name,
-                    "target_column_name": target_column_name,
-                    "deployment_id": deployment_id,
-                    "model_id": model_id,
-                }
-            )
+            payload.update({
+                "prompt_column_name": prompt_column_name,
+                "target_column_name": target_column_name,
+                "deployment_id": deployment_id,
+                "model_id": model_id,
+            })
         url = f"{cls._client.domain}/{cls._path}/fromCustomModelDeployment/"
         r_data = cls._client.post(url, data=payload)
         return cls.from_server_data(r_data.json())
@@ -1049,9 +995,7 @@ class VectorDatabase(APIObject):
         r_data = unpaginate(url, params, cls._client)
         return [cls.from_server_data(data) for data in r_data]
 
-    def update(
-        self, name: Optional[str] = None, credential_id: Optional[str] = None
-    ) -> VectorDatabase:
+    def update(self, name: Optional[str] = None, credential_id: Optional[str] = None) -> VectorDatabase:
         """
         Update the vector database.
 
@@ -1126,9 +1070,7 @@ class VectorDatabase(APIObject):
         r_data = cls._client.get(url)
         return SupportedTextChunkings.from_server_data(r_data.json())
 
-    def download_text_and_embeddings_asset(
-        self, file_path: Optional[str] = None, part: Optional[int] = None
-    ) -> None:
+    def download_text_and_embeddings_asset(self, file_path: Optional[str] = None, part: Optional[int] = None) -> None:
         """Download a parquet file with text chunks and corresponding embeddings created
         by a vector database.
 
@@ -1187,9 +1129,7 @@ class VectorDatabase(APIObject):
         if network_egress_policy is not None:
             requested_resources["network_egress_policy"] = network_egress_policy
 
-        payload_data: dict[str, Any] = (
-            {"resources": requested_resources} if requested_resources else {}
-        )
+        payload_data: dict[str, Any] = {"resources": requested_resources} if requested_resources else {}
 
         url = f"{self._client.domain}/{self._path}/{self.id}/customModelVersions/"
 
@@ -1246,9 +1186,7 @@ class VectorDatabase(APIObject):
         if network_egress_policy is not None:
             requested_resources["network_egress_policy"] = network_egress_policy
 
-        payload_data: dict[str, Any] = (
-            {"resources": requested_resources} if requested_resources else {}
-        )
+        payload_data: dict[str, Any] = {"resources": requested_resources} if requested_resources else {}
 
         if default_prediction_server_id:
             payload_data["default_prediction_server_id"] = default_prediction_server_id

@@ -1,26 +1,32 @@
 import os
-import re
 import time
-import traceback
+from typing import cast
 import click
-from prompt_toolkit.completion import NestedCompleter
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit import HTML
 
 from adam.cli_group import cli
-from adam.commands.command import Command
+from adam.commands.command import Command, InvalidArgumentsException, InvalidStateException
 from adam.commands.command_helpers import ClusterCommandHelper
+from adam.commands.devices.devices import Devices
 from adam.commands.help import Help
-from adam.commands.postgres.postgres_session import PostgresSession
 from adam.config import Config
-from adam.k8s_utils.kube_context import KubeContext
-from adam.k8s_utils.statefulsets import StatefulSets
+from adam.sql.async_executor import AsyncExecutor
+from adam.utils_audits import Audits
+from adam.utils_k8s.kube_context import KubeContext
 from adam.log import Log
 from adam.repl_commands import ReplCommands
 from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
-from adam.utils import deep_merge_dicts, deep_sort_dict, lines_to_tabular, log2
+from adam.utils import CommandLog, clear_wait_log_flag, debug_trace, deep_sort_dict, tabulize, log2, log_exc, log_timing
 from adam.apps import Apps
+from adam.utils_repl.repl_completer import ReplCompleter, merge_completions
 from . import __version__
+
+import nest_asyncio
+nest_asyncio.apply()
+
+import asyncio
 
 def enter_repl(state: ReplState):
     if os.getenv('QING_DROPPED', 'false') == 'true':
@@ -33,54 +39,13 @@ def enter_repl(state: ReplState):
     session = ReplSession().prompt_session
 
     def prompt_msg():
-        msg = ''
-        if state.device == ReplState.P:
-            msg = f'{ReplState.P}:'
-            pg = PostgresSession(state.namespace, state.pg_path) if state.pg_path else None
-            if pg and pg.db:
-                msg += pg.db
-            elif pg and pg.host:
-                msg += pg.host
-        elif state.device == ReplState.A:
-            msg = f'{ReplState.A}:'
-            if state.app_env:
-                msg += state.app_env
-            if state.app_app:
-                msg += f'/{state.app_app}'
-        else:
-            msg = f'{ReplState.C}:'
-            if state.pod:
-                # cs-d0767a536f-cs-d0767a536f-default-sts-0
-                group = re.match(r".*?-.*?-(.*)", state.pod)
-                msg += group[1]
-            elif state.sts:
-                # cs-d0767a536f-cs-d0767a536f-default-sts
-                group = re.match(r".*?-.*?-(.*)", state.sts)
-                msg += group[1]
+        msg = state.__str__()
 
         return f"{msg}$ " if state.bash_session else f"{msg}> "
 
     Log.log2(f'kaqing {__version__}')
-    ss = StatefulSets.list_sts_name_and_ns()
 
-    if state.device == ReplState.C:
-        if not ss:
-            raise Exception("no Cassandra clusters found")
-        elif len(ss) == 1 and Config().get('repl.auto-enter-only-cluster', True):
-            cluster = ss[0]
-            state.sts = cluster[0]
-            state.namespace = cluster[1]
-            state.wait_log(f'Moving to the only Cassandra cluster: {state.sts}@{state.namespace}...')
-    elif state.device == ReplState.A:
-        if app := Config().get('repl.auto-enter-app', 'c3/c3'):
-            if app != 'no':
-                ea = app.split('/')
-                state.app_env = ea[0]
-                if len(ea) > 1:
-                    state.app_app = ea[1]
-                    state.wait_log(f'Moving to {state.app_env}/{state.app_app}...')
-                else:
-                    state.wait_log(f'Moving to {state.app_env}...')
+    Devices.of(state).enter(state)
 
     kb = KeyBindings()
 
@@ -88,72 +53,126 @@ def enter_repl(state: ReplState):
     def _(event):
         event.app.current_buffer.text = ''
 
-    # use sorted command list only for auto-completion
-    sorted_cmds = sorted(cmd_list, key=lambda cmd: cmd.command())
-    while True:
-        try:
-            completer = NestedCompleter.from_nested_dict({})
-            if not state.bash_session:
-                completions = {}
-                # app commands are available only on a: drive
-                if state.device == ReplState.A and state.app_app:
-                    completions = Apps(path='apps.yaml').commands()
+    with Audits.offload() as exec:
+        # warm up AWS lambda - this log line may timeout and get lost, which is fine
+        exec.submit(Audits.log, 'entering kaqing repl', state.namespace, 'z', 0.0)
 
-                for cmd in sorted_cmds:
-                    s1 = time.time()
-                    try:
-                        completions = deep_sort_dict(deep_merge_dicts(completions, cmd.completion(state)))
-                    finally:
-                        if Config().get('debugs.timings', False):
-                            Config().debug('Timing completion calc', cmd.command(), f'{time.time() - s1:.2f}')
+        s0 = time.time()
 
-                completer = NestedCompleter.from_nested_dict(completions)
+        # use sorted command list only for auto-completion
+        sorted_cmds = sorted(cmd_list, key=lambda cmd: cmd.command())
+        while True:
+            AsyncExecutor.reset()
 
-            cmd = session.prompt(prompt_msg(), completer=completer, key_bindings=kb)
-            s0 = time.time()
+            cmd: str = None
+            result = None
+            try:
+                completer = ReplCompleter.from_nested_dict({})
+                if not state.bash_session:
+                    with log_timing('completion-calcs'):
+                        completions = {}
+                        # app commands are available only on a: drive
+                        if state.device == ReplState.A and state.app_app:
+                            completions = log_timing('actions', lambda: Apps(path='apps.yaml').commands())
 
-            if state.bash_session:
-                if cmd.strip(' ') == 'exit':
-                    state.exit_bash()
-                    continue
+                        for c in sorted_cmds:
+                            with log_exc(f'* {c.command()} command returned None completions.'):
+                                completions = log_timing(c.command(), lambda: deep_sort_dict(merge_completions(completions, c.completion(state))))
 
-                cmd = f'bash {cmd}'
+                        # print(json.dumps(completions, indent=4))
+                        completer = ReplCompleter.from_nested_dict(completions)
 
-            if cmd and cmd.strip(' ') and not cmds.run(cmd, state):
-                c_sql_tried = False
-                if state.device == ReplState.P:
-                    pg = PostgresSession(state.namespace, state.pg_path)
-                    if pg.db:
-                        c_sql_tried = True
-                        cmd = f'pg {cmd}'
-                        cmds.run(cmd, state)
-                elif state.device == ReplState.A:
-                    if state.app_app:
-                        c_sql_tried = True
-                        cmd = f'app {cmd}'
-                        cmds.run(cmd, state)
-                elif state.sts:
-                    c_sql_tried = True
-                    cmd = f'cql {cmd}'
-                    cmds.run(cmd, state)
+                cmd = session.prompt(HTML(f'<ansibrightblue>{prompt_msg()}</ansibrightblue>'), completer=completer, key_bindings=kb)
+                s0 = time.time()
 
-                if not c_sql_tried:
-                    log2(f'* Invalid command: {cmd}')
-                    log2()
-                    lines = [c.help(state) for c in cmd_list if c.help(state)]
-                    log2(lines_to_tabular(lines, separator='\t'))
-        except EOFError:  # Handle Ctrl+D (EOF) for graceful exit
-            break
-        except Exception as e:
-            if Config().get('debugs.exit-on-error', False):
-                raise e
-            else:
-                log2(e)
-                Config().debug(traceback.format_exc())
-        finally:
-            state.clear_wait_log_flag()
-            if Config().get('debugs.timings', False) and 'cmd' in locals() and 's0' in locals():
-                print('Timing command', cmd, f'{time.time() - s0:.2f}')
+                if state.bash_session:
+                    if cmd.strip(' ') == 'exit':
+                        state.exit_bash()
+                        continue
+
+                    cmd = f'bash {cmd}'
+
+                def targetted(state: ReplState, cmd: str):
+                    if not (cmd.startswith('@') and len(arry := cmd.split(' ')) > 1):
+                        return state, cmd
+
+                    if state.device == ReplState.A and state.app_app or state.device == ReplState.P:
+                        state.push(pod_targetted=True)
+
+                        state.app_pod = arry[0].strip('@')
+                        cmd = ' '.join(arry[1:])
+                    elif state.device == ReplState.P:
+                        state.push(pod_targetted=True)
+
+                        state.app_pod = arry[0].strip('@')
+                        cmd = ' '.join(arry[1:])
+                    elif state.sts:
+                        state.push(pod_targetted=True)
+
+                        state.pod = arry[0].strip('@')
+                        cmd = ' '.join(arry[1:])
+
+                    return (state, cmd)
+
+                target, cmd = targetted(state, cmd)
+                try:
+                    if cmd and cmd.strip(' ') and not (result := cmds.run(cmd, target)):
+                        result = try_device_default_action(target, cmds, cmd_list, cmd)
+                except InvalidStateException:
+                    pass
+                except InvalidArgumentsException:
+                    pass
+
+                if result and type(result) is ReplState and (s := cast(ReplState, result).export_session) != state.export_session:
+                    state.export_session = s
+
+            except EOFError:  # Handle Ctrl+D (EOF) for graceful exit
+                break
+            except Exception as e:
+                if Config().get('debugs.exit-on-error', False):
+                    raise e
+                else:
+                    log2(e)
+                    debug_trace()
+            finally:
+                if not state.bash_session:
+                    state.pop()
+
+                clear_wait_log_flag()
+                if cmd:
+                    log_timing(f'command {cmd}', s0=s0)
+
+                # offload audit logging
+                if cmd and (state.device != ReplState.L or Config().get('audit.log-audit-queries', False)):
+                    exec.submit(Audits.log, cmd, state.namespace, state.device, time.time() - s0, get_audit_extra(result))
+
+                CommandLog.close_log_file()
+
+def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Command], cmd: str):
+    action_taken, result = Devices.of(state).try_fallback_action(cmds, state, cmd)
+
+    if not action_taken:
+        log2(f'* Invalid command: {cmd}')
+        log2()
+        tabulize([c.help(state) for c in cmd_list if c.help(state)], separator='\t', to=2)
+
+    return result
+
+def get_audit_extra(result: any):
+    if not result:
+        return None
+
+    if type(result) is list:
+        extras = set()
+
+        for r in result:
+            if hasattr(r, '__audit_extra__') and (x := r.__audit_extra__()):
+                extras.add(x)
+
+        return ','.join(list(extras))
+
+    if hasattr(result, '__audit_extra__') and (x := result.__audit_extra__()):
+        return x
 
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=ClusterCommandHelper, help="Enter interactive shell.")
 @click.option('--kubeconfig', '-k', required=False, metavar='path', help='path to kubeconfig file')
@@ -167,6 +186,9 @@ def repl(kubeconfig: str, config: str, param: list[str], cluster:str, namespace:
     if not KubeContext.init_params(config, param):
         return
 
-    state = ReplState(device=Config().get('repl.start-drive', 'a'), ns_sts=cluster, namespace=namespace, in_repl=True)
-    state, _ = state.apply_args(extra_args)
+    state = ReplState(ns_sts=cluster, namespace=namespace, in_repl=True)
+    state, _ = state.apply_device_arg(extra_args)
+    if not state.device:
+        state.device=Config().get('repl.start-drive', 'a')
+
     enter_repl(state)

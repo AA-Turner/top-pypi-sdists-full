@@ -1,1 +1,0 @@
-__all__=["friend_link_model",]

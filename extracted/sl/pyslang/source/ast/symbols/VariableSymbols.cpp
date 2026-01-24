@@ -22,6 +22,7 @@
 #include "slang/ast/types/NetType.h"
 #include "slang/ast/types/Type.h"
 #include "slang/diagnostics/DeclarationsDiags.h"
+#include "slang/diagnostics/LookupDiags.h"
 #include "slang/diagnostics/ParserDiags.h"
 #include "slang/syntax/AllSyntax.h"
 
@@ -79,10 +80,12 @@ void VariableSymbol::fromSyntax(Compilation& compilation, const DataDeclarationS
     if (!hasExplicitLifetime)
         lifetime = getDefaultLifetime(scope);
 
-    const bool isInIface =
-        scope.asSymbol().kind == SymbolKind::InstanceBody &&
-        scope.asSymbol().as<InstanceBodySymbol>().getDefinition().definitionKind ==
-            DefinitionKind::Interface;
+    auto& parentSym = scope.asSymbol();
+    const bool isInIfaceOrGenBlk =
+        parentSym.kind == SymbolKind::GenerateBlock ||
+        (parentSym.kind == SymbolKind::InstanceBody &&
+         parentSym.as<InstanceBodySymbol>().getDefinition().definitionKind ==
+             DefinitionKind::Interface);
 
     for (auto declarator : syntax.declarators) {
         auto variable = compilation.emplace<VariableSymbol>(declarator->name.valueText(),
@@ -98,8 +101,8 @@ void VariableSymbol::fromSyntax(Compilation& compilation, const DataDeclarationS
         if (isCheckerFreeVar)
             variable->flags |= VariableFlags::CheckerFreeVariable;
 
-        if (isInIface)
-            variable->getDeclaredType()->addFlags(DeclaredTypeFlags::InterfaceVariable);
+        if (isInIfaceOrGenBlk)
+            variable->getDeclaredType()->addFlags(DeclaredTypeFlags::IfaceOrGenBlkVar);
 
         // If this is a static variable in a procedural context and it has an initializer,
         // the spec requires that the static keyword must be explicitly provided.
@@ -345,14 +348,31 @@ bool FormalArgumentSymbol::mergeVariable(const VariableSymbol& variable) {
     return true;
 }
 
-const Expression* FormalArgumentSymbol::getDefaultValue() const {
-    if (defaultVal || !defaultValSyntax)
-        return defaultVal;
+static const Expression* EvaluatingPlaceholder = reinterpret_cast<const Expression*>(UINTPTR_MAX);
 
+const Expression* FormalArgumentSymbol::getDefaultValue() const {
     auto scope = getParentScope();
     SLANG_ASSERT(scope);
 
+    if (defaultVal || !defaultValSyntax) {
+        // If the default value expression is the placeholder value it means
+        // we're recursively calling into ourselves and should report an error
+        // and break the chain.
+        if (defaultVal == EvaluatingPlaceholder) {
+            SLANG_ASSERT(defaultValSyntax);
+
+            if (!name.empty()) {
+                scope->addDiag(diag::RecursiveDefinition, location)
+                    << name << defaultValSyntax->sourceRange();
+            }
+            defaultVal = &InvalidExpression::Instance;
+        }
+
+        return defaultVal;
+    }
+
     ASTContext context(*scope, LookupLocation::after(*this));
+    defaultVal = EvaluatingPlaceholder;
     defaultVal = &Expression::bindArgument(getType(), direction, flags, *defaultValSyntax, context);
     return defaultVal;
 }
@@ -705,6 +725,16 @@ void LocalAssertionVarSymbol::fromSyntax(const Scope& scope,
         // we still need a parent pointer set so they can participate in lookups.
         var->setParent(scope);
     }
+}
+
+LocalAssertionVarSymbol& LocalAssertionVarSymbol::fromPort(const Scope& scope,
+                                                           const AssertionPortSymbol& port) {
+    auto& comp = scope.getCompilation();
+    auto var = comp.emplace<LocalAssertionVarSymbol>(port.name, port.location);
+    var->formalPort = &port;
+    var->getDeclaredType()->setLink(port.declaredType);
+    var->setParent(scope);
+    return *var;
 }
 
 } // namespace slang::ast

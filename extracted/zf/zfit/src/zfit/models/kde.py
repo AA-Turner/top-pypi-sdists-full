@@ -477,7 +477,7 @@ class KDEHelper:
         "scott": _bandwidth_scott_KDEV1,
         "silverman": _bandwidth_silverman_KDEV1,
     }
-    _default_padding = 0.1
+    _default_padding = None
     _default_num_grid_points = 1024
 
     def _convert_init_data_weights_size(self, data, weights, padding, limits=None, bandwidth=None):
@@ -1124,7 +1124,7 @@ class KDE1DimExactRepr(BasePDFRepr):
     obs: SpaceRepr | None = None
     bandwidth: str | float | None = None
     kernel: None = None
-    padding: bool | str | None = None
+    padding: bool | str | float | dict | None = None
     weights: np.ndarray | tf.Tensor | None = None
     name: str | None = "KDE1DimExact"
 
@@ -1430,7 +1430,7 @@ class KDE1DimGridRepr(BasePDFRepr):
     num_grid_points: int | None = None
     binning_method: str | None = None
     kernel: None = None
-    padding: bool | str | None = None
+    padding: bool | str | float | dict | None = None
     weights: np.ndarray | tf.Tensor | None = None
     name: str | None = "GridKDE1DimV1"
 
@@ -1646,7 +1646,7 @@ class KDE1DimFFT(KDEHelper, BasePDF, SerializableMixin):
         )
         self._padding = padding
 
-        bandwidth, bandwidth_param = self._convert_input_bandwidth(
+        bandwidth, _bandwidth_param = self._convert_input_bandwidth(
             bandwidth=bandwidth,
             data=data,
             padding=False,
@@ -1712,7 +1712,7 @@ class KDE1DimFFTRepr(BasePDFRepr):
     kernel: None = None
     support: float | None = None
     fft_method: str | None = None
-    padding: bool | str | None = None
+    padding: bool | str | float | dict | None = None
     weights: np.ndarray | tf.Tensor | None = None
     name: str | None = "KDE1DimFFT"
 
@@ -1924,7 +1924,7 @@ class KDE1DimISJRepr(BasePDFRepr):
     num_grid_points: int | None = None
     binning_method: str | None = None
     kernel: None = None
-    padding: bool | str | None = None
+    padding: bool | str | float | dict | None = None
     weights: np.ndarray | tf.Tensor | None = None
     name: str | None = "KDE1DimISJ"
 

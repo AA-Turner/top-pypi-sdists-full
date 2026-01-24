@@ -15,6 +15,7 @@ from .snapshots import Snapshots
 from .table import Table
 from .technology import Technology
 from .users import User
+from .webhooks import SnapshotEvent, IntentEvent, WebhookEvent
 
 __all__ = [
     "Table",
@@ -43,4 +44,7 @@ __all__ = [
     "Credential",
     "Privilege",
     "SiteSeparation",
+    "SnapshotEvent",
+    "IntentEvent",
+    "WebhookEvent",
 ]

@@ -1,0 +1,140 @@
+# -- project
+
+[build-system]
+requires = [
+  "setuptools >= 69.3.0",
+  "setuptools_scm[toml] >= 3.4.3",
+  "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dqsegdb2"
+description = "Simplified python interface to DQSEGDB"
+readme = "README.md"
+authors = [
+  { name = "Duncan Macleod", email = "duncan.macleod@ligo.org" },
+]
+license = { text = "GPL-3.0-or-later" }
+# classifiers
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: End Users/Desktop",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+# requirements
+requires-python = ">=3.6"
+dependencies = [
+  "click >= 6.7",
+  "igwn-auth-utils >= 1.0.0",
+  "igwn-segments >= 2.0.0",
+]
+
+dynamic = [
+  "version",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest >= 2.9.2",
+  "pytest-cov >= 2.5.1",
+  "requests-mock >= 1.5.0",
+]
+docs = [
+  "furo",
+  "sphinx",
+  "sphinx-automodapi",
+]
+
+[project.scripts]
+dqsegdb2 = "dqsegdb2.cli:cli"
+
+[project.urls]
+"Bug Tracker" = "https://git.ligo.org/computing/software/dqsegdb2/-/issues"
+"Documentation" = "https://dqsegdb2.readthedocs.io"
+"Source Code" = "https://git.ligo.org/computing/software/dqsegdb2.git"
+
+# -- tools
+
+[tool.coverage.paths]
+# map standard install paths back to the source to
+# enable merging coverage of installed module from
+# multiple platforms
+source = [
+  "dqsegdb2/",  # <-- source path, must come first
+  "*/lib*/python*/*-packages/dqsegdb2/",
+]
+
+[tool.coverage.report]
+# print report with one decimal point
+precision = 1
+# don't report coverage for _version.py
+# (generated automatically by setuptools-scm)
+omit = [
+  "*/dqsegdb2/_version.py",
+]
+
+[tool.pytest.ini_options]
+addopts = "-r a"
+filterwarnings = [
+  "error",
+  "ignore:.*pkg_resources.*",
+]
+
+[tool.ruff.lint]
+select = [
+  # mccabe
+  "C90",
+  # pycodestyle errors
+  "E",
+  # flake8-executable
+  "EXE",
+  # pyflakes
+  "F",
+  # isort
+  "I",
+  # pep8-naming
+  "N",
+  # pyupgrade
+  "UP",
+  # pycodestyle warnings
+  "W",
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+  "F401",  # unused-import
+]
+
+[tool.setuptools]
+license-files = [ "LICENSE" ]
+
+[tool.setuptools.packages.find]
+include = [
+  "dqsegdb2*",
+]
+
+[tool.setuptools_scm]
+write_to = "dqsegdb2/_version.py"

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -29,6 +29,8 @@ ListDashboardsMaxResultsCount = int
 ListEventDataStoresMaxResultsCount = int
 ListImportFailuresMaxResultsCount = int
 ListImportsMaxResultsCount = int
+ListInsightsDataDimensionValue = str
+ListInsightsDataMaxResultsCount = int
 ListQueriesMaxResultsCount = int
 Location = str
 LookupAttributeValue = str
@@ -111,6 +113,10 @@ class EventCategory(StrEnum):
     insight = "insight"
 
 
+class EventCategoryAggregation(StrEnum):
+    Data = "Data"
+
+
 class EventDataStoreStatus(StrEnum):
     CREATED = "CREATED"
     ENABLED = "ENABLED"
@@ -149,6 +155,16 @@ class InsightType(StrEnum):
 class InsightsMetricDataType(StrEnum):
     FillWithZeros = "FillWithZeros"
     NonZeroData = "NonZeroData"
+
+
+class ListInsightsDataDimensionKey(StrEnum):
+    EventId = "EventId"
+    EventName = "EventName"
+    EventSource = "EventSource"
+
+
+class ListInsightsDataType(StrEnum):
+    InsightsEvents = "InsightsEvents"
 
 
 class LookupAttributeKey(StrEnum):
@@ -190,6 +206,17 @@ class RefreshScheduleFrequencyUnit(StrEnum):
 class RefreshScheduleStatus(StrEnum):
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
+
+
+class SourceEventCategory(StrEnum):
+    Management = "Management"
+    Data = "Data"
+
+
+class Template(StrEnum):
+    API_ACTIVITY = "API_ACTIVITY"
+    RESOURCE_ACCESS = "RESOURCE_ACCESS"
+    USER_ACTIONS = "USER_ACTIONS"
 
 
 class Type(StrEnum):
@@ -1121,10 +1148,10 @@ class Tag(TypedDict, total=False):
     """
 
     Key: TagKey
-    Value: Optional[TagValue]
+    Value: TagValue | None
 
 
-TagsList = List[Tag]
+TagsList = list[Tag]
 
 
 class AddTagsRequest(ServiceRequest):
@@ -1142,22 +1169,22 @@ class AddTagsResponse(TypedDict, total=False):
     pass
 
 
-Operator = List[OperatorValue]
+Operator = list[OperatorValue]
 
 
 class AdvancedFieldSelector(TypedDict, total=False):
     """A single selector statement in an advanced event selector."""
 
     Field: SelectorField
-    Equals: Optional[Operator]
-    StartsWith: Optional[Operator]
-    EndsWith: Optional[Operator]
-    NotEquals: Optional[Operator]
-    NotStartsWith: Optional[Operator]
-    NotEndsWith: Optional[Operator]
+    Equals: Operator | None
+    StartsWith: Operator | None
+    EndsWith: Operator | None
+    NotEquals: Operator | None
+    NotStartsWith: Operator | None
+    NotEndsWith: Operator | None
 
 
-AdvancedFieldSelectors = List[AdvancedFieldSelector]
+AdvancedFieldSelectors = list[AdvancedFieldSelector]
 
 
 class AdvancedEventSelector(TypedDict, total=False):
@@ -1181,35 +1208,46 @@ class AdvancedEventSelector(TypedDict, total=False):
     in the *CloudTrail API Reference*.
     """
 
-    Name: Optional[SelectorName]
+    Name: SelectorName | None
     FieldSelectors: AdvancedFieldSelectors
 
 
-AdvancedEventSelectors = List[AdvancedEventSelector]
+AdvancedEventSelectors = list[AdvancedEventSelector]
+Templates = list[Template]
+
+
+class AggregationConfiguration(TypedDict, total=False):
+    """An object that contains configuration settings for aggregating events."""
+
+    Templates: Templates
+    EventCategory: EventCategoryAggregation
+
+
+AggregationConfigurations = list[AggregationConfiguration]
 ByteBuffer = bytes
 
 
 class CancelQueryRequest(ServiceRequest):
-    EventDataStore: Optional[EventDataStoreArn]
+    EventDataStore: EventDataStoreArn | None
     QueryId: UUID
-    EventDataStoreOwnerAccountId: Optional[AccountId]
+    EventDataStoreOwnerAccountId: AccountId | None
 
 
 class CancelQueryResponse(TypedDict, total=False):
     QueryId: UUID
     QueryStatus: QueryStatus
-    EventDataStoreOwnerAccountId: Optional[AccountId]
+    EventDataStoreOwnerAccountId: AccountId | None
 
 
 class Channel(TypedDict, total=False):
     """Contains information about a returned CloudTrail channel."""
 
-    ChannelArn: Optional[ChannelArn]
-    Name: Optional[ChannelName]
+    ChannelArn: ChannelArn | None
+    Name: ChannelName | None
 
 
-Channels = List[Channel]
-OperatorTargetList = List[OperatorTargetListMember]
+Channels = list[Channel]
+OperatorTargetList = list[OperatorTargetListMember]
 
 
 class ContextKeySelector(TypedDict, total=False):
@@ -1221,7 +1259,7 @@ class ContextKeySelector(TypedDict, total=False):
     Equals: OperatorTargetList
 
 
-ContextKeySelectors = List[ContextKeySelector]
+ContextKeySelectors = list[ContextKeySelector]
 
 
 class Destination(TypedDict, total=False):
@@ -1231,37 +1269,37 @@ class Destination(TypedDict, total=False):
     Location: Location
 
 
-Destinations = List[Destination]
+Destinations = list[Destination]
 
 
 class CreateChannelRequest(ServiceRequest):
     Name: ChannelName
     Source: Source
     Destinations: Destinations
-    Tags: Optional[TagsList]
+    Tags: TagsList | None
 
 
 class CreateChannelResponse(TypedDict, total=False):
-    ChannelArn: Optional[ChannelArn]
-    Name: Optional[ChannelName]
-    Source: Optional[Source]
-    Destinations: Optional[Destinations]
-    Tags: Optional[TagsList]
+    ChannelArn: ChannelArn | None
+    Name: ChannelName | None
+    Source: Source | None
+    Destinations: Destinations | None
+    Tags: TagsList | None
 
 
-ViewPropertiesMap = Dict[ViewPropertiesKey, ViewPropertiesValue]
-QueryParameters = List[QueryParameter]
+ViewPropertiesMap = dict[ViewPropertiesKey, ViewPropertiesValue]
+QueryParameters = list[QueryParameter]
 
 
 class RequestWidget(TypedDict, total=False):
     """Contains information about a widget on a CloudTrail Lake dashboard."""
 
     QueryStatement: QueryStatement
-    QueryParameters: Optional[QueryParameters]
+    QueryParameters: QueryParameters | None
     ViewProperties: ViewPropertiesMap
 
 
-RequestWidgetList = List[RequestWidget]
+RequestWidgetList = list[RequestWidget]
 
 
 class RefreshScheduleFrequency(TypedDict, total=False):
@@ -1271,78 +1309,78 @@ class RefreshScheduleFrequency(TypedDict, total=False):
     or 24 hours, or every day.
     """
 
-    Unit: Optional[RefreshScheduleFrequencyUnit]
-    Value: Optional[RefreshScheduleFrequencyValue]
+    Unit: RefreshScheduleFrequencyUnit | None
+    Value: RefreshScheduleFrequencyValue | None
 
 
 class RefreshSchedule(TypedDict, total=False):
     """The schedule for a dashboard refresh."""
 
-    Frequency: Optional[RefreshScheduleFrequency]
-    Status: Optional[RefreshScheduleStatus]
-    TimeOfDay: Optional[TimeOfDay]
+    Frequency: RefreshScheduleFrequency | None
+    Status: RefreshScheduleStatus | None
+    TimeOfDay: TimeOfDay | None
 
 
 class CreateDashboardRequest(ServiceRequest):
     Name: DashboardName
-    RefreshSchedule: Optional[RefreshSchedule]
-    TagsList: Optional[TagsList]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
-    Widgets: Optional[RequestWidgetList]
+    RefreshSchedule: RefreshSchedule | None
+    TagsList: TagsList | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
+    Widgets: RequestWidgetList | None
 
 
 class Widget(TypedDict, total=False):
     """A widget on a CloudTrail Lake dashboard."""
 
-    QueryAlias: Optional[QueryAlias]
-    QueryStatement: Optional[QueryStatement]
-    QueryParameters: Optional[QueryParameters]
-    ViewProperties: Optional[ViewPropertiesMap]
+    QueryAlias: QueryAlias | None
+    QueryStatement: QueryStatement | None
+    QueryParameters: QueryParameters | None
+    ViewProperties: ViewPropertiesMap | None
 
 
-WidgetList = List[Widget]
+WidgetList = list[Widget]
 
 
 class CreateDashboardResponse(TypedDict, total=False):
-    DashboardArn: Optional[DashboardArn]
-    Name: Optional[DashboardName]
-    Type: Optional[DashboardType]
-    Widgets: Optional[WidgetList]
-    TagsList: Optional[TagsList]
-    RefreshSchedule: Optional[RefreshSchedule]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
+    DashboardArn: DashboardArn | None
+    Name: DashboardName | None
+    Type: DashboardType | None
+    Widgets: WidgetList | None
+    TagsList: TagsList | None
+    RefreshSchedule: RefreshSchedule | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
 
 
 class CreateEventDataStoreRequest(ServiceRequest):
     Name: EventDataStoreName
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
-    MultiRegionEnabled: Optional[Boolean]
-    OrganizationEnabled: Optional[Boolean]
-    RetentionPeriod: Optional[RetentionPeriod]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
-    TagsList: Optional[TagsList]
-    KmsKeyId: Optional[EventDataStoreKmsKeyId]
-    StartIngestion: Optional[Boolean]
-    BillingMode: Optional[BillingMode]
+    AdvancedEventSelectors: AdvancedEventSelectors | None
+    MultiRegionEnabled: Boolean | None
+    OrganizationEnabled: Boolean | None
+    RetentionPeriod: RetentionPeriod | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
+    TagsList: TagsList | None
+    KmsKeyId: EventDataStoreKmsKeyId | None
+    StartIngestion: Boolean | None
+    BillingMode: BillingMode | None
 
 
 Date = datetime
 
 
 class CreateEventDataStoreResponse(TypedDict, total=False):
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    Name: Optional[EventDataStoreName]
-    Status: Optional[EventDataStoreStatus]
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
-    MultiRegionEnabled: Optional[Boolean]
-    OrganizationEnabled: Optional[Boolean]
-    RetentionPeriod: Optional[RetentionPeriod]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
-    TagsList: Optional[TagsList]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
-    KmsKeyId: Optional[EventDataStoreKmsKeyId]
-    BillingMode: Optional[BillingMode]
+    EventDataStoreArn: EventDataStoreArn | None
+    Name: EventDataStoreName | None
+    Status: EventDataStoreStatus | None
+    AdvancedEventSelectors: AdvancedEventSelectors | None
+    MultiRegionEnabled: Boolean | None
+    OrganizationEnabled: Boolean | None
+    RetentionPeriod: RetentionPeriod | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
+    TagsList: TagsList | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
+    KmsKeyId: EventDataStoreKmsKeyId | None
+    BillingMode: BillingMode | None
 
 
 class CreateTrailRequest(ServiceRequest):
@@ -1350,16 +1388,16 @@ class CreateTrailRequest(ServiceRequest):
 
     Name: String
     S3BucketName: String
-    S3KeyPrefix: Optional[String]
-    SnsTopicName: Optional[String]
-    IncludeGlobalServiceEvents: Optional[Boolean]
-    IsMultiRegionTrail: Optional[Boolean]
-    EnableLogFileValidation: Optional[Boolean]
-    CloudWatchLogsLogGroupArn: Optional[String]
-    CloudWatchLogsRoleArn: Optional[String]
-    KmsKeyId: Optional[String]
-    IsOrganizationTrail: Optional[Boolean]
-    TagsList: Optional[TagsList]
+    S3KeyPrefix: String | None
+    SnsTopicName: String | None
+    IncludeGlobalServiceEvents: Boolean | None
+    IsMultiRegionTrail: Boolean | None
+    EnableLogFileValidation: Boolean | None
+    CloudWatchLogsLogGroupArn: String | None
+    CloudWatchLogsRoleArn: String | None
+    KmsKeyId: String | None
+    IsOrganizationTrail: Boolean | None
+    TagsList: TagsList | None
 
 
 class CreateTrailResponse(TypedDict, total=False):
@@ -1367,30 +1405,30 @@ class CreateTrailResponse(TypedDict, total=False):
     returns an error.
     """
 
-    Name: Optional[String]
-    S3BucketName: Optional[String]
-    S3KeyPrefix: Optional[String]
-    SnsTopicName: Optional[String]
-    SnsTopicARN: Optional[String]
-    IncludeGlobalServiceEvents: Optional[Boolean]
-    IsMultiRegionTrail: Optional[Boolean]
-    TrailARN: Optional[String]
-    LogFileValidationEnabled: Optional[Boolean]
-    CloudWatchLogsLogGroupArn: Optional[String]
-    CloudWatchLogsRoleArn: Optional[String]
-    KmsKeyId: Optional[String]
-    IsOrganizationTrail: Optional[Boolean]
+    Name: String | None
+    S3BucketName: String | None
+    S3KeyPrefix: String | None
+    SnsTopicName: String | None
+    SnsTopicARN: String | None
+    IncludeGlobalServiceEvents: Boolean | None
+    IsMultiRegionTrail: Boolean | None
+    TrailARN: String | None
+    LogFileValidationEnabled: Boolean | None
+    CloudWatchLogsLogGroupArn: String | None
+    CloudWatchLogsRoleArn: String | None
+    KmsKeyId: String | None
+    IsOrganizationTrail: Boolean | None
 
 
 class DashboardDetail(TypedDict, total=False):
     """Provides information about a CloudTrail Lake dashboard."""
 
-    DashboardArn: Optional[DashboardArn]
-    Type: Optional[DashboardType]
+    DashboardArn: DashboardArn | None
+    Type: DashboardType | None
 
 
-Dashboards = List[DashboardDetail]
-DataResourceValues = List[String]
+Dashboards = list[DashboardDetail]
+DataResourceValues = list[String]
 
 
 class DataResource(TypedDict, total=False):
@@ -1459,11 +1497,11 @@ class DataResource(TypedDict, total=False):
        trail. The trail doesn’t log the event.
     """
 
-    Type: Optional[String]
-    Values: Optional[DataResourceValues]
+    Type: String | None
+    Values: DataResourceValues | None
 
 
-DataResources = List[DataResource]
+DataResources = list[DataResource]
 
 
 class DeleteChannelRequest(ServiceRequest):
@@ -1530,11 +1568,11 @@ class DeregisterOrganizationDelegatedAdminResponse(TypedDict, total=False):
 
 
 class DescribeQueryRequest(ServiceRequest):
-    EventDataStore: Optional[EventDataStoreArn]
-    QueryId: Optional[UUID]
-    QueryAlias: Optional[QueryAlias]
-    RefreshId: Optional[RefreshId]
-    EventDataStoreOwnerAccountId: Optional[AccountId]
+    EventDataStore: EventDataStoreArn | None
+    QueryId: UUID | None
+    QueryAlias: QueryAlias | None
+    RefreshId: RefreshId | None
+    EventDataStoreOwnerAccountId: AccountId | None
 
 
 Long = int
@@ -1546,57 +1584,57 @@ class QueryStatisticsForDescribeQuery(TypedDict, total=False):
     milliseconds, and the query's creation time.
     """
 
-    EventsMatched: Optional[Long]
-    EventsScanned: Optional[Long]
-    BytesScanned: Optional[Long]
-    ExecutionTimeInMillis: Optional[Integer]
-    CreationTime: Optional[Date]
+    EventsMatched: Long | None
+    EventsScanned: Long | None
+    BytesScanned: Long | None
+    ExecutionTimeInMillis: Integer | None
+    CreationTime: Date | None
 
 
 class DescribeQueryResponse(TypedDict, total=False):
-    QueryId: Optional[UUID]
-    QueryString: Optional[QueryStatement]
-    QueryStatus: Optional[QueryStatus]
-    QueryStatistics: Optional[QueryStatisticsForDescribeQuery]
-    ErrorMessage: Optional[ErrorMessage]
-    DeliveryS3Uri: Optional[DeliveryS3Uri]
-    DeliveryStatus: Optional[DeliveryStatus]
-    Prompt: Optional[Prompt]
-    EventDataStoreOwnerAccountId: Optional[AccountId]
+    QueryId: UUID | None
+    QueryString: QueryStatement | None
+    QueryStatus: QueryStatus | None
+    QueryStatistics: QueryStatisticsForDescribeQuery | None
+    ErrorMessage: ErrorMessage | None
+    DeliveryS3Uri: DeliveryS3Uri | None
+    DeliveryStatus: DeliveryStatus | None
+    Prompt: Prompt | None
+    EventDataStoreOwnerAccountId: AccountId | None
 
 
-TrailNameList = List[String]
+TrailNameList = list[String]
 
 
 class DescribeTrailsRequest(ServiceRequest):
     """Returns information about the trail."""
 
-    trailNameList: Optional[TrailNameList]
-    includeShadowTrails: Optional[Boolean]
+    trailNameList: TrailNameList | None
+    includeShadowTrails: Boolean | None
 
 
 class Trail(TypedDict, total=False):
     """The settings for a trail."""
 
-    Name: Optional[String]
-    S3BucketName: Optional[String]
-    S3KeyPrefix: Optional[String]
-    SnsTopicName: Optional[String]
-    SnsTopicARN: Optional[String]
-    IncludeGlobalServiceEvents: Optional[Boolean]
-    IsMultiRegionTrail: Optional[Boolean]
-    HomeRegion: Optional[String]
-    TrailARN: Optional[String]
-    LogFileValidationEnabled: Optional[Boolean]
-    CloudWatchLogsLogGroupArn: Optional[String]
-    CloudWatchLogsRoleArn: Optional[String]
-    KmsKeyId: Optional[String]
-    HasCustomEventSelectors: Optional[Boolean]
-    HasInsightSelectors: Optional[Boolean]
-    IsOrganizationTrail: Optional[Boolean]
+    Name: String | None
+    S3BucketName: String | None
+    S3KeyPrefix: String | None
+    SnsTopicName: String | None
+    SnsTopicARN: String | None
+    IncludeGlobalServiceEvents: Boolean | None
+    IsMultiRegionTrail: Boolean | None
+    HomeRegion: String | None
+    TrailARN: String | None
+    LogFileValidationEnabled: Boolean | None
+    CloudWatchLogsLogGroupArn: String | None
+    CloudWatchLogsRoleArn: String | None
+    KmsKeyId: String | None
+    HasCustomEventSelectors: Boolean | None
+    HasInsightSelectors: Boolean | None
+    IsOrganizationTrail: Boolean | None
 
 
-TrailList = List[Trail]
+TrailList = list[Trail]
 
 
 class DescribeTrailsResponse(TypedDict, total=False):
@@ -1604,7 +1642,7 @@ class DescribeTrailsResponse(TypedDict, total=False):
     returns an error.
     """
 
-    trailList: Optional[TrailList]
+    trailList: TrailList | None
 
 
 class DisableFederationRequest(ServiceRequest):
@@ -1612,8 +1650,8 @@ class DisableFederationRequest(ServiceRequest):
 
 
 class DisableFederationResponse(TypedDict, total=False):
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    FederationStatus: Optional[FederationStatus]
+    EventDataStoreArn: EventDataStoreArn | None
+    FederationStatus: FederationStatus | None
 
 
 class EnableFederationRequest(ServiceRequest):
@@ -1622,19 +1660,19 @@ class EnableFederationRequest(ServiceRequest):
 
 
 class EnableFederationResponse(TypedDict, total=False):
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    FederationStatus: Optional[FederationStatus]
-    FederationRoleArn: Optional[FederationRoleArn]
+    EventDataStoreArn: EventDataStoreArn | None
+    FederationStatus: FederationStatus | None
+    FederationRoleArn: FederationRoleArn | None
 
 
 class Resource(TypedDict, total=False):
     """Specifies the type and name of a resource referenced by an event."""
 
-    ResourceType: Optional[String]
-    ResourceName: Optional[String]
+    ResourceType: String | None
+    ResourceName: String | None
 
 
-ResourceList = List[Resource]
+ResourceList = list[Resource]
 
 
 class Event(TypedDict, total=False):
@@ -1642,15 +1680,15 @@ class Event(TypedDict, total=False):
     request. The result includes a representation of a CloudTrail event.
     """
 
-    EventId: Optional[String]
-    EventName: Optional[String]
-    ReadOnly: Optional[String]
-    AccessKeyId: Optional[String]
-    EventTime: Optional[Date]
-    EventSource: Optional[String]
-    Username: Optional[String]
-    Resources: Optional[ResourceList]
-    CloudTrailEvent: Optional[String]
+    EventId: String | None
+    EventName: String | None
+    ReadOnly: String | None
+    AccessKeyId: String | None
+    EventTime: Date | None
+    EventSource: String | None
+    Username: String | None
+    Resources: ResourceList | None
+    CloudTrailEvent: String | None
 
 
 class EventDataStore(TypedDict, total=False):
@@ -1661,21 +1699,21 @@ class EventDataStore(TypedDict, total=False):
     selectors <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake-concepts.html#adv-event-selectors>`__.
     """
 
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    Name: Optional[EventDataStoreName]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
-    Status: Optional[EventDataStoreStatus]
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
-    MultiRegionEnabled: Optional[Boolean]
-    OrganizationEnabled: Optional[Boolean]
-    RetentionPeriod: Optional[RetentionPeriod]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
+    EventDataStoreArn: EventDataStoreArn | None
+    Name: EventDataStoreName | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
+    Status: EventDataStoreStatus | None
+    AdvancedEventSelectors: AdvancedEventSelectors | None
+    MultiRegionEnabled: Boolean | None
+    OrganizationEnabled: Boolean | None
+    RetentionPeriod: RetentionPeriod | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
 
 
-EventDataStoreList = List[EventDataStoreArn]
-EventDataStores = List[EventDataStore]
-ExcludeManagementEventSources = List[String]
+EventDataStoreList = list[EventDataStoreArn]
+EventDataStores = list[EventDataStore]
+ExcludeManagementEventSources = list[String]
 
 
 class EventSelector(TypedDict, total=False):
@@ -1694,14 +1732,14 @@ class EventSelector(TypedDict, total=False):
     trail.
     """
 
-    ReadWriteType: Optional[ReadWriteType]
-    IncludeManagementEvents: Optional[Boolean]
-    DataResources: Optional[DataResources]
-    ExcludeManagementEventSources: Optional[ExcludeManagementEventSources]
+    ReadWriteType: ReadWriteType | None
+    IncludeManagementEvents: Boolean | None
+    DataResources: DataResources | None
+    ExcludeManagementEventSources: ExcludeManagementEventSources | None
 
 
-EventSelectors = List[EventSelector]
-EventsList = List[Event]
+EventSelectors = list[EventSelector]
+EventsList = list[Event]
 
 
 class GenerateQueryRequest(ServiceRequest):
@@ -1710,9 +1748,9 @@ class GenerateQueryRequest(ServiceRequest):
 
 
 class GenerateQueryResponse(TypedDict, total=False):
-    QueryStatement: Optional[QueryStatement]
-    QueryAlias: Optional[QueryAlias]
-    EventDataStoreOwnerAccountId: Optional[AccountId]
+    QueryStatement: QueryStatement | None
+    QueryAlias: QueryAlias | None
+    EventDataStoreOwnerAccountId: AccountId | None
 
 
 class GetChannelRequest(ServiceRequest):
@@ -1724,27 +1762,27 @@ class IngestionStatus(TypedDict, total=False):
     attempts to ingest events.
     """
 
-    LatestIngestionSuccessTime: Optional[Date]
-    LatestIngestionSuccessEventID: Optional[UUID]
-    LatestIngestionErrorCode: Optional[ErrorMessage]
-    LatestIngestionAttemptTime: Optional[Date]
-    LatestIngestionAttemptEventID: Optional[UUID]
+    LatestIngestionSuccessTime: Date | None
+    LatestIngestionSuccessEventID: UUID | None
+    LatestIngestionErrorCode: ErrorMessage | None
+    LatestIngestionAttemptTime: Date | None
+    LatestIngestionAttemptEventID: UUID | None
 
 
 class SourceConfig(TypedDict, total=False):
     """Contains configuration information about the channel."""
 
-    ApplyToAllRegions: Optional[Boolean]
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
+    ApplyToAllRegions: Boolean | None
+    AdvancedEventSelectors: AdvancedEventSelectors | None
 
 
 class GetChannelResponse(TypedDict, total=False):
-    ChannelArn: Optional[ChannelArn]
-    Name: Optional[ChannelName]
-    Source: Optional[Source]
-    SourceConfig: Optional[SourceConfig]
-    Destinations: Optional[Destinations]
-    IngestionStatus: Optional[IngestionStatus]
+    ChannelArn: ChannelArn | None
+    Name: ChannelName | None
+    Source: Source | None
+    SourceConfig: SourceConfig | None
+    Destinations: Destinations | None
+    IngestionStatus: IngestionStatus | None
 
 
 class GetDashboardRequest(ServiceRequest):
@@ -1752,26 +1790,29 @@ class GetDashboardRequest(ServiceRequest):
 
 
 class GetDashboardResponse(TypedDict, total=False):
-    DashboardArn: Optional[DashboardArn]
-    Type: Optional[DashboardType]
-    Status: Optional[DashboardStatus]
-    Widgets: Optional[WidgetList]
-    RefreshSchedule: Optional[RefreshSchedule]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
-    LastRefreshId: Optional[RefreshId]
-    LastRefreshFailureReason: Optional[ErrorMessage]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
+    DashboardArn: DashboardArn | None
+    Type: DashboardType | None
+    Status: DashboardStatus | None
+    Widgets: WidgetList | None
+    RefreshSchedule: RefreshSchedule | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
+    LastRefreshId: RefreshId | None
+    LastRefreshFailureReason: ErrorMessage | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
 
 
 class GetEventConfigurationRequest(ServiceRequest):
-    EventDataStore: Optional[String]
+    TrailName: String | None
+    EventDataStore: String | None
 
 
 class GetEventConfigurationResponse(TypedDict, total=False):
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    MaxEventSize: Optional[MaxEventSize]
-    ContextKeySelectors: Optional[ContextKeySelectors]
+    TrailARN: String | None
+    EventDataStoreArn: EventDataStoreArn | None
+    MaxEventSize: MaxEventSize | None
+    ContextKeySelectors: ContextKeySelectors | None
+    AggregationConfigurations: AggregationConfigurations | None
 
 
 class GetEventDataStoreRequest(ServiceRequest):
@@ -1785,25 +1826,25 @@ class PartitionKey(TypedDict, total=False):
     Type: PartitionKeyType
 
 
-PartitionKeyList = List[PartitionKey]
+PartitionKeyList = list[PartitionKey]
 
 
 class GetEventDataStoreResponse(TypedDict, total=False):
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    Name: Optional[EventDataStoreName]
-    Status: Optional[EventDataStoreStatus]
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
-    MultiRegionEnabled: Optional[Boolean]
-    OrganizationEnabled: Optional[Boolean]
-    RetentionPeriod: Optional[RetentionPeriod]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
-    KmsKeyId: Optional[EventDataStoreKmsKeyId]
-    BillingMode: Optional[BillingMode]
-    FederationStatus: Optional[FederationStatus]
-    FederationRoleArn: Optional[FederationRoleArn]
-    PartitionKeys: Optional[PartitionKeyList]
+    EventDataStoreArn: EventDataStoreArn | None
+    Name: EventDataStoreName | None
+    Status: EventDataStoreStatus | None
+    AdvancedEventSelectors: AdvancedEventSelectors | None
+    MultiRegionEnabled: Boolean | None
+    OrganizationEnabled: Boolean | None
+    RetentionPeriod: RetentionPeriod | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
+    KmsKeyId: EventDataStoreKmsKeyId | None
+    BillingMode: BillingMode | None
+    FederationStatus: FederationStatus | None
+    FederationRoleArn: FederationRoleArn | None
+    PartitionKeys: PartitionKeyList | None
 
 
 class GetEventSelectorsRequest(ServiceRequest):
@@ -1811,9 +1852,9 @@ class GetEventSelectorsRequest(ServiceRequest):
 
 
 class GetEventSelectorsResponse(TypedDict, total=False):
-    TrailARN: Optional[String]
-    EventSelectors: Optional[EventSelectors]
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
+    TrailARN: String | None
+    EventSelectors: EventSelectors | None
+    AdvancedEventSelectors: AdvancedEventSelectors | None
 
 
 class GetImportRequest(ServiceRequest):
@@ -1828,11 +1869,11 @@ class ImportStatistics(TypedDict, total=False):
     import.
     """
 
-    PrefixesFound: Optional[Long]
-    PrefixesCompleted: Optional[Long]
-    FilesCompleted: Optional[Long]
-    EventsCompleted: Optional[Long]
-    FailedEntries: Optional[Long]
+    PrefixesFound: Long | None
+    PrefixesCompleted: Long | None
+    FilesCompleted: Long | None
+    EventsCompleted: Long | None
+    FailedEntries: Long | None
 
 
 class S3ImportSource(TypedDict, total=False):
@@ -1849,24 +1890,27 @@ class ImportSource(TypedDict, total=False):
     S3: S3ImportSource
 
 
-ImportDestinations = List[EventDataStoreArn]
+ImportDestinations = list[EventDataStoreArn]
 
 
 class GetImportResponse(TypedDict, total=False):
-    ImportId: Optional[UUID]
-    Destinations: Optional[ImportDestinations]
-    ImportSource: Optional[ImportSource]
-    StartEventTime: Optional[Date]
-    EndEventTime: Optional[Date]
-    ImportStatus: Optional[ImportStatus]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
-    ImportStatistics: Optional[ImportStatistics]
+    ImportId: UUID | None
+    Destinations: ImportDestinations | None
+    ImportSource: ImportSource | None
+    StartEventTime: Date | None
+    EndEventTime: Date | None
+    ImportStatus: ImportStatus | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
+    ImportStatistics: ImportStatistics | None
 
 
 class GetInsightSelectorsRequest(ServiceRequest):
-    TrailName: Optional[String]
-    EventDataStore: Optional[EventDataStoreArn]
+    TrailName: String | None
+    EventDataStore: EventDataStoreArn | None
+
+
+SourceEventCategories = list[SourceEventCategory]
 
 
 class InsightSelector(TypedDict, total=False):
@@ -1874,46 +1918,47 @@ class InsightSelector(TypedDict, total=False):
     a trail or event data store.
     """
 
-    InsightType: Optional[InsightType]
+    InsightType: InsightType | None
+    EventCategories: SourceEventCategories | None
 
 
-InsightSelectors = List[InsightSelector]
+InsightSelectors = list[InsightSelector]
 
 
 class GetInsightSelectorsResponse(TypedDict, total=False):
-    TrailARN: Optional[String]
-    InsightSelectors: Optional[InsightSelectors]
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    InsightsDestination: Optional[EventDataStoreArn]
+    TrailARN: String | None
+    InsightSelectors: InsightSelectors | None
+    EventDataStoreArn: EventDataStoreArn | None
+    InsightsDestination: EventDataStoreArn | None
 
 
 class GetQueryResultsRequest(ServiceRequest):
-    EventDataStore: Optional[EventDataStoreArn]
+    EventDataStore: EventDataStoreArn | None
     QueryId: UUID
-    NextToken: Optional[PaginationToken]
-    MaxQueryResults: Optional[MaxQueryResults]
-    EventDataStoreOwnerAccountId: Optional[AccountId]
+    NextToken: PaginationToken | None
+    MaxQueryResults: MaxQueryResults | None
+    EventDataStoreOwnerAccountId: AccountId | None
 
 
-QueryResultColumn = Dict[QueryResultKey, QueryResultValue]
-QueryResultRow = List[QueryResultColumn]
-QueryResultRows = List[QueryResultRow]
+QueryResultColumn = dict[QueryResultKey, QueryResultValue]
+QueryResultRow = list[QueryResultColumn]
+QueryResultRows = list[QueryResultRow]
 
 
 class QueryStatistics(TypedDict, total=False):
     """Metadata about a query, such as the number of results."""
 
-    ResultsCount: Optional[Integer]
-    TotalResultsCount: Optional[Integer]
-    BytesScanned: Optional[Long]
+    ResultsCount: Integer | None
+    TotalResultsCount: Integer | None
+    BytesScanned: Long | None
 
 
 class GetQueryResultsResponse(TypedDict, total=False):
-    QueryStatus: Optional[QueryStatus]
-    QueryStatistics: Optional[QueryStatistics]
-    QueryResultRows: Optional[QueryResultRows]
-    NextToken: Optional[PaginationToken]
-    ErrorMessage: Optional[ErrorMessage]
+    QueryStatus: QueryStatus | None
+    QueryStatistics: QueryStatistics | None
+    QueryResultRows: QueryResultRows | None
+    NextToken: PaginationToken | None
+    ErrorMessage: ErrorMessage | None
 
 
 class GetResourcePolicyRequest(ServiceRequest):
@@ -1921,9 +1966,9 @@ class GetResourcePolicyRequest(ServiceRequest):
 
 
 class GetResourcePolicyResponse(TypedDict, total=False):
-    ResourceArn: Optional[ResourceArn]
-    ResourcePolicy: Optional[ResourcePolicy]
-    DelegatedAdminResourcePolicy: Optional[ResourcePolicy]
+    ResourceArn: ResourceArn | None
+    ResourcePolicy: ResourcePolicy | None
+    DelegatedAdminResourcePolicy: ResourcePolicy | None
 
 
 class GetTrailRequest(ServiceRequest):
@@ -1931,7 +1976,7 @@ class GetTrailRequest(ServiceRequest):
 
 
 class GetTrailResponse(TypedDict, total=False):
-    Trail: Optional[Trail]
+    Trail: Trail | None
 
 
 class GetTrailStatusRequest(ServiceRequest):
@@ -1945,36 +1990,36 @@ class GetTrailStatusResponse(TypedDict, total=False):
     returns an error.
     """
 
-    IsLogging: Optional[Boolean]
-    LatestDeliveryError: Optional[String]
-    LatestNotificationError: Optional[String]
-    LatestDeliveryTime: Optional[Date]
-    LatestNotificationTime: Optional[Date]
-    StartLoggingTime: Optional[Date]
-    StopLoggingTime: Optional[Date]
-    LatestCloudWatchLogsDeliveryError: Optional[String]
-    LatestCloudWatchLogsDeliveryTime: Optional[Date]
-    LatestDigestDeliveryTime: Optional[Date]
-    LatestDigestDeliveryError: Optional[String]
-    LatestDeliveryAttemptTime: Optional[String]
-    LatestNotificationAttemptTime: Optional[String]
-    LatestNotificationAttemptSucceeded: Optional[String]
-    LatestDeliveryAttemptSucceeded: Optional[String]
-    TimeLoggingStarted: Optional[String]
-    TimeLoggingStopped: Optional[String]
+    IsLogging: Boolean | None
+    LatestDeliveryError: String | None
+    LatestNotificationError: String | None
+    LatestDeliveryTime: Date | None
+    LatestNotificationTime: Date | None
+    StartLoggingTime: Date | None
+    StopLoggingTime: Date | None
+    LatestCloudWatchLogsDeliveryError: String | None
+    LatestCloudWatchLogsDeliveryTime: Date | None
+    LatestDigestDeliveryTime: Date | None
+    LatestDigestDeliveryError: String | None
+    LatestDeliveryAttemptTime: String | None
+    LatestNotificationAttemptTime: String | None
+    LatestNotificationAttemptSucceeded: String | None
+    LatestDeliveryAttemptSucceeded: String | None
+    TimeLoggingStarted: String | None
+    TimeLoggingStopped: String | None
 
 
 class ImportFailureListItem(TypedDict, total=False):
     """Provides information about an import failure."""
 
-    Location: Optional[String]
-    Status: Optional[ImportFailureStatus]
-    ErrorType: Optional[String]
-    ErrorMessage: Optional[String]
-    LastUpdatedTime: Optional[Date]
+    Location: String | None
+    Status: ImportFailureStatus | None
+    ErrorType: String | None
+    ErrorMessage: String | None
+    LastUpdatedTime: Date | None
 
 
-ImportFailureList = List[ImportFailureListItem]
+ImportFailureList = list[ImportFailureListItem]
 
 
 class ImportsListItem(TypedDict, total=False):
@@ -1982,116 +2027,136 @@ class ImportsListItem(TypedDict, total=False):
     request.
     """
 
-    ImportId: Optional[UUID]
-    ImportStatus: Optional[ImportStatus]
-    Destinations: Optional[ImportDestinations]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
+    ImportId: UUID | None
+    ImportStatus: ImportStatus | None
+    Destinations: ImportDestinations | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
 
 
-ImportsList = List[ImportsListItem]
-InsightsMetricValues = List[Double]
+ImportsList = list[ImportsListItem]
+InsightsMetricValues = list[Double]
 
 
 class ListChannelsRequest(ServiceRequest):
-    MaxResults: Optional[ListChannelsMaxResultsCount]
-    NextToken: Optional[PaginationToken]
+    MaxResults: ListChannelsMaxResultsCount | None
+    NextToken: PaginationToken | None
 
 
 class ListChannelsResponse(TypedDict, total=False):
-    Channels: Optional[Channels]
-    NextToken: Optional[PaginationToken]
+    Channels: Channels | None
+    NextToken: PaginationToken | None
 
 
 class ListDashboardsRequest(ServiceRequest):
-    NamePrefix: Optional[DashboardName]
-    Type: Optional[DashboardType]
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[ListDashboardsMaxResultsCount]
+    NamePrefix: DashboardName | None
+    Type: DashboardType | None
+    NextToken: PaginationToken | None
+    MaxResults: ListDashboardsMaxResultsCount | None
 
 
 class ListDashboardsResponse(TypedDict, total=False):
-    Dashboards: Optional[Dashboards]
-    NextToken: Optional[PaginationToken]
+    Dashboards: Dashboards | None
+    NextToken: PaginationToken | None
 
 
 class ListEventDataStoresRequest(ServiceRequest):
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[ListEventDataStoresMaxResultsCount]
+    NextToken: PaginationToken | None
+    MaxResults: ListEventDataStoresMaxResultsCount | None
 
 
 class ListEventDataStoresResponse(TypedDict, total=False):
-    EventDataStores: Optional[EventDataStores]
-    NextToken: Optional[PaginationToken]
+    EventDataStores: EventDataStores | None
+    NextToken: PaginationToken | None
 
 
 class ListImportFailuresRequest(ServiceRequest):
     ImportId: UUID
-    MaxResults: Optional[ListImportFailuresMaxResultsCount]
-    NextToken: Optional[PaginationToken]
+    MaxResults: ListImportFailuresMaxResultsCount | None
+    NextToken: PaginationToken | None
 
 
 class ListImportFailuresResponse(TypedDict, total=False):
-    Failures: Optional[ImportFailureList]
-    NextToken: Optional[PaginationToken]
+    Failures: ImportFailureList | None
+    NextToken: PaginationToken | None
 
 
 class ListImportsRequest(ServiceRequest):
-    MaxResults: Optional[ListImportsMaxResultsCount]
-    Destination: Optional[EventDataStoreArn]
-    ImportStatus: Optional[ImportStatus]
-    NextToken: Optional[PaginationToken]
+    MaxResults: ListImportsMaxResultsCount | None
+    Destination: EventDataStoreArn | None
+    ImportStatus: ImportStatus | None
+    NextToken: PaginationToken | None
 
 
 class ListImportsResponse(TypedDict, total=False):
-    Imports: Optional[ImportsList]
-    NextToken: Optional[PaginationToken]
+    Imports: ImportsList | None
+    NextToken: PaginationToken | None
+
+
+ListInsightsDataDimensions = dict[ListInsightsDataDimensionKey, ListInsightsDataDimensionValue]
+
+
+class ListInsightsDataRequest(ServiceRequest):
+    InsightSource: ResourceArn
+    DataType: ListInsightsDataType
+    Dimensions: ListInsightsDataDimensions | None
+    StartTime: Date | None
+    EndTime: Date | None
+    MaxResults: ListInsightsDataMaxResultsCount | None
+    NextToken: PaginationToken | None
+
+
+class ListInsightsDataResponse(TypedDict, total=False):
+    Events: EventsList | None
+    NextToken: PaginationToken | None
 
 
 class ListInsightsMetricDataRequest(ServiceRequest):
+    TrailName: String | None
     EventSource: EventSource
     EventName: EventName
     InsightType: InsightType
-    ErrorCode: Optional[ErrorCode]
-    StartTime: Optional[Date]
-    EndTime: Optional[Date]
-    Period: Optional[InsightsMetricPeriod]
-    DataType: Optional[InsightsMetricDataType]
-    MaxResults: Optional[InsightsMetricMaxResults]
-    NextToken: Optional[InsightsMetricNextToken]
+    ErrorCode: ErrorCode | None
+    StartTime: Date | None
+    EndTime: Date | None
+    Period: InsightsMetricPeriod | None
+    DataType: InsightsMetricDataType | None
+    MaxResults: InsightsMetricMaxResults | None
+    NextToken: InsightsMetricNextToken | None
 
 
-Timestamps = List[Date]
+Timestamps = list[Date]
 
 
 class ListInsightsMetricDataResponse(TypedDict, total=False):
-    EventSource: Optional[EventSource]
-    EventName: Optional[EventName]
-    InsightType: Optional[InsightType]
-    ErrorCode: Optional[ErrorCode]
-    Timestamps: Optional[Timestamps]
-    Values: Optional[InsightsMetricValues]
-    NextToken: Optional[InsightsMetricNextToken]
+    TrailARN: String | None
+    EventSource: EventSource | None
+    EventName: EventName | None
+    InsightType: InsightType | None
+    ErrorCode: ErrorCode | None
+    Timestamps: Timestamps | None
+    Values: InsightsMetricValues | None
+    NextToken: InsightsMetricNextToken | None
 
 
 class ListPublicKeysRequest(ServiceRequest):
     """Requests the public keys for a specified time range."""
 
-    StartTime: Optional[Date]
-    EndTime: Optional[Date]
-    NextToken: Optional[String]
+    StartTime: Date | None
+    EndTime: Date | None
+    NextToken: String | None
 
 
 class PublicKey(TypedDict, total=False):
     """Contains information about a returned public key."""
 
-    Value: Optional[ByteBuffer]
-    ValidityStartTime: Optional[Date]
-    ValidityEndTime: Optional[Date]
-    Fingerprint: Optional[String]
+    Value: ByteBuffer | None
+    ValidityStartTime: Date | None
+    ValidityEndTime: Date | None
+    Fingerprint: String | None
 
 
-PublicKeyList = List[PublicKey]
+PublicKeyList = list[PublicKey]
 
 
 class ListPublicKeysResponse(TypedDict, total=False):
@@ -2099,17 +2164,17 @@ class ListPublicKeysResponse(TypedDict, total=False):
     returns an error.
     """
 
-    PublicKeyList: Optional[PublicKeyList]
-    NextToken: Optional[String]
+    PublicKeyList: PublicKeyList | None
+    NextToken: String | None
 
 
 class ListQueriesRequest(ServiceRequest):
     EventDataStore: EventDataStoreArn
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[ListQueriesMaxResultsCount]
-    StartTime: Optional[Date]
-    EndTime: Optional[Date]
-    QueryStatus: Optional[QueryStatus]
+    NextToken: PaginationToken | None
+    MaxResults: ListQueriesMaxResultsCount | None
+    StartTime: Date | None
+    EndTime: Date | None
+    QueryStatus: QueryStatus | None
 
 
 class Query(TypedDict, total=False):
@@ -2117,37 +2182,37 @@ class Query(TypedDict, total=False):
     event data store.
     """
 
-    QueryId: Optional[UUID]
-    QueryStatus: Optional[QueryStatus]
-    CreationTime: Optional[Date]
+    QueryId: UUID | None
+    QueryStatus: QueryStatus | None
+    CreationTime: Date | None
 
 
-Queries = List[Query]
+Queries = list[Query]
 
 
 class ListQueriesResponse(TypedDict, total=False):
-    Queries: Optional[Queries]
-    NextToken: Optional[PaginationToken]
+    Queries: Queries | None
+    NextToken: PaginationToken | None
 
 
-ResourceIdList = List[String]
+ResourceIdList = list[String]
 
 
 class ListTagsRequest(ServiceRequest):
     """Specifies a list of tags to return."""
 
     ResourceIdList: ResourceIdList
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
 class ResourceTag(TypedDict, total=False):
     """A resource tag."""
 
-    ResourceId: Optional[String]
-    TagsList: Optional[TagsList]
+    ResourceId: String | None
+    TagsList: TagsList | None
 
 
-ResourceTagList = List[ResourceTag]
+ResourceTagList = list[ResourceTag]
 
 
 class ListTagsResponse(TypedDict, total=False):
@@ -2155,12 +2220,12 @@ class ListTagsResponse(TypedDict, total=False):
     returns an error.
     """
 
-    ResourceTagList: Optional[ResourceTagList]
-    NextToken: Optional[String]
+    ResourceTagList: ResourceTagList | None
+    NextToken: String | None
 
 
 class ListTrailsRequest(ServiceRequest):
-    NextToken: Optional[String]
+    NextToken: String | None
 
 
 class TrailInfo(TypedDict, total=False):
@@ -2168,17 +2233,17 @@ class TrailInfo(TypedDict, total=False):
     Region, and Amazon Resource Name (ARN).
     """
 
-    TrailARN: Optional[String]
-    Name: Optional[String]
-    HomeRegion: Optional[String]
+    TrailARN: String | None
+    Name: String | None
+    HomeRegion: String | None
 
 
-Trails = List[TrailInfo]
+Trails = list[TrailInfo]
 
 
 class ListTrailsResponse(TypedDict, total=False):
-    Trails: Optional[Trails]
-    NextToken: Optional[String]
+    Trails: Trails | None
+    NextToken: String | None
 
 
 class LookupAttribute(TypedDict, total=False):
@@ -2188,63 +2253,67 @@ class LookupAttribute(TypedDict, total=False):
     AttributeValue: LookupAttributeValue
 
 
-LookupAttributesList = List[LookupAttribute]
+LookupAttributesList = list[LookupAttribute]
 
 
 class LookupEventsRequest(ServiceRequest):
     """Contains a request for LookupEvents."""
 
-    LookupAttributes: Optional[LookupAttributesList]
-    StartTime: Optional[Date]
-    EndTime: Optional[Date]
-    EventCategory: Optional[EventCategory]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    LookupAttributes: LookupAttributesList | None
+    StartTime: Date | None
+    EndTime: Date | None
+    EventCategory: EventCategory | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class LookupEventsResponse(TypedDict, total=False):
     """Contains a response to a LookupEvents action."""
 
-    Events: Optional[EventsList]
-    NextToken: Optional[NextToken]
+    Events: EventsList | None
+    NextToken: NextToken | None
 
 
 class PutEventConfigurationRequest(ServiceRequest):
-    EventDataStore: Optional[String]
-    MaxEventSize: MaxEventSize
-    ContextKeySelectors: ContextKeySelectors
+    TrailName: String | None
+    EventDataStore: String | None
+    MaxEventSize: MaxEventSize | None
+    ContextKeySelectors: ContextKeySelectors | None
+    AggregationConfigurations: AggregationConfigurations | None
 
 
 class PutEventConfigurationResponse(TypedDict, total=False):
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    MaxEventSize: Optional[MaxEventSize]
-    ContextKeySelectors: Optional[ContextKeySelectors]
+    TrailARN: String | None
+    EventDataStoreArn: EventDataStoreArn | None
+    MaxEventSize: MaxEventSize | None
+    ContextKeySelectors: ContextKeySelectors | None
+    AggregationConfigurations: AggregationConfigurations | None
 
 
 class PutEventSelectorsRequest(ServiceRequest):
     TrailName: String
-    EventSelectors: Optional[EventSelectors]
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
+    EventSelectors: EventSelectors | None
+    AdvancedEventSelectors: AdvancedEventSelectors | None
 
 
 class PutEventSelectorsResponse(TypedDict, total=False):
-    TrailARN: Optional[String]
-    EventSelectors: Optional[EventSelectors]
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
+    TrailARN: String | None
+    EventSelectors: EventSelectors | None
+    AdvancedEventSelectors: AdvancedEventSelectors | None
 
 
 class PutInsightSelectorsRequest(ServiceRequest):
-    TrailName: Optional[String]
+    TrailName: String | None
     InsightSelectors: InsightSelectors
-    EventDataStore: Optional[EventDataStoreArn]
-    InsightsDestination: Optional[EventDataStoreArn]
+    EventDataStore: EventDataStoreArn | None
+    InsightsDestination: EventDataStoreArn | None
 
 
 class PutInsightSelectorsResponse(TypedDict, total=False):
-    TrailARN: Optional[String]
-    InsightSelectors: Optional[InsightSelectors]
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    InsightsDestination: Optional[EventDataStoreArn]
+    TrailARN: String | None
+    InsightSelectors: InsightSelectors | None
+    EventDataStoreArn: EventDataStoreArn | None
+    InsightsDestination: EventDataStoreArn | None
 
 
 class PutResourcePolicyRequest(ServiceRequest):
@@ -2253,12 +2322,12 @@ class PutResourcePolicyRequest(ServiceRequest):
 
 
 class PutResourcePolicyResponse(TypedDict, total=False):
-    ResourceArn: Optional[ResourceArn]
-    ResourcePolicy: Optional[ResourcePolicy]
-    DelegatedAdminResourcePolicy: Optional[ResourcePolicy]
+    ResourceArn: ResourceArn | None
+    ResourcePolicy: ResourcePolicy | None
+    DelegatedAdminResourcePolicy: ResourcePolicy | None
 
 
-QueryParameterValues = Dict[QueryParameterKey, QueryParameterValue]
+QueryParameterValues = dict[QueryParameterKey, QueryParameterValue]
 
 
 class RegisterOrganizationDelegatedAdminRequest(ServiceRequest):
@@ -2299,50 +2368,50 @@ class RestoreEventDataStoreRequest(ServiceRequest):
 
 
 class RestoreEventDataStoreResponse(TypedDict, total=False):
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    Name: Optional[EventDataStoreName]
-    Status: Optional[EventDataStoreStatus]
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
-    MultiRegionEnabled: Optional[Boolean]
-    OrganizationEnabled: Optional[Boolean]
-    RetentionPeriod: Optional[RetentionPeriod]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
-    KmsKeyId: Optional[EventDataStoreKmsKeyId]
-    BillingMode: Optional[BillingMode]
+    EventDataStoreArn: EventDataStoreArn | None
+    Name: EventDataStoreName | None
+    Status: EventDataStoreStatus | None
+    AdvancedEventSelectors: AdvancedEventSelectors | None
+    MultiRegionEnabled: Boolean | None
+    OrganizationEnabled: Boolean | None
+    RetentionPeriod: RetentionPeriod | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
+    KmsKeyId: EventDataStoreKmsKeyId | None
+    BillingMode: BillingMode | None
 
 
 class SearchSampleQueriesRequest(ServiceRequest):
     SearchPhrase: SearchSampleQueriesSearchPhrase
-    MaxResults: Optional[SearchSampleQueriesMaxResults]
-    NextToken: Optional[PaginationToken]
+    MaxResults: SearchSampleQueriesMaxResults | None
+    NextToken: PaginationToken | None
 
 
 class SearchSampleQueriesSearchResult(TypedDict, total=False):
     """A search result returned by the ``SearchSampleQueries`` operation."""
 
-    Name: Optional[SampleQueryName]
-    Description: Optional[SampleQueryDescription]
-    SQL: Optional[SampleQuerySQL]
-    Relevance: Optional[SampleQueryRelevance]
+    Name: SampleQueryName | None
+    Description: SampleQueryDescription | None
+    SQL: SampleQuerySQL | None
+    Relevance: SampleQueryRelevance | None
 
 
-SearchSampleQueriesSearchResults = List[SearchSampleQueriesSearchResult]
+SearchSampleQueriesSearchResults = list[SearchSampleQueriesSearchResult]
 
 
 class SearchSampleQueriesResponse(TypedDict, total=False):
-    SearchResults: Optional[SearchSampleQueriesSearchResults]
-    NextToken: Optional[PaginationToken]
+    SearchResults: SearchSampleQueriesSearchResults | None
+    NextToken: PaginationToken | None
 
 
 class StartDashboardRefreshRequest(ServiceRequest):
     DashboardId: DashboardArn
-    QueryParameterValues: Optional[QueryParameterValues]
+    QueryParameterValues: QueryParameterValues | None
 
 
 class StartDashboardRefreshResponse(TypedDict, total=False):
-    RefreshId: Optional[RefreshId]
+    RefreshId: RefreshId | None
 
 
 class StartEventDataStoreIngestionRequest(ServiceRequest):
@@ -2354,22 +2423,22 @@ class StartEventDataStoreIngestionResponse(TypedDict, total=False):
 
 
 class StartImportRequest(ServiceRequest):
-    Destinations: Optional[ImportDestinations]
-    ImportSource: Optional[ImportSource]
-    StartEventTime: Optional[Date]
-    EndEventTime: Optional[Date]
-    ImportId: Optional[UUID]
+    Destinations: ImportDestinations | None
+    ImportSource: ImportSource | None
+    StartEventTime: Date | None
+    EndEventTime: Date | None
+    ImportId: UUID | None
 
 
 class StartImportResponse(TypedDict, total=False):
-    ImportId: Optional[UUID]
-    Destinations: Optional[ImportDestinations]
-    ImportSource: Optional[ImportSource]
-    StartEventTime: Optional[Date]
-    EndEventTime: Optional[Date]
-    ImportStatus: Optional[ImportStatus]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
+    ImportId: UUID | None
+    Destinations: ImportDestinations | None
+    ImportSource: ImportSource | None
+    StartEventTime: Date | None
+    EndEventTime: Date | None
+    ImportStatus: ImportStatus | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
 
 
 class StartLoggingRequest(ServiceRequest):
@@ -2389,16 +2458,16 @@ class StartLoggingResponse(TypedDict, total=False):
 
 
 class StartQueryRequest(ServiceRequest):
-    QueryStatement: Optional[QueryStatement]
-    DeliveryS3Uri: Optional[DeliveryS3Uri]
-    QueryAlias: Optional[QueryAlias]
-    QueryParameters: Optional[QueryParameters]
-    EventDataStoreOwnerAccountId: Optional[AccountId]
+    QueryStatement: QueryStatement | None
+    DeliveryS3Uri: DeliveryS3Uri | None
+    QueryAlias: QueryAlias | None
+    QueryParameters: QueryParameters | None
+    EventDataStoreOwnerAccountId: AccountId | None
 
 
 class StartQueryResponse(TypedDict, total=False):
-    QueryId: Optional[UUID]
-    EventDataStoreOwnerAccountId: Optional[AccountId]
+    QueryId: UUID | None
+    EventDataStoreOwnerAccountId: AccountId | None
 
 
 class StopEventDataStoreIngestionRequest(ServiceRequest):
@@ -2414,15 +2483,15 @@ class StopImportRequest(ServiceRequest):
 
 
 class StopImportResponse(TypedDict, total=False):
-    ImportId: Optional[UUID]
-    ImportSource: Optional[ImportSource]
-    Destinations: Optional[ImportDestinations]
-    ImportStatus: Optional[ImportStatus]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
-    StartEventTime: Optional[Date]
-    EndEventTime: Optional[Date]
-    ImportStatistics: Optional[ImportStatistics]
+    ImportId: UUID | None
+    ImportSource: ImportSource | None
+    Destinations: ImportDestinations | None
+    ImportStatus: ImportStatus | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
+    StartEventTime: Date | None
+    EndEventTime: Date | None
+    ImportStatistics: ImportStatistics | None
 
 
 class StopLoggingRequest(ServiceRequest):
@@ -2443,78 +2512,78 @@ class StopLoggingResponse(TypedDict, total=False):
 
 class UpdateChannelRequest(ServiceRequest):
     Channel: ChannelArn
-    Destinations: Optional[Destinations]
-    Name: Optional[ChannelName]
+    Destinations: Destinations | None
+    Name: ChannelName | None
 
 
 class UpdateChannelResponse(TypedDict, total=False):
-    ChannelArn: Optional[ChannelArn]
-    Name: Optional[ChannelName]
-    Source: Optional[Source]
-    Destinations: Optional[Destinations]
+    ChannelArn: ChannelArn | None
+    Name: ChannelName | None
+    Source: Source | None
+    Destinations: Destinations | None
 
 
 class UpdateDashboardRequest(ServiceRequest):
     DashboardId: DashboardArn
-    Widgets: Optional[RequestWidgetList]
-    RefreshSchedule: Optional[RefreshSchedule]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
+    Widgets: RequestWidgetList | None
+    RefreshSchedule: RefreshSchedule | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
 
 
 class UpdateDashboardResponse(TypedDict, total=False):
-    DashboardArn: Optional[DashboardArn]
-    Name: Optional[DashboardName]
-    Type: Optional[DashboardType]
-    Widgets: Optional[WidgetList]
-    RefreshSchedule: Optional[RefreshSchedule]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
+    DashboardArn: DashboardArn | None
+    Name: DashboardName | None
+    Type: DashboardType | None
+    Widgets: WidgetList | None
+    RefreshSchedule: RefreshSchedule | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
 
 
 class UpdateEventDataStoreRequest(ServiceRequest):
     EventDataStore: EventDataStoreArn
-    Name: Optional[EventDataStoreName]
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
-    MultiRegionEnabled: Optional[Boolean]
-    OrganizationEnabled: Optional[Boolean]
-    RetentionPeriod: Optional[RetentionPeriod]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
-    KmsKeyId: Optional[EventDataStoreKmsKeyId]
-    BillingMode: Optional[BillingMode]
+    Name: EventDataStoreName | None
+    AdvancedEventSelectors: AdvancedEventSelectors | None
+    MultiRegionEnabled: Boolean | None
+    OrganizationEnabled: Boolean | None
+    RetentionPeriod: RetentionPeriod | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
+    KmsKeyId: EventDataStoreKmsKeyId | None
+    BillingMode: BillingMode | None
 
 
 class UpdateEventDataStoreResponse(TypedDict, total=False):
-    EventDataStoreArn: Optional[EventDataStoreArn]
-    Name: Optional[EventDataStoreName]
-    Status: Optional[EventDataStoreStatus]
-    AdvancedEventSelectors: Optional[AdvancedEventSelectors]
-    MultiRegionEnabled: Optional[Boolean]
-    OrganizationEnabled: Optional[Boolean]
-    RetentionPeriod: Optional[RetentionPeriod]
-    TerminationProtectionEnabled: Optional[TerminationProtectionEnabled]
-    CreatedTimestamp: Optional[Date]
-    UpdatedTimestamp: Optional[Date]
-    KmsKeyId: Optional[EventDataStoreKmsKeyId]
-    BillingMode: Optional[BillingMode]
-    FederationStatus: Optional[FederationStatus]
-    FederationRoleArn: Optional[FederationRoleArn]
+    EventDataStoreArn: EventDataStoreArn | None
+    Name: EventDataStoreName | None
+    Status: EventDataStoreStatus | None
+    AdvancedEventSelectors: AdvancedEventSelectors | None
+    MultiRegionEnabled: Boolean | None
+    OrganizationEnabled: Boolean | None
+    RetentionPeriod: RetentionPeriod | None
+    TerminationProtectionEnabled: TerminationProtectionEnabled | None
+    CreatedTimestamp: Date | None
+    UpdatedTimestamp: Date | None
+    KmsKeyId: EventDataStoreKmsKeyId | None
+    BillingMode: BillingMode | None
+    FederationStatus: FederationStatus | None
+    FederationRoleArn: FederationRoleArn | None
 
 
 class UpdateTrailRequest(ServiceRequest):
     """Specifies settings to update for the trail."""
 
     Name: String
-    S3BucketName: Optional[String]
-    S3KeyPrefix: Optional[String]
-    SnsTopicName: Optional[String]
-    IncludeGlobalServiceEvents: Optional[Boolean]
-    IsMultiRegionTrail: Optional[Boolean]
-    EnableLogFileValidation: Optional[Boolean]
-    CloudWatchLogsLogGroupArn: Optional[String]
-    CloudWatchLogsRoleArn: Optional[String]
-    KmsKeyId: Optional[String]
-    IsOrganizationTrail: Optional[Boolean]
+    S3BucketName: String | None
+    S3KeyPrefix: String | None
+    SnsTopicName: String | None
+    IncludeGlobalServiceEvents: Boolean | None
+    IsMultiRegionTrail: Boolean | None
+    EnableLogFileValidation: Boolean | None
+    CloudWatchLogsLogGroupArn: String | None
+    CloudWatchLogsRoleArn: String | None
+    KmsKeyId: String | None
+    IsOrganizationTrail: Boolean | None
 
 
 class UpdateTrailResponse(TypedDict, total=False):
@@ -2522,24 +2591,24 @@ class UpdateTrailResponse(TypedDict, total=False):
     returns an error.
     """
 
-    Name: Optional[String]
-    S3BucketName: Optional[String]
-    S3KeyPrefix: Optional[String]
-    SnsTopicName: Optional[String]
-    SnsTopicARN: Optional[String]
-    IncludeGlobalServiceEvents: Optional[Boolean]
-    IsMultiRegionTrail: Optional[Boolean]
-    TrailARN: Optional[String]
-    LogFileValidationEnabled: Optional[Boolean]
-    CloudWatchLogsLogGroupArn: Optional[String]
-    CloudWatchLogsRoleArn: Optional[String]
-    KmsKeyId: Optional[String]
-    IsOrganizationTrail: Optional[Boolean]
+    Name: String | None
+    S3BucketName: String | None
+    S3KeyPrefix: String | None
+    SnsTopicName: String | None
+    SnsTopicARN: String | None
+    IncludeGlobalServiceEvents: Boolean | None
+    IsMultiRegionTrail: Boolean | None
+    TrailARN: String | None
+    LogFileValidationEnabled: Boolean | None
+    CloudWatchLogsLogGroupArn: String | None
+    CloudWatchLogsRoleArn: String | None
+    KmsKeyId: String | None
+    IsOrganizationTrail: Boolean | None
 
 
 class CloudtrailApi:
-    service = "cloudtrail"
-    version = "2013-11-01"
+    service: str = "cloudtrail"
+    version: str = "2013-11-01"
 
     @handler("AddTags")
     def add_tags(
@@ -2764,6 +2833,7 @@ class CloudtrailApi:
         :raises OrganizationsNotInUseException:
         :raises OrganizationNotInAllFeaturesModeException:
         :raises NoManagementAccountSLRExistsException:
+        :raises ThrottlingException:
         """
         raise NotImplementedError
 
@@ -2805,8 +2875,8 @@ class CloudtrailApi:
         be delivered.
         :param cloud_watch_logs_role_arn: Specifies the role for the CloudWatch Logs endpoint to assume to write
         to a user's log group.
-        :param kms_key_id: Specifies the KMS key ID to use to encrypt the logs delivered by
-        CloudTrail.
+        :param kms_key_id: Specifies the KMS key ID to use to encrypt the logs and digest files
+        delivered by CloudTrail.
         :param is_organization_trail: Specifies whether the trail is created for all accounts in an
         organization in Organizations, or only for the current Amazon Web
         Services account.
@@ -2942,6 +3012,20 @@ class CloudtrailApi:
         the trail was created. ``DeleteTrail`` cannot be called on the shadow
         trails (replicated trails in other Regions) of a trail that is enabled
         in all Regions.
+
+        While deleting a CloudTrail trail is an irreversible action, CloudTrail
+        does not delete log files in the Amazon S3 bucket for that trail, the
+        Amazon S3 bucket itself, or the CloudWatchlog group to which the trail
+        delivers events. Deleting a multi-Region trail will stop logging of
+        events in all Amazon Web Services Regions enabled in your Amazon Web
+        Services account. Deleting a single-Region trail will stop logging of
+        events in that Region only. It will not stop logging of events in other
+        Regions even if the trails in those other Regions have identical names
+        to the deleted trail.
+
+        For information about account closure and deletion of CloudTrail trails,
+        see
+        https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-account-closure.html.
 
         :param name: Specifies the name or the CloudTrail ARN of the trail to be deleted.
         :returns: DeleteTrailResponse
@@ -3203,15 +3287,24 @@ class CloudtrailApi:
 
     @handler("GetEventConfiguration")
     def get_event_configuration(
-        self, context: RequestContext, event_data_store: String | None = None, **kwargs
+        self,
+        context: RequestContext,
+        trail_name: String | None = None,
+        event_data_store: String | None = None,
+        **kwargs,
     ) -> GetEventConfigurationResponse:
         """Retrieves the current event configuration settings for the specified
-        event data store, including details about maximum event size and context
-        key selectors configured for the event data store.
+        event data store or trail. The response includes maximum event size
+        configuration, the context key selectors configured for the event data
+        store, and any aggregation settings configured for the trail.
 
+        :param trail_name: The name of the trail for which you want to retrieve event configuration
+        settings.
         :param event_data_store: The Amazon Resource Name (ARN) or ID suffix of the ARN of the event data
         store for which you want to retrieve event configuration settings.
         :returns: GetEventConfigurationResponse
+        :raises TrailNotFoundException:
+        :raises InvalidTrailNameException:
         :raises CloudTrailARNInvalidException:
         :raises UnsupportedOperationException:
         :raises OperationNotPermittedException:
@@ -3311,9 +3404,9 @@ class CloudtrailApi:
     ) -> GetInsightSelectorsResponse:
         """Describes the settings for the Insights event selectors that you
         configured for your trail or event data store. ``GetInsightSelectors``
-        shows if CloudTrail Insights event logging is enabled on the trail or
-        event data store, and if it is, which Insights types are enabled. If you
-        run ``GetInsightSelectors`` on a trail or event data store that does not
+        shows if CloudTrail Insights logging is enabled and which Insights types
+        are configured with corresponding event categories. If you run
+        ``GetInsightSelectors`` on a trail or event data store that does not
         have Insights events enabled, the operation throws the exception
         ``InsightNotEnabledException``
 
@@ -3539,6 +3632,57 @@ class CloudtrailApi:
         """
         raise NotImplementedError
 
+    @handler("ListInsightsData")
+    def list_insights_data(
+        self,
+        context: RequestContext,
+        insight_source: ResourceArn,
+        data_type: ListInsightsDataType,
+        dimensions: ListInsightsDataDimensions | None = None,
+        start_time: Date | None = None,
+        end_time: Date | None = None,
+        max_results: ListInsightsDataMaxResultsCount | None = None,
+        next_token: PaginationToken | None = None,
+        **kwargs,
+    ) -> ListInsightsDataResponse:
+        """Returns Insights events generated on a trail that logs data events. You
+        can list Insights events that occurred in a Region within the last 90
+        days.
+
+        ListInsightsData supports the following Dimensions for Insights events:
+
+        -  Event ID
+
+        -  Event name
+
+        -  Event source
+
+        All dimensions are optional. The default number of results returned is
+        50, with a maximum of 50 possible. The response includes a token that
+        you can use to get the next page of results.
+
+        The rate of ListInsightsData requests is limited to two per second, per
+        account, per Region. If this limit is exceeded, a throttling error
+        occurs.
+
+        :param insight_source: The Amazon Resource Name(ARN) of the trail for which you want to
+        retrieve Insights events.
+        :param data_type: Specifies the category of events returned.
+        :param dimensions: Contains a map of dimensions.
+        :param start_time: Specifies that only events that occur after or at the specified time are
+        returned.
+        :param end_time: Specifies that only events that occur before or at the specified time
+        are returned.
+        :param max_results: The number of events to return.
+        :param next_token: The token to use to get the next page of results after a previous API
+        call.
+        :returns: ListInsightsDataResponse
+        :raises InvalidParameterException:
+        :raises OperationNotPermittedException:
+        :raises UnsupportedOperationException:
+        """
+        raise NotImplementedError
+
     @handler("ListInsightsMetricData")
     def list_insights_metric_data(
         self,
@@ -3546,6 +3690,7 @@ class CloudtrailApi:
         event_source: EventSource,
         event_name: EventName,
         insight_type: InsightType,
+        trail_name: String | None = None,
         error_code: ErrorCode | None = None,
         start_time: Date | None = None,
         end_time: Date | None = None,
@@ -3574,9 +3719,21 @@ class CloudtrailApi:
         -  Data points with a period of 3600 seconds (1 hour) are available for
            90 days.
 
-        Access to the ``ListInsightsMetricData`` API operation is linked to the
-        ``cloudtrail:LookupEvents`` action. To use this operation, you must have
-        permissions to perform the ``cloudtrail:LookupEvents`` action.
+        To use ``ListInsightsMetricData`` operation, you must have the following
+        permissions:
+
+        -  If ``ListInsightsMetricData`` is invoked with ``TrailName``
+           parameter, access to the ``ListInsightsMetricData`` API operation is
+           linked to the ``cloudtrail:LookupEvents`` action and
+           ``cloudtrail:ListInsightsData``. To use this operation, you must have
+           permissions to perform the ``cloudtrail:LookupEvents`` and
+           ``cloudtrail:ListInsightsData`` action on the specific trail.
+
+        -  If ``ListInsightsMetricData`` is invoked without ``TrailName``
+           parameter, access to the ``ListInsightsMetricData`` API operation is
+           linked to the ``cloudtrail:LookupEvents`` action only. To use this
+           operation, you must have permissions to perform the
+           ``cloudtrail:LookupEvents`` action.
 
         :param event_source: The Amazon Web Services service to which the request was made, such as
         ``iam.
@@ -3584,6 +3741,8 @@ class CloudtrailApi:
         unusual levels of activity were recorded.
         :param insight_type: The type of CloudTrail Insights event, which is either
         ``ApiCallRateInsight`` or ``ApiErrorRateInsight``.
+        :param trail_name: The Amazon Resource Name(ARN) or name of the trail for which you want to
+        retrieve Insights metrics data.
         :param error_code: Conditionally required if the ``InsightType`` parameter is set to
         ``ApiErrorRateInsight``.
         :param start_time: Specifies, in UTC, the start time for time-series data.
@@ -3594,6 +3753,7 @@ class CloudtrailApi:
         :param next_token: Returned if all datapoints can't be returned in a single call.
         :returns: ListInsightsMetricDataResponse
         :raises InvalidParameterException:
+        :raises InvalidTrailNameException:
         :raises OperationNotPermittedException:
         :raises UnsupportedOperationException:
         """
@@ -3800,21 +3960,34 @@ class CloudtrailApi:
     def put_event_configuration(
         self,
         context: RequestContext,
-        max_event_size: MaxEventSize,
-        context_key_selectors: ContextKeySelectors,
+        trail_name: String | None = None,
         event_data_store: String | None = None,
+        max_event_size: MaxEventSize | None = None,
+        context_key_selectors: ContextKeySelectors | None = None,
+        aggregation_configurations: AggregationConfigurations | None = None,
         **kwargs,
     ) -> PutEventConfigurationResponse:
         """Updates the event configuration settings for the specified event data
-        store. You can update the maximum event size and context key selectors.
+        store or trail. This operation supports updating the maximum event size,
+        adding or modifying context key selectors for event data store, and
+        configuring aggregation settings for the trail.
 
+        :param trail_name: The name of the trail for which you want to update event configuration
+        settings.
+        :param event_data_store: The Amazon Resource Name (ARN) or ID suffix of the ARN of the event data
+        store for which event configuration settings are updated.
         :param max_event_size: The maximum allowed size for events to be stored in the specified event
         data store.
         :param context_key_selectors: A list of context key selectors that will be included to provide
         enriched event data.
-        :param event_data_store: The Amazon Resource Name (ARN) or ID suffix of the ARN of the event data
-        store for which you want to update event configuration settings.
+        :param aggregation_configurations: The list of aggregation configurations that you want to configure for
+        the trail.
         :returns: PutEventConfigurationResponse
+        :raises TrailNotFoundException:
+        :raises InvalidTrailNameException:
+        :raises CloudTrailARNInvalidException:
+        :raises InvalidParameterCombinationException:
+        :raises InvalidHomeRegionException:
         :raises EventDataStoreARNInvalidException:
         :raises EventDataStoreNotFoundException:
         :raises InvalidEventDataStoreStatusException:
@@ -3824,8 +3997,6 @@ class CloudtrailApi:
         :raises OperationNotPermittedException:
         :raises ThrottlingException:
         :raises InvalidParameterException:
-        :raises InvalidParameterCombinationException:
-        :raises CloudTrailARNInvalidException:
         :raises ConflictException:
         :raises NotOrganizationMasterAccountException:
         :raises NoManagementAccountSLRExistsException:
@@ -3941,11 +4112,16 @@ class CloudtrailApi:
         insights_destination: EventDataStoreArn | None = None,
         **kwargs,
     ) -> PutInsightSelectorsResponse:
-        """Lets you enable Insights event logging by specifying the Insights
-        selectors that you want to enable on an existing trail or event data
-        store. You also use ``PutInsightSelectors`` to turn off Insights event
-        logging, by passing an empty list of Insights types. The valid Insights
-        event types are ``ApiErrorRateInsight`` and ``ApiCallRateInsight``.
+        """Lets you enable Insights event logging on specific event categories by
+        specifying the Insights selectors that you want to enable on an existing
+        trail or event data store. You also use ``PutInsightSelectors`` to turn
+        off Insights event logging, by passing an empty list of Insights types.
+        The valid Insights event types are ``ApiErrorRateInsight`` and
+        ``ApiCallRateInsight``, and valid EventCategories are ``Management`` and
+        ``Data``.
+
+        Insights on data events are not supported on event data stores. For
+        event data stores, you can only enable Insights on management events.
 
         To enable Insights on an event data store, you must specify the ARNs (or
         ID suffix of the ARNs) for the source event data store
@@ -3960,6 +4136,16 @@ class CloudtrailApi:
         (``TrailName``) of the CloudTrail trail for which you want to change or
         add Insights selectors.
 
+        -  For Management events Insights: To log CloudTrail Insights on the API
+           call rate, the trail or event data store must log ``write``
+           management events. To log CloudTrail Insights on the API error rate,
+           the trail or event data store must log ``read`` or ``write``
+           management events.
+
+        -  For Data events Insights: To log CloudTrail Insights on the API call
+           rate or API error rate, the trail must log ``read`` or ``write`` data
+           events. Data events Insights are not supported on event data store.
+
         To log CloudTrail Insights events on API call volume, the trail or event
         data store must log ``write`` management events. To log CloudTrail
         Insights events on API error rate, the trail or event data store must
@@ -3972,8 +4158,8 @@ class CloudtrailApi:
         Insights <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-insights-events-with-cloudtrail.html>`__
         in the *CloudTrail User Guide*.
 
-        :param insight_selectors: A JSON string that contains the Insights types you want to log on a
-        trail or event data store.
+        :param insight_selectors: Contains the Insights types you want to log on a specific category of
+        events on a trail or event data store.
         :param trail_name: The name of the CloudTrail trail for which you want to change or add
         Insights selectors.
         :param event_data_store: The ARN (or ID suffix of the ARN) of the source event data store for
@@ -4545,6 +4731,8 @@ class CloudtrailApi:
         :raises NotOrganizationMasterAccountException:
         :raises NoManagementAccountSLRExistsException:
         :raises OrganizationNotInAllFeaturesModeException:
+        :raises ConflictException:
+        :raises ThrottlingException:
         """
         raise NotImplementedError
 
@@ -4590,8 +4778,8 @@ class CloudtrailApi:
         delivered.
         :param cloud_watch_logs_role_arn: Specifies the role for the CloudWatch Logs endpoint to assume to write
         to a user's log group.
-        :param kms_key_id: Specifies the KMS key ID to use to encrypt the logs delivered by
-        CloudTrail.
+        :param kms_key_id: Specifies the KMS key ID to use to encrypt the logs and digest files
+        delivered by CloudTrail.
         :param is_organization_trail: Specifies whether the trail is applied to all accounts in an
         organization in Organizations, or only for the current Amazon Web
         Services account.

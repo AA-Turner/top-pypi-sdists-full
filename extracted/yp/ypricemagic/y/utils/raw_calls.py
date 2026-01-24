@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Callable
 from contextlib import suppress
-from typing import Any, Callable, Final, Optional, Set, Union
+from typing import Any, Final, Union
 
 import a_sync
 import brownie
@@ -23,8 +24,6 @@ from y.exceptions import (
     call_reverted,
 )
 from y.networks import Network
-from y.utils.logging import yLazyLogger
-
 
 logger: Final = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ async def _cached_call_fn(
     func: Callable,
     contract_address: AddressOrContract,
     # Only supports one required arg besides contract_address for now
-    block: Optional[Block],
+    block: Block | None,
     required_arg=None,
 ) -> Any:
     if required_arg is None:
@@ -54,7 +53,7 @@ async def _cached_call_fn(
 @a_sync.a_sync(default="sync")
 async def decimals(
     contract_address: AddressOrContract,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     return_None_on_failure: bool = False,
 ) -> int:
     if block is None or return_None_on_failure:
@@ -68,9 +67,9 @@ async def decimals(
 @a_sync.a_sync(default="sync", cache_type="memory")
 async def _decimals(
     contract_address: AddressOrContract,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     return_None_on_failure: bool = False,
-) -> Optional[int]:
+) -> int | None:
 
     decimals = None
 
@@ -196,9 +195,9 @@ async def _decimals(
 @a_sync.a_sync(default="sync")
 async def _totalSupply(
     contract_address: AddressOrContract,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     return_None_on_failure: bool = False,
-) -> Optional[int]:
+) -> int | None:
 
     total_supply = None
 
@@ -244,16 +243,16 @@ async def _totalSupply(
     )
 
 
-_BALANCEOF_FAILURES: Final[Set[AddressOrContract]] = set()
+_BALANCEOF_FAILURES: Final[set[AddressOrContract]] = set()
 
 
 @a_sync.a_sync(default="sync")
 async def balanceOf(
     call_address: AddressOrContract,
     input_address: AddressOrContract,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     return_None_on_failure: bool = False,
-) -> Optional[int]:
+) -> int | None:
     if call_address not in _BALANCEOF_FAILURES:
         # method 1
         # NOTE: this will almost always work, you will rarely proceed to further methods
@@ -307,9 +306,9 @@ async def balanceOf(
 async def _balanceOfReadable(
     call_address: AddressOrContract,
     input_address: AddressOrContract,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     return_None_on_failure: bool = False,
-) -> Optional[float]:
+) -> float | None:
 
     balance, decimals = await cgather(
         balanceOf(
@@ -342,11 +341,11 @@ async def _balanceOfReadable(
 async def raw_call(
     contract_address: AddressOrContract,
     method: str,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     inputs=None,
     output: str = None,
     return_None_on_failure: bool = False,
-) -> Optional[Any]:
+) -> Any | None:
     """
     Call a contract with only address and method. Bypasses brownie Contract object formation to save time.
 
@@ -494,12 +493,17 @@ def prepare_data(
 
 # yLazyLogger(logger)
 def prepare_input(
-    input: Union[
-        bytes,  # for bytes input
-        int,  # for int input
+    input: (
+        bytes  # for bytes input
+        | int  # for int input
+        |
         # for address input
-        Union[str, Address, EthAddress, brownie.Contract, Contract],
-    ],
+        str
+        | Address
+        | EthAddress
+        | brownie.Contract
+        | Contract
+    ),
 ) -> str:
     """
     Prepare input data for a raw contract call by encoding it to a hexadecimal string.
@@ -551,6 +555,6 @@ def prepare_input(
         Supported input types are
         uint: int, 
         address: Union[str, Address, brownie.Contract, y.Contract]
-        you passed input: {input} type: {input_type}
+        you passed input: {input!r} type: {input_type}
         """
     )

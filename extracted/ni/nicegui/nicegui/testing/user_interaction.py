@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic, List, Set, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from typing_extensions import Self
 
@@ -17,7 +17,7 @@ T = TypeVar('T', bound=Element)
 
 class UserInteraction(Generic[T]):
 
-    def __init__(self, user: User, elements: Set[T], target: Union[str, Type[T], None]) -> None:
+    def __init__(self, user: User, elements: set[T], target: str | type[T] | None) -> None:
         """Interaction object of the simulated user.
 
         This will be returned by the ``find`` method of the ``user`` fixture in pytests.
@@ -29,16 +29,19 @@ class UserInteraction(Generic[T]):
         self.elements = elements
         self.target = target
 
-    def trigger(self, event: str) -> Self:
+    def trigger(self, event: str, args: Any = None) -> Self:
         """Trigger the given event on the elements selected by the simulated user.
 
-        Examples: "keydown.enter", "click", ...
+        :param event: the event type to trigger (e.g. "keydown.enter", "click", ...)
+        :param args: optional event arguments to pass to the handler (default: ``None``)
         """
+        if args is None:
+            args = {}
         assert self.user.client
         with self.user.client:
             for element in self.elements:
                 if isinstance(element, ui.input) and event == 'keydown.tab':
-                    autocomplete: List[str] = element.props['_autocomplete']
+                    autocomplete: list[str] = element.props['_autocomplete']
                     for option in autocomplete:
                         if option.startswith(element.value):
                             element.value = option
@@ -47,7 +50,7 @@ class UserInteraction(Generic[T]):
                 for listener in element._event_listeners.values():  # pylint: disable=protected-access
                     if listener.type != event:
                         continue
-                    event_arguments = events.GenericEventArguments(sender=element, client=self.user.client, args={})
+                    event_arguments = events.GenericEventArguments(sender=element, client=self.user.client, args=args)
                     events.handle_event(listener.handler, event_arguments)
         return self
 
@@ -69,7 +72,9 @@ class UserInteraction(Generic[T]):
         """Click the selected elements."""
         assert self.user.client
         with self.user.client:
-            for element in self.elements:
+            for element in self.elements:  # pylint: disable=too-many-nested-blocks
+                if isinstance(element, DisableableElement) and not element.enabled:
+                    continue
                 if isinstance(element, ui.link):
                     href = element.props.get('href', '#')
                     background_tasks.create(self.user.open(href), name=f'open {href}')
@@ -78,18 +83,21 @@ class UserInteraction(Generic[T]):
                 if isinstance(element, ui.select):
                     if element.is_showing_popup:
                         if isinstance(element.options, dict):
-                            target_value = next((k for k, v in element.options.items() if v == self.target), '')
+                            target_value = next((k for k, v in element.options.items() if v == self.target), None)
                         else:
-                            target_value = self.target
-                        if element.multiple:
-                            if target_value in element.value:
-                                element.value = [v for v in element.value if v != target_value]
-                            elif target_value in element._values:  # pylint: disable=protected-access
-                                element.value = [*element.value, target_value]
+                            target_value = self.target if self.target in element._values else None  # pylint: disable=protected-access
+                        if target_value is not None:
+                            # User clicked on a valid option: update the value and close the popup
+                            if element.multiple:
+                                if target_value in element.value:
+                                    element.value = [v for v in element.value if v != target_value]
+                                else:
+                                    element.value = [*element.value, target_value]
                             else:
+                                element.value = target_value
                                 element._is_showing_popup = False  # pylint: disable=protected-access
                         else:
-                            element.value = target_value
+                            # User clicked the select itself (not a valid option): just close the popup
                             element._is_showing_popup = False  # pylint: disable=protected-access
                     else:
                         element._is_showing_popup = True  # pylint: disable=protected-access
@@ -132,11 +140,13 @@ class UserInteraction(Generic[T]):
     def clear(self) -> Self:
         """Clear the selected elements.
 
-        Note: All elements must have a ``value`` attribute).
+        Note: All elements must have a ``value`` attribute.
         """
         assert self.user.client
         with self.user.client:
             for element in self.elements:
+                if isinstance(element, DisableableElement) and not element.enabled:
+                    continue
                 assert isinstance(element, ValueElement)
                 element.value = None
         return self

@@ -1,8 +1,5 @@
 [build-system]
-requires = [
-    "setuptools>=71.0.3",
-]
-
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -14,16 +11,21 @@ name = "uncompyle6"
 description = "Python cross-version byte-code library and disassembler"
 dependencies = [
     "click",
-    "spark-parser >= 1.8.9, < 1.9.0",
-    "xdis >= 6.1.0, < 6.2.0",
+    "spark-parser >= 1.8.9, < 1.9.2",
+    "xdis >= 6.1.0, < 6.3",
 ]
 readme = "README.rst"
+
+# 3.8 lingo
 license = {text = "GPL"}
+
+# Newer lingo
+# license = "GPL-3.0-or-later"
+
 keywords = ["Python bytecode", "bytecode", "disassembler"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: 2.4",
@@ -43,6 +45,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dynamic = ["version"]
 
@@ -62,3 +65,11 @@ uncompyle6-tokenize = "uncompyle6.bin.pydisassemble:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "uncompyle6.version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["uncompyle6*"]  # Include all subpackages
+
+[tool.pyright]
+include = ["trepan"]
+# exclude = []
+ignore = ["dist", "docs", "tmp", ".cache"]

@@ -1,12 +1,12 @@
 """
-    logbook.compat
-    ~~~~~~~~~~~~~~
+logbook.compat
+~~~~~~~~~~~~~~
 
-    Backwards compatibility with stdlib's logging package and the
-    warnings module.
+Backwards compatibility with stdlib's logging package and the
+warnings module.
 
-    :copyright: (c) 2010 by Armin Ronacher, Georg Brandl.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2010 by Armin Ronacher, Georg Brandl.
+:license: BSD, see LICENSE for more details.
 """
 
 import logging
@@ -41,6 +41,7 @@ class redirected_logging:
     unittests::
 
         from logbook.compat import redirected_logging
+
         with redirected_logging():
             ...
     """
@@ -182,8 +183,9 @@ class LoggingHandler(logbook.Handler):
     Example usage::
 
         from logbook.compat import LoggingHandler, warn
+
         with LoggingHandler():
-            warn('This goes to logging')
+            warn("This goes to logging")
     """
 
     def __init__(self, logger=None, level=logbook.NOTSET, filter=None, bubble=False):
@@ -247,6 +249,7 @@ def redirect_warnings():
     .. code-block:: python
 
         from logbook.compat import redirect_warnings
+
         redirect_warnings()
     """
     redirected_warnings().__enter__()
@@ -267,7 +270,7 @@ class redirected_warnings:
         from warnings import warn
 
         with redirected_warnings():
-            warn(DeprecationWarning('logging should be deprecated'))
+            warn(DeprecationWarning("logging should be deprecated"))
     """
 
     def __init__(self):
@@ -289,7 +292,7 @@ class redirected_warnings:
 
     def start(self):
         if self._entered:  # pragma: no cover
-            raise RuntimeError("Cannot enter %r twice" % self)
+            raise RuntimeError("Cannot enter %r twice" % self)  # noqa: UP031
         self._entered = True
         self._filters = warnings.filters
         warnings.filters = self._filters[:]
@@ -304,7 +307,7 @@ class redirected_warnings:
 
     def end(self, etype=None, evalue=None, tb=None):
         if not self._entered:  # pragma: no cover
-            raise RuntimeError("Cannot exit %r without entering first" % self)
+            raise RuntimeError("Cannot exit %r without entering first" % self)  # noqa: UP031
         warnings.filters = self._filters
         warnings.showwarning = self._showwarning
 

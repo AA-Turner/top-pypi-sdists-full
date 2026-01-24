@@ -66,11 +66,11 @@ setup(
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
         "Intended Audience :: System Administrators",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: Apache Software License",
         "Topic :: System :: Monitoring",
         "Topic :: Software Development :: Libraries :: Application Frameworks",
@@ -78,10 +78,10 @@ setup(
     ],
     packages=find_packages(exclude=["dagster_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.14",
+    python_requires=">=3.10,<3.15",
     install_requires=[
         # cli
-        "click>=5.0,<8.2",
+        "click>=5.0,<9.0",
         "coloredlogs>=6.1,<=14.0",
         "Jinja2",
         # core (not explicitly expressed atm)
@@ -112,14 +112,13 @@ setup(
         "universal_pathlib>=0.2.0; python_version>='3.12'",
         "rich",
         "filelock",
-        "dagster-pipes==1.11.11",
-        "dagster-shared==1.11.11",
+        "dagster-pipes==1.12.12",
+        "dagster-shared==1.12.12",
         "antlr4-python3-runtime",
     ],
     extras_require={
         "docker": ["docker"],
         "test": [
-            "buildkite-test-collector",
             "docker",
             f"grpcio-tools>={GRPC_VERSION_FLOOR}",
             "mypy-protobuf",
@@ -143,7 +142,7 @@ setup(
         "test-components": [
             "tomlkit",
             "jsonschema",
-            "pandas",
+            "pandas<3.0.0",
             "duckdb",
         ],
         "mypy": ["mypy==1.8.0"],

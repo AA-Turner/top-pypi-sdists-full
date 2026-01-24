@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -54,6 +54,10 @@ IgnoreClientCertificateExpiry = bool
 IpAddress = str
 IpamPoolId = str
 IsDefault = bool
+JwtValidationActionAdditionalClaimName = str
+JwtValidationActionAdditionalClaimValue = str
+JwtValidationActionIssuer = str
+JwtValidationActionJwksEndpoint = str
 ListenerArn = str
 ListenerAttributeKey = str
 ListenerAttributeValue = str
@@ -74,12 +78,14 @@ Policy = str
 Port = int
 PrivateIPv4Address = str
 ProtocolVersion = str
+QuicServerId = str
 RedirectActionHost = str
 RedirectActionPath = str
 RedirectActionPort = str
 RedirectActionProtocol = str
 RedirectActionQuery = str
 ResetCapacityReservation = bool
+ResetTransforms = bool
 ResourceArn = str
 RuleArn = str
 RulePriority = int
@@ -96,6 +102,7 @@ StringValue = str
 SubnetId = str
 TagKey = str
 TagValue = str
+TargetControlPort = int
 TargetGroupArn = str
 TargetGroupAttributeKey = str
 TargetGroupAttributeValue = str
@@ -117,6 +124,7 @@ class ActionTypeEnum(StrEnum):
     authenticate_cognito = "authenticate-cognito"
     redirect = "redirect"
     fixed_response = "fixed-response"
+    jwt_validation = "jwt-validation"
 
 
 class AdvertiseTrustStoreCaNamesEnum(StrEnum):
@@ -169,6 +177,12 @@ class IpAddressType(StrEnum):
     dualstack_without_public_ipv4 = "dualstack-without-public-ipv4"
 
 
+class JwtValidationActionAdditionalClaimFormatEnum(StrEnum):
+    single_string = "single-string"
+    string_array = "string-array"
+    space_separated_values = "space-separated-values"
+
+
 class LoadBalancerSchemeEnum(StrEnum):
     internet_facing = "internet-facing"
     internal = "internal"
@@ -200,6 +214,8 @@ class ProtocolEnum(StrEnum):
     UDP = "UDP"
     TCP_UDP = "TCP_UDP"
     GENEVE = "GENEVE"
+    QUIC = "QUIC"
+    TCP_QUIC = "TCP_QUIC"
 
 
 class RedirectActionStatusCodeEnum(StrEnum):
@@ -266,6 +282,11 @@ class TargetTypeEnum(StrEnum):
     ip = "ip"
     lambda_ = "lambda"
     alb = "alb"
+
+
+class TransformTypeEnum(StrEnum):
+    host_header_rewrite = "host-header-rewrite"
+    url_rewrite = "url-rewrite"
 
 
 class TrustStoreAssociationStatusEnum(StrEnum):
@@ -749,11 +770,33 @@ class UnsupportedProtocolException(ServiceException):
     status_code: int = 400
 
 
+JwtValidationActionAdditionalClaimValues = list[JwtValidationActionAdditionalClaimValue]
+
+
+class JwtValidationActionAdditionalClaim(TypedDict, total=False):
+    """Information about an additional claim to validate."""
+
+    Format: JwtValidationActionAdditionalClaimFormatEnum
+    Name: JwtValidationActionAdditionalClaimName
+    Values: JwtValidationActionAdditionalClaimValues
+
+
+JwtValidationActionAdditionalClaims = list[JwtValidationActionAdditionalClaim]
+
+
+class JwtValidationActionConfig(TypedDict, total=False):
+    """Information about a JSON Web Token (JWT) validation action."""
+
+    JwksEndpoint: JwtValidationActionJwksEndpoint
+    Issuer: JwtValidationActionIssuer
+    AdditionalClaims: JwtValidationActionAdditionalClaims | None
+
+
 class TargetGroupStickinessConfig(TypedDict, total=False):
     """Information about the target group stickiness for a rule."""
 
-    Enabled: Optional[TargetGroupStickinessEnabled]
-    DurationSeconds: Optional[TargetGroupStickinessDurationSeconds]
+    Enabled: TargetGroupStickinessEnabled | None
+    DurationSeconds: TargetGroupStickinessDurationSeconds | None
 
 
 class TargetGroupTuple(TypedDict, total=False):
@@ -761,26 +804,26 @@ class TargetGroupTuple(TypedDict, total=False):
     target groups in a forward rule.
     """
 
-    TargetGroupArn: Optional[TargetGroupArn]
-    Weight: Optional[TargetGroupWeight]
+    TargetGroupArn: TargetGroupArn | None
+    Weight: TargetGroupWeight | None
 
 
-TargetGroupList = List[TargetGroupTuple]
+TargetGroupList = list[TargetGroupTuple]
 
 
 class ForwardActionConfig(TypedDict, total=False):
     """Information about a forward action."""
 
-    TargetGroups: Optional[TargetGroupList]
-    TargetGroupStickinessConfig: Optional[TargetGroupStickinessConfig]
+    TargetGroups: TargetGroupList | None
+    TargetGroupStickinessConfig: TargetGroupStickinessConfig | None
 
 
 class FixedResponseActionConfig(TypedDict, total=False):
     """Information about an action that returns a custom HTTP response."""
 
-    MessageBody: Optional[FixedResponseActionMessage]
+    MessageBody: FixedResponseActionMessage | None
     StatusCode: FixedResponseActionStatusCode
-    ContentType: Optional[FixedResponseActionContentType]
+    ContentType: FixedResponseActionContentType | None
 
 
 class RedirectActionConfig(TypedDict, total=False):
@@ -808,15 +851,15 @@ class RedirectActionConfig(TypedDict, total=False):
     "example.#{host}", or the query to "#{query}&value=xyz".
     """
 
-    Protocol: Optional[RedirectActionProtocol]
-    Port: Optional[RedirectActionPort]
-    Host: Optional[RedirectActionHost]
-    Path: Optional[RedirectActionPath]
-    Query: Optional[RedirectActionQuery]
+    Protocol: RedirectActionProtocol | None
+    Port: RedirectActionPort | None
+    Host: RedirectActionHost | None
+    Path: RedirectActionPath | None
+    Query: RedirectActionQuery | None
     StatusCode: RedirectActionStatusCodeEnum
 
 
-AuthenticateCognitoActionAuthenticationRequestExtraParams = Dict[
+AuthenticateCognitoActionAuthenticationRequestExtraParams = dict[
     AuthenticateCognitoActionAuthenticationRequestParamName,
     AuthenticateCognitoActionAuthenticationRequestParamValue,
 ]
@@ -831,16 +874,16 @@ class AuthenticateCognitoActionConfig(TypedDict, total=False):
     UserPoolArn: AuthenticateCognitoActionUserPoolArn
     UserPoolClientId: AuthenticateCognitoActionUserPoolClientId
     UserPoolDomain: AuthenticateCognitoActionUserPoolDomain
-    SessionCookieName: Optional[AuthenticateCognitoActionSessionCookieName]
-    Scope: Optional[AuthenticateCognitoActionScope]
-    SessionTimeout: Optional[AuthenticateCognitoActionSessionTimeout]
-    AuthenticationRequestExtraParams: Optional[
-        AuthenticateCognitoActionAuthenticationRequestExtraParams
-    ]
-    OnUnauthenticatedRequest: Optional[AuthenticateCognitoActionConditionalBehaviorEnum]
+    SessionCookieName: AuthenticateCognitoActionSessionCookieName | None
+    Scope: AuthenticateCognitoActionScope | None
+    SessionTimeout: AuthenticateCognitoActionSessionTimeout | None
+    AuthenticationRequestExtraParams: (
+        AuthenticateCognitoActionAuthenticationRequestExtraParams | None
+    )
+    OnUnauthenticatedRequest: AuthenticateCognitoActionConditionalBehaviorEnum | None
 
 
-AuthenticateOidcActionAuthenticationRequestExtraParams = Dict[
+AuthenticateOidcActionAuthenticationRequestExtraParams = dict[
     AuthenticateOidcActionAuthenticationRequestParamName,
     AuthenticateOidcActionAuthenticationRequestParamValue,
 ]
@@ -857,46 +900,49 @@ class AuthenticateOidcActionConfig(TypedDict, total=False):
     TokenEndpoint: AuthenticateOidcActionTokenEndpoint
     UserInfoEndpoint: AuthenticateOidcActionUserInfoEndpoint
     ClientId: AuthenticateOidcActionClientId
-    ClientSecret: Optional[AuthenticateOidcActionClientSecret]
-    SessionCookieName: Optional[AuthenticateOidcActionSessionCookieName]
-    Scope: Optional[AuthenticateOidcActionScope]
-    SessionTimeout: Optional[AuthenticateOidcActionSessionTimeout]
-    AuthenticationRequestExtraParams: Optional[
-        AuthenticateOidcActionAuthenticationRequestExtraParams
-    ]
-    OnUnauthenticatedRequest: Optional[AuthenticateOidcActionConditionalBehaviorEnum]
-    UseExistingClientSecret: Optional[AuthenticateOidcActionUseExistingClientSecret]
+    ClientSecret: AuthenticateOidcActionClientSecret | None
+    SessionCookieName: AuthenticateOidcActionSessionCookieName | None
+    Scope: AuthenticateOidcActionScope | None
+    SessionTimeout: AuthenticateOidcActionSessionTimeout | None
+    AuthenticationRequestExtraParams: AuthenticateOidcActionAuthenticationRequestExtraParams | None
+    OnUnauthenticatedRequest: AuthenticateOidcActionConditionalBehaviorEnum | None
+    UseExistingClientSecret: AuthenticateOidcActionUseExistingClientSecret | None
 
 
 class Action(TypedDict, total=False):
     """Information about an action.
 
-    Each rule must include exactly one of the following types of actions:
+    Each rule must include exactly one of the following routing actions:
     ``forward``, ``fixed-response``, or ``redirect``, and it must be the
     last action to be performed.
+
+    Optionally, a rule for an HTTPS listener can also include one of the
+    following user authentication actions: ``authenticate-oidc``,
+    ``authenticate-cognito``, or ``jwt-validation``.
     """
 
     Type: ActionTypeEnum
-    TargetGroupArn: Optional[TargetGroupArn]
-    AuthenticateOidcConfig: Optional[AuthenticateOidcActionConfig]
-    AuthenticateCognitoConfig: Optional[AuthenticateCognitoActionConfig]
-    Order: Optional[ActionOrder]
-    RedirectConfig: Optional[RedirectActionConfig]
-    FixedResponseConfig: Optional[FixedResponseActionConfig]
-    ForwardConfig: Optional[ForwardActionConfig]
+    TargetGroupArn: TargetGroupArn | None
+    AuthenticateOidcConfig: AuthenticateOidcActionConfig | None
+    AuthenticateCognitoConfig: AuthenticateCognitoActionConfig | None
+    Order: ActionOrder | None
+    RedirectConfig: RedirectActionConfig | None
+    FixedResponseConfig: FixedResponseActionConfig | None
+    ForwardConfig: ForwardActionConfig | None
+    JwtValidationConfig: JwtValidationActionConfig | None
 
 
-Actions = List[Action]
+Actions = list[Action]
 
 
 class Certificate(TypedDict, total=False):
     """Information about an SSL server certificate."""
 
-    CertificateArn: Optional[CertificateArn]
-    IsDefault: Optional[Default]
+    CertificateArn: CertificateArn | None
+    IsDefault: Default | None
 
 
-CertificateList = List[Certificate]
+CertificateList = list[Certificate]
 
 
 class AddListenerCertificatesInput(ServiceRequest):
@@ -905,18 +951,18 @@ class AddListenerCertificatesInput(ServiceRequest):
 
 
 class AddListenerCertificatesOutput(TypedDict, total=False):
-    Certificates: Optional[CertificateList]
+    Certificates: CertificateList | None
 
 
 class Tag(TypedDict, total=False):
     """Information about a tag."""
 
     Key: TagKey
-    Value: Optional[TagValue]
+    Value: TagValue | None
 
 
-TagList = List[Tag]
-ResourceArns = List[ResourceArn]
+TagList = list[Tag]
+ResourceArns = list[ResourceArn]
 
 
 class AddTagsInput(ServiceRequest):
@@ -931,18 +977,18 @@ class AddTagsOutput(TypedDict, total=False):
 class RevocationContent(TypedDict, total=False):
     """Information about a revocation file."""
 
-    S3Bucket: Optional[S3Bucket]
-    S3Key: Optional[S3Key]
-    S3ObjectVersion: Optional[S3ObjectVersion]
-    RevocationType: Optional[RevocationType]
+    S3Bucket: S3Bucket | None
+    S3Key: S3Key | None
+    S3ObjectVersion: S3ObjectVersion | None
+    RevocationType: RevocationType | None
 
 
-RevocationContents = List[RevocationContent]
+RevocationContents = list[RevocationContent]
 
 
 class AddTrustStoreRevocationsInput(ServiceRequest):
     TrustStoreArn: TrustStoreArn
-    RevocationContents: Optional[RevocationContents]
+    RevocationContents: RevocationContents | None
 
 
 NumberOfRevokedEntries = int
@@ -952,123 +998,123 @@ RevocationId = int
 class TrustStoreRevocation(TypedDict, total=False):
     """Information about a revocation file in use by a trust store."""
 
-    TrustStoreArn: Optional[TrustStoreArn]
-    RevocationId: Optional[RevocationId]
-    RevocationType: Optional[RevocationType]
-    NumberOfRevokedEntries: Optional[NumberOfRevokedEntries]
+    TrustStoreArn: TrustStoreArn | None
+    RevocationId: RevocationId | None
+    RevocationType: RevocationType | None
+    NumberOfRevokedEntries: NumberOfRevokedEntries | None
 
 
-TrustStoreRevocations = List[TrustStoreRevocation]
+TrustStoreRevocations = list[TrustStoreRevocation]
 
 
 class AddTrustStoreRevocationsOutput(TypedDict, total=False):
-    TrustStoreRevocations: Optional[TrustStoreRevocations]
+    TrustStoreRevocations: TrustStoreRevocations | None
 
 
 class AdministrativeOverride(TypedDict, total=False):
     """Information about the override status applied to a target."""
 
-    State: Optional[TargetAdministrativeOverrideStateEnum]
-    Reason: Optional[TargetAdministrativeOverrideReasonEnum]
-    Description: Optional[Description]
+    State: TargetAdministrativeOverrideStateEnum | None
+    Reason: TargetAdministrativeOverrideReasonEnum | None
+    Description: Description | None
 
 
-AlpnPolicyName = List[AlpnPolicyValue]
+AlpnPolicyName = list[AlpnPolicyValue]
 
 
 class AnomalyDetection(TypedDict, total=False):
     """Information about anomaly detection and mitigation."""
 
-    Result: Optional[AnomalyResultEnum]
-    MitigationInEffect: Optional[MitigationInEffectEnum]
+    Result: AnomalyResultEnum | None
+    MitigationInEffect: MitigationInEffectEnum | None
 
 
-SourceNatIpv6Prefixes = List[SourceNatIpv6Prefix]
+SourceNatIpv6Prefixes = list[SourceNatIpv6Prefix]
 
 
 class LoadBalancerAddress(TypedDict, total=False):
     """Information about a static IP address for a load balancer."""
 
-    IpAddress: Optional[IpAddress]
-    AllocationId: Optional[AllocationId]
-    PrivateIPv4Address: Optional[PrivateIPv4Address]
-    IPv6Address: Optional[IPv6Address]
+    IpAddress: IpAddress | None
+    AllocationId: AllocationId | None
+    PrivateIPv4Address: PrivateIPv4Address | None
+    IPv6Address: IPv6Address | None
 
 
-LoadBalancerAddresses = List[LoadBalancerAddress]
+LoadBalancerAddresses = list[LoadBalancerAddress]
 
 
 class AvailabilityZone(TypedDict, total=False):
     """Information about an Availability Zone."""
 
-    ZoneName: Optional[ZoneName]
-    SubnetId: Optional[SubnetId]
-    OutpostId: Optional[OutpostId]
-    LoadBalancerAddresses: Optional[LoadBalancerAddresses]
-    SourceNatIpv6Prefixes: Optional[SourceNatIpv6Prefixes]
+    ZoneName: ZoneName | None
+    SubnetId: SubnetId | None
+    OutpostId: OutpostId | None
+    LoadBalancerAddresses: LoadBalancerAddresses | None
+    SourceNatIpv6Prefixes: SourceNatIpv6Prefixes | None
 
 
-AvailabilityZones = List[AvailabilityZone]
+AvailabilityZones = list[AvailabilityZone]
 
 
 class CapacityReservationStatus(TypedDict, total=False):
     """The status of a capacity reservation."""
 
-    Code: Optional[CapacityReservationStateEnum]
-    Reason: Optional[StateReason]
+    Code: CapacityReservationStateEnum | None
+    Reason: StateReason | None
 
 
 class Cipher(TypedDict, total=False):
     """Information about a cipher used in a policy."""
 
-    Name: Optional[CipherName]
-    Priority: Optional[CipherPriority]
+    Name: CipherName | None
+    Priority: CipherPriority | None
 
 
-Ciphers = List[Cipher]
+Ciphers = list[Cipher]
 
 
 class MutualAuthenticationAttributes(TypedDict, total=False):
     """Information about the mutual authentication attributes of a listener."""
 
-    Mode: Optional[Mode]
-    TrustStoreArn: Optional[TrustStoreArn]
-    IgnoreClientCertificateExpiry: Optional[IgnoreClientCertificateExpiry]
-    TrustStoreAssociationStatus: Optional[TrustStoreAssociationStatusEnum]
-    AdvertiseTrustStoreCaNames: Optional[AdvertiseTrustStoreCaNamesEnum]
+    Mode: Mode | None
+    TrustStoreArn: TrustStoreArn | None
+    IgnoreClientCertificateExpiry: IgnoreClientCertificateExpiry | None
+    TrustStoreAssociationStatus: TrustStoreAssociationStatusEnum | None
+    AdvertiseTrustStoreCaNames: AdvertiseTrustStoreCaNamesEnum | None
 
 
 class CreateListenerInput(ServiceRequest):
     LoadBalancerArn: LoadBalancerArn
-    Protocol: Optional[ProtocolEnum]
-    Port: Optional[Port]
-    SslPolicy: Optional[SslPolicyName]
-    Certificates: Optional[CertificateList]
+    Protocol: ProtocolEnum | None
+    Port: Port | None
+    SslPolicy: SslPolicyName | None
+    Certificates: CertificateList | None
     DefaultActions: Actions
-    AlpnPolicy: Optional[AlpnPolicyName]
-    Tags: Optional[TagList]
-    MutualAuthentication: Optional[MutualAuthenticationAttributes]
+    AlpnPolicy: AlpnPolicyName | None
+    Tags: TagList | None
+    MutualAuthentication: MutualAuthenticationAttributes | None
 
 
 class Listener(TypedDict, total=False):
     """Information about a listener."""
 
-    ListenerArn: Optional[ListenerArn]
-    LoadBalancerArn: Optional[LoadBalancerArn]
-    Port: Optional[Port]
-    Protocol: Optional[ProtocolEnum]
-    Certificates: Optional[CertificateList]
-    SslPolicy: Optional[SslPolicyName]
-    DefaultActions: Optional[Actions]
-    AlpnPolicy: Optional[AlpnPolicyName]
-    MutualAuthentication: Optional[MutualAuthenticationAttributes]
+    ListenerArn: ListenerArn | None
+    LoadBalancerArn: LoadBalancerArn | None
+    Port: Port | None
+    Protocol: ProtocolEnum | None
+    Certificates: CertificateList | None
+    SslPolicy: SslPolicyName | None
+    DefaultActions: Actions | None
+    AlpnPolicy: AlpnPolicyName | None
+    MutualAuthentication: MutualAuthenticationAttributes | None
 
 
-Listeners = List[Listener]
+Listeners = list[Listener]
 
 
 class CreateListenerOutput(TypedDict, total=False):
-    Listeners: Optional[Listeners]
+    Listeners: Listeners | None
 
 
 class IpamPools(TypedDict, total=False):
@@ -1077,45 +1123,45 @@ class IpamPools(TypedDict, total=False):
     needs.
     """
 
-    Ipv4IpamPoolId: Optional[IpamPoolId]
+    Ipv4IpamPoolId: IpamPoolId | None
 
 
-SecurityGroups = List[SecurityGroupId]
+SecurityGroups = list[SecurityGroupId]
 
 
 class SubnetMapping(TypedDict, total=False):
     """Information about a subnet mapping."""
 
-    SubnetId: Optional[SubnetId]
-    AllocationId: Optional[AllocationId]
-    PrivateIPv4Address: Optional[PrivateIPv4Address]
-    IPv6Address: Optional[IPv6Address]
-    SourceNatIpv6Prefix: Optional[SourceNatIpv6Prefix]
+    SubnetId: SubnetId | None
+    AllocationId: AllocationId | None
+    PrivateIPv4Address: PrivateIPv4Address | None
+    IPv6Address: IPv6Address | None
+    SourceNatIpv6Prefix: SourceNatIpv6Prefix | None
 
 
-SubnetMappings = List[SubnetMapping]
-Subnets = List[SubnetId]
+SubnetMappings = list[SubnetMapping]
+Subnets = list[SubnetId]
 
 
 class CreateLoadBalancerInput(ServiceRequest):
     Name: LoadBalancerName
-    Subnets: Optional[Subnets]
-    SubnetMappings: Optional[SubnetMappings]
-    SecurityGroups: Optional[SecurityGroups]
-    Scheme: Optional[LoadBalancerSchemeEnum]
-    Tags: Optional[TagList]
-    Type: Optional[LoadBalancerTypeEnum]
-    IpAddressType: Optional[IpAddressType]
-    CustomerOwnedIpv4Pool: Optional[CustomerOwnedIpv4Pool]
-    EnablePrefixForIpv6SourceNat: Optional[EnablePrefixForIpv6SourceNatEnum]
-    IpamPools: Optional[IpamPools]
+    Subnets: Subnets | None
+    SubnetMappings: SubnetMappings | None
+    SecurityGroups: SecurityGroups | None
+    Scheme: LoadBalancerSchemeEnum | None
+    Tags: TagList | None
+    Type: LoadBalancerTypeEnum | None
+    IpAddressType: IpAddressType | None
+    CustomerOwnedIpv4Pool: CustomerOwnedIpv4Pool | None
+    EnablePrefixForIpv6SourceNat: EnablePrefixForIpv6SourceNatEnum | None
+    IpamPools: IpamPools | None
 
 
 class LoadBalancerState(TypedDict, total=False):
     """Information about the state of the load balancer."""
 
-    Code: Optional[LoadBalancerStateEnum]
-    Reason: Optional[StateReason]
+    Code: LoadBalancerStateEnum | None
+    Reason: StateReason | None
 
 
 CreatedTime = datetime
@@ -1124,34 +1170,74 @@ CreatedTime = datetime
 class LoadBalancer(TypedDict, total=False):
     """Information about a load balancer."""
 
-    LoadBalancerArn: Optional[LoadBalancerArn]
-    DNSName: Optional[DNSName]
-    CanonicalHostedZoneId: Optional[CanonicalHostedZoneId]
-    CreatedTime: Optional[CreatedTime]
-    LoadBalancerName: Optional[LoadBalancerName]
-    Scheme: Optional[LoadBalancerSchemeEnum]
-    VpcId: Optional[VpcId]
-    State: Optional[LoadBalancerState]
-    Type: Optional[LoadBalancerTypeEnum]
-    AvailabilityZones: Optional[AvailabilityZones]
-    SecurityGroups: Optional[SecurityGroups]
-    IpAddressType: Optional[IpAddressType]
-    CustomerOwnedIpv4Pool: Optional[CustomerOwnedIpv4Pool]
-    EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic: Optional[
-        EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
-    ]
-    EnablePrefixForIpv6SourceNat: Optional[EnablePrefixForIpv6SourceNatEnum]
-    IpamPools: Optional[IpamPools]
+    LoadBalancerArn: LoadBalancerArn | None
+    DNSName: DNSName | None
+    CanonicalHostedZoneId: CanonicalHostedZoneId | None
+    CreatedTime: CreatedTime | None
+    LoadBalancerName: LoadBalancerName | None
+    Scheme: LoadBalancerSchemeEnum | None
+    VpcId: VpcId | None
+    State: LoadBalancerState | None
+    Type: LoadBalancerTypeEnum | None
+    AvailabilityZones: AvailabilityZones | None
+    SecurityGroups: SecurityGroups | None
+    IpAddressType: IpAddressType | None
+    CustomerOwnedIpv4Pool: CustomerOwnedIpv4Pool | None
+    EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic: (
+        EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic | None
+    )
+    EnablePrefixForIpv6SourceNat: EnablePrefixForIpv6SourceNatEnum | None
+    IpamPools: IpamPools | None
 
 
-LoadBalancers = List[LoadBalancer]
+LoadBalancers = list[LoadBalancer]
 
 
 class CreateLoadBalancerOutput(TypedDict, total=False):
-    LoadBalancers: Optional[LoadBalancers]
+    LoadBalancers: LoadBalancers | None
 
 
-ListOfString = List[StringValue]
+class RewriteConfig(TypedDict, total=False):
+    """Information about a rewrite transform. This transform matches a pattern
+    and replaces it with the specified string.
+    """
+
+    Regex: StringValue
+    Replace: StringValue
+
+
+RewriteConfigList = list[RewriteConfig]
+
+
+class UrlRewriteConfig(TypedDict, total=False):
+    """Information about a URL rewrite transform. This transform matches a
+    pattern in the request URL and replaces it with the specified string.
+    """
+
+    Rewrites: RewriteConfigList | None
+
+
+class HostHeaderRewriteConfig(TypedDict, total=False):
+    """Information about a host header rewrite transform. This transform
+    matches a pattern in the host header in an HTTP request and replaces it
+    with the specified string.
+    """
+
+    Rewrites: RewriteConfigList | None
+
+
+class RuleTransform(TypedDict, total=False):
+    """Information about a transform to apply to requests that match a rule.
+    Transforms are applied to requests before they are sent to targets.
+    """
+
+    Type: TransformTypeEnum
+    HostHeaderRewriteConfig: HostHeaderRewriteConfig | None
+    UrlRewriteConfig: UrlRewriteConfig | None
+
+
+RuleTransformList = list[RuleTransform]
+ListOfString = list[StringValue]
 
 
 class SourceIpConditionConfig(TypedDict, total=False):
@@ -1163,7 +1249,7 @@ class SourceIpConditionConfig(TypedDict, total=False):
     client.
     """
 
-    Values: Optional[ListOfString]
+    Values: ListOfString | None
 
 
 class HttpRequestMethodConditionConfig(TypedDict, total=False):
@@ -1175,17 +1261,17 @@ class HttpRequestMethodConditionConfig(TypedDict, total=False):
     You can also define custom HTTP methods.
     """
 
-    Values: Optional[ListOfString]
+    Values: ListOfString | None
 
 
 class QueryStringKeyValuePair(TypedDict, total=False):
     """Information about a key/value pair."""
 
-    Key: Optional[StringValue]
-    Value: Optional[StringValue]
+    Key: StringValue | None
+    Value: StringValue | None
 
 
-QueryStringKeyValuePairList = List[QueryStringKeyValuePair]
+QueryStringKeyValuePairList = list[QueryStringKeyValuePair]
 
 
 class QueryStringConditionConfig(TypedDict, total=False):
@@ -1198,7 +1284,7 @@ class QueryStringConditionConfig(TypedDict, total=False):
     character can be percentage encoded.
     """
 
-    Values: Optional[QueryStringKeyValuePairList]
+    Values: QueryStringKeyValuePairList | None
 
 
 class HttpHeaderConditionConfig(TypedDict, total=False):
@@ -1208,20 +1294,23 @@ class HttpHeaderConditionConfig(TypedDict, total=False):
     custom HTTP header fields.
     """
 
-    HttpHeaderName: Optional[HttpHeaderConditionName]
-    Values: Optional[ListOfString]
+    HttpHeaderName: HttpHeaderConditionName | None
+    Values: ListOfString | None
+    RegexValues: ListOfString | None
 
 
 class PathPatternConditionConfig(TypedDict, total=False):
     """Information about a path pattern condition."""
 
-    Values: Optional[ListOfString]
+    Values: ListOfString | None
+    RegexValues: ListOfString | None
 
 
 class HostHeaderConditionConfig(TypedDict, total=False):
     """Information about a host header condition."""
 
-    Values: Optional[ListOfString]
+    Values: ListOfString | None
+    RegexValues: ListOfString | None
 
 
 class RuleCondition(TypedDict, total=False):
@@ -1237,17 +1326,18 @@ class RuleCondition(TypedDict, total=False):
     Balancers <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-limits.html>`__.
     """
 
-    Field: Optional[ConditionFieldName]
-    Values: Optional[ListOfString]
-    HostHeaderConfig: Optional[HostHeaderConditionConfig]
-    PathPatternConfig: Optional[PathPatternConditionConfig]
-    HttpHeaderConfig: Optional[HttpHeaderConditionConfig]
-    QueryStringConfig: Optional[QueryStringConditionConfig]
-    HttpRequestMethodConfig: Optional[HttpRequestMethodConditionConfig]
-    SourceIpConfig: Optional[SourceIpConditionConfig]
+    Field: ConditionFieldName | None
+    Values: ListOfString | None
+    HostHeaderConfig: HostHeaderConditionConfig | None
+    PathPatternConfig: PathPatternConditionConfig | None
+    HttpHeaderConfig: HttpHeaderConditionConfig | None
+    QueryStringConfig: QueryStringConditionConfig | None
+    HttpRequestMethodConfig: HttpRequestMethodConditionConfig | None
+    SourceIpConfig: SourceIpConditionConfig | None
+    RegexValues: ListOfString | None
 
 
-RuleConditionList = List[RuleCondition]
+RuleConditionList = list[RuleCondition]
 
 
 class CreateRuleInput(ServiceRequest):
@@ -1255,24 +1345,26 @@ class CreateRuleInput(ServiceRequest):
     Conditions: RuleConditionList
     Priority: RulePriority
     Actions: Actions
-    Tags: Optional[TagList]
+    Tags: TagList | None
+    Transforms: RuleTransformList | None
 
 
 class Rule(TypedDict, total=False):
     """Information about a rule."""
 
-    RuleArn: Optional[RuleArn]
-    Priority: Optional[String]
-    Conditions: Optional[RuleConditionList]
-    Actions: Optional[Actions]
-    IsDefault: Optional[IsDefault]
+    RuleArn: RuleArn | None
+    Priority: String | None
+    Conditions: RuleConditionList | None
+    Actions: Actions | None
+    IsDefault: IsDefault | None
+    Transforms: RuleTransformList | None
 
 
-Rules = List[Rule]
+Rules = list[Rule]
 
 
 class CreateRuleOutput(TypedDict, total=False):
-    Rules: Optional[Rules]
+    Rules: Rules | None
 
 
 class Matcher(TypedDict, total=False):
@@ -1281,69 +1373,71 @@ class Matcher(TypedDict, total=False):
     are HTTP codes.
     """
 
-    HttpCode: Optional[HttpCode]
-    GrpcCode: Optional[GrpcCode]
+    HttpCode: HttpCode | None
+    GrpcCode: GrpcCode | None
 
 
 class CreateTargetGroupInput(ServiceRequest):
     Name: TargetGroupName
-    Protocol: Optional[ProtocolEnum]
-    ProtocolVersion: Optional[ProtocolVersion]
-    Port: Optional[Port]
-    VpcId: Optional[VpcId]
-    HealthCheckProtocol: Optional[ProtocolEnum]
-    HealthCheckPort: Optional[HealthCheckPort]
-    HealthCheckEnabled: Optional[HealthCheckEnabled]
-    HealthCheckPath: Optional[Path]
-    HealthCheckIntervalSeconds: Optional[HealthCheckIntervalSeconds]
-    HealthCheckTimeoutSeconds: Optional[HealthCheckTimeoutSeconds]
-    HealthyThresholdCount: Optional[HealthCheckThresholdCount]
-    UnhealthyThresholdCount: Optional[HealthCheckThresholdCount]
-    Matcher: Optional[Matcher]
-    TargetType: Optional[TargetTypeEnum]
-    Tags: Optional[TagList]
-    IpAddressType: Optional[TargetGroupIpAddressTypeEnum]
+    Protocol: ProtocolEnum | None
+    ProtocolVersion: ProtocolVersion | None
+    Port: Port | None
+    VpcId: VpcId | None
+    HealthCheckProtocol: ProtocolEnum | None
+    HealthCheckPort: HealthCheckPort | None
+    HealthCheckEnabled: HealthCheckEnabled | None
+    HealthCheckPath: Path | None
+    HealthCheckIntervalSeconds: HealthCheckIntervalSeconds | None
+    HealthCheckTimeoutSeconds: HealthCheckTimeoutSeconds | None
+    HealthyThresholdCount: HealthCheckThresholdCount | None
+    UnhealthyThresholdCount: HealthCheckThresholdCount | None
+    Matcher: Matcher | None
+    TargetType: TargetTypeEnum | None
+    Tags: TagList | None
+    IpAddressType: TargetGroupIpAddressTypeEnum | None
+    TargetControlPort: TargetControlPort | None
 
 
-LoadBalancerArns = List[LoadBalancerArn]
+LoadBalancerArns = list[LoadBalancerArn]
 
 
 class TargetGroup(TypedDict, total=False):
     """Information about a target group."""
 
-    TargetGroupArn: Optional[TargetGroupArn]
-    TargetGroupName: Optional[TargetGroupName]
-    Protocol: Optional[ProtocolEnum]
-    Port: Optional[Port]
-    VpcId: Optional[VpcId]
-    HealthCheckProtocol: Optional[ProtocolEnum]
-    HealthCheckPort: Optional[HealthCheckPort]
-    HealthCheckEnabled: Optional[HealthCheckEnabled]
-    HealthCheckIntervalSeconds: Optional[HealthCheckIntervalSeconds]
-    HealthCheckTimeoutSeconds: Optional[HealthCheckTimeoutSeconds]
-    HealthyThresholdCount: Optional[HealthCheckThresholdCount]
-    UnhealthyThresholdCount: Optional[HealthCheckThresholdCount]
-    HealthCheckPath: Optional[Path]
-    Matcher: Optional[Matcher]
-    LoadBalancerArns: Optional[LoadBalancerArns]
-    TargetType: Optional[TargetTypeEnum]
-    ProtocolVersion: Optional[ProtocolVersion]
-    IpAddressType: Optional[TargetGroupIpAddressTypeEnum]
+    TargetGroupArn: TargetGroupArn | None
+    TargetGroupName: TargetGroupName | None
+    Protocol: ProtocolEnum | None
+    Port: Port | None
+    VpcId: VpcId | None
+    HealthCheckProtocol: ProtocolEnum | None
+    HealthCheckPort: HealthCheckPort | None
+    HealthCheckEnabled: HealthCheckEnabled | None
+    HealthCheckIntervalSeconds: HealthCheckIntervalSeconds | None
+    HealthCheckTimeoutSeconds: HealthCheckTimeoutSeconds | None
+    HealthyThresholdCount: HealthCheckThresholdCount | None
+    UnhealthyThresholdCount: HealthCheckThresholdCount | None
+    HealthCheckPath: Path | None
+    Matcher: Matcher | None
+    LoadBalancerArns: LoadBalancerArns | None
+    TargetType: TargetTypeEnum | None
+    ProtocolVersion: ProtocolVersion | None
+    IpAddressType: TargetGroupIpAddressTypeEnum | None
+    TargetControlPort: TargetControlPort | None
 
 
-TargetGroups = List[TargetGroup]
+TargetGroups = list[TargetGroup]
 
 
 class CreateTargetGroupOutput(TypedDict, total=False):
-    TargetGroups: Optional[TargetGroups]
+    TargetGroups: TargetGroups | None
 
 
 class CreateTrustStoreInput(ServiceRequest):
     Name: TrustStoreName
     CaCertificatesBundleS3Bucket: S3Bucket
     CaCertificatesBundleS3Key: S3Key
-    CaCertificatesBundleS3ObjectVersion: Optional[S3ObjectVersion]
-    Tags: Optional[TagList]
+    CaCertificatesBundleS3ObjectVersion: S3ObjectVersion | None
+    Tags: TagList | None
 
 
 TotalRevokedEntries = int
@@ -1352,18 +1446,18 @@ TotalRevokedEntries = int
 class TrustStore(TypedDict, total=False):
     """Information about a trust store."""
 
-    Name: Optional[TrustStoreName]
-    TrustStoreArn: Optional[TrustStoreArn]
-    Status: Optional[TrustStoreStatus]
-    NumberOfCaCertificates: Optional[NumberOfCaCertificates]
-    TotalRevokedEntries: Optional[TotalRevokedEntries]
+    Name: TrustStoreName | None
+    TrustStoreArn: TrustStoreArn | None
+    Status: TrustStoreStatus | None
+    NumberOfCaCertificates: NumberOfCaCertificates | None
+    TotalRevokedEntries: TotalRevokedEntries | None
 
 
-TrustStores = List[TrustStore]
+TrustStores = list[TrustStore]
 
 
 class CreateTrustStoreOutput(TypedDict, total=False):
-    TrustStores: Optional[TrustStores]
+    TrustStores: TrustStores | None
 
 
 class DeleteListenerInput(ServiceRequest):
@@ -1419,11 +1513,12 @@ class TargetDescription(TypedDict, total=False):
     """Information about a target."""
 
     Id: TargetId
-    Port: Optional[Port]
-    AvailabilityZone: Optional[ZoneName]
+    Port: Port | None
+    AvailabilityZone: ZoneName | None
+    QuicServerId: QuicServerId | None
 
 
-TargetDescriptions = List[TargetDescription]
+TargetDescriptions = list[TargetDescription]
 
 
 class DeregisterTargetsInput(ServiceRequest):
@@ -1436,8 +1531,8 @@ class DeregisterTargetsOutput(TypedDict, total=False):
 
 
 class DescribeAccountLimitsInput(ServiceRequest):
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class Limit(TypedDict, total=False):
@@ -1456,16 +1551,16 @@ class Limit(TypedDict, total=False):
        Balancers <https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/quotas-limits.html>`__
     """
 
-    Name: Optional[Name]
-    Max: Optional[Max]
+    Name: Name | None
+    Max: Max | None
 
 
-Limits = List[Limit]
+Limits = list[Limit]
 
 
 class DescribeAccountLimitsOutput(TypedDict, total=False):
-    Limits: Optional[Limits]
-    NextMarker: Optional[Marker]
+    Limits: Limits | None
+    NextMarker: Marker | None
 
 
 class DescribeCapacityReservationInput(ServiceRequest):
@@ -1475,28 +1570,28 @@ class DescribeCapacityReservationInput(ServiceRequest):
 class ZonalCapacityReservationState(TypedDict, total=False):
     """The capacity reservation status for each Availability Zone."""
 
-    State: Optional[CapacityReservationStatus]
-    AvailabilityZone: Optional[ZoneName]
-    EffectiveCapacityUnits: Optional[CapacityUnitsDouble]
+    State: CapacityReservationStatus | None
+    AvailabilityZone: ZoneName | None
+    EffectiveCapacityUnits: CapacityUnitsDouble | None
 
 
-ZonalCapacityReservationStates = List[ZonalCapacityReservationState]
+ZonalCapacityReservationStates = list[ZonalCapacityReservationState]
 
 
 class MinimumLoadBalancerCapacity(TypedDict, total=False):
     """The minimum capacity for a load balancer."""
 
-    CapacityUnits: Optional[CapacityUnits]
+    CapacityUnits: CapacityUnits | None
 
 
 LastModifiedTime = datetime
 
 
 class DescribeCapacityReservationOutput(TypedDict, total=False):
-    LastModifiedTime: Optional[LastModifiedTime]
-    DecreaseRequestsRemaining: Optional[DecreaseRequestsRemaining]
-    MinimumLoadBalancerCapacity: Optional[MinimumLoadBalancerCapacity]
-    CapacityReservationState: Optional[ZonalCapacityReservationStates]
+    LastModifiedTime: LastModifiedTime | None
+    DecreaseRequestsRemaining: DecreaseRequestsRemaining | None
+    MinimumLoadBalancerCapacity: MinimumLoadBalancerCapacity | None
+    CapacityReservationState: ZonalCapacityReservationStates | None
 
 
 class DescribeListenerAttributesInput(ServiceRequest):
@@ -1506,41 +1601,41 @@ class DescribeListenerAttributesInput(ServiceRequest):
 class ListenerAttribute(TypedDict, total=False):
     """Information about a listener attribute."""
 
-    Key: Optional[ListenerAttributeKey]
-    Value: Optional[ListenerAttributeValue]
+    Key: ListenerAttributeKey | None
+    Value: ListenerAttributeValue | None
 
 
-ListenerAttributes = List[ListenerAttribute]
+ListenerAttributes = list[ListenerAttribute]
 
 
 class DescribeListenerAttributesOutput(TypedDict, total=False):
-    Attributes: Optional[ListenerAttributes]
+    Attributes: ListenerAttributes | None
 
 
 class DescribeListenerCertificatesInput(ServiceRequest):
     ListenerArn: ListenerArn
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class DescribeListenerCertificatesOutput(TypedDict, total=False):
-    Certificates: Optional[CertificateList]
-    NextMarker: Optional[Marker]
+    Certificates: CertificateList | None
+    NextMarker: Marker | None
 
 
-ListenerArns = List[ListenerArn]
+ListenerArns = list[ListenerArn]
 
 
 class DescribeListenersInput(ServiceRequest):
-    LoadBalancerArn: Optional[LoadBalancerArn]
-    ListenerArns: Optional[ListenerArns]
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    LoadBalancerArn: LoadBalancerArn | None
+    ListenerArns: ListenerArns | None
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class DescribeListenersOutput(TypedDict, total=False):
-    Listeners: Optional[Listeners]
-    NextMarker: Optional[Marker]
+    Listeners: Listeners | None
+    NextMarker: Marker | None
 
 
 class DescribeLoadBalancerAttributesInput(ServiceRequest):
@@ -1550,75 +1645,75 @@ class DescribeLoadBalancerAttributesInput(ServiceRequest):
 class LoadBalancerAttribute(TypedDict, total=False):
     """Information about a load balancer attribute."""
 
-    Key: Optional[LoadBalancerAttributeKey]
-    Value: Optional[LoadBalancerAttributeValue]
+    Key: LoadBalancerAttributeKey | None
+    Value: LoadBalancerAttributeValue | None
 
 
-LoadBalancerAttributes = List[LoadBalancerAttribute]
+LoadBalancerAttributes = list[LoadBalancerAttribute]
 
 
 class DescribeLoadBalancerAttributesOutput(TypedDict, total=False):
-    Attributes: Optional[LoadBalancerAttributes]
+    Attributes: LoadBalancerAttributes | None
 
 
-LoadBalancerNames = List[LoadBalancerName]
+LoadBalancerNames = list[LoadBalancerName]
 
 
 class DescribeLoadBalancersInput(ServiceRequest):
-    LoadBalancerArns: Optional[LoadBalancerArns]
-    Names: Optional[LoadBalancerNames]
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    LoadBalancerArns: LoadBalancerArns | None
+    Names: LoadBalancerNames | None
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class DescribeLoadBalancersOutput(TypedDict, total=False):
-    LoadBalancers: Optional[LoadBalancers]
-    NextMarker: Optional[Marker]
+    LoadBalancers: LoadBalancers | None
+    NextMarker: Marker | None
 
 
-RuleArns = List[RuleArn]
+RuleArns = list[RuleArn]
 
 
 class DescribeRulesInput(ServiceRequest):
-    ListenerArn: Optional[ListenerArn]
-    RuleArns: Optional[RuleArns]
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    ListenerArn: ListenerArn | None
+    RuleArns: RuleArns | None
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class DescribeRulesOutput(TypedDict, total=False):
-    Rules: Optional[Rules]
-    NextMarker: Optional[Marker]
+    Rules: Rules | None
+    NextMarker: Marker | None
 
 
-SslPolicyNames = List[SslPolicyName]
+SslPolicyNames = list[SslPolicyName]
 
 
 class DescribeSSLPoliciesInput(ServiceRequest):
-    Names: Optional[SslPolicyNames]
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
-    LoadBalancerType: Optional[LoadBalancerTypeEnum]
+    Names: SslPolicyNames | None
+    Marker: Marker | None
+    PageSize: PageSize | None
+    LoadBalancerType: LoadBalancerTypeEnum | None
 
 
-SslProtocols = List[SslProtocol]
+SslProtocols = list[SslProtocol]
 
 
 class SslPolicy(TypedDict, total=False):
     """Information about a policy used for SSL negotiation."""
 
-    SslProtocols: Optional[SslProtocols]
-    Ciphers: Optional[Ciphers]
-    Name: Optional[SslPolicyName]
-    SupportedLoadBalancerTypes: Optional[ListOfString]
+    SslProtocols: SslProtocols | None
+    Ciphers: Ciphers | None
+    Name: SslPolicyName | None
+    SupportedLoadBalancerTypes: ListOfString | None
 
 
-SslPolicies = List[SslPolicy]
+SslPolicies = list[SslPolicy]
 
 
 class DescribeSSLPoliciesOutput(TypedDict, total=False):
-    SslPolicies: Optional[SslPolicies]
-    NextMarker: Optional[Marker]
+    SslPolicies: SslPolicies | None
+    NextMarker: Marker | None
 
 
 class DescribeTagsInput(ServiceRequest):
@@ -1628,15 +1723,15 @@ class DescribeTagsInput(ServiceRequest):
 class TagDescription(TypedDict, total=False):
     """The tags associated with a resource."""
 
-    ResourceArn: Optional[ResourceArn]
-    Tags: Optional[TagList]
+    ResourceArn: ResourceArn | None
+    Tags: TagList | None
 
 
-TagDescriptions = List[TagDescription]
+TagDescriptions = list[TagDescription]
 
 
 class DescribeTagsOutput(TypedDict, total=False):
-    TagDescriptions: Optional[TagDescriptions]
+    TagDescriptions: TagDescriptions | None
 
 
 class DescribeTargetGroupAttributesInput(ServiceRequest):
@@ -1646,127 +1741,127 @@ class DescribeTargetGroupAttributesInput(ServiceRequest):
 class TargetGroupAttribute(TypedDict, total=False):
     """Information about a target group attribute."""
 
-    Key: Optional[TargetGroupAttributeKey]
-    Value: Optional[TargetGroupAttributeValue]
+    Key: TargetGroupAttributeKey | None
+    Value: TargetGroupAttributeValue | None
 
 
-TargetGroupAttributes = List[TargetGroupAttribute]
+TargetGroupAttributes = list[TargetGroupAttribute]
 
 
 class DescribeTargetGroupAttributesOutput(TypedDict, total=False):
-    Attributes: Optional[TargetGroupAttributes]
+    Attributes: TargetGroupAttributes | None
 
 
-TargetGroupNames = List[TargetGroupName]
-TargetGroupArns = List[TargetGroupArn]
+TargetGroupNames = list[TargetGroupName]
+TargetGroupArns = list[TargetGroupArn]
 
 
 class DescribeTargetGroupsInput(ServiceRequest):
-    LoadBalancerArn: Optional[LoadBalancerArn]
-    TargetGroupArns: Optional[TargetGroupArns]
-    Names: Optional[TargetGroupNames]
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    LoadBalancerArn: LoadBalancerArn | None
+    TargetGroupArns: TargetGroupArns | None
+    Names: TargetGroupNames | None
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class DescribeTargetGroupsOutput(TypedDict, total=False):
-    TargetGroups: Optional[TargetGroups]
-    NextMarker: Optional[Marker]
+    TargetGroups: TargetGroups | None
+    NextMarker: Marker | None
 
 
-ListOfDescribeTargetHealthIncludeOptions = List[DescribeTargetHealthInputIncludeEnum]
+ListOfDescribeTargetHealthIncludeOptions = list[DescribeTargetHealthInputIncludeEnum]
 
 
 class DescribeTargetHealthInput(ServiceRequest):
     TargetGroupArn: TargetGroupArn
-    Targets: Optional[TargetDescriptions]
-    Include: Optional[ListOfDescribeTargetHealthIncludeOptions]
+    Targets: TargetDescriptions | None
+    Include: ListOfDescribeTargetHealthIncludeOptions | None
 
 
 class TargetHealth(TypedDict, total=False):
     """Information about the current health of a target."""
 
-    State: Optional[TargetHealthStateEnum]
-    Reason: Optional[TargetHealthReasonEnum]
-    Description: Optional[Description]
+    State: TargetHealthStateEnum | None
+    Reason: TargetHealthReasonEnum | None
+    Description: Description | None
 
 
 class TargetHealthDescription(TypedDict, total=False):
     """Information about the health of a target."""
 
-    Target: Optional[TargetDescription]
-    HealthCheckPort: Optional[HealthCheckPort]
-    TargetHealth: Optional[TargetHealth]
-    AnomalyDetection: Optional[AnomalyDetection]
-    AdministrativeOverride: Optional[AdministrativeOverride]
+    Target: TargetDescription | None
+    HealthCheckPort: HealthCheckPort | None
+    TargetHealth: TargetHealth | None
+    AnomalyDetection: AnomalyDetection | None
+    AdministrativeOverride: AdministrativeOverride | None
 
 
-TargetHealthDescriptions = List[TargetHealthDescription]
+TargetHealthDescriptions = list[TargetHealthDescription]
 
 
 class DescribeTargetHealthOutput(TypedDict, total=False):
-    TargetHealthDescriptions: Optional[TargetHealthDescriptions]
+    TargetHealthDescriptions: TargetHealthDescriptions | None
 
 
 class DescribeTrustStoreAssociationsInput(ServiceRequest):
     TrustStoreArn: TrustStoreArn
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class TrustStoreAssociation(TypedDict, total=False):
     """Information about the resources a trust store is associated with."""
 
-    ResourceArn: Optional[TrustStoreAssociationResourceArn]
+    ResourceArn: TrustStoreAssociationResourceArn | None
 
 
-TrustStoreAssociations = List[TrustStoreAssociation]
+TrustStoreAssociations = list[TrustStoreAssociation]
 
 
 class DescribeTrustStoreAssociationsOutput(TypedDict, total=False):
-    TrustStoreAssociations: Optional[TrustStoreAssociations]
-    NextMarker: Optional[Marker]
+    TrustStoreAssociations: TrustStoreAssociations | None
+    NextMarker: Marker | None
 
 
 class DescribeTrustStoreRevocation(TypedDict, total=False):
     """Information about the revocations used by a trust store."""
 
-    TrustStoreArn: Optional[TrustStoreArn]
-    RevocationId: Optional[RevocationId]
-    RevocationType: Optional[RevocationType]
-    NumberOfRevokedEntries: Optional[NumberOfRevokedEntries]
+    TrustStoreArn: TrustStoreArn | None
+    RevocationId: RevocationId | None
+    RevocationType: RevocationType | None
+    NumberOfRevokedEntries: NumberOfRevokedEntries | None
 
 
-DescribeTrustStoreRevocationResponse = List[DescribeTrustStoreRevocation]
-RevocationIds = List[RevocationId]
+DescribeTrustStoreRevocationResponse = list[DescribeTrustStoreRevocation]
+RevocationIds = list[RevocationId]
 
 
 class DescribeTrustStoreRevocationsInput(ServiceRequest):
     TrustStoreArn: TrustStoreArn
-    RevocationIds: Optional[RevocationIds]
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    RevocationIds: RevocationIds | None
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class DescribeTrustStoreRevocationsOutput(TypedDict, total=False):
-    TrustStoreRevocations: Optional[DescribeTrustStoreRevocationResponse]
-    NextMarker: Optional[Marker]
+    TrustStoreRevocations: DescribeTrustStoreRevocationResponse | None
+    NextMarker: Marker | None
 
 
-TrustStoreNames = List[TrustStoreName]
-TrustStoreArns = List[TrustStoreArn]
+TrustStoreNames = list[TrustStoreName]
+TrustStoreArns = list[TrustStoreArn]
 
 
 class DescribeTrustStoresInput(ServiceRequest):
-    TrustStoreArns: Optional[TrustStoreArns]
-    Names: Optional[TrustStoreNames]
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    TrustStoreArns: TrustStoreArns | None
+    Names: TrustStoreNames | None
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class DescribeTrustStoresOutput(TypedDict, total=False):
-    TrustStores: Optional[TrustStores]
-    NextMarker: Optional[Marker]
+    TrustStores: TrustStores | None
+    NextMarker: Marker | None
 
 
 class GetResourcePolicyInput(ServiceRequest):
@@ -1774,7 +1869,7 @@ class GetResourcePolicyInput(ServiceRequest):
 
 
 class GetResourcePolicyOutput(TypedDict, total=False):
-    Policy: Optional[Policy]
+    Policy: Policy | None
 
 
 class GetTrustStoreCaCertificatesBundleInput(ServiceRequest):
@@ -1782,7 +1877,7 @@ class GetTrustStoreCaCertificatesBundleInput(ServiceRequest):
 
 
 class GetTrustStoreCaCertificatesBundleOutput(TypedDict, total=False):
-    Location: Optional[Location]
+    Location: Location | None
 
 
 class GetTrustStoreRevocationContentInput(ServiceRequest):
@@ -1791,33 +1886,33 @@ class GetTrustStoreRevocationContentInput(ServiceRequest):
 
 
 class GetTrustStoreRevocationContentOutput(TypedDict, total=False):
-    Location: Optional[Location]
+    Location: Location | None
 
 
 class ModifyCapacityReservationInput(ServiceRequest):
     LoadBalancerArn: LoadBalancerArn
-    MinimumLoadBalancerCapacity: Optional[MinimumLoadBalancerCapacity]
-    ResetCapacityReservation: Optional[ResetCapacityReservation]
+    MinimumLoadBalancerCapacity: MinimumLoadBalancerCapacity | None
+    ResetCapacityReservation: ResetCapacityReservation | None
 
 
 class ModifyCapacityReservationOutput(TypedDict, total=False):
-    LastModifiedTime: Optional[LastModifiedTime]
-    DecreaseRequestsRemaining: Optional[DecreaseRequestsRemaining]
-    MinimumLoadBalancerCapacity: Optional[MinimumLoadBalancerCapacity]
-    CapacityReservationState: Optional[ZonalCapacityReservationStates]
+    LastModifiedTime: LastModifiedTime | None
+    DecreaseRequestsRemaining: DecreaseRequestsRemaining | None
+    MinimumLoadBalancerCapacity: MinimumLoadBalancerCapacity | None
+    CapacityReservationState: ZonalCapacityReservationStates | None
 
 
-RemoveIpamPools = List[RemoveIpamPoolEnum]
+RemoveIpamPools = list[RemoveIpamPoolEnum]
 
 
 class ModifyIpPoolsInput(ServiceRequest):
     LoadBalancerArn: LoadBalancerArn
-    IpamPools: Optional[IpamPools]
-    RemoveIpamPools: Optional[RemoveIpamPools]
+    IpamPools: IpamPools | None
+    RemoveIpamPools: RemoveIpamPools | None
 
 
 class ModifyIpPoolsOutput(TypedDict, total=False):
-    IpamPools: Optional[IpamPools]
+    IpamPools: IpamPools | None
 
 
 class ModifyListenerAttributesInput(ServiceRequest):
@@ -1826,22 +1921,22 @@ class ModifyListenerAttributesInput(ServiceRequest):
 
 
 class ModifyListenerAttributesOutput(TypedDict, total=False):
-    Attributes: Optional[ListenerAttributes]
+    Attributes: ListenerAttributes | None
 
 
 class ModifyListenerInput(ServiceRequest):
     ListenerArn: ListenerArn
-    Port: Optional[Port]
-    Protocol: Optional[ProtocolEnum]
-    SslPolicy: Optional[SslPolicyName]
-    Certificates: Optional[CertificateList]
-    DefaultActions: Optional[Actions]
-    AlpnPolicy: Optional[AlpnPolicyName]
-    MutualAuthentication: Optional[MutualAuthenticationAttributes]
+    Port: Port | None
+    Protocol: ProtocolEnum | None
+    SslPolicy: SslPolicyName | None
+    Certificates: CertificateList | None
+    DefaultActions: Actions | None
+    AlpnPolicy: AlpnPolicyName | None
+    MutualAuthentication: MutualAuthenticationAttributes | None
 
 
 class ModifyListenerOutput(TypedDict, total=False):
-    Listeners: Optional[Listeners]
+    Listeners: Listeners | None
 
 
 class ModifyLoadBalancerAttributesInput(ServiceRequest):
@@ -1850,17 +1945,19 @@ class ModifyLoadBalancerAttributesInput(ServiceRequest):
 
 
 class ModifyLoadBalancerAttributesOutput(TypedDict, total=False):
-    Attributes: Optional[LoadBalancerAttributes]
+    Attributes: LoadBalancerAttributes | None
 
 
 class ModifyRuleInput(ServiceRequest):
     RuleArn: RuleArn
-    Conditions: Optional[RuleConditionList]
-    Actions: Optional[Actions]
+    Conditions: RuleConditionList | None
+    Actions: Actions | None
+    Transforms: RuleTransformList | None
+    ResetTransforms: ResetTransforms | None
 
 
 class ModifyRuleOutput(TypedDict, total=False):
-    Rules: Optional[Rules]
+    Rules: Rules | None
 
 
 class ModifyTargetGroupAttributesInput(ServiceRequest):
@@ -1869,35 +1966,35 @@ class ModifyTargetGroupAttributesInput(ServiceRequest):
 
 
 class ModifyTargetGroupAttributesOutput(TypedDict, total=False):
-    Attributes: Optional[TargetGroupAttributes]
+    Attributes: TargetGroupAttributes | None
 
 
 class ModifyTargetGroupInput(ServiceRequest):
     TargetGroupArn: TargetGroupArn
-    HealthCheckProtocol: Optional[ProtocolEnum]
-    HealthCheckPort: Optional[HealthCheckPort]
-    HealthCheckPath: Optional[Path]
-    HealthCheckEnabled: Optional[HealthCheckEnabled]
-    HealthCheckIntervalSeconds: Optional[HealthCheckIntervalSeconds]
-    HealthCheckTimeoutSeconds: Optional[HealthCheckTimeoutSeconds]
-    HealthyThresholdCount: Optional[HealthCheckThresholdCount]
-    UnhealthyThresholdCount: Optional[HealthCheckThresholdCount]
-    Matcher: Optional[Matcher]
+    HealthCheckProtocol: ProtocolEnum | None
+    HealthCheckPort: HealthCheckPort | None
+    HealthCheckPath: Path | None
+    HealthCheckEnabled: HealthCheckEnabled | None
+    HealthCheckIntervalSeconds: HealthCheckIntervalSeconds | None
+    HealthCheckTimeoutSeconds: HealthCheckTimeoutSeconds | None
+    HealthyThresholdCount: HealthCheckThresholdCount | None
+    UnhealthyThresholdCount: HealthCheckThresholdCount | None
+    Matcher: Matcher | None
 
 
 class ModifyTargetGroupOutput(TypedDict, total=False):
-    TargetGroups: Optional[TargetGroups]
+    TargetGroups: TargetGroups | None
 
 
 class ModifyTrustStoreInput(ServiceRequest):
     TrustStoreArn: TrustStoreArn
     CaCertificatesBundleS3Bucket: S3Bucket
     CaCertificatesBundleS3Key: S3Key
-    CaCertificatesBundleS3ObjectVersion: Optional[S3ObjectVersion]
+    CaCertificatesBundleS3ObjectVersion: S3ObjectVersion | None
 
 
 class ModifyTrustStoreOutput(TypedDict, total=False):
-    TrustStores: Optional[TrustStores]
+    TrustStores: TrustStores | None
 
 
 class RegisterTargetsInput(ServiceRequest):
@@ -1918,7 +2015,7 @@ class RemoveListenerCertificatesOutput(TypedDict, total=False):
     pass
 
 
-TagKeys = List[TagKey]
+TagKeys = list[TagKey]
 
 
 class RemoveTagsInput(ServiceRequest):
@@ -1942,11 +2039,11 @@ class RemoveTrustStoreRevocationsOutput(TypedDict, total=False):
 class RulePriorityPair(TypedDict, total=False):
     """Information about the priorities for the rules for a listener."""
 
-    RuleArn: Optional[RuleArn]
-    Priority: Optional[RulePriority]
+    RuleArn: RuleArn | None
+    Priority: RulePriority | None
 
 
-RulePriorityList = List[RulePriorityPair]
+RulePriorityList = list[RulePriorityPair]
 
 
 class SetIpAddressTypeInput(ServiceRequest):
@@ -1955,7 +2052,7 @@ class SetIpAddressTypeInput(ServiceRequest):
 
 
 class SetIpAddressTypeOutput(TypedDict, total=False):
-    IpAddressType: Optional[IpAddressType]
+    IpAddressType: IpAddressType | None
 
 
 class SetRulePrioritiesInput(ServiceRequest):
@@ -1963,41 +2060,41 @@ class SetRulePrioritiesInput(ServiceRequest):
 
 
 class SetRulePrioritiesOutput(TypedDict, total=False):
-    Rules: Optional[Rules]
+    Rules: Rules | None
 
 
 class SetSecurityGroupsInput(ServiceRequest):
     LoadBalancerArn: LoadBalancerArn
     SecurityGroups: SecurityGroups
-    EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic: Optional[
-        EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnum
-    ]
+    EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic: (
+        EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnum | None
+    )
 
 
 class SetSecurityGroupsOutput(TypedDict, total=False):
-    SecurityGroupIds: Optional[SecurityGroups]
-    EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic: Optional[
-        EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnum
-    ]
+    SecurityGroupIds: SecurityGroups | None
+    EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic: (
+        EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnum | None
+    )
 
 
 class SetSubnetsInput(ServiceRequest):
     LoadBalancerArn: LoadBalancerArn
-    Subnets: Optional[Subnets]
-    SubnetMappings: Optional[SubnetMappings]
-    IpAddressType: Optional[IpAddressType]
-    EnablePrefixForIpv6SourceNat: Optional[EnablePrefixForIpv6SourceNatEnum]
+    Subnets: Subnets | None
+    SubnetMappings: SubnetMappings | None
+    IpAddressType: IpAddressType | None
+    EnablePrefixForIpv6SourceNat: EnablePrefixForIpv6SourceNatEnum | None
 
 
 class SetSubnetsOutput(TypedDict, total=False):
-    AvailabilityZones: Optional[AvailabilityZones]
-    IpAddressType: Optional[IpAddressType]
-    EnablePrefixForIpv6SourceNat: Optional[EnablePrefixForIpv6SourceNatEnum]
+    AvailabilityZones: AvailabilityZones | None
+    IpAddressType: IpAddressType | None
+    EnablePrefixForIpv6SourceNat: EnablePrefixForIpv6SourceNatEnum | None
 
 
 class Elbv2Api:
-    service = "elbv2"
-    version = "2015-12-01"
+    service: str = "elbv2"
+    version: str = "2015-12-01"
 
     @handler("AddListenerCertificates")
     def add_listener_certificates(
@@ -2116,7 +2213,7 @@ class Elbv2Api:
         :param alpn_policy: [TLS listeners] The name of the Application-Layer Protocol Negotiation
         (ALPN) policy.
         :param tags: The tags to assign to the listener.
-        :param mutual_authentication: The mutual authentication configuration information.
+        :param mutual_authentication: [HTTPS listeners] The mutual authentication configuration information.
         :returns: CreateListenerOutput
         :raises DuplicateListenerException:
         :raises TooManyListenersException:
@@ -2204,17 +2301,18 @@ class Elbv2Api:
         priority: RulePriority,
         actions: Actions,
         tags: TagList | None = None,
+        transforms: RuleTransformList | None = None,
         **kwargs,
     ) -> CreateRuleOutput:
         """Creates a rule for the specified listener. The listener must be
         associated with an Application Load Balancer.
 
-        Each rule consists of a priority, one or more actions, and one or more
-        conditions. Rules are evaluated in priority order, from the lowest value
-        to the highest value. When the conditions for a rule are met, its
-        actions are performed. If the conditions for no rules are met, the
-        actions for the default rule are performed. For more information, see
-        `Listener
+        Each rule consists of a priority, one or more actions, one or more
+        conditions, and up to two optional transforms. Rules are evaluated in
+        priority order, from the lowest value to the highest value. When the
+        conditions for a rule are met, its actions are performed. If the
+        conditions for no rules are met, the actions for the default rule are
+        performed. For more information, see `Listener
         rules <https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#listener-rules>`__
         in the *Application Load Balancers Guide*.
 
@@ -2223,6 +2321,7 @@ class Elbv2Api:
         :param priority: The rule priority.
         :param actions: The actions.
         :param tags: The tags to assign to the rule.
+        :param transforms: The transforms to apply to requests that match this rule.
         :returns: CreateRuleOutput
         :raises PriorityInUseException:
         :raises TooManyTargetGroupsException:
@@ -2263,6 +2362,7 @@ class Elbv2Api:
         target_type: TargetTypeEnum | None = None,
         tags: TagList | None = None,
         ip_address_type: TargetGroupIpAddressTypeEnum | None = None,
+        target_control_port: TargetControlPort | None = None,
         **kwargs,
     ) -> CreateTargetGroupOutput:
         """Creates a target group.
@@ -2308,6 +2408,8 @@ class Elbv2Api:
         this target group.
         :param tags: The tags to assign to the target group.
         :param ip_address_type: The IP address type.
+        :param target_control_port: The port on which the target control agent and application load balancer
+        exchange management traffic for the target optimizer feature.
         :returns: CreateTargetGroupOutput
         :raises DuplicateTargetGroupNameException:
         :raises TooManyTargetGroupsException:
@@ -2661,7 +2763,7 @@ class Elbv2Api:
         **kwargs,
     ) -> DescribeRulesOutput:
         """Describes the specified rules or the rules for the specified listener.
-        You must specify either a listener or one or more rules.
+        You must specify either a listener or rules.
 
         :param listener_arn: The Amazon Resource Name (ARN) of the listener.
         :param rule_arns: The Amazon Resource Names (ARN) of the rules.
@@ -2989,7 +3091,7 @@ class Elbv2Api:
         :param default_actions: The actions for the default rule.
         :param alpn_policy: [TLS listeners] The name of the Application-Layer Protocol Negotiation
         (ALPN) policy.
-        :param mutual_authentication: The mutual authentication configuration information.
+        :param mutual_authentication: [HTTPS listeners] The mutual authentication configuration information.
         :returns: ModifyListenerOutput
         :raises DuplicateListenerException:
         :raises TooManyListenersException:
@@ -3061,6 +3163,8 @@ class Elbv2Api:
         rule_arn: RuleArn,
         conditions: RuleConditionList | None = None,
         actions: Actions | None = None,
+        transforms: RuleTransformList | None = None,
+        reset_transforms: ResetTransforms | None = None,
         **kwargs,
     ) -> ModifyRuleOutput:
         """Replaces the specified properties of the specified rule. Any properties
@@ -3073,6 +3177,8 @@ class Elbv2Api:
         :param rule_arn: The Amazon Resource Name (ARN) of the rule.
         :param conditions: The conditions.
         :param actions: The actions.
+        :param transforms: The transforms to apply to requests that match this rule.
+        :param reset_transforms: Indicates whether to remove all transforms from the rule.
         :returns: ModifyRuleOutput
         :raises TargetGroupAssociationLimitException:
         :raises IncompatibleProtocolsException:
@@ -3353,10 +3459,6 @@ class Elbv2Api:
         specified Application Load Balancer, Network Load Balancer or Gateway
         Load Balancer. The specified subnets replace the previously enabled
         subnets.
-
-        When you specify subnets for a Network Load Balancer, or Gateway Load
-        Balancer you must include all subnets that were enabled previously, with
-        their existing configurations, plus any additional subnets.
 
         :param load_balancer_arn: The Amazon Resource Name (ARN) of the load balancer.
         :param subnets: The IDs of the public subnets.

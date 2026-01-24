@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: esp-idf-monitor
-Version: 1.8.0
+Version: 1.9.0
 Summary: Serial monitor for esp-idf
 Author: Espressif Systems
+License: Apache-2.0
 Project-URL: Homepage, https://github.com/espressif/esp-idf-monitor
 Keywords: espressif,embedded,monitor,serial
 Classifier: Development Status :: 5 - Production/Stable
@@ -18,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
@@ -50,7 +52,7 @@ Dynamic: license-file
 
 # Espressif IDF Monitor
 
-The ```esp-idf-monitor``` is a Python-based, open-source package that is part of the [ESP-IDF](https://github.com/espressif/esp-idf) SDK for Espressif products.
+The `esp-idf-monitor` is a Python-based, open-source package that is part of the [ESP-IDF](https://github.com/espressif/esp-idf) SDK or can be used as a standalond tool for monitoring of Espressif microcontrollers.
 
 The main responsibility of the IDF Monitor is serial communication input and output in ESP-IDF projects.
 
@@ -61,12 +63,50 @@ Other advanced topics like configuration file will be described in the following
 
 ### Table of Contents
 
+- [Installation](#installation)
+- [Usage](#usage)
 - [Configuration File](#configuration-file)
   - [File Location](#file-location)
   - [Configuration Options](#configuration-options)
     - [Custom Reset Sequence](#custom-reset-sequence)
       - [Share Configuration Across Tools](#share-configuration-across-tools)
   - [Syntax](#syntax)
+- [Embedded Command Execution](#embedded-command-execution)
+
+## Installation
+
+You can install the project with your favorite package manager, but for standalone installations it is recommended to use [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/stable/). Using one of the following commands:
+
+> [!NOTE]
+> It is always recommended to install packages in a virtual environment. Both tools recommended below will help you create a virtual environment.
+
+```sh
+uv tool install esp-idf-monitor
+```
+
+or
+
+```sh
+pipx install esp-idf-monitor
+```
+
+Both methods will install an `idf-monitor` executable for the current user without requiring administrator privileges.
+
+## Usage
+
+Usually IDF Monitor is run within ESP-IDF environment, which prefills a lot of arguments for features such as address decoding. However, IDF Monitor can work as standalone tool as well. For the standalone mode run:
+
+```sh
+idf-monitor
+```
+
+or
+
+```sh
+python -m esp_idf_monitor
+```
+
+For all parameters and their function please see `idf-monitor --help`.
 
 ## Configuration File
 
@@ -77,7 +117,7 @@ Other advanced topics like configuration file will be described in the following
 
 ### File Location
 
-The default name for a configuration file is `esp-idf-monitor.cfg`. First, the same directory `esp-idf-monitor` is being run if is inspected.
+The default name for a configuration file is `esp-idf-monitor.cfg`. First, the same directory where `esp-idf-monitor` is being run is inspected.
 
 If a configuration file is not found here, the current user's OS configuration directory is inspected next:
 
@@ -140,7 +180,7 @@ Example:
 custom_reset_sequence = U0,1|W0.1|D1|R0|W0.5|D0
 ```
 
-Refer to [custom reset sequence](https://docs.espressif.com/projects/esptool/en/latest/esptool/configuration-file.html#custom-reset-sequence) from Esptool documentation for further details. Please note that ``custom_reset_sequence`` is the only used value from the Esptool configuration, and others will be ignored in IDF Monitor.
+Refer to [custom reset sequence](https://docs.espressif.com/projects/esptool/en/latest/esptool/configuration-file.html#custom-reset-sequence) from Esptool documentation for further details. Please note that `custom_reset_sequence` is the only used value from the Esptool configuration, and others will be ignored in IDF Monitor.
 
 ##### Share Configuration Across Tools
 
@@ -182,24 +222,72 @@ exit_menu_key = X
 skip_menu_key = False
 ```
 
+## Embedded Command Execution
+
+`esp-idf-monitor` includes an advanced feature that automatically executes host-side tools when the target device outputs specific markers in its logs. This is particularly useful for workflows where device firmware needs to perform operations that are better handled on the host computer—such as decoding or analyzing chip data (for example, reading and interpreting eFuse dump).
+
+### How It Works
+
+When the monitor detects one of the predefined markers in the device output, it automatically executes the corresponding command template. The command substitutes data from the device output (such as eFuse tokens) into the template, allowing seamless data analysis without manual intervention.
+
+### Supported Markers
+
+The following markers are currently supported:
+
+| Marker                                 | Command Template                           | Use Case                           |
+|----------------------------------------|--------------------------------------------|------------------------------------|
+| `IDF_MONITOR_EXECUTE_ESPEFUSE_SUMMARY` | `espefuse --token {ARGS} summary --active` | Display active eFuse summary       |
+| `IDF_MONITOR_EXECUTE_ESPEFUSE_DUMP`    | `espefuse --token {ARGS} dump`             | Display eFuse dump                 |
+
+For both commands, `{ARGS}` must include:
+- A token eFuse dump (format: `EFSR:chiptype:size:hexdata...`)
+- Optionally, additional flags such as `--extend-efuse-table main/esp_efuse_custom_table.csv` to extend eFuse field definitions
+
+### Usage Example
+
+When your firmware outputs a line containing `IDF_MONITOR_EXECUTE_ESPEFUSE_DUMP`:
+
+```text
+I (481) example: IDF_MONITOR_EXECUTE_ESPEFUSE_DUMP EFSR:esp32c3:100:AAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAA:zIH3-VVgAAAAAAAAAAAAS8kmEVKwQgYB:ZSd8yloMSAJssOWmfZQw8lFbphuTZH574QcV3ggAAAA:AAAAAAAAAAEayAcAAAAAAAAAAAAAAAAAAAAAAAAAAAA:::::::::ydrNkQ
+--- Executing monitor command: espefuse --token EFSR:esp32c3:100:... dump
+espefuse v5.1.0
+=== Run "dump" command ===
+BLOCK0          (                ) [0 ] dump: 00000000 00000000 00000000 00000000 80000000 00000000
+MAC_SPI_8M_0    (BLOCK1          ) [1 ] dump: f9f781cc 00006055 00000000 4b000000 521126c9 010642b0
+BLOCK_SYS_DATA  (BLOCK2          ) [2 ] dump: ca7c2765 02480c5a a6e5b06c f230947d 1ba65b51 7b7e6493 de1507e1 00000008
+...
+I (331) example: read efuse fields
+```
+
+### Security and Limitations
+
+For your security and to ensure predictable behavior, IDF Monitor:
+
+- Does not execute arbitrary commands printed by the device
+- Supports only a small, predefined set of markers mapped to fixed command templates
+- Accepts only `<ARGS>` from the device—the eFuse token and optional flags—which are substituted into the template
+- Executes all commands with `shell=False`, preventing shell metacharacters (`&&`, `;`, `|`, `>`) from being interpreted
+
+This intentional limitation ensures that only specific, safe espefuse operations are available. Any future extensions would require careful review for security implications.
+
 ## Contributing
 
 ### Code Style & Static Analysis
 
-Please follow these coding standards when writing code for ``esp-idf-monitor``:
+Please follow these coding standards when writing code for `esp-idf-monitor`:
 
 #### Pre-commit Checks
 
 [pre-commit](https://pre-commit.com/) is a framework for managing pre-commit hooks. These hooks help to identify simple issues before committing code for review.
 
-To use the tool, first install ``pre-commit``. Then enable the ``pre-commit`` and ``commit-msg`` git hooks:
+To use the tool, first install `pre-commit`. Then enable the `pre-commit` and `commit-msg` git hooks:
 
 ```sh
 python -m pip install pre-commit
 pre-commit install -t pre-commit -t commit-msg
 ```
 
-On the first commit ``pre-commit`` will install the hooks, subsequent checks will be significantly faster. If an error is found an appropriate error message will be displayed.
+On the first commit `pre-commit` will install the hooks, subsequent checks will be significantly faster. If an error is found an appropriate error message will be displayed.
 
 ##### Codespell Check
 
@@ -207,7 +295,7 @@ This repository utilizes an automatic [spell checker](https://github.com/codespe
 
 #### Conventional Commits
 
-``esp-idf-monitor`` complies with the [Conventional Commits standard](https://www.conventionalcommits.org/en/v1.0.0/#specification). Every commit message is checked with [Conventional Precommit Linter](https://github.com/espressif/conventional-precommit-linter), ensuring it adheres to the standard.
+`esp-idf-monitor` complies with the [Conventional Commits standard](https://www.conventionalcommits.org/en/v1.0.0/#specification). Every commit message is checked with [Conventional Precommit Linter](https://github.com/espressif/conventional-precommit-linter), ensuring it adheres to the standard.
 
 ## License
 

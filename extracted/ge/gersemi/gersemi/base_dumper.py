@@ -1,11 +1,10 @@
 from collections import defaultdict
 from contextlib import contextmanager
 from textwrap import indent
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 from lark import Tree
-from lark.visitors import Interpreter
 from gersemi.ast_helpers import is_line_comment_in
-from gersemi.configuration import Indent, ListExpansion, Tabs
+from gersemi.configuration import Indent, ListExpansion, OutcomeConfiguration, Tabs
 from gersemi.types import Nodes
 from gersemi.warnings import FormatterWarnings, UnknownCommandWarning
 
@@ -20,17 +19,28 @@ class WontFit(Exception):
     pass
 
 
-class BaseDumper(Interpreter):
-    def __init__(self, width, indent_type):
-        self.width = width
-        self.indent_type = indent_type
+class BaseDumper:
+    def __init__(self, configuration: OutcomeConfiguration):
+        self.width = configuration.line_length
+        self.indent_type = configuration.indent
         self._indent_symbol = get_indent(self.indent_type)
         self.indent_level = 0
         self.favour_expansion = False
-        self.unknown_commands_used = defaultdict(list)
+        self.unknown_commands_used: Dict[str, List[Tuple[int, int]]] = defaultdict(list)
+        self.list_expansion = configuration.list_expansion
 
     def __default__(self, tree: Tree):
         return "".join(self.visit_children(tree))
+
+    def visit(self, tree):
+        f = getattr(self, tree.data, self.__default__)
+        return f(tree)
+
+    def visit_children(self, tree):
+        yield from (
+            self.visit(child) if isinstance(child, Tree) else child
+            for child in tree.children
+        )
 
     @property
     def indent_symbol(self):
@@ -108,7 +118,18 @@ class BaseDumper(Interpreter):
             self.favour_expansion = old
 
     def format_command_name(self, identifier):
-        return identifier.lower()
+        try:
+            canonical_name = self._canonical_name
+        except AttributeError:
+            if "@" in identifier:
+                return identifier
+
+            return identifier.lower()
+
+        if canonical_name.strip().lower() != identifier.strip().lower():
+            raise RuntimeError
+
+        return canonical_name
 
     def _record_unknown_command(self, command):
         self.unknown_commands_used[str(command)].append((command.line, command.column))

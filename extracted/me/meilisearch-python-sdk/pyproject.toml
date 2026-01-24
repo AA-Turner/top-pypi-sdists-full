@@ -6,18 +6,18 @@ build-backend = "hatchling.build"
 name = "meilisearch-python-sdk"
 description = "A Python client providing both async and sync support for the Meilisearch API"
 authors = [ { name = "Paul Sanders", email = "paul@paulsanders.dev" } ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { file = "LICENSE" }
 readme = "README.md"
 keywords = ["meilisearch", "async", "python", "client", "sdk"]
 classifiers=[
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Typing :: Typed",
@@ -26,8 +26,6 @@ dynamic = ["version"]
 dependencies = [
   "aiofiles>=0.7",
   "camel-converter[pydantic]>=1.0.0",
-  # allows pydantic to use pipe instead of Union
-  "eval-type-backport>=0.2.0; python_version < '3.10'",
   "httpx[http2]>=0.17",
   "pydantic>=2.0.0",
   "PyJWT>=2.3.0",
@@ -35,25 +33,22 @@ dependencies = [
 
 [project.optional-dependencies]
 orjson = ["orjson>=3.10.6"]
-ujson = ["ujson>=5.10.0"]
-all = ["orjson", "ujson"]
+all = ["orjson"]
 
 [dependency-groups]
 dev = [
   "mkdocs==1.6.1",
-  "mkdocs-material==9.6.20",
-  "mkdocstrings[python]==0.30.0",
-  "mypy[faster-cache]==1.18.2",
-  "pre-commit==4.3.0",
-  "pytest==8.4.2",
+  "mkdocs-material==9.7.1",
+  "mkdocstrings[python]==1.0.1",
+  "mypy[faster-cache]>=1.19.1",
+  "pytest==9.0.2",
   "pytest-cov==7.0.0",
-  "pytest-asyncio==1.2.0",
+  "pytest-asyncio==1.3.0",
   "pytest-xdist==3.8.0",
-  "ruff==0.13.1",
-  "types-aiofiles==24.1.0.20250822",
+  "prek>=0.2.27",
+  "ruff==0.14.13",
+  "types-aiofiles==25.1.0.20251011",
   "typing-extensions==4.15.0",
-  "types-ujson==5.10.0.20250822",
-  "rich==14.1.0",
 ]
 
 [tool.hatch.version]
@@ -72,6 +67,9 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 markers = ["no_parallel"]
 
+[tool.coverage.report]
+exclude_lines = ["if __name__ == .__main__.:", "if TYPE_CHECKING:", "pragma: no cover"]
+
 [tool.mypy]
 check_untyped_defs = true
 disallow_untyped_defs = true
@@ -87,7 +85,7 @@ ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 fix = true
 
 [tool.ruff.lint]
@@ -100,6 +98,7 @@ select=[
   "I001",  # unsorted-imports
   "T201",  # Don't allow print
   "T203",  # Don't allow pprint
+  "ANN",  # Type annotations
   "ASYNC",  # flake8-async
   "RUF022",  # Unsorted __all__
   "RUF023",  # Unforted __slots__
@@ -122,3 +121,7 @@ ignore=[
   "ISC001",
   "ISC002",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+  "tests/**" = ["ANN"]
+  "examples/tests/**" = ["ANN"]

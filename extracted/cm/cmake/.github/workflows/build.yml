@@ -2,11 +2,6 @@ name: CI
 
 on:
   workflow_dispatch:
-    inputs:
-      use_qemu:
-        description: 'Use qemu to build linux ppc64le, s390x & riscv64'
-        required: true
-        default: true
   schedule:
     - cron: '0 18 * * 5'  # "At 18:00 on Friday."
   pull_request:
@@ -14,6 +9,7 @@ on:
     branches:
       - main
       - py2-legacy
+      - v3.x
     tags:
       - "*.*.*"
 
@@ -21,16 +17,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  USE_QEMU: ${{ fromJSON(github.event.inputs.use_qemu || 'false') || (github.event_name == 'schedule') || startsWith(github.ref, 'refs/tags/') }}
-
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
       - uses: pre-commit/action@v3.0.1
@@ -47,100 +40,78 @@ jobs:
           - os: ubuntu-latest
             arch: "x86_64"
             build: "manylinux_"
-            use_qemu: false
           - os: ubuntu-latest
             arch: "x86_64"
             build: "musllinux_"
-            use_qemu: false
           - os: ubuntu-latest
             arch: "i686"
             build: "manylinux_"
-            use_qemu: false
           - os: ubuntu-latest
             arch: "i686"
             build: "musllinux_"
-            use_qemu: false
           - os: ubuntu-24.04-arm
             arch: "aarch64"
             build: "manylinux_"
-            use_qemu: false
           - os: ubuntu-24.04-arm
             arch: "aarch64"
             build: "musllinux_"
-            use_qemu: false
           - os: ubuntu-latest
             arch: "ppc64le"
             build: "manylinux_"
-            use_qemu: true
           - os: ubuntu-latest
             arch: "ppc64le"
             build: "musllinux_"
-            use_qemu: true
           - os: ubuntu-latest
             arch: "s390x"
             build: "manylinux_"
-            use_qemu: true
           - os: ubuntu-latest
             arch: "s390x"
             build: "musllinux_"
-            use_qemu: true
           - os: ubuntu-latest
             arch: "riscv64"
             build: "manylinux_"
-            use_qemu: true
           - os: ubuntu-latest
             arch: "riscv64"
             build: "musllinux_"
-            use_qemu: true
           - os: ubuntu-24.04-arm
             arch: "armv7l"
             build: "manylinux_"
-            use_qemu: false
           - os: ubuntu-24.04-arm
             arch: "armv7l"
             build: "musllinux_"
-            use_qemu: false
           - os: windows-2022
             arch: "AMD64"
             build: ""
-            use_qemu: false
           - os: windows-11-arm
             arch: "ARM64"
             build: ""
-            use_qemu: false
           - os: windows-2022
             arch: "x86"
             build: ""
-            use_qemu: false
           - os: macos-14
             arch: "universal2"
             build: ""
-            use_qemu: false
 
     steps:
-      - uses: actions/checkout@v4
-        if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # required for versioneer to find tags
 
-      - uses: astral-sh/setup-uv@v6
-        if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3.6.0
-        if: matrix.use_qemu && fromJSON(env.USE_QEMU)
+        uses: docker/setup-qemu-action@v3.7.0
+        if: matrix.arch == 'ppc64le' || matrix.arch == 'riscv64' || matrix.arch == 's390x'
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1
-        if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
+        uses: pypa/cibuildwheel@v3.3
         env:
           CIBW_ARCHS: "${{ matrix.arch }}"
           CIBW_BUILD: "cp310-${{ matrix.build }}*"
 
-      - uses: actions/upload-artifact@v4
-        if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-${{ runner.os }}-${{ matrix.build }}${{ matrix.arch }}
           path: ./wheelhouse/*.whl
@@ -150,14 +121,14 @@ jobs:
     needs: [lint]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # required for versioneer to find tags
 
       - name: Build SDist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cibw-sdist
           path: dist/*.tar.gz
@@ -172,8 +143,8 @@ jobs:
         python: ["3.8", "3.13"]
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: false
 
@@ -187,7 +158,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libssl-dev
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: cibw-sdist
           path: dist
@@ -212,8 +183,8 @@ jobs:
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         id: python
         with:
           python-version: "3.x"
@@ -263,7 +234,7 @@ jobs:
     needs: [build_wheels, build_sdist, test_sdist, bootstrap_build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           pattern: cibw-*
           merge-multiple: true
@@ -283,14 +254,14 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           pattern: cibw-*
           merge-multiple: true
           path: dist
 
       - name: Generate artifact attestation for sdist and wheel
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with:
           subject-path: "dist/cmake-*"
 

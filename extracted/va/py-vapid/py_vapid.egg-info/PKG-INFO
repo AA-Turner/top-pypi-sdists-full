@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: py-vapid
 Version: 1.9.2
 Summary: Simple VAPID header generation library
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cryptography>=2.5
+Dynamic: license-file
 
 |PyPI version py_vapid|
 

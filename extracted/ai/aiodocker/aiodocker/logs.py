@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Optional
 import aiohttp
 
 from .channel import Channel, ChannelSubscriber
+from .types import SENTINEL
 
 
 if TYPE_CHECKING:
@@ -37,9 +38,13 @@ class DockerLog:
         forced_params = {"follow": True}
         default_params = {"stdout": True, "stderr": True}
         params2 = ChainMap(forced_params, params, default_params)
+        # Use infinite timeout for log streaming
+        timeout_config = self.docker._resolve_long_running_timeout(SENTINEL)
         try:
             async with self.docker._query(
-                f"containers/{self.container._id}/logs", params=params2
+                f"containers/{self.container._id}/logs",
+                params=params2,
+                timeout=timeout_config,
             ) as resp:
                 self.response = resp
                 assert self.response is not None

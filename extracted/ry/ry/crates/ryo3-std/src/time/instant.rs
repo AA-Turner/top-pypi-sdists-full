@@ -1,15 +1,16 @@
 use crate::time::PyDuration;
 use pyo3::IntoPyObjectExt;
-use pyo3::exceptions::PyOverflowError;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
+use ryo3_macro_rules::py_type_err;
+use ryo3_macro_rules::{py_overflow_err, py_overflow_error};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::time::Instant;
 
-#[pyclass(name = "Instant", frozen)]
+#[pyclass(name = "Instant", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PyInstant(pub Instant);
+pub struct PyInstant(Instant);
 
 impl From<Instant> for PyInstant {
     fn from(i: Instant) -> Self {
@@ -32,13 +33,15 @@ impl PyInstant {
     }
 
     #[must_use]
-    fn __str__(&self) -> String {
-        format!("{:?}", self.0)
-    }
-
-    #[must_use]
     fn __repr__(&self) -> String {
-        format!("{:?}", self.0)
+        // inner string without 'Instant {' from debug...
+        let mut s = format!("{:?}", self.0);
+        // replace char after 'Instant' with '<' which will be the 8th char
+        s.replace_range(7..8, "<");
+
+        // append closing '}>'
+        s.push('>');
+        s
     }
 
     #[must_use]
@@ -60,75 +63,40 @@ impl PyInstant {
         }
     }
 
-    fn __add__(&self, other: &PyDuration) -> Option<Self> {
-        self.0.checked_add(other.0).map(Self)
+    fn __add__(&self, other: &PyDuration) -> PyResult<Self> {
+        self.0
+            .checked_add(other.0)
+            .map(Self::from)
+            .ok_or_else(|| py_overflow_error!("instant-overflow-add"))
     }
 
-    // fn __iadd__(&mut self, _py: Python<'_>, other: &PyDuration) -> PyResult<()> {
-    //     let add_res = self.0.checked_add(other.0);
-    //     if let Some(inst) = add_res {
-    //         self.0 = inst;
-    //         Ok(())
-    //     } else {
-    //         Err(PyErr::new::<PyOverflowError, _>("instant-overflow-iadd"))
-    //     }
-    // }
-
-    fn __sub__<'py>(&self, py: Python<'py>, other: PyInstantSub) -> PyResult<Bound<'py, PyAny>> {
-        match other {
-            PyInstantSub::Instant(other) => {
-                let dur = self.0.checked_duration_since(other.0);
-                match dur {
-                    Some(d) => {
-                        let pyduration = PyDuration::from(d);
-                        pyduration.into_bound_py_any(py)
-                    }
-                    None => Err(PyErr::new::<PyOverflowError, _>("instant-sub-overflow")),
+    fn __sub__<'py>(
+        &self,
+        py: Python<'py>,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        if let Ok(other_inst) = other.cast_exact::<Self>() {
+            let dur = self.0.checked_duration_since(other_inst.get().0);
+            match dur {
+                Some(d) => {
+                    let pyduration = PyDuration::from(d);
+                    pyduration.into_bound_py_any(py)
                 }
+                None => py_overflow_err!(),
             }
-            PyInstantSub::Duration(other) => {
-                let inst = self.0.checked_sub(other.0);
-                match inst {
-                    Some(i) => {
-                        let pyinstant = Self::from(i);
-                        pyinstant.into_bound_py_any(py)
-                    }
-                    None => Err(PyErr::new::<PyOverflowError, _>("instant-sub-overflow")),
+        } else if let Ok(other_dur) = other.cast_exact::<PyDuration>() {
+            let inst = self.0.checked_sub(other_dur.get().0);
+            match inst {
+                Some(i) => {
+                    let pyinstant = Self::from(i);
+                    pyinstant.into_bound_py_any(py)
                 }
+                None => py_overflow_err!(),
             }
+        } else {
+            py_type_err!("unsupported operand type(s) for Instant.__sub__")
         }
     }
-
-    // fn __isub__(&mut self, _py: Python<'_>, other: PyInstantSub) -> PyResult<()> {
-    //     match other {
-    //         PyInstantSub::Instant(other) => {
-    //             let dur = self.0.checked_duration_since(other.0);
-    //             match dur {
-    //                 Some(d) => {
-    //                     let self2assign = self.0.checked_sub(d);
-    //                     match self2assign {
-    //                         Some(self2assign) => {
-    //                             self.0 = self2assign;
-    //                             Ok(())
-    //                         }
-    //                         None => Err(PyErr::new::<PyOverflowError, _>("instant-sub-overflow")),
-    //                     }
-    //                 }
-    //                 None => Err(PyErr::new::<PyOverflowError, _>("instant-sub-overflow")),
-    //             }
-    //         }
-    //         PyInstantSub::Duration(other) => {
-    //             let inst = self.0.checked_sub(other.0);
-    //             match inst {
-    //                 Some(i) => {
-    //                     self.0 = i;
-    //                     Ok(())
-    //                 }
-    //                 None => Err(PyErr::new::<PyOverflowError, _>("instant-sub-overflow")),
-    //             }
-    //         }
-    //     }
-    // }
 
     #[must_use]
     fn elapsed(&self) -> PyDuration {
@@ -158,10 +126,4 @@ impl PyInstant {
     fn duration_since(&self, earlier: &Self) -> PyDuration {
         PyDuration(self.0.duration_since(earlier.0))
     }
-}
-
-#[derive(Debug, Clone, Copy, FromPyObject)]
-enum PyInstantSub {
-    Instant(PyInstant),
-    Duration(PyDuration),
 }

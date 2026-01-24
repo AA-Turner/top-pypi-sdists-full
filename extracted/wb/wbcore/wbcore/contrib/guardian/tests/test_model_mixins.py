@@ -1,10 +1,11 @@
 import pytest
+
 from wbcore.contrib.guardian.models.mixins import PermissionObjectModelMixin
 
 
 @pytest.fixture
 def mocked_permission_object_model_mixin(mocker):
-    def __init__(self): ...
+    def __init__(self): ...  # noqa
 
     PermissionObjectModelMixin.__init__ = __init__
     PermissionObjectModelMixin.objects = mocker.Mock()
@@ -21,8 +22,8 @@ class TestPermissionObjectModelMixin:
     def test_save_run_assign_permissions(self, mocker, mocked_permission_object_model_mixin):
         mocker.patch("django.db.models.Model.save")
         on_commit = mocker.patch("wbcore.contrib.guardian.models.mixins.transaction.on_commit")
-        ContentType = mocker.patch("wbcore.contrib.guardian.models.mixins.ContentType")
-        ContentType.objects.get_for_model.return_value = mocker.Mock()
+        content_type_class = mocker.patch("wbcore.contrib.guardian.models.mixins.ContentType")
+        content_type_class.objects.get_for_model.return_value = mocker.Mock()
 
         mocked_permission_object_model_mixin().save()
 

@@ -2,8 +2,6 @@
 
 ci:
   autoupdate_schedule: quarterly
-  skip:
-  - stubtest
 
 repos:
 - repo: local
@@ -62,7 +60,7 @@ repos:
   - id: no_optional
 
 - repo: https://github.com/astral-sh/ruff-pre-commit.git
-  rev: v0.11.7
+  rev: v0.13.3
   hooks:
   - id: ruff
     args:
@@ -70,31 +68,31 @@ repos:
     - --fix  # NOTE: When `--fix` is used, linting should be before ruff-format
 
 - repo: https://github.com/astral-sh/ruff-pre-commit.git
-  rev: v0.11.7
+  rev: v0.13.3
   hooks:
   - id: ruff-format
     alias: ruff-format-first-pass
     name: ruff-format (first pass)
 
 - repo: https://github.com/asottile/add-trailing-comma.git
-  rev: v3.1.0
+  rev: v3.2.0
   hooks:
   - id: add-trailing-comma
 
 - repo: https://github.com/astral-sh/ruff-pre-commit.git
-  rev: v0.11.7
+  rev: v0.13.3
   hooks:
   - id: ruff-format
     alias: ruff-format-second-pass
     name: ruff-format (second pass)
 
 - repo: https://github.com/Lucas-C/pre-commit-hooks.git
-  rev: v1.5.1
+  rev: v1.5.5
   hooks:
   - id: remove-tabs
 
 - repo: https://github.com/python-jsonschema/check-jsonschema.git
-  rev: 0.28.6
+  rev: 0.34.0
   hooks:
   - id: check-github-workflows
     files: ^\.github/workflows/[^/]+$
@@ -125,34 +123,34 @@ repos:
       ^.*\.rst$
 
 - repo: https://github.com/pre-commit/pre-commit-hooks.git
-  rev: v4.6.0
+  rev: v6.0.0
   hooks:
   # Side-effects:
   - id: trailing-whitespace
   - id: check-merge-conflict
   - id: double-quote-string-fixer
   - id: end-of-file-fixer
+  - id: fix-byte-order-marker
   # disabled because it doesn't make sense to change pip-tools-managed files
   # - id: requirements-txt-fixer
   #   exclude: >-
   #     (?x)
   #     ^
-  #       requirements/[^/]+.txt
+  #       dependencies/[^/]+.txt
   #     $
   #   files: >-
   #     (?x)
   #     ^
-  #       requirements/[^/]+.in
+  #       dependencies/[^/]+.in
   #     $
 
   # Non-modifying checks:
   - id: name-tests-test
     args:
     - --django
-    exclude: cheroot/test/(helper|webtest|_pytest_plugin).py
+    exclude: cheroot/test/(helper|webtest|_pytest_plugin|threadleakcheck).py
     files: cheroot/test/.+\.py$
   - id: check-added-large-files
-  - id: check-byte-order-marker
   - id: check-case-conflict
   # disabled due to pre-commit/pre-commit-hooks#159
   # - id: check-docstring-first
@@ -168,7 +166,7 @@ repos:
   - id: debug-statements
 
 - repo: https://github.com/adrienverge/yamllint.git
-  rev: v1.32.0
+  rev: v1.37.1
   hooks:
   - id: yamllint
     types:
@@ -178,20 +176,28 @@ repos:
     - --strict
 
 - repo: https://github.com/PyCQA/flake8.git
-  rev: 7.1.1
+  rev: 7.3.0
   hooks:
   - id: flake8
     additional_dependencies:
     - darglint ~= 1.8.1
-    - flake8-2020 ~= 1.7.0
-    - flake8-annotations ~= 2.9.1
-    - flake8-docstrings ~= 1.6.0
-    - flake8-length ~= 0.3.0
-    - flake8-logging-format ~= 0.7.5
-    - flake8-pytest-style ~= 1.6.0
+    - flake8-2020 ~= 1.8.1
+    - flake8-annotations ~= 3.2.0
+    - flake8-length ~= 0.3.1
+    - flake8-logging-format ~= 2024.24.12
+    - flake8-pytest-style ~= 2.1.0
     - flake8-spellcheck ~= 0.28.0
-    - wemake-python-styleguide ~= 1.1.0
-    language_version: python3.11  # flake8-commas doesn't work w/ Python 3.12
+    - wemake-python-styleguide ~= 1.4.0
+
+    # `flake8-logging-format` is incompatible with Python 3.12+
+    # * https://github.com/globality-corp/flake8-logging-format/issues/80
+    #
+    # `flake8-pytest-style` is incompatible with Python 3.13+ due to
+    # `flake8-plugin-utils` accessing removed things:
+    # * https://github.com/m-burst/flake8-pytest-style/issues/361
+    # * https://github.com/afonasev/flake8-plugin-utils/issues/94
+    #
+    language_version: python3.11
 
 - repo: https://github.com/Lucas-C/pre-commit-hooks-lxml.git
   rev: v1.1.0
@@ -199,63 +205,100 @@ repos:
   - id: forbid-html-img-without-alt-text
 
 - repo: https://github.com/pre-commit/mirrors-mypy.git
-  rev: v1.4.1
+  rev: v1.18.2
   hooks:
   - id: mypy
-    alias: mypy-py38
-    name: MyPy, for Python 3.8
+    alias: mypy-py314
+    name: MyPy, for Python 3.14
     additional_dependencies:
-    - lxml
-    - types-backports
-    - types-pyOpenSSL
-    - types-requests
+    - lxml  # dep of `--txt-report`, `--cobertura-xml-report` & `--html-report`
     args:
-    - --install-types
-    - --non-interactive
-    - --python-version=3.8
-    - --txt-report=.tox/.tmp/.mypy/python-3.8
-    - cheroot/
-    pass_filenames: false
-  - id: mypy
-    alias: mypy-py310
-    name: MyPy, for Python 3.10
-    additional_dependencies:
-    - lxml
-    - types-backports
-    - types-pyOpenSSL
-    - types-requests
-    args:
-    - --install-types
-    - --non-interactive
-    - --python-version=3.10
-    - --txt-report=.tox/.tmp/.mypy/python-3.10
-    - cheroot/
+    - --python-version=3.14
+    - --any-exprs-report=.tox/.tmp/.test-results/mypy--py-3.14
+    - --cobertura-xml-report=.tox/.tmp/.test-results/mypy--py-3.14
+    - --html-report=.tox/.tmp/.test-results/mypy--py-3.14
+    - --linecount-report=.tox/.tmp/.test-results/mypy--py-3.14
+    - --linecoverage-report=.tox/.tmp/.test-results/mypy--py-3.14
+    - --lineprecision-report=.tox/.tmp/.test-results/mypy--py-3.14
+    - --txt-report=.tox/.tmp/.test-results/mypy--py-3.14
     pass_filenames: false
   - id: mypy
     alias: mypy-py312
     name: MyPy, for Python 3.12
     additional_dependencies:
-    - lxml
+    - lxml  # dep of `--txt-report`, `--cobertura-xml-report` & `--html-report`
     - types-backports
     - types-pyOpenSSL
     - types-requests
     args:
-    - --install-types
-    - --non-interactive
     - --python-version=3.12
-    - --txt-report=.tox/.tmp/.mypy/python-3.12
+    - --any-exprs-report=.tox/.tmp/.test-results/mypy--py-3.12
+    - --cobertura-xml-report=.tox/.tmp/.test-results/mypy--py-3.12
+    - --html-report=.tox/.tmp/.test-results/mypy--py-3.12
+    - --linecount-report=.tox/.tmp/.test-results/mypy--py-3.12
+    - --linecoverage-report=.tox/.tmp/.test-results/mypy--py-3.12
+    - --lineprecision-report=.tox/.tmp/.test-results/mypy--py-3.12
+    - --txt-report=.tox/.tmp/.test-results/mypy--py-3.12
+    pass_filenames: false
+  - id: mypy
+    alias: mypy-py310
+    name: MyPy, for Python 3.10
+    additional_dependencies:
+    - lxml  # dep of `--txt-report`, `--cobertura-xml-report` & `--html-report`
+    - types-backports
+    - types-pyOpenSSL
+    - types-requests
+    args:
+    - --python-version=3.10
+    - --any-exprs-report=.tox/.tmp/.test-results/mypy--py-3.10
+    - --cobertura-xml-report=.tox/.tmp/.test-results/mypy--py-3.10
+    - --html-report=.tox/.tmp/.test-results/mypy--py-3.10
+    - --linecount-report=.tox/.tmp/.test-results/mypy--py-3.10
+    - --linecoverage-report=.tox/.tmp/.test-results/mypy--py-3.10
+    - --lineprecision-report=.tox/.tmp/.test-results/mypy--py-3.10
+    - --txt-report=.tox/.tmp/.test-results/mypy--py-3.10
+    pass_filenames: false
+
+- repo: https://github.com/pre-commit/mirrors-mypy.git
+  rev: v1.14.1  # the last MyPy version to support Python 3.8
+  hooks:
+  - id: mypy
+    alias: mypy-py38
+    name: MyPy 1.14.1, for Python 3.8
+    additional_dependencies:
+    - lxml  # dep of `--txt-report`, `--cobertura-xml-report` & `--html-report`
+    - types-backports
+    - types-pyOpenSSL
+    - types-requests
+    args:
+    - --python-version=3.8
+    - --any-exprs-report=.tox/.tmp/.test-results/mypy--py-3.8
+    - --cobertura-xml-report=.tox/.tmp/.test-results/mypy--py-3.8
+    - --html-report=.tox/.tmp/.test-results/mypy--py-3.8
+    - --linecount-report=.tox/.tmp/.test-results/mypy--py-3.8
+    - --linecoverage-report=.tox/.tmp/.test-results/mypy--py-3.8
+    - --lineprecision-report=.tox/.tmp/.test-results/mypy--py-3.8
+    - --txt-report=.tox/.tmp/.test-results/mypy--py-3.8
     - cheroot/
     pass_filenames: false
 
-- repo: local
+- repo: https://github.com/pre-commit/mirrors-mypy.git
+  rev: v1.18.2
   hooks:
-  - id: stubtest
+  - id: mypy
+    alias: mypy-stubtest
     name: MyPy stubtest
-    language: system
-    entry: stubtest
+    additional_dependencies:
+    - .
+    - jaraco.functools
+    - pyOpenSSL
+    # FIXME: Python 3.13+ causes a lot of
+    # FIXME: __firstlineno__/__static_attributes__ is not present in stub
+    language_version: python3.12
+    entry: python -m mypy.stubtest
     args:
     - cheroot
-    - --mypy-config-file=mypy.ini
+    - --mypy-config-file=.mypy.ini
     - --allowlist=stubtest_allowlist.txt
     pass_filenames: false
     types_or:
@@ -274,7 +317,7 @@ repos:
       $
 
 - repo: https://github.com/PyCQA/pylint.git
-  rev: v3.1.0
+  rev: v3.3.9
   hooks:
   - id: pylint
     additional_dependencies:
@@ -287,6 +330,9 @@ repos:
     - pyOpenSSL  # needed by pylint-pytest since it picks up pytest's args
     - pypytools
     - pytest-cov  # needed by pylint-pytest since it picks up pytest's args
+    - pytest-mock  # needed by pylint-pytest since it picks up pytest's args
+    - >-  # needed by pylint-pytest since it picks up pytest's args
+      pytest-rerunfailures
     - pytest-xdist  # needed by pylint-pytest since it picks up pytest's args
     - requests_toolbelt
     - requests_unixsocket

@@ -18,6 +18,11 @@
 # License along with this program.  If not, see
 # <http://www.gnu.org/licenses/>.
 
+"""
+Lossless conversion of raster images to PDF.
+"""
+__version__ = "0.6.3"
+
 import sys
 import os
 import zlib
@@ -37,7 +42,6 @@ if hasattr(GifImagePlugin, "LoadingStrategy"):
 # TiffImagePlugin.DEBUG = True
 from PIL.ExifTags import TAGS
 from datetime import datetime, timezone
-import jp2
 from enum import Enum
 from io import BytesIO
 import logging
@@ -62,7 +66,6 @@ try:
 except ImportError:
     have_pikepdf = False
 
-__version__ = "0.6.1"
 default_dpi = 96.0
 papersizes = {
     "letter": "8.5inx11in",
@@ -434,6 +437,132 @@ class ExifOrientationError(Exception):
     pass
 
 
+class jp2:
+    def __init__(self, data):
+        self.data = data
+
+    @staticmethod
+    def getBox(data, byteStart, noBytes):
+        boxLengthValue = struct.unpack(">I", data[byteStart : byteStart + 4])[0]
+        boxType = data[byteStart + 4 : byteStart + 8]
+        contentsStartOffset = 8
+        if boxLengthValue == 1:
+            boxLengthValue = struct.unpack(">Q", data[byteStart + 8 : byteStart + 16])[
+                0
+            ]
+            contentsStartOffset = 16
+        if boxLengthValue == 0:
+            boxLengthValue = noBytes - byteStart
+        byteEnd = byteStart + boxLengthValue
+        boxContents = data[byteStart + contentsStartOffset : byteEnd]
+        return (boxLengthValue, boxType, byteEnd, boxContents)
+
+    @staticmethod
+    def parse_ihdr(data):
+        height, width, channels, bpp = struct.unpack(">IIHB", data[:11])
+        return width, height, channels, bpp + 1
+
+    @staticmethod
+    def parse_colr(data):
+        meth = struct.unpack(">B", data[0:1])[0]
+        if meth != 1:
+            raise Exception("only enumerated color method supported")
+        enumCS = struct.unpack(">I", data[3:])[0]
+        if enumCS == 16:
+            return "RGB"
+        elif enumCS == 17:
+            return "L"
+        else:
+            raise Exception(
+                "only sRGB and greyscale color space is supported, " "got %d" % enumCS
+            )
+
+    @staticmethod
+    def parse_resc(data):
+        hnum, hden, vnum, vden, hexp, vexp = struct.unpack(">HHHHBB", data)
+        hdpi = ((hnum / hden) * (10**hexp) * 100) / 2.54
+        vdpi = ((vnum / vden) * (10**vexp) * 100) / 2.54
+        return hdpi, vdpi
+
+    @staticmethod
+    def parse_res(data):
+        hdpi, vdpi = None, None
+        noBytes = len(data)
+        byteStart = 0
+        boxLengthValue = 1  # dummy value for while loop condition
+        while byteStart < noBytes and boxLengthValue != 0:
+            boxLengthValue, boxType, byteEnd, boxContents = jp2.getBox(
+                data, byteStart, noBytes
+            )
+            if boxType == b"resc":
+                hdpi, vdpi = jp2.parse_resc(boxContents)
+                break
+        return hdpi, vdpi
+
+    @staticmethod
+    def parse_jp2h(data):
+        width, height, colorspace, hdpi, vdpi = None, None, None, None, None
+        noBytes = len(data)
+        byteStart = 0
+        boxLengthValue = 1  # dummy value for while loop condition
+        while byteStart < noBytes and boxLengthValue != 0:
+            boxLengthValue, boxType, byteEnd, boxContents = jp2.getBox(
+                data, byteStart, noBytes
+            )
+            if boxType == b"ihdr":
+                width, height, channels, bpp = jp2.parse_ihdr(boxContents)
+            elif boxType == b"colr":
+                colorspace = jp2.parse_colr(boxContents)
+            elif boxType == b"res ":
+                hdpi, vdpi = jp2.parse_res(boxContents)
+            byteStart = byteEnd
+        return (width, height, colorspace, hdpi, vdpi, channels, bpp)
+
+    def parsejp2(self):
+        noBytes = len(self.data)
+        byteStart = 0
+        boxLengthValue = 1  # dummy value for while loop condition
+        width, height, colorspace, hdpi, vdpi = None, None, None, None, None
+        while byteStart < noBytes and boxLengthValue != 0:
+            boxLengthValue, boxType, byteEnd, boxContents = jp2.getBox(
+                self.data, byteStart, noBytes
+            )
+            if boxType == b"jp2h":
+                width, height, colorspace, hdpi, vdpi, channels, bpp = jp2.parse_jp2h(
+                    boxContents
+                )
+                break
+            byteStart = byteEnd
+        if not width:
+            raise Exception("no width in jp2 header")
+        if not height:
+            raise Exception("no height in jp2 header")
+        if not colorspace:
+            raise Exception("no colorspace in jp2 header")
+        # retrieving the dpi is optional so we do not error out if not present
+        return (width, height, colorspace, hdpi, vdpi, channels, bpp)
+
+    def parsej2k(self):
+        lsiz, rsiz, xsiz, ysiz, xosiz, yosiz, _, _, _, _, csiz = struct.unpack(
+            ">HHIIIIIIIIH", self.data[4:42]
+        )
+        ssiz = [None] * csiz
+        xrsiz = [None] * csiz
+        yrsiz = [None] * csiz
+        for i in range(csiz):
+            ssiz[i], xrsiz[i], yrsiz[i] = struct.unpack(
+                "BBB", self.data[42 + 3 * i : 42 + 3 * (i + 1)]
+            )
+        assert ssiz == [7, 7, 7]
+        return xsiz - xosiz, ysiz - yosiz, None, None, None, csiz, 8
+
+    def parse(self):
+        if self.data[:4] == b"\xff\x4f\xff\x51":
+            return self.parsej2k()
+        else:
+            return self.parsejp2()
+
+
 # temporary change the attribute of an object using a context manager
 class temp_attr:
     def __init__(self, obj, field, value):
@@ -768,19 +897,27 @@ class pdfdoc(object):
 
 <?xpacket end='w'?>
 """ % (
-            b" pdf:Producer='%s'" % producer.encode("ascii")
-            if producer is not None
-            else b"",
-            b""
-            if creationdate is None and nodate
-            else b"<xmp:ModifyDate>%s</xmp:ModifyDate>"
-            % datetime_to_xmpdate(now if creationdate is None else creationdate).encode(
-                "ascii"
+            (
+                b" pdf:Producer='%s'" % producer.encode("ascii")
+                if producer is not None
+                else b""
             ),
-            b""
-            if moddate is None and nodate
-            else b"<xmp:CreateDate>%s</xmp:CreateDate>"
-            % datetime_to_xmpdate(now if moddate is None else moddate).encode("ascii"),
+            (
+                b""
+                if creationdate is None and nodate
+                else b"<xmp:ModifyDate>%s</xmp:ModifyDate>"
+                % datetime_to_xmpdate(
+                    now if creationdate is None else creationdate
+                ).encode("ascii")
+            ),
+            (
+                b""
+                if moddate is None and nodate
+                else b"<xmp:CreateDate>%s</xmp:CreateDate>"
+                % datetime_to_xmpdate(now if moddate is None else moddate).encode(
+                    "ascii"
+                )
+            ),
         )
 
         if engine != Engine.pikepdf:
@@ -877,14 +1014,16 @@ class pdfdoc(object):
                 PdfName.Indexed,
                 PdfName.DeviceRGB,
                 (len(palette) // 3) - 1,
-                bytes(palette)
-                if self.engine == Engine.pikepdf
-                else PdfString.encode(
-                    [
-                        int.from_bytes(palette[i : i + 3], "big")
-                        for i in range(0, len(palette), 3)
-                    ],
-                    hextype=True,
+                (
+                    bytes(palette)
+                    if self.engine == Engine.pikepdf
+                    else PdfString.encode(
+                        [
+                            int.from_bytes(palette[i : i + 3], "big")
+                            for i in range(0, len(palette), 3)
+                        ],
+                        hextype=True,
+                    )
                 ),
             ]
         else:
@@ -1309,7 +1448,12 @@ def pil_get_dpi(imgdata, imgformat, default_dpi):
     if ndpi is None:
         # the PNG plugin of PIL adds the undocumented "aspect" field instead of
         # the "dpi" field if the PNG pHYs chunk unit is not set to meters
-        if imgformat == ImageFormat.PNG and imgdata.info.get("aspect") is not None:
+        if (
+            imgformat == ImageFormat.PNG
+            and imgdata.info.get("aspect") is not None
+            and imgdata.info["aspect"][0] != 0
+            and imgdata.info["aspect"][1] != 0
+        ):
             aspect = imgdata.info["aspect"]
             # make sure not to go below the default dpi
             if aspect[0] > aspect[1]:
@@ -1350,7 +1494,7 @@ def get_imgmetadata(
     if imgformat == ImageFormat.JPEG2000 and rawdata is not None and imgdata is None:
         # this codepath gets called if the PIL installation is not able to
         # handle JPEG2000 files
-        imgwidthpx, imgheightpx, ics, hdpi, vdpi, channels, bpp = jp2.parse(rawdata)
+        imgwidthpx, imgheightpx, ics, hdpi, vdpi, channels, bpp = jp2(rawdata).parse()
 
         if hdpi is None:
             hdpi = default_dpi
@@ -1402,6 +1546,20 @@ def get_imgmetadata(
                 raise AlphaChannelError(
                     "Refusing to work with multiple >8bit channels."
                 )
+    elif (
+        imgformat == ImageFormat.TIFF
+        and imgdata is not None
+        and (ics in ["RGBA", "LA"] or "transparency" in imgdata.info)
+    ):
+        depth = max(imgdata.tag_v2.get(TiffImagePlugin.BITSPERSAMPLE, [1]))
+        if depth > 8:
+            logger.warning("Image with transparency and a bit depth of %d." % depth)
+            logger.warning("This is unsupported due to PIL limitations.")
+            logger.warning(
+                "If you accept a lossy conversion, you can manually convert "
+                "your images to 8 bit using `convert -depth 8` from imagemagick"
+            )
+            raise AlphaChannelError("Refusing to work with multiple >8bit channels.")
     elif ics in ["LA", "PA", "RGBA"] or (
         imgdata is not None and "transparency" in imgdata.info
     ):
@@ -1891,7 +2049,7 @@ def read_images(
         imgdata = Image.open(im)
     except IOError as e:
         # test if it is a jpeg2000 image
-        if rawdata[:12] == b"\x00\x00\x00\x0C\x6A\x50\x20\x20\x0D\x0A\x87\x0A":
+        if rawdata[:12] == b"\x00\x00\x00\x0c\x6a\x50\x20\x20\x0d\x0a\x87\x0a":
             # image is jpeg2000
             imgformat = ImageFormat.JPEG2000
         elif rawdata[:8] == b"\x97\x4a\x42\x32\x0d\x0a\x1a\x0a":
@@ -1982,7 +2140,7 @@ def read_images(
         cleanup()
         depth = 8
         if imgformat == ImageFormat.JPEG2000:
-            *_, depth = jp2.parse(rawdata)
+            *_, depth = jp2(rawdata).parse()
         return [
             (
                 color,
@@ -3544,9 +3702,9 @@ def gui():
             author=args["author"].get() if args["author"].get() else None,
             creator=args["creator"].get() if args["creator"].get() else None,
             producer=args["producer"].get() if args["producer"].get() else None,
-            creationdate=args["creationdate"].get()
-            if args["creationdate"].get()
-            else None,
+            creationdate=(
+                args["creationdate"].get() if args["creationdate"].get() else None
+            ),
             moddate=args["moddate"].get() if args["moddate"].get() else None,
             subject=args["subject"].get() if args["subject"].get() else None,
             keywords=args["keywords"].get() if args["keywords"].get() else None,
@@ -3554,9 +3712,11 @@ def gui():
             nodate=args["nodate"].get(),
             layout_fun=layout_fun,
             viewer_panes=viewer_panesarg,
-            viewer_initial_page=args["viewer_initial_page"].get()
-            if args["viewer_initial_page"].get() > 1
-            else None,
+            viewer_initial_page=(
+                args["viewer_initial_page"].get()
+                if args["viewer_initial_page"].get() > 1
+                else None
+            ),
             viewer_magnification=viewer_magnificationarg,
             viewer_page_layout=viewer_page_layoutarg,
             viewer_fit_window=(args["viewer_fit_window"].get() or None),

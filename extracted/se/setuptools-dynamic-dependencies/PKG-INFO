@@ -1,0 +1,138 @@
+Metadata-Version: 2.2
+Name: setuptools_dynamic_dependencies
+Version: 1.0.0
+Summary: A setuptools plugin that allows for dependencies that are dependent on the package's version number.
+Author-email: Russell Keith-Magee <russell@keith-magee.com>
+Maintainer-email: Russell Keith-Magee <russell@keith-magee.com>
+License: Copyright (c) 2022 Russell Keith-Magee.
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without modification,
+        are permitted provided that the following conditions are met:
+        
+            1. Redistributions of source code must retain the above copyright notice,
+               this list of conditions and the following disclaimer.
+        
+            2. Redistributions in binary form must reproduce the above copyright
+               notice, this list of conditions and the following disclaimer in the
+               documentation and/or other materials provided with the distribution.
+        
+            3. Neither the name of setuptools_dynamic_dependencies nor the names of its
+               contributors may be used to endorse or promote products derived from this
+               software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+        ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+        (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+        LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+        ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+        SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: Project, https://github.com/beeware/setuptools_dynamic_dependencies
+Project-URL: Funding, https://beeware.org/contributing/membership/
+Project-URL: Tracker, https://github.com/beeware/setuptools_dynamic_dependencies/issues
+Project-URL: Source, https://github.com/beeware/setuptools_dynamic_dependencies
+Keywords: setuptools,dynamic,dependencies,optional-dependencies,install_requires,extras_require
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: System :: Software Distribution
+Classifier: Topic :: Software Development
+Classifier: Topic :: Utilities
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: AUTHORS
+Requires-Dist: setuptools>=66.0
+Requires-Dist: setuptools_scm>=8.0
+Provides-Extra: dev
+Requires-Dist: build==1.2.2.post1; extra == "dev"
+Requires-Dist: pre-commit==4.0.1; extra == "dev"
+Requires-Dist: setuptools_scm==8.1.0; extra == "dev"
+Requires-Dist: tox==4.23.2; extra == "dev"
+Requires-Dist: twine==6.0.1; extra == "dev"
+Requires-Dist: wheel==0.45.1; extra == "dev"
+
+[<img src="http://beeware.org/static/images/defaultlogo.png" width="72px" alt="Generic BeeWare Logo">](https://beeware.org/)
+
+# setuptools_dynamic_dependencies
+
+[![Python Versions](https://img.shields.io/pypi/pyversions/setuptools_dynamic_dependencies.svg)](https://pypi.python.org/pypi/setuptools_dynamic_dependencies)
+[![PyPI Version](https://img.shields.io/pypi/v/setuptools_dynamic_dependencies.svg)](https://pypi.python.org/pypi/setuptools_dynamic_dependencies)
+[![Maturity](https://img.shields.io/pypi/status/setuptools_dynamic_dependencies.svg)](https://pypi.python.org/pypi/setuptools_dynamic_dependencies)
+[![BSD License](https://img.shields.io/pypi/l/setuptools_dynamic_dependencies.svg)](https://github.com/beeware/setuptools_dynamic_dependencies/blob/master/LICENSE)
+[![Discord server](https://img.shields.io/discord/836455665257021440?label=Discord%20Chat&logo=discord&style=plastic)](https://beeware.org/bee/chat/)
+
+`setuptools_dynamic_dependencies` is a setuptools plugin that allows you to define project
+requirements that are dynamically dependent on other properties (such as project
+version). This can be useful in monorepositories which contain a "core" package and a
+number of "backend" packages, and you want to enforce a version dependency between the
+backend and the core.
+
+## Usage
+
+You *must* be using a `pyproject.toml`-based project configuration. `setup.cfg` and
+`setup.py` configurations are not supported.
+
+Add `setuptools_dynamic_dependencies` to the `build-system` requirements for your project:
+
+    [build-system]
+    requires = ["setuptools_dynamic_dependencies"]
+
+Declare "dependencies" as being dynamic in your `[project]` table:
+
+    [project]
+    dynamic = ["dependencies"]
+
+Then, add a `[tool.setuptools_dynamic_dependencies]` section to your configuration. In
+this section, add an `dependencies` key for any requirements. In the following example,
+`dynamic-package` will be pinned to the same version as the package being built:
+
+    [tool.setuptools_dynamic_requires]
+    dependencies = [
+        "dynamic-package == {version}"
+    ]
+
+So - if this was the `pyproject.toml` for "myproject", and you were building v1.2.3, the
+dependency would be set to `dynamic_package == 1.2.3`. This `version` value can come
+from a `setuptool_scm` dynamic version, if required.
+
+You can also specify a `[tool.setuptools_dynamic_dependencies.optional-dependencies]` to
+define dynamic optional requirements:
+
+    [tool.setuptools_dynamic_dependencies.optional-dependencies]
+    feature = [
+        "dynamic-package == {version}"
+    ]
+
+## Community
+
+`setuptools_dynamic_dependencies` is part of the [BeeWare suite](http://beeware.org). You
+can talk to the community through:
+
+- [@pybeeware on Twitter](https://twitter.com/pybeeware)
+- [Discord](https://beeware.org/bee/chat/)
+
+We foster a welcoming and respectful community as described in our [BeeWare
+Community Code of Conduct](http://beeware.org/community/behavior/).
+
+## Contributing
+
+If you experience problems with `setuptools_dynamic_dependencies`, [log them on
+GitHub](https://github.com/beeware/setuptools_dynamic_dependencies/issues). If you want
+to contribute code, please [fork the
+code](https://github.com/beeware/setuptools_dynamic_dependencies) and [submit a pull
+request](https://github.com/beeware/setuptools_dynamic_dependencies/pulls).

@@ -42,6 +42,11 @@ def __dir__() -> list[str]:
     return __all__
 
 
+# User-specified arguments will be a regular string
+class DefaultStr(str):
+    __slots__ = ()
+
+
 ReuseVenvType = Literal["no", "yes", "never", "always"]
 
 options = _option_set.OptionSet(
@@ -421,15 +426,12 @@ options.add_options(
         help="Arguments following ``--`` that are passed through to the session(s).",
         finalizer_func=_posargs_finalizer,
     ),
-    _option_set.Option(
+    *_option_set.make_flag_pair(
         "verbose",
-        "-v",
-        "--verbose",
+        ("-v", "--verbose"),
+        ("--no-verbose",),
         group=options.groups["reporting"],
-        action="store_true",
-        default=False,
         help="Logs the output of all commands run including commands marked silent.",
-        noxfile=True,
     ),
     _option_set.Option(
         "add_timestamp",
@@ -518,7 +520,7 @@ options.add_options(
         "-f",
         "--noxfile",
         group=options.groups["general"],
-        default="noxfile.py",
+        default=DefaultStr("noxfile.py"),
         help="Location of the Python file containing Nox sessions.",
     ),
     _option_set.Option(
@@ -529,6 +531,20 @@ options.add_options(
         group=options.groups["environment"],
         help="Directory where Nox will store virtualenvs, this is ``.nox`` by default.",
         completer=argcomplete.completers.DirectoriesCompleter(),  # type: ignore[no-untyped-call]
+    ),
+    _option_set.Option(
+        "download_python",
+        "--download-python",
+        "--download-python",
+        noxfile=True,
+        group=options.groups["python"],
+        default=lambda: os.getenv("NOX_DOWNLOAD_PYTHON"),
+        help=(
+            "When should nox download python standalone builds to run the sessions,"
+            " defaults to 'auto' which will download when the version requested can't"
+            " be found in the running environment."
+        ),
+        choices=["auto", "never", "always"],
     ),
     _option_set.Option(
         "extra_pythons",

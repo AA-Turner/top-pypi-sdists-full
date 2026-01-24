@@ -268,7 +268,7 @@ Keyword arguments:
 - withHeader (boolean; optional):
     Determines whether header with file names and copy button should
     be rendered, `True` by default."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'CodeHighlightTabs'

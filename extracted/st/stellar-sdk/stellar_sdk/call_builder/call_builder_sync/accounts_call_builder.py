@@ -1,4 +1,5 @@
-from typing import Any, Dict, Generator
+from collections.abc import Generator
+from typing import Any
 
 from ...call_builder.base.base_accounts_call_builder import BaseAccountsCallBuilder
 from ...call_builder.call_builder_sync.base_call_builder import BaseCallBuilder
@@ -11,7 +12,7 @@ class AccountsCallBuilder(BaseCallBuilder, BaseAccountsCallBuilder):
     """Creates a new :class:`AccountsCallBuilder` pointed to server defined by horizon_url.
     Do not create this object directly, use :func:`stellar_sdk.Server.accounts`.
 
-    See `List All Accounts <https://developers.stellar.org/api/resources/accounts/list/>`__ for more information.
+    See `List All Accounts <https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-all-accounts>`__ for more information.
 
     :param horizon_url: Horizon server URL.
     :param client: The client instance used to send request.
@@ -22,7 +23,7 @@ class AccountsCallBuilder(BaseCallBuilder, BaseAccountsCallBuilder):
 
     def stream(
         self,
-    ) -> Generator[Dict[str, Any], None, None]:
+    ) -> Generator[dict[str, Any], None, None]:
         """Creates an EventSource that listens for events from the `Accounts` endpoint.
 
         See `Streaming <https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/streaming>`__ for more information.

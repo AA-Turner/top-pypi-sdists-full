@@ -33,12 +33,13 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+
 from __future__ import annotations
 
 import io
 import os
 import re
-from typing import Union
+import typing
 
 import numpy as np
 
@@ -56,7 +57,7 @@ def write_supercells_with_displacements(
 ):
     """Write supercells with displacements to files."""
     write_lammps(pre_filename, supercell)
-    for i, cell in zip(ids, cells_with_displacements):
+    for i, cell in zip(ids, cells_with_displacements, strict=True):
         filename = f"{pre_filename}-{i:0{width}d}"
         write_lammps(filename, cell)
 
@@ -169,7 +170,9 @@ class LammpsStructureDumper:
         lines.append("")
         lines.append("Atoms")
         lines.append("")
-        for i, (position, number) in enumerate(zip(cell.positions, cell.numbers)):
+        for i, (position, number) in enumerate(
+            zip(cell.positions, cell.numbers, strict=True)
+        ):
             pos_str = f"{position[0]} {position[1]} {position[2]}"
             lines.append(f"{i + 1} {usyms[num_map[number]]} {pos_str}")
         self._lines = lines
@@ -202,7 +205,7 @@ class LammpsForcesLoader:
         """Init method."""
         self._forces = None
 
-    def load(self, fp: Union[str, bytes, os.PathLike, io.IOBase]):
+    def load(self, fp: str | os.PathLike | typing.IO):
         """Load and parse LAMMPS structure file.
 
         Parameters
@@ -218,7 +221,7 @@ class LammpsForcesLoader:
         """Return forces."""
         return self._forces
 
-    def _parse(self, fp: io.IOBase, column_start=5, column_end=8):
+    def _parse(self, fp: typing.IO, column_start=5, column_end=8):
         """Parse lines of LAMMPS output file."""
         num_atoms = -1
         for line in fp:
@@ -278,7 +281,7 @@ class LammpsStructureLoader:
         """Return parsed cell."""
         return self._cell
 
-    def load(self, fp: Union[str, bytes, os.PathLike, io.IOBase]):
+    def load(self, fp: str | os.PathLike | typing.IO):
         """Load and parse LAMMPS structure file.
 
         Parameters
@@ -390,7 +393,7 @@ class LammpsStructureLoader:
         self._header_tags[key] = int(line.split("#")[0])
 
 
-def _load(self, fp: Union[str, bytes, os.PathLike, io.IOBase], return_lines=True):
+def _load(self, fp: str | os.PathLike | typing.IO, return_lines=True):
     """Load and parse LAMMPS structure file.
 
     Parameters

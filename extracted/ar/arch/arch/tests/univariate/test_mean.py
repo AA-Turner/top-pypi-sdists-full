@@ -1,3 +1,4 @@
+from arch.compat.matplotlib import HAS_MATPLOTLIB
 from arch.compat.pandas import MONTH_END
 
 from io import StringIO
@@ -25,10 +26,11 @@ from scipy.optimize import OptimizeResult
 import statsmodels.regression.linear_model as smlm
 import statsmodels.tools as smtools
 
+from arch._typing import Literal
 from arch.data import sp500
-from arch.typing import Literal
 from arch.univariate.base import (
     ARCHModel,
+    ARCHModelFixedResult,
     ARCHModelForecast,
     ARCHModelResult,
     _align_forecast,
@@ -62,19 +64,13 @@ try:
 
     USE_CYTHON = True
 except ImportError:
-    import arch.univariate.recursions_python  # noqa
+    import arch.univariate.recursions_python
 
 if USE_CYTHON:
     rec: types.ModuleType = arch.univariate.recursions
 else:
     rec = arch.univariate.recursions_python
 
-try:
-    import matplotlib.pyplot  # noqa
-
-    HAS_MATPLOTLIB = True
-except ImportError:
-    HAS_MATPLOTLIB = False
 
 RTOL = 1e-4 if struct.calcsize("P") < 8 else 1e-6
 DISPLAY: Literal["off", "final"] = "off"
@@ -85,7 +81,7 @@ X = SP500 * 0.01 + SP500.std() * rs.standard_normal(SP500.shape)
 
 
 def close_plots():
-    import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt  # noqa: PLC0415
 
     plt.close("all")
 
@@ -139,7 +135,7 @@ volatility_processes = analytic_volatility_processes + other_volatility_processe
         for a, b in itertools.product(simple_mean_models, analytic_volatility_processes)
     ],
 )
-def forecastable_model(request):
+def forecastable_model(request) -> tuple[ARCHModelResult, ARCHModelFixedResult]:
     mod: ARCHModel
     vol: VolatilityProcess
     mod, vol = request.param
@@ -148,13 +144,23 @@ def forecastable_model(request):
     return res, mod.fix(res.params)
 
 
+FIT_FIXED_PARAMS = []
+count = 0
+for model, vol in itertools.product(mean_models, volatility_processes):
+    count += isinstance(vol, FIGARCH)
+    marks = pytest.mark.slow if isinstance(vol, FIGARCH) and count > 1 else ()
+    FIT_FIXED_PARAMS.append(pytest.param((model, vol), marks=marks))
+
+FIT_FIXED_IDS = [
+    f"{param[0][0].__class__.__name__}-{param[0][1]}{' (SLOW)' if len(mark) else ''}"
+    for param, mark, _ in FIT_FIXED_PARAMS
+]
+
+
 @pytest.fixture(
     scope="module",
-    params=list(itertools.product(mean_models, volatility_processes)),
-    ids=[
-        f"{a.__class__.__name__}-{b}"
-        for a, b in itertools.product(mean_models, volatility_processes)
-    ],
+    params=FIT_FIXED_PARAMS,
+    ids=FIT_FIXED_IDS,
 )
 def fit_fixed_models(request):
     mod: ARCHModel
@@ -177,7 +183,7 @@ class TestMeanModel:
         random_state = np.random.RandomState(seed)
         zm.distribution = Normal(seed=random_state)
         sim_data = zm.simulate(np.array([0.1, 0.1, 0.8]), 1000)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Both initial value and x must"):
             zm.simulate(np.array([0.1, 0.1, 0.8]), 1000, initial_value=3.0)
         date_index = pd.date_range("2000-12-31", periods=1000, freq="W")
         cls.y = sim_data.data.values
@@ -200,7 +206,7 @@ class TestMeanModel:
         parameters = np.array([5.0, 1.0])
         cm.simulate(parameters, self.T)
         assert_equal(cm.num_params, 1)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Both initial value and x must"):
             cm.simulate(parameters, self.T, x=np.array(10))
         bounds = cm.bounds()
         assert_equal(bounds, [(-np.inf, np.inf)])
@@ -228,7 +234,7 @@ class TestMeanModel:
         assert isinstance(cm.__repr__(), str)
         assert isinstance(cm.__str__(), str)
         assert "<strong>" in cm._repr_html_()
-        with pytest.raises(ValueError, match="horizon must be an integer >= 1"):
+        with pytest.raises(ValueError, match=r"horizon must be an integer >= 1"):
             res.forecast(horizon=0, start=20)
 
     def test_zero_mean(self):
@@ -294,7 +300,7 @@ class TestMeanModel:
         assert_equal(a, np.empty((0, 5)))
         assert_equal(b, np.empty(0))
         res = harx.fit(disp=DISPLAY)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"params have incorrect"):
             res.forecast(params=np.array([1.0, 1.0]))
         nobs = self.T - 22
         rhs = np.ones((nobs, 5))
@@ -318,17 +324,17 @@ class TestMeanModel:
         assert isinstance(res.__repr__(), str)
 
     def test_harx_error(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Input to lags must be non-negative"):
             HARX(self.y, self.x, lags=[1, -5, 22])
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"When using the 1-d format of lags"):
             HARX(self.y, self.x, lags=[0, 1, 5, 22])
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"nput to lags must be non-negative"):
             HARX(self.y, self.x, lags=[[-1], [3]])
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"When using a 2-d array, all values"):
             HARX(self.y, self.x, lags=[[0], [0]])
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"lags contains redundant entries"):
             HARX(self.y, self.x, lags=[[1, 1, 3], [2, 3, 3]])
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Incorrect format for lags"):
             HARX(self.y, self.x, lags=[[[1], [3]]])
 
     @pytest.mark.parametrize("constant", [True, False])
@@ -368,7 +374,7 @@ class TestMeanModel:
         params = np.linalg.pinv(rhs).dot(lhs)
         assert_almost_equal(params, res.params[:-1])
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Due to backcasting and"):
             res.forecast(horizon=6, start=0)
         forecasts = res.forecast(horizon=6)
         t = self.y.shape[0]
@@ -552,14 +558,14 @@ class TestMeanModel:
         assert "lags: none" in ar.__str__()
 
     @pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")
-    def test_ar_plot(self):
+    def test_ar_plot(self, agg_backend):
         ar = ARX(self.y, lags=1, volatility=GARCH(), distribution=StudentsT())
         res = ar.fit(disp=DISPLAY, update_freq=UPDATE_FREQ, cov_type="mle")
         res.plot()
         res.plot(annualize="D")
         res.plot(annualize="W")
         res.plot(annualize="M")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"annualize not recognized"):
             res.plot(annualize="unknown")
 
         close_plots()
@@ -682,11 +688,11 @@ class TestMeanModel:
         am = arch_model(self.y, vol="aparch")
         assert isinstance(am.volatility, APARCH)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Unknown model type in mean"):
             arch_model(self.y, mean="unknown")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Unknown model type in vol"):
             arch_model(self.y, vol="unknown")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Unknown model type in dist"):
             arch_model(self.y, dist="unknown")
 
         am.fit(disp=DISPLAY)
@@ -716,36 +722,42 @@ class TestMeanModel:
         res.summary()
 
     def test_errors(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"lags does not follow a supported format"
+        ):
             ARX(self.y, lags=np.array([[1, 2], [3, 4]]))
         x = self.rng.randn(self.y.shape[0] + 1, 1)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"x must be nobs by n"):
             ARX(self.y, x=x)
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"When using a 2-d array, lags must by k by 2"
+        ):
             HARX(self.y, lags=np.eye(3))
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"lags must be a positive integer"):
             ARX(self.y, lags=-1)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"lags must be a positive integer"):
             ARX(self.y, x=self.rng.randn(1, 1), lags=-1)
 
         ar = ARX(self.y, lags=1)
-        with pytest.raises(ValueError):
-            d = Normal()
+        d = Normal()
+        with pytest.raises(ValueError, match=r"Must subclass VolatilityProcess"):
             ar.volatility = d
 
-        with pytest.raises(ValueError):
-            v = GARCH()
+        v = GARCH()
+        with pytest.raises(ValueError, match=r"Must subclass Distribution"):
             ar.distribution = v
         x = self.rng.randn(1000, 1)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"x must have nobs \+ burn rows"):
             ar.simulate(np.ones(5), 100, x=x)
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r"params has the wrong number of elements"
+        ):
             ar.simulate(np.ones(5), 100)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"initial_value has the wrong shape"):
             ar.simulate(np.ones(3), 100, initial_value=self.rng.standard_normal(10))
 
-        with pytest.raises(ValueError):
-            ar.volatility = ConstantVariance()
+        ar.volatility = ConstantVariance()
+        with pytest.raises(ValueError, match=r"Unknown cov_type"):
             ar.fit(cov_type="unknown")
 
     def test_warnings(self):
@@ -795,7 +807,7 @@ class TestMeanModel:
         sv = np.array([1.0, 0.3, 0.8])
         with warnings.catch_warnings(record=True) as w:
             am.fit(starting_values=sv, update_freq=UPDATE_FREQ, disp=DISPLAY)
-            assert_equal(len(w), 1)
+            assert len(w) == 1, str(w)
 
     def test_no_param_volatility(self):
         cm = ConstantMean(self.y)
@@ -916,7 +928,7 @@ class TestMeanModel:
             direct.iloc[: (i + 1), i] = np.nan
         assert_frame_equal(aligned, direct)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Unknown alignment"):
             _align_forecast(forecasts, align="unknown")
 
     def test_fixed_user_parameters(self):
@@ -1009,19 +1021,21 @@ class TestMeanModel:
         )
         am = arch_model(y, mean="ARX", lags=10, p=5, q=0)
 
-        with pytest.warns(DataScaleWarning):
+        with pytest.warns(DataScaleWarning, match=r"y is poorly scaled"):
             am.fit(disp=DISPLAY)
+
+        with pytest.warns(DataScaleWarning, match=r"y is poorly scaled"):
             am.fit(show_warning=True, disp=DISPLAY)
 
-        with pytest.warns(DataScaleWarning):
+        with pytest.warns(DataScaleWarning, match=r"y is poorly scaled"):
             am.fit(show_warning=False, disp=DISPLAY)
 
     def test_first_after_last(self):
         am = arch_model(self.y_series)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"first_obs and last_obs produce"):
             am.fit(disp=DISPLAY, first_obs=500, last_obs=480)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"first_obs and last_obs produce"):
             am.fit(
                 disp=DISPLAY,
                 first_obs=self.y_series.index[500],
@@ -1126,16 +1140,16 @@ class TestMeanModel:
         assert std.loglikelihood >= loose.loglikelihood
         with warnings.catch_warnings(record=True) as w:
             short = am.fit(options={"maxiter": 3}, disp=DISPLAY)
-        assert len(w) == 1
+        assert len(w) == 1, str(w)
         assert std.loglikelihood >= short.loglikelihood
         assert short.convergence_flag != 0
 
     def test_little_or_no_data(self):
         mod = HARX(self.y[:24], lags=[1, 5, 22])
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Insufficient data, 4 regressors"):
             mod.fit(disp=DISPLAY)
         mod = HARX(None, lags=[1, 5, 22])
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError, match=r"Cannot estimate model without"):
             mod.fit(disp=DISPLAY)
 
     def test_empty_mean(self):
@@ -1175,10 +1189,10 @@ def test_backcast(volatility, simulated_data):
 
 def test_backcast_error(simulated_data):
     zm = ZeroMean(simulated_data, volatility=GARCH())
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"User backcast value"):
         zm.fit(backcast=-1, disp=DISPLAY)
     zm = ZeroMean(simulated_data, volatility=RiskMetrics2006())
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"User backcast must be either"):
         zm.fit(backcast=np.ones(100), disp=DISPLAY)
 
 
@@ -1242,7 +1256,7 @@ def test_autoscale():
     am.distribution = dist
     data = am.simulate([0, 0.0001, 0.05, 0.94], nobs=1000)
     am = arch_model(data.data)
-    with pytest.warns(DataScaleWarning):
+    with pytest.warns(DataScaleWarning, match=r"y is poorly scaled"):
         res = am.fit(disp=DISPLAY)
     assert_almost_equal(res.scale, 1.0)
 
@@ -1264,7 +1278,7 @@ def test_autoscale():
 
 def test_no_variance():
     mod = arch_model(np.ones(100))
-    with pytest.warns(ConvergenceWarning):
+    with pytest.warns(ConvergenceWarning, match=r"The optimizer returned"):
         mod.fit(disp=DISPLAY)
 
 
@@ -1310,15 +1324,15 @@ def test_backcast_restricted(simulated_data):
 def test_missing_data_exception():
     y = np.random.standard_normal(1000)
     y[::29] = np.nan
-    with pytest.raises(ValueError, match="NaN or inf values"):
+    with pytest.raises(ValueError, match=r"NaN or inf values"):
         arch_model(y)
     y = np.random.standard_normal(1000)
     y[::53] = np.inf
-    with pytest.raises(ValueError, match="NaN or inf values"):
+    with pytest.raises(ValueError, match=r"NaN or inf values"):
         arch_model(y)
     y[::29] = np.nan
     y[::53] = np.inf
-    with pytest.raises(ValueError, match="NaN or inf values"):
+    with pytest.raises(ValueError, match=r"NaN or inf values"):
         arch_model(y)
 
 
@@ -1334,9 +1348,9 @@ def test_parameterless_fit(first_obs, last_obs, vol):
 
 
 def test_invalid_vol_dist():
-    with pytest.raises(TypeError, match="volatility must inherit"):
+    with pytest.raises(TypeError, match=r"volatility must inherit"):
         ConstantMean(SP500, volatility="GARCH")
-    with pytest.raises(TypeError, match="distribution must inherit"):
+    with pytest.raises(TypeError, match=r"distribution must inherit"):
         ConstantMean(SP500, distribution="Skew-t")
 
 
@@ -1350,10 +1364,10 @@ def test_param_cov():
 
 
 @pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")
-def test_plot_bad_index():
-    import matplotlib.pyplot as plt
+def test_plot_bad_index(agg_backend):
+    import matplotlib.pyplot as plt  # noqa: PLC0415
 
-    idx = sorted(f"{a}{b}{c}" for a, b, c, in product(*([ascii_lowercase] * 3)))
+    idx = sorted(f"{a}{b}{c}" for a, b, c in product(*([ascii_lowercase] * 3)))
     sp500_copy = SP500.copy()
     sp500_copy.index = idx[: sp500_copy.shape[0]]
     res = ConstantMean(sp500_copy).fit(disp=False)
@@ -1417,6 +1431,7 @@ def test_all_attr_numpy_pandas(use_pandas):
             getattr(res, attr)
 
 
+@pytest.mark.slow
 def test_figarch_power():
     base = ConstantMean(SP500, volatility=FIGARCH())
     fiavgarch = ConstantMean(SP500, volatility=FIGARCH(power=1.0))
@@ -1475,7 +1490,12 @@ def test_fixed_equivalence(fit_fixed_models):
 
 
 @pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")
-def test_fixed_equivalence_plots(fit_fixed_models):
+def test_fixed_equivalence_plots(fit_fixed_models, agg_backend):
+    import matplotlib as mpl  # noqa: PLC0415
+
+    backend = mpl.get_backend()
+    mpl.use("agg")
+
     res, res_fixed = fit_fixed_models
 
     fig = res.plot()
@@ -1483,6 +1503,7 @@ def test_fixed_equivalence_plots(fit_fixed_models):
     assert isinstance(fig, type(fixed_fig))
 
     close_plots()
+    mpl.use(backend)
 
 
 @pytest.mark.slow
@@ -1505,7 +1526,7 @@ def test_fixed_equivalence_forecastable(forecastable_model, simulations):
 
 @pytest.mark.slow
 @pytest.mark.skipif(not HAS_MATPLOTLIB, reason="matplotlib not installed")
-def test_fixed_equivalence_forecastable_plots(forecastable_model):
+def test_fixed_equivalence_forecastable_plots(forecastable_model, agg_backend):
     res, res_fixed = forecastable_model
     fig1 = res.hedgehog_plot(start=SP500.shape[0] - 25)
     fig2 = res_fixed.hedgehog_plot(start=SP500.shape[0] - 25)

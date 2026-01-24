@@ -1,4 +1,5 @@
 from .circuits import Circuits, CircuitTerminations
+from .core import DataSources, Jobs, ObjectChanges
 from .dcim import (
     Cables,
     ConsolePorts,
@@ -23,6 +24,9 @@ from .wireless import WirelessLans
 CONTENT_TYPE_MAPPER = {
     "circuits.circuit": Circuits,
     "circuits.circuittermination": CircuitTerminations,
+    "core.datasource": DataSources,
+    "core.job": Jobs,
+    "core.objectchange": ObjectChanges,
     "dcim.cable": Cables,
     "dcim.cablepath": None,
     "dcim.cabletermination": Termination,
@@ -72,7 +76,6 @@ CONTENT_TYPE_MAPPER = {
     "extras.imageattachment": None,
     "extras.jobresult": None,
     "extras.journalentry": None,
-    "extras.objectchange": None,
     "extras.report": None,
     "extras.script": None,
     "extras.tag": None,
@@ -110,3 +113,5 @@ CONTENT_TYPE_MAPPER = {
     "wireless.WirelessLANGroup": None,
     "wireless.wirelesslink": None,
 }
+
+TYPE_CONTENT_MAPPER = {v: k for k, v in CONTENT_TYPE_MAPPER.items() if v is not None}

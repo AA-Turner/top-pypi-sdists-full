@@ -1,29 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-reportlog
-Version: 0.4.0
+Version: 1.0.0
 Summary: Replacement for the --resultlog option, focused in simplicity and extensibility
-Home-page: https://github.com/pytest-dev/pytest-reportlog
-Author: Bruno Oliveira
-Author-email: nicoddemus@gmail.com
-License: MIT
+Project-URL: Homepage, https://github.com/pytest-dev/pytest-reportlog
+Author-email: Bruno Oliveira <bruno@pytest.org>
+License-Expression: MIT
+License-File: LICENSE
 Keywords: pytest
-Platform: any
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.7
-Description-Content-Type: text/x-rst
+Requires-Python: >=3.10
+Requires-Dist: pytest
 Provides-Extra: dev
-License-File: LICENSE
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: tox; extra == 'dev'
+Description-Content-Type: text/x-rst
 
 ================
 pytest-reportlog

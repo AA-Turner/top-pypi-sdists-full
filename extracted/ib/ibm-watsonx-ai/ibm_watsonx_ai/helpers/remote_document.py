@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -31,7 +31,7 @@ class RemoteDocument:
         document_id: str | None = None,
     ):
         self.connection = connection
-        self.document_id = document_id if document_id else id(connection)
+        self.document_id = document_id if document_id else str(id(connection))
 
         self.content: bytes
 

@@ -1,6 +1,6 @@
 [project]
 name = "kernels"
-version = "0.10.2"
+version = "0.11.7"
 description = "Download compute kernels"
 authors = [
   { name = "OlivierDehaene", email = "olivier@huggingface.co" },
@@ -34,6 +34,7 @@ dev = [
 ]
 
 [project.optional-dependencies]
+abi-check = ["kernel-abi-check>=0.6.2,<0.7.0"]
 torch = ["torch"]
 docs = [
   "hf-doc-builder",
@@ -45,6 +46,12 @@ kernels = "kernels.cli:main"
 [project.entry-points."egg_info.writers"]
 "kernels.lock" = "kernels.lockfile:write_egg_lockfile"
 
+[tool.setuptools.package-data]
+kernels = ["python_depends.json"]
+
+[tool.isort]
+profile = "black"
+line_length = 119
 
 [tool.ruff]
 exclude = [
@@ -71,4 +78,4 @@ line-length = 119
 # Ignored rules:
 # "E501" -> line length violation
 lint.ignore = ["E501"]
-lint.select = ["E", "F", "I", "W"]
+lint.select = ["E", "F", "W"]

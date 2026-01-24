@@ -37,13 +37,12 @@ pub mod remote;
 pub mod repo;
 /// Release statistics.
 pub mod statistics;
+/// Changelog commit processing summary.
+pub mod summary;
 /// Git tag.
 pub mod tag;
 /// Template engine.
 pub mod template;
-
-#[macro_use]
-extern crate log;
 
 /// Default configuration file.
 pub const DEFAULT_CONFIG: &str = "cliff.toml";

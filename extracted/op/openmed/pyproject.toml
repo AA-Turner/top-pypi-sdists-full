@@ -1,0 +1,103 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openmed"
+dynamic = ["version"]
+description = "OpenMed delivers state-of-the-art biomedical and clinical LLMs that rival proprietary enterprise stacks, unifying model discovery, advanced extractions, and one-line orchestration."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+keywords = [
+  "biomedical",
+  "clinical",
+  "NLP",
+  "LLM",
+  "healthcare",
+  "medical",
+  "natural language processing",
+  "medical language models",
+  "medical LLMs",
+  "medical NLP",
+  "medical NER",
+  "medical de-identification",
+  "medical extraction",
+  "medical reasoning",
+]
+dependencies = [
+  "pysbd>=0.3.4,<0.4",
+]
+
+authors = [
+  { name = "Maziyar Panahi" }
+]
+
+[project.scripts]
+openmed = "openmed.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "flake8>=7.0",
+  "pytest>=7.0",
+  "pytest-cov>=4.0"
+]
+
+hf = [
+  "transformers>=4.50",
+  "huggingface-hub>=0.30",
+  "accelerate>=0.29",
+  "tokenizers>=0.15"
+]
+
+gliner = [
+  "gliner[tokenizers]>=0.2.0",
+  "torch>=2.0"
+]
+
+docs = [
+  "mkdocs>=1.6",
+  "mkdocs-material>=9.5",
+  "mkdocs-git-revision-date-localized-plugin>=1.2.6",
+  "mkdocs-minify-plugin>=0.8.0",
+  "pymdown-extensions>=10.8",
+]
+
+cli = [
+  "typer>=0.12",
+  "rich>=13.9",
+]
+
+tui = [
+  "textual>=0.89",
+  "rich>=13.9",
+]
+
+[tool.hatch.build]
+include = [
+  "openmed/**",
+  "README.md",
+  "pyproject.toml"
+]
+
+[tool.hatch.version]
+path = "openmed/__about__.py"
+
+[tool.hatch.publish.index]
+disable = false
+
+[tool.hatch.publish.index.repos]
+pypi = { url = "https://upload.pypi.org/legacy/" }
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: marks end-to-end or external integration tests",
+  "slow: marks tests that are expected to run slowly"
+]
+python_files = [
+  "test_*.py",
+  "*_test.py",
+]
+testpaths = [
+  "tests",
+]

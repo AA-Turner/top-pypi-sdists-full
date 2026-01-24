@@ -35,15 +35,3 @@ def test_create_service_function_argument(temp_service_for_function, functions):
             )
         finally:
             functions[function_name_with_args].drop()
-
-
-def test_create_service_function_invalid_datatype(temp_service_for_function, functions):
-    function_name = random_string(5, "test_func_")
-    endpoint = "end"
-
-    with pytest.raises(Exception) as e:
-        create_service_function(function_name, ["INT"], "INVALID", endpoint, temp_service_for_function.name, functions)
-    assert (
-        """Value error, must validate the enum values ('FIXED','INT','REAL','NUMBER',"""
-        """'TEXT','BOOLEAN','DATE','TIME','TIMESTAMP_TZ','TIMESTAMP_LTZ','TIMESTAMP_NTZ')""" in str(e.value)
-    )

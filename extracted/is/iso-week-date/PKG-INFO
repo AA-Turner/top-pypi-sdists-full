@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: iso-week-date
-Version: 2.1.0
+Version: 2.2.2
 Summary: Toolkit to work with str representing ISO Week date format
 Project-URL: repository, https://github.com/fbruzzesi/iso-week-date
 Project-URL: issue-tracker, https://github.com/fbruzzesi/iso-week-date/issues
@@ -8,7 +8,7 @@ Project-URL: documentation, https://fbruzzesi.github.io/iso-week-date/
 Author: Francesco Bruzzesi
 License: MIT License
         
-        Copyright (c) 2023 Francesco Bruzzesi
+        Copyright (c) 2023-2025 Francesco Bruzzesi
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,7 @@ License: MIT License
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
         SOFTWARE.
 License-File: LICENSE
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -36,6 +36,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.9

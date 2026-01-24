@@ -1,18 +1,11 @@
 import copy
 from dataclasses import dataclass
-from typing import (
-    Callable,
-    Dict,
-    Generator,
-    List,
-    Optional,
-    Tuple,
-    TypedDict,
-    Union,
-)
+from typing import Callable, Dict, Generator, List, Optional, Tuple, TypedDict, Union
 
 from abstra_internals.entities.forms.form_state import State
 from abstra_internals.entities.forms.widgets.widget_base import InputWidget, Widget
+
+SPREADED_KEY = "__spreaded_"
 
 
 @dataclass
@@ -24,11 +17,11 @@ class Button:
 
     Unlike automatic navigation buttons (NextButton/BackButton), custom Button widgets give you full control over widget behavior within a page and can be used to implement complex conditional logic based on user choices.
 
-    ## How Button State Works
+    ## How Button State Works ##
 
     When a user clicks a button, the button's key is set to `True` in the form state. You can then check this state using `state.get("button_key")` to determine which button was pressed and conditionally render different widgets or forms.
 
-    ## Usage Pattern
+    ## Usage Pattern ##
 
     Buttons are optionally returned from your Page function (a function that returns a list of widgets). You have two options:
 
@@ -182,7 +175,11 @@ class TemplateRenderer:
             if not include_missing and key not in raw_state:
                 continue
 
-            parsed[key] = widget._parse_value(raw_state.get(key))
+            if key.startswith(SPREADED_KEY):
+                to_update = widget._parse_value(raw_state)
+                parsed.update(to_update)
+            else:
+                parsed[key] = widget._parse_value(raw_state.get(key))
 
         return State(parsed)
 
@@ -193,7 +190,10 @@ class TemplateRenderer:
         for idx, widget in enumerate(self.template):
             if isinstance(widget, InputWidget):
                 key = widget._ensure_key(idx)
-                value = state.get(key)
+                if key.startswith(SPREADED_KEY):
+                    value = state
+                else:
+                    value = state.get(key)
 
                 if value is not None:
                     widget.value = value

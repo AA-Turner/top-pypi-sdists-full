@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-mysql
-Version: 6.3.4
+Version: 6.4.1
 Summary: Provider package apache-airflow-providers-mysql for Apache Airflow
 Keywords: airflow-provider,mysql,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
@@ -14,13 +15,15 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
-Requires-Dist: apache-airflow>=2.10.0
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: apache-airflow>=2.11.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: apache-airflow-providers-common-sql>=1.20.0
 Requires-Dist: mysqlclient>=2.2.5; sys_platform != "darwin"
 Requires-Dist: mysql-connector-python>=9.1.0
@@ -31,8 +34,8 @@ Requires-Dist: apache-airflow-providers-presto ; extra == "presto"
 Requires-Dist: apache-airflow-providers-trino ; extra == "trino"
 Requires-Dist: apache-airflow-providers-vertica ; extra == "vertica"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.3.4/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.3.4
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.4.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.4.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -69,7 +72,7 @@ Provides-Extra: vertica
 
 Package ``apache-airflow-providers-mysql``
 
-Release: ``6.3.4``
+Release: ``6.4.1``
 
 
 `MySQL <https://www.mysql.com/>`__
@@ -82,7 +85,7 @@ This is a provider package for ``mysql`` provider. All classes for this provider
 are in ``airflow.providers.mysql`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.3.4/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.4.1/>`_.
 
 Installation
 ------------
@@ -96,15 +99,16 @@ The package supports the following python versions: 3.10,3.11,3.12,3.13
 Requirements
 ------------
 
-=======================================  =====================================
-PIP package                              Version required
-=======================================  =====================================
-``apache-airflow``                       ``>=2.10.0``
-``apache-airflow-providers-common-sql``  ``>=1.20.0``
-``mysqlclient``                          ``>=2.2.5; sys_platform != "darwin"``
-``mysql-connector-python``               ``>=9.1.0``
-``aiomysql``                             ``>=0.2.0``
-=======================================  =====================================
+==========================================  =====================================
+PIP package                                 Version required
+==========================================  =====================================
+``apache-airflow``                          ``>=2.11.0``
+``apache-airflow-providers-common-compat``  ``>=1.8.0``
+``apache-airflow-providers-common-sql``     ``>=1.20.0``
+``mysqlclient``                             ``>=2.2.5; sys_platform != "darwin"``
+``mysql-connector-python``                  ``>=9.1.0``
+``aiomysql``                                ``>=0.2.0``
+==========================================  =====================================
 
 Cross provider package dependencies
 -----------------------------------
@@ -119,17 +123,32 @@ You can install such cross-provider dependencies when installing from PyPI. For 
     pip install apache-airflow-providers-mysql[amazon]
 
 
-==============================================================================================================  ===============
-Dependent package                                                                                               Extra
-==============================================================================================================  ===============
-`apache-airflow-providers-amazon <https://airflow.apache.org/docs/apache-airflow-providers-amazon>`_            ``amazon``
-`apache-airflow-providers-common-sql <https://airflow.apache.org/docs/apache-airflow-providers-common-sql>`_    ``common.sql``
-`apache-airflow-providers-openlineage <https://airflow.apache.org/docs/apache-airflow-providers-openlineage>`_  ``openlineage``
-`apache-airflow-providers-presto <https://airflow.apache.org/docs/apache-airflow-providers-presto>`_            ``presto``
-`apache-airflow-providers-trino <https://airflow.apache.org/docs/apache-airflow-providers-trino>`_              ``trino``
-`apache-airflow-providers-vertica <https://airflow.apache.org/docs/apache-airflow-providers-vertica>`_          ``vertica``
-==============================================================================================================  ===============
+==================================================================================================================  =================
+Dependent package                                                                                                   Extra
+==================================================================================================================  =================
+`apache-airflow-providers-amazon <https://airflow.apache.org/docs/apache-airflow-providers-amazon>`_                ``amazon``
+`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_  ``common.compat``
+`apache-airflow-providers-common-sql <https://airflow.apache.org/docs/apache-airflow-providers-common-sql>`_        ``common.sql``
+`apache-airflow-providers-openlineage <https://airflow.apache.org/docs/apache-airflow-providers-openlineage>`_      ``openlineage``
+`apache-airflow-providers-presto <https://airflow.apache.org/docs/apache-airflow-providers-presto>`_                ``presto``
+`apache-airflow-providers-trino <https://airflow.apache.org/docs/apache-airflow-providers-trino>`_                  ``trino``
+`apache-airflow-providers-vertica <https://airflow.apache.org/docs/apache-airflow-providers-vertica>`_              ``vertica``
+==================================================================================================================  =================
+
+Optional dependencies
+----------------------
+
+==========================  ========================================
+Extra                       Dependencies
+==========================  ========================================
+``mysql-connector-python``
+``amazon``                  ``apache-airflow-providers-amazon``
+``openlineage``             ``apache-airflow-providers-openlineage``
+``presto``                  ``apache-airflow-providers-presto``
+``trino``                   ``apache-airflow-providers-trino``
+``vertica``                 ``apache-airflow-providers-vertica``
+==========================  ========================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.3.4/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.4.1/changelog.html>`_.
 

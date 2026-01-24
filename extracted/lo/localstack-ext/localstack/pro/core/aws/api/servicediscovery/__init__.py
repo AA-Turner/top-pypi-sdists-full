@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -151,7 +151,7 @@ class DuplicateRequest(ServiceException):
     code: str = "DuplicateRequest"
     sender_fault: bool = False
     status_code: int = 400
-    DuplicateOperationId: Optional[OperationId]
+    DuplicateOperationId: OperationId | None
 
 
 class InstanceNotFound(ServiceException):
@@ -181,8 +181,8 @@ class NamespaceAlreadyExists(ServiceException):
     code: str = "NamespaceAlreadyExists"
     sender_fault: bool = False
     status_code: int = 400
-    CreatorRequestId: Optional[ResourceId]
-    NamespaceId: Optional[ResourceId]
+    CreatorRequestId: ResourceId | None
+    NamespaceId: ResourceId | None
 
 
 class NamespaceNotFound(ServiceException):
@@ -251,9 +251,9 @@ class ServiceAlreadyExists(ServiceException):
     code: str = "ServiceAlreadyExists"
     sender_fault: bool = False
     status_code: int = 400
-    CreatorRequestId: Optional[ResourceId]
-    ServiceId: Optional[ResourceId]
-    ServiceArn: Optional[Arn]
+    CreatorRequestId: ResourceId | None
+    ServiceId: ResourceId | None
+    ServiceArn: Arn | None
 
 
 class ServiceAttributesLimitExceededException(ServiceException):
@@ -282,10 +282,10 @@ class TooManyTagsException(ServiceException):
     code: str = "TooManyTagsException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceName: Optional[AmazonResourceName]
+    ResourceName: AmazonResourceName | None
 
 
-Attributes = Dict[AttrKey, AttrValue]
+Attributes = dict[AttrKey, AttrValue]
 
 
 class Tag(TypedDict, total=False):
@@ -295,18 +295,18 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateHttpNamespaceRequest(ServiceRequest):
     Name: NamespaceNameHttp
-    CreatorRequestId: Optional[ResourceId]
-    Description: Optional[ResourceDescription]
-    Tags: Optional[TagList]
+    CreatorRequestId: ResourceId | None
+    Description: ResourceDescription | None
+    Tags: TagList | None
 
 
 class CreateHttpNamespaceResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 RecordTTL = int
@@ -334,15 +334,15 @@ class PrivateDnsNamespaceProperties(TypedDict, total=False):
 
 class CreatePrivateDnsNamespaceRequest(ServiceRequest):
     Name: NamespaceNamePrivate
-    CreatorRequestId: Optional[ResourceId]
-    Description: Optional[ResourceDescription]
+    CreatorRequestId: ResourceId | None
+    Description: ResourceDescription | None
     Vpc: ResourceId
-    Tags: Optional[TagList]
-    Properties: Optional[PrivateDnsNamespaceProperties]
+    Tags: TagList | None
+    Properties: PrivateDnsNamespaceProperties | None
 
 
 class CreatePrivateDnsNamespaceResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class PublicDnsPropertiesMutable(TypedDict, total=False):
@@ -359,14 +359,14 @@ class PublicDnsNamespaceProperties(TypedDict, total=False):
 
 class CreatePublicDnsNamespaceRequest(ServiceRequest):
     Name: NamespaceNamePublic
-    CreatorRequestId: Optional[ResourceId]
-    Description: Optional[ResourceDescription]
-    Tags: Optional[TagList]
-    Properties: Optional[PublicDnsNamespaceProperties]
+    CreatorRequestId: ResourceId | None
+    Description: ResourceDescription | None
+    Tags: TagList | None
+    Properties: PublicDnsNamespaceProperties | None
 
 
 class CreatePublicDnsNamespaceResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class HealthCheckCustomConfig(TypedDict, total=False):
@@ -417,7 +417,7 @@ class HealthCheckCustomConfig(TypedDict, total=False):
        Map stops routing traffic to the resource.
     """
 
-    FailureThreshold: Optional[FailureThreshold]
+    FailureThreshold: FailureThreshold | None
 
 
 class HealthCheckConfig(TypedDict, total=False):
@@ -485,8 +485,8 @@ class HealthCheckConfig(TypedDict, total=False):
     """
 
     Type: HealthCheckType
-    ResourcePath: Optional[ResourcePath]
-    FailureThreshold: Optional[FailureThreshold]
+    ResourcePath: ResourcePath | None
+    FailureThreshold: FailureThreshold | None
 
 
 class DnsRecord(TypedDict, total=False):
@@ -498,7 +498,7 @@ class DnsRecord(TypedDict, total=False):
     TTL: RecordTTL
 
 
-DnsRecordList = List[DnsRecord]
+DnsRecordList = list[DnsRecord]
 
 
 class DnsConfig(TypedDict, total=False):
@@ -506,21 +506,21 @@ class DnsConfig(TypedDict, total=False):
     records that you want Cloud Map to create when you register an instance.
     """
 
-    NamespaceId: Optional[ResourceId]
-    RoutingPolicy: Optional[RoutingPolicy]
+    NamespaceId: ResourceId | None
+    RoutingPolicy: RoutingPolicy | None
     DnsRecords: DnsRecordList
 
 
 class CreateServiceRequest(ServiceRequest):
     Name: ServiceName
-    NamespaceId: Optional[Arn]
-    CreatorRequestId: Optional[ResourceId]
-    Description: Optional[ResourceDescription]
-    DnsConfig: Optional[DnsConfig]
-    HealthCheckConfig: Optional[HealthCheckConfig]
-    HealthCheckCustomConfig: Optional[HealthCheckCustomConfig]
-    Tags: Optional[TagList]
-    Type: Optional[ServiceTypeOption]
+    NamespaceId: Arn | None
+    CreatorRequestId: ResourceId | None
+    Description: ResourceDescription | None
+    DnsConfig: DnsConfig | None
+    HealthCheckConfig: HealthCheckConfig | None
+    HealthCheckCustomConfig: HealthCheckCustomConfig | None
+    Tags: TagList | None
+    Type: ServiceTypeOption | None
 
 
 Timestamp = datetime
@@ -529,24 +529,24 @@ Timestamp = datetime
 class Service(TypedDict, total=False):
     """A complex type that contains information about the specified service."""
 
-    Id: Optional[ResourceId]
-    Arn: Optional[Arn]
-    ResourceOwner: Optional[AWSAccountId]
-    Name: Optional[ServiceName]
-    NamespaceId: Optional[ResourceId]
-    Description: Optional[ResourceDescription]
-    InstanceCount: Optional[ResourceCount]
-    DnsConfig: Optional[DnsConfig]
-    Type: Optional[ServiceType]
-    HealthCheckConfig: Optional[HealthCheckConfig]
-    HealthCheckCustomConfig: Optional[HealthCheckCustomConfig]
-    CreateDate: Optional[Timestamp]
-    CreatorRequestId: Optional[ResourceId]
-    CreatedByAccount: Optional[AWSAccountId]
+    Id: ResourceId | None
+    Arn: Arn | None
+    ResourceOwner: AWSAccountId | None
+    Name: ServiceName | None
+    NamespaceId: ResourceId | None
+    Description: ResourceDescription | None
+    InstanceCount: ResourceCount | None
+    DnsConfig: DnsConfig | None
+    Type: ServiceType | None
+    HealthCheckConfig: HealthCheckConfig | None
+    HealthCheckCustomConfig: HealthCheckCustomConfig | None
+    CreateDate: Timestamp | None
+    CreatorRequestId: ResourceId | None
+    CreatedByAccount: AWSAccountId | None
 
 
 class CreateServiceResponse(TypedDict, total=False):
-    Service: Optional[Service]
+    Service: Service | None
 
 
 class DeleteNamespaceRequest(ServiceRequest):
@@ -554,10 +554,10 @@ class DeleteNamespaceRequest(ServiceRequest):
 
 
 class DeleteNamespaceResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
-ServiceAttributeKeyList = List[ServiceAttributeKey]
+ServiceAttributeKeyList = list[ServiceAttributeKey]
 
 
 class DeleteServiceAttributesRequest(ServiceRequest):
@@ -583,17 +583,17 @@ class DeregisterInstanceRequest(ServiceRequest):
 
 
 class DeregisterInstanceResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class DiscoverInstancesRequest(ServiceRequest):
     NamespaceName: NamespaceName
     ServiceName: ServiceName
-    MaxResults: Optional[DiscoverMaxResults]
-    QueryParameters: Optional[Attributes]
-    OptionalParameters: Optional[Attributes]
-    HealthStatus: Optional[HealthStatusFilter]
-    OwnerAccount: Optional[AWSAccountId]
+    MaxResults: DiscoverMaxResults | None
+    QueryParameters: Attributes | None
+    OptionalParameters: Attributes | None
+    HealthStatus: HealthStatusFilter | None
+    OwnerAccount: AWSAccountId | None
 
 
 Revision = int
@@ -606,29 +606,29 @@ class HttpInstanceSummary(TypedDict, total=False):
     that matches the values that you specified in the request.
     """
 
-    InstanceId: Optional[ResourceId]
-    NamespaceName: Optional[NamespaceNameHttp]
-    ServiceName: Optional[ServiceName]
-    HealthStatus: Optional[HealthStatus]
-    Attributes: Optional[Attributes]
+    InstanceId: ResourceId | None
+    NamespaceName: NamespaceNameHttp | None
+    ServiceName: ServiceName | None
+    HealthStatus: HealthStatus | None
+    Attributes: Attributes | None
 
 
-HttpInstanceSummaryList = List[HttpInstanceSummary]
+HttpInstanceSummaryList = list[HttpInstanceSummary]
 
 
 class DiscoverInstancesResponse(TypedDict, total=False):
-    Instances: Optional[HttpInstanceSummaryList]
-    InstancesRevision: Optional[Revision]
+    Instances: HttpInstanceSummaryList | None
+    InstancesRevision: Revision | None
 
 
 class DiscoverInstancesRevisionRequest(ServiceRequest):
     NamespaceName: NamespaceName
     ServiceName: ServiceName
-    OwnerAccount: Optional[AWSAccountId]
+    OwnerAccount: AWSAccountId | None
 
 
 class DiscoverInstancesRevisionResponse(TypedDict, total=False):
-    InstancesRevision: Optional[Revision]
+    InstancesRevision: Revision | None
 
 
 class DnsConfigChange(TypedDict, total=False):
@@ -644,11 +644,11 @@ class DnsProperties(TypedDict, total=False):
     Cloud Map creates when you create a namespace.
     """
 
-    HostedZoneId: Optional[ResourceId]
-    SOA: Optional[SOA]
+    HostedZoneId: ResourceId | None
+    SOA: SOA | None
 
 
-FilterValues = List[FilterValue]
+FilterValues = list[FilterValue]
 
 
 class GetInstanceRequest(ServiceRequest):
@@ -662,32 +662,32 @@ class Instance(TypedDict, total=False):
     """
 
     Id: ResourceId
-    CreatorRequestId: Optional[ResourceId]
-    Attributes: Optional[Attributes]
-    CreatedByAccount: Optional[AWSAccountId]
+    CreatorRequestId: ResourceId | None
+    Attributes: Attributes | None
+    CreatedByAccount: AWSAccountId | None
 
 
 class GetInstanceResponse(TypedDict, total=False):
-    ResourceOwner: Optional[AWSAccountId]
-    Instance: Optional[Instance]
+    ResourceOwner: AWSAccountId | None
+    Instance: Instance | None
 
 
-InstanceIdList = List[ResourceId]
+InstanceIdList = list[ResourceId]
 
 
 class GetInstancesHealthStatusRequest(ServiceRequest):
     ServiceId: Arn
-    Instances: Optional[InstanceIdList]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    Instances: InstanceIdList | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
-InstanceHealthStatusMap = Dict[ResourceId, HealthStatus]
+InstanceHealthStatusMap = dict[ResourceId, HealthStatus]
 
 
 class GetInstancesHealthStatusResponse(TypedDict, total=False):
-    Status: Optional[InstanceHealthStatusMap]
-    NextToken: Optional[NextToken]
+    Status: InstanceHealthStatusMap | None
+    NextToken: NextToken | None
 
 
 class GetNamespaceRequest(ServiceRequest):
@@ -697,7 +697,7 @@ class GetNamespaceRequest(ServiceRequest):
 class HttpProperties(TypedDict, total=False):
     """A complex type that contains the name of an HTTP namespace."""
 
-    HttpName: Optional[NamespaceName]
+    HttpName: NamespaceName | None
 
 
 class NamespaceProperties(TypedDict, total=False):
@@ -705,60 +705,60 @@ class NamespaceProperties(TypedDict, total=False):
     namespace type.
     """
 
-    DnsProperties: Optional[DnsProperties]
-    HttpProperties: Optional[HttpProperties]
+    DnsProperties: DnsProperties | None
+    HttpProperties: HttpProperties | None
 
 
 class Namespace(TypedDict, total=False):
     """A complex type that contains information about a specified namespace."""
 
-    Id: Optional[ResourceId]
-    Arn: Optional[Arn]
-    ResourceOwner: Optional[AWSAccountId]
-    Name: Optional[NamespaceName]
-    Type: Optional[NamespaceType]
-    Description: Optional[ResourceDescription]
-    ServiceCount: Optional[ResourceCount]
-    Properties: Optional[NamespaceProperties]
-    CreateDate: Optional[Timestamp]
-    CreatorRequestId: Optional[ResourceId]
+    Id: ResourceId | None
+    Arn: Arn | None
+    ResourceOwner: AWSAccountId | None
+    Name: NamespaceName | None
+    Type: NamespaceType | None
+    Description: ResourceDescription | None
+    ServiceCount: ResourceCount | None
+    Properties: NamespaceProperties | None
+    CreateDate: Timestamp | None
+    CreatorRequestId: ResourceId | None
 
 
 class GetNamespaceResponse(TypedDict, total=False):
-    Namespace: Optional[Namespace]
+    Namespace: Namespace | None
 
 
 class GetOperationRequest(ServiceRequest):
     OperationId: OperationId
-    OwnerAccount: Optional[AWSAccountId]
+    OwnerAccount: AWSAccountId | None
 
 
-OperationTargetsMap = Dict[OperationTargetType, ResourceId]
+OperationTargetsMap = dict[OperationTargetType, ResourceId]
 
 
 class Operation(TypedDict, total=False):
     """A complex type that contains information about a specified operation."""
 
-    Id: Optional[OperationId]
-    OwnerAccount: Optional[AWSAccountId]
-    Type: Optional[OperationType]
-    Status: Optional[OperationStatus]
-    ErrorMessage: Optional[Message]
-    ErrorCode: Optional[Code]
-    CreateDate: Optional[Timestamp]
-    UpdateDate: Optional[Timestamp]
-    Targets: Optional[OperationTargetsMap]
+    Id: OperationId | None
+    OwnerAccount: AWSAccountId | None
+    Type: OperationType | None
+    Status: OperationStatus | None
+    ErrorMessage: Message | None
+    ErrorCode: Code | None
+    CreateDate: Timestamp | None
+    UpdateDate: Timestamp | None
+    Targets: OperationTargetsMap | None
 
 
 class GetOperationResponse(TypedDict, total=False):
-    Operation: Optional[Operation]
+    Operation: Operation | None
 
 
 class GetServiceAttributesRequest(ServiceRequest):
     ServiceId: Arn
 
 
-ServiceAttributesMap = Dict[ServiceAttributeKey, ServiceAttributeValue]
+ServiceAttributesMap = dict[ServiceAttributeKey, ServiceAttributeValue]
 
 
 class ServiceAttributes(TypedDict, total=False):
@@ -766,13 +766,13 @@ class ServiceAttributes(TypedDict, total=False):
     with a specific service.
     """
 
-    ServiceArn: Optional[Arn]
-    ResourceOwner: Optional[AWSAccountId]
-    Attributes: Optional[ServiceAttributesMap]
+    ServiceArn: Arn | None
+    ResourceOwner: AWSAccountId | None
+    Attributes: ServiceAttributesMap | None
 
 
 class GetServiceAttributesResponse(TypedDict, total=False):
-    ServiceAttributes: Optional[ServiceAttributes]
+    ServiceAttributes: ServiceAttributes | None
 
 
 class GetServiceRequest(ServiceRequest):
@@ -780,7 +780,7 @@ class GetServiceRequest(ServiceRequest):
 
 
 class GetServiceResponse(TypedDict, total=False):
-    Service: Optional[Service]
+    Service: Service | None
 
 
 class HttpNamespaceChange(TypedDict, total=False):
@@ -794,24 +794,24 @@ class InstanceSummary(TypedDict, total=False):
     registered by using a specified service.
     """
 
-    Id: Optional[ResourceId]
-    Attributes: Optional[Attributes]
-    CreatedByAccount: Optional[AWSAccountId]
+    Id: ResourceId | None
+    Attributes: Attributes | None
+    CreatedByAccount: AWSAccountId | None
 
 
-InstanceSummaryList = List[InstanceSummary]
+InstanceSummaryList = list[InstanceSummary]
 
 
 class ListInstancesRequest(ServiceRequest):
     ServiceId: Arn
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListInstancesResponse(TypedDict, total=False):
-    ResourceOwner: Optional[AWSAccountId]
-    Instances: Optional[InstanceSummaryList]
-    NextToken: Optional[NextToken]
+    ResourceOwner: AWSAccountId | None
+    Instances: InstanceSummaryList | None
+    NextToken: NextToken | None
 
 
 class NamespaceFilter(TypedDict, total=False):
@@ -821,38 +821,38 @@ class NamespaceFilter(TypedDict, total=False):
 
     Name: NamespaceFilterName
     Values: FilterValues
-    Condition: Optional[FilterCondition]
+    Condition: FilterCondition | None
 
 
-NamespaceFilters = List[NamespaceFilter]
+NamespaceFilters = list[NamespaceFilter]
 
 
 class ListNamespacesRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    Filters: Optional[NamespaceFilters]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    Filters: NamespaceFilters | None
 
 
 class NamespaceSummary(TypedDict, total=False):
     """A complex type that contains information about a namespace."""
 
-    Id: Optional[ResourceId]
-    Arn: Optional[Arn]
-    ResourceOwner: Optional[AWSAccountId]
-    Name: Optional[NamespaceName]
-    Type: Optional[NamespaceType]
-    Description: Optional[ResourceDescription]
-    ServiceCount: Optional[ResourceCount]
-    Properties: Optional[NamespaceProperties]
-    CreateDate: Optional[Timestamp]
+    Id: ResourceId | None
+    Arn: Arn | None
+    ResourceOwner: AWSAccountId | None
+    Name: NamespaceName | None
+    Type: NamespaceType | None
+    Description: ResourceDescription | None
+    ServiceCount: ResourceCount | None
+    Properties: NamespaceProperties | None
+    CreateDate: Timestamp | None
 
 
-NamespaceSummariesList = List[NamespaceSummary]
+NamespaceSummariesList = list[NamespaceSummary]
 
 
 class ListNamespacesResponse(TypedDict, total=False):
-    Namespaces: Optional[NamespaceSummariesList]
-    NextToken: Optional[NextToken]
+    Namespaces: NamespaceSummariesList | None
+    NextToken: NextToken | None
 
 
 class OperationFilter(TypedDict, total=False):
@@ -862,16 +862,16 @@ class OperationFilter(TypedDict, total=False):
 
     Name: OperationFilterName
     Values: FilterValues
-    Condition: Optional[FilterCondition]
+    Condition: FilterCondition | None
 
 
-OperationFilters = List[OperationFilter]
+OperationFilters = list[OperationFilter]
 
 
 class ListOperationsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    Filters: Optional[OperationFilters]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    Filters: OperationFilters | None
 
 
 class OperationSummary(TypedDict, total=False):
@@ -881,16 +881,16 @@ class OperationSummary(TypedDict, total=False):
     request.
     """
 
-    Id: Optional[OperationId]
-    Status: Optional[OperationStatus]
+    Id: OperationId | None
+    Status: OperationStatus | None
 
 
-OperationSummaryList = List[OperationSummary]
+OperationSummaryList = list[OperationSummary]
 
 
 class ListOperationsResponse(TypedDict, total=False):
-    Operations: Optional[OperationSummaryList]
-    NextToken: Optional[NextToken]
+    Operations: OperationSummaryList | None
+    NextToken: NextToken | None
 
 
 class ServiceFilter(TypedDict, total=False):
@@ -900,41 +900,41 @@ class ServiceFilter(TypedDict, total=False):
 
     Name: ServiceFilterName
     Values: FilterValues
-    Condition: Optional[FilterCondition]
+    Condition: FilterCondition | None
 
 
-ServiceFilters = List[ServiceFilter]
+ServiceFilters = list[ServiceFilter]
 
 
 class ListServicesRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    Filters: Optional[ServiceFilters]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    Filters: ServiceFilters | None
 
 
 class ServiceSummary(TypedDict, total=False):
     """A complex type that contains information about a specified service."""
 
-    Id: Optional[ResourceId]
-    Arn: Optional[Arn]
-    ResourceOwner: Optional[AWSAccountId]
-    Name: Optional[ServiceName]
-    Type: Optional[ServiceType]
-    Description: Optional[ResourceDescription]
-    InstanceCount: Optional[ResourceCount]
-    DnsConfig: Optional[DnsConfig]
-    HealthCheckConfig: Optional[HealthCheckConfig]
-    HealthCheckCustomConfig: Optional[HealthCheckCustomConfig]
-    CreateDate: Optional[Timestamp]
-    CreatedByAccount: Optional[AWSAccountId]
+    Id: ResourceId | None
+    Arn: Arn | None
+    ResourceOwner: AWSAccountId | None
+    Name: ServiceName | None
+    Type: ServiceType | None
+    Description: ResourceDescription | None
+    InstanceCount: ResourceCount | None
+    DnsConfig: DnsConfig | None
+    HealthCheckConfig: HealthCheckConfig | None
+    HealthCheckCustomConfig: HealthCheckCustomConfig | None
+    CreateDate: Timestamp | None
+    CreatedByAccount: AWSAccountId | None
 
 
-ServiceSummariesList = List[ServiceSummary]
+ServiceSummariesList = list[ServiceSummary]
 
 
 class ListServicesResponse(TypedDict, total=False):
-    Services: Optional[ServiceSummariesList]
-    NextToken: Optional[NextToken]
+    Services: ServiceSummariesList | None
+    NextToken: NextToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -942,7 +942,7 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class SOAChange(TypedDict, total=False):
@@ -968,8 +968,8 @@ class PrivateDnsNamespacePropertiesChange(TypedDict, total=False):
 class PrivateDnsNamespaceChange(TypedDict, total=False):
     """Updated properties for the private DNS namespace."""
 
-    Description: Optional[ResourceDescription]
-    Properties: Optional[PrivateDnsNamespacePropertiesChange]
+    Description: ResourceDescription | None
+    Properties: PrivateDnsNamespacePropertiesChange | None
 
 
 class PublicDnsPropertiesMutableChange(TypedDict, total=False):
@@ -987,30 +987,30 @@ class PublicDnsNamespacePropertiesChange(TypedDict, total=False):
 class PublicDnsNamespaceChange(TypedDict, total=False):
     """Updated properties for the public DNS namespace."""
 
-    Description: Optional[ResourceDescription]
-    Properties: Optional[PublicDnsNamespacePropertiesChange]
+    Description: ResourceDescription | None
+    Properties: PublicDnsNamespacePropertiesChange | None
 
 
 class RegisterInstanceRequest(ServiceRequest):
     ServiceId: Arn
     InstanceId: InstanceId
-    CreatorRequestId: Optional[ResourceId]
+    CreatorRequestId: ResourceId | None
     Attributes: Attributes
 
 
 class RegisterInstanceResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class ServiceChange(TypedDict, total=False):
     """A complex type that contains changes to an existing service."""
 
-    Description: Optional[ResourceDescription]
-    DnsConfig: Optional[DnsConfigChange]
-    HealthCheckConfig: Optional[HealthCheckConfig]
+    Description: ResourceDescription | None
+    DnsConfig: DnsConfigChange | None
+    HealthCheckConfig: HealthCheckConfig | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1033,12 +1033,12 @@ class UntagResourceResponse(TypedDict, total=False):
 
 class UpdateHttpNamespaceRequest(ServiceRequest):
     Id: Arn
-    UpdaterRequestId: Optional[ResourceId]
+    UpdaterRequestId: ResourceId | None
     Namespace: HttpNamespaceChange
 
 
 class UpdateHttpNamespaceResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class UpdateInstanceCustomHealthStatusRequest(ServiceRequest):
@@ -1049,22 +1049,22 @@ class UpdateInstanceCustomHealthStatusRequest(ServiceRequest):
 
 class UpdatePrivateDnsNamespaceRequest(ServiceRequest):
     Id: Arn
-    UpdaterRequestId: Optional[ResourceId]
+    UpdaterRequestId: ResourceId | None
     Namespace: PrivateDnsNamespaceChange
 
 
 class UpdatePrivateDnsNamespaceResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class UpdatePublicDnsNamespaceRequest(ServiceRequest):
     Id: Arn
-    UpdaterRequestId: Optional[ResourceId]
+    UpdaterRequestId: ResourceId | None
     Namespace: PublicDnsNamespaceChange
 
 
 class UpdatePublicDnsNamespaceResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class UpdateServiceAttributesRequest(ServiceRequest):
@@ -1082,12 +1082,12 @@ class UpdateServiceRequest(ServiceRequest):
 
 
 class UpdateServiceResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class ServicediscoveryApi:
-    service = "servicediscovery"
-    version = "2017-03-14"
+    service: str = "servicediscovery"
+    version: str = "2017-03-14"
 
     @handler("CreateHttpNamespace")
     def create_http_namespace(

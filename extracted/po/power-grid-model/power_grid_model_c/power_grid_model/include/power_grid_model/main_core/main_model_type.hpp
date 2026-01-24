@@ -25,8 +25,8 @@ template <typename Tuple>
 using tuple_type_identities_to_tuple_types_t = typename tuple_type_identities_to_tuple_types<Tuple>::type;
 
 template <typename... Types, typename... SelectTypes>
-constexpr auto filter_tuple_types(std::tuple<std::type_identity<Types>...> /*unused*/,
-                                  std::tuple<std::type_identity<SelectTypes>...> /*unused*/) {
+constexpr auto filter_tuple_types(std::tuple<std::type_identity<Types>...> const& /*unused*/,
+                                  std::tuple<std::type_identity<SelectTypes>...> const& /*unused*/) {
     constexpr auto sub_type_in_type = []<typename T>() { return (std::is_same_v<T, SelectTypes> || ...); };
 
     return std::tuple_cat(std::conditional_t<sub_type_in_type.template operator()<Types>(),
@@ -67,7 +67,6 @@ concept validate_component_types_c =
 
 template <class T, class U> class MainModelType;
 
-// TODO: discussion on checking dependent types can also be done here.
 template <class... ExtraRetrievableType, class... ComponentType>
     requires detail::validate_component_types_c<ComponentList<ComponentType...>>
 class MainModelType<ExtraRetrievableTypes<ExtraRetrievableType...>, ComponentList<ComponentType...>> {
@@ -78,15 +77,13 @@ class MainModelType<ExtraRetrievableTypes<ExtraRetrievableType...>, ComponentLis
     using ComponentTypesTuple = std::tuple<ComponentType...>;
 
     static constexpr size_t n_types = sizeof...(ComponentType);
-    // TODO Should not have to go via container_impl.
     template <class CompType>
     static constexpr size_t index_of_component = container_impl::get_cls_pos_v<CompType, ComponentType...>;
 
   private:
+    // This tuple may contain duplicate types. eg. Node.
     static constexpr auto all_types_tuple_v_ =
         std::tuple<std::type_identity<ComponentType>..., std::type_identity<ExtraRetrievableType>...>{};
-    // TODO: Would making a unique be necessary? We have Node mentioned as a ExtraRetrievableType and ComponentType so
-    // summing up is possible but maybe not appropriate. Would it be better to handle them both separately? using
 
     static constexpr auto topology_types_tuple_v_ =
         std::tuple<std::type_identity<Node>, std::type_identity<Branch>, std::type_identity<Branch3>,
@@ -113,12 +110,19 @@ class MainModelType<ExtraRetrievableTypes<ExtraRetrievableType...>, ComponentLis
     using ComponentFlags = std::array<bool, n_types>;
 
     template <class Functor> static constexpr void run_functor_with_all_component_types_return_void(Functor&& functor) {
-        (std::forward<Functor>(functor).template operator()<ComponentType>(), ...);
+        return utils::run_functor_with_tuple_return_void<ComponentTypesTuple>(std::forward<Functor>(functor));
     }
     template <class Functor>
     static constexpr auto run_functor_with_all_component_types_return_array(Functor&& functor) {
-        return std::array { std::forward<Functor>(functor).template operator()<ComponentType>()... };
+        return utils::run_functor_with_tuple_return_array<ComponentTypesTuple>(std::forward<Functor>(functor));
     }
 };
+
+template <typename T> struct is_main_model_type : std::false_type {};
+
+template <typename... ETs, typename... CTs>
+struct is_main_model_type<MainModelType<ExtraRetrievableTypes<ETs...>, ComponentList<CTs...>>> : std::true_type {};
+
+template <typename T> inline constexpr bool is_main_model_type_v = is_main_model_type<T>::value;
 
 } // namespace power_grid_model::main_core

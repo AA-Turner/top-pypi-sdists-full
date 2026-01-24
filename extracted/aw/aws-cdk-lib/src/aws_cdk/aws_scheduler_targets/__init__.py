@@ -436,8 +436,6 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
 from .._jsii import *
 
 from .. import Duration as _Duration_4839e8c3
-from ..aws_codebuild import IProject as _IProject_aafae30a
-from ..aws_codepipeline import IPipeline as _IPipeline_0931f838
 from ..aws_ec2 import (
     ISecurityGroup as _ISecurityGroup_acf8a799,
     SubnetSelection as _SubnetSelection_e57d76df,
@@ -454,7 +452,6 @@ from ..aws_events import IEventBus as _IEventBus_88d13111
 from ..aws_iam import (
     IRole as _IRole_235f5d8e, PolicyStatement as _PolicyStatement_0fe33853
 )
-from ..aws_inspector import IAssessmentTemplate as _IAssessmentTemplate_495c2d4e
 from ..aws_kinesis import IStream as _IStream_4e2457d2
 from ..aws_kinesisfirehose import IDeliveryStream as _IDeliveryStream_8f118861
 from ..aws_lambda import IFunction as _IFunction_6adb0ab8
@@ -468,6 +465,11 @@ from ..aws_scheduler import (
 from ..aws_sns import ITopic as _ITopic_9eca4852
 from ..aws_sqs import IQueue as _IQueue_7ed6f679
 from ..aws_stepfunctions import IStateMachine as _IStateMachine_73e8d2b0
+from ..interfaces.aws_codebuild import IProjectRef as _IProjectRef_7528e639
+from ..interfaces.aws_codepipeline import IPipelineRef as _IPipelineRef_fb1b56f9
+from ..interfaces.aws_inspector import (
+    IAssessmentTemplateRef as _IAssessmentTemplateRef_cd6c4843
+)
 
 
 @jsii.data_type(
@@ -484,9 +486,9 @@ class EventBridgePutEventsEntry:
     def __init__(
         self,
         *,
-        detail: _ScheduleTargetInput_dd30d070,
+        detail: "_ScheduleTargetInput_dd30d070",
         detail_type: builtins.str,
-        event_bus: _IEventBus_88d13111,
+        event_bus: "_IEventBus_88d13111",
         source: builtins.str,
     ) -> None:
         '''An entry to be sent to EventBridge.
@@ -534,7 +536,7 @@ class EventBridgePutEventsEntry:
         }
 
     @builtins.property
-    def detail(self) -> _ScheduleTargetInput_dd30d070:
+    def detail(self) -> "_ScheduleTargetInput_dd30d070":
         '''The event body.
 
         Can either be provided as an object or as a JSON-serialized string
@@ -546,7 +548,7 @@ class EventBridgePutEventsEntry:
         '''
         result = self._values.get("detail")
         assert result is not None, "Required property 'detail' is missing"
-        return typing.cast(_ScheduleTargetInput_dd30d070, result)
+        return typing.cast("_ScheduleTargetInput_dd30d070", result)
 
     @builtins.property
     def detail_type(self) -> builtins.str:
@@ -561,11 +563,11 @@ class EventBridgePutEventsEntry:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def event_bus(self) -> _IEventBus_88d13111:
+    def event_bus(self) -> "_IEventBus_88d13111":
         '''The event bus the entry will be sent to.'''
         result = self._values.get("event_bus")
         assert result is not None, "Required property 'event_bus' is missing"
-        return typing.cast(_IEventBus_88d13111, result)
+        return typing.cast("_IEventBus_88d13111", result)
 
     @builtins.property
     def source(self) -> builtins.str:
@@ -674,14 +676,14 @@ class ScheduleTargetBase(
 
     @jsii.member(jsii_name="addTargetActionToRole")
     @abc.abstractmethod
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
         ...
 
     @jsii.member(jsii_name="bind")
-    def bind(self, schedule: _ISchedule_4a32574d) -> _ScheduleTargetConfig_74216353:
+    def bind(self, schedule: "_ISchedule_4a32574d") -> "_ScheduleTargetConfig_74216353":
         '''Create a return a Schedule Target Configuration for the given schedule.
 
         :param schedule: -
@@ -691,20 +693,20 @@ class ScheduleTargetBase(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01737bee0bf8db4b920430443ea84a27c1c2f6246bd71927150a4fb28accc32d)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-        return typing.cast(_ScheduleTargetConfig_74216353, jsii.invoke(self, "bind", [schedule]))
+        return typing.cast("_ScheduleTargetConfig_74216353", jsii.invoke(self, "bind", [schedule]))
 
     @jsii.member(jsii_name="bindBaseTargetConfig")
     def _bind_base_target_config(
         self,
-        _schedule: _ISchedule_4a32574d,
-    ) -> _ScheduleTargetConfig_74216353:
+        _schedule: "_ISchedule_4a32574d",
+    ) -> "_ScheduleTargetConfig_74216353":
         '''
         :param _schedule: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd8a5015bbf00d1130163ba73634014dc8420ec6c2484ca7ca7e2d9776b12c60)
             check_type(argname="argument _schedule", value=_schedule, expected_type=type_hints["_schedule"])
-        return typing.cast(_ScheduleTargetConfig_74216353, jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
+        return typing.cast("_ScheduleTargetConfig_74216353", jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
 
     @builtins.property
     @jsii.member(jsii_name="targetArn")
@@ -714,7 +716,7 @@ class ScheduleTargetBase(
 
 class _ScheduleTargetBaseProxy(ScheduleTargetBase):
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -742,11 +744,11 @@ class ScheduleTargetBaseProps:
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''Base properties for a Schedule Target.
 
@@ -798,7 +800,7 @@ class ScheduleTargetBaseProps:
             self._values["role"] = role
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -808,19 +810,19 @@ class ScheduleTargetBaseProps:
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def input(self) -> typing.Optional[_ScheduleTargetInput_dd30d070]:
+    def input(self) -> typing.Optional["_ScheduleTargetInput_dd30d070"]:
         '''Input passed to the target.
 
         :default: - no input.
         '''
         result = self._values.get("input")
-        return typing.cast(typing.Optional[_ScheduleTargetInput_dd30d070], result)
+        return typing.cast(typing.Optional["_ScheduleTargetInput_dd30d070"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Scheduler sends to a target for processing.
 
         Minimum value of 60.
@@ -829,7 +831,7 @@ class ScheduleTargetBaseProps:
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -844,7 +846,7 @@ class ScheduleTargetBaseProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''An execution role is an IAM role that EventBridge Scheduler assumes in order to interact with other AWS services on your behalf.
 
         If none provided templates target will automatically create an IAM role with all the minimum necessary
@@ -854,7 +856,7 @@ class ScheduleTargetBaseProps:
         :default: - created by target
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -901,13 +903,13 @@ class SnsPublish(
 
     def __init__(
         self,
-        topic: _ITopic_9eca4852,
+        topic: "_ITopic_9eca4852",
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param topic: -
@@ -931,7 +933,7 @@ class SnsPublish(
         jsii.create(self.__class__, self, [topic, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -973,14 +975,14 @@ class SqsSendMessage(
 
     def __init__(
         self,
-        queue: _IQueue_7ed6f679,
+        queue: "_IQueue_7ed6f679",
         *,
         message_group_id: typing.Optional[builtins.str] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param queue: -
@@ -1006,7 +1008,7 @@ class SqsSendMessage(
         jsii.create(self.__class__, self, [queue, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -1018,15 +1020,15 @@ class SqsSendMessage(
     @jsii.member(jsii_name="bindBaseTargetConfig")
     def _bind_base_target_config(
         self,
-        _schedule: _ISchedule_4a32574d,
-    ) -> _ScheduleTargetConfig_74216353:
+        _schedule: "_ISchedule_4a32574d",
+    ) -> "_ScheduleTargetConfig_74216353":
         '''
         :param _schedule: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc4c92c6b396957e8236f2f491374f5459edff0144a288b6c967faa0660c413d)
             check_type(argname="argument _schedule", value=_schedule, expected_type=type_hints["_schedule"])
-        return typing.cast(_ScheduleTargetConfig_74216353, jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
+        return typing.cast("_ScheduleTargetConfig_74216353", jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
 
 
 @jsii.data_type(
@@ -1045,11 +1047,11 @@ class SqsSendMessageProps(ScheduleTargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
         message_group_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for a SQS Queue Target.
@@ -1105,7 +1107,7 @@ class SqsSendMessageProps(ScheduleTargetBaseProps):
             self._values["message_group_id"] = message_group_id
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -1115,19 +1117,19 @@ class SqsSendMessageProps(ScheduleTargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def input(self) -> typing.Optional[_ScheduleTargetInput_dd30d070]:
+    def input(self) -> typing.Optional["_ScheduleTargetInput_dd30d070"]:
         '''Input passed to the target.
 
         :default: - no input.
         '''
         result = self._values.get("input")
-        return typing.cast(typing.Optional[_ScheduleTargetInput_dd30d070], result)
+        return typing.cast(typing.Optional["_ScheduleTargetInput_dd30d070"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Scheduler sends to a target for processing.
 
         Minimum value of 60.
@@ -1136,7 +1138,7 @@ class SqsSendMessageProps(ScheduleTargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -1151,7 +1153,7 @@ class SqsSendMessageProps(ScheduleTargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''An execution role is an IAM role that EventBridge Scheduler assumes in order to interact with other AWS services on your behalf.
 
         If none provided templates target will automatically create an IAM role with all the minimum necessary
@@ -1161,7 +1163,7 @@ class SqsSendMessageProps(ScheduleTargetBaseProps):
         :default: - created by target
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def message_group_id(self) -> typing.Optional[builtins.str]:
@@ -1238,13 +1240,13 @@ class StepFunctionsStartExecution(
 
     def __init__(
         self,
-        state_machine: _IStateMachine_73e8d2b0,
+        state_machine: "_IStateMachine_73e8d2b0",
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param state_machine: -
@@ -1268,7 +1270,7 @@ class StepFunctionsStartExecution(
         jsii.create(self.__class__, self, [state_machine, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -1373,12 +1375,12 @@ class Universal(
         *,
         action: builtins.str,
         service: builtins.str,
-        policy_statements: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        policy_statements: typing.Optional[typing.Sequence["_PolicyStatement_0fe33853"]] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param action: The API action to call. Must be camelCase. You cannot use read-only API actions such as common GET operations.
@@ -1404,7 +1406,7 @@ class Universal(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -1432,14 +1434,14 @@ class UniversalTargetProps(ScheduleTargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
         action: builtins.str,
         service: builtins.str,
-        policy_statements: typing.Optional[typing.Sequence[_PolicyStatement_0fe33853]] = None,
+        policy_statements: typing.Optional[typing.Sequence["_PolicyStatement_0fe33853"]] = None,
     ) -> None:
         '''Properties for a Universal Target.
 
@@ -1498,7 +1500,7 @@ class UniversalTargetProps(ScheduleTargetBaseProps):
             self._values["policy_statements"] = policy_statements
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -1508,19 +1510,19 @@ class UniversalTargetProps(ScheduleTargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def input(self) -> typing.Optional[_ScheduleTargetInput_dd30d070]:
+    def input(self) -> typing.Optional["_ScheduleTargetInput_dd30d070"]:
         '''Input passed to the target.
 
         :default: - no input.
         '''
         result = self._values.get("input")
-        return typing.cast(typing.Optional[_ScheduleTargetInput_dd30d070], result)
+        return typing.cast(typing.Optional["_ScheduleTargetInput_dd30d070"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Scheduler sends to a target for processing.
 
         Minimum value of 60.
@@ -1529,7 +1531,7 @@ class UniversalTargetProps(ScheduleTargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -1544,7 +1546,7 @@ class UniversalTargetProps(ScheduleTargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''An execution role is an IAM role that EventBridge Scheduler assumes in order to interact with other AWS services on your behalf.
 
         If none provided templates target will automatically create an IAM role with all the minimum necessary
@@ -1554,7 +1556,7 @@ class UniversalTargetProps(ScheduleTargetBaseProps):
         :default: - created by target
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def action(self) -> builtins.str:
@@ -1581,7 +1583,7 @@ class UniversalTargetProps(ScheduleTargetBaseProps):
     @builtins.property
     def policy_statements(
         self,
-    ) -> typing.Optional[typing.List[_PolicyStatement_0fe33853]]:
+    ) -> typing.Optional[typing.List["_PolicyStatement_0fe33853"]]:
         '''The IAM policy statements needed to invoke the target. These statements are attached to the Scheduler's role.
 
         Note that the default may not be the correct actions as not all AWS services follows the same IAM action pattern, or there may be more actions needed to invoke the target.
@@ -1589,7 +1591,7 @@ class UniversalTargetProps(ScheduleTargetBaseProps):
         :default: - Policy with ``service:action`` action only.
         '''
         result = self._values.get("policy_statements")
-        return typing.cast(typing.Optional[typing.List[_PolicyStatement_0fe33853]], result)
+        return typing.cast(typing.Optional[typing.List["_PolicyStatement_0fe33853"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1628,13 +1630,13 @@ class CodeBuildStartBuild(
 
     def __init__(
         self,
-        project: _IProject_aafae30a,
+        project: "_IProjectRef_7528e639",
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param project: -
@@ -1658,7 +1660,7 @@ class CodeBuildStartBuild(
         jsii.create(self.__class__, self, [project, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -1693,13 +1695,13 @@ class CodePipelineStartPipelineExecution(
 
     def __init__(
         self,
-        pipeline: _IPipeline_0931f838,
+        pipeline: "_IPipelineRef_fb1b56f9",
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param pipeline: -
@@ -1723,7 +1725,7 @@ class CodePipelineStartPipelineExecution(
         jsii.create(self.__class__, self, [pipeline, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -1743,24 +1745,24 @@ class EcsRunTask(
 
     def __init__(
         self,
-        cluster: _ICluster_16cddd09,
+        cluster: "_ICluster_16cddd09",
         *,
-        task_definition: _TaskDefinition_a541a103,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
+        task_definition: "_TaskDefinition_a541a103",
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         group: typing.Optional[builtins.str] = None,
         propagate_tags: typing.Optional[builtins.bool] = None,
         reference_id: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_count: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param cluster: -
@@ -1806,7 +1808,7 @@ class EcsRunTask(
         jsii.create(self.__class__, self, [cluster, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -1818,20 +1820,20 @@ class EcsRunTask(
     @jsii.member(jsii_name="bindBaseTargetConfig")
     def _bind_base_target_config(
         self,
-        _schedule: _ISchedule_4a32574d,
-    ) -> _ScheduleTargetConfig_74216353:
+        _schedule: "_ISchedule_4a32574d",
+    ) -> "_ScheduleTargetConfig_74216353":
         '''
         :param _schedule: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__658a297adc726b826b6ad0f740dd1153f7cd0ec47ab734b7e0c3748d30bd5285)
             check_type(argname="argument _schedule", value=_schedule, expected_type=type_hints["_schedule"])
-        return typing.cast(_ScheduleTargetConfig_74216353, jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
+        return typing.cast("_ScheduleTargetConfig_74216353", jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
 
     @builtins.property
     @jsii.member(jsii_name="cluster")
-    def _cluster(self) -> _ICluster_16cddd09:
-        return typing.cast(_ICluster_16cddd09, jsii.get(self, "cluster"))
+    def _cluster(self) -> "_ICluster_16cddd09":
+        return typing.cast("_ICluster_16cddd09", jsii.get(self, "cluster"))
 
     @builtins.property
     @jsii.member(jsii_name="props")
@@ -1875,22 +1877,22 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        task_definition: _TaskDefinition_a541a103,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        task_definition: "_TaskDefinition_a541a103",
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         group: typing.Optional[builtins.str] = None,
         propagate_tags: typing.Optional[builtins.bool] = None,
         reference_id: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_count: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Parameters for scheduling ECS Run Task (common to EC2 and Fargate launch types).
 
@@ -2025,7 +2027,7 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
             self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -2035,19 +2037,19 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def input(self) -> typing.Optional[_ScheduleTargetInput_dd30d070]:
+    def input(self) -> typing.Optional["_ScheduleTargetInput_dd30d070"]:
         '''Input passed to the target.
 
         :default: - no input.
         '''
         result = self._values.get("input")
-        return typing.cast(typing.Optional[_ScheduleTargetInput_dd30d070], result)
+        return typing.cast(typing.Optional["_ScheduleTargetInput_dd30d070"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Scheduler sends to a target for processing.
 
         Minimum value of 60.
@@ -2056,7 +2058,7 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -2071,7 +2073,7 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''An execution role is an IAM role that EventBridge Scheduler assumes in order to interact with other AWS services on your behalf.
 
         If none provided templates target will automatically create an IAM role with all the minimum necessary
@@ -2081,10 +2083,10 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
         :default: - created by target
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def task_definition(self) -> _TaskDefinition_a541a103:
+    def task_definition(self) -> "_TaskDefinition_a541a103":
         '''The task definition to use for scheduled tasks.
 
         Note: this must be TaskDefinition, and not ITaskDefinition,
@@ -2094,18 +2096,18 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
         '''
         result = self._values.get("task_definition")
         assert result is not None, "Required property 'task_definition' is missing"
-        return typing.cast(_TaskDefinition_a541a103, result)
+        return typing.cast("_TaskDefinition_a541a103", result)
 
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List[_CapacityProviderStrategy_8d7b6657]]:
+    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
         '''The capacity provider strategy to use for the task.
 
         :default: - No capacity provider strategy
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List[_CapacityProviderStrategy_8d7b6657]], result)
+        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
 
     @builtins.property
     def enable_ecs_managed_tags(self) -> typing.Optional[builtins.bool]:
@@ -2157,7 +2159,9 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def security_groups(self) -> typing.Optional[typing.List[_ISecurityGroup_acf8a799]]:
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
         '''The security groups associated with the task.
 
         These security groups must all be in the same VPC.
@@ -2166,10 +2170,10 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
         :default: - The security group for the VPC is used.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], result)
+        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[Tag]]:
+    def tags(self) -> typing.Optional[typing.List["Tag"]]:
         '''The metadata that you apply to the task to help you categorize and organize them.
 
         Each tag consists of a key and an optional value, both of which you define.
@@ -2177,7 +2181,7 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
         :default: - No tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[Tag]], result)
+        return typing.cast(typing.Optional[typing.List["Tag"]], result)
 
     @builtins.property
     def task_count(self) -> typing.Optional[jsii.Number]:
@@ -2189,7 +2193,7 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_SubnetSelection_e57d76df]:
+    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
         '''The subnets associated with the task.
 
         These subnets must all be in the same VPC.
@@ -2198,7 +2202,7 @@ class EcsRunTaskBaseProps(ScheduleTargetBaseProps):
         :default: - all private subnets of the VPC are selected.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_SubnetSelection_e57d76df], result)
+        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2246,13 +2250,13 @@ class EventBridgePutEvents(
 
     def __init__(
         self,
-        entry: typing.Union[EventBridgePutEventsEntry, typing.Dict[builtins.str, typing.Any]],
+        entry: typing.Union["EventBridgePutEventsEntry", typing.Dict[builtins.str, typing.Any]],
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param entry: -
@@ -2276,7 +2280,7 @@ class EventBridgePutEvents(
         jsii.create(self.__class__, self, [entry, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -2288,15 +2292,15 @@ class EventBridgePutEvents(
     @jsii.member(jsii_name="bindBaseTargetConfig")
     def _bind_base_target_config(
         self,
-        _schedule: _ISchedule_4a32574d,
-    ) -> _ScheduleTargetConfig_74216353:
+        _schedule: "_ISchedule_4a32574d",
+    ) -> "_ScheduleTargetConfig_74216353":
         '''
         :param _schedule: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7bee2e860ddd29c71210c85b0d9356d7ffe68cb7e6730ee46e7d37cf1658eb30)
             check_type(argname="argument _schedule", value=_schedule, expected_type=type_hints["_schedule"])
-        return typing.cast(_ScheduleTargetConfig_74216353, jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
+        return typing.cast("_ScheduleTargetConfig_74216353", jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
 
 
 @jsii.data_type(
@@ -2327,24 +2331,24 @@ class FargateTaskProps(EcsRunTaskBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        task_definition: _TaskDefinition_a541a103,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        task_definition: "_TaskDefinition_a541a103",
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         group: typing.Optional[builtins.str] = None,
         propagate_tags: typing.Optional[builtins.bool] = None,
         reference_id: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_count: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         assign_public_ip: typing.Optional[builtins.bool] = None,
-        platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
+        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
     ) -> None:
         '''Properties for scheduling an ECS Fargate Task.
 
@@ -2445,7 +2449,7 @@ class FargateTaskProps(EcsRunTaskBaseProps):
             self._values["platform_version"] = platform_version
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -2455,19 +2459,19 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def input(self) -> typing.Optional[_ScheduleTargetInput_dd30d070]:
+    def input(self) -> typing.Optional["_ScheduleTargetInput_dd30d070"]:
         '''Input passed to the target.
 
         :default: - no input.
         '''
         result = self._values.get("input")
-        return typing.cast(typing.Optional[_ScheduleTargetInput_dd30d070], result)
+        return typing.cast(typing.Optional["_ScheduleTargetInput_dd30d070"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Scheduler sends to a target for processing.
 
         Minimum value of 60.
@@ -2476,7 +2480,7 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -2491,7 +2495,7 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''An execution role is an IAM role that EventBridge Scheduler assumes in order to interact with other AWS services on your behalf.
 
         If none provided templates target will automatically create an IAM role with all the minimum necessary
@@ -2501,10 +2505,10 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         :default: - created by target
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def task_definition(self) -> _TaskDefinition_a541a103:
+    def task_definition(self) -> "_TaskDefinition_a541a103":
         '''The task definition to use for scheduled tasks.
 
         Note: this must be TaskDefinition, and not ITaskDefinition,
@@ -2514,18 +2518,18 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         '''
         result = self._values.get("task_definition")
         assert result is not None, "Required property 'task_definition' is missing"
-        return typing.cast(_TaskDefinition_a541a103, result)
+        return typing.cast("_TaskDefinition_a541a103", result)
 
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List[_CapacityProviderStrategy_8d7b6657]]:
+    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
         '''The capacity provider strategy to use for the task.
 
         :default: - No capacity provider strategy
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List[_CapacityProviderStrategy_8d7b6657]], result)
+        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
 
     @builtins.property
     def enable_ecs_managed_tags(self) -> typing.Optional[builtins.bool]:
@@ -2577,7 +2581,9 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def security_groups(self) -> typing.Optional[typing.List[_ISecurityGroup_acf8a799]]:
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
         '''The security groups associated with the task.
 
         These security groups must all be in the same VPC.
@@ -2586,10 +2592,10 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         :default: - The security group for the VPC is used.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], result)
+        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[Tag]]:
+    def tags(self) -> typing.Optional[typing.List["Tag"]]:
         '''The metadata that you apply to the task to help you categorize and organize them.
 
         Each tag consists of a key and an optional value, both of which you define.
@@ -2597,7 +2603,7 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         :default: - No tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[Tag]], result)
+        return typing.cast(typing.Optional[typing.List["Tag"]], result)
 
     @builtins.property
     def task_count(self) -> typing.Optional[jsii.Number]:
@@ -2609,7 +2615,7 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_SubnetSelection_e57d76df]:
+    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
         '''The subnets associated with the task.
 
         These subnets must all be in the same VPC.
@@ -2618,7 +2624,7 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         :default: - all private subnets of the VPC are selected.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_SubnetSelection_e57d76df], result)
+        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
 
     @builtins.property
     def assign_public_ip(self) -> typing.Optional[builtins.bool]:
@@ -2633,7 +2639,7 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def platform_version(self) -> typing.Optional[_FargatePlatformVersion_55d8be5c]:
+    def platform_version(self) -> typing.Optional["_FargatePlatformVersion_55d8be5c"]:
         '''Specifies the platform version for the task.
 
         Specify only the numeric portion of the platform version, such as 1.1.0.
@@ -2642,7 +2648,7 @@ class FargateTaskProps(EcsRunTaskBaseProps):
         :default: - LATEST
         '''
         result = self._values.get("platform_version")
-        return typing.cast(typing.Optional[_FargatePlatformVersion_55d8be5c], result)
+        return typing.cast(typing.Optional["_FargatePlatformVersion_55d8be5c"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2686,13 +2692,13 @@ class FirehosePutRecord(
 
     def __init__(
         self,
-        delivery_stream: _IDeliveryStream_8f118861,
+        delivery_stream: "_IDeliveryStream_8f118861",
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param delivery_stream: -
@@ -2716,7 +2722,7 @@ class FirehosePutRecord(
         jsii.create(self.__class__, self, [delivery_stream, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -2753,13 +2759,13 @@ class InspectorStartAssessmentRun(
 
     def __init__(
         self,
-        template: _IAssessmentTemplate_495c2d4e,
+        template: "_IAssessmentTemplateRef_cd6c4843",
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param template: -
@@ -2783,7 +2789,7 @@ class InspectorStartAssessmentRun(
         jsii.create(self.__class__, self, [template, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -2820,14 +2826,14 @@ class KinesisStreamPutRecord(
 
     def __init__(
         self,
-        stream: _IStream_4e2457d2,
+        stream: "_IStream_4e2457d2",
         *,
         partition_key: builtins.str,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param stream: -
@@ -2853,7 +2859,7 @@ class KinesisStreamPutRecord(
         jsii.create(self.__class__, self, [stream, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -2865,15 +2871,15 @@ class KinesisStreamPutRecord(
     @jsii.member(jsii_name="bindBaseTargetConfig")
     def _bind_base_target_config(
         self,
-        _schedule: _ISchedule_4a32574d,
-    ) -> _ScheduleTargetConfig_74216353:
+        _schedule: "_ISchedule_4a32574d",
+    ) -> "_ScheduleTargetConfig_74216353":
         '''
         :param _schedule: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13086e22bbba8b22a5916cdb6de3619bfa3160b4ffb06dd0b18358feff854092)
             check_type(argname="argument _schedule", value=_schedule, expected_type=type_hints["_schedule"])
-        return typing.cast(_ScheduleTargetConfig_74216353, jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
+        return typing.cast("_ScheduleTargetConfig_74216353", jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
 
 
 @jsii.data_type(
@@ -2892,11 +2898,11 @@ class KinesisStreamPutRecordProps(ScheduleTargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
         partition_key: builtins.str,
     ) -> None:
         '''Properties for a Kinesis Data Streams Target.
@@ -2947,7 +2953,7 @@ class KinesisStreamPutRecordProps(ScheduleTargetBaseProps):
             self._values["role"] = role
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -2957,19 +2963,19 @@ class KinesisStreamPutRecordProps(ScheduleTargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def input(self) -> typing.Optional[_ScheduleTargetInput_dd30d070]:
+    def input(self) -> typing.Optional["_ScheduleTargetInput_dd30d070"]:
         '''Input passed to the target.
 
         :default: - no input.
         '''
         result = self._values.get("input")
-        return typing.cast(typing.Optional[_ScheduleTargetInput_dd30d070], result)
+        return typing.cast(typing.Optional["_ScheduleTargetInput_dd30d070"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Scheduler sends to a target for processing.
 
         Minimum value of 60.
@@ -2978,7 +2984,7 @@ class KinesisStreamPutRecordProps(ScheduleTargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -2993,7 +2999,7 @@ class KinesisStreamPutRecordProps(ScheduleTargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''An execution role is an IAM role that EventBridge Scheduler assumes in order to interact with other AWS services on your behalf.
 
         If none provided templates target will automatically create an IAM role with all the minimum necessary
@@ -3003,7 +3009,7 @@ class KinesisStreamPutRecordProps(ScheduleTargetBaseProps):
         :default: - created by target
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def partition_key(self) -> builtins.str:
@@ -3059,13 +3065,13 @@ class LambdaInvoke(
 
     def __init__(
         self,
-        func: _IFunction_6adb0ab8,
+        func: "_IFunction_6adb0ab8",
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param func: -
@@ -3089,7 +3095,7 @@ class LambdaInvoke(
         jsii.create(self.__class__, self, [func, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -3129,14 +3135,14 @@ class SageMakerStartPipelineExecution(
 
     def __init__(
         self,
-        pipeline: _IPipeline_3f0dad92,
+        pipeline: "_IPipeline_3f0dad92",
         *,
-        pipeline_parameter_list: typing.Optional[typing.Sequence[typing.Union[SageMakerPipelineParameter, typing.Dict[builtins.str, typing.Any]]]] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        pipeline_parameter_list: typing.Optional[typing.Sequence[typing.Union["SageMakerPipelineParameter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param pipeline: -
@@ -3162,7 +3168,7 @@ class SageMakerStartPipelineExecution(
         jsii.create(self.__class__, self, [pipeline, props])
 
     @jsii.member(jsii_name="addTargetActionToRole")
-    def _add_target_action_to_role(self, role: _IRole_235f5d8e) -> None:
+    def _add_target_action_to_role(self, role: "_IRole_235f5d8e") -> None:
         '''
         :param role: -
         '''
@@ -3174,15 +3180,15 @@ class SageMakerStartPipelineExecution(
     @jsii.member(jsii_name="bindBaseTargetConfig")
     def _bind_base_target_config(
         self,
-        schedule: _ISchedule_4a32574d,
-    ) -> _ScheduleTargetConfig_74216353:
+        schedule: "_ISchedule_4a32574d",
+    ) -> "_ScheduleTargetConfig_74216353":
         '''
         :param schedule: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d9975ba29adcd67e9e835e8a8a9b18c31ac8ad5864fa85ddfb1051ca2290643)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-        return typing.cast(_ScheduleTargetConfig_74216353, jsii.invoke(self, "bindBaseTargetConfig", [schedule]))
+        return typing.cast("_ScheduleTargetConfig_74216353", jsii.invoke(self, "bindBaseTargetConfig", [schedule]))
 
 
 @jsii.data_type(
@@ -3201,12 +3207,12 @@ class SageMakerStartPipelineExecutionProps(ScheduleTargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        pipeline_parameter_list: typing.Optional[typing.Sequence[typing.Union[SageMakerPipelineParameter, typing.Dict[builtins.str, typing.Any]]]] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        pipeline_parameter_list: typing.Optional[typing.Sequence[typing.Union["SageMakerPipelineParameter", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for a SageMaker Target.
 
@@ -3259,7 +3265,7 @@ class SageMakerStartPipelineExecutionProps(ScheduleTargetBaseProps):
             self._values["pipeline_parameter_list"] = pipeline_parameter_list
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -3269,19 +3275,19 @@ class SageMakerStartPipelineExecutionProps(ScheduleTargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def input(self) -> typing.Optional[_ScheduleTargetInput_dd30d070]:
+    def input(self) -> typing.Optional["_ScheduleTargetInput_dd30d070"]:
         '''Input passed to the target.
 
         :default: - no input.
         '''
         result = self._values.get("input")
-        return typing.cast(typing.Optional[_ScheduleTargetInput_dd30d070], result)
+        return typing.cast(typing.Optional["_ScheduleTargetInput_dd30d070"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Scheduler sends to a target for processing.
 
         Minimum value of 60.
@@ -3290,7 +3296,7 @@ class SageMakerStartPipelineExecutionProps(ScheduleTargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -3305,7 +3311,7 @@ class SageMakerStartPipelineExecutionProps(ScheduleTargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''An execution role is an IAM role that EventBridge Scheduler assumes in order to interact with other AWS services on your behalf.
 
         If none provided templates target will automatically create an IAM role with all the minimum necessary
@@ -3315,12 +3321,12 @@ class SageMakerStartPipelineExecutionProps(ScheduleTargetBaseProps):
         :default: - created by target
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def pipeline_parameter_list(
         self,
-    ) -> typing.Optional[typing.List[SageMakerPipelineParameter]]:
+    ) -> typing.Optional[typing.List["SageMakerPipelineParameter"]]:
         '''List of parameter names and values to use when executing the SageMaker Model Building Pipeline.
 
         The length must be between 0 and 200.
@@ -3330,7 +3336,7 @@ class SageMakerStartPipelineExecutionProps(ScheduleTargetBaseProps):
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-scheduler-schedule-sagemakerpipelineparameters.html#cfn-scheduler-schedule-sagemakerpipelineparameters-pipelineparameterlist
         '''
         result = self._values.get("pipeline_parameter_list")
-        return typing.cast(typing.Optional[typing.List[SageMakerPipelineParameter]], result)
+        return typing.cast(typing.Optional[typing.List["SageMakerPipelineParameter"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3372,24 +3378,24 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        task_definition: _TaskDefinition_a541a103,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        task_definition: "_TaskDefinition_a541a103",
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         group: typing.Optional[builtins.str] = None,
         propagate_tags: typing.Optional[builtins.bool] = None,
         reference_id: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_count: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-        placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-        placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
     ) -> None:
         '''Properties for scheduling an ECS Task on EC2.
 
@@ -3490,7 +3496,7 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
             self._values["placement_strategies"] = placement_strategies
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -3500,19 +3506,19 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def input(self) -> typing.Optional[_ScheduleTargetInput_dd30d070]:
+    def input(self) -> typing.Optional["_ScheduleTargetInput_dd30d070"]:
         '''Input passed to the target.
 
         :default: - no input.
         '''
         result = self._values.get("input")
-        return typing.cast(typing.Optional[_ScheduleTargetInput_dd30d070], result)
+        return typing.cast(typing.Optional["_ScheduleTargetInput_dd30d070"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Scheduler sends to a target for processing.
 
         Minimum value of 60.
@@ -3521,7 +3527,7 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -3536,7 +3542,7 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''An execution role is an IAM role that EventBridge Scheduler assumes in order to interact with other AWS services on your behalf.
 
         If none provided templates target will automatically create an IAM role with all the minimum necessary
@@ -3546,10 +3552,10 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
         :default: - created by target
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def task_definition(self) -> _TaskDefinition_a541a103:
+    def task_definition(self) -> "_TaskDefinition_a541a103":
         '''The task definition to use for scheduled tasks.
 
         Note: this must be TaskDefinition, and not ITaskDefinition,
@@ -3559,18 +3565,18 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
         '''
         result = self._values.get("task_definition")
         assert result is not None, "Required property 'task_definition' is missing"
-        return typing.cast(_TaskDefinition_a541a103, result)
+        return typing.cast("_TaskDefinition_a541a103", result)
 
     @builtins.property
     def capacity_provider_strategies(
         self,
-    ) -> typing.Optional[typing.List[_CapacityProviderStrategy_8d7b6657]]:
+    ) -> typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]]:
         '''The capacity provider strategy to use for the task.
 
         :default: - No capacity provider strategy
         '''
         result = self._values.get("capacity_provider_strategies")
-        return typing.cast(typing.Optional[typing.List[_CapacityProviderStrategy_8d7b6657]], result)
+        return typing.cast(typing.Optional[typing.List["_CapacityProviderStrategy_8d7b6657"]], result)
 
     @builtins.property
     def enable_ecs_managed_tags(self) -> typing.Optional[builtins.bool]:
@@ -3622,7 +3628,9 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def security_groups(self) -> typing.Optional[typing.List[_ISecurityGroup_acf8a799]]:
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
         '''The security groups associated with the task.
 
         These security groups must all be in the same VPC.
@@ -3631,10 +3639,10 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
         :default: - The security group for the VPC is used.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], result)
+        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[Tag]]:
+    def tags(self) -> typing.Optional[typing.List["Tag"]]:
         '''The metadata that you apply to the task to help you categorize and organize them.
 
         Each tag consists of a key and an optional value, both of which you define.
@@ -3642,7 +3650,7 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
         :default: - No tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[Tag]], result)
+        return typing.cast(typing.Optional[typing.List["Tag"]], result)
 
     @builtins.property
     def task_count(self) -> typing.Optional[jsii.Number]:
@@ -3654,7 +3662,7 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_SubnetSelection_e57d76df]:
+    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
         '''The subnets associated with the task.
 
         These subnets must all be in the same VPC.
@@ -3663,29 +3671,29 @@ class Ec2TaskProps(EcsRunTaskBaseProps):
         :default: - all private subnets of the VPC are selected.
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_SubnetSelection_e57d76df], result)
+        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
 
     @builtins.property
     def placement_constraints(
         self,
-    ) -> typing.Optional[typing.List[_PlacementConstraint_11d82a52]]:
+    ) -> typing.Optional[typing.List["_PlacementConstraint_11d82a52"]]:
         '''The rules that must be met in order to place a task on a container instance.
 
         :default: - No placement constraints.
         '''
         result = self._values.get("placement_constraints")
-        return typing.cast(typing.Optional[typing.List[_PlacementConstraint_11d82a52]], result)
+        return typing.cast(typing.Optional[typing.List["_PlacementConstraint_11d82a52"]], result)
 
     @builtins.property
     def placement_strategies(
         self,
-    ) -> typing.Optional[typing.List[_PlacementStrategy_2bb6c232]]:
+    ) -> typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]]:
         '''The algorithm for selecting container instances for task placement.
 
         :default: - No placement strategies.
         '''
         result = self._values.get("placement_strategies")
-        return typing.cast(typing.Optional[typing.List[_PlacementStrategy_2bb6c232]], result)
+        return typing.cast(typing.Optional[typing.List["_PlacementStrategy_2bb6c232"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3726,26 +3734,26 @@ class EcsRunEc2Task(
 
     def __init__(
         self,
-        cluster: _ICluster_16cddd09,
+        cluster: "_ICluster_16cddd09",
         *,
-        placement_constraints: typing.Optional[typing.Sequence[_PlacementConstraint_11d82a52]] = None,
-        placement_strategies: typing.Optional[typing.Sequence[_PlacementStrategy_2bb6c232]] = None,
-        task_definition: _TaskDefinition_a541a103,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
+        placement_constraints: typing.Optional[typing.Sequence["_PlacementConstraint_11d82a52"]] = None,
+        placement_strategies: typing.Optional[typing.Sequence["_PlacementStrategy_2bb6c232"]] = None,
+        task_definition: "_TaskDefinition_a541a103",
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         group: typing.Optional[builtins.str] = None,
         propagate_tags: typing.Optional[builtins.bool] = None,
         reference_id: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_count: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param cluster: -
@@ -3797,15 +3805,15 @@ class EcsRunEc2Task(
     @jsii.member(jsii_name="bindBaseTargetConfig")
     def _bind_base_target_config(
         self,
-        _schedule: _ISchedule_4a32574d,
-    ) -> _ScheduleTargetConfig_74216353:
+        _schedule: "_ISchedule_4a32574d",
+    ) -> "_ScheduleTargetConfig_74216353":
         '''
         :param _schedule: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c048ed62488b8de83127af7a33e8932cd4af11ae2b50e4c9515301957758a6c7)
             check_type(argname="argument _schedule", value=_schedule, expected_type=type_hints["_schedule"])
-        return typing.cast(_ScheduleTargetConfig_74216353, jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
+        return typing.cast("_ScheduleTargetConfig_74216353", jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
 
 
 class EcsRunFargateTask(
@@ -3835,26 +3843,26 @@ class EcsRunFargateTask(
 
     def __init__(
         self,
-        cluster: _ICluster_16cddd09,
+        cluster: "_ICluster_16cddd09",
         *,
         assign_public_ip: typing.Optional[builtins.bool] = None,
-        platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-        task_definition: _TaskDefinition_a541a103,
-        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union[_CapacityProviderStrategy_8d7b6657, typing.Dict[builtins.str, typing.Any]]]] = None,
+        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
+        task_definition: "_TaskDefinition_a541a103",
+        capacity_provider_strategies: typing.Optional[typing.Sequence[typing.Union["_CapacityProviderStrategy_8d7b6657", typing.Dict[builtins.str, typing.Any]]]] = None,
         enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         group: typing.Optional[builtins.str] = None,
         propagate_tags: typing.Optional[builtins.bool] = None,
         reference_id: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_count: typing.Optional[jsii.Number] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_ScheduleTargetInput_dd30d070"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param cluster: -
@@ -3906,15 +3914,15 @@ class EcsRunFargateTask(
     @jsii.member(jsii_name="bindBaseTargetConfig")
     def _bind_base_target_config(
         self,
-        _schedule: _ISchedule_4a32574d,
-    ) -> _ScheduleTargetConfig_74216353:
+        _schedule: "_ISchedule_4a32574d",
+    ) -> "_ScheduleTargetConfig_74216353":
         '''
         :param _schedule: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__922a85e32cff3eab12f4b0f6b998b5d7e2370b966dbee4458874c3806ebde41e)
             check_type(argname="argument _schedule", value=_schedule, expected_type=type_hints["_schedule"])
-        return typing.cast(_ScheduleTargetConfig_74216353, jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
+        return typing.cast("_ScheduleTargetConfig_74216353", jsii.invoke(self, "bindBaseTargetConfig", [_schedule]))
 
 
 __all__ = [
@@ -4105,7 +4113,7 @@ def _typecheckingstub__7aebf9e651de63ef570a11970d3762c22b62acdcb5386c5ba69076181
     pass
 
 def _typecheckingstub__eacc4f0e06890a24c88fe0c8814a8e396c6c6442e38857fee0168c08fca876ea(
-    project: _IProject_aafae30a,
+    project: _IProjectRef_7528e639,
     *,
     dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
     input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
@@ -4123,7 +4131,7 @@ def _typecheckingstub__7638691fb0294fb00596be4967a0508a1091ee4b552678b943b548af3
     pass
 
 def _typecheckingstub__f972d090ad80411fc0dff42233ee8b4ff2a48be68b7d646d1c7606a3cfb7fe56(
-    pipeline: _IPipeline_0931f838,
+    pipeline: _IPipelineRef_fb1b56f9,
     *,
     dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
     input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,
@@ -4264,7 +4272,7 @@ def _typecheckingstub__12ef15c1799d86a7551586a9a9e97d06dd1a9ac00d3ff8f956b86ee69
     pass
 
 def _typecheckingstub__827e380295982b1bf320134c0d482e805db91e38e0a4e6207c777b292c586409(
-    template: _IAssessmentTemplate_495c2d4e,
+    template: _IAssessmentTemplateRef_cd6c4843,
     *,
     dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
     input: typing.Optional[_ScheduleTargetInput_dd30d070] = None,

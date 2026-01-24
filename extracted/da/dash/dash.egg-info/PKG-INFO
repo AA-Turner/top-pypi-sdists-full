@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dash
-Version: 3.2.0
+Version: 3.4.0
 Summary: A Python framework for building reactive web-apps. Developed by Plotly.
 Home-page: https://plotly.com/dash
 Author: Chris Parmer
@@ -9,7 +9,6 @@ License: MIT
 Project-URL: Documentation, https://dash.plotly.com
 Project-URL: Source, https://github.com/plotly/dash
 Project-URL: Issue Tracker, https://github.com/plotly/dash/issues
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Dash
@@ -35,14 +34,82 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Provides-Extra: async
-Provides-Extra: ci
-Provides-Extra: dev
-Provides-Extra: testing
-Provides-Extra: celery
-Provides-Extra: diskcache
-Provides-Extra: compress
 License-File: LICENSE
+Requires-Dist: Flask<3.2,>=1.0.4
+Requires-Dist: Werkzeug<3.2
+Requires-Dist: plotly>=5.0.0
+Requires-Dist: importlib-metadata
+Requires-Dist: typing_extensions>=4.1.1
+Requires-Dist: requests
+Requires-Dist: retrying
+Requires-Dist: nest-asyncio
+Requires-Dist: setuptools
+Provides-Extra: async
+Requires-Dist: flask[async]; extra == "async"
+Provides-Extra: ci
+Requires-Dist: black==22.3.0; extra == "ci"
+Requires-Dist: flake8==7.0.0; extra == "ci"
+Requires-Dist: flaky==3.8.1; extra == "ci"
+Requires-Dist: flask-talisman==1.0.0; extra == "ci"
+Requires-Dist: ipython<9.0.0; extra == "ci"
+Requires-Dist: mimesis<=11.1.0; extra == "ci"
+Requires-Dist: mock==4.0.3; extra == "ci"
+Requires-Dist: numpy<=1.26.3; extra == "ci"
+Requires-Dist: orjson>=3.10.11; extra == "ci"
+Requires-Dist: openpyxl; extra == "ci"
+Requires-Dist: pandas>=1.4.0; extra == "ci"
+Requires-Dist: pyarrow; extra == "ci"
+Requires-Dist: pylint==3.0.3; extra == "ci"
+Requires-Dist: pytest-mock; extra == "ci"
+Requires-Dist: pyzmq>=26.0.0; extra == "ci"
+Requires-Dist: xlrd>=2.0.1; extra == "ci"
+Requires-Dist: pytest-rerunfailures; extra == "ci"
+Requires-Dist: jupyterlab<4.0.0; extra == "ci"
+Requires-Dist: pyright==1.1.398; python_version >= "3.7" and extra == "ci"
+Requires-Dist: mypy==1.15.0; python_version >= "3.12" and extra == "ci"
+Provides-Extra: dev
+Requires-Dist: coloredlogs>=15.0.1; extra == "dev"
+Requires-Dist: fire>=0.4.0; extra == "dev"
+Requires-Dist: PyYAML>=5.4.1; extra == "dev"
+Provides-Extra: testing
+Requires-Dist: beautifulsoup4>=4.8.2; extra == "testing"
+Requires-Dist: cryptography; extra == "testing"
+Requires-Dist: lxml>=4.6.2; extra == "testing"
+Requires-Dist: percy>=2.0.2; extra == "testing"
+Requires-Dist: pytest>=6.0.2; extra == "testing"
+Requires-Dist: requests[security]>=2.21.0; extra == "testing"
+Requires-Dist: selenium<=4.2.0,>=3.141.0; extra == "testing"
+Requires-Dist: waitress>=1.4.4; extra == "testing"
+Requires-Dist: multiprocess>=0.70.12; extra == "testing"
+Requires-Dist: psutil>=5.8.0; extra == "testing"
+Requires-Dist: dash_testing_stub>=0.0.2; extra == "testing"
+Provides-Extra: celery
+Requires-Dist: redis<=5.0.4,>=3.5.3; extra == "celery"
+Requires-Dist: kombu<5.4.0; extra == "celery"
+Requires-Dist: celery[redis]<5.4.0,>=5.1.2; extra == "celery"
+Provides-Extra: diskcache
+Requires-Dist: diskcache>=5.2.1; extra == "diskcache"
+Requires-Dist: multiprocess>=0.70.12; extra == "diskcache"
+Requires-Dist: psutil>=5.8.0; extra == "diskcache"
+Provides-Extra: compress
+Requires-Dist: flask-compress; extra == "compress"
+Provides-Extra: cloud
+Requires-Dist: plotly-cloud; extra == "cloud"
+Provides-Extra: ag-grid
+Requires-Dist: dash-ag-grid; extra == "ag-grid"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Dash
 
@@ -105,5 +172,3 @@ Enterprise AI Features: Everything that your data science team needs to rapidly 
 See [https://plotly.com/contact-us/](https://plotly.com/contact-us/) to get in touch.
 
 ![Dash Enterprise](https://user-images.githubusercontent.com/2678795/161155614-21c54a22-f821-4dda-b910-ee27e27fb5f2.png)
-
-

@@ -28,18 +28,22 @@ put the code inside an ``if __name__ == '__main__':`` code black as shown below:
 
 """
 
+import bisect
+import inspect
 import itertools
 import multiprocessing
-from collections.abc import Iterable, Mapping
+import warnings
+from collections.abc import Iterable, Mapping, Sequence
 from functools import partial
 from multiprocessing import Pool
 from typing import Any
 
+import numpy as np
 from tqdm.auto import tqdm
 
 from mesa.model import Model
 
-multiprocessing.set_start_method("spawn", force=True)
+SeedLike = int | np.integer | Sequence[int] | np.random.SeedSequence
 
 
 def batch_run(
@@ -47,10 +51,11 @@ def batch_run(
     parameters: Mapping[str, Any | Iterable[Any]],
     # We still retain the Optional[int] because users may set it to None (i.e. use all CPUs)
     number_processes: int | None = 1,
-    iterations: int = 1,
+    iterations: int | None = None,
     data_collection_period: int = -1,
     max_steps: int = 1000,
     display_progress: bool = True,
+    rng: SeedLike | Iterable[SeedLike] | None = None,
 ) -> list[dict[str, Any]]:
     """Batch run a mesa model with a set of parameter values.
 
@@ -62,6 +67,7 @@ def batch_run(
         data_collection_period (int, optional): Number of steps after which data gets collected, by default -1 (end of episode)
         max_steps (int, optional): Maximum number of model steps after which the model halts, by default 1000
         display_progress (bool, optional): Display batch run process, by default True
+        rng : a valid value or iterable of values for seeding the random number generator in the model
 
     Returns:
         List[Dict[str, Any]]
@@ -70,11 +76,35 @@ def batch_run(
         batch_run assumes the model has a `datacollector` attribute that has a DataCollector object initialized.
 
     """
+    multiprocessing.set_start_method("spawn", force=True)
+
+    if iterations is not None and rng is not None:
+        raise ValueError(
+            "you cannot use both iterations and rng at the same time. Please only use rng."
+        )
+    if iterations is not None:
+        warnings.warn(
+            "The `iterations` keyword argument is deprecated, please use `rng` instead."
+            "See https://mesa.readthedocs.io/latest/migration_guide.html#batch-run",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        rng = [None] * iterations
+    if not isinstance(rng, Iterable):
+        rng = [rng]
+
+    # establish to use seed or rng as name for parameter
+    model_parameters = inspect.signature(model_cls).parameters
+    rng_kwarg_name = "rng"
+    if "seed" in model_parameters:
+        rng_kwarg_name = "seed"
+
     runs_list = []
     run_id = 0
-    for iteration in range(iterations):
+    for i, rng_i in enumerate(rng):
         for kwargs in _make_model_kwargs(parameters):
-            runs_list.append((run_id, iteration, kwargs))
+            kwargs[rng_kwarg_name] = rng_i
+            runs_list.append((run_id, i, kwargs))
             run_id += 1
 
     process_func = partial(
@@ -170,6 +200,7 @@ def _model_run_func(
         Return model_data, agent_data from the reporters
     """
     run_id, iteration, kwargs = run
+
     model = model_cls(**kwargs)
     while model.running and model.steps <= max_steps:
         model.step()
@@ -223,12 +254,63 @@ def _collect_data(
         )
     dc = model.datacollector
 
-    model_data = {param: values[step] for param, values in dc.model_vars.items()}
+    # Check if modern DataCollector with _collection_steps exists (handles time dilation)
+    if hasattr(dc, "_collection_steps"):
+        idx = bisect.bisect_right(dc._collection_steps, step) - 1
+        if (
+            idx >= 0
+            and idx < len(dc._collection_steps)
+            and dc._collection_steps[idx] == step
+        ):
+            # Exact match found - use the index directly
+            model_data = {param: values[idx] for param, values in dc.model_vars.items()}
+        else:
+            # Step not found in _collection_steps
+            # Use sparse collection logic: find the nearest collected step
+            if idx >= 0 and idx < len(dc._collection_steps):
+                # Use the most recent collected data before this step
+                model_data = {
+                    param: values[idx] for param, values in dc.model_vars.items()
+                }
+            else:
+                # No data collected yet, use first available
+                try:
+                    model_data = {
+                        param: values[0] for param, values in dc.model_vars.items()
+                    }
+                except IndexError:
+                    model_data = {}
+    else:
+        # Legacy DataCollector without _collection_steps
+        # Use sparse collection logic for models that collect data irregularly
+        available_steps = sorted(dc._agent_records.keys())
+        if step not in available_steps:
+            step = max((s for s in available_steps if s <= step), default=0)
+
+        try:
+            collection_index = available_steps.index(step)
+        except ValueError:
+            collection_index = 0
+
+        model_data = {
+            param: values[collection_index] for param, values in dc.model_vars.items()
+        }
 
     all_agents_data = []
+
+    # Collect agent_reporters data
     raw_agent_data = dc._agent_records.get(step, [])
     for data in raw_agent_data:
         agent_dict = {"AgentID": data[1]}
         agent_dict.update(zip(dc.agent_reporters, data[2:]))
         all_agents_data.append(agent_dict)
+
+    # Collect agenttype_reporters data
+    raw_agenttype_data = dc._agenttype_records.get(step, {})
+    for agent_type, agents_data in raw_agenttype_data.items():
+        for data in agents_data:
+            agent_dict = {"AgentID": data[1]}
+            agent_dict.update(zip(dc.agenttype_reporters[agent_type], data[2:]))
+            all_agents_data.append(agent_dict)
+
     return model_data, all_agents_data

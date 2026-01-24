@@ -1,17 +1,37 @@
-from .exceptions import HTTPException
-from .protocols import BaseRequestProtocol
-from .request import AsyncHTTPRequest
-from .request._aiohttp import AiohttpHTTPRequestAdapter
-from .request._base import AsyncHTTPRequestAdapter, FormData, SyncHTTPRequestAdapter
-from .request._chalice import ChaliceHTTPRequestAdapter
-from .request._django import AsyncDjangoHTTPRequestAdapter, DjangoHTTPRequestAdapter
-from .request._flask import AsyncFlaskHTTPRequestAdapter, FlaskHTTPRequestAdapter
-from .request._litestar import LitestarRequestAdapter
-from .request._quart import QuartHTTPRequestAdapter
-from .request._sanic import SanicHTTPRequestAdapter
-from .request._starlette import StarletteRequestAdapter
-from .request._testing import TestingRequestAdapter
-from .response import Cookie, Response
+# This package has been renamed to cross-web.
+# This module re-exports all symbols from cross_web for backwards compatibility.
+
+import warnings
+
+warnings.warn(
+    "The 'lia' package has been renamed to 'cross_web'. "
+    "Please update your imports from 'from lia import ...' to 'from cross_web import ...'. "
+    "The 'lia' package will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+from cross_web import (
+    AiohttpHTTPRequestAdapter,
+    AsyncDjangoHTTPRequestAdapter,
+    AsyncFlaskHTTPRequestAdapter,
+    AsyncHTTPRequest,
+    AsyncHTTPRequestAdapter,
+    BaseRequestProtocol,
+    ChaliceHTTPRequestAdapter,
+    Cookie,
+    DjangoHTTPRequestAdapter,
+    FlaskHTTPRequestAdapter,
+    FormData,
+    HTTPException,
+    LitestarRequestAdapter,
+    QuartHTTPRequestAdapter,
+    Response,
+    SanicHTTPRequestAdapter,
+    StarletteRequestAdapter,
+    SyncHTTPRequestAdapter,
+    TestingRequestAdapter,
+)
 
 __all__ = [
     "AiohttpHTTPRequestAdapter",

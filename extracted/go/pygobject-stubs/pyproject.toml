@@ -5,7 +5,7 @@ backend-path = ["pep517backend"]
 
 [project]
 name = "PyGObject-stubs"
-version = "2.13.0"
+version = "2.16.0"
 description = "Typing stubs for PyGObject"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -20,13 +20,15 @@ classifiers = [
     "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    "typing_extensions",
+]
 
 [project.optional-dependencies]
 dev = [
-    "black>=25.1.0",
     "codespell>=2.4.1",
     "isort>=6.0.1",
-    "ruff>=0.9.10",
+    "ruff>=0.12.7",
     "pre-commit",
     "PyGObject",
 ]
@@ -41,13 +43,8 @@ where = ["src"]
 [tool.setuptools.package-data]
 "*" = ["*.pyi"]
 
-[tool.black]
-line-length = 88
-target-version = ['py39']
-include = '\.pyi?$'
-
 [tool.codespell]
-skip = "*__pycache__*,.mypy_cache,.git,pyproject.toml,test,*.pyi"
+skip = "*__pycache__*,.mypy_cache,.git,pyproject.toml,test,*.pyi,*venv"
 ignore-words-list = """
     astroid,
     inout"""

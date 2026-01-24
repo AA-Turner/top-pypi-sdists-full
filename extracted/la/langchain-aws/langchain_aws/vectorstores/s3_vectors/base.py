@@ -38,47 +38,49 @@ class AmazonS3Vectors(VectorStore):
 
     For all the following examples assume we have the following:
 
-    .. code-block:: python
-
+        ```python
         from langchain_aws.embeddings import BedrockEmbeddings
         from langchain_aws.vectorstores.s3_vectors import AmazonS3Vectors
 
         embedding = BedrockEmbeddings()
+        ```
 
-    Initialize, create vector index if not exist, and add texts
-        .. code-block:: python
+    Initialize, create vector index if it does not exist, and add texts:
 
-            vector_store = AmazonS3Vectors.from_texts(
-                ["hello", "developer", "wife"],
-                vector_bucket_name="<vector bucket name>",
-                index_name="<vector index name>",
-                embedding=embedding,
-            )
+        ```python
+        vector_store = AmazonS3Vectors.from_texts(
+            ["hello", "developer", "wife"],
+            vector_bucket_name="<vector bucket name>",
+            index_name="<vector index name>",
+            embedding=embedding,
+        )
+        ```
 
-    Initialize, create vector index if not exist, and add texts and add Documents
-        .. code-block:: python
+    Initialize, create vector index if it does not exist, and add Documents:
+        ```python
+        from langchain_core.documents import Document
 
-            from langchain_core.documents import Document
+        vector_store = AmazonS3Vectors(
+            vector_bucket_name="<vector bucket name>",
+            index_name="<vector index name>",
+            embedding=embedding,
+        )
+        vector_store.add_documents(
+            [
+                Document("Star Wars", id="key1", metadata={"genre": "scifi"}),
+                Document("Jurassic Park", id="key2", metadata={"genre": "scifi"}),
+                Document("Finding Nemo", id="key3", metadata={"genre": "family"}),
+            ]
+        )
+        ```
 
-            vector_store = AmazonS3Vectors(
-                vector_bucket_name="<vector bucket name>",
-                index_name="<vector index name>",
-                embedding=embedding,
-            )
-            vector_store.add_documents(
-                [
-                    Document("Star Wars", id="key1", metadata={"genre": "scifi"}),
-                    Document("Jurassic Park", id="key2", metadata={"genre": "scifi"}),
-                    Document("Finding Nemo", id="key3", metadata={"genre": "family"}),
-                ]
-            )
+    Search with score(distance) and metadata filter:
+        ```python
+        vector_store.similarity_search_with_score(
+            "adventures in space", filter={"genre": {"$eq": "family"}}
+        )
+        ```
 
-    Search with score(distance) and metadata filter
-        .. code-block:: python
-
-            vector_store.similarity_search_with_score(
-                "adventures in space", filter={"genre": {"$eq": "family"}}
-            )
     """
 
     def __init__(
@@ -106,8 +108,8 @@ class AmazonS3Vectors(VectorStore):
         """Create a AmazonS3Vectors.
 
         Args:
-            vector_bucket_name (str): The name of an existing S3 vector bucket
-            index_name (str): The name of the S3 vector index. The index names must be
+            vector_bucket_name: The name of an existing S3 vector bucket
+            index_name: The name of the S3 vector index. The index names must be
                 3 to 63 characters long, start and end with a letter or number,
                 and contain only lowercase letters, numbers, hyphens and dots.
             data_type (Literal["float32"]): The data type of the vectors to be inserted
@@ -118,8 +120,8 @@ class AmazonS3Vectors(VectorStore):
                 keys
             page_content_metadata_key (Optional[str]): Key of metadata to store
                 page_content in Document. If None, embedding page_content
-                but stored as an empty string. Default is "_page_content".
-            create_index_if_not_exist (bool): Automatically create vector index if it
+                but stored as an empty string. Default is `_page_content`.
+            create_index_if_not_exist: Automatically create vector index if it
                 does not exist. Default is True.
             relevance_score_fn (Optional[Callable[[float], float]]): The 'correct'
                 relevance function.
@@ -137,28 +139,29 @@ class AmazonS3Vectors(VectorStore):
                 If not specified, the default credential profile or,
                 if on an EC2 instance, credentials from IMDS will be used.
                 See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-                If not provided, will be read from 'AWS_ACCESS_KEY_ID'
+                If not provided, will be read from `AWS_ACCESS_KEY_ID`
                 environment variable.
             aws_secret_access_key (Optional[str]): AWS secret_access_key.
                 If provided, aws_access_key_id must also be provided.
                 If not specified, the default credential profile or,
                 if on an EC2 instance, credentials from IMDS will be used.
                 See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-                If not provided, will be read from 'AWS_SECRET_ACCESS_KEY'
+                If not provided, will be read from `AWS_SECRET_ACCESS_KEY`
                 environment variable.
             aws_session_token (Optional[str]): AWS session token.
                 If provided, aws_access_key_id and
                 aws_secret_access_key must also be provided.
                 Not required unless using temporary credentials.
                 See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-                If not provided, will be read from 'AWS_SESSION_TOKEN'
+                If not provided, will be read from `AWS_SESSION_TOKEN`
                 environment variable.
             endpoint_url (Optional[str]): Needed if you don't want to default to
                 us-east-1 endpoint
-            config (Any): An optional botocore.config.Config instance to pass to
+            config: An optional `botocore.config.Config` instance to pass to
                 the client.
-            client (Any): Boto3 client for s3vectors
-            kwargs (Any): Additional keyword arguments.
+            client: Boto3 client for s3vectors
+            kwargs: Additional keyword arguments.
+
         """
         self.vector_bucket_name = vector_bucket_name
         self.index_name = index_name
@@ -203,41 +206,42 @@ class AmazonS3Vectors(VectorStore):
         texts: Iterable[str],
         metadatas: Optional[List[dict]] = None,
         *,
-        ids: Optional[List[Optional[str]]] = None,
+        ids: Optional[List[str]] = None,
         batch_size: int = 200,
         **kwargs: Any,
     ) -> List[str]:
-        """Add more texts to the vectorstore.
+        """Add more texts to the `VectorStore`.
 
         Args:
-            texts (Iterable[str]): Iterable of strings/text to add to the vectorstore.
-            metadatas (Optional[List[dict]], optional): Optional list of metadatas.
-                Defaults to None.
-            embedding (Optional[List[List[float]]], optional): Optional pre-generated
-                embedding. Defaults to None.
-            ids (Optional[list[str | None]]): Optional list of IDs associated
-                with the texts.
-            batch_size (int): Batch size for put_vectors.
-            kwargs (Any): Additional keyword arguments.
+            texts: Iterable of strings/text to add to the `VectorStore`.
+            metadatas: Optional list of metadatas.
+            ids: Optional list of IDs associated with the texts.
+            batch_size: Batch size for `put_vectors`.
+            kwargs: Additional keyword arguments.
 
         Returns:
-            List[str]: List of ids added to the vectorstore
+            List of IDs added to the `VectorStore`.
+
         """
+        # Convert iterable to list to allow indexing and len operations
+        texts_list = list(texts)
 
         # type check for metadata
         if metadatas:
-            if isinstance(metadatas, list) and len(metadatas) != len(texts):  # type: ignore
+            if isinstance(metadatas, list) and len(metadatas) != len(texts_list):
                 raise ValueError("Number of metadatas must match number of texts")
             if not (isinstance(metadatas, list) and isinstance(metadatas[0], dict)):
                 raise ValueError("Metadatas must be a list of dicts")
         # check for ids
-        if isinstance(ids, list) and len(ids) != len(texts):  # type: ignore
-            raise ValueError("Number of ids must match number of texts")
+        if isinstance(ids, list) and len(ids) != len(texts_list):
+            raise ValueError("Number of IDs must match number of texts")
 
         result_ids = []
-        for i in range(0, len(texts), batch_size):
+        for i in range(0, len(texts_list), batch_size):
             vectors = []
-            sliced_texts = texts[i : i + batch_size]
+            sliced_texts = texts_list[i : i + batch_size]
+            if self.embeddings is None:
+                raise ValueError("Embeddings object is required for adding texts")
             sliced_data = self.embeddings.embed_documents(sliced_texts)
             if i == 0 and self.create_index_if_not_exist:
                 if self._get_index() is None:
@@ -279,13 +283,13 @@ class AmazonS3Vectors(VectorStore):
         """Delete by vector ID or delete index.
 
         Args:
-            ids: List of ids to delete vectors. If None, delete index with all vectors.
-                Default is None.
-            batch_size: Batch size for delete_vectors.
+            ids: List of IDs to delete vectors. If `None`, delete index with all
+                vectors.
+            batch_size: Batch size for `delete_vectors`.
             **kwargs: Additional keyword arguments.
 
         Returns:
-            Optional[bool]: Always True.
+            Always `True`.
         """
 
         if ids is None:
@@ -312,7 +316,8 @@ class AmazonS3Vectors(VectorStore):
             batch_size: Batch size for get_vectors.
 
         Returns:
-            List of Documents.
+            List of `Document` objects.
+
         """
 
         docs = []
@@ -364,12 +369,15 @@ class AmazonS3Vectors(VectorStore):
             query: Input text.
             k: Number of Documents to return. Defaults to 4.
             filter: Metadata filter to apply during the query.
-                See:https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-metadata-filtering.html
+                See: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-metadata-filtering.html
             **kwargs: Arguments to pass to the search method.
 
         Returns:
-            List of Documents most similar to the query.
+            List of `Document` objects most similar to the query.
+
         """
+        if self.embeddings is None:
+            raise ValueError("Embeddings object is required for similarity search")
         embedding = self.embeddings.embed_query(query)
         return self.similarity_search_by_vector(embedding, k=k, filter=filter, **kwargs)
 
@@ -387,12 +395,15 @@ class AmazonS3Vectors(VectorStore):
             query: Input text.
             k: Number of Documents to return. Defaults to 4.
             filter: Metadata filter to apply during the query.
-                See:https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-metadata-filtering.html
+                See: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-metadata-filtering.html
             **kwargs: Additional keyword arguments.
 
         Returns:
             List of Tuples of (doc, distance).
+
         """
+        if self.embeddings is None:
+            raise ValueError("Embeddings object is required for similarity search")
         embedding = self.embeddings.embed_query(query)
         response = self.client.query_vectors(
             vectorBucketName=self.vector_bucket_name,
@@ -421,11 +432,12 @@ class AmazonS3Vectors(VectorStore):
             embedding: Embedding to look up documents similar to.
             k: Number of Documents to return. Defaults to 4.
             filter: Metadata filter to apply during the query.
-                See:https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-metadata-filtering.html
+                See: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-metadata-filtering.html
             **kwargs: Additional keyword arguments.
 
         Returns:
-            List of Documents most similar to the query vector.
+            List of `Document` objects most similar to the query vector.
+
         """
         response = self.client.query_vectors(
             vectorBucketName=self.vector_bucket_name,
@@ -446,7 +458,7 @@ class AmazonS3Vectors(VectorStore):
         return AmazonS3VectorsRetriever(vectorstore=self, **kwargs, tags=tags)
 
     @classmethod
-    def from_texts(
+    def from_texts(  # type: ignore[override]
         cls: type[AmazonS3Vectors],
         texts: list[str],
         embedding: Embeddings,
@@ -474,13 +486,13 @@ class AmazonS3Vectors(VectorStore):
         """Return AmazonS3Vectors initialized from texts and embeddings.
 
         Args:
-            texts: Texts to add to the vectorstore.
+            texts: Texts to add to the `VectorStore`.
             embedding: Embedding function to use.
             metadatas: Optional list of metadatas associated with the texts.
                 Default is None.
             ids: Optional list of IDs associated with the texts.
-            vector_bucket_name (str): The name of an existing S3 vector bucket
-            index_name (str): The name of the S3 vector index. The index names must be
+            vector_bucket_name: The name of an existing S3 vector bucket
+            index_name: The name of the S3 vector index. The index names must be
                 3 to 63 characters long, start and end with a letter or number,
                 and contain only lowercase letters, numbers, hyphens and dots.
             data_type (Literal["float32"]): The data type of the vectors to be inserted
@@ -492,7 +504,7 @@ class AmazonS3Vectors(VectorStore):
             page_content_metadata_key (Optional[str]): Key of metadata to store
                 page_content in Document. If None, embedding page_content
                 but stored as an empty string. Default is "_page_content".
-            create_index_if_not_exist (bool): Automatically create vector index if it
+            create_index_if_not_exist: Automatically create vector index if it
                 does not exist. Default is True.
             relevance_score_fn (Optional[Callable[[float], float]]): The 'correct'
                 relevance function.
@@ -509,31 +521,32 @@ class AmazonS3Vectors(VectorStore):
                 If not specified, the default credential profile or,
                 if on an EC2 instance, credentials from IMDS will be used.
                 See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-                If not provided, will be read from 'AWS_ACCESS_KEY_ID'
+                If not provided, will be read from `AWS_ACCESS_KEY_ID`
                 environment variable.
             aws_secret_access_key (Optional[str]): AWS secret_access_key.
                 If provided, aws_access_key_id must also be provided.
                 If not specified, the default credential profile or,
                 if on an EC2 instance, credentials from IMDS will be used.
                 See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-                If not provided, will be read from 'AWS_SECRET_ACCESS_KEY'
+                If not provided, will be read from `AWS_SECRET_ACCESS_KEY`
                 environment variable.
             aws_session_token (Optional[str]): AWS session token.
                 If provided, aws_access_key_id and
                 aws_secret_access_key must also be provided.
                 Not required unless using temporary credentials.
                 See: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html
-                If not provided, will be read from 'AWS_SESSION_TOKEN'
+                If not provided, will be read from `AWS_SESSION_TOKEN`
                 environment variable.
             endpoint_url (Optional[str]): Needed if you don't want to default to
                 us-east-1 endpoint
-            config (Any): An optional botocore.config.Config instance to pass to
+            config: An optional `botocore.config.Config` instance to pass to
                 the client.
-            client (Any): Boto3 client for s3vectors
+            client: Boto3 client for s3vectors
             kwargs: Arguments to pass to AmazonS3Vectors.
 
         Returns:
             AmazonS3Vectors initialized from texts and embeddings.
+
         """
 
         instance = cls(

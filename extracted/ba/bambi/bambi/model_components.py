@@ -1,3 +1,5 @@
+import sparse
+
 import formulae as fm
 import numpy as np
 import xarray as xr
@@ -12,15 +14,15 @@ from bambi.utils import get_aliased_name, is_hsgp_term
 class ConstantComponent:
     """Constant model components
 
-    This is a component for a target parameter that has no predictors. This could be seen as
-    an intercept-only model for that parameter. For example, this is the case for sigma when
-    a non-distributional Normal linear regression model is used.
+    Represents a parameter of the response distribution that is constant for all observations.
+    It is equivalent to an intercept-only model for that parameter.
+    For example, this describes sigma in a homoskedastic gaussian linear regression model.
 
     Parameters
     ----------
     name : str
         The name of the component. For example "sigma", "alpha", or "kappa".
-    priors : bambi.priors.Prior
+    priors : bambi.Prior
         The prior distribution for the parameter.
     spec : bambi.Model
         The Bambi model.
@@ -41,8 +43,8 @@ class DistributionalComponent:
 
     Parameters
     ----------
-    name: str
-        The name of the component
+    name : str
+        The name of the component.
     design : formulae.DesignMatrices
         The object with all the required design matrices and information about the model terms.
     priors : dict
@@ -50,7 +52,7 @@ class DistributionalComponent:
     spec : bambi.Model
         The Bambi model
     is_parent : bool
-        Whether it's the parent parameter or not
+        Whether it's the parent parameter.
     """
 
     def __init__(self, name, design, priors, spec, is_parent):
@@ -115,18 +117,24 @@ class DistributionalComponent:
             term.prior = prepare_prior(term.prior, kind, self.spec.auto_scale)
 
     def update_priors(self, priors):
-        """Update priors
+        """Update priors.
 
         Parameters
         ----------
         priors : dict
-            Names are terms, values a priors.
+            Names are terms, values are priors
         """
         for name, value in priors.items():
             self.terms[name].prior = value
 
     def predict(
-        self, idata, data=None, include_group_specific=True, hsgp_dict=None, sample_new_groups=False
+        self,
+        idata,
+        data=None,
+        include_group_specific=True,
+        hsgp_dict=None,
+        sample_new_groups=False,
+        random_seed=None,
     ):
         linear_predictor = 0
         posterior = idata.posterior
@@ -158,7 +166,13 @@ class DistributionalComponent:
 
         if self.design.group and include_group_specific:
             linear_predictor += self.predict_group_specific(
-                posterior, data, in_sample, to_stack_dims, design_matrix_dims, sample_new_groups
+                posterior=posterior,
+                data=data,
+                in_sample=in_sample,
+                to_stack_dims=to_stack_dims,
+                design_matrix_dims=design_matrix_dims,
+                sample_new_groups=sample_new_groups,
+                random_seed=random_seed,
             )
 
         # Sort dimensions
@@ -174,7 +188,12 @@ class DistributionalComponent:
                 self.spec, linear_predictor, posterior
             )
 
-        invlink = self.spec.family.link[self.name].linkinv
+        # NOTE: Handle VonMises family that internally uses 'identity' but needs angles
+        if self.spec.family.name == "vonmises":
+            # pylint: disable=unnecessary-lambda-assignment
+            invlink = lambda x: np.angle(np.exp(1j * x))
+        else:
+            invlink = self.spec.family.link[self.name].linkinv
         invlink_kwargs = getattr(self.spec.family, "INVLINK_KWARGS", {})
         response = xr.apply_ufunc(invlink, linear_predictor, kwargs=invlink_kwargs)
 
@@ -279,7 +298,14 @@ class DistributionalComponent:
         return linear_predictor
 
     def predict_group_specific(
-        self, posterior, data, in_sample, to_stack_dims, design_matrix_dims, sample_new_groups
+        self,
+        posterior,
+        data,
+        in_sample,
+        to_stack_dims,
+        design_matrix_dims,
+        sample_new_groups,
+        random_seed,
     ):
         if in_sample:
             Z = self.design.group.design_matrix
@@ -292,7 +318,6 @@ class DistributionalComponent:
             fm.config["EVAL_UNSEEN_CATEGORIES"] = fm_eval_unseen_categories_original
 
             Z = group.design_matrix
-
             factors_with_new_levels = group.factors_with_new_levels
             if factors_with_new_levels:
                 if sample_new_groups is False:
@@ -301,7 +326,10 @@ class DistributionalComponent:
                         "'sample_new_groups' is False."
                     )
                 u = self._construct_u_with_new_groups(
-                    posterior, to_stack_dims, factors_with_new_levels
+                    posterior=posterior,
+                    to_stack_dims=to_stack_dims,
+                    factors_with_new_levels=factors_with_new_levels,
+                    random_seed=random_seed,
                 )
             else:
                 u = posterior
@@ -326,41 +354,50 @@ class DistributionalComponent:
 
             draws = u[aliased_term_name]
 
-            if len(to_stack_dims) == 2:  # univariate response
+            to_stack_dims_len = len(to_stack_dims)
+            assert 2 <= to_stack_dims_len <= 3
+
+            if to_stack_dims_len == 2:  # univariate response
                 offset = 0
-            elif len(to_stack_dims) == 3:  # multivariate response
+            else:  # multivariate response
                 offset = 1
 
-            if len(draws.coords) == 3 + offset:  # numeric
+            coords_len = len(draws.coords)
+            assert 3 + offset <= coords_len <= 4 + offset
+
+            if coords_len == 3 + offset:  # numeric
                 u_columns = draws.to_numpy()
-            elif len(draws.coords) == 4 + offset:  # categoric
+            else:  # categoric
                 u_columns = draws.stack(column=(factor_dim, expr_dim)).to_numpy()
 
             u_arrays.append(u_columns)
 
         u_dims = ["chain", "draw", "__variables__"]
-        if len(to_stack_dims) == 3:
+        if to_stack_dims_len == 3:
             u_dims.insert(2, to_stack_dims[-1])
 
         u = np.concatenate(u_arrays, axis=-1)
         u = xr.DataArray(u, dims=u_dims)
-        Z = xr.DataArray(Z, dims=design_matrix_dims)
-        return xr.dot(Z, u)
+        # NOTE: xarray supports sparse matrices from the 'sparse' package, not from SciPy.
+        Z = xr.DataArray(sparse.COO.from_scipy_sparse(Z), dims=design_matrix_dims)
+        # Ensure the result's `.data` is a dense NumPy array.
+        return xr.dot(Z, u).as_numpy()
 
-    def _construct_u_with_new_groups(self, posterior, to_stack_dims, factors_with_new_levels):
+    def _construct_u_with_new_groups(
+        self, posterior, to_stack_dims, factors_with_new_levels, random_seed
+    ):
         u_list = []
         names_list = []
         factor_idxs = {}
         draw_n = len(posterior.coords["draw"])
         chain_n = len(posterior.coords["chain"])
-        rng = np.random.default_rng()
+        rng = np.random.default_rng(random_seed)
         seq_draw = np.arange(draw_n)
         seq_chain = np.arange(chain_n)
 
-        if len(to_stack_dims) == 2:  # univariate response
-            is_univariate = True
-        elif len(to_stack_dims) == 3:  # multivariate response
-            is_univariate = False
+        to_stack_dims_len = len(to_stack_dims)
+        assert 2 <= to_stack_dims_len <= 3
+        is_univariate = to_stack_dims_len == 2
 
         for factor in factors_with_new_levels:
             term_names = self.group_specific_groups[factor]
@@ -386,18 +423,21 @@ class DistributionalComponent:
                     factor_idxs[factor] = factor_sampled_idxs
 
                 draws_original = posterior[aliased_term_name].to_numpy()
+                draws_original_ndim = draws_original.ndim
 
                 if is_univariate:
-                    # Numeric predictors
+                    assert 3 <= draws_original_ndim <= 4
+
                     if draws_original.ndim == 3:
+                        # Numeric predictors
                         draws_new_group = draws_original[:, seq_draw, factor_sampled_idxs]
                         coords = {
                             "chain": seq_chain,
                             "draw": seq_draw,
                             factor_dim: ["__NEW_FACTOR_GROUP__"],
                         }
-                    # Categoric predictors
-                    elif draws_original.ndim == 4:
+                    else:
+                        # Categoric predictors
                         draws_new_group = draws_original[:, seq_draw, :, factor_sampled_idxs]
                         # Don't know why, but the previous indexing swaps axes, we fix it
                         draws_new_group = np.swapaxes(draws_new_group, 0, 1)
@@ -409,8 +449,10 @@ class DistributionalComponent:
                             factor_dim: ["__NEW_FACTOR_GROUP__"],
                         }
                 else:
+                    assert 4 <= draws_original_ndim <= 5
                     response_dim = to_stack_dims[-1]
-                    if draws_original.ndim == 4:
+
+                    if draws_original_ndim == 4:
                         draws_new_group = draws_original[:, seq_draw, :, factor_sampled_idxs]
                         draws_new_group = np.swapaxes(draws_new_group, 0, 1)
                         coords = {
@@ -419,7 +461,7 @@ class DistributionalComponent:
                             response_dim: posterior.coords[response_dim].to_numpy(),
                             factor_dim: ["__NEW_FACTOR_GROUP__"],
                         }
-                    elif draws_original.ndim == 5:
+                    else:
                         draws_new_group = draws_original[:, seq_draw, :, :, factor_sampled_idxs]
                         draws_new_group = np.swapaxes(draws_new_group, 0, 1)
                         expr_levels = posterior.coords[expr_dim].to_numpy()
@@ -440,7 +482,7 @@ class DistributionalComponent:
         # Get a new xr.Dataset with the draws of the terms that have new groups
         u = xr.Dataset(dict(zip(names_list, u_list)))
 
-        # Get a xr.Dataset with the draws of the terms that don't have new groups
+        # Get an xr.Dataset with the draws of the terms that don't have new groups
         Z_terms = [
             get_aliased_name(term)
             for term in self.group_specific_terms.values()

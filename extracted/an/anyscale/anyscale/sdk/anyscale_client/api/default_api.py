@@ -2696,6 +2696,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: The cloud id whose default cluster compute you want to fetch. If None, will use the default cloud.
+        :param str cloud_resource_id: The cloud resource ID to fetch the default cluster compute for. If None, will use the primary cloud resource of the cloud.
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -2721,6 +2722,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: The cloud id whose default cluster compute you want to fetch. If None, will use the default cloud.
+        :param str cloud_resource_id: The cloud resource ID to fetch the default cluster compute for. If None, will use the primary cloud resource of the cloud.
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -2738,7 +2740,8 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cloud_id'
+            'cloud_id',
+            'cloud_resource_id'
         ]
         all_params.extend(
             [
@@ -2765,6 +2768,8 @@ class DefaultApi(object):
         query_params = []
         if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
             query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
+        if 'cloud_resource_id' in local_var_params and local_var_params['cloud_resource_id'] is not None:  # noqa: E501
+            query_params.append(('cloud_resource_id', local_var_params['cloud_resource_id']))  # noqa: E501
 
         header_params = {}
 
@@ -2929,6 +2934,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: (required)
+        :param str cloud_resource_id:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -2954,6 +2960,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: (required)
+        :param str cloud_resource_id:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -2971,7 +2978,8 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cloud_id'
+            'cloud_id',
+            'cloud_resource_id'
         ]
         all_params.extend(
             [
@@ -3002,6 +3010,8 @@ class DefaultApi(object):
             path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
 
         query_params = []
+        if 'cloud_resource_id' in local_var_params and local_var_params['cloud_resource_id'] is not None:  # noqa: E501
+            query_params.append(('cloud_resource_id', local_var_params['cloud_resource_id']))  # noqa: E501
 
         header_params = {}
 
@@ -4201,6 +4211,7 @@ class DefaultApi(object):
         :param str name: name to filter by
         :param list[HaJobStates] state_filter: A list of session states to filter by
         :param str creator_id: filter by creator id
+        :param list[str] tag_filter: Filter by tags in the form key:value. Can be specified multiple times. Values with the same key are ORed; keys are ANDed.
         :param str paging_token:
         :param int count:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -4230,6 +4241,7 @@ class DefaultApi(object):
         :param str name: name to filter by
         :param list[HaJobStates] state_filter: A list of session states to filter by
         :param str creator_id: filter by creator id
+        :param list[str] tag_filter: Filter by tags in the form key:value. Can be specified multiple times. Values with the same key are ORed; keys are ANDed.
         :param str paging_token:
         :param int count:
         :param _return_http_data_only: response data without head status code
@@ -4253,6 +4265,7 @@ class DefaultApi(object):
             'name',
             'state_filter',
             'creator_id',
+            'tag_filter',
             'paging_token',
             'count'
         ]
@@ -4292,6 +4305,9 @@ class DefaultApi(object):
             collection_formats['state_filter'] = 'multi'  # noqa: E501
         if 'creator_id' in local_var_params and local_var_params['creator_id'] is not None:  # noqa: E501
             query_params.append(('creator_id', local_var_params['creator_id']))  # noqa: E501
+        if 'tag_filter' in local_var_params and local_var_params['tag_filter'] is not None:  # noqa: E501
+            query_params.append(('tag_filter', local_var_params['tag_filter']))  # noqa: E501
+            collection_formats['tag_filter'] = 'multi'  # noqa: E501
         if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
             query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
         if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501

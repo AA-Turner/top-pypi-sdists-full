@@ -5,6 +5,7 @@ import platform
 import sys
 import urllib.request
 import tarfile
+import shutil
 import sysconfig
 import subprocess
 import hashlib
@@ -58,15 +59,11 @@ if OS == 'darwin':
     if ARCHFLAGS:
         BUILD_DIR = 'build_' + '_'.join(ARCHFLAGS)
 
-YASM_VERSION = '1.3.0'
-YASM_SOURCE = 'yasm-%s.tar.gz' % YASM_VERSION
-YASM_URL = 'https://github.com/yasm/yasm/releases/download/v%s/' % YASM_VERSION + YASM_SOURCE
-JPEG_VERSION = '3.1.0'
+JPEG_VERSION = '3.1.2'
 JPEG_SOURCE = 'libjpeg-turbo-%s.tar.gz' % JPEG_VERSION
 JPEG_URL = 'https://github.com/libjpeg-turbo/libjpeg-turbo/archive/%s.tar.gz' % JPEG_VERSION
 
 SKIP_BUILD_NAME = 'skip_build'
-SKIP_YASM_BUILD = 'SKIP_YASM_BUILD' in os.environ
 
 
 def verify_file(path, reference_digest, read_size=128*1024):
@@ -103,16 +100,10 @@ def untar_url(url, filename, reference_digest):
 
 
 # download sources
-if not SKIP_YASM_BUILD:
-    YASM_DIR = untar_url(
-        YASM_URL,
-        pt.join(PACKAGE_DIR, 'lib', YASM_SOURCE),
-        '56bf07340b7a3bbfec94f89894db2c0d487d534d90c99241ba45b70feaa1a0f3',
-    )
 JPEG_DIR = untar_url(
     JPEG_URL,
     pt.join(PACKAGE_DIR, 'lib', JPEG_SOURCE),
-    '104ff4419619633dd3fb60746d871440d560be0c24780eeca444b6f0a7cf9178',
+    '02bc433d5c80ba13541b527d2860f354111cb749dbfd24efca3bf082f2c73e19',
 )
 
 
@@ -130,7 +121,7 @@ def make_type():
 
 
 def touch(path):
-    with open(path, 'w') as f:
+    with open(path, 'w'):
         pass
 
 
@@ -150,10 +141,6 @@ class cmake_build_ext(build_ext):
         if OS == 'darwin':
             if ARCHFLAGS:
                 flags.append("-DCMAKE_OSX_ARCHITECTURES=" + ";".join(ARCHFLAGS))
-        if not SKIP_YASM_BUILD:
-            self.build_cmake_dependency(YASM_DIR, [
-                '-DBUILD_SHARED_LIBS=OFF'
-            ])
 
         cflags = os.getenv('CFLAGS', '')
         ldflags = os.getenv('LDFLAGS', '')
@@ -169,8 +156,6 @@ class cmake_build_ext(build_ext):
                 '--gc-sections '  # Remove unused sections'
             ) + ldflags
         env = {
-            # add YASM to the path
-            'PATH': pt.join(YASM_DIR, BUILD_DIR) + os.pathsep + os.getenv('PATH', ''),
             # custom CFLAGS - depends on platform
             'CFLAGS': cflags,
             # custom LDFLAGS - depends on platform
@@ -299,8 +284,8 @@ include_package_data = find_package_data(packages, ('*.pyi',))
 exclude_package_data = find_package_data(packages, ('*.h', '*.c', '*.pyx'))
 
 
-with open(pt.join(PACKAGE_DIR, 'requirements.txt')) as f:
-    dependencies = [l.strip(' \n') for l in f]
+with open(pt.join(PACKAGE_DIR, 'requirements.txt')) as fp:
+    dependencies = [line.strip(' \n') for line in fp]
 
 
 class ConcatFiles:

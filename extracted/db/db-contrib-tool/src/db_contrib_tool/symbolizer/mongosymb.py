@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 import json
 import os
 import signal
@@ -10,6 +11,7 @@ import sys
 import time
 from enum import Enum
 from typing import IO, Any, AnyStr, Dict, List, NamedTuple, Optional, TextIO, Tuple
+from urllib.parse import urlparse
 
 import inject
 import requests
@@ -17,6 +19,8 @@ from tenacity import Retrying, retry_if_result, stop_after_delay, wait_fixed
 
 from db_contrib_tool.clients.io_client import IOClient
 from db_contrib_tool.clients.download_client import DownloadClient
+from db_contrib_tool.config import SETUP_REPRO_ENV_CONFIG
+from db_contrib_tool.services.evergreen_service import EvergreenService
 from db_contrib_tool.symbolizer.mongo_log_parser_service import (
     BINARY_LOAD_ADDRESS_KEY,
     BUILD_ID_KEY,
@@ -25,6 +29,7 @@ from db_contrib_tool.symbolizer.mongo_log_parser_service import (
     TraceDoc,
 )
 from db_contrib_tool.utils.build_system_options import PathOptions
+from db_contrib_tool.utils.evergreen_conn import get_evergreen_api
 from db_contrib_tool.utils.oauth import (
     Configs,
     get_client_cred_oauth_credentials,
@@ -136,6 +141,9 @@ class PathResolver(object):
         )
         self.http_client = requests.Session()
         self.path_options = PathOptions()
+        self.evergreen_service = EvergreenService(
+            evg_api=get_evergreen_api(), setup_repro_config=SETUP_REPRO_ENV_CONFIG
+        )
 
         # create cache dir if it doesn't exist
         if not os.path.exists(self.cache_dir):
@@ -197,7 +205,8 @@ class PathResolver(object):
         :param url: Download URL.
         :return: Full name for local file.
         """
-        return url.split("/")[-1]
+        parsed = urlparse(url)
+        return parsed.path.split("/")[-1]
 
     @staticmethod
     def unpack(path: str) -> str:
@@ -268,6 +277,16 @@ class PathResolver(object):
         if build_data.debug_symbols_url is None:
             return None
 
+        if DownloadClient.is_s3_url(
+            build_data.debug_symbols_url
+        ) and DownloadClient.is_s3_presigned_url(build_data.debug_symbols_url):
+            build_data = build_data._replace(
+                debug_symbols_url=self.get_refreshed_debug_symbols_url(build_data.debug_symbols_url)
+            )
+
+        if build_data.debug_symbols_url is None:
+            return None
+
         try:
             dl_path, exists_locally = self.download(build_data.debug_symbols_url)
             if exists_locally:
@@ -291,6 +310,32 @@ class PathResolver(object):
         inner_folder_name = self.path_options.get_binary_folder_name(binary_name)
 
         return os.path.join(path, inner_folder_name, binary_name)
+
+    @lru_cache(maxsize=8)
+    def get_refreshed_debug_symbols_url(self, url: str) -> str:
+        """
+        Tries to find a new pre-signed download URL from Evergreen. If unable, returns the original URL.
+
+        Detail: Evergreen can provide pre-signed URLs for S3 objects that are otherwise private,
+        allowing downloads without any AWS credentials. The URL contains the necessary authorization,
+        but is only valid for a short duration, and will likely have expired between when it was
+        created and when `db-contrib-tool symbolize` is being used. If expired, the download will fail.
+        To avoid this, re-retrieve the artifact URLS from Evergreen for the task it was originally from.
+        It will again be a presigned URL, but with a newer expiration.
+        """
+        _, key = DownloadClient.extract_s3_bucket_key(url)
+        # The debug artifact path is assumed to be project/variant/version_id/...
+        parts = key.split("/")
+        if len(parts) < 3:
+            return url
+        variant = parts[1]
+        version = self.evergreen_service.get_version(parts[2])
+        urls = self.evergreen_service.get_compile_artifact_urls(
+            version, variant, ignore_failed_push=True
+        )
+        if not urls:
+            return url
+        return urls.urls.get("mongo-debugsymbols.tgz", url)
 
 
 class InputFormat(str, Enum):

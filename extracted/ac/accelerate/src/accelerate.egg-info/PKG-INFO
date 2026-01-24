@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: accelerate
-Version: 1.10.1
+Version: 1.12.0
 Summary: Accelerate
 Home-page: https://github.com/huggingface/accelerate
 Author: The HuggingFace team
@@ -14,12 +14,12 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy<3.0.0,>=1.17
+Requires-Dist: numpy>=1.17
 Requires-Dist: packaging>=20.0
 Requires-Dist: psutil
 Requires-Dist: pyyaml
@@ -27,12 +27,10 @@ Requires-Dist: torch>=2.0.0
 Requires-Dist: huggingface_hub>=0.21.0
 Requires-Dist: safetensors>=0.4.3
 Provides-Extra: quality
-Requires-Dist: black~=23.1; extra == "quality"
-Requires-Dist: hf-doc-builder>=0.3.0; extra == "quality"
-Requires-Dist: ruff~=0.11.2; extra == "quality"
+Requires-Dist: ruff==0.13.1; extra == "quality"
 Provides-Extra: docs
 Provides-Extra: test-prod
-Requires-Dist: pytest<=8.0.0,>=7.2.0; extra == "test-prod"
+Requires-Dist: pytest>=7.2.0; extra == "test-prod"
 Requires-Dist: pytest-xdist; extra == "test-prod"
 Requires-Dist: pytest-subtests; extra == "test-prod"
 Requires-Dist: parameterized; extra == "test-prod"
@@ -50,7 +48,7 @@ Requires-Dist: tqdm; extra == "test-dev"
 Requires-Dist: bitsandbytes; extra == "test-dev"
 Requires-Dist: timm; extra == "test-dev"
 Provides-Extra: testing
-Requires-Dist: pytest<=8.0.0,>=7.2.0; extra == "testing"
+Requires-Dist: pytest>=7.2.0; extra == "testing"
 Requires-Dist: pytest-xdist; extra == "testing"
 Requires-Dist: pytest-subtests; extra == "testing"
 Requires-Dist: parameterized; extra == "testing"
@@ -77,15 +75,12 @@ Requires-Dist: wandb; extra == "test-trackers"
 Requires-Dist: comet-ml; extra == "test-trackers"
 Requires-Dist: tensorboard; extra == "test-trackers"
 Requires-Dist: dvclive; extra == "test-trackers"
-Requires-Dist: mlflow; extra == "test-trackers"
 Requires-Dist: matplotlib; extra == "test-trackers"
-Requires-Dist: swanlab; extra == "test-trackers"
+Requires-Dist: swanlab[dashboard]; extra == "test-trackers"
 Requires-Dist: trackio; extra == "test-trackers"
 Provides-Extra: dev
-Requires-Dist: black~=23.1; extra == "dev"
-Requires-Dist: hf-doc-builder>=0.3.0; extra == "dev"
-Requires-Dist: ruff~=0.11.2; extra == "dev"
-Requires-Dist: pytest<=8.0.0,>=7.2.0; extra == "dev"
+Requires-Dist: ruff==0.13.1; extra == "dev"
+Requires-Dist: pytest>=7.2.0; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pytest-subtests; extra == "dev"
 Requires-Dist: parameterized; extra == "dev"

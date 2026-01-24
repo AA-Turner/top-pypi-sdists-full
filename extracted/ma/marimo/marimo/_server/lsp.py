@@ -1,4 +1,4 @@
-# Copyright 2025 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import asyncio
@@ -12,11 +12,11 @@ from marimo._config.config import MarimoConfig
 from marimo._config.manager import MarimoConfigReader
 from marimo._config.settings import GLOBAL_SETTINGS
 from marimo._dependencies.dependencies import DependencyManager
-from marimo._messaging.ops import Alert
-from marimo._server.utils import find_free_port
+from marimo._messaging.notification import AlertNotification
 from marimo._tracer import server_tracer
+from marimo._utils.net import find_free_port
 from marimo._utils.paths import marimo_package_path
-from marimo._utils.strings import cmd_quote
+from marimo._utils.platform import is_windows
 
 LOGGER = _loggers.marimo_logger()
 
@@ -26,7 +26,7 @@ class LspServer(ABC):
     id: str
 
     @abstractmethod
-    async def start(self) -> Optional[Alert]:
+    async def start(self) -> Optional[AlertNotification]:
         pass
 
     @abstractmethod
@@ -42,9 +42,12 @@ class BaseLspServer(LspServer):
     def __init__(self, port: int) -> None:
         self.port = port
         self.process: Optional[subprocess.Popen[str]] = None
+        self._health_check_task: Optional[asyncio.Task[None]] = None
+        self._startup_failed = False
+        self.log_file = _loggers.get_log_directory() / f"{self.id}.log"
 
     @server_tracer.start_as_current_span("lsp_server.start")
-    async def start(self) -> Optional[Alert]:
+    async def start(self) -> Optional[AlertNotification]:
         if self.process is not None:
             LOGGER.debug("LSP server already started")
             return None
@@ -73,8 +76,9 @@ class BaseLspServer(LspServer):
                 stdout=subprocess.PIPE
                 if GLOBAL_SETTINGS.DEVELOPMENT_MODE
                 else subprocess.DEVNULL,
-                # subprocess.PIPE in Windows breaks the lsp-server
-                stderr=subprocess.DEVNULL,
+                # Capture stderr to diagnose startup failures
+                # but subprocess.PIPE in Windows breaks the lsp-server
+                stderr=subprocess.DEVNULL if is_windows() else subprocess.PIPE,
                 stdin=None,
                 text=True,
             )
@@ -88,24 +92,34 @@ class BaseLspServer(LspServer):
                 self.process.returncode is not None
                 and self.process.returncode != 0
             ):
-                # Process failed immediately
+                # Process failed immediately - read stderr to diagnose
                 stderr_output = (
                     self.process.stderr.read()
                     if self.process.stderr
                     else "No error output available"
                 )
                 LOGGER.error(
-                    "LSP server failed to start with return code %s",
-                    self.process.returncode,
+                    f"{self.id} LSP server failed to start with return code {self.process.returncode}"
                 )
-                LOGGER.error("Error output: %s", stderr_output)
-                return Alert(
-                    title="LSP server failed to start",
-                    description="The LSP server failed to start. Please check the logs for more information.",
+                LOGGER.error(f"Command: {' '.join(cmd)}")
+                LOGGER.error(f"Error output: {stderr_output}")
+
+                return AlertNotification(
+                    title=f"{self.id} LSP server failed to start",
+                    description=f"The {self.id} server crashed on startup. Check {self.log_file} for details. Error: {stderr_output[:200]}",
                     variant="danger",
                 )
 
             LOGGER.info(f"Started LSP {self.id} at port {self.port}")
+
+            # Start health monitoring in background
+            if (
+                self._health_check_task is None
+                or self._health_check_task.done()
+            ):
+                self._health_check_task = asyncio.create_task(
+                    self._monitor_process_health()
+                )
 
         except Exception as e:
             cmd_str = " ".join(cmd or [])
@@ -121,9 +135,64 @@ class BaseLspServer(LspServer):
             return False
         # check if the process is still running
         self.process.poll()
-        return self.process.returncode is not None
+        # returncode is None when process is running, set when it exits
+        return self.process.returncode is None
+
+    def has_failed(self) -> bool:
+        """Check if the LSP server has failed to start or crashed."""
+        return self._startup_failed or (
+            self.process is not None
+            and self.process.returncode is not None
+            and self.process.returncode != 0
+        )
+
+    async def _monitor_process_health(self) -> None:
+        """Monitor the LSP process health and log if it crashes."""
+        if self.process is None:
+            return
+
+        try:
+            # Wait a bit to let the process fully initialize
+            await asyncio.sleep(2)
+
+            # Wait for the process to exit (non-blocking via executor)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self.process.wait)
+
+            # Process has exited - check if it was expected
+            if self.process and self.process.returncode is not None:
+                stderr_output = ""
+                if self.process.stderr:
+                    try:
+                        # Try to read any remaining stderr
+                        # Note: stderr might be empty if already consumed during wait()
+                        stderr_output = self.process.stderr.read()
+                    except Exception:
+                        pass
+
+                LOGGER.error(
+                    f"{self.id} LSP server crashed unexpectedly with exit code {self.process.returncode}. Check {self.log_file} for details."
+                )
+                if stderr_output:
+                    LOGGER.error(f"stderr: {stderr_output}")
+
+                self._startup_failed = True
+
+        except asyncio.CancelledError:
+            # Task was cancelled, this is normal during shutdown
+            # Re-raise to properly complete the cancellation
+            raise
+        except Exception as e:
+            LOGGER.error(f"Error monitoring {self.id} LSP health: {e}")
 
     def stop(self) -> None:
+        # Cancel health monitoring task
+        if (
+            self._health_check_task is not None
+            and not self._health_check_task.done()
+        ):
+            self._health_check_task.cancel()
+
         if self.process is not None:
             self.process.terminate()
             self.process = None
@@ -137,12 +206,16 @@ class BaseLspServer(LspServer):
     def get_command(self) -> list[str]:
         raise NotImplementedError()
 
-    def missing_binary_alert(self) -> Alert:
+    def missing_binary_alert(self) -> AlertNotification:
         raise NotImplementedError()
 
 
 class CopilotLspServer(BaseLspServer):
     id = "copilot"
+
+    def __init__(self, port: int) -> None:
+        super().__init__(port)
+        self.log_file = _loggers.get_log_directory() / "github-copilot-lsp.log"
 
     def validate_requirements(self) -> Union[str, Literal[True]]:
         if not DependencyManager.which("node"):
@@ -197,11 +270,10 @@ class CopilotLspServer(BaseLspServer):
             LOGGER.debug("LSP binary not found at %s", lsp_bin)
             return []
 
-        copilot_bin = self._lsp_dir() / "copilot" / "language-server.js"
-        log_file = _loggers.get_log_directory() / "github-copilot-lsp.log"
+        copilot_bin = self._lsp_dir() / "copilot" / "language-server.cjs"
 
-        # Properly quote the copilot binary path to handle spaces and special characters
-        copilot_command = f"node {cmd_quote(str(copilot_bin))} --stdio"
+        # Use typed format to avoid quoting issues: copilot:<binary_path>
+        copilot_command = f"copilot:{copilot_bin}"
 
         return [
             "node",
@@ -211,11 +283,11 @@ class CopilotLspServer(BaseLspServer):
             "--lsp",
             copilot_command,
             "--log-file",
-            str(log_file),
+            str(self.log_file),
         ]
 
-    def missing_binary_alert(self) -> Alert:
-        return Alert(
+    def missing_binary_alert(self) -> AlertNotification:
+        return AlertNotification(
             title="GitHub Copilot: Connection Error",
             description="<span><a class='hyperlink' href='https://docs.marimo.io/getting_started/index.html#github-copilot'>Install Node.js</a> to use copilot.</span>",
             variant="danger",
@@ -223,24 +295,51 @@ class CopilotLspServer(BaseLspServer):
 
 
 class PyLspServer(BaseLspServer):
+    """Python Language Server Protocol implementation using python-lsp-server (pylsp).
+
+    Common issues and solutions:
+    - If pylsp fails to start, check ~/.cache/marimo/logs/pylsp.log for errors
+    - Version conflicts between jedi and python-lsp-server can cause failures
+    - If autocomplete doesn't work, try disabling pylsp in Settings > Editor > Language Servers
+    - When pylsp is disabled, marimo falls back to Jedi for completions
+    """
+
     id = "pylsp"
 
-    async def start(self) -> Optional[Alert]:
+    async def start(self) -> Optional[AlertNotification]:
         # pylsp is not required, so we don't want to alert or fail if it is not installed
         if not DependencyManager.pylsp.has():
-            LOGGER.debug("pylsp is not installed. Skipping LSP server.")
+            LOGGER.info(
+                "pylsp is not installed. Skipping LSP server. Install with: pip install python-lsp-server"
+            )
             return None
         return await super().start()
 
     def validate_requirements(self) -> Union[str, Literal[True]]:
-        if DependencyManager.pylsp.has():
+        if not DependencyManager.pylsp.has():
+            return "pylsp is missing. Install it with `pip install python-lsp-server`."
+
+        # Try actually running pylsp to validate it works
+        import sys
+
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pylsp", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                error_msg = result.stderr or result.stdout or "Unknown error"
+                return f"pylsp is installed but failed to run: {error_msg}. Check for dependency conflicts (e.g., jedi version compatibility)."
             return True
-        return "pylsp is missing. Install it with `pip install python-lsp-server`."
+        except subprocess.TimeoutExpired:
+            return "pylsp command timed out. The server may be unresponsive."
+        except Exception as e:
+            return f"Failed to validate pylsp: {e}"
 
     def get_command(self) -> list[str]:
         import sys
-
-        log_file = _loggers.get_log_directory() / "pylsp.log"
 
         return [
             sys.executable,
@@ -252,13 +351,13 @@ class PyLspServer(BaseLspServer):
             str(self.port),
             "--check-parent-process",
             "--log-file",
-            str(log_file),
+            str(self.log_file),
         ]
 
-    def missing_binary_alert(self) -> Alert:
-        return Alert(
+    def missing_binary_alert(self) -> AlertNotification:
+        return AlertNotification(
             title="Python LSP: Connection Error",
-            description="<span><a class='hyperlink' href='https://github.com/python-lsp/python-lsp-server'>Install python-lsp-server</a> for Python language support.</span>",
+            description=f"<span><a class='hyperlink' href='https://github.com/python-lsp/python-lsp-server'>Install python-lsp-server</a> for Python language support. If already installed, check {self.log_file} or disable pylsp in Settings > Editor > Language Servers.</span>",
             variant="danger",
         )
 
@@ -266,7 +365,11 @@ class PyLspServer(BaseLspServer):
 class BasedpyrightServer(BaseLspServer):
     id = "basedpyright"
 
-    async def start(self) -> Optional[Alert]:
+    def __init__(self, port: int) -> None:
+        super().__init__(port)
+        self.log_file = _loggers.get_log_directory() / "basedpyright-lsp.log"
+
+    async def start(self) -> Optional[AlertNotification]:
         # basedpyright is not required, so we don't want to alert or fail if it is not installed
         if not DependencyManager.basedpyright.has():
             LOGGER.debug("basedpyright is not installed. Skipping LSP server.")
@@ -284,7 +387,6 @@ class BasedpyrightServer(BaseLspServer):
 
     def get_command(self) -> list[str]:
         lsp_bin = marimo_package_path() / "_lsp" / "index.cjs"
-        log_file = _loggers.get_log_directory() / "basedpyright-lsp.log"
 
         return [
             "node",
@@ -292,13 +394,13 @@ class BasedpyrightServer(BaseLspServer):
             "--port",
             str(self.port),
             "--lsp",
-            "basedpyright-langserver --stdio",
+            "basedpyright:basedpyright-langserver",
             "--log-file",
-            str(log_file),
+            str(self.log_file),
         ]
 
-    def missing_binary_alert(self) -> Alert:
-        return Alert(
+    def missing_binary_alert(self) -> AlertNotification:
+        return AlertNotification(
             title="basedpyright: Connection Error",
             description="<span><a class='hyperlink' href='https://docs.basedpyright.com'>Install basedpyright</a> for type checking support.</span>",
             variant="danger",
@@ -308,7 +410,11 @@ class BasedpyrightServer(BaseLspServer):
 class TyServer(BaseLspServer):
     id = "ty"
 
-    async def start(self) -> Optional[Alert]:
+    def __init__(self, port: int) -> None:
+        super().__init__(port)
+        self.log_file = _loggers.get_log_directory() / "ty-lsp.log"
+
+    async def start(self) -> Optional[AlertNotification]:
         # ty is not required, so we don't want to alert or fail if it is not installed
         if not DependencyManager.ty.has():
             LOGGER.debug("ty is not installed. Skipping LSP server.")
@@ -328,10 +434,9 @@ class TyServer(BaseLspServer):
         from ty.__main__ import find_ty_bin  # type: ignore
 
         lsp_bin = marimo_package_path() / "_lsp" / "index.cjs"
-        log_file = _loggers.get_log_directory() / "ty-lsp.log"
 
-        # Properly quote the ty binary path to handle spaces and special characters
-        ty_command = f"{cmd_quote(find_ty_bin())} server"
+        # Use typed format to avoid quoting issues: ty:<binary_path>
+        ty_command = f"ty:{find_ty_bin()}"
 
         return [
             "node",
@@ -341,11 +446,11 @@ class TyServer(BaseLspServer):
             "--lsp",
             ty_command,
             "--log-file",
-            str(log_file),
+            str(self.log_file),
         ]
 
-    def missing_binary_alert(self) -> Alert:
-        return Alert(
+    def missing_binary_alert(self) -> AlertNotification:
+        return AlertNotification(
             title="Ty: Connection Error",
             description="<span><a class='hyperlink' href='https://github.com/astral-sh/ty'>Install ty</a> for type checking support.</span>",
             variant="danger",
@@ -404,10 +509,10 @@ class CompositeLspServer(LspServer):
             .get("enabled", False),
         )
 
-    async def start(self) -> Optional[Alert]:
+    async def start(self) -> Optional[AlertNotification]:
         # .get_config() should not be cached, as it may be updated by the user
         config = self.config_reader.get_config()
-        tasks: list[asyncio.Task[Optional[Alert]]] = []
+        tasks: list[asyncio.Task[Optional[AlertNotification]]] = []
 
         for server_name, server in self.servers.items():
             if not self._is_enabled(config, server_name):

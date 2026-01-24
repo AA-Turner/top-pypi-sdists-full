@@ -1,6 +1,6 @@
 [project]
 name = "GitHubKit"
-version = "0.13.3"
+version = "0.14.3"
 description = "GitHub SDK for Python"
 authors = [{ name = "yanyongyu", email = "yyy@yyydl.top" }]
 license = "MIT"
@@ -29,19 +29,19 @@ Documentation = "https://github.com/yanyongyu/githubkit"
 "Bug Tracker" = "https://github.com/yanyongyu/githubkit/issues"
 
 [dependency-groups]
-thirdparty = ["redis >=5.2.0, <7.0.0"]
+thirdparty = ["redis >=5.2.0, <8.0.0"]
 dev = [
   { include-group = "thirdparty" },
   { include-group = "codegen" },
   { include-group = "test" },
   { include-group = "docs" },
-  "ruff >=0.13.0, <0.14.0",
+  "ruff >=0.14.0, <0.15.0",
   "nonemoji >=0.1.2, <0.2.0",
   "pre-commit >=4.0.0, <5.0.0",
 ]
 codegen = [
   "Jinja2 >=3.1.2, <4.0.0",
-  "tomlkit >=0.13.3, <0.14.0",
+  "tomlkit >=0.13.3, <0.15.0",
   "jsonpointer >=3.0.0, <4.0.0",
   "openapi-pydantic >=0.5.0, <0.6.0",
 ]
@@ -70,7 +70,7 @@ conflicts = [[{ group = "pydantic-v1" }, { group = "pydantic-v2" }]]
 module-root = ""
 
 [build-system]
-requires = ["uv_build >=0.8.3, <0.9.0"]
+requires = ["uv_build >=0.8.3, <0.10.0"]
 build-backend = "uv_build"
 
 [tool.pytest.ini_options]
@@ -548,6 +548,13 @@ source = "descriptions-next/ghec/ghec.2022-11-28.json"
 # webhook repository dispatch action can be any string
 "/webhooks/repository-dispatch-sample.collected/post" = { operationId = "repository-dispatch" }
 # "/components/schemas/webhook-repository-dispatch-sample/properties/action" = { enum = "<unset>" }
+
+# https://github.com/yanyongyu/githubkit/issues/239
+# discussion answer's parent id may be not null
+"/components/schemas/webhooks_answer/properties/parent_id" = { type = [
+  "integer",
+  "null",
+] }
 
 # https://github.com/yanyongyu/githubkit/issues/205
 # https://github.com/github/rest-api-description/issues/4727

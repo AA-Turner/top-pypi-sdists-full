@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cysignals
-Version: 1.12.5
+Version: 1.12.6
 Summary: Interrupt and signal handling for Cython
 Author-Email: The Sage Developers <sage-support@googlegroups.com>
 License:                    GNU LESSER GENERAL PUBLIC LICENSE
@@ -177,16 +177,15 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: System
 Classifier: Topic :: Software Development :: Debuggers
 Project-URL: Homepage, https://github.com/sagemath/cysignals
-Requires-Python: <3.14,>=3.9
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 
 cysignals: interrupt and signal handling for Cython
@@ -213,8 +212,8 @@ signals and errors) in Cython code.
 Requirements
 ------------
 
-- Python >= 3.9
-- Cython >= 0.28
+- Python >= 3.12
+- Cython >= 3.1
 - Sphinx >= 1.6 (for building the documentation)
 
 Links

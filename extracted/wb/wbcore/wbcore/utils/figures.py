@@ -83,8 +83,7 @@ def get_timeseries_chart(x_data, y_data, red, green, blue):
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         yaxis=dict(
-            title="",
-            titlefont=dict(color="#000000"),
+            title=dict(text="", font=dict(color="#000000")),
             tickfont=dict(color="#000000"),
             anchor="x",
             side="right",
@@ -94,8 +93,7 @@ def get_timeseries_chart(x_data, y_data, red, green, blue):
         ),
         yaxis_type="log",
         xaxis=dict(
-            title="",
-            titlefont=dict(color="#000000"),
+            title=dict(text="", font=dict(color="#000000")),
             tickfont=dict(color="#000000"),
             showline=True,
             linewidth=0.5,
@@ -158,13 +156,11 @@ def get_factsheet_timeseries_chart(df, color="rgb(120,214,255)", fillcolor="rgba
             ),
             rangeslider=dict(visible=True),
             type="date",
-            title="",
-            titlefont=dict(color="#000000"),
+            title=dict(text="", font=dict(color="#000000")),
             tickfont=dict(color="#000000"),
         ),
         yaxis=dict(
-            title="",
-            titlefont=dict(color="#000000"),
+            title=dict(text="", font=dict(color="#000000")),
             tickfont=dict(color="#000000"),
             anchor="x",
             side="right",
@@ -183,7 +179,7 @@ def get_horizontal_barplot(
     df,
     x_label="weighting",
     y_label="aggregated_title",
-    colors=["#B4DAFF"],
+    colors: tuple[str, ...] = ("#B4DAFF",),
     colors_label=None,
     drop_null_x_value: bool = True,
 ):
@@ -204,7 +200,7 @@ def get_horizontal_barplot(
     if colors_label:
         colors = df[colors_label]
     opacity = 1
-    for i, label in enumerate(x_label):
+    for label in x_label:
         data.append(
             go.Bar(
                 name=label,

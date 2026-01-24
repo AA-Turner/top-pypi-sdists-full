@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 name: openssl_publickey_info
 short_description: Retrieve information from OpenSSL public keys in PEM format
@@ -124,9 +123,11 @@ _value:
 """
 
 import typing as t
+from collections.abc import Callable
 
 from ansible.errors import AnsibleFilterError
 from ansible.module_utils.common.text.converters import to_bytes
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.basic import (
     OpenSSLObjectError,
 )
@@ -158,7 +159,7 @@ def openssl_publickey_info_filter(data: str | bytes) -> dict[str, t.Any]:
 class FilterModule:
     """Ansible jinja2 filters"""
 
-    def filters(self) -> dict[str, t.Callable]:
+    def filters(self) -> dict[str, Callable]:
         return {
             "openssl_publickey_info": openssl_publickey_info_filter,
         }

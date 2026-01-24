@@ -16,9 +16,10 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
+import openvino
 import torch
 from huggingface_hub import hf_hub_download
 from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE
@@ -38,7 +39,8 @@ from ...exporters.openvino import main_export
 from ..utils.modeling_utils import _find_files_matching_pattern, _OpenClipForZeroShotImageClassification
 from .configuration import OVConfig, OVWeightQuantizationConfig
 from .modeling import MODEL_START_DOCSTRING, OVModel
-from .utils import TemporaryDirectory
+from .modeling_base import OVModelHostMixin
+from .utils import TemporaryDirectory, classproperty
 
 
 logger = logging.getLogger(__name__)
@@ -213,8 +215,11 @@ class OVModelOpenCLIPBase(OVModel):
     MODEL_START_DOCSTRING,
 )
 class OVModelOpenCLIPText(OVModelOpenCLIPBase):
-    _xml_model_name = "openvino_model_text.xml"
     export_feature = "feature-extraction"
+
+    @classproperty
+    def _all_ov_model_paths(cls) -> Dict[str, str]:
+        return {"model": "openvino_model_text.xml"}
 
     def __init__(self, model=None, config=None, tokenize_cfg=None, **kwargs):
         super().__init__(model, config, **kwargs)
@@ -281,7 +286,7 @@ class OVModelOpenCLIPText(OVModelOpenCLIPBase):
             config=config,
             load_in_8bit=load_in_8bit,
             quantization_config=quantization_config,
-            file_name=cls._xml_model_name,
+            file_name=cls._all_ov_model_paths["model"],
             **kwargs,
         )
 
@@ -338,8 +343,11 @@ class OVModelOpenCLIPText(OVModelOpenCLIPBase):
     MODEL_START_DOCSTRING,
 )
 class OVModelOpenCLIPVisual(OVModelOpenCLIPBase):
-    _xml_model_name = "openvino_model_vision.xml"
     export_feature = "feature-extraction"
+
+    @classproperty
+    def _all_ov_model_paths(cls) -> Dict[str, str]:
+        return {"model": "openvino_model_vision.xml"}
 
     def __init__(self, model=None, config=None, preprocess_cfg=None, **kwargs):
         super().__init__(model, config, **kwargs)
@@ -406,7 +414,7 @@ class OVModelOpenCLIPVisual(OVModelOpenCLIPBase):
             config=config,
             load_in_8bit=load_in_8bit,
             quantization_config=quantization_config,
-            file_name=cls._xml_model_name,
+            file_name=cls._all_ov_model_paths["model"],
             **kwargs,
         )
 
@@ -462,7 +470,7 @@ class OVModelOpenCLIPVisual(OVModelOpenCLIPBase):
     """,
     MODEL_START_DOCSTRING,
 )
-class OVModelOpenCLIPForZeroShotImageClassification:
+class OVModelOpenCLIPForZeroShotImageClassification(OVModelHostMixin):
     export_feature = "zero-shot-image-classification"
 
     def __init__(
@@ -486,6 +494,18 @@ class OVModelOpenCLIPForZeroShotImageClassification:
             self.logit_bias = torch.nn.Parameter(torch.ones([]) * init_logit_bias)
         else:
             self.logit_bias = None
+
+    @property
+    def _component_names(self) -> List[str]:
+        return ["text_model", "visual_model"]
+
+    @property
+    def _ov_model_names(self) -> List[str]:
+        return self._component_names
+
+    @property
+    def ov_models(self) -> Dict[str, openvino.Model]:
+        return {name: getattr(component, "model") for name, component in self.components.items()}
 
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)

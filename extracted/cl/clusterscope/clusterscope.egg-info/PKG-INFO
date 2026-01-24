@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: clusterscope
-Version: 0.0.14
-Summary: clusterscope is a python library to extract core information from HPC Clusters
+Version: 0.0.32
+Summary: Clusterscope is a CLI and python library to extract information from HPC Clusters and Jobs.
 Author-email: Lucca Bertoncini <luccab@meta.com>, Kalyan Saladi <skalyan@meta.com>
 License: MIT License
         
@@ -27,9 +27,11 @@ License: MIT License
         
 Project-URL: Homepage, https://github.com/facebookresearch/clusterscope
 Project-URL: Issues, https://github.com/facebookresearch/clusterscope/issues
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: click!=8.3.0,>=8.0.0
+Requires-Dist: click-option-group
 Provides-Extra: dev
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: black; extra == "dev"
@@ -38,11 +40,14 @@ Requires-Dist: usort; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: build; extra == "dev"
+Requires-Dist: types-click; extra == "dev"
 Dynamic: license-file
 
-# Cluster Scope
+# Clusterscope
 
-clusterscope is a binary and python library to extract core information from HPC Clusters.
+Clusterscope is a CLI and python library to extract information from HPC Clusters and Jobs.
+
+Check out our [Website](https://facebookresearch.github.io/clusterscope/) for Getting Started and Documentation.
 
 ## Install from pypi
 
@@ -61,10 +66,24 @@ $ python
 
 You can also use it as a CLI:
 
-```bash
+```shell
 $ cscope
-usage: cscope [-h] {info,cpus,gpus,check-gpu,aws} ...
-...
+Usage: cscope [OPTIONS] COMMAND [ARGS]...
+
+  Command-line tool to query Slurm cluster information.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  aws        Check if running on AWS and show NCCL settings.
+  check-gpu  Check if a specific GPU type exists.
+  cpus       Show CPU counts per node.
+  gpus       Show GPU information.
+  info       Show basic cluster information.
+  job-gen    Generate job requirements for different job types.
+  mem        Show memory information per node.
+  version    Show the version of clusterscope.
 ```
 
 ## Contributing
@@ -79,6 +98,22 @@ Facebook has adopted a Code of Conduct that we expect project participants to ad
 
 clusterscope is actively maintained by [Lucca Bertoncini](https://github.com/luccabb), and [Kalyan Saladi](https://github.com/skalyan).
 
+## Contributors
+
+[Lucca Bertoncini](https://github.com/luccabb), [Kalyan Saladi](https://github.com/skalyan), [Nikhil Gupta](https://github.com/gunchu), [Misko Dzamba](https://github.com/misko), <Feel free to contribute and add your name>
+
 ### License
 
 clusterscope is licensed under the [MIT](./LICENSE) license.
+
+## Citing Clusterscope
+
+```
+@Misc{
+  author =       {Lucca Bertoncini, and Kalyan Saladi},
+  title =        {Clusterscope - Tooling for extracting HPC Cluster and Jobs information. },
+  howpublished = {Github},
+  year =         {2025},
+  url =          {https://github.com/facebookresearch/clusterscope}
+}
+```

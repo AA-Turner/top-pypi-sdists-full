@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "portforward"
-version = "0.7.3"
+version = "0.7.5"
 authors = [{ name = "Sebastian Ziemann", email = "corka149@mailbox.org" }]
 description = "Easy Kubernetes Port-Forward For Python"
 readme = "README.rst"
@@ -19,6 +19,9 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 license = { text = "MIT License" }
 keywords = ["portforward", "kubernetes", "k8s"]
@@ -34,7 +37,7 @@ module-name = "portforward._portforward"
 python-source = "python"
 
 [tool.bumpversion]
-current_version = "0.7.3"
+current_version = "0.7.5"
 tag = true
 commit = true
 

@@ -17,10 +17,10 @@
 
 import logging
 
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common
 
@@ -169,7 +169,9 @@ class DeleteEndpoint(command.Command):
         result = 0
         for i in parsed_args.endpoint:
             try:
-                endpoint_id = identity_client.find_endpoint(i).id
+                endpoint_id = identity_client.find_endpoint(
+                    i, ignore_missing=False
+                ).id
                 identity_client.delete_endpoint(endpoint_id)
             except Exception as e:
                 result += 1
@@ -230,12 +232,25 @@ class ListEndpoint(command.Lister):
 
         endpoint = None
         if parsed_args.endpoint:
-            endpoint = identity_client.find_endpoint(parsed_args.endpoint)
-        project = None
+            endpoint = identity_client.find_endpoint(
+                parsed_args.endpoint, ignore_missing=False
+            )
+
+        project_domain_id = None
+        if parsed_args.project_domain:
+            project_domain_id = common._find_sdk_id(
+                identity_client.find_domain,
+                name_or_id=parsed_args.project_domain,
+            )
+
+        project_id = None
         if parsed_args.project:
-            project = identity_client.find_project(
-                parsed_args.project,
-                parsed_args.project_domain,
+            project_id = common._find_sdk_id(
+                identity_client.find_project,
+                name_or_id=common._get_token_resource(
+                    identity_client, 'project', parsed_args.project
+                ),
+                domain_id=project_domain_id,
             )
 
         if endpoint:
@@ -273,15 +288,17 @@ class ListEndpoint(command.Lister):
                 region = identity_client.get_region(parsed_args.region)
                 kwargs['region_id'] = region.id
 
-            if project:
+            if project_id:
                 data = list(
-                    identity_client.project_endpoints(project=project.id)
+                    identity_client.project_endpoints(project=project_id)
                 )
             else:
                 data = list(identity_client.endpoints(**kwargs))
 
             for ep in data:
-                service = identity_client.find_service(ep.service_id)
+                service = identity_client.find_service(
+                    ep.service_id, ignore_missing=False
+                )
                 ep.service_name = getattr(service, 'name', '')
                 ep.service_type = service.type
 
@@ -382,7 +399,9 @@ class SetEndpoint(command.Command):
 
     def take_action(self, parsed_args):
         identity_client = self.app.client_manager.sdk_connection.identity
-        endpoint = identity_client.find_endpoint(parsed_args.endpoint)
+        endpoint = identity_client.find_endpoint(
+            parsed_args.endpoint, ignore_missing=False
+        )
 
         kwargs = {}
 
@@ -429,7 +448,9 @@ class ShowEndpoint(command.ShowOne):
 
     def take_action(self, parsed_args):
         identity_client = self.app.client_manager.sdk_connection.identity
-        endpoint = identity_client.find_endpoint(parsed_args.endpoint)
+        endpoint = identity_client.find_endpoint(
+            parsed_args.endpoint, ignore_missing=False
+        )
 
         service = common.find_service_sdk(identity_client, endpoint.service_id)
 

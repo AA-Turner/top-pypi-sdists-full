@@ -1,20 +1,17 @@
-from collections import (
-    abc,
-)
 import copy
 import itertools
 import re
+from collections.abc import (
+    Iterable,
+    Mapping,
+    Sequence,
+)
 from typing import (
     Any,
-    Dict,
-    Iterable,
-    List,
+    Final,
+    Generic,
     Literal,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
+    TypeVar,
     cast,
     overload,
 )
@@ -30,6 +27,9 @@ from eth_typing import (
     ABIFunction,
     ABIReceive,
 )
+from typing_extensions import (
+    Self,
+)
 
 from faster_eth_utils.types import (
     is_list_like,
@@ -40,9 +40,37 @@ from .crypto import (
 )
 
 
+T = TypeVar("T")
+
+ABIType = Literal["function", "constructor", "fallback", "receive", "event", "error"]
+
+_TUPLE_TYPE_STR_RE: Final = re.compile("^(tuple)((\\[([1-9]\\d*\\b)?])*)??$")
+
+_chain: Final = itertools.chain
+
+
+class _repeat(Generic[T]):
+
+    def __init__(self, value: T, times: int | None = None) -> None:
+        self._value: Final[T] = value
+        self._times: Final[int | None] = times
+        self._index = 0
+
+    def __iter__(self) -> Self:
+        return self
+
+    def __next__(self) -> T:
+        if self._times is None:
+            return self._value
+        if self._index >= self._times:
+            raise StopIteration
+        self._index += 1
+        return self._value
+
+
 def _align_abi_input(
     arg_abi: ABIComponent, normalized_arg: Any
-) -> Union[Any, Tuple[Any, ...]]:
+) -> Any | tuple[Any, ...]:
     """
     Aligns the values of any mapping at any level of nesting in ``normalized_arg``
     according to the layout of the corresponding abi spec.
@@ -66,37 +94,38 @@ def _align_abi_input(
         new_abi = copy.copy(arg_abi)
         new_abi["type"] = tuple_prefix + "[]" * (num_dims - 1)
 
-        sub_abis = itertools.repeat(new_abi)
+        sub_abis = _repeat(new_abi)
 
     aligned_arg: Any
-    if isinstance(normalized_arg, abc.Mapping):
+    if isinstance(normalized_arg, Mapping):
         # normalized_arg is mapping.  Align values according to abi order.
         aligned_arg = tuple(normalized_arg[abi["name"]] for abi in sub_abis)
     else:
         aligned_arg = normalized_arg
 
-    if not is_list_like(aligned_arg):
-        raise TypeError(
-            f'Expected non-string sequence for "{arg_abi.get("type")}" '
-            f"component type: got {aligned_arg}"
-        )
+    # We can generate more optimized C code if we branch by arg type
+    if isinstance(aligned_arg, tuple):
+        # convert NamedTuple to regular tuple
+        return tuple(map(_align_abi_input, sub_abis, aligned_arg))
 
-    # convert NamedTuple to regular tuple
-    typing = tuple if isinstance(aligned_arg, tuple) else type(aligned_arg)
+    elif type(aligned_arg) is list:
+        return list(map(_align_abi_input, sub_abis, aligned_arg))
 
-    return typing(  # type: ignore [call-arg]
-        _align_abi_input(sub_abi, sub_arg)
-        for sub_abi, sub_arg in zip(sub_abis, aligned_arg)
+    elif is_list_like(aligned_arg):
+        return type(aligned_arg)(map(_align_abi_input, sub_abis, aligned_arg))  # type: ignore [call-arg]
+
+    raise TypeError(
+        f'Expected non-string sequence for "{arg_abi.get("type")}" '
+        f"component type: got {aligned_arg}"
     )
 
 
-def _get_tuple_type_str_and_dims(s: str) -> Optional[Tuple[str, Optional[str]]]:
+def _get_tuple_type_str_and_dims(s: str) -> tuple[str, str | None] | None:
     """
     Takes a JSON ABI type string.  For tuple type strings, returns the separated
     prefix and array dimension parts.  For all other strings, returns ``None``.
     """
-    tuple_type_str_re = "^(tuple)((\\[([1-9]\\d*\b)?])*)??$"
-    match = re.compile(tuple_type_str_re).match(s)
+    match = _TUPLE_TYPE_STR_RE.match(s)
 
     return None if match is None else (match[1], match[2])
 
@@ -119,7 +148,7 @@ def _raise_if_fallback_or_receive_abi(abi_element: ABIElement) -> None:
         )
 
 
-def collapse_if_tuple(abi: Union[ABIComponent, Dict[str, Any], str]) -> str:
+def collapse_if_tuple(abi: ABIComponent | dict[str, Any] | str) -> str:
     """
     Extract argument types from a function or event ABI parameter.
 
@@ -274,15 +303,25 @@ def filter_abi_by_name(abi_name: str, contract_abi: ABI) -> Sequence[ABIElement]
         abi
         for abi in contract_abi
         if abi["type"] in ["function", "event", "error"]
-        and abi["name"] == abi_name
+        and abi["name"] == abi_name  # type: ignore [typeddict-item]
     ]
+
+
+__ABI_TYPE_LITERALS: Final  = {
+    Literal["function"]: "function",
+    Literal["constructor"]: "constructor",
+    Literal["fallback"]: "fallback",
+    Literal["receive"]: "receive",
+    Literal["event"]: "event",
+    Literal["error"]: "error",
+}
 
 
 @overload
 def filter_abi_by_type(
     abi_type: Literal["function"],
     contract_abi: ABI,
-) -> List[ABIFunction]:
+) -> list[ABIFunction]:
     pass
 
 
@@ -290,7 +329,7 @@ def filter_abi_by_type(
 def filter_abi_by_type(
     abi_type: Literal["constructor"],
     contract_abi: ABI,
-) -> List[ABIConstructor]:
+) -> list[ABIConstructor]:
     pass
 
 
@@ -298,7 +337,7 @@ def filter_abi_by_type(
 def filter_abi_by_type(
     abi_type: Literal["fallback"],
     contract_abi: ABI,
-) -> List[ABIFallback]:
+) -> list[ABIFallback]:
     pass
 
 
@@ -306,7 +345,7 @@ def filter_abi_by_type(
 def filter_abi_by_type(
     abi_type: Literal["receive"],
     contract_abi: ABI,
-) -> List[ABIReceive]:
+) -> list[ABIReceive]:
     pass
 
 
@@ -314,7 +353,7 @@ def filter_abi_by_type(
 def filter_abi_by_type(
     abi_type: Literal["event"],
     contract_abi: ABI,
-) -> List[ABIEvent]:
+) -> list[ABIEvent]:
     pass
 
 
@@ -322,18 +361,16 @@ def filter_abi_by_type(
 def filter_abi_by_type(
     abi_type: Literal["error"],
     contract_abi: ABI,
-) -> List[ABIError]:
+) -> list[ABIError]:
     pass
 
 
 def filter_abi_by_type(
-    abi_type: Literal[
-        "function", "constructor", "fallback", "receive", "event", "error"
-    ],
+    abi_type: ABIType,
     contract_abi: ABI,
-) -> Union[
-    List[ABIFunction], List[ABIConstructor], List[ABIFallback], List[ABIReceive], List[ABIEvent], List[ABIError]
-]:
+) -> (
+    list[ABIFunction] | list[ABIConstructor] | list[ABIFallback] | list[ABIReceive] | list[ABIEvent] | list[ABIError]
+):
     """
     Return a list of each ``ABIElement`` that is of type ``abi_type``.
 
@@ -361,20 +398,12 @@ ABIEvent, ABIError]]`
         [{'type': 'function', 'name': 'myFunction', 'inputs': [], 'outputs': []}, \
 {'type': 'function', 'name': 'myFunction2', 'inputs': [], 'outputs': []}]
     """
-    if abi_type == Literal["function"] or abi_type == "function":
-        return [abi for abi in contract_abi if abi["type"] == "function"]
-    elif abi_type == Literal["constructor"] or abi_type == "constructor":
-        return [abi for abi in contract_abi if abi["type"] == "constructor"]
-    elif abi_type == Literal["fallback"] or abi_type == "fallback":
-        return [abi for abi in contract_abi if abi["type"] == "fallback"]
-    elif abi_type == Literal["receive"] or abi_type == "receive":
-        return [abi for abi in contract_abi if abi["type"] == "receive"]
-    elif abi_type == Literal["event"] or abi_type == "event":
-        return [abi for abi in contract_abi if abi["type"] == "event"]
-    elif abi_type == Literal["error"] or abi_type == "error":
-        return [abi for abi in contract_abi if abi["type"] == "error"]
-    else:
+    if abi_type in ("function", "constructor", "fallback", "receive", "event", "error"):
+        return [abi for abi in contract_abi if abi["type"] == abi_type]  # type: ignore [return-value]
+    abi_type_string: ABIType | None = __ABI_TYPE_LITERALS.get(abi_type)  # type: ignore [call-overload]
+    if abi_type_string is None:
         raise ValueError(f"Unsupported ABI type: {abi_type}")
+    return [abi for abi in contract_abi if abi["type"] == abi_type_string]  # type: ignore [return-value]    
 
 
 def get_all_function_abis(contract_abi: ABI) -> Sequence[ABIFunction]:
@@ -428,7 +457,7 @@ def get_normalized_abi_inputs(
     abi_element: ABIElement,
     *args: Any,
     **kwargs: Any,
-) -> Tuple[Any, ...]:
+) -> tuple[Any, ...]:
     r"""
     Flattens positional args (``args``) and keyword args (``kwargs``) into a Tuple and
     uses the ``abi_element`` for validation.
@@ -496,6 +525,7 @@ def get_normalized_abi_inputs(
 
     kwarg_names = set(kwargs.keys())
     sorted_arg_names = tuple(arg_abi["name"] for arg_abi in function_inputs)
+    arg_positions = {name: index for index, name in enumerate(sorted_arg_names)}
     args_as_kwargs = dict(zip(sorted_arg_names, args))
 
     # Check for duplicate args
@@ -521,22 +551,17 @@ def get_normalized_abi_inputs(
 
     # Sort args according to their position in the ABI and unzip them from their
     # names
-    sorted_args = tuple(
-        zip(
-            *sorted(
-                itertools.chain(kwargs.items(), args_as_kwargs.items()),
-                key=lambda kv: sorted_arg_names.index(kv[0]),
-            )
-        )
+    sorted_items = sorted(
+        _chain(kwargs.items(), args_as_kwargs.items()),
+        key=lambda kv: arg_positions[kv[0]],
     )
-
-    return tuple(sorted_args[1]) if sorted_args else ()
+    return tuple(val for _, val in sorted_items)
 
 
 def get_aligned_abi_inputs(
     abi_element: ABIElement,
-    normalized_args: Union[Tuple[Any, ...], Mapping[Any, Any]],
-) -> Tuple[Tuple[str, ...], Tuple[Any, ...]]:
+    normalized_args: tuple[Any, ...] | Mapping[Any, Any],
+) -> tuple[tuple[str, ...], tuple[Any, ...]]:
     """
     Returns a pair of nested Tuples containing a list of types and a list of input
     values sorted by the order specified by the ``abi``.
@@ -579,7 +604,7 @@ def get_aligned_abi_inputs(
     _raise_if_fallback_or_receive_abi(abi_element)
 
     abi_element_inputs = cast(Sequence[ABIComponent], abi_element.get("inputs", []))
-    if isinstance(normalized_args, abc.Mapping):
+    if isinstance(normalized_args, Mapping):
         # `args` is mapping.  Align values according to abi order.
         normalized_args = tuple(
             normalized_args[abi["name"]] for abi in abi_element_inputs
@@ -594,7 +619,7 @@ def get_aligned_abi_inputs(
     )
 
 
-def get_abi_input_names(abi_element: ABIElement) -> List[Optional[str]]:
+def get_abi_input_names(abi_element: ABIElement) -> list[str | None]:
     """
     Return names for each input from the function or event ABI.
 
@@ -630,7 +655,7 @@ def get_abi_input_names(abi_element: ABIElement) -> List[Optional[str]]:
     ]
 
 
-def get_abi_input_types(abi_element: ABIElement) -> List[str]:
+def get_abi_input_types(abi_element: ABIElement) -> list[str]:
     """
     Return types for each input from the function or event ABI.
 
@@ -666,7 +691,7 @@ def get_abi_input_types(abi_element: ABIElement) -> List[str]:
     ]
 
 
-def get_abi_output_names(abi_element: ABIElement) -> List[Optional[str]]:
+def get_abi_output_names(abi_element: ABIElement) -> list[str | None]:
     """
     Return names for each output from the ABI element.
 
@@ -711,7 +736,7 @@ def get_abi_output_names(abi_element: ABIElement) -> List[Optional[str]]:
     ]
 
 
-def get_abi_output_types(abi_element: ABIElement) -> List[str]:
+def get_abi_output_types(abi_element: ABIElement) -> list[str]:
     """
     Return types for each output from the function ABI.
 

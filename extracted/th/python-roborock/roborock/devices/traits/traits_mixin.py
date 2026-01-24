@@ -31,8 +31,11 @@ class TraitsMixin:
     zeo: a01.ZeoApi | None = None
     """Zeo API, if supported."""
 
-    b01_properties: b01.PropertiesApi | None = None
-    """B01 properties trait, if supported."""
+    b01_q7_properties: b01.Q7PropertiesApi | None = None
+    """B01 Q7 properties trait, if supported."""
+
+    b01_q10_properties: b01.Q10PropertiesApi | None = None
+    """B01 Q10 properties trait, if supported."""
 
     def __init__(self, trait: Trait) -> None:
         """Initialize the TraitsMixin with the given trait.
@@ -42,7 +45,7 @@ class TraitsMixin:
         """
         for item in fields(self):
             trait_type = _get_trait_type(item)
-            if trait_type == type(trait):
+            if trait_type is type(trait):
                 setattr(self, item.name, trait)
                 break
 

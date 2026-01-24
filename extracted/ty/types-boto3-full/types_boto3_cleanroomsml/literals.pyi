@@ -3,14 +3,14 @@ Type annotations for cleanroomsml service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanroomsml/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_boto3_cleanroomsml.literals import AudienceExportJobStatusType
+    from types_boto3_cleanroomsml.literals import AccessBudgetTypeType
 
-    data: AudienceExportJobStatusType = "ACTIVE"
+    data: AccessBudgetTypeType = "CALENDAR_DAY"
     ```
 """
 
@@ -22,10 +22,12 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AccessBudgetTypeType",
     "AudienceExportJobStatusType",
     "AudienceGenerationJobStatusType",
     "AudienceModelStatusType",
     "AudienceSizeTypeType",
+    "AutoRefreshModeType",
     "CleanRoomsMLServiceName",
     "ColumnTypeType",
     "ConfiguredAudienceModelStatusType",
@@ -52,6 +54,7 @@ __all__ = (
     "LogTypeType",
     "LogsStatusType",
     "MLInputChannelStatusType",
+    "MembershipInferenceAttackVersionType",
     "MetricsStatusType",
     "NoiseLevelTypeType",
     "PaginatorName",
@@ -61,6 +64,7 @@ __all__ = (
     "S3DataDistributionTypeType",
     "ServiceName",
     "SharedAudienceMetricsType",
+    "SyntheticDataColumnTypeType",
     "TagOnCreatePolicyType",
     "TrainedModelArtifactMaxSizeUnitTypeType",
     "TrainedModelExportFileTypeType",
@@ -74,6 +78,7 @@ __all__ = (
     "WorkerComputeTypeType",
 )
 
+AccessBudgetTypeType = Literal["CALENDAR_DAY", "CALENDAR_MONTH", "CALENDAR_WEEK", "LIFETIME"]
 AudienceExportJobStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "CREATE_PENDING"
 ]
@@ -96,6 +101,7 @@ AudienceModelStatusType = Literal[
     "DELETE_PENDING",
 ]
 AudienceSizeTypeType = Literal["ABSOLUTE", "PERCENTAGE"]
+AutoRefreshModeType = Literal["DISABLED", "ENABLED"]
 ColumnTypeType = Literal[
     "CATEGORICAL_FEATURE", "ITEM_ID", "NUMERICAL_FEATURE", "TIMESTAMP", "USER_ID"
 ]
@@ -369,12 +375,14 @@ MLInputChannelStatusType = Literal[
     "DELETE_PENDING",
     "INACTIVE",
 ]
+MembershipInferenceAttackVersionType = Literal["DISTANCE_TO_CLOSEST_RECORD_V1"]
 MetricsStatusType = Literal["PUBLISH_FAILED", "PUBLISH_SUCCEEDED"]
 NoiseLevelTypeType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
 PolicyExistenceConditionType = Literal["POLICY_MUST_EXIST", "POLICY_MUST_NOT_EXIST"]
 ResultFormatType = Literal["CSV", "PARQUET"]
 S3DataDistributionTypeType = Literal["FullyReplicated", "ShardedByS3Key"]
 SharedAudienceMetricsType = Literal["ALL", "NONE"]
+SyntheticDataColumnTypeType = Literal["CATEGORICAL", "NUMERICAL"]
 TagOnCreatePolicyType = Literal["FROM_PARENT_RESOURCE", "NONE"]
 TrainedModelArtifactMaxSizeUnitTypeType = Literal["GB"]
 TrainedModelExportFileTypeType = Literal["MODEL", "OUTPUT"]
@@ -436,7 +444,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -506,6 +513,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -551,7 +559,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -604,7 +611,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -643,8 +649,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -679,6 +683,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -688,6 +693,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -698,6 +704,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -719,8 +728,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -735,15 +742,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -774,6 +782,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -814,6 +823,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

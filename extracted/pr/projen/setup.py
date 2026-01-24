@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "projen",
-    "version": "0.96.3",
+    "version": "0.99.7",
     "description": "CDK for software projects",
     "license": "Apache-2.0",
     "url": "https://github.com/projen/projen.git",
@@ -36,6 +36,7 @@ kwargs = json.loads(
         "projen.javascript",
         "projen.javascript.biome_config",
         "projen.python",
+        "projen.python.uv_config",
         "projen.release",
         "projen.typescript",
         "projen.vscode",
@@ -43,7 +44,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "projen._jsii": [
-            "projen@0.96.3.jsii.tgz"
+            "projen@0.99.7.jsii.tgz"
         ],
         "projen": [
             "py.typed"
@@ -52,9 +53,9 @@ kwargs = json.loads(
     "python_requires": "~=3.9",
     "install_requires": [
         "constructs>=10.0.0, <11.0.0",
-        "jsii>=1.114.1, <2.0.0",
+        "jsii>=1.125.0, <2.0.0",
         "publication>=0.0.3",
-        "typeguard>=2.13.3,<4.3.0"
+        "typeguard==2.13.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",

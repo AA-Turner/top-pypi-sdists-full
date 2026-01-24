@@ -68,6 +68,10 @@ class TeamGameLog(Endpoint):
             "DateTo": date_to_nullable,
             "LeagueID": league_id_nullable,
         }
+
+        # Initialize dataset attributes
+        self.team_game_log = None
+
         if get_request:
             self.get_request()
 

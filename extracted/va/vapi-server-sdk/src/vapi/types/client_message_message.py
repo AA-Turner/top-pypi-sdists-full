@@ -2,6 +2,9 @@
 
 import typing
 
+from .client_message_assistant_started import ClientMessageAssistantStarted
+from .client_message_call_delete_failed import ClientMessageCallDeleteFailed
+from .client_message_call_deleted import ClientMessageCallDeleted
 from .client_message_chat_created import ClientMessageChatCreated
 from .client_message_chat_deleted import ClientMessageChatDeleted
 from .client_message_conversation_update import ClientMessageConversationUpdate
@@ -23,6 +26,7 @@ from .client_message_workflow_node_started import ClientMessageWorkflowNodeStart
 
 ClientMessageMessage = typing.Union[
     ClientMessageWorkflowNodeStarted,
+    ClientMessageAssistantStarted,
     ClientMessageConversationUpdate,
     ClientMessageHang,
     ClientMessageMetadata,
@@ -40,4 +44,6 @@ ClientMessageMessage = typing.Union[
     ClientMessageSessionCreated,
     ClientMessageSessionUpdated,
     ClientMessageSessionDeleted,
+    ClientMessageCallDeleted,
+    ClientMessageCallDeleteFailed,
 ]

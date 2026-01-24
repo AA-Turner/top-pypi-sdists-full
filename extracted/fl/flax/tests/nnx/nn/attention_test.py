@@ -17,6 +17,7 @@ from jax.lax import Precision
 
 from flax import linen
 from flax import nnx
+from flax.nnx.nn.attention import combine_masks
 from flax.typing import Dtype, PrecisionLike
 
 import numpy as np
@@ -24,6 +25,12 @@ import numpy as np
 import typing as tp
 from absl.testing import parameterized
 from absl.testing import absltest
+
+try:
+  # JAX v0.8.0 and newer
+  from jax import enable_x64
+except ImportError:
+  from jax.experimental import enable_x64
 
 
 class TestMultiHeadAttention(parameterized.TestCase):
@@ -44,9 +51,9 @@ class TestMultiHeadAttention(parameterized.TestCase):
       attention_kwargs: dict
 
       def __init__(self, attention_kwargs, rng):
-        self.attention_layers = [
+        self.attention_layers = nnx.data([
           nnx.MultiHeadAttention(**attention_kwargs, rngs=rng) for i in range(3)
-        ]
+        ])
 
       def __call__(self, x, sow_weights=False):
         x = self.attention_layers[0](x, sow_weights=sow_weights)
@@ -71,11 +78,11 @@ class TestMultiHeadAttention(parameterized.TestCase):
 
     _ = module(x, True)
     intermediates = nnx.pop(module, nnx.Intermediate)
-    assert intermediates['attention_layers'][0]['attention_weights'].value[
+    assert intermediates['attention_layers'][0]['attention_weights'][
       0
     ].shape == (4, 8, 6, 6)
     assert 1 not in intermediates['attention_layers']
-    assert intermediates['attention_layers'][2]['attention_weights'].value[
+    assert intermediates['attention_layers'][2]['attention_weights'][
       0
     ].shape == (4, 8, 6, 6)
 
@@ -84,7 +91,7 @@ class TestMultiHeadAttention(parameterized.TestCase):
     assert not intermediates  # empty
 
   def test_autoregressive_decode_with_x64(self):
-    with jax.experimental.enable_x64():
+    with enable_x64():
       x = jnp.ones((1, 4, 4))
       module = nnx.MultiHeadAttention(
         in_features=4,
@@ -94,8 +101,8 @@ class TestMultiHeadAttention(parameterized.TestCase):
         rngs=nnx.Rngs(0),
       )
       module.init_cache(x.shape, dtype=x.dtype)
-      assert module.cached_key.value.shape == (1, 4, 2, 2)
-      assert module.cached_value.value.shape == (1, 4, 2, 2)
+      assert module.cached_key.shape == (1, 4, 2, 2)
+      assert module.cached_value.shape == (1, 4, 2, 2)
 
       y1 = module(x[:, :1, :])
       y2 = module(x[:, 1:2, :])
@@ -126,6 +133,78 @@ class TestMultiHeadAttention(parameterized.TestCase):
     else:
       nnx.split(module, nnx.Param)
 
+  @parameterized.product(use_padding=[True, False], is_cross_attention=[True, False])
+  def test_causal_mask_equivalence(
+    self,
+    use_padding: bool,
+    is_cross_attention: bool
+  ):
+    batch_size = 1
+    num_heads = 2
+    q_len = 2
+    kv_len = 4 if is_cross_attention else q_len
+    head_dim = 4
+
+    q = jax.random.normal(
+      key=jax.random.key(0),
+      shape=(batch_size, 1, q_len, num_heads, head_dim)
+    )
+    k = jax.random.normal(
+      key=jax.random.key(1),
+      shape=(batch_size, 1, kv_len, num_heads, head_dim)
+    )
+    v = jax.random.normal(
+      key=jax.random.key(2),
+      shape=(batch_size, 1, kv_len, num_heads, head_dim)
+    )
+
+    causal_mask = jnp.tril(jnp.ones(
+        shape=(q_len, kv_len),
+        dtype=jnp.bool_
+      )
+    )
+    causal_mask = jnp.broadcast_to(
+      array=causal_mask,
+      shape=(batch_size, 1, num_heads, q_len, kv_len)
+    )
+
+    padding_mask = None
+
+    if use_padding:
+      padding_mask = jnp.ones(
+        shape=(batch_size, 1, 1, q_len, kv_len),
+        dtype=jnp.bool_,
+      )
+      padding_mask = padding_mask.at[..., -2:].set(False)
+
+    manual_mask = combine_masks(padding_mask, causal_mask, dtype=q.dtype)
+
+    # Jax.nn path with precombined mask and is_causal = False
+    attn_jax = nnx.dot_product_attention(
+      query=q,
+      key=k,
+      value=v,
+      mask=manual_mask,
+      is_causal=False,
+      deterministic=True,
+      module=None,
+    )
+
+    class DummyModule(nnx.Module):
+      pass
+
+    # nnx path with padding mask and is_causal = True (internally combines them)
+    attn_manual = nnx.dot_product_attention(
+      query=q,
+      key=k,
+      value=v,
+      mask=padding_mask,
+      is_causal=True,
+      deterministic=True,
+      module=DummyModule(),
+    )
+
+    np.testing.assert_allclose(attn_jax, attn_manual, atol=1e-6)
 
 # TODO: add all possible constructor argument values to parameterized.product
 class TestLinenConsistency(parameterized.TestCase):
@@ -182,11 +261,9 @@ class TestLinenConsistency(parameterized.TestCase):
     variables = model.init(key, x)
 
     for qkvo in ('query', 'key', 'value', 'out'):
-      getattr(model_nnx, qkvo).kernel.value = variables['params'][qkvo][
-        'kernel'
-      ]
+      getattr(model_nnx, qkvo).kernel[...] = variables['params'][qkvo]['kernel']
       if use_bias:
-        getattr(model_nnx, qkvo).bias.value = variables['params'][qkvo]['bias']
+        getattr(model_nnx, qkvo).bias[...] = variables['params'][qkvo]['bias']
     if decode:
       model_nnx.init_cache(x.shape, dtype=dtype)
 

@@ -105,10 +105,10 @@ class LogArea:
             # max_length total - extension length - 1 for dot (if extension exists)
             if suffix:
                 max_base_length = max_length - len(suffix) - 1
-                truncated_base = base_clean[:max_base_length]
+                truncated_base = base_clean[:max_base_length].rstrip(".")
                 filename = f"{truncated_base}.{suffix}"
             else:
-                truncated_base = base_clean[:max_length]
+                truncated_base = base_clean[:max_length].rstrip(".")
                 filename = truncated_base
             self.logger.info("Result: %r", filename)
         log_names = [item["name"] for item in self.logs + self.artifacts]
@@ -132,8 +132,10 @@ class LogArea:
         self.logger.info("Collecting logs/artifacts for %r", test_name or "global")
         for item in path.iterdir():
             if item.is_dir():
+                # Clean the archive name to avoid double dots when make_archive appends .tar.gz
+                archive_name = str(item.relative_to(Path.cwd())).rstrip(".")
                 compressed_item = make_archive(
-                    item.relative_to(Path.cwd()),
+                    archive_name,
                     format="gztar",
                     root_dir=path,
                     base_dir=item.name,

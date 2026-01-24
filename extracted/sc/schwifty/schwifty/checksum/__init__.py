@@ -32,7 +32,7 @@ def weighted(
     mod: int,
     weights: Iterable[int],
 ) -> int:
-    return sum(n * int(c) for n, c in zip(weights, value)) % mod
+    return sum(n * int(c) for n, c in zip(weights, value, strict=False)) % mod
 
 
 def luhn(value: str) -> str:

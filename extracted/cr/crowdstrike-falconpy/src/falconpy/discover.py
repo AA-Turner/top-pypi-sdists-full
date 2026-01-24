@@ -65,15 +65,20 @@ class Discover(ServiceClass):
         Returns details on applications which match the filter criteria.
 
         Keyword arguments:
-        filter -- The filter expression that should be used to limit the results. FQL syntax.
+        after -- A pagination token used with the limit parameter to manage pagination of results.
+                 On your first request, do not provide an after token. On subsequent requests,
+                 provide the after token from the previous response to continue from that place in
+                 the results. String.
+        facet -- Select various details blocks to be returned for each application entity. String.
+                 Supported values:
+                   browser_extension      host_info
+                   install_usage          package
+                   ide_extension
+        filter -- The filter expression that should be used to limit the results. FQL syntax. String.
         limit -- The number of account IDs to return in this response. (Max: 100, default: 100)
-                 Use with the offset parameter to manage pagination of results.
-        offset -- An offset used with the limit parameter to manage pagination of results.
-                  On your first request, don't provide an offset. On subsequent requests,
-                  provide the offset from the previous response to continue from that place
-                  in the results.
+                 Use with the offset parameter to manage pagination of results. Integer.
         parameters - full parameters payload, not required if using other keywords.
-        sort -- Sort assets by their properties. A single sort field is allowed.
+        sort -- Sort assets by their properties. A single sort field is allowed. String.
 
         This method only supports keywords for providing arguments.
 
@@ -122,7 +127,9 @@ class Discover(ServiceClass):
                     first_seen_timestamp            system_product_name
                     groups                          system_serial_number
                     hostname                        tags
-                    id
+                    id                              scan_details.scan_id
+                    scan_details.schedule_id        scan_details.scan_date
+                    vulnerability_assessment_date
         limit -- The number of asset IDs to return in this response. (Max: 100, default: 100)
                  Use with the offset parameter to manage pagination of results.
         offset -- An offset used with the limit parameter to manage pagination of results.
@@ -384,7 +391,9 @@ class Discover(ServiceClass):
                     first_seen_timestamp            system_product_name
                     groups                          system_serial_number
                     hostname                        tags
-                    id
+                    id                              scan_details.scan_id
+                    scan_details.schedule_id        scan_details.scan_date
+                    vulnerability_assessment_date
         limit -- The number of asset IDs to return in this response. (Max: 100, default: 100)
                  Use with the offset parameter to manage pagination of results.
         offset -- An offset used with the limit parameter to manage pagination of results.

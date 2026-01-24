@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: markdownify
-Version: 1.2.0
+Version: 1.2.2
 Summary: Convert HTML to markdown.
 Author-email: Matthew Tretter <m@tthewwithanm.com>
 Project-URL: Homepage, http://github.com/matthewwithanm/python-markdownify

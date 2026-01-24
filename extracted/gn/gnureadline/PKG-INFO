@@ -1,15 +1,15 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: gnureadline
-Version: 8.2.13
+Version: 8.3.3
 Summary: The standard Python readline extension statically linked against the GNU readline library.
 Home-page: http://github.com/ludwigschwardt/python-gnureadline
 Maintainer: Ludwig Schwardt, Sridhar Ratnakumar
 Maintainer-email: ludwig.schwardt@gmail.com, srid@srid.ca
+License: GPL-3.0-or-later
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
-Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: C
@@ -18,6 +18,15 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: summary
 
 Stand-alone GNU readline module
 ===============================
@@ -126,7 +135,7 @@ Versions
 --------
 
 The module can be used with both Python 2.x and 3.x, and has been tested with
-Python versions 2.6, 2.7, and 3.2 to 3.13. The first three numbers of the
+Python versions 2.6, 2.7, and 3.2 to 3.15. The first three numbers of the
 module version reflect the version of the underlying GNU Readline library
 (major, minor and patch level), while any additional fourth number
 distinguishes different module updates based on the same Readline library.
@@ -136,6 +145,12 @@ The latest development version is available from the `GitHub repository`_.
 If you are using Windows, which also ships without GNU Readline, you might
 want to consider using the `pyreadline3`_ module instead, which is a readline
 replacement written in pure Python that interacts with the Windows clipboard.
+
+**Please note that Python 3.13 introduced a new interactive interpreter.**
+It reimplements some of the GNU Readline functionality in Python and thereby
+bypasses it (for example when entering Ctrl-R to search the command history).
+Its behaviour may be subtly different though. If you want to revert to the
+old interpreter, set the environment variable `PYTHON_BASIC_REPL=1`.
 
 .. _GNU Readline: http://www.gnu.org/software/readline/
 .. _Editline: http://www.thrysoee.dk/editline/
@@ -150,6 +165,12 @@ replacement written in pure Python that interacts with the Windows clipboard.
 
 History
 =======
+
+8.3.3 (2026-01-06)
+------------------
+* #80, #81: Supports Python 3.14 and early 3.15 (also free-threaded versions)
+* Uses Python 3.15.0a3 readline.c (commit 4238a97, 2025-12-05)
+* Updated to build against readline 8.3 (patch-level 3)
 
 8.2.13 (2024-10-18)
 -------------------

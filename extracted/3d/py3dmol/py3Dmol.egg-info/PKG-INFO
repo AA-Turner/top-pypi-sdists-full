@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py3Dmol
-Version: 2.5.2
+Version: 2.5.4
 Summary: An IPython interface for embedding 3Dmol.js views in Jupyter notebooks
 Home-page: https://3dmol.org
 Author: David Koes

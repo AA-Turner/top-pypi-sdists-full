@@ -14,13 +14,22 @@ from angr.sim_type import SimTypeFunction, SimTypeLong, SimTypeInt, SimTypeBotto
 from angr.procedures.definitions import SimTypeCollection
 from angr.errors import AngrMissingTypeError
 
-
 api_namespaces = {}
 altnames = set()
 
 
 typelib = SimTypeCollection()
 typelib.names = ["win32"]
+
+# add Guid
+guid_fields = OrderedDict()
+guid_fields["Data1"] = angr.types.SimTypeInt(signed=False)
+guid_fields["Data2"] = angr.types.SimTypeShort(signed=False)
+guid_fields["Data3"] = angr.types.SimTypeShort(signed=False)
+guid_fields["Data4"] = angr.types.SimTypeFixedSizeArray(angr.types.SimTypeChar(signed=False), length=8)
+guid = angr.types.SimStruct(guid_fields, name="Guid", pack=True, align=1)
+typelib.add("Guid", guid)
+
 known_struct_names: set[str] = set()
 
 
@@ -60,17 +69,18 @@ def get_angr_type_from_name(name):
     if name == "Boolean":
         return angr.types.SimTypeBool(label="Boolean")
     if name == "Guid":
-        # FIXME
-        return angr.types.SimTypeBottom(label="Guid")
+        return angr.types.SimTypeRef("Guid", angr.types.SimStruct)
     print(f"Unhandled Native Type: {name}")
     sys.exit(-1)
 
 
 def get_typeref_if_available(t: angr.types.SimType) -> angr.types.SimType:
-    if isinstance(t, angr.types.SimStruct) and t.name and not is_anonymous_struct(t.name):
+    if isinstance(t, angr.types.SimTypeRef):
+        return t
+    if isinstance(t, (angr.types.SimStruct, angr.types.SimTypeEnum)) and t.name and not is_anonymous_struct(t.name):
         # replace it with a SimTypeRef to avoid duplicate definition
-        t = angr.types.SimTypeRef(t.name, angr.types.SimStruct)
-    if t.label is not None and t.label in typelib:
+        t = angr.types.SimTypeRef(t.name, t.__class__)
+    elif t.label is not None and t.label in typelib:
         t = angr.types.SimTypeRef(t.label, t.__class__)
     return t
 
@@ -125,11 +135,51 @@ def handle_json_type(t, create_missing: bool = False):
 
 def create_angr_type_from_json(t):
     if t["Kind"] == "NativeTypedef":
-        new_typedef = handle_json_type(t)
+        # special case: PWSTR is a pointer to WCHAR
+        if t["Name"] == "PWSTR":
+            new_typedef = angr.types.SimTypePointer(angr.types.SimTypeWideChar(label="WCHAR"), label="PWSTR")
+        else:
+            new_typedef = handle_json_type(t)
         typelib.add(t["Name"], new_typedef)
     elif t["Kind"] == "Enum":
-        # TODO: Handle Enums
-        ty = angr.types.SimTypeInt(signed=False, label=t["Name"])
+        match t["IntegerBase"]:
+            case "SByte":
+                base_type_cls = angr.types.SimTypeChar
+                signed = True
+            case "Byte":
+                base_type_cls = angr.types.SimTypeChar
+                signed = False
+            case "Int16":
+                base_type_cls = angr.types.SimTypeShort
+                signed = True
+            case "UInt16":
+                base_type_cls = angr.types.SimTypeShort
+                signed = False
+            case "Int32":
+                base_type_cls = angr.types.SimTypeInt
+                signed = True
+            case "UInt32":
+                base_type_cls = angr.types.SimTypeInt
+                signed = False
+            case "Int64":
+                base_type_cls = angr.types.SimTypeLongLong
+                signed = True
+            case "UInt64":
+                base_type_cls = angr.types.SimTypeLongLong
+                signed = False
+            case None:
+                base_type_cls = angr.types.SimTypeInt
+                signed = False
+            case _:
+                raise NotImplementedError(f"Unsupported IntegerBase {t['IntegerBase']}")
+        base_type = base_type_cls(signed=signed)
+
+        # values
+        values: dict[str, int] = {}
+        for d in t["Values"]:
+            values[d["Name"]] = d["Value"]
+
+        ty = angr.types.SimTypeEnum(values, base_type=base_type, name=t["Name"])
         typelib.add(t["Name"], ty)
     elif t["Kind"] == "Struct":
         known_struct_names.add(t["Name"])
@@ -2427,6 +2477,14 @@ def do_it(in_dir):
         ),
         "MD5Final": SimTypeFunction([SimTypeLong(signed=True)], SimTypeLong(signed=True)),
     }
+    missing_declarations[("win32", "ntdll", "dll")] = {
+        "NtGetCurrentTeb": SimTypeFunction(
+            [], angr.types.SimTypePointer(angr.types.SimTypeRef("TEB", angr.types.SimStruct))
+        ),
+        "NtGetCurrentPeb": SimTypeFunction(
+            [], angr.types.SimTypePointer(angr.types.SimTypeRef("PEB", angr.types.SimStruct))
+        ),
+    }
 
     for (prefix, lib, suffix), decls in missing_declarations.items():
 
@@ -2443,23 +2501,34 @@ def do_it(in_dir):
 
             parsed_cprotos[(prefix, lib, suffix)].append((func, proto, ""))
 
+    non_returning_functions = {
+        "KeBugCheck",
+        "KeBugCheckEx",
+    }
+
     # dump to JSON files
     for (prefix, libname, suffix), parsed_cprotos_per_lib in parsed_cprotos.items():
         filename = libname.replace(".", "_") + ".json"
         os.makedirs(prefix, exist_ok=True)
         logging.debug("Writing to file %s...", filename)
+        non_returning = []
         d = {
             "_t": "lib",
             "type_collection_names": ["win32"],
             "library_names": [libname if not suffix else f"{libname}.{suffix}"],
             "default_cc": {"X86": "SimCCStdcall", "AMD64": "SimCCMicrosoftAMD64"},
+            "non_returning": non_returning,
             "functions": OrderedDict(),
         }
         for func, cproto, doc in sorted(parsed_cprotos_per_lib, key=lambda x: x[0]):
             d["functions"][func] = {"proto": json.dumps(cproto.to_json()).replace('"', "'")}
             if doc:
                 d["functions"][func]["doc"] = doc
-        with open(os.path.join(prefix, filename), "w") as f:
+            if func in non_returning_functions:
+                non_returning.append(func)
+        if not non_returning:
+            del d["non_returning"]
+        with open(os.path.join(prefix, filename), "w", encoding="utf-8") as f:
             f.write(json.dumps(d, indent="\t"))
 
     # Dump the type collection to a JSON file

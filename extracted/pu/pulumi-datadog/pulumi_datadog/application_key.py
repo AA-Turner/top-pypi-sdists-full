@@ -129,8 +129,17 @@ class ApplicationKey(pulumi.CustomResource):
         import pulumi
         import pulumi_datadog as datadog
 
-        # Create a new Datadog Application Key
-        foo = datadog.ApplicationKey("foo", name="foo-application")
+        # See the permissions available for scoped keys at https://docs.datadoghq.com/account_management/rbac/permissions/#permissions-list
+        # Create an unrestricted Application Key
+        # This key inherits all permissions of the user that owns the key
+        unrestricted_key = datadog.ApplicationKey("unrestricted_key", name="Unrestricted Application Key")
+        # Create a scoped Application Key for monitor management
+        monitor_management_key = datadog.ApplicationKey("monitor_management_key",
+            name="Monitor Management Key",
+            scopes=[
+                "monitors_read",
+                "monitors_write",
+            ])
         ```
 
         ## Import
@@ -161,8 +170,17 @@ class ApplicationKey(pulumi.CustomResource):
         import pulumi
         import pulumi_datadog as datadog
 
-        # Create a new Datadog Application Key
-        foo = datadog.ApplicationKey("foo", name="foo-application")
+        # See the permissions available for scoped keys at https://docs.datadoghq.com/account_management/rbac/permissions/#permissions-list
+        # Create an unrestricted Application Key
+        # This key inherits all permissions of the user that owns the key
+        unrestricted_key = datadog.ApplicationKey("unrestricted_key", name="Unrestricted Application Key")
+        # Create a scoped Application Key for monitor management
+        monitor_management_key = datadog.ApplicationKey("monitor_management_key",
+            name="Monitor Management Key",
+            scopes=[
+                "monitors_read",
+                "monitors_write",
+            ])
         ```
 
         ## Import

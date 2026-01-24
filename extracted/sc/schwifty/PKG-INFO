@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schwifty
-Version: 2025.9.0
+Version: 2026.1.0
 Summary: IBAN parsing and validation
 Project-URL: Changelog, https://github.com/mdomke/schwifty/blob/main/CHANGELOG.rst
 Project-URL: Documentation, https://schwifty.readthedocs.io/en/latest/
@@ -14,13 +14,13 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Office/Business :: Financial
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: importlib-resources>=5.10; python_version <= '3.11'
 Requires-Dist: pycountry
 Requires-Dist: rstr

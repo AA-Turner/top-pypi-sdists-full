@@ -20,11 +20,6 @@ pub const QUANTILES: &[f64] = &[
     0.992, 0.993, 0.994, 0.995, 0.996, 0.997, 0.998, 0.999,
 ];
 
-/// Programmatic length of the quantile set.
-pub const fn quantiles_len() -> usize {
-    QUANTILES.len()
-}
-
 /// Join quantiles into a comma-separated list suitable for ClickHouse,
 /// e.g. "0.001, 0.005, 0.01, ..., 0.999".
 pub fn quantiles_sql_args() -> String {
@@ -92,6 +87,7 @@ impl Migration for Migration0037<'_> {
                         minute DateTime,
                         response_time_ms_quantiles AggregateFunction(quantilesTDigest({qs}), Nullable(UInt32)),
                         ttft_ms_quantiles AggregateFunction(quantilesTDigest({qs}), Nullable(UInt32)),
+                        -- NOTE: we should have use `SimpleAggregateFunction` here for better performance
                         total_input_tokens AggregateFunction(sum, Nullable(UInt32)),
                         total_output_tokens AggregateFunction(sum, Nullable(UInt32)),
                         count AggregateFunction(count, UInt32)
@@ -147,7 +143,9 @@ impl Migration for Migration0037<'_> {
 
             let view_timestamp_nanos_string = view_timestamp_nanos.to_string();
             if !create_table.contains(&view_timestamp_nanos_string) {
-                tracing::warn!("Materialized view `ModelProviderStatisticsView` was not written because it was recently created. This is likely due to a concurrent migration. Unless the other migration failed, no action is required.");
+                tracing::warn!(
+                    "Materialized view `ModelProviderStatisticsView` was not written because it was recently created. This is likely due to a concurrent migration. Unless the other migration failed, no action is required."
+                );
                 return Ok(());
             }
 

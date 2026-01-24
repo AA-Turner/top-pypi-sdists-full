@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from anyscale._private.models import ModelBase, ModelEnum
 from anyscale._private.workload import WorkloadConfig
@@ -213,6 +213,9 @@ tracing_config: # (Optional) Configuration options for tracing.
   enabled: true
   exporter_import_path: my_module:custom_tracing_exporter
   sampling_ratio: 1.0
+tags:
+  team: serving
+  cost-center: eng
 """
 
     # Override the `name` field from `WorkloadConfig` so we can document it separately for jobs and services.
@@ -230,6 +233,16 @@ tracing_config: # (Optional) Configuration options for tracing.
             "docstring": "List of Ray Serve applications to run. At least one application must be specified. For details, see the Ray Serve config file format documentation: https://docs.ray.io/en/latest/serve/production-guide/config.html"
         },
     )
+
+    version_name: Optional[str] = field(
+        default=None, metadata={"docstring": "Unique name of the version."},
+    )
+
+    def _validate_version_name(self, version_name: Optional[str]):
+        # Allow None if optional; enforce non-empty string if required
+        if version_name is None:
+            return None
+        return version_name
 
     def _validate_applications(self, applications: List[Dict[str, Any]]):
         if not isinstance(applications, list):
@@ -390,6 +403,19 @@ tracing_config: # (Optional) Configuration options for tracing.
 
         return tracing_config
 
+    tags: Optional[Dict[str, str]] = field(
+        default=None, metadata={"docstring": "Tags to associate with the service."},
+    )
+
+    def _validate_tags(self, tags: Optional[Dict[str, str]]):
+        if tags is None:
+            return
+        if not isinstance(tags, dict):
+            raise TypeError("'tags' must be a Dict[str, str].")
+        for k, v in tags.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                raise TypeError("'tags' must be a Dict[str, str].")
+
 
 class ServiceState(ModelEnum):
     """Current state of a service."""
@@ -407,7 +433,7 @@ class ServiceState(ModelEnum):
     UNKNOWN = "UNKNOWN"
     SYSTEM_FAILURE = "SYSTEM_FAILURE"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         STARTING: "The service is starting up.",
         RUNNING: "The service is running and healthy.",
         UPDATING: "One of the service versions or the networking stack is updating.",
@@ -443,7 +469,7 @@ class ServiceVersionState(ModelEnum):
     UNKNOWN = "UNKNOWN"
     SYSTEM_FAILURE = "SYSTEM_FAILURE"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         STARTING: "The service version is starting up.",
         RUNNING: "The service version is running and healthy.",
         UPDATING: (
@@ -487,6 +513,7 @@ id: service2_uz6l8yhy2as5wrer3shzj6kh67
 state: RUNNING
 primary_version:
   id: 601bd56c4b
+  name: v1
   state: RUNNING
   weight: 100
   created_at: 2025-04-18 17:21:28.323174+00:00
@@ -501,6 +528,15 @@ primary_version:
     def _validate_id(self, id: str):  # noqa: A002
         if not isinstance(id, str):
             raise TypeError("'id' must be a string.")
+
+    name: str = field(
+        metadata={"docstring": "Human-readable name of the service version."}
+    )
+
+    def _validate_name(self, name: str):
+        if name is None:
+            return None
+        return name
 
     state: Union[ServiceVersionState, str] = field(
         metadata={"docstring": "Current state of the service version."}
@@ -688,6 +724,26 @@ primary_version:
         if project is not None and not isinstance(project, str):
             raise TypeError("project must be a string.")
 
+    versions: Optional[List[ServiceVersionStatus]] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "All active versions of the service. For multi-version services, this contains all versions with their traffic weights."
+        },
+    )
+
+    def _validate_versions(
+        self, versions: Optional[List[ServiceVersionStatus]]
+    ) -> Optional[List[ServiceVersionStatus]]:
+        if versions is None:
+            return None
+        if not isinstance(versions, list):
+            raise TypeError("'versions' must be a list.")
+        for v in versions:
+            if not isinstance(v, ServiceVersionStatus):
+                raise TypeError("'versions' must be a list of ServiceVersionStatus.")
+        return versions
+
 
 class ServiceSortField(ModelEnum):
     """Fields available for sorting services."""
@@ -696,7 +752,7 @@ class ServiceSortField(ModelEnum):
     NAME = "NAME"
     CREATED_AT = "CREATED_AT"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         STATUS: "Sort by service status (active first by default).",
         NAME: "Sort by service name.",
         CREATED_AT: "Sort by creation timestamp.",
@@ -709,7 +765,7 @@ class ServiceLogMode(ModelEnum):
     HEAD = "HEAD"
     TAIL = "TAIL"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         HEAD: "Fetch logs from the start.",
         TAIL: "Fetch logs from the end.",
     }
@@ -730,7 +786,7 @@ class ServiceSortOrder(ModelEnum):
     ASC = "ASC"
     DESC = "DESC"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         ASC: "Sort in ascending order.",
         DESC: "Sort in descending order.",
     }

@@ -8,6 +8,7 @@ from sphinxcontrib.confluencebuilder.config.exceptions import ConfluenceClientCe
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluenceClientCertMissingCertConfigError
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluenceConfigError
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluenceDefaultAlignmentConfigError
+from sphinxcontrib.confluencebuilder.config.exceptions import ConfluenceDefaultTableWidthError
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluenceDomainIndicesConfigError
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluenceEditorConfigError
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluenceFooterFileConfigError
@@ -25,7 +26,6 @@ from sphinxcontrib.confluencebuilder.config.exceptions import ConfluencePublishC
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluencePublishConflictPublishPointConfigError
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluencePublishDebugConfigError
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluencePublishListConfigError
-from sphinxcontrib.confluencebuilder.config.exceptions import ConfluencePublishMissingParentPageConfigError
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluencePublishMissingServerUrlConfigError
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluencePublishMissingSpaceKeyConfigError
 from sphinxcontrib.confluencebuilder.config.exceptions import ConfluencePublishMissingUsernameAskConfigError
@@ -43,6 +43,7 @@ from sphinxcontrib.confluencebuilder.config.validation import ConfigurationValid
 from sphinxcontrib.confluencebuilder.debug import PublishDebug
 from sphinxcontrib.confluencebuilder.std.confluence import API_MODES
 from sphinxcontrib.confluencebuilder.std.confluence import EDITORS
+from sphinxcontrib.confluencebuilder.util import extract_length
 from sphinxcontrib.confluencebuilder.util import handle_cli_file_subset
 from requests.auth import AuthBase
 import os
@@ -81,12 +82,6 @@ def validate_configuration(builder):
 
     # ##################################################################
 
-    # confluence_adv_aggressive_search
-    validator.conf('confluence_adv_aggressive_search') \
-             .bool()
-
-    # ##################################################################
-
     # confluence_adv_bulk_archiving
     validator.conf('confluence_adv_bulk_archiving') \
              .bool()
@@ -95,24 +90,6 @@ def validate_configuration(builder):
 
     # confluence_adv_permit_editor
     validator.conf('confluence_adv_permit_editor') \
-             .bool()
-
-    # ##################################################################
-
-    # confluence_adv_permit_raw_html
-    validator.conf('confluence_adv_permit_raw_html') \
-             .bool()
-
-    # ##################################################################
-
-    # confluence_adv_trace_data
-    validator.conf('confluence_adv_trace_data') \
-             .bool()
-
-    # ##################################################################
-
-    # confluence_adv_writer_no_section_cap
-    validator.conf('confluence_adv_writer_no_section_cap') \
              .bool()
 
     # ##################################################################
@@ -148,12 +125,6 @@ def validate_configuration(builder):
 
     # confluence_ask_user
     validator.conf('confluence_ask_user') \
-             .bool()
-
-    # ##################################################################
-
-    # confluence_asset_force_standalone
-    validator.conf('confluence_asset_force_standalone') \
              .bool()
 
     # ##################################################################
@@ -213,6 +184,12 @@ def validate_configuration(builder):
         for cert in cert_files:
             if cert and not Path(env.srcdir, cert).is_file():
                 raise ConfluenceClientCertMissingCertConfigError(cert)
+
+    # ##################################################################
+
+    # confluence_cloud
+    validator.conf('confluence_cloud') \
+             .bool()
 
     # ##################################################################
 
@@ -313,6 +290,22 @@ def validate_configuration(builder):
                  .file()
     except ConfluenceConfigError as ex:
         raise ConfluenceHeaderFileConfigError(ex) from ex
+
+    # ##################################################################
+
+    # confluence_default_table_width
+    try:
+        validator.conf('confluence_default_table_width').int_(positive=True)
+    except ConfluenceConfigError:
+        try:
+            validator.conf('confluence_default_table_width').string()
+        except ConfluenceConfigError as ex:
+            raise ConfluenceDefaultTableWidthError(ex) from ex
+        else:
+            tlen, _ = extract_length(config.confluence_default_table_width)
+            if not tlen:
+                msg = 'Unable to detect length value.'
+                raise ConfluenceDefaultTableWidthError(msg)
 
     # ##################################################################
 
@@ -450,11 +443,6 @@ def validate_configuration(builder):
 
     # ##################################################################
 
-    validator.conf('confluence_parent_page_id_check') \
-             .int_(positive=True)
-
-    # ##################################################################
-
     # confluence_page_hierarchy
     validator.conf('confluence_page_hierarchy') \
              .bool()
@@ -585,6 +573,12 @@ def validate_configuration(builder):
 
     # ##################################################################
 
+    # confluence_publish_postfix_hash_modifier
+    validator.conf('confluence_publish_postfix_hash_modifier') \
+             .string()
+
+    # ##################################################################
+
     # confluence_publish_prefix
     validator.conf('confluence_publish_prefix') \
              .string()
@@ -609,6 +603,12 @@ def validate_configuration(builder):
     # confluence_publish_token
     validator.conf('confluence_publish_token') \
              .string()
+
+    # ##################################################################
+
+    # confluence_publish_trample
+    validator.conf('confluence_publish_trample') \
+             .bool()
 
     # ##################################################################
 
@@ -765,7 +765,7 @@ def validate_configuration(builder):
         if not config.confluence_server_url:
             raise ConfluencePublishMissingServerUrlConfigError
 
-        if not config.confluence_space_key and not config.confluence_space_name:
+        if not config.confluence_space_key:
             raise ConfluencePublishMissingSpaceKeyConfigError
 
         if (config.confluence_ask_password and not config.confluence_server_user
@@ -777,10 +777,6 @@ def validate_configuration(builder):
                 raise ConfluencePublishMissingUsernameAuthConfigError
             if config.confluence_server_pass:
                 raise ConfluencePublishMissingUsernamePassConfigError
-
-        if config.confluence_parent_page_id_check:
-            if not config.confluence_parent_page:
-                raise ConfluencePublishMissingParentPageConfigError
 
         if config.confluence_publish_root:
             if config.confluence_parent_page:

@@ -11,6 +11,7 @@ from .messaging_error import MessagingError
 
 __all__ = [
     "OutboundMessagePayload",
+    "Cc",
     "Cost",
     "CostBreakdown",
     "CostBreakdownCarrierFee",
@@ -19,6 +20,21 @@ __all__ = [
     "Media",
     "To",
 ]
+
+
+class Cc(BaseModel):
+    carrier: Optional[str] = None
+    """The carrier of the receiver."""
+
+    line_type: Optional[Literal["Wireline", "Wireless", "VoWiFi", "VoIP", "Pre-Paid Wireless", ""]] = None
+    """The line-type of the receiver."""
+
+    phone_number: Optional[str] = None
+    """Receiving address (+E.164 formatted phone number or short code)."""
+
+    status: Optional[
+        Literal["queued", "sending", "sent", "delivered", "sending_failed", "delivery_failed", "delivery_unconfirmed"]
+    ] = None
 
 
 class Cost(BaseModel):
@@ -46,6 +62,8 @@ class CostBreakdownRate(BaseModel):
 
 
 class CostBreakdown(BaseModel):
+    """Detailed breakdown of the message cost components."""
+
     carrier_fee: Optional[CostBreakdownCarrierFee] = None
 
     rate: Optional[CostBreakdownRate] = None
@@ -107,6 +125,8 @@ class To(BaseModel):
 class OutboundMessagePayload(BaseModel):
     id: Optional[str] = None
     """Identifies the type of resource."""
+
+    cc: Optional[List[Cc]] = None
 
     completed_at: Optional[datetime] = None
     """ISO 8601 formatted date indicating when the message was finalized."""

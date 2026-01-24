@@ -3,7 +3,7 @@ Type annotations for batch service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -105,12 +106,6 @@ from .type_defs import (
     UpdateServiceEnvironmentResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -121,9 +116,9 @@ __all__ = ("BatchClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ClientException: Type[BotocoreClientError]
-    ServerException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientException: type[BotocoreClientError]
+    ServerException: type[BotocoreClientError]
 
 
 class BatchClient(BaseClient):
@@ -161,7 +156,7 @@ class BatchClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#generate_presigned_url)
         """
 
-    def cancel_job(self, **kwargs: Unpack[CancelJobRequestTypeDef]) -> Dict[str, Any]:
+    def cancel_job(self, **kwargs: Unpack[CancelJobRequestTypeDef]) -> dict[str, Any]:
         """
         Cancels a job in an Batch job queue.
 
@@ -221,7 +216,7 @@ class BatchClient(BaseClient):
 
     def delete_compute_environment(
         self, **kwargs: Unpack[DeleteComputeEnvironmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Batch compute environment.
 
@@ -231,7 +226,7 @@ class BatchClient(BaseClient):
 
     def delete_consumable_resource(
         self, **kwargs: Unpack[DeleteConsumableResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified consumable resource.
 
@@ -239,7 +234,7 @@ class BatchClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#delete_consumable_resource)
         """
 
-    def delete_job_queue(self, **kwargs: Unpack[DeleteJobQueueRequestTypeDef]) -> Dict[str, Any]:
+    def delete_job_queue(self, **kwargs: Unpack[DeleteJobQueueRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified job queue.
 
@@ -249,7 +244,7 @@ class BatchClient(BaseClient):
 
     def delete_scheduling_policy(
         self, **kwargs: Unpack[DeleteSchedulingPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified scheduling policy.
 
@@ -259,7 +254,7 @@ class BatchClient(BaseClient):
 
     def delete_service_environment(
         self, **kwargs: Unpack[DeleteServiceEnvironmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Service environment.
 
@@ -269,7 +264,7 @@ class BatchClient(BaseClient):
 
     def deregister_job_definition(
         self, **kwargs: Unpack[DeregisterJobDefinitionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deregisters an Batch job definition.
 
@@ -454,7 +449,7 @@ class BatchClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#submit_service_job)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates the specified tags to a resource with the specified
         <code>resourceArn</code>.
@@ -463,7 +458,7 @@ class BatchClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#tag_resource)
         """
 
-    def terminate_job(self, **kwargs: Unpack[TerminateJobRequestTypeDef]) -> Dict[str, Any]:
+    def terminate_job(self, **kwargs: Unpack[TerminateJobRequestTypeDef]) -> dict[str, Any]:
         """
         Terminates a job in a job queue.
 
@@ -473,7 +468,7 @@ class BatchClient(BaseClient):
 
     def terminate_service_job(
         self, **kwargs: Unpack[TerminateServiceJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Terminates a service job in a job queue.
 
@@ -481,7 +476,7 @@ class BatchClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_batch/client/#terminate_service_job)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes specified tags from an Batch resource.
 
@@ -521,7 +516,7 @@ class BatchClient(BaseClient):
 
     def update_scheduling_policy(
         self, **kwargs: Unpack[UpdateSchedulingPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a scheduling policy.
 

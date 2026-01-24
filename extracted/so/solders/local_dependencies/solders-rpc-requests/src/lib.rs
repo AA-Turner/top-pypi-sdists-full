@@ -143,6 +143,7 @@ Example:
                 #[pymethods]
                 impl $name {
                     #[new]
+                    #[pyo3(signature = (id=None))]
                     fn new(id: Option<u64>) -> Self {
                         let base = RequestBase::new(id);
                         Self { base }
@@ -193,6 +194,7 @@ pub struct GetAccountInfo {
 #[pymethods]
 impl GetAccountInfo {
     #[new]
+    #[pyo3(signature = (pubkey, config=None, id=None))]
     fn new(pubkey: Pubkey, config: Option<RpcAccountInfoConfig>, id: Option<u64>) -> Self {
         let params = GetAccountInfoParams(pubkey, config);
         let base = RequestBase::new(id);
@@ -242,6 +244,7 @@ pub struct GetBalance {
 #[pymethods]
 impl GetBalance {
     #[new]
+    #[pyo3(signature = (pubkey, config=None, id=None))]
     fn new(pubkey: Pubkey, config: Option<RpcContextConfig>, id: Option<u64>) -> Self {
         let params = GetBalanceParams(pubkey, config);
         let base = RequestBase::new(id);
@@ -292,6 +295,7 @@ pub struct GetBlock {
 #[pymethods]
 impl GetBlock {
     #[new]
+    #[pyo3(signature = (slot, config=None, id=None))]
     fn new(slot: u64, config: Option<RpcBlockConfig>, id: Option<u64>) -> Self {
         let params = GetBlockParams(slot, config);
         let base = RequestBase::new(id);
@@ -342,6 +346,7 @@ pub struct GetBlockHeight {
 #[pymethods]
 impl GetBlockHeight {
     #[new]
+    #[pyo3(signature = (config=None, id=None))]
     fn new(config: Option<RpcContextConfig>, id: Option<u64>) -> Self {
         let params = config.map(|c| (c,));
         let base = RequestBase::new(id);
@@ -388,6 +393,7 @@ pub struct GetBlockProduction {
 #[pymethods]
 impl GetBlockProduction {
     #[new]
+    #[pyo3(signature = (config=None, id=None))]
     fn new(config: Option<RpcBlockProductionConfig>, id: Option<u64>) -> Self {
         let params = config.map(|c| (c,));
         let base = RequestBase::new(id);
@@ -428,6 +434,7 @@ pub struct GetBlockCommitment {
 #[pymethods]
 impl GetBlockCommitment {
     #[new]
+    #[pyo3(signature = (slot, id=None))]
     fn new(slot: u64, id: Option<u64>) -> Self {
         let params = (slot,);
         let base = RequestBase::new(id);
@@ -471,6 +478,7 @@ pub struct GetBlocks {
 #[pymethods]
 impl GetBlocks {
     #[new]
+    #[pyo3(signature = (start, end=None, commitment=None, id=None))]
     fn new(
         start: u64,
         end: Option<u64>,
@@ -531,6 +539,7 @@ pub struct GetBlocksWithLimit {
 #[pymethods]
 impl GetBlocksWithLimit {
     #[new]
+    #[pyo3(signature = (start, limit=None, commitment=None, id=None))]
     fn new(
         start: u64,
         limit: Option<u64>,
@@ -588,6 +597,7 @@ pub struct GetBlockTime {
 #[pymethods]
 impl GetBlockTime {
     #[new]
+    #[pyo3(signature = (slot, id=None))]
     fn new(slot: u64, id: Option<u64>) -> Self {
         let params = (slot,);
         let base = RequestBase::new(id);
@@ -635,6 +645,7 @@ pub struct GetEpochInfo {
 #[pymethods]
 impl GetEpochInfo {
     #[new]
+    #[pyo3(signature = (config=None, id=None))]
     fn new(config: Option<RpcContextConfig>, id: Option<u64>) -> Self {
         let params = config.map(|c| (c,));
         let base = RequestBase::new(id);
@@ -680,6 +691,7 @@ pub struct GetFeeForMessage {
 #[pymethods]
 impl GetFeeForMessage {
     #[new]
+    #[pyo3(signature = (message, commitment=None, id=None))]
     fn new(
         message: VersionedMessage,
         commitment: Option<CommitmentLevel>,
@@ -740,6 +752,7 @@ pub struct GetInflationGovernor {
 #[pymethods]
 impl GetInflationGovernor {
     #[new]
+    #[pyo3(signature = (commitment=None, id=None))]
     fn new(commitment: Option<CommitmentLevel>, id: Option<u64>) -> Self {
         let params = commitment.map(|c| (c.into(),));
         let base = RequestBase::new(id);
@@ -786,6 +799,7 @@ pub struct GetInflationReward {
 #[pymethods]
 impl GetInflationReward {
     #[new]
+    #[pyo3(signature = (addresses, config=None, id=None))]
     fn new(addresses: Vec<Pubkey>, config: Option<RpcEpochConfig>, id: Option<u64>) -> Self {
         let params = GetInflationRewardParams(addresses, config);
         let base = RequestBase::new(id);
@@ -839,6 +853,7 @@ pub struct GetLargestAccounts {
 #[pymethods]
 impl GetLargestAccounts {
     #[new]
+    #[pyo3(signature = (commitment=None, filter_=None, id=None))]
     fn new(
         commitment: Option<CommitmentLevel>,
         filter_: Option<RpcLargestAccountsFilter>,
@@ -898,6 +913,7 @@ pub struct GetLatestBlockhash {
 #[pymethods]
 impl GetLatestBlockhash {
     #[new]
+    #[pyo3(signature = (config=None, id=None))]
     fn new(config: Option<RpcContextConfig>, id: Option<u64>) -> Self {
         let params = config.map(|c| (c,));
         let base = RequestBase::new(id);
@@ -944,6 +960,7 @@ pub struct GetLeaderSchedule {
 #[pymethods]
 impl GetLeaderSchedule {
     #[new]
+    #[pyo3(signature = (slot=None, config=None, id=None))]
     fn new(slot: Option<u64>, config: Option<RpcLeaderScheduleConfig>, id: Option<u64>) -> Self {
         let params = if slot.is_some() || config.is_some() {
             Some(GetLeaderScheduleParams(slot, config))
@@ -997,6 +1014,7 @@ pub struct GetMinimumBalanceForRentExemption {
 #[pymethods]
 impl GetMinimumBalanceForRentExemption {
     #[new]
+    #[pyo3(signature = (length, commitment=None, id=None))]
     fn new(length: usize, commitment: Option<CommitmentLevel>, id: Option<u64>) -> Self {
         let params = GetMinimumBalanceForRentExemptionParams(length, commitment);
         let base = RequestBase::new(id);
@@ -1052,6 +1070,7 @@ pub struct GetMultipleAccounts {
 #[pymethods]
 impl GetMultipleAccounts {
     #[new]
+    #[pyo3(signature = (accounts, config=None, id=None))]
     fn new(accounts: Vec<Pubkey>, config: Option<RpcAccountInfoConfig>, id: Option<u64>) -> Self {
         let params = GetMultipleAccountsParams(accounts, config);
         let base = RequestBase::new(id);
@@ -1104,6 +1123,7 @@ pub struct GetProgramAccounts {
 #[pymethods]
 impl GetProgramAccounts {
     #[new]
+    #[pyo3(signature = (program, config=None, id=None))]
     fn new(program: Pubkey, config: Option<RpcProgramAccountsConfig>, id: Option<u64>) -> Self {
         let params = GetProgramAccountsParams(program, config);
         let base = RequestBase::new(id);
@@ -1152,6 +1172,7 @@ pub struct GetRecentPerformanceSamples {
 #[pymethods]
 impl GetRecentPerformanceSamples {
     #[new]
+    #[pyo3(signature = (limit=None, id=None))]
     fn new(limit: Option<usize>, id: Option<u64>) -> Self {
         let params = limit.map(|x| (x,));
         let base = RequestBase::new(id);
@@ -1166,6 +1187,75 @@ impl GetRecentPerformanceSamples {
 }
 
 request_boilerplate!(GetRecentPerformanceSamples);
+
+/// Parameter struct for getRecentPrioritizationFees that properly serializes Pubkeys
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct GetRecentPrioritizationFeesParams(pub Vec<Pubkey>);
+
+// Ensure we get a nested array structure in JSON output with Base58-encoded Pubkeys
+impl Serialize for GetRecentPrioritizationFeesParams {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+
+        // First create array of Base58-encoded strings
+        let base58_addresses: Vec<String> =
+            self.0.iter().map(|pubkey| pubkey.to_string()).collect();
+
+        // Then wrap that in an outer array
+        let mut seq = serializer.serialize_seq(Some(1))?;
+        seq.serialize_element(&base58_addresses)?;
+        seq.end()
+    }
+}
+
+/// A ``getRecentPrioritizationFees`` request.
+///
+/// Args:
+///     addresses (Optional[Sequence[Pubkey]]): Addresses to query, returns all if empty.
+///     id (Optional[int]): Request ID.
+///
+/// Example:
+///     >>> from solders.rpc.requests import GetRecentPrioritizationFees
+///     >>> from solders.pubkey import Pubkey
+///     >>> addresses = [Pubkey.default(), Pubkey.default()]
+///     >>> GetRecentPrioritizationFees(addresses).to_json()
+///     '{"method":"getRecentPrioritizationFees","jsonrpc":"2.0","id":0,"params":[["11111111111111111111111111111111","11111111111111111111111111111111"]]}'
+///
+#[pyclass(module = "solders.rpc.requests")]
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+pub struct GetRecentPrioritizationFees {
+    #[serde(flatten)]
+    base: RequestBase,
+    #[serde(default)]
+    params: Option<GetRecentPrioritizationFeesParams>,
+}
+
+#[richcmp_eq_only]
+#[common_methods_ser_only]
+#[rpc_id_getter]
+#[pymethods]
+impl GetRecentPrioritizationFees {
+    #[new]
+    #[pyo3(signature = (addresses=None, id=None))]
+    fn new(addresses: Option<Vec<Pubkey>>, id: Option<u64>) -> Self {
+        let params = addresses.map(GetRecentPrioritizationFeesParams);
+        let base = RequestBase::new(id);
+        Self { base, params }
+    }
+
+    /// Optional[Sequence[Pubkey]]: Addresses to query.
+    #[getter]
+    pub fn addresses(&self) -> Option<Vec<Pubkey>> {
+        self.params.clone().map(|x| x.0)
+    }
+}
+
+request_boilerplate!(GetRecentPrioritizationFees);
 
 /// A ``getSignaturesForAddress`` request.
 ///
@@ -1195,6 +1285,7 @@ pub struct GetSignaturesForAddress {
 #[pymethods]
 impl GetSignaturesForAddress {
     #[new]
+    #[pyo3(signature = (address, config=None, id=None))]
     fn new(
         address: Pubkey,
         config: Option<RpcSignaturesForAddressConfig>,
@@ -1249,6 +1340,7 @@ pub struct GetSignatureStatuses {
 #[pymethods]
 impl GetSignatureStatuses {
     #[new]
+    #[pyo3(signature = (signatures, config=None, id=None))]
     fn new(
         signatures: Vec<Signature>,
         config: Option<RpcSignatureStatusConfig>,
@@ -1303,6 +1395,7 @@ pub struct GetSlot {
 #[pymethods]
 impl GetSlot {
     #[new]
+    #[pyo3(signature = (config=None, id=None))]
     fn new(config: Option<RpcContextConfig>, id: Option<u64>) -> Self {
         let params = config.map(|c| (c,));
         let base = RequestBase::new(id);
@@ -1347,6 +1440,7 @@ pub struct GetSlotLeader {
 #[pymethods]
 impl GetSlotLeader {
     #[new]
+    #[pyo3(signature = (config=None, id=None))]
     fn new(config: Option<RpcContextConfig>, id: Option<u64>) -> Self {
         let params = config.map(|c| (c,));
         let base = RequestBase::new(id);
@@ -1388,6 +1482,7 @@ pub struct GetSlotLeaders {
 #[pymethods]
 impl GetSlotLeaders {
     #[new]
+    #[pyo3(signature = (start, limit, id=None))]
     fn new(start: u64, limit: u64, id: Option<u64>) -> Self {
         let params = (start, limit);
         let base = RequestBase::new(id);
@@ -1438,6 +1533,7 @@ pub struct GetStakeActivation {
 #[pymethods]
 impl GetStakeActivation {
     #[new]
+    #[pyo3(signature = (account, config=None, id=None))]
     fn new(account: Pubkey, config: Option<RpcEpochConfig>, id: Option<u64>) -> Self {
         let params = GetStakeActivationParams(account, config);
         let base = RequestBase::new(id);
@@ -1488,6 +1584,7 @@ pub struct GetSupply {
 #[pymethods]
 impl GetSupply {
     #[new]
+    #[pyo3(signature = (config=None, id=None))]
     fn new(config: Option<RpcSupplyConfig>, id: Option<u64>) -> Self {
         let params = config.map(|c| (c,));
         let base = RequestBase::new(id);
@@ -1531,6 +1628,7 @@ pub struct GetTokenAccountBalance {
 #[pymethods]
 impl GetTokenAccountBalance {
     #[new]
+    #[pyo3(signature = (account, commitment=None, id=None))]
     fn new(account: Pubkey, commitment: Option<CommitmentLevel>, id: Option<u64>) -> Self {
         let params = PubkeyAndCommitmentParams(account, commitment);
         let base = RequestBase::new(id);
@@ -1589,6 +1687,7 @@ pub struct GetTokenAccountsByDelegate {
 #[pymethods]
 impl GetTokenAccountsByDelegate {
     #[new]
+    #[pyo3(signature = (account, filter_, config=None, id=None))]
     fn new(
         account: Pubkey,
         filter_: RpcTokenAccountsFilterWrapper,
@@ -1659,6 +1758,7 @@ pub struct GetTokenAccountsByOwner {
 #[pymethods]
 impl GetTokenAccountsByOwner {
     #[new]
+    #[pyo3(signature = (account, filter_, config=None, id=None))]
     fn new(
         account: Pubkey,
         filter_: RpcTokenAccountsFilterWrapper,
@@ -1718,6 +1818,7 @@ pub struct GetTokenLargestAccounts {
 #[pymethods]
 impl GetTokenLargestAccounts {
     #[new]
+    #[pyo3(signature = (mint, commitment=None, id=None))]
     fn new(mint: Pubkey, commitment: Option<CommitmentLevel>, id: Option<u64>) -> Self {
         let params = PubkeyAndCommitmentParams(mint, commitment);
         let base = RequestBase::new(id);
@@ -1766,6 +1867,7 @@ pub struct GetTokenSupply {
 #[pymethods]
 impl GetTokenSupply {
     #[new]
+    #[pyo3(signature = (mint, commitment=None, id=None))]
     fn new(mint: Pubkey, commitment: Option<CommitmentLevel>, id: Option<u64>) -> Self {
         let params = PubkeyAndCommitmentParams(mint, commitment);
         let base = RequestBase::new(id);
@@ -1816,6 +1918,7 @@ pub struct GetTransaction {
 #[pymethods]
 impl GetTransaction {
     #[new]
+    #[pyo3(signature = (signature, config=None, id=None))]
     fn new(signature: Signature, config: Option<RpcTransactionConfig>, id: Option<u64>) -> Self {
         let params = GetTransactionParams(signature, config);
         let base = RequestBase::new(id);
@@ -1866,6 +1969,7 @@ pub struct GetTransactionCount {
 #[pymethods]
 impl GetTransactionCount {
     #[new]
+    #[pyo3(signature = (config=None, id=None))]
     fn new(config: Option<RpcContextConfig>, id: Option<u64>) -> Self {
         let params = config.map(|c| (c,));
         let base = RequestBase::new(id);
@@ -1911,6 +2015,7 @@ pub struct GetVoteAccounts {
 #[pymethods]
 impl GetVoteAccounts {
     #[new]
+    #[pyo3(signature = (config=None, id=None))]
     fn new(config: Option<RpcGetVoteAccountsConfig>, id: Option<u64>) -> Self {
         let params = config.map(|c| (c,));
         let base = RequestBase::new(id);
@@ -1953,6 +2058,7 @@ pub struct IsBlockhashValid {
 #[pymethods]
 impl IsBlockhashValid {
     #[new]
+    #[pyo3(signature = (blockhash, config=None, id=None))]
     fn new(blockhash: SolderHash, config: Option<RpcContextConfig>, id: Option<u64>) -> Self {
         let params = IsBlockhashValidParams(blockhash, config);
         let base = RequestBase::new(id);
@@ -2006,6 +2112,7 @@ pub struct RequestAirdrop {
 #[pymethods]
 impl RequestAirdrop {
     #[new]
+    #[pyo3(signature = (pubkey, lamports, config=None, id=None))]
     fn new(
         pubkey: Pubkey,
         lamports: u64,
@@ -2084,6 +2191,7 @@ pub struct SendVersionedTransaction {
 #[pymethods]
 impl SendVersionedTransaction {
     #[new]
+    #[pyo3(signature = (tx, config=None, id=None))]
     fn new(
         tx: VersionedTransaction,
         config: Option<RpcSendTransactionConfig>,
@@ -2155,6 +2263,7 @@ pub struct SendLegacyTransaction {
 #[pymethods]
 impl SendLegacyTransaction {
     #[new]
+    #[pyo3(signature = (tx, config=None, id=None))]
     fn new(tx: Transaction, config: Option<RpcSendTransactionConfig>, id: Option<u64>) -> Self {
         let params = SendTransactionParams(tx, config);
         let base = RequestBase::new(id);
@@ -2221,6 +2330,7 @@ pub struct SendRawTransaction {
 #[pymethods]
 impl SendRawTransaction {
     #[new]
+    #[pyo3(signature = (tx, config=None, id=None))]
     fn new(tx: Vec<u8>, config: Option<RpcSendTransactionConfig>, id: Option<u64>) -> Self {
         let params = SendTransactionParams(tx, config);
         let base = RequestBase::new(id);
@@ -2290,6 +2400,7 @@ pub struct SimulateLegacyTransaction {
 #[pymethods]
 impl SimulateLegacyTransaction {
     #[new]
+    #[pyo3(signature = (tx, config=None, id=None))]
     fn new(tx: Transaction, config: Option<RpcSimulateTransactionConfig>, id: Option<u64>) -> Self {
         let params = SimulateTransactionParams(tx, config);
         let base = RequestBase::new(id);
@@ -2359,6 +2470,7 @@ pub struct SimulateVersionedTransaction {
 #[pymethods]
 impl SimulateVersionedTransaction {
     #[new]
+    #[pyo3(signature = (tx, config=None, id=None))]
     fn new(
         tx: VersionedTransaction,
         config: Option<RpcSimulateTransactionConfig>,
@@ -2414,6 +2526,7 @@ pub struct AccountSubscribe {
 #[pymethods]
 impl AccountSubscribe {
     #[new]
+    #[pyo3(signature = (account, config=None, id=None))]
     fn new(account: Pubkey, config: Option<RpcAccountInfoConfig>, id: Option<u64>) -> Self {
         let params = GetAccountInfoParams(account, config);
         let base = RequestBase::new(id);
@@ -2468,6 +2581,7 @@ pub struct BlockSubscribe {
 #[pymethods]
 impl BlockSubscribe {
     #[new]
+    #[pyo3(signature = (filter_, config=None, id=None))]
     fn new(
         filter_: RpcBlockSubscribeFilterWrapper,
         config: Option<RpcBlockSubscribeConfig>,
@@ -2525,6 +2639,7 @@ pub struct LogsSubscribe {
 #[pymethods]
 impl LogsSubscribe {
     #[new]
+    #[pyo3(signature = (filter_, config=None, id=None))]
     fn new(
         filter_: TransactionLogsFilterWrapper,
         config: Option<RpcTransactionLogsConfig>,
@@ -2582,6 +2697,7 @@ pub struct ProgramSubscribe {
 #[pymethods]
 impl ProgramSubscribe {
     #[new]
+    #[pyo3(signature = (program, config=None, id=None))]
     fn new(program: Pubkey, config: Option<RpcProgramAccountsConfig>, id: Option<u64>) -> Self {
         let params = GetProgramAccountsParams(program, config);
         let base = RequestBase::new(id);
@@ -2632,6 +2748,7 @@ pub struct SignatureSubscribe {
 #[pymethods]
 impl SignatureSubscribe {
     #[new]
+    #[pyo3(signature = (signature, config=None, id=None))]
     fn new(
         signature: Signature,
         config: Option<RpcSignatureSubscribeConfig>,
@@ -2730,6 +2847,7 @@ pyunion!(
     GetMultipleAccounts,
     GetProgramAccounts,
     GetRecentPerformanceSamples,
+    GetRecentPrioritizationFees,
     GetSignaturesForAddress,
     GetSignatureStatuses,
     GetSlot,
@@ -2806,6 +2924,7 @@ pub fn include_requests(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<GetMultipleAccounts>()?;
     m.add_class::<GetProgramAccounts>()?;
     m.add_class::<GetRecentPerformanceSamples>()?;
+    m.add_class::<GetRecentPrioritizationFees>()?;
     m.add_class::<GetSignaturesForAddress>()?;
     m.add_class::<GetSignatureStatuses>()?;
     m.add_class::<GetSlot>()?;

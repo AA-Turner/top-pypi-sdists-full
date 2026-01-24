@@ -3,7 +3,7 @@ Type annotations for appflow service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appflow/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -75,12 +76,6 @@ from .type_defs import (
     UpdateFlowResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -89,17 +84,17 @@ else:
 __all__ = ("AppflowClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ConnectorAuthenticationException: Type[BotocoreClientError]
-    ConnectorServerException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ConnectorAuthenticationException: type[BotocoreClientError]
+    ConnectorServerException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class AppflowClient(AioBaseClient):
     """
@@ -169,7 +164,7 @@ class AppflowClient(AioBaseClient):
 
     async def delete_connector_profile(
         self, **kwargs: Unpack[DeleteConnectorProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables you to delete an existing connector profile.
 
@@ -177,7 +172,7 @@ class AppflowClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appflow/client/#delete_connector_profile)
         """
 
-    async def delete_flow(self, **kwargs: Unpack[DeleteFlowRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_flow(self, **kwargs: Unpack[DeleteFlowRequestTypeDef]) -> dict[str, Any]:
         """
         Enables your application to delete an existing flow.
 
@@ -301,7 +296,7 @@ class AppflowClient(AioBaseClient):
 
     async def reset_connector_metadata_cache(
         self, **kwargs: Unpack[ResetConnectorMetadataCacheRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Resets metadata about your connector entities that Amazon AppFlow stored in its
         cache.
@@ -328,7 +323,7 @@ class AppflowClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appflow/client/#stop_flow)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Applies a tag to the specified flow.
 
@@ -338,7 +333,7 @@ class AppflowClient(AioBaseClient):
 
     async def unregister_connector(
         self, **kwargs: Unpack[UnregisterConnectorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Unregisters the custom connector registered in your account that matches the
         connector label provided in the request.
@@ -347,7 +342,7 @@ class AppflowClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appflow/client/#unregister_connector)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from the specified flow.
 
@@ -393,7 +388,7 @@ class AppflowClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

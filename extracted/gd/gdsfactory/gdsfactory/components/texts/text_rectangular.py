@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+__all__ = ["text_rectangular", "text_rectangular_multi_layer"]
+
 from collections.abc import Callable
 from functools import partial
 from typing import Any
 
 import gdsfactory as gf
 from gdsfactory.component import Component
-from gdsfactory.components.containers.copy_layers import copy_layers
-from gdsfactory.components.texts.text_rectangular_font import (
+from gdsfactory.typings import ComponentSpec, LayerSpec, LayerSpecs
+
+from ..containers.copy_layers import copy_layers
+from ..texts.text_rectangular_font import (
     pixel_array,
     rectangular_font,
 )
-from gdsfactory.typings import ComponentSpec, LayerSpec, LayerSpecs
 
 
 @gf.cell_with_module_name

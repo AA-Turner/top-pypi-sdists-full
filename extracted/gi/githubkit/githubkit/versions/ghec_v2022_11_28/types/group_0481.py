@@ -9,112 +9,29 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Literal, Union
+from typing import Literal
 from typing_extensions import NotRequired, TypedDict
 
 
-class ScimUserListType(TypedDict):
-    """SCIM User List
+class RepositoryRuleDetailedOneof6Type(TypedDict):
+    """RepositoryRuleDetailedOneof6"""
 
-    SCIM User List
-    """
-
-    schemas: list[str]
-    total_results: int
-    items_per_page: int
-    start_index: int
-    resources: list[ScimUserType]
+    type: Literal["required_signatures"]
+    ruleset_source_type: NotRequired[Literal["Repository", "Organization"]]
+    ruleset_source: NotRequired[str]
+    ruleset_id: NotRequired[int]
 
 
-class ScimUserType(TypedDict):
-    """SCIM /Users
+class RepositoryRuleDetailedOneof6TypeForResponse(TypedDict):
+    """RepositoryRuleDetailedOneof6"""
 
-    SCIM /Users provisioning endpoints
-    """
-
-    schemas: list[str]
-    id: str
-    external_id: NotRequired[Union[str, None]]
-    user_name: NotRequired[Union[str, None]]
-    display_name: NotRequired[Union[str, None]]
-    name: NotRequired[ScimUserPropNameType]
-    emails: list[ScimUserPropEmailsItemsType]
-    active: bool
-    meta: ScimUserPropMetaType
-    organization_id: NotRequired[int]
-    operations: NotRequired[list[ScimUserPropOperationsItemsType]]
-    groups: NotRequired[list[ScimUserPropGroupsItemsType]]
-    roles: NotRequired[list[ScimUserPropRolesItemsType]]
-
-
-class ScimUserPropNameType(TypedDict):
-    """ScimUserPropName
-
-    Examples:
-        {'givenName': 'Jane', 'familyName': 'User'}
-    """
-
-    given_name: NotRequired[Union[str, None]]
-    family_name: NotRequired[Union[str, None]]
-    formatted: NotRequired[Union[str, None]]
-
-
-class ScimUserPropEmailsItemsType(TypedDict):
-    """ScimUserPropEmailsItems"""
-
-    value: str
-    primary: NotRequired[bool]
-    type: NotRequired[str]
-
-
-class ScimUserPropMetaType(TypedDict):
-    """ScimUserPropMeta"""
-
-    resource_type: NotRequired[str]
-    created: NotRequired[datetime]
-    last_modified: NotRequired[datetime]
-    location: NotRequired[str]
-
-
-class ScimUserPropGroupsItemsType(TypedDict):
-    """ScimUserPropGroupsItems"""
-
-    value: NotRequired[str]
-    display: NotRequired[str]
-
-
-class ScimUserPropRolesItemsType(TypedDict):
-    """ScimUserPropRolesItems"""
-
-    value: NotRequired[str]
-    primary: NotRequired[bool]
-    type: NotRequired[str]
-    display: NotRequired[str]
-
-
-class ScimUserPropOperationsItemsType(TypedDict):
-    """ScimUserPropOperationsItems"""
-
-    op: Literal["add", "remove", "replace"]
-    path: NotRequired[str]
-    value: NotRequired[
-        Union[str, ScimUserPropOperationsItemsPropValueOneof1Type, list[Any]]
-    ]
-
-
-class ScimUserPropOperationsItemsPropValueOneof1Type(TypedDict):
-    """ScimUserPropOperationsItemsPropValueOneof1"""
+    type: Literal["required_signatures"]
+    ruleset_source_type: NotRequired[Literal["Repository", "Organization"]]
+    ruleset_source: NotRequired[str]
+    ruleset_id: NotRequired[int]
 
 
 __all__ = (
-    "ScimUserListType",
-    "ScimUserPropEmailsItemsType",
-    "ScimUserPropGroupsItemsType",
-    "ScimUserPropMetaType",
-    "ScimUserPropNameType",
-    "ScimUserPropOperationsItemsPropValueOneof1Type",
-    "ScimUserPropOperationsItemsType",
-    "ScimUserPropRolesItemsType",
-    "ScimUserType",
+    "RepositoryRuleDetailedOneof6Type",
+    "RepositoryRuleDetailedOneof6TypeForResponse",
 )

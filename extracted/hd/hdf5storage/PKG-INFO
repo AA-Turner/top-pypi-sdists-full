@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: hdf5storage
-Version: 0.2.1
+Version: 0.2.2
 Summary: Utilities to read/write Python types to/from HDF5 files, including MATLAB v7.3 MAT files.
 License: BSD
+License-File: COPYING.txt
 Keywords: hdf5,matlab
 Author: Freja Nordsiek
 Author-email: fnordsie@posteo.net
@@ -23,23 +24,30 @@ Provides-Extra: dev
 Provides-Extra: docs
 Provides-Extra: scipy
 Provides-Extra: tests
+Provides-Extra: typechecking
 Requires-Dist: deptry (>=0.23.0) ; extra == "dev"
 Requires-Dist: deptry (>=0.23.0) ; extra == "tests"
 Requires-Dist: h5py (>=3.9)
+Requires-Dist: mypy (>=1.15,<2.0) ; extra == "dev"
+Requires-Dist: mypy (>=1.15,<2.0) ; extra == "typechecking"
 Requires-Dist: numpy (>=1.26)
 Requires-Dist: pytest (>=8.3) ; extra == "dev"
 Requires-Dist: pytest (>=8.3) ; extra == "tests"
+Requires-Dist: pytest-cov (>=6.2.0) ; extra == "dev"
+Requires-Dist: pytest-cov (>=6.2.0) ; extra == "tests"
 Requires-Dist: ruff (>=0.9) ; extra == "dev"
 Requires-Dist: ruff (>=0.9) ; extra == "tests"
 Requires-Dist: scipy (>=1.14.0) ; extra == "dev"
 Requires-Dist: scipy (>=1.14.0) ; extra == "scipy"
+Requires-Dist: scipy-stubs ; extra == "dev"
+Requires-Dist: scipy-stubs ; extra == "typechecking"
 Requires-Dist: sphinx (>=8.0) ; extra == "dev"
 Requires-Dist: sphinx (>=8.0) ; extra == "docs"
 Requires-Dist: sphinx_rtd_theme (>=3.0) ; extra == "dev"
 Requires-Dist: sphinx_rtd_theme (>=3.0) ; extra == "docs"
 Description-Content-Type: text/x-rst
 
-|lint-badge| |pre-commit-badge|
+|lint-badge| |codecov-badge| |pre-commit-badge|
 
 .. |pre-commit-badge| image:: https://results.pre-commit.ci/badge/github/jclds139/hdf5storage/main.svg
    :target: https://results.pre-commit.ci/latest/github/jclds139/hdf5storage/main
@@ -48,6 +56,12 @@ Description-Content-Type: text/x-rst
 .. |lint-badge| image:: https://github.com/jclds139/hdf5storage/actions/workflows/unit_tests.yml/badge.svg
    :target: https://github.com/jclds139/hdf5storage/actions/workflows/unit_tests.yml
    :alt: Unit tests and lint checks
+
+.. |codecov-badge| image:: https://codecov.io/github/jclds139/hdf5storage/graph/badge.svg?token=OWTWBZ0K54
+   :target: https://codecov.io/github/jclds139/hdf5storage
+   :alt: Code coverage
+
+
 
 Overview
 ========

@@ -1,4 +1,4 @@
-# Generated from SubstraitType.g4 by ANTLR 4.13.1
+# Generated from SubstraitType.g4 by ANTLR 4.13.2
 from antlr4 import *
 if "." in __name__:
     from .SubstraitTypeParser import SubstraitTypeParser
@@ -206,6 +206,15 @@ class SubstraitTypeListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by SubstraitTypeParser#precisionTime.
+    def enterPrecisionTime(self, ctx:SubstraitTypeParser.PrecisionTimeContext):
+        pass
+
+    # Exit a parse tree produced by SubstraitTypeParser#precisionTime.
+    def exitPrecisionTime(self, ctx:SubstraitTypeParser.PrecisionTimeContext):
+        pass
+
+
     # Enter a parse tree produced by SubstraitTypeParser#precisionTimestamp.
     def enterPrecisionTimestamp(self, ctx:SubstraitTypeParser.PrecisionTimestampContext):
         pass
@@ -260,12 +269,39 @@ class SubstraitTypeListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by SubstraitTypeParser#func.
+    def enterFunc(self, ctx:SubstraitTypeParser.FuncContext):
+        pass
+
+    # Exit a parse tree produced by SubstraitTypeParser#func.
+    def exitFunc(self, ctx:SubstraitTypeParser.FuncContext):
+        pass
+
+
     # Enter a parse tree produced by SubstraitTypeParser#userDefined.
     def enterUserDefined(self, ctx:SubstraitTypeParser.UserDefinedContext):
         pass
 
     # Exit a parse tree produced by SubstraitTypeParser#userDefined.
     def exitUserDefined(self, ctx:SubstraitTypeParser.UserDefinedContext):
+        pass
+
+
+    # Enter a parse tree produced by SubstraitTypeParser#singleFuncParam.
+    def enterSingleFuncParam(self, ctx:SubstraitTypeParser.SingleFuncParamContext):
+        pass
+
+    # Exit a parse tree produced by SubstraitTypeParser#singleFuncParam.
+    def exitSingleFuncParam(self, ctx:SubstraitTypeParser.SingleFuncParamContext):
+        pass
+
+
+    # Enter a parse tree produced by SubstraitTypeParser#funcParamsWithParens.
+    def enterFuncParamsWithParens(self, ctx:SubstraitTypeParser.FuncParamsWithParensContext):
+        pass
+
+    # Exit a parse tree produced by SubstraitTypeParser#funcParamsWithParens.
+    def exitFuncParamsWithParens(self, ctx:SubstraitTypeParser.FuncParamsWithParensContext):
         pass
 
 

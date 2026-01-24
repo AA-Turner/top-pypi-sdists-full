@@ -202,7 +202,9 @@ class SyncAttempt:
                     timestamp = event.get("timestamp", "")
                     level = event.get("level", "INFO")
                     message = event.get("message", "")
-                    log_lines.append(f"[{timestamp}] {level}: {message}")
+                    log_lines.append(
+                        f"[{timestamp}] {level}: {message}"  # pyrefly: ignore[bad-argument-type]
+                    )
                 result = "\n".join(log_lines)
         elif "logLines" in logs_data:
             log_lines = logs_data["logLines"]
@@ -253,6 +255,7 @@ class SyncResult:
             connection_id=self.connection.connection_id,
             client_id=self.workspace.client_id,
             client_secret=self.workspace.client_secret,
+            bearer_token=self.workspace.bearer_token,
         )
         return self._connection_response
 
@@ -264,6 +267,7 @@ class SyncResult:
             api_root=self.workspace.api_root,
             client_id=self.workspace.client_id,
             client_secret=self.workspace.client_secret,
+            bearer_token=self.workspace.bearer_token,
         )
         return asdict(destination_response.configuration)
 
@@ -285,6 +289,7 @@ class SyncResult:
             api_root=self.workspace.api_root,
             client_id=self.workspace.client_id,
             client_secret=self.workspace.client_secret,
+            bearer_token=self.workspace.bearer_token,
         )
         return self._latest_job_info
 
@@ -311,6 +316,7 @@ class SyncResult:
                     json={"id": self.job_id},
                     client_id=self.workspace.client_id,
                     client_secret=self.workspace.client_secret,
+                    bearer_token=self.workspace.bearer_token,
                 )
                 raw_start_time = job_info_raw.get("startTime")
                 if raw_start_time:
@@ -330,6 +336,7 @@ class SyncResult:
             },
             client_id=self.workspace.client_id,
             client_secret=self.workspace.client_secret,
+            bearer_token=self.workspace.bearer_token,
         )
         return self._job_with_attempts_info
 
@@ -465,7 +472,7 @@ class SyncResult:
     @property
     def streams(
         self,
-    ) -> _SyncResultStreams:
+    ) -> _SyncResultStreams:  # pyrefly: ignore[unknown-name]
         """Return a mapping of stream names to `airbyte.CachedDataset` objects.
 
         This is a convenience wrapper around the `stream_names`

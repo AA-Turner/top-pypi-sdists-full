@@ -4,8 +4,6 @@
 #include <Python.h>
 
 #include <assert.h>
-#include <fstream>
-#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -26,6 +24,7 @@ namespace memray::api {
 using namespace tracking_api;
 
 using allocations_t = std::vector<Allocation>;
+using location_id_t = size_t;
 
 class RecordReader
 {
@@ -35,10 +34,14 @@ class RecordReader
         AGGREGATED_ALLOCATION_RECORD,
         MEMORY_RECORD,
         MEMORY_SNAPSHOT,
+        OBJECT_RECORD,
         ERROR,
         END_OF_FILE,
     };
-    explicit RecordReader(std::unique_ptr<memray::io::Source> source, bool track_stacks = true);
+    explicit RecordReader(
+            std::unique_ptr<memray::io::Source> source,
+            bool track_stacks = true,
+            bool track_object_lifetimes = false);
     void close() noexcept;
     bool isOpen() const noexcept;
     PyObject*
@@ -51,8 +54,8 @@ class RecordReader
             FrameTree::index_t index,
             size_t generation,
             size_t max_stacks = std::numeric_limits<size_t>::max());
-    std::optional<frame_id_t> getLatestPythonFrameId(const Allocation& allocation) const;
-    PyObject* Py_GetFrame(std::optional<frame_id_t> frame);
+    std::optional<location_id_t> getLatestPythonLocationId(const Allocation& allocation);
+    PyObject* Py_GetLocation(std::optional<location_id_t> frame);
 
     RecordResult nextRecord();
     HeaderRecord getHeader() const noexcept;
@@ -64,6 +67,7 @@ class RecordReader
     MemoryRecord getLatestMemoryRecord() const noexcept;
     AggregatedAllocation getLatestAggregatedAllocation() const noexcept;
     MemorySnapshot getLatestMemorySnapshot() const noexcept;
+    TrackedObject getLatestObject() const noexcept;
 
   private:
     // Aliases
@@ -74,12 +78,17 @@ class RecordReader
     void readHeader(HeaderRecord& header);
     template<typename T>
     bool readVarint(T* val);
-    bool readVarint(size_t* val);
+    bool readVarint(uint64_t* val);
     template<typename T>
     bool readSignedVarint(T* val);
-    bool readSignedVarint(ssize_t* val);
+    bool readSignedVarint(int64_t* val);
     template<typename T>
     bool readIntegralDelta(T* cache, T* new_val);
+    Location frameToLocation(frame_id_t frame);
+    void extractRecordTypeAndFlags(
+            unsigned char record_type_and_flags,
+            RecordType* record_type,
+            unsigned char* flags) const;
     RecordResult nextRecordFromAllAllocationsFile();
     RecordResult nextRecordFromAggregatedAllocationsFile();
     PyObject* dumpAllRecordsFromAllAllocationsFile();
@@ -89,38 +98,47 @@ class RecordReader
     mutable std::mutex d_mutex;
     std::unique_ptr<memray::io::Source> d_input;
     const bool d_track_stacks;
+    const bool d_track_object_lifetimes;
     HeaderRecord d_header;
-    pyframe_map_t d_frame_map{};
+    std::unordered_map<code_object_id_t, CodeObjectInfo> d_code_object_map{};
     stack_traces_t d_stack_traces{};
     FrameTree d_tree{};
+    Registry<Frame> d_python_frame_registry{};
+    std::unordered_map<frame_id_t, Location> d_python_location_by_frame_id{};
+    Registry<Location> d_location_registry{};
+
     mutable python_helpers::PyUnicode_Cache d_pystring_cache{};
     native_resolver::SymbolResolver d_symbol_resolver;
     std::vector<UnresolvedNativeFrame> d_native_frames{};
+    // Pointer cache for recently seen addresses (LRU, indices 0-14)
+    // The cache must stay synchronized with the writer's cache.
+    // Index 0 = most recent, 14 = least recent
+    // Cache encoding in allocation records:
+    //   - 0x0 to 0xE (0-14): Cache hit at this index
+    //   - 0xF (15): Cache miss, full address follows
+    std::array<uintptr_t, 15> d_recent_addresses{};
     DeltaEncodedFields d_last;
+    stack_t* d_curr_thread_stack{};
+
     std::unordered_map<thread_id_t, std::string> d_thread_names;
     Allocation d_latest_allocation;
     AggregatedAllocation d_latest_aggregated_allocation;
     MemoryRecord d_latest_memory_record{};
     MemorySnapshot d_latest_memory_snapshot{};
+    TrackedObject d_latest_object;
 
     // Methods
-    [[nodiscard]] bool parseFramePush(FramePush* record);
+    [[nodiscard]] bool parseFramePush(FramePush* record, unsigned int flags);
     [[nodiscard]] bool processFramePush(const FramePush& record);
 
     [[nodiscard]] static bool parseFramePop(FramePop* record, unsigned int flags);
     [[nodiscard]] bool processFramePop(const FramePop& record);
-
-    [[nodiscard]] bool parseFrameIndex(tracking_api::pyframe_map_val_t* pyframe_val, unsigned int flags);
-    [[nodiscard]] bool processFrameIndex(const tracking_api::pyframe_map_val_t& pyframe_val);
 
     [[nodiscard]] bool parseNativeFrameIndex(UnresolvedNativeFrame* frame);
     [[nodiscard]] bool processNativeFrameIndex(const UnresolvedNativeFrame& frame);
 
     [[nodiscard]] bool parseAllocationRecord(AllocationRecord* record, unsigned int flags);
     [[nodiscard]] bool processAllocationRecord(const AllocationRecord& record);
-
-    [[nodiscard]] bool parseNativeAllocationRecord(NativeAllocationRecord* record, unsigned int flags);
-    [[nodiscard]] bool processNativeAllocationRecord(const NativeAllocationRecord& record);
 
     [[nodiscard]] static bool parseMemoryMapStart();
     [[nodiscard]] bool processMemoryMapStart();
@@ -149,10 +167,17 @@ class RecordReader
     [[nodiscard]] bool parsePythonTraceIndexRecord(std::pair<frame_id_t, FrameTree::index_t>* record);
     [[nodiscard]] bool processPythonTraceIndexRecord(const std::pair<frame_id_t, FrameTree::index_t>&);
 
-    [[nodiscard]] bool parsePythonFrameIndexRecord(tracking_api::pyframe_map_val_t* pyframe_val);
-    [[nodiscard]] bool processPythonFrameIndexRecord(const tracking_api::pyframe_map_val_t& record);
+    [[nodiscard]] bool parsePythonFrameIndexRecord(std::pair<frame_id_t, Frame>* pyframe_val);
+    [[nodiscard]] bool processPythonFrameIndexRecord(const std::pair<frame_id_t, Frame>& record);
 
-    size_t getAllocationFrameIndex(const AllocationRecord& record);
+    [[nodiscard]] bool parseCodeObjectRecord(tracking_api::pycode_map_val_t* pycode_val);
+    [[nodiscard]] bool processCodeObjectRecord(const tracking_api::pycode_map_val_t& record);
+
+    [[nodiscard]] bool parseObjectRecord(ObjectRecord* record, unsigned int flags);
+    [[nodiscard]] bool processObjectRecord(const ObjectRecord& record);
+
+    [[nodiscard]] bool parseSurvivingObjectRecord(ObjectRecord* record);
+    [[nodiscard]] bool processSurvivingObjectRecord(const ObjectRecord& record);
 };
 
 template<typename T>
@@ -160,7 +185,7 @@ bool
 RecordReader::readVarint(T* val)
 {
     static_assert(std::is_unsigned<T>::value, "Only unsigned varints are supported");
-    size_t temp;
+    uint64_t temp;
     if (!readVarint(&temp)) {
         return false;
     }
@@ -173,7 +198,7 @@ bool
 RecordReader::readSignedVarint(T* val)
 {
     static_assert(!std::is_unsigned<T>::value, "Only signed varints are supported");
-    ssize_t temp;
+    int64_t temp;
     if (!readSignedVarint(&temp)) {
         return false;
     }
@@ -185,7 +210,7 @@ template<typename T>
 bool
 RecordReader::readIntegralDelta(T* prev, T* new_val)
 {
-    ssize_t delta;
+    int64_t delta;
     if (!readSignedVarint(&delta)) {
         return false;
     }

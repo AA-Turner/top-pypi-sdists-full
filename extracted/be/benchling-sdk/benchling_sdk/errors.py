@@ -98,9 +98,11 @@ class RegistrationError(Exception):
     @classmethod
     def from_task(cls, task: AsyncTask) -> RegistrationError:
         """Create a RegistrationError from a failed AsyncTask."""
-        task_errors = unset_as_none(task.errors)
+        task_errors = unset_as_none(lambda: task.errors)
         errors_dict: Dict[Any, Any] = task_errors.to_dict() if task_errors else dict()  # type: ignore
-        return cls(message=unset_as_none(task.message), errors=errors_dict, task_status=task.status)
+        return cls(
+            message=unset_as_none(lambda: task.message), errors=errors_dict, task_status=task.status
+        )
 
     def __str__(self):
         return repr(self)

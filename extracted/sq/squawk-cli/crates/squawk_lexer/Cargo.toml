@@ -1,11 +1,14 @@
 [package]
-name = "squawk_lexer"
+name = "squawk-lexer"
 version.workspace = true
-description = "TBD"
+description.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 authors.workspace = true
 edition.workspace = true
-license = "MIT"
+license.workspace = true
 rust-version.workspace = true
 readme = "README.md"
 

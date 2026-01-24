@@ -8,8 +8,36 @@ class _Monitor(_Azure):
     _icon_dir = "resources/azure/monitor"
 
 
+class ActivityLog(_Monitor):
+    _icon = "activity-log.png"
+
+
+class ApplicationInsights(_Monitor):
+    _icon = "application-insights.png"
+
+
+class AutoScale(_Monitor):
+    _icon = "auto-scale.png"
+
+
+class AzureMonitorsForSAPSolutions(_Monitor):
+    _icon = "azure-monitors-for-sap-solutions.png"
+
+
+class AzureWorkbooks(_Monitor):
+    _icon = "azure-workbooks.png"
+
+
 class ChangeAnalysis(_Monitor):
     _icon = "change-analysis.png"
+
+
+class DiagnosticsSettings(_Monitor):
+    _icon = "diagnostics-settings.png"
+
+
+class LogAnalyticsWorkspaces(_Monitor):
+    _icon = "log-analytics-workspaces.png"
 
 
 class Logs(_Monitor):
@@ -22,6 +50,10 @@ class Metrics(_Monitor):
 
 class Monitor(_Monitor):
     _icon = "monitor.png"
+
+
+class NetworkWatcher(_Monitor):
+    _icon = "network-watcher.png"
 
 
 # Aliases

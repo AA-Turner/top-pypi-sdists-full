@@ -20,19 +20,24 @@ __all__ = [
     'CloudVmClusterDataCollectionOptions',
     'CloudVmClusterFileSystemConfiguration',
     'ExadataInfrastructureMaintenanceWindow',
+    'ExascaleDatabaseStorageVaultHighCapacityDatabaseStorage',
     'GetAdbsCharacterSetsCharacterSetResult',
     'GetAdbsNationalCharacterSetsCharacterSetResult',
+    'GetAutonomousDatabaseBackupsAutonomousDatabaseBackupResult',
+    'GetAutonomousDatabaseCloneFromBackupLongTermBackupScheduleResult',
+    'GetAutonomousDatabaseCloneFromDatabaseLongTermBackupScheduleResult',
     'GetAutonomousDatabaseLongTermBackupScheduleResult',
     'GetCloudVmClusterDataCollectionOptionResult',
     'GetCloudVmClusterFileSystemConfigurationResult',
-    'GetCloudVmClusterIormConfigCachResult',
-    'GetCloudVmClusterIormConfigCachDbPlanResult',
+    'GetCloudVmClusterIormConfigCacheResult',
+    'GetCloudVmClusterIormConfigCacheDbPlanResult',
     'GetDbNodesDbNodeResult',
     'GetDbServersDbServerResult',
     'GetDbSystemShapesDbSystemShapeResult',
     'GetExadataInfrastructureDefinedFileSystemConfigurationResult',
     'GetExadataInfrastructureEstimatedPatchingTimeResult',
     'GetExadataInfrastructureMaintenanceWindowResult',
+    'GetExascaleDatabaseStorageVaultHighCapacityDatabaseStorageResult',
 ]
 
 @pulumi.output_type
@@ -320,6 +325,55 @@ class ExadataInfrastructureMaintenanceWindow(dict):
 
 
 @pulumi.output_type
+class ExascaleDatabaseStorageVaultHighCapacityDatabaseStorage(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "totalSizeInGb":
+            suggest = "total_size_in_gb"
+        elif key == "availableSizeInGb":
+            suggest = "available_size_in_gb"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ExascaleDatabaseStorageVaultHighCapacityDatabaseStorage. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ExascaleDatabaseStorageVaultHighCapacityDatabaseStorage.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ExascaleDatabaseStorageVaultHighCapacityDatabaseStorage.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 total_size_in_gb: _builtins.int,
+                 available_size_in_gb: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int total_size_in_gb: Total capacity in gigabytes. Changing this forces a new Exadata Database Storage Vault to be created.
+        :param _builtins.int available_size_in_gb: Available size in gigabytes.
+        """
+        pulumi.set(__self__, "total_size_in_gb", total_size_in_gb)
+        if available_size_in_gb is not None:
+            pulumi.set(__self__, "available_size_in_gb", available_size_in_gb)
+
+    @_builtins.property
+    @pulumi.getter(name="totalSizeInGb")
+    def total_size_in_gb(self) -> _builtins.int:
+        """
+        Total capacity in gigabytes. Changing this forces a new Exadata Database Storage Vault to be created.
+        """
+        return pulumi.get(self, "total_size_in_gb")
+
+    @_builtins.property
+    @pulumi.getter(name="availableSizeInGb")
+    def available_size_in_gb(self) -> Optional[_builtins.int]:
+        """
+        Available size in gigabytes.
+        """
+        return pulumi.get(self, "available_size_in_gb")
+
+
+@pulumi.output_type
 class GetAdbsCharacterSetsCharacterSetResult(dict):
     def __init__(__self__, *,
                  character_set: _builtins.str):
@@ -353,6 +407,298 @@ class GetAdbsNationalCharacterSetsCharacterSetResult(dict):
         A valid Oracle national character set.
         """
         return pulumi.get(self, "character_set")
+
+
+@pulumi.output_type
+class GetAutonomousDatabaseBackupsAutonomousDatabaseBackupResult(dict):
+    def __init__(__self__, *,
+                 automatic: _builtins.bool,
+                 autonomous_database_backup_ocid: _builtins.str,
+                 autonomous_database_ocid: _builtins.str,
+                 database_backup_size_in_tbs: _builtins.float,
+                 database_version: _builtins.str,
+                 display_name: _builtins.str,
+                 id: _builtins.str,
+                 lifecycle_details: _builtins.str,
+                 lifecycle_state: _builtins.str,
+                 location: _builtins.str,
+                 provisioning_state: _builtins.str,
+                 restorable: _builtins.bool,
+                 retention_period_in_days: _builtins.int,
+                 time_available_til: _builtins.str,
+                 time_ended: _builtins.str,
+                 time_started: _builtins.str,
+                 type: _builtins.str):
+        """
+        :param _builtins.bool automatic: Indicates whether the backup is user-initiated or automatic.
+        :param _builtins.str autonomous_database_backup_ocid: The backup OCID.
+        :param _builtins.str autonomous_database_ocid: The OCID of the Autonomous Database OCID.
+        :param _builtins.str database_version: The Oracle Database version of the Autonomous Database at the time the backup was taken.
+        :param _builtins.str display_name: The user-friendly name of the backup.
+        :param _builtins.str id: The ID of the Autonomous Database Backup.
+        :param _builtins.str lifecycle_details: Information about the current lifecycle state of the backup.
+        :param _builtins.str lifecycle_state: The current state of the backup.
+        :param _builtins.str location: `- The Azure Region where the Autonomous Database Backup exists.
+        :param _builtins.str provisioning_state: The current provisioning state of the Autonomous Database Backup.
+        :param _builtins.bool restorable: Indicates whether the backup can be used to restore the Autonomous Database.
+        :param _builtins.int retention_period_in_days: The retention period in days for the Autonomous Database Backup.
+        :param _builtins.str time_available_til: The date and time the backup will become unusable.
+        :param _builtins.str time_ended: The date and time the backup was completed.
+        :param _builtins.str time_started: The date and time the backup started.
+        :param _builtins.str type: The type of backup.
+        """
+        pulumi.set(__self__, "automatic", automatic)
+        pulumi.set(__self__, "autonomous_database_backup_ocid", autonomous_database_backup_ocid)
+        pulumi.set(__self__, "autonomous_database_ocid", autonomous_database_ocid)
+        pulumi.set(__self__, "database_backup_size_in_tbs", database_backup_size_in_tbs)
+        pulumi.set(__self__, "database_version", database_version)
+        pulumi.set(__self__, "display_name", display_name)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "lifecycle_details", lifecycle_details)
+        pulumi.set(__self__, "lifecycle_state", lifecycle_state)
+        pulumi.set(__self__, "location", location)
+        pulumi.set(__self__, "provisioning_state", provisioning_state)
+        pulumi.set(__self__, "restorable", restorable)
+        pulumi.set(__self__, "retention_period_in_days", retention_period_in_days)
+        pulumi.set(__self__, "time_available_til", time_available_til)
+        pulumi.set(__self__, "time_ended", time_ended)
+        pulumi.set(__self__, "time_started", time_started)
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def automatic(self) -> _builtins.bool:
+        """
+        Indicates whether the backup is user-initiated or automatic.
+        """
+        return pulumi.get(self, "automatic")
+
+    @_builtins.property
+    @pulumi.getter(name="autonomousDatabaseBackupOcid")
+    def autonomous_database_backup_ocid(self) -> _builtins.str:
+        """
+        The backup OCID.
+        """
+        return pulumi.get(self, "autonomous_database_backup_ocid")
+
+    @_builtins.property
+    @pulumi.getter(name="autonomousDatabaseOcid")
+    def autonomous_database_ocid(self) -> _builtins.str:
+        """
+        The OCID of the Autonomous Database OCID.
+        """
+        return pulumi.get(self, "autonomous_database_ocid")
+
+    @_builtins.property
+    @pulumi.getter(name="databaseBackupSizeInTbs")
+    def database_backup_size_in_tbs(self) -> _builtins.float:
+        return pulumi.get(self, "database_backup_size_in_tbs")
+
+    @_builtins.property
+    @pulumi.getter(name="databaseVersion")
+    def database_version(self) -> _builtins.str:
+        """
+        The Oracle Database version of the Autonomous Database at the time the backup was taken.
+        """
+        return pulumi.get(self, "database_version")
+
+    @_builtins.property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> _builtins.str:
+        """
+        The user-friendly name of the backup.
+        """
+        return pulumi.get(self, "display_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The ID of the Autonomous Database Backup.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="lifecycleDetails")
+    def lifecycle_details(self) -> _builtins.str:
+        """
+        Information about the current lifecycle state of the backup.
+        """
+        return pulumi.get(self, "lifecycle_details")
+
+    @_builtins.property
+    @pulumi.getter(name="lifecycleState")
+    def lifecycle_state(self) -> _builtins.str:
+        """
+        The current state of the backup.
+        """
+        return pulumi.get(self, "lifecycle_state")
+
+    @_builtins.property
+    @pulumi.getter
+    def location(self) -> _builtins.str:
+        """
+        `- The Azure Region where the Autonomous Database Backup exists.
+        """
+        return pulumi.get(self, "location")
+
+    @_builtins.property
+    @pulumi.getter(name="provisioningState")
+    def provisioning_state(self) -> _builtins.str:
+        """
+        The current provisioning state of the Autonomous Database Backup.
+        """
+        return pulumi.get(self, "provisioning_state")
+
+    @_builtins.property
+    @pulumi.getter
+    def restorable(self) -> _builtins.bool:
+        """
+        Indicates whether the backup can be used to restore the Autonomous Database.
+        """
+        return pulumi.get(self, "restorable")
+
+    @_builtins.property
+    @pulumi.getter(name="retentionPeriodInDays")
+    def retention_period_in_days(self) -> _builtins.int:
+        """
+        The retention period in days for the Autonomous Database Backup.
+        """
+        return pulumi.get(self, "retention_period_in_days")
+
+    @_builtins.property
+    @pulumi.getter(name="timeAvailableTil")
+    def time_available_til(self) -> _builtins.str:
+        """
+        The date and time the backup will become unusable.
+        """
+        return pulumi.get(self, "time_available_til")
+
+    @_builtins.property
+    @pulumi.getter(name="timeEnded")
+    def time_ended(self) -> _builtins.str:
+        """
+        The date and time the backup was completed.
+        """
+        return pulumi.get(self, "time_ended")
+
+    @_builtins.property
+    @pulumi.getter(name="timeStarted")
+    def time_started(self) -> _builtins.str:
+        """
+        The date and time the backup started.
+        """
+        return pulumi.get(self, "time_started")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        The type of backup.
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class GetAutonomousDatabaseCloneFromBackupLongTermBackupScheduleResult(dict):
+    def __init__(__self__, *,
+                 enabled: _builtins.bool,
+                 repeat_cadence: _builtins.str,
+                 retention_period_in_days: _builtins.int,
+                 time_of_backup_in_utc: _builtins.str):
+        """
+        :param _builtins.bool enabled: A boolean value that indicates if long-term backup is enabled/disabled.
+        :param _builtins.str repeat_cadence: The frequency for automated long-term backups.
+        :param _builtins.int retention_period_in_days: The retention period in days for Autonomous database backup.
+        :param _builtins.str time_of_backup_in_utc: The timestamp in which the backup would be made.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "repeat_cadence", repeat_cadence)
+        pulumi.set(__self__, "retention_period_in_days", retention_period_in_days)
+        pulumi.set(__self__, "time_of_backup_in_utc", time_of_backup_in_utc)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        A boolean value that indicates if long-term backup is enabled/disabled.
+        """
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="repeatCadence")
+    def repeat_cadence(self) -> _builtins.str:
+        """
+        The frequency for automated long-term backups.
+        """
+        return pulumi.get(self, "repeat_cadence")
+
+    @_builtins.property
+    @pulumi.getter(name="retentionPeriodInDays")
+    def retention_period_in_days(self) -> _builtins.int:
+        """
+        The retention period in days for Autonomous database backup.
+        """
+        return pulumi.get(self, "retention_period_in_days")
+
+    @_builtins.property
+    @pulumi.getter(name="timeOfBackupInUtc")
+    def time_of_backup_in_utc(self) -> _builtins.str:
+        """
+        The timestamp in which the backup would be made.
+        """
+        return pulumi.get(self, "time_of_backup_in_utc")
+
+
+@pulumi.output_type
+class GetAutonomousDatabaseCloneFromDatabaseLongTermBackupScheduleResult(dict):
+    def __init__(__self__, *,
+                 enabled: _builtins.bool,
+                 repeat_cadence: _builtins.str,
+                 retention_period_in_days: _builtins.int,
+                 time_of_backup_in_utc: _builtins.str):
+        """
+        :param _builtins.bool enabled: A boolean value that indicates if long-term backup is enabled/disabled.
+        :param _builtins.str repeat_cadence: The frequency for automated long-term backups.
+        :param _builtins.int retention_period_in_days: The retention period in days for Autonomous database backup.
+        :param _builtins.str time_of_backup_in_utc: The timestamp in which the backup would be made.
+        """
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "repeat_cadence", repeat_cadence)
+        pulumi.set(__self__, "retention_period_in_days", retention_period_in_days)
+        pulumi.set(__self__, "time_of_backup_in_utc", time_of_backup_in_utc)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        A boolean value that indicates if long-term backup is enabled/disabled.
+        """
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="repeatCadence")
+    def repeat_cadence(self) -> _builtins.str:
+        """
+        The frequency for automated long-term backups.
+        """
+        return pulumi.get(self, "repeat_cadence")
+
+    @_builtins.property
+    @pulumi.getter(name="retentionPeriodInDays")
+    def retention_period_in_days(self) -> _builtins.int:
+        """
+        The retention period in days for Autonomous database backup.
+        """
+        return pulumi.get(self, "retention_period_in_days")
+
+    @_builtins.property
+    @pulumi.getter(name="timeOfBackupInUtc")
+    def time_of_backup_in_utc(self) -> _builtins.str:
+        """
+        The timestamp in which the backup would be made.
+        """
+        return pulumi.get(self, "time_of_backup_in_utc")
 
 
 @pulumi.output_type
@@ -476,14 +822,14 @@ class GetCloudVmClusterFileSystemConfigurationResult(dict):
 
 
 @pulumi.output_type
-class GetCloudVmClusterIormConfigCachResult(dict):
+class GetCloudVmClusterIormConfigCacheResult(dict):
     def __init__(__self__, *,
-                 db_plans: Sequence['outputs.GetCloudVmClusterIormConfigCachDbPlanResult'],
+                 db_plans: Sequence['outputs.GetCloudVmClusterIormConfigCacheDbPlanResult'],
                  lifecycle_details: _builtins.str,
                  lifecycle_state: _builtins.str,
                  objective: _builtins.str):
         """
-        :param Sequence['GetCloudVmClusterIormConfigCachDbPlanArgs'] db_plans: A `db_plans` block as defined above.
+        :param Sequence['GetCloudVmClusterIormConfigCacheDbPlanArgs'] db_plans: A `db_plans` block as defined above.
         :param _builtins.str lifecycle_details: Additional information about the current `lifecycleState`.
         :param _builtins.str lifecycle_state: The current state of IORM configuration for the Exadata DB system.
         :param _builtins.str objective: The current value for the IORM objective. The default is `AUTO`.
@@ -495,7 +841,7 @@ class GetCloudVmClusterIormConfigCachResult(dict):
 
     @_builtins.property
     @pulumi.getter(name="dbPlans")
-    def db_plans(self) -> Sequence['outputs.GetCloudVmClusterIormConfigCachDbPlanResult']:
+    def db_plans(self) -> Sequence['outputs.GetCloudVmClusterIormConfigCacheDbPlanResult']:
         """
         A `db_plans` block as defined above.
         """
@@ -527,7 +873,7 @@ class GetCloudVmClusterIormConfigCachResult(dict):
 
 
 @pulumi.output_type
-class GetCloudVmClusterIormConfigCachDbPlanResult(dict):
+class GetCloudVmClusterIormConfigCacheDbPlanResult(dict):
     def __init__(__self__, *,
                  db_name: _builtins.str,
                  flash_cache_limit: _builtins.str,
@@ -1492,5 +1838,34 @@ class GetExadataInfrastructureMaintenanceWindowResult(dict):
         Weeks during the month when maintenance should be performed.
         """
         return pulumi.get(self, "weeks_of_months")
+
+
+@pulumi.output_type
+class GetExascaleDatabaseStorageVaultHighCapacityDatabaseStorageResult(dict):
+    def __init__(__self__, *,
+                 available_size_in_gb: _builtins.int,
+                 total_size_in_gb: _builtins.int):
+        """
+        :param _builtins.int available_size_in_gb: Available capacity in gigabytes.
+        :param _builtins.int total_size_in_gb: Total capacity in gigabytes.
+        """
+        pulumi.set(__self__, "available_size_in_gb", available_size_in_gb)
+        pulumi.set(__self__, "total_size_in_gb", total_size_in_gb)
+
+    @_builtins.property
+    @pulumi.getter(name="availableSizeInGb")
+    def available_size_in_gb(self) -> _builtins.int:
+        """
+        Available capacity in gigabytes.
+        """
+        return pulumi.get(self, "available_size_in_gb")
+
+    @_builtins.property
+    @pulumi.getter(name="totalSizeInGb")
+    def total_size_in_gb(self) -> _builtins.int:
+        """
+        Total capacity in gigabytes.
+        """
+        return pulumi.get(self, "total_size_in_gb")
 
 

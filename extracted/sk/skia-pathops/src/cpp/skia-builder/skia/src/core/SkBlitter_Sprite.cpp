@@ -5,18 +5,35 @@
  * found in the LICENSE file.
  */
 
-#include "include/core/SkColorSpace.h"
+#include "include/core/SkAlphaType.h"
+#include "include/core/SkBlendMode.h"
+#include "include/core/SkColor.h"
+#include "include/core/SkColorType.h"
+#include "include/core/SkImageInfo.h"
+#include "include/core/SkPaint.h"
+#include "include/core/SkPixmap.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkShader.h"
+#include "include/private/base/SkAssert.h"
 #include "src/base/SkArenaAlloc.h"
+#include "src/core/SkBlitter.h"
 #include "src/core/SkColorSpacePriv.h"
 #include "src/core/SkColorSpaceXformSteps.h"
 #include "src/core/SkCoreBlitters.h"
 #include "src/core/SkImageInfoPriv.h"
-#include "src/core/SkOpts.h"
 #include "src/core/SkRasterPipeline.h"
+#include "src/core/SkRasterPipelineOpContexts.h"
+#include "src/core/SkRasterPipelineOpList.h"
 #include "src/core/SkSpriteBlitter.h"
-#include "src/core/SkVMBlitter.h"
 
-extern bool gUseSkVMBlitter;
+#include <cstdint>
+#include <cstring>
+#include <optional>
+#include <utility>
+
+struct SkIRect;
+struct SkMask;
+
 extern bool gSkForceRasterPipelineBlitter;
 
 SkSpriteBlitter::SkSpriteBlitter(const SkPixmap& source)
@@ -63,7 +80,7 @@ class SkSpriteBlitter_Memcpy final : public SkSpriteBlitter {
 public:
     static bool Supports(const SkPixmap& dst, const SkPixmap& src, const SkPaint& paint) {
         // the caller has already inspected the colorspace on src and dst
-        SkASSERT(0 == SkColorSpaceXformSteps(src,dst).flags.mask());
+        SkASSERT(0 == SkColorSpaceXformSteps(src,dst).fFlags.mask());
 
         if (dst.colorType() != src.colorType()) {
             return false;
@@ -120,11 +137,11 @@ public:
         fPaintColor = paint.getColor4f();
 
         SkRasterPipeline p(fAlloc);
-        p.append_load(fSource.colorType(), &fSrcPtr);
+        p.appendLoad(fSource.colorType(), &fSrcPtr);
 
         if (SkColorTypeIsAlphaOnly(fSource.colorType())) {
             // The color for A8 images comes from the (sRGB) paint color.
-            p.append_set_rgb(fAlloc, fPaintColor);
+            p.appendSetRGB(fAlloc, fPaintColor);
             p.append(SkRasterPipelineOp::premul);
         }
         if (auto dstCS = fDst.colorSpace()) {
@@ -157,8 +174,8 @@ public:
         // Representing bpp as a size_t keeps all this math in size_t instead of int,
         // which could wrap around with large enough fSrcPtr.stride and y.
         size_t bpp = fSource.info().bytesPerPixel();
-        fSrcPtr.pixels = (char*)fSource.addr(-fLeft+x, -fTop+y) - bpp * x
-                                                                - bpp * y * fSrcPtr.stride;
+        fSrcPtr.pixels = (char*)fSource.writable_addr(-fLeft+x, -fTop+y) - bpp * x
+                                                                         - bpp * y * fSrcPtr.stride;
 
         fBlitter->blitRect(x,y,width,height);
     }
@@ -166,7 +183,7 @@ public:
 private:
     SkArenaAlloc*              fAlloc;
     SkBlitter*                 fBlitter;
-    SkRasterPipeline_MemoryCtx fSrcPtr;
+    SkRasterPipelineContexts::MemoryCtx fSrcPtr;
     SkColor4f                  fPaintColor;
     sk_sp<SkShader>            fClipShader;
 
@@ -189,10 +206,6 @@ SkBlitter* SkBlitter::ChooseSprite(const SkPixmap& dst, const SkPaint& paint,
     */
     SkASSERT(alloc != nullptr);
 
-    if (gUseSkVMBlitter) {
-        return SkVMBlitter::Make(dst, paint, source,left,top, alloc, std::move(clipShader));
-    }
-
     // TODO: in principle SkRasterPipelineSpriteBlitter could be made to handle this.
     if (source.alphaType() == kUnpremul_SkAlphaType) {
         return nullptr;
@@ -202,7 +215,7 @@ SkBlitter* SkBlitter::ChooseSprite(const SkPixmap& dst, const SkPaint& paint,
 
     if (gSkForceRasterPipelineBlitter) {
         // Do not use any of these optimized memory blitters
-    } else if (0 == SkColorSpaceXformSteps(source,dst).flags.mask() && !clipShader) {
+    } else if (0 == SkColorSpaceXformSteps(source,dst).fFlags.mask() && !clipShader) {
         if (!blitter && SkSpriteBlitter_Memcpy::Supports(dst, source, paint)) {
             blitter = alloc->make<SkSpriteBlitter_Memcpy>(source);
         }
@@ -224,5 +237,5 @@ SkBlitter* SkBlitter::ChooseSprite(const SkPixmap& dst, const SkPaint& paint,
         return blitter;
     }
 
-    return SkVMBlitter::Make(dst, paint, source,left,top, alloc, std::move(clipShader));
+    return nullptr;
 }

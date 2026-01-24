@@ -9,25 +9,36 @@ import csv
 import hashlib
 import logging
 import os
+import re
 import zlib
 from base64 import urlsafe_b64encode
-from collections.abc import Generator, Iterable
 from datetime import datetime, timezone
 from itertools import product
-from os.path import splitext
 from pathlib import Path
-from types import TracebackType
+from typing import TYPE_CHECKING
 
 from packaging.utils import parse_wheel_filename
 
-from ._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info
-from .architecture import Architecture
-from .error import NonPlatformWheel, WheelToolsError
-from .libc import Libc
-from .tmpdirs import InTemporaryDirectory
-from .tools import dir2zip, unique_by_index, walk, zip2dir
+from auditwheel._vendor.wheel.pkginfo import read_pkg_info, write_pkg_info
+from auditwheel.architecture import Architecture
+from auditwheel.error import NonPlatformWheelError, WheelToolsError
+from auditwheel.libc import Libc
+from auditwheel.tmpdirs import InTemporaryDirectory
+from auditwheel.tools import dir2zip, unique_by_index, walk, zip2dir
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
+    from types import TracebackType
 
 logger = logging.getLogger(__name__)
+
+
+# Copied from wheel 0.31.1
+WHEEL_INFO_RE = re.compile(
+    r"""^(?P<namever>(?P<name>.+?)-(?P<ver>\d.*?))(-(?P<build>\d.*?))?
+     -(?P<pyver>[a-z].+?)-(?P<abi>.+?)-(?P<plat>.+?)(\.whl|\.dist-info)$""",
+    re.VERBOSE,
+).match
 
 
 def _dist_info_dir(bdist_dir: Path) -> Path:
@@ -75,7 +86,7 @@ def rewrite_record(bdist_dir: Path) -> None:
         """Wheel hashes every possible file."""
         return path == record_relpath
 
-    with open(record_path, "w+", newline="", encoding="utf-8") as record_file:
+    with record_path.open("w+", newline="", encoding="utf-8") as record_file:
         writer = csv.writer(record_file)
         for path in files():
             relative_path = path.relative_to(bdist_dir)
@@ -174,12 +185,8 @@ class InWheelCtx(InWheel):
         if self.path is None:
             msg = "This function should be called from context manager"
             raise ValueError(msg)
-        record_names = list(self.path.glob("*.dist-info/RECORD"))
-        if len(record_names) != 1:
-            msg = "Should be exactly one `*.dist_info` directory"
-            raise ValueError(msg)
-
-        record = record_names[0].read_text()
+        record_name = _dist_info_dir(self.path) / "RECORD"
+        record = record_name.read_text()
         reader = csv.reader(r for r in record.splitlines())
         for row in reader:
             filename = row[0]
@@ -187,7 +194,9 @@ class InWheelCtx(InWheel):
 
 
 def add_platforms(
-    wheel_ctx: InWheelCtx, platforms: list[str], remove_platforms: Iterable[str] = ()
+    wheel_ctx: InWheelCtx,
+    platforms: list[str],
+    remove_platforms: Iterable[str] = (),
 ) -> Path:
     """Add platform tags `platforms` to a wheel
 
@@ -243,7 +252,7 @@ def add_platforms(
     fparts = {
         "prefix": wheel_fname.rsplit("-", maxsplit=1)[0],
         "plat": ".".join(sorted(fname_tags)),
-        "ext": splitext(wheel_fname)[1],
+        "ext": Path(wheel_fname).suffix,
     }
     out_wheel_fname = "{prefix}-{plat}{ext}".format(**fparts)
     out_wheel = out_dir / out_wheel_fname
@@ -294,12 +303,13 @@ def get_wheel_architecture(filename: str) -> Architecture:
                     found = True
             if not found:
                 logger.warning(
-                    "couldn't guess architecture for platform tag '%s'", tag.platform
+                    "couldn't guess architecture for platform tag '%s'",
+                    tag.platform,
                 )
                 missed = True
     if len(result) == 0:
         if pure:
-            raise NonPlatformWheel(None, None)
+            raise NonPlatformWheelError(None, None)
         msg = "unknown architecture"
         raise WheelToolsError(msg)
     if missed or len(result) > 1:

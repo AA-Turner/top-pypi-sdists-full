@@ -97,13 +97,13 @@ class TestWBCoreFilterMixin:
         class Field:
             help_text = text
 
-        class dummy_parent:
-            class _meta:
+        class DummyParent:
+            class _meta:  # noqa
                 model = "tmp"
 
         mock_fct.return_value = Field
 
         filter_field = CharFilter(field_name=name, initial=initial, help_text=None)
-        filter_field.parent = dummy_parent()
+        filter_field.parent = DummyParent()
         request = rf.get("")
         assert filter_field.get_representation(request, name, view)[0]["help_text"] == text

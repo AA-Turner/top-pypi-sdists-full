@@ -18,14 +18,16 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class Identifiers(BaseModel):
     """
     A list of lusid instrument ids  # noqa: E501
     """
-    lusid_instrument_ids: conlist(StrictStr) = Field(..., alias="lusidInstrumentIds", description="The collection of LUSID instrument identifiers")
+    lusid_instrument_ids: List[StrictStr] = Field(description="The collection of LUSID instrument identifiers", alias="lusidInstrumentIds")
     __properties = ["lusidInstrumentIds"]
 
     class Config:
@@ -75,3 +77,5 @@ class Identifiers(BaseModel):
             "lusid_instrument_ids": obj.get("lusidInstrumentIds")
         })
         return _obj
+
+Identifiers.update_forward_refs()

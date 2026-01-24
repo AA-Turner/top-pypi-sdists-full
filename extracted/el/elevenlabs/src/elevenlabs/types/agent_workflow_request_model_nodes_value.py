@@ -8,17 +8,23 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.unchecked_base_model import UncheckedBaseModel, UnionMetadata
-from .conversational_config_api_model_workflow_override import ConversationalConfigApiModelWorkflowOverride
+from .conversational_config_api_model_workflow_override_input import ConversationalConfigApiModelWorkflowOverrideInput
 from .knowledge_base_locator import KnowledgeBaseLocator
-from .position import Position
+from .position_input import PositionInput
 from .transfer_type_enum import TransferTypeEnum
-from .workflow_phone_number_node_model_transfer_destination import WorkflowPhoneNumberNodeModelTransferDestination
+from .workflow_phone_number_node_model_input_custom_sip_headers_item import (
+    WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem,
+)
+from .workflow_phone_number_node_model_input_transfer_destination import (
+    WorkflowPhoneNumberNodeModelInputTransferDestination,
+)
 from .workflow_tool_locator import WorkflowToolLocator
 
 
 class AgentWorkflowRequestModelNodesValue_End(UncheckedBaseModel):
     type: typing.Literal["end"] = "end"
-    position: typing.Optional[Position] = None
+    position: typing.Optional[PositionInput] = None
+    edge_order: typing.Optional[typing.List[str]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -32,11 +38,12 @@ class AgentWorkflowRequestModelNodesValue_End(UncheckedBaseModel):
 
 class AgentWorkflowRequestModelNodesValue_OverrideAgent(UncheckedBaseModel):
     type: typing.Literal["override_agent"] = "override_agent"
-    conversation_config: typing.Optional[ConversationalConfigApiModelWorkflowOverride] = None
+    conversation_config: typing.Optional[ConversationalConfigApiModelWorkflowOverrideInput] = None
     additional_prompt: typing.Optional[str] = None
     additional_knowledge_base: typing.Optional[typing.List[KnowledgeBaseLocator]] = None
     additional_tool_ids: typing.Optional[typing.List[str]] = None
-    position: typing.Optional[Position] = None
+    position: typing.Optional[PositionInput] = None
+    edge_order: typing.Optional[typing.List[str]] = None
     label: str
 
     if IS_PYDANTIC_V2:
@@ -49,14 +56,12 @@ class AgentWorkflowRequestModelNodesValue_OverrideAgent(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
-from .array_json_schema_property_input import ArrayJsonSchemaPropertyInput  # noqa: E402, F401, I001
-from .object_json_schema_property_input import ObjectJsonSchemaPropertyInput  # noqa: E402, F401, I001
-
-
 class AgentWorkflowRequestModelNodesValue_PhoneNumber(UncheckedBaseModel):
     type: typing.Literal["phone_number"] = "phone_number"
-    position: typing.Optional[Position] = None
-    transfer_destination: WorkflowPhoneNumberNodeModelTransferDestination
+    custom_sip_headers: typing.Optional[typing.List[WorkflowPhoneNumberNodeModelInputCustomSipHeadersItem]] = None
+    position: typing.Optional[PositionInput] = None
+    edge_order: typing.Optional[typing.List[str]] = None
+    transfer_destination: WorkflowPhoneNumberNodeModelInputTransferDestination
     transfer_type: typing.Optional[TransferTypeEnum] = None
 
     if IS_PYDANTIC_V2:
@@ -71,7 +76,8 @@ class AgentWorkflowRequestModelNodesValue_PhoneNumber(UncheckedBaseModel):
 
 class AgentWorkflowRequestModelNodesValue_StandaloneAgent(UncheckedBaseModel):
     type: typing.Literal["standalone_agent"] = "standalone_agent"
-    position: typing.Optional[Position] = None
+    position: typing.Optional[PositionInput] = None
+    edge_order: typing.Optional[typing.List[str]] = None
     agent_id: str
     delay_ms: typing.Optional[int] = None
     transfer_message: typing.Optional[str] = None
@@ -89,7 +95,8 @@ class AgentWorkflowRequestModelNodesValue_StandaloneAgent(UncheckedBaseModel):
 
 class AgentWorkflowRequestModelNodesValue_Start(UncheckedBaseModel):
     type: typing.Literal["start"] = "start"
-    position: typing.Optional[Position] = None
+    position: typing.Optional[PositionInput] = None
+    edge_order: typing.Optional[typing.List[str]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -103,7 +110,8 @@ class AgentWorkflowRequestModelNodesValue_Start(UncheckedBaseModel):
 
 class AgentWorkflowRequestModelNodesValue_Tool(UncheckedBaseModel):
     type: typing.Literal["tool"] = "tool"
-    position: typing.Optional[Position] = None
+    position: typing.Optional[PositionInput] = None
+    edge_order: typing.Optional[typing.List[str]] = None
     tools: typing.Optional[typing.List[WorkflowToolLocator]] = None
 
     if IS_PYDANTIC_V2:

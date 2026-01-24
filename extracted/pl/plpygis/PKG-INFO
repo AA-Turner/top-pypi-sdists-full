@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plpygis
-Version: 0.6.0
+Version: 0.6.1
 Summary: Python tools for PostGIS
 Author-email: Benjamin Trigona-Harany <plpygis@jaxartes.net>
 License: GPL-3.0-only

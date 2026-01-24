@@ -115,7 +115,7 @@ def make_github_url(username: str, repository: str) -> RequestsURL:
 	return GITHUB_COM / username / repository
 
 
-def flag(argument: Any) -> bool:
+def flag(argument: Any) -> bool:  # noqa: PRM002
 	"""
 	Check for a valid flag option (no argument) and return :py:obj:`True`.
 
@@ -279,7 +279,7 @@ class NoMatchError(ValueError):
 def get_first_matching(
 		condition: Callable[[Any], bool],
 		iterable: Iterable[_T],
-		default: _T = no_default  # type: ignore[assignment]
+		default: _T = no_default,  # type: ignore[assignment]
 		) -> _T:
 	"""
 	Returns the first value in ``iterable`` that meets ``condition``, or ``default`` if none match.
@@ -393,7 +393,7 @@ def unknown_module_warning(documenter: Documenter) -> None:
 	msg = __(
 			"don't know which module to import for autodocumenting %r "
 			'(try placing a "module" or "currentmodule" directive in the document, '
-			"or giving an explicit module name)"
+			"or giving an explicit module name)",
 			)
 
 	logger.warning(msg % documenter.name, type="autodoc")
@@ -413,7 +413,7 @@ def filter_members_warning(member: Any, exception: Exception) -> None:
 			__("autodoc: failed to determine %r to be documented, the following exception was raised:\n%s"),
 			member,
 			exception,
-			type="autodoc"
+			type="autodoc",
 			)
 
 
@@ -541,7 +541,7 @@ def is_namedtuple(obj: Any) -> bool:
 
 
 def allow_subclass_add(app: Sphinx, *documenters: Type[Documenter]) -> None:
-	"""
+	r"""
 	Add the given autodocumenters, but only if a subclass of it is not already registered.
 
 	This allows other libraries to extend the autodocumenters.
@@ -549,7 +549,7 @@ def allow_subclass_add(app: Sphinx, *documenters: Type[Documenter]) -> None:
 	.. versionadded:: 0.8.0
 
 	:param app: The Sphinx application.
-	:param documenters:
+	:param \*documenters:
 	"""
 
 	for cls in documenters:
@@ -623,7 +623,7 @@ _OBJTYPES_CSS_FALLBACKS = {
 
 
 def add_fallback_css_class(
-		objtypes_css_fallbacks: Dict[str, str]
+		objtypes_css_fallbacks: Dict[str, str],
 		) -> Callable[[Sphinx, str, str, desc_content], None]:
 	"""
 	Registers a transform which will edit the CSS classes of documented objects based on their ``objtype``.
@@ -641,8 +641,6 @@ def add_fallback_css_class(
 
 	This will apply the transformation to documented objects with the ``typeddict`` CSS class
 	by adding the ``class`` CSS class.
-
-	:param objtypes_css_fallbacks:
 	"""
 
 	def func(

@@ -38,6 +38,8 @@ from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.path import gcs_utils
 from orbax.checkpoint._src.path import temporary_paths
 
+# Allowed checkpoint step naming using any non empty `step_prefix`.
+ALLOWED_STEP_NAME_PATTERN = r'(.+)_(\d+)'
 
 TMP_DIR_SUFFIX = temporary_paths.TMP_DIR_SUFFIX
 # prefix_1000.orbax-checkpoint-tmp-1010101
@@ -65,6 +67,12 @@ is_tmp_checkpoint = is_path_temporary
 tmp_checkpoints = lambda *a, **k: [
     p.get().name for p in all_temporary_paths(*a, **k)
 ]
+
+
+def _is_valid_base_path(base_path: epath.PathLike) -> bool:
+  """Validates base_path and returns it as an epath.Path."""
+  base_path = epath.Path(base_path)
+  return base_path.exists() and base_path.is_dir()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -319,13 +327,11 @@ class _StandardNameFormat(NameFormat[Metadata]):
     single_host_load_and_broadcast: If True, the jax process=0 will list all
       steps and broadcast them to all other processes. NOTE: Ignored if jax
       backend is not multi controller.
-    enable_hns: Enables HNS-specific path logic.
   """
 
   step_prefix: Optional[str] = None
   step_format_fixed_length: Optional[int] = None
   single_host_load_and_broadcast: bool = False
-  enable_hns: bool = False
 
   def __str__(self):
     return f'StandardNameFormat("{self.build_name(1234)}")'
@@ -373,9 +379,7 @@ class _StandardNameFormat(NameFormat[Metadata]):
     """Returns step paths under `base_path`."""
     base_path = epath.Path(base_path)
     # <step_prefix>_?<0 padding>?*
-    if self.enable_hns and gcs_utils.is_hierarchical_namespace_enabled(
-        base_path
-    ):
+    if gcs_utils.is_hierarchical_namespace_enabled(base_path):
       logging.vlog(
           1,
           'HNS enabled. Using GCS API to list step paths at %s',
@@ -398,11 +402,8 @@ class _StandardNameFormat(NameFormat[Metadata]):
           if folder.startswith(os.path.join(path_prefix, self.step_prefix))
       ]
     else:
-      return list(
-          epath.Path(base_path).glob(
-              f'{step_prefix_with_underscore(self.step_prefix)}*'
-          )
-      )
+      prefix = step_prefix_with_underscore(self.step_prefix)
+      return [x for x in base_path.iterdir() if x.name.startswith(prefix)]
 
   def _get_step_paths_and_total_steps(
       self, base_path: epath.PathLike, is_primary_host: bool
@@ -528,7 +529,13 @@ class _StandardNameFormat(NameFormat[Metadata]):
 
   def find_all(self, base_path: epath.PathLike) -> Iterator[Metadata]:
     """Returns metadata of all steps matching with name_format attributes."""
-    if multihost.process_count() > 1 and self.single_host_load_and_broadcast:
+    if not _is_valid_base_path(base_path):
+      return iter([])
+    # Note: the order of conjuncts is important here; we should not call
+    # `multihost.process_count()` when `single_host_load_and_broadcast` is False
+    # as this has the possible side effect of initializing the jax backend. See
+    # b/454565916 for details.
+    if self.single_host_load_and_broadcast and multihost.process_count() > 1:
       return self._find_all_with_single_host_load_and_broadcast(base_path)
 
     # <step_prefix>_?<0 padding>?*
@@ -537,6 +544,11 @@ class _StandardNameFormat(NameFormat[Metadata]):
 
   def find_step(self, base_path: epath.PathLike, step: int) -> Metadata:
     """Returns the metadata for `step` or raises ValueError."""
+    if not _is_valid_base_path(base_path):
+      raise ValueError(
+          f'Invalid base_path: {base_path} does not exist or is not a'
+          ' directory.'
+      )
     step_path = build_step_path(base_path, self, step)
     metadata = self._build_metadata(step_path, step=step)
     if metadata is not None:
@@ -554,7 +566,6 @@ def standard_name_format(
     step_prefix: Optional[str] = None,
     step_format_fixed_length: Optional[int] = None,
     single_host_load_and_broadcast: bool = False,
-    enable_hns: bool = False,
 ) -> NameFormat[Metadata]:
   """Returns NameFormat for 'standard' steps for common Orbax use cases.
 
@@ -574,13 +585,11 @@ def standard_name_format(
     single_host_load_and_broadcast: If True, the jax process=0 will list all
       steps and broadcast them to all other processes. NOTE: Ignored if jax
       backend is not multi controller.
-    enable_hns: Enables HNS-specific path logic.
   """
   return _StandardNameFormat(
       step_prefix=step_prefix,
       step_format_fixed_length=step_format_fixed_length,
       single_host_load_and_broadcast=single_host_load_and_broadcast,
-      enable_hns=enable_hns,
   )
 
 
@@ -735,10 +744,8 @@ def step_from_checkpoint_name(name: str) -> int:
   """Returns the step from a checkpoint name. Also works for tmp checkpoints."""
   if name.isdigit():
     return int(name)
-  elif name.split('_')[-1].isdigit():
-    split = name.split('_')
-    if len(split) == 2 and split[0]:
-      return int(split[-1])
+  elif m := re.fullmatch(ALLOWED_STEP_NAME_PATTERN, name):
+    return int(m.group(2))
   elif tmp_match := re.match(TMP_DIR_STEP_PATTERN, name):
     return int(tmp_match.group(1))
   raise ValueError(f'Unrecognized name format: {name}.')

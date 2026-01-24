@@ -19,6 +19,7 @@ from anyscale.cloud.commands import (
     add_collaborators,
     get,
     get_default,
+    list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
     terminate_system_cluster,
 )
 from anyscale.cloud.models import Cloud, CreateCloudCollaborator
@@ -107,6 +108,7 @@ class CloudModule(ModuleType):
         # Expose attributes from the SDK.
         self.CloudSDK = CloudSDK
         self.add_collaborators = add_collaborators
+        self.list = list
         self.get = get
         self.get_default = get_default
         self.terminate_system_cluster = terminate_system_cluster

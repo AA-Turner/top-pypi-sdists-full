@@ -2,7 +2,7 @@
 
 from enum import Enum
 from os import path
-from typing import AnyStr
+from typing import AnyStr, Any, IO
 
 from .Utilities import size_to_kb_mb_string
 from .InstrumentErrors import RsInstrException

@@ -51,11 +51,9 @@ class TestExecutor(bigframes.session.executor.Executor):
         pa_table = lazy_frame.collect().to_arrow()
         # Currently, pyarrow types might not quite be exactly the ones in the bigframes schema.
         # Nullability may be different, and might use large versions of list, string datatypes.
-        return bigframes.session.executor.ExecuteResult(
-            _arrow_batches=pa_table.to_batches(),
-            schema=array_value.schema,
-            total_bytes=pa_table.nbytes,
-            total_rows=pa_table.num_rows,
+        return bigframes.session.executor.LocalExecuteResult(
+            data=pa_table,
+            bf_schema=array_value.schema,
         )
 
     def cached(
@@ -94,11 +92,24 @@ class TestSession(bigframes.session.Session):
         self._loader = None  # type: ignore
 
     def read_pandas(self, pandas_dataframe, write_engine="default"):
+        original_input = pandas_dataframe
+
         # override read_pandas to always keep data local-only
-        if isinstance(pandas_dataframe, pandas.Series):
+        if isinstance(pandas_dataframe, (pandas.Series, pandas.Index)):
             pandas_dataframe = pandas_dataframe.to_frame()
+
         local_block = bigframes.core.blocks.Block.from_local(pandas_dataframe, self)
-        return bigframes.dataframe.DataFrame(local_block)
+        bf_df = bigframes.dataframe.DataFrame(local_block)
+
+        if isinstance(original_input, pandas.Series):
+            series = bf_df[bf_df.columns[0]]
+            series.name = original_input.name
+            return series
+
+        if isinstance(original_input, pandas.Index):
+            return bf_df.index
+
+        return bf_df
 
     @property
     def bqclient(self):

@@ -16,7 +16,6 @@ short_description: Configure IPv4 addresses.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -279,6 +281,7 @@ options:
                     - 'rsso'
                     - 'external-resource'
                     - 'obsolete'
+                    - 'telemetry'
             global_object:
                 aliases: ['global-object']
                 type: int
@@ -356,6 +359,14 @@ options:
                 aliases: ['sso-attribute-value']
                 type: raw
                 description: (list) Name
+            agent_id:
+                aliases: ['agent-id']
+                type: raw
+                description: (list) Telemetry agent id.
+            tag_uuid:
+                aliases: ['tag-uuid']
+                type: str
+                description: Foreign UUID of dynamic address object.
 '''
 
 EXAMPLES = '''
@@ -378,12 +389,12 @@ EXAMPLES = '''
           _scope:
             - name: FGT_AWS # need a valid device name
               vdom: root # need a valid vdom name under the device
-          allow-routing: disable # <value in [disable, enable]>
-          cache-ttl: 0
+          allow_routing: disable # <value in [disable, enable]>
+          cache_ttl: 0
           color: 1
           comment: "ansible-comment"
           subnet: "222.222.222.101/32"
-          subnet-name: "ansible-test"
+          subnet_name: "ansible-test"
           type: ipmask # <value in [ipmask, iprange, fqdn, ...]>
           visibility: enable
 
@@ -461,6 +472,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'address': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_address_dynamicmapping': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -513,7 +525,7 @@ def main():
                     'v_range': [['6.2.2', '']],
                     'choices': [
                         'sdn', 'clearpass-spt', 'fsso', 'ems-tag', 'swc-tag', 'fortivoice-tag', 'fortinac-tag', 'fortipolicy-tag',
-                        'device-identification', 'rsso', 'external-resource', 'obsolete'
+                        'device-identification', 'rsso', 'external-resource', 'obsolete', 'telemetry'
                     ],
                     'type': 'str'
                 },
@@ -533,7 +545,9 @@ def main():
                 'os': {'v_range': [['7.4.0', '']], 'type': 'str'},
                 'route-tag': {'v_range': [['7.4.0', '']], 'type': 'int'},
                 'sw-version': {'v_range': [['7.4.0', '']], 'type': 'str'},
-                'sso-attribute-value': {'v_range': [['7.6.2', '']], 'type': 'raw'}
+                'sso-attribute-value': {'v_range': [['7.6.2', '']], 'type': 'raw'},
+                'agent-id': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                'tag-uuid': {'v_range': [['7.6.4', '']], 'type': 'str'}
             }
         }
     }

@@ -1260,6 +1260,7 @@ mod tests {
                 &database_id,
                 &record_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1268,6 +1269,7 @@ mod tests {
                 &database_id,
                 &metadata_segment,
                 &blockfile_provider,
+                None,
             )
             .await
             .expect("Error creating segment writer");
@@ -1329,7 +1331,7 @@ mod tests {
                 .await
                 .expect("Log materialization failed");
             metadata_writer
-                .apply_materialized_log_chunk(&record_segment_reader, &mat_records)
+                .apply_materialized_log_chunk(&record_segment_reader, &mat_records, None)
                 .await
                 .expect("Apply materialized log to metadata segment failed");
             metadata_writer
@@ -1390,6 +1392,7 @@ mod tests {
             &database_id,
             &record_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1398,6 +1401,7 @@ mod tests {
             &database_id,
             &metadata_segment,
             &blockfile_provider,
+            None,
         )
         .await
         .expect("Error creating segment writer");
@@ -1406,7 +1410,7 @@ mod tests {
             .await
             .expect("Log materialization failed");
         metadata_writer
-            .apply_materialized_log_chunk(&some_reader, &mat_records)
+            .apply_materialized_log_chunk(&some_reader, &mat_records, None)
             .await
             .expect("Apply materialized log to metadata segment failed");
         metadata_writer

@@ -1,112 +1,16 @@
 # -*- coding: utf-8 -*-
 import csv
 import codecs
-from anytree import LevelOrderIter
-from modeltree import ModelTree
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import render
-from django import forms
-
-from csvexport import settings
+from . import settings
 from .forms import CSVFormatForm
 from .forms import UniqueForm
 from .forms import CSVFieldsForm
-from .forms import CheckboxSelectAll
-
-
-class BaseModelTree(ModelTree):
-    """
-    A node per model to map their relations and access their fields.
-    """
-    export_fields = list()
-    selected_fields = list()
-
-    FOLLOW_ACROSS_APPS = True
-
-    RELATION_TYPES = [
-        'one_to_one',
-        'many_to_one',
-    ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.choices = list()
-        self.initial = list()
-        self.build_choices()
-
-    @classmethod
-    def setup(cls, modeladmin, request):
-        params = dict(
-            request = request,
-            export_fields=getattr(modeladmin, 'csvexport_export_fields', list()),
-            selected_fields=getattr(modeladmin, 'csvexport_selected_fields', list()),
-            MAX_DEPTH=getattr(modeladmin, 'csvexport_reference_depth', settings.CSV_EXPORT_REFERENCE_DEPTH),
-        )
-        return type('ExportModelTree', (cls,), params)
-
-    @property
-    def key(self):
-        return '_'.join(n.model.__name__ for n in self.path)
-
-    @property
-    def user_has_view_permission(self):
-        perm = f'{self.model._meta.app_label}.view_{self.model._meta.model_name}'
-        return self.request.user.has_perm(perm)
-
-    def build_choices(self):
-        """
-        Get choice-tuples for a given model.
-        """
-        path = '.'.join(n.field.name for n in self.path[1:])
-        fields = [f for f in self.model._meta.get_fields() if not f.is_relation]
-        for field in fields:
-            choice = '{}.{}'.format(path, field.name).lstrip('.')
-            if not self.export_fields or choice in self.export_fields:
-                self.choices.append((choice, field.name))
-                if self.selected_fields and choice in self.selected_fields:
-                    self.initial.append(choice)
-
-    def get_form_field(self):
-        if self.choices:
-            label = ' -> '.join(str(n.model._meta.verbose_name) for n in self.path)
-            help_text = _('Which fields do you want to export?')
-            return forms.MultipleChoiceField(
-                label=label,
-                help_text=help_text,
-                widget=CheckboxSelectAll,
-                choices=self.choices,
-                initial=self.initial,
-                required=False)
-
-
-class IterNodesWithChoicesAndPermission(LevelOrderIter):
-    """
-    Only iter over Nodes with choices and where the user has view permission.
-    """
-    def __next__(self):
-        node = super().__next__()
-        if node.choices and node.user_has_view_permission:
-            return node
-        else:
-            return next(self)
-
-
-class CSVData:
-    """
-    Simple replacement for the filelike-object passed to the csv-writer.
-    """
-    def __init__(self, unique=False):
-        self.data = list()
-        self.unique = unique
-
-    def write(self, data):
-        if not self.unique or data not in self.data:
-            self.data.append(data)
-
-    def __str__(self):
-        return ''.join(self.data)
+from .utils import CSVData
+from .utils import model_tree_factory
 
 
 def csvexport(modeladmin, request, queryset):
@@ -139,12 +43,12 @@ def csvexport(modeladmin, request, queryset):
         fields_form = CSVFieldsForm()
 
     # Build up the node-tree
-    tree_class = BaseModelTree.setup(modeladmin, request)
-    root_node = tree_class(modeladmin.model)
+    tree_class = model_tree_factory(modeladmin, request)
+    model_tree = tree_class(modeladmin.model)
 
     # Add form-fields to form
-    for node in IterNodesWithChoicesAndPermission(root_node):
-        fields_form.fields[node.key] = node.get_form_field()
+    for node in model_tree.iterate_nodes_with_choices_and_permission():
+        fields_form.fields[node.field_name] = node.get_form_field()
 
     # Write and return csv-data
     if format_form.is_valid() and fields_form.is_valid() and unique_form.is_valid():
@@ -160,8 +64,8 @@ def csvexport(modeladmin, request, queryset):
 
         # use select-options as csv-header
         header = list()
-        for node in IterNodesWithChoicesAndPermission(root_node):
-            header += list(fields_form.cleaned_data[node.key])
+        for node in model_tree.iterate_nodes_with_choices_and_permission():
+            header += list(fields_form.cleaned_data[node.field_name])
 
         csv_data = CSVData(unique_form.cleaned_data['unique'])
         header_fields = [f.replace('.', '__') for f in header]

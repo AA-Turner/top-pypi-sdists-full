@@ -15,24 +15,21 @@ class SalesforceOAuth2Adapter(OAuth2Adapter):
 
     @property
     def authorize_url(self):
-        return "{}/services/oauth2/authorize".format(self.base_url)
+        return f"{self.base_url}/services/oauth2/authorize"
 
     @property
     def access_token_url(self):
-        return "{}/services/oauth2/token".format(self.base_url)
+        return f"{self.base_url}/services/oauth2/token"
 
     @property
     def userinfo_url(self):
-        return "{}/services/oauth2/userinfo".format(self.base_url)
+        return f"{self.base_url}/services/oauth2/userinfo"
 
     def complete_login(self, request, app, token, **kwargs):
-        resp = (
-            get_adapter()
-            .get_requests_session()
-            .get(self.userinfo_url, params={"oauth_token": token.token})
-        )
-        resp.raise_for_status()
-        extra_data = resp.json()
+        with get_adapter().get_requests_session() as sess:
+            resp = sess.get(self.userinfo_url, params={"oauth_token": token.token})
+            resp.raise_for_status()
+            extra_data = resp.json()
         return self.get_provider().sociallogin_from_response(request, extra_data)
 
 

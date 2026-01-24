@@ -25,19 +25,19 @@ class PrivateNetworkMiddleware(BaseHTTPMiddleware):
     A web browser determines whether a network is private based on IP address ranges
     and local networking conditions. Typically, it checks:
 
-    IP Address Range – If the website is hosted on an IP within private address
+    IP Address Range - If the website is hosted on an IP within private address
     ranges (RFC 1918):
 
-    10.0.0.0 – 10.255.255.255
-    172.16.0.0 – 172.31.255.255
-    192.168.0.0 – 192.168.255.255
+    10.0.0.0 - 10.255.255.255
+    172.16.0.0 - 172.31.255.255
+    192.168.0.0 - 192.168.255.255
     127.0.0.1 (loopback)
-    Localhost and Hostname – Domains like localhost or .local are assumed to be private.
+    Localhost and Hostname - Domains like localhost or .local are assumed to be private.
 
-    Network Context – The browser may check if the device is connected
+    Network Context - The browser may check if the device is connected
     to a local network (e.g., corporate or home Wi-Fi) rather than the public internet.
 
-    CORS and Private Network Access (PNA) – Modern browsers implement restrictions
+    CORS and Private Network Access (PNA) - Modern browsers implement restrictions
     where resources on private networks require explicit permission (via CORS headers)
     when accessed from a public site.
     """

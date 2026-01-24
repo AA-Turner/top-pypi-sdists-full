@@ -3,7 +3,7 @@ Type annotations for mediapackage-vod service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediapackage_vod/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
 from .literals import (
@@ -31,12 +32,6 @@ from .literals import (
     StreamOrderType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -121,7 +116,7 @@ class AssetShallowTypeDef(TypedDict):
     ResourceId: NotRequired[str]
     SourceArn: NotRequired[str]
     SourceRoleArn: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 class AuthorizationTypeDef(TypedDict):
     CdnIdentifierSecret: str
@@ -133,7 +128,7 @@ class EgressAccessLogsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -229,7 +224,7 @@ class PackagingGroupTypeDef(TypedDict):
     DomainName: NotRequired[str]
     EgressAccessLogs: NotRequired[EgressAccessLogsTypeDef]
     Id: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 class ConfigureLogsResponseTypeDef(TypedDict):
     Arn: str
@@ -238,7 +233,7 @@ class ConfigureLogsResponseTypeDef(TypedDict):
     DomainName: str
     EgressAccessLogs: EgressAccessLogsTypeDef
     Id: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePackagingGroupResponseTypeDef(TypedDict):
@@ -248,7 +243,7 @@ class CreatePackagingGroupResponseTypeDef(TypedDict):
     DomainName: str
     EgressAccessLogs: EgressAccessLogsTypeDef
     Id: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribePackagingGroupResponseTypeDef(TypedDict):
@@ -259,19 +254,19 @@ class DescribePackagingGroupResponseTypeDef(TypedDict):
     DomainName: str
     EgressAccessLogs: EgressAccessLogsTypeDef
     Id: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAssetsResponseTypeDef(TypedDict):
-    Assets: List[AssetShallowTypeDef]
+    Assets: list[AssetShallowTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdatePackagingGroupResponseTypeDef(TypedDict):
@@ -282,31 +277,31 @@ class UpdatePackagingGroupResponseTypeDef(TypedDict):
     DomainName: str
     EgressAccessLogs: EgressAccessLogsTypeDef
     Id: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateAssetResponseTypeDef(TypedDict):
     Arn: str
     CreatedAt: str
-    EgressEndpoints: List[EgressEndpointTypeDef]
+    EgressEndpoints: list[EgressEndpointTypeDef]
     Id: str
     PackagingGroupId: str
     ResourceId: str
     SourceArn: str
     SourceRoleArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeAssetResponseTypeDef(TypedDict):
     Arn: str
     CreatedAt: str
-    EgressEndpoints: List[EgressEndpointTypeDef]
+    EgressEndpoints: list[EgressEndpointTypeDef]
     Id: str
     PackagingGroupId: str
     ResourceId: str
     SourceArn: str
     SourceRoleArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DashManifestTypeDef(TypedDict):
@@ -331,7 +326,7 @@ class MssManifestTypeDef(TypedDict):
 
 class SpekeKeyProviderOutputTypeDef(TypedDict):
     RoleArn: str
-    SystemIds: List[str]
+    SystemIds: list[str]
     Url: str
     EncryptionContractConfiguration: NotRequired[EncryptionContractConfigurationTypeDef]
 
@@ -353,7 +348,7 @@ class ListPackagingGroupsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPackagingGroupsResponseTypeDef(TypedDict):
-    PackagingGroups: List[PackagingGroupTypeDef]
+    PackagingGroups: list[PackagingGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -388,29 +383,29 @@ class MssEncryptionTypeDef(TypedDict):
     SpekeKeyProvider: SpekeKeyProviderTypeDef
 
 class CmafPackageOutputTypeDef(TypedDict):
-    HlsManifests: List[HlsManifestTypeDef]
+    HlsManifests: list[HlsManifestTypeDef]
     Encryption: NotRequired[CmafEncryptionOutputTypeDef]
     IncludeEncoderConfigurationInSegments: NotRequired[bool]
     SegmentDurationSeconds: NotRequired[int]
 
 class DashPackageOutputTypeDef(TypedDict):
-    DashManifests: List[DashManifestTypeDef]
+    DashManifests: list[DashManifestTypeDef]
     Encryption: NotRequired[DashEncryptionOutputTypeDef]
     IncludeEncoderConfigurationInSegments: NotRequired[bool]
     IncludeIframeOnlyStream: NotRequired[bool]
-    PeriodTriggers: NotRequired[List[Literal["ADS"]]]
+    PeriodTriggers: NotRequired[list[Literal["ADS"]]]
     SegmentDurationSeconds: NotRequired[int]
     SegmentTemplateFormat: NotRequired[SegmentTemplateFormatType]
 
 class HlsPackageOutputTypeDef(TypedDict):
-    HlsManifests: List[HlsManifestTypeDef]
+    HlsManifests: list[HlsManifestTypeDef]
     Encryption: NotRequired[HlsEncryptionOutputTypeDef]
     IncludeDvbSubtitles: NotRequired[bool]
     SegmentDurationSeconds: NotRequired[int]
     UseAudioRenditionGroup: NotRequired[bool]
 
 class MssPackageOutputTypeDef(TypedDict):
-    MssManifests: List[MssManifestTypeDef]
+    MssManifests: list[MssManifestTypeDef]
     Encryption: NotRequired[MssEncryptionOutputTypeDef]
     SegmentDurationSeconds: NotRequired[int]
 
@@ -450,7 +445,7 @@ class CreatePackagingConfigurationResponseTypeDef(TypedDict):
     Id: str
     MssPackage: MssPackageOutputTypeDef
     PackagingGroupId: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribePackagingConfigurationResponseTypeDef(TypedDict):
@@ -462,7 +457,7 @@ class DescribePackagingConfigurationResponseTypeDef(TypedDict):
     Id: str
     MssPackage: MssPackageOutputTypeDef
     PackagingGroupId: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PackagingConfigurationTypeDef(TypedDict):
@@ -474,7 +469,7 @@ class PackagingConfigurationTypeDef(TypedDict):
     Id: NotRequired[str]
     MssPackage: NotRequired[MssPackageOutputTypeDef]
     PackagingGroupId: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 CmafPackageUnionTypeDef = Union[CmafPackageTypeDef, CmafPackageOutputTypeDef]
 DashPackageUnionTypeDef = Union[DashPackageTypeDef, DashPackageOutputTypeDef]
@@ -482,7 +477,7 @@ HlsPackageUnionTypeDef = Union[HlsPackageTypeDef, HlsPackageOutputTypeDef]
 MssPackageUnionTypeDef = Union[MssPackageTypeDef, MssPackageOutputTypeDef]
 
 class ListPackagingConfigurationsResponseTypeDef(TypedDict):
-    PackagingConfigurations: List[PackagingConfigurationTypeDef]
+    PackagingConfigurations: list[PackagingConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

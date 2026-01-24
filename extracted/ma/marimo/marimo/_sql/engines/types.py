@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -12,6 +12,15 @@ from marimo._runtime.context.types import (
     ContextNotInitializedError,
     get_context,
     runtime_context_installed,
+)
+from marimo._sql.parse import (
+    format_query_with_globals,
+    replace_brackets_with_quotes,
+)
+from marimo._sql.utils import (
+    is_query_empty,
+    strip_explain_from_error_message,
+    wrap_query_with_explain,
 )
 from marimo._types.ids import VariableName
 
@@ -133,8 +142,34 @@ class QueryEngine(BaseEngine[CONN], ABC):
                 return "auto"
         return "auto"
 
+    def execute_in_explain_mode(
+        self, query: str, globals_dict: dict[str, Any] | None = None
+    ) -> tuple[Any, Optional[str]]:
+        """Execute a query in explain mode. Returns a tuple of the result and an error if there is one."""
+
+        if globals_dict is None:
+            globals_dict = {}
+
+        explain_query = wrap_query_with_explain(query)
+        if self.dialect == "duckdb":
+            explain_query = format_query_with_globals(
+                explain_query, globals_dict
+            )
+        else:
+            explain_query, _ = replace_brackets_with_quotes(explain_query)
+
+        try:
+            return self.execute(explain_query), None
+        except Exception as e:
+            if is_query_empty(query):
+                return None, None
+            return None, strip_explain_from_error_message(str(e))
+
 
 class SQLConnection(EngineCatalog[CONN], QueryEngine[CONN]):
     """Combines the catalog and query interfaces for an SQL engine."""
 
     pass
+
+
+SQLConnectionType = Union[EngineCatalog[Any], QueryEngine[Any]]

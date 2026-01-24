@@ -6,6 +6,8 @@ on:
     tags: ["*"]
   pull_request:
     branches: [master]
+  release:
+    types: [published]
 
 jobs:
   build-mac:
@@ -13,18 +15,33 @@ jobs:
     env:
       ARCH: "universal2"
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v5
       with:
         python-version: 3.9
     - name: Build library
-      run: ./build.sh
-    - uses: actions/upload-artifact@v2
+      run: |
+        # Build universal2 (creates x64, arm64, and universal2 binaries)
+        ./build.sh
+
+        # Create separate archives for each architecture
+        zip -j dist/libskia-mac-x64.zip build/x64/libskia.a
+        zip -j dist/libskia-mac-arm64.zip build/arm64/libskia.a
+        zip -j dist/libskia-mac-universal2.zip build/libskia.a
+    - uses: actions/upload-artifact@v4
       with:
-        name: libskia-mac
-        path: dist/*.zip
+        name: libskia-mac-x64
+        path: dist/libskia-mac-x64.zip
+    - uses: actions/upload-artifact@v4
+      with:
+        name: libskia-mac-arm64
+        path: dist/libskia-mac-arm64.zip
+    - uses: actions/upload-artifact@v4
+      with:
+        name: libskia-mac-universal2
+        path: dist/libskia-mac-universal2.zip
   build-linux:
     runs-on: ${{ matrix.os }}
     env:
@@ -42,7 +59,7 @@ jobs:
             arch: arm64
             docker_image: "dockcross/manylinux2014-aarch64"
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
     - name: Sync skia deps outside container
@@ -53,7 +70,54 @@ jobs:
       run: docker pull "${MANYLINUX_DOCKER_IMAGE}"
     - name: Build library inside manylinux container
       run: docker run --rm -v "${GITHUB_WORKSPACE}":/_w -w /_w -e BUILD_SKIA_OPTIONS="${BUILD_SKIA_OPTIONS}" -e PYTHON_EXE=/opt/python/cp39-cp39/bin/python -e GN_EXE="/_w/bin/linux64/gn" -e ARCH="${ARCH}" "${MANYLINUX_DOCKER_IMAGE}" ./build.sh
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: libskia-linux-${{ matrix.arch }}
         path: dist/*.zip
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86, x64]
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+    - name: Build library
+      run: |
+        # Python 3.10+ doesn't create python3.exe symlink automatically on Windows
+        # but skia build expects it, so we create it
+        New-Item -ItemType SymbolicLink -Path "$env:pythonLocation\python3.exe" -Target "$env:pythonLocation\python.exe" -ErrorAction SilentlyContinue
+        python3 build_skia.py --target-cpu ${{ matrix.arch }} --shared-lib --archive-file dist\libskia-win-${{ matrix.arch }}.zip
+      shell: pwsh
+    - uses: actions/upload-artifact@v4
+      with:
+        name: libskia-windows-${{ matrix.arch }}
+        path: dist/*.zip
+
+  deploy:
+    if: github.event_name == 'release'
+    needs: [build-mac, build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    - name: Upload release assets
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        for artifact_dir in artifacts/*/; do
+          for file in "$artifact_dir"*.zip; do
+            if [ -f "$file" ]; then
+              echo "Uploading $file..."
+              gh release upload ${{ github.event.release.tag_name }} "$file" --repo ${{ github.repository }}
+            fi
+          done
+        done

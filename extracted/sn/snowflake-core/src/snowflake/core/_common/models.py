@@ -4,7 +4,7 @@ import sys
 from enum import Enum, EnumMeta
 from typing import Annotated, Any, Optional, Union
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 
 class CaseInsensitiveEnumMeta(EnumMeta):
@@ -60,9 +60,10 @@ class PointOfTime(BaseModel):
         "timestamp": "PointOfTimeTimestamp",
     }
 
-    class Config:
-        validate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_dict(self) -> dict[str, str]:
         d = {p: getattr(self, p) for p in self.__properties}
@@ -115,5 +116,5 @@ class TokenType(Enum):
     EXTERNAL_SESSION_WITH_PAT = "ESPAT"
 
 
-# Now that everything has been defined, let's resolve forward declarations!
-Clone.update_forward_refs()
+# Now that everything has been defined, let's resolve forward declarations by rebuilding a model.
+Clone.model_rebuild()

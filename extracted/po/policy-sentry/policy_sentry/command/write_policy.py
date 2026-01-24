@@ -41,7 +41,7 @@ class RegisterLengthOptionHelp(click.Option):
         if help_text is None:
             return None
 
-        return (help_text[0].replace("_length ", " "),) + help_text[1:]
+        return (help_text[0].replace("_length ", " "), *help_text[1:])
 
 
 class RegisterMinimizeLengthCommand(click.Command):
@@ -154,5 +154,4 @@ def write_policy_with_template(cfg: dict[str, Any], minimize: int | None = None)
         Dictionary: The JSON policy
     """
     sid_group = SidGroup()
-    policy = sid_group.process_template(cfg, minimize)
-    return policy
+    return sid_group.process_template(cfg, minimize)

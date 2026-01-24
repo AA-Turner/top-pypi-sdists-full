@@ -98,7 +98,7 @@ class NotifyReddit(NotifyBase):
     secure_protocol = "reddit"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_reddit"
+    setup_url = "https://appriseit.com/services/reddit/"
 
     # The maximum size of the message
     body_maxlen = 6000
@@ -527,7 +527,7 @@ class NotifyReddit(NotifyBase):
                     "text": body,
                 })
 
-            postokay, response = self._fetch(self.submit_url, payload=payload)
+            postokay, _response = self._fetch(self.submit_url, payload=payload)
             # only toggle has_error flag if we had an error
             if not postokay:
                 # Mark our failure
@@ -618,7 +618,8 @@ class NotifyReddit(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # We failed to authenticate with our token; login one more
                 # time and retry this original request

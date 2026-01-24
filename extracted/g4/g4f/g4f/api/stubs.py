@@ -17,7 +17,7 @@ class RequestConfig(BaseModel):
     max_tokens: Optional[int] = None
     stop: Union[list[str], str, None] = None
     api_key: Optional[Union[str, dict[str, str]]] = None
-    api_base: str = None
+    base_url: str = None
     web_search: Optional[bool] = None
     proxy: Optional[str] = None
     conversation: Optional[dict] = None
@@ -37,7 +37,8 @@ class RequestConfig(BaseModel):
     modalities: Optional[list[str]] = None
     audio: Optional[dict] = None
     response_format: Optional[dict] = None
-    download_media: bool = True
+    download_media: bool = False
+    raw: bool = False
     extra_body: Optional[dict] = None
 
 class ChatCompletionsConfig(RequestConfig):

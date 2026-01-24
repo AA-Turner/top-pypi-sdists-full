@@ -3,6 +3,7 @@
 Cluster Expansion can be peformed on bulk material using either CEBulk
 or CECrystal class.
 """
+
 from copy import deepcopy
 
 from ase.build import bulk
@@ -34,7 +35,7 @@ def CEBulk(
 
     Parameters:
 
-        concentration (Union[Concentration, dict]):
+        concentration (Concentration | dict):
             Concentration object or dictionary specifying the basis elements and
             concentration range of constituting species
 
@@ -81,7 +82,9 @@ def CEBulk(
     prim = bulk(name=name, crystalstructure=crystalstructure, a=a, c=c, covera=covera, u=u)
     prim = wrap_and_sort_by_position(prim)
 
-    settings = ClusterExpansionSettings(prim, concentration, **kwargs)
+    settings = ClusterExpansionSettings(
+        prim, concentration, _allow_direct_instantiation=True, **kwargs
+    )
 
     settings.kwargs.update(
         {
@@ -110,7 +113,7 @@ def CECrystal(
 
     Parameters:
 
-        concentration (Union[Concentration, dict]):
+        concentration (Concentration | dict):
             Concentration object or dictionary specifying the basis elements and
             concentration range of constituting species
 
@@ -118,7 +121,7 @@ def CECrystal(
             Space group given either as its number in International Tables
             or as its Hermann-Mauguin symbol.
 
-        basis (List[float]):
+        basis (list[float]):
             List of scaled coordinates.
             Positions of the unique sites corresponding to symbols given
             either as scaled positions or through an atoms instance.
@@ -162,7 +165,9 @@ def CECrystal(
     )
     prim = wrap_and_sort_by_position(prim)
 
-    settings = ClusterExpansionSettings(prim, concentration, **kwargs)
+    settings = ClusterExpansionSettings(
+        prim, concentration, _allow_direct_instantiation=True, **kwargs
+    )
     settings.kwargs.update(
         {
             "basis": deepcopy(basis),

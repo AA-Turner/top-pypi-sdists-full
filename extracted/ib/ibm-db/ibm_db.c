@@ -22,7 +22,7 @@
 +--------------------------------------------------------------------------+
 */
 
-#define MODULE_RELEASE "3.2.7"
+#define MODULE_RELEASE "3.2.8"
 
 #include <Python.h>
 #include <datetime.h>
@@ -7881,9 +7881,9 @@ static int _python_ibm_db_bind_data(stmt_handle *stmt_res, param_node *curr, PyO
 #endif
                 curr->svalue = PyBytes_AsString(tempobj);
                 curr->ivalue = strlen(curr->svalue);
-                curr->svalue = memcpy(PyMem_Malloc((sizeof(char)) * (curr->ivalue + 1)), curr->svalue, curr->ivalue);
+                size_t alloc_size = (curr->param_size > curr->ivalue) ? curr->param_size : curr->ivalue;
+                curr->svalue = memcpy(PyMem_Malloc((sizeof(char)) * (alloc_size + 1)), curr->svalue, curr->ivalue);
                 curr->svalue[curr->ivalue] = '\0';
-                curr->bind_indicator = curr->ivalue;
                 snprintf(messageStr, sizeof(messageStr),
                          "Processing single value: svalue=%s, ivalue=%d, bind_indicator=%d", curr->svalue, curr->ivalue, curr->bind_indicator);
                 LogMsg(DEBUG, messageStr);
@@ -17181,17 +17181,25 @@ static int _python_get_variable_type(PyObject *variable_value)
 	{
         LogMsg(INFO, "variable_value is a datetime object");
         PyObject *tzinfo = PyObject_GetAttrString(variable_value, "tzinfo");
+
+#if defined(__MVS__)
         if (tzinfo && tzinfo != Py_None) {
             Py_DECREF(tzinfo);
-            LogMsg(INFO, "variable_value is a datetime object");
+            LogMsg(INFO, "datetime object has tzinfo on z/OS");
             LogMsg(INFO, "exit _python_get_variable_type() with PYTHON_TIMESTAMP_TSTZ");
             return PYTHON_TIMESTAMP_TSTZ;
         } else {
             Py_XDECREF(tzinfo);
-            LogMsg(INFO, "variable_value is a datetime object");
+            LogMsg(INFO, "datetime object has no tzinfo on z/OS");
             LogMsg(INFO, "exit _python_get_variable_type() with PYTHON_TIMESTAMP");
             return PYTHON_TIMESTAMP;
         }
+#else
+        Py_XDECREF(tzinfo);
+        LogMsg(INFO, "datetime object on LUW (tzinfo ignored)");
+        LogMsg(INFO, "exit _python_get_variable_type() with PYTHON_TIMESTAMP");
+        return PYTHON_TIMESTAMP;
+#endif
     }
     else if (PyTime_Check(variable_value))
     {
@@ -17328,9 +17336,9 @@ static PyObject *ibm_db_fetchmany(PyObject *self, PyObject *args)
     }
     if (PyList_Size(result_list) == 0)
     {
-        LogMsg(DEBUG, "No rows fetched, returning None");
-        Py_XDECREF(result_list);
-        Py_RETURN_NONE;
+        LogMsg(DEBUG, "No rows fetched, returning empty list");
+        LogMsg(INFO, "exit fetchmany()");
+        return result_list;
     }
     snprintf(messageStr, sizeof(messageStr), "Returning %zd rows", PyList_Size(result_list));
     LogMsg(DEBUG, messageStr);
@@ -17376,9 +17384,9 @@ static PyObject *ibm_db_fetchall(PyObject *self, PyObject *args)
     }
     if (PyList_Size(result_list) == 0)
     {
-        LogMsg(DEBUG, "No rows fetched, returning None");
-        Py_XDECREF(result_list);
-        Py_RETURN_NONE;
+        LogMsg(DEBUG, "No rows fetched, returning empty list");
+        LogMsg(INFO, "exit fetchall()");
+        return result_list;
     }
     snprintf(messageStr, sizeof(messageStr), "Returning %zd rows", PyList_Size(result_list));
     LogMsg(DEBUG, messageStr);

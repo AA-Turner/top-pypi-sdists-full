@@ -1,12 +1,13 @@
+import logging
 from pathlib import Path
 from textwrap import dedent
-import logging
 
 import pytest
 from mcp import StdioServerParameters
 
 from mcpadapt.core import MCPAdapt
 from mcpadapt.smolagents_adapter import SmolAgentsAdapter
+from tests._server_utils import launch_mcp_server, terminate_mcp_server
 
 
 @pytest.fixture
@@ -31,9 +32,12 @@ def echo_server_script():
 def echo_server_sse_script():
     return dedent(
         '''
+        import os
         from mcp.server.fastmcp import FastMCP
 
-        mcp = FastMCP("Echo Server", host="127.0.0.1", port=8000)
+        port = int(os.environ.get("MCP_TEST_PORT", "8000"))
+
+        mcp = FastMCP("Echo Server", host="127.0.0.1", port=port)
 
         @mcp.tool()
         def echo_tool(text: str) -> str:
@@ -79,23 +83,15 @@ def echo_server_optional_script():
 
 @pytest.fixture
 async def echo_sse_server(echo_server_sse_script):
-    import subprocess
-    import time
-
-    # Start the SSE server process with its own process group
-    process = subprocess.Popen(
-        ["python", "-c", echo_server_sse_script],
-    )
-
-    # Give the server a moment to start up
-    time.sleep(1)
+    try:
+        process, port = launch_mcp_server(echo_server_sse_script)
+    except RuntimeError as exc:
+        pytest.skip(str(exc))
 
     try:
-        yield {"url": "http://127.0.0.1:8000/sse"}
+        yield {"url": f"http://127.0.0.1:{port}/sse"}
     finally:
-        # Clean up the process when test is done
-        process.kill()
-        process.wait()
+        terminate_mcp_server(process)
 
 
 def test_basic_sync(echo_server_script):
@@ -228,6 +224,17 @@ def test_image_tool(shared_datadir):
 
 
 def test_audio_tool(shared_datadir):
+    try:
+        from torchcodec.decoders import AudioDecoder  # noqa: F401
+    except ImportError:
+        pytest.skip(
+            "TorchCodec not installed; install torchcodec to run test_audio_tool. (uv add mcpadapt[audio])"
+        )
+    except RuntimeError:
+        pytest.skip(
+            "Couldn't load AudioDecoder from torchcodec. Likely because of runtime depedency (ffmpeg not installed or incompatible torch version)"
+        )
+
     mcp_server_script = dedent(
         f"""
         import os

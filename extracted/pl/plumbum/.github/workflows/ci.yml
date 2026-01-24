@@ -14,21 +14,26 @@ on:
 env:
   FORCE_COLOR: 3
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
 jobs:
 
   pre-commit:
     name: Format
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: "3.x"
     - uses: pre-commit/action@v3.0.1
     - name: Setup uv
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@v7
     - name: pylint
       run: uvx nox -s pylint -- --output-format=github
 
@@ -37,43 +42,40 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.10", "3.13"]
-        os: [ubuntu-latest, windows-latest, macos-13]
+        python-version: ["3.9", "3.11", "3.14"]
+        os: [ubuntu-22.04, windows-latest, macos-13]
         include:
-        - python-version: 'pypy-3.8'
-          os: ubuntu-latest
         - python-version: 'pypy-3.10'
-          os: ubuntu-latest
-        - python-version: '3.9'
-          os: ubuntu-latest
+          os: ubuntu-22.04
+        - python-version: '3.10'
+          os: ubuntu-22.04
         - python-version: '3.13'
-          os: ubuntu-latest
+          os: ubuntu-22.04
+        exclude:
+        - python-version: '3.14'
+          os: windows-latest
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
 
     - name: Setup uv (cached)
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@v7
       with:
         enable-cache: true
+        cache-suffix: ${{ matrix.os }}-${{ matrix.python-version }}
         cache-dependency-glob: "**/pyproject.toml"
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      if: matrix.python-version != '3.13'
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
 
-    - name: Set up Python ${{ matrix.python-version }} (uv)
-      if: matrix.python-version == '3.13'
-      run: uv python install 3.13
-
     - name: Add locale for locale test
-      if: runner.os == 'Linux' && matrix.python-version != '3.10'
+      if: runner.os == 'Linux' && matrix.python-version != '3.11'
       run: sudo locale-gen fr_FR.UTF-8
 
     - name: Install
@@ -109,7 +111,7 @@ jobs:
     needs: [tests]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: "3.x"
     - name: Install coveralls

@@ -17,8 +17,9 @@ from sunpy.net import Fido, attr
 from sunpy.net import attrs as a
 from sunpy.net import jsoc
 from sunpy.net.base_client import QueryResponseColumn, QueryResponseRow, QueryResponseTable
-from sunpy.net.dataretriever.client import QueryResponse
+from sunpy.net.dataretriever.client import GenericClient, QueryResponse
 from sunpy.net.fido_factory import UnifiedResponse
+from sunpy.net.tests.helpers import mock_query_object
 from sunpy.net.tests.strategies import goes_time, offline_instruments, online_instruments, srs_time, time_attr
 from sunpy.net.vso import VSOQueryResponseTable
 from sunpy.tests.helpers import no_vso, skip_windows
@@ -76,6 +77,15 @@ def test_offline_fido(query):
 def test_online_fido(query):
     unifiedresp = Fido.search(query)
     check_response(query, unifiedresp)
+
+@mock.patch("sunpy.net.vso.vso.build_client", return_value=True)
+@mock.patch("sunpy.net.vso.vso.VSOClient.search", side_effect=ConnectionError('VSO is down'))
+def test_fido_client_error(mock_vso_search, mock_build_client):
+    results = Fido.search(a.Time("2016/10/01", "2016/10/02"), a.Instrument.aia)
+    assert len(results.errors) > 0
+    assert isinstance(results['vso'].errors, ConnectionError)
+    assert "Errors: VSO is down" in str(results)
+    assert "Errors: VSO is down" in results._repr_html_()
 
 
 def check_response(query, unifiedresp):
@@ -144,9 +154,11 @@ def test_unified_response():
 
 @pytest.mark.remote_data
 def test_no_match():
-    with pytest.raises(DrmsQueryError):
-        Fido.search(a.Time("2016/10/01", "2016/10/02"), a.jsoc.Series("bob"),
-                    a.Sample(10*u.s))
+    res = Fido.search(a.Time("2016/10/01", "2016/10/02"), a.jsoc.Series("bob"),
+                      a.Sample(10*u.s))
+    assert res.errors
+    assert isinstance(res[0].errors, DrmsQueryError)
+    assert "Invalid series name." in str(res[0].errors)
 
 
 def test_call_error():
@@ -172,6 +184,22 @@ def test_unifiedresponse_slicing():
         a.Time("2012/1/1", "2012/1/2"), a.Instrument.lyra)
     assert isinstance(results[0:2], UnifiedResponse)
     assert isinstance(results[0], QueryResponseTable)
+
+
+def test_show_in_notebook(mocker):
+    pytest.importorskip("itables")
+    mock_datagrid =  mocker.patch("itables.show")
+    column = "Start Time"
+    offline_results = UnifiedResponse(mock_query_object(TimeRange("2012/1/1", "2012/1/10"), client=GenericClient()))
+    offline_results.show_in_notebook(column)
+    assert mock_datagrid.call_count == 1
+
+    # Test for column filtering and keyword arguments
+    args, kwargs = mock_datagrid.call_args
+    df_passed = args[0]
+    assert list(df_passed.columns) == [column]
+    assert df_passed.size == 10
+    assert kwargs["style"] == "caption-side: top;" # default style
 
 
 @pytest.mark.remote_data
@@ -222,7 +250,7 @@ def test_path(tmp_path):
     downloader = Downloader(config=config)
     results = Fido.search(
         a.Time("2025/1/1", "2025/1/1"), a.Instrument.aia)
-    file = Fido.fetch(results, path=tmp_path / "{file}", downloader=downloader)
+    file = Fido.fetch(results, path=tmp_path / "{file}", downloader=downloader, site="NSO")
     assert file == [str(pathlib.Path(tmp_path, "aia.lev1.335A_2025_01_01T00_00_00.63Z.image_lev1.fits"))]
 
 
@@ -353,8 +381,8 @@ def test_retry(mock_retry):
     res = Results()
     res.data.append("/this/worked.fits")
 
-    err1 = FailedDownload("This is not a filename", "http://not.url/test", None)
-    err2 = FailedDownload("This is not a filename2", "http://not.url/test2", None)
+    err1 = FailedDownload("This is not a filename", "https://not.url/test", None)
+    err2 = FailedDownload("This is not a filename2", "https://not.url/test2", None)
     res.errors.append(err1)
     res.errors.append(err2)
 

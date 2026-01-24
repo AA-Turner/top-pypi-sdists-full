@@ -3,7 +3,7 @@ Type annotations for application-signals service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -12,11 +12,13 @@ Usage::
 
     from types_aiobotocore_application_signals.client import CloudWatchApplicationSignalsClient
     from types_aiobotocore_application_signals.paginator import (
+        ListEntityEventsPaginator,
         ListServiceDependenciesPaginator,
         ListServiceDependentsPaginator,
         ListServiceLevelObjectiveExclusionWindowsPaginator,
         ListServiceLevelObjectivesPaginator,
         ListServiceOperationsPaginator,
+        ListServiceStatesPaginator,
         ListServicesPaginator,
     )
 
@@ -24,11 +26,13 @@ Usage::
     with session.create_client("application-signals") as client:
         client: CloudWatchApplicationSignalsClient
 
+        list_entity_events_paginator: ListEntityEventsPaginator = client.get_paginator("list_entity_events")
         list_service_dependencies_paginator: ListServiceDependenciesPaginator = client.get_paginator("list_service_dependencies")
         list_service_dependents_paginator: ListServiceDependentsPaginator = client.get_paginator("list_service_dependents")
         list_service_level_objective_exclusion_windows_paginator: ListServiceLevelObjectiveExclusionWindowsPaginator = client.get_paginator("list_service_level_objective_exclusion_windows")
         list_service_level_objectives_paginator: ListServiceLevelObjectivesPaginator = client.get_paginator("list_service_level_objectives")
         list_service_operations_paginator: ListServiceOperationsPaginator = client.get_paginator("list_service_operations")
+        list_service_states_paginator: ListServiceStatesPaginator = client.get_paginator("list_service_states")
         list_services_paginator: ListServicesPaginator = client.get_paginator("list_services")
     ```
 """
@@ -41,6 +45,8 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListEntityEventsInputPaginateTypeDef,
+    ListEntityEventsOutputTypeDef,
     ListServiceDependenciesInputPaginateTypeDef,
     ListServiceDependenciesOutputTypeDef,
     ListServiceDependentsInputPaginateTypeDef,
@@ -53,6 +59,8 @@ from .type_defs import (
     ListServiceOperationsOutputTypeDef,
     ListServicesInputPaginateTypeDef,
     ListServicesOutputTypeDef,
+    ListServiceStatesInputPaginateTypeDef,
+    ListServiceStatesOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -62,13 +70,36 @@ else:
 
 
 __all__ = (
+    "ListEntityEventsPaginator",
     "ListServiceDependenciesPaginator",
     "ListServiceDependentsPaginator",
     "ListServiceLevelObjectiveExclusionWindowsPaginator",
     "ListServiceLevelObjectivesPaginator",
     "ListServiceOperationsPaginator",
+    "ListServiceStatesPaginator",
     "ListServicesPaginator",
 )
+
+
+if TYPE_CHECKING:
+    _ListEntityEventsPaginatorBase = AioPaginator[ListEntityEventsOutputTypeDef]
+else:
+    _ListEntityEventsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListEntityEventsPaginator(_ListEntityEventsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/paginator/ListEntityEvents.html#CloudWatchApplicationSignals.Paginator.ListEntityEvents)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/paginators/#listentityeventspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListEntityEventsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListEntityEventsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/paginator/ListEntityEvents.html#CloudWatchApplicationSignals.Paginator.ListEntityEvents.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/paginators/#listentityeventspaginator)
+        """
 
 
 if TYPE_CHECKING:
@@ -177,6 +208,27 @@ class ListServiceOperationsPaginator(_ListServiceOperationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/paginator/ListServiceOperations.html#CloudWatchApplicationSignals.Paginator.ListServiceOperations.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/paginators/#listserviceoperationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListServiceStatesPaginatorBase = AioPaginator[ListServiceStatesOutputTypeDef]
+else:
+    _ListServiceStatesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListServiceStatesPaginator(_ListServiceStatesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/paginator/ListServiceStates.html#CloudWatchApplicationSignals.Paginator.ListServiceStates)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/paginators/#listservicestatespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListServiceStatesInputPaginateTypeDef]
+    ) -> AioPageIterator[ListServiceStatesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/application-signals/paginator/ListServiceStates.html#CloudWatchApplicationSignals.Paginator.ListServiceStates.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_signals/paginators/#listservicestatespaginator)
         """
 
 

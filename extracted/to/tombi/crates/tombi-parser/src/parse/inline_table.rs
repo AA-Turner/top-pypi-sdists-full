@@ -2,12 +2,12 @@ use tombi_config::TomlVersion;
 use tombi_syntax::{SyntaxKind::*, T};
 
 use crate::{
+    ErrorKind::*,
     parse::{
-        begin_dangling_comments, end_dangling_comments, leading_comments, peek_leading_comments,
-        trailing_comment, Parse,
+        Parse, begin_dangling_comments, end_dangling_comments, leading_comments,
+        peek_leading_comments, trailing_comment,
     },
     parser::Parser,
-    ErrorKind::*,
 };
 
 impl Parse for tombi_ast::InlineTable {
@@ -18,7 +18,7 @@ impl Parse for tombi_ast::InlineTable {
 
         let begin_range = p.current_range();
 
-        assert!(p.at(T!['{']));
+        debug_assert!(p.at(T!['{']));
 
         p.eat(T!['{']);
 
@@ -27,6 +27,8 @@ impl Parse for tombi_ast::InlineTable {
         let mut key_value_lines = 0;
         let mut last_comma_range = None;
         loop {
+            while p.eat(LINE_BREAK) {}
+
             let n = peek_leading_comments(p);
             if p.nth_at(n, EOF) || p.nth_at(n, T!['}']) {
                 break;
@@ -60,20 +62,20 @@ impl Parse for tombi_ast::InlineTable {
         }
 
         if (end_range.start.line - begin_range.start.line) != key_value_lines
-            && p.toml_version < TomlVersion::V1_1_0_Preview
+            && p.toml_version == TomlVersion::V1_0_0
         {
             p.error(crate::Error::new(
                 InlineTableMustSingleLine,
                 begin_range + end_range,
             ));
         }
-        if let Some(comma_range) = last_comma_range {
-            if p.toml_version < TomlVersion::V1_1_0_Preview {
-                p.error(crate::Error::new(
-                    ForbiddenInlineTableLastComma,
-                    comma_range,
-                ));
-            }
+        if let Some(comma_range) = last_comma_range
+            && p.toml_version == TomlVersion::V1_0_0
+        {
+            p.error(crate::Error::new(
+                ForbiddenInlineTableLastComma,
+                comma_range,
+            ));
         }
 
         trailing_comment(p);
@@ -86,7 +88,7 @@ impl Parse for tombi_ast::InlineTable {
 mod test {
     use tombi_config::TomlVersion;
 
-    use crate::{test_parser, ErrorKind::*};
+    use crate::{ErrorKind::*, test_parser};
 
     test_parser! {
         #[test]
@@ -105,14 +107,19 @@ mod test {
 
     test_parser! {
         #[test]
-        fn inline_table_multi_keys_with_trailing_comma_v1_0_0("key = { key = 1, key = 2, }", TomlVersion::V1_0_0) -> Err([
+        fn inline_table_multi_keys_with_trailing_comma_v1_0_0(
+            "key = { key = 1, key = 2, }", TomlVersion::V1_0_0
+        ) -> Err([
             SyntaxError(ForbiddenInlineTableLastComma, 0:24..0:25),
         ])
     }
 
     test_parser! {
         #[test]
-        fn inline_table_multi_keys_with_trailing_comma_v1_1_0("key = { key = 1, key = 2, }", TomlVersion::V1_1_0_Preview) -> Ok(_)
+        fn inline_table_multi_keys_with_trailing_comma_v1_1_0(
+            "key = { key = 1, key = 2, }",
+            TomlVersion::V1_1_0
+        ) -> Ok(_)
     }
 
     test_parser! {
@@ -182,7 +189,7 @@ mod test {
                 key2 = 2,
             }
             "#,
-            TomlVersion::V1_1_0_Preview
+            TomlVersion::V1_1_0
         ) -> Ok(_)
     }
 }

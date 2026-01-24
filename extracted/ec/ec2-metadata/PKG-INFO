@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ec2-metadata
-Version: 2.16.0
+Version: 2.17.0
 Summary: An easy interface to query the EC2 metadata API, with caching.
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT
@@ -429,6 +429,11 @@ For example: ``{'54.0.0.1': ['172.30.0.0']}``.
 ~~~~~~~~~~~~~~~~~~~~
 
 The IPv6 addresses associated with the interface, for example ``['2001:db8:abcd:ef00::1234']``.
+
+``ipv6_prefix: list[str]``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The IPv6 prefixes associated with the interface, for example ``['2001:db8:abcd:ef00:::/80']``.
 
 ``mac: str``
 ~~~~~~~~~~~~

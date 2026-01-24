@@ -164,7 +164,7 @@ mod tests {
             column: 5,
             end_line: line,
             end_column: 10,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
             message: message.to_string(),
             severity: Severity::Warning,
             fix: None,
@@ -177,7 +177,7 @@ mod tests {
             column: 5,
             end_line: line,
             end_column: 10,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
             message: message.to_string(),
             severity: Severity::Warning,
             fix: Some(Fix {
@@ -344,7 +344,7 @@ mod tests {
             column: 1,
             end_line: 1,
             end_column: 10,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
             message: "Unicode test: 你好 🌟 émphasis".to_string(),
             severity: Severity::Warning,
             fix: None,
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_severity_variations() {
-        let severities = [Severity::Error, Severity::Warning];
+        let severities = [Severity::Error, Severity::Warning, Severity::Info];
 
         for severity in &severities {
             let warning = LintWarning {
@@ -363,12 +363,13 @@ mod tests {
                 column: 1,
                 end_line: 1,
                 end_column: 5,
-                rule_name: Some("MD001"),
+                rule_name: Some("MD001".to_string()),
                 message: format!(
                     "Test {} message",
                     match severity {
                         Severity::Error => "error",
                         Severity::Warning => "warning",
+                        Severity::Info => "info",
                     }
                 ),
                 severity: *severity,

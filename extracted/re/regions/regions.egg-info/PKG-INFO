@@ -1,64 +1,40 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: regions
-Version: 0.10
+Version: 0.11
 Summary: An Astropy coordinated package for region handling
 Author-email: Regions Developers <astropy.team@gmail.com>
-License: Copyright (c) 2015-2023, Regions Developers
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions are
-        met:
-        
-        1. Redistributions of source code must retain the above copyright
-           notice, this list of conditions and the following disclaimer.
-        
-        2. Redistributions in binary form must reproduce the above copyright
-           notice, this list of conditions and the following disclaimer in the
-           documentation and/or other materials provided with the distribution.
-        
-        3. Neither the name of the copyright holder nor the names of its
-           contributors may be used to endorse or promote products derived from
-           this software without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-        "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-        LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-        A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-        HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-        SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-        LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-        DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-        THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-        
+License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://github.com/astropy/regions
 Project-URL: Documentation, https://astropy-regions.readthedocs.io/en/stable/
 Keywords: astronomy,astrophysics,astropy,regions
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Astronomy
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
-Requires-Dist: numpy>=1.23
-Requires-Dist: astropy>=5.1
+Requires-Dist: numpy>=1.25
+Requires-Dist: astropy>=6.0
 Provides-Extra: all
-Requires-Dist: matplotlib>=3.5; extra == "all"
-Requires-Dist: shapely; extra == "all"
+Requires-Dist: matplotlib>=3.8; extra == "all"
+Requires-Dist: shapely>=2.0.0; extra == "all"
 Provides-Extra: test
-Requires-Dist: pytest-arraydiff; extra == "test"
 Requires-Dist: pytest-astropy>=0.11; extra == "test"
+Requires-Dist: pytest-xdist>=2.5.0; extra == "test"
+Requires-Dist: pytest-arraydiff>=0.6.1; extra == "test"
+Requires-Dist: tox>4.0; extra == "test"
 Provides-Extra: docs
 Requires-Dist: regions[all]; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-astropy>=1.9; extra == "docs"
-Requires-Dist: tomli; python_version < "3.11" and extra == "docs"
+Provides-Extra: dev
+Requires-Dist: regions[docs,test]; extra == "dev"
+Requires-Dist: pre-commit>4.0; extra == "dev"
+Dynamic: license-file
 
 =======
 Regions

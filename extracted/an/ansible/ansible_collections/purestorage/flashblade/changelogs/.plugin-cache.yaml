@@ -131,6 +131,11 @@ plugins:
       name: purefb_keytabs
       namespace: ''
       version_added: 1.6.0
+    purefb_kmip:
+      description: Manage FlashBlade KMIP server objects
+      name: purefb_kmip
+      namespace: ''
+      version_added: 1.22.0
     purefb_lag:
       description: Manage FlashBlade Link Aggregation Groups
       name: purefb_lag
@@ -252,7 +257,7 @@ plugins:
       namespace: ''
       version_added: 1.10.0
     purefb_user:
-      description: Modify FlashBlade user accounts
+      description: Create, modify or delete FlashBlade user accounts
       name: purefb_user
       namespace: ''
       version_added: 1.0.0
@@ -276,4 +281,4 @@ plugins:
   strategy: {}
   test: {}
   vars: {}
-version: 1.20.0
+version: 1.23.1

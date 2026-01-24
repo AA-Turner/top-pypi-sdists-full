@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: acme_challenge_cert_helper
 author: "Felix Fontein (@felixfontein)"
@@ -155,6 +154,7 @@ import typing as t
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_bytes, to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._acme.errors import (
     ModuleFailException,
 )
@@ -171,7 +171,6 @@ from ansible_collections.community.crypto.plugins.module_utils._cryptography_dep
 from ansible_collections.community.crypto.plugins.module_utils._time import (
     get_now_datetime,
 )
-
 
 try:
     import cryptography

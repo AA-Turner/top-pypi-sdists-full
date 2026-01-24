@@ -1,5 +1,3 @@
-from typing import Dict
-
 import ase
 
 from clease.datastructures import MCStep, SystemChanges
@@ -77,7 +75,7 @@ class ConcentrationObserver(MCObserver):
         self.avg_conc += self.current_conc
         self.avg_conc_sq += self.current_conc**2
 
-    def get_averages(self) -> Dict[str, float]:
+    def get_averages(self) -> dict[str, float]:
         mean_conc = self.avg_conc.mean
         var_conc = self.avg_conc_sq.mean - mean_conc**2
         return {f"conc_{self.element}": mean_conc, f"conc_var_{self.element}": var_conc}

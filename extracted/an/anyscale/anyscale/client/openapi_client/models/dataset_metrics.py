@@ -43,7 +43,8 @@ class DatasetMetrics(object):
         'start_time': 'float',
         'end_time': 'float',
         'operator_metrics': 'list[OperatorMetrics]',
-        'metrics': 'dict(str, Metric)'
+        'metrics': 'dict(str, Metric)',
+        'operator_panels': 'list[DashboardPanel]'
     }
 
     attribute_map = {
@@ -57,10 +58,11 @@ class DatasetMetrics(object):
         'start_time': 'start_time',
         'end_time': 'end_time',
         'operator_metrics': 'operator_metrics',
-        'metrics': 'metrics'
+        'metrics': 'metrics',
+        'operator_panels': 'operator_panels'
     }
 
-    def __init__(self, id=None, name=None, job_id=None, session_name=None, state=None, progress=None, total=None, start_time=None, end_time=None, operator_metrics=None, metrics=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, job_id=None, session_name=None, state=None, progress=None, total=None, start_time=None, end_time=None, operator_metrics=None, metrics=None, operator_panels=None, local_vars_configuration=None):  # noqa: E501
         """DatasetMetrics - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -77,6 +79,7 @@ class DatasetMetrics(object):
         self._end_time = None
         self._operator_metrics = None
         self._metrics = None
+        self._operator_panels = None
         self.discriminator = None
 
         self.id = id
@@ -92,6 +95,8 @@ class DatasetMetrics(object):
             self.end_time = end_time
         self.operator_metrics = operator_metrics
         self.metrics = metrics
+        if operator_panels is not None:
+            self.operator_panels = operator_panels
 
     @property
     def id(self):
@@ -341,6 +346,27 @@ class DatasetMetrics(object):
             raise ValueError("Invalid value for `metrics`, must not be `None`")  # noqa: E501
 
         self._metrics = metrics
+
+    @property
+    def operator_panels(self):
+        """Gets the operator_panels of this DatasetMetrics.  # noqa: E501
+
+
+        :return: The operator_panels of this DatasetMetrics.  # noqa: E501
+        :rtype: list[DashboardPanel]
+        """
+        return self._operator_panels
+
+    @operator_panels.setter
+    def operator_panels(self, operator_panels):
+        """Sets the operator_panels of this DatasetMetrics.
+
+
+        :param operator_panels: The operator_panels of this DatasetMetrics.  # noqa: E501
+        :type: list[DashboardPanel]
+        """
+
+        self._operator_panels = operator_panels
 
     def to_dict(self):
         """Returns the model properties as a dict"""

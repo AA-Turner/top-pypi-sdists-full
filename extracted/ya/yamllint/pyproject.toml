@@ -2,15 +2,14 @@
 name = "yamllint"
 description = "A linter for YAML files."
 readme = {file = "README.rst", content-type = "text/x-rst"}
-requires-python = ">=3.9"
-license = {text = "GPL-3.0-or-later"}
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
 authors = [{name = "Adrien Vergé"}]
 keywords = ["yaml", "lint", "linter", "syntax", "checker"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python",
     "Topic :: Software Development",
     "Topic :: Software Development :: Debuggers",
@@ -18,7 +17,7 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-    "pathspec >= 0.5.3",
+    "pathspec >= 1.0.0",
     "pyyaml",
 ]
 dynamic = ["version"]
@@ -29,6 +28,7 @@ dev = [
     "flake8",
     "flake8-import-order",
     "rstcheck[sphinx]",
+    "ruff",
     "sphinx",
 ]
 
@@ -42,7 +42,7 @@ documentation = "https://yamllint.readthedocs.io"
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools >= 61"]
+requires = ["setuptools >= 77.0.3"]
 
 [tool.setuptools]
 packages = ["yamllint", "yamllint.conf", "yamllint.rules"]
@@ -52,3 +52,49 @@ yamllint = ["conf/*.yaml"]
 
 [tool.setuptools.dynamic]
 version = {attr = "yamllint.__version__"}
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+extend-select = [
+    "B",
+    "C4",
+    "EXE",
+    "FA",
+    "ISC",
+    "LOG",
+    "G",
+    "PIE",
+    "PYI",
+    "SIM",
+    "FLY",
+    "I",
+    "PERF",
+    "W",
+    "PGH",
+    "PLC",
+    "PLE",
+    "UP",
+    "FURB",
+    "RUF",
+]
+ignore = [
+    "B028",     # No explicit `stacklevel` keyword argument found
+    "SIM102",   # Use a single `if` statement instead of nested `if` statements
+    "SIM103",   # Return the negated condition directly
+    "SIM105",   # Use `contextlib.suppress(KeyError)` instead of `try`-`except`-`pass`
+    "SIM108",   # Use ternary operator instead of `if`-`else`-block
+    "SIM114",   # Combine `if` branches using logical `or` operator
+    "SIM117",   # Use a single `with` statement with multiple contexts
+    "FURB105",  # Unnecessary empty string passed to `print`
+    "RUF001",   # String contains ambiguous Unicode characters
+    "RUF002",   # Docstring contains ambiguous Unicode characters
+    "RUF003",   # Comment contains ambiguous Unicode characters
+    "RUF005",   # Consider unpacking instead of concatenation
+    "RUF100",   # Unused `noqa` directive
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-third-party = ["tests"]

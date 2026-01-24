@@ -58,7 +58,8 @@ _kubernetes_protection_endpoints = [
         "description": "Retrieve count of Kubernetes clusters that match a query in Falcon Query Language "
         "(FQL). Supported filter fields:  access  agent_id  agent_status  agent_type  cid  cloud_account_id  cloud_name"
         "  cloud_region  cloud_service  cluster_id  cluster_name  cluster_status  container_count  iar_coverage  "
-        "kac_agent_id  kubernetes_version  last_seen  management_status  node_count  pod_count  tags",
+        "kac_agent_id  kubernetes_version  last_seen  management_status  namespace  node_count  pod_count  pod_name  "
+        "tags",
         "name": "filter",
         "in": "query"
       }
@@ -76,7 +77,8 @@ _kubernetes_protection_endpoints = [
         "description": "Retrieve count of Kubernetes clusters that match a query in Falcon Query Language "
         "(FQL). Supported filter fields:  access  agent_id  agent_status  agent_type  cid  cloud_account_id  cloud_name"
         "  cloud_region  cloud_service  cluster_id  cluster_name  cluster_status  container_count  iar_coverage  "
-        "kac_agent_id  kubernetes_version  last_seen  management_status  node_count  pod_count  tags",
+        "kac_agent_id  kubernetes_version  last_seen  management_status  namespace  node_count  pod_count  pod_name  "
+        "tags",
         "name": "filter",
         "in": "query"
       }
@@ -94,7 +96,8 @@ _kubernetes_protection_endpoints = [
         "description": "Retrieve count of Kubernetes clusters that match a query in Falcon Query Language "
         "(FQL). Supported filter fields:  access  agent_id  agent_status  agent_type  cid  cloud_account_id  cloud_name"
         "  cloud_region  cloud_service  cluster_id  cluster_name  cluster_status  container_count  iar_coverage  "
-        "kac_agent_id  kubernetes_version  last_seen  management_status  node_count  pod_count  tags",
+        "kac_agent_id  kubernetes_version  last_seen  management_status  namespace  node_count  pod_count  pod_name  "
+        "tags",
         "name": "filter",
         "in": "query"
       }
@@ -223,13 +226,13 @@ _kubernetes_protection_endpoints = [
       {
         "type": "integer",
         "default": 200,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 200.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       },
@@ -733,7 +736,7 @@ _kubernetes_protection_endpoints = [
         "description": "Search Kubernetes clusters using a query in Falcon Query Language (FQL). Supported "
         "filter fields:  access  agent_id  agent_status  agent_type  cid  cloud_account_id  cloud_name  cloud_region  "
         "cloud_service  cluster_id  cluster_name  cluster_status  container_count  iar_coverage  kac_agent_id  "
-        "kubernetes_version  last_seen  management_status  node_count  pod_count  tags",
+        "kubernetes_version  last_seen  management_status  namespace  node_count  pod_count  pod_name  tags",
         "name": "filter",
         "in": "query"
       },
@@ -746,13 +749,13 @@ _kubernetes_protection_endpoints = [
       {
         "type": "integer",
         "default": 200,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 200.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
@@ -762,7 +765,7 @@ _kubernetes_protection_endpoints = [
     "ReadClusterCombinedV2",
     "GET",
     "/container-security/combined/clusters/v2",
-    "Retrieve kubernetes clusters identified by the provided filter criteria",
+    "Retrieve Kubernetes cluster data",
     "kubernetes_protection",
     [
       {
@@ -770,7 +773,7 @@ _kubernetes_protection_endpoints = [
         "description": "Search Kubernetes clusters using a query in Falcon Query Language (FQL). Supported "
         "filter fields:  access  agent_id  agent_status  agent_type  cid  cloud_account_id  cloud_name  cloud_region  "
         "cloud_service  cluster_id  cluster_name  cluster_status  container_count  iar_coverage  kac_agent_id  "
-        "kubernetes_version  last_seen  management_status  node_count  pod_count  tags",
+        "kubernetes_version  last_seen  management_status  namespace  node_count  pod_count  pod_name  tags",
         "name": "filter",
         "in": "query"
       },
@@ -789,13 +792,13 @@ _kubernetes_protection_endpoints = [
       {
         "type": "integer",
         "default": 200,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 200.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
@@ -825,13 +828,13 @@ _kubernetes_protection_endpoints = [
       {
         "type": "integer",
         "default": 200,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 200.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
@@ -841,7 +844,8 @@ _kubernetes_protection_endpoints = [
     "ReadContainerCombined",
     "GET",
     "/container-security/combined/containers/v1",
-    "Retrieve containers identified by the provided filter criteria",
+    "Retrieves a paginated list of containers identified by the provided filter criteria. Maximum page size: "
+    "200. Maximum available containers: 10,000",
     "kubernetes_protection",
     [
       {
@@ -866,13 +870,13 @@ _kubernetes_protection_endpoints = [
       {
         "type": "integer",
         "default": 200,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 200.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
@@ -903,23 +907,24 @@ _kubernetes_protection_endpoints = [
       {
         "type": "integer",
         "default": 200,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 200.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
     ]
   ],
   [
-    "SearchAndReadKubernetesIomEntities",
-    "GET",
-    "/container-security/combined/kubernetes-ioms/v1",
-    "Search Kubernetes IOM by the provided search criteria",
+    "PostSearchKubernetesIOMEntities",
+    "POST",
+    "/container-security/combined/kubernetes-ioms/search/v1",
+    "Search for Kubernetes IOMs with filtering options.Pagination is supported via Elasticsearch's "
+    "search_after search param and point in time. Assets are sorted by unique ID in ascending direction.",
     "kubernetes_protection",
     [
       {
@@ -940,13 +945,50 @@ _kubernetes_protection_endpoints = [
       {
         "type": "integer",
         "default": 100,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "Maximum number of records to return (default: 100, max: 500)",
+        "name": "limit",
+        "in": "query"
+      },
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "SearchAndReadKubernetesIomEntities",
+    "GET",
+    "/container-security/combined/kubernetes-ioms/v1",
+    "Retrieves a list of Kubernetes IOMs identified by the provided search criteria. Maximum page size: 100. "
+    "Maximum available Kubernetes IOMs: 10,000",
+    "kubernetes_protection",
+    [
+      {
+        "type": "string",
+        "description": "Search Kubernetes IOMs using a query in Falcon Query Language (FQL). Supported filter "
+        "fields:  cid  cis_id  cluster_id  cluster_name  containers_impacted_ai_related  containers_impacted_count  "
+        "containers_impacted_ids  detection_type  name  namespace  prevented  resource_id  resource_name  resource_type"
+        "severity",
+        "name": "filter",
+        "in": "query"
+      },
+      {
+        "type": "string",
+        "description": "The fields to sort the records on.",
+        "name": "sort",
+        "in": "query"
+      },
+      {
+        "type": "integer",
+        "default": 100,
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 100.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
@@ -977,13 +1019,13 @@ _kubernetes_protection_endpoints = [
       {
         "type": "integer",
         "default": 200,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 200.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
@@ -1015,13 +1057,13 @@ _kubernetes_protection_endpoints = [
       {
         "type": "integer",
         "default": 200,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 200.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
@@ -1072,13 +1114,13 @@ _kubernetes_protection_endpoints = [
       {
         "type": "integer",
         "default": 100,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 100.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }

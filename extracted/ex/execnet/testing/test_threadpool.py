@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import pytest
+
 from execnet.gateway_base import ExecModel
 from execnet.gateway_base import WorkerPool
 
@@ -163,7 +164,7 @@ def test_pool_clean_shutdown(
 
     pool.execmodel.start(wait_then_put)
     assert pool.waitall()
-    out, err = capfd.readouterr()
+    _out, err = capfd.readouterr()
     assert err == ""
 
 

@@ -6,7 +6,7 @@ from helpers import assert_namespace_tree
 
 
 def test_module_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -24,7 +24,7 @@ name_in_module = True
 
 
 def test_lambda_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -47,7 +47,7 @@ b = lambda arg, *args, **kwargs: arg + 1
 
 
 def test_function_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -84,7 +84,7 @@ def func(arg, *args, **kwargs):
 # region generator namespace
 
 def test_generator_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -103,7 +103,7 @@ a = (x for x in range(10))
 
 
 def test_multi_generator_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -125,7 +125,7 @@ a = (x for x in f for x in x)
 
 
 def test_multi_generator_namespace_2():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -150,7 +150,7 @@ a = (c for line in file for c in line)
 
 
 def test_nested_generator():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -176,7 +176,7 @@ a = (c for c in (line for line in file))
 
 
 def test_nested_generator_2():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -203,7 +203,7 @@ a = (x for x in (x for x in x))
 # region setcomp
 
 def test_setcomp_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -222,7 +222,7 @@ a = {x for x in range(10)}
 
 
 def test_multi_setcomp_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -244,7 +244,7 @@ a = {x for x in f for x in x}
 
 
 def test_multi_setcomp_namespace_2():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -269,7 +269,7 @@ a = {c for line in file for c in line}
 
 
 def test_nested_setcomp():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -295,7 +295,7 @@ a = {c for c in {line for line in file}}
 
 
 def test_nested_setcomp_2():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -321,7 +321,7 @@ a = {x for x in {x for x in x}}
 # region listcomp
 
 def test_listcomp_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -340,7 +340,7 @@ a = [x for x in range(10)]
 
 
 def test_multi_listcomp_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -362,7 +362,7 @@ a = [x for x in f for x in x]
 
 
 def test_multi_listcomp_namespace_2():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -387,7 +387,7 @@ a = [c for line in file for c in line]
 
 
 def test_nested_listcomp():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -413,7 +413,7 @@ a =[c for c in [line for line in file]]
 
 
 def test_nested_listcomp_2():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -439,7 +439,7 @@ a =[x for x in [x for x in x]]
 # region dictcomp
 
 def test_dictcomp_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -458,7 +458,7 @@ a = {x: x for x in range(10)}
 
 
 def test_multi_dictcomp_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -480,7 +480,7 @@ a = {x: x for x, x in f for x, x in x}
 
 
 def test_multi_dictcomp_namespace_2():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -505,7 +505,7 @@ a = {c: c for line, line in file for c, c in line}
 
 
 def test_nested_dictcomp():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -531,7 +531,7 @@ a = {c: c for c, c in {line: line for line in file}}
 
 
 def test_nested_dictcomp_2():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -555,7 +555,7 @@ a = {x:x  for x, x in {x: x for x in x}}
 # endregion
 
 def test_class_namespace():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''
@@ -589,7 +589,7 @@ func()
 
 
 def test_class_name_rebinding():
-    if sys.version_info < (3, 3) or sys.version_info > (3, 4):
+    if sys.version_info < (3, 3) or sys.version_info >= (3, 4):
         pytest.skip('Test is for python3.3 only')
 
     source = '''

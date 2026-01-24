@@ -238,8 +238,8 @@ class ServiceCollection(SchemaObjectCollectionParent["ServiceResource"]):
 class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
     """Represents a reference to a Snowflake Snowpark Container Service.
 
-    With this service reference, you can create, alter, and fetch information about services, as well
-    as perform certain actions on them.
+    With this service reference, you can fetch information about a service, as well as perform
+    certain actions on it.
     """
 
     def __init__(self, name: str, collection: ServiceCollection) -> None:

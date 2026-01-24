@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pytest-doctestplus
-Version: 1.4.0
+Version: 1.7.0
 Summary: Pytest plugin with advanced doctest features.
 Home-page: https://github.com/scientific-python/pytest-doctestplus
 Author: Scientific Python Developers
@@ -14,24 +14,25 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
-Requires-Dist: pytest>=4.6
+Requires-Dist: pytest>=7.0
 Requires-Dist: packaging>=17.0
 Provides-Extra: test
 Requires-Dist: numpy; extra == "test"
 Requires-Dist: pytest-remotedata>=0.3.2; extra == "test"
 Requires-Dist: setuptools>=30.3.0; extra == "test"
 Requires-Dist: sphinx; extra == "test"
+Dynamic: license-file
 
 ==================
 pytest-doctestplus
@@ -288,12 +289,14 @@ of the line here.
 
 .. code-block:: rst
 
-    .. doctest-skip-all
+    .. doctest-skip-all::
 
-       >>> import non_existing
-       >>> non_existing.write_pseudo_code()
-       All the doctests are skipped in the file below
+    All the doctests are skipped in the file below
 
+    .. code-block::
+
+      >>> import non_existing
+      >>> non_existing.write_pseudo_code()
 
 Skip Unconditionally
 ^^^^^^^^^^^^^^^^^^^^

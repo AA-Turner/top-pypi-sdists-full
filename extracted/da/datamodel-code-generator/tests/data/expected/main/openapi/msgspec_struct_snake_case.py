@@ -4,34 +4,34 @@
 
 from __future__ import annotations
 
-from typing import Annotated, List, Optional
+from typing import Annotated, TypeAlias
 
-from msgspec import Meta, Struct, field
+from msgspec import UNSET, Meta, Struct, UnsetType, field
 
 
 class Pet(Struct):
     id: int
     name: str
     before_tag: str = field(name='beforeTag')
-    tag: Optional[str] = None
+    tag: str | UnsetType = UNSET
 
 
-Pets = List[Pet]
+Pets: TypeAlias = list[Pet]
 
 
 class User(Struct):
     id: int
     name: str
-    tag: Optional[str] = None
+    tag: str | UnsetType = UNSET
 
 
-Users = List[User]
+Users: TypeAlias = list[User]
 
 
-Id = str
+Id: TypeAlias = str
 
 
-Rules = List[str]
+Rules: TypeAlias = list[str]
 
 
 class Error(Struct):
@@ -40,26 +40,30 @@ class Error(Struct):
 
 
 class Api(Struct):
-    api_key: Optional[
+    api_key: (
         Annotated[str, Meta(description='To be used as a dataset parameter value')]
-    ] = field(name='apiKey', default=None)
-    api_version_number: Optional[
+        | UnsetType
+    ) = field(name='apiKey', default=UNSET)
+    api_version_number: (
         Annotated[str, Meta(description='To be used as a version parameter value')]
-    ] = field(name='apiVersionNumber', default=None)
-    api_url: Optional[
+        | UnsetType
+    ) = field(name='apiVersionNumber', default=UNSET)
+    api_url: (
         Annotated[str, Meta(description="The URL describing the dataset's fields")]
-    ] = field(name='apiUrl', default=None)
-    api_documentation_url: Optional[
+        | UnsetType
+    ) = field(name='apiUrl', default=UNSET)
+    api_documentation_url: (
         Annotated[str, Meta(description='A URL to the API console for each API')]
-    ] = field(name='apiDocumentationUrl', default=None)
+        | UnsetType
+    ) = field(name='apiDocumentationUrl', default=UNSET)
 
 
-Apis = List[Api]
+Apis: TypeAlias = list[Api]
 
 
 class Event(Struct):
-    name: Optional[str] = None
+    name: str | UnsetType = UNSET
 
 
 class Result(Struct):
-    event: Optional[Event] = None
+    event: Event | UnsetType = UNSET

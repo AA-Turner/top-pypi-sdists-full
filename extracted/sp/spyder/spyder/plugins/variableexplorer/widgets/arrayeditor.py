@@ -35,15 +35,13 @@ if TYPE_CHECKING:
 
 # Local imports
 from spyder.api.fonts import SpyderFontsMixin, SpyderFontType
+from spyder.api.translations import _
 from spyder.api.widgets.comboboxes import SpyderComboBox
 from spyder.api.widgets.mixins import SpyderWidgetMixin
-from spyder.config.base import _
 from spyder.plugins.variableexplorer.widgets.basedialog import BaseDialog
 from spyder.plugins.variableexplorer.widgets.preferences import (
     PreferencesDialog
 )
-from spyder.py3compat import (is_binary_string, is_string, is_text_string,
-                              to_binary_string, to_text_string)
 from spyder.utils.icon_manager import ima
 from spyder.utils.qthelpers import keybinding, safe_disconnect
 from spyder.utils.stylesheet import AppStyle, MAC
@@ -54,6 +52,7 @@ from spyder.utils.stylesheet import AppStyle, MAC
 # =============================================================================
 
 class ArrayEditorActions:
+    Close = 'close'
     Copy = 'copy_action'
     Edit = 'edit_action'
     Preferences = 'preferences_action'
@@ -314,9 +313,9 @@ class ArrayModel(QAbstractTableModel, SpyderFontsMixin):
 
         # Tranform binary string to unicode so they are displayed
         # correctly
-        if is_binary_string(value):
+        if isinstance(value, bytes):
             try:
-                value = to_text_string(value, 'utf8')
+                value = str(value, 'utf8')
             except Exception:
                 pass
 
@@ -367,9 +366,9 @@ class ArrayModel(QAbstractTableModel, SpyderFontsMixin):
             except ValueError:
                 val = value.lower() == "true"
         elif dtype.startswith("string") or dtype.startswith("bytes"):
-            val = to_binary_string(value, 'utf8')
+            val = bytes(value, 'utf8')
         elif dtype.startswith("unicode") or dtype.startswith("str"):
-            val = to_text_string(value)
+            val = str(value)
         else:
             if value.lower().startswith('e') or value.lower().endswith('e'):
                 return False
@@ -394,7 +393,7 @@ class ArrayModel(QAbstractTableModel, SpyderFontsMixin):
         self.changes[(i, j)] = self.test_array[0]
         self.dataChanged.emit(index, index)
 
-        if not is_string(val):
+        if not isinstance(val, (str, bytes)):
             val = self.color_func(val)
 
             if val > self.vmax:
@@ -773,6 +772,17 @@ class ArrayEditor(BaseDialog, SpyderWidgetMixin):
             triggered=self.show_preferences_dialog,
             register_action=False
         )
+        self.close_action = self.create_action(
+            name=ArrayEditorActions.Close,
+            icon=self.create_icon('close_pane'),
+            text=_('Close'),
+            triggered=self.reject,
+            shortcut=self.get_shortcut(ArrayEditorActions.Close),
+            register_action=False,
+            register_shortcut=True
+        )
+        self.register_shortcut_for_widget(name='close', triggered=self.reject)
+
         self.refresh_action = self.create_action(
             ArrayEditorActions.Refresh,
             text=_('Refresh'),
@@ -797,7 +807,8 @@ class ArrayEditor(BaseDialog, SpyderWidgetMixin):
             ArrayEditorMenus.Options,
             register=False
         )
-        options_menu.add_action(self.preferences_action)
+        for item in [self.preferences_action, self.close_action]:
+            self.add_item_to_menu(item, options_menu)
 
         options_button = self.create_toolbutton(
             name=ArrayEditorWidgets.OptionsToolButton,
@@ -893,7 +904,7 @@ class ArrayEditor(BaseDialog, SpyderWidgetMixin):
 
         # Set title
         if title:
-            title = to_text_string(title) + " - " + _("NumPy object array")
+            title = str(title) + " - " + _("NumPy object array")
         else:
             title = _("Array editor")
         if readonly:
@@ -1018,7 +1029,7 @@ class ArrayEditor(BaseDialog, SpyderWidgetMixin):
                 text = name
                 if len(field) >= 3:
                     title = field[2]
-                    if not is_text_string(title):
+                    if not isinstance(title, str):
                         title = repr(title)
                     text += ' - '+title
                 names.append(text)

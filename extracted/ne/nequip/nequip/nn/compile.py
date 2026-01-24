@@ -11,6 +11,7 @@ from nequip.utils.dtype import (
 from nequip.utils.fx import nequip_make_fx
 from nequip.utils.dtype import dtype_to_name
 from typing import Dict, Sequence, List, Optional, Any, Final
+from torch.func import functional_call
 
 
 def _list_to_dict(
@@ -66,7 +67,7 @@ class DictInputOutputWrapper(torch.nn.Module):
 
 
 class ListInputOutputStateDictWrapper(ListInputOutputWrapper):
-    """Like ``ListInputOutputWrapper``, but also updates the model with state dict entries before each ``forward``."""
+    """Like ``ListInputOutputWrapper``, but also updates the model with state dict entries before each ``forward`` using ``functional_call``."""
 
     def __init__(
         self,
@@ -82,14 +83,8 @@ class ListInputOutputStateDictWrapper(ListInputOutputWrapper):
         # won't check that `args` is of the correct length
         input_dict = _list_to_dict(self.input_keys, args[: len(self.input_keys)])
         state_dict = _list_to_dict(self.state_dict_keys, args[len(self.input_keys) :])
-        # have to do it this way and not using state_dict directly for autograd reasons
-        # the `.data` part is important
-        with torch.no_grad():
-            for name, param in self.model.named_parameters():
-                param.data.copy_(state_dict[name])
-            for name, buffer in self.model.named_buffers():
-                buffer.data.copy_(state_dict[name])
-        output_dict = self.model(input_dict)
+        # use functional_call to avoid in-place modification
+        output_dict = functional_call(self.model, state_dict, args=(input_dict,))
         return _list_from_dict(self.output_keys, output_dict)
 
 

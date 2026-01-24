@@ -1,27 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: peewee-migrate
-Version: 1.13.0
+Version: 1.14.3
 Summary: Support for migrations in Peewee ORM
-Home-page: https://github.com/klen/peewee_migrate
 License: MIT
+License-File: LICENSE
 Keywords: peewee,migrations,orm
 Author: Kirill Klenov
 Author-email: horneds@gmail.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Requires-Dist: click
 Requires-Dist: peewee (>=3,<4)
+Project-URL: Homepage, https://github.com/klen/peewee_migrate
 Project-URL: Repository, https://github.com/klen/peewee_migrate
 Description-Content-Type: text/x-rst
 
@@ -59,7 +60,7 @@ Peewee Migrate -- A simple migration engine for Peewee_ ORM
 Requirements
 =============
 
-- peewee >= 3.8
+- peewee >= 3.10
 
 Dependency Note
 ---------------
@@ -67,7 +68,8 @@ Dependency Note
 - For ``Peewee<3.0`` please use ``Peewee-Migrate==0.14.0``
 - For ``Python 3.0-3.6`` please use ``Peewee-Migrate==1.1.6``
 - For ``Python 3.7`` please use ``Peewee-Migrate==1.6.6``
-- For ``Python 3.8+`` please use ``Peewee-Migrate>=1.12.1``
+- For ``Python 3.8, 3.9`` please use ``Peewee-Migrate>=1.13.0``
+- For ``Python 3.10+`` please use ``Peewee-Migrate>=1.14+``
 
 .. _installation:
 

@@ -30,6 +30,16 @@ class KubeServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesResponse.FromString,
         )
+        self.GetKubernetesServiceAccounts = channel.unary_unary(
+            "/chalk.server.v1.KubeService/GetKubernetesServiceAccounts",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesServiceAccountsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesServiceAccountsResponse.FromString,
+        )
+        self.GetKubernetesAutoscalers = channel.unary_unary(
+            "/chalk.server.v1.KubeService/GetKubernetesAutoscalers",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesAutoscalersRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesAutoscalersResponse.FromString,
+        )
 
 
 class KubeServiceServicer(object):
@@ -55,6 +65,18 @@ class KubeServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetKubernetesServiceAccounts(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetKubernetesAutoscalers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_KubeServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -72,6 +94,16 @@ def add_KubeServiceServicer_to_server(servicer, server):
             servicer.GetKubernetesPersistentVolumes,
             request_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesResponse.SerializeToString,
+        ),
+        "GetKubernetesServiceAccounts": grpc.unary_unary_rpc_method_handler(
+            servicer.GetKubernetesServiceAccounts,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesServiceAccountsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesServiceAccountsResponse.SerializeToString,
+        ),
+        "GetKubernetesAutoscalers": grpc.unary_unary_rpc_method_handler(
+            servicer.GetKubernetesAutoscalers,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesAutoscalersRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesAutoscalersResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.KubeService", rpc_method_handlers)
@@ -159,6 +191,64 @@ class KubeService(object):
             "/chalk.server.v1.KubeService/GetKubernetesPersistentVolumes",
             chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetKubernetesServiceAccounts(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.KubeService/GetKubernetesServiceAccounts",
+            chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesServiceAccountsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesServiceAccountsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetKubernetesAutoscalers(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.KubeService/GetKubernetesAutoscalers",
+            chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesAutoscalersRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesAutoscalersResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -23,17 +23,19 @@ use crate::util::ConfigOrigin;
 #[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct Interpreters {
-    // TODO(connernilsen): make this mutually exclusive with venv/conda env
-    /// The python executable that will be queried for `python_version`,
-    /// `python_platform`, or `site_package_path` if any of the values are missing.
     #[serde(
                 default,
                 skip_serializing_if = "ConfigOrigin::should_skip_serializing_option",
                 // TODO(connernilsen): DON'T COPY THIS TO NEW FIELDS. This is a temporary
                 // alias while we migrate existing fields from snake case to kebab case.
-                alias = "python_interpreter"
+                alias = "python_interpreter",
+                alias = "python-interpreter",
             )]
-    pub(crate) python_interpreter: Option<ConfigOrigin<PathBuf>>,
+    pub(crate) python_interpreter_path: Option<ConfigOrigin<PathBuf>>,
+
+    /// Should we turn a generic command into a `python_interpreter` path?
+    #[serde(default)]
+    pub(crate) fallback_python_interpreter_name: Option<ConfigOrigin<String>>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) conda_environment: Option<ConfigOrigin<String>>,
@@ -51,12 +53,12 @@ impl Display for Interpreters {
                 ..
             } => write!(f, "<interpreter query skipped>"),
             Self {
-                python_interpreter: None,
+                python_interpreter_path: None,
                 ..
             } => write!(f, "<none found successfully>"),
             Self {
                 conda_environment: Some(conda),
-                python_interpreter: Some(path),
+                python_interpreter_path: Some(path),
                 ..
             } => write!(
                 f,
@@ -64,7 +66,16 @@ impl Display for Interpreters {
                 path.display()
             ),
             Self {
-                python_interpreter: Some(path),
+                fallback_python_interpreter_name: Some(cmd),
+                python_interpreter_path: Some(path),
+                ..
+            } => write!(
+                f,
+                "interpreter at path {} (from `which {cmd}`)",
+                path.display(),
+            ),
+            Self {
+                python_interpreter_path: Some(path),
                 ..
             } => write!(f, "{}", path.display()),
         }
@@ -74,12 +85,17 @@ impl Display for Interpreters {
 impl Interpreters {
     const DEFAULT_INTERPRETERS: &[&str] = &["python3", "python"];
 
+    /// Checks if any interpreter is currently set, typically used when determining
+    /// if the config or CLI overrides explicitly specified a config to figure out
+    /// if we should respect an IDE-supplied interpreter preference.
     pub fn is_empty(&self) -> bool {
-        self.python_interpreter.is_none() && self.conda_environment.is_none()
+        self.python_interpreter_path.is_none()
+            && self.conda_environment.is_none()
+            && self.fallback_python_interpreter_name.is_none()
     }
 
     pub fn set_lsp_python_interpreter(&mut self, interpreter: PathBuf) {
-        self.python_interpreter = Some(ConfigOrigin::lsp(interpreter));
+        self.python_interpreter_path = Some(ConfigOrigin::lsp(interpreter));
     }
 
     /// Finds interpreters by searching in prioritized locations for the given project
@@ -87,10 +103,10 @@ impl Interpreters {
     ///
     /// The priorities are:
     /// 1. Check for an overridden `--python-interpreter` or `--conda-environment`
-    /// 2. Check for an IDE / LSP provided `python-interpreter`.
-    /// 3. Check for an active venv or Conda environment
-    /// 4. Check for a configured `python-interpreter`
-    /// 5. Check for a configured `conda-environment`
+    /// 2. Check for a configured `python-interpreter`
+    /// 3. Check for a configured `conda-environment`
+    /// 4. Check for an IDE / LSP provided `python-interpreter`.
+    /// 5. Check for an active venv or Conda environment
     /// 6. Check for a `venv` in the current project
     /// 7. Use an interpreter we can find on the `$PATH`
     /// 8. Give up and return an error
@@ -98,12 +114,9 @@ impl Interpreters {
         &self,
         path: Option<&Path>,
     ) -> anyhow::Result<ConfigOrigin<PathBuf>> {
-        if let Some(interpreter @ ConfigOrigin::CommandLine(_)) = &self.python_interpreter {
-            return Ok(interpreter.clone());
-        }
-
-        if let Some(interpreter @ ConfigOrigin::Lsp(_)) = &self.python_interpreter {
-            return Ok(interpreter.clone());
+        let python_interpreter = self.interpreter_path_or_cmd()?;
+        if let Some(interpreter @ ConfigOrigin::CommandLine(_)) = python_interpreter {
+            return Ok(interpreter);
         }
 
         if let Some(conda_env @ ConfigOrigin::CommandLine(_)) = &self.conda_environment {
@@ -113,19 +126,35 @@ impl Interpreters {
                 .transpose_err();
         }
 
-        if let Some(active_env) = ActiveEnvironment::find() {
-            return Ok(ConfigOrigin::auto(active_env));
+        if let Some(interpreter @ ConfigOrigin::ConfigFile(_)) = python_interpreter {
+            return Ok(interpreter);
         }
 
-        if let Some(interpreter) = &self.python_interpreter {
-            return Ok(interpreter.clone());
+        if let Some(conda_env @ ConfigOrigin::ConfigFile(_)) = &self.conda_environment {
+            return conda_env
+                .as_deref()
+                .map(conda::find_interpreter_from_env)
+                .transpose_err();
         }
 
+        if let Some(interpreter @ ConfigOrigin::Lsp(_)) = python_interpreter {
+            return Ok(interpreter);
+        }
+
+        // fallback, just in case an 'auto' interpreter or conda env is set, though
+        // it shouldn't be (except in tests below)
+        if let Some(interpreter) = python_interpreter {
+            return Ok(interpreter);
+        }
         if let Some(conda_env) = &self.conda_environment {
             return conda_env
                 .as_deref()
                 .map(conda::find_interpreter_from_env)
                 .transpose_err();
+        }
+
+        if let Some(active_env) = ActiveEnvironment::find() {
+            return Ok(ConfigOrigin::auto(active_env));
         }
 
         if let Some(start_path) = path
@@ -143,6 +172,20 @@ impl Interpreters {
                 but no Python interpreter could be found to query for values. Falling back to \
                 Pyrefly defaults for missing values."
         ))
+    }
+
+    fn interpreter_path_or_cmd(&self) -> anyhow::Result<Option<ConfigOrigin<PathBuf>>> {
+        if self.python_interpreter_path.is_some() {
+            return Ok(self.python_interpreter_path.clone());
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(cmd) = &self.fallback_python_interpreter_name {
+            fn which_to_anyhow_err(cmd: &String) -> anyhow::Result<PathBuf> {
+                Ok(which(cmd)?)
+            }
+            return Ok(Some(cmd.as_ref().map(which_to_anyhow_err).transpose_err()?));
+        }
+        Ok(self.python_interpreter_path.clone())
     }
 
     /// Get the first interpreter available on the path by using `which`
@@ -196,14 +239,21 @@ mod test {
         tempdir
     }
 
+    /// Produces a conda environment name that should not actually be possible in conda.
+    fn fake_conda_name() -> String {
+        "../././".to_owned()
+    }
+
     #[test]
-    fn test_find_interpreter_precedence_python_interpreter_cli_highest_priority() {
+    fn test_find_interpreter_precedence_cli_highest_priority() {
         let tempdir = setup_test_dir();
 
         let python_interpreter = ConfigOrigin::cli(PathBuf::from("asdf"));
+        let conda_environment = ConfigOrigin::config("somecondaenv".to_owned());
 
         let interpreters = Interpreters {
-            python_interpreter: Some(python_interpreter.clone()),
+            python_interpreter_path: Some(python_interpreter.clone()),
+            conda_environment: Some(conda_environment.clone()),
             ..Default::default()
         };
 
@@ -211,16 +261,31 @@ mod test {
             interpreters.find_interpreter(Some(tempdir.path())).unwrap(),
             python_interpreter
         );
+
+        let conda_environment = ConfigOrigin::cli(fake_conda_name());
+        let interpreters = Interpreters {
+            python_interpreter_path: Some(ConfigOrigin::config(PathBuf::from("asdf"))),
+            conda_environment: Some(conda_environment.clone()),
+            ..Default::default()
+        };
+
+        let found_interpreter = interpreters.find_interpreter(Some(tempdir.path()));
+        // we check for blanket errors, since we'll either get an error that the environment
+        // doesn't exist (since it can't be named that) or that conda doesn't exist, which is
+        // still an indication the logic works
+        assert!(found_interpreter.is_err());
     }
 
     #[test]
-    fn test_find_interpreter_precedence_lsp_highest_priority() {
+    fn test_find_interpreter_precedence_config_second_highest_priority() {
         let tempdir = setup_test_dir();
 
-        let python_interpreter = ConfigOrigin::lsp(PathBuf::from("asdf"));
+        let python_interpreter = ConfigOrigin::config(PathBuf::from("asdf"));
+        let conda_environment = ConfigOrigin::lsp("somecondaenv".to_owned());
 
         let interpreters = Interpreters {
-            python_interpreter: Some(python_interpreter.clone()),
+            python_interpreter_path: Some(python_interpreter.clone()),
+            conda_environment: Some(conda_environment.clone()),
             ..Default::default()
         };
 
@@ -228,36 +293,51 @@ mod test {
             interpreters.find_interpreter(Some(tempdir.path())).unwrap(),
             python_interpreter
         );
-    }
 
-    #[test]
-    fn test_find_interpreter_precedence_conda_cli_highest_priority() {
-        let tempdir = setup_test_dir();
-
-        // this conda environment really shouldn't be able to exist
-        let conda_environment = ConfigOrigin::cli("../././".to_owned());
-
+        let conda_environment = ConfigOrigin::config(fake_conda_name());
         let interpreters = Interpreters {
-            conda_environment: Some(conda_environment),
+            python_interpreter_path: Some(ConfigOrigin::lsp(PathBuf::from("asdf"))),
+            conda_environment: Some(conda_environment.clone()),
             ..Default::default()
         };
 
-        assert!(interpreters.find_interpreter(Some(tempdir.path())).is_err());
+        let found_interpreter = interpreters.find_interpreter(Some(tempdir.path()));
+        // we check for blanket errors, since we'll either get an error that the environment
+        // doesn't exist (since it can't be named that) or that conda doesn't exist, which is
+        // still an indication the logic works
+        assert!(found_interpreter.is_err());
     }
 
     #[test]
-    fn test_find_interpreter_precedence_conda_config() {
+    fn test_find_interpreter_precedence_lsp_third_highest_priority() {
         let tempdir = setup_test_dir();
 
-        // this conda environment really shouldn't be able to exist
-        let conda_environment = ConfigOrigin::config("../././".to_owned());
+        let python_interpreter = ConfigOrigin::config(PathBuf::from("asdf"));
+        let conda_environment = ConfigOrigin::auto("somecondaenv".to_owned());
 
         let interpreters = Interpreters {
-            conda_environment: Some(conda_environment),
+            python_interpreter_path: Some(python_interpreter.clone()),
+            conda_environment: Some(conda_environment.clone()),
             ..Default::default()
         };
 
-        assert!(interpreters.find_interpreter(Some(tempdir.path())).is_err());
+        assert_eq!(
+            interpreters.find_interpreter(Some(tempdir.path())).unwrap(),
+            python_interpreter
+        );
+
+        let conda_environment = ConfigOrigin::config(fake_conda_name());
+        let interpreters = Interpreters {
+            python_interpreter_path: Some(ConfigOrigin::auto(PathBuf::from("asdf"))),
+            conda_environment: Some(conda_environment.clone()),
+            ..Default::default()
+        };
+
+        let found_interpreter = interpreters.find_interpreter(Some(tempdir.path()));
+        // we check for blanket errors, since we'll either get an error that the environment
+        // doesn't exist (since it can't be named that) or that conda doesn't exist, which is
+        // still an indication the logic works
+        assert!(found_interpreter.is_err());
     }
 
     #[test]
@@ -266,6 +346,12 @@ mod test {
 
         let interpreters = Interpreters::default();
         let interpreter_suffix = if cfg!(windows) { ".exe" } else { "" };
+
+        unsafe {
+            // clear this variable if it exists, since we can't test that in unit tests.
+            // no other threads should ever test behavior around this
+            std::env::remove_var(venv::ENV_VAR);
+        }
 
         assert_eq!(
             interpreters.find_interpreter(Some(tempdir.path())).unwrap(),

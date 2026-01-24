@@ -1,0 +1,24 @@
+Metadata-Version: 1.1
+Name: pure-transport
+Version: 0.2.0
+Summary: Pure Sasl Based Thrift Transport for PyHive
+Home-page: https://github.com/devinstevenson/pure-transport
+Author: Devin Stevenson
+Author-email: UNKNOWN
+License: GPLv3+
+Description: This package provides a thrift_transport for hive connections
+        using PyHive. This is mainly beneficial as an implementation of Pure-SASL
+        for Windows users where SASL is difficult to install. The other use case facilitated 
+        is support for SSL Sockets, however it is left for the user to configure the socket.
+Keywords: pyhive
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

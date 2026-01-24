@@ -35,7 +35,6 @@ from .structuring.structurer_nodes import (
 from .graph_region import GraphRegion
 from .utils import peephole_optimize_expr
 
-
 l = logging.getLogger(__name__)
 l.addFilter(UniqueLogFilter())
 
@@ -67,6 +66,21 @@ _INVERSE_OPERATIONS = {
     "SLE": "SGT",
     "SGT": "SLE",
 }
+
+
+class AILExprIdAnnotation(claripy.Annotation):
+    """
+    An annotation that we use to annotate BVVs so that they are differentiable between other BVVs with the same value
+    and size.
+    """
+
+    @property
+    def eliminatable(self):
+        return True
+
+    @property
+    def relocateable(self):
+        return False
 
 
 #
@@ -276,7 +290,9 @@ class ConditionProcessor:
         # fallback
         edge_cond_left = self.recover_edge_condition(graph, src, dst0)
         edge_cond_right = self.recover_edge_condition(graph, src, dst1)
-        return claripy.is_true(claripy.Not(edge_cond_left) == edge_cond_right)  # type: ignore
+        cond = claripy.Not(edge_cond_left) == edge_cond_right
+        # call claripy.simplify() just in case there are annotations
+        return claripy.is_true(claripy.simplify(cond))  # type: ignore
 
     def recover_edge_condition(self, graph: networkx.DiGraph, src, dst):
 
@@ -745,11 +761,11 @@ class ConditionProcessor:
             if isinstance(last_stmt.target, ailment.Expr.Const):
                 return claripy.true()
             # indirect jump
-            target_ast = self.claripy_ast_from_ail_condition(last_stmt.target, ins_addr=last_stmt.ins_addr)
+            target_ast = self.claripy_ast_from_ail_condition(last_stmt.target, ins_addr=last_stmt.tags["ins_addr"])
             return target_ast == dst_block.addr
         if type(last_stmt) is ailment.Stmt.ConditionalJump:
             bool_var = self.claripy_ast_from_ail_condition(
-                last_stmt.condition, must_bool=True, ins_addr=last_stmt.ins_addr
+                last_stmt.condition, must_bool=True, ins_addr=last_stmt.tags["ins_addr"]
             )
             if isinstance(last_stmt.true_target, ailment.Expr.Const) and last_stmt.true_target.value == dst_block.addr:
                 return bool_var
@@ -786,19 +802,18 @@ class ConditionProcessor:
             return cond
         if memo is None:
             memo = {}
-        if cond._hash in memo:
-            return memo[cond._hash]
+        if cond.hash() in memo:
+            return memo[cond.hash()]
         r = self.convert_claripy_bool_ast_core(cond, memo)
-        optimized_r = peephole_optimize_expr(r, self._peephole_expr_optimizations)
-        r = r if optimized_r is None else optimized_r
-        memo[cond._hash] = r
+        r = peephole_optimize_expr(r, self._peephole_expr_optimizations)
+        memo[cond.hash()] = r
         return r
 
     def convert_claripy_bool_ast_core(self, cond, memo):
         if isinstance(cond, ailment.Expr.Expression):
             return cond
 
-        if cond.op in {"BoolS", "BoolV"} and claripy.is_true(cond):
+        if cond.op in {"BoolS", "BoolV"} and claripy.is_true(claripy.simplify(cond)):
             return ailment.Expr.Const(None, None, True, 1)
         if cond in self._condition_mapping:
             return self._condition_mapping[cond]
@@ -924,6 +939,10 @@ class ConditionProcessor:
                 var = claripy.BoolV(condition.value)
             else:
                 var = claripy.BVV(condition.value, condition.bits)
+                if condition.idx is not None:
+                    # we do not want to lose track of this constant when it has idx
+                    var = var.annotate(AILExprIdAnnotation())
+                    self._condition_mapping[var] = condition
             if isinstance(var, claripy.ast.Bits) and var.size() == 1:
                 var = claripy.true() if var.concrete_value == 1 else claripy.false()
             return var

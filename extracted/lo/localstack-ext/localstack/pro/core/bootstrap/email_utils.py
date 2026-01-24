@@ -7,7 +7,6 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from typing import Optional,Union
 from localstack.pro.core import config
 from localstack.pro.core.bootstrap import smtplib_patched
 from localstack.utils.time import now_utc
@@ -16,7 +15,7 @@ SENT_EMAILS=[]
 EMAIL_BLACKLIST=set()
 def is_smtp_configured():return config.SMTP_HOST
 def get_canonical_email(email):A=email;A=re.sub('\\s+','',str(A or''));A=A.strip().lower();return A
-def connect_smtp(smtp_host,smtp_user,smtp_pass):
+def connect_smtp(smtp_host:str,smtp_user:str,smtp_pass:str)->smtplib_patched.SMTP:
 	D=smtp_pass;C=smtp_user;A=smtplib_patched.SMTP(smtp_host)
 	try:A.starttls()
 	except Exception as B:LOG.debug('Unable to run STARTTLS command on SMTP connection: %s',B)
@@ -24,7 +23,7 @@ def connect_smtp(smtp_host,smtp_user,smtp_pass):
 		try:A.login(C,D)
 		except Exception as B:LOG.debug('Unable to run login/auth command against SMTP server, skipping: %s',B)
 	return A
-def send_email(subject,text_message,recipients,from_email=_A,from_name=_A,smtp_host=_A,smtp_user=_A,smtp_pass=_A,images=_A,html_message=_A):
+def send_email(subject:str,text_message:str,recipients:list|str,from_email:str=_A,from_name=_A,smtp_host=_A,smtp_user=_A,smtp_pass=_A,images:dict[str,bytes]=_A,html_message:str|_A=_A):
 	J=text_message;I=subject;G=smtp_pass;F=smtp_user;E=from_name;C=smtp_host;B=from_email;A=recipients;from localstack.utils.testutil import is_local_test_mode as L;C=C or config.SMTP_HOST;F=F or config.SMTP_USER;G=G or config.SMTP_PASS;B=B or config.SMTP_EMAIL;E=E or'LocalStack'
 	if not C:
 		if L():M={'time':now_utc(),'smtp_host':C,'smtp_user':F,'smtp_pass':G,'from_email':B,'from_name':E,'subject':I,'message':J,'recipients':A};SENT_EMAILS.append(M);return
@@ -33,10 +32,10 @@ def send_email(subject,text_message,recipients,from_email=_A,from_name=_A,smtp_h
 	for D in A:
 		if D in EMAIL_BLACKLIST:LOG.debug('Skip sending email to receiver in blacklist: %s',D);continue
 		LOG.debug('Sending email to %s',D);H['To']=D;K=connect_smtp(C,F,G);K.sendmail(B,D,H.as_string());K.quit()
-def send_email_message(message):A=connect_smtp(config.SMTP_HOST,config.SMTP_USER,config.SMTP_PASS);A.send_message(message);A.quit()
+def send_email_message(message:Message):A=connect_smtp(config.SMTP_HOST,config.SMTP_USER,config.SMTP_PASS);A.send_message(message);A.quit()
 def sign_message(msg):0
-def is_email_address(value):return re.match('[^@]+@[^@]+\\.[^@]+',value)is not _A
-def construct_message(subject,text_message,from_name,from_email,images=_A,html_message=_A):
+def is_email_address(value:str)->bool:return re.match('[^@]+@[^@]+\\.[^@]+',value)is not _A
+def construct_message(subject:str,text_message:str,from_name:str,from_email:str,images:dict[str,bytes]|_A=_A,html_message:str|_A=_A)->MIMEBase:
 	D=html_message;C=text_message;B=images
 	if B is _A:B={}
 	A=MIMEText(C)

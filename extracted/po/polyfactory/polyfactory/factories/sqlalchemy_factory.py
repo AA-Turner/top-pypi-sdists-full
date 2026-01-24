@@ -1,16 +1,26 @@
 from __future__ import annotations
 
+from collections.abc import Collection, Mapping
+from dataclasses import is_dataclass
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, List, Protocol, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Protocol,
+    TypeVar,
+    Union,
+)
 
-from typing_extensions import Annotated
+from sqlalchemy.util.langhelpers import duck_type_collection
 
-from polyfactory.exceptions import MissingDependencyException, ParameterException
+from polyfactory.exceptions import ConfigurationException, MissingDependencyException, ParameterException
 from polyfactory.factories.base import BaseFactory
 from polyfactory.field_meta import Constraints, FieldMeta
 from polyfactory.persistence import AsyncPersistenceProtocol, SyncPersistenceProtocol
-from polyfactory.utils._internal import is_attribute_overridden
-from polyfactory.utils.deprecation import warn_deprecation
 from polyfactory.utils.types import Frozendict
 
 try:
@@ -18,14 +28,14 @@ try:
     from sqlalchemy.dialects import mssql, mysql, postgresql, sqlite
     from sqlalchemy.exc import NoInspectionAvailable
     from sqlalchemy.ext.associationproxy import AssociationProxy
-    from sqlalchemy.orm import InstanceState, Mapper
+    from sqlalchemy.orm import InstanceState, Mapper, RelationshipProperty
 except ImportError as e:
     msg = "sqlalchemy is not installed"
     raise MissingDependencyException(msg) from e
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from sqlalchemy.orm import Session
+    from sqlalchemy.ext.asyncio import AsyncSession, async_scoped_session
+    from sqlalchemy.orm import Session, scoped_session
     from sqlalchemy.sql.type_api import TypeEngine
     from typing_extensions import TypeGuard
 
@@ -87,13 +97,15 @@ class SQLAlchemyFactory(Generic[T], BaseFactory[T]):
     """Configuration to consider primary key columns as a field or not."""
     __set_foreign_keys__: ClassVar[bool] = True
     """Configuration to consider columns with foreign keys as a field or not."""
-    __set_relationships__: ClassVar[bool] = False
+    __set_relationships__: ClassVar[bool] = True
     """Configuration to consider relationships property as a model field or not."""
-    __set_association_proxy__: ClassVar[bool] = False
+    __set_association_proxy__: ClassVar[bool] = True
     """Configuration to consider AssociationProxy property as a model field or not."""
 
-    __session__: ClassVar[Session | _SessionMaker[Session] | None] = None
-    __async_session__: ClassVar[AsyncSession | _SessionMaker[AsyncSession] | None] = None
+    __session__: ClassVar[Session | _SessionMaker[Session] | scoped_session[Session] | None] = None
+    __async_session__: ClassVar[
+        AsyncSession | _SessionMaker[AsyncSession] | async_scoped_session[AsyncSession] | None
+    ] = None
 
     __config_keys__ = (
         *BaseFactory.__config_keys__,
@@ -102,24 +114,6 @@ class SQLAlchemyFactory(Generic[T], BaseFactory[T]):
         "__set_relationships__",
         "__set_association_proxy__",
     )
-
-    @classmethod
-    def __init_subclass__(cls, *args: Any, **kwargs: Any) -> None:
-        super().__init_subclass__(*args, **kwargs)
-
-        for key in (
-            "__set_relationships__",
-            "__set_association_proxy__",
-        ):
-            if is_attribute_overridden(SQLAlchemyFactory, cls, key):
-                continue
-
-            warn_deprecation(
-                "v2.22.0",
-                deprecated_name=key,
-                kind="default",
-                alternative="set to `False` explicitly to keep existing behaviour",
-            )
 
     @classmethod
     def get_sqlalchemy_types(cls) -> dict[Any, Callable[[], Any]]:
@@ -183,7 +177,21 @@ class SQLAlchemyFactory(Generic[T], BaseFactory[T]):
         if not cls.__set_primary_key__ and column.primary_key:
             return False
 
+        if not cls.should_dataclass_init_field(column.name):
+            return False
+
         return bool(cls.__set_foreign_keys__ or not column.foreign_keys)
+
+    @classmethod
+    def should_dataclass_init_field(cls, field_name: str) -> bool:
+        if not is_dataclass(cls.__model__):
+            return True
+
+        dataclass_fields = cls.__model__.__dataclass_fields__
+        try:
+            return dataclass_fields[field_name].init
+        except KeyError:
+            return True
 
     @classmethod
     def _get_type_from_type_engine(cls, type_engine: TypeEngine) -> type:
@@ -216,7 +224,7 @@ class SQLAlchemyFactory(Generic[T], BaseFactory[T]):
         annotation: type
         if isinstance(column.type, (ARRAY, postgresql.ARRAY)):
             item_type = cls._get_type_from_type_engine(column.type.item_type)
-            annotation = List[item_type]  # type: ignore[valid-type]
+            annotation = list[item_type]  # type: ignore[valid-type]
         else:
             annotation = cls._get_type_from_type_engine(column.type)
 
@@ -224,6 +232,60 @@ class SQLAlchemyFactory(Generic[T], BaseFactory[T]):
             annotation = Union[annotation, None]  # type: ignore[assignment]
 
         return annotation
+
+    @classmethod
+    def get_type_from_collection_class(
+        cls,
+        collection_class: type[Collection[Any]] | Callable[[], Collection[Any]],
+        entity_class: Any,
+    ) -> type[Any]:
+        annotation: type[Any]
+
+        if isinstance(collection_class, type):
+            if issubclass(collection_class, Mapping):
+                annotation = dict[Any, entity_class]
+            else:
+                if not (duck_typed_as := duck_type_collection(collection_class)):
+                    msg = f"Cannot infer type from collection_class {collection_class}"
+                    raise ConfigurationException(
+                        msg,
+                    )
+
+                annotation = duck_typed_as[entity_class]  # pyright: ignore[reportIndexIssue]
+        else:
+            annotation = dict[Any, entity_class]
+
+        return annotation
+
+    @classmethod
+    def _get_relationship_type(cls, relationship: RelationshipProperty[Any]) -> type:
+        class_ = relationship.entity.class_
+        annotation: type
+
+        if relationship.uselist:
+            collection_class = relationship.collection_class
+            if collection_class is None:
+                annotation = list[class_]  # type: ignore[valid-type]
+            else:
+                annotation = cls.get_type_from_collection_class(collection_class, class_)
+        else:
+            annotation = class_
+
+        return annotation
+
+    @classmethod
+    def _get_association_proxy_type(cls, table: Mapper, proxy: AssociationProxy) -> type | None:
+        target_collection = table.relationships.get(proxy.target_collection)
+        if not target_collection:
+            return None
+
+        target_class = target_collection.entity.class_
+        target_attr = getattr(target_class, proxy.value_attr)
+        if not target_attr:
+            return None
+
+        class_ = target_attr.entity.class_
+        return class_ if not target_collection.uselist else list[class_]  # type: ignore[valid-type]
 
     @classmethod
     def get_model_fields(cls) -> list[FieldMeta]:
@@ -240,30 +302,33 @@ class SQLAlchemyFactory(Generic[T], BaseFactory[T]):
         )
         if cls.__set_relationships__:
             for name, relationship in table.relationships.items():
-                class_ = relationship.entity.class_
-                annotation = class_ if not relationship.uselist else List[class_]  # type: ignore[valid-type]
+                if not cls.should_dataclass_init_field(name):
+                    continue
+
+                annotation = cls._get_relationship_type(relationship)
                 fields_meta.append(
                     FieldMeta.from_type(
                         name=name,
                         annotation=annotation,
-                    ),
+                    )
                 )
         if cls.__set_association_proxy__:
             for name, attr in table.all_orm_descriptors.items():
                 if isinstance(attr, AssociationProxy):
-                    target_collection = table.relationships.get(attr.target_collection)
-                    if target_collection:
-                        target_class = target_collection.entity.class_
-                        target_attr = getattr(target_class, attr.value_attr)
-                        if target_attr:
-                            class_ = target_attr.entity.class_
-                            annotation = class_ if not target_collection.uselist else List[class_]  # type: ignore[valid-type]
-                            fields_meta.append(
-                                FieldMeta.from_type(
-                                    name=name,
-                                    annotation=annotation,
-                                )
+                    if not cls.should_dataclass_init_field(name):
+                        continue
+
+                    # Read-only proxies derive from the underlying relationship and shouldn't be set directly.
+                    if not getattr(attr, "creator", None):
+                        continue
+
+                    if annotation := cls._get_association_proxy_type(table, attr):  # type: ignore[assignment]
+                        fields_meta.append(
+                            FieldMeta.from_type(
+                                name=name,
+                                annotation=annotation,
                             )
+                        )
 
         return fields_meta
 

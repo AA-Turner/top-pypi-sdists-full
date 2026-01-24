@@ -51,6 +51,14 @@ class _LibChecker:
     def botocore(self) -> bool:
         return self._check("botocore")
 
+    @property
+    def laspy(self) -> bool:
+        return self._check("laspy")
+
+    @property
+    def copc(self) -> bool:
+        return self._check("laspy") and self._check("lazrs")
+
     @staticmethod
     def _check(lib_name: str) -> bool:
         return importlib.util.find_spec(lib_name) is not None
@@ -71,7 +79,7 @@ def __dir__():
     return [*__all__, "is_dask_collection"]
 
 
-def __getattr__(name):
+def __getattr__(name: str):
     if name == "is_dask_collection":
         if have.dask:
             import dask

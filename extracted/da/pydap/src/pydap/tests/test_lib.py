@@ -4,7 +4,6 @@ import unittest
 from sys import maxsize as MAXSIZE
 
 import numpy as np
-import pytest
 
 from pydap.exceptions import ConstraintExpressionError
 from pydap.lib import (
@@ -15,7 +14,6 @@ from pydap.lib import (
     fix_slice,
     get_var,
     hyperslab,
-    recover_missing_url,
     tree,
     walk,
 )
@@ -147,9 +145,26 @@ class TestFixSlice(unittest.TestCase):
 
     def test_non_zero_slicestart(self):
         x = np.arange(0, 100)
-        slice1 = slice(100, 200)
+        slice1 = slice(50, 100)
         slice2 = fix_slice(slice1, x.shape)
-        self.assertEqual(slice2, (slice(100, 200, 1),))
+        self.assertEqual(slice2, (slice(50, 100, 1),))
+
+    def test_non_zero_slicestart_projection(self):
+        """test fix_slice with projection=True. This is used when
+        CE includes projection (`[start:stop:step]) that results
+        in a slice whose stop element is greater than the dimension size.
+        """
+        x = np.arange(0, 100)
+        sub_x = x[:50]
+        slice1 = slice(50, 100)
+        slice2 = fix_slice(slice1, sub_x.shape, projection=True)
+        self.assertEqual(slice2, (slice(50, 100, 1),))
+
+    def test_last_index_slicestart(self):
+        x = np.arange(0, 100)
+        slice1 = slice(-1, None, None)
+        slice2 = fix_slice(slice1, x.shape)
+        self.assertEqual(slice2, (slice(99, 100, 1),))
 
 
 class TestCombineSlices(unittest.TestCase):
@@ -303,64 +318,3 @@ class TestGetVar(unittest.TestCase):
         dataset["b"]["c"] = BaseType("c")
 
         self.assertEqual(get_var(dataset, "b.c"), dataset["b"]["c"])
-
-
-url1 = "http://test.opendap.org/opendap/hyrax/data/nc/coads_climatology.nc"
-url2 = "http://test.opendap.org/opendap/hyrax/data/nc/coads_climatology2.nc"
-
-
-@pytest.mark.parametrize(
-    "queries",
-    [
-        [
-            ".dap?dap4.ce="
-            + "COADSX%5B0%3A1%3A179%5D%3BCOADSY%5B0%3A1%3A89%5D&dap4.checksum=true",
-            ".dap?dap4.ce=" + "TIME%5B0%3A1%3A11%5D&dap4.checksum=true",
-            ".dmr",
-        ],
-    ],
-)
-@pytest.mark.parametrize("baseurl", [url1, url2])
-def test_recover_missing_url(queries, baseurl):
-    """
-    This test requires emulating the behavior of `consolidate_metadata` with
-    `concat_dim=TIME", for the present list composed of [url1, url2].
-    `consolidate_metadata` caches/creates a list of dap responses one per granule
-    of array `TIME`, but only downloads/caches the response of one of the url
-    for the rest of the dimensions. The function tested recovers the reused dap url
-    for any given `baseurl`, and returns both that reusable dap url, and any present
-    dap url that matches the `baseurl` (e.g. that of `TIME`).
-
-    """
-
-    url1 = "http://test.opendap.org/opendap/hyrax/data/nc/coads_climatology.nc"
-    url2 = "http://test.opendap.org/opendap/hyrax/data/nc/coads_climatology2.nc"
-
-    # the following 4 urls are typically expected:
-    urls1 = [
-        url1 + query for query in queries if not query.startswith(".dap?dap4.ce=COADSX")
-    ]
-    urls2 = [
-        url2 + query for query in queries if not query.startswith(".dap?dap4.ce=COADSX")
-    ]
-    cached_urls = urls1 + urls2
-
-    # we add the dap url that is cached and test that we can recover ir from the
-    # baseurl that is not cached
-    if baseurl == url1:
-        # add url2 to the cached list, with the correct query parameters
-        cached_dap = [
-            url2 + query for query in queries if query.startswith(".dap?dap4.ce=COADSX")
-        ]
-    elif baseurl == url2:
-        # add url1 to the cached list, with the correct query parameters
-        cached_dap = [
-            url1 + query for query in queries if query.startswith(".dap?dap4.ce=COADSX")
-        ]
-
-    cached_urls += cached_dap
-
-    miss_url, current_dap = recover_missing_url(cached_urls, baseurl)
-
-    # assert that simply from base url I can recored the correct cached dap url
-    assert miss_url == cached_dap

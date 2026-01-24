@@ -1,10 +1,13 @@
 from __future__ import annotations
+import datetime
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from kiota_abstractions.serialization import Parsable, ParseNode, SerializationWriter
 from typing import Any, Optional, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
+    from .application_risk_factors import ApplicationRiskFactors
+    from .application_risk_score import ApplicationRiskScore
     from .configuration_uri import ConfigurationUri
     from .entity import Entity
     from .informational_urls import InformationalUrls
@@ -14,24 +17,32 @@ from .entity import Entity
 
 @dataclass
 class ApplicationTemplate(Entity, Parsable):
-    # The list of categories for the application. Supported values can be: Collaboration, Business Management, Consumer, Content management, CRM, Data services, Developer services, E-commerce, Education, ERP, Finance, Health, Human resources, IT infrastructure, Mail, Management, Marketing, Media, Productivity, Project management, Telecommunications, Tools, Travel, and Web design & hosting.
+    # The list of categories for the application. Supported values can be: Collaboration, Business Management, Consumer, Content management, CRM, Data services, Developer services, E-commerce, Education, ERP, Finance, Health, Human resources, IT infrastructure, Mail, Management, Marketing, Media, Productivity, Project management, Telecommunications, Tools, Travel, and Web design & hosting.  Supports $filter (contains).
     categories: Optional[list[str]] = None
     # The URIs required for the single sign-on configuration of a preintegrated application.
     configuration_uris: Optional[list[ConfigurationUri]] = None
     # A description of the application.
     description: Optional[str] = None
-    # The name of the application.
+    # The name of the application. Supports $filter (contains).
     display_name: Optional[str] = None
+    # A collection of string URLs representing various domains that are used by this application.
+    endpoints: Optional[list[str]] = None
     # The home page URL of the application.
     home_page_url: Optional[str] = None
     # The informationalUrls property
     informational_urls: Optional[InformationalUrls] = None
+    # The date and time when the data for the application was last updated, represented using ISO 8601 format and always in UTC time.
+    last_modified_date_time: Optional[datetime.datetime] = None
     # The URL to get the logo for this application.
     logo_url: Optional[str] = None
     # The OdataType property
     odata_type: Optional[str] = None
     # The name of the publisher for this application.
     publisher: Optional[str] = None
+    # General business and operational information about the application provider. Returned only when $select is used.
+    risk_factors: Optional[ApplicationRiskFactors] = None
+    # Represents the Microsoft-generated numerical risk score assessment for the application. Supported $orderby on total (for example, $orderBy=riskScore/total desc). Returned only when $select is used.
+    risk_score: Optional[ApplicationRiskScore] = None
     # The supportedClaimConfiguration property
     supported_claim_configuration: Optional[SupportedClaimConfiguration] = None
     # The list of provisioning modes supported by this application. The only valid value is sync.
@@ -55,11 +66,15 @@ class ApplicationTemplate(Entity, Parsable):
         The deserialization information for the current model
         Returns: dict[str, Callable[[ParseNode], None]]
         """
+        from .application_risk_factors import ApplicationRiskFactors
+        from .application_risk_score import ApplicationRiskScore
         from .configuration_uri import ConfigurationUri
         from .entity import Entity
         from .informational_urls import InformationalUrls
         from .supported_claim_configuration import SupportedClaimConfiguration
 
+        from .application_risk_factors import ApplicationRiskFactors
+        from .application_risk_score import ApplicationRiskScore
         from .configuration_uri import ConfigurationUri
         from .entity import Entity
         from .informational_urls import InformationalUrls
@@ -70,10 +85,14 @@ class ApplicationTemplate(Entity, Parsable):
             "configurationUris": lambda n : setattr(self, 'configuration_uris', n.get_collection_of_object_values(ConfigurationUri)),
             "description": lambda n : setattr(self, 'description', n.get_str_value()),
             "displayName": lambda n : setattr(self, 'display_name', n.get_str_value()),
+            "endpoints": lambda n : setattr(self, 'endpoints', n.get_collection_of_primitive_values(str)),
             "homePageUrl": lambda n : setattr(self, 'home_page_url', n.get_str_value()),
             "informationalUrls": lambda n : setattr(self, 'informational_urls', n.get_object_value(InformationalUrls)),
+            "lastModifiedDateTime": lambda n : setattr(self, 'last_modified_date_time', n.get_datetime_value()),
             "logoUrl": lambda n : setattr(self, 'logo_url', n.get_str_value()),
             "publisher": lambda n : setattr(self, 'publisher', n.get_str_value()),
+            "riskFactors": lambda n : setattr(self, 'risk_factors', n.get_object_value(ApplicationRiskFactors)),
+            "riskScore": lambda n : setattr(self, 'risk_score', n.get_object_value(ApplicationRiskScore)),
             "supportedClaimConfiguration": lambda n : setattr(self, 'supported_claim_configuration', n.get_object_value(SupportedClaimConfiguration)),
             "supportedProvisioningTypes": lambda n : setattr(self, 'supported_provisioning_types', n.get_collection_of_primitive_values(str)),
             "supportedSingleSignOnModes": lambda n : setattr(self, 'supported_single_sign_on_modes', n.get_collection_of_primitive_values(str)),
@@ -95,10 +114,14 @@ class ApplicationTemplate(Entity, Parsable):
         writer.write_collection_of_object_values("configurationUris", self.configuration_uris)
         writer.write_str_value("description", self.description)
         writer.write_str_value("displayName", self.display_name)
+        writer.write_collection_of_primitive_values("endpoints", self.endpoints)
         writer.write_str_value("homePageUrl", self.home_page_url)
         writer.write_object_value("informationalUrls", self.informational_urls)
+        writer.write_datetime_value("lastModifiedDateTime", self.last_modified_date_time)
         writer.write_str_value("logoUrl", self.logo_url)
         writer.write_str_value("publisher", self.publisher)
+        writer.write_object_value("riskFactors", self.risk_factors)
+        writer.write_object_value("riskScore", self.risk_score)
         writer.write_object_value("supportedClaimConfiguration", self.supported_claim_configuration)
         writer.write_collection_of_primitive_values("supportedProvisioningTypes", self.supported_provisioning_types)
         writer.write_collection_of_primitive_values("supportedSingleSignOnModes", self.supported_single_sign_on_modes)

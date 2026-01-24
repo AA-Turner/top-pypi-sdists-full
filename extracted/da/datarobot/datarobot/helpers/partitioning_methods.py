@@ -73,13 +73,9 @@ if TYPE_CHECKING:
         time_unit: str
 
 
-def get_class(
-    cv_method: CV_METHOD, validation_type: str
-):  # pylint: disable=missing-function-docstring
+def get_class(cv_method: CV_METHOD, validation_type: str):  # pylint: disable=missing-function-docstring
     if cv_method == CV_METHOD.DATETIME:
-        raise ValueError(
-            f"Cannot get_class for {cv_method} - use DatetimePartitioning.preview instead"
-        )
+        raise ValueError(f"Cannot get_class for {cv_method} - use DatetimePartitioning.preview instead")
     classes = {
         "CV": {
             CV_METHOD.RANDOM: RandomCV,
@@ -97,9 +93,7 @@ def get_class(
     try:
         return classes[validation_type][cv_method]
     except KeyError:
-        raise ValueError(
-            f"Error in getting class for cv_method={cv_method} and validation_type={validation_type}"
-        )
+        raise ValueError(f"Error in getting class for cv_method={cv_method} and validation_type={validation_type}")
 
 
 class PartitioningMethod(metaclass=abc.ABCMeta):  # pylint: disable=missing-class-docstring
@@ -167,11 +161,7 @@ class BasePartitioningMethod(PartitioningMethod):
 
     def __repr__(self) -> str:
         if self._data:
-            payload = {
-                k: v
-                for k, v in self._data.items()
-                if v is not None and k not in self._static_fields
-            }
+            payload = {k: v for k, v in self._data.items() if v is not None and k not in self._static_fields}
         else:
             self.collect_payload()
             return repr(self)
@@ -281,9 +271,7 @@ class GroupCV(BaseCrossValidation):
     cv_method = "group"
 
     # pylint: disable-next=super-init-not-called
-    def __init__(
-        self, holdout_pct: int, reps: int, partition_key_cols: List[str], seed: int = 0
-    ) -> None:
+    def __init__(self, holdout_pct: int, reps: int, partition_key_cols: List[str], seed: int = 0) -> None:
         self.holdout_pct = holdout_pct  # pragma: no cover
         self.reps = reps  # pragma: no cover
         self.partition_key_cols = partition_key_cols  # pragma: no cover
@@ -418,9 +406,7 @@ class GroupTVH(BaseTVH):
     cv_method = "group"
 
     # pylint: disable-next=super-init-not-called
-    def __init__(
-        self, holdout_pct: int, validation_pct: int, partition_key_cols: List[str], seed: int = 0
-    ) -> None:
+    def __init__(self, holdout_pct: int, validation_pct: int, partition_key_cols: List[str], seed: int = 0) -> None:
         self.holdout_pct = holdout_pct  # pragma: no cover
         self.validation_pct = validation_pct  # pragma: no cover
         self.partition_key_cols = partition_key_cols  # pragma: no cover
@@ -462,23 +448,21 @@ def construct_duration_string(
     return f"P{years}Y{months}M{days}DT{hours}H{minutes}M{seconds}S"
 
 
-_periodicity_converter = t.Dict(
-    {
-        t.Key("time_steps"): Int(gte=0, lte=PERIODICITY_MAX_TIME_STEP),
-        t.Key("time_unit"): t.Enum(
-            TIME_UNITS.MILLISECOND,
-            TIME_UNITS.SECOND,
-            TIME_UNITS.MINUTE,
-            TIME_UNITS.HOUR,
-            TIME_UNITS.DAY,
-            TIME_UNITS.WEEK,
-            TIME_UNITS.MONTH,
-            TIME_UNITS.QUARTER,
-            TIME_UNITS.YEAR,
-            "ROW",
-        ),
-    }
-).ignore_extra("*")
+_periodicity_converter = t.Dict({
+    t.Key("time_steps"): Int(gte=0, lte=PERIODICITY_MAX_TIME_STEP),
+    t.Key("time_unit"): t.Enum(
+        TIME_UNITS.MILLISECOND,
+        TIME_UNITS.SECOND,
+        TIME_UNITS.MINUTE,
+        TIME_UNITS.HOUR,
+        TIME_UNITS.DAY,
+        TIME_UNITS.WEEK,
+        TIME_UNITS.MONTH,
+        TIME_UNITS.QUARTER,
+        TIME_UNITS.YEAR,
+        "ROW",
+    ),
+}).ignore_extra("*")
 
 
 class Periodicity:
@@ -519,13 +503,11 @@ class Periodicity:
         return {"time_steps": self.time_steps, "time_unit": self.time_unit}
 
 
-_feature_settings_converter = t.Dict(
-    {
-        t.Key("feature_name"): String(),
-        t.Key("known_in_advance", optional=True, default=None): t.Or(t.Bool(), t.Null),
-        t.Key("do_not_derive", optional=True, default=None): t.Or(t.Bool(), t.Null),
-    }
-).ignore_extra("*")
+_feature_settings_converter = t.Dict({
+    t.Key("feature_name"): String(),
+    t.Key("known_in_advance", optional=True, default=None): t.Or(t.Bool(), t.Null),
+    t.Key("do_not_derive", optional=True, default=None): t.Or(t.Bool(), t.Null),
+}).ignore_extra("*")
 
 
 class FeatureSettings:
@@ -552,13 +534,11 @@ class FeatureSettings:
         known_in_advance: Optional[bool] = None,
         do_not_derive: Optional[bool] = None,
     ) -> None:
-        _feature_settings_converter.check(
-            {
-                "feature_name": feature_name,
-                "known_in_advance": known_in_advance,
-                "do_not_derive": do_not_derive,
-            }
-        )
+        _feature_settings_converter.check({
+            "feature_name": feature_name,
+            "known_in_advance": known_in_advance,
+            "do_not_derive": do_not_derive,
+        })
 
         self.feature_name = feature_name
         self.known_in_advance = known_in_advance
@@ -607,34 +587,31 @@ class FeatureSettings:
         )
 
     def __repr__(self) -> str:
-        return (
-            "FeatureSettings(feature_name='{feature_name}', "
-            "known_in_advance={kia}, do_not_derive={dnd})"
-        ).format(feature_name=self.feature_name, kia=self.known_in_advance, dnd=self.do_not_derive)
+        return ("FeatureSettings(feature_name='{feature_name}', known_in_advance={kia}, do_not_derive={dnd})").format(
+            feature_name=self.feature_name, kia=self.known_in_advance, dnd=self.do_not_derive
+        )
 
 
-_backtest_converter = t.Dict(
-    {
-        t.Key("index"): Int(),
-        t.Key("available_training_start_date"): parse_time,
-        t.Key("available_training_duration"): String(),
-        t.Key("available_training_row_count", optional=True): Int(),
-        t.Key("available_training_end_date"): parse_time,
-        t.Key("primary_training_start_date"): parse_time,
-        t.Key("primary_training_duration"): String(),
-        t.Key("primary_training_row_count", optional=True): Int(),
-        t.Key("primary_training_end_date"): parse_time,
-        t.Key("gap_start_date"): parse_time,
-        t.Key("gap_duration"): String(),
-        t.Key("gap_row_count", optional=True): Int(),
-        t.Key("gap_end_date"): parse_time,
-        t.Key("validation_start_date"): parse_time,
-        t.Key("validation_duration"): String(),
-        t.Key("validation_row_count", optional=True): Int(),
-        t.Key("validation_end_date"): parse_time,
-        t.Key("total_row_count", optional=True): Int(),
-    }
-).ignore_extra("*")
+_backtest_converter = t.Dict({
+    t.Key("index"): Int(),
+    t.Key("available_training_start_date"): parse_time,
+    t.Key("available_training_duration"): String(),
+    t.Key("available_training_row_count", optional=True): Int(),
+    t.Key("available_training_end_date"): parse_time,
+    t.Key("primary_training_start_date"): parse_time,
+    t.Key("primary_training_duration"): String(),
+    t.Key("primary_training_row_count", optional=True): Int(),
+    t.Key("primary_training_end_date"): parse_time,
+    t.Key("gap_start_date"): parse_time,
+    t.Key("gap_duration"): String(),
+    t.Key("gap_row_count", optional=True): Int(),
+    t.Key("gap_end_date"): parse_time,
+    t.Key("validation_start_date"): parse_time,
+    t.Key("validation_duration"): String(),
+    t.Key("validation_row_count", optional=True): Int(),
+    t.Key("validation_end_date"): parse_time,
+    t.Key("total_row_count", optional=True): Int(),
+}).ignore_extra("*")
 
 _duration_backtest_fields = {"gap_duration", "validation_start_date", "validation_duration"}
 _start_end_backtest_fields = {
@@ -645,17 +622,15 @@ _start_end_backtest_fields = {
 }
 
 
-_backtest_specification_converter = t.Dict(
-    {
-        t.Key("index"): Int(),
-        t.Key("primary_training_start_date", optional=True): parse_time,
-        t.Key("primary_training_end_date", optional=True): parse_time,
-        t.Key("gap_duration", optional=True): String(),
-        t.Key("validation_start_date", optional=True): parse_time,
-        t.Key("validation_duration", optional=True): String(),
-        t.Key("validation_end_date", optional=True): parse_time,
-    }
-).ignore_extra("*")
+_backtest_specification_converter = t.Dict({
+    t.Key("index"): Int(),
+    t.Key("primary_training_start_date", optional=True): parse_time,
+    t.Key("primary_training_end_date", optional=True): parse_time,
+    t.Key("gap_duration", optional=True): String(),
+    t.Key("validation_start_date", optional=True): parse_time,
+    t.Key("validation_duration", optional=True): String(),
+    t.Key("validation_end_date", optional=True): parse_time,
+}).ignore_extra("*")
 
 
 class BacktestSpecification:
@@ -765,13 +740,9 @@ class BacktestSpecification:
         self._validate_datetimes()
         payload = {"index": self.index}
         if all(getattr(self, field, None) for field in _duration_backtest_fields):
-            payload.update(
-                {field: getattr(self, field, None) for field in _duration_backtest_fields}
-            )
+            payload.update({field: getattr(self, field, None) for field in _duration_backtest_fields})
         elif all(getattr(self, field, None) for field in _start_end_backtest_fields):
-            payload.update(
-                {field: getattr(self, field, None) for field in _start_end_backtest_fields}
-            )
+            payload.update({field: getattr(self, field, None) for field in _start_end_backtest_fields})
         else:
             raise InvalidUsageError(
                 "Only one of (gap_duration, validation_duration, validation_start_date) or "
@@ -932,25 +903,19 @@ class Backtest:
         """
         display_dict = {
             "start_date": {
-                "backtest_{}_available_training".format(
-                    self.index
-                ): self.available_training_start_date,
+                "backtest_{}_available_training".format(self.index): self.available_training_start_date,
                 f"backtest_{self.index}_primary_training": self.primary_training_start_date,
                 f"backtest_{self.index}_gap": self.gap_start_date,
                 f"backtest_{self.index}_validation": self.validation_start_date,
             },
             "duration": {
-                "backtest_{}_available_training".format(
-                    self.index
-                ): self.available_training_duration,
+                "backtest_{}_available_training".format(self.index): self.available_training_duration,
                 f"backtest_{self.index}_primary_training": self.primary_training_duration,
                 f"backtest_{self.index}_gap": self.gap_duration,
                 f"backtest_{self.index}_validation": self.validation_duration,
             },
             "end_date": {
-                "backtest_{}_available_training".format(
-                    self.index
-                ): self.available_training_end_date,
+                "backtest_{}_available_training".format(self.index): self.available_training_end_date,
                 f"backtest_{self.index}_primary_training": self.primary_training_end_date,
                 f"backtest_{self.index}_gap": self.gap_end_date,
                 f"backtest_{self.index}_validation": self.validation_end_date,
@@ -1104,63 +1069,61 @@ class DatetimePartitioningSpecification(PartitioningMethod, UpdateAttributesMixi
         If not specified then the project defaults to 'anomaly' when ``unsupervised_mode`` is True.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("datetime_partition_column"): String(),
-            t.Key("autopilot_data_selection_method", optional=True): String(),
-            t.Key("validation_duration", optional=True): String(),
-            t.Key("holdout_start_date", optional=True): parse_time,
-            t.Key("holdout_end_date", optional=True): parse_time,
-            t.Key("holdout_duration", optional=True): String(),
-            t.Key("disable_holdout", optional=True): t.Bool(),
-            t.Key("gap_duration", optional=True): String(),
-            t.Key("number_of_backtests", optional=True): Int(),
-            t.Key("backtests", optional=True): t.List(_backtest_specification_converter),
-            t.Key("use_time_series", optional=True): t.Bool(),
-            t.Key("default_to_known_in_advance", optional=True): t.Bool(),
-            t.Key("default_to_do_not_derive", optional=True): t.Bool(),
-            t.Key("feature_derivation_window_start", optional=True): Int(),
-            t.Key("feature_derivation_window_end", optional=True): Int(),
-            t.Key("feature_settings", optional=True): t.List(_feature_settings_converter),
-            t.Key("forecast_window_start", optional=True): Int(),
-            t.Key("forecast_window_end", optional=True): Int(),
-            t.Key("windows_basis_unit", optional=True): t.Enum(
-                TIME_UNITS.MILLISECOND,
-                TIME_UNITS.SECOND,
-                TIME_UNITS.MINUTE,
-                TIME_UNITS.HOUR,
-                TIME_UNITS.DAY,
-                TIME_UNITS.WEEK,
-                TIME_UNITS.MONTH,
-                TIME_UNITS.QUARTER,
-                TIME_UNITS.YEAR,
-                "ROW",
-            ),
-            t.Key("treat_as_exponential", optional=True): t.Enum(
-                TREAT_AS_EXPONENTIAL.ALWAYS, TREAT_AS_EXPONENTIAL.NEVER, TREAT_AS_EXPONENTIAL.AUTO
-            ),
-            t.Key("differencing_method", optional=True): t.Enum(
-                DIFFERENCING_METHOD.AUTO,
-                DIFFERENCING_METHOD.SIMPLE,
-                DIFFERENCING_METHOD.NONE,
-                DIFFERENCING_METHOD.SEASONAL,
-            ),
-            t.Key("periodicities", optional=True): t.List(_periodicity_converter),
-            t.Key("multiseries_id_columns", optional=True): t.List(String()),
-            t.Key("use_cross_series_features", optional=True): t.Bool,
-            t.Key("aggregation_type", optional=True): t.Enum(
-                SERIES_AGGREGATION_TYPE.AVERAGE, SERIES_AGGREGATION_TYPE.TOTAL
-            ),
-            t.Key("cross_series_group_by_columns", optional=True): t.List(String()),
-            t.Key("calendar_id", optional=True): String(),
-            t.Key("unsupervised_mode", optional=True): t.Bool(),
-            t.Key("model_splits", optional=True): Int(),
-            t.Key("allow_partial_history_time_series_predictions", optional=True): t.Bool,
-            t.Key("unsupervised_type", optional=True): t.Enum(
-                UnsupervisedTypeEnum.ANOMALY, UnsupervisedTypeEnum.CLUSTERING
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("datetime_partition_column"): String(),
+        t.Key("autopilot_data_selection_method", optional=True): String(),
+        t.Key("validation_duration", optional=True): String(),
+        t.Key("holdout_start_date", optional=True): parse_time,
+        t.Key("holdout_end_date", optional=True): parse_time,
+        t.Key("holdout_duration", optional=True): String(),
+        t.Key("disable_holdout", optional=True): t.Bool(),
+        t.Key("gap_duration", optional=True): String(),
+        t.Key("number_of_backtests", optional=True): Int(),
+        t.Key("backtests", optional=True): t.List(_backtest_specification_converter),
+        t.Key("use_time_series", optional=True): t.Bool(),
+        t.Key("default_to_known_in_advance", optional=True): t.Bool(),
+        t.Key("default_to_do_not_derive", optional=True): t.Bool(),
+        t.Key("feature_derivation_window_start", optional=True): Int(),
+        t.Key("feature_derivation_window_end", optional=True): Int(),
+        t.Key("feature_settings", optional=True): t.List(_feature_settings_converter),
+        t.Key("forecast_window_start", optional=True): Int(),
+        t.Key("forecast_window_end", optional=True): Int(),
+        t.Key("windows_basis_unit", optional=True): t.Enum(
+            TIME_UNITS.MILLISECOND,
+            TIME_UNITS.SECOND,
+            TIME_UNITS.MINUTE,
+            TIME_UNITS.HOUR,
+            TIME_UNITS.DAY,
+            TIME_UNITS.WEEK,
+            TIME_UNITS.MONTH,
+            TIME_UNITS.QUARTER,
+            TIME_UNITS.YEAR,
+            "ROW",
+        ),
+        t.Key("treat_as_exponential", optional=True): t.Enum(
+            TREAT_AS_EXPONENTIAL.ALWAYS, TREAT_AS_EXPONENTIAL.NEVER, TREAT_AS_EXPONENTIAL.AUTO
+        ),
+        t.Key("differencing_method", optional=True): t.Enum(
+            DIFFERENCING_METHOD.AUTO,
+            DIFFERENCING_METHOD.SIMPLE,
+            DIFFERENCING_METHOD.NONE,
+            DIFFERENCING_METHOD.SEASONAL,
+        ),
+        t.Key("periodicities", optional=True): t.List(_periodicity_converter),
+        t.Key("multiseries_id_columns", optional=True): t.List(String()),
+        t.Key("use_cross_series_features", optional=True): t.Bool,
+        t.Key("aggregation_type", optional=True): t.Enum(
+            SERIES_AGGREGATION_TYPE.AVERAGE, SERIES_AGGREGATION_TYPE.TOTAL
+        ),
+        t.Key("cross_series_group_by_columns", optional=True): t.List(String()),
+        t.Key("calendar_id", optional=True): String(),
+        t.Key("unsupervised_mode", optional=True): t.Bool(),
+        t.Key("model_splits", optional=True): Int(),
+        t.Key("allow_partial_history_time_series_predictions", optional=True): t.Bool,
+        t.Key("unsupervised_type", optional=True): t.Enum(
+            UnsupervisedTypeEnum.ANOMALY, UnsupervisedTypeEnum.CLUSTERING
+        ),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -1225,9 +1188,7 @@ class DatetimePartitioningSpecification(PartitioningMethod, UpdateAttributesMixi
         self.calendar_id = calendar_id
         self.unsupervised_mode = unsupervised_mode
         self.model_splits = model_splits
-        self.allow_partial_history_time_series_predictions = (
-            allow_partial_history_time_series_predictions
-        )
+        self.allow_partial_history_time_series_predictions = allow_partial_history_time_series_predictions
         self.unsupervised_type = unsupervised_type
 
     def collect_payload(self) -> Dict[str, Any]:
@@ -1240,14 +1201,8 @@ class DatetimePartitioningSpecification(PartitioningMethod, UpdateAttributesMixi
                 'Only one of "holdout_duration" and "holdout_end_date" can be used to specify '
                 "holdout partitioning settings."
             )
-        feature_settings = (
-            [fs.collect_payload() for fs in self.feature_settings]
-            if self.feature_settings
-            else None
-        )
-        periodicities = (
-            [p.collect_payload() for p in self.periodicities] if self.periodicities else None
-        )
+        feature_settings = [fs.collect_payload() for fs in self.feature_settings] if self.feature_settings else None
+        periodicities = [p.collect_payload() for p in self.periodicities] if self.periodicities else None
         payload = {
             "datetime_partition_column": self.datetime_partition_column,
             "autopilot_data_selection_method": self.autopilot_data_selection_method,
@@ -1275,9 +1230,7 @@ class DatetimePartitioningSpecification(PartitioningMethod, UpdateAttributesMixi
             "cross_series_group_by_columns": self.cross_series_group_by_columns,
             "calendar_id": self.calendar_id,
             "model_splits": self.model_splits,
-            "allow_partial_history_time_series_predictions": (
-                self.allow_partial_history_time_series_predictions
-            ),
+            "allow_partial_history_time_series_predictions": (self.allow_partial_history_time_series_predictions),
         }
         if self.unsupervised_mode:
             payload["unsupervised_mode"] = self.unsupervised_mode
@@ -1300,9 +1253,7 @@ class DatetimePartitioningSpecification(PartitioningMethod, UpdateAttributesMixi
         )
 
         datetime_part = Feature.get(project_id, self.datetime_partition_column)
-        props = datetime_part.get_multiseries_properties(
-            self.multiseries_id_columns, max_wait=max_wait
-        )
+        props = datetime_part.get_multiseries_properties(self.multiseries_id_columns, max_wait=max_wait)
         if not props["time_series_eligible"]:
             msg = (
                 "The selected datetime partition and multiseries id columns are not eligible for"
@@ -1339,17 +1290,14 @@ class DatetimePartitioningSpecification(PartitioningMethod, UpdateAttributesMixi
         converted_data = cls._converter.check(from_api(data))
         if "backtests" in converted_data:
             converted_data["backtests"] = [
-                BacktestSpecification(**backtest_data)
-                for backtest_data in converted_data["backtests"]
+                BacktestSpecification(**backtest_data) for backtest_data in converted_data["backtests"]
             ]
         if "feature_settings" in converted_data:
             converted_data["feature_settings"] = [
                 FeatureSettings.from_server_data(**fs) for fs in converted_data["feature_settings"]
             ] or None
         if "periodicities" in converted_data:
-            converted_data["periodicities"] = [
-                Periodicity(**p) for p in converted_data["periodicities"]
-            ]
+            converted_data["periodicities"] = [Periodicity(**p) for p in converted_data["periodicities"]]
         return cls(**converted_data)
 
 
@@ -1542,82 +1490,80 @@ class DatetimePartitioning:
     """
 
     _client = staticproperty(get_client)
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String(),
-            t.Key("datetime_partitioning_id", optional=True): t.Or(String(), t.Null),
-            t.Key("datetime_partition_column"): String(),
-            t.Key("date_format"): String(),
-            t.Key("autopilot_data_selection_method"): String(),
-            t.Key("validation_duration", optional=True): String(),
-            t.Key("available_training_start_date"): parse_time,
-            t.Key("available_training_duration"): String(),
-            t.Key("available_training_row_count", optional=True): Int(),
-            t.Key("available_training_end_date"): parse_time,
-            t.Key("primary_training_start_date", optional=True): parse_time,
-            t.Key("primary_training_duration"): String(),
-            t.Key("primary_training_row_count", optional=True): Int(),
-            t.Key("primary_training_end_date", optional=True): parse_time,
-            t.Key("gap_start_date", optional=True): parse_time,
-            t.Key("gap_duration"): String(),
-            t.Key("gap_row_count", optional=True): Int(),
-            t.Key("gap_end_date", optional=True): parse_time,
-            t.Key("disable_holdout", optional=True): t.Bool,
-            t.Key("holdout_start_date", optional=True): parse_time,
-            t.Key("holdout_duration"): String(),
-            t.Key("holdout_row_count", optional=True): Int(),
-            t.Key("holdout_end_date", optional=True): parse_time,
-            t.Key("number_of_backtests"): Int(),
-            t.Key("backtests"): t.List(_backtest_converter),
-            t.Key("total_row_count", optional=True): Int(),
-            t.Key("use_time_series", optional=True, default=False): t.Bool(),
-            t.Key("default_to_known_in_advance", optional=True, default=False): t.Bool(),
-            t.Key("default_to_do_not_derive", optional=True, default=False): t.Bool(),
-            t.Key("feature_derivation_window_start", optional=True): Int(),
-            t.Key("feature_derivation_window_end", optional=True): Int(),
-            t.Key("feature_settings", optional=True): t.List(_feature_settings_converter),
-            t.Key("forecast_window_start", optional=True): Int(),
-            t.Key("forecast_window_end", optional=True): Int(),
-            t.Key("windows_basis_unit", optional=True): t.Enum(
-                TIME_UNITS.MILLISECOND,
-                TIME_UNITS.SECOND,
-                TIME_UNITS.MINUTE,
-                TIME_UNITS.HOUR,
-                TIME_UNITS.DAY,
-                TIME_UNITS.WEEK,
-                TIME_UNITS.MONTH,
-                TIME_UNITS.QUARTER,
-                TIME_UNITS.YEAR,
-                "ROW",
-            ),
-            t.Key("treat_as_exponential", optional=True): t.Enum(
-                TREAT_AS_EXPONENTIAL.ALWAYS, TREAT_AS_EXPONENTIAL.NEVER, TREAT_AS_EXPONENTIAL.AUTO
-            ),
-            t.Key("differencing_method", optional=True): t.Enum(
-                DIFFERENCING_METHOD.AUTO,
-                DIFFERENCING_METHOD.SIMPLE,
-                DIFFERENCING_METHOD.NONE,
-                DIFFERENCING_METHOD.SEASONAL,
-            ),
-            t.Key("periodicities", optional=True): t.List(_periodicity_converter),
-            t.Key("multiseries_id_columns", optional=True): t.List(String()),
-            t.Key("number_of_known_in_advance_features"): Int(),
-            t.Key("number_of_do_not_derive_features"): Int(),
-            t.Key("use_cross_series_features", optional=True): t.Bool,
-            t.Key("aggregation_type", optional=True): t.Enum(
-                SERIES_AGGREGATION_TYPE.AVERAGE, SERIES_AGGREGATION_TYPE.TOTAL
-            ),
-            t.Key("cross_series_group_by_columns", optional=True): t.List(String()),
-            t.Key("calendar_id", optional=True): String(),
-            t.Key("calendar_name", optional=True): String(),
-            t.Key("model_splits", optional=True): Int(),
-            t.Key("allow_partial_history_time_series_predictions", optional=True): t.Bool,
-            t.Key("unsupervised_mode", optional=True): t.Bool,
-            t.Key("unsupervised_type", optional=True): t.Enum(
-                UnsupervisedTypeEnum.ANOMALY, UnsupervisedTypeEnum.CLUSTERING
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String(),
+        t.Key("datetime_partitioning_id", optional=True): t.Or(String(), t.Null),
+        t.Key("datetime_partition_column"): String(),
+        t.Key("date_format"): String(),
+        t.Key("autopilot_data_selection_method"): String(),
+        t.Key("validation_duration", optional=True): String(),
+        t.Key("available_training_start_date"): parse_time,
+        t.Key("available_training_duration"): String(),
+        t.Key("available_training_row_count", optional=True): Int(),
+        t.Key("available_training_end_date"): parse_time,
+        t.Key("primary_training_start_date", optional=True): parse_time,
+        t.Key("primary_training_duration"): String(),
+        t.Key("primary_training_row_count", optional=True): Int(),
+        t.Key("primary_training_end_date", optional=True): parse_time,
+        t.Key("gap_start_date", optional=True): parse_time,
+        t.Key("gap_duration"): String(),
+        t.Key("gap_row_count", optional=True): Int(),
+        t.Key("gap_end_date", optional=True): parse_time,
+        t.Key("disable_holdout", optional=True): t.Bool,
+        t.Key("holdout_start_date", optional=True): parse_time,
+        t.Key("holdout_duration"): String(),
+        t.Key("holdout_row_count", optional=True): Int(),
+        t.Key("holdout_end_date", optional=True): parse_time,
+        t.Key("number_of_backtests"): Int(),
+        t.Key("backtests"): t.List(_backtest_converter),
+        t.Key("total_row_count", optional=True): Int(),
+        t.Key("use_time_series", optional=True, default=False): t.Bool(),
+        t.Key("default_to_known_in_advance", optional=True, default=False): t.Bool(),
+        t.Key("default_to_do_not_derive", optional=True, default=False): t.Bool(),
+        t.Key("feature_derivation_window_start", optional=True): Int(),
+        t.Key("feature_derivation_window_end", optional=True): Int(),
+        t.Key("feature_settings", optional=True): t.List(_feature_settings_converter),
+        t.Key("forecast_window_start", optional=True): Int(),
+        t.Key("forecast_window_end", optional=True): Int(),
+        t.Key("windows_basis_unit", optional=True): t.Enum(
+            TIME_UNITS.MILLISECOND,
+            TIME_UNITS.SECOND,
+            TIME_UNITS.MINUTE,
+            TIME_UNITS.HOUR,
+            TIME_UNITS.DAY,
+            TIME_UNITS.WEEK,
+            TIME_UNITS.MONTH,
+            TIME_UNITS.QUARTER,
+            TIME_UNITS.YEAR,
+            "ROW",
+        ),
+        t.Key("treat_as_exponential", optional=True): t.Enum(
+            TREAT_AS_EXPONENTIAL.ALWAYS, TREAT_AS_EXPONENTIAL.NEVER, TREAT_AS_EXPONENTIAL.AUTO
+        ),
+        t.Key("differencing_method", optional=True): t.Enum(
+            DIFFERENCING_METHOD.AUTO,
+            DIFFERENCING_METHOD.SIMPLE,
+            DIFFERENCING_METHOD.NONE,
+            DIFFERENCING_METHOD.SEASONAL,
+        ),
+        t.Key("periodicities", optional=True): t.List(_periodicity_converter),
+        t.Key("multiseries_id_columns", optional=True): t.List(String()),
+        t.Key("number_of_known_in_advance_features"): Int(),
+        t.Key("number_of_do_not_derive_features"): Int(),
+        t.Key("use_cross_series_features", optional=True): t.Bool,
+        t.Key("aggregation_type", optional=True): t.Enum(
+            SERIES_AGGREGATION_TYPE.AVERAGE, SERIES_AGGREGATION_TYPE.TOTAL
+        ),
+        t.Key("cross_series_group_by_columns", optional=True): t.List(String()),
+        t.Key("calendar_id", optional=True): String(),
+        t.Key("calendar_name", optional=True): String(),
+        t.Key("model_splits", optional=True): Int(),
+        t.Key("allow_partial_history_time_series_predictions", optional=True): t.Bool,
+        t.Key("unsupervised_mode", optional=True): t.Bool,
+        t.Key("unsupervised_type", optional=True): t.Enum(
+            UnsupervisedTypeEnum.ANOMALY, UnsupervisedTypeEnum.CLUSTERING
+        ),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -1719,26 +1665,20 @@ class DatetimePartitioning:
         self.calendar_id = calendar_id
         self.calendar_name = calendar_name
         self.model_splits = model_splits
-        self.allow_partial_history_time_series_predictions = (
-            allow_partial_history_time_series_predictions
-        )
+        self.allow_partial_history_time_series_predictions = allow_partial_history_time_series_predictions
         self.unsupervised_mode = unsupervised_mode
         self.unsupervised_type = unsupervised_type
 
     @classmethod
     def from_server_data(cls, data):  # pylint: disable=missing-function-docstring
         converted_data = cls._converter.check(from_api(data))
-        converted_data["backtests"] = [
-            Backtest(**backtest_data) for backtest_data in converted_data["backtests"]
-        ]
+        converted_data["backtests"] = [Backtest(**backtest_data) for backtest_data in converted_data["backtests"]]
         if "feature_settings" in converted_data:
             converted_data["feature_settings"] = [
                 FeatureSettings.from_server_data(**fs) for fs in converted_data["feature_settings"]
             ] or None
         if "periodicities" in converted_data:
-            converted_data["periodicities"] = [
-                Periodicity(**p) for p in converted_data["periodicities"]
-            ]
+            converted_data["periodicities"] = [Periodicity(**p) for p in converted_data["periodicities"]]
         return cls(**converted_data)
 
     @classmethod
@@ -1794,9 +1734,7 @@ class DatetimePartitioning:
             response = cls._client.post(url, data=payload)
             return cls.from_server_data(response.json())
         else:
-            return cls.generate_optimized(
-                project_id=project_id, spec=spec, target=target, max_wait=max_wait
-            )
+            return cls.generate_optimized(project_id=project_id, spec=spec, target=target, max_wait=max_wait)
 
     @classmethod
     def get(cls, project_id: str) -> "DatetimePartitioning":
@@ -1857,9 +1795,7 @@ class DatetimePartitioning:
         response = cls._client.post(url, data=payload)
         finished_url = wait_for_async_resolution(cls._client, response.headers["Location"])
         finished_response = cls._client.get(finished_url)
-        response_with_partition_id = cls._add_datetime_partition_id_to_response(
-            finished_response, finished_url
-        )
+        response_with_partition_id = cls._add_datetime_partition_id_to_response(finished_response, finished_url)
         return cls.from_server_data(response_with_partition_id)
 
     @classmethod
@@ -1870,9 +1806,7 @@ class DatetimePartitioning:
         return response_with_partition_id
 
     @classmethod
-    def get_optimized(
-        cls, project_id: str, datetime_partitioning_id: str
-    ) -> "DatetimePartitioning":
+    def get_optimized(cls, project_id: str, datetime_partitioning_id: str) -> "DatetimePartitioning":
         """Retrieve an Optimized DatetimePartitioning from a project for the specified
         datetime_partitioning_id. A datetime_partitioning_id is created by using the
         :meth:`generate_optimized<datarobot.DatetimePartitioning.generate_optimized>` function.
@@ -1888,17 +1822,13 @@ class DatetimePartitioning:
         -------
         DatetimePartitioning : the full partitioning for the project
         """
-        url = "projects/{}/optimizedDatetimePartitionings/{}/".format(
-            project_id, datetime_partitioning_id
-        )
+        url = "projects/{}/optimizedDatetimePartitionings/{}/".format(project_id, datetime_partitioning_id)
         response = cls._client.get(url)
         response_with_partition_id = cls._add_datetime_partition_id_to_response(response, url)
         return cls.from_server_data(response_with_partition_id)
 
     @classmethod
-    def feature_log_list(
-        cls, project_id: str, offset: Optional[int] = None, limit: Optional[int] = None
-    ) -> Any:
+    def feature_log_list(cls, project_id: str, offset: Optional[int] = None, limit: Optional[int] = None) -> Any:
         """Retrieve the feature derivation log content and log length for a time series project.
 
         The Time Series Feature Log provides details about the feature generation process for a
@@ -2021,9 +1951,7 @@ class DatetimePartitioning:
             "holdout_start_date": self.holdout_start_date,
             "gap_duration": self.gap_duration,
             "number_of_backtests": self.number_of_backtests,
-            "backtests": [
-                bt.to_specification(use_backtest_start_end_format) for bt in self.backtests
-            ],
+            "backtests": [bt.to_specification(use_backtest_start_end_format) for bt in self.backtests],
             "use_time_series": self.use_time_series,
             "default_to_known_in_advance": self.default_to_known_in_advance,
             "default_to_do_not_derive": self.default_to_do_not_derive,
@@ -2043,9 +1971,7 @@ class DatetimePartitioning:
             "calendar_id": self.calendar_id,
             "model_splits": self.model_splits,
             "disable_holdout": self.disable_holdout,
-            "allow_partial_history_time_series_predictions": (
-                self.allow_partial_history_time_series_predictions
-            ),
+            "allow_partial_history_time_series_predictions": (self.allow_partial_history_time_series_predictions),
             "unsupervised_mode": self.unsupervised_mode,
             "unsupervised_type": self.unsupervised_type,
         }
@@ -2093,9 +2019,7 @@ class DatetimePartitioning:
         return final_df
 
     @classmethod
-    def datetime_partitioning_log_retrieve(
-        cls, project_id: str, datetime_partitioning_id: str
-    ) -> Any:
+    def datetime_partitioning_log_retrieve(cls, project_id: str, datetime_partitioning_id: str) -> Any:
         """Retrieve the datetime partitioning log content for an optimized datetime partitioning.
 
         The datetime partitioning log provides details about the partitioning process for an OTV
@@ -2142,16 +2066,13 @@ class DatetimePartitioning:
             no limit, use 0. The default may change without notice.
         """
         url = (
-            f"projects/{project_id}/optimizedDatetimePartitionings/{datetime_partitioning_id}/"
-            "datetimePartitioningLog/"
+            f"projects/{project_id}/optimizedDatetimePartitionings/{datetime_partitioning_id}/datetimePartitioningLog/"
         )
         response = cls._client.get(url, params=dict(offset=offset, limit=limit))
         return response.json()
 
     @classmethod
-    def get_input_data(
-        cls, project_id: str, datetime_partitioning_id: str
-    ) -> DatetimePartitioningSpecification:
+    def get_input_data(cls, project_id: str, datetime_partitioning_id: str) -> DatetimePartitioningSpecification:
         """Retrieve the input used to create an optimized DatetimePartitioning from a project for
         the specified datetime_partitioning_id. A datetime_partitioning_id is created by using the
         :meth:`generate_optimized<datarobot.DatetimePartitioning.generate_optimized>` function.
@@ -2193,12 +2114,10 @@ class DatetimePartitioningId(PartitioningMethod):
         The ID of the project that the datetime partitioning is associated with.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("datetime_partitioning_id"): String(),
-            t.Key("project_id"): String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("datetime_partitioning_id"): String(),
+        t.Key("project_id"): String(),
+    }).ignore_extra("*")
 
     def __init__(self, datetime_partitioning_id: str, project_id: str):
         self.datetime_partitioning_id = datetime_partitioning_id

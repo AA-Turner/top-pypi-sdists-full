@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import ast
@@ -22,6 +22,7 @@ from marimo._dependencies.dependencies import DependencyManager
 from marimo._plugins.ui._core.ui_element import UIElement
 from marimo._runtime.context import ContextNotInitializedError, get_context
 from marimo._runtime.dataflow import induced_subgraph
+from marimo._runtime.dataflow.topology import GraphTopology
 from marimo._runtime.primitives import (
     CLONE_PRIMITIVES,
     FN_CACHE_TYPE,
@@ -35,6 +36,7 @@ from marimo._runtime.side_effect import CellHash, SideEffect
 from marimo._runtime.state import SetFunctor, State
 from marimo._runtime.watch._path import PathState
 from marimo._save.cache import Cache, CacheType
+from marimo._save.stubs import maybe_get_custom_stub
 from marimo._types.ids import CellId_t
 
 if TYPE_CHECKING:
@@ -145,7 +147,7 @@ def hash_function(
 
 def hash_cell_group(
     cell_ids: set[CellId_t],
-    graph: DirectedGraph,
+    graph: GraphTopology,
     hash_type: str = DEFAULT_HASH,
 ) -> bytes:
     hash_alg = hashlib.new(hash_type, usedforsecurity=False)
@@ -161,7 +163,7 @@ def hash_cell_group(
 
 
 def hash_cell_execution(
-    cell_id: CellId_t, graph: DirectedGraph, hash_type: str = DEFAULT_HASH
+    cell_id: CellId_t, graph: GraphTopology, hash_type: str = DEFAULT_HASH
 ) -> bytes:
     ancestors = graph.ancestors(cell_id)
     return hash_cell_group(ancestors, graph, hash_type)
@@ -779,6 +781,9 @@ class BlockHasher:
          - primitive (bytes, str, numbers.Number, type(None))
          - data primitive (e.g. numpy array, torch tensor)
          - external module definitions (imported anything)
+         - pure functions (no state, no external dependencies)
+         - pure containers of the above (list, dict, set, tuple)
+         - custom types defined in CUSTOM_STUBS
 
         Args:
             refs: A set of reference names unaccounted for.
@@ -839,6 +844,8 @@ class BlockHasher:
             # pinning being the mechanism for invalidation.
             elif getattr(value, "__module__", "__main__") == "__main__":
                 continue
+            elif stub := maybe_get_custom_stub(value):
+                serial_value = stub.to_bytes()
             # External module that is not a class or function, may be some
             # container we don't know how to hash.
             # Note, function cases care caught by is_pure_function

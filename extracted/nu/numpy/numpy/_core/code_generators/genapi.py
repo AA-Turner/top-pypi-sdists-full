@@ -62,7 +62,7 @@ API_FILES = [join('multiarray', 'alloc.c'),
              join('multiarray', 'descriptor.c'),
              join('multiarray', 'dlpack.c'),
              join('multiarray', 'dtypemeta.c'),
-             join('multiarray', 'einsum.c.src'),
+             join('multiarray', 'einsum.cpp'),
              join('multiarray', 'public_dtype_api.c'),
              join('multiarray', 'flagsobject.c'),
              join('multiarray', 'getset.c'),
@@ -466,8 +466,7 @@ def order_dict(d):
 def merge_api_dicts(dicts):
     ret = {}
     for d in dicts:
-        for k, v in d.items():
-            ret[k] = v
+        ret.update(d)
 
     return ret
 

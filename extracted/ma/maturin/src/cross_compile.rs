@@ -1,5 +1,6 @@
+use crate::target::Os;
 use crate::{PythonInterpreter, Target};
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use fs_err::{self as fs, DirEntry};
 use normpath::PathExt as _;
 use std::collections::HashMap;
@@ -29,6 +30,13 @@ pub fn is_cross_compiling(target: &Target) -> Result<bool> {
     }
     if target_triple.ends_with("windows-gnu") && host.ends_with("windows-msvc") {
         // Not cross-compiling to compile for Windows GNU from Windows MSVC host
+        return Ok(false);
+    }
+
+    if target.target_os() == Os::Ios {
+        // Not cross-compiling to compile for iOS. There's no on-device compilation,
+        // so compilation will always be in a "fake" cross-platform venv with a
+        // working python/sysconfig that can interrogated.
         return Ok(false);
     }
 
@@ -153,7 +161,9 @@ fn search_lib_dir(path: impl AsRef<Path>, target: &Target) -> Result<Vec<PathBuf
     for f in fs::read_dir(path.as_ref())? {
         let sysc = match &f {
             Ok(f) if starts_with(f, "_sysconfigdata") && ends_with(f, "py") => vec![f.path()],
-            Ok(f) if starts_with(f, "build") => search_lib_dir(f.path(), target)?,
+            Ok(f) if starts_with(f, "build") && f.path().is_dir() => {
+                search_lib_dir(f.path(), target)?
+            }
             Ok(f) if starts_with(f, "lib.") => {
                 let name = f.file_name();
                 // check if right target os

@@ -1,10 +1,11 @@
 [tool.ruff]
 exclude = ["venv/*","tox/*","specs/*",".venv/*"]
 line-length = 119
+target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I", "SIM", "UP", "C4"]
-ignore = ["SIM108", "SIM110"]
+ignore = ["SIM108", "SIM110", "B039"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [

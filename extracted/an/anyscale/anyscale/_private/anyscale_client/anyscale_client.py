@@ -34,6 +34,7 @@ from anyscale.client.openapi_client.models import (
     AdminCreateUser,
     AnyscaleServiceAccount,
     ApiKeyParameters,
+    ApplyProductionServiceMultiVersionV2Model,
     ArchiveStatus,
     Cloud,
     CloudDataBucketAccessMode,
@@ -54,11 +55,15 @@ from anyscale.client.openapi_client.models import (
     CreateOrganizationInvitation,
     CreateResourceQuota,
     CreateUserProjectCollaborator,
+    DecoratedCloudResource,
     DecoratedComputeTemplate,
     DecoratedjobqueueListResponse,
     DecoratedlistserviceapimodelListResponse,
+    DecoratedproductionjobListResponse,
     DecoratedProductionServiceV2APIModel,
+    DecoratedProductionServiceV2VersionAPIModel,
     DecoratedSession,
+    DeleteResourceTagsRequest,
     ExperimentalWorkspace,
     GetOrCreateBuildFromImageUriRequest,
     InternalProductionJob,
@@ -66,25 +71,44 @@ from anyscale.client.openapi_client.models import (
     JobQueuesQuery,
     ListResourceQuotasQuery,
     OrganizationCollaborator,
+    OrganizationcollaboratorListResponse,
     OrganizationInvitation,
+    PolicyResponse,
     Project,
     ProjectBase,
     ProjectListResponse,
+    ResourcepolicyitemListResponse,
     ResourceQuota,
     ResourceQuotaStatus,
+    ResourceTagResourceType,
     ServerSessionToken,
     SessionSshKey,
     SessionState,
     StartSessionOptions,
     StopSessionOptions,
     SystemWorkloadName,
+    UpdatePolicyRequest,
+    UpsertResourceTagsRequest,
+    UserGroup,
+    UsergroupListResponse,
+    UserInfo,
     WorkspaceDataplaneProxiedArtifacts,
     WriteProject,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
+from anyscale.client.openapi_client.models.decorated_application_template import (
+    DecoratedApplicationTemplate,
+)
 from anyscale.client.openapi_client.models.decorated_job_queue import DecoratedJobQueue
 from anyscale.client.openapi_client.models.decorated_schedule import DecoratedSchedule
+from anyscale.client.openapi_client.models.decoratedapplicationtemplate_list_response import (
+    DecoratedapplicationtemplateListResponse,
+)
+from anyscale.client.openapi_client.models.decoratedschedule_list_response import (
+    DecoratedscheduleListResponse,
+)
 from anyscale.client.openapi_client.models.production_job import ProductionJob
+from anyscale.client.openapi_client.models.resource_tag_record import ResourceTagRecord
 from anyscale.client.openapi_client.models.update_job_queue_request import (
     UpdateJobQueueRequest,
 )
@@ -97,6 +121,7 @@ from anyscale.sdk.anyscale_client.models import (
     Cluster,
     ClusterCompute,
     ClusterComputeConfig,
+    ClusterComputesQuery,
     ClusterEnvironment,
     ClusterEnvironmentBuild,
     ClusterenvironmentbuildListResponse,
@@ -119,7 +144,6 @@ from anyscale.sdk.anyscale_client.models.sort_by_clause_jobs_sort_field import (
     SortByClauseJobsSortField,
 )
 from anyscale.sdk.anyscale_client.models.sort_order import SortOrder
-from anyscale.sdk.anyscale_client.models.update_cluster import UpdateCluster
 from anyscale.sdk.anyscale_client.rest import ApiException as ExternalApiException
 from anyscale.shared_anyscale_utils.bytes_util import Bytes
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_HOST
@@ -267,8 +291,8 @@ class AnyscaleClient(AnyscaleClientInterface):
         if self._s3_client is None:
             # initialize the s3 client lazily so that we import the boto3 library only when needed.
             try:
-                import boto3
-                import botocore.config
+                import boto3  # noqa: PLC0415 - codex_reason("gpt5.2", "optional AWS SDK dependency")
+                import botocore.config  # noqa: PLC0415 - codex_reason("gpt5.2", "optional AWS SDK dependency")
             except ImportError:
                 raise RuntimeError(
                     "Could not import the Amazon S3 Python API via `import boto3`.  Please check your installation or try running `pip install boto3`."
@@ -283,7 +307,9 @@ class AnyscaleClient(AnyscaleClientInterface):
         if self._gcs_client is None:
             # initialize the gcs client lazily so that we import the google cloud storage library only when needed.
             try:
-                from google.cloud import storage
+                from google.cloud import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP storage dependency")
+                    storage,
+                )
             except ImportError:
                 raise RuntimeError(
                     "Could not import the Google Storage Python API via `from google.cloud import storage`.  Please check your installation or try running `pip install --upgrade google-cloud-storage`."
@@ -352,7 +378,9 @@ class AnyscaleClient(AnyscaleClientInterface):
 
     def _download_file_from_s3(self, bucket: str, object_key: str) -> Optional[bytes]:
         try:
-            from botocore.exceptions import ClientError
+            from botocore.exceptions import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional AWS SDK dependency")
+                ClientError,
+            )
         except Exception:  # noqa: BLE001
             raise RuntimeError(
                 "Could not download file from S3: Could not import the Amazon S3 Python API via `import boto3`.  Please check your installation or try running `pip install boto3`."
@@ -576,6 +604,14 @@ class AnyscaleClient(AnyscaleClientInterface):
         return self.get_cloud(cloud_id=cloud_id)
 
     @handle_api_exceptions
+    def get_cloud_resource_by_name(
+        self, cloud_id: str, cloud_resource_name: str
+    ) -> Optional[DecoratedCloudResource]:
+        return self._internal_api_client.find_cloud_resource_by_name_api_v2_clouds_cloud_id_find_cloud_resource_by_name_post(
+            cloud_id=cloud_id, cloud_resource_name=cloud_resource_name,
+        ).result
+
+    @handle_api_exceptions
     def get_default_cloud(self) -> Optional[Cloud]:
         try:
             return self._external_api_client.get_default_cloud().result
@@ -584,6 +620,14 @@ class AnyscaleClient(AnyscaleClientInterface):
                 return None
 
             raise e from None
+
+    @handle_api_exceptions
+    def list_clouds(
+        self, *, paging_token: Optional[str] = None, count: Optional[int] = None
+    ):
+        return self._internal_api_client.list_clouds_api_v2_clouds_get(
+            paging_token=paging_token, count=count or self.LIST_ENDPOINT_COUNT
+        )
 
     @handle_api_exceptions
     def add_cloud_collaborators(
@@ -702,9 +746,22 @@ class AnyscaleClient(AnyscaleClientInterface):
         )
 
     @handle_api_exceptions
-    def get_default_compute_config(self, *, cloud_id: str) -> ClusterCompute:
+    def search_cluster_computes(self, query: Dict[str, Any]):
+        """Search for cluster computes matching the provided query.
+
+        Uses the external API client (SDK) to search for cluster computes.
+        """
+
+        # Convert dict to ClusterComputesQuery model
+        cluster_computes_query = ClusterComputesQuery(**query)
+        return self._external_api_client.search_cluster_computes(cluster_computes_query)
+
+    @handle_api_exceptions
+    def get_default_compute_config(
+        self, *, cloud_id: str, cloud_resource_id: Optional[str] = None
+    ) -> ClusterCompute:
         return self._external_api_client.get_default_cluster_compute(
-            cloud_id=cloud_id,
+            cloud_id=cloud_id, cloud_resource_id=cloud_resource_id
         ).result
 
     def _build_standard_compute_template_from_existing_auto_config(
@@ -789,6 +846,13 @@ class AnyscaleClient(AnyscaleClientInterface):
             raise e from None
 
     @handle_api_exceptions
+    def archive_image(self, *, image_id: str) -> None:
+        """Archive an image (cluster environment) by ID."""
+        self._internal_api_client.archive_cluster_environment_api_v2_application_templates_application_template_id_archive_post(
+            image_id
+        )
+
+    @handle_api_exceptions
     def get_default_build_id(self) -> str:
         workspace_cluster = self.get_current_workspace_cluster()
         if workspace_cluster is not None:
@@ -810,6 +874,47 @@ class AnyscaleClient(AnyscaleClientInterface):
         if resp.results:
             return resp.results[0]
         return None
+
+    @handle_api_exceptions
+    def get_application_template(
+        self, application_template_id: str
+    ) -> Optional[DecoratedApplicationTemplate]:
+        try:
+            return self._internal_api_client.get_application_template_api_v2_application_templates_application_template_id_get(
+                application_template_id
+            ).result
+        except InternalApiException as e:
+            if e.status == 404:
+                return None
+            raise e from None
+
+    @handle_api_exceptions
+    def list_application_templates(  # noqa: PLR0913
+        self,
+        *,
+        name: Optional[str] = None,
+        image_name: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        project: Optional[str] = None,
+        include_archived: bool = False,
+        defaults_first: bool = False,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> DecoratedapplicationtemplateListResponse:
+        project_id = None
+        if project:
+            project_id = self.get_project_id(name=project)
+
+        return self._internal_api_client.list_application_templates_api_v2_application_templates_get(
+            project_id=project_id,
+            creator_id=creator_id,
+            name_contains=name,
+            image_name_contains=image_name,
+            include_archived=include_archived,
+            defaults_first=defaults_first,
+            paging_token=paging_token,
+            count=count if count is not None else self.LIST_ENDPOINT_COUNT,
+        )
 
     @handle_api_exceptions
     def list_cluster_env_builds(
@@ -1022,6 +1127,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         *,
         name: Optional[str] = None,
         state_filter: Optional[List[str]] = None,
+        tag_filter: Optional[List[str]] = None,
         creator_id: Optional[str] = None,
         cloud: Optional[str] = None,
         project: Optional[str] = None,
@@ -1047,11 +1153,37 @@ class AnyscaleClient(AnyscaleClientInterface):
             archive_status=ArchiveStatus.ALL
             if include_archived
             else ArchiveStatus.NOT_ARCHIVED,
+            tag_filter=tag_filter,
             count=count if count else self.LIST_ENDPOINT_COUNT,
             paging_token=paging_token,
             sort_field=sort_field,
             sort_order=sort_order,
         )
+
+    def get_service_versions(
+        self, service_id: str, read_all_versions: bool = False,
+    ) -> List[DecoratedProductionServiceV2VersionAPIModel]:
+        resp = self._internal_api_client.get_service_versions_api_v2_services_v2_service_id_versions_get(
+            service_id=service_id,
+        )
+
+        if not read_all_versions:
+            return resp.results
+
+        all_versions: List[DecoratedProductionServiceV2VersionAPIModel] = []
+        all_versions.extend(resp.results)
+        paging_token = resp.metadata.next_paging_token
+
+        while paging_token is not None:
+            resp = self._internal_api_client.get_service_versions_api_v2_services_v2_service_id_versions_get(
+                service_id=service_id,
+                count=self.LIST_ENDPOINT_COUNT,
+                paging_token=paging_token,
+            )
+            all_versions.extend(resp.results)
+            paging_token = resp.metadata.next_paging_token
+
+        return all_versions
 
     @handle_api_exceptions
     def get_project(self, project_id: str) -> Project:
@@ -1206,6 +1338,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         cluster_status: Optional[SessionState] = None,
         project: Optional[str] = None,
         cloud: Optional[str] = None,
+        tags_filter: Optional[Dict[str, List[str]]] = None,
         count: Optional[int] = None,
         paging_token: Optional[str] = None,
         sorting_directives: Optional[List[JobQueueSortDirective]] = None,
@@ -1219,14 +1352,46 @@ class AnyscaleClient(AnyscaleClientInterface):
 
         return self._internal_api_client.list_job_queues_api_v2_job_queues_post(
             job_queues_query=JobQueuesQuery(
-                name=name,
+                name=TextQuery(equals=name) if name else None,
                 creator_id=creator_id,
                 cluster_status=cluster_status,
                 project_id=project_id,
                 cloud_id=cloud_id,
+                tags_filter=tags_filter,
                 paging=PageQuery(count=count, paging_token=paging_token),
                 sorting_directives=sorting_directives,
             ),
+        )
+
+    @handle_api_exceptions
+    def list_jobs(
+        self,
+        *,
+        name: Optional[str] = None,
+        project_id: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        state_filter: Optional[List[str]] = None,
+        archive_status: Optional[str] = None,
+        tags_filter: Optional[List[str]] = None,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> DecoratedproductionjobListResponse:
+        # Build kwargs dynamically to avoid passing None for count,
+        # which causes TypeError in OpenAPI client validation
+        kwargs: Dict[str, Any] = {
+            "project_id": project_id,
+            "name": name,
+            "creator_id": creator_id,
+            "type_filter": "BATCH_JOB",
+            "archive_status": archive_status,
+            "state_filter": state_filter,
+            "tag_filter": tags_filter,
+            "paging_token": paging_token,
+        }
+        if count is not None:
+            kwargs["count"] = count
+        return self._internal_api_client.list_decorated_jobs_api_v2_decorated_ha_jobs_get(
+            **kwargs
         )
 
     @handle_api_exceptions
@@ -1234,6 +1399,15 @@ class AnyscaleClient(AnyscaleClientInterface):
         self, model: ApplyProductionServiceV2Model
     ) -> DecoratedProductionServiceV2APIModel:
         result = self._internal_api_client.apply_service_api_v2_services_v2_apply_put(
+            model
+        ).result
+        return result
+
+    @handle_api_exceptions
+    def rollout_service_multi_version(
+        self, model: ApplyProductionServiceMultiVersionV2Model
+    ) -> DecoratedProductionServiceV2APIModel:
+        result = self._internal_api_client.apply_service_multi_version_api_v2_services_v2_apply_multi_version_put(
             model
         ).result
         return result
@@ -1493,7 +1667,7 @@ class AnyscaleClient(AnyscaleClientInterface):
 
         return all_log_chunk_urls, bearer_token
 
-    def _read_log_lines(
+    def _read_log_lines(  # noqa: PLR0912
         self,
         log_chunk_urls: List[str],
         head: bool,
@@ -1550,14 +1724,15 @@ class AnyscaleClient(AnyscaleClientInterface):
                     parse_json = False
                     # lines_to_add should already be plain text, so continue on...
 
-            if head:
-                result_lines = result_lines + lines_to_add
-            else:
-                result_lines = lines_to_add + result_lines
+            result_lines = (
+                result_lines + lines_to_add if head else lines_to_add + result_lines
+            )
 
             if line_count == max_lines:
                 break
 
+        if not result_lines:
+            return ""
         return "\n".join(result_lines) + "\n"
 
     @handle_api_exceptions
@@ -1583,6 +1758,52 @@ class AnyscaleClient(AnyscaleClientInterface):
             all_log_chunk_urls, head, bearer_token, max_lines, parse_json=parse_json
         )
         return logs
+
+    @handle_api_exceptions
+    def stream_logs_for_job_run(
+        self, job_run_id: str, next_page_token: Optional[str] = None,
+    ) -> Tuple[str, Optional[str]]:
+        """Stream logs incrementally for a job run with pagination support.
+
+        Args:
+            job_run_id: The ID of the job run to fetch logs for
+            next_page_token: Token for fetching the next page of logs (for incremental streaming)
+
+        Returns:
+            Tuple of (logs, next_page_token) where next_page_token can be used for the next call
+        """
+        # Fetch only the new log chunks since the last call
+        if next_page_token:
+            # Incremental fetch - get only new chunks
+            log_download_result = self._internal_api_client.get_job_logs_download_v2_api_v2_logs_job_logs_download_v2_job_id_get(
+                job_id=job_run_id, next_page_token=next_page_token,
+            ).result
+        else:
+            # First fetch - get all available chunks
+            log_download_result = self._internal_api_client.get_job_logs_download_v2_api_v2_logs_job_logs_download_v2_job_id_get(
+                job_id=job_run_id,
+            ).result
+
+        # Download and concatenate log chunks
+        log_chunk_urls = [chunk.chunk_url for chunk in log_download_result.log_chunks]
+        bearer_token = log_download_result.bearer_token
+
+        logs = self._read_log_lines(
+            log_chunk_urls,
+            head=False,
+            bearer_token=bearer_token,
+            max_lines=None,
+            parse_json=False,
+        )
+
+        # Return logs and the token for the next page
+        new_next_page_token = (
+            log_download_result.next_page_token
+            if len(log_download_result.log_chunks) > 0
+            else next_page_token
+        )
+
+        return logs, new_next_page_token
 
     @handle_api_exceptions
     def controller_logs_for_service_version(
@@ -1681,7 +1902,7 @@ class AnyscaleClient(AnyscaleClientInterface):
 
     @handle_api_exceptions
     def set_schedule_state(self, id: str, is_paused: bool):  # noqa: A002
-        self._internal_api_client.pause_cron_job_api_v2_experimental_cron_jobs_cron_job_id_pause_post(
+        _ = self._internal_api_client.pause_cron_job_api_v2_experimental_cron_jobs_cron_job_id_pause_post(
             id, {"is_paused": is_paused}
         ).result
 
@@ -1689,6 +1910,33 @@ class AnyscaleClient(AnyscaleClientInterface):
     def trigger_schedule(self, id: str):  # noqa: A002
         self._internal_api_client.trigger_cron_job_api_v2_experimental_cron_jobs_cron_job_id_trigger_post(
             id
+        )
+
+    @handle_api_exceptions
+    def list_schedules(
+        self,
+        *,
+        name: Optional[str] = None,
+        project_id: Optional[str] = None,
+        cloud_id: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> DecoratedscheduleListResponse:
+        """List schedules with filtering and pagination."""
+        # Build kwargs dynamically to avoid passing None for count,
+        # which causes TypeError in OpenAPI client validation
+        kwargs: Dict[str, Any] = {
+            "project_id": project_id,
+            "cloud_id": cloud_id,
+            "name": name,
+            "creator_id": creator_id,
+            "paging_token": paging_token,
+        }
+        if count is not None:
+            kwargs["count"] = count
+        return self._internal_api_client.list_cron_jobs_api_v2_experimental_cron_jobs_get(
+            **kwargs
         )
 
     @handle_api_exceptions
@@ -1760,14 +2008,13 @@ class AnyscaleClient(AnyscaleClientInterface):
             )
 
         if compute_config_id or cluster_environment_build_id or idle_timeout_minutes:
-            # Update cluster with external cluster API
-            self._external_api_client.update_cluster(
-                cluster_id=workspace.cluster_id,
-                update_cluster=UpdateCluster(
-                    idle_timeout_minutes=idle_timeout_minutes,
-                    cluster_environment_build_id=cluster_environment_build_id,
-                    cluster_compute_id=compute_config_id,
-                ),
+            # Use the internal session API to update cluster config and idle timeout
+            # This matches what the UI does and is more efficient than the external API
+            self._internal_api_client.put_session_cluster_config_with_session_idle_timeout_api_v2_sessions_session_id_cluster_config_with_session_idle_timeout_put(
+                session_id=workspace.cluster_id,
+                compute_template_id=compute_config_id,
+                build_id=cluster_environment_build_id,
+                idle_timeout=idle_timeout_minutes,
             )
 
     @handle_api_exceptions
@@ -1914,10 +2161,7 @@ class AnyscaleClient(AnyscaleClientInterface):
             else:
                 filename = filename_regex.group("filename")
 
-            if directory:
-                filepath = os.path.join(directory, filename)
-            else:
-                filepath = filename
+            filepath = os.path.join(directory, filename) if directory else filename
 
             # Download the file
             try:
@@ -2006,6 +2250,34 @@ class AnyscaleClient(AnyscaleClientInterface):
         ).result
 
     @handle_api_exceptions
+    def list_organization_collaborators(
+        self,
+        *,
+        email: Optional[str] = None,
+        name: Optional[str] = None,
+        collaborator_type: Optional[CollaboratorType] = None,
+        is_service_account: Optional[bool] = None,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> OrganizationcollaboratorListResponse:
+        collaborator_type_value = None
+        if collaborator_type is not None:
+            collaborator_type_value = (
+                collaborator_type.value
+                if hasattr(collaborator_type, "value")
+                else str(collaborator_type)
+            )
+
+        return self._internal_api_client.list_organization_collaborators_api_v2_organization_collaborators_get(
+            email=email,
+            name=name,
+            collaborator_type=collaborator_type_value,
+            is_service_account=is_service_account,
+            count=count if count is not None else self.LIST_ENDPOINT_COUNT,
+            paging_token=paging_token,
+        )
+
+    @handle_api_exceptions
     def get_organization_collaborators(
         self,
         email: Optional[str] = None,
@@ -2013,11 +2285,14 @@ class AnyscaleClient(AnyscaleClientInterface):
         collaborator_type: Optional[CollaboratorType] = None,
         is_service_account: Optional[bool] = None,  # noqa: ARG002
     ) -> List[OrganizationCollaborator]:
-        results = self._internal_api_client.list_organization_collaborators_api_v2_organization_collaborators_get(
-            email=email, name=name, collaborator_type=collaborator_type
-        ).results
+        response = self.list_organization_collaborators(
+            email=email,
+            name=name,
+            collaborator_type=collaborator_type,
+            is_service_account=is_service_account,
+        )
 
-        return results
+        return response.results
 
     @handle_api_exceptions
     def delete_organization_collaborator(self, identity_id: str) -> None:
@@ -2073,6 +2348,141 @@ class AnyscaleClient(AnyscaleClientInterface):
     def set_resource_quota_status(
         self, resource_quota_id: str, is_enabled: bool
     ) -> None:
-        self._internal_api_client.set_resource_quota_status_api_v2_resource_quotas_resource_quota_id_status_patch(
+        _ = self._internal_api_client.set_resource_quota_status_api_v2_resource_quotas_resource_quota_id_status_patch(
             resource_quota_id, ResourceQuotaStatus(is_enabled=is_enabled)
         ).result
+
+    @handle_api_exceptions
+    def upsert_resource_tags(
+        self,
+        resource_type: ResourceTagResourceType,
+        resource_id: str,
+        tags: Dict[str, str],
+    ) -> None:
+        req = UpsertResourceTagsRequest(
+            resource_type=resource_type, resource_id=resource_id, tags=tags
+        )
+        self._internal_api_client.upsert_resource_tags_api_v2_tags_resource_put(req)
+
+    @handle_api_exceptions
+    def delete_resource_tags(
+        self, resource_type: ResourceTagResourceType, resource_id: str, keys: List[str],
+    ) -> None:
+        req = DeleteResourceTagsRequest(
+            resource_type=resource_type, resource_id=resource_id, keys=keys
+        )
+        self._internal_api_client.delete_resource_tags_api_v2_tags_resource_delete(req)
+
+    @handle_api_exceptions
+    def list_resource_tags(
+        self, resource_type: ResourceTagResourceType, resource_id: str
+    ) -> List[ResourceTagRecord]:
+        resp = self._internal_api_client.get_tags_for_resource_api_v2_tags_resource_get(
+            resource_type, resource_id
+        )
+        result = resp.result
+        if result is None or result.tags is None:
+            return []
+        return list(result.tags)
+
+    @handle_api_exceptions
+    def list_user_groups(
+        self, *, count: int = 50, paging_token: Optional[str] = None,
+    ) -> UsergroupListResponse:
+        return self._internal_api_client.list_user_groups_api_v2_user_groups_get(
+            count=count, paging_token=paging_token,
+        )
+
+    @handle_api_exceptions
+    def get_user_group(self, group_id: str) -> UserGroup:
+        response = self._internal_api_client.get_user_group_api_v2_user_groups_group_id_get(
+            group_id
+        )
+        return response.result
+
+    @handle_api_exceptions
+    def list_user_group_memberships(self) -> Dict:
+        """List all user groups with their members."""
+        api = self._internal_api_client
+        response = api.api_client.call_api(
+            "/api/v2/user_groups/memberships/list",
+            "GET",
+            query_params=[],
+            response_type="object",
+            auth_settings=["HTTPBearer"],
+            _return_http_data_only=True,
+        )
+        return response
+
+    @handle_api_exceptions
+    def update_resource_policy(
+        self, resource_type: str, resource_id: str, policy: UpdatePolicyRequest,
+    ) -> None:
+        self._internal_api_client.update_resource_policy_api_v2_policy_resource_type_resource_id_put(
+            resource_type=resource_type,
+            resource_id=resource_id,
+            update_policy_request=policy,
+        )
+
+    @handle_api_exceptions
+    def get_resource_policy(
+        self, resource_type: str, resource_id: str,
+    ) -> PolicyResponse:
+        response = self._internal_api_client.get_resource_policy_api_v2_policy_resource_type_resource_id_get(
+            resource_type=resource_type, resource_id=resource_id,
+        )
+        return response.result
+
+    @handle_api_exceptions
+    def list_resource_policies(
+        self, resource_type: str,
+    ) -> ResourcepolicyitemListResponse:
+        return self._internal_api_client.list_resource_policies_api_v2_policy_resource_type_get(
+            resource_type=resource_type,
+        )
+
+    @handle_api_exceptions
+    def migrate_scim_permissions(self, *, dry_run: bool = True) -> Dict:
+        """Migrate organization permissions to SCIM-based user group permissions."""
+        api = self._internal_api_client
+        if hasattr(
+            api, "migrate_scim_permissions_api_v2_scim_migrate_permissions_post"
+        ):
+            resp = api.migrate_scim_permissions_api_v2_scim_migrate_permissions_post(
+                dry_run=dry_run
+            )
+            if hasattr(resp, "to_dict"):
+                return resp.to_dict()  # type: ignore[no-any-return]
+            return {"result": getattr(resp, "result", resp)}
+
+        response = api.api_client.call_api(
+            "/api/v2/scim/migrate-permissions",
+            "POST",
+            query_params=[("dry_run", dry_run)],
+            response_type="object",
+            auth_settings=["HTTPBearer"],
+            _return_http_data_only=True,
+        )
+        return response
+
+    @handle_api_exceptions
+    def list_scim_user_permissions(self, user_id: Optional[str] = None) -> Dict:
+        """List users and their effective cloud/project permissions, plus org owners."""
+        api = self._internal_api_client
+        query_params = []
+        if user_id:
+            query_params.append(("user_id", user_id))
+        response = api.api_client.call_api(
+            "/api/v2/scim/list-user-permissions",
+            "GET",
+            query_params=query_params,
+            response_type="object",
+            auth_settings=["HTTPBearer"],
+            _return_http_data_only=True,
+        )
+        return response
+
+    @handle_api_exceptions
+    def get_user_info(self) -> UserInfo:
+        """Get information about the current user."""
+        return self._internal_api_client.get_user_info_api_v2_userinfo_get().result

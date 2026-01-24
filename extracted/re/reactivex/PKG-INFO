@@ -1,26 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: reactivex
-Version: 4.0.4
+Version: 4.1.0
 Summary: ReactiveX (Rx) for Python
-Home-page: http://reactivex.io
 License: MIT
+License-File: LICENSE
 Author: Dag Brattli
 Author-email: dag@brattli.net
-Requires-Python: >=3.7,<4.0
+Requires-Python: >=3.8,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Other Environment
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: typing-extensions (>=4.1.1,<5.0.0)
 Project-URL: Documentation, https://rxpy.readthedocs.io/en/latest/
+Project-URL: Homepage, http://reactivex.io
 Project-URL: Repository, https://github.com/ReactiveX/RxPY
 Description-Content-Type: text/x-rst
 
@@ -54,7 +58,7 @@ ReactiveX for Python v4
 For v3.X please go to the `v3 branch
 <https://github.com/ReactiveX/RxPY/tree/release/v3.2.x>`_.
 
-ReactiveX for Python v4.x runs on `Python <http://www.python.org/>`_ 3.7 or above. To
+ReactiveX for Python v4.x runs on `Python <http://www.python.org/>`_ 3.9 or above. To
 install:
 
 .. code:: console

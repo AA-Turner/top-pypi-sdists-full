@@ -1,12 +1,13 @@
+import re
+from glob import glob
 from pathlib import Path
 from typing import Optional, TextIO
-from glob import glob
 
 output_file = Path(__file__).parent.resolve() / "python" / "chia_rs" / "chia_rs.pyi"
 crates_dir = Path(__file__).parent.parent.resolve() / "crates"
 input_dir = crates_dir / "chia-protocol" / "src"
 
-ignore_structs = ["PyPlotSize"]
+ignore_structs = ["PyPlotParam"]
 
 # enums are exposed to python as int
 enums = set(
@@ -63,11 +64,11 @@ def print_class(
     # def __richcmp__(self) -> Any: ...
     file.write(
         f"""
-{"" if inheritable else "@final"}
+{"@disjoint_base" if inheritable else "@final"}
 class {name}:{"".join(map(add_indent, members))}
-    def __init__(
-        self{init_args}
-    ) -> None: ...
+    def __new__(
+        cls{init_args}
+    ) -> Self: ...
     def __hash__(self) -> int: ...
     def __repr__(self) -> str: ...
     def __deepcopy__(self, memo: object) -> Self: ...
@@ -96,31 +97,54 @@ class {name}:{"".join(map(add_indent, members))}
         )
 
 
+primitives = {
+    "Bytes32": "bytes32",
+    "Bytes100": "bytes100",
+    "Bytes": "bytes",
+    "String": "str",
+    "u8": "uint8",
+    "u16": "uint16",
+    "u32": "uint32",
+    "u64": "uint64",
+    "u128": "uint128",
+    "i8": "int8",
+    "i16": "int16",
+    "i32": "int32",
+    "i64": "int64",
+    "i128": "int128",
+    "bool": "bool",
+}
+
+
 def rust_type_to_python(t: str) -> str:
-    ret = (
-        t.replace("<", "[")
-        .replace(">", "]")
-        .replace("(", "tuple[")
-        .replace(")", "]")
-        .replace("Vec", "list")
-        .replace("Option", "Optional")
-        .replace("Bytes", "bytes")
-        .replace("String", "str")
-        .replace("u8", "uint8")
-        .replace("u16", "uint16")
-        .replace("u32", "uint32")
-        .replace("u64", "uint64")
-        .replace("u128", "uint128")
-        .replace("i8", "int8")
-        .replace("i16", "int16")
-        .replace("i32", "int32")
-        .replace("i64", "int64")
-        .replace("i128", "int128")
-        .strip()
-    )
-    if ret in enums:
-        ret = "int"
-    return ret
+    t = t.strip()
+
+    if t in enums:
+        return "int"
+
+    r = primitives.get(t)
+    if r is not None:
+        return r
+
+    m = re.fullmatch("Vec<(.+)>", t)
+    if m is not None:
+        return f"list[{rust_type_to_python(m.group(1))}]"
+
+    m = re.fullmatch("Option<(.+)>", t)
+    if m is not None:
+        return f"Optional[{rust_type_to_python(m.group(1))}]"
+
+    m = re.fullmatch("\\((.+)\\)", t)
+    if m is not None:
+        inner_list = m.group(1).split(",")
+        inner = ", ".join(map(lambda se: rust_type_to_python(se), inner_list))
+        return f"tuple[{inner}]"
+
+    m = re.fullmatch("\\[(.+); [0-9]+\\]", t)
+    if m is not None:
+        return f"list[{rust_type_to_python(m.group(1))}]"
+
+    return t
 
 
 def parse_rust_source(filename: str, upper_case: bool) -> list[tuple[str, list[str]]]:
@@ -180,6 +204,9 @@ def parse_rust_source(filename: str, upper_case: bool) -> list[tuple[str, list[s
 
 
 extra_members = {
+    "PartialProof": [
+        "def get_string(self, strength: uint8) -> bytes32: ...",
+    ],
     "Coin": [
         "def name(self) -> bytes32: ...",
     ],
@@ -252,7 +279,7 @@ extra_members = {
         "def sp_total_iters(self, constants: ConsensusConstants) -> uint128: ...",
     ],
     "ProofOfSpace": [
-        "def size(self) -> PlotSize: ...",
+        "def param(self) -> PlotParam: ...",
     ],
     "CoinRecord": [
         "@property\n    def spent(self) -> bool: ...",
@@ -284,7 +311,7 @@ with open(output_file, "w") as file:
 from typing import Optional, Sequence, Union, Any, ClassVar, final
 from .sized_bytes import bytes32, bytes100
 from .sized_ints import uint8, uint16, uint32, uint64, uint128, int8, int16, int32, int64
-from typing_extensions import Self
+from typing_extensions import Self, disjoint_base
 
 ReadableBuffer = Union[bytes, bytearray, memoryview]
 
@@ -343,7 +370,7 @@ def get_conditions_from_spendbundle(
     spend_bundle: SpendBundle,
     max_cost: int,
     constants: ConsensusConstants,
-    height: int,
+    prev_tx_height: int,
 ) -> SpendBundleConditions: ...
 
 def get_spends_for_trusted_block(
@@ -361,7 +388,7 @@ def get_spends_for_trusted_block_with_conditions(
 ) -> list[dict[str, Any]]: ...
 
 def get_flags_for_height_and_constants(
-    height: int,
+    prev_tx_height: int,
     constants: ConsensusConstants
 ) -> int: ...
 
@@ -401,6 +428,8 @@ MEMPOOL_MODE: int = ...
 DONT_VALIDATE_SIGNATURE: int = ...
 COMPUTE_FINGERPRINT: int = ...
 COST_CONDITIONS: int = ...
+SIMPLE_GENERATOR: int = ...
+DISABLE_OP: int = ...
 
 ELIGIBLE_FOR_DEDUP: int = ...
 ELIGIBLE_FOR_FF: int = ...
@@ -424,7 +453,7 @@ def get_puzzle_and_solution_for_coin2(generator: Program, block_refs: list[Reada
 
 @final
 class BLSCache:
-    def __init__(self, cache_size: Optional[int] = 50000) -> None: ...
+    def __new__(cls, cache_size: Optional[int] = None) -> Self: ...
     def len(self) -> int: ...
     def aggregate_verify(self, pks: list[G1Element], msgs: list[bytes], sig: G2Element) -> bool: ...
     def items(self) -> list[tuple[bytes, GTElement]]: ...
@@ -462,20 +491,47 @@ class BlockBuilder:
 class MerkleSet:
     def get_root(self) -> bytes32: ...
     def is_included_already_hashed(self, included_leaf: bytes32) -> tuple[bool, bytes]: ...
-    def __init__(
-        self,
+    def __new__(
+        cls,
         leafs: list[bytes32],
-    ) -> None: ...
+    ) -> Self: ...
 
 @final
-class PlotSize:
+class PlotParam:
     @staticmethod
-    def make_v1(s: int) -> PlotSize: ...
+    def make_v1(s: int) -> PlotParam: ...
     @staticmethod
-    def make_v2(s: int) -> PlotSize: ...
+    def make_v2(s: int) -> PlotParam: ...
 
     size_v1: Optional[uint8]
-    size_v2: Optional[uint8]
+    strength_v2: Optional[uint8]
+
+@final
+class Prover:
+    def __new__(cls, plot_path: str) -> Self: ...
+    def get_qualities_for_challenge(self, challenge: bytes32) -> list[PartialProof]: ...
+    def size(self) -> int: ...
+    def plot_id(self) -> bytes32: ...
+    def get_strength(self) -> int: ...
+    def get_filename(self) -> str: ...
+    def get_memo(self) -> bytes: ...
+    def to_bytes(self) -> bytes: ...
+    @staticmethod
+    def from_bytes(b: bytes) -> Prover: ...
+
+def create_v2_plot(filename: str,
+    k: int,
+    strength: int,
+    plot_id: bytes32,
+    plot_index: uint16,
+    meta_group: uint8,
+    memo: bytes,
+) -> None: ...
+
+def validate_proof_v2(plot_id: bytes32, size: int, challenge: bytes32, plot_strength: int, proof: bytes) -> Optional[bytes32]: ...
+
+def solve_proof(fragments: PartialProof, plot_id: bytes32, strength: int, k: int) -> bytes: ...
+
 """
     )
 
@@ -485,7 +541,6 @@ class PlotSize:
         [],
         [
             "SIZE: ClassVar[int] = ...",
-            "def __new__(cls) -> G1Element: ...",
             "def get_fingerprint(self) -> int: ...",
             "def verify(self, signature: G2Element, msg: bytes) -> bool: ...",
             "def pair(self, other: G2Element) -> GTElement: ...",
@@ -505,7 +560,6 @@ class PlotSize:
         [],
         [
             "SIZE: ClassVar[int] = ...",
-            "def __new__(cls) -> G2Element: ...",
             "def pair(self, other: G1Element) -> GTElement: ...",
             "@staticmethod",
             "def generator() -> G2Element: ...",

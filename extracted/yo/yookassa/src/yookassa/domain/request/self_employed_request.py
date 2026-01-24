@@ -135,7 +135,7 @@ class SelfEmployedRequest(RequestObject):
 
     def validate(self):
         """
-        Влидация данных модели SelfEmployedRequest.
+        Валидация данных модели SelfEmployedRequest.
         """
         if self.itn is None and self.phone is None:
             self.__set_validation_error('Both itn and phone values are empty in self_employed_request')

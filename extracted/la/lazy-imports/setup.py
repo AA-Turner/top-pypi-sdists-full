@@ -15,7 +15,6 @@
 """Build script for setuptools."""
 
 import os
-from typing import List
 
 import setuptools
 
@@ -23,7 +22,7 @@ import setuptools
 project_name = "lazy_imports"
 source_code = "https://github.com/bachorp/lazy-imports"
 keywords = "import imports lazy"
-install_requires: List[str] = []
+install_requires: list[str] = []
 extras_require = {
     "checking": [
         "black",
@@ -68,7 +67,7 @@ setuptools.setup(
         "Source Code": source_code,
     },
     packages=["lazy_imports", "lazy_imports.v0"],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=install_requires,
     extras_require=extras_require,
     keywords=keywords,
@@ -77,11 +76,11 @@ setuptools.setup(
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: 3 :: Only",
         "Topic :: Software Development",
         "Topic :: Software Development :: Libraries",

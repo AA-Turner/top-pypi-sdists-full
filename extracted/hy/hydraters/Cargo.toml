@@ -1,0 +1,11 @@
+[package]
+name = "hydraters"
+edition = "2021"
+readme = "README.md"
+
+[lib]
+name = "hydraters"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.27.0"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-ml
-Version: 1.29.0
+Version: 1.31.0
 Summary: Microsoft Azure Machine Learning Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -13,17 +13,15 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-License-File: NOTICE.txt
 Requires-Dist: pyyaml<7.0.0,>=5.1.0
 Requires-Dist: azure-core>=1.23.0
 Requires-Dist: azure-mgmt-core>=1.3.0
@@ -53,7 +51,6 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
-Dynamic: license-file
 Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-dist
@@ -72,7 +69,7 @@ We are excited to introduce the GA of Azure Machine Learning Python SDK v2. The 
 | [Samples][ml_samples]
 
 
-This package has been tested with Python 3.8, 3.9, 3.10, 3.11, 3.12 and 3.13.
+This package has been tested with Python 3.8, 3.9, 3.10, 3.11, 3.12, 3.13 and 3.14.
 
 For a more complete set of Azure libraries, see https://aka.ms/azsdk/python/all
 
@@ -242,17 +239,51 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 # Release History
 
+## 1.31.0 (2025-12-30)
+
+### Features Added
+
+- Added support for `default_deployment_template` property in Model entity, allowing models to specify a default deployment template for online deployments.
+- Online deployments now display informational messages when deploying models with configured default deployment templates.
+
+### Other Changes
+
+- Ensuring that azureml-dataprep-rslex is only installed for PyPy below 3.10 and CPython below 3.13.
+- Adding support for Python 3.14.
+- Dropping support for Python 3.7 and 3.8.
+- Update the deployment template parameter `allowed_instance_type` -> `allowed_instance_types`
+
+## 1.30.0 (2025-10-29)
+
+### Features Added
+
+- Removed the dependencies - msrest and six
+- Added support for `Deployment Templates` along with the following operations:
+  - `ml_client.deployment_templates.create_or_update()`
+  - `ml_client.deployment_templates.list()`
+  - `ml_client.deployment_templates.get()`
+  - `ml_client.deployment_templates.archive()`
+  - `ml_client.deployment_templates.restore()`
+
 ## 1.29.0 (2025-09-01)
 
 ### Features Added
 
 - Removed the dependencies - msrest and six
+- Added support for `Deployment Templates` along with the following operations:
+  - `ml_client.deployment_templates.create_or_update()`
+  - `ml_client.deployment_templates.list()`
+  - `ml_client.deployment_templates.get()`
+  - `ml_client.deployment_templates.archive()`
+  - `ml_client.deployment_templates.restore()`
 
 ### Bugs Fixed
+
 - Fix for registry resource group passed to OnlineEndpointOperations when model is in registry in different resource group compared to workspace.
 - Set defaults for min_instances, max_instances, idle_time_before_scale_down in AmlCompute
 
 ### Other Changes
+
 - v2 component types are now case insensitive
 
 ## 1.28.1 (2025-07-08)

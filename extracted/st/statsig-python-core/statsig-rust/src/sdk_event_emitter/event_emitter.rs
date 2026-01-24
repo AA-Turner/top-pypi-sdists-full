@@ -5,7 +5,7 @@ use crate::{
     Statsig,
 };
 use dashmap::DashMap;
-use std::{borrow::Cow, ops::Deref};
+use std::ops::Deref;
 
 const TAG: &str = "SdkEventEmitter";
 
@@ -137,28 +137,129 @@ impl Statsig {
         reason: &str,
     ) {
         self.emit(SdkEvent::GateEvaluated {
-            gate_name: gate_name.into(),
-            rule_id: rule_id.into(),
+            gate_name,
+            rule_id,
             value,
-            reason: reason.into(),
+            reason,
+        });
+    }
+
+    #[cfg(feature = "ffi-support")]
+    pub(crate) fn emit_gate_evaluated_parts(
+        &self,
+        gate_name: &str,
+        reason: &str,
+        eval_result: Option<&crate::evaluation::evaluator_result::EvaluatorResult>,
+    ) {
+        let mut rule_id = None;
+        let mut value = false;
+
+        if let Some(eval) = eval_result {
+            rule_id = eval.rule_id.as_ref().map(|r| r.as_str());
+            value = eval.bool_value;
+        }
+
+        self.emit(SdkEvent::GateEvaluated {
+            gate_name,
+            rule_id: rule_id.unwrap_or_default(),
+            value,
+            reason,
         });
     }
 
     pub(crate) fn emit_dynamic_config_evaluated(&self, config: &DynamicConfig) {
         self.emit(SdkEvent::DynamicConfigEvaluated {
-            dynamic_config: Cow::Borrowed(config),
+            config_name: config.name.as_str(),
+            reason: config.details.reason.as_str(),
+            rule_id: Some(config.rule_id.as_str()),
+            value: config.__evaluation.as_ref().map(|e| &e.value),
+        });
+    }
+
+    #[cfg(feature = "ffi-support")]
+    pub(crate) fn emit_dynamic_config_evaluated_parts(
+        &self,
+        config_name: &str,
+        reason: &str,
+        eval_result: Option<&crate::evaluation::evaluator_result::EvaluatorResult>,
+    ) {
+        let mut rule_id = None;
+        let mut value = None;
+
+        if let Some(eval) = eval_result {
+            rule_id = eval.rule_id.as_ref().map(|r| r.as_str());
+            value = eval.json_value.as_ref();
+        }
+
+        self.emit(SdkEvent::DynamicConfigEvaluated {
+            config_name,
+            reason,
+            rule_id,
+            value,
         });
     }
 
     pub(crate) fn emit_experiment_evaluated(&self, experiment: &Experiment) {
         self.emit(SdkEvent::ExperimentEvaluated {
-            experiment: Cow::Borrowed(experiment),
+            experiment_name: experiment.name.as_str(),
+            reason: experiment.details.reason.as_str(),
+            rule_id: Some(experiment.rule_id.as_str()),
+            value: experiment.__evaluation.as_ref().map(|e| &e.value),
+            group_name: experiment.group_name.as_deref(),
+        });
+    }
+
+    #[cfg(feature = "ffi-support")]
+    pub(crate) fn emit_experiment_evaluated_parts(
+        &self,
+        experiment_name: &str,
+        reason: &str,
+        eval_result: Option<&crate::evaluation::evaluator_result::EvaluatorResult>,
+    ) {
+        let mut rule_id = None;
+        let mut value = None;
+        let mut group_name = None;
+
+        if let Some(eval) = eval_result {
+            rule_id = eval.rule_id.as_ref().map(|r| r.as_str());
+            value = eval.json_value.as_ref();
+            group_name = eval.group_name.as_ref().map(|g| g.as_str());
+        }
+
+        self.emit(SdkEvent::ExperimentEvaluated {
+            experiment_name,
+            reason,
+            rule_id,
+            value,
+            group_name,
         });
     }
 
     pub(crate) fn emit_layer_evaluated(&self, layer: &Layer) {
         self.emit(SdkEvent::LayerEvaluated {
-            layer: Cow::Borrowed(layer),
+            layer_name: layer.name.as_str(),
+            reason: layer.details.reason.as_str(),
+            rule_id: Some(layer.rule_id.as_str()),
+        });
+    }
+
+    #[cfg(feature = "ffi-support")]
+    pub(crate) fn emit_layer_evaluated_parts(
+        &self,
+        layer_name: &str,
+        reason: &str,
+        eval_result: Option<&crate::evaluation::evaluator_result::EvaluatorResult>,
+    ) {
+        let mut rule_id = None;
+
+        if let Some(eval) = eval_result {
+            rule_id = eval.rule_id.as_ref().map(|r| r.as_str());
+        }
+
+        self.emit(SdkEvent::LayerEvaluated {
+            layer_name,
+            reason,
+            rule_id,
         });
     }
 }

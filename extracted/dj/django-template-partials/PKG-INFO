@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-template-partials
-Version: 25.2
+Version: 25.3
 Summary: Reusable named inline-partials for the Django Template Language
 Author-email: Carlton Gibson <carlton.gibson@noumenal.es>
 Description-Content-Type: text/markdown
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
@@ -33,6 +34,12 @@ Provides-Extra: tests
 [![pypi](https://img.shields.io/pypi/v/django-template-partials.svg)](https://pypi.org/project/django-template-partials/)
 
 Reusable named inline partials for the Django Template Language.
+
+Template Partials were added to Django in version 6.0. You should use that in new projects: 
+
+* https://docs.djangoproject.com/en/dev/releases/6.0/#template-partials
+
+Check out the [Migration Guide](https://github.com/carltongibson/django-template-partials/blob/main/Migration.md) if you're updating to the Django version. 
 
 ## Watch the talk
 

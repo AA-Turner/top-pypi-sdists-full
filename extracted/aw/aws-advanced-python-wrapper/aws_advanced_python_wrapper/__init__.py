@@ -14,6 +14,7 @@
 
 from logging import DEBUG, getLogger
 
+from .cleanup import release_resources
 from .utils.utils import LogUtils
 from .wrapper import AwsWrapperConnection
 
@@ -22,6 +23,17 @@ connect = AwsWrapperConnection.connect
 apilevel = "2.0"
 threadsafety = 2
 paramstyle = "pyformat"
+
+# Public API
+__all__ = [
+    'connect',
+    'AwsWrapperConnection',
+    'release_resources',
+    'set_logger',
+    'apilevel',
+    'threadsafety',
+    'paramstyle'
+]
 
 
 def set_logger(name='aws_advanced_python_wrapper', level=DEBUG, format_string=None):

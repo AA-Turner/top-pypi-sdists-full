@@ -2,14 +2,14 @@
 Container for the result of running Pathfinder.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 
 from cmdstanpy.cmdstan_args import Method
 from cmdstanpy.stanfit.metadata import InferenceMetadata
 from cmdstanpy.stanfit.runset import RunSet
-from cmdstanpy.utils.stancsv import scan_generic_csv
+from cmdstanpy.utils import stancsv
 
 
 class CmdStanPathfinder:
@@ -26,15 +26,12 @@ class CmdStanPathfinder:
                 'found method {}'.format(runset.method)
             )
         self._runset = runset
-
         self._draws: np.ndarray = np.array(())
-
-        config = scan_generic_csv(runset.csv_files[0])
-        self._metadata = InferenceMetadata(config)
+        self._metadata = InferenceMetadata.from_csv(self._runset.csv_files[0])
 
     def create_inits(
         self, seed: Optional[int] = None, chains: int = 4
-    ) -> Union[List[Dict[str, np.ndarray]], Dict[str, np.ndarray]]:
+    ) -> Union[list[dict[str, np.ndarray]], dict[str, np.ndarray]]:
         """
         Create initial values for the parameters of the model
         by randomly selecting draws from the Pathfinder approximation.
@@ -45,7 +42,7 @@ class CmdStanPathfinder:
 
         If ``chains`` is 1, a dictionary is returned, otherwise a list
         of dictionaries is returned, in the format expected for the
-        ``inits`` argument. of :meth:`CmdStanModel.sample`.
+        ``inits`` argument of :meth:`CmdStanModel.sample`.
         """
         self._assemble_draws()
         rng = np.random.default_rng(seed)
@@ -77,21 +74,20 @@ class CmdStanPathfinder:
         )
         return rep
 
-    # below this is identical to same functions in Laplace
     def _assemble_draws(self) -> None:
         if self._draws.shape != (0,):
             return
 
-        with open(self._runset.csv_files[0], 'r') as fd:
-            while (fd.readline()).startswith("#"):
-                pass
-            self._draws = np.loadtxt(
-                fd,
-                dtype=float,
-                ndmin=2,
-                delimiter=',',
-                comments="#",
+        csv_file = self._runset.csv_files[0]
+        try:
+            *_, draws = stancsv.parse_comments_header_and_draws(
+                self._runset.csv_files[0]
             )
+            self._draws = stancsv.csv_bytes_list_to_numpy(draws)
+        except Exception as exc:
+            raise ValueError(
+                f"An error occurred when parsing Stan csv {csv_file}"
+            ) from exc
 
     def stan_variable(self, var: str) -> np.ndarray:
         """
@@ -127,7 +123,7 @@ class CmdStanPathfinder:
                 + ", ".join(self._metadata.stan_vars.keys())
             )
 
-    def stan_variables(self) -> Dict[str, np.ndarray]:
+    def stan_variables(self) -> dict[str, np.ndarray]:
         """
         Return a dictionary mapping Stan program variables names
         to the corresponding numpy.ndarray containing the inferred values.
@@ -146,7 +142,7 @@ class CmdStanPathfinder:
             result[name] = self.stan_variable(name)
         return result
 
-    def method_variables(self) -> Dict[str, np.ndarray]:
+    def method_variables(self) -> dict[str, np.ndarray]:
         """
         Returns a dictionary of all sampler variables, i.e., all
         output column names ending in `__`.  Assumes that all variables
@@ -197,14 +193,14 @@ class CmdStanPathfinder:
         return self._metadata
 
     @property
-    def column_names(self) -> Tuple[str, ...]:
+    def column_names(self) -> tuple[str, ...]:
         """
         Names of all outputs from the sampler, comprising sampler parameters
         and all components of all model parameters, transformed parameters,
         and quantities of interest. Corresponds to Stan CSV file header row,
         with names munged to array notation, e.g. `beta[1]` not `beta.1`.
         """
-        return self._metadata.cmdstan_config['column_names']  # type: ignore
+        return self._metadata.column_names
 
     @property
     def is_resampled(self) -> bool:

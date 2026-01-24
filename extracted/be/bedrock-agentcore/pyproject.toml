@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bedrock-agentcore"
-version = "0.1.4"
+version = "1.2.0"
 description = "An SDK for using Bedrock AgentCore"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,13 +26,14 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "boto3>=1.39.7",
-    "botocore>=1.39.7",
-    "pydantic>=2.0.0,<3.0.0",
+    "boto3>=1.40.52",
+    "botocore>=1.40.52",
+    "pydantic>=2.0.0,<2.41.3",
     "urllib3>=1.26.0",
     "starlette>=0.46.2",
     "typing-extensions>=4.13.2,<5.0.0",
     "uvicorn>=0.34.2",
+    "websockets>=12.0",
 ]
 
 [project.scripts]
@@ -68,6 +69,7 @@ ignore_missing_imports = false
 [tool.ruff]
 line-length = 120
 include = ["examples/**/*.py", "src/**/*.py", "tests/**/*.py", "tests-integ/**/*.py"]
+exclude = ["**/*.md"]
 
 [tool.ruff.lint]
 select = [
@@ -82,6 +84,7 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "!src/**/*.py" = ["D"]
+"src/bedrock_agentcore/memory/metadata-workflow.ipynb" = ["E501"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -90,6 +93,7 @@ convention = "google"
 testpaths = [
     "tests"
 ]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true
@@ -141,11 +145,16 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.12.0",
+    "websockets>=14.1",
     "wheel>=0.45.1",
-    "strands-agents>=1.1.0",
+    "strands-agents>=1.18.0",
+    "strands-agents-evals>=0.1.0",
 ]
 
 [project.optional-dependencies]
 strands-agents = [
     "strands-agents>=1.1.0"
+]
+strands-agents-evals = [
+    "strands-agents-evals>=0.1.0"
 ]

@@ -1,6 +1,7 @@
 # pylint: disable=too-many-arguments, too-many-branches, invalid-name
 # pylint: disable=too-many-lines, too-many-locals
 """Core XGBoost Library."""
+
 import copy
 import ctypes
 import json
@@ -16,6 +17,7 @@ from functools import wraps
 from inspect import Parameter, signature
 from types import EllipsisType
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -37,6 +39,7 @@ import numpy as np
 import scipy.sparse
 
 from ._data_utils import (
+    Categories,
     TransformedDf,
     array_interface,
     cuda_array_interface,
@@ -46,6 +49,7 @@ from ._data_utils import (
 from ._typing import (
     _T,
     ArrayLike,
+    ArrowCatList,
     BoosterParam,
     CFloatPtr,
     CNumeric,
@@ -65,8 +69,17 @@ from ._typing import (
     TransformedData,
     c_bst_ulong,
 )
-from .compat import PANDAS_INSTALLED, DataFrame, import_polars, py_str
+from .compat import (
+    import_polars,
+    import_pyarrow,
+    is_pandas_available,
+    is_pyarrow_available,
+    py_str,
+)
 from .libpath import find_lib_path, is_sphinx_build
+
+if TYPE_CHECKING:
+    from pandas import DataFrame as PdDataFrame
 
 
 class XGBoostError(ValueError):
@@ -321,9 +334,9 @@ def _check_distributed_params(kwargs: Dict[str, Any]) -> None:
     if device and device.find(":") != -1:
         if device != "sycl:gpu":
             raise ValueError(
-                "Distributed training doesn't support selecting device ordinal as GPUs are"
-                " managed by the distributed frameworks. use `device=cuda` or `device=gpu`"
-                " instead."
+                "Distributed training doesn't support selecting device ordinal as GPUs"
+                "  are managed by the distributed frameworks. use `device=cuda` or"
+                "  `device=gpu` instead."
             )
 
     if kwargs.get("booster", None) == "gblinear":
@@ -335,7 +348,7 @@ def _check_distributed_params(kwargs: Dict[str, Any]) -> None:
 def _validate_feature_info(
     feature_info: Sequence[str], n_features: int, is_column_split: bool, name: str
 ) -> List[str]:
-    if isinstance(feature_info, str) or not isinstance(feature_info, Sequence):
+    if not isinstance(feature_info, (str, Sequence, Categories)):
         raise TypeError(
             f"Expecting a sequence of strings for {name}, got: {type(feature_info)}"
         )
@@ -466,6 +479,38 @@ class DataIter(ABC):  # pylint: disable=too-many-instance-attributes
         `X`) as key. Don't repeat the `X` for multiple batches with different meta data
         (like `label`), make a copy if necessary.
 
+    .. note::
+
+        When the input for each batch is a DataFrame, we assume categories are
+        consistently encoded for all batches. For example, given two dataframes for two
+        batches, this is invalid:
+
+        .. code-block::
+
+            import pandas as pd
+
+            x0 = pd.DataFrame({"a": [0, 1]}, dtype="category")
+            x1 = pd.DataFrame({"a": [1, 2]}, dtype="category")
+
+        This is invalid because the `x0` has `[0, 1]` as categories while `x2` has `[1,
+        2]`. They should share the same set of categories and encoding:
+
+        .. code-block::
+
+            import numpy as np
+
+            categories = np.array([0, 1, 2])
+            x0["a"] = pd.Categorical.from_codes(
+                codes=np.array([0, 1]), categories=categories
+            )
+            x1["a"] = pd.Categorical.from_codes(
+                codes=np.array([1, 2]), categories=categories
+            )
+
+        You can make sure the consistent encoding in your preprocessing step be careful
+        that the data is stored in formats that preserve the encoding when chunking the
+        data.
+
     Parameters
     ----------
     cache_prefix :
@@ -497,7 +542,7 @@ class DataIter(ABC):  # pylint: disable=too-many-instance-attributes
         with GPU-based :py:class:`ExtMemQuantileDMatrix`. When using GPU-based external
         memory with the data cached in the host memory, XGBoost can concatenate the
         pages internally to increase the batch size for the GPU. The default page size
-        is about 1/8 of the total device memory. Users can manually set the value based
+        is about 1/16 of the total device memory. Users can manually set the value based
         on the actual hardware and datasets. Set this to 0 to disable page
         concatenation.
 
@@ -615,17 +660,17 @@ class DataIter(ABC):  # pylint: disable=too-many-instance-attributes
                 and ref is not None
                 and ref is self._data_ref
             ):
-                new, cat_codes, feature_names, feature_types = self._temporary_data
+                new, feature_names, feature_types = self._temporary_data
             else:
-                new, cat_codes, feature_names, feature_types = _proxy_transform(
+                new, feature_names, feature_types = _proxy_transform(
                     data,
                     feature_names,
                     feature_types,
                     self._enable_categorical,
                 )
             # Stage the data, meta info are copied inside C++ MetaInfo.
-            self._temporary_data = (new, cat_codes, feature_names, feature_types)
-            dispatch_proxy_set_data(self.proxy, new, cat_codes)
+            self._temporary_data = (new, feature_names, feature_types)
+            dispatch_proxy_set_data(self.proxy, new)
             self.proxy.set_info(
                 feature_names=feature_names,
                 feature_types=feature_types,
@@ -736,6 +781,63 @@ def require_keyword_args(
 _deprecate_positional_args = require_keyword_args(False)
 
 
+def _get_categories(
+    cfn: Callable[[ctypes.c_char_p], int],
+    feature_names: FeatureNames,
+    n_features: int,
+) -> ArrowCatList:
+    if not is_pyarrow_available():
+        raise ImportError(
+            "`pyarrow` is required for exporting categories to arrow arrays."
+        )
+
+    if not TYPE_CHECKING:
+        pa = import_pyarrow()
+    else:
+        import pyarrow as pa
+
+    results: ArrowCatList = []
+
+    ret = ctypes.c_char_p()
+    _check_call(cfn(ret))
+    if ret.value is None:
+        results = [(feature_names[i], None) for i in range(n_features)]
+        return results
+
+    retstr = ret.value.decode()  # pylint: disable=no-member
+    jcats = json.loads(retstr)
+    assert isinstance(jcats, list) and len(jcats) == n_features
+
+    for fidx in range(n_features):
+        f_jcats = jcats[fidx]
+        if f_jcats is None:
+            # Numeric data
+            results.append((feature_names[fidx], None))
+            continue
+
+        if "offsets" not in f_jcats:
+            values = from_array_interface(f_jcats)
+            pa_values = pa.Array.from_pandas(values)
+            results.append((feature_names[fidx], pa_values))
+            continue
+
+        joffsets = f_jcats["offsets"]
+        jvalues = f_jcats["values"]
+        offsets = from_array_interface(joffsets)
+        values = from_array_interface(jvalues)
+        pa_offsets = pa.array(offsets).buffers()
+        pa_values = pa.array(values).buffers()
+        assert (
+            pa_offsets[0] is None and pa_values[0] is None
+        ), "Should not have null mask."
+        pa_dict = pa.StringArray.from_buffers(
+            len(offsets) - 1, pa_offsets[1], pa_values[1]
+        )
+        results.append((feature_names[fidx], pa_dict))
+
+    return results
+
+
 @unique
 class DataSplitMode(IntEnum):
     """Supported data split mode for DMatrix."""
@@ -764,7 +866,7 @@ class DMatrix:  # pylint: disable=too-many-instance-attributes,too-many-public-m
         missing: Optional[float] = None,
         silent: bool = False,
         feature_names: Optional[FeatureNames] = None,
-        feature_types: Optional[FeatureTypes] = None,
+        feature_types: Optional[Union[FeatureTypes, Categories]] = None,
         nthread: Optional[int] = None,
         group: Optional[ArrayLike] = None,
         qid: Optional[ArrayLike] = None,
@@ -781,8 +883,8 @@ class DMatrix:  # pylint: disable=too-many-instance-attributes,too-many-public-m
             types.
 
             Note that, if passing an iterator, it **will cache data on disk**, and note
-            that fields like ``label`` will be concatenated in-memory from multiple calls
-            to the iterator.
+            that fields like ``label`` will be concatenated in-memory from multiple
+            calls to the iterator.
         label :
             Label of the training data.
         weight :
@@ -807,27 +909,34 @@ class DMatrix:  # pylint: disable=too-many-instance-attributes,too-many-public-m
         feature_types :
 
             Set types for features. If `data` is a DataFrame type and passing
-            `enable_categorical=True`, the types will be deduced automatically
-            from the column types.
+            `enable_categorical=True`, the types will be deduced automatically from the
+            column types.
 
-            Otherwise, one can pass a list-like input with the same length as number
-            of columns in `data`, with the following possible values:
+            Otherwise, one can pass a list-like input with the same length as number of
+            columns in `data`, with the following possible values:
 
             - "c", which represents categorical columns.
             - "q", which represents numeric columns.
             - "int", which represents integer columns.
             - "i", which represents boolean columns.
 
-            Note that, while categorical types are treated differently from
-            the rest for model fitting purposes, the other types do not influence
-            the generated model, but have effects in other functionalities such as
-            feature importances.
+            Note that, while categorical types are treated differently from the rest for
+            model fitting purposes, the other types do not influence the generated
+            model, but have effects in other functionalities such as feature
+            importances.
 
             For categorical features, the input is assumed to be preprocessed and
             encoded by the users. The encoding can be done via
             :py:class:`sklearn.preprocessing.OrdinalEncoder` or pandas dataframe
             `.cat.codes` method. This is useful when users want to specify categorical
             features without having to construct a dataframe as input.
+
+            .. versionadded:: 3.1.0
+
+            Alternatively, user can pass a :py:class:`~xgboost.core.Categories` object
+            returned from previous training as a reference for re-coding. One can obtain
+            the reference with the :py:meth:`.get_categories` from the previous training
+            DMatrix or the Booster. This feature is experimental.
 
         nthread :
             Number of threads to use for loading data when parallelization is
@@ -848,19 +957,24 @@ class DMatrix:  # pylint: disable=too-many-instance-attributes,too-many-public-m
 
             .. note:: This parameter is experimental
 
-            Experimental support of specializing for categorical features.
+            Experimental support of specializing for categorical features. See
+            :doc:`/tutorials/categorical` for more info.
 
-            If passing 'True' and 'data' is a data frame (from supported libraries such
-            as Pandas, Modin or cuDF), columns of categorical types will automatically
-            be set to be of categorical type (feature_type='c') in the resulting
-            DMatrix.
+            If passing `True` and `data` is a data frame (from supported libraries such
+            as Pandas, Modin, polars, and cuDF), The DMatrix recognizes categorical
+            columns and automatically set the `feature_types` parameter. If `data` is
+            not a data frame, this argument is ignored.
 
-            If passing 'False' and 'data' is a data frame with categorical columns,
-            it will result in an error being thrown.
+            If passing `False` and `data` is a data frame with categorical columns, it
+            will result in an error.
 
-            If 'data' is not a data frame, this argument is ignored.
+            See notes in the :py:class:`DataIter` for consistency requirement when the
+            input is an iterator.
 
-            JSON/UBJSON serialization format is required for this.
+            .. versionchanged:: 3.1.0
+
+            XGBoost can remember the encoding of categories when the input is a
+            dataframe.
 
         """
         if group is not None and qid is not None:
@@ -1240,6 +1354,46 @@ class DMatrix:  # pylint: disable=too-many-instance-attributes,too-many-public-m
         assert data.dtype == np.float32
         return indptr, data
 
+    def get_categories(self, export_to_arrow: bool = False) -> Categories:
+        """Get the categories in the dataset.
+
+        .. versionadded:: 3.1.0
+
+        .. warning::
+
+            This function is experimental.
+
+        Parameters
+        ----------
+        export_to_arrow :
+            The returned container will contain a list of ``pyarrow`` arrays for the
+            categories. See the :py:meth:`~Categories.to_arrow` for more info.
+
+        """
+        fnames = self.feature_names
+        n_features = self.num_col()
+        if fnames is None:
+            fnames = [str(i) for i in range(n_features)]
+
+        hdl = ctypes.c_void_p()
+        if export_to_arrow:
+            arrow_arrays = _get_categories(
+                lambda ret: _LIB.XGDMatrixGetCategoriesExportToArrow(
+                    self.handle, None, ctypes.byref(hdl), ctypes.byref(ret)
+                ),
+                fnames,
+                n_features,
+            )
+        else:
+            arrow_arrays = None
+            _check_call(
+                _LIB.XGDMatrixGetCategories(self.handle, None, ctypes.byref(hdl))
+            )
+
+        return Categories(
+            (hdl, lambda: _check_call(_LIB.XGBCategoriesFree(hdl))), arrow_arrays
+        )
+
     def num_row(self) -> int:
         """Get the number of rows in the DMatrix."""
         ret = c_bst_ulong()
@@ -1450,12 +1604,11 @@ class _ProxyDMatrix(DMatrix):
         arrinf = cuda_array_interface(data)
         _check_call(_LIB.XGProxyDMatrixSetDataCudaArrayInterface(self.handle, arrinf))
 
-    def _ref_data_from_cuda_columnar(self, data: DataType, cat_codes: list) -> None:
+    def _ref_data_from_cuda_columnar(self, data: TransformedDf) -> None:
         """Reference data from CUDA columnar format."""
-        from .data import _cudf_array_interfaces
-
-        interfaces_str = _cudf_array_interfaces(data, cat_codes)
-        _check_call(_LIB.XGProxyDMatrixSetDataCudaColumnar(self.handle, interfaces_str))
+        _check_call(
+            _LIB.XGProxyDMatrixSetDataCudaColumnar(self.handle, data.array_interface())
+        )
 
     def _ref_data_from_array(self, data: np.ndarray) -> None:
         """Reference data from numpy array."""
@@ -1520,7 +1673,8 @@ class QuantileDMatrix(DMatrix, _RefMixIn):
         X, y = make_regression()
         X_train, X_test, y_train, y_test = train_test_split(X, y)
         Xy_train = xgb.QuantileDMatrix(X_train, y_train)
-        # It's necessary to have the training DMatrix as a reference for valid quantiles.
+        # It's necessary to have the training DMatrix as a reference for valid
+        # quantiles.
         Xy_test = xgb.QuantileDMatrix(X_test, y_test, ref=Xy_train)
 
     Parameters
@@ -1537,12 +1691,12 @@ class QuantileDMatrix(DMatrix, _RefMixIn):
 
     max_quantile_batches :
         For GPU-based inputs from an iterator, XGBoost handles incoming batches with
-        multiple growing substreams. This parameter sets the maximum number of batches
-        before XGBoost can cut the sub-stream and create a new one. This can help bound
-        the memory usage. By default, XGBoost grows new sub-streams exponentially until
-        batches are exhausted. Only used for the training dataset and the default is
-        None (unbounded). Lastly, if the `data` is a single batch instead of an
-        iterator, this parameter has no effect.
+        multiple growing sub-streams. This parameter sets the maximum number of batches
+        before XGBoost can cut a sub-stream and create a new one. This can help bound
+        the memory usage. By default, XGBoost grows a sub-stream exponentially until
+        batches are exhausted. This option is only used for the training dataset and the
+        default is None (unbounded). Lastly, if the `data` is a single batch instead of
+        an iterator, this parameter has no effect.
 
         .. versionadded:: 3.0.0
 
@@ -1708,8 +1862,8 @@ class ExtMemQuantileDMatrix(DMatrix, _RefMixIn):
         max_bin: Optional[int] = None,
         ref: Optional[DMatrix] = None,
         enable_categorical: bool = False,
-        max_num_device_pages: Optional[int] = None,
         max_quantile_batches: Optional[int] = None,
+        cache_host_ratio: Optional[float] = None,
     ) -> None:
         """
         Parameters
@@ -1717,17 +1871,19 @@ class ExtMemQuantileDMatrix(DMatrix, _RefMixIn):
         data :
             A user-defined :py:class:`DataIter` for loading data.
 
-        max_num_device_pages :
-            For a GPU-based validation dataset, XGBoost can optionally cache some pages
-            in device memory instead of host memory to reduce data transfer. Each cached
-            page has size of `min_cache_page_bytes`. Set this to 0 if you don't want
-            pages to be cached in the device memory. This can be useful for preventing
-            OOM error where there are more than one validation datasets. The default
-            number of device-based page is 1. Lastly, XGBoost infers whether a dataset
-            is used for valdiation by checking whether ref is not None.
-
         max_quantile_batches :
             See :py:class:`QuantileDMatrix`.
+
+        cache_host_ratio :
+
+            .. versionadded:: 3.1.0
+
+            Used by the GPU implementation. For GPU-based inputs, XGBoost can split the
+            cache into host and device caches to reduce the data transfer overhead. This
+            parameter specifies the size of host cache compared to the size of the
+            entire cache: :math:`host / (host + device)`.
+
+            See :ref:`extmem-adaptive-cache` for more info.
 
         """
         self.max_bin = max_bin
@@ -1738,8 +1894,10 @@ class ExtMemQuantileDMatrix(DMatrix, _RefMixIn):
             data,
             ref,
             enable_categorical=enable_categorical,
-            max_num_device_pages=max_num_device_pages,
             max_quantile_blocks=max_quantile_batches,
+            cache_host_ratio=(
+                None if cache_host_ratio is None else float(cache_host_ratio)
+            ),
         )
         assert self.handle is not None
 
@@ -1749,8 +1907,8 @@ class ExtMemQuantileDMatrix(DMatrix, _RefMixIn):
         ref: Optional[DMatrix],
         *,
         enable_categorical: bool,
-        max_num_device_pages: Optional[int] = None,
         max_quantile_blocks: Optional[int] = None,
+        cache_host_ratio: Optional[float] = None,
     ) -> None:
         args = make_jcargs(
             missing=self.missing,
@@ -1759,9 +1917,9 @@ class ExtMemQuantileDMatrix(DMatrix, _RefMixIn):
             on_host=it.on_host,
             max_bin=self.max_bin,
             min_cache_page_bytes=it.min_cache_page_bytes,
-            max_num_device_pages=max_num_device_pages,
             # It's called blocks internally due to block-based quantile sketching.
             max_quantile_blocks=max_quantile_blocks,
+            cache_host_ratio=cache_host_ratio,
         )
         handle = ctypes.c_void_p()
         reset_callback, next_callback = it.get_callbacks(enable_categorical)
@@ -2196,6 +2354,33 @@ class Booster:
     def feature_names(self, features: Optional[FeatureNames]) -> None:
         self._set_feature_info(features, "feature_name")
 
+    def get_categories(self, export_to_arrow: bool = False) -> Categories:
+        """Same method as :py:meth:`DMatrix.get_categories`."""
+
+        fnames = self.feature_names
+        n_features = self.num_features()
+        if fnames is None:
+            fnames = [str(i) for i in range(n_features)]
+
+        hdl = ctypes.c_void_p()
+        if export_to_arrow:
+            arrow_arrays = _get_categories(
+                lambda ret: _LIB.XGBoosterGetCategoriesExportToArrow(
+                    self.handle, None, ctypes.byref(hdl), ctypes.byref(ret)
+                ),
+                fnames,
+                n_features,
+            )
+        else:
+            arrow_arrays = None
+            _check_call(
+                _LIB.XGBoosterGetCategories(self.handle, None, ctypes.byref(hdl))
+            )
+
+        return Categories(
+            (hdl, lambda: _check_call(_LIB.XGBCategoriesFree(hdl))), arrow_arrays
+        )
+
     def set_param(
         self,
         params: Union[Dict, Iterable[Tuple[str, Any]], str],
@@ -2216,6 +2401,8 @@ class Booster:
             params = [(params, value)]
         for key, val in cast(Iterable[Tuple[str, str]], params):
             if isinstance(val, np.ndarray):
+                val = val.tolist()
+            elif hasattr(val, "__cuda_array_interface__") and hasattr(val, "tolist"):
                 val = val.tolist()
             if val is not None:
                 _check_call(
@@ -2447,9 +2634,9 @@ class Booster:
             prediction. Note the final column is the bias term.
 
         approx_contribs :
-            Approximate the contributions of each feature.  Used when ``pred_contribs`` or
-            ``pred_interactions`` is set to True.  Changing the default of this parameter
-            (False) is not recommended.
+            Approximate the contributions of each feature.  Used when ``pred_contribs``
+            or ``pred_interactions`` is set to True.  Changing the default of this
+            parameter (False) is not recommended.
 
         pred_interactions :
             When this is True the output will be a matrix of size (nsample,
@@ -2467,10 +2654,10 @@ class Booster:
 
         training :
             Whether the prediction value is used for training.  This can effect `dart`
-            booster, which performs dropouts during training iterations but use all trees
-            for inference. If you want to obtain result with dropouts, set this parameter
-            to `True`.  Also, the parameter is set to true when obtaining prediction for
-            custom objective function.
+            booster, which performs dropouts during training iterations but use all
+            trees for inference. If you want to obtain result with dropouts, set this
+            parameter to `True`.  Also, the parameter is set to true when obtaining
+            prediction for custom objective function.
 
             .. versionadded:: 1.0.0
 
@@ -2483,8 +2670,8 @@ class Booster:
             .. versionadded:: 1.4.0
 
         strict_shape :
-            When set to True, output shape is invariant to whether classification is used.
-            For both value and margin prediction, the output shape is (n_samples,
+            When set to True, output shape is invariant to whether classification is
+            used.  For both value and margin prediction, the output shape is (n_samples,
             n_groups), n_groups == 1 when multi-class is not used.  Default to False, in
             which case the output shape can be (n_samples, ) if multi-class is not used.
 
@@ -2671,7 +2858,8 @@ class Booster:
         if validate_features:
             if not hasattr(data, "shape"):
                 raise TypeError(
-                    "`shape` attribute is required when `validate_features` is True."
+                    "`shape` attribute is required when `validate_features` is True"
+                    f", got: {type(data)}"
                 )
             if len(data.shape) != 1 and self.num_features() != data.shape[1]:
                 raise ValueError(
@@ -2745,18 +2933,15 @@ class Booster:
             )
             return _prediction_output(shape, dims, preds, True)
         if _is_cudf_df(data):
-            from .data import _cudf_array_interfaces, _transform_cudf_df
+            from .data import _transform_cudf_df
 
-            data, cat_codes, fns, _ = _transform_cudf_df(
-                data, None, None, enable_categorical
-            )
-            interfaces_str = _cudf_array_interfaces(data, cat_codes)
+            df, fns, _ = _transform_cudf_df(data, None, None, enable_categorical)
             if validate_features:
                 self._validate_features(fns)
             _check_call(
                 _LIB.XGBoosterPredictFromCudaColumnar(
                     self.handle,
-                    interfaces_str,
+                    df.array_interface(),
                     args,
                     p_handle,
                     ctypes.byref(shape),
@@ -3006,8 +3191,8 @@ class Booster:
 
         .. note:: Zero-importance features will not be included
 
-           Keep in mind that this function does not include zero-importance feature, i.e.
-           those features that have not been used in any split conditions.
+           Keep in mind that this function does not include zero-importance feature,
+           i.e.  those features that have not been used in any split conditions.
 
         Parameters
         ----------
@@ -3023,7 +3208,8 @@ class Booster:
         """Get feature importance of each feature.
         For tree model Importance type can be defined as:
 
-        * 'weight': the number of times a feature is used to split the data across all trees.
+        * 'weight': the number of times a feature is used to split the data across all
+           trees.
         * 'gain': the average gain across all splits the feature is used in.
         * 'cover': the average coverage across all splits the feature is used in.
         * 'total_gain': the total gain across all splits the feature is used in.
@@ -3031,13 +3217,13 @@ class Booster:
 
         .. note::
 
-           For linear model, only "weight" is defined and it's the normalized coefficients
-           without bias.
+           For linear model, only "weight" is defined and it's the normalized
+           coefficients without bias.
 
         .. note:: Zero-importance features will not be included
 
-           Keep in mind that this function does not include zero-importance feature, i.e.
-           those features that have not been used in any split conditions.
+           Keep in mind that this function does not include zero-importance feature,
+           i.e.  those features that have not been used in any split conditions.
 
         Parameters
         ----------
@@ -3083,7 +3269,7 @@ class Booster:
         return results
 
     # pylint: disable=too-many-statements
-    def trees_to_dataframe(self, fmap: PathLike = "") -> DataFrame:
+    def trees_to_dataframe(self, fmap: PathLike = "") -> "PdDataFrame":
         """Parse a boosted tree model text dump into a pandas DataFrame structure.
 
         This feature is only defined when the decision tree model is chosen as base
@@ -3096,8 +3282,10 @@ class Booster:
            The name of feature map file.
         """
         # pylint: disable=too-many-locals
+        from pandas import DataFrame
+
         fmap = os.fspath(os.path.expanduser(fmap))
-        if not PANDAS_INSTALLED:
+        if not is_pandas_available():
             raise ImportError(
                 (
                     "pandas must be available to use this method."
@@ -3248,7 +3436,7 @@ class Booster:
         fmap: PathLike = "",
         bins: Optional[int] = None,
         as_pandas: bool = True,
-    ) -> Union[np.ndarray, DataFrame]:
+    ) -> Union[np.ndarray, "PdDataFrame"]:
         """Get split value histogram of a feature
 
         Parameters
@@ -3304,9 +3492,11 @@ class Booster:
                     "Split value historgam doesn't support categorical split."
                 )
 
-        if as_pandas and PANDAS_INSTALLED:
+        if as_pandas and is_pandas_available():
+            from pandas import DataFrame
+
             return DataFrame(nph_stacked, columns=["SplitValue", "Count"])
-        if as_pandas and not PANDAS_INSTALLED:
+        if as_pandas and not is_pandas_available():
             warnings.warn(
                 "Returning histogram as ndarray"
                 " (as_pandas == True, but pandas is not installed).",

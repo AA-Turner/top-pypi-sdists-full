@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "worker-automate-hub"
-version = "0.5.799"
+version = "0.5.983"
 description = "Worker Automate HUB é uma aplicação para automatizar rotinas de RPA nos ambientes Argenta."
 authors = ["Joel Paim"]
 readme = "README.md"
@@ -61,6 +61,8 @@ gitpython = "^3.1.43"
 selenium = "^4.27.1"
 webdriver-manager = "^4.0.2"
 xlrd = "^2.0.1"
+unidecode = "^1.4.0"
+paramiko = "^4.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"

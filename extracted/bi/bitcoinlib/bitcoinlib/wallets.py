@@ -19,7 +19,7 @@
 
 import json
 import random
-from itertools import groupby
+from itertools import groupby, combinations
 from operator import itemgetter
 import numpy as np
 import pickle
@@ -590,6 +590,38 @@ class WalletKey(object):
         self._dbkey = None
         return pub_key
 
+    def sign_message(self, message, use_rfc6979=True, k=None, hash_type=SIGHASH_ALL, force_canonical=False):
+        """
+        Sign message with this wallet key
+
+        :param message: Message to be signed. Must be unhashed and in bytes format.
+        :type message: bytes, hexstring
+        :param use_rfc6979: Use deterministic value for k nonce to derive k from txid/message according to RFC6979 standard. Default is True, set to False to use random k
+        :type use_rfc6979: bool
+        :param k: Provide own k. Only use for testing or if you know what you are doing. Providing wrong value for k can result in leaking your private key!
+        :type k: int
+        :param hash_type: Specific hash type, default is SIGHASH_ALL
+        :type hash_type: int
+        :param force_canonical: Some wallets require a canonical s value, so you could set this to True
+        :type force_canonical: bool
+
+        :return Signature:
+        """
+        return self.key().sign_message(message, use_rfc6979, k, hash_type, force_canonical)
+
+    def verify_message(self, message, signature):
+        """
+        Verify if provided message is signed by signature for this wallet key.
+
+        :param message: Message to verify. Must be unhashed and in bytes format.
+        :type message: bytes, hexstring
+        :param signature: signature as Signature object
+        :type signature: Signature
+
+        :return bool:
+        """
+        return self.key().verify_message(message, signature)
+
     def as_dict(self, include_private=False):
         """
         Return current key information as dictionary
@@ -1145,6 +1177,7 @@ class WalletTransaction(Transaction):
                               sigs_required=self.hdwallet.multisig_n_required, sort=self.hdwallet.sort_keys,
                               compressed=key.compressed, value=utxo['value'], address=utxo['address'],
                               witness_type=key.witness_type)
+
 
 class Wallet(object):
     """
@@ -1740,8 +1773,8 @@ class Wallet(object):
         self.session.query(DbWallet).filter(DbWallet.id == self.wallet_id).\
             update({DbWallet.main_key_id: self.main_key_id})
 
-        for key in self.keys(is_private=False):
-            kp = key.path.split("/")
+        for key in self.keys(is_private=False, as_dict=True):
+            kp = key['path'].split("/")
             if kp and kp[0] == 'M':
                 kp = self.key_path[:self.depth_public_master+1] + kp[1:]
             self.key_for_path(kp, recreate=True)
@@ -2645,8 +2678,6 @@ class Wallet(object):
                 keys2.append({k: v for (k, v) in key.items()
                               if k[:1] != '_' and k != 'wallet' and k not in private_fields})
             return keys2
-        # qr.session.close()
-        qr.session.commit()
         return keys
 
     def keys_networks(self, used=None, as_dict=False):
@@ -3828,8 +3859,6 @@ class Wallet(object):
         if not utxos:
             raise WalletError("Create transaction: No unspent transaction outputs found or no key available for UTXO's")
 
-        # TODO: Find 1 or 2 UTXO's with exact amount +/- self.network.dust_amount
-
         # Try to find one utxo with exact amount
         one_utxo = utxo_query.filter(DbTransactionOutput.spent.is_(False),
                                      DbTransactionOutput.value >= amount,
@@ -3844,24 +3873,28 @@ class Wallet(object):
                 order_by(DbTransactionOutput.value).first()
             if one_utxo:
                 selected_utxos = [one_utxo]
-            elif max_utxos and max_utxos <= 1:
-                _logger.info("No single UTXO found with requested amount, use higher 'max_utxo' setting to use "
-                             "multiple UTXO's")
-                return []
 
         # Otherwise compose of 2 or more lesser outputs
         if not selected_utxos:
+            if max_utxos and max_utxos <= 1:
+                _logger.info("No single UTXO found with requested amount, use higher 'max_utxo' setting to use "
+                             "multiple UTXO's")
+                return []
             lessers = utxo_query. \
                 filter(DbTransactionOutput.spent.is_(False), DbTransactionOutput.value < amount).\
                 order_by(DbTransactionOutput.value.desc()).all()
-            total_amount = 0
-            selected_utxos = []
-            for utxo in lessers[:max_utxos]:
-                if total_amount < amount:
+            utxo_values = [l.value for l in lessers]
+            result = []
+            for r in range(2, (max_utxos or len(utxo_values)) + 1):
+                for combo in combinations(utxo_values, r):
+                    if sum(combo) >= amount:
+                        result.append(combo)
+            if result:
+                for value in result[0]:
+                    utxo = [u for u in lessers if u.value == value][0]
                     selected_utxos.append(utxo)
-                    total_amount += utxo.value
-            if total_amount < amount:
-                return []
+                    lessers.remove(utxo)
+
         if not return_input_obj:
             return selected_utxos
         else:
@@ -4585,6 +4618,61 @@ class Wallet(object):
         t = pickle.load(f)
         f.close()
         return self.transaction_import(t)
+
+    def sign_message(self, message, key_term=None, use_rfc6979=True, k=None, hash_type=SIGHASH_ALL,
+                     force_canonical=False):
+        """
+        Sign message with this wallet and provided key. If no key ID is provided the message will be signed with
+        first available key.
+
+        :param message: Message to be signed. Must be unhashed and in bytes format.
+        :type message: bytes, hexstring
+        :param key_term: Key ID or address of signing key. Search term can be key ID, key address, key WIF or key name
+        :type key_term: int, str
+        :param use_rfc6979: Use deterministic value for k nonce to derive k from txid/message according to RFC6979 standard. Default is True, set to False to use random k
+        :type use_rfc6979: bool
+        :param k: Provide own k. Only use for testing or if you know what you are doing. Providing wrong value for k can result in leaking your private key!
+        :type k: int
+        :param hash_type: Specific hash type, default is SIGHASH_ALL
+        :type hash_type: int
+        :param force_canonical: Some wallets require a canonical s value, so you could set this to True
+        :type force_canonical: bool
+
+        :return Signature:
+        """
+        if key_term:
+            wk = self.key(key_term)
+        else:
+            wk = self.get_key()
+
+        return wk.sign_message(message, use_rfc6979, k, hash_type, force_canonical)
+
+    def verify_message(self, message, signature, key_term=None):
+        """
+        Verify if provided message is signed by provided signature and matches a public key from this wallet.
+
+        If no key_term is provided it will check the signature against all known keys for this wallet. This can be
+        slow for larger wallets.
+
+        :param message: Message to verify. Must be unhashed and in bytes format.
+        :type message: bytes, hexstring
+        :param signature: signature as Signature object
+        :type signature: Signature
+        :param key_term: Key ID or address of verifying key. Search term can be key ID, key address, key WIF or key name
+        :type key_term: int, str
+
+        :return bool:
+        """
+        if key_term:
+            wk = self.key(key_term)
+            return wk.verify_message(message, signature)
+        else:
+            db_wks = self.keys_addresses()
+            for db_wk in db_wks:
+                wk = WalletKey(key_id=db_wk.id, session=self.session)
+                if wk.verify_message(message, signature):
+                    return True
+        return False
 
     def info(self, detail=3):
         """

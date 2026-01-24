@@ -11,7 +11,6 @@ import pytest
 
 from great_expectations.compatibility.pydantic import DirectoryPath, validate_arguments
 from great_expectations.compatibility.typing_extensions import override
-from great_expectations.core.partitioners import ColumnPartitioner
 from great_expectations.core.yaml_handler import YAMLHandler
 from great_expectations.data_context import AbstractDataContext, FileDataContext
 from great_expectations.data_context import get_context as get_gx_context
@@ -19,11 +18,9 @@ from great_expectations.datasource.fluent.batch_request import (
     BatchParameters,
     BatchRequest,
 )
-from great_expectations.datasource.fluent.config import GxConfig
 from great_expectations.datasource.fluent.constants import (
     _FLUENT_DATASOURCES_KEY,
 )
-from great_expectations.datasource.fluent.data_connector.batch_filter import BatchSlice
 from great_expectations.datasource.fluent.interfaces import (
     DataAsset,
     Datasource,
@@ -39,7 +36,10 @@ yaml = YAMLHandler()
 
 if TYPE_CHECKING:
     from great_expectations.core.config_provider import _ConfigurationProvider
+    from great_expectations.core.partitioners import ColumnPartitioner
     from great_expectations.datasource.datasource_dict import DatasourceDict
+    from great_expectations.datasource.fluent.config import GxConfig
+    from great_expectations.datasource.fluent.data_connector.batch_filter import BatchSlice
     from great_expectations.datasource.fluent.interfaces import Batch
 
 
@@ -262,7 +262,7 @@ class TestMetaDatasource:
         assert asset_types, "No asset types have been declared"
 
         registered_type_names = [FooBarDatasource._type_lookup.get(t) for t in asset_types]
-        for type_, name in zip(asset_types, registered_type_names):
+        for type_, name in zip(asset_types, registered_type_names, strict=False):
             print(f"`{type_.__name__}` registered as '{name}'")
             assert name, f"{type.__name__} could not be retrieved"
 
@@ -302,7 +302,7 @@ class TestMisconfiguredMetaDatasource:
     def test_ds_assets_type_field_not_set(self, empty_sources: DataSourceManager):
         with pytest.raises(
             TypeRegistrationError,
-            match="No `type` field found for `BadAssetDatasource.asset_types` -> `MissingTypeAsset` unable to register asset type",  # noqa: E501 # FIXME CoP
+            match=r"No `type` field found for `BadAssetDatasource.asset_types` -> `MissingTypeAsset` unable to register asset type",  # noqa: E501 # FIXME CoP
         ):
 
             class MissingTypeAsset(DataAsset):

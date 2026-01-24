@@ -295,10 +295,12 @@ class Column:
                         ):
                             source_columns.add(src_col)
                 else:
-                    if alias_mapping.get(qualifier):
-                        source_columns.add(
-                            _to_src_col(src_col, alias_mapping.get(qualifier))
-                        )
+                    # Try case-insensitive lookup for qualifier
+                    resolved_table = alias_mapping.get(qualifier) or alias_mapping.get(
+                        qualifier.lower()
+                    )
+                    if resolved_table:
+                        source_columns.add(_to_src_col(src_col, resolved_table))
                     else:
                         source_columns.add(_to_src_col(src_col, Table(qualifier)))
             except Exception as ex:

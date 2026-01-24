@@ -3,7 +3,7 @@ Type annotations for logs service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -39,21 +40,33 @@ from .paginator import (
     DescribeResourcePoliciesPaginator,
     DescribeSubscriptionFiltersPaginator,
     FilterLogEventsPaginator,
+    GetScheduledQueryHistoryPaginator,
+    ListAggregateLogGroupSummariesPaginator,
     ListAnomaliesPaginator,
     ListLogAnomalyDetectorsPaginator,
     ListLogGroupsForQueryPaginator,
+    ListScheduledQueriesPaginator,
+    ListSourcesForS3TableIntegrationPaginator,
 )
 from .type_defs import (
     AssociateKmsKeyRequestTypeDef,
+    AssociateSourceToS3TableIntegrationRequestTypeDef,
+    AssociateSourceToS3TableIntegrationResponseTypeDef,
     CancelExportTaskRequestTypeDef,
+    CancelImportTaskRequestTypeDef,
+    CancelImportTaskResponseTypeDef,
     CreateDeliveryRequestTypeDef,
     CreateDeliveryResponseTypeDef,
     CreateExportTaskRequestTypeDef,
     CreateExportTaskResponseTypeDef,
+    CreateImportTaskRequestTypeDef,
+    CreateImportTaskResponseTypeDef,
     CreateLogAnomalyDetectorRequestTypeDef,
     CreateLogAnomalyDetectorResponseTypeDef,
     CreateLogGroupRequestTypeDef,
     CreateLogStreamRequestTypeDef,
+    CreateScheduledQueryRequestTypeDef,
+    CreateScheduledQueryResponseTypeDef,
     DeleteAccountPolicyRequestTypeDef,
     DeleteDataProtectionPolicyRequestTypeDef,
     DeleteDeliveryDestinationPolicyRequestTypeDef,
@@ -71,6 +84,7 @@ from .type_defs import (
     DeleteQueryDefinitionResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteRetentionPolicyRequestTypeDef,
+    DeleteScheduledQueryRequestTypeDef,
     DeleteSubscriptionFilterRequestTypeDef,
     DeleteTransformerRequestTypeDef,
     DescribeAccountPoliciesRequestTypeDef,
@@ -89,6 +103,10 @@ from .type_defs import (
     DescribeExportTasksResponseTypeDef,
     DescribeFieldIndexesRequestTypeDef,
     DescribeFieldIndexesResponseTypeDef,
+    DescribeImportTaskBatchesRequestTypeDef,
+    DescribeImportTaskBatchesResponseTypeDef,
+    DescribeImportTasksRequestTypeDef,
+    DescribeImportTasksResponseTypeDef,
     DescribeIndexPoliciesRequestTypeDef,
     DescribeIndexPoliciesResponseTypeDef,
     DescribeLogGroupsRequestTypeDef,
@@ -106,6 +124,8 @@ from .type_defs import (
     DescribeSubscriptionFiltersRequestTypeDef,
     DescribeSubscriptionFiltersResponseTypeDef,
     DisassociateKmsKeyRequestTypeDef,
+    DisassociateSourceFromS3TableIntegrationRequestTypeDef,
+    DisassociateSourceFromS3TableIntegrationResponseTypeDef,
     EmptyResponseMetadataTypeDef,
     FilterLogEventsRequestTypeDef,
     FilterLogEventsResponseTypeDef,
@@ -125,6 +145,8 @@ from .type_defs import (
     GetLogAnomalyDetectorResponseTypeDef,
     GetLogEventsRequestTypeDef,
     GetLogEventsResponseTypeDef,
+    GetLogFieldsRequestTypeDef,
+    GetLogFieldsResponseTypeDef,
     GetLogGroupFieldsRequestTypeDef,
     GetLogGroupFieldsResponseTypeDef,
     GetLogObjectRequestTypeDef,
@@ -133,8 +155,14 @@ from .type_defs import (
     GetLogRecordResponseTypeDef,
     GetQueryResultsRequestTypeDef,
     GetQueryResultsResponseTypeDef,
+    GetScheduledQueryHistoryRequestTypeDef,
+    GetScheduledQueryHistoryResponseTypeDef,
+    GetScheduledQueryRequestTypeDef,
+    GetScheduledQueryResponseTypeDef,
     GetTransformerRequestTypeDef,
     GetTransformerResponseTypeDef,
+    ListAggregateLogGroupSummariesRequestTypeDef,
+    ListAggregateLogGroupSummariesResponseTypeDef,
     ListAnomaliesRequestTypeDef,
     ListAnomaliesResponseTypeDef,
     ListIntegrationsRequestTypeDef,
@@ -145,6 +173,10 @@ from .type_defs import (
     ListLogGroupsForQueryResponseTypeDef,
     ListLogGroupsRequestTypeDef,
     ListLogGroupsResponseTypeDef,
+    ListScheduledQueriesRequestTypeDef,
+    ListScheduledQueriesResponseTypeDef,
+    ListSourcesForS3TableIntegrationRequestTypeDef,
+    ListSourcesForS3TableIntegrationResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListTagsLogGroupRequestTypeDef,
@@ -168,6 +200,7 @@ from .type_defs import (
     PutIntegrationResponseTypeDef,
     PutLogEventsRequestTypeDef,
     PutLogEventsResponseTypeDef,
+    PutLogGroupDeletionProtectionRequestTypeDef,
     PutMetricFilterRequestTypeDef,
     PutQueryDefinitionRequestTypeDef,
     PutQueryDefinitionResponseTypeDef,
@@ -193,14 +226,10 @@ from .type_defs import (
     UpdateAnomalyRequestTypeDef,
     UpdateDeliveryConfigurationRequestTypeDef,
     UpdateLogAnomalyDetectorRequestTypeDef,
+    UpdateScheduledQueryRequestTypeDef,
+    UpdateScheduledQueryResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -211,27 +240,28 @@ __all__ = ("CloudWatchLogsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DataAlreadyAcceptedException: Type[BotocoreClientError]
-    InternalStreamingException: Type[BotocoreClientError]
-    InvalidOperationException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidSequenceTokenException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MalformedQueryException: Type[BotocoreClientError]
-    OperationAbortedException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    SessionStreamingException: Type[BotocoreClientError]
-    SessionTimeoutException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnrecognizedClientException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DataAlreadyAcceptedException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InternalStreamingException: type[BotocoreClientError]
+    InvalidOperationException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidSequenceTokenException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MalformedQueryException: type[BotocoreClientError]
+    OperationAbortedException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    SessionStreamingException: type[BotocoreClientError]
+    SessionTimeoutException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnrecognizedClientException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class CloudWatchLogsClient(BaseClient):
@@ -280,6 +310,17 @@ class CloudWatchLogsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#associate_kms_key)
         """
 
+    def associate_source_to_s3_table_integration(
+        self, **kwargs: Unpack[AssociateSourceToS3TableIntegrationRequestTypeDef]
+    ) -> AssociateSourceToS3TableIntegrationResponseTypeDef:
+        """
+        Associates a data source with an S3 Table Integration for query access in the
+        'logs' namespace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/associate_source_to_s3_table_integration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#associate_source_to_s3_table_integration)
+        """
+
     def cancel_export_task(
         self, **kwargs: Unpack[CancelExportTaskRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -288,6 +329,17 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/cancel_export_task.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#cancel_export_task)
+        """
+
+    def cancel_import_task(
+        self, **kwargs: Unpack[CancelImportTaskRequestTypeDef]
+    ) -> CancelImportTaskResponseTypeDef:
+        """
+        Cancels an active import task and stops importing data from the CloudTrail Lake
+        Event Data Store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/cancel_import_task.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#cancel_import_task)
         """
 
     def create_delivery(
@@ -309,6 +361,17 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/create_export_task.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#create_export_task)
+        """
+
+    def create_import_task(
+        self, **kwargs: Unpack[CreateImportTaskRequestTypeDef]
+    ) -> CreateImportTaskResponseTypeDef:
+        """
+        Starts an import from a data source to CloudWatch Log and creates a managed log
+        group as the destination for the imported data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/create_import_task.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#create_import_task)
         """
 
     def create_log_anomaly_detector(
@@ -340,6 +403,17 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/create_log_stream.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#create_log_stream)
+        """
+
+    def create_scheduled_query(
+        self, **kwargs: Unpack[CreateScheduledQueryRequestTypeDef]
+    ) -> CreateScheduledQueryResponseTypeDef:
+        """
+        Creates a scheduled query that runs CloudWatch Logs Insights queries at regular
+        intervals.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/create_scheduled_query.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#create_scheduled_query)
         """
 
     def delete_account_policy(
@@ -415,7 +489,7 @@ class CloudWatchLogsClient(BaseClient):
 
     def delete_index_policy(
         self, **kwargs: Unpack[DeleteIndexPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a log-group level field index policy that was applied to a single log
         group.
@@ -426,7 +500,7 @@ class CloudWatchLogsClient(BaseClient):
 
     def delete_integration(
         self, **kwargs: Unpack[DeleteIntegrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the integration between CloudWatch Logs and OpenSearch Service.
 
@@ -504,6 +578,16 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/delete_retention_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#delete_retention_policy)
+        """
+
+    def delete_scheduled_query(
+        self, **kwargs: Unpack[DeleteScheduledQueryRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a scheduled query and stops all future executions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/delete_scheduled_query.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#delete_scheduled_query)
         """
 
     def delete_subscription_filter(
@@ -609,6 +693,28 @@ class CloudWatchLogsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#describe_field_indexes)
         """
 
+    def describe_import_task_batches(
+        self, **kwargs: Unpack[DescribeImportTaskBatchesRequestTypeDef]
+    ) -> DescribeImportTaskBatchesResponseTypeDef:
+        """
+        Gets detailed information about the individual batches within an import task,
+        including their status and any error messages.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/describe_import_task_batches.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#describe_import_task_batches)
+        """
+
+    def describe_import_tasks(
+        self, **kwargs: Unpack[DescribeImportTasksRequestTypeDef]
+    ) -> DescribeImportTasksResponseTypeDef:
+        """
+        Lists and describes import tasks, with optional filtering by import status and
+        source ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/describe_import_tasks.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#describe_import_tasks)
+        """
+
     def describe_index_policies(
         self, **kwargs: Unpack[DescribeIndexPoliciesRequestTypeDef]
     ) -> DescribeIndexPoliciesResponseTypeDef:
@@ -623,7 +729,8 @@ class CloudWatchLogsClient(BaseClient):
         self, **kwargs: Unpack[DescribeLogGroupsRequestTypeDef]
     ) -> DescribeLogGroupsResponseTypeDef:
         """
-        Returns information about log groups.
+        Returns information about log groups, including data sources that ingest into
+        each log group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/describe_log_groups.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#describe_log_groups)
@@ -700,6 +807,17 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/disassociate_kms_key.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#disassociate_kms_key)
+        """
+
+    def disassociate_source_from_s3_table_integration(
+        self, **kwargs: Unpack[DisassociateSourceFromS3TableIntegrationRequestTypeDef]
+    ) -> DisassociateSourceFromS3TableIntegrationResponseTypeDef:
+        """
+        Disassociates a data source from an S3 Table Integration, removing query access
+        and deleting all associated data from the integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/disassociate_source_from_s3_table_integration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#disassociate_source_from_s3_table_integration)
         """
 
     def filter_log_events(
@@ -794,6 +912,16 @@ class CloudWatchLogsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_log_events)
         """
 
+    def get_log_fields(
+        self, **kwargs: Unpack[GetLogFieldsRequestTypeDef]
+    ) -> GetLogFieldsResponseTypeDef:
+        """
+        Discovers available fields for a specific data source and type.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_log_fields.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_log_fields)
+        """
+
     def get_log_group_fields(
         self, **kwargs: Unpack[GetLogGroupFieldsRequestTypeDef]
     ) -> GetLogGroupFieldsResponseTypeDef:
@@ -835,6 +963,28 @@ class CloudWatchLogsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_query_results)
         """
 
+    def get_scheduled_query(
+        self, **kwargs: Unpack[GetScheduledQueryRequestTypeDef]
+    ) -> GetScheduledQueryResponseTypeDef:
+        """
+        Retrieves details about a specific scheduled query, including its
+        configuration, execution status, and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_scheduled_query.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_scheduled_query)
+        """
+
+    def get_scheduled_query_history(
+        self, **kwargs: Unpack[GetScheduledQueryHistoryRequestTypeDef]
+    ) -> GetScheduledQueryHistoryResponseTypeDef:
+        """
+        Retrieves the execution history of a scheduled query within a specified time
+        range, including query results and destination processing status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_scheduled_query_history.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_scheduled_query_history)
+        """
+
     def get_transformer(
         self, **kwargs: Unpack[GetTransformerRequestTypeDef]
     ) -> GetTransformerResponseTypeDef:
@@ -844,6 +994,17 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_transformer.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_transformer)
+        """
+
+    def list_aggregate_log_group_summaries(
+        self, **kwargs: Unpack[ListAggregateLogGroupSummariesRequestTypeDef]
+    ) -> ListAggregateLogGroupSummariesResponseTypeDef:
+        """
+        Returns an aggregate summary of all log groups in the Region grouped by
+        specified data source characteristics.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/list_aggregate_log_group_summaries.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#list_aggregate_log_group_summaries)
         """
 
     def list_anomalies(
@@ -898,6 +1059,28 @@ class CloudWatchLogsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#list_log_groups_for_query)
         """
 
+    def list_scheduled_queries(
+        self, **kwargs: Unpack[ListScheduledQueriesRequestTypeDef]
+    ) -> ListScheduledQueriesResponseTypeDef:
+        """
+        Lists all scheduled queries in your account and region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/list_scheduled_queries.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#list_scheduled_queries)
+        """
+
+    def list_sources_for_s3_table_integration(
+        self, **kwargs: Unpack[ListSourcesForS3TableIntegrationRequestTypeDef]
+    ) -> ListSourcesForS3TableIntegrationResponseTypeDef:
+        """
+        Returns a list of data source associations for a specified S3 Table
+        Integration, showing which data sources are currently associated for query
+        access.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/list_sources_for_s3_table_integration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#list_sources_for_s3_table_integration)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -924,7 +1107,8 @@ class CloudWatchLogsClient(BaseClient):
         """
         Creates an account-level data protection policy, subscription filter policy,
         field index policy, transformer policy, or metric extraction policy that
-        applies to all log groups or a subset of log groups in the account.
+        applies to all log groups, a subset of log groups, or a data source name and
+        type combination in the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_account_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#put_account_policy)
@@ -1022,6 +1206,16 @@ class CloudWatchLogsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#put_log_events)
         """
 
+    def put_log_group_deletion_protection(
+        self, **kwargs: Unpack[PutLogGroupDeletionProtectionRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Enables or disables deletion protection for the specified log group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_log_group_deletion_protection.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#put_log_group_deletion_protection)
+        """
+
     def put_metric_filter(
         self, **kwargs: Unpack[PutMetricFilterRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1097,7 +1291,8 @@ class CloudWatchLogsClient(BaseClient):
 
     def start_query(self, **kwargs: Unpack[StartQueryRequestTypeDef]) -> StartQueryResponseTypeDef:
         """
-        Starts a query of one or more log groups using CloudWatch Logs Insights.
+        Starts a query of one or more log groups or data sources using CloudWatch Logs
+        Insights.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/start_query.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#start_query)
@@ -1186,7 +1381,7 @@ class CloudWatchLogsClient(BaseClient):
 
     def update_delivery_configuration(
         self, **kwargs: Unpack[UpdateDeliveryConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Use this operation to update the configuration of a <a
         href="https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_Delivery.html">delivery</a>
@@ -1204,6 +1399,16 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/update_log_anomaly_detector.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#update_log_anomaly_detector)
+        """
+
+    def update_scheduled_query(
+        self, **kwargs: Unpack[UpdateScheduledQueryRequestTypeDef]
+    ) -> UpdateScheduledQueryResponseTypeDef:
+        """
+        Updates an existing scheduled query with new configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/update_scheduled_query.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#update_scheduled_query)
         """
 
     @overload  # type: ignore[override]
@@ -1351,6 +1556,28 @@ class CloudWatchLogsClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_scheduled_query_history"]
+    ) -> GetScheduledQueryHistoryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_aggregate_log_group_summaries"]
+    ) -> ListAggregateLogGroupSummariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_anomalies"]
     ) -> ListAnomaliesPaginator:
         """
@@ -1375,6 +1602,28 @@ class CloudWatchLogsClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_log_groups_for_query"]
     ) -> ListLogGroupsForQueryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_scheduled_queries"]
+    ) -> ListScheduledQueriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_sources_for_s3_table_integration"]
+    ) -> ListSourcesForS3TableIntegrationPaginator:
         """
         Create a paginator for an operation.
 

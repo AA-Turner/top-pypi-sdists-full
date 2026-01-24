@@ -3,7 +3,7 @@ Type annotations for timestream-influxdb service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -59,6 +60,10 @@ from .type_defs import (
     ListDbParameterGroupsOutputTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    RebootDbClusterInputTypeDef,
+    RebootDbClusterOutputTypeDef,
+    RebootDbInstanceInputTypeDef,
+    RebootDbInstanceOutputTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateDbClusterInputTypeDef,
@@ -67,11 +72,6 @@ from .type_defs import (
     UpdateDbInstanceOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -82,14 +82,14 @@ __all__ = ("TimestreamInfluxDBClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class TimestreamInfluxDBClient(BaseClient):
@@ -256,6 +256,26 @@ class TimestreamInfluxDBClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/list_tags_for_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#list_tags_for_resource)
+        """
+
+    def reboot_db_cluster(
+        self, **kwargs: Unpack[RebootDbClusterInputTypeDef]
+    ) -> RebootDbClusterOutputTypeDef:
+        """
+        Reboots a Timestream for InfluxDB cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/reboot_db_cluster.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#reboot_db_cluster)
+        """
+
+    def reboot_db_instance(
+        self, **kwargs: Unpack[RebootDbInstanceInputTypeDef]
+    ) -> RebootDbInstanceOutputTypeDef:
+        """
+        Reboots a Timestream for InfluxDB instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/timestream-influxdb/client/reboot_db_instance.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_influxdb/client/#reboot_db_instance)
         """
 
     def tag_resource(

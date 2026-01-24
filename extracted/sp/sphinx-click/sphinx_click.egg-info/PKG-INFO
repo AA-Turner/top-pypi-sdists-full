@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-click
-Version: 6.1.0
+Version: 6.2.0
 Summary: Sphinx extension that automatically documents click applications
 Author-email: Stephen Finucane <stephen@that.guru>
 License: MIT License

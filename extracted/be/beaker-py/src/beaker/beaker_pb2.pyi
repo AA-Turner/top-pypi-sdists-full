@@ -1,8 +1,8 @@
 from google.protobuf import descriptor_pb2 as _descriptor_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
-from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -71,6 +71,9 @@ class NodeEventStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     NODE_EVENT_STATUS_UNCORDONED: _ClassVar[NodeEventStatus]
     NODE_EVENT_STATUS_XID_ERROR: _ClassVar[NodeEventStatus]
     NODE_EVENT_STATUS_SXID_ERROR: _ClassVar[NodeEventStatus]
+    NODE_EVENT_STATUS_CONTAINER_NOT_STOPPING: _ClassVar[NodeEventStatus]
+    NODE_EVENT_STATUS_HWSLOWDOWN_ACTIVE: _ClassVar[NodeEventStatus]
+    NODE_EVENT_STATUS_HWSLOWDOWN_NOTACTIVE: _ClassVar[NodeEventStatus]
 
 class JobKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -137,6 +140,35 @@ class QueueEntryState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     QUEUE_ENTRY_STATE_COMPLETED: _ClassVar[QueueEntryState]
     QUEUE_ENTRY_STATE_REJECTED: _ClassVar[QueueEntryState]
     QUEUE_ENTRY_STATE_FAILED: _ClassVar[QueueEntryState]
+
+class JobBindStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    JOB_BIND_STATUS_UNSPECIFIED: _ClassVar[JobBindStatus]
+    JOB_BIND_STATUS_SUCCEEDED: _ClassVar[JobBindStatus]
+    JOB_BIND_STATUS_FAILED: _ClassVar[JobBindStatus]
+    JOB_BIND_STATUS_PENDING: _ClassVar[JobBindStatus]
+
+class DatasetEgressReportGroupBy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DATASET_EGRESS_REPORT_GROUP_BY_UNSPECIFIED: _ClassVar[DatasetEgressReportGroupBy]
+    DATASET_EGRESS_REPORT_GROUP_BY_BUDGET: _ClassVar[DatasetEgressReportGroupBy]
+    DATASET_EGRESS_REPORT_GROUP_BY_USER: _ClassVar[DatasetEgressReportGroupBy]
+
+class GPUUsageReportGroupBy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    GPU_USAGE_REPORT_GROUP_BY_UNSPECIFIED: _ClassVar[GPUUsageReportGroupBy]
+    GPU_USAGE_REPORT_GROUP_BY_BUDGET: _ClassVar[GPUUsageReportGroupBy]
+    GPU_USAGE_REPORT_GROUP_BY_CLUSTER: _ClassVar[GPUUsageReportGroupBy]
+    GPU_USAGE_REPORT_GROUP_BY_WORKSPACE: _ClassVar[GPUUsageReportGroupBy]
+    GPU_USAGE_REPORT_GROUP_BY_USER: _ClassVar[GPUUsageReportGroupBy]
+    GPU_USAGE_REPORT_GROUP_BY_PRIORITY: _ClassVar[GPUUsageReportGroupBy]
+    GPU_USAGE_REPORT_GROUP_BY_PREEMPTIBLE: _ClassVar[GPUUsageReportGroupBy]
+
+class DatasetStorageReportGroupBy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DATASET_STORAGE_REPORT_GROUP_BY_UNSPECIFIED: _ClassVar[DatasetStorageReportGroupBy]
+    DATASET_STORAGE_REPORT_GROUP_BY_BUDGET: _ClassVar[DatasetStorageReportGroupBy]
+    DATASET_STORAGE_REPORT_GROUP_BY_USER: _ClassVar[DatasetStorageReportGroupBy]
 SORT_ORDER_UNSPECIFIED: SortOrder
 SORT_ORDER_DESCENDING: SortOrder
 SORT_ORDER_ASCENDING: SortOrder
@@ -177,6 +209,9 @@ NODE_EVENT_STATUS_CORDONED: NodeEventStatus
 NODE_EVENT_STATUS_UNCORDONED: NodeEventStatus
 NODE_EVENT_STATUS_XID_ERROR: NodeEventStatus
 NODE_EVENT_STATUS_SXID_ERROR: NodeEventStatus
+NODE_EVENT_STATUS_CONTAINER_NOT_STOPPING: NodeEventStatus
+NODE_EVENT_STATUS_HWSLOWDOWN_ACTIVE: NodeEventStatus
+NODE_EVENT_STATUS_HWSLOWDOWN_NOTACTIVE: NodeEventStatus
 JOB_KIND_UNSPECIFIED: JobKind
 JOB_KIND_BATCH: JobKind
 JOB_KIND_SESSION: JobKind
@@ -222,6 +257,23 @@ QUEUE_ENTRY_STATE_CANCELED: QueueEntryState
 QUEUE_ENTRY_STATE_COMPLETED: QueueEntryState
 QUEUE_ENTRY_STATE_REJECTED: QueueEntryState
 QUEUE_ENTRY_STATE_FAILED: QueueEntryState
+JOB_BIND_STATUS_UNSPECIFIED: JobBindStatus
+JOB_BIND_STATUS_SUCCEEDED: JobBindStatus
+JOB_BIND_STATUS_FAILED: JobBindStatus
+JOB_BIND_STATUS_PENDING: JobBindStatus
+DATASET_EGRESS_REPORT_GROUP_BY_UNSPECIFIED: DatasetEgressReportGroupBy
+DATASET_EGRESS_REPORT_GROUP_BY_BUDGET: DatasetEgressReportGroupBy
+DATASET_EGRESS_REPORT_GROUP_BY_USER: DatasetEgressReportGroupBy
+GPU_USAGE_REPORT_GROUP_BY_UNSPECIFIED: GPUUsageReportGroupBy
+GPU_USAGE_REPORT_GROUP_BY_BUDGET: GPUUsageReportGroupBy
+GPU_USAGE_REPORT_GROUP_BY_CLUSTER: GPUUsageReportGroupBy
+GPU_USAGE_REPORT_GROUP_BY_WORKSPACE: GPUUsageReportGroupBy
+GPU_USAGE_REPORT_GROUP_BY_USER: GPUUsageReportGroupBy
+GPU_USAGE_REPORT_GROUP_BY_PRIORITY: GPUUsageReportGroupBy
+GPU_USAGE_REPORT_GROUP_BY_PREEMPTIBLE: GPUUsageReportGroupBy
+DATASET_STORAGE_REPORT_GROUP_BY_UNSPECIFIED: DatasetStorageReportGroupBy
+DATASET_STORAGE_REPORT_GROUP_BY_BUDGET: DatasetStorageReportGroupBy
+DATASET_STORAGE_REPORT_GROUP_BY_USER: DatasetStorageReportGroupBy
 LOG_FIELD_FIELD_NUMBER: _ClassVar[int]
 log_field: _descriptor.FieldDescriptor
 
@@ -521,7 +573,7 @@ class CordonDetails(_message.Message):
     def __init__(self, cordoned: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., cordon_reason: _Optional[str] = ..., cordon_agent_id: _Optional[str] = ...) -> None: ...
 
 class NodeEvent(_message.Message):
-    __slots__ = ("id", "node", "created", "occurred", "processed_by_node_controller", "status", "message", "xid_error", "sxid_error", "cordoned", "uncordoned")
+    __slots__ = ("id", "node", "created", "occurred", "processed_by_node_controller", "status", "message", "xid_error", "sxid_error", "cordoned", "uncordoned", "container_not_stopping", "hwslowdown_active", "hwslowdown_notactive")
     ID_FIELD_NUMBER: _ClassVar[int]
     NODE_FIELD_NUMBER: _ClassVar[int]
     CREATED_FIELD_NUMBER: _ClassVar[int]
@@ -533,6 +585,9 @@ class NodeEvent(_message.Message):
     SXID_ERROR_FIELD_NUMBER: _ClassVar[int]
     CORDONED_FIELD_NUMBER: _ClassVar[int]
     UNCORDONED_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_NOT_STOPPING_FIELD_NUMBER: _ClassVar[int]
+    HWSLOWDOWN_ACTIVE_FIELD_NUMBER: _ClassVar[int]
+    HWSLOWDOWN_NOTACTIVE_FIELD_NUMBER: _ClassVar[int]
     id: str
     node: str
     created: _timestamp_pb2.Timestamp
@@ -544,7 +599,10 @@ class NodeEvent(_message.Message):
     sxid_error: SXidErrorEvent
     cordoned: CordonedEvent
     uncordoned: UncordonedEvent
-    def __init__(self, id: _Optional[str] = ..., node: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., occurred: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., processed_by_node_controller: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status: _Optional[_Union[NodeEventStatus, str]] = ..., message: _Optional[str] = ..., xid_error: _Optional[_Union[XidErrorEvent, _Mapping]] = ..., sxid_error: _Optional[_Union[SXidErrorEvent, _Mapping]] = ..., cordoned: _Optional[_Union[CordonedEvent, _Mapping]] = ..., uncordoned: _Optional[_Union[UncordonedEvent, _Mapping]] = ...) -> None: ...
+    container_not_stopping: ContainerNotStoppingEvent
+    hwslowdown_active: HWSlowdownActiveEvent
+    hwslowdown_notactive: HWSlowdownNotActiveEvent
+    def __init__(self, id: _Optional[str] = ..., node: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., occurred: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., processed_by_node_controller: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status: _Optional[_Union[NodeEventStatus, str]] = ..., message: _Optional[str] = ..., xid_error: _Optional[_Union[XidErrorEvent, _Mapping]] = ..., sxid_error: _Optional[_Union[SXidErrorEvent, _Mapping]] = ..., cordoned: _Optional[_Union[CordonedEvent, _Mapping]] = ..., uncordoned: _Optional[_Union[UncordonedEvent, _Mapping]] = ..., container_not_stopping: _Optional[_Union[ContainerNotStoppingEvent, _Mapping]] = ..., hwslowdown_active: _Optional[_Union[HWSlowdownActiveEvent, _Mapping]] = ..., hwslowdown_notactive: _Optional[_Union[HWSlowdownNotActiveEvent, _Mapping]] = ...) -> None: ...
 
 class XidErrorEvent(_message.Message):
     __slots__ = ("xid_error_code", "gpu_ids", "logs")
@@ -579,6 +637,22 @@ class UncordonedEvent(_message.Message):
     AGENT_ID_FIELD_NUMBER: _ClassVar[int]
     agent_id: str
     def __init__(self, agent_id: _Optional[str] = ...) -> None: ...
+
+class ContainerNotStoppingEvent(_message.Message):
+    __slots__ = ("job_id",)
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class HWSlowdownActiveEvent(_message.Message):
+    __slots__ = ("gpu_ids",)
+    GPU_IDS_FIELD_NUMBER: _ClassVar[int]
+    gpu_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, gpu_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class HWSlowdownNotActiveEvent(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class KernelLog(_message.Message):
     __slots__ = ("timestamp", "message")
@@ -985,7 +1059,7 @@ class JobLog(_message.Message):
     def __init__(self, timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., message: _Optional[bytes] = ...) -> None: ...
 
 class Image(_message.Message):
-    __slots__ = ("id", "name", "full_name", "workspace_id", "author_id", "created", "committed", "docker_id", "docker_tag", "original_tag", "description", "source_job_id", "size")
+    __slots__ = ("id", "name", "full_name", "workspace_id", "author_id", "created", "committed", "docker_id", "docker_tag", "original_tag", "description", "source_job_id", "size", "budget_id")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     FULL_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -999,6 +1073,7 @@ class Image(_message.Message):
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     SOURCE_JOB_ID_FIELD_NUMBER: _ClassVar[int]
     SIZE_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     full_name: str
@@ -1012,7 +1087,8 @@ class Image(_message.Message):
     description: str
     source_job_id: str
     size: int
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., full_name: _Optional[str] = ..., workspace_id: _Optional[str] = ..., author_id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., committed: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., docker_id: _Optional[str] = ..., docker_tag: _Optional[str] = ..., original_tag: _Optional[str] = ..., description: _Optional[str] = ..., source_job_id: _Optional[str] = ..., size: _Optional[int] = ...) -> None: ...
+    budget_id: str
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., full_name: _Optional[str] = ..., workspace_id: _Optional[str] = ..., author_id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., committed: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., docker_id: _Optional[str] = ..., docker_tag: _Optional[str] = ..., original_tag: _Optional[str] = ..., description: _Optional[str] = ..., source_job_id: _Optional[str] = ..., size: _Optional[int] = ..., budget_id: _Optional[str] = ...) -> None: ...
 
 class Secret(_message.Message):
     __slots__ = ("name", "created", "updated", "author_id")
@@ -1027,7 +1103,7 @@ class Secret(_message.Message):
     def __init__(self, name: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., updated: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., author_id: _Optional[str] = ...) -> None: ...
 
 class Dataset(_message.Message):
-    __slots__ = ("id", "name", "full_name", "author_id", "workspace_id", "created", "committed", "description", "source_execution")
+    __slots__ = ("id", "name", "full_name", "author_id", "workspace_id", "created", "committed", "description", "source_execution", "budget_id")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     FULL_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -1037,6 +1113,7 @@ class Dataset(_message.Message):
     COMMITTED_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     SOURCE_EXECUTION_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     full_name: str
@@ -1046,7 +1123,8 @@ class Dataset(_message.Message):
     committed: _timestamp_pb2.Timestamp
     description: str
     source_execution: str
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., full_name: _Optional[str] = ..., author_id: _Optional[str] = ..., workspace_id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., committed: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., description: _Optional[str] = ..., source_execution: _Optional[str] = ...) -> None: ...
+    budget_id: str
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., full_name: _Optional[str] = ..., author_id: _Optional[str] = ..., workspace_id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., committed: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., description: _Optional[str] = ..., source_execution: _Optional[str] = ..., budget_id: _Optional[str] = ...) -> None: ...
 
 class DatasetStorage(_message.Message):
     __slots__ = ("url", "total_size", "file_count", "token", "token_expires")
@@ -1653,14 +1731,16 @@ class ListWorkspacesResponse(_message.Message):
     def __init__(self, next_page_token: _Optional[str] = ..., workspaces: _Optional[_Iterable[_Union[Workspace, _Mapping]]] = ...) -> None: ...
 
 class CreateWorkspaceRequest(_message.Message):
-    __slots__ = ("name", "organization_id", "description")
+    __slots__ = ("name", "organization_id", "description", "default_budget_id")
     NAME_FIELD_NUMBER: _ClassVar[int]
     ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     organization_id: str
     description: str
-    def __init__(self, name: _Optional[str] = ..., organization_id: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+    default_budget_id: str
+    def __init__(self, name: _Optional[str] = ..., organization_id: _Optional[str] = ..., description: _Optional[str] = ..., default_budget_id: _Optional[str] = ...) -> None: ...
 
 class CreateWorkspaceResponse(_message.Message):
     __slots__ = ("workspace",)
@@ -2036,20 +2116,26 @@ class CordonNodeResponse(_message.Message):
     def __init__(self, node: _Optional[_Union[Node, _Mapping]] = ...) -> None: ...
 
 class CreateNodeEventRequest(_message.Message):
-    __slots__ = ("node", "occurred", "status", "message", "xid_error", "sxid_error")
+    __slots__ = ("node", "occurred", "status", "message", "xid_error", "sxid_error", "hwslowdown_active", "hwslowdown_notactive", "container_not_stopping")
     NODE_FIELD_NUMBER: _ClassVar[int]
     OCCURRED_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     XID_ERROR_FIELD_NUMBER: _ClassVar[int]
     SXID_ERROR_FIELD_NUMBER: _ClassVar[int]
+    HWSLOWDOWN_ACTIVE_FIELD_NUMBER: _ClassVar[int]
+    HWSLOWDOWN_NOTACTIVE_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_NOT_STOPPING_FIELD_NUMBER: _ClassVar[int]
     node: str
     occurred: _timestamp_pb2.Timestamp
     status: NodeEventStatus
     message: str
     xid_error: XidErrorEvent
     sxid_error: SXidErrorEvent
-    def __init__(self, node: _Optional[str] = ..., occurred: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status: _Optional[_Union[NodeEventStatus, str]] = ..., message: _Optional[str] = ..., xid_error: _Optional[_Union[XidErrorEvent, _Mapping]] = ..., sxid_error: _Optional[_Union[SXidErrorEvent, _Mapping]] = ...) -> None: ...
+    hwslowdown_active: HWSlowdownActiveEvent
+    hwslowdown_notactive: HWSlowdownNotActiveEvent
+    container_not_stopping: ContainerNotStoppingEvent
+    def __init__(self, node: _Optional[str] = ..., occurred: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status: _Optional[_Union[NodeEventStatus, str]] = ..., message: _Optional[str] = ..., xid_error: _Optional[_Union[XidErrorEvent, _Mapping]] = ..., sxid_error: _Optional[_Union[SXidErrorEvent, _Mapping]] = ..., hwslowdown_active: _Optional[_Union[HWSlowdownActiveEvent, _Mapping]] = ..., hwslowdown_notactive: _Optional[_Union[HWSlowdownNotActiveEvent, _Mapping]] = ..., container_not_stopping: _Optional[_Union[ContainerNotStoppingEvent, _Mapping]] = ...) -> None: ...
 
 class CreateNodeEventsRequest(_message.Message):
     __slots__ = ("node_events",)
@@ -2118,6 +2204,26 @@ class ProcessNodeEventResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class GpuStatus(_message.Message):
+    __slots__ = ("id", "hw_slowdown_active")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    HW_SLOWDOWN_ACTIVE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    hw_slowdown_active: bool
+    def __init__(self, id: _Optional[str] = ..., hw_slowdown_active: bool = ...) -> None: ...
+
+class RecordGPUHealthRequest(_message.Message):
+    __slots__ = ("node_id", "gpus")
+    NODE_ID_FIELD_NUMBER: _ClassVar[int]
+    GPUS_FIELD_NUMBER: _ClassVar[int]
+    node_id: str
+    gpus: _containers.RepeatedCompositeFieldContainer[GpuStatus]
+    def __init__(self, node_id: _Optional[str] = ..., gpus: _Optional[_Iterable[_Union[GpuStatus, _Mapping]]] = ...) -> None: ...
+
+class RecordGPUHealthResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class DeleteNodeRequest(_message.Message):
     __slots__ = ("node_id",)
     NODE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -2127,6 +2233,18 @@ class DeleteNodeRequest(_message.Message):
 class DeleteNodeResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class GetJobBindRequest(_message.Message):
+    __slots__ = ("job_id",)
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class GetJobBindResponse(_message.Message):
+    __slots__ = ("job_bind_status",)
+    JOB_BIND_STATUS_FIELD_NUMBER: _ClassVar[int]
+    job_bind_status: JobBindStatus
+    def __init__(self, job_bind_status: _Optional[_Union[JobBindStatus, str]] = ...) -> None: ...
 
 class GetWorkloadRequest(_message.Message):
     __slots__ = ("workload_id",)
@@ -2513,7 +2631,7 @@ class ResolveImageNameResponse(_message.Message):
 class ListImagesRequest(_message.Message):
     __slots__ = ("next_page_token", "options")
     class Opts(_message.Message):
-        __slots__ = ("sort_clause", "page_size", "organization_id", "image_name_or_description", "author_id", "workspace_id")
+        __slots__ = ("sort_clause", "page_size", "organization_id", "image_name_or_description", "author_id", "workspace_id", "budget_id")
         class SortClause(_message.Message):
             __slots__ = ("sort_order", "created", "name")
             SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
@@ -2529,13 +2647,15 @@ class ListImagesRequest(_message.Message):
         IMAGE_NAME_OR_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
         AUTHOR_ID_FIELD_NUMBER: _ClassVar[int]
         WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+        BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
         sort_clause: ListImagesRequest.Opts.SortClause
         page_size: int
         organization_id: str
         image_name_or_description: str
         author_id: str
         workspace_id: str
-        def __init__(self, sort_clause: _Optional[_Union[ListImagesRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., image_name_or_description: _Optional[str] = ..., author_id: _Optional[str] = ..., workspace_id: _Optional[str] = ...) -> None: ...
+        budget_id: str
+        def __init__(self, sort_clause: _Optional[_Union[ListImagesRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., image_name_or_description: _Optional[str] = ..., author_id: _Optional[str] = ..., workspace_id: _Optional[str] = ..., budget_id: _Optional[str] = ...) -> None: ...
     NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     next_page_token: str
@@ -2814,7 +2934,7 @@ class ResolveDatasetNameResponse(_message.Message):
 class ListDatasetsRequest(_message.Message):
     __slots__ = ("next_page_token", "options")
     class Opts(_message.Message):
-        __slots__ = ("sort_clause", "page_size", "organization_id", "workspace_id", "author_id", "name_or_description_substring", "created_before", "created_after", "dataset_type", "committed_status")
+        __slots__ = ("sort_clause", "page_size", "organization_id", "workspace_id", "author_id", "name_or_description_substring", "created_before", "created_after", "dataset_type", "committed_status", "budget_id")
         class DatasetType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
             __slots__ = ()
             DATASET_TYPE_UNSPECIFIED: _ClassVar[ListDatasetsRequest.Opts.DatasetType]
@@ -2850,6 +2970,7 @@ class ListDatasetsRequest(_message.Message):
         CREATED_AFTER_FIELD_NUMBER: _ClassVar[int]
         DATASET_TYPE_FIELD_NUMBER: _ClassVar[int]
         COMMITTED_STATUS_FIELD_NUMBER: _ClassVar[int]
+        BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
         sort_clause: ListDatasetsRequest.Opts.SortClause
         page_size: int
         organization_id: str
@@ -2860,7 +2981,8 @@ class ListDatasetsRequest(_message.Message):
         created_after: _timestamp_pb2.Timestamp
         dataset_type: ListDatasetsRequest.Opts.DatasetType
         committed_status: ListDatasetsRequest.Opts.CommittedStatus
-        def __init__(self, sort_clause: _Optional[_Union[ListDatasetsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., workspace_id: _Optional[str] = ..., author_id: _Optional[str] = ..., name_or_description_substring: _Optional[str] = ..., created_before: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_after: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset_type: _Optional[_Union[ListDatasetsRequest.Opts.DatasetType, str]] = ..., committed_status: _Optional[_Union[ListDatasetsRequest.Opts.CommittedStatus, str]] = ...) -> None: ...
+        budget_id: str
+        def __init__(self, sort_clause: _Optional[_Union[ListDatasetsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., workspace_id: _Optional[str] = ..., author_id: _Optional[str] = ..., name_or_description_substring: _Optional[str] = ..., created_before: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_after: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset_type: _Optional[_Union[ListDatasetsRequest.Opts.DatasetType, str]] = ..., committed_status: _Optional[_Union[ListDatasetsRequest.Opts.CommittedStatus, str]] = ..., budget_id: _Optional[str] = ...) -> None: ...
     NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     next_page_token: str
@@ -2946,17 +3068,51 @@ class DeleteDatasetsResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
-class GetSchedulerRunRequest(_message.Message):
-    __slots__ = ("scheduler_run_id",)
-    SCHEDULER_RUN_ID_FIELD_NUMBER: _ClassVar[int]
-    scheduler_run_id: str
-    def __init__(self, scheduler_run_id: _Optional[str] = ...) -> None: ...
+class GetDatasetEgressReportRequest(_message.Message):
+    __slots__ = ("next_page_token", "options")
+    class QueryOptions(_message.Message):
+        __slots__ = ("interval", "group_by", "filters", "page_size")
+        class Filters(_message.Message):
+            __slots__ = ("organization_ids",)
+            ORGANIZATION_IDS_FIELD_NUMBER: _ClassVar[int]
+            organization_ids: _containers.RepeatedScalarFieldContainer[str]
+            def __init__(self, organization_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+        INTERVAL_FIELD_NUMBER: _ClassVar[int]
+        GROUP_BY_FIELD_NUMBER: _ClassVar[int]
+        FILTERS_FIELD_NUMBER: _ClassVar[int]
+        PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        interval: Interval
+        group_by: _containers.RepeatedScalarFieldContainer[DatasetEgressReportGroupBy]
+        filters: GetDatasetEgressReportRequest.QueryOptions.Filters
+        page_size: int
+        def __init__(self, interval: _Optional[_Union[Interval, _Mapping]] = ..., group_by: _Optional[_Iterable[_Union[DatasetEgressReportGroupBy, str]]] = ..., filters: _Optional[_Union[GetDatasetEgressReportRequest.QueryOptions.Filters, _Mapping]] = ..., page_size: _Optional[int] = ...) -> None: ...
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    options: GetDatasetEgressReportRequest.QueryOptions
+    def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[GetDatasetEgressReportRequest.QueryOptions, _Mapping]] = ...) -> None: ...
 
-class GetSchedulerRunResponse(_message.Message):
-    __slots__ = ("scheduler_run",)
-    SCHEDULER_RUN_FIELD_NUMBER: _ClassVar[int]
-    scheduler_run: SchedulerRun
-    def __init__(self, scheduler_run: _Optional[_Union[SchedulerRun, _Mapping]] = ...) -> None: ...
+class DatasetEgressReportEntry(_message.Message):
+    __slots__ = ("budget_id", "budget_name", "user_id", "user_name", "egress_bytes")
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_NAME_FIELD_NUMBER: _ClassVar[int]
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    USER_NAME_FIELD_NUMBER: _ClassVar[int]
+    EGRESS_BYTES_FIELD_NUMBER: _ClassVar[int]
+    budget_id: str
+    budget_name: str
+    user_id: str
+    user_name: str
+    egress_bytes: int
+    def __init__(self, budget_id: _Optional[str] = ..., budget_name: _Optional[str] = ..., user_id: _Optional[str] = ..., user_name: _Optional[str] = ..., egress_bytes: _Optional[int] = ...) -> None: ...
+
+class GetDatasetEgressReportResponse(_message.Message):
+    __slots__ = ("entries", "next_page_token")
+    ENTRIES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    entries: _containers.RepeatedCompositeFieldContainer[DatasetEgressReportEntry]
+    next_page_token: str
+    def __init__(self, entries: _Optional[_Iterable[_Union[DatasetEgressReportEntry, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
 
 class GetGPUUsageByBudgetRequest(_message.Message):
     __slots__ = ("org_id", "start", "end")
@@ -3102,6 +3258,152 @@ class ListBudgetsResponse(_message.Message):
     budgets: _containers.RepeatedCompositeFieldContainer[Budget]
     next_page_token: str
     def __init__(self, budgets: _Optional[_Iterable[_Union[Budget, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+
+class CreateBudgetRequest(_message.Message):
+    __slots__ = ("name", "organization_id")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    organization_id: str
+    def __init__(self, name: _Optional[str] = ..., organization_id: _Optional[str] = ...) -> None: ...
+
+class CreateBudgetResponse(_message.Message):
+    __slots__ = ("budget",)
+    BUDGET_FIELD_NUMBER: _ClassVar[int]
+    budget: Budget
+    def __init__(self, budget: _Optional[_Union[Budget, _Mapping]] = ...) -> None: ...
+
+class UpdateBudgetRequest(_message.Message):
+    __slots__ = ("budget_id", "name", "deprecated")
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DEPRECATED_FIELD_NUMBER: _ClassVar[int]
+    budget_id: str
+    name: str
+    deprecated: bool
+    def __init__(self, budget_id: _Optional[str] = ..., name: _Optional[str] = ..., deprecated: bool = ...) -> None: ...
+
+class UpdateBudgetResponse(_message.Message):
+    __slots__ = ("budget",)
+    BUDGET_FIELD_NUMBER: _ClassVar[int]
+    budget: Budget
+    def __init__(self, budget: _Optional[_Union[Budget, _Mapping]] = ...) -> None: ...
+
+class GetGPUUsageReportRequest(_message.Message):
+    __slots__ = ("next_page_token", "options")
+    class QueryOptions(_message.Message):
+        __slots__ = ("interval", "group_by", "filters", "page_size")
+        class Filters(_message.Message):
+            __slots__ = ("organization_ids", "budget_ids", "cluster_ids", "workspace_ids", "user_ids", "priorities", "preemptible")
+            ORGANIZATION_IDS_FIELD_NUMBER: _ClassVar[int]
+            BUDGET_IDS_FIELD_NUMBER: _ClassVar[int]
+            CLUSTER_IDS_FIELD_NUMBER: _ClassVar[int]
+            WORKSPACE_IDS_FIELD_NUMBER: _ClassVar[int]
+            USER_IDS_FIELD_NUMBER: _ClassVar[int]
+            PRIORITIES_FIELD_NUMBER: _ClassVar[int]
+            PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
+            organization_ids: _containers.RepeatedScalarFieldContainer[str]
+            budget_ids: _containers.RepeatedScalarFieldContainer[str]
+            cluster_ids: _containers.RepeatedScalarFieldContainer[str]
+            workspace_ids: _containers.RepeatedScalarFieldContainer[str]
+            user_ids: _containers.RepeatedScalarFieldContainer[str]
+            priorities: _containers.RepeatedScalarFieldContainer[JobPriority]
+            preemptible: bool
+            def __init__(self, organization_ids: _Optional[_Iterable[str]] = ..., budget_ids: _Optional[_Iterable[str]] = ..., cluster_ids: _Optional[_Iterable[str]] = ..., workspace_ids: _Optional[_Iterable[str]] = ..., user_ids: _Optional[_Iterable[str]] = ..., priorities: _Optional[_Iterable[_Union[JobPriority, str]]] = ..., preemptible: bool = ...) -> None: ...
+        INTERVAL_FIELD_NUMBER: _ClassVar[int]
+        GROUP_BY_FIELD_NUMBER: _ClassVar[int]
+        FILTERS_FIELD_NUMBER: _ClassVar[int]
+        PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        interval: Interval
+        group_by: _containers.RepeatedScalarFieldContainer[GPUUsageReportGroupBy]
+        filters: GetGPUUsageReportRequest.QueryOptions.Filters
+        page_size: int
+        def __init__(self, interval: _Optional[_Union[Interval, _Mapping]] = ..., group_by: _Optional[_Iterable[_Union[GPUUsageReportGroupBy, str]]] = ..., filters: _Optional[_Union[GetGPUUsageReportRequest.QueryOptions.Filters, _Mapping]] = ..., page_size: _Optional[int] = ...) -> None: ...
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    options: GetGPUUsageReportRequest.QueryOptions
+    def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[GetGPUUsageReportRequest.QueryOptions, _Mapping]] = ...) -> None: ...
+
+class GPUUsageReportEntry(_message.Message):
+    __slots__ = ("budget_id", "budget_name", "cluster_id", "cluster_name", "workspace_id", "workspace_name", "user_id", "user_name", "priority", "preemptible", "gpu_hours")
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_NAME_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    USER_NAME_FIELD_NUMBER: _ClassVar[int]
+    PRIORITY_FIELD_NUMBER: _ClassVar[int]
+    PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
+    GPU_HOURS_FIELD_NUMBER: _ClassVar[int]
+    budget_id: str
+    budget_name: str
+    cluster_id: str
+    cluster_name: str
+    workspace_id: str
+    workspace_name: str
+    user_id: str
+    user_name: str
+    priority: JobPriority
+    preemptible: bool
+    gpu_hours: float
+    def __init__(self, budget_id: _Optional[str] = ..., budget_name: _Optional[str] = ..., cluster_id: _Optional[str] = ..., cluster_name: _Optional[str] = ..., workspace_id: _Optional[str] = ..., workspace_name: _Optional[str] = ..., user_id: _Optional[str] = ..., user_name: _Optional[str] = ..., priority: _Optional[_Union[JobPriority, str]] = ..., preemptible: bool = ..., gpu_hours: _Optional[float] = ...) -> None: ...
+
+class GetGPUUsageReportResponse(_message.Message):
+    __slots__ = ("entries", "next_page_token")
+    ENTRIES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    entries: _containers.RepeatedCompositeFieldContainer[GPUUsageReportEntry]
+    next_page_token: str
+    def __init__(self, entries: _Optional[_Iterable[_Union[GPUUsageReportEntry, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+
+class GetDatasetStorageReportRequest(_message.Message):
+    __slots__ = ("next_page_token", "options")
+    class QueryOptions(_message.Message):
+        __slots__ = ("interval", "group_by", "filters", "page_size")
+        class Filters(_message.Message):
+            __slots__ = ("organization_ids",)
+            ORGANIZATION_IDS_FIELD_NUMBER: _ClassVar[int]
+            organization_ids: _containers.RepeatedScalarFieldContainer[str]
+            def __init__(self, organization_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+        INTERVAL_FIELD_NUMBER: _ClassVar[int]
+        GROUP_BY_FIELD_NUMBER: _ClassVar[int]
+        FILTERS_FIELD_NUMBER: _ClassVar[int]
+        PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        interval: Interval
+        group_by: _containers.RepeatedScalarFieldContainer[DatasetStorageReportGroupBy]
+        filters: GetDatasetStorageReportRequest.QueryOptions.Filters
+        page_size: int
+        def __init__(self, interval: _Optional[_Union[Interval, _Mapping]] = ..., group_by: _Optional[_Iterable[_Union[DatasetStorageReportGroupBy, str]]] = ..., filters: _Optional[_Union[GetDatasetStorageReportRequest.QueryOptions.Filters, _Mapping]] = ..., page_size: _Optional[int] = ...) -> None: ...
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    options: GetDatasetStorageReportRequest.QueryOptions
+    def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[GetDatasetStorageReportRequest.QueryOptions, _Mapping]] = ...) -> None: ...
+
+class DatasetStorageReportEntry(_message.Message):
+    __slots__ = ("budget_id", "budget_name", "user_id", "user_name", "storage_bytes")
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_NAME_FIELD_NUMBER: _ClassVar[int]
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    USER_NAME_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    budget_id: str
+    budget_name: str
+    user_id: str
+    user_name: str
+    storage_bytes: int
+    def __init__(self, budget_id: _Optional[str] = ..., budget_name: _Optional[str] = ..., user_id: _Optional[str] = ..., user_name: _Optional[str] = ..., storage_bytes: _Optional[int] = ...) -> None: ...
+
+class GetDatasetStorageReportResponse(_message.Message):
+    __slots__ = ("entries", "next_page_token")
+    ENTRIES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    entries: _containers.RepeatedCompositeFieldContainer[DatasetStorageReportEntry]
+    next_page_token: str
+    def __init__(self, entries: _Optional[_Iterable[_Union[DatasetStorageReportEntry, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
 
 class CreateQueueRequest(_message.Message):
     __slots__ = ("name", "workspace_id", "input_schema", "output_schema", "batch_size", "max_claimed_entries", "wait_timeout")

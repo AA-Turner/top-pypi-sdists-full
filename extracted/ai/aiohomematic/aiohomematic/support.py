@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """
 Helper functions used within aiohomematic.
 
@@ -8,58 +8,55 @@ Public API of this module is defined by __all__.
 
 from __future__ import annotations
 
+import asyncio
 import base64
-from collections import defaultdict
-from collections.abc import Callable, Collection, Mapping, Set as AbstractSet
+from collections.abc import Collection, Mapping
 import contextlib
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
+import glob
 import hashlib
 import inspect
-from ipaddress import IPv4Address
+from ipaddress import IPv4Address, IPv6Address
 import logging
 import os
+import random
 import re
 import socket
 import ssl
 import sys
-from typing import Any, Final, cast
+from typing import Any, Final
 
-import orjson
-
-from aiohomematic import client as hmcl
+from aiohomematic import compat, i18n
 from aiohomematic.const import (
     ADDRESS_SEPARATOR,
-    ALLOWED_HOSTNAME_PATTERN,
     CCU_PASSWORD_PATTERN,
     CHANNEL_ADDRESS_PATTERN,
     DEVICE_ADDRESS_PATTERN,
+    HOSTNAME_PATTERN,
     HTMLTAG_PATTERN,
-    IDENTIFIER_SEPARATOR,
     INIT_DATETIME,
+    IPV4_PATTERN,
+    IPV6_PATTERN,
     ISO_8859_1,
     MAX_CACHE_AGE,
     NO_CACHE_ENTRY,
-    PRIMARY_CLIENT_CANDIDATE_INTERFACES,
     TIMEOUT,
+    UTF_8,
     CommandRxMode,
+    DeviceDescription,
+    HubValueType,
     ParamsetKey,
     RxMode,
-    SysvarType,
 )
-from aiohomematic.exceptions import AioHomematicException, BaseHomematicException
-from aiohomematic.property_decorators import (
-    Kind,
-    cached_property,
-    get_hm_property_by_kind,
-    get_hm_property_by_log_context,
-)
+from aiohomematic.exceptions import AioHomematicException, BaseHomematicException, ValidationException
+from aiohomematic.property_decorators import Kind, get_hm_property_by_kind, get_hm_property_by_log_context, hm_property
 
 _LOGGER: Final = logging.getLogger(__name__)
 
 
-def extract_exc_args(exc: Exception) -> tuple[Any, ...] | Any:
+def extract_exc_args(*, exc: Exception) -> tuple[Any, ...] | Any:
     """Return the first arg, if there is only one arg."""
     if exc.args:
         return exc.args[0] if len(exc.args) == 1 else exc.args
@@ -67,6 +64,7 @@ def extract_exc_args(exc: Exception) -> tuple[Any, ...] | Any:
 
 
 def build_xml_rpc_uri(
+    *,
     host: str,
     port: int | None,
     path: str | None,
@@ -85,6 +83,7 @@ def build_xml_rpc_uri(
 
 
 def build_xml_rpc_headers(
+    *,
     username: str,
     password: str,
 ) -> list[tuple[str, str]]:
@@ -94,67 +93,32 @@ def build_xml_rpc_headers(
     return [("Authorization", f"Basic {base64_message}")]
 
 
-def check_config(
-    central_name: str,
-    host: str,
-    username: str,
-    password: str,
-    storage_folder: str,
-    callback_host: str | None,
-    callback_port: int | None,
-    json_port: int | None,
-    interface_configs: AbstractSet[hmcl.InterfaceConfig] | None = None,
-) -> list[str]:
-    """Check config. Throws BaseHomematicException on failure."""
-    config_failures: list[str] = []
-    if central_name and IDENTIFIER_SEPARATOR in central_name:
-        config_failures.append(f"Instance name must not contain {IDENTIFIER_SEPARATOR}")
-
-    if not (is_hostname(hostname=host) or is_ipv4_address(address=host)):
-        config_failures.append("Invalid hostname or ipv4 address")
-    if not username:
-        config_failures.append("Username must not be empty")
-    if not password:
-        config_failures.append("Password is required")
-    if not check_password(password):
-        config_failures.append("Password is not valid")
-    try:
-        check_or_create_directory(storage_folder)
-    except BaseHomematicException as bhexc:
-        config_failures.append(extract_exc_args(exc=bhexc)[0])
-    if callback_host and not (is_hostname(hostname=callback_host) or is_ipv4_address(address=callback_host)):
-        config_failures.append("Invalid callback hostname or ipv4 address")
-    if callback_port and not is_port(port=callback_port):
-        config_failures.append("Invalid callback port")
-    if json_port and not is_port(port=json_port):
-        config_failures.append("Invalid json port")
-    if interface_configs and not has_primary_client(interface_configs=interface_configs):
-        config_failures.append(f"No primary interface ({', '.join(PRIMARY_CLIENT_CANDIDATE_INTERFACES)}) defined")
-
-    return config_failures
+def delete_file(directory: str, file_name: str) -> None:  # kwonly: disable
+    """Delete the file. File can contain a wildcard."""
+    if os.path.exists(directory):
+        for file_path in glob.glob(os.path.join(directory, file_name)):
+            if os.path.isfile(file_path):
+                os.remove(file_path)
 
 
-def has_primary_client(interface_configs: AbstractSet[hmcl.InterfaceConfig]) -> bool:
-    """Check if all configured clients exists in central."""
-    for interface_config in interface_configs:
-        if interface_config.interface in PRIMARY_CLIENT_CANDIDATE_INTERFACES:
-            return True
-    return False
+def cleanup_script_for_session_recorder(*, script: str) -> str:
+    """
+    Cleanup the script for session recording.
+
+    Keep only the first line (script name) and lines starting with '!# param:'.
+    The first line contains the script identifier (e.g., '!# name: script.fn' or '!# script.fn').
+    """
+
+    if not (lines := script.splitlines()):
+        return ""
+    # Keep the first line (script name) and all param lines
+    result = [lines[0]]
+    result.extend(line for line in lines[1:] if line.startswith("!# param:"))
+    return "\n".join(result)
 
 
-def delete_file(folder: str, file_name: str) -> None:
-    """Delete the file."""
-    file_path = os.path.join(folder, file_name)
-    if (
-        os.path.exists(folder)
-        and os.path.exists(file_path)
-        and (os.path.isfile(file_path) or os.path.islink(file_path))
-    ):
-        os.unlink(file_path)
-
-
-def check_or_create_directory(directory: str) -> bool:
-    """Check / create directory."""
+def _check_or_create_directory_sync(*, directory: str) -> bool:
+    """Check / create directory (internal sync implementation)."""
     if not directory:
         return False
     if not os.path.exists(directory):
@@ -162,58 +126,73 @@ def check_or_create_directory(directory: str) -> bool:
             os.makedirs(directory)
         except OSError as oserr:
             raise AioHomematicException(
-                f"CHECK_OR_CREATE_DIRECTORY failed: Unable to create directory {directory} ('{oserr.strerror}')"
+                i18n.tr(
+                    key="exception.support.check_or_create_directory.failed",
+                    directory=directory,
+                    reason=oserr.strerror,
+                )
             ) from oserr
     return True
 
 
-def parse_sys_var(data_type: SysvarType | None, raw_value: Any) -> Any:
+async def check_or_create_directory(*, directory: str) -> bool:
+    """Check / create directory asynchronously."""
+    return await asyncio.to_thread(_check_or_create_directory_sync, directory=directory)
+
+
+def extract_device_addresses_from_device_descriptions(
+    *, device_descriptions: tuple[DeviceDescription, ...]
+) -> tuple[str, ...]:
+    """Extract addresses from device descriptions."""
+    return tuple(
+        {
+            parent_address
+            for dev_desc in device_descriptions
+            if (parent_address := dev_desc.get("PARENT")) and (is_device_address(address=parent_address))
+        }
+    )
+
+
+def parse_sys_var(*, data_type: HubValueType | None, raw_value: Any) -> Any:
     """Parse system variables to fix type."""
     if not data_type:
         return raw_value
-    if data_type in (SysvarType.ALARM, SysvarType.LOGIC):
-        return to_bool(raw_value)
-    if data_type == SysvarType.FLOAT:
+    if data_type in (HubValueType.ALARM, HubValueType.LOGIC):
+        return to_bool(value=raw_value)
+    if data_type == HubValueType.FLOAT:
         return float(raw_value)
-    if data_type in (SysvarType.INTEGER, SysvarType.LIST):
+    if data_type in (HubValueType.INTEGER, HubValueType.LIST):
         return int(raw_value)
     return raw_value
 
 
-def to_bool(value: Any) -> bool:
+def to_bool(*, value: Any) -> bool:
     """Convert defined string values to bool."""
     if isinstance(value, bool):
         return value
 
     if not isinstance(value, str):
-        raise TypeError("invalid literal for boolean. Not a string.")
+        raise TypeError(i18n.tr(key="exception.support.boolean.invalid_type"))
 
     return value.lower() in ["y", "yes", "t", "true", "on", "1"]
 
 
-def check_password(password: str | None) -> bool:
+def check_password(*, password: str | None) -> bool:
     """Check password."""
     if password is None:
         return False
     if CCU_PASSWORD_PATTERN.fullmatch(password) is None:
-        _LOGGER.warning(
-            "CHECK_CONFIG: password contains not allowed characters. "
-            "Use only allowed characters. See password regex: %s",
-            CCU_PASSWORD_PATTERN.pattern,
+        _LOGGER.error(
+            i18n.tr(
+                key="log.support.check_password.invalid_chars",
+                pattern=CCU_PASSWORD_PATTERN.pattern,
+            )
         )
         return False
     return True
 
 
-def regular_to_default_dict_hook(origin: dict) -> defaultdict[Any, Any]:
-    """Use defaultdict in json.loads object_hook."""
-    new_dict: Callable = lambda: defaultdict(new_dict)
-    new_instance = new_dict()
-    new_instance.update(origin)
-    return cast(defaultdict[Any, Any], new_instance)
-
-
-def _create_tls_context(verify_tls: bool) -> ssl.SSLContext:
+def _create_tls_context(*, verify_tls: bool) -> ssl.SSLContext:
     """Create tls verified/unverified context."""
     sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     if not verify_tls:
@@ -230,48 +209,43 @@ _DEFAULT_NO_VERIFY_SSL_CONTEXT = _create_tls_context(verify_tls=False)
 _DEFAULT_SSL_CONTEXT = _create_tls_context(verify_tls=True)
 
 
-def get_tls_context(verify_tls: bool) -> ssl.SSLContext:
+def get_tls_context(*, verify_tls: bool) -> ssl.SSLContext:
     """Return tls verified/unverified context."""
     return _DEFAULT_SSL_CONTEXT if verify_tls else _DEFAULT_NO_VERIFY_SSL_CONTEXT
 
 
-def get_channel_address(device_address: str, channel_no: int | None) -> str:
+def get_channel_address(*, device_address: str, channel_no: int | None) -> str:
     """Return the channel address."""
     return device_address if channel_no is None else f"{device_address}:{channel_no}"
 
 
-def get_device_address(address: str) -> str:
+def get_device_address(*, address: str) -> str:
     """Return the device part of an address."""
     return get_split_channel_address(channel_address=address)[0]
 
 
-def get_channel_no(address: str) -> int | None:
+def get_channel_no(*, address: str) -> int | None:
     """Return the channel part of an address."""
     return get_split_channel_address(channel_address=address)[1]
 
 
-def is_address(address: str) -> bool:
-    """Check if it is a address."""
-    return is_device_address(address=address) or is_channel_address(address=address)
-
-
-def is_channel_address(address: str) -> bool:
+def is_channel_address(*, address: str) -> bool:
     """Check if it is a channel address."""
     return CHANNEL_ADDRESS_PATTERN.match(address) is not None
 
 
-def is_device_address(address: str) -> bool:
+def is_device_address(*, address: str) -> bool:
     """Check if it is a device address."""
     return DEVICE_ADDRESS_PATTERN.match(address) is not None
 
 
-def is_paramset_key(paramset_key: ParamsetKey | str) -> bool:
+def is_paramset_key(*, paramset_key: ParamsetKey | str) -> bool:
     """Check if it is a paramset key."""
     return isinstance(paramset_key, ParamsetKey) or (isinstance(paramset_key, str) and paramset_key in ParamsetKey)
 
 
 @lru_cache(maxsize=4096)
-def get_split_channel_address(channel_address: str) -> tuple[str, int | None]:
+def get_split_channel_address(*, channel_address: str) -> tuple[str, int | None]:
     """
     Return the device part of an address.
 
@@ -286,7 +260,7 @@ def get_split_channel_address(channel_address: str) -> tuple[str, int | None]:
     return channel_address, None
 
 
-def changed_within_seconds(last_change: datetime, max_age: int = MAX_CACHE_AGE) -> bool:
+def changed_within_seconds(*, last_change: datetime, max_age: int = MAX_CACHE_AGE) -> bool:
     """DataPoint has been modified within X minutes."""
     if last_change == INIT_DATETIME:
         return False
@@ -302,14 +276,22 @@ def find_free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def get_ip_addr(host: str, port: int) -> str | None:
-    """Get local_ip from socket."""
+async def get_ip_addr(*, host: str, port: int) -> str | None:
+    """Get local_ip from socket using async DNS resolution."""
+    loop = asyncio.get_running_loop()
     try:
-        socket.gethostbyname(host)
+        # Async DNS resolution instead of blocking socket.gethostbyname()
+        await loop.getaddrinfo(host, port, family=socket.AF_INET)
     except Exception as exc:
         raise AioHomematicException(
-            f"GET_LOCAL_IP: Can't resolve host for {host}:{port}: {extract_exc_args(exc=exc)}"
+            i18n.tr(
+                key="exception.support.get_local_ip.resolve_failed",
+                host=host,
+                port=port,
+                reason=extract_exc_args(exc=exc),
+            )
         ) from exc
+    # UDP socket operations are non-blocking (just sets destination)
     tmp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     tmp_socket.settimeout(TIMEOUT)
     tmp_socket.connect((host, port))
@@ -319,26 +301,37 @@ def get_ip_addr(host: str, port: int) -> str | None:
     return local_ip
 
 
-def is_hostname(hostname: str | None) -> bool:
-    """Return True if hostname is valid."""
-    if not hostname:
+def is_host(*, host: str | None) -> bool:
+    """Return True if host is valid."""
+    try:
+        validate_host(host=host)
+    except ValidationException:
         return False
-    if hostname[-1] == ".":
-        # strip exactly one dot from the right, if present
-        hostname = hostname[:-1]
-    if len(hostname) > 253 or len(hostname) < 1:
-        return False
-
-    labels = hostname.split(".")
-
-    # the TLD must be not all-numeric
-    if re.match(r"[0-9]+$", labels[-1]):
-        return False
-
-    return all(ALLOWED_HOSTNAME_PATTERN.match(label) for label in labels)
+    return True
 
 
-def is_ipv4_address(address: str | None) -> bool:
+def validate_host(*, host: str | None) -> None:
+    """
+    Validate host format (hostname or IP address).
+
+    Args:
+        host: The host to validate.
+
+    Raises:
+        ValidationException: If the host format is invalid.
+
+    """
+    if not host or not host.strip():
+        raise ValidationException(i18n.tr(key="exception.support.host_empty"))
+
+    host_clean = host.strip()
+
+    # Check for valid hostname or IP
+    if not (HOSTNAME_PATTERN.match(host_clean) or IPV4_PATTERN.match(host_clean) or IPV6_PATTERN.match(host_clean)):
+        raise ValidationException(i18n.tr(key="exception.support.host_invalid", host=host))
+
+
+def is_ipv4_address(*, address: str | None) -> bool:
     """Return True if ipv4_address is valid."""
     if not address:
         return False
@@ -349,12 +342,63 @@ def is_ipv4_address(address: str | None) -> bool:
     return True
 
 
-def is_port(port: int) -> bool:
+def is_ipv6_address(*, address: str | None) -> bool:
+    """Return True if ipv6_address is valid."""
+    if not address:
+        return False
+    try:
+        IPv6Address(address=address)
+    except ValueError:
+        return False
+    return True
+
+
+def is_port(*, port: int) -> bool:
     """Return True if port is valid."""
     return 0 <= port <= 65535
 
 
+@lru_cache(maxsize=2048)
+def _element_matches_key_cached(
+    *,
+    search_elements: tuple[str, ...] | str,
+    compare_with: str,
+    ignore_case: bool,
+    do_left_wildcard_search: bool,
+    do_right_wildcard_search: bool,
+) -> bool:
+    """Cache element matching for hashable inputs."""
+    compare_with_processed = compare_with.lower() if ignore_case else compare_with
+
+    if isinstance(search_elements, str):
+        element = search_elements.lower() if ignore_case else search_elements
+        if do_left_wildcard_search is True and do_right_wildcard_search is True:
+            return element in compare_with_processed
+        if do_left_wildcard_search:
+            return compare_with_processed.endswith(element)
+        if do_right_wildcard_search:
+            return compare_with_processed.startswith(element)
+        return compare_with_processed == element
+
+    # search_elements is a tuple
+    for item in search_elements:
+        element = item.lower() if ignore_case else item
+        if do_left_wildcard_search is True and do_right_wildcard_search is True:
+            if element in compare_with_processed:
+                return True
+        elif do_left_wildcard_search:
+            if compare_with_processed.endswith(element):
+                return True
+        elif do_right_wildcard_search:
+            if compare_with_processed.startswith(element):
+                return True
+        elif compare_with_processed == element:
+            return True
+    return False
+
+
 def element_matches_key(
+    *,
     search_elements: str | Collection[str],
     compare_with: str | None,
     search_key: str | None = None,
@@ -372,41 +416,51 @@ def element_matches_key(
     if compare_with is None or not search_elements:
         return False
 
-    compare_with = compare_with.lower() if ignore_case else compare_with
-
-    if isinstance(search_elements, str):
-        element = search_elements.lower() if ignore_case else search_elements
-        if do_left_wildcard_search is True and do_right_wildcard_search is True:
-            return element in compare_with
-        if do_left_wildcard_search:
-            return compare_with.endswith(element)
-        if do_right_wildcard_search:
-            return compare_with.startswith(element)
-        return compare_with == element
-    if isinstance(search_elements, Collection):
-        if isinstance(search_elements, dict) and (
-            match_key := _get_search_key(search_elements=search_elements, search_key=search_key) if search_key else None
-        ):
+    # Handle dict case with search_key
+    if isinstance(search_elements, dict) and search_key:
+        if match_key := _get_search_key(search_elements=search_elements, search_key=search_key):
             if (elements := search_elements.get(match_key)) is None:
                 return False
             search_elements = elements
+        else:
+            return False
+
+    search_elements_hashable: str | Collection[str]
+    # Convert to hashable types for caching
+    if isinstance(search_elements, str):
+        search_elements_hashable = search_elements
+    elif isinstance(search_elements, (list, set)):
+        search_elements_hashable = tuple(search_elements)
+    elif isinstance(search_elements, tuple):
+        search_elements_hashable = search_elements
+    else:
+        # Fall back to non-cached version for other collection types
+        compare_with_processed = compare_with.lower() if ignore_case else compare_with
         for item in search_elements:
             element = item.lower() if ignore_case else item
             if do_left_wildcard_search is True and do_right_wildcard_search is True:
-                if element in compare_with:
+                if element in compare_with_processed:
                     return True
             elif do_left_wildcard_search:
-                if compare_with.endswith(element):
+                if compare_with_processed.endswith(element):
                     return True
             elif do_right_wildcard_search:
-                if compare_with.startswith(element):
+                if compare_with_processed.startswith(element):
                     return True
-            elif compare_with == element:
+            elif compare_with_processed == element:
                 return True
-    return False
+        return False
+
+    return _element_matches_key_cached(
+        search_elements=search_elements_hashable,
+        compare_with=compare_with,
+        ignore_case=ignore_case,
+        do_left_wildcard_search=do_left_wildcard_search,
+        do_right_wildcard_search=do_right_wildcard_search,
+    )
 
 
-def _get_search_key(search_elements: Collection[str], search_key: str) -> str | None:
+def _get_search_key(*, search_elements: Collection[str], search_key: str) -> str | None:
     """Search for a matching key in a collection."""
     for element in search_elements:
         if search_key.startswith(element):
@@ -451,7 +505,7 @@ def debug_enabled() -> bool:
     return False
 
 
-def hash_sha256(value: Any) -> str:
+def hash_sha256(*, value: Any) -> str:
     """
     Hash a value with sha256.
 
@@ -461,30 +515,32 @@ def hash_sha256(value: Any) -> str:
     """
     hasher = hashlib.sha256()
     try:
-        data = orjson.dumps(value, option=orjson.OPT_SORT_KEYS | orjson.OPT_NON_STR_KEYS)
+        data = compat.dumps(obj=value, option=compat.OPT_SORT_KEYS | compat.OPT_NON_STR_KEYS)
     except Exception:
         # Fallback: convert to a hashable representation and use repr()
-        data = repr(_make_value_hashable(value)).encode()
+        data = repr(_make_value_hashable(value=value)).encode(encoding=UTF_8)
     hasher.update(data)
-    return base64.b64encode(hasher.digest()).decode()
+    return base64.b64encode(hasher.digest()).decode(encoding=UTF_8)
 
 
-def _make_value_hashable(value: Any) -> Any:
+def _make_value_hashable(*, value: Any) -> Any:
     """Make a hashable object."""
     if isinstance(value, tuple | list):
-        return tuple(_make_value_hashable(e) for e in value)
+        return tuple(_make_value_hashable(value=e) for e in value)
 
     if isinstance(value, dict):
-        return tuple(sorted((k, _make_value_hashable(v)) for k, v in value.items()))
+        return tuple(sorted((k, _make_value_hashable(value=v)) for k, v in value.items()))
 
     if isinstance(value, set | frozenset):
-        return tuple(sorted(_make_value_hashable(e) for e in value))
+        return tuple(sorted(_make_value_hashable(value=e) for e in value))
 
     return value
 
 
-def get_rx_modes(mode: int) -> tuple[RxMode, ...]:
+def get_rx_modes(*, mode: int | None) -> tuple[RxMode, ...]:
     """Convert int to rx modes."""
+    if mode is None:
+        return ()
     rx_modes: set[RxMode] = set()
     if mode & RxMode.LAZY_CONFIG:
         mode -= RxMode.LAZY_CONFIG
@@ -503,16 +559,21 @@ def get_rx_modes(mode: int) -> tuple[RxMode, ...]:
     return tuple(rx_modes)
 
 
-def supports_rx_mode(command_rx_mode: CommandRxMode, rx_modes: tuple[RxMode, ...]) -> bool:
+def supports_rx_mode(*, command_rx_mode: CommandRxMode, rx_modes: tuple[RxMode, ...]) -> bool:
     """Check if rx mode is supported."""
     return (command_rx_mode == CommandRxMode.BURST and RxMode.BURST in rx_modes) or (
         command_rx_mode == CommandRxMode.WAKEUP and RxMode.WAKEUP in rx_modes
     )
 
 
-def cleanup_text_from_html_tags(text: str) -> str:
+def cleanup_text_from_html_tags(*, text: str) -> str:
     """Cleanup text from html tags."""
     return re.sub(HTMLTAG_PATTERN, "", text)
+
+
+def create_random_device_addresses(*, addresses: list[str]) -> dict[str, str]:
+    """Create a random device address."""
+    return {adr: f"VCU{int(random.randint(1000000, 9999999))}" for adr in addresses}
 
 
 # --- Structured error boundary logging helpers ---
@@ -520,7 +581,7 @@ def cleanup_text_from_html_tags(text: str) -> str:
 _BOUNDARY_MSG = "error_boundary"
 
 
-def _safe_log_context(context: Mapping[str, Any] | None) -> dict[str, Any]:
+def _safe_log_context(*, context: Mapping[str, Any] | None) -> dict[str, Any]:
     """Extract safe context from a mapping."""
     ctx: dict[str, Any] = {}
     if not context:
@@ -541,8 +602,8 @@ def _safe_log_context(context: Mapping[str, Any] | None) -> dict[str, Any]:
 
 
 def log_boundary_error(
-    logger: logging.Logger,
     *,
+    logger: logging.Logger,
     boundary: str,
     action: str,
     err: Exception,
@@ -570,7 +631,7 @@ def log_boundary_error(
         log_message += f" {message}"
 
     if log_context:
-        log_message += f" ctx={orjson.dumps(_safe_log_context(log_context), option=orjson.OPT_SORT_KEYS).decode()}"
+        log_message += f" ctx={compat.dumps(obj=_safe_log_context(context=log_context), option=compat.OPT_SORT_KEYS).decode(encoding=UTF_8)}"
 
     # Choose level if not provided:
     if (chosen_level := level) is None:
@@ -585,7 +646,7 @@ class LogContextMixin:
 
     __slots__ = ("_cached_log_context",)
 
-    @cached_property
+    @hm_property(cached=True)
     def log_context(self) -> Mapping[str, Any]:
         """Return the log context for this object."""
         return {

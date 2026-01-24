@@ -1,0 +1,35 @@
+
+[project]
+name = "pythermite"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+version = "0.4.2"
+requires-python = ">=3.11"
+authors = [
+  {name = "Tyler Robbins", email = "tylerrobbins5678@gmail.com"}
+]
+maintainers = [
+  {name = "Tyler Robbins", email = "tylerrobbins5678@gmail.com"}
+]
+
+description = "Python object indexer for ETL, search for anything by anything"
+readme = "README.md"
+
+keywords = ["index", "search", "storage", "ETL", "ELT", "searchmeta"]
+dependencies = ["maturin (>=1.8.6,<2.0.0)", "pytest (>=8.4.2,<9.0.0)"]
+
+[project.optional-dependencies]
+dev = ["pip-tools"]
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tools.setuptools]
+packages = ["src"]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

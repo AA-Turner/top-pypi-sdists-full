@@ -203,50 +203,62 @@ TEST(ThreadPoolTest, TestMultiplePermutations) {
 
 class DoWait {
  public:
-  DoWait(Worker* worker, uint32_t epoch) : worker_(worker), epoch_(epoch) {}
+  explicit DoWait(Worker& worker) : worker_(worker) {}
 
-  template <class Spin, class Wait, class Barrier>
-  void operator()(const Spin& spin, const Wait& wait, const Barrier&) const {
-    wait.UntilWoken(worker_, spin, epoch_);
+  template <class Spin, class Wait>
+  void operator()(const Spin& spin, const Wait& wait) const {
+    wait.UntilWoken(worker_, spin);
   }
 
  private:
-  Worker* const worker_;
-  const uint32_t epoch_;
+  Worker& worker_;
 };
 
 class DoWakeWorkers {
  public:
-  DoWakeWorkers(Worker* workers, uint32_t epoch)
-      : workers_(workers), epoch_(epoch) {}
+  explicit DoWakeWorkers(Worker* workers) : workers_(workers) {}
 
-  template <class Spin, class Wait, class Barrier>
-  void operator()(const Spin&, const Wait& wait, const Barrier&) const {
-    wait.WakeWorkers(workers_, epoch_);
+  template <class Spin, class Wait>
+  void operator()(const Spin&, const Wait& wait) const {
+    wait.WakeWorkers(workers_, workers_[0].WorkerEpoch());
   }
 
  private:
   Worker* const workers_;
-  const uint32_t epoch_;
 };
 
-// Verifies that the waiter can be woken by the main thread.
+// Verifies that waiter(s) can be woken by another thread.
 TEST(ThreadPoolTest, TestWaiter) {
   if (!hwy::HaveThreadingSupport()) return;
-  const size_t kNumThreads = 1;
-  const Divisor64 div_workers(kNumThreads);
 
-  for (WaitType wait_type :
-       {WaitType::kBlock, WaitType::kSpin1, WaitType::kSpinSeparate}) {
-    Worker worker(0, kNumThreads, div_workers);
-    alignas(8)
-        const Config config(SpinType::kPause, wait_type, BarrierType::kGroup4);
+  // Not actual threads, but we allocate and loop over this many workers.
+  for (size_t num_threads = 1; num_threads < 6; ++num_threads) {
+    const size_t num_workers = 1 + num_threads;
+    auto storage = hwy::AllocateAligned<uint8_t>(num_workers * sizeof(Worker));
+    HWY_ASSERT(storage);
+    const Divisor64 div_workers(num_workers);
+    Shared& shared = Shared::Get();  // already calls ReserveWorker(0).
 
-    // This thread acts as the "main thread", which will wake the actual main.
-    std::thread thread(
-        [&]() { CallWithConfig(config, DoWakeWorkers(&worker, 1)); });
-    CallWithConfig(config, DoWait(&worker, 1));
-    thread.join();
+    for (WaitType wait_type :
+         {WaitType::kBlock, WaitType::kSpin1, WaitType::kSpinSeparate}) {
+      Worker* workers = pool::WorkerLifecycle::Init(
+          storage.get(), num_threads, PoolWorkerMapping(), div_workers, shared);
+
+      alignas(8) const Config config(SpinType::kPause, wait_type);
+
+      // This thread acts as the "main thread", which will wake the actual main
+      // and all its worker instances.
+      std::thread thread(
+          [&]() { CallWithConfig(config, DoWakeWorkers(workers)); });
+
+      // main is 0
+      for (size_t worker = 1; worker < num_workers; ++worker) {
+        CallWithConfig(config, DoWait(workers[1]));
+      }
+      thread.join();
+
+      pool::WorkerLifecycle::Destroy(workers, num_workers);
+    }
   }
 }
 
@@ -257,8 +269,10 @@ TEST(ThreadPoolTest, TestTasks) {
     auto storage = hwy::AllocateAligned<uint8_t>(num_workers * sizeof(Worker));
     HWY_ASSERT(storage);
     const Divisor64 div_workers(num_workers);
-    Worker* workers =
-        WorkerLifecycle::Init(storage.get(), num_threads, div_workers);
+    Shared& shared = Shared::Get();
+    Stats stats;
+    Worker* workers = WorkerLifecycle::Init(
+        storage.get(), num_threads, PoolWorkerMapping(), div_workers, shared);
 
     constexpr uint64_t kMaxTasks = 20;
     uint64_t mementos[kMaxTasks];  // non-atomic, no threads involved.
@@ -268,7 +282,7 @@ TEST(ThreadPoolTest, TestTasks) {
 
         ZeroBytes(mementos, sizeof(mementos));
         const auto func = [begin, end, &mementos](uint64_t task,
-                                                  size_t /*thread*/) {
+                                                  size_t /*worker*/) {
           HWY_ASSERT(begin <= task && task < end);
 
           // Store mementos ensure we visited each task.
@@ -279,8 +293,8 @@ TEST(ThreadPoolTest, TestTasks) {
 
         Tasks::DivideRangeAmongWorkers(begin, end, div_workers, workers);
         // The `tasks < workers` special case requires running by all workers.
-        for (size_t thread = 0; thread < num_workers; ++thread) {
-          tasks.WorkerRun(workers + thread);
+        for (size_t worker = 0; worker < num_workers; ++worker) {
+          tasks.WorkerRun(workers + worker, shared, stats);
         }
 
         // Ensure all tasks were run.
@@ -294,59 +308,60 @@ TEST(ThreadPoolTest, TestTasks) {
   }
 }
 
-// Ensures old code with 32-bit tasks and InitClosure still compiles.
-TEST(ThreadPoolTest, TestDeprecated) {
-  hwy::ThreadPool pool(0);
-  pool.Run(1, 10, &ThreadPool::NoInit,
-           [&](const uint64_t /*task*/, size_t /*thread*/) {});
-}
-
 // Ensures task parameter is in bounds, every parameter is reached,
 // pool can be reused (multiple consecutive Run calls), pool can be destroyed
 // (joining with its threads), num_threads=0 works (runs on current thread).
 TEST(ThreadPoolTest, TestPool) {
   if (!hwy::HaveThreadingSupport()) return;
 
-  hwy::ThreadPool inner(0);
+  constexpr uint64_t kMaxTasks = 20;
+  static std::atomic<uint64_t> mementos[kMaxTasks];
+  static std::atomic<uint64_t> a_begin;
+  static std::atomic<uint64_t> a_end;
+  static std::atomic<uint64_t> a_num_workers;
+
+  // Called by pool; sets mementos and runs a nested but serial Run.
+  const auto func = [](uint64_t task, size_t worker) {
+    HWY_ASSERT(worker < a_num_workers.load());
+    const uint64_t begin = a_begin.load(std::memory_order_acquire);
+    const uint64_t end = a_end.load(std::memory_order_acquire);
+
+    if (!(begin <= task && task < end)) {
+      HWY_ABORT("Task %d not in [%d, %d]", static_cast<int>(task),
+                static_cast<int>(begin), static_cast<int>(end));
+    }
+
+    // Store mementos ensure we visited each task.
+    mementos[task - begin].store(1000 + task);
+
+    // Re-entering Run is fine on a 0-worker pool. Note that this must be
+    // per-thread so that it gets the `global_idx` it is running on.
+    hwy::ThreadPool inner(0);
+    inner.Run(begin, end,
+              [begin, end](uint64_t inner_task, size_t inner_worker) {
+                HWY_ASSERT(inner_worker == 0);
+                HWY_ASSERT(begin <= inner_task && inner_task < end);
+              });
+  };
 
   for (size_t num_threads = 0; num_threads <= 6; num_threads += 3) {
     hwy::ThreadPool pool(HWY_MIN(ThreadPool::MaxThreads(), num_threads));
+    a_num_workers.store(pool.NumWorkers());
     for (bool spin : {true, false}) {
       pool.SetWaitMode(spin ? PoolWaitMode::kSpin : PoolWaitMode::kBlock);
 
-      constexpr uint64_t kMaxTasks = 20;
-      std::atomic<uint64_t> mementos[kMaxTasks];
       for (uint64_t num_tasks = 0; num_tasks < kMaxTasks; ++num_tasks) {
         for (uint64_t all_begin = 0; all_begin < AdjustedReps(32);
              ++all_begin) {
           const uint64_t all_end = all_begin + num_tasks;
-          static std::atomic<uint64_t> a_begin;
-          static std::atomic<uint64_t> a_end;
           a_begin.store(all_begin, std::memory_order_release);
           a_end.store(all_end, std::memory_order_release);
 
           for (size_t i = 0; i < kMaxTasks; ++i) {
             mementos[i].store(0);
           }
-          pool.Run(all_begin, all_end, [&](uint64_t task, size_t worker) {
-            HWY_ASSERT(worker < pool.NumWorkers());
-            const uint64_t begin = a_begin.load(std::memory_order_acquire);
-            const uint64_t end = a_end.load(std::memory_order_acquire);
 
-            if (!(begin <= task && task < end)) {
-              HWY_ABORT("Task %d not in [%d, %d]", static_cast<int>(task),
-                        static_cast<int>(begin), static_cast<int>(end));
-            }
-
-            // Store mementos ensure we visited each task.
-            mementos[task - begin].store(1000 + task);
-
-            // Re-entering Run is fine on a 0-worker pool.
-            inner.Run(begin, end, [begin, end](uint64_t task, size_t worker) {
-              HWY_ASSERT(worker == 0);
-              HWY_ASSERT(begin <= task && task < end);
-            });
-          });
+          pool.Run(all_begin, all_end, func);
 
           for (uint64_t task = all_begin; task < all_end; ++task) {
             const uint64_t expected = 1000 + task;
@@ -391,15 +406,15 @@ TEST(ThreadPoolTest, TestSmallAssignments) {
       state.id_bits.store(0);
       state.num_calls.store(0);
 
-      pool.Run(0, num_tasks, [](uint64_t task, size_t thread) {
+      pool.Run(0, num_tasks, [](uint64_t task, size_t worker) {
         HWY_ASSERT(task < state.num_tasks.load());
-        HWY_ASSERT(thread < state.num_workers.load());
+        HWY_ASSERT(worker < state.num_workers.load());
 
         state.num_calls.fetch_add(1);
 
         uint64_t bits = state.id_bits.load();
         while (!state.id_bits.compare_exchange_weak(bits,
-                                                    bits | (1ULL << thread))) {
+                                                    bits | (1ULL << worker))) {
         }
       });
 
@@ -431,7 +446,7 @@ TEST(ThreadPoolTest, TestWaitMode) {
   ThreadPool pool(9);
   RandomState rng;
   for (size_t i = 0; i < 100; ++i) {
-    pool.SetWaitMode(Random32(&rng) ? PoolWaitMode::kSpin
+    pool.SetWaitMode((Random32(&rng) & 1u) ? PoolWaitMode::kSpin
                                     : PoolWaitMode::kBlock);
   }
 }
@@ -447,8 +462,8 @@ TEST(ThreadPoolTest, TestCounter) {
 
     const uint64_t kNumTasks = kNumThreads * 19;
     pool.Run(0, kNumTasks,
-             [&counters](const uint64_t task, const size_t thread) {
-               counters[thread].counter.fetch_add(task);
+             [&counters](const uint64_t task, const size_t worker) {
+               counters[worker].counter.fetch_add(task);
              });
 
     uint64_t expected = 0;

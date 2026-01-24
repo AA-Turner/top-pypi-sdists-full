@@ -20,14 +20,12 @@ class MATERIAL_PT_freestyle_line(MaterialFreestyleButtonsPanel, _bpy_types.Panel
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -57,14 +55,12 @@ class RENDER_MT_lineset_context_menu(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -88,14 +84,12 @@ class RENDER_PT_freestyle(RenderFreestyleButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -136,14 +130,12 @@ class VIEWLAYER_PT_freestyle(ViewLayerFreestyleButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -181,14 +173,12 @@ class VIEWLAYER_PT_freestyle_animation(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEWLAYER_PT_freestyle_edge_detection(
@@ -208,14 +198,12 @@ class VIEWLAYER_PT_freestyle_edge_detection(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -240,14 +228,12 @@ class VIEWLAYER_PT_freestyle_lineset(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -282,14 +268,12 @@ class VIEWLAYER_PT_freestyle_lineset_collection(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -321,14 +305,12 @@ class VIEWLAYER_PT_freestyle_lineset_edgetype(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -369,14 +351,12 @@ class VIEWLAYER_PT_freestyle_lineset_facemarks(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -408,14 +388,12 @@ class VIEWLAYER_PT_freestyle_lineset_visibilty(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -447,14 +425,12 @@ class VIEWLAYER_PT_freestyle_linestyle_alpha(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -487,14 +463,12 @@ class VIEWLAYER_PT_freestyle_linestyle_color(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -527,14 +501,12 @@ class VIEWLAYER_PT_freestyle_linestyle_geometry(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -567,14 +539,12 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -600,14 +570,12 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_chaining(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -640,14 +608,12 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_dashedline(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -680,14 +646,12 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_selection(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -714,14 +678,12 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_sorting(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -754,14 +716,12 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_splitting(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -788,14 +748,12 @@ class VIEWLAYER_PT_freestyle_linestyle_strokes_splitting_pattern(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -827,14 +785,12 @@ class VIEWLAYER_PT_freestyle_linestyle_texture(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -860,14 +816,12 @@ class VIEWLAYER_PT_freestyle_linestyle_thickness(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -900,14 +854,12 @@ class VIEWLAYER_PT_freestyle_style_modules(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -931,14 +883,12 @@ class VIEWLAYER_UL_linesets(_bpy_types.UIList):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_item(

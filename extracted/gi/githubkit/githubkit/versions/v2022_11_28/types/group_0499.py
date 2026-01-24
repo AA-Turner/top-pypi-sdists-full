@@ -11,14 +11,36 @@ from __future__ import annotations
 
 from typing_extensions import TypedDict
 
+from .group_0258 import SimpleCommitType, SimpleCommitTypeForResponse
 
-class WebhookCheckRunCreatedFormEncodedType(TypedDict):
-    """Check Run Created Event
 
-    The check_run.created webhook encoded with URL encoding
+class MergeGroupType(TypedDict):
+    """Merge Group
+
+    A group of pull requests that the merge queue has grouped together to be merged.
     """
 
-    payload: str
+    head_sha: str
+    head_ref: str
+    base_sha: str
+    base_ref: str
+    head_commit: SimpleCommitType
 
 
-__all__ = ("WebhookCheckRunCreatedFormEncodedType",)
+class MergeGroupTypeForResponse(TypedDict):
+    """Merge Group
+
+    A group of pull requests that the merge queue has grouped together to be merged.
+    """
+
+    head_sha: str
+    head_ref: str
+    base_sha: str
+    base_ref: str
+    head_commit: SimpleCommitTypeForResponse
+
+
+__all__ = (
+    "MergeGroupType",
+    "MergeGroupTypeForResponse",
+)

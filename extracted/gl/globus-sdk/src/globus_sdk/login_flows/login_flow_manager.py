@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 
 import globus_sdk
+from globus_sdk._missing import none2missing
 from globus_sdk.gare import GlobusAuthorizationParameters
 
 
@@ -51,14 +52,22 @@ class LoginFlowManager(metaclass=abc.ABCMeta):
         """
         self._oauth2_start_flow(auth_parameters, redirect_uri)
 
-        session_required_single_domain = auth_parameters.session_required_single_domain
+        # prompt is assigned first because its usage is type-ignored below
+        # this makes it clear that the ignore applies to that usage
+        prompt = none2missing(auth_parameters.prompt)
         return self.login_client.oauth2_get_authorize_url(
-            session_required_identities=auth_parameters.session_required_identities,
-            session_required_single_domain=session_required_single_domain,
-            session_required_policies=auth_parameters.session_required_policies,
-            session_required_mfa=auth_parameters.session_required_mfa,
-            session_message=auth_parameters.session_message,
-            prompt=auth_parameters.prompt,  # type: ignore
+            session_required_identities=none2missing(
+                auth_parameters.session_required_identities
+            ),
+            session_required_single_domain=none2missing(
+                auth_parameters.session_required_single_domain
+            ),
+            session_required_policies=none2missing(
+                auth_parameters.session_required_policies
+            ),
+            session_required_mfa=none2missing(auth_parameters.session_required_mfa),
+            session_message=none2missing(auth_parameters.session_message),
+            prompt=prompt,  # type: ignore[arg-type]
         )
 
     def _oauth2_start_flow(
@@ -70,6 +79,12 @@ class LoginFlowManager(metaclass=abc.ABCMeta):
         """
         login_client = self.login_client
         requested_scopes = auth_parameters.required_scopes
+        if not requested_scopes:
+            raise globus_sdk.GlobusSDKUsageError(
+                f"{type(self).__name__} cannot start a login flow without scopes "
+                "in the authorization parameters."
+            )
+
         # Native and Confidential App clients have different signatures for this method,
         # so they must be type checked & called independently.
         if isinstance(login_client, globus_sdk.NativeAppAuthClient):
@@ -77,7 +92,7 @@ class LoginFlowManager(metaclass=abc.ABCMeta):
                 requested_scopes,
                 redirect_uri=redirect_uri,
                 refresh_tokens=self.request_refresh_tokens,
-                prefill_named_grant=self.native_prefill_named_grant,
+                prefill_named_grant=none2missing(self.native_prefill_named_grant),
             )
         elif isinstance(login_client, globus_sdk.ConfidentialAppAuthClient):
             login_client.oauth2_start_flow(

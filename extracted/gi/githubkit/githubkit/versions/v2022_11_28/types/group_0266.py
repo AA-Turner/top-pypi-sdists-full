@@ -9,14 +9,32 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
-class CodeScanningAutofixCommitsResponseType(TypedDict):
-    """CodeScanningAutofixCommitsResponse"""
+class WorkflowDispatchResponseType(TypedDict):
+    """Workflow Dispatch Response
 
-    target_ref: NotRequired[str]
-    sha: NotRequired[str]
+    Response containing the workflow run ID and URLs.
+    """
+
+    workflow_run_id: int
+    run_url: str
+    html_url: str
 
 
-__all__ = ("CodeScanningAutofixCommitsResponseType",)
+class WorkflowDispatchResponseTypeForResponse(TypedDict):
+    """Workflow Dispatch Response
+
+    Response containing the workflow run ID and URLs.
+    """
+
+    workflow_run_id: int
+    run_url: str
+    html_url: str
+
+
+__all__ = (
+    "WorkflowDispatchResponseType",
+    "WorkflowDispatchResponseTypeForResponse",
+)

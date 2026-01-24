@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["ge_detector_straight_si_contacts"]
+
 import gdsfactory as gf
 from gdsfactory.component import Component
 from gdsfactory.typings import ComponentSpec, CrossSectionSpec
@@ -72,6 +74,6 @@ def ge_detector_straight_si_contacts(
     via_stack_top.ymin = +via_stack_spacing / 2 + via_stack_offset
     via_stack_bot.ymax = -via_stack_spacing / 2 + via_stack_offset
 
-    c.add_ports(via_stack_bot.ports, prefix="bot_")
-    c.add_ports(via_stack_top.ports, prefix="top_")
+    c.add_port(port=via_stack_bot.ports["e3"], name="bot")
+    c.add_port(port=via_stack_top.ports["e3"], name="top")
     return c

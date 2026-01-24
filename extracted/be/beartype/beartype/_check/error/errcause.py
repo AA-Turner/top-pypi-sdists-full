@@ -61,23 +61,23 @@ from beartype.typing import (
     Optional,
 )
 from beartype._cave._cavemap import NoneTypeOr
-from beartype._check.convert.convsanify import sanify_hint_child
+from beartype._check.convert.convmain import sanify_hint_child
 from beartype._check.metadata.hint.hintsane import (
     HINT_SANE_IGNORABLE,
     HintSane,
     TupleHintSane,
 )
 from beartype._conf.confmain import BeartypeConf
-from beartype._data.hint.datahintpep import (
+from beartype._data.typing.datatypingport import (
     Hint,
     TupleHints,
 )
-from beartype._data.hint.datahinttyping import (
+from beartype._data.typing.datatyping import (
     HintSignOrNoneOrSentinel,
     TypeStack,
 )
-from beartype._data.hint.pep.sign.datapepsigncls import HintSign
-from beartype._data.hint.pep.sign.datapepsignset import (
+from beartype._data.hint.sign.datahintsigncls import HintSign
+from beartype._data.hint.sign.datahintsignset import (
     HINT_SIGNS_SUPPORTED_DEEP,
     HINT_SIGNS_ORIGIN_ISINSTANCEABLE,
 )
@@ -303,7 +303,7 @@ class ViolationCause(object):
               another sign. Prominent examples include:
 
               * **Generic typed dictionaries** identifiable as both the
-                :data:`.HintSignPep484585GenericUnsubscripted` sign *and* the
+                :data:`.HintSignPep484585GenericUnsubbed` sign *and* the
                 :data:`HintSignTypedDict` sign for :pep:`589`-compliant typed
                 dictionaries: e.g.,
 
@@ -314,7 +314,7 @@ class ViolationCause(object):
                        generic_item: T
 
               * **Generic named tuples** identifiable as both the
-                :data:`.HintSignPep484585GenericUnsubscripted` sign *and* the
+                :data:`.HintSignPep484585GenericUnsubbed` sign *and* the
                 :data:`HintSignNamedTuple` sign for :pep:`484`-compliant named
                 tuples: e.g.,
 
@@ -571,7 +571,7 @@ class ViolationCause(object):
 
             # Getter function returning the desired string for this attribute if
             # any *OR* "None" otherwise.
-            cause_finder = HINT_SIGN_TO_GET_CAUSE_FUNC.get(
+            cause_finder = HINT_SIGN_TO_GET_CAUSE_FUNC.get(  # type: ignore[assignment]
                 self.hint_sign, None)  # type: ignore[arg-type]
 
             # If no such function has been implemented to handle this attribute
@@ -721,13 +721,13 @@ class ViolationCause(object):
         hint_parent_sane : HintSane
             **Sanified parent type hint metadata** (i.e., immutable and thus
             hashable object encapsulating *all* metadata previously returned by
-            :mod:`beartype._check.convert.convsanify` sanifiers after sanitizing
+            :mod:`beartype._check.convert.convmain` sanifiers after sanitizing
             the possibly PEP-noncompliant parent hint of this child hint into a
             fully PEP-compliant parent hint).
         hint_parent_sane : Optional[HintSane], default: None
             **Sanified parent type hint metadata** (i.e., immutable and thus
             hashable object encapsulating *all* metadata previously returned by
-            :mod:`beartype._check.convert.convsanify` sanifiers after sanitizing
+            :mod:`beartype._check.convert.convmain` sanifiers after sanitizing
             the possibly PEP-noncompliant parent hint of this child hint into a
             fully PEP-compliant parent hint). Defaults to :data:`None`, in which
             case this parameter actually defaults to ``self.hint_sane``, the

@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import textwrap
 import typing as t
+from collections.abc import Callable
 
 from ansible import constants as C
 from ansible.inventory.manager import InventoryManager
@@ -200,7 +201,7 @@ original_access = os.access
 
 def exists_mock(
     path: os.PathLike | str, can_access: bool = True
-) -> t.Callable[[os.PathLike | str], bool]:
+) -> Callable[[os.PathLike | str], bool]:
     def exists_fn(f: os.PathLike | str) -> bool:
         if to_native(f) == path:
             return can_access
@@ -220,7 +221,7 @@ def access_mock(path: os.PathLike | str, can_access: bool = True):
 
 def test_inventory_file_simple(mocker) -> None:
     inventory_filename = "test.hosttech_dns.yaml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
     inventory_file = {
         inventory_filename: textwrap.dedent(
             """\
@@ -295,7 +296,7 @@ def test_inventory_file_simple(mocker) -> None:
 
 def test_inventory_file_simple_2(mocker) -> None:
     inventory_filename = "test.hosttech_dns.yaml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
     inventory_file = {
         inventory_filename: textwrap.dedent(
             """\
@@ -372,7 +373,7 @@ def test_inventory_file_simple_2(mocker) -> None:
 
 def test_inventory_file_collision(mocker) -> None:
     inventory_filename = "test.hosttech_dns.yaml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
     inventory_file = {
         inventory_filename: textwrap.dedent(
             """\
@@ -452,7 +453,7 @@ def test_inventory_file_collision(mocker) -> None:
 
 def test_inventory_file_no_filter(mocker) -> None:
     inventory_filename = "test.hosttech_dns.yaml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
     inventory_file = {
         inventory_filename: textwrap.dedent(
             """\
@@ -527,7 +528,7 @@ def test_inventory_file_no_filter(mocker) -> None:
 
 def test_inventory_file_invalid_zone_id(mocker) -> None:
     inventory_filename = "test.hosttech_dns.yaml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
     inventory_file = {
         inventory_filename: textwrap.dedent(
             """\
@@ -559,7 +560,7 @@ def test_inventory_file_invalid_zone_id(mocker) -> None:
 
 def test_inventory_file_missing_zone(mocker) -> None:
     inventory_filename = "test.hosttech_dns.yaml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
     inventory_file = {
         inventory_filename: textwrap.dedent(
             """\
@@ -590,7 +591,7 @@ def test_inventory_file_missing_zone(mocker) -> None:
 
 def test_inventory_file_zone_not_found(mocker) -> None:
     inventory_filename = "test.hosttech_dns.yaml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
     inventory_file = {
         inventory_filename: textwrap.dedent(
             """\
@@ -631,7 +632,7 @@ def test_inventory_file_zone_not_found(mocker) -> None:
 
 def test_inventory_file_unauthorized(mocker) -> None:
     inventory_filename = "test.hosttech_dns.yaml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
     inventory_file = {
         inventory_filename: textwrap.dedent(
             """\
@@ -671,7 +672,7 @@ def test_inventory_file_unauthorized(mocker) -> None:
 
 def test_inventory_file_error(mocker) -> None:
     inventory_filename = "test.hosttech_dns.yaml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
     inventory_file = {
         inventory_filename: textwrap.dedent(
             """\
@@ -711,7 +712,7 @@ def test_inventory_file_error(mocker) -> None:
 
 def test_inventory_wrong_file(mocker) -> None:
     inventory_filename = "test.hetznerdns.yml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
     inventory_file = {
         inventory_filename: textwrap.dedent(
             """\
@@ -742,7 +743,7 @@ def test_inventory_wrong_file(mocker) -> None:
 
 def test_inventory_no_file(mocker) -> None:
     inventory_filename = "test.hosttech_dns.yml"
-    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]
+    C.INVENTORY_ENABLED = ["community.dns.hosttech_dns_records"]  # type: ignore
 
     open_url = OpenUrlProxy([])
     mocker.patch(

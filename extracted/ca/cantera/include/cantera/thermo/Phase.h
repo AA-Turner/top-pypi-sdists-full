@@ -18,6 +18,7 @@ namespace Cantera
 
 class Solution;
 class Species;
+class Kinetics;
 
 //! Class Phase is the base class for phases of matter, managing the species and
 //! elements in a phase, as well as the independent variables of temperature,
@@ -148,7 +149,23 @@ public:
     //! assigned to each element in the order it was added. Returns @ref npos
     //! if the specified element is not found.
     //!     @param name Name of the element
+    //! @deprecated  To be removed after %Cantera 3.2. Use 2-parameter version instead.
     size_t elementIndex(const string& name) const;
+
+    //! Return the index of element named 'name'.
+    /*!
+     * The index is an integer assigned to each element in the order it was added.
+     * Returns @ref npos if the specified element is not found.
+     * @param name Name of the element.
+     * @param raise  If `true`, raise exception if the specified element is not found;
+     *      otherwise, return @ref npos.
+     * @since Added the `raise` argument in %Cantera 3.2. If not specified, the default
+     *      behavior if an element is not found in %Cantera 3.2 is to return `npos`.
+     *      After %Cantera 3.2, the default behavior will be to throw an exception.
+     * @exception Throws a CanteraError if the specified element is not found and
+     *      `raise` is `true`.
+     */
+    size_t elementIndex(const string& name, bool raise) const;
 
     //! Return a read-only reference to the vector of element names.
     const vector<string>& elementNames() const;
@@ -198,12 +215,16 @@ public:
     size_t nElements() const;
 
     //! Check that the specified element index is in range.
-    //! Throws an exception if m is greater than nElements()-1
-    void checkElementIndex(size_t m) const;
+    /*!
+     * @since Starting in %Cantera 3.2, returns the input element index, if valid.
+     * @exception Throws an IndexError if m is greater than nElements()-1
+     */
+    size_t checkElementIndex(size_t m) const;
 
     //! Check that an array size is at least nElements().
     //! Throws an exception if mm is less than nElements(). Used before calls
     //! which take an array pointer.
+    //! @deprecated To be removed after %Cantera 3.2. Only used by legacy CLib.
     void checkElementArraySize(size_t mm) const;
 
     //! Number of atoms of element @c m in species @c k.
@@ -218,7 +239,25 @@ public:
     //!            phaseName:speciesName
     //!     @return The index of the species. If the name is not found,
     //!             the value @ref npos is returned.
+    //! @deprecated  To be removed after %Cantera 3.2. Use 2-parameter version instead.
     size_t speciesIndex(const string& name) const;
+
+    //! Returns the index of a species named 'name' within the Phase object.
+    /*!
+     * The first species in the phase will have an index 0, and the last one
+     * will have an index of nSpecies() - 1.
+     * @param name String name of the species. It may also be in the form
+     *      phaseName:speciesName
+     * @param raise  If `true`, raise exception if the specified species is not found;
+     *      otherwise, return @ref npos.
+     * @return The index of the species.
+     * @since Added the `raise` argument in %Cantera 3.2. If not specified, the default
+     *      behavior if a species is not found in %Cantera 3.2 is to return `npos`.
+     *      After %Cantera 3.2, the default behavior will be to throw an exception.
+     * @exception Throws a CanteraError if the specified species is not found and
+     *      `raise` is `true`.
+     */
+    size_t speciesIndex(const string& name, bool raise) const;
 
     //! Name of the species with index k
     //!     @param k index of the species
@@ -233,12 +272,16 @@ public:
     }
 
     //! Check that the specified species index is in range.
-    //! Throws an exception if k is greater than nSpecies()-1
-    void checkSpeciesIndex(size_t k) const;
+    /*!
+     * @since Starting in %Cantera 3.2, returns the input phase index, if valid.
+     * @exception Throws an IndexError if k is greater than nSpecies()-1
+     */
+    size_t checkSpeciesIndex(size_t k) const;
 
     //! Check that an array size is at least nSpecies().
     //! Throws an exception if kk is less than nSpecies(). Used before calls
     //! which take an array pointer.
+    //! @deprecated To be removed after %Cantera 3.2. Only used by legacy CLib.
     void checkSpeciesArraySize(size_t kk) const;
 
     //! @} end group Element and Species Information
@@ -296,6 +339,30 @@ public:
     //! for the specification of a state while ignoring species concentrations
     //! (such as "TD", "TP", "SV").
     virtual vector<string> partialStates() const;
+
+    //! Get the size of the partial state vector of the phase.
+    //! The partial state vector excludes composition. Vectors of this size are used by
+    //! savePartialState() and restorePartialState().
+    //! @since New in %Cantera 3.2
+    virtual size_t partialStateSize() const { return 2; }
+
+    //! Save the current thermodynamic state of the phase, excluding composition.
+    //! The default implementation corresponds to the default implementation of
+    //! nativeState().
+    //! @param lenstate  Length of the state array. Must be >= partialStateSize().
+    //! @param[out] state  Array of state variables, in the order defined by
+    //!     nativeState().
+    //! @since New in %Cantera 3.2
+    virtual void savePartialState(size_t lenstate, double* state) const;
+
+    //! Set the internal thermodynamic state of the phase, excluding composition.
+    //! The default implementation corresponds to the default implementation of
+    //! nativeState().
+    //! @param lenstate  Length of the state array. Must be >= partialStateSize().
+    //! @param[in] state  Array of state variables, in the order defined by
+    //!     nativeState().
+    //! @since New in %Cantera 3.2
+    virtual void restorePartialState(size_t lenstate, const double* state);
 
     //! Return size of vector defining internal state of the phase.
     //! Used by saveState() and restoreState().
@@ -873,6 +940,9 @@ protected:
 
     //! Flag determining whether case sensitive species names are enforced
     bool m_caseSensitiveSpecies = false;
+
+    //! Vector of size m_kk, used as a temporary holding area.
+    mutable vector<double> m_workS;
 
 private:
     //! Find lowercase species name in m_speciesIndices when case sensitive

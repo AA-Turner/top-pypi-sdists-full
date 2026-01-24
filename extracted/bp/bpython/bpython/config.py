@@ -31,7 +31,8 @@ import locale
 from configparser import ConfigParser
 from itertools import chain
 from pathlib import Path
-from typing import MutableMapping, Mapping, Any, Dict
+from typing import Any, Dict
+from collections.abc import MutableMapping, Mapping
 from xdg import BaseDirectory
 
 from .autocomplete import AutocompleteModes
@@ -115,7 +116,7 @@ class Config:
         "right_arrow_suggestion": "K",
     }
 
-    defaults: Dict[str, Dict[str, Any]] = {
+    defaults: dict[str, dict[str, Any]] = {
         "general": {
             "arg_spec": True,
             "auto_display_list": True,
@@ -206,13 +207,14 @@ class Config:
         },
     }
 
-    def __init__(self, config_path: Path) -> None:
+    def __init__(self, config_path: Path | None = None) -> None:
         """Loads .ini configuration file and stores its values."""
 
         config = ConfigParser()
         fill_config_with_default_values(config, self.defaults)
         try:
-            config.read(config_path)
+            if config_path is not None:
+                config.read(config_path)
         except UnicodeDecodeError as e:
             sys.stderr.write(
                 "Error: Unable to parse config file at '{}' due to an "
@@ -242,7 +244,9 @@ class Config:
 
             return requested_key
 
-        self.config_path = Path(config_path).absolute()
+        self.config_path = (
+            config_path.absolute() if config_path is not None else None
+        )
         self.hist_file = Path(config.get("general", "hist_file")).expanduser()
 
         self.dedent_after = config.getint("general", "dedent_after")

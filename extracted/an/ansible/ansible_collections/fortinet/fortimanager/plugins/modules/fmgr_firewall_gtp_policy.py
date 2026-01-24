@@ -16,7 +16,6 @@ short_description: Policy.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -195,18 +197,18 @@ EXAMPLES = '''
         state: present
         firewall_gtp_policy:
           action: allow # <value in [allow, deny]>
-          apn-sel-mode:
+          apn_sel_mode:
             - ms
             - net
             - vrf
           id: 1
-          max-apn-restriction: public-1 # <value in [all, public-1, public-2, ...]>
+          max_apn_restriction: public-1 # <value in [all, public-1, public-2, ...]>
           messages:
             - create-req
             - create-res
             - update-req
             - update-res
-          rat-type:
+          rat_type:
             - any
             - utran
             - geran
@@ -291,6 +293,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'gtp': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_gtp_policy': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

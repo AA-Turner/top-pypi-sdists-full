@@ -1,22 +1,31 @@
 Metadata-Version: 2.4
 Name: specutils
-Version: 2.1.0
+Version: 2.2.0
 Summary: Package for spectroscopic astronomical data
-Home-page: https://specutils.readthedocs.io/
 Author: Specutils Developers
 Author-email: coordinators@astropy.org
 License: BSD 3-Clause
-Requires-Python: >=3.10
+Project-URL: Source, https://github.com/astropy/specutils
+Project-URL: Documentation, https://specutils.readthedocs.io
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Astronomy
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: licenses/LICENSE.rst
 Requires-Dist: numpy>=1.24
 Requires-Dist: scipy>=1.14
-Requires-Dist: astropy>=6.0
+Requires-Dist: astropy>=7.0
 Requires-Dist: gwcs>=0.22
 Requires-Dist: asdf-astropy>=0.5
 Requires-Dist: asdf>=3.3.0
 Requires-Dist: ndcube>=2.0
 Provides-Extra: test
+Requires-Dist: pytest-asdf-plugin; extra == "test"
 Requires-Dist: pytest-astropy; extra == "test"
 Requires-Dist: tox; extra == "test"
 Requires-Dist: matplotlib; extra == "test"

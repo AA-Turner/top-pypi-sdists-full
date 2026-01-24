@@ -1,3 +1,8 @@
+"""Pydantic v1 BaseModel implementation.
+
+Provides Constraints, DataModelField, and BaseModel for Pydantic v1.
+"""
+
 from __future__ import annotations
 
 from abc import ABC
@@ -7,18 +12,21 @@ from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
 from pydantic import Field
 
+from datamodel_code_generator import cached_path_exists
 from datamodel_code_generator.model import (
     ConstraintsBase,
     DataModel,
     DataModelFieldBase,
 )
-from datamodel_code_generator.model.base import UNDEFINED
+from datamodel_code_generator.model._types import WrappedDefault
+from datamodel_code_generator.model.base import UNDEFINED, repr_set_sorted
 from datamodel_code_generator.model.pydantic.imports import (
     IMPORT_ANYURL,
     IMPORT_EXTRA,
     IMPORT_FIELD,
 )
-from datamodel_code_generator.types import UnionIntFloat, chain_as_tuple
+from datamodel_code_generator.types import STANDARD_LIST, UnionIntFloat, chain_as_tuple
+from datamodel_code_generator.util import model_dump, model_validate
 
 if TYPE_CHECKING:
     from collections import defaultdict
@@ -28,6 +36,8 @@ if TYPE_CHECKING:
 
 
 class Constraints(ConstraintsBase):
+    """Pydantic v1 field constraints (gt, ge, lt, le, regex, etc.)."""
+
     gt: Optional[UnionIntFloat] = Field(None, alias="exclusiveMinimum")  # noqa: UP045
     ge: Optional[UnionIntFloat] = Field(None, alias="minimum")  # noqa: UP045
     lt: Optional[UnionIntFloat] = Field(None, alias="exclusiveMaximum")  # noqa: UP045
@@ -41,6 +51,8 @@ class Constraints(ConstraintsBase):
 
 
 class DataModelField(DataModelFieldBase):
+    """Field implementation for Pydantic v1 models."""
+
     _EXCLUDE_FIELD_KEYS: ClassVar[set[str]] = {
         "alias",
         "default",
@@ -61,17 +73,26 @@ class DataModelField(DataModelFieldBase):
     _PARSE_METHOD: ClassVar[str] = "parse_obj"
 
     @property
+    def has_default_factory_in_field(self) -> bool:
+        """Check if this field has a default_factory in Field() including computed ones."""
+        return "default_factory" in self.extras or self.__dict__.get("_computed_default_factory") is not None
+
+    @property
     def method(self) -> str | None:
+        """Get the validation method name."""
         return self.validator
 
     @property
     def validator(self) -> str | None:
+        """Get the validator name."""
         return None
         # TODO refactor this method for other validation logic
 
     @property
     def field(self) -> str | None:
-        """for backwards compatibility"""
+        """For backwards compatibility."""
+        if self.is_class_var:
+            return None
         result = str(self)
         if (
             self.use_default_kwarg
@@ -86,24 +107,45 @@ class DataModelField(DataModelFieldBase):
             return None
         return result
 
-    def self_reference(self) -> bool:
-        return isinstance(self.parent, BaseModelBase) and self.parent.reference.path in {
-            d.reference.path for d in self.data_type.all_data_types if d.reference
-        }
-
     def _get_strict_field_constraint_value(self, constraint: str, value: Any) -> Any:
         if value is None or constraint not in self._COMPARE_EXPRESSIONS:
             return value
 
-        if any(data_type.type == "float" for data_type in self.data_type.all_data_types):
+        is_float_type = any(
+            data_type.type == "float"
+            or (data_type.strict and data_type.import_ and "Float" in data_type.import_.import_)
+            for data_type in self.data_type.all_data_types
+        )
+        if is_float_type:
             return float(value)
+        str_value = str(value)
+        if "e" in str_value.lower():  # pragma: no cover
+            # Scientific notation like 1e-08 - keep as float
+            return float(value)
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
         return int(value)
 
-    def _get_default_as_pydantic_model(self) -> str | None:
+    def _get_default_as_pydantic_model(self) -> str | None:  # noqa: PLR0911, PLR0912
+        if isinstance(self.default, WrappedDefault):
+            return f"lambda :{self.default!r}"
+        if self.data_type.is_list and len(self.data_type.data_types) == 1:
+            data_type_child = self.data_type.data_types[0]
+            if (
+                data_type_child.reference
+                and isinstance(data_type_child.reference.source, BaseModelBase)
+                and isinstance(self.default, list)
+            ):
+                if not self.default:
+                    return STANDARD_LIST
+                return (  # pragma: no cover
+                    f"lambda :[{data_type_child.alias or data_type_child.reference.source.class_name}."
+                    f"{self._PARSE_METHOD}(v) for v in {self.default!r}]"
+                )
         for data_type in self.data_type.data_types or (self.data_type,):
             # TODO: Check nested data_types
-            if data_type.is_dict or self.data_type.is_union:
-                # TODO: Parse Union and dict model for default
+            if data_type.is_dict:
+                # TODO: Parse dict model for default
                 continue
             if data_type.is_list and len(data_type.data_types) == 1:
                 data_type_child = data_type.data_types[0]
@@ -112,29 +154,61 @@ class DataModelField(DataModelFieldBase):
                     and isinstance(data_type_child.reference.source, BaseModelBase)
                     and isinstance(self.default, list)
                 ):  # pragma: no cover
+                    if not self.default:
+                        return STANDARD_LIST
                     return (
                         f"lambda :[{data_type_child.alias or data_type_child.reference.source.class_name}."
                         f"{self._PARSE_METHOD}(v) for v in {self.default!r}]"
                     )
-            elif data_type.reference and isinstance(data_type.reference.source, BaseModelBase):  # pragma: no cover
-                return (
-                    f"lambda :{data_type.alias or data_type.reference.source.class_name}."
-                    f"{self._PARSE_METHOD}({self.default!r})"
-                )
+            elif data_type.reference and isinstance(data_type.reference.source, BaseModelBase):
+                source = data_type.reference.source
+                is_root_model = hasattr(source, "BASE_CLASS") and source.BASE_CLASS == "pydantic.RootModel"
+                if self.data_type.is_union:
+                    if not isinstance(self.default, (dict, list)):
+                        if not is_root_model:
+                            continue
+                    elif isinstance(self.default, dict) and any(dt.is_dict for dt in self.data_type.data_types):
+                        continue
+                class_name = data_type.alias or source.class_name
+                if is_root_model:
+                    return f"lambda :{class_name}({self.default!r})"
+                return f"lambda :{class_name}.{self._PARSE_METHOD}({self.default!r})"
+        return None
+
+    def _get_default_factory_for_optional_nested_model(self) -> str | None:
+        """Get default_factory for optional nested Pydantic model fields.
+
+        Returns the class name if the field type references a BaseModel,
+        otherwise returns None.
+        """
+        for data_type in self.data_type.data_types or (self.data_type,):
+            if data_type.is_dict:
+                continue
+            if data_type.reference and isinstance(data_type.reference.source, BaseModelBase):
+                return data_type.alias or data_type.reference.source.class_name
         return None
 
     def _process_data_in_str(self, data: dict[str, Any]) -> None:
         if self.const:
             data["const"] = True
 
+        if self.use_frozen_field and self.read_only:
+            data["allow_mutation"] = False
+
     def _process_annotated_field_arguments(self, field_arguments: list[str]) -> list[str]:  # noqa: PLR6301
         return field_arguments
 
     def __str__(self) -> str:  # noqa: PLR0912
+        """Return Field() call with all constraints and metadata."""
         data: dict[str, Any] = {k: v for k, v in self.extras.items() if k not in self._EXCLUDE_FIELD_KEYS}
         if self.alias:
             data["alias"] = self.alias
-        if self.constraints is not None and not self.self_reference() and not self.data_type.strict:
+        has_type_constraints = self.data_type.kwargs is not None and len(self.data_type.kwargs) > 0
+        if (
+            self.constraints is not None
+            and not self.self_reference()
+            and not (self.data_type.strict and has_type_constraints)
+        ):
             data = {
                 **data,
                 **(
@@ -142,7 +216,7 @@ class DataModelField(DataModelFieldBase):
                     if any(d.import_ == IMPORT_ANYURL for d in self.data_type.all_data_types)
                     else {
                         k: self._get_strict_field_constraint_value(k, v)
-                        for k, v in self.constraints.dict(exclude_unset=True).items()
+                        for k, v in model_dump(self.constraints, exclude_unset=True).items()
                     }
                 ),
             }
@@ -159,12 +233,22 @@ class DataModelField(DataModelFieldBase):
             elif isinstance(discriminator, dict):  # pragma: no cover
                 data["discriminator"] = discriminator["propertyName"]
 
-        if self.required:
+        if self.required and not self.has_default:
             default_factory = None
-        elif self.default and "default_factory" not in data:
+        elif self.default is not UNDEFINED and self.default is not None and "default_factory" not in data:
             default_factory = self._get_default_as_pydantic_model()
         else:
             default_factory = data.pop("default_factory", None)
+
+        if (
+            default_factory is None
+            and self.use_default_factory_for_optional_nested_models
+            and not self.required
+            and (self.default is None or self.default is UNDEFINED)
+        ):
+            default_factory = self._get_default_factory_for_optional_nested_model()
+
+        self.__dict__["_computed_default_factory"] = default_factory
 
         field_arguments = sorted(f"{k}={v!r}" for k, v in data.items() if v is not None)
 
@@ -173,31 +257,58 @@ class DataModelField(DataModelFieldBase):
                 return "Field(...)"  # Field() is for mypy
             return ""
 
+        if default_factory:
+            field_arguments = [f"default_factory={default_factory}", *field_arguments]
+
         if self.use_annotated:
             field_arguments = self._process_annotated_field_arguments(field_arguments)
-        elif self.required:
+        elif self.required and not default_factory:
             field_arguments = ["...", *field_arguments]
-        elif default_factory:
-            field_arguments = [f"default_factory={default_factory}", *field_arguments]
-        else:
-            field_arguments = [f"{self.default!r}", *field_arguments]
+        elif not default_factory:
+            default_repr = repr_set_sorted(self.default) if isinstance(self.default, set) else repr(self.default)
+            field_arguments = [default_repr, *field_arguments]
+
+        if self.is_class_var:
+            if self.default is UNDEFINED:  # pragma: no cover
+                return ""
+            return repr_set_sorted(self.default) if isinstance(self.default, set) else repr(self.default)
 
         return f"Field({', '.join(field_arguments)})"
 
     @property
+    def is_class_var(self) -> bool:
+        """Check if this field is a ClassVar."""
+        return self.extras.get("x-is-classvar") is True
+
+    @property
+    def type_hint(self) -> str:
+        """Get the type hint including ClassVar if applicable."""
+        if self.is_class_var:
+            return f"ClassVar[{super().type_hint}]"
+        return super().type_hint
+
+    @property
     def annotated(self) -> str | None:
-        if not self.use_annotated or not str(self):
+        """Get the Annotated type hint if use_annotated is enabled."""
+        if not self.use_annotated or not str(self) or self.is_class_var:
             return None
         return f"Annotated[{self.type_hint}, {self!s}]"
 
     @property
     def imports(self) -> tuple[Import, ...]:
+        """Get all required imports including Field if needed."""
+        # Fast path: skip expensive self.field check for simple required fields
+        if self.required and not self.nullable and not self.alias and self.constraints is None and not self.extras:
+            return super().imports
+
         if self.field:
             return chain_as_tuple(super().imports, (IMPORT_FIELD,))
         return super().imports
 
 
 class BaseModelBase(DataModel, ABC):
+    """Abstract base class for Pydantic BaseModel implementations."""
+
     def __init__(  # noqa: PLR0913
         self,
         *,
@@ -205,7 +316,7 @@ class BaseModelBase(DataModel, ABC):
         fields: list[DataModelFieldBase],
         decorators: list[str] | None = None,
         base_classes: list[Reference] | None = None,
-        custom_base_class: str | None = None,
+        custom_base_class: str | list[str] | None = None,
         custom_template_dir: Path | None = None,
         extra_template_data: defaultdict[str, Any] | None = None,
         path: Path | None = None,
@@ -213,8 +324,9 @@ class BaseModelBase(DataModel, ABC):
         default: Any = UNDEFINED,
         nullable: bool = False,
         keyword_only: bool = False,
-        treat_dot_as_module: bool = False,
+        treat_dot_as_module: bool | None = None,
     ) -> None:
+        """Initialize the BaseModel with fields and configuration."""
         methods: list[str] = [field.method for field in fields if field.method]
 
         super().__init__(
@@ -236,28 +348,32 @@ class BaseModelBase(DataModel, ABC):
 
     @cached_property
     def template_file_path(self) -> Path:
+        """Get the template file path with backward compatibility support."""
         # This property is for Backward compatibility
         # Current version supports '{custom_template_dir}/BaseModel.jinja'
         # But, Future version will support only '{custom_template_dir}/pydantic/BaseModel.jinja'
         if self._custom_template_dir is not None:
             custom_template_file_path = self._custom_template_dir / Path(self.TEMPLATE_FILE_PATH).name
-            if custom_template_file_path.exists():
+            if cached_path_exists(custom_template_file_path):
                 return custom_template_file_path
         return super().template_file_path
 
 
 class BaseModel(BaseModelBase):
+    """Pydantic v1 BaseModel implementation."""
+
     TEMPLATE_FILE_PATH: ClassVar[str] = "pydantic/BaseModel.jinja2"
     BASE_CLASS: ClassVar[str] = "pydantic.BaseModel"
+    SUPPORTS_DISCRIMINATOR: ClassVar[bool] = True
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0912, PLR0913
         self,
         *,
         reference: Reference,
         fields: list[DataModelFieldBase],
         decorators: list[str] | None = None,
         base_classes: list[Reference] | None = None,
-        custom_base_class: str | None = None,
+        custom_base_class: str | list[str] | None = None,
         custom_template_dir: Path | None = None,
         extra_template_data: defaultdict[str, Any] | None = None,
         path: Path | None = None,
@@ -265,8 +381,9 @@ class BaseModel(BaseModelBase):
         default: Any = UNDEFINED,
         nullable: bool = False,
         keyword_only: bool = False,
-        treat_dot_as_module: bool = False,
+        treat_dot_as_module: bool | None = None,
     ) -> None:
+        """Initialize the BaseModel with Config and extra fields support."""
         super().__init__(
             reference=reference,
             fields=fields,
@@ -285,10 +402,16 @@ class BaseModel(BaseModelBase):
         config_parameters: dict[str, Any] = {}
 
         additional_properties = self.extra_template_data.get("additionalProperties")
+        unevaluated_properties = self.extra_template_data.get("unevaluatedProperties")
         allow_extra_fields = self.extra_template_data.get("allow_extra_fields")
         extra_fields = self.extra_template_data.get("extra_fields")
 
-        if allow_extra_fields or extra_fields or additional_properties is not None:
+        if (
+            allow_extra_fields
+            or extra_fields
+            or additional_properties is not None
+            or unevaluated_properties is not None
+        ):
             self._additional_imports.append(IMPORT_EXTRA)
 
         if allow_extra_fields:
@@ -299,12 +422,22 @@ class BaseModel(BaseModelBase):
             config_parameters["extra"] = "Extra.allow"
         elif additional_properties is False:
             config_parameters["extra"] = "Extra.forbid"
+        elif unevaluated_properties is True:
+            config_parameters["extra"] = "Extra.allow"
+        elif unevaluated_properties is False:
+            config_parameters["extra"] = "Extra.forbid"
 
         for config_attribute in "allow_population_by_field_name", "allow_mutation":
             if config_attribute in self.extra_template_data:
                 config_parameters[config_attribute] = self.extra_template_data[config_attribute]
+
+        if "validate_assignment" not in config_parameters and any(
+            field.use_frozen_field and field.read_only for field in self.fields
+        ):
+            config_parameters["validate_assignment"] = True
+
         for data_type in self.all_data_types:
-            if data_type.is_custom_type:
+            if data_type.is_custom_type:  # pragma: no cover
                 config_parameters["arbitrary_types_allowed"] = True
                 break
 
@@ -315,4 +448,4 @@ class BaseModel(BaseModelBase):
         if config_parameters:
             from datamodel_code_generator.model.pydantic import Config  # noqa: PLC0415
 
-            self.extra_template_data["config"] = Config.parse_obj(config_parameters)  # pyright: ignore[reportArgumentType]
+            self.extra_template_data["config"] = model_validate(Config, config_parameters)  # ty: ignore

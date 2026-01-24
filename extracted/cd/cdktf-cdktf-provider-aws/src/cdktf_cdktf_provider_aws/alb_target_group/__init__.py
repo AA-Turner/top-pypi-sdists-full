@@ -1,7 +1,7 @@
 r'''
 # `aws_alb_target_group`
 
-Refer to the Terraform Registry for docs: [`aws_alb_target_group`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group).
+Refer to the Terraform Registry for docs: [`aws_alb_target_group`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AlbTargetGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.albTargetGroup.AlbTargetGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group aws_alb_target_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group aws_alb_target_group}.'''
 
     def __init__(
         self,
@@ -72,6 +72,7 @@ class AlbTargetGroup(
         stickiness: typing.Optional[typing.Union["AlbTargetGroupStickiness", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        target_control_port: typing.Optional[jsii.Number] = None,
         target_failover: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AlbTargetGroupTargetFailover", typing.Dict[builtins.str, typing.Any]]]]] = None,
         target_group_health: typing.Optional[typing.Union["AlbTargetGroupTargetGroupHealth", typing.Dict[builtins.str, typing.Any]]] = None,
         target_health_state: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AlbTargetGroupTargetHealthState", typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -85,36 +86,37 @@ class AlbTargetGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group aws_alb_target_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group aws_alb_target_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param connection_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#connection_termination AlbTargetGroup#connection_termination}.
-        :param deregistration_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#deregistration_delay AlbTargetGroup#deregistration_delay}.
-        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#health_check AlbTargetGroup#health_check}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#id AlbTargetGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#ip_address_type AlbTargetGroup#ip_address_type}.
-        :param lambda_multi_value_headers_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#lambda_multi_value_headers_enabled AlbTargetGroup#lambda_multi_value_headers_enabled}.
-        :param load_balancing_algorithm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#load_balancing_algorithm_type AlbTargetGroup#load_balancing_algorithm_type}.
-        :param load_balancing_anomaly_mitigation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#load_balancing_anomaly_mitigation AlbTargetGroup#load_balancing_anomaly_mitigation}.
-        :param load_balancing_cross_zone_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#load_balancing_cross_zone_enabled AlbTargetGroup#load_balancing_cross_zone_enabled}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#name AlbTargetGroup#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#name_prefix AlbTargetGroup#name_prefix}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#port AlbTargetGroup#port}.
-        :param preserve_client_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#preserve_client_ip AlbTargetGroup#preserve_client_ip}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.
-        :param protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#protocol_version AlbTargetGroup#protocol_version}.
-        :param proxy_protocol_v2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#proxy_protocol_v2 AlbTargetGroup#proxy_protocol_v2}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#region AlbTargetGroup#region}
-        :param slow_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#slow_start AlbTargetGroup#slow_start}.
-        :param stickiness: stickiness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#stickiness AlbTargetGroup#stickiness}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#tags AlbTargetGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#tags_all AlbTargetGroup#tags_all}.
-        :param target_failover: target_failover block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_failover AlbTargetGroup#target_failover}
-        :param target_group_health: target_group_health block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_group_health AlbTargetGroup#target_group_health}
-        :param target_health_state: target_health_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_health_state AlbTargetGroup#target_health_state}
-        :param target_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_type AlbTargetGroup#target_type}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#vpc_id AlbTargetGroup#vpc_id}.
+        :param connection_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#connection_termination AlbTargetGroup#connection_termination}.
+        :param deregistration_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#deregistration_delay AlbTargetGroup#deregistration_delay}.
+        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#health_check AlbTargetGroup#health_check}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#id AlbTargetGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#ip_address_type AlbTargetGroup#ip_address_type}.
+        :param lambda_multi_value_headers_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#lambda_multi_value_headers_enabled AlbTargetGroup#lambda_multi_value_headers_enabled}.
+        :param load_balancing_algorithm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#load_balancing_algorithm_type AlbTargetGroup#load_balancing_algorithm_type}.
+        :param load_balancing_anomaly_mitigation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#load_balancing_anomaly_mitigation AlbTargetGroup#load_balancing_anomaly_mitigation}.
+        :param load_balancing_cross_zone_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#load_balancing_cross_zone_enabled AlbTargetGroup#load_balancing_cross_zone_enabled}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#name AlbTargetGroup#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#name_prefix AlbTargetGroup#name_prefix}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#port AlbTargetGroup#port}.
+        :param preserve_client_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#preserve_client_ip AlbTargetGroup#preserve_client_ip}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.
+        :param protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#protocol_version AlbTargetGroup#protocol_version}.
+        :param proxy_protocol_v2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#proxy_protocol_v2 AlbTargetGroup#proxy_protocol_v2}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#region AlbTargetGroup#region}
+        :param slow_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#slow_start AlbTargetGroup#slow_start}.
+        :param stickiness: stickiness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#stickiness AlbTargetGroup#stickiness}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#tags AlbTargetGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#tags_all AlbTargetGroup#tags_all}.
+        :param target_control_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_control_port AlbTargetGroup#target_control_port}.
+        :param target_failover: target_failover block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_failover AlbTargetGroup#target_failover}
+        :param target_group_health: target_group_health block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_group_health AlbTargetGroup#target_group_health}
+        :param target_health_state: target_health_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_health_state AlbTargetGroup#target_health_state}
+        :param target_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_type AlbTargetGroup#target_type}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#vpc_id AlbTargetGroup#vpc_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -149,6 +151,7 @@ class AlbTargetGroup(
             stickiness=stickiness,
             tags=tags,
             tags_all=tags_all,
+            target_control_port=target_control_port,
             target_failover=target_failover,
             target_group_health=target_group_health,
             target_health_state=target_health_state,
@@ -178,7 +181,7 @@ class AlbTargetGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AlbTargetGroup to import.
-        :param import_from_id: The id of the existing AlbTargetGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AlbTargetGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AlbTargetGroup to import is found.
         '''
         if __debug__:
@@ -204,15 +207,15 @@ class AlbTargetGroup(
         unhealthy_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.
-        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#healthy_threshold AlbTargetGroup#healthy_threshold}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#interval AlbTargetGroup#interval}.
-        :param matcher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#matcher AlbTargetGroup#matcher}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#path AlbTargetGroup#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#port AlbTargetGroup#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#timeout AlbTargetGroup#timeout}.
-        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#unhealthy_threshold AlbTargetGroup#unhealthy_threshold}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.
+        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#healthy_threshold AlbTargetGroup#healthy_threshold}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#interval AlbTargetGroup#interval}.
+        :param matcher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#matcher AlbTargetGroup#matcher}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#path AlbTargetGroup#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#port AlbTargetGroup#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#timeout AlbTargetGroup#timeout}.
+        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#unhealthy_threshold AlbTargetGroup#unhealthy_threshold}.
         '''
         value = AlbTargetGroupHealthCheck(
             enabled=enabled,
@@ -238,10 +241,10 @@ class AlbTargetGroup(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#type AlbTargetGroup#type}.
-        :param cookie_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#cookie_duration AlbTargetGroup#cookie_duration}.
-        :param cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#cookie_name AlbTargetGroup#cookie_name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#type AlbTargetGroup#type}.
+        :param cookie_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#cookie_duration AlbTargetGroup#cookie_duration}.
+        :param cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#cookie_name AlbTargetGroup#cookie_name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.
         '''
         value = AlbTargetGroupStickiness(
             type=type,
@@ -273,8 +276,8 @@ class AlbTargetGroup(
         unhealthy_state_routing: typing.Optional[typing.Union["AlbTargetGroupTargetGroupHealthUnhealthyStateRouting", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dns_failover: dns_failover block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#dns_failover AlbTargetGroup#dns_failover}
-        :param unhealthy_state_routing: unhealthy_state_routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#unhealthy_state_routing AlbTargetGroup#unhealthy_state_routing}
+        :param dns_failover: dns_failover block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#dns_failover AlbTargetGroup#dns_failover}
+        :param unhealthy_state_routing: unhealthy_state_routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#unhealthy_state_routing AlbTargetGroup#unhealthy_state_routing}
         '''
         value = AlbTargetGroupTargetGroupHealth(
             dns_failover=dns_failover, unhealthy_state_routing=unhealthy_state_routing
@@ -378,6 +381,10 @@ class AlbTargetGroup(
     @jsii.member(jsii_name="resetTagsAll")
     def reset_tags_all(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTagsAll", []))
+
+    @jsii.member(jsii_name="resetTargetControlPort")
+    def reset_target_control_port(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTargetControlPort", []))
 
     @jsii.member(jsii_name="resetTargetFailover")
     def reset_target_failover(self) -> None:
@@ -564,6 +571,11 @@ class AlbTargetGroup(
     @jsii.member(jsii_name="tagsInput")
     def tags_input(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="targetControlPortInput")
+    def target_control_port_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "targetControlPortInput"))
 
     @builtins.property
     @jsii.member(jsii_name="targetFailoverInput")
@@ -840,6 +852,18 @@ class AlbTargetGroup(
         jsii.set(self, "tagsAll", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="targetControlPort")
+    def target_control_port(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "targetControlPort"))
+
+    @target_control_port.setter
+    def target_control_port(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13980450cfae75d3f91ab6c9707a945c5e063fd6ca228ea03d747a81bc2c0ad6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetControlPort", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="targetType")
     def target_type(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "targetType"))
@@ -896,6 +920,7 @@ class AlbTargetGroup(
         "stickiness": "stickiness",
         "tags": "tags",
         "tags_all": "tagsAll",
+        "target_control_port": "targetControlPort",
         "target_failover": "targetFailover",
         "target_group_health": "targetGroupHealth",
         "target_health_state": "targetHealthState",
@@ -935,6 +960,7 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         stickiness: typing.Optional[typing.Union["AlbTargetGroupStickiness", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        target_control_port: typing.Optional[jsii.Number] = None,
         target_failover: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AlbTargetGroupTargetFailover", typing.Dict[builtins.str, typing.Any]]]]] = None,
         target_group_health: typing.Optional[typing.Union["AlbTargetGroupTargetGroupHealth", typing.Dict[builtins.str, typing.Any]]] = None,
         target_health_state: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AlbTargetGroupTargetHealthState", typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -949,32 +975,33 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param connection_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#connection_termination AlbTargetGroup#connection_termination}.
-        :param deregistration_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#deregistration_delay AlbTargetGroup#deregistration_delay}.
-        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#health_check AlbTargetGroup#health_check}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#id AlbTargetGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#ip_address_type AlbTargetGroup#ip_address_type}.
-        :param lambda_multi_value_headers_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#lambda_multi_value_headers_enabled AlbTargetGroup#lambda_multi_value_headers_enabled}.
-        :param load_balancing_algorithm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#load_balancing_algorithm_type AlbTargetGroup#load_balancing_algorithm_type}.
-        :param load_balancing_anomaly_mitigation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#load_balancing_anomaly_mitigation AlbTargetGroup#load_balancing_anomaly_mitigation}.
-        :param load_balancing_cross_zone_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#load_balancing_cross_zone_enabled AlbTargetGroup#load_balancing_cross_zone_enabled}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#name AlbTargetGroup#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#name_prefix AlbTargetGroup#name_prefix}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#port AlbTargetGroup#port}.
-        :param preserve_client_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#preserve_client_ip AlbTargetGroup#preserve_client_ip}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.
-        :param protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#protocol_version AlbTargetGroup#protocol_version}.
-        :param proxy_protocol_v2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#proxy_protocol_v2 AlbTargetGroup#proxy_protocol_v2}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#region AlbTargetGroup#region}
-        :param slow_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#slow_start AlbTargetGroup#slow_start}.
-        :param stickiness: stickiness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#stickiness AlbTargetGroup#stickiness}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#tags AlbTargetGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#tags_all AlbTargetGroup#tags_all}.
-        :param target_failover: target_failover block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_failover AlbTargetGroup#target_failover}
-        :param target_group_health: target_group_health block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_group_health AlbTargetGroup#target_group_health}
-        :param target_health_state: target_health_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_health_state AlbTargetGroup#target_health_state}
-        :param target_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_type AlbTargetGroup#target_type}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#vpc_id AlbTargetGroup#vpc_id}.
+        :param connection_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#connection_termination AlbTargetGroup#connection_termination}.
+        :param deregistration_delay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#deregistration_delay AlbTargetGroup#deregistration_delay}.
+        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#health_check AlbTargetGroup#health_check}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#id AlbTargetGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#ip_address_type AlbTargetGroup#ip_address_type}.
+        :param lambda_multi_value_headers_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#lambda_multi_value_headers_enabled AlbTargetGroup#lambda_multi_value_headers_enabled}.
+        :param load_balancing_algorithm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#load_balancing_algorithm_type AlbTargetGroup#load_balancing_algorithm_type}.
+        :param load_balancing_anomaly_mitigation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#load_balancing_anomaly_mitigation AlbTargetGroup#load_balancing_anomaly_mitigation}.
+        :param load_balancing_cross_zone_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#load_balancing_cross_zone_enabled AlbTargetGroup#load_balancing_cross_zone_enabled}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#name AlbTargetGroup#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#name_prefix AlbTargetGroup#name_prefix}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#port AlbTargetGroup#port}.
+        :param preserve_client_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#preserve_client_ip AlbTargetGroup#preserve_client_ip}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.
+        :param protocol_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#protocol_version AlbTargetGroup#protocol_version}.
+        :param proxy_protocol_v2: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#proxy_protocol_v2 AlbTargetGroup#proxy_protocol_v2}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#region AlbTargetGroup#region}
+        :param slow_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#slow_start AlbTargetGroup#slow_start}.
+        :param stickiness: stickiness block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#stickiness AlbTargetGroup#stickiness}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#tags AlbTargetGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#tags_all AlbTargetGroup#tags_all}.
+        :param target_control_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_control_port AlbTargetGroup#target_control_port}.
+        :param target_failover: target_failover block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_failover AlbTargetGroup#target_failover}
+        :param target_group_health: target_group_health block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_group_health AlbTargetGroup#target_group_health}
+        :param target_health_state: target_health_state block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_health_state AlbTargetGroup#target_health_state}
+        :param target_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_type AlbTargetGroup#target_type}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#vpc_id AlbTargetGroup#vpc_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1014,6 +1041,7 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument stickiness", value=stickiness, expected_type=type_hints["stickiness"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
+            check_type(argname="argument target_control_port", value=target_control_port, expected_type=type_hints["target_control_port"])
             check_type(argname="argument target_failover", value=target_failover, expected_type=type_hints["target_failover"])
             check_type(argname="argument target_group_health", value=target_group_health, expected_type=type_hints["target_group_health"])
             check_type(argname="argument target_health_state", value=target_health_state, expected_type=type_hints["target_health_state"])
@@ -1076,6 +1104,8 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["tags"] = tags
         if tags_all is not None:
             self._values["tags_all"] = tags_all
+        if target_control_port is not None:
+            self._values["target_control_port"] = target_control_port
         if target_failover is not None:
             self._values["target_failover"] = target_failover
         if target_group_health is not None:
@@ -1155,13 +1185,13 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def connection_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#connection_termination AlbTargetGroup#connection_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#connection_termination AlbTargetGroup#connection_termination}.'''
         result = self._values.get("connection_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def deregistration_delay(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#deregistration_delay AlbTargetGroup#deregistration_delay}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#deregistration_delay AlbTargetGroup#deregistration_delay}.'''
         result = self._values.get("deregistration_delay")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1169,14 +1199,14 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def health_check(self) -> typing.Optional["AlbTargetGroupHealthCheck"]:
         '''health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#health_check AlbTargetGroup#health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#health_check AlbTargetGroup#health_check}
         '''
         result = self._values.get("health_check")
         return typing.cast(typing.Optional["AlbTargetGroupHealthCheck"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#id AlbTargetGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#id AlbTargetGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1186,7 +1216,7 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ip_address_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#ip_address_type AlbTargetGroup#ip_address_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#ip_address_type AlbTargetGroup#ip_address_type}.'''
         result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1194,61 +1224,61 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def lambda_multi_value_headers_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#lambda_multi_value_headers_enabled AlbTargetGroup#lambda_multi_value_headers_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#lambda_multi_value_headers_enabled AlbTargetGroup#lambda_multi_value_headers_enabled}.'''
         result = self._values.get("lambda_multi_value_headers_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def load_balancing_algorithm_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#load_balancing_algorithm_type AlbTargetGroup#load_balancing_algorithm_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#load_balancing_algorithm_type AlbTargetGroup#load_balancing_algorithm_type}.'''
         result = self._values.get("load_balancing_algorithm_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def load_balancing_anomaly_mitigation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#load_balancing_anomaly_mitigation AlbTargetGroup#load_balancing_anomaly_mitigation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#load_balancing_anomaly_mitigation AlbTargetGroup#load_balancing_anomaly_mitigation}.'''
         result = self._values.get("load_balancing_anomaly_mitigation")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def load_balancing_cross_zone_enabled(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#load_balancing_cross_zone_enabled AlbTargetGroup#load_balancing_cross_zone_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#load_balancing_cross_zone_enabled AlbTargetGroup#load_balancing_cross_zone_enabled}.'''
         result = self._values.get("load_balancing_cross_zone_enabled")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#name AlbTargetGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#name AlbTargetGroup#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#name_prefix AlbTargetGroup#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#name_prefix AlbTargetGroup#name_prefix}.'''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#port AlbTargetGroup#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#port AlbTargetGroup#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def preserve_client_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#preserve_client_ip AlbTargetGroup#preserve_client_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#preserve_client_ip AlbTargetGroup#preserve_client_ip}.'''
         result = self._values.get("preserve_client_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocol_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#protocol_version AlbTargetGroup#protocol_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#protocol_version AlbTargetGroup#protocol_version}.'''
         result = self._values.get("protocol_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1256,7 +1286,7 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def proxy_protocol_v2(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#proxy_protocol_v2 AlbTargetGroup#proxy_protocol_v2}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#proxy_protocol_v2 AlbTargetGroup#proxy_protocol_v2}.'''
         result = self._values.get("proxy_protocol_v2")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1264,14 +1294,14 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#region AlbTargetGroup#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#region AlbTargetGroup#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def slow_start(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#slow_start AlbTargetGroup#slow_start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#slow_start AlbTargetGroup#slow_start}.'''
         result = self._values.get("slow_start")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1279,22 +1309,28 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def stickiness(self) -> typing.Optional["AlbTargetGroupStickiness"]:
         '''stickiness block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#stickiness AlbTargetGroup#stickiness}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#stickiness AlbTargetGroup#stickiness}
         '''
         result = self._values.get("stickiness")
         return typing.cast(typing.Optional["AlbTargetGroupStickiness"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#tags AlbTargetGroup#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#tags AlbTargetGroup#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#tags_all AlbTargetGroup#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#tags_all AlbTargetGroup#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def target_control_port(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_control_port AlbTargetGroup#target_control_port}.'''
+        result = self._values.get("target_control_port")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def target_failover(
@@ -1302,7 +1338,7 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AlbTargetGroupTargetFailover"]]]:
         '''target_failover block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_failover AlbTargetGroup#target_failover}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_failover AlbTargetGroup#target_failover}
         '''
         result = self._values.get("target_failover")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AlbTargetGroupTargetFailover"]]], result)
@@ -1311,7 +1347,7 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target_group_health(self) -> typing.Optional["AlbTargetGroupTargetGroupHealth"]:
         '''target_group_health block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_group_health AlbTargetGroup#target_group_health}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_group_health AlbTargetGroup#target_group_health}
         '''
         result = self._values.get("target_group_health")
         return typing.cast(typing.Optional["AlbTargetGroupTargetGroupHealth"], result)
@@ -1322,20 +1358,20 @@ class AlbTargetGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AlbTargetGroupTargetHealthState"]]]:
         '''target_health_state block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_health_state AlbTargetGroup#target_health_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_health_state AlbTargetGroup#target_health_state}
         '''
         result = self._values.get("target_health_state")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AlbTargetGroupTargetHealthState"]]], result)
 
     @builtins.property
     def target_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#target_type AlbTargetGroup#target_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#target_type AlbTargetGroup#target_type}.'''
         result = self._values.get("target_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#vpc_id AlbTargetGroup#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#vpc_id AlbTargetGroup#vpc_id}.'''
         result = self._values.get("vpc_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1381,15 +1417,15 @@ class AlbTargetGroupHealthCheck:
         unhealthy_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.
-        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#healthy_threshold AlbTargetGroup#healthy_threshold}.
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#interval AlbTargetGroup#interval}.
-        :param matcher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#matcher AlbTargetGroup#matcher}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#path AlbTargetGroup#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#port AlbTargetGroup#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#timeout AlbTargetGroup#timeout}.
-        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#unhealthy_threshold AlbTargetGroup#unhealthy_threshold}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.
+        :param healthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#healthy_threshold AlbTargetGroup#healthy_threshold}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#interval AlbTargetGroup#interval}.
+        :param matcher: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#matcher AlbTargetGroup#matcher}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#path AlbTargetGroup#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#port AlbTargetGroup#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#timeout AlbTargetGroup#timeout}.
+        :param unhealthy_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#unhealthy_threshold AlbTargetGroup#unhealthy_threshold}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7bd9336dd07801bf4921a5481ebd02bc2ab8ce82cfb792d88bccfe4716145121)
@@ -1426,55 +1462,55 @@ class AlbTargetGroupHealthCheck:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def healthy_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#healthy_threshold AlbTargetGroup#healthy_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#healthy_threshold AlbTargetGroup#healthy_threshold}.'''
         result = self._values.get("healthy_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#interval AlbTargetGroup#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#interval AlbTargetGroup#interval}.'''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def matcher(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#matcher AlbTargetGroup#matcher}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#matcher AlbTargetGroup#matcher}.'''
         result = self._values.get("matcher")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#path AlbTargetGroup#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#path AlbTargetGroup#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#port AlbTargetGroup#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#port AlbTargetGroup#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#protocol AlbTargetGroup#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#timeout AlbTargetGroup#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#timeout AlbTargetGroup#timeout}.'''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def unhealthy_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#unhealthy_threshold AlbTargetGroup#unhealthy_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#unhealthy_threshold AlbTargetGroup#unhealthy_threshold}.'''
         result = self._values.get("unhealthy_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1737,10 +1773,10 @@ class AlbTargetGroupStickiness:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#type AlbTargetGroup#type}.
-        :param cookie_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#cookie_duration AlbTargetGroup#cookie_duration}.
-        :param cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#cookie_name AlbTargetGroup#cookie_name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#type AlbTargetGroup#type}.
+        :param cookie_duration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#cookie_duration AlbTargetGroup#cookie_duration}.
+        :param cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#cookie_name AlbTargetGroup#cookie_name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e98d9431561f96681031bc6e2eb9f446d2f181cbcd8c3a8adedcdea932e7ca89)
@@ -1760,20 +1796,20 @@ class AlbTargetGroupStickiness:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#type AlbTargetGroup#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#type AlbTargetGroup#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cookie_duration(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#cookie_duration AlbTargetGroup#cookie_duration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#cookie_duration AlbTargetGroup#cookie_duration}.'''
         result = self._values.get("cookie_duration")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def cookie_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#cookie_name AlbTargetGroup#cookie_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#cookie_name AlbTargetGroup#cookie_name}.'''
         result = self._values.get("cookie_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1781,7 +1817,7 @@ class AlbTargetGroupStickiness:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#enabled AlbTargetGroup#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1931,8 +1967,8 @@ class AlbTargetGroupTargetFailover:
         on_unhealthy: builtins.str,
     ) -> None:
         '''
-        :param on_deregistration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#on_deregistration AlbTargetGroup#on_deregistration}.
-        :param on_unhealthy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#on_unhealthy AlbTargetGroup#on_unhealthy}.
+        :param on_deregistration: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#on_deregistration AlbTargetGroup#on_deregistration}.
+        :param on_unhealthy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#on_unhealthy AlbTargetGroup#on_unhealthy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7008a898596a011ead29d647bfdc25c398b1ee5eaee745704c385840db9dc495)
@@ -1945,14 +1981,14 @@ class AlbTargetGroupTargetFailover:
 
     @builtins.property
     def on_deregistration(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#on_deregistration AlbTargetGroup#on_deregistration}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#on_deregistration AlbTargetGroup#on_deregistration}.'''
         result = self._values.get("on_deregistration")
         assert result is not None, "Required property 'on_deregistration' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def on_unhealthy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#on_unhealthy AlbTargetGroup#on_unhealthy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#on_unhealthy AlbTargetGroup#on_unhealthy}.'''
         result = self._values.get("on_unhealthy")
         assert result is not None, "Required property 'on_unhealthy' is missing"
         return typing.cast(builtins.str, result)
@@ -2153,8 +2189,8 @@ class AlbTargetGroupTargetGroupHealth:
         unhealthy_state_routing: typing.Optional[typing.Union["AlbTargetGroupTargetGroupHealthUnhealthyStateRouting", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param dns_failover: dns_failover block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#dns_failover AlbTargetGroup#dns_failover}
-        :param unhealthy_state_routing: unhealthy_state_routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#unhealthy_state_routing AlbTargetGroup#unhealthy_state_routing}
+        :param dns_failover: dns_failover block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#dns_failover AlbTargetGroup#dns_failover}
+        :param unhealthy_state_routing: unhealthy_state_routing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#unhealthy_state_routing AlbTargetGroup#unhealthy_state_routing}
         '''
         if isinstance(dns_failover, dict):
             dns_failover = AlbTargetGroupTargetGroupHealthDnsFailover(**dns_failover)
@@ -2176,7 +2212,7 @@ class AlbTargetGroupTargetGroupHealth:
     ) -> typing.Optional["AlbTargetGroupTargetGroupHealthDnsFailover"]:
         '''dns_failover block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#dns_failover AlbTargetGroup#dns_failover}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#dns_failover AlbTargetGroup#dns_failover}
         '''
         result = self._values.get("dns_failover")
         return typing.cast(typing.Optional["AlbTargetGroupTargetGroupHealthDnsFailover"], result)
@@ -2187,7 +2223,7 @@ class AlbTargetGroupTargetGroupHealth:
     ) -> typing.Optional["AlbTargetGroupTargetGroupHealthUnhealthyStateRouting"]:
         '''unhealthy_state_routing block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#unhealthy_state_routing AlbTargetGroup#unhealthy_state_routing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#unhealthy_state_routing AlbTargetGroup#unhealthy_state_routing}
         '''
         result = self._values.get("unhealthy_state_routing")
         return typing.cast(typing.Optional["AlbTargetGroupTargetGroupHealthUnhealthyStateRouting"], result)
@@ -2220,8 +2256,8 @@ class AlbTargetGroupTargetGroupHealthDnsFailover:
         minimum_healthy_targets_percentage: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param minimum_healthy_targets_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.
-        :param minimum_healthy_targets_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.
+        :param minimum_healthy_targets_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.
+        :param minimum_healthy_targets_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b394b35a37068094c6abcd7db82557e1963b6e6ce248472a8cd34023f14867cc)
@@ -2235,13 +2271,13 @@ class AlbTargetGroupTargetGroupHealthDnsFailover:
 
     @builtins.property
     def minimum_healthy_targets_count(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.'''
         result = self._values.get("minimum_healthy_targets_count")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def minimum_healthy_targets_percentage(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.'''
         result = self._values.get("minimum_healthy_targets_percentage")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2365,8 +2401,8 @@ class AlbTargetGroupTargetGroupHealthOutputReference(
         minimum_healthy_targets_percentage: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param minimum_healthy_targets_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.
-        :param minimum_healthy_targets_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.
+        :param minimum_healthy_targets_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.
+        :param minimum_healthy_targets_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.
         '''
         value = AlbTargetGroupTargetGroupHealthDnsFailover(
             minimum_healthy_targets_count=minimum_healthy_targets_count,
@@ -2383,8 +2419,8 @@ class AlbTargetGroupTargetGroupHealthOutputReference(
         minimum_healthy_targets_percentage: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param minimum_healthy_targets_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.
-        :param minimum_healthy_targets_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.
+        :param minimum_healthy_targets_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.
+        :param minimum_healthy_targets_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.
         '''
         value = AlbTargetGroupTargetGroupHealthUnhealthyStateRouting(
             minimum_healthy_targets_count=minimum_healthy_targets_count,
@@ -2459,8 +2495,8 @@ class AlbTargetGroupTargetGroupHealthUnhealthyStateRouting:
         minimum_healthy_targets_percentage: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param minimum_healthy_targets_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.
-        :param minimum_healthy_targets_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.
+        :param minimum_healthy_targets_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.
+        :param minimum_healthy_targets_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81c5b36973c20995996f57b44eb3c71a44f6c8e32af8e6af04b4e34e76174733)
@@ -2474,13 +2510,13 @@ class AlbTargetGroupTargetGroupHealthUnhealthyStateRouting:
 
     @builtins.property
     def minimum_healthy_targets_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_count AlbTargetGroup#minimum_healthy_targets_count}.'''
         result = self._values.get("minimum_healthy_targets_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def minimum_healthy_targets_percentage(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#minimum_healthy_targets_percentage AlbTargetGroup#minimum_healthy_targets_percentage}.'''
         result = self._values.get("minimum_healthy_targets_percentage")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2592,8 +2628,8 @@ class AlbTargetGroupTargetHealthState:
         unhealthy_draining_interval: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enable_unhealthy_connection_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#enable_unhealthy_connection_termination AlbTargetGroup#enable_unhealthy_connection_termination}.
-        :param unhealthy_draining_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#unhealthy_draining_interval AlbTargetGroup#unhealthy_draining_interval}.
+        :param enable_unhealthy_connection_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#enable_unhealthy_connection_termination AlbTargetGroup#enable_unhealthy_connection_termination}.
+        :param unhealthy_draining_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#unhealthy_draining_interval AlbTargetGroup#unhealthy_draining_interval}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d38af9f6f3d8a17bbaba0b3edf27334cb4227633ab712228198d0964d9c6b63)
@@ -2609,14 +2645,14 @@ class AlbTargetGroupTargetHealthState:
     def enable_unhealthy_connection_termination(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#enable_unhealthy_connection_termination AlbTargetGroup#enable_unhealthy_connection_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#enable_unhealthy_connection_termination AlbTargetGroup#enable_unhealthy_connection_termination}.'''
         result = self._values.get("enable_unhealthy_connection_termination")
         assert result is not None, "Required property 'enable_unhealthy_connection_termination' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def unhealthy_draining_interval(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/alb_target_group#unhealthy_draining_interval AlbTargetGroup#unhealthy_draining_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/alb_target_group#unhealthy_draining_interval AlbTargetGroup#unhealthy_draining_interval}.'''
         result = self._values.get("unhealthy_draining_interval")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2862,6 +2898,7 @@ def _typecheckingstub__f8fa4424f769ee4a9df5e50588004659596ea778ca4ab0ebac6180860
     stickiness: typing.Optional[typing.Union[AlbTargetGroupStickiness, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    target_control_port: typing.Optional[jsii.Number] = None,
     target_failover: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AlbTargetGroupTargetFailover, typing.Dict[builtins.str, typing.Any]]]]] = None,
     target_group_health: typing.Optional[typing.Union[AlbTargetGroupTargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_health_state: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AlbTargetGroupTargetHealthState, typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -3013,6 +3050,12 @@ def _typecheckingstub__bafa1c49861d578e130d4272868e8f3725efeac3d82d4096cf3345970
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__13980450cfae75d3f91ab6c9707a945c5e063fd6ca228ea03d747a81bc2c0ad6(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__888729c787ec68361b7d0698ff0086de1a662089821e3c3a60f2105e206b04e4(
     value: builtins.str,
 ) -> None:
@@ -3055,6 +3098,7 @@ def _typecheckingstub__2cce996a420f3baae7c81469658aa5adb348699b0d17d02f333359b23
     stickiness: typing.Optional[typing.Union[AlbTargetGroupStickiness, typing.Dict[builtins.str, typing.Any]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    target_control_port: typing.Optional[jsii.Number] = None,
     target_failover: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AlbTargetGroupTargetFailover, typing.Dict[builtins.str, typing.Any]]]]] = None,
     target_group_health: typing.Optional[typing.Union[AlbTargetGroupTargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_health_state: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AlbTargetGroupTargetHealthState, typing.Dict[builtins.str, typing.Any]]]]] = None,

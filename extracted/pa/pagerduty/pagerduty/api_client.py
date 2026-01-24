@@ -8,30 +8,21 @@ from random import random
 from typing import Optional, Union
 
 # PyPI
-from requests import Response, Session
-from requests import __version__ as REQUESTS_VERSION
-from requests.exceptions import RequestException
-from urllib3.exceptions import PoolError
-from urllib3.exceptions import HTTPError as Urllib3HttpError
- 
-# Local
-from . version import __version__
-from . errors import (
-    Error,
-    HttpError,
-    UrlError
-)
-from . common import (
-    TIMEOUT,
-    last_4,
-    normalize_url
-)
+from httpx import __version__ as HTTPX_VERSION
+from httpx import Client, Headers, TransportError, Response
 
-class ApiClient(Session):
+# Local
+from .auth_method import AuthMethod
+from .version import __version__
+from .errors import Error, HttpError, ServerHttpError, UrlError
+from .common import TIMEOUT, normalize_url
+
+
+class ApiClient(Client):
     """
     Base class for making HTTP requests to PagerDuty APIs
 
-    This is an opinionated wrapper of `requests.Session`_, with a few additional
+    This is an opinionated wrapper of `httpx.Client`_, with a few additional
     features:
 
     - The client will reattempt the request with auto-increasing cooldown/retry
@@ -45,11 +36,12 @@ class ApiClient(Session):
       :attr:`permitted_methods` list, and will raise :class:`Error` for
       any other HTTP methods.
 
-    :param api_key:
-        The API secret to use for authentication in HTTP requests
+    :param auth_method:
+        The authentication method to use for API requests, should be an
+        instance of the AuthMethod class.
     :param debug:
-        Sets :attr:`print_debug`. Set to ``True`` to enable verbose command line
-        output.
+        Sets :attr:`print_debug`. Set to ``True`` to enable verbose command
+        line output.
     """
 
     log = None
@@ -62,8 +54,8 @@ class ApiClient(Session):
 
     max_http_attempts = 10
     """
-    The number of times that the client will retry after error statuses, for any
-    that are defined greater than zero in :attr:`retry`.
+    The number of times that the client will retry after error statuses, for
+    any that are defined greater than zero in :attr:`retry`.
     """
 
     max_network_attempts = 3
@@ -74,7 +66,7 @@ class ApiClient(Session):
     """
 
     parent = None
-    """The ``super`` object (`requests.Session`_)"""
+    """The ``super`` object (`httpx.Client`_)"""
 
     permitted_methods = ()
     """
@@ -90,8 +82,8 @@ class ApiClient(Session):
     """
     A dict defining the retry behavior for each HTTP response status code.
 
-    Each key in this dictionary is an int representing a HTTP response code. The
-    behavior is specified by the int value at each key as follows:
+    Each key in this dictionary is an int representing a HTTP response code.
+    The behavior is specified by the int value at each key as follows:
 
     * ``-1`` to retry without limit.
     * ``0`` has no effect; the default behavior will take effect.
@@ -100,8 +92,8 @@ class ApiClient(Session):
       encountered first), and then return the final response.
 
     The default behavior is to retry without limit on status 429, raise an
-    exception on a 401, and return the `requests.Response`_ object in any other case
-    (assuming a HTTP response was received from the server).
+    exception on a 401, and return the `httpx.Response`_ object in any other
+    case (assuming a HTTP response was received from the server).
     """
 
     sleep_timer = 1.5
@@ -122,52 +114,44 @@ class ApiClient(Session):
 
     timeout = TIMEOUT
     """
-    This is the value sent to `Requests`_ as the ``timeout`` parameter that
+    This is the value sent to `HTTPX`_ as the ``timeout`` parameter that
     determines the TCP read timeout.
     """
 
-    url = ""
-
-    def __init__(self, api_key: str, debug=False):
+    def __init__(self, auth_method: AuthMethod, debug=False, **kw):
         self.parent = super(ApiClient, self)
-        self.parent.__init__()
-        self.api_key = api_key
+        self.parent.__init__(**kw)
+        self.auth_method = auth_method
         self.log = logging.getLogger(__name__)
         self.print_debug = debug
         self.retry = {}
 
-    def after_set_api_key(self):
+    def after_set_auth_method(self):
         """
-        Setter hook for setting or updating the API key.
-
+        Setter hook for setting or updating the authentication method.
         Child classes should implement this to perform additional steps.
         """
         pass
 
     @property
-    def api_key(self) -> str:
+    def auth_method(self) -> AuthMethod:
         """
-        Property representing the credential used for accessing the given API.
+        Property representing the authentication method used for API requests.
         """
-        return self._api_key
+        return self._auth_method
 
-    @api_key.setter
-    def api_key(self, api_key: str):
-        if not (isinstance(api_key, str) and api_key):
-            raise ValueError("API credential must be a non-empty string.")
-        self._api_key = api_key
-        self.headers.update(self.auth_header)
-        self.after_set_api_key()
+    @auth_method.setter
+    def auth_method(self, auth_method: AuthMethod):
+        if not (isinstance(auth_method, AuthMethod)):
+            raise ValueError(
+                "auth_method must be an instance of the AuthMethod class"
+            )
 
-    @property
-    def auth_header(self) -> dict:
-        """
-        Generates the header with the API credential used for authentication.
-        """
-        raise NotImplementedError
+        self._auth_method = auth_method
+        self.after_set_auth_method()
 
     def cooldown_factor(self) -> float:
-        return self.sleep_timer_base*(1+self.stagger_cooldown*random())
+        return self.sleep_timer_base * (1 + self.stagger_cooldown * random())
 
     def normalize_params(self, params: dict) -> dict:
         """
@@ -191,9 +175,22 @@ class ApiClient(Session):
         """
         pass
 
-    def prepare_headers(self, method: str, user_headers: Optional[dict] = None) -> dict:
+    def prepare_headers(
+        self, method: str, user_headers: Optional[dict] = None
+    ) -> dict:
         """
-        Append special additional per-request headers.
+        Append all necessary headers per-request.
+
+        The upstream client class `httpx.Client`_ will merge headers into the
+        default instance headers, so any defaults set by the end user in the
+        mutable ``headers`` property will already be merged in, and the headers
+        specified at request time will take precendence.
+
+        This method just merges in the PagerDuty API client's defaults on a
+        per-request basis to avoid storing per-API header settings like API
+        keys in drift-able mutable stateful instance attributes, and to enforce
+        the correct headers on each request, especially where they might differ
+        per-API / per request.
 
         :param method:
             The HTTP method, in upper case.
@@ -202,14 +199,19 @@ class ApiClient(Session):
         :returns:
             The final list of headers to use in the request
         """
-        headers = deepcopy(self.headers)
-        headers['User-Agent'] = self.user_agent
-        # A universal convention: whenever sending a POST, PUT or PATCH, the
-        # Content-Type header is "application/json".
-        if method in ('POST', 'PUT', 'PATCH'):
-            headers['Content-Type'] = 'application/json'
+        headers = Headers({})
+        # Override the default user-agent with the per-class user_agent attr:
+        headers["User-Agent"] = self.user_agent
+        # A nearly universal convention: whenever sending a POST, PUT or PATCH,
+        # the Content-Type header must be "application/json":
+        if method in ("POST", "PUT", "PATCH"):
+            headers["Content-Type"] = "application/json"
+        # Add headers passed in per-request as an additional argument, letting
+        # them take precedence over the defaults:
         if type(user_headers) is dict:
             headers.update(user_headers)
+        # Add authentication header:
+        headers.update(self.auth_method.auth_header)
         return headers
 
     @property
@@ -220,9 +222,9 @@ class ApiClient(Session):
         If set to True, the logging level of :attr:`log` is set to
         ``logging.DEBUG`` and all log messages are emitted to ``sys.stderr``.
         If set to False, the logging level of :attr:`log` is set to
-        ``logging.NOTSET`` and the debugging log handler that prints messages to
-        ``sys.stderr`` is removed. This value thus can be toggled to enable and
-        disable verbose command line output.
+        ``logging.NOTSET`` and the debugging log handler that prints messages
+        to ``sys.stderr`` is removed. This value thus can be toggled to enable
+        and disable verbose command line output.
 
         It is ``False`` by default and it is recommended to keep it that way in
         production settings.
@@ -232,14 +234,14 @@ class ApiClient(Session):
     @print_debug.setter
     def print_debug(self, debug: bool):
         self._debug = debug
-        if debug and not hasattr(self, '_debugHandler'):
+        if debug and not hasattr(self, "_debugHandler"):
             self.log.setLevel(logging.DEBUG)
             self._debugHandler = logging.StreamHandler()
             self.log.addHandler(self._debugHandler)
-        elif not debug and hasattr(self, '_debugHandler'):
+        elif not debug and hasattr(self, "_debugHandler"):
             self.log.setLevel(logging.NOTSET)
             self.log.removeHandler(self._debugHandler)
-            delattr(self, '_debugHandler')
+            delattr(self, "_debugHandler")
         # else: no-op; only happens if debug is set to the same value twice
 
     def request(self, method: str, url: str, **kwargs) -> Response:
@@ -250,94 +252,139 @@ class ApiClient(Session):
             The request method to use. Case-insensitive. May be one of get, put,
             post or delete.
         :param url:
-            The path/URL to request. If it does not start with the base URL, the
-            base URL will be prepended.
+            The path/URL to request. If it does not start with the base URL,
+            the base URL will be prepended.
         :param **kwargs:
-            Custom keyword arguments to pass to ``requests.Session.request``.
+            Custom keyword arguments to pass to ``httpx.Client.request``.
         :type method: str
         :type url: str
         :returns:
-            The `requests.Response`_ object corresponding to the HTTP response
+            The `httpx.Response`_ object corresponding to the HTTP response
         """
         sleep_timer = self.sleep_timer
         network_attempts = 0
         http_attempts = {}
         method = method.strip().upper()
         if method not in self.permitted_methods:
-            m_str = ', '.join(self.permitted_methods)
-            raise Error(f"Method {method} not supported by this API. " \
-                f"Permitted methods: {m_str}")
+            m_str = ", ".join(self.permitted_methods)
+            raise Error(
+                f"Method {method} not supported by this API. Permitted "
+                f"methods: {m_str}"
+            )
         req_kw = deepcopy(kwargs)
         full_url = self.normalize_url(url)
-        endpoint = "%s %s"%(method.upper(), full_url)
+        endpoint = "%s %s" % (method.upper(), full_url)
 
         # Add in any headers specified in keyword arguments:
-        headers = kwargs.get('headers', {})
-        req_kw.update({
-            'headers': self.prepare_headers(method, user_headers=headers),
-            'stream': False,
-            'timeout': self.timeout
-        })
+        headers = kwargs.get("headers", {})
+        # Add some defaults:
+        req_kw.update(
+            {
+                "headers": self.prepare_headers(method, user_headers=headers),
+                "timeout": self.timeout,
+                "auth": None,
+                "follow_redirects": False,
+                "cookies": None,
+            }
+        )
 
-        # Special changes to user-supplied parameters, for convenience
-        if 'params' in kwargs and kwargs['params']:
-            req_kw['params'] = self.normalize_params(kwargs['params'])
+        # Add authentication parameter, if the API requires it and it is a
+        # request type that includes a body:
+        if method in ("POST", "PUT", "PATCH"):
+            for body_key in ("json", "data"):
+                if body_key in req_kw and type(req_kw[body_key]) is dict:
+                    req_kw[body_key].update(self.auth_method.auth_param)
+
+        # Special changes to user-supplied query parameters, for convenience:
+        if "params" in kwargs and kwargs["params"]:
+            req_kw["params"] = self.normalize_params(kwargs["params"])
 
         # Make the request (and repeat w/cooldown if the rate limit is reached):
         while True:
             try:
                 response = self.parent.request(method, full_url, **req_kw)
                 self.postprocess(response)
-            except (Urllib3HttpError, PoolError, RequestException) as e:
+            except TransportError as e:
                 network_attempts += 1
                 if network_attempts > self.max_network_attempts:
-                    error_msg = f"{endpoint}: Non-transient network " \
-                        'error; exceeded maximum number of attempts ' \
+                    error_msg = (
+                        f"{endpoint}: Non-transient network "
+                        "error; exceeded maximum number of attempts "
                         f"({self.max_network_attempts}) to connect to the API."
+                    )
                     raise Error(error_msg) from e
                 sleep_timer *= self.cooldown_factor()
                 self.log.warning(
                     "%s: HTTP or network error: %s. retrying in %g seconds.",
-                    endpoint, e.__class__.__name__, sleep_timer)
+                    endpoint,
+                    e.__class__.__name__,
+                    sleep_timer,
+                )
                 time.sleep(sleep_timer)
                 continue
 
             status = response.status_code
             retry_logic = self.retry.get(status, 0)
-            if not response.ok and retry_logic != 0:
+            if status // 100 == 3:
+                # Redirects are not expected but if they happen, fail noisily:
+                raise ServerHttpError(
+                    f"Received status {status} in response to {method} "
+                    f"{full_url}, but PagerDuty APIs are not expected to "
+                    "issue redirects.",
+                    response,
+                )
+            elif not response.is_success and retry_logic != 0:
                 # Take special action as defined by the retry logic
                 if retry_logic != -1:
                     # Retry a specific number of times (-1 implies infinite)
-                    if http_attempts.get(status, 0)>=retry_logic or \
-                            sum(http_attempts.values())>self.max_http_attempts:
+                    if (
+                        http_attempts.get(status, 0) >= retry_logic
+                        or sum(http_attempts.values()) > self.max_http_attempts
+                    ):
                         lower_limit = retry_logic
                         if lower_limit > self.max_http_attempts:
                             lower_limit = self.max_http_attempts
                         self.log.error(
-                            f"%s: Non-transient HTTP error: exceeded " \
-                            'maximum number of attempts (%d) to make a ' \
-                            'successful request. Currently encountering ' \
-                            'status %d.', endpoint, lower_limit, status)
+                            "%s: Non-transient HTTP error: exceeded "
+                            "maximum number of attempts (%d) to make a "
+                            "successful request. Currently encountering "
+                            "status %d.",
+                            endpoint,
+                            lower_limit,
+                            status,
+                        )
                         return response
                     http_attempts[status] = 1 + http_attempts.get(status, 0)
                 sleep_timer *= self.cooldown_factor()
-                self.log.warning("%s: HTTP error (%d); retrying in %g seconds.",
-                    endpoint, status, sleep_timer)
+                self.log.warning(
+                    "%s: HTTP error (%d); retrying in %g seconds.",
+                    endpoint,
+                    status,
+                    sleep_timer,
+                )
                 time.sleep(sleep_timer)
                 continue
             elif status == 429:
                 sleep_timer *= self.cooldown_factor()
-                self.log.debug("%s: Hit API rate limit (status 429); " \
-                    "retrying in %g seconds", endpoint, sleep_timer)
+                self.log.debug(
+                    "%s: Hit API rate limit (status 429); retrying in %g "
+                    "seconds",
+                    endpoint,
+                    sleep_timer,
+                )
                 time.sleep(sleep_timer)
                 continue
             elif status == 401:
                 # Stop. Authentication failed. We shouldn't try doing any more,
                 # because we'll run into the same problem later anyway.
                 raise HttpError(
-                    "Received 401 Unauthorized response from the API. The key "
-                    "(...%s) may be invalid or deactivated."%self.trunc_key,
-                    response)
+                    "Received 401 Unauthorized response from the API. The API "
+                    f"credential ({self.trunc_key}) may be invalid or "
+                    "deactivated, or the client is configured for the wrong "
+                    "service region (in which case updating the url property "
+                    "accordingly may resolve the issue).",
+                    response,
+                )
             else:
                 # All went according to plan.
                 return response
@@ -371,30 +418,48 @@ class ApiClient(Session):
         same amount of time before retrying.  It is currently zero by default
         for consistent behavior with previous versions.
         """
-        if hasattr(self, '_stagger_cooldown'):
+        if hasattr(self, "_stagger_cooldown"):
             return self._stagger_cooldown
         else:
             return 0
 
     @stagger_cooldown.setter
     def stagger_cooldown(self, val: Union[float, int]):
-        if type(val) not in [float, int] or val<0:
-            raise ValueError("Cooldown randomization factor stagger_cooldown "
-                "must be a positive real number")
+        if type(val) not in [float, int] or val < 0:
+            raise ValueError(
+                "Cooldown randomization factor stagger_cooldown "
+                "must be a positive real number"
+            )
         self._stagger_cooldown = val
 
     @property
     def trunc_key(self) -> str:
         """Truncated key for secure display/identification purposes."""
-        return last_4(self.api_key)
+        return self.auth_method.trunc_secret
+
+    @property
+    def url(self) -> str:
+        """
+        The base URL for the API being called.
+
+        Must be a HTTPS URL. For REST API v2 in the US service region, this is
+        ``https://api.pagerduty.com``; for Events API v2 it is
+        ``https://events.pagerduty.com``.  This property must be set when using
+        a service region other than US Production.
+        """
+        return self._url
+
+    @url.setter
+    def url(self, new_base_url: str):
+        if not new_base_url.startswith("https://"):
+            raise UrlError("API base URL must use scheme https://")
+        self._url = new_base_url
 
     @property
     def user_agent(self) -> str:
-        return 'python-pagerduty/%s python-requests/%s Python/%d.%d'%(
+        return "python-pagerduty/%s python-httpx/%s Python/%d.%d" % (
             __version__,
-            REQUESTS_VERSION,
+            HTTPX_VERSION,
             sys.version_info.major,
-            sys.version_info.minor
+            sys.version_info.minor,
         )
-
-

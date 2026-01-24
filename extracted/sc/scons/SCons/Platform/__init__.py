@@ -43,14 +43,22 @@ their own platform definition.
 import SCons.compat
 
 import atexit
+import contextlib
 import importlib
+import locale
 import os
 import sys
 import tempfile
 
+import SCons.Action
 import SCons.Errors
+import SCons.Platform
 import SCons.Subst
 import SCons.Tool
+import SCons.Util
+
+
+TEMPFILE_DEFAULT_ENCODING = "utf-8"
 
 
 def platform_default():
@@ -66,15 +74,15 @@ def platform_default():
     if osname == 'posix':
         if sys.platform == 'cygwin':
             return 'cygwin'
-        elif sys.platform.find('irix') != -1:
+        elif 'irix' in sys.platform:
             return 'irix'
-        elif sys.platform.find('sunos') != -1:
+        elif 'sunos' in sys.platform:
             return 'sunos'
-        elif sys.platform.find('hp-ux') != -1:
+        elif 'hp-ux' in sys.platform:
             return 'hpux'
-        elif sys.platform.find('aix') != -1:
+        elif 'aix' in sys.platform:
             return 'aix'
-        elif sys.platform.find('darwin') != -1:
+        elif 'darwin' in sys.platform:
             return 'darwin'
         else:
             return 'posix'
@@ -242,6 +250,25 @@ class TempFileMunge:
         if cmdlist is not None:
             return cmdlist
 
+        # try encoding the tempfile data before creating the file -
+        # avoid orphaned files
+        tempfile_esc_func = env.get('TEMPFILEARGESCFUNC', SCons.Subst.quote_spaces)
+        args = [tempfile_esc_func(arg) for arg in cmd[1:]]
+        join_char = env.get('TEMPFILEARGJOIN', ' ')
+        contents = join_char.join(args) + "\n"
+        encoding = env.get('TEMPFILEENCODING', TEMPFILE_DEFAULT_ENCODING)
+        try:
+            tempfile_contents = bytes(contents, encoding=encoding)
+        except (UnicodeError, LookupError, TypeError):
+            exc_type, exc_value, _ = sys.exc_info()
+            if 'TEMPFILEENCODING' in env:
+                encoding_msg = "env['TEMPFILEENCODING']"
+            else:
+                encoding_msg = "default"
+            err_msg = f"tempfile encoding error: [{exc_type.__name__}] {exc_value!s}"
+            err_msg += f"\n  {type(self).__name__} encoding: {encoding_msg} = {encoding!r}"
+            raise SCons.Errors.UserError(err_msg)
+
         # Default to the .lnk suffix for the benefit of the Phar Lap
         # linkloc linker, which likes to append an .lnk suffix if
         # none is given.
@@ -256,31 +283,20 @@ class TempFileMunge:
         else:
             tempfile_dir = None
 
-        fd, tmp = tempfile.mkstemp(suffix, dir=tempfile_dir, text=True)
+        fd, tmp = tempfile.mkstemp(suffix, dir=tempfile_dir)
+        try:
+            os.write(fd, tempfile_contents)
+        finally:
+            os.close(fd)
         native_tmp = SCons.Util.get_native_path(tmp)
 
         # arrange for cleanup on exit:
 
         def tmpfile_cleanup(file) -> None:
-            os.remove(file)
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(file)
 
         atexit.register(tmpfile_cleanup, tmp)
-
-        if env.get('SHELL', None) == 'sh':
-            # The sh shell will try to escape the backslashes in the
-            # path, so unescape them.
-            native_tmp = native_tmp.replace('\\', r'\\\\')
-
-        if 'TEMPFILEPREFIX' in env:
-            prefix = env.subst('$TEMPFILEPREFIX')
-        else:
-            prefix = "@"
-
-        tempfile_esc_func = env.get('TEMPFILEARGESCFUNC', SCons.Subst.quote_spaces)
-        args = [tempfile_esc_func(arg) for arg in cmd[1:]]
-        join_char = env.get('TEMPFILEARGJOIN', ' ')
-        os.write(fd, bytearray(join_char.join(args) + "\n", encoding="utf-8"))
-        os.close(fd)
 
         # XXX Using the SCons.Action.print_actions value directly
         # like this is bogus, but expedient.  This class should
@@ -311,10 +327,18 @@ class TempFileMunge:
                 )
                 self._print_cmd_str(target, source, env, cmdstr)
 
+        if env.get('SHELL', None) == 'sh':
+            # The sh shell will try to escape the backslashes in the
+            # path, so unescape them.
+            native_tmp = native_tmp.replace('\\', r'\\\\')
+        if 'TEMPFILEPREFIX' in env:
+            prefix = env.subst('$TEMPFILEPREFIX')
+        else:
+            prefix = "@"
         cmdlist = [cmd[0], prefix + native_tmp]
 
         # Store the temporary file command list into the target Node.attributes
-        # to avoid creating two temporary files one for print and one for execute.
+        # to avoid creating separate temporary files for print and execute.
         if node is not None:
             try:
                 # Storing in tempfile_cmdlist by self.cmd provided when intializing

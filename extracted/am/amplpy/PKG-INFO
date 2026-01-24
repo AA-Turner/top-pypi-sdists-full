@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amplpy
-Version: 0.15.2
+Version: 0.16.0
 Summary: Python API for AMPL
 Home-page: http://ampl.com/
 Download-URL: https://github.com/ampl/amplpy
@@ -28,6 +28,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Description-Content-Type: text/markdown
 License-File: LICENSE

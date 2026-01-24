@@ -2,22 +2,24 @@
 
 from __future__ import annotations
 
+from typing import Union
+
 import pydantic.v1 as pd
 
 from tidy3d.components.data.data_array import SpatialDataArray
 from tidy3d.components.medium import AbstractMedium
-from tidy3d.components.tcad.doping import DopingBoxType
+from tidy3d.components.tcad.doping import ConstantDoping, DopingBoxType
 from tidy3d.components.tcad.types import (
     BandGapNarrowingModelType,
+    ConstantEffectiveDOS,
+    ConstantEnergyBandGap,
+    EffectiveDOSModelType,
+    EnergyBandGapModelType,
     MobilityModelType,
     RecombinationModelType,
 )
-from tidy3d.components.types import Union
-from tidy3d.constants import (
-    CONDUCTIVITY,
-    ELECTRON_VOLT,
-    PERMITTIVITY,
-)
+from tidy3d.constants import CONDUCTIVITY, ELECTRON_VOLT, PERCMCUBE, PERMITTIVITY
+from tidy3d.log import log
 
 
 class AbstractChargeMedium(AbstractMedium):
@@ -32,21 +34,21 @@ class AbstractChargeMedium(AbstractMedium):
     def charge(self):
         """
         This means that a charge medium has been defined inherently within this solver medium.
-        This provides interconnection with the `MultiPhysicsMedium` higher-dimensional classes.
+        This provides interconnection with the :class:`MultiPhysicsMedium` higher-dimensional classes.
         """
         return self
 
     def eps_model(self, frequency: float) -> complex:
         return self.permittivity
 
-    def n_cfl(self):
+    def n_cfl(self) -> None:
         return None
 
 
 class ChargeInsulatorMedium(AbstractChargeMedium):
     """
     Insulating medium. Conduction simulations will not solve for electric
-    potential in a structure that has a medium with this 'charge'.
+    potential in a structure that has a medium with this ``charge``.
 
     Example
     -------
@@ -76,7 +78,7 @@ class ChargeConductorMedium(AbstractChargeMedium):
     conductivity: pd.PositiveFloat = pd.Field(
         ...,
         title="Electric conductivity",
-        description=f"Electric conductivity of material in units of {CONDUCTIVITY}.",
+        description="Electric conductivity of material.",
         units=CONDUCTIVITY,
     )
 
@@ -187,9 +189,9 @@ class SemiconductorMedium(AbstractChargeMedium):
     -------
         >>> import tidy3d as td
         >>> default_Si = td.SemiconductorMedium(
-        ...     N_c=2.86e19,
-        ...     N_v=3.1e19,
-        ...     E_g=1.11,
+        ...     N_c=td.ConstantEffectiveDOS(N=2.86e19),
+        ...     N_v=td.ConstantEffectiveDOS(N=3.1e19),
+        ...     E_g=td.ConstantEnergyBandGap(eg=1.11),
         ...     mobility_n=td.CaugheyThomasMobility(
         ...         mu_min=52.2,
         ...         mu=1471.0,
@@ -229,8 +231,8 @@ class SemiconductorMedium(AbstractChargeMedium):
         ...         c2=0.5,
         ...         min_N=1e15,
         ...     ),
-        ...     N_a=0,
-        ...     N_d=0
+        ...     N_a=[td.ConstantDoping(concentration=1e15)],
+        ...     N_d=[td.ConstantDoping(concentration=1e15)]
         ... )
 
 
@@ -254,24 +256,24 @@ class SemiconductorMedium(AbstractChargeMedium):
 
     """
 
-    N_c: pd.PositiveFloat = pd.Field(
+    N_c: Union[EffectiveDOSModelType, pd.PositiveFloat] = pd.Field(
         ...,
         title="Effective density of electron states",
-        description=r"$N_c$ Effective density of states in the conduction band.",
-        units="cm^(-3)",
+        description=":math:`N_c` Effective density of states in the conduction band.",
+        units=PERCMCUBE,
     )
 
-    N_v: pd.PositiveFloat = pd.Field(
+    N_v: Union[EffectiveDOSModelType, pd.PositiveFloat] = pd.Field(
         ...,
         title="Effective density of hole states",
-        description=r"$N_v$ Effective density of states in the valence band.",
-        units="cm^(-3)",
+        description=":math:`N_v` Effective density of states in the valence band.",
+        units=PERCMCUBE,
     )
 
-    E_g: pd.PositiveFloat = pd.Field(
+    E_g: Union[EnergyBandGapModelType, pd.PositiveFloat] = pd.Field(
         ...,
         title="Band-gap energy",
-        description="Band-gap energy",
+        description=":math:`E_g` Band-gap energy",
         units=ELECTRON_VOLT,
     )
 
@@ -295,20 +297,81 @@ class SemiconductorMedium(AbstractChargeMedium):
 
     delta_E_g: BandGapNarrowingModelType = pd.Field(
         None,
-        title=r"$\Delta E_g$ Bandgap narrowing model.",
-        description="Bandgap narrowing model.",
+        title="Bandgap narrowing model.",
+        description=":math:`\\Delta E_g` Bandgap narrowing model.",
+        units=ELECTRON_VOLT,
     )
 
     N_a: Union[pd.NonNegativeFloat, SpatialDataArray, tuple[DopingBoxType, ...]] = pd.Field(
-        0,
+        (),
         title="Doping: Acceptor concentration",
-        description="Units of 1/cm^3",
-        units="1/cm^3",
+        description="Concentration of acceptor impurities, which create mobile holes, resulting in p-type material. "
+        "Can be specified as a single float for uniform doping, a :class:`SpatialDataArray` for a custom profile, "
+        "or a tuple of geometric shapes to define specific doped regions.",
+        units=PERCMCUBE,
     )
 
     N_d: Union[pd.NonNegativeFloat, SpatialDataArray, tuple[DopingBoxType, ...]] = pd.Field(
-        0,
+        (),
         title="Doping: Donor concentration",
-        description="Units of 1/cm^3",
-        units="1/cm^3",
+        description="Concentration of donor impurities, which create mobile electrons, resulting in n-type material. "
+        "Can be specified as a single float for uniform doping, a :class:`SpatialDataArray` for a custom profile, "
+        "or a tuple of geometric shapes to define specific doped regions.",
+        units=PERCMCUBE,
     )
+
+    # DEPRECATION VALIDATORS
+    @pd.validator("N_c", always=True)
+    def check_nc_uses_model(cls, val, values):
+        """Issue deprecation warning if float is provided"""
+        if isinstance(val, (float, int)):
+            log.warning(
+                "Passing a float to 'N_c' is deprecated and will be removed in future versions. "
+                "Please use 'ConstantEffectiveDOS' instead."
+            )
+            return ConstantEffectiveDOS(N=val)
+        return val
+
+    @pd.validator("N_v", always=True)
+    def check_nv_uses_model(cls, val, values):
+        """Issue deprecation warning if float is provided"""
+        if isinstance(val, (float, int)):
+            log.warning(
+                "Passing a float to 'N_v' is deprecated and will be removed in future versions. "
+                "Please use 'ConstantEffectiveDOS' instead."
+            )
+            return ConstantEffectiveDOS(N=val)
+        return val
+
+    @pd.validator("E_g", always=True)
+    def check_eg_uses_model(cls, val, values):
+        """Issue deprecation warning if float is provided"""
+        if isinstance(val, (float, int)):
+            log.warning(
+                "Passing a float to 'E_g' is deprecated and will be removed in future versions. "
+                "Please use 'ConstantEnergyBandGap' instead."
+            )
+            return ConstantEnergyBandGap(eg=val)
+        return val
+
+    @pd.validator("N_d", always=True)
+    def check_nd_uses_model(cls, val, values):
+        """Issue deprecation warning if float is provided"""
+        if isinstance(val, (float, int)):
+            log.warning(
+                "Passing a float to 'N_d' is deprecated and will be removed in future versions. "
+                f"Please use a list of 'DopingBoxType' instead, e.g., [ConstantDoping(concentration={val})]."
+            )
+            return (ConstantDoping(concentration=val),)
+        return val
+
+    @pd.validator("N_a", always=True)
+    def check_na_uses_model(cls, val, values):
+        """Issue deprecation warning if float is provided"""
+        if isinstance(val, (float, int)):
+            log.warning(
+                "Passing a float to 'N_a' is deprecated and will be removed in future versions. "
+                f"Please use a list of 'DopingBoxType' instead, e.g., [ConstantDoping(concentration={val})]."
+            )
+            return (ConstantDoping(concentration=val),)
+        return val

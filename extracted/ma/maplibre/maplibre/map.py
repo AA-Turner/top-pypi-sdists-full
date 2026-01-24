@@ -51,7 +51,9 @@ class MapOptions(MapLibreBaseModel):
         See [MapOptions](https://maplibre.org/maplibre-gl-js/docs/API/type-aliases/MapOptions) for details.
     """
 
-    model_config = ConfigDict(validate_assignment=True, extra="forbid", use_enum_values=False)
+    model_config = ConfigDict(
+        validate_assignment=True, extra="forbid", use_enum_values=False
+    )
 
     antialias: bool = None
     attribution_control: bool = Field(None, serialization_alias="attributionControl")
@@ -75,7 +77,9 @@ class MapOptions(MapLibreBaseModel):
     min_zoom: int = Field(None, serialization_alias="minZoom")
     pitch: Union[int, float] = None
     scroll_zoom: bool = Field(None, serialization_alias="scrollZoom")
-    style: Union[str, Carto, MapTiler, OpenFreeMap, dict, Basemap] = Field(Carto.DARK_MATTER, validate_default=True)
+    style: Union[str, Carto, MapTiler, OpenFreeMap, dict, Basemap] = Field(
+        Carto.DARK_MATTER, validate_default=True
+    )
     zoom: Union[int, float] = None
 
     @field_validator("style")
@@ -208,7 +212,7 @@ class Map(object):
             id (str): The unique ID of the source.
             source (Source | dict | gpd.GeoDataFrame): The source to be added to the map.
         """
-        if GEOPANDAS is not None and isinstance(source, gpd.GeoDataFrame):
+        if GEOPANDAS and isinstance(source, gpd.GeoDataFrame):
             source = SimpleFeatures(source).to_source()
 
         if isinstance(source, Source):
@@ -257,7 +261,9 @@ class Map(object):
         """
         self.add_call("addPopup", layer_id, prop, template)
 
-    def add_tooltip(self, layer_id: str, prop: str = None, template: str = None) -> None:
+    def add_tooltip(
+        self, layer_id: str, prop: str = None, template: str = None
+    ) -> None:
         """Add a tooltip to the map
 
         Args:
@@ -337,7 +343,9 @@ class Map(object):
 
         self.add_call("fitBounds", bounds, kwargs)
 
-    def set_projection(self, type: str | ProjectionType | list = ProjectionType.GLOBE) -> None:
+    def set_projection(
+        self, type: str | ProjectionType | list = ProjectionType.GLOBE
+    ) -> None:
         """Set the projection of the map"""
         self.add_call("setProjection", dict(type=type))
 
@@ -378,12 +386,18 @@ class Map(object):
         """
         js_lib = read_internal_file("srcjs", "pywidget.js")
         js_snippet = Template(js_template).render(data=json.dumps(self.to_dict()))
-        css_file = "ipywidget.maplibre-geocoder.css" if self._geocoder_type == GeocoderType.MAPLIBRE else "pywidget.css"
+        css_file = (
+            "ipywidget.maplibre-geocoder.css"
+            if self._geocoder_type == GeocoderType.MAPLIBRE
+            else "pywidget.css"
+        )
         css = read_internal_file("srcjs", css_file)
         headers = [f"<style>{css}</style>"]
 
         # Deck.GL headers
-        add_deckgl_headers = "addDeckOverlay" in [item[0] for item in self._message_queue]
+        add_deckgl_headers = "addDeckOverlay" in [
+            item[0] for item in self._message_queue
+        ]
         # TODO: Set version in constants
         deckgl_headers = (
             [
@@ -397,7 +411,9 @@ class Map(object):
         )
 
         # Mapbox Draw headers
-        add_mapbox_draw_headers = "addMapboxDraw" in [item[0] for item in self._message_queue]
+        add_mapbox_draw_headers = "addMapboxDraw" in [
+            item[0] for item in self._message_queue
+        ]
         # TODO: Set version in constants
         mapbox_draw_headers = (
             [
@@ -425,7 +441,9 @@ class Map(object):
     # -------------------------
     # Plugins
     # -------------------------
-    def add_deck_layers(self, layers: list[dict | pdk.Layer], tooltip: str | dict = None) -> None:
+    def add_deck_layers(
+        self, layers: list[dict | pdk.Layer], tooltip: str | dict = None
+    ) -> None:
         """Add Deck.GL layers to the layer stack
 
         Args:
@@ -436,7 +454,9 @@ class Map(object):
         layers = parse_deck_layers(layers)
         self.add_call("addDeckOverlay", layers, tooltip)
 
-    def set_deck_layers(self, layers: list[dict | pdk.Layer], tooltip: str | dict = None) -> None:
+    def set_deck_layers(
+        self, layers: list[dict | pdk.Layer], tooltip: str | dict = None
+    ) -> None:
         """Update Deck.GL layers
 
         Args:

@@ -60,10 +60,16 @@ class CacheRegistry:
 class DirRule:
     RULE_BASE_DIR = 'Bd'
 
-    def __init__(self, rule: str, base_dir=None):
+    def __init__(self, rule: str, base_dir=None, normalize_zh=None):
+        """
+        :param rule: DSL rule
+        :param base_dir: base directory
+        :param normalize_zh: 'zh-cn'|'zh-tw'| or None. 控制是否以及如何进行繁简体归一化，默认 None
+        """
         base_dir = JmcomicText.parse_to_abspath(base_dir)
         self.base_dir = base_dir
         self.rule_dsl = rule
+        self.normalize_zh = normalize_zh
         self.parser_list: List[Tuple[str, Callable]] = self.get_rule_parser_list(rule)
 
     def decide_image_save_dir(self,
@@ -88,7 +94,9 @@ class DirRule:
                 jm_log('dir_rule', f'路径规则"{rule}"的解析出错: {e}, album={album}, photo={photo}')
                 raise e
             if parser != self.parse_bd_rule:
-                path = fix_windir_name(str(path)).strip()
+                # 根据配置 normalize_zh 进行繁简体统一
+                conv_path = JmcomicText.to_zh(str(path), self.normalize_zh)
+                path = fix_windir_name(conv_path).strip()
 
             path_ls.append(path)
 
@@ -122,9 +130,9 @@ class DirRule:
     @classmethod
     def parse_f_string_rule(cls, album, photo, rule: str):
         properties = {}
-        if album:
+        if album is not None:
             properties.update(album.get_properties_dict())
-        if photo:
+        if photo is not None:
             properties.update(photo.get_properties_dict())
         return rule.format(**properties)
 
@@ -201,6 +209,7 @@ class JmOption:
             dir_rule={
                 'rule': self.dir_rule.rule_dsl,
                 'base_dir': self.dir_rule.base_dir,
+                'normalize_zh': self.dir_rule.normalize_zh,
             },
             download=self.download.src_dict,
             client=self.client.src_dict,
@@ -326,6 +335,7 @@ class JmOption:
             'dir_rule': {
                 'rule': self.dir_rule.rule_dsl,
                 'base_dir': self.dir_rule.base_dir,
+                'normalize_zh': self.dir_rule.normalize_zh,
             },
             'download': self.download.src_dict,
             'client': self.client.src_dict,

@@ -1,7 +1,7 @@
 r'''
 # `data_github_dependabot_secrets`
 
-Refer to the Terraform Registry for docs: [`data_github_dependabot_secrets`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets).
+Refer to the Terraform Registry for docs: [`data_github_dependabot_secrets`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGithubDependabotSecrets(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.dataGithubDependabotSecrets.DataGithubDependabotSecrets",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets github_dependabot_secrets}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets github_dependabot_secrets}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataGithubDependabotSecrets(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets github_dependabot_secrets} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets github_dependabot_secrets} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param full_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets#full_name DataGithubDependabotSecrets#full_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets#id DataGithubDependabotSecrets#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets#name DataGithubDependabotSecrets#name}.
+        :param full_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets#full_name DataGithubDependabotSecrets#full_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets#id DataGithubDependabotSecrets#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets#name DataGithubDependabotSecrets#name}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataGithubDependabotSecrets(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGithubDependabotSecrets to import.
-        :param import_from_id: The id of the existing DataGithubDependabotSecrets that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGithubDependabotSecrets that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGithubDependabotSecrets to import is found.
         '''
         if __debug__:
@@ -241,9 +241,9 @@ class DataGithubDependabotSecretsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param full_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets#full_name DataGithubDependabotSecrets#full_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets#id DataGithubDependabotSecrets#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets#name DataGithubDependabotSecrets#name}.
+        :param full_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets#full_name DataGithubDependabotSecrets#full_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets#id DataGithubDependabotSecrets#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets#name DataGithubDependabotSecrets#name}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -347,13 +347,13 @@ class DataGithubDependabotSecretsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def full_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets#full_name DataGithubDependabotSecrets#full_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets#full_name DataGithubDependabotSecrets#full_name}.'''
         result = self._values.get("full_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets#id DataGithubDependabotSecrets#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets#id DataGithubDependabotSecrets#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -363,7 +363,7 @@ class DataGithubDependabotSecretsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/dependabot_secrets#name DataGithubDependabotSecrets#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/dependabot_secrets#name DataGithubDependabotSecrets#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 

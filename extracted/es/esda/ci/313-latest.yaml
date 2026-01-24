@@ -20,12 +20,6 @@ dependencies:
   - pytest
   - pytest-cov
   - pytest-xdist
+  - geodatasets
   # optional
   - rtree
-  # doc build
-  - nbsphinx
-  - numpydoc
-  - pandoc
-  - sphinx
-  - sphinxcontrib-bibtex
-  - sphinx_bootstrap_theme

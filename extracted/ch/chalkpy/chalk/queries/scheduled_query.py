@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Collection
 
 from chalk.utils.duration import CronTab, Duration
@@ -21,12 +21,16 @@ class ScheduledQuery:
         lower_bound: datetime | None = None,
         upper_bound: datetime | None = None,
         tags: Collection[str] | None = None,
+        dataset_name: str | None = None,
         required_resolver_tags: Collection[str] | None = None,
         store_online: bool = True,
         store_offline: bool = True,
         incremental_resolvers: Collection[str] | None = None,
         planner_options: dict[str, str] | None = None,
         resource_group: str | None = None,
+        completion_deadline: timedelta | None = None,
+        num_shards: int | None = None,
+        num_workers: int | None = None,
     ):
         """Create an offline query which runs on a schedule.
 
@@ -64,6 +68,8 @@ class ScheduledQuery:
             incrementalization.
         tags
             Allows selecting resolvers with these tags.
+        dataset_name
+            Associated dataset name for the scheduled query.
         required_resolver_tags
             Requires that resolvers have these tags.
         store_online
@@ -143,6 +149,7 @@ class ScheduledQuery:
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
         self.tags = tags
+        self.dataset_name = dataset_name
         self.required_resolver_tags = required_resolver_tags
         self.filename = caller_filename
         self.store_online = store_online
@@ -154,6 +161,11 @@ class ScheduledQuery:
         self.incremental_resolvers = incremental_resolvers
         self.planner_options = {k: str(v) for k, v in planner_options.items()} if planner_options else None
         self.resource_group = resource_group
+
+        self.completion_deadline = completion_deadline
+
+        self.num_shards = num_shards
+        self.num_workers = num_workers
 
         CRON_QUERY_REGISTRY[name] = self
 

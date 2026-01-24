@@ -6,7 +6,10 @@ from chalk._gen.chalk.lsp.v1 import lsp_pb2 as _lsp_pb2
 from chalk._gen.chalk.nodepools.v1 import gke_pb2 as _gke_pb2
 from chalk._gen.chalk.nodepools.v1 import karpenter_pb2 as _karpenter_pb2
 from chalk._gen.chalk.server.v1 import deployment_pb2 as _deployment_pb2
+from chalk._gen.chalk.server.v1 import environment_pb2 as _environment_pb2
+from chalk._gen.chalk.server.v1 import graph_pb2 as _graph_pb2_1
 from chalk._gen.chalk.server.v1 import log_pb2 as _log_pb2
+from chalk._gen.chalk.utils.v1 import field_change_pb2 as _field_change_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -43,6 +46,18 @@ class BranchScalingState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     BRANCH_SCALING_STATE_SUCCESS: _ClassVar[BranchScalingState]
     BRANCH_SCALING_STATE_IN_PROGRESS: _ClassVar[BranchScalingState]
 
+class BranchServerStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BRANCH_SERVER_STATUS_UNSPECIFIED: _ClassVar[BranchServerStatus]
+    BRANCH_SERVER_STATUS_READY: _ClassVar[BranchServerStatus]
+    BRANCH_SERVER_STATUS_STARTING: _ClassVar[BranchServerStatus]
+    BRANCH_SERVER_STATUS_STOPPING: _ClassVar[BranchServerStatus]
+    BRANCH_SERVER_STATUS_PAUSED: _ClassVar[BranchServerStatus]
+    BRANCH_SERVER_STATUS_OFFLINE: _ClassVar[BranchServerStatus]
+    BRANCH_SERVER_STATUS_DISABLED: _ClassVar[BranchServerStatus]
+    BRANCH_SERVER_STATUS_NOT_CONFIGURED: _ClassVar[BranchServerStatus]
+    BRANCH_SERVER_STATUS_ERROR_COMMUNICATING: _ClassVar[BranchServerStatus]
+
 DEPLOYMENT_BUILD_STATUS_UNSPECIFIED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_UNKNOWN: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_PENDING: DeploymentBuildStatus
@@ -58,6 +73,15 @@ DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: DeploymentBuildStatus
 BRANCH_SCALING_STATE_UNSPECIFIED: BranchScalingState
 BRANCH_SCALING_STATE_SUCCESS: BranchScalingState
 BRANCH_SCALING_STATE_IN_PROGRESS: BranchScalingState
+BRANCH_SERVER_STATUS_UNSPECIFIED: BranchServerStatus
+BRANCH_SERVER_STATUS_READY: BranchServerStatus
+BRANCH_SERVER_STATUS_STARTING: BranchServerStatus
+BRANCH_SERVER_STATUS_STOPPING: BranchServerStatus
+BRANCH_SERVER_STATUS_PAUSED: BranchServerStatus
+BRANCH_SERVER_STATUS_OFFLINE: BranchServerStatus
+BRANCH_SERVER_STATUS_DISABLED: BranchServerStatus
+BRANCH_SERVER_STATUS_NOT_CONFIGURED: BranchServerStatus
+BRANCH_SERVER_STATUS_ERROR_COMMUNICATING: BranchServerStatus
 
 class ActivateDeploymentTarget(_message.Message):
     __slots__ = ("service_kind", "resource_group_name")
@@ -84,14 +108,18 @@ class ActivateDeploymentResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class IndexDeploymentRequest(_message.Message):
-    __slots__ = ("existing_deployment_id",)
+    __slots__ = ("existing_deployment_id", "dry_run")
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    DRY_RUN_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
-    def __init__(self, existing_deployment_id: _Optional[str] = ...) -> None: ...
+    dry_run: bool
+    def __init__(self, existing_deployment_id: _Optional[str] = ..., dry_run: bool = ...) -> None: ...
 
 class IndexDeploymentResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("build_id",)
+    BUILD_ID_FIELD_NUMBER: _ClassVar[int]
+    build_id: str
+    def __init__(self, build_id: _Optional[str] = ...) -> None: ...
 
 class DeployKubeComponentsRequest(_message.Message):
     __slots__ = ("existing_deployment_id", "targets")
@@ -106,25 +134,40 @@ class DeployKubeComponentsRequest(_message.Message):
     ) -> None: ...
 
 class DeployKubeComponentsResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("nonfatal_errors",)
+    NONFATAL_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    nonfatal_errors: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, nonfatal_errors: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class RebuildDeploymentRequest(_message.Message):
-    __slots__ = ("existing_deployment_id", "new_image_tag", "base_image_override", "enable_profiling")
+    __slots__ = (
+        "existing_deployment_id",
+        "new_image_tag",
+        "base_image_override",
+        "enable_profiling",
+        "build_profile",
+        "force_rebuild_dockerfile",
+    )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NEW_IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
     BASE_IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
+    BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    FORCE_REBUILD_DOCKERFILE_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     new_image_tag: str
     base_image_override: str
     enable_profiling: bool
+    build_profile: _environment_pb2.DeploymentBuildProfile
+    force_rebuild_dockerfile: bool
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
         new_image_tag: _Optional[str] = ...,
         base_image_override: _Optional[str] = ...,
         enable_profiling: bool = ...,
+        build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
+        force_rebuild_dockerfile: bool = ...,
     ) -> None: ...
 
 class RebuildDeploymentResponse(_message.Message):
@@ -140,17 +183,40 @@ class RedeployDeploymentRequest(_message.Message):
         "deployment_tags",
         "base_image_override",
         "override_graph",
+        "build_profile",
+        "graph_mutations",
+        "customer_metadata",
+        "display_description",
+        "force_rebuild_dockerfile",
     )
+    class CustomerMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_TAGS_FIELD_NUMBER: _ClassVar[int]
     BASE_IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     OVERRIDE_GRAPH_FIELD_NUMBER: _ClassVar[int]
+    BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    GRAPH_MUTATIONS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    FORCE_REBUILD_DOCKERFILE_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     enable_profiling: bool
     deployment_tags: _containers.RepeatedScalarFieldContainer[str]
     base_image_override: str
     override_graph: _graph_pb2.Graph
+    build_profile: _environment_pb2.DeploymentBuildProfile
+    graph_mutations: _containers.RepeatedCompositeFieldContainer[_graph_pb2_1.GraphMutation]
+    customer_metadata: _containers.ScalarMap[str, str]
+    display_description: str
+    force_rebuild_dockerfile: bool
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
@@ -158,6 +224,11 @@ class RedeployDeploymentRequest(_message.Message):
         deployment_tags: _Optional[_Iterable[str]] = ...,
         base_image_override: _Optional[str] = ...,
         override_graph: _Optional[_Union[_graph_pb2.Graph, _Mapping]] = ...,
+        build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
+        graph_mutations: _Optional[_Iterable[_Union[_graph_pb2_1.GraphMutation, _Mapping]]] = ...,
+        customer_metadata: _Optional[_Mapping[str, str]] = ...,
+        display_description: _Optional[str] = ...,
+        force_rebuild_dockerfile: bool = ...,
     ) -> None: ...
 
 class RedeployDeploymentResponse(_message.Message):
@@ -177,6 +248,8 @@ class UploadSourceRequest(_message.Message):
         "base_image_override",
         "use_grpc",
         "enable_profiling",
+        "build_profile",
+        "force_rebuild_dockerfile",
     )
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ARCHIVE_FIELD_NUMBER: _ClassVar[int]
@@ -185,6 +258,8 @@ class UploadSourceRequest(_message.Message):
     BASE_IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     USE_GRPC_FIELD_NUMBER: _ClassVar[int]
     ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
+    BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    FORCE_REBUILD_DOCKERFILE_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
     archive: bytes
     no_promote: bool
@@ -192,6 +267,8 @@ class UploadSourceRequest(_message.Message):
     base_image_override: str
     use_grpc: bool
     enable_profiling: bool
+    build_profile: _environment_pb2.DeploymentBuildProfile
+    force_rebuild_dockerfile: bool
     def __init__(
         self,
         deployment_id: _Optional[str] = ...,
@@ -201,6 +278,8 @@ class UploadSourceRequest(_message.Message):
         base_image_override: _Optional[str] = ...,
         use_grpc: bool = ...,
         enable_profiling: bool = ...,
+        build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
+        force_rebuild_dockerfile: bool = ...,
     ) -> None: ...
 
 class UploadSourceResponse(_message.Message):
@@ -210,6 +289,105 @@ class UploadSourceResponse(_message.Message):
     status: str
     progress_url: str
     def __init__(self, status: _Optional[str] = ..., progress_url: _Optional[str] = ...) -> None: ...
+
+class PrepareDeploymentRequest(_message.Message):
+    __slots__ = (
+        "git_branch",
+        "git_commit",
+        "git_pr",
+        "git_author",
+        "git_tag",
+        "branch",
+        "requirements",
+        "customer_deployment_tags",
+        "project_settings",
+        "customer_metadata",
+        "display_description",
+        "archive",
+        "no_promote",
+        "dependency_hash",
+        "base_image_override",
+        "use_grpc",
+        "enable_profiling",
+        "build_profile",
+    )
+    class CustomerMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    GIT_BRANCH_FIELD_NUMBER: _ClassVar[int]
+    GIT_COMMIT_FIELD_NUMBER: _ClassVar[int]
+    GIT_PR_FIELD_NUMBER: _ClassVar[int]
+    GIT_AUTHOR_FIELD_NUMBER: _ClassVar[int]
+    GIT_TAG_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FIELD_NUMBER: _ClassVar[int]
+    REQUIREMENTS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_DEPLOYMENT_TAGS_FIELD_NUMBER: _ClassVar[int]
+    PROJECT_SETTINGS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVE_FIELD_NUMBER: _ClassVar[int]
+    NO_PROMOTE_FIELD_NUMBER: _ClassVar[int]
+    DEPENDENCY_HASH_FIELD_NUMBER: _ClassVar[int]
+    BASE_IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    USE_GRPC_FIELD_NUMBER: _ClassVar[int]
+    ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
+    BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    git_branch: str
+    git_commit: str
+    git_pr: str
+    git_author: str
+    git_tag: str
+    branch: str
+    requirements: _containers.RepeatedCompositeFieldContainer[RequirementsFile]
+    customer_deployment_tags: _containers.RepeatedScalarFieldContainer[str]
+    project_settings: _export_pb2.ProjectSettings
+    customer_metadata: _containers.ScalarMap[str, str]
+    display_description: str
+    archive: bytes
+    no_promote: bool
+    dependency_hash: str
+    base_image_override: str
+    use_grpc: bool
+    enable_profiling: bool
+    build_profile: _environment_pb2.DeploymentBuildProfile
+    def __init__(
+        self,
+        git_branch: _Optional[str] = ...,
+        git_commit: _Optional[str] = ...,
+        git_pr: _Optional[str] = ...,
+        git_author: _Optional[str] = ...,
+        git_tag: _Optional[str] = ...,
+        branch: _Optional[str] = ...,
+        requirements: _Optional[_Iterable[_Union[RequirementsFile, _Mapping]]] = ...,
+        customer_deployment_tags: _Optional[_Iterable[str]] = ...,
+        project_settings: _Optional[_Union[_export_pb2.ProjectSettings, _Mapping]] = ...,
+        customer_metadata: _Optional[_Mapping[str, str]] = ...,
+        display_description: _Optional[str] = ...,
+        archive: _Optional[bytes] = ...,
+        no_promote: bool = ...,
+        dependency_hash: _Optional[str] = ...,
+        base_image_override: _Optional[str] = ...,
+        use_grpc: bool = ...,
+        enable_profiling: bool = ...,
+        build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
+    ) -> None: ...
+
+class PrepareDeploymentResponse(_message.Message):
+    __slots__ = ("deployment_id", "status", "progress_url")
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_URL_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    status: str
+    progress_url: str
+    def __init__(
+        self, deployment_id: _Optional[str] = ..., status: _Optional[str] = ..., progress_url: _Optional[str] = ...
+    ) -> None: ...
 
 class LintSourceRequest(_message.Message):
     __slots__ = ("archive", "use_branch_server")
@@ -297,6 +475,10 @@ class GetDeploymentDependenciesResponse(_message.Message):
         "profiling_mode",
         "desired_engine_base_image",
         "final_engine_image",
+        "build_profile",
+        "source_dependency_hash",
+        "dependency_hash",
+        "target_tag",
     )
     RUNTIME_FIELD_NUMBER: _ClassVar[int]
     REQUIREMENTS_FILE_FIELD_NUMBER: _ClassVar[int]
@@ -305,6 +487,10 @@ class GetDeploymentDependenciesResponse(_message.Message):
     PROFILING_MODE_FIELD_NUMBER: _ClassVar[int]
     DESIRED_ENGINE_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
     FINAL_ENGINE_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_DEPENDENCY_HASH_FIELD_NUMBER: _ClassVar[int]
+    DEPENDENCY_HASH_FIELD_NUMBER: _ClassVar[int]
+    TARGET_TAG_FIELD_NUMBER: _ClassVar[int]
     runtime: str
     requirements_file: str
     requirements_contents: str
@@ -312,6 +498,10 @@ class GetDeploymentDependenciesResponse(_message.Message):
     profiling_mode: str
     desired_engine_base_image: str
     final_engine_image: str
+    build_profile: _environment_pb2.DeploymentBuildProfile
+    source_dependency_hash: str
+    dependency_hash: str
+    target_tag: str
     def __init__(
         self,
         runtime: _Optional[str] = ...,
@@ -321,6 +511,10 @@ class GetDeploymentDependenciesResponse(_message.Message):
         profiling_mode: _Optional[str] = ...,
         desired_engine_base_image: _Optional[str] = ...,
         final_engine_image: _Optional[str] = ...,
+        build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
+        source_dependency_hash: _Optional[str] = ...,
+        dependency_hash: _Optional[str] = ...,
+        target_tag: _Optional[str] = ...,
     ) -> None: ...
 
 class GetClusterTimescaleDBRequest(_message.Message):
@@ -526,6 +720,8 @@ class ClusterTimescaleSpecs(_message.Message):
         "node_selector",
         "dns_hostname",
         "bootstrap_cloud_resources",
+        "suspended",
+        "ip_allowlist",
     )
     class PostgresParametersEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -568,6 +764,8 @@ class ClusterTimescaleSpecs(_message.Message):
     NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     DNS_HOSTNAME_FIELD_NUMBER: _ClassVar[int]
     BOOTSTRAP_CLOUD_RESOURCES_FIELD_NUMBER: _ClassVar[int]
+    SUSPENDED_FIELD_NUMBER: _ClassVar[int]
+    IP_ALLOWLIST_FIELD_NUMBER: _ClassVar[int]
     timescale_image: str
     database_name: str
     database_replicas: int
@@ -593,6 +791,8 @@ class ClusterTimescaleSpecs(_message.Message):
     node_selector: _containers.ScalarMap[str, str]
     dns_hostname: str
     bootstrap_cloud_resources: bool
+    suspended: bool
+    ip_allowlist: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         timescale_image: _Optional[str] = ...,
@@ -620,6 +820,8 @@ class ClusterTimescaleSpecs(_message.Message):
         node_selector: _Optional[_Mapping[str, str]] = ...,
         dns_hostname: _Optional[str] = ...,
         bootstrap_cloud_resources: bool = ...,
+        suspended: bool = ...,
+        ip_allowlist: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class CreateClusterTimescaleDBResponse(_message.Message):
@@ -690,6 +892,7 @@ class EnvoyGatewaySpecs(_message.Message):
         "service_annotations",
         "load_balancer_class",
         "cluster_gateway_id",
+        "suspended",
     )
     class ServiceAnnotationsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -710,6 +913,7 @@ class EnvoyGatewaySpecs(_message.Message):
     SERVICE_ANNOTATIONS_FIELD_NUMBER: _ClassVar[int]
     LOAD_BALANCER_CLASS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     gateway_name: str
     gateway_class_name: str
@@ -721,6 +925,7 @@ class EnvoyGatewaySpecs(_message.Message):
     service_annotations: _containers.ScalarMap[str, str]
     load_balancer_class: str
     cluster_gateway_id: str
+    suspended: bool
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -734,6 +939,7 @@ class EnvoyGatewaySpecs(_message.Message):
         service_annotations: _Optional[_Mapping[str, str]] = ...,
         load_balancer_class: _Optional[str] = ...,
         cluster_gateway_id: _Optional[str] = ...,
+        suspended: bool = ...,
     ) -> None: ...
 
 class EnvoyGatewayListener(_message.Message):
@@ -1162,6 +1368,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         "insecure",
         "writers",
         "bootstrap_cloud_resources",
+        "suspended",
     )
     COMMON_PERSISTENCE_SPECS_FIELD_NUMBER: _ClassVar[int]
     API_SERVER_HOST_FIELD_NUMBER: _ClassVar[int]
@@ -1176,6 +1383,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     INSECURE_FIELD_NUMBER: _ClassVar[int]
     WRITERS_FIELD_NUMBER: _ClassVar[int]
     BOOTSTRAP_CLOUD_RESOURCES_FIELD_NUMBER: _ClassVar[int]
+    SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     common_persistence_specs: BackgroundPersistenceCommonSpecs
     api_server_host: str
     kafka_sasl_secret: str
@@ -1189,6 +1397,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     insecure: bool
     writers: _containers.RepeatedCompositeFieldContainer[BackgroundPersistenceWriterSpecs]
     bootstrap_cloud_resources: bool
+    suspended: bool
     def __init__(
         self,
         common_persistence_specs: _Optional[_Union[BackgroundPersistenceCommonSpecs, _Mapping]] = ...,
@@ -1204,6 +1413,7 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
         insecure: bool = ...,
         writers: _Optional[_Iterable[_Union[BackgroundPersistenceWriterSpecs, _Mapping]]] = ...,
         bootstrap_cloud_resources: bool = ...,
+        suspended: bool = ...,
     ) -> None: ...
 
 class CreateClusterBackgroundPersistenceResponse(_message.Message):
@@ -1219,6 +1429,21 @@ class KubeNodeSelector(_message.Message):
     key: str
     value: str
     def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+class AggregatorSpec(_message.Message):
+    __slots__ = ("image_version", "request", "limit")
+    IMAGE_VERSION_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    image_version: str
+    request: KubeResourceConfig
+    limit: KubeResourceConfig
+    def __init__(
+        self,
+        image_version: _Optional[str] = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+    ) -> None: ...
 
 class OtelCollectorSpec(_message.Message):
     __slots__ = ("otel_collector_version", "request", "limit")
@@ -1236,17 +1461,19 @@ class OtelCollectorSpec(_message.Message):
     ) -> None: ...
 
 class ClickHouseSpec(_message.Message):
-    __slots__ = ("click_house_version", "request", "limit", "storage", "gateway_id")
+    __slots__ = ("click_house_version", "request", "limit", "storage", "gateway_id", "instance_type")
     CLICK_HOUSE_VERSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     STORAGE_FIELD_NUMBER: _ClassVar[int]
     GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     click_house_version: str
     request: KubeResourceConfig
     limit: KubeResourceConfig
     storage: KubePersistentVolumeClaim
     gateway_id: str
+    instance_type: str
     def __init__(
         self,
         click_house_version: _Optional[str] = ...,
@@ -1254,51 +1481,218 @@ class ClickHouseSpec(_message.Message):
         limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         storage: _Optional[_Union[KubePersistentVolumeClaim, _Mapping]] = ...,
         gateway_id: _Optional[str] = ...,
+        instance_type: _Optional[str] = ...,
+    ) -> None: ...
+
+class ZombieKillerSpec(_message.Message):
+    __slots__ = ("interval",)
+    INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    interval: int
+    def __init__(self, interval: _Optional[int] = ...) -> None: ...
+
+class CoreDumpCollectorSpec(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class PySpyStackTraceCollectorSpec(_message.Message):
+    __slots__ = (
+        "native",
+        "subprocesses",
+        "idle",
+        "locals",
+        "nonblocking",
+        "max_retained_runs",
+        "interval",
+        "introspection_server_uris",
+    )
+    NATIVE_FIELD_NUMBER: _ClassVar[int]
+    SUBPROCESSES_FIELD_NUMBER: _ClassVar[int]
+    IDLE_FIELD_NUMBER: _ClassVar[int]
+    LOCALS_FIELD_NUMBER: _ClassVar[int]
+    NONBLOCKING_FIELD_NUMBER: _ClassVar[int]
+    MAX_RETAINED_RUNS_FIELD_NUMBER: _ClassVar[int]
+    INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    INTROSPECTION_SERVER_URIS_FIELD_NUMBER: _ClassVar[int]
+    native: bool
+    subprocesses: bool
+    idle: bool
+    locals: bool
+    nonblocking: bool
+    max_retained_runs: int
+    interval: int
+    introspection_server_uris: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        native: bool = ...,
+        subprocesses: bool = ...,
+        idle: bool = ...,
+        locals: bool = ...,
+        nonblocking: bool = ...,
+        max_retained_runs: _Optional[int] = ...,
+        interval: _Optional[int] = ...,
+        introspection_server_uris: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class PerfCollectorSpec(_message.Message):
+    __slots__ = ("perf_polling_frequency_hz", "call_graph", "max_dumps_retained", "dump_duration_seconds")
+    PERF_POLLING_FREQUENCY_HZ_FIELD_NUMBER: _ClassVar[int]
+    CALL_GRAPH_FIELD_NUMBER: _ClassVar[int]
+    MAX_DUMPS_RETAINED_FIELD_NUMBER: _ClassVar[int]
+    DUMP_DURATION_SECONDS_FIELD_NUMBER: _ClassVar[int]
+    perf_polling_frequency_hz: int
+    call_graph: bool
+    max_dumps_retained: int
+    dump_duration_seconds: int
+    def __init__(
+        self,
+        perf_polling_frequency_hz: _Optional[int] = ...,
+        call_graph: bool = ...,
+        max_dumps_retained: _Optional[int] = ...,
+        dump_duration_seconds: _Optional[int] = ...,
+    ) -> None: ...
+
+class PerfettoDaemonSpec(_message.Message):
+    __slots__ = ("config_text", "max_retained_runs", "interval")
+    CONFIG_TEXT_FIELD_NUMBER: _ClassVar[int]
+    MAX_RETAINED_RUNS_FIELD_NUMBER: _ClassVar[int]
+    INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    config_text: str
+    max_retained_runs: int
+    interval: int
+    def __init__(
+        self, config_text: _Optional[str] = ..., max_retained_runs: _Optional[int] = ..., interval: _Optional[int] = ...
+    ) -> None: ...
+
+class ObservabilityDaemonSpec(_message.Message):
+    __slots__ = (
+        "keep_running_when_suspended",
+        "request",
+        "limit",
+        "image_override",
+        "zombie_killer",
+        "core_dump_collector",
+        "py_spy_stack_trace_collector",
+        "perf_collector",
+        "perfetto_daemon",
+    )
+    KEEP_RUNNING_WHEN_SUSPENDED_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    ZOMBIE_KILLER_FIELD_NUMBER: _ClassVar[int]
+    CORE_DUMP_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
+    PY_SPY_STACK_TRACE_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
+    PERF_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
+    PERFETTO_DAEMON_FIELD_NUMBER: _ClassVar[int]
+    keep_running_when_suspended: bool
+    request: KubeResourceConfig
+    limit: KubeResourceConfig
+    image_override: str
+    zombie_killer: ZombieKillerSpec
+    core_dump_collector: CoreDumpCollectorSpec
+    py_spy_stack_trace_collector: PySpyStackTraceCollectorSpec
+    perf_collector: PerfCollectorSpec
+    perfetto_daemon: PerfettoDaemonSpec
+    def __init__(
+        self,
+        keep_running_when_suspended: bool = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        image_override: _Optional[str] = ...,
+        zombie_killer: _Optional[_Union[ZombieKillerSpec, _Mapping]] = ...,
+        core_dump_collector: _Optional[_Union[CoreDumpCollectorSpec, _Mapping]] = ...,
+        py_spy_stack_trace_collector: _Optional[_Union[PySpyStackTraceCollectorSpec, _Mapping]] = ...,
+        perf_collector: _Optional[_Union[PerfCollectorSpec, _Mapping]] = ...,
+        perfetto_daemon: _Optional[_Union[PerfettoDaemonSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class TelemetryDeploymentSpec(_message.Message):
-    __slots__ = ("namespace", "click_house", "otel", "node_selectors")
+    __slots__ = (
+        "namespace",
+        "click_house",
+        "otel",
+        "node_selectors",
+        "dns_name_override",
+        "aggregator",
+        "observability_daemons",
+    )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
     OTEL_FIELD_NUMBER: _ClassVar[int]
     NODE_SELECTORS_FIELD_NUMBER: _ClassVar[int]
+    DNS_NAME_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATOR_FIELD_NUMBER: _ClassVar[int]
+    OBSERVABILITY_DAEMONS_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     click_house: ClickHouseSpec
     otel: OtelCollectorSpec
     node_selectors: _containers.RepeatedCompositeFieldContainer[KubeNodeSelector]
+    dns_name_override: str
+    aggregator: AggregatorSpec
+    observability_daemons: _containers.RepeatedCompositeFieldContainer[ObservabilityDaemonSpec]
     def __init__(
         self,
         namespace: _Optional[str] = ...,
         click_house: _Optional[_Union[ClickHouseSpec, _Mapping]] = ...,
         otel: _Optional[_Union[OtelCollectorSpec, _Mapping]] = ...,
         node_selectors: _Optional[_Iterable[_Union[KubeNodeSelector, _Mapping]]] = ...,
+        dns_name_override: _Optional[str] = ...,
+        aggregator: _Optional[_Union[AggregatorSpec, _Mapping]] = ...,
+        observability_daemons: _Optional[_Iterable[_Union[ObservabilityDaemonSpec, _Mapping]]] = ...,
     ) -> None: ...
 
 class TelemetryDeployment(_message.Message):
-    __slots__ = ("id", "spec", "created_at", "updated_at")
+    __slots__ = ("id", "spec", "created_at", "updated_at", "cluster_id", "suspended_at")
     ID_FIELD_NUMBER: _ClassVar[int]
     SPEC_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    SUSPENDED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
     spec: TelemetryDeploymentSpec
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
+    cluster_id: str
+    suspended_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[str] = ...,
         spec: _Optional[_Union[TelemetryDeploymentSpec, _Mapping]] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        cluster_id: _Optional[str] = ...,
+        suspended_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
-class GetTelemetryDeploymentRequest(_message.Message):
+class ClusterIdentifier(_message.Message):
     __slots__ = ("cluster_id", "namespace")
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     cluster_id: str
     namespace: str
     def __init__(self, cluster_id: _Optional[str] = ..., namespace: _Optional[str] = ...) -> None: ...
+
+class GetTelemetryDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id", "namespace", "cluster_identifier", "telemetry_id", "by_environment")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
+    TELEMETRY_ID_FIELD_NUMBER: _ClassVar[int]
+    BY_ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    namespace: str
+    cluster_identifier: ClusterIdentifier
+    telemetry_id: str
+    by_environment: bool
+    def __init__(
+        self,
+        cluster_id: _Optional[str] = ...,
+        namespace: _Optional[str] = ...,
+        cluster_identifier: _Optional[_Union[ClusterIdentifier, _Mapping]] = ...,
+        telemetry_id: _Optional[str] = ...,
+        by_environment: bool = ...,
+    ) -> None: ...
 
 class GetTelemetryDeploymentResponse(_message.Message):
     __slots__ = ("deployment",)
@@ -1307,18 +1701,25 @@ class GetTelemetryDeploymentResponse(_message.Message):
     def __init__(self, deployment: _Optional[_Union[TelemetryDeployment, _Mapping]] = ...) -> None: ...
 
 class CreateTelemetryDeploymentRequest(_message.Message):
-    __slots__ = ("cluster_id", "spec")
+    __slots__ = ("cluster_id", "spec", "telemetry_deployment_id")
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     SPEC_FIELD_NUMBER: _ClassVar[int]
+    TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     cluster_id: str
     spec: TelemetryDeploymentSpec
+    telemetry_deployment_id: str
     def __init__(
-        self, cluster_id: _Optional[str] = ..., spec: _Optional[_Union[TelemetryDeploymentSpec, _Mapping]] = ...
+        self,
+        cluster_id: _Optional[str] = ...,
+        spec: _Optional[_Union[TelemetryDeploymentSpec, _Mapping]] = ...,
+        telemetry_deployment_id: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateTelemetryDeploymentResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("telemetry_deployment_id",)
+    TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    telemetry_deployment_id: str
+    def __init__(self, telemetry_deployment_id: _Optional[str] = ...) -> None: ...
 
 class DeleteTelemetryDeploymentRequest(_message.Message):
     __slots__ = ("cluster_id", "namespace")
@@ -1329,6 +1730,41 @@ class DeleteTelemetryDeploymentRequest(_message.Message):
     def __init__(self, cluster_id: _Optional[str] = ..., namespace: _Optional[str] = ...) -> None: ...
 
 class DeleteTelemetryDeploymentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class UpdateTelemetryDeploymentRequest(_message.Message):
+    __slots__ = ("telemetry_deployment_id", "spec", "suspended")
+    TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    SPEC_FIELD_NUMBER: _ClassVar[int]
+    SUSPENDED_FIELD_NUMBER: _ClassVar[int]
+    telemetry_deployment_id: str
+    spec: TelemetryDeploymentSpec
+    suspended: bool
+    def __init__(
+        self,
+        telemetry_deployment_id: _Optional[str] = ...,
+        spec: _Optional[_Union[TelemetryDeploymentSpec, _Mapping]] = ...,
+        suspended: bool = ...,
+    ) -> None: ...
+
+class UpdateTelemetryDeploymentResponse(_message.Message):
+    __slots__ = ("deployment",)
+    DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    deployment: TelemetryDeployment
+    def __init__(self, deployment: _Optional[_Union[TelemetryDeployment, _Mapping]] = ...) -> None: ...
+
+class MigrateTelemetryDeploymentRequest(_message.Message):
+    __slots__ = ("telemetry_deployment_id", "migration_image")
+    TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    MIGRATION_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    telemetry_deployment_id: str
+    migration_image: str
+    def __init__(
+        self, telemetry_deployment_id: _Optional[str] = ..., migration_image: _Optional[str] = ...
+    ) -> None: ...
+
+class MigrateTelemetryDeploymentResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
@@ -1359,8 +1795,12 @@ class UpdateEnvironmentVariablesRequest(_message.Message):
     def __init__(self, environment_variables: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class UpdateEnvironmentVariablesResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("field_changes",)
+    FIELD_CHANGES_FIELD_NUMBER: _ClassVar[int]
+    field_changes: _containers.RepeatedCompositeFieldContainer[_field_change_pb2.FieldChange]
+    def __init__(
+        self, field_changes: _Optional[_Iterable[_Union[_field_change_pb2.FieldChange, _Mapping]]] = ...
+    ) -> None: ...
 
 class StartBranchRequest(_message.Message):
     __slots__ = ()
@@ -1404,6 +1844,28 @@ class GetBranchProfileResponse(_message.Message):
         deployment_id: _Optional[str] = ...,
         base_image_sha: _Optional[str] = ...,
         supports_remote_graph_validation: bool = ...,
+    ) -> None: ...
+
+class GetBranchServerStatusRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBranchServerStatusResponse(_message.Message):
+    __slots__ = ("status", "available_replicas", "ready_replicas", "replicas")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    AVAILABLE_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    READY_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    status: BranchServerStatus
+    available_replicas: int
+    ready_replicas: int
+    replicas: int
+    def __init__(
+        self,
+        status: _Optional[_Union[BranchServerStatus, str]] = ...,
+        available_replicas: _Optional[int] = ...,
+        ready_replicas: _Optional[int] = ...,
+        replicas: _Optional[int] = ...,
     ) -> None: ...
 
 class KafkaTopic(_message.Message):
@@ -1512,10 +1974,12 @@ class UpdateNodepoolResponse(_message.Message):
     ) -> None: ...
 
 class DeleteNodepoolRequest(_message.Message):
-    __slots__ = ("name",)
+    __slots__ = ("name", "cluster")
     NAME_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_FIELD_NUMBER: _ClassVar[int]
     name: str
-    def __init__(self, name: _Optional[str] = ...) -> None: ...
+    cluster: str
+    def __init__(self, name: _Optional[str] = ..., cluster: _Optional[str] = ...) -> None: ...
 
 class DeleteNodepoolResponse(_message.Message):
     __slots__ = ()
@@ -1668,7 +2132,17 @@ class CreateDeploymentRequest(_message.Message):
         "requirements",
         "customer_deployment_tags",
         "project_settings",
+        "customer_metadata",
+        "display_description",
     )
+    class CustomerMetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     GIT_BRANCH_FIELD_NUMBER: _ClassVar[int]
     GIT_COMMIT_FIELD_NUMBER: _ClassVar[int]
     GIT_PR_FIELD_NUMBER: _ClassVar[int]
@@ -1678,6 +2152,8 @@ class CreateDeploymentRequest(_message.Message):
     REQUIREMENTS_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_DEPLOYMENT_TAGS_FIELD_NUMBER: _ClassVar[int]
     PROJECT_SETTINGS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     git_branch: str
     git_commit: str
     git_pr: str
@@ -1687,6 +2163,8 @@ class CreateDeploymentRequest(_message.Message):
     requirements: _containers.RepeatedCompositeFieldContainer[RequirementsFile]
     customer_deployment_tags: _containers.RepeatedScalarFieldContainer[str]
     project_settings: _export_pb2.ProjectSettings
+    customer_metadata: _containers.ScalarMap[str, str]
+    display_description: str
     def __init__(
         self,
         git_branch: _Optional[str] = ...,
@@ -1698,6 +2176,8 @@ class CreateDeploymentRequest(_message.Message):
         requirements: _Optional[_Iterable[_Union[RequirementsFile, _Mapping]]] = ...,
         customer_deployment_tags: _Optional[_Iterable[str]] = ...,
         project_settings: _Optional[_Union[_export_pb2.ProjectSettings, _Mapping]] = ...,
+        customer_metadata: _Optional[_Mapping[str, str]] = ...,
+        display_description: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateDeploymentResponse(_message.Message):
@@ -1705,3 +2185,82 @@ class CreateDeploymentResponse(_message.Message):
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
     def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+
+class KubernetesCluster(_message.Message):
+    __slots__ = ("id", "name", "cloud_credentials", "cluster_gateway", "cluster_background_persistence")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_GATEWAY_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_BACKGROUND_PERSISTENCE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    name: str
+    cloud_credentials: _environment_pb2.CloudConfig
+    cluster_gateway: EnvoyGatewaySpecs
+    cluster_background_persistence: BackgroundPersistenceDeploymentSpecs
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        cloud_credentials: _Optional[_Union[_environment_pb2.CloudConfig, _Mapping]] = ...,
+        cluster_gateway: _Optional[_Union[EnvoyGatewaySpecs, _Mapping]] = ...,
+        cluster_background_persistence: _Optional[_Union[BackgroundPersistenceDeploymentSpecs, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetEnvironmentKubeClustersRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetEnvironmentKubeClustersResponse(_message.Message):
+    __slots__ = ("clusters",)
+    CLUSTERS_FIELD_NUMBER: _ClassVar[int]
+    clusters: _containers.RepeatedCompositeFieldContainer[KubernetesCluster]
+    def __init__(self, clusters: _Optional[_Iterable[_Union[KubernetesCluster, _Mapping]]] = ...) -> None: ...
+
+class SuspendEnvironmentRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class SuspendEnvironmentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ResumeEnvironmentRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ResumeEnvironmentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class SuspendClusterGatewayRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class SuspendClusterGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ResumeClusterGatewayRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ResumeClusterGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class SuspendClusterBackgroundPersistenceRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class SuspendClusterBackgroundPersistenceResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ResumeClusterBackgroundPersistenceRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ResumeClusterBackgroundPersistenceResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

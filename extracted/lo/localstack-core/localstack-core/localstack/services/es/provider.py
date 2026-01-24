@@ -3,7 +3,6 @@ from typing import cast
 
 from botocore.exceptions import ClientError
 
-from localstack import constants
 from localstack.aws.api import RequestContext, handler
 from localstack.aws.api.es import (
     ARN,
@@ -68,6 +67,8 @@ from localstack.aws.api.opensearch import (
     VersionString,
 )
 from localstack.aws.connect import connect_to
+from localstack.services.opensearch.packages import ELASTICSEARCH_DEFAULT_VERSION
+from localstack.state import StateVisitor
 
 
 def _version_to_opensearch(
@@ -208,6 +209,11 @@ def exception_mapper():
 
 
 class EsProvider(EsApi):
+    def accept_state_visitor(self, visitor: StateVisitor):
+        # ES state entirely depends on `opensearch`, and delegates its entire state to it
+        # we do not need to manage state in ES
+        pass
+
     def create_elasticsearch_domain(
         self,
         context: RequestContext,
@@ -236,7 +242,7 @@ class EsProvider(EsApi):
         engine_version = (
             _version_to_opensearch(elasticsearch_version)
             if elasticsearch_version
-            else constants.ELASTICSEARCH_DEFAULT_VERSION
+            else ELASTICSEARCH_DEFAULT_VERSION
         )
         kwargs = {
             "DomainName": domain_name,

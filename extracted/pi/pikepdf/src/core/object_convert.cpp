@@ -5,25 +5,23 @@
  * Convert Python types <-> QPDFObjectHandle types
  */
 
-#include <vector>
-#include <map>
 #include <cmath>
+#include <map>
+#include <vector>
 
 #include <qpdf/Constants.h>
-#include <qpdf/Types.h>
 #include <qpdf/DLL.h>
+#include <qpdf/QPDF.hh>
 #include <qpdf/QPDFExc.hh>
 #include <qpdf/QPDFObjGen.hh>
 #include <qpdf/QPDFObjectHandle.hh>
-#include <qpdf/QPDF.hh>
 #include <qpdf/QPDFWriter.hh>
+#include <qpdf/Types.h>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 #include "pikepdf.h"
-
-extern uint DECIMAL_PRECISION;
 
 std::map<std::string, QPDFObjectHandle> dict_builder(const py::dict dict)
 {
@@ -33,7 +31,7 @@ std::map<std::string, QPDFObjectHandle> dict_builder(const py::dict dict)
     for (const auto &item : dict) {
         std::string key = item.first.cast<std::string>();
 
-        auto value  = objecthandle_encode(item.second);
+        auto value = objecthandle_encode(item.second);
         result[key] = value;
     }
     return result;
@@ -59,10 +57,10 @@ public:
         decimal_context.attr("prec") = calc_precision;
     }
     ~DecimalPrecision() { decimal_context.attr("prec") = saved_precision; }
-    DecimalPrecision(const DecimalPrecision &other)            = delete;
-    DecimalPrecision(DecimalPrecision &&other)                 = delete;
+    DecimalPrecision(const DecimalPrecision &other) = delete;
+    DecimalPrecision(DecimalPrecision &&other) = delete;
     DecimalPrecision &operator=(const DecimalPrecision &other) = delete;
-    DecimalPrecision &operator=(DecimalPrecision &&other)      = delete;
+    DecimalPrecision &operator=(DecimalPrecision &&other) = delete;
 
 private:
     py::object decimal_context;
@@ -99,9 +97,9 @@ QPDFObjectHandle objecthandle_encode(const py::handle handle)
     }
 
     auto decimal_module = py::module_::import("decimal");
-    auto Decimal        = decimal_module.attr("Decimal");
+    auto Decimal = decimal_module.attr("Decimal");
     if (py::isinstance(handle, Decimal)) {
-        DecimalPrecision dp(DECIMAL_PRECISION);
+        DecimalPrecision dp(get_decimal_precision());
         auto rounded =
             py::reinterpret_steal<py::object>(PyNumber_Positive(handle.ptr()));
         if (!rounded.attr("is_finite")().cast<bool>())

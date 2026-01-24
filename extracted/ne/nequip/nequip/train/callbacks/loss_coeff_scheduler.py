@@ -185,3 +185,11 @@ class LinearLossCoefficientScheduler(Callback):
         self.start_epoch = state_dict["start_epoch"]
         self.transition_epochs = state_dict["transition_epochs"]
         self.captured_initial_coeffs = state_dict["captured_initial_coeffs"]
+
+    @property
+    def state_key(self) -> str:
+        """"""
+        # See https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.callbacks.Callback.html#lightning.pytorch.callbacks.Callback.state_key
+
+        # This definition assumes that each start epoch is unique.
+        return f"{self.__class__.__qualname__}_{self.start_epoch}"

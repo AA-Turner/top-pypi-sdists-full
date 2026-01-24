@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django_dramatiq
-Version: 0.14.0
+Version: 0.15.0
 Summary: A Django app for Dramatiq.
 Classifier: Environment :: Web Environment
 Classifier: Operating System :: OS Independent
@@ -9,12 +9,12 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: django>=4.2
 Requires-Dist: dramatiq>=1.11

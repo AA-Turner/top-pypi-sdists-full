@@ -1,5 +1,6 @@
 import json
 import time
+from http import HTTPStatus
 from importlib import import_module
 from unittest.mock import Mock, patch
 
@@ -100,14 +101,13 @@ class GoogleTests(OAuth2TestsMixin, TestCase):
             "exp": time.time() - 1,
             "aud": "foo",
         }
+        template_ext = getattr(settings, "ACCOUNT_TEMPLATE_EXTENSION", "html")
         for key, value in wrong_claim_values.items():
             with self.subTest(key):
                 self.identity_overwrites = {key: value}
                 resp = self.login(resp_mock=None)
                 self.assertTemplateUsed(
-                    resp,
-                    "socialaccount/authentication_error.%s"
-                    % getattr(settings, "ACCOUNT_TEMPLATE_EXTENSION", "html"),
+                    resp, f"socialaccount/authentication_error.{template_ext}"
                 )
 
     def test_username_based_on_email(self):
@@ -138,6 +138,7 @@ class GoogleTests(OAuth2TestsMixin, TestCase):
         user_signed_up.connect(on_signed_up)
         self.login(resp_mock=None)
         self.assertTrue(len(sent_signals) > 0)
+        user_signed_up.disconnect(on_signed_up)
 
     @override_settings(ACCOUNT_EMAIL_CONFIRMATION_HMAC=False)
     def test_email_unverified(self):
@@ -273,7 +274,7 @@ def test_login_by_token(db, client, settings_with_google_provider):
                         reverse("google_login_by_token"),
                         {"credential": "dummy", "g_csrf_token": "csrf"},
                     )
-                    assert resp.status_code == 302
+                    assert resp.status_code == HTTPStatus.FOUND
                     socialaccount = SocialAccount.objects.get(uid="123sub")
                     assert socialaccount.user.email == "raymond@example.com"
 

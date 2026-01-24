@@ -16,7 +16,6 @@ short_description: Configure IPv6 SNMP managers.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -158,8 +157,8 @@ EXAMPLES = '''
         community: "1" # id
         state: present
         devprof_system_snmp_community_hosts6:
-          ha-direct: enable
-          host-type: any
+          ha_direct: enable
+          host_type: any
           id: 1
 
 - name: Gathering fortimanager facts

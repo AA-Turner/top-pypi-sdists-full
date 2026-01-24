@@ -85,7 +85,8 @@ class Session(object):
         'activity_details': 'object',
         'maximum_uptime_will_terminate_cluster_at': 'datetime',
         'idle_termination_status': 'IdleTerminationStatus',
-        'ray_dashboard_snapshot_last_reported_at': 'datetime'
+        'ray_dashboard_snapshot_last_reported_at': 'datetime',
+        'is_system_cluster': 'bool'
     }
 
     attribute_map = {
@@ -141,10 +142,11 @@ class Session(object):
         'activity_details': 'activity_details',
         'maximum_uptime_will_terminate_cluster_at': 'maximum_uptime_will_terminate_cluster_at',
         'idle_termination_status': 'idle_termination_status',
-        'ray_dashboard_snapshot_last_reported_at': 'ray_dashboard_snapshot_last_reported_at'
+        'ray_dashboard_snapshot_last_reported_at': 'ray_dashboard_snapshot_last_reported_at',
+        'is_system_cluster': 'is_system_cluster'
     }
 
-    def __init__(self, name=None, project_id=None, cloud_id=None, cluster_config=None, build_id=None, compute_template_id=None, idle_timeout=120, uses_app_config=False, allow_public_internet_traffic=False, user_service_access=None, user_service_token=None, ha_job_id=None, id=None, state=None, pending_state=None, state_data=None, status=None, status_details=None, creator_id=None, created_at=None, archived_at=None, webterminal_auth_url=None, metrics_dashboard_url=None, data_metrics_dashboard_url=None, train_metrics_dashboard_url=None, serve_metrics_dashboard_url=None, serve_deployment_metrics_dashboard_url=None, serve_llm_metrics_dashboard_url=None, supports_full_grafana_view=False, persistent_metrics_url=None, connect_url=None, jupyter_notebook_url=None, ray_dashboard_url=None, access_token=None, service_proxy_url=None, tensorboard_available=None, cluster_config_last_modified_at=None, host_name=None, head_node_ip=None, ssh_authorized_keys=None, ssh_private_key=None, anyscaled_config=None, anyscaled_config_generated_at=None, default_build_id=None, idle_timeout_last_activity_at=None, ray_version=None, ray_version_last_updated_at=None, user_service_url=None, ray_component_activities_last_reported_at=None, activity_details=None, maximum_uptime_will_terminate_cluster_at=None, idle_termination_status=None, ray_dashboard_snapshot_last_reported_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, project_id=None, cloud_id=None, cluster_config=None, build_id=None, compute_template_id=None, idle_timeout=120, uses_app_config=False, allow_public_internet_traffic=False, user_service_access=None, user_service_token=None, ha_job_id=None, id=None, state=None, pending_state=None, state_data=None, status=None, status_details=None, creator_id=None, created_at=None, archived_at=None, webterminal_auth_url=None, metrics_dashboard_url=None, data_metrics_dashboard_url=None, train_metrics_dashboard_url=None, serve_metrics_dashboard_url=None, serve_deployment_metrics_dashboard_url=None, serve_llm_metrics_dashboard_url=None, supports_full_grafana_view=False, persistent_metrics_url=None, connect_url=None, jupyter_notebook_url=None, ray_dashboard_url=None, access_token=None, service_proxy_url=None, tensorboard_available=None, cluster_config_last_modified_at=None, host_name=None, head_node_ip=None, ssh_authorized_keys=None, ssh_private_key=None, anyscaled_config=None, anyscaled_config_generated_at=None, default_build_id=None, idle_timeout_last_activity_at=None, ray_version=None, ray_version_last_updated_at=None, user_service_url=None, ray_component_activities_last_reported_at=None, activity_details=None, maximum_uptime_will_terminate_cluster_at=None, idle_termination_status=None, ray_dashboard_snapshot_last_reported_at=None, is_system_cluster=False, local_vars_configuration=None):  # noqa: E501
         """Session - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -203,6 +205,7 @@ class Session(object):
         self._maximum_uptime_will_terminate_cluster_at = None
         self._idle_termination_status = None
         self._ray_dashboard_snapshot_last_reported_at = None
+        self._is_system_cluster = None
         self.discriminator = None
 
         self.name = name
@@ -298,6 +301,8 @@ class Session(object):
             self.idle_termination_status = idle_termination_status
         if ray_dashboard_snapshot_last_reported_at is not None:
             self.ray_dashboard_snapshot_last_reported_at = ray_dashboard_snapshot_last_reported_at
+        if is_system_cluster is not None:
+            self.is_system_cluster = is_system_cluster
 
     @property
     def name(self):
@@ -1543,6 +1548,29 @@ class Session(object):
         """
 
         self._ray_dashboard_snapshot_last_reported_at = ray_dashboard_snapshot_last_reported_at
+
+    @property
+    def is_system_cluster(self):
+        """Gets the is_system_cluster of this Session.  # noqa: E501
+
+        Represents clusters that are used for system workloads but not visible to the user  # noqa: E501
+
+        :return: The is_system_cluster of this Session.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_system_cluster
+
+    @is_system_cluster.setter
+    def is_system_cluster(self, is_system_cluster):
+        """Sets the is_system_cluster of this Session.
+
+        Represents clusters that are used for system workloads but not visible to the user  # noqa: E501
+
+        :param is_system_cluster: The is_system_cluster of this Session.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_system_cluster = is_system_cluster
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -185,6 +185,8 @@ class Transformer:
             success, transformed_data = self.transform_recur(data, subschema, path)
             if success:
                 return success, transformed_data
+            else:
+                self.errors.pop()
         else: # pylint: disable=useless-else-on-loop
             # exhaused all schemas and didn't return, so we failed :-(
             self.errors.append(Error(path, data, schema, logging_level=LOGGER.level))
@@ -266,13 +268,13 @@ class Transformer:
             else:
                 return False, None
 
-        elif schema.get("format") == "date-time":
+        elif typ == "string" and schema.get("format") == "date-time":
             data = self._transform_datetime(data)
             if data is None:
                 return False, None
 
             return True, data
-        elif schema.get("format") == "singer.decimal":
+        elif typ == "string" and schema.get("format") == "singer.decimal":
             if data is None:
                 return False, None
 

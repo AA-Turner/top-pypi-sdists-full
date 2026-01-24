@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mpld3
-Version: 0.5.11
+Version: 0.5.12
 Summary: D3 Viewer for Matplotlib
 Home-page: http://mpld3.github.com
 Download-URL: http://github.com/jakevdp/mpld3

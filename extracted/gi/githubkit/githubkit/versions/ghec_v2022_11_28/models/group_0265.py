@@ -9,7 +9,6 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Union
 
 from pydantic import Field
@@ -21,29 +20,26 @@ from githubkit.utils import UNSET
 from .group_0003 import SimpleUser
 
 
-class ProjectCard(GitHubModel):
-    """Project Card
+class OrganizationInvitation(GitHubModel):
+    """Organization Invitation
 
-    Project cards represent a scope of work.
+    Organization Invitation
     """
 
-    url: str = Field()
-    id: int = Field(description="The project card's ID")
+    id: int = Field()
+    login: Union[str, None] = Field()
+    email: Union[str, None] = Field()
+    role: str = Field()
+    created_at: str = Field()
+    failed_at: Missing[Union[str, None]] = Field(default=UNSET)
+    failed_reason: Missing[Union[str, None]] = Field(default=UNSET)
+    inviter: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    team_count: int = Field()
     node_id: str = Field()
-    note: Union[str, None] = Field()
-    creator: Union[None, SimpleUser] = Field()
-    created_at: datetime = Field()
-    updated_at: datetime = Field()
-    archived: Missing[bool] = Field(
-        default=UNSET, description="Whether or not the card is archived"
-    )
-    column_name: Missing[str] = Field(default=UNSET)
-    project_id: Missing[str] = Field(default=UNSET)
-    column_url: str = Field()
-    content_url: Missing[str] = Field(default=UNSET)
-    project_url: str = Field()
+    invitation_teams_url: str = Field()
+    invitation_source: Missing[str] = Field(default=UNSET)
 
 
-model_rebuild(ProjectCard)
+model_rebuild(OrganizationInvitation)
 
-__all__ = ("ProjectCard",)
+__all__ = ("OrganizationInvitation",)

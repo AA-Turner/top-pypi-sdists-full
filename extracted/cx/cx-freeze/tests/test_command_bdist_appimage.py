@@ -28,7 +28,7 @@ def test_bdist_appimage_not_posix() -> None:
     """Test the bdist_appimage fail if not on Linux."""
     dist = Distribution(DIST_ATTRS)
     cmd = bdist_appimage(dist)
-    msg = "bdist_appimage is supported only on Linux"
+    msg = "bdist_appimage is only supported on Linux"
     with pytest.raises(PlatformError, match=msg):
         cmd.finalize_options()
 
@@ -39,16 +39,32 @@ def test_bdist_appimage_download_appimagetool() -> None:
     dist = Distribution(DIST_ATTRS)
     cmd = bdist_appimage(dist)
     cmd.finalize_options()
-    appimagekit = cmd.appimagekit
+    appimagetool = cmd.appimagetool
     # remove
-    if os.path.exists(appimagekit):
-        with FileLock(appimagekit + ".lock"):
-            os.unlink(appimagekit)
+    if os.path.exists(appimagetool):
+        with FileLock(appimagetool + ".lock"):
+            os.unlink(appimagetool)
     # force the download
     cmd2 = bdist_appimage(dist)
     cmd2.finalize_options()
     cmd2.ensure_finalized()
+    assert os.path.exists(cmd2.appimagetool)
     assert cmd2.fullname == "foo-0.0"
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Linux test")
+def test_bdist_appimage_download_runtime(tmp_path) -> None:
+    """Test bdist_appimage for "offline" builds."""
+    dist = Distribution(DIST_ATTRS)
+    cmd = bdist_appimage(dist)
+    # use locally installed appimagetool and runtime
+    cmd.appimagetool = str(tmp_path / "appimagetool.AppImage")
+    cmd.runtime_file = str(tmp_path / "type2_runtime")
+    cmd.finalize_options()
+    cmd.ensure_finalized()
+    assert os.path.exists(cmd.appimagetool)
+    assert os.path.exists(cmd.runtime_file)
+    assert cmd.fullname == "foo-0.0"
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
@@ -134,41 +150,63 @@ def test_bdist_appimage_skip_build(tmp_package) -> None:
     tmp_package.freeze()
     tmp_package.freeze("python setup.py bdist_appimage --skip-build")
 
-    file_created = (
-        tmp_package.path / "dist" / f"{name}-{version}-{arch}.AppImage"
-    )
-    assert file_created.is_file(), f"{name}-{version}-{arch}.AppImage"
+    app = tmp_package.path / "dist" / f"{name}-{version}-{arch}.AppImage"
+    assert app.is_file(), f"{name}-{version}-{arch}.AppImage"
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
-def test_bdist_appimage_skip_build_after_build_exe(tmp_package) -> None:
-    """Test the simple sample with bdist_appimage."""
+def test_bdist_appimage_implicit_skip_build(tmp_package) -> None:
+    """Test the simple sample with build_exe then a bdist_appimage.
+
+    This forces a implicit skip_build.
+    """
     name = "hello"
     version = "0.1.2.3"
     arch = platform.machine()
+    updateinformation = f"zsync|{name}-*-{arch}.AppImage.zsync"
 
     tmp_package.create_from_sample("simple")
     tmp_package.freeze(
-        "python setup.py build_exe --silent bdist_appimage --quiet"
+        "python setup.py build_exe --silent bdist_appimage"
+        f" --updateinformation={updateinformation}"
     )
 
-    file_created = (
-        tmp_package.path / "dist" / f"{name}-{version}-{arch}.AppImage"
-    )
-    assert file_created.is_file(), f"{name}-{version}-{arch}.AppImage"
+    app = tmp_package.path / "dist" / f"{name}-{version}-{arch}.AppImage"
+    assert app.is_file(), f"{name}-{version}-{arch}.AppImage"
+
+    result = tmp_package.run(app, timeout=10)
+    result.stdout.fnmatch_lines("Hello from cx_Freeze")
+
+    result = tmp_package.run(f"{app} --appimage-updateinformation", timeout=10)
+    result.stdout.fnmatch_lines(updateinformation)
+
+    zsync_created = app.parent / f"{app.name}.zsync"
+    assert zsync_created.is_file(), f"file not found: {zsync_created}"
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
 def test_bdist_appimage_simple(tmp_package) -> None:
     """Test the simple sample with bdist_appimage."""
-    name = "hello"
+    name = "simple"
     version = "0.1.2.3"
     arch = platform.machine()
 
     tmp_package.create_from_sample("simple")
-    tmp_package.freeze("python setup.py bdist_appimage --quiet")
-
-    file_created = (
-        tmp_package.path / "dist" / f"{name}-{version}-{arch}.AppImage"
+    tmp_package.freeze(
+        "python setup.py -v bdist_appimage"
+        " --updateinformation=guess "
+        f" --target-name={name} --target-version={version}"
     )
-    assert file_created.is_file(), f"{name}-{version}-{arch}.AppImage"
+
+    app = tmp_package.path / "dist" / f"{name}-{version}-{arch}.AppImage"
+    assert app.is_file(), f"file not found: {app}"
+
+    result = tmp_package.run(app, timeout=10)
+    result.stdout.fnmatch_lines("Hello from cx_Freeze")
+
+    result = tmp_package.run(f"{app} --appimage-extract-and-run", timeout=10)
+    result.stdout.fnmatch_lines("Hello from cx_Freeze")
+
+    if os.getenv("GITHUB_REPOSITORY"):
+        zsync_created = app.parent / f"{app.name}.zsync"
+        assert zsync_created.is_file(), f"file not found: {zsync_created}"

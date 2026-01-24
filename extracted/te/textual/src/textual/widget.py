@@ -60,7 +60,7 @@ from textual._types import AnimationLevel
 from textual.actions import SkipAction
 from textual.await_remove import AwaitRemove
 from textual.box_model import BoxModel
-from textual.cache import FIFOCache
+from textual.cache import FIFOCache, LRUCache
 from textual.color import Color
 from textual.compose import compose
 from textual.content import Content, ContentType
@@ -79,7 +79,7 @@ from textual.geometry import (
     Spacing,
     clamp,
 )
-from textual.layout import Layout
+from textual.layout import Layout, WidgetPlacement
 from textual.layouts.vertical import VerticalLayout
 from textual.message import Message
 from textual.messages import CallbackType, Prune
@@ -307,6 +307,7 @@ class Widget(DOMNode):
     }
     """
     COMPONENT_CLASSES: ClassVar[set[str]] = set()
+    """A set of component classes."""
 
     BORDER_TITLE: ClassVar[str] = ""
     """Initial value for border_title attribute."""
@@ -324,7 +325,13 @@ class Widget(DOMNode):
     """
 
     ALLOW_SELECT: ClassVar[bool] = True
-    """Does this widget support automatic text selection? May be further refined with [Widget.allow_select][textual.widget.Widget.allow_select]"""
+    """Does this widget support automatic text selection? May be further refined with [Widget.allow_select][textual.widget.Widget.allow_select]."""
+
+    FOCUS_ON_CLICK: ClassVar[bool] = True
+    """Should focusable widgets be automatically focused on click? Default return value of [Widget.focus_on_click][textual.widget.Widget.focus_on_click]."""
+
+    BLANK: ClassVar[bool] = False
+    """Is this widget blank (no border, no content)? Enable for very large scrolling containers."""
 
     can_focus: bool = False
     """Widget may receive focus."""
@@ -346,7 +353,7 @@ class Widget(DOMNode):
     loading: Reactive[bool] = Reactive(False)
     """If set to `True` this widget will temporarily be replaced with a loading indicator."""
 
-    virtual_size: Reactive[Size] = Reactive(Size(0, 0), layout=True)
+    virtual_size = Reactive(Size(0, 0), layout=True)
     """The virtual (scrollable) [size][textual.geometry.Size] of the widget."""
 
     has_focus: Reactive[bool] = Reactive(False, repaint=False)
@@ -427,6 +434,7 @@ class Widget(DOMNode):
         self._size = _null_size
         self._container_size = _null_size
         self._layout_required = False
+        self._layout_updates = 0
         self._repaint_required = False
         self._scroll_required = False
         self._recompose_required = False
@@ -455,12 +463,14 @@ class Widget(DOMNode):
         # Regions which need to be transferred from cache to screen
         self._repaint_regions: set[Region] = set()
 
+        self._box_model_cache: LRUCache[object, BoxModel] = LRUCache(16)
+
         # Cache the auto content dimensions
         self._content_width_cache: tuple[object, int] = (None, 0)
         self._content_height_cache: tuple[object, int] = (None, 0)
 
         self._arrangement_cache: FIFOCache[
-            tuple[Size, int, Widget], DockArrangeResult
+            tuple[Size, int, bool], DockArrangeResult
         ] = FIFOCache(4)
 
         self._styles_cache = StylesCache()
@@ -605,7 +615,7 @@ class Widget(DOMNode):
         Returns:
             Relative offset.
         """
-        return self.styles.offset.resolve(self.size, self.app.size)
+        return self.styles.offset.resolve(self.size, self.screen.size)
 
     @offset.setter
     def offset(self, offset: tuple[int, int]) -> None:
@@ -676,6 +686,17 @@ class Widget(DOMNode):
         """Text selection information, or `None` if no text is selected in this widget."""
         return self.screen.selections.get(self, None)
 
+    def focus_on_click(self) -> bool:
+        """Automatically focus the widget on click?
+
+        Implement this if you want to change the default click to focus behavior.
+        The default will return the classvar `FOCUS_ON_CLICK`.
+
+        Returns:
+            `True` if Textual should set focus automatically on a click, or `False` if it shouldn't.
+        """
+        return self.FOCUS_ON_CLICK
+
     def get_line_filters(self) -> Sequence[LineFilter]:
         """Get the line filters enabled for this widget.
 
@@ -721,6 +742,22 @@ class Widget(DOMNode):
         widget._post_register(self.app)
         self.app.stylesheet.apply(widget)
         self.refresh(layout=True)
+
+    def process_layout(
+        self, placements: list[WidgetPlacement]
+    ) -> list[WidgetPlacement]:
+        """A hook to allow for the manipulation of widget placements before rendering.
+
+        You could use this as a way to modify the positions / margins of widgets if your requirement is
+        not supported in TCSS. In practice, this method is rarely needed!
+
+        Args:
+            placements: A list of [`WidgetPlacement`][textual.layout.WidgetPlacement] objects.
+
+        Returns:
+            A new list of placements.
+        """
+        return placements
 
     def _uncover(self) -> None:
         """Remove any widget, previously set via [`_cover`][textual.widget.Widget._cover]."""
@@ -981,7 +1018,7 @@ class Widget(DOMNode):
         Returns:
             A widget in place of this widget to indicate a loading.
         """
-        loading_widget = self.app.get_loading_widget()
+        loading_widget = self.screen.get_loading_widget()
         return loading_widget
 
     def set_loading(self, loading: bool) -> None:
@@ -1002,7 +1039,10 @@ class Widget(DOMNode):
 
     def _watch_loading(self, loading: bool) -> None:
         """Called when the 'loading' reactive is changed."""
-        self.set_loading(loading)
+        if not self.is_mounted:
+            self.call_later(self.set_loading, loading)
+        else:
+            self.set_loading(loading)
 
     ExpectType = TypeVar("ExpectType", bound="Widget")
 
@@ -1100,19 +1140,32 @@ class Widget(DOMNode):
                 return child
         raise NoMatches(f"No immediate child of type {expect_type}; {self._nodes}")
 
-    def get_component_rich_style(self, *names: str, partial: bool = False) -> Style:
+    def get_component_rich_style(
+        self, *names: str, partial: bool = False, default: Style | None = None
+    ) -> Style:
         """Get a *Rich* style for a component.
 
         Args:
             names: Names of components.
             partial: Return a partial style (not combined with parent).
+            default: A Style to return if any component style doesn't exist.
+
+        Raises:
+            KeyError: If a component style doesn't exist, and no `default` is provided.
 
         Returns:
             A Rich style object.
         """
 
         if names not in self._rich_style_cache:
-            component_styles = self.get_component_styles(*names)
+            if default is None:
+                component_styles = self.get_component_styles(*names)
+            else:
+                try:
+                    component_styles = self.get_component_styles(*names)
+                except KeyError:
+                    return default
+
             style = component_styles.rich_style
             text_opacity = component_styles.text_opacity
             if text_opacity < 1 and style.bgcolor is not None:
@@ -1248,11 +1301,14 @@ class Widget(DOMNode):
             return text_content
         return Content.from_markup(text_content)
 
-    def _arrange(self, size: Size, optimal: bool = False) -> DockArrangeResult:
-        """Arrange children.
+    def arrange(self, size: Size, optimal: bool = False) -> DockArrangeResult:
+        """Arrange child widgets.
+
+        This method is best left alone, unless you have a deep understanding of what it does.
 
         Args:
             size: Size of container.
+            optimal: Whether fr units should expand the widget (`False`) or avoid expanding the widget (`True`).
 
         Returns:
             Widget locations.
@@ -1406,11 +1462,11 @@ class Widget(DOMNode):
                 # we need to update both odd/even, first-of-type/last-of-type and first-child/last-child
                 for child in children:
                     if child._has_order_style or child._has_odd_or_even:
-                        child._update_styles()
+                        child.update_node_styles()
             else:
                 for child in children:
                     if child._has_order_style:
-                        child._update_styles()
+                        child.update_node_styles()
 
         self.call_later(update_styles, self.displayed_children)
         await_mount = AwaitMount(self, mounted)
@@ -1448,13 +1504,57 @@ class Widget(DOMNode):
             MountError: If there is a problem with the mount request.
 
         Note:
-            Only one of ``before`` or ``after`` can be provided. If both are
-            provided a ``MountError`` will be raised.
+            Only one of `before` or `after` can be provided. If both are
+            provided a `MountError` will be raised.
         """
         if self.app._exit:
             return AwaitMount(self, [])
         await_mount = self.mount(*widgets, before=before, after=after)
         return await_mount
+
+    def mount_compose(
+        self,
+        compose_result: ComposeResult,
+        *,
+        before: int | str | Widget | None = None,
+        after: int | str | Widget | None = None,
+    ) -> AwaitMount:
+        """Mount widgets from the result of a compose method.
+
+        Example:
+        ```python
+            def on_key(self, event:events.Key) -> None:
+
+                def add_key(key:str) -> ComposeResult:
+                    '''Compose key information widgets'''
+                    with containers.HorizontalGroup():
+                        yield Label("You pressed:")
+                        yield Label(key)
+
+                self.mount_compose(add_key(event.key))
+
+        ```
+
+        Args:
+            compose_result: The result of a compose method.
+            before: Optional location to mount before. An `int` is the index
+                of the child to mount before, a `str` is a `query_one` query to
+                find the widget to mount before.
+            after: Optional location to mount after. An `int` is the index
+                of the child to mount after, a `str` is a `query_one` query to
+                find the widget to mount after.
+
+        Returns:
+            An awaitable object that waits for widgets to be mounted.
+
+        Raises:
+            MountError: If there is a problem with the mount request.
+
+        Note:
+            Only one of `before` or `after` can be provided. If both are
+            provided a `MountError` will be raised.
+        """
+        return self.mount_all(compose(self, compose_result), before=before, after=after)
 
     if TYPE_CHECKING:
 
@@ -1623,6 +1723,19 @@ class Widget(DOMNode):
         Returns:
             The size and margin for this widget.
         """
+        cache_key = (
+            container,
+            viewport,
+            width_fraction,
+            height_fraction,
+            constrain_width,
+            greedy,
+            self._layout_updates,
+            self.styles._cache_key,
+        )
+        if cached_box_model := self._box_model_cache.get(cache_key):
+            return cached_box_model
+
         styles = self.styles
         is_border_box = styles.box_sizing == "border-box"
         gutter = styles.gutter  # Padding plus border
@@ -1731,6 +1844,7 @@ class Widget(DOMNode):
         model = BoxModel(
             content_width + gutter.width, content_height + gutter.height, margin
         )
+        self._box_model_cache[cache_key] = model
         return model
 
     def get_content_width(self, container: Size, viewport: Size) -> int:
@@ -1802,16 +1916,18 @@ class Widget(DOMNode):
     ) -> None:
         # TODO: This will cause the widget to refresh, even when there are no links
         # Can we avoid this?
-        if self.auto_links:
+        if self.auto_links and not self.app.mouse_captured:
             self.highlight_link_id = hover_style.link_id
 
     def watch_scroll_x(self, old_value: float, new_value: float) -> None:
-        self.horizontal_scrollbar.position = new_value
+        if self.show_horizontal_scrollbar:
+            self.horizontal_scrollbar.position = new_value
         if round(old_value) != round(new_value):
             self._refresh_scroll()
 
     def watch_scroll_y(self, old_value: float, new_value: float) -> None:
-        self.vertical_scrollbar.position = new_value
+        if self.show_vertical_scrollbar:
+            self.vertical_scrollbar.position = new_value
         if self._anchored and self._anchor_released:
             self._check_anchor()
         if round(old_value) != round(new_value):
@@ -2548,7 +2664,6 @@ class Widget(DOMNode):
             self._repaint_regions.clear()
             self._styles_cache.clear()
             self._styles_cache.set_dirty(self.size.region)
-
             outer_size = self.outer_size
             self._dirty_regions.add(outer_size.region)
             if outer_size:
@@ -3411,7 +3526,11 @@ class Widget(DOMNode):
             return False
 
         while isinstance(widget.parent, Widget) and widget is not self:
+            if not region:
+                break
+
             container = widget.parent
+
             if widget.styles.dock != "none":
                 scroll_offset = Offset(0, 0)
             else:
@@ -3435,13 +3554,11 @@ class Widget(DOMNode):
 
             # Adjust the region by the amount we just scrolled it, and convert to
             # its parent's virtual coordinate system.
-
             region = (
                 (
                     region.translate(-scroll_offset)
                     .translate(container.styles.margin.top_left)
                     .translate(container.styles.border.spacing.top_left)
-                    .translate(-widget.scroll_offset)
                     .translate(container.virtual_region_with_margin.offset)
                 )
                 .grow(container.styles.margin)
@@ -3589,7 +3706,7 @@ class Widget(DOMNode):
         """
         parent = self.parent
         if isinstance(parent, Widget):
-            if self.region:
+            if self._size:
                 self.screen.scroll_to_widget(
                     self,
                     animate=animate,
@@ -3925,14 +4042,9 @@ class Widget(DOMNode):
 
         return renderable
 
-    def watch_mouse_hover(self, _mouse_over: bool) -> None:
-        """Update from CSS if mouse over state changes."""
-        if self._has_hover_style:
-            self._update_styles()
-
     def watch_has_focus(self, _has_focus: bool) -> None:
         """Update from CSS if has focus state changes."""
-        self._update_styles()
+        self.update_node_styles()
 
     def watch_disabled(self, disabled: bool) -> None:
         """Update the styles of the widget and its children when disabled is toggled."""
@@ -3952,7 +4064,7 @@ class Widget(DOMNode):
         except (ScreenStackError, NoActiveAppError, NoScreen):
             pass
 
-        self._update_styles()
+        self.update_node_styles()
 
     def _size_updated(
         self, size: Size, virtual_size: Size, container_size: Size, layout: bool = True
@@ -3998,13 +4110,13 @@ class Widget(DOMNode):
         self._refresh_scrollbars()
         width, height = self.container_size
 
-        if self.show_vertical_scrollbar:
+        if self.show_vertical_scrollbar and self.styles.scrollbar_size_vertical:
             self.vertical_scrollbar.window_virtual_size = virtual_size.height
             self.vertical_scrollbar.window_size = (
                 height - self.scrollbar_size_horizontal
             )
             self.vertical_scrollbar.refresh()
-        if self.show_horizontal_scrollbar:
+        if self.show_horizontal_scrollbar and self.styles.scrollbar_size_horizontal:
             self.horizontal_scrollbar.window_virtual_size = virtual_size.width
             self.horizontal_scrollbar.window_size = width - self.scrollbar_size_vertical
             self.horizontal_scrollbar.refresh()
@@ -4093,6 +4205,9 @@ class Widget(DOMNode):
         Returns:
             A rendered line.
         """
+        if self.BLANK:
+            return Strip.blank(self.size.width, self.visual_style.rich_style)
+
         if self._dirty_regions:
             self._render_content()
         try:
@@ -4111,7 +4226,12 @@ class Widget(DOMNode):
         Returns:
             A list of list of segments.
         """
-        strips = self._styles_cache.render_widget(self, crop)
+        if self.BLANK:
+            strips = [
+                Strip.blank(crop.width, self.visual_style.rich_style)
+            ] * crop.height
+        else:
+            strips = self._styles_cache.render_widget(self, crop)
         return strips
 
     def get_style_at(self, x: int, y: int) -> Style:
@@ -4179,12 +4299,10 @@ class Widget(DOMNode):
         Returns:
             The `Widget` instance.
         """
-        if layout:
+
+        if layout and not self._layout_required:
             self._layout_required = True
-            for ancestor in self.ancestors:
-                if not isinstance(ancestor, Widget):
-                    break
-                ancestor._clear_arrangement_cache()
+            self._layout_updates += 1
 
         if recompose:
             self._recompose_required = True
@@ -4239,9 +4357,7 @@ class Widget(DOMNode):
             ]
         else:
             children_to_remove = selector
-        await_remove = self.app._prune(
-            *children_to_remove, parent=cast(DOMNode, self._parent)
-        )
+        await_remove = self.app._prune(*children_to_remove, parent=self)
         return await_remove
 
     @asynccontextmanager
@@ -4385,21 +4501,29 @@ class Widget(DOMNode):
             else:
                 if self._refresh_styles_required:
                     self._refresh_styles_required = False
-                    self.call_later(self._update_styles)
+                    self.call_later(self.update_node_styles)
                 if self._scroll_required:
                     self._scroll_required = False
-                    if self.styles.keyline[0] != "none":
-                        # TODO: Feels like a hack
-                        # Perhaps there should be an explicit mechanism for backgrounds to refresh when scrolled?
-                        self._set_dirty()
-                    screen.post_message(messages.UpdateScroll())
+                    if not self._layout_required:
+                        if self.styles.keyline[0] != "none":
+                            # TODO: Feels like a hack
+                            # Perhaps there should be an explicit mechanism for backgrounds to refresh when scrolled?
+                            self._set_dirty()
+                        screen.post_message(messages.UpdateScroll())
                 if self._repaint_required:
                     self._repaint_required = False
                     if self.display:
                         screen.post_message(messages.Update(self))
                 if self._layout_required:
                     self._layout_required = False
-                    screen.post_message(messages.Layout())
+                    for ancestor in self.ancestors:
+                        if not isinstance(ancestor, Widget):
+                            break
+                        ancestor._clear_arrangement_cache()
+                        ancestor._layout_updates += 1
+                        if not ancestor.styles.auto_dimensions:
+                            break
+                    screen.post_message(messages.Layout(self))
 
     def focus(self, scroll_visible: bool = True) -> Self:
         """Give focus to this widget.
@@ -4418,6 +4542,7 @@ class Widget(DOMNode):
             except NoScreen:
                 pass
 
+        self.refresh()
         self.app.call_later(set_focus, self)
         return self
 

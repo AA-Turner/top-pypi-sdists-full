@@ -39,7 +39,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Literal
+from typing import Literal, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
@@ -65,7 +65,7 @@ class Settings:
     def __init__(self, load_phonopy_yaml: bool = False):
         """Init method."""
         self.band_indices: list | None = None
-        self.band_paths: list[NDArray] | None = None
+        self.band_paths: list[NDArray] | Literal["auto"] | None = None
         self.band_points: int | None = None
         self.cell_filename: str | None = None
         self.chemical_symbols: list[str] | None = None
@@ -73,12 +73,12 @@ class Settings:
         self.cutoff_frequency = None
         self.displacement_distance = None
         self.displacement_distance_max = None
-        self.dm_decimals = None
+        self.dm_decimals: int | None = None
         self.calculator = None
         self.create_displacements = False
         self.fc_calculator = None
         self.fc_calculator_options = None
-        self.fc_decimals = None
+        self.fc_decimals: int | None = None
         if load_phonopy_yaml:
             self.fc_symmetry = True
         else:
@@ -87,7 +87,7 @@ class Settings:
         self.frequency_conversion_factor = None
         self.frequency_scale_factor = None
         self.group_velocity_delta_q = None
-        self.hdf5_compression = "gzip"
+        self.hdf5_compression: Literal["gzip", "lzf"] | int | None = "gzip"
         self.is_band_const_interval = False
         self.is_diagonal_displacement = True
         self.is_eigenvectors = False
@@ -1051,11 +1051,11 @@ class PhonopySettings(Settings):
     def __init__(self, load_phonopy_yaml: bool = False):
         """Init method."""
         super().__init__(load_phonopy_yaml=load_phonopy_yaml)
-        self.anime_band_index = None
-        self.anime_amplitude = None
-        self.anime_division = None
+        self.anime_band_index: int | None = None
+        self.anime_amplitude: float | None = None
+        self.anime_division: int | None = None
         self.anime_qpoint: list | None = None
-        self.anime_shift = None
+        self.anime_shift: Sequence[float] | None = None
         self.anime_type = "v_sim"
         self.band_format = "yaml"
         self.band_labels = None
@@ -1103,7 +1103,7 @@ class PhonopySettings(Settings):
         else:
             self.read_force_constants = False
         self.readfc_format = "text"
-        self.run_mode = None
+        self.run_mode: str | None = None
         self.show_irreps = False
         self.sscha_iterations = None
         self.store_dense_svecs = True

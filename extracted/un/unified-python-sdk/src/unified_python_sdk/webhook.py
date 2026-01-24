@@ -62,6 +62,7 @@ class Webhook(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.webhook, False, False, "json", shared.Webhook
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -78,7 +79,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createUnifiedWebhook",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -154,6 +155,7 @@ class Webhook(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.webhook, False, False, "json", shared.Webhook
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -170,7 +172,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createUnifiedWebhook",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -241,6 +243,7 @@ class Webhook(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -257,7 +260,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getUnifiedWebhook",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -328,6 +331,7 @@ class Webhook(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -344,7 +348,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getUnifiedWebhook",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -415,6 +419,7 @@ class Webhook(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -431,7 +436,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listUnifiedWebhooks",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -504,6 +509,7 @@ class Webhook(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -520,7 +526,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listUnifiedWebhooks",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -596,6 +602,7 @@ class Webhook(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.webhook, False, False, "json", shared.Webhook
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -612,7 +619,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchUnifiedWebhook",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -686,6 +693,7 @@ class Webhook(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.webhook, False, False, "json", shared.Webhook
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -702,7 +710,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchUnifiedWebhook",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -775,6 +783,7 @@ class Webhook(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -791,7 +800,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchUnifiedWebhookTrigger",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -871,6 +880,7 @@ class Webhook(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -887,7 +897,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchUnifiedWebhookTrigger",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -965,6 +975,7 @@ class Webhook(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -981,7 +992,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeUnifiedWebhook",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1059,6 +1070,7 @@ class Webhook(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1075,7 +1087,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeUnifiedWebhook",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1156,6 +1168,7 @@ class Webhook(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.webhook, False, False, "json", shared.Webhook
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1172,7 +1185,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateUnifiedWebhook",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1246,6 +1259,7 @@ class Webhook(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.webhook, False, False, "json", shared.Webhook
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1262,7 +1276,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateUnifiedWebhook",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1335,6 +1349,7 @@ class Webhook(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1351,7 +1366,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateUnifiedWebhookTrigger",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1431,6 +1446,7 @@ class Webhook(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1447,7 +1463,7 @@ class Webhook(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateUnifiedWebhookTrigger",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

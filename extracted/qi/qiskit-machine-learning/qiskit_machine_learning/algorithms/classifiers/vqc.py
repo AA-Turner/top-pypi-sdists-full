@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2021, 2024.
+# (C) Copyright IBM 2021, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,19 +12,18 @@
 """An implementation of variational quantum classifier."""
 
 from __future__ import annotations
+
 from typing import Callable
 
 import numpy as np
-
 from qiskit import QuantumCircuit
-from qiskit.primitives import BaseSampler
+from qiskit.primitives import BaseSamplerV2
 from qiskit.transpiler.passmanager import BasePassManager
 
 from ...neural_networks import SamplerQNN
-from ...optimizers import Optimizer, OptimizerResult, Minimizer
+from ...optimizers import Minimizer, Optimizer, OptimizerResult
 from ...utils import derive_num_qubits_feature_map_ansatz
 from ...utils.loss_functions import Loss
-
 from .neural_network_classifier import NeuralNetworkClassifier
 
 
@@ -58,7 +57,7 @@ class VQC(NeuralNetworkClassifier):
         initial_point: np.ndarray | None = None,
         callback: Callable[[np.ndarray, float], None] | None = None,
         *,
-        sampler: BaseSampler | None = None,
+        sampler: BaseSamplerV2 | None = None,  # change: BaseSampler is migrated to BaseSamplerV2
         interpret: Callable[[int], int | tuple[int, ...]] | None = None,
         output_shape: int | None = None,
         pass_manager: BasePassManager | None = None,
@@ -69,14 +68,14 @@ class VQC(NeuralNetworkClassifier):
                 If ``None`` is given, the number of qubits is derived from the
                 feature map or ansatz. If neither of those is given, raises an exception.
                 The number of qubits in the feature map and ansatz are adjusted to this
-                number if required.
+                number if required and possible (such adjustment is deprecated).
             feature_map: The (parametrized) circuit to be used as a feature map for the underlying
-                QNN. If ``None`` is given, the :class:`~qiskit.circuit.library.ZZFeatureMap`
+                QNN. If ``None`` is given, the :meth:`~qiskit.circuit.library.zz_feature_map`
                 is used if the number of qubits is larger than 1. For a single qubit
-                classification problem the :class:`~qiskit.circuit.library.ZFeatureMap`
+                classification problem the :meth:`~qiskit.circuit.library.z_feature_map`
                 is used by default.
             ansatz: The (parametrized) circuit to be used as an ansatz for the underlying QNN.
-                If ``None`` is given then the :class:`~qiskit.circuit.library.RealAmplitudes`
+                If ``None`` is given then the :meth:`~qiskit.circuit.library.real_amplitudes`
                 circuit is used.
             loss: A target loss function to be used in training. Default value is ``cross_entropy``.
             optimizer: An instance of an optimizer or a callable to be used in training.

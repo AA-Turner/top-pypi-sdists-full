@@ -23,31 +23,29 @@ T = TypeVar("T", bound=np.ndarray)
 
 
 class AutoComputationModel(BaseComputationModel[T]):
-    """Implement a computation model that automatically finds the right
+    r"""Implement a computation model that automatically finds the right
     computation model based on the array type.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.computation import AutoComputationModel
+        >>> comp_model = AutoComputationModel()
+        >>> arrays = [
+        ...     np.array([[0, 1, 2], [4, 5, 6]]),
+        ...     np.array([[10, 11, 12], [13, 14, 15]]),
+        ... ]
+        >>> out = comp_model.concatenate(arrays, axis=0)
+        >>> out
+        array([[ 0,  1,  2],
+               [ 4,  5,  6],
+               [10, 11, 12],
+               [13, 14, 15]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.computation import AutoComputationModel
-    >>> comp_model = AutoComputationModel()
-    >>> arrays = [
-    ...     np.array([[0, 1, 2], [4, 5, 6]]),
-    ...     np.array([[10, 11, 12], [13, 14, 15]]),
-    ... ]
-    >>> out = comp_model.concatenate(arrays, axis=0)
-    >>> out
-    array([[ 0,  1,  2],
-           [ 4,  5,  6],
-           [10, 11, 12],
-           [13, 14, 15]])
-
-    ```
+        ```
     """
 
-    registry: ClassVar[dict[type, BaseComputationModel]] = {}
+    registry: ClassVar[dict[type, BaseComputationModel[T]]] = {}
 
     def __repr__(self) -> str:
         return f"{self.__class__.__qualname__}(\n  {repr_indent(repr_mapping(self.registry))}\n)"
@@ -77,17 +75,15 @@ class AutoComputationModel(BaseComputationModel[T]):
             RuntimeError: if a computation model is already registered for
                 the array type and ``exist_ok=False``.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> import numpy as np
+            >>> from batcharray.computation import AutoComputationModel, ArrayComputationModel
+            >>> AutoComputationModel.add_computation_model(
+            ...     np.ndarray, ArrayComputationModel(), exist_ok=True
+            ... )
 
-        ```pycon
-
-        >>> import numpy as np
-        >>> from batcharray.computation import AutoComputationModel, ArrayComputationModel
-        >>> AutoComputationModel.add_computation_model(
-        ...     np.ndarray, ArrayComputationModel(), exist_ok=True
-        ... )
-
-        ```
+            ```
         """
         if array_type in cls.registry and not exist_ok:
             msg = (
@@ -110,18 +106,16 @@ class AutoComputationModel(BaseComputationModel[T]):
             ``True`` if a computation model is registered,
                 otherwise ``False``.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> import numpy as np
+            >>> from batcharray.computation import AutoComputationModel
+            >>> AutoComputationModel.has_computation_model(np.ndarray)
+            True
+            >>> AutoComputationModel.has_computation_model(str)
+            False
 
-        ```pycon
-
-        >>> import numpy as np
-        >>> from batcharray.computation import AutoComputationModel
-        >>> AutoComputationModel.has_computation_model(np.ndarray)
-        True
-        >>> AutoComputationModel.has_computation_model(str)
-        False
-
-        ```
+            ```
         """
         return array_type in cls.registry
 
@@ -135,18 +129,16 @@ class AutoComputationModel(BaseComputationModel[T]):
         Returns:
             The computation model associated to the array type.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> import numpy as np
+            >>> from batcharray.computation import AutoComputationModel
+            >>> AutoComputationModel.find_computation_model(np.ndarray)
+            ArrayComputationModel()
+            >>> AutoComputationModel.find_computation_model(np.ma.MaskedArray)
+            MaskedArrayComputationModel()
 
-        ```pycon
-
-        >>> import numpy as np
-        >>> from batcharray.computation import AutoComputationModel
-        >>> AutoComputationModel.find_computation_model(np.ndarray)
-        ArrayComputationModel()
-        >>> AutoComputationModel.find_computation_model(np.ma.MaskedArray)
-        MaskedArrayComputationModel()
-
-        ```
+            ```
         """
         for object_type in array_type.__mro__:
             comp_model = cls.registry.get(object_type, None)
@@ -192,22 +184,20 @@ class AutoComputationModel(BaseComputationModel[T]):
 def register_computation_models() -> None:
     r"""Register computation models to ``AutoComputationModel``.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from batcharray.computation import AutoComputationModel, register_computation_models
+        >>> register_computation_models()
+        >>> comp_model = AutoComputationModel()
+        >>> comp_model
+        AutoComputationModel(
+          ...
+        )
 
-    ```pycon
-
-    >>> from batcharray.computation import AutoComputationModel, register_computation_models
-    >>> register_computation_models()
-    >>> comp_model = AutoComputationModel()
-    >>> comp_model
-    AutoComputationModel(
-      ...
-    )
-
-    ```
+        ```
     """
     # Local import to avoid cyclic dependency
-    from batcharray import computation as cmpt
+    from batcharray import computation as cmpt  # noqa: PLC0415
 
     comp_models = {
         np.ndarray: cmpt.ArrayComputationModel(),

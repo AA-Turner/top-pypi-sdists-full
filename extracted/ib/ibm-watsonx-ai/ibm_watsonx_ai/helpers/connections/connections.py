@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 __all__ = [
     "DataConnection",
     "S3Connection",
@@ -13,12 +15,14 @@ __all__ = [
     "DatabaseLocation",
     "ContainerLocation",
     "GithubLocation",
+    "RemoteFileStorageLocation",
 ]
 
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
+
 
 import copy
 import io
@@ -31,13 +35,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 from warnings import warn
 
-import numpy as np
-from ibm_boto3 import resource
-from ibm_botocore.client import ClientError
-from pandas import DataFrame
-
-import ibm_watsonx_ai._wrappers.requests as requests
-from ibm_watsonx_ai.data_loaders.datasets.experiment import (
+from ibm_watsonx_ai.data_loaders.datasets.constants import (
     DEFAULT_SAMPLE_SIZE_LIMIT,
     DEFAULT_SAMPLING_TYPE,
 )
@@ -62,8 +60,10 @@ from ibm_watsonx_ai.utils.autoai.utils import (
     try_import_autoai_libs,
     try_import_autoai_ts_libs,
 )
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
+    InvalidValue,
     MissingValue,
     WMLClientError,
 )
@@ -73,6 +73,9 @@ from .base_data_connection import BaseDataConnection
 from .base_location import BaseLocation
 
 if TYPE_CHECKING:
+    from ibm_boto3 import resource
+    from pandas import DataFrame
+
     from ibm_watsonx_ai.client import APIClient
     from ibm_watsonx_ai.workspace import WorkSpace
 
@@ -90,6 +93,9 @@ class DataConnection(BaseDataConnection):
 
     :param data_asset_id: data asset ID, if the DataConnection should point to a data asset
     :type data_asset_id: str, optional
+
+    :param connection_asset_id: connection asset ID, if the DataConnection should point to a connection asset
+    :type connection_asset_id: str, optional
     """
 
     def __init__(
@@ -105,13 +111,18 @@ class DataConnection(BaseDataConnection):
             "DatabaseLocation",
             "ContainerLocation",
             "GithubLocation",
+            "RemoteFileStorageLocation",
         ] = None,
         connection: Optional[
-            Union["S3Connection", "NFSConnection", "ConnectionAsset"]
+            Union[
+                "S3Connection",
+                "NFSConnection",
+                "ConnectionAsset",
+            ]
         ] = None,
-        data_asset_id: str = None,
-        connection_asset_id: str = None,
-        **kwargs,
+        data_asset_id: str | None = None,
+        connection_asset_id: str | None = None,
+        **kwargs: Any,
     ):
         if data_asset_id is None and location is None:
             if connection_asset_id is not None:
@@ -139,7 +150,8 @@ class DataConnection(BaseDataConnection):
                 location._training_status = kwargs["training_status"]
 
         elif connection_asset_id is not None and isinstance(
-            location, (S3Location, DatabaseLocation, NFSLocation)
+            location,
+            (S3Location, DatabaseLocation, NFSLocation, RemoteFileStorageLocation),
         ):
             if not isinstance(connection_asset_id, str):
                 raise InvalidIdType(type(connection_asset_id))
@@ -148,11 +160,14 @@ class DataConnection(BaseDataConnection):
         elif (
             connection_asset_id is None
             and connection is None
-            and isinstance(location, (S3Location, DatabaseLocation, NFSLocation))
+            and isinstance(
+                location,
+                (S3Location, DatabaseLocation, NFSLocation, RemoteFileStorageLocation),
+            )
         ):
             raise ValueError(
                 "'connection_asset_id' and 'connection' cannot be empty together when 'location' is "
-                "[S3Location, DatabaseLocation, NFSLocation]."
+                "[S3Location, DatabaseLocation, NFSLocation, RemoteFileStorageLocation]."
             )
 
         super().__init__()
@@ -166,8 +181,10 @@ class DataConnection(BaseDataConnection):
 
         elif isinstance(connection, ConnectionAsset):
             self.type = DataConnectionTypes.CA
-            # note: We expect a `file_name` keyword for CA pointing to COS or NFS.
-            if isinstance(self.location, (S3Location, NFSLocation)):
+            # note: We expect a `file_name` keyword for CA pointing to COS or NFS or RFS.
+            if isinstance(
+                self.location, (S3Location, NFSLocation, RemoteFileStorageLocation)
+            ):
                 self.location.file_name = self.location.path
                 del self.location.path
                 if isinstance(self.location, NFSLocation):
@@ -231,7 +248,7 @@ class DataConnection(BaseDataConnection):
         if getattr(var, "project_type", None) == "local_git_storage":
             self.location.userfs = True
 
-    def set_client(self, api_client=None, **kwargs):
+    def set_client(self, api_client=None, **kwargs: Any):
         """To enable write/read operations with a connection to a service, set an initialized service client in the connection.
 
         :param api_client: API client to connect to a service
@@ -274,7 +291,7 @@ class DataConnection(BaseDataConnection):
 
         .. code-block:: python
 
-            data_connections = DataConnection.from_studio(path='iris_dataset.csv')
+            data_connections = DataConnection.from_studio(path="iris_dataset.csv")
         """
 
         from_studio_deprecation_warning = (
@@ -388,6 +405,20 @@ class DataConnection(BaseDataConnection):
                         for r in flight_conn.discovery(f"{prefix}")["assets"]
                         if r["type"] in include_types
                     ]
+                elif isinstance(self.location, RemoteFileStorageLocation):
+                    container = getattr(self.location, "container", None) or getattr(
+                        self.connection, "container", None
+                    )
+
+                    container_name = f"/{container}/" if container else ""
+
+                    paths = [
+                        r["path"].replace(f"/{container}/", "", 1)
+                        for r in flight_conn.discovery(f"{container_name}{prefix}")[
+                            "assets"
+                        ]
+                        if r["type"] in include_types
+                    ]
                 else:
                     bucket = getattr(self.location, "bucket", None) or getattr(
                         self.connection, "bucket", None
@@ -457,7 +488,10 @@ class DataConnection(BaseDataConnection):
         return get_keys_with_prefix(bucket_objects, prefix)
 
     def _has_folder_location(self) -> bool:
-        if not isinstance(self.location, (S3Location, ContainerLocation, NFSLocation)):
+        if not isinstance(
+            self.location,
+            (S3Location, ContainerLocation, NFSLocation, RemoteFileStorageLocation),
+        ):
             return False
 
         file_extension = os.path.splitext(self.location.get_location())[1]
@@ -477,7 +511,10 @@ class DataConnection(BaseDataConnection):
         :return: list of connections to objects in a bucket / NFS location
         :rtype: list[DataConnection]
         """
-        if not isinstance(self.location, (S3Location, ContainerLocation, NFSLocation)):
+        if not isinstance(
+            self.location,
+            (S3Location, ContainerLocation, NFSLocation, RemoteFileStorageLocation),
+        ):
             raise WMLClientError(
                 error_msg="Can't create separate connections from this DataConnection.",
                 reason="This DataConnection's location is not pointing to a S3 bucket.",
@@ -502,6 +539,13 @@ class DataConnection(BaseDataConnection):
             elif isinstance(self.location, ContainerLocation):
                 new_data_conn = DataConnection(
                     location=ContainerLocation(path=path),
+                )
+            elif isinstance(self.location, RemoteFileStorageLocation):
+                new_data_conn = DataConnection(
+                    connection=self.connection,
+                    location=RemoteFileStorageLocation(
+                        path=path, container=getattr(self.location, "container", None)
+                    ),
                 )
             else:
                 new_data_conn = DataConnection(
@@ -634,6 +678,17 @@ class DataConnection(BaseDataConnection):
                         catalog_name=_dict["location"].get("catalog_name"),
                     ),
                 )
+            elif (
+                _dict["location"].get("file_name") is not None
+                and "container" in _dict["location"]
+            ):
+                data_connection: "DataConnection" = cls(
+                    connection_asset_id=_dict["connection"]["id"],
+                    location=RemoteFileStorageLocation(
+                        path=_dict["location"]["file_name"],
+                        container=_dict["location"]["container"],
+                    ),
+                )
 
             else:
                 if "asset_id" in _dict["connection"]:
@@ -697,7 +752,10 @@ class DataConnection(BaseDataConnection):
         Tuple["DataFrame", "DataFrame"],
         Tuple["DataFrame", "DataFrame", "DataFrame", "DataFrame"],
     ]:
+        from pandas import DataFrame
+
         """This method tries to recreate holdout data."""
+        import numpy as np
 
         if self.auto_pipeline_params.get("prediction_columns") is not None:
             # timeseries
@@ -791,9 +849,7 @@ class DataConnection(BaseDataConnection):
             else:
                 try_import_autoai_libs(minimum_version="1.12.14")
 
-            from autoai_libs.utils.holdout_utils import (
-                make_holdout_split,
-            )
+            from autoai_libs.utils.holdout_utils import make_holdout_split
             from autoai_libs.utils.sampling_utils import numpy_sample_rows
 
             data.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -940,7 +996,7 @@ class DataConnection(BaseDataConnection):
 
         :param read_to_file: stream read data to a file under the path specified as the value of this parameter,
             use this parameter to prevent keeping data in-memory
-        :type read_to_file: str, optional
+        :type read_to_file: str or Path, optional
 
         :param number_of_batch_rows: number of rows to read in each batch when reading from the flight connection
         :type number_of_batch_rows: int, optional
@@ -978,28 +1034,34 @@ class DataConnection(BaseDataConnection):
 
             train_data_connections = optimizer.get_data_connections()
 
-            data = train_data_connections[0].read() # all train data
+            data = train_data_connections[0].read()  # all train data
 
             # or
 
-            X_train, X_holdout, y_train, y_holdout = train_data_connections[0].read(with_holdout_split=True) # train and holdout data
+            X_train, X_holdout, y_train, y_holdout = train_data_connections[0].read(
+                with_holdout_split=True
+            )  # train and holdout data
 
         Your train and test data:
 
         .. code-block:: python
 
-            optimizer.fit(training_data_reference=[DataConnection],
-                          training_results_reference=DataConnection,
-                          test_data_reference=DataConnection)
+            optimizer.fit(
+                training_data_reference=[DataConnection],
+                training_results_reference=DataConnection,
+                test_data_reference=DataConnection,
+            )
 
             test_data_connection = optimizer.get_test_data_connections()
-            X_test, y_test = test_data_connection.read() # only holdout data
+            X_test, y_test = test_data_connection.read()  # only holdout data
 
             # and
 
             train_data_connections = optimizer.get_data_connections()
-            data = train_connections[0].read() # only train data
+            data = train_connections[0].read()  # only train data
         """
+        from pandas import DataFrame
+
         # enables flight automatically for CP4D 4.0.x, 4.5.x
         try:
             use_flight = kwargs.get(
@@ -1182,7 +1244,7 @@ class DataConnection(BaseDataConnection):
 
                 _iam_id = None
                 if headers and headers.get("impersonate"):
-                    _iam_id = headers.get("impersonate", {}).get("iam_id")
+                    _iam_id = get_from_json(headers, ["impersonate", "iam_id"])
 
                 self._api_client._iam_id = _iam_id
 
@@ -1549,16 +1611,21 @@ class DataConnection(BaseDataConnection):
                     return test_X  # return one dataframe
 
     def write(
-        self, data: Union[str, "DataFrame"], remote_name: str = None, **kwargs
+        self,
+        data: str | Path | DataFrame,
+        remote_name: str | None = None,
+        **kwargs: Any,
     ) -> None:
         """Upload a file to a remote data storage.
 
         :param data: local path to the dataset or pandas.DataFrame with data
-        :type data: str
+        :type data: str, Path, pandas.DataFrame
 
         :param remote_name: name of dataset to be stored in the remote data storage
         :type remote_name: str
         """
+        from pandas import DataFrame
+
         # enables flight automatically for CP4D 4.0.x
         use_flight = kwargs.get(
             "use_flight",
@@ -1574,6 +1641,9 @@ class DataConnection(BaseDataConnection):
         impersonate_header = kwargs.get("impersonate_header", None)
 
         headers = None
+        if isinstance(data, str):
+            data = Path(data)
+
         if self._api_client is None:
             token = self._get_token_from_environment()
             if token is None:
@@ -1610,17 +1680,29 @@ class DataConnection(BaseDataConnection):
                     and not use_flight
                 ):  # CLOUD
                     if remote_name is None and (
-                        self._to_dict().get("location", {}).get("path")
-                        or self._to_dict().get("location", {}).get("file_name")
+                        get_from_json(self._to_dict(), ["location", "path"])
+                        or get_from_json(self._to_dict(), ["location", "file_name"])
                     ):
-                        updated_remote_name = data.split("/")[-1]
-                    else:
+                        if isinstance(data, DataFrame):
+                            raise InvalidValue(
+                                "remote_name",
+                                "You must pass the remote name! It cannot be inferred from a DataFrame",
+                            )
+
+                        updated_remote_name = data.name
+                    elif remote_name is not None:
                         updated_remote_name = self._get_path_with_remote_name(
                             self._to_dict(), remote_name
                         )
+                    else:
+                        raise InvalidValue(
+                            "remote_name",
+                            "You must pass the remote name!",
+                        )
+
                     cos_resource_client = self._init_cos_client()
-                    if isinstance(data, str):
-                        with open(data, "rb") as file_data:
+                    if isinstance(data, Path):
+                        with data.open("rb") as file_data:
                             cos_resource_client.Object(
                                 self.location.bucket, updated_remote_name
                             ).upload_fileobj(Fileobj=file_data)
@@ -1655,7 +1737,7 @@ class DataConnection(BaseDataConnection):
                                 )
                             )
 
-                    if isinstance(data, str):
+                    if isinstance(data, Path):
                         self._upload_data_via_flight_service(
                             file_path=data,
                             data_location=self,
@@ -1676,7 +1758,7 @@ class DataConnection(BaseDataConnection):
 
                     else:
                         raise TypeError(
-                            'data should be either of type "str" or "pandas.DataFrame"'
+                            'data should be either of type "str", "Path" or "pandas.DataFrame"'
                         )
 
             else:
@@ -1690,7 +1772,7 @@ class DataConnection(BaseDataConnection):
                     )
                 # CP4D
                 else:
-                    if isinstance(data, str):
+                    if isinstance(data, Path):
                         self._upload_data_via_flight_service(
                             file_path=data,
                             data_location=self,
@@ -1746,7 +1828,7 @@ class DataConnection(BaseDataConnection):
                 )
 
             elif self._api_client is not None:
-                if isinstance(data, str):
+                if isinstance(data, Path):
                     self._upload_data_via_flight_service(
                         file_path=data,
                         data_location=self,
@@ -1783,8 +1865,8 @@ class DataConnection(BaseDataConnection):
             or self.type == DataConnectionTypes.CN
             and getattr(self._api_client, "ICP_PLATFORM_SPACES", False)
         ):
-            if isinstance(data, str):
-                with open(data, "rb") as file_data:
+            if isinstance(data, Path):
+                with data.open("rb") as file_data:
                     self._upload_data_to_file_system(
                         location=self.location.path,
                         data=file_data,
@@ -1802,11 +1884,12 @@ class DataConnection(BaseDataConnection):
                 )
             else:
                 raise TypeError(
-                    'data should be either of type "str" or "pandas.DataFrame"'
+                    'data should be either of type "str", "Path" or "pandas.DataFrame"'
                 )
 
     def _init_cos_client(self) -> "resource":
         """Initiate COS client for further usage."""
+        from ibm_boto3 import resource
         from ibm_botocore.client import Config
 
         # Make sure endpoint_url startswith 'https://' prefix
@@ -1925,11 +2008,11 @@ class DataConnection(BaseDataConnection):
             case _:
                 return None
 
-    def download(self, filename: str) -> None:
+    def download(self, filename: str | Path) -> None:
         """Download a dataset stored in a remote data storage and save to a file.
 
         :param filename: path to the file where data will be downloaded
-        :type filename: str
+        :type filename: str | Path
 
         **Examples**
 
@@ -1938,12 +2021,14 @@ class DataConnection(BaseDataConnection):
             document_reference = DataConnection(
                 connection_asset_id="<connection_id>",
                 location=S3Location(bucket="<bucket_name>", path="path/to/file"),
-                )
-            document_reference.download(filename='results.json')
+            )
+            document_reference.download(filename="results.json")
 
         """
-        with open(filename, "wb") as file:
-            file.write(self.read(binary=True))
+        if isinstance(filename, str):
+            filename = Path(filename)
+
+        filename.write_bytes(self.read(binary=True))
 
     def _get_asset_files(self, flat: bool = True) -> dict:
         """Return asset files.
@@ -1967,7 +2052,7 @@ class DataConnection(BaseDataConnection):
         params = self._api_client._params()
         if flat:
             params["flat"] = "true"
-        response = requests.get(
+        response = self._api_client.httpx_client.get(
             url,
             params=params,
             headers=self._api_client._get_headers(),
@@ -1987,7 +2072,7 @@ class DataConnection(BaseDataConnection):
             asset["path"]
             for asset in asset_files["resources"]
             if asset["type"] == "file"
-            and asset["path"].startswith(self.location.get_location().strip("/"))
+            and asset["path"].startswith(self._get_path_prefix())
         ]
         return file_paths
 
@@ -2017,11 +2102,11 @@ class DataConnection(BaseDataConnection):
             new_data_connections.append(new_data_conn)
         return new_data_connections
 
-    def download_folder(self, local_dir: str | None = None) -> None:
+    def download_folder(self, local_dir: str | Path | None = None) -> None:
         """Download files from a folder and subfolders stored in a remote data storage and save to a local directory.
 
         :param local_dir: path to the local directory where data will be downloaded, download to current working directory if not provided
-        :type local_dir: str, optional
+        :type local_dir: str | Path, optional
 
         **Examples**
 
@@ -2030,12 +2115,22 @@ class DataConnection(BaseDataConnection):
             folder_reference = DataConnection(
                 connection_asset_id="<connection_id>",
                 location=S3Location(bucket="<bucket_name>", path="path/to/folder"),
-                )
+            )
             folder_reference.download(local_dir="./data")
 
         """
+        if isinstance(local_dir, str):
+            local_dir = Path(local_dir)
+
         if not isinstance(
-            self.location, (S3Location, ContainerLocation, NFSLocation, FSLocation)
+            self.location,
+            (
+                S3Location,
+                ContainerLocation,
+                NFSLocation,
+                FSLocation,
+                RemoteFileStorageLocation,
+            ),
         ):
             raise WMLClientError(
                 error_msg="Can't download folder from this DataConnection.",
@@ -2049,9 +2144,9 @@ class DataConnection(BaseDataConnection):
             )
 
         if local_dir is None:
-            local_dir = os.getcwd()
+            local_dir = Path.cwd()
         else:
-            os.makedirs(local_dir, exist_ok=True)
+            local_dir.mkdir(parents=True, exist_ok=True)
 
         file_extension = self.location._get_file_extension()
         if file_extension:
@@ -2059,11 +2154,12 @@ class DataConnection(BaseDataConnection):
                 "Location of the data connection does not point to a folder."
             )
 
-        if (
-            isinstance(self.location, (S3Location, NFSLocation))
-            or isinstance(self.location, ContainerLocation)
+        if isinstance(self.location, (S3Location, NFSLocation)) or (
+            isinstance(self.location, ContainerLocation)
             and self._api_client.CLOUD_PLATFORM_SPACES
         ):  # S3Location, NFSLocation and ContainerLocation on Cloud
+            data_connections = self._get_connections_from_folder(recursive=True)
+        elif isinstance(self.location, RemoteFileStorageLocation):
             data_connections = self._get_connections_from_folder(recursive=True)
         else:  # FSLocation and ContainerLocation on CPD
             file_paths = self._get_file_paths_from_location()
@@ -2071,7 +2167,7 @@ class DataConnection(BaseDataConnection):
         self._download_files_from_connections(data_connections, local_dir)
 
     def _download_files_from_connections(
-        self, data_connections: list["DataConnection"], local_dir: str
+        self, data_connections: list["DataConnection"], local_dir: Path
     ) -> None:
         """Download files from data connections contained in this parent folder DataConnection instance.
 
@@ -2079,20 +2175,33 @@ class DataConnection(BaseDataConnection):
         :type data_connections: list[DataConnection]
 
         :param local_dir: path to the local directory where data will be downloaded
-        :type local_dir: str
+        :type local_dir: Path
 
         """
         for data_connection in data_connections:
             relative_file_path = (
                 data_connection.location.get_location()
-                .removeprefix(self.location.get_location().strip("/"))
+                .removeprefix(self._get_path_prefix())
                 .strip("/")
             )
-            file_path = os.path.join(local_dir, relative_file_path)
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+            if (
+                isinstance(self.location, RemoteFileStorageLocation)
+                and not getattr(self.location, "container", None)
+                and "/" in relative_file_path
+            ):
+                relative_file_path = os.path.sep.join(relative_file_path.split("/")[1:])
+            file_path = local_dir / relative_file_path
+            file_path.parent.mkdir(parents=True, exist_ok=True)
             data_connection.download(file_path)
 
-    def _get_filename(self):
+    def _get_path_prefix(self):
+        path_prefix = self.location.get_location().strip("/")
+        if isinstance(self.location, FSLocation):
+            path_prefix = path_prefix.split("/assets/", maxsplit=1)[-1]
+        return path_prefix
+
+    def _get_filename(self) -> str:
         """Get file name of the file in data connection, if applicable.
 
         :return: file name
@@ -2105,7 +2214,7 @@ class DataConnection(BaseDataConnection):
             document_reference = DataConnection(
                 connection_asset_id="<connection_id>",
                 location=S3Location(bucket="<bucket_name>", path="path/to/file"),
-                )
+            )
             filename = document_reference._get_filename()
 
         """
@@ -2230,7 +2339,7 @@ class S3Location(BaseLocation):
     :type training_status: str, optional
     """
 
-    def __init__(self, bucket: str, path: str, **kwargs) -> None:
+    def __init__(self, bucket: str, path: str, **kwargs: Any) -> None:
         self.bucket = bucket
         self.path = path
 
@@ -2245,6 +2354,8 @@ class S3Location(BaseLocation):
             self.file_format = "xls"
 
     def _get_file_size(self, cos_resource_client: "resource") -> int:
+        from ibm_botocore.client import ClientError
+
         try:
             size = cos_resource_client.Object(
                 self.bucket, getattr(self, "path", getattr(self, "file_name"))
@@ -2270,7 +2381,7 @@ class S3Location(BaseLocation):
 class ContainerLocation(BaseLocation):
     """Connection class to default COS in user Project/Space."""
 
-    def __init__(self, path: Optional[str] = None, **kwargs) -> None:
+    def __init__(self, path: Optional[str] = None, **kwargs: Any) -> None:
         if path is None:
             self.path = "default_autoai_out"
 
@@ -2372,7 +2483,7 @@ class FSLocation(BaseLocation):
                 workspace.api_client._href_definitions.get_wsd_model_attachment_href()
                 + f"/{self.path.split('/assets/', maxsplit=1)[-1]}"
             )
-            path_info_response = requests.head(
+            path_info_response = workspace.api_client.httpx_client.head(
                 url,
                 headers=workspace.api_client._get_headers(),
                 params=workspace.api_client._params(),
@@ -2392,9 +2503,8 @@ class FSLocation(BaseLocation):
             # -- end note
         except (ApiRequestFailure, AttributeError):
             # note try get size of file from local fs
-            size = (
-                os.stat(path=self.path).st_size if os.path.isfile(path=self.path) else 0
-            )
+            local_path = Path(self.path)
+            size = local_path.stat().st_size if local_path.is_file() else 0
             # -- end note
         return size
 
@@ -2423,13 +2533,15 @@ class AssetLocation(BaseLocation):
     def _get_bucket(self, client) -> str:
         """Try to get bucket from data asset."""
         connection_id = self._get_connection_id(client)
-        conn_details = client.connections.get_details(connection_id)
-        bucket = conn_details.get("entity", {}).get("properties", {}).get("bucket")
+        bucket = get_from_json(
+            client.connections.get_details(connection_id),
+            ["entity", "properties", "bucket"],
+        )
 
         if bucket is None:
             asset_details = client.data_assets.get_details(self.id)
-            connection_path = (
-                asset_details["entity"].get("folder_asset", {}).get("connection_path")
+            connection_path = get_from_json(
+                asset_details, ["entity", "folder_asset", "connection_path"]
             )
             if connection_path is None:
                 attachment_content = self._get_attachment_details(client)
@@ -2456,12 +2568,12 @@ class AssetLocation(BaseLocation):
         attachment_url = f"{attachment_url}/attachments/{attachment_id}"
 
         if client.ICP_PLATFORM_SPACES:
-            attachment = requests.get(
+            attachment = client.httpx_client.get(
                 attachment_url, headers=client._get_headers(), params=client._params()
             )
 
         else:
-            attachment = requests.get(
+            attachment = client.httpx_client.get(
                 attachment_url, headers=client._get_headers(), params=client._params()
             )
 
@@ -2486,7 +2598,7 @@ class AssetLocation(BaseLocation):
         return location
 
     def _get_file_size(self, workspace: "WorkSpace", *args) -> "int":
-        asset_info_response = requests.get(
+        asset_info_response = workspace.api_client.httpx_client.get(
             workspace.api_client._href_definitions.get_data_asset_href(self.id),
             params=workspace.api_client._params(),
             headers=workspace.api_client._get_headers(),
@@ -2583,7 +2695,7 @@ class ConnectionAssetLocation(BaseLocation):
     :type training_status: str, optional
     """
 
-    def __init__(self, bucket: str, file_name: str, **kwargs) -> None:
+    def __init__(self, bucket: str, file_name: str, **kwargs: Any) -> None:
         self.bucket = bucket
         self.file_name = file_name
         self.path = file_name
@@ -2595,6 +2707,8 @@ class ConnectionAssetLocation(BaseLocation):
             self._training_status = kwargs["training_status"]
 
     def _get_file_size(self, cos_resource_client: "resource") -> "int":
+        from ibm_botocore.client import ClientError
+
         try:
             size = cos_resource_client.Object(self.bucket, self.path).content_length
         except ClientError:
@@ -2681,7 +2795,7 @@ class NFSLocation(BaseLocation):
             )
             + "/assets"
         )
-        asset_info_response = requests.get(
+        asset_info_response = workspace.api_client.httpx_client.get(
             href, params=params, headers=workspace.api_client._get_headers(None)
         )
         if asset_info_response.status_code != 200:
@@ -2748,14 +2862,20 @@ class DatabaseLocation(BaseLocation):
 
     :param schema_name: name of database schema
     :type schema_name: str
+
     :param table_name: name of database table
-    :type table_name: str
-    catalog_name: name of database catalog, required only for Presto data source
+    :type table_name: str, optional
+
+    :param catalog_name: name of database catalog, required only for Presto data source
     :type catalog_name: str, optional
     """
 
     def __init__(
-        self, schema_name: str, table_name: str, catalog_name: str = None, **kwargs
+        self,
+        schema_name: str,
+        table_name: str | None = None,
+        catalog_name: str | None = None,
+        **kwargs: Any,
     ) -> None:
         self.schema_name = schema_name
         self.table_name = table_name
@@ -2809,3 +2929,46 @@ class _AmazonS3Connection(BaseConnection):
         return {
             key: value for key, value in vars(self).items() if not key.startswith("_")
         }
+
+
+class RemoteFileStorageLocation(BaseLocation):
+    """Location class to remote file storage in DropBox, Box or Azure Blob Storage.
+
+    :param path: data path to file or folder on remote storage
+    :type path: str
+
+    :param container: specific name of the container containing the stored data,
+    relevant only to Azure Blob Storage.
+    :type container: str, optional
+
+    """
+
+    def __init__(self, path: str, container: str | None = None):
+        self.path = path
+        self.container = container or ""
+        self.file_name = None
+
+    def _get_file_size(self) -> None:
+        # TODO: check if possible and how to do it
+        pass
+
+    def _get_file_extension(self) -> str:
+        """
+        Returns the file extension of the file located at the specified location.
+        If no file extension is specified in self.path then empty string "" is returned.
+        """
+        if hasattr(self, "path"):
+            return os.path.splitext(self.path)[-1]
+
+        return os.path.splitext(self.file_name)[-1]
+
+    def to_dict(self) -> dict:
+        result = super().to_dict()
+
+        return result
+
+    def get_location(self) -> str:
+        if getattr(self, "path", None) is not None:
+            return self.path
+        else:
+            return self.file_name

@@ -1,4 +1,4 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal, Union, cast
-
-from typing_extensions import TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias, cast
 
 from streamlit.delta_generator_singletons import get_dg_singleton_instance
 from streamlit.elements.lib.layout_utils import (
@@ -54,7 +52,7 @@ if TYPE_CHECKING:
     from streamlit.elements.lib.mutable_status_container import StatusContainer
     from streamlit.runtime.state import WidgetCallback
 
-SpecType: TypeAlias = Union[int, Sequence[Union[int, float]]]
+SpecType: TypeAlias = int | Sequence[int | float]
 
 
 class LayoutsMixin:
@@ -64,7 +62,7 @@ class LayoutsMixin:
         *,
         border: bool | None = None,
         key: Key | None = None,
-        width: WidthWithoutContent = "stretch",
+        width: Width = "stretch",
         height: Height = "content",
         horizontal: bool = False,
         horizontal_alignment: HorizontalAlignment = "left",
@@ -94,11 +92,13 @@ class LayoutsMixin:
             Additionally, if ``key`` is provided, it will be used as CSS
             class name prefixed with ``st-key-``.
 
-        width : "stretch" or int
+        width : "stretch", "content", or int
             The width of the container. This can be one of the following:
 
             - ``"stretch"`` (default): The width of the container matches the
               width of the parent container.
+            - ``"content"``: The width of the container matches the width of
+              its content.
             - An integer specifying the width in pixels: The container has a
               fixed width. If the specified width is greater than the width of
               the parent container, the width of the container matches the width
@@ -167,13 +167,17 @@ class LayoutsMixin:
               When ``horizontal`` is ``True``, ``"distribute"`` aligns the
               elements the same as ``"top"``.
 
-        gap : "small", "medium", "large", or None
+        gap : "xxsmall", "xsmall", "small", "medium", "large", "xlarge", "xxlarge", or None
             The minimum gap size between the elements inside the container.
             This can be one of the following:
 
+            - ``"xxsmall"``: 0.25rem gap between the elements.
+            - ``"xsmall"``: 0.5rem gap between the elements.
             - ``"small"`` (default): 1rem gap between the elements.
             - ``"medium"``: 2rem gap between the elements.
             - ``"large"``: 4rem gap between the elements.
+            - ``"xlarge"``: 6rem gap between the elements.
+            - ``"xxlarge"``: 8rem gap between the elements.
             - ``None``: No gap between the elements.
 
             The rem unit is relative to the ``theme.baseFontSize``
@@ -201,7 +205,7 @@ class LayoutsMixin:
         >>>
         >>> st.write("This is outside the container")
 
-        .. output ::
+        .. output::
             https://doc-container1.streamlit.app/
             height: 520px
 
@@ -220,7 +224,7 @@ class LayoutsMixin:
         >>>
         >>> container.write("This is inside too")
 
-        .. output ::
+        .. output::
             https://doc-container2.streamlit.app/
             height: 300px
 
@@ -238,7 +242,7 @@ class LayoutsMixin:
         >>>     tile = col.container(height=120)
         >>>     tile.title(":balloon:")
 
-        .. output ::
+        .. output::
             https://doc-container3.streamlit.app/
             height: 350px
 
@@ -254,7 +258,7 @@ class LayoutsMixin:
         >>> with st.container(height=300):
         >>>     st.markdown(long_text)
 
-        .. output ::
+        .. output::
             https://doc-container4.streamlit.app/
             height: 400px
 
@@ -270,7 +274,7 @@ class LayoutsMixin:
         >>> for card in range(3):
         >>>     flex.button(f"Button {card + 1}")
 
-        .. output ::
+        .. output::
             https://doc-container5.streamlit.app/
             height: 250px
 
@@ -300,7 +304,7 @@ class LayoutsMixin:
             block_proto.flex_container.justify = get_justify(vertical_alignment)
             block_proto.flex_container.align = get_align(horizontal_alignment)
 
-        validate_width(width)
+        validate_width(width, allow_content=True)
         block_proto.width_config.CopyFrom(get_width_config(width))
 
         if isinstance(height, int) or border:
@@ -364,13 +368,17 @@ class LayoutsMixin:
               Or ``[1, 2, 3]`` creates three columns where the second one is two times
               the width of the first one, and the third one is three times that width.
 
-        gap : "small", "medium", "large", or None
+        gap : "xxsmall", "xsmall", "small", "medium", "large", "xlarge", "xxlarge", or None
             The size of the gap between the columns. This can be one of the
             following:
 
+            - ``"xxsmall"``: 0.25rem gap between the columns.
+            - ``"xsmall"``: 0.5rem gap between the columns.
             - ``"small"`` (default): 1rem gap between the columns.
             - ``"medium"``: 2rem gap between the columns.
             - ``"large"``: 4rem gap between the columns.
+            - ``"xlarge"``: 6rem gap between the columns.
+            - ``"xxlarge"``: 8rem gap between the columns.
             - ``None``: No gap between the columns.
 
             The rem unit is relative to the ``theme.baseFontSize``
@@ -385,13 +393,15 @@ class LayoutsMixin:
             ``False`` (default), no border is shown. If this is ``True``, a
             border is shown around each column.
 
-        width : int or "stretch"
-            The desired width of the columns expressed in pixels. If this is
-            ``"stretch"`` (default), Streamlit sets the width of the columns to
-            match the width of the parent container. Otherwise, this must be an
-            integer. If the specified width is greater than the width of the
-            parent container, Streamlit sets the width of the columns to match
-            the width of the parent container.
+        width : "stretch" or int
+            The width of the column group. This can be one of the following:
+
+            - ``"stretch"`` (default): The width of the column group matches the
+              width of the parent container.
+            - An integer specifying the width in pixels: The column group has a
+              fixed width. If the specified width is greater than the width of
+              the parent container, the width of the column group matches the
+              width of the parent container.
 
         Returns
         -------
@@ -420,7 +430,7 @@ class LayoutsMixin:
         ...     st.header("An owl")
         ...     st.image("https://static.streamlit.io/examples/owl.jpg")
 
-        .. output ::
+        .. output::
             https://doc-columns1.streamlit.app/
             height: 620px
 
@@ -441,7 +451,7 @@ class LayoutsMixin:
         >>> col2.subheader("A narrow column with the data")
         >>> col2.write(df)
 
-        .. output ::
+        .. output::
             https://doc-columns2.streamlit.app/
             height: 550px
 
@@ -457,7 +467,7 @@ class LayoutsMixin:
         >>> middle.button("Click me", use_container_width=True)
         >>> right.checkbox("Check me")
 
-        .. output ::
+        .. output::
             https://doc-columns-bottom-widgets.streamlit.app/
             height: 200px
 
@@ -476,7 +486,7 @@ class LayoutsMixin:
         >>> middle.image("https://static.streamlit.io/examples/dog.jpg")
         >>> right.image("https://static.streamlit.io/examples/owl.jpg")
 
-        .. output ::
+        .. output::
             https://doc-columns-vertical-alignment.streamlit.app/
             height: 600px
 
@@ -493,7 +503,7 @@ class LayoutsMixin:
         >>> middle.markdown("Lorem ipsum " * 5)
         >>> right.markdown("Lorem ipsum ")
 
-        .. output ::
+        .. output::
             https://doc-columns-borders.streamlit.app/
             height: 250px
 
@@ -640,7 +650,7 @@ class LayoutsMixin:
         ...     st.header("An owl")
         ...     st.image("https://static.streamlit.io/examples/owl.jpg", width=200)
 
-        .. output ::
+        .. output::
             https://doc-tabs1.streamlit.app/
             height: 620px
 
@@ -661,7 +671,7 @@ class LayoutsMixin:
         >>> tab2.subheader("A tab with the data")
         >>> tab2.write(df)
 
-        .. output ::
+        .. output::
             https://doc-tabs2.streamlit.app/
             height: 700px
 
@@ -686,7 +696,7 @@ class LayoutsMixin:
         >>>     st.header("An owl")
         >>>     st.image("https://static.streamlit.io/examples/owl.jpg", width=200)
 
-        .. output ::
+        .. output::
             https://doc-tabs3.streamlit.app/
             height: 620px
 
@@ -791,6 +801,8 @@ class LayoutsMixin:
               <https://fonts.google.com/icons?icon.set=Material+Symbols&icon.style=Rounded>`_
               font library.
 
+            - ``"spinner"``: Displays a spinner as an icon.
+
         width : "stretch" or int
             The width of the expander container. This can be one of the following:
 
@@ -817,7 +829,7 @@ class LayoutsMixin:
         ...     ''')
         ...     st.image("https://static.streamlit.io/examples/dice.jpg")
 
-        .. output ::
+        .. output::
             https://doc-expander.streamlit.app/
             height: 750px
 
@@ -835,7 +847,7 @@ class LayoutsMixin:
         ... ''')
         >>> expander.image("https://static.streamlit.io/examples/dice.jpg")
 
-        .. output ::
+        .. output::
             https://doc-expander.streamlit.app/
             height: 750px
 
@@ -862,6 +874,7 @@ class LayoutsMixin:
         self,
         label: str,
         *,
+        type: Literal["primary", "secondary", "tertiary"] = "secondary",
         help: str | None = None,
         icon: str | None = None,
         disabled: bool = False,
@@ -912,6 +925,17 @@ class LayoutsMixin:
             including the Markdown directives described in the ``body``
             parameter of ``st.markdown``.
 
+        type : "primary", "secondary", or "tertiary"
+            An optional string that specifies the button type. This can be one
+            of the following:
+
+            - ``"primary"``: The button's background is the app's primary color
+              for additional emphasis.
+            - ``"secondary"`` (default): The button's background coordinates
+              with the app's background color for normal emphasis.
+            - ``"tertiary"``: The button is plain text without a border or
+              background for subtlety.
+
         icon : str
             An optional emoji or icon to display next to the button label. If ``icon``
             is ``None`` (default), no icon is displayed. If ``icon`` is a
@@ -928,6 +952,8 @@ class LayoutsMixin:
               Thumb Up icon. Find additional icons in the `Material Symbols \
               <https://fonts.google.com/icons?icon.set=Material+Symbols&icon.style=Rounded>`_
               font library.
+
+            - ``"spinner"``: Displays a spinner as an icon.
 
         disabled : bool
             An optional boolean that disables the popover button if set to
@@ -981,7 +1007,7 @@ class LayoutsMixin:
         >>>
         >>> st.write("Your name:", name)
 
-        .. output ::
+        .. output::
             https://doc-popover.streamlit.app/
             height: 400px
 
@@ -998,7 +1024,7 @@ class LayoutsMixin:
         >>> if blue:
         ...     st.write(":blue[This is a blue item.]")
 
-        .. output ::
+        .. output::
             https://doc-popover2.streamlit.app/
             height: 400px
 
@@ -1009,9 +1035,17 @@ class LayoutsMixin:
         if use_container_width is not None:
             width = "stretch" if use_container_width else "content"
 
+        # Checks whether the entered button type is one of the allowed options
+        if type not in ["primary", "secondary", "tertiary"]:
+            raise StreamlitAPIException(
+                'The type argument to st.popover must be "primary", "secondary", or "tertiary". '
+                f'\nThe argument passed was "{type}".'
+            )
+
         popover_proto = BlockProto.Popover()
         popover_proto.label = label
         popover_proto.disabled = disabled
+        popover_proto.type = type
         if help:
             popover_proto.help = str(help)
         if icon is not None:
@@ -1122,7 +1156,7 @@ class LayoutsMixin:
         >>>
         >>> st.button("Rerun")
 
-        .. output ::
+        .. output::
             https://doc-status.streamlit.app/
             height: 300px
 
@@ -1145,7 +1179,7 @@ class LayoutsMixin:
         >>>
         >>> st.button("Rerun")
 
-        .. output ::
+        .. output::
             https://doc-status-update.streamlit.app/
             height: 300px
 
@@ -1160,6 +1194,7 @@ class LayoutsMixin:
         *,
         dismissible: bool = True,
         width: Literal["small", "large", "medium"] = "small",
+        icon: str | None = None,
         on_dismiss: Literal["ignore", "rerun"] | WidgetCallback = "ignore",
     ) -> Dialog:
         """Inserts the dialog container.
@@ -1168,7 +1203,12 @@ class LayoutsMixin:
         The dialog_decorator also has a more descriptive docstring since it is user-facing.
         """
         return get_dg_singleton_instance().dialog_container_cls._create(
-            self.dg, title, dismissible=dismissible, width=width, on_dismiss=on_dismiss
+            self.dg,
+            title,
+            dismissible=dismissible,
+            width=width,
+            icon=icon,
+            on_dismiss=on_dismiss,
         )
 
     @property

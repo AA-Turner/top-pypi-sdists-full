@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 import copy
+import json
 import logging
 import math
 import os
 import pickle
 import time
+import traceback
 from abc import abstractmethod
-from typing import Any, Dict, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Type, Union, TYPE_CHECKING
 
 import pandas as pd
 from numpy import ndarray
@@ -21,7 +25,7 @@ from autogluon.common.utils.log_utils import reset_logger_for_remote_call
 
 from ...pseudolabeling.pseudolabeling import assert_pseudo_column_match
 from ...ray.resources_calculator import ResourceCalculatorFactory
-from ...utils.exceptions import NotEnoughCudaMemoryError, NotEnoughMemoryError, TimeLimitExceeded
+from ...utils.exceptions import AutoGluonException, NoGPUError, NoValidFeatures, NoStackFeatures, NotValidStacker, InsufficientTime, NotEnoughCudaMemoryError, NotEnoughMemoryError, TimeLimitExceeded
 from ..abstract.abstract_model import AbstractModel
 
 if TYPE_CHECKING:
@@ -228,7 +232,7 @@ class FoldFittingStrategy(AbstractFoldFittingStrategy):
         self.user_resources_per_job = user_resources_per_job
 
     def _get_fold_time_limit(self, fold_ctx):
-        _, folds_finished, folds_left, folds_to_fit, _, _ = self._get_fold_properties(fold_ctx)
+        _, folds_finished, folds_left, folds_to_fit, _, _, _ = self._get_fold_properties(fold_ctx)
         time_elapsed = time.time() - self.time_start
         if self.time_limit is not None:
             time_left = self.time_limit - time_elapsed
@@ -261,7 +265,7 @@ class FoldFittingStrategy(AbstractFoldFittingStrategy):
         self.bagged_ensemble_model._add_child_num_gpus(num_gpus=fold_model.fit_num_gpus)
 
     def _predict_oof(self, fold_model: AbstractModel, fold_ctx) -> Tuple[AbstractModel, ndarray]:
-        fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix = self._get_fold_properties(fold_ctx)
+        fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix, _ = self._get_fold_properties(fold_ctx)
         _, val_index = fold
         X_val_fold = self.X.iloc[val_index, :]
         y_val_fold = self.y.iloc[val_index]
@@ -284,10 +288,10 @@ class FoldFittingStrategy(AbstractFoldFittingStrategy):
 
     @staticmethod
     def _get_fold_properties(fold_ctx):
-        fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix = [
-            fold_ctx[f] for f in ["fold", "folds_finished", "folds_left", "folds_to_fit", "is_last_fold", "model_name_suffix"]
+        fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix, random_seed = [
+            fold_ctx[f] for f in ["fold", "folds_finished", "folds_left", "folds_to_fit", "is_last_fold", "model_name_suffix", "random_seed"]
         ]
-        return fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix
+        return fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix, random_seed
 
 
 class SequentialLocalFoldFittingStrategy(FoldFittingStrategy):
@@ -357,7 +361,7 @@ class SequentialLocalFoldFittingStrategy(FoldFittingStrategy):
         self._update_bagged_ensemble(fold_model, pred_proba, fold_ctx)
 
     def _fit(self, model_base, time_start_fold, time_limit_fold, fold_ctx, kwargs):
-        fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix = self._get_fold_properties(fold_ctx)
+        fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix, random_seed = self._get_fold_properties(fold_ctx)
         train_index, val_index = fold
         X_fold, X_val_fold = self.X.iloc[train_index, :], self.X.iloc[val_index, :]
         y_fold, y_val_fold = self.y.iloc[train_index], self.y.iloc[val_index]
@@ -376,6 +380,9 @@ class SequentialLocalFoldFittingStrategy(FoldFittingStrategy):
             else:
                 kwargs_fold["sample_weight"] = self.sample_weight[train_index]
                 kwargs_fold["sample_weight_val"] = self.sample_weight[val_index]
+
+        if random_seed is not None:
+            kwargs_fold["random_seed"] = random_seed
 
         if is_pseudo:
             logger.log(15, f"{len(self.X_pseudo)} extra rows of pseudolabeled data added to training set for {fold_model.name}")
@@ -401,7 +408,9 @@ def _ray_fit(
     y: Union[str, pd.DataFrame],
     X_pseudo: Union[str, pd.DataFrame],
     y_pseudo: Union[str, pd.DataFrame],
+    task_id: int,
     fold_ctx: Dict[str, Any],
+    task_gpu_ids: List[int],
     time_limit_fold: float,
     save_bag_folds: bool,
     resources: Dict[str, Any],
@@ -410,6 +419,10 @@ def _ray_fit(
     model_sync_path: Optional[str] = None,
 ):
     import ray  # ray must be present
+    if task_gpu_ids:
+        # Set CUDA_VISIBLE_DEVICES to the assigned GPU IDs
+        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, task_gpu_ids))
+        logger.debug(f"Set CUDA_VISIBLE_DEVICES to {task_gpu_ids}")
 
     reset_logger_for_remote_call(verbosity=kwargs_fold.get("verbosity",2))
 
@@ -418,8 +431,21 @@ def _ray_fit(
     logger.debug(f"head node: {is_head_node}")
     logger.debug(f"executing fold on node {node_id}")
     logger.log(10, "ray worker training")
+
+    # Optional: Debug logging for GPU assignments
+    if kwargs_fold.get("debug_gpu_assignment", False):
+        try:
+            import torch
+            visible_gpus = os.environ.get("CUDA_VISIBLE_DEVICES", "not set")
+            num_gpus = torch.cuda.device_count()
+            current_gpu = torch.cuda.current_device() if torch.cuda.is_available() else "N/A"
+            print(f"[GPU DEBUG] CUDA_VISIBLE_DEVICES={visible_gpus}, Torch sees {num_gpus} GPUs, Using GPU {current_gpu}", flush=True)
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"[GPU DEBUG] Could not get GPU info: {e}", flush=True)
     time_start_fold = time.time()
-    fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix = FoldFittingStrategy._get_fold_properties(fold_ctx)
+    fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix, _ = FoldFittingStrategy._get_fold_properties(fold_ctx)
     train_index, val_index = fold
     fold_model = copy.deepcopy(model_base)
     fold_model.name = f"{fold_model.name}{model_name_suffix}"
@@ -443,17 +469,26 @@ def _ray_fit(
         logger.log(15, f"{len(X_pseudo)} extra rows of pseudolabeled data added to training set for {fold_model.name}")
         X_fold = pd.concat([X_fold, X_pseudo], axis=0, ignore_index=True)
         y_fold = pd.concat([y_fold, y_pseudo], axis=0, ignore_index=True)
-    fold_model.fit(X=X_fold, y=y_fold, X_val=X_val_fold, y_val=y_val_fold, time_limit=time_limit_fold, **resources, **kwargs_fold)
-    time_train_end_fold = time.time()
-    fold_model.fit_time = time_train_end_fold - time_start_fold
-    fold_model, pred_proba = _ray_predict_oof(
-        fold_model=fold_model,
-        X_val_fold=X_val_fold,
-        y_val_fold=y_val_fold,
-        num_cpus=resources["num_cpus"],
-        save_bag_folds=save_bag_folds,
-    )
-    save_path = fold_model.save()
+    try:
+        fold_model.fit(X=X_fold, y=y_fold, X_val=X_val_fold, y_val=y_val_fold, time_limit=time_limit_fold, **resources, **kwargs_fold)
+
+        time_train_end_fold = time.time()
+        fold_model.fit_time = time_train_end_fold - time_start_fold
+        fold_model, pred_proba = _ray_predict_oof(
+            fold_model=fold_model,
+            X_val_fold=X_val_fold,
+            y_val_fold=y_val_fold,
+            num_cpus=resources["num_cpus"],
+            save_bag_folds=save_bag_folds,
+        )
+        save_path = fold_model.save()
+    except (AutoGluonException, ImportError, MemoryError) as e:
+        e = encode_exception(e)
+        return {
+            "status": "expected_error",
+            "error": e,
+        }
+
     if model_sync_path is not None and not is_head_node:
         model_sync_path = model_sync_path + f"{fold_model.name}/"  # s3 path hence need "/" as the saperator
         bucket, prefix = s3_path_to_bucket_prefix(model_sync_path)
@@ -509,11 +544,12 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
             The amount of time used to do out of folds predictions for all folds.
     """
 
-    def __init__(self, *, num_jobs: int, num_folds_parallel: int, max_memory_usage_ratio: float = 0.8, model_sync_path: Optional[str] = None, **kwargs):
+    def __init__(self, *, num_jobs: int, num_folds_parallel: int, max_memory_usage_ratio: float = 0.8, model_sync_path: Optional[str] = None, debug_gpu_assignment: bool = False, **kwargs):
         super().__init__(**kwargs)
         self.ray = try_import_ray()
         self.max_memory_usage_ratio = max_memory_usage_ratio
         self.model_sync_path = model_sync_path
+        self.debug_gpu_assignment = debug_gpu_assignment
         self.time_start_fit = None
         self.time_end_fit = None
         self.fit_time = 0
@@ -580,7 +616,17 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
 
     def _process_fold_results(self, finished, unfinished, fold_ctx):
         try:
-            fold_model, pred_proba, time_start_fit, time_end_fit, predict_time, predict_1_time, predict_n_size, fit_num_cpus, fit_num_gpus = self.ray.get(finished)
+            out = self.ray.get(finished)
+            if isinstance(out, dict):
+                # TODO: Improve the structure of this logic for better logging
+                # TODO: Also do this for HPO w/ Ray
+                assert "status" in out
+                assert out["status"] == "expected_error"
+                err_dict = out["error"]
+                err = decode_exception(err_dict)
+                raise err
+            else:
+                fold_model, pred_proba, time_start_fit, time_end_fit, predict_time, predict_1_time, predict_n_size, fit_num_cpus, fit_num_gpus = out
             assert fold_ctx is not None
             self._update_bagged_ensemble(
                 fold_model=fold_model,
@@ -635,9 +681,10 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
     def _run_parallel(self, X, y, X_pseudo, y_pseudo, model_base_ref, time_limit_fold, head_node_id):
         job_refs = []
         job_fold_map = {}
+        gpu_assignments = {}
 
         # spread the task
-        for job in self.jobs:
+        for task_id, job in enumerate(self.jobs):
             fold_ctx = job
             ref = self._fit(
                 model_base_ref=model_base_ref,
@@ -646,7 +693,9 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
                 X_pseudo_ref=X_pseudo,
                 y_pseudo_ref=y_pseudo,
                 time_limit_fold=time_limit_fold,
+                task_id=task_id,
                 fold_ctx=fold_ctx,
+                gpu_assignments = gpu_assignments,
                 resources=self.resources,
                 resources_model=self.resources_model,
                 head_node_id=head_node_id,
@@ -679,7 +728,9 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
         a job could start fitting a model while the results are processed; resulting in the fit running out of memory
         due to the overhead of processing and storing the result.
         """
-        for job in self.jobs:
+        gpu_assignments = {}
+
+        for task_id, job in enumerate(self.jobs):
             fold_ctx = job
             ref = self._fit(
                 model_base_ref=model_base_ref,
@@ -688,7 +739,9 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
                 X_pseudo_ref=X_pseudo,
                 y_pseudo_ref=y_pseudo,
                 time_limit_fold=time_limit_fold,
+                task_id=task_id,
                 fold_ctx=fold_ctx,
+                gpu_assignments=gpu_assignments,
                 resources=self.resources,
                 resources_model=self.resources_model,
                 head_node_id=head_node_id,
@@ -700,10 +753,30 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
 
         self._update_bagged_ensemble_times()
 
+    def _calculate_gpu_assignment(self, task_id: int, gpus_per_task: int | float, total_gpus: int):
+        assert total_gpus >= 0, f"total_gpus must be non-negative, got {total_gpus}"
+        assert gpus_per_task >= 0, f"gpus_per_task must be non-negative, got {gpus_per_task}"
+        assert task_id >= 0, f"task_id must be non-negative, got {task_id}"
+        if gpus_per_task >= 1:
+            assert isinstance(gpus_per_task, int), f"When gpus_per_task >= 1, it must be an int, got {type(gpus_per_task).__name__}"
+        if total_gpus == 0:
+            logger.debug(f"No GPUs available, CPU-only mode for task {task_id}")
+            return []
+        if gpus_per_task >= 1:
+            gpu_id = task_id * gpus_per_task
+            assigned_gpus = []
+            for i in range(gpus_per_task):
+                assigned_gpus.append((gpu_id + i) % total_gpus)
+            return sorted(assigned_gpus)
+        else:
+            gpu_id = task_id % total_gpus
+            return [gpu_id]
+
     def after_all_folds_scheduled(self):
         if not self.ray.is_initialized():
             ray_init_args = self._get_ray_init_args()
             self.ray.init(**ray_init_args)
+        # See what the ray args are
         head_node_id = self.ray.get_runtime_context().get_node_id()
         logger.debug(f"Dispatching folds on node {head_node_id}")
 
@@ -723,8 +796,21 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
             self._run_parallel(X, y, X_pseudo, y_pseudo, model_base_ref, time_limit_fold, head_node_id)
 
     def terminate_all_unfinished_tasks(self, unfinished_tasks):
+        # Cancel everyone else, forcefully, and drain to observe their cancellations
         for task in unfinished_tasks:
-            self.ray.cancel(task, force=True)
+            try:
+                self.ray.cancel(task, force=True)
+            except Exception:
+                pass
+
+        for task in unfinished_tasks:
+            try:
+                _ = self.ray.get(task)
+            except self.ray.exceptions.TaskCancelledError:
+                pass
+            except Exception:
+                # If something else failed while we were cancelling, ignore here
+                pass
 
     def _fit(
         self,
@@ -735,7 +821,9 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
         X_pseudo_ref,
         y_pseudo_ref,
         time_limit_fold: float,
+        task_id: int,
         fold_ctx: dict,
+        gpu_assignments: dict,
         resources: dict,
         head_node_id: str,
         kwargs: dict,
@@ -743,11 +831,12 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
     ):
         if resources_model is None:
             resources_model = resources
-        fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix = self._get_fold_properties(fold_ctx)
+        fold, folds_finished, folds_left, folds_to_fit, is_last_fold, model_name_suffix, random_seed = self._get_fold_properties(fold_ctx)
         train_index, val_index = fold
         fold_ctx_ref = self.ray.put(fold_ctx)
         save_bag_folds = self.save_folds
         kwargs_fold = kwargs.copy()
+        kwargs_fold["debug_gpu_assignment"] = self.debug_gpu_assignment
         is_pseudo = X_pseudo_ref is not None and y_pseudo_ref is not None
         if self.sample_weight is not None:
             if is_pseudo:
@@ -756,7 +845,10 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
             else:
                 kwargs_fold["sample_weight"] = self.sample_weight[train_index]
                 kwargs_fold["sample_weight_val"] = self.sample_weight[val_index]
+        if random_seed is not None:
+            kwargs_fold["random_seed"] = random_seed
         pg = self.ray.util.get_current_placement_group()
+        gpu_assignments[task_id] = self._calculate_gpu_assignment(task_id=task_id, gpus_per_task=int(resources["num_gpus"]), total_gpus=self.num_gpus)
         return self._ray_fit.options(
             **resources, scheduling_strategy=self.ray.util.scheduling_strategies.PlacementGroupSchedulingStrategy(placement_group=pg)
         ).remote(
@@ -766,7 +858,9 @@ class ParallelFoldFittingStrategy(FoldFittingStrategy):
             y=y_ref,
             X_pseudo=X_pseudo_ref,
             y_pseudo=y_pseudo_ref,
+            task_id=task_id,
             fold_ctx=fold_ctx_ref,
+            task_gpu_ids=gpu_assignments[task_id],
             time_limit_fold=time_limit_fold,
             save_bag_folds=save_bag_folds,
             resources=resources_model,
@@ -982,3 +1076,83 @@ class ParallelDistributedFoldFittingStrategy(ParallelFoldFittingStrategy):
 
         bucket, path = s3_path_to_bucket_prefix(model_sync_path)
         download_s3_folder(bucket=bucket, prefix=path, local_path=local_path, error_if_exists=False, verbose=False)
+
+
+def _json_safe(x: Any) -> Any:
+    try:
+        json.dumps(x)  # fast path
+        return x
+    except Exception:
+        return repr(x)
+
+
+def encode_exception(e: BaseException) -> dict[str, Any]:
+    return {
+        "exc_type": e.__class__.__name__,
+        "message": str(e),
+        "args": [_json_safe(a) for a in getattr(e, "args", ())],
+        "attrs": {k: _json_safe(v) for k, v in getattr(e, "__dict__", {}).items()},
+        "remote_traceback": traceback.format_exc(),
+    }
+
+
+class UnknownRemoteException(RuntimeError):
+    def __init__(self, exc_type: str, message: str):
+        super().__init__(f"{exc_type}: {message}")
+        self.exc_type = exc_type
+
+
+EXPECTED_EXC_LST = [
+    AutoGluonException,
+    NoGPUError,
+    NoValidFeatures,
+    NoStackFeatures,
+    NotValidStacker,
+    InsufficientTime,
+    NotEnoughCudaMemoryError,
+    NotEnoughMemoryError,
+    TimeLimitExceeded,
+    MemoryError,
+    ImportError,
+]
+EXPECTED_EXC_REGISTRY: Mapping[str, Type[BaseException]] = {
+    err_cls.__name__: err_cls for err_cls in EXPECTED_EXC_LST
+}
+
+
+def decode_exception(payload: Dict[str, Any],
+                     registry: Mapping[str, Type[BaseException]] = EXPECTED_EXC_REGISTRY
+                     ) -> BaseException:
+    name = payload.get("exc_type", "Exception")
+    args = payload.get("args", [])
+    attrs = payload.get("attrs", {}) or {}
+    msg = payload.get("message", "")
+    tb_str = payload.get("remote_traceback")
+
+    cls = registry.get(name)
+    if cls is None:
+        # If it's not registered, wrap as UnknownRemoteException but keep context
+        ex = UnknownRemoteException(name, msg)
+        ex.remote_traceback = tb_str
+        ex.remote_attrs = attrs
+        return ex
+
+    # Try normal construction with original args; fall back to message-only
+    try:
+        ex = cls(*args)
+    except Exception:
+        ex = cls(msg)
+
+    # Restore extra attributes (best-effort)
+    for k, v in attrs.items():
+        try:
+            setattr(ex, k, v)
+        except Exception:
+            pass
+
+    # Attach remote traceback string for debugging
+    try:
+        setattr(ex, "remote_traceback", tb_str)
+    except Exception:
+        pass
+    return ex

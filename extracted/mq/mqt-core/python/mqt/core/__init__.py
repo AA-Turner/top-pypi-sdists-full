@@ -1,5 +1,5 @@
-# Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
-# Copyright (c) 2025 Munich Quantum Software Company GmbH
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
 # All rights reserved.
 #
 # SPDX-License-Identifier: MIT
@@ -19,7 +19,7 @@ if sys.platform == "win32":
 
     def _dll_patch() -> None:
         """Add the DLL directory to the PATH."""
-        import sysconfig
+        import sysconfig  # noqa: PLC0415 only used in Windows
 
         bin_dir = Path(sysconfig.get_paths()["purelib"]) / "mqt" / "core" / "bin"
         os.add_dll_directory(str(bin_dir))
@@ -53,25 +53,24 @@ def load(input_circuit: QuantumComputation | str | os.PathLike[str] | QuantumCir
     Raises:
         FileNotFoundError: If the input circuit is a file name and the file does not exist.
     """
-    if isinstance(input_circuit, QuantumComputation):
-        return input_circuit
+    match input_circuit:
+        case QuantumComputation():
+            return input_circuit
+        case str() | os.PathLike():
+            input_str = str(input_circuit)
+            max_filename_length = 255 if os.name == "nt" else os.pathconf("/", "PC_NAME_MAX")
+            if len(input_str) > max_filename_length or not Path(input_str).is_file():
+                if isinstance(input_circuit, os.PathLike) or "OPENQASM" not in input_circuit:
+                    msg = f"File {input_circuit} does not exist."
+                    raise FileNotFoundError(msg)
+                # otherwise, we assume that this is a QASM string
+                return QuantumComputation.from_qasm_str(input_str)
+            return QuantumComputation.from_qasm(input_str)
+        case _:
+            # At this point, we know that the input is a Qiskit QuantumCircuit
+            from .plugins.qiskit import qiskit_to_mqt  # noqa: PLC0415 lazy import
 
-    if isinstance(input_circuit, (str, os.PathLike)):
-        input_str = str(input_circuit)
-        max_filename_length = 255 if os.name == "nt" else os.pathconf("/", "PC_NAME_MAX")
-        if len(input_str) > max_filename_length or not Path(input_circuit).is_file():
-            if isinstance(input_circuit, os.PathLike) or "OPENQASM" not in input_circuit:
-                msg = f"File {input_circuit} does not exist."
-                raise FileNotFoundError(msg)
-            # otherwise, we assume that this is a QASM string
-            return QuantumComputation.from_qasm_str(input_str)
-
-        return QuantumComputation.from_qasm(input_str)
-
-    # At this point, we know that the input is a Qiskit QuantumCircuit
-    from .plugins.qiskit import qiskit_to_mqt
-
-    return qiskit_to_mqt(input_circuit)
+            return qiskit_to_mqt(input_circuit)
 
 
 __all__ = ["__version__", "load", "version_info"]

@@ -13,19 +13,28 @@ from .gladia_transcriber_language import GladiaTranscriberLanguage
 from .gladia_transcriber_language_behaviour import GladiaTranscriberLanguageBehaviour
 from .gladia_transcriber_languages import GladiaTranscriberLanguages
 from .gladia_transcriber_model import GladiaTranscriberModel
+from .gladia_transcriber_provider import GladiaTranscriberProvider
 from .gladia_transcriber_region import GladiaTranscriberRegion
 
 
 class GladiaTranscriber(UncheckedBaseModel):
-    provider: typing.Literal["gladia"] = pydantic.Field(default="gladia")
+    provider: GladiaTranscriberProvider = pydantic.Field()
     """
     This is the transcription provider that will be used.
     """
 
-    model: typing.Optional[GladiaTranscriberModel] = None
+    model: typing.Optional[GladiaTranscriberModel] = pydantic.Field(default=None)
+    """
+    This is the Gladia model that will be used. Default is 'fast'
+    """
+
     language_behaviour: typing_extensions.Annotated[
         typing.Optional[GladiaTranscriberLanguageBehaviour], FieldMetadata(alias="languageBehaviour")
-    ] = None
+    ] = pydantic.Field(default=None)
+    """
+    Defines how the transcription model detects the audio language. Default value is 'automatic single language'.
+    """
+
     language: typing.Optional[GladiaTranscriberLanguage] = pydantic.Field(default=None)
     """
     Defines the language to use for the transcription. Required when languageBehaviour is 'manual'.

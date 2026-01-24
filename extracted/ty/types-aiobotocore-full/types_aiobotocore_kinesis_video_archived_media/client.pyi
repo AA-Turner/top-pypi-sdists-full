@@ -3,7 +3,7 @@ Type annotations for kinesis-video-archived-media service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis_video_archived_media/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -44,11 +45,6 @@ from .type_defs import (
     ListFragmentsOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -57,16 +53,16 @@ else:
 __all__ = ("KinesisVideoArchivedMediaClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ClientLimitExceededException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    InvalidCodecPrivateDataException: Type[BotocoreClientError]
-    InvalidMediaFrameException: Type[BotocoreClientError]
-    MissingCodecPrivateDataException: Type[BotocoreClientError]
-    NoDataRetentionException: Type[BotocoreClientError]
-    NotAuthorizedException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    UnsupportedStreamMediaTypeException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientLimitExceededException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    InvalidCodecPrivateDataException: type[BotocoreClientError]
+    InvalidMediaFrameException: type[BotocoreClientError]
+    MissingCodecPrivateDataException: type[BotocoreClientError]
+    NoDataRetentionException: type[BotocoreClientError]
+    NotAuthorizedException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    UnsupportedStreamMediaTypeException: type[BotocoreClientError]
 
 class KinesisVideoArchivedMediaClient(AioBaseClient):
     """
@@ -194,7 +190,7 @@ class KinesisVideoArchivedMediaClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -42,6 +42,7 @@ from ..utils import experimental, logging
 from ..utils.py_utils import asdict, first_non_null_value, zip_dict
 from .audio import Audio
 from .image import Image, encode_pil_image
+from .nifti import Nifti, encode_nibabel_image
 from .pdf import Pdf, encode_pdfplumber_pdf
 from .translation import Translation, TranslationVariableLanguages
 from .video import Video
@@ -106,6 +107,8 @@ def _arrow_to_datasets_dtype(arrow_type: pa.DataType) -> str:
         return "binary"
     elif pyarrow.types.is_large_binary(arrow_type):
         return "large_binary"
+    elif pyarrow.types.is_binary_view(arrow_type):
+        return "binary_view"
     elif pyarrow.types.is_string(arrow_type):
         return "string"
     elif pyarrow.types.is_large_string(arrow_type):
@@ -304,6 +307,9 @@ def _cast_to_python_objects(obj: Any, only_1d_for_numpy: bool, optimize_list_cas
     if config.PDFPLUMBER_AVAILABLE and "pdfplumber" in sys.modules:
         import pdfplumber
 
+    if config.NIBABEL_AVAILABLE and "nibabel" in sys.modules:
+        import nibabel as nib
+
     if config.TORCHCODEC_AVAILABLE and "torchcodec" in sys.modules:
         from torchcodec.decoders import AudioDecoder, VideoDecoder
 
@@ -377,6 +383,8 @@ def _cast_to_python_objects(obj: Any, only_1d_for_numpy: bool, optimize_list_cas
         return encode_pil_image(obj), True
     elif config.PDFPLUMBER_AVAILABLE and "pdfplumber" in sys.modules and isinstance(obj, pdfplumber.pdf.PDF):
         return encode_pdfplumber_pdf(obj), True
+    elif config.NIBABEL_AVAILABLE and "nibabel" in sys.modules and isinstance(obj, nib.analyze.AnalyzeImage):
+        return encode_nibabel_image(obj, force_bytes=True), True
     elif isinstance(obj, pd.Series):
         return (
             _cast_to_python_objects(
@@ -508,6 +516,7 @@ class Value:
     - `decimal256(precision, scale)`
     - `binary`
     - `large_binary`
+    - `binary_view`
     - `string`
     - `large_string`
     - `string_view`
@@ -1267,6 +1276,7 @@ FeatureType = Union[
     Image,
     Video,
     Pdf,
+    Nifti,
 ]
 
 
@@ -1425,6 +1435,7 @@ _FEATURE_TYPES: dict[str, FeatureType] = {
     Image.__name__: Image,
     Video.__name__: Video,
     Pdf.__name__: Pdf,
+    Nifti.__name__: Nifti,
 }
 
 
@@ -1758,6 +1769,9 @@ class Features(dict):
         - [`Pdf`] feature to store the absolute path to a PDF file, a `pdfplumber.pdf.PDF` object
           or a dictionary with the relative path to a PDF file ("path" key) and its bytes content ("bytes" key).
           This feature loads the PDF lazily with a PDF reader.
+        - [`Nifti`] feature to store the absolute path to a NIfTI neuroimaging file, a `nibabel.Nifti1Image` object
+          or a dictionary with the relative path to a NIfTI file ("path" key) and its bytes content ("bytes" key).
+          This feature loads the NIfTI file lazily with nibabel.
         - [`Translation`] or [`TranslationVariableLanguages`] feature specific to Machine Translation.
     """
 

@@ -3,14 +3,14 @@ from __future__ import annotations
 import base64
 import dataclasses
 import sys
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any
 from typing_extensions import Self, assert_never
 
 from strawberry.types.base import StrawberryObjectDefinition
 from strawberry.types.nodes import InlineFragment
 
 if TYPE_CHECKING:
-    from strawberry.types.info import Info
+    import strawberry
 
 
 def from_base64(value: str) -> tuple[str, str]:
@@ -39,7 +39,7 @@ def from_base64(value: str) -> tuple[str, str]:
     return res[0], res[1]
 
 
-def to_base64(type_: Union[str, type, StrawberryObjectDefinition], node_id: Any) -> str:
+def to_base64(type_: str | type | StrawberryObjectDefinition, node_id: Any) -> str:
     """Encode the type name and node id to a base64 string.
 
     Args:
@@ -71,7 +71,7 @@ def to_base64(type_: Union[str, type, StrawberryObjectDefinition], node_id: Any)
     return base64.b64encode(f"{type_name}:{node_id}".encode()).decode()
 
 
-def should_resolve_list_connection_edges(info: Info) -> bool:
+def should_resolve_list_connection_edges(info: strawberry.Info) -> bool:
     """Check if the user requested to resolve the `edges` field of a connection.
 
     Args:
@@ -113,7 +113,7 @@ class SliceMetadata:
     @classmethod
     def from_arguments(
         cls,
-        info: Info,
+        info: strawberry.Info,
         *,
         before: str | None = None,
         after: str | None = None,

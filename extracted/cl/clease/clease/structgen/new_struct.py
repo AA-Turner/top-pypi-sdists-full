@@ -1,10 +1,11 @@
 """Module for generating new structures for training."""
+
 from copy import deepcopy
 from functools import reduce
 from itertools import product
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from ase import Atoms
 from ase.io import read
@@ -61,7 +62,7 @@ class NewStructures:
     def __init__(
         self,
         settings: ClusterExpansionSettings,
-        generation_number: Optional[int] = None,
+        generation_number: int | None = None,
         struct_per_gen: int = 5,
         check_db: bool = True,
     ) -> None:
@@ -94,9 +95,9 @@ class NewStructures:
 
     def generate_probe_structure(
         self,
-        atoms: Optional[Atoms] = None,
-        init_temp: Optional[float] = None,
-        final_temp: Optional[float] = None,
+        atoms: Atoms | None = None,
+        init_temp: float | None = None,
+        final_temp: float | None = None,
         num_temp: int = 5,
         num_steps_per_temp: int = 1000,
         approx_mean_var: bool = True,
@@ -198,7 +199,7 @@ class NewStructures:
 
     def generate_gs_structure_multiple_templates(
         self,
-        eci: Dict[str, float],
+        eci: dict[str, float],
         num_templates: int = 20,
         num_prim_cells: int = 2,
         init_temp: float = 2000.0,
@@ -238,7 +239,7 @@ class NewStructures:
 
     def _generate_one_gs_structure_multiple_templates(
         self,
-        eci: Dict[str, float],
+        eci: dict[str, float],
         num_templates: int = 20,
         num_prim_cells: int = 2,
         init_temp: float = 2000.0,
@@ -307,8 +308,8 @@ class NewStructures:
 
     def generate_gs_structure(
         self,
-        atoms: Union[Atoms, List[Atoms]],
-        eci: Dict[str, float],
+        atoms: Atoms | list[Atoms],
+        eci: dict[str, float],
         init_temp: float = 2000.0,
         final_temp: float = 1.0,
         num_temp: int = 10,
@@ -402,7 +403,7 @@ class NewStructures:
             self.insert_structure(init_struct=gs_struct, cf=cf)
             current_count += 1
 
-    def generate_random_structures(self, atoms: Optional[Atoms] = None) -> None:
+    def generate_random_structures(self, atoms: Atoms | None = None) -> None:
         """
         Generate random structures until the number of structures with
         `generation_number` equals `struct_per_gen`.
@@ -442,7 +443,7 @@ class NewStructures:
             raise MaxAttemptReachedError(msg)
         logger.info("Succesfully generated %d random structures.", self.num_in_gen())
 
-    def generate_one_random_structure(self, atoms: Optional[Atoms] = None) -> bool:
+    def generate_one_random_structure(self, atoms: Atoms | None = None) -> bool:
         """
         Generate and insert a random structure to database if a unique
         structure is found.
@@ -482,8 +483,8 @@ class NewStructures:
         return True
 
     def _set_initial_structures(
-        self, atoms: Union[Atoms, List[Atoms]], random_composition: bool = False
-    ) -> List[Atoms]:
+        self, atoms: Atoms | list[Atoms], random_composition: bool = False
+    ) -> list[Atoms]:
         structs = []
         if isinstance(atoms, Atoms):
             struct = wrap_and_sort_by_position(atoms)
@@ -537,7 +538,7 @@ class NewStructures:
                     structs.append(self._random_struct_at_conc(num_insert))
         return structs
 
-    def generate_initial_pool(self, atoms: Optional[Atoms] = None) -> None:
+    def generate_initial_pool(self, atoms: Atoms | None = None) -> None:
         """
         Generate initial pool of structures.
 
@@ -563,10 +564,8 @@ class NewStructures:
     def generate_conc_extrema(self) -> None:
         """Generate initial pool of structures with max/min concentration."""
         logger.info(
-            (
-                "Generating one structure per concentration where the number "
-                "of an element is at max/min"
-            )
+            "Generating one structure per concentration where the number "
+            "of an element is at max/min"
         )
         indx_in_each_basis = []
         start = 0
@@ -591,7 +590,7 @@ class NewStructures:
                 raise RuntimeError(f"Did not find a valid template for index {indx}")
 
     def generate_metropolis_trajectory(
-        self, atoms: Optional[Atoms] = None, random_comp: bool = True
+        self, atoms: Atoms | None = None, random_comp: bool = True
     ) -> None:
         """
         Generate a set of structures consists of single atom swaps
@@ -649,13 +648,13 @@ class NewStructures:
             # TODO: Allow a tolerance here
             if not np.allclose(new_conc, x):
                 raise NotValidTemplateException(
-                    ("Did not find an atoms with a satisfactory concentration.")
+                    "Did not find an atoms with a satisfactory concentration."
                 )
 
         return atoms
 
     def insert_structures(
-        self, traj_init: str, traj_final: Optional[str] = None, cb=lambda num, tot: None
+        self, traj_init: str, traj_final: str | None = None, cb=lambda num, tot: None
     ) -> None:
         """
         Insert a sequence of initial and final structures from their
@@ -702,13 +701,13 @@ class NewStructures:
 
     def insert_structure(
         self,
-        init_struct: Union[Atoms, str],
-        final_struct: Optional[Union[Atoms, str]] = None,
-        name: Optional[str] = None,
-        cf: Optional[Dict[str, float]] = None,
-        meta: Optional[Dict[str, Any]] = None,
+        init_struct: Atoms | str,
+        final_struct: Atoms | str | None = None,
+        name: str | None = None,
+        cf: dict[str, float] | None = None,
+        meta: dict[str, Any] | None = None,
         warn_on_skip: bool = True,
-    ) -> Optional[Union[int, Tuple[int, int]]]:
+    ) -> int | tuple[int, int] | None:
         """Insert a structure to the database.
 
         Returns the ID of the initial structure which was inserted into the database.
@@ -789,7 +788,7 @@ class NewStructures:
 
         return ret_val
 
-    def _exists_in_db(self, atoms: Atoms, formula_unit: Optional[str] = None) -> bool:
+    def _exists_in_db(self, atoms: Atoms, formula_unit: str | None = None) -> bool:
         """
         Check to see if the passed atoms already exists in DB.
 
@@ -827,7 +826,7 @@ class NewStructures:
 
         return symmcheck.compare(atoms.copy(), atoms_in_db)
 
-    def _get_kvp(self, formula_unit: Optional[str] = None) -> Dict:
+    def _get_kvp(self, formula_unit: str | None = None) -> dict:
         """
         Create a dictionary of key-value pairs and return it.
 

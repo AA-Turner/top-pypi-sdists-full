@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from xsdata.formats.dataclass.parsers.bases import NodeParser, Parsed
 from xsdata.formats.dataclass.parsers.handlers import default_handler
@@ -49,7 +49,7 @@ class UserXmlParser(NodeParser):
 
     def start(
         self,
-        clazz: Optional[type],
+        clazz: type | None,
         queue: list[XmlNode],
         objects: list[Parsed],
         qname: str,
@@ -76,8 +76,8 @@ class UserXmlParser(NodeParser):
         queue: list[XmlNode],
         objects: list[Parsed],
         qname: str,
-        text: Optional[str],
-        tail: Optional[str],
+        text: str | None,
+        tail: str | None,
     ) -> bool:
         """Parse the last xml node and bind any intermediate objects.
 

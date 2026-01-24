@@ -1,4 +1,5 @@
 import asyncio
+from copy import deepcopy
 import time
 from typing import Optional, Union, TYPE_CHECKING
 from fireworks._const import FIREWORKS_API_BASE_URL
@@ -146,8 +147,16 @@ class SupervisedFineTuningJob:
         return f"https://{base_url}/dashboard/fine-tuning/supervised/{self.id}"
 
     def _create_request(self) -> SyncCreateSupervisedFineTuningJobRequest:
+        
+        # Gateway doesn't allow you to have the name field set, so we need to remove it
+        # before sending the request. But self.id should be equal to the id in the name field
+        # so everything should match up with the current state of self.name
+        proto = deepcopy(self._proto)
+        proto.name = ""
+
         request = SyncCreateSupervisedFineTuningJobRequest(
-            supervised_fine_tuning_job=self._proto,
+            supervised_fine_tuning_job=proto,
+            supervised_fine_tuning_job_id=self.id,
         )
         return request
 
@@ -209,37 +218,12 @@ class SupervisedFineTuningJob:
         return self
 
     def get(self) -> Optional["SupervisedFineTuningJob"]:
-        """
-        TODO: we should not be using display_name to find the job, but instead
-        the name. But due to a bug when reusing the same Job ID, we need to use
-        display_name as our identifier.
-
-        **Follow up with Yifan about this whenever you get a chance.**
-        """
-        request = SyncListSupervisedFineTuningJobsRequest()
-        page_token = None
-        while True:
-            if page_token is not None:
-                request.page_token = page_token
-            list_response = self._gateway.list_supervised_fine_tuning_jobs_sync(request)
-
-            # Filter and sort jobs by state (COMPLETED first)
-            matching_jobs = [
-                job_proto
-                for job_proto in list_response.supervised_fine_tuning_jobs
-                if job_proto.display_name == self.display_name and job_proto.base_model == self.llm.model
-            ]
-            matching_jobs.sort(key=lambda x: x.state != JobState.COMPLETED)
-
-            if matching_jobs:
-                job_proto = matching_jobs[0]
-                return SupervisedFineTuningJob(
-                    llm=self.llm,
-                    proto=job_proto,
-                    dataset_or_id=self.dataset_or_id,
-                    api_key=self._api_key,
-                )
-
-            if not list_response.next_page_token:
-                return None
-            page_token = list_response.next_page_token
+        job = self._gateway.get_supervised_fine_tuning_job_sync(self.name)
+        if job is None:
+            return None
+        return SupervisedFineTuningJob(
+            llm=self.llm,
+            proto=job,
+            dataset_or_id=self.dataset_or_id,
+            api_key=self._api_key,
+        )

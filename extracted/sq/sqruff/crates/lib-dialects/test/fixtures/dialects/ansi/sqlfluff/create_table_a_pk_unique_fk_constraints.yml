@@ -1,0 +1,67 @@
+file:
+- statement:
+  - create_table_statement:
+    - keyword: create
+    - keyword: table
+    - table_reference:
+      - naked_identifier: table1
+    - bracketed:
+      - start_bracket: (
+      - column_definition:
+        - naked_identifier: c1
+        - data_type:
+          - data_type_identifier: INT
+      - comma: ','
+      - column_definition:
+        - naked_identifier: c2
+        - data_type:
+          - data_type_identifier: INT
+      - comma: ','
+      - column_definition:
+        - naked_identifier: c3
+        - data_type:
+          - data_type_identifier: INT
+      - comma: ','
+      - table_constraint:
+        - keyword: PRIMARY
+        - keyword: KEY
+        - bracketed:
+          - start_bracket: (
+          - column_reference:
+            - naked_identifier: c1
+          - end_bracket: )
+      - comma: ','
+      - table_constraint:
+        - keyword: UNIQUE
+        - bracketed:
+          - start_bracket: (
+          - column_reference:
+            - naked_identifier: c2
+          - comma: ','
+          - column_reference:
+            - naked_identifier: c3
+          - end_bracket: )
+      - comma: ','
+      - table_constraint:
+        - keyword: FOREIGN
+        - keyword: KEY
+        - bracketed:
+          - start_bracket: (
+          - column_reference:
+            - naked_identifier: c2
+          - comma: ','
+          - column_reference:
+            - naked_identifier: c3
+          - end_bracket: )
+        - keyword: REFERENCES
+        - table_reference:
+          - naked_identifier: table2
+        - bracketed:
+          - start_bracket: (
+          - column_reference:
+            - naked_identifier: c2_
+          - comma: ','
+          - column_reference:
+            - naked_identifier: c3_
+          - end_bracket: )
+      - end_bracket: )

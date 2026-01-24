@@ -16,15 +16,13 @@ import trafaret as t
 from datarobot.models.api_object import APIObject
 from datarobot.models.notebooks.enums import KernelSpec, KernelState, RuntimeLanguage
 
-notebook_kernel_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.Enum(*list(RuntimeLanguage)),
-        t.Key("language"): t.String,
-        t.Key("running"): t.Bool,
-        t.Key("execution_state"): t.Enum(*list(KernelState)),
-    }
-).ignore_extra("*")
+notebook_kernel_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.Enum(*list(RuntimeLanguage)),
+    t.Key("language"): t.String,
+    t.Key("running"): t.Bool,
+    t.Key("execution_state"): t.Enum(*list(KernelState)),
+}).ignore_extra("*")
 
 
 class NotebookKernel(APIObject):
@@ -75,9 +73,7 @@ class NotebookKernel(APIObject):
         return cls.from_server_data(r_data.json())
 
     def assign_to_notebook(self, notebook_id: str, notebook_path: str) -> NotebookKernel:
-        r_data = self._client.post(
-            f"{self._path}{notebook_id}/notebook/kernel/", data={"path": notebook_path}
-        )
+        r_data = self._client.post(f"{self._path}{notebook_id}/notebook/kernel/", data={"path": notebook_path})
         return NotebookKernel.from_server_data(r_data.json())
 
     def stop(self, notebook_id: str) -> None:

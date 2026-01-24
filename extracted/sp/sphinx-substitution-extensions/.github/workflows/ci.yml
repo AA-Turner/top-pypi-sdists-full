@@ -1,5 +1,4 @@
 ---
-
 name: CI
 
 on:
@@ -12,9 +11,10 @@ on:
     # Run at 1:00 every day
     - cron: 0 1 * * *
 
+permissions: {}
+
 jobs:
   build:
-
     strategy:
       matrix:
         python-version: ['3.10', '3.11', '3.12', '3.13']
@@ -24,22 +24,26 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
+        with:
+          persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           cache-dependency-glob: '**/pyproject.toml'
 
       - name: Lint
         run: |
-          uv run --extra=dev pre-commit run --all-files --hook-stage pre-commit --verbose
-          uv run --extra=dev pre-commit run --all-files --hook-stage pre-push --verbose
-          uv run --extra=dev pre-commit run --all-files --hook-stage manual --verbose
+          # pre-commit is the only hook stage
+          uv run --extra=dev prek run --all-files --hook-stage pre-commit --verbose
         env:
           UV_PYTHON: ${{ matrix.python-version }}
-          UV_RESOLUTION: ${{ matrix.uv-resolution }}
+          # UV_RESOLUTION is intentionally not set here. prek uses uv to
+          # install hooks, and uv inherits UV_RESOLUTION. With lowest-direct,
+          # this causes hook dependencies to resolve to ancient versions that
+          # don't build on modern Python.
 
       - name: Freeze for debugging
         run: |
@@ -47,30 +51,24 @@ jobs:
 
       - name: Build sample
         run: |
-          make build-sample
+          uv run --extra=dev sphinx-build -W -b html sample/source sample/build
         env:
           UV_PYTHON: ${{ matrix.python-version }}
           UV_RESOLUTION: ${{ matrix.uv-resolution }}
 
       - name: Build sample parallel
         run: |
-          make build-sample-parallel
+          uv run --extra=dev sphinx-build -j 2 -W -b html sample/source sample/build
         env:
           UV_PYTHON: ${{ matrix.python-version }}
           UV_RESOLUTION: ${{ matrix.uv-resolution }}
 
       - name: Run tests
         run: |
-          uv run --extra=dev pytest -s -vvv --cov-fail-under 100 --cov=src/ --cov=tests . --cov-report=xml
+          uv run --extra=dev pytest -s -vvv --cov-fail-under 100 --cov=src/ --cov=tests .
         env:
           UV_PYTHON: ${{ matrix.python-version }}
           UV_RESOLUTION: ${{ matrix.uv-resolution }}
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
 
       - uses: pre-commit-ci/lite-action@v1.1.0
         if: always()

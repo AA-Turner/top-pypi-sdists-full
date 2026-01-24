@@ -17,7 +17,7 @@ def start_crashtracker(port: int, stdout: Optional[str] = None, stderr: Optional
     ret = False
     try:
         from ddtrace.internal.core import crashtracking
-        from ddtrace.settings.crashtracker import config as crashtracker_config
+        from ddtrace.internal.settings.crashtracker import config as crashtracker_config
 
         crashtracker_config.debug_url = "http://localhost:%d" % port
         crashtracker_config.stdout_filename = stdout
@@ -112,22 +112,60 @@ class CrashtrackerWrapper:
         return read_files([self.stdout, self.stderr])
 
 
-def wait_for_crash_reports(test_agent_client: TestAgentClient) -> List[TestAgentRequest]:
-    crash_reports = []
+def get_all_crash_messages(test_agent_client: TestAgentClient) -> List[TestAgentRequest]:
+    """
+    A test helper to get *all* crash messages is necessary, because crash pings and crash reports
+    are sent through async network requests, so we don't have a guarantee of the order they are received.
+    We differentiate between crash pings and crash reports downstream
+    """
+    seen_report_ids = set()
+    crash_messages = []
+    # 5 iterations * 0.2 second = 1 second total should be enough to get ping + report
     for _ in range(5):
-        crash_reports = test_agent_client.crash_reports()
-        if crash_reports:
-            return crash_reports
-        time.sleep(0.1)
+        incoming_messages = test_agent_client.crash_messages()
+        for message in incoming_messages:
+            body = message.get("body", b"")
+            if isinstance(body, str):
+                body = body.encode("utf-8")
+            report_id = (hash(body), frozenset(message.get("headers", {}).items()))
+            if report_id not in seen_report_ids:
+                seen_report_ids.add(report_id)
+                crash_messages.append(message)
 
-    return crash_reports
+        time.sleep(0.2)
+
+    return crash_messages
 
 
 def get_crash_report(test_agent_client: TestAgentClient) -> TestAgentRequest:
     """Wait for a crash report from the crashtracker listener socket."""
-    crash_reports = wait_for_crash_reports(test_agent_client)
-    assert len(crash_reports) == 1
-    return crash_reports[0]
+    crash_messages = get_all_crash_messages(test_agent_client)
+
+    assert len(crash_messages) >= 2, f"Expected at least 2 messages; got {len(crash_messages)}"
+
+    crash_report = None
+    for message in crash_messages:
+        if b'"level":"ERROR"' in message["body"]:
+            crash_report = message
+            break
+    assert crash_report is not None, "Could not find crash report with level ERROR tag"
+
+    return crash_report
+
+
+def get_crash_ping(test_agent_client: TestAgentClient) -> TestAgentRequest:
+    """Wait for a crash report from the crashtracker listener socket."""
+    crash_messages = get_all_crash_messages(test_agent_client)
+    assert len(crash_messages) >= 2, f"Expected at least 2 messages; got {len(crash_messages)}"
+
+    crash_ping = None
+    for message in crash_messages:
+        if b'"level":"DEBUG"' in message["body"]:
+            crash_ping = message
+            break
+    assert crash_ping is not None, "Could not find crash ping with level DEBUG tag"
+
+    return crash_ping
 
 
 @contextmanager

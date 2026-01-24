@@ -3,13 +3,10 @@ import numbers
 from typing import (
     Any,
     Final,
-    List,
     Literal,
-    Tuple,
-    Union,
 )
 
-from typing_extensions import (
+from typing import (
     TypeGuard,
 )
 
@@ -28,7 +25,7 @@ def is_integer(value: Any) -> TypeGuard[int]:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def is_bytes(value: Any) -> TypeGuard[Union[bytes, bytearray]]:
+def is_bytes(value: Any) -> TypeGuard[bytes | bytearray]:
     return isinstance(value, bytes_types)
 
 
@@ -36,7 +33,7 @@ def is_text(value: Any) -> TypeGuard[str]:
     return isinstance(value, str)
 
 
-def is_string(value: Any) -> TypeGuard[Union[bytes, str, bytearray]]:
+def is_string(value: Any) -> TypeGuard[bytes | str | bytearray]:
     return isinstance(value, string_types)
 
 
@@ -45,18 +42,18 @@ def is_boolean(value: Any) -> TypeGuard[bool]:
 
 
 def is_dict(obj: Any) -> TypeGuard[collections.abc.Mapping[Any, Any]]:
-    return isinstance(obj, Mapping)
+    return isinstance(obj, dict) or isinstance(obj, Mapping)
 
 
 def is_list_like(obj: Any) -> TypeGuard[collections.abc.Sequence[Any]]:
-    return not is_string(obj) and isinstance(obj, Sequence)
+    return isinstance(obj, (list, tuple)) or not is_string(obj) and isinstance(obj, Sequence)
 
 
-def is_list(obj: Any) -> TypeGuard[List[Any]]:
+def is_list(obj: Any) -> TypeGuard[list[Any]]:
     return isinstance(obj, list)
 
 
-def is_tuple(obj: Any) -> TypeGuard[Tuple[Any, ...]]:
+def is_tuple(obj: Any) -> TypeGuard[tuple[Any, ...]]:
     return isinstance(obj, tuple)
 
 

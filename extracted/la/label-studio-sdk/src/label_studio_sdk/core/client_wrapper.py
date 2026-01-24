@@ -4,18 +4,26 @@ import httpx
 
 from .http_client import AsyncHttpClient, HttpClient
 
-VERSION = "2.0.8"
+import importlib.metadata
+import platform
+
+try:
+    VERSION = importlib.metadata.version("label-studio-sdk")
+except importlib.metadata.PackageNotFoundError:
+    VERSION = "unknown"
 
 class BaseClientWrapper:
     def __init__(
         self,
         *,
         api_key: str,
+        headers: typing.Optional[typing.Dict[str, str]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
     ):
         self._base_url = base_url
         self._timeout = timeout
+        self._headers = headers
 
         # even in the async case, refreshing access token (when the existing one is expired) should be sync
         from ..tokens.client_ext import TokensClientExt
@@ -30,11 +38,19 @@ class BaseClientWrapper:
         return self._base_url
 
 
+    def get_custom_headers(self) -> typing.Optional[typing.Dict[str, str]]:
+        return self._headers
+
+
     def get_headers(self) -> typing.Dict[str, str]:
         headers: typing.Dict[str, str] = {
+            "User-Agent": f"label_studio_sdk/{VERSION}",
             "X-Fern-Language": "Python",
             "X-Fern-SDK-Name": "label-studio-sdk",
             "X-Fern-SDK-Version": VERSION,
+            "X-Fern-Runtime": f"python/{platform.python_version()}",
+            "X-Fern-Platform": f"{platform.system().lower()}/{platform.release()}",
+            **(self.get_custom_headers() or {}),
         }
         if self._tokens_client._use_legacy_token:
             headers["Authorization"] = f"Token {self._tokens_client.api_key}"
@@ -48,11 +64,12 @@ class SyncClientWrapper(BaseClientWrapper):
         self,
         *,
         api_key: str,
+        headers: typing.Optional[typing.Dict[str, str]] = None,
         base_url: str,
         timeout: typing.Optional[float] = None,
         httpx_client: httpx.Client,
     ):
-        super().__init__(api_key=api_key, base_url=base_url, timeout=timeout)
+        super().__init__(api_key=api_key, headers=headers, base_url=base_url, timeout=timeout)
         self.httpx_client = HttpClient(
             httpx_client=httpx_client,
             base_headers=self.get_headers,
@@ -63,9 +80,15 @@ class SyncClientWrapper(BaseClientWrapper):
 
 class AsyncClientWrapper(BaseClientWrapper):
     def __init__(
-        self, *, api_key: str, base_url: str, timeout: typing.Optional[float] = None, httpx_client: httpx.AsyncClient
+        self,
+        *,
+        api_key: str,
+        headers: typing.Optional[typing.Dict[str, str]] = None,
+        base_url: str,
+        timeout: typing.Optional[float] = None,
+        httpx_client: httpx.AsyncClient,
     ):
-        super().__init__(api_key=api_key, base_url=base_url, timeout=timeout)
+        super().__init__(api_key=api_key, headers=headers, base_url=base_url, timeout=timeout)
         self.httpx_client = AsyncHttpClient(
             httpx_client=httpx_client,
             base_headers=self.get_headers,

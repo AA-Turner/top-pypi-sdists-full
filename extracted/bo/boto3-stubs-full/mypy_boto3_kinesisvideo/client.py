@@ -3,7 +3,7 @@ Type annotations for kinesisvideo service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -53,6 +54,8 @@ from .type_defs import (
     DescribeSignalingChannelOutputTypeDef,
     DescribeStreamInputTypeDef,
     DescribeStreamOutputTypeDef,
+    DescribeStreamStorageConfigurationInputTypeDef,
+    DescribeStreamStorageConfigurationOutputTypeDef,
     GetDataEndpointInputTypeDef,
     GetDataEndpointOutputTypeDef,
     GetSignalingChannelEndpointInputTypeDef,
@@ -79,14 +82,9 @@ from .type_defs import (
     UpdateNotificationConfigurationInputTypeDef,
     UpdateSignalingChannelInputTypeDef,
     UpdateStreamInputTypeDef,
+    UpdateStreamStorageConfigurationInputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -97,22 +95,22 @@ __all__ = ("KinesisVideoClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AccountChannelLimitExceededException: Type[BotocoreClientError]
-    AccountStreamLimitExceededException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ClientLimitExceededException: Type[BotocoreClientError]
-    DeviceStreamLimitExceededException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    InvalidDeviceException: Type[BotocoreClientError]
-    InvalidResourceFormatException: Type[BotocoreClientError]
-    NoDataRetentionException: Type[BotocoreClientError]
-    NotAuthorizedException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    StreamEdgeConfigurationNotFoundException: Type[BotocoreClientError]
-    TagsPerResourceExceededLimitException: Type[BotocoreClientError]
-    VersionMismatchException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AccountChannelLimitExceededException: type[BotocoreClientError]
+    AccountStreamLimitExceededException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientLimitExceededException: type[BotocoreClientError]
+    DeviceStreamLimitExceededException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    InvalidDeviceException: type[BotocoreClientError]
+    InvalidResourceFormatException: type[BotocoreClientError]
+    NoDataRetentionException: type[BotocoreClientError]
+    NotAuthorizedException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    StreamEdgeConfigurationNotFoundException: type[BotocoreClientError]
+    TagsPerResourceExceededLimitException: type[BotocoreClientError]
+    VersionMismatchException: type[BotocoreClientError]
 
 
 class KinesisVideoClient(BaseClient):
@@ -172,7 +170,7 @@ class KinesisVideoClient(BaseClient):
 
     def delete_edge_configuration(
         self, **kwargs: Unpack[DeleteEdgeConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         An asynchronous API that deletes a stream's existing edge configuration, as
         well as the corresponding media from the Edge Agent.
@@ -183,7 +181,7 @@ class KinesisVideoClient(BaseClient):
 
     def delete_signaling_channel(
         self, **kwargs: Unpack[DeleteSignalingChannelInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specified signaling channel.
 
@@ -191,7 +189,7 @@ class KinesisVideoClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/#delete_signaling_channel)
         """
 
-    def delete_stream(self, **kwargs: Unpack[DeleteStreamInputTypeDef]) -> Dict[str, Any]:
+    def delete_stream(self, **kwargs: Unpack[DeleteStreamInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a Kinesis video stream and the data contained in the stream.
 
@@ -271,6 +269,17 @@ class KinesisVideoClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisvideo/client/describe_stream.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/#describe_stream)
+        """
+
+    def describe_stream_storage_configuration(
+        self, **kwargs: Unpack[DescribeStreamStorageConfigurationInputTypeDef]
+    ) -> DescribeStreamStorageConfigurationOutputTypeDef:
+        """
+        Retrieves the current storage configuration for the specified Kinesis video
+        stream.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisvideo/client/describe_stream_storage_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/#describe_stream_storage_configuration)
         """
 
     def get_data_endpoint(
@@ -353,7 +362,7 @@ class KinesisVideoClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/#start_edge_configuration_update)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to a signaling channel.
 
@@ -361,7 +370,7 @@ class KinesisVideoClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/#tag_resource)
         """
 
-    def tag_stream(self, **kwargs: Unpack[TagStreamInputTypeDef]) -> Dict[str, Any]:
+    def tag_stream(self, **kwargs: Unpack[TagStreamInputTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to a stream.
 
@@ -369,7 +378,7 @@ class KinesisVideoClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/#tag_stream)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a signaling channel.
 
@@ -377,7 +386,7 @@ class KinesisVideoClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/#untag_resource)
         """
 
-    def untag_stream(self, **kwargs: Unpack[UntagStreamInputTypeDef]) -> Dict[str, Any]:
+    def untag_stream(self, **kwargs: Unpack[UntagStreamInputTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a stream.
 
@@ -387,7 +396,7 @@ class KinesisVideoClient(BaseClient):
 
     def update_data_retention(
         self, **kwargs: Unpack[UpdateDataRetentionInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Increases or decreases the stream's data retention period by the value that you
         specify.
@@ -398,7 +407,7 @@ class KinesisVideoClient(BaseClient):
 
     def update_image_generation_configuration(
         self, **kwargs: Unpack[UpdateImageGenerationConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the <code>StreamInfo</code> and
         <code>ImageProcessingConfiguration</code> fields.
@@ -409,7 +418,7 @@ class KinesisVideoClient(BaseClient):
 
     def update_media_storage_configuration(
         self, **kwargs: Unpack[UpdateMediaStorageConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a <code>SignalingChannel</code> to a stream to store the media.
 
@@ -419,7 +428,7 @@ class KinesisVideoClient(BaseClient):
 
     def update_notification_configuration(
         self, **kwargs: Unpack[UpdateNotificationConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the notification information for a stream.
 
@@ -429,7 +438,7 @@ class KinesisVideoClient(BaseClient):
 
     def update_signaling_channel(
         self, **kwargs: Unpack[UpdateSignalingChannelInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the existing signaling channel.
 
@@ -437,12 +446,22 @@ class KinesisVideoClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/#update_signaling_channel)
         """
 
-    def update_stream(self, **kwargs: Unpack[UpdateStreamInputTypeDef]) -> Dict[str, Any]:
+    def update_stream(self, **kwargs: Unpack[UpdateStreamInputTypeDef]) -> dict[str, Any]:
         """
         Updates stream metadata, such as the device name and media type.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisvideo/client/update_stream.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/#update_stream)
+        """
+
+    def update_stream_storage_configuration(
+        self, **kwargs: Unpack[UpdateStreamStorageConfigurationInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the storage configuration for an existing Kinesis video stream.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesisvideo/client/update_stream_storage_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisvideo/client/#update_stream_storage_configuration)
         """
 
     @overload  # type: ignore[override]

@@ -1,5 +1,6 @@
 import asyncio
 from unittest import mock
+from datetime import datetime, timezone, timedelta
 
 import pytest
 
@@ -8,6 +9,7 @@ from socketio import async_namespace
 from engineio import exceptions as engineio_exceptions
 from socketio import exceptions
 from socketio import packet
+from socketio.msgpack_packet import MsgPackPacket
 
 
 class TestAsyncClient:
@@ -202,6 +204,60 @@ class TestAsyncClient:
         )
         assert c.connected is True
         assert c.namespaces == {'/bar': '123', '/foo': '456'}
+
+    async def test_connect_wait_one_namespaces_error(self):
+        c = async_client.AsyncClient()
+        c.eio.connect = mock.AsyncMock()
+        c._connect_event = mock.MagicMock()
+
+        async def mock_connect():
+            if c.failed_namespaces == []:
+                c.failed_namespaces = ['/foo']
+                return True
+            return False
+
+        c._connect_event.wait = mock_connect
+        with pytest.raises(exceptions.ConnectionError,
+                           match='failed to connect: /foo'):
+            await c.connect(
+                'url',
+                namespaces=['/foo'],
+                wait=True,
+                wait_timeout=0.01,
+            )
+        assert c.connected is False
+        assert c.namespaces == {}
+        assert c.failed_namespaces == ['/foo']
+
+    async def test_connect_wait_three_namespaces_error(self):
+        c = async_client.AsyncClient()
+        c.eio.connect = mock.AsyncMock()
+        c._connect_event = mock.MagicMock()
+
+        async def mock_connect():
+            if c.namespaces == {}:
+                c.namespaces = {'/bar': '123'}
+                return True
+            elif c.namespaces == {'/bar': '123'} and c.failed_namespaces == []:
+                c.failed_namespaces = ['/baz']
+                return True
+            elif c.failed_namespaces == ['/baz']:
+                c.failed_namespaces = ['/baz', '/foo']
+                return True
+            return False
+
+        c._connect_event.wait = mock_connect
+        with pytest.raises(exceptions.ConnectionError,
+                           match='failed to connect: /baz, /foo'):
+            await c.connect(
+                'url',
+                namespaces=['/foo', '/bar', '/baz'],
+                wait=True,
+                wait_timeout=0.01,
+            )
+        assert c.connected is False
+        assert c.namespaces == {'/bar': '123'}
+        assert c.failed_namespaces == ['/baz', '/foo']
 
     async def test_connect_timeout(self):
         c = async_client.AsyncClient()
@@ -1188,3 +1244,21 @@ class TestAsyncClient:
         assert c.sid is None
         assert not c.connected
         c.start_background_task.assert_not_called()
+
+    def test_serializer_args_with_msgpack(self):
+        def default(o):
+            if isinstance(o, datetime):
+                return o.isoformat()
+            raise TypeError("Unknown type")
+
+        data = {"current": datetime.now(timezone(timedelta(0)))}
+        c = async_client.AsyncClient(
+            serializer=MsgPackPacket.configure(dumps_default=default))
+        p = c.packet_class(data=data)
+        p2 = c.packet_class(encoded_packet=p.encode())
+
+        assert p.data != p2.data
+        assert isinstance(p2.data, dict)
+        assert "current" in p2.data
+        assert isinstance(p2.data["current"], str)
+        assert default(data["current"]) == p2.data["current"]

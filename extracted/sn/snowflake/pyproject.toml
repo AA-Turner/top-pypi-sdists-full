@@ -5,7 +5,7 @@ authors = [
 ]
 description = 'Snowflake Python API'
 readme = 'README.md'
-requires-python = '>=3.9,<3.14'
+requires-python = '>=3.10,<3.14'
 license = {text = 'Apache-2.0'}
 keywords = [
     'Snowflake',
@@ -36,10 +36,13 @@ classifiers = [
 ]
 # The version for the `snowflake` namespace package must be defined
 # statically, since there's no actual code to a namespace package.
-version = '1.8.0'
+version = '1.11.0'
+
+# Our custom metadata hook won't run without the dynamic field.
+dynamic = ['']
 
 dependencies = [
-    'snowflake.core == 1.8.0',
+    'snowflake.core == 1.11.0',
     'snowflake._legacy',
 ]
 
@@ -76,6 +79,16 @@ include = [
     'src/snowflake',
     'README.md',
     'pyproject.toml',
+]
+
+[tool.hatch.envs.test]
+# Our minimum supported version.
+python = '3.10'
+
+[tool.hatch.envs.test.scripts]
+check = [
+    # Check that the snowflake.core module can be imported
+    'python -c "from snowflake.core.version import __version__ as version; print(version)"',
 ]
 
 [build-system]

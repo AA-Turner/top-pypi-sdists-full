@@ -2,15 +2,15 @@ import enum
 from typing import Optional
 
 @enum.unique
-class CoolingFanStatus(enum.Enum):
+class AdvantiumCoolingFanStatus(enum.Enum):
     OFF = 0
     ON = 1
 
     def boolify(self) -> Optional[bool]:
-        return self == CoolingFanStatus.ON
+        return self == AdvantiumCoolingFanStatus.ON
 
 @enum.unique
-class TerminationReason(enum.Enum):
+class AdvantiumTerminationReason(enum.Enum):
     UNKNOWN = 0
     COOK_TIME_COMPLETE = 1
     USER_CANCELED = 2
@@ -19,31 +19,45 @@ class TerminationReason(enum.Enum):
     FAULT = 5
 
 @enum.unique
-class WarmStatus(enum.Enum):
+class AdvantiumWarmStatus(enum.IntEnum):
     OFF = 0
     CRISP = 1
-    MOIST = 2,
+    MOIST = 2
     UNKNOWN = 255
 
+    @classmethod
+    def _missing_(cls, value):
+        if value == 223:
+            return cls.OFF
+        # fall back to default behavior -> raises ValueError
+        return super()._missing_(value)
+
 @enum.unique
-class DoorStatus(enum.Enum):
+class AdvantiumDoorStatus(enum.Enum):
     OPEN = 0
     CLOSED = 1
 
     def boolify(self) -> Optional[bool]:
-        return self == DoorStatus.OPEN    
+        return self == AdvantiumDoorStatus.OPEN    
 
 @enum.unique
-class CookAction(enum.Enum):
+class AdvantiumCookAction(enum.IntEnum):
     STOP = 0
     START = 1
     UPDATED = 2
     PAUSE = 3
-    RESUME = 4,
+    RESUME = 4
     UNKNOWN = 255
 
+    @classmethod
+    def _missing_(cls, value):
+        if value in (20, 178):
+            return cls.STOP
+        # fall back to default behavior -> raises ValueError
+        return super()._missing_(value)
+
 @enum.unique
-class CookMode(enum.Enum):
+class AdvantiumCookMode(enum.IntEnum):
     NO_MODE = 0
     CONVECTION_BAKE = 1
     BROIL = 2
@@ -57,27 +71,35 @@ class CookMode(enum.Enum):
     PROOF = 10
     TOAST = 11
     STEAM_CLEAN = 12
-    MICROWAVE_SLOW_COOK = 13,
+    MICROWAVE_SLOW_COOK = 13
     UNKNOWN = 255
 
+    @classmethod
+    def _missing_(cls, value):
+        if value in (153,223,253):
+            return cls.NO_MODE
+        # fall back to default behavior -> raises ValueError
+        return super()._missing_(value)
+
+
 @enum.unique
-class OvenLightStatus(enum.Enum):
+class AdvantiumOvenLightStatus(enum.Enum):
     OFF = 0
     ON = 1
 
     def boolify(self) -> Optional[bool]:
-        return self == OvenLightStatus.ON    
+        return self == AdvantiumOvenLightStatus.ON    
 
 @enum.unique
-class PreheatStatus(enum.Enum):
+class AdvantiumPreheatStatus(enum.Enum):
     NO_PREHEAT = 0
     PREHEAT_ACTIVE = 1
     PREHEAT_COMPLETE = 2
 
 @enum.unique
-class SensingActive(enum.Enum):
+class AdvantiumSensingActive(enum.Enum):
     INACTIVE = 0
     ACTIVE = 1
 
     def boolify(self) -> Optional[bool]:
-        return self == SensingActive.ACTIVE    
+        return self == AdvantiumSensingActive.ACTIVE    

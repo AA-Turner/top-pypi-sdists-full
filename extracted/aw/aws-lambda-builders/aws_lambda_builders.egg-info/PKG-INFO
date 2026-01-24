@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws_lambda_builders
-Version: 1.58.0
+Version: 1.62.0
 Summary: Python library to compile, build & package AWS Lambda functions for several runtimes & frameworks.
 Home-page: https://github.com/awslabs/aws-lambda-builders
 Author: Amazon Web Services
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Utilities
@@ -30,17 +31,17 @@ License-File: NOTICE
 Requires-Dist: setuptools
 Requires-Dist: wheel
 Provides-Extra: dev
-Requires-Dist: coverage==7.9.2; python_version >= "3.9" and extra == "dev"
+Requires-Dist: coverage==7.10.7; python_version >= "3.9" and extra == "dev"
 Requires-Dist: coverage==7.6.1; python_version < "3.9" and extra == "dev"
 Requires-Dist: flake8==3.8.4; extra == "dev"
-Requires-Dist: pytest-cov==6.2.1; python_version >= "3.9" and extra == "dev"
+Requires-Dist: pytest-cov==6.3.0; python_version >= "3.9" and extra == "dev"
 Requires-Dist: pytest-cov==5.0.0; python_version < "3.9" and extra == "dev"
 Requires-Dist: pytest>=6.1.1; extra == "dev"
 Requires-Dist: parameterized==0.9.0; extra == "dev"
 Requires-Dist: pyelftools~=0.32; extra == "dev"
-Requires-Dist: black==25.1.0; python_version >= "3.9" and extra == "dev"
+Requires-Dist: black==25.11.0; python_version >= "3.9" and extra == "dev"
 Requires-Dist: black==24.8.0; python_version < "3.9" and extra == "dev"
-Requires-Dist: ruff==0.11.13; extra == "dev"
+Requires-Dist: ruff==0.14.13; extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -70,6 +71,7 @@ Lambda Builders currently contains the following workflows
 * Java with Maven
 * Dotnet with amazon.lambda.tools
 * Python with Pip
+* Python with Uv (beta)
 * Javascript with Npm
 * Typescript with esbuild
 * Ruby with Bundler

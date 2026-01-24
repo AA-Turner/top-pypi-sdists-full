@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-TIMEOUT = 10
+from cx_Freeze._compat import IS_CONDA
+
+TIMEOUT_SLOW = 60 if IS_CONDA else 30
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
@@ -28,7 +30,7 @@ pyproject.toml
     [tool.cxfreeze.build_exe]
     include_msvcr = true
     excludes = ["tkinter", "unittest"]
-    #silent = true
+    silent = true
 """
 
 
@@ -45,5 +47,8 @@ def test_pyproj(tmp_package, zip_packages: bool) -> None:
     tmp_package.freeze()
     executable = tmp_package.executable("test_pyproj")
     assert executable.is_file()
-    result = tmp_package.run(executable, timeout=TIMEOUT)
+    result = tmp_package.run(executable, timeout=TIMEOUT_SLOW)
     result.stdout.fnmatch_lines(["Hello from cx_Freeze", "pyproj version *"])
+    result.stderr.no_fnmatch_line(
+        "*UserWarning: Valid PROJ data directory not found.*"
+    )

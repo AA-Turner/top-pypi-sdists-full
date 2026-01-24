@@ -1,9 +1,15 @@
 r'''
-# CDKTF prebuilt bindings for integrations/github provider version 6.6.0
+# CDKTF prebuilt bindings for integrations/github provider version 6.9.0
 
-This repo builds and publishes the [Terraform github provider](https://registry.terraform.io/providers/integrations/github/6.6.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+HashiCorp made the decision to stop publishing new versions of prebuilt [Terraform github provider](https://registry.terraform.io/providers/integrations/github/6.9.0) bindings for [CDK for Terraform](https://cdk.tf) on December 10, 2025. As such, this repository has been archived and is no longer supported in any way by HashiCorp. Previously-published versions of this prebuilt provider will still continue to be available on their respective package managers (e.g. npm, PyPi, Maven, NuGet), but these will not be compatible with new releases of `cdktf` past `0.21.0` and are no longer eligible for commercial support.
 
-## Available Packages
+As a reminder, you can continue to use the `integrations/github` provider in your CDK for Terraform (CDKTF) projects, even with newer versions of CDKTF, but you will need to generate the bindings locally. The easiest way to do so is to use the [`provider add` command](https://developer.hashicorp.com/terraform/cdktf/cli-reference/commands#provider-add), optionally with the `--force-local` flag enabled:
+
+`cdktf provider add integrations/github --force-local`
+
+For more information and additional examples, check out our documentation on [generating provider bindings manually](https://cdk.tf/imports).
+
+## Deprecated Packages
 
 ### NPM
 
@@ -55,43 +61,6 @@ Find auto-generated docs for this provider here:
 * [Go](./docs/API.go.md)
 
 You can also visit a hosted version of the documentation on [constructs.dev](https://constructs.dev/packages/@cdktf/provider-github).
-
-## Versioning
-
-This project is explicitly not tracking the Terraform github provider version 1:1. In fact, it always tracks `latest` of `~> 6.0` with every release. If there are scenarios where you explicitly have to pin your provider version, you can do so by [generating the provider constructs manually](https://cdk.tf/imports).
-
-These are the upstream dependencies:
-
-* [CDK for Terraform](https://cdk.tf)
-* [Terraform github provider](https://registry.terraform.io/providers/integrations/github/6.6.0)
-* [Terraform Engine](https://terraform.io)
-
-If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
-
-## Features / Issues / Bugs
-
-Please report bugs and issues to the [CDK for Terraform](https://cdk.tf) project:
-
-* [Create bug report](https://cdk.tf/bug)
-* [Create feature request](https://cdk.tf/feature)
-
-## Contributing
-
-### Projen
-
-This is mostly based on [Projen](https://github.com/projen/projen), which takes care of generating the entire repository.
-
-### cdktf-provider-project based on Projen
-
-There's a custom [project builder](https://github.com/cdktf/cdktf-provider-project) which encapsulate the common settings for all `cdktf` prebuilt providers.
-
-### Provider Version
-
-The provider version can be adjusted in [./.projenrc.js](./.projenrc.js).
-
-### Repository Management
-
-The repository is managed by [CDKTF Repository Manager](https://github.com/cdktf/cdktf-repository-manager/).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -128,10 +97,12 @@ from ._jsii import *
 __all__ = [
     "actions_environment_secret",
     "actions_environment_variable",
+    "actions_hosted_runner",
     "actions_organization_oidc_subject_claim_customization_template",
     "actions_organization_permissions",
     "actions_organization_secret",
     "actions_organization_secret_repositories",
+    "actions_organization_secret_repository",
     "actions_organization_variable",
     "actions_repository_access_level",
     "actions_repository_oidc_subject_claim_customization_template",
@@ -149,6 +120,7 @@ __all__ = [
     "codespaces_organization_secret_repositories",
     "codespaces_secret",
     "codespaces_user_secret",
+    "data_github_actions_environment_public_key",
     "data_github_actions_environment_secrets",
     "data_github_actions_environment_variables",
     "data_github_actions_organization_oidc_subject_claim_customization_template",
@@ -182,9 +154,17 @@ __all__ = [
     "data_github_issue_labels",
     "data_github_membership",
     "data_github_organization",
+    "data_github_organization_custom_properties",
     "data_github_organization_custom_role",
     "data_github_organization_external_identities",
     "data_github_organization_ip_allow_list",
+    "data_github_organization_repository_role",
+    "data_github_organization_repository_roles",
+    "data_github_organization_role",
+    "data_github_organization_role_teams",
+    "data_github_organization_role_users",
+    "data_github_organization_roles",
+    "data_github_organization_security_managers",
     "data_github_organization_team_sync_groups",
     "data_github_organization_teams",
     "data_github_organization_webhooks",
@@ -197,6 +177,7 @@ __all__ = [
     "data_github_repository_custom_properties",
     "data_github_repository_deploy_keys",
     "data_github_repository_deployment_branch_policies",
+    "data_github_repository_environment_deployment_policies",
     "data_github_repository_environments",
     "data_github_repository_file",
     "data_github_repository_milestone",
@@ -217,14 +198,22 @@ __all__ = [
     "emu_group_mapping",
     "enterprise_actions_permissions",
     "enterprise_actions_runner_group",
+    "enterprise_actions_workflow_permissions",
     "enterprise_organization",
+    "enterprise_security_analysis_settings",
     "issue",
     "issue_label",
     "issue_labels",
     "membership",
     "organization_block",
+    "organization_custom_properties",
     "organization_custom_role",
     "organization_project",
+    "organization_repository_role",
+    "organization_role",
+    "organization_role_team",
+    "organization_role_team_assignment",
+    "organization_role_user",
     "organization_ruleset",
     "organization_security_manager",
     "organization_settings",
@@ -259,6 +248,7 @@ __all__ = [
     "user_gpg_key",
     "user_invitation_accepter",
     "user_ssh_key",
+    "workflow_repository_permissions",
 ]
 
 publication.publish()
@@ -266,10 +256,12 @@ publication.publish()
 # Loading modules to ensure their types are registered with the jsii runtime library
 from . import actions_environment_secret
 from . import actions_environment_variable
+from . import actions_hosted_runner
 from . import actions_organization_oidc_subject_claim_customization_template
 from . import actions_organization_permissions
 from . import actions_organization_secret
 from . import actions_organization_secret_repositories
+from . import actions_organization_secret_repository
 from . import actions_organization_variable
 from . import actions_repository_access_level
 from . import actions_repository_oidc_subject_claim_customization_template
@@ -287,6 +279,7 @@ from . import codespaces_organization_secret
 from . import codespaces_organization_secret_repositories
 from . import codespaces_secret
 from . import codespaces_user_secret
+from . import data_github_actions_environment_public_key
 from . import data_github_actions_environment_secrets
 from . import data_github_actions_environment_variables
 from . import data_github_actions_organization_oidc_subject_claim_customization_template
@@ -320,9 +313,17 @@ from . import data_github_ip_ranges
 from . import data_github_issue_labels
 from . import data_github_membership
 from . import data_github_organization
+from . import data_github_organization_custom_properties
 from . import data_github_organization_custom_role
 from . import data_github_organization_external_identities
 from . import data_github_organization_ip_allow_list
+from . import data_github_organization_repository_role
+from . import data_github_organization_repository_roles
+from . import data_github_organization_role
+from . import data_github_organization_role_teams
+from . import data_github_organization_role_users
+from . import data_github_organization_roles
+from . import data_github_organization_security_managers
 from . import data_github_organization_team_sync_groups
 from . import data_github_organization_teams
 from . import data_github_organization_webhooks
@@ -335,6 +336,7 @@ from . import data_github_repository_branches
 from . import data_github_repository_custom_properties
 from . import data_github_repository_deploy_keys
 from . import data_github_repository_deployment_branch_policies
+from . import data_github_repository_environment_deployment_policies
 from . import data_github_repository_environments
 from . import data_github_repository_file
 from . import data_github_repository_milestone
@@ -355,14 +357,22 @@ from . import dependabot_secret
 from . import emu_group_mapping
 from . import enterprise_actions_permissions
 from . import enterprise_actions_runner_group
+from . import enterprise_actions_workflow_permissions
 from . import enterprise_organization
+from . import enterprise_security_analysis_settings
 from . import issue
 from . import issue_label
 from . import issue_labels
 from . import membership
 from . import organization_block
+from . import organization_custom_properties
 from . import organization_custom_role
 from . import organization_project
+from . import organization_repository_role
+from . import organization_role
+from . import organization_role_team
+from . import organization_role_team_assignment
+from . import organization_role_user
 from . import organization_ruleset
 from . import organization_security_manager
 from . import organization_settings
@@ -397,3 +407,4 @@ from . import team_sync_group_mapping
 from . import user_gpg_key
 from . import user_invitation_accepter
 from . import user_ssh_key
+from . import workflow_repository_permissions

@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.create_email_trigger_json_body_mode import CreateEmailTriggerJsonBodyMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -25,7 +26,8 @@ class CreateEmailTriggerJsonBody:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, CreateEmailTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, CreateEmailTriggerJsonBodyRetry]):
+        retry (Union[Unset, CreateEmailTriggerJsonBodyRetry]): Retry configuration for failed module executions
+        mode (Union[Unset, CreateEmailTriggerJsonBodyMode]): job trigger mode
     """
 
     path: str
@@ -36,6 +38,7 @@ class CreateEmailTriggerJsonBody:
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "CreateEmailTriggerJsonBodyErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "CreateEmailTriggerJsonBodyRetry"] = UNSET
+    mode: Union[Unset, CreateEmailTriggerJsonBodyMode] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -52,6 +55,10 @@ class CreateEmailTriggerJsonBody:
         retry: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
+
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -71,6 +78,8 @@ class CreateEmailTriggerJsonBody:
             field_dict["error_handler_args"] = error_handler_args
         if retry is not UNSET:
             field_dict["retry"] = retry
+        if mode is not UNSET:
+            field_dict["mode"] = mode
 
         return field_dict
 
@@ -108,6 +117,13 @@ class CreateEmailTriggerJsonBody:
         else:
             retry = CreateEmailTriggerJsonBodyRetry.from_dict(_retry)
 
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, CreateEmailTriggerJsonBodyMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = CreateEmailTriggerJsonBodyMode(_mode)
+
         create_email_trigger_json_body = cls(
             path=path,
             script_path=script_path,
@@ -117,6 +133,7 @@ class CreateEmailTriggerJsonBody:
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,
+            mode=mode,
         )
 
         create_email_trigger_json_body.additional_properties = d

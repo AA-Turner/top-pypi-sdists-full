@@ -15,11 +15,14 @@ T = TypeVar("T", bound="BranchOne")
 
 @_attrs_define
 class BranchOne:
-    """
-    Attributes:
-        branches (List['BranchOneBranchesItem']):
-        default (List['BranchOneDefaultItem']):
-        type (BranchOneType):
+    """Conditional branching where only the first matching branch executes. Branches are evaluated in order, and the first
+    one with a true expression runs. If no branches match, the default branch executes
+
+        Attributes:
+            branches (List['BranchOneBranchesItem']): Array of branches to evaluate in order. The first branch with expr
+                evaluating to true executes
+            default (List['BranchOneDefaultItem']): Steps to execute if no branch expressions match
+            type (BranchOneType):
     """
 
     branches: List["BranchOneBranchesItem"]

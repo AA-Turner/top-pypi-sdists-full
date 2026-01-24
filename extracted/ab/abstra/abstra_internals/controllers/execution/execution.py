@@ -4,10 +4,7 @@ import traceback
 from pathlib import Path
 from typing import Literal, Optional, Tuple
 
-from abstra_internals.controllers.execution.execution_client import (
-    ExecutionClient,
-    HeadlessClient,
-)
+from abstra_internals.controllers.execution.execution_client import ExecutionClient
 from abstra_internals.controllers.execution.execution_client_form import ClientAbandoned
 from abstra_internals.controllers.sdk.sdk_context import SDKContext
 from abstra_internals.entities.execution import Execution
@@ -30,18 +27,20 @@ class ExecutionController:
         *,
         repositories: Repositories,
         stage: StageWithFile,
-        client: Optional[ExecutionClient] = None,
-        context: Optional[ClientContext] = None,
+        client: ExecutionClient,
+        context: ClientContext,
     ) -> None:
         self.repositories = repositories
         self.stage = stage
-        self.client = client or HeadlessClient()
+        self.client = client
         self.context = context
 
-    def run(self):
+    def run(self, execution_id: str, worker_id: str):
         execution = Execution.create(
+            id=execution_id,
             context=self.context,
             stage_id=self.stage.id,
+            worker_id=worker_id,
         )
 
         with SDKContext(execution, self.client, self.repositories):
@@ -62,6 +61,7 @@ class ExecutionController:
                 status = "abandoned"
             except Exception as e:
                 status = "failed"
+                AbstraLogger.error(f"[ExecutionController] Unexpected error: {e}")
                 AbstraLogger.capture_exception(e)
             finally:
                 execution.teardown_tests()

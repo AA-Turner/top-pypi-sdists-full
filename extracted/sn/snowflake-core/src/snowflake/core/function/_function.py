@@ -2,6 +2,7 @@
 
 from concurrent.futures import Future
 from datetime import time
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, overload
 
 from pydantic import StrictStr
@@ -24,6 +25,8 @@ def _cast_result(result: Any, returns: StrictStr) -> Any:
         return int(result)
     if returns == "REAL":
         return float(result)
+    if returns == "DECFLOAT":
+        return Decimal(result)
     if returns == "TEXT":
         return str(result)
     if returns == "TIME":
@@ -64,8 +67,8 @@ class FunctionCollection(FunctionCollectionBase):
 class FunctionResource(FunctionResourceBase):
     """Represents a reference to a Snowflake function.
 
-    With this function reference, you can create and fetch information about functions, as well
-    as perform certain actions on them.
+    With this function reference, you can fetch information about a function, as well as perform
+    certain actions on it.
     """
 
     _identifier_requires_args = True

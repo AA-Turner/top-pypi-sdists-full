@@ -255,7 +255,7 @@ Keyword arguments:
 
 - zIndex (optional):
     Root element `z-index` property @,default,`200`."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'Affix'

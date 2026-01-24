@@ -6,7 +6,10 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import joblib
 from loguru import logger
+from matplotlib.axes import Axes
+from typing import Any, Callable
 
 from .base import WorkflowBase
 from .. import concat
@@ -71,14 +74,14 @@ class ABFE(WorkflowBase):
 
     def __init__(
         self,
-        T,
-        units="kT",
-        software="GROMACS",
-        dir=os.path.curdir,
-        prefix="dhdl",
-        suffix="xvg",
-        outdirectory=os.path.curdir,
-    ):
+        T: float,
+        units: str = "kT",
+        software: str = "GROMACS",
+        dir: str = os.path.curdir,
+        prefix: str = "dhdl",
+        suffix: str = "xvg",
+        outdirectory: str = os.path.curdir,
+    ) -> None:
         super().__init__(units, software, T, outdirectory)
         logger.info("Initialise Alchemlyb ABFE Workflow")
         self.update_units(units)
@@ -115,7 +118,9 @@ class ABFE(WorkflowBase):
         else:
             raise NotImplementedError(f"{software} parser not found.")
 
-    def read(self, read_u_nk=True, read_dHdl=True):
+    def read(
+        self, read_u_nk: bool = True, read_dHdl: bool = True, n_jobs: int = 1
+    ) -> None:
         """Read the u_nk and dHdL data from the
         :attr:`~alchemlyb.workflows.ABFE.file_list`
 
@@ -125,6 +130,9 @@ class ABFE(WorkflowBase):
             Whether to read the u_nk.
         read_dHdl : bool
             Whether to read the dHdl.
+        n_jobs : int
+            Number of parallel workers to use for reading the data.
+            (-1 means using all the threads)
 
         Attributes
         ----------
@@ -133,31 +141,50 @@ class ABFE(WorkflowBase):
         dHdl_list : list
             A list of :class:`pandas.DataFrame` of dHdl.
         """
-        self.u_nk_sample_list = None
-        self.dHdl_sample_list = None
+        self.u_nk_sample_list = None  # type: ignore[assignment]
+        self.dHdl_sample_list = None  # type: ignore[assignment]
 
-        u_nk_list = []
-        dHdl_list = []
-        for file in self.file_list:
-            if read_u_nk:
+        if read_u_nk:
+
+            def extract_u_nk(
+                _extract_u_nk: Callable, file: str, T: float
+            ) -> pd.DataFrame:
                 try:
-                    u_nk = self._extract_u_nk(file, T=self.T)
+                    u_nk = _extract_u_nk(file, T)
                     logger.info(f"Reading {len(u_nk)} lines of u_nk from {file}")
-                    u_nk_list.append(u_nk)
+                    return u_nk  # type: ignore[no-any-return]
                 except Exception as exc:
                     msg = f"Error reading u_nk from {file}."
                     logger.error(msg)
                     raise OSError(msg) from exc
 
-            if read_dHdl:
+            u_nk_list = joblib.Parallel(n_jobs=n_jobs)(
+                joblib.delayed(extract_u_nk)(self._extract_u_nk, file, self.T)
+                for file in self.file_list
+            )
+        else:
+            u_nk_list = []
+
+        if read_dHdl:
+
+            def extract_dHdl(
+                _extract_dHdl: Callable, file: str, T: float
+            ) -> pd.DataFrame:
                 try:
-                    dhdl = self._extract_dHdl(file, T=self.T)
+                    dhdl = _extract_dHdl(file, T)
                     logger.info(f"Reading {len(dhdl)} lines of dhdl from {file}")
-                    dHdl_list.append(dhdl)
+                    return dhdl  # type: ignore[no-any-return]
                 except Exception as exc:
                     msg = f"Error reading dHdl from {file}."
                     logger.error(msg)
                     raise OSError(msg) from exc
+
+            dHdl_list = joblib.Parallel(n_jobs=n_jobs)(
+                joblib.delayed(extract_dHdl)(self._extract_dHdl, file, self.T)
+                for file in self.file_list
+            )
+        else:
+            dHdl_list = []
 
         # Sort the files according to the state
         if read_u_nk:
@@ -194,16 +221,17 @@ class ABFE(WorkflowBase):
 
     def run(
         self,
-        skiptime=0,
-        uncorr="dE",
-        threshold=50,
-        estimators=("MBAR", "BAR", "TI"),
-        overlap="O_MBAR.pdf",
-        breakdown=True,
-        forwrev=None,
-        *args,
-        **kwargs,
-    ):
+        skiptime: float = 0,
+        uncorr: str = "dE",
+        threshold: int = 50,
+        estimators: tuple[str, ...] = ("MBAR", "BAR", "TI"),
+        overlap: str = "O_MBAR.pdf",
+        breakdown: bool = True,
+        forwrev: None | int = None,
+        n_jobs: int = 1,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         """The method for running the automatic analysis.
 
         Parameters
@@ -236,6 +264,9 @@ class ABFE(WorkflowBase):
             contain u_nk, please run
             meth:`~alchemlyb.workflows.ABFE.check_convergence` manually
             with estimator='TI'.
+        n_jobs : int
+            Number of parallel workers to use for reading and decorrelating the data.
+            (-1 means using all the threads)
 
         Attributes
         ----------
@@ -250,9 +281,9 @@ class ABFE(WorkflowBase):
         use_TI = False
 
         if estimators is not None:
-            if isinstance(estimators, str):
-                estimators = [
-                    estimators,
+            if isinstance(estimators, str):  # type: ignore[unreachable]
+                estimators = [  # type: ignore[unreachable]
+                    estimators
                 ]
             for estimator in estimators:
                 if estimator in FEP_ESTIMATORS:
@@ -266,23 +297,24 @@ class ABFE(WorkflowBase):
                     )
                     logger.error(msg)
                     raise ValueError(msg)
-
-            self.read(use_FEP, use_TI)
+            self.read(read_u_nk=use_FEP, read_dHdl=use_TI, n_jobs=n_jobs)
 
         if uncorr is not None:
-            self.preprocess(skiptime=skiptime, uncorr=uncorr, threshold=threshold)
+            self.preprocess(
+                skiptime=skiptime, uncorr=uncorr, threshold=threshold, n_jobs=n_jobs
+            )
         if estimators is not None:
-            self.estimate(estimators)
+            self.estimate(estimators)  # type: ignore[arg-type]
             self.generate_result()
 
         if overlap is not None and use_FEP:
             ax = self.plot_overlap_matrix(overlap)
-            plt.close(ax.figure)
+            plt.close(ax.figure)  # type: ignore[union-attr,arg-type]
 
         if breakdown:
             if use_TI:
                 ax = self.plot_ti_dhdl()
-                plt.close(ax.figure)
+                plt.close(ax.figure)  # type: ignore[union-attr,arg-type]
             fig = self.plot_dF_state()
             plt.close(fig)
             fig = self.plot_dF_state(
@@ -292,9 +324,9 @@ class ABFE(WorkflowBase):
 
         if forwrev:
             ax = self.check_convergence(forwrev, estimator="MBAR", dF_t="dF_t.pdf")
-            plt.close(ax.figure)
+            plt.close(ax.figure)  # type: ignore[union-attr,arg-type]
 
-    def update_units(self, units=None):
+    def update_units(self, units: None | str = None) -> None:
         """Update the unit.
 
         Parameters
@@ -307,7 +339,13 @@ class ABFE(WorkflowBase):
             logger.info(f"Set unit to {units}.")
             self.units = units or None
 
-    def preprocess(self, skiptime=0, uncorr="dE", threshold=50):
+    def preprocess(
+        self,
+        skiptime: float = 0,
+        uncorr: str = "dE",
+        threshold: int = 50,
+        n_jobs: int = 1,
+    ) -> None:
         """Preprocess the data by removing the equilibration time and
         decorrelate the date.
 
@@ -322,6 +360,9 @@ class ABFE(WorkflowBase):
             Proceed with correlated samples if the number of uncorrelated
             samples is found to be less than this number. If 0 is given, the
             time series analysis will not be performed at all. Default: 50.
+        n_jobs : int
+            Number of parallel workers to use for decorrelating the data.
+            (-1 means using all the threads)
 
         Attributes
         ----------
@@ -338,13 +379,11 @@ class ABFE(WorkflowBase):
         if len(self.u_nk_list) > 0:
             logger.info(f"Processing the u_nk data set with skiptime of {skiptime}.")
 
-            self.u_nk_sample_list = []
-            for index, u_nk in enumerate(self.u_nk_list):
-                # Find the starting frame
-
+            def _decorrelate_u_nk(
+                u_nk: pd.DataFrame, skiptime: float, threshold: int, index: int
+            ) -> pd.DataFrame:
                 u_nk = u_nk[u_nk.index.get_level_values("time") >= skiptime]
                 subsample = decorrelate_u_nk(u_nk, uncorr, remove_burnin=True)
-
                 if len(subsample) < threshold:
                     logger.warning(
                         f"Number of u_nk {len(subsample)} "
@@ -352,19 +391,25 @@ class ABFE(WorkflowBase):
                         f"threshold {threshold}."
                     )
                     logger.info(f"Take all the u_nk for state {index}.")
-                    self.u_nk_sample_list.append(u_nk)
+                    subsample = u_nk
                 else:
                     logger.info(
-                        f"Take {len(subsample)} uncorrelated "
-                        f"u_nk for state {index}."
+                        f"Take {len(subsample)} uncorrelated u_nk for state {index}."
                     )
-                    self.u_nk_sample_list.append(subsample)
+                return subsample
+
+            self.u_nk_sample_list = joblib.Parallel(n_jobs=n_jobs)(
+                joblib.delayed(_decorrelate_u_nk)(u_nk, skiptime, threshold, index)
+                for index, u_nk in enumerate(self.u_nk_list)
+            )
         else:
             logger.info("No u_nk data being subsampled")
 
         if len(self.dHdl_list) > 0:
-            self.dHdl_sample_list = []
-            for index, dHdl in enumerate(self.dHdl_list):
+
+            def _decorrelate_dhdl(
+                dHdl: pd.DataFrame, skiptime: float, threshold: int, index: int
+            ) -> pd.DataFrame:
                 dHdl = dHdl[dHdl.index.get_level_values("time") >= skiptime]
                 subsample = decorrelate_dhdl(dHdl, remove_burnin=True)
                 if len(subsample) < threshold:
@@ -374,17 +419,25 @@ class ABFE(WorkflowBase):
                         f"threshold {threshold}."
                     )
                     logger.info(f"Take all the dHdl for state {index}.")
-                    self.dHdl_sample_list.append(dHdl)
+                    subsample = dHdl
                 else:
                     logger.info(
-                        f"Take {len(subsample)} uncorrelated "
-                        f"dHdl for state {index}."
+                        f"Take {len(subsample)} uncorrelated dHdl for state {index}."
                     )
-                    self.dHdl_sample_list.append(subsample)
+                return subsample
+
+            self.dHdl_sample_list = joblib.Parallel(n_jobs=n_jobs)(
+                joblib.delayed(_decorrelate_dhdl)(dHdl, skiptime, threshold, index)
+                for index, dHdl in enumerate(self.dHdl_list)
+            )
         else:
             logger.info("No dHdl data being subsampled")
 
-    def estimate(self, estimators=("MBAR", "BAR", "TI"), **kwargs):
+    def estimate(
+        self,
+        estimators: tuple[str] = ("MBAR", "BAR", "TI"),  # type: ignore[assignment]
+        **kwargs: Any,
+    ) -> None:
         """Estimate the free energy using the selected estimator.
 
         Parameters
@@ -405,12 +458,16 @@ class ABFE(WorkflowBase):
 
 
         .. versionchanged:: 2.1.0
-            DeprecationWarning for using analytic error for MBAR estimator.
+            DeprecationWarning for using analytic error for MBAR estimator; from 2.6.0
+            onwards, the `MBAR bootstrap error`_ will be used instead.
 
+
+        .. _`MBAR bootstrap error`:
+           https://pymbar.readthedocs.io/en/stable/pymbar.mbar.html#pymbar.mbar.MBAR.bootstrap_error
         """
         # Make estimators into a tuple
         if isinstance(estimators, str):
-            estimators = (estimators,)
+            estimators = (estimators,)  # type: ignore[unreachable]
 
         for estimator in estimators:
             if estimator not in (FEP_ESTIMATORS + TI_ESTIMATORS):
@@ -425,7 +482,7 @@ class ABFE(WorkflowBase):
             if self.dHdl_sample_list is not None:
                 dHdl = concat(self.dHdl_sample_list)
             else:
-                dHdl = concat(self.dHdl_list)
+                dHdl = concat(self.dHdl_list)  # type: ignore[unreachable]
                 logger.warning("dHdl has not been preprocessed.")
             logger.info(f"A total {len(dHdl)} lines of dHdl is used.")
 
@@ -433,7 +490,7 @@ class ABFE(WorkflowBase):
             if self.u_nk_sample_list is not None:
                 u_nk = concat(self.u_nk_sample_list)
             else:
-                u_nk = concat(self.u_nk_list)
+                u_nk = concat(self.u_nk_list)  # type: ignore[unreachable]
                 logger.warning("u_nk has not been preprocessed.")
             logger.info(f"A total {len(u_nk)} lines of u_nk is used.")
 
@@ -441,18 +498,18 @@ class ABFE(WorkflowBase):
             if estimator == "MBAR":
                 logger.info("Run MBAR estimator.")
                 warnings.warn(
-                    "From 2.2.0, n_bootstraps=50 will be the default for estimating MBAR error.",
+                    "From 2.6.0, n_bootstraps=50 will be the default for estimating MBAR error.",
                     DeprecationWarning,
                 )
-                self.estimator[estimator] = MBAR(**kwargs).fit(u_nk)
+                self.estimator[estimator] = MBAR(**kwargs).fit(u_nk)  # type: ignore[arg-type]
             elif estimator == "BAR":
                 logger.info("Run BAR estimator.")
-                self.estimator[estimator] = BAR(**kwargs).fit(u_nk)
+                self.estimator[estimator] = BAR(**kwargs).fit(u_nk)  # type: ignore[arg-type]
             elif estimator == "TI":
                 logger.info("Run TI estimator.")
-                self.estimator[estimator] = TI(**kwargs).fit(dHdl)
+                self.estimator[estimator] = TI(**kwargs).fit(dHdl)  # type: ignore[arg-type]
 
-    def generate_result(self):
+    def generate_result(self) -> pd.DataFrame:
         """Summarise the result into a dataframe.
 
         Returns
@@ -506,8 +563,8 @@ class ABFE(WorkflowBase):
         # Make the header name
         logger.info("Generate the row names.")
         estimator_names = list(self.estimator.keys())
-        num_states = len(self.estimator[estimator_names[0]].states_)
-        data_dict = {"name": [], "state": []}
+        num_states = len(self.estimator[estimator_names[0]].states_)  # type: ignore[arg-type]
+        data_dict: dict[str, list] = {"name": [], "state": []}
         for i in range(num_states - 1):
             data_dict["name"].append(str(i) + " -- " + str(i + 1))
             data_dict["state"].append("States")
@@ -516,13 +573,13 @@ class ABFE(WorkflowBase):
             u_nk = self.u_nk_list[0]
             stages = u_nk.reset_index("time").index.names
             logger.info("use the stage name from u_nk")
-        except:
+        except Exception:
             dHdl = self.dHdl_list[0]
             stages = dHdl.reset_index("time").index.names
             logger.info("use the stage name from dHdl")
 
         for stage in stages:
-            data_dict["name"].append(stage.split("-")[0])
+            data_dict["name"].append(stage.split("-")[0])  # type: ignore[union-attr]
             data_dict["state"].append("Stages")
         data_dict["name"].append("TOTAL")
         data_dict["state"].append("Stages")
@@ -541,41 +598,41 @@ class ABFE(WorkflowBase):
             data_dict[estimator_name] = []
             data_dict[estimator_name + "_Error"] = []
             for index in range(1, num_states):
-                data_dict[estimator_name].append(delta_f_.iloc[index - 1, index])
+                data_dict[estimator_name].append(delta_f_.iloc[index - 1, index])  # type: ignore[union-attr]
                 data_dict[estimator_name + "_Error"].append(
-                    d_delta_f_.iloc[index - 1, index]
+                    d_delta_f_.iloc[index - 1, index]  # type: ignore[union-attr]
                 )
 
             logger.info(f"Generate the staged result from estimator {estimator_name}")
             for index, stage in enumerate(stages):
                 if len(stages) == 1:
                     start = 0
-                    end = len(estimator.states_) - 1
+                    end = len(estimator.states_) - 1  # type: ignore[arg-type]
                 else:
                     # Get the start and the end of the state
-                    lambda_min = min([state[index] for state in estimator.states_])
-                    lambda_max = max([state[index] for state in estimator.states_])
+                    lambda_min = min([state[index] for state in estimator.states_])  # type: ignore[union-attr]
+                    lambda_max = max([state[index] for state in estimator.states_])  # type: ignore[union-attr]
                     if lambda_min == lambda_max:
                         # Deal with the case where a certain lambda is used but
                         # not perturbed
                         start = 0
                         end = 0
                     else:
-                        states = [state[index] for state in estimator.states_]
+                        states = [state[index] for state in estimator.states_]  # type: ignore[union-attr]
                         start = list(reversed(states)).index(lambda_min)
                         start = num_states - start - 1
                         end = states.index(lambda_max)
                 logger.info(f"Stage {stage} is from state {start} to state {end}.")
                 # This assumes that the indexes are sorted as the
                 # preprocessing should sort the index of the df.
-                result = delta_f_.iloc[start, end]
+                result = delta_f_.iloc[start, end]  # type: ignore[union-attr]
                 if estimator_name != "BAR":
-                    error = d_delta_f_.iloc[start, end]
+                    error = d_delta_f_.iloc[start, end]  # type: ignore[union-attr]
                 else:
                     error = np.sqrt(
                         sum(
                             [
-                                d_delta_f_.iloc[start, start + 1] ** 2
+                                d_delta_f_.iloc[start, start + 1] ** 2  # type: ignore[operator,union-attr,misc]
                                 for i in range(start, end + 1)
                             ]
                         )
@@ -586,12 +643,12 @@ class ABFE(WorkflowBase):
             # Total result
             # This assumes that the indexes are sorted as the
             # preprocessing should sort the index of the df.
-            result = delta_f_.iloc[0, -1]
+            result = delta_f_.iloc[0, -1]  # type: ignore[union-attr]
             if estimator_name != "BAR":
-                error = d_delta_f_.iloc[0, -1]
+                error = d_delta_f_.iloc[0, -1]  # type: ignore[union-attr]
             else:
                 error = np.sqrt(
-                    sum([d_delta_f_.iloc[i, i + 1] ** 2 for i in range(num_states - 1)])
+                    sum([d_delta_f_.iloc[i, i + 1] ** 2 for i in range(num_states - 1)])  # type: ignore[operator,union-attr,misc]
                 )
             data_dict[estimator_name].append(result)
             data_dict[estimator_name + "_Error"].append(error)
@@ -603,14 +660,16 @@ class ABFE(WorkflowBase):
         # Remove the name of the index column to make it prettier
         summary.index.names = [None, None]
 
-        summary.attrs = estimator.delta_f_.attrs
-        converter = get_unit_converter(self.units)
+        summary.attrs = estimator.delta_f_.attrs  # type: ignore[union-attr]
+        converter = get_unit_converter(self.units)  # type: ignore[arg-type]
         summary = converter(summary)
         self.summary = summary
         logger.info(f"Write results:\n{summary.to_string()}")
-        return summary
+        return summary  # type: ignore[no-any-return]
 
-    def plot_overlap_matrix(self, overlap="O_MBAR.pdf", ax=None):
+    def plot_overlap_matrix(
+        self, overlap: str = "O_MBAR.pdf", ax: None | Axes = None
+    ) -> None | Axes:
         """Plot the overlap matrix for MBAR estimator using
         :func:`~alchemlyb.visualisation.plot_mbar_overlap_matrix`.
 
@@ -630,13 +689,20 @@ class ABFE(WorkflowBase):
         logger.info("Plot overlap matrix.")
         if "MBAR" in self.estimator:
             ax = plot_mbar_overlap_matrix(self.estimator["MBAR"].overlap_matrix, ax=ax)
-            ax.figure.savefig(join(self.out, overlap))
+            ax.figure.savefig(join(self.out, overlap))  # type: ignore[union-attr]
             logger.info(f"Plot overlap matrix to {self.out} under {overlap}.")
             return ax
         else:
-            logger.warning("MBAR estimator not found. " "Overlap matrix not plotted.")
+            logger.warning("MBAR estimator not found. Overlap matrix not plotted.")
+            return None
 
-    def plot_ti_dhdl(self, dhdl_TI="dhdl_TI.pdf", labels=None, colors=None, ax=None):
+    def plot_ti_dhdl(
+        self,
+        dhdl_TI: str = "dhdl_TI.pdf",
+        labels: None | list[str] = None,
+        colors: None | list[str] = None,
+        ax: None | Axes = None,
+    ) -> None | Axes:
         """Plot the dHdl for TI estimator using
         :func:`~alchemlyb.visualisation.plot_ti_dhdl`.
 
@@ -667,7 +733,7 @@ class ABFE(WorkflowBase):
                 colors=colors,
                 ax=ax,
             )
-            ax.figure.savefig(join(self.out, dhdl_TI))
+            ax.figure.savefig(join(self.out, dhdl_TI))  # type: ignore[union-attr]
             logger.info(f"Plot TI dHdl to {dhdl_TI} under {self.out}.")
             return ax
         else:
@@ -675,12 +741,12 @@ class ABFE(WorkflowBase):
 
     def plot_dF_state(
         self,
-        dF_state="dF_state.pdf",
-        labels=None,
-        colors=None,
-        orientation="portrait",
-        nb=10,
-    ):
+        dF_state: str = "dF_state.pdf",
+        labels: None | list[str] = None,
+        colors: None | list[str] = None,
+        orientation: str = "portrait",
+        nb: int = 10,
+    ) -> Any:
         """Plot the dF states using
         :func:`~alchemlyb.visualisation.plot_dF_state`.
 
@@ -715,9 +781,14 @@ class ABFE(WorkflowBase):
         logger.info(f"Plot dF state to {dF_state} under {self.out}.")
         return fig
 
-    def check_convergence(
-        self, forwrev, estimator="MBAR", dF_t="dF_t.pdf", ax=None, **kwargs
-    ):
+    def check_convergence(  # type: ignore[override]
+        self,
+        forwrev: int,
+        estimator: str = "MBAR",
+        dF_t: str = "dF_t.pdf",
+        ax: None | Axes = None,
+        **kwargs: Any,
+    ) -> None | Axes:
         """Compute the forward and backward convergence using
         :func:`~alchemlyb.convergence.forward_backward_convergence`and
         plot with
@@ -757,10 +828,10 @@ class ABFE(WorkflowBase):
                 u_nk_list = self.u_nk_sample_list
                 logger.info("Subsampled u_nk is available.")
             else:
-                if self.u_nk_list is not None:
+                if self.u_nk_list is not None:  # type: ignore[unreachable]
                     u_nk_list = self.u_nk_list
                     logger.info(
-                        "Subsampled u_nk not available, " "use original data instead."
+                        "Subsampled u_nk not available, use original data instead."
                     )
                 else:
                     msg = (
@@ -775,17 +846,15 @@ class ABFE(WorkflowBase):
                 u_nk_list, estimator=estimator, num=forwrev, **kwargs
             )
         elif estimator in TI_ESTIMATORS:
-            logger.warning(
-                "No valid FEP estimator or dataset found. " "Fallback to TI."
-            )
+            logger.warning("No valid FEP estimator or dataset found. Fallback to TI.")
             if self.dHdl_sample_list is not None:
                 dHdl_list = self.dHdl_sample_list
                 logger.info("Subsampled dHdl is available.")
             else:
-                if self.dHdl_list is not None:
+                if self.dHdl_list is not None:  # type: ignore[unreachable]
                     dHdl_list = self.dHdl_list
                     logger.info(
-                        "Subsampled dHdl not available, " "use original data instead."
+                        "Subsampled dHdl not available, use original data instead."
                     )
                 else:
                     logger.error(f"dHdl is needed for the f{estimator} estimator.")
@@ -801,7 +870,7 @@ class ABFE(WorkflowBase):
             logger.error(msg)
             raise ValueError(msg)
 
-        unit_converted_convergence = get_unit_converter(self.units)(convergence)
+        unit_converted_convergence = get_unit_converter(self.units)(convergence)  # type: ignore[arg-type]
         # Otherwise the data_fraction column is converted as well.
         unit_converted_convergence["data_fraction"] = convergence["data_fraction"]
         self.convergence = unit_converted_convergence
@@ -809,5 +878,5 @@ class ABFE(WorkflowBase):
         logger.info(f"Plot convergence analysis to {dF_t} under {self.out}.")
 
         ax = plot_convergence(self.convergence, units=self.units, ax=ax)
-        ax.figure.savefig(join(self.out, dF_t))
+        ax.figure.savefig(join(self.out, dF_t))  # type: ignore[union-attr]
         return ax

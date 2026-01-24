@@ -366,3 +366,9 @@ class Account:
 
         from .groups import Groups
         return Groups(parent=self, main_resource=resource)
+
+    def subscriptions(self, *, resource: str = ''):
+        """ Get an instance to manage MS Graph subscriptions """
+
+        from .subscriptions import Subscriptions
+        return Subscriptions(parent=self, main_resource=resource)

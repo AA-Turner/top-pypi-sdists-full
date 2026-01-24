@@ -9,6 +9,7 @@ from typing_extensions import Literal, Required, Annotated, TypedDict
 from ..._types import SequenceNotStr
 from ..._utils import PropertyInfo
 from ..shared_params.commit_specifier_input import CommitSpecifierInput
+from ..shared_params.commit_hierarchy_configuration import CommitHierarchyConfiguration
 
 __all__ = [
     "ContractEditCommitParams",
@@ -46,10 +47,19 @@ class ContractEditCommitParams(TypedDict, total=False):
     provided, the commit applies to all products.
     """
 
+    description: str
+    """Updated description for the commit"""
+
+    hierarchy_configuration: CommitHierarchyConfiguration
+    """Optional configuration for commit hierarchy access control"""
+
     invoice_contract_id: str
     """ID of contract to use for invoicing"""
 
     invoice_schedule: InvoiceSchedule
+
+    name: str
+    """Updated name for the commit"""
 
     priority: Optional[float]
     """

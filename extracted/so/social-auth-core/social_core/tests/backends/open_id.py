@@ -32,6 +32,9 @@ class FormHTMLParser(HTMLParser):
 
 
 class OpenIdTest(BaseBackendTest):
+    discovery_body: str
+    server_response: str
+
     def setUp(self) -> None:
         responses.start()
         Backend = module_member(self.backend_path)
@@ -53,7 +56,7 @@ class OpenIdTest(BaseBackendTest):
         )
 
     def tearDown(self) -> None:
-        self.strategy = None
+        del self.strategy
         User.reset_cache()
         TestUserSocialAuth.reset_cache()
         TestNonce.reset_cache()
@@ -63,7 +66,7 @@ class OpenIdTest(BaseBackendTest):
 
     def get_form_data(self, html):
         parser = FormHTMLParser()
-        parser.feed(html)
+        parser.feed(html.content)
         return parser.form, parser.inputs
 
     def openid_url(self):

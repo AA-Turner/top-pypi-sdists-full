@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 from django.db import models
-from django.db.models import Exists, OuterRef, Prefetch, F
+from django.db.models import Exists, OuterRef, Prefetch, F, Q
 from django.db.models.constants import LOOKUP_SEP
 from treebeard.mp_tree import MP_NodeQuerySet
 
@@ -247,3 +247,20 @@ class CategoryQuerySet(MP_NodeQuerySet):
         Excludes non-public categories
         """
         return self.filter(is_public=True, ancestors_are_public=True)
+
+    def for_menu(self):
+        """
+        Browsable categories that are not excluded for the menu
+        """
+        excluded_paths = list(
+            self.browsable()
+            .filter(exclude_from_menu=True)
+            .values_list("path", flat=True)
+        )
+        qs = self.browsable().filter(exclude_from_menu=False)
+        if excluded_paths:
+            condition = Q()
+            for path in excluded_paths:
+                condition |= Q(path__startswith=path)
+            qs = qs.exclude(condition)
+        return qs

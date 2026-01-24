@@ -118,6 +118,9 @@ def parse_pip(pip: Union[List[str], str, Path]) -> Tuple[List[PackageSchema], Li
         if req["is_editable"]:
             logger.warning(f"Editable requirement {raw_line!r} is not supported and will be ignored")
             continue
+        if req.get("is_local_path", False):
+            logger.warning(f"Local path requirement {raw_line!r} is not supported and will be ignored")
+            continue
         if req["is_vcs_url"]:
             raw_pip.append(raw_line)
             continue
@@ -139,10 +142,22 @@ def parse_pip(pip: Union[List[str], str, Path]) -> Tuple[List[PackageSchema], Li
 async def create_env_spec(
     conda: Union[CondaEnvSchema, str, Path, list, None] = None,
     pip: Union[List[str], str, Path, None] = None,
+    lockfile_path: Union[str, Path, None] = None,
 ) -> SoftwareEnvSpec:
-    if not conda and not pip:
-        raise TypeError("Either or both of conda/pip kwargs must be specified")
-    spec: SoftwareEnvSpec = {"packages": [], "raw_conda": None, "raw_pip": None}
+    if not conda and not pip and not lockfile_path:
+        raise TypeError("At least one of the conda, pip, and lockfile_path kwargs must be specified")
+    spec: SoftwareEnvSpec = {
+        "packages": [],
+        "raw_conda": None,
+        "raw_pip": None,
+        "lockfile_name": None,
+        "lockfile_content": None,
+    }
+    if lockfile_path:
+        lockfile_path = Path(lockfile_path)
+        lockfile_content = lockfile_path.read_text()
+        spec["lockfile_name"] = lockfile_path.name
+        spec["lockfile_content"] = lockfile_content
     if conda:
         packages, raw_conda, raw_pip = parse_conda(conda)
         spec["raw_conda"] = raw_conda

@@ -21,7 +21,7 @@ from etils import epath
 import jax
 from orbax.checkpoint._src.arrays import abstract_arrays
 from orbax.checkpoint._src.arrays import types
-from orbax.checkpoint._src.serialization import type_handlers
+from orbax.checkpoint._src.serialization import tensorstore_utils as ts_utils
 from orbax.checkpoint._src.serialization import types as serialization_types
 from orbax.checkpoint._src.tree import utils as tree_utils
 import tensorstore as ts
@@ -71,7 +71,9 @@ async def get_chunk_ids_from_tensorstore(
 ) -> list[ChunkId]:
   """List chunks available in the TensorStore KVStore."""
   separator = '/' if use_zarr3 else '.'
-  kvstore = await t.kvstore.list()
+  kvs = t.kvstore
+  assert kvs is not None
+  kvstore = await kvs.list()
   kvstore = [v.decode('utf-8') for v in kvstore]
   result = [
       tuple([int(x) for x in v.split(separator) if x != 'c'])
@@ -94,13 +96,13 @@ async def open_tensorstore(
   """Opens TensorStore for the given parameter for reading."""
   info = serialization_types.ParamInfo(
       name=param_name,
-      path=directory / param_name,
       parent_dir=directory,
       is_ocdbt_checkpoint=use_ocdbt,
       use_zarr3=use_zarr3,
-      ts_context=type_handlers.get_ts_context(use_ocdbt=use_ocdbt),
+      ts_context=ts_utils.get_ts_context(use_ocdbt=use_ocdbt),
   )
-  tspec = type_handlers.get_json_tspec_read(info, use_ocdbt=use_ocdbt)
+  array_read_spec = ts_utils.build_array_read_spec(info, use_ocdbt=use_ocdbt)
+  tspec = array_read_spec.json
   return await ts.open(
       ts.Spec(tspec),
       read=True,

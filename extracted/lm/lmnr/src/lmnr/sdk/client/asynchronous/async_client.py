@@ -8,11 +8,13 @@ from typing import TypeVar
 from types import TracebackType
 
 from lmnr.sdk.client.asynchronous.resources import (
-    AsyncAgent,
     AsyncBrowserEvents,
+    AsyncDatasets,
     AsyncEvals,
-    AsyncTags,
     AsyncEvaluators,
+    AsyncRollout,
+    AsyncTags,
+    AsyncSql,
 )
 from lmnr.sdk.utils import from_env
 
@@ -89,9 +91,6 @@ class AsyncLaminarClient:
         )
 
         # Initialize resource objects
-        self.__agent = AsyncAgent(
-            self.__client, self.__base_url, self.__project_api_key
-        )
         self.__evals = AsyncEvals(
             self.__client, self.__base_url, self.__project_api_key
         )
@@ -102,15 +101,13 @@ class AsyncLaminarClient:
             self.__client, self.__base_url, self.__project_api_key
         )
         self.__tags = AsyncTags(self.__client, self.__base_url, self.__project_api_key)
-
-    @property
-    def agent(self) -> AsyncAgent:
-        """Get the Agent resource.
-
-        Returns:
-            Agent: The Agent resource instance.
-        """
-        return self.__agent
+        self.__datasets = AsyncDatasets(
+            self.__client, self.__base_url, self.__project_api_key
+        )
+        self.__rollout = AsyncRollout(
+            self.__client, self.__base_url, self.__project_api_key
+        )
+        self.__sql = AsyncSql(self.__client, self.__base_url, self.__project_api_key)
 
     @property
     def evals(self) -> AsyncEvals:
@@ -126,7 +123,7 @@ class AsyncLaminarClient:
         """Get the BrowserEvents resource.
 
         Returns:
-            BrowserEvents: The BrowserEvents resource instance.
+            AsyncBrowserEvents: The BrowserEvents resource instance.
         """
         return self.__browser_events
 
@@ -144,10 +141,38 @@ class AsyncLaminarClient:
         """Get the Evaluators resource.
 
         Returns:
-            Evaluators: The Evaluators resource instance.
+            AsyncEvaluators: The Evaluators resource instance.
         """
         return self.__evaluators
 
+    @property
+    def datasets(self) -> AsyncDatasets:
+        """Get the Datasets resource.
+
+        Returns:
+            AsyncDatasets: The Datasets resource instance.
+        """
+        return self.__datasets
+
+    @property
+    def rollout(self) -> AsyncRollout:
+        """Get the Rollout resource.
+
+        Returns:
+            AsyncRollout: The Rollout resource instance.
+        """
+        return self.__rollout
+
+    @property
+    def sql(self) -> AsyncSql:
+        """Get the SQL resource.
+
+        Returns:
+            AsyncSql: The SQL resource instance.
+        """
+        return self.__sql
+
+    @property
     def is_closed(self) -> bool:
         return self.__client.is_closed
 

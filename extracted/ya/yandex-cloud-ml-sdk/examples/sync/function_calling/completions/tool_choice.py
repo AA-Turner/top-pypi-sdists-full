@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+from yandex_cloud_ml_sdk import YCloudML
+
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "expression": {
+            "type": "string",
+            "description": "The mathematical expression to evaluate (e.g., '2 + 3 * 4').",
+        }
+    },
+    "required": ["expression"],
+}
+
+
+def main() -> None:
+    # You can set authentication using environment variables instead of the 'auth' argument:
+    # YC_OAUTH_TOKEN, YC_TOKEN, YC_IAM_TOKEN, or YC_API_KEY
+    # You can also set 'folder_id' using the YC_FOLDER_ID environment variable
+    sdk = YCloudML(
+        # folder_id="<YC_FOLDER_ID>",
+        # auth="<YC_API_KEY/YC_IAM_TOKEN>",
+    )
+    sdk.setup_default_logging()
+
+    calculator_tool = sdk.tools.function(
+        name="calculator_tool",
+        description="A simple calculator that performs basic arithmetic and @ operations.",
+        parameters=SCHEMA  # type: ignore[arg-type]
+    )
+    another_calculator = sdk.tools.function(
+        name="another_calculator",
+        description="A simple calculator that performs basic arithmetic and % operations.",
+        parameters=SCHEMA  # type: ignore[arg-type]
+    )
+
+    model = sdk.models.completions('yandexgpt', model_version='rc').configure(
+        tools=[calculator_tool, another_calculator],
+        temperature=0,
+        # auto is equivalent to default
+        # tool_choice='auto'
+    )
+
+    request = "How much it would be 7@8?"
+    result = model.run(request)
+
+    # Model could call the tool, but it depends on many things, for example - model version.
+    # Right now I writing this example it does not calling the tool
+    assert result.status.name == 'FINAL'
+
+    # You could configure that you don't want to call any tool
+    model = model.configure(tool_choice='none')
+    result = model.run(request)
+    assert result.status.name == 'FINAL'
+
+    # You could configure the model to always call some tool
+    model = model.configure(tool_choice='required')
+    result = model.run(request)
+    assert result.status.name =='TOOL_CALLS'
+    assert result.tool_calls
+    assert len(result.tool_calls) == 1
+    assert result.tool_calls[0].function
+    assert result.tool_calls[0].function.name == 'calculator_tool'
+
+    # Or configure to call specific tool
+    model = model.configure(tool_choice={'type': 'function', 'function': {'name': 'another_calculator'}})
+    # You could pass just a function tool object instead of this big dict
+    model = model.configure(tool_choice=another_calculator)
+    result = model.run(request)
+    assert result.status.name =='TOOL_CALLS'
+    assert result.tool_calls
+    assert len(result.tool_calls) == 1
+    assert result.tool_calls[0].function
+    assert result.tool_calls[0].function.name == 'another_calculator'
+
+
+if __name__ == '__main__':
+    main()

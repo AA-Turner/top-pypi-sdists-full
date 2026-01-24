@@ -1,5 +1,6 @@
 import logging
 import warnings
+from urllib.parse import urlencode
 
 import django
 from django.conf import settings
@@ -196,6 +197,12 @@ class ImportMixin(BaseImportMixin, ImportExportMixinBase):
         request,
         **kwargs,
     ):
+        # Get file_name from kwargs if provided, otherwise from form's cleaned_data
+        # Must be extracted before passing kwargs to get_import_data_kwargs
+        file_name = kwargs.pop("file_name", None)
+        if file_name is None:
+            file_name = form.cleaned_data.get("original_file_name")
+
         res_kwargs = self.get_import_resource_kwargs(request, form=form, **kwargs)
         resource = self.choose_import_resource_class(form, request)(**res_kwargs)
         imp_kwargs = self.get_import_data_kwargs(request=request, form=form, **kwargs)
@@ -204,7 +211,7 @@ class ImportMixin(BaseImportMixin, ImportExportMixinBase):
         return resource.import_data(
             dataset,
             dry_run=False,
-            file_name=form.cleaned_data.get("original_file_name"),
+            file_name=file_name,
             user=request.user,
             **imp_kwargs,
         )
@@ -235,14 +242,7 @@ class ImportMixin(BaseImportMixin, ImportExportMixinBase):
                 for row in result:
                     if row.import_type in logentry_map:
                         with warnings.catch_warnings():
-                            if django.VERSION >= (5,):
-                                from django.utils.deprecation import (
-                                    RemovedInDjango60Warning,
-                                )
-
-                                cat = RemovedInDjango60Warning
-                            else:
-                                cat = DeprecationWarning
+                            cat = DeprecationWarning
                             warnings.simplefilter("ignore", category=cat)
                             LogEntry.objects.log_action(
                                 user_id=request.user.pk,
@@ -475,6 +475,7 @@ class ImportMixin(BaseImportMixin, ImportExportMixinBase):
                         request,
                         raise_errors=False,
                         rollback_on_validation_errors=True,
+                        file_name=import_file.name,
                         **kwargs,
                     )
                     if not result.has_errors() and not result.has_validation_errors():
@@ -497,7 +498,7 @@ class ImportMixin(BaseImportMixin, ImportExportMixinBase):
                 except Exception as e:
                     self.add_data_read_fail_error_to_form(import_form, e)
                 else:
-                    if len(dataset) == 0:
+                    if not dataset:
                         import_form.add_error(
                             "import_file",
                             _(
@@ -936,6 +937,12 @@ class ExportActionMixin(ExportMixin):
                 self.model._meta.model_name,
             )
         )
+
+        # Preserve admin changelist filters by including request GET parameters
+        # This fixes issue #2097 where applied filters are lost during export
+        if request.GET:
+            export_url += "?" + urlencode(request.GET)
+
         context["export_url"] = export_url
 
         return render(request, "admin/import_export/export.html", context=context)

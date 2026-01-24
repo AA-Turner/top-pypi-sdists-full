@@ -48,7 +48,7 @@ class MjColumn(BodyComponent):
             # not defined upstream but used?
             'mobileWidth'     : '',
             # not declared but used by MjGroup
-            'align'           : '',
+            'align'           : None,
         }
 
     def get_styles(self):
@@ -116,7 +116,13 @@ class MjColumn(BodyComponent):
         parsedWidth, unit = widthParser(self.getParsedWidth(True), parseFloatToInt=False)
         if unit == '%':
             px_width = (parse_float(containerWidth) * parsedWidth) / 100
+            # we want to render the pixel width as string without decimal digits if possible
+            if px_width == int(px_width):
+                px_width = int(px_width)
             return f'{px_width}px'
+        # we want to render the pixel width as string without decimal digits if possible
+        if parsedWidth == int(parsedWidth):
+            parsedWidth = int(parsedWidth)
         return f'{parsedWidth}px'
 
 
@@ -214,7 +220,6 @@ class MjColumn(BodyComponent):
                 return component.render()
             td_attrs = component.html_attrs(
                 align = component.getAttribute('align', missing_ok=True),
-                # vertical-align
                 class_ = component.getAttribute('css-class', missing_ok=True),
                 style = {
                     'background': component.getAttribute(
@@ -228,8 +233,7 @@ class MjColumn(BodyComponent):
                     'padding-bottom': component.getAttribute('padding-bottom'),
                     'padding-left': component.getAttribute('padding-left'),
                     'word-break': 'break-word',
-                  },
-                **{'vertical-align': component.getAttribute('vertical-align', missing_ok=True)}
+                },
             )
             return f'''<tr>
               <td {td_attrs}>

@@ -93,7 +93,7 @@ pub async fn array_values_order<'a>(
         XTombiArrayValuesOrder::Groups(values_order_group) => {
             get_sorted_values_order_groups(
                 values_with_comma,
-                array_node.values().into_iter().collect_vec(),
+                array_node.values().iter().collect_vec(),
                 accessors,
                 current_schema,
                 schema_context,
@@ -107,16 +107,13 @@ pub async fn array_values_order<'a>(
         return Vec::with_capacity(0);
     };
 
-    if let Some((_, comma)) = sorted_values_with_comma.last_mut() {
-        if !is_last_comma {
-            if let Some(new_last_comma) = comma {
-                if new_last_comma.trailing_comment().is_none()
-                    && new_last_comma.leading_comments().next().is_none()
-                {
-                    *comma = None;
-                }
-            }
-        }
+    if let Some((_, comma)) = sorted_values_with_comma.last_mut()
+        && !is_last_comma
+        && let Some(new_last_comma) = comma
+        && new_last_comma.trailing_comment().is_none()
+        && new_last_comma.leading_comments().next().is_none()
+    {
+        *comma = None;
     }
 
     for (value, comma) in &sorted_values_with_comma {
@@ -159,7 +156,7 @@ async fn get_sorted_values_order_all<'a>(
 ) -> Option<Vec<(tombi_ast::Value, Option<tombi_ast::Comma>)>> {
     let sortable_values = match SortableValues::try_new(
         values_with_comma,
-        &array_node.values().into_iter().collect_vec(),
+        &array_node.values().iter().collect_vec(),
         accessors,
         current_schema,
         schema_context,
@@ -183,9 +180,7 @@ async fn get_sorted_values_order_groups<'a>(
     schema_context: &'a SchemaContext<'a>,
     values_order_group: ArrayValuesOrderGroup,
 ) -> Option<Vec<(tombi_ast::Value, Option<tombi_ast::Comma>)>> {
-    let Some(current_schema) = current_schema else {
-        return None;
-    };
+    let current_schema = current_schema?;
 
     match (values_order_group, current_schema.value_schema.as_ref()) {
         (
@@ -309,20 +304,18 @@ fn try_array_values_order_by_from_item_schema<'a: 'b, 'b>(
                                 schema_context.store,
                             )
                             .await
-                        {
-                            if table_node
+                            && table_node
                                 .validate(accessors, Some(&current_schema), schema_context)
                                 .await
                                 .is_ok()
-                            {
-                                return try_array_values_order_by_from_item_schema(
-                                    table_node,
-                                    accessors,
-                                    Some(&current_schema),
-                                    schema_context,
-                                )
-                                .await;
-                            }
+                        {
+                            return try_array_values_order_by_from_item_schema(
+                                table_node,
+                                accessors,
+                                Some(&current_schema),
+                                schema_context,
+                            )
+                            .await;
                         }
                     }
                 }
@@ -411,7 +404,7 @@ impl SortableType {
 
                     for key_value in inline_table.key_values() {
                         if let Some(keys) = key_value.keys() {
-                            let mut keys_iter = keys.keys().into_iter();
+                            let mut keys_iter = keys.keys();
                             let Some(key_text) = keys_iter
                                 .next()
                                 .map(|key| key.to_raw_text(schema_context.toml_version))
@@ -459,7 +452,9 @@ enum SortFailReason {
     #[error("Cannot sort array values because the values are incomplete.")]
     Incomplete,
 
-    #[error("Cannot sort array values because the values only support the following types: [Boolean, Integer, String, OffsetDateTime, LocalDateTime, LocalDate, LocalTime, InlineTable(need `x-tombi-array-values-order-by`)]")]
+    #[error(
+        "Cannot sort array values because the values only support the following types: [Boolean, Integer, String, OffsetDateTime, LocalDateTime, LocalDate, LocalTime, InlineTable(need `x-tombi-array-values-order-by`)]"
+    )]
     UnsupportedTypes,
 
     #[error("Cannot sort array values because the values have different types.")]

@@ -16,8 +16,6 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from typing_extensions import Literal
-
 from qwak.llmops.generation.base import ModelResponse
 from .chat_completion_token_logprob import ChatCompletionTokenLogprob
 
@@ -69,8 +67,15 @@ class ChoiceDeltaToolCall:
 
     function: Optional[ChoiceDeltaToolCallFunction] = None
 
-    type: Optional[Literal["function"]] = None
+    type: Optional[str] = None
     """The type of the tool. Currently, only `function` is supported."""
+
+    def __post_init__(self):
+        """Validates that type is 'function' if present."""
+        if self.type is not None and self.type != "function":
+            raise ValueError(
+                f"Invalid type: '{self.type}'. Must be 'function' or None."
+            )
 
 
 @dataclass
@@ -85,10 +90,20 @@ class ChoiceDelta:
     model.
     """
 
-    role: Optional[Literal["system", "user", "assistant", "tool"]] = None
+    role: Optional[str] = None
     """The role of the author of this message."""
 
     tool_calls: Optional[List[ChoiceDeltaToolCall]] = None
+
+    def __post_init__(self):
+        """Validates that role is one of the allowed values if present."""
+        if self.role is not None:
+            allowed_roles = {"system", "user", "assistant", "tool"}
+            if self.role not in allowed_roles:
+                raise ValueError(
+                    f"Invalid role: '{self.role}'. "
+                    f"Must be one of {allowed_roles} or None."
+                )
 
 
 @dataclass
@@ -105,9 +120,7 @@ class Choice:
     index: int
     """The index of the choice in the list of choices."""
 
-    finish_reason: Optional[
-        Literal["stop", "length", "tool_calls", "content_filter", "function_call"]
-    ] = None
+    finish_reason: Optional[str] = None
     """The reason the model stopped generating tokens.
 
     This will be `stop` if the model hit a natural stop point or a provided stop
@@ -119,6 +132,22 @@ class Choice:
 
     logprobs: Optional[ChoiceLogprobs] = None
     """Log probability information for the choice."""
+
+    def __post_init__(self):
+        """Validates that finish_reason is one of the allowed values if present."""
+        if self.finish_reason is not None:
+            allowed_reasons = {
+                "stop",
+                "length",
+                "tool_calls",
+                "content_filter",
+                "function_call",
+            }
+            if self.finish_reason not in allowed_reasons:
+                raise ValueError(
+                    f"Invalid finish_reason: '{self.finish_reason}'. "
+                    f"Must be one of {allowed_reasons} or None."
+                )
 
 
 @dataclass
@@ -141,7 +170,7 @@ class ChatCompletionChunk(ModelResponse):
     model: str
     """The model to generate the completion."""
 
-    object: Literal["chat.completion.chunk"]
+    object: str
     """The object type, which is always `chat.completion.chunk`."""
 
     system_fingerprint: Optional[str] = None
@@ -150,3 +179,10 @@ class ChatCompletionChunk(ModelResponse):
     Can be used in conjunction with the `seed` request parameter to understand when
     backend changes have been made that might impact determinism.
     """
+
+    def __post_init__(self):
+        """Validates that the object type is correct."""
+        if self.object != "chat.completion.chunk":
+            raise ValueError(
+                f"Invalid object type: '{self.object}'. Must be 'chat.completion.chunk'"
+            )

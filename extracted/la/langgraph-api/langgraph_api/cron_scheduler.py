@@ -1,9 +1,13 @@
 import asyncio
 from random import random
+from typing import cast
 
 import structlog
 
+from langgraph_api import config
+from langgraph_api.encryption.middleware import decrypt_response
 from langgraph_api.models.run import create_valid_run
+from langgraph_api.serde import json_loads
 from langgraph_api.utils import next_cron_date
 from langgraph_api.utils.config import run_in_executor
 from langgraph_api.worker import set_auth_ctx_for_run
@@ -13,7 +17,7 @@ from langgraph_runtime.retry import retry_db
 
 logger = structlog.stdlib.get_logger(__name__)
 
-SLEEP_TIME = 5
+SLEEP_TIME = config.CRON_SCHEDULER_SLEEP_TIME
 
 
 @retry_db
@@ -23,7 +27,19 @@ async def cron_scheduler():
         try:
             async with connect() as conn:
                 async for cron in Crons.next(conn):
+                    on_run_completed = cron.get("on_run_completed")
+
                     run_payload = cron["payload"]
+                    if not isinstance(run_payload, dict):
+                        run_payload = json_loads(run_payload)
+                    run_payload = cast("dict", run_payload)
+
+                    run_payload = await decrypt_response(
+                        run_payload, "cron", ["metadata", "context", "input", "config"]
+                    )
+
+                    if on_run_completed == "keep":
+                        run_payload.setdefault("on_completion", "keep")  # type: ignore[union-attr]
 
                     async with set_auth_ctx_for_run(
                         run_payload, user_id=cron["user_id"]

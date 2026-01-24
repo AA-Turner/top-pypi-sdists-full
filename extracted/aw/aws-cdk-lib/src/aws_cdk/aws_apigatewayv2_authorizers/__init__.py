@@ -455,9 +455,9 @@ class HttpIamAuthorizer(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteAuthorizerConfig_162cee40:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteAuthorizerConfig_162cee40":
         '''Bind this authorizer to a specified Http route.
 
         :param route: The route to which the authorizer is being bound.
@@ -465,13 +465,13 @@ class HttpIamAuthorizer(
         '''
         _options = _HttpRouteAuthorizerBindOptions_0416479e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteAuthorizerConfig_162cee40, jsii.invoke(self, "bind", [_options]))
+        return typing.cast("_HttpRouteAuthorizerConfig_162cee40", jsii.invoke(self, "bind", [_options]))
 
     @builtins.property
     @jsii.member(jsii_name="authorizationType")
-    def authorization_type(self) -> _HttpAuthorizerType_9da7a607:
+    def authorization_type(self) -> "_HttpAuthorizerType_9da7a607":
         '''The authorizationType used for IAM Authorizer.'''
-        return typing.cast(_HttpAuthorizerType_9da7a607, jsii.get(self, "authorizationType"))
+        return typing.cast("_HttpAuthorizerType_9da7a607", jsii.get(self, "authorizationType"))
 
 
 @jsii.implements(_IHttpRouteAuthorizer_6333bae7)
@@ -536,9 +536,9 @@ class HttpJwtAuthorizer(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteAuthorizerConfig_162cee40:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteAuthorizerConfig_162cee40":
         '''Bind this authorizer to a specified Http route.
 
         :param route: The route to which the authorizer is being bound.
@@ -546,7 +546,7 @@ class HttpJwtAuthorizer(
         '''
         options = _HttpRouteAuthorizerBindOptions_0416479e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteAuthorizerConfig_162cee40, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_HttpRouteAuthorizerConfig_162cee40", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="authorizationType")
@@ -692,12 +692,12 @@ class HttpLambdaAuthorizer(
     def __init__(
         self,
         id: builtins.str,
-        handler: _IFunction_6adb0ab8,
+        handler: "_IFunction_6adb0ab8",
         *,
         authorizer_name: typing.Optional[builtins.str] = None,
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
         response_types: typing.Optional[typing.Sequence["HttpLambdaResponseType"]] = None,
-        results_cache_ttl: typing.Optional[_Duration_4839e8c3] = None,
+        results_cache_ttl: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Initialize a lambda authorizer to be bound with HTTP route.
 
@@ -725,9 +725,9 @@ class HttpLambdaAuthorizer(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteAuthorizerConfig_162cee40:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteAuthorizerConfig_162cee40":
         '''Bind this authorizer to a specified Http route.
 
         :param route: The route to which the authorizer is being bound.
@@ -735,7 +735,7 @@ class HttpLambdaAuthorizer(
         '''
         options = _HttpRouteAuthorizerBindOptions_0416479e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteAuthorizerConfig_162cee40, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_HttpRouteAuthorizerConfig_162cee40", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="authorizationType")
@@ -767,7 +767,7 @@ class HttpLambdaAuthorizerProps:
         authorizer_name: typing.Optional[builtins.str] = None,
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
         response_types: typing.Optional[typing.Sequence["HttpLambdaResponseType"]] = None,
-        results_cache_ttl: typing.Optional[_Duration_4839e8c3] = None,
+        results_cache_ttl: typing.Optional["_Duration_4839e8c3"] = None,
     ) -> None:
         '''Properties to initialize HttpTokenAuthorizer.
 
@@ -848,7 +848,7 @@ class HttpLambdaAuthorizerProps:
         return typing.cast(typing.Optional[typing.List["HttpLambdaResponseType"]], result)
 
     @builtins.property
-    def results_cache_ttl(self) -> typing.Optional[_Duration_4839e8c3]:
+    def results_cache_ttl(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''How long APIGateway should cache the results.
 
         Max 1 hour.
@@ -857,7 +857,7 @@ class HttpLambdaAuthorizerProps:
         :default: Duration.minutes(5)
         '''
         result = self._values.get("results_cache_ttl")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -913,11 +913,11 @@ class HttpUserPoolAuthorizer(
     def __init__(
         self,
         id: builtins.str,
-        pool: _IUserPool_1f1029e2,
+        pool: "_IUserPool_1f1029e2",
         *,
         authorizer_name: typing.Optional[builtins.str] = None,
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
-        user_pool_clients: typing.Optional[typing.Sequence[_IUserPoolClient_75623ba4]] = None,
+        user_pool_clients: typing.Optional[typing.Sequence["_IUserPoolClient_75623ba4"]] = None,
         user_pool_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Initialize a Cognito user pool authorizer to be bound with HTTP route.
@@ -946,9 +946,9 @@ class HttpUserPoolAuthorizer(
     def bind(
         self,
         *,
-        route: _IHttpRoute_2fbc6171,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _HttpRouteAuthorizerConfig_162cee40:
+        route: "_IHttpRoute_2fbc6171",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_HttpRouteAuthorizerConfig_162cee40":
         '''Bind this authorizer to a specified Http route.
 
         :param route: The route to which the authorizer is being bound.
@@ -956,7 +956,7 @@ class HttpUserPoolAuthorizer(
         '''
         options = _HttpRouteAuthorizerBindOptions_0416479e(route=route, scope=scope)
 
-        return typing.cast(_HttpRouteAuthorizerConfig_162cee40, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_HttpRouteAuthorizerConfig_162cee40", jsii.invoke(self, "bind", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="authorizationType")
@@ -987,7 +987,7 @@ class HttpUserPoolAuthorizerProps:
         *,
         authorizer_name: typing.Optional[builtins.str] = None,
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
-        user_pool_clients: typing.Optional[typing.Sequence[_IUserPoolClient_75623ba4]] = None,
+        user_pool_clients: typing.Optional[typing.Sequence["_IUserPoolClient_75623ba4"]] = None,
         user_pool_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties to initialize HttpUserPoolAuthorizer.
@@ -1052,13 +1052,13 @@ class HttpUserPoolAuthorizerProps:
     @builtins.property
     def user_pool_clients(
         self,
-    ) -> typing.Optional[typing.List[_IUserPoolClient_75623ba4]]:
+    ) -> typing.Optional[typing.List["_IUserPoolClient_75623ba4"]]:
         '''The user pool clients that should be used to authorize requests with the user pool.
 
         :default: - a new client will be created for the given user pool
         '''
         result = self._values.get("user_pool_clients")
-        return typing.cast(typing.Optional[typing.List[_IUserPoolClient_75623ba4]], result)
+        return typing.cast(typing.Optional[typing.List["_IUserPoolClient_75623ba4"]], result)
 
     @builtins.property
     def user_pool_region(self) -> typing.Optional[builtins.str]:
@@ -1133,9 +1133,9 @@ class WebSocketIamAuthorizer(
     def bind(
         self,
         *,
-        route: _IWebSocketRoute_006c2390,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _WebSocketRouteAuthorizerConfig_3aa7e761:
+        route: "_IWebSocketRoute_006c2390",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_WebSocketRouteAuthorizerConfig_3aa7e761":
         '''Bind this authorizer to a specified WebSocket route.
 
         :param route: The route to which the authorizer is being bound.
@@ -1145,7 +1145,7 @@ class WebSocketIamAuthorizer(
             route=route, scope=scope
         )
 
-        return typing.cast(_WebSocketRouteAuthorizerConfig_3aa7e761, jsii.invoke(self, "bind", [_options]))
+        return typing.cast("_WebSocketRouteAuthorizerConfig_3aa7e761", jsii.invoke(self, "bind", [_options]))
 
 
 @jsii.implements(_IWebSocketRouteAuthorizer_a0e95c16)
@@ -1184,7 +1184,7 @@ class WebSocketLambdaAuthorizer(
     def __init__(
         self,
         id: builtins.str,
-        handler: _IFunction_6adb0ab8,
+        handler: "_IFunction_6adb0ab8",
         *,
         authorizer_name: typing.Optional[builtins.str] = None,
         identity_source: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1209,9 +1209,9 @@ class WebSocketLambdaAuthorizer(
     def bind(
         self,
         *,
-        route: _IWebSocketRoute_006c2390,
-        scope: _constructs_77d1e7e8.Construct,
-    ) -> _WebSocketRouteAuthorizerConfig_3aa7e761:
+        route: "_IWebSocketRoute_006c2390",
+        scope: "_constructs_77d1e7e8.Construct",
+    ) -> "_WebSocketRouteAuthorizerConfig_3aa7e761":
         '''Bind this authorizer to a specified WebSocket route.
 
         :param route: The route to which the authorizer is being bound.
@@ -1221,7 +1221,7 @@ class WebSocketLambdaAuthorizer(
             route=route, scope=scope
         )
 
-        return typing.cast(_WebSocketRouteAuthorizerConfig_3aa7e761, jsii.invoke(self, "bind", [options]))
+        return typing.cast("_WebSocketRouteAuthorizerConfig_3aa7e761", jsii.invoke(self, "bind", [options]))
 
 
 @jsii.data_type(

@@ -1,43 +1,44 @@
 import numpy as np
 from numba.core.extending import overload
+from numba.core.types import Float
 from numba.np.linalg import ensure_lapack
 from scipy import linalg
 
 from pytensor.link.numba.dispatch.linalg._LAPACK import (
     _LAPACK,
-    _get_underlying_float,
     int_ptr_to_val,
     val_to_int_ptr,
 )
 from pytensor.link.numba.dispatch.linalg.solve.utils import _solve_check_input_shapes
 from pytensor.link.numba.dispatch.linalg.utils import (
-    _check_scipy_linalg_matrix,
+    _check_dtypes_match,
+    _check_linalg_matrix,
     _copy_to_fortran_order_even_if_1d,
-    _solve_check,
 )
 
 
-def _cho_solve(
-    C: np.ndarray, B: np.ndarray, lower: bool, overwrite_b: bool, check_finite: bool
-):
+def _cho_solve(C: np.ndarray, B: np.ndarray, lower: bool, overwrite_b: bool):
     """
     Solve a positive-definite linear system using the Cholesky decomposition.
     """
     return linalg.cho_solve(
-        (C, lower), b=B, overwrite_b=overwrite_b, check_finite=check_finite
+        (C, lower),
+        b=B,
+        overwrite_b=overwrite_b,
+        check_finite=False,
     )
 
 
 @overload(_cho_solve)
-def cho_solve_impl(C, B, lower=False, overwrite_b=False, check_finite=True):
+def cho_solve_impl(C, B, lower=False, overwrite_b=False):
     ensure_lapack()
-    _check_scipy_linalg_matrix(C, "cho_solve")
-    _check_scipy_linalg_matrix(B, "cho_solve")
+    _check_linalg_matrix(C, ndim=2, dtype=Float, func_name="cho_solve")
+    _check_linalg_matrix(B, ndim=(1, 2), dtype=Float, func_name="cho_solve")
+    _check_dtypes_match((C, B), func_name="cho_solve")
     dtype = C.dtype
-    w_type = _get_underlying_float(dtype)
     numba_potrs = _LAPACK().numba_xpotrs(dtype)
 
-    def impl(C, B, lower=False, overwrite_b=False, check_finite=True):
+    def impl(C, B, lower=False, overwrite_b=False):
         _solve_check_input_shapes(C, B)
 
         _N = np.int32(C.shape[-1])
@@ -71,14 +72,15 @@ def cho_solve_impl(C, B, lower=False, overwrite_b=False, check_finite=True):
             UPLO,
             N,
             NRHS,
-            C_f.view(w_type).ctypes,
+            C_f.ctypes,
             LDA,
-            B_copy.view(w_type).ctypes,
+            B_copy.ctypes,
             LDB,
             INFO,
         )
 
-        _solve_check(_N, int_ptr_to_val(INFO))
+        if int_ptr_to_val(INFO) != 0:
+            B_copy = np.full_like(B_copy, np.nan)
 
         if B_is_1d:
             return B_copy[..., 0]

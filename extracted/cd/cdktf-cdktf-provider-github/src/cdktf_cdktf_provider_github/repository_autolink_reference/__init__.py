@@ -1,7 +1,7 @@
 r'''
 # `github_repository_autolink_reference`
 
-Refer to the Terraform Registry for docs: [`github_repository_autolink_reference`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference).
+Refer to the Terraform Registry for docs: [`github_repository_autolink_reference`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryAutolinkReference(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryAutolinkReference.RepositoryAutolinkReference",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference github_repository_autolink_reference}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference github_repository_autolink_reference}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class RepositoryAutolinkReference(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference github_repository_autolink_reference} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference github_repository_autolink_reference} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param key_prefix: This prefix appended by a number will generate a link any time it is found in an issue, pull request, or commit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#key_prefix RepositoryAutolinkReference#key_prefix}
-        :param repository: The repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#repository RepositoryAutolinkReference#repository}
-        :param target_url_template: The template of the target URL used for the links; must be a valid URL and contain ``<num>`` for the reference number Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#target_url_template RepositoryAutolinkReference#target_url_template}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#id RepositoryAutolinkReference#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_alphanumeric: Whether this autolink reference matches alphanumeric characters. If false, this autolink reference only matches numeric characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#is_alphanumeric RepositoryAutolinkReference#is_alphanumeric}
+        :param key_prefix: This prefix appended by a number will generate a link any time it is found in an issue, pull request, or commit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#key_prefix RepositoryAutolinkReference#key_prefix}
+        :param repository: The repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#repository RepositoryAutolinkReference#repository}
+        :param target_url_template: The template of the target URL used for the links; must be a valid URL and contain ``<num>`` for the reference number Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#target_url_template RepositoryAutolinkReference#target_url_template}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#id RepositoryAutolinkReference#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_alphanumeric: Whether this autolink reference matches alphanumeric characters. If false, this autolink reference only matches numeric characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#is_alphanumeric RepositoryAutolinkReference#is_alphanumeric}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class RepositoryAutolinkReference(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryAutolinkReference to import.
-        :param import_from_id: The id of the existing RepositoryAutolinkReference that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryAutolinkReference that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryAutolinkReference to import is found.
         '''
         if __debug__:
@@ -288,11 +288,11 @@ class RepositoryAutolinkReferenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param key_prefix: This prefix appended by a number will generate a link any time it is found in an issue, pull request, or commit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#key_prefix RepositoryAutolinkReference#key_prefix}
-        :param repository: The repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#repository RepositoryAutolinkReference#repository}
-        :param target_url_template: The template of the target URL used for the links; must be a valid URL and contain ``<num>`` for the reference number Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#target_url_template RepositoryAutolinkReference#target_url_template}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#id RepositoryAutolinkReference#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_alphanumeric: Whether this autolink reference matches alphanumeric characters. If false, this autolink reference only matches numeric characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#is_alphanumeric RepositoryAutolinkReference#is_alphanumeric}
+        :param key_prefix: This prefix appended by a number will generate a link any time it is found in an issue, pull request, or commit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#key_prefix RepositoryAutolinkReference#key_prefix}
+        :param repository: The repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#repository RepositoryAutolinkReference#repository}
+        :param target_url_template: The template of the target URL used for the links; must be a valid URL and contain ``<num>`` for the reference number Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#target_url_template RepositoryAutolinkReference#target_url_template}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#id RepositoryAutolinkReference#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_alphanumeric: Whether this autolink reference matches alphanumeric characters. If false, this autolink reference only matches numeric characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#is_alphanumeric RepositoryAutolinkReference#is_alphanumeric}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -402,7 +402,7 @@ class RepositoryAutolinkReferenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def key_prefix(self) -> builtins.str:
         '''This prefix appended by a number will generate a link any time it is found in an issue, pull request, or commit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#key_prefix RepositoryAutolinkReference#key_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#key_prefix RepositoryAutolinkReference#key_prefix}
         '''
         result = self._values.get("key_prefix")
         assert result is not None, "Required property 'key_prefix' is missing"
@@ -412,7 +412,7 @@ class RepositoryAutolinkReferenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''The repository name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#repository RepositoryAutolinkReference#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#repository RepositoryAutolinkReference#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -424,7 +424,7 @@ class RepositoryAutolinkReferenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be a valid URL and contain ``<num>`` for the reference number
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#target_url_template RepositoryAutolinkReference#target_url_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#target_url_template RepositoryAutolinkReference#target_url_template}
         '''
         result = self._values.get("target_url_template")
         assert result is not None, "Required property 'target_url_template' is missing"
@@ -432,7 +432,7 @@ class RepositoryAutolinkReferenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#id RepositoryAutolinkReference#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#id RepositoryAutolinkReference#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -446,7 +446,7 @@ class RepositoryAutolinkReferenceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether this autolink reference matches alphanumeric characters. If false, this autolink reference only matches numeric characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_autolink_reference#is_alphanumeric RepositoryAutolinkReference#is_alphanumeric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_autolink_reference#is_alphanumeric RepositoryAutolinkReference#is_alphanumeric}
         '''
         result = self._values.get("is_alphanumeric")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

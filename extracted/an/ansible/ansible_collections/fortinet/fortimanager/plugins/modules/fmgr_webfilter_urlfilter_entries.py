@@ -16,7 +16,6 @@ short_description: URL filter entries.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -160,6 +162,9 @@ options:
                 choices:
                     - 'block'
                     - 'log'
+            comment:
+                type: str
+                description: Comment.
 '''
 
 EXAMPLES = '''
@@ -175,8 +180,8 @@ EXAMPLES = '''
     - name: URL filter entries.
       fortinet.fortimanager.fmgr_webfilter_urlfilter_entries:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -203,6 +208,7 @@ EXAMPLES = '''
           # url: <string>
           # web_proxy_profile: <string>
           # antiphish_action: <value in [block, log]>
+          # comment: <string>
 '''
 
 RETURN = '''
@@ -260,6 +266,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'urlfilter': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'webfilter_urlfilter_entries': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -277,7 +284,8 @@ def main():
                 'type': {'choices': ['simple', 'regex', 'wildcard'], 'type': 'str'},
                 'url': {'type': 'str'},
                 'web-proxy-profile': {'type': 'str'},
-                'antiphish-action': {'v_range': [['6.4.0', '']], 'choices': ['block', 'log'], 'type': 'str'}
+                'antiphish-action': {'v_range': [['6.4.0', '']], 'choices': ['block', 'log'], 'type': 'str'},
+                'comment': {'v_range': [['7.6.4', '']], 'type': 'str'}
             }
         }
     }

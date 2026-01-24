@@ -27,9 +27,7 @@ class OcrClient(AbstractClient):
 
 
     def AdvertiseOCR(self, request):
-        r"""本接口支持广告商品图片内文字的检测和识别，返回文本框位置与文字内容。
-
-        产品优势：针对广告商品图片普遍存在较多繁体字、艺术字的特点，进行了识别能力的增强。支持中英文、横排、竖排以及倾斜场景文字识别。文字识别的召回率和准确率能达到96%以上。
+        r"""支持广告商品图片内文字的检测和识别，返回文本框位置与文字内容。支持中英文、横排、竖排以及倾斜场景文字识别，支持90度、180度、270度翻转以及倾斜场景文字识别，具有较高召回率和准确率。
 
         默认接口请求频率限制：20次/秒。
 
@@ -460,8 +458,31 @@ class OcrClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ExtractDocAgent(self, request):
+        r"""用于查询文档处理任务。文档处理领域里常见的通用Agent 如抽取、比对之类的，目前我们提供的抽取，但未来可以根据实际情况和客户需求扩展。
+
+        :param request: Request instance for ExtractDocAgent.
+        :type request: :class:`tencentcloud.ocr.v20181119.models.ExtractDocAgentRequest`
+        :rtype: :class:`tencentcloud.ocr.v20181119.models.ExtractDocAgentResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ExtractDocAgent", params, headers=headers)
+            response = json.loads(body)
+            model = models.ExtractDocAgentResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ExtractDocBasic(self, request):
-        r"""本接口支持识别并提取制式卡证、票据、表单等结构化场景的字段信息。无需任何配置，灵活高效。适用于各类结构化信息录入场景。点击[立即体验](https://ocrdemo.cloud.tencent.com/)。
+        r"""本接口支持识别并提取制式卡证、票据、表单等结构化场景的字段信息。无需任何配置，灵活高效。适用于各类结构化信息录入场景。点击[立即体验](https://ocrdemo.cloud.tencent.com/?action=ExtractDocBasic)。
 
         接口别名：SmartStructuralOCRV2
 
@@ -488,7 +509,7 @@ class OcrClient(AbstractClient):
 
 
     def ExtractDocMulti(self, request):
-        r"""本接口支持识别并提取场景复杂、版式多等结构化场景的字段信息。重点场景包括：金融、医疗、交通、出行、保险。点击[立即体验](https://ocrdemo.cloud.tencent.com/)。
+        r"""本接口支持识别并提取场景复杂、版式多等结构化场景的字段信息。重点场景包括：金融、医疗、交通、出行、保险。点击[立即体验](https://ocrdemo.cloud.tencent.com/?action=ExtractDocMulti)。
 
         接口别名：SmartStructuralPro
 
@@ -515,7 +536,7 @@ class OcrClient(AbstractClient):
 
 
     def ExtractDocMultiPro(self, request):
-        r"""本接口当前仅支持复杂磅单收发货单抽取，更多强推理场景支持定制咨询。点击[立即体验](https://ocrdemo.cloud.tencent.com/)。
+        r"""本接口当前仅支持复杂磅单收发货单抽取，更多强推理场景支持定制咨询。点击[立即体验](https://ocrdemo.cloud.tencent.com/?action=ExtractDocMultiPro)。
 
         默认接口请求频率限制：5次/秒。
 
@@ -676,7 +697,7 @@ class OcrClient(AbstractClient):
                 </tr>
                 <tr>
                   <td>支持的语言</td>
-                  <td>中文、英文、中英文、泰语、印尼语、日语、韩语、西班牙语、法语、德语、葡萄牙语、越南语、马来语、俄语、意大利语、荷兰语、瑞典语、芬兰语、丹麦语、挪威语、匈牙利语、哈萨克语</td>
+                  <td>中文、英文、中英文、泰语、印尼语、日语、韩语、西班牙语、法语、德语、葡萄牙语、越南语、马来语、俄语、意大利语、荷兰语、瑞典语、芬兰语、丹麦语、挪威语、匈牙利语、哈萨克语、阿拉伯语、维吾尔语、藏语、捷克语、希腊语、西班牙语（智利）、西班牙语（墨西哥）、希伯来语、克罗地亚语、波兰语、葡萄牙语（巴西）、罗马尼亚语、斯洛伐克语、斯洛文尼亚语、土耳其语、保加利亚语、爱沙尼亚语、拉脱维亚语、立陶宛语</td>
                   <td>中文、英文、中英文、日语、韩语、西班牙语、法语、德语、葡萄牙语、越南语、马来语、俄语、意大利语、荷兰语、瑞典语、芬兰语、丹麦语、挪威语、匈牙利语、泰语</td>
                 </tr>
                 <tr>
@@ -720,7 +741,8 @@ class OcrClient(AbstractClient):
 
 
     def GeneralBasicOCR(self, request):
-        r"""本接口支持图像整体文字的检测和识别。可以识别中文、英文、中英文、日语、韩语、西班牙语、法语、德语、葡萄牙语、越南语、马来语、俄语、意大利语、荷兰语、瑞典语、芬兰语、丹麦语、挪威语、匈牙利语、泰语，阿拉伯语20种语言，且各种语言均支持与英文混合的文字识别。
+        r"""**建议您使用识别效果更好的[通用文字识别（高精度版](https://cloud.tencent.com/document/product/866/34937 )）**
+        本接口支持图像整体文字的检测和识别。可以识别中文、英文、中英文、日语、韩语、西班牙语、法语、德语、葡萄牙语、越南语、马来语、俄语、意大利语、荷兰语、瑞典语、芬兰语、丹麦语、挪威语、匈牙利语、泰语，阿拉伯语20种语言，且各种语言均支持与英文混合的文字识别。
 
         适用于印刷文档识别、网络图片识别、广告图文字识别、街景店招牌识别、菜单识别、视频标题识别、头像文字识别等场景。
 
@@ -907,7 +929,7 @@ class OcrClient(AbstractClient):
 
 
     def GeneralHandwritingOCR(self, request):
-        r"""<b>此接口为通用手写体识别的旧版本服务，不再进行服务升级，建议您使用识别能力更强、服务性能更优的<a href="https://cloud.tencent.com/document/product/866/34937">通用印刷体识别(高精度)识别服务</a>。</b>
+        r"""<b>此接口为通用手写体识别的旧版本服务，建议您使用识别能力更强、服务性能更优的<a href="https://cloud.tencent.com/document/product/866/34937">通用印刷体识别(高精度)识别服务</a>。</b>
 
         本接口支持图片内手写体文字的检测和识别，针对手写字体无规则、字迹潦草、模糊等特点进行了识别能力的增强。
 
@@ -1148,32 +1170,6 @@ class OcrClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
-    def InstitutionOCR(self, request):
-        r"""<b>因技术原因，本接口将不再迭代升级。文档抽取(基础版)可支持此类证书的识别抽取，效果、功能更强并将持续迭代优化，建议使用<a href="https://cloud.tencent.com/document/product/866/119452">文档抽取（基础版）</a>。</b>
-        本接口支持事业单位法人证书关键字段识别，包括注册号、有效期、住所、名称、法定代表人等。
-
-        默认接口请求频率限制：5次/秒。
-
-        :param request: Request instance for InstitutionOCR.
-        :type request: :class:`tencentcloud.ocr.v20181119.models.InstitutionOCRRequest`
-        :rtype: :class:`tencentcloud.ocr.v20181119.models.InstitutionOCRResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("InstitutionOCR", params, headers=headers)
-            response = json.loads(body)
-            model = models.InstitutionOCRResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
     def InsuranceBillOCR(self, request):
         r"""本接口支持病案首页、费用清单、结算单、医疗发票四种保险理赔单据的文本识别和结构化输出。
 
@@ -1374,32 +1370,6 @@ class OcrClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
-    def OrgCodeCertOCR(self, request):
-        r"""<b>因技术原因，本接口将不再迭代升级。文档抽取(基础版)可支持此类证书的识别抽取，效果、功能更强并将持续迭代优化，建议使用<a href="https://cloud.tencent.com/document/product/866/119452">文档抽取（基础版）</a>。</b>
-        本接口支持组织机构代码证关键字段的识别，包括代码、有效期、地址、机构名称等。
-
-        默认接口请求频率限制：5次/秒。
-
-        :param request: Request instance for OrgCodeCertOCR.
-        :type request: :class:`tencentcloud.ocr.v20181119.models.OrgCodeCertOCRRequest`
-        :rtype: :class:`tencentcloud.ocr.v20181119.models.OrgCodeCertOCRResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("OrgCodeCertOCR", params, headers=headers)
-            response = json.loads(body)
-            model = models.OrgCodeCertOCRResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
     def PassportOCR(self, request):
         r"""<b>此接口为护照识别（中国大陆地区护照）的旧版本服务，不再进行服务升级，建议您使用识别能力更强、服务性能更优的<a href="https://cloud.tencent.com/document/product/866/37657">护照识别（多国多地区护照）</a>。</b>
 
@@ -1452,33 +1422,6 @@ class OcrClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
-    def PropOwnerCertOCR(self, request):
-        r"""<b>因技术原因，本接口将不再迭代升级。文档抽取(基础版)可支持此类证书的识别抽取，效果、功能更强并将持续迭代优化，建议使用<a href="https://cloud.tencent.com/document/product/866/119452">文档抽取（基础版）</a>。</b>
-        本接口支持房产证关键字段的识别，包括房地产权利人、共有情况、登记时间、规划用途、房屋性质、房屋坐落等。
-        目前接口对合肥、成都、佛山三个城市的房产证版式识别较好。
-
-        默认接口请求频率限制：5次/秒。
-
-        :param request: Request instance for PropOwnerCertOCR.
-        :type request: :class:`tencentcloud.ocr.v20181119.models.PropOwnerCertOCRRequest`
-        :rtype: :class:`tencentcloud.ocr.v20181119.models.PropOwnerCertOCRResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("PropOwnerCertOCR", params, headers=headers)
-            response = json.loads(body)
-            model = models.PropOwnerCertOCRResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
     def QrcodeOCR(self, request):
         r"""本接口支持条形码和二维码的识别（包括 DataMatrix 和 PDF417）。
 
@@ -1520,6 +1463,31 @@ class OcrClient(AbstractClient):
             body = self.call("QuestionOCR", params, headers=headers)
             response = json.loads(body)
             model = models.QuestionOCRResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def QuestionSplitLayoutOCR(self, request):
+        r"""试卷切题（仅检测）可将整页练习册、试卷或教辅中的题目进行自动切题，返回试题边框和题目元素的坐标位置。
+
+        默认接口请求频率限制：2次/秒。
+
+        :param request: Request instance for QuestionSplitLayoutOCR.
+        :type request: :class:`tencentcloud.ocr.v20181119.models.QuestionSplitLayoutOCRRequest`
+        :rtype: :class:`tencentcloud.ocr.v20181119.models.QuestionSplitLayoutOCRResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("QuestionSplitLayoutOCR", params, headers=headers)
+            response = json.loads(body)
+            model = models.QuestionSplitLayoutOCRResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1607,7 +1575,7 @@ class OcrClient(AbstractClient):
     def RecognizeEncryptedIDCardOCR(self, request):
         r"""身份证识别（安全加密版）接口实现了数据加密传输，能够有效防止个人身份证隐私信息不被窃取泄露。
 
-        本接口支持中国大陆居民二代身份证正反面所有字段的识别，包括姓名、性别、民族、出生日期、住址、公民身份证号、签发机关、有效期限，识别准确度达到99%以上。
+        本接口支持中国大陆居民二代身份证正反面所有字段的识别，包括姓名、性别、民族、出生日期、住址、公民身份证号、签发机关、有效期限，识别速度快、准确度高。
 
         另外，本接口还支持多种扩展能力，满足不同场景的需求。如身份证照片、人像照片的裁剪功能，同时具备9种告警功能，如下表所示。
 
@@ -1669,30 +1637,6 @@ class OcrClient(AbstractClient):
             body = self.call("RecognizeEncryptedIDCardOCR", params, headers=headers)
             response = json.loads(body)
             model = models.RecognizeEncryptedIDCardOCRResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
-    def RecognizeForeignPermanentResidentIdCard(self, request):
-        r"""<b>因技术原因，本接口将不再迭代升级。有效身份证件识别（鉴伪版）可支持此类证件的识别，并包含质量和PS告警，效果、功能更强并将持续迭代优化，建议使用<a href="https://cloud.tencent.com/document/product/866/112345">有效身份证件识别（鉴伪版）</a>。</b>
-        外国人永久居留身份证识别
-
-        :param request: Request instance for RecognizeForeignPermanentResidentIdCard.
-        :type request: :class:`tencentcloud.ocr.v20181119.models.RecognizeForeignPermanentResidentIdCardRequest`
-        :rtype: :class:`tencentcloud.ocr.v20181119.models.RecognizeForeignPermanentResidentIdCardResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("RecognizeForeignPermanentResidentIdCard", params, headers=headers)
-            response = json.loads(body)
-            model = models.RecognizeForeignPermanentResidentIdCardResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1949,7 +1893,12 @@ class OcrClient(AbstractClient):
                   <td> 25 </td>
                 </tr>
                 <tr>
-                  <td> OtherInvoice </td>
+                   <td> ElectronicTollSummary </td>
+                  <td> 通行费电子票据汇总单 </td>
+                  <td> 26 </td>
+                </tr>
+                <tr>
+                   <td> OtherInvoice </td>
                   <td> 其他发票 </td>
                   <td> -1 </td>
                 </tr>
@@ -1976,32 +1925,10 @@ class OcrClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
-    def RecognizeGeneralTextImageWarn(self, request):
-        r"""<b>因技术原因，本接口将不再迭代升级。通用卡证鉴伪可支持更多告警类型，效果、功能更强并将持续迭代优化，建议使用<a href="https://cloud.tencent.com/document/product/866/115916">通用卡证鉴伪</a>。</b>
-        本接口支持多种类型证件有效性检测告警，包括卡证复印件告警、卡证翻拍告警等功能。可以应用于各种证件信息有效性校验场景，例如银行开户、用户注册等场景。
-
-        :param request: Request instance for RecognizeGeneralTextImageWarn.
-        :type request: :class:`tencentcloud.ocr.v20181119.models.RecognizeGeneralTextImageWarnRequest`
-        :rtype: :class:`tencentcloud.ocr.v20181119.models.RecognizeGeneralTextImageWarnResponse`
-
-        """
-        try:
-            params = request._serialize()
-            headers = request.headers
-            body = self.call("RecognizeGeneralTextImageWarn", params, headers=headers)
-            response = json.loads(body)
-            model = models.RecognizeGeneralTextImageWarnResponse()
-            model._deserialize(response["Response"])
-            return model
-        except Exception as e:
-            if isinstance(e, TencentCloudSDKException):
-                raise
-            else:
-                raise TencentCloudSDKException(type(e).__name__, str(e))
-
-
     def RecognizeHealthCodeOCR(self, request):
-        r"""本接口支持北京、上海、广东、江苏、吉林、黑龙江、天津、辽宁、浙江、河南、四川、贵州、山东、安徽、福建、江西、湖北、湖南等省份健康码的识别，包括持码人姓名、持码人身份证号、健康码更新时间、健康码颜色、核酸检测结果、核酸检测间隔时长、核酸检测时间，疫苗接种信息，八个字段的识别结果输出。不同省市健康码显示的字段信息有所不同，上述字段的识别结果可能为空，以图片上具体展示的信息为准。
+        r"""产品规划
+
+        本接口支持北京、上海、广东、江苏、吉林、黑龙江、天津、辽宁、浙江、河南、四川、贵州、山东、安徽、福建、江西、湖北、湖南等省份健康码的识别，包括持码人姓名、持码人身份证号、健康码更新时间、健康码颜色、核酸检测结果、核酸检测间隔时长、核酸检测时间，疫苗接种信息，八个字段的识别结果输出。不同省市健康码显示的字段信息有所不同，上述字段的识别结果可能为空，以图片上具体展示的信息为准。
 
         默认接口请求频率限制：10次/秒。
 
@@ -2201,7 +2128,9 @@ class OcrClient(AbstractClient):
 
 
     def RecognizeTravelCardOCR(self, request):
-        r"""本接口支持通信大数据行程卡识别，包括行程卡颜色、更新时间、途经地、存在中高风险地区的城市、电话号码，五个字段的识别结果输出。
+        r"""产品规划
+
+        本接口支持通信大数据行程卡识别，包括行程卡颜色、更新时间、途经地、存在中高风险地区的城市、电话号码，五个字段的识别结果输出。
 
         默认接口请求频率限制：20次/秒。
 

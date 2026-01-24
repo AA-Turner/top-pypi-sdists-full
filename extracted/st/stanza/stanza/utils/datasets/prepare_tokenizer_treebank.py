@@ -27,6 +27,7 @@ import io
 import os
 import random
 import re
+import sys
 import tempfile
 import zipfile
 
@@ -82,9 +83,6 @@ def copy_conllu_treebank(treebank, model_type, paths, dest_dir, postprocess=None
         postprocess(tokenizer_dir, "train.gold", dest_dir, "train.in", short_name)
         postprocess(tokenizer_dir, "dev.gold", dest_dir, "dev.in", short_name)
         postprocess(tokenizer_dir, "test.gold", dest_dir, "test.in", short_name)
-        if model_type is not common.ModelType.POS and model_type is not common.ModelType.DEPPARSE:
-            copy_conllu_file(dest_dir, "dev.in", dest_dir, "dev.gold", short_name)
-            copy_conllu_file(dest_dir, "test.in", dest_dir, "test.gold", short_name)
 
 def split_train_file(treebank, train_input_conllu, train_output_conllu, dev_output_conllu):
     # set the seed for each data file so that the results are the same
@@ -144,53 +142,6 @@ def add_space_after_no(piece, fail_if_found=True):
             if has_space_after_no(piece):
                 raise ValueError("Given notes field already contained SpaceAfter=No")
         return piece + "|SpaceAfter=No"
-
-
-def augment_arabic_padt(sents, ratio=0.05):
-    """
-    Basic Arabic tokenizer gets the trailing punctuation wrong if there is a blank space.
-
-    Reason seems to be that there are almost no examples of "text ." in the dataset.
-    This function augments the Arabic-PADT dataset with a few such examples.
-    TODO: it may very well be that a lot of tokeners have this problem.
-
-    Also, there are a few examples in UD2.7 which are apparently
-    headlines where there is a ' . ' in the middle of the text.
-    According to an Arabic speaking labmate, the sentences are
-    headlines which could be reasonably split into two items.  Having
-    them as one item is quite confusing and possibly incorrect, but
-    such is life.
-    """
-    new_sents = []
-    for sentence in sents:
-        if len(sentence) < 4:
-            raise ValueError("Read a surprisingly short sentence")
-        text_line = None
-        if sentence[0].startswith("# newdoc") and sentence[3].startswith("# text"):
-            text_line = 3
-        elif sentence[0].startswith("# newpar") and sentence[2].startswith("# text"):
-            text_line = 2
-        elif sentence[0].startswith("# sent_id") and sentence[1].startswith("# text"):
-            text_line = 1
-        else:
-            raise ValueError("Could not find text line in %s" % sentence[0].split()[-1])
-
-        # for some reason performance starts dropping quickly at higher numbers
-        if random.random() > ratio:
-            continue
-
-        if (sentence[text_line][-1] in ('.', '؟', '?', '!') and
-            sentence[text_line][-2] not in ('.', '؟', '?', '!', ' ') and
-            has_space_after_no(sentence[-2].split()[-1]) and
-            len(sentence[-1].split()[1]) == 1):
-            new_sent = list(sentence)
-            new_sent[text_line] = new_sent[text_line][:-1] + ' ' + new_sent[text_line][-1]
-            pieces = sentence[-2].split("\t")
-            pieces[-1] = remove_space_after_no(pieces[-1])
-            new_sent[-2] = "\t".join(pieces)
-            assert new_sent != sentence
-            new_sents.append(new_sent)
-    return sents + new_sents
 
 
 def augment_telugu(sents):
@@ -551,7 +502,11 @@ def augment_quotes(sents, ratio=0.15):
 
         new_sents.append(new_sent)
 
-    print("Augmented {} quotes: {}".format(sum(counts.values()), counts))
+    # we go through this to make it simpler to execute on Windows
+    # rather than nagging the user to set utf-8
+    out = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", write_through=True)
+    print("Augmented {} quotes: {}".format(sum(counts.values()), counts), file=out)
+    out.detach()
     return new_sents
 
 def find_text_idx(sentence):
@@ -704,7 +659,22 @@ def augment_punct(sents):
 
     return new_sents
 
+def remove_accents_from_words(sents):
+    new_sents = []
+    for sent in sents:
+        new_sent = []
+        for line in sent:
+            if line.startswith("#"):
+                new_sent.append(line)
+            else:
+                pieces = line.split("\t")
+                pieces[1] = common.strip_accents(pieces[1])
+                new_sent.append("\t".join(pieces))
+        new_sents.append(new_sent)
+    return new_sents
 
+def augment_accents(sents):
+    return sents + remove_accents_from_words(sents)
 
 def write_augmented_dataset(input_conllu, output_conllu, augment_function):
     # set the seed for each data file so that the results are the same
@@ -787,9 +757,7 @@ def build_combined_italian_dataset(paths, model_type, dataset):
         # could maybe add ParTUT, but that dataset has a slightly different xpos set
         # (no DE or I)
         # and I didn't feel like sorting through the differences
-        # Note: currently these each have small changes compared with
-        # the UD2.11 release.  See the issues (possibly closed by now)
-        # filed by AngledLuffa on each of the treebanks for more info.
+        # TODO: for that dataset, can try adding it without the xpos or feats on ParTUT
         treebanks = [
             "UD_Italian-ISDT",
             "UD_Italian-VIT",
@@ -819,7 +787,7 @@ def build_combined_english_dataset(paths, model_type, dataset):
     """
     en_combined is currently EWT, GUM, PUD, Pronouns, and handparsed
     """
-    udbase_dir = paths["UDBASE"]
+    udbase_dir = paths["UDBASE_GIT"]
     check_gum_ready(udbase_dir)
 
     if dataset == 'train':
@@ -893,6 +861,27 @@ def build_extra_combined_french_dataset(paths, model_type, dataset):
             handparsed_sentences = read_sentences_from_conllu(handparsed_path)
             print("Loaded %d sentences from %s" % (len(handparsed_sentences), handparsed_path))
             sents.extend(handparsed_sentences)
+
+            handparsed_path = os.path.join(handparsed_dir, "french-lemmas", "french1st_6thGrade.conllu")
+            handparsed_sentences = read_sentences_from_conllu(handparsed_path)
+            print("Loaded %d sentences from %s" % (len(handparsed_sentences), handparsed_path))
+            sents.extend(handparsed_sentences)
+    return sents
+
+def build_extra_combined_german_dataset(paths, model_type, dataset):
+    """
+    Extra sentences we don't want augmented for German
+
+    Currently, this is just the lemmas from Wiktionary
+    """
+    handparsed_dir = paths["HANDPARSED_DIR"]
+    sents = []
+    if dataset == 'train':
+        if model_type is common.ModelType.LEMMA:
+            handparsed_path = os.path.join(handparsed_dir, "german-lemmas-wiki", "de_wiki_lemmas.conllu")
+            handparsed_sentences = read_sentences_from_conllu(handparsed_path)
+            print("Loaded %d sentences from %s" % (len(handparsed_sentences), handparsed_path))
+            sents.extend(handparsed_sentences)
     return sents
 
 
@@ -911,6 +900,16 @@ def build_extra_combined_english_dataset(paths, model_type, dataset):
 
         if model_type is common.ModelType.LEMMA:
             handparsed_path = os.path.join(handparsed_dir, "english-lemmas", "en_lemmas.conllu")
+            handparsed_sentences = read_sentences_from_conllu(handparsed_path)
+            print("Loaded %d sentences from %s" % (len(handparsed_sentences), handparsed_path))
+            sents.extend(handparsed_sentences)
+
+            handparsed_path = os.path.join(handparsed_dir, "english-lemmas-verbs", "irregularVerbs-noNnoAdj.conllu")
+            handparsed_sentences = read_sentences_from_conllu(handparsed_path)
+            print("Loaded %d sentences from %s" % (len(handparsed_sentences), handparsed_path))
+            sents.extend(handparsed_sentences)
+
+            handparsed_path = os.path.join(handparsed_dir, "english-lemmas-adj", "en_adj.conllu")
             handparsed_sentences = read_sentences_from_conllu(handparsed_path)
             print("Loaded %d sentences from %s" % (len(handparsed_sentences), handparsed_path))
             sents.extend(handparsed_sentences)
@@ -999,6 +998,37 @@ def strip_feats(sents):
     """
     return strip_column(sents, 5)
 
+def build_combined_japanese_dataset(paths, model_type, dataset):
+    """
+    GSD with a handparsed dataset of some short verb phrases
+    """
+    udbase_dir = paths["UDBASE"]
+    handparsed_dir = paths["HANDPARSED_DIR"]
+
+    treebank = "UD_Japanese-GSD"
+    conllu_file = common.find_treebank_dataset_file(treebank, udbase_dir, dataset, "conllu", fail=True)
+    gsd_sents = read_sentences_from_conllu(conllu_file)
+    print("Read %d sentences from %s" % (len(gsd_sents), conllu_file))
+
+    if dataset == 'train':
+        extra_japanese = os.path.join(handparsed_dir, "japanese-handparsed", "spaces-ready-checked.conllu")
+        if not os.path.exists(extra_japanese):
+            raise FileNotFoundError("Cannot find the extra dataset which includes various verb patterns, expected {}".format(extra_japanese))
+        extra_sents = read_sentences_from_conllu(extra_japanese)
+        print("Read %d sentences from %s" % (len(extra_sents), extra_japanese))
+
+        if model_type == common.ModelType.POS:
+            documents = {}
+            documents[treebank] = gsd_sents
+            documents['handparsed'] = extra_sents
+            return documents
+        else:
+            sents = gsd_sents + extra_sents
+            return sents
+    else:
+        return gsd_sents
+
+
 def build_combined_albanian_dataset(paths, model_type, dataset):
     """
     sq_combined is STAF as the base, with TSA added for some things
@@ -1044,6 +1074,25 @@ def build_combined_albanian_dataset(paths, model_type, dataset):
     sents = read_sentences_from_conllu(conllu_file)
     return sents
 
+def build_combined_german_dataset(paths, model_type, dataset):
+    """
+    de_combined is currently GSD, with lemma information from Wiktionary
+
+    the lemma information is added in build_extra_combined_german_dataset
+
+    TODO: quite a bit of HDT we could possibly use
+    """
+    udbase_dir = paths["UDBASE"]
+
+    treebanks = ["UD_German-GSD"]
+
+    treebank = treebanks[0]
+    conllu_file = common.find_treebank_dataset_file(treebank, udbase_dir, dataset, "conllu", fail=True)
+    sents = read_sentences_from_conllu(conllu_file)
+
+    return sents
+
+
 def build_combined_spanish_dataset(paths, model_type, dataset):
     """
     es_combined is AnCora and GSD put together
@@ -1086,7 +1135,7 @@ def build_combined_spanish_dataset(paths, model_type, dataset):
         if model_type in (common.ModelType.TOKENIZER, common.ModelType.MWT, common.ModelType.LEMMA):
             extra_spanish = os.path.join(handparsed_dir, "spanish-mwt", "adjectives.conllu")
             if not os.path.exists(extra_spanish):
-                raise FileNotFoundError("Cannot find the extra dataset 'handpicked.mwt' which includes various multi-words retokenized, expected {}".format(extra_italian))
+                raise FileNotFoundError("Cannot find the extra dataset 'adjectives.conllu' which includes various multi-words retokenized, expected {}".format(extra_spanish))
             extra_sents = read_sentences_from_conllu(extra_spanish)
             print("Read %d sentences from %s" % (len(extra_sents), extra_spanish))
             sents.extend(extra_sents)
@@ -1158,16 +1207,19 @@ def build_combined_hebrew_dataset(paths, model_type, dataset):
     return sents
 
 COMBINED_FNS = {
+    "de_combined": build_combined_german_dataset,
     "en_combined": build_combined_english_dataset,
     "es_combined": build_combined_spanish_dataset,
     "fr_combined": build_combined_french_dataset,
     "he_combined": build_combined_hebrew_dataset,
     "it_combined": build_combined_italian_dataset,
+    "ja_combined": build_combined_japanese_dataset,
     "sq_combined": build_combined_albanian_dataset,
 }
 
 # some extra data for the combined models without augmenting
 COMBINED_EXTRA_FNS = {
+    "de_combined": build_extra_combined_german_dataset,
     "en_combined": build_extra_combined_english_dataset,
     "fr_combined": build_extra_combined_french_dataset,
     "it_combined": build_extra_combined_italian_dataset,
@@ -1256,10 +1308,10 @@ def prepare_ud_dataset(treebank, udbase_dir, tokenizer_dir, short_name, short_la
 
     if short_name == "te_mtg" and dataset == 'train' and augment:
         write_augmented_dataset(input_conllu, output_conllu, augment_telugu)
-    elif short_name == "ar_padt" and dataset == 'train' and augment:
-        write_augmented_dataset(input_conllu, output_conllu, augment_arabic_padt)
     elif short_name.startswith("ko_") and short_name.endswith("_seg"):
         remove_spaces(input_conllu, output_conllu)
+    elif short_name.startswith("grc_") and short_name.endswith("-diacritics"):
+        write_augmented_dataset(input_conllu, output_conllu, augment_accents)
     elif dataset == 'train' and augment:
         write_augmented_dataset(input_conllu, output_conllu, augment_punct)
     else:

@@ -48,15 +48,16 @@ from ..models import ComparisonPeriodListing
 from ..models import ContactCenterSettings
 from ..models import CreateBenefitAssessmentJobRequest
 from ..models import CreateBenefitAssessmentRequest
+from ..models import CreateKpiRequest
 from ..models import CreatePredictorRequest
 from ..models import CreateQueueRequest
+from ..models import CreateRoutingSkill
 from ..models import CreateUtilizationLabelRequest
 from ..models import CreateUtilizationTagRequest
 from ..models import EmailOutboundDomainResult
 from ..models import EmailSetup
 from ..models import ErrorBody
 from ..models import EstimatedWaitTimePredictions
-from ..models import IdentityResolutionConfig
 from ..models import IdentityResolutionQueueConfig
 from ..models import InboundDomain
 from ..models import InboundDomainCreateRequest
@@ -65,8 +66,10 @@ from ..models import InboundDomainPatchRequest
 from ..models import InboundRoute
 from ..models import InboundRouteEntityListing
 from ..models import KeyPerformanceIndicator
+from ..models import KeyPerformanceIndicatorType
 from ..models import Language
 from ..models import LanguageEntityListing
+from ..models import MailFromResult
 from ..models import OutboundDomain
 from ..models import OutboundDomainCreateRequest
 from ..models import OutboundDomainEntityListing
@@ -86,6 +89,7 @@ from ..models import QueueRequest
 from ..models import Recipient
 from ..models import RecipientListing
 from ..models import RecipientRequest
+from ..models import RouteIdentityResolutionConfig
 from ..models import RoutingActivityQuery
 from ..models import RoutingActivityResponse
 from ..models import RoutingConversationAttributesRequest
@@ -104,6 +108,7 @@ from ..models import SmsAddress
 from ..models import SmsAddressEntityListing
 from ..models import SmsAddressProvision
 from ..models import SmsAlphanumericProvision
+from ..models import SmsIdentityResolutionConfig
 from ..models import SmsPhoneNumber
 from ..models import SmsPhoneNumberEntityListing
 from ..models import SmsPhoneNumberImport
@@ -111,6 +116,7 @@ from ..models import SmsPhoneNumberPatchRequest
 from ..models import SmsPhoneNumberProvision
 from ..models import TestMessage
 from ..models import TranscriptionSettings
+from ..models import UpdateKpiRequest
 from ..models import UpdateUtilizationLabelRequest
 from ..models import UserLanguageEntityListing
 from ..models import UserQueue
@@ -127,6 +133,7 @@ from ..models import UtilizationRequest
 from ..models import UtilizationResponse
 from ..models import UtilizationTag
 from ..models import UtilizationTagEntityListing
+from ..models import VerificationResult
 from ..models import WrapUpCodeReference
 from ..models import WrapupCode
 from ..models import WrapupCodeEntityListing
@@ -660,6 +667,85 @@ class RoutingApi(object):
         path_params = {}
         if 'predictor_id' in params:
             path_params['predictorId'] = params['predictor_id']
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'DELETE',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type=None,
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
+    def delete_routing_predictors_keyperformanceindicator(self, kpi_id: str, **kwargs) -> None:
+        """
+        Delete a custom Key Performance Indicator.
+        
+	    delete_routing_predictors_keyperformanceindicator is a preview method and is subject to both breaking and non-breaking changes at any time without notice
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.delete_routing_predictors_keyperformanceindicator(kpi_id, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str kpi_id: Key Performance Indicator ID (required)
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['kpi_id']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method delete_routing_predictors_keyperformanceindicator" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'kpi_id' is set
+        if ('kpi_id' not in params) or (params['kpi_id'] is None):
+            raise ValueError("Missing the required parameter `kpi_id` when calling `delete_routing_predictors_keyperformanceindicator`")
+
+
+        resource_path = '/api/v2/routing/predictors/keyperformanceindicators/{kpiId}'.replace('{format}', 'json')
+        path_params = {}
+        if 'kpi_id' in params:
+            path_params['kpiId'] = params['kpi_id']
 
         query_params = {}
 
@@ -2593,6 +2679,162 @@ class RoutingApi(object):
                                             callback=params.get('callback'))
         return response
 
+    def get_routing_email_domain_dkim(self, domain_id: str, **kwargs) -> 'VerificationResult':
+        """
+        Get domain dkim settings
+        
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.get_routing_email_domain_dkim(domain_id, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str domain_id: domain ID (required)
+        :return: VerificationResult
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['domain_id']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_routing_email_domain_dkim" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'domain_id' is set
+        if ('domain_id' not in params) or (params['domain_id'] is None):
+            raise ValueError("Missing the required parameter `domain_id` when calling `get_routing_email_domain_dkim`")
+
+
+        resource_path = '/api/v2/routing/email/domains/{domainId}/dkim'.replace('{format}', 'json')
+        path_params = {}
+        if 'domain_id' in params:
+            path_params['domainId'] = params['domain_id']
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'GET',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='VerificationResult',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
+    def get_routing_email_domain_mailfrom(self, domain_id: str, **kwargs) -> 'MailFromResult':
+        """
+        Get domain mail from settings
+        
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.get_routing_email_domain_mailfrom(domain_id, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str domain_id: domain ID (required)
+        :return: MailFromResult
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['domain_id']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_routing_email_domain_mailfrom" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'domain_id' is set
+        if ('domain_id' not in params) or (params['domain_id'] is None):
+            raise ValueError("Missing the required parameter `domain_id` when calling `get_routing_email_domain_mailfrom`")
+
+
+        resource_path = '/api/v2/routing/email/domains/{domainId}/mailfrom'.replace('{format}', 'json')
+        path_params = {}
+        if 'domain_id' in params:
+            path_params['domainId'] = params['domain_id']
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'GET',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='MailFromResult',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
     def get_routing_email_domain_route(self, domain_name: str, route_id: str, **kwargs) -> 'InboundRoute':
         """
         Get a route
@@ -2680,7 +2922,7 @@ class RoutingApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def get_routing_email_domain_route_identityresolution(self, domain_name: str, route_id: str, **kwargs) -> 'IdentityResolutionConfig':
+    def get_routing_email_domain_route_identityresolution(self, domain_name: str, route_id: str, **kwargs) -> 'RouteIdentityResolutionConfig':
         """
         Get a route identity resolution setting.
         
@@ -2697,7 +2939,7 @@ class RoutingApi(object):
             for asynchronous request. (optional)
         :param str domain_name: email domain (required)
         :param str route_id: route ID (required)
-        :return: IdentityResolutionConfig
+        :return: RouteIdentityResolutionConfig
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -2759,7 +3001,7 @@ class RoutingApi(object):
                                             body=body_params,
                                             post_params=form_params,
                                             files=local_var_files,
-                                            response_type='IdentityResolutionConfig',
+                                            response_type='RouteIdentityResolutionConfig',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -2850,6 +3092,84 @@ class RoutingApi(object):
                                             post_params=form_params,
                                             files=local_var_files,
                                             response_type='InboundRouteEntityListing',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
+    def get_routing_email_domain_verification(self, domain_id: str, **kwargs) -> 'VerificationResult':
+        """
+        Get domain verification settings
+        
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.get_routing_email_domain_verification(domain_id, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str domain_id: domain ID (required)
+        :return: VerificationResult
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['domain_id']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_routing_email_domain_verification" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'domain_id' is set
+        if ('domain_id' not in params) or (params['domain_id'] is None):
+            raise ValueError("Missing the required parameter `domain_id` when calling `get_routing_email_domain_verification`")
+
+
+        resource_path = '/api/v2/routing/email/domains/{domainId}/verification'.replace('{format}', 'json')
+        path_params = {}
+        if 'domain_id' in params:
+            path_params['domainId'] = params['domain_id']
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'GET',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='VerificationResult',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -3843,12 +4163,14 @@ class RoutingApi(object):
         :param str limit: Number of entities to return. Maximum of 200. Deprecated in favour of pageSize
         :param str page_size: Number of entities to return. Maximum of 200.
         :param list[str] queue_id: Comma-separated list of queue Ids to filter by.
+        :param str kpi_id: Standard or custom KPI id used to filter predictors.
+        :param str state: The state used to filter predictors.
         :return: PredictorListing
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['before', 'after', 'limit', 'page_size', 'queue_id']
+        all_params = ['before', 'after', 'limit', 'page_size', 'queue_id', 'kpi_id', 'state']
         all_params.append('callback')
 
         params = locals()
@@ -3877,6 +4199,10 @@ class RoutingApi(object):
             query_params['pageSize'] = params['page_size']
         if 'queue_id' in params:
             query_params['queueId'] = params['queue_id']
+        if 'kpi_id' in params:
+            query_params['kpiId'] = params['kpi_id']
+        if 'state' in params:
+            query_params['state'] = params['state']
 
         header_params = {}
 
@@ -3906,6 +4232,88 @@ class RoutingApi(object):
                                             post_params=form_params,
                                             files=local_var_files,
                                             response_type='PredictorListing',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
+    def get_routing_predictors_keyperformanceindicator(self, kpi_id: str, **kwargs) -> 'KeyPerformanceIndicator':
+        """
+        Retrieve a single Key Performance Indicator.
+        
+	    get_routing_predictors_keyperformanceindicator is a preview method and is subject to both breaking and non-breaking changes at any time without notice
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.get_routing_predictors_keyperformanceindicator(kpi_id, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str kpi_id: Key Performance Indicator ID (required)
+        :param list[str] expand: Parameter to request additional data to return in KPI payload
+        :return: KeyPerformanceIndicator
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['kpi_id', 'expand']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_routing_predictors_keyperformanceindicator" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'kpi_id' is set
+        if ('kpi_id' not in params) or (params['kpi_id'] is None):
+            raise ValueError("Missing the required parameter `kpi_id` when calling `get_routing_predictors_keyperformanceindicator`")
+
+
+        resource_path = '/api/v2/routing/predictors/keyperformanceindicators/{kpiId}'.replace('{format}', 'json')
+        path_params = {}
+        if 'kpi_id' in params:
+            path_params['kpiId'] = params['kpi_id']
+
+        query_params = {}
+        if 'expand' in params:
+            query_params['expand'] = params['expand']
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'GET',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='KeyPerformanceIndicator',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -3984,6 +4392,79 @@ class RoutingApi(object):
                                             post_params=form_params,
                                             files=local_var_files,
                                             response_type='list[KeyPerformanceIndicator]',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
+    def get_routing_predictors_keyperformanceindicatortypes(self, **kwargs) -> List['KeyPerformanceIndicatorType']:
+        """
+        Get a list of Key Performance Indicators Types available.
+        
+	    get_routing_predictors_keyperformanceindicatortypes is a preview method and is subject to both breaking and non-breaking changes at any time without notice
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.get_routing_predictors_keyperformanceindicatortypes(callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :return: list[KeyPerformanceIndicatorType]
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = []
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_routing_predictors_keyperformanceindicatortypes" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+
+
+        resource_path = '/api/v2/routing/predictors/keyperformanceindicatortypes'.replace('{format}', 'json')
+        path_params = {}
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'GET',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='list[KeyPerformanceIndicatorType]',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -4085,7 +4566,7 @@ class RoutingApi(object):
         :param callback function: The callback function
             for asynchronous request. (optional)
         :param str queue_id: Queue ID (required)
-        :param str expand: Which fields, if any, to expand.
+        :param list[str] expand: Which fields, if any, to expand.
         :return: AssistantQueue
                  If the method is called asynchronously,
                  returns the request thread.
@@ -6197,7 +6678,7 @@ class RoutingApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def get_routing_sms_identityresolution_phonenumber(self, address_id: str, **kwargs) -> 'IdentityResolutionConfig':
+    def get_routing_sms_identityresolution_phonenumber(self, address_id: str, **kwargs) -> 'SmsIdentityResolutionConfig':
         """
         Get a SMS identity resolution settings.
         
@@ -6213,7 +6694,7 @@ class RoutingApi(object):
         :param callback function: The callback function
             for asynchronous request. (optional)
         :param str address_id: Address ID (required)
-        :return: IdentityResolutionConfig
+        :return: SmsIdentityResolutionConfig
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -6270,7 +6751,7 @@ class RoutingApi(object):
                                             body=body_params,
                                             post_params=form_params,
                                             files=local_var_files,
-                                            response_type='IdentityResolutionConfig',
+                                            response_type='SmsIdentityResolutionConfig',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -8198,6 +8679,88 @@ class RoutingApi(object):
                                             callback=params.get('callback'))
         return response
 
+    def patch_routing_predictors_keyperformanceindicator(self, kpi_id: str, **kwargs) -> 'KeyPerformanceIndicator':
+        """
+        Update a custom Key Performance Indicator.
+        
+	    patch_routing_predictors_keyperformanceindicator is a preview method and is subject to both breaking and non-breaking changes at any time without notice
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.patch_routing_predictors_keyperformanceindicator(kpi_id, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str kpi_id: Key Performance Indicator ID (required)
+        :param UpdateKpiRequest body: 
+        :return: KeyPerformanceIndicator
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['kpi_id', 'body']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method patch_routing_predictors_keyperformanceindicator" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'kpi_id' is set
+        if ('kpi_id' not in params) or (params['kpi_id'] is None):
+            raise ValueError("Missing the required parameter `kpi_id` when calling `patch_routing_predictors_keyperformanceindicator`")
+
+
+        resource_path = '/api/v2/routing/predictors/keyperformanceindicators/{kpiId}'.replace('{format}', 'json')
+        path_params = {}
+        if 'kpi_id' in params:
+            path_params['kpiId'] = params['kpi_id']
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'PATCH',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='KeyPerformanceIndicator',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
     def patch_routing_queue_member(self, queue_id: str, member_id: str, body: 'QueueMember', **kwargs) -> None:
         """
         Update the ring number OR joined status for a queue member.
@@ -9619,6 +10182,168 @@ class RoutingApi(object):
                                             callback=params.get('callback'))
         return response
 
+    def post_routing_email_domain_dkim(self, domain_id: str, **kwargs) -> 'VerificationResult':
+        """
+        Restart domain dkim
+        
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.post_routing_email_domain_dkim(domain_id, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str domain_id: domain ID (required)
+        :return: VerificationResult
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['domain_id']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method post_routing_email_domain_dkim" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'domain_id' is set
+        if ('domain_id' not in params) or (params['domain_id'] is None):
+            raise ValueError("Missing the required parameter `domain_id` when calling `post_routing_email_domain_dkim`")
+
+
+        resource_path = '/api/v2/routing/email/domains/{domainId}/dkim'.replace('{format}', 'json')
+        path_params = {}
+        if 'domain_id' in params:
+            path_params['domainId'] = params['domain_id']
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'POST',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='VerificationResult',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
+    def post_routing_email_domain_mailfrom(self, domain_id: str, body: 'MailFromResult', **kwargs) -> 'MailFromResult':
+        """
+        Set domain mail from settings
+        
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.post_routing_email_domain_mailfrom(domain_id, body, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str domain_id: domain ID (required)
+        :param MailFromResult body: Mail From Settings (required)
+        :return: MailFromResult
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['domain_id', 'body']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method post_routing_email_domain_mailfrom" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'domain_id' is set
+        if ('domain_id' not in params) or (params['domain_id'] is None):
+            raise ValueError("Missing the required parameter `domain_id` when calling `post_routing_email_domain_mailfrom`")
+        # verify the required parameter 'body' is set
+        if ('body' not in params) or (params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `post_routing_email_domain_mailfrom`")
+
+
+        resource_path = '/api/v2/routing/email/domains/{domainId}/mailfrom'.replace('{format}', 'json')
+        path_params = {}
+        if 'domain_id' in params:
+            path_params['domainId'] = params['domain_id']
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'POST',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='MailFromResult',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
     def post_routing_email_domain_routes(self, domain_name: str, body: 'InboundRoute', **kwargs) -> 'InboundRoute':
         """
         Create a route
@@ -9780,6 +10505,84 @@ class RoutingApi(object):
                                             post_params=form_params,
                                             files=local_var_files,
                                             response_type='TestMessage',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
+    def post_routing_email_domain_verification(self, domain_id: str, **kwargs) -> 'VerificationResult':
+        """
+        Restart domain verification
+        
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.post_routing_email_domain_verification(domain_id, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str domain_id: domain ID (required)
+        :return: VerificationResult
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['domain_id']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method post_routing_email_domain_verification" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'domain_id' is set
+        if ('domain_id' not in params) or (params['domain_id'] is None):
+            raise ValueError("Missing the required parameter `domain_id` when calling `post_routing_email_domain_verification`")
+
+
+        resource_path = '/api/v2/routing/email/domains/{domainId}/verification'.replace('{format}', 'json')
+        path_params = {}
+        if 'domain_id' in params:
+            path_params['domainId'] = params['domain_id']
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'POST',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='VerificationResult',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -10167,6 +10970,85 @@ class RoutingApi(object):
                                             post_params=form_params,
                                             files=local_var_files,
                                             response_type='Predictor',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
+    def post_routing_predictors_keyperformanceindicators(self, body: 'CreateKpiRequest', **kwargs) -> 'KeyPerformanceIndicator':
+        """
+        Create a custom Key Performance Indicator.
+        
+	    post_routing_predictors_keyperformanceindicators is a preview method and is subject to both breaking and non-breaking changes at any time without notice
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.post_routing_predictors_keyperformanceindicators(body, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param CreateKpiRequest body: request (required)
+        :return: KeyPerformanceIndicator
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method post_routing_predictors_keyperformanceindicators" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'body' is set
+        if ('body' not in params) or (params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `post_routing_predictors_keyperformanceindicators`")
+
+
+        resource_path = '/api/v2/routing/predictors/keyperformanceindicators'.replace('{format}', 'json')
+        path_params = {}
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'POST',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='KeyPerformanceIndicator',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -10667,7 +11549,7 @@ class RoutingApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def post_routing_skills(self, body: 'RoutingSkill', **kwargs) -> 'RoutingSkill':
+    def post_routing_skills(self, body: 'CreateRoutingSkill', **kwargs) -> 'RoutingSkill':
         """
         Create Skill
         
@@ -10682,7 +11564,7 @@ class RoutingApi(object):
 
         :param callback function: The callback function
             for asynchronous request. (optional)
-        :param RoutingSkill body: Skill (required)
+        :param CreateRoutingSkill body: Skill (required)
         :return: RoutingSkill
                  If the method is called asynchronously,
                  returns the request thread.
@@ -11629,7 +12511,7 @@ class RoutingApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def put_routing_email_domain_route_identityresolution(self, domain_name: str, route_id: str, body: 'IdentityResolutionConfig', **kwargs) -> 'IdentityResolutionConfig':
+    def put_routing_email_domain_route_identityresolution(self, domain_name: str, route_id: str, body: 'RouteIdentityResolutionConfig', **kwargs) -> 'RouteIdentityResolutionConfig':
         """
         Update identity resolution settings for a route.
         
@@ -11646,8 +12528,8 @@ class RoutingApi(object):
             for asynchronous request. (optional)
         :param str domain_name: email domain (required)
         :param str route_id: route ID (required)
-        :param IdentityResolutionConfig body:  (required)
-        :return: IdentityResolutionConfig
+        :param RouteIdentityResolutionConfig body:  (required)
+        :return: RouteIdentityResolutionConfig
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -11714,7 +12596,7 @@ class RoutingApi(object):
                                             body=body_params,
                                             post_params=form_params,
                                             files=local_var_files,
-                                            response_type='IdentityResolutionConfig',
+                                            response_type='RouteIdentityResolutionConfig',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -12205,7 +13087,7 @@ class RoutingApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def put_routing_sms_identityresolution_phonenumber(self, address_id: str, body: 'IdentityResolutionConfig', **kwargs) -> 'IdentityResolutionConfig':
+    def put_routing_sms_identityresolution_phonenumber(self, address_id: str, body: 'SmsIdentityResolutionConfig', **kwargs) -> 'SmsIdentityResolutionConfig':
         """
         Update an SMS identity resolution settings.
         
@@ -12221,8 +13103,8 @@ class RoutingApi(object):
         :param callback function: The callback function
             for asynchronous request. (optional)
         :param str address_id: Address ID (required)
-        :param IdentityResolutionConfig body:  (required)
-        :return: IdentityResolutionConfig
+        :param SmsIdentityResolutionConfig body:  (required)
+        :return: SmsIdentityResolutionConfig
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -12284,7 +13166,7 @@ class RoutingApi(object):
                                             body=body_params,
                                             post_params=form_params,
                                             files=local_var_files,
-                                            response_type='IdentityResolutionConfig',
+                                            response_type='SmsIdentityResolutionConfig',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response

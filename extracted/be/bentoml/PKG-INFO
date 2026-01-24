@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bentoml
-Version: 1.4.24
+Version: 1.4.33
 Summary: BentoML: The easiest way to serve AI apps and models
 Project-URL: Homepage, https://bentoml.com
 Project-URL: Documentation, https://docs.bentoml.com
@@ -30,6 +30,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9
 Requires-Dist: a2wsgi>=1.10.7
 Requires-Dist: aiohttp
+Requires-Dist: aiohttp-asgi-connector>=1.1.2
 Requires-Dist: aiosqlite>=0.20.0
 Requires-Dist: attrs>=22.2.0
 Requires-Dist: cattrs<23.2.0,>=22.1.0

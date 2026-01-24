@@ -51,7 +51,7 @@ def get_doc_type(doc):
 
 
 @contextlib.contextmanager
-def TempFileIfNeeded(path, suffix, data=None):
+def TempFileIfNeeded(path, suffix=None, data=None):
     """Takes an path and data
 
     If path is None or empty, then it creates a temporary file,
@@ -64,6 +64,10 @@ def TempFileIfNeeded(path, suffix, data=None):
     if path:
         yield path
     else:
+        if suffix:
+            suffix = "." + suffix
+        else:
+            suffix = ""
         with tempfile.NamedTemporaryFile(suffix=suffix) as file:
             if data:
                 file.file.write(data)
@@ -174,6 +178,7 @@ class UnoConverter:
         filter_options=[],
         update_index=True,
         infiltername=None,
+        password=None,
     ):
         """Converts a file from one type to another
 
@@ -194,9 +199,13 @@ class UnoConverter:
 
         infiltername: The name of the input filter, ie "writer8", "PowerPoint 3", etc.
 
+        password: The password for the input file, if it is password protected.
+
         You must specify the inpath or the indata, and you must specify and outpath or a convert_to.
         """
         input_props = (PropertyValue(Name="ReadOnly", Value=True),)
+        if password:
+            input_props += (PropertyValue(Name="Password", Value=password),)
         if infiltername:
             infilters = self.get_filter_names(self.get_available_import_filters())
             if infiltername in infilters:
@@ -208,7 +217,7 @@ class UnoConverter:
                     f"There is no '{infiltername}' import filter. Available filters: {sorted(infilters.keys())}"
                 )
 
-        with TempFileIfNeeded(inpath, suffix="", data=indata) as input_path:
+        with TempFileIfNeeded(inpath, data=indata) as input_path:
             # TODO: Verify that inpath exists and is openable, and that outdir exists, because uno's
             # exceptions are completely useless!
             if not Path(input_path).exists():
@@ -257,19 +266,22 @@ class UnoConverter:
                 # Figure out document type:
                 import_type = get_doc_type(document)
 
-                with TempFileIfNeeded(outpath, "." + convert_to) as output_path:
+                with TempFileIfNeeded(outpath, convert_to) as output_path:
 
                     # Make a URL
                     export_url = uno.systemPathToFileUrl(os.path.abspath(output_path))
 
                     # Figure out the output type:
-                    export_type = self.type_service.queryTypeByURL(export_url)
+                    base, extension = os.path.splitext(export_url)
+                    if convert_to:
+                        # We have a convert_to, which may not be the same type as
+                        # the file extension type (see #181)
+                        type_url = f"{base}.{convert_to}"
+                    else:
+                        type_url = export_url
+                    export_type = self.type_service.queryTypeByURL(type_url)
 
                     if not export_type:
-                        if convert_to:
-                            extension = convert_to
-                        else:
-                            extension = os.path.splitext(output_path)[-1]
                         raise RuntimeError(
                             f"Unknown export file type, unknown extension '{extension}'"
                         )

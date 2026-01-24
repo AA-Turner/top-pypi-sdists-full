@@ -3,7 +3,7 @@ Type annotations for payment-cryptography-data service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_payment_cryptography_data/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -40,10 +40,12 @@ __all__ = (
     "PinBlockFormatForPinDataType",
     "PinBlockLengthPositionType",
     "PinBlockPaddingTypeType",
+    "RandomKeySendVariantMaskType",
     "ResourceServiceName",
     "ServiceName",
     "SessionKeyDerivationModeType",
     "SymmetricKeyAlgorithmType",
+    "WrappedKeyMaterialFormatType",
 )
 
 
@@ -57,6 +59,7 @@ KeyCheckValueAlgorithmType = Literal["ANSI_X9_24", "CMAC", "HMAC", "SHA_1"]
 KeyDerivationFunctionType = Literal["ANSI_X963", "NIST_SP800"]
 KeyDerivationHashAlgorithmType = Literal["SHA_256", "SHA_384", "SHA_512"]
 MacAlgorithmType = Literal[
+    "AS2805_4_1",
     "CMAC",
     "HMAC",
     "HMAC_SHA224",
@@ -69,9 +72,12 @@ MacAlgorithmType = Literal[
 MajorKeyDerivationModeType = Literal["EMV_OPTION_A", "EMV_OPTION_B"]
 PaddingTypeType = Literal["OAEP_SHA1", "OAEP_SHA256", "OAEP_SHA512", "PKCS1"]
 PinBlockFormatForEmvPinChangeType = Literal["ISO_FORMAT_0", "ISO_FORMAT_1", "ISO_FORMAT_3"]
-PinBlockFormatForPinDataType = Literal["ISO_FORMAT_0", "ISO_FORMAT_3", "ISO_FORMAT_4"]
+PinBlockFormatForPinDataType = Literal[
+    "ISO_FORMAT_0", "ISO_FORMAT_1", "ISO_FORMAT_3", "ISO_FORMAT_4"
+]
 PinBlockLengthPositionType = Literal["FRONT_OF_PIN_BLOCK", "NONE"]
 PinBlockPaddingTypeType = Literal["ISO_IEC_7816_4", "NO_PADDING"]
+RandomKeySendVariantMaskType = Literal["VARIANT_MASK_82", "VARIANT_MASK_82C0"]
 SessionKeyDerivationModeType = Literal[
     "AMEX", "EMV2000", "EMV_COMMON_SESSION_KEY", "MASTERCARD_SESSION_KEY", "VISA"
 ]
@@ -86,6 +92,7 @@ SymmetricKeyAlgorithmType = Literal[
     "TDES_2KEY",
     "TDES_3KEY",
 ]
+WrappedKeyMaterialFormatType = Literal["KEY_CRYPTOGRAM", "TR31_KEY_BLOCK", "TR34_KEY_BLOCK"]
 PaymentCryptographyDataPlaneServiceName = Literal["payment-cryptography-data"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -113,7 +120,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -183,6 +189,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -228,7 +235,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -281,7 +287,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -320,8 +325,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -356,6 +359,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -365,6 +369,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -375,6 +380,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -396,8 +404,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -412,15 +418,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -451,6 +458,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -491,6 +499,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

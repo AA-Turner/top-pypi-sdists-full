@@ -3,467 +3,708 @@
 # SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
-from ._semaphore import Semaphore
-from .lowlevel import current_async_task_ident, current_green_task_ident
+from __future__ import annotations
+
+from types import MappingProxyType, TracebackType
+from typing import TYPE_CHECKING, Any
+
+from ._semaphore import BinarySemaphore, Semaphore
+from .lowlevel import (
+    async_checkpoint,
+    current_async_task_ident,
+    current_green_task_ident,
+    green_checkpoint,
+)
+from .meta import DEFAULT, DefaultType, copies
+
+if TYPE_CHECKING:
+    import sys
+
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
 
 
 class CapacityLimiter:
+    """..."""
+
     __slots__ = (
-        "__semaphore",
-        "__waiters",
         "__weakref__",
-        "borrowers",
+        "_borrowers",
+        "_borrowers_proxy",
+        "_semaphore",
     )
 
-    def __new__(cls, /, total_tokens):
-        self = super().__new__(cls)
+    def __new__(cls, /, total_tokens: int | DefaultType = DEFAULT) -> Self:
+        """..."""
 
-        if total_tokens < 1:
-            msg = "total_tokens must be >= 1"
+        if total_tokens is DEFAULT:
+            total_tokens = 1
+        elif total_tokens < 0:
+            msg = "total_tokens must be >= 0"
             raise ValueError(msg)
 
-        self.__semaphore = Semaphore(total_tokens)
+        self = object.__new__(cls)
 
-        self.__waiters = {}
-        self.borrowers = set()
+        self._borrowers = {}
+        self._borrowers_proxy = MappingProxyType(self._borrowers)
+
+        if total_tokens >= 2:
+            self._semaphore = Semaphore(total_tokens)
+        else:
+            self._semaphore = BinarySemaphore(total_tokens)
 
         return self
 
-    def __getnewargs__(self, /):
-        return (self.__semaphore.initial_value,)
+    def __getnewargs__(self, /) -> tuple[Any, ...]:
+        """
+        Returns arguments that can be used to create new instances with the
+        same initial values.
 
-    def __repr__(self, /):
-        return f"CapacityLimiter({self.__semaphore.initial_value!r})"
+        Used by:
 
-    async def __aenter__(self, /):
+        * The :mod:`pickle` module for pickling.
+        * The :mod:`copy` module for copying.
+
+        The current state does not affect the arguments.
+
+        Example:
+            >>> orig = CapacityLimiter(3)
+            >>> orig.total_tokens
+            3
+            >>> copy = CapacityLimiter(*orig.__getnewargs__())
+            >>> copy.total_tokens
+            3
+        """
+
+        return (self._semaphore.initial_value,)
+
+    def __getstate__(self, /) -> None:
+        """
+        Disables the use of internal state for pickling and copying.
+        """
+
+        return None
+
+    def __copy__(self, /) -> Self:
+        """..."""
+
+        return self.__class__(self._semaphore.initial_value)
+
+    def __repr__(self, /) -> str:
+        """..."""
+
+        cls = self.__class__
+        cls_repr = f"{cls.__module__}.{cls.__qualname__}"
+
+        object_repr = f"{cls_repr}({self._semaphore.initial_value!r})"
+
+        available_tokens = self._semaphore.value
+
+        if available_tokens > 0:
+            extra = f"available_tokens={available_tokens}"
+        else:
+            waiting = self._semaphore.waiting
+
+            extra = f"available_tokens={available_tokens}, waiting={waiting}"
+
+        return f"<{object_repr} at {id(self):#x} [{extra}]>"
+
+    def __bool__(self, /) -> bool:
+        """
+        Returns :data:`True` if the capacity limiter is used by any task.
+
+        Used by the standard :ref:`truth testing procedure <truth>`.
+
+        Example:
+            >>> reading = CapacityLimiter()
+            >>> bool(reading)
+            False
+            >>> with reading:  # capacity limiter is in use
+            ...     bool(reading)
+            True
+            >>> bool(reading)
+            False
+        """
+
+        return self._semaphore.initial_value > self._semaphore.value
+
+    async def __aenter__(self, /) -> Self:
+        """..."""
+
         await self.async_acquire()
 
         return self
 
-    async def __aexit__(self, /, exc_type, exc_value, traceback):
-        self.async_release()
+    def __enter__(self, /) -> Self:
+        """..."""
 
-    def __enter__(self, /):
         self.green_acquire()
 
         return self
 
-    def __exit__(self, /, exc_type, exc_value, traceback):
-        self.green_release()
-
-    async def async_acquire_on_behalf_of(self, /, borrower, *, blocking=True):
-        marker = object()
-
-        if self.__waiters.setdefault(borrower, marker) is not marker:
-            if borrower not in self.borrowers:
-                msg = (
-                    "this borrower is already waiting for"
-                    " any of this CapacityLimiter's tokens",
-                )
-            else:
-                msg = (
-                    "this borrower is already holding"
-                    " one of this CapacityLimiter's tokens",
-                )
-
-            raise RuntimeError(msg)
-
-        success = False
-
-        try:
-            success = await self.__semaphore.async_acquire(blocking=blocking)
-        finally:
-            if success:
-                self.borrowers.add(borrower)
-            else:
-                del self.__waiters[borrower]
-
-        return success
-
-    async def async_acquire(self, /, *, blocking=True):
-        return await self.async_acquire_on_behalf_of(
-            current_async_task_ident(),
-            blocking=blocking,
-        )
-
-    def green_acquire_on_behalf_of(
+    async def __aexit__(
         self,
         /,
-        borrower,
-        *,
-        blocking=True,
-        timeout=None,
-    ):
-        marker = object()
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """..."""
 
-        if self.__waiters.setdefault(borrower, marker) is not marker:
-            if borrower not in self.borrowers:
-                msg = (
-                    "this borrower is already waiting for"
-                    " any of this CapacityLimiter's tokens",
-                )
-            else:
-                msg = (
-                    "this borrower is already holding"
-                    " one of this CapacityLimiter's tokens",
-                )
+        self.async_release()
 
+    def __exit__(
+        self,
+        /,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """..."""
+
+        self.green_release()
+
+    async def async_acquire(self, /, *, blocking: bool = True) -> bool:
+        """..."""
+
+        task = current_async_task_ident()
+
+        if task in self._borrowers:
+            msg = (
+                "the current task is already holding"
+                " one of this capacity limiter's tokens",
+            )
             raise RuntimeError(msg)
 
-        success = False
+        success = await self._semaphore.async_acquire(blocking=blocking)
 
-        try:
-            success = self.__semaphore.green_acquire(
-                blocking=blocking,
-                timeout=timeout,
-            )
-        finally:
-            if success:
-                self.borrowers.add(borrower)
-            else:
-                del self.__waiters[borrower]
+        if success:
+            self._borrowers[task] = 1
 
         return success
 
-    def green_acquire(self, /, *, blocking=True, timeout=None):
-        return self.green_acquire_on_behalf_of(
-            current_green_task_ident(),
+    def green_acquire(
+        self,
+        /,
+        *,
+        blocking: bool = True,
+        timeout: float | None = None,
+    ) -> bool:
+        """..."""
+
+        task = current_green_task_ident()
+
+        if task in self._borrowers:
+            msg = (
+                "the current task is already holding"
+                " one of this capacity limiter's tokens",
+            )
+            raise RuntimeError(msg)
+
+        success = self._semaphore.green_acquire(
             blocking=blocking,
             timeout=timeout,
         )
 
-    def async_release_on_behalf_of(self, /, borrower):
+        if success:
+            self._borrowers[task] = 1
+
+        return success
+
+    def async_release(self, /) -> None:
+        """..."""
+
+        task = current_async_task_ident()
+
         try:
-            self.borrowers.remove(borrower)
+            del self._borrowers[task]
         except KeyError:
             msg = (
-                "this borrower is not holding"
-                " any of this CapacityLimiter's tokens",
+                "the current task is not holding"
+                " any of this capacity limiter's tokens"
             )
             raise RuntimeError(msg) from None
-        else:
-            del self.__waiters[borrower]
 
-        self.__semaphore.async_release()
+        self._semaphore.async_release()
 
-    def async_release(self, /):
-        self.async_release_on_behalf_of(current_async_task_ident())
+    def green_release(self, /) -> None:
+        """..."""
 
-    def green_release_on_behalf_of(self, /, borrower):
+        task = current_green_task_ident()
+
         try:
-            self.borrowers.remove(borrower)
+            del self._borrowers[task]
         except KeyError:
             msg = (
-                "this borrower is not holding"
-                " any of this CapacityLimiter's tokens",
+                "the current task is not holding"
+                " any of this capacity limiter's tokens"
             )
             raise RuntimeError(msg) from None
-        else:
-            del self.__waiters[borrower]
 
-        self.__semaphore.green_release()
+        self._semaphore.green_release()
 
-    def green_release(self, /):
-        self.green_release_on_behalf_of(current_green_task_ident())
+    def async_borrowed(self, /) -> bool:
+        """
+        Return :data:`True` if the current async task holds any token.
+
+        Example:
+            >>> limiter = CapacityLimiter()
+            >>> limiter.async_borrowed()
+            False
+            >>> async with limiter:
+            ...     limiter.async_borrowed()
+            True
+            >>> limiter.async_borrowed()
+            False
+        """
+
+        return current_async_task_ident() in self._borrowers
+
+    def green_borrowed(self, /) -> bool:
+        """
+        Return :data:`True` if the current green task holds any token.
+
+        Example:
+            >>> limiter = CapacityLimiter()
+            >>> limiter.green_borrowed()
+            False
+            >>> with limiter:
+            ...     limiter.green_borrowed()
+            True
+            >>> limiter.green_borrowed()
+            False
+        """
+
+        return current_green_task_ident() in self._borrowers
 
     @property
-    def waiting(self, /):
-        return self.__semaphore.waiting
+    def total_tokens(self, /) -> int:
+        """
+        The initial number of tokens available for borrowing.
+        """
+
+        return self._semaphore.initial_value
 
     @property
-    def available_tokens(self, /):
-        return self.__semaphore.value
+    def available_tokens(self, /) -> int:
+        """
+        The current number of tokens available to be borrowed.
+
+        It may not change after release if all the released tokens have been
+        reassigned to waiting tasks.
+        """
+
+        return self._semaphore.value
 
     @property
-    def borrowed_tokens(self, /):
-        return self.__semaphore.initial_value - self.__semaphore.value
+    def borrowed_tokens(self, /) -> int:
+        """
+        The current number of tokens that have been borrowed.
+
+        It may not change after release if all the released tokens have been
+        reassigned to waiting tasks.
+        """
+
+        return self._semaphore.initial_value - self._semaphore.value
 
     @property
-    def total_tokens(self, /):
-        return self.__semaphore.initial_value
+    def borrowers(self, /) -> MappingProxyType[tuple[str, int], int]:
+        """
+        The read-only proxy of the dictionary that maps tasks' identifiers to
+        their respective recursion levels. Contains identifiers of only those
+        tasks that hold any token. Updated automatically when the current state
+        changes.
+
+        It may not contain identifiers of those tasks to which tokens were
+        reassigned during release if they have not yet resumed execution.
+        """
+
+        return self._borrowers_proxy
+
+    @property
+    def waiting(self, /) -> int:
+        """
+        The current number of tasks waiting to borrow.
+
+        It represents the length of the waiting queue and thus changes
+        immediately.
+        """
+
+        return self._semaphore.waiting
 
 
-class RCapacityLimiter:
-    __slots__ = (
-        "__semaphore",
-        "__waiters",
-        "__weakref__",
-        "borrowers",
-    )
+class RCapacityLimiter(CapacityLimiter):
+    """..."""
 
-    def __new__(cls, /, total_tokens):
-        self = super().__new__(cls)
+    __slots__ = ()
 
-        if total_tokens < 1:
-            msg = "total_tokens must be >= 1"
+    @copies(CapacityLimiter.__new__)
+    def __new__(cls, /, total_tokens: int | DefaultType = DEFAULT) -> Self:
+        """..."""
+
+        return CapacityLimiter.__new__(cls, total_tokens)
+
+    @copies(CapacityLimiter.__getnewargs__)
+    def __getnewargs__(self, /) -> tuple[Any, ...]:
+        """
+        Returns arguments that can be used to create new instances with the
+        same initial values.
+
+        Used by:
+
+        * The :mod:`pickle` module for pickling.
+        * The :mod:`copy` module for copying.
+
+        The current state does not affect the arguments.
+
+        Example:
+            >>> orig = RCapacityLimiter(3)
+            >>> orig.total_tokens
+            3
+            >>> copy = RCapacityLimiter(*orig.__getnewargs__())
+            >>> copy.total_tokens
+            3
+        """
+
+        return CapacityLimiter.__getnewargs__(self)
+
+    @copies(CapacityLimiter.__getstate__)
+    def __getstate__(self, /) -> None:
+        """
+        Disables the use of internal state for pickling and copying.
+        """
+
+        return CapacityLimiter.__getstate__(self)
+
+    @copies(CapacityLimiter.__copy__)
+    def __copy__(self, /) -> Self:
+        """..."""
+
+        return CapacityLimiter.__copy__(self)
+
+    @copies(CapacityLimiter.__repr__)
+    def __repr__(self, /) -> str:
+        """..."""
+
+        return CapacityLimiter.__repr__(self)
+
+    @copies(CapacityLimiter.__bool__)
+    def __bool__(self, /) -> bool:
+        """
+        Returns :data:`True` if the capacity limiter is used by any task.
+
+        Used by the standard :ref:`truth testing procedure <truth>`.
+
+        Example:
+            >>> reading = RCapacityLimiter()
+            >>> bool(reading)
+            False
+            >>> with reading:  # capacity limiter is in use
+            ...     bool(reading)
+            True
+            >>> bool(reading)
+            False
+        """
+
+        return CapacityLimiter.__bool__(self)
+
+    @copies(CapacityLimiter.__aenter__)
+    async def __aenter__(self, /) -> Self:
+        """..."""
+
+        return await CapacityLimiter.__aenter__(self)
+
+    @copies(CapacityLimiter.__enter__)
+    def __enter__(self, /) -> Self:
+        """..."""
+
+        return CapacityLimiter.__enter__(self)
+
+    @copies(CapacityLimiter.__aexit__)
+    async def __aexit__(
+        self,
+        /,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """..."""
+
+        return await CapacityLimiter.__aexit__(
+            self,
+            exc_type,
+            exc_value,
+            traceback,
+        )
+
+    @copies(CapacityLimiter.__exit__)
+    def __exit__(
+        self,
+        /,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """..."""
+
+        return CapacityLimiter.__exit__(self, exc_type, exc_value, traceback)
+
+    async def async_acquire(
+        self,
+        /,
+        count: int = 1,
+        *,
+        blocking: bool = True,
+    ) -> bool:
+        """..."""
+
+        if count < 1:
+            msg = "count must be >= 1"
             raise ValueError(msg)
 
-        self.__semaphore = Semaphore(total_tokens)
-
-        self.__waiters = {}
-        self.borrowers = {}
-
-        return self
-
-    def __getnewargs__(self, /):
-        return (self.__semaphore.initial_value,)
-
-    def __repr__(self, /):
-        return f"RCapacityLimiter({self.__semaphore.initial_value!r})"
-
-    async def __aenter__(self, /):
-        await self.async_acquire()
-
-        return self
-
-    async def __aexit__(self, /, exc_type, exc_value, traceback):
-        self.async_release()
-
-    def __enter__(self, /):
-        self.green_acquire()
-
-        return self
-
-    def __exit__(self, /, exc_type, exc_value, traceback):
-        self.green_release()
-
-    async def async_acquire_on_behalf_of(self, /, borrower, *, blocking=True):
         task = current_async_task_ident()
 
-        if self.__waiters.setdefault(borrower, task) != task:
-            if borrower not in self.borrowers:
-                msg = (
-                    "this borrower is already waiting for"
-                    " any of this RCapacityLimiter's tokens",
-                )
-            else:
-                msg = (
-                    "this borrower is already holding"
-                    " one of this RCapacityLimiter's tokens",
-                )
-
-            raise RuntimeError(msg)
-
-        if borrower not in self.borrowers:
-            success = False
-
-            try:
-                success = await self.__semaphore.async_acquire(
-                    blocking=blocking,
-                )
-            finally:
-                if success:
-                    self.borrowers[borrower] = 0
-                else:
-                    del self.__waiters[borrower]
+        try:
+            current_count = self._borrowers[task]
+        except KeyError:
+            pass
         else:
-            success = True
+            if blocking:
+                await async_checkpoint()
+
+            self._borrowers[task] = current_count + count
+
+            return True
+
+        success = await self._semaphore.async_acquire(blocking=blocking)
 
         if success:
-            self.borrowers[borrower] += 1
+            self._borrowers[task] = count
 
         return success
 
-    async def async_acquire(self, /, *, blocking=True):
-        return await self.async_acquire_on_behalf_of(
-            current_async_task_ident(),
-            blocking=blocking,
-        )
-
-    def green_acquire_on_behalf_of(
+    def green_acquire(
         self,
         /,
-        borrower,
+        count: int = 1,
         *,
-        blocking=True,
-        timeout=None,
-    ):
+        blocking: bool = True,
+        timeout: float | None = None,
+    ) -> bool:
+        """..."""
+
+        if count < 1:
+            msg = "count must be >= 1"
+            raise ValueError(msg)
+
         task = current_green_task_ident()
 
-        if self.__waiters.setdefault(borrower, task) != task:
-            if borrower not in self.borrowers:
-                msg = (
-                    "this borrower is already waiting for"
-                    " any of this RCapacityLimiter's tokens"
-                )
-            else:
-                msg = (
-                    "this borrower is already holding"
-                    " one of this RCapacityLimiter's tokens"
-                )
-
-            raise RuntimeError(msg)
-
-        if borrower not in self.borrowers:
-            success = False
-
-            try:
-                success = self.__semaphore.green_acquire(
-                    blocking=blocking,
-                    timeout=timeout,
-                )
-            finally:
-                if success:
-                    self.borrowers[borrower] = 0
-                else:
-                    del self.__waiters[borrower]
+        try:
+            current_count = self._borrowers[task]
+        except KeyError:
+            pass
         else:
-            success = True
+            if blocking:
+                green_checkpoint()
 
-        if success:
-            self.borrowers[borrower] += 1
+            self._borrowers[task] = current_count + count
 
-        return success
+            return True
 
-    def green_acquire(self, /, *, blocking=True, timeout=None):
-        return self.green_acquire_on_behalf_of(
-            current_green_task_ident(),
+        success = self._semaphore.green_acquire(
             blocking=blocking,
             timeout=timeout,
         )
 
-    def async_release_on_behalf_of(self, /, borrower):
-        if borrower not in self.__waiters:
-            msg = (
-                "this borrower is not holding"
-                " any of this RCapacityLimiter's tokens"
-            )
-            raise RuntimeError(msg)
-
-        task = current_async_task_ident()
-
-        if self.__waiters.get(borrower) != task:
-            msg = (
-                "the current task is not holding"
-                " any of this RCapacityLimiter's tokens"
-                " on behalf of this borrower"
-            )
-            raise RuntimeError(msg)
-
-        self.borrowers[borrower] -= 1
-
-        if not self.borrowers[borrower]:
-            del self.borrowers[borrower]
-            del self.__waiters[borrower]
-
-            self.__semaphore.async_release()
-
-    def async_release(self, /):
-        self.async_release_on_behalf_of(current_async_task_ident())
-
-    def green_release_on_behalf_of(self, /, borrower):
-        if borrower not in self.__waiters:
-            msg = (
-                "this borrower is not holding"
-                " any of this RCapacityLimiter's tokens"
-            )
-            raise RuntimeError(msg)
-
-        task = current_green_task_ident()
-
-        if self.__waiters.get(borrower) != task:
-            msg = (
-                "the current task is not holding"
-                " any of this RCapacityLimiter's tokens"
-                " on behalf of this borrower"
-            )
-            raise RuntimeError(msg)
-
-        self.borrowers[borrower] -= 1
-
-        if not self.borrowers[borrower]:
-            del self.borrowers[borrower]
-            del self.__waiters[borrower]
-
-            self.__semaphore.green_release()
-
-    def green_release(self, /):
-        self.green_release_on_behalf_of(current_green_task_ident())
-
-    def _async_release_save(self, /):
-        task = current_async_task_ident()
-
-        if task not in self.__waiters:
-            msg = (
-                "this borrower is not holding"
-                " any of this RCapacityLimiter's tokens"
-            )
-            raise RuntimeError(msg)
-
-        if self.__waiters.get(task) != task:
-            msg = (
-                "the current task is not holding"
-                " any of this RCapacityLimiter's tokens"
-                " on behalf of this borrower"
-            )
-            raise RuntimeError(msg)
-
-        state = task, self.borrowers[task]
-
-        del self.borrowers[task]
-
-        self.__semaphore.async_release()
-
-        return state
-
-    def _green_release_save(self, /):
-        task = current_green_task_ident()
-
-        if task not in self.__waiters:
-            msg = (
-                "this borrower is not holding"
-                " any of this RCapacityLimiter's tokens"
-            )
-            raise RuntimeError(msg)
-
-        if self.__waiters.get(task) != task:
-            msg = (
-                "the current task is not holding"
-                " any of this RCapacityLimiter's tokens"
-                " on behalf of this borrower"
-            )
-            raise RuntimeError(msg)
-
-        state = task, self.borrowers[task]
-
-        del self.borrowers[task]
-
-        self.__semaphore.green_release()
-
-        return state
-
-    async def _async_acquire_restore(self, /, state):
-        success = await self.__semaphore.async_acquire()
-
         if success:
-            task, level = state
-
-            self.borrowers[task] = level
+            self._borrowers[task] = count
 
         return success
 
-    def _green_acquire_restore(self, /, state):
-        success = self.__semaphore.green_acquire()
+    def async_release(self, /, count: int = 1) -> None:
+        """..."""
 
-        if success:
-            task, level = state
+        if count < 1:
+            msg = "count must be >= 1"
+            raise ValueError(msg)
 
-            self.borrowers[task] = level
+        task = current_async_task_ident()
 
-        return success
+        try:
+            current_count = self._borrowers[task]
+        except KeyError:
+            msg = (
+                "the current task is not holding"
+                " any of this capacity limiter's tokens"
+            )
+            raise RuntimeError(msg) from None
+
+        if current_count > count:
+            self._borrowers[task] = current_count - count
+        elif current_count == count:
+            del self._borrowers[task]
+
+            self._semaphore.async_release()
+        else:
+            msg = "capacity limiter released too many times"
+            raise RuntimeError(msg)
+
+    def green_release(self, /, count: int = 1) -> None:
+        """..."""
+
+        if count < 1:
+            msg = "count must be >= 1"
+            raise ValueError(msg)
+
+        task = current_green_task_ident()
+
+        try:
+            current_count = self._borrowers[task]
+        except KeyError:
+            msg = (
+                "the current task is not holding"
+                " any of this capacity limiter's tokens"
+            )
+            raise RuntimeError(msg) from None
+
+        if current_count > count:
+            self._borrowers[task] = current_count - count
+        elif current_count == count:
+            del self._borrowers[task]
+
+            self._semaphore.green_release()
+        else:
+            msg = "capacity limiter released too many times"
+            raise RuntimeError(msg)
+
+    @copies(CapacityLimiter.async_borrowed)
+    def async_borrowed(self, /) -> bool:
+        """
+        Return :data:`True` if the current async task holds any token.
+
+        Example:
+            >>> limiter = RCapacityLimiter()
+            >>> limiter.async_borrowed()
+            False
+            >>> async with limiter:
+            ...     limiter.async_borrowed()
+            True
+            >>> limiter.async_borrowed()
+            False
+        """
+
+        return CapacityLimiter.async_borrowed(self)
+
+    @copies(CapacityLimiter.green_borrowed)
+    def green_borrowed(self, /) -> bool:
+        """
+        Return :data:`True` if the current green task holds any token.
+
+        Example:
+            >>> limiter = RCapacityLimiter()
+            >>> limiter.green_borrowed()
+            False
+            >>> with limiter:
+            ...     limiter.green_borrowed()
+            True
+            >>> limiter.green_borrowed()
+            False
+        """
+
+        return CapacityLimiter.green_borrowed(self)
+
+    def async_count(self, /) -> int:
+        """
+        Return the recursion level of the current async task.
+
+        Example:
+            >>> limiter = RCapacityLimiter()
+            >>> limiter.async_count()
+            0
+            >>> async with limiter:
+            ...     limiter.async_count()
+            1
+            >>> limiter.async_count()
+            0
+        """
+
+        return self._borrowers.get(current_async_task_ident(), 0)
+
+    def green_count(self, /) -> int:
+        """
+        Return the recursion level of the current green task.
+
+        Example:
+            >>> limiter = RCapacityLimiter()
+            >>> limiter.green_count()
+            0
+            >>> with limiter:
+            ...     limiter.green_count()
+            1
+            >>> limiter.green_count()
+            0
+        """
+
+        return self._borrowers.get(current_green_task_ident(), 0)
 
     @property
-    def waiting(self, /):
-        return self.__semaphore.waiting
+    @copies(CapacityLimiter.total_tokens.fget)
+    def total_tokens(self, /) -> int:
+        """
+        The initial number of tokens available for borrowing.
+        """
+
+        return CapacityLimiter.total_tokens.fget(self)
 
     @property
-    def available_tokens(self, /):
-        return self.__semaphore.value
+    @copies(CapacityLimiter.available_tokens.fget)
+    def available_tokens(self, /) -> int:
+        """
+        The current number of tokens available to be borrowed.
+
+        It may not change after release if all the released tokens have been
+        reassigned to waiting tasks.
+        """
+
+        return CapacityLimiter.available_tokens.fget(self)
 
     @property
-    def borrowed_tokens(self, /):
-        return self.__semaphore.initial_value - self.__semaphore.value
+    @copies(CapacityLimiter.borrowed_tokens.fget)
+    def borrowed_tokens(self, /) -> int:
+        """
+        The current number of tokens that have been borrowed.
+
+        It may not change after release if all the released tokens have been
+        reassigned to waiting tasks.
+        """
+
+        return CapacityLimiter.borrowed_tokens.fget(self)
 
     @property
-    def total_tokens(self, /):
-        return self.__semaphore.initial_value
+    @copies(CapacityLimiter.borrowers.fget)
+    def borrowers(self, /) -> MappingProxyType[tuple[str, int], int]:
+        """
+        The read-only proxy of the dictionary that maps tasks' identifiers to
+        their respective recursion levels. Contains identifiers of only those
+        tasks that hold any token. Updated automatically when the current state
+        changes.
+
+        It may not contain identifiers of those tasks to which tokens were
+        reassigned during release if they have not yet resumed execution.
+        """
+
+        return CapacityLimiter.borrowers.fget(self)
+
+    @property
+    @copies(CapacityLimiter.waiting.fget)
+    def waiting(self, /) -> int:
+        """
+        The current number of tasks waiting to borrow.
+
+        It represents the length of the waiting queue and thus changes
+        immediately.
+        """
+
+        return CapacityLimiter.waiting.fget(self)

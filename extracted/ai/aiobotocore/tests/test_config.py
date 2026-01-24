@@ -1,8 +1,8 @@
-import asyncio
+import socket
 
 import aiohttp.resolver
+import anyio
 import pytest
-from botocore.config import Config
 from botocore.exceptions import ParamValidationError, ReadTimeoutError
 
 from aiobotocore.config import AioConfig
@@ -49,6 +49,11 @@ async def test_connector_args(current_http_backend: str):
         AioConfig(connector_args)
 
     with pytest.raises(ParamValidationError):
+        # invalid socket factory
+        connector_args = dict(socket_factory="1")
+        AioConfig(connector_args)
+
+    with pytest.raises(ParamValidationError):
         # invalid key
         connector_args = dict(foo="1")
         AioConfig(connector_args)
@@ -70,14 +75,22 @@ async def test_connector_args(current_http_backend: str):
     ):
         AioConfig({'resolver': True}, http_session_cls=HttpxSession)
 
+    with pytest.raises(
+        ParamValidationError,
+        match='Httpx backend does not support socket_factory.',
+    ):
+        AioConfig({'socket_factory': True}, http_session_cls=HttpxSession)
+
     # Test valid configs:
     AioConfig({"ttl_dns_cache": None})
     AioConfig({"ttl_dns_cache": 1})
     AioConfig({"resolver": aiohttp.resolver.DefaultResolver()})
     AioConfig({'keepalive_timeout': None})
+    AioConfig({'socket_factory': None})
+    AioConfig({'socket_factory': socket.socket})
 
     # test merge
-    cfg = Config(read_timeout=75)
+    cfg = AioConfig(read_timeout=75)
     aio_cfg = AioConfig({'keepalive_timeout': 75})
     aio_cfg.merge(cfg)
 
@@ -103,20 +116,14 @@ async def test_connector_timeout():
 
         async def get_and_wait():
             await s3_client.get_object(Bucket='foo', Key='bar')
-            await asyncio.sleep(100)
+            await anyio.sleep(100)
 
-        task1 = asyncio.Task(get_and_wait())
-        task2 = asyncio.Task(get_and_wait())
-
-        try:
-            done, pending = await asyncio.wait([task1, task2], timeout=3)
-
-            # second request should not timeout just because there isn't a
-            # connector available
-            assert len(pending) == 2
-        finally:
-            task1.cancel()
-            task2.cancel()
+        # second request should not timeout just because there isn't a
+        # connector available
+        with anyio.move_on_after(3):
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(get_and_wait)
+                tg.start_soon(get_and_wait)
 
 
 async def test_connector_timeout2():

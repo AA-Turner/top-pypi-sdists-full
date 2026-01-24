@@ -3,7 +3,7 @@ Type annotations for bcm-recommended-actions service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bcm_recommended_actions/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
 from .literals import ActionTypeType, FeatureType, FilterNameType, MatchOptionType, SeverityType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -64,8 +59,8 @@ RecommendedActionTypeDef = TypedDict(
         "accountId": NotRequired[str],
         "severity": NotRequired[SeverityType],
         "feature": NotRequired[FeatureType],
-        "context": NotRequired[Dict[str, str]],
-        "nextSteps": NotRequired[List[str]],
+        "context": NotRequired[dict[str, str]],
+        "nextSteps": NotRequired[list[str]],
         "lastUpdatedTimeStamp": NotRequired[str],
     },
 )
@@ -74,7 +69,7 @@ RecommendedActionTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -84,7 +79,7 @@ class RequestFilterTypeDef(TypedDict):
 
 
 class ListRecommendedActionsResponseTypeDef(TypedDict):
-    recommendedActions: List[RecommendedActionTypeDef]
+    recommendedActions: list[RecommendedActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

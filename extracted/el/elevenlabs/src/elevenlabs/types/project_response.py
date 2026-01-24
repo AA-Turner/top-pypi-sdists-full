@@ -8,6 +8,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 from .caption_style_model import CaptionStyleModel
 from .project_creation_meta_response_model import ProjectCreationMetaResponseModel
 from .project_response_model_access_level import ProjectResponseModelAccessLevel
+from .project_response_model_aspect_ratio import ProjectResponseModelAspectRatio
 from .project_response_model_fiction import ProjectResponseModelFiction
 from .project_response_model_source_type import ProjectResponseModelSourceType
 from .project_response_model_target_audience import ProjectResponseModelTargetAudience
@@ -28,6 +29,11 @@ class ProjectResponse(UncheckedBaseModel):
     create_date_unix: int = pydantic.Field()
     """
     The creation date of the project.
+    """
+
+    created_by_user_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The user ID who created the project.
     """
 
     default_title_voice_id: str = pydantic.Field()
@@ -168,6 +174,11 @@ class ProjectResponse(UncheckedBaseModel):
     public_share_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     The public share ID of the project.
+    """
+
+    aspect_ratio: typing.Optional[ProjectResponseModelAspectRatio] = pydantic.Field(default=None)
+    """
+    The aspect ratio of the project.
     """
 
     if IS_PYDANTIC_V2:

@@ -63,12 +63,12 @@ def search(array, item, ignore_case: Optional[List[bool]] = None):
 
         if ignore_case[0]:
             results_mask = numpy.asarray(
-                list_ops.list_in_string.list_in_string_case_insensitive(array, str(item)),
+                list_ops.list_in_string_case_insensitive(array, str(item)),
                 dtype=numpy.bool_,
             )
         else:
             results_mask = numpy.asarray(
-                list_ops.list_in_string.list_in_string(array, str(item)), dtype=numpy.bool_
+                list_ops.list_in_string(array, str(item)), dtype=numpy.bool_
             )
     elif array_type == numpy.ndarray:
         # converting to a set is faster for a handful of items which is what we're
@@ -117,11 +117,24 @@ def if_null(values, replacements):
             replacement = replacements[0]
             if hasattr(is_null_mask, "tolist"):
                 is_null_mask = is_null_mask.tolist()
+            # For list/array types, use object dtype to avoid flattening
+            if isinstance(replacement, (list, tuple)) or values.dtype == object:
+                return numpy.array(
+                    [replacement if is_null else values[i] for i, is_null in enumerate(is_null_mask)],
+                    dtype=object,
+                )
             return numpy.array(
                 [replacement if is_null else values[i] for i, is_null in enumerate(is_null_mask)],
                 dtype=values.dtype,
             )
 
+        # For object dtype (like lists), create result differently
+        if values.dtype == object or isinstance(replacements[0], (list, tuple)):
+            return numpy.array(
+                [replacements[0] if is_null else values[i] for i, is_null in enumerate(is_null_mask.tolist() if hasattr(is_null_mask, 'tolist') else is_null_mask)],
+                dtype=object
+            )
+        
         replacements = numpy.full(values.shape, replacements[0], dtype=values.dtype)
 
     target_type = numpy.promote_types(values.dtype, replacements.dtype)

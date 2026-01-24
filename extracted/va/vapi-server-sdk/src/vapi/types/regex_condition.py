@@ -6,10 +6,11 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .message_target import MessageTarget
+from .regex_condition_type import RegexConditionType
 
 
 class RegexCondition(UncheckedBaseModel):
-    type: typing.Literal["regex"] = pydantic.Field(default="regex")
+    type: RegexConditionType = pydantic.Field()
     """
     This is the type discriminator for regex condition
     """
@@ -22,9 +23,9 @@ class RegexCondition(UncheckedBaseModel):
     - This works by using the RegExp.test method in Node.JS. Eg. /hello/.test("hello there") will return true.
     
     Hot tips:
-    - In JavaScript, escape \ when sending the regex pattern. Eg. "hello\sthere" will be sent over the wire as "hellosthere". Send "hello\\sthere" instead.
+    - In JavaScript, escape \\ when sending the regex pattern. Eg. "hello\\sthere" will be sent over the wire as "hellosthere". Send "hello\\\\sthere" instead.
     - RegExp.test does substring matching, so /cat/.test("I love cats") will return true. To do full string matching, use anchors: /^cat$/ will only match exactly "cat".
-    - Word boundaries \b are useful for matching whole words: /\bcat\b/ matches "cat" but not "cats" or "category".
+    - Word boundaries \\b are useful for matching whole words: /\\bcat\\b/ matches "cat" but not "cats" or "category".
     - Use inline flags for portability: (?i) for case insensitive, (?m) for multiline
     """
 

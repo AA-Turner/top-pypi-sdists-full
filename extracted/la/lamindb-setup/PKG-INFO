@@ -1,0 +1,48 @@
+Metadata-Version: 2.3
+Name: lamindb_setup
+Version: 1.18.2
+Summary: Setup & configure LaminDB.
+Author-email: Lamin Labs <open-source@lamin.ai>
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: lamin_utils>=0.3.3
+Requires-Dist: django>=5.2,<5.3
+Requires-Dist: dj_database_url>=1.3.0,<3.0.0
+Requires-Dist: django-pgtrigger
+Requires-Dist: pydantic-settings
+Requires-Dist: platformdirs<5.0.0
+Requires-Dist: httpx_retries<1.0.0
+Requires-Dist: requests
+Requires-Dist: universal_pathlib==0.2.6
+Requires-Dist: botocore<2.0.0
+Requires-Dist: supabase>=2.20.0,<=2.24.0
+Requires-Dist: websockets>=13.0
+Requires-Dist: pyjwt<3.0.0
+Requires-Dist: psutil
+Requires-Dist: packaging
+Requires-Dist: aiobotocore[boto3]>=2.12.4,<3.0.0 ; extra == "aws"
+Requires-Dist: s3fs>=2023.12.2,<=2025.12.0,!=2024.10.0 ; extra == "aws"
+Requires-Dist: line_profiler ; extra == "dev"
+Requires-Dist: psycopg2-binary ; extra == "dev"
+Requires-Dist: python-dotenv ; extra == "dev"
+Requires-Dist: nox ; extra == "dev"
+Requires-Dist: pytest>=6.0 ; extra == "dev"
+Requires-Dist: pytest-cov<7.0.0 ; extra == "dev"
+Requires-Dist: pytest-xdist ; extra == "dev"
+Requires-Dist: nbproject-test>=0.4.3 ; extra == "dev"
+Requires-Dist: pandas ; extra == "dev"
+Requires-Dist: django-schema-graph ; extra == "erdiagram"
+Requires-Dist: gcsfs>=2023.12.2,<=2025.12.0 ; extra == "gcp"
+Project-URL: Home, https://github.com/laminlabs/lamindb-setup
+Provides-Extra: aws
+Provides-Extra: dev
+Provides-Extra: erdiagram
+Provides-Extra: gcp
+
+[![codecov](https://codecov.io/gh/laminlabs/lamindb-setup/branch/main/graph/badge.svg)](https://codecov.io/gh/laminlabs/lamindb-setup)
+
+# lamindb-setup: Setting up `lamindb`
+
+- User [docs](https://lamin.ai/docs)
+- Developer [docs](https://lamindb-setup-htry.netlify.app/)
+

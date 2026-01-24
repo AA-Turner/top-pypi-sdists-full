@@ -7,7 +7,7 @@ import sys
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
 from multiprocessing import get_start_method, set_start_method
 from sys import platform
-from typing import Any, Optional, Type
+from typing import Any
 
 from taskiq.abc.broker import AsyncBroker
 from taskiq.cli.utils import import_object, import_tasks
@@ -56,7 +56,7 @@ async def shutdown_broker(broker: AsyncBroker, timeout: float) -> None:
         )
 
 
-def get_receiver_type(args: WorkerArgs) -> Type[Receiver]:
+def get_receiver_type(args: WorkerArgs) -> type[Receiver]:
     """
     Import Receiver from args.
 
@@ -64,7 +64,7 @@ def get_receiver_type(args: WorkerArgs) -> Type[Receiver]:
     :raises ValueError: if receiver is not a Receiver type.
     :return: Receiver type.
     """
-    receiver_type = import_object(args.receiver)
+    receiver_type = import_object(args.receiver, app_dir=args.app_dir)
     if not (isinstance(receiver_type, type) and issubclass(receiver_type, Receiver)):
         raise ValueError("Unknown receiver type. Please use Receiver class.")
     return receiver_type
@@ -88,7 +88,7 @@ def start_listen(args: WorkerArgs) -> None:
     hardkill_counter = 0
     if args.configure_logging and get_start_method() == "spawn":
         logging.basicConfig(
-            level=logging.getLevelName(args.log_level),
+            level=args.log_level,
             format=args.log_format,
         )
 
@@ -133,14 +133,17 @@ def start_listen(args: WorkerArgs) -> None:
     # We must set this field before importing tasks,
     # so broker will remember all tasks it's related to.
 
-    broker = import_object(args.broker)
-    if inspect.isfunction(broker):
-        broker = broker()
-    if not isinstance(broker, AsyncBroker):
-        raise ValueError(
-            "Unknown broker type. Please use AsyncBroker instance "
-            "or pass broker factory function that returns an AsyncBroker instance.",
-        )
+    if isinstance(args.broker, AsyncBroker):
+        broker = args.broker
+    else:
+        broker = import_object(args.broker, app_dir=args.app_dir)
+        if inspect.isfunction(broker):
+            broker = broker()
+        if not isinstance(broker, AsyncBroker):
+            raise ValueError(
+                "Unknown broker type. Please use AsyncBroker instance "
+                "or pass broker factory function that returns an AsyncBroker instance.",
+            )
 
     broker.is_worker_process = True
     import_tasks(args.modules, args.tasks_pattern, args.fs_discover)
@@ -174,7 +177,7 @@ def start_listen(args: WorkerArgs) -> None:
         loop.run_until_complete(shutdown_broker(broker, args.shutdown_timeout))
 
 
-def run_worker(args: WorkerArgs) -> Optional[int]:
+def run_worker(args: WorkerArgs) -> int | None:
     """
     This function starts worker processes.
 
@@ -190,10 +193,10 @@ def run_worker(args: WorkerArgs) -> Optional[int]:
         set_start_method("spawn")
     if args.configure_logging:
         logging.basicConfig(
-            level=logging.getLevelName(args.log_level),
+            level=args.log_level,
             format=args.log_format,
         )
-    logging.getLogger("taskiq").setLevel(level=logging.getLevelName(args.log_level))
+    logging.getLogger("taskiq").setLevel(level=args.log_level)
     logging.getLogger("watchdog.observers.inotify_buffer").setLevel(level=logging.INFO)
     logger.info("Pid of a main process: %s", str(os.getpid()))
     logger.info("Starting %s worker processes.", args.workers)

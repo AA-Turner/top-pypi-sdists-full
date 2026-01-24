@@ -473,6 +473,126 @@ class Instrument:
                 },
             )
 
+        @staticmethod
+        def mcp_span(
+            tool_name_argname: str,
+        ) -> Tuple[SpanAttributes.SpanType, Attributes]:
+            def extract_mcp_attributes(ret, exception, *args, **kwargs):
+                attributes = {
+                    SpanAttributes.MCP.TOOL_NAME: kwargs.get(
+                        tool_name_argname, "unknown"
+                    ),
+                    SpanAttributes.MCP.INPUT_ARGUMENTS: str(kwargs),
+                    SpanAttributes.MCP.OUTPUT_CONTENT: str(ret)
+                    if ret is not None
+                    else "",
+                    SpanAttributes.MCP.OUTPUT_IS_ERROR: exception is not None,
+                }
+
+                # Try to extract server name from various sources
+                server_name = None
+
+                # For get_tools, register the server configs
+                if tool_name_argname == "server_name" and args:
+                    instance = args[0]
+                    # This is a get_tools call on MultiServerMCPClient
+                    # MultiServerMCPClient uses 'connections' attribute, not 'server_configs'
+                    if hasattr(instance, "connections"):
+                        connections = instance.connections
+                        if isinstance(connections, dict):
+                            try:
+                                from trulens.apps.langgraph.tru_graph import (
+                                    register_mcp_server,
+                                )
+                                from trulens.apps.langgraph.tru_graph import (
+                                    register_mcp_tools,
+                                )
+
+                                # Register each server
+                                for srv_name in connections.keys():
+                                    register_mcp_server(srv_name, {})
+
+                                # Register tools if they're returned
+                                if ret and isinstance(ret, (list, tuple)):
+                                    tool_names = [
+                                        t.name
+                                        for t in ret
+                                        if hasattr(t, "name")
+                                    ]
+                                    for srv_name in connections.keys():
+                                        register_mcp_tools(srv_name, tool_names)
+
+                                server_name = list(connections.keys())[0]
+                            except ImportError:
+                                pass
+                    elif hasattr(instance, "server_configs"):
+                        # Fallback for other MCP client implementations
+                        server_configs = instance.server_configs
+                        if isinstance(server_configs, dict):
+                            try:
+                                from trulens.apps.langgraph.tru_graph import (
+                                    register_mcp_server,
+                                )
+                                from trulens.apps.langgraph.tru_graph import (
+                                    register_mcp_tools,
+                                )
+
+                                for srv_name in server_configs.keys():
+                                    register_mcp_server(
+                                        srv_name, server_configs[srv_name]
+                                    )
+                                if ret and isinstance(ret, (list, tuple)):
+                                    tool_names = [
+                                        t.name
+                                        for t in ret
+                                        if hasattr(t, "name")
+                                    ]
+                                    for srv_name in server_configs.keys():
+                                        register_mcp_tools(srv_name, tool_names)
+                                server_name = list(server_configs.keys())[0]
+                            except ImportError:
+                                pass
+
+                # Check if server_name is directly available in kwargs
+                if not server_name and "server_name" in kwargs:
+                    server_name = kwargs["server_name"]
+
+                # Try to extract from instance (first arg) if it has server info
+                if not server_name and args:
+                    instance = args[0]
+                    if hasattr(instance, "server_name"):
+                        server_name = instance.server_name
+                    elif hasattr(instance, "_server_name"):
+                        server_name = instance._server_name
+
+                # Try to extract from tool name using the registry
+                if not server_name:
+                    tool_name = attributes[SpanAttributes.MCP.TOOL_NAME]
+                    try:
+                        from trulens.apps.langgraph.tru_graph import (
+                            get_mcp_server_name_for_tool,
+                        )
+
+                        server_name = get_mcp_server_name_for_tool(tool_name)
+                    except ImportError:
+                        # Fallback if TruGraph not available
+                        if "_" in tool_name:
+                            server_name = tool_name.split("_")[0]
+
+                if server_name:
+                    attributes[SpanAttributes.MCP.SERVER_NAME] = server_name
+
+                return attributes
+
+            # Be resilient to environments that lack the MCP span type.
+            try:
+                span_type = SpanAttributes.SpanType.MCP  # type: ignore[attr-defined]
+            except AttributeError:
+                # Fallback to TOOL span type if MCP is unavailable.
+                span_type = SpanAttributes.SpanType.TOOL
+
+            return (span_type, extract_mcp_attributes)
+
     def print_instrumentation(self) -> None:
         """Print out description of the modules, classes, methods this class
         will instrument."""
@@ -928,12 +1048,113 @@ class Instrument:
                     # Will add placeholder to the record:
                     update_call_info(temp_rets, final=False)
 
-                    return python_utils.wrap_lazy(
-                        rets,
-                        wrap=None,
-                        on_done=rewrap,
-                        context_vars=context_vars,
-                    )
+                    # For streaming-like methods, also update incrementally per chunk
+                    stream_method_names = {
+                        "stream",
+                        "astream",
+                        "stream_events",
+                        "astream_events",
+                    }
+
+                    if method_name in stream_method_names:
+                        # Accumulate human-visible chunks and update the record incrementally.
+                        accumulated_chunks: List[str] = []
+
+                        def _normalize_chunk(val: Any) -> str:
+                            # Common LangChain chunk types
+                            try:
+                                from langchain_core.messages.ai import (  # type: ignore
+                                    AIMessage,
+                                )
+                                from langchain_core.messages.ai import (  # type: ignore
+                                    AIMessageChunk,
+                                )
+                            except Exception:
+                                AIMessage = None  # type: ignore
+                                AIMessageChunk = None  # type: ignore
+
+                            # AIMessage or AIMessageChunk
+                            if AIMessage is not None and isinstance(
+                                val, AIMessage
+                            ):
+                                return val.content or ""
+                            if AIMessageChunk is not None and isinstance(
+                                val, AIMessageChunk
+                            ):
+                                return val.content or ""
+
+                            # Dict-based events or chunks
+                            if isinstance(val, dict):
+                                # Direct 'content'
+                                if "content" in val and isinstance(
+                                    val["content"], str
+                                ):
+                                    return val["content"]
+
+                                # LangChain astream_events style: {'event': ..., 'data': {...}}
+                                data = val.get("data")
+                                if isinstance(data, dict):
+                                    # Try nested 'chunk' first (often an AIMessageChunk or dict with content)
+                                    chunk = data.get("chunk")
+                                    if hasattr(chunk, "content"):
+                                        return getattr(chunk, "content") or ""
+                                    if isinstance(chunk, dict) and isinstance(
+                                        chunk.get("content"), str
+                                    ):
+                                        return chunk.get("content", "") or ""
+
+                                    # Some events carry 'output' or 'result' that may contain content
+                                    output = data.get("output") or data.get(
+                                        "result"
+                                    )
+                                    if hasattr(output, "content"):
+                                        return getattr(output, "content") or ""
+                                    if isinstance(output, dict) and isinstance(
+                                        output.get("content"), str
+                                    ):
+                                        return output.get("content", "") or ""
+
+                                # Fallback: empty for non-text events
+                                return ""
+
+                            # Plain string chunk
+                            if isinstance(val, str):
+                                return val
+
+                            # Fallback to string; avoid noisy representations for non-text events
+                            try:
+                                return str(val) if val is not None else ""
+                            except Exception:
+                                return ""
+
+                        def _per_chunk_wrapper(val: Any) -> Any:
+                            try:
+                                chunk_str = _normalize_chunk(val)
+                                if chunk_str:
+                                    accumulated_chunks.append(chunk_str)
+                                    # Emit incremental update without finalizing
+                                    update_call_info(
+                                        list(accumulated_chunks), final=False
+                                    )
+                            except Exception:
+                                # Never break the user stream due to our logging; skip incremental update
+                                pass
+                            # Always return the original value to preserve API semantics
+                            return val
+
+                        return python_utils.wrap_lazy(
+                            rets,
+                            wrap=_per_chunk_wrapper,
+                            on_done=rewrap,
+                            context_vars=context_vars,
+                        )
+                    else:
+                        return python_utils.wrap_lazy(
+                            rets,
+                            wrap=None,
+                            on_done=rewrap,
+                            context_vars=context_vars,
+                        )
 
                 # Handle app-specific lazy values (like llama_index StreamResponse):
                 # NOTE(piotrm): self.app is a weakref

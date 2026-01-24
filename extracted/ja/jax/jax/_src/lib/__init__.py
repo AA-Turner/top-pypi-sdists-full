@@ -23,7 +23,7 @@ import os
 import pathlib
 import re
 from types import ModuleType
-import typing
+
 
 try:
   import jaxlib as jaxlib
@@ -36,7 +36,7 @@ except ModuleNotFoundError as err:
 import jax.version
 from jax.version import _minimum_jaxlib_version as _minimum_jaxlib_version_str
 try:
-  import jaxlib.version
+  import jaxlib.version  # noqa: F401
 except Exception as err:
   # jaxlib is too old to have version number.
   msg = f'This version of jax requires jaxlib version >= {_minimum_jaxlib_version_str}.'
@@ -98,6 +98,9 @@ ifrt_version: int = getattr(xla_client, '_ifrt_version', 0)
 import jaxlib.lapack as lapack  # noqa: F401
 import jaxlib.utils as utils  # noqa: F401
 import jaxlib._jax as _jax  # noqa: F401
+
+
+
 import jaxlib.mlir._mlir_libs._jax_mlir_ext as jax_mlir_ext  # noqa: F401
 from jaxlib._jax import guard_lib as guard_lib  # noqa: F401
 from jaxlib._jax import jax_jit as jax_jit  # noqa: F401
@@ -105,10 +108,7 @@ from jaxlib._jax import pmap_lib as pmap_lib  # noqa: F401
 from jaxlib._jax import pytree as pytree  # noqa: F401
 from jaxlib._jax import Device as Device  # noqa: F401
 from jaxlib import _profiler as _profiler  # noqa: F401
-try:
-  from jaxlib import _profile_data as _profile_data  # noqa: F401
-except (ImportError, ModuleNotFoundError):
-  _profile_data = None
+from jaxlib import _profile_data as _profile_data  # noqa: F401
 
 from jaxlib._jax import ffi as ffi  # noqa: F401
 import jaxlib.cpu_sparse as cpu_sparse  # noqa: F401
@@ -117,10 +117,7 @@ has_cpu_sparse = True
 import jaxlib.weakref_lru_cache as weakref_lru_cache  # noqa: F401
 import jaxlib._pretty_printer as _pretty_printer  # noqa: F401
 
-if jaxlib_extension_version >= 365 or typing.TYPE_CHECKING:
-  import jaxlib._ifrt_proxy as ifrt_proxy  # noqa: F401
-else:
-  ifrt_proxy = _jax.ifrt_proxy
+import jaxlib._ifrt_proxy as ifrt_proxy  # noqa: F401
 
 
 # XLA garbage collection: see https://github.com/jax-ml/jax/issues/14882

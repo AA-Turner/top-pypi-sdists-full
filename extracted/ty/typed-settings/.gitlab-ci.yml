@@ -8,8 +8,8 @@ variables:
   FORCE_COLOR: '1'
   # Check "https://ghcr.io/astral-sh/uv" for updates
   IMAGE_BASE_LAYER: 'bookworm'  # "bookworm-slim" doesn't come with git installed
-  IMAGE_PY_VERSION: '3.13'
-  IMAGE_UV_VERSION: '0.8.2'
+  IMAGE_PY_VERSION: '3.14'
+  IMAGE_UV_VERSION: '0.9.5'
   NOX_DEFAULT_VENV_BACKEND: 'uv'
   # Use local cache dir so that we can use the GitLab cache.
   # This way, we can also keep the default "link-mode".
@@ -57,17 +57,17 @@ test:
   extends: '.test'
   parallel:
     matrix:
-      - PY: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+      - PY: ['3.10', '3.11', '3.12', '3.13', '3.14']
         DEPS_VERSION: ['min_deps_version', 'latest_deps_version']
-  rules:
-    # Adding rules without checking for a branch/tag will enable
-    # Merge Request pipelines.  We only want normal branch/tag pipelines.
-    # See: https://docs.gitlab.com/ee/ci/jobs/job_rules.html#avoid-duplicate-pipelines
-    - if: $CI_COMMIT_BRANCH == null && $CI_COMMIT_TAG == null
-      when: never
-    - if: $PY == '3.14'
-      allow_failure: true
-    - when: 'on_success'
+  # rules:
+  #   # Adding rules without checking for a branch/tag will enable
+  #   # Merge Request pipelines.  We only want normal branch/tag pipelines.
+  #   # See: https://docs.gitlab.com/ee/ci/jobs/job_rules.html#avoid-duplicate-pipelines
+  #   - if: $CI_COMMIT_BRANCH == null && $CI_COMMIT_TAG == null
+  #     when: never
+  #   - if: $PY == '3.14'
+  #     allow_failure: true
+  #   - when: 'on_success'
   script:
     # "%%-*" strips the longest possible match of "-*" from the right:
     - 'nox -s "test-${PY%%-*}($DEPS_VERSION)" -- --junit-xml=report-${PY%%-*}-${DEPS_VERSION}.xml'
@@ -112,12 +112,17 @@ test-coverage:
 release-test:
   extends: '.release-base'
   rules:
+    # Do not run if source is not one of {api, push, web, webide}
     - if: >-
         $CI_PIPELINE_SOURCE != "api" &&
         $CI_PIPELINE_SOURCE != "push" &&
         $CI_PIPELINE_SOURCE != "web" &&
         $CI_PIPELINE_SOURCE != "webide"
       when: 'never'
+    # Do not run if MR from a fork's 'main' branch
+    - if: '$CI_OPEN_MERGE_REQUESTS != null || $CI_PROJECT_NAMESPACE != "sscherfke"'
+      when: 'never'
+    # Only in 'main' branch and tag pipelines
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG'
   environment:
     name: 'release-test'
@@ -130,12 +135,17 @@ release-test:
 release:
   extends: '.release-base'
   rules:
+    # Do not run if source is not one of {api, push, web, webide}
     - if: >-
         $CI_PIPELINE_SOURCE != "api" &&
         $CI_PIPELINE_SOURCE != "push" &&
         $CI_PIPELINE_SOURCE != "web" &&
         $CI_PIPELINE_SOURCE != "webide"
       when: 'never'
+    # Do not run if MR from a fork's 'main' branch
+    - if: '$CI_OPEN_MERGE_REQUESTS != null || $CI_PROJECT_NAMESPACE != "sscherfke"'
+      when: 'never'
+    # Only run in tag pipelines
     - if: '$CI_COMMIT_TAG'
   environment:
     name: 'release'

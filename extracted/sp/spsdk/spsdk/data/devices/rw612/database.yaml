@@ -34,8 +34,8 @@ info:
     rom:
       protocol: mboot
       usb:
-        vid: 0x1FC9
-        pid: 0x0020
+        - vid: 0x1FC9
+          pid: 0x0020
 
 features:
   # ======== Blhost section ========
@@ -86,7 +86,7 @@ features:
   # ======== DAT section ========
   dat:
     socc: 0x0A # SOCC identification
-    rot_not_part_of_dac: True
+    dac_rot_type: not_available # The Dac packet doesn't contains the ROT hash
     dmbox_ap_ix: 3
 
   # ======== MBI section ========
@@ -244,6 +244,7 @@ features:
   el2go_tp:
     el2go_name: RW6
     prov_method: dispatch_fw
-    fw_load_address: 0x08001000
+    dispatch_method: write_reset
+    fw_load_address: 0x0800_1000
     ignored_otp_ranges: [92, 103, 104, 115]
     use_prov_report: true

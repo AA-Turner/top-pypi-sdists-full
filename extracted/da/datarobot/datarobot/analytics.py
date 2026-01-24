@@ -120,7 +120,8 @@ def get_stack_trace(stack_trace: Optional[List[inspect.FrameInfo]] = None) -> st
         if package_name not in trackable_packages:
             # otherwise, check if any of the parent packages are trackable
             package_update, package_ok = check_parent_package_is_trackable(
-                package_name, trackable_packages  # type: ignore[arg-type]
+                package_name,  # type: ignore[arg-type]
+                trackable_packages,
             )
             trackable_packages.update(package_update)
             if not package_ok:

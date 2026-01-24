@@ -83,7 +83,21 @@ from ..release import (
     ReleaseProjectOptions as _ReleaseProjectOptions_929803c8,
     ReleaseTrigger as _ReleaseTrigger_e4dc221f,
 )
-from .biome_config import BiomeConfiguration as _BiomeConfiguration_dd1a6c83
+from .biome_config import (
+    BiomeConfiguration as _BiomeConfiguration_dd1a6c83,
+    CssConfiguration as _CssConfiguration_c97ab361,
+    GraphqlConfiguration as _GraphqlConfiguration_6bc70a0c,
+    GritConfiguration as _GritConfiguration_f4395b5a,
+    HtmlConfiguration as _HtmlConfiguration_eaffc242,
+    JsConfiguration as _JsConfiguration_534ceb12,
+    JsonConfiguration as _JsonConfiguration_dff59c39,
+    OverrideAssistConfiguration as _OverrideAssistConfiguration_1b387d77,
+    OverrideFilesConfiguration as _OverrideFilesConfiguration_d3547db3,
+    OverrideFormatterConfiguration as _OverrideFormatterConfiguration_7cf8b09f,
+    OverrideLinterConfiguration as _OverrideLinterConfiguration_e2446699,
+    OverridePattern as _OverridePattern_c64e7f03,
+    Rules as _Rules_f79679bb,
+)
 
 
 @jsii.enum(jsii_type="projen.javascript.ArrowParens")
@@ -106,6 +120,92 @@ class ArrowParens(enum.Enum):
 
     :stability: experimental
     '''
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.AuditOptions",
+    jsii_struct_bases=[],
+    name_mapping={"level": "level", "prod_only": "prodOnly", "run_on": "runOn"},
+)
+class AuditOptions:
+    def __init__(
+        self,
+        *,
+        level: typing.Optional[builtins.str] = None,
+        prod_only: typing.Optional[builtins.bool] = None,
+        run_on: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Options for security audit configuration.
+
+        :param level: (experimental) Minimum vulnerability level to check for during audit. Default: "high"
+        :param prod_only: (experimental) Only audit production dependencies. When false, both production and development dependencies are audited. This is recommended as build dependencies can also contain security vulnerabilities. Default: false
+        :param run_on: (experimental) When to run the audit task. - "build": Run during every build (default) - "release": Only run during release workflow - "manual": Create the task but don't run it automatically Default: "build"
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa4156d4e0a4a5a2efe965ea98ba35b587dcbfe01e1b4d659a959bcf54294ed2)
+            check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+            check_type(argname="argument prod_only", value=prod_only, expected_type=type_hints["prod_only"])
+            check_type(argname="argument run_on", value=run_on, expected_type=type_hints["run_on"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if level is not None:
+            self._values["level"] = level
+        if prod_only is not None:
+            self._values["prod_only"] = prod_only
+        if run_on is not None:
+            self._values["run_on"] = run_on
+
+    @builtins.property
+    def level(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Minimum vulnerability level to check for during audit.
+
+        :default: "high"
+
+        :stability: experimental
+        '''
+        result = self._values.get("level")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def prod_only(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Only audit production dependencies.
+
+        When false, both production and development dependencies are audited.
+        This is recommended as build dependencies can also contain security vulnerabilities.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("prod_only")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def run_on(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When to run the audit task.
+
+        - "build": Run during every build (default)
+        - "release": Only run during release workflow
+        - "manual": Create the task but don't run it automatically
+
+        :default: "build"
+
+        :stability: experimental
+        '''
+        result = self._values.get("run_on")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AuditOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.enum(jsii_type="projen.javascript.AutoRelease")
@@ -142,7 +242,7 @@ class Biome(
         project: "NodeProject",
         *,
         assist: typing.Optional[builtins.bool] = None,
-        biome_config: typing.Optional[typing.Union[_BiomeConfiguration_dd1a6c83, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_config: typing.Optional[typing.Union["_BiomeConfiguration_dd1a6c83", typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[builtins.bool] = None,
         ignore_generated_files: typing.Optional[builtins.bool] = None,
         linter: typing.Optional[builtins.bool] = None,
@@ -178,7 +278,7 @@ class Biome(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: _Project_57d89203) -> typing.Optional["Biome"]:
+    def of(cls, project: "_Project_57d89203") -> typing.Optional["Biome"]:
         '''
         :param project: -
 
@@ -191,9 +291,13 @@ class Biome(
 
     @jsii.member(jsii_name="addFilePattern")
     def add_file_pattern(self, pattern: builtins.str) -> None:
-        '''
-        :param pattern: -
+        '''(experimental) Add a file pattern to biome.
 
+        Use ! or !! to ignore a file pattern.
+
+        :param pattern: Biome glob pattern.
+
+        :see: https://biomejs.dev/guides/configure-biome/#control-files-via-configuration
         :stability: experimental
         '''
         if __debug__:
@@ -201,23 +305,130 @@ class Biome(
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addFilePattern", [pattern]))
 
+    @jsii.member(jsii_name="addOverride")
+    def add_override(
+        self,
+        *,
+        assist: typing.Optional[typing.Union["_OverrideAssistConfiguration_1b387d77", typing.Dict[builtins.str, typing.Any]]] = None,
+        css: typing.Optional[typing.Union["_CssConfiguration_c97ab361", typing.Dict[builtins.str, typing.Any]]] = None,
+        files: typing.Optional[typing.Union["_OverrideFilesConfiguration_d3547db3", typing.Dict[builtins.str, typing.Any]]] = None,
+        formatter: typing.Optional[typing.Union["_OverrideFormatterConfiguration_7cf8b09f", typing.Dict[builtins.str, typing.Any]]] = None,
+        graphql: typing.Optional[typing.Union["_GraphqlConfiguration_6bc70a0c", typing.Dict[builtins.str, typing.Any]]] = None,
+        grit: typing.Optional[typing.Union["_GritConfiguration_f4395b5a", typing.Dict[builtins.str, typing.Any]]] = None,
+        html: typing.Optional[typing.Union["_HtmlConfiguration_eaffc242", typing.Dict[builtins.str, typing.Any]]] = None,
+        includes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        javascript: typing.Optional[typing.Union["_JsConfiguration_534ceb12", typing.Dict[builtins.str, typing.Any]]] = None,
+        json: typing.Optional[typing.Union["_JsonConfiguration_dff59c39", typing.Dict[builtins.str, typing.Any]]] = None,
+        linter: typing.Optional[typing.Union["_OverrideLinterConfiguration_e2446699", typing.Dict[builtins.str, typing.Any]]] = None,
+        plugins: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Add a biome override to set rules for a specific file pattern.
+
+        :param assist: (experimental) Specific configuration for the Json language.
+        :param css: (experimental) Specific configuration for the CSS language.
+        :param files: (experimental) Specific configuration for the filesystem.
+        :param formatter: (experimental) Specific configuration for the Json language.
+        :param graphql: (experimental) Specific configuration for the Graphql language.
+        :param grit: (experimental) Specific configuration for the GritQL language.
+        :param html: (experimental) Specific configuration for the GritQL language.
+        :param includes: (experimental) A list of glob patterns. Biome will include files/folders that will match these patterns.
+        :param javascript: (experimental) Specific configuration for the JavaScript language.
+        :param json: (experimental) Specific configuration for the Json language.
+        :param linter: (experimental) Specific configuration for the Json language.
+        :param plugins: (experimental) Specific configuration for additional plugins.
+
+        :see: https://biomejs.dev/reference/configuration/#overrides
+        :stability: experimental
+        '''
+        override = _OverridePattern_c64e7f03(
+            assist=assist,
+            css=css,
+            files=files,
+            formatter=formatter,
+            graphql=graphql,
+            grit=grit,
+            html=html,
+            includes=includes,
+            javascript=javascript,
+            json=json,
+            linter=linter,
+            plugins=plugins,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addOverride", [override]))
+
+    @jsii.member(jsii_name="expandLinterRules")
+    def expand_linter_rules(
+        self,
+        *,
+        a11_y: typing.Any = None,
+        complexity: typing.Any = None,
+        correctness: typing.Any = None,
+        nursery: typing.Any = None,
+        performance: typing.Any = None,
+        recommended: typing.Optional[builtins.bool] = None,
+        security: typing.Any = None,
+        style: typing.Any = None,
+        suspicious: typing.Any = None,
+    ) -> None:
+        '''(experimental) Expand the linting rules applied.
+
+        Use ``undefined`` to remove the rule or group.
+
+        :param a11_y: 
+        :param complexity: 
+        :param correctness: 
+        :param nursery: 
+        :param performance: 
+        :param recommended: (experimental) It enables the lint rules recommended by Biome. ``true`` by default.
+        :param security: 
+        :param style: 
+        :param suspicious: 
+
+        :see: https://biomejs.dev/reference/configuration/#linterrulesgroup
+        :stability: experimental
+
+        Example::
+
+            biome.expandLintingRules({
+              style: undefined,
+              suspicious: {
+                noExplicitAny: undefined,
+                noDuplicateCase: "info",
+              }
+            })
+        '''
+        rules = _Rules_f79679bb(
+            a11_y=a11_y,
+            complexity=complexity,
+            correctness=correctness,
+            nursery=nursery,
+            performance=performance,
+            recommended=recommended,
+            security=security,
+            style=style,
+            suspicious=suspicious,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "expandLinterRules", [rules]))
+
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> _JsonFile_fa8164db:
+    def file(self) -> "_JsonFile_fa8164db":
         '''(experimental) Biome configuration file content.
 
         :stability: experimental
         '''
-        return typing.cast(_JsonFile_fa8164db, jsii.get(self, "file"))
+        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="task")
-    def task(self) -> _Task_9fa875b6:
+    def task(self) -> "_Task_9fa875b6":
         '''(experimental) Biome task.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "task"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "task"))
 
 
 @jsii.data_type(
@@ -238,7 +449,7 @@ class BiomeOptions:
         self,
         *,
         assist: typing.Optional[builtins.bool] = None,
-        biome_config: typing.Optional[typing.Union[_BiomeConfiguration_dd1a6c83, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_config: typing.Optional[typing.Union["_BiomeConfiguration_dd1a6c83", typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[builtins.bool] = None,
         ignore_generated_files: typing.Optional[builtins.bool] = None,
         linter: typing.Optional[builtins.bool] = None,
@@ -295,7 +506,7 @@ class BiomeOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def biome_config(self) -> typing.Optional[_BiomeConfiguration_dd1a6c83]:
+    def biome_config(self) -> typing.Optional["_BiomeConfiguration_dd1a6c83"]:
         '''(experimental) Full Biome configuration.
 
         This configuration dictates the final outcome if value is set.
@@ -304,7 +515,7 @@ class BiomeOptions:
         :stability: experimental
         '''
         result = self._values.get("biome_config")
-        return typing.cast(typing.Optional[_BiomeConfiguration_dd1a6c83], result)
+        return typing.cast(typing.Optional["_BiomeConfiguration_dd1a6c83"], result)
 
     @builtins.property
     def formatter(self) -> typing.Optional[builtins.bool]:
@@ -396,9 +607,9 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         *,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
-        permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
-        pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
+        permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
+        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Build workflow options for NodeProject.
@@ -461,7 +672,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def permissions(self) -> typing.Optional[_JobPermissions_3b5b53dc]:
+    def permissions(self) -> typing.Optional["_JobPermissions_3b5b53dc"]:
         '''(experimental) Permissions granted to the build job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``.
 
         :default: ``{ contents: JobPermission.WRITE }``
@@ -469,10 +680,10 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :stability: experimental
         '''
         result = self._values.get("permissions")
-        return typing.cast(typing.Optional[_JobPermissions_3b5b53dc], result)
+        return typing.cast(typing.Optional["_JobPermissions_3b5b53dc"], result)
 
     @builtins.property
-    def pre_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before the build.
 
         :default: []
@@ -480,10 +691,10 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :stability: experimental
         '''
         result = self._values.get("pre_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def workflow_triggers(self) -> typing.Optional[_Triggers_e9ae7617]:
+    def workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
         '''(experimental) Build workflow triggers.
 
         :default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -491,7 +702,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :stability: experimental
         '''
         result = self._values.get("workflow_triggers")
-        return typing.cast(typing.Optional[_Triggers_e9ae7617], result)
+        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
 
     @builtins.property
     def mutable_build(self) -> typing.Optional[builtins.bool]:
@@ -535,10 +746,10 @@ class Bundle:
     def __init__(
         self,
         *,
-        bundle_task: _Task_9fa875b6,
+        bundle_task: "_Task_9fa875b6",
         outdir: builtins.str,
         outfile: builtins.str,
-        watch_task: typing.Optional[_Task_9fa875b6] = None,
+        watch_task: typing.Optional["_Task_9fa875b6"] = None,
     ) -> None:
         '''
         :param bundle_task: (experimental) The task that produces this bundle.
@@ -563,14 +774,14 @@ class Bundle:
             self._values["watch_task"] = watch_task
 
     @builtins.property
-    def bundle_task(self) -> _Task_9fa875b6:
+    def bundle_task(self) -> "_Task_9fa875b6":
         '''(experimental) The task that produces this bundle.
 
         :stability: experimental
         '''
         result = self._values.get("bundle_task")
         assert result is not None, "Required property 'bundle_task' is missing"
-        return typing.cast(_Task_9fa875b6, result)
+        return typing.cast("_Task_9fa875b6", result)
 
     @builtins.property
     def outdir(self) -> builtins.str:
@@ -593,13 +804,13 @@ class Bundle:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def watch_task(self) -> typing.Optional[_Task_9fa875b6]:
+    def watch_task(self) -> typing.Optional["_Task_9fa875b6"]:
         '''(experimental) The "watch" task for this bundle.
 
         :stability: experimental
         '''
         result = self._values.get("watch_task")
-        return typing.cast(typing.Optional[_Task_9fa875b6], result)
+        return typing.cast(typing.Optional["_Task_9fa875b6"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -666,7 +877,7 @@ class Bundler(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         add_to_pre_compile: typing.Optional[builtins.bool] = None,
         assets_dir: typing.Optional[builtins.str] = None,
@@ -700,7 +911,7 @@ class Bundler(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: _Project_57d89203) -> typing.Optional["Bundler"]:
+    def of(cls, project: "_Project_57d89203") -> typing.Optional["Bundler"]:
         '''(experimental) Returns the ``Bundler`` instance associated with a project or ``undefined`` if there is no Bundler.
 
         :param project: The project.
@@ -731,7 +942,7 @@ class Bundler(
         inject: typing.Optional[typing.Sequence[builtins.str]] = None,
         keep_names: typing.Optional[builtins.bool] = None,
         loaders: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        log_level: typing.Optional[BundleLogLevel] = None,
+        log_level: typing.Optional["BundleLogLevel"] = None,
         main_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         metafile: typing.Optional[builtins.bool] = None,
         minify: typing.Optional[builtins.bool] = None,
@@ -742,7 +953,7 @@ class Bundler(
         externals: typing.Optional[typing.Sequence[builtins.str]] = None,
         sourcemap: typing.Optional[builtins.bool] = None,
         watch_task: typing.Optional[builtins.bool] = None,
-    ) -> Bundle:
+    ) -> "Bundle":
         '''(experimental) Adds a task to the project which bundles a specific entrypoint and all of its dependencies into a single javascript output file.
 
         :param entrypoint: The relative path of the artifact within the project.
@@ -751,7 +962,7 @@ class Bundler(
         :param banner: (experimental) Use this to insert an arbitrary string at the beginning of generated JavaScript files. This is similar to footer which inserts at the end instead of the beginning. This is commonly used to insert comments: Default: - no comments are passed
         :param charset: (experimental) The charset to use for esbuild's output. By default esbuild's output is ASCII-only. Any non-ASCII characters are escaped using backslash escape sequences. Using escape sequences makes the generated output slightly bigger, and also makes it harder to read. If you would like for esbuild to print the original characters without using escape sequences, use ``Charset.UTF8``. Default: Charset.ASCII
         :param define: (experimental) Replace global identifiers with constant expressions. For example, ``{ 'process.env.DEBUG': 'true' }``. Another example, ``{ 'process.env.API_KEY': JSON.stringify('xxx-xxxx-xxx') }``. Default: - no replacements are made
-        :param esbuild_args: (experimental) Build arguments to pass into esbuild. For example, to add the `--log-limit <https://esbuild.github.io/api/#log-limit>`_ flag:: project.bundler.addBundle("./src/hello.ts", { platform: "node", target: "node18", sourcemap: true, format: "esm", esbuildArgs: { "--log-limit": "0", }, }); Default: - no additional esbuild arguments are passed
+        :param esbuild_args: (experimental) Build arguments to pass into esbuild. For example, to add the `--log-limit <https://esbuild.github.io/api/#log-limit>`_ flag:: project.bundler.addBundle("./src/hello.ts", { platform: "node", target: "node22", sourcemap: true, format: "esm", esbuildArgs: { "--log-limit": "0", }, }); Default: - no additional esbuild arguments are passed
         :param executable: (experimental) Mark the output file as executable. Default: false
         :param footer: (experimental) Use this to insert an arbitrary string at the end of generated JavaScript files. This is similar to banner which inserts at the beginning instead of the end. This is commonly used to insert comments Default: - no comments are passed
         :param format: (experimental) Output format for the generated JavaScript files. There are currently three possible values that can be configured: ``"iife"``, ``"cjs"``, and ``"esm"``. If not set (``undefined``), esbuild picks an output format for you based on ``platform``: - ``"cjs"`` if ``platform`` is ``"node"`` - ``"iife"`` if ``platform`` is ``"browser"`` - ``"esm"`` if ``platform`` is ``"neutral"`` Note: If making a bundle to run under node with ESM, set ``format`` to ``"esm"`` instead of setting ``platform`` to ``"neutral"``. Default: undefined
@@ -801,7 +1012,7 @@ class Bundler(
             watch_task=watch_task,
         )
 
-        return typing.cast(Bundle, jsii.invoke(self, "addBundle", [entrypoint, options]))
+        return typing.cast("Bundle", jsii.invoke(self, "addBundle", [entrypoint, options]))
 
     @builtins.property
     @jsii.member(jsii_name="bundledir")
@@ -814,7 +1025,7 @@ class Bundler(
 
     @builtins.property
     @jsii.member(jsii_name="bundleTask")
-    def bundle_task(self) -> _Task_9fa875b6:
+    def bundle_task(self) -> "_Task_9fa875b6":
         '''(experimental) Gets or creates the singleton "bundle" task of the project.
 
         If the project doesn't have a "bundle" task, it will be created and spawned
@@ -822,7 +1033,7 @@ class Bundler(
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "bundleTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "bundleTask"))
 
     @builtins.property
     @jsii.member(jsii_name="esbuildVersion")
@@ -1116,7 +1327,7 @@ class CodeArtifactOptions:
         self,
         *,
         access_key_id_secret: typing.Optional[builtins.str] = None,
-        auth_provider: typing.Optional[CodeArtifactAuthProvider] = None,
+        auth_provider: typing.Optional["CodeArtifactAuthProvider"] = None,
         role_to_assume: typing.Optional[builtins.str] = None,
         secret_access_key_secret: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1164,7 +1375,7 @@ class CodeArtifactOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def auth_provider(self) -> typing.Optional[CodeArtifactAuthProvider]:
+    def auth_provider(self) -> typing.Optional["CodeArtifactAuthProvider"]:
         '''(experimental) Provider to use for authorizing requests to AWS CodeArtifact.
 
         :default: CodeArtifactAuthProvider.ACCESS_AND_SECRET_KEY_PAIR
@@ -1172,7 +1383,7 @@ class CodeArtifactOptions:
         :stability: experimental
         '''
         result = self._values.get("auth_provider")
-        return typing.cast(typing.Optional[CodeArtifactAuthProvider], result)
+        return typing.cast(typing.Optional["CodeArtifactAuthProvider"], result)
 
     @builtins.property
     def role_to_assume(self) -> typing.Optional[builtins.str]:
@@ -1374,7 +1585,7 @@ class Eslint(
         lint_projen_rc: typing.Optional[builtins.bool] = None,
         lint_projen_rc_file: typing.Optional[builtins.str] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        sort_extends: typing.Optional[_ICompareString_f119e19c] = None,
+        sort_extends: typing.Optional["_ICompareString_f119e19c"] = None,
         ts_always_try_types: typing.Optional[builtins.bool] = None,
         tsconfig_path: typing.Optional[builtins.str] = None,
         yaml: typing.Optional[builtins.bool] = None,
@@ -1422,7 +1633,7 @@ class Eslint(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: _Project_57d89203) -> typing.Optional["Eslint"]:
+    def of(cls, project: "_Project_57d89203") -> typing.Optional["Eslint"]:
         '''(experimental) Returns the singleton Eslint component of a project or undefined if there is none.
 
         :param project: -
@@ -1556,21 +1767,21 @@ class Eslint(
 
     @builtins.property
     @jsii.member(jsii_name="eslintTask")
-    def eslint_task(self) -> _Task_9fa875b6:
+    def eslint_task(self) -> "_Task_9fa875b6":
         '''(experimental) eslint task.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "eslintTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "eslintTask"))
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> _ObjectFile_a34b4727:
+    def file(self) -> "_ObjectFile_a34b4727":
         '''(experimental) The underlying config file.
 
         :stability: experimental
         '''
-        return typing.cast(_ObjectFile_a34b4727, jsii.get(self, "file"))
+        return typing.cast("_ObjectFile_a34b4727", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="ignorePatterns")
@@ -1696,14 +1907,14 @@ class EslintOptions:
         dirs: typing.Sequence[builtins.str],
         alias_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         alias_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        command_options: typing.Optional[typing.Union[EslintCommandOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        command_options: typing.Optional[typing.Union["EslintCommandOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         devdirs: typing.Optional[typing.Sequence[builtins.str]] = None,
         file_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         lint_projen_rc: typing.Optional[builtins.bool] = None,
         lint_projen_rc_file: typing.Optional[builtins.str] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        sort_extends: typing.Optional[_ICompareString_f119e19c] = None,
+        sort_extends: typing.Optional["_ICompareString_f119e19c"] = None,
         ts_always_try_types: typing.Optional[builtins.bool] = None,
         tsconfig_path: typing.Optional[builtins.str] = None,
         yaml: typing.Optional[builtins.bool] = None,
@@ -1807,13 +2018,13 @@ class EslintOptions:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def command_options(self) -> typing.Optional[EslintCommandOptions]:
+    def command_options(self) -> typing.Optional["EslintCommandOptions"]:
         '''(experimental) Options for eslint command executed by eslint task.
 
         :stability: experimental
         '''
         result = self._values.get("command_options")
-        return typing.cast(typing.Optional[EslintCommandOptions], result)
+        return typing.cast(typing.Optional["EslintCommandOptions"], result)
 
     @builtins.property
     def devdirs(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1890,7 +2101,7 @@ class EslintOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def sort_extends(self) -> typing.Optional[_ICompareString_f119e19c]:
+    def sort_extends(self) -> typing.Optional["_ICompareString_f119e19c"]:
         '''(experimental) The extends array in eslint is order dependent.
 
         This option allows to sort the extends array in any way seen fit.
@@ -1900,7 +2111,7 @@ class EslintOptions:
         :stability: experimental
         '''
         result = self._values.get("sort_extends")
-        return typing.cast(typing.Optional[_ICompareString_f119e19c], result)
+        return typing.cast(typing.Optional["_ICompareString_f119e19c"], result)
 
     @builtins.property
     def ts_always_try_types(self) -> typing.Optional[builtins.bool]:
@@ -2214,7 +2425,7 @@ class Jest(
 
     def __init__(
         self,
-        project: "NodeProject",
+        scope: "_constructs_77d1e7e8.IConstruct",
         *,
         config_file_path: typing.Optional[builtins.str] = None,
         coverage: typing.Optional[builtins.bool] = None,
@@ -2229,7 +2440,7 @@ class Jest(
         update_snapshot: typing.Optional["UpdateSnapshot"] = None,
     ) -> None:
         '''
-        :param project: -
+        :param scope: -
         :param config_file_path: (experimental) Path to JSON config file for Jest. Default: - No separate config file, jest settings are stored in package.json
         :param coverage: (deprecated) Collect coverage. Deprecated Default: true
         :param coverage_text: (experimental) Include the ``text`` coverage reporter, which means that coverage summary is printed at the end of the jest execution. Default: true
@@ -2246,7 +2457,7 @@ class Jest(
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7f22158e02967239263c228b0eadfa82f5edd4d7b172b8506a5b32bc46ab7738)
-            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = JestOptions(
             config_file_path=config_file_path,
             coverage=coverage,
@@ -2261,11 +2472,11 @@ class Jest(
             update_snapshot=update_snapshot,
         )
 
-        jsii.create(self.__class__, self, [project, options])
+        jsii.create(self.__class__, self, [scope, options])
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: _Project_57d89203) -> typing.Optional["Jest"]:
+    def of(cls, project: "_Project_57d89203") -> typing.Optional["Jest"]:
         '''(experimental) Returns the singleton Jest component of a project or undefined if there is none.
 
         :param project: -
@@ -2451,15 +2662,23 @@ class Jest(
         return typing.cast(builtins.str, jsii.get(self, "jestVersion"))
 
     @builtins.property
+    @jsii.member(jsii_name="project")
+    def project(self) -> "NodeProject":
+        '''
+        :stability: experimental
+        '''
+        return typing.cast("NodeProject", jsii.get(self, "project"))
+
+    @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> typing.Optional[_JsonFile_fa8164db]:
+    def file(self) -> typing.Optional["_JsonFile_fa8164db"]:
         '''(experimental) Jest config file.
 
         ``undefined`` if settings are written to ``package.json``
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_JsonFile_fa8164db], jsii.get(self, "file"))
+        return typing.cast(typing.Optional["_JsonFile_fa8164db"], jsii.get(self, "file"))
 
 
 @jsii.data_type(
@@ -2549,7 +2768,7 @@ class JestConfigOptions:
         coverage_path_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         coverage_provider: typing.Optional[builtins.str] = None,
         coverage_reporters: typing.Optional[typing.Sequence[builtins.str]] = None,
-        coverage_threshold: typing.Optional[typing.Union[CoverageThreshold, typing.Dict[builtins.str, typing.Any]]] = None,
+        coverage_threshold: typing.Optional[typing.Union["CoverageThreshold", typing.Dict[builtins.str, typing.Any]]] = None,
         dependency_extractor: typing.Optional[builtins.str] = None,
         display_name: typing.Any = None,
         error_on_deprecated: typing.Optional[builtins.bool] = None,
@@ -2558,7 +2777,7 @@ class JestConfigOptions:
         globals: typing.Any = None,
         global_setup: typing.Optional[builtins.str] = None,
         global_teardown: typing.Optional[builtins.str] = None,
-        haste: typing.Optional[typing.Union[HasteConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        haste: typing.Optional[typing.Union["HasteConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         inject_globals: typing.Optional[builtins.bool] = None,
         max_concurrency: typing.Optional[jsii.Number] = None,
         max_workers: typing.Optional[typing.Union[builtins.str, jsii.Number]] = None,
@@ -3022,7 +3241,7 @@ class JestConfigOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def coverage_threshold(self) -> typing.Optional[CoverageThreshold]:
+    def coverage_threshold(self) -> typing.Optional["CoverageThreshold"]:
         '''(experimental) Specify the global coverage thresholds.
 
         This will be used to configure minimum threshold enforcement
@@ -3034,7 +3253,7 @@ class JestConfigOptions:
         :stability: experimental
         '''
         result = self._values.get("coverage_threshold")
-        return typing.cast(typing.Optional[CoverageThreshold], result)
+        return typing.cast(typing.Optional["CoverageThreshold"], result)
 
     @builtins.property
     def dependency_extractor(self) -> typing.Optional[builtins.str]:
@@ -3135,7 +3354,7 @@ class JestConfigOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def haste(self) -> typing.Optional[HasteConfig]:
+    def haste(self) -> typing.Optional["HasteConfig"]:
         '''(experimental) This will be used to configure the behavior of jest-haste-map, Jest's internal file crawler/cache system.
 
         :default: - {}
@@ -3143,7 +3362,7 @@ class JestConfigOptions:
         :stability: experimental
         '''
         result = self._values.get("haste")
-        return typing.cast(typing.Optional[HasteConfig], result)
+        return typing.cast(typing.Optional["HasteConfig"], result)
 
     @builtins.property
     def inject_globals(self) -> typing.Optional[builtins.bool]:
@@ -3830,7 +4049,7 @@ class JestOptions:
         coverage_text: typing.Optional[builtins.bool] = None,
         extra_cli_options: typing.Optional[typing.Sequence[builtins.str]] = None,
         ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        jest_config: typing.Optional[typing.Union[JestConfigOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_config: typing.Optional[typing.Union["JestConfigOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         jest_version: typing.Optional[builtins.str] = None,
         junit_reporting: typing.Optional[builtins.bool] = None,
         pass_with_no_tests: typing.Optional[builtins.bool] = None,
@@ -3953,7 +4172,7 @@ class JestOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def jest_config(self) -> typing.Optional[JestConfigOptions]:
+    def jest_config(self) -> typing.Optional["JestConfigOptions"]:
         '''(experimental) Jest configuration.
 
         :default: - default jest configuration
@@ -3961,7 +4180,7 @@ class JestOptions:
         :stability: experimental
         '''
         result = self._values.get("jest_config")
-        return typing.cast(typing.Optional[JestConfigOptions], result)
+        return typing.cast(typing.Optional["JestConfigOptions"], result)
 
     @builtins.property
     def jest_version(self) -> typing.Optional[builtins.str]:
@@ -4071,7 +4290,7 @@ class LicenseChecker(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         *,
         allow: typing.Optional[typing.Sequence[builtins.str]] = None,
         deny: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -4104,11 +4323,11 @@ class LicenseChecker(
 
     @builtins.property
     @jsii.member(jsii_name="task")
-    def task(self) -> _Task_9fa875b6:
+    def task(self) -> "_Task_9fa875b6":
         '''
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "task"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "task"))
 
 
 @jsii.data_type(
@@ -4246,7 +4465,7 @@ class NodePackage(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -4259,7 +4478,7 @@ class NodePackage(
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -4381,7 +4600,7 @@ class NodePackage(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: _Project_57d89203) -> typing.Optional["NodePackage"]:
+    def of(cls, project: "_Project_57d89203") -> typing.Optional["NodePackage"]:
         '''(experimental) Returns the ``NodePackage`` instance associated with a project or ``undefined`` if there is no NodePackage.
 
         :param project: The project.
@@ -4639,12 +4858,12 @@ class NodePackage(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> _JsonFile_fa8164db:
+    def file(self) -> "_JsonFile_fa8164db":
         '''(experimental) The package.json file.
 
         :stability: experimental
         '''
-        return typing.cast(_JsonFile_fa8164db, jsii.get(self, "file"))
+        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="installAndUpdateLockfileCommand")
@@ -4657,12 +4876,12 @@ class NodePackage(
 
     @builtins.property
     @jsii.member(jsii_name="installCiTask")
-    def install_ci_task(self) -> _Task_9fa875b6:
+    def install_ci_task(self) -> "_Task_9fa875b6":
         '''(experimental) The task for installing project dependencies (frozen).
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "installCiTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "installCiTask"))
 
     @builtins.property
     @jsii.member(jsii_name="installCommand")
@@ -4675,12 +4894,12 @@ class NodePackage(
 
     @builtins.property
     @jsii.member(jsii_name="installTask")
-    def install_task(self) -> _Task_9fa875b6:
+    def install_task(self) -> "_Task_9fa875b6":
         '''(experimental) The task for installing project dependencies (non-frozen).
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "installTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "installTask"))
 
     @builtins.property
     @jsii.member(jsii_name="lockFile")
@@ -4777,7 +4996,7 @@ class NodePackage(
 
     @builtins.property
     @jsii.member(jsii_name="codeArtifactOptions")
-    def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
+    def code_artifact_options(self) -> typing.Optional["CodeArtifactOptions"]:
         '''(experimental) Options for npm packages using AWS CodeArtifact.
 
         This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact
@@ -4786,7 +5005,7 @@ class NodePackage(
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[CodeArtifactOptions], jsii.get(self, "codeArtifactOptions"))
+        return typing.cast(typing.Optional["CodeArtifactOptions"], jsii.get(self, "codeArtifactOptions"))
 
     @builtins.property
     @jsii.member(jsii_name="license")
@@ -4961,7 +5180,7 @@ class NodePackageOptions:
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -4978,7 +5197,7 @@ class NodePackageOptions:
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[NodePackageManager] = None,
+        package_manager: typing.Optional["NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -5284,7 +5503,7 @@ class NodePackageOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
+    def code_artifact_options(self) -> typing.Optional["CodeArtifactOptions"]:
         '''(experimental) Options for npm packages using AWS CodeArtifact.
 
         This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact
@@ -5294,7 +5513,7 @@ class NodePackageOptions:
         :stability: experimental
         '''
         result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional[CodeArtifactOptions], result)
+        return typing.cast(typing.Optional["CodeArtifactOptions"], result)
 
     @builtins.property
     def deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -5535,7 +5754,7 @@ class NodePackageOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def package_manager(self) -> typing.Optional[NodePackageManager]:
+    def package_manager(self) -> typing.Optional["NodePackageManager"]:
         '''(experimental) The Node Package Manager used to execute scripts.
 
         :default: NodePackageManager.YARN_CLASSIC
@@ -5543,7 +5762,7 @@ class NodePackageOptions:
         :stability: experimental
         '''
         result = self._values.get("package_manager")
-        return typing.cast(typing.Optional[NodePackageManager], result)
+        return typing.cast(typing.Optional["NodePackageManager"], result)
 
     @builtins.property
     def package_name(self) -> typing.Optional[builtins.str]:
@@ -5700,29 +5919,31 @@ class NodeProject(
         *,
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
+        audit_deps: typing.Optional[builtins.bool] = None,
+        audit_deps_options: typing.Optional[typing.Union["AuditOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
         biome: typing.Optional[builtins.bool] = None,
-        biome_options: typing.Optional[typing.Union[BiomeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_options: typing.Optional[typing.Union["BiomeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
-        build_workflow_options: typing.Optional[typing.Union[BuildWorkflowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        bundler_options: typing.Optional[typing.Union[BundlerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_licenses: typing.Optional[typing.Union[LicenseCheckerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_options: typing.Optional[typing.Union["BuildWorkflowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        bundler_options: typing.Optional[typing.Union["BundlerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_licenses: typing.Optional[typing.Union["LicenseCheckerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
         deps_upgrade_options: typing.Optional[typing.Union["UpgradeDependenciesOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
-        jest_options: typing.Optional[typing.Union[JestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_options: typing.Optional[typing.Union["JestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
         prettier_options: typing.Optional[typing.Union["PrettierOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5735,26 +5956,26 @@ class NodeProject(
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         release_workflow: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -5767,7 +5988,7 @@ class NodeProject(
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -5784,7 +6005,7 @@ class NodeProject(
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[NodePackageManager] = None,
+        package_manager: typing.Optional["NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -5801,43 +6022,46 @@ class NodeProject(
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
-        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
+        :param audit_deps_options: (experimental) Security audit options. Default: - default options
+        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
         :param biome: (experimental) Setup Biome. Default: false
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
@@ -5851,7 +6075,7 @@ class NodeProject(
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
-        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: true
+        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
         :param deps_upgrade_options: (experimental) Options for ``UpgradeDependencies``. Default: - default options
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
@@ -5873,7 +6097,7 @@ class NodeProject(
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
         :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
-        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - GitHub Actions
+        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
@@ -5965,6 +6189,7 @@ class NodeProject(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -5976,6 +6201,8 @@ class NodeProject(
         options = NodeProjectOptions(
             default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
+            audit_deps=audit_deps,
+            audit_deps_options=audit_deps_options,
             auto_approve_upgrades=auto_approve_upgrades,
             biome=biome,
             biome_options=biome_options,
@@ -6104,6 +6331,7 @@ class NodeProject(
             logging=logging,
             outdir=outdir,
             parent=parent,
+            project_tree=project_tree,
             projen_command=projen_command,
             projenrc_json=projenrc_json,
             projenrc_json_options=projenrc_json_options,
@@ -6299,9 +6527,9 @@ class NodeProject(
     def render_workflow_setup(
         self,
         *,
-        install_step_configuration: typing.Optional[typing.Union[_JobStepConfiguration_9caff420, typing.Dict[builtins.str, typing.Any]]] = None,
+        install_step_configuration: typing.Optional[typing.Union["_JobStepConfiguration_9caff420", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable: typing.Optional[builtins.bool] = None,
-    ) -> typing.List[_JobStep_c3287c05]:
+    ) -> typing.List["_JobStep_c3287c05"]:
         '''(experimental) Returns the set of workflow steps which should be executed to bootstrap a workflow.
 
         :param install_step_configuration: (experimental) Configure the install step in the workflow setup. Default: - ``{ name: "Install dependencies" }``
@@ -6315,10 +6543,10 @@ class NodeProject(
             install_step_configuration=install_step_configuration, mutable=mutable
         )
 
-        return typing.cast(typing.List[_JobStep_c3287c05], jsii.invoke(self, "renderWorkflowSetup", [options]))
+        return typing.cast(typing.List["_JobStep_c3287c05"], jsii.invoke(self, "renderWorkflowSetup", [options]))
 
     @jsii.member(jsii_name="runTaskCommand")
-    def run_task_command(self, task: _Task_9fa875b6) -> builtins.str:
+    def run_task_command(self, task: "_Task_9fa875b6") -> builtins.str:
         '''(experimental) Returns the shell command to execute in order to run a task.
 
         This will
@@ -6382,11 +6610,11 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="bundler")
-    def bundler(self) -> Bundler:
+    def bundler(self) -> "Bundler":
         '''
         :stability: experimental
         '''
-        return typing.cast(Bundler, jsii.get(self, "bundler"))
+        return typing.cast("Bundler", jsii.get(self, "bundler"))
 
     @builtins.property
     @jsii.member(jsii_name="entrypoint")
@@ -6419,23 +6647,23 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="package")
-    def package(self) -> NodePackage:
+    def package(self) -> "NodePackage":
         '''(experimental) API for managing the node package.
 
         :stability: experimental
         '''
-        return typing.cast(NodePackage, jsii.get(self, "package"))
+        return typing.cast("NodePackage", jsii.get(self, "package"))
 
     @builtins.property
     @jsii.member(jsii_name="packageManager")
-    def package_manager(self) -> NodePackageManager:
+    def package_manager(self) -> "NodePackageManager":
         '''(deprecated) The package manager to use.
 
         :deprecated: use ``package.packageManager``
 
         :stability: deprecated
         '''
-        return typing.cast(NodePackageManager, jsii.get(self, "packageManager"))
+        return typing.cast("NodePackageManager", jsii.get(self, "packageManager"))
 
     @builtins.property
     @jsii.member(jsii_name="runScriptCommand")
@@ -6448,11 +6676,11 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="workflowBootstrapSteps")
-    def _workflow_bootstrap_steps(self) -> typing.List[_JobStep_c3287c05]:
+    def _workflow_bootstrap_steps(self) -> typing.List["_JobStep_c3287c05"]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.List[_JobStep_c3287c05], jsii.get(self, "workflowBootstrapSteps"))
+        return typing.cast(typing.List["_JobStep_c3287c05"], jsii.get(self, "workflowBootstrapSteps"))
 
     @builtins.property
     @jsii.member(jsii_name="workflowPackageCache")
@@ -6464,31 +6692,31 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="autoMerge")
-    def auto_merge(self) -> typing.Optional[_AutoMerge_f73f9be0]:
+    def auto_merge(self) -> typing.Optional["_AutoMerge_f73f9be0"]:
         '''(experimental) Component that sets up mergify for merging approved pull requests.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_AutoMerge_f73f9be0], jsii.get(self, "autoMerge"))
+        return typing.cast(typing.Optional["_AutoMerge_f73f9be0"], jsii.get(self, "autoMerge"))
 
     @builtins.property
     @jsii.member(jsii_name="biome")
-    def biome(self) -> typing.Optional[Biome]:
+    def biome(self) -> typing.Optional["Biome"]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[Biome], jsii.get(self, "biome"))
+        return typing.cast(typing.Optional["Biome"], jsii.get(self, "biome"))
 
     @builtins.property
     @jsii.member(jsii_name="buildWorkflow")
-    def build_workflow(self) -> typing.Optional[_BuildWorkflow_bdd5e6cc]:
+    def build_workflow(self) -> typing.Optional["_BuildWorkflow_bdd5e6cc"]:
         '''(experimental) The PR build GitHub workflow.
 
         ``undefined`` if ``buildWorkflow`` is disabled.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_BuildWorkflow_bdd5e6cc], jsii.get(self, "buildWorkflow"))
+        return typing.cast(typing.Optional["_BuildWorkflow_bdd5e6cc"], jsii.get(self, "buildWorkflow"))
 
     @builtins.property
     @jsii.member(jsii_name="buildWorkflowJobId")
@@ -6501,12 +6729,12 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="jest")
-    def jest(self) -> typing.Optional[Jest]:
+    def jest(self) -> typing.Optional["Jest"]:
         '''(experimental) The Jest configuration (if enabled).
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[Jest], jsii.get(self, "jest"))
+        return typing.cast(typing.Optional["Jest"], jsii.get(self, "jest"))
 
     @builtins.property
     @jsii.member(jsii_name="maxNodeVersion")
@@ -6540,12 +6768,12 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="npmignore")
-    def npmignore(self) -> typing.Optional[_IgnoreFile_3df2076a]:
+    def npmignore(self) -> typing.Optional["_IgnoreFile_3df2076a"]:
         '''(experimental) The .npmignore file.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_IgnoreFile_3df2076a], jsii.get(self, "npmignore"))
+        return typing.cast(typing.Optional["_IgnoreFile_3df2076a"], jsii.get(self, "npmignore"))
 
     @builtins.property
     @jsii.member(jsii_name="prettier")
@@ -6557,7 +6785,7 @@ class NodeProject(
 
     @builtins.property
     @jsii.member(jsii_name="publisher")
-    def publisher(self) -> typing.Optional[_Publisher_4a29b2cd]:
+    def publisher(self) -> typing.Optional["_Publisher_4a29b2cd"]:
         '''(deprecated) Package publisher.
 
         This will be ``undefined`` if the project does not have a
@@ -6567,16 +6795,16 @@ class NodeProject(
 
         :stability: deprecated
         '''
-        return typing.cast(typing.Optional[_Publisher_4a29b2cd], jsii.get(self, "publisher"))
+        return typing.cast(typing.Optional["_Publisher_4a29b2cd"], jsii.get(self, "publisher"))
 
     @builtins.property
     @jsii.member(jsii_name="release")
-    def release(self) -> typing.Optional[_Release_30ee2d91]:
+    def release(self) -> typing.Optional["_Release_30ee2d91"]:
         '''(experimental) Release management.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_Release_30ee2d91], jsii.get(self, "release"))
+        return typing.cast(typing.Optional["_Release_30ee2d91"], jsii.get(self, "release"))
 
     @builtins.property
     @jsii.member(jsii_name="upgradeWorkflow")
@@ -6603,6 +6831,7 @@ class NodeProject(
         "logging": "logging",
         "outdir": "outdir",
         "parent": "parent",
+        "project_tree": "projectTree",
         "projen_command": "projenCommand",
         "projenrc_json": "projenrcJson",
         "projenrc_json_options": "projenrcJsonOptions",
@@ -6692,6 +6921,8 @@ class NodeProject(
         "workflow_runs_on_group": "workflowRunsOnGroup",
         "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
+        "audit_deps": "auditDeps",
+        "audit_deps_options": "auditDepsOptions",
         "auto_approve_upgrades": "autoApproveUpgrades",
         "biome": "biome",
         "biome_options": "biomeOptions",
@@ -6743,32 +6974,33 @@ class NodeProjectOptions(
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -6781,7 +7013,7 @@ class NodeProjectOptions(
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[CodeArtifactOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["CodeArtifactOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6798,7 +7030,7 @@ class NodeProjectOptions(
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[NodePackageManager] = None,
+        package_manager: typing.Optional["NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6815,51 +7047,53 @@ class NodeProjectOptions(
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
+        audit_deps: typing.Optional[builtins.bool] = None,
+        audit_deps_options: typing.Optional[typing.Union["AuditOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
         biome: typing.Optional[builtins.bool] = None,
-        biome_options: typing.Optional[typing.Union[BiomeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_options: typing.Optional[typing.Union["BiomeOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
-        build_workflow_options: typing.Optional[typing.Union[BuildWorkflowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        bundler_options: typing.Optional[typing.Union[BundlerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_licenses: typing.Optional[typing.Union[LicenseCheckerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_options: typing.Optional[typing.Union["BuildWorkflowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        bundler_options: typing.Optional[typing.Union["BundlerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_licenses: typing.Optional[typing.Union["LicenseCheckerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
         deps_upgrade_options: typing.Optional[typing.Union["UpgradeDependenciesOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
-        jest_options: typing.Optional[typing.Union[JestOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_options: typing.Optional[typing.Union["JestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
         prettier_options: typing.Optional[typing.Union["PrettierOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6872,8 +7106,8 @@ class NodeProjectOptions(
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         release_workflow: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -6885,6 +7119,7 @@ class NodeProjectOptions(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -6974,7 +7209,9 @@ class NodeProjectOptions(
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
-        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
+        :param audit_deps_options: (experimental) Security audit options. Default: - default options
+        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
         :param biome: (experimental) Setup Biome. Default: false
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
@@ -6988,7 +7225,7 @@ class NodeProjectOptions(
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
-        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: true
+        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
         :param deps_upgrade_options: (experimental) Options for ``UpgradeDependencies``. Default: - default options
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
@@ -7010,7 +7247,7 @@ class NodeProjectOptions(
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
         :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
-        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - GitHub Actions
+        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
 
@@ -7046,6 +7283,8 @@ class NodeProjectOptions(
             yarn_berry_options = YarnBerryOptions(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _GroupRunnerOptions_148c59c1(**workflow_runs_on_group)
+        if isinstance(audit_deps_options, dict):
+            audit_deps_options = AuditOptions(**audit_deps_options)
         if isinstance(biome_options, dict):
             biome_options = BiomeOptions(**biome_options)
         if isinstance(build_workflow_options, dict):
@@ -7079,6 +7318,7 @@ class NodeProjectOptions(
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+            check_type(argname="argument project_tree", value=project_tree, expected_type=type_hints["project_tree"])
             check_type(argname="argument projen_command", value=projen_command, expected_type=type_hints["projen_command"])
             check_type(argname="argument projenrc_json", value=projenrc_json, expected_type=type_hints["projenrc_json"])
             check_type(argname="argument projenrc_json_options", value=projenrc_json_options, expected_type=type_hints["projenrc_json_options"])
@@ -7168,6 +7408,8 @@ class NodeProjectOptions(
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
             check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
+            check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
+            check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
             check_type(argname="argument auto_approve_upgrades", value=auto_approve_upgrades, expected_type=type_hints["auto_approve_upgrades"])
             check_type(argname="argument biome", value=biome, expected_type=type_hints["biome"])
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
@@ -7223,6 +7465,8 @@ class NodeProjectOptions(
             self._values["outdir"] = outdir
         if parent is not None:
             self._values["parent"] = parent
+        if project_tree is not None:
+            self._values["project_tree"] = project_tree
         if projen_command is not None:
             self._values["projen_command"] = projen_command
         if projenrc_json is not None:
@@ -7399,6 +7643,10 @@ class NodeProjectOptions(
             self._values["workflow_runs_on_group"] = workflow_runs_on_group
         if artifacts_directory is not None:
             self._values["artifacts_directory"] = artifacts_directory
+        if audit_deps is not None:
+            self._values["audit_deps"] = audit_deps
+        if audit_deps_options is not None:
+            self._values["audit_deps_options"] = audit_deps_options
         if auto_approve_upgrades is not None:
             self._values["auto_approve_upgrades"] = auto_approve_upgrades
         if biome is not None:
@@ -7503,25 +7751,25 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional[_GitOptions_a65916a3]:
+    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional[_GitOptions_a65916a3], result)
+        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional[_LoggerOptions_eb0f6309]:
+    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -7529,7 +7777,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional[_LoggerOptions_eb0f6309], result)
+        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -7549,13 +7797,24 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional[_Project_57d89203]:
+    def parent(self) -> typing.Optional["_Project_57d89203"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional[_Project_57d89203], result)
+        return typing.cast(typing.Optional["_Project_57d89203"], result)
+
+    @builtins.property
+    def project_tree(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("project_tree")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def projen_command(self) -> typing.Optional[builtins.str]:
@@ -7582,7 +7841,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional[_ProjenrcJsonOptions_9c40dd4f]:
+    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -7590,7 +7849,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional[_ProjenrcJsonOptions_9c40dd4f], result)
+        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -7604,7 +7863,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional[_RenovatebotOptions_18e6b8a1]:
+    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -7612,10 +7871,10 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional[_RenovatebotOptions_18e6b8a1], result)
+        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional[_AutoApproveOptions_dac86cbe]:
+    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -7623,7 +7882,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional[_AutoApproveOptions_dac86cbe], result)
+        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -7640,7 +7899,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional[_AutoMergeOptions_d112cd3c]:
+    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -7651,7 +7910,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional[_AutoMergeOptions_d112cd3c], result)
+        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -7689,7 +7948,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional[_GitHubOptions_21553699]:
+    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -7697,7 +7956,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional[_GitHubOptions_21553699], result)
+        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -7724,7 +7983,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify_options(self) -> typing.Optional[_MergifyOptions_a6faaab3]:
+    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
         '''(deprecated) Options for mergify.
 
         :default: - default options
@@ -7734,10 +7993,10 @@ class NodeProjectOptions(
         :stability: deprecated
         '''
         result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional[_MergifyOptions_a6faaab3], result)
+        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
 
     @builtins.property
-    def project_type(self) -> typing.Optional[_ProjectType_fd80c725]:
+    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
         '''(deprecated) Which type of project this is (library/app).
 
         :default: ProjectType.UNKNOWN
@@ -7747,10 +8006,10 @@ class NodeProjectOptions(
         :stability: deprecated
         '''
         result = self._values.get("project_type")
-        return typing.cast(typing.Optional[_ProjectType_fd80c725], result)
+        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional[_GithubCredentials_ae257072]:
+    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -7758,7 +8017,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional[_GithubCredentials_ae257072], result)
+        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
 
     @builtins.property
     def projen_token_secret(self) -> typing.Optional[builtins.str]:
@@ -7777,7 +8036,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional[_SampleReadmeProps_3518b03b]:
+    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -7789,7 +8048,7 @@ class NodeProjectOptions(
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional[_SampleReadmeProps_3518b03b], result)
+        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -7805,7 +8064,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional[_StaleOptions_929db764]:
+    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -7815,7 +8074,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional[_StaleOptions_929db764], result)
+        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -7954,7 +8213,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def code_artifact_options(self) -> typing.Optional[CodeArtifactOptions]:
+    def code_artifact_options(self) -> typing.Optional["CodeArtifactOptions"]:
         '''(experimental) Options for npm packages using AWS CodeArtifact.
 
         This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact
@@ -7964,7 +8223,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional[CodeArtifactOptions], result)
+        return typing.cast(typing.Optional["CodeArtifactOptions"], result)
 
     @builtins.property
     def deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8205,7 +8464,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def package_manager(self) -> typing.Optional[NodePackageManager]:
+    def package_manager(self) -> typing.Optional["NodePackageManager"]:
         '''(experimental) The Node Package Manager used to execute scripts.
 
         :default: NodePackageManager.YARN_CLASSIC
@@ -8213,7 +8472,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("package_manager")
-        return typing.cast(typing.Optional[NodePackageManager], result)
+        return typing.cast(typing.Optional["NodePackageManager"], result)
 
     @builtins.property
     def package_name(self) -> typing.Optional[builtins.str]:
@@ -8441,7 +8700,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after build as part of the release workflow.
 
         :default: []
@@ -8449,7 +8708,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def prerelease(self) -> typing.Optional[builtins.str]:
@@ -8488,7 +8747,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def releasable_commits(self) -> typing.Optional[_ReleasableCommits_d481ce10]:
+    def releasable_commits(self) -> typing.Optional["_ReleasableCommits_d481ce10"]:
         '''(experimental) Find commits that should be considered releasable Used to decide if a release is required.
 
         :default: ReleasableCommits.everyCommit()
@@ -8496,12 +8755,12 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("releasable_commits")
-        return typing.cast(typing.Optional[_ReleasableCommits_d481ce10], result)
+        return typing.cast(typing.Optional["_ReleasableCommits_d481ce10"], result)
 
     @builtins.property
     def release_branches(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]]:
         '''(experimental) Defines additional release branches.
 
         A workflow will be created for each
@@ -8519,7 +8778,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("release_branches")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]], result)
 
     @builtins.property
     def release_environment(self) -> typing.Optional[builtins.str]:
@@ -8605,7 +8864,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_trigger(self) -> typing.Optional[_ReleaseTrigger_e4dc221f]:
+    def release_trigger(self) -> typing.Optional["_ReleaseTrigger_e4dc221f"]:
         '''(experimental) The release trigger to use.
 
         :default: - Continuous releases (``ReleaseTrigger.continuous()``)
@@ -8613,7 +8872,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("release_trigger")
-        return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
+        return typing.cast(typing.Optional["_ReleaseTrigger_e4dc221f"], result)
 
     @builtins.property
     def release_workflow_env(
@@ -8642,13 +8901,13 @@ class NodeProjectOptions(
     @builtins.property
     def release_workflow_setup_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) A set of workflow steps to execute in order to setup the workflow container.
 
         :stability: experimental
         '''
         result = self._values.get("release_workflow_setup_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def versionrc_options(
@@ -8690,7 +8949,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def workflow_runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def workflow_runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -8698,7 +8957,7 @@ class NodeProjectOptions(
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("workflow_runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
     def default_release_branch(self) -> builtins.str:
@@ -8724,8 +8983,34 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def audit_deps(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Run security audit on dependencies.
+
+        When enabled, creates an "audit" task that checks for known security vulnerabilities
+        in dependencies. By default, runs during every build and checks for "high" severity
+        vulnerabilities or above in all dependencies (including dev dependencies).
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("audit_deps")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def audit_deps_options(self) -> typing.Optional["AuditOptions"]:
+        '''(experimental) Security audit options.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("audit_deps_options")
+        return typing.cast(typing.Optional["AuditOptions"], result)
+
+    @builtins.property
     def auto_approve_upgrades(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued).
+        '''(experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured).
 
         Throw if set to true but ``autoApproveOptions`` are not defined.
 
@@ -8748,7 +9033,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def biome_options(self) -> typing.Optional[BiomeOptions]:
+    def biome_options(self) -> typing.Optional["BiomeOptions"]:
         '''(experimental) Biome options.
 
         :default: - default options
@@ -8756,7 +9041,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("biome_options")
-        return typing.cast(typing.Optional[BiomeOptions], result)
+        return typing.cast(typing.Optional["BiomeOptions"], result)
 
     @builtins.property
     def build_workflow(self) -> typing.Optional[builtins.bool]:
@@ -8770,16 +9055,16 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def build_workflow_options(self) -> typing.Optional[BuildWorkflowOptions]:
+    def build_workflow_options(self) -> typing.Optional["BuildWorkflowOptions"]:
         '''(experimental) Options for PR build workflow.
 
         :stability: experimental
         '''
         result = self._values.get("build_workflow_options")
-        return typing.cast(typing.Optional[BuildWorkflowOptions], result)
+        return typing.cast(typing.Optional["BuildWorkflowOptions"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional[_Triggers_e9ae7617]:
+    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
         '''(deprecated) Build workflow triggers.
 
         :default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -8789,19 +9074,19 @@ class NodeProjectOptions(
         :stability: deprecated
         '''
         result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional[_Triggers_e9ae7617], result)
+        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
 
     @builtins.property
-    def bundler_options(self) -> typing.Optional[BundlerOptions]:
+    def bundler_options(self) -> typing.Optional["BundlerOptions"]:
         '''(experimental) Options for ``Bundler``.
 
         :stability: experimental
         '''
         result = self._values.get("bundler_options")
-        return typing.cast(typing.Optional[BundlerOptions], result)
+        return typing.cast(typing.Optional["BundlerOptions"], result)
 
     @builtins.property
-    def check_licenses(self) -> typing.Optional[LicenseCheckerOptions]:
+    def check_licenses(self) -> typing.Optional["LicenseCheckerOptions"]:
         '''(experimental) Configure which licenses should be deemed acceptable for use by dependencies.
 
         This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered.
@@ -8811,7 +9096,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("check_licenses")
-        return typing.cast(typing.Optional[LicenseCheckerOptions], result)
+        return typing.cast(typing.Optional["LicenseCheckerOptions"], result)
 
     @builtins.property
     def code_cov(self) -> typing.Optional[builtins.bool]:
@@ -8871,7 +9156,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def dependabot_options(self) -> typing.Optional[_DependabotOptions_0cedc635]:
+    def dependabot_options(self) -> typing.Optional["_DependabotOptions_0cedc635"]:
         '''(experimental) Options for dependabot.
 
         :default: - default options
@@ -8879,7 +9164,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("dependabot_options")
-        return typing.cast(typing.Optional[_DependabotOptions_0cedc635], result)
+        return typing.cast(typing.Optional["_DependabotOptions_0cedc635"], result)
 
     @builtins.property
     def deps_upgrade(self) -> typing.Optional[builtins.bool]:
@@ -8887,7 +9172,7 @@ class NodeProjectOptions(
 
         Cannot be used in conjunction with ``dependabot``.
 
-        :default: true
+        :default: - ``true`` for root projects, ``false`` for subprojects
 
         :stability: experimental
         '''
@@ -8926,7 +9211,7 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def jest_options(self) -> typing.Optional[JestOptions]:
+    def jest_options(self) -> typing.Optional["JestOptions"]:
         '''(experimental) Jest options.
 
         :default: - default options
@@ -8934,7 +9219,7 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("jest_options")
-        return typing.cast(typing.Optional[JestOptions], result)
+        return typing.cast(typing.Optional["JestOptions"], result)
 
     @builtins.property
     def mutable_build(self) -> typing.Optional[builtins.bool]:
@@ -8978,13 +9263,13 @@ class NodeProjectOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def npm_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .npmignore file.
 
         :stability: experimental
         '''
         result = self._values.get("npm_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
     def package(self) -> typing.Optional[builtins.bool]:
@@ -9125,7 +9410,7 @@ class NodeProjectOptions(
     @builtins.property
     def workflow_bootstrap_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Workflow steps to use in order to bootstrap this repo.
 
         :default: "yarn install --frozen-lockfile && yarn projen"
@@ -9133,18 +9418,18 @@ class NodeProjectOptions(
         :stability: experimental
         '''
         result = self._values.get("workflow_bootstrap_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def workflow_git_identity(self) -> typing.Optional[_GitIdentity_6effc3de]:
+    def workflow_git_identity(self) -> typing.Optional["_GitIdentity_6effc3de"]:
         '''(experimental) The git identity to use in workflows.
 
-        :default: - GitHub Actions
+        :default: - default GitHub Actions user
 
         :stability: experimental
         '''
         result = self._values.get("workflow_git_identity")
-        return typing.cast(typing.Optional[_GitIdentity_6effc3de], result)
+        return typing.cast(typing.Optional["_GitIdentity_6effc3de"], result)
 
     @builtins.property
     def workflow_node_version(self) -> typing.Optional[builtins.str]:
@@ -9213,7 +9498,7 @@ class NpmConfig(
 
     def __init__(
         self,
-        project: NodeProject,
+        project: "NodeProject",
         *,
         omit_empty: typing.Optional[builtins.bool] = None,
         registry: typing.Optional[builtins.str] = None,
@@ -9390,10 +9675,10 @@ class Prettier(
 
     def __init__(
         self,
-        project: NodeProject,
+        project: "NodeProject",
         *,
         ignore_file: typing.Optional[builtins.bool] = None,
-        ignore_file_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        ignore_file_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         overrides: typing.Optional[typing.Sequence[typing.Union["PrettierOverride", typing.Dict[builtins.str, typing.Any]]]] = None,
         settings: typing.Optional[typing.Union["PrettierSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         yaml: typing.Optional[builtins.bool] = None,
@@ -9423,7 +9708,7 @@ class Prettier(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: _Project_57d89203) -> typing.Optional["Prettier"]:
+    def of(cls, project: "_Project_57d89203") -> typing.Optional["Prettier"]:
         '''
         :param project: -
 
@@ -9498,12 +9783,12 @@ class Prettier(
 
     @builtins.property
     @jsii.member(jsii_name="ignoreFile")
-    def ignore_file(self) -> typing.Optional[_IgnoreFile_3df2076a]:
+    def ignore_file(self) -> typing.Optional["_IgnoreFile_3df2076a"]:
         '''(experimental) The .prettierIgnore file.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_IgnoreFile_3df2076a], jsii.get(self, "ignoreFile"))
+        return typing.cast(typing.Optional["_IgnoreFile_3df2076a"], jsii.get(self, "ignoreFile"))
 
 
 @jsii.data_type(
@@ -9522,7 +9807,7 @@ class PrettierOptions:
         self,
         *,
         ignore_file: typing.Optional[builtins.bool] = None,
-        ignore_file_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        ignore_file_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         overrides: typing.Optional[typing.Sequence[typing.Union["PrettierOverride", typing.Dict[builtins.str, typing.Any]]]] = None,
         settings: typing.Optional[typing.Union["PrettierSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         yaml: typing.Optional[builtins.bool] = None,
@@ -9572,13 +9857,13 @@ class PrettierOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def ignore_file_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def ignore_file_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .prettierignore file.
 
         :stability: experimental
         '''
         result = self._values.get("ignore_file_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
     def overrides(self) -> typing.Optional[typing.List["PrettierOverride"]]:
@@ -9742,14 +10027,14 @@ class PrettierSettings:
     def __init__(
         self,
         *,
-        arrow_parens: typing.Optional[ArrowParens] = None,
+        arrow_parens: typing.Optional["ArrowParens"] = None,
         bracket_same_line: typing.Optional[builtins.bool] = None,
         bracket_spacing: typing.Optional[builtins.bool] = None,
         cursor_offset: typing.Optional[jsii.Number] = None,
-        embedded_language_formatting: typing.Optional[EmbeddedLanguageFormatting] = None,
-        end_of_line: typing.Optional[EndOfLine] = None,
+        embedded_language_formatting: typing.Optional["EmbeddedLanguageFormatting"] = None,
+        end_of_line: typing.Optional["EndOfLine"] = None,
         filepath: typing.Optional[builtins.str] = None,
-        html_whitespace_sensitivity: typing.Optional[HTMLWhitespaceSensitivity] = None,
+        html_whitespace_sensitivity: typing.Optional["HTMLWhitespaceSensitivity"] = None,
         insert_pragma: typing.Optional[builtins.bool] = None,
         jsx_single_quote: typing.Optional[builtins.bool] = None,
         parser: typing.Optional[builtins.str] = None,
@@ -9879,7 +10164,7 @@ class PrettierSettings:
             self._values["vue_indent_script_and_style"] = vue_indent_script_and_style
 
     @builtins.property
-    def arrow_parens(self) -> typing.Optional[ArrowParens]:
+    def arrow_parens(self) -> typing.Optional["ArrowParens"]:
         '''(experimental) Include parentheses around a sole arrow function parameter.
 
         :default: ArrowParens.ALWAYS
@@ -9887,7 +10172,7 @@ class PrettierSettings:
         :stability: experimental
         '''
         result = self._values.get("arrow_parens")
-        return typing.cast(typing.Optional[ArrowParens], result)
+        return typing.cast(typing.Optional["ArrowParens"], result)
 
     @builtins.property
     def bracket_same_line(self) -> typing.Optional[builtins.bool]:
@@ -9927,7 +10212,7 @@ class PrettierSettings:
     @builtins.property
     def embedded_language_formatting(
         self,
-    ) -> typing.Optional[EmbeddedLanguageFormatting]:
+    ) -> typing.Optional["EmbeddedLanguageFormatting"]:
         '''(experimental) Control how Prettier formats quoted code embedded in the file.
 
         :default: EmbeddedLanguageFormatting.AUTO
@@ -9935,10 +10220,10 @@ class PrettierSettings:
         :stability: experimental
         '''
         result = self._values.get("embedded_language_formatting")
-        return typing.cast(typing.Optional[EmbeddedLanguageFormatting], result)
+        return typing.cast(typing.Optional["EmbeddedLanguageFormatting"], result)
 
     @builtins.property
-    def end_of_line(self) -> typing.Optional[EndOfLine]:
+    def end_of_line(self) -> typing.Optional["EndOfLine"]:
         '''(experimental) Which end of line characters to apply.
 
         :default: EndOfLine.LF
@@ -9946,7 +10231,7 @@ class PrettierSettings:
         :stability: experimental
         '''
         result = self._values.get("end_of_line")
-        return typing.cast(typing.Optional[EndOfLine], result)
+        return typing.cast(typing.Optional["EndOfLine"], result)
 
     @builtins.property
     def filepath(self) -> typing.Optional[builtins.str]:
@@ -9962,7 +10247,9 @@ class PrettierSettings:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def html_whitespace_sensitivity(self) -> typing.Optional[HTMLWhitespaceSensitivity]:
+    def html_whitespace_sensitivity(
+        self,
+    ) -> typing.Optional["HTMLWhitespaceSensitivity"]:
         '''(experimental) How to handle whitespaces in HTML.
 
         :default: HTMLWhitespaceSensitivity.CSS
@@ -9970,7 +10257,7 @@ class PrettierSettings:
         :stability: experimental
         '''
         result = self._values.get("html_whitespace_sensitivity")
-        return typing.cast(typing.Optional[HTMLWhitespaceSensitivity], result)
+        return typing.cast(typing.Optional["HTMLWhitespaceSensitivity"], result)
 
     @builtins.property
     def insert_pragma(self) -> typing.Optional[builtins.bool]:
@@ -10200,7 +10487,7 @@ class Projenrc(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         filename: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -10335,7 +10622,7 @@ class RenderWorkflowSetupOptions:
     def __init__(
         self,
         *,
-        install_step_configuration: typing.Optional[typing.Union[_JobStepConfiguration_9caff420, typing.Dict[builtins.str, typing.Any]]] = None,
+        install_step_configuration: typing.Optional[typing.Union["_JobStepConfiguration_9caff420", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options for ``renderWorkflowSetup()``.
@@ -10360,7 +10647,7 @@ class RenderWorkflowSetupOptions:
     @builtins.property
     def install_step_configuration(
         self,
-    ) -> typing.Optional[_JobStepConfiguration_9caff420]:
+    ) -> typing.Optional["_JobStepConfiguration_9caff420"]:
         '''(experimental) Configure the install step in the workflow setup.
 
         :default: - ``{ name: "Install dependencies" }``
@@ -10372,7 +10659,7 @@ class RenderWorkflowSetupOptions:
             - { env: { NPM_TOKEN: "token" }} for installing from private npm registry.
         '''
         result = self._values.get("install_step_configuration")
-        return typing.cast(typing.Optional[_JobStepConfiguration_9caff420], result)
+        return typing.cast(typing.Optional["_JobStepConfiguration_9caff420"], result)
 
     @builtins.property
     def mutable(self) -> typing.Optional[builtins.bool]:
@@ -10443,7 +10730,7 @@ class RunBundleTask(enum.Enum):
        // Tell the bundler to bundle the compiled results (from the "lib" directory)
        project.bundler.addBundle("./lib/index.js", {
          platform: "node",
-         target: "node18",
+         target: "node22",
          sourcemap: false,
          format: "esm",
        });
@@ -11876,9 +12163,9 @@ class TypescriptConfig(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        compiler_options: typing.Optional[typing.Union[TypeScriptCompilerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        compiler_options: typing.Optional[typing.Union["TypeScriptCompilerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
         extends: typing.Optional["TypescriptConfigExtends"] = None,
         file_name: typing.Optional[builtins.str] = None,
@@ -12022,11 +12309,11 @@ class TypescriptConfig(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> _JsonFile_fa8164db:
+    def file(self) -> "_JsonFile_fa8164db":
         '''
         :stability: experimental
         '''
-        return typing.cast(_JsonFile_fa8164db, jsii.get(self, "file"))
+        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="fileName")
@@ -12046,11 +12333,11 @@ class TypescriptConfig(
 
     @builtins.property
     @jsii.member(jsii_name="compilerOptions")
-    def compiler_options(self) -> typing.Optional[TypeScriptCompilerOptions]:
+    def compiler_options(self) -> typing.Optional["TypeScriptCompilerOptions"]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[TypeScriptCompilerOptions], jsii.get(self, "compilerOptions"))
+        return typing.cast(typing.Optional["TypeScriptCompilerOptions"], jsii.get(self, "compilerOptions"))
 
 
 class TypescriptConfigExtends(
@@ -12084,7 +12371,7 @@ class TypescriptConfigExtends(
     @builtins.classmethod
     def from_typescript_configs(
         cls,
-        configs: typing.Sequence[TypescriptConfig],
+        configs: typing.Sequence["TypescriptConfig"],
     ) -> "TypescriptConfigExtends":
         '''(experimental) Factory for creation from array of other ``TypescriptConfig`` instances.
 
@@ -12121,9 +12408,9 @@ class TypescriptConfigOptions:
     def __init__(
         self,
         *,
-        compiler_options: typing.Optional[typing.Union[TypeScriptCompilerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        compiler_options: typing.Optional[typing.Union["TypeScriptCompilerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        extends: typing.Optional[TypescriptConfigExtends] = None,
+        extends: typing.Optional["TypescriptConfigExtends"] = None,
         file_name: typing.Optional[builtins.str] = None,
         include: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -12158,14 +12445,14 @@ class TypescriptConfigOptions:
             self._values["include"] = include
 
     @builtins.property
-    def compiler_options(self) -> typing.Optional[TypeScriptCompilerOptions]:
+    def compiler_options(self) -> typing.Optional["TypeScriptCompilerOptions"]:
         '''(experimental) Compiler options to use.
 
         :stability: experimental
         :remarks: Must provide either ``extends`` or ``compilerOptions`` (or both).
         '''
         result = self._values.get("compiler_options")
-        return typing.cast(typing.Optional[TypeScriptCompilerOptions], result)
+        return typing.cast(typing.Optional["TypeScriptCompilerOptions"], result)
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -12179,14 +12466,14 @@ class TypescriptConfigOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def extends(self) -> typing.Optional[TypescriptConfigExtends]:
+    def extends(self) -> typing.Optional["TypescriptConfigExtends"]:
         '''(experimental) Base ``tsconfig.json`` configuration(s) to inherit from.
 
         :stability: experimental
         :remarks: Must provide either ``extends`` or ``compilerOptions`` (or both).
         '''
         result = self._values.get("extends")
-        return typing.cast(typing.Optional[TypescriptConfigExtends], result)
+        return typing.cast(typing.Optional["TypescriptConfigExtends"], result)
 
     @builtins.property
     def file_name(self) -> typing.Optional[builtins.str]:
@@ -12251,8 +12538,9 @@ class UpgradeDependencies(
 
     def __init__(
         self,
-        project: NodeProject,
+        project: "NodeProject",
         *,
+        cooldown: typing.Optional[jsii.Number] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
         include: typing.Optional[typing.Sequence[builtins.str]] = None,
         include_deprecated_versions: typing.Optional[builtins.bool] = None,
@@ -12262,12 +12550,13 @@ class UpgradeDependencies(
         signoff: typing.Optional[builtins.bool] = None,
         target: typing.Optional[builtins.str] = None,
         task_name: typing.Optional[builtins.str] = None,
-        types: typing.Optional[typing.Sequence[_DependencyType_6b786d68]] = None,
+        types: typing.Optional[typing.Sequence["_DependencyType_6b786d68"]] = None,
         workflow: typing.Optional[builtins.bool] = None,
         workflow_options: typing.Optional[typing.Union["UpgradeDependenciesWorkflowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param project: -
+        :param cooldown: (experimental) Exclude package versions published within the specified number of days. This may provide some protection against supply chain attacks, simply by avoiding newly published packages that may be malicious. It gives the ecosystem more time to detect malicious packages. However it comes at the cost of updating other packages slower, which might also contain vulnerabilities or bugs in need of a fix. The cooldown period applies to both npm-check-updates discovery and the package manager update command. Default: - No cooldown period.
         :param exclude: (experimental) List of package names to exclude during the upgrade. Default: - Nothing is excluded.
         :param include: (experimental) List of package names to include during the upgrade. Default: - Everything is included.
         :param include_deprecated_versions: (experimental) Include deprecated packages. By default, deprecated versions will be excluded from upgrades. Default: false
@@ -12287,6 +12576,7 @@ class UpgradeDependencies(
             type_hints = typing.get_type_hints(_typecheckingstub__497e18a2c8dc3200cff8b21dfad7c418d29517aa6d67e2a2555ee78fa63ff385)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = UpgradeDependenciesOptions(
+            cooldown=cooldown,
             exclude=exclude,
             include=include,
             include_deprecated_versions=include_deprecated_versions,
@@ -12304,7 +12594,7 @@ class UpgradeDependencies(
         jsii.create(self.__class__, self, [project, options])
 
     @jsii.member(jsii_name="addPostBuildSteps")
-    def add_post_build_steps(self, *steps: _JobStep_c3287c05) -> None:
+    def add_post_build_steps(self, *steps: "_JobStep_c3287c05") -> None:
         '''(experimental) Add steps to execute a successful build.
 
         :param steps: workflow steps.
@@ -12318,46 +12608,54 @@ class UpgradeDependencies(
 
     @builtins.property
     @jsii.member(jsii_name="postUpgradeTask")
-    def post_upgrade_task(self) -> _Task_9fa875b6:
+    def post_upgrade_task(self) -> "_Task_9fa875b6":
         '''(experimental) A task run after the upgrade task.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "postUpgradeTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "postUpgradeTask"))
+
+    @builtins.property
+    @jsii.member(jsii_name="project")
+    def project(self) -> "NodeProject":
+        '''
+        :stability: experimental
+        '''
+        return typing.cast("NodeProject", jsii.get(self, "project"))
 
     @builtins.property
     @jsii.member(jsii_name="upgradeTask")
-    def upgrade_task(self) -> _Task_9fa875b6:
+    def upgrade_task(self) -> "_Task_9fa875b6":
         '''(experimental) The upgrade task.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "upgradeTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "upgradeTask"))
 
     @builtins.property
     @jsii.member(jsii_name="workflows")
-    def workflows(self) -> typing.List[_GithubWorkflow_a1772357]:
+    def workflows(self) -> typing.List["_GithubWorkflow_a1772357"]:
         '''(experimental) The workflows that execute the upgrades.
 
         One workflow per branch.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[_GithubWorkflow_a1772357], jsii.get(self, "workflows"))
+        return typing.cast(typing.List["_GithubWorkflow_a1772357"], jsii.get(self, "workflows"))
 
     @builtins.property
     @jsii.member(jsii_name="containerOptions")
-    def container_options(self) -> typing.Optional[_ContainerOptions_f50907af]:
+    def container_options(self) -> typing.Optional["_ContainerOptions_f50907af"]:
         '''(experimental) Container definitions for the upgrade workflow.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_ContainerOptions_f50907af], jsii.get(self, "containerOptions"))
+        return typing.cast(typing.Optional["_ContainerOptions_f50907af"], jsii.get(self, "containerOptions"))
 
     @container_options.setter
     def container_options(
         self,
-        value: typing.Optional[_ContainerOptions_f50907af],
+        value: typing.Optional["_ContainerOptions_f50907af"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66ba20de6f144f37e582e192e3ed592a6be0e8bc3d10e3b730af62082afa0010)
@@ -12369,6 +12667,7 @@ class UpgradeDependencies(
     jsii_type="projen.javascript.UpgradeDependenciesOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "cooldown": "cooldown",
         "exclude": "exclude",
         "include": "include",
         "include_deprecated_versions": "includeDeprecatedVersions",
@@ -12387,6 +12686,7 @@ class UpgradeDependenciesOptions:
     def __init__(
         self,
         *,
+        cooldown: typing.Optional[jsii.Number] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
         include: typing.Optional[typing.Sequence[builtins.str]] = None,
         include_deprecated_versions: typing.Optional[builtins.bool] = None,
@@ -12396,12 +12696,13 @@ class UpgradeDependenciesOptions:
         signoff: typing.Optional[builtins.bool] = None,
         target: typing.Optional[builtins.str] = None,
         task_name: typing.Optional[builtins.str] = None,
-        types: typing.Optional[typing.Sequence[_DependencyType_6b786d68]] = None,
+        types: typing.Optional[typing.Sequence["_DependencyType_6b786d68"]] = None,
         workflow: typing.Optional[builtins.bool] = None,
         workflow_options: typing.Optional[typing.Union["UpgradeDependenciesWorkflowOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options for ``UpgradeDependencies``.
 
+        :param cooldown: (experimental) Exclude package versions published within the specified number of days. This may provide some protection against supply chain attacks, simply by avoiding newly published packages that may be malicious. It gives the ecosystem more time to detect malicious packages. However it comes at the cost of updating other packages slower, which might also contain vulnerabilities or bugs in need of a fix. The cooldown period applies to both npm-check-updates discovery and the package manager update command. Default: - No cooldown period.
         :param exclude: (experimental) List of package names to exclude during the upgrade. Default: - Nothing is excluded.
         :param include: (experimental) List of package names to include during the upgrade. Default: - Everything is included.
         :param include_deprecated_versions: (experimental) Include deprecated packages. By default, deprecated versions will be excluded from upgrades. Default: false
@@ -12421,6 +12722,7 @@ class UpgradeDependenciesOptions:
             workflow_options = UpgradeDependenciesWorkflowOptions(**workflow_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f7b896c11469470869bc4bfc86c9bb13fd308223e316ba71124c00b5709af1e)
+            check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
             check_type(argname="argument include", value=include, expected_type=type_hints["include"])
             check_type(argname="argument include_deprecated_versions", value=include_deprecated_versions, expected_type=type_hints["include_deprecated_versions"])
@@ -12434,6 +12736,8 @@ class UpgradeDependenciesOptions:
             check_type(argname="argument workflow", value=workflow, expected_type=type_hints["workflow"])
             check_type(argname="argument workflow_options", value=workflow_options, expected_type=type_hints["workflow_options"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cooldown is not None:
+            self._values["cooldown"] = cooldown
         if exclude is not None:
             self._values["exclude"] = exclude
         if include is not None:
@@ -12458,6 +12762,26 @@ class UpgradeDependenciesOptions:
             self._values["workflow"] = workflow
         if workflow_options is not None:
             self._values["workflow_options"] = workflow_options
+
+    @builtins.property
+    def cooldown(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Exclude package versions published within the specified number of days.
+
+        This may provide some protection against supply chain attacks, simply by avoiding
+        newly published packages that may be malicious. It gives the ecosystem more time
+        to detect malicious packages. However it comes at the cost of updating other
+        packages slower, which might also contain vulnerabilities or bugs in need of a fix.
+
+        The cooldown period applies to both npm-check-updates discovery
+        and the package manager update command.
+
+        :default: - No cooldown period.
+
+        :see: https://yarnpkg.com/configuration/yarnrc#npmMinimalAgeGate
+        :stability: experimental
+        '''
+        result = self._values.get("cooldown")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -12569,7 +12893,7 @@ class UpgradeDependenciesOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def types(self) -> typing.Optional[typing.List[_DependencyType_6b786d68]]:
+    def types(self) -> typing.Optional[typing.List["_DependencyType_6b786d68"]]:
         '''(experimental) Specify which dependency types the upgrade should operate on.
 
         :default: - All dependency types.
@@ -12577,7 +12901,7 @@ class UpgradeDependenciesOptions:
         :stability: experimental
         '''
         result = self._values.get("types")
-        return typing.cast(typing.Optional[typing.List[_DependencyType_6b786d68]], result)
+        return typing.cast(typing.Optional[typing.List["_DependencyType_6b786d68"]], result)
 
     @builtins.property
     def workflow(self) -> typing.Optional[builtins.bool]:
@@ -12721,15 +13045,15 @@ class UpgradeDependenciesWorkflowOptions:
         *,
         assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
         branches: typing.Optional[typing.Sequence[builtins.str]] = None,
-        container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
+        container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
-        permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-        schedule: typing.Optional[UpgradeDependenciesSchedule] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        schedule: typing.Optional["UpgradeDependenciesSchedule"] = None,
     ) -> None:
         '''(experimental) Options for ``UpgradeDependencies.workflowOptions``.
 
@@ -12737,7 +13061,7 @@ class UpgradeDependenciesWorkflowOptions:
         :param branches: (experimental) List of branches to create PR's for. Default: - All release branches configured for the project.
         :param container: (experimental) Job container options. Default: - defaults
         :param env: (experimental) Build environment variables for the upgrade job. Default: {}
-        :param git_identity: (experimental) The git identity to use for commits. Default: "github-actions@github.com"
+        :param git_identity: (experimental) The git identity to use for commits. Default: - default GitHub Actions user
         :param labels: (experimental) Labels to apply on the PR. Default: - no labels.
         :param permissions: (experimental) Permissions granted to the upgrade job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``. Default: ``{ contents: JobPermission.READ }``
         :param projen_credentials: (experimental) Choose a method for authenticating with GitHub for creating the PR. When using the default github token, PR's created by this workflow will not trigger any subsequent workflows (i.e the build workflow), so projen requires API access to be provided through e.g. a personal access token or other method. Default: - personal access token named PROJEN_GITHUB_TOKEN
@@ -12815,7 +13139,7 @@ class UpgradeDependenciesWorkflowOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def container(self) -> typing.Optional[_ContainerOptions_f50907af]:
+    def container(self) -> typing.Optional["_ContainerOptions_f50907af"]:
         '''(experimental) Job container options.
 
         :default: - defaults
@@ -12823,7 +13147,7 @@ class UpgradeDependenciesWorkflowOptions:
         :stability: experimental
         '''
         result = self._values.get("container")
-        return typing.cast(typing.Optional[_ContainerOptions_f50907af], result)
+        return typing.cast(typing.Optional["_ContainerOptions_f50907af"], result)
 
     @builtins.property
     def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -12837,15 +13161,15 @@ class UpgradeDependenciesWorkflowOptions:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def git_identity(self) -> typing.Optional[_GitIdentity_6effc3de]:
+    def git_identity(self) -> typing.Optional["_GitIdentity_6effc3de"]:
         '''(experimental) The git identity to use for commits.
 
-        :default: "github-actions@github.com"
+        :default: - default GitHub Actions user
 
         :stability: experimental
         '''
         result = self._values.get("git_identity")
-        return typing.cast(typing.Optional[_GitIdentity_6effc3de], result)
+        return typing.cast(typing.Optional["_GitIdentity_6effc3de"], result)
 
     @builtins.property
     def labels(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -12859,7 +13183,7 @@ class UpgradeDependenciesWorkflowOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def permissions(self) -> typing.Optional[_JobPermissions_3b5b53dc]:
+    def permissions(self) -> typing.Optional["_JobPermissions_3b5b53dc"]:
         '''(experimental) Permissions granted to the upgrade job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``.
 
         :default: ``{ contents: JobPermission.READ }``
@@ -12867,10 +13191,10 @@ class UpgradeDependenciesWorkflowOptions:
         :stability: experimental
         '''
         result = self._values.get("permissions")
-        return typing.cast(typing.Optional[_JobPermissions_3b5b53dc], result)
+        return typing.cast(typing.Optional["_JobPermissions_3b5b53dc"], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional[_GithubCredentials_ae257072]:
+    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method for authenticating with GitHub for creating the PR.
 
         When using the default github token, PR's created by this workflow
@@ -12884,7 +13208,7 @@ class UpgradeDependenciesWorkflowOptions:
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional[_GithubCredentials_ae257072], result)
+        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
 
     @builtins.property
     def runs_on(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -12900,7 +13224,7 @@ class UpgradeDependenciesWorkflowOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -12908,10 +13232,10 @@ class UpgradeDependenciesWorkflowOptions:
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
-    def schedule(self) -> typing.Optional[UpgradeDependenciesSchedule]:
+    def schedule(self) -> typing.Optional["UpgradeDependenciesSchedule"]:
         '''(experimental) Schedule to run on.
 
         :default: UpgradeDependenciesSchedule.DAILY
@@ -12919,7 +13243,7 @@ class UpgradeDependenciesWorkflowOptions:
         :stability: experimental
         '''
         result = self._values.get("schedule")
-        return typing.cast(typing.Optional[UpgradeDependenciesSchedule], result)
+        return typing.cast(typing.Optional["UpgradeDependenciesSchedule"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13908,20 +14232,20 @@ class Yarnrc(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         version: builtins.str,
         *,
         cache_folder: typing.Optional[builtins.str] = None,
-        cache_migration_mode: typing.Optional[YarnCacheMigrationMode] = None,
+        cache_migration_mode: typing.Optional["YarnCacheMigrationMode"] = None,
         changeset_base_refs: typing.Optional[typing.Sequence[builtins.str]] = None,
         changeset_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        checksum_behavior: typing.Optional[YarnChecksumBehavior] = None,
+        checksum_behavior: typing.Optional["YarnChecksumBehavior"] = None,
         clone_concurrency: typing.Optional[jsii.Number] = None,
         compression_level: typing.Optional[typing.Union[builtins.str, jsii.Number]] = None,
         constraints_path: typing.Optional[builtins.str] = None,
         default_language_name: typing.Optional[builtins.str] = None,
         default_protocol: typing.Optional[builtins.str] = None,
-        default_semver_range_prefix: typing.Optional[YarnDefaultSemverRangePrefix] = None,
+        default_semver_range_prefix: typing.Optional["YarnDefaultSemverRangePrefix"] = None,
         deferred_version_folder: typing.Optional[builtins.str] = None,
         enable_colors: typing.Optional[builtins.bool] = None,
         enable_constraints_check: typing.Optional[builtins.bool] = None,
@@ -13958,32 +14282,32 @@ class Yarnrc(
         inject_environment_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         install_state_path: typing.Optional[builtins.str] = None,
         lockfile_filename: typing.Optional[builtins.str] = None,
-        log_filters: typing.Optional[typing.Sequence[typing.Union[YarnLogFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_filters: typing.Optional[typing.Sequence[typing.Union["YarnLogFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_concurrency: typing.Optional[jsii.Number] = None,
-        network_settings: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnNetworkSetting, typing.Dict[builtins.str, typing.Any]]]] = None,
-        nm_hoisting_limits: typing.Optional[YarnNmHoistingLimit] = None,
-        nm_mode: typing.Optional[YarnNmMode] = None,
+        network_settings: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnNetworkSetting", typing.Dict[builtins.str, typing.Any]]]] = None,
+        nm_hoisting_limits: typing.Optional["YarnNmHoistingLimit"] = None,
+        nm_mode: typing.Optional["YarnNmMode"] = None,
         nm_self_references: typing.Optional[builtins.bool] = None,
-        node_linker: typing.Optional[YarnNodeLinker] = None,
+        node_linker: typing.Optional["YarnNodeLinker"] = None,
         npm_always_auth: typing.Optional[builtins.bool] = None,
         npm_audit_exclude_packages: typing.Optional[typing.Sequence[builtins.str]] = None,
         npm_audit_ignore_advisories: typing.Optional[typing.Sequence[builtins.str]] = None,
         npm_audit_registry: typing.Optional[builtins.str] = None,
         npm_auth_ident: typing.Optional[builtins.str] = None,
         npm_auth_token: typing.Optional[builtins.str] = None,
-        npm_publish_access: typing.Optional[YarnNpmPublishAccess] = None,
+        npm_publish_access: typing.Optional["YarnNpmPublishAccess"] = None,
         npm_publish_registry: typing.Optional[builtins.str] = None,
-        npm_registries: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnNpmRegistry, typing.Dict[builtins.str, typing.Any]]]] = None,
+        npm_registries: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnNpmRegistry", typing.Dict[builtins.str, typing.Any]]]] = None,
         npm_registry_server: typing.Optional[builtins.str] = None,
-        npm_scopes: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnNpmScope, typing.Dict[builtins.str, typing.Any]]]] = None,
-        package_extensions: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnPackageExtension, typing.Dict[builtins.str, typing.Any]]]] = None,
+        npm_scopes: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnNpmScope", typing.Dict[builtins.str, typing.Any]]]] = None,
+        package_extensions: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnPackageExtension", typing.Dict[builtins.str, typing.Any]]]] = None,
         patch_folder: typing.Optional[builtins.str] = None,
         pnp_data_path: typing.Optional[builtins.str] = None,
         pnp_enable_esm_loader: typing.Optional[builtins.bool] = None,
         pnp_enable_inlining: typing.Optional[builtins.bool] = None,
-        pnp_fallback_mode: typing.Optional[YarnPnpFallbackMode] = None,
+        pnp_fallback_mode: typing.Optional["YarnPnpFallbackMode"] = None,
         pnp_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        pnp_mode: typing.Optional[YarnPnpMode] = None,
+        pnp_mode: typing.Optional["YarnPnpMode"] = None,
         pnp_shebang: typing.Optional[builtins.str] = None,
         pnp_unplugged_folder: typing.Optional[builtins.str] = None,
         prefer_aggregate_cache_info: typing.Optional[builtins.bool] = None,
@@ -13991,17 +14315,17 @@ class Yarnrc(
         prefer_interactive: typing.Optional[builtins.bool] = None,
         prefer_reuse: typing.Optional[builtins.bool] = None,
         prefer_truncated_lines: typing.Optional[builtins.bool] = None,
-        progress_bar_style: typing.Optional[YarnProgressBarStyle] = None,
+        progress_bar_style: typing.Optional["YarnProgressBarStyle"] = None,
         rc_filename: typing.Optional[builtins.str] = None,
-        supported_architectures: typing.Optional[typing.Union[YarnSupportedArchitectures, typing.Dict[builtins.str, typing.Any]]] = None,
+        supported_architectures: typing.Optional[typing.Union["YarnSupportedArchitectures", typing.Dict[builtins.str, typing.Any]]] = None,
         task_pool_concurrency: typing.Optional[builtins.str] = None,
         telemetry_interval: typing.Optional[jsii.Number] = None,
         telemetry_user_id: typing.Optional[builtins.str] = None,
         ts_enable_auto_types: typing.Optional[builtins.bool] = None,
         unsafe_http_whitelist: typing.Optional[typing.Sequence[builtins.str]] = None,
         virtual_folder: typing.Optional[builtins.str] = None,
-        win_link_type: typing.Optional[YarnWinLinkType] = None,
-        worker_pool_mode: typing.Optional[YarnWorkerPoolMode] = None,
+        win_link_type: typing.Optional["YarnWinLinkType"] = None,
+        worker_pool_mode: typing.Optional["YarnWorkerPoolMode"] = None,
         yarn_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -14307,16 +14631,16 @@ class YarnrcOptions:
         self,
         *,
         cache_folder: typing.Optional[builtins.str] = None,
-        cache_migration_mode: typing.Optional[YarnCacheMigrationMode] = None,
+        cache_migration_mode: typing.Optional["YarnCacheMigrationMode"] = None,
         changeset_base_refs: typing.Optional[typing.Sequence[builtins.str]] = None,
         changeset_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        checksum_behavior: typing.Optional[YarnChecksumBehavior] = None,
+        checksum_behavior: typing.Optional["YarnChecksumBehavior"] = None,
         clone_concurrency: typing.Optional[jsii.Number] = None,
         compression_level: typing.Optional[typing.Union[builtins.str, jsii.Number]] = None,
         constraints_path: typing.Optional[builtins.str] = None,
         default_language_name: typing.Optional[builtins.str] = None,
         default_protocol: typing.Optional[builtins.str] = None,
-        default_semver_range_prefix: typing.Optional[YarnDefaultSemverRangePrefix] = None,
+        default_semver_range_prefix: typing.Optional["YarnDefaultSemverRangePrefix"] = None,
         deferred_version_folder: typing.Optional[builtins.str] = None,
         enable_colors: typing.Optional[builtins.bool] = None,
         enable_constraints_check: typing.Optional[builtins.bool] = None,
@@ -14353,32 +14677,32 @@ class YarnrcOptions:
         inject_environment_files: typing.Optional[typing.Sequence[builtins.str]] = None,
         install_state_path: typing.Optional[builtins.str] = None,
         lockfile_filename: typing.Optional[builtins.str] = None,
-        log_filters: typing.Optional[typing.Sequence[typing.Union[YarnLogFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_filters: typing.Optional[typing.Sequence[typing.Union["YarnLogFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
         network_concurrency: typing.Optional[jsii.Number] = None,
-        network_settings: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnNetworkSetting, typing.Dict[builtins.str, typing.Any]]]] = None,
-        nm_hoisting_limits: typing.Optional[YarnNmHoistingLimit] = None,
-        nm_mode: typing.Optional[YarnNmMode] = None,
+        network_settings: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnNetworkSetting", typing.Dict[builtins.str, typing.Any]]]] = None,
+        nm_hoisting_limits: typing.Optional["YarnNmHoistingLimit"] = None,
+        nm_mode: typing.Optional["YarnNmMode"] = None,
         nm_self_references: typing.Optional[builtins.bool] = None,
-        node_linker: typing.Optional[YarnNodeLinker] = None,
+        node_linker: typing.Optional["YarnNodeLinker"] = None,
         npm_always_auth: typing.Optional[builtins.bool] = None,
         npm_audit_exclude_packages: typing.Optional[typing.Sequence[builtins.str]] = None,
         npm_audit_ignore_advisories: typing.Optional[typing.Sequence[builtins.str]] = None,
         npm_audit_registry: typing.Optional[builtins.str] = None,
         npm_auth_ident: typing.Optional[builtins.str] = None,
         npm_auth_token: typing.Optional[builtins.str] = None,
-        npm_publish_access: typing.Optional[YarnNpmPublishAccess] = None,
+        npm_publish_access: typing.Optional["YarnNpmPublishAccess"] = None,
         npm_publish_registry: typing.Optional[builtins.str] = None,
-        npm_registries: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnNpmRegistry, typing.Dict[builtins.str, typing.Any]]]] = None,
+        npm_registries: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnNpmRegistry", typing.Dict[builtins.str, typing.Any]]]] = None,
         npm_registry_server: typing.Optional[builtins.str] = None,
-        npm_scopes: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnNpmScope, typing.Dict[builtins.str, typing.Any]]]] = None,
-        package_extensions: typing.Optional[typing.Mapping[builtins.str, typing.Union[YarnPackageExtension, typing.Dict[builtins.str, typing.Any]]]] = None,
+        npm_scopes: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnNpmScope", typing.Dict[builtins.str, typing.Any]]]] = None,
+        package_extensions: typing.Optional[typing.Mapping[builtins.str, typing.Union["YarnPackageExtension", typing.Dict[builtins.str, typing.Any]]]] = None,
         patch_folder: typing.Optional[builtins.str] = None,
         pnp_data_path: typing.Optional[builtins.str] = None,
         pnp_enable_esm_loader: typing.Optional[builtins.bool] = None,
         pnp_enable_inlining: typing.Optional[builtins.bool] = None,
-        pnp_fallback_mode: typing.Optional[YarnPnpFallbackMode] = None,
+        pnp_fallback_mode: typing.Optional["YarnPnpFallbackMode"] = None,
         pnp_ignore_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        pnp_mode: typing.Optional[YarnPnpMode] = None,
+        pnp_mode: typing.Optional["YarnPnpMode"] = None,
         pnp_shebang: typing.Optional[builtins.str] = None,
         pnp_unplugged_folder: typing.Optional[builtins.str] = None,
         prefer_aggregate_cache_info: typing.Optional[builtins.bool] = None,
@@ -14386,17 +14710,17 @@ class YarnrcOptions:
         prefer_interactive: typing.Optional[builtins.bool] = None,
         prefer_reuse: typing.Optional[builtins.bool] = None,
         prefer_truncated_lines: typing.Optional[builtins.bool] = None,
-        progress_bar_style: typing.Optional[YarnProgressBarStyle] = None,
+        progress_bar_style: typing.Optional["YarnProgressBarStyle"] = None,
         rc_filename: typing.Optional[builtins.str] = None,
-        supported_architectures: typing.Optional[typing.Union[YarnSupportedArchitectures, typing.Dict[builtins.str, typing.Any]]] = None,
+        supported_architectures: typing.Optional[typing.Union["YarnSupportedArchitectures", typing.Dict[builtins.str, typing.Any]]] = None,
         task_pool_concurrency: typing.Optional[builtins.str] = None,
         telemetry_interval: typing.Optional[jsii.Number] = None,
         telemetry_user_id: typing.Optional[builtins.str] = None,
         ts_enable_auto_types: typing.Optional[builtins.bool] = None,
         unsafe_http_whitelist: typing.Optional[typing.Sequence[builtins.str]] = None,
         virtual_folder: typing.Optional[builtins.str] = None,
-        win_link_type: typing.Optional[YarnWinLinkType] = None,
-        worker_pool_mode: typing.Optional[YarnWorkerPoolMode] = None,
+        win_link_type: typing.Optional["YarnWinLinkType"] = None,
+        worker_pool_mode: typing.Optional["YarnWorkerPoolMode"] = None,
         yarn_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Configuration for .yarnrc.yml in Yarn Berry v4.
@@ -14788,13 +15112,13 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def cache_migration_mode(self) -> typing.Optional[YarnCacheMigrationMode]:
+    def cache_migration_mode(self) -> typing.Optional["YarnCacheMigrationMode"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#cacheMigrationMode.
 
         :stability: experimental
         '''
         result = self._values.get("cache_migration_mode")
-        return typing.cast(typing.Optional[YarnCacheMigrationMode], result)
+        return typing.cast(typing.Optional["YarnCacheMigrationMode"], result)
 
     @builtins.property
     def changeset_base_refs(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -14815,13 +15139,13 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def checksum_behavior(self) -> typing.Optional[YarnChecksumBehavior]:
+    def checksum_behavior(self) -> typing.Optional["YarnChecksumBehavior"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#checksumBehavior.
 
         :stability: experimental
         '''
         result = self._values.get("checksum_behavior")
-        return typing.cast(typing.Optional[YarnChecksumBehavior], result)
+        return typing.cast(typing.Optional["YarnChecksumBehavior"], result)
 
     @builtins.property
     def clone_concurrency(self) -> typing.Optional[jsii.Number]:
@@ -14873,13 +15197,13 @@ class YarnrcOptions:
     @builtins.property
     def default_semver_range_prefix(
         self,
-    ) -> typing.Optional[YarnDefaultSemverRangePrefix]:
+    ) -> typing.Optional["YarnDefaultSemverRangePrefix"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#defaultSemverRangePrefix.
 
         :stability: experimental
         '''
         result = self._values.get("default_semver_range_prefix")
-        return typing.cast(typing.Optional[YarnDefaultSemverRangePrefix], result)
+        return typing.cast(typing.Optional["YarnDefaultSemverRangePrefix"], result)
 
     @builtins.property
     def deferred_version_folder(self) -> typing.Optional[builtins.str]:
@@ -15210,13 +15534,13 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def log_filters(self) -> typing.Optional[typing.List[YarnLogFilter]]:
+    def log_filters(self) -> typing.Optional[typing.List["YarnLogFilter"]]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#logFilters.
 
         :stability: experimental
         '''
         result = self._values.get("log_filters")
-        return typing.cast(typing.Optional[typing.List[YarnLogFilter]], result)
+        return typing.cast(typing.Optional[typing.List["YarnLogFilter"]], result)
 
     @builtins.property
     def network_concurrency(self) -> typing.Optional[jsii.Number]:
@@ -15230,31 +15554,31 @@ class YarnrcOptions:
     @builtins.property
     def network_settings(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, YarnNetworkSetting]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "YarnNetworkSetting"]]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#networkSettings.
 
         :stability: experimental
         '''
         result = self._values.get("network_settings")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, YarnNetworkSetting]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "YarnNetworkSetting"]], result)
 
     @builtins.property
-    def nm_hoisting_limits(self) -> typing.Optional[YarnNmHoistingLimit]:
+    def nm_hoisting_limits(self) -> typing.Optional["YarnNmHoistingLimit"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#nmHoistingLimits.
 
         :stability: experimental
         '''
         result = self._values.get("nm_hoisting_limits")
-        return typing.cast(typing.Optional[YarnNmHoistingLimit], result)
+        return typing.cast(typing.Optional["YarnNmHoistingLimit"], result)
 
     @builtins.property
-    def nm_mode(self) -> typing.Optional[YarnNmMode]:
+    def nm_mode(self) -> typing.Optional["YarnNmMode"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#nmMode.
 
         :stability: experimental
         '''
         result = self._values.get("nm_mode")
-        return typing.cast(typing.Optional[YarnNmMode], result)
+        return typing.cast(typing.Optional["YarnNmMode"], result)
 
     @builtins.property
     def nm_self_references(self) -> typing.Optional[builtins.bool]:
@@ -15266,13 +15590,13 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def node_linker(self) -> typing.Optional[YarnNodeLinker]:
+    def node_linker(self) -> typing.Optional["YarnNodeLinker"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#nodeLinker.
 
         :stability: experimental
         '''
         result = self._values.get("node_linker")
-        return typing.cast(typing.Optional[YarnNodeLinker], result)
+        return typing.cast(typing.Optional["YarnNodeLinker"], result)
 
     @builtins.property
     def npm_always_auth(self) -> typing.Optional[builtins.bool]:
@@ -15329,13 +15653,13 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def npm_publish_access(self) -> typing.Optional[YarnNpmPublishAccess]:
+    def npm_publish_access(self) -> typing.Optional["YarnNpmPublishAccess"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#npmPublishAccess.
 
         :stability: experimental
         '''
         result = self._values.get("npm_publish_access")
-        return typing.cast(typing.Optional[YarnNpmPublishAccess], result)
+        return typing.cast(typing.Optional["YarnNpmPublishAccess"], result)
 
     @builtins.property
     def npm_publish_registry(self) -> typing.Optional[builtins.str]:
@@ -15349,13 +15673,13 @@ class YarnrcOptions:
     @builtins.property
     def npm_registries(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, YarnNpmRegistry]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "YarnNpmRegistry"]]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#npmRegistries.
 
         :stability: experimental
         '''
         result = self._values.get("npm_registries")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, YarnNpmRegistry]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "YarnNpmRegistry"]], result)
 
     @builtins.property
     def npm_registry_server(self) -> typing.Optional[builtins.str]:
@@ -15367,24 +15691,26 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def npm_scopes(self) -> typing.Optional[typing.Mapping[builtins.str, YarnNpmScope]]:
+    def npm_scopes(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "YarnNpmScope"]]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#npmScopes.
 
         :stability: experimental
         '''
         result = self._values.get("npm_scopes")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, YarnNpmScope]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "YarnNpmScope"]], result)
 
     @builtins.property
     def package_extensions(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, YarnPackageExtension]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "YarnPackageExtension"]]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#packageExtensions.
 
         :stability: experimental
         '''
         result = self._values.get("package_extensions")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, YarnPackageExtension]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "YarnPackageExtension"]], result)
 
     @builtins.property
     def patch_folder(self) -> typing.Optional[builtins.str]:
@@ -15425,13 +15751,13 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def pnp_fallback_mode(self) -> typing.Optional[YarnPnpFallbackMode]:
+    def pnp_fallback_mode(self) -> typing.Optional["YarnPnpFallbackMode"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#pnpFallbackMode.
 
         :stability: experimental
         '''
         result = self._values.get("pnp_fallback_mode")
-        return typing.cast(typing.Optional[YarnPnpFallbackMode], result)
+        return typing.cast(typing.Optional["YarnPnpFallbackMode"], result)
 
     @builtins.property
     def pnp_ignore_patterns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -15443,13 +15769,13 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def pnp_mode(self) -> typing.Optional[YarnPnpMode]:
+    def pnp_mode(self) -> typing.Optional["YarnPnpMode"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#pnpMode.
 
         :stability: experimental
         '''
         result = self._values.get("pnp_mode")
-        return typing.cast(typing.Optional[YarnPnpMode], result)
+        return typing.cast(typing.Optional["YarnPnpMode"], result)
 
     @builtins.property
     def pnp_shebang(self) -> typing.Optional[builtins.str]:
@@ -15517,13 +15843,13 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def progress_bar_style(self) -> typing.Optional[YarnProgressBarStyle]:
+    def progress_bar_style(self) -> typing.Optional["YarnProgressBarStyle"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#progressBarStyle.
 
         :stability: experimental
         '''
         result = self._values.get("progress_bar_style")
-        return typing.cast(typing.Optional[YarnProgressBarStyle], result)
+        return typing.cast(typing.Optional["YarnProgressBarStyle"], result)
 
     @builtins.property
     def rc_filename(self) -> typing.Optional[builtins.str]:
@@ -15535,13 +15861,13 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def supported_architectures(self) -> typing.Optional[YarnSupportedArchitectures]:
+    def supported_architectures(self) -> typing.Optional["YarnSupportedArchitectures"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#supportedArchitectures.
 
         :stability: experimental
         '''
         result = self._values.get("supported_architectures")
-        return typing.cast(typing.Optional[YarnSupportedArchitectures], result)
+        return typing.cast(typing.Optional["YarnSupportedArchitectures"], result)
 
     @builtins.property
     def task_pool_concurrency(self) -> typing.Optional[builtins.str]:
@@ -15598,22 +15924,22 @@ class YarnrcOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def win_link_type(self) -> typing.Optional[YarnWinLinkType]:
+    def win_link_type(self) -> typing.Optional["YarnWinLinkType"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#winLinkType.
 
         :stability: experimental
         '''
         result = self._values.get("win_link_type")
-        return typing.cast(typing.Optional[YarnWinLinkType], result)
+        return typing.cast(typing.Optional["YarnWinLinkType"], result)
 
     @builtins.property
-    def worker_pool_mode(self) -> typing.Optional[YarnWorkerPoolMode]:
+    def worker_pool_mode(self) -> typing.Optional["YarnWorkerPoolMode"]:
         '''(experimental) https://yarnpkg.com/configuration/yarnrc#workerPoolMode.
 
         :stability: experimental
         '''
         result = self._values.get("worker_pool_mode")
-        return typing.cast(typing.Optional[YarnWorkerPoolMode], result)
+        return typing.cast(typing.Optional["YarnWorkerPoolMode"], result)
 
     @builtins.property
     def yarn_path(self) -> typing.Optional[builtins.str]:
@@ -15675,7 +16001,7 @@ class AddBundleOptions(BundlingOptions):
         platform: builtins.str,
         target: builtins.str,
         banner: typing.Optional[builtins.str] = None,
-        charset: typing.Optional[Charset] = None,
+        charset: typing.Optional["Charset"] = None,
         define: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         esbuild_args: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool]]] = None,
         executable: typing.Optional[builtins.bool] = None,
@@ -15684,12 +16010,12 @@ class AddBundleOptions(BundlingOptions):
         inject: typing.Optional[typing.Sequence[builtins.str]] = None,
         keep_names: typing.Optional[builtins.bool] = None,
         loaders: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        log_level: typing.Optional[BundleLogLevel] = None,
+        log_level: typing.Optional["BundleLogLevel"] = None,
         main_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
         metafile: typing.Optional[builtins.bool] = None,
         minify: typing.Optional[builtins.bool] = None,
         outfile: typing.Optional[builtins.str] = None,
-        source_map_mode: typing.Optional[SourceMapMode] = None,
+        source_map_mode: typing.Optional["SourceMapMode"] = None,
         sources_content: typing.Optional[builtins.bool] = None,
         tsconfig_path: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -15703,7 +16029,7 @@ class AddBundleOptions(BundlingOptions):
         :param banner: (experimental) Use this to insert an arbitrary string at the beginning of generated JavaScript files. This is similar to footer which inserts at the end instead of the beginning. This is commonly used to insert comments: Default: - no comments are passed
         :param charset: (experimental) The charset to use for esbuild's output. By default esbuild's output is ASCII-only. Any non-ASCII characters are escaped using backslash escape sequences. Using escape sequences makes the generated output slightly bigger, and also makes it harder to read. If you would like for esbuild to print the original characters without using escape sequences, use ``Charset.UTF8``. Default: Charset.ASCII
         :param define: (experimental) Replace global identifiers with constant expressions. For example, ``{ 'process.env.DEBUG': 'true' }``. Another example, ``{ 'process.env.API_KEY': JSON.stringify('xxx-xxxx-xxx') }``. Default: - no replacements are made
-        :param esbuild_args: (experimental) Build arguments to pass into esbuild. For example, to add the `--log-limit <https://esbuild.github.io/api/#log-limit>`_ flag:: project.bundler.addBundle("./src/hello.ts", { platform: "node", target: "node18", sourcemap: true, format: "esm", esbuildArgs: { "--log-limit": "0", }, }); Default: - no additional esbuild arguments are passed
+        :param esbuild_args: (experimental) Build arguments to pass into esbuild. For example, to add the `--log-limit <https://esbuild.github.io/api/#log-limit>`_ flag:: project.bundler.addBundle("./src/hello.ts", { platform: "node", target: "node22", sourcemap: true, format: "esm", esbuildArgs: { "--log-limit": "0", }, }); Default: - no additional esbuild arguments are passed
         :param executable: (experimental) Mark the output file as executable. Default: false
         :param footer: (experimental) Use this to insert an arbitrary string at the end of generated JavaScript files. This is similar to banner which inserts at the beginning instead of the end. This is commonly used to insert comments Default: - no comments are passed
         :param format: (experimental) Output format for the generated JavaScript files. There are currently three possible values that can be configured: ``"iife"``, ``"cjs"``, and ``"esm"``. If not set (``undefined``), esbuild picks an output format for you based on ``platform``: - ``"cjs"`` if ``platform`` is ``"node"`` - ``"iife"`` if ``platform`` is ``"browser"`` - ``"esm"`` if ``platform`` is ``"neutral"`` Note: If making a bundle to run under node with ESM, set ``format`` to ``"esm"`` instead of setting ``platform`` to ``"neutral"``. Default: undefined
@@ -15885,7 +16211,7 @@ class AddBundleOptions(BundlingOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def charset(self) -> typing.Optional[Charset]:
+    def charset(self) -> typing.Optional["Charset"]:
         '''(experimental) The charset to use for esbuild's output.
 
         By default esbuild's output is ASCII-only. Any non-ASCII characters are escaped
@@ -15899,7 +16225,7 @@ class AddBundleOptions(BundlingOptions):
         :stability: experimental
         '''
         result = self._values.get("charset")
-        return typing.cast(typing.Optional[Charset], result)
+        return typing.cast(typing.Optional["Charset"], result)
 
     @builtins.property
     def define(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -15926,7 +16252,7 @@ class AddBundleOptions(BundlingOptions):
 
            project.bundler.addBundle("./src/hello.ts", {
              platform: "node",
-             target: "node18",
+             target: "node22",
              sourcemap: true,
              format: "esm",
              esbuildArgs: {
@@ -16035,7 +16361,7 @@ class AddBundleOptions(BundlingOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def log_level(self) -> typing.Optional[BundleLogLevel]:
+    def log_level(self) -> typing.Optional["BundleLogLevel"]:
         '''(experimental) Log level for esbuild.
 
         This is also propagated to the package manager and
@@ -16046,7 +16372,7 @@ class AddBundleOptions(BundlingOptions):
         :stability: experimental
         '''
         result = self._values.get("log_level")
-        return typing.cast(typing.Optional[BundleLogLevel], result)
+        return typing.cast(typing.Optional["BundleLogLevel"], result)
 
     @builtins.property
     def main_fields(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -16115,7 +16441,7 @@ class AddBundleOptions(BundlingOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def source_map_mode(self) -> typing.Optional[SourceMapMode]:
+    def source_map_mode(self) -> typing.Optional["SourceMapMode"]:
         '''(experimental) Source map mode to be used when bundling.
 
         :default: SourceMapMode.DEFAULT
@@ -16124,7 +16450,7 @@ class AddBundleOptions(BundlingOptions):
         :stability: experimental
         '''
         result = self._values.get("source_map_mode")
-        return typing.cast(typing.Optional[SourceMapMode], result)
+        return typing.cast(typing.Optional["SourceMapMode"], result)
 
     @builtins.property
     def sources_content(self) -> typing.Optional[builtins.bool]:
@@ -16164,6 +16490,7 @@ class AddBundleOptions(BundlingOptions):
 __all__ = [
     "AddBundleOptions",
     "ArrowParens",
+    "AuditOptions",
     "AutoRelease",
     "Biome",
     "BiomeOptions",
@@ -16259,6 +16586,15 @@ publication.publish()
 
 # Loading modules to ensure their types are registered with the jsii runtime library
 from . import biome_config
+
+def _typecheckingstub__fa4156d4e0a4a5a2efe965ea98ba35b587dcbfe01e1b4d659a959bcf54294ed2(
+    *,
+    level: typing.Optional[builtins.str] = None,
+    prod_only: typing.Optional[builtins.bool] = None,
+    run_on: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__9f2264088409136f62af7e2ac4488206c06c3b9a69056be8b9ead20ab895f1bc(
     project: NodeProject,
@@ -16524,7 +16860,7 @@ def _typecheckingstub__1d0f97663aee053bcca0e3b33c8be45ef5c6271b8e0c683a67d717aa9
     pass
 
 def _typecheckingstub__7f22158e02967239263c228b0eadfa82f5edd4d7b172b8506a5b32bc46ab7738(
-    project: NodeProject,
+    scope: _constructs_77d1e7e8.IConstruct,
     *,
     config_file_path: typing.Optional[builtins.str] = None,
     coverage: typing.Optional[builtins.bool] = None,
@@ -17025,6 +17361,7 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
     parent: typing.Optional[_Project_57d89203] = None,
+    project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
     projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -17114,6 +17451,8 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
     default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
+    audit_deps: typing.Optional[builtins.bool] = None,
+    audit_deps_options: typing.Optional[typing.Union[AuditOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_approve_upgrades: typing.Optional[builtins.bool] = None,
     biome: typing.Optional[builtins.bool] = None,
     biome_options: typing.Optional[typing.Union[BiomeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -17449,6 +17788,7 @@ def _typecheckingstub__f928658806d66c2cd4f3977b17ae3d10092cf4b9afb10e736c01729b7
 def _typecheckingstub__497e18a2c8dc3200cff8b21dfad7c418d29517aa6d67e2a2555ee78fa63ff385(
     project: NodeProject,
     *,
+    cooldown: typing.Optional[jsii.Number] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
     include: typing.Optional[typing.Sequence[builtins.str]] = None,
     include_deprecated_versions: typing.Optional[builtins.bool] = None,
@@ -17479,6 +17819,7 @@ def _typecheckingstub__66ba20de6f144f37e582e192e3ed592a6be0e8bc3d10e3b730af62082
 
 def _typecheckingstub__0f7b896c11469470869bc4bfc86c9bb13fd308223e316ba71124c00b5709af1e(
     *,
+    cooldown: typing.Optional[jsii.Number] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
     include: typing.Optional[typing.Sequence[builtins.str]] = None,
     include_deprecated_versions: typing.Optional[builtins.bool] = None,

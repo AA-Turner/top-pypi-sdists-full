@@ -13,7 +13,7 @@ from edgar.documents.types import NodeType
 class DocumentPostprocessor:
     """
     Postprocesses parsed documents to improve quality.
-
+    
     Handles:
     - Adjacent node merging
     - Empty node removal
@@ -29,10 +29,10 @@ class DocumentPostprocessor:
     def process(self, document: Document) -> Document:
         """
         Postprocess document.
-
+        
         Args:
             document: Parsed document
-
+            
         Returns:
             Processed document
         """
@@ -223,6 +223,10 @@ class DocumentPostprocessor:
 
     def _enhance_sections(self, document: Document):
         """Enhance section detection and metadata."""
+        # Only extract sections eagerly if configured to do so
+        if not self.config.eager_section_extraction:
+            return
+
         # Force section extraction to populate cache
         _ = document.sections
 
@@ -239,8 +243,11 @@ class DocumentPostprocessor:
             'text_length': len(document.text()),
             'table_count': len(document.tables),
             'heading_count': len(document.headings),
-            'section_count': len(document.sections)
         }
+
+        # Only add section count if sections were extracted
+        if self.config.eager_section_extraction:
+            stats['section_count'] = len(document.sections)
 
         document.metadata.statistics = stats
 

@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Protocol, TypeAlias, TypeVar, cast
 
 import structlog
+from langchain_core.runnables import RunnableConfig
 from langgraph_sdk import Auth
 from starlette.authentication import AuthCredentials, BaseUser
 from starlette.exceptions import HTTPException
@@ -36,7 +37,7 @@ async def with_user(
     if current is None:
         return
     set_auth_ctx(
-        cast(BaseUser, current.user), AuthCredentials(scopes=current.permissions)
+        cast("BaseUser", current.user), AuthCredentials(scopes=current.permissions)
     )
 
 
@@ -58,6 +59,42 @@ def set_auth_ctx(
 
 def get_auth_ctx() -> Auth.types.BaseAuthContext | None:
     return AuthContext.get()
+
+
+def get_user_id(user: BaseUser | None) -> str | None:
+    if user is None:
+        return None
+    try:
+        return user.identity
+    except NotImplementedError:
+        try:
+            return user.display_name
+        except NotImplementedError:
+            pass
+
+
+def merge_auth(
+    config: RunnableConfig,
+    ctx: Auth.types.BaseAuthContext | None = None,
+) -> RunnableConfig:
+    """Inject auth context into config's configurable dict.
+
+    If ctx is not provided, attempts to get it from the current context.
+    """
+    if ctx is None:
+        ctx = get_auth_ctx()
+    if ctx is None:
+        return config
+
+    configurable = config.setdefault("configurable", {})
+    return config | {
+        "configurable": configurable
+        | {
+            "langgraph_auth_user": cast("BaseUser | None", ctx.user),
+            "langgraph_auth_user_id": get_user_id(cast("BaseUser | None", ctx.user)),
+            "langgraph_auth_permissions": ctx.permissions,
+        }
+    }
 
 
 class AsyncCursorProto(Protocol):
@@ -139,9 +176,17 @@ class SchemaGenerator(BaseSchemaGenerator):
         for endpoint in endpoints_info:
             try:
                 parsed = self.parse_docstring(endpoint.func)
-            except AssertionError:
-                logger.warning("Could not parse docstrings for route %s", endpoint.path)
-                parsed = {}
+            except Exception as exc:
+                docstring = getattr(endpoint.func, "__doc__", None) or ""
+                logger.warning(
+                    "Unable to parse docstring from OpenAPI schema for route %s (%s): %s\n\nUsing as description",
+                    endpoint.path,
+                    endpoint.func.__qualname__,
+                    exc,
+                    exc_info=exc,
+                    docstring=docstring,
+                )
+                parsed = {"description": docstring}
 
             if endpoint.path not in schema["paths"]:
                 schema["paths"][endpoint.path] = {}
@@ -186,14 +231,14 @@ def validate_select_columns(
 
 
 __all__ = [
+    "AsyncConnectionProto",
     "AsyncCursorProto",
     "AsyncPipelineProto",
-    "AsyncConnectionProto",
-    "fetchone",
-    "validate_uuid",
-    "next_cron_date",
     "SchemaGenerator",
+    "fetchone",
     "get_pagination_headers",
+    "next_cron_date",
     "uuid7",
     "validate_select_columns",
+    "validate_uuid",
 ]

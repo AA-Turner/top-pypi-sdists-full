@@ -3,7 +3,7 @@ Type annotations for codedeploy service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codedeploy/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -125,12 +126,6 @@ from .type_defs import (
 )
 from .waiter import DeploymentSuccessfulWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -139,120 +134,120 @@ else:
 __all__ = ("CodeDeployClient",)
 
 class Exceptions(BaseClientExceptions):
-    AlarmsLimitExceededException: Type[BotocoreClientError]
-    ApplicationAlreadyExistsException: Type[BotocoreClientError]
-    ApplicationDoesNotExistException: Type[BotocoreClientError]
-    ApplicationLimitExceededException: Type[BotocoreClientError]
-    ApplicationNameRequiredException: Type[BotocoreClientError]
-    ArnNotSupportedException: Type[BotocoreClientError]
-    BatchLimitExceededException: Type[BotocoreClientError]
-    BucketNameFilterRequiredException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DeploymentAlreadyCompletedException: Type[BotocoreClientError]
-    DeploymentAlreadyStartedException: Type[BotocoreClientError]
-    DeploymentConfigAlreadyExistsException: Type[BotocoreClientError]
-    DeploymentConfigDoesNotExistException: Type[BotocoreClientError]
-    DeploymentConfigInUseException: Type[BotocoreClientError]
-    DeploymentConfigLimitExceededException: Type[BotocoreClientError]
-    DeploymentConfigNameRequiredException: Type[BotocoreClientError]
-    DeploymentDoesNotExistException: Type[BotocoreClientError]
-    DeploymentGroupAlreadyExistsException: Type[BotocoreClientError]
-    DeploymentGroupDoesNotExistException: Type[BotocoreClientError]
-    DeploymentGroupLimitExceededException: Type[BotocoreClientError]
-    DeploymentGroupNameRequiredException: Type[BotocoreClientError]
-    DeploymentIdRequiredException: Type[BotocoreClientError]
-    DeploymentIsNotInReadyStateException: Type[BotocoreClientError]
-    DeploymentLimitExceededException: Type[BotocoreClientError]
-    DeploymentNotStartedException: Type[BotocoreClientError]
-    DeploymentTargetDoesNotExistException: Type[BotocoreClientError]
-    DeploymentTargetIdRequiredException: Type[BotocoreClientError]
-    DeploymentTargetListSizeExceededException: Type[BotocoreClientError]
-    DescriptionTooLongException: Type[BotocoreClientError]
-    ECSServiceMappingLimitExceededException: Type[BotocoreClientError]
-    GitHubAccountTokenDoesNotExistException: Type[BotocoreClientError]
-    GitHubAccountTokenNameRequiredException: Type[BotocoreClientError]
-    IamArnRequiredException: Type[BotocoreClientError]
-    IamSessionArnAlreadyRegisteredException: Type[BotocoreClientError]
-    IamUserArnAlreadyRegisteredException: Type[BotocoreClientError]
-    IamUserArnRequiredException: Type[BotocoreClientError]
-    InstanceDoesNotExistException: Type[BotocoreClientError]
-    InstanceIdRequiredException: Type[BotocoreClientError]
-    InstanceLimitExceededException: Type[BotocoreClientError]
-    InstanceNameAlreadyRegisteredException: Type[BotocoreClientError]
-    InstanceNameRequiredException: Type[BotocoreClientError]
-    InstanceNotRegisteredException: Type[BotocoreClientError]
-    InvalidAlarmConfigException: Type[BotocoreClientError]
-    InvalidApplicationNameException: Type[BotocoreClientError]
-    InvalidArnException: Type[BotocoreClientError]
-    InvalidAutoRollbackConfigException: Type[BotocoreClientError]
-    InvalidAutoScalingGroupException: Type[BotocoreClientError]
-    InvalidBlueGreenDeploymentConfigurationException: Type[BotocoreClientError]
-    InvalidBucketNameFilterException: Type[BotocoreClientError]
-    InvalidComputePlatformException: Type[BotocoreClientError]
-    InvalidDeployedStateFilterException: Type[BotocoreClientError]
-    InvalidDeploymentConfigNameException: Type[BotocoreClientError]
-    InvalidDeploymentGroupNameException: Type[BotocoreClientError]
-    InvalidDeploymentIdException: Type[BotocoreClientError]
-    InvalidDeploymentInstanceTypeException: Type[BotocoreClientError]
-    InvalidDeploymentStatusException: Type[BotocoreClientError]
-    InvalidDeploymentStyleException: Type[BotocoreClientError]
-    InvalidDeploymentTargetIdException: Type[BotocoreClientError]
-    InvalidDeploymentWaitTypeException: Type[BotocoreClientError]
-    InvalidEC2TagCombinationException: Type[BotocoreClientError]
-    InvalidEC2TagException: Type[BotocoreClientError]
-    InvalidECSServiceException: Type[BotocoreClientError]
-    InvalidExternalIdException: Type[BotocoreClientError]
-    InvalidFileExistsBehaviorException: Type[BotocoreClientError]
-    InvalidGitHubAccountTokenException: Type[BotocoreClientError]
-    InvalidGitHubAccountTokenNameException: Type[BotocoreClientError]
-    InvalidIamSessionArnException: Type[BotocoreClientError]
-    InvalidIamUserArnException: Type[BotocoreClientError]
-    InvalidIgnoreApplicationStopFailuresValueException: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    InvalidInstanceIdException: Type[BotocoreClientError]
-    InvalidInstanceNameException: Type[BotocoreClientError]
-    InvalidInstanceStatusException: Type[BotocoreClientError]
-    InvalidInstanceTypeException: Type[BotocoreClientError]
-    InvalidKeyPrefixFilterException: Type[BotocoreClientError]
-    InvalidLifecycleEventHookExecutionIdException: Type[BotocoreClientError]
-    InvalidLifecycleEventHookExecutionStatusException: Type[BotocoreClientError]
-    InvalidLoadBalancerInfoException: Type[BotocoreClientError]
-    InvalidMinimumHealthyHostValueException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidOnPremisesTagCombinationException: Type[BotocoreClientError]
-    InvalidOperationException: Type[BotocoreClientError]
-    InvalidRegistrationStatusException: Type[BotocoreClientError]
-    InvalidRevisionException: Type[BotocoreClientError]
-    InvalidRoleException: Type[BotocoreClientError]
-    InvalidSortByException: Type[BotocoreClientError]
-    InvalidSortOrderException: Type[BotocoreClientError]
-    InvalidTagException: Type[BotocoreClientError]
-    InvalidTagFilterException: Type[BotocoreClientError]
-    InvalidTagsToAddException: Type[BotocoreClientError]
-    InvalidTargetException: Type[BotocoreClientError]
-    InvalidTargetFilterNameException: Type[BotocoreClientError]
-    InvalidTargetGroupPairException: Type[BotocoreClientError]
-    InvalidTargetInstancesException: Type[BotocoreClientError]
-    InvalidTimeRangeException: Type[BotocoreClientError]
-    InvalidTrafficRoutingConfigurationException: Type[BotocoreClientError]
-    InvalidTriggerConfigException: Type[BotocoreClientError]
-    InvalidUpdateOutdatedInstancesOnlyValueException: Type[BotocoreClientError]
-    InvalidZonalDeploymentConfigurationException: Type[BotocoreClientError]
-    LifecycleEventAlreadyCompletedException: Type[BotocoreClientError]
-    LifecycleHookLimitExceededException: Type[BotocoreClientError]
-    MultipleIamArnsProvidedException: Type[BotocoreClientError]
-    OperationNotSupportedException: Type[BotocoreClientError]
-    ResourceArnRequiredException: Type[BotocoreClientError]
-    ResourceValidationException: Type[BotocoreClientError]
-    RevisionDoesNotExistException: Type[BotocoreClientError]
-    RevisionRequiredException: Type[BotocoreClientError]
-    RoleRequiredException: Type[BotocoreClientError]
-    TagLimitExceededException: Type[BotocoreClientError]
-    TagRequiredException: Type[BotocoreClientError]
-    TagSetListLimitExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TriggerTargetsLimitExceededException: Type[BotocoreClientError]
-    UnsupportedActionForDeploymentTypeException: Type[BotocoreClientError]
+    AlarmsLimitExceededException: type[BotocoreClientError]
+    ApplicationAlreadyExistsException: type[BotocoreClientError]
+    ApplicationDoesNotExistException: type[BotocoreClientError]
+    ApplicationLimitExceededException: type[BotocoreClientError]
+    ApplicationNameRequiredException: type[BotocoreClientError]
+    ArnNotSupportedException: type[BotocoreClientError]
+    BatchLimitExceededException: type[BotocoreClientError]
+    BucketNameFilterRequiredException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DeploymentAlreadyCompletedException: type[BotocoreClientError]
+    DeploymentAlreadyStartedException: type[BotocoreClientError]
+    DeploymentConfigAlreadyExistsException: type[BotocoreClientError]
+    DeploymentConfigDoesNotExistException: type[BotocoreClientError]
+    DeploymentConfigInUseException: type[BotocoreClientError]
+    DeploymentConfigLimitExceededException: type[BotocoreClientError]
+    DeploymentConfigNameRequiredException: type[BotocoreClientError]
+    DeploymentDoesNotExistException: type[BotocoreClientError]
+    DeploymentGroupAlreadyExistsException: type[BotocoreClientError]
+    DeploymentGroupDoesNotExistException: type[BotocoreClientError]
+    DeploymentGroupLimitExceededException: type[BotocoreClientError]
+    DeploymentGroupNameRequiredException: type[BotocoreClientError]
+    DeploymentIdRequiredException: type[BotocoreClientError]
+    DeploymentIsNotInReadyStateException: type[BotocoreClientError]
+    DeploymentLimitExceededException: type[BotocoreClientError]
+    DeploymentNotStartedException: type[BotocoreClientError]
+    DeploymentTargetDoesNotExistException: type[BotocoreClientError]
+    DeploymentTargetIdRequiredException: type[BotocoreClientError]
+    DeploymentTargetListSizeExceededException: type[BotocoreClientError]
+    DescriptionTooLongException: type[BotocoreClientError]
+    ECSServiceMappingLimitExceededException: type[BotocoreClientError]
+    GitHubAccountTokenDoesNotExistException: type[BotocoreClientError]
+    GitHubAccountTokenNameRequiredException: type[BotocoreClientError]
+    IamArnRequiredException: type[BotocoreClientError]
+    IamSessionArnAlreadyRegisteredException: type[BotocoreClientError]
+    IamUserArnAlreadyRegisteredException: type[BotocoreClientError]
+    IamUserArnRequiredException: type[BotocoreClientError]
+    InstanceDoesNotExistException: type[BotocoreClientError]
+    InstanceIdRequiredException: type[BotocoreClientError]
+    InstanceLimitExceededException: type[BotocoreClientError]
+    InstanceNameAlreadyRegisteredException: type[BotocoreClientError]
+    InstanceNameRequiredException: type[BotocoreClientError]
+    InstanceNotRegisteredException: type[BotocoreClientError]
+    InvalidAlarmConfigException: type[BotocoreClientError]
+    InvalidApplicationNameException: type[BotocoreClientError]
+    InvalidArnException: type[BotocoreClientError]
+    InvalidAutoRollbackConfigException: type[BotocoreClientError]
+    InvalidAutoScalingGroupException: type[BotocoreClientError]
+    InvalidBlueGreenDeploymentConfigurationException: type[BotocoreClientError]
+    InvalidBucketNameFilterException: type[BotocoreClientError]
+    InvalidComputePlatformException: type[BotocoreClientError]
+    InvalidDeployedStateFilterException: type[BotocoreClientError]
+    InvalidDeploymentConfigNameException: type[BotocoreClientError]
+    InvalidDeploymentGroupNameException: type[BotocoreClientError]
+    InvalidDeploymentIdException: type[BotocoreClientError]
+    InvalidDeploymentInstanceTypeException: type[BotocoreClientError]
+    InvalidDeploymentStatusException: type[BotocoreClientError]
+    InvalidDeploymentStyleException: type[BotocoreClientError]
+    InvalidDeploymentTargetIdException: type[BotocoreClientError]
+    InvalidDeploymentWaitTypeException: type[BotocoreClientError]
+    InvalidEC2TagCombinationException: type[BotocoreClientError]
+    InvalidEC2TagException: type[BotocoreClientError]
+    InvalidECSServiceException: type[BotocoreClientError]
+    InvalidExternalIdException: type[BotocoreClientError]
+    InvalidFileExistsBehaviorException: type[BotocoreClientError]
+    InvalidGitHubAccountTokenException: type[BotocoreClientError]
+    InvalidGitHubAccountTokenNameException: type[BotocoreClientError]
+    InvalidIamSessionArnException: type[BotocoreClientError]
+    InvalidIamUserArnException: type[BotocoreClientError]
+    InvalidIgnoreApplicationStopFailuresValueException: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    InvalidInstanceIdException: type[BotocoreClientError]
+    InvalidInstanceNameException: type[BotocoreClientError]
+    InvalidInstanceStatusException: type[BotocoreClientError]
+    InvalidInstanceTypeException: type[BotocoreClientError]
+    InvalidKeyPrefixFilterException: type[BotocoreClientError]
+    InvalidLifecycleEventHookExecutionIdException: type[BotocoreClientError]
+    InvalidLifecycleEventHookExecutionStatusException: type[BotocoreClientError]
+    InvalidLoadBalancerInfoException: type[BotocoreClientError]
+    InvalidMinimumHealthyHostValueException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidOnPremisesTagCombinationException: type[BotocoreClientError]
+    InvalidOperationException: type[BotocoreClientError]
+    InvalidRegistrationStatusException: type[BotocoreClientError]
+    InvalidRevisionException: type[BotocoreClientError]
+    InvalidRoleException: type[BotocoreClientError]
+    InvalidSortByException: type[BotocoreClientError]
+    InvalidSortOrderException: type[BotocoreClientError]
+    InvalidTagException: type[BotocoreClientError]
+    InvalidTagFilterException: type[BotocoreClientError]
+    InvalidTagsToAddException: type[BotocoreClientError]
+    InvalidTargetException: type[BotocoreClientError]
+    InvalidTargetFilterNameException: type[BotocoreClientError]
+    InvalidTargetGroupPairException: type[BotocoreClientError]
+    InvalidTargetInstancesException: type[BotocoreClientError]
+    InvalidTimeRangeException: type[BotocoreClientError]
+    InvalidTrafficRoutingConfigurationException: type[BotocoreClientError]
+    InvalidTriggerConfigException: type[BotocoreClientError]
+    InvalidUpdateOutdatedInstancesOnlyValueException: type[BotocoreClientError]
+    InvalidZonalDeploymentConfigurationException: type[BotocoreClientError]
+    LifecycleEventAlreadyCompletedException: type[BotocoreClientError]
+    LifecycleHookLimitExceededException: type[BotocoreClientError]
+    MultipleIamArnsProvidedException: type[BotocoreClientError]
+    OperationNotSupportedException: type[BotocoreClientError]
+    ResourceArnRequiredException: type[BotocoreClientError]
+    ResourceValidationException: type[BotocoreClientError]
+    RevisionDoesNotExistException: type[BotocoreClientError]
+    RevisionRequiredException: type[BotocoreClientError]
+    RoleRequiredException: type[BotocoreClientError]
+    TagLimitExceededException: type[BotocoreClientError]
+    TagRequiredException: type[BotocoreClientError]
+    TagSetListLimitExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TriggerTargetsLimitExceededException: type[BotocoreClientError]
+    UnsupportedActionForDeploymentTypeException: type[BotocoreClientError]
 
 class CodeDeployClient(AioBaseClient):
     """
@@ -463,7 +458,7 @@ class CodeDeployClient(AioBaseClient):
 
     async def delete_resources_by_external_id(
         self, **kwargs: Unpack[DeleteResourcesByExternalIdInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes resources linked to an external ID.
 
@@ -727,7 +722,7 @@ class CodeDeployClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codedeploy/client/#stop_deployment)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Associates the list of tags in the input <code>Tags</code> parameter with the
         resource identified by the <code>ResourceArn</code> input parameter.
@@ -736,7 +731,7 @@ class CodeDeployClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codedeploy/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Disassociates a resource from a list of tags.
 
@@ -881,7 +876,7 @@ class CodeDeployClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -18,17 +18,19 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist, constr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.open_figi_perm_id_result import OpenFigiPermIdResult
 
 class OnboardInstrumentRequest(BaseModel):
     """
     The full structure of a instrument creation / onboarding request  # noqa: E501
     """
-    data_results: conlist(OpenFigiPermIdResult) = Field(..., alias="dataResults", description="Enumerable packed OpenFigi/PermId information used to create instruments")
+    data_results: List[OpenFigiPermIdResult] = Field(description="Enumerable packed OpenFigi/PermId information used to create instruments", alias="dataResults")
     primary_vendor_key:  Optional[StrictStr] = Field(None,alias="primaryVendorKey", description="Primary vendor used to master instrument from Unknown to an asset type") 
-    secondary_vendor_keys: Optional[conlist(StrictStr)] = Field(None, alias="secondaryVendorKeys", description="Secondary vendors used to decorate additional properties")
+    secondary_vendor_keys: Optional[List[StrictStr]] = Field(default=None, description="Secondary vendors used to decorate additional properties", alias="secondaryVendorKeys")
     __properties = ["dataResults", "primaryVendorKey", "secondaryVendorKeys"]
 
     class Config:
@@ -97,3 +99,5 @@ class OnboardInstrumentRequest(BaseModel):
             "secondary_vendor_keys": obj.get("secondaryVendorKeys")
         })
         return _obj
+
+OnboardInstrumentRequest.update_forward_refs()

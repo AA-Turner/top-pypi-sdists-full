@@ -11,11 +11,11 @@ description = "Solders RPC responses-common crate."
 [dependencies]
 camelpaste = "0.1.0"
 derive_more = "0.99.17"
-pyo3 = { version = "0.23", default-features = false , features = ["macros"] }
+pyo3 = { version = "0.26", default-features = false , features = ["macros"] }
 serde = "^1.0.188"
 serde_with = { version = "^1.14.0", features = ["base64"] }
-solana-account-decoder-client-types = { version = "2.1.0", features = ["zstd"] }
-solana-rpc-client-api = "2.1.0"
+solana-account-decoder-client-types = { version = "3", features = ["zstd"] }
+solana-rpc-client-types = "3"
 solders-account = { path = "../solders-account" }
 solders-account-decoder = { path = "../solders-account-decoder" }
 solders-hash = { path = "../solders-hash" }

@@ -1,4 +1,0 @@
-
-!!python/object/apply:os.system
-args: ['Hello shell!']
-

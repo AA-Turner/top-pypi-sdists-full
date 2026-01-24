@@ -3,19 +3,22 @@ import pathlib
 import pickle
 import sys
 import warnings
-from typing import Mapping
 from urllib.parse import SplitResult
 
+import pathlib_abc
 import pytest
 
 from upath import UPath
 from upath.implementations.cloud import GCSPath
 from upath.implementations.cloud import S3Path
+from upath.types import ReadablePath
+from upath.types import WritablePath
 
 from .cases import BaseTests
+from .utils import OverrideMeta
 from .utils import only_on_windows
+from .utils import overrides_base
 from .utils import skip_on_windows
-from .utils import xfail_if_version
 
 
 @skip_on_windows
@@ -42,7 +45,7 @@ def test_UPath_file_protocol_no_warning():
         assert len(w) == 0
 
 
-class TestUpath(BaseTests):
+class TestUpath(BaseTests, metaclass=OverrideMeta):
     @pytest.fixture(autouse=True)
     def path(self, local_testdir):
         with warnings.catch_warnings():
@@ -54,26 +57,36 @@ class TestUpath(BaseTests):
             root = "/" if sys.platform.startswith("win") else ""
             self.path = UPath(f"mock:{root}{local_testdir}")
 
-    def test_fsspec_compat(self):
-        pass
+    @overrides_base
+    def test_is_correct_class(self):
+        # testing dynamically created UPath classes
+        from upath.implementations._experimental import _MockPath
 
-    def test_cwd(self):
-        pth = type(self.path).cwd()
-        assert str(pth) == os.getcwd()
-        assert isinstance(pth, pathlib.Path)
-        assert isinstance(pth, UPath)
+        assert isinstance(self.path, _MockPath)
 
-    def test_home(self):
-        pth = type(self.path).home()
-        assert str(pth) == os.path.expanduser("~")
-        assert isinstance(pth, pathlib.Path)
-        assert isinstance(pth, UPath)
+    @overrides_base
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"),
+        reason="mock fs is not well defined on windows",
+    )
+    def test_parents_are_absolute(self):
+        super().test_parents_are_absolute()
 
-    @xfail_if_version("fsspec", reason="", ge="2024.2.0")
-    def test_iterdir_no_dir(self):
-        # the mock filesystem is basically just LocalFileSystem,
-        # so this test would need to have an iterdir fix.
-        super().test_iterdir_no_dir()
+    @overrides_base
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"),
+        reason="mock fs is not well defined on windows",
+    )
+    def test_anchor_is_its_own_parent(self):
+        super().test_anchor_is_its_own_parent()
+
+    @overrides_base
+    @pytest.mark.skipif(
+        sys.platform.startswith("win"),
+        reason="mock fs is not well defined on windows",
+    )
+    def test_parents_end_at_anchor(self):
+        super().test_parents_end_at_anchor()
 
 
 def test_multiple_backend_paths(local_testdir):
@@ -103,28 +116,39 @@ def test_subclass(local_testdir):
         DeprecationWarning, match=r"MyPath\(...\) detected protocol '' .*"
     ):
         path = MyPath(local_testdir)
-    assert str(path) == str(pathlib.Path(local_testdir))
+    assert str(path) == pathlib.Path(local_testdir).as_posix()
     assert issubclass(MyPath, UPath)
-    assert isinstance(path, pathlib.Path)
+    assert isinstance(path, pathlib_abc.ReadablePath)
+    assert isinstance(path, pathlib_abc.WritablePath)
+    assert not isinstance(path, pathlib.Path)
 
 
 def test_subclass_with_gcs():
     path = UPath("gcs://bucket", anon=True)
     assert isinstance(path, UPath)
-    assert isinstance(path, pathlib.Path)
+    assert isinstance(path, ReadablePath)
+    assert isinstance(path, WritablePath)
+    assert not isinstance(path, os.PathLike)
+    assert not isinstance(path, pathlib.Path)
 
 
 def test_instance_check(local_testdir):
-    upath = UPath(local_testdir)
+    path = UPath(local_testdir)
     # test instance check passes
-    assert isinstance(upath, pathlib.Path)
-    assert isinstance(upath, UPath)
+    assert isinstance(path, UPath)
+    assert isinstance(path, ReadablePath)
+    assert isinstance(path, WritablePath)
+    assert isinstance(path, os.PathLike)
+    assert isinstance(path, pathlib.Path)
 
 
 def test_instance_check_local_uri(local_testdir):
-    upath = UPath(f"file://{local_testdir}")
-    assert isinstance(upath, pathlib.Path)
-    assert isinstance(upath, UPath)
+    path = UPath(f"file://{local_testdir}")
+    assert isinstance(path, UPath)
+    assert isinstance(path, ReadablePath)
+    assert isinstance(path, WritablePath)
+    assert isinstance(path, os.PathLike)
+    assert not isinstance(path, pathlib.Path)
 
 
 @pytest.mark.xfail(reason="unsupported on universal_pathlib>0.1.4")
@@ -286,21 +310,18 @@ def test_handle_fspath_args(tmp_path):
     ],
 )
 def test_access_to_private_kwargs_and_url(urlpath):
+    p0 = UPath(urlpath)
+    assert not hasattr(p0, "_kwargs")
+
     # fixme: this should be deprecated...
-    pth = UPath(urlpath)
-    with pytest.warns(DeprecationWarning, match="UPath._kwargs is deprecated"):
-        assert isinstance(pth._kwargs, Mapping)
-    with pytest.warns(DeprecationWarning, match="UPath._kwargs is deprecated"):
-        assert pth._kwargs == {}
-    assert isinstance(pth._url, SplitResult)
-    assert pth._url.scheme == "" or pth._url.scheme in pth.fs.protocol
-    assert pth._url.path == pth.path
-    subpth = pth / "foo"
-    with pytest.warns(DeprecationWarning, match="UPath._kwargs is deprecated"):
-        assert subpth._kwargs == {}
-    assert isinstance(subpth._url, SplitResult)
-    assert subpth._url.scheme == "" or subpth._url.scheme in subpth.fs.protocol
-    assert subpth._url.path == subpth.path
+    assert isinstance(p0._url, SplitResult)
+    assert p0._url.scheme == "" or p0._url.scheme in p0.fs.protocol
+    assert p0._url.path == p0.path
+
+    p1 = p0 / "foo"
+    assert isinstance(p1._url, SplitResult)
+    assert p1._url.scheme == "" or p1._url.scheme in p1.fs.protocol
+    assert p1._url.path == p1.path
 
 
 def test_copy_path_append_kwargs():
@@ -314,7 +335,7 @@ def test_copy_path_append_kwargs():
 
 
 def test_relative_to():
-    assert "s3://test_bucket/file.txt" == str(
+    assert "file.txt" == str(
         UPath("s3://test_bucket/file.txt").relative_to(UPath("s3://test_bucket"))
     )
 
@@ -336,45 +357,6 @@ def test_uri_parsing():
 NORMALIZATIONS = (
     ("unnormalized", "normalized"),
     (
-        # Expected normalization results according to curl
-        ("http://example.com", "http://example.com/"),
-        ("http://example.com/", "http://example.com/"),
-        ("http://example.com/a", "http://example.com/a"),
-        ("http://example.com//a", "http://example.com//a"),
-        ("http://example.com///a", "http://example.com///a"),
-        ("http://example.com////a", "http://example.com////a"),
-        ("http://example.com/a/.", "http://example.com/a/"),
-        ("http://example.com/a/./", "http://example.com/a/"),
-        ("http://example.com/a/./b", "http://example.com/a/b"),
-        ("http://example.com/a/.//", "http://example.com/a//"),
-        ("http://example.com/a/.//b", "http://example.com/a//b"),
-        ("http://example.com/a//.", "http://example.com/a//"),
-        ("http://example.com/a//./", "http://example.com/a//"),
-        ("http://example.com/a//./b", "http://example.com/a//b"),
-        ("http://example.com/a//.//", "http://example.com/a///"),
-        ("http://example.com/a//.//b", "http://example.com/a///b"),
-        ("http://example.com/a/..", "http://example.com/"),
-        ("http://example.com/a/../", "http://example.com/"),
-        ("http://example.com/a/../.", "http://example.com/"),
-        ("http://example.com/a/../..", "http://example.com/"),
-        ("http://example.com/a/../../", "http://example.com/"),
-        ("http://example.com/a/../..//", "http://example.com//"),
-        ("http://example.com/a/..//", "http://example.com//"),
-        ("http://example.com/a/..//.", "http://example.com//"),
-        ("http://example.com/a/..//..", "http://example.com/"),
-        ("http://example.com/a/../b", "http://example.com/b"),
-        ("http://example.com/a/..//b", "http://example.com//b"),
-        ("http://example.com/a//..", "http://example.com/a/"),
-        ("http://example.com/a//../", "http://example.com/a/"),
-        ("http://example.com/a//../.", "http://example.com/a/"),
-        ("http://example.com/a//../..", "http://example.com/"),
-        ("http://example.com/a//../../", "http://example.com/"),
-        ("http://example.com/a//../..//", "http://example.com//"),
-        ("http://example.com/a//..//..", "http://example.com/a/"),
-        ("http://example.com/a//../b", "http://example.com/a/b"),
-        ("http://example.com/a//..//", "http://example.com/a//"),
-        ("http://example.com/a//..//.", "http://example.com/a//"),
-        ("http://example.com/a//..//b", "http://example.com/a//b"),
         # Normalization with and without an authority component
         ("memory:/a/b/..", "memory://a/"),
         ("memory:/a/b/.", "memory://a/b/"),
@@ -396,13 +378,11 @@ NORMALIZATIONS = (
 def test_normalize(unnormalized, normalized):
     expected = UPath(normalized)
     pth = UPath(unnormalized)
-    if pth.protocol in {"http", "https"}:
-        # Normalise only, do not attempt to follow redirects for http:// paths here
-        result = pth.resolve(strict=True, follow_redirects=False)
-    else:
-        result = pth.resolve(strict=True)
+    result = pth.resolve(strict=True)
+    str_expected = str(expected)
+    str_result = str(result)
     assert expected == result
-    assert str(expected) == str(result)
+    assert str_expected == str_result
 
 
 @pytest.mark.parametrize(
@@ -418,31 +398,27 @@ def test_query_string(uri, query_str):
     assert p.path.endswith(query_str)
 
 
-@pytest.mark.parametrize(
-    "base,join",
-    [
-        ("/a", "s3://bucket/b"),
-        ("s3://bucket/a", "gs://b/c"),
-        ("gs://bucket/a", "memory://b/c"),
-        ("memory://bucket/a", "s3://b/c"),
-    ],
-)
+PROTOCOL_MISMATCH = [
+    ("/a", "s3://bucket/b"),
+    ("s3://bucket/a", "gs://b/c"),
+    ("gs://bucket/a", "memory://b/c"),
+    ("memory://bucket/a", "s3://b/c"),
+]
+
+
+@pytest.mark.parametrize("base,join", PROTOCOL_MISMATCH)
 def test_joinpath_on_protocol_mismatch(base, join):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="can't combine incompatible UPath protocols"):
         UPath(base).joinpath(UPath(join))
-    with pytest.raises(ValueError):
+
+
+@pytest.mark.parametrize("base,join", PROTOCOL_MISMATCH)
+def test_truediv_on_protocol_mismatch(base, join):
+    with pytest.raises(ValueError, match="can't combine incompatible UPath protocols"):
         UPath(base) / UPath(join)
 
 
-@pytest.mark.parametrize(
-    "base,join",
-    [
-        ("/a", "s3://bucket/b"),
-        ("s3://bucket/a", "gs://b/c"),
-        ("gs://bucket/a", "memory://b/c"),
-        ("memory://bucket/a", "s3://b/c"),
-    ],
-)
+@pytest.mark.parametrize("base,join", PROTOCOL_MISMATCH)
 def test_joinuri_on_protocol_mismatch(base, join):
     assert UPath(base).joinuri(UPath(join)) == UPath(join)
 
@@ -450,3 +426,60 @@ def test_joinuri_on_protocol_mismatch(base, join):
 def test_upath_expanduser():
     assert UPath("~").expanduser() == UPath(os.path.expanduser("~"))
     assert UPath("~") != UPath("~").expanduser()
+
+
+def test_builtin_open_a_non_local_upath():
+    p = UPath("memory://a")
+    p.write_bytes(b"hello world")
+    with pytest.raises(TypeError, match="expected str, bytes or os.PathLike object.*"):
+        open(p, "rb")  # type: ignore
+
+
+@pytest.mark.parametrize(
+    "protocol",
+    [
+        pytest.param(None, id="empty protocol"),
+        pytest.param("file", id="file protocol"),
+    ],
+)
+def test_open_a_local_upath(tmp_path, protocol):
+    p = tmp_path.joinpath("file.txt")
+    p.write_bytes(b"hello world")
+    u = UPath(p, protocol=protocol)
+    with open(u, "rb") as f:
+        assert f.read() == b"hello world"
+
+
+@pytest.mark.parametrize(
+    "uri,protocol",
+    [
+        ("s3://bucket/folder", "s3"),
+        ("gs://bucket/folder", "gs"),
+        ("bucket/folder", "s3"),
+        ("memory://folder", "memory"),
+        ("file:/tmp/folder", "file"),
+        ("/tmp/folder", "file"),
+        ("/tmp/folder", ""),
+        ("a/b/c", ""),
+    ],
+)
+def test_constructor_compatible_protocol_uri(uri, protocol):
+    p = UPath(uri, protocol=protocol)
+    assert p.protocol == protocol
+
+
+@pytest.mark.parametrize(
+    "uri,protocol",
+    [
+        ("s3://bucket/folder", "gs"),
+        ("gs://bucket/folder", "s3"),
+        ("memory://folder", "s3"),
+        ("file:/tmp/folder", "s3"),
+        ("s3://bucket/folder", ""),
+        ("memory://folder", ""),
+        ("file:/tmp/folder", ""),
+    ],
+)
+def test_constructor_incompatible_protocol_uri(uri, protocol):
+    with pytest.raises(ValueError, match=r".*incompatible with"):
+        UPath(uri, protocol=protocol)

@@ -3,7 +3,7 @@ Type annotations for sso-oidc service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_oidc/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -39,11 +40,6 @@ from .type_defs import (
     StartDeviceAuthorizationResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -54,21 +50,21 @@ __all__ = ("SSOOIDCClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AuthorizationPendingException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ExpiredTokenException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidClientException: Type[BotocoreClientError]
-    InvalidClientMetadataException: Type[BotocoreClientError]
-    InvalidGrantException: Type[BotocoreClientError]
-    InvalidRedirectUriException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    InvalidRequestRegionException: Type[BotocoreClientError]
-    InvalidScopeException: Type[BotocoreClientError]
-    SlowDownException: Type[BotocoreClientError]
-    UnauthorizedClientException: Type[BotocoreClientError]
-    UnsupportedGrantTypeException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AuthorizationPendingException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ExpiredTokenException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidClientException: type[BotocoreClientError]
+    InvalidClientMetadataException: type[BotocoreClientError]
+    InvalidGrantException: type[BotocoreClientError]
+    InvalidRedirectUriException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidRequestRegionException: type[BotocoreClientError]
+    InvalidScopeException: type[BotocoreClientError]
+    SlowDownException: type[BotocoreClientError]
+    UnauthorizedClientException: type[BotocoreClientError]
+    UnsupportedGrantTypeException: type[BotocoreClientError]
 
 
 class SSOOIDCClient(AioBaseClient):
@@ -121,8 +117,9 @@ class SSOOIDCClient(AioBaseClient):
         self, **kwargs: Unpack[CreateTokenWithIAMRequestTypeDef]
     ) -> CreateTokenWithIAMResponseTypeDef:
         """
-        Creates and returns access and refresh tokens for clients and applications that
-        are authenticated using IAM entities.
+        Creates and returns access and refresh tokens for authorized client
+        applications that are authenticated using any IAM entity, such as a service
+        role or user.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-oidc/client/create_token_with_iam.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sso_oidc/client/#create_token_with_iam)
@@ -157,7 +154,7 @@ class SSOOIDCClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

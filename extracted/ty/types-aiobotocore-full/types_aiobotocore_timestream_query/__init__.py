@@ -3,7 +3,7 @@ Main interface for timestream-query service.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_timestream_query/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

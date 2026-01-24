@@ -5,7 +5,7 @@ import warnings
 
 from nominal.procedures.executions.v1 import procedure_executions_pb2 as nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2
 
-GRPC_GENERATED_VERSION = '1.75.0'
+GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in nominal/procedures/executions/v1/procedure_executions_pb2_grpc.py depends on'
+        + ' but the generated code in nominal/procedures/executions/v1/procedure_executions_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -64,6 +64,11 @@ class ProcedureExecutionsServiceStub(object):
                 '/nominal.procedures.executions.v1.ProcedureExecutionsService/UpdateStepSuccessConditionStatus',
                 request_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusRequest.SerializeToString,
                 response_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusResponse.FromString,
+                _registered_method=True)
+        self.RepeatStep = channel.unary_unary(
+                '/nominal.procedures.executions.v1.ProcedureExecutionsService/RepeatStep',
+                request_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.RepeatStepRequest.SerializeToString,
+                response_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.RepeatStepResponse.FromString,
                 _registered_method=True)
         self.SearchProcedureExecutions = channel.unary_unary(
                 '/nominal.procedures.executions.v1.ProcedureExecutionsService/SearchProcedureExecutions',
@@ -127,6 +132,14 @@ class ProcedureExecutionsServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RepeatStep(self, request, context):
+        """Repeat a previously finished step in a procedure execution. This can only be done if the given step
+        is in state SUCCEEDED, SKIPPED or ERRORED. Other state transitions are managed by the backend.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SearchProcedureExecutions(self, request, context):
         """Search for procedure executions
         """
@@ -173,6 +186,11 @@ def add_ProcedureExecutionsServiceServicer_to_server(servicer, server):
                     servicer.UpdateStepSuccessConditionStatus,
                     request_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusRequest.FromString,
                     response_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusResponse.SerializeToString,
+            ),
+            'RepeatStep': grpc.unary_unary_rpc_method_handler(
+                    servicer.RepeatStep,
+                    request_deserializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.RepeatStepRequest.FromString,
+                    response_serializer=nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.RepeatStepResponse.SerializeToString,
             ),
             'SearchProcedureExecutions': grpc.unary_unary_rpc_method_handler(
                     servicer.SearchProcedureExecutions,
@@ -348,6 +366,33 @@ class ProcedureExecutionsService(object):
             '/nominal.procedures.executions.v1.ProcedureExecutionsService/UpdateStepSuccessConditionStatus',
             nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusRequest.SerializeToString,
             nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.UpdateStepSuccessConditionStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RepeatStep(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.procedures.executions.v1.ProcedureExecutionsService/RepeatStep',
+            nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.RepeatStepRequest.SerializeToString,
+            nominal_dot_procedures_dot_executions_dot_v1_dot_procedure__executions__pb2.RepeatStepResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -27,6 +27,7 @@ else:
                 "--disable-error-code=typeddict-unknown-key",
                 "--disable-error-code=unused-ignore",
             ],
+            group_name="eth_event",
         )
 
 
@@ -35,7 +36,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="eth-event",
-    version="1.4.2",  # do not edit directly, use bumpversion
+    version="1.4.6",  # do not edit directly, use bumpversion
     license="MIT",
     description="Ethereum event decoder and topic generator",
     long_description=long_description,
@@ -50,7 +51,7 @@ setup(
     keywords=["ethereum"],
     packages=find_packages(exclude=["tests", "tests.*"]),
     package_data={"eth_event": ["py.typed"]},
-    python_requires=">=3.8,<4",
+    python_requires=">=3.9,<4",
     install_requires=requirements,
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -58,5 +59,11 @@ setup(
         "Topic :: Software Development :: Build Tools",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
 )

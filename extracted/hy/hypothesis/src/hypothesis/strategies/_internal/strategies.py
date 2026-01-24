@@ -8,24 +8,23 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
+import os
 import sys
 import threading
 import warnings
 from collections import abc, defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import lru_cache
 from random import shuffle
 from threading import RLock
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ClassVar,
     Generic,
     Literal,
-    Optional,
+    TypeAlias,
     TypeVar,
-    Union,
     cast,
     overload,
 )
@@ -56,8 +55,6 @@ from hypothesis.strategies._internal.utils import defines_strategy
 from hypothesis.utils.conventions import UniqueIdentifier
 
 if TYPE_CHECKING:
-    from typing import TypeAlias
-
     Ex = TypeVar("Ex", covariant=True, default=Any)
 else:
     Ex = TypeVar("Ex", covariant=True)
@@ -68,7 +65,7 @@ T4 = TypeVar("T4")
 T5 = TypeVar("T5")
 MappedFrom = TypeVar("MappedFrom")
 MappedTo = TypeVar("MappedTo")
-RecurT: "TypeAlias" = Callable[["SearchStrategy"], bool]
+RecurT: TypeAlias = Callable[["SearchStrategy"], bool]
 calculating = UniqueIdentifier("calculating")
 
 MAPPED_SEARCH_STRATEGY_DO_DRAW_LABEL = calc_label_from_name(
@@ -234,7 +231,7 @@ class SearchStrategy(Generic[Ex]):
     # triggers `assert isinstance(label, int)` under threading when setting this
     # in init instead of a classvar. I'm not sure why, init should be safe. But
     # this works so I'm not looking into it further atm.
-    __label: Union[int, UniqueIdentifier, None] = None
+    __label: int | UniqueIdentifier | None = None
 
     def __init__(self):
         self.validate_called: dict[int, bool] = {}
@@ -275,9 +272,12 @@ class SearchStrategy(Generic[Ex]):
     def has_reusable_values(self) -> Any:
         return recursive_property(self, "has_reusable_values", True)
 
-    # Whether this strategy is suitable for holding onto in a cache.
     @property
     def is_cacheable(self) -> Any:
+        """
+        Whether it is safe to hold on to instances of this strategy in a cache.
+        See _STRATEGY_CACHE.
+        """
         return recursive_property(self, "is_cacheable", True)
 
     def calc_is_cacheable(self, recur: RecurT) -> bool:
@@ -302,9 +302,18 @@ class SearchStrategy(Generic[Ex]):
         called from inside |@given| or a strategy definition.  For serious use,
         see |@composite| or |st.data|.
         """
-        if getattr(sys, "ps1", None) is None:  # pragma: no branch
-            # The other branch *is* covered in cover/test_examples.py; but as that
-            # uses `pexpect` for an interactive session `coverage` doesn't see it.
+        if getattr(sys, "ps1", None) is None and (
+            # The main module's __spec__ is None when running interactively
+            # or running a source file directly.
+            # See https://docs.python.org/3/reference/import.html#main-spec.
+            sys.modules["__main__"].__spec__ is not None
+            # __spec__ is also None under pytest-xdist. To avoid an unfortunate
+            # missed alarm here, always warn under pytest.
+            or os.environ.get("PYTEST_CURRENT_TEST") is not None
+        ):  # pragma: no branch
+            # The other branch *is* covered in cover/test_interactive_example.py;
+            # but as that uses `pexpect` for an interactive session `coverage`
+            # doesn't see it.
             warnings.warn(
                 "The `.example()` method is good for exploring strategies, but should "
                 "only be used interactively.  We recommend using `@given` for tests - "
@@ -321,18 +330,19 @@ class SearchStrategy(Generic[Ex]):
                     "Using example() inside a strategy definition is a bad "
                     "idea. Instead consider using hypothesis.strategies.builds() "
                     "or @hypothesis.strategies.composite to define your strategy."
-                    " See https://hypothesis.readthedocs.io/en/latest/data.html"
-                    "#hypothesis.strategies.builds or "
-                    "https://hypothesis.readthedocs.io/en/latest/data.html"
-                    "#composite-strategies for more details."
+                    " See https://hypothesis.readthedocs.io/en/latest/reference/"
+                    "strategies.html#hypothesis.strategies.builds or "
+                    "https://hypothesis.readthedocs.io/en/latest/reference/"
+                    "strategies.html#hypothesis.strategies.composite for more "
+                    "details."
                 )
             else:
                 raise HypothesisException(
                     "Using example() inside a test function is a bad "
                     "idea. Instead consider using hypothesis.strategies.data() "
                     "to draw more examples during testing. See "
-                    "https://hypothesis.readthedocs.io/en/latest/data.html"
-                    "#drawing-interactively-in-tests for more details."
+                    "https://hypothesis.readthedocs.io/en/latest/reference/"
+                    "strategies.html#hypothesis.strategies.data for more details."
                 )
 
         try:
@@ -428,7 +438,7 @@ class SearchStrategy(Generic[Ex]):
     def branches(self) -> Sequence["SearchStrategy[Ex]"]:
         return [self]
 
-    def __or__(self, other: "SearchStrategy[T]") -> "SearchStrategy[Union[Ex, T]]":
+    def __or__(self, other: "SearchStrategy[T]") -> "SearchStrategy[Ex | T]":
         """Return a strategy which produces values by randomly drawing from one
         of this strategy or the other strategy.
 
@@ -536,7 +546,7 @@ class SearchStrategy(Generic[Ex]):
         raise NotImplementedError(f"{type(self).__name__}.do_draw")
 
 
-def _is_hashable(value: object) -> tuple[bool, Optional[int]]:
+def _is_hashable(value: object) -> tuple[bool, int | None]:
     # hashing can be expensive; return the hash value if we compute it, so that
     # callers don't have to recompute.
     try:
@@ -561,8 +571,8 @@ class SampledFromStrategy(SearchStrategy[Ex]):
         self,
         elements: Sequence[Ex],
         *,
-        force_repr: Optional[str] = None,
-        force_repr_braces: Optional[tuple[str, str]] = None,
+        force_repr: str | None = None,
+        force_repr_braces: tuple[str, str] | None = None,
         transformations: tuple[
             tuple[Literal["filter", "map"], Callable[[Ex], Any]],
             ...,
@@ -575,7 +585,7 @@ class SampledFromStrategy(SearchStrategy[Ex]):
         self.force_repr_braces = force_repr_braces
         self._transformations = transformations
 
-        self._cached_repr: Optional[str] = None
+        self._cached_repr: str | None = None
 
     def map(self, pack: Callable[[Ex], T]) -> SearchStrategy[T]:
         s = type(self)(
@@ -682,7 +692,7 @@ class SampledFromStrategy(SearchStrategy[Ex]):
         # anywhere in the class so this is still type-safe. mypy is being more
         # conservative than necessary
         element: Ex,  # type: ignore
-    ) -> Union[Ex, UniqueIdentifier]:
+    ) -> Ex | UniqueIdentifier:
         # Used in UniqueSampledListStrategy
         for name, f in self._transformations:
             if name == "map":
@@ -711,10 +721,10 @@ class SampledFromStrategy(SearchStrategy[Ex]):
         assert not isinstance(result, UniqueIdentifier)
         return result
 
-    def get_element(self, i: int) -> Union[Ex, UniqueIdentifier]:
+    def get_element(self, i: int) -> Ex | UniqueIdentifier:
         return self._transform(self.elements[i])
 
-    def do_filtered_draw(self, data: ConjectureData) -> Union[Ex, UniqueIdentifier]:
+    def do_filtered_draw(self, data: ConjectureData) -> Ex | UniqueIdentifier:
         # Set of indices that have been tried so far, so that we never test
         # the same element twice during a draw.
         known_bad_indices: set[int] = set()
@@ -784,7 +794,7 @@ class OneOfStrategy(SearchStrategy[Ex]):
     def __init__(self, strategies: Sequence[SearchStrategy[Ex]]):
         super().__init__()
         self.original_strategies = tuple(strategies)
-        self.__element_strategies: Optional[Sequence[SearchStrategy[Ex]]] = None
+        self.__element_strategies: Sequence[SearchStrategy[Ex]] | None = None
         self.__in_branches = False
         self._branches_lock = RLock()
 
@@ -885,14 +895,14 @@ def one_of(__a1: SearchStrategy[Ex]) -> SearchStrategy[Ex]:  # pragma: no cover
 @overload
 def one_of(
     __a1: SearchStrategy[Ex], __a2: SearchStrategy[T]
-) -> SearchStrategy[Union[Ex, T]]:  # pragma: no cover
+) -> SearchStrategy[Ex | T]:  # pragma: no cover
     ...
 
 
 @overload
 def one_of(
     __a1: SearchStrategy[Ex], __a2: SearchStrategy[T], __a3: SearchStrategy[T3]
-) -> SearchStrategy[Union[Ex, T, T3]]:  # pragma: no cover
+) -> SearchStrategy[Ex | T | T3]:  # pragma: no cover
     ...
 
 
@@ -902,7 +912,7 @@ def one_of(
     __a2: SearchStrategy[T],
     __a3: SearchStrategy[T3],
     __a4: SearchStrategy[T4],
-) -> SearchStrategy[Union[Ex, T, T3, T4]]:  # pragma: no cover
+) -> SearchStrategy[Ex | T | T3 | T4]:  # pragma: no cover
     ...
 
 
@@ -913,7 +923,7 @@ def one_of(
     __a3: SearchStrategy[T3],
     __a4: SearchStrategy[T4],
     __a5: SearchStrategy[T5],
-) -> SearchStrategy[Union[Ex, T, T3, T4, T5]]:  # pragma: no cover
+) -> SearchStrategy[Ex | T | T3 | T4 | T5]:  # pragma: no cover
     ...
 
 
@@ -922,9 +932,9 @@ def one_of(*args: SearchStrategy[Any]) -> SearchStrategy[Any]:  # pragma: no cov
     ...
 
 
-@defines_strategy(never_lazy=True)
+@defines_strategy(eager=True)
 def one_of(
-    *args: Union[Sequence[SearchStrategy[Any]], SearchStrategy[Any]]
+    *args: Sequence[SearchStrategy[Any]] | SearchStrategy[Any],
 ) -> SearchStrategy[Any]:
     # Mypy workaround alert:  Any is too loose above; the return parameter
     # should be the union of the input parameters.  Unfortunately, Mypy <=0.600
@@ -1110,7 +1120,7 @@ class FilteredStrategy(SearchStrategy[Ex]):
         assert isinstance(self.flat_conditions, tuple)
         assert not isinstance(self.filtered_strategy, FilteredStrategy)
 
-        self.__condition: Optional[Callable[[Ex], Any]] = None
+        self.__condition: Callable[[Ex], Any] | None = None
 
     def calc_is_empty(self, recur: RecurT) -> bool:
         return recur(self.filtered_strategy)
@@ -1194,7 +1204,7 @@ class FilteredStrategy(SearchStrategy[Ex]):
 
         data.mark_invalid(f"Aborted test because unable to satisfy {self!r}")
 
-    def do_filtered_draw(self, data: ConjectureData) -> Union[Ex, UniqueIdentifier]:
+    def do_filtered_draw(self, data: ConjectureData) -> Ex | UniqueIdentifier:
         for i in range(3):
             data.start_span(FILTERED_SEARCH_STRATEGY_DO_DRAW_LABEL)
             value = data.draw(self.filtered_strategy)

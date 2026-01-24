@@ -1,12 +1,30 @@
+from itertools import chain
 import json
 from uuid import uuid4
-from typing import Callable, ClassVar, Generator, Generic, Iterator, List, Optional, Set, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    ClassVar,
+    Generator,
+    Generic,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
+
+import httpx
+import jsonschema
 
 from vellum import (
     AdHocExecutePromptEvent,
     AdHocExpandMeta,
     ChatMessage,
     FunctionDefinition,
+    InitiatedAdHocExecutePromptEvent,
     PromptBlock,
     PromptOutput,
     PromptParameters,
@@ -49,6 +67,7 @@ from vellum.workflows.types.definition import (
     ComposioToolDefinition,
     DeploymentDefinition,
     MCPServer,
+    MCPToolDefinition,
     VellumIntegrationToolDefinition,
 )
 from vellum.workflows.types.generics import StateType, is_workflow_class
@@ -62,6 +81,60 @@ from vellum.workflows.utils.functions import (
     get_mcp_tool_name,
 )
 from vellum.workflows.utils.pydantic_schema import normalize_json
+
+if TYPE_CHECKING:
+    from vellum.workflows.workflows.base import BaseWorkflow
+
+
+def _get_json_schema_to_validate(parameters_ref: object) -> Optional[dict]:
+    """
+    Extracts the JSON schema to validate from a parameters reference.
+
+    Also normalizes Pydantic models to JSON schema dicts so they can be validated.
+
+    Args:
+        parameters_ref: The parameters reference (NodeReference wrapping PromptParameters)
+
+    Returns:
+        The JSON schema dict to validate, or None if no schema found.
+    """
+    parameters_instance = getattr(parameters_ref, "instance", None)
+    if not parameters_instance:
+        return None
+
+    custom_params = getattr(parameters_instance, "custom_parameters", None)
+    if not isinstance(custom_params, dict):
+        return None
+
+    json_schema = custom_params.get("json_schema")
+    if json_schema is None:
+        return None
+
+    # Normalize Pydantic models to JSON schema dicts before validation
+    # This handles cases like {"name": "...", "schema": SomePydanticModel}
+    json_schema = normalize_json(json_schema)
+
+    # After normalization, we expect a dict; anything else we ignore
+    if not isinstance(json_schema, dict):
+        return None
+
+    return json_schema
+
+
+def _validate_json_schema_structure(schema: dict) -> None:
+    """
+    Validates the structure of a JSON schema using the jsonschema library.
+
+    This uses the JSON Schema meta-schema to validate that the provided schema
+    is a valid JSON Schema according to the specification.
+
+    Args:
+        schema: The JSON schema dictionary to validate
+
+    Raises:
+        jsonschema.exceptions.SchemaError: If the schema structure is invalid
+    """
+    jsonschema.Draft7Validator.check_schema(schema)
 
 
 class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
@@ -83,10 +156,22 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
     blocks: ClassVar[List[PromptBlock]]
 
     # The functions/tools that a Prompt has access to
-    functions: Optional[List[Union[FunctionDefinition, Callable]]] = None
+    functions: Optional[
+        List[
+            Union[
+                FunctionDefinition,
+                Callable,
+                DeploymentDefinition,
+                Type["BaseWorkflow"],
+                VellumIntegrationToolDefinition,
+                MCPServer,
+                MCPToolDefinition,
+            ]
+        ]
+    ] = None
 
     parameters: PromptParameters = DEFAULT_PROMPT_PARAMETERS
-    expand_meta: Optional[AdHocExpandMeta] = None
+    expand_meta: Optional[AdHocExpandMeta] = AdHocExpandMeta(finish_reason=True)
 
     settings: Optional[PromptSettings] = None
 
@@ -152,7 +237,17 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
                 elif isinstance(function, ComposioToolDefinition):
                     normalized_functions.append(compile_composio_tool_definition(function))
                 elif isinstance(function, VellumIntegrationToolDefinition):
-                    normalized_functions.append(compile_vellum_integration_tool_definition(function))
+                    normalized_functions.append(
+                        compile_vellum_integration_tool_definition(function, self._context.vellum_client)
+                    )
+                elif isinstance(function, MCPToolDefinition):
+                    normalized_functions.append(
+                        FunctionDefinition(
+                            name=get_mcp_tool_name(function),
+                            description=function.description,
+                            parameters=function.parameters,
+                        )
+                    )
                 elif isinstance(function, MCPServer):
                     tool_definitions = compile_mcp_tool_definition(function)
                     for tool_def in tool_definitions:
@@ -183,7 +278,8 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
                 expand_meta=self.expand_meta,
                 request_options=request_options,
             )
-            return iter([response])
+            initiated_event = InitiatedAdHocExecutePromptEvent(execution_id=response.execution_id)
+            return iter([initiated_event, response])
         else:
             return self._context.vellum_client.ad_hoc.adhoc_execute_prompt_stream(
                 ml_model=self.ml_model,
@@ -220,14 +316,27 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
             prompt_event_stream = self._get_prompt_event_stream()
         except ApiError as e:
             self._handle_api_error(e)
+        except httpx.TransportError:
+            raise NodeException(
+                message="Failed to connect to Vellum server",
+                code=WorkflowErrorCode.INTERNAL_ERROR,
+            )
 
-        if not self.settings or (self.settings and self.settings.stream_enabled):
-            # We don't use the INITIATED event anyway, so we can just skip it
-            # and use the exception handling to catch other api level errors
-            try:
-                next(prompt_event_stream)
-            except ApiError as e:
-                self._handle_api_error(e)
+        try:
+            first_event = next(prompt_event_stream)
+        except ApiError as e:
+            self._handle_api_error(e)
+        except httpx.TransportError:
+            raise NodeException(
+                message="Failed to connect to Vellum server",
+                code=WorkflowErrorCode.INTERNAL_ERROR,
+            )
+        else:
+            if first_event.state == "REJECTED":
+                workflow_error = vellum_error_to_workflow_error(first_event.error)
+                raise NodeException.of(workflow_error)
+            if first_event.state != "INITIATED":
+                prompt_event_stream = chain([first_event], prompt_event_stream)
 
         outputs: Optional[List[PromptOutput]] = None
         for event in prompt_event_stream:
@@ -235,6 +344,8 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
                 continue
             elif event.state == "STREAMING":
                 yield BaseOutput(name="results", delta=event.output.value)
+                if event.output.type == "STRING":
+                    yield BaseOutput(name="text", delta=event.output.value)
             elif event.state == "FULFILLED":
                 if event.meta and event.meta.finish_reason == "LENGTH":
                     text_value, json_value = process_additional_prompt_outputs(event.outputs)
@@ -382,6 +493,25 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
                         ),
                     )
                 )
+            elif (
+                isinstance(input_value, dict)
+                and "src" in input_value
+                and isinstance(input_value.get("src"), str)
+                and input_value["src"].endswith(".pdf")
+            ):
+                input_variables.append(
+                    VellumVariable(
+                        id=str(uuid4()),
+                        key=input_name,
+                        type="DOCUMENT",
+                    )
+                )
+                input_values.append(
+                    PromptRequestDocumentInput(
+                        key=input_name,
+                        value=VellumDocument.model_validate(input_value),
+                    )
+                )
             else:
                 try:
                     input_value = default_serializer(input_value)
@@ -426,3 +556,19 @@ class BaseInlinePromptNode(BasePromptNode[StateType], Generic[StateType]):
         Override this method to process the blocks before they are executed.
         """
         return blocks
+
+    @classmethod
+    def __validate__(cls) -> None:
+        """
+        Validates the node configuration, including JSON schema structure in parameters.
+
+        Raises:
+            jsonschema.exceptions.SchemaError: If the JSON schema structure is invalid
+        """
+        parameters_ref = getattr(cls, "parameters", None)
+        if parameters_ref is None:
+            return
+
+        schema = _get_json_schema_to_validate(parameters_ref)
+        if schema is not None:
+            _validate_json_schema_structure(schema)

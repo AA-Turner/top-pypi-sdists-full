@@ -291,6 +291,30 @@ impl<T: Streamable, U: Streamable, V: Streamable, W: Streamable> Streamable for 
     }
 }
 
+impl<T, const N: usize> Streamable for [T; N]
+where
+    T: Streamable + std::marker::Copy + Default,
+{
+    fn update_digest(&self, digest: &mut Sha256) {
+        for val in self {
+            val.update_digest(digest);
+        }
+    }
+    fn stream(&self, out: &mut Vec<u8>) -> Result<()> {
+        for val in self {
+            val.stream(out)?;
+        }
+        Ok(())
+    }
+    fn parse<const TRUSTED: bool>(input: &mut Cursor<&[u8]>) -> Result<Self> {
+        let mut ret = [<T as Default>::default(); N];
+        for v in &mut ret {
+            *v = T::parse::<TRUSTED>(input)?;
+        }
+        Ok(ret)
+    }
+}
+
 // ===== TESTS ====
 
 #[cfg(test)]
@@ -664,7 +688,9 @@ fn test_stream_utf8_string() {
     let buf = stream(&b);
     assert_eq!(
         &buf[..],
-        [0, 0, 0, 10, 195, 165, 195, 164, 195, 182, 195, 188, 195, 174]
+        [
+            0, 0, 0, 10, 195, 165, 195, 164, 195, 182, 195, 188, 195, 174
+        ]
     );
 }
 
@@ -678,7 +704,9 @@ fn test_stream_struct() {
     let buf = stream(&b);
     assert_eq!(
         &buf[..],
-        [0, 0, 0, 3, 1, 2, 3, 0, 0, 0, 3, b'a', b'b', b'c', 0, 0, 0x13, 0x37, 0, 0, 0, 42]
+        [
+            0, 0, 0, 3, 1, 2, 3, 0, 0, 0, 3, b'a', b'b', b'c', 0, 0, 0x13, 0x37, 0, 0, 0, 42
+        ]
     );
 }
 

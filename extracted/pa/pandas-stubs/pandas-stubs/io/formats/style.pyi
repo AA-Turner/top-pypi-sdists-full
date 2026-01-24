@@ -1,18 +1,22 @@
 from collections.abc import (
     Callable,
+    Hashable,
+    MutableMapping,
     Sequence,
 )
 from typing import (
     Any,
+    Concatenate,
     Literal,
     Protocol,
     overload,
 )
 
 from matplotlib.colors import Colormap
-import numpy as np
+from openpyxl.workbook.workbook import Workbook as OpenXlWorkbook
 from pandas.core.frame import DataFrame
 from pandas.core.series import Series
+from typing_extensions import Self
 
 from pandas._typing import (
     Axis,
@@ -24,13 +28,15 @@ from pandas._typing import (
     IndexLabel,
     IntervalClosedType,
     Level,
+    P,
     QuantileInterpolation,
     Scalar,
     StorageOptions,
     T,
     WriteBuffer,
     WriteExcelBuffer,
-    npt,
+    np_ndarray,
+    np_ndarray_str,
 )
 
 from pandas.io.excel import ExcelWriter
@@ -43,15 +49,19 @@ from pandas.io.formats.style_render import (
     Subset,
 )
 
+from xlsxwriter.workbook import (  # pyright: ignore[reportMissingTypeStubs] # isort: skip
+    Workbook as XlsxWorkbook,  # pyright: ignore[reportUnknownVariableType]
+)
+
 class _SeriesFunc(Protocol):
     def __call__(
         self, series: Series, /, *args: Any, **kwargs: Any
-    ) -> list | Series: ...
+    ) -> list[Any] | Series: ...
 
 class _DataFrameFunc(Protocol):
     def __call__(
         self, series: DataFrame, /, *args: Any, **kwargs: Any
-    ) -> npt.NDArray | DataFrame: ...
+    ) -> np_ndarray | DataFrame: ...
 
 class _MapCallable(Protocol):
     def __call__(
@@ -80,13 +90,13 @@ class Styler(StylerRenderer):
     def map(
         self,
         func: Callable[[Scalar], str | None],
-        subset: Subset | None = ...,
+        subset: Subset[Hashable] | None = ...,
     ) -> Styler: ...
     @overload
     def map(
         self,
         func: _MapCallable,
-        subset: Subset | None = ...,
+        subset: Subset[Hashable] | None = ...,
         **kwargs: Any,
     ) -> Styler: ...
     def set_tooltips(
@@ -98,7 +108,9 @@ class Styler(StylerRenderer):
     ) -> Styler: ...
     def to_excel(
         self,
-        excel_writer: FilePath | WriteExcelBuffer | ExcelWriter,
+        excel_writer: (  # pyright: ignore[reportUnknownParameterType]
+            FilePath | WriteExcelBuffer | ExcelWriter[OpenXlWorkbook | XlsxWorkbook]
+        ),
         sheet_name: str = "Sheet1",
         na_rep: str = "",
         float_format: str | None = None,
@@ -142,7 +154,7 @@ class Styler(StylerRenderer):
     @overload
     def to_latex(
         self,
-        buf: None = ...,
+        buf: None = None,
         *,
         column_format: str | None = ...,
         position: str | None = ...,
@@ -183,7 +195,7 @@ class Styler(StylerRenderer):
     @overload
     def to_html(
         self,
-        buf: None = ...,
+        buf: None = None,
         *,
         table_uuid: str | None = ...,
         table_attributes: str | None = ...,
@@ -213,7 +225,7 @@ class Styler(StylerRenderer):
     @overload
     def to_string(
         self,
-        buf: None = ...,
+        buf: None = None,
         *,
         encoding: str | None = ...,
         sparse_index: bool | None = ...,
@@ -224,27 +236,27 @@ class Styler(StylerRenderer):
     ) -> str: ...
     def set_td_classes(self, classes: DataFrame) -> Styler: ...
     def __copy__(self) -> Styler: ...
-    def __deepcopy__(self, memo) -> Styler: ...
+    def __deepcopy__(self, memo: MutableMapping[int, Any] | None) -> Styler: ...
     def clear(self) -> None: ...
     @overload
     def apply(
         self,
-        func: _SeriesFunc | Callable[[Series], list | Series],
+        func: _SeriesFunc | Callable[[Series], list[Any] | Series],
         axis: Axis = ...,
-        subset: Subset | None = ...,
+        subset: Subset[Hashable] | None = ...,
         **kwargs: Any,
     ) -> Styler: ...
     @overload
     def apply(
         self,
-        func: _DataFrameFunc | Callable[[DataFrame], npt.NDArray | DataFrame],
+        func: _DataFrameFunc | Callable[[DataFrame], np_ndarray | DataFrame],
         axis: None,
-        subset: Subset | None = ...,
+        subset: Subset[Hashable] | None = ...,
         **kwargs: Any,
     ) -> Styler: ...
     def apply_index(
         self,
-        func: Callable[[Series], npt.NDArray[np.str_] | list[str] | Series[str]],
+        func: Callable[[Series], list[str] | np_ndarray_str | Series[str]],
         axis: Axis = ...,
         level: Level | list[Level] | None = ...,
         **kwargs: Any,
@@ -254,7 +266,7 @@ class Styler(StylerRenderer):
         func: Callable[[Scalar], str | None],
         axis: Axis = ...,
         level: Level | list[Level] | None = ...,
-        **kwargs,
+        **kwargs: Any,
     ) -> Styler: ...
     def set_table_attributes(self, attributes: str) -> Styler: ...
     def export(self) -> StyleExportDict: ...
@@ -276,7 +288,7 @@ class Styler(StylerRenderer):
     ) -> Styler: ...
     def hide(
         self,
-        subset: Subset | None = ...,
+        subset: Subset[Hashable] | None = ...,
         axis: Axis = ...,
         level: Level | list[Level] | None = ...,
         names: bool = ...,
@@ -287,14 +299,14 @@ class Styler(StylerRenderer):
         low: float = 0,
         high: float = 0,
         axis: Axis | None = 0,
-        subset: Subset | None = None,
+        subset: Subset[Hashable] | None = None,
         text_color_threshold: float = 0.408,
         vmin: float | None = None,
         vmax: float | None = None,
         gmap: (
             Sequence[float]
             | Sequence[Sequence[float]]
-            | npt.NDArray
+            | np_ndarray
             | DataFrame
             | Series
             | None
@@ -306,24 +318,24 @@ class Styler(StylerRenderer):
         low: float = 0,
         high: float = 0,
         axis: Axis | None = 0,
-        subset: Subset | None = None,
+        subset: Subset[Hashable] | None = None,
         vmin: float | None = None,
         vmax: float | None = None,
         gmap: (
             Sequence[float]
             | Sequence[Sequence[float]]
-            | npt.NDArray
+            | np_ndarray
             | DataFrame
             | Series
             | None
         ) = None,
     ) -> Styler: ...
     def set_properties(
-        self, subset: Subset | None = ..., **kwargs: str | int
+        self, subset: Subset[Hashable] | None = ..., **kwargs: str | int
     ) -> Styler: ...
     def bar(
         self,
-        subset: Subset | None = None,
+        subset: Subset[Hashable] | None = None,
         axis: Axis | None = 0,
         *,
         color: str | list[str] | tuple[str, str] | None = None,
@@ -333,7 +345,7 @@ class Styler(StylerRenderer):
         align: (
             Literal["left", "right", "zero", "mid", "mean"]
             | float
-            | Callable[[Series | npt.NDArray | DataFrame], float]
+            | Callable[[Series | np_ndarray | DataFrame], float]
         ) = "mid",
         vmin: float | None = None,
         vmax: float | None = None,
@@ -342,26 +354,26 @@ class Styler(StylerRenderer):
     def highlight_null(
         self,
         color: str | None = "red",
-        subset: Subset | None = None,
+        subset: Subset[Hashable] | None = None,
         props: str | None = None,
     ) -> Styler: ...
     def highlight_max(
         self,
-        subset: Subset | None = None,
+        subset: Subset[Hashable] | None = None,
         color: str = "yellow",
         axis: Axis | None = 0,
         props: str | None = None,
     ) -> Styler: ...
     def highlight_min(
         self,
-        subset: Subset | None = None,
+        subset: Subset[Hashable] | None = None,
         color: str = "yellow",
         axis: Axis | None = 0,
         props: str | None = None,
     ) -> Styler: ...
     def highlight_between(
         self,
-        subset: Subset | None = None,
+        subset: Subset[Hashable] | None = None,
         color: str = "yellow",
         axis: Axis | None = 0,
         left: Scalar | list[Scalar] | None = None,
@@ -371,7 +383,7 @@ class Styler(StylerRenderer):
     ) -> Styler: ...
     def highlight_quantile(
         self,
-        subset: Subset | None = None,
+        subset: Subset[Hashable] | None = None,
         color: str = "yellow",
         axis: Axis | None = 0,
         q_left: float = 0,
@@ -389,7 +401,10 @@ class Styler(StylerRenderer):
     ) -> type[Styler]: ...
     def pipe(
         self,
-        func: Callable[..., T] | tuple[Callable[..., T], str],
-        *args: Any,
-        **kwargs: Any,
+        func: (
+            Callable[Concatenate[Self, P], T]
+            | tuple[Callable[Concatenate[Self, P], T], str]
+        ),
+        *args: P.args,
+        **kwargs: P.kwargs,
     ) -> T: ...

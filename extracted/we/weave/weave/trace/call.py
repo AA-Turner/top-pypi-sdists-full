@@ -3,8 +3,9 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import logging
+from collections.abc import Callable
 from concurrent.futures import Future
-from typing import TYPE_CHECKING, Any, Callable, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from weave.trace import urls
 from weave.trace.context import weave_client_context as weave_client_context
@@ -16,6 +17,7 @@ from weave.trace.refs import CallRef, ObjectRef, OpRef
 from weave.trace.serialization.serialize import from_json
 from weave.trace.util import log_once
 from weave.trace.vals import WeaveObject
+from weave.trace_server.common_interface import SortBy
 from weave.trace_server.constants import MAX_DISPLAY_NAME_LENGTH
 from weave.trace_server.interface.query import Query
 from weave.trace_server.trace_server_interface import (
@@ -23,11 +25,11 @@ from weave.trace_server.trace_server_interface import (
     CallsFilter,
     CallsQueryReq,
     CallsQueryStatsReq,
-    SortBy,
     TraceServerInterface,
 )
 from weave.utils.attributes_dict import AttributesDict
 from weave.utils.paginated_iterator import PaginatedIterator
+from weave.utils.project_id import from_project_id
 
 if TYPE_CHECKING:
     from weave.flow.scorer import ApplyScorerResult, Scorer
@@ -35,6 +37,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DEFAULT_CALLS_PAGE_SIZE = 1000
+
+
+class OpNameError(ValueError):
+    """Raised when an op name is invalid."""
 
 
 @dataclasses.dataclass
@@ -65,10 +71,19 @@ class Call:
     deleted_at: datetime.datetime | None = None
     thread_id: str | None = None
     turn_id: str | None = None
+    wb_run_id: str | None = None
+    wb_run_step: int | None = None
+    wb_run_step_end: int | None = None
 
     # These are the live children during logging
     _children: list[Call] = dataclasses.field(default_factory=list)
     _feedback: RefFeedbackQuery | None = None
+
+    # Size of metadata storage for this call
+    storage_size_bytes: int | None = None
+
+    # Total size of metadata storage for the entire trace
+    total_storage_size_bytes: int | None = None
 
     @property
     def display_name(self) -> str | Callable[[Call], str] | None:
@@ -111,7 +126,7 @@ class Call:
 
         if self._feedback is None:
             try:
-                entity, project = self.project_id.split("/")
+                entity, project = from_project_id(self.project_id)
             except ValueError:
                 raise ValueError(f"Invalid project_id: {self.project_id}") from None
             weave_ref = CallRef(entity, project, self.id)
@@ -126,14 +141,14 @@ class Call:
             )
 
         try:
-            entity, project = self.project_id.split("/")
+            entity, project = from_project_id(self.project_id)
         except ValueError:
             raise ValueError(f"Invalid project_id: {self.project_id}") from None
         return urls.redirect_call(entity, project, self.id)
 
     @property
     def ref(self) -> CallRef:
-        entity, project = self.project_id.split("/")
+        entity, project = from_project_id(self.project_id)
         if not self.id:
             raise ValueError(
                 "Can't get ref for call without ID, was `weave.init` called?"
@@ -303,10 +318,6 @@ class CallDict(TypedDict):
 CallsIter = PaginatedIterator[CallSchema, WeaveObject]
 
 
-class OpNameError(ValueError):
-    """Raised when an op name is invalid."""
-
-
 def elide_display_name(name: str) -> str:
     if len(name) > MAX_DISPLAY_NAME_LENGTH:
         log_once(
@@ -327,6 +338,8 @@ def _make_calls_iterator(
     query: Query | None = None,
     include_costs: bool = False,
     include_feedback: bool = False,
+    include_storage_size: bool = False,
+    include_total_storage_size: bool = False,
     columns: list[str] | None = None,
     expand_columns: list[str] | None = None,
     return_expanded_column_values: bool = True,
@@ -348,6 +361,8 @@ def _make_calls_iterator(
                     limit=limit,
                     include_costs=include_costs,
                     include_feedback=include_feedback,
+                    include_storage_size=include_storage_size,
+                    include_total_storage_size=include_total_storage_size,
                     query=query,
                     sort_by=sort_by,
                     columns=columns,
@@ -359,7 +374,7 @@ def _make_calls_iterator(
 
     # TODO: Should be Call, not WeaveObject
     def transform_func(call: CallSchema) -> WeaveObject:
-        entity, project = project_id.split("/")
+        entity, project = from_project_id(project_id)
         return make_client_call(entity, project, call, server)
 
     def size_func() -> int:
@@ -414,6 +429,11 @@ def make_client_call(
         deleted_at=server_call.deleted_at,
         thread_id=server_call.thread_id,
         turn_id=server_call.turn_id,
+        wb_run_id=server_call.wb_run_id,
+        wb_run_step=server_call.wb_run_step,
+        wb_run_step_end=server_call.wb_run_step_end,
+        storage_size_bytes=server_call.storage_size_bytes,
+        total_storage_size_bytes=server_call.total_storage_size_bytes,
     )
     if isinstance(call.attributes, AttributesDict):
         call.attributes.freeze()

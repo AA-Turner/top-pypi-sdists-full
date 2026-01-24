@@ -16,7 +16,6 @@ short_description: Carrier end point black/white list.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -146,18 +148,18 @@ EXAMPLES = '''
       fortinet.fortimanager.fmgr_firewall_carrierendpointbwl_entries:
         bypass_validation: false
         adom: FortiCarrier # This is FOC-only object, need a FortiCarrier adom
-        carrier-endpoint-bwl: "1" # id
+        carrier_endpoint_bwl: "1" # id
         state: present
         firewall_carrierendpointbwl_entries:
           action:
             - block
             - exempt
             - exempt-mass-mms
-          carrier-endpoint: "string"
-          log-action:
+          carrier_endpoint: "string"
+          log_action:
             - archive
             - intercept
-          pattern-type: wildcard # <value in [wildcard, regexp, simple]>
+          pattern_type: wildcard # <value in [wildcard, regexp, simple]>
           status: enable
 
 - name: Gathering fortimanager facts
@@ -175,7 +177,7 @@ EXAMPLES = '''
           selector: "firewall_carrierendpointbwl_entries"
           params:
             adom: "FortiCarrier" # This is FOC-only object, need a FortiCarrier adom
-            carrier-endpoint-bwl: "1" # id
+            carrier_endpoint_bwl: "1" # id
             entries: "your_value"
 '''
 
@@ -235,6 +237,7 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'carrier-endpoint-bwl': {'type': 'str', 'api_name': 'carrier_endpoint_bwl'},
         'carrier_endpoint_bwl': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_carrierendpointbwl_entries': {
             'type': 'dict',
             'v_range': [['6.0.0', '7.6.2']],

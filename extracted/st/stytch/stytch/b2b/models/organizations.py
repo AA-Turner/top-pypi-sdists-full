@@ -90,6 +90,33 @@ class ConnectedAppsRequestOptions(pydantic.BaseModel):
         return headers
 
 
+class CustomRolePermission(pydantic.BaseModel):
+    resource_id: str
+    actions: List[str]
+
+
+class CustomRole(pydantic.BaseModel):
+    role_id: str
+    description: str
+    permissions: List[CustomRolePermission]
+
+
+class DeleteExternalIdRequestOptions(pydantic.BaseModel):
+    """
+    Fields:
+      - authorization: Optional authorization object.
+    Pass in an active Stytch Member session token or session JWT and the request
+    will be run using that member's permissions.
+    """  # noqa
+
+    authorization: Optional[Authorization] = None
+
+    def add_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
+        if self.authorization is not None:
+            headers = self.authorization.add_headers(headers)
+        return headers
+
+
 class DeleteRequestOptions(pydantic.BaseModel):
     """
     Fields:
@@ -400,6 +427,7 @@ class Organization(pydantic.BaseModel):
       `NOT_ALLOWED` – no third party Connected Apps are permitted.
 
       - allowed_third_party_connected_apps: An array of third party Connected App IDs that are allowed for the Organization. Only used when the Organization's `third_party_connected_apps_allowed_type` is `RESTRICTED`.
+      - custom_roles: (no documentation yet)
       - trusted_metadata: An arbitrary JSON object for storing application-specific data or identity-provider-specific data.
       - created_at: The timestamp of the Organization's creation. Values conform to the RFC 3339 standard and are expressed in UTC, e.g. `2021-12-29T12:33:09Z`.
       - updated_at: The timestamp of when the Organization was last updated. Values conform to the RFC 3339 standard and are expressed in UTC, e.g. `2021-12-29T12:33:09Z`.
@@ -431,6 +459,7 @@ class Organization(pydantic.BaseModel):
     allowed_first_party_connected_apps: List[str]
     third_party_connected_apps_allowed_type: str
     allowed_third_party_connected_apps: List[str]
+    custom_roles: List[CustomRole]
     trusted_metadata: Optional[Dict[str, Any]] = None
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
@@ -652,6 +681,10 @@ class CreateResponse(ResponseBase):
       - organization: The [Organization object](https://stytch.com/docs/b2b/api/organization-object).
     """  # noqa
 
+    organization: Organization
+
+
+class DeleteExternalIdResponse(ResponseBase):
     organization: Organization
 
 

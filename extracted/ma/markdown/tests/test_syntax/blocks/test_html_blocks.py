@@ -1018,7 +1018,7 @@ class TestHTMLBlocks(TestCase):
     # Note: This is a change in behavior. Previously, Python-Markdown interpreted this in the same manner
     # as browsers and all text after the opening comment tag was considered to be in a comment. However,
     # that did not match the reference implementation. The new behavior does.
-    def test_unclosed_comment_(self):
+    def test_unclosed_comment(self):
         self.assertMarkdownRenders(
             self.dedent(
                 """
@@ -1031,6 +1031,22 @@ class TestHTMLBlocks(TestCase):
                 """
                 <p>&lt;!-- unclosed comment</p>
                 <p><em>not</em> a comment</p>
+                """
+            )
+        )
+
+    def test_invalid_comment_end(self):
+        self.assertMarkdownRenders(
+            self.dedent(
+                """
+                <!-- This comment is malformed and never closes -- >
+                Some content after the bad comment.
+                """
+            ),
+            self.dedent(
+                """
+                <p>&lt;!-- This comment is malformed and never closes -- &gt;
+                Some content after the bad comment.</p>
                 """
             )
         )
@@ -1667,4 +1683,26 @@ class TestHTMLBlocks(TestCase):
                 </div>
                 """
             )
+        )
+
+    def test_multiple_bogus_comments_no_hang(self):
+        """Test that multiple bogus comments (</` patterns) don't cause infinite loop."""
+        self.assertMarkdownRenders(
+            '`</` and `</`',
+            '<p><code>&lt;/</code> and <code>&lt;/</code></p>'
+        )
+
+    def test_multiple_unclosed_comments_no_hang(self):
+        """Test that multiple unclosed comments don't cause infinite loop."""
+        self.assertMarkdownRenders(
+            '<!-- and <!--',
+            '<p>&lt;!-- and &lt;!--</p>'
+        )
+
+    def test_no_hang_issue_1586(self):
+        """Test no hang condition for issue #1586."""
+
+        self.assertMarkdownRenders(
+            'Test `<!--[if mso]>` and `<!--[if !mso]>`',
+            '<p>Test <code>&lt;!--[if mso]&gt;</code> and <code>&lt;!--[if !mso]&gt;</code></p>'
         )

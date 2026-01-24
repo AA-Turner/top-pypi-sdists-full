@@ -7,6 +7,7 @@ import functools
 import getpass
 import logging
 import os
+import pathlib
 import typing as t
 
 import pytest
@@ -17,8 +18,6 @@ from libtmux.test.constants import TEST_SESSION_PREFIX
 from libtmux.test.random import get_test_session_name, namer
 
 if t.TYPE_CHECKING:
-    import pathlib
-
     from libtmux.session import Session
 
 logger = logging.getLogger(__name__)
@@ -252,7 +251,7 @@ def session(
         server.switch_client(target_session=session_id)
 
     for old_test_session in old_test_sessions:
-        logger.debug(f"Old test test session {old_test_session} found. Killing it.")
+        logger.debug("Old test test session %s found. Killing it.", old_test_session)
         server.kill_session(old_test_session)
     assert session.session_name == TEST_SESSION_NAME
     assert TEST_SESSION_NAME != "tmuxp"

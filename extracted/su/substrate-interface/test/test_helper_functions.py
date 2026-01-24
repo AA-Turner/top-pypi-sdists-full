@@ -292,7 +292,7 @@ class TestRPCHelperFunctions(unittest.TestCase):
             if method == 'author_pendingExtrinsics':
                 return {
                     'jsonrpc': '2.0', 'result': [
-                        '0x69028400b4c04959acdf1a7d56a3150875d489e9750a28d6bd26a113d14bfff5fecfd76601262318a56de69ac67ffaab965aad882cdbe8b71e4dae5fe0d474e6137575f0780a3f263c778af4c0e9651ff6a0a176f8f4b6cd67883028e607d43297d571a4837502240000630801000100511f0100010300a6db78f2897bc27a8d85b99cc38beefe9eaed00e010400000000076aa8bfdc190000000000',
+                        '0xc1018400f2205ff378dd7b7795fed98ee7adf8e1d8fdddff23eefef419023178abbaff5b01fcc8d58ebf659f6467deff99fbbdf49a222b7eda6cc404efc7997b413ce77535be600418a6a30aa3b0fbf32d3f122894aebb0322e2ce296f667e44832c42eb87c502dd01000000001054657374',
                     ],
                     'id': 17
                 }

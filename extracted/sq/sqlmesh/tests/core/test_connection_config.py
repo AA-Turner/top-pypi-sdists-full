@@ -4,6 +4,7 @@ import typing as t
 
 import pytest
 from _pytest.fixtures import FixtureRequest
+from sqlglot import exp
 from unittest.mock import patch, MagicMock
 
 from sqlmesh.core.config.connection import (
@@ -444,6 +445,63 @@ def test_trino_catalog_type_override(make_config):
     assert config.catalog_type_overrides == {"my_catalog": "iceberg"}
 
 
+def test_trino_timestamp_mapping(make_config):
+    required_kwargs = dict(
+        type="trino",
+        user="user",
+        host="host",
+        catalog="catalog",
+    )
+
+    # Test config without timestamp_mapping
+    config = make_config(**required_kwargs)
+    assert config.timestamp_mapping is None
+
+    # Test config with timestamp_mapping
+    config = make_config(
+        **required_kwargs,
+        timestamp_mapping={
+            "TIMESTAMP": "TIMESTAMP(6)",
+            "TIMESTAMP(3)": "TIMESTAMP WITH TIME ZONE",
+        },
+    )
+
+    assert config.timestamp_mapping is not None
+    assert config.timestamp_mapping[exp.DataType.build("TIMESTAMP")] == exp.DataType.build(
+        "TIMESTAMP(6)"
+    )
+
+    # Test with invalid source type
+    with pytest.raises(ConfigError) as exc_info:
+        make_config(
+            **required_kwargs,
+            timestamp_mapping={
+                "INVALID_TYPE": "TIMESTAMP",
+            },
+        )
+    assert "Invalid SQL type string" in str(exc_info.value)
+    assert "INVALID_TYPE" in str(exc_info.value)
+
+    # Test with invalid target type (not a valid SQL type)
+    with pytest.raises(ConfigError) as exc_info:
+        make_config(
+            **required_kwargs,
+            timestamp_mapping={
+                "TIMESTAMP": "INVALID_TARGET_TYPE",
+            },
+        )
+    assert "Invalid SQL type string" in str(exc_info.value)
+    assert "INVALID_TARGET_TYPE" in str(exc_info.value)
+
+    # Test with empty mapping
+    config = make_config(
+        **required_kwargs,
+        timestamp_mapping={},
+    )
+    assert config.timestamp_mapping is not None
+    assert config.timestamp_mapping == {}
+
+
 def test_duckdb(make_config):
     config = make_config(
         type="duckdb",
@@ -822,6 +880,37 @@ def test_ducklake_attach_add_ducklake_prefix():
     )
 
 
+def test_ducklake_metadata_schema():
+    # Test that metadata_schema parameter is included when specified
+    options = DuckDBAttachOptions(
+        type="ducklake", path="catalog.ducklake", metadata_schema="custom_schema"
+    )
+    assert (
+        options.to_sql(alias="my_ducklake")
+        == "ATTACH IF NOT EXISTS 'ducklake:catalog.ducklake' AS my_ducklake (METADATA_SCHEMA 'custom_schema')"
+    )
+
+    # Test that metadata_schema is not included when not specified (default behavior)
+    options = DuckDBAttachOptions(type="ducklake", path="catalog.ducklake")
+    assert (
+        options.to_sql(alias="my_ducklake")
+        == "ATTACH IF NOT EXISTS 'ducklake:catalog.ducklake' AS my_ducklake"
+    )
+
+    # Test metadata_schema with other ducklake options
+    options = DuckDBAttachOptions(
+        type="ducklake",
+        path="catalog.ducklake",
+        data_path="/path/to/data",
+        encrypted=True,
+        metadata_schema="workspace_schema",
+    )
+    assert (
+        options.to_sql(alias="my_ducklake")
+        == "ATTACH IF NOT EXISTS 'ducklake:catalog.ducklake' AS my_ducklake (DATA_PATH '/path/to/data', ENCRYPTED, METADATA_SCHEMA 'workspace_schema')"
+    )
+
+
 def test_duckdb_config_json_strings(make_config):
     config = make_config(
         type="duckdb",
@@ -944,42 +1033,86 @@ def test_motherduck_token_mask(make_config):
     assert isinstance(config_1, MotherDuckConnectionConfig)
     assert isinstance(config_2, MotherDuckConnectionConfig)
     assert isinstance(config_3, MotherDuckConnectionConfig)
-    assert config_1._mask_motherduck_token(config_1.database) == "whodunnit"
+
+    # motherduck format
+    assert config_1._mask_sensitive_data(config_1.database) == "whodunnit"
     assert (
-        config_1._mask_motherduck_token(f"md:{config_1.database}?motherduck_token={config_1.token}")
-        == "md:whodunnit?motherduck_token=*****"
+        config_1._mask_sensitive_data(f"md:{config_1.database}?motherduck_token={config_1.token}")
+        == "md:whodunnit?motherduck_token=********"
     )
     assert (
-        config_1._mask_motherduck_token(
+        config_1._mask_sensitive_data(
             f"md:{config_1.database}?attach_mode=single&motherduck_token={config_1.token}"
         )
-        == "md:whodunnit?attach_mode=single&motherduck_token=*****"
+        == "md:whodunnit?attach_mode=single&motherduck_token=********"
     )
     assert (
-        config_2._mask_motherduck_token(f"md:{config_2.database}?motherduck_token={config_2.token}")
-        == "md:whodunnit?motherduck_token=******************"
+        config_2._mask_sensitive_data(f"md:{config_2.database}?motherduck_token={config_2.token}")
+        == "md:whodunnit?motherduck_token=********"
     )
     assert (
-        config_3._mask_motherduck_token(f"md:?motherduck_token={config_3.token}")
-        == "md:?motherduck_token=**********"
+        config_3._mask_sensitive_data(f"md:?motherduck_token={config_3.token}")
+        == "md:?motherduck_token=********"
     )
     assert (
-        config_1._mask_motherduck_token("?motherduck_token=secret1235")
-        == "?motherduck_token=**********"
+        config_1._mask_sensitive_data("?motherduck_token=secret1235")
+        == "?motherduck_token=********"
     )
     assert (
-        config_1._mask_motherduck_token("md:whodunnit?motherduck_token=short")
-        == "md:whodunnit?motherduck_token=*****"
+        config_1._mask_sensitive_data("md:whodunnit?motherduck_token=short")
+        == "md:whodunnit?motherduck_token=********"
     )
     assert (
-        config_1._mask_motherduck_token("md:whodunnit?motherduck_token=longtoken123456789")
-        == "md:whodunnit?motherduck_token=******************"
+        config_1._mask_sensitive_data("md:whodunnit?motherduck_token=longtoken123456789")
+        == "md:whodunnit?motherduck_token=********"
     )
     assert (
-        config_1._mask_motherduck_token("md:whodunnit?motherduck_token=")
+        config_1._mask_sensitive_data("md:whodunnit?motherduck_token=")
         == "md:whodunnit?motherduck_token="
     )
-    assert config_1._mask_motherduck_token(":memory:") == ":memory:"
+    assert config_1._mask_sensitive_data(":memory:") == ":memory:"
+
+    # postgres format
+    assert (
+        config_1._mask_sensitive_data(
+            "postgres:dbname=mydb user=myuser password=secret123 host=localhost"
+        )
+        == "postgres:dbname=mydb user=myuser password=******** host=localhost"
+    )
+
+    assert (
+        config_1._mask_sensitive_data(
+            "dbname=postgres user=postgres password=pg_secret host=127.0.0.1"
+        )
+        == "dbname=postgres user=postgres password=******** host=127.0.0.1"
+    )
+    assert (
+        config_1._mask_sensitive_data(
+            "postgres:dbname=testdb password=verylongpassword123 user=admin"
+        )
+        == "postgres:dbname=testdb password=******** user=admin"
+    )
+    assert config_1._mask_sensitive_data("postgres:password=short") == "postgres:password=********"
+    assert (
+        config_1._mask_sensitive_data("postgres:host=localhost password=p@ssw0rd! dbname=db")
+        == "postgres:host=localhost password=******** dbname=db"
+    )
+
+    assert (
+        config_1._mask_sensitive_data("postgres:dbname=mydb user=myuser host=localhost")
+        == "postgres:dbname=mydb user=myuser host=localhost"
+    )
+
+    assert (
+        config_1._mask_sensitive_data("md:db?motherduck_token=token123 postgres:password=secret")
+        == "md:db?motherduck_token=******** postgres:password=********"
+    )
+
+    # MySQL format
+    assert (
+        config_1._mask_sensitive_data("host=localhost user=root password=mysql123 database=mydb")
+        == "host=localhost user=root password=******** database=mydb"
+    )
 
 
 def test_bigquery(make_config):

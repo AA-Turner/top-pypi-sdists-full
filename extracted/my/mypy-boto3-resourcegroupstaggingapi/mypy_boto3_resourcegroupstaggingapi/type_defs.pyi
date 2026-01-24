@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 
 from .literals import ErrorCodeType, GroupByAttributeType, TargetIdTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -47,7 +42,11 @@ __all__ = (
     "GetTagValuesInputPaginateTypeDef",
     "GetTagValuesInputTypeDef",
     "GetTagValuesOutputTypeDef",
+    "ListRequiredTagsInputPaginateTypeDef",
+    "ListRequiredTagsInputTypeDef",
+    "ListRequiredTagsOutputTypeDef",
     "PaginatorConfigTypeDef",
+    "RequiredTagTypeDef",
     "ResourceTagMappingTypeDef",
     "ResponseMetadataTypeDef",
     "StartReportCreationInputTypeDef",
@@ -61,14 +60,14 @@ __all__ = (
 )
 
 class ComplianceDetailsTypeDef(TypedDict):
-    NoncompliantKeys: NotRequired[List[str]]
-    KeysWithNoncompliantValues: NotRequired[List[str]]
+    NoncompliantKeys: NotRequired[list[str]]
+    KeysWithNoncompliantValues: NotRequired[list[str]]
     ComplianceStatus: NotRequired[bool]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -110,6 +109,15 @@ class GetTagValuesInputTypeDef(TypedDict):
     Key: str
     PaginationToken: NotRequired[str]
 
+class ListRequiredTagsInputTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class RequiredTagTypeDef(TypedDict):
+    ResourceType: NotRequired[str]
+    CloudFormationResourceTypes: NotRequired[list[str]]
+    ReportingTagKeys: NotRequired[list[str]]
+
 class TagTypeDef(TypedDict):
     Key: str
     Value: str
@@ -132,21 +140,21 @@ class DescribeReportCreationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetTagKeysOutputTypeDef(TypedDict):
-    TagKeys: List[str]
+    TagKeys: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
 class GetTagValuesOutputTypeDef(TypedDict):
-    TagValues: List[str]
+    TagValues: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
 class TagResourcesOutputTypeDef(TypedDict):
-    FailedResourcesMap: Dict[str, FailureInfoTypeDef]
+    FailedResourcesMap: dict[str, FailureInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UntagResourcesOutputTypeDef(TypedDict):
-    FailedResourcesMap: Dict[str, FailureInfoTypeDef]
+    FailedResourcesMap: dict[str, FailureInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetComplianceSummaryInputPaginateTypeDef(TypedDict):
@@ -164,8 +172,11 @@ class GetTagValuesInputPaginateTypeDef(TypedDict):
     Key: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListRequiredTagsInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class GetComplianceSummaryOutputTypeDef(TypedDict):
-    SummaryList: List[SummaryTypeDef]
+    SummaryList: list[SummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
@@ -188,12 +199,17 @@ class GetResourcesInputTypeDef(TypedDict):
     ExcludeCompliantResources: NotRequired[bool]
     ResourceARNList: NotRequired[Sequence[str]]
 
+class ListRequiredTagsOutputTypeDef(TypedDict):
+    RequiredTags: list[RequiredTagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ResourceTagMappingTypeDef(TypedDict):
     ResourceARN: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     ComplianceDetails: NotRequired[ComplianceDetailsTypeDef]
 
 class GetResourcesOutputTypeDef(TypedDict):
-    ResourceTagMappingList: List[ResourceTagMappingTypeDef]
+    ResourceTagMappingList: list[ResourceTagMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]

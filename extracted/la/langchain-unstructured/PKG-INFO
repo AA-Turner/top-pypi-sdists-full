@@ -1,19 +1,17 @@
 Metadata-Version: 2.1
 Name: langchain-unstructured
-Version: 0.1.6
+Version: 1.0.1
 Summary: An integration package connecting Unstructured and LangChain
 Home-page: https://github.com/langchain-ai/langchain-unstructured
 License: MIT
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10.0,<4.0.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Provides-Extra: local
-Requires-Dist: langchain-core (>=0.3.6,<0.4.0)
-Requires-Dist: onnxruntime (>=1.17.0,<=1.19.2)
+Requires-Dist: langchain-core (>=1.0.5,<2.0.0)
 Requires-Dist: unstructured-client (>=0.27.0,<1)
 Requires-Dist: unstructured[all-docs] (>=0.15.7,<0.16.0) ; (python_version < "3.13") and (extra == "local")
 Project-URL: Repository, https://github.com/langchain-ai/langchain-unstructured
@@ -88,8 +86,8 @@ print(docs[0].metadata)
 
 References
 ----------
-https://docs.unstructured.io/api-reference/api-services/sdk
-https://docs.unstructured.io/api-reference/api-services/overview
-https://docs.unstructured.io/open-source/core-functionality/partitioning
-https://docs.unstructured.io/open-source/core-functionality/chunking
+- https://docs.unstructured.io/api-reference/partition/sdk-python
+- https://docs.unstructured.io/api-reference/api-services/overview
+- https://docs.unstructured.io/open-source/core-functionality/partitioning
+- https://docs.unstructured.io/open-source/core-functionality/chunking
 

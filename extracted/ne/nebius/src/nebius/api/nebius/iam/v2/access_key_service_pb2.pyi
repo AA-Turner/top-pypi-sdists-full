@@ -1,8 +1,8 @@
 from nebius.api.nebius import annotations_pb2 as _annotations_pb2
 from nebius.api.nebius.common.v1 import metadata_pb2 as _metadata_pb2
 from nebius.api.nebius.common.v1 import operation_pb2 as _operation_pb2
-from nebius.api.nebius.iam.v2 import access_key_pb2 as _access_key_pb2
 from nebius.api.nebius.iam.v1 import access_pb2 as _access_pb2
+from nebius.api.nebius.iam.v2 import access_key_pb2 as _access_key_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -19,6 +19,12 @@ class CreateAccessKeyRequest(_message.Message):
     def __init__(self, metadata: _Optional[_Union[_metadata_pb2.ResourceMetadata, _Mapping]] = ..., spec: _Optional[_Union[_access_key_pb2.AccessKeySpec, _Mapping]] = ...) -> None: ...
 
 class GetAccessKeyRequest(_message.Message):
+    __slots__ = ["id"]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class GetAccessKeySecretRequest(_message.Message):
     __slots__ = ["id"]
     ID_FIELD_NUMBER: _ClassVar[int]
     id: str
@@ -97,6 +103,14 @@ class DeleteAccessKeyByAwsIdRequest(_message.Message):
     AWS_ACCESS_KEY_ID_FIELD_NUMBER: _ClassVar[int]
     aws_access_key_id: str
     def __init__(self, aws_access_key_id: _Optional[str] = ...) -> None: ...
+
+class GetAccessKeySecretResponse(_message.Message):
+    __slots__ = ["aws_access_key_id", "secret"]
+    AWS_ACCESS_KEY_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_FIELD_NUMBER: _ClassVar[int]
+    aws_access_key_id: str
+    secret: str
+    def __init__(self, aws_access_key_id: _Optional[str] = ..., secret: _Optional[str] = ...) -> None: ...
 
 class ListAccessKeysResponse(_message.Message):
     __slots__ = ["items", "next_page_token"]

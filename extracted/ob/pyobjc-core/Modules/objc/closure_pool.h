@@ -1,5 +1,5 @@
 /*
- * Closure require special memory support on x86_64 and PPC64: execution must be
+ * Closure require special memory support on x86_64: execution must be
  * explicitly enabled for the memory used for closure.
  */
 #ifndef PyObjC_CLOSURE_POOL
@@ -22,7 +22,6 @@
 #define _Nullable
 #define _Nonnull
 #endif /* !NS_ASSUME_NONNULL_BEGIN */
-
 
 NS_ASSUME_NONNULL_BEGIN
 

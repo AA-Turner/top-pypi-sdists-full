@@ -8,6 +8,7 @@ from ...core.request_options import RequestOptions
 from ...requests.gift_card_activity import GiftCardActivityParams
 from ...types.create_gift_card_activity_response import CreateGiftCardActivityResponse
 from ...types.gift_card_activity import GiftCardActivity
+from ...types.list_gift_card_activities_response import ListGiftCardActivitiesResponse
 from .raw_client import AsyncRawActivitiesClient, RawActivitiesClient
 
 # this is used as the default value for optional parameters
@@ -41,7 +42,7 @@ class ActivitiesClient:
         cursor: typing.Optional[str] = None,
         sort_order: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[GiftCardActivity]:
+    ) -> SyncPager[GiftCardActivity, ListGiftCardActivitiesResponse]:
         """
         Lists gift card activities. By default, you get gift card activities for all
         gift cards in the seller's account. You can optionally specify query parameters to
@@ -92,7 +93,7 @@ class ActivitiesClient:
 
         Returns
         -------
-        SyncPager[GiftCardActivity]
+        SyncPager[GiftCardActivity, ListGiftCardActivitiesResponse]
             Success
 
         Examples
@@ -102,7 +103,16 @@ class ActivitiesClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.gift_cards.activities.list()
+        response = client.gift_cards.activities.list(
+            gift_card_id="gift_card_id",
+            type="type",
+            location_id="location_id",
+            begin_time="begin_time",
+            end_time="end_time",
+            limit=1,
+            cursor="cursor",
+            sort_order="sort_order",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -202,7 +212,7 @@ class AsyncActivitiesClient:
         cursor: typing.Optional[str] = None,
         sort_order: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[GiftCardActivity]:
+    ) -> AsyncPager[GiftCardActivity, ListGiftCardActivitiesResponse]:
         """
         Lists gift card activities. By default, you get gift card activities for all
         gift cards in the seller's account. You can optionally specify query parameters to
@@ -253,7 +263,7 @@ class AsyncActivitiesClient:
 
         Returns
         -------
-        AsyncPager[GiftCardActivity]
+        AsyncPager[GiftCardActivity, ListGiftCardActivitiesResponse]
             Success
 
         Examples
@@ -268,7 +278,16 @@ class AsyncActivitiesClient:
 
 
         async def main() -> None:
-            response = await client.gift_cards.activities.list()
+            response = await client.gift_cards.activities.list(
+                gift_card_id="gift_card_id",
+                type="type",
+                location_id="location_id",
+                begin_time="begin_time",
+                end_time="end_time",
+                limit=1,
+                cursor="cursor",
+                sort_order="sort_order",
+            )
             async for item in response:
                 yield item
 

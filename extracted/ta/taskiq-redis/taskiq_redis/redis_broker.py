@@ -1,14 +1,10 @@
-import sys
 import uuid
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from logging import getLogger
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Dict,
-    Optional,
+    TypeAlias,
     TypeVar,
 )
 
@@ -22,10 +18,6 @@ _T = TypeVar("_T")
 
 logger = getLogger("taskiq.redis_broker")
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 
 if TYPE_CHECKING:
     _BlockingConnectionPool: TypeAlias = BlockingConnectionPool[Connection]  # type: ignore
@@ -39,10 +31,10 @@ class BaseRedisBroker(AsyncBroker):
     def __init__(
         self,
         url: str,
-        task_id_generator: Optional[Callable[[], str]] = None,
-        result_backend: Optional[AsyncResultBackend[_T]] = None,
+        task_id_generator: Callable[[], str] | None = None,
+        result_backend: AsyncResultBackend[_T] | None = None,
         queue_name: str = "taskiq",
-        max_connection_pool_size: Optional[int] = None,
+        max_connection_pool_size: int | None = None,
         **connection_kwargs: Any,
     ) -> None:
         """
@@ -122,7 +114,7 @@ class ListQueueBroker(BaseRedisBroker):
         """
         queue_name = message.labels.get("queue_name") or self.queue_name
         async with Redis(connection_pool=self.connection_pool) as redis_conn:
-            await redis_conn.lpush(queue_name, message.message)
+            await redis_conn.lpush(queue_name, message.message)  # type: ignore
 
     async def listen(self) -> AsyncGenerator[bytes, None]:
         """
@@ -137,7 +129,7 @@ class ListQueueBroker(BaseRedisBroker):
         while True:
             try:
                 async with Redis(connection_pool=self.connection_pool) as redis_conn:
-                    yield (await redis_conn.brpop(self.queue_name))[
+                    yield (await redis_conn.brpop(self.queue_name))[  # type: ignore
                         redis_brpop_data_position
                     ]
             except ConnectionError as exc:
@@ -159,18 +151,18 @@ class RedisStreamBroker(BaseRedisBroker):
         self,
         url: str,
         queue_name: str = "taskiq",
-        max_connection_pool_size: Optional[int] = None,
+        max_connection_pool_size: int | None = None,
         consumer_group_name: str = "taskiq",
-        consumer_name: Optional[str] = None,
+        consumer_name: str | None = None,
         consumer_id: str = "$",
         mkstream: bool = True,
         xread_block: int = 2000,
-        maxlen: Optional[int] = None,
+        maxlen: int | None = None,
         approximate: bool = True,
         idle_timeout: int = 600000,  # 10 minutes
         unacknowledged_batch_size: int = 100,
-        xread_count: Optional[int] = 100,
-        additional_streams: Optional[Dict[str, str]] = None,
+        xread_count: int | None = 100,
+        additional_streams: dict[str, str | int] | None = None,
         **connection_kwargs: Any,
     ) -> None:
         """
@@ -251,19 +243,20 @@ class RedisStreamBroker(BaseRedisBroker):
 
         :param message: message to append.
         """
+        queue_name = message.labels.get("queue_name") or self.queue_name
         async with Redis(connection_pool=self.connection_pool) as redis_conn:
             await redis_conn.xadd(
-                self.queue_name,
+                queue_name,
                 {b"data": message.message},
                 maxlen=self.maxlen,
                 approximate=self.approximate,
             )
 
-    def _ack_generator(self, id: str) -> Callable[[], Awaitable[None]]:
+    def _ack_generator(self, id: str, queue_name: str) -> Callable[[], Awaitable[None]]:
         async def _ack() -> None:
             async with Redis(connection_pool=self.connection_pool) as redis_conn:
                 await redis_conn.xack(
-                    self.queue_name,
+                    queue_name,
                     self.consumer_group_name,
                     id,
                 )
@@ -280,18 +273,18 @@ class RedisStreamBroker(BaseRedisBroker):
                     self.consumer_name,
                     {
                         self.queue_name: ">",
-                        **self.additional_streams,
+                        **self.additional_streams,  # type: ignore[dict-item]
                     },
                     block=self.block,
                     noack=False,
                     count=self.count,
                 )
-                for _, msg_list in fetched:
+                for stream, msg_list in fetched:
                     for msg_id, msg in msg_list:
                         logger.debug("Received message: %s", msg)
                         yield AckableMessage(
                             data=msg[b"data"],
-                            ack=self._ack_generator(msg_id),
+                            ack=self._ack_generator(id=msg_id, queue_name=stream),
                         )
                 logger.debug("Starting fetching unacknowledged messages")
                 for stream in [self.queue_name, *self.additional_streams.keys()]:
@@ -310,12 +303,12 @@ class RedisStreamBroker(BaseRedisBroker):
                         )
                         logger.debug(
                             "Found %d pending messages in stream %s",
-                            len(pending),
+                            len(pending[1]),
                             stream,
                         )
                         for msg_id, msg in pending[1]:
                             logger.debug("Received message: %s", msg)
                             yield AckableMessage(
                                 data=msg[b"data"],
-                                ack=self._ack_generator(msg_id),
+                                ack=self._ack_generator(id=msg_id, queue_name=stream),
                             )

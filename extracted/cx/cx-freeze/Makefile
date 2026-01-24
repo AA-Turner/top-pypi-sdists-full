@@ -63,19 +63,21 @@ doc:
 	$(MAKE) -C doc epub
 	$(MAKE) -C doc pdf
 
-.PHONY: tests
-tests:
-	./ci/install-tools.sh --tests
+.PHONY: wheel
+wheel:
 	./ci/build-wheel.sh
+
+.PHONY: tests
+tests: wheel
+	./ci/install-tools.sh --tests
 	cp pyproject.toml $(COV_TMPDIR)/
 	cp -a samples $(COV_TMPDIR)/
 	cp -a tests $(COV_TMPDIR)/
-	cd $(COV_TMPDIR) && pytest --dist=loadfile -nauto -v || true
+	cd $(COV_TMPDIR) && pytest --dist=loadfile -nauto -v -rpfEsXx tests|| true
 
 .PHONY: cov
-cov:
+cov: wheel
 	./ci/install-tools.sh --tests
-	./ci/build-wheel.sh
 	@rm -rf build/coverage_html_report
 	cp pyproject.toml $(COV_TMPDIR)/
 	cp -a samples $(COV_TMPDIR)/
@@ -93,6 +95,7 @@ release:
 	@echo "--or--"
 	@echo "  bump-my-version bump patch --new-version=X.XX.X"
 	@echo "--then--"
+	@echo "  git push origin `git branch --show-current`"
 	@echo "  git push origin `git branch --show-current` --tags"
 
 .PHONY: release-dev

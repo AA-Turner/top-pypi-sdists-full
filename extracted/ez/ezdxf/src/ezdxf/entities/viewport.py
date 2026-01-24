@@ -623,30 +623,38 @@ class Viewport(DXFGraphic):
         vp_height = self.dxf.height
         return vp_height / msp_height
 
+    def get_view_direction(self) -> Vec3:
+        """Returns the normalized view direction vector."""
+        try:
+            return Vec3(self.dxf.view_direction_vector).normalize()
+        except ZeroDivisionError:
+            return Z_AXIS
+
     @property
     def is_top_view(self) -> bool:
         """Returns ``True`` if the viewport is a top view."""
-        view_direction: Vec3 = self.dxf.view_direction_vector
-        return view_direction.is_null or view_direction.isclose(Z_AXIS)
+        return self.get_view_direction().isclose(Z_AXIS)
 
     def get_view_center_point(self) -> Vec3:
-        # TODO: Is there a flag or attribute that determines which of these points is
-        #  the center point?
-        center_point = Vec3(self.dxf.view_center_point)
-        if center_point.is_null:
-            center_point = Vec3(self.dxf.view_target_point)
-        return center_point
+        """Returns the center of the VIEWPORT in modelspace."""
+        return Vec3(self.dxf.view_center_point)
 
     def get_transformation_matrix(self) -> Matrix44:
         """Returns the transformation matrix from modelspace to paperspace coordinates."""
         # supports only top-view viewports!
         scale = self.get_scale()
         rotation_angle: float = self.dxf.view_twist_angle
-        msp_center_point: Vec3 = self.get_view_center_point()
+        msp_center_point: Vec3 = Vec3(self.dxf.view_center_point)
         offset: Vec3 = self.dxf.center - (msp_center_point * scale)
-        m = Matrix44.scale(scale)
+        base_point = Vec3(self.dxf.view_target_point)
+
+        # Take base point into account before applying the view twist-angle:
+        m = Matrix44.translate(-base_point.x, -base_point.y, -base_point.z)
+        m @= Matrix44.scale(scale)
+
         if rotation_angle:
             m @= Matrix44.z_rotate(math.radians(rotation_angle))
+
         return m @ Matrix44.translate(offset.x, offset.y, 0)
 
     def get_aspect_ratio(self) -> float:
@@ -662,20 +670,42 @@ class Viewport(DXFGraphic):
         """Returns the limits of the modelspace to view in drawing units
         as tuple (min_x, min_y, max_x, max_y).
         """
-        msp_center_point: Vec3 = self.get_view_center_point()
-        msp_height: float = self.dxf.view_height
-        rotation_angle: float = self.dxf.view_twist_angle
-        ratio = self.get_aspect_ratio()
-        if ratio == 0.0:
-            raise ValueError("invalid viewport parameters width or height")
 
-        w2 = msp_height * ratio * 0.5
-        h2 = msp_height * 0.5
+        rotation_angle: float = self.dxf.view_twist_angle
         if rotation_angle:
-            frame = Vec2.list(((-w2, -h2), (w2, -h2), (w2, h2), (-w2, h2)))
-            angle = math.radians(rotation_angle)
-            bbox = BoundingBox2d(v.rotate(angle) + msp_center_point for v in frame)
-            return bbox.extmin.x, bbox.extmin.y, bbox.extmax.x, bbox.extmax.y
+            return self._get_modelspace_slow()
         else:
+            msp_center_point: Vec3 = Vec3(self.dxf.view_center_point) + Vec3(self.dxf.view_target_point) 
+            msp_height: float = self.dxf.view_height
+            ratio = self.get_aspect_ratio()
+            if ratio == 0.0:
+                raise ValueError("invalid viewport parameters width or height")
+            w2 = msp_height * ratio * 0.5
+            h2 = msp_height * 0.5
+
             mx, my, _ = msp_center_point
             return mx - w2, my - h2, mx + w2, my + h2
+
+    def _get_modelspace_slow(self) -> tuple[float, float, float, float]:
+        """Returns the limits of the modelspace to view in drawing units
+        as tuple (min_x, min_y, max_x, max_y) and take account rotaiton.
+        """
+
+        """Viewport clip is complex because viewport can have no-centered tilt
+        for that we compute matrix of pcs->wcs and apply it on frame corners
+        """
+        matrix = self.get_transformation_matrix()
+        matrix.inverse()
+        c = self.dxf.center
+        w2 = self.dxf.width / 2
+        h2 =  self.dxf.height / 2
+
+        frame = Vec2.list((
+            (-w2 + c.x, -h2 + c.y), 
+            (w2 + c.x, -h2 + c.y), 
+            (w2 + c.x, h2 + c.y), 
+            (-w2 + c.x, h2 + c.y))
+        )
+
+        bbox = BoundingBox2d( matrix.fast_2d_transform(frame) )
+        return bbox.extmin.x, bbox.extmin.y, bbox.extmax.x, bbox.extmax.y

@@ -10,7 +10,6 @@
 #  Copyright (C) 2015-2024 Comet ML INC
 #  This source code is licensed under the MIT license.
 # *******************************************************
-import math
 from http import HTTPStatus
 from typing import IO, Any, Dict, List, Optional
 
@@ -30,6 +29,7 @@ from ..exceptions import BACKEND_CUSTOM_ERROR, CometRestApiException
 from ..file_downloader import FileDownloadSizeMonitor
 from ..messages import StandardOutputMessage
 from .http_session import API_KEY_HEADER
+from .offset_counter import OffsetCounter
 
 # the maximal retry backoff time
 BACKOFF_MAX = 120
@@ -64,6 +64,7 @@ def format_stdout_message_batch_items(
     experiment_key: str,
     stderr: bool,
     max_line_length: int,
+    offset_counter: OffsetCounter,
 ) -> Optional[Dict[str, Any]]:
     stdout_lines = []
     timestamp = int(timestamp * 1000)  # the Java format - milliseconds since epoch
@@ -77,25 +78,17 @@ def format_stdout_message_batch_items(
             continue
 
         lines = split_line_by_length(item.message.output, max_line_length)
-        if len(lines) == 0:
-            continue
-
-        # message_id increases monotonically, but we need gaps in the sequence to allow inserting
-        # new values between existing ones. To achieve this, we expand the numeric range by a factor of 1.5
-        offset = int(math.ceil(item.message.message_id * 1.5))
-
         for i, line in enumerate(lines):
-            if i > 0:
-                offset += 1
-
             stdout_lines.append(
                 {
                     PAYLOAD_STDERR: stderr,
                     PAYLOAD_OUTPUT: line,
                     PAYLOAD_LOCAL_TIMESTAMP: timestamp,
-                    PAYLOAD_OFFSET: offset,
+                    PAYLOAD_OFFSET: int(offset_counter),
                 }
             )
+            # increment offset counter
+            offset_counter += 1
 
     if len(stdout_lines) == 0:
         return None

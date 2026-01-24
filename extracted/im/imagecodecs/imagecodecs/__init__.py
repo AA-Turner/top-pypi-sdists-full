@@ -1,5 +1,4 @@
 # imagecodecs/__init__.py
-# flake8: noqa
 
 from __future__ import annotations
 
@@ -31,3 +30,8 @@ from .imagecodecs import (  # jpeg_check,; jpeg_version,; JpegError,; JPEG,
     numpy_version,
     version,
 )
+
+# constants are repeated for documentation
+
+__version__ = __version__
+"""Imagecodecs version string."""

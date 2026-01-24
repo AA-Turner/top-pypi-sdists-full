@@ -4,27 +4,44 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Mapping
-from datetime import datetime
+import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Annotated
 
 import numpy as np
 from monty.json import MontyDecoder
 from monty.serialization import loadfn
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+    BeforeValidator,
+    WrapSerializer,
+    model_validator,
+)
 from pymatgen.analysis.structure_analyzer import oxide_type
-from pymatgen.core.structure import Structure
-from pymatgen.core.trajectory import Trajectory
+from pymatgen.core.trajectory import Trajectory as PmgTrajectory
 from pymatgen.entries.computed_entries import ComputedEntry, ComputedStructureEntry
 from pymatgen.io.vasp import Incar, Kpoints, Poscar
-from pymatgen.io.vasp import Potcar as VaspPotcar
 
-from emmet.core.common import convert_datetime
-from emmet.core.math import Vector3D
-from emmet.core.mpid import MPID
 from emmet.core.structure import StructureMetadata
-from emmet.core.utils import utcnow
+from emmet.core.trajectory import RelaxTrajectory, Trajectory
+from emmet.core.types.enums import TaskState, VaspObject
+from emmet.core.types.pymatgen_types.computed_entries_adapter import (
+    ComputedEntryType,
+    ComputedStructureEntryType,
+)
+from emmet.core.types.pymatgen_types.structure_adapter import StructureType
+from emmet.core.types.typing import (
+    DateTimeType,
+    IdentifierType,
+    NullableDateTimeType,
+    JsonListType,
+    JsonDictType,
+    _ser_json_like,
+    _deser_json_like,
+)
+from emmet.core.utils import type_override, utcnow
 from emmet.core.vasp.calc_types import (
     CalcType,
     RunType,
@@ -36,17 +53,18 @@ from emmet.core.vasp.calc_types import (
 from emmet.core.vasp.calculation import (
     Calculation,
     CalculationInput,
+    CoreCalculationOutput,
     PotcarSpec,
     RunStatistics,
-    VaspObject,
+    get_trajectories_from_calculations,
 )
-from emmet.core.vasp.task_valid import TaskState
-from emmet.core.vasp.utils import discover_and_sort_vasp_files
+from emmet.core.vasp.utils import TASK_NAMES, discover_and_sort_vasp_files
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from typing_extensions import Self
+
 
 monty_decoder = MontyDecoder()
 logger = logging.getLogger(__name__)
@@ -54,51 +72,26 @@ logger = logging.getLogger(__name__)
 _VOLUMETRIC_FILES = ("CHGCAR", "LOCPOT", "AECCAR0", "AECCAR1", "AECCAR2")
 
 
-class Potcar(BaseModel):
-    pot_type: str | None = Field(None, description="Pseudo-potential type, e.g. PAW")
-    functional: str | None = Field(
-        None, description="Functional type use in the calculation."
-    )
-    symbols: list[str] | None = Field(
-        None, description="List of VASP potcar symbols used in the calculation."
-    )
-
-
 class OrigInputs(CalculationInput):
-    poscar: Poscar | None = Field(
-        None,
-        description="Pymatgen object representing the POSCAR file.",
-    )
+    """Maintained for backward compatibility - deprecated."""
 
-    potcar: Potcar | VaspPotcar | list[Any] | None = Field(
-        None,
-        description="Pymatgen object representing the POTCAR file.",
-    )
+    def model_post_init(self, __context):
+        super().model_post_init(__context)
+        warnings.warn(
+            f"The `{self.__class__.__name__}` class has been marked "
+            "for deprecation to ensure parity of the inputs field "
+            "in `TaskDoc`. Please transition to using `CalculationInput`, "
+            f"which is fully backwards compatible with `{self.__class__.__name__}`.",
+            stacklevel=2,
+        )
 
-    @field_validator("potcar", mode="before")
-    @classmethod
-    def potcar_ok(cls, v):
-        """Check that the POTCAR meets type requirements."""
-        if isinstance(v, list):
-            return list(v)
-        return v
 
-    @field_validator("potcar", mode="after")
-    @classmethod
-    def parse_potcar(cls, v):
-        """Check that potcar attribute is not a pymatgen POTCAR."""
-        if isinstance(v, VaspPotcar):
-            # The user should not mix potential types, but account for that here
-            # Using multiple potential types will be caught in validation
-            pot_typ = "_".join(set(p.potential_type for p in v))
-            return Potcar(pot_type=pot_typ, functional=v.functional, symbols=v.symbols)
-        return v
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+class InputDoc(OrigInputs):
+    """Maintained for backward compatibility - deprecated."""
 
 
 class OutputDoc(BaseModel):
-    structure: Structure | None = Field(
+    structure: StructureType | None = Field(
         None,
         title="Output Structure",
         description="Output Structure from the VASP calculation.",
@@ -134,33 +127,41 @@ class OutputDoc(BaseModel):
 
     @classmethod
     def from_vasp_calc_doc(
-        cls, calc_doc: Calculation, trajectory: Trajectory | None = None
+        cls,
+        calc_doc: Calculation,
+        trajectory: RelaxTrajectory | PmgTrajectory | None = None,
     ) -> "OutputDoc":
         """
         Create a summary of VASP calculation outputs from a VASP calculation document.
 
-        This will first look for ionic steps in the calculation document. If found, will
-        use it and ignore the trajectory. I not, will get ionic steps from the
-        trajectory.
+        This will first look for ionic steps in the calculation document.
+        If found, will use it and ignore the trajectory.
+        If not, will get ionic steps from the trajectory.
 
         Parameters
         ----------
         calc_doc
             A VASP calculation document.
         trajectory
-            A pymatgen Trajectory.
+            An emmet-core Trajectory.
 
         Returns
         -------
         OutputDoc
             The calculation output summary.
         """
+        forces = None
+        stress = None
         if calc_doc.output.ionic_steps:
             forces = calc_doc.output.ionic_steps[-1].forces
             stress = calc_doc.output.ionic_steps[-1].stress
-        elif trajectory and (ionic_steps := trajectory.frame_properties) is not None:
-            forces = ionic_steps[-1].get("forces")
-            stress = ionic_steps[-1].get("stress")
+        elif trajectory:
+            if isinstance(trajectory, PmgTrajectory):
+                forces = trajectory.frame_properties[-1]["forces"]  # type: ignore[index]
+                stress = trajectory.frame_properties[-1]["stress"]  # type: ignore[index]
+            else:
+                forces = trajectory.forces[-1]
+                stress = trajectory.stress[-1]
         else:
             raise RuntimeError("Unable to find ionic steps.")
 
@@ -175,96 +176,14 @@ class OutputDoc(BaseModel):
         )
 
 
-class InputDoc(CalculationInput):
-    """Light wrapper around `CalculationInput` with a few extra fields.
-
-    pseudo_potentials (Potcar) : summary of the POTCARs used in the calculation
-    xc_override (str) : the exchange-correlation functional used if not
-        the one specified by POTCAR
-    is_lasph (bool) : how the calculation set LASPH (aspherical corrections)
-    magnetic_moments (list of floats) : on-site magnetic moments
-    ncl_magnetic_moments (list of 3-vector of floats) : on-site, noncollinear magnetic moments
-    """
-
-    pseudo_potentials: Potcar | None = Field(
-        None, description="Summary of the pseudo-potentials used in this calculation"
-    )
-
-    xc_override: str | None = Field(
-        None, description="Exchange-correlation functional used if not the default"
-    )
-    is_lasph: bool | None = Field(
-        None, description="Whether the calculation was run with aspherical corrections"
-    )
-    magnetic_moments: list[float] | None = Field(
-        None, description="Magnetic moments for each atom"
-    )
-
-    ncl_magnetic_moments: list[Vector3D] | None = Field(
-        None,
-        description="The vector-valued magnetic moments from a noncollinear calculation.",
-    )
-
-    @field_validator("parameters", mode="after")
-    @classmethod
-    def parameter_keys_should_not_contain_spaces(cls, parameters: dict | None):
-        # A change in VASP introduced whitespace into some parameters,
-        # for example `<i type="string" name="GGA    ">PE</I>` was observed in
-        # VASP 6.4.3. This will lead to an incorrect return value from RunType.
-        # This validator will ensure that any already-parsed documents are fixed.
-        if parameters:
-            return {k.strip(): v for k, v in parameters.items()}
-
-    @classmethod
-    def from_vasp_calc_doc(cls, calc_doc: Calculation) -> "InputDoc":
-        """
-        Create calculation input summary from a calculation document.
-
-        Parameters
-        ----------
-        calc_doc
-            A VASP calculation document.
-
-        Returns
-        -------
-        InputDoc
-            A summary of the input structure and parameters.
-        """
-        xc = calc_doc.input.incar.get("GGA") or calc_doc.input.incar.get("METAGGA")
-        if xc:
-            xc = xc.upper()
-
-        if len(potcar_meta := calc_doc.input.potcar_type[0].split("_")) == 2:
-            pot_type, func = potcar_meta
-        elif len(potcar_meta) == 1:
-            pot_type = potcar_meta[0]
-            func = "LDA"
-
-        pps = Potcar(pot_type=pot_type, functional=func, symbols=calc_doc.input.potcar)
-
-        mag_config = {k: None for k in ("magnetic_moments", "ncl_magnetic_moments")}
-        if (magmom := calc_doc.input.parameters.get("MAGMOM")) is not None:
-            if all(isinstance(mag, float) for mag in magmom):
-                mag_config["magnetic_moments"] = magmom
-            elif all(isinstance(mag, list | tuple) for mag in magmom):
-                mag_config["ncl_magnetic_moments"] = magmom
-
-        return cls(
-            **calc_doc.input.model_dump(),
-            pseudo_potentials=pps,
-            xc_override=xc,
-            is_lasph=calc_doc.input.parameters.get("LASPH", False),
-            **mag_config,
-        )
-
-
+@type_override({"corrections": str, "job": str})
 class CustodianDoc(BaseModel):
-    corrections: list[Any] | None = Field(
+    corrections: JsonListType = Field(
         None,
         title="Custodian Corrections",
         description="List of custodian correction data for calculation.",
     )
-    job: Any | None = Field(
+    job: JsonDictType = Field(
         None,
         title="Custodian Job Data",
         description="Job data logged by custodian.",
@@ -353,146 +272,192 @@ class AnalysisDoc(BaseModel):
         )
 
 
-class TaskDoc(StructureMetadata, extra="allow"):
-    """Calculation-level details about VASP calculations that power Materials Project."""
+@type_override({"transformations": str, "vasp_objects": str})
+class CoreTaskDoc(StructureMetadata):
+    """Calculation-level details about VASP calculations that power the Materials Project."""
 
-    tags: list[str] | None = Field(
-        [], title="tag", description="Metadata tagged to a given task."
+    batch_id: str | None = Field(
+        None,
+        description="Identifier for this calculation; should provide rough information about the calculation origin and purpose.",
+    )
+    calc_type: CalcType | None = Field(
+        None, description="The functional and task type used in the calculation."
+    )
+    completed_at: NullableDateTimeType = Field(
+        description="Timestamp for when this task was completed"
     )
     dir_name: str | None = Field(None, description="The directory for this VASP task")
+    icsd_id: int | None = Field(
+        None, description="Inorganic Crystal Structure Database id of the structure"
+    )
+    input: CalculationInput | None = Field(
+        None,
+        description="VASP calculation inputs",
+    )
+    last_updated: DateTimeType = Field(
+        description="Timestamp for the most recent calculation for this task document",
+    )
+    orig_inputs: CalculationInput | None = Field(
+        None,
+        description="The exact set of input parameters used to generate the current task document.",
+    )
+    output: CoreCalculationOutput | None = Field(
+        None,
+        description="VASP calculation outputs.",
+    )
+    run_type: RunType | None = Field(
+        None, description="The functional used in the calculation."
+    )
+    structure: StructureType | None = Field(
+        None, description="Final output structure from the task"
+    )
+    tags: list[str] | None = Field(
+        None, title="tag", description="Metadata tagged to a given task."
+    )
+    task_id: IdentifierType | None = Field(
+        None,
+        description="The (task) ID of this calculation, used as a universal reference across property documents."
+        "This comes in the form: mp-******.",
+    )
+    task_type: TaskType | CalcType | None = Field(
+        None, description="The type of calculation."
+    )
+    transformations: JsonDictType = Field(
+        None,
+        description="Information on the structural transformations, parsed from a "
+        "transformations.json file",
+    )
+    vasp_objects: Annotated[
+        dict[VaspObject, Any] | None,
+        BeforeValidator(_deser_json_like),
+        WrapSerializer(_ser_json_like),
+    ] = Field(None, description="Vasp objects associated with this task")
 
-    state: TaskState | None = Field(None, description="State of this calculation")
+    @field_validator("batch_id", mode="before")
+    def validate_batch_id(cls, batch_id: str):
+        if batch_id:
+            invalid_chars = set(
+                char
+                for char in batch_id
+                if (not char.isalnum()) and (char not in {"-", "_"})
+            )
+            if invalid_chars:
+                raise ValueError(
+                    f"Invalid characters in batch_id: {' '.join(invalid_chars)}"
+                )
+        return batch_id
 
+    @classmethod
+    def from_directory(
+        cls,
+        dir_name: Path | str,
+        volumetric_files: tuple[str, ...] = _VOLUMETRIC_FILES,
+        **vasp_calculation_kwargs,
+    ) -> tuple[Self, RelaxTrajectory]:
+        """
+        Create a CoreTaskDoc and corresponding CoreTrajectory from a
+        directory containing VASP files.
+
+        Only parses a single calculation. Use TaskDoc.from_directory(...)
+        to parse multiple calculations.
+
+        Parameters
+        ----------
+        dir_name
+            The path to the folder containing the calculation outputs.
+        volumetric_files
+            Volumetric files to search for.
+        **vasp_calculation_kwargs
+            Additional parsing options that will be passed to the
+            :obj:`.Calculation.from_vasp_files` function.
+
+        Returns
+        -------
+        CoreTaskDoc
+            A slim task document for the calculation.
+        RelaxTrajectory
+            A low memory document for the calculation's trajectory.
+        """
+        dir_name = Path(dir_name)
+        task_files = _find_vasp_files(dir_name, volumetric_files=volumetric_files)
+
+        calc_doc, vasp_objects = Calculation.from_vasp_files(
+            dir_name, "standard", **task_files["standard"], **vasp_calculation_kwargs
+        )
+        transformations, icsd_id, tags, author = _parse_transformations(dir_name)
+        task_doc = cls.from_structure(
+            calc_type=calc_doc.calc_type,
+            completed_at=calc_doc.completed_at,
+            dir_name=get_uri(dir_name),
+            icsd_id=icsd_id,
+            input=InputDoc.from_vasp_calc_doc(calc_doc),
+            meta_structure=calc_doc.output.structure,
+            orig_inputs=_parse_orig_inputs(dir_name),
+            output=CoreCalculationOutput(
+                **calc_doc.output.model_dump(
+                    include=set(CoreCalculationOutput.model_fields())
+                )
+            ),
+            run_type=calc_doc.run_type,
+            structure=calc_doc.output.structure,
+            tags=tags,
+            task_type=calc_doc.task_type,
+            transformations=transformations,
+            vasp_objects=vasp_objects,
+        )
+
+        trajectory = get_trajectories_from_calculations(calc_doc)[0]
+
+        return (task_doc, trajectory)
+
+
+@type_override({"additional_json": str})
+class TaskDoc(CoreTaskDoc, extra="allow"):
+    """Flexible wrapper around CoreTaskDoc"""
+
+    additional_json: JsonDictType = Field(
+        None, description="Additional json loaded from the calculation directory"
+    )
+    analysis: AnalysisDoc | None = Field(
+        None,
+        title="Calculation Analysis",
+        description="Some analysis of calculation data after collection.",
+    )
+    author: str | None = Field(
+        None, description="Author extracted from transformations"
+    )
     calcs_reversed: list[Calculation] | None = Field(
         None,
         title="Calcs reversed data",
         description="Detailed data for each VASP calculation contributing to the task document.",
     )
-
-    structure: Structure | None = Field(
-        None, description="Final output structure from the task"
-    )
-
-    task_type: TaskType | CalcType | None = Field(
-        None, description="The type of calculation."
-    )
-
-    run_type: RunType | None = Field(
-        None, description="The functional used in the calculation."
-    )
-
-    calc_type: CalcType | None = Field(
-        None, description="The functional and task type used in the calculation."
-    )
-
-    task_id: MPID | str | None = Field(
+    custodian: list[CustodianDoc] | None = Field(
         None,
-        description="The (task) ID of this calculation, used as a universal reference across property documents."
-        "This comes in the form: mp-******.",
+        title="Calcs reversed data",
+        description="Detailed custodian data for each VASP calculation contributing to the task document.",
     )
-
-    orig_inputs: OrigInputs | None = Field(
-        None,
-        description="The exact set of input parameters used to generate the current task document.",
+    entry: ComputedEntryType | None = Field(
+        None, description="The ComputedEntry from the task doc"
     )
-
-    input: InputDoc | None = Field(
-        None,
-        description="The input structure used to generate the current task document.",
+    included_objects: list[VaspObject] | None = Field(
+        None, description="List of VASP objects included with this task document"
     )
 
     output: OutputDoc | None = Field(
         None,
         description="The exact set of output parameters used to generate the current task document.",
     )
-
-    included_objects: list[VaspObject] | None = Field(
-        None, description="List of VASP objects included with this task document"
-    )
-    vasp_objects: dict[VaspObject, Any] | None = Field(
-        None, description="Vasp objects associated with this task"
-    )
-    entry: ComputedEntry | None = Field(
-        None, description="The ComputedEntry from the task doc"
-    )
-
-    task_label: str | None = Field(None, description="A description of the task")
-    author: str | None = Field(
-        None, description="Author extracted from transformations"
-    )
-    icsd_id: str | int | None = Field(
-        None, description="Inorganic Crystal Structure Database id of the structure"
-    )
-    transformations: Any | None = Field(
-        None,
-        description="Information on the structural transformations, parsed from a "
-        "transformations.json file",
-    )
-    additional_json: dict[str, Any] | None = Field(
-        None, description="Additional json loaded from the calculation directory"
-    )
-
-    custodian: list[CustodianDoc] | None = Field(
-        None,
-        title="Calcs reversed data",
-        description="Detailed custodian data for each VASP calculation contributing to the task document.",
-    )
-
-    analysis: AnalysisDoc | None = Field(
-        None,
-        title="Calculation Analysis",
-        description="Some analysis of calculation data after collection.",
-    )
-
-    last_updated: datetime = Field(
-        default_factory=utcnow,
-        description="Timestamp for the most recent calculation for this task document",
-    )
-
-    completed_at: datetime | None = Field(
-        None, description="Timestamp for when this task was completed"
-    )
-
-    batch_id: str | None = Field(
-        None,
-        description="Identifier for this calculation; should provide rough information about the calculation origin and purpose.",
-    )
-
-    run_stats: Mapping[str, RunStatistics] | None = Field(
+    run_stats: dict[str, RunStatistics] | None = Field(
         None,
         description="Summary of runtime statistics for each calculation in this task",
     )
-
-    # Note that private fields are needed because TaskDoc permits extra info
-    # added to the model, unlike TaskDocument. Because of this, when pydantic looks up
-    # attrs on the model, it searches for them in the model extra dict first, and if it
-    # can't find them, throws an AttributeError. It does this before looking to see if the
-    # class has that attr defined on it.
-
-    # _structure_entry: ComputedStructureEntry | None= PrivateAttr(None)
+    state: TaskState | None = Field(None, description="State of this calculation")
+    task_label: str | None = Field(None, description="A description of the task")
 
     @model_validator(mode="before")
     @classmethod
     def set_model_pre_fields(cls, values: Any) -> Any:
         """Ensure all important model fields are set and refreshed."""
-
-        # Make sure that the datetime field is properly formatted
-        # (Unclear when this is not the case, please leave comment if observed)
-        values["last_updated"] = convert_datetime(
-            cls, values.get("last_updated", utcnow())
-        )
-
-        # Ensure batch_id includes only valid characters
-        if (batch_id := values.get("batch_id")) is not None:
-            invalid_chars = set(
-                char
-                for char in batch_id
-                if (not char.isalnum()) and (char not in {"-", "_"})
-            )
-            if len(invalid_chars) > 0:
-                raise ValueError(
-                    f"Invalid characters in batch_id: {' '.join(invalid_chars)}"
-                )
 
         # Always refresh task_type, calc_type, run_type
         # if attributes containing input sets are available.
@@ -548,6 +513,7 @@ class TaskDoc(StructureMetadata, extra="allow"):
         """
         Create a task document from a directory containing VASP files.
 
+
         Parameters
         ----------
         dir_name
@@ -576,7 +542,7 @@ class TaskDoc(StructureMetadata, extra="allow"):
         logger.info(f"Getting task doc in: {dir_name}")
 
         additional_fields = {} if additional_fields is None else additional_fields
-        dir_name = Path(dir_name)
+        dir_name = Path(dir_name).resolve()
         task_files = _find_vasp_files(
             dir_name, volumetric_files=volumetric_files, task_names=task_names
         )
@@ -621,7 +587,6 @@ class TaskDoc(StructureMetadata, extra="allow"):
         doc = cls.from_structure(
             structure=calcs_reversed[0].output.structure,
             meta_structure=calcs_reversed[0].output.structure,
-            include_structure=True,
             dir_name=dir_name,
             calcs_reversed=calcs_reversed,
             analysis=analysis,
@@ -633,7 +598,7 @@ class TaskDoc(StructureMetadata, extra="allow"):
             tags=tags,
             author=author,
             completed_at=calcs_reversed[0].completed_at,
-            input=InputDoc.from_vasp_calc_doc(calcs_reversed[-1]),
+            input=calcs_reversed[-1].input,
             output=OutputDoc.from_vasp_calc_doc(
                 calcs_reversed[0],
                 vasp_objects.get(VaspObject.TRAJECTORY),  # type: ignore
@@ -692,9 +657,9 @@ class TaskDoc(StructureMetadata, extra="allow"):
         )
 
         # assume orig_inputs are those stated in vasprun.xml
-        orig_inputs = OrigInputs(
+        orig_inputs = CalculationInput(
             incar=calc.input.incar,
-            poscar=Poscar(calc.input.structure),
+            structure=calc.input.structure,
             kpoints=calc.input.kpoints,
             potcar=calc.input.potcar,
         )
@@ -702,13 +667,12 @@ class TaskDoc(StructureMetadata, extra="allow"):
         doc = cls.from_structure(
             structure=calcs_reversed[0].output.structure,
             meta_structure=calcs_reversed[0].output.structure,
-            include_structure=True,
             dir_name=get_uri(dir_name),
             calcs_reversed=calcs_reversed,
             analysis=analysis,
             orig_inputs=orig_inputs,
             completed_at=calcs_reversed[0].completed_at,
-            input=InputDoc.from_vasp_calc_doc(calcs_reversed[-1]),
+            input=calcs_reversed[-1].input,
             output=OutputDoc.from_vasp_calc_doc(calcs_reversed[0]),
             state=_get_state(calcs_reversed, analysis),
             run_stats=None,
@@ -723,7 +687,7 @@ class TaskDoc(StructureMetadata, extra="allow"):
     @staticmethod
     def get_entry(
         calcs_reversed: list[Calculation | dict],
-        task_id: MPID | str | None = None,
+        task_id: IdentifierType | str | int | None = None,
     ) -> ComputedEntry:
         """
         Get a computed entry from a list of VASP calculation documents.
@@ -773,7 +737,7 @@ class TaskDoc(StructureMetadata, extra="allow"):
 
     @staticmethod
     def _get_calc_type(
-        calcs_reversed: list[Calculation | dict], orig_inputs: OrigInputs | dict
+        calcs_reversed: list[Calculation], orig_inputs: CalculationInput
     ) -> CalcType:
         """Get the calc type from calcs_reversed.
 
@@ -838,6 +802,24 @@ class TaskDoc(StructureMetadata, extra="allow"):
             entry_id=self.entry.entry_id,
         )
 
+    @property
+    def trajectories(self) -> list[Trajectory] | None:
+        """Get Trajectory objects representing calcs_reversed.
+
+        Note that the Trajectory objects represent the proper
+        calculation order, not the reversed.
+
+        Thus the first Trajectory represents the first calculation
+        that was performed (`self.calcs_reversed[-1]`).
+        """
+        if self.calcs_reversed:
+            return get_trajectories_from_calculations(
+                self.calcs_reversed[::-1],
+                separate=False,
+                identifier=str(self.task_id) if self.task_id else None,
+            )
+        return None
+
 
 class TrajectoryDoc(BaseModel):
     """Model for task trajectory data."""
@@ -848,7 +830,7 @@ class TrajectoryDoc(BaseModel):
         "This comes in the form: mp-******.",
     )
 
-    trajectories: list[Trajectory] | None = Field(
+    trajectories: list[RelaxTrajectory] | None = Field(
         None,
         description="Trajectory data for calculations associated with a task doc.",
     )
@@ -863,7 +845,7 @@ class EntryDoc(BaseModel):
         "This comes in the form: mp-******.",
     )
 
-    entry: ComputedStructureEntry | None = Field(
+    entry: ComputedStructureEntryType | None = Field(
         None,
         description="Computed structure entry for the calculation associated with the task doc.",
     )
@@ -991,26 +973,26 @@ def _parse_orig_inputs(
         The original POSCAR, KPOINTS, POTCAR, and INCAR data.
     """
     orig_inputs = {}
-    input_mapping = {
+    input_mapping: dict[str, Kpoints | Poscar | PotcarSpec | Incar] = {
         "INCAR": Incar,
         "KPOINTS": Kpoints,
-        "POTCAR": VaspPotcar,
+        "POTCAR": PotcarSpec,
         "POSCAR": Poscar,
     }
     suffix = suffix or ""
     for filename in dir_name.glob("*".join(f"{suffix}.".split("."))):
-        if "POTCAR.spec" in str(filename):
-            # Can't parse POTCAR.spec files
-            continue
+        if f"POTCAR.spec{suffix}" in str(filename):
+            try:
+                orig_inputs["potcar_spec"] = PotcarSpec.from_file(filename)
+            except Exception:
+                # Can't parse non emmet-core style POTCAR.spec files
+                continue
         for name, vasp_input in input_mapping.items():
             if f"{name}{suffix}" in str(filename):
-                if name == "POTCAR":
-                    # can't serialize POTCAR
-                    orig_inputs[name.lower()] = PotcarSpec.from_potcar(
-                        vasp_input.from_file(filename)  # type: ignore[attr-defined]
-                    )
-                else:
-                    orig_inputs[name.lower()] = vasp_input.from_file(filename)  # type: ignore[attr-defined]
+                file_suffix = "_spec" if name == "POTCAR" else ""
+                orig_inputs[f"{name.lower()}{file_suffix}"] = vasp_input.from_file(
+                    filename
+                )
 
     return orig_inputs
 
@@ -1051,7 +1033,7 @@ def _get_drift_warnings(calc_doc: Calculation) -> list[str]:
     warnings = []
     if calc_doc.input.parameters.get("NSW", 0) > 0:
         drift = calc_doc.output.outcar.get("drift", [[0, 0, 0]])
-        max_drift = max(np.linalg.norm(d) for d in drift)
+        max_drift = max(np.linalg.norm(d) for d in drift)  # type: ignore[type-var]
         ediffg = calc_doc.input.parameters.get("EDIFFG", None)
         max_force = -float(ediffg) if ediffg and float(ediffg) < 0 else np.inf
         if max_drift > max_force:
@@ -1135,6 +1117,7 @@ def _find_vasp_files(
                     "vasprun_file": vasprun_filename,
                     "outcar_file": outcar_filename,
                     "contcar_file": contcar_filename,
+                    "potcar_spec_file": potcar_spec_filename,
                     "volumetric_files": [CHGCAR, LOCPOT, etc]
                     "elph_poscars": [POSCAR.T=300, POSCAR.T=400, etc]
                 },
@@ -1143,35 +1126,38 @@ def _find_vasp_files(
     """
     base_path = Path(path)
     volumetric_files = volumetric_files or _VOLUMETRIC_FILES
-    task_names = task_names or ["precondition"] + [f"relax{i}" for i in range(9)]
+    task_names = task_names or TASK_NAMES
 
-    task_files: dict[str, dict[str, Path | list[Path]]] = {}
-
-    def _update_task_files(tpath) -> None:
-        for category, files in discover_and_sort_vasp_files(tpath).items():
-            for f in files:
-                tasks = sorted([t for t in task_names if t in f.name])
-                task = "standard" if len(tasks) == 0 else tasks[0]
-                if task not in task_files:
-                    task_files[task] = {}
-                if (
-                    is_list_like := category in ("volumetric_files", "elph_poscars")
-                ) and category not in task_files[task]:
-                    task_files[task][category] = []
-
-                if is_list_like:
-                    task_files[task][category].append(f.path.absolute())  # type: ignore[union-attr]
-                else:
-                    task_files[task][category] = f.path.absolute()
-
-    _update_task_files(base_path)
-
+    task_files: dict[str, dict[str, Path | list[Path]]] = discover_and_sort_vasp_files(
+        base_path
+    )
     # TODO: TaskDoc permits matching sub directories if they use one of
     # `task_names` as a directory name.
     # Not sure this is behavior we want to keep in the long term,
     # but is maintained here for backwards compatibility.
-    for task_name in task_names:
+    for task_name in set(task_names).difference(task_files):
         if (subdir := base_path / task_name).exists():
-            _update_task_files(subdir)
+            for task_name, calcs in discover_and_sort_vasp_files(subdir).items():
+                task_files[task_name].update(calcs)
+
+    # For old double-relax style jobs, there will only be one POTCAR/.spec/.orig file
+    # even though there will be an INCAR.relax1, INCAR.relax2, etc.
+    # Undo that mapping here
+    if any(k.startswith("relax") for k in task_files) and task_files.get(
+        "standard", {}
+    ).get("potcar_spec_file"):
+        psf = task_files["standard"].pop("potcar_spec_file")
+        for task_name in {k for k in task_files if k.startswith("relax")}:
+            task_files[task_name]["potcar_spec_file"] = psf
+
+        if not all(
+            task_files.get("standard", {}).get(k)
+            for k in (
+                "vasprun_file",
+                "outcar_file",
+                "contcar_file",
+            )
+        ):
+            _ = task_files.pop("standard")
 
     return task_files

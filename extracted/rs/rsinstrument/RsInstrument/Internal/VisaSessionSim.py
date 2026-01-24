@@ -3,7 +3,6 @@
 import threading
 from typing import Callable, Dict, AnyStr
 
-from . import InstrumentSettings
 from .StreamReader import StreamReader
 from .StreamWriter import StreamWriter
 
@@ -14,7 +13,7 @@ class VisaSessionSim(object):
 	Provides the properties for the simulation mode.
 	Also serves as a cache for the SCPI command values: If you query any SCPI command value, it returns the last set value by that SCPI command."""
 
-	def __init__(self, resource_name: str, settings: InstrumentSettings, direct_session=None):
+	def __init__(self, resource_name: str, settings, direct_session=None):
 		self.reusing_session = direct_session is not None
 		# noinspection PyTypeChecker
 		self._data_chunk_size: int = None
@@ -47,7 +46,7 @@ class VisaSessionSim(object):
 		self.cached_to_stream = False
 
 		# cache command values dictionary
-		self._cmd_vals_cache: Dict[str, str or bytes] = {}
+		self._cmd_vals_cache: Dict[str, str | bytes] = {}
 
 		# Decide, whether to create a new thread lock or the existing one from the direct_session
 		if direct_session and hasattr(direct_session, 'session_thread_rlock'):
@@ -83,7 +82,7 @@ class VisaSessionSim(object):
 		headers = cmd.strip().lower()
 		self._cmd_vals_cache[headers] = param
 
-	def _get_cmd_cached_value(self, cmd: str) -> str or None:
+	def _get_cmd_cached_value(self, cmd: str) -> str | None:
 		"""Returns cached parameter to the corresponding command
 		Returns None of the command is not found in the cache"""
 		aux = cmd.split('?', 1)
@@ -98,11 +97,11 @@ class VisaSessionSim(object):
 		"""Returns True, if the current session is a NRP-Z session"""
 		return False
 
-	def query_syst_error(self) -> str or None:
+	def query_syst_error(self) -> str | None:
 		"""Returns one response to the SYSTEM:ERROR? query."""
 		return None
 
-	def query_all_syst_errors(self) -> list or None:
+	def query_all_syst_errors(self) -> str | None:
 		"""Returns all errors in the instrument's error queue.
 		If no error is detected, the return value is None."""
 		return None
@@ -192,6 +191,14 @@ class VisaSessionSim(object):
 	def get_session_handle(self) -> object:
 		"""Returns the underlying pyvisa session."""
 		return f"Simulating session, resource name '{self.resource_name}'"
+
+	def go_to_local(self, mixed_mode: bool) -> None:
+		"""Puts the instrument into local state."""
+		return
+
+	def go_to_remote(self) -> None:
+		"""Puts the instrument into remote state."""
+		return
 
 	def close(self) -> None:
 		"""Closes the Visa session.

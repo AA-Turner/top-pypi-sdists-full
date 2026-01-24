@@ -7,7 +7,7 @@ import pandas as pd
 TPandas = TypeVar("TPandas", pd.DataFrame, pd.Series)
 
 
-def shuffle_in_chunks(
+def shuffle_in_chunks[TPandas: (pd.DataFrame, pd.Series)](
     df: TPandas,
     chunk_size: int | float,
 ) -> TPandas:
@@ -50,7 +50,7 @@ def shuffle_in_chunks(
     return df
 
 
-def partial_shuffle_in_chunks(
+def partial_shuffle_in_chunks[TPandas: (pd.DataFrame, pd.Series)](
     df: TPandas,
     chunk_size: float | int,
     fraction_to_keep_intact: float,

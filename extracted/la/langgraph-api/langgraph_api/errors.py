@@ -17,8 +17,19 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> Respon
     headers = getattr(exc, "headers", None)
     if not is_body_allowed_for_status_code(exc.status_code):
         return Response(status_code=exc.status_code, headers=headers)
+
+    detail = exc.detail
+    if not detail or not isinstance(detail, str):
+        logger.warning(
+            "HTTPException detail is not a string or was not set",
+            detail_type=type(detail).__name__,
+            status_code=exc.status_code,
+        )
+        # Use safe fallback that won't fail or leak sensitive info
+        detail = "unknown error"
+
     return JSONResponse(
-        {"detail": exc.detail}, status_code=exc.status_code, headers=headers
+        {"detail": detail}, status_code=exc.status_code, headers=headers
     )
 
 

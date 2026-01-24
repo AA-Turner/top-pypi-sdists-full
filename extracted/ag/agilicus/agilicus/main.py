@@ -70,6 +70,8 @@ from .input_helpers import (
     pop_item_if_none,
     get_org_from_input_or_ctx,
     get_user_id_from_input_or_ctx,
+    search_direction_values,
+    page_sort_order_values,
 )
 
 from .output.console import output_formatted
@@ -87,10 +89,10 @@ from .files_pkg import files_main
 from .policy_config import policy_config_main
 from .licensing import licensing_main
 from .licensing.licenses import add_license_to_billing_sub
+from .deployments import deployments_main
 
 from .version import __version__
 
-search_direction_values = ["forwards", "backwards"]
 sort_order_values = ["ascending", "descending"]
 
 
@@ -1366,6 +1368,16 @@ def output_list_apps(ctx, orgs_by_id, apps_list):
     default=None,
     is_flag=True,
 )
+@click.option(
+    "--page-on", multiple=True, type=click.Choice(apps.page_fields), default=None
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
 @click.pass_context
 def list_applications(ctx, organisation, org_id, **kwargs):
     # get all orgs
@@ -1428,6 +1440,20 @@ def list_environments(ctx, organisation, org_id, filter, **kwargs):
 @click.option("--hostname_or_service_name", default=None)
 @click.option("--external_hostname_or_service", default=None)
 @click.option("--show-status", is_flag=True, default=False)
+@click.option(
+    "--page-on",
+    multiple=True,
+    type=click.Choice(apps.application_service_page_fields),
+    default=None,
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
+@click.option("--limit", default=None, type=int)
 @click.pass_context
 def list_application_services(ctx, protocol_type_list, **kwargs):
     services = apps.get_application_services(
@@ -1483,6 +1509,7 @@ def set_http_config(ctx, *args, **kwargs):
 @cli.command(name="add-js-injection")
 @click.argument("service-id", default=None)
 @click.option("--inject-script", type=click.Path(exists=True))
+@click.option("--script-name", default=None)
 @click.option("--inject-preset", default=None)
 @click.option("--org-id", default=None)
 @click.pass_context
@@ -3371,7 +3398,7 @@ def add_issuer(ctx, **kwargs):
 @click.option("--issuer", default=None)
 @click.option("--org-id", default=None)
 @click.option("--theme-file-id", type=str, default=None)
-@click.option("--upstream-redirect-uri", default=None)
+@click.option("--upstream-redirect-uri", type=str, default=None)
 @click.option("--saml-state-encryption-key", default=None)
 @click.option("--enabled/--disabled", default=None)
 @click.option(
@@ -5301,7 +5328,7 @@ def show_api_key_introspection(ctx, email, api_key, include_suborgs=False, **kwa
 @cli.command(help="list all connectors")
 @click.option("--org-id", default=None)
 @click.option("--name", default=None)
-@click.option("--limit", default=None)
+@click.option("--limit", default=None, type=int)
 @click.option("--show-stats", type=bool, default=True)
 @click.option("--no-down", is_flag=True, type=bool, default=False)
 @click.option("--page-at-id", default=None)
@@ -5322,6 +5349,16 @@ def show_api_key_introspection(ctx, email, api_key, include_suborgs=False, **kwa
     "--only-version",
     default=None,
     help="show connectors that are running the specified version",
+)
+@click.option(
+    "--page-on", multiple=True, type=click.Choice(connectors.page_fields), default=None
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
 )
 @click.pass_context
 def list_connectors(ctx, **kwargs):
@@ -5378,6 +5415,8 @@ def update_connector(ctx, **kwargs):
 @click.option("--http-detailed-duration-s", type=int, default=None)
 @click.option("--share-summary-duration-s", type=int, default=None)
 @click.option("--share-detailed-duration-s", type=int, default=None)
+@click.option("--forwarder-summary-duration-s", type=int, default=None)
+@click.option("--forwarder-detailed-duration-s", type=int, default=None)
 @click.pass_context
 def configure_connector_stats_publishing(ctx, **kwargs):
     result = connectors.configure_stats_publishing(ctx, **kwargs)
@@ -5429,6 +5468,16 @@ def delete_agent_connector_instance(ctx, **kwargs):
 @click.option("--reverse-sort", is_flag=True, default=False)
 @click.option("--page-at-id", default=None)
 @click.option("--show-stats", default=None, type=bool)
+@click.option(
+    "--page-on", multiple=True, type=click.Choice(connectors.page_fields), default=None
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
 @click.pass_context
 def list_agent_connectors(
     ctx, output_msfriendly=False, sort_by=None, reverse_sort=False, **kwargs
@@ -5611,6 +5660,17 @@ def show_agent_connector_info(ctx, connector_id, **kwargs):
     default=None,
     type=bool,
 )
+@click.option(
+    "--ntp-forwarding-bind",
+    default=None,
+    type=click.Choice(connectors.INTERNAL_SERVICE_BIND),
+)
+@click.option("--ntp-forwarding-custom-bind", default=None, type=str)
+@click.option("--sync-local-clock", default=None, type=bool)
+@click.option("--upstream-buffer-tuning", default=None, type=bool)
+@click.option("--upstream-buffer-min-latency", default=None, type=int)
+@click.option("--upstream-buffer-max-latency", default=None, type=int)
+@click.option("--upstream-buffer-rmem-max", default=None, type=int)
 @click.pass_context
 def update_agent_connector(ctx, connector_id, **kwargs):
     result = connectors.replace_agent(ctx, connector_id, **kwargs)
@@ -5667,7 +5727,7 @@ def set_agent_connector_stats(
 
 @cli.command(name="get-agent-connector-stats")
 @click.argument("connector-id")
-@click.option("--org-id", default=None)
+@click.option("--org-id", type=str, default=None)
 @click.pass_context
 def get_agent_connector_stats(
     ctx,
@@ -5813,6 +5873,16 @@ def reissue_csr(ctx, **kwargs):
 @click.option("--updated-since", default=None, type=click.DateTime())
 @click.option("--resource-id", default=None)
 @click.option("--limit", default=500)
+@click.option(
+    "--page-on", multiple=True, type=click.Choice(desktops.page_fields), default=None
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
 @click.pass_context
 def list_file_share_services(ctx, name=None, **kwargs):
     shares = file_shares.list_file_share_services(ctx, name=name, **kwargs)
@@ -5901,6 +5971,16 @@ def delete_file_share_service(ctx, file_share_service_id, **kwargs):
 @click.option("--has-remote-app", type=bool, default=None)
 @click.option("--resource-id", default=None)
 @click.option("--limit", default=500)
+@click.option(
+    "--page-on", multiple=True, type=click.Choice(desktops.page_fields), default=None
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
 @click.pass_context
 def list_desktop_resources(ctx, name=None, **kwargs):
     resources = desktops.list_desktop_resources(ctx, name=name, **kwargs)
@@ -6153,10 +6233,28 @@ def bulk_delete_resource_permission(ctx, **kwargs):
     type=resources.resource_type_enum,
 )
 @click.option("--page-at-id", default=None)
-@click.option("--limit", default=500)
+@click.option("--limit", default=None, type=int)
+@click.option("--get-all", default=False, is_flag=True)
 @click.option("--show-columns", type=str, default=None)
 @click.option("--reset-columns", is_flag=True, default=False)
 @click.option("--show-stats", is_flag=True, default=None)
+@click.option(
+    "--page-on",
+    multiple=True,
+    type=click.Choice(resources.resource_page_fields),
+    default=None,
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
+@click.option("--includes-any-label", type=str, multiple=True, default=None)
+@click.option("--has-label", type=bool, default=None)
+@click.option("--search-params", type=str, multiple=True, default=None)
+@click.option("--published", type=bool, default=None)
 @click.pass_context
 def list_resources(ctx, reset_columns=None, show_columns=None, **kwargs):
     """Lists generic resources, which can be filtered by type, organisation, etc."""
@@ -6726,6 +6824,10 @@ def list_forwarders(ctx, **kwargs):
 @click.option("--application-service-id", default=None)
 @click.option("--bind-address", default=None)
 @click.option("--protocol", default=None)
+@click.option(
+    "--port-range", type=str, default=None, help="comma seperated list of port ranges"
+)
+@click.option("--source-port-override", default=None)
 @click.pass_context
 def update_forwarder(ctx, id, **kwargs):
     result = forwarders.replace(ctx, id, **kwargs)
@@ -7274,6 +7376,21 @@ def show_billing_accounts(ctx, **kwargs):
     output_entry(ctx, account.to_dict())
 
 
+@cli.command(name="migrate-billing-account-currency")
+@click.argument("billing-account-id")
+@click.option("--new-currency", required=True)
+@click.option(
+    "--subscription-lifecycle-strategy",
+    required=True,
+    type=click.Choice(billing.LIFECYCLE_STRATEGIES),
+    default="start_now",
+)
+@click.pass_context
+def migrate_billing_account_currency(ctx, **kwargs):
+    result = billing.migrate_billing_account_currency(ctx, **kwargs)
+    output_entry(ctx, result.to_dict())
+
+
 def override_replace(
     metric, usage_override, usage_min, usage_max, usage_step, group_by_org
 ):
@@ -7456,6 +7573,7 @@ def cancel_billing_subscription(ctx, org_id, billing_subscription_id, *args, **k
 @click.argument("billing-subscription-id")
 @click.option("--description", default=None)
 @click.option("--trial-period", type=int, default=None)
+@click.option("--currency", type=str, required=True)
 @click.pass_context
 def new_billing_subscription(ctx, *args, **kwargs):
     account = billing.new_billing_subscription(ctx, *args, **kwargs)
@@ -7561,6 +7679,16 @@ def add_launcher(ctx, resource_member, **kwargs):
 @click.option("--limit", default=500)
 @click.option("--resource-id", default=None)
 @click.option("--expand-resource-members", is_flag=True, default=False)
+@click.option(
+    "--page-on", multiple=True, type=click.Choice(launchers.page_fields), default=None
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
 @click.pass_context
 def list_launchers(ctx, **kwargs):
     ids = launchers.query(ctx, **kwargs)
@@ -7805,7 +7933,7 @@ def delete_audit_destination(ctx, destination_id, **kwargs):
 
 @cli.command(name="add-audit-destination-filter")
 @click.argument("destination-id")
-@click.option("--org-id", default=None)
+@click.option("--org-id", type=str, default=None)
 @click.option(
     "--filter-type", required=True, type=click.Choice(audit_destinations.FILTER_TYPES)
 )
@@ -7969,6 +8097,31 @@ def watch_issuers(ctx, **kwargs):
 )
 @click.option("--client-injection-enabled", type=bool, default=None)
 @click.option("--client-injection-version", default=None)
+@click.option(
+    "--client-injection-login-type",
+    type=click.Choice(["form", "basic", "automatic", "bearer", "disabled"]),
+)
+@click.option("--client-injection-login-fetch-path", multiple=True, default=())
+@click.option(
+    "--client-injection-login-detect-login-type",
+    type=click.Choice(["automatic", "fetch"]),
+)
+@click.option("--client-injection-login-detect-login-fetch-path", default=None)
+@click.option("--client-injection-login-inject-key-name", default=None)
+@click.option(
+    "--client-injection-login-form-inject-credentials", type=bool, default=None
+)
+@click.option("--client-injection-login-form-username-field", default=None)
+@click.option("--client-injection-login-form-password-field", default=None)
+@click.option("--client-injection-debug", type=bool, default=None)
+@click.option("--client-injection-login-form-username-credential", default=None)
+@click.option("--client-injection-login-form-password-credential", default=None)
+@click.option("--client-injection-login-form-username-query-selector", default=None)
+@click.option("--client-injection-login-form-password-query-selector", default=None)
+@click.option("--client-injection-login-form-username-next-selector", default=None)
+@click.option("--client-injection-login-form-password-next-selector", default=None)
+@click.option("--client-injection-login-form-login-selector", default=None)
+@click.option("--client-injection-login-form-submit-selector", default=None)
 @click.pass_context
 def update_application_configs(
     ctx,
@@ -7997,6 +8150,61 @@ def update_application_configs(
             oidc_proxy_header_request_replace=list(oidc_proxy_header_request_replace),
             **kwargs,
         )
+        apps.update_env(
+            ctx,
+            _app["id"],
+            env_name,
+            org_id,
+            application_configs=application_configs,
+        )
+
+
+@cli.command(name="update-client-inject-form-config")
+@click.argument("app")
+@click.argument("env_name")
+@click.option("--org-id", default=None)
+@click.option("--username-query-selector", default=None)
+@click.option("--password-query-selector", default=None)
+@click.option("--username-next-selector", default=None)
+@click.option("--password-next-selector", default=None)
+@click.option("--login-selector", default=None)
+@click.option("--submit-selector", default=None)
+@click.option("--reset", is_flag=True)
+@click.pass_context
+def update_form_config(
+    ctx,
+    app,
+    env_name,
+    org_id,
+    reset=False,
+    username_query_selector=None,
+    password_query_selector=None,
+    username_next_selector=None,
+    password_next_selector=None,
+    login_selector=None,
+    submit_selector=None,
+    **kwargs,
+):
+    _env = apps.get_env(ctx, app, env_name, org_id)
+    _app = _get_app(ctx, app, org_id=org_id)
+    if _env and _app:
+        application_configs = _env.get("application_configs", {})
+        if reset:
+            client_injection = application_configs.setdefault("client_injection", {})
+            login_config = client_injection.setdefault("login_config", {})
+            inject_form_config = login_config.setdefault("form_config", {})
+            inject_form_config["config"] = {}
+        apps.update_application_configs(
+            application_configs,
+            client_injection_login_form_username_query_selector=username_query_selector,
+            client_injection_login_form_password_query_selector=password_query_selector,
+            client_injection_login_form_username_next_selector=username_next_selector,
+            client_injection_login_form_password_next_selector=password_next_selector,
+            client_injection_login_form_login_selector=login_selector,
+            client_injection_login_form_submit_selector=submit_selector,
+            **kwargs,
+        )
+
         apps.update_env(
             ctx,
             _app["id"],
@@ -8092,6 +8300,11 @@ def add_point_of_presence(ctx, **kwargs):
 )
 @click.option("--requests-enabled", type=bool, default=None)
 @click.option("--routing-ces", default=None)
+@click.option(
+    "--overwrite-org-domains",
+    is_flag=True,
+    help="overwrites the org domains rather than adding to them",
+)
 @click.pass_context
 def update_point_of_presence(
     ctx, point_of_presence_id, add_cluster_id, remove_cluster_id, **kwargs
@@ -8306,7 +8519,18 @@ def get_connector_stats_config(ctx, **kwargs):
 @click.option("--name-slug", default=None)
 @click.option("--updated-since", default=None, type=click.DateTime())
 @click.option("--resource-id", default=None)
-@click.option("--limit", default=500)
+@click.option("--limit", type=int, default=None)
+@click.option("--get-all", is_flag=True, default=False)
+@click.option(
+    "--page-on", multiple=True, type=click.Choice(ssh.page_fields), default=None
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
 @click.pass_context
 def list_ssh_resources(ctx, name=None, **kwargs):
     resources = ssh.list_ssh_resources(ctx, name=name, **kwargs)
@@ -8933,6 +9157,7 @@ def main():
     messages_main.add_commands(cli)
     databases.add_commands(cli)
     licensing_main.add_commands(cli)
+    deployments_main.add_commands(cli)
 
     cli(auto_envvar_prefix="AGILICUS")
 

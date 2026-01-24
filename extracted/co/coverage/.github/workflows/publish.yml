@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 name: "Publish"
 
@@ -17,7 +17,7 @@ defaults:
 env:
   # PYVERSIONS: changing the list of versions will change the number of
   # expected distributions. This must match the same number in kit.yml.
-  EXPECTED: 104
+  EXPECTED: 92
 
 permissions:
   contents: read
@@ -38,7 +38,7 @@ jobs:
         id: runs
         uses: octokit/request-action@dad4362715b7fb2ddedf9772c8670824af564f0d # v2.4.0
         with:
-          route: GET /repos/nedbat/coveragepy/actions/workflows/kit.yml/runs
+          route: GET /repos/coveragepy/coveragepy/actions/workflows/kit.yml/runs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -64,9 +64,9 @@ jobs:
 
     steps:
       - name: "Download dists"
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          repository: "nedbat/coveragepy"
+          repository: "coveragepy/coveragepy"
           run-id: ${{ needs.find-run.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: "dist-*"
@@ -104,9 +104,9 @@ jobs:
 
     steps:
       - name: "Download dists"
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          repository: "nedbat/coveragepy"
+          repository: "coveragepy/coveragepy"
           run-id: ${{ needs.find-run.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: "dist-*"

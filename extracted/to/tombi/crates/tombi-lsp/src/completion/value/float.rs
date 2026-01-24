@@ -6,8 +6,8 @@ use tombi_schema_store::{Accessor, CurrentSchema, FloatSchema, SchemaUri};
 use crate::{
     comment_directive::get_key_table_value_comment_directive_content_and_schema_uri,
     completion::{
-        comment::get_tombi_comment_directive_content_completion_contents, CompletionContent,
-        CompletionEdit, CompletionHint, FindCompletionContents,
+        CompletionContent, CompletionEdit, CompletionHint, FindCompletionContents,
+        comment::get_tombi_comment_directive_content_completion_contents,
     },
 };
 
@@ -34,15 +34,13 @@ impl FindCompletionContents for tombi_document_tree::Float {
                     FloatCommonFormatRules,
                     FloatCommonLintRules,
                 >(self.comment_directives(), position, accessors)
-            {
-                if let Some(completions) = get_tombi_comment_directive_content_completion_contents(
+                && let Some(completions) = get_tombi_comment_directive_content_completion_contents(
                     comment_directive_context,
                     schema_uri,
                 )
                 .await
-                {
-                    return completions;
-                }
+            {
+                return completions;
             }
 
             Vec::with_capacity(0)
@@ -76,7 +74,6 @@ impl FindCompletionContents for FloatSchema {
                 let label = const_value.to_string();
                 let edit = CompletionEdit::new_literal(&label, position, completion_hint);
                 completion_items.push(CompletionContent::new_const_value(
-                    CompletionKind::Float,
                     label,
                     self.title.clone(),
                     self.description.clone(),
@@ -84,15 +81,15 @@ impl FindCompletionContents for FloatSchema {
                     schema_uri,
                     self.deprecated,
                 ));
+
                 return completion_items;
             }
 
-            if let Some(enumerate) = &self.enumerate {
-                for item in enumerate {
+            if let Some(r#enum) = &self.r#enum {
+                for item in r#enum {
                     let label = item.to_string();
                     let edit = CompletionEdit::new_literal(&label, position, completion_hint);
-                    completion_items.push(CompletionContent::new_enumerate_value(
-                        CompletionKind::Float,
+                    completion_items.push(CompletionContent::new_enum_value(
                         label,
                         self.title.clone(),
                         self.description.clone(),
@@ -101,13 +98,14 @@ impl FindCompletionContents for FloatSchema {
                         self.deprecated,
                     ));
                 }
+
+                return completion_items;
             }
 
             if let Some(default) = &self.default {
                 let label = default.to_string();
                 let edit = CompletionEdit::new_literal(&label, position, completion_hint);
                 completion_items.push(CompletionContent::new_default_value(
-                    CompletionKind::Float,
                     label,
                     self.title.clone(),
                     self.description.clone(),
@@ -115,6 +113,24 @@ impl FindCompletionContents for FloatSchema {
                     schema_uri,
                     self.deprecated,
                 ));
+            }
+
+            if let Some(examples) = &self.examples {
+                for example in examples {
+                    let label = example.to_string();
+                    if completion_items.iter().any(|item| item.label == label) {
+                        continue;
+                    }
+                    let edit = CompletionEdit::new_literal(&label, position, completion_hint);
+                    completion_items.push(CompletionContent::new_example_value(
+                        label,
+                        self.title.clone(),
+                        self.description.clone(),
+                        edit,
+                        schema_uri,
+                        self.deprecated,
+                    ));
+                }
             }
 
             if completion_items.is_empty() {

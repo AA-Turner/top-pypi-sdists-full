@@ -3,24 +3,28 @@ Mean models to use with ARCH processes.  All mean models must inherit from
 :class:`ARCHModel` and provide the same methods with the same inputs.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import copy
-from typing import TYPE_CHECKING, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, cast, overload
+import warnings
 
 import numpy as np
 import pandas as pd
 from scipy.optimize import OptimizeResult
 from statsmodels.tsa.tsatools import lagmat
 
-from arch.typing import (
+from arch._typing import (
     ArrayLike,
     ArrayLike1D,
     ArrayLike2D,
     DateLike,
     Float64Array,
+    Float64Array1D,
+    Float64Array2D,
     ForecastingMethod,
     Int32Array,
     Int64Array,
+    Int64Array2D,
     Label,
     NDArray,
 )
@@ -38,6 +42,7 @@ from arch.univariate.distribution import (
     SkewStudent,
     StudentsT,
 )
+from arch.utility.array import to_array_1d
 
 if TYPE_CHECKING:
     # Fake path to satisfy mypy
@@ -53,7 +58,7 @@ else:
 
 from functools import cached_property
 
-from arch.typing import Literal
+from arch._typing import Literal
 from arch.univariate.volatility import (
     APARCH,
     ARCH,
@@ -71,7 +76,7 @@ from arch.utility.array import (
     parse_dataframe,
 )
 
-__all__ = ["HARX", "ConstantMean", "ZeroMean", "ARX", "arch_model", "LS", "ARCHInMean"]
+__all__ = ["ARX", "HARX", "LS", "ARCHInMean", "ConstantMean", "ZeroMean", "arch_model"]
 
 COV_TYPES = {
     "white": "White's Heteroskedasticity Consistent Estimator",
@@ -127,7 +132,7 @@ def _ar_forecast(
         fcasts[:, i] = constant + fcasts[:, i - p : i].dot(arp_rev)
         if x.shape[0] > 0:
             fcasts[:, i] += x[:, :, i - p].T @ exogp
-    fcasts = fcasts[:, p:]
+    fcasts = cast("Float64Array2D", fcasts[:, p:])
 
     return fcasts
 
@@ -184,7 +189,7 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         Flag indicating whether to automatically rescale data if the scale of the
         data is likely to produce convergence issues when estimating model parameters.
         If False, the model is estimated on the data without transformation.  If True,
-        than y is rescaled and the new scale is reported in the estimation results.
+        then y is rescaled and the new scale is reported in the estimation results.
 
     Examples
     --------
@@ -245,17 +250,22 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
 
     def __init__(
         self,
-        y: Optional[ArrayLike] = None,
-        x: Optional[ArrayLike2D] = None,
-        lags: Union[
-            int, Sequence[int], Sequence[Sequence[int]], Int32Array, Int64Array, None
-        ] = None,
+        y: ArrayLike | None = None,
+        x: ArrayLike | ArrayLike2D | None = None,
+        lags: (
+            int
+            | Sequence[int]
+            | Sequence[Sequence[int]]
+            | Int32Array
+            | Int64Array
+            | None
+        ) = None,
         constant: bool = True,
         use_rotated: bool = False,
-        hold_back: Optional[int] = None,
-        volatility: Optional[VolatilityProcess] = None,
-        distribution: Optional[Distribution] = None,
-        rescale: Optional[bool] = None,
+        hold_back: int | None = None,
+        volatility: VolatilityProcess | None = None,
+        distribution: Distribution | None = None,
+        rescale: bool | None = None,
     ) -> None:
         super().__init__(
             y,
@@ -264,19 +274,25 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
             distribution=distribution,
             rescale=rescale,
         )
-        self._x = x
+        self._x: pd.DataFrame | Float64Array2D | None = None
+        self._x_original = x
         self._x_names: list[str] = []
-        self._x_index: Union[NDArray, pd.Index, None] = None
-        self.lags: Union[
-            int, Sequence[int], Sequence[Sequence[int]], Int32Array, Int64Array, None
-        ] = lags
-        self._lags = np.empty((0, 0))
+        self._x_index: NDArray | pd.Index | None = None
+        self.lags: (
+            int
+            | Sequence[int]
+            | Sequence[Sequence[int]]
+            | Int32Array
+            | Int64Array
+            | None
+        ) = lags
+        self._lags: Int64Array2D = np.empty((0, 0), dtype=int)
         self.constant: bool = constant
         self.use_rotated: bool = use_rotated
-        self.regressors: Float64Array = np.empty((0, 0), dtype=np.double)
+        self.regressors: Float64Array2D = np.empty((0, 0), dtype=np.double)
 
         self._name = "HAR"
-        if self._x is not None:
+        if self._x_original is not None:
             self._name += "-X"
         if lags is not None:
             max_lags = int(np.max(np.asarray(lags, dtype=np.int32)))
@@ -287,11 +303,10 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         self._hold_back = max_lags if hold_back is None else hold_back
 
         if self._hold_back < max_lags:
-            from warnings import warn
-
-            warn(
+            warnings.warn(
                 "hold_back is less then the minimum number given the lags selected",
                 RuntimeWarning,
+                stacklevel=2,
             )
             self._hold_back = max_lags
 
@@ -307,7 +322,7 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         self._init_model()
 
     @property
-    def x(self) -> Optional[ArrayLike2D]:
+    def x(self) -> ArrayLike2D | None:
         """Gets the value of the exogenous regressors in the model"""
         return self._x
 
@@ -359,14 +374,14 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
 
     def resids(
         self,
-        params: Float64Array,
-        y: Optional[ArrayLike1D] = None,
-        regressors: Optional[ArrayLike2D] = None,
+        params: Float64Array1D,
+        y: ArrayLike1D | None = None,
+        regressors: ArrayLike2D | None = None,
     ) -> ArrayLike1D:
-        regressors = self._fit_regressors if y is None else regressors
+        _regressors = self._fit_regressors if y is None else regressors
         y = self._fit_y if y is None else y
-        assert regressors is not None
-        return y - np.asarray(regressors, dtype=float).dot(params)
+        assert _regressors is not None
+        return y - np.asarray(_regressors, dtype=float).dot(params)
 
     @cached_property
     def num_params(self) -> int:
@@ -381,7 +396,7 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         parameters: Float64Array,
         x: Float64Array,
         errors: Float64Array,
-        initial_value: Union[float, Float64Array, None],
+        initial_value: float | Float64Array | None,
         conditional_variance: Float64Array,
     ) -> Float64Array:
         max_lag = 0 if not self._lags.size else int(np.max(self._lags))
@@ -417,12 +432,12 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
 
     def simulate(
         self,
-        params: Union[ArrayLike1D, Sequence[float]],
+        params: ArrayLike1D | Sequence[float],
         nobs: int,
         burn: int = 500,
-        initial_value: Union[float, Float64Array, None] = None,
-        x: Optional[ArrayLike] = None,
-        initial_value_vol: Union[float, Float64Array, None] = None,
+        initial_value: float | Float64Array | None = None,
+        x: ArrayLike | ArrayLike2D | None = None,
+        initial_value_vol: float | Float64Array | None = None,
     ) -> pd.DataFrame:
         """
         Simulates data from a linear regression, AR or HAR models
@@ -480,11 +495,12 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         """
 
         if x is None:
-            x = np.empty((nobs + burn, 0))
+            x_arr: Float64Array2D = np.empty((nobs + burn, 0))
         else:
-            x = np.asarray(x)
-        k_x = x.shape[1]
-        if x.shape[0] != nobs + burn:
+            _x = np.asarray(x, dtype=float)
+            x_arr = _x.reshape((_x.shape[0], -1))
+        k_x = x_arr.shape[1]
+        if x_arr.shape[0] != nobs + burn:
             raise ValueError("x must have nobs + burn rows")
         assert self._lags is not None
         mc = (
@@ -496,7 +512,7 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         vc = self.volatility.num_params
         dc = self.distribution.num_params
         num_params = mc + vc + dc
-        params = cast(Float64Array, ensure1d(params, "params", series=False))
+        params = cast("Float64Array1D", ensure1d(params, "params", series=False))
         if params.shape[0] != num_params:
             raise ValueError(
                 "params has the wrong number of elements. "
@@ -504,17 +520,17 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
             )
 
         dist_params = np.empty(0) if dc == 0 else params[-dc:]
-        vol_params = params[mc : mc + vc]
-        simulator = self.distribution.simulate(dist_params)
+        vol_params = cast("Float64Array1D", params[mc : mc + vc])
+        simulator = self.distribution.simulate(cast("Float64Array1D", dist_params))
         sim_data = self.volatility.simulate(
             vol_params, nobs + burn, simulator, burn, initial_value_vol
         )
         errors = sim_data[0]
-        vol = cast(Float64Array, np.sqrt(sim_data[1]))
+        vol = cast("Float64Array", np.sqrt(sim_data[1]))
 
-        y = self._simulate_mean(params[:mc], x, errors, initial_value, sim_data[1])
+        y = self._simulate_mean(params[:mc], x_arr, errors, initial_value, sim_data[1])
 
-        df = dict(data=y[burn:], volatility=vol[burn:], errors=errors[burn:])
+        df = {"data": y[burn:], "volatility": vol[burn:], "errors": errors[burn:]}
         return pd.DataFrame(df)
 
     def _generate_variable_names(self) -> list[str]:
@@ -532,30 +548,37 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
     def _generate_lag_names(self) -> list[str]:
         """Generates lag names.  Overridden by other models"""
         lags = self._lags
-        names = []
         var_name = str(self._y_series.name) if self._y_series.name else ""
         if len(var_name) > 10:
             var_name = var_name[:4] + "..." + var_name[-3:]
-        for i in range(lags.shape[1]):
-            names.append(var_name + "[" + str(lags[0, i]) + ":" + str(lags[1, i]) + "]")
+        names = [
+            var_name + "[" + str(lags[0, i]) + ":" + str(lags[1, i]) + "]"
+            for i in range(lags.shape[1])
+        ]
         return names
 
     def _check_specification(self) -> None:
         """Checks the specification for obvious errors"""
-        if self._x is not None:
-            if isinstance(self._x, pd.Series):
-                self._x = pd.DataFrame(self._x)
-            elif self._x.ndim == 1:
-                self._x = np.asarray(self._x)[:, None]
+        err_msg = (
+            "x must be nobs by n, where nobs is the same as the number of elements in y"
+        )
+        if self._x_original is not None:
+            if isinstance(self._x_original, pd.Series):
+                self._x = pd.DataFrame(self._x_original)
+            elif isinstance(self._x_original, pd.DataFrame):
+                self._x = self._x_original
+            else:
+                x_original = np.asarray(self._x_original, dtype=float)
+                if x_original.ndim == 1:
+                    x_original = x_original[:, None]
+                self._x = cast("Float64Array2D", x_original)
+            assert isinstance(self._x, (np.ndarray, pd.DataFrame))
             if self._x.ndim != 2 or self._x.shape[0] != self._y.shape[0]:
-                raise ValueError(
-                    "x must be nobs by n, where nobs is the same as "
-                    "the number of elements in y"
-                )
+                raise ValueError(err_msg)
             def_names = ["x" + str(i) for i in range(self._x.shape[1])]
             names, self._x_index = parse_dataframe(self._x, def_names)
             self._x_names = [str(name) for name in names]
-            self._x = np.asarray(self._x)
+            self._x = cast("Float64Array2D", np.asarray(self._x, dtype=float))
 
     def _reformat_lags(self) -> None:
         """
@@ -578,7 +601,7 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
                     "When using the 1-d format of lags, values must be positive"
                 )
             lags = np.unique(lags)
-            temp = np.array([lags, lags])
+            temp = cast("Int64Array2D", np.array([lags, lags], dtype=int))
             if self.use_rotated:
                 temp[0, 1:] = temp[0, 0:-1]
                 temp[0, 0] = 0
@@ -594,21 +617,22 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
                     "lags[0,j] <= lags[1,j] for all lags values."
                 )
             ind = np.lexsort(np.flipud(lags))
-            lags = lags[:, ind]
-            test_mat = np.zeros((lags.shape[1], np.max(lags)))
+            lags = cast("Int64Array2D", lags[:, ind])
+            test_mat = np.zeros((lags.shape[1], np.max(lags)), dtype=int)
             # Subtract 1 so first is 0 indexed
             lags = lags - np.array([[1], [0]])
             for i in range(lags.shape[1]):
-                test_mat[i, lags[0, i] : lags[1, i]] = 1.0
-            rank = np.linalg.matrix_rank(test_mat)
+                test_mat[i, lags[0, i] : lags[1, i]] = 1
+            rank = np.linalg.matrix_rank(test_mat.astype(float))
             if rank != lags.shape[1]:
                 raise ValueError("lags contains redundant entries")
+            self._lags = cast("Int64Array2D", lags)
 
-            self._lags = lags
             if self.use_rotated:
-                from warnings import warn
-
-                warn("Rotation is not available when using the 2-d lags input format")
+                warnings.warn(
+                    "Rotation is not available when using the 2-d lags input format",
+                    stacklevel=2,
+                )
         else:
             raise ValueError("Incorrect format for lags")
 
@@ -616,11 +640,12 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         if self._max_lags == 0:
             return params[: int(self.constant)]
         har = params[int(self.constant) :]
-        ar = np.zeros(self._max_lags)
-        for value, lag in zip(har, self._lags.T):
+        ar: Float64Array1D
+        ar = np.zeros(self._max_lags, dtype=float)
+        for value, lag in zip(har, self._lags.T, strict=False):
             ar[lag[0] : lag[1]] += value / (lag[1] - lag[0])
         if self.constant:
-            ar = np.concatenate((params[:1], ar))
+            ar = cast("Float64Array1D", np.concatenate((params[:1], ar)))
         return ar
 
     def _init_model(self) -> None:
@@ -648,7 +673,9 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         else:
             reg_x = np.empty((nobs_orig, 0), dtype=np.double)
 
-        self.regressors = np.hstack((reg_constant, reg_lags, reg_x))
+        self.regressors = cast(
+            "Float64Array2D", np.hstack((reg_constant, reg_lags, reg_x))
+        )
 
     def _r2(self, params: ArrayLike1D) -> float:
         y = self._fit_y
@@ -664,28 +691,28 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         tss = float(y.dot(y))
         if tss <= 0.0:
             return np.nan
-        e = np.asarray(self.resids(np.asarray(params, dtype=float)), dtype=float)
+        e = to_array_1d(self.resids(to_array_1d(params)))
 
         return 1.0 - float(e.T.dot(e)) / tss
 
     def _adjust_sample(
         self,
-        first_obs: Union[int, DateLike, None],
-        last_obs: Union[int, DateLike, None],
+        first_obs: int | DateLike | None,
+        last_obs: int | DateLike | None,
     ) -> None:
         index = self._y_series.index
         _first_obs_index = cutoff_to_index(first_obs, index, 0)
         _first_obs_index += self._hold_back
         _last_obs_index = cutoff_to_index(last_obs, index, self._y.shape[0])
         if _last_obs_index <= _first_obs_index:
-            raise ValueError("first_obs and last_obs produce in an empty array.")
+            raise ValueError("first_obs and last_obs produce an empty array.")
         self._fit_indices = [_first_obs_index, _last_obs_index]
-        self._fit_y = self._y[_first_obs_index:_last_obs_index]
+        self._fit_y = cast("Float64Array1D", self._y[_first_obs_index:_last_obs_index])
         reg = self.regressors
         self._fit_regressors = reg[_first_obs_index:_last_obs_index]
         self.volatility.start, self.volatility.stop = self._fit_indices
 
-    def _fit_no_arch_normal_errors_params(self) -> Float64Array:
+    def _fit_no_arch_normal_errors_params(self) -> Float64Array1D:
         """
         Estimates model parameters excluding sigma2
 
@@ -752,7 +779,9 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         opt = OptimizeResult({"status": 0, "message": ""})
 
         if x.shape[1] > 0:
-            regression_params = np.linalg.pinv(x).dot(y)
+            regression_params: Float64Array1D = cast(
+                "Float64Array1D", np.linalg.pinv(x).dot(y)
+            )
             xpxi = np.linalg.inv(x.T.dot(x) / nobs)
             fitted = x.dot(regression_params)
         else:
@@ -763,7 +792,7 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         e = y - fitted
         sigma2 = e.T.dot(e) / nobs
 
-        params = np.hstack((regression_params, sigma2))
+        params = to_array_1d(np.hstack((regression_params, sigma2)))
         hessian = np.zeros((self.num_params + 1, self.num_params + 1))
         hessian[: self.num_params, : self.num_params] = -xpxi
         hessian[-1, -1] = -1
@@ -785,10 +814,10 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         r2 = self._r2(regression_params)
 
         first_obs, last_obs = self._fit_indices
-        resids = np.empty_like(self._y, dtype=np.double)
+        resids = np.empty(self._y.shape, dtype=float)
         resids.fill(np.nan)
         resids[first_obs:last_obs] = e
-        vol = np.zeros_like(resids)
+        vol = np.zeros(resids.shape, dtype=float)
         vol.fill(np.nan)
         vol[first_obs:last_obs] = np.sqrt(sigma2)
         names = self._all_parameter_names()
@@ -819,7 +848,7 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
 
     def _reformat_forecast_x(
         self,
-        x: Union[dict[Label, ArrayLike], ArrayLike, None],
+        x: dict[Label, ArrayLike] | ArrayLike | None,
         horizon: int,
         start: int,
     ) -> Float64Array:
@@ -848,8 +877,7 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
                 )
         elif self._x is None:
             raise TypeError(
-                "x is not None but the model does not contain any exogenous "
-                "variables."
+                "x is not None but the model does not contain any exogenous variables."
             )
         assert self._x is not None
         nx = self._x.shape[1]
@@ -868,7 +896,7 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
                         f"the included exogenous regressors. {key} not found in: "
                         f"{keys}"
                     )
-                temp = np.asarray(x[key], dtype=np.double)
+                temp = np.asarray(x[key], dtype=float)
                 if temp.ndim == 1:
                     temp = temp.reshape((1, -1))
                 collected.append(temp)
@@ -926,15 +954,15 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         self,
         params: ArrayLike1D,
         horizon: int = 1,
-        start: Union[int, DateLike, None] = None,
+        start: int | DateLike | None = None,
         align: Literal["origin", "target"] = "origin",
         method: ForecastingMethod = "analytic",
         simulations: int = 1000,
-        rng: Optional[Callable[[Union[int, tuple[int, ...]]], Float64Array]] = None,
-        random_state: Optional[np.random.RandomState] = None,
+        rng: Callable[[int | tuple[int, ...]], Float64Array] | None = None,
+        random_state: np.random.RandomState | None = None,
         *,
         reindex: bool = False,
-        x: Union[dict[Label, ArrayLike], ArrayLike, None] = None,
+        x: dict[Label, ArrayLike] | ArrayLike | None = None,
     ) -> ARCHModelForecast:
         if not isinstance(horizon, (int, np.integer)) or horizon < 1:
             raise ValueError("horizon must be an integer >= 1.")
@@ -947,10 +975,10 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
                 "Due to backcasting and/or data availability start cannot be less "
                 "than the index of the largest value in the right-hand-side "
                 "variables used to fit the first observation.  In this model, "
-                "this value is {}.".format(max(0, earliest - 1))
+                f"this value is {max(0, earliest - 1)}."
             )
         # Parse params
-        params = np.asarray(params)
+        params = to_array_1d(params)
         mp, vp, dp = self._parse_parameters(params)
 
         #####################################
@@ -958,9 +986,13 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         #####################################
         # Back cast should use only the sample used in fitting
         resids = self.resids(mp)
-        backcast = self._volatility.backcast(np.asarray(resids, dtype=float))
-        full_resids = np.asarray(
-            self.resids(mp, self._y[earliest:], self.regressors[earliest:]), dtype=float
+        backcast = self._volatility.backcast(resids)
+        full_resids = to_array_1d(
+            self.resids(
+                mp,
+                cast("Float64Array1D", self._y[earliest:]),
+                cast("Float64Array2D", self.regressors[earliest:]),
+            )
         )
         vb = self._volatility.variance_bounds(full_resids, 2.0)
         if rng is None:
@@ -999,10 +1031,10 @@ class HARX(ARCHModel, metaclass=AbstractDocStringInheritor):
         for i in range(horizon):
             lrf = var_fcasts[:, : (i + 1)].dot(impulse[i::-1] ** 2)
             longrun_var_fcasts[:, i] = lrf
-        variance_paths: Optional[Float64Array] = None
-        mean_paths: Optional[Float64Array] = None
-        shocks: Optional[Float64Array] = None
-        long_run_variance_paths: Optional[Float64Array] = None
+        variance_paths: Float64Array | None = None
+        mean_paths: Float64Array | None = None
+        shocks: Float64Array | None = None
+        long_run_variance_paths: Float64Array | None = None
         if method.lower() in ("simulation", "bootstrap"):
             # TODO: This is not tested, but probably right
             assert isinstance(vfcast.forecast_paths, np.ndarray)
@@ -1077,7 +1109,7 @@ class ConstantMean(HARX):
         Flag indicating whether to automatically rescale data if the scale of the
         data is likely to produce convergence issues when estimating model parameters.
         If False, the model is estimated on the data without transformation.  If True,
-        than y is rescaled and the new scale is reported in the estimation results.
+        then y is rescaled and the new scale is reported in the estimation results.
 
     Examples
     --------
@@ -1098,11 +1130,11 @@ class ConstantMean(HARX):
 
     def __init__(
         self,
-        y: Optional[ArrayLike] = None,
-        hold_back: Optional[int] = None,
-        volatility: Optional[VolatilityProcess] = None,
-        distribution: Optional[Distribution] = None,
-        rescale: Optional[bool] = None,
+        y: ArrayLike | None = None,
+        hold_back: int | None = None,
+        volatility: VolatilityProcess | None = None,
+        distribution: Distribution | None = None,
+        rescale: bool | None = None,
     ) -> None:
         super().__init__(
             y,
@@ -1125,12 +1157,12 @@ class ConstantMean(HARX):
 
     def simulate(
         self,
-        params: Union[ArrayLike1D, Sequence[float]],
+        params: ArrayLike1D | Sequence[float],
         nobs: int,
         burn: int = 500,
-        initial_value: Union[float, Float64Array, None] = None,
-        x: Optional[ArrayLike] = None,
-        initial_value_vol: Union[float, Float64Array, None] = None,
+        initial_value: float | Float64Array | None = None,
+        x: ArrayLike | ArrayLike2D | None = None,
+        initial_value_vol: float | Float64Array | None = None,
     ) -> pd.DataFrame:
         """
         Simulated data from a constant mean model
@@ -1188,18 +1220,18 @@ class ConstantMean(HARX):
         y = errors + mp
         vol = np.sqrt(sim_values[1])
         assert isinstance(vol, np.ndarray)
-        df = dict(data=y[burn:], volatility=vol[burn:], errors=errors[burn:])
+        df = {"data": y[burn:], "volatility": vol[burn:], "errors": errors[burn:]}
 
         return pd.DataFrame(df)
 
     def resids(
         self,
-        params: Float64Array,
-        y: Optional[ArrayLike1D] = None,
-        regressors: Optional[ArrayLike2D] = None,
+        params: Float64Array1D,
+        y: ArrayLike1D | None = None,
+        regressors: ArrayLike2D | None = None,
     ) -> ArrayLike1D:
-        y = self._fit_y if y is None else np.asarray(y, dtype=np.double)
-        return y - params
+        _y = self._fit_y if y is None else to_array_1d(ensure1d(y, "y", series=False))
+        return _y - params[0]
 
 
 class ZeroMean(HARX):
@@ -1222,7 +1254,7 @@ class ZeroMean(HARX):
         Flag indicating whether to automatically rescale data if the scale of the
         data is likely to produce convergence issues when estimating model parameters.
         If False, the model is estimated on the data without transformation.  If True,
-        than y is rescaled and the new scale is reported in the estimation results.
+        then y is rescaled and the new scale is reported in the estimation results.
 
     Examples
     --------
@@ -1244,11 +1276,11 @@ class ZeroMean(HARX):
 
     def __init__(
         self,
-        y: Optional[ArrayLike] = None,
-        hold_back: Optional[int] = None,
-        volatility: Optional[VolatilityProcess] = None,
-        distribution: Optional[Distribution] = None,
-        rescale: Optional[bool] = None,
+        y: ArrayLike | None = None,
+        hold_back: int | None = None,
+        volatility: VolatilityProcess | None = None,
+        distribution: Distribution | None = None,
+        rescale: bool | None = None,
     ) -> None:
         super().__init__(
             y,
@@ -1273,12 +1305,12 @@ class ZeroMean(HARX):
 
     def simulate(
         self,
-        params: Union[ArrayLike1D, Sequence[float]],
+        params: ArrayLike1D | Sequence[float],
         nobs: int,
         burn: int = 500,
-        initial_value: Union[float, Float64Array, None] = None,
-        x: Optional[ArrayLike] = None,
-        initial_value_vol: Union[float, Float64Array, None] = None,
+        initial_value: float | Float64Array | None = None,
+        x: ArrayLike | ArrayLike2D | None = None,
+        initial_value_vol: float | Float64Array | None = None,
     ) -> pd.DataFrame:
         """
         Simulated data from a zero mean model
@@ -1323,14 +1355,14 @@ class ZeroMean(HARX):
         >>> zm.volatility = GARCH(p=1, o=1, q=1)
         >>> sim_data = zm.simulate([0.05, 0.1, 0.1, 0.8], 300)
         """
-        params = np.asarray(ensure1d(params, "params", False), dtype=float)
+        _params = ensure1d(params, "params", False).astype(float)
         if initial_value is not None or x is not None:
             raise ValueError(
                 "Both initial value and x must be none when "
                 "simulating a constant mean process."
             )
 
-        _, vp, dp = self._parse_parameters(params)
+        _, vp, dp = self._parse_parameters(_params)
 
         sim_values = self.volatility.simulate(
             vp, nobs + burn, self.distribution.simulate(dp), burn, initial_value_vol
@@ -1339,15 +1371,15 @@ class ZeroMean(HARX):
         y = errors
         vol = np.sqrt(sim_values[1])
         assert isinstance(vol, np.ndarray)
-        df = dict(data=y[burn:], volatility=vol[burn:], errors=errors[burn:])
+        df = {"data": y[burn:], "volatility": vol[burn:], "errors": errors[burn:]}
 
         return pd.DataFrame(df)
 
     def resids(
         self,
-        params: Float64Array,
-        y: Optional[ArrayLike1D] = None,
-        regressors: Optional[ArrayLike2D] = None,
+        params: Float64Array1D,
+        y: ArrayLike1D | None = None,
+        regressors: ArrayLike2D | None = None,
     ) -> ArrayLike1D:
         if y is not None:
             return y
@@ -1384,7 +1416,7 @@ class ARX(HARX):
         Flag indicating whether to automatically rescale data if the scale of the
         data is likely to produce convergence issues when estimating model parameters.
         If False, the model is estimated on the data without transformation.  If True,
-        than y is rescaled and the new scale is reported in the estimation results.
+        then y is rescaled and the new scale is reported in the estimation results.
 
     Examples
     --------
@@ -1413,14 +1445,14 @@ class ARX(HARX):
 
     def __init__(
         self,
-        y: Optional[ArrayLike] = None,
-        x: Optional[ArrayLike2D] = None,
-        lags: Union[int, list[int], Int32Array, Int64Array, None] = None,
+        y: ArrayLike | None = None,
+        x: ArrayLike | ArrayLike2D | None = None,
+        lags: int | list[int] | Int32Array | Int64Array | None = None,
         constant: bool = True,
-        hold_back: Optional[int] = None,
-        volatility: Optional[VolatilityProcess] = None,
-        distribution: Optional[Distribution] = None,
-        rescale: Optional[bool] = None,
+        hold_back: int | None = None,
+        volatility: VolatilityProcess | None = None,
+        distribution: Distribution | None = None,
+        rescale: bool | None = None,
     ) -> None:
         # Convert lags to 2-d format
 
@@ -1453,7 +1485,7 @@ class ARX(HARX):
             rescale=rescale,
         )
         self._name = "AR"
-        if self._x is not None:
+        if self._x_original is not None:
             self._name += "-X"
 
     def _model_description(self, include_lags: bool = True) -> dict[str, str]:
@@ -1477,12 +1509,11 @@ class ARX(HARX):
 
     def _generate_lag_names(self) -> list[str]:
         lags = self._lags
-        names = []
+
         var_name = str(self._y_series.name) if self._y_series.name else ""
         if len(var_name) > 10:
             var_name = var_name[:4] + "..." + var_name[-3:]
-        for i in range(lags.shape[1]):
-            names.append(var_name + "[" + str(lags[1, i]) + "]")
+        names = [var_name + "[" + str(lags[1, i]) + "]" for i in range(lags.shape[1])]
         return names
 
 
@@ -1510,7 +1541,7 @@ class LS(HARX):
         Flag indicating whether to automatically rescale data if the scale of the
         data is likely to produce convergence issues when estimating model parameters.
         If False, the model is estimated on the data without transformation.  If True,
-        than y is rescaled and the new scale is reported in the estimation results.
+        then y is rescaled and the new scale is reported in the estimation results.
 
     Examples
     --------
@@ -1533,13 +1564,13 @@ class LS(HARX):
 
     def __init__(
         self,
-        y: Optional[ArrayLike] = None,
-        x: Optional[ArrayLike2D] = None,
+        y: ArrayLike | None = None,
+        x: ArrayLike | ArrayLike2D | None = None,
         constant: bool = True,
-        hold_back: Optional[int] = None,
-        volatility: Optional[VolatilityProcess] = None,
-        distribution: Optional[Distribution] = None,
-        rescale: Optional[bool] = None,
+        hold_back: int | None = None,
+        volatility: VolatilityProcess | None = None,
+        distribution: Distribution | None = None,
+        rescale: bool | None = None,
     ) -> None:
         # Convert lags to 2-d format
         super().__init__(
@@ -1585,7 +1616,7 @@ class ARCHInMean(ARX):
         Flag indicating whether to automatically rescale data if the scale of the
         data is likely to produce convergence issues when estimating model parameters.
         If False, the model is estimated on the data without transformation.  If True,
-        than y is rescaled and the new scale is reported in the estimation results.
+        then y is rescaled and the new scale is reported in the estimation results.
     form : {"log", "vol", "var", int, float}
         The form of the conditional variance that appears in the mean equation. The
         string names use the log of the conditional variance ("log"), the square-root
@@ -1621,15 +1652,15 @@ class ARCHInMean(ARX):
 
     def __init__(
         self,
-        y: Optional[ArrayLike] = None,
-        x: Optional[ArrayLike2D] = None,
-        lags: Union[int, list[int], Int32Array, Int64Array, None] = None,
+        y: ArrayLike | None = None,
+        x: ArrayLike | ArrayLike2D | None = None,
+        lags: int | list[int] | Int32Array | Int64Array | None = None,
         constant: bool = True,
-        hold_back: Optional[int] = None,
-        volatility: Optional[VolatilityProcess] = None,
-        distribution: Optional[Distribution] = None,
-        rescale: Optional[bool] = None,
-        form: Union[int, float, Literal["log", "vol", "var"]] = "vol",
+        hold_back: int | None = None,
+        volatility: VolatilityProcess | None = None,
+        distribution: Distribution | None = None,
+        rescale: bool | None = None,
+        form: float | Literal["log", "vol", "var"] = "vol",
     ) -> None:
         super().__init__(
             y, x, lags, constant, hold_back, volatility, distribution, rescale
@@ -1668,7 +1699,7 @@ class ARCHInMean(ARX):
         self._recursion = ARCHInMeanRecursion(self._volatility_updater)
 
     @property
-    def form(self) -> Union[int, float, Literal["log", "vol", "var"]]:
+    def form(self) -> int | float | Literal["log", "vol", "var"]:
         """The form of the conditional variance in the mean"""
         return self._form
 
@@ -1698,15 +1729,15 @@ class ARCHInMean(ARX):
         self,
         params: ArrayLike1D,
         horizon: int = 1,
-        start: Union[int, DateLike, None] = None,
+        start: int | DateLike | None = None,
         align: Literal["origin", "target"] = "origin",
         method: ForecastingMethod = "analytic",
         simulations: int = 1000,
-        rng: Optional[Callable[[Union[int, tuple[int, ...]]], Float64Array]] = None,
-        random_state: Optional[np.random.RandomState] = None,
+        rng: Callable[[int | tuple[int, ...]], Float64Array] | None = None,
+        random_state: np.random.RandomState | None = None,
         *,
-        reindex: Optional[bool] = None,
-        x: Union[dict[Label, ArrayLike], ArrayLike, None] = None,
+        reindex: bool | None = None,
+        x: dict[Label, ArrayLike] | ArrayLike | None = None,
     ) -> ARCHModelForecast:
         raise NotImplementedError(
             "forecasts are not implemented for (G)ARCH-in-mean models"
@@ -1714,23 +1745,57 @@ class ARCHInMean(ARX):
 
     def resids(
         self,
-        params: Float64Array,
-        y: Optional[ArrayLike1D] = None,
-        regressors: Optional[ArrayLike2D] = None,
+        params: Float64Array1D,
+        y: ArrayLike1D | None = None,
+        regressors: ArrayLike2D | None = None,
     ) -> ArrayLike1D:
-        return super().resids(params[:-1], y=y, regressors=regressors)
+        return super().resids(
+            cast("Float64Array1D", params[:-1]), y=y, regressors=regressors
+        )
 
-    def starting_values(self) -> Float64Array:
+    def starting_values(self) -> Float64Array1D:
         return np.r_[super().starting_values(), 0.0]
+
+    @overload
+    def _loglikelihood(
+        self,
+        parameters: Float64Array1D,
+        sigma2: Float64Array1D,
+        backcast: float | Float64Array1D,
+        var_bounds: Float64Array2D,
+    ) -> float:  # pragma: no cover
+        ...  # pragma: no cover
+
+    @overload
+    def _loglikelihood(
+        self,
+        parameters: Float64Array1D,
+        sigma2: Float64Array1D,
+        backcast: float | Float64Array1D,
+        var_bounds: Float64Array2D,
+        individual: Literal[False] = ...,
+    ) -> float:  # pragma: no cover
+        ...  # pragma: no cover
+
+    @overload
+    def _loglikelihood(
+        self,
+        parameters: Float64Array1D,
+        sigma2: Float64Array1D,
+        backcast: float | Float64Array1D,
+        var_bounds: Float64Array2D,
+        individual: Literal[True] = ...,
+    ) -> Float64Array1D:  # pragma: no cover
+        ...  # pragma: no cover
 
     def _loglikelihood(
         self,
-        parameters: Float64Array,
-        sigma2: Float64Array,
-        backcast: Union[float, Float64Array],
-        var_bounds: Float64Array,
+        parameters: Float64Array1D,
+        sigma2: Float64Array1D,
+        backcast: float | Float64Array1D,
+        var_bounds: Float64Array2D,
         individual: bool = False,
-    ) -> Union[float, Float64Array]:
+    ) -> float | Float64Array1D:
         # Parse parameters
         _callback_info["count"] += 1
 
@@ -1758,14 +1823,14 @@ class ARCHInMean(ARX):
             _callback_info["llf"] = llf_f = -float(llf)
             return llf_f
 
-        return cast(np.ndarray, -llf)
+        return cast("Float64Array1D", -llf)
 
     def _simulate_mean(
         self,
         parameters: Float64Array,
         x: Float64Array,
         errors: Float64Array,
-        initial_value: Union[float, Float64Array, None],
+        initial_value: float | Float64Array | None,
         conditional_variance: Float64Array,
     ) -> Float64Array:
         """
@@ -1820,16 +1885,14 @@ class ARCHInMean(ARX):
 
 
 def arch_model(
-    y: Optional[ArrayLike],
-    x: Optional[ArrayLike2D] = None,
+    y: ArrayLike | None,
+    x: ArrayLike | ArrayLike2D | None = None,
     mean: Literal[
         "Constant", "Zero", "LS", "AR", "ARX", "HAR", "HARX", "constant", "zero"
     ] = "Constant",
-    lags: Union[int, list[int], Int32Array, Int64Array, None] = 0,
-    vol: Literal[
-        "GARCH", "ARCH", "EGARCH", "FIGARCH", "APARCH", "HARCH", "FIGARCH"
-    ] = "GARCH",
-    p: Union[int, list[int]] = 1,
+    lags: int | list[int] | Int32Array | Int64Array | None = 0,
+    vol: Literal["GARCH", "ARCH", "EGARCH", "FIGARCH", "APARCH", "HARCH"] = "GARCH",
+    p: int | list[int] = 1,
     o: int = 0,
     q: int = 1,
     power: float = 2.0,
@@ -1843,8 +1906,8 @@ def arch_model(
         "ged",
         "generalized error",
     ] = "normal",
-    hold_back: Optional[int] = None,
-    rescale: Optional[bool] = None,
+    hold_back: int | None = None,
+    rescale: bool | None = None,
 ) -> HARX:
     """
     Initialization of common ARCH model specifications
@@ -1889,7 +1952,7 @@ def arch_model(
         Flag indicating whether to automatically rescale data if the scale
         of the data is likely to produce convergence issues when estimating
         model parameters. If False, the model is estimated on the data without
-        transformation.  If True, than y is rescaled and the new scale is
+        transformation.  If True, then y is rescaled and the new scale is
         reported in the estimation results.
 
     Returns

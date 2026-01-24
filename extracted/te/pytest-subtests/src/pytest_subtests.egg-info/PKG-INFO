@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-subtests
-Version: 0.14.2
+Version: 0.15.0
 Summary: unittest subTest() support and subtests fixture
 Home-page: https://github.com/pytest-dev/pytest-subtests
 Author: Bruno Oliveira

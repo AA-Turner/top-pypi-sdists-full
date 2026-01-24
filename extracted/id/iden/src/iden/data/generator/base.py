@@ -6,32 +6,56 @@ __all__ = ["BaseDataGenerator", "is_data_generator_config", "setup_data_generato
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
+from coola.equality.testers import EqualityTester
 from objectory import AbstractFactory
 from objectory.utils import is_object_config
 
+from iden.utils.comparator import ObjectEqualityComparator
+
 T = TypeVar("T")
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BaseDataGenerator(Generic[T], ABC, metaclass=AbstractFactory):
+class BaseDataGenerator(ABC, Generic[T], metaclass=AbstractFactory):
     r"""Define the base class to generate data.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from iden.data.generator import DataGenerator
+        >>> generator = DataGenerator([1, 2, 3])
+        >>> generator
+        DataGenerator(copy=False)
+        >>> generator.generate()
+        [1, 2, 3]
 
-    ```pycon
-
-    >>> from iden.data.generator import DataGenerator
-    >>> generator = DataGenerator([1, 2, 3])
-    >>> generator
-    DataGenerator(copy=False)
-    >>> generator.generate()
-    [1, 2, 3]
-
-    ```
+        ```
     """
+
+    @abstractmethod
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:
+        r"""Indicate if two objects are equal or not.
+
+        Args:
+            other: The object to compare with.
+            equal_nan: If ``True``, then two ``NaN``s will be
+                considered equal.
+
+        Returns:
+            ``True`` if the two objects are equal, otherwise ``False``.
+
+        Example:
+            ```pycon
+            >>> from iden.data.generator import DataGenerator
+            >>> DataGenerator([1, 2, 3]).equal(DataGenerator([1, 2, 3]))
+            True
+            >>> DataGenerator([1, 2, 3]).equal(DataGenerator([]))
+            False
+
+            ```
+        """
 
     @abstractmethod
     def generate(self) -> T:
@@ -40,19 +64,18 @@ class BaseDataGenerator(Generic[T], ABC, metaclass=AbstractFactory):
         Returns:
             The generated data.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> from iden.data.generator import DataGenerator
+            >>> generator = DataGenerator([1, 2, 3])
+            >>> generator.generate()
+            [1, 2, 3]
 
-        ```pycon
-        >>> from iden.data.generator import DataGenerator
-        >>> generator = DataGenerator([1, 2, 3])
-        >>> generator.generate()
-        [1, 2, 3]
-
-        ```
+            ```
         """
 
 
-def is_data_generator_config(config: dict) -> bool:
+def is_data_generator_config(config: dict[Any, Any]) -> bool:
     r"""Indicate if the input configuration is a configuration for a
     ``BaseDataGenerator``.
 
@@ -68,20 +91,20 @@ def is_data_generator_config(config: dict) -> bool:
         ``True`` if the input configuration is a configuration for a
             ``BaseDataGenerator`` object.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from iden.data.generator import is_data_generator_config
+        >>> is_data_generator_config({"_target_": "iden.data.generator.DataGenerator"})
+        True
 
-    ```pycon
-
-    >>> from iden.data.generator import is_data_generator_config
-    >>> is_data_generator_config({"_target_": "iden.data.generator.DataGenerator"})
-    True
-
-    ```
+        ```
     """
     return is_object_config(config, BaseDataGenerator)
 
 
-def setup_data_generator(data_generator: BaseDataGenerator | dict) -> BaseDataGenerator:
+def setup_data_generator(
+    data_generator: BaseDataGenerator[T] | dict[Any, Any],
+) -> BaseDataGenerator[T]:
     r"""Set up a data generator.
 
     The data generator is instantiated from its configuration by using the
@@ -93,18 +116,16 @@ def setup_data_generator(data_generator: BaseDataGenerator | dict) -> BaseDataGe
     Returns:
         The instantiated data generator.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from iden.data.generator import is_data_generator_config
+        >>> generator = setup_data_generator(
+        ...     {"_target_": "iden.data.generator.DataGenerator", "data": [1, 2, 3]}
+        ... )
+        >>> generator
+        DataGenerator(copy=False)
 
-    ```pycon
-
-    >>> from iden.data.generator import is_data_generator_config
-    >>> generator = setup_data_generator(
-    ...     {"_target_": "iden.data.generator.DataGenerator", "data": [1, 2, 3]}
-    ... )
-    >>> generator
-    DataGenerator(copy=False)
-
-    ```
+        ```
     """
     if isinstance(data_generator, dict):
         logger.debug("Initializing a data generator from its configuration...")
@@ -114,3 +135,7 @@ def setup_data_generator(data_generator: BaseDataGenerator | dict) -> BaseDataGe
             f"data generator is not a BaseDataGenerator (received: {type(data_generator)})"
         )
     return data_generator
+
+
+if not EqualityTester.has_comparator(BaseDataGenerator):  # pragma: no cover
+    EqualityTester.add_comparator(BaseDataGenerator, ObjectEqualityComparator())

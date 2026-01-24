@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from codecs import decode
 from collections.abc import Mapping, Sequence
+from enum import Enum, auto
 from functools import cache, partial, singledispatch
+from importlib.metadata import version
 from importlib.util import find_spec
 from types import EllipsisType
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeVar, overload
 from warnings import warn
 
 import h5py
@@ -30,8 +32,8 @@ CSMatrix = scipy.sparse.csr_matrix | scipy.sparse.csc_matrix
 CSArray = scipy.sparse.csr_array | scipy.sparse.csc_array
 
 
-class Empty:
-    pass
+class Empty(Enum):
+    TOKEN = auto()
 
 
 Index1DNorm = slice | NDArray[np.bool_] | NDArray[np.integer]
@@ -75,10 +77,7 @@ H5File = h5py.File
 #############################
 @cache
 def is_zarr_v2() -> bool:
-    import zarr
-    from packaging.version import Version
-
-    return Version(zarr.__version__) < Version("3.0.0")
+    return Version(version("zarr")) < Version("3.0.0")
 
 
 if is_zarr_v2():
@@ -213,14 +212,83 @@ else:
 
 NULLABLE_NUMPY_STRING_TYPE = (
     np.dtype("O")
-    if Version(np.__version__) < Version("2")
+    if Version(version("numpy")) < Version("2")
     else np.dtypes.StringDType(na_object=pd.NA)
 )
 
+PANDAS_SUPPORTS_NA_VALUE = Version(version("pandas")) >= Version("2.3")
+
+
+PANDAS_STRING_ARRAY_TYPES: list[type[pd.api.extensions.ExtensionArray]] = [
+    pd.arrays.StringArray,
+    pd.arrays.ArrowStringArray,
+]
+# these are removed in favor of the above classes: https://github.com/pandas-dev/pandas/pull/62149
+try:
+    from pandas.core.arrays.string_ import StringArrayNumpySemantics
+except ImportError:
+    pass
+else:
+    PANDAS_STRING_ARRAY_TYPES += [StringArrayNumpySemantics]
+try:
+    from pandas.core.arrays.string_arrow import ArrowStringArrayNumpySemantics
+except ImportError:
+    pass
+else:
+    PANDAS_STRING_ARRAY_TYPES += [ArrowStringArrayNumpySemantics]
+
+
+@overload
+def pandas_as_str(a: pd.Index[Any]) -> pd.Index[str]: ...
+@overload
+def pandas_as_str(a: pd.Series[Any]) -> pd.Series[str]: ...
+
+
+def pandas_as_str(a: pd.Index | pd.Series) -> pd.Index[str] | pd.Series[str]:
+    """Convert to fitting dtype, maintaining NA semantics if possible.
+
+    This is `"str"` when `pd.options.future.infer_string` is `True` (e.g. in Pandas 3+), and `"object"` otherwise.
+    """
+    if not pd.options.future.infer_string:
+        return a.astype(str)
+    if a.array.dtype == "string":  # any `pd.StringDtype`
+        return a
+    if PANDAS_SUPPORTS_NA_VALUE:
+        dtype = pd.StringDtype(na_value=a.array.dtype.na_value)
+    elif a.array.dtype.na_value is pd.NA:
+        dtype = pd.StringDtype()  # NA semantics
+    elif a.array.dtype.na_value is np.nan and find_spec("pyarrow"):  # noqa: PLW0177
+        # on pandas 2.2, this is the only way to get `np.nan` semantics
+        dtype = pd.StringDtype("pyarrow_numpy")
+    else:
+        msg = (
+            f"Converting an array with `dtype.na_value={a.array.dtype.na_value}` to a string array requires pyarrow or pandas>=2.3. "
+            "Converting to `pd.NA` semantics instead."
+        )
+        warn(msg, UserWarning, stacklevel=2)
+        dtype = pd.StringDtype()  # NA semantics
+    return a.astype(dtype)
+
+
+V = TypeVar("V")
+T = TypeVar("T")
+
+
+@overload
+def _read_attr(
+    attrs: Mapping[str, V], name: str, default: Empty = Empty.TOKEN
+) -> V: ...
+
+
+@overload
+def _read_attr(attrs: Mapping[str, V], name: str, default: T) -> V | T: ...
+
 
 @singledispatch
-def _read_attr(attrs: Mapping, name: str, default: Any | None = Empty):
-    if default is Empty:
+def _read_attr(
+    attrs: Mapping[str, V], name: str, default: T | Empty = Empty.TOKEN
+) -> V | T:
+    if default is Empty.TOKEN:
         return attrs[name]
     else:
         return attrs.get(name, default=default)
@@ -228,8 +296,8 @@ def _read_attr(attrs: Mapping, name: str, default: Any | None = Empty):
 
 @_read_attr.register(h5py.AttributeManager)
 def _read_attr_hdf5(
-    attrs: h5py.AttributeManager, name: str, default: Any | None = Empty
-):
+    attrs: h5py.AttributeManager, name: str, default: T | Empty = Empty.TOKEN
+) -> str | T:
     """
     Read an HDF5 attribute and perform all necessary conversions.
 
@@ -238,7 +306,7 @@ def _read_attr_hdf5(
     For example Julia's HDF5.jl writes string attributes as fixed-size strings, which
     are read as bytes by h5py.
     """
-    if name not in attrs and default is not Empty:
+    if name not in attrs and default is not Empty.TOKEN:
         return default
     attr = attrs[name]
     attr_id = attrs.get_id(name)
@@ -428,11 +496,3 @@ def _safe_transpose(x):
         return _transpose_by_block(x)
     else:
         return x.T
-
-
-def _map_cat_to_str(cat: pd.Categorical) -> pd.Categorical:
-    if Version(pd.__version__) >= Version("2.1"):
-        # Argument added in pandas 2.1
-        return cat.map(str, na_action="ignore")
-    else:
-        return cat.map(str)

@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -68,12 +69,6 @@ from .type_defs import (
 )
 from .waiter import SuccessfulSigningJobWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -84,17 +79,17 @@ __all__ = ("SignerClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServiceErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceLimitExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServiceErrorException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceLimitExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class SignerClient(BaseClient):
@@ -269,7 +264,7 @@ class SignerClient(BaseClient):
         self, **kwargs: Unpack[RevokeSignatureRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Changes the state of a signing job to REVOKED.
+        Changes the state of a signing job to <code>REVOKED</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signer/client/revoke_signature.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signer/client/#revoke_signature)
@@ -279,7 +274,7 @@ class SignerClient(BaseClient):
         self, **kwargs: Unpack[RevokeSigningProfileRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Changes the state of a signing profile to REVOKED.
+        Changes the state of a signing profile to <code>REVOKED</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signer/client/revoke_signing_profile.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signer/client/#revoke_signing_profile)
@@ -305,7 +300,7 @@ class SignerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signer/client/#start_signing_job)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to a signing profile.
 
@@ -313,7 +308,7 @@ class SignerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signer/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a signing profile.
 

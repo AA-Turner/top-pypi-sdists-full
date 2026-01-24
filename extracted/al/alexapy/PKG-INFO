@@ -1,8 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: AlexaPy
-Version: 1.29.8
+Version: 1.29.15
 Summary: Python API to control Amazon Echo Devices Programmatically.
 License: Apache-2.0
+License-File: AUTHORS.md
+License-File: LICENSE
 Keywords: amazon,alexa,homeassistant
 Author: Keaton Taylor
 Author-email: keatonstaylor@gmail.com
@@ -12,6 +14,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: aiofiles (>=24.1.0,<25.0.0)
 Requires-Dist: aiohttp (>=3.8.4,<4.0.0)
 Requires-Dist: authcaptureproxy (>=1.3.2,<2.0.0)

@@ -1,39 +1,30 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: splink
-Version: 4.0.8
+Version: 4.0.12
 Summary: Fast probabilistic data linkage at scale
-License: MIT
-Author: Robin Linacre
-Author-email: robinlinacre@hotmail.com
-Requires-Python: >=3.8.0,<4.0.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Provides-Extra: athena
-Provides-Extra: postgres
-Provides-Extra: pyspark
-Provides-Extra: spark
-Requires-Dist: Jinja2 (>=3.0.3)
-Requires-Dist: altair (>=5.0.1) ; python_version < "3.13"
-Requires-Dist: altair (>=5.5.0) ; python_version >= "3.13"
-Requires-Dist: awswrangler (>=3.0.0,<4.0.0) ; (python_version >= "3.8") and (extra == "athena")
-Requires-Dist: duckdb (>=0.9.2)
-Requires-Dist: igraph (>=0.11.2)
-Requires-Dist: jsonschema (>=3.2)
-Requires-Dist: numpy (>=1.17.3) ; python_version < "3.12"
-Requires-Dist: numpy (>=1.26.0) ; python_version >= "3.12"
-Requires-Dist: pandas (>1.3.5) ; python_version < "3.13"
-Requires-Dist: pandas (>=2.2.3) ; python_version >= "3.13"
-Requires-Dist: psycopg2-binary (>=2.8.0) ; extra == "postgres"
-Requires-Dist: pyspark (>=3.2.1) ; extra == "pyspark" or extra == "spark"
-Requires-Dist: sqlglot (>=13.0.0)
 Project-URL: Homepage, https://github.com/moj-analytical-services/splink
 Project-URL: Repository, https://github.com/moj-analytical-services/splink
+Author: Sam Lindsay, Theodore Manassis, Tom Hepworth, Andy Bond, Ross Kennedy
+Author-email: Robin Linacre <robinlinacre@hotmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <4.0.0,>=3.9.0
+Requires-Dist: altair>=5.0.1
+Requires-Dist: duckdb>=0.9.2
+Requires-Dist: igraph>=0.11.2
+Requires-Dist: jinja2>=3.0.3
+Requires-Dist: numpy>=1.19.3
+Requires-Dist: pandas>=1.3.5
+Requires-Dist: sqlglot>=17.6.0
+Provides-Extra: athena
+Requires-Dist: awswrangler; extra == 'athena'
+Provides-Extra: postgres
+Requires-Dist: psycopg2-binary>=2.9.0; extra == 'postgres'
+Requires-Dist: sqlalchemy>=2.0.0; extra == 'postgres'
+Provides-Extra: pyspark
+Requires-Dist: pyspark>=3.5.0; extra == 'pyspark'
+Provides-Extra: spark
+Requires-Dist: pyspark>=3.5.0; extra == 'spark'
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -98,7 +89,7 @@ The Office for National Statistics have written a [case study about using Splink
 
 ## Installation
 
-Splink supports python 3.8+. To obtain the latest released version of splink you can install from PyPI using pip:
+Splink supports python 3.9+. To obtain the latest released version of splink you can install from PyPI using pip:
 
 ```sh
 pip install splink
@@ -145,7 +136,6 @@ For more detailed tutorial, please see [here](https://moj-analytical-services.gi
 
 ```py
 import splink.comparison_library as cl
-import splink.comparison_template_library as ctl
 from splink import DuckDBAPI, Linker, SettingsCreator, block_on, splink_datasets
 
 db_api = DuckDBAPI()
@@ -157,14 +147,14 @@ settings = SettingsCreator(
     comparisons=[
         cl.JaroWinklerAtThresholds("first_name", [0.9, 0.7]),
         cl.JaroAtThresholds("surname", [0.9, 0.7]),
-        ctl.DateComparison(
+        cl.DateOfBirthComparison(
             "dob",
             input_is_string=True,
             datetime_metrics=["year", "month"],
             datetime_thresholds=[1, 1],
         ),
         cl.ExactMatch("city").configure(term_frequency_adjustments=True),
-        ctl.EmailComparison("email"),
+        cl.EmailComparison("email"),
     ],
     blocking_rules_to_generate_predictions=[
         block_on("first_name"),
@@ -209,6 +199,12 @@ To find the best place to ask a question, report a bug or get general advice, pl
 
 ## Awards
 
+🥇 Civil Service Awards 2025: Innovation category - [Winner](https://x.com/CSWnews/status/1998488787433979981)
+
+🥇 Civil Service Awards 2025: The Excellence In Delivery Award was [won](https://www.civilserviceawards.com/winners-2025/) by a dashboard powered by Splink.
+
+🥇 OpenUK Awards 2025: Open data category - [Winner](https://openuk.uk/awards/)
+
 🥈 Civil Service Awards 2023: Best Use of Data, Science, and Technology - [Runner up](https://www.civilserviceawards.com/best-use-of-data-science-and-technology-award-2/)
 
 🥇 Analysis in Government Awards 2022: People's Choice Award - [Winner](https://analysisfunction.civilservice.gov.uk/news/announcing-the-winner-of-the-first-analysis-in-government-peoples-choice-award/)
@@ -252,4 +248,3 @@ While Splink is a standalone package, there are a number of repositories in the 
 - [splink_scalaudfs](https://github.com/moj-analytical-services/splink_scalaudfs) contains the code to generate [User Defined Functions](https://moj-analytical-services.github.io/splink/dev_guides/udfs.html#spark) in scala which are then callable in Spark.
 - [splink_datasets](https://github.com/moj-analytical-services/splink_datasets) contains datasets that can be installed automatically as a part of Splink through the [In-build datasets](https://moj-analytical-services.github.io/splink/datasets.html) functionality.
 - [splink_synthetic_data](https://github.com/moj-analytical-services/splink_synthetic_data) contains code to generate synthetic data.
-

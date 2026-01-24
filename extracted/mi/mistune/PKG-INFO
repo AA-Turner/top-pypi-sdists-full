@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistune
-Version: 3.1.4
+Version: 3.2.0
 Summary: A sane and fast Markdown parser with useful plugins and renderers
 Author-email: Hsiaoming Yang <me@lepture.com>
 License: BSD-3-Clause
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Text Processing :: Markup

@@ -33,6 +33,7 @@ from Reporter.Reporter import (
     InvalidDataError,
     Reporter,
     remote_checks,
+    sentry_init,
     signature_checks,
 )
 
@@ -150,7 +151,9 @@ class Collector(Reporter):
             data["testcase_isbinary"] = isBinary
             data["testcase_quality"] = testCaseQuality
             data["testcase_size"] = testCaseSize
-            data["testcase_ext"] = os.path.splitext(testCase)[1].lstrip(".")
+            testcase_ext = os.path.splitext(testCase)[1].lstrip(".")
+            if testcase_ext:
+                data["testcase_ext"] = testcase_ext
 
         data["platform"] = crashInfo.configuration.platform
         data["product"] = crashInfo.configuration.product
@@ -402,6 +405,7 @@ class Collector(Reporter):
 
 def main(args=None):
     """Command line options."""
+    sentry_init()
 
     # setup argparser
     parser = argparse.ArgumentParser()

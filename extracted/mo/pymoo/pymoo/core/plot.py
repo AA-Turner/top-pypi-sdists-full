@@ -1,9 +1,7 @@
 import importlib
 
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import ListedColormap
+from pymoo.visualization.matplotlib import matplotlib, plt, colors, ListedColormap
 
 from pymoo.util.misc import set_if_none
 from pymoo.visualization.util import default_number_to_text, in_notebook
@@ -172,7 +170,7 @@ class Plot:
         self.plot_if_not_done_yet()
 
         # in a notebook the plot method need not to be called explicitly
-        if not in_notebook() and matplotlib.get_backend() != "agg":
+        if not in_notebook() and matplotlib.get_backend().lower() != "agg":
             plt.show(**kwargs)
             plt.close()
 

@@ -1,5 +1,14 @@
 from typing import Literal
 
+FetchStealthMode = Literal["none", "auto", "ultra"]
+FetchSanitizeMode = Literal["none", "basic", "advanced"]
+FetchStatus = Literal["completed", "failed", "pending", "running"]
+BatchFetchJobStatus = Literal["completed", "failed", "pending", "running"]
+PageStatus = Literal["completed", "failed", "pending", "running"]
+WebSearchStatus = Literal["completed", "failed", "pending", "running"]
+FetchWaitUntil = Literal["load", "domcontentloaded", "networkidle"]
+FetchScreenshotFormat = Literal["jpeg", "png", "webp"]
+
 ScrapeFormat = Literal["markdown", "html", "links", "screenshot"]
 ScrapeWaitUntil = Literal["load", "domcontentloaded", "networkidle"]
 ScrapePageStatus = Literal["completed", "failed", "pending", "running"]
@@ -10,14 +19,23 @@ RecordingStatus = Literal[
 DownloadsStatus = Literal[
     "not_enabled", "pending", "in_progress", "completed", "failed"
 ]
+SessionEventLogType = Literal[
+    "captcha_detected", "captcha_solved", "captcha_error", "file_downloaded"
+]
 
 POLLING_ATTEMPTS = 5
+
+BrowserUseVersion = Literal["0.1.40", "0.7.10", "latest"]
+HyperAgentVersion = Literal["0.8.0", "1.1.0"]
 
 BrowserUseLlm = Literal[
     "gpt-4o",
     "gpt-4o-mini",
     "gpt-4.1",
     "gpt-4.1-mini",
+    "gpt-5",
+    "gpt-5-mini",
+    "claude-sonnet-4-5",
     "claude-sonnet-4-20250514",
     "claude-3-7-sonnet-20250219",
     "claude-3-5-sonnet-20241022",
@@ -26,20 +44,34 @@ BrowserUseLlm = Literal[
     "gemini-2.5-flash",
 ]
 HyperAgentLlm = Literal[
+    "gpt-5.2",
+    "gpt-5.1",
+    "gpt-5",
+    "gpt-5-mini",
     "gpt-4o",
     "gpt-4o-mini",
     "gpt-4.1",
     "gpt-4.1-mini",
     "gpt-4.1-nano",
+    "claude-sonnet-4-5",
+    "gemini-2.5-flash",
+    "gemini-3-flash-preview",
 ]
 ClaudeComputerUseLlm = Literal[
-    "claude-3-7-sonnet-20250219",
+    "claude-opus-4-5",
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-4-5",
     "claude-sonnet-4-20250514",
+    "claude-3-7-sonnet-20250219",
 ]
+GeminiComputerUseLlm = Literal["gemini-2.5-computer-use-preview-10-2025",]
 SessionRegion = Literal[
     "us-central",
     "asia-south",
     "us-dev",
+    "europe-west",
+    "us-west",
+    "us-east",
 ]
 
 Country = Literal[

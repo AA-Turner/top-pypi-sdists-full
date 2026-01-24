@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-trino
-Version: 1.9.3
+Version: 1.10.1
 Summary: The trino adapter plugin for dbt (data build tool)
 Home-page: https://github.com/starburstdata/dbt-trino
 Author: Starburst Data
@@ -21,7 +21,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: dbt-common<2.0,>=1.25.0
-Requires-Dist: dbt-adapters<1.17,>=1.15.1
+Requires-Dist: dbt-adapters<2.0,>=1.16
 Requires-Dist: trino~=0.331
 Requires-Dist: dbt-core>=1.8.0
 Dynamic: author
@@ -76,7 +76,7 @@ This repository represents a fork of the [dbt-presto](https://github.com/dbt-lab
 
 ## Compatibility
 
-This dbt plugin has been tested against `Trino` version `475`, `Starburst Enterprise` version `468-e.6` and `Starburst Galaxy`.
+This dbt plugin has been tested against `Trino` version `478`, `Starburst Enterprise` version `477-e.1` and `Starburst Galaxy`.
 
 ## Setup & Configuration
 

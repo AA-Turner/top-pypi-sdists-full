@@ -11,36 +11,165 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from contextlib import contextmanager, nullcontext
+from pathlib import Path
+from typing import Generator, List
 
-from typing import List
-
-from snowflake.cli._plugins.dcm.dcm_project_entity_model import DCMProjectEntityModel
+import yaml
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.commands.utils import parse_key_value_variables
+from snowflake.cli.api.console.console import cli_console
+from snowflake.cli.api.constants import (
+    DEFAULT_SIZE_LIMIT_MB,
+    ObjectType,
+    PatternMatchingType,
+)
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.project_paths import ProjectPaths
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
+from snowflake.cli.api.utils.path_utils import is_stage_path
+
+MANIFEST_FILE_NAME = "manifest.yml"
+DCM_PROJECT_TYPE = "dcm_project"
 
 
 class DCMProjectManager(SqlExecutionMixin):
-    def execute(
+    @contextmanager
+    def _collect_output(
+        self, project_identifier: FQN, output_path: str
+    ) -> Generator[str, None, None]:
+        """
+        Context manager for handling output path - creates temporary stage for local paths,
+        downloads files after execution, and ensures proper cleanup.
+
+        Args:
+            project_identifier: The DCM project identifier
+            output_path: Either a stage path (@stage/path) or local directory path
+
+        Yields:
+            str: The effective output path to use in the DCM command
+        """
+        temp_stage_for_local_output = None
+        stage_manager = StageManager()
+
+        if should_download_files := not is_stage_path(output_path):
+            temp_stage_fqn = FQN.from_resource(
+                ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
+            )
+            stage_manager.create(temp_stage_fqn, temporary=True)
+            effective_output_path = StagePath.from_stage_str(
+                temp_stage_fqn.identifier
+            ).joinpath("/outputs")
+            temp_stage_for_local_output = (temp_stage_fqn.identifier, Path(output_path))
+        else:
+            effective_output_path = StagePath.from_stage_str(output_path)
+
+        try:
+            yield effective_output_path.absolute_path()
+        finally:
+            if should_download_files:
+                assert temp_stage_for_local_output is not None
+                stage_path, local_path = temp_stage_for_local_output
+                stage_manager.get_recursive(
+                    stage_path=effective_output_path.absolute_path(),
+                    dest_path=local_path,
+                )
+                cli_console.step(f"Plan output saved to: {local_path.resolve()}")
+            else:
+                cli_console.step(f"Plan output saved to: {output_path}")
+
+    def deploy(
         self,
-        project_name: FQN,
+        project_identifier: FQN,
         from_stage: str,
         configuration: str | None = None,
         variables: List[str] | None = None,
-        dry_run: bool = False,
         alias: str | None = None,
+        skip_plan: bool = False,
+    ):
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} DEPLOY"
+        if alias:
+            query += f' AS "{alias}"'
+        query += self._get_configuration_and_variables_query(configuration, variables)
+        query += self._get_from_stage_query(from_stage)
+        if skip_plan:
+            query += f" SKIP PLAN"
+        return self.execute_query(query=query)
+
+    def plan(
+        self,
+        project_identifier: FQN,
+        from_stage: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
         output_path: str | None = None,
     ):
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
+        query += self._get_configuration_and_variables_query(configuration, variables)
+        query += self._get_from_stage_query(from_stage)
+        with self._collect_output(
+            project_identifier, output_path
+        ) if output_path else nullcontext() as output_stage:
+            if output_stage is not None:
+                query += f" OUTPUT_PATH {output_stage}"
+            result = self.execute_query(query=query)
 
-        query = f"EXECUTE DCM PROJECT {project_name.sql_identifier}"
-        if dry_run:
-            query += " PLAN"
-        else:
-            query += " DEPLOY"
-            if alias:
-                query += f" AS {alias}"
+        return result
+
+    def create(self, project_identifier: FQN) -> None:
+        query = f"CREATE DCM PROJECT {project_identifier.sql_identifier}"
+        self.execute_query(query)
+
+    def list_deployments(self, project_identifier: FQN):
+        query = f"SHOW DEPLOYMENTS IN DCM PROJECT {project_identifier.identifier}"
+        return self.execute_query(query=query)
+
+    def drop_deployment(
+        self,
+        project_identifier: FQN,
+        deployment_name: str,
+        if_exists: bool = False,
+    ):
+        """
+        Drops a deployment from the DCM Project.
+        """
+        query = f"ALTER DCM PROJECT {project_identifier.identifier} DROP DEPLOYMENT"
+        if if_exists:
+            query += " IF EXISTS"
+        query += f' "{deployment_name}"'
+        return self.execute_query(query=query)
+
+    def preview(
+        self,
+        project_identifier: FQN,
+        object_identifier: FQN,
+        from_stage: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+        limit: int | None = None,
+    ):
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PREVIEW {object_identifier.sql_identifier}"
+        query += self._get_configuration_and_variables_query(configuration, variables)
+        query += self._get_from_stage_query(from_stage)
+        if limit is not None:
+            query += f" LIMIT {limit}"
+        return self.execute_query(query=query)
+
+    @staticmethod
+    def _get_from_stage_query(from_stage: str) -> str:
+        stage_path = StagePath.from_stage_str(from_stage)
+        return f" FROM {stage_path.absolute_path()}"
+
+    @staticmethod
+    def _get_configuration_and_variables_query(
+        configuration: str | None, variables: List[str] | None
+    ) -> str:
+        query = ""
         if configuration or variables:
             query += f" USING"
         if configuration:
@@ -49,48 +178,52 @@ class DCMProjectManager(SqlExecutionMixin):
             query += StageManager.parse_execute_variables(
                 parse_key_value_variables(variables)
             ).removeprefix(" using")
-        stage_path = StagePath.from_stage_str(from_stage)
-        query += f" FROM {stage_path.absolute_path()}"
-        if output_path:
-            output_stage_path = StagePath.from_stage_str(output_path)
-            query += f" OUTPUT_PATH {output_stage_path.absolute_path()}"
-        return self.execute_query(query=query)
+        return query
 
-    def create(self, project: DCMProjectEntityModel) -> None:
-        query = f"CREATE DCM PROJECT {project.fqn.sql_identifier}"
-        self.execute_query(query)
+    @staticmethod
+    def sync_local_files(
+        project_identifier: FQN, source_directory: str | None = None
+    ) -> str:
+        source_path = (
+            SecurePath(source_directory).resolve()
+            if source_directory
+            else SecurePath.cwd()
+        )
 
-    def _create_version(
-        self,
-        project_name: FQN,
-        from_stage: str,
-        alias: str | None = None,
-        comment: str | None = None,
-    ):
-        stage_path = StagePath.from_stage_str(from_stage)
-        query = f"ALTER DCM PROJECT {project_name.identifier} ADD VERSION"
-        if alias:
-            query += f" IF NOT EXISTS {alias}"
-        query += f" FROM {stage_path.absolute_path(at_prefix=True)}"
-        if comment:
-            query += f" COMMENT = '{comment}'"
-        return self.execute_query(query=query)
+        dcm_manifest_file = source_path / MANIFEST_FILE_NAME
+        if not dcm_manifest_file.exists():
+            raise CliError(
+                f"{MANIFEST_FILE_NAME} was not found in directory {source_path.path}"
+            )
 
-    def list_versions(self, project_name: FQN):
-        query = f"SHOW VERSIONS IN DCM PROJECT {project_name.identifier}"
-        return self.execute_query(query=query)
+        with dcm_manifest_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
+            dcm_manifest = yaml.safe_load(fd)
+            object_type = dcm_manifest.get("type") if dcm_manifest else None
+            if object_type is None:
+                raise CliError(
+                    f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}"
+                )
+            if object_type.lower() != DCM_PROJECT_TYPE:
+                raise CliError(
+                    f"Manifest file is defined for type {object_type}. Expected {DCM_PROJECT_TYPE}"
+                )
 
-    def drop_deployment(
-        self,
-        project_name: FQN,
-        version_name: str,
-        if_exists: bool = False,
-    ):
-        """
-        Drops a version from the DCM Project.
-        """
-        query = f"ALTER DCM PROJECT {project_name.identifier} DROP VERSION"
-        if if_exists:
-            query += " IF EXISTS"
-        query += f" {version_name}"
-        return self.execute_query(query=query)
+            definitions = list(dcm_manifest.get("include_definitions", list()))
+            if MANIFEST_FILE_NAME not in definitions:
+                # append manifest file, but avoid sending it multiple times if
+                # there are manifests from previous runs stored in output path
+                definitions.append(rf"^{MANIFEST_FILE_NAME}")
+
+        with cli_console.phase(f"Uploading definition files"):
+            stage_fqn = FQN.from_resource(
+                ObjectType.DCM_PROJECT, project_identifier, "TMP_STAGE"
+            )
+            sync_artifacts_with_stage(
+                project_paths=ProjectPaths(project_root=source_path.path),
+                stage_root=stage_fqn.identifier,
+                use_temporary_stage=True,
+                artifacts=[PathMapping(src=definition) for definition in definitions],
+                pattern_type=PatternMatchingType.REGEX,
+            )
+
+        return stage_fqn.identifier

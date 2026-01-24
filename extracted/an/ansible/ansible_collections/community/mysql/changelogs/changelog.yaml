@@ -316,6 +316,19 @@ releases:
     - fix_python2_compatibility.yml
     - fix_user_module_for_default_roles.yml
     release_date: '2025-07-24'
+  3.16.0:
+    changes:
+      minor_changes:
+      - '`mysql_query` - add new `session_vars` argument, similar to ansible-collections/community.mysql#489.'
+      release_summary: 'This is the minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 0_mysql_query_session_vars.yml
+    - release_3_16_0.yml
+    release_date: '2025-09-12'
   3.2.0:
     changes:
       bugfixes:
@@ -625,3 +638,57 @@ releases:
     - 602-show-all-slaves-status.yaml
     - 604-user-attributes.yaml
     release_date: '2024-02-22'
+  4.0.0:
+    changes:
+      breaking_changes:
+      - Since version 4.0.0, the collection accepts code written in Python 3. Modules
+        aren't tested against Python 2 and might not work in Python 2 environments.
+      - collection - stop testing against mysqlclient connector as its support was
+        deprecated in this collection - use PyMySQL connector instead! It'll stop
+        working in 5.0.0 when we remove all related code (https://github.com/ansible-collections/community.mysql/issues/654).
+      - mysql_db - the ``pipefail`` argument's default value is set to ``true``.  If
+        your target machines do not use ``bash`` as a default interpreter, set ``pipefail``
+        to ``false`` explicitly. However, we strongly recommend setting up ``bash``
+        as a default and ``pipefail=true`` as it will protect you from getting broken
+        dumps you don't know about (https://github.com/ansible-collections/community.mysql/issues/407).
+      - mysql_info - The ``users_info`` filter does not return the ``plugin_auth_string``
+        field anymore. Use the `plugin_hash_string` return value instead (https://github.com/ansible-collections/community.mysql/pull/629).
+      - mysql_role - the ``column_case_sensitive`` argument's default value has been
+        changed to ``true``. If your playbook expected the column to be automatically
+        uppercased for your users privileges, you should set this to ``false`` explicitly
+        (https://github.com/ansible-collections/community.mysql/issues/578).
+      - mysql_user - the ``column_case_sensitive`` argument's default value has been
+        changed to ``true``. If your playbook expected the column to be automatically
+        uppercased for your users privileges, you should set this to ``false`` explicitly
+        (https://github.com/ansible-collections/community.mysql/issues/577).
+      release_summary: 'This is a major release of the ``community.mysql`` collection.
+
+        This changelog contains all breaking changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 3.16.0.'
+    fragments:
+    - 0-pipefail.yml
+    - 1-python2.yml
+    - 2-drop_mysql_client.yml
+    - 4-column_case_sensitive.yml
+    - 4.0.0.yml
+    - 5-case_sensitive2.yml
+    - 6-mysql_info.yml
+    release_date: '2025-09-16'
+  4.0.1:
+    changes:
+      bugfixes:
+      - mysql_info - Fix slave status for source terminology introduced in MySQL 8.0.23
+        (https://github.com/ansible-collections/community.mysql/issues/682).
+      - mysql_user, mysql_role - fix not existent grant when revoking perms on user/role
+        which do not have any other perms than grant option (https://github.com/ansible-collections/community.mysql/issues/664).
+      release_summary: 'This is a patch release of the ``community.mysql`` collection.
+
+        This changelog contains all breaking changes to the modules in this collection
+
+        that have been added after the previous release.'
+    fragments:
+    - 4.0.1.yml
+    - fix_user_perms_revoke_grant_option.yml
+    - mysql_info_fix_slave_status_for_source_terminology.yaml
+    release_date: '2025-10-16'

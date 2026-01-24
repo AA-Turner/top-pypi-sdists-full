@@ -93,7 +93,7 @@ fn get_xcode_project_info(path: &Path) -> Result<Option<XcodeProjectInfo>> {
     for entry in (fs::read_dir(path)?).flatten() {
         if let Some(filename) = entry.file_name().to_str() {
             if filename.ends_with(".xcodeproj") {
-                projects.push(entry.path().to_path_buf());
+                projects.push(entry.path().clone());
             }
         }
     }
@@ -394,21 +394,26 @@ pub fn launched_from_xcode() -> bool {
     false
 }
 
-#[test]
-fn test_expansion() {
-    let mut vars = HashMap::new();
-    vars.insert("FOO_BAR".to_owned(), "foo bar baz / blah".to_owned());
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    assert_eq!(
-        expand_xcodevars("A$(FOO_BAR:rfc1034identifier)B", &vars),
-        "Afoo-bar-baz-blahB"
-    );
-    assert_eq!(
-        expand_xcodevars("A$(FOO_BAR:identifier)B", &vars),
-        "Afoo_bar_baz_blahB"
-    );
-    assert_eq!(
-        expand_xcodevars("A${FOO_BAR:identifier}B", &vars),
-        "Afoo_bar_baz_blahB"
-    );
+    #[test]
+    fn test_expansion() {
+        let mut vars = HashMap::new();
+        vars.insert("FOO_BAR".to_owned(), "foo bar baz / blah".to_owned());
+
+        assert_eq!(
+            expand_xcodevars("A$(FOO_BAR:rfc1034identifier)B", &vars),
+            "Afoo-bar-baz-blahB"
+        );
+        assert_eq!(
+            expand_xcodevars("A$(FOO_BAR:identifier)B", &vars),
+            "Afoo_bar_baz_blahB"
+        );
+        assert_eq!(
+            expand_xcodevars("A${FOO_BAR:identifier}B", &vars),
+            "Afoo_bar_baz_blahB"
+        );
+    }
 }

@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class SuccessResponse(BaseModel):
@@ -36,9 +36,10 @@ class SuccessResponse(BaseModel):
 
     __properties = ["status"]
 
-    class Config:  # noqa: D106
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -63,7 +64,7 @@ class SuccessResponse(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -78,9 +79,9 @@ class SuccessResponse(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return SuccessResponse.parse_obj(obj)
+            return SuccessResponse.model_validate(obj)
 
-        _obj = SuccessResponse.parse_obj(
+        _obj = SuccessResponse.model_validate(
             {
                 "status": obj.get("status"),
             }

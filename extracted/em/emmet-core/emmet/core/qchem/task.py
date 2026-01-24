@@ -1,13 +1,13 @@
 """Core definition of a Q-Chem Task Document"""
 
-# mypy: ignore-errors
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 from pymatgen.core.structure import Molecule
 
+from emmet.core.mpid import MPID, MPculeID
 from emmet.core.qchem.calc_types import (
     CalcType,
     LevelOfTheory,
@@ -20,7 +20,8 @@ from emmet.core.qchem.calc_types import (
 )
 from emmet.core.structure import MoleculeMetadata
 from emmet.core.task import BaseTaskDocument
-from emmet.core.utils import ValueEnum
+from emmet.core.types.enums import ValueEnum
+from emmet.core.utils import arrow_incompatible
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -37,6 +38,7 @@ class QChemStatus(ValueEnum):
     FAILED = "unsuccessful"
 
 
+@arrow_incompatible
 class OutputSummary(BaseModel):
     """
     Summary of an output for a Q-Chem calculation
@@ -115,10 +117,15 @@ class OutputSummary(BaseModel):
         }
 
 
+@arrow_incompatible
 class TaskDocument(BaseTaskDocument, MoleculeMetadata):
     """
     Definition of a Q-Chem task document
     """
+
+    task_id: MPID | MPculeID | None = Field(
+        None, description="the Task ID For this document"
+    )
 
     calc_code: str = "Q-Chem"
     completed: bool = True
@@ -138,7 +145,7 @@ class TaskDocument(BaseTaskDocument, MoleculeMetadata):
     orig: dict[str, Any] = Field(
         {}, description="Summary of the original Q-Chem inputs"
     )
-    output: OutputSummary = Field(OutputSummary())
+    output: OutputSummary = Field(OutputSummary())  # type: ignore[call-arg]
 
     critic2: dict[str, Any] | None = Field(
         None, description="Output from Critic2 critical point analysis code"
@@ -199,20 +206,19 @@ class TaskDocument(BaseTaskDocument, MoleculeMetadata):
 
     @property
     def entry(self) -> dict[str, Any]:
-        if self.output.optimized_molecule is not None:
-            mol = self.output.optimized_molecule
+        mol = None
+        for mol_field in ("optimized_molecule", "initial_molecule"):
+            if mol := getattr(self.output, mol_field, None):
+                break
         else:
-            mol = self.output.initial_molecule
+            raise ValueError("No molecule could be associated with the calculation.")
 
-        if self.charge is None:
-            charge = int(mol.charge)
-        else:
-            charge = int(self.charge)
-
-        if self.spin_multiplicity is None:
-            spin = mol.spin_multiplicity
-        else:
-            spin = self.spin_multiplicity
+        charge = int(mol.charge) if self.charge is None else int(self.charge)
+        spin = (
+            mol.spin_multiplicity
+            if self.spin_multiplicity is None
+            else self.spin_multiplicity
+        )
 
         entry_dict = {
             "entry_id": self.task_id,
@@ -256,8 +262,4 @@ def filter_task_type(
     """
 
     filtered = [f for f in entries if f["task_type"] == task_type]
-
-    if sort_by is not None:
-        return sorted(filtered, key=sort_by)
-    else:
-        return filtered
+    return sorted(filtered, key=sort_by) if sort_by is not None else filtered

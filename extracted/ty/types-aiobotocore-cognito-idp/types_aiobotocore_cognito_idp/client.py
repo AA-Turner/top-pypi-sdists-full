@@ -3,7 +3,7 @@ Type annotations for cognito-idp service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -237,12 +238,6 @@ from .type_defs import (
     VerifyUserAttributeRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -253,62 +248,62 @@ __all__ = ("CognitoIdentityProviderClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AliasExistsException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    CodeDeliveryFailureException: Type[BotocoreClientError]
-    CodeMismatchException: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    DeviceKeyExistsException: Type[BotocoreClientError]
-    DuplicateProviderException: Type[BotocoreClientError]
-    EnableSoftwareTokenMFAException: Type[BotocoreClientError]
-    ExpiredCodeException: Type[BotocoreClientError]
-    FeatureUnavailableInTierException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    GroupExistsException: Type[BotocoreClientError]
-    InternalErrorException: Type[BotocoreClientError]
-    InvalidEmailRoleAccessPolicyException: Type[BotocoreClientError]
-    InvalidLambdaResponseException: Type[BotocoreClientError]
-    InvalidOAuthFlowException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidPasswordException: Type[BotocoreClientError]
-    InvalidSmsRoleAccessPolicyException: Type[BotocoreClientError]
-    InvalidSmsRoleTrustRelationshipException: Type[BotocoreClientError]
-    InvalidUserPoolConfigurationException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MFAMethodNotFoundException: Type[BotocoreClientError]
-    ManagedLoginBrandingExistsException: Type[BotocoreClientError]
-    NotAuthorizedException: Type[BotocoreClientError]
-    PasswordHistoryPolicyViolationException: Type[BotocoreClientError]
-    PasswordResetRequiredException: Type[BotocoreClientError]
-    PreconditionNotMetException: Type[BotocoreClientError]
-    RefreshTokenReuseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ScopeDoesNotExistException: Type[BotocoreClientError]
-    SoftwareTokenMFANotFoundException: Type[BotocoreClientError]
-    TermsExistsException: Type[BotocoreClientError]
-    TierChangeNotAllowedException: Type[BotocoreClientError]
-    TooManyFailedAttemptsException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    UnexpectedLambdaException: Type[BotocoreClientError]
-    UnsupportedIdentityProviderException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
-    UnsupportedTokenTypeException: Type[BotocoreClientError]
-    UnsupportedUserStateException: Type[BotocoreClientError]
-    UserImportInProgressException: Type[BotocoreClientError]
-    UserLambdaValidationException: Type[BotocoreClientError]
-    UserNotConfirmedException: Type[BotocoreClientError]
-    UserNotFoundException: Type[BotocoreClientError]
-    UserPoolAddOnNotEnabledException: Type[BotocoreClientError]
-    UserPoolTaggingException: Type[BotocoreClientError]
-    UsernameExistsException: Type[BotocoreClientError]
-    WebAuthnChallengeNotFoundException: Type[BotocoreClientError]
-    WebAuthnClientMismatchException: Type[BotocoreClientError]
-    WebAuthnConfigurationMissingException: Type[BotocoreClientError]
-    WebAuthnCredentialNotSupportedException: Type[BotocoreClientError]
-    WebAuthnNotEnabledException: Type[BotocoreClientError]
-    WebAuthnOriginNotAllowedException: Type[BotocoreClientError]
-    WebAuthnRelyingPartyMismatchException: Type[BotocoreClientError]
+    AliasExistsException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CodeDeliveryFailureException: type[BotocoreClientError]
+    CodeMismatchException: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    DeviceKeyExistsException: type[BotocoreClientError]
+    DuplicateProviderException: type[BotocoreClientError]
+    EnableSoftwareTokenMFAException: type[BotocoreClientError]
+    ExpiredCodeException: type[BotocoreClientError]
+    FeatureUnavailableInTierException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    GroupExistsException: type[BotocoreClientError]
+    InternalErrorException: type[BotocoreClientError]
+    InvalidEmailRoleAccessPolicyException: type[BotocoreClientError]
+    InvalidLambdaResponseException: type[BotocoreClientError]
+    InvalidOAuthFlowException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidPasswordException: type[BotocoreClientError]
+    InvalidSmsRoleAccessPolicyException: type[BotocoreClientError]
+    InvalidSmsRoleTrustRelationshipException: type[BotocoreClientError]
+    InvalidUserPoolConfigurationException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MFAMethodNotFoundException: type[BotocoreClientError]
+    ManagedLoginBrandingExistsException: type[BotocoreClientError]
+    NotAuthorizedException: type[BotocoreClientError]
+    PasswordHistoryPolicyViolationException: type[BotocoreClientError]
+    PasswordResetRequiredException: type[BotocoreClientError]
+    PreconditionNotMetException: type[BotocoreClientError]
+    RefreshTokenReuseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ScopeDoesNotExistException: type[BotocoreClientError]
+    SoftwareTokenMFANotFoundException: type[BotocoreClientError]
+    TermsExistsException: type[BotocoreClientError]
+    TierChangeNotAllowedException: type[BotocoreClientError]
+    TooManyFailedAttemptsException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    UnexpectedLambdaException: type[BotocoreClientError]
+    UnsupportedIdentityProviderException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
+    UnsupportedTokenTypeException: type[BotocoreClientError]
+    UnsupportedUserStateException: type[BotocoreClientError]
+    UserImportInProgressException: type[BotocoreClientError]
+    UserLambdaValidationException: type[BotocoreClientError]
+    UserNotConfirmedException: type[BotocoreClientError]
+    UserNotFoundException: type[BotocoreClientError]
+    UserPoolAddOnNotEnabledException: type[BotocoreClientError]
+    UserPoolTaggingException: type[BotocoreClientError]
+    UsernameExistsException: type[BotocoreClientError]
+    WebAuthnChallengeNotFoundException: type[BotocoreClientError]
+    WebAuthnClientMismatchException: type[BotocoreClientError]
+    WebAuthnConfigurationMissingException: type[BotocoreClientError]
+    WebAuthnCredentialNotSupportedException: type[BotocoreClientError]
+    WebAuthnNotEnabledException: type[BotocoreClientError]
+    WebAuthnOriginNotAllowedException: type[BotocoreClientError]
+    WebAuthnRelyingPartyMismatchException: type[BotocoreClientError]
 
 
 class CognitoIdentityProviderClient(AioBaseClient):
@@ -348,7 +343,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def add_custom_attributes(
         self, **kwargs: Unpack[AddCustomAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds additional user attributes to the user pool schema.
 
@@ -368,7 +363,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_confirm_sign_up(
         self, **kwargs: Unpack[AdminConfirmSignUpRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Confirms user sign-up as an administrator.
 
@@ -398,7 +393,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_delete_user_attributes(
         self, **kwargs: Unpack[AdminDeleteUserAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes attribute values from a user.
 
@@ -408,7 +403,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_disable_provider_for_user(
         self, **kwargs: Unpack[AdminDisableProviderForUserRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Prevents the user from signing in with the specified external (SAML or social)
         identity provider (IdP).
@@ -419,7 +414,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_disable_user(
         self, **kwargs: Unpack[AdminDisableUserRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deactivates a user profile and revokes all access tokens for the user.
 
@@ -429,7 +424,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_enable_user(
         self, **kwargs: Unpack[AdminEnableUserRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Activates sign-in for a user profile that previously had sign-in access
         disabled.
@@ -481,7 +476,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_link_provider_for_user(
         self, **kwargs: Unpack[AdminLinkProviderForUserRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Links an existing user account in a user pool, or <code>DestinationUser</code>,
         to an identity from an external IdP, or <code>SourceUser</code>, based on a
@@ -534,7 +529,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_reset_user_password(
         self, **kwargs: Unpack[AdminResetUserPasswordRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Begins the password reset process.
 
@@ -556,7 +551,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_set_user_mfa_preference(
         self, **kwargs: Unpack[AdminSetUserMFAPreferenceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets the user's multi-factor authentication (MFA) preference, including which
         MFA options are activated, and if any are preferred.
@@ -567,7 +562,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_set_user_password(
         self, **kwargs: Unpack[AdminSetUserPasswordRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets the specified user's password in a user pool.
 
@@ -577,7 +572,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_set_user_settings(
         self, **kwargs: Unpack[AdminSetUserSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         <i>This action is no longer supported.</i> You can use it to configure only SMS
         MFA.
@@ -588,7 +583,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_update_auth_event_feedback(
         self, **kwargs: Unpack[AdminUpdateAuthEventFeedbackRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Provides the feedback for an authentication event generated by threat
         protection features.
@@ -599,7 +594,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_update_device_status(
         self, **kwargs: Unpack[AdminUpdateDeviceStatusRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the status of a user's device so that it is marked as remembered or not
         remembered for the purpose of device authentication.
@@ -610,7 +605,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_update_user_attributes(
         self, **kwargs: Unpack[AdminUpdateUserAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the specified user's attributes.
 
@@ -620,7 +615,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def admin_user_global_sign_out(
         self, **kwargs: Unpack[AdminUserGlobalSignOutRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Invalidates the identity, access, and refresh tokens that Amazon Cognito issued
         to a user.
@@ -643,7 +638,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def change_password(
         self, **kwargs: Unpack[ChangePasswordRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Changes the password for the currently signed-in user.
 
@@ -653,7 +648,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def complete_web_authn_registration(
         self, **kwargs: Unpack[CompleteWebAuthnRegistrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Completes registration of a passkey authenticator for the currently signed-in
         user.
@@ -674,7 +669,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def confirm_forgot_password(
         self, **kwargs: Unpack[ConfirmForgotPasswordRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This public API operation accepts a confirmation code that Amazon Cognito sent
         to a user and accepts a new password for that user.
@@ -848,7 +843,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def delete_user_attributes(
         self, **kwargs: Unpack[DeleteUserAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes attributes from the currently signed-in user.
 
@@ -878,7 +873,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def delete_user_pool_domain(
         self, **kwargs: Unpack[DeleteUserPoolDomainRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Given a user pool ID and domain identifier, deletes a user pool domain.
 
@@ -888,7 +883,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def delete_web_authn_credential(
         self, **kwargs: Unpack[DeleteWebAuthnCredentialRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a registered passkey, or WebAuthn, authenticator for the currently
         signed-in user.
@@ -1149,7 +1144,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def global_sign_out(
         self, **kwargs: Unpack[GlobalSignOutRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Invalidates the identity, access, and refresh tokens that Amazon Cognito issued
         to a user.
@@ -1316,7 +1311,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#respond_to_auth_challenge)
         """
 
-    async def revoke_token(self, **kwargs: Unpack[RevokeTokenRequestTypeDef]) -> Dict[str, Any]:
+    async def revoke_token(self, **kwargs: Unpack[RevokeTokenRequestTypeDef]) -> dict[str, Any]:
         """
         Revokes all of the access tokens generated by, and at the same time as, the
         specified refresh token.
@@ -1358,7 +1353,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def set_user_mfa_preference(
         self, **kwargs: Unpack[SetUserMFAPreferenceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Set the user's multi-factor authentication (MFA) method preference, including
         which MFA factors are activated and if any are preferred.
@@ -1379,7 +1374,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def set_user_settings(
         self, **kwargs: Unpack[SetUserSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         <i>This action is no longer supported.</i> You can use it to configure only SMS
         MFA.
@@ -1430,7 +1425,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#stop_user_import_job)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns a set of tags to an Amazon Cognito user pool.
 
@@ -1438,7 +1433,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Given tag IDs that you previously assigned to a user pool, removes them.
 
@@ -1448,7 +1443,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def update_auth_event_feedback(
         self, **kwargs: Unpack[UpdateAuthEventFeedbackRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Provides the feedback for an authentication event generated by threat
         protection features.
@@ -1459,7 +1454,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def update_device_status(
         self, **kwargs: Unpack[UpdateDeviceStatusRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the status of a the currently signed-in user's device so that it is
         marked as remembered or not remembered for the purpose of device
@@ -1533,7 +1528,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def update_user_pool(
         self, **kwargs: Unpack[UpdateUserPoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the configuration of a user pool.
 
@@ -1576,7 +1571,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def verify_user_attribute(
         self, **kwargs: Unpack[VerifyUserAttributeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Submits a verification code for a signed-in user who has added or changed a
         value of an auto-verified attribute.
@@ -1692,7 +1687,7 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

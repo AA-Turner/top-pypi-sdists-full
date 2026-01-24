@@ -40,7 +40,7 @@ __all__ = ["AbstractConfigParser", "BadConfigError", "construct_path", "TOML_TYP
 TOML_TYPES = Any
 
 
-class BadConfigError(ValueError):
+class BadConfigError(ValueError):  # noqa: PRM002
 	"""
 	Indicates an error in the TOML configuration.
 

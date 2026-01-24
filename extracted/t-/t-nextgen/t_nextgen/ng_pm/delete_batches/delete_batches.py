@@ -50,7 +50,7 @@ class BatchDeleter(BatchDeleterCore):
         self.batches_not_deleted: list[str] = []
         self.all_batches_secured_to_thoughtful_were_deleted: bool = False
 
-    def check_if_some_batch_was_not_found_for_deletion(self):
+    def check_if_some_batch_was_not_found_for_deletion(self) -> None:
         """Check if some batches were not found for deletion."""
         self.batches_not_found_for_deletion = [
             batch
@@ -63,7 +63,7 @@ class BatchDeleter(BatchDeleterCore):
                 f"Batches not found: {self.batches_not_found_for_deletion}"
             )
 
-    def check_if_all_batches_were_deleted(self):
+    def check_if_all_batches_were_deleted(self) -> None:
         """Check if all batches were deleted."""
         data_items = self.get_batch_rows()
         batches_secured_to_thoughtful = [
@@ -84,7 +84,7 @@ class BatchDeleter(BatchDeleterCore):
         else:
             self.all_batches_secured_to_thoughtful_were_deleted = True
 
-    def generate_report(self):
+    def generate_report(self) -> dict:
         """Generate a report of the batches that were not deleted."""
         return {
             "practice": self.practice,
@@ -98,7 +98,7 @@ class BatchDeleter(BatchDeleterCore):
             "all_batches_secured_to_thoughtful_deleted": self.all_batches_secured_to_thoughtful_were_deleted,
         }
 
-    def retry_deletion(self):
+    def retry_deletion(self) -> None:
         """Retry the deletion of batches."""
         logger.info(f"Retrying deletion for batches: {self.batches_not_deleted}")
         self.batches_marked_to_deletion = []
@@ -119,7 +119,7 @@ class BatchDeleter(BatchDeleterCore):
             logger.info(f"No batches found to delete in {self.practice}")
         self.check_if_all_batches_were_deleted()
 
-    def select_batches_for_deletion(self, descriptions: list[str] = []):
+    def select_batches_for_deletion(self, descriptions: list[str] = []) -> None:
         """Select batches for deletion based on the provided descriptions.
 
         Args:
@@ -178,7 +178,7 @@ class BatchDeleter(BatchDeleterCore):
     if retry_state.attempt_number == 3
     else None,
 )
-def delete_batches_by_practice(next_gen: NextGenPMCore, batches: dict, database: str):
+def delete_batches_by_practice(next_gen: NextGenPMCore, batches: dict, database: str) -> dict:
     """Delete batches by practice.
 
     Args:

@@ -15,14 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::{common::df_schema::PyDFSchema, sql::logical::PyLogicalPlan};
-use datafusion::logical_expr::EmptyRelation;
-use pyo3::{prelude::*, IntoPyObjectExt};
 use std::fmt::{self, Display, Formatter};
 
-use super::logical_node::LogicalNode;
+use datafusion::logical_expr::EmptyRelation;
+use pyo3::prelude::*;
+use pyo3::IntoPyObjectExt;
 
-#[pyclass(name = "EmptyRelation", module = "datafusion.expr", subclass)]
+use super::logical_node::LogicalNode;
+use crate::common::df_schema::PyDFSchema;
+use crate::sql::logical::PyLogicalPlan;
+
+#[pyclass(frozen, name = "EmptyRelation", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyEmptyRelation {
     empty: EmptyRelation,

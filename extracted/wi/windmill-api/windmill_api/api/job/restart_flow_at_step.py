@@ -13,8 +13,6 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     workspace: str,
     id: str,
-    step_id: str,
-    branch_or_iteration_n: int,
     *,
     json_body: RestartFlowAtStepJsonBody,
     scheduled_for: Union[Unset, None, datetime.datetime] = UNSET,
@@ -52,11 +50,9 @@ def _get_kwargs(
 
     return {
         "method": "post",
-        "url": "/w/{workspace}/jobs/restart/f/{id}/from/{step_id}/{branch_or_iteration_n}".format(
+        "url": "/w/{workspace}/jobs/restart/f/{id}".format(
             workspace=workspace,
             id=id,
-            step_id=step_id,
-            branch_or_iteration_n=branch_or_iteration_n,
         ),
         "json": json_json_body,
         "params": params,
@@ -82,8 +78,6 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     workspace: str,
     id: str,
-    step_id: str,
-    branch_or_iteration_n: int,
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: RestartFlowAtStepJsonBody,
@@ -100,8 +94,6 @@ def sync_detailed(
     Args:
         workspace (str):
         id (str):
-        step_id (str):
-        branch_or_iteration_n (int):
         scheduled_for (Union[Unset, None, datetime.datetime]):
         scheduled_in_secs (Union[Unset, None, int]):
         parent_job (Union[Unset, None, str]):
@@ -109,7 +101,7 @@ def sync_detailed(
         job_id (Union[Unset, None, str]):
         include_header (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
-        json_body (RestartFlowAtStepJsonBody): The arguments to pass to the script or flow
+        json_body (RestartFlowAtStepJsonBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -122,8 +114,6 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         id=id,
-        step_id=step_id,
-        branch_or_iteration_n=branch_or_iteration_n,
         json_body=json_body,
         scheduled_for=scheduled_for,
         scheduled_in_secs=scheduled_in_secs,
@@ -144,8 +134,6 @@ def sync_detailed(
 async def asyncio_detailed(
     workspace: str,
     id: str,
-    step_id: str,
-    branch_or_iteration_n: int,
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: RestartFlowAtStepJsonBody,
@@ -162,8 +150,6 @@ async def asyncio_detailed(
     Args:
         workspace (str):
         id (str):
-        step_id (str):
-        branch_or_iteration_n (int):
         scheduled_for (Union[Unset, None, datetime.datetime]):
         scheduled_in_secs (Union[Unset, None, int]):
         parent_job (Union[Unset, None, str]):
@@ -171,7 +157,7 @@ async def asyncio_detailed(
         job_id (Union[Unset, None, str]):
         include_header (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
-        json_body (RestartFlowAtStepJsonBody): The arguments to pass to the script or flow
+        json_body (RestartFlowAtStepJsonBody):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -184,8 +170,6 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         id=id,
-        step_id=step_id,
-        branch_or_iteration_n=branch_or_iteration_n,
         json_body=json_body,
         scheduled_for=scheduled_for,
         scheduled_in_secs=scheduled_in_secs,

@@ -1,0 +1,75 @@
+Metadata-Version: 2.1
+Name: paradime-io
+Version: 4.18.0
+Summary: Paradime - Python SDK
+Author: Bhuvan Singla
+Author-email: bhuvan@paradime.io
+Requires-Python: >=3.8.1
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: click (>=8.1.7,<9.0.0)
+Requires-Dist: croniter (>=6.0.0,<7.0.0)
+Requires-Dist: msal (>=1.31.0,<2.0.0)
+Requires-Dist: packaging (>21.0)
+Requires-Dist: pydantic (>=1.10.14,<3.0.0)
+Requires-Dist: python-dotenv (>=1.0.1,<2.0.0)
+Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
+Requires-Dist: requests (>=2.31.0,<3.0.0)
+Requires-Dist: rich (>=14.0.0,<15.0.0)
+Description-Content-Type: text/markdown
+
+<p align="center">
+  <a href="https://www.paradime.io">
+        <img alt="Paradime" src="https://app.paradime.io/logo192.png" width="60" />
+    </a>
+</p>
+
+<h1 align="center">
+  Paradime - Python SDK
+</h1>
+
+## Installation
+
+```sh
+pip install paradime-io
+```
+
+## SDK Usage
+
+Generate your API key, secret and endpoint from Paradime workspace settings.
+
+```python
+from paradime import Paradime
+
+paradime = Paradime(
+    api_endpoint="API_ENDPOINT", 
+    api_key="API_KEY", 
+    api_secret="API_SECRET",
+)
+
+# Use the paradime client to interact with the API
+```
+
+## CLI Usage
+
+For the full specification of the CLI, run:
+```bash
+paradime --help
+```
+
+Generate your API key, secret and endpoint from Paradime workspace settings. Then set the environment variables:
+
+```bash
+export PARADIME_API_ENDPOINT="YOUR_API_ENDPOINT"
+export PARADIME_API_KEY="YOUR_API_KEY"
+export PARADIME_API_SECRET="YOUR_API_SECRET
+```
+
+## Examples
+
+Find usage examples [here](https://github.com/paradime-io/paradime-python-sdk/tree/main/examples) to get started with the Paradime Python SDK.
+

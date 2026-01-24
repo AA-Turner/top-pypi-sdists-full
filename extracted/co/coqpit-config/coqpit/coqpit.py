@@ -51,6 +51,11 @@ def _is_primitive_type(field_type: FieldType) -> TypeGuard[type]:
     return field_type is int or field_type is float or field_type is str or field_type is bool
 
 
+def _is_literal_type(field_type: FieldType) -> TypeGuard[type]:
+    """Check if the input type is a typing.Literal type."""
+    return typing.get_origin(field_type) is Literal
+
+
 def _is_list(field_type: FieldType) -> TypeGuard[type]:
     """Check if the input type is `list`.
 
@@ -169,8 +174,8 @@ def _drop_none_type(field_type: FieldType) -> FieldType:
     if type(None) in args:
         args.remove(type(None))
     if len(args) == 1:
-        return typing.cast(type, args[0])
-    return typing.cast(UnionType, functools.reduce(lambda a, b: a | b, args))
+        return typing.cast("type", args[0])
+    return typing.cast("UnionType", functools.reduce(lambda a, b: a | b, args))
 
 
 def _serialize(x: Any) -> Any:
@@ -266,7 +271,7 @@ def _deserialize_union(x: Any, field_type: UnionType) -> Any:
 
 
 def _deserialize_primitive_types(
-    x: int | float | str | bool | None,  # noqa: PYI041
+    x: int | float | str | bool | None,  # noqa: PYI041, FBT001
     field_type: FieldType,
 ) -> int | float | str | bool | None:
     """Deserialize python primitive types (float, int, str, bool).
@@ -283,7 +288,7 @@ def _deserialize_primitive_types(
     base_type = _drop_none_type(field_type)
     if base_type is not float and base_type is not int and base_type is not str and base_type is not bool:
         raise TypeError
-    base_type = typing.cast(type[int | float | str | bool], base_type)
+    base_type = typing.cast("type[int | float | str | bool]", base_type)
 
     type_mismatch = f"Value `{x}` does not match field type `{field_type}`"
     if x is None and type(None) in typing.get_args(field_type):
@@ -306,6 +311,15 @@ def _deserialize_primitive_types(
     raise TypeError(type_mismatch)
 
 
+def _deserialize_literal(x: Any, field_type: FieldType) -> Any:
+    """Deserialize a typing.Literal field."""
+    for value in typing.get_args(field_type):
+        if x == value:
+            return x
+    msg = f"Value `{x}` not valid for Literal field type `{field_type}`"
+    raise TypeError(msg)
+
+
 def _deserialize_path(x: Any, field_type: FieldType) -> Path | None:
     """Deserialize to a Path."""
     if x is None and _is_optional_field(field_type):
@@ -313,7 +327,7 @@ def _deserialize_path(x: Any, field_type: FieldType) -> Path | None:
     return Path(x)
 
 
-def _deserialize(x: Any, field_type: FieldType) -> Any:
+def _deserialize(x: Any, field_type: FieldType) -> Any:  # noqa: PLR0911
     """Pick the right deserialization for the given object and the corresponding field type.
 
     Args:
@@ -332,13 +346,15 @@ def _deserialize(x: Any, field_type: FieldType) -> Any:
     if _is_list(_drop_none_type(field_type)):
         return _deserialize_list(x, _drop_none_type(field_type))
     if _is_union_and_not_simple_optional(field_type):
-        return _deserialize_union(x, field_type)
+        return _deserialize_union(x, field_type)  # ty: ignore[invalid-argument-type]
     if not _is_union(field_type) and isinstance(field_type, type) and issubclass(field_type, Serializable):
         return field_type.deserialize_immutable(x)
     if _drop_none_type(field_type) is Path:
         return _deserialize_path(x, field_type)
     if _is_primitive_type(_drop_none_type(field_type)):
         return _deserialize_primitive_types(x, field_type)
+    if _is_literal_type(field_type):
+        return _deserialize_literal(x, field_type)
     msg = f"Type '{type(x)}' of value '{x}' does not match declared '{field_type}' field type."
     raise TypeError(msg)
 
@@ -475,11 +491,12 @@ class Serializable:
                 raise ValueError(msg)
             try:
                 value = _deserialize(value, field.type)
-            except TypeError:
+            except TypeError as e:
                 warnings.warn(
                     (
                         f"Type mismatch in {type(self).__name__}\n"
                         f"Failed to deserialize field: {field.name} ({field.type}) = {value}\n"
+                        f"{e}\n"
                         f"Replaced it with field's default value: {_default_value(field)}"
                     ),
                     stacklevel=2,
@@ -785,34 +802,12 @@ class Coqpit(Serializable, CoqpitType):
     def get(self, key: str, default: Any = None) -> Any:
         """Return value of the given attribute if present, otherwise the default."""
         if self.has(key):
-            return asdict(self)[key]
+            return self[key]
         return default
 
     def items(self) -> ItemsView[str, Any]:
         """Return (key, value) items of the Coqpit."""
         return asdict(self).items()
-
-    def merge(self, coqpits: Coqpit | list[Coqpit]) -> None:
-        """Merge a coqpit instance or a list of coqpit instances to self.
-
-        Note that it does not pass the fields and overrides attributes with
-        the last Coqpit instance in the given List.
-        TODO: find a way to merge instances with all the class internals.
-
-        Args:
-            coqpits (Union[Coqpit, List[Coqpit]]): coqpit instance or list of instances to be merged.
-        """
-
-        def _merge(coqpit: Coqpit) -> None:
-            self.__dict__.update(coqpit.__dict__)
-            self.__annotations__.update(coqpit.__annotations__)
-            self.__dataclass_fields__.update(coqpit.__dataclass_fields__)
-
-        if isinstance(coqpits, list):
-            for coqpit in coqpits:
-                _merge(coqpit)
-        else:
-            _merge(coqpits)
 
     def check_values(self) -> None:
         """Perform data validation after initialization.
@@ -822,7 +817,7 @@ class Coqpit(Serializable, CoqpitType):
 
     def has(self, arg: str) -> bool:
         """Check whether the Coqpit has the given attribute."""
-        return arg in vars(self)
+        return any(field.name == arg for field in fields(self))
 
     def copy(self) -> Self:
         """Return a copy of the Coqpit."""
@@ -919,7 +914,7 @@ class Coqpit(Serializable, CoqpitType):
             # If args was not specified, parse from sys.argv
             parser = cls.init_argparse(arg_prefix=arg_prefix)
             args = parser.parse_args()
-        if isinstance(args, list):
+        if not isinstance(args, argparse.Namespace):
             # If a list was passed in (eg. the second result of
             # `parse_known_args`, run that through argparse first to get a
             # parsed Namespace
@@ -972,7 +967,7 @@ class Coqpit(Serializable, CoqpitType):
             # If args was not specified, parse from sys.argv
             parser = self.init_argparse(instance=self, arg_prefix=arg_prefix)
             args = parser.parse_args()
-        if isinstance(args, list):
+        if not isinstance(args, argparse.Namespace):
             # If a list was passed in (eg. the second result of
             # `parse_known_args`, run that through argparse first
             # to get a parsed Namespace
@@ -1021,7 +1016,7 @@ class Coqpit(Serializable, CoqpitType):
             # If args was not specified, parse from sys.argv
             parser = self.init_argparse(instance=self, arg_prefix=arg_prefix, relaxed_parser=relaxed_parser)
             args, unknown = parser.parse_known_args()
-        if isinstance(args, list):
+        if not isinstance(args, argparse.Namespace):
             # If a list was passed in (eg. the second result of
             # `parse_known_args`, run that through argparse first to get a
             # parsed Namespace

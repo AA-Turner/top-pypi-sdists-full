@@ -2,14 +2,12 @@
 """Test doctest contained tests in every file of the module.
 """
 
-import configparser
 import doctest
 import importlib
 import os
 import pkgutil
-import re
+import platform
 import sys
-import shutil
 import types
 import warnings
 from unittest import mock
@@ -55,6 +53,11 @@ def load_tests(loader, tests, ignore):
     if numpy is None:
         return tests
 
+    # doctests show features not (yet) supported on Windows so we don't
+    # actually run them on Windows to make porting easier for now
+    if platform.system() == "Windows":
+        return tests
+
     # add a sample HMM and some sequences to use with the globals
     data = os.path.realpath(os.path.join(__file__, os.pardir, "data"))
     hmm_path = os.path.join(data, "hmms", "txt", "Thioesterase.hmm")
@@ -68,7 +71,7 @@ def load_tests(loader, tests, ignore):
         luxc = msa_file.read()
     seq_path = os.path.join(data, "seqs", "LuxC.faa")
     with pyhmmer.easel.SequenceFile(seq_path, digital=True) as seq_file:
-        reductase = next(seq for seq in seq_file if b"P12748" in seq.name)
+        reductase = next(seq for seq in seq_file if "P12748" in seq.name)
 
     def setUp(self):
         warnings.simplefilter("ignore")

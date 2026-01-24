@@ -25,7 +25,8 @@ from pytensor.graph import node_rewriter
 from pytensor.graph.basic import Apply, Variable
 from pytensor.graph.op import Op
 from pytensor.raise_op import Assert
-from pytensor.sparse.basic import DenseFromSparse, sp_sum
+from pytensor.sparse.basic import DenseFromSparse
+from pytensor.sparse.math import sp_sum
 from pytensor.tensor import (
     TensorConstant,
     TensorVariable,
@@ -1390,7 +1391,7 @@ class LKJCholeskyCov:
 
     Examples
     --------
-    .. code:: python
+    .. code-block:: python
 
         with pm.Model() as model:
             # Note that we access the distribution for the standard
@@ -1682,28 +1683,25 @@ class LKJCorr:
 
     Examples
     --------
-    .. code:: python
+    .. code-block:: python
 
         with pm.Model() as model:
-
             # Define the vector of fixed standard deviations
-            sds = 3*np.ones(10)
+            sds = 3 * np.ones(10)
 
-            corr = pm.LKJCorr(
-                'corr', eta=4, n=10, return_matrix=True
-            )
+            corr = pm.LKJCorr("corr", eta=4, n=10, return_matrix=True)
 
             # Define a new MvNormal with the given correlation matrix
-            vals = sds*pm.MvNormal('vals', mu=np.zeros(10), cov=corr, shape=10)
+            vals = sds * pm.MvNormal("vals", mu=np.zeros(10), cov=corr, shape=10)
 
             # Or transform an uncorrelated normal distribution:
-            vals_raw = pm.Normal('vals_raw', shape=10)
+            vals_raw = pm.Normal("vals_raw", shape=10)
             chol = pt.linalg.cholesky(corr)
-            vals = sds*pt.dot(chol,vals_raw)
+            vals = sds * pt.dot(chol, vals_raw)
 
             # The matrix is internally still sampled as a upper triangular vector
             # If you want access to it in matrix form in the trace, add
-            pm.Deterministic('corr_mat', corr)
+            pm.Deterministic("corr_mat", corr)
 
 
     References
@@ -1797,7 +1795,7 @@ class MatrixNormal(Continuous):
     Define a matrixvariate normal variable for given row and column covariance
     matrices.
 
-    .. code:: python
+    .. code-block:: python
 
         import pymc as pm
         import numpy as np
@@ -1820,16 +1818,20 @@ class MatrixNormal(Continuous):
     constant, both the covariance and scaling could be learned as follows
     (see the docstring of `LKJCholeskyCov` for more information about this)
 
-    .. code:: python
+    .. code-block:: python
 
         # Setup data
-        true_colcov = np.array([[1.0, 0.5, 0.1],
-                                [0.5, 1.0, 0.2],
-                                [0.1, 0.2, 1.0]])
+        true_colcov = np.array(
+            [
+                [1.0, 0.5, 0.1],
+                [0.5, 1.0, 0.2],
+                [0.1, 0.2, 1.0],
+            ]
+        )
         m = 3
         n = true_colcov.shape[0]
         true_scale = 3
-        true_rowcov = np.diag([true_scale**(2*i) for i in range(m)])
+        true_rowcov = np.diag([true_scale ** (2 * i) for i in range(m)])
         mu = np.zeros((m, n))
         true_kron = np.kron(true_rowcov, true_colcov)
         data = np.random.multivariate_normal(mu.flatten(), true_kron)
@@ -1838,13 +1840,12 @@ class MatrixNormal(Continuous):
         with pm.Model() as model:
             # Setup right cholesky matrix
             sd_dist = pm.HalfCauchy.dist(beta=2.5, shape=3)
-            colchol,_,_ = pm.LKJCholeskyCov('colchol', n=3, eta=2,sd_dist=sd_dist)
+            colchol, _, _ = pm.LKJCholeskyCov("colchol", n=3, eta=2, sd_dist=sd_dist)
             # Setup left covariance matrix
-            scale = pm.LogNormal('scale', mu=np.log(true_scale), sigma=0.5)
-            rowcov = pt.diag([scale**(2*i) for i in range(m)])
+            scale = pm.LogNormal("scale", mu=np.log(true_scale), sigma=0.5)
+            rowcov = pt.diag([scale ** (2 * i) for i in range(m)])
 
-            vals = pm.MatrixNormal('vals', mu=mu, colchol=colchol, rowcov=rowcov,
-                                observed=data)
+            vals = pm.MatrixNormal("vals", mu=mu, colchol=colchol, rowcov=rowcov, observed=data)
     """
 
     rv_op = matrixnormal
@@ -2010,15 +2011,15 @@ class KroneckerNormal(Continuous):
     Define a multivariate normal variable with a covariance
     :math:`K = K_1 \otimes K_2`
 
-    .. code:: python
+    .. code-block:: python
 
-        K1 = np.array([[1., 0.5], [0.5, 2]])
-        K2 = np.array([[1., 0.4, 0.2], [0.4, 2, 0.3], [0.2, 0.3, 1]])
+        K1 = np.array([[1.0, 0.5], [0.5, 2]])
+        K2 = np.array([[1.0, 0.4, 0.2], [0.4, 2, 0.3], [0.2, 0.3, 1]])
         covs = [K1, K2]
         N = 6
         mu = np.zeros(N)
         with pm.Model() as model:
-            vals = pm.KroneckerNormal('vals', mu=mu, covs=covs, shape=N)
+            vals = pm.KroneckerNormal("vals", mu=mu, covs=covs, shape=N)
 
     Efficiency gains are made by cholesky decomposing :math:`K_1` and
     :math:`K_2` individually rather than the larger :math:`K` matrix. Although
@@ -2026,14 +2027,14 @@ class KroneckerNormal(Continuous):
     number of submatrices can be combined in this way. Choleskys and
     eigendecompositions can be provided instead
 
-    .. code:: python
+    .. code-block:: python
 
         chols = [np.linalg.cholesky(Ki) for Ki in covs]
         evds = [np.linalg.eigh(Ki) for Ki in covs]
         with pm.Model() as model:
-            vals2 = pm.KroneckerNormal('vals2', mu=mu, chols=chols, shape=N)
+            vals2 = pm.KroneckerNormal("vals2", mu=mu, chols=chols, shape=N)
             # or
-            vals3 = pm.KroneckerNormal('vals3', mu=mu, evds=evds, shape=N)
+            vals3 = pm.KroneckerNormal("vals3", mu=mu, evds=evds, shape=N)
 
     neither of which will be converted. Diagonal noise can also be added to
     the covariance matrix, :math:`K = K_1 \otimes K_2 + \sigma^2 I_N`.
@@ -2042,13 +2043,13 @@ class KroneckerNormal(Continuous):
     utilizing eigendecompositons of the submatrices behind the scenes [1].
     Thus,
 
-    .. code:: python
+    .. code-block:: python
 
         sigma = 0.1
         with pm.Model() as noise_model:
-            vals = pm.KroneckerNormal('vals', mu=mu, covs=covs, sigma=sigma, shape=N)
-            vals2 = pm.KroneckerNormal('vals2', mu=mu, chols=chols, sigma=sigma, shape=N)
-            vals3 = pm.KroneckerNormal('vals3', mu=mu, evds=evds, sigma=sigma, shape=N)
+            vals = pm.KroneckerNormal("vals", mu=mu, covs=covs, sigma=sigma, shape=N)
+            vals2 = pm.KroneckerNormal("vals2", mu=mu, chols=chols, sigma=sigma, shape=N)
+            vals3 = pm.KroneckerNormal("vals3", mu=mu, evds=evds, sigma=sigma, shape=N)
 
     are identical, with `covs` and `chols` each converted to
     eigendecompositions.
@@ -2263,10 +2264,12 @@ class CAR(Continuous):
     def dist(cls, mu, W, alpha, tau, *args, **kwargs):
         # This variable has an expensive validation check, that we want to constant-fold if possible
         # So it's passed as an explicit input
-        W = pytensor.sparse.as_sparse_or_tensor_variable(W)
+        from pytensor.sparse import as_sparse_or_tensor_variable, structured_sign
+
+        W = as_sparse_or_tensor_variable(W)
         if isinstance(W.type, pytensor.sparse.SparseTensorType):
-            abs_diff = pytensor.sparse.basic.mul(pytensor.sparse.sign(W - W.T), W - W.T)
-            W_is_valid = pt.isclose(pytensor.sparse.sp_sum(abs_diff), 0)
+            abs_diff = structured_sign(W - W.T) * (W - W.T)
+            W_is_valid = pt.isclose(abs_diff.sum(), 0)
         else:
             W_is_valid = pt.allclose(W, W.T)
 
@@ -2307,7 +2310,7 @@ class CAR(Continuous):
         if W.owner and isinstance(W.owner.op, DenseFromSparse):
             W = W.owner.inputs[0]
 
-        sparse = isinstance(W, pytensor.sparse.SparseVariable)
+        sparse = isinstance(W, pytensor.sparse.variable.SparseVariable)
         if sparse:
             D = sp_sum(W, axis=0)
             Dinv_sqrt = pt.diag(1 / pt.sqrt(D))
@@ -2706,9 +2709,9 @@ class ZeroSumNormal(Distribution):
     .. math::
 
         \begin{align*}
-            ZSN(\sigma) = N \Big( 0, \sigma^2 (I - \tfrac{1}{n}J) \Big) \\
+            ZSN(\sigma) = N \Big( 0, \sigma^2 (I_K - \tfrac{1}{K}J_K) \Big) \\
             \text{where} \ ~ J_{ij} = 1 \ ~ \text{and} \\
-            n = \text{nbr of zero-sum axes}
+            K = \text{size (length) of the constrained axis}
         \end{align*}
 
     Parameters

@@ -3,7 +3,7 @@ Type annotations for sagemaker-geospatial service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker_geospatial/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -45,12 +46,6 @@ from .literals import (
     ZonalStatisticsType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -174,10 +169,10 @@ __all__ = (
 )
 
 class MultiPolygonGeometryInputOutputTypeDef(TypedDict):
-    Coordinates: List[List[List[List[float]]]]
+    Coordinates: list[list[list[list[float]]]]
 
 class PolygonGeometryInputOutputTypeDef(TypedDict):
-    Coordinates: List[List[List[float]]]
+    Coordinates: list[list[list[float]]]
 
 class AssetValueTypeDef(TypedDict):
     Href: NotRequired[str]
@@ -185,7 +180,7 @@ class AssetValueTypeDef(TypedDict):
 class CloudRemovalConfigInputOutputTypeDef(TypedDict):
     AlgorithmName: NotRequired[Literal["INTERPOLATION"]]
     InterpolationValue: NotRequired[str]
-    TargetBands: NotRequired[List[str]]
+    TargetBands: NotRequired[list[str]]
 
 class CloudRemovalConfigInputTypeDef(TypedDict):
     AlgorithmName: NotRequired[Literal["INTERPOLATION"]]
@@ -218,7 +213,7 @@ class EoCloudCoverInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -250,7 +245,7 @@ FilterTypeDef = TypedDict(
 
 class GeoMosaicConfigInputOutputTypeDef(TypedDict):
     AlgorithmName: NotRequired[AlgorithmNameGeoMosaicType]
-    TargetBands: NotRequired[List[str]]
+    TargetBands: NotRequired[list[str]]
 
 class GeoMosaicConfigInputTypeDef(TypedDict):
     AlgorithmName: NotRequired[AlgorithmNameGeoMosaicType]
@@ -259,7 +254,7 @@ class GeoMosaicConfigInputTypeDef(TypedDict):
 GeometryTypeDef = TypedDict(
     "GeometryTypeDef",
     {
-        "Coordinates": List[List[List[float]]],
+        "Coordinates": list[list[list[float]]],
         "Type": str,
     },
 )
@@ -312,14 +307,14 @@ class PropertiesTypeDef(TypedDict):
     ViewSunElevation: NotRequired[float]
 
 class TemporalStatisticsConfigInputOutputTypeDef(TypedDict):
-    Statistics: List[TemporalStatisticsType]
+    Statistics: list[TemporalStatisticsType]
     GroupBy: NotRequired[GroupByType]
-    TargetBands: NotRequired[List[str]]
+    TargetBands: NotRequired[list[str]]
 
 class ZonalStatisticsConfigInputOutputTypeDef(TypedDict):
-    Statistics: List[ZonalStatisticsType]
+    Statistics: list[ZonalStatisticsType]
     ZoneS3Path: str
-    TargetBands: NotRequired[List[str]]
+    TargetBands: NotRequired[list[str]]
     ZoneS3PathKmsKeyId: NotRequired[str]
 
 class TemporalStatisticsConfigInputTypeDef(TypedDict):
@@ -356,7 +351,7 @@ class ListEarthObservationJobOutputConfigTypeDef(TypedDict):
     Name: str
     OperationType: str
     Status: EarthObservationJobStatusType
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 class ListRasterDataCollectionsInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
@@ -381,7 +376,7 @@ ListVectorEnrichmentJobOutputConfigTypeDef = TypedDict(
         "Name": str,
         "Status": VectorEnrichmentJobStatusType,
         "Type": VectorEnrichmentJobTypeType,
-        "Tags": NotRequired[Dict[str, str]],
+        "Tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -446,7 +441,7 @@ class AreaOfInterestGeometryOutputTypeDef(TypedDict):
     PolygonGeometry: NotRequired[PolygonGeometryInputOutputTypeDef]
 
 class CustomIndicesInputOutputTypeDef(TypedDict):
-    Operations: NotRequired[List[OperationTypeDef]]
+    Operations: NotRequired[list[OperationTypeDef]]
 
 class CustomIndicesInputTypeDef(TypedDict):
     Operations: NotRequired[Sequence[OperationTypeDef]]
@@ -456,7 +451,7 @@ class GetTileOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ExportErrorDetailsTypeDef(TypedDict):
@@ -478,10 +473,10 @@ GetRasterDataCollectionOutputTypeDef = TypedDict(
         "Arn": str,
         "Description": str,
         "DescriptionPageUrl": str,
-        "ImageSourceBands": List[str],
+        "ImageSourceBands": list[str],
         "Name": str,
-        "SupportedFilters": List[FilterTypeDef],
-        "Tags": Dict[str, str],
+        "SupportedFilters": list[FilterTypeDef],
+        "Tags": dict[str, str],
         "Type": DataCollectionTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -492,10 +487,10 @@ RasterDataCollectionMetadataTypeDef = TypedDict(
         "Arn": str,
         "Description": str,
         "Name": str,
-        "SupportedFilters": List[FilterTypeDef],
+        "SupportedFilters": list[FilterTypeDef],
         "Type": DataCollectionTypeType,
         "DescriptionPageUrl": NotRequired[str],
-        "Tags": NotRequired[Dict[str, str]],
+        "Tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -503,7 +498,7 @@ class ItemSourceTypeDef(TypedDict):
     DateTime: datetime
     Geometry: GeometryTypeDef
     Id: str
-    Assets: NotRequired[Dict[str, AssetValueTypeDef]]
+    Assets: NotRequired[dict[str, AssetValueTypeDef]]
     Properties: NotRequired[PropertiesTypeDef]
 
 class ListEarthObservationJobInputPaginateTypeDef(TypedDict):
@@ -522,12 +517,12 @@ class ListVectorEnrichmentJobInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEarthObservationJobOutputTypeDef(TypedDict):
-    EarthObservationJobSummaries: List[ListEarthObservationJobOutputConfigTypeDef]
+    EarthObservationJobSummaries: list[ListEarthObservationJobOutputConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListVectorEnrichmentJobOutputTypeDef(TypedDict):
-    VectorEnrichmentJobSummaries: List[ListVectorEnrichmentJobOutputConfigTypeDef]
+    VectorEnrichmentJobSummaries: list[ListVectorEnrichmentJobOutputConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -567,7 +562,7 @@ class AreaOfInterestOutputTypeDef(TypedDict):
 
 class BandMathConfigInputOutputTypeDef(TypedDict):
     CustomIndices: NotRequired[CustomIndicesInputOutputTypeDef]
-    PredefinedIndices: NotRequired[List[str]]
+    PredefinedIndices: NotRequired[list[str]]
 
 class BandMathConfigInputTypeDef(TypedDict):
     CustomIndices: NotRequired[CustomIndicesInputTypeDef]
@@ -608,20 +603,20 @@ class VectorEnrichmentJobInputConfigTypeDef(TypedDict):
     DocumentType: Literal["CSV"]
 
 class ListRasterDataCollectionsOutputTypeDef(TypedDict):
-    RasterDataCollectionSummaries: List[RasterDataCollectionMetadataTypeDef]
+    RasterDataCollectionSummaries: list[RasterDataCollectionMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class SearchRasterDataCollectionOutputTypeDef(TypedDict):
     ApproximateResultCount: int
-    Items: List[ItemSourceTypeDef]
+    Items: list[ItemSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ResamplingConfigInputOutputTypeDef(TypedDict):
     OutputResolution: OutputResolutionResamplingInputTypeDef
     AlgorithmName: NotRequired[AlgorithmNameResamplingType]
-    TargetBands: NotRequired[List[str]]
+    TargetBands: NotRequired[list[str]]
 
 class ResamplingConfigInputTypeDef(TypedDict):
     OutputResolution: OutputResolutionResamplingInputTypeDef
@@ -630,7 +625,7 @@ class ResamplingConfigInputTypeDef(TypedDict):
 
 class StackConfigInputOutputTypeDef(TypedDict):
     OutputResolution: NotRequired[OutputResolutionStackInputTypeDef]
-    TargetBands: NotRequired[List[str]]
+    TargetBands: NotRequired[list[str]]
 
 class StackConfigInputTypeDef(TypedDict):
     OutputResolution: NotRequired[OutputResolutionStackInputTypeDef]
@@ -658,7 +653,7 @@ GetVectorEnrichmentJobOutputTypeDef = TypedDict(
         "KmsKeyId": str,
         "Name": str,
         "Status": VectorEnrichmentJobStatusType,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "Type": VectorEnrichmentJobTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -685,7 +680,7 @@ StartVectorEnrichmentJobOutputTypeDef = TypedDict(
         "KmsKeyId": str,
         "Name": str,
         "Status": VectorEnrichmentJobStatusType,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "Type": VectorEnrichmentJobTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -693,10 +688,10 @@ StartVectorEnrichmentJobOutputTypeDef = TypedDict(
 
 class JobConfigInputOutputTypeDef(TypedDict):
     BandMathConfig: NotRequired[BandMathConfigInputOutputTypeDef]
-    CloudMaskingConfig: NotRequired[Dict[str, Any]]
+    CloudMaskingConfig: NotRequired[dict[str, Any]]
     CloudRemovalConfig: NotRequired[CloudRemovalConfigInputOutputTypeDef]
     GeoMosaicConfig: NotRequired[GeoMosaicConfigInputOutputTypeDef]
-    LandCoverSegmentationConfig: NotRequired[Dict[str, Any]]
+    LandCoverSegmentationConfig: NotRequired[dict[str, Any]]
     ResamplingConfig: NotRequired[ResamplingConfigInputOutputTypeDef]
     StackConfig: NotRequired[StackConfigInputOutputTypeDef]
     TemporalStatisticsConfig: NotRequired[TemporalStatisticsConfigInputOutputTypeDef]
@@ -719,7 +714,7 @@ AreaOfInterestGeometryUnionTypeDef = Union[
 
 class PropertyFiltersOutputTypeDef(TypedDict):
     LogicalOperator: NotRequired[Literal["AND"]]
-    Properties: NotRequired[List[PropertyFilterTypeDef]]
+    Properties: NotRequired[list[PropertyFilterTypeDef]]
 
 class PropertyFiltersTypeDef(TypedDict):
     LogicalOperator: NotRequired[Literal["AND"]]
@@ -768,9 +763,9 @@ class GetEarthObservationJobOutputTypeDef(TypedDict):
     JobConfig: JobConfigInputOutputTypeDef
     KmsKeyId: str
     Name: str
-    OutputBands: List[OutputBandTypeDef]
+    OutputBands: list[OutputBandTypeDef]
     Status: EarthObservationJobStatusType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartEarthObservationJobOutputTypeDef(TypedDict):
@@ -783,7 +778,7 @@ class StartEarthObservationJobOutputTypeDef(TypedDict):
     KmsKeyId: str
     Name: str
     Status: EarthObservationJobStatusType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class InputConfigInputTypeDef(TypedDict):

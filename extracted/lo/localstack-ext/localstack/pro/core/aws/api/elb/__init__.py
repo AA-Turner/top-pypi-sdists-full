@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -248,12 +248,12 @@ class AccessLog(TypedDict, total=False):
     """Information about the ``AccessLog`` attribute."""
 
     Enabled: AccessLogEnabled
-    S3BucketName: Optional[S3BucketName]
-    EmitInterval: Optional[AccessLogInterval]
-    S3BucketPrefix: Optional[AccessLogPrefix]
+    S3BucketName: S3BucketName | None
+    EmitInterval: AccessLogInterval | None
+    S3BucketPrefix: AccessLogPrefix | None
 
 
-AvailabilityZones = List[AvailabilityZone]
+AvailabilityZones = list[AvailabilityZone]
 
 
 class AddAvailabilityZonesInput(ServiceRequest):
@@ -266,18 +266,18 @@ class AddAvailabilityZonesInput(ServiceRequest):
 class AddAvailabilityZonesOutput(TypedDict, total=False):
     """Contains the output of EnableAvailabilityZonesForLoadBalancer."""
 
-    AvailabilityZones: Optional[AvailabilityZones]
+    AvailabilityZones: AvailabilityZones | None
 
 
 class Tag(TypedDict, total=False):
     """Information about a tag."""
 
     Key: TagKey
-    Value: Optional[TagValue]
+    Value: TagValue | None
 
 
-TagList = List[Tag]
-LoadBalancerNames = List[AccessPointName]
+TagList = list[Tag]
+LoadBalancerNames = list[AccessPointName]
 
 
 class AddTagsInput(ServiceRequest):
@@ -296,11 +296,11 @@ class AddTagsOutput(TypedDict, total=False):
 class AdditionalAttribute(TypedDict, total=False):
     """Information about additional load balancer attributes."""
 
-    Key: Optional[AdditionalAttributeKey]
-    Value: Optional[AdditionalAttributeValue]
+    Key: AdditionalAttributeKey | None
+    Value: AdditionalAttributeValue | None
 
 
-AdditionalAttributes = List[AdditionalAttribute]
+AdditionalAttributes = list[AdditionalAttribute]
 
 
 class AppCookieStickinessPolicy(TypedDict, total=False):
@@ -308,12 +308,12 @@ class AppCookieStickinessPolicy(TypedDict, total=False):
     stickiness.
     """
 
-    PolicyName: Optional[PolicyName]
-    CookieName: Optional[CookieName]
+    PolicyName: PolicyName | None
+    CookieName: CookieName | None
 
 
-AppCookieStickinessPolicies = List[AppCookieStickinessPolicy]
-SecurityGroups = List[SecurityGroupId]
+AppCookieStickinessPolicies = list[AppCookieStickinessPolicy]
+SecurityGroups = list[SecurityGroupId]
 
 
 class ApplySecurityGroupsToLoadBalancerInput(ServiceRequest):
@@ -326,10 +326,10 @@ class ApplySecurityGroupsToLoadBalancerInput(ServiceRequest):
 class ApplySecurityGroupsToLoadBalancerOutput(TypedDict, total=False):
     """Contains the output of ApplySecurityGroupsToLoadBalancer."""
 
-    SecurityGroups: Optional[SecurityGroups]
+    SecurityGroups: SecurityGroups | None
 
 
-Subnets = List[SubnetId]
+Subnets = list[SubnetId]
 
 
 class AttachLoadBalancerToSubnetsInput(ServiceRequest):
@@ -342,20 +342,20 @@ class AttachLoadBalancerToSubnetsInput(ServiceRequest):
 class AttachLoadBalancerToSubnetsOutput(TypedDict, total=False):
     """Contains the output of AttachLoadBalancerToSubnets."""
 
-    Subnets: Optional[Subnets]
+    Subnets: Subnets | None
 
 
-PolicyNames = List[PolicyName]
+PolicyNames = list[PolicyName]
 
 
 class BackendServerDescription(TypedDict, total=False):
     """Information about the configuration of an EC2 instance."""
 
-    InstancePort: Optional[InstancePort]
-    PolicyNames: Optional[PolicyNames]
+    InstancePort: InstancePort | None
+    PolicyNames: PolicyNames | None
 
 
-BackendServerDescriptions = List[BackendServerDescription]
+BackendServerDescriptions = list[BackendServerDescription]
 
 
 class HealthCheck(TypedDict, total=False):
@@ -378,14 +378,14 @@ class ConfigureHealthCheckInput(ServiceRequest):
 class ConfigureHealthCheckOutput(TypedDict, total=False):
     """Contains the output of ConfigureHealthCheck."""
 
-    HealthCheck: Optional[HealthCheck]
+    HealthCheck: HealthCheck | None
 
 
 class ConnectionDraining(TypedDict, total=False):
     """Information about the ``ConnectionDraining`` attribute."""
 
     Enabled: ConnectionDrainingEnabled
-    Timeout: Optional[ConnectionDrainingTimeout]
+    Timeout: ConnectionDrainingTimeout | None
 
 
 class ConnectionSettings(TypedDict, total=False):
@@ -408,12 +408,12 @@ class Listener(TypedDict, total=False):
 
     Protocol: Protocol
     LoadBalancerPort: AccessPointPort
-    InstanceProtocol: Optional[Protocol]
+    InstanceProtocol: Protocol | None
     InstancePort: InstancePort
-    SSLCertificateId: Optional[SSLCertificateId]
+    SSLCertificateId: SSLCertificateId | None
 
 
-Listeners = List[Listener]
+Listeners = list[Listener]
 
 
 class CreateAccessPointInput(ServiceRequest):
@@ -421,17 +421,17 @@ class CreateAccessPointInput(ServiceRequest):
 
     LoadBalancerName: AccessPointName
     Listeners: Listeners
-    AvailabilityZones: Optional[AvailabilityZones]
-    Subnets: Optional[Subnets]
-    SecurityGroups: Optional[SecurityGroups]
-    Scheme: Optional[LoadBalancerScheme]
-    Tags: Optional[TagList]
+    AvailabilityZones: AvailabilityZones | None
+    Subnets: Subnets | None
+    SecurityGroups: SecurityGroups | None
+    Scheme: LoadBalancerScheme | None
+    Tags: TagList | None
 
 
 class CreateAccessPointOutput(TypedDict, total=False):
     """Contains the output for CreateLoadBalancer."""
 
-    DNSName: Optional[DNSName]
+    DNSName: DNSName | None
 
 
 class CreateAppCookieStickinessPolicyInput(ServiceRequest):
@@ -453,7 +453,7 @@ class CreateLBCookieStickinessPolicyInput(ServiceRequest):
 
     LoadBalancerName: AccessPointName
     PolicyName: PolicyName
-    CookieExpirationPeriod: Optional[CookieExpirationPeriod]
+    CookieExpirationPeriod: CookieExpirationPeriod | None
 
 
 class CreateLBCookieStickinessPolicyOutput(TypedDict, total=False):
@@ -478,11 +478,11 @@ class CreateLoadBalancerListenerOutput(TypedDict, total=False):
 class PolicyAttribute(TypedDict, total=False):
     """Information about a policy attribute."""
 
-    AttributeName: Optional[AttributeName]
-    AttributeValue: Optional[AttributeValue]
+    AttributeName: AttributeName | None
+    AttributeValue: AttributeValue | None
 
 
-PolicyAttributes = List[PolicyAttribute]
+PolicyAttributes = list[PolicyAttribute]
 
 
 class CreateLoadBalancerPolicyInput(ServiceRequest):
@@ -491,7 +491,7 @@ class CreateLoadBalancerPolicyInput(ServiceRequest):
     LoadBalancerName: AccessPointName
     PolicyName: PolicyName
     PolicyTypeName: PolicyTypeName
-    PolicyAttributes: Optional[PolicyAttributes]
+    PolicyAttributes: PolicyAttributes | None
 
 
 class CreateLoadBalancerPolicyOutput(TypedDict, total=False):
@@ -521,7 +521,7 @@ class DeleteAccessPointOutput(TypedDict, total=False):
     pass
 
 
-Ports = List[AccessPointPort]
+Ports = list[AccessPointPort]
 
 
 class DeleteLoadBalancerListenerInput(ServiceRequest):
@@ -553,10 +553,10 @@ class DeleteLoadBalancerPolicyOutput(TypedDict, total=False):
 class Instance(TypedDict, total=False):
     """The ID of an EC2 instance."""
 
-    InstanceId: Optional[InstanceId]
+    InstanceId: InstanceId | None
 
 
-Instances = List[Instance]
+Instances = list[Instance]
 
 
 class DeregisterEndPointsInput(ServiceRequest):
@@ -569,86 +569,86 @@ class DeregisterEndPointsInput(ServiceRequest):
 class DeregisterEndPointsOutput(TypedDict, total=False):
     """Contains the output of DeregisterInstancesFromLoadBalancer."""
 
-    Instances: Optional[Instances]
+    Instances: Instances | None
 
 
 class DescribeAccessPointsInput(ServiceRequest):
     """Contains the parameters for DescribeLoadBalancers."""
 
-    LoadBalancerNames: Optional[LoadBalancerNames]
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    LoadBalancerNames: LoadBalancerNames | None
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class SourceSecurityGroup(TypedDict, total=False):
     """Information about a source security group."""
 
-    OwnerAlias: Optional[SecurityGroupOwnerAlias]
-    GroupName: Optional[SecurityGroupName]
+    OwnerAlias: SecurityGroupOwnerAlias | None
+    GroupName: SecurityGroupName | None
 
 
 class LBCookieStickinessPolicy(TypedDict, total=False):
     """Information about a policy for duration-based session stickiness."""
 
-    PolicyName: Optional[PolicyName]
-    CookieExpirationPeriod: Optional[CookieExpirationPeriod]
+    PolicyName: PolicyName | None
+    CookieExpirationPeriod: CookieExpirationPeriod | None
 
 
-LBCookieStickinessPolicies = List[LBCookieStickinessPolicy]
+LBCookieStickinessPolicies = list[LBCookieStickinessPolicy]
 
 
 class Policies(TypedDict, total=False):
     """The policies for a load balancer."""
 
-    AppCookieStickinessPolicies: Optional[AppCookieStickinessPolicies]
-    LBCookieStickinessPolicies: Optional[LBCookieStickinessPolicies]
-    OtherPolicies: Optional[PolicyNames]
+    AppCookieStickinessPolicies: AppCookieStickinessPolicies | None
+    LBCookieStickinessPolicies: LBCookieStickinessPolicies | None
+    OtherPolicies: PolicyNames | None
 
 
 class ListenerDescription(TypedDict, total=False):
     """The policies enabled for a listener."""
 
-    Listener: Optional[Listener]
-    PolicyNames: Optional[PolicyNames]
+    Listener: Listener | None
+    PolicyNames: PolicyNames | None
 
 
-ListenerDescriptions = List[ListenerDescription]
+ListenerDescriptions = list[ListenerDescription]
 
 
 class LoadBalancerDescription(TypedDict, total=False):
     """Information about a load balancer."""
 
-    LoadBalancerName: Optional[AccessPointName]
-    DNSName: Optional[DNSName]
-    CanonicalHostedZoneName: Optional[DNSName]
-    CanonicalHostedZoneNameID: Optional[DNSName]
-    ListenerDescriptions: Optional[ListenerDescriptions]
-    Policies: Optional[Policies]
-    BackendServerDescriptions: Optional[BackendServerDescriptions]
-    AvailabilityZones: Optional[AvailabilityZones]
-    Subnets: Optional[Subnets]
-    VPCId: Optional[VPCId]
-    Instances: Optional[Instances]
-    HealthCheck: Optional[HealthCheck]
-    SourceSecurityGroup: Optional[SourceSecurityGroup]
-    SecurityGroups: Optional[SecurityGroups]
-    CreatedTime: Optional[CreatedTime]
-    Scheme: Optional[LoadBalancerScheme]
+    LoadBalancerName: AccessPointName | None
+    DNSName: DNSName | None
+    CanonicalHostedZoneName: DNSName | None
+    CanonicalHostedZoneNameID: DNSName | None
+    ListenerDescriptions: ListenerDescriptions | None
+    Policies: Policies | None
+    BackendServerDescriptions: BackendServerDescriptions | None
+    AvailabilityZones: AvailabilityZones | None
+    Subnets: Subnets | None
+    VPCId: VPCId | None
+    Instances: Instances | None
+    HealthCheck: HealthCheck | None
+    SourceSecurityGroup: SourceSecurityGroup | None
+    SecurityGroups: SecurityGroups | None
+    CreatedTime: CreatedTime | None
+    Scheme: LoadBalancerScheme | None
 
 
-LoadBalancerDescriptions = List[LoadBalancerDescription]
+LoadBalancerDescriptions = list[LoadBalancerDescription]
 
 
 class DescribeAccessPointsOutput(TypedDict, total=False):
     """Contains the parameters for DescribeLoadBalancers."""
 
-    LoadBalancerDescriptions: Optional[LoadBalancerDescriptions]
-    NextMarker: Optional[Marker]
+    LoadBalancerDescriptions: LoadBalancerDescriptions | None
+    NextMarker: Marker | None
 
 
 class DescribeAccountLimitsInput(ServiceRequest):
-    Marker: Optional[Marker]
-    PageSize: Optional[PageSize]
+    Marker: Marker | None
+    PageSize: PageSize | None
 
 
 class Limit(TypedDict, total=False):
@@ -656,41 +656,41 @@ class Limit(TypedDict, total=False):
     account.
     """
 
-    Name: Optional[Name]
-    Max: Optional[Max]
+    Name: Name | None
+    Max: Max | None
 
 
-Limits = List[Limit]
+Limits = list[Limit]
 
 
 class DescribeAccountLimitsOutput(TypedDict, total=False):
-    Limits: Optional[Limits]
-    NextMarker: Optional[Marker]
+    Limits: Limits | None
+    NextMarker: Marker | None
 
 
 class DescribeEndPointStateInput(ServiceRequest):
     """Contains the parameters for DescribeInstanceHealth."""
 
     LoadBalancerName: AccessPointName
-    Instances: Optional[Instances]
+    Instances: Instances | None
 
 
 class InstanceState(TypedDict, total=False):
     """Information about the state of an EC2 instance."""
 
-    InstanceId: Optional[InstanceId]
-    State: Optional[State]
-    ReasonCode: Optional[ReasonCode]
-    Description: Optional[Description]
+    InstanceId: InstanceId | None
+    State: State | None
+    ReasonCode: ReasonCode | None
+    Description: Description | None
 
 
-InstanceStates = List[InstanceState]
+InstanceStates = list[InstanceState]
 
 
 class DescribeEndPointStateOutput(TypedDict, total=False):
     """Contains the output for DescribeInstanceHealth."""
 
-    InstanceStates: Optional[InstanceStates]
+    InstanceStates: InstanceStates | None
 
 
 class DescribeLoadBalancerAttributesInput(ServiceRequest):
@@ -702,93 +702,93 @@ class DescribeLoadBalancerAttributesInput(ServiceRequest):
 class LoadBalancerAttributes(TypedDict, total=False):
     """The attributes for a load balancer."""
 
-    CrossZoneLoadBalancing: Optional[CrossZoneLoadBalancing]
-    AccessLog: Optional[AccessLog]
-    ConnectionDraining: Optional[ConnectionDraining]
-    ConnectionSettings: Optional[ConnectionSettings]
-    AdditionalAttributes: Optional[AdditionalAttributes]
+    CrossZoneLoadBalancing: CrossZoneLoadBalancing | None
+    AccessLog: AccessLog | None
+    ConnectionDraining: ConnectionDraining | None
+    ConnectionSettings: ConnectionSettings | None
+    AdditionalAttributes: AdditionalAttributes | None
 
 
 class DescribeLoadBalancerAttributesOutput(TypedDict, total=False):
     """Contains the output of DescribeLoadBalancerAttributes."""
 
-    LoadBalancerAttributes: Optional[LoadBalancerAttributes]
+    LoadBalancerAttributes: LoadBalancerAttributes | None
 
 
 class DescribeLoadBalancerPoliciesInput(ServiceRequest):
     """Contains the parameters for DescribeLoadBalancerPolicies."""
 
-    LoadBalancerName: Optional[AccessPointName]
-    PolicyNames: Optional[PolicyNames]
+    LoadBalancerName: AccessPointName | None
+    PolicyNames: PolicyNames | None
 
 
 class PolicyAttributeDescription(TypedDict, total=False):
     """Information about a policy attribute."""
 
-    AttributeName: Optional[AttributeName]
-    AttributeValue: Optional[AttributeValue]
+    AttributeName: AttributeName | None
+    AttributeValue: AttributeValue | None
 
 
-PolicyAttributeDescriptions = List[PolicyAttributeDescription]
+PolicyAttributeDescriptions = list[PolicyAttributeDescription]
 
 
 class PolicyDescription(TypedDict, total=False):
     """Information about a policy."""
 
-    PolicyName: Optional[PolicyName]
-    PolicyTypeName: Optional[PolicyTypeName]
-    PolicyAttributeDescriptions: Optional[PolicyAttributeDescriptions]
+    PolicyName: PolicyName | None
+    PolicyTypeName: PolicyTypeName | None
+    PolicyAttributeDescriptions: PolicyAttributeDescriptions | None
 
 
-PolicyDescriptions = List[PolicyDescription]
+PolicyDescriptions = list[PolicyDescription]
 
 
 class DescribeLoadBalancerPoliciesOutput(TypedDict, total=False):
     """Contains the output of DescribeLoadBalancerPolicies."""
 
-    PolicyDescriptions: Optional[PolicyDescriptions]
+    PolicyDescriptions: PolicyDescriptions | None
 
 
-PolicyTypeNames = List[PolicyTypeName]
+PolicyTypeNames = list[PolicyTypeName]
 
 
 class DescribeLoadBalancerPolicyTypesInput(ServiceRequest):
     """Contains the parameters for DescribeLoadBalancerPolicyTypes."""
 
-    PolicyTypeNames: Optional[PolicyTypeNames]
+    PolicyTypeNames: PolicyTypeNames | None
 
 
 class PolicyAttributeTypeDescription(TypedDict, total=False):
     """Information about a policy attribute type."""
 
-    AttributeName: Optional[AttributeName]
-    AttributeType: Optional[AttributeType]
-    Description: Optional[Description]
-    DefaultValue: Optional[DefaultValue]
-    Cardinality: Optional[Cardinality]
+    AttributeName: AttributeName | None
+    AttributeType: AttributeType | None
+    Description: Description | None
+    DefaultValue: DefaultValue | None
+    Cardinality: Cardinality | None
 
 
-PolicyAttributeTypeDescriptions = List[PolicyAttributeTypeDescription]
+PolicyAttributeTypeDescriptions = list[PolicyAttributeTypeDescription]
 
 
 class PolicyTypeDescription(TypedDict, total=False):
     """Information about a policy type."""
 
-    PolicyTypeName: Optional[PolicyTypeName]
-    Description: Optional[Description]
-    PolicyAttributeTypeDescriptions: Optional[PolicyAttributeTypeDescriptions]
+    PolicyTypeName: PolicyTypeName | None
+    Description: Description | None
+    PolicyAttributeTypeDescriptions: PolicyAttributeTypeDescriptions | None
 
 
-PolicyTypeDescriptions = List[PolicyTypeDescription]
+PolicyTypeDescriptions = list[PolicyTypeDescription]
 
 
 class DescribeLoadBalancerPolicyTypesOutput(TypedDict, total=False):
     """Contains the output of DescribeLoadBalancerPolicyTypes."""
 
-    PolicyTypeDescriptions: Optional[PolicyTypeDescriptions]
+    PolicyTypeDescriptions: PolicyTypeDescriptions | None
 
 
-LoadBalancerNamesMax20 = List[AccessPointName]
+LoadBalancerNamesMax20 = list[AccessPointName]
 
 
 class DescribeTagsInput(ServiceRequest):
@@ -800,17 +800,17 @@ class DescribeTagsInput(ServiceRequest):
 class TagDescription(TypedDict, total=False):
     """The tags associated with a load balancer."""
 
-    LoadBalancerName: Optional[AccessPointName]
-    Tags: Optional[TagList]
+    LoadBalancerName: AccessPointName | None
+    Tags: TagList | None
 
 
-TagDescriptions = List[TagDescription]
+TagDescriptions = list[TagDescription]
 
 
 class DescribeTagsOutput(TypedDict, total=False):
     """Contains the output for DescribeTags."""
 
-    TagDescriptions: Optional[TagDescriptions]
+    TagDescriptions: TagDescriptions | None
 
 
 class DetachLoadBalancerFromSubnetsInput(ServiceRequest):
@@ -823,7 +823,7 @@ class DetachLoadBalancerFromSubnetsInput(ServiceRequest):
 class DetachLoadBalancerFromSubnetsOutput(TypedDict, total=False):
     """Contains the output of DetachLoadBalancerFromSubnets."""
 
-    Subnets: Optional[Subnets]
+    Subnets: Subnets | None
 
 
 class ModifyLoadBalancerAttributesInput(ServiceRequest):
@@ -836,8 +836,8 @@ class ModifyLoadBalancerAttributesInput(ServiceRequest):
 class ModifyLoadBalancerAttributesOutput(TypedDict, total=False):
     """Contains the output of ModifyLoadBalancerAttributes."""
 
-    LoadBalancerName: Optional[AccessPointName]
-    LoadBalancerAttributes: Optional[LoadBalancerAttributes]
+    LoadBalancerName: AccessPointName | None
+    LoadBalancerAttributes: LoadBalancerAttributes | None
 
 
 class RegisterEndPointsInput(ServiceRequest):
@@ -850,7 +850,7 @@ class RegisterEndPointsInput(ServiceRequest):
 class RegisterEndPointsOutput(TypedDict, total=False):
     """Contains the output of RegisterInstancesWithLoadBalancer."""
 
-    Instances: Optional[Instances]
+    Instances: Instances | None
 
 
 class RemoveAvailabilityZonesInput(ServiceRequest):
@@ -863,16 +863,16 @@ class RemoveAvailabilityZonesInput(ServiceRequest):
 class RemoveAvailabilityZonesOutput(TypedDict, total=False):
     """Contains the output for DisableAvailabilityZonesForLoadBalancer."""
 
-    AvailabilityZones: Optional[AvailabilityZones]
+    AvailabilityZones: AvailabilityZones | None
 
 
 class TagKeyOnly(TypedDict, total=False):
     """The key of a tag."""
 
-    Key: Optional[TagKey]
+    Key: TagKey | None
 
 
-TagKeyList = List[TagKeyOnly]
+TagKeyList = list[TagKeyOnly]
 
 
 class RemoveTagsInput(ServiceRequest):
@@ -931,8 +931,8 @@ class SetLoadBalancerPoliciesOfListenerOutput(TypedDict, total=False):
 
 
 class ElbApi:
-    service = "elb"
-    version = "2012-06-01"
+    service: str = "elb"
+    version: str = "2012-06-01"
 
     @handler("AddTags")
     def add_tags(

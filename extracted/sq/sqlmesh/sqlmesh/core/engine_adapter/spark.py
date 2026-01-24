@@ -397,19 +397,21 @@ class SparkEngineAdapter(
     def set_current_catalog(self, catalog_name: str) -> None:
         self.connection.set_current_catalog(catalog_name)
 
-    def get_current_database(self) -> str:
+    def _get_current_schema(self) -> str:
         if self._use_spark_session:
             return self.spark.catalog.currentDatabase()
         return self.fetchone(exp.select(exp.func("current_database")))[0]  # type: ignore
 
-    def get_data_object(self, target_name: TableName) -> t.Optional[DataObject]:
+    def get_data_object(
+        self, target_name: TableName, safe_to_cache: bool = False
+    ) -> t.Optional[DataObject]:
         target_table = exp.to_table(target_name)
         if isinstance(target_table.this, exp.Dot) and target_table.this.expression.name.startswith(
             f"{self.BRANCH_PREFIX}{self.WAP_PREFIX}"
         ):
             # Exclude the branch name
             target_table.set("this", target_table.this.this)
-        return super().get_data_object(target_table)
+        return super().get_data_object(target_table, safe_to_cache=safe_to_cache)
 
     def create_state_table(
         self,
@@ -537,7 +539,7 @@ class SparkEngineAdapter(
         if not table.catalog:
             table.set("catalog", self.get_current_catalog())
         if not table.db:
-            table.set("db", self.get_current_database())
+            table.set("db", self._get_current_schema())
         return table
 
     def _build_create_comment_column_exp(

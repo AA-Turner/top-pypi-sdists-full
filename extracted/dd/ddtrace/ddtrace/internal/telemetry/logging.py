@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 
 
 class DDTelemetryErrorHandler(logging.Handler):
@@ -14,6 +15,7 @@ class DDTelemetryErrorHandler(logging.Handler):
         - Log all records with a level of ERROR or higher with telemetry
         """
         if record.levelno >= logging.ERROR:
-            # Capture start up errors
-            full_file_name = os.path.join(record.pathname, record.filename)
-            self.telemetry_writer.add_error(1, record.msg, full_file_name, record.lineno)
+            if getattr(record, "send_to_telemetry", None) in (None, True):
+                # we do not want to send the [x skipped] part to telemetry
+                msg = re.sub(r"\s*\[\d+ skipped\]$", "", record.msg)
+                self.telemetry_writer.add_error_log(msg, record.exc_info)

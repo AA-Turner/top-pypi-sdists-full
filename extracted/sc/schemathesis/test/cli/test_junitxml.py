@@ -11,15 +11,13 @@ from _pytest.main import ExitCode
 def test_junitxml_option(cli, schema_url, hypothesis_max_examples, tmp_path):
     # When option with a path to junit.xml is provided
     xml_path = tmp_path / "junit.xml"
-    result = cli.run(
+    cli.run_and_assert(
         schema_url,
         f"--report-junit-path={xml_path}",
         f"--max-examples={hypothesis_max_examples or 2}",
         "--checks=not_a_server_error",
         "--seed=1",
     )
-    # Command executed successfully
-    assert result.exit_code == ExitCode.OK, result.stdout
     # File is created
     assert xml_path.exists()
     # And contains valid xml
@@ -43,8 +41,7 @@ def test_junitxml_file(cli, schema_url, hypothesis_max_examples, tmp_path, path,
         kwargs["config"] = {"reports": {"junit": {"path": str(xml_path)}}}
     else:
         args.append(f"--report-junit-path={xml_path}")
-    result = cli.run(schema_url, *args, **kwargs)
-    assert result.exit_code == ExitCode.TESTS_FAILED, result.stdout
+    cli.run_and_assert(schema_url, *args, exit_code=ExitCode.TESTS_FAILED, **kwargs)
     tree = ElementTree.parse(xml_path)
     # Inspect root element `testsuites`
     root = tree.getroot()
@@ -73,7 +70,7 @@ def test_junitxml_file(cli, schema_url, hypothesis_max_examples, tmp_path, path,
     assert failure[0].attrib["type"] == "failure"
     assert (
         extract_message(failure[0], server_host)
-        == "1. Test Case ID: <PLACEHOLDER>  - Server error  - Undocumented Content-Type      Received: text/plain; charset=utf-8     Documented: application/json  [500] Internal Server Error:      `500: Internal Server Error`  Reproduce with:       curl -X GET http://localhost/api/failure"
+        == "1. Test Case ID: <PLACEHOLDER>  - Server error  - Undocumented Content-Type      Received: text/plain; charset=utf-8     Documented: application/json  [500] Internal Server Error:      `500: Internal Server Error`  Reproduce with:      curl -X GET http://localhost/api/failure"
     )
 
     # Inspect passed testcase
@@ -86,8 +83,9 @@ def test_junitxml_file(cli, schema_url, hypothesis_max_examples, tmp_path, path,
     assert error[0].tag == "error"
     assert error[0].attrib["type"] == "error"
     assert (
-        error[0].text.replace("\n", " ")
-        == "Schema Error  Failed to generate test cases for this API operation. Possible reasons:      - Contradictory schema constraints, such as a minimum value exceeding the maximum.     - Invalid schema definitions for headers or cookies, for example allowing for non-ASCII characters.     - Excessive schema complexity, which hinders parameter generation.  Tip: Examine the schema for inconsistencies and consider simplifying it."
+        error[0]
+        .text.replace("\n", " ")
+        .startswith("Schema Error  Cannot generate test data for request body (application/json) Schema:")
     )
 
 
@@ -167,7 +165,7 @@ def test_binary_response(ctx, cli, openapi3_base_url, tmp_path, server_host):
     assert testcases[0][0].attrib["type"] == "failure"
     assert (
         extract_message(testcases[0][0], server_host)
-        == "1. Test Case ID: <PLACEHOLDER>  - Server error  [500] Internal Server Error:      <BINARY>  Reproduce with:       curl -X GET http://localhost/api/binary"
+        == "1. Test Case ID: <PLACEHOLDER>  - Server error  [500] Internal Server Error:      <BINARY>  Reproduce with:      curl -X GET http://localhost/api/binary"
     )
 
 
@@ -221,7 +219,6 @@ def test_permission_denied(cli, tmp_path, schema_url, path):
     dir_path = tmp_path / "output"
     dir_path.mkdir(mode=0o555)
     xml_path = dir_path / path
-    result = cli.run(schema_url, f"--report-junit-path={xml_path}")
-    assert result.exit_code == ExitCode.INTERRUPTED, result.stdout
-    # Depends on the Click version (Python 3.9 tests have an older one)
+    result = cli.run_and_assert(schema_url, f"--report-junit-path={xml_path}", exit_code=ExitCode.INTERRUPTED)
+
     assert "Permission denied" in result.stdout or "Permission denied" in result.stderr

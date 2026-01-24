@@ -34,13 +34,10 @@
 
 import datetime
 import sys
-if sys.hexversion < 0x02070000:
-    import unittest2 as unittest
-else:
-    import unittest
+import unittest
 import os
 import os.path
-import pkg_resources
+import importlib.resources
 import shutil
 import tempfile
 
@@ -129,11 +126,7 @@ class XMPMetaTestCase(unittest.TestCase):
         obj = xmp.serialize_to_str(use_compact_format=True,
                                    omit_packet_wrapper=True)
 
-        if sys.hexversion >= 0x03000000:
-            the_unicode_type = str
-        else:
-            the_unicode_type = unicode
-        self.assertTrue(isinstance(obj, the_unicode_type))
+        self.assertTrue(isinstance(obj, str))
 
         with self.assertRaises(XMPError):
             xmp.serialize_to_str(read_only_packet=True,
@@ -154,14 +147,9 @@ class XMPMetaTestCase(unittest.TestCase):
         """
         xmp = XMPMeta()
         xmp.parse_from_str(xmpcoverage.RDFCoverage, xmpmeta_wrap=True)
-        if sys.hexversion >= 0x03000000:
-            the_unicode_type = str
-        else:
-            the_unicode_type = unicode
-
         obj = xmp.serialize_to_unicode(use_compact_format=True,
                                        omit_packet_wrapper=False)
-        self.assertTrue(isinstance(obj, the_unicode_type ),
+        self.assertTrue(isinstance(obj, str),
                         "Incorrect string result type." )
 
         with self.assertRaises(XMPError):
@@ -186,11 +174,7 @@ class XMPMetaTestCase(unittest.TestCase):
                                        newlinechr='NEWLINE',
                                        tabchr = 'TAB',
                                        indent=6 )
-        if sys.hexversion >= 0x03000000:
-            the_unicode_type = str
-        else:
-            the_unicode_type = unicode
-        self.assertTrue(isinstance(obj, the_unicode_type),
+        self.assertTrue(isinstance(obj, str),
                         "Result is not the correct string" )
 
         with self.assertRaises(XMPError):
@@ -250,21 +234,22 @@ class XMPMetaTestCase(unittest.TestCase):
 
 
     def test_does_property_exist(self):
-        filename = pkg_resources.resource_filename(__name__,
-                                                   "fixtures/BlueSquare450.tif")
-        xmp = XMPFiles(file_path=filename)
-        xmp_data = xmp.get_xmp()
-        self.assertTrue( xmp_data.does_property_exist( "http://ns.adobe.com/photoshop/1.0/", 'Headline' ) )
+        traversable = importlib.resources.files(__package__) / "fixtures/BlueSquare450.tif"
+        with importlib.resources.as_file(traversable) as path:
+            filename = str(path)
+            xmp = XMPFiles(file_path=filename)
+            xmp_data = xmp.get_xmp()
+            self.assertTrue( xmp_data.does_property_exist( "http://ns.adobe.com/photoshop/1.0/", 'Headline' ) )
 
 
     def test_write_new_property(self):
         """Corresponds to test-write-new-property.cpp"""
 
-        filename = pkg_resources.resource_filename(__name__,
-                                                   "samples/test1.xmp")
-
-        with open(filename, 'r') as fptr:
-            strbuffer = fptr.read()
+        traversable = importlib.resources.files(__package__) / "samples/test1.xmp"
+        with importlib.resources.as_file(traversable) as path:
+            filename = str(path)
+            with open(filename, 'r') as fptr:
+                strbuffer = fptr.read()
 
         xmp = XMPMeta()
         xmp.parse_from_str(strbuffer, xmpmeta_wrap=False)
@@ -291,11 +276,11 @@ class XMPMetaTestCase(unittest.TestCase):
 
 
     def test_write_new_struct_in_array(self):
-        filename = pkg_resources.resource_filename(__name__,
-                                                   "samples/test1.xmp")
-
-        with open(filename, 'r') as fptr:
-            strbuffer = fptr.read()
+        traversable = importlib.resources.files(__package__) / "samples/test1.xmp"
+        with importlib.resources.as_file(traversable) as path:
+            filename = str(path)
+            with open(filename, 'r') as fptr:
+                strbuffer = fptr.read()
 
         xmp = XMPMeta()
         xmp.parse_from_str(strbuffer)
@@ -324,10 +309,11 @@ class XMPMetaTestCase(unittest.TestCase):
 
     def test_exempi_core(self):
         """Corresponds to test_exempi.TestExempi.test_exempi_core"""
-        filename = pkg_resources.resource_filename(__name__,
-                                                   "samples/test1.xmp")
-        with open(filename, 'r') as fptr:
-            strbuffer = fptr.read()
+        traversable = importlib.resources.files(__package__) / "samples/test1.xmp"
+        with importlib.resources.as_file(traversable) as path:
+            filename = str(path)
+            with open(filename, 'r') as fptr:
+                strbuffer = fptr.read()
 
         xmp = XMPMeta()
         xmp.parse_from_str(strbuffer)
@@ -401,10 +387,11 @@ class XMPMetaTestCase(unittest.TestCase):
 
     def test_does_array_item_exist(self):
         """Tests XMPMeta method does_array_item_exist.  Issue #03"""
-        filename = pkg_resources.resource_filename(__name__,
-                                                   "samples/test1.xmp")
-        with open(filename, 'r') as fptr:
-            strbuffer = fptr.read()
+        traversable = importlib.resources.files(__package__) / "samples/test1.xmp"
+        with importlib.resources.as_file(traversable) as path:
+            filename = str(path)
+            with open(filename, 'r') as fptr:
+                strbuffer = fptr.read()
 
         xmp = XMPMeta()
         xmp.parse_from_str(strbuffer)
@@ -415,13 +402,13 @@ class XMPMetaTestCase(unittest.TestCase):
         self.assertTrue(xmp.does_array_item_exist(NS_DC, "creator", "foo"))
         self.assertFalse(xmp.does_array_item_exist(NS_DC, "creator", "blah"))
 
-    
     def test_count_array_items(self):
         """Tests XMPMeta method count_array_items."""
-        filename = pkg_resources.resource_filename(__name__,
-                                                   "samples/test1.xmp")
-        with open(filename, 'r') as fptr:
-            strbuffer = fptr.read()
+        traversable = importlib.resources.files(__package__) / "samples/test1.xmp"
+        with importlib.resources.as_file(traversable) as path:
+            filename = str(path)
+            with open(filename, 'r') as fptr:
+                strbuffer = fptr.read()
 
         xmp = XMPMeta()
         xmp.parse_from_str(strbuffer)
@@ -434,10 +421,11 @@ class XMPMetaTestCase(unittest.TestCase):
     def test_skip(self):
         """Verify usage of XMPMeta skip method.
         """
-        filename = pkg_resources.resource_filename(__name__,
-                                                   "samples/test1.xmp")
-        with open(filename, 'r') as fptr:
-            strbuffer = fptr.read()
+        traversable = importlib.resources.files(__package__) / "samples/test1.xmp"
+        with importlib.resources.as_file(traversable) as path:
+            filename = str(path)
+            with open(filename, 'r') as fptr:
+                strbuffer = fptr.read()
 
         xmp = XMPMeta()
         xmp.parse_from_str(strbuffer)
@@ -486,9 +474,10 @@ class UtilsTestCase(unittest.TestCase):
         self.assertRaises( IOError, file_to_dict, "nonexistingfile.ext" )
 
     def test_file_to_dict_noxmp(self):
-        filename = pkg_resources.resource_filename(__name__,
-                                                   "fixtures/empty.txt")
-        self.assertEqual( file_to_dict(filename), {} )
+        traversable = importlib.resources.files(__package__) / "fixtures/empty.txt"
+        with importlib.resources.as_file(traversable) as path:
+            filename = str(path)
+            self.assertEqual( file_to_dict(filename), {} )
 
     def test_object_to_dict_noxmp(self):
         self.assertEqual( object_to_dict( [] ), {} )
@@ -547,10 +536,7 @@ class UnicodeTestCase(unittest.TestCase):
         # Replace 'Simple2 value' with 'stürm'
         # ü has code point 252, so takes 5+1=6 bytes to encode.
         expectedValue = u'stürm'
-        if sys.hexversion < 0x03000000:
-            rdf = unicode(rdf[0:272]) + expectedValue + unicode(rdf[285:])
-        else:
-            rdf = rdf[0:272] + expectedValue + rdf[285:]
+        rdf = rdf[0:272] + expectedValue + rdf[285:]
 
         xmp.parse_from_str(rdf, xmpmeta_wrap=True )
 
@@ -571,12 +557,7 @@ class UnicodeTestCase(unittest.TestCase):
         # This is 'Shiva' in Devanagari
         # शिव has code points [2358, 2367, 2357]
         expectedValue = u'शिव'
-        if sys.hexversion < 0x03000000:
-            rdf = unicode(rdf[0:272]) + expectedValue + unicode(rdf[285:])
-            #rdf = rdf[0:272] + expectedValue.encode('utf-8') + rdf[285:]
-            #rdf = unicode(rdf)
-        else:
-            rdf = rdf[0:272] + expectedValue + rdf[285:]
+        rdf = rdf[0:272] + expectedValue + rdf[285:]
 
         xmp.parse_from_str(rdf, xmpmeta_wrap=True )
 
@@ -609,28 +590,6 @@ class UnicodeTestCase(unittest.TestCase):
         xmp = XMPMeta()
         self.assertTrue(isinstance(repr(xmp), str))
 
-    def test_xmpmeta_unicode_27(self):
-        """In 2.7, unicode(xmp) should return a unicode object."""
-        xmp = XMPMeta()
-        rdf = xmpcoverage.RDFCoverage
-        xmp.parse_from_str(rdf)
-        if sys.hexversion < 0x03000000:
-            self.assertTrue(isinstance(unicode(xmp), unicode))
-        else:
-            # It's a no-op in 3.x.
-            self.assertTrue(True)
-
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(XMPMetaTestCase))
-    suite.addTest(unittest.makeSuite(UtilsTestCase))
-    return suite
-
-def test( verbose=2 ):
-    all_tests = suite()
-    runner = unittest.TextTestRunner(verbosity=verbose)
-    result = runner.run(all_tests)
-    return result, runner
 
 if __name__ == "__main__":
     #test()

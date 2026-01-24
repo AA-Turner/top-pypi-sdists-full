@@ -1,11 +1,14 @@
 """Module for reading and writing schema objects."""
 
+from __future__ import annotations
+
+import enum
 import json
 import warnings
 from collections.abc import Mapping
 from functools import partial
 from pathlib import Path
-from typing import Optional, Union, Any
+from typing import TYPE_CHECKING, Any, Union
 
 import pandas as pd
 
@@ -17,20 +20,24 @@ from pandera.api.pandas.container import DataFrameSchema
 from pandera.engines import pandas_engine
 from pandera.schema_statistics import get_dataframe_schema_statistics
 
-try:
-    import black
-    import yaml
+if TYPE_CHECKING:
     from frictionless import Schema as FrictionlessSchema
-except ImportError as exc:  # pragma: no cover
-    raise ImportError(
-        "IO and formatting requires 'pyyaml', 'black' and 'frictionless'"
-        "to be installed.\n"
-        "You can install pandera together with the IO dependencies with:\n"
-        "pip install pandera[io]\n"
-    ) from exc
 
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+_MISSING_PYYAML_IMPORT_ERROR_MESSAGE = (
+    "IO and formatting requires 'pyyaml to be installed.\n"
+    "You can install pandera together with the IO dependencies with:\n"
+    "pip install pandera[io]\n"
+)
+_FORMAT_SCRIPT_WARNING_MESSAGE = (
+    "Schema script formatting requires 'black' to be installed. "
+    "Please install 'black' to use this feature."
+)
+_MISSING_FRICTIONLESS_IMPORT_ERROR_MESSAGE = (
+    "Frictionless schema parsing requires 'frictionless' to be installed. "
+    "Please install 'frictionless' to use this feature."
+)
 
 
 def _get_dtype_string_alias(dtype: pandas_engine.DataType) -> str:
@@ -55,6 +62,10 @@ def _serialize_check_stats(check_stats, dtype=None):
     """Serialize check statistics into json/yaml-compatible format."""
 
     def handle_stat_dtype(stat):
+        # Handle enum types by converting them to a list of values
+        if isinstance(stat, type) and issubclass(stat, enum.Enum):
+            return [e.value for e in stat]
+
         if pandas_engine.Engine.dtype(dtypes.DateTime).check(
             dtype
         ) and hasattr(stat, "strftime"):
@@ -378,6 +389,11 @@ def from_yaml(yaml_schema):
     :returns: dataframe schema.
     """
     try:
+        import yaml
+    except ImportError as exc:  # pragma: no cover
+        raise ImportError(_MISSING_PYYAML_IMPORT_ERROR_MESSAGE) from exc
+
+    try:
         with Path(yaml_schema).open("r", encoding="utf-8") as f:
             serialized_schema = yaml.safe_load(f)
     except (TypeError, OSError):
@@ -392,6 +408,11 @@ def to_yaml(dataframe_schema, stream=None):
     :param stream: file stream to write to. If None, dumps to string.
     :returns: yaml string if stream is None, otherwise returns None.
     """
+    try:
+        import yaml
+    except ImportError as exc:  # pragma: no cover
+        raise ImportError(_MISSING_PYYAML_IMPORT_ERROR_MESSAGE) from exc
+
     statistics = serialize_schema(dataframe_schema)
 
     def _write_yaml(obj, stream):
@@ -576,7 +597,7 @@ def _format_index(index_statistics):
             name=(
                 "None"
                 if properties["name"] is None
-                else f"\"{properties['name']}\""
+                else f'"{properties["name"]}"'
             ),
             description=(None if description is None else f'"{description}"'),
             title=(None if title is None else f'"{title}"'),
@@ -590,6 +611,11 @@ def _format_index(index_statistics):
 
 
 def _format_script(script):
+    try:
+        import black
+    except ImportError as exc:  # pragma: no cover
+        raise ImportError(_FORMAT_SCRIPT_WARNING_MESSAGE) from exc
+
     formatter = partial(black.format_str, mode=black.FileMode(line_length=80))
     return formatter(script)
 
@@ -669,7 +695,7 @@ class FrictionlessFieldParser:
 
     For this implementation, we are using field names, constraints and types
     but leaving other frictionless parameters out (e.g. foreign keys, type
-    formats, titles, descriptions).
+    formats).
 
     :param field: a field object from a frictionless schema.
     :param primary_keys: the primary keys from a frictionless schema. These
@@ -680,8 +706,12 @@ class FrictionlessFieldParser:
     def __init__(self, field, primary_keys) -> None:
         self.constraints = field.constraints or {}
         self.primary_keys = primary_keys
+        self.description = (
+            None if field.description == "" else field.description
+        )
+        self.title = None if field.title == "" else field.title
         self.name = field.name
-        self.type = field.get("type", "string")
+        self.type = field.type
 
     @property
     def dtype(self) -> str:
@@ -716,7 +746,7 @@ class FrictionlessFieldParser:
         )
 
     @property
-    def checks(self) -> Optional[list[dict[str, Any]]]:
+    def checks(self) -> list[dict[str, Any]] | None:
         """Convert a set of frictionless schema field constraints into checks.
 
         This parses the standard set of frictionless constraints which can be
@@ -850,6 +880,8 @@ class FrictionlessFieldParser:
             "required": self.required,
             "name": self.name,
             "regex": self.regex,
+            "description": self.description,
+            "title": self.title,
         }
 
 
@@ -877,33 +909,41 @@ def from_frictionless_schema(
     :class:`~pandera.api.pandas.container.DataFrameSchema` object as per any other Pandera
     schema:
 
-    >>> from pandera.io import from_frictionless_schema
-    >>>
-    >>> FRICTIONLESS_SCHEMA = {
-    ...     "fields": [
-    ...         {
-    ...             "name": "column_1",
-    ...             "type": "integer",
-    ...             "constraints": {"minimum": 10, "maximum": 99}
-    ...         },
-    ...         {
-    ...             "name": "column_2",
-    ...             "type": "string",
-    ...             "constraints": {"maxLength": 10, "pattern": "\\S+"}
-    ...         },
-    ...     ],
-    ...     "primaryKey": "column_1"
-    ... }
-    >>> schema = from_frictionless_schema(FRICTIONLESS_SCHEMA)
-    >>> schema.columns["column_1"].checks
-    [<Check in_range: in_range(10, 99)>]
-    >>> schema.columns["column_1"].required
-    True
-    >>> schema.columns["column_1"].unique
-    True
-    >>> schema.columns["column_2"].checks
-    [<Check str_length: str_length(None, 10)>, <Check str_matches: str_matches('^\S+$')>]
+    .. doctest::
+        :skipif: SKIP_FRICTIONLESS_TESTS
+
+        >>> from pandera.io import from_frictionless_schema
+        >>>
+        >>> FRICTIONLESS_SCHEMA = {
+        ...     "fields": [
+        ...         {
+        ...             "name": "column_1",
+        ...             "type": "integer",
+        ...             "constraints": {"minimum": 10, "maximum": 99}
+        ...         },
+        ...         {
+        ...             "name": "column_2",
+        ...             "type": "string",
+        ...             "constraints": {"maxLength": 10, "pattern": "\\S+"}
+        ...         },
+        ...     ],
+        ...     "primaryKey": "column_1"
+        ... }
+        >>> schema = from_frictionless_schema(FRICTIONLESS_SCHEMA)
+        >>> schema.columns["column_1"].checks
+        [<Check in_range: in_range(10, 99)>]
+        >>> schema.columns["column_1"].required
+        True
+        >>> schema.columns["column_1"].unique
+        True
+        >>> schema.columns["column_2"].checks
+        [<Check str_length: str_length(None, 10)>, <Check str_matches: str_matches('^\S+$')>]
     """
+    try:
+        from frictionless import Schema as FrictionlessSchema
+    except ImportError as exc:  # pragma: no cover
+        raise ImportError(_MISSING_FRICTIONLESS_IMPORT_ERROR_MESSAGE) from exc
+
     if not isinstance(schema, FrictionlessSchema):
         schema = FrictionlessSchema(schema)
 

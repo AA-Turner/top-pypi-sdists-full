@@ -827,3 +827,55 @@ def test_drop_with_drop_finalizer_as_false_raises_deprecation_warning(schema):
             assert len(w) == 1
             assert issubclass(w[-1].category, DeprecationWarning)
             assert "Setting drop_finalizer to False is deprecated. " in str(w[-1].message)
+
+
+def test_deploy_dag_with_to_sql(schema) -> None:
+    class MLJobDefinition:
+        def to_sql(self) -> str:
+            return "CALL SYSTEM$EXECUTE_ML_JOB('test_ml_job')"
+
+        def __call__(self) -> None:
+            return None
+
+    class OtherDefinition:
+        def to_sql(self) -> str:
+            return "select 1"
+
+    test_dag = random_object_name()
+    with DAG(test_dag, schedule=timedelta(minutes=10)) as dag:
+        ml_definition = MLJobDefinition()
+        task_ml = DAGTask("task_ml", definition=ml_definition)
+        other_definition = OtherDefinition()
+        task_other = DAGTask("task_other", definition=other_definition)
+        task_other >> task_ml
+    low_level_task_ml = task_ml._to_low_level_task()
+    assert low_level_task_ml.definition == "CALL SYSTEM$EXECUTE_ML_JOB('test_ml_job')"
+    low_level_task_other = task_other._to_low_level_task()
+    assert low_level_task_other.definition == "select 1"
+
+    op = DAGOperation(schema)
+    op.deploy(dag, mode=CreateMode.or_replace)
+    try:
+        # Fetch the deployed task and verify the definition was converted to SQL string
+        fetched = schema.tasks[task_ml.full_name].fetch()
+        assert fetched.definition == "CALL SYSTEM$EXECUTE_ML_JOB('test_ml_job')"
+
+        # Verify the DAG structure was deployed correctly
+        dependents = schema.tasks[test_dag].fetch_task_dependents()
+        assert len(dependents) == 3
+    finally:
+        op.drop(dag)
+
+
+def test_deploy_dag_with_to_sql_other_definition(schema) -> None:
+    class OtherDefinition:
+        def to_sql(self) -> None:
+            return None
+
+    test_dag = random_object_name()
+    with DAG(test_dag, schedule=timedelta(minutes=10)) as dag:
+        other_definition = OtherDefinition()
+        _ = DAGTask("task_ml", definition=other_definition)
+    op = DAGOperation(schema)
+    with pytest.raises(TypeError):
+        op.deploy(dag, mode=CreateMode.or_replace)

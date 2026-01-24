@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -9,25 +9,23 @@ import types
 from dataclasses import KW_ONLY, asdict, dataclass
 from enum import Enum
 from json import loads as json_loads
+from pathlib import Path
 from string import Formatter
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Generator,
-    Mapping,
-    Sequence,
-    cast,
-)
-from warnings import catch_warnings, simplefilter, warn
+from typing import TYPE_CHECKING, Any, Callable, Generator, Mapping, Sequence, cast
+from warnings import warn
 
-from ibm_watsonx_ai._wrappers import requests
+import httpx
+
 from ibm_watsonx_ai.helpers import DataConnection
 from ibm_watsonx_ai.lifecycle import SpecStates
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.utils import get_user_agent_header, next_resource_generator
 from ibm_watsonx_ai.utils.autoai.enums import DataConnectionTypes
-from ibm_watsonx_ai.utils.autoai.utils import load_file_from_file_system_nonautoai
+from ibm_watsonx_ai.utils.autoai.utils import (
+    aload_file_from_file_system_nonautoai,
+    load_file_from_file_system_nonautoai,
+)
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     InvalidMultipleArguments,
     InvalidValue,
@@ -84,7 +82,7 @@ def _get_foundation_models_spec(
     params = {"version": "2023-09-30"}
     if additional_params:
         params.update(additional_params)
-    response = requests.get(
+    response = httpx.get(
         url, params=params, headers={"User-Agent": get_user_agent_header()}
     )
     if response.status_code == 200:
@@ -122,15 +120,12 @@ def get_model_specs(url: str, model_id: str | None = None) -> dict:
         from ibm_watsonx_ai.foundation_models import get_model_specs
 
         # GET ALL MODEL SPECS
-        get_model_specs(
-            url="https://us-south.ml.cloud.ibm.com"
-            )
+        get_model_specs(url="https://us-south.ml.cloud.ibm.com")
 
         # GET MODEL SPECS BY MODEL_ID
         get_model_specs(
-            url="https://us-south.ml.cloud.ibm.com",
-            model_id="google/flan-ul2"
-            )
+            url="https://us-south.ml.cloud.ibm.com", model_id="google/flan-ul2"
+        )
     """
 
     get_model_specs_deprecated_warning = (
@@ -186,7 +181,7 @@ def get_custom_model_specs(
     limit: int = 100,
     asynchronous: bool = False,
     get_all: bool = False,
-    verify: str | bool | None = None,
+    verify: str | Path | bool | None = None,
 ) -> dict | Generator:
     """Get details on available custom model(s) as dict or as generator (``asynchronous``).
     If ``asynchronous`` or ``get_all`` is set, then ``model_id`` is ignored.
@@ -218,7 +213,7 @@ def get_custom_model_specs(
         * the path of directory with certificates of trusted CAs
         * `True` - default path to truststore will be taken
         * `False` - no verification will be made
-    :type verify: bool or str, optional
+    :type verify: bool | str | Path, optional
 
     :return: details of supported custom models
     :rtype: dict
@@ -231,10 +226,14 @@ def get_custom_model_specs(
 
         get_custom_models_spec(api_client=client)
         get_custom_models_spec(credentials=credentials)
-        get_custom_models_spec(api_client=client, model_id='mistralai/Mistral-7B-Instruct-v0.2')
+        get_custom_models_spec(
+            api_client=client, model_id="mistralai/Mistral-7B-Instruct-v0.2"
+        )
         get_custom_models_spec(api_client=client, limit=20)
         get_custom_models_spec(api_client=client, limit=20, get_all=True)
-        for spec in get_custom_model_specs(api_client=client, limit=20, asynchronous=True, get_all=True):
+        for spec in get_custom_model_specs(
+            api_client=client, limit=20, asynchronous=True, get_all=True
+        ):
             print(spec, end="")
 
     """
@@ -250,6 +249,9 @@ def get_custom_model_specs(
         "and deployed via client.deployments.create(asset_id, metadata) to be used."
     )
     warn(model_usage_warning)
+
+    if isinstance(verify, str):
+        verify = Path(verify)
 
     if credentials is None and api_client is None:
         raise InvalidMultipleArguments(
@@ -292,7 +294,7 @@ def get_custom_model_specs(
             resources.extend(entry["resources"])
         return {"resources": resources}
 
-    response = requests.get(
+    response = httpx.get(
         f"{url}/ml/v4/custom_foundation_models",
         params=params,
         headers=client._get_headers(),
@@ -340,8 +342,8 @@ def get_model_lifecycle(url: str, model_id: str) -> list | None:
 
         get_model_lifecycle(
             url="https://us-south.ml.cloud.ibm.com",
-            model_id="ibm/granite-13b-instruct-v2"
-            )
+            model_id="ibm/granite-13b-instruct-v2",
+        )
     """
 
     get_model_lifecycle_deprecated_warning = (
@@ -380,14 +382,10 @@ def _check_model_state(
             if model_spec["model_id"] == model_id:
                 lifecycle = model_spec.get("lifecycle")
                 break
-    elif client._use_fm_ga_api:
+    else:
         lifecycle = client.foundation_models.get_model_lifecycle(
             model_id, tech_preview=tech_preview
         )
-    else:
-        with catch_warnings():
-            simplefilter("ignore", category=DeprecationWarning)
-            lifecycle = get_model_lifecycle(client.credentials.url, model_id)  # type: ignore[arg-type]
 
     modes_list = [ids.get("id") for ids in (lifecycle or [])]
     deprecated_or_constricted_warning_template_cpd = (
@@ -482,11 +480,13 @@ def get_model_specs_with_prompt_tuning_support(url: str) -> dict:
 
     .. code-block:: python
 
-        from ibm_watsonx_ai.foundation_models import get_model_specs_with_prompt_tuning_support
+        from ibm_watsonx_ai.foundation_models import (
+            get_model_specs_with_prompt_tuning_support,
+        )
 
         get_model_specs_with_prompt_tuning_support(
             url="https://us-south.ml.cloud.ibm.com"
-            )
+        )
     """
 
     get_model_specs_with_prompt_deprecated_warning = (
@@ -531,9 +531,7 @@ def get_supported_tasks(url: str) -> dict:
 
         from ibm_watsonx_ai.foundation_models import get_supported_tasks
 
-        get_supported_tasks(
-            url="https://us-south.ml.cloud.ibm.com"
-            )
+        get_supported_tasks(url="https://us-south.ml.cloud.ibm.com")
     """
     try:
         try:
@@ -586,11 +584,8 @@ def load_request_json(
     if run_params is None:
         run_params = api_client.training.get_details(run_id)
 
-    model_request_path = (
-        run_params["entity"]
-        .get("results_reference", {})
-        .get("location", {})
-        .get("model_request_path")
+    model_request_path = get_from_json(
+        run_params, ["entity", "results_reference", "location", "model_request_path"]
     )
 
     if model_request_path is None:
@@ -599,7 +594,7 @@ def load_request_json(
         )
 
     if api_client.CLOUD_PLATFORM_SPACES:
-        results_reference = DataConnection._from_dict(
+        results_reference = DataConnection.from_dict(
             run_params["entity"]["results_reference"]
         )
 
@@ -613,7 +608,7 @@ def load_request_json(
 
         # download from cos
 
-    elif api_client.CPD_version >= 4.8:
+    else:
         asset_parts = model_request_path.split("/")
         model_request_asset_url = "/".join(
             asset_parts[asset_parts.index("assets") + 1 :]
@@ -621,8 +616,54 @@ def load_request_json(
         request_json_bytes = load_file_from_file_system_nonautoai(
             api_client=api_client, file_path=model_request_asset_url
         ).read()
+
+    request_json_bytes = cast(bytes, request_json_bytes)
+    return json_loads(request_json_bytes.decode())
+
+
+async def aload_request_json(
+    run_id: str,
+    api_client: APIClient,
+    run_params: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    if run_params is None:
+        run_params = await api_client.training.aget_details(run_id)
+
+    model_request_path = get_from_json(
+        run_params, ["entity", "results_reference", "location", "model_request_path"]
+    )
+
+    if model_request_path is None:
+        raise WMLClientError(
+            "Missing model_request_path in run_params. Verify if the training run has been completed."
+        )
+
+    if api_client.CLOUD_PLATFORM_SPACES:
+        results_reference = DataConnection.from_dict(
+            run_params["entity"]["results_reference"]
+        )
+
+        if run_params["entity"]["results_reference"]["type"] == DataConnectionTypes.CA:
+            results_reference.location.file_name = model_request_path  # type: ignore
+        else:
+            results_reference.location.path = model_request_path  # type: ignore[union-attr]
+
+        results_reference.set_client(api_client)
+        request_json_bytes = results_reference.read(raw=True, binary=True)
+
+        # download from cos
+
     else:
-        raise WMLClientError("Unsupported environment for this action")
+        asset_parts = model_request_path.split("/")
+        model_request_asset_url = "/".join(
+            asset_parts[asset_parts.index("assets") + 1 :]
+        )
+        request_json_bytes = (
+            await aload_file_from_file_system_nonautoai(
+                api_client=api_client, file_path=model_request_asset_url
+            )
+        ).read()
 
     request_json_bytes = cast(bytes, request_json_bytes)
     return json_loads(request_json_bytes.decode())
@@ -647,7 +688,20 @@ def is_training_prompt_tuning(
     # --- end note
     if training_id is None:
         return False
+
     run_params = api_client.training.get_details(training_id=training_id)  # type: ignore[union-attr]
+    return bool(run_params["entity"].get("prompt_tuning"))
+
+
+async def ais_training_prompt_tuning(
+    training_id: str | None, api_client: APIClient
+) -> bool:
+    """Returns True if training_id is connected to prompt tuning asynchronously"""
+
+    if training_id is None:
+        return False
+
+    run_params = await api_client.training.aget_details(training_id=training_id)
     return bool(run_params["entity"].get("prompt_tuning"))
 
 
@@ -729,7 +783,7 @@ def _is_fine_tuning_endpoint_available(api_client: APIClient) -> bool:
     try:
         url = api_client._href_definitions.get_fine_tunings_href()
 
-        response_fine_tuning_api = api_client._session.get(
+        response_fine_tuning_api = api_client.httpx_client.get(
             url=f"{url}?limit=1",
             params=api_client._params(),
             headers=api_client._get_headers(),

@@ -12,7 +12,7 @@ from subprocess import Popen, TimeoutExpired
 import sys
 from threading import Event, Thread
 import time
-from typing import Optional
+from typing import Optional, TextIO
 
 from google.protobuf.empty_pb2 import Empty
 from grpc import insecure_channel, secure_channel, ssl_channel_credentials
@@ -23,7 +23,7 @@ from ..prim import DazlError, TimeDeltaLike, to_timedelta
 __all__ = ["kill_process_tree", "wait_for_process_port", "ProcessLogger", "ProcessDiedException"]
 
 
-def kill_process_tree(process: Popen):
+def kill_process_tree(process: Popen) -> None:
     """
     Kill a process and its children.
     """
@@ -39,8 +39,7 @@ def kill_process_tree(process: Popen):
 
     process.terminate()
     try:
-        # give the process a few seconds to die
-        process.communicate(timeout=5)
+        process.communicate(timeout=15)
 
     except TimeoutExpired:
         logging.error("Had trouble killing a sandbox process normally; it will be forcibly killed.")
@@ -83,24 +82,30 @@ def wait_for_process_port(
             # if that port is open
             if participant_admin_port is not None and is_port_alive(participant_admin_port):
                 logging.debug("Waiting for the participant to report itself as active...")
-                with ExitStack() as stack:
-                    if participant_admin_cert_file is not None:
-                        credentials = ssl_channel_credentials(
-                            root_certificates=Path(participant_admin_cert_file).read_bytes()
-                        )
-                        channel = stack.enter_context(
-                            secure_channel(f"localhost:{participant_admin_port}", credentials)
-                        )
-                    else:
-                        channel = stack.enter_context(
-                            insecure_channel(f"localhost:{participant_admin_port}")
-                        )
-                    status_service = StatusServiceStub(channel)
-                    response = status_service.Status(Empty())
-                    alive = response.success.active
+                try:
+                    with ExitStack() as stack:
+                        if participant_admin_cert_file is not None:
+                            credentials = ssl_channel_credentials(
+                                root_certificates=Path(participant_admin_cert_file).read_bytes()
+                            )
+                            channel = stack.enter_context(
+                                secure_channel(f"localhost:{participant_admin_port}", credentials)
+                            )
+                        else:
+                            channel = stack.enter_context(
+                                insecure_channel(f"localhost:{participant_admin_port}")
+                            )
+                        status_service = StatusServiceStub(channel)
+                        response = status_service.Status(Empty(), timeout=5.0)
+                        alive = response.success.active
+                except Exception as ex:
+                    logging.debug("Participant not yet active: %s", ex)
+                    alive = False
 
                 if not alive:
                     time.sleep(0.5)
+        else:
+            time.sleep(0.5)
 
     if not alive:
         return_code = process.returncode
@@ -114,12 +119,12 @@ class ProcessLogger:
     Pipe stdout and stderr from a process to the logger.
     """
 
-    def __init__(self, process: Popen, logger: logging.Logger):
+    def __init__(self, process: Popen, logger: logging.Logger) -> None:
         self.process = process
         self.logger = logger
         self._evt = Event()
 
-    def start(self):
+    def start(self) -> None:
         stdout = sys.stdout
         stderr = sys.stderr
         stdout_log_thread = Thread(target=self._stdout_monitor, args=[stdout])
@@ -127,30 +132,34 @@ class ProcessLogger:
         stderr_log_thread = Thread(target=self._stderr_monitor, args=[stderr])
         stderr_log_thread.start()
 
-    def stop(self):
+    def stop(self) -> None:
         self._evt.set()
 
-    def _stdout_monitor(self, stdout):
+    def _stdout_monitor(self, stdout: TextIO) -> None:
         sys.stdout = stdout
         # noinspection PyBroadException
         try:
-            for line in self.process.stdout:
-                if self._evt.is_set():
-                    return
+            proc_stdout = self.process.stdout
+            if proc_stdout is not None:
+                for line in proc_stdout:
+                    if self._evt.is_set():
+                        return
 
-                self.logger.info(line.rstrip("\n"))
+                    self.logger.info(line.rstrip("\n"))
         except:  # noqa
             pass
 
-    def _stderr_monitor(self, stderr):
+    def _stderr_monitor(self, stderr: TextIO) -> None:
         sys.stderr = stderr
         # noinspection PyBroadException
         try:
-            for line in self.process.stderr:
-                if self._evt.is_set():
-                    return
+            proc_stderr = self.process.stderr
+            if proc_stderr is not None:
+                for line in proc_stderr:
+                    if self._evt.is_set():
+                        return
 
-                self.logger.info(line.rstrip("\n"))
+                    self.logger.info(line.rstrip("\n"))
         except:  # noqa
             pass
 

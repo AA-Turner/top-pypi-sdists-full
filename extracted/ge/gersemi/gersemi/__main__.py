@@ -3,25 +3,26 @@ from dataclasses import fields
 import pathlib
 import sys
 from lark import __version__ as lark_version
+from gersemi.__version__ import __title__, __version__
 from gersemi.configuration import (
+    ControlConfiguration,
+    ListExpansion,
+    OutcomeConfiguration,
+    indent_type,
+    line_ranges,
     normalize_definitions,
     normalize_extensions,
     normalize_path,
     sanitize_list_expansion,
-    ControlConfiguration,
-    OutcomeConfiguration,
-    ListExpansion,
-    indent_type,
     workers_type,
 )
 from gersemi.configuration_reports import default_report
 from gersemi.print_config_kind import PrintConfigKind, print_config_kind
-from gersemi.return_codes import SUCCESS, FAIL
-from gersemi.runner import run, print_to_stderr
-from gersemi.__version__ import __title__, __version__
+from gersemi.return_codes import FAIL, SUCCESS
+from gersemi.runner import print_to_stderr, run
 
+FROZEN = getattr(sys, "frozen", False)
 MISSING = "(missing)"
-
 
 try:
     from colorama import __version__ as colorama_version
@@ -32,7 +33,8 @@ except ImportError:
 
 class ShowVersion(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        print(f"{__title__} {__version__}")
+        frozen_suffix = " (frozen)" if FROZEN else ""
+        print(f"{__title__} {__version__}{frozen_suffix}")
         print(f"lark {lark_version}")
         print(f"colorama {colorama_version}")
         print(f"Python {sys.version}")
@@ -94,7 +96,7 @@ def create_argparser():
         dest="print_config",
         choices=[e.value for e in PrintConfigKind],
         help=f"""Print configuration for files.
-        {" ".join(map(lambda attr: attr.description, PrintConfigKind))}
+        {" ".join(attr.description for attr in PrintConfigKind)}
         Command line arguments are taken into consideration just
         as they would be for formatting.
         When configuration file is found values in "definitions" are printed as relative
@@ -158,8 +160,8 @@ def create_argparser():
         dest="list_expansion",
         choices=["favour-inlining", "favour-expansion"],
         help=f"""
-    {outcome_conf_doc['list_expansion']}
-    {" ".join(map(lambda attr: attr.description, ListExpansion))}
+    {outcome_conf_doc["list_expansion"]}
+    {" ".join(attr.description for attr in ListExpansion)}
     [default: {OutcomeConfiguration.list_expansion.value}]
             """,
     )
@@ -227,7 +229,7 @@ def create_argparser():
         nargs=0,
         default=None,
         help=f"""
-        {control_conf_doc['color']}
+        {control_conf_doc["color"]}
         {warn_about_missing_colorama}
         [default: don't colorize diff, same as --no-color]
         """,
@@ -239,7 +241,7 @@ def create_argparser():
         dest="workers",
         type=workers_type,
         help=f"""
-    {control_conf_doc['workers']} [default: {repr(ControlConfiguration.workers)}]
+    {control_conf_doc["workers"]} [default: {repr(ControlConfiguration.workers)}]
         """,
     )
     control_configuration_group.add_argument(
@@ -252,6 +254,16 @@ def create_argparser():
         help=f"""
     {control_conf_doc["cache"]}
     [default: cache enabled, same as --cache]
+        """,
+    )
+    control_configuration_group.add_argument(
+        "--cache-dir",
+        dest="cache_dir",
+        type=pathlib.Path,
+        default=None,
+        help=f"""
+    {control_conf_doc["cache_dir"]}
+    [default: omitted]
         """,
     )
     control_configuration_group.add_argument(
@@ -271,6 +283,26 @@ def create_argparser():
         default=None,
         help=control_conf_doc["warnings_as_errors"],
     )
+    control_configuration_group.add_argument(
+        "--line-ranges",
+        dest="line_ranges",
+        default=[],
+        type=line_ranges,
+        action="append",
+        help=control_conf_doc["line_ranges"],
+    )
+    control_configuration_group.add_argument(
+        "--respect-ignore-files",
+        "--no-respect-ignore-files",
+        dest="respect_ignore_files",
+        action=toggle_with_no_prefix,
+        nargs=0,
+        default=None,
+        help=f"""
+    {control_conf_doc["respect_ignore_files"]}
+    [default: respect ignore files, same as --respect-ignore-files]
+        """,
+    )
 
     parser.add_argument(
         dest="sources",
@@ -278,8 +310,8 @@ def create_argparser():
         nargs="*",
         type=pathlib.Path,
         help="""
-    File or directory to format. When directory is provided then CMakeLists.txt
-    and files with .cmake extension are automatically discovered.
+    File or directory to format. When directory is provided then CMakeLists.txt,
+    CMakeLists.txt.in and files with .cmake/.cmake.in extension are automatically discovered.
     If only `-` is provided, input is taken from stdin instead.
             """,
     )
@@ -307,6 +339,8 @@ def postprocess_args(args):
     if args.configuration_file is not None:
         args.configuration_file = normalize_path(args.configuration_file)
 
+    args.line_ranges = {line_range for arg in args.line_ranges for line_range in arg}
+
 
 def error(text):
     print_to_stderr(text)
@@ -314,6 +348,11 @@ def error(text):
 
 
 def main():
+    if FROZEN:
+        from multiprocessing import freeze_support
+
+        freeze_support()
+
     try:
         argparser = create_argparser()
         args = argparser.parse_args()

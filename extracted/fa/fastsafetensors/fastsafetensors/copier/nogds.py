@@ -1,4 +1,3 @@
-# Copyright 2024 IBM Inc. All rights reserved
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -8,16 +7,16 @@ from .. import cpp as fstcpp
 from ..common import SafeTensorsMetadata
 from ..frameworks import FrameworkOpBase, TensorBase
 from ..st_types import Device, DType
+from .base import CopierInterface
 
 
-class NoGdsFileCopier:
+class NoGdsFileCopier(CopierInterface):
     def __init__(
         self,
         metadata: SafeTensorsMetadata,
         device: Device,
         reader: fstcpp.nogds_file_reader,
         framework: FrameworkOpBase,
-        debug_log: bool = False,
     ):
         self.framework = framework
         self.metadata = metadata
@@ -28,7 +27,6 @@ class NoGdsFileCopier:
                 f"NoGdsFileCopier.__init__: failed to open, file={metadata.src}"
             )
         self.device = device
-        self.debug_log = debug_log
         self.reqs: List[int] = []
 
     def submit_io(

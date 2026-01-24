@@ -1,19 +1,16 @@
 Metadata-Version: 2.4
 Name: celery-batches
-Version: 0.10
+Version: 0.11
 Summary: Experimental task class that buffers messages and processes them as a list.
-Home-page: https://github.com/clokep/celery-batches
-Author: Patrick Cloke
-Author-email: clokep@patrick.cloke.us
-License: BSD
+Author-email: Patrick Cloke <clokep@patrick.cloke.us>
+License-Expression: BSD-3-Clause
 Project-URL: Documentation, https://celery-batches.readthedocs.io
-Project-URL: Release notes, https://github.com/clokep/celery-batches/blob/main/CHANGELOG.rst
-Project-URL: Source, https://github.com/clokep/celery-batches
+Project-URL: Changelog, https://github.com/clokep/celery-batches/blob/main/CHANGELOG.rst
+Project-URL: Repository, https://github.com/clokep/celery-batches
 Project-URL: Funding, https://github.com/sponsors/clokep
-Project-URL: Tracker, https://github.com/clokep/celery-batches/issues
-Keywords: task,job,queue,distributed,messaging,actor
+Project-URL: Issues, https://github.com/clokep/celery-batches/issues
+Keywords: task,job,queue,distributed,messaging,actor,celery
 Classifier: Development Status :: 3 - Alpha
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: Software Development :: Object Brokering
 Classifier: Programming Language :: Python
@@ -24,13 +21,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: celery<5.6,>=5.0
+Requires-Dist: celery<5.7,>=5.0
 Dynamic: license-file
 
 Celery Batches
@@ -62,7 +60,7 @@ What do I need?
 
 celery-batches version runs on,
 
-- Python (3.9, 3.10, 3.11, 3.12, 3.13)
+- Python (3.9, 3.10, 3.11, 3.12, 3.13, 3.14)
 - PyPy (3.10, 3.11)
 
 And is tested with Celery ~= 5.0.

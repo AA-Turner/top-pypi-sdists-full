@@ -10,7 +10,7 @@ import pyvex
 from angr.analyses import ForwardAnalysis
 from angr.block import Block
 from angr.knowledge_plugins.cfg.cfg_node import CFGNode
-from angr.codenode import CodeNode
+from angr.codenode import CodeNode, FuncNode, HookNode
 from angr.engines.light import SimEngineLight
 from angr.knowledge_plugins.functions import Function
 from angr.knowledge_plugins.key_definitions import ReachingDefinitionsModel, LiveDefinitions
@@ -27,12 +27,11 @@ from .function_handler import FunctionHandler, FunctionCallRelationships
 from .dep_graph import DepGraph
 import contextlib
 
-
 l = logging.getLogger(name=__name__)
 
 
 class ReachingDefinitionsAnalysis(
-    ForwardAnalysis[ReachingDefinitionsState, NodeType, object, object], Analysis
+    ForwardAnalysis[ReachingDefinitionsState, NodeType, object, object, object], Analysis
 ):  # pylint:disable=abstract-method
     """
     ReachingDefinitionsAnalysis is a text-book implementation of a static data-flow analysis that works on either a
@@ -497,7 +496,7 @@ class ReachingDefinitionsAnalysis(
             block = node
             block_key = (node.addr, node.idx)
             engine = self._engine_ail
-        elif isinstance(node, (Block, CodeNode)):
+        elif isinstance(node, (Block, CodeNode)) and not isinstance(node, (FuncNode, HookNode)):
             block = self.project.factory.block(node.addr, node.size, opt_level=1, cross_insn_opt=False)
             engine = self._engine_vex
             block_key = node.addr

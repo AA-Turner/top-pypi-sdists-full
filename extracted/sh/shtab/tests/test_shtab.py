@@ -82,6 +82,31 @@ def test_main_self_completion(shell, caplog, capsys):
     assert not caplog.record_tuples
 
 
+@pytest.mark.parametrize('output', ["-", "stdout", "test.txt"])
+@fix_shell
+def test_main_output_path(shell, caplog, capsys, change_dir, output):
+    assert not capsys.readouterr().out
+    with caplog.at_level(logging.INFO):
+        try:
+            main(["-s", shell, "shtab.main.get_main_parser", "-o", output])
+        except SystemExit:
+            pass
+
+    captured = capsys.readouterr()
+    assert not captured.err
+    expected = {
+        "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
+        "tcsh": "complete shtab"}
+
+    if output in ("-", "stdout"):
+        assert expected[shell] in captured.out
+    else:
+        assert not captured.out
+        assert expected[shell] in (change_dir / output).read_text()
+
+    assert not caplog.record_tuples
+
+
 @fix_shell
 def test_prog_override(shell, caplog, capsys):
     with caplog.at_level(logging.INFO):
@@ -108,6 +133,8 @@ def test_prog_scripts(shell, caplog, capsys):
     elif shell == "zsh":
         assert script_py == [
             "#compdef script.py", "_describe 'script.py commands' _commands",
+            'local context state line curcontext="$curcontext" '
+            "one_or_more='(*)' remainder='(-)*' default='*::: :->script.py'",
             "_shtab_shtab_options+=(': :_shtab_shtab_commands' '*::: :->script.py')", "script.py)",
             "compdef _shtab_shtab -N script.py"]
     elif shell == "tcsh":

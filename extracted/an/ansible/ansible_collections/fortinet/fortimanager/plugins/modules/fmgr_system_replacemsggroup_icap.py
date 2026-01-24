@@ -16,7 +16,6 @@ short_description: Replacement message table entries.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -134,13 +136,13 @@ EXAMPLES = '''
       fortinet.fortimanager.fmgr_system_replacemsggroup_icap:
         bypass_validation: false
         adom: ansible
-        replacemsg-group: ansible-test # name
+        replacemsg_group: ansible-test # name
         state: present
         system_replacemsggroup_icap:
           buffer: ansible-buffer
           format: none # <value in [none, text, html, ...]>
           header: http # <value in [none, http, 8bit]>
-          msg-type: ansible-msgtype # required
+          msg_type: ansible-msgtype # required
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers
@@ -157,7 +159,7 @@ EXAMPLES = '''
           selector: "system_replacemsggroup_icap"
           params:
             adom: "ansible"
-            replacemsg-group: "ansible-test" # name
+            replacemsg_group: "ansible-test" # name
             icap: "your_value"
 '''
 
@@ -217,6 +219,7 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'replacemsg-group': {'type': 'str', 'api_name': 'replacemsg_group'},
         'replacemsg_group': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'system_replacemsggroup_icap': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

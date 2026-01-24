@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fixit
-Version: 2.1.0
+Version: 2.2.1
 Summary: A lint framework that writes better Python code for you.
 Project-URL: Home, https://fixit.rtfd.io
 Project-URL: Github, https://github.com/Instagram/Fixit
@@ -91,25 +91,29 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.8
-Requires-Dist: click>=8.0
+Requires-Python: >=3.9
+Requires-Dist: click<8.2,>=8.0
 Requires-Dist: libcst>=0.3.18
 Requires-Dist: moreorless>=0.4.0
 Requires-Dist: packaging>=21
 Requires-Dist: tomli>=2.0; python_version < '3.11'
 Requires-Dist: trailrunner>=1.2
 Provides-Extra: dev
-Requires-Dist: attribution==1.6.2; extra == 'dev'
-Requires-Dist: black==23.9.1; extra == 'dev'
-Requires-Dist: flake8-bugbear==23.9.16; extra == 'dev'
-Requires-Dist: flake8==6.1.0; extra == 'dev'
-Requires-Dist: mypy==1.5.1; extra == 'dev'
-Requires-Dist: ufmt==2.2.0; extra == 'dev'
-Requires-Dist: usort==1.0.7; extra == 'dev'
+Requires-Dist: attribution==1.8.0; extra == 'dev'
+Requires-Dist: black==25.9.0; extra == 'dev'
+Requires-Dist: build>1; extra == 'dev'
+Requires-Dist: flake8-bugbear==24.12.12; extra == 'dev'
+Requires-Dist: flake8==7.3.0; extra == 'dev'
+Requires-Dist: mypy==1.18.2; extra == 'dev'
+Requires-Dist: pyrefly==0.39.4; extra == 'dev'
+Requires-Dist: ufmt==2.8.0; extra == 'dev'
+Requires-Dist: usort==1.0.8.post1; extra == 'dev'
 Provides-Extra: docs
-Requires-Dist: jinja2==3.1.2; extra == 'docs'
-Requires-Dist: sphinx-mdinclude==0.5.3; extra == 'docs'
-Requires-Dist: sphinx==7.0.1; extra == 'docs'
+Requires-Dist: jinja2==3.1.6; extra == 'docs'
+Requires-Dist: sphinx-mdinclude==0.6.2; extra == 'docs'
+Requires-Dist: sphinx==8.0.2; extra == 'docs'
+Provides-Extra: lsp
+Requires-Dist: pygls[ws]~=2.0.0; extra == 'lsp'
 Provides-Extra: pretty
 Requires-Dist: rich>=12.6.0; extra == 'pretty'
 Description-Content-Type: text/x-rst

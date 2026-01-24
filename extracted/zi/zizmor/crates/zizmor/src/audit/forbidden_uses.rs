@@ -1,7 +1,9 @@
 use github_actions_models::common::Uses;
+use subfeature::Subfeature;
 
 use super::{Audit, AuditLoadError, AuditState, audit_meta};
-use crate::config::{Config, ForbiddenUsesConfig};
+use crate::audit::AuditError;
+use crate::config::{Config, ForbiddenUsesConfigInner};
 use crate::finding::{Confidence, Finding, Persona, Severity};
 use crate::models::{StepCommon, action::CompositeStep, workflow::Step};
 
@@ -10,7 +12,7 @@ pub(crate) struct ForbiddenUses;
 audit_meta!(ForbiddenUses, "forbidden-uses", "forbidden action used");
 
 impl ForbiddenUses {
-    fn use_denied(&self, uses: &Uses, config: &ForbiddenUsesConfig) -> bool {
+    fn use_denied(&self, uses: &Uses, config: &ForbiddenUsesConfigInner) -> bool {
         match uses {
             // Local uses are never denied.
             Uses::Local(_) => false,
@@ -22,10 +24,10 @@ impl ForbiddenUses {
                 false
             }
             Uses::Repository(uses) => match config {
-                ForbiddenUsesConfig::Allow { allow } => {
+                ForbiddenUsesConfigInner::Allow(allow) => {
                     !allow.iter().any(|pattern| pattern.matches(uses))
                 }
-                ForbiddenUsesConfig::Deny { deny } => {
+                ForbiddenUsesConfigInner::Deny(deny) => {
                     deny.iter().any(|pattern| pattern.matches(uses))
                 }
             },
@@ -36,7 +38,7 @@ impl ForbiddenUses {
         &self,
         step: &impl StepCommon<'doc>,
         config: &Config,
-    ) -> anyhow::Result<Vec<Finding<'doc>>> {
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
         let mut findings = vec![];
 
         let Some(config) = config.forbidden_uses_config.as_ref() else {
@@ -58,6 +60,7 @@ impl ForbiddenUses {
                         step.location()
                             .primary()
                             .with_keys(["uses".into()])
+                            .subfeature(Subfeature::new(0, uses.raw()))
                             .annotated("use of this action is forbidden"),
                     )
                     .build(step)?,
@@ -68,6 +71,7 @@ impl ForbiddenUses {
     }
 }
 
+#[async_trait::async_trait]
 impl Audit for ForbiddenUses {
     fn new(_state: &AuditState) -> Result<Self, AuditLoadError>
     where
@@ -76,19 +80,19 @@ impl Audit for ForbiddenUses {
         Ok(Self)
     }
 
-    fn audit_step<'doc>(
+    async fn audit_step<'doc>(
         &self,
         step: &Step<'doc>,
         config: &Config,
-    ) -> anyhow::Result<Vec<Finding<'doc>>> {
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
         self.process_step(step, config)
     }
 
-    fn audit_composite_step<'a>(
+    async fn audit_composite_step<'a>(
         &self,
         step: &CompositeStep<'a>,
         config: &Config,
-    ) -> anyhow::Result<Vec<Finding<'a>>> {
+    ) -> Result<Vec<Finding<'a>>, AuditError> {
         self.process_step(step, config)
     }
 }

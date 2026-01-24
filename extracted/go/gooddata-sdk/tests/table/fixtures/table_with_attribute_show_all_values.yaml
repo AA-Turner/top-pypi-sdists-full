@@ -1,0 +1,1041 @@
+# (C) 2026 GoodData Corporation
+version: 1
+interactions:
+  - request:
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute
+      body:
+        execution:
+          attributes:
+            - label:
+                identifier:
+                  id: date.month
+                  type: label
+              localIdentifier: attr1
+          filters: []
+          measures:
+            - definition:
+                measure:
+                  item:
+                    identifier:
+                      id: quantity
+                      type: fact
+                  aggregation: SUM
+                  computeRatio: false
+                  filters: []
+              localIdentifier: metric1
+        resultSpec:
+          dimensions:
+            - itemIdentifiers:
+                - attr1
+              localIdentifier: dim_0
+            - itemIdentifiers:
+                - measureGroup
+              localIdentifier: dim_1
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '678'
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-Gdc-Cancel-Token:
+          - 6a74645c-f398-4105-a54c-732cd120359b
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          executionResponse:
+            dimensions:
+              - headers:
+                  - attributeHeader:
+                      localIdentifier: attr1
+                      label:
+                        id: date.month
+                        type: label
+                      labelName: Date - Month/Year
+                      attribute:
+                        id: date.month
+                        type: attribute
+                      attributeName: Date - Month/Year
+                      granularity: MONTH
+                      primaryLabel:
+                        id: date.month
+                        type: label
+                      format:
+                        locale: en-US
+                        pattern: MMM y
+                        timezone: Etc/UTC
+                      valueType: TEXT
+                localIdentifier: dim_0
+              - headers:
+                  - measureGroupHeaders:
+                      - localIdentifier: metric1
+                localIdentifier: dim_1
+            links:
+              executionResult: d248fcdf7402f3b2109c5140f761aaa3e58b2a89:99ffdefd10b1b8eddda20d9dae423e7b9b706ea0cd4fe3b4643597ae23ca9e70
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute/result/d248fcdf7402f3b2109c5140f761aaa3e58b2a89%3A99ffdefd10b1b8eddda20d9dae423e7b9b706ea0cd4fe3b4643597ae23ca9e70?offset=0%2C0&limit=512%2C256
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '4471'
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          data:
+            - - 66.0
+            - - 108.0
+            - - 130.0
+            - - 114.0
+            - - 74.0
+            - - 99.0
+            - - 94.0
+            - - 104.0
+            - - 68.0
+            - - 100.0
+            - - 137.0
+            - - 173.0
+            - - 142.0
+            - - 111.0
+            - - 130.0
+            - - 115.0
+            - - 112.0
+            - - 129.0
+            - - 100.0
+            - - 126.0
+            - - 114.0
+            - - 112.0
+            - - 139.0
+            - - 157.0
+            - - 123.0
+            - - 75.0
+            - - 127.0
+            - - 151.0
+            - - 125.0
+            - - 142.0
+            - - 143.0
+            - - 145.0
+            - - 121.0
+            - - 138.0
+            - - 193.0
+            - - 217.0
+            - - 173.0
+            - - 119.0
+            - - 236.0
+            - - 149.0
+            - - 149.0
+            - - 153.0
+            - - 168.0
+            - - 151.0
+            - - 147.0
+            - - 189.0
+            - - 267.0
+            - - 294.0
+            - - 217.0
+            - - 165.0
+            - - 201.0
+          dimensionHeaders:
+            - headerGroups:
+                - headers:
+                    - attributeHeader:
+                        labelValue: 2022-10
+                        primaryLabelValue: 2022-10
+                    - attributeHeader:
+                        labelValue: 2022-11
+                        primaryLabelValue: 2022-11
+                    - attributeHeader:
+                        labelValue: 2022-12
+                        primaryLabelValue: 2022-12
+                    - attributeHeader:
+                        labelValue: 2023-01
+                        primaryLabelValue: 2023-01
+                    - attributeHeader:
+                        labelValue: 2023-02
+                        primaryLabelValue: 2023-02
+                    - attributeHeader:
+                        labelValue: 2023-03
+                        primaryLabelValue: 2023-03
+                    - attributeHeader:
+                        labelValue: 2023-04
+                        primaryLabelValue: 2023-04
+                    - attributeHeader:
+                        labelValue: 2023-05
+                        primaryLabelValue: 2023-05
+                    - attributeHeader:
+                        labelValue: 2023-06
+                        primaryLabelValue: 2023-06
+                    - attributeHeader:
+                        labelValue: 2023-07
+                        primaryLabelValue: 2023-07
+                    - attributeHeader:
+                        labelValue: 2023-08
+                        primaryLabelValue: 2023-08
+                    - attributeHeader:
+                        labelValue: 2023-09
+                        primaryLabelValue: 2023-09
+                    - attributeHeader:
+                        labelValue: 2023-10
+                        primaryLabelValue: 2023-10
+                    - attributeHeader:
+                        labelValue: 2023-11
+                        primaryLabelValue: 2023-11
+                    - attributeHeader:
+                        labelValue: 2023-12
+                        primaryLabelValue: 2023-12
+                    - attributeHeader:
+                        labelValue: 2024-01
+                        primaryLabelValue: 2024-01
+                    - attributeHeader:
+                        labelValue: 2024-02
+                        primaryLabelValue: 2024-02
+                    - attributeHeader:
+                        labelValue: 2024-03
+                        primaryLabelValue: 2024-03
+                    - attributeHeader:
+                        labelValue: 2024-04
+                        primaryLabelValue: 2024-04
+                    - attributeHeader:
+                        labelValue: 2024-05
+                        primaryLabelValue: 2024-05
+                    - attributeHeader:
+                        labelValue: 2024-06
+                        primaryLabelValue: 2024-06
+                    - attributeHeader:
+                        labelValue: 2024-07
+                        primaryLabelValue: 2024-07
+                    - attributeHeader:
+                        labelValue: 2024-08
+                        primaryLabelValue: 2024-08
+                    - attributeHeader:
+                        labelValue: 2024-09
+                        primaryLabelValue: 2024-09
+                    - attributeHeader:
+                        labelValue: 2024-10
+                        primaryLabelValue: 2024-10
+                    - attributeHeader:
+                        labelValue: 2024-11
+                        primaryLabelValue: 2024-11
+                    - attributeHeader:
+                        labelValue: 2024-12
+                        primaryLabelValue: 2024-12
+                    - attributeHeader:
+                        labelValue: 2025-01
+                        primaryLabelValue: 2025-01
+                    - attributeHeader:
+                        labelValue: 2025-02
+                        primaryLabelValue: 2025-02
+                    - attributeHeader:
+                        labelValue: 2025-03
+                        primaryLabelValue: 2025-03
+                    - attributeHeader:
+                        labelValue: 2025-04
+                        primaryLabelValue: 2025-04
+                    - attributeHeader:
+                        labelValue: 2025-05
+                        primaryLabelValue: 2025-05
+                    - attributeHeader:
+                        labelValue: 2025-06
+                        primaryLabelValue: 2025-06
+                    - attributeHeader:
+                        labelValue: 2025-07
+                        primaryLabelValue: 2025-07
+                    - attributeHeader:
+                        labelValue: 2025-08
+                        primaryLabelValue: 2025-08
+                    - attributeHeader:
+                        labelValue: 2025-09
+                        primaryLabelValue: 2025-09
+                    - attributeHeader:
+                        labelValue: 2025-10
+                        primaryLabelValue: 2025-10
+                    - attributeHeader:
+                        labelValue: 2025-11
+                        primaryLabelValue: 2025-11
+                    - attributeHeader:
+                        labelValue: 2025-12
+                        primaryLabelValue: 2025-12
+                    - attributeHeader:
+                        labelValue: 2026-01
+                        primaryLabelValue: 2026-01
+                    - attributeHeader:
+                        labelValue: 2026-02
+                        primaryLabelValue: 2026-02
+                    - attributeHeader:
+                        labelValue: 2026-03
+                        primaryLabelValue: 2026-03
+                    - attributeHeader:
+                        labelValue: 2026-04
+                        primaryLabelValue: 2026-04
+                    - attributeHeader:
+                        labelValue: 2026-05
+                        primaryLabelValue: 2026-05
+                    - attributeHeader:
+                        labelValue: 2026-06
+                        primaryLabelValue: 2026-06
+                    - attributeHeader:
+                        labelValue: 2026-07
+                        primaryLabelValue: 2026-07
+                    - attributeHeader:
+                        labelValue: 2026-08
+                        primaryLabelValue: 2026-08
+                    - attributeHeader:
+                        labelValue: 2026-09
+                        primaryLabelValue: 2026-09
+                    - attributeHeader:
+                        labelValue: 2026-10
+                        primaryLabelValue: 2026-10
+                    - attributeHeader:
+                        labelValue: 2026-11
+                        primaryLabelValue: 2026-11
+                    - attributeHeader:
+                        labelValue: 2026-12
+                        primaryLabelValue: 2026-12
+            - headerGroups:
+                - headers:
+                    - measureHeader:
+                        measureIndex: 0
+          grandTotals: []
+          paging:
+            count:
+              - 51
+              - 1
+            offset:
+              - 0
+              - 0
+            total:
+              - 51
+              - 1
+          metadata:
+            dataSourceMessages: []
+  - request:
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute
+      body:
+        execution:
+          attributes:
+            - label:
+                identifier:
+                  id: date.month
+                  type: label
+              localIdentifier: attr1
+              showAllValues: true
+          filters:
+            - positiveAttributeFilter:
+                in:
+                  values:
+                    - Canceled
+                label:
+                  identifier:
+                    id: order_status
+                    type: label
+          measures:
+            - definition:
+                measure:
+                  item:
+                    identifier:
+                      id: quantity
+                      type: fact
+                  aggregation: SUM
+                  computeRatio: false
+                  filters: []
+              localIdentifier: metric1
+        resultSpec:
+          dimensions:
+            - itemIdentifiers:
+                - attr1
+              localIdentifier: dim_0
+            - itemIdentifiers:
+                - measureGroup
+              localIdentifier: dim_1
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '678'
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-Gdc-Cancel-Token:
+          - 286de861-c447-4c03-832a-c5593a4af8b8
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          executionResponse:
+            dimensions:
+              - headers:
+                  - attributeHeader:
+                      localIdentifier: attr1
+                      label:
+                        id: date.month
+                        type: label
+                      labelName: Date - Month/Year
+                      attribute:
+                        id: date.month
+                        type: attribute
+                      attributeName: Date - Month/Year
+                      granularity: MONTH
+                      primaryLabel:
+                        id: date.month
+                        type: label
+                      format:
+                        locale: en-US
+                        pattern: MMM y
+                        timezone: Etc/UTC
+                      valueType: TEXT
+                localIdentifier: dim_0
+              - headers:
+                  - measureGroupHeaders:
+                      - localIdentifier: metric1
+                localIdentifier: dim_1
+            links:
+              executionResult: 00090963844b67325cdebc26eb64265cd046ce35:739d5a786286d61dd5ed93dd8fd7d2c53042eede713ae796685491675f6549f5
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute/result/00090963844b67325cdebc26eb64265cd046ce35%3A739d5a786286d61dd5ed93dd8fd7d2c53042eede713ae796685491675f6549f5?offset=0%2C0&limit=512%2C256
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '4318'
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          data:
+            - - 9.0
+            - - 2.0
+            - - 18.0
+            - - 1.0
+            - - null
+            - - 10.0
+            - - null
+            - - null
+            - - null
+            - - null
+            - - 4.0
+            - - null
+            - - 5.0
+            - - 3.0
+            - - null
+            - - 2.0
+            - - 2.0
+            - - 6.0
+            - - 8.0
+            - - null
+            - - null
+            - - 3.0
+            - - null
+            - - 3.0
+            - - null
+            - - null
+            - - null
+            - - 4.0
+            - - null
+            - - null
+            - - 5.0
+            - - 5.0
+            - - null
+            - - 5.0
+            - - 1.0
+            - - 17.0
+            - - 6.0
+            - - 5.0
+            - - 10.0
+            - - 3.0
+            - - null
+            - - null
+            - - null
+            - - 1.0
+            - - null
+            - - 4.0
+            - - 8.0
+            - - 6.0
+            - - 4.0
+            - - 5.0
+          dimensionHeaders:
+            - headerGroups:
+                - headers:
+                    - attributeHeader:
+                        labelValue: 2022-11
+                        primaryLabelValue: 2022-11
+                    - attributeHeader:
+                        labelValue: 2022-12
+                        primaryLabelValue: 2022-12
+                    - attributeHeader:
+                        labelValue: 2023-01
+                        primaryLabelValue: 2023-01
+                    - attributeHeader:
+                        labelValue: 2023-02
+                        primaryLabelValue: 2023-02
+                    - attributeHeader:
+                        labelValue: 2023-03
+                        primaryLabelValue: 2023-03
+                    - attributeHeader:
+                        labelValue: 2023-04
+                        primaryLabelValue: 2023-04
+                    - attributeHeader:
+                        labelValue: 2023-05
+                        primaryLabelValue: 2023-05
+                    - attributeHeader:
+                        labelValue: 2023-06
+                        primaryLabelValue: 2023-06
+                    - attributeHeader:
+                        labelValue: 2023-07
+                        primaryLabelValue: 2023-07
+                    - attributeHeader:
+                        labelValue: 2023-08
+                        primaryLabelValue: 2023-08
+                    - attributeHeader:
+                        labelValue: 2023-09
+                        primaryLabelValue: 2023-09
+                    - attributeHeader:
+                        labelValue: 2023-10
+                        primaryLabelValue: 2023-10
+                    - attributeHeader:
+                        labelValue: 2023-11
+                        primaryLabelValue: 2023-11
+                    - attributeHeader:
+                        labelValue: 2023-12
+                        primaryLabelValue: 2023-12
+                    - attributeHeader:
+                        labelValue: 2024-01
+                        primaryLabelValue: 2024-01
+                    - attributeHeader:
+                        labelValue: 2024-02
+                        primaryLabelValue: 2024-02
+                    - attributeHeader:
+                        labelValue: 2024-03
+                        primaryLabelValue: 2024-03
+                    - attributeHeader:
+                        labelValue: 2024-04
+                        primaryLabelValue: 2024-04
+                    - attributeHeader:
+                        labelValue: 2024-05
+                        primaryLabelValue: 2024-05
+                    - attributeHeader:
+                        labelValue: 2024-06
+                        primaryLabelValue: 2024-06
+                    - attributeHeader:
+                        labelValue: 2024-07
+                        primaryLabelValue: 2024-07
+                    - attributeHeader:
+                        labelValue: 2024-08
+                        primaryLabelValue: 2024-08
+                    - attributeHeader:
+                        labelValue: 2024-09
+                        primaryLabelValue: 2024-09
+                    - attributeHeader:
+                        labelValue: 2024-10
+                        primaryLabelValue: 2024-10
+                    - attributeHeader:
+                        labelValue: 2024-11
+                        primaryLabelValue: 2024-11
+                    - attributeHeader:
+                        labelValue: 2024-12
+                        primaryLabelValue: 2024-12
+                    - attributeHeader:
+                        labelValue: 2025-01
+                        primaryLabelValue: 2025-01
+                    - attributeHeader:
+                        labelValue: 2025-02
+                        primaryLabelValue: 2025-02
+                    - attributeHeader:
+                        labelValue: 2025-03
+                        primaryLabelValue: 2025-03
+                    - attributeHeader:
+                        labelValue: 2025-04
+                        primaryLabelValue: 2025-04
+                    - attributeHeader:
+                        labelValue: 2025-05
+                        primaryLabelValue: 2025-05
+                    - attributeHeader:
+                        labelValue: 2025-06
+                        primaryLabelValue: 2025-06
+                    - attributeHeader:
+                        labelValue: 2025-07
+                        primaryLabelValue: 2025-07
+                    - attributeHeader:
+                        labelValue: 2025-08
+                        primaryLabelValue: 2025-08
+                    - attributeHeader:
+                        labelValue: 2025-09
+                        primaryLabelValue: 2025-09
+                    - attributeHeader:
+                        labelValue: 2025-10
+                        primaryLabelValue: 2025-10
+                    - attributeHeader:
+                        labelValue: 2025-11
+                        primaryLabelValue: 2025-11
+                    - attributeHeader:
+                        labelValue: 2025-12
+                        primaryLabelValue: 2025-12
+                    - attributeHeader:
+                        labelValue: 2026-01
+                        primaryLabelValue: 2026-01
+                    - attributeHeader:
+                        labelValue: 2026-02
+                        primaryLabelValue: 2026-02
+                    - attributeHeader:
+                        labelValue: 2026-03
+                        primaryLabelValue: 2026-03
+                    - attributeHeader:
+                        labelValue: 2026-04
+                        primaryLabelValue: 2026-04
+                    - attributeHeader:
+                        labelValue: 2026-05
+                        primaryLabelValue: 2026-05
+                    - attributeHeader:
+                        labelValue: 2026-06
+                        primaryLabelValue: 2026-06
+                    - attributeHeader:
+                        labelValue: 2026-07
+                        primaryLabelValue: 2026-07
+                    - attributeHeader:
+                        labelValue: 2026-08
+                        primaryLabelValue: 2026-08
+                    - attributeHeader:
+                        labelValue: 2026-09
+                        primaryLabelValue: 2026-09
+                    - attributeHeader:
+                        labelValue: 2026-10
+                        primaryLabelValue: 2026-10
+                    - attributeHeader:
+                        labelValue: 2026-11
+                        primaryLabelValue: 2026-11
+                    - attributeHeader:
+                        labelValue: 2026-12
+                        primaryLabelValue: 2026-12
+            - headerGroups:
+                - headers:
+                    - measureHeader:
+                        measureIndex: 0
+          grandTotals: []
+          paging:
+            count:
+              - 50
+              - 1
+            offset:
+              - 0
+              - 0
+            total:
+              - 50
+              - 1
+          metadata:
+            dataSourceMessages: []
+  - request:
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute
+      body:
+        execution:
+          attributes:
+            - label:
+                identifier:
+                  id: date.month
+                  type: label
+              localIdentifier: attr1
+              showAllValues: false
+          filters:
+            - positiveAttributeFilter:
+                in:
+                  values:
+                    - Canceled
+                label:
+                  identifier:
+                    id: order_status
+                    type: label
+          measures:
+            - definition:
+                measure:
+                  item:
+                    identifier:
+                      id: quantity
+                      type: fact
+                  aggregation: SUM
+                  computeRatio: false
+                  filters: []
+              localIdentifier: metric1
+        resultSpec:
+          dimensions:
+            - itemIdentifiers:
+                - attr1
+              localIdentifier: dim_0
+            - itemIdentifiers:
+                - measureGroup
+              localIdentifier: dim_1
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '678'
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-Gdc-Cancel-Token:
+          - 7a4c7e3c-c066-4366-be8d-2b3684a87980
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          executionResponse:
+            dimensions:
+              - headers:
+                  - attributeHeader:
+                      localIdentifier: attr1
+                      label:
+                        id: date.month
+                        type: label
+                      labelName: Date - Month/Year
+                      attribute:
+                        id: date.month
+                        type: attribute
+                      attributeName: Date - Month/Year
+                      granularity: MONTH
+                      primaryLabel:
+                        id: date.month
+                        type: label
+                      format:
+                        locale: en-US
+                        pattern: MMM y
+                        timezone: Etc/UTC
+                      valueType: TEXT
+                localIdentifier: dim_0
+              - headers:
+                  - measureGroupHeaders:
+                      - localIdentifier: metric1
+                localIdentifier: dim_1
+            links:
+              executionResult: 8c8ca13c6c889d30cb4fb0e45ba3656ffac1a2ce:aabaf8b4e52af163516913db3cdb578b8316076ae1f4d70deb14b23982793b14
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute/result/8c8ca13c6c889d30cb4fb0e45ba3656ffac1a2ce%3Aaabaf8b4e52af163516913db3cdb578b8316076ae1f4d70deb14b23982793b14?offset=0%2C0&limit=512%2C256
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '2678'
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          data:
+            - - 9.0
+            - - 2.0
+            - - 18.0
+            - - 1.0
+            - - 10.0
+            - - 4.0
+            - - 5.0
+            - - 3.0
+            - - 2.0
+            - - 2.0
+            - - 6.0
+            - - 8.0
+            - - 3.0
+            - - 3.0
+            - - 4.0
+            - - 5.0
+            - - 5.0
+            - - 5.0
+            - - 1.0
+            - - 17.0
+            - - 6.0
+            - - 5.0
+            - - 10.0
+            - - 3.0
+            - - 1.0
+            - - 4.0
+            - - 8.0
+            - - 6.0
+            - - 4.0
+            - - 5.0
+          dimensionHeaders:
+            - headerGroups:
+                - headers:
+                    - attributeHeader:
+                        labelValue: 2022-11
+                        primaryLabelValue: 2022-11
+                    - attributeHeader:
+                        labelValue: 2022-12
+                        primaryLabelValue: 2022-12
+                    - attributeHeader:
+                        labelValue: 2023-01
+                        primaryLabelValue: 2023-01
+                    - attributeHeader:
+                        labelValue: 2023-02
+                        primaryLabelValue: 2023-02
+                    - attributeHeader:
+                        labelValue: 2023-04
+                        primaryLabelValue: 2023-04
+                    - attributeHeader:
+                        labelValue: 2023-09
+                        primaryLabelValue: 2023-09
+                    - attributeHeader:
+                        labelValue: 2023-11
+                        primaryLabelValue: 2023-11
+                    - attributeHeader:
+                        labelValue: 2023-12
+                        primaryLabelValue: 2023-12
+                    - attributeHeader:
+                        labelValue: 2024-02
+                        primaryLabelValue: 2024-02
+                    - attributeHeader:
+                        labelValue: 2024-03
+                        primaryLabelValue: 2024-03
+                    - attributeHeader:
+                        labelValue: 2024-04
+                        primaryLabelValue: 2024-04
+                    - attributeHeader:
+                        labelValue: 2024-05
+                        primaryLabelValue: 2024-05
+                    - attributeHeader:
+                        labelValue: 2024-08
+                        primaryLabelValue: 2024-08
+                    - attributeHeader:
+                        labelValue: 2024-10
+                        primaryLabelValue: 2024-10
+                    - attributeHeader:
+                        labelValue: 2025-02
+                        primaryLabelValue: 2025-02
+                    - attributeHeader:
+                        labelValue: 2025-05
+                        primaryLabelValue: 2025-05
+                    - attributeHeader:
+                        labelValue: 2025-06
+                        primaryLabelValue: 2025-06
+                    - attributeHeader:
+                        labelValue: 2025-08
+                        primaryLabelValue: 2025-08
+                    - attributeHeader:
+                        labelValue: 2025-09
+                        primaryLabelValue: 2025-09
+                    - attributeHeader:
+                        labelValue: 2025-10
+                        primaryLabelValue: 2025-10
+                    - attributeHeader:
+                        labelValue: 2025-11
+                        primaryLabelValue: 2025-11
+                    - attributeHeader:
+                        labelValue: 2025-12
+                        primaryLabelValue: 2025-12
+                    - attributeHeader:
+                        labelValue: 2026-01
+                        primaryLabelValue: 2026-01
+                    - attributeHeader:
+                        labelValue: 2026-02
+                        primaryLabelValue: 2026-02
+                    - attributeHeader:
+                        labelValue: 2026-06
+                        primaryLabelValue: 2026-06
+                    - attributeHeader:
+                        labelValue: 2026-08
+                        primaryLabelValue: 2026-08
+                    - attributeHeader:
+                        labelValue: 2026-09
+                        primaryLabelValue: 2026-09
+                    - attributeHeader:
+                        labelValue: 2026-10
+                        primaryLabelValue: 2026-10
+                    - attributeHeader:
+                        labelValue: 2026-11
+                        primaryLabelValue: 2026-11
+                    - attributeHeader:
+                        labelValue: 2026-12
+                        primaryLabelValue: 2026-12
+            - headerGroups:
+                - headers:
+                    - measureHeader:
+                        measureIndex: 0
+          grandTotals: []
+          paging:
+            count:
+              - 30
+              - 1
+            offset:
+              - 0
+              - 0
+            total:
+              - 30
+              - 1
+          metadata:
+            dataSourceMessages: []

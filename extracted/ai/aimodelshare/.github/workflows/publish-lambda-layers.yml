@@ -1,0 +1,556 @@
+name: Publish AWS Lambda Layers
+
+on:
+  workflow_dispatch:
+    inputs:
+      python_runtime:
+        description: "Target Python runtime for layer compatibility (e.g., python3.11 or python3.12)"
+        required: true
+        default: "python3.12"
+      make_public:
+        description: "Grant public GetLayerVersion permission (true/false)"
+        required: true
+        default: "true"
+      eval_requirements_file:
+        description: "Path to eval layer requirements file"
+        required: true
+        default: "requirements-eval.txt"
+      auth_requirements_file:
+        description: "Path to auth layer requirements file"
+        required: true
+        default: "requirements-auth.txt"
+      eval_layer_name:
+        description: "Eval layer base name"
+        required: true
+        default: "eval-layer"
+      auth_layer_name:
+        description: "Auth layer base name"
+        required: true
+        default: "aimsauth-layer"
+      s3_bucket:
+        description: "S3 bucket name for layer storage (leave empty to disable S3 upload)"
+        required: false
+        default: "aims-lambda-layers-eval-auth"
+      s3_prefix:
+        description: "S3 key prefix for layer objects (optional)"
+        required: false
+        default: "lambda-layers/"
+      auto_create_bucket:
+        description: "Automatically create/import S3 bucket via Terraform (true/false)"
+        required: false
+        default: "true"
+      size_reduction_level:
+        description: "Size reduction level: 'basic' (default), 'aggressive' (prune metadata, strip binaries, remove type hints)"
+        required: false
+        default: "aggressive"
+
+permissions:
+  contents: read
+
+env:
+  REGIONS: "us-east-1 eu-west-1"
+
+jobs:
+  matrix-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      layers: ${{ steps.set-matrix.outputs.layers }}
+      regions: ${{ steps.set-regions.outputs.regions_json }}
+      sanitized_runtime: ${{ steps.sanitize-runtime.outputs.sanitized_runtime }}
+    steps:
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - id: set-matrix
+        run: |
+          layers_json=$(jq -n -c \
+            --arg eval_req "${{ github.event.inputs.eval_requirements_file }}" \
+            --arg auth_req "${{ github.event.inputs.auth_requirements_file }}" \
+            --arg eval_name "${{ github.event.inputs.eval_layer_name }}" \
+            --arg auth_name "${{ github.event.inputs.auth_layer_name }}" \
+            '[
+              {"id": "eval", "name": $eval_name, "requirements": $eval_req, "src_dir": "layer-src/eval"},
+              {"id": "auth", "name": $auth_name, "requirements": $auth_req, "src_dir": "layer-src/auth"}
+            ]')
+          echo "layers=${layers_json}" >> "$GITHUB_OUTPUT"
+
+      - id: set-regions
+        run: |
+          regions_json=$(echo "${{ env.REGIONS }}" | jq -R 'split(" ") | map(select(length > 0))' | jq -c .)
+          echo "regions_json=${regions_json}" >> "$GITHUB_OUTPUT"
+
+      - id: sanitize-runtime
+        run: |
+          sanitized=$(echo "${{ github.event.inputs.python_runtime }}" | tr '.' '-')
+          echo "sanitized_runtime=$sanitized" >> "$GITHUB_OUTPUT"
+
+  ensure-bucket:
+    if: github.event.inputs.s3_bucket != '' && github.event.inputs.auto_create_bucket == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      bucket_name: ${{ steps.get-bucket.outputs.bucket_name }}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.DATA_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.DATA_AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+      BUCKET_NAME: ${{ github.event.inputs.s3_bucket }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate bucket name
+        run: |
+          if [ -z "${{ env.BUCKET_NAME }}" ]; then
+            echo "::error::s3_bucket input is required when auto_create_bucket=true"
+            exit 1
+          fi
+          echo "Bucket name: ${{ env.BUCKET_NAME }}"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.0"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check if bucket exists and import if needed
+        working-directory: infra/lambda-layer-bucket
+        run: |
+          terraform init
+
+          # Check if bucket exists
+          if aws s3api head-bucket --bucket "${{ env.BUCKET_NAME }}" 2>/dev/null; then
+            echo "Bucket ${{ env.BUCKET_NAME }} exists, importing to Terraform state..."
+            terraform import -var="bucket_name=${{ env.BUCKET_NAME }}" -var="aws_region=${{ env.AWS_REGION }}" \
+              aws_s3_bucket.layer_storage "${{ env.BUCKET_NAME }}" || true
+          else
+            echo "Bucket ${{ env.BUCKET_NAME }} does not exist, will be created by Terraform apply"
+          fi
+
+      - name: Terraform plan
+        working-directory: infra/lambda-layer-bucket
+        run: |
+          terraform plan -var="bucket_name=${{ env.BUCKET_NAME }}" -var="aws_region=${{ env.AWS_REGION }}"
+
+      - name: Terraform apply
+        working-directory: infra/lambda-layer-bucket
+        run: |
+          terraform apply -auto-approve -var="bucket_name=${{ env.BUCKET_NAME }}" -var="aws_region=${{ env.AWS_REGION }}"
+
+      - id: get-bucket
+        run: |
+          echo "bucket_name=${{ env.BUCKET_NAME }}" >> "$GITHUB_OUTPUT"
+
+  publish-layers:
+    needs: [matrix-setup, ensure-bucket]
+    if: always() && needs.matrix-setup.result == 'success' && (needs.ensure-bucket.result == 'success' || needs.ensure-bucket.result == 'skipped')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        layer: ${{ fromJson(needs.matrix-setup.outputs.layers) }}
+        region: ${{ fromJson(needs.matrix-setup.outputs.regions) }}
+
+    env:
+      PYTHON_RUNTIME: ${{ github.event.inputs.python_runtime }}           # e.g. python3.12 (keep dot for compatible runtimes)
+      REQUIREMENTS_FILE: ${{ matrix.layer.requirements }}
+      LAYER_SRC_DIR: ${{ matrix.layer.src_dir }}
+      BUILD_DIR: layer_build
+      ZIP_FILE_NAME: ${{ matrix.layer.id }}_layer.zip
+      MAKE_PUBLIC: ${{ github.event.inputs.make_public }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.DATA_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.DATA_AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ matrix.region }}
+      LAYER_NAME: ${{ matrix.layer.name }}-${{ needs.matrix-setup.outputs.sanitized_runtime }}
+      S3_BUCKET: ${{ github.event.inputs.s3_bucket }}
+      S3_PREFIX: ${{ github.event.inputs.s3_prefix }}
+      SIZE_REDUCTION_LEVEL: ${{ github.event.inputs.size_reduction_level }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq (needed for parsing aws output)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Derive numeric Python version
+        id: derive
+        run: |
+          version=$(echo "${{ env.PYTHON_RUNTIME }}" | sed -n 's/^python\([0-9]\+\.[0-9]\+\).*$/\1/p')
+          if [ -z "$version" ]; then
+            echo "::error::Failed to derive Python version from ${{ env.PYTHON_RUNTIME }}"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ steps.derive.outputs.version }}
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Prepare build dir
+        run: |
+          rm -rf "${{ env.BUILD_DIR }}" && mkdir -p "${{ env.BUILD_DIR }}/python"
+          if [[ ! -f "${{ env.REQUIREMENTS_FILE }}" ]]; then
+            echo "::error::Requirements file '${{ env.REQUIREMENTS_FILE }}' not found"
+            exit 1
+          fi
+          echo "Using requirements: ${{ env.REQUIREMENTS_FILE }}"
+
+      - name: (Optional) Copy custom source
+        run: |
+          if [ -d "${{ env.LAYER_SRC_DIR }}" ]; then
+            cp -R "${{ env.LAYER_SRC_DIR }}/." "${{ env.BUILD_DIR }}/python/"
+          fi
+
+      - name: Install dependencies
+        run: |
+          pip install --no-cache-dir -r "${{ env.REQUIREMENTS_FILE }}" -t "${{ env.BUILD_DIR }}/python"
+
+      - name: Aggressively prune layer files
+        run: |
+          echo "Starting aggressive pruning..."
+          python - "${{ env.BUILD_DIR }}/python" <<'END_OF_SCRIPT'
+          import os
+          import shutil
+          import subprocess
+          import sys
+          
+          def run_aggressive_pruning(root_dir):
+              """
+              Walks through a directory and aggressively removes files and directories
+              not needed for a Python Lambda runtime.
+              """
+          
+              if not os.path.isdir(root_dir):
+                  print(f"Error: Directory not found: {root_dir}", file=sys.stderr)
+                  sys.exit(1) # Exit with error if path is bad
+          
+              print(f"--- Starting aggressive pruning on: {root_dir} ---")
+          
+              # Calculate size before, skipping symlinks
+              total_size_before = 0
+              for dirpath, _, filenames in os.walk(root_dir, followlinks=False):
+                  for f in filenames:
+                      full_path = os.path.join(dirpath, f)
+                      if not os.path.islink(full_path):
+                          try:
+                              total_size_before += os.path.getsize(full_path)
+                          except OSError:
+                              pass # Ignore broken links/permission errors
+          
+              # Define files/dirs to remove completely
+              dirs_to_remove = {
+                  '__pycache__',
+                  'docs',
+                  'examples',
+                  'benchmarks',
+              }
+          
+              # File extensions to remove
+              exts_to_remove = {
+                  '.pyc',   # Python compiled files
+                  '.pyo',   # Python optimized files
+                  '.pyi',   # Python type hints
+                  '.o',     # Compiled object files
+                  '.a',     # Static libraries
+                  '.md',    # Markdown files
+                  '.txt',   # Text files (like LICENSE, README)
+                  '.rst',   # reStructuredText files
+              }
+          
+              # File name prefixes to remove (case-insensitive)
+              files_to_remove_prefix = {
+                  'readme',
+                  'license',
+                  'copying',
+                  'notice',
+                  'changelog',
+                  'contributing',
+              }
+          
+              # Walk the directory tree from the top down
+              for dirpath, dirnames, filenames in os.walk(root_dir, topdown=True, followlinks=False):
+          
+                  # --- 1. Prune Directories ---
+                  # We modify `dirnames` in-place (by iterating over a copy)
+                  # to prevent os.walk from recursing into them.
+                  for d in dirnames[:]:
+                      full_path = os.path.join(dirpath, d)
+                      d_lower = d.lower()
+          
+                      # --- Your Logic: Delete 'test' but keep 'testing' ---
+                      if 'test' in d_lower and 'testing' not in d_lower:
+                          print(f"[Prune Dir] Removing (user logic): {full_path}")
+                          shutil.rmtree(full_path, ignore_errors=True)
+                          dirnames.remove(d)
+                          continue
+          
+                      # --- Aggressive Logic: Prune common bloat ---
+                      if d_lower in dirs_to_remove or d_lower.endswith(('.dist-info', '.egg-info')):
+                          print(f"[Prune Dir] Removing (bloat):      {full_path}")
+                          shutil.rmtree(full_path, ignore_errors=True)
+                          dirnames.remove(d)
+                          continue
+          
+                  # --- 2. Prune and Strip Files ---
+                  for f in filenames:
+                      full_path = os.path.join(dirpath, f)
+          
+                      # Don't process symlinks
+                      if os.path.islink(full_path):
+                          continue
+          
+                      file_ext = os.path.splitext(f)[1].lower()
+                      file_name_lower = f.lower()
+          
+                      # --- Aggressive Logic: Prune by extension or prefix ---
+                      is_prefixed = any(file_name_lower.startswith(p) for p in files_to_remove_prefix)
+                      if file_ext in exts_to_remove or is_prefixed:
+                          print(f"  [Prune File] Removing: {full_path}")
+                          try:
+                              os.remove(full_path)
+                          except OSError as e:
+                              print(f"    Error removing {full_path}: {e}")
+                          continue
+          
+                      # --- Aggressive Logic: Strip Binaries ---
+                      if file_ext == '.so':
+                          print(f"  [Strip File] Stripping: {full_path}")
+                          try:
+                              # Use '--strip-debug' to be safe but effective
+                              subprocess.run(
+                                  ['strip', '--strip-debug', full_path],
+                                  check=True,
+                                  capture_output=True,
+                                  stderr=subprocess.PIPE
+                              )
+                          except Exception as e:
+                              # Print stderr if strip fails
+                              error_msg = e.stderr.decode() if hasattr(e, 'stderr') else str(e)
+                              print(f"    Warning: Failed to strip {full_path}: {error_msg}")
+          
+              # Calculate size after
+              total_size_after = 0
+              for dirpath, _, filenames in os.walk(root_dir, followlinks=False):
+                  for f in filenames:
+                      full_path = os.path.join(dirpath, f)
+                      if not os.path.islink(full_path):
+                          try:
+                              total_size_after += os.path.getsize(full_path)
+                          except OSError:
+                              pass
+          
+              print("--- Pruning complete ---")
+              print(f"Size Before: {total_size_before / (1024*1024):.2f} MB")
+              print(f"Size After:  {total_size_after / (1024*1024):.2f} MB")
+              print(f"Total Saved: {(total_size_before - total_size_after) / (1024*1024):.2f} MB")
+          
+          # --- Main execution ---
+          if __name__ == "__main__":
+              if len(sys.argv) > 1:
+                  layer_root = sys.argv[1]
+                  run_aggressive_pruning(layer_root)
+              else:
+                  print("Error: No directory path provided to pruning script.", file=sys.stderr)
+                  sys.exit(1)
+          
+          END_OF_SCRIPT
+          echo "Pruning complete. Final directory size:"
+          du -sh "${{ env.BUILD_DIR }}/python"
+
+      - name: Zip layer
+        working-directory: ${{ env.BUILD_DIR }}
+        run: zip -r9 "../${{ env.ZIP_FILE_NAME }}" python
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Publish layer
+        id: publish
+        run: |
+          DESC="${{ env.LAYER_NAME }} build $(date +%Y%m%d-%H%M%S) (${{ env.PYTHON_RUNTIME }})"
+
+          # Get ZIP file size in MB
+          zip_size_bytes=$(stat -f%z "${{ env.ZIP_FILE_NAME }}" 2>/dev/null || stat -c%s "${{ env.ZIP_FILE_NAME }}")
+          zip_size_mb=$(echo "scale=2; $zip_size_bytes / 1048576" | bc)
+          echo "ZIP size: ${zip_size_mb} MB"
+
+          # Determine publish method
+          publish_method="direct"
+          s3_bucket_used=""
+          s3_key_used=""
+
+          # Check if S3 upload is needed (size >= 50 MB threshold)
+          size_threshold_mb=50
+          if (( $(echo "$zip_size_mb >= $size_threshold_mb" | bc -l) )); then
+            echo "ZIP size ($zip_size_mb MB) exceeds threshold ($size_threshold_mb MB)"
+            if [ -n "${{ env.S3_BUCKET }}" ]; then
+              # Use S3 upload
+              publish_method="s3"
+
+              # Upload to S3 with structured key
+              timestamp=$(date +%Y%m%d-%H%M%S)
+              s3_key="${{ env.S3_PREFIX }}${{ env.LAYER_NAME }}/${{ matrix.layer.id }}/${timestamp}/${{ env.ZIP_FILE_NAME }}"
+              s3_bucket_used="${{ env.S3_BUCKET }}"
+              s3_key_used="$s3_key"
+
+              echo "Uploading to s3://${s3_bucket_used}/${s3_key}..."
+              aws s3 cp "${{ env.ZIP_FILE_NAME }}" "s3://${s3_bucket_used}/${s3_key}" --region "${{ env.AWS_REGION }}"
+
+              # Publish layer using S3 reference
+              publish_output=$(aws lambda publish-layer-version \
+                --layer-name "${{ env.LAYER_NAME }}" \
+                --description "$DESC" \
+                --content "S3Bucket=${s3_bucket_used},S3Key=${s3_key}" \
+                --compatible-runtimes "${{ env.PYTHON_RUNTIME }}" \
+                --region "${{ env.AWS_REGION }}" \
+                --license-info "MIT" \
+                --output json)
+            else
+              echo "::error::ZIP exceeds size threshold but s3_bucket is not configured"
+              exit 1
+            fi
+          else
+            # Use direct upload
+            publish_output=$(aws lambda publish-layer-version \
+              --layer-name "${{ env.LAYER_NAME }}" \
+              --description "$DESC" \
+              --zip-file "fileb://${{ env.ZIP_FILE_NAME }}" \
+              --compatible-runtimes "${{ env.PYTHON_RUNTIME }}" \
+              --region "${{ env.AWS_REGION }}" \
+              --license-info "MIT" \
+              --output json)
+          fi
+
+          layer_version_arn=$(echo "$publish_output" | jq -r '.LayerVersionArn')
+          layer_version=$(echo "$publish_output" | jq -r '.Version')
+
+          mkdir -p results
+          if [ -z "$layer_version_arn" ] || [ "$layer_version_arn" = "null" ]; then
+            echo "${{ env.AWS_REGION }} FAILED - - - -" >> results/publish_results_${{ matrix.layer.id }}.txt
+            exit 1
+          fi
+
+          # Save results with extended info: region version arn method size_mb s3_bucket s3_key
+          echo "${{ env.AWS_REGION }} ${layer_version} ${layer_version_arn} ${publish_method} ${zip_size_mb} ${s3_bucket_used} ${s3_key_used}" >> results/publish_results_${{ matrix.layer.id }}.txt
+
+          # Create JSON summary artifact
+          jq -n \
+            --arg region "${{ env.AWS_REGION }}" \
+            --arg layer_id "${{ matrix.layer.id }}" \
+            --arg layer_name "${{ env.LAYER_NAME }}" \
+            --arg version "$layer_version" \
+            --arg arn "$layer_version_arn" \
+            --arg method "$publish_method" \
+            --arg size_mb "$zip_size_mb" \
+            --arg s3_bucket "$s3_bucket_used" \
+            --arg s3_key "$s3_key_used" \
+            '{
+              region: $region,
+              layer_id: $layer_id,
+              layer_name: $layer_name,
+              version: $version,
+              arn: $arn,
+              publish_method: $method,
+              size_mb: $size_mb,
+              s3_bucket: $s3_bucket,
+              s3_key: $s3_key
+            }' > results/publish_summary_${{ matrix.layer.id }}_${{ matrix.region }}.json
+
+          if [[ "${{ env.MAKE_PUBLIC }}" == "true" ]]; then
+            aws lambda add-layer-version-permission \
+              --layer-name "${{ env.LAYER_NAME }}" \
+              --version-number "${layer_version}" \
+              --statement-id "public-access-${layer_version}-${{ env.AWS_REGION }}" \
+              --action lambda:GetLayerVersion \
+              --principal '*' \
+              --region "${{ env.AWS_REGION }}" || echo "::warning::Failed to add public permission."
+          fi
+
+      - name: Upload publish result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-results-${{ matrix.layer.id }}-${{ matrix.region }}
+          path: results/publish_results_${{ matrix.layer.id }}.txt
+          retention-days: 1
+
+  aggregate-report:
+    if: always()
+    needs: publish-layers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: publish-results-*
+          path: results
+
+      - id: report
+        run: |
+          echo "# Lambda Layer Publish Report" > REPORT.md
+          echo "" >> REPORT.md
+          echo "**Workflow Run:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> REPORT.md
+          echo "**Python Runtime:** ${{ github.event.inputs.python_runtime }}" >> REPORT.md
+          echo "**Made Public:** ${{ github.event.inputs.make_public }}" >> REPORT.md
+          if [[ -n "${{ github.event.inputs.s3_bucket }}" ]]; then
+            echo "**S3 Bucket:** ${{ github.event.inputs.s3_bucket }}" >> REPORT.md
+            echo "**S3 Prefix:** ${{ github.event.inputs.s3_prefix }}" >> REPORT.md
+          fi
+          echo "**Size Reduction Level:** ${{ github.event.inputs.size_reduction_level }}" >> REPORT.md
+          echo "" >> REPORT.md
+          for layer_id in eval auth; do
+            if [[ "$layer_id" == "eval" ]]; then layer_base="${{ github.event.inputs.eval_layer_name }}"; fi
+            if [[ "$layer_id" == "auth" ]]; then layer_base="${{ github.event.inputs.auth_layer_name }}"; fi
+            sanitized_runtime=$(echo "${{ github.event.inputs.python_runtime }}" | tr '.' '-')
+            echo "## Layer: ${layer_base}-${sanitized_runtime} (${layer_id})" >> REPORT.md
+            echo "" >> REPORT.md
+            echo "| Region | Status/Version | ARN | Method | Size (MB) | S3 Bucket | S3 Key |" >> REPORT.md
+            echo "|--------|----------------|-----|--------|-----------|-----------|--------|" >> REPORT.md
+            found_layer_results=false
+            while IFS= read -r -d $'\0' file; do
+              if [[ -f "$file" && -s "$file" ]]; then
+                found_layer_results=true
+                while IFS= read -r line; do
+                  region=$(echo "$line" | awk '{print $1}')
+                  version=$(echo "$line" | awk '{print $2}')
+                  arn=$(echo "$line" | awk '{print $3}')
+                  method=$(echo "$line" | awk '{print $4}')
+                  size_mb=$(echo "$line" | awk '{print $5}')
+                  s3_bucket=$(echo "$line" | awk '{print $6}')
+                  s3_key=$(echo "$line" | awk '{print $7}')
+                  if [[ "$version" == "FAILED" ]]; then
+                    echo "| $region | FAILED | - | - | - | - | - |" >> REPORT.md
+                  else
+                    s3_bucket_display="${s3_bucket:-N/A}"
+                    s3_key_display="${s3_key:-N/A}"
+                    echo "| $region | $version | \`$arn\` | $method | $size_mb | $s3_bucket_display | $s3_key_display |" >> REPORT.md
+                  fi
+                done < "$file"
+              fi
+            done < <(find results -name "publish_results_${layer_id}.txt" -print0)
+            if [[ "$found_layer_results" == "false" ]]; then
+              echo "| *All Regions* | *No results found* | - | - | - | - | - |" >> REPORT.md
+            fi
+            echo "" >> REPORT.md
+          done
+          echo "---" >> REPORT.md
+          echo "*Report generated at $(date -u)*" >> REPORT.md
+          cat REPORT.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: layer-publish-report-${{ github.run_id }}
+          path: REPORT.md

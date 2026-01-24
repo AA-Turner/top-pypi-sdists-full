@@ -14,11 +14,11 @@ This private submodule is *not* intended for importation by downstream callers.
 from beartype.roar._roarexc import _BeartypeUtilTypeException
 from beartype._cave._cavefast import TestableTypes as TestableTypesTuple
 from beartype._data.cls.datacls import TYPES_BUILTIN
-from beartype._data.hint.datahinttyping import (
+from beartype._data.typing.datatyping import (
     TypeException,
     TypeOrTupleTypes,
 )
-from beartype._data.api.standard.datamodpy import BUILTINS_MODULE_NAME
+from beartype._data.api.standard.datapy import BUILTINS_MODULE_NAME
 
 # ....................{ RAISERS                            }....................
 def die_unless_type(

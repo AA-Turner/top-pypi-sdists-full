@@ -89,9 +89,9 @@ class SlurmInfoWatcher(core.InfoWatcher):
                 )
                 continue
             for split_job_id in multi_split_job_id:
-                all_stats[
-                    "_".join(split_job_id[:2])
-                ] = stats  # this works for simple jobs, or job array unique instance
+                all_stats["_".join(split_job_id[:2])] = (
+                    stats  # this works for simple jobs, or job array unique instance
+                )
                 # then, deal with ranges:
                 if len(split_job_id) >= 3:
                     for index in range(int(split_job_id[1]), int(split_job_id[2]) + 1):
@@ -245,7 +245,7 @@ class SlurmExecutor(core.PicklingExecutor):
         folder: tp.Union[str, Path],
         max_num_timeout: int = 3,
         max_pickle_size_gb: float = 1.0,
-        python: tp.Optional[str] = None
+        python: tp.Optional[str] = None,
     ) -> None:
         super().__init__(
             folder,
@@ -408,6 +408,7 @@ def _make_sbatch_string(
     gpus_per_task: tp.Optional[int] = None,
     qos: tp.Optional[str] = None,  # quality of service
     setup: tp.Optional[tp.List[str]] = None,
+    teardown: tp.Optional[tp.List[str]] = None,
     mem: tp.Optional[str] = None,
     mem_per_gpu: tp.Optional[str] = None,
     mem_per_cpu: tp.Optional[str] = None,
@@ -445,6 +446,8 @@ def _make_sbatch_string(
         delay between the kill signal and the actual kill of the slurm job.
     setup: list
         a list of command to run in sbatch before running srun
+    teardown: list
+        a list of command to run in sbatch after running srun
     map_size: int
         number of simultaneous map/array jobs allowed
     additional_parameters: dict
@@ -468,6 +471,7 @@ def _make_sbatch_string(
         "array_parallelism",
         "additional_parameters",
         "setup",
+        "teardown",
         "signal_delay_s",
         "stderr_to_stdout",
         "srun_args",
@@ -527,6 +531,10 @@ def _make_sbatch_string(
         command,
         "",
     ]
+
+    # environment teardown:
+    if teardown is not None:
+        lines += ["", "# teardown"] + teardown
     return "\n".join(lines)
 
 

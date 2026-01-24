@@ -1,15 +1,17 @@
 import collections
 import contextlib
+import enum
 import functools
 import gc
 import inspect
+import itertools
 import math
 import pickle
 import random
 import re
 import string
 import warnings
-from typing import Callable, List, Literal, Optional, Tuple, Union
+from typing import Any, Callable, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -23,17 +25,55 @@ compile_mode = "max-autotune-no-cudagraphs"
 dynamic = False
 compile_mode_recommended_to_none = None
 zeroth_power_mode = "newtonschulz"
-precise_zeroth_power_mode = "qr"  # or svd
+precise_zeroth_power_mode = "qr"
 tiny_bf16 = torch.finfo(torch.bfloat16).tiny
 _cudnn_double_backward_pattern = re.compile(
     r"the derivative for .* is not implemented\. Double backwards .* To run double backwards"
 )
 _torch_compile_double_backward_pattern = re.compile(r"compile.*does not currently support double backward")
 _fd_error = (
-    "You can accelerate startup by globally enabling finite_differences first "  #
+    "You can accelerate startup by globally enabling finite_differences first "
     "(via opt.finite_differences=True or by subclassing it)\n"
     "Original Error: "
 )
+default_division_backend = "eps_clamp"
+atan2_scale = 16.0
+
+
+class ZerothPowerMode(enum.Enum):
+    newtonschulz = "newtonschulz"
+    legacy_newtonschulz = "legacy_newtonschulz"
+    qr = "qr"
+    svd = "svd"
+    legacy_svd = "legacy_svd"
+    thinky_polar_express = "thinky_polar_express"
+
+
+class OrthoScaleMode(enum.Enum):
+    none = "none"
+    scale = "scale"
+    graft = "graft"
+
+
+class DivisionBackend(enum.Enum):
+    eps_add = "eps_add"
+    eps_clamp = "eps_clamp"
+    atan2 = "atan2"
+    nan_to_0 = "nan_to_0"
+
+
+DivisionBackendLike = Union[DivisionBackend, str, None]
+
+
+def _normalize_division_backend(backend: DivisionBackendLike) -> DivisionBackend:
+    if backend is None:
+        return DivisionBackend(default_division_backend)
+    if isinstance(backend, DivisionBackend):
+        return backend
+    try:
+        return DivisionBackend(backend)
+    except ValueError as error:
+        raise ValueError(f"Unknown division backend '{backend}'") from error
 
 
 def decorator(func):
@@ -231,8 +271,128 @@ def dim_merger(grad, max_precond_dim, split: bool = False):
     return new_grads
 
 
+def linear_warmup_scheduler(
+    step: int, alpha_end: float, alpha_start: float = 0.0, warmup: Optional[int] = None
+) -> float:
+    if warmup is None or warmup <= 0:
+        return alpha_end
+    if step < warmup:
+        a = step / float(warmup)
+        return (1.0 - a) * alpha_start + a * alpha_end
+    return alpha_end
+
+
+def linear_hl_warmup_scheduler(
+    step: int, beta_end: float, beta_start: float, warmup: Optional[int] = None, eps: float = 1e-8
+) -> float:
+    if warmup is None or warmup <= 0:
+        return beta_end
+
+    def half_life(beta: float) -> float:
+        return math.log(0.5) / math.log(beta + eps) - 1
+
+    def inv_half_life(t: float) -> float:
+        return math.pow(0.5, 1.0 / (t + 1.0))
+
+    if step < warmup:
+        a = step / float(warmup)
+        target = (1.0 - a) * half_life(beta_start) + a * half_life(beta_end)
+        beta = inv_half_life(target)
+        return min(max(beta, 0.0), 1.0 - eps)
+    return beta_end
+
+
+def _compute_ademamix_hparams(
+    betas: tuple[float, float, float],
+    step: int,
+    alpha: float,
+    beta3_warmup: Optional[int],
+    alpha_warmup: Optional[int],
+) -> tuple[float, float, float, float]:
+    if len(betas) != 3:
+        raise ValueError("AdEMAMix expects betas=(beta1, beta2, beta3).")
+    beta1, beta2, beta3_final = betas
+    step = int(step)
+    alpha_eff = linear_warmup_scheduler(step, alpha_end=alpha, alpha_start=0.0, warmup=alpha_warmup)
+    beta3_eff = linear_hl_warmup_scheduler(step, beta_end=beta3_final, beta_start=beta1, warmup=beta3_warmup)
+    return beta1, beta2, beta3_eff, alpha_eff
+
+
 def beta_debias(beta, step):
     return 1 - (1 - beta) / (1 - beta**step)
+
+
+def _nadam_moments(beta1: Tensor, step: Tensor, momentum_decay: float) -> tuple[Tensor, Tensor]:
+    md = torch.as_tensor(momentum_decay, dtype=beta1.dtype, device=beta1.device)
+    base = torch.tensor(0.96, dtype=beta1.dtype, device=beta1.device)
+    step_f = step.to(beta1.dtype)
+    mu = beta1 * (1 - 0.5 * torch.pow(base, step_f * md))
+    mu_next = beta1 * (1 - 0.5 * torch.pow(base, (step_f + 1) * md))
+    return mu, mu_next
+
+
+def _nadam_prepare_weight_decay(
+    update: List[Tensor],
+    param: List[Tensor],
+    grad: List[Tensor] | None,
+    weight_decay: float,
+    decoupled: bool,
+) -> float:
+    if weight_decay == 0:
+        return 0.0
+    if decoupled:
+        return weight_decay
+    torch._foreach_add_(update, param, alpha=weight_decay)
+    if grad is not None:
+        torch._foreach_add_(grad, param, alpha=weight_decay)
+    return 0.0
+
+
+def _nadam_finish_weight_decay(
+    update: List[Tensor],
+    param: List[Tensor],
+    weight_decay: float,
+    decoupled: bool,
+) -> List[Tensor]:
+    if weight_decay != 0 and not decoupled:
+        decay_term = torch._foreach_mul(param, weight_decay)
+        update = torch._foreach_sub(update, decay_term)
+    return update
+
+
+def _nadam_compute_update(
+    exp_avg: List[Tensor],
+    exp_avg_sq: List[Tensor],
+    mu_product: List[Tensor],
+    update: List[Tensor],
+    beta1: Tensor,
+    beta2: Tensor,
+    step: Tensor,
+    eps: Tensor,
+    mu: Tensor,
+    mu_next: Tensor,
+) -> List[Tensor]:
+    exp_avg32 = _lerp(exp_avg, update, beta1)
+    beta2_corr = beta_debias(beta2, step)
+    denom = _compilable_exp_avg_sq_(exp_avg_sq, update, beta2_corr, eps, [None])
+    grad_hat = torch._foreach_div(update, denom)
+    exp_avg_hat = torch._foreach_div(exp_avg32, denom)
+
+    torch._foreach_mul_(mu_product, mu)
+    mu_product32 = promote(mu_product)
+    mu_t, mu_next_t = scalar_guard(mu, mu_next, mu_product32[0])
+
+    one = mu_t.new_ones(())
+    grad_scale = one - mu_t
+    grad_weights: List[Tensor] = []
+    exp_weights: List[Tensor] = []
+    for mp in mu_product32:
+        grad_weights.append(grad_scale / (one - mp))
+        exp_weights.append(mu_next_t / (one - mp * mu_next_t))
+
+    grad_component = torch._foreach_mul(grad_hat, grad_weights)
+    exp_component = torch._foreach_mul(exp_avg_hat, exp_weights)
+    return torch._foreach_add(grad_component, exp_component)
 
 
 def eps_sqrt(item, eps):
@@ -326,7 +486,8 @@ def set_(dst: Tensor, src: Tensor):
 
 
 def clean():
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     gc.collect()
 
 
@@ -373,11 +534,13 @@ def zeropower_via_newtonschulz5(G, steps=5, eps=1e-7):
         G.ndim >= 2
     )  # batched Muon implementation by @scottjmaddox, and put into practice in the record by @YouJiacheng
     assert steps == 5
-    X = G if G.dtype == torch.float64 else stochastic_round_(G)
+    G = G.clone()
+    x = G if G.dtype == torch.float64 else stochastic_round_(G)
     if G.size(-2) > G.size(-1):
-        X = X.mT
+        x = x.mT
 
-    stochastic_multiply_(X, G.norm(dim=(-2, -1)) + eps)  # ensure top singular value <= 1
+    # X = X / (X.norm(dim=(-2, -1), keepdim=True) + eps)
+    stochastic_divide_with_eps_(x, G.norm(dim=(-2, -1)), eps)  # ensure top singular value <= 1
     # Perform the NS iterations
     for a, b, c in [
         (4.0848, -6.8946, 2.9270),
@@ -386,15 +549,182 @@ def zeropower_via_newtonschulz5(G, steps=5, eps=1e-7):
         (2.8769, -3.1427, 1.2046),
         (2.8366, -3.0525, 1.2012),
     ]:
-        A = X @ X.mT
-        B = (
-            b * A + c * A @ A
-        )  # quintic computation strategy adapted from suggestion by @jxbz, @leloykun, and @YouJiacheng
-        X = a * X + B @ X
+        s = x @ x.mT
+        y = c * s
+        y.diagonal(dim1=-2, dim2=-1).add_(b)
+        y = y @ s
+        y.diagonal(dim1=-2, dim2=-1).add_(a)
+        x = y @ x
 
     if G.size(-2) > G.size(-1):
-        X = X.mT
-    return X.to(G.dtype)
+        x = x.mT
+    return x.to(G.dtype)
+
+
+###### START
+# Based on https://arxiv.org/pdf/2505.16932v3
+# and https://github.com/NoahAmsel/PolarExpress/blob/5454910920ca8c65afda28820cdf9e49b9436ed0/polar_express.py#L69-L82
+# and https://github.com/thinking-machines-lab/manifolds/blob/89dcae50f01af59f1e0570289474da3a2ecaa60b/src/msign.py#L47
+#
+# under the MIT License
+
+# Coefficients are from https://arxiv.org/pdf/2505.16932v3
+ABC_LIST: list[tuple[float, float, float]] = [
+    (8.28721201814563, -23.595886519098837, 17.300387312530933),
+    (4.107059111542203, -2.9478499167379106, 0.5448431082926601),
+    (3.9486908534822946, -2.908902115962949, 0.5518191394370137),
+    (3.3184196573706015, -2.488488024314874, 0.51004894012372),
+    (2.300652019954817, -1.6689039845747493, 0.4188073119525673),
+    (1.891301407787398, -1.2679958271945868, 0.37680408948524835),
+    (1.8750014808534479, -1.2500016453999487, 0.3750001645474248),
+    (1.875, -1.25, 0.375),
+]
+
+# safety factor for numerical stability (but exclude last polynomial)
+ABC_LIST_STABLE: list[tuple[float, float, float]] = [
+    (a / 1.01, b / 1.01**3, c / 1.01**5) for (a, b, c) in ABC_LIST[:-1]
+] + [ABC_LIST[-1]]
+
+
+def msign(G: torch.Tensor, steps: int = 10, eps: float = 1e-7) -> torch.Tensor:
+    """
+    Polar Express algorithm for the matrix sign function:
+    https://arxiv.org/abs/2505.16932
+    """
+    assert G.ndim >= 2
+    should_transpose: bool = G.size(-2) > G.size(-1)
+
+    x = G if G.dtype == torch.float64 else stochastic_round_(G)
+    if should_transpose:
+        x = x.mT
+
+    # x = x / (x.norm(dim=(-2, -1), keepdim=True) * 1.01 + eps)
+    stochastic_divide_with_eps_(x, x.norm(dim=(-2, -1)) * 1.01, eps)
+
+    for step in range(steps):
+        a, b, c = ABC_LIST_STABLE[step] if step < len(ABC_LIST_STABLE) else ABC_LIST_STABLE[-1]
+        s = x @ x.mT
+        # goal is to compute x = a x + b S x + c S^2 x
+        # we can break this up into: x = (a I + (b I + c S) S) x
+        y = c * s
+        y.diagonal(dim1=-2, dim2=-1).add_(b)
+        y = y @ s
+        y.diagonal(dim1=-2, dim2=-1).add_(a)
+        x = y @ x
+
+    if should_transpose:
+        x = x.mT
+    return x.to(G.dtype)
+
+
+###### END
+
+
+@decorator_knowngood
+def legacy_zeropower_via_newtonschulz5(G, steps=5, eps=1e-7):
+    assert len(G.shape) == 2
+    a, b, c = (3.4445, -4.7750, 2.0315)
+    G = G.clone()
+    x = G if G.dtype == torch.float64 else stochastic_round_(G)
+
+    # X = X / (X.norm(dim=(-2, -1), keepdim=True) + eps)
+    stochastic_divide_with_eps_(x, G.norm(dim=(-2, -1)), eps)  # ensure top singular value <= 1
+    if G.size(0) > G.size(1):
+        x = x.T
+    for _ in range(steps):
+        s = x @ x.mT
+        y = c * s
+        y.diagonal(dim1=-2, dim2=-1).add_(b)
+        y = y @ s
+        y.diagonal(dim1=-2, dim2=-1).add_(a)
+        x = y @ x
+    if G.size(0) > G.size(1):
+        x = x.T
+    return x.to(G.dtype)
+
+
+def _scion_bias_rms_direction(x: Tensor, eps: float = 1e-8) -> Tensor:
+    if x.ndim == 0:
+        return x / x.abs().clamp(min=eps)
+    rms = x.square().mean(dim=0, keepdim=True).sqrt()
+    stochastic_divide_(x, rms, eps=eps)
+    return x
+
+
+def _scion_spectral_direction(x: Tensor) -> Tensor:
+    flat = x.reshape(x.shape[0], -1)
+    inplace_orthogonal_(flat)
+    normalized = flat.reshape_as(x)
+    in_dim = max(flat.shape[1], 1)
+    scale = math.sqrt(x.shape[0] / in_dim)
+    return normalized * scale
+
+
+def _scion_spectral_conv_direction(x: Tensor) -> Tensor:
+    flat = x.reshape(x.shape[0], -1)
+    inplace_orthogonal_(flat)
+    normalized = flat.reshape_as(x)
+    out_channels, in_channels = x.shape[:2]
+    spatial = math.prod(x.shape[2:]) if x.ndim > 2 else 1
+    scale = math.sqrt(out_channels / max(in_channels, 1)) / max(spatial, 1)
+    return normalized * scale
+
+
+@decorator_knowngood
+def _compilable_scion_lmo_(update: List[Tensor] | Tensor, scale: Tensor):
+    for tensor in update:
+        promoted = promote(tensor)
+        if promoted.ndim in (3, 4):
+            direction = _scion_spectral_conv_direction(promoted)
+        elif promoted.ndim == 2:
+            direction = _scion_spectral_direction(promoted)
+        else:
+            direction = _scion_bias_rms_direction(promoted)
+
+        scale_value = scale.to(dtype=direction.dtype, device=direction.device)
+        direction = direction * scale_value
+        copy_stochastic_(tensor, direction)
+
+
+def scion_auto_lmo_(update: List[Tensor] | Tensor, scale: Union[float, Tensor]):
+    update = list_guard(update)
+    if not update:
+        return update
+
+    scale_tensor = scalar_guard(scale, update[0])
+    _compilable_scion_lmo_(update, scale_tensor)
+    return update
+
+
+def scion_auto_init_param_(param: Tensor, scale: Union[float, Tensor]):
+    scale_tensor = scalar_guard(scale, param)
+    promoted = promote(param)
+
+    if param.ndim in (3, 4):
+        init = promoted.clone()
+        init_fp64 = init.double()
+        spatial_dims = [range(size) for size in init_fp64.shape[2:]]
+        for idx in itertools.product(*spatial_dims):
+            torch.nn.init.orthogonal_(init_fp64[(slice(None), slice(None), *idx)])
+        out_channels, in_channels = init_fp64.shape[:2]
+        spatial = math.prod(init_fp64.shape[2:]) if init_fp64.ndim > 2 else 1
+        scale_val = math.sqrt(out_channels / max(in_channels, 1)) / max(spatial, 1)
+        init_fp64.mul_(scale_val)
+        init = init_fp64.to(dtype=init.dtype)
+    elif param.ndim == 2:
+        init = promoted.clone()
+        init_fp64 = init.double()
+        torch.nn.init.orthogonal_(init_fp64)
+        out_dim, in_dim = init_fp64.shape
+        scale_val = math.sqrt(out_dim / max(in_dim, 1))
+        init_fp64.mul_(scale_val)
+        init = init_fp64.to(dtype=init.dtype)
+    else:
+        init = promoted.clone()
+        torch.nn.init.zeros_(init)
+
+    init.mul_(scale_tensor.to(dtype=init.dtype, device=init.device))
+    copy_stochastic_(param, init.to(dtype=param.dtype, device=param.device))
 
 
 @decorator_knowngood
@@ -449,21 +779,32 @@ def _compilable_grafting(magnitude, direction):
 
 
 @decorator_knowngood
-def _compilable_orthogonal_(x: Tensor, mode: str, out: Tensor | None, scale_mode: str):
-    if mode == "newtonschulz" or x.shape[0] != x.shape[1]:
+def _compilable_orthogonal_(x: Tensor, mode: str | ZerothPowerMode, out: Tensor | None, scale_mode: str):
+    if not isinstance(mode, ZerothPowerMode):
+        mode = ZerothPowerMode(mode)
+    if not isinstance(scale_mode, ZerothPowerMode):
+        scale_mode = OrthoScaleMode(scale_mode)
+    if mode == ZerothPowerMode.newtonschulz or x.shape[0] != x.shape[1]:
         y = zeropower_via_newtonschulz5(x, 5)
-    elif mode == "qr":
+    elif mode == ZerothPowerMode.thinky_polar_express:
+        y = msign(x, 10)
+    elif mode == ZerothPowerMode.legacy_newtonschulz:
+        y = legacy_zeropower_via_newtonschulz5(x, 5)
+    elif mode == ZerothPowerMode.qr:
         y = torch.linalg.qr(promote(x)).Q
-    elif mode == "svd":
-        u, _s, v = torch.linalg.svd(promote(x))
-        y = u @ v.T
+    elif mode == ZerothPowerMode.svd:
+        u, _s, vt = torch.linalg.svd(promote(x))
+        y = u @ vt
+    elif mode == ZerothPowerMode.legacy_svd:
+        u, _s, vt = torch.linalg.svd(promote(x))
+        y = u @ vt.T
     else:
         raise NotImplementedError(f"Unknown zeroth_power_mode: {mode}")
-    if scale_mode == "none":
+    if scale_mode == OrthoScaleMode.none:
         pass
-    elif scale_mode == "scale":
-        y *= max(1, x.size(0) / x.size(1)) ** 0.5
-    elif scale_mode == "graft":
+    elif scale_mode == OrthoScaleMode.scale:
+        y *= max(1, x.size(-2) / x.size(-1)) ** 0.5
+    elif scale_mode == OrthoScaleMode.graft:
         y = _compilable_grafting(x, y)
     else:
         raise NotImplementedError(f"Unknown scale_mode: {scale_mode}")
@@ -483,7 +824,7 @@ def _compilable_scatter_set(target, source, index):
 
 
 # @decorator_knowngood
-def get_orthogonal_matrix_QR(GG: List[Tensor], Q: List[Tensor], exp_avg: Optional[Tensor] = None):
+def get_orthogonal_matrix_QR(GG: List[Tensor], Q: List[Tensor], *exp_avg: Tensor):
     """
     Computes the eigenbases of the preconditioner using one round of power iteration
     followed by torch.linalg.qr decomposition, and updates exp_avg in-place from old to new eigenspace.
@@ -492,15 +833,19 @@ def get_orthogonal_matrix_QR(GG: List[Tensor], Q: List[Tensor], exp_avg: Optiona
     :param Q: List of current eigenbases (updated in-place to Q_new).
     :param exp_avg: Exponential moving average in the old eigenspace (updated in-place if provided).
     """
-    if exp_avg.dim() == 0:  # preconditioning doesn't make sense here
+    if not exp_avg:
+        return
+
+    ref = exp_avg[0]
+    if ref.dim() == 0:  # preconditioning doesn't make sense here
         Q.clear()
         return
 
     if isinstance(Q, list) and not Q:
         return
 
-    if exp_avg is not None and exp_avg.dim() != len(Q):
-        raise ValueError(f"exp_avg dim {exp_avg.dim()} does not match Q length {len(Q)}")
+    if ref is not None and ref.dim() != len(Q):
+        raise ValueError(f"ref dim {ref.dim()} does not match Q length {len(Q)}")
 
     new_qs = []
 
@@ -519,14 +864,14 @@ def get_orthogonal_matrix_QR(GG: List[Tensor], Q: List[Tensor], exp_avg: Optiona
         tmp[:, sort_idx] = inplace_orthogonal_(tmp[:, sort_idx], precise_zeroth_power_mode)
         new_qs.append(tmp)
 
-    if exp_avg is None:
+    if ref is None:
         for q, q_new in zip(Q, new_qs):
             copy_stochastic_(q, q_new)
         return
 
-    assert exp_avg.ndim < 13, "exp_avg.ndim must be less than 13"
-    in_str = einsum_base[: exp_avg.dim()]
-    out_str = einsum_base[exp_avg.dim() : 2 * exp_avg.dim()]
+    assert ref.ndim < 13, "ref.ndim must be less than 13"
+    in_str = einsum_base[: ref.dim()]
+    out_str = einsum_base[ref.dim() : 2 * ref.dim()]
 
     from_shampoo = ",".join([o + i for m, i, o in zip(Q, in_str, in_str.upper()) if m is not None])
     if not from_shampoo:
@@ -536,10 +881,9 @@ def get_orthogonal_matrix_QR(GG: List[Tensor], Q: List[Tensor], exp_avg: Optiona
     out_str = "".join([o if o in to_shampoo else i for i, o in zip(in_str, out_str)])
 
     subscripts = f"{in_str},{from_shampoo},{to_shampoo}->{out_str}"
-    exp_avg_new = compiled_einsum(
-        subscripts, exp_avg, *[q for q in Q if q is not None], *[q for q in new_qs if q is not None]
-    )
-    copy_stochastic_(exp_avg, exp_avg_new)
+    for r in exp_avg:
+        new = compiled_einsum(subscripts, r, *[q for q in Q if q is not None], *[q for q in new_qs if q is not None])
+        copy_stochastic_(r, new)
 
     for q, q_new in zip(Q, new_qs):
         if q is not None:
@@ -557,9 +901,9 @@ def get_orthogonal_matrix(mat, max_eps: float = 1e-3, min_eps: float = 1e-30):
             final.append(None)
             continue
 
+        device, dtype = m.device, m.dtype
         m = promote(m.data)
 
-        device, dtype = m.device, m.dtype
         eps = min_eps
         while True:
             try:
@@ -587,7 +931,6 @@ def get_orthogonal_matrix(mat, max_eps: float = 1e-3, min_eps: float = 1e-30):
                     raise
             clean()
 
-        eigvec = eigvec.to(device=m.device, dtype=m.dtype)
         eigvec = torch.flip(eigvec, [1])
         final.append(eigvec)
 
@@ -713,6 +1056,49 @@ def stochastic_multiply_(x: List[Tensor] | Tensor, y: List[Tensor] | Tensor):
     _compilable_stochastic_multiply_(x, y)
 
 
+def _apply_division_backend(x32: Tensor, y32: Tensor, eps: Tensor, backend: DivisionBackend) -> Tensor:
+    if backend is DivisionBackend.eps_add:
+        return x32 / (y32 + eps)
+    if backend is DivisionBackend.eps_clamp:
+        return x32 / y32.clamp(min=eps)
+    if backend is DivisionBackend.atan2:
+        return torch.atan2(x32.abs() / atan2_scale, y32.abs()) * x32.sign() * y32.sign() * atan2_scale
+    if backend is DivisionBackend.nan_to_0:
+        return torch.nan_to_num(torch.divide(x32, y32), nan=0.0, posinf=0.0, neginf=0.0)
+    raise AssertionError(f"Unhandled division backend: {backend}")
+
+
+@decorator_knowngood
+def _compilable_stochastic_divide_(x: List[Tensor], y: List[Tensor], eps: Tensor, backend: DivisionBackend):
+    for x_, y_ in zip(x, y):
+        x32 = promote(x_)
+        y32 = promote(y_)
+        copy_stochastic_(x_, _apply_division_backend(x32, y32, eps, backend))
+
+
+def stochastic_divide_with_eps_(
+    x: List[Tensor] | Tensor,
+    y: List[Tensor] | Tensor,
+    eps: float = 1e-6,
+    *,
+    backend: DivisionBackendLike = DivisionBackend.eps_clamp,
+):
+    x, y = broadcastable_list_guard(x, y)
+    eps = scalar_guard(eps, y[0])
+    backend_enum = _normalize_division_backend(backend)
+    _compilable_stochastic_divide_(x, y, eps, backend_enum)
+
+
+def stochastic_divide_(
+    x: List[Tensor] | Tensor,
+    y: List[Tensor] | Tensor,
+    *,
+    backend: DivisionBackendLike = DivisionBackend.eps_clamp,
+    eps: float = 1e-12,
+):
+    stochastic_divide_with_eps_(x, y, eps, backend=backend)
+
+
 @decorator
 def update_ggt(grad, GG, max_precond_dim, precondition_1d, beta):
     """
@@ -732,7 +1118,7 @@ def update_ggt(grad, GG, max_precond_dim, precondition_1d, beta):
         stochastic_lerp_(m, outer_product, 1 - beta)
 
 
-def tree_apply(fn):
+def tree_apply(fn: Callable[[Any], Any]) -> Callable[[Any], Any]:
     def _fn(*args):
         return tree_map(fn, *args)
 
@@ -776,7 +1162,8 @@ def update_preconditioner(grad, Q, GG, exp_avg, max_precond_dim, precondition_1d
     """
     update_ggt(grad, GG, max_precond_dim, precondition_1d, beta)
     if update_precond:
-        get_orthogonal_matrix_QR(GG, Q, exp_avg)
+        exp_avg = list_guard(exp_avg)
+        get_orthogonal_matrix_QR(GG, Q, *exp_avg)
 
 
 def init_preconditioner(grad, state, max_precond_dim, precondition_1d):
@@ -926,13 +1313,15 @@ class StatefulOptimizer(torch.optim.Optimizer):
     def get_groups(self, group):
         return [group]
 
-    @functools.lru_cache(maxsize=None)
     def state_(self, arg: Tensor, fail: bool = True):
-        if not fail and arg not in self.mapping:
-            return {}
-        if _tensor_key(arg) not in self.mapping_inverse:
+        key = _tensor_key(arg)
+        if key not in self.mapping_inverse:
             self._init_mapping()
-        state_param, index = self.mapping_inverse[_tensor_key(arg)]
+        if key not in self.mapping_inverse:
+            if not fail:
+                return {}
+            raise KeyError("Tensor has no tracked state.")
+        state_param, index = self.mapping_inverse[key]
         if state_param not in self.state:
             self.state[state_param] = collections.defaultdict(dict)
         return self.state[state_param][index]
@@ -1020,7 +1409,7 @@ class StatefulOptimizer(torch.optim.Optimizer):
                 active_p = [p for p in group["params"]]
 
                 if not active_p:
-                    return
+                    continue
 
                 k = group["ema_step"] = group.get("ema_step", -1) + 1
 
@@ -1037,7 +1426,7 @@ class StatefulOptimizer(torch.optim.Optimizer):
                 active_p = [p for p in group["params"]]
 
                 if not active_p:
-                    return
+                    continue
 
                 for p in active_p:
                     if "param_ema" in self.state_(p):
@@ -1051,7 +1440,7 @@ class StatefulOptimizer(torch.optim.Optimizer):
                 active_p = [p for p in group["params"]]
 
                 if not active_p:
-                    return
+                    continue
 
                 for p in active_p:
                     if "param_ema" in self.state_(p):
@@ -1080,7 +1469,7 @@ class StatefulOptimizer(torch.optim.Optimizer):
         for group in self.param_groups:
             for p, g in self.split_p_and_g_in_group(group, skip_none=True, raw=True):
                 p.grad = grads.pop(0)
-                stochastic_add_(g, p.grad, -1)  # technically, we have to divide by the scale here
+                stochastic_add_divide_(g, p.grad, -1, torch.finfo(p.dtype).eps ** 0.5)
                 p.hessian_vector = g
                 p.data.copy_(p.orig)
                 del p.orig
@@ -1170,6 +1559,8 @@ class StatefulOptimizer(torch.optim.Optimizer):
             self._is_preconditioning = psgd_should_update(self.inner_group, self.precond_schedule, self.precond_rng)
         loss = self._handle_closure(closure)
 
+        if self.use_ema:
+            self.ema_update()
         # we assume that parameters are constant and that there are no excessive recompiles
         with torch.no_grad(), torch._dynamo.utils.disable_cache_limit():
             for group in self.param_groups:
@@ -1177,8 +1568,6 @@ class StatefulOptimizer(torch.optim.Optimizer):
                     group["param_count"] = sum(p.numel() for p in group["params"])
                 group["is_preconditioning"] = self._is_preconditioning
                 self._step(group)
-                if self.use_ema:
-                    self.ema_update()
                 for real, views in self.mapping.items():
                     for tensor in (real, *views):
                         for key in ("grad", "vector", "hessian_vector", "orig"):
@@ -1223,17 +1612,53 @@ def _compilable_adam_(
 
 
 def adam_(
-    exp_avg: List[Tensor],
-    exp_avg_sq: List[Tensor],
-    grad: List[Tensor],
+    exp_avg: List[Tensor] | Tensor,
+    exp_avg_sq: List[Tensor] | Tensor,
+    grad: List[Tensor] | Tensor,
     beta1: float,
     beta2: float,
     step: int,
     eps: float = 1e-8,
-):
+) -> List[Tensor]:
     exp_avg, exp_avg_sq, grad = map(list_guard, (exp_avg, exp_avg_sq, grad))
     beta1, beta2, step, eps = scalar_guard(beta1, beta2, step, eps, exp_avg[0])
     _compilable_adam_(exp_avg, exp_avg_sq, grad, beta1, beta2, step, eps)
+    return grad
+
+
+@decorator_knowngood
+def _compilable_unscaled_adam_(
+    exp_avg: List[Tensor],
+    exp_avg_sq: List[Tensor],
+    grad: List[Tensor],
+    beta1: Tensor,
+    beta2: Tensor,
+    step: Tensor,
+    eps: Tensor,
+):
+    beta1 = beta_debias(beta1, step)
+    beta2 = beta_debias(beta2, step)
+
+    g32 = list(map(promote, grad))
+    denom = _compilable_exp_avg_sq_(exp_avg_sq, g32, beta2, eps, [None])
+    g32 = torch._foreach_div(g32, denom)
+    exp_avg32 = _lerp(exp_avg, g32, beta1)
+    u32 = torch._foreach_mul(exp_avg32, denom)
+    copy_stochastic_list_(grad, u32)
+
+
+def unscaled_adam_(
+    exp_avg: List[Tensor] | Tensor,
+    exp_avg_sq: List[Tensor] | Tensor,
+    grad: List[Tensor] | Tensor,
+    beta1: float,
+    beta2: float,
+    step: int,
+    eps: float = 1e-8,
+) -> List[Tensor]:
+    exp_avg, exp_avg_sq, grad = map(list_guard, (exp_avg, exp_avg_sq, grad))
+    beta1, beta2, step, eps = scalar_guard(beta1, beta2, step, eps, exp_avg[0])
+    _compilable_unscaled_adam_(exp_avg, exp_avg_sq, grad, beta1, beta2, step, eps)
     return grad
 
 
@@ -1279,6 +1704,247 @@ def fused_adam_(
     y, exp_avg, exp_avg_sq, grad = list_guard(y, exp_avg, exp_avg_sq, grad)
     beta1, beta2, step, lr, decay = scalar_guard(beta1, beta2, step, lr, decay, y[0])
     _fused_compilable_adam_(y, exp_avg, exp_avg_sq, update, grad, beta1, beta2, step, decay, lr, eps, caution)
+
+
+def nadam_(
+    param: List[Tensor] | Tensor,
+    exp_avg: List[Tensor] | Tensor,
+    exp_avg_sq: List[Tensor] | Tensor,
+    mu_product: List[Tensor] | Tensor,
+    update: List[Tensor] | Tensor,
+    beta1: float,
+    beta2: float,
+    step: int,
+    momentum_decay: float,
+    eps: float,
+    weight_decay: float,
+    decoupled_weight_decay: bool,
+) -> List[Tensor]:
+    param, exp_avg, exp_avg_sq, mu_product, update = map(list_guard, (param, exp_avg, exp_avg_sq, mu_product, update))
+    if not param:
+        return update
+
+    beta1_t, beta2_t, step_t, eps_t = scalar_guard(beta1, beta2, step, eps, param[0])
+    weight_decay_val = float(weight_decay)
+
+    update32 = promote(update)
+    param32 = promote(param)
+
+    _nadam_prepare_weight_decay(update32, param32, None, weight_decay_val, decoupled_weight_decay)
+    mu_t, mu_next_t = _nadam_moments(beta1_t, step_t, momentum_decay)
+    update32 = _nadam_compute_update(
+        exp_avg, exp_avg_sq, mu_product, update32, beta1_t, beta2_t, step_t, eps_t, mu_t, mu_next_t
+    )
+    update32 = _nadam_finish_weight_decay(update32, param32, weight_decay_val, decoupled_weight_decay)
+
+    copy_stochastic_list_(update, update32)
+    return update
+
+
+@decorator_knowngood
+def _fused_compilable_nadam_(
+    param: List[Tensor],
+    exp_avg: List[Tensor],
+    exp_avg_sq: List[Tensor],
+    mu_product: List[Tensor],
+    update: List[Tensor],
+    grad: List[Tensor],
+    beta1: Tensor,
+    beta2: Tensor,
+    step: Tensor,
+    lr: Tensor,
+    eps: Tensor,
+    mu: Tensor,
+    mu_next: Tensor,
+    weight_decay: float,
+    decoupled_weight_decay: bool,
+    caution: bool,
+):
+    weight_decay_val = float(weight_decay)
+
+    update32 = promote(update)
+    grad32 = promote(grad)
+    param32 = promote(param)
+
+    decay = _nadam_prepare_weight_decay(update32, param32, grad32, weight_decay_val, decoupled_weight_decay)
+    update32 = _nadam_compute_update(exp_avg, exp_avg_sq, mu_product, update32, beta1, beta2, step, eps, mu, mu_next)
+    update32 = _nadam_finish_weight_decay(update32, param32, weight_decay_val, decoupled_weight_decay)
+
+    copy_stochastic_list_(update, update32)
+
+    decay_t = scalar_guard(decay, param[0])
+    _compilable_update_(param, update32, decay_t, lr, caution, grad32)
+
+
+def fused_nadam_(
+    param: List[Tensor] | Tensor,
+    exp_avg: List[Tensor] | Tensor,
+    exp_avg_sq: List[Tensor] | Tensor,
+    mu_product: List[Tensor] | Tensor,
+    update: List[Tensor] | Tensor,
+    grad: List[Tensor] | Tensor,
+    beta1: float,
+    beta2: float,
+    step: int,
+    lr: float,
+    eps: float,
+    momentum_decay: float,
+    weight_decay: float,
+    decoupled_weight_decay: bool,
+    caution: bool,
+):
+    param, exp_avg, exp_avg_sq, mu_product, update, grad = list_guard(
+        param, exp_avg, exp_avg_sq, mu_product, update, grad
+    )
+    if not param:
+        return
+
+    beta1_t, beta2_t, step_t, lr_t, eps_t = scalar_guard(beta1, beta2, step, lr, eps, param[0])
+    mu_t, mu_next_t = _nadam_moments(beta1_t, step_t, momentum_decay)
+    _fused_compilable_nadam_(
+        param,
+        exp_avg,
+        exp_avg_sq,
+        mu_product,
+        update,
+        grad,
+        beta1_t,
+        beta2_t,
+        step_t,
+        lr_t,
+        eps_t,
+        mu_t,
+        mu_next_t,
+        weight_decay,
+        decoupled_weight_decay,
+        caution,
+    )
+
+
+@decorator_knowngood
+def _compilable_ademamix_update_(
+    exp_avg_fast: List[Tensor],
+    exp_avg_slow: List[Tensor],
+    exp_avg_sq: List[Tensor],
+    update: List[Tensor],
+    beta1: Tensor,
+    beta2: Tensor,
+    beta3: Tensor,
+    step: Tensor,
+    alpha: Tensor,
+    eps: Tensor,
+):
+    beta1 = beta_debias(beta1, step)
+    beta2 = beta_debias(beta2, step)
+
+    update32 = promote(update)
+    fast32 = _lerp(exp_avg_fast, update32, beta1)
+    slow32 = _lerp(exp_avg_slow, update32, beta3)
+
+    slow_scaled = torch._foreach_mul(slow32, alpha)
+    mixed = torch._foreach_add(fast32, slow_scaled)
+    denom = _compilable_exp_avg_sq_(exp_avg_sq, update32, beta2, eps, [None])
+    return torch._foreach_div(mixed, denom)
+
+
+@decorator_knowngood
+def _fused_compilable_ademamix_(
+    y: List[Tensor],
+    exp_avg_fast: List[Tensor],
+    exp_avg_slow: List[Tensor],
+    exp_avg_sq: List[Tensor],
+    update: List[Tensor],
+    grad: List[Tensor],
+    beta1: Tensor,
+    beta2: Tensor,
+    beta3: Tensor,
+    step: Tensor,
+    alpha: Tensor,
+    lr: Tensor,
+    eps: Tensor,
+    decay: Tensor,
+    caution: bool,
+):
+    grad32 = list(map(promote, grad))
+    update32 = _compilable_ademamix_update_(
+        exp_avg_fast, exp_avg_slow, exp_avg_sq, update, beta1, beta2, beta3, step, alpha, eps
+    )
+    _compilable_update_(y, update32, decay, lr, caution, grad32)
+
+
+def fused_ademamix_(
+    y: List[Tensor],
+    exp_avg_fast: List[Tensor],
+    exp_avg_slow: List[Tensor],
+    exp_avg_sq: List[Tensor],
+    update: List[Tensor],
+    grad: List[Tensor],
+    betas: tuple[float, float, float],
+    step: int,
+    lr: float,
+    eps: float,
+    decay: float,
+    alpha: float,
+    caution: bool,
+    beta3_warmup: Optional[int] = None,
+    alpha_warmup: Optional[int] = None,
+):
+    y, exp_avg_fast, exp_avg_slow, exp_avg_sq, update, grad = list_guard(
+        y, exp_avg_fast, exp_avg_slow, exp_avg_sq, update, grad
+    )
+    if not y:
+        return
+
+    ref = y[0]
+    beta1_f, beta2_f, beta3_f, alpha_f = _compute_ademamix_hparams(betas, step, alpha, beta3_warmup, alpha_warmup)
+    beta1_t, beta2_t, beta3_t, alpha_t, step_t, lr_t, eps_t, decay_t = scalar_guard(
+        beta1_f, beta2_f, beta3_f, alpha_f, step, lr, eps, decay, ref
+    )
+
+    _fused_compilable_ademamix_(
+        y,
+        exp_avg_fast,
+        exp_avg_slow,
+        exp_avg_sq,
+        update,
+        grad,
+        beta1_t,
+        beta2_t,
+        beta3_t,
+        step_t,
+        alpha_t,
+        lr_t,
+        eps_t,
+        decay_t,
+        caution,
+    )
+
+
+def ademamix_(
+    exp_avg_fast: List[Tensor] | Tensor,
+    exp_avg_slow: List[Tensor] | Tensor,
+    exp_avg_sq: List[Tensor] | Tensor,
+    grad: List[Tensor] | Tensor,
+    betas: tuple[float, float, float],
+    step: int,
+    eps: float,
+    alpha: float,
+    beta3_warmup: Optional[int] = None,
+    alpha_warmup: Optional[int] = None,
+):
+    exp_avg_fast, exp_avg_slow, exp_avg_sq, grad = list_guard(exp_avg_fast, exp_avg_slow, exp_avg_sq, grad)
+    if not grad:
+        return grad
+
+    ref = grad[0]
+    beta1_f, beta2_f, beta3_f, alpha_f = _compute_ademamix_hparams(betas, step, alpha, beta3_warmup, alpha_warmup)
+    beta1_t, beta2_t, beta3_t, alpha_t, step_t, eps_t = scalar_guard(beta1_f, beta2_f, beta3_f, alpha_f, step, eps, ref)
+
+    update32 = _compilable_ademamix_update_(
+        exp_avg_fast, exp_avg_slow, exp_avg_sq, grad, beta1_t, beta2_t, beta3_t, step_t, alpha_t, eps_t
+    )
+    copy_stochastic_list_(grad, update32)
+    return grad
 
 
 @decorator_knowngood
@@ -1406,18 +2072,20 @@ def stochastic_round_list_(ref: List[Tensor], source: List[Tensor]):
 
 @decorator_knowngood
 def stochastic_round_(ref: Tensor, source: Tensor | None = None):
-    if source is not None:
-        if source.dtype == torch.bfloat16 or ref.dtype == source.dtype:
-            return source
-        if ref.dtype != torch.bfloat16:
-            return source.to(ref.dtype)
-    else:
+    if source is None:
         source = ref
-    source = source.float()
-    result = torch.randint_like(source, dtype=torch.int32, low=0, high=(1 << 16))
-    result.add_(source.view(dtype=torch.int32))
-    result.bitwise_and_(-65536)  # -65536 = FFFF0000 as a signed int32
-    return result.view(dtype=torch.float32).bfloat16()
+    if ref.dtype != torch.bfloat16:
+        return source.to(ref.dtype)
+    if source.dtype == torch.bfloat16:
+        return source
+    if source.dtype in (torch.float16, torch.float32, torch.float64):
+        source = source.to(torch.float32)
+        noise = torch.randint_like(source, dtype=torch.int32, low=0, high=(1 << 16))
+        bits = source.view(dtype=torch.int32)
+        bits.add_(noise)
+        bits.bitwise_and_(-65536)  # FFFF0000 mask, preserves sign+exp+7 mantissa bits
+        return bits.view(dtype=torch.float32).bfloat16()
+    return source.to(ref.dtype)
 
 
 @decorator_knowngood
@@ -1427,7 +2095,7 @@ def _compilable_copy_stochastic_(target: Tensor, source: Tensor):
 
 def copy_stochastic_(target: Tensor, source: Tensor):
     if target.dtype == torch.bfloat16 and source.dtype in (torch.float16, torch.float32, torch.float64):
-        _compilable_copy_stochastic_(target, source.float())
+        source = stochastic_round_(target, source)
     set_(target, source)
 
 
@@ -1750,7 +2418,8 @@ def update_lra_precond_(
 
     # LU factorization to reuse computation
     try:
-        LU, pivots = torch.linalg.lu_factor(IpVtU)
+        lu_matrix = promote(IpVtU)  # operate in fp32 when inputs are bf16/half
+        LU, pivots = torch.linalg.lu_factor(lu_matrix)
     except RuntimeError:
         # Error:
         # U[2,2] is zero and using it on lu_solve would result in a division by zero.
@@ -1760,8 +2429,13 @@ def update_lra_precond_(
         # So, we skip this step and reattempt on the next one
         return U.to(U_orig[0].dtype), V.to(V_orig[0].dtype), d.to(d_orig[0].dtype)
 
-    invQtv = invQtv - V @ torch.linalg.lu_solve(LU, pivots, (U.T @ invQtv).view(-1, 1), adjoint=True).flatten()
-    invPv = U @ torch.linalg.lu_solve(LU, pivots, (V.T @ invQtv).view(-1, 1)).flatten()
+    solve_dtype = LU.dtype
+    rhs = (U.T @ invQtv).view(-1, 1).to(solve_dtype)
+    correction = torch.linalg.lu_solve(LU, pivots, rhs, adjoint=True).to(V.dtype)
+    invQtv = invQtv - (V @ correction).flatten()
+    rhs = (V.T @ invQtv).view(-1, 1).to(solve_dtype)
+    solution = torch.linalg.lu_solve(LU, pivots, rhs).to(U.dtype)
+    invPv = (U @ solution).flatten()
 
     eps, step = scalar_guard(eps, step, vector)
     _compilable_d_step(d, d_orig, invQtv, vector, invPv, hessian_vector, Ph, eps, step, delayed)
@@ -1881,7 +2555,10 @@ def extract_from_flat_update(params: List[Tensor], update: Tensor):
 @decorator_knowngood
 def flatten(x: List[Tensor], remaining: int = 0) -> Tensor:
     last_dim = x[0].shape[-remaining:] if remaining else []
-    return torch.cat([i.reshape(-1, *last_dim) for i in x if i.numel()], 0)
+    tensors = [i.reshape(-1, *last_dim) for i in x if i.numel()]
+    if not tensors:
+        return torch.zeros((), dtype=x[0].device, device=x[0].device)
+    return torch.cat(tensors, 0)
 
 
 @decorator_knowngood
@@ -1953,16 +2630,6 @@ def psgd_calc_A_and_conjB(G: Tensor, Q, conjB: Tensor | None):  # conjB ("V", "v
     return A, conjB
 
 
-@decorator_knowngood
-def _random_projection(x: Tensor, scale: Optional[Tensor]):
-    if scale is None:
-        scale = x.norm(float("inf")).clamp(min=1e-8)
-    k = 2 ** math.ceil(math.log2(math.log2(min(x.shape))))  # next-largest-power-of-2 of log2-of-size
-    norm = x.square().sum(0)
-    indices = torch.topk(norm, k, largest=True).indices
-    return x.index_select(1, indices).contiguous() / scale, scale
-
-
 def max_singular_value_exact(A, use_lobpcg: bool = False):
     try:
         if use_lobpcg:
@@ -2006,7 +2673,15 @@ def max_singular_value_cholesky(A: Tensor, max_abs: Optional[Tensor] = None):
     """
     Adapted from @evanatyourservice
     """
-    Y, max_abs = _random_projection(A, max_abs)
+    if max_abs is None:
+        max_abs = A.norm(float("inf")).clamp(min=1e-8)
+
+    # cholesky uses random projection, but this uses topk -- topk is a warm start, which may converge to a biased result
+    k = 2 ** math.ceil(math.log2(math.log2(min(A.shape))))  # next-largest-power-of-2 of log2-of-size
+    norm = A.square().sum(0)
+    indices = torch.topk(norm, k, largest=True).indices
+    Y = A.index_select(1, indices).contiguous() / max_abs
+
     Q = inplace_orthogonal_(Y, precise_zeroth_power_mode)
     Q = Q / max_abs
     Z = A.T @ Q
@@ -2254,10 +2929,11 @@ def bf16_matmul(x: Tensor, y: Tensor):
 def if_iscompiling(fn):
     base = getattr(torch, fn.__name__, None)
 
-    def _fn(x):
-        if torch.compiler.is_compiling() and hasattr(torch, fn.__name__):
-            return base(x)
-        return fn(x)
+    @functools.wraps(fn)
+    def _fn(*args, **kwargs):
+        if torch.compiler.is_compiling() and base is not None:
+            return base(*args, **kwargs)
+        return fn(*args, **kwargs)
 
     return _fn
 
@@ -2283,6 +2959,55 @@ def cond(cond, true_fn, false_fn):
     if cond.item():
         return true_fn()
     return false_fn()
+
+
+@decorator_knowngood
+def _householder_vec_e1_to_v(v: Tensor, eps: float = 1e-12) -> Tensor:
+    """
+    Return w such that H = I - 2 w w^T is orthogonal and H e1 = v (v unit).
+    Applying from the right: G @ H = G - 2 (G @ w) w^T.
+    If v is (numerically) e1, returns w=0 and H=I.
+    """
+    v = v / v.norm().clamp(min=eps)
+    e1 = torch.zeros_like(v)
+    e1[0] = 1.0
+    w = e1 - v
+    return w / w.norm().clamp(min=eps)
+
+
+@decorator_knowngood
+def eigvecs_product_rank1(
+    G: Tensor, v: Tensor, w: Optional[Tensor] = None, eps: float = 1e-12
+) -> Tuple[Tensor, Tensor]:
+    """
+    Compute Y = G @ V where V is an eigenvector matrix for P = λ I + σ v v^T,
+    using the Householder reflector with first column v. Never materializes V.
+
+    Args:
+        G: shape (..., d) — gradient row(s) you want to rotate into eigenbasis.
+        v: shape (d,)      — current unit direction (top eigenvector of P).
+        w: optional Householder vector w; pass to reuse across calls.
+
+    Returns:
+        (Y, w) where:
+          Y has shape (..., d) and equals G @ eigenvectors(P),
+          w is the Householder vector you can cache & reuse.
+    """
+    if w is None:
+        w = _householder_vec_e1_to_v(v, eps)
+    Y = G - 2.0 * compiled_einsum("...i,i,j->...j", G, w, w)
+    return Y, w
+
+
+@decorator_knowngood
+def oja_update(v: Tensor, g: Tensor, lr: float = 1e-2, eps: float = 1e-12) -> Tensor:
+    """
+    One Oja step to track the top eigendirection of the gradient covariance.
+    v <- v + lr * ((g^T v) g - (g^T v)^2 v); then renormalize.
+    """
+    gv = g @ v
+    v = v + lr * (gv * g - (gv * gv) * v)
+    return v / v.norm().clamp(min=eps)
 
 
 def cond_n(cond_val: Tensor, *fns):
@@ -2344,7 +3069,7 @@ def _psgd_quad_preconditioner_grad(GG: List[Tensor], Q: List[Tensor], numel: int
         else:
             scale = gg.size(0) / numel
             gg = 2 * torch.eye(gg.size(0), device=gg.device, dtype=gg.dtype) - gg * scale
-            update = q - gg @ q @ gg
+            update = q - casted_einsum("ab,cd,bc", gg, gg, q)
             out.append(update + update.T)  # make matrix symmetric
     return out
 
@@ -2547,6 +3272,18 @@ def l1_weight_decay_to_ema_(p, ema, ema_decay, weight_decay):
     p, ema = list_guard(p, ema)
     ema_decay, weight_decay = scalar_guard(ema_decay, weight_decay, p[0])
     _compilable_l1_weight_decay_to_ema_(p, ema, ema_decay, weight_decay)
+
+
+@decorator_knowngood
+def _compilable_cautious_weight_decay_(p, update, weight_decay):
+    xs = [_compilable_cautioning(p_, u_) for p_, u_ in zip(p, update)]
+    stochastic_add_(p, xs, -weight_decay)
+
+
+def cautious_weight_decay_(p: list[Tensor], update: list[Tensor], weight_decay: float):
+    p, update = list_guard(p, update)
+    (weight_decay,) = scalar_guard(weight_decay, p[0])
+    _compilable_cautious_weight_decay_(p, update, weight_decay)
 
 
 @decorator_knowngood
@@ -2898,7 +3635,7 @@ def pointwise_lr_adaptation(
 ):
     grads, update, state, delta = list_guard(grads, update, state, delta)
     lr_lr = scalar_guard(lr_lr, grads[0])
-    _compilable_lr_adapt_(grads, update, state, delta, lr_lr)
+    _compilable_pointwise_lr_adapt_(grads, update, state, delta, lr_lr)
 
 
 def hook_optimizer_into_model(model, optimizer, *args, **kwargs):
@@ -2918,8 +3655,6 @@ def hook_optimizer_into_model(model, optimizer, *args, **kwargs):
 
 def fused_hook(parameters, optimizer, *args, **kwargs):
     parameters = list(parameters)
-    param_count = len(parameters)
-    seen_params = set()
 
     o = optimizer(parameters, *args, **kwargs)
     step_fn = o.step
@@ -2928,12 +3663,8 @@ def fused_hook(parameters, optimizer, *args, **kwargs):
     )
 
     def _step(p: Tensor):
-        seen_params.add(p)
-
-        if len(seen_params) < param_count:
-            step_fn()
-            o.zero_grad()
-            seen_params.clear()
+        step_fn()
+        o.zero_grad()
 
     for p in parameters:
         p.register_post_accumulate_grad_hook(_step)
@@ -2958,6 +3689,8 @@ def sam_step(parameters, ball_size, adaptive: bool = True):
     old_params = []
     for p in parameters:
         old_params.append(p.detach().clone())
+        if not hasattr_none(p, "grad"):
+            continue
         grad = promote(p.grad)
         if adaptive:
             grad = grad * promote(p).square()

@@ -33,11 +33,11 @@ from pex.enum import Enum
 from pex.executables import chmod_plus_x, create_sh_python_redirector_shebang
 from pex.finders import get_entry_point_from_console_script, get_script_from_distributions
 from pex.fs import safe_rename, safe_symlink
+from pex.installed_wheel import InstalledWheel
 from pex.interpreter import PythonInterpreter
 from pex.layout import Layout
 from pex.orderedset import OrderedSet
 from pex.os import WINDOWS
-from pex.pep_376 import InstalledWheel
 from pex.pex import PEX
 from pex.pex_info import PexInfo
 from pex.sh_boot import create_sh_boot_script
@@ -47,7 +47,7 @@ from pex.typing import TYPE_CHECKING
 from pex.util import CacheHelper
 
 if TYPE_CHECKING:
-    from typing import Dict, Optional
+    from typing import Dict, Iterable, Optional
 
 # N.B.: __file__ will be relative when this module is loaded from a "" `sys.path` entry under
 # Python 2.7. This can occur in test scenarios; so we ensure the __file__ is resolved to an absolute
@@ -450,6 +450,11 @@ class PEXBuilder(object):
         self.add_distribution(distribution, fingerprint=fingerprint)
         self.add_requirement(distribution.as_requirement())
 
+    @property
+    def distributions(self):
+        # type: () -> Iterable[Distribution]
+        return self._distributions.values()
+
     def _precompile_source(self):
         vendored_dir = os.path.join(self._pex_info.bootstrap, "pex/vendor/_vendored")
         source_relpaths = [
@@ -470,10 +475,7 @@ class PEXBuilder(object):
     def _prepare_code(self):
         chroot_path = self._chroot.path()
         self._pex_info.code_hash = CacheHelper.pex_code_hash(
-            chroot_path,
-            exclude_dirs=tuple(
-                os.path.join(chroot_path, d) for d in (layout.BOOTSTRAP_DIR, layout.DEPS_DIR)
-            ),
+            chroot_path, exclude_dirs=(layout.BOOTSTRAP_DIR, layout.DEPS_DIR)
         )
         self._pex_info.pex_hash = hashlib.sha1(self._pex_info.dump().encode("utf-8")).hexdigest()
         self._chroot.write(self._pex_info.dump().encode("utf-8"), PexInfo.PATH, label="manifest")
@@ -546,7 +548,11 @@ class PEXBuilder(object):
         # NB: We use pip here in the builder, but that's only at build time, and
         # although we don't use pyparsing directly, packaging.markers, which we
         # do use at runtime, does.
-        root_module_names = ["appdirs", "attr", "colors", "packaging", "pkg_resources", "pyparsing"]
+        root_module_names = ["appdirs", "attr", "colors", "packaging", "pyparsing"]
+        for vendor_spec in vendor.iter_vendor_specs():
+            if vendor_spec.key == "setuptools":
+                root_module_names.append("pkg_resources")
+
         prepared_sources = vendor.vendor_runtime(
             chroot=self._chroot,
             dest_basedir=self._pex_info.bootstrap,
@@ -790,9 +796,9 @@ class PEXBuilder(object):
                                 self._chroot.zip(
                                     os.path.join(atomic_zip_dir.work_dir, location),
                                     deterministic=deterministic,
-                                    exclude_file=is_pyc_temporary_file
-                                    if bytecode_compile
-                                    else is_pyc_file,
+                                    exclude_file=(
+                                        is_pyc_temporary_file if bytecode_compile else is_pyc_file
+                                    ),
                                     strip_prefix=os.path.join(pex_info.internal_cache, location),
                                     labels=(location,),
                                     compress=compress,

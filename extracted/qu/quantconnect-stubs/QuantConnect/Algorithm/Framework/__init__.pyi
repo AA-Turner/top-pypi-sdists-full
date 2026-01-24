@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
@@ -17,7 +17,7 @@ class NotifiedSecurityChanges(System.Object):
     @staticmethod
     def update(changes: QuantConnect.Data.UniverseSelection.SecurityChanges, add: typing.Callable[[QuantConnect.Securities.Security], typing.Any], remove: typing.Callable[[QuantConnect.Securities.Security], typing.Any]) -> None:
         """
-        Invokes the provided  and  functions for each
+        Invokes the provided add and remove functions for each
         
         :param changes: The security changes to process
         :param add: Function called for each added security

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapfly-sdk
-Version: 0.8.23
+Version: 0.8.24
 Summary: Scrapfly SDK for Scrapfly
 Home-page: https://github.com/scrapfly/python-sdk
 Author: Scrapfly
@@ -64,24 +64,24 @@ Provides-Extra: webhook-server
 Requires-Dist: flask; extra == "webhook-server"
 Provides-Extra: concurrency
 Provides-Extra: all
-Requires-Dist: colorama; extra == "all"
-Requires-Dist: readme_renderer; extra == "all"
-Requires-Dist: setuptools; extra == "all"
-Requires-Dist: wheel; extra == "all"
-Requires-Dist: sentry-sdk; extra == "all"
-Requires-Dist: extruct; extra == "all"
-Requires-Dist: pip; extra == "all"
-Requires-Dist: lxml; extra == "all"
-Requires-Dist: beautifulsoup4; extra == "all"
-Requires-Dist: twine; extra == "all"
-Requires-Dist: scrapy>=2.4.0; extra == "all"
-Requires-Dist: bumpversion; extra == "all"
 Requires-Dist: soupsieve; extra == "all"
-Requires-Dist: brotlipy; extra == "all"
-Requires-Dist: isort; extra == "all"
+Requires-Dist: sentry-sdk; extra == "all"
+Requires-Dist: twine; extra == "all"
 Requires-Dist: msgpack; extra == "all"
 Requires-Dist: flask; extra == "all"
+Requires-Dist: setuptools; extra == "all"
+Requires-Dist: readme_renderer; extra == "all"
+Requires-Dist: beautifulsoup4; extra == "all"
+Requires-Dist: isort; extra == "all"
+Requires-Dist: extruct; extra == "all"
+Requires-Dist: pip; extra == "all"
 Requires-Dist: pdoc3; extra == "all"
+Requires-Dist: lxml; extra == "all"
+Requires-Dist: bumpversion; extra == "all"
+Requires-Dist: scrapy>=2.4.0; extra == "all"
+Requires-Dist: brotlipy; extra == "all"
+Requires-Dist: colorama; extra == "all"
+Requires-Dist: wheel; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

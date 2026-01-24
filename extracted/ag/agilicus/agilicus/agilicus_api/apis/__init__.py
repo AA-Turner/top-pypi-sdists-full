@@ -23,6 +23,7 @@ from agilicus_api.api.certificates_api import CertificatesApi
 from agilicus_api.api.challenges_api import ChallengesApi
 from agilicus_api.api.connectors_api import ConnectorsApi
 from agilicus_api.api.credentials_api import CredentialsApi
+from agilicus_api.api.deployments_api import DeploymentsApi
 from agilicus_api.api.diagnostics_api import DiagnosticsApi
 from agilicus_api.api.features_api import FeaturesApi
 from agilicus_api.api.files_api import FilesApi

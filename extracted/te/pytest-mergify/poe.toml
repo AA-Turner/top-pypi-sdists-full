@@ -1,0 +1,18 @@
+[tool.poe.executor]
+type = "uv"
+
+[tool.poe.tasks.test]
+cmd = "pytest -v --pyargs tests"
+[tool.poe.tasks.test.env]
+_MERGIFY_TEST_NEW_FLAKY_DETECTION = "true"
+
+[tool.poe.tasks.linters]
+help = "Run linters"
+default_item_type = "cmd"
+sequence = [
+  "ruff check .",
+  "ruff format --check .",
+  "mypy",
+  "codespell",
+  "yamllint .",
+]

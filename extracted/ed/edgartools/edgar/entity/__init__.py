@@ -14,8 +14,7 @@ from edgar.entity.core import (
     get_entity,
     public_companies,
 )
-from edgar.entity.utils import has_company_filings, normalize_cik
-from edgar.entity.data import Address, CompanyData, EntityData
+from edgar.entity.data import Address, CompanyData, EntityData, parse_entity_submissions
 from edgar.entity.entity_facts import (
     EntityFacts,
     NoCompanyFactsFound,
@@ -31,6 +30,7 @@ from edgar.entity.submissions import (
     get_entity_submissions,
 )
 from edgar.entity.tickers import find_cik, find_ticker, get_cik_lookup_data, get_company_tickers, get_icon_from_ticker, get_ticker_to_cik_lookup
+from edgar.entity.utils import has_company_filings, normalize_cik
 
 # Import from the funds package instead of entity.funds
 from edgar.funds import FundData, FundSeries
@@ -81,6 +81,7 @@ __all__ = [
     'create_entity_from_submissions_json',
     'create_entity_from_file',
     'create_company_from_file',
+    'parse_entity_submissions',
 
     # Fact functions
     'get_company_facts',

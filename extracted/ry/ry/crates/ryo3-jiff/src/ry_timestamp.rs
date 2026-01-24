@@ -1,5 +1,4 @@
 use crate::difference::{RyTimestampDifference, TimestampDifferenceArg};
-use crate::errors::{map_py_overflow_err, map_py_value_err};
 use crate::round::RyTimestampRound;
 use crate::ry_signed_duration::RySignedDuration;
 use crate::ry_span::RySpan;
@@ -7,34 +6,31 @@ use crate::ry_timezone::RyTimeZone;
 use crate::ry_zoned::RyZoned;
 use crate::series::RyTimestampSeries;
 use crate::spanish::Spanish;
-use crate::{JiffRoundMode, JiffUnit, RyDate, RyDateTime, RyOffset, RyTime};
+use crate::{JiffRoundMode, JiffUnit, RyDate, RyDateTime, RyISOWeekDate, RyOffset, RyTime};
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, TimestampRound, Zoned};
-use pyo3::IntoPyObjectExt;
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
-use pyo3::types::{PyTuple, PyType};
-use ryo3_macro_rules::{any_repr, py_type_error};
-use std::fmt::Display;
+use pyo3::types::PyTuple;
+use pyo3::{BoundObject, IntoPyObjectExt};
+use ryo3_core::{PyAsciiString, map_py_overflow_err, map_py_value_err};
+use ryo3_macro_rules::{any_repr, py_type_err};
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::Sub;
-use std::str::FromStr;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-#[pyclass(name = "Timestamp", frozen)]
+#[pyclass(name = "Timestamp", frozen, immutable_type, from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyTimestamp(pub(crate) Timestamp);
 
 #[pymethods]
 impl RyTimestamp {
     #[new]
-    #[pyo3(signature = (second = None, nanosecond = None))]
-    pub fn py_new(second: Option<i64>, nanosecond: Option<i32>) -> PyResult<Self> {
-        let s = second.unwrap_or(0);
-        let ns = nanosecond.unwrap_or(0);
-        Timestamp::new(s, ns)
+    #[pyo3(signature = (second = 0, nanosecond = 0))]
+    pub fn py_new(second: i64, nanosecond: i32) -> PyResult<Self> {
+        Timestamp::new(second, nanosecond)
             .map(Self::from)
             .map_err(map_py_value_err)
     }
@@ -73,34 +69,26 @@ impl RyTimestamp {
     }
 
     #[staticmethod]
-    fn from_str(s: &str) -> PyResult<Self> {
-        Timestamp::from_str(s)
-            .map(Self::from)
-            .map_err(map_py_value_err)
-    }
-
-    #[staticmethod]
-    fn parse(input: &str) -> PyResult<Self> {
-        Self::from_str(input)
-    }
-
-    #[staticmethod]
     fn from_millisecond(millisecond: i64) -> PyResult<Self> {
         Timestamp::from_millisecond(millisecond)
             .map(Self::from)
             .map_err(map_py_value_err)
     }
 
-    pub(crate) fn date(&self) -> RyDate {
-        self.0.to_zoned(TimeZone::UTC).date().into()
+    fn date(&self) -> RyDate {
+        RyDate::from(self)
     }
 
-    pub(crate) fn time(&self) -> RyTime {
-        self.0.to_zoned(TimeZone::UTC).time().into()
+    fn time(&self) -> RyTime {
+        RyTime::from(self)
     }
 
-    pub(crate) fn datetime(&self) -> RyDateTime {
-        self.0.to_zoned(TimeZone::UTC).datetime().into()
+    fn datetime(&self) -> RyDateTime {
+        RyDateTime::from(self)
+    }
+
+    fn iso_week_date(&self) -> RyISOWeekDate {
+        RyISOWeekDate::from(self)
     }
 
     #[expect(clippy::wrong_self_convention)]
@@ -118,8 +106,8 @@ impl RyTimestamp {
     }
 
     #[staticmethod]
-    fn from_pydatetime<'py>(_cls: &Bound<'py, PyType>, dt: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let ts = dt.extract::<Timestamp>()?;
+    fn from_pydatetime(datetime: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let ts = datetime.extract::<Timestamp>()?;
         Ok(Self(ts))
     }
 
@@ -154,20 +142,17 @@ impl RyTimestamp {
         }
     }
 
-    fn string(&self) -> String {
-        self.0.to_string()
+    #[pyo3(name = "to_string")]
+    fn py_to_string(&self) -> PyAsciiString {
+        self.0.to_string().into()
     }
 
-    fn __str__(&self) -> String {
-        self.0.to_string()
+    fn __str__(&self) -> PyAsciiString {
+        self.0.to_string().into()
     }
 
-    fn __repr__(&self) -> String {
-        format!(
-            "Timestamp({:?}, {:?})",
-            self.0.as_second(),
-            self.0.subsec_nanosecond()
-        )
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
     fn __hash__(&self) -> u64 {
@@ -182,7 +167,7 @@ impl RyTimestamp {
         py: Python<'py>,
         other: &Bound<'py, PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        if let Ok(ob) = other.cast::<Self>() {
+        if let Ok(ob) = other.cast_exact::<Self>() {
             let span = self.0.sub(ob.get().0);
             let obj = RySpan::from(span).into_pyobject(py).map(Bound::into_any)?;
             Ok(obj)
@@ -229,21 +214,33 @@ impl RyTimestamp {
         self.0.as_nanosecond()
     }
 
+    #[getter]
+    fn second(&self) -> i64 {
+        self.0.as_second()
+    }
+
+    #[getter]
+    fn nanosecond(&self) -> i32 {
+        self.0.subsec_nanosecond()
+    }
+
+    #[getter]
     fn subsec_nanosecond(&self) -> i32 {
         self.0.subsec_nanosecond()
     }
 
+    #[getter]
     fn subsec_microsecond(&self) -> i32 {
         self.0.subsec_microsecond()
     }
 
+    #[getter]
     fn subsec_millisecond(&self) -> i32 {
         self.0.subsec_millisecond()
     }
 
     fn series(&self, period: &RySpan) -> PyResult<RyTimestampSeries> {
-        period.assert_non_zero()?;
-        Ok(self.0.series(period.0).into())
+        (self, period).try_into()
     }
 
     #[getter]
@@ -251,9 +248,9 @@ impl RyTimestamp {
         self.0.is_zero()
     }
 
-    fn in_tz(&self, time_zone_name: &str) -> PyResult<RyZoned> {
+    fn in_tz(&self, tz: &str) -> PyResult<RyZoned> {
         self.0
-            .in_tz(time_zone_name)
+            .in_tz(tz)
             .map(RyZoned::from)
             .map_err(map_py_value_err)
     }
@@ -296,12 +293,17 @@ impl RyTimestamp {
     // ========================================================================
     // STRPTIME/STRFTIME
     // ========================================================================
-    fn __format__(&self, fmt: &str) -> String {
-        self.0.strftime(fmt).to_string()
+    fn __format__(&self, fmt: &str) -> PyResult<String> {
+        if fmt.is_empty() {
+            Ok(self.0.to_string())
+        } else {
+            self.strftime(fmt)
+        }
     }
 
-    fn strftime(&self, fmt: &str) -> String {
-        self.0.strftime(fmt).to_string()
+    fn strftime(&self, fmt: &str) -> PyResult<String> {
+        let bdt: jiff::fmt::strtime::BrokenDownTime = self.0.into();
+        bdt.to_string(fmt).map_err(map_py_value_err)
     }
 
     #[staticmethod]
@@ -313,15 +315,16 @@ impl RyTimestamp {
     }
 
     #[pyo3(
-       signature = (ts, *, smallest=None, largest = None, mode = None, increment = None),
+        signature = (ts, *, smallest=JiffUnit::NANOSECOND, largest=None, mode=JiffRoundMode::TRUNC, increment=1),
+        text_signature = "(self, other, *, smallest=\"nanosecond\", largest=None, mode=\"trunc\", increment=1)"
     )]
     fn since(
         &self,
         ts: TimestampDifferenceArg,
-        smallest: Option<JiffUnit>,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> PyResult<RySpan> {
         let dt_diff = ts.build(smallest, largest, mode, increment);
         self.0
@@ -331,15 +334,16 @@ impl RyTimestamp {
     }
 
     #[pyo3(
-       signature = (ts, *, smallest=None, largest = None, mode = None, increment = None),
+        signature = (ts, *, smallest=JiffUnit::NANOSECOND, largest=None, mode=JiffRoundMode::TRUNC, increment=1),
+        text_signature = "(self, other, *, smallest=\"nanosecond\", largest=None, mode=\"trunc\", increment=1)"
     )]
     fn until(
         &self,
         ts: TimestampDifferenceArg,
-        smallest: Option<JiffUnit>,
+        smallest: JiffUnit,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
+        mode: JiffRoundMode,
+        increment: i64,
     ) -> PyResult<RySpan> {
         let dt_diff = ts.build(smallest, largest, mode, increment);
         self.0
@@ -362,9 +366,9 @@ impl RyTimestamp {
             .map_err(map_py_value_err)
     }
 
-    fn display_with_offset(&self, offset: &RyOffset) -> String {
+    fn display_with_offset(&self, offset: &RyOffset) -> PyAsciiString {
         let dwo = self.0.display_with_offset(offset.0);
-        dwo.to_string()
+        dwo.to_string().into()
     }
 
     fn duration_since(&self, other: &Self) -> RySignedDuration {
@@ -376,32 +380,27 @@ impl RyTimestamp {
     }
 
     #[pyo3(
-       signature = (smallest=None, mode = None, increment = None),
+        signature = (
+            smallest=JiffUnit::NANOSECOND,
+            *,
+            mode=JiffRoundMode::HALF_EXPAND,
+            increment=1
+        ),
+        text_signature = "(self, smallest=\"nanosecond\", *, mode=\"half-expand\", increment=1)"
     )]
-    fn round(
-        &self,
-        smallest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
-        increment: Option<i64>,
-    ) -> PyResult<Self> {
-        let mut ts_round = TimestampRound::new();
-        if let Some(smallest) = smallest {
-            ts_round = ts_round.smallest(smallest.0);
-        }
-        if let Some(mode) = mode {
-            ts_round = ts_round.mode(mode.0);
-        }
-        if let Some(increment) = increment {
-            ts_round = ts_round.increment(increment);
-        }
+    fn round(&self, smallest: JiffUnit, mode: JiffRoundMode, increment: i64) -> PyResult<Self> {
+        let ts_round = TimestampRound::new()
+            .smallest(smallest.0)
+            .increment(increment)
+            .mode(mode.0);
         self.0
             .round(ts_round)
             .map(Self::from)
             .map_err(map_py_value_err)
     }
 
-    fn _round(&self, opts: &RyTimestampRound) -> PyResult<Self> {
-        opts.round(self)
+    fn _round(&self, options: &RyTimestampRound) -> PyResult<Self> {
+        options.round(self)
     }
 
     fn saturating_add(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -417,27 +416,27 @@ impl RyTimestamp {
     }
 
     #[staticmethod]
-    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
         let py = value.py();
-        if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
+        if let Ok(val) = value.cast_exact::<Self>() {
+            Ok(val.as_borrowed().into_bound())
+        } else if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
             let s = pystr.extract::<&str>()?;
-            Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+            Self::from_str(s).map(|dt| dt.into_pyobject(py))?
         } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
             let s = String::from_utf8_lossy(pybytes.as_bytes());
-            Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
-        } else if value.is_exact_instance_of::<Self>() {
-            value.into_bound_py_any(py)
+            Self::from_str(&s).map(|dt| dt.into_pyobject(py))?
         } else if let Ok(d) = value.cast_exact::<RyZoned>() {
-            d.get().timestamp().into_bound_py_any(py)
+            Self::from(d.get()).into_pyobject(py)
         } else if let Ok(dt) = value.cast_exact::<RyDateTime>() {
             let zdt = dt.get().0.to_zoned(TimeZone::UTC)?;
             let ts = zdt.timestamp();
-            Self::from(ts).into_bound_py_any(py)
+            Self::from(ts).into_pyobject(py)
         } else if let Ok(ts) = value.extract::<Timestamp>() {
-            Self::from(ts).into_bound_py_any(py)
+            Self::from(ts).into_pyobject(py)
         } else {
             let valtype = any_repr!(value);
-            Err(py_type_error!("Timestamp conversion error: {valtype}"))
+            py_type_err!("Timestamp conversion error: {valtype}")
         }
     }
     // ========================================================================
@@ -448,7 +447,7 @@ impl RyTimestamp {
     fn _pydantic_validate<'py>(
         value: &Bound<'py, PyAny>,
         _handler: &Bound<'py, PyAny>,
-    ) -> PyResult<Bound<'py, PyAny>> {
+    ) -> PyResult<Bound<'py, Self>> {
         Self::from_any(value).map_err(map_py_value_err)
     }
 
@@ -462,21 +461,36 @@ impl RyTimestamp {
         use ryo3_pydantic::GetPydanticCoreSchemaCls;
         Self::get_pydantic_core_schema(cls, source, handler)
     }
+
+    // ========================================================================
+    // STANDARD METHODS
+    // ========================================================================
+    // <STD-METHODS>
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
+        use ryo3_core::PyFromStr;
+        Self::py_from_str(s)
+    }
+
+    #[staticmethod]
+    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
+        use ryo3_core::PyParse;
+        Self::py_parse(s)
+    }
+
+    fn isoformat(&self) -> PyAsciiString {
+        <Self as crate::isoformat::PyIsoFormat>::isoformat(self)
+    }
+    // </STD-METHODS>
 }
 
-impl Display for RyTimestamp {
+impl std::fmt::Display for RyTimestamp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Timestamp({:?}, {:?})",
+            "Timestamp(second={:?}, nanosecond={:?})",
             self.0.as_second(),
             self.0.subsec_nanosecond()
         )
-    }
-}
-
-impl From<Timestamp> for RyTimestamp {
-    fn from(value: Timestamp) -> Self {
-        Self(value)
     }
 }

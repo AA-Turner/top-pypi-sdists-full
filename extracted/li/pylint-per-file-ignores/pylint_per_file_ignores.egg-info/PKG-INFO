@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylint-per-file-ignores
-Version: 2.0.3
+Version: 3.2.0
 Summary: A pylint plugin to ignore error codes per file.
 Author-email: Christopher Pickering <christopher@going.bg>, Kai Harder <kai.harder@sap.com>
 Maintainer-email: Kai Harder <kai.harder@sap.com>
@@ -13,7 +13,6 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -21,10 +20,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Typing :: Typed
-Requires-Python: <4,>=3.9
+Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pylint~=3.3
+Requires-Dist: pylint<5,>=3.3
 Dynamic: license-file
 
 [![REUSE status](https://api.reuse.software/badge/github.com/SAP/pylint-per-file-ignores)](https://api.reuse.software/info/github.com/SAP/pylint-per-file-ignores)
@@ -41,23 +40,42 @@ pip install pylint-per-file-ignores
 ```
 
 ## Add to Pylint Settings
+
+**.pylintrc**
+```ini
+[MAIN]
+load-plugins =
+    pylint_per_file_ignores
+```
+
+**setup.cfg**
+```ini
+[pylint.MASTER]
+load-plugins =
+    pylint_per_file_ignores
+```
+
+**pyproject.toml**
 ```toml
 [tool.pylint.main]
-load-plugins=[
+load-plugins = [
     "pylint_per_file_ignores",
-    ...
 ]
 ```
 
 ## Usage
 Add list of patterns and codes you would like to ignore.
-The patterns are matched using `globs`.
+The patterns are matched using [globs](https://docs.python.org/3/library/glob.html).
+
+
+> Prior to v2.0.0, `pylint-per-file-ignores` did not use globs but regex.
+> When migrating, please check your configuration carefully.
 
 **.pylintrc**
 ```ini
 [MESSAGES CONTROL]
 per-file-ignores =
-  /folder_1/:missing-function-docstring,W0621,W0240,C0115
+  /folder_1/*:missing-function-docstring,W0621,W0240,C0115
   file.py:C0116,E0001
 ```
 
@@ -65,7 +83,7 @@ per-file-ignores =
 ```ini
 [pylint.MESSAGES CONTROL]
 per-file-ignores =
-  /folder_1/:missing-function-docstring,W0621,W0240,C0115
+  /folder_1/*:missing-function-docstring,W0621,W0240,C0115
   file.py:C0116,E0001
 ```
 
@@ -73,18 +91,19 @@ per-file-ignores =
 ```toml
 [tool.pylint.'messages control']
 per-file-ignores = [
-    "/folder_1/:missing-function-docstring,W0621,W0240,C0115",
+    "/folder_1/*:missing-function-docstring,W0621,W0240,C0115",
     "file.py:C0116,E0001"
 ]
 ```
 
-## Build and Publish
+## Development
+This project uses `uv`.
+To setup a venv for development use
+`python3.14 -m venv venv && pip install uv && uv sync --all-groups && rm -rf venv/`.
+Then use `source .venv/bin/activate` to activate your venv.
 
-This project uses `setuptools` as the dependency management and build tool.
-To publish a new release, follow these steps:
-* Update the version in the `pyproject.toml`
-* Add an entry in the changelog
-* Push a new tag like `vX.X.X` to trigger the release
+## Build and Publish
+Execute the release action with the proper version.
 
 ## Support, Feedback, Contributing
 

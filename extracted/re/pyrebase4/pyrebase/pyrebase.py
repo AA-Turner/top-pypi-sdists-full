@@ -14,8 +14,7 @@ from .pyre_sseclient import SSEClient
 import threading
 import socket
 from oauth2client.service_account import ServiceAccountCredentials
-from gcloud import storage
-from requests_toolbelt.adapters import appengine
+from google.cloud import storage
 from uuid import uuid4
 
 import python_jwt as jwt
@@ -47,13 +46,8 @@ class Firebase:
                 self.credentials = ServiceAccountCredentials.from_json_keyfile_name(config["serviceAccount"], scopes)
             if service_account_type is dict:
                 self.credentials = ServiceAccountCredentials.from_json_keyfile_dict(config["serviceAccount"], scopes)
-        if is_appengine_sandbox():
-            # Fix error in standard GAE environment
-            # is releated to https://github.com/kennethreitz/requests/issues/3187
-            # ProtocolError('Connection aborted.', error(13, 'Permission denied'))
-            adapter = appengine.AppEngineAdapter(max_retries=3)
-        else:
-            adapter = HTTPAdapter()
+        
+        adapter = HTTPAdapter()
 
         for scheme in ('http://', 'https://'):
             self.requests.mount(scheme, adapter)
@@ -186,6 +180,28 @@ class Auth:
         request_ref = "https://identitytoolkit.googleapis.com/v1/accounts:update?key={0}".format(self.api_key)
         headers = {"content-type": "application/json; charset=UTF-8"}
         data = json.dumps({"idToken": id_token, "displayName": display_name, "photoURL": photo_url, "deleteAttribute": delete_attribute, "returnSecureToken": True})
+        request_object = requests.post(request_ref, headers=headers, data=data)
+        raise_detailed_error(request_object)
+        return request_object.json()
+
+    def change_email(self, id_token, new_email, return_secure_token=True):
+        """
+        https://firebase.google.com/docs/reference/rest/auth#section-change-email
+        """
+        request_ref = "https://identitytoolkit.googleapis.com/v1/accounts:update?key={0}".format(self.api_key)
+        headers = {"content-type": "application/json; charset=UTF-8"}
+        data = json.dumps({"idToken": id_token, "email": new_email, "returnSecureToken": return_secure_token})
+        request_object = requests.post(request_ref, headers=headers, data=data)
+        raise_detailed_error(request_object)
+        return request_object.json()
+
+    def change_password(self, id_token, new_password, return_secure_token=True):
+        """
+        https://firebase.google.com/docs/reference/rest/auth#section-change-password
+        """
+        request_ref = "https://identitytoolkit.googleapis.com/v1/accounts:update?key={0}".format(self.api_key)
+        headers = {"content-type": "application/json; charset=UTF-8"}
+        data = json.dumps({"idToken": id_token, "password": new_password, "returnSecureToken": return_secure_token})
         request_object = requests.post(request_ref, headers=headers, data=data)
         raise_detailed_error(request_object)
         return request_object.json()
@@ -474,7 +490,7 @@ class Storage:
             raise_detailed_error(request_object)
             return request_object.json()
         elif self.credentials:
-            blob = self.bucket.blob(path)
+            blob = self.bucket.blob(path,chunk_size=262144)
 
             # Add metadata to enable file previews in console
             blob.metadata = {"firebaseStorageDownloadTokens": str(uuid4())}
@@ -495,7 +511,7 @@ class Storage:
         if self.credentials:
             self.bucket.delete_blob(name)
         else:
-            request_ref = self.storage_bucket + "/o/?name={0}".format(name)
+            request_ref = self.storage_bucket + "/o?name={0}".format(name)
             if token:
                 headers = {"Authorization": "Firebase " + token}
                 request_object = self.requests.delete(request_ref, headers=headers)

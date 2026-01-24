@@ -166,7 +166,7 @@ class PluginType(YAMLEnum):
             if value in {plugin_type.value, plugin_type.singular}:
                 return plugin_type
 
-        raise ValueError(f"{value!r} is not a valid {cls.__name__}")  # noqa: EM102
+        raise ValueError(f"{value!r} is not a valid {cls.__name__}")  # noqa: EM102, TRY003
 
     @classmethod
     def plurals(cls) -> list[str]:
@@ -260,6 +260,9 @@ class PluginRef(Canonical):
 class Variant(NameEq, Canonical):
     """A variant of a plugin."""
 
+    name: str | None
+    deprecated: bool | None
+
     ORIGINAL_NAME = "original"
     DEFAULT_NAME = "default"
 
@@ -281,6 +284,7 @@ class Variant(NameEq, Canonical):
         settings: list | None = None,
         commands: dict | None = None,
         requires: dict[PluginType, list] | None = None,
+        requires_meltano: str | None = None,
         env: dict[str, str] | None = None,
         **extras,  # noqa: ANN003
     ):
@@ -303,6 +307,8 @@ class Variant(NameEq, Canonical):
             settings: The settings of the variant.
             commands: The commands of the variant.
             requires: Other plugins this plugin depends on.
+            requires_meltano: A version specifier for the Meltano version required by
+                this plugin.
             env: Environment variables to inject into plugins runtime context.
             extras: Additional keyword arguments.
         """
@@ -322,6 +328,7 @@ class Variant(NameEq, Canonical):
             settings=list(map(SettingDefinition.parse, settings or [])),
             commands=Command.parse_all(commands),
             requires=PluginRequirement.parse_all(requires),
+            requires_meltano=requires_meltano,
             env=env or {},
             extras=extras,
         )
@@ -422,7 +429,7 @@ class PluginDefinition(PluginRef):
         except NotFound as err:
             raise VariantNotFoundError(self, variant_name) from err
 
-    def find_variant(self, variant_or_name: str | Variant | None = None):  # noqa: ANN201
+    def find_variant(self, variant_or_name: str | Variant | None = None) -> Variant:
         """Find the variant with the given name or variant.
 
         Args:
@@ -445,16 +452,16 @@ class PluginDefinition(PluginRef):
 
         return self.get_variant(variant_or_name)
 
-    def variant_label(self, variant):  # noqa: ANN001, ANN201
+    def variant_label(self, variant_name: str | Variant | None) -> str:
         """Return label for specified variant.
 
         Args:
-            variant: The variant.
+            variant_name: The name of the variant.
 
         Returns:
             The label for the variant.
         """
-        variant = self.find_variant(variant)
+        variant = self.find_variant(variant_name)
 
         label = variant.name or Variant.ORIGINAL_NAME
 
@@ -479,11 +486,13 @@ class PluginDefinition(PluginRef):
     def from_standalone(
         cls: type[PluginDefinition],
         plugin: StandalonePlugin,
+        **extras: t.Any,
     ) -> PluginDefinition:
         """Create a new PluginDefinition from a StandalonePlugin.
 
         Args:
             plugin: The plugin.
+            extras: Additional keyword arguments.
 
         Returns:
             The new PluginDefinition.
@@ -507,8 +516,10 @@ class PluginDefinition(PluginRef):
             settings=plugin.settings,
             commands=plugin.commands,
             requires=plugin.requires,
+            requires_meltano=plugin.requires_meltano,
             env=plugin.env,
             **plugin.extras,
+            **extras,
         )
 
 
@@ -803,6 +814,7 @@ class StandalonePlugin(Canonical):
         settings: list | None = None,
         commands: dict | None = None,
         requires: dict[PluginType, list] | None = None,
+        requires_meltano: str | None = None,
         env: dict[str, str] | None = None,
         **extras,  # noqa: ANN003
     ):
@@ -827,6 +839,8 @@ class StandalonePlugin(Canonical):
             settings: The settings of the plugin.
             commands: The commands of the plugin.
             requires: Other plugins this plugin depends on.
+            requires_meltano: A version specifier for the Meltano version required by
+                this plugin.
             env: Environment variables to inject into plugins runtime context.
             extras: Additional attributes to set on the plugin.
         """
@@ -848,6 +862,7 @@ class StandalonePlugin(Canonical):
             settings=list(map(SettingDefinition.parse, settings or [])),
             commands=Command.parse_all(commands),
             requires=PluginRequirement.parse_all(requires),
+            requires_meltano=requires_meltano,
             env=env or {},
             extras=extras,
         )
@@ -914,6 +929,7 @@ class StandalonePlugin(Canonical):
             settings=variant.settings,
             commands=variant.commands,
             requires=variant.requires,
+            requires_meltano=variant.requires_meltano,
             env=variant.env,
             **{**plugin_def.extras, **variant.extras},
         )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible-sign
-Version: 0.1.2
+Version: 0.1.4
 Summary: Ansible content validation library and CLI
 Author-email: Rick Elrod <relrod@redhat.com>
 License-Expression: MIT
@@ -17,7 +17,6 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -28,22 +27,17 @@ Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
-Requires-Dist: distlib
-Requires-Dist: python-gnupg
-Provides-Extra: docs
-Requires-Dist: sphinx-ansible-theme>=0.10.1; extra == "docs"
-Requires-Dist: sphinx>=3.2.1; extra == "docs"
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: setuptools; extra == "test"
+Requires-Dist: distlib>=0.4.0
+Requires-Dist: python-gnupg>=0.5.2
 Dynamic: license-file
 
 # `ansible-sign`
+
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ansible_ansible-sign&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ansible_ansible-sign)
 
 This is a library and auxiliary CLI tool for dealing with Ansible content
 verification.

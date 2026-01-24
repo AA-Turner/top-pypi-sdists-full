@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests that our test infrastructure is really working!"""
 
@@ -481,5 +481,9 @@ def test_all_our_source_files() -> None:
     for i, (source_file, source) in enumerate(all_our_source_files(), start=1):
         has_toves = (source_file.name == "test_testing.py")  # fmt: skip
         assert (("# Twas brillig " + "and the slithy toves") in source) == has_toves
-        assert len(source) > 190  # tests/__init__.py is shortest at 196
-    assert 100 < i < 140  # currently 120 files
+        # tests/__init__.py is shortest at 196
+        assert len(source) > 190, (
+            f"{source_file} is shorter ({len(source)} bytes) than the expected smallest file"
+        )
+    # currently 119 files
+    assert 100 < i < 140, f"Expected about 118 source files, got {i}"

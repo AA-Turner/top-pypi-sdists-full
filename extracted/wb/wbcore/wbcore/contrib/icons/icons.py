@@ -4,31 +4,26 @@ from types import DynamicClassAttribute
 
 from django.conf import settings
 from django.db.models import TextChoices
-from django.db.models.enums import ChoicesMeta
-
-from wbcore.utils.importlib import import_from_dotted_path
+from django.db.models.enums import ChoicesType
+from django.utils.module_loading import import_string
 
 DEFAULT_ICON_BACKEND = "wbcore.contrib.icons.backends.material.IconBackend"
 FALLBACK_ICON_VALUE = "FALLBACK_ICON"
 
 
-class WBIconMeta(ChoicesMeta):
+class WBIconMeta(ChoicesType):
     """A metaclass for creating a enum choices."""
 
-    def __new__(metacls, classname, bases, classdict, **kwds):
+    def __new__(cls, classname, bases, classdict, **kwds):
         dict.__setitem__(
             classdict, FALLBACK_ICON_VALUE, (FALLBACK_ICON_VALUE, "Fallback Icon")
         )  # add a default member that represent the fallback in case it's not yet implement in the imported backend
-        cls = super().__new__(metacls, classname, bases, classdict, **kwds)
+        cls = super().__new__(cls, classname, bases, classdict, **kwds)
         with suppress(ModuleNotFoundError):
-            setattr(
-                cls,
-                "icon_backend",
-                import_from_dotted_path(getattr(settings, "WBCORE_ICON_BACKEND", DEFAULT_ICON_BACKEND)),
-            )
+            cls.icon_backend = import_string(getattr(settings, "WBCORE_ICON_BACKEND", DEFAULT_ICON_BACKEND))
             icon_backend = cls.icon_backend
             # For each enumeration values, attached an "icon" property to its members
-            for member, value in zip(cls.__members__.values(), cls.values):
+            for member, value in zip(cls.__members__.values(), cls.values, strict=False):
                 member._icon_ = getattr(icon_backend, value, icon_backend.fallback_icon)
         return enum.unique(cls)
 

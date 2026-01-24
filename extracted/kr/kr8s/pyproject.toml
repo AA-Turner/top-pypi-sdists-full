@@ -9,16 +9,17 @@ classifiers = ["Programming Language :: Python :: 3"]
 requires-python = ">=3.9"
 dynamic = ["version"]
 dependencies = [
-    "asyncache>=0.3.1",
     "cryptography>=35",
     "exceptiongroup >= 1.2.0; python_version < '3.12'",
+    "packaging>=23.0",
     "pyyaml>=6.0",
     "python-jsonpath>=0.7.1",
     "anyio>=3.7.0",
     "httpx>=0.24.1",
     "httpx-ws>=0.7.0",
     "python-box>=7.0.1",
-    "typing_extensions>=4.12.2",
+    "typing_extensions>=4.12.2; python_version < '3.12'",
+    "cachetools>=5.2.0",
 ]
 
 [project.urls]
@@ -79,6 +80,7 @@ dev = [
     "sphinxcontrib-mermaid>=0.8.1",
     "sphinx-autoapi>=2.1.0",
     "taskipy>=1.14.1",
+    "sphinx-llm>=0.1.4",
 ]
 
 [tool.ruff]

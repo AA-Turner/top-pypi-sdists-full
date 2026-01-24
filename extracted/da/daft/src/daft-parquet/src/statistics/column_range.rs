@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use arrow2::array::PrimitiveArray;
+use daft_arrow::array::PrimitiveArray;
 use daft_core::prelude::*;
 use daft_stats::ColumnRangeStatistics;
 use parquet2::{
@@ -111,8 +111,8 @@ impl TryFrom<&BinaryStatistics> for Wrap<ColumnRangeStatistics> {
             }
         }
 
-        let lower = BinaryArray::from(("lower", lower.as_slice())).into_series();
-        let upper = BinaryArray::from(("upper", upper.as_slice())).into_series();
+        let lower = BinaryArray::from_values("lower", std::iter::once(lower)).into_series();
+        let upper = BinaryArray::from_values("upper", std::iter::once(upper)).into_series();
 
         Ok(ColumnRangeStatistics::new(Some(lower), Some(upper))?.into())
     }
@@ -235,8 +235,8 @@ impl TryFrom<&FixedLenStatistics> for Wrap<ColumnRangeStatistics> {
             .into());
         }
 
-        let lower = BinaryArray::from(("lower", lower.as_slice())).into_series();
-        let upper = BinaryArray::from(("upper", upper.as_slice())).into_series();
+        let lower = BinaryArray::from_values("lower", std::iter::once(lower)).into_series();
+        let upper = BinaryArray::from_values("upper", std::iter::once(upper)).into_series();
 
         Ok(ColumnRangeStatistics::new(Some(lower), Some(upper))?.into())
     }
@@ -326,12 +326,14 @@ impl<T: parquet2::types::NativeType + daft_core::datatypes::NumericNative>
         // fall back case
         let lower = Series::try_from((
             "lower",
-            Box::new(PrimitiveArray::<T>::from_vec(vec![lower])) as Box<dyn arrow2::array::Array>,
+            Box::new(PrimitiveArray::<T>::from_vec(vec![lower]))
+                as Box<dyn daft_arrow::array::Array>,
         ))
         .unwrap();
         let upper = Series::try_from((
             "upper",
-            Box::new(PrimitiveArray::<T>::from_vec(vec![upper])) as Box<dyn arrow2::array::Array>,
+            Box::new(PrimitiveArray::<T>::from_vec(vec![upper]))
+                as Box<dyn daft_arrow::array::Array>,
         ))
         .unwrap();
 

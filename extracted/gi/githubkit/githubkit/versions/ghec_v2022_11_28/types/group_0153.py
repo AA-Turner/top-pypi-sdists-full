@@ -11,13 +11,20 @@ from __future__ import annotations
 
 from typing_extensions import TypedDict
 
-from .group_0154 import RulesetVersionWithStateAllof1PropStateType
+
+class RepositoryRuleFileExtensionRestrictionPropParametersType(TypedDict):
+    """RepositoryRuleFileExtensionRestrictionPropParameters"""
+
+    restricted_file_extensions: list[str]
 
 
-class RulesetVersionWithStateAllof1Type(TypedDict):
-    """RulesetVersionWithStateAllof1"""
+class RepositoryRuleFileExtensionRestrictionPropParametersTypeForResponse(TypedDict):
+    """RepositoryRuleFileExtensionRestrictionPropParameters"""
 
-    state: RulesetVersionWithStateAllof1PropStateType
+    restricted_file_extensions: list[str]
 
 
-__all__ = ("RulesetVersionWithStateAllof1Type",)
+__all__ = (
+    "RepositoryRuleFileExtensionRestrictionPropParametersType",
+    "RepositoryRuleFileExtensionRestrictionPropParametersTypeForResponse",
+)

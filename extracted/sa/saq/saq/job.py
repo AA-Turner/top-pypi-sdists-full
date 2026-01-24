@@ -8,6 +8,7 @@ import dataclasses
 import enum
 import typing as t
 
+from saq.types import CtxType
 from saq.utils import exponential_backoff, now, seconds, uuid1
 
 
@@ -42,7 +43,7 @@ UNSUCCESSFUL_TERMINAL_STATUSES = TERMINAL_STATUSES - {Status.COMPLETE}
 
 
 @dataclasses.dataclass
-class CronJob:
+class CronJob(t.Generic[CtxType]):
     """
     Allows scheduling of repeated jobs with cron syntax.
 
@@ -59,7 +60,7 @@ class CronJob:
     * ttl
     """
 
-    function: Function
+    function: Function[CtxType]
     cron: str
     unique: bool = True
     timeout: int | None = None
@@ -136,6 +137,7 @@ class Job:
     priority: int = 0
     group_key: str | None = None
     meta: dict[t.Any, t.Any] = dataclasses.field(default_factory=dict)
+    worker_id: str | None = None
 
     _EXCLUDE_NON_FULL = {
         "kwargs",

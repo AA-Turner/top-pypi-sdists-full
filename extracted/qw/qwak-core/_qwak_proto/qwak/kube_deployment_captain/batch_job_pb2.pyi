@@ -509,10 +509,15 @@ class ModelIdentifier(google.protobuf.message.Message):
     BUILD_ID_FIELD_NUMBER: builtins.int
     BRANCH_ID_FIELD_NUMBER: builtins.int
     MODEL_UUID_FIELD_NUMBER: builtins.int
+    MODEL_GROUP_NAME_FIELD_NUMBER: builtins.int
     model_id: builtins.str
     build_id: builtins.str
     branch_id: builtins.str
     model_uuid: builtins.str
+    model_group_name: builtins.str
+    """the model group this model belongs to. Currently model group name is identical to the project name for jfrog flows.
+    in case this changes, the project name should not be assigned to the model group name anymore.
+    """
     def __init__(
         self,
         *,
@@ -520,8 +525,9 @@ class ModelIdentifier(google.protobuf.message.Message):
         build_id: builtins.str = ...,
         branch_id: builtins.str = ...,
         model_uuid: builtins.str = ...,
+        model_group_name: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["branch_id", b"branch_id", "build_id", b"build_id", "model_id", b"model_id", "model_uuid", b"model_uuid"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["branch_id", b"branch_id", "build_id", b"build_id", "model_group_name", b"model_group_name", "model_id", b"model_id", "model_uuid", b"model_uuid"]) -> None: ...
 
 global___ModelIdentifier = ModelIdentifier
 
@@ -572,6 +578,7 @@ class InferenceTaskConfigurationMessage(google.protobuf.message.Message):
     SERVICE_ACCOUNT_JSON_KEY_SECRET_FIELD_NUMBER: builtins.int
     IS_POINT_FILE_PATH_FIELD_NUMBER: builtins.int
     LIST_FILES_PRE_STEP_CONFIGURATION_FIELD_NUMBER: builtins.int
+    SESSION_TOKEN_FIELD_NUMBER: builtins.int
     source_bucket: builtins.str
     """The source bucket in cloud storage"""
     destination_bucket: builtins.str
@@ -600,6 +607,8 @@ class InferenceTaskConfigurationMessage(google.protobuf.message.Message):
     @property
     def list_files_pre_step_configuration(self) -> global___ListFilesPreStepConfiguration:
         """Optional pre step configuration, used to list files in the source directory and run inference on subset of files"""
+    session_token: builtins.str
+    """the session token required to use the bucket for batch inference"""
     def __init__(
         self,
         *,
@@ -616,9 +625,10 @@ class InferenceTaskConfigurationMessage(google.protobuf.message.Message):
         service_account_json_key_secret: builtins.str = ...,
         is_point_file_path: builtins.bool = ...,
         list_files_pre_step_configuration: global___ListFilesPreStepConfiguration | None = ...,
+        session_token: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["list_files_pre_step_configuration", b"list_files_pre_step_configuration"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["cloud_provider", b"cloud_provider", "destination_bucket", b"destination_bucket", "destination_path", b"destination_path", "filepath", b"filepath", "input_file_type", b"input_file_type", "is_point_file_path", b"is_point_file_path", "list_files_pre_step_configuration", b"list_files_pre_step_configuration", "output_file_type", b"output_file_type", "parameters", b"parameters", "secret_secret", b"secret_secret", "service_account_json_key_secret", b"service_account_json_key_secret", "source_bucket", b"source_bucket", "token_secret", b"token_secret"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["cloud_provider", b"cloud_provider", "destination_bucket", b"destination_bucket", "destination_path", b"destination_path", "filepath", b"filepath", "input_file_type", b"input_file_type", "is_point_file_path", b"is_point_file_path", "list_files_pre_step_configuration", b"list_files_pre_step_configuration", "output_file_type", b"output_file_type", "parameters", b"parameters", "secret_secret", b"secret_secret", "service_account_json_key_secret", b"service_account_json_key_secret", "session_token", b"session_token", "source_bucket", b"source_bucket", "token_secret", b"token_secret"]) -> None: ...
 
 global___InferenceTaskConfigurationMessage = InferenceTaskConfigurationMessage
 

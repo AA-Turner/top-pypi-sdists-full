@@ -120,12 +120,25 @@ class PriceCalculation:
 @dataclass(repr=False)
 class ExtractedUsage:
     usage: Usage
-    model: ModelInfo = dataclasses.field(repr=False)
+    model: ModelInfo | None = dataclasses.field(repr=False)
     provider: Provider = dataclasses.field(repr=False)
     auto_update_timestamp: datetime | None
 
-    def calc_price(self, genai_request_timestamp: datetime | None = None) -> PriceCalculation:
-        return self.model.calc_price(
+    def calc_price(
+        self, *, genai_request_timestamp: datetime | None = None, model: ModelInfo | None = None
+    ) -> PriceCalculation:
+        """Calculate the price for the given usage.
+
+        Args:
+            genai_request_timestamp: The timestamp of the request to the GenAI service, use `None` to use the current
+                time.
+            model: The model to calculate the price for, if `None` the model from the response data is used.
+        """
+        model = model or self.model
+        if model is None:
+            raise ValueError('No model reference found in response data and model not provided')
+
+        return model.calc_price(
             self.usage,
             self.provider,
             genai_request_timestamp=genai_request_timestamp,
@@ -136,10 +149,43 @@ class ExtractedUsage:
         return (
             'ExtractedUsage('
             f'usage={self.usage!r}, '
-            f'model={self.model.summary()}, '
+            f'model={self.model.summary() if self.model else None}, '
             f'provider={self.provider.summary()}, '
             f'auto_update_timestamp={self.auto_update_timestamp!r})'
         )
+
+    def __add__(self, other: ExtractedUsage | Any) -> ExtractedUsage:
+        """Accumulate inner Usage, handling nullable usage fields.
+
+        Accumulating usage is useful for common streaming situations where user wants to save and compute costs for
+        all the response chunks in a stream
+
+        Args:
+              other: The usage to accumulate with this usage extraction instance.
+        """
+
+        if not isinstance(other, ExtractedUsage):
+            return NotImplemented  # will raise a TypeError
+
+        models_match = self.model and other.model and other.model.id == self.model.id
+        if not models_match:
+            raise ValueError(f'Cannot add {other} to {self}, models do not match {other.model} != {self.model}')
+
+        providers_match = self.provider and other.provider and other.provider.id == self.provider.id
+        if not providers_match:
+            raise ValueError(
+                f'Cannot add {other} to {self}, providers do not match {other.provider} != {self.provider}'
+            )
+
+        return ExtractedUsage(
+            model=self.model,
+            provider=self.provider,
+            auto_update_timestamp=self.auto_update_timestamp,
+            usage=self.usage + other.usage,
+        )
+
+    def __radd__(self, other: ExtractedUsage | Any) -> ExtractedUsage:
+        return self + other
 
 
 class AbstractUsage(Protocol):
@@ -147,7 +193,7 @@ class AbstractUsage(Protocol):
 
     @property
     def input_tokens(self) -> int | None:
-        """Total number of text input/prompt tokens.
+        """Total number of input/prompt tokens.
 
         Note this should INCLUDE both uncached and cached tokens.
         """
@@ -165,7 +211,7 @@ class AbstractUsage(Protocol):
 
     @property
     def output_tokens(self) -> int | None:
-        """Number of text output/completion tokens."""
+        """Number of output/completion tokens."""
 
     @property
     def input_audio_tokens(self) -> int | None:
@@ -185,7 +231,7 @@ class Usage:
     """Simple implementation of `AbstractUsage` as a dataclass."""
 
     input_tokens: int | None = None
-    """Number of text input/prompt tokens."""
+    """Number of input/prompt tokens."""
 
     cache_write_tokens: int | None = None
     """Number of tokens written to the cache."""
@@ -193,7 +239,7 @@ class Usage:
     """Number of tokens read from the cache."""
 
     output_tokens: int | None = None
-    """Number of text output/completion tokens."""
+    """Number of output/completion tokens."""
 
     input_audio_tokens: int | None = None
     """Number of audio input tokens."""
@@ -201,6 +247,23 @@ class Usage:
     """Number of audio tokens read from the cache."""
     output_audio_tokens: int | None = None
     """Number of output audio tokens."""
+
+    def __add__(self, other: Usage | Any) -> Usage:
+        if not isinstance(other, Usage):
+            return NotImplemented
+
+        def _add_option(a: int | None, b: int | None) -> int | None:
+            return None if a is b is None else (a or 0) + (b or 0)
+
+        return Usage(
+            **{
+                field.name: _add_option(getattr(self, field.name), getattr(other, field.name))
+                for field in dataclasses.fields(self)
+            }
+        )
+
+    def __radd__(self, other: Usage) -> Usage:
+        return self + other
 
 
 @dataclass
@@ -225,17 +288,30 @@ class Provider:
     """Logic to find a provider based on the provider identifier."""
     extractors: list[UsageExtractor] | None = None
     """Logic to extract usage information from the provider's API responses."""
+    fallback_model_providers: list[str] | None = None
+    """List of provider identifiers to fallback to to get prices if this provider doesn't have a price.
+
+    This is used when one provider offers another provider's models, e.g. Google and AWS offer Anthropic models,
+    Azure offers OpenAI models, etc.
+    """
     models: list[ModelInfo] = dataclasses.field(default_factory=list)
     """List of models supported by this provider"""
 
-    def find_model(self, model_ref: str) -> ModelInfo | None:
+    def find_model(self, model_ref: str, *, all_providers: list[Provider] | None = None) -> ModelInfo | None:
         model_ref = model_ref.lower()
         for model in self.models:
             if model.is_match(model_ref):
                 return model
+        if self.fallback_model_providers and all_providers:
+            for provider_id in self.fallback_model_providers:
+                provider = next(p for p in all_providers if p.id == provider_id)
+                if provider:
+                    # don't pass all_providers when falling back, so we can only have one step of fallback
+                    if model := provider.find_model(model_ref):
+                        return model
         return None
 
-    def extract_usage(self, response_data: Any, *, api_flavor: str | None = None) -> tuple[str, Usage]:
+    def extract_usage(self, response_data: Any, *, api_flavor: str = 'default') -> tuple[str | None, Usage]:
         """Extract model name and usage information from a response.
 
         Args:
@@ -251,17 +327,11 @@ class Provider:
         if self.extractors is None:
             raise ValueError('No extraction logic defined for this provider')
 
-        if api_flavor is None:
-            if len(self.extractors) == 1:
-                extractor = self.extractors[0]
-            else:
-                raise ValueError('No api_flavor specified and multiple extractors available')
-        else:
-            try:
-                extractor = next(e for e in self.extractors if e.api_flavor == api_flavor)
-            except StopIteration as e:
-                fs = ', '.join(e.api_flavor for e in self.extractors)
-                raise ValueError(f'Unknown api_flavor {api_flavor!r}, allowed values: {fs}') from e
+        try:
+            extractor = next(e for e in self.extractors if e.api_flavor == api_flavor)
+        except StopIteration as e:
+            fs = ', '.join(e.api_flavor for e in self.extractors)
+            raise ValueError(f'Unknown api_flavor {api_flavor!r}, allowed values: {fs}') from e
 
         return extractor.extract(response_data)
 
@@ -308,7 +378,7 @@ class UsageExtractor:
     model_path: ExtractPath = 'model'
     """Path to the model name in the response."""
 
-    def extract(self, response_data: Any) -> tuple[str, Usage]:
+    def extract(self, response_data: Any) -> tuple[str | None, Usage]:
         """Extract model name and usage information from a response.
 
         Args:
@@ -320,7 +390,7 @@ class UsageExtractor:
         Returns:
             tuple[str, Usage]: The extracted model name and usage information.
         """
-        model_name = _extract_path(self.model_path, response_data, str, True, [])
+        model_name = _extract_path(self.model_path, response_data, str, False, [])
 
         root = self.root
         if isinstance(root, str):
@@ -374,9 +444,12 @@ def _extract_path(
         error_path.append(step)
         if isinstance(step, ArrayMatch):
             if not _is_sequence(data):
-                raise ValueError(
-                    f'Expected `{_dot_path(data_path, error_path)}` value to be a sequence, got {_type_name(data)}'
-                )
+                if required:
+                    raise ValueError(
+                        f'Expected `{_dot_path(data_path, error_path)}` value to be a sequence, got {_type_name(data)}'
+                    )
+                else:
+                    return None
             if extracted_data := step.extract(data):
                 data = extracted_data
             elif required:
@@ -396,6 +469,9 @@ def _extract_path(
                 else:
                     return None
 
+    if data is None and not required:
+        return None
+
     if not _is_mapping(data):
         raise ValueError(f'Expected `{_dot_path(data_path, error_path)}` value to be a dict, got {_type_name(data)}')
 
@@ -410,7 +486,7 @@ def _extract_path(
     else:
         if isinstance(value, extract_type):
             return value
-        else:
+        elif required:
             error_path.append(last)
             raise ValueError(
                 f'Expected `{_dot_path(data_path, error_path)}` value to be a {extract_type.__name__}, got {_type_name(value)}'
@@ -460,7 +536,7 @@ class ModelInfo:
     """
 
     def is_match(self, model_ref: str) -> bool:
-        return self.match.is_match(model_ref)
+        return self.match.is_match(model_ref.lower())
 
     def get_prices(self, request_timestamp: datetime) -> ModelPrice:
         if isinstance(self.prices, ModelPrice):
@@ -535,22 +611,43 @@ class ModelPrice:
         input_price = Decimal(0)
         output_price = Decimal(0)
 
-        if uncached_input_tokens := usage.input_tokens:
-            if cache_write_tokens := usage.cache_write_tokens:
-                uncached_input_tokens -= cache_write_tokens
-            if cache_read_tokens := usage.cache_read_tokens:
-                uncached_input_tokens -= cache_read_tokens
+        # Calculate total input tokens for tier determination
+        total_input_tokens = usage.input_tokens or 0
 
-            if uncached_input_tokens < 0:
-                raise ValueError('uncached_input_tokens cannot be negative')
-            input_price += calc_mtok_price(self.input_mtok, uncached_input_tokens)
+        uncached_audio_input_tokens = usage.input_audio_tokens or 0
+        if cache_audio_read_tokens := (usage.cache_audio_read_tokens or 0):
+            uncached_audio_input_tokens -= cache_audio_read_tokens
 
-        input_price += calc_mtok_price(self.cache_write_mtok, usage.cache_write_tokens)
-        input_price += calc_mtok_price(self.cache_read_mtok, usage.cache_read_tokens)
-        output_price += calc_mtok_price(self.output_mtok, usage.output_tokens)
-        input_price += calc_mtok_price(self.input_audio_mtok, usage.input_audio_tokens)
-        input_price += calc_mtok_price(self.cache_audio_read_mtok, usage.cache_audio_read_tokens)
-        output_price += calc_mtok_price(self.output_audio_mtok, usage.output_audio_tokens)
+        if uncached_audio_input_tokens < 0:
+            raise ValueError('cache_audio_read_tokens cannot be greater than input_audio_tokens')
+        input_price += calc_mtok_price(self.input_audio_mtok, uncached_audio_input_tokens, total_input_tokens)
+
+        uncached_text_input_tokens = usage.input_tokens or 0
+        uncached_text_input_tokens -= uncached_audio_input_tokens
+        if cache_write_tokens := usage.cache_write_tokens:
+            uncached_text_input_tokens -= cache_write_tokens
+        if cache_read_tokens := usage.cache_read_tokens:
+            uncached_text_input_tokens -= cache_read_tokens
+
+        if uncached_text_input_tokens < 0:
+            raise ValueError('Uncached text input tokens cannot be negative')
+        input_price += calc_mtok_price(self.input_mtok, uncached_text_input_tokens, total_input_tokens)
+        input_price += calc_mtok_price(self.cache_write_mtok, usage.cache_write_tokens, total_input_tokens)
+
+        cached_text_input_tokens = usage.cache_read_tokens or 0
+        cached_text_input_tokens -= cache_audio_read_tokens
+
+        if cached_text_input_tokens < 0:
+            raise ValueError('cache_audio_read_tokens cannot be greater than cache_read_tokens')
+        input_price += calc_mtok_price(self.cache_read_mtok, cached_text_input_tokens, total_input_tokens)
+        input_price += calc_mtok_price(self.cache_audio_read_mtok, usage.cache_audio_read_tokens, total_input_tokens)
+
+        text_output_tokens = usage.output_tokens or 0
+        text_output_tokens -= usage.output_audio_tokens or 0
+        if text_output_tokens < 0:
+            raise ValueError('output_audio_tokens cannot be greater than output_tokens')
+        output_price += calc_mtok_price(self.output_mtok, text_output_tokens, total_input_tokens)
+        output_price += calc_mtok_price(self.output_audio_mtok, usage.output_audio_tokens, total_input_tokens)
 
         total_price = input_price + output_price
 
@@ -576,19 +673,32 @@ class ModelPrice:
         return ', '.join(parts)
 
 
-def calc_mtok_price(field_mtok: Decimal | TieredPrices | None, token_count: int | None) -> Decimal:
-    """Calculate the price for a given number of tokens based on the price in USD per million tokens (mtok)."""
+def calc_mtok_price(
+    field_mtok: Decimal | TieredPrices | None, token_count: int | None, total_input_tokens: int
+) -> Decimal:
+    """Calculate the price for a given number of tokens based on the price in USD per million tokens (mtok).
+
+    For tiered pricing, uses threshold-based pricing where crossing a tier applies that rate to ALL tokens.
+    This is the industry standard used by Anthropic, Google, OpenAI, and most other providers.
+
+    Args:
+        field_mtok: Price per million tokens, either flat rate or tiered
+        token_count: Number of tokens of this specific type to price
+        total_input_tokens: Total input tokens for tier determination (used only for tiered pricing)
+    """
     if field_mtok is None or token_count is None:
         return Decimal(0)
 
     if isinstance(field_mtok, TieredPrices):
-        price = Decimal(0)
-        remaining = token_count
+        # Threshold-based pricing: tier is determined by total_input_tokens
+        # Find the highest tier that applies based on total input tokens
+        # When total_input_tokens is 0, no tier condition is met, so base rate is used
+        applicable_price = field_mtok.base
         for tier in reversed(field_mtok.tiers):
-            if remaining > tier.start:
-                price += tier.price * (remaining - tier.start)
-                remaining = tier.start
-        price += field_mtok.base * remaining
+            if total_input_tokens > tier.start:
+                applicable_price = tier.price
+                break
+        price = applicable_price * token_count
     else:
         price = field_mtok * token_count
     return price / 1_000_000
@@ -596,12 +706,24 @@ def calc_mtok_price(field_mtok: Decimal | TieredPrices | None, token_count: int 
 
 @dataclass
 class TieredPrices:
-    """Pricing model when the amount paid varies by number of tokens"""
+    """Pricing model when the amount paid varies by number of tokens.
+
+    Uses threshold-based pricing where crossing a tier applies that rate to ALL tokens.
+    This is the industry standard "cliff" model used by most providers (Anthropic, Google, OpenAI, etc.).
+
+    Example: For a tier starting at 200K tokens:
+    - Using 199,999 tokens: all tokens pay base rate
+    - Using 200,001 tokens: all tokens pay tier rate (not just the tokens above 200K)
+    """
 
     base: Decimal
-    """Based price in USD per million tokens, e.g. price until the first tier."""
+    """Base price in USD per million tokens, e.g. price until the first tier."""
     tiers: list[Tier]
     """Extra price tiers."""
+
+    def __post_init__(self) -> None:
+        """Ensure tiers are sorted in ascending order by start threshold."""
+        self.tiers.sort(key=lambda tier: tier.start)
 
 
 @dataclass
@@ -660,7 +782,7 @@ class ClauseStartsWith:
     starts_with: str
 
     def is_match(self, text: str) -> bool:
-        return text.startswith(self.starts_with)
+        return text.lower().startswith(self.starts_with.lower())
 
 
 @dataclass
@@ -668,7 +790,7 @@ class ClauseEndsWith:
     ends_with: str
 
     def is_match(self, text: str) -> bool:
-        return text.endswith(self.ends_with)
+        return text.lower().endswith(self.ends_with.lower())
 
 
 @dataclass
@@ -676,7 +798,7 @@ class ClauseContains:
     contains: str
 
     def is_match(self, text: str) -> bool:
-        return self.contains in text
+        return self.contains.lower() in text.lower()
 
 
 @dataclass
@@ -692,7 +814,7 @@ class ClauseEquals:
     equals: str
 
     def is_match(self, text: str) -> bool:
-        return text == self.equals
+        return text.lower() == self.equals.lower()
 
 
 @dataclass

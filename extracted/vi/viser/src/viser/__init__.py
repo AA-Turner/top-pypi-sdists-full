@@ -33,6 +33,7 @@ from ._scene_handles import BatchedGlbHandle as BatchedGlbHandle
 from ._scene_handles import BatchedMeshHandle as BatchedMeshHandle
 from ._scene_handles import BoxHandle as BoxHandle
 from ._scene_handles import CameraFrustumHandle as CameraFrustumHandle
+from ._scene_handles import CylinderHandle as CylinderHandle
 from ._scene_handles import DirectionalLightHandle as DirectionalLightHandle
 from ._scene_handles import FrameHandle as FrameHandle
 from ._scene_handles import GaussianSplatHandle as GaussianSplatHandle
@@ -60,6 +61,7 @@ from ._scene_handles import TransformControlsEvent as TransformControlsEvent
 from ._scene_handles import TransformControlsHandle as TransformControlsHandle
 from ._viser import CameraHandle as CameraHandle
 from ._viser import ClientHandle as ClientHandle
+from ._viser import InitialCameraConfig as InitialCameraConfig
 from ._viser import ViserServer as ViserServer
 
-__version__ = "1.0.10"
+__version__ = "1.0.21"

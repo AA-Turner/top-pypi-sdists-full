@@ -1032,8 +1032,11 @@ ParameterDeclarationBaseSyntax& Parser::parseParameterDecl(Token keyword, Token*
         else {
             while (true) {
                 decls.push_back(&parseTypeAssignment());
-                if (!peek(TokenKind::Comma) || peek(1).kind != TokenKind::Identifier ||
-                    (peek(2).kind != TokenKind::Equals && peek(2).kind != TokenKind::Comma)) {
+                if (!peek(TokenKind::Comma) || peek(1).kind != TokenKind::Identifier)
+                    break;
+
+                if (auto nk = peek(2).kind; nk != TokenKind::Comma && nk != TokenKind::Equals &&
+                                            nk != TokenKind::CloseParenthesis) {
                     break;
                 }
 
@@ -1046,6 +1049,11 @@ ParameterDeclarationBaseSyntax& Parser::parseParameterDecl(Token keyword, Token*
     }
     else {
         auto& type = parseDataType(TypeOptions::AllowImplicit);
+        if (!keyword && type.kind == SyntaxKind::ImplicitType) {
+            auto& its = type.as<ImplicitTypeSyntax>();
+            if (its.signing || !its.dimensions.empty())
+                addDiag(diag::ImplicitParamTypeKeyword, type.sourceRange());
+        }
 
         // If the semi pointer is given, we should parse a simple list of decls.
         // Otherwise we're in a parameter port list and don't know if we'll encounter

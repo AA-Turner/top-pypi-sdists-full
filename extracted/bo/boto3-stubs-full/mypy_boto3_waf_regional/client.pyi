@@ -3,7 +3,7 @@ Type annotations for waf-regional service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_waf_regional/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -182,12 +183,6 @@ from .type_defs import (
     UpdateXssMatchSetResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -196,27 +191,27 @@ else:
 __all__ = ("WAFRegionalClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    WAFBadRequestException: Type[BotocoreClientError]
-    WAFDisallowedNameException: Type[BotocoreClientError]
-    WAFEntityMigrationException: Type[BotocoreClientError]
-    WAFInternalErrorException: Type[BotocoreClientError]
-    WAFInvalidAccountException: Type[BotocoreClientError]
-    WAFInvalidOperationException: Type[BotocoreClientError]
-    WAFInvalidParameterException: Type[BotocoreClientError]
-    WAFInvalidPermissionPolicyException: Type[BotocoreClientError]
-    WAFInvalidRegexPatternException: Type[BotocoreClientError]
-    WAFLimitsExceededException: Type[BotocoreClientError]
-    WAFNonEmptyEntityException: Type[BotocoreClientError]
-    WAFNonexistentContainerException: Type[BotocoreClientError]
-    WAFNonexistentItemException: Type[BotocoreClientError]
-    WAFReferencedItemException: Type[BotocoreClientError]
-    WAFServiceLinkedRoleErrorException: Type[BotocoreClientError]
-    WAFStaleDataException: Type[BotocoreClientError]
-    WAFSubscriptionNotFoundException: Type[BotocoreClientError]
-    WAFTagOperationException: Type[BotocoreClientError]
-    WAFTagOperationInternalErrorException: Type[BotocoreClientError]
-    WAFUnavailableEntityException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    WAFBadRequestException: type[BotocoreClientError]
+    WAFDisallowedNameException: type[BotocoreClientError]
+    WAFEntityMigrationException: type[BotocoreClientError]
+    WAFInternalErrorException: type[BotocoreClientError]
+    WAFInvalidAccountException: type[BotocoreClientError]
+    WAFInvalidOperationException: type[BotocoreClientError]
+    WAFInvalidParameterException: type[BotocoreClientError]
+    WAFInvalidPermissionPolicyException: type[BotocoreClientError]
+    WAFInvalidRegexPatternException: type[BotocoreClientError]
+    WAFLimitsExceededException: type[BotocoreClientError]
+    WAFNonEmptyEntityException: type[BotocoreClientError]
+    WAFNonexistentContainerException: type[BotocoreClientError]
+    WAFNonexistentItemException: type[BotocoreClientError]
+    WAFReferencedItemException: type[BotocoreClientError]
+    WAFServiceLinkedRoleErrorException: type[BotocoreClientError]
+    WAFStaleDataException: type[BotocoreClientError]
+    WAFSubscriptionNotFoundException: type[BotocoreClientError]
+    WAFTagOperationException: type[BotocoreClientError]
+    WAFTagOperationInternalErrorException: type[BotocoreClientError]
+    WAFUnavailableEntityException: type[BotocoreClientError]
 
 class WAFRegionalClient(BaseClient):
     """
@@ -253,7 +248,7 @@ class WAFRegionalClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_waf_regional/client/#generate_presigned_url)
         """
 
-    def associate_web_acl(self, **kwargs: Unpack[AssociateWebACLRequestTypeDef]) -> Dict[str, Any]:
+    def associate_web_acl(self, **kwargs: Unpack[AssociateWebACLRequestTypeDef]) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic Regional</b> documentation.
 
@@ -422,7 +417,7 @@ class WAFRegionalClient(BaseClient):
 
     def delete_logging_configuration(
         self, **kwargs: Unpack[DeleteLoggingConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic</b> documentation.
 
@@ -432,7 +427,7 @@ class WAFRegionalClient(BaseClient):
 
     def delete_permission_policy(
         self, **kwargs: Unpack[DeletePermissionPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic</b> documentation.
 
@@ -530,7 +525,7 @@ class WAFRegionalClient(BaseClient):
 
     def disassociate_web_acl(
         self, **kwargs: Unpack[DisassociateWebACLRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic Regional</b> documentation.
 
@@ -898,7 +893,7 @@ class WAFRegionalClient(BaseClient):
 
     def put_permission_policy(
         self, **kwargs: Unpack[PutPermissionPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic</b> documentation.
 
@@ -906,7 +901,7 @@ class WAFRegionalClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_waf_regional/client/#put_permission_policy)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic</b> documentation.
 
@@ -914,7 +909,7 @@ class WAFRegionalClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_waf_regional/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic</b> documentation.
 

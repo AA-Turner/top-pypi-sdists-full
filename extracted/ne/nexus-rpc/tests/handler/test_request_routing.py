@@ -1,10 +1,11 @@
-from typing import Any, Callable, Type, cast
+from typing import Any, Callable, cast
 
 import pytest
+from typing_extensions import dataclass_transform
 
 import nexusrpc
 from nexusrpc import LazyValue
-from nexusrpc._util import get_operation_factory, get_service_definition
+from nexusrpc._util import get_operation, get_service_definition
 from nexusrpc.handler import (
     Handler,
     StartOperationContext,
@@ -12,24 +13,28 @@ from nexusrpc.handler import (
     sync_operation,
 )
 from nexusrpc.handler._common import StartOperationResultSync
+from tests.helpers import DummySerializer, TestOperationTaskCancellation
 
-from ..helpers import DummySerializer
+
+@dataclass_transform()
+class _BaseTestCase:
+    pass
 
 
-class _TestCase:
-    UserService: Type[Any]
+class _TestCase(_BaseTestCase):
+    UserService: type[Any]
     # (service_name, op_name)
     supported_request: tuple[str, str]
 
     class UserServiceHandler:
-        op: Callable[..., Any]
+        op: Callable[..., Any] = lambda: None
 
-        async def _op_impl(self, ctx: StartOperationContext, input: None) -> bool:
+        async def _op_impl(self, ctx: StartOperationContext, _input: None) -> bool:
             assert (service_defn := get_service_definition(self.__class__))
             assert ctx.service == service_defn.name
-            _, op_handler_op_defn = get_operation_factory(self.op)
+            op_handler_op_defn = get_operation(self.op)
             assert op_handler_op_defn
-            assert service_defn.operations.get(ctx.operation)
+            assert service_defn.operation_definitions.get(ctx.operation)
             return True
 
 
@@ -108,6 +113,7 @@ async def test_request_routing_with_service_definition(
         operation=request_op,
         headers={},
         request_id="request-id",
+        task_cancellation=TestOperationTaskCancellation(),
     )
     handler = Handler(user_service_handlers=[test_case.UserServiceHandler()])
     result = await handler.start_operation(
@@ -175,6 +181,7 @@ async def test_request_routing_without_service_definition(
         operation=request_op,
         headers={},
         request_id="request-id",
+        task_cancellation=TestOperationTaskCancellation(),
     )
     handler = Handler(user_service_handlers=[test_case.UserServiceHandler()])
     result = await handler.start_operation(

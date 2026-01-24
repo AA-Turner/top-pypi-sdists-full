@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from typing import Any, ClassVar, Generic, Literal, Never, TypeAlias, overload, type_check_only
-from typing_extensions import TypeIs, TypeVar, override
+from typing_extensions import TypeAliasType, TypeIs, TypeVar, override
 
 import numpy as np
 import numpy.typing as npt
@@ -26,9 +26,11 @@ _ScalarT_co = TypeVar("_ScalarT_co", bound=npc.number | np.bool_, default=Any, c
 _ToMatrixPy: TypeAlias = Sequence[_T] | Sequence[Sequence[_T]]
 _ToMatrix: TypeAlias = _spbase[_ScalarT] | onp.CanArrayND[_ScalarT] | Sequence[onp.CanArrayND[_ScalarT]] | _ToMatrixPy[_ScalarT]
 
-_ToData2: TypeAlias = tuple[onp.ArrayND[_ScalarT], onp.ArrayND[npc.integer]]
-_ToData3: TypeAlias = tuple[onp.ArrayND[_ScalarT], onp.ArrayND[npc.integer], onp.ArrayND[npc.integer]]
-_ToData: TypeAlias = _ToData2[_ScalarT] | _ToData3[_ScalarT]
+_ToData2 = TypeAliasType("_ToData2", tuple[onp.ArrayND[_ScalarT], onp.ArrayND[npc.integer]], type_params=(_ScalarT,))
+_ToData3 = TypeAliasType(
+    "_ToData3", tuple[onp.ArrayND[_ScalarT], onp.ArrayND[npc.integer], onp.ArrayND[npc.integer]], type_params=(_ScalarT,)
+)
+_ToData = TypeAliasType("_ToData", _ToData2[_ScalarT] | _ToData3[_ScalarT], type_params=(_ScalarT,))
 
 ###
 
@@ -64,11 +66,10 @@ class _bsr_base(_cs_matrix[_ScalarT_co, tuple[int, int]], _minmax_mixin[_ScalarT
 
     # These raise `NotImplementedError` at runtime (so why inherit from `IndexMixin` then...?)
     @override
-    def __getitem__(self, key: Never, /) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def __getitem__(self, key: Never, /) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
     @override
-    def __setitem__(self, key: Never, val: object, /) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def __setitem__(self, key: Never, val: object, /) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
 
-#
 class bsr_array(_bsr_base[_ScalarT_co], sparray[_ScalarT_co, tuple[int, int]], Generic[_ScalarT_co]):
     # NOTE: These four methods do not exist at runtime.
     # See the relevant comment in `sparse._base._spbase` for more information.

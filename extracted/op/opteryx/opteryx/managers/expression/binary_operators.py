@@ -15,6 +15,7 @@ from orso.types import OrsoTypes
 from pyarrow import compute
 
 from opteryx.compiled import list_ops
+from opteryx.datatypes.intervals import MICROSECONDS_PER_DAY
 from opteryx.third_party.tktech import csimdjson as simdjson
 
 # Initialize simdjson parser once
@@ -94,11 +95,39 @@ def _ip_containment(left: List[Optional[str]], right: List[str]) -> List[Optiona
             A list of boolean values indicating if each corresponding IP in 'left' is in 'right'.
     """
 
-    from opteryx.compiled.functions.ip_address import ip_in_cidr
+    from opteryx.compiled.list_ops import list_ip_in_cidr
+
+    # Normalize the left values to Python str (or None). The compiled
+    # Cython routine expects Python str objects; some readers return bytes
+    # which cause a TypeError inside the extension. Convert bytes/bytearray
+    # and memoryview to str by decoding as utf-8, leave None as-is.
+    def _normalize_ip(v):
+        if v is None:
+            return None
+        # memoryview -> bytes
+        if isinstance(v, memoryview):
+            try:
+                v = v.tobytes()
+            except Exception:
+                v = bytes(v)
+        if isinstance(v, (bytes, bytearray)):
+            try:
+                return v.decode("utf-8")
+            except Exception:
+                return str(v)
+        if not isinstance(v, str):
+            return str(v)
+        return v
 
     try:
-        return ip_in_cidr(left, str(right[0]))
-    except (IndexError, AttributeError, ValueError) as err:
+        normalized_left = [_normalize_ip(v) for v in left]
+        # list_ip_in_cidr expects a numpy.ndarray (dtype=object) of Python str
+        # objects; ensure we pass the correct type to avoid TypeError.
+        import numpy as _numpy
+
+        arr = _numpy.asarray(normalized_left, dtype=object)
+        return list_ip_in_cidr(arr, str(right[0]))
+    except (IndexError, AttributeError, ValueError, TypeError) as err:
         from opteryx.exceptions import IncorrectTypeError
 
         raise IncorrectTypeError(
@@ -153,9 +182,12 @@ def binary_operations(
         # Arrow represents nulls as INT64_MIN
         null_mask = arr64 == numpy.iinfo(numpy.int64).min
         if arr.dtype.name == "timedelta64[D]":
-            result = [(None if is_null else (0, v * 86400)) for v, is_null in zip(arr64, null_mask)]
+            result = [
+                (None if is_null else (0, v * MICROSECONDS_PER_DAY))
+                for v, is_null in zip(arr64, null_mask)
+            ]
         else:
-            result = [(0, v) for v in arr64]
+            result = [(0, v) if not is_null else None for v, is_null in zip(arr64, null_mask)]
         return pyarrow.array(result)
 
     elif operator == "BitwiseOr" and OrsoTypes.VARCHAR in (left_type, right_type):

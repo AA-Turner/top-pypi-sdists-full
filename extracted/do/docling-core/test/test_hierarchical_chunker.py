@@ -1,8 +1,3 @@
-#
-# Copyright IBM Corp. 2024 - 2024
-# SPDX-License-Identifier: MIT
-#
-
 import json
 
 from docling_core.transforms.chunker import HierarchicalChunker
@@ -37,9 +32,7 @@ def test_chunk():
         merge_list_items=True,
     )
     chunks = chunker.chunk(dl_doc=dl_doc)
-    act_data = dict(
-        root=[DocChunk.model_validate(n).export_json_dict() for n in chunks]
-    )
+    act_data = dict(root=[DocChunk.model_validate(n).export_json_dict() for n in chunks])
     _process(
         act_data=act_data,
         exp_path_str="test/data/chunker/0_out_chunks.json",
@@ -64,9 +57,7 @@ def test_chunk_custom_serializer():
     )
 
     chunks = chunker.chunk(dl_doc=dl_doc)
-    act_data = dict(
-        root=[DocChunk.model_validate(n).export_json_dict() for n in chunks]
-    )
+    act_data = dict(root=[DocChunk.model_validate(n).export_json_dict() for n in chunks])
     _process(
         act_data=act_data,
         exp_path_str="test/data/chunker/0b_out_chunks.json",

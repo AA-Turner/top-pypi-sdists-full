@@ -34,9 +34,15 @@ Lookup Functions
 .. autodata:: chemicals.dipole.dipole_moment_all_methods
 
 """
-__all__ = ['dipole_moment',
-           'dipole_moment_methods',
-           'dipole_moment_all_methods']
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+__all__: list[str] = [
+    "dipole_moment",
+    "dipole_moment_all_methods",
+    "dipole_moment_methods",
+]
 
 from chemicals import data_reader as dr
 from chemicals.data_reader import (
@@ -48,30 +54,39 @@ from chemicals.data_reader import (
     retrieve_from_df_dict,
 )
 from chemicals.miscdata import PSI4_2022A
-from chemicals.utils import PY37, can_load_data, mark_numba_incompatible, os_path_join, source_path
+from chemicals.utils import mark_numba_incompatible, os_path_join, source_path
+
+if TYPE_CHECKING:
+    from pandas.core.frame import DataFrame
 
 # %% Register data sources and lazy load them
 
-folder = os_path_join(source_path, 'Misc')
+folder = os_path_join(source_path, "Misc")
 
-CCCBDB = 'CCCBDB'
-MULLER = 'MULLER'
-POLING = 'POLING'
+# Module-level variables for lazy-loaded data
+dipole_data_CCDB: DataFrame
+dipole_data_Muller: DataFrame
+dipole_data_Poling: DataFrame
+dipole_sources: dict[str, DataFrame]
 
-register_df_source(folder, 'Poling Dipole.csv')
-register_df_source(folder, 'cccbdb.nist.gov Dipoles.csv')
-register_df_source(folder, 'Muller Supporting Info Dipoles.csv')
-register_df_source(folder, 'psi4_dipoles.tsv')
+CCCBDB = "CCCBDB"
+MULLER = "MULLER"
+POLING = "POLING"
+
+register_df_source(folder, "Poling Dipole.csv")
+register_df_source(folder, "cccbdb.nist.gov Dipoles.csv")
+register_df_source(folder, "Muller Supporting Info Dipoles.csv")
+register_df_source(folder, "psi4_dipoles.tsv")
 
 
 _dipole_data_loaded = False
 @mark_numba_incompatible
-def _load_dipole_data():
+def _load_dipole_data() -> None:
     global dipole_data_CCDB, dipole_data_Muller, dipole_data_Poling, dipole_sources
-    dipole_data_CCDB = data_source('cccbdb.nist.gov Dipoles.csv')
-    dipole_data_Muller = data_source('Muller Supporting Info Dipoles.csv')
-    dipole_data_Poling = data_source('Poling Dipole.csv')
-    dipole_data_psi4_2022a = data_source('psi4_dipoles.tsv')
+    dipole_data_CCDB = data_source("cccbdb.nist.gov Dipoles.csv")
+    dipole_data_Muller = data_source("Muller Supporting Info Dipoles.csv")
+    dipole_data_Poling = data_source("Poling Dipole.csv")
+    dipole_data_psi4_2022a = data_source("psi4_dipoles.tsv")
     dipole_sources = {
         CCCBDB: dipole_data_CCDB,
         MULLER: dipole_data_Muller,
@@ -79,15 +94,11 @@ def _load_dipole_data():
         PSI4_2022A: dipole_data_psi4_2022a,
     }
 
-if PY37:
-    def __getattr__(name):
-        if name in ('dipole_data_Poling', 'dipole_data_CCDB', 'dipole_data_Muller', 'dipole_data_psi4_2022a'):
-            _load_dipole_data()
-            return globals()[name]
-        raise AttributeError(f"module {__name__} has no attribute {name}")
-else: # pragma: no cover
-    if can_load_data:
+def __getattr__(name: str):
+    if name in ("dipole_data_Poling", "dipole_data_CCDB", "dipole_data_Muller", "dipole_data_psi4_2022a"):
         _load_dipole_data()
+        return globals()[name]
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 # %% Dipole moment functions
 
@@ -95,7 +106,7 @@ dipole_moment_all_methods = (CCCBDB, MULLER, POLING, PSI4_2022A)
 """Tuple of method name keys. See the `dipole` for the actual references"""
 
 @mark_numba_incompatible
-def dipole_moment_methods(CASRN):
+def dipole_moment_methods(CASRN: str) -> list[str]:
     """Return all methods available to obtain the dipole moment for the desired
     chemical.
 
@@ -115,11 +126,11 @@ def dipole_moment_methods(CASRN):
     dipole_moment
     """
     if not _dipole_data_loaded: _load_dipole_data()
-    return list_available_methods_from_df_dict(dipole_sources, CASRN, 'dipole_moment')
+    return list_available_methods_from_df_dict(dipole_sources, CASRN, "dipole_moment")
 
 @mark_numba_incompatible
 def dipole_moment(CASRN, method=None):
-    r'''This function handles the retrieval of a chemical's dipole moment.
+    r"""This function handles the retrieval of a chemical's dipole moment.
     Lookup is based on CASRNs. Will automatically select a data source to use
     if no method is provided; returns None if the data is not available.
 
@@ -187,12 +198,12 @@ def dipole_moment(CASRN, method=None):
        Mintz, et al. "Psi4: An Open-Source Ab Initio Electronic Structure
        Program." WIREs Computational Molecular Science 2, no. 4 (2012): 556-65.
        https://doi.org/10.1002/wcms.93.
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        val, found = database_constant_lookup(CASRN, 'dipole_moment')
+        val, found = database_constant_lookup(CASRN, "dipole_moment")
         if found: return val
     if not _dipole_data_loaded: _load_dipole_data()
     if method:
-        return retrieve_from_df_dict(dipole_sources, CASRN, 'dipole_moment', method)
+        return retrieve_from_df_dict(dipole_sources, CASRN, "dipole_moment", method)
     else:
-        return retrieve_any_from_df_dict(dipole_sources, CASRN, 'dipole_moment')
+        return retrieve_any_from_df_dict(dipole_sources, CASRN, "dipole_moment")

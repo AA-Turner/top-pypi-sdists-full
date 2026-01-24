@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: giddy
-Version: 2.3.6
+Version: 2.3.8
 Summary: PySAL-giddy for exploratory spatiotemporal data analysis
 Maintainer-email: Wei Kang <weikang9009@gmail.com>
 License: BSD 3-Clause
@@ -12,14 +12,16 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: esda>=2.4
-Requires-Dist: libpysal>=4.8
-Requires-Dist: mapclassify>=2.5
-Requires-Dist: quantecon>=0.7
-Requires-Dist: scipy>=1.8
+Requires-Dist: esda<2.9,>=2.7
+Requires-Dist: libpysal>=4.12
+Requires-Dist: mapclassify>=2.7
+Requires-Dist: quantecon>=0.8
+Requires-Dist: scipy>=1.12
+Requires-Dist: seaborn
+Requires-Dist: matplotlib
 Provides-Extra: dev
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
@@ -32,11 +34,10 @@ Requires-Dist: sphinx_bootstrap_theme; extra == "docs"
 Provides-Extra: tests
 Requires-Dist: codecov; extra == "tests"
 Requires-Dist: ipywidgets; extra == "tests"
-Requires-Dist: matplotlib; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"
-Requires-Dist: splot; extra == "tests"
+Dynamic: license-file
 
 PySAL-giddy for exploratory spatiotemporal data analysis
 ============================================
@@ -113,11 +114,13 @@ pip install git+https://github.com/pysal/giddy
 
 #### Requirements
 
-- scipy>=1.8
-- libpysal>=4.8
-- mapclassify>=2.5
-- esda>=2.4
-- quantecon>=0.7
+*see currently supported versions in [`pyproject.toml[dependencies]`](https://github.com/pysal/giddy/blob/main/pyproject.toml)*
+
+- scipy
+- libpysal
+- mapclassify
+- esda
+- quantecon
 
 Contribute
 --------------

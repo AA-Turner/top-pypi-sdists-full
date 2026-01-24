@@ -11,7 +11,7 @@ from .common import import_error_message
 from .common import perform_regression_check
 
 if TYPE_CHECKING:
-    from pytest_datadir import LazyDataDir
+    from pytest_datadir.plugin import LazyDataDir
 
 
 class NDArraysRegressionFixture:
@@ -280,10 +280,10 @@ class NDArraysRegressionFixture:
     def check(
         self,
         data_dict: dict[str, Any],
-        basename: Optional[str] = None,
+        basename: str | None = None,
         fullpath: Optional["os.PathLike[str]"] = None,
-        tolerances: Optional[dict[str, dict[str, float]]] = None,
-        default_tolerance: Optional[dict[str, float]] = None,
+        tolerances: dict[str, dict[str, float]] | None = None,
+        default_tolerance: dict[str, float] | None = None,
     ) -> None:
         """
         Checks a dictionary of NumPy ndarrays, containing only numeric data, against a previously recorded version, or generate a new file.

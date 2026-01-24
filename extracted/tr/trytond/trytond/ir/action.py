@@ -1,5 +1,6 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
+import copy
 import os
 from collections import defaultdict
 from functools import partial
@@ -67,7 +68,10 @@ class Action(DeactivableMixin, ModelSQL, ModelView):
             'Keywords')
     icon = fields.Many2One('ir.ui.icon', 'Icon')
     groups = fields.Many2Many(
-        'ir.action-res.group', 'action', 'group', "Groups")
+        'ir.action-res.group', 'action', 'group', "Groups",
+        filter=[
+            ('active', '=', True),
+            ])
     _groups_cache = Cache('ir.action.get_groups', context=False)
 
     @classmethod
@@ -186,10 +190,10 @@ class ActionKeyword(ModelSQL, ModelView):
             ('graph_open', 'Open Graph'),
             ], string='Keyword', required=True)
     model = fields.Reference('Model', selection='models_get')
-    action = fields.Many2One('ir.action', 'Action',
+    action = fields.Many2One('ir.action', 'Action', required=True,
         ondelete='CASCADE')
     groups = fields.Function(
-        fields.One2Many('res.group', None, "Groups"),
+        fields.Many2Many('res.group', None, None, "Groups"),
         'get_groups', searcher='search_groups')
 
     _get_keyword_cache = Cache(
@@ -270,6 +274,7 @@ class ActionKeyword(ModelSQL, ModelView):
         Action = pool.get('ir.action')
         Menu = pool.get('ir.ui.menu')
         ModelAccess = pool.get('ir.model.access')
+        ModelData = pool.get('ir.model.data')
         User = pool.get('res.user')
         groups = User.get_groups()
         key = (Transaction().language, groups, keyword, tuple(value))
@@ -278,6 +283,7 @@ class ActionKeyword(ModelSQL, ModelView):
             return keywords
         keywords = []
         model, record_id = value
+        Model = pool.get(model)
 
         clause = [
             ('keyword', '=', keyword),
@@ -300,6 +306,12 @@ class ActionKeyword(ModelSQL, ModelView):
         for action_keyword in action_keywords:
             type_ = action_keyword.action.type
             types[type_].append(action_keyword.action.id)
+        if (keyword == 'form_action'
+                and issubclass(Model, ModelSQL)
+                and Model._table_query_materialized()):
+            refresh_action = ModelData.get_id(
+                'ir', 'wizard_model_refresh_materialized')
+            types['ir.action.wizard'].append(refresh_action)
         for type_, action_ids in types.items():
             for value in Action.get_action_values(type_, action_ids):
                 if (type_ == 'ir.action.act_window'
@@ -731,7 +743,10 @@ class ActionReport(
             cls._template_cache.clear()
 
     def get_template_cached(self):
-        return self._template_cache.get(self.id)
+        template = self._template_cache.get(self.id)
+        if template is not None:
+            template = copy.copy(template)
+        return template
 
     def set_template_cached(self, template):
         self._template_cache.set(self.id, template)
@@ -973,7 +988,7 @@ class ActionActWindowView(
             ('model', '=', Eval('model', None)),
             ])
     act_window = fields.Many2One('ir.action.act_window', 'Action',
-            ondelete='CASCADE')
+        required=True, ondelete='CASCADE')
     model = fields.Function(fields.Char("Model"), 'on_change_with_model')
 
     @classmethod
@@ -1069,6 +1084,8 @@ class ActionWizard(
     wiz_name = fields.Char('Wizard name', required=True)
     model = fields.Char('Model')
     window = fields.Boolean('Window', help='Run wizard in a new window.')
+    _get_name_cache = Cache('ir_action_wizard.get_name')
+    _get_models_cache = Cache('ir_action_wizard.get_models')
 
     @staticmethod
     def default_type():
@@ -1076,26 +1093,50 @@ class ActionWizard(
 
     @classmethod
     def get_models(cls, name, action_id=None):
-        # TODO add cache
+        key = (name, action_id)
+        models = cls._get_models_cache.get(key)
+        if models is not None:
+            return set(models)
+
         domain = [
             (cls._action_name, '=', name),
             ]
         if action_id:
             domain.append(('id', '=', action_id))
         actions = cls.search(domain)
-        return {a.model for a in actions if a.model}
+        models = {a.model for a in actions if a.model}
+        cls._get_models_cache.set(key, models)
+        return models
 
     @classmethod
     def get_name(cls, name, model):
-        # TODO add cache
+        key = (name, model)
+        wiz_name = cls._get_name_cache.get(key)
+        if wiz_name is not None:
+            return wiz_name
+        else:
+            wiz_name = name
+
         actions = cls.search([
                 (cls._action_name, '=', name),
-                ('model', '=', model),
-                ], limit=1)
+                ['OR',
+                    ('model', '=', model),
+                    ('model', '=', None),
+                    ],
+                ],
+            order=[('model', 'ASC NULLS LAST')],
+            limit=1)
         if actions:
             action, = actions
-            return action.name
-        return name
+            wiz_name = action.name
+        cls._get_name_cache.set(key, wiz_name)
+        return wiz_name
+
+    @classmethod
+    def on_modification(cls, mode, keywords, field_names=None):
+        super().on_modification(mode, keywords, field_names=field_names)
+        cls._get_name_cache.clear()
+        cls._get_models_cache.clear()
 
 
 class ActionURL(ActionMixin, ModelSQL, ModelView):

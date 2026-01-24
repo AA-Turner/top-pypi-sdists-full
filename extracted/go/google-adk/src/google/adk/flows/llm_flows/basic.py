@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ from typing_extensions import override
 from ...agents.invocation_context import InvocationContext
 from ...events.event import Event
 from ...models.llm_request import LlmRequest
+from ...utils.output_schema_utils import can_use_output_schema_with_tools
 from ._base_llm_processor import BaseLlmRequestProcessor
 
 
@@ -34,17 +35,9 @@ class _BasicLlmRequestProcessor(BaseLlmRequestProcessor):
   async def run_async(
       self, invocation_context: InvocationContext, llm_request: LlmRequest
   ) -> AsyncGenerator[Event, None]:
-    from ...agents.llm_agent import LlmAgent
-
     agent = invocation_context.agent
-    if not isinstance(agent, LlmAgent):
-      return
-
-    llm_request.model = (
-        agent.canonical_model
-        if isinstance(agent.canonical_model, str)
-        else agent.canonical_model.model
-    )
+    model = agent.canonical_model
+    llm_request.model = model if isinstance(model, str) else model.model
     llm_request.config = (
         agent.generate_content_config.model_copy(deep=True)
         if agent.generate_content_config
@@ -54,8 +47,9 @@ class _BasicLlmRequestProcessor(BaseLlmRequestProcessor):
     # support output_schema and tools together. we have a workaround to support
     # both output_schema and tools at the same time. see
     # _output_schema_processor.py for details
-    if agent.output_schema and not agent.tools:
-      llm_request.set_output_schema(agent.output_schema)
+    if agent.output_schema:
+      if not agent.tools or can_use_output_schema_with_tools(model):
+        llm_request.set_output_schema(agent.output_schema)
 
     llm_request.live_connect_config.response_modalities = (
         invocation_context.run_config.response_modalities
@@ -80,6 +74,9 @@ class _BasicLlmRequestProcessor(BaseLlmRequestProcessor):
     )
     llm_request.live_connect_config.session_resumption = (
         invocation_context.run_config.session_resumption
+    )
+    llm_request.live_connect_config.context_window_compression = (
+        invocation_context.run_config.context_window_compression
     )
 
     # TODO: handle tool append here, instead of in BaseTool.process_llm_request.

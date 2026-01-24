@@ -3,7 +3,7 @@ Type annotations for grafana service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_grafana/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -33,12 +34,6 @@ from .literals import (
     WorkspaceStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -149,7 +144,7 @@ class AssociateLicenseRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -159,7 +154,7 @@ class AwsSsoAuthenticationTypeDef(TypedDict):
 
 
 class AuthenticationSummaryTypeDef(TypedDict):
-    providers: List[AuthenticationProviderTypesType]
+    providers: list[AuthenticationProviderTypesType]
     samlConfigurationStatus: NotRequired[SamlConfigurationStatusType]
 
 
@@ -302,8 +297,8 @@ class ListWorkspacesRequestTypeDef(TypedDict):
 
 
 class NetworkAccessConfigurationOutputTypeDef(TypedDict):
-    prefixListIds: List[str]
-    vpceIds: List[str]
+    prefixListIds: list[str]
+    vpceIds: list[str]
 
 
 class NetworkAccessConfigurationTypeDef(TypedDict):
@@ -321,8 +316,8 @@ UserTypeDef = TypedDict(
 
 
 class RoleValuesOutputTypeDef(TypedDict):
-    admin: NotRequired[List[str]]
-    editor: NotRequired[List[str]]
+    admin: NotRequired[list[str]]
+    editor: NotRequired[list[str]]
 
 
 class RoleValuesTypeDef(TypedDict):
@@ -347,8 +342,8 @@ class UpdateWorkspaceConfigurationRequestTypeDef(TypedDict):
 
 
 class VpcConfigurationOutputTypeDef(TypedDict):
-    securityGroupIds: List[str]
-    subnetIds: List[str]
+    securityGroupIds: list[str]
+    subnetIds: list[str]
 
 
 class VpcConfigurationTypeDef(TypedDict):
@@ -401,12 +396,12 @@ class DescribeWorkspaceConfigurationResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListVersionsResponseTypeDef(TypedDict):
-    grafanaVersions: List[str]
+    grafanaVersions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -425,8 +420,8 @@ WorkspaceSummaryTypeDef = TypedDict(
         "grafanaToken": NotRequired[str],
         "licenseType": NotRequired[LicenseTypeType],
         "name": NotRequired[str],
-        "notificationDestinations": NotRequired[List[Literal["SNS"]]],
-        "tags": NotRequired[Dict[str, str]],
+        "notificationDestinations": NotRequired[list[Literal["SNS"]]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -468,14 +463,14 @@ class ListWorkspacesRequestPaginateTypeDef(TypedDict):
 
 class ListWorkspaceServiceAccountTokensResponseTypeDef(TypedDict):
     serviceAccountId: str
-    serviceAccountTokens: List[ServiceAccountTokenSummaryTypeDef]
+    serviceAccountTokens: list[ServiceAccountTokenSummaryTypeDef]
     workspaceId: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListWorkspaceServiceAccountsResponseTypeDef(TypedDict):
-    serviceAccounts: List[ServiceAccountSummaryTypeDef]
+    serviceAccounts: list[ServiceAccountSummaryTypeDef]
     workspaceId: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -494,7 +489,7 @@ class PermissionEntryTypeDef(TypedDict):
 class UpdateInstructionOutputTypeDef(TypedDict):
     action: UpdateActionType
     role: RoleType
-    users: List[UserTypeDef]
+    users: list[UserTypeDef]
 
 
 class UpdateInstructionTypeDef(TypedDict):
@@ -505,7 +500,7 @@ class UpdateInstructionTypeDef(TypedDict):
 
 class SamlConfigurationOutputTypeDef(TypedDict):
     idpMetadata: IdpMetadataTypeDef
-    allowedOrganizations: NotRequired[List[str]]
+    allowedOrganizations: NotRequired[list[str]]
     assertionAttributes: NotRequired[AssertionAttributesTypeDef]
     loginValidityDuration: NotRequired[int]
     roleValues: NotRequired[RoleValuesOutputTypeDef]
@@ -524,7 +519,7 @@ WorkspaceDescriptionTypeDef = TypedDict(
     {
         "authentication": AuthenticationSummaryTypeDef,
         "created": datetime,
-        "dataSources": List[DataSourceTypeType],
+        "dataSources": list[DataSourceTypeType],
         "endpoint": str,
         "grafanaVersion": str,
         "id": str,
@@ -539,12 +534,12 @@ WorkspaceDescriptionTypeDef = TypedDict(
         "licenseType": NotRequired[LicenseTypeType],
         "name": NotRequired[str],
         "networkAccessControl": NotRequired[NetworkAccessConfigurationOutputTypeDef],
-        "notificationDestinations": NotRequired[List[Literal["SNS"]]],
+        "notificationDestinations": NotRequired[list[Literal["SNS"]]],
         "organizationRoleName": NotRequired[str],
-        "organizationalUnits": NotRequired[List[str]],
+        "organizationalUnits": NotRequired[list[str]],
         "permissionType": NotRequired[PermissionTypeType],
         "stackSetName": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "vpcConfiguration": NotRequired[VpcConfigurationOutputTypeDef],
         "workspaceRoleArn": NotRequired[str],
     },
@@ -553,13 +548,13 @@ VpcConfigurationUnionTypeDef = Union[VpcConfigurationTypeDef, VpcConfigurationOu
 
 
 class ListWorkspacesResponseTypeDef(TypedDict):
-    workspaces: List[WorkspaceSummaryTypeDef]
+    workspaces: list[WorkspaceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPermissionsResponseTypeDef(TypedDict):
-    permissions: List[PermissionEntryTypeDef]
+    permissions: list[PermissionEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -650,7 +645,7 @@ class UpdateWorkspaceRequestTypeDef(TypedDict):
 
 
 class UpdatePermissionsResponseTypeDef(TypedDict):
-    errors: List[UpdateErrorTypeDef]
+    errors: list[UpdateErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -660,7 +655,7 @@ class UpdatePermissionsRequestTypeDef(TypedDict):
 
 
 class AuthenticationDescriptionTypeDef(TypedDict):
-    providers: List[AuthenticationProviderTypesType]
+    providers: list[AuthenticationProviderTypesType]
     awsSso: NotRequired[AwsSsoAuthenticationTypeDef]
     saml: NotRequired[SamlAuthenticationTypeDef]
 

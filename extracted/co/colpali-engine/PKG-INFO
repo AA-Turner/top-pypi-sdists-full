@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: colpali_engine
-Version: 0.3.12
+Version: 0.3.13
 Summary: The code used to train and run inference with the ColPali architecture.
 Project-URL: homepage, https://github.com/illuin-tech/colpali
 Author-email: Manuel Faysse <manuel.faysse@illuin.tech>, Hugues Sibille <hugues.sibille@illuin.tech>, Tony Wu <tony.wu@illuin.tech>
@@ -14,13 +14,13 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9
 Requires-Dist: numpy
-Requires-Dist: peft<0.17.0,>=0.14.0
+Requires-Dist: peft<0.18.0,>=0.14.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: requests
 Requires-Dist: scipy
-Requires-Dist: torch<2.8.0,>=2.5.0
+Requires-Dist: torch<2.9.0,>=2.2.0
 Requires-Dist: torchvision
-Requires-Dist: transformers<4.54.0,>=4.53.1
+Requires-Dist: transformers<4.58.0,>=4.53.1
 Provides-Extra: all
 Requires-Dist: accelerate<1.9.0,>=0.34.0; extra == 'all'
 Requires-Dist: bitsandbytes; extra == 'all'

@@ -31,24 +31,20 @@ class ShapImpact(BaseInsight):
     INSIGHT_DATA = {
         "shap_impacts": t.Or(
             t.List(t.List(t.Or(t.Int(), t.Float()))),
-            t.Dict(
-                {
-                    t.Key("featureName"): t.String(),
-                    t.Key("impactNormalized"): t.Float(),
-                    t.Key("impactUnnormalized"): t.Float(),
-                }
-            ),
+            t.Dict({
+                t.Key("featureName"): t.String(),
+                t.Key("impactNormalized"): t.Float(),
+                t.Key("impactUnnormalized"): t.Float(),
+            }),
         ),
         "base_value": t.List(t.Float()),
         "capping": Optional[
             t.Or(
                 t.Null(),
-                t.Dict(
-                    {
-                        t.Key("right"): t.Or(t.String(), t.Float(), t.Null()),  # noqa: F821
-                        t.Key("left"): t.Or(t.String(), t.Float(), t.Null()),  # noqa: F821
-                    }
-                ),
+                t.Dict({
+                    t.Key("right"): t.Or(t.String(), t.Float(), t.Null()),  # noqa: F821
+                    t.Key("left"): t.Or(t.String(), t.Float(), t.Null()),  # noqa: F821
+                }),
             )
         ],
         "link": t.Or(t.String(), t.Null()),

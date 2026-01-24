@@ -1,17 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: vcrpy
-Version: 7.0.0
+Version: 8.1.1
 Summary: Automatically mock your HTTP interactions to simplify and speed up testing
 Home-page: https://github.com/kevin1024/vcrpy
 Author: Kevin McCarthy
-Author-email: me@kevinmccarthy.org
+Author-email: Kevin McCarthy <me@kevinmccarthy.org>
 License: MIT
+Project-URL: Homepage, https://github.com/kevin1024/vcrpy
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,29 +22,30 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: PyYAML
 Requires-Dist: wrapt
-Requires-Dist: yarl
-Requires-Dist: urllib3<2; python_version < "3.10"
-Requires-Dist: urllib3<2; platform_python_implementation == "PyPy"
-Requires-Dist: urllib3; platform_python_implementation != "PyPy" and python_version >= "3.10"
 Provides-Extra: tests
 Requires-Dist: aiohttp; extra == "tests"
 Requires-Dist: boto3; extra == "tests"
+Requires-Dist: cryptography; extra == "tests"
+Requires-Dist: httpbin; extra == "tests"
+Requires-Dist: httpcore; extra == "tests"
 Requires-Dist: httplib2; extra == "tests"
 Requires-Dist: httpx; extra == "tests"
+Requires-Dist: pycurl; platform_python_implementation != "PyPy" and extra == "tests"
+Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-aiohttp; extra == "tests"
 Requires-Dist: pytest-asyncio; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: pytest-httpbin; extra == "tests"
-Requires-Dist: pytest; extra == "tests"
 Requires-Dist: requests>=2.22.0; extra == "tests"
 Requires-Dist: tornado; extra == "tests"
 Requires-Dist: urllib3; extra == "tests"
-Requires-Dist: Werkzeug==2.0.3; extra == "tests"
+Requires-Dist: werkzeug==2.0.3; extra == "tests"
+Dynamic: license-file
 
 
 ###########

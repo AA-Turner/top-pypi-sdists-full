@@ -15,6 +15,7 @@ class DocumentModelDisplay(DisplayViewConfig):
             fields=[
                 dp.Field(key="name", label=_("Name")),
                 dp.Field(key="document_type", label=_("Type")),
+                dp.Field(key="permission_type", label=_("Permission")),
                 dp.Field(key="valid_from", label=_("Valid From")),
                 dp.Field(key="valid_until", label=_("Valid Until")),
                 dp.Field(key="updated", label=_("Updated")),
@@ -52,27 +53,17 @@ class DocumentModelDisplay(DisplayViewConfig):
                     layouts={
                         dp.default(): dp.Layout(
                             grid_template_areas=[
-                                ["file", "file", "file", "file", "file", "file"],
-                                ["name", "name", "name", "document_type", "document_type", "document_type"],
-                                ["created", "created", "updated", "updated", "system_created", "system_created"],
+                                ["file", "file", "file"],
+                                ["name", "document_type", "permission_type"],
+                                ["created", "updated", "system_created"],
+                                ["valid_from", "valid_until", "."],
                                 [
-                                    "valid_from",
-                                    "valid_from",
-                                    "valid_from",
-                                    "valid_until",
-                                    "valid_until",
-                                    "valid_until",
-                                ],
-                                [
-                                    "description",
-                                    "description",
-                                    "description",
                                     "description",
                                     "description",
                                     "description",
                                 ],
                             ],
-                            grid_template_columns=[dp.repeat_field(6, "1fr")],
+                            grid_template_columns=[dp.repeat_field(3, "1fr")],
                         )
                     },
                 ),

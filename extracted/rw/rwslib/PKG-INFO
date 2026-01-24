@@ -1,35 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: rwslib
-Version: 1.2.13
+Version: 1.2.15
 Summary: Rave Web Services for Python
-Home-page: https://github.com/mdsol/rwslib
-License: MIT
-Author: Ian Sparks
-Author-email: isparks@trialgrid.com
-Maintainer: Geoff Low
-Maintainer-email: geoff.low@3ds.com
-Requires-Python: >=3.8.0,<4
+Project-URL: Repository, https://github.com/mdsol/rwslib
+Project-URL: Documentation, https://rwslib.readthedocs.io
+Author-email: Ian Sparks <isparks@trialgrid.com>
+Maintainer-email: Geoff Low <geoff.low@3ds.com>
+License-Expression: MIT
+License-File: AUTHORS.rst
+License-File: LICENSE.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <4,>=3.8.0
 Requires-Dist: click
 Requires-Dist: faker
 Requires-Dist: lxml
 Requires-Dist: requests
 Requires-Dist: six
 Requires-Dist: urllib3
-Project-URL: Documentation, https://rwslib.readthedocs.io
-Project-URL: Repository, https://github.com/mdsol/rwslib
 Description-Content-Type: text/markdown
 
 rwslib
@@ -48,5 +43,4 @@ Documentation
 -------------
 
 Documented with Sphinx. See http://rwslib.readthedocs.org/en/latest/
-
 

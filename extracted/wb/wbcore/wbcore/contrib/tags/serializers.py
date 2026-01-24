@@ -2,8 +2,8 @@ from django.contrib.contenttypes.models import ContentType
 from rest_framework.reverse import reverse
 
 from wbcore import serializers
-from wbcore.content_type.serializers import ContentTypeRepresentationSerializer
-from wbcore.content_type.utils import get_view_content_type_id
+from wbcore.contrib.content_type.serializers import ContentTypeRepresentationSerializer
+from wbcore.contrib.content_type.utils import get_view_content_type_id
 
 from .models import Tag, TagGroup
 

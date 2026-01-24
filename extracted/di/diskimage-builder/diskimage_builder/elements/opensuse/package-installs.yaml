@@ -1,0 +1,8 @@
+# sudo is not included by default.
+sudo:
+# install kernel package needed by dkms.
+kernel-devel:
+# lsb-release is not included by default.
+lsb-release:
+# Compatibility for zypper element scripts using deprecated mkinitrd
+dracut-mkinitrd-deprecated:

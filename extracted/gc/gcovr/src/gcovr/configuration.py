@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -23,15 +23,16 @@ from __future__ import annotations
 from argparse import _ArgumentGroup, ArgumentParser, ArgumentTypeError, SUPPRESS
 from inspect import isclass
 from locale import getpreferredencoding
-import logging
-from typing import Iterable, Any, Optional, Callable, TextIO
+from typing import Iterable, Any, Callable, TextIO
 from dataclasses import dataclass
 import datetime
 import os
 import re
 
+
 from . import formats
-from .timestamps import parse_timestamp
+from .exceptions import SanityCheckError
+from .logging import LOGGER
 from .options import (
     FilterOption,
     GcovrConfigOption,
@@ -44,8 +45,7 @@ from .options import (
     check_percentage,
     relative_path,
 )
-
-LOGGER = logging.getLogger("gcovr")
+from .timestamps import parse_timestamp
 
 
 def timestamp(value: str) -> datetime.datetime:
@@ -57,7 +57,7 @@ def timestamp(value: str) -> datetime.datetime:
         raise ArgumentTypeError(f"{ex}: {value!r}") from None
 
 
-def source_date_epoch() -> Optional[datetime.datetime]:
+def source_date_epoch() -> datetime.datetime | None:
     """Load time from SOURCE_DATE_EPOCH, if it exists.
     See: <https://reproducible-builds.org/docs/source-date-epoch/>
 
@@ -153,12 +153,12 @@ def argument_parser_setup(
             group.add_argument(opt.name, **kwargs)
 
         else:
-            raise AssertionError("Oops, sanity check failed: Unexpected option.")
+            raise SanityCheckError("Unexpected option.")
 
 
 def parse_config_into_dict(
     config_entry_source: Iterable[ConfigEntry],
-    all_options: Optional[Iterable[GcovrConfigOption]] = None,
+    all_options: Iterable[GcovrConfigOption] | None = None,
 ) -> dict[str, Any]:
     """Parse a config file and save the configuration in a dictionary."""
     cfg_dict = dict[str, Any]()
@@ -189,7 +189,7 @@ def _get_value_from_config_entry(
     cfg_entry: ConfigEntry,
     option: GcovrConfigOption,
 ) -> Any:
-    def get_boolean(silent_error: bool = False) -> Optional[bool]:
+    def get_boolean(silent_error: bool = False) -> bool | None:
         try:
             return cfg_entry.value_as_bool
         except ValueError:
@@ -211,7 +211,7 @@ def _get_value_from_config_entry(
     if use_const is False:
         return option.default
     if use_const is not None:
-        raise AssertionError("Oops, sanity check failed: Unexpected entry type.")
+        raise SanityCheckError("Unexpected entry type.")
 
     # parse the value
     value: object
@@ -231,7 +231,7 @@ def _get_value_from_config_entry(
         except (ValueError, ArgumentTypeError) as err:
             raise cfg_entry.error(str(err)) from None
 
-    elif option.name == "json_add_tracefile":  # Special case for patterns
+    elif option.name == "json_tracefile":  # Special case for patterns
         if cfg_entry.filename is None:
             raise AssertionError(
                 "Conversion function must derive base directory from filename"
@@ -285,7 +285,7 @@ def _assign_value_to_dict(
     value: Any,
     option: GcovrConfigOption,
     is_single_value: bool,
-    cfg_entry_key: Optional[str] = None,
+    cfg_entry_key: str | None = None,
 ) -> None:
     if option.action == "append" or option.nargs == "*":
         append_target = namespace.setdefault(option.name, [])
@@ -314,7 +314,7 @@ def _assign_value_to_dict(
 
 def merge_options_and_set_defaults(
     partial_namespaces: list[dict[str, Any]],
-    all_options: Optional[list[GcovrConfigOption]] = None,
+    all_options: list[GcovrConfigOption] | None = None,
 ) -> Options:
     """Merge all options into the namespace and set the default values for unused options."""
     if not partial_namespaces:
@@ -390,6 +390,19 @@ GCOVR_CONFIG_OPTION_GROUPS = [
             "executed."
         ),
     },
+    {
+        "key": "llvm_options",
+        "name": "LLVM Options",
+        "description": (
+            "The 'llvm-profdata' tool turns raw coverage files (.profraw) "
+            "into .profdata files which are then exported by 'llvm-cov' into a JSON string. "
+        ),
+    },
+    {
+        "key": "gcov_llvm_options",
+        "name": "GCOV and LLVM Options",
+        "description": ("Options which are applicable for GCOV and LLVM processing."),
+    },
 ]
 
 
@@ -457,6 +470,91 @@ GCOVR_CONFIG_OPTIONS = [
             "specified in source files will be ignored."
         ),
         action="store_false",
+    ),
+    GcovrConfigOption(
+        "medium_threshold",
+        ["--medium-threshold", "--html-medium-threshold"],
+        group="output_options",
+        type=check_percentage,
+        metavar="MEDIUM",
+        help=(
+            "If the coverage is below MEDIUM, the value is marked "
+            "as low coverage in the report. "
+            "MEDIUM has to be lower than or equal to value of --high-threshold "
+            "and greater than 0. "
+            "If MEDIUM is equal to value of --high-threshold the report has "
+            "only high and low coverage. Default is {default!s}."
+        ),
+        default=75.0,
+    ),
+    GcovrConfigOption(
+        "high_threshold",
+        ["--high-threshold", "--html-high-threshold"],
+        group="output_options",
+        type=check_percentage,
+        metavar="HIGH",
+        help=(
+            "If the coverage is below HIGH, the value is marked "
+            "as medium coverage in the report. "
+            "HIGH has to be greater than or equal to value of --medium-threshold. "
+            "If HIGH is equal to value of --medium-threshold the report has "
+            "only high and low coverage. Default is {default!s}."
+        ),
+        default=90.0,
+    ),
+    GcovrConfigOption(
+        "medium_threshold_branch",
+        ["--medium-threshold-branch", "--html-medium-threshold-branch"],
+        group="output_options",
+        metavar="MEDIUM_BRANCH",
+        type=check_percentage,
+        help="If the coverage is below MEDIUM_BRANCH, the value is marked "
+        "as low coverage in the report. "
+        "MEDIUM_BRANCH has to be lower than or equal to value of --high-threshold-branch "
+        "and greater than 0. "
+        "If MEDIUM_BRANCH is equal to value of --medium-threshold-branch the report has "
+        "only high and low coverage. Default is taken from --medium-threshold.",
+        default=None,
+    ),
+    GcovrConfigOption(
+        "high_threshold_branch",
+        ["--high-threshold-branch", "--html-high-threshold-branch"],
+        group="output_options",
+        type=check_percentage,
+        metavar="HIGH_BRANCH",
+        help="If the coverage is below HIGH_BRANCH, the value is marked "
+        "as medium coverage in the report. "
+        "HIGH_BRANCH has to be greater than or equal to value of --medium-threshold-branch. "
+        "If HIGH_BRANCH is equal to value of --medium-threshold-branch the report has "
+        "only high and low coverage. Default is taken from --high-threshold.",
+        default=None,
+    ),
+    GcovrConfigOption(
+        "medium_threshold_line",
+        ["--medium-threshold-line", "--html-medium-threshold-line"],
+        group="output_options",
+        metavar="MEDIUM_LINE",
+        type=check_percentage,
+        help="If the coverage is below MEDIUM_LINE, the value is marked "
+        "as low coverage in the report. "
+        "MEDIUM_LINE has to be lower than or equal to value of --high-threshold-line "
+        "and greater than 0. "
+        "If MEDIUM_LINE is equal to value of --medium-threshold-line the report has "
+        "only high and low coverage. Default is taken from --medium-threshold.",
+        default=None,
+    ),
+    GcovrConfigOption(
+        "high_threshold_line",
+        ["--high-threshold-line", "--html-high-threshold-line"],
+        group="output_options",
+        type=check_percentage,
+        metavar="HIGH_LINE",
+        help="If the coverage is below HIGH_LINE, the value is marked "
+        "as medium coverage in the report. "
+        "HIGH_LINE has to be greater than or equal to value of --medium-threshold-line. "
+        "If HIGH_LINE is equal to value of --medium-threshold-line the report has "
+        "only high and low coverage. Default is taken from --high-threshold.",
+        default=None,
     ),
     GcovrConfigOption(
         "fail_under_line",
@@ -538,11 +636,11 @@ GCOVR_CONFIG_OPTIONS = [
         action="store_true",
     ),
     GcovrConfigOption(
-        "exclude_calls",
+        "show_calls",
         ["--calls"],
         group="output_options",
         help="Report the calls coverage. For HTML and the summary report.",
-        action="store_false",
+        action="store_true",
     ),
     GcovrConfigOption(
         "sort_branches",
@@ -610,22 +708,7 @@ GCOVR_CONFIG_OPTIONS = [
         default=source_date_epoch() or datetime.datetime.now(),
     ),
     GcovrConfigOption(
-        "filter",
-        ["-f", "--filter"],
-        group="filter_options",
-        help=(
-            "Keep only source files that match this filter. "
-            "Can be specified multiple times. "
-            "Relative filters are relative to the current working directory "
-            "or if defined in a configuration file. "
-            "If no filters are provided, defaults to --root."
-        ),
-        action="append",
-        type=FilterOption,
-        default=[],
-    ),
-    GcovrConfigOption(
-        "include",
+        "include_search_filter",
         ["-i", "--include"],
         group="filter_options",
         help=(
@@ -640,7 +723,22 @@ GCOVR_CONFIG_OPTIONS = [
         default=[],
     ),
     GcovrConfigOption(
-        "exclude",
+        "include_filter",
+        ["-f", "--filter"],
+        group="filter_options",
+        help=(
+            "Keep only source files that match this filter. "
+            "Can be specified multiple times. "
+            "Relative filters are relative to the current working directory "
+            "or if defined in a configuration file. "
+            "If no filters are provided, defaults to --root."
+        ),
+        action="append",
+        type=FilterOption,
+        default=[],
+    ),
+    GcovrConfigOption(
+        "exclude_filter",
         ["-e", "--exclude"],
         group="filter_options",
         help=(
@@ -652,10 +750,73 @@ GCOVR_CONFIG_OPTIONS = [
         default=[],
     ),
     GcovrConfigOption(
+        "exclude_directory",
+        [
+            "--exclude-directory",
+            "--gcov-exclude-directory",
+            "--gcov-exclude-directories",
+            "--exclude-directories",
+        ],
+        group="filter_options",
+        help=(
+            "Exclude directories that match this regex "
+            "while searching raw coverage files. "
+            "Can be specified multiple times."
+        ),
+        action="append",
+        type=NonEmptyFilterOption,
+        default=[],
+    ),
+    GcovrConfigOption(
+        "keep_intermediate_files",
+        ["-k", "--keep-intermediate-files", "--keep", "--gcov-keep"],
+        config="keep-intermediate-files",
+        group="gcov_llvm_options",
+        help=(
+            "Keep gcov/profdata files after processing. "
+            "This applies both to files that were generated by gcovr, "
+            "or were supplied via the --gcov-use-existing-files/--llvm-use-existing-files option. "
+        ),
+        action="store_true",
+    ),
+    GcovrConfigOption(
+        "delete_input_files",
+        ["-d", "--delete-input-files", "--delete", "--gcov-delete"],
+        config="delete-input-files",
+        group="gcov_llvm_options",
+        help="Delete gcda/profraw files after processing, used gcno files are never deleted.",
+        action="store_true",
+    ),
+    GcovrConfigOption(
+        "trace_include_filter",
+        ["--trace-include"],
+        group="filter_options",
+        help=(
+            "Log output for files that match this filter. "
+            "The output is logged without activating verbose mode. "
+            "Can be specified multiple times."
+        ),
+        action="append",
+        type=NonEmptyFilterOption,
+        default=[],
+    ),
+    GcovrConfigOption(
+        "trace_exclude_filter",
+        ["--trace-exclude"],
+        group="filter_options",
+        help=(
+            "Do not log very verbose output for files that match this filter. "
+            "Can be specified multiple times."
+        ),
+        action="append",
+        type=NonEmptyFilterOption,
+        default=[],
+    ),
+    GcovrConfigOption(
         "merge_mode_functions",
         ["--merge-mode-functions"],
         metavar="MERGE_MODE",
-        group="gcov_options",
+        group="gcov_llvm_options",
         choices=(
             "strict",
             "merge-use-line-0",
@@ -670,19 +831,67 @@ GCOVR_CONFIG_OPTIONS = [
         ),
     ),
     GcovrConfigOption(
-        "merge_mode_conditions",
-        ["--merge-mode-conditions"],
-        metavar="MERGE_MODE",
+        "merge_lines",
+        ["--merge-lines"],
         group="gcov_options",
-        choices=(
-            "strict",
-            "fold",
-        ),
-        default="strict",
         help=(
-            "The merge mode for condition coverage from different gcov files for same sourcefile. "
-            "Default is '{default!s}'."
+            "Merge line coverage for same line coming from different functions, "
+            "e.g. template instances. The branches, conditions and calls are merged "
+            "accordingly."
         ),
+        action="store_true",
+    ),
+    GcovrConfigOption(
+        "exclude_function_lines",
+        ["--exclude-function-lines"],
+        group="gcov_options",
+        help="Exclude coverage from lines defining a function.",
+        action="store_true",
+    ),
+    GcovrConfigOption(
+        "exclude_function",
+        ["--exclude-function"],
+        help=(
+            "Exclude coverage of functions. If function starts and end "
+            "with '/' it is treated as a regular expression. "
+            "This option needs at least GCC 14 with a supported version of "
+            "JSON output format."
+        ),
+        action="append",
+        type=str,
+        default=[],
+    ),
+    GcovrConfigOption(
+        "exclude_lines_by_pattern",
+        ["--exclude-lines-by-pattern"],
+        help="Exclude lines that match this regex. The regex must match the start of the line.",
+        action="append",
+        type=str,
+        default=[],
+    ),
+    GcovrConfigOption(
+        "exclude_branches_by_pattern",
+        ["--exclude-branches-by-pattern"],
+        help="Exclude branches that match this regex. The regex must match the start of the line.",
+        action="append",
+        type=str,
+        default=[],
+    ),
+    GcovrConfigOption(
+        "exclude_pattern_prefix",
+        ["--exclude-pattern-prefix"],
+        help=(
+            "Define the regex prefix used in markers / line exclusions "
+            "(i.e ..._EXCL_START, ..._EXCL_START, ..._EXCL_STOP)"
+        ),
+        type=str,
+        default=r"[GL]COVR?",
+    ),
+    GcovrConfigOption(
+        "warn_excluded_lines_with_hits",
+        ["--warn-excluded-lines-with-hits"],
+        help="Print a warning if a line excluded by comments has a hit counter != 0.",
+        action="store_true",
     ),
     GcovrConfigOption(
         "exclude_internal_functions",
@@ -699,16 +908,9 @@ GCOVR_CONFIG_OPTIONS = [
         ["--exclude-unreachable-branches"],
         group="gcov_options",
         help=(
-            "Exclude branch coverage from lines without useful source code "
+            "Remove branch coverage from lines without useful source code "
             "(often, compiler-generated 'dead' code)."
         ),
-        action="store_true",
-    ),
-    GcovrConfigOption(
-        "exclude_function_lines",
-        ["--exclude-function-lines"],
-        group="gcov_options",
-        help="Exclude coverage from lines defining a function.",
         action="store_true",
     ),
     GcovrConfigOption(
@@ -716,7 +918,7 @@ GCOVR_CONFIG_OPTIONS = [
         ["--exclude-noncode-lines"],
         config="exclude-noncode-lines",
         group="gcov_options",
-        help="Exclude coverage from lines which seem to be non-code.",
+        help="Remove coverage from lines which seem to be non-code.",
         action="store_true",
         const_negate=False,
     ),
@@ -725,46 +927,11 @@ GCOVR_CONFIG_OPTIONS = [
         ["--exclude-throw-branches"],
         group="gcov_options",
         help=(
-            "For branch coverage, exclude branches "
+            "For branch coverage, remove branches "
             "that the compiler generates for exception handling. "
             "This often leads to more 'sensible' coverage reports."
         ),
         action="store_true",
-    ),
-    GcovrConfigOption(
-        "exclude_functions",
-        ["--exclude-function"],
-        help=(
-            "Exclude coverage of functions. If function starts and end "
-            "with '/' it is treated as a regular expression. "
-            "This option needs at least GCC 14 with a supported version of "
-            "JSON output format."
-        ),
-        action="append",
-        type=str,
-        default=[],
-    ),
-    GcovrConfigOption(
-        "exclude_lines_by_pattern",
-        ["--exclude-lines-by-pattern"],
-        help="Exclude lines that match this regex.",
-        type=str,
-    ),
-    GcovrConfigOption(
-        "exclude_branches_by_pattern",
-        ["--exclude-branches-by-pattern"],
-        help="Exclude branches that match this regex.",
-        type=str,
-    ),
-    GcovrConfigOption(
-        "exclude_pattern_prefix",
-        ["--exclude-pattern-prefix"],
-        help=(
-            "Define the regex prefix used in markers / line exclusions "
-            "(i.e ..._EXCL_START, ..._EXCL_START, ..._EXCL_STOP)"
-        ),
-        type=str,
-        default=r"[GL]COVR?",
     ),
     GcovrConfigOption(
         "search_paths",
@@ -905,10 +1072,10 @@ class ConfigEntry:
     value: str
     """The un-parsed value."""
 
-    filename: Optional[str] = None
+    filename: str | None = None
     """Path of the config file, for error messages."""
 
-    lineno: Optional[int] = None
+    lineno: int | None = None
     """Line of the entry in the config file, for error messages."""
 
     def __str__(self) -> str:

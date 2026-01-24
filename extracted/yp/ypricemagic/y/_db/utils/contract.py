@@ -1,6 +1,5 @@
 import logging
 import threading
-from typing import Dict, Optional
 
 from a_sync import ProcessingQueue, a_sync
 from cachetools import TTLCache, cached
@@ -12,7 +11,6 @@ from y._db.utils._ep import _get_get_token
 from y._db.utils.utils import ensure_block, make_executor
 from y.constants import CHAINID
 from y.datatypes import Address, Block
-
 
 logger = logging.getLogger(__name__)
 _logger_debug = logger.debug
@@ -28,7 +26,7 @@ _deploy_block_write_executor = make_executor(1, 4, "ypricemagic db executor [dep
     executor=_deploy_block_read_executor,
 )
 @db_session_retry_locked
-def get_deploy_block(address: str) -> Optional[int]:
+def get_deploy_block(address: str) -> int | None:
     """Retrieve the cached deployment block number for a given contract address.
 
     This function first examines the cached deploy block numbers via
@@ -105,14 +103,14 @@ def set_deploy_block(address: str, deploy_block: int) -> None:
     """
 
 
-set_deploy_block = ProcessingQueue(_set_deploy_block, num_workers=10, return_data=False)
+set_deploy_block = ProcessingQueue(_set_deploy_block, num_workers=2, return_data=False)
 
 # startup caches
 
 
 @cached(TTLCache(maxsize=1, ttl=60 * 60), lock=threading.Lock())
 @log_result_count("deploy blocks")
-def known_deploy_blocks() -> Dict[Address, Block]:
+def known_deploy_blocks() -> dict[Address, Block]:
     """Cache and return all known contract deploy blocks for this chain.
 
     This function minimizes database reads by caching the result for one hour.

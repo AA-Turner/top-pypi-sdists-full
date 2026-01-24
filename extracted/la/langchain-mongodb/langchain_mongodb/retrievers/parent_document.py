@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import Any, List, Optional
 
 import pymongo
-from langchain.retrievers.parent_document_retriever import ParentDocumentRetriever
+from langchain_classic.retrievers.parent_document_retriever import (
+    ParentDocumentRetriever,
+)
 from langchain_core.callbacks import (
     AsyncCallbackManagerForRetrieverRun,
     CallbackManagerForRetrieverRun,
@@ -79,6 +81,7 @@ class MongoDBAtlasParentDocumentRetriever(ParentDocumentRetriever):
     ) -> List[Document]:
         query_vector = self.vectorstore._embedding.embed_query(query)
 
+        assert self.vectorstore._embedding_key is not None
         pipeline = [
             vector_search_stage(
                 query_vector,

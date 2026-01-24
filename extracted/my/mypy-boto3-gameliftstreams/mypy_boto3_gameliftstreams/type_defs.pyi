@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -33,12 +34,6 @@ from .literals import (
     StreamSessionStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -92,6 +87,7 @@ __all__ = (
     "LocationConfigurationTypeDef",
     "LocationStateTypeDef",
     "PaginatorConfigTypeDef",
+    "PerformanceStatsConfigurationTypeDef",
     "RemoveStreamGroupLocationsInputTypeDef",
     "ReplicationStatusTypeDef",
     "ResponseMetadataTypeDef",
@@ -114,12 +110,16 @@ class LocationConfigurationTypeDef(TypedDict):
     LocationName: str
     AlwaysOnCapacity: NotRequired[int]
     OnDemandCapacity: NotRequired[int]
+    TargetIdleCapacity: NotRequired[int]
+    MaximumCapacity: NotRequired[int]
 
 class LocationStateTypeDef(TypedDict):
     LocationName: NotRequired[str]
     Status: NotRequired[StreamGroupLocationStatusType]
     AlwaysOnCapacity: NotRequired[int]
     OnDemandCapacity: NotRequired[int]
+    TargetIdleCapacity: NotRequired[int]
+    MaximumCapacity: NotRequired[int]
     RequestedCapacity: NotRequired[int]
     AllocatedCapacity: NotRequired[int]
     IdleCapacity: NotRequired[int]
@@ -127,7 +127,7 @@ class LocationStateTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -191,6 +191,9 @@ class GetStreamSessionInputTypeDef(TypedDict):
     Identifier: str
     StreamSessionIdentifier: str
 
+class PerformanceStatsConfigurationTypeDef(TypedDict):
+    SharedWithClient: NotRequired[bool]
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -223,24 +226,6 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 class RemoveStreamGroupLocationsInputTypeDef(TypedDict):
     Identifier: str
     Locations: Sequence[str]
-
-StartStreamSessionInputTypeDef = TypedDict(
-    "StartStreamSessionInputTypeDef",
-    {
-        "Identifier": str,
-        "Protocol": Literal["WebRTC"],
-        "SignalRequest": str,
-        "ApplicationIdentifier": str,
-        "ClientToken": NotRequired[str],
-        "Description": NotRequired[str],
-        "UserId": NotRequired[str],
-        "Locations": NotRequired[Sequence[str]],
-        "ConnectionTimeoutSeconds": NotRequired[int],
-        "SessionLengthSeconds": NotRequired[int],
-        "AdditionalLaunchArgs": NotRequired[Sequence[str]],
-        "AdditionalEnvironmentVariables": NotRequired[Mapping[str, str]],
-    },
-)
 
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -280,12 +265,12 @@ class UpdateStreamGroupInputTypeDef(TypedDict):
 
 class AddStreamGroupLocationsOutputTypeDef(TypedDict):
     Identifier: str
-    Locations: List[LocationStateTypeDef]
+    Locations: list[LocationStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssociateApplicationsOutputTypeDef(TypedDict):
     Arn: str
-    ApplicationArns: List[str]
+    ApplicationArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateStreamSessionConnectionOutputTypeDef(TypedDict):
@@ -294,14 +279,14 @@ class CreateStreamSessionConnectionOutputTypeDef(TypedDict):
 
 class DisassociateApplicationsOutputTypeDef(TypedDict):
     Arn: str
-    ApplicationArns: List[str]
+    ApplicationArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ApplicationSummaryTypeDef(TypedDict):
@@ -328,16 +313,16 @@ class CreateApplicationOutputTypeDef(TypedDict):
     Description: str
     RuntimeEnvironment: RuntimeEnvironmentTypeDef
     ExecutablePath: str
-    ApplicationLogPaths: List[str]
+    ApplicationLogPaths: list[str]
     ApplicationLogOutputUri: str
     ApplicationSourceUri: str
     Id: str
     Status: ApplicationStatusType
     StatusReason: ApplicationStatusReasonType
-    ReplicationStatuses: List[ReplicationStatusTypeDef]
+    ReplicationStatuses: list[ReplicationStatusTypeDef]
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    AssociatedStreamGroups: List[str]
+    AssociatedStreamGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetApplicationOutputTypeDef(TypedDict):
@@ -345,16 +330,16 @@ class GetApplicationOutputTypeDef(TypedDict):
     Description: str
     RuntimeEnvironment: RuntimeEnvironmentTypeDef
     ExecutablePath: str
-    ApplicationLogPaths: List[str]
+    ApplicationLogPaths: list[str]
     ApplicationLogOutputUri: str
     ApplicationSourceUri: str
     Id: str
     Status: ApplicationStatusType
     StatusReason: ApplicationStatusReasonType
-    ReplicationStatuses: List[ReplicationStatusTypeDef]
+    ReplicationStatuses: list[ReplicationStatusTypeDef]
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    AssociatedStreamGroups: List[str]
+    AssociatedStreamGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateApplicationOutputTypeDef(TypedDict):
@@ -362,44 +347,46 @@ class UpdateApplicationOutputTypeDef(TypedDict):
     Description: str
     RuntimeEnvironment: RuntimeEnvironmentTypeDef
     ExecutablePath: str
-    ApplicationLogPaths: List[str]
+    ApplicationLogPaths: list[str]
     ApplicationLogOutputUri: str
     ApplicationSourceUri: str
     Id: str
     Status: ApplicationStatusType
     StatusReason: ApplicationStatusReasonType
-    ReplicationStatuses: List[ReplicationStatusTypeDef]
+    ReplicationStatuses: list[ReplicationStatusTypeDef]
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    AssociatedStreamGroups: List[str]
+    AssociatedStreamGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateStreamGroupOutputTypeDef(TypedDict):
     Arn: str
     Description: str
     DefaultApplication: DefaultApplicationTypeDef
-    LocationStates: List[LocationStateTypeDef]
+    LocationStates: list[LocationStateTypeDef]
     StreamClass: StreamClassType
     Id: str
     Status: StreamGroupStatusType
     StatusReason: StreamGroupStatusReasonType
     LastUpdatedAt: datetime
     CreatedAt: datetime
-    AssociatedApplications: List[str]
+    ExpiresAt: datetime
+    AssociatedApplications: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetStreamGroupOutputTypeDef(TypedDict):
     Arn: str
     Description: str
     DefaultApplication: DefaultApplicationTypeDef
-    LocationStates: List[LocationStateTypeDef]
+    LocationStates: list[LocationStateTypeDef]
     StreamClass: StreamClassType
     Id: str
     Status: StreamGroupStatusType
     StatusReason: StreamGroupStatusReasonType
     LastUpdatedAt: datetime
     CreatedAt: datetime
-    AssociatedApplications: List[str]
+    ExpiresAt: datetime
+    AssociatedApplications: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StreamGroupSummaryTypeDef(TypedDict):
@@ -411,79 +398,30 @@ class StreamGroupSummaryTypeDef(TypedDict):
     Status: NotRequired[StreamGroupStatusType]
     CreatedAt: NotRequired[datetime]
     LastUpdatedAt: NotRequired[datetime]
+    ExpiresAt: NotRequired[datetime]
 
 class UpdateStreamGroupOutputTypeDef(TypedDict):
     Arn: str
     Description: str
     DefaultApplication: DefaultApplicationTypeDef
-    LocationStates: List[LocationStateTypeDef]
+    LocationStates: list[LocationStateTypeDef]
     StreamClass: StreamClassType
     Id: str
     Status: StreamGroupStatusType
     StatusReason: StreamGroupStatusReasonType
     LastUpdatedAt: datetime
     CreatedAt: datetime
-    AssociatedApplications: List[str]
+    ExpiresAt: datetime
+    AssociatedApplications: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
-GetStreamSessionOutputTypeDef = TypedDict(
-    "GetStreamSessionOutputTypeDef",
-    {
-        "Arn": str,
-        "Description": str,
-        "StreamGroupId": str,
-        "UserId": str,
-        "Status": StreamSessionStatusType,
-        "StatusReason": StreamSessionStatusReasonType,
-        "Protocol": Literal["WebRTC"],
-        "Location": str,
-        "SignalRequest": str,
-        "SignalResponse": str,
-        "ConnectionTimeoutSeconds": int,
-        "SessionLengthSeconds": int,
-        "AdditionalLaunchArgs": List[str],
-        "AdditionalEnvironmentVariables": Dict[str, str],
-        "LogFileLocationUri": str,
-        "WebSdkProtocolUrl": str,
-        "LastUpdatedAt": datetime,
-        "CreatedAt": datetime,
-        "ApplicationArn": str,
-        "ExportFilesMetadata": ExportFilesMetadataTypeDef,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-StartStreamSessionOutputTypeDef = TypedDict(
-    "StartStreamSessionOutputTypeDef",
-    {
-        "Arn": str,
-        "Description": str,
-        "StreamGroupId": str,
-        "UserId": str,
-        "Status": StreamSessionStatusType,
-        "StatusReason": StreamSessionStatusReasonType,
-        "Protocol": Literal["WebRTC"],
-        "Location": str,
-        "SignalRequest": str,
-        "SignalResponse": str,
-        "ConnectionTimeoutSeconds": int,
-        "SessionLengthSeconds": int,
-        "AdditionalLaunchArgs": List[str],
-        "AdditionalEnvironmentVariables": Dict[str, str],
-        "LogFileLocationUri": str,
-        "WebSdkProtocolUrl": str,
-        "LastUpdatedAt": datetime,
-        "CreatedAt": datetime,
-        "ApplicationArn": str,
-        "ExportFilesMetadata": ExportFilesMetadataTypeDef,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
 StreamSessionSummaryTypeDef = TypedDict(
     "StreamSessionSummaryTypeDef",
     {
         "Arn": NotRequired[str],
         "UserId": NotRequired[str],
         "Status": NotRequired[StreamSessionStatusType],
+        "StatusReason": NotRequired[StreamSessionStatusReasonType],
         "Protocol": NotRequired[Literal["WebRTC"]],
         "LastUpdatedAt": NotRequired[datetime],
         "CreatedAt": NotRequired[datetime],
@@ -514,6 +452,79 @@ class GetStreamSessionInputWaitTypeDef(TypedDict):
     StreamSessionIdentifier: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
+GetStreamSessionOutputTypeDef = TypedDict(
+    "GetStreamSessionOutputTypeDef",
+    {
+        "Arn": str,
+        "Description": str,
+        "StreamGroupId": str,
+        "UserId": str,
+        "Status": StreamSessionStatusType,
+        "StatusReason": StreamSessionStatusReasonType,
+        "Protocol": Literal["WebRTC"],
+        "Location": str,
+        "SignalRequest": str,
+        "SignalResponse": str,
+        "ConnectionTimeoutSeconds": int,
+        "SessionLengthSeconds": int,
+        "AdditionalLaunchArgs": list[str],
+        "AdditionalEnvironmentVariables": dict[str, str],
+        "PerformanceStatsConfiguration": PerformanceStatsConfigurationTypeDef,
+        "LogFileLocationUri": str,
+        "WebSdkProtocolUrl": str,
+        "LastUpdatedAt": datetime,
+        "CreatedAt": datetime,
+        "ApplicationArn": str,
+        "ExportFilesMetadata": ExportFilesMetadataTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+StartStreamSessionInputTypeDef = TypedDict(
+    "StartStreamSessionInputTypeDef",
+    {
+        "Identifier": str,
+        "Protocol": Literal["WebRTC"],
+        "SignalRequest": str,
+        "ApplicationIdentifier": str,
+        "ClientToken": NotRequired[str],
+        "Description": NotRequired[str],
+        "UserId": NotRequired[str],
+        "Locations": NotRequired[Sequence[str]],
+        "ConnectionTimeoutSeconds": NotRequired[int],
+        "SessionLengthSeconds": NotRequired[int],
+        "AdditionalLaunchArgs": NotRequired[Sequence[str]],
+        "AdditionalEnvironmentVariables": NotRequired[Mapping[str, str]],
+        "PerformanceStatsConfiguration": NotRequired[PerformanceStatsConfigurationTypeDef],
+    },
+)
+StartStreamSessionOutputTypeDef = TypedDict(
+    "StartStreamSessionOutputTypeDef",
+    {
+        "Arn": str,
+        "Description": str,
+        "StreamGroupId": str,
+        "UserId": str,
+        "Status": StreamSessionStatusType,
+        "StatusReason": StreamSessionStatusReasonType,
+        "Protocol": Literal["WebRTC"],
+        "Location": str,
+        "SignalRequest": str,
+        "SignalResponse": str,
+        "ConnectionTimeoutSeconds": int,
+        "SessionLengthSeconds": int,
+        "AdditionalLaunchArgs": list[str],
+        "AdditionalEnvironmentVariables": dict[str, str],
+        "PerformanceStatsConfiguration": PerformanceStatsConfigurationTypeDef,
+        "LogFileLocationUri": str,
+        "WebSdkProtocolUrl": str,
+        "LastUpdatedAt": datetime,
+        "CreatedAt": datetime,
+        "ApplicationArn": str,
+        "ExportFilesMetadata": ExportFilesMetadataTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
 class ListApplicationsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -532,21 +543,21 @@ class ListStreamSessionsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListApplicationsOutputTypeDef(TypedDict):
-    Items: List[ApplicationSummaryTypeDef]
+    Items: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListStreamGroupsOutputTypeDef(TypedDict):
-    Items: List[StreamGroupSummaryTypeDef]
+    Items: list[StreamGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListStreamSessionsByAccountOutputTypeDef(TypedDict):
-    Items: List[StreamSessionSummaryTypeDef]
+    Items: list[StreamSessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListStreamSessionsOutputTypeDef(TypedDict):
-    Items: List[StreamSessionSummaryTypeDef]
+    Items: list[StreamSessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

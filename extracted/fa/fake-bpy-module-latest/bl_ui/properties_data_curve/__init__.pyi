@@ -32,14 +32,12 @@ class DATA_PT_context_curve(CurveButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -71,14 +69,12 @@ class DATA_PT_curve_animation(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -100,14 +96,12 @@ class DATA_PT_curve_texture_space(CurveButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -136,14 +130,12 @@ class DATA_PT_custom_props_curve(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class DATA_PT_font(CurveButtonsPanelText, _bpy_types.Panel):
@@ -159,14 +151,12 @@ class DATA_PT_font(CurveButtonsPanelText, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -188,14 +178,12 @@ class DATA_PT_font_transform(CurveButtonsPanelText, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -217,14 +205,12 @@ class DATA_PT_geometry_curve(CurveButtonsPanelCurve, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -253,14 +239,12 @@ class DATA_PT_geometry_curve_bevel(CurveButtonsPanelCurve, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -290,14 +274,12 @@ class DATA_PT_geometry_curve_start_end(CurveButtonsPanelCurve, _bpy_types.Panel)
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -325,14 +307,12 @@ class DATA_PT_paragraph(CurveButtonsPanelText, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -354,14 +334,12 @@ class DATA_PT_paragraph_alignment(CurveButtonsPanelText, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -383,14 +361,12 @@ class DATA_PT_paragraph_spacing(CurveButtonsPanelText, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -412,14 +388,12 @@ class DATA_PT_pathanim(CurveButtonsPanelCurve, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -446,14 +420,12 @@ class DATA_PT_shape_curve(CurveButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -475,14 +447,12 @@ class DATA_PT_text_boxes(CurveButtonsPanelText, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:

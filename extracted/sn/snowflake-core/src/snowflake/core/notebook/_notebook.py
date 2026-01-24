@@ -95,9 +95,8 @@ class NotebookCollection(NotebookCollectionBase):
 class NotebookResource(NotebookResourceBase):
     """Represents a reference to a Snowflake notebook.
 
-    With this notebook reference, you can fetch information about notebooks, as well
-    as perform certain actions on them: renaming, executing, committing, and managing
-    versions.
+    With this notebook reference, you can fetch information about a notebook, as well as perform
+    certain actions on it.
     """
 
     _plural_name = "notebooks"
@@ -136,37 +135,7 @@ class NotebookResource(NotebookResourceBase):
 
         >>> notebook_reference.rename("my_other_notebook", if_exists=True)
         """
-        if target_database is None:
-            target_database = self.database.name
-
-        if target_schema is None:
-            target_schema = self.schema.name
         super().rename(
-            target_database=target_database,
-            target_schema=target_schema,
-            target_name=target_name,
-            if_exists=if_exists,
-        )
-
-    @api_telemetry
-    def rename_async(  # type: ignore[override]
-        self,
-        target_name: str,
-        target_database: Optional[str] = None,
-        target_schema: Optional[str] = None,
-        if_exists: Optional[bool] = None,
-    ) -> PollingOperation[None]:
-        """An asynchronous version of :func:`rename`.
-
-        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
-        the return type.
-        """  # noqa: D401
-        if target_database is None:
-            target_database = self.database.name
-
-        if target_schema is None:
-            target_schema = self.schema.name
-        return super().rename_async(
             target_database=target_database,
             target_schema=target_schema,
             target_name=target_name,

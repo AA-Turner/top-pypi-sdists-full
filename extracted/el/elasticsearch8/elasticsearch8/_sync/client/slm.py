@@ -210,7 +210,7 @@ class SlmClient(NamespacedClient):
 
         `<https://www.elastic.co/guide/en/elasticsearch/reference/8.19/slm-api-get-policy.html>`_
 
-        :param policy_id: Comma-separated list of snapshot lifecycle policies to retrieve
+        :param policy_id: A comma-separated list of snapshot lifecycle policy identifiers.
         :param master_timeout: The period to wait for a connection to the master node.
             If no response is received before the timeout expires, the request fails
             and returns an error.
@@ -431,11 +431,7 @@ class SlmClient(NamespacedClient):
                 __body["retention"] = retention
             if schedule is not None:
                 __body["schedule"] = schedule
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return self.perform_request(  # type: ignore[return-value]
             "PUT",
             __path,

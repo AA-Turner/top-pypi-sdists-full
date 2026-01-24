@@ -9,6 +9,7 @@
 #include <cstring>           // for memcpy
 #include "model.hpp"
 #include "util.hpp"          // for rtrim_str
+#include "polyheur.hpp"      // for assign_subchains
 #include <mmdb2/mmdb_manager.h>
 
 namespace gemmi {
@@ -134,6 +135,76 @@ inline void transfer_links_from_mmdb(mmdb::LinkContainer& mmdb_links, Structure&
   }
 }
 
+// Helper function to convert gemmi sequence to mmdb ResName array
+inline void set_mmdb_seqres(const std::vector<std::string>& sequence,
+                            mmdb::SeqRes& seqres) {
+  // Free existing sequence data
+  delete[] seqres.resName;
+  if (seqres.resName)
+    seqres.resName = nullptr;
+
+  if (sequence.empty()) {
+    seqres.numRes = 0;
+    return;
+  }
+
+  // Allocate new array
+  seqres.numRes = static_cast<int>(sequence.size());
+  seqres.resName = new mmdb::ResName[seqres.numRes];
+
+  // Copy sequence data, taking first monomer from each item
+  for (int i = 0; i < seqres.numRes; ++i) {
+    // Handle microheterogeneity: use gemmi's utility function
+    std::string mon = Entity::first_mon(sequence[i]);
+
+    // Copy residue name (max 3 characters for most cases, but ResName allows up to 19)
+    strcpy_to_mmdb(seqres.resName[i], mon);
+  }
+}
+
+inline bool has_sequences(const Structure& st) {
+  // If there are no entities with sequences, try to infer sequences from chains
+  for (const Entity& entity : st.entities) {
+    if (entity.entity_type == EntityType::Polymer && !entity.full_sequence.empty())
+      return true;
+  }
+  return false;
+}
+
+// Transfer SEQRES from gemmi entities to mmdb chains
+inline void transfer_seqres_to_mmdb(const Structure& st, mmdb::Manager* manager) {
+  if (!has_sequences(st))
+    return;
+
+  // Create a map of chain ID -> entity for faster lookup
+  std::map<std::string, const Entity*> chain_to_entity;
+  for (const Model& model : st.models)
+    for (const Chain& ch : model.chains) {
+      const Entity* entity = st.get_entity_of(ch.get_polymer());
+      chain_to_entity[ch.name] = entity;
+    }
+
+  for (int imodel = 1; imodel <= manager->GetNumberOfModels(); ++imodel) {
+    if (mmdb::Model* model = manager->GetModel(imodel)) {
+      for (int ichain = 0; ichain < model->GetNumberOfChains(); ++ichain) {
+        if (mmdb::Chain* chain = model->GetChain(ichain)) {
+          std::string chain_id = chain->GetChainID();
+          // MMDB uses empty string (not space) for blank chain IDs
+
+          // Find matching entity
+          auto it = chain_to_entity.find(chain_id);
+          if (it != chain_to_entity.end()) {
+            const Entity* entity = it->second;
+            set_mmdb_seqres(entity->full_sequence, chain->seqRes);
+            // Set chain association to ensure consistency
+            chain->seqRes.SetChain(chain);
+          }
+        }
+      }
+    }
+  }
+}
+
 inline void copy_to_mmdb(const Structure& st, mmdb::Manager* manager) {
   for (const std::string& s : st.raw_remarks) {
     std::string line = rtrim_str(s);
@@ -230,6 +301,7 @@ inline void copy_to_mmdb(const Structure& st, mmdb::Manager* manager) {
         m_model->AddCisPep(cispep_to_mmdb(cispep, ++ser_num, modnum));
     }
   }
+  transfer_seqres_to_mmdb(st, manager);
   transfer_links_to_mmdb(st, manager);
 }
 
@@ -279,7 +351,22 @@ inline Residue copy_residue_from_mmdb(mmdb::Residue& m_res) {
   return res;
 }
 
-inline Chain copy_chain_from_mmdb(mmdb::Chain& m_chain) {
+// Helper function to convert mmdb ResName array to gemmi sequence
+inline std::vector<std::string> get_gemmi_sequence(const mmdb::SeqRes& seqres) {
+  std::vector<std::string> sequence;
+  if (seqres.numRes > 0 && seqres.resName) {
+    sequence.reserve(seqres.numRes);
+    for (int i = 0; i < seqres.numRes; ++i) {
+      const char* s = seqres.resName[i];
+      std::string resname(s, rtrim_cstr(s));
+      if (!resname.empty())
+        sequence.push_back(resname);
+    }
+  }
+  return sequence;
+}
+
+inline Chain copy_chain_from_mmdb(Structure& st, mmdb::Chain& m_chain) {
   Chain chain(m_chain.GetChainID());
   int n = m_chain.GetNumberOfResidues();
   chain.residues.reserve(n);
@@ -296,16 +383,32 @@ inline Chain copy_chain_from_mmdb(mmdb::Chain& m_chain) {
                                        : EntityType::NonPolymer;
       break;
     }
+  // Get sequence from SEQRES if available
+  std::vector<std::string> sequence = get_gemmi_sequence(m_chain.seqRes);
+  if (!sequence.empty()) {
+    Entity& ent = impl::find_or_add(st.entities, chain.name);
+    ent.entity_type = EntityType::Polymer;
+    ent.full_sequence = sequence;
+  }
   return chain;
 }
 
-inline Model copy_model_from_mmdb(mmdb::Model& m_model) {
+inline Model copy_model_from_mmdb(Structure& st, mmdb::Model& m_model) {
   Model model(m_model.GetSerNum());
   int n = m_model.GetNumberOfChains();
   model.chains.reserve(n);
   for (int i = 0; i < n; ++i)
     if (mmdb::Chain* m_chain = m_model.GetChain(i))
-      model.chains.push_back(copy_chain_from_mmdb(*m_chain));
+      model.chains.push_back(copy_chain_from_mmdb(st, *m_chain));
+  ensure_entities(st);
+  for (Model& m : st.models)
+    for (Chain& chain : m.chains) {
+      Entity& ent = impl::find_or_add(st.entities, chain.name);
+      ent.subchains.push_back(chain.get_polymer().subchain_id());
+      printf("Dodajemy Entity %s - %s\n",
+          chain.name.c_str(), chain.get_polymer().subchain_id().c_str());
+    }
+  deduplicate_entities(st);
   return model;
 }
 
@@ -320,7 +423,7 @@ inline Structure copy_from_mmdb(mmdb::Manager* manager) {
   st.models.reserve(n);
   for (int i = 1; i <= n; ++i)
     if (mmdb::Model* m_model = manager->GetModel(i)) {
-      st.models.push_back(copy_model_from_mmdb(*m_model));
+      st.models.push_back(copy_model_from_mmdb(st, *m_model));
       int model_num = st.models.back().num;
       for (int j = 1; j <= m_model->GetNumberOfCisPeps(); ++j)
         if (const mmdb::CisPep* m_cispep = m_model->GetCisPep(j))
@@ -330,6 +433,7 @@ inline Structure copy_from_mmdb(mmdb::Manager* manager) {
     mmdb::Model* mmdb_model = manager->GetModel(1);
     transfer_links_from_mmdb(*mmdb_model->GetLinks(), st);
   }
+  st.input_format = CoorFormat::Pdb;
   return st;
 }
 

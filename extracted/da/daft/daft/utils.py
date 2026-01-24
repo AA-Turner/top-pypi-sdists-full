@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Callable, Union
+from collections.abc import Callable, Iterable
+from dataclasses import fields, is_dataclass
+from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar
 
+from daft.daft import PyTimeUnit
 from daft.dependencies import pa
+from daft.expressions import Expression
 
 if TYPE_CHECKING:
-    from daft.expressions import Expression
+    import numpy as np
+
 
 # Column input type definitions
-ColumnInputType = Union["Expression", str]
-ManyColumnsInputType = Union[ColumnInputType, Iterable[ColumnInputType]]
+ColumnInputType: TypeAlias = Expression | str
+ManyColumnsInputType: TypeAlias = ColumnInputType | Iterable[ColumnInputType]
 
 
 def get_arrow_version() -> tuple[int, ...]:
@@ -151,3 +155,43 @@ def detect_ray_state() -> tuple[bool, bool]:
         pass
 
     return ray_is_initialized or ray_is_in_job, in_ray_worker
+
+
+def np_datetime64_to_timestamp(dt: np.datetime64) -> tuple[int, PyTimeUnit | None]:
+    """Convert a numpy datetime64 to value since unix epoch.
+
+    When the second return value is None, the unit is days.
+    """
+    import numpy as np
+
+    (unit, count) = np.datetime_data(dt.dtype)
+    val: np.int64 = dt.astype(np.int64) * np.int64(count)
+
+    if unit in ("Y", "M", "W", "D"):
+        val = np.datetime64(dt, "D").astype(np.int64)  # type: ignore
+        return val.item(), None
+    elif unit in ("h", "m"):
+        val = np.datetime64(dt, "s").astype(np.int64)  # type: ignore
+        return val.item(), PyTimeUnit.seconds()
+    elif unit == "s":
+        return val.item(), PyTimeUnit.seconds()
+    elif unit == "ms":
+        return val.item(), PyTimeUnit.milliseconds()
+    elif unit == "us":
+        return val.item(), PyTimeUnit.microseconds()
+    elif unit == "ns":
+        return val.item(), PyTimeUnit.nanoseconds()
+    else:
+        # unit is too small, just convert to nanoseconds
+        val = np.datetime64(dt, "ns").astype(np.int64)  # type: ignore
+        return val.item(), PyTimeUnit.nanoseconds()
+
+
+T = TypeVar("T")
+
+
+def from_dict(cls: type[T], data: dict[str, Any]) -> T:
+    if not is_dataclass(cls):
+        raise TypeError(f"{cls} is not a dataclass")
+    field_names = {f.name for f in fields(cls)}
+    return cls(**{k: v for k, v in data.items() if k in field_names})

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c), 2021, SISSA (International School for Advanced Studies).
+# Copyright (c), 2021-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -9,6 +9,7 @@
 # @author Davide Brunato <brunato@sissa.it>
 #
 import unittest
+import copy
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 from typing import Dict
@@ -474,7 +475,7 @@ class TestDataObjects(unittest.TestCase):
 
         converter = self.converter(data_element_class=MyDataElement)
         self.assertIs(converter.data_element_class, MyDataElement)
-        self.assertIs(converter.copy().data_element_class, MyDataElement)
+        self.assertIs(copy.copy(converter).data_element_class, MyDataElement)
 
         self.col_schema.maps.clear_bindings()  # needed for DataBindingConverter ...
         col_data = self.col_schema.decode(self.col_xml_filename, converter=converter)

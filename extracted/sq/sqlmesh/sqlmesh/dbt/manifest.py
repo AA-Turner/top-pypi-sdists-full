@@ -11,7 +11,7 @@ from collections import defaultdict
 from functools import cached_property
 from pathlib import Path
 
-from dbt import constants as dbt_constants, flags
+from dbt import flags
 
 from sqlmesh.dbt.util import DBT_VERSION
 from sqlmesh.utils.conversions import make_serializable
@@ -19,6 +19,8 @@ from sqlmesh.utils.conversions import make_serializable
 # Override the file name to prevent dbt commands from invalidating the cache.
 
 if DBT_VERSION >= (1, 6, 0):
+    from dbt import constants as dbt_constants
+
     dbt_constants.PARTIAL_PARSE_FILE_NAME = "sqlmesh_partial_parse.msgpack"  # type: ignore
 else:
     from dbt.parser import manifest as dbt_manifest  # type: ignore
@@ -47,7 +49,7 @@ from sqlmesh.core.config import ModelDefaultsConfig
 from sqlmesh.dbt.builtin import BUILTIN_FILTERS, BUILTIN_GLOBALS, OVERRIDDEN_MACROS
 from sqlmesh.dbt.common import Dependencies
 from sqlmesh.dbt.model import ModelConfig
-from sqlmesh.dbt.package import HookConfig, MacroConfig
+from sqlmesh.dbt.package import HookConfig, MacroConfig, MaterializationConfig
 from sqlmesh.dbt.seed import SeedConfig
 from sqlmesh.dbt.source import SourceConfig
 from sqlmesh.dbt.target import TargetConfig
@@ -61,6 +63,7 @@ from sqlmesh.utils.jinja import (
     extract_call_names,
     jinja_call_arg_name,
 )
+from sqlglot.helper import ensure_list
 
 if t.TYPE_CHECKING:
     from dbt.contracts.graph.manifest import Macro, Manifest
@@ -75,6 +78,7 @@ SeedConfigs = t.Dict[str, SeedConfig]
 SourceConfigs = t.Dict[str, SourceConfig]
 MacroConfigs = t.Dict[str, MacroConfig]
 HookConfigs = t.Dict[str, HookConfig]
+MaterializationConfigs = t.Dict[str, MaterializationConfig]
 
 
 IGNORED_PACKAGES = {"elementary"}
@@ -135,6 +139,7 @@ class ManifestHelper:
 
         self._on_run_start_per_package: t.Dict[str, HookConfigs] = defaultdict(dict)
         self._on_run_end_per_package: t.Dict[str, HookConfigs] = defaultdict(dict)
+        self._materializations: MaterializationConfigs = {}
 
     def tests(self, package_name: t.Optional[str] = None) -> TestConfigs:
         self._load_all()
@@ -163,6 +168,10 @@ class ManifestHelper:
     def on_run_end(self, package_name: t.Optional[str] = None) -> HookConfigs:
         self._load_all()
         return self._on_run_end_per_package[package_name or self._project_name]
+
+    def materializations(self) -> MaterializationConfigs:
+        self._load_all()
+        return self._materializations
 
     @property
     def all_macros(self) -> t.Dict[str, t.Dict[str, MacroInfo]]:
@@ -213,6 +222,7 @@ class ManifestHelper:
         self._calls = {k: (v, False) for k, v in (self._call_cache.get("") or {}).items()}
 
         self._load_macros()
+        self._load_materializations()
         self._load_sources()
         self._load_tests()
         self._load_models_and_seeds()
@@ -250,11 +260,14 @@ class ManifestHelper:
 
     def _load_macros(self) -> None:
         for macro in self._manifest.macros.values():
+            if macro.name.startswith("materialization_"):
+                continue
+
             if macro.name.startswith("test_"):
                 macro.macro_sql = _convert_jinja_test_to_macro(macro.macro_sql)
 
             dependencies = Dependencies(macros=_macro_references(self._manifest, macro))
-            if not macro.name.startswith("materialization_") and not macro.name.startswith("test_"):
+            if not macro.name.startswith("test_"):
                 dependencies = dependencies.union(
                     self._extra_dependencies(macro.macro_sql, macro.package_name)
                 )
@@ -280,6 +293,32 @@ class ManifestHelper:
                 pos = name.find("__")
                 if pos > 0 and name[pos + 2 :] in adapter_macro_names:
                     macro_config.info.is_top_level = True
+
+    def _load_materializations(self) -> None:
+        for macro in self._manifest.macros.values():
+            if macro.name.startswith("materialization_"):
+                # Extract name and adapter ( "materialization_{name}_{adapter}" or "materialization_{name}_default")
+                name_parts = macro.name.split("_")
+                if len(name_parts) >= 3:
+                    mat_name = "_".join(name_parts[1:-1])
+                    adapter = name_parts[-1]
+
+                    dependencies = Dependencies(macros=_macro_references(self._manifest, macro))
+                    macro.macro_sql = _strip_jinja_materialization_tags(macro.macro_sql)
+                    dependencies = dependencies.union(
+                        self._extra_dependencies(macro.macro_sql, macro.package_name)
+                    )
+
+                    materialization_config = MaterializationConfig(
+                        name=mat_name,
+                        adapter=adapter,
+                        definition=macro.macro_sql,
+                        dependencies=dependencies,
+                        path=Path(macro.original_file_path),
+                    )
+
+                    key = f"{mat_name}_{adapter}"
+                    self._materializations[key] = materialization_config
 
     def _load_tests(self) -> None:
         for node in self._manifest.nodes.values():
@@ -317,15 +356,17 @@ class ManifestHelper:
             )
 
             test_model = _test_model(node)
+            node_config = _node_base_config(node)
+            node_config["name"] = _build_test_name(node, dependencies)
 
             test = TestConfig(
                 sql=sql,
                 model_name=test_model,
                 test_kwargs=node.test_metadata.kwargs if hasattr(node, "test_metadata") else {},
                 dependencies=dependencies,
-                **_node_base_config(node),
+                **node_config,
             )
-            self._tests_per_package[node.package_name][node.name.lower()] = test
+            self._tests_per_package[node.package_name][node.unique_id] = test
             if test_model:
                 self._tests_by_owner[test_model].append(test)
 
@@ -359,6 +400,12 @@ class ManifestHelper:
                 dependencies = dependencies.union(
                     self._extra_dependencies(sql, node.package_name, track_all_model_attrs=True)
                 )
+                for hook in [*node_config.get("pre-hook", []), *node_config.get("post-hook", [])]:
+                    dependencies = dependencies.union(
+                        self._extra_dependencies(
+                            hook["sql"], node.package_name, track_all_model_attrs=True
+                        )
+                    )
                 dependencies = dependencies.union(
                     self._flatten_dependencies_from_macros(dependencies.macros, node.package_name)
                 )
@@ -699,7 +746,12 @@ def _test_model(node: ManifestNode) -> t.Optional[str]:
     attached_node = getattr(node, "attached_node", None)
     if attached_node:
         pieces = attached_node.split(".")
-        return pieces[-1] if pieces[0] in ["model", "seed"] else None
+        if pieces[0] in ["model", "seed"]:
+            # versioned models have format "model.package.model_name.v1" (4 parts)
+            if len(pieces) == 4:
+                return f"{pieces[2]}_{pieces[3]}"
+            return pieces[-1]
+        return None
 
     key_name = getattr(node, "file_key_name", None)
     if key_name:
@@ -732,3 +784,77 @@ def _convert_jinja_test_to_macro(test_jinja: str) -> str:
     macro = macro_tag + test_jinja[match.span()[-1] :]
 
     return re.sub(ENDTEST_REGEX, lambda m: m.group(0).replace("endtest", "endmacro"), macro)
+
+
+def _strip_jinja_materialization_tags(materialization_jinja: str) -> str:
+    MATERIALIZATION_TAG_REGEX = r"\s*{%-?\s*materialization\s+[^%]*%}\s*\n?"
+    ENDMATERIALIZATION_REGEX = r"{%-?\s*endmaterialization\s*-?%}\s*\n?"
+
+    if not re.match(MATERIALIZATION_TAG_REGEX, materialization_jinja):
+        return materialization_jinja
+
+    materialization_jinja = re.sub(
+        MATERIALIZATION_TAG_REGEX,
+        "",
+        materialization_jinja,
+        flags=re.IGNORECASE,
+    )
+
+    materialization_jinja = re.sub(
+        ENDMATERIALIZATION_REGEX,
+        "",
+        materialization_jinja,
+        flags=re.IGNORECASE,
+    )
+
+    return materialization_jinja.strip()
+
+
+def _build_test_name(node: ManifestNode, dependencies: Dependencies) -> str:
+    """
+    Build a user-friendly test name that includes the test's model/source, column,
+    and args for tests with custom user names. Needed because dbt only generates these
+    names for tests that do not specify the "name" field in their YAML definition.
+
+    Name structure
+    - Model test:  [namespace]_[test name]_[model name]_[column name]__[arg values]
+    - Source test: [namespace]_source_[test name]_[source name]_[table name]_[column name]__[arg values]
+    """
+    # standalone test
+    if not hasattr(node, "test_metadata"):
+        return node.name
+
+    model_name = _test_model(node)
+    source_name = None
+    if not model_name and dependencies.sources:
+        # extract source and table names
+        source_parts = list(dependencies.sources)[0].split(".")
+        source_name = "_".join(source_parts) if len(source_parts) == 2 else source_parts[-1]
+    entity_name = model_name or source_name or ""
+    entity_name = f"_{entity_name}" if entity_name else ""
+
+    name_prefix = ""
+    if namespace := getattr(node.test_metadata, "namespace", None):
+        name_prefix += f"{namespace}_"
+    if source_name and not model_name:
+        name_prefix += "source_"
+
+    metadata_kwargs = node.test_metadata.kwargs
+    arg_val_parts = []
+    for arg, val in sorted(metadata_kwargs.items()):
+        if arg == "model":
+            continue
+        if isinstance(val, dict):
+            val = list(val.values())
+        val = [re.sub("[^0-9a-zA-Z_]+", "_", str(v)) for v in ensure_list(val)]
+        arg_val_parts.extend(val)
+    unique_args = "__".join(arg_val_parts) if arg_val_parts else ""
+    unique_args = f"_{unique_args}" if unique_args else ""
+
+    auto_name = f"{name_prefix}{node.test_metadata.name}{entity_name}{unique_args}"
+
+    if node.name == auto_name:
+        return node.name
+
+    custom_prefix = name_prefix if source_name and not model_name else ""
+    return f"{custom_prefix}{node.name}{entity_name}{unique_args}"

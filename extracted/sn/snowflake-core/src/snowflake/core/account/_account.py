@@ -106,8 +106,8 @@ class AccountCollection(AccountCollectionBase):
 class AccountResource(AccountResourceBase):
     """Represents a reference to a Snowflake account.
 
-    With this account reference, you can fetch information about accounts, as well
-    as perform certain actions on them.
+    With this account reference, you can fetch information about an account, as well
+    as perform certain actions on it.
     """
 
     def __init__(self, name: str, collection: AccountCollection) -> None:

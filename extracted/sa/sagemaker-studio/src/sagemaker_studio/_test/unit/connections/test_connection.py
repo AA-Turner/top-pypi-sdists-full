@@ -1,3 +1,4 @@
+import sys
 import unittest
 from copy import deepcopy
 from datetime import datetime
@@ -10,7 +11,10 @@ from botocore.exceptions import ClientError
 from sagemaker_studio import ClientConfig
 from sagemaker_studio.connections import Connection
 from sagemaker_studio.connections.catalog import Catalog
-from sagemaker_studio.connections.connection import ConnectionCredentials, PhysicalEndpoint
+from sagemaker_studio.connections.connection import (
+    ConnectionCredentials,
+    PhysicalEndpoint,
+)
 
 GET_CATALOGS_RESPONSE: Dict[str, Any] = {
     "CatalogList": [
@@ -48,27 +52,66 @@ BOGUS_CONNECTION_CREDENTIALS = {
     "expiration": datetime.today().isoformat(),
 }
 
-DZ_API_MOCK = Mock()
-DZ_API_MOCK.get_connection.return_value = {"connectionCredentials": BOGUS_CONNECTION_CREDENTIALS}
-
-SECRETS_MANAGER_MOCK = Mock()
-SECRETS_MANAGER_MOCK.meta = Mock()
-SECRETS_MANAGER_MOCK.meta.mock_add_spec(
-    boto3.session.Session(region_name="any-region-1").client("secretsmanager").meta, spec_set=True
-)
-SECRETS_MANAGER_MOCK.meta.endpoint_url = "https://example.com"
-SECRETS_MANAGER_MOCK.meta.region_name = "us-east-1"
-
-GLUE_MOCK = Mock()
-GLUE_MOCK.meta = Mock()
-GLUE_MOCK.meta.mock_add_spec(
-    boto3.session.Session(region_name="any-region-1").client("glue").meta, spec_set=True
-)
-GLUE_MOCK.meta.endpoint_url = "https://example.com"
-GLUE_MOCK.meta.region_name = "us-east-1"
-
 
 class TestConnection(unittest.TestCase):
+    def setUp(self):
+        """Set up mocks for each test to prevent interference between tests."""
+        # Store original sys.modules state
+        self.original_modules = dict(sys.modules)
+
+        # Set up glue_connection_lib mock for this test
+        self.mock_glue_lib = Mock()
+        self.mock_glue_lib.GlueConnectionWrapper = Mock()
+        sys.modules["sagemaker_studio.connections.glue_connection_lib"] = self.mock_glue_lib
+
+        # Make glue_connection_lib accessible through connections module
+        import sagemaker_studio.connections as connections_module
+
+        connections_module.glue_connection_lib = self.mock_glue_lib
+
+        # Set up other mocks
+        self.dz_api_mock = Mock()
+        self.dz_api_mock.get_connection.return_value = {
+            "connectionCredentials": BOGUS_CONNECTION_CREDENTIALS
+        }
+
+        self.secrets_manager_mock = Mock()
+        self.secrets_manager_mock.meta = Mock()
+        self.secrets_manager_mock.meta.mock_add_spec(
+            boto3.session.Session(region_name="any-region-1").client("secretsmanager").meta,
+            spec_set=True,
+        )
+        self.secrets_manager_mock.meta.endpoint_url = "https://example.com"
+        self.secrets_manager_mock.meta.region_name = "us-east-1"
+
+        self.glue_mock = Mock()
+        self.glue_mock.meta = Mock()
+        self.glue_mock.meta.mock_add_spec(
+            boto3.session.Session(region_name="any-region-1").client("glue").meta, spec_set=True
+        )
+        self.glue_mock.meta.endpoint_url = "https://example.com"
+        self.glue_mock.meta.region_name = "us-east-1"
+
+        self.kms_mock = Mock()
+        self.kms_mock.meta = Mock()
+        self.kms_mock.meta.mock_add_spec(
+            boto3.session.Session(region_name="any-region-1").client("kms").meta, spec_set=True
+        )
+        self.kms_mock.meta.endpoint_url = "https://example.com"
+        self.kms_mock.meta.region_name = "us-east-1"
+
+    def tearDown(self):
+        """Clean up mocks after each test to prevent interference."""
+        # Restore original sys.modules state
+        sys.modules.clear()
+        sys.modules.update(self.original_modules)
+
+        # Clean up module attributes
+        import sagemaker_studio.connections as connections_module
+
+        if hasattr(connections_module, "glue_connection_lib"):
+            delattr(connections_module, "glue_connection_lib")
+
     def test_map_connection_credentials_field_with_data(self):
         creds = {
             "accessKeyId": "ASIAVRUVTZK37EXAMPLE",
@@ -76,7 +119,9 @@ class TestConnection(unittest.TestCase):
             "sessionToken": "IQoJb3JpZ2luX2VjEBwaCXVzLEXAMPLE...",
             "expiration": "2024-10-31T20:15:55",
         }
-        connection = Connection({}, Mock(), DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig())
+        connection = Connection(
+            {}, Mock(), self.dz_api_mock, self.secrets_manager_mock, self.kms_mock, ClientConfig()
+        )
         result = connection._map_connection_credentials_field(creds)
         assert result is not None
         self.assertEqual(result.access_key_id, "ASIAVRUVTZK37EXAMPLE")
@@ -91,20 +136,29 @@ class TestConnection(unittest.TestCase):
             "PhysicalEndpoints": [],
         }
         connection = Connection(
-            connection_data, Mock(), DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig()
+            connection_data,
+            Mock(),
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
         )
         self.assertFalse(hasattr(connection, "endpoint_uri"))
         self.assertFalse(hasattr(connection, "port"))
 
     def test_camel_to_snake_case(self):
-        connection = Connection({}, Mock(), DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig())
+        connection = Connection(
+            {}, Mock(), self.dz_api_mock, self.secrets_manager_mock, self.kms_mock, ClientConfig()
+        )
         self.assertEqual(connection._camel_to_snake("CamelCaseTest"), "camel_case_test")
         self.assertEqual(connection._camel_to_snake("simpleTest"), "simple_test")
         self.assertEqual(connection._camel_to_snake("testCamel2Case"), "test_camel2_case")
 
     def test_get_aws_client_with_connection_credentials_invalid_credentials(self):
         conn_credentials = ConnectionCredentials(access_key_id="123")
-        connection = Connection({}, Mock(), DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig())
+        connection = Connection(
+            {}, Mock(), self.dz_api_mock, self.secrets_manager_mock, self.kms_mock, ClientConfig()
+        )
         with self.assertRaises(RuntimeError) as context:
             connection._get_aws_client_with_connection_credentials("glue", conn_credentials, Mock())
             self.assertTrue(
@@ -129,9 +183,10 @@ class TestConnection(unittest.TestCase):
         }
         connection = Connection(
             {"connectionId": "12345", "type": "IAM"},
-            GLUE_MOCK,
+            self.glue_mock,
             datazone_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         connection._glue_api = Mock()
@@ -181,9 +236,10 @@ class TestConnection(unittest.TestCase):
                     }
                 ],
             },
-            GLUE_MOCK,
+            self.glue_mock,
             datazone_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         connection._glue_api = Mock()
@@ -231,9 +287,10 @@ class TestConnection(unittest.TestCase):
                     }
                 ],
             },
-            GLUE_MOCK,
+            self.glue_mock,
             datazone_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         connection._glue_api = Mock()
@@ -259,9 +316,10 @@ class TestConnection(unittest.TestCase):
                 "connectionId": "12345",
                 "type": "IAM",
             },
-            GLUE_MOCK,
+            self.glue_mock,
             datazone_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
 
@@ -290,9 +348,10 @@ class TestConnection(unittest.TestCase):
                 "connectionId": "12345",
                 "type": "IAM",
             },
-            GLUE_MOCK,
+            self.glue_mock,
             datazone_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         connection._glue_api = Mock()
@@ -312,9 +371,10 @@ class TestConnection(unittest.TestCase):
         }
         connection = Connection(
             {"connectionId": "12345", "type": "IAM"},
-            GLUE_MOCK,
+            self.glue_mock,
             datazone_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         connection._glue_api = Mock()
@@ -341,9 +401,10 @@ class TestConnection(unittest.TestCase):
         }
         connection = Connection(
             {"connectionId": "12345", "type": "IAM"},
-            GLUE_MOCK,
+            self.glue_mock,
             datazone_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         connection._glue_api = Mock()
@@ -361,9 +422,10 @@ class TestConnection(unittest.TestCase):
     def test_get_catalogs_non_iam_non_lakehouse_connection(self):
         connection = Connection(
             {"connectionId": "12345", "type": "REDSHIFT"},
-            GLUE_MOCK,
-            DZ_API_MOCK,
-            SECRETS_MANAGER_MOCK,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         with self.assertRaises(AttributeError) as context:
@@ -375,9 +437,10 @@ class TestConnection(unittest.TestCase):
     def test_get_catalog_non_iam_non_lakehouse_connection(self):
         connection = Connection(
             {"connectionId": "12345", "type": "REDSHIFT"},
-            GLUE_MOCK,
-            DZ_API_MOCK,
-            SECRETS_MANAGER_MOCK,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         with self.assertRaises(AttributeError) as context:
@@ -395,9 +458,10 @@ class TestConnection(unittest.TestCase):
         }
         connection = Connection(
             {"connectionId": "12345", "type": "IAM"},
-            GLUE_MOCK,
+            self.glue_mock,
             datazone_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         connection._glue_api = Mock()
@@ -420,12 +484,19 @@ class TestConnection(unittest.TestCase):
         datazone_api_mock = Mock()
         datazone_api_mock.get_connection.return_value = conn_data
         connection = Connection(
-            conn_data, GLUE_MOCK, datazone_api_mock, SECRETS_MANAGER_MOCK, ClientConfig()
+            conn_data,
+            self.glue_mock,
+            datazone_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
         )
         assert "None" not in str(connection)
 
     def test_print_physical_endpoint(self):
-        connection = Connection({}, Mock(), DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig())
+        connection = Connection(
+            {}, Mock(), self.dz_api_mock, self.secrets_manager_mock, self.kms_mock, ClientConfig()
+        )
         physical_endpoint = PhysicalEndpoint(
             _connection_instance=connection, host="bogus_host", port=1234
         )
@@ -434,7 +505,9 @@ class TestConnection(unittest.TestCase):
     def test_parse_secret_using_valid_json(self):
         secret_1 = {"SecretString": '{"username":"user","password": "password"}'}
 
-        connection = Connection({}, Mock(), DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig())
+        connection = Connection(
+            {}, Mock(), self.dz_api_mock, self.secrets_manager_mock, self.kms_mock, ClientConfig()
+        )
         self.assertEqual(
             connection._parse_secret(secret_1), {"username": "user", "password": "password"}
         )
@@ -447,17 +520,21 @@ class TestConnection(unittest.TestCase):
     def test_parse_secret_using_non_json_secret(self):
         secret_1 = {"SecretString": "ThisIsASecret"}
 
-        connection = Connection({}, Mock(), DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig())
+        connection = Connection(
+            {}, Mock(), self.dz_api_mock, self.secrets_manager_mock, self.kms_mock, ClientConfig()
+        )
         self.assertEqual(connection._parse_secret(secret_1), "ThisIsASecret")
 
     def test_parse_secret_using_secret_binary(self):
         secret_1 = {"SecretBinary": "VGhpc0lzQVNlY3JldA=="}
 
-        connection = Connection({}, Mock(), DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig())
+        connection = Connection(
+            {}, Mock(), self.dz_api_mock, self.secrets_manager_mock, self.kms_mock, ClientConfig()
+        )
         self.assertEqual(connection._parse_secret(secret_1), "VGhpc0lzQVNlY3JldA==")
 
     def test_find_secret_arn_from_glue_properties_in_physical_endpoints(self):
-        dz_api_mock = deepcopy(DZ_API_MOCK)
+        dz_api_mock = deepcopy(self.dz_api_mock)
         dz_api_mock.get_connection.return_value = {
             "connectionCredentials": {
                 "AccessKeyId": "access_key_id",
@@ -501,7 +578,8 @@ class TestConnection(unittest.TestCase):
             },
             Mock(),
             dz_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
 
@@ -527,8 +605,9 @@ class TestConnection(unittest.TestCase):
                 ]
             },
             Mock(),
-            DZ_API_MOCK,
-            SECRETS_MANAGER_MOCK,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
 
@@ -551,8 +630,9 @@ class TestConnection(unittest.TestCase):
                 ]
             },
             Mock(),
-            DZ_API_MOCK,
-            SECRETS_MANAGER_MOCK,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
 
@@ -570,8 +650,9 @@ class TestConnection(unittest.TestCase):
                 ]
             },
             Mock(),
-            DZ_API_MOCK,
-            SECRETS_MANAGER_MOCK,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
 
@@ -579,15 +660,17 @@ class TestConnection(unittest.TestCase):
             connection_3._find_secret_arn()
             self.assertTrue("does not have associated secret" in context.exception)
 
-        connection_4 = Connection({}, Mock(), DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig())
+        connection_4 = Connection(
+            {}, Mock(), self.dz_api_mock, self.secrets_manager_mock, self.kms_mock, ClientConfig()
+        )
 
         with self.assertRaises(AttributeError) as context:
             connection_4._find_secret_arn()
             self.assertTrue("does not have associated secret" in context.exception)
 
     def test_get_secret_successful_response(self):
-        secret_manager_mock = deepcopy(SECRETS_MANAGER_MOCK)
-        dz_mock = deepcopy(DZ_API_MOCK)
+        secret_manager_mock = deepcopy(self.secrets_manager_mock)
+        dz_mock = deepcopy(self.dz_api_mock)
         dz_mock.get_connection.return_value = {
             "connectionCredentials": BOGUS_CONNECTION_CREDENTIALS,
             "physicalEndpoints": [
@@ -618,7 +701,12 @@ class TestConnection(unittest.TestCase):
             ]
         }
         connection = Connection(
-            connection_data, GLUE_MOCK, dz_mock, secret_manager_mock, ClientConfig()
+            connection_data,
+            self.glue_mock,
+            dz_mock,
+            secret_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
         )
         with patch.object(connection, "_find_secret_arn") as mock:
             with patch.object(
@@ -632,8 +720,15 @@ class TestConnection(unittest.TestCase):
                 self.assertEqual(secret, {"username": "user", "password": "password"})
 
     def test_get_secret_client_error_from_secrets_manager(self):
-        secret_manager_mock = deepcopy(SECRETS_MANAGER_MOCK)
-        connection = Connection({}, GLUE_MOCK, DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig())
+        secret_manager_mock = deepcopy(self.secrets_manager_mock)
+        connection = Connection(
+            {},
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
         with patch.object(connection, "_find_secret_arn") as mock:
             mock.return_value = "arn:aws:secretsmanager:us-east-1:secret"
             with patch.object(
@@ -653,7 +748,7 @@ class TestConnection(unittest.TestCase):
                     )
 
     def test_simulated_e2e_get_secret_from_physical_endpoint(self):
-        dz_api_mock = deepcopy(DZ_API_MOCK)
+        dz_api_mock = deepcopy(self.dz_api_mock)
         dz_api_mock.get_connection.return_value = {
             "connectionCredentials": BOGUS_CONNECTION_CREDENTIALS,
             "physicalEndpoints": [
@@ -682,12 +777,13 @@ class TestConnection(unittest.TestCase):
         }
         connection = Connection(
             connection_data,
-            GLUE_MOCK,
+            self.glue_mock,
             dz_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
-        connection._secrets_manager_api = deepcopy(SECRETS_MANAGER_MOCK)
+        connection._secrets_manager_api = deepcopy(self.secrets_manager_mock)
         connection._secrets_manager_api.get_secret_value.return_value = {
             "SecretString": '{"username":"user","password": "password"}'
         }
@@ -703,7 +799,7 @@ class TestConnection(unittest.TestCase):
             )
 
     def test_populated_physical_endpoints_with_glue_connection_property(self):
-        dz_api_mock = deepcopy(DZ_API_MOCK)
+        dz_api_mock = deepcopy(self.dz_api_mock)
         dz_api_mock.get_connection.return_value = {
             "connectionCredentials": BOGUS_CONNECTION_CREDENTIALS,
             "physicalEndpoints": [
@@ -741,9 +837,10 @@ class TestConnection(unittest.TestCase):
         }
         connection = Connection(
             connection_data,
-            GLUE_MOCK,
+            self.glue_mock,
             dz_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         endpoint = connection.physical_endpoints[0]
@@ -783,8 +880,9 @@ class TestConnection(unittest.TestCase):
                 },
             },
             Mock(),
-            DZ_API_MOCK,
-            SECRETS_MANAGER_MOCK,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         data = connection.data
@@ -801,9 +899,10 @@ class TestConnection(unittest.TestCase):
         }
         connection = Connection(
             {"connectionId": "12345", "type": "IAM"},
-            GLUE_MOCK,
+            self.glue_mock,
             datazone_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         connection._glue_api = Mock()
@@ -836,7 +935,9 @@ class TestConnection(unittest.TestCase):
             ("my-resource", False),
             ("123:my-resource", False),
         ]
-        connection = Connection({}, Mock(), DZ_API_MOCK, SECRETS_MANAGER_MOCK, ClientConfig())
+        connection = Connection(
+            {}, Mock(), self.dz_api_mock, self.secrets_manager_mock, self.kms_mock, ClientConfig()
+        )
         for case in cases:
             result = connection._validate_catalog_id(case[0])
             self.assertEqual(result, case[1])
@@ -879,9 +980,10 @@ class TestConnection(unittest.TestCase):
         }
         connection = Connection(
             connection_data,
-            GLUE_MOCK,
+            self.glue_mock,
             datazone_api_mock,
-            SECRETS_MANAGER_MOCK,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         connection._invoke_get_connection_and_populate_fields()
@@ -899,9 +1001,10 @@ class TestConnection(unittest.TestCase):
     def test_connection_creds_property(self):
         connection = Connection(
             {"connectionId": "bogus_connection_id", "type": "IAM"},
-            GLUE_MOCK,
-            DZ_API_MOCK,
-            SECRETS_MANAGER_MOCK,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
             ClientConfig(),
         )
         self.assertEqual(connection.connection_creds.access_key_id, "access_key_id")
@@ -935,6 +1038,7 @@ class TestConnection(unittest.TestCase):
             Mock(),
             datazone_api_mock,
             Mock(),
+            self.kms_mock,
             ClientConfig(),
         )
         secret = connection.secret
@@ -958,6 +1062,7 @@ class TestConnection(unittest.TestCase):
             Mock(),
             datazone_api_mock,
             boto3.client("secretsmanager", "us-east-1"),
+            self.kms_mock,
             ClientConfig(),
         )
 
@@ -982,6 +1087,7 @@ class TestConnection(unittest.TestCase):
             Mock(),
             datazone_api_mock,
             boto3.client("secretsmanager", "us-east-1"),
+            self.kms_mock,
             ClientConfig(),
         )
 
@@ -1001,11 +1107,19 @@ class TestConnection(unittest.TestCase):
             "physicalEndpoints": [],
             "type": "SNOWFLAKE",
         }
+
+        # Create a proper mock for glue_api with valid region
+        glue_mock = Mock()
+        glue_mock.meta = Mock()
+        glue_mock.meta.region_name = "us-east-1"
+        glue_mock.meta.endpoint_url = "https://example.com"
+
         connection = Connection(
             connection_data,
-            Mock(),
+            glue_mock,
             datazone_api_mock,
             boto3.client("secretsmanager", "us-east-1"),
+            self.kms_mock,
             ClientConfig(),
         )
 
@@ -1014,3 +1128,153 @@ class TestConnection(unittest.TestCase):
             self.assertTrue(
                 "Please specify a service name to initialize a client" in context.exception
             )
+
+    def test_spark_options_with_supported_connection_type(self):
+        """Test spark_options returns MaskedDict for supported connection types."""
+        datazone_api_mock = Mock()
+        datazone_api_mock.get_connection.return_value = {
+            "connectionId": "12345",
+            "type": "REDSHIFT",
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "1234567890", "awsRegion": "us-east-1"},
+                    "glueConnectionName": "test-connection",
+                }
+            ],
+            "connectionCredentials": BOGUS_CONNECTION_CREDENTIALS,
+        }
+
+        connection_data = {
+            "connectionId": "12345",
+            "type": "REDSHIFT",
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "1234567890", "awsRegion": "us-east-1"},
+                    "glueConnectionName": "test-connection",
+                }
+            ],
+        }
+
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            datazone_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+
+        # Mock the Glue API with proper connection type
+        mock_glue_connection = {"name": "test-connection", "connectionType": "REDSHIFT"}
+
+        mock_spark_properties = {
+            "user": "admin",
+            "password": "secret123",
+            "url": "jdbc:redshift://test.redshift.amazonaws.com:5439/dev",
+        }
+
+        with patch.object(connection, "_glue_api") as mock_glue_api:
+            mock_glue_api.get_connection.return_value = {"Connection": mock_glue_connection}
+
+            with patch(
+                "sagemaker_studio.connections.glue_connection_lib.GlueConnectionWrapper.create"
+            ) as mock_create:
+                mock_wrapper = Mock()
+                mock_wrapper.get_resolved_connection.return_value = {
+                    "SparkProperties": mock_spark_properties
+                }
+                mock_create.return_value = mock_wrapper
+
+                with patch.object(
+                    connection, "_get_aws_client_with_connection_credentials"
+                ) as mock_get_client:
+                    mock_get_client.return_value = Mock()
+
+                    result = connection._spark_options()
+
+                    # Verify it returns a MaskedDict
+                    from sagemaker_studio.connections.connection import MaskedDict
+
+                    self.assertIsInstance(result, MaskedDict)
+
+                    # Verify actual values are accessible
+                    self.assertEqual(result["user"], "admin")
+                    self.assertEqual(result["password"], "secret123")
+                    self.assertEqual(
+                        result["url"], "jdbc:redshift://test.redshift.amazonaws.com:5439/dev"
+                    )
+
+                    # Verify password is masked in string representation
+                    result_str = str(result)
+                    self.assertIn("'password': '****'", result_str)
+                    self.assertNotIn("secret123", result_str)
+
+    def test_spark_options_with_unsupported_connection_type(self):
+        """Test spark_options raises exception for unsupported connection types."""
+        connection_data = {
+            "connectionId": "12345",
+            "type": "S3",  # Not in supported types
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "1234567890", "awsRegion": "us-east-1"},
+                    "glueConnectionName": "test-connection",
+                }
+            ],
+        }
+
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+
+        with self.assertRaises(Exception) as context:
+            connection._spark_options()
+            self.assertIn("Connection Type not supported", str(context.exception))
+
+    def test_spark_options_no_physical_endpoints(self):
+        """Test spark_options returns None when no physical endpoints."""
+        connection_data = {
+            "connectionId": "12345",
+            "type": "REDSHIFT",
+            "physicalEndpoints": [],
+        }
+
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+
+        result = connection._spark_options()
+        self.assertIsNone(result)
+
+    def test_spark_options_no_glue_connection_name(self):
+        """Test spark_options returns None when no glue connection name."""
+        connection_data = {
+            "connectionId": "12345",
+            "type": "REDSHIFT",
+            "physicalEndpoints": [
+                {
+                    "awsLocation": {"awsAccountId": "1234567890", "awsRegion": "us-east-1"},
+                }
+            ],
+        }
+
+        connection = Connection(
+            connection_data,
+            self.glue_mock,
+            self.dz_api_mock,
+            self.secrets_manager_mock,
+            self.kms_mock,
+            ClientConfig(),
+        )
+
+        result = connection._spark_options()
+        self.assertIsNone(result)

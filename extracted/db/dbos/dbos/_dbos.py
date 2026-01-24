@@ -7,15 +7,16 @@ import os
 import sys
 import threading
 import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor
 from logging import Logger
 from typing import (
     TYPE_CHECKING,
     Any,
     AsyncGenerator,
+    Awaitable,
     Callable,
     Coroutine,
+    Dict,
     Generator,
     Generic,
     List,
@@ -26,21 +27,23 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    overload,
 )
-
-from opentelemetry.trace import Span
-from rich import print
 
 from dbos._conductor.conductor import ConductorWebsocket
 from dbos._debouncer import debouncer_workflow
+from dbos._serialization import DefaultSerializer, Serializer
 from dbos._sys_db import SystemDatabase, WorkflowStatus
-from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams
-from dbos._workflow_commands import fork_workflow, list_queued_workflows, list_workflows
+from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams, generate_uuid
+from dbos._workflow_commands import fork_workflow
 
 from ._classproperty import classproperty
 from ._core import (
     DEBOUNCER_WORKFLOW_NAME,
+    DEFAULT_POLLING_INTERVAL,
     TEMP_SEND_WF_NAME,
+    ActiveWorkflowById,
+    StepOptions,
     WorkflowHandleAsyncPolling,
     WorkflowHandlePolling,
     decorate_step,
@@ -49,11 +52,12 @@ from ._core import (
     execute_workflow_by_id,
     get_event,
     recv,
+    run_step,
+    run_step_async,
     send,
     set_event,
     start_workflow,
     start_workflow_async,
-    workflow_wrapper,
 )
 from ._queue import Queue, queue_thread
 from ._recovery import recover_pending_workflows, startup_recovery_thread
@@ -62,8 +66,6 @@ from ._registrations import (
     DBOSClassInfo,
     _class_fqn,
     get_or_create_class_info,
-    set_dbos_func_name,
-    set_temp_workflow_type,
 )
 from ._roles import default_required_roles, required_roles
 from ._scheduler import ScheduledWorkflow, scheduled
@@ -80,13 +82,11 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from ._kafka import _KafkaConsumerWorkflow
     from flask import Flask
+    from opentelemetry.trace import Span
+
+from typing import ParamSpec
 
 from sqlalchemy.orm import Session
-
-if sys.version_info < (3, 10):
-    from typing_extensions import ParamSpec
-else:
-    from typing import ParamSpec
 
 from ._admin_server import AdminServer
 from ._app_db import ApplicationDatabase
@@ -118,7 +118,7 @@ from ._logger import (
     dbos_logger,
     init_logger,
 )
-from ._workflow_commands import get_workflow, list_workflow_steps
+from ._workflow_commands import delete_workflow, get_workflow
 
 # Most DBOS functions are just any callable F, so decorators / wrappers work on F
 # There are cases where the parameters P and return value R should be separate
@@ -327,11 +327,11 @@ class DBOS:
         self._initialized: bool = True
 
         self._launched: bool = False
-        self._debug_mode: bool = False
         self._sys_db_field: Optional[SystemDatabase] = None
         self._app_db_field: Optional[ApplicationDatabase] = None
         self._registry: DBOSRegistry = _get_or_create_dbos_registry()
         self._registry.dbos = self
+        self._listening_queues: Optional[List[Queue]] = None
         self._admin_server_field: Optional[AdminServer] = None
         # Stop internal background threads (queue thread, timeout threads, etc.)
         self.background_thread_stop_events: List[threading.Event] = []
@@ -342,14 +342,23 @@ class DBOS:
         self._executor_field: Optional[ThreadPoolExecutor] = None
         self._background_threads: List[threading.Thread] = []
         self.conductor_url: Optional[str] = conductor_url
+        if config.get("conductor_url"):
+            self.conductor_url = config.get("conductor_url")
         self.conductor_key: Optional[str] = conductor_key
+        if config.get("conductor_key"):
+            self.conductor_key = config.get("conductor_key")
+        self.enable_patching = config.get("enable_patching") == True
         self.conductor_websocket: Optional[ConductorWebsocket] = None
         self._background_event_loop: BackgroundEventLoop = BackgroundEventLoop()
-        self._active_workflows_set: set[str] = set()
+        self._active_workflows_set: ActiveWorkflowById = ActiveWorkflowById()
+        serializer = config.get("serializer")
+        self._serializer: Serializer = serializer if serializer else DefaultSerializer()
 
         # Globally set the application version and executor ID.
         # In DBOS Cloud, instead use the values supplied through environment variables.
         if not os.environ.get("DBOS__CLOUD") == "true":
+            if self.enable_patching:
+                GlobalParams.app_version = "PATCHING_ENABLED"
             if (
                 "application_version" in config
                 and config["application_version"] is not None
@@ -417,13 +426,8 @@ class DBOS:
         return rv
 
     @property
-    def _app_db(self) -> ApplicationDatabase:
-        if self._app_db_field is None:
-            raise DBOSException(
-                "Application database accessed before DBOS was launched"
-            )
-        rv: ApplicationDatabase = self._app_db_field
-        return rv
+    def _app_db(self) -> ApplicationDatabase | None:
+        return self._app_db_field
 
     @property
     def _admin_server(self) -> AdminServer:
@@ -432,50 +436,54 @@ class DBOS:
         rv: AdminServer = self._admin_server_field
         return rv
 
-    @property
-    def debug_mode(self) -> bool:
-        return self._debug_mode
-
     @classmethod
-    def launch(cls, *, debug_mode: bool = False) -> None:
+    def launch(cls) -> None:
         if _dbos_global_instance is not None:
-            _dbos_global_instance._launch(debug_mode=debug_mode)
+            _dbos_global_instance._launch()
 
-    def _launch(self, *, debug_mode: bool = False) -> None:
+    def _launch(self) -> None:
         try:
             if self._launched:
                 dbos_logger.warning(f"DBOS was already launched")
                 return
             self._launched = True
-            self._debug_mode = debug_mode
             if GlobalParams.app_version == "":
                 GlobalParams.app_version = self._registry.compute_app_version()
             if self.conductor_key is not None:
-                GlobalParams.executor_id = str(uuid.uuid4())
+                GlobalParams.executor_id = generate_uuid()
             dbos_logger.info(f"Executor ID: {GlobalParams.executor_id}")
             dbos_logger.info(f"Application version: {GlobalParams.app_version}")
             self._executor_field = ThreadPoolExecutor(max_workers=sys.maxsize)
             self._background_event_loop.start()
-            assert self._config["database_url"] is not None
             assert self._config["database"]["sys_db_engine_kwargs"] is not None
+            # Get the schema configuration, use "dbos" as default
+            schema = self._config.get("dbos_system_schema", "dbos")
+            dbos_logger.debug("Creating system database")
             self._sys_db_field = SystemDatabase.create(
                 system_database_url=get_system_database_url(self._config),
                 engine_kwargs=self._config["database"]["sys_db_engine_kwargs"],
-                debug_mode=debug_mode,
+                engine=self._config["system_database_engine"],
+                schema=schema,
+                serializer=self._serializer,
+                use_listen_notify=self._config["use_listen_notify"],
+                executor_id=GlobalParams.executor_id,
             )
             assert self._config["database"]["db_engine_kwargs"] is not None
-            self._app_db_field = ApplicationDatabase.create(
-                database_url=self._config["database_url"],
-                engine_kwargs=self._config["database"]["db_engine_kwargs"],
-                debug_mode=debug_mode,
-            )
-
-            if debug_mode:
-                return
+            if self._config["database_url"]:
+                dbos_logger.debug("Creating application database")
+                self._app_db_field = ApplicationDatabase.create(
+                    database_url=self._config["database_url"],
+                    engine_kwargs=self._config["database"]["db_engine_kwargs"],
+                    schema=schema,
+                    serializer=self._serializer,
+                )
 
             # Run migrations for the system and application databases
+            dbos_logger.debug("Running system database migrations")
             self._sys_db.run_migrations()
-            self._app_db.run_migrations()
+            if self._app_db:
+                dbos_logger.debug("Running application database migrations")
+                self._app_db.run_migrations()
 
             admin_port = self._config.get("runtimeConfig", {}).get("admin_port")
             if admin_port is None:
@@ -485,25 +493,29 @@ class DBOS:
             )
             if run_admin_server:
                 try:
+                    dbos_logger.debug("Starting admin server")
                     self._admin_server_field = AdminServer(dbos=self, port=admin_port)
                 except Exception as e:
                     dbos_logger.warning(f"Failed to start admin server: {e}")
 
-            workflow_ids = self._sys_db.get_pending_workflows(
-                GlobalParams.executor_id, GlobalParams.app_version
-            )
-            if (len(workflow_ids)) > 0:
-                self.logger.info(
-                    f"Recovering {len(workflow_ids)} workflows from application version {GlobalParams.app_version}"
+            # Recover local workflows if not using a recovery service
+            if not self.conductor_key and not GlobalParams.dbos_cloud:
+                dbos_logger.debug("Retrieving local pending workflows for recovery")
+                workflow_ids = self._sys_db.get_pending_workflows(
+                    GlobalParams.executor_id, GlobalParams.app_version
                 )
-            else:
-                self.logger.info(
-                    f"No workflows to recover from application version {GlobalParams.app_version}"
-                )
-
-            self._executor.submit(startup_recovery_thread, self, workflow_ids)
+                if (len(workflow_ids)) > 0:
+                    self.logger.info(
+                        f"Recovering {len(workflow_ids)} workflows from application version {GlobalParams.app_version}"
+                    )
+                else:
+                    self.logger.info(
+                        f"No workflows to recover from application version {GlobalParams.app_version}"
+                    )
+                self._executor.submit(startup_recovery_thread, self, workflow_ids)
 
             # Listen to notifications
+            dbos_logger.debug("Starting notifications listener thread")
             notification_listener_thread = threading.Thread(
                 target=self._sys_db._notification_listener,
                 daemon=True,
@@ -515,6 +527,7 @@ class DBOS:
             self._registry.get_internal_queue()
 
             # Start the queue thread
+            dbos_logger.debug("Starting queue thread")
             evt = threading.Event()
             self.background_thread_stop_events.append(evt)
             bg_queue_thread = threading.Thread(
@@ -530,6 +543,7 @@ class DBOS:
                     self.conductor_url = f"wss://{dbos_domain}/conductor/v1alpha1"
                 evt = threading.Event()
                 self.background_thread_stop_events.append(evt)
+                dbos_logger.debug("Starting Conductor thread")
                 self.conductor_websocket = ConductorWebsocket(
                     self,
                     conductor_url=self.conductor_url,
@@ -540,6 +554,7 @@ class DBOS:
                 self._background_threads.append(self.conductor_websocket)
 
             # Grab any pollers that were deferred and start them
+            dbos_logger.debug("Starting event receivers")
             for evt, func, args, kwargs in self._registry.pollers:
                 self.poller_stop_events.append(evt)
                 poller_thread = threading.Thread(
@@ -557,8 +572,8 @@ class DBOS:
                 conductor_registration_url = (
                     f"https://console.dbos.dev/self-host?appname={app_name}"
                 )
-                print(
-                    f"[bold]To view and manage workflows, connect to DBOS Conductor at:[/bold] [bold blue]{conductor_registration_url}[/bold blue]"
+                dbos_logger.info(
+                    f"To view and manage workflows, connect to DBOS Conductor at: {conductor_registration_url}"
                 )
 
             # Flush handlers and add OTLP to all loggers if enabled
@@ -602,20 +617,14 @@ class DBOS:
             deadline = time.time() + workflow_completion_timeout_sec
             while time.time() < deadline:
                 time.sleep(1)
-                active_workflows = len(self._active_workflows_set)
+                active_workflows = len(self._active_workflows_set.activeList())
                 if active_workflows > 0:
                     dbos_logger.info(
-                        f"Attempting to shut down DBOS. {active_workflows} workflows remain active. IDs: {self._active_workflows_set}"
+                        f"Attempting to shut down DBOS. {active_workflows} workflows remain active. IDs: {self._active_workflows_set.activeList()}"
                     )
                 else:
                     break
         self._background_event_loop.stop()
-        if self._sys_db_field is not None:
-            self._sys_db_field.destroy()
-            self._sys_db_field = None
-        if self._app_db_field is not None:
-            self._app_db_field.destroy()
-            self._app_db_field = None
         if self._admin_server_field is not None:
             self._admin_server_field.stop()
             self._admin_server_field = None
@@ -627,8 +636,21 @@ class DBOS:
         if self._executor_field is not None:
             self._executor_field.shutdown(wait=False, cancel_futures=True)
             self._executor_field = None
+        if self._sys_db_field is not None:
+            self._sys_db_field._run_background_processes = False
+            self._sys_db_field._cleanup_connections()
         for bg_thread in self._background_threads:
-            bg_thread.join()
+            bg_thread.join(timeout=10.0)
+            if bg_thread.is_alive():
+                dbos_logger.warning(
+                    f"Background thread {bg_thread.name} did not exit within timeout"
+                )
+        if self._sys_db_field is not None:
+            self._sys_db_field.destroy()
+            self._sys_db_field = None
+        if self._app_db_field is not None:
+            self._app_db_field.destroy()
+            self._app_db_field = None
 
     @classmethod
     def register_instance(cls, inst: object) -> None:
@@ -775,7 +797,7 @@ class DBOS:
         **kwargs: P.kwargs,
     ) -> WorkflowHandle[R]:
         """Invoke a workflow function in the background, returning a handle to the ongoing execution."""
-        return start_workflow(_get_dbos_instance(), func, None, True, *args, **kwargs)
+        return start_workflow(_get_dbos_instance(), func, args, kwargs)
 
     @classmethod
     async def start_workflow_async(
@@ -786,8 +808,97 @@ class DBOS:
     ) -> WorkflowHandleAsync[R]:
         """Invoke a workflow function on the event loop, returning a handle to the ongoing execution."""
         await cls._configure_asyncio_thread_pool()
-        return await start_workflow_async(
-            _get_dbos_instance(), func, None, True, *args, **kwargs
+        return await start_workflow_async(_get_dbos_instance(), func, args, kwargs)
+
+    @classmethod
+    @overload
+    def run_step(
+        cls,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, Coroutine[Any, Any, R]],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R: ...
+
+    @classmethod
+    @overload
+    def run_step(
+        cls,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, R],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R: ...
+
+    @classmethod
+    def run_step(
+        cls,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, Coroutine[Any, Any, R]] | Callable[P, R],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R:
+        """Invoke a step function and checkpoint its result."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        else:
+            raise RuntimeError(
+                "run_step() was called while an event loop is running. "
+                "Use await run_step_async(...) instead."
+            )
+
+        return run_step(
+            _get_dbos_instance(), func, dbos_step_options or {}, args, kwargs
+        )
+
+    @classmethod
+    @overload
+    async def run_step_async(
+        cls,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, Coroutine[Any, Any, R]],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R: ...
+
+    @classmethod
+    @overload
+    async def run_step_async(
+        cls,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, R],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R: ...
+
+    @classmethod
+    async def run_step_async(
+        cls,
+        dbos_step_options: Optional[StepOptions],
+        func: Callable[P, Coroutine[Any, Any, R]] | Callable[P, R],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> R:
+        """Invoke a step function on the event loop and checkpoint its result."""
+        try:
+            asyncio.get_running_loop()
+        except:
+            raise RuntimeError(
+                "run_step_async() was called while an event loop is not running. "
+                "Use run_step(...) instead."
+            )
+        else:
+            pass
+
+        await cls._configure_asyncio_thread_pool()
+        return await run_step_async(
+            _get_dbos_instance(),
+            func,
+            dbos_step_options or {},
+            args,
+            kwargs,
         )
 
     @classmethod
@@ -816,7 +927,7 @@ class DBOS:
         if existing_workflow:
             stat = dbos.get_workflow_status(workflow_id)
             if stat is None:
-                raise DBOSNonExistentWorkflowError(workflow_id)
+                raise DBOSNonExistentWorkflowError("target", workflow_id)
         return WorkflowHandlePolling(workflow_id, dbos)
 
     @classmethod
@@ -829,7 +940,7 @@ class DBOS:
         if existing_workflow:
             stat = await dbos.get_workflow_status_async(workflow_id)
             if stat is None:
-                raise DBOSNonExistentWorkflowError(workflow_id)
+                raise DBOSNonExistentWorkflowError("target", workflow_id)
         return WorkflowHandleAsyncPolling(workflow_id, dbos)
 
     @classmethod
@@ -980,9 +1091,36 @@ class DBOS:
         )
 
     @classmethod
+    def get_all_events(cls, workflow_id: str) -> Dict[str, Any]:
+        """
+        Get all events currently present for a workflow ID.
+        Args:
+            workflow_id: The workflow ID for which to get events
+        Returns:
+            A dictionary mapping event keys to their deserialized values
+        """
+
+        def fn() -> Dict[str, Any]:
+            return _get_dbos_instance()._sys_db.get_all_events(workflow_id)
+
+        return _get_dbos_instance()._sys_db.call_function_as_step(fn, "DBOS.get_events")
+
+    @classmethod
+    async def get_all_events_async(cls, workflow_id: str) -> Dict[str, Any]:
+        """
+        Get all events currently present for a workflow ID.
+        Args:
+            workflow_id: The workflow ID for which to get events
+        Returns:
+            A dictionary mapping event keys to their deserialized values
+        """
+        await cls._configure_asyncio_thread_pool()
+        return await asyncio.to_thread(cls.get_all_events, workflow_id)
+
+    @classmethod
     def _execute_workflow_id(cls, workflow_id: str) -> WorkflowHandle[Any]:
         """Execute a workflow by ID (for recovery)."""
-        return execute_workflow_by_id(_get_dbos_instance(), workflow_id)
+        return execute_workflow_by_id(_get_dbos_instance(), workflow_id, True, False)
 
     @classmethod
     def _recover_pending_workflows(
@@ -1008,6 +1146,38 @@ class DBOS:
         """Cancel a workflow by ID."""
         await cls._configure_asyncio_thread_pool()
         await asyncio.to_thread(cls.cancel_workflow, workflow_id)
+
+    @classmethod
+    def delete_workflow(
+        cls, workflow_id: str, *, delete_children: bool = False
+    ) -> None:
+        """Delete a workflow and all its associated data by ID.
+
+        If delete_children is True, also deletes all child workflows recursively.
+        """
+
+        def fn() -> None:
+            dbos_logger.info(f"Deleting workflow: {workflow_id}")
+            delete_workflow(
+                _get_dbos_instance(), workflow_id, delete_children=delete_children
+            )
+
+        return _get_dbos_instance()._sys_db.call_function_as_step(
+            fn, "DBOS.deleteWorkflow"
+        )
+
+    @classmethod
+    async def delete_workflow_async(
+        cls, workflow_id: str, *, delete_children: bool = False
+    ) -> None:
+        """Delete a workflow and all its associated data by ID.
+
+        If delete_children is True, also deletes all child workflows recursively.
+        """
+        await cls._configure_asyncio_thread_pool()
+        await asyncio.to_thread(
+            lambda: cls.delete_workflow(workflow_id, delete_children=delete_children)
+        )
 
     @classmethod
     async def _configure_asyncio_thread_pool(cls) -> None:
@@ -1038,16 +1208,6 @@ class DBOS:
         return await cls.retrieve_workflow_async(workflow_id)
 
     @classmethod
-    def restart_workflow(cls, workflow_id: str) -> WorkflowHandle[Any]:
-        """Restart a workflow with a new workflow ID"""
-        return cls.fork_workflow(workflow_id, 1)
-
-    @classmethod
-    async def restart_workflow_async(cls, workflow_id: str) -> WorkflowHandleAsync[Any]:
-        """Restart a workflow with a new workflow ID"""
-        return await cls.fork_workflow_async(workflow_id, 1)
-
-    @classmethod
     def fork_workflow(
         cls,
         workflow_id: str,
@@ -1061,7 +1221,6 @@ class DBOS:
             dbos_logger.info(f"Forking workflow: {workflow_id} from step {start_step}")
             return fork_workflow(
                 _get_dbos_instance()._sys_db,
-                _get_dbos_instance()._app_db,
                 workflow_id,
                 start_step,
                 application_version=application_version,
@@ -1099,30 +1258,37 @@ class DBOS:
         end_time: Optional[str] = None,
         name: Optional[str] = None,
         app_version: Optional[str] = None,
+        forked_from: Optional[str] = None,
         user: Optional[str] = None,
+        queue_name: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
         workflow_id_prefix: Optional[str] = None,
         load_input: bool = True,
         load_output: bool = True,
+        executor_id: Optional[str] = None,
+        queues_only: bool = False,
     ) -> List[WorkflowStatus]:
         def fn() -> List[WorkflowStatus]:
-            return list_workflows(
-                _get_dbos_instance()._sys_db,
+            return _get_dbos_instance()._sys_db.list_workflows(
                 workflow_ids=workflow_ids,
                 status=status,
                 start_time=start_time,
                 end_time=end_time,
                 name=name,
                 app_version=app_version,
+                forked_from=forked_from,
                 user=user,
+                queue_name=queue_name,
                 limit=limit,
                 offset=offset,
                 sort_desc=sort_desc,
                 workflow_id_prefix=workflow_id_prefix,
                 load_input=load_input,
                 load_output=load_output,
+                executor_id=executor_id,
+                queues_only=queues_only,
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
@@ -1139,13 +1305,17 @@ class DBOS:
         end_time: Optional[str] = None,
         name: Optional[str] = None,
         app_version: Optional[str] = None,
+        forked_from: Optional[str] = None,
         user: Optional[str] = None,
+        queue_name: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
         workflow_id_prefix: Optional[str] = None,
         load_input: bool = True,
         load_output: bool = True,
+        executor_id: Optional[str] = None,
+        queues_only: bool = False,
     ) -> List[WorkflowStatus]:
         await cls._configure_asyncio_thread_pool()
         return await asyncio.to_thread(
@@ -1156,41 +1326,59 @@ class DBOS:
             end_time=end_time,
             name=name,
             app_version=app_version,
+            forked_from=forked_from,
             user=user,
+            queue_name=queue_name,
             limit=limit,
             offset=offset,
             sort_desc=sort_desc,
             workflow_id_prefix=workflow_id_prefix,
             load_input=load_input,
             load_output=load_output,
+            executor_id=executor_id,
+            queues_only=queues_only,
         )
 
     @classmethod
     def list_queued_workflows(
         cls,
         *,
-        queue_name: Optional[str] = None,
+        workflow_ids: Optional[List[str]] = None,
         status: Optional[Union[str, List[str]]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         name: Optional[str] = None,
+        app_version: Optional[str] = None,
+        forked_from: Optional[str] = None,
+        user: Optional[str] = None,
+        queue_name: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
+        workflow_id_prefix: Optional[str] = None,
         load_input: bool = True,
+        load_output: bool = True,
+        executor_id: Optional[str] = None,
     ) -> List[WorkflowStatus]:
         def fn() -> List[WorkflowStatus]:
-            return list_queued_workflows(
-                _get_dbos_instance()._sys_db,
-                queue_name=queue_name,
+            return _get_dbos_instance()._sys_db.list_workflows(
+                workflow_ids=workflow_ids,
                 status=status,
                 start_time=start_time,
                 end_time=end_time,
                 name=name,
+                app_version=app_version,
+                forked_from=forked_from,
+                user=user,
+                queue_name=queue_name,
                 limit=limit,
                 offset=offset,
                 sort_desc=sort_desc,
+                workflow_id_prefix=workflow_id_prefix,
                 load_input=load_input,
+                load_output=load_output,
+                executor_id=executor_id,
+                queues_only=True,
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
@@ -1201,36 +1389,48 @@ class DBOS:
     async def list_queued_workflows_async(
         cls,
         *,
-        queue_name: Optional[str] = None,
+        workflow_ids: Optional[List[str]] = None,
         status: Optional[Union[str, List[str]]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         name: Optional[str] = None,
+        app_version: Optional[str] = None,
+        forked_from: Optional[str] = None,
+        user: Optional[str] = None,
+        queue_name: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
+        workflow_id_prefix: Optional[str] = None,
         load_input: bool = True,
+        load_output: bool = True,
+        executor_id: Optional[str] = None,
     ) -> List[WorkflowStatus]:
         await cls._configure_asyncio_thread_pool()
         return await asyncio.to_thread(
             cls.list_queued_workflows,
-            queue_name=queue_name,
+            workflow_ids=workflow_ids,
             status=status,
             start_time=start_time,
             end_time=end_time,
             name=name,
+            app_version=app_version,
+            forked_from=forked_from,
+            user=user,
+            queue_name=queue_name,
             limit=limit,
             offset=offset,
             sort_desc=sort_desc,
+            workflow_id_prefix=workflow_id_prefix,
             load_input=load_input,
+            load_output=load_output,
+            executor_id=executor_id,
         )
 
     @classmethod
     def list_workflow_steps(cls, workflow_id: str) -> List[StepInfo]:
         def fn() -> List[StepInfo]:
-            return list_workflow_steps(
-                _get_dbos_instance()._sys_db, _get_dbos_instance()._app_db, workflow_id
-            )
+            return _get_dbos_instance()._sys_db.list_workflow_steps(workflow_id)
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
             fn, "DBOS.listWorkflowSteps"
@@ -1240,6 +1440,14 @@ class DBOS:
     async def list_workflow_steps_async(cls, workflow_id: str) -> List[StepInfo]:
         await cls._configure_asyncio_thread_pool()
         return await asyncio.to_thread(cls.list_workflow_steps, workflow_id)
+
+    @classproperty
+    def application_version(cls) -> str:
+        return GlobalParams.app_version
+
+    @classproperty
+    def executor_id(cls) -> str:
+        return GlobalParams.executor_id
 
     @classproperty
     def logger(cls) -> Logger:
@@ -1283,25 +1491,10 @@ class DBOS:
             return None
 
     @classproperty
-    def parent_workflow_id(cls) -> str:
-        """
-        This method is deprecated and should not be used.
-        """
-        dbos_logger.warning(
-            "DBOS.parent_workflow_id is deprecated and should not be used"
-        )
-        ctx = assert_current_dbos_context()
-        assert (
-            ctx.is_within_workflow()
-        ), "parent_workflow_id is only available within a workflow."
-        return ctx.parent_workflow_id
-
-    @classproperty
-    def span(cls) -> Span:
+    def span(cls) -> Optional["Span"]:
         """Return the tracing `Span` associated with the current context."""
         ctx = assert_current_dbos_context()
         span = ctx.get_current_active_span()
-        assert span
         return span
 
     @classproperty
@@ -1355,7 +1548,7 @@ class DBOS:
                     )
             elif ctx.is_step():
                 _get_dbos_instance()._sys_db.write_stream_from_step(
-                    ctx.workflow_id, key, value
+                    ctx.workflow_id, ctx.function_id, key, value
                 )
             else:
                 raise DBOSException(
@@ -1496,10 +1689,69 @@ class DBOS:
                 await asyncio.sleep(1.0)
                 continue
 
+    @classmethod
+    def patch(cls, patch_name: str) -> bool:
+        if not _get_dbos_instance().enable_patching:
+            raise DBOSException("enable_patching must be True in DBOS configuration")
+        ctx = get_local_dbos_context()
+        if ctx is None or not ctx.is_workflow():
+            raise DBOSException("DBOS.patch must be called from a workflow")
+        workflow_id = ctx.workflow_id
+        function_id = ctx.function_id
+        patch_name = f"DBOS.patch-{patch_name}"
+        patched = _get_dbos_instance()._sys_db.patch(
+            workflow_id=workflow_id, function_id=function_id + 1, patch_name=patch_name
+        )
+        # If the patch was applied, increment function ID
+        if patched:
+            ctx.function_id += 1
+        return patched
+
+    @classmethod
+    def patch_async(cls, patch_name: str) -> Coroutine[Any, Any, bool]:
+        return asyncio.to_thread(cls.patch, patch_name)
+
+    @classmethod
+    def deprecate_patch(cls, patch_name: str) -> bool:
+        if not _get_dbos_instance().enable_patching:
+            raise DBOSException("enable_patching must be True in DBOS configuration")
+        ctx = get_local_dbos_context()
+        if ctx is None or not ctx.is_workflow():
+            raise DBOSException("DBOS.deprecate_patch must be called from a workflow")
+        workflow_id = ctx.workflow_id
+        function_id = ctx.function_id
+        patch_name = f"DBOS.patch-{patch_name}"
+        patch_exists = _get_dbos_instance()._sys_db.deprecate_patch(
+            workflow_id=workflow_id, function_id=function_id + 1, patch_name=patch_name
+        )
+        # If the patch is already in history, increment function ID
+        if patch_exists:
+            ctx.function_id += 1
+        return True
+
+    @classmethod
+    def deprecate_patch_async(cls, patch_name: str) -> Coroutine[Any, Any, bool]:
+        return asyncio.to_thread(cls.deprecate_patch, patch_name)
+
     @classproperty
     def tracer(self) -> DBOSTracer:
         """Return the DBOS OpenTelemetry tracer."""
         return dbos_tracer
+
+    @classmethod
+    def listen_queues(cls, queues: List[Queue]) -> None:
+        """
+        Configure this DBOS process to only listen to (dequeue workflows from) specific queues.
+
+        Args:
+            queues(List[Queue]): The list of queues to listen to
+        """
+        dbos = _get_dbos_instance()
+        if dbos._launched:
+            raise DBOSException("listen_queues called after DBOS is launched")
+        if dbos._listening_queues is not None:
+            raise DBOSException("listen_queues called more than once")
+        dbos._listening_queues = queues
 
 
 class WorkflowHandle(Generic[R], Protocol):
@@ -1522,7 +1774,9 @@ class WorkflowHandle(Generic[R], Protocol):
         """Return the applicable workflow ID."""
         ...
 
-    def get_result(self) -> R:
+    def get_result(
+        self, *, polling_interval_sec: float = DEFAULT_POLLING_INTERVAL
+    ) -> R:
         """Return the result of the workflow function invocation, waiting if necessary."""
         ...
 
@@ -1551,7 +1805,9 @@ class WorkflowHandleAsync(Generic[R], Protocol):
         """Return the applicable workflow ID."""
         ...
 
-    async def get_result(self) -> R:
+    async def get_result(
+        self, *, polling_interval_sec: float = DEFAULT_POLLING_INTERVAL
+    ) -> R:
         """Return the result of the workflow function invocation, waiting if necessary."""
         ...
 

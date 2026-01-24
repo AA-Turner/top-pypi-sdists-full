@@ -36,7 +36,8 @@ set(SIMPLEDBUS_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/Logging.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/Message.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/Path.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/ObjectManager.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/ObjectManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/interfaces/Properties.cpp)
 
 # Configure the build targets
 
@@ -63,7 +64,7 @@ target_link_libraries(simpledbus PUBLIC ${DBus1_LIBRARIES})
 
 target_include_directories(simpledbus PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(simpledbus PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/external)
-target_include_directories(simpledbus PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal)
+target_include_directories(simpledbus PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal/include)
 target_include_directories(simpledbus INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/external>
@@ -127,7 +128,7 @@ if(SIMPLEDBUS_TEST)
 
     target_compile_definitions(simpledbus_test PRIVATE FMT_HEADER_ONLY)
     target_include_directories(simpledbus_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/external)
-    target_include_directories(simpledbus_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal)
+    target_include_directories(simpledbus_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal/include)
 
     set_target_properties(simpledbus_test PROPERTIES
         CXX_VISIBILITY_PRESET hidden

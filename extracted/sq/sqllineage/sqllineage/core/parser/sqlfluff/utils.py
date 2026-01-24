@@ -9,8 +9,6 @@ naming convention:
 first parameter of each function must be sqlfluff BaseSegment
 """
 
-from typing import Optional
-
 from sqlfluff.core.parser import BaseSegment
 
 from sqllineage.utils.entities import ColumnQualifierTuple, SubQueryTuple
@@ -32,7 +30,7 @@ def is_set_expression(segment: BaseSegment) -> bool:
 
 
 def is_subquery(segment: BaseSegment) -> bool:
-    if segment.type == "from_expression_element" or segment.type == "bracketed":
+    if segment.type in ["from_expression_element", "bracketed"]:
         token = extract_innermost_bracketed(
             segment if segment.type == "bracketed" else segment.segments[0]
         )
@@ -53,7 +51,27 @@ def is_wildcard(segment: BaseSegment) -> bool:
     )
 
 
-def find_from_expression_element(segment: BaseSegment) -> Optional[BaseSegment]:
+def is_teradata_title_phrase(segment: BaseSegment) -> bool:
+    """
+    Check if a select_clause_element contains Teradata specific TITLE phrase
+    Teradata TITLE phrase syntax: column_name (TITLE 'title_name')
+    This gets incorrectly parsed as a function by sqlfluff
+    """
+    if segment.type == "select_clause_element":
+        if function := segment.get_child("function"):
+            if function_contents := function.get_child("function_contents"):
+                if bracketed := function_contents.get_child("bracketed"):
+                    if expression := bracketed.get_child("expression"):
+                        if data_type := expression.get_child("data_type"):
+                            if data_type_identifier := data_type.get_child(
+                                "data_type_identifier"
+                            ):
+                                if data_type_identifier.raw_upper == "TITLE":
+                                    return True
+    return False
+
+
+def find_from_expression_element(segment: BaseSegment) -> BaseSegment | None:
     """
     segment can be of type:
         from_clause as grandparent
@@ -68,7 +86,7 @@ def find_from_expression_element(segment: BaseSegment) -> Optional[BaseSegment]:
     return from_expression_element
 
 
-def find_table_identifier(segment: BaseSegment) -> Optional[BaseSegment]:
+def find_table_identifier(segment: BaseSegment) -> BaseSegment | None:
     """
     recursively find table identifier
     """
@@ -129,68 +147,63 @@ def list_expression_from_when_clause(
 
 def list_subqueries(segment: BaseSegment) -> list[SubQueryTuple]:
     subquery = []
-    if segment.type == "select_clause":
-        for select_clause_element in segment.get_children("select_clause_element"):
-            if expression := select_clause_element.get_child("expression"):
-                if case_expression := expression.get_child("case_expression"):
-                    for when_clause in case_expression.get_children("when_clause"):
-                        for bracketed_segment in list_expression_from_when_clause(
-                            when_clause, sub_type="WHEN"
-                        ):
-                            subquery.append(SubQueryTuple(bracketed_segment, None))
-                        for bracketed_segment in list_expression_from_when_clause(
-                            when_clause, sub_type="THEN"
-                        ):
-                            alias_expression = select_clause_element.get_child(
-                                "alias_expression"
-                            )
-                            alias = (
-                                extract_identifier(alias_expression)
-                                if alias_expression
-                                else None
-                            )
-                            subquery.append(SubQueryTuple(bracketed_segment, alias))
-            elif function := select_clause_element.get_child("function"):
-                for bracketed in function.recursive_crawl("bracketed"):
-                    if is_subquery(bracketed):
-                        subquery.append(SubQueryTuple(bracketed, None))
-    elif segment.type == "from_expression_element":
-        as_segment, target = extract_as_and_target_segment(segment)
-        if is_subquery(target):
-            subquery = [
-                SubQueryTuple(
-                    (
-                        extract_innermost_bracketed(target)
-                        if not is_set_expression(target)
-                        else target
-                    ),
-                    extract_identifier(as_segment) if as_segment else None,
-                )
-            ]
-    elif segment.type == "where_clause":
-        bracketeds = []
-        if expression := segment.get_child("expression"):
-            bracketeds = expression.get_children("bracketed")
-        elif bracketed_where := segment.get_child("bracketed"):
-            if expression := bracketed_where.get_child("expression"):
+    match segment.type:
+        case "select_clause":
+            for select_clause_element in segment.get_children("select_clause_element"):
+                if expression := select_clause_element.get_child("expression"):
+                    if case_expression := expression.get_child("case_expression"):
+                        for when_clause in case_expression.get_children("when_clause"):
+                            for bracketed_segment in list_expression_from_when_clause(
+                                when_clause, sub_type="WHEN"
+                            ):
+                                subquery.append(SubQueryTuple(bracketed_segment, None))
+                            for bracketed_segment in list_expression_from_when_clause(
+                                when_clause, sub_type="THEN"
+                            ):
+                                alias_expression = select_clause_element.get_child(
+                                    "alias_expression"
+                                )
+                                alias = (
+                                    extract_identifier(alias_expression)
+                                    if alias_expression
+                                    else None
+                                )
+                                subquery.append(SubQueryTuple(bracketed_segment, alias))
+                elif function := select_clause_element.get_child("function"):
+                    for bracketed in function.recursive_crawl("bracketed"):
+                        if is_subquery(bracketed):
+                            subquery.append(SubQueryTuple(bracketed, None))
+        case "from_expression_element":
+            as_segment, target = extract_as_and_target_segment(segment)
+            if is_subquery(target):
+                subquery = [
+                    SubQueryTuple(
+                        (
+                            extract_innermost_bracketed(target)
+                            if not is_set_expression(target)
+                            else target
+                        ),
+                        extract_identifier(as_segment) if as_segment else None,
+                    )
+                ]
+        case "where_clause":
+            bracketeds = []
+            if expression := segment.get_child("expression"):
                 bracketeds = expression.get_children("bracketed")
-        subquery = [
-            SubQueryTuple(extract_innermost_bracketed(bracketed), None)
-            for bracketed in bracketeds
-            if is_subquery(bracketed)
-        ]
-    elif segment.type in ["from_clause", "from_expression"]:
-        if from_expression_element := find_from_expression_element(segment):
-            subquery = list_subqueries(from_expression_element)
-        for join_clause in list_join_clause(segment):
-            if from_expression_element := find_from_expression_element(join_clause):
-                subquery += list_subqueries(from_expression_element)
-    elif is_set_expression(segment):
-        subquery = [
-            SubQueryTuple(s, None)
-            for s in list_child_segments(segment, check_bracketed=True)
-            if s.type in ("bracketed", "select_statement")
-        ]
+            elif bracketed_where := segment.get_child("bracketed"):
+                if expression := bracketed_where.get_child("expression"):
+                    bracketeds = expression.get_children("bracketed")
+            subquery = [
+                SubQueryTuple(extract_innermost_bracketed(bracketed), None)
+                for bracketed in bracketeds
+                if is_subquery(bracketed)
+            ]
+        case "from_clause" | "from_expression":
+            if from_expression_element := find_from_expression_element(segment):
+                subquery = list_subqueries(from_expression_element)
+            for join_clause in list_join_clause(segment):
+                if from_expression_element := find_from_expression_element(join_clause):
+                    subquery += list_subqueries(from_expression_element)
     return subquery
 
 
@@ -235,7 +248,7 @@ def extract_identifier(col_segment: BaseSegment) -> str:
 
 def extract_as_and_target_segment(
     segment: BaseSegment,
-) -> tuple[Optional[BaseSegment], BaseSegment]:
+) -> tuple[BaseSegment | None, BaseSegment]:
     as_segment = segment.get_child("alias_expression")
     sublist = list_child_segments(segment, False)
     target = sublist[0]
@@ -245,20 +258,22 @@ def extract_as_and_target_segment(
     return as_segment, table_expr
 
 
-def extract_column_qualifier(segment: BaseSegment) -> Optional[ColumnQualifierTuple]:
+def extract_column_qualifier(segment: BaseSegment) -> ColumnQualifierTuple | None:
     cqt = None
     if is_wildcard(segment):
         identifiers = segment.raw.split(".")
         column = identifiers[-1]
         parent = identifiers[-2] if len(identifiers) > 1 else None
         cqt = ColumnQualifierTuple(column, parent)
-    elif segment.type == "column_reference":
-        sub_segments = list_child_segments(segment)
-        column = sub_segments[-1].raw
-        parent = sub_segments[-2].raw if len(sub_segments) > 1 else None
-        cqt = ColumnQualifierTuple(column, parent)
-    elif segment.type == "identifier":
-        cqt = ColumnQualifierTuple(segment.raw, None)
+    else:
+        match segment.type:
+            case "column_reference":
+                sub_segments = list_child_segments(segment)
+                column = sub_segments[-1].raw
+                parent = sub_segments[-2].raw if len(sub_segments) > 1 else None
+                cqt = ColumnQualifierTuple(column, parent)
+            case "identifier":
+                cqt = ColumnQualifierTuple(segment.raw, None)
     return cqt
 
 

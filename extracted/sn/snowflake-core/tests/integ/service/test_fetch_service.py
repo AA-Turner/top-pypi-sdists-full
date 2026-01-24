@@ -96,7 +96,13 @@ def test_fetch_service_status(services, session, imagerepo, shared_compute_pool)
         status = s.get_service_status()
         assert status[0]["status"] in ["UNKNOWN", "PENDING", "READY", "DONE"]
         s.suspend()
-        status = s.get_service_status(timeout=10)
+        for _ in range(10):
+            status = s.get_service_status(timeout=10)
+            if not status:
+                break
+            sleep(1)
+        else:
+            pytest.fail(f"Service status did not become empty after suspend. Last status: {status}")
         assert not status
         status = s.get_service_status()
         assert not status

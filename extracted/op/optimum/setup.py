@@ -20,11 +20,9 @@ REQUIRED_PKGS = [
     "huggingface_hub>=0.8.0",
 ]
 
-# TODO: unpin pytest once https://github.com/huggingface/transformers/pull/29154 is merged & released
-# pytest>=8.0.0 also fails with the transformers version pinned for exporters-tf
 TESTS_REQUIRE = [
+    "pytest",
     "accelerate",
-    "pytest<=8.0.0",
     "requests",
     "parameterized",
     "pytest-xdist",
@@ -38,8 +36,6 @@ TESTS_REQUIRE = [
     "sentencepiece",
     "rjieba",
     "hf_xet",
-    # TODO: this forces the latest version of torch for some reason, check why
-    "onnxslim>=0.1.53",
 ]
 
 QUALITY_REQUIRE = ["black~=23.1", "ruff==0.1.5"]
@@ -47,62 +43,20 @@ QUALITY_REQUIRE = ["black~=23.1", "ruff==0.1.5"]
 BENCHMARK_REQUIRE = ["optuna", "tqdm", "scikit-learn", "seqeval", "torchvision", "evaluate>=0.2.0"]
 
 EXTRAS_REQUIRE = {
-    "onnxruntime": [
-        "onnx",
-        "datasets>=1.2.1",
-        "protobuf>=3.20.1",
-        "onnxruntime>=1.11.0",
-        "transformers>=4.36,<4.54.0",
-    ],
-    "onnxruntime-gpu": [
-        "onnx",
-        "datasets>=1.2.1",
-        "protobuf>=3.20.1",
-        "onnxruntime-gpu>=1.11.0",
-        "transformers>=4.36,<4.54.0",
-    ],
-    "onnxruntime-training": [
-        "evaluate",
-        "torch-ort",
-        "accelerate",
-        "datasets>=1.2.1",
-        "protobuf>=3.20.1",
-        "transformers>=4.36,<4.54.0",
-        "onnxruntime-training>=1.11.0",
-    ],
-    "exporters": [
-        "onnx",
-        "onnxruntime",
-        "protobuf>=3.20.1",
-        "transformers>=4.36,<4.54.0",
-    ],
-    "exporters-gpu": [
-        "onnx",
-        "onnxruntime-gpu",
-        "protobuf>=3.20.1",
-        "transformers>=4.36,<4.54.0",
-    ],
-    "exporters-tf": [
-        "onnx",
-        "h5py",
-        "tf2onnx",
-        "onnxruntime",
-        "numpy<1.24.0",
-        "datasets<=2.16",
-        "tensorflow>=2.4,<=2.12.1",
-        "transformers>=4.36,<4.38",
-    ],
+    "amd": "optimum-amd",
+    "furiosa": "optimum-furiosa",
+    "graphcore": "optimum-graphcore",
+    "habana": "optimum-habana>=1.17.0",
     "intel": "optimum-intel>=1.23.0",
-    "openvino": "optimum-intel[openvino]>=1.23.0",
+    "ipex": "optimum-intel[ipex]>=1.23.0",
     "nncf": "optimum-intel[nncf]>=1.23.0",
     "neural-compressor": "optimum-intel[neural-compressor]>=1.23.0",
-    "ipex": "optimum-intel[ipex]>=1.23.0",
-    "habana": "optimum-habana>=1.17.0",
-    "neuronx": ["optimum-neuron[neuronx]>=0.0.28"],
-    "graphcore": "optimum-graphcore",
-    "furiosa": "optimum-furiosa",
-    "amd": "optimum-amd",
-    "quanto": ["optimum-quanto>=0.2.4"],
+    "onnx": "optimum-onnx",
+    "onnxruntime": "optimum-onnx[onnxruntime]",
+    "onnxruntime-gpu": "optimum-onnx[onnxruntime-gpu]",
+    "openvino": "optimum-intel[openvino]>=1.23.0",
+    "quanto": "optimum-quanto>=0.2.4",
+    ###########################################################################
     "dev": TESTS_REQUIRE + QUALITY_REQUIRE,
     "tests": TESTS_REQUIRE,
     "quality": QUALITY_REQUIRE,

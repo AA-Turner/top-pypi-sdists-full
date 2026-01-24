@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.schema._generated.models.point_of_time import PointOfTime, PointOfTimeModel
@@ -37,31 +37,31 @@ class SchemaClone(BaseModel):
     point_of_time : PointOfTime, optional
 
     created_on : datetime, optional
-        Date and time the schema was created.
+        Date and time the schema was created — **Read-only:** *any user-provided value will be ignored.*
     kind : str,  default 'PERMANENT'
         Schema type, permanent (default) or transient.
     is_default : bool, optional
-        Default schema for a user.
+        Default schema for a user — **Read-only:** *any user-provided value will be ignored.*
     is_current : bool, optional
-        Current schema for the session.
+        Current schema for the session — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        Database that the schema belongs to
+        Database that the schema belongs to — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Name of the role that owns the schema.
+        Name of the role that owns the schema — **Read-only:** *any user-provided value will be ignored.*
     comment : str, optional
         Optional comment in which to store information related to the schema.
     options : str, optional
-
+        **Read-only:** *any user-provided value will be ignored.*
     managed_access : bool,  default False
         Whether this schema is a managed access schema that centralizes privilege management with the schema owner.
     retention_time : int, optional
-        Number of days that historical data is retained for Time Travel.
+        Number of days that historical data is retained for Time Travel — **Read-only:** *any user-provided value will be ignored.*
     dropped_on : datetime, optional
-        Date and time the schema was dropped.
+        Date and time the schema was dropped — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        Type of role that owns the object, either `ROLE` or `DATABASE_ROLE`.
+        Type of role that owns the object, either `ROLE` or `DATABASE_ROLE` — **Read-only:** *any user-provided value will be ignored.*
     budget : str, optional
-        Budget that defines a monthly spending limit on the compute costs  for a Snowflake account or a custom group of Snowflake objects.
+        Budget that defines a monthly spending limit on the compute costs  for a Snowflake account or a custom group of Snowflake objects — **Read-only:** *any user-provided value will be ignored.*
     data_retention_time_in_days : int, optional
         Number of days for which Time Travel actions (CLONE and UNDROP) can be performed on the schema, as well as specifying the default Time Travel retention time for all tables created in the schema
     default_ddl_collation : str, optional
@@ -180,9 +180,10 @@ class SchemaClone(BaseModel):
             raise ValueError("must validate the enum values ('PERMANENT','TRANSIENT')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -220,7 +221,7 @@ class SchemaClone(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of point_of_time
         if self.point_of_time:
@@ -243,9 +244,9 @@ class SchemaClone(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return SchemaClone.parse_obj(obj)
+            return SchemaClone.model_validate(obj)
 
-        _obj = SchemaClone.parse_obj(
+        _obj = SchemaClone.model_validate(
             {
                 "point_of_time": PointOfTime.from_dict(obj.get("point_of_time"))
                 if obj.get("point_of_time") is not None

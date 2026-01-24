@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-rf
-Version: 1.8.0
+Version: 1.9.0
 Summary: Object Oriented Microwave Engineering
 Author-email: Alex Arsenovic <alexanderarsenovic@gmail.com>
 License: LICENSE.txt
@@ -23,12 +23,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Requires-Dist: numpy>=1.21
 Requires-Dist: scipy>=1.7
 Requires-Dist: pandas>=1.1
 Requires-Dist: typing-extensions
+Requires-Dist: pre-commit>=3.5.0
 Provides-Extra: test
 Requires-Dist: pytest>=7.0; extra == "test"
 Requires-Dist: pytest-mock>=3.10; extra == "test"

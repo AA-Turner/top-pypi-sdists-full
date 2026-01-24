@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: scrapingbee
-Version: 2.0.1
+Version: 2.0.2
 Summary: ScrapingBee Python SDK
 Home-page: https://github.com/scrapingbee/scrapingbee-python
 Author: Ari Bajo Rouvinen
@@ -8,7 +8,6 @@ Author-email: arimbr@gmail.com
 Maintainer: Pierre de Wulf
 Maintainer-email: hello@scrapingbee.com
 License: MIT
-Platform: UNKNOWN
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -18,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 
 # ScrapingBee Python SDK
@@ -63,6 +62,8 @@ Signup to ScrapingBee to [get your API key](https://app.scrapingbee.com/account/
         'device': 'desktop',
         # Use some data extraction rules
         'extract_rules': {'title': 'h1'},
+        # Use AI to extract data from the page
+        'ai_extract_rules': {'product_name': 'The name of the product', 'price': 'The price in USD'},
         # Wrap response in JSON
         'json_response': False,
         # Interact with the webpage you want to scrape 
@@ -164,5 +165,3 @@ The client includes a retry mechanism for 5XX responses.
     retries=5
 )
 ```
-
-

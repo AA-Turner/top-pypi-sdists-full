@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import importlib.metadata
 import logging
-import re
 import sys
 from typing import Any
 
@@ -41,6 +40,7 @@ from zigpy_deconz.api import (
 )
 from zigpy_deconz.config import CONFIG_SCHEMA
 import zigpy_deconz.exception
+from zigpy_deconz.utils import is_usb_serial_port
 
 LIB_VERSION = importlib.metadata.version("zigpy-deconz")
 LOGGER = logging.getLogger(__name__)
@@ -180,7 +180,29 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
     async def reset_network_info(self):
         # TODO: There does not appear to be a way to factory reset a Conbee
-        await self.form_network()
+        await self.write_network_info(
+            network_info=zigpy.state.NetworkInfo(
+                pan_id=0xFFFF,
+                extended_pan_id=zigpy.types.EUI64.convert("FF:FF:FF:FF:FF:FF:FF:FF"),
+                channel=None,
+                channel_mask=zigpy.types.Channels(0),
+                nwk_update_id=0,
+                network_key=zigpy.state.Key(
+                    key=zigpy.types.KeyData.convert(
+                        "FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF:FF"
+                    )
+                ),
+                tc_link_key=zigpy.state.Key(
+                    key=zigpy.types.KeyData.convert(b"ZigBeeAlliance09".hex())
+                ),
+                security_level=0x05,
+            ),
+            node_info=zigpy.state.NodeInfo(
+                logical_type=zdo_t.LogicalType.Coordinator,
+                ieee=zigpy.types.EUI64.UNKNOWN,
+                nwk=0xFFFF,
+            ),
+        )
 
     async def write_network_info(self, *, network_info, node_info):
         try:
@@ -189,12 +211,19 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             )
         except zigpy_deconz.exception.CommandError as ex:
             assert ex.status == Status.UNSUPPORTED
-            fw_version = f"{int(self._api.firmware_version):#010x}"
-            raise zigpy.exceptions.ControllerException(
-                f"Please upgrade your adapter firmware. Firmware version {fw_version}"
-                f" does not support writing the network key frame counter, which is"
-                f" required for migration to succeed."
-            )
+
+            # If we are resetting the adapter or forming a brand new network, we can
+            # skip this check
+            if not (
+                network_info.stack_specific.get("form_quickly", False)
+                or network_info.network_key.tx_counter == 0
+            ):
+                fw_version = f"{int(self._api.firmware_version):#010x}"
+                raise zigpy.exceptions.CannotWriteNetworkSettings(
+                    f"Please upgrade your adapter firmware. Firmware version"
+                    f" {fw_version} does not support writing the network key frame"
+                    f" counter, which is required for migration to succeed."
+                )
 
         if node_info.logical_type == zdo_t.LogicalType.Coordinator:
             await self._api.write_parameter(
@@ -284,6 +313,14 @@ class ControllerApplication(zigpy.application.ControllerApplication):
         # Note: Changed network configuration parameters become only affective after
         # sending a Leave Network Request followed by a Create or Join Network Request
         await self._change_network_state(NetworkState.OFFLINE)
+
+        if (
+            network_info.pan_id == 0xFFFF
+            or network_info.channel_mask == zigpy.types.Channels(0)
+        ):
+            # Network is being reset, it will never enter the CONNECTED state
+            return
+
         await asyncio.sleep(CHANGE_NETWORK_STATE_DELAY)
         await self._change_network_state(NetworkState.CONNECTED)
 
@@ -306,13 +343,16 @@ class ControllerApplication(zigpy.application.ControllerApplication):
 
         node_info.manufacturer = "dresden elektronik"
 
-        if re.match(
-            r"/dev/tty(S|AMA|ACM)\d+",
+        is_usb = await asyncio.get_running_loop().run_in_executor(
+            None,
+            is_usb_serial_port,
             self._config[zigpy.config.CONF_DEVICE][zigpy.config.CONF_DEVICE_PATH],
-        ):
-            node_info.model = "Raspbee"
-        else:
+        )
+
+        if is_usb:
             node_info.model = "Conbee"
+        else:
+            node_info.model = "Raspbee"
 
         node_info.model += {
             FirmwarePlatform.Conbee: "",
@@ -334,7 +374,7 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             NetworkParameter.aps_extended_panid
         )
 
-        if network_info.extended_pan_id == zigpy.types.EUI64.convert(
+        if network_info.extended_pan_id == zigpy.types.ExtendedPanId.convert(
             "00:00:00:00:00:00:00:00"
         ):
             network_info.extended_pan_id = await self._api.read_parameter(
@@ -351,8 +391,16 @@ class ControllerApplication(zigpy.application.ControllerApplication):
             NetworkParameter.nwk_update_id
         )
 
-        if network_info.channel == 0:
-            raise NetworkNotFormed("Network channel is zero")
+        if (
+            node_info.nwk == 0xFFFF
+            or network_info.pan_id == 0xFFFF
+            or (
+                network_info.extended_pan_id
+                == zigpy.types.ExtendedPanId.convert("FF:FF:FF:FF:FF:FF:FF:FF")
+            )
+            or network_info.channel == 0
+        ):
+            raise NetworkNotFormed("Network is not formed")
 
         indexed_key = await self._api.read_parameter(NetworkParameter.network_key, 0)
 

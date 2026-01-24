@@ -5,19 +5,20 @@ import json
 import os
 import re
 import string
+import sys
 import threading
+import time
 import traceback
 import types
 import uuid
 import warnings as pywarnings
-from collections import OrderedDict
+from collections import deque, OrderedDict
+from threading import Lock
 from typing import Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import pytz
-import sys
-import time
 from deprecated import deprecated
 
 from seeq.base import util
@@ -50,6 +51,7 @@ PATH_ROOT = '__My_Folder__'
 
 DATASOURCE_MAP_ITEM_LEVEL_MAP_FILES = 'Item-Level Map Files'
 DATASOURCE_MAP_REGEX_BASED_MAPS = 'RegEx-Based Maps'
+DATASOURCE_MAP_SERVER_SCOPED_ITEM_LEVEL_MAP_FILE = 'Server-Scoped Item-Level Map File'
 
 EMPTY_GUID = '00000000-0000-0000-0000-000000000000'
 GLOBALS_ONLY = EMPTY_GUID
@@ -671,7 +673,7 @@ def does_query_fragment_match(query_fragment, _string, contains=True):
 def get_workbook_type(arg):
     data: Optional[str] = None
     if isinstance(arg, WorkbookOutputV1):
-        if arg.type in ['Analysis', 'Topic']:
+        if arg.type in ['Analysis', 'Topic', 'Vantage']:
             return arg.type
 
         if hasattr(arg, 'data'):
@@ -689,7 +691,10 @@ def get_workbook_type(arg):
         except Exception:
             return 'Analysis'
 
-    if 'isReportBinder' in data and data['isReportBinder']:
+    if 'isTopic' in data and data['isTopic']:
+        return 'Topic'
+    # NOTE: Keep for backwards compatibility. `isReportBinder` was renamed to `isTopic` on 2025-12-03
+    elif 'isReportBinder' in data and data['isReportBinder']:
         return 'Topic'
     else:
         return 'Analysis'
@@ -884,30 +889,86 @@ def look_up_in_df(item, lookup_df: pd.DataFrame) -> pd.DataFrame:
 
 def smart_pd_concat(dfs, ignore_index=False):
     """
-    Concatenates a list of DataFrames, handling empty ones and preserving dtype and column union,
-    with column order preserved by first occurrence.
+    Concatenates a list of DataFrames while:
+      • Ignoring empty or all-NA frames/columns for dtype inference
+      • Preserving column order (by first occurrence)
+      • Filling missing columns with np.nan
     """
-    if len(dfs) == 0:
+    if not dfs:
         return pd.DataFrame()
 
-    non_empty_dfs = [d for d in dfs if not d.empty]
-
-    # Capture the union of all columns and their dtypes, in order of appearance
-    all_columns = dict()
+    # Record first-seen dtype and column order
+    col_dtypes = {}
+    col_order = []
     for df in dfs:
-        for column_name in df.columns:
-            if column_name not in all_columns:
-                all_columns[column_name] = df[column_name].dtype
+        for c in df.columns:
+            if c not in col_dtypes:
+                col_dtypes[c] = df[c].dtype
+                col_order.append(c)
 
-    result = pd.DataFrame()
-    if len(non_empty_dfs) > 0:
-        result = pd.concat(non_empty_dfs, ignore_index=ignore_index)
+    # Filter out empty frames and frames with only all-NA columns
+    filtered = []
+    for df in dfs:
+        if df.empty:
+            continue
+        non_all_na = df.loc[:, ~df.isna().all(axis=0)]
+        if non_all_na.shape[1] == 0:
+            continue
+        filtered.append(non_all_na)
 
-    for column_name, dtype in all_columns.items():
-        if column_name not in result.columns:
-            result[column_name] = pd.Series(dtype=dtype)
+    # Concatenate those that contribute to dtype inference
+    result = pd.concat(filtered, ignore_index=ignore_index, sort=False) if filtered else pd.DataFrame()
+
+    # Add back missing columns filled with np.nan (respecting original dtype if possible)
+    for c, dtype in col_dtypes.items():
+        if c not in result.columns:
+            result[c] = np.nan
+            # If you want to enforce a dtype (e.g. int64 → float64 to allow NaN)
+            try:
+                result[c] = result[c].astype(dtype)
+            except Exception:
+                # Force float64 if dtype cannot hold NaN (e.g. int64/bool)
+                result[c] = result[c].astype(float)
+
+    # Reorder columns
+    result = result[col_order]
 
     return result
+
+
+def smart_pd_astype(df: pd.DataFrame, spec: Dict[str, str]) -> pd.DataFrame:
+    """
+    Cast columns according to `spec` without using pd.NA.
+    Special cases:
+      - "datetime64[ns]": interpret values as *epoch nanoseconds* (int) → NaN -> NaT
+      - "timedelta64[ns]": interpret values as *nanoseconds* duration → NaN -> NaT
+    Integers with NaNs will be kept as object (NumPy ints can't hold NaN).
+    Returns a new DataFrame.
+    """
+    out = df.copy()
+
+    for col, target in spec.items():
+        if col not in out.columns:
+            continue
+        s = out[col]
+
+        if target == "datetime64[ns]":
+            out[col] = pd.to_datetime(s, unit="ns", errors="coerce", utc=True)
+        elif target == "timedelta64[ns]":
+            out[col] = pd.to_timedelta(s, unit="ns", errors="coerce")
+        elif target in {"int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64"}:
+            nums = pd.to_numeric(s, errors="coerce")
+            if nums.isna().any():
+                # Can't store NaN in NumPy integer dtypes; keep object
+                pass
+            else:
+                out[col] = nums.astype(target)
+        elif target in {"float16", "float32", "float64"}:
+            out[col] = pd.to_numeric(s, errors="coerce").astype(target)
+        else:
+            out[col] = out[col].astype(target)
+
+    return out
 
 
 def ensure_upper_case_id(key, val):
@@ -1118,3 +1179,21 @@ class AutoResetEvent:
 
             self._flag = False  # auto-reset
             return True
+
+
+class DropOldestQueue:
+    def __init__(self, maxlen):
+        self._q = deque(maxlen=maxlen)
+        self._lock = Lock()
+
+    def put(self, item):
+        with self._lock:
+            self._q.append(item)
+
+    def get(self):
+        with self._lock:
+            return self._q.popleft()
+
+    def snapshot(self):
+        with self._lock:
+            return list(self._q)

@@ -5,13 +5,13 @@ from collections.abc import Iterable, Iterator, Sequence
 from functools import lru_cache
 from pathlib import Path
 from re import Pattern
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from mypy_extensions import mypyc_attr
 from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
-from pathspec import PathSpec
-from pathspec.patterns.gitwildmatch import GitWildMatchPatternError
+from pathspec import GitIgnoreSpec
+from pathspec.patterns.gitignore import GitIgnorePatternError
 
 if sys.version_info >= (3, 11):
     try:
@@ -29,11 +29,11 @@ from black.output import err
 from black.report import Report
 
 if TYPE_CHECKING:
-    import colorama  # noqa: F401
+    import colorama
 
 
 @lru_cache
-def _load_toml(path: Union[Path, str]) -> dict[str, Any]:
+def _load_toml(path: Path | str) -> dict[str, Any]:
     with open(path, "rb") as f:
         return tomllib.load(f)
 
@@ -45,7 +45,7 @@ def _cached_resolve(path: Path) -> Path:
 
 @lru_cache
 def find_project_root(
-    srcs: Sequence[str], stdin_filename: Optional[str] = None
+    srcs: Sequence[str], stdin_filename: str | None = None
 ) -> tuple[Path, str]:
     """Return a directory containing .git, .hg, or pyproject.toml.
 
@@ -96,8 +96,8 @@ def find_project_root(
 
 
 def find_pyproject_toml(
-    path_search_start: tuple[str, ...], stdin_filename: Optional[str] = None
-) -> Optional[str]:
+    path_search_start: tuple[str, ...], stdin_filename: str | None = None
+) -> str | None:
     """Find the absolute filepath to a pyproject.toml if it exists"""
     path_project_root, _ = find_project_root(path_search_start, stdin_filename)
     path_pyproject_toml = path_project_root / "pyproject.toml"
@@ -137,7 +137,7 @@ def parse_pyproject_toml(path_config: str) -> dict[str, Any]:
 
 def infer_target_version(
     pyproject_toml: dict[str, Any],
-) -> Optional[list[TargetVersion]]:
+) -> list[TargetVersion] | None:
     """Infer Black's target version from the project metadata in pyproject.toml.
 
     Supports the PyPA standard format (PEP 621):
@@ -160,7 +160,7 @@ def infer_target_version(
     return None
 
 
-def parse_req_python_version(requires_python: str) -> Optional[list[TargetVersion]]:
+def parse_req_python_version(requires_python: str) -> list[TargetVersion] | None:
     """Parse a version string (i.e. ``"3.7"``) to a list of TargetVersion.
 
     If parsing fails, will raise a packaging.version.InvalidVersion error.
@@ -175,7 +175,7 @@ def parse_req_python_version(requires_python: str) -> Optional[list[TargetVersio
         return None
 
 
-def parse_req_python_specifier(requires_python: str) -> Optional[list[TargetVersion]]:
+def parse_req_python_specifier(requires_python: str) -> list[TargetVersion] | None:
     """Parse a specifier string (i.e. ``">=3.7,<3.10"``) to a list of TargetVersion.
 
     If parsing fails, will raise a packaging.specifiers.InvalidSpecifier error.
@@ -238,16 +238,16 @@ def find_user_pyproject_toml() -> Path:
 
 
 @lru_cache
-def get_gitignore(root: Path) -> PathSpec:
-    """Return a PathSpec matching gitignore content if present."""
+def get_gitignore(root: Path) -> GitIgnoreSpec:
+    """Return a GitIgnoreSpec matching gitignore content if present."""
     gitignore = root / ".gitignore"
     lines: list[str] = []
     if gitignore.is_file():
         with gitignore.open(encoding="utf-8") as gf:
             lines = gf.readlines()
     try:
-        return PathSpec.from_lines("gitwildmatch", lines)
-    except GitWildMatchPatternError as e:
+        return GitIgnoreSpec.from_lines(lines)
+    except GitIgnorePatternError as e:
         err(f"Could not parse {gitignore}: {e}")
         raise
 
@@ -255,7 +255,7 @@ def get_gitignore(root: Path) -> PathSpec:
 def resolves_outside_root_or_cannot_stat(
     path: Path,
     root: Path,
-    report: Optional[Report] = None,
+    report: Report | None = None,
 ) -> bool:
     """
     Returns whether the path is a symbolic link that points outside the
@@ -292,7 +292,7 @@ def best_effort_relative_path(path: Path, root: Path) -> Path:
 def _path_is_ignored(
     root_relative_path: str,
     root: Path,
-    gitignore_dict: dict[Path, PathSpec],
+    gitignore_dict: dict[Path, GitIgnoreSpec],
 ) -> bool:
     path = root / root_relative_path
     # Note that this logic is sensitive to the ordering of gitignore_dict. Callers must
@@ -311,7 +311,7 @@ def _path_is_ignored(
 
 def path_is_excluded(
     normalized_path: str,
-    pattern: Optional[Pattern[str]],
+    pattern: Pattern[str] | None,
 ) -> bool:
     match = pattern.search(normalized_path) if pattern else None
     return bool(match and match.group(0))
@@ -322,10 +322,10 @@ def gen_python_files(
     root: Path,
     include: Pattern[str],
     exclude: Pattern[str],
-    extend_exclude: Optional[Pattern[str]],
-    force_exclude: Optional[Pattern[str]],
+    extend_exclude: Pattern[str] | None,
+    force_exclude: Pattern[str] | None,
     report: Report,
-    gitignore_dict: Optional[dict[Path, PathSpec]],
+    gitignore_dict: dict[Path, GitIgnoreSpec] | None,
     *,
     verbose: bool,
     quiet: bool,

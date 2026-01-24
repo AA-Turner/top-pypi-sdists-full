@@ -598,6 +598,12 @@ void read_refinement_info(cif::Block& block, Structure& st) {
         copy_double(row, 8, ref.r_work);
         copy_double(row, 9, ref.r_free);
     }
+    if (st.resolution == 0.) {
+      const std::string* em_res = block.find_value("_em_3d_reconstruction.resolution");
+      if (em_res)
+        st.resolution = cif::as_number(*em_res);
+
+    }
 }
 
 void read_tls_info(cif::Block& block, Structure& st) {
@@ -619,6 +625,7 @@ void read_tls_info(cif::Block& block, Structure& st) {
         ref->tls_groups.emplace_back();
         TlsGroup& tls = ref->tls_groups.back();
         tls.id = row.str(0);
+        tls.num_id = (short) no_sign_atoi(tls.id.c_str());
         tls.T = get_smat33<double>(row, 2);
         tls.L = get_smat33<double>(row, 8);
         for (int i = 0; i < 3; ++i)
@@ -1013,10 +1020,9 @@ void read_entity_and_sequence_info(cif::Block& block, Structure& st) {
 } // anonymous namespace
 
 
-Structure make_structure_from_block(const cif::Block& block_) {
+void populate_structure_from_block(const cif::Block& block_, Structure& st) {
   // find() and Table don't have const variants, but we don't change anything.
   cif::Block& block = const_cast<cif::Block&>(block_);
-  gemmi::Structure st;
   st.input_format = CoorFormat::Mmcif;
   st.name = block.name;
   impl::set_cell_from_mmcif(block, st.cell);
@@ -1072,8 +1078,6 @@ Structure make_structure_from_block(const cif::Block& block_) {
     }
     restore_full_ccd_codes(st);
   }
-
-  return st;
 }
 
 

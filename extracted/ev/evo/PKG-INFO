@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: evo
-Version: 1.31.1
+Version: 1.34.2
 Summary: Python package for the evaluation of odometry and SLAM
 Project-URL: Homepage, https://github.com/MichaelGrupp/evo
 Project-URL: Wiki, https://github.com/MichaelGrupp/evo/wiki
@@ -12,32 +12,34 @@ Keywords: SLAM,evaluation,laser,metric,odometry,robotics,trajectory,vision,visua
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: argcomplete
 Requires-Dist: colorama>=0.3
 Requires-Dist: matplotlib>=3.6.0
 Requires-Dist: natsort
 Requires-Dist: numexpr>=2.7.3
 Requires-Dist: numpy>=1.18.5
+Requires-Dist: packaging
 Requires-Dist: pandas
 Requires-Dist: pillow
 Requires-Dist: pygments
 Requires-Dist: pyyaml
-Requires-Dist: rosbags>=0.9.20
+Requires-Dist: rosbags>=0.11.0
 Requires-Dist: scipy>=1.2
 Requires-Dist: seaborn>=0.9
 Provides-Extra: geo
 Requires-Dist: contextily; extra == 'geo'
 Provides-Extra: gui
-Requires-Dist: pyqt5; extra == 'gui'
+Requires-Dist: pyqt6; extra == 'gui'
+Provides-Extra: rerun
+Requires-Dist: rerun-sdk>=0.24.0; extra == 'rerun'
 Description-Content-Type: text/markdown
 
 # evo 
@@ -46,7 +48,7 @@ Description-Content-Type: text/markdown
 
 | Linux / macOS / Windows / ROS / ROS2 |
 | :---: |
-| [![Build Status](https://dev.azure.com/michl2222/michl2222/_apis/build/status/MichaelGrupp.evo?branchName=master)](https://dev.azure.com/michl2222/michl2222/_build/latest?definitionId=1&branchName=master) |
+| [![CI](https://github.com/MichaelGrupp/evo/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/MichaelGrupp/evo/actions/workflows/ci.yml) |
 
 This package provides executables and a small library for handling, evaluating and comparing the trajectory output of odometry and SLAM algorithms.
 
@@ -80,7 +82,7 @@ evo has several advantages over other public benchmarking tools:
 
 * common tools for different formats
 * algorithmic options for association, alignment, scale adjustment for monocular SLAM etc.
-* flexible options for output, [plotting](https://github.com/MichaelGrupp/evo/wiki/Plotting) or export (e.g. LaTeX plots or Excel tables)
+* flexible options for output, [plotting](https://github.com/MichaelGrupp/evo/wiki/Plotting), [visualization](https://github.com/MichaelGrupp/evo/wiki/Rerun-integration) or export (e.g. LaTeX plots or Excel tables)
 * a powerful, configurable CLI that can cover many use cases
 * modular `core` and `tools` libraries for custom extensions
 * faster than other established Python-based tools ([see here](https://github.com/MichaelGrupp/evo/blob/master/doc/performance.md))
@@ -93,7 +95,7 @@ evo has several advantages over other public benchmarking tools:
 
 Installation is easy-peasy if you're familiar with this: https://xkcd.com/1987/#
 
-evo supports **Python 3.8+**.
+The latest version of evo supports **Python 3.10+**.
 You might also want to use a [virtual environment](https://github.com/MichaelGrupp/evo/blob/master/doc/install_in_virtualenv.md).
 
 ### From PyPi
@@ -111,6 +113,10 @@ Run this in the repository's base folder:
 pip install --editable .
 ```
 
+### Pixi
+
+[Pixi](https://prefix.dev) is an easy-to-use alternative if you want to have an isolated development environment. Run `pixi add evo` if you have an existing environment, or clone this repository and run `pixi shell` to open a dev shell.
+
 ### Tab completion
 
 Tab completion is supported via the [argcomplete](https://github.com/kislyuk/argcomplete/) package. Run `activate-global-python-argcomplete` after the installation to use it.
@@ -122,19 +128,25 @@ Tab completion is supported via the [argcomplete](https://github.com/kislyuk/arg
 evo has some required dependencies that are ***automatically resolved*** during installation with pip.
 See the `pyproject.toml` file for all details.
 
-**PyQt5 (optional)**
+**PyQt6 (optional)**
 
-PyQt5 will give you the enhanced GUI for plot figures from the "*Qt5Agg*" matplotlib backend (otherwise: "*TkAgg*"). If PyQt5 is already installed when installing this package, it will be used as a default (see `evo_config show`). To change the plot backend afterwards, run `evo_config set plot_backend Qt5Agg`.
+[PyQt6](https://pypi.org/project/PyQt6/) will give you the enhanced GUI for plot figures from the "*qtagg*" matplotlib backend (otherwise: "*TkAgg*"). If PyQt6 is already installed when installing this package, it will be used as a default (see `evo_config show`). To change the plot backend afterwards, run `evo_config set plot_backend qtagg`.
+
+If you run into issues with installing tkinter, trying PyQt6 is a good idea. 
 
 **ROS (optional)**
 
-Some ROS-related features require a ROS installation, see [here](http://www.ros.org/). We are testing this package with ROS Noetic and Jazzy.
+Some ROS-related features require a ROS installation, see [here](http://www.ros.org/). We are testing this package with ROS Kilted.
 
 > Reading ROS bag files works also without a ROS installation thanks to the great [rosbags](https://pypi.org/project/rosbags/) package that is installed together with evo. This allows you also to read ROS 1 & 2 bags even if you don't have one of those ROS distros installed. (except for reading `/tf` topics, because there we need the buffer implementation from ROS)
 
 **contextily (optional)**
 
 [contextily](https://contextily.readthedocs.io/en/latest/index.html) is required for [adding map tiles](https://github.com/MichaelGrupp/evo/wiki/Plotting#geographic-map-tiles) to plots of geo-referenced data.
+
+**Rerun (optional)**
+
+You can log data also to the [rerun](https://rerun.io/) viewer. See the related [Wiki page](https://github.com/MichaelGrupp/evo/wiki/Rerun-integration) for more details.
 
 ---
 
@@ -151,7 +163,6 @@ After installation with pip, the following executables can be called globally fr
 
 * `evo_traj` - tool for analyzing, plotting or exporting one or more trajectories
 * `evo_res` - tool for comparing one or multiple result files from `evo_ape` or `evo_rpe`
-* `evo_fig` - (experimental) tool for re-opening serialized plots (saved with `--serialize_plot`)
 * `evo_config` - tool for global settings and config file manipulation
 
 Call the commands with `--help` to see the options, e.g. `evo_ape --help`. Tab-completion of command line parameters is available on UNIX-like systems.

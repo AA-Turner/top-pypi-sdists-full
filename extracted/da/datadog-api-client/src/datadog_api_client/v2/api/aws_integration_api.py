@@ -16,6 +16,11 @@ from datadog_api_client.v2.model.aws_account_response import AWSAccountResponse
 from datadog_api_client.v2.model.aws_account_create_request import AWSAccountCreateRequest
 from datadog_api_client.v2.model.aws_account_update_request import AWSAccountUpdateRequest
 from datadog_api_client.v2.model.aws_namespaces_response import AWSNamespacesResponse
+from datadog_api_client.v2.model.aws_event_bridge_delete_response import AWSEventBridgeDeleteResponse
+from datadog_api_client.v2.model.aws_event_bridge_delete_request import AWSEventBridgeDeleteRequest
+from datadog_api_client.v2.model.aws_event_bridge_list_response import AWSEventBridgeListResponse
+from datadog_api_client.v2.model.aws_event_bridge_create_response import AWSEventBridgeCreateResponse
+from datadog_api_client.v2.model.aws_event_bridge_create_request import AWSEventBridgeCreateRequest
 from datadog_api_client.v2.model.aws_new_external_id_response import AWSNewExternalIDResponse
 from datadog_api_client.v2.model.aws_integration_iam_permissions_response import AWSIntegrationIamPermissionsResponse
 
@@ -44,6 +49,26 @@ class AWSIntegrationApi:
                 "body": {
                     "required": True,
                     "openapi_types": (AWSAccountCreateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._create_aws_event_bridge_source_endpoint = _Endpoint(
+            settings={
+                "response_type": (AWSEventBridgeCreateResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/integration/aws/event_bridge",
+                "operation_id": "create_aws_event_bridge_source",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (AWSEventBridgeCreateRequest,),
                     "location": "body",
                 },
             },
@@ -90,6 +115,26 @@ class AWSIntegrationApi:
             api_client=api_client,
         )
 
+        self._delete_aws_event_bridge_source_endpoint = _Endpoint(
+            settings={
+                "response_type": (AWSEventBridgeDeleteResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/integration/aws/event_bridge",
+                "operation_id": "delete_aws_event_bridge_source",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (AWSEventBridgeDeleteRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._get_aws_account_endpoint = _Endpoint(
             settings={
                 "response_type": (AWSAccountResponse,),
@@ -129,6 +174,38 @@ class AWSIntegrationApi:
             api_client=api_client,
         )
 
+        self._get_aws_integration_iam_permissions_resource_collection_endpoint = _Endpoint(
+            settings={
+                "response_type": (AWSIntegrationIamPermissionsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/integration/aws/iam_permissions/resource_collection",
+                "operation_id": "get_aws_integration_iam_permissions_resource_collection",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={},
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_aws_integration_iam_permissions_standard_endpoint = _Endpoint(
+            settings={
+                "response_type": (AWSIntegrationIamPermissionsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/integration/aws/iam_permissions/standard",
+                "operation_id": "get_aws_integration_iam_permissions_standard",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={},
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._list_aws_accounts_endpoint = _Endpoint(
             settings={
                 "response_type": (AWSAccountsResponse,),
@@ -145,6 +222,22 @@ class AWSIntegrationApi:
                     "location": "query",
                 },
             },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_aws_event_bridge_sources_endpoint = _Endpoint(
+            settings={
+                "response_type": (AWSEventBridgeListResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/integration/aws/event_bridge",
+                "operation_id": "list_aws_event_bridge_sources",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={},
             headers_map={
                 "accept": ["application/json"],
             },
@@ -209,6 +302,23 @@ class AWSIntegrationApi:
 
         return self._create_aws_account_endpoint.call_with_http_info(**kwargs)
 
+    def create_aws_event_bridge_source(
+        self,
+        body: AWSEventBridgeCreateRequest,
+    ) -> AWSEventBridgeCreateResponse:
+        """Create an Amazon EventBridge source.
+
+        Create an Amazon EventBridge source.
+
+        :param body: Create an Amazon EventBridge source for an AWS account with a given name and region.
+        :type body: AWSEventBridgeCreateRequest
+        :rtype: AWSEventBridgeCreateResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._create_aws_event_bridge_source_endpoint.call_with_http_info(**kwargs)
+
     def create_new_aws_external_id(
         self,
     ) -> AWSNewExternalIDResponse:
@@ -238,6 +348,23 @@ class AWSIntegrationApi:
         kwargs["aws_account_config_id"] = aws_account_config_id
 
         return self._delete_aws_account_endpoint.call_with_http_info(**kwargs)
+
+    def delete_aws_event_bridge_source(
+        self,
+        body: AWSEventBridgeDeleteRequest,
+    ) -> AWSEventBridgeDeleteResponse:
+        """Delete an Amazon EventBridge source.
+
+        Delete an Amazon EventBridge source.
+
+        :param body: Delete the Amazon EventBridge source with the given name, region, and associated AWS account.
+        :type body: AWSEventBridgeDeleteRequest
+        :rtype: AWSEventBridgeDeleteResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._delete_aws_event_bridge_source_endpoint.call_with_http_info(**kwargs)
 
     def get_aws_account(
         self,
@@ -269,6 +396,30 @@ class AWSIntegrationApi:
         kwargs: Dict[str, Any] = {}
         return self._get_aws_integration_iam_permissions_endpoint.call_with_http_info(**kwargs)
 
+    def get_aws_integration_iam_permissions_resource_collection(
+        self,
+    ) -> AWSIntegrationIamPermissionsResponse:
+        """Get resource collection IAM permissions.
+
+        Get all resource collection AWS IAM permissions required for the AWS integration.
+
+        :rtype: AWSIntegrationIamPermissionsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._get_aws_integration_iam_permissions_resource_collection_endpoint.call_with_http_info(**kwargs)
+
+    def get_aws_integration_iam_permissions_standard(
+        self,
+    ) -> AWSIntegrationIamPermissionsResponse:
+        """Get AWS integration standard IAM permissions.
+
+        Get all standard AWS IAM permissions required for the AWS integration.
+
+        :rtype: AWSIntegrationIamPermissionsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._get_aws_integration_iam_permissions_standard_endpoint.call_with_http_info(**kwargs)
+
     def list_aws_accounts(
         self,
         *,
@@ -278,7 +429,8 @@ class AWSIntegrationApi:
 
         Get a list of AWS Account Integration Configs.
 
-        :param aws_account_id: Optional query parameter to filter accounts by AWS Account ID. If not provided, all accounts are returned.
+        :param aws_account_id: Optional query parameter to filter accounts by AWS Account ID.
+            If not provided, all accounts are returned.
         :type aws_account_id: str, optional
         :rtype: AWSAccountsResponse
         """
@@ -287,6 +439,18 @@ class AWSIntegrationApi:
             kwargs["aws_account_id"] = aws_account_id
 
         return self._list_aws_accounts_endpoint.call_with_http_info(**kwargs)
+
+    def list_aws_event_bridge_sources(
+        self,
+    ) -> AWSEventBridgeListResponse:
+        """Get all Amazon EventBridge sources.
+
+        Get all Amazon EventBridge sources.
+
+        :rtype: AWSEventBridgeListResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._list_aws_event_bridge_sources_endpoint.call_with_http_info(**kwargs)
 
     def list_aws_namespaces(
         self,

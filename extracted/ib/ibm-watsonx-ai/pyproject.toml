@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -7,17 +7,16 @@
 requires = ["setuptools", "build"]
 build-backend = "setuptools.build_meta"
 
-
 [project]
 name = "ibm_watsonx_ai"
-dynamic = ["version"]
-requires-python = ">=3.10,<3.14"
+version = "1.5.0"
+requires-python = ">=3.11,<3.14"
 authors = [
   {name = "IBM"}
 ]
 maintainers = [
-  {name = "Łukasz Ćmielowski", email = "lukasz.cmielowski@pl.ibm.com"},
-  {name = "Dorota Lączak", email = "dorota.laczak@ibm.com"}
+  {name = "Maria Oleszkiewicz", email = "maria.oleszkiewicz@pl.ibm.com"},
+  {name = "Mateusz Szewczyk", email = "Mateusz.Szewczyk@ibm.com"}
 ]
 description = "IBM watsonx.ai API Client"
 readme = "README.md"
@@ -35,8 +34,9 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Natural Language :: English",
     "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows",
@@ -62,109 +62,169 @@ dependencies = [
     "cachetools"
 ]
 
+[project.urls]
+Documentation = "https://ibm.github.io/watsonx-ai-python-sdk"
+Changelog = "https://ibm.github.io/watsonx-ai-python-sdk/changelog.html"
+Samples = "https://github.com/IBM/watsonx-ai-samples"
 
 [project.optional-dependencies]
-"rag" = [
-    "langchain-core>=0.3,<0.4",
+rag = [
+    "langchain-core>=0.3.80,<0.4",
     "langchain>=0.3,<0.4",
     "langchain-community>=0.3,<0.4",
-    "langchain-elasticsearch==0.3.0",
+    "langchain-elasticsearch>=0.3.0,<=0.3.2",
     "langchain-ibm>=0.3,<0.4",
-    "langgraph==0.2.40",
-    "langchain-chroma==0.1.4; python_version<='3.12'", # chroma-hnswlib cannot be installed on MacOS and Win with py313
-    "pymilvus<2.5.7", # issue: 49386  pymilvus 2.5.7 is not compatible with lanchain-milvus 0.1.8
-    "langchain-milvus==0.1.8",
+    "langgraph>=0.2.40,<0.7",
+    "langchain-chroma>=0.1.4,<=0.2.5",
+    "langchain-milvus>=0.1.8,<=0.2.1",
     "grpcio>=1.54.3",
-    "python-docx==1.1.2",
+    "python-docx>=1.1.2,<=1.2.0",
     "python-pptx==1.0.2",
     "pypdf>=4.2.0",
-    "beautifulsoup4==4.12.3",
-    "markdown==3.4.1",
+    "beautifulsoup4>=4.12.3,<=4.13.5",
+    "markdown>=3.4.1,<=3.8.2",
     "pyYAML>=5.1.2",
     "scikit-learn>=1.3.0",
     "openpyxl==3.1.5",
     "langchain-db2>=0.1,<0.2"
 ]
-"mcp" = [
+mcp = [
     "mcp>=1.6.0,<2.0"
 ]
-"fl-rt23.1-py3.10" = [
-    "tensorflow==2.12.0",
-    "scikit-learn==1.1.1",
-    "torch==2.0.1",
-    "numpy==1.23.5",
-    "pandas==1.5.3",
-    "pytest==6.2.5",
-    "pyYAML==6.0.1",
-    "parse==1.19.0",
-    "websockets==10.1",
-    "requests==2.32.3",
-    "scipy==1.10.1",
-    "environs==9.5.0",
-    "pathlib2==2.3.6",
-    "diffprivlib==0.5.1",
-    "numcompress==0.1.2",
-    "psutil",
-    "setproctitle",
-    "tabulate==0.8.9",
-    "lz4",
-    "gym",
-    "image==1.5.33",
-    "ddsketch==2.0.4",
-    "skorch==0.12.0",
-    "protobuf==4.22.1",
-    "GPUtil",
-    "joblib==1.1.1",
-    "skops==0.9.0",
-    "msgpack==1.0.7",
-    "msgpack-numpy==0.4.8",
-    "cryptography==42.0.5",
+
+
+[dependency-groups]
+lint = [
+    "ruff>=0.14,<0.15",
+    "black",
+    "docstrfmt>=2,<3",
+    "typos>=1,<2"
 ]
-"fl-rt24.1-py3.11" = [
-    "tensorflow==2.14.1",
-    "scikit-learn==1.3.0",
-    "torch==2.1.2",
-    "numpy==1.26.4",
-    "pandas==2.1.4",
-    "pytest==6.2.5",
-    "pyYAML==6.0.1",
-    "parse==1.19.0",
-    "websockets==10.1",
-    "requests==2.32.3",
-    "scipy==1.11.4",
-    "environs==14.1.1",
-    "pathlib2==2.3.6",
-    "diffprivlib==0.5.1",
-    "numcompress==0.1.2",
-    "psutil",
-    "setproctitle",
-    "tabulate==0.8.9",
-    "lz4",
-    "gym",
-    "image==1.5.33",
-    "ddsketch==2.0.4",
-    "skorch==0.12.0",
-    "protobuf==4.22.1",
-    "GPUtil",
-    "joblib==1.3.2",
-    "skops==0.9.0",
-    "msgpack==1.0.7",
-    "msgpack-numpy==0.4.8",
-    "cryptography==42.0.5",
+typing = [
+    "mypy>=1.19,<1.20",
+    "types-requests",
+    "types-tabulate",
+    "types-cachetools",
+    "types-Markdown",
+    "types-PyYAML"
 ]
-"fl-crypto" = ["pyhelayers==1.5.0.3"]
-"fl-crypto-rt24.1" = [
-    "pyhelayers==1.5.5.1"
+test_core = [
+    "pytest>=8,<9",
+    "allure-pytest",
+    "pytest-mock",
+    "pytest-env",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-timeout",
+    "allure-python-commons",
+    "python-dotenv",
 ]
 
+dev_common = [
+  "ipykernel>=6.29.5,<7",
+  "setuptools",
+  "pyarrow",
+  "sphinx",
+  "sphinx-design",
+  "sphinx-multiversion",
+  "furo",
+  "twine",
+  { include-group = "lint" },
+  { include-group = "typing" },
+]
 
-[project.urls]
-Homepage = "https://ibm.github.io/watsonx-ai-python-sdk"
+dev = [
+    { include-group = "dev_common" },
+    { include-group = "test_core" },
+    "matplotlib",
+    "tensorflow==2.18.*",
+]
+dev_autoai_rt24_1 = [
+    { include-group = "dev_common" },
+    { include-group = "test_core" },
+    "autoai-libs==2.0.*; python_version == '3.11'",
+    "autoai-ts-libs==4.0.*; python_version == '3.11'",
+    "joblib>=1.2,<1.4; python_version == '3.11'",
+    "lale[fairness]>=0.8,<0.9; python_version == '3.11'",
+    "langgraph==0.2.40; python_version == '3.11'",
+    "lightgbm==4.2.*; python_version == '3.11'",
+    "numpy==1.26.*; python_version == '3.11'",
+    "pandas==2.1.*; python_version == '3.11'",
+    "onnxruntime==1.16; python_version == '3.11'",
+    "onnxruntime-extensions<0.14; python_version == '3.11'",
+    "scikit-learn==1.3.*; python_version == '3.11'",
+    "snapml>=1.14.0,<1.15.0; python_version == '3.11'",
+    "timeout-decorator; python_version == '3.11'",
+    "xgboost==2.0.*; python_version == '3.11'",
+    "pyarrow; python_version == '3.11'",
+    "python-docx; python_version == '3.11'",
+    "python-pptx; python_version == '3.11'",
+    "pypdf; python_version == '3.11'",
+    "beautifulsoup4; python_version == '3.11'",
+    "langchain-core; python_version == '3.11'",
+    "pyyaml; python_version == '3.11'",
+    "xlrd==2.0.*; python_version == '3.11'",
+]
+dev_autoai_rt25_1 = [
+    { include-group = "dev_common" },
+    { include-group = "test_core" },
+    "autoai-libs[onnx]==3.0.*; python_version == '3.12'",
+    "autoai-ts-libs==5.0.*; python_version == '3.12'",
+    "beautifulsoup4; python_version == '3.12'",
+    "joblib==1.4.*; python_version == '3.12'",
+    "lale[fairness]>=0.9,<0.10; python_version == '3.12'",
+    "langchain-core; python_version == '3.12'",
+    "langgraph==0.2.40; python_version == '3.12'",
+    "lightgbm==4.5.*; python_version == '3.12'",
+    "numpy>=2.0.2,<2.1; python_version == '3.12'",
+    "pandas==2.2.*; python_version == '3.12'",
+    "pyarrow; python_version == '3.12'",
+    "python-docx; python_version == '3.12'",
+    "python-pptx; python_version == '3.12'",
+    "pypdf; python_version == '3.12'",
+    "pyyaml; python_version == '3.12'",
+    "scikit-learn==1.6.*; python_version == '3.12'",
+    "snapml==1.16.*; python_version == '3.12'",
+    "timeout-decorator; python_version == '3.12'",
+    "xgboost==2.1.*; python_version == '3.12'",
+]
+dev_base_rt_24_1 = [
+    { include-group = "dev_common" },
+    { include-group = "test_core" },
+    "joblib>=1.2,<1.3; python_version=='3.11'",
+    "numpy==1.26.*; python_version == '3.11'",
+    "pyspark==3.4.0; python_version=='3.11'",
+    "scikit-learn==1.3.*; python_version=='3.11'",
+    "tensorflow==2.14.*; python_version=='3.11'",
+    "xgboost==2.0.*; python_version=='3.11'",
+]
 
+dev_base_rt_25_1 = [
+    { include-group = "dev_common" },
+    { include-group = "test_core" },
+    "joblib==1.4.*; python_version == '3.12'",
+    "numpy>=2.0.2,<2.1; python_version == '3.12'",
+    "pyspark==3.4.0; python_version == '3.12'",
+    "scikit-learn==1.6.*; python_version == '3.12'",
+    "tensorflow==2.18.*; python_version == '3.12'",
+    "xgboost==2.1.*; python_version == '3.12'",
+]
 
-[tool.setuptools.dynamic]
-version = {file = "VERSION"}
+[tool.uv]
+conflicts = [
+    [
+      { group = "dev" },
+      { group = "dev-base-rt-24-1" },
+    ],
+]
+config-settings = { editable_mode = "compat" }
 
+[tool.ruff]
+fix = true
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 72  # https://peps.python.org/pep-0008/#maximum-line-length
 
 [tool.setuptools]
 package-data = {messages = ["messages/messages_en.json"], foundation_models = ["foundation_models/extensions/rag/pattern/_default_inference_service_schema/request.json", "foundation_models/extensions/rag/pattern/_default_inference_service_schema/response.json"], api_version_param = ["utils/API_VERSION_PARAM"]}
@@ -202,15 +262,82 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-packages = [
-    "ibm_watsonx_ai.foundation_models",
-    "ibm_watsonx_ai.experiment.fm_tune",
-    "ibm_watsonx_ai.experiment.autoai.optimizers.rag_optimizer",
-    "ibm_watsonx_ai.experiment.autoai.engines.rag_engine"
-]
-exclude = 'ibm_watsonx_ai/foundation_models/extensions/rag/pattern/default_.*\.py'
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-ignore_missing_imports = true
+packages = ["ibm_watsonx_ai"]
 explicit_package_bases = true
-follow_imports = "silent"
+
+disallow_untyped_defs = true        # Requires types for all function signatures
+disallow_incomplete_defs = true     # Prevents partial typing (e.g., missing return type)
+ignore_missing_imports = true       # Stops errors from 3rd party libs without type stubs
+
+check_untyped_defs = true           # Analyzes the body of functions even if they aren't annotated
+no_implicit_optional = true         # Forces 'Optional[X]' instead of assuming 'X = None' is fine
+warn_unused_ignores = true          # Alerts you if a '# type: ignore' is no longer needed
+warn_redundant_casts = true         # Alerts you if you are casting a variable to its own type
+show_error_codes = true             # Displays specific error codes (e.g., [attr-defined]) in output
+
+follow_imports = "normal"
+
+[[tool.mypy.overrides]]
+module = [
+    "ibm_watsonx_ai.experiment.*",
+    "ibm_watsonx_ai.foundation_models.extensions.rag.pattern.*",
+    "ibm_watsonx_ai.helpers.*",
+    "ibm_watsonx_ai.libs.*",
+    "ibm_watsonx_ai.utils.*",
+]
+ignore_errors = true
+follow_imports = "skip"
+
+[tool.coverage.run]
+omit = [
+    "generate_changelog.py",
+    "generate_version_changelog.py",
+    "send_slack_notification.py",
+    "ibm_watsonx_ai/deployment/*",
+    "ibm_watsonx_ai/experiment/autoai/*",
+    "ibm_watsonx_ai/foundation_models/extensions/langchain/*",
+    "ibm_watsonx_ai/foundation_models/extensions/rag/pattern/default_*",
+    "ibm_watsonx_ai/foundation_models/extensions/rag/vector_stores/adapters/*",
+    "ibm_watsonx_ai/foundation_models/extensions/rag/vector_stores/langchain_vector_store_adapter.py",
+    "ibm_watsonx_ai/foundation_models/extensions/rag/vector_stores/vector_store_connector.py",
+    "ibm_watsonx_ai/libs/*",
+    "ibm_watsonx_ai/utils/autoai/connection.py",
+    "ibm_watsonx_ai/utils/autoai/fairness.py",
+    "ibm_watsonx_ai/utils/autoai/local_training_message_handler.py",
+    "ibm_watsonx_ai/utils/autoai/progress_bar.py",
+    "ibm_watsonx_ai/utils/autoai/training.py",
+    "ibm_watsonx_ai/utils/autoai/utils.py",
+    "ibm_watsonx_ai/utils/utils.py",
+    "tests/install_requirements.py",
+    "tests/run_base.py",
+    "tests/conftest*",
+    "tests/autoai/*",
+    "tests/base/*",
+    "tests/contract/*",
+    "tests/deployment/*",
+    "tests/foundation_models/*",
+    "tests/utils/*",
+    "tests/unit/data/*"
+]
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "pytest.fail",
+    "pytest.mark.skip",
+    "if TYPE_CHECKING:",
+]
+
+[tool.typos]
+files.extend-exclude = [
+    "*.csv",
+    "*.ipynb",
+    "*.html",
+    "libs"
+]
+
+[tool.typos.default.extend-words]
+aadd = "aadd"
+asend = "asend"
+Deploymnet = "Deploymnet"
+fpr = "fpr"

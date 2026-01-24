@@ -1026,8 +1026,7 @@ class TestFilteredSecretsFormatter(unittest.TestCase):
         rec = logging.makeLogRecord(dict(msg=msg))
         return fmt.format(rec)
 
-    # dev note: define as unbound local function, to be used in class def context only
-    # in py310+ we can declare it as @staticmethod and call it as regular function
+    @staticmethod
     def _snipped(inp: Union[str, uuid.UUID]) -> tuple[str, str]:
         """Naively assuming `inp` is a secret/token, scrub the middle part."""
         return (lambda x: (x, f"{x[:3]}...{x[-3:]}"))(str(inp))
@@ -1110,9 +1109,15 @@ def capture_stderr(fn):
     """Decorator that captures stderr and provides access via `output` argument."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        stream = io.TextIOWrapper(io.BytesIO())
-        with contextlib.redirect_stderr(stream) as output:
-            return fn(*args, output=output, **kwargs)
+        # ensure warnings (on stderr) do not interfere with the expected output
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+
+            # redirect sys.stderr to a BytesIO stream
+            stream = io.TextIOWrapper(io.BytesIO())
+            with contextlib.redirect_stderr(stream) as output:
+                return fn(*args, output=output, **kwargs)
+
     return wrapper
 
 
@@ -1147,6 +1152,30 @@ class TestLogging(unittest.TestCase):
         record = json.loads(lines[0])
         self.assertEqual(record.get('message'), 'test')
         self.assertEqual(record.get('key'), 'value')
+
+    @capture_stderr
+    def test_secrets_in_structured_output(self, output):
+        secret = 'beefcafe-aaaa-bbbb-cccc-0123456789ab'
+
+        # secrets filtered by default
+        configure_logging(logger, level=logging.INFO, structured_output=True)
+        logger.info('test', extra=dict(secret=secret))
+
+        # secrets not filtered
+        configure_logging(logger, level=logging.INFO, structured_output=True, filter_secrets=False)
+        logger.info('test', extra=dict(secret=secret))
+
+        output.seek(0)
+        lines = output.readlines()
+        self.assertEqual(len(lines), 2)
+
+        # verify filtering on
+        record = json.loads(lines[0])
+        self.assertEqual(record.get('secret'), f'{secret[:3]}...{secret[-3:]}')
+
+        # verify filtering off
+        record = json.loads(lines[1])
+        self.assertEqual(record.get('secret'), secret)
 
     @capture_stderr
     def test_multiple_handlers(self, output):

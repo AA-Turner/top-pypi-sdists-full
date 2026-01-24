@@ -1,10 +1,10 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import System
 import System.Net.Security
 
 
-class SslPolicyErrors(Enum):
+class SslPolicyErrors(IntEnum):
     """This class has no documentation."""
 
     NONE = ...
@@ -15,11 +15,8 @@ class SslPolicyErrors(Enum):
 
     REMOTE_CERTIFICATE_CHAIN_ERRORS = ...
 
-    def __int__(self) -> int:
-        ...
 
-
-class AuthenticationLevel(Enum):
+class AuthenticationLevel(IntEnum):
     """This class has no documentation."""
 
     NONE = 0
@@ -27,8 +24,5 @@ class AuthenticationLevel(Enum):
     MUTUAL_AUTH_REQUESTED = 1
 
     MUTUAL_AUTH_REQUIRED = 2
-
-    def __int__(self) -> int:
-        ...
 
 

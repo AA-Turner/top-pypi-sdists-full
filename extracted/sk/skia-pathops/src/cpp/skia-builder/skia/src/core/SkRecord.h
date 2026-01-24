@@ -8,17 +8,22 @@
 #ifndef SkRecord_DEFINED
 #define SkRecord_DEFINED
 
-#include "include/private/base/SkTLogic.h"
+#include "include/core/SkRefCnt.h"
+#include "include/private/base/SkAssert.h"
 #include "include/private/base/SkTemplates.h"
 #include "src/base/SkArenaAlloc.h"
 #include "src/core/SkRecords.h"
+
+#include <cstddef>
+#include <type_traits>
 
 // SkRecord represents a sequence of SkCanvas calls, saved for future use.
 // These future uses may include: replay, optimization, serialization, or combinations of those.
 //
 // Though an enterprising user may find calling alloc(), append(), visit(), and mutate() enough to
-// work with SkRecord, you probably want to look at SkRecorder which presents an SkCanvas interface
-// for creating an SkRecord, and SkRecordDraw which plays an SkRecord back into another SkCanvas.
+// work with SkRecord, you probably want to look at SkRecordCanvas which presents an SkCanvas
+// interface for creating an SkRecord, and SkRecordDraw which plays an SkRecord back into another
+// SkCanvas.
 //
 // SkRecord often looks like it's compatible with any type T, but really it's compatible with any
 // type T which has a static const SkRecords::Type kType.  That is to say, SkRecord is compatible

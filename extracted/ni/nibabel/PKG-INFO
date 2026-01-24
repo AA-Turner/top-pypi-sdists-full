@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: nibabel
-Version: 5.3.2
+Version: 5.3.3
 Summary: Access a multitude of neuroimaging data formats
 Project-URL: Homepage, https://nipy.org/nibabel
 Project-URL: Development, https://github.com/nipy/nibabel

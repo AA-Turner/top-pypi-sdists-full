@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 
@@ -35,6 +36,68 @@ MIN_COLLECTION_NAME_LEN = 2
 MAX_COLLECTION_NAME_LEN = 64
 
 
+if TYPE_CHECKING:
+    SubParser: TypeAlias = argparse._SubParsersAction  # noqa: SLF001
+
+
+class CustomHelpFormatter(HelpFormatter):  # pragma: no cover py>=3.14
+    """A custom help formatter."""
+
+    def __init__(self, prog: str) -> None:
+        """Initialize the help formatter.
+
+        Args:
+            prog: The program name
+        """
+        long_string = "--abc  --really_really_really_log"
+        # 3 here accounts for the spaces in the ljust(6) below
+        HelpFormatter.__init__(
+            self,
+            prog=prog,
+            indent_increment=1,
+            max_help_position=len(long_string) + 3,
+        )
+
+    def _format_action_invocation(
+        self,
+        action: argparse.Action,
+    ) -> str:
+        """Format the action invocation.
+
+        Args:
+            action: The action to format
+
+        Raises:
+            ValueError: If more than 2 options are given
+
+        Returns:
+            The formatted action invocation
+        """
+        if not action.option_strings:  # pragma: no branch
+            default = self._get_default_metavar_for_positional(action)
+            (metavar,) = self._metavar_formatter(action, default)(1)
+            return metavar
+
+        if len(action.option_strings) == 1:
+            return action.option_strings[0]
+
+        max_variations = 2
+        if len(action.option_strings) == max_variations:
+            # Account for a --1234 --long-option-name
+            return f"{action.option_strings[0].ljust(6)} {action.option_strings[1]}"
+        msg = "Too many option strings"
+        raise ValueError(msg)
+
+    def add_arguments(self, actions: Iterable[argparse.Action]) -> None:
+        """Add arguments sorted by option strings.
+
+        Args:
+            actions: The actions to add
+        """
+        actions = sorted(actions, key=attrgetter("option_strings"))
+        super().add_arguments(actions)
+
+
 class Parser:
     """A parser for the command line arguments."""
 
@@ -42,12 +105,18 @@ class Parser:
         """Initialize the parser."""
         self.args: argparse.Namespace
         self.pending_logs: list[Msg] = []
+        self.init_parser: argparse.ArgumentParser | None = None
+        self.add_parser: argparse.ArgumentParser | None = None
+        self.add_resource_parser: argparse.ArgumentParser | None = None
+        self.add_plugin_parser: argparse.ArgumentParser | None = None
+        self.exit_code: int = 0
 
-    def parse_args(self) -> tuple[argparse.Namespace, list[Msg]]:
+    def parse_args(self) -> tuple[argparse.Namespace, list[Msg], int]:
         """Parse the root arguments.
 
         Returns:
-            The parsed arguments and any pending logs
+            The parsed arguments, any pending logs, and exit code
+            (0 for success, os.EX_USAGE for usage error)
         """
         is_init = sys.argv[1:2] == ["init"]
         not_empty = sys.argv[2:] != []
@@ -55,11 +124,10 @@ class Parser:
         if all((is_init, not_empty, not_help)):
             proceed = self.handle_deprecations()
             if not proceed:
-                return argparse.Namespace(), self.pending_logs
+                return argparse.Namespace(), self.pending_logs, 1
 
-        parser = ArgumentParser(
+        parser = CustomArgumentParser(
             description="The fastest way to generate all your ansible content.",
-            formatter_class=CustomHelpFormatter,
         )
         parser.add_argument(
             "--version",
@@ -72,16 +140,74 @@ class Parser:
             metavar="command",
             required=True,
         )
-        self._add(subparser=subparser)
-        self._init(subparser=subparser)
+        self._add(subparser=subparser)  # type: ignore[arg-type]
+        self._init(subparser=subparser)  # type: ignore[arg-type]
 
-        if HAS_ARGCOMPLETE:
+        if HAS_ARGCOMPLETE:  # pragma: no cover
             argcomplete.autocomplete(parser)
         self.args = parser.parse_args()
 
-        return self.args, self.pending_logs
+        # Show help for 'ansible-creator init' without arguments
+        if self.args.subcommand == "init" and self.args.project is None and self.init_parser:
+            self.init_parser.print_help(sys.stderr)
+            self.pending_logs.append(
+                Msg(
+                    prefix=Level.ERROR,
+                    message="Missing required argument 'project-type'.\n"
+                    "Choose from: collection, playbook, execution_env",
+                )
+            )
+            self.exit_code = os.EX_USAGE
 
-    def _add(self, subparser: SubParser[ArgumentParser]) -> None:
+        # Show help for 'ansible-creator add' without arguments
+        if self.args.subcommand == "add" and self.args.type is None and self.add_parser:
+            self.add_parser.print_help(sys.stderr)
+            self.pending_logs.append(
+                Msg(
+                    prefix=Level.ERROR,
+                    message="Missing required argument 'content-type'.\n"
+                    "Choose from: resource, plugin",
+                )
+            )
+            self.exit_code = os.EX_USAGE
+
+        # Show help for 'ansible-creator add resource' without arguments
+        if (
+            self.args.subcommand == "add"
+            and self.args.type == "resource"
+            and self.args.resource_type is None
+        ) and self.add_resource_parser:
+            self.add_resource_parser.print_help(sys.stderr)
+            self.pending_logs.append(
+                Msg(
+                    prefix=Level.ERROR,
+                    message="Missing required argument 'resource-type'.\n"
+                    "Choose from: devcontainer, devfile, execution-environment, "
+                    "play-argspec, role",
+                )
+            )
+            self.exit_code = os.EX_USAGE
+
+        # Show help for 'ansible-creator add plugin' without arguments
+        if (
+            self.args.subcommand == "add"
+            and self.args.type == "plugin"
+            and self.args.plugin_type is None
+            and self.add_plugin_parser
+        ):
+            self.add_plugin_parser.print_help(sys.stderr)
+            self.pending_logs.append(
+                Msg(
+                    prefix=Level.ERROR,
+                    message="Missing required argument 'plugin-type'.\n"
+                    "Choose from: action, filter, lookup, module, test",
+                )
+            )
+            self.exit_code = os.EX_USAGE
+
+        return self.args, self.pending_logs, self.exit_code
+
+    def _add(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add resources to an existing Ansible project.
 
         Args:
@@ -89,18 +215,18 @@ class Parser:
         """
         parser = subparser.add_parser(
             "add",
-            formatter_class=CustomHelpFormatter,
             help="Add resources to an existing Ansible project.",
         )
+        self.add_parser = parser
         subparser = parser.add_subparsers(
             dest="type",
-            required=True,
+            required=False,
             metavar="content-type",
         )
         self._add_resource(subparser=subparser)
         self._add_plugin(subparser=subparser)
 
-    def _add_args_common(self, parser: ArgumentParser) -> None:
+    def _add_args_common(self, parser: argparse.ArgumentParser) -> None:
         """Add common arguments to the parser.
 
         Args:
@@ -158,7 +284,7 @@ class Parser:
             help="Give more Cli output. Option is additive, and can be used up to 3 times.",
         )
 
-    def _add_args_init_common(self, parser: ArgumentParser) -> None:
+    def _add_args_init_common(self, parser: argparse.ArgumentParser) -> None:
         """Add common init arguments to the parser.
 
         Args:
@@ -177,7 +303,7 @@ class Parser:
         )
         self._add_overwrite(parser)
 
-    def _add_args_plugin_common(self, parser: ArgumentParser) -> None:
+    def _add_args_plugin_common(self, parser: argparse.ArgumentParser) -> None:
         """Add common plugin arguments to the parser.
 
         Args:
@@ -195,7 +321,7 @@ class Parser:
             "current working directory.",
         )
 
-    def _add_resource(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_resource(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add resources to an existing Ansible project.
 
         Args:
@@ -204,20 +330,34 @@ class Parser:
         parser = subparser.add_parser(
             "resource",
             help="Add resources to an existing Ansible project.",
-            formatter_class=CustomHelpFormatter,
         )
+        self.add_resource_parser = parser
         subparser = parser.add_subparsers(
             dest="resource_type",
             metavar="resource-type",
-            required=True,
+            required=False,
         )
+        # keep arguments order sorted alphabetically to ease reading
+        self._add_resource_ai(subparser=subparser)
         self._add_resource_devcontainer(subparser=subparser)
         self._add_resource_devfile(subparser=subparser)
         self._add_resource_execution_env(subparser=subparser)
         self._add_resource_play_argspec(subparser=subparser)
         self._add_resource_role(subparser=subparser)
 
-    def _add_resource_devcontainer(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_resource_ai(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
+        """Add AI files to an existing Ansible project.
+
+        Args:
+            subparser: The subparser to add files to
+        """
+        parser = subparser.add_parser(
+            "ai",
+            help="Add AI agent helper files.",
+        )
+        self._add_args_common(parser)
+
+    def _add_resource_devcontainer(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add devcontainer files to an existing Ansible project.
 
         Args:
@@ -226,7 +366,6 @@ class Parser:
         parser = subparser.add_parser(
             "devcontainer",
             help="Add devcontainer files to an existing Ansible project.",
-            formatter_class=CustomHelpFormatter,
         )
 
         parser.add_argument(
@@ -250,7 +389,7 @@ class Parser:
         self._add_overwrite(parser)
         self._add_args_common(parser)
 
-    def _add_resource_devfile(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_resource_devfile(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add a devfile file to an existing Ansible project.
 
         Args:
@@ -259,7 +398,6 @@ class Parser:
         parser = subparser.add_parser(
             "devfile",
             help="Add a devfile file to an existing Ansible project.",
-            formatter_class=CustomHelpFormatter,
         )
         parser.add_argument(
             "path",
@@ -273,7 +411,7 @@ class Parser:
         self._add_overwrite(parser)
         self._add_args_common(parser)
 
-    def _add_resource_execution_env(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_resource_execution_env(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add execution environment sample file to an existing path.
 
         Args:
@@ -282,7 +420,6 @@ class Parser:
         parser = subparser.add_parser(
             "execution-environment",
             help="Add a sample execution-environment.yml file to an existing path.",
-            formatter_class=CustomHelpFormatter,
         )
 
         parser.add_argument(
@@ -297,7 +434,7 @@ class Parser:
         self._add_overwrite(parser)
         self._add_args_common(parser)
 
-    def _add_resource_play_argspec(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_resource_play_argspec(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add example playbook argspec files to an existing Ansible project.
 
         Args:
@@ -306,7 +443,6 @@ class Parser:
         parser = subparser.add_parser(
             "play-argspec",
             help="Add example playbook argspec files to an existing Ansible project.",
-            formatter_class=CustomHelpFormatter,
         )
 
         parser.add_argument(
@@ -321,7 +457,7 @@ class Parser:
         self._add_overwrite(parser)
         self._add_args_common(parser)
 
-    def _add_resource_role(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_resource_role(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add a role to an existing Ansible collection.
 
         Args:
@@ -330,7 +466,6 @@ class Parser:
         parser = subparser.add_parser(
             "role",
             help="Add a role to an existing Ansible collection.",
-            formatter_class=CustomHelpFormatter,
         )
         parser.add_argument(
             "role_name",
@@ -348,7 +483,7 @@ class Parser:
         self._add_overwrite(parser)
         self._add_args_common(parser)
 
-    def _add_plugin(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_plugin(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add a plugin to an Ansible project.
 
         Args:
@@ -357,12 +492,12 @@ class Parser:
         parser = subparser.add_parser(
             "plugin",
             help="Add a plugin to an Ansible collection.",
-            formatter_class=CustomHelpFormatter,
         )
+        self.add_plugin_parser = parser
         subparser = parser.add_subparsers(
             dest="plugin_type",
             metavar="plugin-type",
-            required=True,
+            required=False,
         )
 
         self._add_plugin_action(subparser=subparser)
@@ -371,7 +506,7 @@ class Parser:
         self._add_plugin_module(subparser=subparser)
         self._add_plugin_test(subparser=subparser)
 
-    def _add_plugin_action(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_plugin_action(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add an action plugin to an existing Ansible collection project.
 
         Args:
@@ -380,13 +515,12 @@ class Parser:
         parser = subparser.add_parser(
             "action",
             help="Add an action plugin to an existing Ansible collection.",
-            formatter_class=CustomHelpFormatter,
         )
         self._add_args_common(parser)
         self._add_overwrite(parser)
         self._add_args_plugin_common(parser)
 
-    def _add_plugin_filter(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_plugin_filter(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add a filter plugin to an existing Ansible collection project.
 
         Args:
@@ -395,13 +529,12 @@ class Parser:
         parser = subparser.add_parser(
             "filter",
             help="Add a filter plugin to an existing Ansible collection.",
-            formatter_class=CustomHelpFormatter,
         )
         self._add_args_common(parser)
         self._add_overwrite(parser)
         self._add_args_plugin_common(parser)
 
-    def _add_plugin_lookup(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_plugin_lookup(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add a lookup plugin to an existing Ansible collection project.
 
         Args:
@@ -410,13 +543,12 @@ class Parser:
         parser = subparser.add_parser(
             "lookup",
             help="Add a lookup plugin to an existing Ansible collection.",
-            formatter_class=CustomHelpFormatter,
         )
         self._add_args_common(parser)
         self._add_overwrite(parser)
         self._add_args_plugin_common(parser)
 
-    def _add_plugin_module(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_plugin_module(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add a module plugin to an existing Ansible collection project.
 
         Args:
@@ -425,13 +557,12 @@ class Parser:
         parser = subparser.add_parser(
             "module",
             help="Add a module plugin to an existing Ansible collection.",
-            formatter_class=CustomHelpFormatter,
         )
         self._add_args_common(parser)
         self._add_overwrite(parser)
         self._add_args_plugin_common(parser)
 
-    def _add_plugin_test(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _add_plugin_test(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Add a test plugin to an existing Ansible collection project.
 
         Args:
@@ -440,13 +571,12 @@ class Parser:
         parser = subparser.add_parser(
             "test",
             help="Add a test plugin to an existing Ansible collection.",
-            formatter_class=CustomHelpFormatter,
         )
         self._add_args_common(parser)
         self._add_overwrite(parser)
         self._add_args_plugin_common(parser)
 
-    def _add_overwrite(self, parser: ArgumentParser) -> None:
+    def _add_overwrite(self, parser: argparse.ArgumentParser) -> None:
         """Add overwrite and no-overwrite arguments to the parser.
 
         Args:
@@ -469,7 +599,7 @@ class Parser:
             help="Flag that restricts overwriting operation.",
         )
 
-    def _init(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _init(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Initialize an Ansible project.
 
         Args:
@@ -477,20 +607,20 @@ class Parser:
         """
         parser = subparser.add_parser(
             "init",
-            formatter_class=CustomHelpFormatter,
             help="Initialize a new Ansible project.",
         )
+        self.init_parser = parser
         subparser = parser.add_subparsers(
             dest="project",
             metavar="project-type",
-            required=True,
+            required=False,
         )
 
         self._init_collection(subparser=subparser)
         self._init_playbook(subparser=subparser)
         self._init_ee_project(subparser=subparser)
 
-    def _init_collection(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _init_collection(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Initialize an Ansible collection.
 
         Args:
@@ -499,7 +629,6 @@ class Parser:
         parser = subparser.add_parser(
             "collection",
             help="Create a new Ansible collection project.",
-            formatter_class=CustomHelpFormatter,
         )
         parser.add_argument(
             "collection",
@@ -519,7 +648,7 @@ class Parser:
         self._add_args_common(parser)
         self._add_args_init_common(parser)
 
-    def _init_playbook(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _init_playbook(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Initialize an Ansible playbook.
 
         Args:
@@ -528,7 +657,6 @@ class Parser:
         parser = subparser.add_parser(
             "playbook",
             help="Create a new Ansible playbook project.",
-            formatter_class=CustomHelpFormatter,
         )
 
         parser.add_argument(
@@ -550,7 +678,7 @@ class Parser:
         self._add_args_common(parser)
         self._add_args_init_common(parser)
 
-    def _init_ee_project(self, subparser: SubParser[ArgumentParser]) -> None:
+    def _init_ee_project(self, subparser: SubParser[argparse.ArgumentParser]) -> None:
         """Initialize an EE project.
 
         Args:
@@ -559,7 +687,6 @@ class Parser:
         parser = subparser.add_parser(
             "execution_env",
             help="Create a new execution environment project.",
-            formatter_class=CustomHelpFormatter,
         )
         parser.add_argument(
             "init_path",
@@ -604,7 +731,7 @@ class Parser:
         Returns:
             True if parsing can proceed, False otherwise
         """
-        parser = argparse.ArgumentParser()
+        parser = CustomArgumentParser()
         parser.add_argument("command", help="")
         parser.add_argument("collection", nargs="?", help="")
         parser.add_argument("--project", help="")
@@ -613,7 +740,7 @@ class Parser:
         parser.add_argument("--init-path", help="")
         args, extras = parser.parse_known_args()
 
-        if args.collection in ["playbook", "collection", "execution_env"]:
+        if args.collection in {"playbook", "collection", "execution_env"}:
             return True
         if args.project:
             msg = "The `project` flag is no longer needed and will be removed."
@@ -656,8 +783,19 @@ class Parser:
         return True
 
 
-class ArgumentParser(argparse.ArgumentParser):
+class CustomArgumentParser(argparse.ArgumentParser):
     """A custom argument parser."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        """Initialize the argument parser.
+
+        Args:
+            *args: The arguments
+            **kwargs: The keyword arguments
+        """
+        super().__init__(*args, **kwargs)
+        if sys.version_info < (3, 14):  # pragma: no cover py>=3.14
+            self.formatter_class = CustomHelpFormatter
 
     def add_argument(  # type: ignore[override]
         self,
@@ -670,11 +808,11 @@ class ArgumentParser(argparse.ArgumentParser):
             *args: The arguments
             **kwargs: The keyword arguments
         """
-        if "choices" in kwargs:
-            kwargs["help"] += f" (choices: {', '.join(kwargs['choices'])})"
-        if "default" in kwargs and kwargs["default"] != "==SUPPRESS==":
-            kwargs["help"] += f" (default: {kwargs['default']})"
-        kwargs["help"] = kwargs["help"][0].upper() + kwargs["help"][1:]
+        if sys.version_info < (3, 14):  # pragma: no cover py>=3.14
+            if "choices" in kwargs:  # pragma: no cover py>=3.14
+                kwargs["help"] += f" (choices: {', '.join(kwargs['choices'])})"
+            if "default" in kwargs and kwargs["default"] != "==SUPPRESS==":
+                kwargs["help"] += f" (default: {kwargs['default']})"
         super().add_argument(*args, **kwargs)
 
     def add_argument_group(
@@ -692,68 +830,6 @@ class ArgumentParser(argparse.ArgumentParser):
             The argument group
         """
         group = super().add_argument_group(*args, **kwargs)
-        if group.title:
+        if group.title:  # pragma: no cover
             group.title = group.title.capitalize()
         return group
-
-
-if TYPE_CHECKING:
-    SubParser: TypeAlias = argparse._SubParsersAction  # noqa: SLF001
-
-
-class CustomHelpFormatter(HelpFormatter):
-    """A custom help formatter."""
-
-    def __init__(self, prog: str) -> None:
-        """Initialize the help formatter.
-
-        Args:
-            prog: The program name
-        """
-        long_string = "--abc  --really_really_really_log"
-        # 3 here accounts for the spaces in the ljust(6) below
-        HelpFormatter.__init__(
-            self,
-            prog=prog,
-            indent_increment=1,
-            max_help_position=len(long_string) + 3,
-        )
-
-    def _format_action_invocation(
-        self,
-        action: argparse.Action,
-    ) -> str:
-        """Format the action invocation.
-
-        Args:
-            action: The action to format
-
-        Raises:
-            ValueError: If more than 2 options are given
-
-        Returns:
-            The formatted action invocation
-        """
-        if not action.option_strings:
-            default = self._get_default_metavar_for_positional(action)
-            (metavar,) = self._metavar_formatter(action, default)(1)
-            return metavar
-
-        if len(action.option_strings) == 1:
-            return action.option_strings[0]
-
-        max_variations = 2
-        if len(action.option_strings) == max_variations:
-            # Account for a --1234 --long-option-name
-            return f"{action.option_strings[0].ljust(6)} {action.option_strings[1]}"
-        msg = "Too many option strings"
-        raise ValueError(msg)
-
-    def add_arguments(self, actions: Iterable[argparse.Action]) -> None:
-        """Add arguments sorted by option strings.
-
-        Args:
-            actions: The actions to add
-        """
-        actions = sorted(actions, key=attrgetter("option_strings"))
-        super().add_arguments(actions)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SQLAlchemy-Utils
-Version: 0.42.0
+Version: 0.42.1
 Summary: Various utility functions for SQLAlchemy.
 Author: Ryan Leckey, Janne Vanhala, Vesa Uimonen
 Author-email: Konsta Vesterinen <konsta@fastmonkeys.com>

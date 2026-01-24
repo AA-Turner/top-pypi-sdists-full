@@ -106,39 +106,35 @@ class Notebook(APIObject, BrowserMixin):
     _scheduling_path = "notebookJobs/"
     _revisions_path = "notebookRevisions/"
 
-    _session_subset_trafaret = t.Dict(
-        {
-            t.Key("status"): t.Enum(*list(NotebookStatus)),
-            t.Key("notebook_id"): t.String,
-            t.Key("user_id"): t.String,
-            t.Key("started_at", optional=True): t.String,
-            t.Key("session_type", optional=True): t.Enum(*list(SessionType)),
-        }
-    ).ignore_extra("*")
+    _session_subset_trafaret = t.Dict({
+        t.Key("status"): t.Enum(*list(NotebookStatus)),
+        t.Key("notebook_id"): t.String,
+        t.Key("user_id"): t.String,
+        t.Key("started_at", optional=True): t.String,
+        t.Key("session_type", optional=True): t.Enum(*list(SessionType)),
+    }).ignore_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String,
-            t.Key("name"): t.String,
-            t.Key("type"): t.Enum(*list(NotebookType)),
-            t.Key("description", optional=True): t.Or(t.String, t.Null),
-            t.Key("permissions"): t.List(
-                t.Enum(*list(NotebookPermissions)),
-            ),
-            t.Key("tags"): t.List(t.String),
-            t.Key("created"): notebook_activity_trafaret,
-            t.Key("updated", optional=True): notebook_activity_trafaret,
-            t.Key("last_viewed"): notebook_activity_trafaret,
-            t.Key("settings"): notebook_settings_trafaret,
-            t.Key("org_id", optional=True): t.Or(t.String, t.Null),
-            t.Key("tenant_id", optional=True): t.Or(t.String, t.Null),
-            t.Key("session", optional=True): t.Or(_session_subset_trafaret, t.Null),
-            t.Key("use_case_id", optional=True): t.Or(t.String, t.Null),
-            t.Key("use_case_name", optional=True): t.Or(t.String, t.Null),
-            t.Key("has_schedule"): t.Bool,
-            t.Key("has_enabled_schedule"): t.Bool,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String,
+        t.Key("name"): t.String,
+        t.Key("type"): t.Enum(*list(NotebookType)),
+        t.Key("description", optional=True): t.Or(t.String, t.Null),
+        t.Key("permissions"): t.List(
+            t.Enum(*list(NotebookPermissions)),
+        ),
+        t.Key("tags"): t.List(t.String),
+        t.Key("created"): notebook_activity_trafaret,
+        t.Key("updated", optional=True): notebook_activity_trafaret,
+        t.Key("last_viewed"): notebook_activity_trafaret,
+        t.Key("settings"): notebook_settings_trafaret,
+        t.Key("org_id", optional=True): t.Or(t.String, t.Null),
+        t.Key("tenant_id", optional=True): t.Or(t.String, t.Null),
+        t.Key("session", optional=True): t.Or(_session_subset_trafaret, t.Null),
+        t.Key("use_case_id", optional=True): t.Or(t.String, t.Null),
+        t.Key("use_case_name", optional=True): t.Or(t.String, t.Null),
+        t.Key("has_schedule"): t.Bool,
+        t.Key("has_enabled_schedule"): t.Bool,
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -168,9 +164,7 @@ class Notebook(APIObject, BrowserMixin):
         self.tags = tags
         self.created = NotebookActivity.from_server_data(created)
         self.updated = updated if not updated else NotebookActivity.from_server_data(updated)
-        self.last_viewed = (
-            last_viewed if not last_viewed else NotebookActivity.from_server_data(last_viewed)
-        )
+        self.last_viewed = last_viewed if not last_viewed else NotebookActivity.from_server_data(last_viewed)
         self.settings = NotebookSettings.from_server_data(settings)
         self.org_id = org_id
         self.tenant_id = tenant_id
@@ -481,19 +475,13 @@ class Notebook(APIObject, BrowserMixin):
         """
         if self.is_standalone:
             if notebook_path:
-                raise InvalidUsageError(
-                    "Notebook path is not required for standalone notebook execution."
-                )
+                raise InvalidUsageError("Notebook path is not required for standalone notebook execution.")
             NotebookSession.execute_notebook(notebook_id=self.id, cell_ids=cell_ids)
         elif self.is_codespace:
             if cell_ids:
-                raise InvalidUsageError(
-                    "Cell IDs cannot be passed for Codespace notebook execution."
-                )
+                raise InvalidUsageError("Cell IDs cannot be passed for Codespace notebook execution.")
             if not notebook_path:
-                raise InvalidUsageError(
-                    "Notebook path is required for Codespace notebook execution."
-                )
+                raise InvalidUsageError("Notebook path is required for Codespace notebook execution.")
             # 1. Get execution environment in order to get runtime language
             execution_environment = ExecutionEnvironment.get(notebook_id=self.id)
             kernel_spec = KernelSpec.from_image_language(execution_environment.image.language)
@@ -556,23 +544,17 @@ class Notebook(APIObject, BrowserMixin):
         """
         if self.is_standalone:
             if notebook_path:
-                raise InvalidUsageError(
-                    "Notebook path is not required when working with standalone notebooks."
-                )
+                raise InvalidUsageError("Notebook path is not required when working with standalone notebooks.")
             return self.get_execution_status().status == KernelExecutionStatus.IDLE
         elif self.is_codespace:
             if not notebook_path:
-                raise InvalidUsageError(
-                    "Notebook path is required when working with codespace notebooks."
-                )
+                raise InvalidUsageError("Notebook path is required when working with codespace notebooks.")
             codespace_notebook_state = NotebookSession.get_codespace_notebook_state(
                 notebook_id=self.id,
                 notebook_path=notebook_path,
             )
             if not codespace_notebook_state.kernel_id:
-                raise KernelNotAssignedError(
-                    "A codespace notebook must have a kernel assigned if it is executing."
-                )
+                raise KernelNotAssignedError("A codespace notebook must have a kernel assigned if it is executing.")
             kernel = NotebookKernel.get(
                 notebook_id=self.id,
                 kernel_id=codespace_notebook_state.kernel_id,
@@ -643,11 +625,7 @@ class Notebook(APIObject, BrowserMixin):
         payload: ManualRunPayload = {
             "notebook_id": self.id,
             "manual_run_type": manual_run_type,
-            "title": (
-                title
-                if title
-                else f"{self.name} {datetime.now(tz=utc).strftime('%Y-%m-%d %H:%M (UTC)')}"
-            ),
+            "title": (title if title else f"{self.name} {datetime.now(tz=utc).strftime('%Y-%m-%d %H:%M (UTC)')}"),
         }
         if notebook_path:
             payload["notebook_path"] = notebook_path
@@ -689,9 +667,7 @@ class Notebook(APIObject, BrowserMixin):
             enabled_schedules = notebook.list_schedules(enabled_only=True)
         """
         if self.is_classic:
-            raise InvalidUsageError(
-                "Schedules are only available for notebooks associated with Use Cases."
-            )
+            raise InvalidUsageError("Schedules are only available for notebooks associated with Use Cases.")
         return NotebookScheduledJob.list(
             notebook_ids=[self.id],
             statuses=[ScheduleStatus.ENABLED] if enabled_only else None,

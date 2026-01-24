@@ -2,7 +2,7 @@ import importlib
 import inspect
 from types import FrameType
 from uuid import UUID
-from typing import Annotated, Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Dict, List, Literal, Optional, Type, Union
 
 from pydantic import BeforeValidator, SerializationInfo, model_serializer
 
@@ -12,6 +12,9 @@ from vellum.client.types.code_resource_definition import CodeResourceDefinition 
 from vellum.client.types.vellum_variable import VellumVariable
 from vellum.workflows.constants import AuthorizationType, VellumIntegrationProviderType
 from vellum.workflows.references.environment_variable import EnvironmentVariableReference
+
+if TYPE_CHECKING:
+    from vellum.workflows.workflows.base import BaseWorkflow
 
 
 def serialize_type_encoder(obj: type) -> Dict[str, Any]:
@@ -26,6 +29,11 @@ def serialize_type_encoder_with_id(obj: Union[type, "CodeResourceDefinition"]) -
         return {
             "id": getattr(obj, "__id__"),
             **serialize_type_encoder(obj),
+            **(
+                {"exclude_from_monitoring": getattr(obj, "__exclude_from_monitoring__")}
+                if hasattr(obj, "__exclude_from_monitoring__")
+                else {}
+            ),
         }
     elif isinstance(obj, CodeResourceDefinition):
         return obj.model_dump(mode="json")
@@ -166,15 +174,29 @@ class ComposioToolDefinition(UniversalBaseModel):
 
 
 class VellumIntegrationToolDefinition(UniversalBaseModel):
-    type: Literal["INTEGRATION"] = "INTEGRATION"
+    type: Literal["VELLUM_INTEGRATION"] = "VELLUM_INTEGRATION"
 
     # Core identification
     provider: VellumIntegrationProviderType
-    integration: str  # "GITHUB", "SLACK", etc.
+    integration_name: str  # "GITHUB", "SLACK", etc.
     name: str  # Specific action like "GITHUB_CREATE_AN_ISSUE"
 
-    # Required for tool base consistency
-    description: str
+    # Optional description for tool base consistency
+    description: str = ""
+
+    # Optional toolkit version for pinning
+    toolkit_version: Optional[str] = None
+
+
+class VellumIntegrationToolDetails(VellumIntegrationToolDefinition):
+    """Extended version of VellumIntegrationToolDefinition with runtime parameters.
+
+    This class includes the parameters field which is populated during compilation
+    from the Vellum integrations API response. It inherits all fields from the base
+    VellumIntegrationToolDefinition class.
+    """
+
+    parameters: Optional[Dict[str, Any]] = None
 
 
 class MCPServer(UniversalBaseModel):
@@ -189,19 +211,20 @@ class MCPServer(UniversalBaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        """Override to automatically set serialization flags for environment variables."""
-        super().__setattr__(name, value)
-
-        if name == "bearer_token_value" and isinstance(value, EnvironmentVariableReference):
-            value.serialize_as_constant = True
-
-        if name == "api_key_header_value" and isinstance(value, EnvironmentVariableReference):
-            value.serialize_as_constant = True
-
 
 class MCPToolDefinition(UniversalBaseModel):
     name: str
     server: MCPServer
     description: Optional[str] = None
     parameters: Dict[str, Any] = {}
+
+
+# Type alias for functions that can be called in tool calling nodes
+ToolBase = Union[
+    Callable[..., Any],
+    DeploymentDefinition,
+    Type["BaseWorkflow"],
+    ComposioToolDefinition,
+    VellumIntegrationToolDefinition,
+]
+Tool = Union[ToolBase, MCPServer, MCPToolDefinition]

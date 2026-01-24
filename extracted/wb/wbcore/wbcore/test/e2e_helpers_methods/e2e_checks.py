@@ -2,7 +2,7 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.color import Color
 from selenium.webdriver.support.wait import WebDriverWait
 
@@ -49,7 +49,9 @@ def is_string_not_visible(driver: WebDriver, string: str) -> bool:
         bool: True if the text is not visible
     """
     try:
-        WebDriverWait(driver, 5).until(EC.invisibility_of_element_located((By.XPATH, f"//*[text()='{string}']")))
+        WebDriverWait(driver, 5).until(
+            expected_conditions.invisibility_of_element_located((By.XPATH, f"//*[text()='{string}']"))
+        )
         return True
     except TimeoutException:
         return False
@@ -82,7 +84,9 @@ def is_tag_not_visible(driver: WebDriver, tag_label: str) -> bool:
     """
     try:
         WebDriverWait(driver, 2.5).until(
-            EC.invisibility_of_element_located((By.XPATH, f"//*[@class='tag-label' and text()='{tag_label}']"))
+            expected_conditions.invisibility_of_element_located(
+                (By.XPATH, f"//*[@class='tag-label' and text()='{tag_label}']")
+            )
         )
         return True
     except TimeoutException:
@@ -103,7 +107,9 @@ def is_error_visible(driver: WebDriver):
 
     if saving_failed_hint and saving_failed_hint.is_displayed():
         WebDriverWait(driver, 10).until_not(
-            EC.invisibility_of_element_located((By.XPATH, "//div[contains(@class, 'task-dropper-content')]"))
+            expected_conditions.invisibility_of_element_located(
+                (By.XPATH, "//div[contains(@class, 'task-dropper-content')]")
+            )
         )
     return error_element is not None
 

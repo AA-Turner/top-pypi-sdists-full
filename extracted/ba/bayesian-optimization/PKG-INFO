@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bayesian-optimization
-Version: 3.1.0
+Version: 3.2.0
 Summary: Bayesian Optimization package
 Author: Fernando Nogueira
 Author-email: Fernando Nogueira <fmfnogueira@gmail.com>
@@ -21,9 +21,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: colorama>=0.4.6
 Requires-Dist: numpy>=1.25 ; python_full_version < '3.13'
 Requires-Dist: numpy>=2.1.3 ; python_full_version >= '3.13'
+Requires-Dist: packaging>=20.0
 Requires-Dist: scikit-learn>=1.0.0
 Requires-Dist: scipy>=1.0.0 ; python_full_version < '3.13'
 Requires-Dist: scipy>=1.14.1 ; python_full_version >= '3.13'

@@ -6,8 +6,14 @@ from ..actions import BoundAction
 from ..core import BoundModelBase, Meta, ResourceClientBase
 from .domain import CreatePlacementGroupResponse, PlacementGroup
 
+__all__ = [
+    "BoundPlacementGroup",
+    "PlacementGroupsPageResult",
+    "PlacementGroupsClient",
+]
 
-class BoundPlacementGroup(BoundModelBase, PlacementGroup):
+
+class BoundPlacementGroup(BoundModelBase[PlacementGroup], PlacementGroup):
     _client: PlacementGroupsClient
 
     model = PlacementGroup
@@ -25,7 +31,7 @@ class BoundPlacementGroup(BoundModelBase, PlacementGroup):
                New Name to set
         :return: :class:`BoundPlacementGroup <hcloud.placement_groups.client.BoundPlacementGroup>`
         """
-        return self._client.update(self, labels, name)
+        return self._client.update(self, labels=labels, name=name)
 
     def delete(self) -> bool:
         """Deletes a Placement Group
@@ -131,7 +137,7 @@ class PlacementGroupsClient(ResourceClientBase):
                Used to get Placement Group by name
         :return: class:`BoundPlacementGroup <hcloud.placement_groups.client.BoundPlacementGroup>`
         """
-        return self._get_first_by(name=name)
+        return self._get_first_by(self.get_list, name=name)
 
     def create(
         self,

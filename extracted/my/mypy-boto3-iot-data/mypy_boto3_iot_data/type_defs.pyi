@@ -23,11 +23,6 @@ from botocore.response import StreamingBody
 
 from .literals import PayloadFormatIndicatorType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -70,7 +65,7 @@ class DeleteThingShadowRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -138,7 +133,7 @@ class GetThingShadowResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListNamedShadowsForThingResponseTypeDef(TypedDict):
-    results: List[str]
+    results: list[str]
     timestamp: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -151,6 +146,6 @@ class ListRetainedMessagesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRetainedMessagesResponseTypeDef(TypedDict):
-    retainedTopics: List[RetainedMessageSummaryTypeDef]
+    retainedTopics: list[RetainedMessageSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

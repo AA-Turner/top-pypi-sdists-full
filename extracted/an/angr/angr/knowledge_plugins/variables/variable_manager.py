@@ -1,21 +1,22 @@
 from __future__ import annotations
-from typing import Literal, TYPE_CHECKING, overload
-import logging
+from typing import Literal, TypeVar, Generic, TYPE_CHECKING, cast, overload
 from collections import defaultdict
+from collections.abc import Iterator
 from itertools import count, chain
+import logging
 
 import networkx
 
-import angr.ailment as ailment
 from cle.backends.elf.compilation_unit import CompilationUnit
 from cle.backends.elf.variable import Variable
 
+from angr import ailment
 from angr.utils.orderedset import OrderedSet
 from angr.utils.ail import is_phi_assignment
 from angr.utils.types import unpack_pointer, replace_pointer_pts_to
 from angr.protos import variables_pb2
 from angr.serializable import Serializable
-from angr.sim_variable import SimVariable, SimStackVariable, SimMemoryVariable, SimRegisterVariable
+from angr.sim_variable import SimVariable, SimStackVariable, SimMemoryVariable, SimRegisterVariable, SimConstantVariable
 from angr.sim_type import (
     TypeRef,
     SimType,
@@ -25,15 +26,27 @@ from angr.sim_type import (
     SimTypeShort,
     SimTypeInt,
     SimTypeLong,
+    SimTypeArray,
 )
 from angr.keyed_region import KeyedRegion
 from angr.knowledge_plugins.plugin import KnowledgeBasePlugin
 from angr.knowledge_plugins.types import TypesStore
 from .variable_access import VariableAccess, VariableAccessSort
 
+K = TypeVar("K")
+T = TypeVar("T")
+
 if TYPE_CHECKING:
     from angr.analyses.decompiler.stack_item import StackItem
     from angr.code_location import CodeLocation
+
+    class SortedDict(Generic[K, T], dict[K, T]):  # pylint:disable=missing-class-docstring
+        def irange(self, *args, **kwargs) -> Iterator[K]:  # pylint:disable=unused-argument, no-self-use
+            ...
+
+else:
+    from sortedcontainers import SortedDict
+
 
 l = logging.getLogger(name=__name__)
 
@@ -102,6 +115,7 @@ class VariableManagerInternal(Serializable):
             "argument": count(),
             "phi": count(),
             "global": count(),
+            "constant": count(),
         }
 
         self._unified_variables: set[SimVariable] = set()
@@ -118,7 +132,9 @@ class VariableManagerInternal(Serializable):
         # optimization
         self._variables_without_writes = set()
 
-        self.stack_offset_to_struct_member_info: dict[SimStackVariable, tuple[int, SimStackVariable, SimStruct]] = {}
+        self.stack_offset_to_complex_types: SortedDict[int, tuple[SimStackVariable, SimStruct | SimTypeArray]] = (
+            SortedDict()
+        )
 
         self.ret_val_size = None
 
@@ -414,6 +430,8 @@ class VariableManagerInternal(Serializable):
             prefix = "arg"
         elif sort == "global":
             prefix = "g"
+        elif sort == "constant":
+            prefix = "c"
         else:
             prefix = "m"
 
@@ -426,6 +444,8 @@ class VariableManagerInternal(Serializable):
             region = self._register_region
         elif sort == "global":
             region = self._global_region
+        elif sort == "constant":
+            region = None
         else:
             raise ValueError(f"Unsupported sort {sort} in add_variable().")
 
@@ -438,7 +458,8 @@ class VariableManagerInternal(Serializable):
                     variable.renamed = existing_var.renamed
             self._ident_to_variable[variable.ident] = variable
 
-        region.add_variable(start, variable)
+        if region is not None:
+            region.add_variable(start, variable)
         self._variables.add(variable)
         self._variables_without_writes.add(variable)
 
@@ -515,7 +536,7 @@ class VariableManagerInternal(Serializable):
                 self._atom_to_variable[key][atom_hash] = {var_and_offset}
             if isinstance(atom, ailment.Expr.VirtualVariable):
                 self._vvarid_to_variable[atom.varid] = variable
-                self._variable_to_vvarids[variable] = set(atom.varid)
+                self._variable_to_vvarids[variable] = {atom.varid}
         else:
             if location.ins_addr is not None:
                 self._insn_to_variable[location.ins_addr].add(var_and_offset)
@@ -666,6 +687,10 @@ class VariableManagerInternal(Serializable):
             var_and_offsets = [
                 (var, offset) for var, offset in self._stmt_to_variable[key] if isinstance(var, SimRegisterVariable)
             ]
+        elif sort == "constant":
+            var_and_offsets = [
+                (var, offset) for var, offset in self._stmt_to_variable[key] if isinstance(var, SimConstantVariable)
+            ]
         else:
             l.error('find_variables_by_stmt(): Unsupported variable sort "%s".', sort)
             return []
@@ -718,7 +743,7 @@ class VariableManagerInternal(Serializable):
             if variable.name == var.name:
                 vars_list.append(var)
 
-        accesses = []
+        accesses: list[VariableAccess] = []
         for var in vars_list:
             accesses.extend(self.get_variable_accesses(var))
 
@@ -901,8 +926,12 @@ class VariableManagerInternal(Serializable):
                     continue
                 if labels is not None and var.addr in labels:
                     var.name = labels[var.addr]
+                    # poor man's demangling
+                    var.name = var.name.removeprefix("?")
                     if "@@" in var.name:
                         var.name = var.name[: var.name.index("@@")]
+                    if "@" in var.name:
+                        var.name = "::".join(var.name.split("@")[::-1])
                 elif isinstance(var.addr, int):
                     var.name = f"g_{var.addr:x}"
                 elif var.ident is not None:
@@ -1008,7 +1037,7 @@ class VariableManagerInternal(Serializable):
         if not name:
             name = self.types.unique_type_name()
         if name in self.types:
-            return self.types[name]
+            return cast(TypeRef, self.types[name])
         ty_ref = TypeRef(name, ty).with_arch(self.manager._kb._project.arch)
         self.types[name] = ty_ref
         return ty_ref
@@ -1057,23 +1086,11 @@ class VariableManagerInternal(Serializable):
                         self.variable_to_types[other_var] = ty
                         if mark_manual:
                             self.variables_with_manual_types.add(other_var)
-        if isinstance(var, SimStackVariable) and isinstance(ty, TypeRef) and isinstance(ty.type, SimStruct):
-            self.stack_offset_to_struct_member_info.update(self._extract_fields_from_struct(var, ty.type))
-
-    def _extract_fields_from_struct(self, var, ty: SimStruct, top_struct_offset=0):
-        result = {}
-        for name, field_offset in ty.offsets.items():
-            field_ty = ty.fields[name]
-            offset = top_struct_offset + field_offset
-            if isinstance(field_ty, TypeRef):
-                field_ty = field_ty.type
-            if isinstance(field_ty, SimStruct):
-                result.update(
-                    self._extract_fields_from_struct(var, field_ty, top_struct_offset=top_struct_offset + field_offset)
-                )
-            else:
-                result[var.offset + offset] = (offset, var, ty)
-        return result
+        if isinstance(var, SimStackVariable):
+            if isinstance(ty, TypeRef) and isinstance(ty.type, SimStruct):
+                self.stack_offset_to_complex_types[var.offset] = var, ty.type
+            elif isinstance(ty, SimTypeArray):
+                self.stack_offset_to_complex_types[var.offset] = var, ty
 
     def get_variable_type(self, var) -> SimType | None:
         return self.variable_to_types.get(var, None)
@@ -1228,7 +1245,11 @@ class VariableManagerInternal(Serializable):
         for acc in accesses:
             assert acc.location.block_addr is not None
             block = func_block_by_addr.get((acc.location.block_addr, acc.location.block_idx), None)
-            if block is not None:
+            if (
+                block is not None
+                and acc.location.stmt_idx is not None
+                and acc.location.stmt_idx < len(block.statements)
+            ):
                 stmt = block.statements[acc.location.stmt_idx]
                 if not is_phi_assignment(stmt):
                     return False

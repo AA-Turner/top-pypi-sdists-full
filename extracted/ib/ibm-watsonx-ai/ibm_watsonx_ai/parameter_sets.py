@@ -1,13 +1,12 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias, cast
 
-from ibm_watsonx_ai._wrappers import requests
 from ibm_watsonx_ai.metanames import ParameterSetsMetaNames
 from ibm_watsonx_ai.wml_client_error import ResourceIdByNameNotFound
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -72,7 +71,9 @@ class ParameterSets(WMLResource):
 
         .. code-block:: python
 
-            parameter_sets_details = client.parameter_sets.get_details(parameter_set_id)
+            parameter_sets_details = client.parameter_sets.get_details(
+                parameter_set_id
+            )
 
         """
         ParameterSets._validate_type(parameter_set_id, "parameter_set_id", str, False)
@@ -91,7 +92,7 @@ class ParameterSets(WMLResource):
             except AttributeError:
                 href = f"{self._client._href_definitions._get_platform_url_if_exists()}/v2/parameter_sets"
 
-        response = requests.get(
+        response = self._client.httpx_client.get(
             url=href, params=self._client._params(), headers=self._client._get_headers()
         )
 
@@ -126,22 +127,15 @@ class ParameterSets(WMLResource):
                         "type": "string",
                         "subtype": "string",
                         "value": "string",
-                        "valid_values": [
-                            "string"
-                        ]
+                        "valid_values": ["string"],
                     }
                 ],
                 client.parameter_sets.ConfigurationMetaNames.VALUE_SETS: [
                     {
                         "name": "string",
-                        "values": [
-                            {
-                                "name": "string",
-                                "value": "string"
-                            }
-                        ]
+                        "values": [{"name": "string", "value": "string"}],
                     }
-                ]
+                ],
             }
 
             parameter_sets_details = client.parameter_sets.create(meta_props)
@@ -162,7 +156,7 @@ class ParameterSets(WMLResource):
         except AttributeError:
             href = f"{self._client._href_definitions._get_platform_url_if_exists()}/v2/parameter_sets"
 
-        creation_response = requests.post(
+        creation_response = self._client.httpx_client.post(
             url=href,
             json=payload,
             params=self._client._params(),
@@ -196,7 +190,7 @@ class ParameterSets(WMLResource):
         except AttributeError:
             href = f"{self._client._href_definitions._get_platform_url_if_exists()}/v2/parameter_sets"
 
-        response = requests.get(
+        response = self._client.httpx_client.get(
             url=href, params=self._client._params(), headers=self._client._get_headers()
         )
 
@@ -221,14 +215,16 @@ class ParameterSets(WMLResource):
 
         return table
 
-    def delete(self, parameter_set_id: str) -> str:
+    def delete(self, parameter_set_id: str) -> Literal["SUCCESS"]:
         """Delete a parameter set.
 
         :param parameter_set_id: unique ID of the parameter set
         :type parameter_set_id: str
 
-        :return: status ("SUCCESS" or "FAILED")
-        :rtype: str
+        :return: status "SUCCESS" if deletion is successful
+        :rtype: Literal["SUCCESS"]
+
+        :raises WMLClientError: if deletion failed
 
         **Example:**
 
@@ -246,14 +242,17 @@ class ParameterSets(WMLResource):
         except AttributeError:
             href = f"{self._client._href_definitions._get_platform_url_if_exists()}/v2/parameter_sets/{parameter_set_id}"
 
-        response = requests.delete(
+        response = self._client.httpx_client.delete(
             url=href, params=self._client._params(), headers=self._client._get_headers()
         )
 
         if response.status_code == 200:
             return response.json()
         else:
-            return self._handle_response(204, "delete parameter set", response)
+            return cast(
+                Literal["SUCCESS"],
+                self._handle_response(204, "delete parameter set", response),
+            )
 
     def get_id_by_name(self, parameter_set_name: str) -> str:
         """Get the unique ID of a parameter set.
@@ -313,7 +312,9 @@ class ParameterSets(WMLResource):
         .. code-block:: python
 
             new_description_data = "New description"
-            parameter_set_details = client.parameter_sets.update(parameter_set_id, new_description_data, "description")
+            parameter_set_details = client.parameter_sets.update(
+                parameter_set_id, new_description_data, "description"
+            )
 
         **Example for parameters**
 
@@ -327,12 +328,12 @@ class ParameterSets(WMLResource):
                     "type": "new_string",
                     "subtype": "new_string",
                     "value": "new_string",
-                    "valid_values": [
-                        "new_string"
-                    ]
+                    "valid_values": ["new_string"],
                 }
             ]
-            parameter_set_details = client.parameter_sets.update(parameter_set_id, new_parameters_data, "parameters")
+            parameter_set_details = client.parameter_sets.update(
+                parameter_set_id, new_parameters_data, "parameters"
+            )
 
         **Example for value_sets**
 
@@ -341,19 +342,16 @@ class ParameterSets(WMLResource):
             new_value_sets_data = [
                 {
                     "name": "string",
-                    "values": [
-                        {
-                            "name": "string",
-                            "value": "new_string"
-                        }
-                    ]
+                    "values": [{"name": "string", "value": "new_string"}],
                 }
             ]
-            parameter_set_details = client.parameter_sets.update_value_sets(parameter_set_id, new_value_sets_data, "value_sets")
+            parameter_set_details = client.parameter_sets.update_value_sets(
+                parameter_set_id, new_value_sets_data, "value_sets"
+            )
 
         """
         ParameterSets._validate_type(parameter_set_id, "parameter_set_id", str, True)
-        ParameterSets._validate_type(new_data, "new_data", [ListType, str], True)
+        ParameterSets._validate_type(new_data, "new_data", [ListType, str], True, True)
 
         try:  # TODO remove when get_parameter_sets_href() available
             href = self._client._href_definitions.get_parameter_set_href(
@@ -366,7 +364,7 @@ class ParameterSets(WMLResource):
             meta_data=new_data, path=file_path
         )
 
-        response = requests.patch(
+        response = self._client.httpx_client.patch(
             url=href,
             json=payload,
             params=self._client._params(),

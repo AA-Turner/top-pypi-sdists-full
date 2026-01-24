@@ -71,8 +71,14 @@ class Locale(Enum):
     AR_EG = "ar-eg"
     AR_JO = "ar-jo"
     AR_OM = "ar-om"
+    AR_KW = "ar-kw"
+    AR_MA = "ar-ma"
+    AR_QA = "ar-qa"
+    AR_SA = "ar-sa"
     AR_SY = "ar-sy"
+    AR_TN = "ar-tn"
     AR_YE = "ar-ye"
+    AZ = "az"
     CS = "cs"
     DA = "da"
     DE = "de"
@@ -404,7 +410,7 @@ class TimestampFormat(Enum):
     RFC_3339 = auto()
 
 
-class EmojyCategory(Enum):
+class EmojiCategory(Enum):
     DEFAULT = "smileys_and_emotion"
     SMILEYS_AND_EMOTION = "smileys_and_emotion"
     PEOPLE_AND_BODY = "people_and_body"
@@ -415,3 +421,6 @@ class EmojyCategory(Enum):
     OBJECTS = "objects"
     SYMBOLS = "symbols"
     FLAGS = "flags"
+
+
+EmojyCategory = EmojiCategory

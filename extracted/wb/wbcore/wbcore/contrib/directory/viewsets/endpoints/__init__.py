@@ -12,6 +12,8 @@ from .entries import (
     EntryModelEndpointConfig,
     PersonModelEndpointConfig,
     UserIsManagerEndpointConfig,
+    PersonRepresentationEndpointConfig,
+    CompanyRepresentationEndpointConfig
 )
 from .relationships import (
     ClientManagerEndpoint,

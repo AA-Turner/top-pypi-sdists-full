@@ -1,21 +1,23 @@
 use fancy_regex::Regex as FancyRegex;
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::hash::{Hash, Hasher};
+use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
 
-lazy_static! {
-    // Efficient regex patterns
-    static ref CODE_BLOCK_START_REGEX: Regex = Regex::new(r"^(\s*)(```|~~~)(.*)$").unwrap();
-    static ref CODE_BLOCK_END_REGEX: Regex = Regex::new(r"^(\s*)(```|~~~)\s*$").unwrap();
-    static ref INDENTED_CODE_BLOCK_REGEX: Regex = Regex::new(r"^(\s{4,})(.+)$").unwrap();
+// Efficient regex patterns
+static CODE_BLOCK_START_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*)(```|~~~)(.*)$").unwrap());
+static INDENTED_CODE_BLOCK_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s{4,})(.+)$").unwrap());
 
-    // List detection patterns
-    static ref UNORDERED_LIST_REGEX: FancyRegex = FancyRegex::new(r"^(?P<indent>[ \t]*)(?P<marker>[*+-])(?P<after>[ \t]*)(?P<content>.*)$").unwrap();
-    static ref ORDERED_LIST_REGEX: FancyRegex = FancyRegex::new(r"^(?P<indent>[ \t]*)(?P<marker>\d+\.)(?P<after>[ \t]*)(?P<content>.*)$").unwrap();
+// List detection patterns
+static UNORDERED_LIST_REGEX: LazyLock<FancyRegex> = LazyLock::new(|| {
+    FancyRegex::new(r"^(?P<indent>[ \t]*)(?P<marker>[*+-])(?P<after>[ \t]*)(?P<content>.*)$").unwrap()
+});
+static ORDERED_LIST_REGEX: LazyLock<FancyRegex> = LazyLock::new(|| {
+    FancyRegex::new(r"^(?P<indent>[ \t]*)(?P<marker>\d+\.)(?P<after>[ \t]*)(?P<content>.*)$").unwrap()
+});
 
-    // Inline code span pattern
-    static ref CODE_SPAN_REGEX: Regex = Regex::new(r"`+").unwrap();
-}
+// Inline code span pattern
+static CODE_SPAN_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`+").unwrap());
 
 /// Represents a range in the document with start and end positions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,9 +72,8 @@ pub struct ListItem {
 /// This allows sharing computed data across multiple rule checks
 #[derive(Debug, Default, Clone)]
 pub struct ElementCache {
-    // Document content and metadata
-    content: Option<String>,
-    line_count: usize,
+    // Document content hash for cache validation (avoids storing full content)
+    content_hash: u64,
 
     // Code blocks
     code_blocks: Vec<CodeBlock>,
@@ -87,33 +88,50 @@ pub struct ElementCache {
 }
 
 impl ElementCache {
+    /// Compute a hash of the content for cache validation
+    fn compute_content_hash(content: &str) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        content.hash(&mut hasher);
+        hasher.finish()
+    }
+
     /// Create a new cache from document content
     pub fn new(content: &str) -> Self {
+        let content_hash = Self::compute_content_hash(content);
+        let line_count = content.lines().count();
+
         let mut cache = ElementCache {
-            content: Some(content.to_string()),
-            line_count: content.lines().count(),
+            content_hash,
             code_blocks: Vec::new(),
-            code_block_line_map: Vec::new(),
+            code_block_line_map: vec![false; line_count],
             code_spans: Vec::new(),
             list_items: Vec::new(),
-            list_line_map: Vec::new(),
+            list_line_map: vec![false; line_count],
         };
 
-        // Initialize maps
-        cache.code_block_line_map = vec![false; cache.line_count];
-        cache.list_line_map = vec![false; cache.line_count];
-
-        // Populate the cache
-        cache.populate_code_blocks();
-        cache.populate_code_spans();
-        cache.populate_list_items();
+        // Populate the cache - pass content directly to avoid storing it
+        cache.populate_code_blocks(content);
+        cache.populate_code_spans(content);
+        cache.populate_list_items(content);
 
         cache
     }
 
-    /// Calculate the visual indentation width of a string, expanding tabs to spaces
-    /// Default tab width is 4 spaces
-    fn calculate_indentation_width(indent_str: &str, tab_width: usize) -> usize {
+    /// Check if this cache is valid for the given content
+    pub fn is_valid_for(&self, content: &str) -> bool {
+        Self::compute_content_hash(content) == self.content_hash
+    }
+
+    /// Calculate the visual indentation width of a string, expanding tabs to spaces.
+    ///
+    /// Per CommonMark, tabs expand to the next tab stop (columns 4, 8, 12, ...).
+    /// This means:
+    /// - " \t" (1 space + tab) → 4 columns
+    /// - "  \t" (2 spaces + tab) → 4 columns
+    /// - "   \t" (3 spaces + tab) → 4 columns
+    /// - "\t" (just tab) → 4 columns
+    /// - "    " (4 spaces) → 4 columns
+    pub fn calculate_indentation_width(indent_str: &str, tab_width: usize) -> usize {
         let mut width = 0;
         for ch in indent_str.chars() {
             if ch == '\t' {
@@ -130,7 +148,7 @@ impl ElementCache {
     }
 
     /// Calculate the visual indentation width using default tab width of 4
-    fn calculate_indentation_width_default(indent_str: &str) -> usize {
+    pub fn calculate_indentation_width_default(indent_str: &str) -> usize {
         Self::calculate_indentation_width(indent_str, 4)
     }
 
@@ -178,148 +196,142 @@ impl ElementCache {
     }
 
     /// Detect and populate code blocks
-    fn populate_code_blocks(&mut self) {
-        if let Some(content) = &self.content {
-            let lines: Vec<&str> = content.lines().collect();
-            let mut in_fenced_block = false;
-            let mut fence_marker = String::new();
-            let mut block_start_line = 0;
-            let mut block_language = String::new();
+    fn populate_code_blocks(&mut self, content: &str) {
+        let lines: Vec<&str> = content.lines().collect();
+        let mut in_fenced_block = false;
+        let mut fence_marker = String::new();
+        let mut block_start_line = 0;
+        let mut block_language = String::new();
 
-            for (i, line) in lines.iter().enumerate() {
-                if in_fenced_block {
-                    // Already in a fenced code block, look for the end
+        for (i, line) in lines.iter().enumerate() {
+            if in_fenced_block {
+                // Already in a fenced code block, look for the end
+                self.code_block_line_map[i] = true;
+
+                if line.trim().starts_with(&fence_marker) {
+                    // End of code block
+                    let start_pos =
+                        lines[0..block_start_line].join("\n").len() + if block_start_line > 0 { 1 } else { 0 };
+                    let end_pos = lines[0..=i].join("\n").len();
+
+                    self.code_blocks.push(CodeBlock {
+                        range: Range {
+                            start: start_pos,
+                            end: end_pos,
+                        },
+                        block_type: CodeBlockType::Fenced,
+                        start_line: block_start_line + 1, // 1-indexed
+                        end_line: i + 1,                  // 1-indexed
+                        language: if !block_language.is_empty() {
+                            Some(block_language.clone())
+                        } else {
+                            None
+                        },
+                    });
+
+                    in_fenced_block = false;
+                    fence_marker.clear();
+                    block_language.clear();
+                }
+            } else if let Some(caps) = CODE_BLOCK_START_REGEX.captures(line) {
+                // Start of a new code block
+                fence_marker = caps.get(2).map_or("```", |m| m.as_str()).to_string();
+                in_fenced_block = true;
+                block_start_line = i;
+                block_language = caps.get(3).map_or("", |m| m.as_str().trim()).to_string();
+                self.code_block_line_map[i] = true;
+            } else if INDENTED_CODE_BLOCK_REGEX.is_match(line) {
+                // Only mark as indented code block if not a list item
+                let is_unordered_list = UNORDERED_LIST_REGEX.is_match(line).unwrap_or(false);
+                let is_ordered_list = ORDERED_LIST_REGEX.is_match(line).unwrap_or(false);
+                if !is_unordered_list && !is_ordered_list {
+                    // Indented code block
                     self.code_block_line_map[i] = true;
-
-                    if line.trim().starts_with(&fence_marker) {
-                        // End of code block
-                        let start_pos =
-                            lines[0..block_start_line].join("\n").len() + if block_start_line > 0 { 1 } else { 0 };
-                        let end_pos = lines[0..=i].join("\n").len();
-
-                        self.code_blocks.push(CodeBlock {
-                            range: Range {
-                                start: start_pos,
-                                end: end_pos,
-                            },
-                            block_type: CodeBlockType::Fenced,
-                            start_line: block_start_line + 1, // 1-indexed
-                            end_line: i + 1,                  // 1-indexed
-                            language: if !block_language.is_empty() {
-                                Some(block_language.clone())
-                            } else {
-                                None
-                            },
-                        });
-
-                        in_fenced_block = false;
-                        fence_marker.clear();
-                        block_language.clear();
-                    }
-                } else if let Some(caps) = CODE_BLOCK_START_REGEX.captures(line) {
-                    // Start of a new code block
-                    fence_marker = caps.get(2).map_or("```", |m| m.as_str()).to_string();
-                    in_fenced_block = true;
-                    block_start_line = i;
-                    block_language = caps.get(3).map_or("", |m| m.as_str().trim()).to_string();
-                    self.code_block_line_map[i] = true;
-                } else if INDENTED_CODE_BLOCK_REGEX.is_match(line) {
-                    // Only mark as indented code block if not a list item
-                    let is_unordered_list = UNORDERED_LIST_REGEX.is_match(line).unwrap_or(false);
-                    let is_ordered_list = ORDERED_LIST_REGEX.is_match(line).unwrap_or(false);
-                    if !is_unordered_list && !is_ordered_list {
-                        // Indented code block
-                        self.code_block_line_map[i] = true;
-                        // For indented code blocks, we handle them as individual lines
-                        // We don't track them as blocks with start/end because they can be
-                        // interrupted by blank lines, etc.
-                        let start_pos = lines[0..i].join("\n").len() + if i > 0 { 1 } else { 0 };
-                        let end_pos = start_pos + line.len();
-                        self.code_blocks.push(CodeBlock {
-                            range: Range {
-                                start: start_pos,
-                                end: end_pos,
-                            },
-                            block_type: CodeBlockType::Indented,
-                            start_line: i + 1, // 1-indexed
-                            end_line: i + 1,   // 1-indexed
-                            language: None,
-                        });
-                    }
+                    // For indented code blocks, we handle them as individual lines
+                    // We don't track them as blocks with start/end because they can be
+                    // interrupted by blank lines, etc.
+                    let start_pos = lines[0..i].join("\n").len() + if i > 0 { 1 } else { 0 };
+                    let end_pos = start_pos + line.len();
+                    self.code_blocks.push(CodeBlock {
+                        range: Range {
+                            start: start_pos,
+                            end: end_pos,
+                        },
+                        block_type: CodeBlockType::Indented,
+                        start_line: i + 1, // 1-indexed
+                        end_line: i + 1,   // 1-indexed
+                        language: None,
+                    });
                 }
             }
+        }
 
-            // Handle unclosed code block
-            if in_fenced_block {
-                let start_pos = lines[0..block_start_line].join("\n").len() + if block_start_line > 0 { 1 } else { 0 };
-                let end_pos = content.len();
+        // Handle unclosed code block
+        if in_fenced_block {
+            let start_pos = lines[0..block_start_line].join("\n").len() + if block_start_line > 0 { 1 } else { 0 };
+            let end_pos = content.len();
 
-                self.code_blocks.push(CodeBlock {
-                    range: Range {
-                        start: start_pos,
-                        end: end_pos,
-                    },
-                    block_type: CodeBlockType::Fenced,
-                    start_line: block_start_line + 1, // 1-indexed
-                    end_line: lines.len(),            // 1-indexed
-                    language: if !block_language.is_empty() {
-                        Some(block_language)
-                    } else {
-                        None
-                    },
-                });
-            }
+            self.code_blocks.push(CodeBlock {
+                range: Range {
+                    start: start_pos,
+                    end: end_pos,
+                },
+                block_type: CodeBlockType::Fenced,
+                start_line: block_start_line + 1, // 1-indexed
+                end_line: lines.len(),            // 1-indexed
+                language: if !block_language.is_empty() {
+                    Some(block_language)
+                } else {
+                    None
+                },
+            });
         }
     }
 
     /// Detect and populate code spans
-    fn populate_code_spans(&mut self) {
-        if let Some(content) = &self.content {
-            // Find inline code spans using regex for backticks
-            let mut i = 0;
-            while i < content.len() {
-                if let Some(m) = CODE_SPAN_REGEX.find_at(content, i) {
-                    let backtick_length = m.end() - m.start();
-                    let start = m.start();
+    fn populate_code_spans(&mut self, content: &str) {
+        // Find inline code spans using regex for backticks
+        let mut i = 0;
+        while i < content.len() {
+            if let Some(m) = CODE_SPAN_REGEX.find_at(content, i) {
+                let backtick_length = m.end() - m.start();
+                let start = m.start();
 
-                    // Find matching closing backticks
-                    if let Some(end_pos) = content[m.end()..].find(&"`".repeat(backtick_length)) {
-                        let end = m.end() + end_pos + backtick_length;
-                        self.code_spans.push(Range { start, end });
-                        i = end;
-                    } else {
-                        i = m.end();
-                    }
+                // Find matching closing backticks
+                if let Some(end_pos) = content[m.end()..].find(&"`".repeat(backtick_length)) {
+                    let end = m.end() + end_pos + backtick_length;
+                    self.code_spans.push(Range { start, end });
+                    i = end;
                 } else {
-                    break;
+                    i = m.end();
                 }
+            } else {
+                break;
             }
         }
     }
 
     /// Detect and populate list items
-    fn populate_list_items(&mut self) {
-        if let Some(content) = &self.content {
-            let lines: Vec<&str> = content.lines().collect();
-            let mut prev_items: Vec<(usize, usize, usize)> = Vec::new(); // (blockquote_depth, nesting_level, line_number)
-            for (i, line) in lines.iter().enumerate() {
-                // Skip blank lines but don't reset nesting context
-                if line.trim().is_empty() {
-                    continue;
-                }
-                // Parse and strip blockquote prefix
-                let (blockquote_depth, blockquote_prefix, rest) = Self::parse_blockquote_prefix(line);
-                // Always call parse_list_item and always push if Some
-                if let Some(item) = self.parse_list_item(
-                    rest,
-                    i + 1,
-                    &mut prev_items,
-                    blockquote_depth,
-                    blockquote_prefix.clone(),
-                ) {
-                    self.list_items.push(item);
-                    self.list_line_map[i] = true;
-                }
+    fn populate_list_items(&mut self, content: &str) {
+        let lines: Vec<&str> = content.lines().collect();
+        let mut prev_items: Vec<(usize, usize, usize)> = Vec::new(); // (blockquote_depth, nesting_level, line_number)
+        for (i, line) in lines.iter().enumerate() {
+            // Skip blank lines but don't reset nesting context
+            if line.trim().is_empty() {
+                continue;
+            }
+            // Parse and strip blockquote prefix
+            let (blockquote_depth, blockquote_prefix, rest) = Self::parse_blockquote_prefix(line);
+            // Always call parse_list_item and always push if Some
+            if let Some(item) = self.parse_list_item(
+                rest,
+                i + 1,
+                &mut prev_items,
+                blockquote_depth,
+                blockquote_prefix.clone(),
+            ) {
+                self.list_items.push(item);
+                self.list_line_map[i] = true;
             }
         }
     }
@@ -449,7 +461,12 @@ impl ElementCache {
                     "*" => ListMarkerType::Asterisk,
                     "+" => ListMarkerType::Plus,
                     "-" => ListMarkerType::Minus,
-                    _ => unreachable!(),
+                    other => {
+                        // This should never happen due to regex validation,
+                        // but default to dash if it does
+                        eprintln!("Warning: Unexpected list marker '{other}', defaulting to dash");
+                        ListMarkerType::Minus
+                    }
                 };
                 let nesting_level = self.calculate_nesting_level(indentation, blockquote_depth, prev_items);
                 // Find parent: most recent previous item with lower nesting_level and same blockquote depth
@@ -517,31 +534,28 @@ impl ElementCache {
 }
 
 // Global cache for sharing across threads
-lazy_static! {
-    static ref ELEMENT_CACHE: Arc<Mutex<Option<ElementCache>>> = Arc::new(Mutex::new(None));
-}
+static ELEMENT_CACHE: LazyLock<Arc<Mutex<Option<ElementCache>>>> = LazyLock::new(|| Arc::new(Mutex::new(None)));
 
 /// Get or create element cache for document content
+///
+/// If the mutex is poisoned, creates a fresh cache without storing it globally.
+/// This ensures the library never panics due to mutex poisoning.
 pub fn get_element_cache(content: &str) -> ElementCache {
     // Try to get existing cache
-    {
-        let cache_guard = ELEMENT_CACHE.lock().unwrap();
-
-        // If cache exists and content matches, return it
+    if let Ok(cache_guard) = ELEMENT_CACHE.lock() {
+        // If cache exists and content matches (by hash), return it
         if let Some(existing_cache) = &*cache_guard
-            && let Some(cached_content) = &existing_cache.content
-            && cached_content == content
+            && existing_cache.is_valid_for(content)
         {
-            return existing_cache.clone(); // Keep existing cache
+            return existing_cache.clone();
         }
     }
 
-    // Content doesn't match, create new cache
+    // Content doesn't match or mutex poisoned, create new cache
     let new_cache = ElementCache::new(content);
 
-    // Store in global cache
-    {
-        let mut cache_guard = ELEMENT_CACHE.lock().unwrap();
+    // Store in global cache (ignore if mutex is poisoned)
+    if let Ok(mut cache_guard) = ELEMENT_CACHE.lock() {
         *cache_guard = Some(new_cache.clone());
     }
 
@@ -549,9 +563,12 @@ pub fn get_element_cache(content: &str) -> ElementCache {
 }
 
 /// Reset the element cache
+///
+/// If the mutex is poisoned, this is a no-op.
 pub fn reset_element_cache() {
-    let mut cache_guard = ELEMENT_CACHE.lock().unwrap();
-    *cache_guard = None;
+    if let Ok(mut cache_guard) = ELEMENT_CACHE.lock() {
+        *cache_guard = None;
+    }
 }
 
 #[cfg(test)]
@@ -693,9 +710,14 @@ mod tests {
         // Third call with different content should create new cache
         let cache3 = get_element_cache(content2);
 
-        assert_eq!(cache1.content.as_ref().unwrap(), content1);
-        assert_eq!(cache2.content.as_ref().unwrap(), content1);
-        assert_eq!(cache3.content.as_ref().unwrap(), content2);
+        // Verify caches are valid for their respective content
+        assert!(cache1.is_valid_for(content1));
+        assert!(cache2.is_valid_for(content1));
+        assert!(cache3.is_valid_for(content2));
+
+        // Verify caches are NOT valid for different content
+        assert!(!cache1.is_valid_for(content2));
+        assert!(!cache3.is_valid_for(content1));
     }
 
     #[test]

@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, unquote
 
 import jsonschema
 import pytest
+from flask import Flask, jsonify, request
 from hypothesis import Phase, settings
 from jsonschema import ValidationError
 from requests import Request
@@ -14,10 +15,17 @@ from requests.models import RequestEncodingMixin
 import schemathesis
 from schemathesis.config._projects import ProjectConfig
 from schemathesis.core import NOT_SET
+from schemathesis.core.errors import MalformedMediaType
+from schemathesis.core.parameters import LOCATION_TO_CONTAINER
+from schemathesis.core.result import Ok
 from schemathesis.generation import GenerationMode
-from schemathesis.generation.hypothesis.builder import HypothesisTestConfig, HypothesisTestMode, create_test
-from schemathesis.generation.meta import TestPhase
-from schemathesis.specs.openapi.constants import LOCATION_TO_CONTAINER
+from schemathesis.generation.hypothesis.builder import (
+    HypothesisTestConfig,
+    HypothesisTestMode,
+    _iter_coverage_cases,
+    create_test,
+)
+from schemathesis.generation.meta import CoverageScenario, TestPhase
 from test.utils import assert_requests_call
 
 
@@ -193,6 +201,9 @@ def run_test(operation, test, modes=ALL_MODES, generate_duplicate_query_paramete
         config.phases.coverage.generate_duplicate_query_parameters = generate_duplicate_query_parameters
     if unexpected_methods is not None:
         config.phases.coverage.unexpected_methods = unexpected_methods
+    config.phases.examples.enabled = False
+    config.phases.fuzzing.enabled = False
+    config.phases.stateful.enabled = False
     test_func = create_test(
         operation=operation,
         test_func=test,
@@ -212,6 +223,54 @@ def run_positive_test(operation, test, **kwargs):
 
 def run_negative_test(operation, test, **kwargs):
     return run_test(operation, test, [GenerationMode.NEGATIVE], **kwargs)
+
+
+def collect_coverage_cases(ctx, body_schema, positive=False):
+    """Build schema, run test, and return coverage phase cases.
+
+    Always validates that:
+    - Positive cases produce bodies that pass JSON schema validation
+    - Negative cases produce bodies that fail JSON schema validation
+    """
+    schema = build_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {"application/json": {"schema": body_schema}},
+        },
+    )
+    loaded = schemathesis.openapi.from_dict(schema)
+    operation = loaded["/foo"]["post"]
+
+    validator = jsonschema.Draft202012Validator(body_schema)
+    cases = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            is_valid = validator.is_valid(case.body)
+            if positive and not is_valid:
+                errors = list(validator.iter_errors(case.body))
+                pytest.fail(
+                    f"Positive case produced invalid body.\n"
+                    f"Body: {case.body}\n"
+                    f"Schema: {body_schema}\n"
+                    f"Errors: {[e.message for e in errors]}"
+                )
+            if not positive and is_valid:
+                pytest.fail(
+                    f"Negative case produced valid body (should be invalid).\n"
+                    f"Body: {case.body}\n"
+                    f"Schema: {body_schema}\n"
+                    f"Scenario: {case.meta.phase.data.scenario}"
+                )
+            cases.append(case)
+
+    if positive:
+        run_positive_test(operation, collect)
+    else:
+        run_negative_test(operation, collect)
+
+    return cases
 
 
 @pytest.mark.parametrize(
@@ -362,20 +421,6 @@ def test_with_optional_parameters(ctx):
     assert_positive_coverage(
         schema,
         [
-            {
-                "query": {
-                    "q1": "A1",
-                    "q3": "15",
-                    "q4": "20",
-                },
-            },
-            {
-                "query": {
-                    "q1": "A1",
-                    "q2": "10",
-                    "q4": "20",
-                },
-            },
             {
                 "query": {
                     "q1": "A1",
@@ -999,6 +1044,73 @@ def test_underspecified_path_parameters(ctx, cli, snapshot_cli, openapi3_base_ur
     )
 
 
+def test_path_parameters_arent_missing(ctx, cli, snapshot_cli, openapi3_base_url):
+    # When `--mode=negative`, still generate path parameters if they can't be negated
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/organizations/{organization_id}/": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "organization_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
+                        {
+                            "name": "q",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "integer", "minimum": 10},
+                        },
+                    ],
+                    "responses": {"200": {"description": "Successful Response"}},
+                }
+            }
+        }
+    )
+    assert (
+        cli.run(
+            str(schema_path),
+            f"--url={openapi3_base_url}",
+            "--checks=not_a_server_error",
+            "--phases=coverage",
+            "--mode=negative",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.filterwarnings("error")
+def test_path_parameters_without_schema(ctx, cli, snapshot_cli, openapi2_base_url):
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/{param}": {
+                "put": {
+                    "parameters": [
+                        {
+                            "in": "path",
+                            "name": "param",
+                            "x-custom": 0,
+                        }
+                    ],
+                }
+            }
+        },
+        version="2.0",
+    )
+    assert (
+        cli.run(
+            str(schema_path),
+            f"--url={openapi2_base_url}",
+            "--checks=not_a_server_error",
+            "--phases=coverage",
+            "--mode=negative",
+        )
+        == snapshot_cli
+    )
+
+
 def test_path_parameter_dots(ctx):
     schema = build_schema(
         ctx,
@@ -1040,6 +1152,10 @@ def test_path_parameter_dots(ctx):
                 {"path_parameters": {"name": "%2E"}},
                 {"path_parameters": {"name": "null%2Cnull"}},
                 {"path_parameters": {"name": ANY}},
+            ],
+            [
+                {"path_parameters": {"name": "null%2Cnull"}},
+                {"path_parameters": {"name": "null"}},
             ],
         ),
     )
@@ -1482,7 +1598,8 @@ def test_generate_empty_headers_too(ctx):
             {
                 "type": "array",
                 "items": {
-                    "pattern": "[\\p{L}]+",
+                    # Use an untranslatable PCRE pattern to test unsupported regex handling
+                    "pattern": "[\\p{Greek}]+",
                 },
                 "maxItems": 50,
             },
@@ -1734,6 +1851,27 @@ def test_path_parameters_without_constraints_negative(ctx):
     )
 
 
+def test_path_parameters_with_unsupported_regex_pattern(ctx):
+    # Use an untranslatable PCRE pattern to test unsupported regex handling
+    schema = build_schema(
+        ctx,
+        [
+            {
+                "name": "foo_id",
+                "in": "path",
+                "required": True,
+                "schema": {"pattern": "'^[-._\\p{Greek}]+$'"},
+            },
+        ],
+        path="/foo/{foo_id}",
+    )
+    assert_negative_coverage(
+        schema,
+        [],
+        ("/foo/{foo_id}", "post"),
+    )
+
+
 def test_query_without_constraints_negative(ctx):
     # When there are no constraints, then we can't generate negative values as everything will match the previous schema, only missing parameter
     schema = build_schema(
@@ -1832,7 +1970,7 @@ def test_negative_query_parameter(ctx, schema, expected, required):
     def test(case):
         if case.meta.phase.name != TestPhase.COVERAGE:
             return
-        if case.meta.phase.data.description.startswith("Unspecified"):
+        if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD:
             return
         kwargs = case.as_transport_kwargs(base_url="http://127.0.0.1")
         request = Request(**kwargs).prepare()
@@ -1877,6 +2015,122 @@ def test_negative_data_rejection(ctx, cli, openapi3_base_url, snapshot_cli):
     )
 
 
+@pytest.mark.parametrize(
+    ["required", "properties"],
+    (
+        (["key"], None),
+        (["key"], {"another": {"type": "string"}}),
+        (["key", "description"], {"key": {"type": "string"}}),
+    ),
+)
+def test_request_body_is_required(ctx, required, properties):
+    inner = {
+        "additionalProperties": False,
+        "required": required,
+        "type": "object",
+    }
+    if properties is not None:
+        inner["properties"] = properties
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/items": {
+                "post": {
+                    "parameters": [
+                        {"in": "query", "name": "strict", "schema": {}},
+                    ],
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {"data": inner},
+                                    "type": "object",
+                                }
+                            }
+                        },
+                        "required": True,
+                    },
+                }
+            }
+        }
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+
+    operation = schema["/items"]["post"]
+
+    def test(case):
+        # Body is `required`, hence should never be unset for positive tests
+        assert case.body is not NOT_SET, case.meta.phase.data.description
+
+    run_positive_test(operation, test)
+
+
+@pytest.mark.parametrize("required", [["name"], ["name", "description"]])
+def test_request_body_with_references(ctx, required):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {"data": {"$ref": "#/components/schemas/Item"}},
+                                    "required": ["data"],
+                                    "type": "object",
+                                }
+                            }
+                        },
+                        "required": True,
+                    }
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Name": {"type": "string"},
+                "Item": {
+                    "additionalProperties": False,
+                    "properties": {"name": {"$ref": "#/components/schemas/Name"}},
+                    "required": required,
+                    "type": "object",
+                },
+            }
+        },
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+
+    operation = schema["/items"]["post"]
+
+    def test(case):
+        # Body is `required`, hence should never be unset for positive tests
+        assert case.body is not NOT_SET, case.meta.phase.data.description
+
+    run_positive_test(operation, test)
+
+
+def test_request_body_without_validation_keywords(ctx):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "content": {"application/json": {"schema": {"x-something": True}}},
+                        "required": True,
+                    }
+                }
+            }
+        },
+    )
+    schema = schemathesis.openapi.from_dict(raw_schema)
+
+    operation = schema["/items"]["post"]
+
+    def test(case):
+        assert case.body is not NOT_SET, case.meta.phase.data.description
+
+    run_positive_test(operation, test)
+
+
 @pytest.mark.openapi_version("3.0")
 def test_unspecified_http_methods(ctx, cli, openapi3_base_url, snapshot_cli):
     raw_schema = {
@@ -1900,7 +2154,7 @@ def test_unspecified_http_methods(ctx, cli, openapi3_base_url, snapshot_cli):
     def test(case):
         if case.meta.phase.name != TestPhase.COVERAGE:
             return
-        if not case.meta.phase.data.description.startswith("Unspecified"):
+        if case.meta.phase.data.scenario != CoverageScenario.UNSPECIFIED_HTTP_METHOD:
             return
         methods.add(case.method)
         assert f"-X {case.method}" in case.as_curl_command()
@@ -1941,6 +2195,74 @@ def failed(ctx, response, case):
             )
             == snapshot_cli
         )
+
+
+@pytest.mark.openapi_version("3.0")
+def test_avoid_testing_unexpected_methods(ctx):
+    raw_schema = {
+        "/foo": {
+            "post": {
+                "parameters": [{"in": "query", "name": "key", "schema": {"type": "integer"}}],
+                "responses": {"200": {"description": "OK"}},
+            },
+            "get": {
+                "responses": {"200": {"description": "OK"}},
+            },
+        }
+    }
+    schema = ctx.openapi.build_schema(raw_schema)
+
+    schema = schemathesis.openapi.from_dict(schema)
+
+    methods = set()
+    operation = schema["/foo"]["post"]
+
+    def test(case):
+        if case.meta.phase.name != TestPhase.COVERAGE:
+            return
+        if case.meta.phase.data.scenario != CoverageScenario.UNSPECIFIED_HTTP_METHOD:
+            return
+        methods.add(case.method)
+        assert f"-X {case.method}" in case.as_curl_command()
+
+    run_negative_test(operation, test, unexpected_methods=set())
+
+    assert not methods
+
+
+@pytest.mark.openapi_version("3.0")
+def test_avoid_testing_unexpected_methods_in_cli(ctx, cli, snapshot_cli, openapi3_base_url):
+    raw_schema = {
+        "/foo": {
+            "post": {
+                "parameters": [{"in": "query", "name": "key", "schema": {"type": "integer"}}],
+                "responses": {"200": {"description": "OK"}},
+            },
+            "get": {
+                "responses": {"200": {"description": "OK"}},
+            },
+        }
+    }
+    schema_path = ctx.openapi.write_schema(raw_schema)
+
+    assert (
+        cli.main(
+            "run",
+            str(schema_path),
+            "--checks=unsupported_method",
+            f"--url={openapi3_base_url}",
+            "--phases=coverage",
+            "--mode=negative",
+            config={
+                "phases": {
+                    "coverage": {
+                        "unexpected-methods": [],
+                    }
+                },
+            },
+        )
+        == snapshot_cli
+    )
 
 
 def test_missing_authorization(ctx, cli, snapshot_cli, openapi3_base_url):
@@ -2025,13 +2347,95 @@ def test_nested_parameters(ctx):
     def test(case):
         if case.meta.phase.name != TestPhase.COVERAGE:
             return
-        if not case.meta.phase.data.description.startswith("Unspecified"):
+        if case.meta.phase.data.scenario != CoverageScenario.UNSPECIFIED_HTTP_METHOD:
             return
         ranges.add(case.query["range"])
 
     run_negative_test(operation, test)
 
     assert ranges == {"0"}
+
+
+def _request_body(inner):
+    return {
+        "requestBody": {
+            "content": {
+                "application/json": {
+                    "schema": inner,
+                }
+            }
+        }
+    }
+
+
+@pytest.mark.parametrize(
+    ["operation", "components"],
+    [
+        (
+            _request_body(
+                {
+                    "properties": {
+                        "p1": {
+                            "$ref": "#components/schemas/Key",
+                        }
+                    }
+                }
+            ),
+            {
+                "schemas": {
+                    "Key": {
+                        "allOf": [
+                            {"$ref": ""},
+                        ]
+                    }
+                }
+            },
+        ),
+        (
+            _request_body({"$ref": "#components/schemas/Key"}),
+            {
+                "schemas": {
+                    "Key": {
+                        "default": 0,
+                        "items": {
+                            "$ref": "",
+                        },
+                    }
+                }
+            },
+        ),
+        (
+            {"parameters": [{"$ref": "#components/parameters/q"}]},
+            {
+                "parameters": {
+                    "q": {
+                        "in": "header",
+                        "name": "q",
+                        "content": {
+                            "text/plain": {"schema": {"$ref": "#unknown"}},
+                        },
+                    }
+                }
+            },
+        ),
+    ],
+    ids=["body-combinator", "body-items", "parameter-unresolvable"],
+)
+def test_references(ctx, operation, components):
+    raw_schema = ctx.openapi.build_schema({"/test": {"post": operation}}, components=components)
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    for operation in schema.get_all_operations():
+        if isinstance(operation, Ok):
+            for _ in _iter_coverage_cases(
+                operation=operation.ok(),
+                generation_modes=list(GenerationMode),
+                generate_duplicate_query_parameters=False,
+                unexpected_methods=set(),
+                generation_config=schema.config.generation,
+            ):
+                pass
+        else:
+            assert str(operation.err()) == "Schema `` has a required reference to itself"
 
 
 def test_urlencoded_payloads_are_valid(ctx):
@@ -2063,6 +2467,31 @@ def test_urlencoded_payloads_are_valid(ctx):
         assert_requests_call(case)
 
     run_test(operation, test)
+
+
+def test_malformed_content_type(ctx):
+    schema = build_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "invalid": {
+                    "schema": {"type": "object"},
+                }
+            },
+        },
+    )
+    schema = schemathesis.openapi.from_dict(schema)
+
+    operation = schema["/foo"]["post"]
+
+    def test(case):
+        if case.meta.phase != TestPhase.COVERAGE:
+            return
+        assert_requests_call(case)
+
+    with pytest.raises(MalformedMediaType):
+        run_test(operation, test)
 
 
 def test_no_missing_header_duplication(ctx):
@@ -2101,7 +2530,7 @@ def assert_coverage(schema, modes, expected, path=None):
         meta = case.meta
         if meta.phase.name != TestPhase.COVERAGE:
             return
-        if meta.phase.data.description.startswith("Unspecified"):
+        if meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD:
             return
         assert_requests_call(case)
         mode = meta.generation.mode
@@ -2125,12 +2554,13 @@ def assert_coverage(schema, modes, expected, path=None):
                 "cookie",
             ]
             and not (
-                meta.phase.data.description == "Object with unexpected properties" and meta.phase.data.parameter is None
+                meta.phase.data.scenario == CoverageScenario.OBJECT_UNEXPECTED_PROPERTIES
+                and meta.phase.data.parameter is None
             )
         ):
             _validate_negative_parameter_serialization(case)
 
-        if meta.phase.data.description == "Maximum length string":
+        if meta.phase.data.scenario == CoverageScenario.MAXIMUM_LENGTH_STRING:
             value, parameter = get_value_and_parameter(case)
             assert len(value) == parameter.definition["schema"]["maxLength"]
 
@@ -2174,10 +2604,10 @@ def _validate_negative_parameter_serialization(case):
 
     # Get the serialized values that will actually be sent to the API
     data = case.meta.phase.data
-    if data.description.startswith("Missing") and parameter.definition.get("required"):
+    if data.scenario == CoverageScenario.MISSING_PARAMETER and parameter.definition.get("required"):
         # Missing required parameter - proper negative test case
         return
-    if data.description.startswith("Duplicate"):
+    if data.scenario == CoverageScenario.DUPLICATE_PARAMETER:
         # Duplicate parameter is negative not in the schema sense
         return
     serialized_items = _get_serialized_parameter_values(value, data.parameter, data.parameter_location)
@@ -2221,8 +2651,8 @@ def _validate_serialized_items_are_negative(serialized_items, parameter, case):
         return
 
     # Get the JSON schema for validation
-    schema = parameter.as_json_schema(case.operation)
-    validator = case.operation.schema.validator_cls(
+    schema = parameter.optimized_schema
+    validator = case.operation.schema.adapter.jsonschema_validator_cls(
         schema,
         format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER,
     )
@@ -2243,3 +2673,334 @@ def _validate_serialized_items_are_negative(serialized_items, parameter, case):
         except ValidationError:
             # Validation failed - this is expected for negative cases
             pass
+
+
+def test_binary_format_should_not_generate_empty_string_as_invalid(ctx, app_runner, cli, snapshot_cli):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/files/{filename}": {
+                "put": {
+                    "parameters": [{"in": "path", "name": "filename", "required": True, "schema": {"type": "string"}}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary",
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {"description": "Created"},
+                        "400": {"description": "Bad Request"},
+                    },
+                }
+            }
+        }
+    )
+
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def schema():
+        return jsonify(raw_schema)
+
+    @app.route("/files/<path:filename>", methods=["PUT"])
+    def upload_file(filename):
+        data = request.get_data()
+        return jsonify({"message": "File added successfully", "size": len(data)}), 201
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "-c",
+            "negative_data_rejection",
+            "--mode=negative",
+            "--max-examples=50",
+            "--phases=coverage",
+        )
+        == snapshot_cli
+    )
+
+
+def test_negative_type_violation_for_const_property(ctx):
+    schema = ctx.openapi.build_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "actions": {
+                                            "type": "array",
+                                            "items": {
+                                                "anyOf": [
+                                                    {"$ref": "#/components/schemas/DoNothing"},
+                                                    {"$ref": "#/components/schemas/CallWebhook"},
+                                                ]
+                                            },
+                                        }
+                                    },
+                                    "required": ["actions"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "DoNothing": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"const": "do-nothing", "type": "string"},
+                    },
+                },
+                "CallWebhook": {
+                    "type": "object",
+                    "properties": {
+                        "block_document_id": {"format": "uuid", "type": "string"},
+                        "type": {"const": "call-webhook", "type": "string"},
+                    },
+                    "required": ["block_document_id"],
+                },
+            }
+        },
+    )
+    loaded = schemathesis.openapi.from_dict(schema)
+    operation = loaded["/test"]["POST"]
+
+    cases = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            cases.append(case)
+
+    run_negative_test(operation, collect)
+
+    # Should generate type violations (non-string) for the `type` property
+    type_violations = [
+        c
+        for c in cases
+        if isinstance(c.body, dict)
+        and isinstance(c.body.get("actions"), list)
+        and len(c.body["actions"]) == 1
+        and isinstance(c.body["actions"][0], dict)
+        and "type" in c.body["actions"][0]
+        and not isinstance(c.body["actions"][0]["type"], str)
+    ]
+    assert len(type_violations) > 0, (
+        f"Should generate type violations (non-string) for type property. "
+        f"Got bodies: {[c.body for c in cases if isinstance(c.body, dict) and c.body.get('actions')]}"
+    )
+
+
+def test_additional_properties_with_schema_positive(ctx):
+    schema = build_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                    }
+                }
+            },
+        },
+    )
+    loaded = schemathesis.openapi.from_dict(schema)
+    operation = loaded["/foo"]["post"]
+
+    cases = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            cases.append(case)
+
+    run_positive_test(operation, collect)
+
+    # Should generate objects with string values
+    with_string_values = [
+        c for c in cases if isinstance(c.body, dict) and any(isinstance(v, str) for v in c.body.values())
+    ]
+    assert len(with_string_values) > 0, (
+        f"Should generate objects with string values. Got bodies: {[c.body for c in cases]}"
+    )
+
+
+def test_additional_properties_with_schema_negative(ctx):
+    schema = build_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                    }
+                }
+            },
+        },
+    )
+    loaded = schemathesis.openapi.from_dict(schema)
+    operation = loaded["/foo"]["post"]
+
+    cases = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            cases.append(case)
+
+    run_negative_test(operation, collect)
+
+    # Should generate objects with non-string values (type violations)
+    with_invalid_values = [
+        c for c in cases if isinstance(c.body, dict) and any(not isinstance(v, str) for v in c.body.values())
+    ]
+    assert len(with_invalid_values) > 0, (
+        f"Should generate objects with non-string values. Got bodies: {[c.body for c in cases]}"
+    )
+
+
+def test_additional_properties_anyof_positive(ctx):
+    schema = build_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "anyOf": [
+                                {"type": "string"},
+                                {"type": "array", "items": {"type": "string"}},
+                            ]
+                        },
+                    }
+                }
+            },
+        },
+    )
+    loaded = schemathesis.openapi.from_dict(schema)
+    operation = loaded["/foo"]["post"]
+
+    cases = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            cases.append(case)
+
+    run_positive_test(operation, collect)
+
+    # Should generate both string values and array values
+    with_string = [c for c in cases if isinstance(c.body, dict) and any(isinstance(v, str) for v in c.body.values())]
+    with_array = [c for c in cases if isinstance(c.body, dict) and any(isinstance(v, list) for v in c.body.values())]
+    assert len(with_string) > 0, f"Should generate objects with string values. Got bodies: {[c.body for c in cases]}"
+    assert len(with_array) > 0, f"Should generate objects with array values. Got bodies: {[c.body for c in cases]}"
+
+
+def test_max_properties_negative(ctx):
+    cases = collect_coverage_cases(
+        ctx, {"type": "object", "maxProperties": 2, "additionalProperties": {"type": "string"}}
+    )
+    exceeding = [c for c in cases if isinstance(c.body, dict) and len(c.body) > 2]
+    assert len(exceeding) > 0, f"Should generate objects exceeding maxProperties. Got bodies: {[c.body for c in cases]}"
+
+
+def test_min_properties_negative(ctx):
+    cases = collect_coverage_cases(
+        ctx, {"type": "object", "minProperties": 2, "additionalProperties": {"type": "string"}}
+    )
+    below = [c for c in cases if isinstance(c.body, dict) and len(c.body) < 2]
+    assert len(below) > 0, f"Should generate objects below minProperties. Got bodies: {[c.body for c in cases]}"
+
+
+def test_max_properties_with_additional_properties_false(ctx):
+    cases = collect_coverage_cases(
+        ctx,
+        {
+            "type": "object",
+            "maxProperties": 2,
+            "additionalProperties": False,
+            "properties": {"a": {"type": "string"}, "b": {"type": "string"}},
+        },
+    )
+    exceeding = [c for c in cases if c.meta.phase.data.scenario == CoverageScenario.OBJECT_ABOVE_MAX_PROPERTIES]
+    assert len(exceeding) == 0, (
+        f"Should NOT generate OBJECT_ABOVE_MAX_PROPERTIES when additionalProperties: false. Got: {exceeding}"
+    )
+
+
+def test_max_properties_zero(ctx):
+    cases = collect_coverage_cases(
+        ctx, {"type": "object", "maxProperties": 0, "additionalProperties": {"type": "string"}}
+    )
+    exceeding = [c for c in cases if isinstance(c.body, dict) and len(c.body) > 0]
+    assert len(exceeding) > 0, (
+        f"Should generate objects with at least 1 property. Got bodies: {[c.body for c in cases]}"
+    )
+
+
+def test_min_properties_with_required(ctx):
+    cases = collect_coverage_cases(
+        ctx,
+        {
+            "type": "object",
+            "minProperties": 2,
+            "required": ["a", "b"],
+            "properties": {"a": {"type": "string"}, "b": {"type": "string"}},
+        },
+    )
+    below = [c for c in cases if c.meta.phase.data.scenario == CoverageScenario.OBJECT_BELOW_MIN_PROPERTIES]
+    assert len(below) == 0, (
+        f"Should NOT generate OBJECT_BELOW_MIN_PROPERTIES when required >= minProperties. Got: {below}"
+    )
+
+
+def test_max_properties_default_additional_properties(ctx):
+    cases = collect_coverage_cases(ctx, {"type": "object", "maxProperties": 1})
+    exceeding = [c for c in cases if isinstance(c.body, dict) and len(c.body) > 1]
+    assert len(exceeding) > 0, (
+        f"Should generate objects exceeding maxProperties with default additionalProperties. Got bodies: {[c.body for c in cases]}"
+    )
+
+
+def test_min_properties_one(ctx):
+    cases = collect_coverage_cases(ctx, {"type": "object", "minProperties": 1})
+    empty = [c for c in cases if c.meta.phase.data.scenario == CoverageScenario.OBJECT_BELOW_MIN_PROPERTIES]
+    assert len(empty) > 0, (
+        f"Should generate OBJECT_BELOW_MIN_PROPERTIES for minProperties: 1. Got: {[c.body for c in cases]}"
+    )
+    assert any(c.body == {} for c in empty), (
+        f"Should generate empty object for minProperties: 1. Got: {[c.body for c in empty]}"
+    )
+
+
+def test_min_properties_fewer_than_required(ctx):
+    cases = collect_coverage_cases(
+        ctx,
+        {
+            "type": "object",
+            "minProperties": 1,
+            "required": ["a", "b", "c"],
+            "properties": {"a": {"type": "string"}, "b": {"type": "string"}, "c": {"type": "string"}},
+        },
+    )
+    below = [c for c in cases if c.meta.phase.data.scenario == CoverageScenario.OBJECT_BELOW_MIN_PROPERTIES]
+    assert len(below) == 0, (
+        f"Should NOT generate OBJECT_BELOW_MIN_PROPERTIES when required > minProperties. Got: {below}"
+    )

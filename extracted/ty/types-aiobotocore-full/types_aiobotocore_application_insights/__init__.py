@@ -3,7 +3,7 @@ Main interface for application-insights service.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_insights/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

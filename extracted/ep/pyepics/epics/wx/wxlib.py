@@ -1,16 +1,12 @@
 """
 wx utility functions for Epics and wxPython interaction
 """
-import wx
-
-import time
 import sys
 import epics
+
+import wx
 import wx.lib.buttons as buttons
 import wx.lib.agw.floatspin as floatspin
-
-PyDeadObjectError = Exception
-
 from .wxutils import Closure, FloatCtrl, set_float
 
 def EpicsFunction(f):
@@ -24,7 +20,7 @@ def EpicsFunction(f):
         "callafter wrapper"
         try:
             wx.CallAfter(f, *args, **kwargs)
-        except PyDeadObjectError:
+        except Exception:
             pass
     return wrapper
 
@@ -40,7 +36,7 @@ def DelayedEpicsCallback(fcn):
             "default callback"
             try:
                 fcn(*args, **kw)
-            except PyDeadObjectError:
+            except Exception:
                 cb_index, pv =  kw.get('cb_info', (None, None))
                 if hasattr(pv, 'remove_callback'):
                     try:
@@ -448,7 +444,7 @@ class PVCtrlMixin(PVMixin):
                 self._SetValue(self._translations.get(raw_value, raw_value))
             except TypeError:
                 pass
-        except PyDeadObjectError:
+        except Exception:
             pass
 
 
@@ -774,7 +770,7 @@ class PVFloatCtrl(FloatCtrl, PVCtrlMixin):
 
         if self.pv.type in ('string', 'char'):
             try:
-                x = float(self.pv.value)
+                _ = float(self.pv.value)
             except:
                 self._warn('pvFloatCtrl needs a double or float PV')
 
@@ -903,8 +899,8 @@ class PVFloatSpin(floatspin.FloatSpin, PVCtrlMixin):
     both reads and writes the PV on changes.
 
     """
-    def __init__(self, parent, pv=None, deadTime=2500,
-                 min_val=None, max_val=None, increment=1.0, digits=-1, **kw):
+    def __init__(self, parent, pv=None, deadTime=250,
+                 min_val=None, max_val=None, increment=1.0, digits=4, **kw):
         """
         Most arguments are common with FloatSpin.
 
@@ -918,16 +914,17 @@ class PVFloatSpin(floatspin.FloatSpin, PVCtrlMixin):
                                      min_val=min_val, max_val=max_val,
                                      digits=digits, **kw)
         PVCtrlMixin.__init__(self, pv=pv, font="", fg=None, bg=None)
-        floatspin.EVT_FLOATSPIN(parent, self.GetId(), self.OnSpin)
+        self.Bind(floatspin.EVT_FLOATSPIN, self.OnSpin)
 
         self.deadTimer = wx.Timer(self)
         self.deadTime = deadTime
-        wx.EVT_TIMER(self, self.deadTimer.GetId(), self.OnTimeout)
+        self.Bind(wx.EVT_TIMER, self.OnTimeout)
 
     @EpicsFunction
     def _SetValue(self, value):
         "set value"
-        floatspin.FloatSpin.SetValue(self, float(self.pv.get()))
+        self.SetValue(float(self.pv.get()))
+        self.SetDigits(self.pv.precision)
 
     @EpicsFunction
     def OnSpin(self, event=None):
@@ -1039,6 +1036,7 @@ class PVButton(wx.Button, PVCtrlMixin):
             enableValue = False
         if self.pv is not None and (self.pv.get() == self.pushValue):
             enableValue = False
+        wx.Button.Enable(self, enableValue)
 
     @DelayedEpicsCallback
     def _disableEvent(self, **kw):
@@ -1280,7 +1278,7 @@ class PVCollapsiblePane(wx.CollapsiblePane, PVCtrlMixin):
             epics.MAJOR_ALARM : major_alarm,
             epics.INVALID_ALARM : invalid_alarm }
         if self.pv:
-            _SetValue(self.pv.value)
+            self._SetValue(self.pv.value)
 
     def _SetValue(self, value):
         if value:

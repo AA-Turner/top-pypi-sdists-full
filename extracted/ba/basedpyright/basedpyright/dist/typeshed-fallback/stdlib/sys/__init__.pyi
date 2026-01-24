@@ -78,7 +78,7 @@ from builtins import object as _object
 from collections.abc import AsyncGenerator, Callable, Sequence
 from io import TextIOWrapper
 from types import FrameType, ModuleType, TracebackType
-from typing import Any, Final, Literal, NoReturn, Protocol, TextIO, TypeVar, final, type_check_only
+from typing import Any, Final, Literal, NoReturn, Protocol, TextIO, TypeVar, final, overload, type_check_only
 from typing_extensions import LiteralString, TypeAlias, deprecated
 
 _T = TypeVar("_T")
@@ -254,6 +254,14 @@ class _flags(_UninstantiableStructseq, tuple[int, ...]):
     if sys.version_info >= (3, 11):
         @property
         def safe_path(self) -> bool: ...
+    if sys.version_info >= (3, 13):
+        @property
+        def gil(self) -> Literal[0, 1]: ...
+    if sys.version_info >= (3, 14):
+        @property
+        def thread_inherit_context(self) -> Literal[0, 1]: ...
+        @property
+        def context_aware_warnings(self) -> Literal[0, 1]: ...
     # Whether or not this exists on lower versions of Python
     # may depend on which patch release you're using
     # (it was backported to all Python versions on 3.8+ as a security fix)
@@ -418,7 +426,7 @@ def call_tracing(func: Callable[..., _T], args: Any, /) -> _T:
     ...
 
 if sys.version_info >= (3, 13):
-    @deprecated("Deprecated in Python 3.13; use _clear_internal_caches() instead.")
+    @deprecated("Deprecated since Python 3.13. Use `_clear_internal_caches()` instead.")
     def _clear_type_cache() -> None:
         """Clear the internal type lookup cache."""
         ...
@@ -446,6 +454,19 @@ def _getframe(depth: int = 0, /) -> FrameType:
     only.
     """
     ...
+
+# documented -- see https://docs.python.org/3/library/sys.html#sys._current_exceptions
+if sys.version_info >= (3, 12):
+    def _current_exceptions() -> dict[int, BaseException | None]:
+        """
+        Return a dict mapping each thread's identifier to its current raised exception.
+
+        This function should be used for specialized purposes only.
+        """
+        ...
+
+else:
+    def _current_exceptions() -> dict[int, OptExcInfo]: ...
 
 if sys.version_info >= (3, 12):
     def _getframemodulename(depth: int = 0) -> str | None:
@@ -504,10 +525,14 @@ def exit(status: _ExitCode = None, /) -> NoReturn:
     exit status will be one (i.e., failure).
     """
     ...
+
+if sys.platform == "android":  # noqa: Y008
+    def getandroidapilevel() -> int: ...
+
 def getallocatedblocks() -> int:
     """Return the number of memory blocks currently allocated."""
     ...
-def getdefaultencoding() -> str:
+def getdefaultencoding() -> Literal["utf-8"]:
     """Return the current default encoding used by the Unicode implementation."""
     ...
 
@@ -520,10 +545,10 @@ if sys.platform != "win32":
         """
         ...
 
-def getfilesystemencoding() -> str:
+def getfilesystemencoding() -> LiteralString:
     """Return the encoding used to convert Unicode filenames to OS filenames."""
     ...
-def getfilesystemencodeerrors() -> str:
+def getfilesystemencodeerrors() -> LiteralString:
     """Return the error mode used Unicode to OS filename conversion."""
     ...
 def getrefcount(object: Any, /) -> int:
@@ -613,6 +638,17 @@ if sys.platform == "win32":
 
     def getwindowsversion() -> _WinVersion: ...
 
+@overload
+def intern(string: LiteralString, /) -> LiteralString:
+    """
+    ``Intern'' the given string.
+
+    This enters the string in the (global) table of interned strings whose
+    purpose is to speed up dictionary lookups. Return the string itself or
+    the previously interned string object with the same value.
+    """
+    ...
+@overload
 def intern(string: str, /) -> str:
     """
     ``Intern'' the given string.
@@ -622,6 +658,8 @@ def intern(string: str, /) -> str:
     the previously interned string object with the same value.
     """
     ...
+
+__interactivehook__: Callable[[], object]
 
 if sys.version_info >= (3, 13):
     def _is_gil_enabled() -> bool:
@@ -805,5 +843,35 @@ if sys.version_info >= (3, 12):
     monitoring = _monitoring
 
 if sys.version_info >= (3, 14):
-    def is_remote_debug_enabled() -> bool: ...
-    def remote_exec(pid: int, script: StrOrBytesPath) -> None: ...
+    def is_remote_debug_enabled() -> bool:
+        """Return True if remote debugging is enabled, False otherwise."""
+        ...
+    def remote_exec(pid: int, script: StrOrBytesPath) -> None:
+        """
+        Executes a file containing Python code in a given remote Python process.
+
+        This function returns immediately, and the code will be executed by the
+        target process's main thread at the next available opportunity, similarly
+        to how signals are handled. There is no interface to determine when the
+        code has been executed. The caller is responsible for making sure that
+        the file still exists whenever the remote process tries to read it and that
+        it hasn't been overwritten.
+
+        The remote process must be running a CPython interpreter of the same major
+        and minor version as the local process. If either the local or remote
+        interpreter is pre-release (alpha, beta, or release candidate) then the
+        local and remote interpreters must be the same exact version.
+
+        Args:
+             pid (int): The process ID of the target Python process.
+             script (str|bytes): The path to a file containing
+                 the Python code to be executed.
+        """
+        ...
+    def _is_immortal(op: object, /) -> bool:
+        """
+        Return True if the given object is "immortal" per PEP 683.
+
+        This function should be used for specialized purposes only.
+        """
+        ...

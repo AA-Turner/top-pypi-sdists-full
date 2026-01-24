@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -1988,11 +1988,11 @@ class TooManyTagsException(ServiceException):
 class Approval(TypedDict, total=False):
     """Returns information about a specific approval on a pull request."""
 
-    userArn: Optional[Arn]
-    approvalState: Optional[ApprovalState]
+    userArn: Arn | None
+    approvalState: ApprovalState | None
 
 
-ApprovalList = List[Approval]
+ApprovalList = list[Approval]
 
 
 class OriginApprovalRuleTemplate(TypedDict, total=False):
@@ -2000,8 +2000,8 @@ class OriginApprovalRuleTemplate(TypedDict, total=False):
     for a pull request.
     """
 
-    approvalRuleTemplateId: Optional[ApprovalRuleTemplateId]
-    approvalRuleTemplateName: Optional[ApprovalRuleTemplateName]
+    approvalRuleTemplateId: ApprovalRuleTemplateId | None
+    approvalRuleTemplateName: ApprovalRuleTemplateName | None
 
 
 CreationDate = datetime
@@ -2011,22 +2011,22 @@ LastModifiedDate = datetime
 class ApprovalRule(TypedDict, total=False):
     """Returns information about an approval rule."""
 
-    approvalRuleId: Optional[ApprovalRuleId]
-    approvalRuleName: Optional[ApprovalRuleName]
-    approvalRuleContent: Optional[ApprovalRuleContent]
-    ruleContentSha256: Optional[RuleContentSha256]
-    lastModifiedDate: Optional[LastModifiedDate]
-    creationDate: Optional[CreationDate]
-    lastModifiedUser: Optional[Arn]
-    originApprovalRuleTemplate: Optional[OriginApprovalRuleTemplate]
+    approvalRuleId: ApprovalRuleId | None
+    approvalRuleName: ApprovalRuleName | None
+    approvalRuleContent: ApprovalRuleContent | None
+    ruleContentSha256: RuleContentSha256 | None
+    lastModifiedDate: LastModifiedDate | None
+    creationDate: CreationDate | None
+    lastModifiedUser: Arn | None
+    originApprovalRuleTemplate: OriginApprovalRuleTemplate | None
 
 
 class ApprovalRuleEventMetadata(TypedDict, total=False):
     """Returns information about an event for an approval rule."""
 
-    approvalRuleName: Optional[ApprovalRuleName]
-    approvalRuleId: Optional[ApprovalRuleId]
-    approvalRuleContent: Optional[ApprovalRuleContent]
+    approvalRuleName: ApprovalRuleName | None
+    approvalRuleId: ApprovalRuleId | None
+    approvalRuleContent: ApprovalRuleContent | None
 
 
 class ApprovalRuleOverriddenEventMetadata(TypedDict, total=False):
@@ -2034,27 +2034,27 @@ class ApprovalRuleOverriddenEventMetadata(TypedDict, total=False):
     pull request.
     """
 
-    revisionId: Optional[RevisionId]
-    overrideStatus: Optional[OverrideStatus]
+    revisionId: RevisionId | None
+    overrideStatus: OverrideStatus | None
 
 
 class ApprovalRuleTemplate(TypedDict, total=False):
     """Returns information about an approval rule template."""
 
-    approvalRuleTemplateId: Optional[ApprovalRuleTemplateId]
-    approvalRuleTemplateName: Optional[ApprovalRuleTemplateName]
-    approvalRuleTemplateDescription: Optional[ApprovalRuleTemplateDescription]
-    approvalRuleTemplateContent: Optional[ApprovalRuleTemplateContent]
-    ruleContentSha256: Optional[RuleContentSha256]
-    lastModifiedDate: Optional[LastModifiedDate]
-    creationDate: Optional[CreationDate]
-    lastModifiedUser: Optional[Arn]
+    approvalRuleTemplateId: ApprovalRuleTemplateId | None
+    approvalRuleTemplateName: ApprovalRuleTemplateName | None
+    approvalRuleTemplateDescription: ApprovalRuleTemplateDescription | None
+    approvalRuleTemplateContent: ApprovalRuleTemplateContent | None
+    ruleContentSha256: RuleContentSha256 | None
+    lastModifiedDate: LastModifiedDate | None
+    creationDate: CreationDate | None
+    lastModifiedUser: Arn | None
 
 
-ApprovalRuleTemplateNameList = List[ApprovalRuleTemplateName]
-ApprovalRulesList = List[ApprovalRule]
-ApprovalRulesNotSatisfiedList = List[ApprovalRuleName]
-ApprovalRulesSatisfiedList = List[ApprovalRuleName]
+ApprovalRuleTemplateNameList = list[ApprovalRuleTemplateName]
+ApprovalRulesList = list[ApprovalRule]
+ApprovalRulesNotSatisfiedList = list[ApprovalRuleName]
+ApprovalRulesSatisfiedList = list[ApprovalRuleName]
 
 
 class ApprovalStateChangedEventMetadata(TypedDict, total=False):
@@ -2062,8 +2062,8 @@ class ApprovalStateChangedEventMetadata(TypedDict, total=False):
     request.
     """
 
-    revisionId: Optional[RevisionId]
-    approvalStatus: Optional[ApprovalState]
+    revisionId: RevisionId | None
+    approvalStatus: ApprovalState | None
 
 
 class AssociateApprovalRuleTemplateWithRepositoryInput(ServiceRequest):
@@ -2076,15 +2076,15 @@ class BatchAssociateApprovalRuleTemplateWithRepositoriesError(TypedDict, total=F
     BatchAssociateApprovalRuleTemplateWithRepositories operation.
     """
 
-    repositoryName: Optional[RepositoryName]
-    errorCode: Optional[ErrorCode]
-    errorMessage: Optional[ErrorMessage]
+    repositoryName: RepositoryName | None
+    errorCode: ErrorCode | None
+    errorMessage: ErrorMessage | None
 
 
-BatchAssociateApprovalRuleTemplateWithRepositoriesErrorsList = List[
+BatchAssociateApprovalRuleTemplateWithRepositoriesErrorsList = list[
     BatchAssociateApprovalRuleTemplateWithRepositoriesError
 ]
-RepositoryNameList = List[RepositoryName]
+RepositoryNameList = list[RepositoryName]
 
 
 class BatchAssociateApprovalRuleTemplateWithRepositoriesInput(ServiceRequest):
@@ -2107,8 +2107,8 @@ class BatchDescribeMergeConflictsError(TypedDict, total=False):
     message: Message
 
 
-BatchDescribeMergeConflictsErrors = List[BatchDescribeMergeConflictsError]
-FilePaths = List[Path]
+BatchDescribeMergeConflictsErrors = list[BatchDescribeMergeConflictsError]
+FilePaths = list[Path]
 
 
 class BatchDescribeMergeConflictsInput(ServiceRequest):
@@ -2116,12 +2116,12 @@ class BatchDescribeMergeConflictsInput(ServiceRequest):
     destinationCommitSpecifier: CommitName
     sourceCommitSpecifier: CommitName
     mergeOption: MergeOptionTypeEnum
-    maxMergeHunks: Optional[MaxResults]
-    maxConflictFiles: Optional[MaxResults]
-    filePaths: Optional[FilePaths]
-    conflictDetailLevel: Optional[ConflictDetailLevelTypeEnum]
-    conflictResolutionStrategy: Optional[ConflictResolutionStrategyTypeEnum]
-    nextToken: Optional[NextToken]
+    maxMergeHunks: MaxResults | None
+    maxConflictFiles: MaxResults | None
+    filePaths: FilePaths | None
+    conflictDetailLevel: ConflictDetailLevelTypeEnum | None
+    conflictResolutionStrategy: ConflictResolutionStrategyTypeEnum | None
+    nextToken: NextToken | None
 
 
 class MergeHunkDetail(TypedDict, total=False):
@@ -2129,28 +2129,28 @@ class MergeHunkDetail(TypedDict, total=False):
     in a merge or pull request operation.
     """
 
-    startLine: Optional[LineNumber]
-    endLine: Optional[LineNumber]
-    hunkContent: Optional[HunkContent]
+    startLine: LineNumber | None
+    endLine: LineNumber | None
+    hunkContent: HunkContent | None
 
 
 class MergeHunk(TypedDict, total=False):
     """Information about merge hunks in a merge or pull request operation."""
 
-    isConflict: Optional[IsHunkConflict]
-    source: Optional[MergeHunkDetail]
-    destination: Optional[MergeHunkDetail]
-    base: Optional[MergeHunkDetail]
+    isConflict: IsHunkConflict | None
+    source: MergeHunkDetail | None
+    destination: MergeHunkDetail | None
+    base: MergeHunkDetail | None
 
 
-MergeHunks = List[MergeHunk]
+MergeHunks = list[MergeHunk]
 
 
 class MergeOperations(TypedDict, total=False):
     """Information about the file operation conflicts in a merge operation."""
 
-    source: Optional[ChangeTypeEnum]
-    destination: Optional[ChangeTypeEnum]
+    source: ChangeTypeEnum | None
+    destination: ChangeTypeEnum | None
 
 
 class IsBinaryFile(TypedDict, total=False):
@@ -2158,25 +2158,25 @@ class IsBinaryFile(TypedDict, total=False):
     request operation.
     """
 
-    source: Optional[CapitalBoolean]
-    destination: Optional[CapitalBoolean]
-    base: Optional[CapitalBoolean]
+    source: CapitalBoolean | None
+    destination: CapitalBoolean | None
+    base: CapitalBoolean | None
 
 
 class ObjectTypes(TypedDict, total=False):
     """Information about the type of an object in a merge operation."""
 
-    source: Optional[ObjectTypeEnum]
-    destination: Optional[ObjectTypeEnum]
-    base: Optional[ObjectTypeEnum]
+    source: ObjectTypeEnum | None
+    destination: ObjectTypeEnum | None
+    base: ObjectTypeEnum | None
 
 
 class FileModes(TypedDict, total=False):
     """Information about file modes in a merge or pull request."""
 
-    source: Optional[FileModeTypeEnum]
-    destination: Optional[FileModeTypeEnum]
-    base: Optional[FileModeTypeEnum]
+    source: FileModeTypeEnum | None
+    destination: FileModeTypeEnum | None
+    base: FileModeTypeEnum | None
 
 
 FileSize = int
@@ -2185,43 +2185,43 @@ FileSize = int
 class FileSizes(TypedDict, total=False):
     """Information about the size of files in a merge or pull request."""
 
-    source: Optional[FileSize]
-    destination: Optional[FileSize]
-    base: Optional[FileSize]
+    source: FileSize | None
+    destination: FileSize | None
+    base: FileSize | None
 
 
 class ConflictMetadata(TypedDict, total=False):
     """Information about the metadata for a conflict in a merge operation."""
 
-    filePath: Optional[Path]
-    fileSizes: Optional[FileSizes]
-    fileModes: Optional[FileModes]
-    objectTypes: Optional[ObjectTypes]
-    numberOfConflicts: Optional[NumberOfConflicts]
-    isBinaryFile: Optional[IsBinaryFile]
-    contentConflict: Optional[IsContentConflict]
-    fileModeConflict: Optional[IsFileModeConflict]
-    objectTypeConflict: Optional[IsObjectTypeConflict]
-    mergeOperations: Optional[MergeOperations]
+    filePath: Path | None
+    fileSizes: FileSizes | None
+    fileModes: FileModes | None
+    objectTypes: ObjectTypes | None
+    numberOfConflicts: NumberOfConflicts | None
+    isBinaryFile: IsBinaryFile | None
+    contentConflict: IsContentConflict | None
+    fileModeConflict: IsFileModeConflict | None
+    objectTypeConflict: IsObjectTypeConflict | None
+    mergeOperations: MergeOperations | None
 
 
 class Conflict(TypedDict, total=False):
     """Information about conflicts in a merge operation."""
 
-    conflictMetadata: Optional[ConflictMetadata]
-    mergeHunks: Optional[MergeHunks]
+    conflictMetadata: ConflictMetadata | None
+    mergeHunks: MergeHunks | None
 
 
-Conflicts = List[Conflict]
+Conflicts = list[Conflict]
 
 
 class BatchDescribeMergeConflictsOutput(TypedDict, total=False):
     conflicts: Conflicts
-    nextToken: Optional[NextToken]
-    errors: Optional[BatchDescribeMergeConflictsErrors]
+    nextToken: NextToken | None
+    errors: BatchDescribeMergeConflictsErrors | None
     destinationCommitId: ObjectId
     sourceCommitId: ObjectId
-    baseCommitId: Optional[ObjectId]
+    baseCommitId: ObjectId | None
 
 
 class BatchDisassociateApprovalRuleTemplateFromRepositoriesError(TypedDict, total=False):
@@ -2229,12 +2229,12 @@ class BatchDisassociateApprovalRuleTemplateFromRepositoriesError(TypedDict, tota
     BatchDisassociateApprovalRuleTemplateFromRepositories operation.
     """
 
-    repositoryName: Optional[RepositoryName]
-    errorCode: Optional[ErrorCode]
-    errorMessage: Optional[ErrorMessage]
+    repositoryName: RepositoryName | None
+    errorCode: ErrorCode | None
+    errorMessage: ErrorMessage | None
 
 
-BatchDisassociateApprovalRuleTemplateFromRepositoriesErrorsList = List[
+BatchDisassociateApprovalRuleTemplateFromRepositoriesErrorsList = list[
     BatchDisassociateApprovalRuleTemplateFromRepositoriesError
 ]
 
@@ -2252,13 +2252,13 @@ class BatchDisassociateApprovalRuleTemplateFromRepositoriesOutput(TypedDict, tot
 class BatchGetCommitsError(TypedDict, total=False):
     """Returns information about errors in a BatchGetCommits operation."""
 
-    commitId: Optional[ObjectId]
-    errorCode: Optional[ErrorCode]
-    errorMessage: Optional[ErrorMessage]
+    commitId: ObjectId | None
+    errorCode: ErrorCode | None
+    errorMessage: ErrorMessage | None
 
 
-BatchGetCommitsErrorsList = List[BatchGetCommitsError]
-CommitIdsInputList = List[ObjectId]
+BatchGetCommitsErrorsList = list[BatchGetCommitsError]
+CommitIdsInputList = list[ObjectId]
 
 
 class BatchGetCommitsInput(ServiceRequest):
@@ -2269,44 +2269,44 @@ class BatchGetCommitsInput(ServiceRequest):
 class UserInfo(TypedDict, total=False):
     """Information about the user who made a specified commit."""
 
-    name: Optional[Name]
-    email: Optional[Email]
-    date: Optional[Date]
+    name: Name | None
+    email: Email | None
+    date: Date | None
 
 
-ParentList = List[ObjectId]
+ParentList = list[ObjectId]
 
 
 class Commit(TypedDict, total=False):
     """Returns information about a specific commit."""
 
-    commitId: Optional[ObjectId]
-    treeId: Optional[ObjectId]
-    parents: Optional[ParentList]
-    message: Optional[Message]
-    author: Optional[UserInfo]
-    committer: Optional[UserInfo]
-    additionalData: Optional[AdditionalData]
+    commitId: ObjectId | None
+    treeId: ObjectId | None
+    parents: ParentList | None
+    message: Message | None
+    author: UserInfo | None
+    committer: UserInfo | None
+    additionalData: AdditionalData | None
 
 
-CommitObjectsList = List[Commit]
+CommitObjectsList = list[Commit]
 
 
 class BatchGetCommitsOutput(TypedDict, total=False):
-    commits: Optional[CommitObjectsList]
-    errors: Optional[BatchGetCommitsErrorsList]
+    commits: CommitObjectsList | None
+    errors: BatchGetCommitsErrorsList | None
 
 
 class BatchGetRepositoriesError(TypedDict, total=False):
     """Returns information about errors in a BatchGetRepositories operation."""
 
-    repositoryId: Optional[RepositoryId]
-    repositoryName: Optional[RepositoryName]
-    errorCode: Optional[BatchGetRepositoriesErrorCodeEnum]
-    errorMessage: Optional[ErrorMessage]
+    repositoryId: RepositoryId | None
+    repositoryName: RepositoryName | None
+    errorCode: BatchGetRepositoriesErrorCodeEnum | None
+    errorMessage: ErrorMessage | None
 
 
-BatchGetRepositoriesErrorsList = List[BatchGetRepositoriesError]
+BatchGetRepositoriesErrorsList = list[BatchGetRepositoriesError]
 
 
 class BatchGetRepositoriesInput(ServiceRequest):
@@ -2315,72 +2315,72 @@ class BatchGetRepositoriesInput(ServiceRequest):
     repositoryNames: RepositoryNameList
 
 
-RepositoryNotFoundList = List[RepositoryName]
+RepositoryNotFoundList = list[RepositoryName]
 
 
 class RepositoryMetadata(TypedDict, total=False):
     """Information about a repository."""
 
-    accountId: Optional[AccountId]
-    repositoryId: Optional[RepositoryId]
-    repositoryName: Optional[RepositoryName]
-    repositoryDescription: Optional[RepositoryDescription]
-    defaultBranch: Optional[BranchName]
-    lastModifiedDate: Optional[LastModifiedDate]
-    creationDate: Optional[CreationDate]
-    cloneUrlHttp: Optional[CloneUrlHttp]
-    cloneUrlSsh: Optional[CloneUrlSsh]
-    Arn: Optional[Arn]
-    kmsKeyId: Optional[KmsKeyId]
+    accountId: AccountId | None
+    repositoryId: RepositoryId | None
+    repositoryName: RepositoryName | None
+    repositoryDescription: RepositoryDescription | None
+    defaultBranch: BranchName | None
+    lastModifiedDate: LastModifiedDate | None
+    creationDate: CreationDate | None
+    cloneUrlHttp: CloneUrlHttp | None
+    cloneUrlSsh: CloneUrlSsh | None
+    Arn: Arn | None
+    kmsKeyId: KmsKeyId | None
 
 
-RepositoryMetadataList = List[RepositoryMetadata]
+RepositoryMetadataList = list[RepositoryMetadata]
 
 
 class BatchGetRepositoriesOutput(TypedDict, total=False):
     """Represents the output of a batch get repositories operation."""
 
-    repositories: Optional[RepositoryMetadataList]
-    repositoriesNotFound: Optional[RepositoryNotFoundList]
-    errors: Optional[BatchGetRepositoriesErrorsList]
+    repositories: RepositoryMetadataList | None
+    repositoriesNotFound: RepositoryNotFoundList | None
+    errors: BatchGetRepositoriesErrorsList | None
 
 
 class BlobMetadata(TypedDict, total=False):
     """Returns information about a specific Git blob object."""
 
-    blobId: Optional[ObjectId]
-    path: Optional[Path]
-    mode: Optional[Mode]
+    blobId: ObjectId | None
+    path: Path | None
+    mode: Mode | None
 
 
 class BranchInfo(TypedDict, total=False):
     """Returns information about a branch."""
 
-    branchName: Optional[BranchName]
-    commitId: Optional[CommitId]
+    branchName: BranchName | None
+    commitId: CommitId | None
 
 
-BranchNameList = List[BranchName]
-CallerReactions = List[ReactionValue]
-ReactionCountsMap = Dict[ReactionValue, Count]
+BranchNameList = list[BranchName]
+CallerReactions = list[ReactionValue]
+ReactionCountsMap = dict[ReactionValue, Count]
 
 
 class Comment(TypedDict, total=False):
     """Returns information about a specific comment."""
 
-    commentId: Optional[CommentId]
-    content: Optional[Content]
-    inReplyTo: Optional[CommentId]
-    creationDate: Optional[CreationDate]
-    lastModifiedDate: Optional[LastModifiedDate]
-    authorArn: Optional[Arn]
-    deleted: Optional[IsCommentDeleted]
-    clientRequestToken: Optional[ClientRequestToken]
-    callerReactions: Optional[CallerReactions]
-    reactionCounts: Optional[ReactionCountsMap]
+    commentId: CommentId | None
+    content: Content | None
+    inReplyTo: CommentId | None
+    creationDate: CreationDate | None
+    lastModifiedDate: LastModifiedDate | None
+    authorArn: Arn | None
+    deleted: IsCommentDeleted | None
+    clientRequestToken: ClientRequestToken | None
+    callerReactions: CallerReactions | None
+    reactionCounts: ReactionCountsMap | None
 
 
-Comments = List[Comment]
+Comments = list[Comment]
 Position = int
 
 
@@ -2389,9 +2389,9 @@ class Location(TypedDict, total=False):
     comparison between two commits or a pull request.
     """
 
-    filePath: Optional[Path]
-    filePosition: Optional[Position]
-    relativeFileVersion: Optional[RelativeFileVersionEnum]
+    filePath: Path | None
+    filePosition: Position | None
+    relativeFileVersion: RelativeFileVersionEnum | None
 
 
 class CommentsForComparedCommit(TypedDict, total=False):
@@ -2399,33 +2399,33 @@ class CommentsForComparedCommit(TypedDict, total=False):
     commits.
     """
 
-    repositoryName: Optional[RepositoryName]
-    beforeCommitId: Optional[CommitId]
-    afterCommitId: Optional[CommitId]
-    beforeBlobId: Optional[ObjectId]
-    afterBlobId: Optional[ObjectId]
-    location: Optional[Location]
-    comments: Optional[Comments]
+    repositoryName: RepositoryName | None
+    beforeCommitId: CommitId | None
+    afterCommitId: CommitId | None
+    beforeBlobId: ObjectId | None
+    afterBlobId: ObjectId | None
+    location: Location | None
+    comments: Comments | None
 
 
-CommentsForComparedCommitData = List[CommentsForComparedCommit]
+CommentsForComparedCommitData = list[CommentsForComparedCommit]
 
 
 class CommentsForPullRequest(TypedDict, total=False):
     """Returns information about comments on a pull request."""
 
-    pullRequestId: Optional[PullRequestId]
-    repositoryName: Optional[RepositoryName]
-    beforeCommitId: Optional[CommitId]
-    afterCommitId: Optional[CommitId]
-    beforeBlobId: Optional[ObjectId]
-    afterBlobId: Optional[ObjectId]
-    location: Optional[Location]
-    comments: Optional[Comments]
+    pullRequestId: PullRequestId | None
+    repositoryName: RepositoryName | None
+    beforeCommitId: CommitId | None
+    afterCommitId: CommitId | None
+    beforeBlobId: ObjectId | None
+    afterBlobId: ObjectId | None
+    location: Location | None
+    comments: Comments | None
 
 
-CommentsForPullRequestData = List[CommentsForPullRequest]
-ConflictMetadataList = List[ConflictMetadata]
+CommentsForPullRequestData = list[CommentsForPullRequest]
+ConflictMetadataList = list[ConflictMetadata]
 
 
 class SetFileModeEntry(TypedDict, total=False):
@@ -2435,7 +2435,7 @@ class SetFileModeEntry(TypedDict, total=False):
     fileMode: FileModeTypeEnum
 
 
-SetFileModeEntries = List[SetFileModeEntry]
+SetFileModeEntries = list[SetFileModeEntry]
 
 
 class DeleteFileEntry(TypedDict, total=False):
@@ -2444,7 +2444,7 @@ class DeleteFileEntry(TypedDict, total=False):
     filePath: Path
 
 
-DeleteFileEntries = List[DeleteFileEntry]
+DeleteFileEntries = list[DeleteFileEntry]
 FileContent = bytes
 
 
@@ -2455,11 +2455,11 @@ class ReplaceContentEntry(TypedDict, total=False):
 
     filePath: Path
     replacementType: ReplacementTypeEnum
-    content: Optional[FileContent]
-    fileMode: Optional[FileModeTypeEnum]
+    content: FileContent | None
+    fileMode: FileModeTypeEnum | None
 
 
-ReplaceContentEntries = List[ReplaceContentEntry]
+ReplaceContentEntries = list[ReplaceContentEntry]
 
 
 class ConflictResolution(TypedDict, total=False):
@@ -2467,15 +2467,15 @@ class ConflictResolution(TypedDict, total=False):
     use when resolving conflicts during a merge.
     """
 
-    replaceContents: Optional[ReplaceContentEntries]
-    deleteFiles: Optional[DeleteFileEntries]
-    setFileModes: Optional[SetFileModeEntries]
+    replaceContents: ReplaceContentEntries | None
+    deleteFiles: DeleteFileEntries | None
+    setFileModes: SetFileModeEntries | None
 
 
 class CreateApprovalRuleTemplateInput(ServiceRequest):
     approvalRuleTemplateName: ApprovalRuleTemplateName
     approvalRuleTemplateContent: ApprovalRuleTemplateContent
-    approvalRuleTemplateDescription: Optional[ApprovalRuleTemplateDescription]
+    approvalRuleTemplateDescription: ApprovalRuleTemplateDescription | None
 
 
 class CreateApprovalRuleTemplateOutput(TypedDict, total=False):
@@ -2496,51 +2496,51 @@ class SourceFileSpecifier(TypedDict, total=False):
     """
 
     filePath: Path
-    isMove: Optional[IsMove]
+    isMove: IsMove | None
 
 
 class PutFileEntry(TypedDict, total=False):
     """Information about a file added or updated as part of a commit."""
 
     filePath: Path
-    fileMode: Optional[FileModeTypeEnum]
-    fileContent: Optional[FileContent]
-    sourceFile: Optional[SourceFileSpecifier]
+    fileMode: FileModeTypeEnum | None
+    fileContent: FileContent | None
+    sourceFile: SourceFileSpecifier | None
 
 
-PutFileEntries = List[PutFileEntry]
+PutFileEntries = list[PutFileEntry]
 
 
 class CreateCommitInput(ServiceRequest):
     repositoryName: RepositoryName
     branchName: BranchName
-    parentCommitId: Optional[CommitId]
-    authorName: Optional[Name]
-    email: Optional[Email]
-    commitMessage: Optional[Message]
-    keepEmptyFolders: Optional[KeepEmptyFolders]
-    putFiles: Optional[PutFileEntries]
-    deleteFiles: Optional[DeleteFileEntries]
-    setFileModes: Optional[SetFileModeEntries]
+    parentCommitId: CommitId | None
+    authorName: Name | None
+    email: Email | None
+    commitMessage: Message | None
+    keepEmptyFolders: KeepEmptyFolders | None
+    putFiles: PutFileEntries | None
+    deleteFiles: DeleteFileEntries | None
+    setFileModes: SetFileModeEntries | None
 
 
 class FileMetadata(TypedDict, total=False):
     """A file to be added, updated, or deleted as part of a commit."""
 
-    absolutePath: Optional[Path]
-    blobId: Optional[ObjectId]
-    fileMode: Optional[FileModeTypeEnum]
+    absolutePath: Path | None
+    blobId: ObjectId | None
+    fileMode: FileModeTypeEnum | None
 
 
-FilesMetadata = List[FileMetadata]
+FilesMetadata = list[FileMetadata]
 
 
 class CreateCommitOutput(TypedDict, total=False):
-    commitId: Optional[ObjectId]
-    treeId: Optional[ObjectId]
-    filesAdded: Optional[FilesMetadata]
-    filesUpdated: Optional[FilesMetadata]
-    filesDeleted: Optional[FilesMetadata]
+    commitId: ObjectId | None
+    treeId: ObjectId | None
+    filesAdded: FilesMetadata | None
+    filesUpdated: FilesMetadata | None
+    filesDeleted: FilesMetadata | None
 
 
 class CreatePullRequestApprovalRuleInput(ServiceRequest):
@@ -2558,17 +2558,17 @@ class Target(TypedDict, total=False):
 
     repositoryName: RepositoryName
     sourceReference: ReferenceName
-    destinationReference: Optional[ReferenceName]
+    destinationReference: ReferenceName | None
 
 
-TargetList = List[Target]
+TargetList = list[Target]
 
 
 class CreatePullRequestInput(ServiceRequest):
     title: Title
-    description: Optional[Description]
+    description: Description | None
     targets: TargetList
-    clientRequestToken: Optional[ClientRequestToken]
+    clientRequestToken: ClientRequestToken | None
 
 
 class MergeMetadata(TypedDict, total=False):
@@ -2576,63 +2576,63 @@ class MergeMetadata(TypedDict, total=False):
     reference and a destination reference in a pull request.
     """
 
-    isMerged: Optional[IsMerged]
-    mergedBy: Optional[Arn]
-    mergeCommitId: Optional[CommitId]
-    mergeOption: Optional[MergeOptionTypeEnum]
+    isMerged: IsMerged | None
+    mergedBy: Arn | None
+    mergeCommitId: CommitId | None
+    mergeOption: MergeOptionTypeEnum | None
 
 
 class PullRequestTarget(TypedDict, total=False):
     """Returns information about a pull request target."""
 
-    repositoryName: Optional[RepositoryName]
-    sourceReference: Optional[ReferenceName]
-    destinationReference: Optional[ReferenceName]
-    destinationCommit: Optional[CommitId]
-    sourceCommit: Optional[CommitId]
-    mergeBase: Optional[CommitId]
-    mergeMetadata: Optional[MergeMetadata]
+    repositoryName: RepositoryName | None
+    sourceReference: ReferenceName | None
+    destinationReference: ReferenceName | None
+    destinationCommit: CommitId | None
+    sourceCommit: CommitId | None
+    mergeBase: CommitId | None
+    mergeMetadata: MergeMetadata | None
 
 
-PullRequestTargetList = List[PullRequestTarget]
+PullRequestTargetList = list[PullRequestTarget]
 
 
 class PullRequest(TypedDict, total=False):
     """Returns information about a pull request."""
 
-    pullRequestId: Optional[PullRequestId]
-    title: Optional[Title]
-    description: Optional[Description]
-    lastActivityDate: Optional[LastModifiedDate]
-    creationDate: Optional[CreationDate]
-    pullRequestStatus: Optional[PullRequestStatusEnum]
-    authorArn: Optional[Arn]
-    pullRequestTargets: Optional[PullRequestTargetList]
-    clientRequestToken: Optional[ClientRequestToken]
-    revisionId: Optional[RevisionId]
-    approvalRules: Optional[ApprovalRulesList]
+    pullRequestId: PullRequestId | None
+    title: Title | None
+    description: Description | None
+    lastActivityDate: LastModifiedDate | None
+    creationDate: CreationDate | None
+    pullRequestStatus: PullRequestStatusEnum | None
+    authorArn: Arn | None
+    pullRequestTargets: PullRequestTargetList | None
+    clientRequestToken: ClientRequestToken | None
+    revisionId: RevisionId | None
+    approvalRules: ApprovalRulesList | None
 
 
 class CreatePullRequestOutput(TypedDict, total=False):
     pullRequest: PullRequest
 
 
-TagsMap = Dict[TagKey, TagValue]
+TagsMap = dict[TagKey, TagValue]
 
 
 class CreateRepositoryInput(ServiceRequest):
     """Represents the input of a create repository operation."""
 
     repositoryName: RepositoryName
-    repositoryDescription: Optional[RepositoryDescription]
-    tags: Optional[TagsMap]
-    kmsKeyId: Optional[KmsKeyId]
+    repositoryDescription: RepositoryDescription | None
+    tags: TagsMap | None
+    kmsKeyId: KmsKeyId | None
 
 
 class CreateRepositoryOutput(TypedDict, total=False):
     """Represents the output of a create repository operation."""
 
-    repositoryMetadata: Optional[RepositoryMetadata]
+    repositoryMetadata: RepositoryMetadata | None
 
 
 class CreateUnreferencedMergeCommitInput(ServiceRequest):
@@ -2640,18 +2640,18 @@ class CreateUnreferencedMergeCommitInput(ServiceRequest):
     sourceCommitSpecifier: CommitName
     destinationCommitSpecifier: CommitName
     mergeOption: MergeOptionTypeEnum
-    conflictDetailLevel: Optional[ConflictDetailLevelTypeEnum]
-    conflictResolutionStrategy: Optional[ConflictResolutionStrategyTypeEnum]
-    authorName: Optional[Name]
-    email: Optional[Email]
-    commitMessage: Optional[Message]
-    keepEmptyFolders: Optional[KeepEmptyFolders]
-    conflictResolution: Optional[ConflictResolution]
+    conflictDetailLevel: ConflictDetailLevelTypeEnum | None
+    conflictResolutionStrategy: ConflictResolutionStrategyTypeEnum | None
+    authorName: Name | None
+    email: Email | None
+    commitMessage: Message | None
+    keepEmptyFolders: KeepEmptyFolders | None
+    conflictResolution: ConflictResolution | None
 
 
 class CreateUnreferencedMergeCommitOutput(TypedDict, total=False):
-    commitId: Optional[ObjectId]
-    treeId: Optional[ObjectId]
+    commitId: ObjectId | None
+    treeId: ObjectId | None
 
 
 class DeleteApprovalRuleTemplateInput(ServiceRequest):
@@ -2672,7 +2672,7 @@ class DeleteBranchInput(ServiceRequest):
 class DeleteBranchOutput(TypedDict, total=False):
     """Represents the output of a delete branch operation."""
 
-    deletedBranch: Optional[BranchInfo]
+    deletedBranch: BranchInfo | None
 
 
 class DeleteCommentContentInput(ServiceRequest):
@@ -2680,7 +2680,7 @@ class DeleteCommentContentInput(ServiceRequest):
 
 
 class DeleteCommentContentOutput(TypedDict, total=False):
-    comment: Optional[Comment]
+    comment: Comment | None
 
 
 class DeleteFileInput(ServiceRequest):
@@ -2688,10 +2688,10 @@ class DeleteFileInput(ServiceRequest):
     branchName: BranchName
     filePath: Path
     parentCommitId: CommitId
-    keepEmptyFolders: Optional[KeepEmptyFolders]
-    commitMessage: Optional[Message]
-    name: Optional[Name]
-    email: Optional[Email]
+    keepEmptyFolders: KeepEmptyFolders | None
+    commitMessage: Message | None
+    name: Name | None
+    email: Email | None
 
 
 class DeleteFileOutput(TypedDict, total=False):
@@ -2719,7 +2719,7 @@ class DeleteRepositoryInput(ServiceRequest):
 class DeleteRepositoryOutput(TypedDict, total=False):
     """Represents the output of a delete repository operation."""
 
-    repositoryId: Optional[RepositoryId]
+    repositoryId: RepositoryId | None
 
 
 class DescribeMergeConflictsInput(ServiceRequest):
@@ -2727,28 +2727,28 @@ class DescribeMergeConflictsInput(ServiceRequest):
     destinationCommitSpecifier: CommitName
     sourceCommitSpecifier: CommitName
     mergeOption: MergeOptionTypeEnum
-    maxMergeHunks: Optional[MaxResults]
+    maxMergeHunks: MaxResults | None
     filePath: Path
-    conflictDetailLevel: Optional[ConflictDetailLevelTypeEnum]
-    conflictResolutionStrategy: Optional[ConflictResolutionStrategyTypeEnum]
-    nextToken: Optional[NextToken]
+    conflictDetailLevel: ConflictDetailLevelTypeEnum | None
+    conflictResolutionStrategy: ConflictResolutionStrategyTypeEnum | None
+    nextToken: NextToken | None
 
 
 class DescribeMergeConflictsOutput(TypedDict, total=False):
     conflictMetadata: ConflictMetadata
     mergeHunks: MergeHunks
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
     destinationCommitId: ObjectId
     sourceCommitId: ObjectId
-    baseCommitId: Optional[ObjectId]
+    baseCommitId: ObjectId | None
 
 
 class DescribePullRequestEventsInput(ServiceRequest):
     pullRequestId: PullRequestId
-    pullRequestEventType: Optional[PullRequestEventType]
-    actorArn: Optional[Arn]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    pullRequestEventType: PullRequestEventType | None
+    actorArn: Arn | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class PullRequestMergedStateChangedEventMetadata(TypedDict, total=False):
@@ -2756,24 +2756,24 @@ class PullRequestMergedStateChangedEventMetadata(TypedDict, total=False):
     request event.
     """
 
-    repositoryName: Optional[RepositoryName]
-    destinationReference: Optional[ReferenceName]
-    mergeMetadata: Optional[MergeMetadata]
+    repositoryName: RepositoryName | None
+    destinationReference: ReferenceName | None
+    mergeMetadata: MergeMetadata | None
 
 
 class PullRequestSourceReferenceUpdatedEventMetadata(TypedDict, total=False):
     """Information about an update to the source branch of a pull request."""
 
-    repositoryName: Optional[RepositoryName]
-    beforeCommitId: Optional[CommitId]
-    afterCommitId: Optional[CommitId]
-    mergeBase: Optional[CommitId]
+    repositoryName: RepositoryName | None
+    beforeCommitId: CommitId | None
+    afterCommitId: CommitId | None
+    mergeBase: CommitId | None
 
 
 class PullRequestStatusChangedEventMetadata(TypedDict, total=False):
     """Information about a change to the status of a pull request."""
 
-    pullRequestStatus: Optional[PullRequestStatusEnum]
+    pullRequestStatus: PullRequestStatusEnum | None
 
 
 class PullRequestCreatedEventMetadata(TypedDict, total=False):
@@ -2781,10 +2781,10 @@ class PullRequestCreatedEventMetadata(TypedDict, total=False):
     request source with its destination.
     """
 
-    repositoryName: Optional[RepositoryName]
-    sourceCommitId: Optional[CommitId]
-    destinationCommitId: Optional[CommitId]
-    mergeBase: Optional[CommitId]
+    repositoryName: RepositoryName | None
+    sourceCommitId: CommitId | None
+    destinationCommitId: CommitId | None
+    mergeBase: CommitId | None
 
 
 EventDate = datetime
@@ -2793,38 +2793,38 @@ EventDate = datetime
 class PullRequestEvent(TypedDict, total=False):
     """Returns information about a pull request event."""
 
-    pullRequestId: Optional[PullRequestId]
-    eventDate: Optional[EventDate]
-    pullRequestEventType: Optional[PullRequestEventType]
-    actorArn: Optional[Arn]
-    pullRequestCreatedEventMetadata: Optional[PullRequestCreatedEventMetadata]
-    pullRequestStatusChangedEventMetadata: Optional[PullRequestStatusChangedEventMetadata]
-    pullRequestSourceReferenceUpdatedEventMetadata: Optional[
-        PullRequestSourceReferenceUpdatedEventMetadata
-    ]
-    pullRequestMergedStateChangedEventMetadata: Optional[PullRequestMergedStateChangedEventMetadata]
-    approvalRuleEventMetadata: Optional[ApprovalRuleEventMetadata]
-    approvalStateChangedEventMetadata: Optional[ApprovalStateChangedEventMetadata]
-    approvalRuleOverriddenEventMetadata: Optional[ApprovalRuleOverriddenEventMetadata]
+    pullRequestId: PullRequestId | None
+    eventDate: EventDate | None
+    pullRequestEventType: PullRequestEventType | None
+    actorArn: Arn | None
+    pullRequestCreatedEventMetadata: PullRequestCreatedEventMetadata | None
+    pullRequestStatusChangedEventMetadata: PullRequestStatusChangedEventMetadata | None
+    pullRequestSourceReferenceUpdatedEventMetadata: (
+        PullRequestSourceReferenceUpdatedEventMetadata | None
+    )
+    pullRequestMergedStateChangedEventMetadata: PullRequestMergedStateChangedEventMetadata | None
+    approvalRuleEventMetadata: ApprovalRuleEventMetadata | None
+    approvalStateChangedEventMetadata: ApprovalStateChangedEventMetadata | None
+    approvalRuleOverriddenEventMetadata: ApprovalRuleOverriddenEventMetadata | None
 
 
-PullRequestEventList = List[PullRequestEvent]
+PullRequestEventList = list[PullRequestEvent]
 
 
 class DescribePullRequestEventsOutput(TypedDict, total=False):
     pullRequestEvents: PullRequestEventList
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class Difference(TypedDict, total=False):
     """Returns information about a set of differences for a commit specifier."""
 
-    beforeBlob: Optional[BlobMetadata]
-    afterBlob: Optional[BlobMetadata]
-    changeType: Optional[ChangeTypeEnum]
+    beforeBlob: BlobMetadata | None
+    afterBlob: BlobMetadata | None
+    changeType: ChangeTypeEnum | None
 
 
-DifferenceList = List[Difference]
+DifferenceList = list[Difference]
 
 
 class DisassociateApprovalRuleTemplateFromRepositoryInput(ServiceRequest):
@@ -2842,10 +2842,10 @@ class Evaluation(TypedDict, total=False):
     and whether conditions have been met.
     """
 
-    approved: Optional[Approved]
-    overridden: Optional[Overridden]
-    approvalRulesSatisfied: Optional[ApprovalRulesSatisfiedList]
-    approvalRulesNotSatisfied: Optional[ApprovalRulesNotSatisfiedList]
+    approved: Approved | None
+    overridden: Overridden | None
+    approvalRulesSatisfied: ApprovalRulesSatisfiedList | None
+    approvalRulesNotSatisfied: ApprovalRulesNotSatisfiedList | None
 
 
 class EvaluatePullRequestApprovalRulesOutput(TypedDict, total=False):
@@ -2855,34 +2855,34 @@ class EvaluatePullRequestApprovalRulesOutput(TypedDict, total=False):
 class File(TypedDict, total=False):
     """Returns information about a file in a repository."""
 
-    blobId: Optional[ObjectId]
-    absolutePath: Optional[Path]
-    relativePath: Optional[Path]
-    fileMode: Optional[FileModeTypeEnum]
+    blobId: ObjectId | None
+    absolutePath: Path | None
+    relativePath: Path | None
+    fileMode: FileModeTypeEnum | None
 
 
-FileList = List[File]
-RevisionChildren = List[RevisionId]
+FileList = list[File]
+RevisionChildren = list[RevisionId]
 
 
 class FileVersion(TypedDict, total=False):
     """Information about a version of a file."""
 
-    commit: Optional[Commit]
-    blobId: Optional[ObjectId]
-    path: Optional[Path]
-    revisionChildren: Optional[RevisionChildren]
+    commit: Commit | None
+    blobId: ObjectId | None
+    path: Path | None
+    revisionChildren: RevisionChildren | None
 
 
 class Folder(TypedDict, total=False):
     """Returns information about a folder in a repository."""
 
-    treeId: Optional[ObjectId]
-    absolutePath: Optional[Path]
-    relativePath: Optional[Path]
+    treeId: ObjectId | None
+    absolutePath: Path | None
+    relativePath: Path | None
 
 
-FolderList = List[Folder]
+FolderList = list[Folder]
 
 
 class GetApprovalRuleTemplateInput(ServiceRequest):
@@ -2912,14 +2912,14 @@ class GetBlobOutput(TypedDict, total=False):
 class GetBranchInput(ServiceRequest):
     """Represents the input of a get branch operation."""
 
-    repositoryName: Optional[RepositoryName]
-    branchName: Optional[BranchName]
+    repositoryName: RepositoryName | None
+    branchName: BranchName | None
 
 
 class GetBranchOutput(TypedDict, total=False):
     """Represents the output of a get branch operation."""
 
-    branch: Optional[BranchInfo]
+    branch: BranchInfo | None
 
 
 class GetCommentInput(ServiceRequest):
@@ -2927,17 +2927,17 @@ class GetCommentInput(ServiceRequest):
 
 
 class GetCommentOutput(TypedDict, total=False):
-    comment: Optional[Comment]
+    comment: Comment | None
 
 
 class GetCommentReactionsInput(ServiceRequest):
     commentId: CommentId
-    reactionUserArn: Optional[Arn]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    reactionUserArn: Arn | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
-ReactionUsersList = List[Arn]
+ReactionUsersList = list[Arn]
 
 
 class ReactionValueFormats(TypedDict, total=False):
@@ -2945,52 +2945,52 @@ class ReactionValueFormats(TypedDict, total=False):
     supports a limited set of reactions.
     """
 
-    emoji: Optional[ReactionEmoji]
-    shortCode: Optional[ReactionShortCode]
-    unicode: Optional[ReactionUnicode]
+    emoji: ReactionEmoji | None
+    shortCode: ReactionShortCode | None
+    unicode: ReactionUnicode | None
 
 
 class ReactionForComment(TypedDict, total=False):
     """Information about the reaction values provided by users on a comment."""
 
-    reaction: Optional[ReactionValueFormats]
-    reactionUsers: Optional[ReactionUsersList]
-    reactionsFromDeletedUsersCount: Optional[Count]
+    reaction: ReactionValueFormats | None
+    reactionUsers: ReactionUsersList | None
+    reactionsFromDeletedUsersCount: Count | None
 
 
-ReactionsForCommentList = List[ReactionForComment]
+ReactionsForCommentList = list[ReactionForComment]
 
 
 class GetCommentReactionsOutput(TypedDict, total=False):
     reactionsForComment: ReactionsForCommentList
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class GetCommentsForComparedCommitInput(ServiceRequest):
     repositoryName: RepositoryName
-    beforeCommitId: Optional[CommitId]
+    beforeCommitId: CommitId | None
     afterCommitId: CommitId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class GetCommentsForComparedCommitOutput(TypedDict, total=False):
-    commentsForComparedCommitData: Optional[CommentsForComparedCommitData]
-    nextToken: Optional[NextToken]
+    commentsForComparedCommitData: CommentsForComparedCommitData | None
+    nextToken: NextToken | None
 
 
 class GetCommentsForPullRequestInput(ServiceRequest):
     pullRequestId: PullRequestId
-    repositoryName: Optional[RepositoryName]
-    beforeCommitId: Optional[CommitId]
-    afterCommitId: Optional[CommitId]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    repositoryName: RepositoryName | None
+    beforeCommitId: CommitId | None
+    afterCommitId: CommitId | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class GetCommentsForPullRequestOutput(TypedDict, total=False):
-    commentsForPullRequestData: Optional[CommentsForPullRequestData]
-    nextToken: Optional[NextToken]
+    commentsForPullRequestData: CommentsForPullRequestData | None
+    nextToken: NextToken | None
 
 
 class GetCommitInput(ServiceRequest):
@@ -3008,22 +3008,22 @@ class GetCommitOutput(TypedDict, total=False):
 
 class GetDifferencesInput(ServiceRequest):
     repositoryName: RepositoryName
-    beforeCommitSpecifier: Optional[CommitName]
+    beforeCommitSpecifier: CommitName | None
     afterCommitSpecifier: CommitName
-    beforePath: Optional[Path]
-    afterPath: Optional[Path]
-    MaxResults: Optional[Limit]
-    NextToken: Optional[NextToken]
+    beforePath: Path | None
+    afterPath: Path | None
+    MaxResults: Limit | None
+    NextToken: NextToken | None
 
 
 class GetDifferencesOutput(TypedDict, total=False):
-    differences: Optional[DifferenceList]
-    NextToken: Optional[NextToken]
+    differences: DifferenceList | None
+    NextToken: NextToken | None
 
 
 class GetFileInput(ServiceRequest):
     repositoryName: RepositoryName
-    commitSpecifier: Optional[CommitName]
+    commitSpecifier: CommitName | None
     filePath: Path
 
 
@@ -3041,56 +3041,56 @@ class GetFileOutput(TypedDict, total=False):
 
 class GetFolderInput(ServiceRequest):
     repositoryName: RepositoryName
-    commitSpecifier: Optional[CommitName]
+    commitSpecifier: CommitName | None
     folderPath: Path
 
 
 class SubModule(TypedDict, total=False):
     """Returns information about a submodule reference in a repository folder."""
 
-    commitId: Optional[ObjectId]
-    absolutePath: Optional[Path]
-    relativePath: Optional[Path]
+    commitId: ObjectId | None
+    absolutePath: Path | None
+    relativePath: Path | None
 
 
-SubModuleList = List[SubModule]
+SubModuleList = list[SubModule]
 
 
 class SymbolicLink(TypedDict, total=False):
     """Returns information about a symbolic link in a repository folder."""
 
-    blobId: Optional[ObjectId]
-    absolutePath: Optional[Path]
-    relativePath: Optional[Path]
-    fileMode: Optional[FileModeTypeEnum]
+    blobId: ObjectId | None
+    absolutePath: Path | None
+    relativePath: Path | None
+    fileMode: FileModeTypeEnum | None
 
 
-SymbolicLinkList = List[SymbolicLink]
+SymbolicLinkList = list[SymbolicLink]
 
 
 class GetFolderOutput(TypedDict, total=False):
     commitId: ObjectId
     folderPath: Path
-    treeId: Optional[ObjectId]
-    subFolders: Optional[FolderList]
-    files: Optional[FileList]
-    symbolicLinks: Optional[SymbolicLinkList]
-    subModules: Optional[SubModuleList]
+    treeId: ObjectId | None
+    subFolders: FolderList | None
+    files: FileList | None
+    symbolicLinks: SymbolicLinkList | None
+    subModules: SubModuleList | None
 
 
 class GetMergeCommitInput(ServiceRequest):
     repositoryName: RepositoryName
     sourceCommitSpecifier: CommitName
     destinationCommitSpecifier: CommitName
-    conflictDetailLevel: Optional[ConflictDetailLevelTypeEnum]
-    conflictResolutionStrategy: Optional[ConflictResolutionStrategyTypeEnum]
+    conflictDetailLevel: ConflictDetailLevelTypeEnum | None
+    conflictResolutionStrategy: ConflictResolutionStrategyTypeEnum | None
 
 
 class GetMergeCommitOutput(TypedDict, total=False):
-    sourceCommitId: Optional[ObjectId]
-    destinationCommitId: Optional[ObjectId]
-    baseCommitId: Optional[ObjectId]
-    mergedCommitId: Optional[ObjectId]
+    sourceCommitId: ObjectId | None
+    destinationCommitId: ObjectId | None
+    baseCommitId: ObjectId | None
+    mergedCommitId: ObjectId | None
 
 
 class GetMergeConflictsInput(ServiceRequest):
@@ -3098,30 +3098,30 @@ class GetMergeConflictsInput(ServiceRequest):
     destinationCommitSpecifier: CommitName
     sourceCommitSpecifier: CommitName
     mergeOption: MergeOptionTypeEnum
-    conflictDetailLevel: Optional[ConflictDetailLevelTypeEnum]
-    maxConflictFiles: Optional[MaxResults]
-    conflictResolutionStrategy: Optional[ConflictResolutionStrategyTypeEnum]
-    nextToken: Optional[NextToken]
+    conflictDetailLevel: ConflictDetailLevelTypeEnum | None
+    maxConflictFiles: MaxResults | None
+    conflictResolutionStrategy: ConflictResolutionStrategyTypeEnum | None
+    nextToken: NextToken | None
 
 
 class GetMergeConflictsOutput(TypedDict, total=False):
     mergeable: IsMergeable
     destinationCommitId: ObjectId
     sourceCommitId: ObjectId
-    baseCommitId: Optional[ObjectId]
+    baseCommitId: ObjectId | None
     conflictMetadataList: ConflictMetadataList
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class GetMergeOptionsInput(ServiceRequest):
     repositoryName: RepositoryName
     sourceCommitSpecifier: CommitName
     destinationCommitSpecifier: CommitName
-    conflictDetailLevel: Optional[ConflictDetailLevelTypeEnum]
-    conflictResolutionStrategy: Optional[ConflictResolutionStrategyTypeEnum]
+    conflictDetailLevel: ConflictDetailLevelTypeEnum | None
+    conflictResolutionStrategy: ConflictResolutionStrategyTypeEnum | None
 
 
-MergeOptions = List[MergeOptionTypeEnum]
+MergeOptions = list[MergeOptionTypeEnum]
 
 
 class GetMergeOptionsOutput(TypedDict, total=False):
@@ -3137,7 +3137,7 @@ class GetPullRequestApprovalStatesInput(ServiceRequest):
 
 
 class GetPullRequestApprovalStatesOutput(TypedDict, total=False):
-    approvals: Optional[ApprovalList]
+    approvals: ApprovalList | None
 
 
 class GetPullRequestInput(ServiceRequest):
@@ -3154,8 +3154,8 @@ class GetPullRequestOverrideStateInput(ServiceRequest):
 
 
 class GetPullRequestOverrideStateOutput(TypedDict, total=False):
-    overridden: Optional[Overridden]
-    overrider: Optional[Arn]
+    overridden: Overridden | None
+    overrider: Arn | None
 
 
 class GetRepositoryInput(ServiceRequest):
@@ -3167,7 +3167,7 @@ class GetRepositoryInput(ServiceRequest):
 class GetRepositoryOutput(TypedDict, total=False):
     """Represents the output of a get repository operation."""
 
-    repositoryMetadata: Optional[RepositoryMetadata]
+    repositoryMetadata: RepositoryMetadata | None
 
 
 class GetRepositoryTriggersInput(ServiceRequest):
@@ -3176,7 +3176,7 @@ class GetRepositoryTriggersInput(ServiceRequest):
     repositoryName: RepositoryName
 
 
-RepositoryTriggerEventList = List[RepositoryTriggerEventEnum]
+RepositoryTriggerEventList = list[RepositoryTriggerEventEnum]
 
 
 class RepositoryTrigger(TypedDict, total=False):
@@ -3190,226 +3190,226 @@ class RepositoryTrigger(TypedDict, total=False):
 
     name: RepositoryTriggerName
     destinationArn: Arn
-    customData: Optional[RepositoryTriggerCustomData]
-    branches: Optional[BranchNameList]
+    customData: RepositoryTriggerCustomData | None
+    branches: BranchNameList | None
     events: RepositoryTriggerEventList
 
 
-RepositoryTriggersList = List[RepositoryTrigger]
+RepositoryTriggersList = list[RepositoryTrigger]
 
 
 class GetRepositoryTriggersOutput(TypedDict, total=False):
     """Represents the output of a get repository triggers operation."""
 
-    configurationId: Optional[RepositoryTriggersConfigurationId]
-    triggers: Optional[RepositoryTriggersList]
+    configurationId: RepositoryTriggersConfigurationId | None
+    triggers: RepositoryTriggersList | None
 
 
 class ListApprovalRuleTemplatesInput(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListApprovalRuleTemplatesOutput(TypedDict, total=False):
-    approvalRuleTemplateNames: Optional[ApprovalRuleTemplateNameList]
-    nextToken: Optional[NextToken]
+    approvalRuleTemplateNames: ApprovalRuleTemplateNameList | None
+    nextToken: NextToken | None
 
 
 class ListAssociatedApprovalRuleTemplatesForRepositoryInput(ServiceRequest):
     repositoryName: RepositoryName
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListAssociatedApprovalRuleTemplatesForRepositoryOutput(TypedDict, total=False):
-    approvalRuleTemplateNames: Optional[ApprovalRuleTemplateNameList]
-    nextToken: Optional[NextToken]
+    approvalRuleTemplateNames: ApprovalRuleTemplateNameList | None
+    nextToken: NextToken | None
 
 
 class ListBranchesInput(ServiceRequest):
     """Represents the input of a list branches operation."""
 
     repositoryName: RepositoryName
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListBranchesOutput(TypedDict, total=False):
     """Represents the output of a list branches operation."""
 
-    branches: Optional[BranchNameList]
-    nextToken: Optional[NextToken]
+    branches: BranchNameList | None
+    nextToken: NextToken | None
 
 
 class ListFileCommitHistoryRequest(ServiceRequest):
     repositoryName: RepositoryName
-    commitSpecifier: Optional[CommitName]
+    commitSpecifier: CommitName | None
     filePath: Path
-    maxResults: Optional[Limit]
-    nextToken: Optional[NextToken]
+    maxResults: Limit | None
+    nextToken: NextToken | None
 
 
-RevisionDag = List[FileVersion]
+RevisionDag = list[FileVersion]
 
 
 class ListFileCommitHistoryResponse(TypedDict, total=False):
     revisionDag: RevisionDag
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListPullRequestsInput(ServiceRequest):
     repositoryName: RepositoryName
-    authorArn: Optional[Arn]
-    pullRequestStatus: Optional[PullRequestStatusEnum]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    authorArn: Arn | None
+    pullRequestStatus: PullRequestStatusEnum | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
-PullRequestIdList = List[PullRequestId]
+PullRequestIdList = list[PullRequestId]
 
 
 class ListPullRequestsOutput(TypedDict, total=False):
     pullRequestIds: PullRequestIdList
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListRepositoriesForApprovalRuleTemplateInput(ServiceRequest):
     approvalRuleTemplateName: ApprovalRuleTemplateName
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListRepositoriesForApprovalRuleTemplateOutput(TypedDict, total=False):
-    repositoryNames: Optional[RepositoryNameList]
-    nextToken: Optional[NextToken]
+    repositoryNames: RepositoryNameList | None
+    nextToken: NextToken | None
 
 
 class ListRepositoriesInput(ServiceRequest):
     """Represents the input of a list repositories operation."""
 
-    nextToken: Optional[NextToken]
-    sortBy: Optional[SortByEnum]
-    order: Optional[OrderEnum]
+    nextToken: NextToken | None
+    sortBy: SortByEnum | None
+    order: OrderEnum | None
 
 
 class RepositoryNameIdPair(TypedDict, total=False):
     """Information about a repository name and ID."""
 
-    repositoryName: Optional[RepositoryName]
-    repositoryId: Optional[RepositoryId]
+    repositoryName: RepositoryName | None
+    repositoryId: RepositoryId | None
 
 
-RepositoryNameIdPairList = List[RepositoryNameIdPair]
+RepositoryNameIdPairList = list[RepositoryNameIdPair]
 
 
 class ListRepositoriesOutput(TypedDict, total=False):
     """Represents the output of a list repositories operation."""
 
-    repositories: Optional[RepositoryNameIdPairList]
-    nextToken: Optional[NextToken]
+    repositories: RepositoryNameIdPairList | None
+    nextToken: NextToken | None
 
 
 class ListTagsForResourceInput(ServiceRequest):
     resourceArn: ResourceArn
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListTagsForResourceOutput(TypedDict, total=False):
-    tags: Optional[TagsMap]
-    nextToken: Optional[NextToken]
+    tags: TagsMap | None
+    nextToken: NextToken | None
 
 
 class MergeBranchesByFastForwardInput(ServiceRequest):
     repositoryName: RepositoryName
     sourceCommitSpecifier: CommitName
     destinationCommitSpecifier: CommitName
-    targetBranch: Optional[BranchName]
+    targetBranch: BranchName | None
 
 
 class MergeBranchesByFastForwardOutput(TypedDict, total=False):
-    commitId: Optional[ObjectId]
-    treeId: Optional[ObjectId]
+    commitId: ObjectId | None
+    treeId: ObjectId | None
 
 
 class MergeBranchesBySquashInput(ServiceRequest):
     repositoryName: RepositoryName
     sourceCommitSpecifier: CommitName
     destinationCommitSpecifier: CommitName
-    targetBranch: Optional[BranchName]
-    conflictDetailLevel: Optional[ConflictDetailLevelTypeEnum]
-    conflictResolutionStrategy: Optional[ConflictResolutionStrategyTypeEnum]
-    authorName: Optional[Name]
-    email: Optional[Email]
-    commitMessage: Optional[Message]
-    keepEmptyFolders: Optional[KeepEmptyFolders]
-    conflictResolution: Optional[ConflictResolution]
+    targetBranch: BranchName | None
+    conflictDetailLevel: ConflictDetailLevelTypeEnum | None
+    conflictResolutionStrategy: ConflictResolutionStrategyTypeEnum | None
+    authorName: Name | None
+    email: Email | None
+    commitMessage: Message | None
+    keepEmptyFolders: KeepEmptyFolders | None
+    conflictResolution: ConflictResolution | None
 
 
 class MergeBranchesBySquashOutput(TypedDict, total=False):
-    commitId: Optional[ObjectId]
-    treeId: Optional[ObjectId]
+    commitId: ObjectId | None
+    treeId: ObjectId | None
 
 
 class MergeBranchesByThreeWayInput(ServiceRequest):
     repositoryName: RepositoryName
     sourceCommitSpecifier: CommitName
     destinationCommitSpecifier: CommitName
-    targetBranch: Optional[BranchName]
-    conflictDetailLevel: Optional[ConflictDetailLevelTypeEnum]
-    conflictResolutionStrategy: Optional[ConflictResolutionStrategyTypeEnum]
-    authorName: Optional[Name]
-    email: Optional[Email]
-    commitMessage: Optional[Message]
-    keepEmptyFolders: Optional[KeepEmptyFolders]
-    conflictResolution: Optional[ConflictResolution]
+    targetBranch: BranchName | None
+    conflictDetailLevel: ConflictDetailLevelTypeEnum | None
+    conflictResolutionStrategy: ConflictResolutionStrategyTypeEnum | None
+    authorName: Name | None
+    email: Email | None
+    commitMessage: Message | None
+    keepEmptyFolders: KeepEmptyFolders | None
+    conflictResolution: ConflictResolution | None
 
 
 class MergeBranchesByThreeWayOutput(TypedDict, total=False):
-    commitId: Optional[ObjectId]
-    treeId: Optional[ObjectId]
+    commitId: ObjectId | None
+    treeId: ObjectId | None
 
 
 class MergePullRequestByFastForwardInput(ServiceRequest):
     pullRequestId: PullRequestId
     repositoryName: RepositoryName
-    sourceCommitId: Optional[ObjectId]
+    sourceCommitId: ObjectId | None
 
 
 class MergePullRequestByFastForwardOutput(TypedDict, total=False):
-    pullRequest: Optional[PullRequest]
+    pullRequest: PullRequest | None
 
 
 class MergePullRequestBySquashInput(ServiceRequest):
     pullRequestId: PullRequestId
     repositoryName: RepositoryName
-    sourceCommitId: Optional[ObjectId]
-    conflictDetailLevel: Optional[ConflictDetailLevelTypeEnum]
-    conflictResolutionStrategy: Optional[ConflictResolutionStrategyTypeEnum]
-    commitMessage: Optional[Message]
-    authorName: Optional[Name]
-    email: Optional[Email]
-    keepEmptyFolders: Optional[KeepEmptyFolders]
-    conflictResolution: Optional[ConflictResolution]
+    sourceCommitId: ObjectId | None
+    conflictDetailLevel: ConflictDetailLevelTypeEnum | None
+    conflictResolutionStrategy: ConflictResolutionStrategyTypeEnum | None
+    commitMessage: Message | None
+    authorName: Name | None
+    email: Email | None
+    keepEmptyFolders: KeepEmptyFolders | None
+    conflictResolution: ConflictResolution | None
 
 
 class MergePullRequestBySquashOutput(TypedDict, total=False):
-    pullRequest: Optional[PullRequest]
+    pullRequest: PullRequest | None
 
 
 class MergePullRequestByThreeWayInput(ServiceRequest):
     pullRequestId: PullRequestId
     repositoryName: RepositoryName
-    sourceCommitId: Optional[ObjectId]
-    conflictDetailLevel: Optional[ConflictDetailLevelTypeEnum]
-    conflictResolutionStrategy: Optional[ConflictResolutionStrategyTypeEnum]
-    commitMessage: Optional[Message]
-    authorName: Optional[Name]
-    email: Optional[Email]
-    keepEmptyFolders: Optional[KeepEmptyFolders]
-    conflictResolution: Optional[ConflictResolution]
+    sourceCommitId: ObjectId | None
+    conflictDetailLevel: ConflictDetailLevelTypeEnum | None
+    conflictResolutionStrategy: ConflictResolutionStrategyTypeEnum | None
+    commitMessage: Message | None
+    authorName: Name | None
+    email: Email | None
+    keepEmptyFolders: KeepEmptyFolders | None
+    conflictResolution: ConflictResolution | None
 
 
 class MergePullRequestByThreeWayOutput(TypedDict, total=False):
-    pullRequest: Optional[PullRequest]
+    pullRequest: PullRequest | None
 
 
 class OverridePullRequestApprovalRulesInput(ServiceRequest):
@@ -3420,21 +3420,21 @@ class OverridePullRequestApprovalRulesInput(ServiceRequest):
 
 class PostCommentForComparedCommitInput(ServiceRequest):
     repositoryName: RepositoryName
-    beforeCommitId: Optional[CommitId]
+    beforeCommitId: CommitId | None
     afterCommitId: CommitId
-    location: Optional[Location]
+    location: Location | None
     content: Content
-    clientRequestToken: Optional[ClientRequestToken]
+    clientRequestToken: ClientRequestToken | None
 
 
 class PostCommentForComparedCommitOutput(TypedDict, total=False):
-    repositoryName: Optional[RepositoryName]
-    beforeCommitId: Optional[CommitId]
-    afterCommitId: Optional[CommitId]
-    beforeBlobId: Optional[ObjectId]
-    afterBlobId: Optional[ObjectId]
-    location: Optional[Location]
-    comment: Optional[Comment]
+    repositoryName: RepositoryName | None
+    beforeCommitId: CommitId | None
+    afterCommitId: CommitId | None
+    beforeBlobId: ObjectId | None
+    afterBlobId: ObjectId | None
+    location: Location | None
+    comment: Comment | None
 
 
 class PostCommentForPullRequestInput(ServiceRequest):
@@ -3442,30 +3442,30 @@ class PostCommentForPullRequestInput(ServiceRequest):
     repositoryName: RepositoryName
     beforeCommitId: CommitId
     afterCommitId: CommitId
-    location: Optional[Location]
+    location: Location | None
     content: Content
-    clientRequestToken: Optional[ClientRequestToken]
+    clientRequestToken: ClientRequestToken | None
 
 
 class PostCommentForPullRequestOutput(TypedDict, total=False):
-    repositoryName: Optional[RepositoryName]
-    pullRequestId: Optional[PullRequestId]
-    beforeCommitId: Optional[CommitId]
-    afterCommitId: Optional[CommitId]
-    beforeBlobId: Optional[ObjectId]
-    afterBlobId: Optional[ObjectId]
-    location: Optional[Location]
-    comment: Optional[Comment]
+    repositoryName: RepositoryName | None
+    pullRequestId: PullRequestId | None
+    beforeCommitId: CommitId | None
+    afterCommitId: CommitId | None
+    beforeBlobId: ObjectId | None
+    afterBlobId: ObjectId | None
+    location: Location | None
+    comment: Comment | None
 
 
 class PostCommentReplyInput(ServiceRequest):
     inReplyTo: CommentId
-    clientRequestToken: Optional[ClientRequestToken]
+    clientRequestToken: ClientRequestToken | None
     content: Content
 
 
 class PostCommentReplyOutput(TypedDict, total=False):
-    comment: Optional[Comment]
+    comment: Comment | None
 
 
 class PutCommentReactionInput(ServiceRequest):
@@ -3478,11 +3478,11 @@ class PutFileInput(ServiceRequest):
     branchName: BranchName
     fileContent: FileContent
     filePath: Path
-    fileMode: Optional[FileModeTypeEnum]
-    parentCommitId: Optional[CommitId]
-    commitMessage: Optional[Message]
-    name: Optional[Name]
-    email: Optional[Email]
+    fileMode: FileModeTypeEnum | None
+    parentCommitId: CommitId | None
+    commitMessage: Message | None
+    name: Name | None
+    email: Email | None
 
 
 class PutFileOutput(TypedDict, total=False):
@@ -3501,19 +3501,19 @@ class PutRepositoryTriggersInput(ServiceRequest):
 class PutRepositoryTriggersOutput(TypedDict, total=False):
     """Represents the output of a put repository triggers operation."""
 
-    configurationId: Optional[RepositoryTriggersConfigurationId]
+    configurationId: RepositoryTriggersConfigurationId | None
 
 
 class RepositoryTriggerExecutionFailure(TypedDict, total=False):
     """A trigger failed to run."""
 
-    trigger: Optional[RepositoryTriggerName]
-    failureMessage: Optional[RepositoryTriggerExecutionFailureMessage]
+    trigger: RepositoryTriggerName | None
+    failureMessage: RepositoryTriggerExecutionFailureMessage | None
 
 
-RepositoryTriggerExecutionFailureList = List[RepositoryTriggerExecutionFailure]
-RepositoryTriggerNameList = List[RepositoryTriggerName]
-TagKeysList = List[TagKey]
+RepositoryTriggerExecutionFailureList = list[RepositoryTriggerExecutionFailure]
+RepositoryTriggerNameList = list[RepositoryTriggerName]
+TagKeysList = list[TagKey]
 
 
 class TagResourceInput(ServiceRequest):
@@ -3531,8 +3531,8 @@ class TestRepositoryTriggersInput(ServiceRequest):
 class TestRepositoryTriggersOutput(TypedDict, total=False):
     """Represents the output of a test repository triggers operation."""
 
-    successfulExecutions: Optional[RepositoryTriggerNameList]
-    failedExecutions: Optional[RepositoryTriggerExecutionFailureList]
+    successfulExecutions: RepositoryTriggerNameList | None
+    failedExecutions: RepositoryTriggerExecutionFailureList | None
 
 
 class UntagResourceInput(ServiceRequest):
@@ -3543,7 +3543,7 @@ class UntagResourceInput(ServiceRequest):
 class UpdateApprovalRuleTemplateContentInput(ServiceRequest):
     approvalRuleTemplateName: ApprovalRuleTemplateName
     newRuleContent: ApprovalRuleTemplateContent
-    existingRuleContentSha256: Optional[RuleContentSha256]
+    existingRuleContentSha256: RuleContentSha256 | None
 
 
 class UpdateApprovalRuleTemplateContentOutput(TypedDict, total=False):
@@ -3574,7 +3574,7 @@ class UpdateCommentInput(ServiceRequest):
 
 
 class UpdateCommentOutput(TypedDict, total=False):
-    comment: Optional[Comment]
+    comment: Comment | None
 
 
 class UpdateDefaultBranchInput(ServiceRequest):
@@ -3587,7 +3587,7 @@ class UpdateDefaultBranchInput(ServiceRequest):
 class UpdatePullRequestApprovalRuleContentInput(ServiceRequest):
     pullRequestId: PullRequestId
     approvalRuleName: ApprovalRuleName
-    existingRuleContentSha256: Optional[RuleContentSha256]
+    existingRuleContentSha256: RuleContentSha256 | None
     newRuleContent: ApprovalRuleContent
 
 
@@ -3632,7 +3632,7 @@ class UpdateRepositoryDescriptionInput(ServiceRequest):
     """Represents the input of an update repository description operation."""
 
     repositoryName: RepositoryName
-    repositoryDescription: Optional[RepositoryDescription]
+    repositoryDescription: RepositoryDescription | None
 
 
 class UpdateRepositoryEncryptionKeyInput(ServiceRequest):
@@ -3641,9 +3641,9 @@ class UpdateRepositoryEncryptionKeyInput(ServiceRequest):
 
 
 class UpdateRepositoryEncryptionKeyOutput(TypedDict, total=False):
-    repositoryId: Optional[RepositoryId]
-    kmsKeyId: Optional[KmsKeyId]
-    originalKmsKeyId: Optional[KmsKeyId]
+    repositoryId: RepositoryId | None
+    kmsKeyId: KmsKeyId | None
+    originalKmsKeyId: KmsKeyId | None
 
 
 class UpdateRepositoryNameInput(ServiceRequest):
@@ -3654,8 +3654,8 @@ class UpdateRepositoryNameInput(ServiceRequest):
 
 
 class CodecommitApi:
-    service = "codecommit"
-    version = "2015-04-13"
+    service: str = "codecommit"
+    version: str = "2015-04-13"
 
     @handler("AssociateApprovalRuleTemplateWithRepository")
     def associate_approval_rule_template_with_repository(

@@ -16,7 +16,6 @@ short_description: Group-by variables.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -130,9 +129,9 @@ EXAMPLES = '''
         group: 1 # group-id
         state: present
         system_report_group_groupby:
-          var-expression: "ansible"
-          var-name: vd
-          var-type: string # <value in [integer, string, enum, ...]>
+          var_expression: "ansible"
+          var_name: vd
+          var_type: string # <value in [integer, string, enum, ...]>
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers
@@ -149,7 +148,7 @@ EXAMPLES = '''
           selector: "system_report_group_groupby"
           params:
             group: "1" # group-id
-            group-by: "your_value"
+            group_by: "your_value"
 '''
 
 RETURN = '''

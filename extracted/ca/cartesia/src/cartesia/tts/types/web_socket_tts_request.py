@@ -4,6 +4,7 @@ from ...core.pydantic_utilities import UniversalBaseModel
 import pydantic
 import typing
 from .output_format import OutputFormat
+from .generation_config import GenerationConfig
 from .tts_request_voice_specifier import TtsRequestVoiceSpecifier
 import typing_extensions
 from ...core.serialization import FieldMetadata
@@ -18,6 +19,7 @@ class WebSocketTtsRequest(UniversalBaseModel):
     """
 
     output_format: typing.Optional[OutputFormat] = None
+    generation_config: typing.Optional[GenerationConfig] = None
     transcript: typing.Optional[str] = None
     voice: TtsRequestVoiceSpecifier
     duration: typing.Optional[int] = None
@@ -37,6 +39,10 @@ class WebSocketTtsRequest(UniversalBaseModel):
     context_id: typing.Optional[str] = None
     max_buffer_delay_ms: typing.Optional[int] = None
     speed: typing.Optional[ModelSpeed] = None
+    pronunciation_dict_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    A pronunciation dict ID to use for the generation. This will be applied to this TTS generation only.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

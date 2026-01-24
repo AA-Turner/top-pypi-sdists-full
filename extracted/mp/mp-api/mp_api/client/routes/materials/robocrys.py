@@ -6,7 +6,7 @@ from mp_api.client.core import BaseRester, MPRestError
 from mp_api.client.core.utils import validate_ids
 
 
-class RobocrysRester(BaseRester[RobocrystallogapherDoc]):
+class RobocrysRester(BaseRester):
     suffix = "materials/robocrys"
     document_model = RobocrystallogapherDoc  # type: ignore
     primary_key = "material_id"
@@ -32,7 +32,7 @@ class RobocrysRester(BaseRester[RobocrystallogapherDoc]):
         robocrys_docs = self._query_resource(
             criteria={"keywords": keyword_string, "_limit": chunk_size},
             suburl="text_search",
-            use_document_model=True,
+            use_document_model=self.use_document_model,
             chunk_size=chunk_size,
             num_chunks=num_chunks,
         ).get("data", None)

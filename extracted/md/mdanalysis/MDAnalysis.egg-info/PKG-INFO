@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: MDAnalysis
-Version: 2.9.0
+Version: 2.10.0
 Summary: An object-oriented toolkit to analyze molecular dynamics trajectories.
 Author-email: MDAnalysis Development Team <mdanalysis@numfocus.org>
 Maintainer-email: MDAnalysis Core Developers <mdanalysis@numfocus.org>
@@ -1659,21 +1659,21 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: C
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides: MDAnalysis
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: numpy>=1.23.2
+Requires-Dist: numpy>=1.26.0
 Requires-Dist: GridDataFormats>=0.4.0
 Requires-Dist: mmtf-python>=1.0.0
 Requires-Dist: joblib>=0.12
@@ -1692,7 +1692,8 @@ Requires-Dist: parmed; extra == "extra-formats"
 Requires-Dist: pyedr>=0.7.0; extra == "extra-formats"
 Requires-Dist: pytng>=0.2.3; extra == "extra-formats"
 Requires-Dist: gsd>3.0.0; extra == "extra-formats"
-Requires-Dist: rdkit>=2020.03.1; extra == "extra-formats"
+Requires-Dist: rdkit>=2022.09.1; extra == "extra-formats"
+Requires-Dist: imdclient>=0.2.2; extra == "extra-formats"
 Provides-Extra: analysis
 Requires-Dist: biopython>=1.80; extra == "analysis"
 Requires-Dist: seaborn; extra == "analysis"
@@ -1713,6 +1714,7 @@ Provides-Extra: parallel
 Requires-Dist: dask; extra == "parallel"
 Dynamic: description
 Dynamic: description-content-type
+Dynamic: license-file
 Dynamic: provides
 
 
@@ -1722,11 +1724,11 @@ Dynamic: provides
 
 |docs| |devdocs| |discussions|
 
-|anaconda| |asv|
+|pypi| |anaconda| |asv|
 
 MDAnalysis_ is a Python library for the analysis of computer simulations of many-body systems at the molecular scale, spanning use cases from interactions of drugs with proteins to novel materials. It is widely used in the scientific community and is written by scientists for scientists. 
 
-It works with a wide range of popular simulation packages including Gromacs, Amber, NAMD, CHARMM, DL_Poly, HooMD, LAMMPS and many others — see the lists of supported `trajectory formats`_ and `topology formats`_.
+It works with a wide range of popular simulation packages including GROMACS, Amber, NAMD, CHARMM, DL_POLY, HOOMD, LAMMPS and many others — see the lists of supported `trajectory formats`_ and `topology formats`_.
 MDAnalysis also includes widely used analysis algorithms in the `MDAnalysis.analysis`_ module.
 
 .. _numfocus-fiscal-sponsor-attribution:
@@ -1833,9 +1835,9 @@ For citations of included algorithms and sub-modules please see the references_.
 
 
 .. _NumFOCUS: https://numfocus.org/
-.. _open governance model: https://www.mdanalysis.org/about/#governance
+.. _open governance model: https://www.mdanalysis.org/pages/governance/
 .. _tax-deductible donation: https://numfocus.org/donate-to-mdanalysis
-.. _`Code of Conduct`: https://www.mdanalysis.org/pages/conduct/
+.. _`Code of Conduct`: https://www.mdanalysis.org/conduct/
 .. _trajectory formats: https://docs.mdanalysis.org/documentation_pages/coordinates/init.html#id1
 .. _topology formats: https://docs.mdanalysis.org/documentation_pages/topology/init.html#supported-topology-formats
 .. _MDAnalysis: https://www.mdanalysis.org
@@ -1892,6 +1894,10 @@ For citations of included algorithms and sub-modules please see the references_.
 .. |cov|   image:: https://codecov.io/gh/MDAnalysis/mdanalysis/branch/develop/graph/badge.svg
    :alt: Coverage Status
    :target: https://codecov.io/gh/MDAnalysis/mdanalysis
+
+.. |pypi| image:: https://img.shields.io/pypi/v/MDAnalysis
+   :alt: PyPI Version
+   :target: https://pypi.org/project/MDAnalysis/
 
 .. |anaconda| image:: https://anaconda.org/conda-forge/mdanalysis/badges/version.svg
    :alt: Anaconda

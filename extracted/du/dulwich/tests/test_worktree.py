@@ -27,8 +27,8 @@ import stat
 import tempfile
 from unittest import skipIf
 
-from dulwich import porcelain
 from dulwich.errors import CommitError
+from dulwich.index import get_unstaged_changes as _get_unstaged_changes
 from dulwich.object_store import tree_lookup_path
 from dulwich.repo import Repo
 from dulwich.worktree import (
@@ -39,10 +39,20 @@ from dulwich.worktree import (
     move_worktree,
     prune_worktrees,
     remove_worktree,
+    repair_worktree,
+    temporary_worktree,
     unlock_worktree,
 )
 
 from . import TestCase
+
+
+def get_unstaged_changes(repo):
+    """Helper to get unstaged changes for a repo."""
+    index = repo.open_index()
+    normalizer = repo.get_blob_normalizer()
+    filter_callback = normalizer.checkin_normalize if normalizer else None
+    return list(_get_unstaged_changes(index, repo.path, filter_callback, False))
 
 
 class WorkTreeTestCase(TestCase):
@@ -164,9 +174,8 @@ class WorkTreeUnstagingTests(WorkTreeTestCase):
 
         with open(full_path, "w") as f:
             f.write("hello")
-        porcelain.add(self.repo, paths=[full_path])
-        porcelain.commit(
-            self.repo,
+        self.worktree.stage(["new_dir/foo"])
+        self.worktree.commit(
             message=b"unittest",
             committer=b"Jane <jane@example.com>",
             author=b"John <john@example.com>",
@@ -174,10 +183,9 @@ class WorkTreeUnstagingTests(WorkTreeTestCase):
         with open(full_path, "a") as f:
             f.write("something new")
         self.worktree.unstage(["new_dir/foo"])
-        status = list(porcelain.status(self.repo))
-        self.assertEqual(
-            [{"add": [], "delete": [], "modify": []}, [b"new_dir/foo"], []], status
-        )
+
+        unstaged = get_unstaged_changes(self.repo)
+        self.assertEqual([b"new_dir/foo"], unstaged)
 
     def test_unstage_while_no_commit(self):
         """Test unstaging when there are no commits."""
@@ -185,27 +193,30 @@ class WorkTreeUnstagingTests(WorkTreeTestCase):
         full_path = os.path.join(self.repo.path, file)
         with open(full_path, "w") as f:
             f.write("hello")
-        porcelain.add(self.repo, paths=[full_path])
+        self.worktree.stage([file])
         self.worktree.unstage([file])
-        status = list(porcelain.status(self.repo))
-        self.assertEqual([{"add": [], "delete": [], "modify": []}, [], ["foo"]], status)
+
+        # Check that file is no longer in index
+        index = self.repo.open_index()
+        self.assertNotIn(b"foo", index)
 
     def test_unstage_add_file(self):
         """Test unstaging a newly added file."""
         file = "foo"
         full_path = os.path.join(self.repo.path, file)
-        porcelain.commit(
-            self.repo,
+        self.worktree.commit(
             message=b"unittest",
             committer=b"Jane <jane@example.com>",
             author=b"John <john@example.com>",
         )
         with open(full_path, "w") as f:
             f.write("hello")
-        porcelain.add(self.repo, paths=[full_path])
+        self.worktree.stage([file])
         self.worktree.unstage([file])
-        status = list(porcelain.status(self.repo))
-        self.assertEqual([{"add": [], "delete": [], "modify": []}, [], ["foo"]], status)
+
+        # Check that file is no longer in index
+        index = self.repo.open_index()
+        self.assertNotIn(b"foo", index)
 
     def test_unstage_modify_file(self):
         """Test unstaging a modified file."""
@@ -213,22 +224,19 @@ class WorkTreeUnstagingTests(WorkTreeTestCase):
         full_path = os.path.join(self.repo.path, file)
         with open(full_path, "w") as f:
             f.write("hello")
-        porcelain.add(self.repo, paths=[full_path])
-        porcelain.commit(
-            self.repo,
+        self.worktree.stage([file])
+        self.worktree.commit(
             message=b"unittest",
             committer=b"Jane <jane@example.com>",
             author=b"John <john@example.com>",
         )
         with open(full_path, "a") as f:
             f.write("broken")
-        porcelain.add(self.repo, paths=[full_path])
+        self.worktree.stage([file])
         self.worktree.unstage([file])
-        status = list(porcelain.status(self.repo))
 
-        self.assertEqual(
-            [{"add": [], "delete": [], "modify": []}, [b"foo"], []], status
-        )
+        unstaged = get_unstaged_changes(self.repo)
+        self.assertEqual([os.fsencode("foo")], unstaged)
 
     def test_unstage_remove_file(self):
         """Test unstaging a removed file."""
@@ -236,19 +244,17 @@ class WorkTreeUnstagingTests(WorkTreeTestCase):
         full_path = os.path.join(self.repo.path, file)
         with open(full_path, "w") as f:
             f.write("hello")
-        porcelain.add(self.repo, paths=[full_path])
-        porcelain.commit(
-            self.repo,
+        self.worktree.stage([file])
+        self.worktree.commit(
             message=b"unittest",
             committer=b"Jane <jane@example.com>",
             author=b"John <john@example.com>",
         )
         os.remove(full_path)
         self.worktree.unstage([file])
-        status = list(porcelain.status(self.repo))
-        self.assertEqual(
-            [{"add": [], "delete": [], "modify": []}, [b"foo"], []], status
-        )
+
+        unstaged = get_unstaged_changes(self.repo)
+        self.assertEqual([os.fsencode("foo")], unstaged)
 
 
 class WorkTreeCommitTests(WorkTreeTestCase):
@@ -383,56 +389,6 @@ class WorkTreeSparseCheckoutTests(WorkTreeTestCase):
 
 class WorkTreeBackwardCompatibilityTests(WorkTreeTestCase):
     """Tests for backward compatibility of deprecated Repo methods."""
-
-    def test_deprecated_stage_delegates_to_worktree(self):
-        """Test that deprecated Repo.stage delegates to WorkTree."""
-        with open(os.path.join(self.repo.path, "new_file"), "w") as f:
-            f.write("test content")
-
-        # This should show a deprecation warning but still work
-        import warnings
-
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            self.repo.stage(
-                ["new_file"]
-            )  # Call deprecated method on Repo, not WorkTree
-            self.assertTrue(len(w) > 0)
-            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
-
-    def test_deprecated_unstage_delegates_to_worktree(self):
-        """Test that deprecated Repo.unstage delegates to WorkTree."""
-        # This should show a deprecation warning but still work
-        import warnings
-
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            self.repo.unstage(["a"])  # Call deprecated method on Repo, not WorkTree
-            self.assertTrue(len(w) > 0)
-            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
-
-    def test_deprecated_sparse_checkout_methods(self):
-        """Test that deprecated sparse checkout methods delegate to WorkTree."""
-        import warnings
-
-        # Test get_sparse_checkout_patterns
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            patterns = (
-                self.repo.get_sparse_checkout_patterns()
-            )  # Call deprecated method on Repo
-            self.assertEqual([], patterns)
-            self.assertTrue(len(w) > 0)
-            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
-
-        # Test set_sparse_checkout_patterns
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            self.repo.set_sparse_checkout_patterns(
-                ["*.py"]
-            )  # Call deprecated method on Repo
-            self.assertTrue(len(w) > 0)
-            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
 
     def test_pre_commit_hook_fail(self):
         """Test that failing pre-commit hook raises CommitError."""
@@ -719,3 +675,285 @@ class WorkTreeOperationsTests(WorkTreeTestCase):
         with self.assertRaises(ValueError) as cm:
             move_worktree(self.repo, wt_path, new_path)
         self.assertIn("Path already exists", str(cm.exception))
+
+    def test_repair_worktree_after_manual_move(self) -> None:
+        """Test repairing a worktree after manually moving it."""
+        # Create a worktree
+        wt_path = os.path.join(self.tempdir, "original")
+        add_worktree(self.repo, wt_path)
+
+        # Manually move the worktree directory (simulating external move)
+        new_path = os.path.join(self.tempdir, "moved")
+        shutil.move(wt_path, new_path)
+
+        # At this point, the connection is broken
+        # Repair from the moved worktree
+        repaired = repair_worktree(self.repo, paths=[new_path])
+
+        # Should have repaired the worktree
+        self.assertEqual(len(repaired), 1)
+        self.assertEqual(repaired[0], new_path)
+
+        # Verify the worktree is now properly connected
+        worktrees = list_worktrees(self.repo)
+        paths = [wt.path for wt in worktrees]
+        self.assertIn(new_path, paths)
+
+    def test_repair_worktree_from_main_repo(self) -> None:
+        """Test repairing worktree connections from main repository."""
+        # Create a worktree
+        wt_path = os.path.join(self.tempdir, "worktree")
+        add_worktree(self.repo, wt_path)
+
+        # Read the .git file to get the control directory
+        gitdir_file = os.path.join(wt_path, ".git")
+        with open(gitdir_file, "rb") as f:
+            content = f.read().strip()
+            control_dir = content[8:].decode()  # Remove "gitdir: " prefix
+
+        # Manually corrupt the .git file to point to wrong location
+        with open(gitdir_file, "wb") as f:
+            f.write(b"gitdir: /wrong/path\n")
+
+        # Repair from main repository
+        repaired = repair_worktree(self.repo)
+
+        # Should have repaired the connection
+        self.assertEqual(len(repaired), 1)
+        self.assertEqual(repaired[0], wt_path)
+
+        # Verify .git file now points to correct location
+        with open(gitdir_file, "rb") as f:
+            content = f.read().strip()
+            new_control_dir = content[8:].decode()
+            self.assertEqual(
+                os.path.abspath(new_control_dir), os.path.abspath(control_dir)
+            )
+
+    def test_repair_worktree_no_repairs_needed(self) -> None:
+        """Test repair when no repairs are needed."""
+        # Create a worktree
+        wt_path = os.path.join(self.tempdir, "worktree")
+        add_worktree(self.repo, wt_path)
+
+        # Repair - should return empty list since nothing is broken
+        repaired = repair_worktree(self.repo)
+        self.assertEqual(len(repaired), 0)
+
+    def test_repair_invalid_worktree_path(self) -> None:
+        """Test that repairing an invalid path raises an error."""
+        with self.assertRaises(ValueError) as cm:
+            repair_worktree(self.repo, paths=["/nonexistent/path"])
+        self.assertIn("Not a valid worktree", str(cm.exception))
+
+    def test_repair_multiple_worktrees(self) -> None:
+        """Test repairing multiple worktrees at once."""
+        # Create two worktrees
+        wt_path1 = os.path.join(self.tempdir, "wt1")
+        wt_path2 = os.path.join(self.tempdir, "wt2")
+        add_worktree(self.repo, wt_path1, branch=b"branch1")
+        add_worktree(self.repo, wt_path2, branch=b"branch2")
+
+        # Manually move both worktrees
+        new_path1 = os.path.join(self.tempdir, "moved1")
+        new_path2 = os.path.join(self.tempdir, "moved2")
+        shutil.move(wt_path1, new_path1)
+        shutil.move(wt_path2, new_path2)
+
+        # Repair both at once
+        repaired = repair_worktree(self.repo, paths=[new_path1, new_path2])
+
+        # Both should be repaired
+        self.assertEqual(len(repaired), 2)
+        self.assertIn(new_path1, repaired)
+        self.assertIn(new_path2, repaired)
+
+    def test_repair_worktree_with_relative_paths(self) -> None:
+        """Test that repair handles worktrees with relative paths in gitdir."""
+        # Create a worktree
+        wt_path = os.path.join(self.tempdir, "worktree")
+        add_worktree(self.repo, wt_path)
+
+        # Manually move the worktree
+        new_path = os.path.join(self.tempdir, "new-location")
+        shutil.move(wt_path, new_path)
+
+        # Repair from the new location
+        repaired = repair_worktree(self.repo, paths=[new_path])
+
+        # Should have repaired successfully
+        self.assertEqual(len(repaired), 1)
+        self.assertEqual(repaired[0], new_path)
+
+        # Verify the gitdir pointer was updated
+        from dulwich.repo import GITDIR, WORKTREES
+
+        worktrees_dir = os.path.join(self.repo.controldir(), WORKTREES)
+        for entry in os.listdir(worktrees_dir):
+            gitdir_path = os.path.join(worktrees_dir, entry, GITDIR)
+            if os.path.exists(gitdir_path):
+                with open(gitdir_path, "rb") as f:
+                    content = f.read().strip()
+                    gitdir_location = os.fsdecode(content)
+                    # Should point to the new .git file location
+                    self.assertTrue(gitdir_location.endswith(".git"))
+
+    def test_repair_worktree_container_method(self) -> None:
+        """Test the WorkTreeContainer.repair() method."""
+        # Create a worktree
+        wt_path = os.path.join(self.tempdir, "worktree")
+        add_worktree(self.repo, wt_path)
+
+        # Manually move it
+        new_path = os.path.join(self.tempdir, "moved")
+        shutil.move(wt_path, new_path)
+
+        # Use the container method to repair
+        repaired = self.repo.worktrees.repair(paths=[new_path])
+
+        # Should have repaired
+        self.assertEqual(len(repaired), 1)
+        self.assertEqual(repaired[0], new_path)
+
+    def test_repair_with_missing_gitdir_pointer(self) -> None:
+        """Test repair when gitdir pointer file is missing."""
+        # Create a worktree
+        wt_path = os.path.join(self.tempdir, "worktree")
+        add_worktree(self.repo, wt_path)
+
+        # Find and remove the gitdir pointer file
+        from dulwich.repo import GITDIR, WORKTREES
+
+        worktrees_dir = os.path.join(self.repo.controldir(), WORKTREES)
+        for entry in os.listdir(worktrees_dir):
+            gitdir_path = os.path.join(worktrees_dir, entry, GITDIR)
+            if os.path.exists(gitdir_path):
+                os.remove(gitdir_path)
+
+        # Repair should not crash, but won't repair anything
+        repaired = repair_worktree(self.repo, paths=[wt_path])
+        self.assertEqual(len(repaired), 0)
+
+    def test_repair_worktree_with_corrupted_git_file(self) -> None:
+        """Test repair with a corrupted .git file."""
+        # Create a worktree
+        wt_path = os.path.join(self.tempdir, "worktree")
+        add_worktree(self.repo, wt_path)
+
+        # Corrupt the .git file
+        gitdir_file = os.path.join(wt_path, ".git")
+        with open(gitdir_file, "wb") as f:
+            f.write(b"invalid content\n")
+
+        # Attempting to repair should raise an error
+        with self.assertRaises(ValueError) as cm:
+            repair_worktree(self.repo, paths=[wt_path])
+        self.assertIn("Invalid .git file", str(cm.exception))
+
+
+class TemporaryWorktreeTests(TestCase):
+    """Tests for temporary_worktree context manager."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.tempdir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tempdir)
+        self.repo_path = os.path.join(self.tempdir, "repo")
+        self.repo = Repo.init(self.repo_path, mkdir=True)
+
+        # Create an initial commit so HEAD exists
+        readme_path = os.path.join(self.repo_path, "README.md")
+        with open(readme_path, "w") as f:
+            f.write("# Test Repository\n")
+        wt = self.repo.get_worktree()
+        wt.stage(["README.md"])
+        wt.commit(message=b"Initial commit")
+
+    def test_temporary_worktree_creates_and_cleans_up(self) -> None:
+        """Test that temporary worktree is created and cleaned up."""
+        worktree_path = None
+
+        # Use the context manager
+        with temporary_worktree(self.repo) as worktree:
+            worktree_path = worktree.path
+
+            # Check that worktree exists
+            self.assertTrue(os.path.exists(worktree_path))
+
+            # Check that it's in the list of worktrees
+            worktrees = list_worktrees(self.repo)
+            paths = [wt.path for wt in worktrees]
+            self.assertIn(worktree_path, paths)
+
+            # Check that .git file exists in worktree
+            gitdir_file = os.path.join(worktree_path, ".git")
+            self.assertTrue(os.path.exists(gitdir_file))
+
+        # After context manager exits, check cleanup
+        self.assertFalse(os.path.exists(worktree_path))
+
+        # Check that it's no longer in the list of worktrees
+        worktrees = list_worktrees(self.repo)
+        paths = [wt.path for wt in worktrees]
+        self.assertNotIn(worktree_path, paths)
+
+    def test_temporary_worktree_with_custom_prefix(self) -> None:
+        """Test temporary worktree with custom prefix."""
+        custom_prefix = "my-custom-prefix-"
+
+        with temporary_worktree(self.repo, prefix=custom_prefix) as worktree:
+            # Check that the directory name starts with our prefix
+            dirname = os.path.basename(worktree.path)
+            self.assertTrue(dirname.startswith(custom_prefix))
+
+    def test_temporary_worktree_cleanup_on_exception(self) -> None:
+        """Test that cleanup happens even when exception is raised."""
+        worktree_path = None
+
+        class TestException(Exception):
+            pass
+
+        try:
+            with temporary_worktree(self.repo) as worktree:
+                worktree_path = worktree.path
+                self.assertTrue(os.path.exists(worktree_path))
+                raise TestException("Test exception")
+        except TestException:
+            pass
+
+        # Cleanup should still happen
+        self.assertFalse(os.path.exists(worktree_path))
+
+        # Check that it's no longer in the list of worktrees
+        worktrees = list_worktrees(self.repo)
+        paths = [wt.path for wt in worktrees]
+        self.assertNotIn(worktree_path, paths)
+
+    def test_temporary_worktree_operations(self) -> None:
+        """Test that operations can be performed in temporary worktree."""
+        # Create a test file in main repo
+        test_file = os.path.join(self.repo_path, "test.txt")
+        with open(test_file, "w") as f:
+            f.write("Hello, world!")
+
+        wt = self.repo.get_worktree()
+        wt.stage(["test.txt"])
+        wt.commit(message=b"Initial commit")
+
+        with temporary_worktree(self.repo) as worktree:
+            # Check that the file exists in the worktree
+            wt_test_file = os.path.join(worktree.path, "test.txt")
+            self.assertTrue(os.path.exists(wt_test_file))
+
+            # Read and verify content
+            with open(wt_test_file) as f:
+                content = f.read()
+            self.assertEqual(content, "Hello, world!")
+
+            # Make changes in the worktree
+            with open(wt_test_file, "w") as f:
+                f.write("Modified content")
+
+            # Changes should be visible as unstaged
+            unstaged = get_unstaged_changes(worktree)
+            self.assertIn(os.fsencode("test.txt"), unstaged)

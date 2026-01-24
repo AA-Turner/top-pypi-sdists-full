@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-two-factor-auth
-Version: 1.18.0
+Version: 1.18.1
 Summary: Complete Two-Factor Authentication for Django
 Author-email: Bouke Haarsma <bouke@haarsma.eu>
 Maintainer-email: Claude Paroz <claude@2xlibre.net>, Matt Molyneaux <moggers87+git@moggers87.co.uk>

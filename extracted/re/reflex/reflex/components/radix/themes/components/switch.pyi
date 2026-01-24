@@ -18,83 +18,6 @@ class Switch(RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
-        default_checked: Var[bool] | bool | None = None,
-        checked: Var[bool] | bool | None = None,
-        disabled: Var[bool] | bool | None = None,
-        required: Var[bool] | bool | None = None,
-        name: Var[str] | str | None = None,
-        value: Var[str] | str | None = None,
-        size: Breakpoints[str, Literal["1", "2", "3"]]
-        | Literal["1", "2", "3"]
-        | Var[Breakpoints[str, Literal["1", "2", "3"]] | Literal["1", "2", "3"]]
-        | None = None,
-        variant: Literal["classic", "soft", "surface"]
-        | Var[Literal["classic", "soft", "surface"]]
-        | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        high_contrast: Var[bool] | bool | None = None,
-        radius: Literal["full", "none", "small"]
-        | Var[Literal["full", "none", "small"]]
-        | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -131,18 +54,6 @@ class Switch(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior.
-            default_checked: Whether the switch is checked by default
-            checked: Whether the switch is checked
-            disabled: If true, prevent the user from interacting with the switch
-            required: If true, the user must interact with the switch to submit the form
-            name: The name of the switch (when submitting a form)
-            value: The value associated with the "on" position
-            size: Switch size "1" - "4"
-            variant: Variant of switch: "classic" | "surface" | "soft"
-            color_scheme: Override theme color for switch
-            high_contrast: Whether to render the switch with higher contrast color against background
-            radius: Override theme radius for switch: "none" | "small" | "full"
             on_change: Fired when the value of the switch changes
             style: The style of the component.
             key: A unique key for the component.

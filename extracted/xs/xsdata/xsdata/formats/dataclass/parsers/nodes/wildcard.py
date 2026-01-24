@@ -1,5 +1,3 @@
-from typing import Optional
-
 from xsdata.formats.dataclass.models.elements import XmlVar
 from xsdata.formats.dataclass.parsers.mixins import XmlNode
 from xsdata.formats.dataclass.parsers.utils import ParserUtils
@@ -39,7 +37,7 @@ class WildcardNode(XmlNode):
         self.factory = factory
 
     def bind(
-        self, qname: str, text: Optional[str], tail: Optional[str], objects: list
+        self, qname: str, text: str | None, tail: str | None, objects: list
     ) -> bool:
         """Bind the parsed data into a generic element.
 

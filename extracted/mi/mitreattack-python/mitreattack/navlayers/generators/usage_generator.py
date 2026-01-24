@@ -2,6 +2,7 @@
 
 import copy
 from itertools import chain
+from typing import Any
 
 from stix2 import Filter
 
@@ -149,12 +150,13 @@ class UsageLayerGenerator:
             raise StixObjectIsNotValid
         a_id = get_attack_id(matched_obj)
         processed_listing = self.generate_technique_data(raw_data)
-        raw_layer = dict(name=f"{matched_obj['name']} ({matched_obj['id']})", domain=self.domain + "-attack")
+        raw_layer: dict[str, Any] = dict(
+            name=f"{matched_obj['name']} ({matched_obj['id']})", domain=self.domain + "-attack"
+        )
         raw_layer["techniques"] = processed_listing
         output_layer = Layer(raw_layer)
-        if matched_obj["type"] != "x-mitre-data-component":
-            name = matched_obj["name"]
-        else:
+        name = matched_obj["name"]
+        if matched_obj["type"] == "x-mitre-data-component" and matched_obj["id"] in self.source_mapping:
             name = self.source_mapping[matched_obj["id"]]
         output_layer.description = (
             f"{self.domain.capitalize() if len(self.domain) > 3 else self.domain.upper()} "

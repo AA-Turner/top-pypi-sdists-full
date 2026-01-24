@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: volkswagencarnet
-Version: 5.0.2
+Version: 5.4.5
 Summary: Communicate with Volkswagen Connect
 Home-page: https://github.com/robinostlund/volkswagencarnet
 Author: Robin Ostlund
@@ -17,10 +17,13 @@ Requires-Dist: lxml
 Requires-Dist: beautifulsoup4
 Requires-Dist: aiohttp
 Requires-Dist: pyjwt
+Dynamic: license-file
 
 # Volkswagen Carnet
 
 [![buy me a coffee](https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png)](https://www.buymeacoffee.com/robinostlund)
+
+[![buy me a coffee](https://raw.githubusercontent.com/robinostlund/homeassistant-volkswagencarnet/master/resources/stickpin_kofi.jpeg)](https://ko-fi.com/stickpin)
 
 ![Release](https://img.shields.io/github/workflow/status/robinostlund/volkswagencarnet/Release)
 ![PyPi](https://img.shields.io/pypi/v/volkswagencarnet)
@@ -47,6 +50,7 @@ No licence, public domain, no guarantees, feel free to use for anything. Please 
 
 ## Thanks to
 
+- [stickpin](https://github.com/stickpin)
 - [Wez3](https://github.com/wez3)
 - [Reneboer](https://github.com/reneboer)
 - [Tubalainen](https://github.com/tubalainen)
@@ -124,7 +128,12 @@ RESOURCES = [
     'trip_last_average_electric_consumption',
     'trip_last_average_fuel_consumption',
     'trip_last_duration',
-    'trip_last_length'
+    'trip_last_length',
+    'trip_refuel_average_speed',
+    'trip_refuel_average_electric_consumption',
+    'trip_refuel_average_fuel_consumption',
+    'trip_refuel_duration',
+    'trip_refuel_length'
 ]
 
 def is_enabled(attr):

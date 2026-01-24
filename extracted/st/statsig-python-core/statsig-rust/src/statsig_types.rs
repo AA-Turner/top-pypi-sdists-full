@@ -4,6 +4,7 @@ use crate::evaluation::evaluation_types::{
 };
 use crate::event_logging::event_logger::{EventLogger, ExposureTrigger};
 use crate::event_logging::event_queue::queued_layer_param_expo::EnqueueLayerParamExpoOp;
+use crate::interned_string::InternedString;
 use crate::specs_response::param_store_types::Parameter;
 use crate::statsig_core_api_options::ParameterStoreEvaluationOptions;
 use crate::user::StatsigUserLoggable;
@@ -47,6 +48,10 @@ impl DynamicConfig {
             None => None,
         }
     }
+
+    pub fn get_typed_opt(&self, param_name: &str, fallback: Option<Value>) -> Option<Value> {
+        extract_matching_type(&self.value, param_name, &fallback).or(fallback)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -70,6 +75,10 @@ impl Experiment {
             None => None,
         }
     }
+
+    pub fn get_typed_opt(&self, param_name: &str, fallback: Option<Value>) -> Option<Value> {
+        extract_matching_type(&self.value, param_name, &fallback).or(fallback)
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -83,6 +92,7 @@ pub struct Layer {
     pub allocated_experiment_name: Option<String>,
     pub is_experiment_active: bool,
 
+    pub __parameter_rule_ids: Option<HashMap<InternedString, InternedString>>,
     pub __evaluation: Option<LayerEvaluation>,
     pub __value: HashMap<String, Value>,
     pub __user: StatsigUserLoggable,
@@ -107,6 +117,16 @@ impl Layer {
                 Some(value)
             }
             Err(_) => None,
+        }
+    }
+
+    pub fn get_typed_opt(&self, param_name: &str, fallback: Option<Value>) -> Option<Value> {
+        match extract_matching_type(&self.__value, param_name, &fallback) {
+            Some(value) => {
+                self.log_param_exposure(param_name);
+                Some(value)
+            }
+            None => fallback,
         }
     }
 
@@ -304,4 +324,22 @@ impl_common_get_methods!(Layer);
 
 pub enum OverrideAdapterType {
     LocalOverride,
+}
+
+fn extract_matching_type(
+    value: &HashMap<String, Value>,
+    param_name: &str,
+    fallback: &Option<Value>,
+) -> Option<Value> {
+    let found = value.get(param_name)?;
+    match (fallback, found) {
+        (Some(Value::Bool(_)), Value::Bool(_)) => Some(found.clone()),
+        (Some(Value::Number(_)), Value::Number(_)) => Some(found.clone()),
+        (Some(Value::String(_)), Value::String(_)) => Some(found.clone()),
+        (Some(Value::Array(_)), Value::Array(_)) => Some(found.clone()),
+        (Some(Value::Object(_)), Value::Object(_)) => Some(found.clone()),
+        (Some(Value::Null), Value::Null) => Some(found.clone()),
+        (None, value) => Some(value.clone()),
+        _ => None,
+    }
 }

@@ -3,7 +3,7 @@ Type annotations for eks service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -35,6 +36,7 @@ from .paginator import (
     ListAccessPoliciesPaginator,
     ListAddonsPaginator,
     ListAssociatedAccessPoliciesPaginator,
+    ListCapabilitiesPaginator,
     ListClustersPaginator,
     ListEksAnywhereSubscriptionsPaginator,
     ListFargateProfilesPaginator,
@@ -55,6 +57,8 @@ from .type_defs import (
     CreateAccessEntryResponseTypeDef,
     CreateAddonRequestTypeDef,
     CreateAddonResponseTypeDef,
+    CreateCapabilityRequestTypeDef,
+    CreateCapabilityResponseTypeDef,
     CreateClusterRequestTypeDef,
     CreateClusterResponseTypeDef,
     CreateEksAnywhereSubscriptionRequestTypeDef,
@@ -68,6 +72,8 @@ from .type_defs import (
     DeleteAccessEntryRequestTypeDef,
     DeleteAddonRequestTypeDef,
     DeleteAddonResponseTypeDef,
+    DeleteCapabilityRequestTypeDef,
+    DeleteCapabilityResponseTypeDef,
     DeleteClusterRequestTypeDef,
     DeleteClusterResponseTypeDef,
     DeleteEksAnywhereSubscriptionRequestTypeDef,
@@ -88,6 +94,8 @@ from .type_defs import (
     DescribeAddonResponseTypeDef,
     DescribeAddonVersionsRequestTypeDef,
     DescribeAddonVersionsResponseTypeDef,
+    DescribeCapabilityRequestTypeDef,
+    DescribeCapabilityResponseTypeDef,
     DescribeClusterRequestTypeDef,
     DescribeClusterResponseTypeDef,
     DescribeClusterVersionsRequestTypeDef,
@@ -100,6 +108,8 @@ from .type_defs import (
     DescribeIdentityProviderConfigResponseTypeDef,
     DescribeInsightRequestTypeDef,
     DescribeInsightResponseTypeDef,
+    DescribeInsightsRefreshRequestTypeDef,
+    DescribeInsightsRefreshResponseTypeDef,
     DescribeNodegroupRequestTypeDef,
     DescribeNodegroupResponseTypeDef,
     DescribePodIdentityAssociationRequestTypeDef,
@@ -117,6 +127,8 @@ from .type_defs import (
     ListAddonsResponseTypeDef,
     ListAssociatedAccessPoliciesRequestTypeDef,
     ListAssociatedAccessPoliciesResponseTypeDef,
+    ListCapabilitiesRequestTypeDef,
+    ListCapabilitiesResponseTypeDef,
     ListClustersRequestTypeDef,
     ListClustersResponseTypeDef,
     ListEksAnywhereSubscriptionsRequestTypeDef,
@@ -137,12 +149,16 @@ from .type_defs import (
     ListUpdatesResponseTypeDef,
     RegisterClusterRequestTypeDef,
     RegisterClusterResponseTypeDef,
+    StartInsightsRefreshRequestTypeDef,
+    StartInsightsRefreshResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAccessEntryRequestTypeDef,
     UpdateAccessEntryResponseTypeDef,
     UpdateAddonRequestTypeDef,
     UpdateAddonResponseTypeDef,
+    UpdateCapabilityRequestTypeDef,
+    UpdateCapabilityResponseTypeDef,
     UpdateClusterConfigRequestTypeDef,
     UpdateClusterConfigResponseTypeDef,
     UpdateClusterVersionRequestTypeDef,
@@ -167,12 +183,6 @@ from .waiter import (
     NodegroupDeletedWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -183,22 +193,22 @@ __all__ = ("EKSClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ClientException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    InvalidStateException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourcePropagationDelayException: Type[BotocoreClientError]
-    ServerException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnsupportedAvailabilityZoneException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidStateException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourcePropagationDelayException: type[BotocoreClientError]
+    ServerException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnsupportedAvailabilityZoneException: type[BotocoreClientError]
 
 
 class EKSClient(AioBaseClient):
@@ -286,6 +296,16 @@ class EKSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#create_addon)
         """
 
+    async def create_capability(
+        self, **kwargs: Unpack[CreateCapabilityRequestTypeDef]
+    ) -> CreateCapabilityResponseTypeDef:
+        """
+        Creates a managed capability resource for an Amazon EKS cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/create_capability.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#create_capability)
+        """
+
     async def create_cluster(
         self, **kwargs: Unpack[CreateClusterRequestTypeDef]
     ) -> CreateClusterResponseTypeDef:
@@ -339,7 +359,7 @@ class EKSClient(AioBaseClient):
 
     async def delete_access_entry(
         self, **kwargs: Unpack[DeleteAccessEntryRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an access entry.
 
@@ -355,6 +375,16 @@ class EKSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/delete_addon.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#delete_addon)
+        """
+
+    async def delete_capability(
+        self, **kwargs: Unpack[DeleteCapabilityRequestTypeDef]
+    ) -> DeleteCapabilityResponseTypeDef:
+        """
+        Deletes a managed capability from your Amazon EKS cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/delete_capability.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#delete_capability)
         """
 
     async def delete_cluster(
@@ -457,6 +487,18 @@ class EKSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#describe_addon_versions)
         """
 
+    async def describe_capability(
+        self, **kwargs: Unpack[DescribeCapabilityRequestTypeDef]
+    ) -> DescribeCapabilityResponseTypeDef:
+        """
+        Returns detailed information about a specific managed capability in your Amazon
+        EKS cluster, including its current status, configuration, health information,
+        and any issues that may be affecting its operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/describe_capability.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#describe_capability)
+        """
+
     async def describe_cluster(
         self, **kwargs: Unpack[DescribeClusterRequestTypeDef]
     ) -> DescribeClusterResponseTypeDef:
@@ -517,6 +559,16 @@ class EKSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#describe_insight)
         """
 
+    async def describe_insights_refresh(
+        self, **kwargs: Unpack[DescribeInsightsRefreshRequestTypeDef]
+    ) -> DescribeInsightsRefreshResponseTypeDef:
+        """
+        Returns the status of the latest on-demand cluster insights refresh operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/describe_insights_refresh.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#describe_insights_refresh)
+        """
+
     async def describe_nodegroup(
         self, **kwargs: Unpack[DescribeNodegroupRequestTypeDef]
     ) -> DescribeNodegroupResponseTypeDef:
@@ -549,7 +601,7 @@ class EKSClient(AioBaseClient):
 
     async def disassociate_access_policy(
         self, **kwargs: Unpack[DisassociateAccessPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates an access policy from an access entry.
 
@@ -605,6 +657,16 @@ class EKSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/list_associated_access_policies.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#list_associated_access_policies)
+        """
+
+    async def list_capabilities(
+        self, **kwargs: Unpack[ListCapabilitiesRequestTypeDef]
+    ) -> ListCapabilitiesResponseTypeDef:
+        """
+        Lists all managed capabilities in your Amazon EKS cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/list_capabilities.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#list_capabilities)
         """
 
     async def list_clusters(
@@ -711,7 +773,18 @@ class EKSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#register_cluster)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def start_insights_refresh(
+        self, **kwargs: Unpack[StartInsightsRefreshRequestTypeDef]
+    ) -> StartInsightsRefreshResponseTypeDef:
+        """
+        Initiates an on-demand refresh operation for cluster insights, getting the
+        latest analysis outside of the standard refresh schedule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/start_insights_refresh.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#start_insights_refresh)
+        """
+
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates the specified tags to an Amazon EKS resource with the specified
         <code>resourceArn</code>.
@@ -720,7 +793,7 @@ class EKSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes specified tags from an Amazon EKS resource.
 
@@ -746,6 +819,16 @@ class EKSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/update_addon.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#update_addon)
+        """
+
+    async def update_capability(
+        self, **kwargs: Unpack[UpdateCapabilityRequestTypeDef]
+    ) -> UpdateCapabilityResponseTypeDef:
+        """
+        Updates the configuration of a managed capability in your Amazon EKS cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/update_capability.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#update_capability)
         """
 
     async def update_cluster_config(
@@ -868,6 +951,17 @@ class EKSClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_associated_access_policies"]
     ) -> ListAssociatedAccessPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_eks/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_capabilities"]
+    ) -> ListCapabilitiesPaginator:
         """
         Create a paginator for an operation.
 
@@ -1059,7 +1153,7 @@ class EKSClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

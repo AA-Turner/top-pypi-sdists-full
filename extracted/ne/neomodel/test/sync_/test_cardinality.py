@@ -1,4 +1,6 @@
+import io
 from test._async_compat import mark_sync_test
+from unittest.mock import patch
 
 from pytest import raises
 
@@ -15,6 +17,7 @@ from neomodel import (
     ZeroOrMore,
     ZeroOrOne,
     db,
+    get_config,
 )
 
 
@@ -60,6 +63,11 @@ class Company(StructuredNode):
 class Employee(StructuredNode):
     name = StringProperty(required=True)
     employer = RelationshipFrom("Company", "EMPLOYS", cardinality=ZeroOrOne)
+    offices = RelationshipFrom("Office", "HOSTS", cardinality=OneOrMore)
+
+
+class Office(StructuredNode):
+    name = StringProperty(required=True)
 
 
 class Manager(StructuredNode):
@@ -113,8 +121,14 @@ def test_cardinality_zero_or_one():
     assert single_driver.version == 1
 
     j = ScrewDriver(version=2).save()
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         m.driver.connect(j)
+
+    error_message = str(exc_info.value)
+    assert (
+        f"Node already has zero or one relationship in a outgoing direction of type HAS_SCREWDRIVER on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
+        == error_message
+    )
 
     m.driver.reconnect(h, j)
     single_driver = m.driver.single()
@@ -154,8 +168,11 @@ def test_cardinality_one_or_more():
     cars = m.car.all()
     assert len(cars) == 1
 
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         m.car.disconnect(c)
+
+    error_message = str(exc_info.value)
+    assert "One or more expected" == error_message
 
     d = Car(version=3).save()
     m.car.connect(d)
@@ -165,6 +182,11 @@ def test_cardinality_one_or_more():
     m.car.disconnect(d)
     cars = m.car.all()
     assert len(cars) == 1
+
+    with raises(AttemptedCardinalityViolation):
+        m.car.disconnect_all()
+
+    assert m.car.single() is not None
 
 
 @mark_sync_test
@@ -185,8 +207,14 @@ def test_cardinality_one():
     assert single_toothbrush.name == "Jim"
 
     x = ToothBrush(name="Jim").save()
-    with raises(AttemptedCardinalityViolation):
+    with raises(AttemptedCardinalityViolation) as exc_info:
         m.toothbrush.connect(x)
+
+    error_message = str(exc_info.value)
+    assert (
+        f"Node already has one relationship in a outgoing direction of type HAS_TOOTHBRUSH on node ({m.element_id}) of class 'Monkey'. Use reconnect() to replace the existing relationship."
+        == error_message
+    )
 
     with raises(AttemptedCardinalityViolation):
         m.toothbrush.disconnect(b)
@@ -223,6 +251,8 @@ def test_relationship_from_one_cardinality_enforced():
     were not being enforced.
     """
     # Setup
+    config = get_config()
+    config.soft_cardinality_check = False
     owner1 = Owner(name="Alice").save()
     owner2 = Owner(name="Bob").save()
     pet = Pet(name="Fluffy").save()
@@ -238,6 +268,18 @@ def test_relationship_from_one_cardinality_enforced():
     with raises(AttemptedCardinalityViolation):
         owner2.pets.connect(pet)
 
+    stream = io.StringIO()
+    with patch("sys.stdout", new=stream):
+        config.soft_cardinality_check = True
+        owner2.pets.connect(pet)
+        assert pet in owner2.pets.all()
+
+    console_output = stream.getvalue()
+    assert "Cardinality violation detected" in console_output
+    assert "Soft check is enabled so the relationship will be created" in console_output
+
+    config.soft_cardinality_check = False
+
 
 @mark_sync_test
 def test_relationship_from_zero_or_one_cardinality_enforced():
@@ -245,6 +287,8 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
     Test that RelationshipFrom with cardinality=ZeroOrOne prevents multiple connections.
     """
     # Setup
+    config = get_config()
+    config.soft_cardinality_check = False
     company1 = Company(name="TechCorp").save()
     company2 = Company(name="StartupInc").save()
     employee = Employee(name="John").save()
@@ -260,6 +304,41 @@ def test_relationship_from_zero_or_one_cardinality_enforced():
     with raises(AttemptedCardinalityViolation):
         company2.employees.connect(employee)
 
+    stream = io.StringIO()
+    with patch("sys.stdout", new=stream):
+        config.soft_cardinality_check = True
+        company2.employees.connect(employee)
+        assert employee in company2.employees.all()
+
+    console_output = stream.getvalue()
+    assert "Cardinality violation detected" in console_output
+    assert "Soft check is enabled so the relationship will be created" in console_output
+
+    config.soft_cardinality_check = False
+
+
+@mark_sync_test
+def test_relationship_from_one_or_more_cardinality_enforced():
+    """
+    Test that RelationshipFrom with cardinality=OneOrMore prevents disconnecting all nodes.
+    """
+    # Setup
+    config = get_config()
+    config.soft_cardinality_check = False
+    office = Office(name="Headquarters").save()
+    employee = Employee(name="John").save()
+    employee.offices.connect(office)
+
+    with raises(AttemptedCardinalityViolation):
+        employee.offices.disconnect(office)
+
+    with raises(AttemptedCardinalityViolation):
+        employee.offices.disconnect_all()
+
+    assert employee.offices.single() is not None
+
+    config.soft_cardinality_check = False
+
 
 @mark_sync_test
 def test_bidirectional_cardinality_validation():
@@ -267,6 +346,8 @@ def test_bidirectional_cardinality_validation():
     Test that cardinality is validated on both ends when both sides have constraints.
     """
     # Setup
+    config = get_config()
+    config.soft_cardinality_check = False
     manager1 = Manager(name="Sarah").save()
     manager2 = Manager(name="David").save()
     assistant = Assistant(name="Alex").save()
@@ -281,3 +362,15 @@ def test_bidirectional_cardinality_validation():
     # Second manager trying to connect to same assistant should fail
     with raises(AttemptedCardinalityViolation):
         manager2.assistant.connect(assistant)
+
+    stream = io.StringIO()
+    with patch("sys.stdout", new=stream):
+        config.soft_cardinality_check = True
+        manager2.assistant.connect(assistant)
+        assert assistant in manager2.assistant.all()
+
+    console_output = stream.getvalue()
+    assert "Cardinality violation detected" in console_output
+    assert "Soft check is enabled so the relationship will be created" in console_output
+
+    config.soft_cardinality_check = False

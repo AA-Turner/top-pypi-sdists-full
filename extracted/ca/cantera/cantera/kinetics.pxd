@@ -24,10 +24,10 @@ cdef extern from "cantera/kinetics/Kinetics.h" namespace "Cantera":
         int nTotalSpecies()
         int nReactions()
         int nPhases()
-        int phaseIndex(string)
+        int phaseIndex(string&, cbool) except +translate_exception
         int kineticsSpeciesIndex(int, int)
-        int kineticsSpeciesIndex(string)
-        string kineticsSpeciesName(int)
+        int kineticsSpeciesIndex(string, bool)
+        string kineticsSpeciesName(int, bool)
 
         CxxThermoPhase& thermo(int)
 

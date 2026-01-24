@@ -5,7 +5,14 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 from dateutil.parser import isoparse
 
-from ..actions import ActionsPageResult, BoundAction, ResourceActionsClient
+from ..actions import (
+    ActionSort,
+    ActionsPageResult,
+    ActionStatus,
+    BoundAction,
+    ResourceActionsClient,
+)
+from ..actions.client import ResourceClientBaseActionsMixin
 from ..certificates import BoundCertificate
 from ..core import BoundModelBase, Meta, ResourceClientBase
 from ..load_balancer_types import BoundLoadBalancerType
@@ -40,13 +47,25 @@ if TYPE_CHECKING:
     from ..networks import Network
 
 
-class BoundLoadBalancer(BoundModelBase, LoadBalancer):
+__all__ = [
+    "BoundLoadBalancer",
+    "LoadBalancersPageResult",
+    "LoadBalancersClient",
+]
+
+
+class BoundLoadBalancer(BoundModelBase[LoadBalancer], LoadBalancer):
     _client: LoadBalancersClient
 
     model = LoadBalancer
 
     # pylint: disable=too-many-branches,too-many-locals
-    def __init__(self, client: LoadBalancersClient, data: dict, complete: bool = True):
+    def __init__(
+        self,
+        client: LoadBalancersClient,
+        data: dict[str, Any],
+        complete: bool = True,
+    ):
         algorithm = data.get("algorithm")
         if algorithm:
             data["algorithm"] = LoadBalancerAlgorithm(type=algorithm["type"])
@@ -174,7 +193,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
                User-defined labels (key-value pairs)
         :return: :class:`BoundLoadBalancer <hcloud.load_balancers.client.BoundLoadBalancer>`
         """
-        return self._client.update(self, name, labels)
+        return self._client.update(self, name=name, labels=labels)
 
     def delete(self) -> bool:
         """Deletes a Load Balancer.
@@ -207,39 +226,39 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
 
     def get_actions_list(
         self,
-        status: list[str] | None = None,
-        sort: list[str] | None = None,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
         page: int | None = None,
         per_page: int | None = None,
     ) -> ActionsPageResult:
-        """Returns all action objects for a Load Balancer.
-
-        :param status: List[str] (optional)
-               Response will have only actions with specified statuses. Choices: `running` `success` `error`
-        :param sort: List[str] (optional)
-               Specify how the results are sorted. Choices: `id` `id:asc` `id:desc` `command` `command:asc` `command:desc` `status` `status:asc` `status:desc` `progress` `progress:asc` `progress:desc` `started` `started:asc` `started:desc` `finished` `finished:asc` `finished:desc`
-        :param page: int (optional)
-               Specifies the page to fetch
-        :param per_page: int (optional)
-               Specifies how many results are returned by page
-        :return: (List[:class:`BoundAction <hcloud.actions.client.BoundAction>`], :class:`Meta <hcloud.core.domain.Meta>`)
         """
-        return self._client.get_actions_list(self, status, sort, page, per_page)
+        Returns a paginated list of Actions for a Load Balancer.
+
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
+        :param page: Page number to get.
+        :param per_page: Maximum number of Actions returned per page.
+        """
+        return self._client.get_actions_list(
+            self,
+            status=status,
+            sort=sort,
+            page=page,
+            per_page=per_page,
+        )
 
     def get_actions(
         self,
-        status: list[str] | None = None,
-        sort: list[str] | None = None,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
     ) -> list[BoundAction]:
-        """Returns all action objects for a Load Balancer.
-
-        :param status: List[str] (optional)
-               Response will have only actions with specified statuses. Choices: `running` `success` `error`
-        :param sort: List[str] (optional)
-               Specify how the results are sorted. Choices: `id` `id:asc` `id:desc` `command` `command:asc` `command:desc` `status` `status:asc` `status:desc` `progress` `progress:asc` `progress:desc` `started` `started:asc` `started:desc` `finished` `finished:asc` `finished:desc`
-        :return: List[:class:`BoundAction <hcloud.actions.client.BoundAction>`]
         """
-        return self._client.get_actions(self, status, sort)
+        Returns all Actions for a Load Balancer.
+
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
+        """
+        return self._client.get_actions(self, status=status, sort=sort)
 
     def add_service(self, service: LoadBalancerService) -> BoundAction:
         """Adds a service to a Load Balancer.
@@ -266,7 +285,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
                        The LoadBalancerService you want to delete from the Load Balancer
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.delete_service(self, service)
+        return self._client.delete_service(self, service=service)
 
     def add_target(self, target: LoadBalancerTarget) -> BoundAction:
         """Adds a target to a Load Balancer.
@@ -275,7 +294,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
                        The LoadBalancerTarget you want to add to the Load Balancer
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.add_target(self, target)
+        return self._client.add_target(self, target=target)
 
     def remove_target(self, target: LoadBalancerTarget) -> BoundAction:
         """Removes a target from a Load Balancer.
@@ -284,7 +303,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
                        The LoadBalancerTarget you want to remove from the Load Balancer
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.remove_target(self, target)
+        return self._client.remove_target(self, target=target)
 
     def change_algorithm(self, algorithm: LoadBalancerAlgorithm) -> BoundAction:
         """Changes the algorithm used by the Load Balancer
@@ -293,7 +312,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
                        The LoadBalancerAlgorithm you want to use
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.change_algorithm(self, algorithm)
+        return self._client.change_algorithm(self, algorithm=algorithm)
 
     def change_dns_ptr(self, ip: str, dns_ptr: str) -> BoundAction:
         """Changes the hostname that will appear when getting the hostname belonging to the public IPs (IPv4 and IPv6) of this Load Balancer.
@@ -304,7 +323,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
                Hostname to set as a reverse DNS PTR entry, will reset to original default value if `None`
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.change_dns_ptr(self, ip, dns_ptr)
+        return self._client.change_dns_ptr(self, ip=ip, dns_ptr=dns_ptr)
 
     def change_protection(self, delete: bool) -> BoundAction:
         """Changes the protection configuration of a Load Balancer.
@@ -313,21 +332,29 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
                If True, prevents the Load Balancer from being deleted
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.change_protection(self, delete)
+        return self._client.change_protection(self, delete=delete)
 
     def attach_to_network(
         self,
         network: Network | BoundNetwork,
         ip: str | None = None,
+        ip_range: str | None = None,
     ) -> BoundAction:
         """Attaches a Load Balancer to a Network
 
         :param network: :class:`BoundNetwork <hcloud.networks.client.BoundNetwork>` or :class:`Network <hcloud.networks.domain.Network>`
         :param ip: str
                 IP to request to be assigned to this Load Balancer
+        :param ip_range: str
+                IP range in CIDR block notation of the subnet to attach to.
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.attach_to_network(self, network, ip)
+        return self._client.attach_to_network(
+            self,
+            network=network,
+            ip=ip,
+            ip_range=ip_range,
+        )
 
     def detach_from_network(self, network: Network | BoundNetwork) -> BoundAction:
         """Detaches a Load Balancer from a Network.
@@ -335,7 +362,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
         :param network: :class:`BoundNetwork <hcloud.networks.client.BoundNetwork>` or :class:`Network <hcloud.networks.domain.Network>`
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.detach_from_network(self, network)
+        return self._client.detach_from_network(self, network=network)
 
     def enable_public_interface(self) -> BoundAction:
         """Enables the public interface of a Load Balancer.
@@ -361,7 +388,7 @@ class BoundLoadBalancer(BoundModelBase, LoadBalancer):
                Load Balancer type the Load Balancer should migrate to
         :return:  :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
-        return self._client.change_type(self, load_balancer_type)
+        return self._client.change_type(self, load_balancer_type=load_balancer_type)
 
 
 class LoadBalancersPageResult(NamedTuple):
@@ -369,7 +396,10 @@ class LoadBalancersPageResult(NamedTuple):
     meta: Meta
 
 
-class LoadBalancersClient(ResourceClientBase):
+class LoadBalancersClient(
+    ResourceClientBaseActionsMixin,
+    ResourceClientBase,
+):
     _base_url = "/load_balancers"
 
     actions: ResourceActionsClient
@@ -453,7 +483,7 @@ class LoadBalancersClient(ResourceClientBase):
                Used to get Load Balancer by name.
         :return: :class:`BoundLoadBalancer <hcloud.load_balancers.client.BoundLoadBalancer>`
         """
-        return self._get_first_by(name=name)
+        return self._get_first_by(self.get_list, name=name)
 
     def create(
         self,
@@ -602,59 +632,40 @@ class LoadBalancersClient(ResourceClientBase):
     def get_actions_list(
         self,
         load_balancer: LoadBalancer | BoundLoadBalancer,
-        status: list[str] | None = None,
-        sort: list[str] | None = None,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
         page: int | None = None,
         per_page: int | None = None,
     ) -> ActionsPageResult:
-        """Returns all action objects for a Load Balancer.
-
-        :param load_balancer: :class:`BoundLoadBalancer <hcloud.load_balancers.client.BoundLoadBalancer>` or :class:`LoadBalancer <hcloud.load_balancers.domain.LoadBalancer>`
-        :param status: List[str] (optional)
-               Response will have only actions with specified statuses. Choices: `running` `success` `error`
-        :param sort: List[str] (optional)
-               Specify how the results are sorted. Choices: `id` `id:asc` `id:desc` `command` `command:asc` `command:desc` `status` `status:asc` `status:desc` `progress` `progress:asc` `progress:desc` `started` `started:asc` `started:desc` `finished` `finished:asc` `finished:desc`
-        :param page: int (optional)
-               Specifies the page to fetch
-        :param per_page: int (optional)
-               Specifies how many results are returned by page
-        :return: (List[:class:`BoundAction <hcloud.actions.client.BoundAction>`], :class:`Meta <hcloud.core.domain.Meta>`)
         """
-        params: dict[str, Any] = {}
-        if status is not None:
-            params["status"] = status
-        if sort is not None:
-            params["sort"] = sort
-        if page is not None:
-            params["page"] = page
-        if per_page is not None:
-            params["per_page"] = per_page
+        Returns a paginated list of Actions for a Load Balancer.
 
-        response = self._client.request(
-            url=f"{self._base_url}/{load_balancer.id}/actions",
-            method="GET",
-            params=params,
+        :param load_balancer: Load Balancer to get the Actions for.
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
+        :param page: Page number to get.
+        :param per_page: Maximum number of Actions returned per page.
+        """
+        return self._get_actions_list(
+            f"{self._base_url}/{load_balancer.id}",
+            status=status,
+            sort=sort,
+            page=page,
+            per_page=per_page,
         )
-        actions = [
-            BoundAction(self._parent.actions, action_data)
-            for action_data in response["actions"]
-        ]
-        return ActionsPageResult(actions, Meta.parse_meta(response))
 
     def get_actions(
         self,
         load_balancer: LoadBalancer | BoundLoadBalancer,
-        status: list[str] | None = None,
-        sort: list[str] | None = None,
+        status: list[ActionStatus] | None = None,
+        sort: list[ActionSort] | None = None,
     ) -> list[BoundAction]:
-        """Returns all action objects for a Load Balancer.
+        """
+        Returns all Actions for a Load Balancer.
 
-        :param load_balancer: :class:`BoundLoadBalancer <hcloud.load_balancers.client.BoundLoadBalancer>` or :class:`LoadBalancer <hcloud.load_balancers.domain.LoadBalancer>`
-        :param status: List[str] (optional)
-               Response will have only actions with specified statuses. Choices: `running` `success` `error`
-        :param sort: List[str] (optional)
-               Specify how the results are sorted. Choices: `id` `id:asc` `id:desc` `command` `command:asc` `command:desc` `status` `status:asc` `status:desc` `progress` `progress:asc` `progress:desc` `started` `started:asc` `started:desc` `finished` `finished:asc` `finished:desc`
-        :return: List[:class:`BoundAction <hcloud.actions.client.BoundAction>`]
+        :param load_balancer: Load Balancer to get the Actions for.
+        :param status: Filter the Actions by status.
+        :param sort: Sort Actions by field and direction.
         """
         return self._iter_pages(
             self.get_actions_list,
@@ -840,6 +851,7 @@ class LoadBalancersClient(ResourceClientBase):
         load_balancer: LoadBalancer | BoundLoadBalancer,
         network: Network | BoundNetwork,
         ip: str | None = None,
+        ip_range: str | None = None,
     ) -> BoundAction:
         """Attach a Load Balancer to a Network.
 
@@ -847,11 +859,15 @@ class LoadBalancersClient(ResourceClientBase):
         :param network: :class:`BoundNetwork <hcloud.networks.client.BoundNetwork>` or :class:`Network <hcloud.networks.domain.Network>`
         :param ip: str
                 IP to request to be assigned to this Load Balancer
+        :param ip_range: str
+                IP range in CIDR block notation of the subnet to attach to.
         :return: :class:`BoundAction <hcloud.actions.client.BoundAction>`
         """
         data: dict[str, Any] = {"network": network.id}
         if ip is not None:
             data.update({"ip": ip})
+        if ip_range is not None:
+            data.update({"ip_range": ip_range})
 
         response = self._client.request(
             url=f"{self._base_url}/{load_balancer.id}/actions/attach_to_network",

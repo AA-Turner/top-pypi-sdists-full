@@ -1,11 +1,11 @@
 """
-    logbook.handlers
-    ~~~~~~~~~~~~~~~~
+logbook.handlers
+~~~~~~~~~~~~~~~~
 
-    The handler interface and builtin handlers.
+The handler interface and builtin handlers.
 
-    :copyright: (c) 2010 by Armin Ronacher, Georg Brandl.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2010 by Armin Ronacher, Georg Brandl.
+:license: BSD, see LICENSE for more details.
 """
 
 import errno
@@ -20,7 +20,7 @@ import sys
 import traceback
 import warnings
 from collections import deque
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from hashlib import sha1
 from textwrap import dedent
@@ -42,7 +42,7 @@ from logbook.base import (
     level_name_property,
     lookup_level,
 )
-from logbook.concurrency import new_fine_grained_lock
+from logbook.concurrency import _new_fine_grained_lock
 from logbook.helpers import datetime_utcnow, rename
 
 DEFAULT_FORMAT_STRING = (
@@ -165,19 +165,13 @@ class Handler(ContextObject, metaclass=_HandlerType):
         with handler.applicationbound():
             ...
 
-        with handler.threadbound():
+        with handler.contextbound():
             ...
 
-        with handler.greenletbound():
-            ...
-
-    Because `threadbound` is a common operation, it is aliased to a with
-    on the handler itself if not using gevent::
+    Because `contextbound` is a common operation, it is the default::
 
         with handler:
             ...
-
-    If gevent is enabled, the handler is aliased to `greenletbound`.
     """
 
     stack_manager = ContextStackManager()
@@ -293,7 +287,7 @@ class Handler(ContextObject, metaclass=_HandlerType):
         Example implementation::
 
             def emit_batch(self, records, reason):
-                if reason not in ('escalation', 'group'):
+                if reason not in ("escalation", "group"):
                     Handler.emit_batch(self, records, reason)
                 ...
         """
@@ -317,11 +311,9 @@ class Handler(ContextObject, metaclass=_HandlerType):
             if behaviour == "raise":
                 raise exc_info[1]
             elif behaviour == "print":
-                traceback.print_exception(*(exc_info + (None, sys.stderr)))
+                traceback.print_exception(*exc_info, file=sys.stderr)
                 sys.stderr.write(
-                    "Logged from file {}, line {}\n".format(
-                        record.filename, record.lineno
-                    )
+                    f"Logged from file {record.filename}, line {record.lineno}\n"
                 )
         except OSError:
             pass
@@ -455,7 +447,7 @@ class HashingHandlerMixin:
     def hash_record_raw(self, record):
         """Returns a hashlib object with the hash of the record."""
         hash = sha1()
-        hash.update(("%d\x00" % record.level).encode("ascii"))
+        hash.update(("%d\x00" % record.level).encode("ascii"))  # noqa: UP031
         hash.update((record.channel or "").encode("utf-8") + b"\x00")
         hash.update(record.filename.encode("utf-8") + b"\x00")
         hash.update(str(record.lineno).encode("utf-8"))
@@ -480,13 +472,13 @@ class LimitingHandlerMixin(HashingHandlerMixin):
     times a minute.  The following example limits it to 60 mails an hour::
 
         from datetime import timedelta
-        handler = MailHandler(record_limit=1,
-                              record_delta=timedelta(minutes=1))
+
+        handler = MailHandler(record_limit=1, record_delta=timedelta(minutes=1))
     """
 
     def __init__(self, record_limit, record_delta):
         self.record_limit = record_limit
-        self._limit_lock = new_fine_grained_lock()
+        self._limit_lock = _new_fine_grained_lock()
         self._record_limits = {}
         if record_delta is None:
             record_delta = timedelta(seconds=60)
@@ -563,7 +555,7 @@ class StreamHandler(Handler, StringFormatterHandlerMixin):
         Handler.__init__(self, level, filter, bubble)
         StringFormatterHandlerMixin.__init__(self, format_string)
         self.encoding = encoding
-        self.lock = new_fine_grained_lock()
+        self.lock = _new_fine_grained_lock()
         if stream is not _missing:
             self.stream = stream
 
@@ -746,14 +738,18 @@ class BrotliCompressionHandler(FileHandler):
             bubble=bubble,
         )
         try:
-            from brotli import Compressor
+            import brotlicffi as brotli
         except ImportError:
-            raise RuntimeError(
-                "The brotli library is required for the BrotliCompressionHandler."
-            )
+            try:
+                import brotli
+            except ImportError:
+                raise RuntimeError(
+                    "The brotli/brotlicffi library is required for the "
+                    "BrotliCompressionHandler."
+                )
 
         max_window_size = int(math.log(compression_window_size, 2))
-        self._compressor = Compressor(
+        self._compressor = brotli.Compressor(
             quality=compression_quality, lgwin=max_window_size
         )
 
@@ -849,7 +845,7 @@ class MonitoringFileHandler(FileHandler):
 
 class StderrHandler(StreamHandler):
     """A handler that writes to what is currently at stderr.  At the first
-    glace this appears to just be a :class:`StreamHandler` with the stream
+    glance this appears to just be a :class:`StreamHandler` with the stream
     set to :data:`sys.stderr` but there is a difference: if the handler is
     created globally and :data:`sys.stderr` changes later, this handler will
     point to the current `stderr`, whereas a stream handler would still
@@ -937,10 +933,11 @@ class TimedRotatingFileHandler(FileHandler):
 
     So for example if you configure your handler like this::
 
-        handler = TimedRotatingFileHandler('/var/log/foo.log',
-                                           date_format='%Y-%m-%d')
+        handler = TimedRotatingFileHandler("/var/log/foo.log", date_format="%Y-%m-%d")
 
-    The filenames for the logfiles will look like this::
+    The filenames for the logfiles will look like this:
+
+    .. code-block:: text
 
         /var/log/foo-2010-01-10.log
         /var/log/foo-2010-01-11.log
@@ -956,11 +953,14 @@ class TimedRotatingFileHandler(FileHandler):
     So for example if you configure your handler like this::
 
         handler = TimedRotatingFileHandler(
-            '/var/log/foo.log',
-            date_format='%Y-%m-%d',
-            rollover_format='{basename}{ext}.{timestamp}')
+            "/var/log/foo.log",
+            date_format="%Y-%m-%d",
+            rollover_format="{basename}{ext}.{timestamp}",
+        )
 
     The filenames for the logfiles will look like this::
+
+    .. code-block:: text
 
         /var/log/foo.log.2010-01-10
         /var/log/foo.log.2010-01-11
@@ -1054,7 +1054,7 @@ class TimedRotatingFileHandler(FileHandler):
             os.rename(self._filename, filename)
 
         if self.backup_count > 0:
-            for time, filename in self.files_to_delete():
+            for _, filename in self.files_to_delete():
                 os.remove(filename)
 
         if self.timed_filename_for_current:
@@ -1084,8 +1084,8 @@ class TestHandler(Handler, StringFormatterHandlerMixin):
 
         def my_test():
             with logbook.TestHandler() as handler:
-                logger.warn('A warning')
-                assert logger.has_warning('A warning')
+                logger.warning("A warning")
+                assert logger.has_warning("A warning")
                 ...
     """
 
@@ -1245,7 +1245,11 @@ class TestHandler(Handler, StringFormatterHandlerMixin):
 class MailHandler(Handler, StringFormatterHandlerMixin, LimitingHandlerMixin):
     """A handler that sends error mails.  The format string used by this
     handler are the contents of the mail plus the headers.  This is handy
-    if you want to use a custom subject or ``X-`` header::
+    if you want to use a custom subject or ``X-`` header:
+
+    .. blacken-docs:off
+
+    .. code-block:: python
 
         handler = MailHandler(format_string='''\
         Subject: {record.level_name} on My Application
@@ -1253,6 +1257,8 @@ class MailHandler(Handler, StringFormatterHandlerMixin, LimitingHandlerMixin):
         {record.message}
         {record.extra[a_custom_injected_record]}
         ''')
+
+    .. blacken-docs:on
 
     This handler will always emit text-only mails for maximum portability and
     best performance.
@@ -1263,8 +1269,8 @@ class MailHandler(Handler, StringFormatterHandlerMixin, LimitingHandlerMixin):
     times a minute.  The following example limits it to 60 mails an hour::
 
         from datetime import timedelta
-        handler = MailHandler(record_limit=1,
-                              record_delta=timedelta(minutes=1))
+
+        handler = MailHandler(record_limit=1, record_delta=timedelta(minutes=1))
 
     The default timedelta is 60 seconds (one minute).
 
@@ -1372,8 +1378,7 @@ class MailHandler(Handler, StringFormatterHandlerMixin, LimitingHandlerMixin):
             raise TypeError(f"Unexpected type for `secure`: {type(secure)}")
 
         warnings.warn(
-            "Passing keyfile and certfile are deprecated, use an "
-            "SSLContext instead.",
+            "Passing keyfile and certfile are deprecated, use an SSLContext instead.",
             DeprecationWarning,
             stacklevel=3,
         )
@@ -1563,7 +1568,7 @@ class MailHandler(Handler, StringFormatterHandlerMixin, LimitingHandlerMixin):
         if not records:
             return
 
-        trigger = records.pop(reason == "escalation" and -1 or 0)
+        trigger = records.pop(-1 if reason == "escalation" else 0)
         suppressed = 0
         if self.record_limit is not None:
             suppressed, allow_delivery = self.check_delivery(trigger)
@@ -1585,8 +1590,8 @@ class GMailHandler(MailHandler):
     Apps mail)::
 
        handler = GMailHandler(
-           "my_user@gmail.com", "mypassword", ["to_user@some_mail.com"],
-           ...) # other arguments same as MailHandler
+           "my_user@gmail.com", "mypassword", ["to_user@some_mail.com"], ...
+       )  # other arguments same as MailHandler
 
     .. versionadded:: 0.6.0
     """
@@ -1908,10 +1913,13 @@ class FingersCrossedHandler(Handler):
         from logbook import FileHandler
         from logbook import FingersCrossedHandler
 
+
         def issue_logging():
             def factory(record, handler):
-                return FileHandler('/var/log/app/issue-%s.log' % record.time)
+                return FileHandler("/var/log/app/issue-%s.log" % record.time)
+
             return FingersCrossedHandler(factory)
+
 
         def application(environ, start_response):
             with issue_logging():
@@ -1941,9 +1949,7 @@ class FingersCrossedHandler(Handler):
     When set to `True`, the handler will instantly reset to the untriggered
     state and start buffering again::
 
-        handler = FingersCrossedHandler(MailHandler(...),
-                                        buffer_size=10,
-                                        reset=True)
+        handler = FingersCrossedHandler(MailHandler(...), buffer_size=10, reset=True)
 
     .. versionadded:: 0.3
        The `reset` flag was added.
@@ -1966,7 +1972,7 @@ class FingersCrossedHandler(Handler):
         bubble=False,
     ):
         Handler.__init__(self, NOTSET, filter, bubble)
-        self.lock = new_fine_grained_lock()
+        self.lock = _new_fine_grained_lock()
         self._level = action_level
         if isinstance(handler, Handler):
             self._handler = handler
@@ -2042,6 +2048,7 @@ class GroupHandler(WrapperHandler):
 
         with GroupHandler(MailHandler(...)):
             # everything here ends up in the mail
+            pass
 
     The :class:`GroupHandler` is implemented as a :class:`WrapperHandler`
     thus forwarding all attributes of the wrapper handler.

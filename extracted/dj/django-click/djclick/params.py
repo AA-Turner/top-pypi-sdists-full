@@ -10,12 +10,12 @@ class ModelInstance(click.ParamType):
         if isinstance(qs, type) and issubclass(qs, models.Model):
             qs = qs.objects.all()
         self.qs = qs
-        self.name = "{}.{}".format(qs.model._meta.app_label, qs.model.__name__,)
+        self.name = f"{qs.model._meta.app_label}.{qs.model.__name__}"
         self.lookup = lookup
 
     def convert(self, value, param, ctx):
         if value is None:  # NOCOV
-            return super(ModelInstance, self).convert(value, param, ctx)
+            return super().convert(value, param, ctx)
         try:
             return self.qs.get(**{self.lookup: value})
         except ObjectDoesNotExist:

@@ -722,12 +722,14 @@ class TritonContracter(Contracter):
             "p_to_nnz_mapper_bwd2", p_to_nnz_mapper_bwd2, persistent=False
         )
 
-    def _contract(self, x1, x2):
+    def _contract_conv(self, x1, x2, idxs):
         # runtime conditions for triggering kernel code path
         if x1.is_cuda and not self.training:
+            # index select for triton kernel
+            x2_indexed = torch.index_select(x2, 0, idxs)
             return torch.ops.triton.flashallegro_forward(
                 x1,
-                x2,
+                x2_indexed,
                 self.mode,
                 self.indptr_fwd,
                 self.indptr_bwd1,
@@ -752,4 +754,4 @@ class TritonContracter(Contracter):
                 x1.dtype,
             )
         else:
-            return super()._contract(x1, x2)
+            return super()._contract_conv(x1, x2, idxs)

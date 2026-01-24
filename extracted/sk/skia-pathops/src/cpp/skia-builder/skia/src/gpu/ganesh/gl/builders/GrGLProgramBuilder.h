@@ -8,30 +8,42 @@
 #ifndef GrGLProgramBuilder_DEFINED
 #define GrGLProgramBuilder_DEFINED
 
-#include "include/gpu/GrContextOptions.h"
-#include "src/gpu/ganesh/GrPipeline.h"
+#include "include/core/SkData.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkString.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/gl/GrGLTypes.h"
+#include "include/private/base/SkTDArray.h"  // IWYU pragma: keep
+#include "src/gpu/ganesh/GrGeometryProcessor.h"
 #include "src/gpu/ganesh/gl/GrGLProgram.h"
-#include "src/gpu/ganesh/gl/GrGLProgramDataManager.h"
 #include "src/gpu/ganesh/gl/GrGLUniformHandler.h"
 #include "src/gpu/ganesh/gl/GrGLVaryingHandler.h"
 #include "src/gpu/ganesh/glsl/GrGLSLProgramBuilder.h"
-#include "src/gpu/ganesh/glsl/GrGLSLProgramDataManager.h"
 #include "src/sksl/ir/SkSLProgram.h"
 
-class GrFragmentProcessor;
-class GrGLContextInfo;
+#include <cstddef>
+#include <memory>
+
+class GrCaps;
+class GrDirectContext;
+class GrGLGpu;
+class GrGLSLUniformHandler;
+class GrGLSLVaryingHandler;
 class GrProgramDesc;
-class GrGLSLShaderBuilder;
-struct GrShaderCaps;
+class GrProgramInfo;
+
+namespace SkSL {
+struct NativeShader;
+struct ProgramSettings;
+}  // namespace SkSL
 
 struct GrGLPrecompiledProgram {
     GrGLPrecompiledProgram(GrGLuint programID = 0,
-                           SkSL::Program::Inputs inputs = SkSL::Program::Inputs())
-        : fProgramID(programID)
-        , fInputs(inputs) {}
+                           SkSL::Program::Interface intf = SkSL::Program::Interface())
+            : fProgramID(programID), fInterface(intf) {}
 
     GrGLuint fProgramID;
-    SkSL::Program::Inputs fInputs;
+    SkSL::Program::Interface fInterface;
 };
 
 class GrGLProgramBuilder : public GrGLSLProgramBuilder {
@@ -41,7 +53,7 @@ public:
      * The program implements what is specified in the stages given as input.
      * After successful generation, the builder result objects are available
      * to be used.
-     * If a GL program has already been created, the program ID and inputs can
+     * If a GL program has already been created, the program ID and interface can
      * be supplied to skip the shader compilation.
      * @return the created program if generation was successful.
      */
@@ -56,23 +68,24 @@ public:
 
     GrGLGpu* gpu() const { return fGpu; }
 
-    SkSL::Compiler* shaderCompiler() const override;
-
 private:
     GrGLProgramBuilder(GrGLGpu*, const GrProgramDesc&, const GrProgramInfo&);
 
-    void addInputVars(const SkSL::Program::Inputs& inputs);
-    bool compileAndAttachShaders(const std::string& glsl,
+    void addInputVars(const SkSL::Program::Interface&);
+    bool compileAndAttachShaders(const SkSL::NativeShader& glsl,
                                  GrGLuint programId,
                                  GrGLenum type,
                                  SkTDArray<GrGLuint>* shaderIds,
+                                 bool shaderWasCached,
                                  GrContextOptions::ShaderErrorHandler* errorHandler);
 
     void computeCountsAndStrides(GrGLuint programID,
                                  const GrGeometryProcessor&,
                                  bool bindAttribLocations);
-    void storeShaderInCache(const SkSL::Program::Inputs& inputs, GrGLuint programID,
-                            const std::string shaders[], bool isSkSL,
+    void storeShaderInCache(const SkSL::Program::Interface&,
+                            GrGLuint programID,
+                            const SkSL::NativeShader shaders[],
+                            bool isSkSL,
                             SkSL::ProgramSettings* settings);
     sk_sp<GrGLProgram> finalize(const GrGLPrecompiledProgram*);
     void bindProgramResourceLocations(GrGLuint programID);
@@ -96,7 +109,7 @@ private:
     size_t fInstanceStride;
 
     // shader pulled from cache. Data is organized as:
-    // SkSL::Program::Inputs inputs
+    // SkSL::Program::Interface interface
     // int binaryFormat
     // (all remaining bytes) char[] binary
     sk_sp<SkData> fCached;

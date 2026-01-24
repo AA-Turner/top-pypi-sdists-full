@@ -12,6 +12,8 @@ from unittest.mock import (
 )
 
 import pytest
+from freezegun import freeze_time
+
 from ansible_collections.community.crypto.plugins.module_utils._acme.backend_openssl_cli import (
     OpenSSLCLIBackend,
 )
@@ -19,7 +21,6 @@ from ansible_collections.community.crypto.plugins.module_utils._time import (
     UTC,
     ensure_utc_timezone,
 )
-from freezegun import freeze_time
 
 from .backend_data import (
     TEST_CERT,
@@ -31,7 +32,6 @@ from .backend_data import (
     TEST_KEYS,
     TEST_PARSE_ACME_TIMESTAMP,
 )
-
 
 if t.TYPE_CHECKING:
     from ansible_collections.community.crypto.plugins.module_utils._acme.backends import (  # pragma: no cover

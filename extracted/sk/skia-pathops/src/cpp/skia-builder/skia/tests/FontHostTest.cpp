@@ -22,6 +22,7 @@
 #include "src/core/SkFontStream.h"
 #include "tests/Test.h"
 #include "tools/Resources.h"
+#include "tools/fonts/FontToolUtils.h"
 
 #include <cstdint>
 #include <cstring>
@@ -84,10 +85,10 @@ static void test_countGlyphs(skiatest::Reporter* reporter, const sk_sp<SkTypefac
 }
 
 static void test_fontstream(skiatest::Reporter* reporter, SkStream* stream, int ttcIndex) {
-    int n = SkFontStream::GetTableTags(stream, ttcIndex, nullptr);
+    int n = SkFontStream::GetTableTags(stream, ttcIndex, {});
     AutoTArray<SkFontTableTag> array(n);
 
-    int n2 = SkFontStream::GetTableTags(stream, ttcIndex, array.get());
+    int n2 = SkFontStream::GetTableTags(stream, ttcIndex, array);
     REPORTER_ASSERT(reporter, n == n2);
 
     for (int i = 0; i < n; ++i) {
@@ -127,10 +128,10 @@ static void test_fontstream(skiatest::Reporter* reporter) {
 
 // Exercise this rare cmap format (platform 3, encoding 0)
 static void test_symbolfont(skiatest::Reporter* reporter) {
-    auto tf = MakeResourceAsTypeface("fonts/SpiderSymbol.ttf");
+    auto tf = ToolUtils::CreateTypefaceFromResource("fonts/SpiderSymbol.ttf");
     if (tf) {
         SkUnichar c = 0xf021;
-        uint16_t g = SkFont(tf).unicharToGlyph(c);
+        SkGlyphID g = SkFont(tf).unicharToGlyph(c);
         REPORTER_ASSERT(reporter, g == 3);
     } else {
         // not all platforms support data fonts, so we just note that failure
@@ -146,10 +147,8 @@ static void test_tables(skiatest::Reporter* reporter, const sk_sp<SkTypeface>& f
 
     int count = face->countTables();
 
-    AutoTMalloc<SkFontTableTag> storage(count);
-    SkFontTableTag* tags = storage.get();
-
-    int count2 = face->getTableTags(tags);
+    std::vector<SkFontTableTag> tags(count);
+    int count2 = face->readTableTags(tags);
     REPORTER_ASSERT(reporter, count2 == count);
 
     for (int i = 0; i < count; ++i) {
@@ -195,7 +194,7 @@ static void test_tables(skiatest::Reporter* reporter) {
     };
 
     for (size_t i = 0; i < std::size(gNames); ++i) {
-        sk_sp<SkTypeface> face(SkTypeface::MakeFromName(gNames[i], SkFontStyle()));
+        sk_sp<SkTypeface> face(ToolUtils::CreateTestTypeface(gNames[i], SkFontStyle()));
         if (face) {
 #ifdef DUMP_TABLES
             SkDebugf("%s\n", gNames[i]);
@@ -208,8 +207,7 @@ static void test_tables(skiatest::Reporter* reporter) {
 }
 
 /*
- * Verifies that the advance values returned by generateAdvance and
- * generateMetrics match.
+ * Verifies that the advance values returned by various methods match.
  */
 static void test_advances(skiatest::Reporter* reporter) {
     static const char* const faces[] = {
@@ -250,7 +248,7 @@ static void test_advances(skiatest::Reporter* reporter) {
     size_t textLen = strlen(txt);
 
     for (size_t i = 0; i < std::size(faces); i++) {
-        font.setTypeface(SkTypeface::MakeFromName(faces[i], SkFontStyle()));
+        font.setTypeface(ToolUtils::CreateTestTypeface(faces[i], SkFontStyle()));
 
         for (size_t j = 0; j  < std::size(settings); j++) {
             font.setHinting(settings[j].hinting);
@@ -263,15 +261,10 @@ static void test_advances(skiatest::Reporter* reporter) {
 
                 SkRect bounds;
 
-                // For no hinting and light hinting this should take the
-                // optimized generateAdvance path.
                 SkScalar width1 = font.measureText(txt, textLen, SkTextEncoding::kUTF8);
 
                 // Requesting the bounds forces a generateMetrics call.
                 SkScalar width2 = font.measureText(txt, textLen, SkTextEncoding::kUTF8, &bounds);
-
-                // SkDebugf("Font: %s, generateAdvance: %f, generateMetrics: %f\n",
-                //    faces[i], SkScalarToFloat(width1), SkScalarToFloat(width2));
 
                 REPORTER_ASSERT(reporter, width1 == width2);
             }

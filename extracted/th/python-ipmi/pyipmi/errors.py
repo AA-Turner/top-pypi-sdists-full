@@ -69,7 +69,7 @@ class DescriptionError(Exception):
 
 
 class RetryError(Exception):
-    """Maxium number of retries exceeded."""
+    """Maximum number of retries exceeded."""
     pass
 
 
@@ -85,6 +85,24 @@ class HpmError(Exception):
 
 class IpmiConnectionError(Exception):
     """Connection error."""
+    def __init__(self, msg=None):
+        self.msg = msg
+
+    def __str__(self):
+        return "{}".format(self.msg)
+
+
+class IpmiLongPasswordError(Exception):
+    """Password longer than 20 bytes."""
+    def __init__(self, msg=None):
+        self.msg = msg
+
+    def __str__(self):
+        return "{}".format(self.msg)
+
+
+class AuthenticationError(Exception):
+    """Authentication error."""
     def __init__(self, msg=None):
         self.msg = msg
 

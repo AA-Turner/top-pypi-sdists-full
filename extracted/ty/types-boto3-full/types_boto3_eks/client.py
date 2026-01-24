@@ -3,7 +3,7 @@ Type annotations for eks service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -32,6 +33,7 @@ from .paginator import (
     ListAccessPoliciesPaginator,
     ListAddonsPaginator,
     ListAssociatedAccessPoliciesPaginator,
+    ListCapabilitiesPaginator,
     ListClustersPaginator,
     ListEksAnywhereSubscriptionsPaginator,
     ListFargateProfilesPaginator,
@@ -52,6 +54,8 @@ from .type_defs import (
     CreateAccessEntryResponseTypeDef,
     CreateAddonRequestTypeDef,
     CreateAddonResponseTypeDef,
+    CreateCapabilityRequestTypeDef,
+    CreateCapabilityResponseTypeDef,
     CreateClusterRequestTypeDef,
     CreateClusterResponseTypeDef,
     CreateEksAnywhereSubscriptionRequestTypeDef,
@@ -65,6 +69,8 @@ from .type_defs import (
     DeleteAccessEntryRequestTypeDef,
     DeleteAddonRequestTypeDef,
     DeleteAddonResponseTypeDef,
+    DeleteCapabilityRequestTypeDef,
+    DeleteCapabilityResponseTypeDef,
     DeleteClusterRequestTypeDef,
     DeleteClusterResponseTypeDef,
     DeleteEksAnywhereSubscriptionRequestTypeDef,
@@ -85,6 +91,8 @@ from .type_defs import (
     DescribeAddonResponseTypeDef,
     DescribeAddonVersionsRequestTypeDef,
     DescribeAddonVersionsResponseTypeDef,
+    DescribeCapabilityRequestTypeDef,
+    DescribeCapabilityResponseTypeDef,
     DescribeClusterRequestTypeDef,
     DescribeClusterResponseTypeDef,
     DescribeClusterVersionsRequestTypeDef,
@@ -116,6 +124,8 @@ from .type_defs import (
     ListAddonsResponseTypeDef,
     ListAssociatedAccessPoliciesRequestTypeDef,
     ListAssociatedAccessPoliciesResponseTypeDef,
+    ListCapabilitiesRequestTypeDef,
+    ListCapabilitiesResponseTypeDef,
     ListClustersRequestTypeDef,
     ListClustersResponseTypeDef,
     ListEksAnywhereSubscriptionsRequestTypeDef,
@@ -144,6 +154,8 @@ from .type_defs import (
     UpdateAccessEntryResponseTypeDef,
     UpdateAddonRequestTypeDef,
     UpdateAddonResponseTypeDef,
+    UpdateCapabilityRequestTypeDef,
+    UpdateCapabilityResponseTypeDef,
     UpdateClusterConfigRequestTypeDef,
     UpdateClusterConfigResponseTypeDef,
     UpdateClusterVersionRequestTypeDef,
@@ -168,12 +180,6 @@ from .waiter import (
     NodegroupDeletedWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -184,22 +190,22 @@ __all__ = ("EKSClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ClientException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    InvalidStateException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourcePropagationDelayException: Type[BotocoreClientError]
-    ServerException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnsupportedAvailabilityZoneException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidStateException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourcePropagationDelayException: type[BotocoreClientError]
+    ServerException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnsupportedAvailabilityZoneException: type[BotocoreClientError]
 
 
 class EKSClient(BaseClient):
@@ -287,6 +293,16 @@ class EKSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#create_addon)
         """
 
+    def create_capability(
+        self, **kwargs: Unpack[CreateCapabilityRequestTypeDef]
+    ) -> CreateCapabilityResponseTypeDef:
+        """
+        Creates a managed capability resource for an Amazon EKS cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/create_capability.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#create_capability)
+        """
+
     def create_cluster(
         self, **kwargs: Unpack[CreateClusterRequestTypeDef]
     ) -> CreateClusterResponseTypeDef:
@@ -340,7 +356,7 @@ class EKSClient(BaseClient):
 
     def delete_access_entry(
         self, **kwargs: Unpack[DeleteAccessEntryRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an access entry.
 
@@ -356,6 +372,16 @@ class EKSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/delete_addon.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#delete_addon)
+        """
+
+    def delete_capability(
+        self, **kwargs: Unpack[DeleteCapabilityRequestTypeDef]
+    ) -> DeleteCapabilityResponseTypeDef:
+        """
+        Deletes a managed capability from your Amazon EKS cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/delete_capability.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#delete_capability)
         """
 
     def delete_cluster(
@@ -456,6 +482,18 @@ class EKSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/describe_addon_versions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#describe_addon_versions)
+        """
+
+    def describe_capability(
+        self, **kwargs: Unpack[DescribeCapabilityRequestTypeDef]
+    ) -> DescribeCapabilityResponseTypeDef:
+        """
+        Returns detailed information about a specific managed capability in your Amazon
+        EKS cluster, including its current status, configuration, health information,
+        and any issues that may be affecting its operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/describe_capability.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#describe_capability)
         """
 
     def describe_cluster(
@@ -560,7 +598,7 @@ class EKSClient(BaseClient):
 
     def disassociate_access_policy(
         self, **kwargs: Unpack[DisassociateAccessPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates an access policy from an access entry.
 
@@ -614,6 +652,16 @@ class EKSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/list_associated_access_policies.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#list_associated_access_policies)
+        """
+
+    def list_capabilities(
+        self, **kwargs: Unpack[ListCapabilitiesRequestTypeDef]
+    ) -> ListCapabilitiesResponseTypeDef:
+        """
+        Lists all managed capabilities in your Amazon EKS cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/list_capabilities.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#list_capabilities)
         """
 
     def list_clusters(
@@ -731,7 +779,7 @@ class EKSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#start_insights_refresh)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates the specified tags to an Amazon EKS resource with the specified
         <code>resourceArn</code>.
@@ -740,7 +788,7 @@ class EKSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes specified tags from an Amazon EKS resource.
 
@@ -766,6 +814,16 @@ class EKSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/update_addon.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#update_addon)
+        """
+
+    def update_capability(
+        self, **kwargs: Unpack[UpdateCapabilityRequestTypeDef]
+    ) -> UpdateCapabilityResponseTypeDef:
+        """
+        Updates the configuration of a managed capability in your Amazon EKS cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/update_capability.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#update_capability)
         """
 
     def update_cluster_config(
@@ -888,6 +946,17 @@ class EKSClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_associated_access_policies"]
     ) -> ListAssociatedAccessPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_capabilities"]
+    ) -> ListCapabilitiesPaginator:
         """
         Create a paginator for an operation.
 

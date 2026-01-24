@@ -11,6 +11,7 @@ from typing import Any, AsyncIterator, Dict, Iterator, List, Literal, Optional, 
 
 import json
 import torch
+import torch.nn.functional as F
 from PIL import Image
 from tqdm import tqdm
 from transformers import GenerationConfig, LogitsProcessorList
@@ -19,6 +20,7 @@ from transformers.utils import is_torch_npu_available
 from swift.llm import InferRequest, Template, TemplateMeta, get_model_tokenizer, safe_snapshot_download, to_device
 from swift.plugin import Metric
 from swift.tuners import Swift
+from swift.utils import get_generative_reranker_logits
 from ..protocol import (ChatCompletionResponse, ChatCompletionResponseChoice, ChatCompletionResponseStreamChoice,
                         ChatCompletionStreamResponse, ChatMessage, DeltaMessage, EmbeddingResponse,
                         EmbeddingResponseData, RequestConfig, random_uuid)
@@ -59,13 +61,15 @@ class PtEngine(InferEngine):
             quantization_config=None,
             model_kwargs: Optional[Dict[str, Any]] = None,
             template: Optional[Template] = None,
+            reranker_use_activation: bool = True,
             **kwargs):
+        download_model = kwargs.pop('download_model', True)
         self.model, self.processor = get_model_tokenizer(
             model_id_or_path,
             torch_dtype,
             load_model=load_model,
             model_type=model_type,
-            download_model=True,
+            download_model=download_model,
             use_hf=use_hf,
             hub_token=hub_token,
             revision=revision,
@@ -75,6 +79,7 @@ class PtEngine(InferEngine):
             task_type=task_type,
             model_kwargs=model_kwargs,
             **kwargs)
+        self.reranker_use_activation = reranker_use_activation
         self.max_batch_size = max_batch_size
         if isinstance(adapters, str):
             adapters = [adapters]
@@ -86,7 +91,7 @@ class PtEngine(InferEngine):
     def _post_init(self, template=None):
         super()._post_init(template)
         self.engine = self.model  # dummy
-        self.generation_config = self.model.generation_config
+        self.generation_config = getattr(self.model, 'generation_config', None)
         self._queue = Queue()
         self._task_pool = {}
         self._task_thread = None
@@ -326,6 +331,9 @@ class PtEngine(InferEngine):
         elif 'last_hidden_state' in output:
             # embeddings
             logits = output['last_hidden_state']
+        else:
+            raise NotImplementedError('Only support `logits` or `hidden_state` in output.')
+
         if template.task_type == 'seq_cls':
             preds, logprobs = template.decode_seq_cls(logits, top_logprobs)
         elif template.task_type == 'prm':
@@ -333,6 +341,16 @@ class PtEngine(InferEngine):
             logprobs = [None] * len(preds)
         elif template.task_type == 'embedding':
             preds = logits
+            logprobs = [None] * len(preds)
+        elif template.task_type in ('reranker', 'generative_reranker'):
+            if template.task_type == 'generative_reranker':
+                # Qwen3-reranker like
+                logits = get_generative_reranker_logits(
+                    template.tokenizer, logits, attention_mask=inputs.get('attention_mask'))
+            preds = logits.float()
+            if self.reranker_use_activation:
+                preds = F.sigmoid(preds)
+            preds = preds.tolist()
             logprobs = [None] * len(preds)
         else:
             raise ValueError(f'Unsupported task_type: {template.task_type}')
@@ -343,9 +361,7 @@ class PtEngine(InferEngine):
             if template.task_type == 'embedding':
                 res.append(
                     EmbeddingResponse(
-                        model=self.model_name,
-                        usage=usage_info,
-                        data=[EmbeddingResponseData(embedding=pred.to(torch.float32).cpu().numpy().tolist())]))
+                        model=self.model_name, usage=usage_info, data=[EmbeddingResponseData(embedding=pred.tolist())]))
             else:
                 choices = [
                     ChatCompletionResponseChoice(
@@ -398,7 +414,7 @@ class PtEngine(InferEngine):
                 response = template.decode(generate_ids, template_inputs=template_inputs[i])
                 finish_reason = self._get_finish_reason(generation_config.max_new_tokens, len(generate_ids), True)
                 toolcall = self._get_toolcall(response, template)
-                token_ids = template.skip_stop_tokens(generate_ids) if request_config.return_details else None
+                token_ids = generate_ids if request_config.return_details else None
                 choices.append(
                     ChatCompletionResponseChoice(
                         index=j,
@@ -520,8 +536,9 @@ class PtEngine(InferEngine):
             return _gen_wrapper()
         else:
             if len(kwargs) > 0:
-                infer_func = self._infer_forward if template.task_type in {'seq_cls', 'prm', 'embedding'
-                                                                           } else self._infer_full
+                infer_func = self._infer_forward if template.task_type in {
+                    'seq_cls', 'prm', 'embedding', 'reranker', 'generative_reranker'
+                } else self._infer_full
                 res = infer_func(**kwargs)
             else:
                 res = []

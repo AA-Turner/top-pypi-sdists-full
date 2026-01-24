@@ -43,12 +43,20 @@ from gdsfactory.utils import to_kdb_dpoints
 
 if TYPE_CHECKING:
     from gdsfactory.cross_section import CrossSection, CrossSectionSpec
+    from gdsfactory.get_netlist import (
+        ComponentNamer,
+        ErrorBehavior,
+        InstanceNamer,
+        NetlistNamer,
+        PortMatcher,
+    )
     from gdsfactory.technology.layer_stack import LayerStack
     from gdsfactory.technology.layer_views import LayerViews
     from gdsfactory.typings import (
         AngleInDegrees,
         ComponentSpec,
         Coordinates,
+        CornerMode,
         Layer,
         LayerSpec,
         LayerSpecs,
@@ -71,20 +79,15 @@ def ensure_tuple_of_tuples(points: Any) -> tuple[tuple[float, float], ...]:
         # If it's a list, check if the first element is an np.ndarray or a list to decide on conversion
         if len(points) > 0 and isinstance(points[0], np.ndarray | list):
             points = tuple(tuple(point) for point in points)
-    return cast(tuple[tuple[float, float], ...], points)
+    return cast("tuple[tuple[float, float], ...]", points)
 
 
 def points_to_polygon(
     points: _PolygonPoints,
 ) -> kdb.Polygon | kdb.DPolygon | kdb.DSimplePolygon | kdb.Region:
-    if isinstance(points, tuple | list | np.ndarray):
-        points = ensure_tuple_of_tuples(points)
-        polygon = kdb.DPolygon()
-        polygon.assign_hull(to_kdb_dpoints(points))
-    elif isinstance(
-        points, kdb.Polygon | kdb.DPolygon | kdb.DSimplePolygon | kdb.Region
-    ):
+    if isinstance(points, kdb.Polygon | kdb.DPolygon | kdb.DSimplePolygon | kdb.Region):
         return points
+    points = ensure_tuple_of_tuples(points)
     return kdb.DPolygon(to_kdb_dpoints(points))
 
 
@@ -223,7 +226,7 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
         if center is None:
             raise ValueError("Must specify center")
 
-        elif isinstance(center, kdb.DPoint):
+        if isinstance(center, kdb.DPoint):
             layer = get_layer(layer)
             trans = kdb.DCplxTrans(1, orientation, False, center.to_v())
         else:
@@ -356,6 +359,7 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
         save_options: kdb.SaveLayoutOptions | None = None,
         with_metadata: bool = True,
         exclude_layers: Sequence[LayerSpec] | None = None,
+        no_empty_cells: bool = False,
     ) -> pathlib.Path:
         """Write component to GDS and returns gdspath.
 
@@ -365,6 +369,7 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
             save_options: klayout save options.
             with_metadata: if True, writes metadata (ports, settings) to the GDS file.
             exlude_layers: list of layers to exclude from the GDS file.
+            no_empty_cells: if True, does not save empty cells.
         """
         from gdsfactory.pdk import get_layer
 
@@ -384,7 +389,7 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
         gdspath.parent.mkdir(parents=True, exist_ok=True)
 
         if save_options is None:
-            save_options = save_layout_options()
+            save_options = save_layout_options(no_empty_cells=no_empty_cells)
 
         exclude_layers = exclude_layers or CONF.exclude_layers
 
@@ -457,32 +462,84 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
         assert isinstance(res, dict)
         return res
 
-    def get_netlist(self, recursive: bool = False, **kwargs: Any) -> dict[str, Any]:
+    def get_netlist(
+        self,
+        recursive: bool = False,
+        *,
+        on_multi_connect: ErrorBehavior = "error",
+        on_dangling_port: ErrorBehavior = "warn",
+        instance_namer: InstanceNamer | None = None,
+        component_namer: ComponentNamer | None = None,
+        netlist_namer: NetlistNamer | None = None,
+        port_matcher: PortMatcher | None = None,
+    ) -> dict[str, Any]:
         """Returns a place-aware netlist for circuit simulation.
 
-        It includes not only the connectivity information (nodes and connections) but also the specific placement coordinates for each component or cell in the layout.
+        It includes not only the connectivity information (nodes and connections)
+        but also the specific placement coordinates for each component or cell
+        in the layout.
 
         Args:
             recursive: if True, returns a recursive netlist.
-            kwargs: keyword arguments to get_netlist.
+            on_multi_connect: What to do when more than two ports overlap.
+                "ignore": silently allow, "warn": allow with warning, "error": raise.
+            on_dangling_port: What to do when an instance port is not connected.
+                "ignore": silently allow, "warn": allow with warning, "error": raise.
+            instance_namer: Callable to name instances.
+                Defaults to SmartNamer(component_namer).
+            component_namer: Callable to name components.
+                Defaults to function_namer.
+            netlist_namer: Callable to name cells in recursive netlists.
+                Defaults to CountedNetlistNamer(component_namer). Only used when
+                recursive=True.
+            port_matcher: Callable to determine if two ports are connected.
+                Defaults to SmartPortMatcher().
         """
-        from gdsfactory.get_netlist import get_netlist, get_netlist_recursive
+        from gdsfactory.get_netlist import (
+            function_namer,
+            get_netlist,
+            get_netlist_recursive,
+        )
+
+        if component_namer is None:
+            component_namer = function_namer
 
         if recursive:
-            return get_netlist_recursive(self, **kwargs)
+            return get_netlist_recursive(
+                self,  # type: ignore[arg-type]
+                on_multi_connect=on_multi_connect,
+                on_dangling_port=on_dangling_port,
+                instance_namer=instance_namer,
+                component_namer=component_namer,
+                netlist_namer=netlist_namer,
+                port_matcher=port_matcher,
+            )
 
-        return get_netlist(self, **kwargs)  # type: ignore[arg-type]
+        return get_netlist(
+            self,  # type: ignore[arg-type]
+            on_multi_connect=on_multi_connect,
+            on_dangling_port=on_dangling_port,
+            instance_namer=instance_namer,
+            component_namer=component_namer,
+            port_matcher=port_matcher,
+        )
 
-    def add_ref_off_grid(self, component: kf.ProtoTKCell[Any]) -> VInstance:
+    def add_ref_off_grid(
+        self, component: kf.ProtoTKCell[Any], name: str | None = None
+    ) -> VInstance:
         """Adds a component instance reference to a Component without snapping to grid.
 
         Args:
             component: The referenced component.
+            name: Name of the reference.
         """
         if self.locked:
             raise LockedError(self)
 
-        return self.create_vinst(component)
+        ref = self.create_vinst(component)
+        if name:
+            ref.name = name
+        return ref
 
 
 Route: TypeAlias = (
@@ -581,14 +638,7 @@ class Component(ComponentBase, kf.DKCell):
         Args:
             cell: The cell to be added as an instance
         """
-        if isinstance(cell, ComponentAllAngle):
-            raise ValueError(
-                f"Use Component.add_ref_off_grid() for all angle {cell.name!r}"
-            )
-
-        if not isinstance(cell, kf.ProtoTKCell):
-            raise ValueError(f"Expected a Component, got {type(cell)}")
-        return self.create_inst(cell)
+        return self.add_ref(cell)
 
     def add_ref(
         self,
@@ -614,7 +664,7 @@ class Component(ComponentBase, kf.DKCell):
             raise ValueError(
                 f"Use Component.add_ref_off_grid() for all angle {component.name!r}"
             )
-        elif not isinstance(component, kf.ProtoTKCell):
+        if not isinstance(component, kf.ProtoTKCell):
             raise ValueError(f"Expected a Component, got {type(component)}")
 
         if self.locked:
@@ -809,7 +859,9 @@ class Component(ComponentBase, kf.DKCell):
         return extract(self, layers=layers, recursive=recursive)
 
     def copy_layers(
-        self, layer_map: dict[LayerSpec, LayerSpec], recursive: bool = False
+        self,
+        layer_map: dict[LayerSpec, LayerSpec],
+        recursive: bool = False,
     ) -> Self:
         """Remaps a list of layers and returns the same Component.
 
@@ -818,6 +870,9 @@ class Component(ComponentBase, kf.DKCell):
             recursive: if True, remaps layers recursively.
         """
         from gdsfactory import get_layer
+
+        if recursive:
+            self.locked = False
 
         if self.locked:
             raise LockedError(self)
@@ -829,25 +884,27 @@ class Component(ComponentBase, kf.DKCell):
 
             if recursive:
                 for ci in self.kdb_cell.called_cells():
+                    was_locked = self.kcl[ci].locked
+                    self.kcl[ci].locked = False
                     self.kcl[ci].kdb_cell.copy(src_layer_index, dst_layer_index)
+                    if was_locked:
+                        self.kcl[ci].locked = True
         return self
 
     def remove_layers(
         self,
         layers: LayerSpecs,
         recursive: bool = True,
-        unlock: bool = False,
     ) -> Self:
         """Removes a list of layers and returns the same Component.
 
         Args:
             layers: list of layers to remove.
-            recursive: if True, removes layers recursively.
-            unlock: if True, unlocks the component before removing layers. Be careful with this option as it modifies the component and can have unintended side effects.
+            recursive: if True, removes layers recursively and temporarily unlocks components.
         """
         from gdsfactory import get_layer
 
-        if unlock:
+        if recursive:
             self.locked = False
 
         if self.locked:
@@ -865,10 +922,10 @@ class Component(ComponentBase, kf.DKCell):
                     for layer_idx in layers:
                         assert isinstance(layer_idx, int)
                         was_locked = self.kcl[ci].locked
-                        if unlock:
+                        if recursive:
                             self.kcl[ci].locked = False
                         self.kcl[ci].kdb_cell.shapes(layer_idx).clear()
-                        if unlock and was_locked:
+                        if recursive and was_locked:
                             self.kcl[ci].locked = True
         return self
 
@@ -923,7 +980,11 @@ class Component(ComponentBase, kf.DKCell):
         )
 
     def over_under(
-        self, layer: LayerSpec, distance: float = 0.001, remove_old_layer: bool = True
+        self,
+        layer: LayerSpec,
+        distance: float = 0.001,
+        remove_old_layer: bool = True,
+        corner_mode: int | CornerMode = 2,
     ) -> None:
         """Returns a Component over-under on a layer in the Component.
 
@@ -933,6 +994,7 @@ class Component(ComponentBase, kf.DKCell):
             layer: layer to perform over-under on.
             distance: distance to perform over-under in um.
             remove_old_layer: if True, removes the old layer.
+            corner_mode: determines behavior around corners
         """
         from gdsfactory import get_layer
 
@@ -943,19 +1005,27 @@ class Component(ComponentBase, kf.DKCell):
 
         layer_index = get_layer(layer)
         region = kdb.Region(self.kdb_cell.begin_shapes_rec(layer_index))
-        region.size(+distance_dbu).size(-distance_dbu)
+        region.size(+distance_dbu, +distance_dbu, corner_mode).size(
+            -distance_dbu, -distance_dbu, corner_mode
+        )
 
         if remove_old_layer:
             self.remove_layers([layer])
         self.kdb_cell.shapes(layer_index).insert(region)
         self.kcl.layout.end_changes()
 
-    def fix_spacing(self, layer: LayerSpec, min_space: float = 0.2) -> None:
+    def fix_spacing(
+        self,
+        layer: LayerSpec,
+        min_space: float = 0.2,
+        size_bias: float = 0.0,
+    ) -> None:
         """Fixes layer spacing in the Component.
 
         Args:
             layer: layer to fix spacing on.
             min_space: minimum space in um.
+            size_bias: optional geometry bias applied after spacing fix (um).
         """
         import gdsfactory as gf
         from gdsfactory.pdk import get_layer
@@ -965,6 +1035,11 @@ class Component(ComponentBase, kf.DKCell):
         fix = fix_spacing_tiled(
             self.to_itype(), min_space=self.kcl.to_dbu(min_space), layer=layer_info
         )
+        if size_bias:
+            size_offset_dbu = self.kcl.to_dbu(size_bias)
+            fix = fix.sized(+size_offset_dbu)
+            fix = fix.sized(-size_offset_dbu)
+
         self.shapes(layer).insert(fix)
 
     def fix_width(
@@ -975,6 +1050,7 @@ class Component(ComponentBase, kf.DKCell):
         tile_size: tuple[float, float] | None = None,
         overlap: int = 1,
         smooth: int | None = None,
+        flatten: bool = True,
     ) -> None:
         """Fixes layer min width in the Component.
 
@@ -985,11 +1061,13 @@ class Component(ComponentBase, kf.DKCell):
             tile_size: size of the tiles to use for processing.
             overlap: overlap between tiles.
             smooth: smooth the polygons by this amount in um.
+            flatten: if True, flattens the Component before fixing width.
         """
         import gdsfactory as gf
         from gdsfactory.pdk import get_layer
 
-        self.flatten()
+        if flatten:
+            self.flatten()
         layer = get_layer(layer)
         layer_info = gf.kcl.get_info(layer)
 
@@ -1005,23 +1083,34 @@ class Component(ComponentBase, kf.DKCell):
         self.shapes(layer).clear()
         self.shapes(layer).insert(fix)
 
-    def offset(self, layer: LayerSpec, distance: float) -> None:
+    def offset(
+        self,
+        layer: LayerSpec,
+        distance: float,
+        flatten: bool = False,
+        corner_mode: int | CornerMode = 2,
+    ) -> None:
         """Offsets a Component layer by a distance in um.
 
         Args:
             layer: layer to offset the Component on.
             distance: distance to offset the Component in um.
+            flatten: if True, flattens the Component before offsetting.
+            corner_mode: determines behavior around corners
         """
         from gdsfactory import get_layer
 
         if self.locked:
             raise LockedError(self)
 
+        if flatten:
+            self.flatten()
+
         distance_dbu = self.kcl.to_dbu(distance)
 
         layer_index = get_layer(layer)
         region = kdb.Region(self.kdb_cell.begin_shapes_rec(layer_index))
-        region.size(distance_dbu)
+        region.size(distance_dbu, distance_dbu, corner_mode)
         self.remove_layers([layer])
         self.kdb_cell.shapes(layer_index).insert(region)
 
@@ -1042,6 +1131,8 @@ class Component(ComponentBase, kf.DKCell):
         _layer = get_layer(layer)
 
         polygon = points_to_polygon(points)
+        if isinstance(polygon, kdb.DPolygon | kdb.DSimplePolygon):
+            polygon = polygon.to_itype(self.kcl.dbu)  # type: ignore[assignment]
 
         return self.kdb_cell.shapes(_layer).insert(polygon)
 
@@ -1179,8 +1270,6 @@ class Component(ComponentBase, kf.DKCell):
         import matplotlib.pyplot as plt
         import networkx as nx
 
-        from gdsfactory.get_netlist import nets_to_connections
-
         plt.figure()
         netlist = self.get_netlist(recursive=recursive, **kwargs)
         G = nx.Graph()
@@ -1200,7 +1289,7 @@ class Component(ComponentBase, kf.DKCell):
                     ]
                 )
                 pos |= {k: (v["x"], v["y"]) for k, v in placements.items()}
-                labels |= {k: ",".join(k.split(",")[:1]) for k in placements.keys()}
+                labels |= {k: ",".join(k.split(",")[:1]) for k in placements}
 
         else:
             nets = netlist.get("nets", [])
@@ -1214,7 +1303,7 @@ class Component(ComponentBase, kf.DKCell):
                 ]
             )
             pos = {k: (v["x"], v["y"]) for k, v in placements.items()}
-            labels = {k: ",".join(k.split(",")[:1]) for k in placements.keys()}
+            labels = {k: ",".join(k.split(",")[:1]) for k in placements}
 
         nx.draw(
             G,
@@ -1381,6 +1470,7 @@ class ComponentAllAngle(ComponentBase, kf.VKCell):
 def container(
     component: ComponentSpec,
     function: Callable[..., Any] | None = None,
+    copy_ports: bool = True,
     **kwargs: Any,
 ) -> Component:
     """Returns new component with a component reference.
@@ -1388,6 +1478,7 @@ def container(
     Args:
         component: to add to container.
         function: function to apply to component.
+        copy_ports: if True, copies ports from component to container.
         kwargs: keyword arguments to pass to function.
     """
     import gdsfactory as gf
@@ -1395,9 +1486,50 @@ def container(
     component = gf.get_component(component)
     c = Component()
     cref = c << component
-    c.add_ports(cref.ports)
+    if copy_ports:
+        c.add_ports(cref.ports)
     if function:
         function(component=c, **kwargs)
 
     c.copy_child_info(component)
     return c
+
+
+def nets_to_connections(
+    nets: list[dict[str, Any]], connections: dict[str, Any]
+) -> dict[str, str]:
+    # Use the given connections; create a shallow copy to avoid mutating the input.
+    connections = dict(connections)
+
+    # Flat set of all used ports for O(1) membership check.
+    used = set(connections.keys())
+    used.update(connections.values())
+
+    for net in nets:
+        p = net["p1"]
+        q = net["p2"]
+        if p in used:
+            # Find the already connected q (if any)
+            _q = (
+                connections[p]
+                if p in connections
+                else next(k for k, v in connections.items() if v == p)
+            )
+            raise ValueError(
+                "SAX currently does not support multiply connected ports. "
+                f"Got {p}<->{q} and {p}<->{_q}"
+            )
+        if q in used:
+            _p = (
+                connections[q]
+                if q in connections
+                else next(k for k, v in connections.items() if v == q)
+            )
+            raise ValueError(
+                "SAX currently does not support multiply connected ports. "
+                f"Got {p}<->{q} and {_p}<->{q}"
+            )
+        connections[p] = q
+        used.add(p)
+        used.add(q)
+    return connections

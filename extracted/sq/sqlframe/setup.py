@@ -20,7 +20,7 @@ setup(
     python_requires=">=3.9",
     install_requires=[
         "prettytable<4",
-        "sqlglot>=24.0.0,<27.18",
+        "sqlglot>=28.0.0,<28.7",
         "typing_extensions",
         "more-itertools",
     ],
@@ -32,20 +32,22 @@ setup(
         "dev": [
             "duckdb>=1.2,<1.5",
             "findspark>=2,<3",
-            "mypy>=1.10.0,<1.19",
-            "openai>=1.30,<2",
+            # 3.0.0 dropped support for Python 3.9 and this is needed by pytest-postgresql
+            "mirakuru<3.0.0",
+            "mypy>=1.10.0,<1.20",
+            "openai>=1.30,<3",
             "pandas>=2,<3",
             "pandas-stubs>=2,<3",
             "psycopg>=3.1,<4",
-            "pyarrow>=10,<22",
+            "pyarrow>=10,<24",
             "pyspark>=2,<3.6",
-            "pytest>=8.2.0,<8.5",
+            "pytest>=8.2.0,<9.1",
             "pytest-forked",
             "pytest-postgresql>=6,<8",
             "pytest-rerunfailures",
             "pytest-xdist>=3.6,<3.9",
             "pre-commit>=3.7,<5",
-            "ruff>=0.4.4,<0.14",
+            "ruff>=0.4.4,<0.15",
             "types-psycopg2>=2.9,<3",
         ],
         "docs": [
@@ -60,7 +62,7 @@ setup(
             "pandas>=2,<3",
         ],
         "openai": [
-            "openai>=1.30,<2",
+            "openai>=1.30,<3",
         ],
         "pandas": [
             "pandas>=2,<3",
@@ -72,7 +74,7 @@ setup(
             "redshift_connector>=2.1.1,<2.2.0",
         ],
         "snowflake": [
-            "snowflake-connector-python[secure-local-storage]>=3.10.0,<3.18",
+            "snowflake-connector-python[secure-local-storage]>=3.10.0,<4.3",
         ],
         "spark": [
             "pyspark>=2,<3.6",

@@ -1,28 +1,26 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cftime
-Version: 1.6.4.post1
+Version: 1.6.5
 Summary: Time-handling functionality from netcdf4-python
-Author: Jeff Whitaker
-Author-email: jeffrey.s.whitaker@noaa.gov
-License: License :: OSI Approved :: MIT License
+Author-email: Jeff Whitaker <whitaker.jeffrey@gmail.com>
+License-Expression: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>1.13.3; python_version < "3.12.0.rc1"
-Requires-Dist: numpy>=1.26.0b1; python_version >= "3.12.0.rc1"
+Requires-Dist: numpy>=1.21.2
+Dynamic: license-file
 
 # cftime
 Time-handling functionality from netcdf4-python
@@ -37,6 +35,8 @@ Time-handling functionality from netcdf4-python
 
 ## News
 For details on the latest updates, see the [Changelog](https://github.com/Unidata/cftime/blob/master/Changelog).
+
+10/13/2025:  Version 1.6.5 release.  Minor bugfixes/optimizations, wheels for python 3.14, no more wheels for 3.8/3.9.
 
 6/7/2024:  Version 1.6.4 release.  Wheels for muslinux and aarch64, numpy 2.0 compatibility. 
 

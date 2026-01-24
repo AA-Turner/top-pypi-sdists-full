@@ -5,6 +5,7 @@ from abstra_internals.entities.execution import Execution
 from abstra_internals.entities.execution_context import ScriptContext
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.project.project import (
+    ComponentStage,
     FormStage,
     ScriptStage,
     Stage,
@@ -26,17 +27,46 @@ class TaskExecutor:
         show_warning: bool = True,
     ) -> None:
         project = self.repos.project.load(include_disabled_stages=False)
-        next_stages = [
-            project.get_stage_raises(t.target_id)
-            for t in current_stage.workflow_transitions
-            if t.matches(type)
-        ]
+
+        next_stages = []
+        module_name = project.find_module_containing_stage(current_stage.id)
+        if module_name is not None:
+            if project.is_stage_module_output(current_stage.id):
+                parent_component_stage = project.get_component_by_module_name(
+                    module_name
+                )
+                if parent_component_stage is not None:
+                    next_stages = [
+                        project.get_stage_raises(t.target_id)
+                        for t in parent_component_stage.workflow_transitions
+                        if t.matches(type)
+                    ]
+            else:
+                next_stages = [
+                    project.get_stage_raises(t.target_id)
+                    for t in current_stage.workflow_transitions
+                    if t.matches(type)
+                ]
+        else:
+            next_stages = [
+                project.get_stage_raises(t.target_id)
+                for t in current_stage.workflow_transitions
+                if t.matches(type)
+            ]
 
         if len(next_stages) == 0 and show_warning:
             print(
                 f"[WARNING] No transitions found for task type {type} in stage {current_stage.id}"
             )
             return
+
+        for stage in next_stages:
+            if isinstance(stage, ComponentStage):
+                module = stage.package_name
+                if module is not None:
+                    input_stages = self.project.get_inputs_for_module(module)
+                    next_stages.remove(stage)
+                    next_stages.extend(input_stages)
 
         for stage in next_stages:
             task = self.repos.tasks.send_task(
@@ -50,7 +80,7 @@ class TaskExecutor:
             if execution:
                 execution.context.sent_tasks.append(task.id)
             if isinstance(stage, ScriptStage):
-                self.repos.producer.enqueue(
+                self.repos.producer.enqueue_fire_and_forget(
                     context=ScriptContext(task_id=task.id),
                     stage_id=stage.id,
                 )

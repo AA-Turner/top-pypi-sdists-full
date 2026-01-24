@@ -19,8 +19,8 @@ from .task import Task
 class JointVelocityTask(Task):
     r"""Track joint velocities.
 
-    This task minimizes :math:`\| v^{\mathit{ref}} - v \|_2` with :math:`v` the
-    joint velocity resulting from differential IK and :math:`v^{\mathit{ref}}`
+    This task minimizes :math:`\| v_{\mathit{ref}} - v \|_2` with :math:`v` the
+    joint velocity resulting from differential IK and :math:`v_{\mathit{ref}}`
     is a reference joint-velocity vector.
 
     Note:
@@ -59,6 +59,9 @@ class JointVelocityTask(Task):
 
     def compute_error(self, configuration: Configuration) -> np.ndarray:
         r"""Compute the joint-velocity task error.
+
+        The task error is
+        :math:`e(q) = \Delta q_{\mathit{ref}} = v_{\mathit{ref}} \mathrm{d}t`.
 
         Args:
             configuration: Robot configuration :math:`q`.

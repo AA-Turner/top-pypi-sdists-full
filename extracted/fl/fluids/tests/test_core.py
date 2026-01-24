@@ -1,4 +1,4 @@
-'''Chemical Engineering Design Library (ChEDL). Utilities for process modeling.
+"""Chemical Engineering Design Library (ChEDL). Utilities for process modeling.
 Copyright (C) 2016, 2017, 2018 Caleb Bell <Caleb.Andrew.Bell@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,7 +18,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
 
 import pytest
 
@@ -145,6 +145,8 @@ def test_core_dimensionless():
     assert_close1d([Le1, Le2], [0.8451327433628318, 0.00502815768302494])
     with pytest.raises(Exception):
         Lewis(D=22.6E-6, rho=800., k=.2)
+    with pytest.raises(ValueError):
+        Lewis(D=None, alpha=19.1E-6)
 
     We = Weber(0.18, 0.001, 900., 0.01)
     assert_close(We, 2.916)

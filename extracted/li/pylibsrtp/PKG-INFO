@@ -1,25 +1,24 @@
 Metadata-Version: 2.4
 Name: pylibsrtp
-Version: 0.12.0
+Version: 1.0.0
 Summary: Python wrapper around the libsrtp library
 Author-email: Jeremy Lainé <jeremy.laine@m4x.org>
-License: BSD-3-Clause
+License-Expression: BSD-3-Clause
 Project-URL: homepage, https://github.com/aiortc/pylibsrtp
 Project-URL: documentation, https://pylibsrtp.readthedocs.io/
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Communications :: Telephony
 Classifier: Topic :: Security :: Cryptography
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cffi>=1.0.0

@@ -4,22 +4,17 @@ from __future__ import annotations
 
 import sys
 from os import PathLike
-from typing import TYPE_CHECKING, Literal, Protocol, Self, TypeAlias, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 if TYPE_CHECKING:
     import datetime as pydt
 
 
-if sys.version_info >= (3, 12):
+if sys.version_info >= (3, 12):  # pragma: no cover
     from collections.abc import Buffer
-    from typing import Unpack
-else:
-    from typing_extensions import Buffer, Unpack
-
-if sys.version_info >= (3, 13):
-    from warnings import deprecated
-else:
-    from typing_extensions import deprecated
+    from typing import TypedDict, Unpack
+else:  # pragma: no cover
+    from typing_extensions import Buffer, TypedDict, Unpack
 
 __all__ = (
     "Buffer",
@@ -30,13 +25,13 @@ __all__ = (
     "DateTimeTypedDict",
     "DateTypedDict",
     "DateTypedDict",
-    "FileTypeDict",
-    "FromStr",
+    "DurationDict",
     "FsPathLike",
     "ISOWeekDateTypedDict",
     "JiffRoundMode",
     "JiffUnit",
     "MetadataDict",
+    "OffsetInfoDict",
     "OffsetRoundTypedDict",
     "SignedDurationRoundTypedDict",
     "TimeDifferenceTypedDict",
@@ -46,65 +41,20 @@ __all__ = (
     "TimestampDifferenceTypedDict",
     "TimestampRoundTypedDict",
     "TimestampTypedDict",
-    "ToPy",
-    "ToPyDate",
-    "ToPyDateTime",
-    "ToPyTime",
-    "ToPyTimeDelta",
-    "ToPyTzInfo",
     "Unpack",
     "ZonedDateTimeDifferenceTypedDict",
     "ZonedDateTimeRoundTypedDict",
-    "deprecated",
 )
 
 FsPathLike = str | PathLike[str]
-
-T_co = TypeVar("T_co", covariant=True)
-
-
-class FromStr(Protocol):
-    @classmethod
-    def from_str(cls, s: str) -> Self: ...
-
-
-class ToPy(Protocol[T_co]):
-    """Objects that can be converted to a python stdlib type (`T_co`) via `obj.to_py()`."""
-
-    def to_py(self) -> T_co: ...
-
-
-class ToPyDate(Protocol):
-    """Objects that can be converted to a Python `datetime.date`."""
-
-    def to_pydate(self) -> pydt.date: ...
-
-
-class ToPyTime(Protocol):
-    """Objects that can be converted to a Python `datetime.time`."""
-
-    def to_pytime(self) -> pydt.time: ...
-
-
-class ToPyDateTime(Protocol):
-    def to_pydatetime(self) -> pydt.datetime: ...
-
-
-class ToPyTimeDelta(Protocol):
-    def to_pytimedelta(self) -> pydt.timedelta: ...
-
-
-class ToPyTzInfo(Protocol):
-    def to_pytzinfo(self) -> pydt.tzinfo: ...
 
 
 # =============================================================================
 # STD
 # =============================================================================
-class FileTypeDict(TypedDict):
-    is_dir: bool
-    is_file: bool
-    is_symlink: bool
+class DurationDict(TypedDict):
+    secs: int
+    nanos: int
 
 
 class MetadataDict(TypedDict):
@@ -113,7 +63,7 @@ class MetadataDict(TypedDict):
     is_symlink: bool
     len: int
     readonly: bool
-    file_type: FileTypeDict | None
+    file_type: Literal["file", "directory", "symlink"]
     accessed: pydt.datetime
     created: pydt.datetime
     modified: pydt.datetime
@@ -213,9 +163,19 @@ class TimeSpanTypedDict(TypedDict):
     nanoseconds: int
 
 
+class TimeZoneDict(TypedDict):
+    tz: str
+
+
 class OffsetTypedDict(TypedDict):
     seconds: int
     fmt: str
+
+
+class OffsetInfoDict(TypedDict):
+    offset: OffsetTypedDict
+    dst: bool
+    abbreviation: str
 
 
 class ISOWeekDateTypedDict(TypedDict):
@@ -353,7 +313,7 @@ class TimestampDifferenceTypedDict(_DifferenceTypedDict):
 # =============================================================================
 # OPEN MODES (CANONICAL)
 # =============================================================================
-# ry accepts the non-cannonical modes, but they are mapped to the canonical ones]
+# ry accepts the non-canonical modes, but they are mapped to the canonical ones]
 
 OpenTextModeUpdating: TypeAlias = Literal[
     "a+", "at+", "r+", "rt+", "w+", "wt+", "x+", "xt+"

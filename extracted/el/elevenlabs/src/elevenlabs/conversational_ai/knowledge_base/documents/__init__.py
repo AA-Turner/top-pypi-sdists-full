@@ -9,24 +9,37 @@ if typing.TYPE_CHECKING:
     from .types import (
         DocumentsGetResponse,
         DocumentsGetResponse_File,
+        DocumentsGetResponse_Folder,
         DocumentsGetResponse_Text,
         DocumentsGetResponse_Url,
         DocumentsUpdateResponse,
         DocumentsUpdateResponse_File,
+        DocumentsUpdateResponse_Folder,
         DocumentsUpdateResponse_Text,
         DocumentsUpdateResponse_Url,
     )
-    from . import chunk
+    from . import chunk, summaries
+    from .summaries import (
+        SummariesGetResponseValue,
+        SummariesGetResponseValue_Failure,
+        SummariesGetResponseValue_Success,
+    )
 _dynamic_imports: typing.Dict[str, str] = {
     "DocumentsGetResponse": ".types",
     "DocumentsGetResponse_File": ".types",
+    "DocumentsGetResponse_Folder": ".types",
     "DocumentsGetResponse_Text": ".types",
     "DocumentsGetResponse_Url": ".types",
     "DocumentsUpdateResponse": ".types",
     "DocumentsUpdateResponse_File": ".types",
+    "DocumentsUpdateResponse_Folder": ".types",
     "DocumentsUpdateResponse_Text": ".types",
     "DocumentsUpdateResponse_Url": ".types",
-    "chunk": ".",
+    "SummariesGetResponseValue": ".summaries",
+    "SummariesGetResponseValue_Failure": ".summaries",
+    "SummariesGetResponseValue_Success": ".summaries",
+    "chunk": ".chunk",
+    "summaries": ".summaries",
 }
 
 
@@ -36,8 +49,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -52,11 +67,17 @@ def __dir__():
 __all__ = [
     "DocumentsGetResponse",
     "DocumentsGetResponse_File",
+    "DocumentsGetResponse_Folder",
     "DocumentsGetResponse_Text",
     "DocumentsGetResponse_Url",
     "DocumentsUpdateResponse",
     "DocumentsUpdateResponse_File",
+    "DocumentsUpdateResponse_Folder",
     "DocumentsUpdateResponse_Text",
     "DocumentsUpdateResponse_Url",
+    "SummariesGetResponseValue",
+    "SummariesGetResponseValue_Failure",
+    "SummariesGetResponseValue_Success",
     "chunk",
+    "summaries",
 ]

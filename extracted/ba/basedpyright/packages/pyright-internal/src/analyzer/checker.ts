@@ -12,17 +12,14 @@
  * cannot (or should not be) performed lazily.
  */
 
-import { CancellationToken } from 'vscode-languageserver';
-
 import { Commands } from '../commands/commands';
 import { appendArray } from '../common/collectionUtils';
 import { assert, assertNever } from '../common/debug';
-import { ActionKind, Diagnostic, DiagnosticAddendum, RenameShadowedFileAction } from '../common/diagnostic';
+import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { PythonVersion, pythonVersion3_12, pythonVersion3_5, pythonVersion3_6 } from '../common/pythonVersion';
 import { TextRange } from '../common/textRange';
 import { Uri } from '../common/uri/uri';
-import { DefinitionProvider } from '../languageService/definitionProvider';
 import { LocAddendum, LocMessage } from '../localization/localize';
 import {
     ArgCategory,
@@ -106,7 +103,7 @@ import { addInheritedDataClassEntries } from './dataClasses';
 import { Declaration, DeclarationType, isAliasDeclaration, isVariableDeclaration } from './declaration';
 import { getNameNodeForDeclaration, hasTypeForDeclaration } from './declarationUtils';
 import { getEnumDeclaredValueType, isEnumClassWithMembers, transformTypeForEnumMember } from './enums';
-import { ImportResolver, ImportedModuleDescriptor, createImportedModuleDescriptor } from './importResolver';
+import { ImportResolver, createImportedModuleDescriptor } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
 import { getRelativeModuleName, getTopLevelImports } from './importStatementUtils';
 import { getParamListDetails } from './parameterUtils';
@@ -117,7 +114,7 @@ import { isMethodOnlyProtocol, isProtocolUnsafeOverlap } from './protocols';
 import { Scope, ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { IPythonMode } from './sourceFile';
-import { SourceMapper, isStubFile } from './sourceMapper';
+import { isStubFile } from './sourceMapper';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
@@ -244,7 +241,6 @@ export class Checker extends ParseTreeWalker {
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
         parseResults: ParserOutput,
-        private _sourceMapper: SourceMapper,
         private _dependentFiles?: ParserOutput[]
     ) {
         super();
@@ -255,8 +251,6 @@ export class Checker extends ParseTreeWalker {
 
     check() {
         this._scopedNodes.push(this._moduleNode);
-
-        this._conditionallyReportShadowedModule();
 
         // Report code complexity issues for the module.
         const codeComplexity = AnalyzerNodeInfo.getCodeFlowComplexity(this._moduleNode);
@@ -1541,7 +1535,6 @@ export class Checker extends ParseTreeWalker {
     }
 
     override visitImportAs(node: ImportAsNode): boolean {
-        this._conditionallyReportShadowedImport(node);
         this._evaluator.evaluateTypesForStatement(node);
 
         const nameParts = node.d.module.d.nameParts;
@@ -1567,8 +1560,6 @@ export class Checker extends ParseTreeWalker {
                 );
             }
         }
-
-        this._conditionallyReportShadowedImport(node);
 
         if (!node.d.isWildcardImport) {
             node.d.imports.forEach((importAs) => {
@@ -2178,6 +2169,10 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        if (isModule(leftType) || isModule(rightType)) {
+            return;
+        }
+
         const getMessage = () => {
             return node.d.operator === OperatorType.Equals || node.d.operator === OperatorType.Is
                 ? LocMessage.comparisonAlwaysFalse()
@@ -2485,12 +2480,33 @@ export class Checker extends ParseTreeWalker {
         localTypeVarUsage.forEach((usage) => {
             // Report error for local type variable that appears only once.
             if (usage.nodes.length === 1 && !usage.isExempt) {
+                // Exempt the case where the single occurrence is solely in the return type
+                // annotation (e.g., def f[T]() -> list[T]), which is considered valid.
+                // TODO: this check doesn't work with function type comments, this is a bug with the collection
+                //  def f():  # type: () -> T
+                const onlyInReturn =
+                    usage.returnTypeUsageCount === 1 &&
+                    usage.paramTypeUsageCount === 0 &&
+                    usage.nodes[0].parent?.nodeType !== ParseNodeType.FunctionAnnotation;
+
+                // ...unless it's the return type is just the generic itself (ie. `def f[T]() -> T`) in which case there's no way
+                // for the type to be instantiated safely at runtime. the only valid alternative is `Never`.
+                const returnTypeAnnotation = node.d.returnAnnotation
+                    ? this._evaluator.getType(node.d.returnAnnotation)
+                    : undefined;
+                const isOnlyReturn = onlyInReturn && returnTypeAnnotation && isTypeVar(returnTypeAnnotation);
+                if (onlyInReturn && !isOnlyReturn) {
+                    return;
+                }
+
                 let altTypeText: string;
 
                 if (isTypeVarTuple(usage.typeVar)) {
                     altTypeText = '"tuple[object, ...]"';
                 } else if (usage.typeVar.shared.boundType) {
                     altTypeText = `"${this._evaluator.printType(convertToInstance(usage.typeVar.shared.boundType))}"`;
+                } else if (isOnlyReturn) {
+                    altTypeText = '"Never"';
                 } else {
                     altTypeText = '"object"';
                 }
@@ -4503,114 +4519,6 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    private _conditionallyReportShadowedModule() {
-        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
-            return;
-        }
-        // Check the module we're in.
-        const moduleName = this._fileInfo.moduleName;
-        const desc: ImportedModuleDescriptor = {
-            nameParts: moduleName.split('.'),
-            leadingDots: 0,
-            importedSymbols: new Set<string>(),
-        };
-        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
-        if (
-            stdlibPath &&
-            this._importResolver.isStdlibModule(desc, this._fileInfo.executionEnvironment) &&
-            this._sourceMapper.isUserCode(this._fileInfo.fileUri)
-        ) {
-            // This means the user has a module that is overwriting the stdlib module.
-            const diag = this._evaluator.addDiagnosticForTextRange(
-                this._fileInfo,
-                DiagnosticRule.reportShadowedImports,
-                LocMessage.stdlibModuleOverridden().format({
-                    name: moduleName,
-                    path: this._fileInfo.fileUri.toUserVisibleString(),
-                }),
-                this._moduleNode
-            );
-
-            // Add a quick action that renames the file.
-            if (diag) {
-                const renameAction: RenameShadowedFileAction = {
-                    action: ActionKind.RenameShadowedFileAction,
-                    oldUri: this._fileInfo.fileUri,
-                    newUri: this._sourceMapper.getNextFileName(this._fileInfo.fileUri),
-                };
-                diag.addAction(renameAction);
-            }
-        }
-    }
-
-    private _conditionallyReportShadowedImport(node: ImportAsNode | ImportFromAsNode | ImportFromNode) {
-        if (this._fileInfo.diagnosticRuleSet.reportShadowedImports === 'none') {
-            return;
-        }
-
-        // Skip this check for relative imports.
-        const nodeModule =
-            node.nodeType === ParseNodeType.ImportFromAs
-                ? node.parent?.nodeType === ParseNodeType.ImportFrom
-                    ? node.parent?.d.module
-                    : undefined
-                : node.d.module;
-        if (nodeModule?.d.leadingDots) {
-            return;
-        }
-
-        // Otherwise use the name to determine if a match for a stdlib module.
-        const namePartNodes =
-            node.nodeType === ParseNodeType.ImportAs
-                ? node.d.module.d.nameParts
-                : node.nodeType === ParseNodeType.ImportFromAs
-                ? [node.d.name]
-                : node.d.module.d.nameParts;
-        const nameParts = namePartNodes.map((n) => n.d.value);
-        const module: ImportedModuleDescriptor = {
-            nameParts,
-            leadingDots: 0,
-            importedSymbols: new Set<string>(),
-        };
-
-        // Make sure the module is a potential stdlib one so we don't spend the time
-        // searching for the definition.
-        const stdlibPath = this._importResolver.getTypeshedStdLibPath(this._fileInfo.executionEnvironment);
-        if (stdlibPath && this._importResolver.isStdlibModule(module, this._fileInfo.executionEnvironment)) {
-            // If the definition for this name is in 'user' module, it is overwriting the stdlib module.
-            const definitions = DefinitionProvider.getDefinitionsForNode(
-                this._sourceMapper,
-                this._evaluator,
-                namePartNodes[namePartNodes.length - 1],
-                namePartNodes[namePartNodes.length - 1].start,
-                CancellationToken.None
-            );
-            const paths = definitions ? definitions.map((d) => d.uri) : [];
-            paths.forEach((p) => {
-                if (!p.startsWith(stdlibPath) && !isStubFile(p) && this._sourceMapper.isUserCode(p)) {
-                    // This means the user has a module that is overwriting the stdlib module.
-                    const diag = this._evaluator.addDiagnostic(
-                        DiagnosticRule.reportShadowedImports,
-                        LocMessage.stdlibModuleOverridden().format({
-                            name: nameParts.join('.'),
-                            path: p.toUserVisibleString(),
-                        }),
-                        node
-                    );
-                    // Add a quick action that renames the file.
-                    if (diag) {
-                        const renameAction: RenameShadowedFileAction = {
-                            action: ActionKind.RenameShadowedFileAction,
-                            oldUri: p,
-                            newUri: this._sourceMapper.getNextFileName(p),
-                        };
-                        diag.addAction(renameAction);
-                    }
-                }
-            });
-        }
-    }
-
     private _conditionallyReportPrivateUsage(node: NameNode) {
         if (this._fileInfo.diagnosticRuleSet.reportPrivateUsage === 'none') {
             return;
@@ -6604,6 +6512,12 @@ export class Checker extends ParseTreeWalker {
                                 type: this._evaluator.printType(entry.valueType),
                             })
                         );
+                    } else if (!baseTypedDictEntries.extraItems.isReadOnly && entry.isReadOnly) {
+                        diag.addMessage(
+                            LocAddendum.typedDictClosedFieldNotReadOnly().format({
+                                name,
+                            })
+                        );
                     } else if (!baseTypedDictEntries.extraItems.isReadOnly && entry.isRequired) {
                         diag.addMessage(
                             LocAddendum.typedDictClosedFieldNotRequired().format({
@@ -6694,7 +6608,7 @@ export class Checker extends ParseTreeWalker {
                     // not an issue on final classes/attributes and enums because they can't be subtyped
                     !ClassType.isFinal(classType) &&
                     !this._evaluator.isFinalVariable(symbol) &&
-                    !isEnumClassWithMembers(this._evaluator, classType)
+                    !ClassType.isEnumClass(classType)
                 ) {
                     this._evaluator.addDiagnostic(
                         DiagnosticRule.reportUnannotatedClassAttribute,
@@ -7478,6 +7392,7 @@ export class Checker extends ParseTreeWalker {
             }
 
             this._validateClsSelfParamType(node, functionType, classType, /* isCls */ true);
+            this._disallowDefaultInClsSelfParam(node);
             return;
         }
 
@@ -7514,6 +7429,7 @@ export class Checker extends ParseTreeWalker {
             }
 
             this._validateClsSelfParamType(node, functionType, classType, /* isCls */ true);
+            this._disallowDefaultInClsSelfParam(node);
             return;
         }
 
@@ -7556,6 +7472,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         this._validateClsSelfParamType(node, functionType, classType, /* isCls */ false);
+        this._disallowDefaultInClsSelfParam(node);
     }
 
     // Determines whether the method properly calls through to the same method in all
@@ -7657,7 +7574,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         // If there is no type annotation, there's nothing to check because
-        // the type will be inferred.d.typeAnnotation
+        // the type will be inferred.
         const paramInfo = functionType.shared.parameters[0];
         const paramType = FunctionType.getParamType(functionType, 0);
         const paramAnnotation = node.d.params[0].d.annotation ?? node.d.params[0].d.annotationComment;
@@ -7743,6 +7660,24 @@ export class Checker extends ParseTreeWalker {
                     paramAnnotation
                 );
             }
+        }
+    }
+
+    // Warn when `self` or `cls` parameter has a default value
+    private _disallowDefaultInClsSelfParam(node: FunctionNode) {
+        if (node.d.params.length < 1) {
+            return;
+        }
+
+        const { defaultValue, name } = node.d.params[0].d;
+        if (name && defaultValue) {
+            this._evaluator.addDiagnostic(
+                DiagnosticRule.reportSelfClsDefault,
+                LocMessage.reportSelfClsDefault().format({
+                    name: name.d.value,
+                }),
+                defaultValue
+            );
         }
     }
 

@@ -57,7 +57,8 @@ def get_params() -> dict[str, Any]:
             "Accept": "application/json",
             "User-Agent": "python_api/" + VERSION,
             "Content-Type": "application/octet-stream",
-        }
+        },
+        body="",
     )
 
 

@@ -7,11 +7,11 @@ __all__ = ["Record"]
 from collections import deque
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from coola import objects_are_equal
-from coola.utils import str_indent, str_mapping
+from coola.equality import objects_are_equal
+from coola.utils.format import str_indent, str_mapping
 
-from minrecord._config import get_max_size
 from minrecord.base import BaseRecord, EmptyRecordError
+from minrecord.config import get_max_size
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -35,20 +35,18 @@ class Record(BaseRecord[T]):
             tuple with the step and its associated value.
         max_size: The maximum size of the record.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from minrecord import Record
+        >>> record = Record(name="value", elements=((None, 64.0), (None, 42.0)))
+        >>> record
+        Record(name=value, max_size=10, size=2)
+        >>> record.get_last_value()
+        42.0
+        >>> record.get_most_recent()
+        ((None, 64.0), (None, 42.0))
 
-    ```pycon
-
-    >>> from minrecord import Record
-    >>> record = Record(name="value", elements=((None, 64.0), (None, 42.0)))
-    >>> record
-    Record(name=value, max_size=10, size=2)
-    >>> record.get_last_value()
-    42.0
-    >>> record.get_most_recent()
-    ((None, 64.0), (None, 42.0))
-
-    ```
+        ```
     """
 
     def __init__(
@@ -93,7 +91,7 @@ class Record(BaseRecord[T]):
     def add_value(self, value: T, step: int | None = None) -> None:
         self._record.append((step, value))
 
-    def clone(self) -> Record:
+    def clone(self) -> Record[T]:
         return self.__class__(name=self.name, elements=self._record, max_size=self.max_size)
 
     def equal(self, other: Any) -> bool:

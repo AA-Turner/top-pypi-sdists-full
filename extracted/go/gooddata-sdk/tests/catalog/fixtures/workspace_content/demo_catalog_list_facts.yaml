@@ -1,0 +1,114 @@
+# (C) 2026 GoodData Corporation
+version: 1
+interactions:
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/entities/workspaces/demo/facts?page=0&size=500
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '1546'
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          data:
+            - id: budget
+              type: fact
+              attributes:
+                title: Budget
+                description: Budget
+                tags:
+                  - Campaign channels
+                sourceColumn: budget
+                sourceColumnDataType: NUMERIC
+                areRelationsValid: true
+              links:
+                self: http://localhost:3000/api/v1/entities/workspaces/demo/facts/budget
+              meta:
+                origin:
+                  originType: NATIVE
+                  originId: demo
+            - id: price
+              type: fact
+              attributes:
+                title: Price
+                description: Price
+                tags:
+                  - Order lines
+                sourceColumn: price
+                sourceColumnDataType: NUMERIC
+                areRelationsValid: true
+              links:
+                self: http://localhost:3000/api/v1/entities/workspaces/demo/facts/price
+              meta:
+                origin:
+                  originType: NATIVE
+                  originId: demo
+            - id: quantity
+              type: fact
+              attributes:
+                title: Quantity
+                description: Quantity
+                tags:
+                  - Order lines
+                sourceColumn: quantity
+                sourceColumnDataType: NUMERIC
+                areRelationsValid: true
+              links:
+                self: http://localhost:3000/api/v1/entities/workspaces/demo/facts/quantity
+              meta:
+                origin:
+                  originType: NATIVE
+                  originId: demo
+            - id: spend
+              type: fact
+              attributes:
+                title: Spend
+                description: Spend
+                tags:
+                  - Campaign channels
+                sourceColumn: spend
+                sourceColumnDataType: NUMERIC
+                areRelationsValid: true
+              links:
+                self: http://localhost:3000/api/v1/entities/workspaces/demo/facts/spend
+              meta:
+                origin:
+                  originType: NATIVE
+                  originId: demo
+          links:
+            self: http://localhost:3000/api/v1/entities/workspaces/demo/facts?page=0&size=500
+            next: http://localhost:3000/api/v1/entities/workspaces/demo/facts?page=1&size=500

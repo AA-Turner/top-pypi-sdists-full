@@ -10,8 +10,8 @@ from __future__ import division as _; del _  # noqa: E702 ;
 from pygeodesy.basics import _copysign, copysign0, isbool, isint, isodd, \
                               isscalar, len2, map1, _xiterable,  typename
 from pygeodesy.constants import EPS0, EPS02, EPS1, NAN, PI, PI_2, PI_4, \
-                               _0_0, _0_125, _1_6th, _0_25, _1_3rd, _0_5, _1_0, \
-                               _1_5, _copysign_0_0, isfinite, remainder
+                               _0_0, _0_125, _0_25, _1_3rd, _0_5, _2_3rd, \
+                               _1_0, _1_5, _copysign_0_0, isfinite, remainder
 from pygeodesy.errors import _IsnotError, LenError, _TypeError, _ValueError, \
                              _xError, _xkwds, _xkwds_pop2, _xsError
 from pygeodesy.fsums import _2float, Fsum, fsum, _isFsum_2Tuple,  Fmt, unstr
@@ -22,14 +22,14 @@ from pygeodesy.lazily import _ALL_LAZY, _ALL_MODS as _MODS
 from pygeodesy.units import Int_, _isHeight, _isRadius
 
 from math import fabs, sqrt  # pow
-import operator as _operator  # in .datums, .trf, .utm
+import operator as _operator  # in .datums, .elliptic, .trf, .utm
 
 __all__ = _ALL_LAZY.fmath
-__version__ = '25.08.31'
+__version__ = '26.01.06'
 
 # sqrt(2) - 1 <https://WikiPedia.org/wiki/Square_root_of_2>
 _0_4142  =  0.41421356237309504880  # ~ 3_730_904_090_310_553 / 9_007_199_254_740_992
-_2_3rd   = _1_3rd * 2
+_1_6th   =  1 / 6
 _h_lt_b_ = 'abs(h) < abs(b)'
 
 
@@ -258,7 +258,6 @@ def bqrt(x):
 
 try:
     from math import cbrt as _cbrt  # Python 3.11+
-
 except ImportError:  # Python 3.10-
 
     def _cbrt(x):
@@ -312,8 +311,9 @@ def euclid(x, y):
        @see: Function L{euclid_}.
     '''
     x, y = abs(x), abs(y)  # NOT fabs!
-    return (x + y * _0_4142) if x > y else \
-           (y + x * _0_4142)  # * _0_5 before 20.10.02
+    if x < y:
+        x, y = y, x
+    return x + y * _0_4142  # * _0_5 before 20.10.02
 
 
 def euclid_(*xs):
@@ -330,10 +330,17 @@ def euclid_(*xs):
     e = _0_0
     for x in sorted(map(abs, xs)):  # NOT fabs, reverse=True!
         # e = euclid(x, e)
-        if e < x:
-            e, x = x, e
         if x:
-            e += x * _0_4142
+            if e < x:
+                e, x = x, e
+            x *= _0_4142
+#           s  = e + x
+#           if e < x:  # like .fsums._2sum
+#               x -= s  # e = (x - s) + e
+#           else:
+#               e -= s  # e = (e - s) + x
+            e += x
+#           e += s
     return e
 
 
@@ -1040,7 +1047,7 @@ def sqrt3(x):
 
 
 def sqrt_a(h, b):
-    '''Compute C{I{a}} side of a right-angled triangle from
+    '''Compute the C{I{a}} side of a right-angled triangle from
        C{sqrt(B{h}**2 - B{b}**2)}.
 
        @arg h: Hypotenuse or outer annulus radius (C{scalar}).
@@ -1113,7 +1120,7 @@ def zqrt(x):
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

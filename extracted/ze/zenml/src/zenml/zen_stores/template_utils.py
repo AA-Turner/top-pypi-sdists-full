@@ -14,7 +14,7 @@
 """Utilities for run templates."""
 
 from enum import Enum
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from pydantic import create_model
 from pydantic.fields import FieldInfo
@@ -27,36 +27,42 @@ from zenml.config.step_configurations import StepConfigurationUpdate
 from zenml.enums import StackComponentType
 from zenml.logger import get_logger
 from zenml.stack import Flavor
-from zenml.zen_stores.schemas import PipelineDeploymentSchema
+from zenml.zen_stores.schemas import (
+    PipelineSnapshotSchema,
+)
+
+if TYPE_CHECKING:
+    from zenml.config.pipeline_configurations import PipelineConfiguration
+    from zenml.config.step_configurations import Step
 
 logger = get_logger(__name__)
 
 
-def validate_deployment_is_templatable(
-    deployment: PipelineDeploymentSchema,
+def validate_snapshot_is_templatable(
+    snapshot: PipelineSnapshotSchema,
 ) -> None:
-    """Validate that a deployment is templatable.
+    """Validate that a snapshot is templatable.
 
     Args:
-        deployment: The deployment to validate.
+        snapshot: The snapshot to validate.
 
     Raises:
-        ValueError: If the deployment is not templatable.
+        ValueError: If the snapshot is not templatable.
     """
-    if not deployment.build:
+    if not snapshot.build:
         raise ValueError(
             "Unable to create run template as there is no associated build. "
             "Run templates can only be created for remote orchestrators that "
             "use container images to run the pipeline."
         )
 
-    if not deployment.build.stack:
+    if not snapshot.build.stack:
         raise ValueError(
             "Unable to create run template as the associated build has no "
             "stack reference."
         )
 
-    for component in deployment.build.stack.components:
+    for component in snapshot.build.stack.components:
         if not component.flavor_schema:
             raise ValueError(
                 "Unable to create run template as a component of the "
@@ -83,18 +89,20 @@ def validate_deployment_is_templatable(
 
 
 def generate_config_template(
-    deployment: PipelineDeploymentSchema,
+    snapshot: PipelineSnapshotSchema,
+    pipeline_configuration: "PipelineConfiguration",
+    step_configurations: Dict[str, "Step"],
 ) -> Dict[str, Any]:
-    """Generate a run configuration template for a deployment.
+    """Generate a run configuration template for a snapshot.
 
     Args:
-        deployment: The deployment.
+        snapshot: The snapshot.
+        pipeline_configuration: The pipeline configuration.
+        step_configurations: The step configurations.
 
     Returns:
         The run configuration template.
     """
-    deployment_model = deployment.to_model(include_metadata=True)
-
     steps_configs = {
         name: step.step_config_overrides.model_dump(
             include=set(StepConfigurationUpdate.model_fields),
@@ -102,15 +110,19 @@ def generate_config_template(
             exclude_none=True,
             exclude_defaults=True,
         )
-        for name, step in deployment_model.step_configurations.items()
+        for name, step in step_configurations.items()
     }
 
     for config in steps_configs.values():
         config.get("settings", {}).pop("docker", None)
 
-    pipeline_config = deployment_model.pipeline_configuration.model_dump(
+    pipeline_config_exclude = {"schedule", "build"}
+    if not snapshot.is_dynamic:
+        pipeline_config_exclude.add("parameters")
+
+    pipeline_config = pipeline_configuration.model_dump(
         include=set(PipelineRunConfiguration.model_fields),
-        exclude={"schedule", "build", "parameters"},
+        exclude=pipeline_config_exclude,
         exclude_none=True,
         exclude_defaults=True,
     )
@@ -118,7 +130,7 @@ def generate_config_template(
     pipeline_config.get("settings", {}).pop("docker", None)
 
     config_template = {
-        "run_name": deployment_model.run_name_template,
+        "run_name": snapshot.run_name_template,
         "steps": steps_configs,
         **pipeline_config,
     }
@@ -126,22 +138,26 @@ def generate_config_template(
 
 
 def generate_config_schema(
-    deployment: PipelineDeploymentSchema,
+    snapshot: PipelineSnapshotSchema,
+    pipeline_configuration: "PipelineConfiguration",
+    step_configurations: Dict[str, "Step"],
 ) -> Dict[str, Any]:
-    """Generate a run configuration schema for the deployment and stack.
+    """Generate a run configuration schema for the snapshot.
 
     Args:
-        deployment: The deployment schema.
+        snapshot: The snapshot schema.
+        pipeline_configuration: The pipeline configuration.
+        step_configurations: The step configurations.
 
     Returns:
         The generated schema dictionary.
     """
-    # Config schema can only be generated for a runnable template, so this is
-    # guaranteed by checks in the run template schema
-    assert deployment.build
-    assert deployment.build.stack
+    # Config schema can only be generated for a runnable snapshot, so this is
+    # guaranteed by checks in the snapshot schema
+    assert snapshot.build
+    assert snapshot.build.stack
 
-    stack = deployment.build.stack
+    stack = snapshot.build.stack
     experiment_trackers = []
     step_operators = []
 
@@ -180,16 +196,20 @@ def generate_config_schema(
     generic_step_fields: Dict[str, Any] = {}
 
     for key, field_info in StepConfigurationUpdate.model_fields.items():
-        if key in [
+        step_config_exclude = [
             "name",
             "outputs",
             "step_operator",
             "experiment_tracker",
             "parameters",
-        ]:
+        ]
+        if not snapshot.is_dynamic:
+            step_config_exclude.append("runtime")
+
+        if key in step_config_exclude:
             continue
 
-        if field_info.annotation == Optional[SourceWithValidator]:
+        if field_info.annotation == Optional[SourceWithValidator]:  # type: ignore[comparison-overlap]
             generic_step_fields[key] = (Optional[str], field_info)
         else:
             generic_step_fields[key] = (field_info.annotation, field_info)
@@ -215,10 +235,9 @@ def generate_config_schema(
 
     all_steps: Dict[str, Any] = {}
     all_steps_required = False
-    for step_name, step in deployment.to_model(
-        include_metadata=True
-    ).step_configurations.items():
-        step_fields = generic_step_fields.copy()
+    for step_name, step in step_configurations.items():
+        step_fields: Dict[str, Any] = {}
+
         if step.config.parameters:
             parameter_fields: Dict[str, Any] = {}
 
@@ -241,6 +260,7 @@ def generate_config_schema(
                 FieldInfo(default=...),
             )
 
+        step_fields.update(generic_step_fields)
         step_model = create_model(step_name, **step_fields)
 
         # Pydantic doesn't allow field names to start with an underscore
@@ -267,11 +287,33 @@ def generate_config_schema(
 
     top_level_fields: Dict[str, Any] = {}
 
+    if snapshot.is_dynamic:
+        pipeline_parameter_fields: Dict[str, Any] = {}
+
+        for parameter_name in pipeline_configuration.parameters or {}:
+            # Pydantic doesn't allow field names to start with an underscore
+            sanitized_parameter_name = parameter_name.lstrip("_")
+            while sanitized_parameter_name in pipeline_parameter_fields:
+                sanitized_parameter_name = sanitized_parameter_name + "_"
+
+            pipeline_parameter_fields[sanitized_parameter_name] = (
+                Any,
+                FieldInfo(default=..., validation_alias=parameter_name),
+            )
+
+        parameters_class = create_model(
+            "Parameters", **pipeline_parameter_fields
+        )
+        top_level_fields["parameters"] = (
+            parameters_class,
+            FieldInfo(default=None),
+        )
+
     for key, field_info in PipelineRunConfiguration.model_fields.items():
         if key in ["schedule", "build", "steps", "settings", "parameters"]:
             continue
 
-        if field_info.annotation == Optional[SourceWithValidator]:
+        if field_info.annotation == Optional[SourceWithValidator]:  # type: ignore[comparison-overlap]
             top_level_fields[key] = (Optional[str], field_info)
         else:
             top_level_fields[key] = (field_info.annotation, field_info)

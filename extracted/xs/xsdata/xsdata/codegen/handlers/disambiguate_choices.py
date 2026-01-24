@@ -2,7 +2,7 @@ from collections import defaultdict
 from collections.abc import Iterator
 
 from xsdata.codegen.mixins import ContainerInterface, RelativeHandlerInterface
-from xsdata.codegen.models import Attr, AttrType, Class, Extension, Restrictions
+from xsdata.codegen.models import Attr, AttrType, Class, Extension, Restrictions, Status
 from xsdata.models.enums import DataType, Tag
 from xsdata.utils import collections, text
 from xsdata.utils.constants import DEFAULT_ATTR_NAME
@@ -200,7 +200,7 @@ class DisambiguateChoices(RelativeHandlerInterface):
 
         return Class(
             qname=build_qname(choice.namespace, name),
-            status=source.status,
+            status=Status.RAW,
             tag=Tag.ELEMENT,
             local_type=True,
             location=source.location,
@@ -244,7 +244,7 @@ class DisambiguateChoices(RelativeHandlerInterface):
             types=[AttrType(qname=str(DataType.ANY_TYPE), native=True)],
             tag=Tag.ANY,
             namespace=choice.namespace,
-            restrictions=Restrictions(min_occurs=1, max_occurs=1),
+            restrictions=Restrictions(min_occurs=0, max_occurs=1),
         )
         reference.attrs.append(attr)
 

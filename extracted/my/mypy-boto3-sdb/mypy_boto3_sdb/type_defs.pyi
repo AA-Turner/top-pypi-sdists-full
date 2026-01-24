@@ -17,13 +17,8 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -80,7 +75,7 @@ class DomainMetadataRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -115,7 +110,7 @@ class DeletableItemTypeDef(TypedDict):
 
 class ItemTypeDef(TypedDict):
     Name: str
-    Attributes: List[AttributeTypeDef]
+    Attributes: list[AttributeTypeDef]
     AlternateNameEncoding: NotRequired[str]
 
 class DeleteAttributesRequestTypeDef(TypedDict):
@@ -138,11 +133,11 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetAttributesResultTypeDef(TypedDict):
-    Attributes: List[AttributeTypeDef]
+    Attributes: list[AttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDomainsResultTypeDef(TypedDict):
-    DomainNames: List[str]
+    DomainNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -169,7 +164,7 @@ class BatchDeleteAttributesRequestTypeDef(TypedDict):
     Items: Sequence[DeletableItemTypeDef]
 
 class SelectResultTypeDef(TypedDict):
-    Items: List[ItemTypeDef]
+    Items: list[ItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

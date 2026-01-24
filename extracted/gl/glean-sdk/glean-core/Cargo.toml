@@ -1,6 +1,6 @@
 [package]
 name = "glean-core"
-version = "65.1.1"
+version = "67.0.0"
 authors = ["Jan-Erik Rediger <jrediger@mozilla.com>", "The Glean Team <glean-team@mozilla.com>"]
 description = "A modern Telemetry library"
 repository = "https://github.com/mozilla/glean"
@@ -18,10 +18,10 @@ include = [
   "/uniffi.toml",
   "/build.rs",
 ]
-rust-version = "1.82"
+rust-version = "1.87"
 
 [package.metadata.glean]
-glean-parser = "17.2.0"
+glean-parser = "18.2.0"
 
 [badges]
 circle-ci = { repository = "mozilla/glean", branch = "main" }
@@ -37,10 +37,10 @@ uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 once_cell = "1.18.0"
 flate2 = "1.0.19"
-zeitstempel = "0.1.0"
+zeitstempel = "0.2.0"
 crossbeam-channel = "0.5"
 thiserror = "2"
-uniffi = { version = "0.29.3", default-features = false }
+uniffi = { version = "0.31.0", default-features = false }
 env_logger = { version = "0.10.0", default-features = false, optional = true }
 malloc_size_of_derive = "0.1.3"
 malloc_size_of = { version = "0.2.2", package = "wr_malloc_size_of", default-features = false, features = ["once_cell"] }
@@ -54,14 +54,19 @@ oslog = { version = "0.1.0", default-features = false, features = ["logger"] }
 [dev-dependencies]
 env_logger = { version = "0.10.0", default-features = false, features = ["humantime"] }
 tempfile = "3.8.0"
-iso8601 = "0.4"
 ctor = "0.2.2"
+criterion = "0.7.0"
+pulldown-cmark = { version = "0.13.0", default-features = false }
+pulldown-cmark-to-cmark = "22.0.0"
+xshell = "0.2.7"
 
 [build-dependencies]
-uniffi = { version = "0.29.3", default-features = false, features = ["build"] }
+uniffi = { version = "0.31.0", default-features = false, features = ["build"] }
 
 [features]
 # Enable `env_logger`. Only works on non-Android non-iOS targets.
 enable_env_logger = ["env_logger"]
 # Enable gecko-specific APIs
 gecko = []
+# Expose some internals for easier benchmarking
+benchmark = []

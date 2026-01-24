@@ -12,6 +12,7 @@ from .custom_llm import CustomLlm
 from .knowledge_base_locator import KnowledgeBaseLocator
 from .llm import Llm
 from .llm_reasoning_effort import LlmReasoningEffort
+from .prompt_agent_api_model_output_backup_llm_config import PromptAgentApiModelOutputBackupLlmConfig
 from .prompt_agent_api_model_output_tools_item import PromptAgentApiModelOutputToolsItem
 from .rag_config import RagConfig
 
@@ -30,6 +31,11 @@ class PromptAgentApiModelOutput(UncheckedBaseModel):
     reasoning_effort: typing.Optional[LlmReasoningEffort] = pydantic.Field(default=None)
     """
     Reasoning effort of the model. Only available for some models.
+    """
+
+    thinking_budget: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Max number of tokens used for thinking. Use 0 to turn off if supported by the model.
     """
 
     temperature: typing.Optional[float] = pydantic.Field(default=None)
@@ -74,7 +80,7 @@ class PromptAgentApiModelOutput(UncheckedBaseModel):
 
     ignore_default_personality: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Whether to ignore the default personality
+    Whether to remove the default personality lines from the system prompt
     """
 
     rag: typing.Optional[RagConfig] = pydantic.Field(default=None)
@@ -85,6 +91,16 @@ class PromptAgentApiModelOutput(UncheckedBaseModel):
     timezone: typing.Optional[str] = pydantic.Field(default=None)
     """
     Timezone for displaying current time in system prompt. If set, the current time will be included in the system prompt using this timezone. Must be a valid timezone name (e.g., 'America/New_York', 'Europe/London', 'UTC').
+    """
+
+    backup_llm_config: typing.Optional[PromptAgentApiModelOutputBackupLlmConfig] = pydantic.Field(default=None)
+    """
+    Configuration for backup LLM cascading. Can be disabled, use system defaults, or specify custom order.
+    """
+
+    cascade_timeout_seconds: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Time in seconds before cascading to backup LLM. Must be between 2 and 15 seconds.
     """
 
     tools: typing.Optional[typing.List[PromptAgentApiModelOutputToolsItem]] = pydantic.Field(default=None)
@@ -101,8 +117,5 @@ class PromptAgentApiModelOutput(UncheckedBaseModel):
             smart_union = True
             extra = pydantic.Extra.allow
 
-
-from .array_json_schema_property_output import ArrayJsonSchemaPropertyOutput  # noqa: E402, F401, I001
-from .object_json_schema_property_output import ObjectJsonSchemaPropertyOutput  # noqa: E402, F401, I001
 
 update_forward_refs(PromptAgentApiModelOutput)

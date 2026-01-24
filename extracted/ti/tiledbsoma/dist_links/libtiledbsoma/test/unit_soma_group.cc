@@ -62,8 +62,7 @@ std::tuple<std::string, uint64_t> create_array(
         // Create schema
         ArraySchema schema(ctx, TILEDB_SPARSE);
 
-        auto dim = Dimension::create<int64_t>(
-            ctx, dim_name, {0, std::numeric_limits<int64_t>::max() - 1});
+        auto dim = Dimension::create<int64_t>(ctx, dim_name, {0, std::numeric_limits<int64_t>::max() - 1});
 
         Domain domain(ctx);
         domain.add_dimension(dim);
@@ -103,9 +102,7 @@ std::tuple<std::string, uint64_t> create_array(
 
         // Write data to array
         Query query(ctx, array);
-        query.set_layout(TILEDB_UNORDERED)
-            .set_data_buffer(dim_name, d0)
-            .set_data_buffer(attr_name, a0);
+        query.set_layout(TILEDB_UNORDERED).set_data_buffer(dim_name, d0).set_data_buffer(attr_name, a0);
         query.submit();
     }
 
@@ -136,11 +133,9 @@ TEST_CASE("SOMAGroup: basic") {
     std::string uri_sub_group = "mem://sub-group";
     SOMAGroup::create(ctx, uri_sub_group, "NONE");
 
-    auto [uri_sub_array, expected_nnz] = create_array(
-        "mem://sub-array", *ctx->tiledb_ctx());
+    auto [uri_sub_array, expected_nnz] = create_array("mem://sub-array", *ctx->tiledb_ctx());
 
-    auto soma_group = SOMAGroup::open(
-        OpenMode::write, uri_main_group, ctx, "metadata", TimestampRange(0, 1));
+    auto soma_group = SOMAGroup::open(OpenMode::soma_write, uri_main_group, ctx, "metadata", TimestampRange(0, 1));
     soma_group->set(uri_sub_group, URIType::absolute, "subgroup", "SOMAGroup");
     soma_group->set(uri_sub_array, URIType::absolute, "subarray", "SOMAArray");
     soma_group->close();
@@ -149,7 +144,7 @@ TEST_CASE("SOMAGroup: basic") {
         {"subgroup", SOMAGroupEntry(uri_sub_group, "SOMAGroup")},
         {"subarray", SOMAGroupEntry(uri_sub_array, "SOMAArray")}};
 
-    soma_group->open(OpenMode::read, TimestampRange(0, 2));
+    soma_group->open(OpenMode::soma_read, TimestampRange(0, 2));
     REQUIRE(soma_group->ctx() == ctx);
     REQUIRE(soma_group->uri() == uri_main_group);
     REQUIRE(soma_group->count() == 2);
@@ -158,12 +153,12 @@ TEST_CASE("SOMAGroup: basic") {
     REQUIRE(soma_group->get("subarray").type() == Object::Type::Array);
     soma_group->close();
 
-    soma_group->open(OpenMode::write, TimestampRange(0, 3));
+    soma_group->open(OpenMode::soma_write, TimestampRange(0, 3));
     REQUIRE(expected_map == soma_group->members_map());
     soma_group->del("subgroup");
     soma_group->close();
 
-    soma_group->open(OpenMode::read, TimestampRange(0, 4));
+    soma_group->open(OpenMode::soma_read, TimestampRange(0, 4));
     REQUIRE(soma_group->count() == 1);
     REQUIRE(soma_group->has("subgroup") == false);
     REQUIRE(soma_group->has("subarray") == true);
@@ -175,14 +170,13 @@ TEST_CASE("SOMAGroup: metadata") {
 
     std::string uri = "mem://unit-test-group";
     SOMAGroup::create(ctx, uri, "NONE", TimestampRange(0, 2));
-    auto soma_group = SOMAGroup::open(
-        OpenMode::write, uri, ctx, "metadata", TimestampRange(1, 1));
+    auto soma_group = SOMAGroup::open(OpenMode::soma_write, uri, ctx, "metadata", TimestampRange(1, 1));
     int32_t val = 100;
     soma_group->set_metadata("md", TILEDB_INT32, 1, &val);
     soma_group->close();
 
     // Read metadata
-    soma_group->open(OpenMode::read, TimestampRange(0, 2));
+    soma_group->open(OpenMode::soma_read, TimestampRange(0, 2));
     REQUIRE(soma_group->metadata_num() == 3);
     REQUIRE(soma_group->has_metadata("soma_object_type"));
     REQUIRE(soma_group->has_metadata("soma_encoding_version"));
@@ -194,7 +188,7 @@ TEST_CASE("SOMAGroup: metadata") {
     soma_group->close();
 
     // md should not be available at (2, 2)
-    soma_group->open(OpenMode::read, TimestampRange(2, 2));
+    soma_group->open(OpenMode::soma_read, TimestampRange(2, 2));
     REQUIRE(soma_group->metadata_num() == 2);
     REQUIRE(soma_group->has_metadata("soma_object_type"));
     REQUIRE(soma_group->has_metadata("soma_encoding_version"));
@@ -202,7 +196,7 @@ TEST_CASE("SOMAGroup: metadata") {
     soma_group->close();
 
     // Metadata should also be retrievable in write mode
-    soma_group->open(OpenMode::write, TimestampRange(0, 2));
+    soma_group->open(OpenMode::soma_write, TimestampRange(0, 2));
     REQUIRE(soma_group->metadata_num() == 3);
     REQUIRE(soma_group->has_metadata("soma_object_type"));
     REQUIRE(soma_group->has_metadata("soma_encoding_version"));
@@ -217,7 +211,7 @@ TEST_CASE("SOMAGroup: metadata") {
     soma_group->close();
 
     // Confirm delete in read mode
-    soma_group->open(OpenMode::read, TimestampRange(0, 2));
+    soma_group->open(OpenMode::soma_read, TimestampRange(0, 2));
     REQUIRE(!soma_group->has_metadata("md"));
     REQUIRE(soma_group->metadata_num() == 2);
 }
@@ -228,10 +222,9 @@ TEST_CASE("SOMAGroup: dataset_type") {
     SOMAGroup::create(ctx, "mem://collection", "SOMACollection");
     SOMAGroup::create(ctx, "mem://measurement", "SOMAMeasurement");
 
-    auto experiment = SOMAGroup::open(OpenMode::read, "mem://experiment", ctx);
-    auto collection = SOMAGroup::open(OpenMode::read, "mem://collection", ctx);
-    auto measurement = SOMAGroup::open(
-        OpenMode::read, "mem://measurement", ctx);
+    auto experiment = SOMAGroup::open(OpenMode::soma_read, "mem://experiment", ctx);
+    auto collection = SOMAGroup::open(OpenMode::soma_read, "mem://collection", ctx);
+    auto measurement = SOMAGroup::open(OpenMode::soma_read, "mem://measurement", ctx);
 
     REQUIRE(!collection->has_metadata("dataset_type"));
     REQUIRE(!measurement->has_metadata("dataset_type"));

@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2 import (
     SimpleStreamingUnaryInvokeRequest,
     SimpleStreamingUnaryInvokeResponse,
+    TestStreamingResolverRequest,
+    TestStreamingResolverResponse,
 )
 from grpc import (
     Channel,
@@ -27,6 +29,14 @@ class SimpleStreamingServiceStub:
     """Runs a simple streaming plan with the given request.
     This is a simplified version of the streaming invoker service.
     """
+    TestStreamingResolver: UnaryUnaryMultiCallable[
+        TestStreamingResolverRequest,
+        TestStreamingResolverResponse,
+    ]
+    """Test a streaming resolver with provided messages.
+    Supports testing both deployed resolvers and static/undeployed resolvers.
+    Returns a signed URL to download the test results.
+    """
 
 class SimpleStreamingServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -37,6 +47,16 @@ class SimpleStreamingServiceServicer(metaclass=ABCMeta):
     ) -> SimpleStreamingUnaryInvokeResponse:
         """Runs a simple streaming plan with the given request.
         This is a simplified version of the streaming invoker service.
+        """
+    @abstractmethod
+    def TestStreamingResolver(
+        self,
+        request: TestStreamingResolverRequest,
+        context: ServicerContext,
+    ) -> TestStreamingResolverResponse:
+        """Test a streaming resolver with provided messages.
+        Supports testing both deployed resolvers and static/undeployed resolvers.
+        Returns a signed URL to download the test results.
         """
 
 def add_SimpleStreamingServiceServicer_to_server(servicer: SimpleStreamingServiceServicer, server: Server) -> None: ...

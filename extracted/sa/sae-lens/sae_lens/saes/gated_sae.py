@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import torch
-from jaxtyping import Float
 from numpy.typing import NDArray
 from torch import nn
 from typing_extensions import override
@@ -49,9 +48,7 @@ class GatedSAE(SAE[GatedSAEConfig]):
         super().initialize_weights()
         _init_weights_gated(self)
 
-    def encode(
-        self, x: Float[torch.Tensor, "... d_in"]
-    ) -> Float[torch.Tensor, "... d_sae"]:
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
         """
         Encode the input tensor into the feature space using a gated encoder.
         This must match the original encode_gated implementation from SAE class.
@@ -72,9 +69,7 @@ class GatedSAE(SAE[GatedSAEConfig]):
         # Combine gating and magnitudes
         return self.hook_sae_acts_post(active_features * feature_magnitudes)
 
-    def decode(
-        self, feature_acts: Float[torch.Tensor, "... d_sae"]
-    ) -> Float[torch.Tensor, "... d_in"]:
+    def decode(self, feature_acts: torch.Tensor) -> torch.Tensor:
         """
         Decode the feature activations back into the input space:
           1) Apply optional finetuning scaling.
@@ -94,7 +89,7 @@ class GatedSAE(SAE[GatedSAEConfig]):
     @torch.no_grad()
     def fold_W_dec_norm(self):
         """Override to handle gated-specific parameters."""
-        W_dec_norms = self.W_dec.norm(dim=-1).unsqueeze(1)
+        W_dec_norms = self.W_dec.norm(dim=-1).clamp(min=1e-8).unsqueeze(1)
         self.W_dec.data = self.W_dec.data / W_dec_norms
         self.W_enc.data = self.W_enc.data * W_dec_norms.T
 
@@ -123,6 +118,7 @@ class GatedTrainingSAE(TrainingSAE[GatedTrainingSAEConfig]):
     """
     GatedTrainingSAE is a concrete implementation of BaseTrainingSAE for the "gated" SAE architecture.
     It implements:
+
       - initialize_weights: sets up gating parameters (as in GatedSAE) plus optional training-specific init.
       - encode: calls encode_with_hidden_pre (standard training approach).
       - decode: linear transformation + hooking, same as GatedSAE or StandardTrainingSAE.
@@ -147,8 +143,8 @@ class GatedTrainingSAE(TrainingSAE[GatedTrainingSAEConfig]):
         _init_weights_gated(self)
 
     def encode_with_hidden_pre(
-        self, x: Float[torch.Tensor, "... d_in"]
-    ) -> tuple[Float[torch.Tensor, "... d_sae"], Float[torch.Tensor, "... d_sae"]]:
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Gated forward pass with pre-activation (for training).
         """
@@ -222,7 +218,7 @@ class GatedTrainingSAE(TrainingSAE[GatedTrainingSAEConfig]):
     @torch.no_grad()
     def fold_W_dec_norm(self):
         """Override to handle gated-specific parameters."""
-        W_dec_norms = self.W_dec.norm(dim=-1).unsqueeze(1)
+        W_dec_norms = self.W_dec.norm(dim=-1).clamp(min=1e-8).unsqueeze(1)
         self.W_dec.data = self.W_dec.data / W_dec_norms
         self.W_enc.data = self.W_enc.data * W_dec_norms.T
 

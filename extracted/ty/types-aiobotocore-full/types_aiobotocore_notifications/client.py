@@ -3,7 +3,7 @@ Type annotations for notifications service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -35,14 +36,17 @@ from .paginator import (
     ListManagedNotificationChildEventsPaginator,
     ListManagedNotificationConfigurationsPaginator,
     ListManagedNotificationEventsPaginator,
+    ListMemberAccountsPaginator,
     ListNotificationConfigurationsPaginator,
     ListNotificationEventsPaginator,
     ListNotificationHubsPaginator,
+    ListOrganizationalUnitsPaginator,
 )
 from .type_defs import (
     AssociateChannelRequestTypeDef,
     AssociateManagedNotificationAccountContactRequestTypeDef,
     AssociateManagedNotificationAdditionalChannelRequestTypeDef,
+    AssociateOrganizationalUnitRequestTypeDef,
     CreateEventRuleRequestTypeDef,
     CreateEventRuleResponseTypeDef,
     CreateNotificationConfigurationRequestTypeDef,
@@ -54,6 +58,7 @@ from .type_defs import (
     DisassociateChannelRequestTypeDef,
     DisassociateManagedNotificationAccountContactRequestTypeDef,
     DisassociateManagedNotificationAdditionalChannelRequestTypeDef,
+    DisassociateOrganizationalUnitRequestTypeDef,
     GetEventRuleRequestTypeDef,
     GetEventRuleResponseTypeDef,
     GetManagedNotificationChildEventRequestTypeDef,
@@ -79,12 +84,16 @@ from .type_defs import (
     ListManagedNotificationConfigurationsResponseTypeDef,
     ListManagedNotificationEventsRequestTypeDef,
     ListManagedNotificationEventsResponseTypeDef,
+    ListMemberAccountsRequestTypeDef,
+    ListMemberAccountsResponseTypeDef,
     ListNotificationConfigurationsRequestTypeDef,
     ListNotificationConfigurationsResponseTypeDef,
     ListNotificationEventsRequestTypeDef,
     ListNotificationEventsResponseTypeDef,
     ListNotificationHubsRequestTypeDef,
     ListNotificationHubsResponseTypeDef,
+    ListOrganizationalUnitsRequestTypeDef,
+    ListOrganizationalUnitsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     RegisterNotificationHubRequestTypeDef,
@@ -97,12 +106,6 @@ from .type_defs import (
     UpdateNotificationConfigurationResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -113,14 +116,14 @@ __all__ = ("UserNotificationsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class UserNotificationsClient(AioBaseClient):
@@ -160,7 +163,7 @@ class UserNotificationsClient(AioBaseClient):
 
     async def associate_channel(
         self, **kwargs: Unpack[AssociateChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a delivery <a
         href="https://docs.aws.amazon.com/notifications/latest/userguide/managing-delivery-channels.html">Channel</a>
@@ -172,7 +175,7 @@ class UserNotificationsClient(AioBaseClient):
 
     async def associate_managed_notification_account_contact(
         self, **kwargs: Unpack[AssociateManagedNotificationAccountContactRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an Account Contact with a particular
         <code>ManagedNotificationConfiguration</code>.
@@ -183,13 +186,23 @@ class UserNotificationsClient(AioBaseClient):
 
     async def associate_managed_notification_additional_channel(
         self, **kwargs: Unpack[AssociateManagedNotificationAdditionalChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an additional Channel with a particular
         <code>ManagedNotificationConfiguration</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/associate_managed_notification_additional_channel.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#associate_managed_notification_additional_channel)
+        """
+
+    async def associate_organizational_unit(
+        self, **kwargs: Unpack[AssociateOrganizationalUnitRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates an organizational unit with a notification configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/associate_organizational_unit.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#associate_organizational_unit)
         """
 
     async def create_event_rule(
@@ -217,7 +230,7 @@ class UserNotificationsClient(AioBaseClient):
 
     async def delete_event_rule(
         self, **kwargs: Unpack[DeleteEventRuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an <code>EventRule</code>.
 
@@ -227,7 +240,7 @@ class UserNotificationsClient(AioBaseClient):
 
     async def delete_notification_configuration(
         self, **kwargs: Unpack[DeleteNotificationConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <code>NotificationConfiguration</code>.
 
@@ -245,7 +258,7 @@ class UserNotificationsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#deregister_notification_hub)
         """
 
-    async def disable_notifications_access_for_organization(self) -> Dict[str, Any]:
+    async def disable_notifications_access_for_organization(self) -> dict[str, Any]:
         """
         Disables service trust between User Notifications and Amazon Web Services
         Organizations.
@@ -256,7 +269,7 @@ class UserNotificationsClient(AioBaseClient):
 
     async def disassociate_channel(
         self, **kwargs: Unpack[DisassociateChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a Channel from a specified <code>NotificationConfiguration</code>.
 
@@ -266,7 +279,7 @@ class UserNotificationsClient(AioBaseClient):
 
     async def disassociate_managed_notification_account_contact(
         self, **kwargs: Unpack[DisassociateManagedNotificationAccountContactRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates an Account Contact with a particular
         <code>ManagedNotificationConfiguration</code>.
@@ -277,7 +290,7 @@ class UserNotificationsClient(AioBaseClient):
 
     async def disassociate_managed_notification_additional_channel(
         self, **kwargs: Unpack[DisassociateManagedNotificationAdditionalChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates an additional Channel from a particular
         <code>ManagedNotificationConfiguration</code>.
@@ -286,7 +299,18 @@ class UserNotificationsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#disassociate_managed_notification_additional_channel)
         """
 
-    async def enable_notifications_access_for_organization(self) -> Dict[str, Any]:
+    async def disassociate_organizational_unit(
+        self, **kwargs: Unpack[DisassociateOrganizationalUnitRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the association between an organizational unit and a notification
+        configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/disassociate_organizational_unit.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#disassociate_organizational_unit)
+        """
+
+    async def enable_notifications_access_for_organization(self) -> dict[str, Any]:
         """
         Enables service trust between User Notifications and Amazon Web Services
         Organizations.
@@ -434,6 +458,16 @@ class UserNotificationsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#list_managed_notification_events)
         """
 
+    async def list_member_accounts(
+        self, **kwargs: Unpack[ListMemberAccountsRequestTypeDef]
+    ) -> ListMemberAccountsResponseTypeDef:
+        """
+        Returns a list of member accounts associated with a notification configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/list_member_accounts.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#list_member_accounts)
+        """
+
     async def list_notification_configurations(
         self, **kwargs: Unpack[ListNotificationConfigurationsRequestTypeDef]
     ) -> ListNotificationConfigurationsResponseTypeDef:
@@ -466,6 +500,17 @@ class UserNotificationsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#list_notification_hubs)
         """
 
+    async def list_organizational_units(
+        self, **kwargs: Unpack[ListOrganizationalUnitsRequestTypeDef]
+    ) -> ListOrganizationalUnitsResponseTypeDef:
+        """
+        Returns a list of organizational units associated with a notification
+        configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/list_organizational_units.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#list_organizational_units)
+        """
+
     async def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -486,7 +531,7 @@ class UserNotificationsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#register_notification_hub)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags the resource with a tag key and value.
 
@@ -494,7 +539,7 @@ class UserNotificationsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Untags a resource with a specified Amazon Resource Name (ARN).
 
@@ -590,6 +635,17 @@ class UserNotificationsClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_member_accounts"]
+    ) -> ListMemberAccountsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_notification_configurations"]
     ) -> ListNotificationConfigurationsPaginator:
         """
@@ -621,6 +677,17 @@ class UserNotificationsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#get_paginator)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_organizational_units"]
+    ) -> ListOrganizationalUnitsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_notifications/client/#get_paginator)
+        """
+
     async def __aenter__(self) -> Self:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications.html#UserNotifications.Client)
@@ -629,7 +696,7 @@ class UserNotificationsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

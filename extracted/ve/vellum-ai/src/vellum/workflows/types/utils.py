@@ -1,3 +1,4 @@
+import builtins
 from copy import deepcopy
 from datetime import datetime
 import importlib
@@ -21,6 +22,7 @@ from typing import (
 )
 
 from vellum import ArrayVellumValue, ArrayVellumValueRequest, ChatMessagePromptBlock
+from vellum.workflows.constants import undefined
 from vellum.workflows.descriptors.base import BaseDescriptor
 from vellum.workflows.types.core import Json, SpecialGenericAlias, UnderGenericAlias, UnionGenericAlias
 
@@ -68,7 +70,31 @@ def infer_types(object_: Type, attr_name: str, localns: Optional[Dict[str, Any]]
                 args = get_args(object_)
                 type_var_mapping = {t: a for t, a in zip(origin.__parameters__, args)}
 
-        type_hints = get_type_hints(class_, localns=LOCAL_NS if localns is None else {**LOCAL_NS, **localns})
+        if hasattr(object_, "__annotations__") and attr_name in object_.__annotations__:
+            annotation_str = object_.__annotations__[attr_name]
+            if isinstance(annotation_str, str) and "|" in annotation_str:
+                parts = [part.strip() for part in annotation_str.split("|")]
+                types_list: List[Type] = []
+                for part in parts:
+                    if part == "None":
+                        types_list.append(type(None))
+                    else:
+                        try:
+                            module = importlib.import_module(object_.__module__)
+                            resolved_type = getattr(module, part, None)
+                            if resolved_type is None:
+                                resolved_type = getattr(builtins, part, None)
+                            if resolved_type is not None and isinstance(resolved_type, type):
+                                types_list.append(resolved_type)
+                        except (ImportError, AttributeError):
+                            pass
+                if len(types_list) == len(parts):
+                    return tuple(types_list)
+
+        try:
+            type_hints = get_type_hints(class_, localns=LOCAL_NS if localns is None else {**LOCAL_NS, **localns})
+        except AttributeError:
+            type_hints = {}
         if attr_name in type_hints:
             type_hint = type_hints[attr_name]
             if get_origin(type_hint) is ClassVar:
@@ -98,10 +124,16 @@ def infer_types(object_: Type, attr_name: str, localns: Optional[Dict[str, Any]]
                 class_attribute = class_attributes[attr_name]
                 return resolve_types(class_attribute)
 
-        raise AttributeError(f"Failed to infer type from attribute {attr_name} on {object_.__name__}")
+        raise AttributeError(f"'{object_.__name__}' has no attribute '{attr_name}'")
     except TypeError:
+        # Python 3.13+: object class doesn't have __annotations__ by default
+        # Use getattr with default to safely access annotations
+        annotations = getattr(object_, "__annotations__", {})
+        annotation_value = annotations.get(attr_name, undefined)
+        if annotation_value is undefined:
+            raise AttributeError(f"'{object_.__name__}' has no attribute '{attr_name}'")
         raise AttributeError(
-            f"Found 3.9+ typing syntax for field '{attr_name}' on class '{object_.__name__}' – {object_.__annotations__[attr_name]}. Type annotations must be compatible with python version 3.8. "  # noqa: E501
+            f"Found 3.9+ typing syntax for field '{attr_name}' on class '{object_.__name__}' – {annotation_value}. Type annotations must be compatible with python version 3.8. "  # noqa: E501
         )
 
 
@@ -192,3 +224,28 @@ def get_original_base(cls: Type) -> Type:
     # in Python 3.12, there is `from types import get_original_bases`, making this future proof
     # https://docs.python.org/3/library/types.html#types.get_original_bases
     return cls.__orig_bases__[0]  # type: ignore[attr-defined]
+
+
+def coerce_to_declared_type(value: Any, declared_type: Type, field_name: str) -> Any:
+    """Coerce a value to the declared type if needed.
+
+    This handles cases where the API returns a float for an int field
+    (since NumberVellumValue.value is typed as float).
+
+    Args:
+        value: The value to coerce
+        declared_type: The expected type from the field annotation
+        field_name: The name of the field (for error messages)
+
+    Returns:
+        The coerced value
+
+    Raises:
+        ValueError: If the value cannot be safely coerced to the declared type
+    """
+    if declared_type is int and isinstance(value, float):
+        if value.is_integer():
+            return int(value)
+        raise ValueError(f"Expected integer for input '{field_name}', but received non-integer float: {value}")
+
+    return value

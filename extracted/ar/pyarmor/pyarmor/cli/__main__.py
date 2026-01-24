@@ -309,7 +309,7 @@ def cmd_reg(ctx, args):
             raise CliError('please use ".zip" file to register group device')
         regsvr = WebRegister(ctx)
         regsvr.check_request_interval()
-        regsvr.register_group_device(regfile, args.device)
+        regsvr.request_device_regfile(regfile, args.device)
         logger.info('The device regfile has been generated successfully')
 
     elif args.ci:
@@ -325,7 +325,7 @@ def cmd_reg(ctx, args):
 
     else:
         regsvr = WebRegister(ctx)
-        regsvr.check_request_interval()
+        regsvr.check_request_interval(activation=regfile)
         info, msg = regsvr.prepare(regfile, args.product, upgrade=upgrade)
         prompt = 'Are you sure to continue? (yes/no) '
         if args.confirm:
@@ -764,8 +764,11 @@ def main_entry(argv):
     log_settings(ctx, args)
 
     x, y = sys.version_info[:2]
-    if not (x == 3 and y > 6 and y < 14):
+    if not (x == 3 and y > 6 and y < 16):
         raise CliError('Python %s.%s is not supported' % (x, y))
+
+    if ctx.py_gil_disabled:
+        raise CliError('Pyarmor does not support free-threading Python')
 
     if args.version:
         print_version(ctx)

@@ -2,20 +2,17 @@ from contextlib import contextmanager
 from typing import Iterable, Mapping
 from lark import Tree
 from gersemi.ast_helpers import (
-    get_value,
-    is_one_value_argument,
     is_multi_value_argument,
     is_one_of_keywords,
+    is_one_value_argument,
     is_positional_arguments,
     is_section,
     positional_arguments,
 )
-from gersemi.keyword_kind import kind_to_preprocessor
 from gersemi.keywords import KeywordMatcher
 from .argument_aware_command_invocation_dumper import (
     ArgumentAwareCommandInvocationDumper,
 )
-
 
 Sections = Mapping[KeywordMatcher, Mapping[KeywordMatcher, Iterable[KeywordMatcher]]]
 
@@ -30,9 +27,9 @@ def create_section_patch(section, old_class):
         options = get("options", [])
         one_value_keywords = get("one_value_keywords", [])
         multi_value_keywords = get("multi_value_keywords", [])
-        sections = get("sections", dict())
-        keyword_formatters = get("keyword_formatters", dict())
-        keyword_preprocessors = get("keyword_preprocessors", dict())
+        sections = get("sections", {})
+        keyword_formatters = get("keyword_formatters", {})
+        keyword_preprocessors = get("keyword_preprocessors", {})
 
     return Impl
 
@@ -51,8 +48,7 @@ class SectionAwareCommandInvocationDumper(ArgumentAwareCommandInvocationDumper):
 
     def _get_matcher(self, keyword):
         for item in self.sections:
-            matcher = is_one_of_keywords([item])
-            if matcher(keyword):
+            if is_one_of_keywords([item], keyword):
                 return item
         return None
 
@@ -84,7 +80,7 @@ class SectionAwareCommandInvocationDumper(ArgumentAwareCommandInvocationDumper):
                 self.one_value_keywords,
                 self.multi_value_keywords,
             ):
-                if is_one_of_keywords(keywords)(argument.children[0]):
+                if is_one_of_keywords(keywords, argument.children[0]):
                     return True
 
         return False
@@ -146,11 +142,8 @@ class SectionAwareCommandInvocationDumper(ArgumentAwareCommandInvocationDumper):
 
     def section(self, tree):
         header, *rest = tree.children
-        preprocessor = kind_to_preprocessor(
-            self.keyword_preprocessors.get(get_value(header, None), None)
-        )
+        preprocessor = self._get_preprocessor(header)
         if preprocessor is not None:
-
             rest = getattr(self, preprocessor)(rest)
 
         result = self._try_to_format_into_single_line(tree.children)

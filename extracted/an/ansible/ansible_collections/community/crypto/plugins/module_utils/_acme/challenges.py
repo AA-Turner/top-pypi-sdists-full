@@ -17,6 +17,7 @@ import time
 import typing as t
 
 from ansible.module_utils.common.text.converters import to_bytes
+
 from ansible_collections.community.crypto.plugins.module_utils._acme.errors import (
     ACMEProtocolException,
     ModuleFailException,
@@ -26,9 +27,9 @@ from ansible_collections.community.crypto.plugins.module_utils._acme.utils impor
     nopad_b64,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.module_utils._acme.acme import (  # pragma: no cover
         ACMEClient,
     )
@@ -80,7 +81,7 @@ class Challenge:
 
     @classmethod
     def from_json(
-        cls: t.Type[_Challenge],
+        cls: type[_Challenge],
         *,
         client: ACMEClient,
         data: dict[str, t.Any],
@@ -186,7 +187,7 @@ class Authorization:
 
     @classmethod
     def from_json(
-        cls: t.Type[_Authorization],
+        cls: type[_Authorization],
         *,
         client: ACMEClient,
         data: dict[str, t.Any],
@@ -198,7 +199,7 @@ class Authorization:
 
     @classmethod
     def from_url(
-        cls: t.Type[_Authorization], *, client: ACMEClient, url: str
+        cls: type[_Authorization], *, client: ACMEClient, url: str
     ) -> _Authorization:
         result = cls(url=url)
         result.refresh(client=client)
@@ -206,7 +207,7 @@ class Authorization:
 
     @classmethod
     def create(
-        cls: t.Type[_Authorization],
+        cls: type[_Authorization],
         *,
         client: ACMEClient,
         identifier_type: str,
@@ -382,7 +383,7 @@ class Authorization:
 
     @classmethod
     def deactivate_url(
-        cls: t.Type[_Authorization], *, client: ACMEClient, url: str
+        cls: type[_Authorization], *, client: ACMEClient, url: str
     ) -> _Authorization:
         """
         Deactivates this authorization.
@@ -427,11 +428,11 @@ def wait_for_validation(
 
 
 __all__ = (
-    "create_key_authorization",
+    "Authorization",
+    "Challenge",
     "combine_identifier",
+    "create_key_authorization",
     "normalize_combined_identifier",
     "split_identifier",
-    "Challenge",
-    "Authorization",
     "wait_for_validation",
 )

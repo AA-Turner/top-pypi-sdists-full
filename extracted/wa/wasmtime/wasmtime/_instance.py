@@ -1,3 +1,5 @@
+import ctypes
+
 from . import _ffi as ffi
 from ctypes import POINTER, byref
 from wasmtime import Module, WasmtimeError
@@ -61,10 +63,6 @@ class Instance:
             self._exports = InstanceExports(store, self)
         return self._exports
 
-    def _as_extern(self) -> ffi.wasmtime_extern_t:
-        union = ffi.wasmtime_extern_union(instance=self._instance)
-        return ffi.wasmtime_extern_t(ffi.WASMTIME_EXTERN_INSTANCE, union)
-
 
 class InstanceExports(Mapping[str, AsExtern]):
     _extern_seq: Sequence[AsExtern]
@@ -76,8 +74,8 @@ class InstanceExports(Mapping[str, AsExtern]):
         extern_list = []
         i = 0
         item = ffi.wasmtime_extern_t()
-        name_ptr = POINTER(ffi.c_char)()
-        name_len = ffi.c_size_t(0)
+        name_ptr = ctypes.POINTER(ctypes.c_char)()
+        name_len = ctypes.c_size_t(0)
         while ffi.wasmtime_instance_export_nth(
                 store._context(),
                 byref(instance._instance),

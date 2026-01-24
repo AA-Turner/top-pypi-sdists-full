@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: mapbox_earcut
-Version: 1.0.3
+Version: 2.0.0
 Summary: Python bindings for the mapbox earcut C++ polygon triangulation library
 Author: Samuel Kogler
 Classifier: Development Status :: 5 - Production/Stable
@@ -13,8 +13,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
+Project-URL: Source, https://github.com/skogler/mapbox_earcut_python
 Requires-Python: >=3.9
 Requires-Dist: numpy
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
 Description-Content-Type: text/markdown
 
 # mapbox_earcut

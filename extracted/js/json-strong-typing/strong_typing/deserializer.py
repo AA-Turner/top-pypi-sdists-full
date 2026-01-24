@@ -13,7 +13,9 @@ import datetime
 import enum
 import inspect
 import ipaddress
+import re
 import sys
+import types
 import typing
 import uuid
 from dataclasses import dataclass
@@ -180,6 +182,60 @@ class TimeDeserializer(Deserializer[datetime.time]):
             raise JsonTypeError(f"`time` type expects JSON `string` data but instead received: {data}")
 
         return datetime.time.fromisoformat(data)
+
+
+class TimeDeltaDeserializer(Deserializer[datetime.timedelta]):
+    """
+    Parses JSON `string` values representing durations in ISO 8601 format to Python `timedelta` type.
+
+    Format string is limited to weeks, days, hours, minutes, seconds and sub-second fractional part up to microsecond
+    precision. The Python type `timedelta` has no notion of date features (e.g. to capture differences in number of days
+    in Gregorian months or leap years) and is limited to microsecond precision.
+    """
+
+    def parse(self, data: JsonType) -> datetime.timedelta:
+        if not isinstance(data, str):
+            raise JsonTypeError(f"`timedelta` type expects JSON `string` data but instead received: {data}")
+
+        pattern = re.compile(
+            r"^P"  # starts with 'P'
+            r"(?:(?P<weeks>\d+)W)?"  # optional weeks
+            r"(?:(?P<days>\d+)D)?"  # optional days
+            r"(?:T"  # start of time part
+            r"(?:(?P<hours>\d+)H)?"  # optional hours
+            r"(?:(?P<minutes>\d+)M)?"  # optional minutes
+            r"(?:(?P<seconds>\d+)(?:\.(?P<fractional>\d{1,9}))?S)?"  # optional seconds (integer and fractional part)
+            r")?$",  # end of time part
+            flags=re.ASCII,
+        )
+
+        match = pattern.match(data)
+        if not match:
+            raise JsonValueError(
+                f"`timedelta` type expects ISO 8601 duration format string (with limitations) but received: {data}"
+            )
+
+        parts = match.groupdict()
+
+        # day component
+        weeks = int(parts["weeks"]) if parts["weeks"] else 0
+        days = int(parts["days"]) if parts["days"] else 0
+
+        # time component
+        hours = int(parts["hours"]) if parts["hours"] else 0
+        minutes = int(parts["minutes"]) if parts["minutes"] else 0
+        seconds = int(parts["seconds"]) if parts["seconds"] else 0
+
+        # sub-second component
+        nanoseconds = int(parts["fractional"].ljust(9, "0")) if parts["fractional"] else 0
+        if nanoseconds % 1000 != 0:  # timedelta type supports microsecond precision only
+            raise JsonValueError(f"`timedelta` type supports microsecond precision only but received: {data}")
+
+        return datetime.timedelta(
+            days=7 * weeks + days,
+            seconds=3600 * hours + 60 * minutes + seconds,
+            microseconds=nanoseconds // 1000,
+        )
 
 
 class UUIDDeserializer(Deserializer[uuid.UUID]):
@@ -662,7 +718,7 @@ class DataclassDeserializer(ClassDeserializer[T]):
     def __init__(self, class_type: type[T], options: DeserializerOptions) -> None:
         if not dataclasses.is_dataclass(class_type):
             raise TypeError("expected: data-class type")
-        super().__init__(class_type, options)  # type: ignore[arg-type]
+        super().__init__(typing.cast(type[T], class_type), options)
 
     def build(self, context: Optional[ModuleType]) -> None:
         property_parsers: list[FieldDeserializer] = []
@@ -843,6 +899,8 @@ def _create_deserializer(typ: TypeLike, options: DeserializerOptions) -> Deseria
         return DateDeserializer()
     elif typ is datetime.time:
         return TimeDeserializer()
+    elif typ is datetime.timedelta:
+        return TimeDeltaDeserializer()
     elif typ is uuid.UUID:
         return UUIDDeserializer()
     elif typ is ipaddress.IPv4Address:
@@ -859,6 +917,13 @@ def _create_deserializer(typ: TypeLike, options: DeserializerOptions) -> Deseria
         raise TypeError("explicit member type required: use `set[T]` instead of `set`")
     if typ is tuple:
         raise TypeError("explicit item type list required: use `tuple[T, ...]` instead of `tuple`")
+
+    if sys.version_info >= (3, 10) and isinstance(typ, types.UnionType):
+        union_args = typing.get_args(typ)
+        if get_discriminating_properties(union_args):
+            return TaggedUnionDeserializer(union_args, options)
+        else:
+            return UnionDeserializer(union_args, options)
 
     # generic types (e.g. list, dict, set, etc.)
     origin_type = typing.get_origin(typ)

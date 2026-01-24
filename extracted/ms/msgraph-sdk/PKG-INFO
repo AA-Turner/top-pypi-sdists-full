@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msgraph-sdk
-Version: 1.45.0
+Version: 1.53.0
 Summary: The Microsoft Graph Python SDK
 Keywords: msgraph,openAPI,Microsoft,Graph
 Author-email: Microsoft <graphtooling+python@microsoft.com>
@@ -236,6 +236,10 @@ By default a maximum of 100 rows are returned but in the response if odata_next_
 * [Microsoft Graph website](https://aka.ms/graph)
 
 * [Samples](docs)
+
+### Update Schedule
+
+The Microsoft Graph .NET Client Library is scheduled to be updated during the second and fourth week of each month
 
 ## Upgrading
 

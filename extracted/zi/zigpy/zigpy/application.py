@@ -2,28 +2,21 @@ from __future__ import annotations
 
 import abc
 import asyncio
+from asyncio import timeout as asyncio_timeout
 import collections
 from collections.abc import AsyncGenerator, Coroutine
 import contextlib
-from datetime import datetime, timezone
+import contextvars
+from datetime import UTC, datetime
 import errno
+import inspect
 import logging
 import os
 import random
-import sys
 import time
 import typing
-from typing import Any, TypeVar
+from typing import Any, ParamSpec, TypeVar
 import warnings
-
-from zigpy.backports.contextlib import nullcontext
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout  # pragma: no cover
-else:
-    from asyncio import timeout as asyncio_timeout  # pragma: no cover
-
-import contextvars
 
 import zigpy.appdb
 import zigpy.backups
@@ -56,6 +49,7 @@ TRANSIENT_CONNECTION_ERRORS = {
 
 ENERGY_SCAN_WARN_THRESHOLD = 0.75 * 255
 _R = TypeVar("_R")
+_P = ParamSpec("_P")
 
 CHANNEL_CHANGE_BROADCAST_DELAY_S = 1.0
 CHANNEL_CHANGE_SETTINGS_RELOAD_DELAY_S = 1.0
@@ -102,6 +96,37 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         self._packet_priority_var = contextvars.ContextVar(
             "request_priority", default=t.PacketPriority.NORMAL
         )
+
+    def wrap_callback(
+        self,
+        src: zigpy.device.Device | zigpy.listeners.ANY_DEVICE,
+        callback: typing.Callable[_P, Any],
+    ) -> typing.Callable[_P, None]:
+        """Wrap a callback to log exceptions and run as task if needed."""
+        if inspect.iscoroutinefunction(callback):
+
+            async def _async_callback(*args: _P.args, **kwargs: _P.kwargs) -> None:
+                try:
+                    await callback(*args, **kwargs)
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning(
+                        "Device %r callback failed - %r", src, exc, exc_info=True
+                    )
+
+            def _callback(*args: _P.args, **kwargs: _P.kwargs) -> None:
+                self.create_task(_async_callback(*args, **kwargs))
+
+        else:
+
+            def _callback(*args: _P.args, **kwargs: _P.kwargs) -> None:
+                try:
+                    callback(*args, **kwargs)
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning(
+                        "Device %r callback failed - %r", src, exc, exc_info=True
+                    )
+
+        return _callback
 
     def create_task(
         self, target: Coroutine[Any, Any, _R], name: str | None = None
@@ -153,6 +178,35 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         self.groups.remove_listener(self._dblistener)
         self.remove_listener(self._dblistener)
 
+    async def _get_effective_tx_power(self) -> float | None:
+        """Compute TX power from config and radio preferences."""
+        if self.config[conf.CONF_NWK][conf.CONF_NWK_TX_POWER] is not None:
+            # If we've configured an explicit TX power, use it
+            tx_power = self.config[conf.CONF_NWK][conf.CONF_NWK_TX_POWER]
+            LOGGER.debug("Using configured TX power: %0.2f dBm", tx_power)
+        elif self.config[conf.CONF_NWK][conf.CONF_NWK_COUNTRY_CODE] is not None:
+            # Otherwise, use the recommended TX power for the country
+            country = self.config[conf.CONF_NWK][conf.CONF_NWK_COUNTRY_CODE]
+            tx_power = await self.get_recommended_tx_power(country)
+            LOGGER.debug(
+                "Using recommended TX power %0.2f dBm for country %s",
+                tx_power,
+                country,
+            )
+        else:
+            tx_power = None
+            LOGGER.debug("No TX power configured, using radio default")
+
+        return tx_power
+
+    async def _get_effective_maximum_tx_power(self) -> float:
+        """Compute maximum TX power from config and radio preferences."""
+        if self.config[conf.CONF_NWK][conf.CONF_NWK_COUNTRY_CODE] is None:
+            return self.config[conf.CONF_NWK][conf.CONF_NWK_TX_POWER_MAXIMUM]
+
+        country = self.config[conf.CONF_NWK][conf.CONF_NWK_COUNTRY_CODE]
+        return await self.get_maximum_tx_power(country)
+
     async def initialize(self, *, auto_form: bool = False) -> None:
         """Starts the network on a connected radio, optionally forming one with random
         settings if necessary.
@@ -200,6 +254,25 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
             )
 
         await self.start_network()
+
+        # Networks can move between RF domains so we need to be able to adjust the TX
+        # power on startup
+        tx_power = await self._get_effective_tx_power()
+        max_tx_power = await self._get_effective_maximum_tx_power()
+
+        if max_tx_power is not None and tx_power is not None:
+            if tx_power > max_tx_power:
+                LOGGER.warning(
+                    "Requested TX power %0.2f dBm exceeds maximum %0.2f dBm for"
+                    " regulatory domain, limiting",
+                    tx_power,
+                    max_tx_power,
+                )
+                tx_power = max_tx_power
+
+        if tx_power is not None:
+            await self.set_tx_power(tx_power)
+
         self._persist_coordinator_model_strings_in_db()
 
         # Some radios erroneously permit joins on startup
@@ -279,14 +352,47 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
                     ScanCount=count,
                 )
             )
-        except (asyncio.TimeoutError, zigpy.exceptions.DeliveryError):
+        except (TimeoutError, zigpy.exceptions.DeliveryError):
             LOGGER.warning("Coordinator does not support energy scanning")
             scanned_channels = channels
-            energy_values = [0] * scanned_channels
+            energy_values = [0] * len(scanned_channels)
         else:
             _, scanned_channels, _, _, energy_values = rsp
 
-        return dict(zip(scanned_channels, energy_values))
+        return dict(zip(scanned_channels, energy_values, strict=True))
+
+    async def _get_recommended_tx_power(self, country: str) -> float:
+        """Get the recommended transmit power for the radio, internal."""
+        return conf.CONF_NWK_TX_POWER_SAFE
+
+    async def get_recommended_tx_power(self, country: str) -> float:
+        """Get the recommended transmit power for the radio."""
+        return await self._get_recommended_tx_power(country)
+
+    async def _get_maximum_tx_power(self, country: str) -> float:
+        """Get the maximum transmit power for the radio, internal."""
+        return conf.CONF_NWK_TX_POWER_MAXIMUM_DEFAULT
+
+    async def get_maximum_tx_power(self, country: str) -> float:
+        """Get the maximum transmit power for the radio."""
+        return await self._get_maximum_tx_power(country)
+
+    async def _set_tx_power(self, tx_power: float) -> float | None:
+        """Set TX power (if supported by the radio), returning the actual TX power."""
+        LOGGER.debug("Radio does not support setting TX power, ignoring")
+        return None
+
+    async def set_tx_power(self, tx_power: float) -> float | None:
+        """Sets the transmit power of the radio, potentially limited by firmware."""
+        actual_tx_power = await self._set_tx_power(tx_power)
+        if actual_tx_power is not None:
+            LOGGER.debug(
+                "Set transmit power to %0.2f dBm (requested %0.2f)",
+                actual_tx_power,
+                tx_power,
+            )
+
+        return actual_tx_power
 
     async def _move_network_to_channel(
         self, new_channel: int, new_nwk_update_id: int
@@ -348,14 +454,15 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
 
     async def form_network(self, *, fast: bool = False) -> None:
         """Writes random network settings to the coordinator."""
+        config = self.config[conf.CONF_NWK]
 
         # First, make the settings consistent and randomly generate missing values
-        channel = self.config[conf.CONF_NWK][conf.CONF_NWK_CHANNEL]
-        channels = self.config[conf.CONF_NWK][conf.CONF_NWK_CHANNELS]
-        pan_id = self.config[conf.CONF_NWK][conf.CONF_NWK_PAN_ID]
-        extended_pan_id = self.config[conf.CONF_NWK][conf.CONF_NWK_EXTENDED_PAN_ID]
-        network_key = self.config[conf.CONF_NWK][conf.CONF_NWK_KEY]
-        tc_address = self.config[conf.CONF_NWK][conf.CONF_NWK_TC_ADDRESS]
+        channel = config[conf.CONF_NWK_CHANNEL]
+        channels = config[conf.CONF_NWK_CHANNELS]
+        pan_id = config[conf.CONF_NWK_PAN_ID]
+        extended_pan_id = config[conf.CONF_NWK_EXTENDED_PAN_ID]
+        network_key = config[conf.CONF_NWK_KEY]
+        tc_address = config[conf.CONF_NWK_TC_ADDRESS]
         stack_specific = {}
 
         if fast:
@@ -391,22 +498,27 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         if tc_address is None:
             tc_address = t.EUI64.UNKNOWN
 
+        tx_power = await self._get_effective_tx_power()
+        if tx_power is None:
+            tx_power = conf.CONF_NWK_TX_POWER_SAFE
+
         network_info = zigpy.state.NetworkInfo(
             extended_pan_id=extended_pan_id,
             pan_id=pan_id,
-            nwk_update_id=self.config[conf.CONF_NWK][conf.CONF_NWK_UPDATE_ID],
+            nwk_update_id=config[conf.CONF_NWK_UPDATE_ID],
             nwk_manager_id=0x0000,
             channel=channel,
             channel_mask=t.Channels.from_channel_list([channel]),
             security_level=5,
+            tx_power=tx_power,
             network_key=zigpy.state.Key(
                 key=network_key,
                 tx_counter=0,
                 rx_counter=0,
-                seq=self.config[conf.CONF_NWK][conf.CONF_NWK_KEY_SEQ],
+                seq=config[conf.CONF_NWK_KEY_SEQ],
             ),
             tc_link_key=zigpy.state.Key(
-                key=self.config[conf.CONF_NWK][conf.CONF_NWK_TC_LINK_KEY],
+                key=config[conf.CONF_NWK_TC_LINK_KEY],
                 tx_counter=0,
                 rx_counter=0,
                 seq=0,
@@ -449,7 +561,14 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
         self.topology.stop_periodic_scans()
 
         for device in self.devices.values():
-            device.on_remove()
+            try:
+                device.on_remove()
+            except Exception:  # noqa: BLE001
+                LOGGER.warning(
+                    "Failed to remove device %s during shutdown",
+                    device,
+                    exc_info=True,
+                )
 
         try:
             await self.disconnect()
@@ -545,7 +664,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
                 else 7
             ):
                 await device.zdo.leave(remove_children=remove_children, rejoin=rejoin)
-        except (zigpy.exceptions.DeliveryError, asyncio.TimeoutError) as ex:
+        except (TimeoutError, zigpy.exceptions.DeliveryError) as ex:
             LOGGER.debug("Sending 'zdo_leave_req' failed: %s", ex)
 
         self.devices.pop(device.ieee, None)
@@ -590,7 +709,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
 
         # Not all stacks send a ZDO command when a device joins so the last_seen should
         # be updated
-        dev.last_seen = datetime.now(timezone.utc)
+        dev.last_seen = datetime.now(UTC)
 
         # Cancel all pending requests for the device
         dev._concurrent_requests_semaphore.cancel_waiting(
@@ -787,7 +906,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
                 priority,
                 self._concurrent_requests_semaphore.waiting_requests,
             )
-            manager = nullcontext()
+            manager = contextlib.nullcontext()
             was_locked = False
         else:
             manager = self._concurrent_requests_semaphore(priority=priority)
@@ -1116,6 +1235,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
                 and packet.cluster_id
                 in (
                     zigpy.zcl.clusters.general.Basic.cluster_id,
+                    zigpy.zcl.clusters.general.Ota.cluster_id,
                     zigpy.zcl.clusters.general.PollControl.cluster_id,
                 )
             )
@@ -1123,7 +1243,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
             # Allow the following responses:
             #  - any ZDO
             #  - ZCL if endpoints are initialized
-            #  - ZCL from Basic or PollControl clusters, if endpoints are initializing
+            #  - ZCL from Basic, OTA, or PollControl clusters, if endpoints are initializing
 
             if not device.initializing:
                 device.schedule_initialize()
@@ -1262,7 +1382,7 @@ class ControllerApplication(zigpy.util.ListenableMixin, abc.ABC):
     ) -> typing.Callable[[], None]:
         listener = zigpy.listeners.CallbackListener(
             matchers=tuple(filters),
-            callback=callback,
+            callback=self.wrap_callback(src, callback),
         )
 
         self._req_listeners[src].append(listener)

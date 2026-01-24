@@ -103,9 +103,7 @@ def test_inheritance():
     )
     assert Class1b == o.__class__
 
-    o = factory1(
-        "class 12a", "0", "1", "2", "a", kw0="k0", kw1="k1", kw2="k2", kw12a="k12a"
-    )
+    o = factory1("class 12a", "0", "1", "2", "a", kw0="k0", kw1="k1", kw2="k2", kw12a="k12a")
     assert (o.arg0, o.arg1, o.arg2, o.arg12a, o.kw0, o.kw1, o.kw2, o.kw12a) == (
         "0",
         "1",
@@ -161,6 +159,7 @@ def test_metamixing():
 
     o1 = Base.factory("c1")
     o2 = Base.factory("c 1")
+    assert o1.test() == 123
     assert o1.test() == o2.test()
 
     with pytest.raises(RuntimeError):

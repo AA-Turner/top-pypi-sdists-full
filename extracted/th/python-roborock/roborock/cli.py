@@ -21,11 +21,13 @@ roborock> list-devices
 roborock> status --device_id <device_id>
 ```
 """
+
 import asyncio
 import datetime
 import functools
 import json
 import logging
+import sys
 import threading
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -39,18 +41,26 @@ from pyshark import FileCapture  # type: ignore
 from pyshark.capture.live_capture import LiveCapture, UnknownInterfaceException  # type: ignore
 from pyshark.packet.packet import Packet  # type: ignore
 
-from roborock import SHORT_MODEL_TO_ENUM, DeviceFeatures, RoborockCommand, RoborockException
-from roborock.containers import DeviceData, HomeData, NetworkInfo, RoborockBase, UserData
+from roborock import RoborockCommand
+from roborock.data import RoborockBase, UserData
+from roborock.data.b01_q10.b01_q10_code_mappings import B01_Q10_DP
+from roborock.data.code_mappings import SHORT_MODEL_TO_ENUM
+from roborock.device_features import DeviceFeatures
 from roborock.devices.cache import Cache, CacheData
 from roborock.devices.device import RoborockDevice
-from roborock.devices.device_manager import DeviceManager, create_device_manager, create_home_data_api
+from roborock.devices.device_manager import DeviceManager, UserParams, create_device_manager
 from roborock.devices.traits import Trait
 from roborock.devices.traits.v1 import V1TraitMixin
+from roborock.devices.traits.v1.consumeable import ConsumableAttribute
+from roborock.devices.traits.v1.map_content import MapContentTrait
+from roborock.exceptions import RoborockException, RoborockUnsupportedFeature
 from roborock.protocol import MessageParser
-from roborock.version_1_apis.roborock_mqtt_client_v1 import RoborockMqttClientV1
 from roborock.web_api import RoborockApiClient
 
 _LOGGER = logging.getLogger(__name__)
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 def dump_json(obj: Any) -> Any:
@@ -82,7 +92,14 @@ def async_command(func):
         context: RoborockContext = ctx.obj
 
         async def run():
-            return await func(*args, **kwargs)
+            try:
+                await func(*args, **kwargs)
+            except Exception as err:
+                _LOGGER.exception("Uncaught exception in command")
+                click.echo(f"Error: {err}", err=True)
+            finally:
+                if not context.is_session_mode():
+                    await context.cleanup()
 
         if context.is_session_mode():
             # Session mode - run in the persistent loop
@@ -107,8 +124,8 @@ class ConnectionCache(RoborockBase):
 
     user_data: UserData
     email: str
-    home_data: HomeData | None = None
-    network_info: dict[str, NetworkInfo] | None = None
+    # TODO: Used new APIs for cache file storage
+    cache_data: CacheData | None = None
 
 
 class DeviceConnectionManager:
@@ -123,9 +140,12 @@ class DeviceConnectionManager:
     async def ensure_device_manager(self) -> DeviceManager:
         """Ensure device manager is initialized."""
         if self.device_manager is None:
-            cache_data = self.context.cache_data()
-            home_data_api = create_home_data_api(cache_data.email, cache_data.user_data)
-            self.device_manager = await create_device_manager(cache_data.user_data, home_data_api, self.context)
+            connection_cache = self.context.connection_cache()
+            user_params = UserParams(
+                username=connection_cache.email,
+                user_data=connection_cache.user_data,
+            )
+            self.device_manager = await create_device_manager(user_params, cache=self.context)
             # Cache devices for quick lookup
             devices = await self.device_manager.get_devices()
             self._devices = {device.duid: device for device in devices}
@@ -150,7 +170,8 @@ class RoborockContext(Cache):
     """Context that handles both CLI and session modes internally."""
 
     roborock_file = Path("~/.roborock").expanduser()
-    _cache_data: ConnectionCache | None = None
+    roborock_cache_file = Path("~/.roborock.cache").expanduser()
+    _connection_cache: ConnectionCache | None = None
 
     def __init__(self):
         self.reload()
@@ -163,22 +184,22 @@ class RoborockContext(Cache):
             with open(self.roborock_file) as f:
                 data = json.load(f)
                 if data:
-                    self._cache_data = ConnectionCache.from_dict(data)
+                    self._connection_cache = ConnectionCache.from_dict(data)
 
-    def update(self, cache_data: ConnectionCache):
-        data = json.dumps(cache_data.as_dict(), default=vars, indent=4)
+    def update(self, connection_cache: ConnectionCache):
+        data = json.dumps(connection_cache.as_dict(), default=vars, indent=4)
         with open(self.roborock_file, "w") as f:
             f.write(data)
         self.reload()
 
     def validate(self):
-        if self._cache_data is None:
+        if self._connection_cache is None:
             raise RoborockException("You must login first")
 
-    def cache_data(self) -> ConnectionCache:
+    def connection_cache(self) -> ConnectionCache:
         """Get the cache data."""
         self.validate()
-        return cast(ConnectionCache, self._cache_data)
+        return cast(ConnectionCache, self._connection_cache)
 
     def start_session_mode(self):
         """Start session mode with a background event loop."""
@@ -215,19 +236,21 @@ class RoborockContext(Cache):
 
     async def refresh_devices(self) -> ConnectionCache:
         """Refresh device data from server (always fetches fresh data)."""
-        cache_data = self.cache_data()
-        client = RoborockApiClient(cache_data.email)
-        home_data = await client.get_home_data_v3(cache_data.user_data)
-        cache_data.home_data = home_data
-        self.update(cache_data)
-        return cache_data
+        connection_cache = self.connection_cache()
+        client = RoborockApiClient(connection_cache.email)
+        home_data = await client.get_home_data_v3(connection_cache.user_data)
+        if connection_cache.cache_data is None:
+            connection_cache.cache_data = CacheData()
+        connection_cache.cache_data.home_data = home_data
+        self.update(connection_cache)
+        return connection_cache
 
     async def get_devices(self) -> ConnectionCache:
         """Get device data (uses cache if available, fetches if needed)."""
-        cache_data = self.cache_data()
-        if not cache_data.home_data:
-            cache_data = await self.refresh_devices()
-        return cache_data
+        connection_cache = self.connection_cache()
+        if (connection_cache.cache_data is None) or (connection_cache.cache_data.home_data is None):
+            connection_cache = await self.refresh_devices()
+        return connection_cache
 
     async def cleanup(self):
         """Clean up resources (mainly for session mode)."""
@@ -251,14 +274,17 @@ class RoborockContext(Cache):
 
     async def get(self) -> CacheData:
         """Get cached value."""
-        connection_cache = self.cache_data()
-        return CacheData(home_data=connection_cache.home_data, network_info=connection_cache.network_info or {})
+        _LOGGER.debug("Getting cache data")
+        connection_cache = self.connection_cache()
+        if connection_cache.cache_data is not None:
+            return connection_cache.cache_data
+        return CacheData()
 
     async def set(self, value: CacheData) -> None:
         """Set value in the cache."""
-        connection_cache = self.cache_data()
-        connection_cache.home_data = value.home_data
-        connection_cache.network_info = value.network_info
+        _LOGGER.debug("Setting cache data")
+        connection_cache = self.connection_cache()
+        connection_cache.cache_data = value
         self.update(connection_cache)
 
 
@@ -275,21 +301,28 @@ def cli(ctx, debug: int):
 @click.command()
 @click.option("--email", required=True)
 @click.option(
+    "--reauth",
+    is_flag=True,
+    default=False,
+    help="Re-authenticate even if cached credentials exist.",
+)
+@click.option(
     "--password",
     required=False,
     help="Password for the Roborock account. If not provided, an email code will be requested.",
 )
 @click.pass_context
 @async_command
-async def login(ctx, email, password):
+async def login(ctx, email, password, reauth):
     """Login to Roborock account."""
     context: RoborockContext = ctx.obj
-    try:
-        context.validate()
-        _LOGGER.info("Already logged in")
-        return
-    except RoborockException:
-        pass
+    if not reauth:
+        try:
+            context.validate()
+            _LOGGER.info("Already logged in")
+            return
+        except RoborockException:
+            pass
     client = RoborockApiClient(email)
     if password is not None:
         user_data = await client.pass_login(password)
@@ -333,9 +366,9 @@ async def discover(ctx):
     """Discover devices."""
     context: RoborockContext = ctx.obj
     # Use the explicit refresh method for the discover command
-    cache_data = await context.refresh_devices()
+    connection_cache = await context.refresh_devices()
 
-    home_data = cache_data.home_data
+    home_data = connection_cache.cache_data.home_data
     click.echo(f"Discovered devices {', '.join([device.name for device in home_data.get_all_devices()])}")
 
 
@@ -344,9 +377,9 @@ async def discover(ctx):
 @async_command
 async def list_devices(ctx):
     context: RoborockContext = ctx.obj
-    cache_data = await context.get_devices()
+    connection_cache = await context.get_devices()
 
-    home_data = cache_data.home_data
+    home_data = connection_cache.cache_data.home_data
 
     device_name_id = {device.name: device.duid for device in home_data.get_all_devices()}
     click.echo(json.dumps(device_name_id, indent=4))
@@ -358,10 +391,10 @@ async def list_devices(ctx):
 @async_command
 async def list_scenes(ctx, device_id):
     context: RoborockContext = ctx.obj
-    cache_data = await context.get_devices()
+    connection_cache = await context.get_devices()
 
-    client = RoborockApiClient(cache_data.email)
-    scenes = await client.get_scenes(cache_data.user_data, device_id)
+    client = RoborockApiClient(connection_cache.email)
+    scenes = await client.get_scenes(connection_cache.user_data, device_id)
     output_list = []
     for scene in scenes:
         output_list.append(scene.as_dict())
@@ -374,25 +407,34 @@ async def list_scenes(ctx, device_id):
 @async_command
 async def execute_scene(ctx, scene_id):
     context: RoborockContext = ctx.obj
-    cache_data = await context.get_devices()
+    connection_cache = await context.get_devices()
 
-    client = RoborockApiClient(cache_data.email)
-    await client.execute_scene(cache_data.user_data, scene_id)
+    client = RoborockApiClient(connection_cache.email)
+    await client.execute_scene(connection_cache.user_data, scene_id)
 
 
 async def _v1_trait(context: RoborockContext, device_id: str, display_func: Callable[[], V1TraitMixin]) -> Trait:
     device_manager = await context.get_device_manager()
     device = await device_manager.get_device(device_id)
     if device.v1_properties is None:
-        raise RoborockException(f"Device {device.name} does not support V1 protocol")
-
+        raise RoborockUnsupportedFeature(f"Device {device.name} does not support V1 protocol")
+    await device.v1_properties.discover_features()
     trait = display_func(device.v1_properties)
+    if trait is None:
+        raise RoborockUnsupportedFeature("Trait not supported by device")
     await trait.refresh()
     return trait
 
 
 async def _display_v1_trait(context: RoborockContext, device_id: str, display_func: Callable[[], Trait]) -> None:
-    trait = await _v1_trait(context, device_id, display_func)
+    try:
+        trait = await _v1_trait(context, device_id, display_func)
+    except RoborockUnsupportedFeature:
+        click.echo("Feature not supported by device")
+        return
+    except RoborockException as e:
+        click.echo(f"Error: {e}")
+        return
     click.echo(dump_json(trait.as_dict()))
 
 
@@ -420,6 +462,26 @@ async def clean_summary(ctx, device_id: str):
 @click.option("--device_id", required=True)
 @click.pass_context
 @async_command
+async def clean_record(ctx, device_id: str):
+    """Get device last clean record."""
+    context: RoborockContext = ctx.obj
+    await _display_v1_trait(context, device_id, lambda v1: v1.clean_record)
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.pass_context
+@async_command
+async def dock_summary(ctx, device_id: str):
+    """Get device dock summary."""
+    context: RoborockContext = ctx.obj
+    await _display_v1_trait(context, device_id, lambda v1: v1.dock_summary)
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.pass_context
+@async_command
 async def volume(ctx, device_id: str):
     """Get device volume."""
     context: RoborockContext = ctx.obj
@@ -439,6 +501,274 @@ async def set_volume(ctx, device_id: str, volume: int):
     click.echo(f"Set Device {device_id} volume to {volume}")
 
 
+@session.command()
+@click.option("--device_id", required=True)
+@click.pass_context
+@async_command
+async def maps(ctx, device_id: str):
+    """Get device maps info."""
+    context: RoborockContext = ctx.obj
+    await _display_v1_trait(context, device_id, lambda v1: v1.maps)
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.option("--output-file", required=True, help="Path to save the map image.")
+@click.pass_context
+@async_command
+async def map_image(ctx, device_id: str, output_file: str):
+    """Get device map image and save it to a file."""
+    context: RoborockContext = ctx.obj
+    trait: MapContentTrait = await _v1_trait(context, device_id, lambda v1: v1.map_content)
+    if trait.image_content:
+        with open(output_file, "wb") as f:
+            f.write(trait.image_content)
+        click.echo(f"Map image saved to {output_file}")
+    else:
+        click.echo("No map image content available.")
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.option("--include_path", is_flag=True, default=False, help="Include path data in the output.")
+@click.pass_context
+@async_command
+async def map_data(ctx, device_id: str, include_path: bool):
+    """Get parsed map data as JSON."""
+    context: RoborockContext = ctx.obj
+    trait: MapContentTrait = await _v1_trait(context, device_id, lambda v1: v1.map_content)
+    if not trait.map_data:
+        click.echo("No parsed map data available.")
+        return
+
+    # Pick some parts of the map data to display.
+    data_summary = {
+        "charger": trait.map_data.charger.as_dict() if trait.map_data.charger else None,
+        "image_size": trait.map_data.image.data.size if trait.map_data.image else None,
+        "vacuum_position": trait.map_data.vacuum_position.as_dict() if trait.map_data.vacuum_position else None,
+        "calibration": trait.map_data.calibration(),
+        "zones": [z.as_dict() for z in trait.map_data.zones or ()],
+    }
+    if include_path and trait.map_data.path:
+        data_summary["path"] = trait.map_data.path.as_dict()
+    click.echo(dump_json(data_summary))
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.pass_context
+@async_command
+async def consumables(ctx, device_id: str):
+    """Get device consumables."""
+    context: RoborockContext = ctx.obj
+    await _display_v1_trait(context, device_id, lambda v1: v1.consumables)
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.option("--consumable", required=True, type=click.Choice([e.value for e in ConsumableAttribute]))
+@click.pass_context
+@async_command
+async def reset_consumable(ctx, device_id: str, consumable: str):
+    """Reset a specific consumable attribute."""
+    context: RoborockContext = ctx.obj
+    trait = await _v1_trait(context, device_id, lambda v1: v1.consumables)
+    attribute = ConsumableAttribute.from_str(consumable)
+    await trait.reset_consumable(attribute)
+    click.echo(f"Reset {consumable} for device {device_id}")
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.option("--enabled", type=bool, help="Enable (True) or disable (False) the child lock.")
+@click.pass_context
+@async_command
+async def child_lock(ctx, device_id: str, enabled: bool | None):
+    """Get device child lock status."""
+    context: RoborockContext = ctx.obj
+    try:
+        trait = await _v1_trait(context, device_id, lambda v1: v1.child_lock)
+    except RoborockUnsupportedFeature:
+        click.echo("Feature not supported by device")
+        return
+    if enabled is not None:
+        if enabled:
+            await trait.enable()
+        else:
+            await trait.disable()
+        click.echo(f"Set child lock to {enabled} for device {device_id}")
+        await trait.refresh()
+
+    click.echo(dump_json(trait.as_dict()))
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.option("--enabled", type=bool, help="Enable (True) or disable (False) the DND status.")
+@click.pass_context
+@async_command
+async def dnd(ctx, device_id: str, enabled: bool | None):
+    """Get Do Not Disturb Timer status."""
+    context: RoborockContext = ctx.obj
+    try:
+        trait = await _v1_trait(context, device_id, lambda v1: v1.dnd)
+    except RoborockUnsupportedFeature:
+        click.echo("Feature not supported by device")
+        return
+    if enabled is not None:
+        if enabled:
+            await trait.enable()
+        else:
+            await trait.disable()
+        click.echo(f"Set DND to {enabled} for device {device_id}")
+        await trait.refresh()
+
+    click.echo(dump_json(trait.as_dict()))
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.option("--enabled", required=False, type=bool, help="Enable (True) or disable (False) the Flow LED.")
+@click.pass_context
+@async_command
+async def flow_led_status(ctx, device_id: str, enabled: bool | None):
+    """Get device Flow LED status."""
+    context: RoborockContext = ctx.obj
+    try:
+        trait = await _v1_trait(context, device_id, lambda v1: v1.flow_led_status)
+    except RoborockUnsupportedFeature:
+        click.echo("Feature not supported by device")
+        return
+    if enabled is not None:
+        if enabled:
+            await trait.enable()
+        else:
+            await trait.disable()
+        click.echo(f"Set Flow LED to {enabled} for device {device_id}")
+        await trait.refresh()
+
+    click.echo(dump_json(trait.as_dict()))
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.option("--enabled", required=False, type=bool, help="Enable (True) or disable (False) the LED.")
+@click.pass_context
+@async_command
+async def led_status(ctx, device_id: str, enabled: bool | None):
+    """Get device LED status."""
+    context: RoborockContext = ctx.obj
+    try:
+        trait = await _v1_trait(context, device_id, lambda v1: v1.led_status)
+    except RoborockUnsupportedFeature:
+        click.echo("Feature not supported by device")
+        return
+    if enabled is not None:
+        if enabled:
+            await trait.enable()
+        else:
+            await trait.disable()
+        click.echo(f"Set LED Status to {enabled} for device {device_id}")
+        await trait.refresh()
+
+    click.echo(dump_json(trait.as_dict()))
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.option("--enabled", required=True, type=bool, help="Enable (True) or disable (False) the child lock.")
+@click.pass_context
+@async_command
+async def set_child_lock(ctx, device_id: str, enabled: bool):
+    """Set the child lock status."""
+    context: RoborockContext = ctx.obj
+    trait = await _v1_trait(context, device_id, lambda v1: v1.child_lock)
+    await trait.set_child_lock(enabled)
+    status = "enabled" if enabled else "disabled"
+    click.echo(f"Child lock {status} for device {device_id}")
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.pass_context
+@async_command
+async def rooms(ctx, device_id: str):
+    """Get device room mapping info."""
+    context: RoborockContext = ctx.obj
+    await _display_v1_trait(context, device_id, lambda v1: v1.rooms)
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.pass_context
+@async_command
+async def features(ctx, device_id: str):
+    """Get device room mapping info."""
+    context: RoborockContext = ctx.obj
+    await _display_v1_trait(context, device_id, lambda v1: v1.device_features)
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.option("--refresh", is_flag=True, default=False, help="Refresh status before discovery.")
+@click.pass_context
+@async_command
+async def home(ctx, device_id: str, refresh: bool):
+    """Discover and cache home layout (maps and rooms)."""
+    context: RoborockContext = ctx.obj
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+    if device.v1_properties is None:
+        raise RoborockException(f"Device {device.name} does not support V1 protocol")
+
+    # Ensure we have the latest status before discovery
+    await device.v1_properties.status.refresh()
+
+    home_trait = device.v1_properties.home
+    await home_trait.discover_home()
+    if refresh:
+        await home_trait.refresh()
+
+    # Display the discovered home cache
+    if home_trait.home_map_info:
+        cache_summary = {
+            map_flag: {
+                "name": map_data.name,
+                "room_count": len(map_data.rooms),
+                "rooms": [{"segment_id": room.segment_id, "name": room.name} for room in map_data.rooms],
+            }
+            for map_flag, map_data in home_trait.home_map_info.items()
+        }
+        click.echo(dump_json(cache_summary))
+    else:
+        click.echo("No maps discovered")
+
+
+@session.command()
+@click.option("--device_id", required=True)
+@click.pass_context
+@async_command
+async def network_info(ctx, device_id: str):
+    """Get device network information."""
+    context: RoborockContext = ctx.obj
+    await _display_v1_trait(context, device_id, lambda v1: v1.network_info)
+
+
+def _parse_b01_q10_command(cmd: str) -> B01_Q10_DP:
+    """Parse B01_Q10 command from either enum name or value."""
+    try:
+        return B01_Q10_DP(int(cmd))
+    except ValueError:
+        try:
+            return B01_Q10_DP.from_name(cmd)
+        except ValueError:
+            try:
+                return B01_Q10_DP.from_value(cmd)
+            except ValueError:
+                pass
+    raise RoborockException(f"Invalid command {cmd} for B01_Q10 device")
+
+
 @click.command()
 @click.option("--device_id", required=True)
 @click.option("--cmd", required=True)
@@ -447,21 +777,20 @@ async def set_volume(ctx, device_id: str, volume: int):
 @async_command
 async def command(ctx, cmd, device_id, params):
     context: RoborockContext = ctx.obj
-    cache_data = await context.get_devices()
-
-    home_data = cache_data.home_data
-    devices = home_data.get_all_devices()
-    device = next(device for device in devices if device.duid == device_id)
-    model = next(
-        (product.model for product in home_data.products if device is not None and product.id == device.product_id),
-        None,
-    )
-    if model is None:
-        raise RoborockException(f"Could not find model for device {device.name}")
-    device_info = DeviceData(device=device, model=model)
-    mqtt_client = RoborockMqttClientV1(cache_data.user_data, device_info)
-    await mqtt_client.send_command(cmd, json.loads(params) if params is not None else None)
-    await mqtt_client.async_release()
+    device_manager = await context.get_device_manager()
+    device = await device_manager.get_device(device_id)
+    if device.v1_properties is not None:
+        command_trait: Trait = device.v1_properties.command
+        result = await command_trait.send(cmd, json.loads(params) if params is not None else None)
+        if result:
+            click.echo(dump_json(result))
+    elif device.b01_q10_properties is not None:
+        cmd_value = _parse_b01_q10_command(cmd)
+        command_trait: Trait = device.b01_q10_properties.command
+        await command_trait.send(cmd_value, json.loads(params) if params is not None else None)
+        click.echo("Command sent successfully; Enable debug logging (-d) to see responses.")
+        # Q10 commands don't have a specific time to respond, so wait a bit and log
+        await asyncio.sleep(5)
 
 
 @click.command()
@@ -513,57 +842,203 @@ async def parser(_, local_key, device_ip, file):
         )
 
 
+def _parse_diagnostic_file(diagnostic_path: Path) -> dict[str, dict[str, Any]]:
+    """Parse device info from a Home Assistant diagnostic file.
+
+    Args:
+        diagnostic_path: Path to the diagnostic JSON file.
+
+    Returns:
+        A dictionary mapping model names to device info dictionaries.
+    """
+    with open(diagnostic_path, encoding="utf-8") as f:
+        diagnostic_data = json.load(f)
+
+    all_products_data: dict[str, dict[str, Any]] = {}
+
+    # Navigate to coordinators in the diagnostic data
+    coordinators = diagnostic_data.get("data", {}).get("coordinators", {})
+    if not coordinators:
+        return all_products_data
+
+    for coordinator_data in coordinators.values():
+        device_data = coordinator_data.get("device", {})
+        product_data = coordinator_data.get("product", {})
+
+        model = product_data.get("model")
+        if not model or model in all_products_data:
+            continue
+        # Derive product nickname from model
+        short_model = model.split(".")[-1]
+        product_nickname = SHORT_MODEL_TO_ENUM.get(short_model)
+
+        current_product_data: dict[str, Any] = {
+            "protocol_version": device_data.get("pv"),
+            "product_nickname": product_nickname.name if product_nickname else "Unknown",
+        }
+
+        # Get feature info from the device_features trait (preferred location)
+        traits_data = coordinator_data.get("traits", {})
+        device_features = traits_data.get("device_features", {})
+
+        # newFeatureInfo is the integer
+        new_feature_info = device_features.get("newFeatureInfo")
+        if new_feature_info is not None:
+            current_product_data["new_feature_info"] = new_feature_info
+
+        # newFeatureInfoStr is the hex string
+        new_feature_info_str = device_features.get("newFeatureInfoStr")
+        if new_feature_info_str:
+            current_product_data["new_feature_info_str"] = new_feature_info_str
+
+        # featureInfo is the list of feature codes
+        feature_info = device_features.get("featureInfo")
+        if feature_info:
+            current_product_data["feature_info"] = feature_info
+
+        # Build product dict from diagnostic product data
+        if product_data:
+            # Convert to the format expected by device_info.yaml
+            product_dict: dict[str, Any] = {}
+            for key in ["id", "name", "model", "category", "capability", "schema"]:
+                if key in product_data:
+                    product_dict[key] = product_data[key]
+            if product_dict:
+                current_product_data["product"] = product_dict
+
+        all_products_data[model] = current_product_data
+
+    return all_products_data
+
+
 @click.command()
+@click.option(
+    "--record",
+    is_flag=True,
+    default=False,
+    help="Save new device info entries to the YAML file.",
+)
+@click.option(
+    "--device-info-file",
+    default="device_info.yaml",
+    help="Path to the YAML file with device and product data.",
+)
+@click.option(
+    "--diagnostic-file",
+    default=None,
+    help="Path to a Home Assistant diagnostic JSON file to parse instead of connecting to devices.",
+)
 @click.pass_context
 @async_command
-async def get_device_info(ctx: click.Context):
+async def get_device_info(ctx: click.Context, record: bool, device_info_file: str, diagnostic_file: str | None):
     """
     Connects to devices and prints their feature information in YAML format.
+
+    Can also parse device info from a Home Assistant diagnostic file using --diagnostic-file.
     """
-    click.echo("Discovering devices...")
     context: RoborockContext = ctx.obj
-    cache_data = await context.get_devices()
+    device_info_path = Path(device_info_file)
+    existing_device_info: dict[str, Any] = {}
 
-    home_data = cache_data.home_data
+    # Load existing device info if recording
+    if record:
+        click.echo(f"Using device info file: {device_info_path.resolve()}")
+        if device_info_path.exists():
+            with open(device_info_path, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            if isinstance(data, dict):
+                existing_device_info = data
 
-    all_devices = home_data.get_all_devices()
-    if not all_devices:
-        click.echo("No devices found.")
-        return
+    # Parse from diagnostic file if provided
+    if diagnostic_file:
+        diagnostic_path = Path(diagnostic_file)
+        if not diagnostic_path.exists():
+            click.echo(f"Diagnostic file not found: {diagnostic_path}", err=True)
+            return
 
-    click.echo(f"Found {len(all_devices)} devices. Fetching data...")
+        click.echo(f"Parsing diagnostic file: {diagnostic_path.resolve()}")
+        all_products_data = _parse_diagnostic_file(diagnostic_path)
 
-    all_products_data = {}
+        if not all_products_data:
+            click.echo("No device data found in diagnostic file.")
+            return
 
-    for device in all_devices:
-        click.echo(f"  - Processing {device.name} ({device.duid})")
-        product_info = home_data.product_map[device.product_id]
-        device_data = DeviceData(device, product_info.model)
-        mqtt_client = RoborockMqttClientV1(cache_data.user_data, device_data)
+        click.echo(f"Found {len(all_products_data)} device(s) in diagnostic file.")
 
-        try:
-            init_status_result = await mqtt_client.send_command(
-                RoborockCommand.APP_GET_INIT_STATUS,
-            )
-            product_nickname = SHORT_MODEL_TO_ENUM.get(product_info.model.split(".")[-1]).name
+    else:
+        click.echo("Discovering devices...")
+
+        if record:
+            connection_cache = await context.get_devices()
+            home_data = connection_cache.cache_data.home_data if connection_cache.cache_data else None
+            if home_data is None:
+                click.echo("Home data not available.", err=True)
+                return
+
+        device_connection_manager = await context.get_device_manager()
+        device_manager = await device_connection_manager.ensure_device_manager()
+        devices = await device_manager.get_devices()
+        if not devices:
+            click.echo("No devices found.")
+            return
+
+        click.echo(f"Found {len(devices)} devices. Fetching data...")
+
+        all_products_data = {}
+
+        for device in devices:
+            click.echo(f"  - Processing {device.name} ({device.duid})")
+
+            model = device.product.model
+            if model in all_products_data:
+                click.echo(f"    - Skipping duplicate model {model}")
+                continue
+
             current_product_data = {
-                "Protocol Version": device.pv,
-                "Product Nickname": product_nickname,
-                "New Feature Info": init_status_result.get("new_feature_info"),
-                "New Feature Info Str": init_status_result.get("new_feature_info_str"),
-                "Feature Info": init_status_result.get("feature_info"),
+                "protocol_version": device.device_info.pv,
+                "product_nickname": device.product.product_nickname.name
+                if device.product.product_nickname
+                else "Unknown",
             }
+            if device.v1_properties is not None:
+                try:
+                    result: list[dict[str, Any]] = await device.v1_properties.command.send(
+                        RoborockCommand.APP_GET_INIT_STATUS
+                    )
+                except Exception as e:
+                    click.echo(f"    - Error processing device {device.name}: {e}", err=True)
+                    continue
+                init_status_result = result[0] if result else {}
+                current_product_data.update(
+                    {
+                        "new_feature_info": init_status_result.get("new_feature_info"),
+                        "new_feature_info_str": init_status_result.get("new_feature_info_str"),
+                        "feature_info": init_status_result.get("feature_info"),
+                    }
+                )
 
-            all_products_data[product_info.model] = current_product_data
+            product_data = device.product.as_dict()
+            if product_data:
+                current_product_data["product"] = product_data
 
-        except Exception as e:
-            click.echo(f"    - Error processing device {device.name}: {e}", err=True)
-        finally:
-            await mqtt_client.async_release()
+            all_products_data[model] = current_product_data
+
+    if record:
+        if not all_products_data:
+            click.echo("No device info updates needed.")
+            return
+        updated_device_info = {**existing_device_info, **all_products_data}
+        device_info_path.parent.mkdir(parents=True, exist_ok=True)
+        ordered_data = dict(sorted(updated_device_info.items(), key=lambda item: item[0]))
+        with open(device_info_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(ordered_data, f, sort_keys=False)
+        click.echo(f"Updated {device_info_path}.")
+        click.echo("\n--- Device Info Updates ---\n")
+        click.echo(yaml.safe_dump(all_products_data, sort_keys=False))
+        return
 
     if all_products_data:
         click.echo("\n--- Device Information (copy to your YAML file) ---\n")
-        # Use yaml.dump to print in a clean, copy-paste friendly format
         click.echo(yaml.dump(all_products_data, sort_keys=False))
 
 
@@ -596,19 +1071,19 @@ def update_docs(data_file: str, output_file: str):
     for model, data in product_data_from_yaml.items():
         # Reconstruct the DeviceFeatures object from the raw data in the YAML file
         device_features = DeviceFeatures.from_feature_flags(
-            new_feature_info=data.get("New Feature Info"),
-            new_feature_info_str=data.get("New Feature Info Str"),
-            feature_info=data.get("Feature Info"),
-            product_nickname=data.get("Product Nickname"),
+            new_feature_info=data.get("new_feature_info"),
+            new_feature_info_str=data.get("new_feature_info_str"),
+            feature_info=data.get("feature_info"),
+            product_nickname=data.get("product_nickname"),
         )
         features_dict = asdict(device_features)
 
         # This dictionary will hold the final data for the markdown table row
         current_product_data = {
-            "Product Nickname": data.get("Product Nickname", ""),
-            "Protocol Version": data.get("Protocol Version", ""),
-            "New Feature Info": data.get("New Feature Info", ""),
-            "New Feature Info Str": data.get("New Feature Info Str", ""),
+            "product_nickname": data.get("product_nickname", ""),
+            "protocol_version": data.get("protocol_version", ""),
+            "new_feature_info": data.get("new_feature_info", ""),
+            "new_feature_info_str": data.get("new_feature_info_str", ""),
         }
 
         # Populate features from the calculated DeviceFeatures object
@@ -617,7 +1092,7 @@ def update_docs(data_file: str, output_file: str):
             if is_supported:
                 current_product_data[feature] = "X"
 
-        supported_codes = data.get("Feature Info", [])
+        supported_codes = data.get("feature_info", [])
         if isinstance(supported_codes, list):
             for code in supported_codes:
                 feature_name = str(code)
@@ -631,10 +1106,10 @@ def update_docs(data_file: str, output_file: str):
         """Writes the data into a markdown table (products as columns)."""
         sorted_products = sorted(product_features.keys())
         special_rows = [
-            "Product Nickname",
-            "Protocol Version",
-            "New Feature Info",
-            "New Feature Info Str",
+            "product_nickname",
+            "protocol_version",
+            "new_feature_info",
+            "new_feature_info_str",
         ]
         # Regular features are the remaining keys, sorted alphabetically
         # We filter out the special rows to avoid duplicating them.
@@ -678,8 +1153,23 @@ cli.add_command(session)
 cli.add_command(get_device_info)
 cli.add_command(update_docs)
 cli.add_command(clean_summary)
+cli.add_command(clean_record)
+cli.add_command(dock_summary)
 cli.add_command(volume)
 cli.add_command(set_volume)
+cli.add_command(maps)
+cli.add_command(map_image)
+cli.add_command(map_data)
+cli.add_command(consumables)
+cli.add_command(reset_consumable)
+cli.add_command(rooms)
+cli.add_command(home)
+cli.add_command(features)
+cli.add_command(child_lock)
+cli.add_command(dnd)
+cli.add_command(flow_led_status)
+cli.add_command(led_status)
+cli.add_command(network_info)
 
 
 def main():

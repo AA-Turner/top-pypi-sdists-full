@@ -5,8 +5,7 @@ import tempfile
 from typing import Optional, Literal, Any, Union
 from urllib.parse import urlparse
 
-import httpx
-from httpx import Response, HTTPError
+import niquests
 from pydantic import BaseModel, Field
 
 from ipfabric.tools.shared import raise_for_status
@@ -43,7 +42,7 @@ class Extension(BaseModel):
         """
         try:
             return [self.client.settings.local_users.users_by_id[user] for user in self.accessible_by_users]
-        except:  # noqa: E722
+        except:  # noqa: E722, S5754
             return []
 
 
@@ -126,7 +125,7 @@ class Extensions(BaseModel):
         environment_variables: Optional[dict[str, str]] = None,
         access_permission: Literal["anyone", "only-me", "selected-users"] = "anyone",
         accessible_by_users: Optional[list[str]] = None,
-    ) -> Response:
+    ) -> niquests.Response:
         files = (
             {"file": ("extension.zip", file, "application/zip")}
             if docker_type == "docker-zip"
@@ -159,7 +158,7 @@ class Extensions(BaseModel):
         environment_variables: Optional[dict[str, str]] = None,
         access_permission: Literal["anyone", "only-me", "selected-users"] = "anyone",
         accessible_by_users: Optional[list[str]] = None,
-    ) -> Response:
+    ) -> niquests.Response:
         """
         Register a new extension using zipped source code. Raises an exception if the extension is not registered successfully.
 
@@ -198,7 +197,7 @@ class Extensions(BaseModel):
         environment_variables: Optional[dict[str, str]] = None,
         access_permission: Literal["anyone", "only-me", "selected-users"] = "anyone",
         accessible_by_users: Optional[list[str]] = None,
-    ) -> Response:
+    ) -> niquests.Response:
         """
         Register a new extension using a docker image. Raises an exception if the extension is not registered successfully.
 
@@ -226,7 +225,7 @@ class Extensions(BaseModel):
             accessible_by_users=accessible_by_users,
         )
 
-    def start_extension(self, extension_id: str) -> Response:
+    def start_extension(self, extension_id: str) -> niquests.Response:
         """
         Start an extension by its ID. Raises an exception if the extension fails to start.
 
@@ -235,7 +234,7 @@ class Extensions(BaseModel):
         """
         return raise_for_status(self.client.post(f"extensions/{extension_id}/start"))
 
-    def stop_extension(self, extension_id: str) -> Response:
+    def stop_extension(self, extension_id: str) -> niquests.Response:
         """
         Stop an extension by its ID. Raises an exception if the extension fails to stop.
 
@@ -244,7 +243,7 @@ class Extensions(BaseModel):
         """
         return raise_for_status(self.client.post(f"extensions/{extension_id}/stop"))
 
-    def unregister_extension(self, extension_id: str) -> Response:
+    def unregister_extension(self, extension_id: str) -> niquests.Response:
         """
         Unregister an extension by its ID. Raises an exception if the extension fails to unregister.
 
@@ -265,7 +264,7 @@ class Extensions(BaseModel):
         environment_variables: Optional[dict[str, str]] = None,
         access_permission: Literal["anyone", "only-me", "selected-users"] = "anyone",
         accessible_by_users: Optional[list[str]] = None,
-    ) -> Union[Response, None]:
+    ) -> Union[niquests.Response, None]:
         """
         Register an extension from a Git repository URL. Supports GitHub and GitLab repositories.
         Downloads the repository, creates a ZIP file, and registers it as a docker-zip extension.
@@ -311,9 +310,9 @@ class Extensions(BaseModel):
         else:
             raise ValueError("Only GitHub and GitLab repositories are supported")
 
-        response = httpx.get(download_url)
+        response = niquests.get(download_url)
         if response.status_code != 200:
-            raise HTTPError(f"Failed to download repository: {response.status_code}")
+            raise niquests.HTTPError(f"Failed to download repository: {response.status_code}")
 
         with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
             tmp_file.write(response.content)

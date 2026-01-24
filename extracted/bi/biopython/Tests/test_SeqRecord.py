@@ -15,7 +15,6 @@ try:
 except ImportError:
     np = None  # type: ignore
 
-from Bio import BiopythonDeprecationWarning
 from Bio import SeqIO
 from Bio.Seq import MutableSeq
 from Bio.Seq import Seq
@@ -114,6 +113,10 @@ class SeqRecordCreation(unittest.TestCase):
         with self.assertRaises(TypeError):
             SeqRecord(Seq("ACGT"), name={})
 
+    def test_valid_seq(self):
+        with self.assertRaises(TypeError):
+            SeqRecord("ACGT")
+
     def test_valid_description(self):
         with self.assertRaises(TypeError):
             SeqRecord(Seq("ACGT"), description={})
@@ -130,10 +133,20 @@ class SeqRecordCreation(unittest.TestCase):
         with self.assertRaises(TypeError):
             SeqRecord(Seq("ACGT"), features={})
 
-    def test_deprecated_string_seq(self):
-        with self.assertWarns(BiopythonDeprecationWarning):
-            record = SeqRecord("ACGT")
-            self.assertTrue(isinstance(record._seq, Seq))
+    def test_default_properties(self):
+        seqobj = Seq("A")
+        default__dict__ = {
+            "_seq": seqobj,
+            "id": "<unknown id>",
+            "name": "<unknown name>",
+            "description": "<unknown description>",
+            "dbxrefs": [],
+            "annotations": {},
+            "_per_letter_annotations": None,
+            "features": [],
+        }
+        bsr = SeqRecord(seqobj)
+        self.assertEqual(bsr.__dict__, default__dict__)
 
 
 class SeqRecordMethods(unittest.TestCase):
@@ -228,6 +241,20 @@ Seq('ABCDEFGHIJKLMNOPQRSTUVWZYX')"""
 
     def test_upper(self):
         self.assertEqual("ABCDEFGHIJKLMNOPQRSTUVWZYX", self.record.lower().upper().seq)
+        seqobj = Seq("A")
+        default__dict__ = {
+            "_seq": seqobj,
+            "id": "<unknown id>",
+            "name": "<unknown name>",
+            "description": "<unknown description>",
+            "dbxrefs": [],
+            "annotations": {},
+            "_per_letter_annotations": None,
+            "features": [],
+        }
+        bsr = SeqRecord(seqobj)
+        bsru = bsr.upper()
+        self.assertEqual(bsru.__dict__, default__dict__)
 
     def test_lower(self):
         self.assertEqual("abcdefghijklmnopqrstuvwzyx", self.record.lower().seq)
@@ -507,6 +534,17 @@ class SeqRecordMethodsMore(unittest.TestCase):
             t.annotations, {"organism": "bombyx", "molecule_type": "protein"}
         )
         self.assertFalse(t.letter_annotations)
+
+    def test_no_side_effects(self):
+        a = SeqRecord(Seq("AAA"))
+        self.assertIsNone(a._per_letter_annotations)
+        a.reverse_complement()
+        self.assertIsNone(a._per_letter_annotations)
+
+        a = SeqRecord(Seq("AAA"))
+        self.assertIsNone(a._per_letter_annotations)
+        a.translate()
+        self.assertIsNone(a._per_letter_annotations)
 
     def test_lt_exception(self):
         def lt():

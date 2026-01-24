@@ -14,26 +14,23 @@ from typing import (
     Generic,
     Literal,
     NamedTuple,
-    Type,
     TypeVar,
 )
 
 import einops
 import torch
-from jaxtyping import Float
 from numpy.typing import NDArray
-from safetensors.torch import save_file
+from safetensors.torch import load_file, save_file
 from torch import nn
 from transformer_lens.hook_points import HookedRootModule, HookPoint
 from typing_extensions import deprecated, overload, override
 
 from sae_lens import __version__
 from sae_lens.constants import (
-    DTYPE_MAP,
     SAE_CFG_FILENAME,
     SAE_WEIGHTS_FILENAME,
 )
-from sae_lens.util import filter_valid_dataclass_fields
+from sae_lens.util import dtype_to_str, filter_valid_dataclass_fields, str_to_dtype
 
 if TYPE_CHECKING:
     from sae_lens.config import LanguageModelSAERunnerConfig
@@ -50,6 +47,7 @@ from sae_lens.loading.pretrained_saes_directory import (
     get_config_overrides,
     get_norm_scaling_factor,
     get_pretrained_saes_directory,
+    get_releases_for_repo_id,
     get_repo_id_and_folder_name,
 )
 from sae_lens.registry import get_sae_class, get_sae_training_class
@@ -156,9 +154,9 @@ class SAEConfig(ABC):
     dtype: str = "float32"
     device: str = "cpu"
     apply_b_dec_to_input: bool = True
-    normalize_activations: Literal[
-        "none", "expected_average_only_in", "constant_norm_rescale", "layer_norm"
-    ] = "none"  # none, expected_average_only_in (Anthropic April Update), constant_norm_rescale (Anthropic Feb Update)
+    normalize_activations: Literal["none", "expected_average_only_in", "layer_norm"] = (
+        "none"  # none, expected_average_only_in (Anthropic April Update)
+    )
     reshape_activations: Literal["none", "hook_z"] = "none"
     metadata: SAEMetadata = field(default_factory=SAEMetadata)
 
@@ -218,6 +216,7 @@ class TrainStepInput:
     sae_in: torch.Tensor
     coefficients: dict[str, float]
     dead_neuron_mask: torch.Tensor | None
+    n_training_steps: int
 
 
 class TrainCoefficientConfig(NamedTuple):
@@ -245,7 +244,7 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
 
         self.cfg = cfg
 
-        if cfg.metadata and cfg.metadata:
+        if cfg.metadata and cfg.metadata.model_from_pretrained_kwargs:
             warnings.warn(
                 "\nThis SAE has non-empty model_from_pretrained_kwargs. "
                 "\nFor optimal performance, load the model like so:\n"
@@ -254,7 +253,7 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
                 stacklevel=1,
             )
 
-        self.dtype = DTYPE_MAP[cfg.dtype]
+        self.dtype = str_to_dtype(cfg.dtype)
         self.device = torch.device(cfg.device)
         self.use_error_term = use_error_term
 
@@ -309,6 +308,7 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
 
             self.run_time_activation_norm_fn_in = run_time_activation_norm_fn_in
             self.run_time_activation_norm_fn_out = run_time_activation_norm_fn_out
+
         elif self.cfg.normalize_activations == "layer_norm":
             #  we need to scale the norm of the input and store the scaling factor
             def run_time_activation_ln_in(
@@ -350,16 +350,12 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
         self.W_enc = nn.Parameter(w_enc_data)
 
     @abstractmethod
-    def encode(
-        self, x: Float[torch.Tensor, "... d_in"]
-    ) -> Float[torch.Tensor, "... d_sae"]:
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
         """Encode input tensor to feature space."""
         pass
 
     @abstractmethod
-    def decode(
-        self, feature_acts: Float[torch.Tensor, "... d_sae"]
-    ) -> Float[torch.Tensor, "... d_in"]:
+    def decode(self, feature_acts: torch.Tensor) -> torch.Tensor:
         """Decode feature activations back to input space."""
         pass
 
@@ -441,34 +437,23 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
 
         # Update dtype in config if provided
         if dtype_arg is not None:
-            # Update the cfg.dtype
-            self.cfg.dtype = str(dtype_arg)
+            # Update the cfg.dtype (use canonical short form like "float32")
+            self.cfg.dtype = dtype_to_str(dtype_arg)
 
             # Update the dtype property
             self.dtype = dtype_arg
 
         return super().to(*args, **kwargs)
 
-    def process_sae_in(
-        self, sae_in: Float[torch.Tensor, "... d_in"]
-    ) -> Float[torch.Tensor, "... d_in"]:
-        # print(f"Input shape to process_sae_in: {sae_in.shape}")
-        # print(f"self.cfg.hook_name: {self.cfg.hook_name}")
-        # print(f"self.b_dec shape: {self.b_dec.shape}")
-        # print(f"Hook z reshaping mode: {getattr(self, 'hook_z_reshaping_mode', False)}")
-
+    def process_sae_in(self, sae_in: torch.Tensor) -> torch.Tensor:
         sae_in = sae_in.to(self.dtype)
-
-        # print(f"Shape before reshape_fn_in: {sae_in.shape}")
         sae_in = self.reshape_fn_in(sae_in)
-        # print(f"Shape after reshape_fn_in: {sae_in.shape}")
 
         sae_in = self.hook_sae_input(sae_in)
         sae_in = self.run_time_activation_norm_fn_in(sae_in)
 
         # Here's where the error happens
         bias_term = self.b_dec * self.cfg.apply_b_dec_to_input
-        # print(f"Bias term shape: {bias_term.shape}")
 
         return sae_in - bias_term
 
@@ -499,7 +484,7 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
     @torch.no_grad()
     def fold_W_dec_norm(self):
         """Fold decoder norms into encoder."""
-        W_dec_norms = self.W_dec.norm(dim=-1).unsqueeze(1)
+        W_dec_norms = self.W_dec.norm(dim=-1).clamp(min=1e-8).unsqueeze(1)
         self.W_dec.data = self.W_dec.data / W_dec_norms
         self.W_enc.data = self.W_enc.data * W_dec_norms.T
 
@@ -534,7 +519,7 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
     @classmethod
     @deprecated("Use load_from_disk instead")
     def load_from_pretrained(
-        cls: Type[T_SAE],
+        cls: type[T_SAE],
         path: str | Path,
         device: str = "cpu",
         dtype: str | None = None,
@@ -543,12 +528,21 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
 
     @classmethod
     def load_from_disk(
-        cls: Type[T_SAE],
+        cls: type[T_SAE],
         path: str | Path,
         device: str = "cpu",
         dtype: str | None = None,
         converter: PretrainedSaeDiskLoader = sae_lens_disk_loader,
     ) -> T_SAE:
+        """
+        Load a SAE from disk.
+
+        Args:
+            path: The path to the SAE weights and config.
+            device: The device to load the SAE on, defaults to "cpu".
+            dtype: The dtype to load the SAE on, defaults to None. If None, the dtype will be inferred from the SAE config.
+            converter: The converter to use to load the SAE, defaults to sae_lens_disk_loader.
+        """
         overrides = {"dtype": dtype} if dtype is not None else None
         cfg_dict, state_dict = converter(path, device, cfg_overrides=overrides)
         cfg_dict = handle_config_defaulting(cfg_dict)
@@ -557,17 +551,25 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
         )
         sae_cfg = sae_config_cls.from_dict(cfg_dict)
         sae_cls = cls.get_sae_class_for_architecture(sae_cfg.architecture())
+        # hack to avoid using double memory when loading the SAE.
+        # first put the SAE on the meta device, then load the weights.
+        device = sae_cfg.device
+        sae_cfg.device = "meta"
         sae = sae_cls(sae_cfg)
+        sae.cfg.device = device
         sae.process_state_dict_for_loading(state_dict)
-        sae.load_state_dict(state_dict)
-        return sae
+        sae.load_state_dict(state_dict, assign=True)
+        # the loaders should already handle the dtype / device conversion
+        # but this is a fallback to guarantee the SAE is on the correct device and dtype
+        return sae.to(dtype=str_to_dtype(sae_cfg.dtype), device=device)
 
     @classmethod
     def from_pretrained(
-        cls: Type[T_SAE],
+        cls: type[T_SAE],
         release: str,
         sae_id: str,
         device: str = "cpu",
+        dtype: str = "float32",
         force_download: bool = False,
         converter: PretrainedSaeHuggingfaceLoader | None = None,
     ) -> T_SAE:
@@ -577,18 +579,27 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
         Args:
             release: The release name. This will be mapped to a huggingface repo id based on the pretrained_saes.yaml file.
             id: The id of the SAE to load. This will be mapped to a path in the huggingface repo.
-            device: The device to load the SAE on.
+            device: The device to load the SAE on, defaults to "cpu".
+            dtype: The dtype to load the SAE on, defaults to "float32".
+            force_download: Whether to force download the SAE weights and config, defaults to False.
+            converter: The converter to use to load the SAE, defaults to None. If None, the converter will be inferred from the release.
         """
         return cls.from_pretrained_with_cfg_and_sparsity(
-            release, sae_id, device, force_download, converter=converter
+            release,
+            sae_id,
+            device,
+            force_download=force_download,
+            dtype=dtype,
+            converter=converter,
         )[0]
 
     @classmethod
     def from_pretrained_with_cfg_and_sparsity(
-        cls: Type[T_SAE],
+        cls: type[T_SAE],
         release: str,
         sae_id: str,
         device: str = "cpu",
+        dtype: str = "float32",
         force_download: bool = False,
         converter: PretrainedSaeHuggingfaceLoader | None = None,
     ) -> tuple[T_SAE, dict[str, Any], torch.Tensor | None]:
@@ -599,7 +610,10 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
         Args:
             release: The release name. This will be mapped to a huggingface repo id based on the pretrained_saes.yaml file.
             id: The id of the SAE to load. This will be mapped to a path in the huggingface repo.
-            device: The device to load the SAE on.
+            device: The device to load the SAE on, defaults to "cpu".
+            dtype: The dtype to load the SAE on, defaults to "float32".
+            force_download: Whether to force download the SAE weights and config, defaults to False.
+            converter: The converter to use to load the SAE, defaults to None. If None, the converter will be inferred from the release.
         """
 
         # get sae directory
@@ -610,6 +624,18 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
             if "/" not in release:
                 raise ValueError(
                     f"Release {release} not found in pretrained SAEs directory, and is not a valid huggingface repo."
+                )
+            # Check if the user passed a repo_id that's in the pretrained SAEs list
+            matching_releases = get_releases_for_repo_id(release)
+            if matching_releases:
+                warnings.warn(
+                    f"You are loading an SAE using the HuggingFace repo_id '{release}' directly. "
+                    f"This repo is registered in the official pretrained SAEs list with release name(s): {matching_releases}. "
+                    f"For better compatibility and to access additional metadata, consider loading with: "
+                    f"SAE.from_pretrained(release='{matching_releases[0]}', sae_id='<sae_id>'). "
+                    f"See the full list of pretrained SAEs at: https://decoderesearch.github.io/SAELens/latest/pretrained_saes/",
+                    UserWarning,
+                    stacklevel=2,
                 )
         elif sae_id not in sae_directory[release].saes_map:
             # Handle special cases like Gemma Scope
@@ -649,6 +675,7 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
         repo_id, folder_name = get_repo_id_and_folder_name(release, sae_id)
         config_overrides = get_config_overrides(release, sae_id)
         config_overrides["device"] = device
+        config_overrides["dtype"] = dtype
 
         # Load config and weights
         cfg_dict, state_dict, log_sparsities = conversion_loader(
@@ -666,9 +693,14 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
         )
         sae_cfg = sae_config_cls.from_dict(cfg_dict)
         sae_cls = cls.get_sae_class_for_architecture(sae_cfg.architecture())
+        # hack to avoid using double memory when loading the SAE.
+        # first put the SAE on the meta device, then load the weights.
+        device = sae_cfg.device
+        sae_cfg.device = "meta"
         sae = sae_cls(sae_cfg)
+        sae.cfg.device = device
         sae.process_state_dict_for_loading(state_dict)
-        sae.load_state_dict(state_dict)
+        sae.load_state_dict(state_dict, assign=True)
 
         # Apply normalization if needed
         if cfg_dict.get("normalize_activations") == "expected_average_only_in":
@@ -681,10 +713,16 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
                     f"norm_scaling_factor not found for {release} and {sae_id}, but normalize_activations is 'expected_average_only_in'. Skipping normalization folding."
                 )
 
-        return sae, cfg_dict, log_sparsities
+        # the loaders should already handle the dtype / device conversion
+        # but this is a fallback to guarantee the SAE is on the correct device and dtype
+        return (
+            sae.to(dtype=str_to_dtype(dtype), device=device),
+            cfg_dict,
+            log_sparsities,
+        )
 
     @classmethod
-    def from_dict(cls: Type[T_SAE], config_dict: dict[str, Any]) -> T_SAE:
+    def from_dict(cls: type[T_SAE], config_dict: dict[str, Any]) -> T_SAE:
         """Create an SAE from a config dictionary."""
         sae_cls = cls.get_sae_class_for_architecture(config_dict["architecture"])
         sae_config_cls = cls.get_sae_config_class_for_architecture(
@@ -694,8 +732,8 @@ class SAE(HookedRootModule, Generic[T_SAE_CONFIG], ABC):
 
     @classmethod
     def get_sae_class_for_architecture(
-        cls: Type[T_SAE], architecture: str
-    ) -> Type[T_SAE]:
+        cls: type[T_SAE], architecture: str
+    ) -> type[T_SAE]:
         """Get the SAE class for a given architecture."""
         sae_cls, _ = get_sae_class(architecture)
         if not issubclass(sae_cls, cls):
@@ -867,14 +905,12 @@ class TrainingSAE(SAE[T_TRAINING_SAE_CONFIG], ABC):
 
     @abstractmethod
     def encode_with_hidden_pre(
-        self, x: Float[torch.Tensor, "... d_in"]
-    ) -> tuple[Float[torch.Tensor, "... d_sae"], Float[torch.Tensor, "... d_sae"]]:
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode with access to pre-activation values for training."""
         ...
 
-    def encode(
-        self, x: Float[torch.Tensor, "... d_in"]
-    ) -> Float[torch.Tensor, "... d_sae"]:
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
         """
         For inference, just encode without returning hidden_pre.
         (training_forward_pass calls encode_with_hidden_pre).
@@ -882,9 +918,7 @@ class TrainingSAE(SAE[T_TRAINING_SAE_CONFIG], ABC):
         feature_acts, _ = self.encode_with_hidden_pre(x)
         return feature_acts
 
-    def decode(
-        self, feature_acts: Float[torch.Tensor, "... d_sae"]
-    ) -> Float[torch.Tensor, "... d_in"]:
+    def decode(self, feature_acts: torch.Tensor) -> torch.Tensor:
         """
         Decodes feature activations back into input space,
         applying optional finetuning scale, hooking, out normalization, etc.
@@ -1000,8 +1034,8 @@ class TrainingSAE(SAE[T_TRAINING_SAE_CONFIG], ABC):
 
     @classmethod
     def get_sae_class_for_architecture(
-        cls: Type[T_TRAINING_SAE], architecture: str
-    ) -> Type[T_TRAINING_SAE]:
+        cls: type[T_TRAINING_SAE], architecture: str
+    ) -> type[T_TRAINING_SAE]:
         """Get the SAE class for a given architecture."""
         sae_cls, _ = get_sae_training_class(architecture)
         if not issubclass(sae_cls, cls):
@@ -1017,6 +1051,12 @@ class TrainingSAE(SAE[T_TRAINING_SAE_CONFIG], ABC):
         architecture: str,  # noqa: ARG003
     ) -> type[TrainingSAEConfig]:
         return get_sae_training_class(architecture)[1]
+
+    def load_weights_from_checkpoint(self, checkpoint_path: Path | str) -> None:
+        checkpoint_path = Path(checkpoint_path)
+        state_dict = load_file(checkpoint_path / SAE_WEIGHTS_FILENAME)
+        self.process_state_dict_for_loading(state_dict)
+        self.load_state_dict(state_dict)
 
 
 _blank_hook = nn.Identity()

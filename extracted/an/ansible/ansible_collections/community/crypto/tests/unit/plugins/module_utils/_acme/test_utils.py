@@ -9,6 +9,7 @@ import pathlib
 import typing as t
 
 import pytest
+
 from ansible_collections.community.crypto.plugins.module_utils._acme.backends import (
     CertificateInformation,
     CryptoBackend,
@@ -22,7 +23,6 @@ from ansible_collections.community.crypto.plugins.module_utils._acme.utils impor
 )
 
 from .backend_data import TEST_PEM_DERS
-
 
 NOPAD_B64: list[tuple[str, str]] = [
     ("", ""),

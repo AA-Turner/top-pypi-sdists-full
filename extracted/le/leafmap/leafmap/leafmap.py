@@ -1035,7 +1035,12 @@ class Map(ipyleaflet.Map):
                 and https://cogeotiff.github.io/rio-tiler/colormap/. To select a certain bands, use bidx=[1, 2, 3].
                 apply a rescaling to multiple bands, use something like `rescale=["164,223","130,211","99,212"]`.
         """
+        if os.environ.get("USE_MKDOCS") is not None:
+            return
+
         band_names = common.cog_bands(url, titiler_endpoint)
+        if len(band_names) == 0:
+            return
 
         if bands is not None:
             if not isinstance(bands, list):
@@ -1072,7 +1077,9 @@ class Map(ipyleaflet.Map):
                 self.remove_layer(layer)
 
         self.add_tile_layer(tile_url, name, attribution, opacity, shown, layer_index)
-        if zoom_to_layer:
+        if zoom_to_layer and bounds is not None:
+            self.center = common.cog_center(url, titiler_endpoint)
+            self.zoom = 19
             self.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
             common.arc_zoom_to_extent(bounds[0], bounds[1], bounds[2], bounds[3])
 
@@ -1160,15 +1167,21 @@ class Map(ipyleaflet.Map):
             fit_bounds (bool, optional): A flag indicating whether the map should be zoomed to the layer extent. Defaults to True.
             layer_index (int, optional): The index at which to add the layer. Defaults to None.
         """
+
+        if os.environ.get("USE_MKDOCS") is not None:
+            return
+
         if "colormap_name" in kwargs and kwargs["colormap_name"] is None:
             kwargs.pop("colormap_name")
 
         tile_url = common.stac_tile(
             url, collection, item, assets, bands, titiler_endpoint, **kwargs
         )
+        if tile_url is None:
+            return
         bounds = common.stac_bounds(url, collection, item, titiler_endpoint)
         self.add_tile_layer(tile_url, name, attribution, opacity, shown, layer_index)
-        if fit_bounds:
+        if fit_bounds and bounds is not None:
             self.fit_bounds([[bounds[1], bounds[0]], [bounds[3], bounds[2]]])
             common.arc_zoom_to_extent(bounds[0], bounds[1], bounds[2], bounds[3])
 
@@ -1566,6 +1579,9 @@ class Map(ipyleaflet.Map):
         """
         import geopandas as gpd
 
+        if os.environ.get("USE_MKDOCS") is not None:
+            return
+
         if "max_zoom" not in left_args:
             left_args["max_zoom"] = 30
         if "max_native_zoom" not in left_args:
@@ -1587,7 +1603,7 @@ class Map(ipyleaflet.Map):
         try:
             controls = self.controls
             layers = self.layers
-            self.clear_controls()
+            self.clear()
 
             if zoom_control:
                 self.add(ipyleaflet.ZoomControl())
@@ -1610,7 +1626,8 @@ class Map(ipyleaflet.Map):
                 elif left_layer.startswith("http") and left_layer.endswith(".tif"):
                     url = common.cog_tile(left_layer, **left_args)
                     bbox = common.cog_bounds(left_layer)
-                    bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
+                    if bbox is not None:
+                        bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
                     left_layer = ipyleaflet.TileLayer(
                         url=url,
                         name=left_name,
@@ -1620,7 +1637,8 @@ class Map(ipyleaflet.Map):
                 elif left_layer.startswith("http") and left_layer.endswith(".json"):
                     left_tile_url = common.stac_tile(left_layer, **left_args)
                     bbox = common.stac_bounds(left_layer)
-                    bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
+                    if bbox is not None:
+                        bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
                     left_layer = ipyleaflet.TileLayer(
                         url=left_tile_url,
                         name=left_name,
@@ -1687,7 +1705,8 @@ class Map(ipyleaflet.Map):
                         **right_args,
                     )
                     bbox = common.cog_bounds(right_layer)
-                    bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
+                    if bbox is not None:
+                        bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
                     right_layer = ipyleaflet.TileLayer(
                         url=url,
                         name=right_name,
@@ -1698,7 +1717,8 @@ class Map(ipyleaflet.Map):
                 elif right_layer.startswith("http") and right_layer.endswith(".json"):
                     right_tile_url = common.stac_tile(right_layer, **left_args)
                     bbox = common.stac_bounds(right_layer)
-                    bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
+                    if bbox is not None:
+                        bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
                     right_layer = ipyleaflet.TileLayer(
                         url=right_tile_url,
                         name=right_name,
@@ -2518,6 +2538,183 @@ class Map(ipyleaflet.Map):
 
     add_local_tile = add_raster
 
+    def add_geotiff(
+        self,
+        url: str,
+        name: str = "GeoTIFF",
+        attribution: str = "",
+        opacity: float = 1.0,
+        shown: bool = True,
+        bands: Optional[Sequence[Union[int, str]]] = None,
+        titiler_endpoint: Optional[str] = None,
+        zoom_to_layer: bool = True,
+        layer_index: Optional[int] = None,
+        overwrite: bool = False,
+        **kwargs,
+    ) -> None:
+        """Adds a Cloud Optimized GeoTIFF (COG) to the map.
+
+        This helper wraps :meth:`add_cog_layer` so that users can quickly load a
+        remote GeoTIFF/COG by simply providing its URL. By default it relies on
+        the TiTiler endpoint configured for the map (the public demo endpoint is
+        used when none is provided).
+
+        Args:
+            url (str): The HTTP URL of the GeoTIFF/COG.
+            name (str, optional): Layer name to display in the layer tree.
+                Defaults to ``"GeoTIFF"``.
+            attribution (str, optional): Attribution text for the layer.
+                Defaults to ``""``.
+            opacity (float, optional): Layer opacity between 0.0 and 1.0.
+                Defaults to 1.0.
+            shown (bool, optional): Whether the layer should be visible when
+                first added. Defaults to True.
+            bands (Sequence[Union[int, str]], optional): Specific band indices
+                (1-based) or band names to render. Defaults to None which lets
+                Leafmap pick sensible defaults.
+            titiler_endpoint (str, optional): Custom TiTiler endpoint to use.
+                Defaults to the library's configured endpoint.
+            zoom_to_layer (bool, optional): Whether to fit the map view to the
+                layer bounds after it loads. Defaults to True.
+            layer_index (int, optional): Stack index at which to insert the
+                layer. Defaults to None (append).
+            overwrite (bool, optional): When True, an existing layer with the
+                same name is replaced. Defaults to False.
+            **kwargs: Additional keyword arguments forwarded to
+                :meth:`add_cog_layer` (e.g., ``bidx``, ``expression``,
+                ``rescale``).
+        """
+        self.add_cog_layer(
+            url,
+            name=name,
+            attribution=attribution,
+            opacity=opacity,
+            shown=shown,
+            bands=bands,
+            titiler_endpoint=titiler_endpoint,
+            zoom_to_layer=zoom_to_layer,
+            layer_index=layer_index,
+            overwrite=overwrite,
+            **kwargs,
+        )
+
+    def add_opacity_control(
+        self,
+        layer: Optional[Union[str, ipyleaflet.Layer]] = None,
+        position: str = "topright",
+        min_opacity: float = 0.0,
+        max_opacity: float = 1.0,
+        step: float = 0.05,
+    ) -> None:
+        """Adds an interactive opacity control panel to the map.
+
+        The panel provides a dropdown to choose from the map layers that expose
+        an ``opacity`` attribute and a slider to adjust the selected layer's
+        transparency.
+
+        Args:
+            layer (str | ipyleaflet.Layer, optional): Layer (or layer name) to
+                select initially. Defaults to the first available layer.
+            position (str, optional): Location for the widget control.
+                Defaults to ``"topright"``.
+            min_opacity (float, optional): Minimum slider value. Defaults to 0.0.
+            max_opacity (float, optional): Maximum slider value. Defaults to 1.0.
+            step (float, optional): Slider step size. Defaults to 0.05.
+        """
+
+        def build_label(base: str, count: int) -> str:
+            return f"{base} ({count})" if count else base
+
+        layer_lookup: Dict[str, ipyleaflet.Layer] = {}
+        occurrence: Dict[str, int] = {}
+
+        for lyr in self.layers:
+            if hasattr(lyr, "opacity"):
+                base = getattr(lyr, "name", None) or lyr.__class__.__name__
+                occurrence.setdefault(base, 0)
+                label = build_label(base, occurrence[base])
+                occurrence[base] += 1
+                layer_lookup[label] = lyr
+
+        if not layer_lookup:
+            raise RuntimeError(
+                "No map layers with an 'opacity' attribute are available."
+            )
+
+        if isinstance(layer, ipyleaflet.Layer):
+            default_label = next(
+                (lbl for lbl, lyr in layer_lookup.items() if lyr is layer), None
+            )
+        elif isinstance(layer, str):
+            default_label = next((lbl for lbl in layer_lookup if lbl == layer), None)
+            if default_label is None:
+                default_label = next(
+                    (lbl for lbl in layer_lookup if lbl.startswith(layer)), None
+                )
+        else:
+            default_label = None
+
+        if default_label is None:
+            default_label = list(layer_lookup.keys())[-1]
+
+        dropdown = widgets.Dropdown(
+            options=list(layer_lookup.keys()),
+            value=default_label,
+            description="Layer",
+            layout=widgets.Layout(width="260px"),
+        )
+
+        selected_layer = layer_lookup[dropdown.value]
+        current_opacity = getattr(selected_layer, "opacity", max_opacity)
+        slider = widgets.FloatSlider(
+            value=max(min(current_opacity, max_opacity), min_opacity),
+            min=min_opacity,
+            max=max_opacity,
+            step=step,
+            description="Opacity",
+            readout=True,
+            readout_format=".2f",
+            layout=widgets.Layout(width="260px"),
+        )
+
+        status = widgets.Label()
+
+        def set_status(msg: str) -> None:
+            status.value = msg
+
+        def apply_opacity(target: ipyleaflet.Layer, value: float) -> None:
+            try:
+                setattr(target, "opacity", value)
+            except Exception as exc:  # pragma: no cover - defensive
+                set_status(f"Failed to set opacity: {exc}")
+            else:
+                set_status(f"{target.__class__.__name__} opacity: {value:.2f}")
+
+        def on_slider(change: Dict[str, Any]) -> None:
+            if change["name"] != "value" or change["new"] == change["old"]:
+                return
+            lyr = layer_lookup[dropdown.value]
+            apply_opacity(lyr, change["new"])
+
+        def on_dropdown(change: Dict[str, Any]) -> None:
+            if change["name"] != "value" or change["new"] == change["old"]:
+                return
+            lyr = layer_lookup[change["new"]]
+            slider.value = max(
+                min(getattr(lyr, "opacity", slider.value), max_opacity), min_opacity
+            )
+            apply_opacity(lyr, slider.value)
+
+        slider.observe(on_slider, "value")
+        dropdown.observe(on_dropdown, "value")
+
+        apply_opacity(selected_layer, slider.value)
+
+        panel = widgets.VBox([dropdown, slider])
+        control = ipyleaflet.WidgetControl(widget=panel, position=position)
+        self.add(control)
+        self.opacity_control = control
+
     def add_remote_tile(
         self,
         source: str,
@@ -2748,7 +2945,10 @@ class Map(ipyleaflet.Map):
                     gdf = gpd.read_file(in_geojson, encoding=encoding)
 
             elif isinstance(in_geojson, dict):
-                gdf = gpd.GeoDataFrame.from_features(in_geojson)
+                if in_geojson.get("type") == "Feature":
+                    gdf = gpd.GeoDataFrame.from_features([in_geojson])
+                else:
+                    gdf = gpd.GeoDataFrame.from_features(in_geojson)
             elif isinstance(in_geojson, gpd.GeoDataFrame):
                 gdf = in_geojson
             else:
@@ -3818,6 +4018,7 @@ class Map(ipyleaflet.Map):
         position: str = "bottomright",
         slider_length: str = "150px",
         zoom_to_layer: Optional[bool] = False,
+        tile_args: Optional[Dict] = None,
         **kwargs,
     ) -> None:
         """Adds a time slider to the map.
@@ -3829,7 +4030,7 @@ class Map(ipyleaflet.Map):
             position (str, optional): Position to place the time slider, can be any of ['topleft', 'topright', 'bottomleft', 'bottomright']. Defaults to "bottomright".
             slider_length (str, optional): Length of the time slider. Defaults to "150px".
             zoom_to_layer (bool, optional): Whether to zoom to the extent of the selected layer. Defaults to False.
-
+            tile_args (dict, optional): Additional arguments to pass to the get_local_tile_layer function. Defaults to None.
         """
         from .toolbar import time_slider
 
@@ -3841,6 +4042,7 @@ class Map(ipyleaflet.Map):
             position,
             slider_length,
             zoom_to_layer,
+            tile_args,
             **kwargs,
         )
 
@@ -6003,6 +6205,123 @@ class Map(ipyleaflet.Map):
         left_widget.observe(change_left_year, names="value")
         right_widget.observe(change_right_year, names="value")
 
+    def add_wayback_layer(
+        self,
+        date: str = None,
+        name: str = None,
+        attribution: str = "Esri",
+        quiet: bool = False,
+        **kwargs,
+    ):
+        """Adds a Wayback layer to the map.
+
+        Args:
+            date (str, optional): The date of the layer. Defaults to None.
+            name (str, optional): The name of the layer. Defaults to None.
+            attribution (str, optional): The attribution of the layer. Defaults to "Esri".
+            **kwargs: Additional keyword arguments to pass to the add_tile_layer method.
+        """
+        layers = common.get_wayback_layers()
+        if date not in layers.keys():
+            new_date = common.find_closest_date(date, layers.keys())
+            if not quiet:
+                print(f"{date} is not available. Using the closest date: {new_date}")
+            date = new_date
+
+        url = common.get_wayback_tile_url(date, layers)
+        if name is None:
+            name = date
+        self.add_tile_layer(url, name=name, attribution=attribution, **kwargs)
+
+    def add_wayback_layers(
+        self,
+        left_date: str = "2014-02-20",
+        right_date: str = None,
+        widget_width: str = "120px",
+        add_layer_control: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Adds a time series comparison of Wayback (ArcGIS Wayback) layers to the map.
+
+        Args:
+            left_date (str, optional): The initial date for the left layer in "YYYY-MM-DD" format. Defaults to "2014-02-20".
+            right_date (str, optional): The initial date for the right layer in "YYYY-MM-DD" format. Defaults to None.
+            widget_width (str, optional): The width of the date pickers. Defaults to "120px".
+            add_layer_control (bool, optional): If True, adds a layer control to the map. Defaults to True.
+            **kwargs (Any): Additional keyword arguments to pass to the cog_tile function.
+
+        Returns:
+            None
+        """
+        from datetime import datetime
+
+        layers = common.get_wayback_layers()
+        if right_date is None:
+            right_date = list(layers.keys())[0]
+
+        if left_date not in layers.keys():
+            left_date = common.find_closest_date(left_date, layers.keys())
+
+        if right_date is None:
+            right_date = list(layers.keys())[0]
+        elif right_date not in layers.keys():
+            right_date = common.find_closest_date(right_date, layers.keys())
+
+        left_widget = widgets.DatePicker(
+            value=datetime.strptime(left_date, "%Y-%m-%d"),
+            layout=widgets.Layout(width=widget_width),
+        )
+        right_widget = widgets.DatePicker(
+            value=datetime.strptime(right_date, "%Y-%m-%d"),
+            layout=widgets.Layout(width=widget_width),
+        )
+        left_control = ipyleaflet.WidgetControl(widget=left_widget, position="topleft")
+        right_control = ipyleaflet.WidgetControl(
+            widget=right_widget, position="topright"
+        )
+        self.add(left_control)
+        self.add(right_control)
+
+        left_tile_url = common.get_wayback_tile_url(left_date, layers)
+        right_tile_url = common.get_wayback_tile_url(right_date, layers)
+        left_layer = ipyleaflet.TileLayer(
+            url=left_tile_url, name=f"{left_date}", attribution="Esri"
+        )
+        right_layer = ipyleaflet.TileLayer(
+            url=right_tile_url, name=f"{right_date}", attribution="Esri"
+        )
+        split_control = ipyleaflet.SplitMapControl(
+            left_layer=left_layer, right_layer=right_layer
+        )
+        self.add(split_control)
+        if add_layer_control:
+            self.add_layer_control()
+
+        def change_left_date(change):
+            left_date = change.new.strftime("%Y-%m-%d")
+            new_date = common.find_closest_date(left_date, layers.keys())
+            left_widget.value = datetime.strptime(new_date, "%Y-%m-%d")
+            left_layer.url = common.get_wayback_tile_url(new_date, layers, quiet=True)
+            left_layer.name = f"{new_date}"
+
+        def change_right_date(change):
+            right_date = change.new.strftime("%Y-%m-%d")
+            new_date = common.find_closest_date(right_date, layers.keys())
+            right_widget.value = datetime.strptime(new_date, "%Y-%m-%d")
+            right_layer.url = common.get_wayback_tile_url(new_date, layers, quiet=True)
+            right_layer.name = f"{new_date}"
+
+        left_widget.observe(change_left_date, names="value")
+        right_widget.observe(change_right_date, names="value")
+
+    def add_wayback_time_slider(self, **kwargs):
+        """Add a time slider for Wayback layers."""
+        images = common.get_wayback_tile_dict()
+        if "tile_args" not in kwargs:
+            kwargs["tile_args"] = {"attribution": "Esri"}
+        self.add_time_slider(images, **kwargs)
+
 
 # The functions below are outside the Map class.
 
@@ -6248,7 +6567,8 @@ def split_map(
             if left_layer.startswith("http") and left_layer.endswith(".tif"):
                 url = common.cog_tile(left_layer, **left_args)
                 bbox = common.cog_bounds(left_layer)
-                bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
+                if bbox is not None:
+                    bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
                 left_layer = ipyleaflet.TileLayer(
                     url=url,
                     name="Left Layer",
@@ -6300,7 +6620,8 @@ def split_map(
                     **right_args,
                 )
                 bbox = common.cog_bounds(right_layer)
-                bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
+                if bbox is not None:
+                    bounds = [(bbox[1], bbox[0]), (bbox[3], bbox[2])]
                 right_layer = ipyleaflet.TileLayer(
                     url=url,
                     name="Right Layer",

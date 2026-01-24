@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from docutils import nodes
 
 from sphinx.ext.inheritance_diagram import (
     InheritanceDiagram,
@@ -32,6 +33,7 @@ def test_inheritance_diagram(app: SphinxTestApp) -> None:
     def new_run(self):
         result = orig_run(self)
         node = result[0]
+        assert isinstance(node.document, nodes.document)
         source = Path(node.document.current_source).stem
         graphs[source] = node['graph']
         return result
@@ -293,7 +295,7 @@ def test_inheritance_diagram_latex_alias(app):
     app.config.inheritance_alias = {'test.Foo': 'alias.Foo'}
     app.build(force_all=True)
 
-    doc = app.env.get_and_resolve_doctree('index', app)
+    doc = app.env.get_and_resolve_doctree('index', app.builder, tags=app.tags)
     aliased_graph = doc.children[0].children[3]['graph'].class_info
     assert len(aliased_graph) == 4
     assert (

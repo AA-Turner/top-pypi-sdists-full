@@ -34,6 +34,7 @@ namespace Cantera
 class AnyBase {
 public:
     AnyBase() = default;
+    AnyBase(const AnyBase& other) = default;
     virtual ~AnyBase() = default;
     AnyBase& operator=(const AnyBase& other);
 
@@ -140,8 +141,8 @@ public:
     template<class T>
     bool isMatrix(size_t cols=npos) const;
 
-    //! Returns `true` if the held value is a scalar type (such as `double`, `long
-    //! int`, `string`, or `bool`).
+    //! Returns `true` if the held value is a scalar type (such as `double`,
+    //! `long int`, `string`, or `bool`).
     bool isScalar() const;
 
     //! Returns size of the held vector.
@@ -199,8 +200,7 @@ public:
 
     explicit AnyValue(double value);
     AnyValue& operator=(double value);
-    //! Return the held value as a `double`, if it is a `double` or a `long
-    //! int`.
+    //! Return the held value as a `double`, if it is a `double` or a `long int`.
     double& asDouble();
     const double& asDouble() const;
     bool operator==(const double& other) const;

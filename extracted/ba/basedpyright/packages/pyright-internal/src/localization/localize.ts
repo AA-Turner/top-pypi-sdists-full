@@ -312,6 +312,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.classNotRuntimeSubscriptable'));
         export const classPatternBuiltInArgPositional = () =>
             getRawString('Diagnostic.classPatternBuiltInArgPositional');
+        export const classPatternNewType = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.classPatternNewType'));
         export const classPatternPositionalArgCount = () =>
             new ParameterizedString<{ type: string; expected: number; received: number }>(
                 getRawString('Diagnostic.classPatternPositionalArgCount')
@@ -332,6 +334,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; classType: string }>(
                 getRawString('Diagnostic.clsSelfParamTypeMismatch')
             );
+        export const reportSelfClsDefault = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.reportSelfClsDefault'));
         export const codeTooComplexToAnalyze = () => getRawString('Diagnostic.codeTooComplexToAnalyze');
         export const collectionAliasInstantiation = () =>
             new ParameterizedString<{ type: string; alias: string }>(
@@ -934,8 +938,6 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.slotsClassVarConflict'));
         export const starStarWildcardNotAllowed = () => getRawString('Diagnostic.starStarWildcardNotAllowed');
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');
-        export const stdlibModuleOverridden = () =>
-            new ParameterizedString<{ name: string; path: string }>(getRawString('Diagnostic.stdlibModuleOverridden'));
         export const stringNonAsciiBytes = () => getRawString('Diagnostic.stringNonAsciiBytes');
         export const stringNotSubscriptable = () => getRawString('Diagnostic.stringNotSubscriptable');
         export const stringUnsupportedEscape = () => getRawString('Diagnostic.stringUnsupportedEscape');
@@ -1590,6 +1592,10 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; type: string }>(
                 getRawString('DiagnosticAddendum.typedDictClosedExtraTypeMismatch')
             );
+        export const typedDictClosedFieldNotReadOnly = () =>
+            new ParameterizedString<{ name: string }>(
+                getRawString('DiagnosticAddendum.typedDictClosedFieldNotReadOnly')
+            );
         export const typedDictClosedFieldNotRequired = () =>
             new ParameterizedString<{ name: string }>(
                 getRawString('DiagnosticAddendum.typedDictClosedFieldNotRequired')
@@ -1685,6 +1691,7 @@ export namespace Localizer {
             );
         export const installStubs = () =>
             new ParameterizedString<{ packageName: string }>(getRawString('DiagnosticAddendum.installStubs'));
+        export const enableBasedFeatures = () => getRawString('DiagnosticAddendum.enableBasedFeatures');
     }
 
     export namespace CodeAction {
@@ -1696,10 +1703,14 @@ export namespace Localizer {
         export const filesToAnalyzeCount = () =>
             new ParameterizedString<{ count: number }>(getRawString('CodeAction.filesToAnalyzeCount'));
         export const findingReferences = () => getRawString('CodeAction.findingReferences');
+        export const findingImplementations = () => getRawString('CodeAction.findingImplementations');
         export const organizeImports = () => getRawString('CodeAction.organizeImports');
-        export const renameShadowedFile = () =>
-            new ParameterizedString<{ newFile: string; oldFile: string }>(
-                getRawString('CodeAction.renameShadowedFile')
+        export const addExplicitOverride = () => getRawString('CodeAction.addExplicitOverride');
+        export const addIgnoreComment = () =>
+            new ParameterizedString<{ ignoreComment: string }>(getRawString('CodeAction.addIgnoreComment'));
+        export const addIgnoreCommentToExisting = () =>
+            new ParameterizedString<{ rule: string; ignoreCommentPrefix: string }>(
+                getRawString('CodeAction.addIgnoreCommentToExisting')
             );
     }
 

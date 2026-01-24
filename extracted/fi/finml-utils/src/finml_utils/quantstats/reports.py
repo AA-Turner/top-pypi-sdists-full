@@ -32,7 +32,7 @@ from .plotting.wrappers import (
     plot_monthly_heatmap,
     plot_returns,
     plot_rolling_beta,
-    plot_rolling_net_exposure,
+    plot_rolling_exposure,
     plot_rolling_sharpe,
     plot_rolling_volatility,
     plot_series,
@@ -93,6 +93,9 @@ def html(  # noqa
     cutoff: date | None = None,
     init_overlay_opacity: float = 0.0,
     no_overlay_toggle_button: bool = False,
+    logo_encoded_uri: Path | str | None = None,
+    logo_ico_encoded_uri: str | None = None,
+    company_name_address: str | None = None,
     **kwargs,
 ) -> HTMLReport:
     cutoff = pd.Timestamp(cutoff) if isinstance(cutoff, date | _dt) else cutoff
@@ -100,9 +103,9 @@ def html(  # noqa
     if match_dates:
         returns = returns.dropna()
     if init_overlay_opacity > 0.6:
-        assert (
-            no_overlay_toggle_button is False
-        ), f"OOS period will never be visible without overlay toggle button and {init_overlay_opacity=}"
+        assert no_overlay_toggle_button is False, (
+            f"OOS period will never be visible without overlay toggle button and {init_overlay_opacity=}"
+        )
 
     win_year, win_half_year = _get_trading_periods(periods_per_year)
 
@@ -111,6 +114,31 @@ def html(  # noqa
         tpl = f.read()
         f.close()
 
+    tpl = tpl.replace(
+        "{{logo_ico_encoded_uri}}",
+        logo_ico_encoded_uri
+        if logo_ico_encoded_uri is not None
+        else "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiBmaWxsPSIjMTQxQjJDIi8+CjxwYXRoIGQ9Ik0wIDQxOS45MjNDNDYgNDE5LjkyMyAxNjEuNTE4IDM5MS4xMTYgMjU4LjYzOSAyNTMuNzMxQzM4MC4wNDEgODIgNTA2LjcyMiA4MiA1MTIgODIiIHN0cm9rZT0iI0ZDQkQyNCIgc3Ryb2tlLXdpZHRoPSI4MiIvPgo8cGF0aCBkPSJNMCAzMzcuOTZDNDggMzM3Ljk2IDE2MS41MTggMzIzLjEzMSAyNTguNjM5IDI1Mi40MDZDMzgwLjA0MSAxNjQgNTA2LjcyMiAxNjQgNTEyIDE2NCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLW9wYWNpdHk9IjAuNyIgc3Ryb2tlLXdpZHRoPSI4MiIvPgo8L3N2Zz4K",
+    )
+    tpl = tpl.replace(
+        "{{logo_url}}",
+        """<div style="width: 30px" >
+                    <svg alt="Myalo GmbH" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="512" height="512" fill="#141B2C"/>
+                        <path d="M0 419.923C46 419.923 161.518 391.116 258.639 253.731C380.041 82 506.722 82 512 82" stroke="#FCBD24" stroke-width="82"/>
+                        <path d="M0 337.96C48 337.96 161.518 323.131 258.639 252.406C380.041 164 506.722 164 512 164" stroke="white" stroke-opacity="0.7" stroke-width="82"/>
+                    </svg>
+                </div>
+                <p id="logo"><b> Myalo</b></p>"""
+        if logo_encoded_uri is None
+        else f'<img src="{logo_encoded_uri}" alt="Logo" style="height: 50px; object-fit: contain;">',
+    )
+    tpl = tpl.replace(
+        "{{company_name_address}}",
+        "Myalo GmbH, Friedrichstraße 114A, Berlin 10117"
+        if company_name_address is None
+        else company_name_address,
+    )
     tpl = tpl.replace(
         "{{background_color}}", "#141b2cff" if background_dark else "white"
     )
@@ -300,7 +328,7 @@ def html(  # noqa
     dd_info.columns = ["Started", "Recovered", "Drawdown", "Days"]
     tpl = tpl.replace("{{dd_info}}", _html_table(dd_info, False))
 
-    active = kwargs.get("active_returns", "False")
+    active = kwargs.get("active_returns", False)
     # plots
     figfile = _utils._file_stream()
     plot_returns(
@@ -378,7 +406,7 @@ def html(  # noqa
 
     if weights is not None:
         figfile = _utils._file_stream()
-        plot_rolling_net_exposure(
+        plot_rolling_exposure(
             weights=weights,
             grayscale=grayscale,
             figsize=(8, 4),
@@ -386,8 +414,28 @@ def html(  # noqa
             savefig={"fname": figfile, "format": figfmt},
             ylabel=False,
             cutoff=cutoff,
+            net_or_gross="net",
+            reference_line=0.0,
+            period=1,
+            period_label="1 Day",
         )
         tpl = tpl.replace("{{rolling_net_exposure}}", _embed_figure(figfile, figfmt))
+
+        figfile = _utils._file_stream()
+        plot_rolling_exposure(
+            weights=weights,
+            grayscale=grayscale,
+            figsize=(8, 4),
+            subtitle=False,
+            savefig={"fname": figfile, "format": figfmt},
+            ylabel=False,
+            cutoff=cutoff,
+            net_or_gross="gross",
+            reference_line=0.0,
+            period=1,
+            period_label="1 Day",
+        )
+        tpl = tpl.replace("{{rolling_gross_exposure}}", _embed_figure(figfile, figfmt))
 
     figfile = _utils._file_stream()
     plot_yearly_returns(
@@ -664,7 +712,7 @@ def _calculate_metrics(  # noqa
     strategy_colname = kwargs.get("strategy_title", "Strategy")
 
     benchmark_colname = (
-        f"Benchmark {f"({benchmark.name.upper()})" if benchmark.name else ""}"
+        f"Benchmark {f'({benchmark.name.upper()})' if benchmark.name else ''}"
     )
 
     blank = [""]

@@ -13,7 +13,9 @@ try:  # check if we are in IronPython
 except ImportError:  # wea are in cPython
     import pickle
 
-from ladybug_geometry.geometry3d import Vector3D, Point3D, Plane, Face3D, Mesh3D
+from ladybug_geometry.geometry2d import Polygon2D
+from ladybug_geometry.geometry3d import Vector3D, Plane, Face3D, Mesh3D, Polyface3D
+from ladybug_geometry.bounding import overlapping_bounding_boxes
 from ladybug_geometry.interop.stl import STL
 
 from ._base import _Base
@@ -107,6 +109,18 @@ class Model(_Base):
         * exterior_skylight_aperture_area
         * min
         * max
+        * roof_to_exterior_edges
+        * slab_to_exterior_edges
+        * exposed_floor_to_exterior_wall_edges
+        * exterior_wall_to_wall_edges
+        * roof_ridge_edges
+        * exposed_floor_to_floor_edges
+        * underground_edges
+        * interior_edges
+        * exterior_aperture_edges
+        * exterior_door_edges
+        * exterior_aperture_edges
+        * exterior_door_edges
         * top_level_dict
         * user_data
     """
@@ -151,39 +165,26 @@ class Model(_Base):
         self.tolerance = tolerance
         self.angle_tolerance = angle_tolerance
 
-        self._rooms = []
-        self._orphaned_faces = []
-        self._orphaned_apertures = []
-        self._orphaned_doors = []
-        self._orphaned_shades = []
-        self._shade_meshes = []
-        if rooms is not None:
-            for room in rooms:
-                self.add_room(room)
-        if orphaned_faces is not None:
-            for face in orphaned_faces:
-                self.add_face(face)
-        if orphaned_apertures is not None:
-            for aperture in orphaned_apertures:
-                self.add_aperture(aperture)
-        if orphaned_doors is not None:
-            for door in orphaned_doors:
-                self.add_door(door)
-        if orphaned_shades is not None:
-            for shade in orphaned_shades:
-                self.add_shade(shade)
-        if shade_meshes is not None:
-            for shade_mesh in shade_meshes:
-                self.add_shade_mesh(shade_mesh)
+        self.rooms = rooms
+        self.orphaned_faces = orphaned_faces
+        self.orphaned_apertures = orphaned_apertures
+        self.orphaned_doors = orphaned_doors
+        self.orphaned_shades = orphaned_shades
+        self.shade_meshes = shade_meshes
 
         self._properties = ModelProperties(self)
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data, cleanup_irrational=False):
         """Initialize a Model from a dictionary.
 
         Args:
             data: A dictionary representation of a Model object.
+            cleanup_irrational: Boolean to note whether common types of irrational
+                objects should be cleaned or removed from the dictionary before
+                serializing the model to Python. Typical cases that are removed
+                this way include Face3Ds with fewer than 3 vertices, Rooms that
+                have no Face geometry, etc. (Default: False).
         """
         # check the type of dictionary
         assert data['type'] == 'Model', 'Expected Model dictionary. ' \
@@ -196,6 +197,10 @@ class Model(_Base):
             data['tolerance'] is None else data['tolerance']
         angle_tol = 1.0 if 'angle_tolerance' not in data or \
             data['angle_tolerance'] is None else data['angle_tolerance']
+
+        # clean the irrational objects out if requested
+        if cleanup_irrational:
+            cls.clean_irrational_geometry(data)
 
         # import all of the geometry
         rooms = None  # import rooms
@@ -262,11 +267,16 @@ class Model(_Base):
         return model
 
     @classmethod
-    def from_file(cls, hb_file):
+    def from_file(cls, hb_file, cleanup_irrational=False):
         """Initialize a Model from a HBJSON or HBpkl file, auto-sensing the type.
 
         Args:
             hb_file: Path to either a HBJSON or HBpkl file.
+            cleanup_irrational: Boolean to note whether common types of irrational
+                objects should be cleaned or removed from the dictionary before
+                serializing the model to Python. Typical cases that are removed
+                this way include Face3Ds with fewer than 3 vertices, Rooms that
+                have no Face geometry, etc. (Default: False).
         """
         # sense the file type from the first character to avoid maxing memory with JSON
         # this is needed since queenbee overwrites all file extensions
@@ -276,15 +286,20 @@ class Model(_Base):
         is_json = True if first_char == '{' or second_char == '{' else False
         # load the file using either HBJSON pathway or HBpkl
         if is_json:
-            return cls.from_hbjson(hb_file)
-        return cls.from_hbpkl(hb_file)
+            return cls.from_hbjson(hb_file, cleanup_irrational)
+        return cls.from_hbpkl(hb_file, cleanup_irrational)
 
     @classmethod
-    def from_hbjson(cls, hbjson_file):
+    def from_hbjson(cls, hbjson_file, cleanup_irrational=False):
         """Initialize a Model from a HBJSON file.
 
         Args:
             hbjson_file: Path to HBJSON file.
+            cleanup_irrational: Boolean to note whether common types of irrational
+                objects should be cleaned or removed from the dictionary before
+                serializing the model to Python. Typical cases that are removed
+                this way include Face3Ds with fewer than 3 vertices, Rooms that
+                have no Face geometry, etc. (Default: False).
         """
         assert os.path.isfile(hbjson_file), 'Failed to find %s' % hbjson_file
         with io.open(hbjson_file, encoding='utf-8') as inf:
@@ -294,19 +309,24 @@ class Model(_Base):
             if second_char == '{':
                 inf.read(1)
             data = json.load(inf)
-        return cls.from_dict(data)
+        return cls.from_dict(data, cleanup_irrational)
 
     @classmethod
-    def from_hbpkl(cls, hbpkl_file):
+    def from_hbpkl(cls, hbpkl_file, cleanup_irrational=False):
         """Initialize a Model from a HBpkl file.
 
         Args:
             hbpkl_file: Path to HBpkl file.
+            cleanup_irrational: Boolean to note whether common types of irrational
+                objects should be cleaned or removed from the dictionary before
+                serializing the model to Python. Typical cases that are removed
+                this way include Face3Ds with fewer than 3 vertices, Rooms that
+                have no Face geometry, etc. (Default: False).
         """
         assert os.path.isfile(hbpkl_file), 'Failed to find %s' % hbpkl_file
         with open(hbpkl_file, 'rb') as inf:
             data = pickle.load(inf)
-        return cls.from_dict(data)
+        return cls.from_dict(data, cleanup_irrational)
 
     @classmethod
     def from_stl(cls, file_path, geometry_to_faces=False, units='Meters',
@@ -717,6 +737,13 @@ class Model(_Base):
         """Get a tuple of all Room objects in the model."""
         return tuple(self._rooms)
 
+    @rooms.setter
+    def rooms(self, value):
+        self._rooms = []
+        if value is not None:
+            for room in value:
+                self.add_room(room)
+
     @property
     def faces(self):
         """Get a list of all Face objects in the model."""
@@ -822,8 +849,15 @@ class Model(_Base):
 
     @property
     def shade_meshes(self):
-        """Get a tuple of all ShadeMesh objects in the model."""
+        """Get or set a tuple of all ShadeMesh objects in the model."""
         return tuple(self._shade_meshes)
+
+    @shade_meshes.setter
+    def shade_meshes(self, value):
+        self._shade_meshes = []
+        if value is not None:
+            for shd_m in value:
+                self.add_shade_mesh(shd_m)
 
     @property
     def grouped_shades(self):
@@ -850,23 +884,52 @@ class Model(_Base):
 
     @property
     def orphaned_faces(self):
-        """Get a tuple of all Face objects without parent Rooms in the model."""
+        """Get or set a tuple of all Face objects without parent Rooms in the model."""
         return tuple(self._orphaned_faces)
+
+    @orphaned_faces.setter
+    def orphaned_faces(self, value):
+        self._orphaned_faces = []
+        if value is not None:
+            for face in value:
+                self.add_face(face)
 
     @property
     def orphaned_apertures(self):
-        """Get a tuple of all Aperture objects without parent Faces in the model."""
+        """Get or set a tuple of all Aperture objects without parent Faces in the model.
+        """
         return tuple(self._orphaned_apertures)
+
+    @orphaned_apertures.setter
+    def orphaned_apertures(self, value):
+        self._orphaned_apertures = []
+        if value is not None:
+            for ap in value:
+                self.add_aperture(ap)
 
     @property
     def orphaned_doors(self):
-        """Get a tuple of all Door objects without parent Faces in the model."""
+        """Get or set a tuple of all Door objects without parent Faces in the model."""
         return tuple(self._orphaned_doors)
+
+    @orphaned_doors.setter
+    def orphaned_doors(self, value):
+        self._orphaned_doors = []
+        if value is not None:
+            for dr in value:
+                self.add_door(dr)
 
     @property
     def orphaned_shades(self):
-        """Get a tuple of all Shade objects without parent Rooms in the model."""
+        """Get or set a tuple of all Shade objects without parent Rooms in the model."""
         return tuple(self._orphaned_shades)
+
+    @orphaned_shades.setter
+    def orphaned_shades(self, value):
+        self._orphaned_shades = []
+        if value is not None:
+            for shd in value:
+                self.add_shade(shd)
 
     @property
     def stories(self):
@@ -964,6 +1027,92 @@ class Model(_Base):
     def max(self):
         """Get a Point3D for the max bounding box vertex in the XY plane."""
         return self._calculate_max(self._all_objects())
+
+    @property
+    def roof_to_exterior_edges(self):
+        """Get LineSegment3Ds where roofs meet exterior walls (or floors).
+
+        Note that both the roof Face and the wall/floor Face must be next to one
+        another in the model's outer envelope and have outdoor boundary conditions for
+        the edge to show up in this list.
+        """
+        return self.classified_envelope_edges()[0]
+
+    @property
+    def slab_to_exterior_edges(self):
+        """Get LineSegment3Ds where ground floor slabs meet exterior walls or roofs.
+
+        Note that the floor Face must have a ground boundary condition and the wall or
+        roof Face must have an outdoor boundary condition for the edge between the
+        two Faces to show up in this list.
+        """
+        return self.classified_envelope_edges()[1]
+
+    @property
+    def exposed_floor_to_exterior_wall_edges(self):
+        """Get LineSegment3Ds where exposed floors meet exterior walls.
+
+        Note that both the wall Face and the floor Face must be next to one
+        another in the model's outer envelope and have outdoor boundary conditions for
+        the edge to show up in this list.
+        """
+        return self.classified_envelope_edges()[2]
+
+    @property
+    def exterior_wall_to_wall_edges(self):
+        """Get LineSegment3Ds where exterior walls meet one another.
+
+        Note that both wall Faces must be next to one another in the model's
+        outer envelope and have outdoor boundary conditions for the edge to
+        show up in this list.
+        """
+        return self.classified_envelope_edges()[3]
+
+    @property
+    def roof_ridge_edges(self):
+        """Get a list of LineSegment3D where exterior roofs meet one another.
+
+        Note that both roof Faces must be next to one another in the model's
+        outer envelope and have outdoor boundary conditions for the edge to
+        show up in this list.
+        """
+        return self.classified_envelope_edges()[4]
+
+    @property
+    def exposed_floor_to_floor_edges(self):
+        """Get LineSegment3Ds where exposed floors meet one another.
+
+        Note that both floor Faces must be next to one another in the model's
+        outer envelope and have outdoor boundary conditions for the edge to
+        show up in this list.
+        """
+        return self.classified_envelope_edges()[5]
+
+    @property
+    def underground_edges(self):
+        """Get a list of LineSegment3D where underground Faces meet one another.
+
+        Note that both Faces must be next to one another in the model's outer envelope
+        and have ground boundary conditions for the edge to show up in this list.
+        """
+        return self.classified_envelope_edges()[6]
+
+    @property
+    def exterior_aperture_edges(self):
+        """Get a list of LineSegment3D for the borders around room exterior apertures.
+        """
+        edges = []
+        for room in self.rooms:
+            edges.extend(room.exterior_aperture_edges)
+        return edges
+
+    @property
+    def exterior_door_edges(self):
+        """Get a list of LineSegment3D for the borders around room exterior doors."""
+        edges = []
+        for room in self.rooms:
+            edges.extend(room.exterior_door_edges)
+        return edges
 
     @property
     def top_level_dict(self):
@@ -1329,6 +1478,186 @@ class Model(_Base):
             )
         return shades
 
+    def classified_envelope_edges(self, tolerance=None, exclude_coplanar=True):
+        """Get classified edges of this Model's envelope based on Faces they adjoin.
+
+        The edges returned by this method will only exist along the exterior
+        envelope of the Model's Rooms as defined by the contiguous volume across
+        all Room interior adjacencies.
+
+        Args:
+            tolerance: The maximum difference between point values for them to be
+                considered equivalent. If None, the Model's tolerance will be used.
+            exclude_coplanar: Boolean to note whether edges falling between two
+                coplanar Faces in the building envelope should be included
+                in the result (False) or excluded from it (True). (Default: True).
+
+        Returns:
+            A tuple with eight items where each item is a list containing
+            LineSegment3D adjoining different types of Faces.
+
+            -   roof_to_exterior - Roofs meet exterior walls or floors.
+
+            -   slab_to_exterior - Ground floor slabs meet exterior walls or roofs.
+
+            -   exposed_floor_to_exterior_wall - Exposed floors meet exterior walls.
+
+            -   exterior_wall_to_wall - Exterior walls meet.
+
+            -   roof_ridge - Exterior roofs meet.
+
+            -   exposed_floor_to_floor - Exposed floors meet.
+
+            -   underground - Underground faces meet.
+        """
+        # set up lists to be populated
+        roof_to_exterior, slab_to_exterior, exposed_floor_to_exterior_wall = [], [], []
+        exterior_wall_to_wall, roof_ridge, exposed_floor_to_floor = [], [], []
+        underground, interior = [], []
+        tol = tolerance if tolerance else self.tolerance
+        ang_tol = self.angle_tolerance if exclude_coplanar else None
+
+        # join all of the rooms in the model across their adjacencies
+        merged_rooms = Room.join_adjacent_rooms(self.rooms, tol)
+        for room in merged_rooms:
+            rf_to_ext, slb_to_ext, ex_flr_to_ext, ext_wl_to_wl, rf_ridge, \
+                ex_flr_to_flr, under_gnd, inter = room.classified_edges(tol, ang_tol)
+            roof_to_exterior.extend(rf_to_ext)
+            slab_to_exterior.extend(slb_to_ext)
+            exposed_floor_to_exterior_wall.extend(ex_flr_to_ext)
+            exterior_wall_to_wall.extend(ext_wl_to_wl)
+            roof_ridge.extend(rf_ridge)
+            exposed_floor_to_floor.extend(ex_flr_to_flr)
+            underground.extend(under_gnd)
+            interior.extend(inter)
+
+        # return the classified edges
+        return roof_to_exterior, slab_to_exterior, exposed_floor_to_exterior_wall, \
+            exterior_wall_to_wall, roof_ridge, exposed_floor_to_floor, underground
+
+    def classified_sub_face_edges(
+        self, mullion_thickness=None, tolerance=None, angle_tolerance=None
+    ):
+        """Get classified edges around this Model's Apertures and Doors.
+
+        The edges returned by this method will only exist along the exterior
+        sub-faces.
+
+        Args:
+            mullion_thickness: The maximum difference that apertures can be from
+                one another for the edges to be considered a mullion rather than
+                a frame. If None, the Model's tolerance will be used.
+            tolerance: The maximum difference between point values for them to be
+                considered equivalent. If None, the Model's tolerance will be used.
+            angle_tolerance: The max angle difference in degrees where sub-face
+                normals are no longer considered coplanar. If None, the Model
+                angle_tolerance will be used. (Default: None).
+
+        Returns:
+            A tuple with three items where each item is a list containing
+            LineSegment3D surrounding different sub-face conditions.
+
+            -   window_frames - Apertures meet their parent exterior wall or roof.
+
+            -   window_mullions - Apertures meet one another.
+
+            -   door_frames - Doors meet their parent exterior wall or roof.
+
+            -   door_mullions - Doors meet one another.
+        """
+        # set up variables to be used for all sub_faces
+        tol = tolerance if tolerance is not None else self.tolerance
+        a_tol = math.radians(angle_tolerance) if angle_tolerance is not None else \
+            math.radians(self.angle_tolerance)
+        mul_thick = tol if mullion_thickness is None else mullion_thickness
+
+        # get the edges of the sub_faces
+        window_frames, window_mullions = \
+            self._classify_mullions(self.apertures, mul_thick, tol, a_tol)
+        door_frames, door_mullions = \
+            self._classify_mullions(self.doors, mul_thick, tol, a_tol)
+        return window_frames, window_mullions, door_frames, door_mullions
+
+    @staticmethod
+    def _classify_mullions(sub_faces, mul_thick, tol, a_tol):
+        """Organize subface edges depending on whether they are frames or mullions."""
+        sub_face_frames, sub_face_mullions = [], []
+        # group the apertures by the plane in which they exist
+        coplanar_dict = {}
+        sub_faces = [sf for sf in sub_faces
+                     if isinstance(sf.boundary_condition, Outdoors)]
+        if len(sub_faces) != 0:
+            coplanar_dict = {sub_faces[0].geometry.plane: [sub_faces[0]]}
+            for sf in sub_faces[1:]:
+                for pln, f_list in coplanar_dict.items():
+                    if sf.geometry.plane.is_coplanar_tolerance(pln, tol, a_tol):
+                        f_list.append(sf)
+                        break
+                else:  # the first face with this type of plane
+                    coplanar_dict[sf.geometry.plane] = [sf]
+
+        # for each group, intersect their edges and extract edges from a Polyface3D
+        for plane, sfs in coplanar_dict.items():
+            # intersect edges that are close enough to one another within thickness
+            polygons = []
+            for sf in sfs:
+                pts_2d = [plane.xyz_to_xy(pt) for pt in sf.geometry.boundary]
+                try:
+                    poly = Polygon2D(pts_2d).remove_colinear_vertices(mul_thick)
+                    polygons.append(poly)
+                except AssertionError:
+                    pass  # too small of a geometry
+            polygons = Polygon2D.intersect_polygon_segments(polygons, mul_thick)
+            faces = []
+            for poly in polygons:
+                faces.append(Face3D([plane.xy_to_xyz(pt) for pt in poly], plane))
+            # create a joined Polyface3D and classify the edges
+            ap_polyface = Polyface3D.from_faces(faces, mul_thick)
+            sub_face_frames.extend(ap_polyface.naked_edges)
+            sub_face_mullions.extend(ap_polyface.internal_edges)
+
+        return sub_face_frames, sub_face_mullions
+
+    def rooms_relevant_to_edge(self, edge, mullion_thickness=None, tolerance=None):
+        """Get a list of Rooms in the model that are relevant to a given edge.
+
+        This is useful for grouping instances of different edges obtained from
+        the classified edge methods.
+
+        Args:
+            edge: A ladybug-geometry LineSegment3D or Polyline3D for an edge to
+                be evaluated against the Model rooms.
+            mullion_thickness: The maximum difference that apertures can be from
+                the input edge for it to be associated with a given model room.
+                If None, the input edge will only be checked against the model's
+                room Faces and not the Apertures or Doors.
+            tolerance: The maximum difference between point values for them to be
+                considered equivalent. If None, the Model's tolerance will be used.
+
+        Returns:
+            A list of Honeybee Rooms in the model that are relevant to the input
+            edge, either touching a room Face edge within the tolerance or
+            touching an Aperture or Door edge within the mullion_thickness.
+        """
+        tol = tolerance if tolerance is not None else self.tolerance
+        # loop through the rooms and evaluate the edge in terms of it
+        rel_rooms = {}
+        for room in self.rooms:
+            if overlapping_bounding_boxes(room.geometry, edge, tol):
+                for pt in room.geometry.vertices:
+                    if edge.distance_to_point(pt) < tol:
+                        rel_rooms[room.identifier] = room
+                        break
+                else:  # if a mullion thickness is specified
+                    if mullion_thickness is not None:
+                        for sf in room.sub_faces:
+                            if overlapping_bounding_boxes(sf.geometry, edge, tol):
+                                for sf_pt in sf.geometry.vertices:
+                                    if edge.distance_to_point(sf_pt) < tol:
+                                        rel_rooms[room.identifier] = room
+                                        break
+        return list(rel_rooms.values())
+
     def add_prefix(self, prefix):
         """Change the identifier of this object and child objects by inserting a prefix.
 
@@ -1354,6 +1683,25 @@ class Model(_Base):
             shade.add_prefix(prefix)
         for shade_mesh in self._shade_meshes:
             shade_mesh.add_prefix(prefix)
+
+    def reset_room_ids(self):
+        """Reset the identifiers of the Model Rooms to be derived from display_names.
+
+        In the event that duplicate Room identifiers are found, an integer will
+        be automatically appended to the new Room ID to make it unique.
+
+        Returns:
+            A dictionary that relates the old identifiers (keys) to the new
+            identifiers (values). This can be used to map between old and new
+            objects and update things like Surface boundary conditions.
+        """
+        room_dict, room_map = {}, {}
+        for room in self.rooms:
+            new_id = clean_and_number_string(
+                room.display_name, room_dict, 'Room identifier')
+            room_map[room.identifier] = new_id
+            room.identifier = new_id
+        return room_map
 
     def reset_ids(self, repair_surface_bcs=True):
         """Reset the identifiers of all Model objects to be derived from display_names.
@@ -1409,39 +1757,7 @@ class Model(_Base):
                 shade_mesh.display_name, sm_dict, 'ShadeMesh identifier')
         # reset all of the Surface boundary conditions if requested
         if repair_surface_bcs:
-            for room in self.rooms:
-                for face in room.faces:
-                    if isinstance(face.boundary_condition, Surface):
-                        old_objs = face.boundary_condition.boundary_condition_objects
-                        try:
-                            new_objs = (face_map[old_objs[0]], room_map[old_objs[1]])
-                        except KeyError:  # missing adjacency
-                            try:  # see if maybe the room reference is still there
-                                new_objs = (old_objs[0], room_map[old_objs[1]])
-                            except KeyError:  # just let the invalid adjacency pass
-                                continue
-                        new_bc = Surface(new_objs)
-                        face.boundary_condition = new_bc
-                        for ap in face.apertures:
-                            old_objs = ap.boundary_condition.boundary_condition_objects
-                            try:
-                                new_objs = (ap_map[old_objs[0]], face_map[old_objs[1]],
-                                            room_map[old_objs[2]])
-                            except KeyError:  # missing adjacency
-                                new_objs = (old_objs[0], old_objs[1],
-                                            room_map[old_objs[2]])
-                            new_bc = Surface(new_objs, True)
-                            ap.boundary_condition = new_bc
-                        for dr in face.doors:
-                            old_objs = dr.boundary_condition.boundary_condition_objects
-                            try:
-                                new_objs = (dr_map[old_objs[0]], face_map[old_objs[1]],
-                                            room_map[old_objs[2]])
-                            except KeyError:  # missing adjacency
-                                new_objs = (old_objs[0], old_objs[1],
-                                            room_map[old_objs[2]])
-                            new_bc = Surface(new_objs, True)
-                            dr.boundary_condition = new_bc
+            self._repair_surface_bcs(room_map, face_map, ap_map, dr_map)
         # return a dictionary that maps between old and new IDs
         return {
             'rooms': room_map,
@@ -1450,24 +1766,90 @@ class Model(_Base):
             'doors': dr_map
         }
 
-    def reset_room_ids(self):
-        """Reset the identifiers of the Model Rooms to be derived from display_names.
+    def reset_ids_to_integers(self, start_integer=0, repair_surface_bcs=True):
+        """Reset the identifiers of all Model geometry objects to be a unique integer.
 
-        In the event that duplicate Room identifiers are found, an integer will
-        be automatically appended to the new Room ID to make it unique.
+        Integers are simply incremented from the start_integer, assigning integers
+        first to Rooms, then to Faces, then to Apertures/Doors and lastly to
+        Shades/ShadeMeshes.
+
+        Args:
+            start_integer: The starting integer that will be used to set a lower
+                limit on the integers assigned to the geometry elements.
+            repair_surface_bcs: A Boolean to note whether all Surface boundary
+                conditions across the model should be updated with the new
+                identifiers that were generated from the display names. (Default: True).
 
         Returns:
-            A dictionary that relates the old identifiers (keys) to the new
-            identifiers (values). This can be used to map between old and new
-            objects and update things like Surface boundary conditions.
+            An integer for the last value assigned to the model geometry objects.
+            This can be used to ensure that any future IDs assigned after running
+            this method do not have IDs that collide with the model objects.
         """
-        room_dict, room_map = {}, {}
+        # set up dictionaries to hold various pieces of information
+        room_map, face_map, ap_map, dr_map = {}, {}, {}, {}
+        # loop through the objects and change their identifiers
         for room in self.rooms:
-            new_id = clean_and_number_string(
-                room.display_name, room_dict, 'Room identifier')
-            room_map[room.identifier] = new_id
-            room.identifier = new_id
-        return room_map
+            room_map[room.identifier] = str(start_integer)
+            room.identifier = str(start_integer)
+            start_integer += 1
+        for face in self.faces:
+            face_map[face.identifier] = str(start_integer)
+            face.identifier = str(start_integer)
+            start_integer += 1
+        for ap in self.apertures:
+            ap_map[ap.identifier] = str(start_integer)
+            ap.identifier = str(start_integer)
+            start_integer += 1
+        for dr in self.doors:
+            dr_map[dr.identifier] = str(start_integer)
+            dr.identifier = str(start_integer)
+            start_integer += 1
+        for shade in self.shades:
+            shade.identifier = str(start_integer)
+            start_integer += 1
+        for shade_mesh in self.shade_meshes:
+            shade_mesh.identifier = str(start_integer)
+            start_integer += 1
+        # reset all of the Surface boundary conditions if requested
+        if repair_surface_bcs:
+            self._repair_surface_bcs(room_map, face_map, ap_map, dr_map)
+        return start_integer
+
+    def _repair_surface_bcs(self, room_map, face_map, ap_map, dr_map):
+        """Repair Surface boundary conditions across the model using dict maps."""
+        for room in self.rooms:
+            for face in room.faces:
+                if isinstance(face.boundary_condition, Surface):
+                    old_objs = face.boundary_condition.boundary_condition_objects
+                    try:
+                        new_objs = (face_map[old_objs[0]], room_map[old_objs[1]])
+                    except KeyError:  # missing adjacency
+                        try:  # see if maybe the room reference is still there
+                            new_objs = (old_objs[0], room_map[old_objs[1]])
+                        except KeyError:  # just let the invalid adjacency pass
+                            continue
+                    new_bc = Surface(new_objs)
+                    face.boundary_condition = new_bc
+                    for ap in face.apertures:
+                        old_objs = ap.boundary_condition.boundary_condition_objects
+                        try:
+                            new_objs = (ap_map[old_objs[0]], face_map[old_objs[1]],
+                                        room_map[old_objs[2]])
+                        except KeyError:  # missing adjacency
+                            new_objs = (old_objs[0], old_objs[1],
+                                        room_map[old_objs[2]])
+                        new_bc = Surface(new_objs, True)
+                        ap.boundary_condition = new_bc
+                    for dr in face.doors:
+                        old_objs = dr.boundary_condition.boundary_condition_objects
+                        try:
+                            new_objs = (dr_map[old_objs[0]], face_map[old_objs[1]],
+                                        room_map[old_objs[2]])
+                        except KeyError:  # missing adjacency
+                            new_objs = (old_objs[0], old_objs[1],
+                                        room_map[old_objs[2]])
+                        new_bc = Surface(new_objs, True)
+                        dr.boundary_condition = new_bc
 
     def solve_adjacency(
             self, merge_coplanar=False, intersect=False, overwrite=False,
@@ -1977,6 +2359,18 @@ class Model(_Base):
             extrusion_rooms.append(room.to_extrusion(tol, a_tol))
         self._rooms = extrusion_rooms
 
+    def shade_meshes_to_shades(self):
+        """Convert all ShadeMesh objects on the Model to planar Shades."""
+        new_shades = []
+        for shade_mesh in self.shade_meshes:
+            try:
+                shade_mesh.triangulate_and_remove_degenerate_faces(self.tolerance)
+                new_shades.extend(shade_mesh.to_shades())
+            except AssertionError:
+                pass  # completely degenerate ShadeMesh to ignore
+        self._orphaned_shades.extend(new_shades)
+        self._shade_meshes = []
+
     def convert_to_units(self, units='Meters'):
         """Convert all of the geometry in this model to certain units.
 
@@ -2012,23 +2406,14 @@ class Model(_Base):
         high that floating point tolerance interferes with the proper
         representation of the model's details.
 
-        In addition to moving the model such that the new_origin sets the
-        coordinate values of the geometry, this method will also set the
-        reference_vector of this object such that any models added into this
-        one from the original source coordinate system respect the new system.
-
         Args:
             new_origin: A Point3D in the model's current coordinate system that
                 will become the origin of the new coordinate system. If unspecified,
                 the minimum of the bounding box around the model geometry will
-                be used and the average_height_above_ground will be used to
-                set the Z coordinate. (Default: None).
+                be used. (Default: None).
         """
-        # compute the new_origin from the bounding box around the geometry
         if new_origin is None:
-            min_2d = self.min
-            z_val = self.average_height - self.average_height_above_ground
-            new_origin = Point3D(min_2d.x, min_2d.y, z_val)
+            new_origin = self.min
         # move the geometry using a vector that is the inverse of the origin
         ref_vec = Vector3D(-new_origin.x, -new_origin.y, -new_origin.z)
         self.move(ref_vec)
@@ -3659,6 +4044,97 @@ class Model(_Base):
                 out_dict['errors'] = []
                 out_dict['valid'] = False
             return json.dumps(out_dict, indent=4)
+
+    @staticmethod
+    def clean_irrational_geometry(model_dict):
+        """Remove irrational geometry objects from a honeybee Model dictionary.
+
+        This can be useful to run prior to serializing the Model object from a
+        dictionary if it was produced from a source other than the Python
+        core libraries, in which case the dictionary is necessarily rational
+        and serializable. This is because not all honeybee-schema bindings
+        enforce fundamental definitions of geometry types upon initialization
+        of the geometry objects, leading to exceptions when an attempt is made
+        to serialize them to Python. Furthermore, it is possible that the honeybee
+        Model dictionary did not originate from any schema bindings at all, in
+        which case it is highly recommended that this method be run.
+
+        Typical irrational geometry cases that are removed by this method include.
+
+            * Apertures/Doors with less than 3 vertices or holes less than 3 vertices.
+            * Faces with less than 3 vertices or holes with less than 3 vertices.
+            * Rooms that have no Face geometry.
+            * Shade Face3Ds with less than 3 vertices or holes with less than 3 vertices.
+            * ShadeMesh Mesh3Ds with no faces or faces with less than 3 vertices.
+        """
+        # clean all of the Room geometry in the model dictionary
+        if 'rooms' in model_dict and model_dict['rooms'] is not None:
+            for ri in range(len(model_dict['rooms']) - 1, -1, -1):
+                r_dict = model_dict['rooms'][ri]
+                # clean all of the Face geometry
+                Model._clean_irrational_geo_with_shade(r_dict['faces'])
+                for f_dict in r_dict['faces']:
+                    # clean all of the Aperture/Door geometry
+                    if 'apertures' in f_dict and f_dict['apertures'] is not None:
+                        Model._clean_irrational_geo_with_shade(f_dict['apertures'])
+                    if 'doors' in f_dict and f_dict['doors'] is not None:
+                        Model._clean_irrational_geo_with_shade(f_dict['doors'])
+                # clean the assigned shade geometry
+                if 'outdoor_shades' in r_dict and r_dict['outdoor_shades'] is not None:
+                    Model._clean_irrational_face3ds(r_dict['outdoor_shades'])
+                if 'indoor_shades' in r_dict and r_dict['indoor_shades'] is not None:
+                    Model._clean_irrational_face3ds(r_dict['indoor_shades'])
+                if len(r_dict['faces']) == 0:  # the entire Room is irrational
+                    model_dict['rooms'].pop(ri)
+        # clean all of the orphaned geometry in the model dictionary
+        if 'orphaned_faces' in model_dict and model_dict['orphaned_faces'] is not None:
+            Model._clean_irrational_geo_with_shade(model_dict['orphaned_faces'])
+        if 'orphaned_apertures' in model_dict and \
+                model_dict['orphaned_apertures'] is not None:
+            Model._clean_irrational_geo_with_shade(model_dict['orphaned_apertures'])
+        if 'orphaned_doors' in model_dict and model_dict['orphaned_doors'] is not None:
+            Model._clean_irrational_geo_with_shade(model_dict['orphaned_doors'])
+        if 'orphaned_shades' in model_dict and model_dict['orphaned_shades'] is not None:
+            Model._clean_irrational_face3ds(model_dict['orphaned_shades'])
+        # clean all of the shade mesh geometry in the model dictionary
+        if 'shade_meshes' in model_dict and model_dict['shade_meshes'] is not None:
+            for smi in range(len(model_dict['shade_meshes']) - 1, -1, -1):
+                sm_dict = model_dict['shade_meshes'][smi]['geometry']
+                for mfi in range(len(sm_dict['faces']) - 1, -1, -1):
+                    mf = sm_dict['faces'][mfi]
+                    if len(mf) not in (3, 4):
+                        sm_dict['faces'].pop(mfi)
+                    else:
+                        for ind in mf:
+                            try:
+                                sm_dict['vertices'][ind]
+                            except IndexError:
+                                sm_dict['faces'].pop(mfi)
+                                break
+                if len(sm_dict['faces']) == 0:
+                    model_dict['shade_meshes'].pop(smi)
+
+    @staticmethod
+    def _clean_irrational_geo_with_shade(geo_obj_dicts):
+        """Clean irrational Face3Ds out of a list of honeybee geometry objects."""
+        Model._clean_irrational_face3ds(geo_obj_dicts)
+        for f_dict in geo_obj_dicts:
+            if 'outdoor_shades' in f_dict and f_dict['outdoor_shades'] is not None:
+                Model._clean_irrational_face3ds(f_dict['outdoor_shades'])
+            if 'indoor_shades' in f_dict and f_dict['indoor_shades'] is not None:
+                Model._clean_irrational_face3ds(f_dict['indoor_shades'])
+
+    @staticmethod
+    def _clean_irrational_face3ds(geo_obj_dicts):
+        """Clean irrational Face3Ds out of a list of honeybee geometry objects."""
+        for fi in range(len(geo_obj_dicts) - 1, -1, -1):
+            f_dict = geo_obj_dicts[fi]
+            face_3d = f_dict['geometry']
+            if len(face_3d['boundary']) < 3:
+                geo_obj_dicts.pop(fi)
+                continue
+            elif 'holes' in face_3d:
+                face_3d['holes'] = [h for h in face_3d['holes'] if len(h) >= 3]
 
     @staticmethod
     def conversion_factor_to_meters(units):

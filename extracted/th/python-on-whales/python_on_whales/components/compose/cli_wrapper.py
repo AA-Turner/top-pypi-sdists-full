@@ -35,6 +35,7 @@ class ComposeCLI(DockerCLICaller):
         progress: Optional[str] = ...,
         pull: bool = ...,
         quiet: bool = ...,
+        with_dependencies: bool = ...,
         ssh: Optional[str] = ...,
         stream_logs: Literal[True] = ...,
     ) -> Iterable[Tuple[str, bytes]]: ...
@@ -48,6 +49,7 @@ class ComposeCLI(DockerCLICaller):
         progress: Optional[str] = ...,
         pull: bool = ...,
         quiet: bool = ...,
+        with_dependencies: bool = ...,
         ssh: Optional[str] = ...,
         stream_logs: Literal[False] = ...,
     ) -> None: ...
@@ -60,6 +62,7 @@ class ComposeCLI(DockerCLICaller):
         progress: Optional[str] = None,
         pull: bool = False,
         quiet: bool = False,
+        with_dependencies: bool = False,
         ssh: Optional[str] = None,
         stream_logs: bool = False,
     ) -> Union[Iterable[Tuple[str, bytes]], None]:
@@ -76,6 +79,7 @@ class ComposeCLI(DockerCLICaller):
             pull: Set to `True` to always attempt to pull a newer version of the
                 image (in the `FROM` statements for example).
             quiet: Don't print anything
+            with_dependencies: Also build dependencies (transitively)
             ssh: Set SSH authentications used when building service images.
                 (use `'default'` for using your default SSH Agent)
             stream_logs: If `False` this function returns None. If `True`, this
@@ -100,6 +104,7 @@ class ComposeCLI(DockerCLICaller):
         full_cmd.add_flag("--pull", pull)
         full_cmd.add_flag("--quiet", quiet)
         full_cmd.add_simple_arg("--ssh", ssh)
+        full_cmd.add_flag("--with-dependencies", with_dependencies)
 
         if services == []:
             return
@@ -166,6 +171,7 @@ class ComposeCLI(DockerCLICaller):
         force_recreate: bool = ...,
         no_build: bool = ...,
         no_recreate: bool = ...,
+        pull: Literal["always", "missing", "never", "build", None] = ...,
         stream_logs: Literal[False] = ...,
     ) -> None: ...
 
@@ -176,6 +182,7 @@ class ComposeCLI(DockerCLICaller):
         force_recreate: bool = False,
         no_build: bool = False,
         no_recreate: bool = False,
+        pull: Literal["always", "missing", "never", "build", None] = None,
         stream_logs: bool = False,
     ) -> Union[Iterable[Tuple[str, bytes]], None]:
         """Creates containers for a service.
@@ -193,6 +200,7 @@ class ComposeCLI(DockerCLICaller):
             no_build: Don't build an image, even if it's missing.
             no_recreate: If containers already exist, don't recreate them.
                 Incompatible with `force_recreate=True`.
+            pull: Pull image before running ("always"|"missing"|"never"|"build").
             stream_logs: If `False` this function returns None. If `True`, this
                 function returns an Iterable of `Tuple[str, bytes]` where the first element
                 is the type of log (`"stdin"` or `"stdout"`). The second element is the log itself,
@@ -205,6 +213,7 @@ class ComposeCLI(DockerCLICaller):
         full_cmd.add_flag("--force-recreate", force_recreate)
         full_cmd.add_flag("--no-build", no_build)
         full_cmd.add_flag("--no-recreate", no_recreate)
+        full_cmd.add_simple_arg("--pull", pull)
         if services == []:
             return
         elif services is not None:

@@ -6,6 +6,8 @@ import inspect
 import linecache
 import os
 import sys
+import types
+from dataclasses import dataclass
 from typing import Any, Callable, Optional, Type
 
 
@@ -178,3 +180,84 @@ def get_source_filename(obj: Any) -> Optional[str]:
     elif filename in linecache.cache:
         return filename
     return None
+
+
+@dataclass
+class FunctionCallerInfo:
+    """Information about the caller of a function, including AST node and source details."""
+
+    node: ast.Call | None
+    source: str
+    filename: str
+    lineno: int
+    caller_source: str | None
+
+
+def get_function_caller_info(frame_offset: int = 1) -> FunctionCallerInfo:
+    """Extract caller information including AST node and source details.
+
+    Args:
+        frame_offset: How many frames back to look (1 = immediate caller)
+
+    Returns:
+        FunctionCallerInfo with node, source, filename, lineno, and extracted caller_source
+    """
+    caller_source: str | None = None
+    caller_filename: str | None = None
+    caller_lineno: int | None = None
+    caller_node: ast.Call | None = None
+    source: str = ""
+
+    current_frame = inspect.currentframe()
+    if current_frame is not None:
+        # Walk back the specified number of frames
+        frame: types.FrameType | None = current_frame
+        for _ in range(frame_offset + 1):  # +1 because we start from current frame
+            if (
+                frame is None
+            ):  # This can happen after frame.f_back assignment # pyright: ignore[reportUnnecessaryComparison]
+                break
+            if frame.f_back is None:
+                break
+            frame = frame.f_back
+
+        if frame is not None:  # pyright: ignore[reportUnnecessaryComparison]
+            caller_filename = inspect.getfile(frame)
+            caller_lineno = inspect.getlineno(frame)
+
+            # Extract just the function call invocation, not the entire file
+            filename = frame.f_code.co_filename
+            lineno = frame.f_lineno
+            source = "".join(linecache.getlines(filename))
+
+            try:
+                tree = ast.parse(source, filename)
+
+                # Find the Call node whose lineno matches
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call) and node.lineno == lineno:
+                        # Grab the full text of that node
+                        caller_source = ast.get_source_segment(source, node)
+                        caller_node = node
+                        break
+            except:
+                # If AST parsing fails, fall back to whole file
+                pass
+
+            # Fallback to whole file if AST parsing fails
+            if caller_source is None:
+                try:
+                    caller_source = inspect.getsource(frame)
+                except:
+                    caller_source = None
+
+    # Delete the frame reference to break circular dependency and help garbage collection
+    del current_frame
+
+    return FunctionCallerInfo(
+        node=caller_node,
+        source=source,
+        filename=caller_filename or "<unknown file>",
+        lineno=caller_lineno or 0,
+        caller_source=caller_source,
+    )

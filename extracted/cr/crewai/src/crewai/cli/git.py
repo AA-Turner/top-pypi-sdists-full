@@ -1,9 +1,9 @@
-import subprocess
 from functools import lru_cache
+import subprocess
 
 
 class Repository:
-    def __init__(self, path="."):
+    def __init__(self, path: str = ".") -> None:
         self.path = path
 
         if not self.is_git_installed():

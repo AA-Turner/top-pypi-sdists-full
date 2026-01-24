@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict
 from abstra_internals.cloud_api.http_client import HTTPClient
 from abstra_internals.consts.filepaths import LOCAL_LOGS_DIR_PATH
 from abstra_internals.logger import AbstraLogger
-from abstra_internals.repositories.serializer import SerializationHelper
 from abstra_internals.utils import serialize
 from abstra_internals.utils.datetime import from_utc_iso_string, to_utc_iso_string
 
@@ -88,6 +87,10 @@ class ExecutionLogsRepository(ABC):
     ) -> List[LogEntry]:
         raise NotImplementedError()
 
+    @abstractmethod
+    def clear(self):
+        raise NotImplementedError()
+
 
 class LocalExecutionLogsRepository(ExecutionLogsRepository):
     def __init__(self):
@@ -130,24 +133,22 @@ class LocalExecutionLogsRepository(ExecutionLogsRepository):
             AbstraLogger.capture_exception(e)
             return []
 
+    def clear(self):
+        log_dir = Path(LOCAL_LOGS_DIR_PATH)
+        if log_dir.exists() and log_dir.is_dir():
+            for log_file in log_dir.iterdir():
+                if log_file.is_file():
+                    log_file.unlink()
+
 
 class ProductionExecutionLogsRepository(ExecutionLogsRepository):
     def __init__(self, client: "HTTPClient"):
         self.sequence = 0
         self.client = client
 
-    def save(self, log_entry: LogEntry) -> None:
-        validated_payload = SerializationHelper.enforce_max_size(log_entry.payload)
-
-        dto = {
-            **log_entry.to_dto(),
-            "payload": validated_payload,
-        }
-
-        self.client.async_post(
-            endpoint=f"/executions/{log_entry.execution_id}/logs",
-            json=dto,
-        )
+    def save(
+        self, log_entry: LogEntry
+    ) -> None: ...  # No-op in production, as logs are saved directly by the cluster.
 
     def get(
         self,
@@ -162,3 +163,6 @@ class ProductionExecutionLogsRepository(ExecutionLogsRepository):
         response.raise_for_status()
 
         return [LogEntry.from_dto(log) for log in response.json()]
+
+    def clear(self):
+        raise NotImplementedError()

@@ -5,17 +5,7 @@ Container for the result of running the sample (MCMC) method
 import math
 import os
 from io import StringIO
-from typing import (
-    Any,
-    Dict,
-    Hashable,
-    List,
-    MutableMapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import Any, Hashable, MutableMapping, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -39,6 +29,7 @@ from cmdstanpy.utils import (
     do_command,
     flatten_chains,
     get_logger,
+    stancsv,
 )
 
 from .metadata import InferenceMetadata
@@ -97,12 +88,53 @@ class CmdStanMCMC:
         self._max_treedepths: np.ndarray = np.zeros(
             self.runset.chains, dtype=int
         )
+        self._chain_time: list[dict[str, float]] = []
 
-        # info from CSV initial comments and header
+        # info from CSV header and initial and final comment blocks
         config = self._validate_csv_files()
         self._metadata: InferenceMetadata = InferenceMetadata(config)
         if not self._is_fixed_param:
             self._check_sampler_diagnostics()
+
+    def create_inits(
+        self, seed: Optional[int] = None, chains: int = 4
+    ) -> Union[list[dict[str, np.ndarray]], dict[str, np.ndarray]]:
+        """
+        Create initial values for the parameters of the model by
+        randomly selecting draws from the MCMC samples. If the samples
+        contain draws from multiple chains, each draw will be from
+        a different chain, if possible. Otherwise the chain is randomly
+        selected.
+
+        :param seed: Used for random selection, defaults to None
+        :param chains: Number of initial values to return, defaults to 4
+        :return: The initial values for the parameters of the model.
+
+        If ``chains`` is 1, a dictionary is returned, otherwise a list
+        of dictionaries is returned, in the format expected for the
+        ``inits`` argument of :meth:`CmdStanModel.sample`.
+        """
+        self._assemble_draws()
+        rng = np.random.default_rng(seed)
+        n_draws, n_chains = self._draws.shape[:2]
+        draw_idxs = rng.choice(n_draws, size=chains, replace=False)
+        chain_idxs = rng.choice(
+            n_chains, size=chains, replace=(n_chains <= chains)
+        )
+        if chains == 1:
+            draw = self._draws[draw_idxs[0], chain_idxs[0]]
+            return {
+                name: var.extract_reshape(draw)
+                for name, var in self._metadata.stan_vars.items()
+            }
+        else:
+            return [
+                {
+                    name: var.extract_reshape(self._draws[d, i])
+                    for name, var in self._metadata.stan_vars.items()
+                }
+                for d, i in zip(draw_idxs, chain_idxs)
+            ]
 
     def __repr__(self) -> str:
         repr = 'CmdStanMCMC: model={} chains={}{}'.format(
@@ -142,7 +174,7 @@ class CmdStanMCMC:
         return self.runset.chains
 
     @property
-    def chain_ids(self) -> List[int]:
+    def chain_ids(self) -> list[int]:
         """Chain ids."""
         return self.runset.chain_ids
 
@@ -169,14 +201,14 @@ class CmdStanMCMC:
         return self._metadata
 
     @property
-    def column_names(self) -> Tuple[str, ...]:
+    def column_names(self) -> tuple[str, ...]:
         """
         Names of all outputs from the sampler, comprising sampler parameters
         and all components of all model parameters, transformed parameters,
         and quantities of interest. Corresponds to Stan CSV file header row,
         with names munged to array notation, e.g. `beta[1]` not `beta.1`.
         """
-        return self._metadata.cmdstan_config['column_names']  # type: ignore
+        return self._metadata.column_names
 
     @property
     def metric_type(self) -> Optional[str]:
@@ -191,19 +223,27 @@ class CmdStanMCMC:
             else None
         )
 
+    # TODO(2.0): remove
     @property
     def metric(self) -> Optional[np.ndarray]:
+        """Deprecated. Use ``.inv_metric`` instead."""
+        get_logger().warning(
+            'The "metric" property is deprecated, use "inv_metric" instead. '
+            'This will be the same quantity, but with a more accurate name.'
+        )
+        return self.inv_metric
+
+    @property
+    def inv_metric(self) -> Optional[np.ndarray]:
         """
-        Metric used by sampler for each chain.
-        When sampler algorithm 'fixed_param' is specified, metric is None.
+        Inverse mass matrix used by sampler for each chain.
+        Returns a ``nchains x nparams`` array when metric_type is 'diag_e',
+        a ``nchains x nparams x nparams`` array when metric_type is 'dense_e',
+        or ``None`` when metric_type is 'unit_e' or algorithm is 'fixed_param'.
         """
-        if self._is_fixed_param:
+        if self._is_fixed_param or self.metric_type == 'unit_e':
             return None
-        if self._metadata.cmdstan_config['metric'] == 'unit_e':
-            get_logger().info(
-                'Unit diagnonal metric, inverse mass matrix size unknown.'
-            )
-            return None
+
         self._assemble_draws()
         return self._metric
 
@@ -239,6 +279,14 @@ class CmdStanMCMC:
         When sampler algorithm 'fixed_param' is specified, returns None.
         """
         return self._max_treedepths if not self._is_fixed_param else None
+
+    @property
+    def time(self) -> list[dict[str, float]]:
+        """
+        List of per-chain time info scraped from CSV file.
+        Each chain has dict with keys "warmup", "sampling", "total".
+        """
+        return self._chain_time
 
     def draws(
         self, *, inc_warmup: bool = False, concat_chains: bool = False
@@ -282,7 +330,7 @@ class CmdStanMCMC:
             return flatten_chains(self._draws[start_idx:, :, :])
         return self._draws[start_idx:, :, :]
 
-    def _validate_csv_files(self) -> Dict[str, Any]:
+    def _validate_csv_files(self) -> dict[str, Any]:
         """
         Checks that Stan CSV output files for all chains are consistent
         and returns dict containing config and column names.
@@ -295,24 +343,24 @@ class CmdStanMCMC:
             if i == 0:
                 dzero = check_sampler_csv(
                     path=self.runset.csv_files[i],
-                    is_fixed_param=self._is_fixed_param,
                     iter_sampling=self._iter_sampling,
                     iter_warmup=self._iter_warmup,
                     save_warmup=self._save_warmup,
                     thin=self._thin,
                 )
+                self._chain_time.append(dzero['time'])  # type: ignore
                 if not self._is_fixed_param:
                     self._divergences[i] = dzero['ct_divergences']
                     self._max_treedepths[i] = dzero['ct_max_treedepth']
             else:
                 drest = check_sampler_csv(
                     path=self.runset.csv_files[i],
-                    is_fixed_param=self._is_fixed_param,
                     iter_sampling=self._iter_sampling,
                     iter_warmup=self._iter_warmup,
                     save_warmup=self._save_warmup,
                     thin=self._thin,
                 )
+                self._chain_time.append(drest['time'])  # type: ignore
                 for key in dzero:
                     # check args that matter for parsing, plus name, version
                     if (
@@ -357,13 +405,13 @@ class CmdStanMCMC:
                     diagnostics.append(
                         f'Chain {i + 1} had {self._divergences[i]} '
                         'divergent transitions '
-                        f'({((self._divergences[i]/ct_iters)*100):.1f}%)'
+                        f'({((self._divergences[i] / ct_iters) * 100):.1f}%)'
                     )
                 if self._max_treedepths[i] > 0:
                     diagnostics.append(
                         f'Chain {i + 1} had {self._max_treedepths[i]} '
                         'iterations at max treedepth '
-                        f'({((self._max_treedepths[i]/ct_iters)*100):.1f}%)'
+                        f'({((self._max_treedepths[i] / ct_iters) * 100):.1f}%)'
                     )
             diagnostics.append(
                 'Use the "diagnose()" method on the CmdStanMCMC object'
@@ -378,83 +426,48 @@ class CmdStanMCMC:
         """
         if self._draws.shape != (0,):
             return
+
         num_draws = self.num_draws_sampling
-        sampling_iter_start = 0
         if self._save_warmup:
             num_draws += self.num_draws_warmup
-            sampling_iter_start = self.num_draws_warmup
         self._draws = np.empty(
             (num_draws, self.chains, len(self.column_names)),
-            dtype=float,
+            dtype=np.float64,
             order='F',
         )
-        self._step_size = np.empty(self.chains, dtype=float)
-        for chain in range(self.chains):
-            with open(self.runset.csv_files[chain], 'r') as fd:
-                line = fd.readline().strip()
-                # read initial comments, CSV header row
-                while len(line) > 0 and line.startswith('#'):
-                    line = fd.readline().strip()
-                if not self._is_fixed_param:
-                    # handle warmup draws, if any
-                    if self._save_warmup:
-                        for i in range(self.num_draws_warmup):
-                            line = fd.readline().strip()
-                            xs = line.split(',')
-                            self._draws[i, chain, :] = [float(x) for x in xs]
-                    line = fd.readline().strip()
-                    if line != '# Adaptation terminated':  # shouldn't happen?
-                        while line != '# Adaptation terminated':
-                            line = fd.readline().strip()
-                    # step_size, metric (diag_e and dense_e only)
-                    line = fd.readline().strip()
-                    _, step_size = line.split('=')
-                    self._step_size[chain] = float(step_size.strip())
-                    if self._metadata.cmdstan_config['metric'] != 'unit_e':
-                        line = fd.readline().strip()  # metric type
-                        line = fd.readline().lstrip(' #\t').rstrip()
-                        num_unconstrained_params = len(line.split(','))
-                        if chain == 0:  # can't allocate w/o num params
-                            if self.metric_type == 'diag_e':
-                                self._metric = np.empty(
-                                    (self.chains, num_unconstrained_params),
-                                    dtype=float,
-                                )
-                            else:
-                                self._metric = np.empty(
-                                    (
-                                        self.chains,
-                                        num_unconstrained_params,
-                                        num_unconstrained_params,
-                                    ),
-                                    dtype=float,
-                                )
-                        if line:
-                            if self.metric_type == 'diag_e':
-                                xs = line.split(',')
-                                self._metric[chain, :] = [float(x) for x in xs]
-                            else:
-                                xs = line.strip().split(',')
-                                self._metric[chain, 0, :] = [
-                                    float(x) for x in xs
-                                ]
-                                for i in range(1, num_unconstrained_params):
-                                    line = fd.readline().lstrip(' #\t').rstrip()
-                                    xs = line.split(',')
-                                    self._metric[chain, i, :] = [
-                                        float(x) for x in xs
-                                    ]
-                    else:  # unit_e changed in 2.34 to have an extra line
-                        pos = fd.tell()
-                        line = fd.readline().strip()
-                        if not line.startswith('#'):
-                            fd.seek(pos)
+        self._step_size = np.empty(self.chains, dtype=np.float64)
 
-                # process draws
-                for i in range(sampling_iter_start, num_draws):
-                    line = fd.readline().strip()
-                    xs = line.split(',')
-                    self._draws[i, chain, :] = [float(x) for x in xs]
+        mass_matrix_per_chain = []
+        for chain in range(self.chains):
+            try:
+                (
+                    comments,
+                    header,
+                    draws,
+                ) = stancsv.parse_comments_header_and_draws(
+                    self.runset.csv_files[chain]
+                )
+
+                draws_np = stancsv.csv_bytes_list_to_numpy(draws)
+                if draws_np.shape[0] == 0:
+                    n_cols = header.count(",") + 1  # type: ignore
+                    draws_np = np.empty((0, n_cols))
+
+                self._draws[:, chain, :] = draws_np
+                if not self._is_fixed_param:
+                    (
+                        self._step_size[chain],
+                        mass_matrix,
+                    ) = stancsv.parse_hmc_adaptation_lines(comments)
+                    mass_matrix_per_chain.append(mass_matrix)
+            except Exception as exc:
+                raise ValueError(
+                    f"Parsing output from {self.runset.csv_files[chain]} failed"
+                ) from exc
+
+        if all(mm is not None for mm in mass_matrix_per_chain):
+            self._metric = np.array(mass_matrix_per_chain)
+
         assert self._draws is not None
 
     def summary(
@@ -573,7 +586,7 @@ class CmdStanMCMC:
 
     def draws_pd(
         self,
-        vars: Union[List[str], str, None] = None,
+        vars: Union[list[str], str, None] = None,
         inc_warmup: bool = False,
     ) -> pd.DataFrame:
         """
@@ -651,7 +664,7 @@ class CmdStanMCMC:
         )[cols]
 
     def draws_xr(
-        self, vars: Union[str, List[str], None] = None, inc_warmup: bool = False
+        self, vars: Union[str, list[str], None] = None, inc_warmup: bool = False
     ) -> "xr.Dataset":
         """
         Returns the sampler draws as a xarray Dataset.
@@ -674,7 +687,7 @@ class CmdStanMCMC:
             )
         if inc_warmup and not self._save_warmup:
             get_logger().warning(
-                "Draws from warmup iterations not available,"
+                'Draws from warmup iterations not available,'
                 ' must run sampler with "save_warmup=True".'
             )
         if vars is None:
@@ -776,7 +789,7 @@ class CmdStanMCMC:
                 + ", ".join(self._metadata.stan_vars.keys())
             )
 
-    def stan_variables(self) -> Dict[str, np.ndarray]:
+    def stan_variables(self) -> dict[str, np.ndarray]:
         """
         Return a dictionary mapping Stan program variables names
         to the corresponding numpy.ndarray containing the inferred values.
@@ -795,7 +808,7 @@ class CmdStanMCMC:
             result[name] = self.stan_variable(name)
         return result
 
-    def method_variables(self) -> Dict[str, np.ndarray]:
+    def method_variables(self) -> dict[str, np.ndarray]:
         """
         Returns a dictionary of all sampler variables, i.e., all
         output column names ending in `__`.  Assumes that all variables

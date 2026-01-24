@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable
+from typing import TYPE_CHECKING
 
 import pytest
 from bs4 import BeautifulSoup
@@ -8,6 +8,9 @@ from parsel import Selector
 
 from crawlee.crawlers._beautifulsoup._utils import html_to_text as html_to_text_beautifulsoup
 from crawlee.crawlers._parsel._utils import html_to_text as html_to_text_parsel
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _EXPECTED_TEXT = (
     "Let's start with a simple text. \n"
@@ -188,7 +191,8 @@ def test_html_to_text(source: str, expected_text: str, html_to_text: Callable[[s
 @pytest.mark.parametrize('html_to_text', [html_to_text_parsel, html_to_text_beautifulsoup])
 def test_html_to_text_raises_on_wrong_input_type(html_to_text: Callable[[str], str]) -> None:
     with pytest.raises(TypeError):
-        html_to_text(1)  # type: ignore[arg-type]  # Intentional wrong type test.
+        # Intentional wrong type test.
+        html_to_text(1)  # ty: ignore[invalid-argument-type]
 
 
 def test_html_to_text_parsel() -> None:

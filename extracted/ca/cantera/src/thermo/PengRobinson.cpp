@@ -28,11 +28,7 @@ PengRobinson::PengRobinson(const string& infile, const string& id_)
 
 void PengRobinson::setSpeciesCoeffs(const string& species, double a, double b, double w)
 {
-    size_t k = speciesIndex(species);
-    if (k == npos) {
-        throw CanteraError("PengRobinson::setSpeciesCoeffs",
-            "Unknown species '{}'.", species);
-    }
+    size_t k = speciesIndex(species, true);
 
     // Calculate value of kappa (independent of temperature)
     // w is an acentric factor of species
@@ -74,16 +70,8 @@ void PengRobinson::setSpeciesCoeffs(const string& species, double a, double b, d
 void PengRobinson::setBinaryCoeffs(const string& species_i,
         const string& species_j, double a0)
 {
-    size_t ki = speciesIndex(species_i);
-    if (ki == npos) {
-        throw CanteraError("PengRobinson::setBinaryCoeffs",
-            "Unknown species '{}'.", species_i);
-    }
-    size_t kj = speciesIndex(species_j);
-    if (kj == npos) {
-        throw CanteraError("PengRobinson::setBinaryCoeffs",
-            "Unknown species '{}'.", species_j);
-    }
+    size_t ki = speciesIndex(species_i, true);
+    size_t kj = speciesIndex(species_j, true);
 
     m_a_coeffs(ki, kj) = m_a_coeffs(kj, ki) = a0;
     m_binaryParameters[species_i][species_j] = a0;
@@ -129,8 +117,8 @@ double PengRobinson::pressure() const
 
 double PengRobinson::standardConcentration(size_t k) const
 {
-    getStandardVolumes(m_tmpV.data());
-    return 1.0 / m_tmpV[k];
+    getStandardVolumes(m_workS.data());
+    return 1.0 / m_workS[k];
 }
 
 void PengRobinson::getActivityCoefficients(double* ac) const
@@ -256,9 +244,9 @@ void PengRobinson::getPartialMolarEntropies(double* sbar) const
     // Using the identity : (hk - T*sk) = gk
     double T = temperature();
     getPartialMolarEnthalpies(sbar);
-    getChemPotentials(m_tmpV.data());
+    getChemPotentials(m_workS.data());
     for (size_t k = 0; k < m_kk; k++) {
-        sbar[k] = (sbar[k] - m_tmpV[k])/T;
+        sbar[k] = (sbar[k] - m_workS[k])/T;
     }
 }
 
@@ -267,9 +255,9 @@ void PengRobinson::getPartialMolarIntEnergies(double* ubar) const
     // u_i = h_i - p*v_i
     double p = pressure();
     getPartialMolarEnthalpies(ubar);
-    getPartialMolarVolumes(m_tmpV.data());
+    getPartialMolarVolumes(m_workS.data());
     for (size_t k = 0; k < m_kk; k++) {
-        ubar[k] = ubar[k] - p*m_tmpV[k];
+        ubar[k] = ubar[k] - p*m_workS[k];
     }
 }
 
@@ -343,7 +331,7 @@ void PengRobinson::initThermo()
 
     for (auto& [name, species] : m_species) {
         auto& data = species->input;
-        size_t k = speciesIndex(name);
+        size_t k = speciesIndex(name, true);
         if (m_a_coeffs(k, k) != 0.0) {
             continue;
         }
@@ -423,8 +411,7 @@ void PengRobinson::initThermo()
 void PengRobinson::getSpeciesParameters(const string& name, AnyMap& speciesNode) const
 {
     MixtureFugacityTP::getSpeciesParameters(name, speciesNode);
-    size_t k = speciesIndex(name);
-    checkSpeciesIndex(k);
+    size_t k = speciesIndex(name, true);
 
     // Pure species parameters
     if (m_coeffSource[k] == CoeffSource::EoS) {
@@ -573,6 +560,8 @@ double PengRobinson::densityCalc(double T, double presPa, int phaseRequested,
 
 double PengRobinson::densSpinodalLiquid() const
 {
+    warn_deprecated("PengRobinson::densSpinodalLiquid",
+                    "To be removed after Cantera 3.1.");
     double Vroot[3];
     double T = temperature();
     int nsol = solveCubic(T, pressure(), m_a, m_b, m_aAlpha_mix, Vroot);
@@ -595,6 +584,8 @@ double PengRobinson::densSpinodalLiquid() const
 
 double PengRobinson::densSpinodalGas() const
 {
+    warn_deprecated("PengRobinson::densSpinodalGas",
+                    "To be removed after Cantera 3.1.");
     double Vroot[3];
     double T = temperature();
     int nsol = solveCubic(T, pressure(), m_a, m_b, m_aAlpha_mix, Vroot);

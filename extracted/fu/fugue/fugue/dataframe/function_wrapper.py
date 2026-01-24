@@ -80,6 +80,7 @@ class DataFrameFunctionWrapper(FunctionWrapper):
         p.update(kwargs)
         has_kw = False
         rargs: Dict[str, Any] = {}
+        row_param_info: Any = None
         for k, v in self._params.items():
             if isinstance(v, (PositionalParam, KeywordParam)):
                 if isinstance(v, KeywordParam):
@@ -90,7 +91,16 @@ class DataFrameFunctionWrapper(FunctionWrapper):
                         isinstance(p[k], DataFrame),
                         lambda: TypeError(f"{p[k]} is not a DataFrame"),
                     )
-                    rargs[k] = v.to_input_data(p[k], ctx=ctx)
+                    if v.is_per_row:  # pragma: no cover
+                        # TODO: this branch is used only if row annotations
+                        # are allowed as input
+                        assert_or_throw(
+                            row_param_info is None,
+                            lambda: ValueError("only one row parameter is allowed"),
+                        )
+                        row_param_info = (k, v, p[k])
+                    else:
+                        rargs[k] = v.to_input_data(p[k], ctx=ctx)
                 else:
                     rargs[k] = p[k]  # TODO: should we do auto type conversion?
                 del p[k]
@@ -100,12 +110,40 @@ class DataFrameFunctionWrapper(FunctionWrapper):
             rargs.update(p)
         elif not ignore_unknown and len(p) > 0:
             raise ValueError(f"{p} are not acceptable parameters")
+        if row_param_info is None:
+            return self._run_func(rargs, output, output_schema, ctx, raw=False)
+        else:  # pragma: no cover
+            # input contains row parameter
+            # TODO: this branch is used only if row annotations are allowed as input
+
+            def _dfs() -> Iterable[Any]:
+                k, v, df = row_param_info
+                for row in v.to_input_rows(df, ctx):
+                    rargs[k] = None
+                    _rargs = rargs.copy()
+                    _rargs[k] = row
+                    yield self._run_func(_rargs, output, output_schema, ctx, raw=True)
+
+            if not output:
+                sum(1 for _ in _dfs())
+                return
+            else:
+                return self._rt.iterable_to_output_df(_dfs(), output_schema, ctx)
+
+    def _run_func(
+        self,
+        rargs: Dict[str, Any],
+        output: bool,
+        output_schema: Any,
+        ctx: Any,
+        raw: bool,
+    ) -> Any:
         rt = self._func(**rargs)
         if not output:
             if isinstance(self._rt, _DataFrameParamBase):
                 self._rt.count(rt)
             return
-        if isinstance(self._rt, _DataFrameParamBase):
+        if not raw and isinstance(self._rt, _DataFrameParamBase):
             return self._rt.to_output_df(rt, output_schema, ctx=ctx)
         return rt
 
@@ -120,6 +158,7 @@ fugue_annotated_param = DataFrameFunctionWrapper.annotated_param
         annotation == Callable
         or annotation == callable  # pylint: disable=comparison-with-callable
         or str(annotation).startswith("typing.Callable")
+        or str(annotation).startswith("collections.abc.Callable")
     ),
 )
 class _CallableParam(AnnotatedParam):
@@ -134,6 +173,9 @@ class _CallableParam(AnnotatedParam):
         or annotation == Optional[callable]
         or str(annotation).startswith("typing.Union[typing.Callable")  # 3.8-
         or str(annotation).startswith("typing.Optional[typing.Callable")  # 3.9+
+        or str(annotation).startswith(
+            "typing.Optional[collections.abc.Callable]"
+        )  # 3.9+
     ),
 )
 class _OptionalCallableParam(AnnotatedParam):
@@ -145,11 +187,27 @@ class _DataFrameParamBase(AnnotatedParam):
         super().__init__(param)
         assert_or_throw(self.required, lambda: TypeError(f"{self} must be required"))
 
+    @property
+    def is_per_row(self) -> bool:
+        return False
+
     def to_input_data(self, df: DataFrame, ctx: Any) -> Any:  # pragma: no cover
         raise NotImplementedError
 
+    def to_input_rows(
+        self,
+        df: DataFrame,
+        ctx: Any,
+    ) -> Iterable[Any]:
+        raise NotImplementedError  # pragma: no cover
+
     def to_output_df(
         self, df: Any, schema: Any, ctx: Any
+    ) -> DataFrame:  # pragma: no cover
+        raise NotImplementedError
+
+    def iterable_to_output_df(
+        self, dfs: Iterable[Any], schema: Any, ctx: Any
     ) -> DataFrame:  # pragma: no cover
         raise NotImplementedError
 
@@ -182,6 +240,36 @@ class DataFrameParam(_DataFrameParamBase):
             return sum(1 for _ in df.as_array_iterable())
 
 
+@fugue_annotated_param(DataFrame, "r", child_can_reuse_code=True)
+class RowParam(_DataFrameParamBase):  # pragma: no cover
+    # TODO: this class is used only if row annotations are allowed as input
+    @property
+    def is_per_row(self) -> bool:
+        return True
+
+    def count(self, df: Any) -> int:
+        return 1
+
+
+@fugue_annotated_param(Dict[str, Any])
+class DictParam(RowParam):  # pragma: no cover
+    # TODO: this class is used only if row annotations are allowed as input
+    def to_input_rows(self, df: DataFrame, ctx: Any) -> Iterable[Any]:
+        yield from df.as_dict_iterable()
+
+    def to_output_df(self, output: Dict[str, Any], schema: Any, ctx: Any) -> DataFrame:
+        return ArrayDataFrame([list(output.values())], schema)
+
+    def iterable_to_output_df(
+        self, dfs: Iterable[Dict[str, Any]], schema: Any, ctx: Any
+    ) -> DataFrame:  # pragma: no cover
+        params: Dict[str, Any] = {}
+        if schema is not None:
+            params["schema"] = Schema(schema).pa_schema
+        adf = pa.Table.from_pylist(list(dfs), **params)
+        return ArrowDataFrame(adf)
+
+
 @fugue_annotated_param(AnyDataFrame)
 class _AnyDataFrameParam(DataFrameParam):
     def to_output_df(self, output: AnyDataFrame, schema: Any, ctx: Any) -> DataFrame:
@@ -206,6 +294,15 @@ class LocalDataFrameParam(DataFrameParam):
             lambda: f"Output schema mismatch {output.schema} vs {schema}",
         )
         return output
+
+    def iterable_to_output_df(
+        self, dfs: Iterable[Any], schema: Any, ctx: Any
+    ) -> DataFrame:  # pragma: no cover
+        def _dfs() -> Iterable[DataFrame]:
+            for df in dfs:
+                yield self.to_output_df(df, schema, ctx)
+
+        return LocalDataFrameIterableDataFrame(_dfs(), schema=schema)
 
     def count(self, df: LocalDataFrame) -> int:
         if df.is_bounded:

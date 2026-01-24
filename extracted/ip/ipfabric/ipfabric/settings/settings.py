@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Optional, Union
 
-from httpx import HTTPStatusError
+from niquests import HTTPError
 from pydantic import BaseModel, ConfigDict, Field
 
 from .api_tokens import APIToken
@@ -38,7 +38,7 @@ class Settings(BaseModel):
         if getattr(self, attr) is None:
             try:
                 setattr(self, attr, obj(client=self.client))
-            except HTTPStatusError:
+            except HTTPError:
                 setattr(self, attr, False)
         if getattr(self, attr) is not False:
             return getattr(self, attr)
@@ -79,7 +79,7 @@ class Settings(BaseModel):
                     ),
                     **settings,
                 )
-            except HTTPStatusError:
+            except HTTPError:
                 self._discovery = False
         if self._discovery is not False:
             return self._discovery

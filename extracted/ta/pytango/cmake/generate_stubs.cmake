@@ -34,7 +34,7 @@ if(WIN32)
     install(CODE "
         execute_process(
             COMMAND ${CMAKE_COMMAND} -E env \"PYTHONPATH=\${PYTANGO_SOURCE_DIR}${PATH_SEPARATOR}\${ISOLATED_PYTHONPATH}\"
-            python cmake\\\\generate_stubs.py tango --ignore-all-errors
+            cmake\\\\gen_stubs.bat
             RESULT_VARIABLE TRY_TO_INSTALL_STUBS
         )
     ")
@@ -42,7 +42,7 @@ else()
     install(CODE "
         execute_process(
             COMMAND ${CMAKE_COMMAND} -E env \"PYTHONPATH=\${PYTANGO_SOURCE_DIR}${PATH_SEPARATOR}\${ISOLATED_PYTHONPATH}\"
-            pybind11-stubgen tango --ignore-all-errors
+            cmake/gen_stubs.sh tango --ignore-all-errors --enum-class-locations=DevState|AttrWriteType|LevelLevel|ErrSeverity:tango
             RESULT_VARIABLE TRY_TO_INSTALL_STUBS
         )
     ")
@@ -50,16 +50,23 @@ endif()
 
 # Copy generated .pyi stubs
 install(CODE "
-    if(\${TRY_TO_INSTALL_STUBS} EQUAL 0)
-        file(
-            COPY \"\${CMAKE_CURRENT_SOURCE_DIR}/stubs/tango/_tango.pyi\"
-            DESTINATION \"\${CMAKE_CURRENT_SOURCE_DIR}/tango\"
-        )
-        message(STATUS \"File copied: \${CMAKE_CURRENT_SOURCE_DIR}/stubs/tango/_tango.pyi\")
-    else()
-        message(WARNING \"Stub files generation failed. They will not be installed.\")
-    endif()
+  if(\${TRY_TO_INSTALL_STUBS} EQUAL 0)
+    configure_file(
+        \"\${CMAKE_CURRENT_SOURCE_DIR}/stubs/tango/__init__.pyi\"
+        \"\${CMAKE_CURRENT_SOURCE_DIR}/tango/__init__.pyi\"
+        COPYONLY
+    )
+    configure_file(
+        \"\${CMAKE_CURRENT_SOURCE_DIR}/stubs/tango/_tango/__init__.pyi\"
+        \"\${CMAKE_CURRENT_SOURCE_DIR}/tango/_tango.pyi\"
+        COPYONLY
+    )
+    message(STATUS \"Stub files installed into \${CMAKE_CURRENT_SOURCE_DIR}/tango/\")
+  else()
+    message(WARNING \"Stub generation failed; skipping copy of .pyi files.\")
+  endif()
 ")
+
 
 # Clean _tango extension from source dir and remove stubs folder
 install(CODE "

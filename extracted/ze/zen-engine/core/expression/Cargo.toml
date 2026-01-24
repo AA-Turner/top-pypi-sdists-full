@@ -3,7 +3,7 @@ authors = ["GoRules Team <bot@gorules.io>"]
 description = "Zen Expression Language"
 name = "zen-expression"
 license = "MIT"
-version = "0.51.0"
+version = "0.53.0"
 edition = "2021"
 repository = "https://github.com/gorules/zen.git"
 
@@ -16,7 +16,6 @@ chrono-tz = "0.10"
 humantime = { workspace = true }
 fastrand = { workspace = true }
 once_cell = { workspace = true }
-recursive = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
 regex-lite = { workspace = true, optional = true }
 serde = { workspace = true, features = ["rc", "derive"] }
@@ -26,23 +25,25 @@ strum_macros = { workspace = true }
 thiserror = { workspace = true }
 rust_decimal = { workspace = true, features = ["maths-nopanic"] }
 rust_decimal_macros = { workspace = true }
-nohash-hasher = "0.2.0"
+nohash-hasher = { workspace = true }
 strsim = "0.11"
 iana-time-zone = "0.1"
 
-zen-macros = { path = "../macros", version = "0.51.0" }
-zen-types = { path = "../types", version = "0.51.0" }
+zen-macros = { path = "../macros", version = "0.53.0" }
+zen-types = { path = "../types", version = "0.53.0" }
 
 [dev-dependencies]
 criterion = { workspace = true }
 csv = "1"
 serde_json5 = "0.2"
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+recursive = { workspace = true }
+
 [features]
-default = ["regex-deprecated", "stack-protection"]
+default = ["regex-deprecated"]
 regex-lite = ["dep:regex-lite"]
 regex-deprecated = ["dep:regex"]
-stack-protection = ["dep:recursive"]
 
 [[bench]]
 harness = false

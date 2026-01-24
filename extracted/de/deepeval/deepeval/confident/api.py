@@ -27,6 +27,10 @@ retryable_exceptions = requests.exceptions.SSLError
 
 
 def get_base_api_url():
+    s = get_settings()
+    if s.CONFIDENT_BASE_URL:
+        base_url = s.CONFIDENT_BASE_URL.rstrip("/")
+        return base_url
     region = KEY_FILE_HANDLER.fetch_data(KeyValues.CONFIDENT_REGION)
     if region == "EU":
         return API_BASE_URL_EU
@@ -87,9 +91,12 @@ class Endpoints(Enum):
     DATASET_ALIAS_QUEUE_ENDPOINT = "/v1/datasets/:alias/queue"
 
     TEST_RUN_ENDPOINT = "/v1/test-run"
+    EXPERIMENT_ENDPOINT = "/v1/experiment"
+    METRIC_DATA_ENDPOINT = "/v1/metric-data"
     TRACES_ENDPOINT = "/v1/traces"
     ANNOTATIONS_ENDPOINT = "/v1/annotations"
     PROMPTS_VERSION_ID_ENDPOINT = "/v1/prompts/:alias/versions/:versionId"
+    PROMPTS_LABEL_ENDPOINT = "/v1/prompts/:alias/labels/:label"
     PROMPTS_ENDPOINT = "/v1/prompts"
     PROMPTS_VERSIONS_ENDPOINT = "/v1/prompts/:alias/versions"
     SIMULATE_ENDPOINT = "/v1/simulate"
@@ -98,6 +105,8 @@ class Endpoints(Enum):
     EVALUATE_THREAD_ENDPOINT = "/v1/evaluate/threads/:threadId"
     EVALUATE_TRACE_ENDPOINT = "/v1/evaluate/traces/:traceUuid"
     EVALUATE_SPAN_ENDPOINT = "/v1/evaluate/spans/:spanUuid"
+
+    METRICS_ENDPOINT = "/v1/metrics"
 
 
 class Api:
@@ -113,7 +122,7 @@ class Api:
         self.api_key = api_key
         self._headers = {
             "Content-Type": "application/json",
-            "CONFIDENT_API_KEY": api_key,
+            "CONFIDENT-API-KEY": api_key,
             "X-DeepEval-Version": deepeval.__version__,
         }
         self.base_api_url = get_base_api_url()

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 import uuid
 
 from . import iot_base
+from .events.types import RelayerConnectedEvent, RelayerDisconnectedEvent
 from .utils import Registry
 
 if TYPE_CHECKING:
@@ -71,7 +72,7 @@ class CloudIoT(iot_base.BaseIoT):
     @property
     def ws_server_url(self) -> str:
         """Server to connect to."""
-        return f"wss://{self.cloud.relayer_server}/websocket"
+        return self.cloud.service_discovery.action_url("relayer_connect")
 
     async def start(self) -> None:
         """Start the CloudIoT server."""
@@ -159,11 +160,15 @@ class CloudIoT(iot_base.BaseIoT):
     async def _connected(self) -> None:
         """Handle connected."""
         await super()._connected()
+        await self.cloud.events.publish(event=RelayerConnectedEvent())
         await self.cloud.client.cloud_connected()
 
     async def _disconnected(self) -> None:
         """Handle connected."""
         await super()._disconnected()
+        await self.cloud.events.publish(
+            event=RelayerDisconnectedEvent(reason=self.last_disconnect_reason)
+        )
         await self.cloud.client.cloud_disconnected()
 
 

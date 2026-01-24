@@ -16,14 +16,14 @@ HTRACE_NOOP_JAR_URL=f"{ARTIFACTS_REPO}/raw/f1a506a5cfffd9cd9cbd48307ffce20992dc6
 @dataclasses.dataclass
 class FixStrategy:
 	@abstractmethod
-	def apply(self,file_path):0
+	def apply(self,file_path:str):0
 @dataclasses.dataclass
 class FixStrategyDelete(FixStrategy):
-	def apply(A,file_path):_delete_file(file_path)
+	def apply(A,file_path:str):_delete_file(file_path)
 class ZipEntryRenamer(ABC):
-	def __call__(A,source_entry):0
+	def __call__(A,source_entry:str)->str|_A:0
 class DefaultZipEntryRenamer(ZipEntryRenamer):
-	def __call__(B,source_entry):
+	def __call__(B,source_entry:str)->str|_A:
 		A=source_entry
 		if A.startswith('META-INF/services/'):return A
 		if A.startswith('META-INF/'):return
@@ -32,7 +32,7 @@ class DefaultZipEntryRenamer(ZipEntryRenamer):
 @dataclasses.dataclass
 class FixStrategyPatchJAR(FixStrategy):
 	patch_libs:list[str]|_A=_A;zip_entry_renamer:ZipEntryRenamer|_A=_A
-	def apply(C,file_path):
+	def apply(C,file_path:str):
 		D=C.zip_entry_renamer or DefaultZipEntryRenamer()
 		for A in C.patch_libs or[]:
 			if'://'in A:
@@ -43,14 +43,14 @@ class FixStrategyPatchJAR(FixStrategy):
 @dataclasses.dataclass
 class FixStrategyDownloadFile(FixStrategy):
 	file_url:str;target_path:str
-	def apply(A,file_path):
+	def apply(A,file_path:str):
 		if not os.path.exists(A.target_path):LOG.warning('Target path for CVE patch %s does not exist: %s',A.file_url,A.target_path);return
 		B=os.path.join(config.dirs.var_libs,_B,os.path.basename(A.file_url))
 		if not os.path.exists(B):download(A.file_url,B)
 		cp_r(B,A.target_path)
 @dataclasses.dataclass
 class CVEFix:paths:list[str];strategy:FixStrategy|list[FixStrategy]
-def fix_cves_in_jar_files(target,fixes):
+def fix_cves_in_jar_files(target:InstallTarget,fixes:list[CVEFix]):
 	if BIGDATA_SKIP_CVE_FIXES:return
 	for B in fixes:
 		D=ensure_list(B.strategy)
@@ -59,20 +59,20 @@ def fix_cves_in_jar_files(target,fixes):
 			for C in D:
 				if'.war:'in A:E,A=A.split(':');fix_cve_in_war_jar_file(C,E,A)
 				else:fix_cve_in_jar_file(C,A)
-def fix_cve_in_war_jar_file(strategy,war_file,jar_file):
+def fix_cve_in_war_jar_file(strategy:FixStrategy,war_file:str,jar_file:str):
 	C=jar_file;B=strategy;A=war_file
 	if not os.path.exists(A):return
 	if isinstance(B,FixStrategyDelete):B.apply(A);return
 	with tempfile.TemporaryFile(suffix='.jar')as D:_extract_file_from_zip(A,C,D);B.apply(C);_add_file_to_zip(A,C,D)
-def fix_cve_in_jar_file(strategy,jar_file):
+def fix_cve_in_jar_file(strategy:FixStrategy,jar_file:str):
 	B=strategy;A=jar_file
 	if not os.path.exists(A):return
 	LOG.debug('Applying CVE fix strategy %s on JAR file %s',B.__class__.__name__,A);B.apply(A)
-def download_latest_jar_version(maven_ref,target_file=_A):
-	A=target_file;E,B,C=maven_ref.split(':');D=f"{MAVEN_REPO_URL}/{E.replace('.','/')}/{B}/{C}/{B}-{C}.jar";A=A or os.path.join(config.dirs.var_libs,_B,os.path.basename(D))
+def download_latest_jar_version(maven_ref:str,target_file:str|_A=_A)->str:
+	A=target_file;E,B,C=maven_ref.split(':');D=f"{MAVEN_REPO_URL}/{E.replace(".","/")}/{B}/{C}/{B}-{C}.jar";A=A or os.path.join(config.dirs.var_libs,_B,os.path.basename(D))
 	if not os.path.exists(A):download(D,A)
 	return A
-def copy_entries_into_zip_file(source_zip_file,target_zip_file,file_renamer=_A):
+def copy_entries_into_zip_file(source_zip_file:str,target_zip_file:str,file_renamer:Callable[[str],str|_A]=_A):
 	E=file_renamer;D=target_zip_file;C=source_zip_file
 	with ZipFile(C,'r')as F,ZipFile(D,'a')as G:
 		for A in F.namelist():
@@ -81,13 +81,13 @@ def copy_entries_into_zip_file(source_zip_file,target_zip_file,file_renamer=_A):
 			H=F.read(A)
 			if config.is_trace_logging_enabled():LOG.debug('Adding entry {entry} ({len_entry_bytes} bytes) from {source_zip_file} to {target_zip_file} (as {target_entry}), target exists: {target_exists}',extra={'entry':A,'len_entry_bytes':len(H),'source_zip_file':C,'target_zip_file':D,'target_entry':B,'target_exists':B in G.namelist()})
 			G.writestr(B,data=H)
-def _delete_file(file_path,create_backup=False):
+def _delete_file(file_path:str,create_backup:bool=False):
 	A=file_path
 	if create_backup:os.rename(A,f"{A}.bk")
 	elif os.path.exists(A):rm_rf(A)
 	else:LOG.info('CVE fix: Unable to find file to be deleted: %s',A)
-def _extract_file_from_zip(zip_file,zip_entry,target_file):
+def _extract_file_from_zip(zip_file:str,zip_entry:str,target_file:str):
 	A=target_file
 	with ZipFile(zip_file,'r')as B:B.extract(zip_entry,path=A);return A
-def _add_file_to_zip(zip_file,zip_entry,file_path):
+def _add_file_to_zip(zip_file:str,zip_entry:str,file_path:str):
 	with ZipFile(zip_file,'a')as A:A.writestr(zip_entry,data=load_file(file_path,mode='rb'))

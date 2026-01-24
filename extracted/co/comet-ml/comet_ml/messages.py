@@ -839,6 +839,8 @@ class RegisterModelMessage(BaseMessage):
         upload_status_observer_callback: Optional[Callable],
         on_model_register: Optional[Callable],
         on_failed_model_register: Optional[Callable],
+        metadata: Optional[Dict[str, Any]] = None,
+        status_configuration: Optional[Dict[str, Any]] = None,
         message_id: Optional[int] = None,
     ) -> None:
         super().__init__(message_id)
@@ -856,6 +858,8 @@ class RegisterModelMessage(BaseMessage):
         self.upload_status_observer_callback = upload_status_observer_callback
         self.on_model_register = on_model_register
         self.on_failed_model_register = on_failed_model_register
+        self.metadata = metadata
+        self.status_configuration = status_configuration
 
     def get_message_callbacks(self) -> RegisterModelMessageCallbacks:
         return RegisterModelMessageCallbacks(
@@ -901,6 +905,8 @@ class RegisterModelMessage(BaseMessage):
             status=message_dict["status"],
             stages=message_dict["stages"],
             message_id=message_dict.get("message_id", None),
+            metadata=message_dict.get("metadata", None),
+            status_configuration=message_dict.get("status_configuration", None),
             upload_status_observer_callback=None,
             on_model_register=None,
             on_failed_model_register=None,

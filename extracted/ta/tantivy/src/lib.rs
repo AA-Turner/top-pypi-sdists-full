@@ -8,6 +8,7 @@ mod facet;
 mod index;
 mod parser_error;
 mod query;
+mod query_grammar;
 mod schema;
 mod schemabuilder;
 mod searcher;
@@ -17,8 +18,9 @@ mod tokenizer;
 use document::{extract_value, extract_value_for_type, Document};
 use explanation::Explanation;
 use facet::Facet;
-use index::Index;
+use index::{Index, IndexWriter};
 use query::{Occur, Query};
+use query_grammar::{parse_query, parse_query_lenient};
 use schema::{FieldType, Schema};
 use schemabuilder::SchemaBuilder;
 use searcher::{DocAddress, Order, SearchResult, Searcher};
@@ -84,6 +86,7 @@ fn tantivy(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<SearchResult>()?;
     m.add_class::<Document>()?;
     m.add_class::<Index>()?;
+    m.add_class::<IndexWriter>()?;
     m.add_class::<DocAddress>()?;
     m.add_class::<Facet>()?;
     m.add_class::<Query>()?;
@@ -96,6 +99,9 @@ fn tantivy(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<TextAnalyzerBuilder>()?;
     m.add_class::<Filter>()?;
     m.add_class::<TextAnalyzer>()?;
+
+    m.add_function(wrap_pyfunction!(parse_query, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_query_lenient, m)?)?;
 
     m.add_wrapped(wrap_pymodule!(query_parser_error))?;
 

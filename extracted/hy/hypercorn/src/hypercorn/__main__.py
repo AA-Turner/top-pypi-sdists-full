@@ -4,7 +4,6 @@ import argparse
 import ssl
 import sys
 import warnings
-from typing import List, Optional
 
 from .config import Config
 from .run import run
@@ -12,7 +11,7 @@ from .run import run
 sentinel = object()
 
 
-def _load_config(config_path: Optional[str]) -> Config:
+def _load_config(config_path: str | None) -> Config:
     if config_path is None:
         return Config()
     elif config_path.startswith("python:"):
@@ -23,7 +22,7 @@ def _load_config(config_path: Optional[str]) -> Config:
         return Config.from_toml(config_path)
 
 
-def main(sys_args: Optional[List[str]] = None) -> int:
+def main(sys_args: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "application", help="The application to dispatch to as path.to.module:instance.path"
@@ -61,6 +60,13 @@ def main(sys_args: Optional[List[str]] = None) -> int:
         "--config",
         help="Location of a TOML config file, or when prefixed with `file:` a Python file, or when prefixed with `python:` a Python module.",  # noqa: E501
         default=None,
+    )
+    parser.add_argument(
+        "-D",
+        "--daemon",
+        help="Run the workers as daemons",
+        action="store_true",
+        default=sentinel,
     )
     parser.add_argument(
         "--debug",
@@ -241,6 +247,8 @@ def main(sys_args: Optional[List[str]] = None) -> int:
         config.cert_reqs = args.cert_reqs
     if args.ciphers is not sentinel:
         config.ciphers = args.ciphers
+    if args.daemon is not sentinel:
+        config.daemon = args.daemon
     if args.debug is not sentinel:
         config.debug = args.debug
     if args.error_log is not sentinel:

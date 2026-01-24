@@ -27,7 +27,7 @@ class GetEndpointResult:
     """
     A collection of values returned by getEndpoint.
     """
-    def __init__(__self__, compartment_id=None, content_moderation_configs=None, dedicated_ai_cluster_id=None, defined_tags=None, description=None, display_name=None, endpoint_id=None, freeform_tags=None, id=None, lifecycle_details=None, model_id=None, state=None, system_tags=None, time_created=None, time_updated=None):
+    def __init__(__self__, compartment_id=None, content_moderation_configs=None, dedicated_ai_cluster_id=None, defined_tags=None, description=None, display_name=None, endpoint_id=None, freeform_tags=None, generative_ai_private_endpoint_id=None, id=None, lifecycle_details=None, model_id=None, state=None, system_tags=None, time_created=None, time_updated=None):
         if compartment_id and not isinstance(compartment_id, str):
             raise TypeError("Expected argument 'compartment_id' to be a str")
         pulumi.set(__self__, "compartment_id", compartment_id)
@@ -52,6 +52,9 @@ class GetEndpointResult:
         if freeform_tags and not isinstance(freeform_tags, dict):
             raise TypeError("Expected argument 'freeform_tags' to be a dict")
         pulumi.set(__self__, "freeform_tags", freeform_tags)
+        if generative_ai_private_endpoint_id and not isinstance(generative_ai_private_endpoint_id, str):
+            raise TypeError("Expected argument 'generative_ai_private_endpoint_id' to be a str")
+        pulumi.set(__self__, "generative_ai_private_endpoint_id", generative_ai_private_endpoint_id)
         if id and not isinstance(id, str):
             raise TypeError("Expected argument 'id' to be a str")
         pulumi.set(__self__, "id", id)
@@ -82,16 +85,25 @@ class GetEndpointResult:
     @_builtins.property
     @pulumi.getter(name="contentModerationConfigs")
     def content_moderation_configs(self) -> Sequence['outputs.GetEndpointContentModerationConfigResult']:
+        """
+        The configuration details, whether to add the content moderation feature to the model. Content moderation removes toxic and biased content from responses.
+        """
         return pulumi.get(self, "content_moderation_configs")
 
     @_builtins.property
     @pulumi.getter(name="dedicatedAiClusterId")
     def dedicated_ai_cluster_id(self) -> _builtins.str:
+        """
+        The OCID of the dedicated AI cluster on which the model will be deployed to.
+        """
         return pulumi.get(self, "dedicated_ai_cluster_id")
 
     @_builtins.property
     @pulumi.getter(name="definedTags")
     def defined_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Defined tags for this resource. Each key is predefined and scoped to a namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Operations.CostCenter": "42"}`
+        """
         return pulumi.get(self, "defined_tags")
 
     @_builtins.property
@@ -118,16 +130,30 @@ class GetEndpointResult:
     @_builtins.property
     @pulumi.getter(name="freeformTags")
     def freeform_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
+        """
         return pulumi.get(self, "freeform_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="generativeAiPrivateEndpointId")
+    def generative_ai_private_endpoint_id(self) -> _builtins.str:
+        return pulumi.get(self, "generative_ai_private_endpoint_id")
 
     @_builtins.property
     @pulumi.getter
     def id(self) -> _builtins.str:
+        """
+        An OCID that uniquely identifies this endpoint resource.
+        """
         return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter(name="lifecycleDetails")
     def lifecycle_details(self) -> _builtins.str:
+        """
+        A message describing the current state of the endpoint in more detail that can provide actionable information.
+        """
         return pulumi.get(self, "lifecycle_details")
 
     @_builtins.property
@@ -149,11 +175,17 @@ class GetEndpointResult:
     @_builtins.property
     @pulumi.getter(name="systemTags")
     def system_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        System tags for this resource. Each key is predefined and scoped to a namespace.  Example: `{"orcl-cloud.free-tier-retained": "true"}`
+        """
         return pulumi.get(self, "system_tags")
 
     @_builtins.property
     @pulumi.getter(name="timeCreated")
     def time_created(self) -> _builtins.str:
+        """
+        The date and time that the endpoint was created in the format of an RFC3339 datetime string.
+        """
         return pulumi.get(self, "time_created")
 
     @_builtins.property
@@ -179,6 +211,7 @@ class AwaitableGetEndpointResult(GetEndpointResult):
             display_name=self.display_name,
             endpoint_id=self.endpoint_id,
             freeform_tags=self.freeform_tags,
+            generative_ai_private_endpoint_id=self.generative_ai_private_endpoint_id,
             id=self.id,
             lifecycle_details=self.lifecycle_details,
             model_id=self.model_id,
@@ -221,6 +254,7 @@ def get_endpoint(endpoint_id: Optional[_builtins.str] = None,
         display_name=pulumi.get(__ret__, 'display_name'),
         endpoint_id=pulumi.get(__ret__, 'endpoint_id'),
         freeform_tags=pulumi.get(__ret__, 'freeform_tags'),
+        generative_ai_private_endpoint_id=pulumi.get(__ret__, 'generative_ai_private_endpoint_id'),
         id=pulumi.get(__ret__, 'id'),
         lifecycle_details=pulumi.get(__ret__, 'lifecycle_details'),
         model_id=pulumi.get(__ret__, 'model_id'),
@@ -260,6 +294,7 @@ def get_endpoint_output(endpoint_id: Optional[pulumi.Input[_builtins.str]] = Non
         display_name=pulumi.get(__response__, 'display_name'),
         endpoint_id=pulumi.get(__response__, 'endpoint_id'),
         freeform_tags=pulumi.get(__response__, 'freeform_tags'),
+        generative_ai_private_endpoint_id=pulumi.get(__response__, 'generative_ai_private_endpoint_id'),
         id=pulumi.get(__response__, 'id'),
         lifecycle_details=pulumi.get(__response__, 'lifecycle_details'),
         model_id=pulumi.get(__response__, 'model_id'),

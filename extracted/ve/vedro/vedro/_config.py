@@ -1,4 +1,5 @@
 from asyncio import CancelledError
+from pathlib import Path
 from typing import Sequence, Type
 
 import vedro.core as core
@@ -25,7 +26,6 @@ import vedro.plugins.tip_adviser as tip_adviser
 from vedro.config import computed
 from vedro.core import (
     Dispatcher,
-    Factory,
     ModuleFileLoader,
     ModuleLoader,
     MonotonicScenarioRunner,
@@ -40,8 +40,9 @@ from vedro.core import (
     ScenarioOrderer,
     ScenarioRunner,
     ScenarioScheduler,
-    Singleton,
 )
+from vedro.core.di import Factory, FrozenSingleton, Singleton
+from vedro.core.exc_info import TracebackFilter, TracebackFilterType
 from vedro.core.scenario_collector import (
     ClassBasedScenarioProvider,
     MultiProviderScenarioCollector,
@@ -84,23 +85,42 @@ class Config(core.Config):
         such as the scenario finder, loader, scheduler, and runner.
         """
 
-        Dispatcher = Singleton[Dispatcher](Dispatcher)
+        # FrozenSingleton is used for Dispatcher to prevent runtime modifications.
+        # While plugins can normally replace component implementations during events,
+        # the Dispatcher itself must be created before any events can be fired
+        # (including ConfigLoadedEvent, which is the first opportunity for plugins
+        # to register replacements). This creates a circular dependency: the framework needs
+        # a Dispatcher to fire events that would allow replacing the Dispatcher.
+        # Therefore, if you need to use a custom Dispatcher implementation,
+        # you must override it statically in your vedro.cfg.py configuration file.
+        Dispatcher = FrozenSingleton[Dispatcher](Dispatcher)
 
         ModuleLoader = Factory[ModuleLoader](ModuleFileLoader)
 
         ScenarioFinder = Factory[ScenarioFinder](lambda: ScenarioFileFinder(
-            file_filter=AnyFilter([HiddenFilter(), DunderFilter(), ExtFilter(only=["py"])]),
-            dir_filter=AnyFilter([HiddenFilter(), DunderFilter()])
+            # TODO: add filter for py files with a single leading underscore
+            # (LeadingUnderscoreFilter)
+            file_filter=AnyFilter([
+                HiddenFilter(),
+                DunderFilter(),
+                ExtFilter(only=["py"]),
+            ]),
+            dir_filter=AnyFilter([
+                HiddenFilter(),
+                DunderFilter(),
+            ])
         ))
 
         ScenarioLoader = Factory[ScenarioLoader](lambda: ScenarioFileLoader(
             module_loader=Config.Registry.ModuleLoader(),
         ))
 
-        ScenarioCollector = Singleton[ScenarioCollector](lambda: MultiProviderScenarioCollector(
-            providers=[ClassBasedScenarioProvider()],
-            module_loader_factory=Config.Registry.ModuleLoader,
-        ))
+        ScenarioCollector = Singleton[ScenarioCollector](
+            lambda: MultiProviderScenarioCollector(
+                providers=[ClassBasedScenarioProvider()],
+                module_loader_factory=Config.Registry.ModuleLoader,
+            )
+        )
 
         ScenarioOrderer = Factory[ScenarioOrderer](StableScenarioOrderer)
 
@@ -120,6 +140,12 @@ class Config(core.Config):
             interrupt_exceptions=(KeyboardInterrupt, SystemExit, CancelledError),
         ))
 
+        # `TracebackFilter` is used to filter out unnecessary traceback entries
+        # from the output, making it cleaner and more focused on relevant information.
+        # If the --vedro-debug flag is set, the filter will be disabled (replaced with
+        # a filter that does nothing, showing the full traceback)
+        TracebackFilter = Factory[TracebackFilterType](TracebackFilter)
+
     class Plugins(core.Config.Plugins):
         """
         Configuration for enabling and disabling plugins.
@@ -133,6 +159,10 @@ class Config(core.Config):
             default_reporters = ["rich"]
 
         class RichReporter(director.RichReporter):
+            enabled = True
+            tb_suppress_modules = ("effects/",)
+
+        class JsonReporter(director.JsonReporter):
             enabled = True
 
         class SilentReporter(director.SilentReporter):
@@ -183,6 +213,7 @@ class Config(core.Config):
 
         class AssertRewriter(assert_rewriter.AssertRewriter):
             enabled = True
+            assert_rewrite_paths = (Path("effects/"),)
 
         class DryRunner(dry_runner.DryRunner):
             enabled = True

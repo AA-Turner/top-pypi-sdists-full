@@ -8,19 +8,29 @@
 #ifndef GrVkPipelineStateBuilder_DEFINED
 #define GrVkPipelineStateBuilder_DEFINED
 
-#include "include/gpu/vk/GrVkTypes.h"
-#include "src/gpu/ganesh/GrPipeline.h"
+#include "include/core/SkString.h"
+#include "include/private/gpu/vk/SkiaVulkan.h"
 #include "src/gpu/ganesh/glsl/GrGLSLProgramBuilder.h"
-#include "src/gpu/ganesh/vk/GrVkPipelineState.h"
+#include "src/gpu/ganesh/glsl/GrGLSLShaderBuilder.h"
 #include "src/gpu/ganesh/vk/GrVkUniformHandler.h"
 #include "src/gpu/ganesh/vk/GrVkVaryingHandler.h"
-#include "src/sksl/SkSLCompiler.h"
 #include "src/sksl/ir/SkSLProgram.h"
 
+#include <string>
+
+class GrCaps;
+class GrGLSLUniformHandler;
+class GrGLSLVaryingHandler;
 class GrProgramDesc;
+class GrProgramInfo;
+class GrShaderVar;
 class GrVkGpu;
-class GrVkRenderPass;
+class GrVkPipelineState;
 class SkReadBuffer;
+namespace SkSL {
+struct NativeShader;
+struct ProgramSettings;
+}  // namespace SkSL
 
 class GrVkPipelineStateBuilder : public GrGLSLProgramBuilder {
 public:
@@ -40,8 +50,6 @@ public:
 
     GrVkGpu* gpu() const { return fGpu; }
 
-    SkSL::Compiler* shaderCompiler() const override;
-
     void finalizeFragmentSecondaryColor(GrShaderVar& outputColor) override;
 
 private:
@@ -54,23 +62,23 @@ private:
     int loadShadersFromCache(SkReadBuffer* cached, VkShaderModule outShaderModules[],
                              VkPipelineShaderStageCreateInfo* outStageInfo);
 
-    void storeShadersInCache(const std::string shaders[], const SkSL::Program::Inputs inputs[],
-                             bool isSkSL);
+    void storeShadersInCache(const SkSL::NativeShader binaryShaders[],
+                             const SkSL::Program::Interface[]);
 
     bool createVkShaderModule(VkShaderStageFlagBits stage,
                               const std::string& sksl,
                               VkShaderModule* shaderModule,
                               VkPipelineShaderStageCreateInfo* stageInfo,
                               const SkSL::ProgramSettings& settings,
-                              std::string* outSPIRV,
-                              SkSL::Program::Inputs* outInputs);
+                              SkSL::NativeShader* outSPIRV,
+                              SkSL::Program::Interface* outInterface);
 
     bool installVkShaderModule(VkShaderStageFlagBits stage,
                                const GrGLSLShaderBuilder& builder,
                                VkShaderModule* shaderModule,
                                VkPipelineShaderStageCreateInfo* stageInfo,
-                               std::string spirv,
-                               SkSL::Program::Inputs inputs);
+                               const SkSL::NativeShader& spirv,
+                               SkSL::Program::Interface);
 
     GrGLSLUniformHandler* uniformHandler() override { return &fUniformHandler; }
     const GrGLSLUniformHandler* uniformHandler() const override { return &fUniformHandler; }

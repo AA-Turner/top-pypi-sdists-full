@@ -9,50 +9,52 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Literal, Union
 
 from pydantic import Field
 
-from githubkit.compat import PYDANTIC_V2, GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
+from githubkit.compat import GitHubModel, model_rebuild
+
+from .group_0089 import DependabotAlertPackage
 
 
-class CustomPropertySetPayload(GitHubModel):
-    """Custom Property Set Payload
+class DependabotAlertSecurityVulnerability(GitHubModel):
+    """DependabotAlertSecurityVulnerability
 
-    Custom property set payload
+    Details pertaining to one vulnerable version range for the advisory.
     """
 
-    value_type: Literal["string", "single_select", "multi_select", "true_false"] = (
-        Field(description="The type of the value for the property")
+    package: DependabotAlertPackage = Field(
+        description="Details for the vulnerable package."
     )
-    required: Missing[bool] = Field(
-        default=UNSET, description="Whether the property is required."
+    severity: Literal["low", "medium", "high", "critical"] = Field(
+        description="The severity of the vulnerability."
     )
-    default_value: Missing[Union[str, list[str], None]] = Field(
-        default=UNSET, description="Default value of the property"
+    vulnerable_version_range: str = Field(
+        description="Conditions that identify vulnerable versions of this vulnerability's package."
     )
-    description: Missing[Union[str, None]] = Field(
-        default=UNSET, description="Short description of the property"
-    )
-    allowed_values: Missing[
-        Union[
-            Annotated[
-                list[Annotated[str, Field(max_length=75)]],
-                Field(max_length=200 if PYDANTIC_V2 else None),
-            ],
-            None,
-        ]
+    first_patched_version: Union[
+        DependabotAlertSecurityVulnerabilityPropFirstPatchedVersion, None
     ] = Field(
-        default=UNSET,
-        description="An ordered list of the allowed values of the property.\nThe property can have up to 200 allowed values.",
+        description="Details pertaining to the package version that patches this vulnerability."
     )
-    values_editable_by: Missing[
-        Union[None, Literal["org_actors", "org_and_repo_actors"]]
-    ] = Field(default=UNSET, description="Who can edit the values of the property")
 
 
-model_rebuild(CustomPropertySetPayload)
+class DependabotAlertSecurityVulnerabilityPropFirstPatchedVersion(GitHubModel):
+    """DependabotAlertSecurityVulnerabilityPropFirstPatchedVersion
 
-__all__ = ("CustomPropertySetPayload",)
+    Details pertaining to the package version that patches this vulnerability.
+    """
+
+    identifier: str = Field(
+        description="The package version that patches this vulnerability."
+    )
+
+
+model_rebuild(DependabotAlertSecurityVulnerability)
+model_rebuild(DependabotAlertSecurityVulnerabilityPropFirstPatchedVersion)
+
+__all__ = (
+    "DependabotAlertSecurityVulnerability",
+    "DependabotAlertSecurityVulnerabilityPropFirstPatchedVersion",
+)

@@ -3,7 +3,7 @@ Type annotations for cognito-identity service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_identity/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -27,12 +28,6 @@ from .literals import (
     RoleMappingTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -112,7 +107,7 @@ class DeleteIdentitiesInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -159,7 +154,7 @@ class GetPrincipalTagAttributeMapInputTypeDef(TypedDict):
 
 class IdentityDescriptionTypeDef(TypedDict):
     IdentityId: NotRequired[str]
-    Logins: NotRequired[List[str]]
+    Logins: NotRequired[list[str]]
     CreationDate: NotRequired[datetime]
     LastModifiedDate: NotRequired[datetime]
 
@@ -278,12 +273,12 @@ class GetPrincipalTagAttributeMapResponseTypeDef(TypedDict):
     IdentityPoolId: str
     IdentityProviderName: str
     UseDefaults: bool
-    PrincipalTags: Dict[str, str]
+    PrincipalTags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class IdentityDescriptionResponseTypeDef(TypedDict):
     IdentityId: str
-    Logins: List[str]
+    Logins: list[str]
     CreationDate: datetime
     LastModifiedDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -293,21 +288,21 @@ class IdentityPoolTypeDef(TypedDict):
     IdentityPoolName: str
     AllowUnauthenticatedIdentities: bool
     AllowClassicFlow: bool
-    SupportedLoginProviders: Dict[str, str]
+    SupportedLoginProviders: dict[str, str]
     DeveloperProviderName: str
-    OpenIdConnectProviderARNs: List[str]
-    CognitoIdentityProviders: List[CognitoIdentityProviderTypeDef]
-    SamlProviderARNs: List[str]
-    IdentityPoolTags: Dict[str, str]
+    OpenIdConnectProviderARNs: list[str]
+    CognitoIdentityProviders: list[CognitoIdentityProviderTypeDef]
+    SamlProviderARNs: list[str]
+    IdentityPoolTags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class LookupDeveloperIdentityResponseTypeDef(TypedDict):
     IdentityId: str
-    DeveloperUserIdentifierList: List[str]
+    DeveloperUserIdentifierList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -319,21 +314,21 @@ class SetPrincipalTagAttributeMapResponseTypeDef(TypedDict):
     IdentityPoolId: str
     IdentityProviderName: str
     UseDefaults: bool
-    PrincipalTags: Dict[str, str]
+    PrincipalTags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteIdentitiesResponseTypeDef(TypedDict):
-    UnprocessedIdentityIds: List[UnprocessedIdentityIdTypeDef]
+    UnprocessedIdentityIds: list[UnprocessedIdentityIdTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListIdentitiesResponseTypeDef(TypedDict):
     IdentityPoolId: str
-    Identities: List[IdentityDescriptionTypeDef]
+    Identities: list[IdentityDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListIdentityPoolsResponseTypeDef(TypedDict):
-    IdentityPools: List[IdentityPoolShortDescriptionTypeDef]
+    IdentityPools: list[IdentityPoolShortDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -341,7 +336,7 @@ class ListIdentityPoolsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class RulesConfigurationTypeOutputTypeDef(TypedDict):
-    Rules: List[MappingRuleTypeDef]
+    Rules: list[MappingRuleTypeDef]
 
 class RulesConfigurationTypeTypeDef(TypedDict):
     Rules: Sequence[MappingRuleTypeDef]
@@ -360,8 +355,8 @@ RulesConfigurationTypeUnionTypeDef = Union[
 
 class GetIdentityPoolRolesResponseTypeDef(TypedDict):
     IdentityPoolId: str
-    Roles: Dict[str, str]
-    RoleMappings: Dict[str, RoleMappingOutputTypeDef]
+    Roles: dict[str, str]
+    RoleMappings: dict[str, RoleMappingOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 RoleMappingTypeDef = TypedDict(

@@ -3,7 +3,7 @@ Type annotations for notifications service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_notifications/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -102,12 +103,6 @@ from .type_defs import (
     UpdateNotificationConfigurationResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -116,14 +111,14 @@ else:
 __all__ = ("UserNotificationsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class UserNotificationsClient(BaseClient):
     """
@@ -160,7 +155,7 @@ class UserNotificationsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_notifications/client/#generate_presigned_url)
         """
 
-    def associate_channel(self, **kwargs: Unpack[AssociateChannelRequestTypeDef]) -> Dict[str, Any]:
+    def associate_channel(self, **kwargs: Unpack[AssociateChannelRequestTypeDef]) -> dict[str, Any]:
         """
         Associates a delivery <a
         href="https://docs.aws.amazon.com/notifications/latest/userguide/managing-delivery-channels.html">Channel</a>
@@ -172,7 +167,7 @@ class UserNotificationsClient(BaseClient):
 
     def associate_managed_notification_account_contact(
         self, **kwargs: Unpack[AssociateManagedNotificationAccountContactRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an Account Contact with a particular
         <code>ManagedNotificationConfiguration</code>.
@@ -183,7 +178,7 @@ class UserNotificationsClient(BaseClient):
 
     def associate_managed_notification_additional_channel(
         self, **kwargs: Unpack[AssociateManagedNotificationAdditionalChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an additional Channel with a particular
         <code>ManagedNotificationConfiguration</code>.
@@ -194,7 +189,7 @@ class UserNotificationsClient(BaseClient):
 
     def associate_organizational_unit(
         self, **kwargs: Unpack[AssociateOrganizationalUnitRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an organizational unit with a notification configuration.
 
@@ -225,7 +220,7 @@ class UserNotificationsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_notifications/client/#create_notification_configuration)
         """
 
-    def delete_event_rule(self, **kwargs: Unpack[DeleteEventRuleRequestTypeDef]) -> Dict[str, Any]:
+    def delete_event_rule(self, **kwargs: Unpack[DeleteEventRuleRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an <code>EventRule</code>.
 
@@ -235,7 +230,7 @@ class UserNotificationsClient(BaseClient):
 
     def delete_notification_configuration(
         self, **kwargs: Unpack[DeleteNotificationConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <code>NotificationConfiguration</code>.
 
@@ -253,7 +248,7 @@ class UserNotificationsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_notifications/client/#deregister_notification_hub)
         """
 
-    def disable_notifications_access_for_organization(self) -> Dict[str, Any]:
+    def disable_notifications_access_for_organization(self) -> dict[str, Any]:
         """
         Disables service trust between User Notifications and Amazon Web Services
         Organizations.
@@ -264,7 +259,7 @@ class UserNotificationsClient(BaseClient):
 
     def disassociate_channel(
         self, **kwargs: Unpack[DisassociateChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a Channel from a specified <code>NotificationConfiguration</code>.
 
@@ -274,7 +269,7 @@ class UserNotificationsClient(BaseClient):
 
     def disassociate_managed_notification_account_contact(
         self, **kwargs: Unpack[DisassociateManagedNotificationAccountContactRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates an Account Contact with a particular
         <code>ManagedNotificationConfiguration</code>.
@@ -285,7 +280,7 @@ class UserNotificationsClient(BaseClient):
 
     def disassociate_managed_notification_additional_channel(
         self, **kwargs: Unpack[DisassociateManagedNotificationAdditionalChannelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates an additional Channel from a particular
         <code>ManagedNotificationConfiguration</code>.
@@ -296,7 +291,7 @@ class UserNotificationsClient(BaseClient):
 
     def disassociate_organizational_unit(
         self, **kwargs: Unpack[DisassociateOrganizationalUnitRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the association between an organizational unit and a notification
         configuration.
@@ -305,7 +300,7 @@ class UserNotificationsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_notifications/client/#disassociate_organizational_unit)
         """
 
-    def enable_notifications_access_for_organization(self) -> Dict[str, Any]:
+    def enable_notifications_access_for_organization(self) -> dict[str, Any]:
         """
         Enables service trust between User Notifications and Amazon Web Services
         Organizations.
@@ -526,7 +521,7 @@ class UserNotificationsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_notifications/client/#register_notification_hub)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags the resource with a tag key and value.
 
@@ -534,7 +529,7 @@ class UserNotificationsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_notifications/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Untags a resource with a specified Amazon Resource Name (ARN).
 

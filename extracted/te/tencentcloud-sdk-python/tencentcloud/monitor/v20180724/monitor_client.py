@@ -282,7 +282,7 @@ class MonitorClient(AbstractClient):
 
 
     def CreateGrafanaInstance(self, request):
-        r"""本接口（CreateGrafanaInstance）用于创建 Grafana 包年包月实例，默认基础版、到期自动续费、不可使用代金券。
+        r"""本接口（CreateGrafanaInstance）用于创建 Grafana 包年包月实例，默认基础版、到期自动续费。
 
         :param request: Request instance for CreateGrafanaInstance.
         :type request: :class:`tencentcloud.monitor.v20180724.models.CreateGrafanaInstanceRequest`
@@ -2433,6 +2433,29 @@ class MonitorClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribePrometheusScrapeStatistics(self, request):
+        r"""获取实例采集速率信息
+
+        :param request: Request instance for DescribePrometheusScrapeStatistics.
+        :type request: :class:`tencentcloud.monitor.v20180724.models.DescribePrometheusScrapeStatisticsRequest`
+        :rtype: :class:`tencentcloud.monitor.v20180724.models.DescribePrometheusScrapeStatisticsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribePrometheusScrapeStatistics", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribePrometheusScrapeStatisticsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribePrometheusTargetsTMP(self, request):
         r"""获取targets信息，在过滤条件中指定job名称时返回targets详情，否则仅返回数量
 
@@ -2562,6 +2585,29 @@ class MonitorClient(AbstractClient):
             body = self.call("DescribeRemoteURLs", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeRemoteURLsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeRemoteWrites(self, request):
+        r"""查询安装的 Agent 列表
+
+        :param request: Request instance for DescribeRemoteWrites.
+        :type request: :class:`tencentcloud.monitor.v20180724.models.DescribeRemoteWritesRequest`
+        :rtype: :class:`tencentcloud.monitor.v20180724.models.DescribeRemoteWritesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeRemoteWrites", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeRemoteWritesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2762,8 +2808,6 @@ class MonitorClient(AbstractClient):
         传入产品的命名空间、对象维度描述和监控指标即可获得相应的监控数据。
         接口调用限制：单请求最多可支持批量拉取10个实例的监控数据，单请求的数据点数限制为1440个。
         若您需要调用的指标、对象较多，可能存在因限频出现拉取失败的情况，建议尽量将请求按时间维度均摊。
-        参数SpecifyStatistics目前可支持返回三种统计方式（avg，max，min），分别为二进制1，2，4。
-        例子：3:avg+max，5:avg+min，6:max+min，7:avg+max+min
         拉取数据的粒度和统计方式的对应关系尽量在接入平台进行配置，如果没有配置对应统计方式，请提工单反馈。
 
         >?

@@ -1,34 +1,42 @@
 use std::cmp::max;
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use axum::extract::State;
-use axum::{debug_handler, Json};
+use axum::{Extension, Json, debug_handler};
 use human_feedback::write_static_evaluation_human_feedback_if_necessary;
 use metrics::counter;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
+use tensorzero_derive::TensorZeroDeserialize;
 use tokio::{time::Instant, try_join};
+use tokio_util::task::TaskTracker;
 use tracing::instrument;
 use uuid::Uuid;
 
+use crate::config::snapshot::SnapshotHash;
 use crate::config::{Config, MetricConfigLevel, MetricConfigType};
 use crate::db::clickhouse::{ClickHouseConnectionInfo, TableName};
 use crate::error::{Error, ErrorDetails};
 use crate::function::FunctionConfig;
-use crate::gateway_util::{AppState, AppStateData, StructuredJson};
 use crate::inference::types::{
-    parse_chat_output, ContentBlockChatOutput, ContentBlockOutput, FunctionType, Text,
+    ContentBlockChatOutput, ContentBlockOutput, FunctionType, Text, parse_chat_output,
 };
-use crate::jsonschema_util::StaticJSONSchema;
-use crate::serde_util::deserialize_optional_json_string;
-use crate::tool::{ToolCall, ToolCallConfig, ToolCallConfigDatabaseInsert};
-use crate::uuid_util::uuid_elapsed;
+use crate::jsonschema_util::JSONSchema;
+use crate::tool::{
+    StaticToolConfig, ToolCall, ToolCallConfig, ToolCallConfigDatabaseInsert,
+    deserialize_optional_tool_info,
+};
+use crate::utils::gateway::{AppState, AppStateData, StructuredJson};
+use crate::utils::uuid::uuid_elapsed;
+use tensorzero_auth::middleware::RequestApiKeyExtension;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 use super::validate_tags;
+
 pub mod human_feedback;
+pub mod internal;
 
 /// There is a potential issue here where if we write an inference and then immediately write feedback for it,
 /// we might not be able to find the inference in the database because it hasn't been written yet.
@@ -46,7 +54,7 @@ const FEEDBACK_MINIMUM_WAIT_TIME: Duration = Duration::from_millis(1000);
 const FEEDBACK_TARGET_POLL_INTERVAL: Duration = Duration::from_millis(2000);
 
 /// The expected payload is a JSON object with the following fields:
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Params {
     // the episode ID client is providing feedback for (either this or `inference_id` must be set but not both)
@@ -93,9 +101,10 @@ pub struct FeedbackResponse {
 #[debug_handler(state = AppStateData)]
 pub async fn feedback_handler(
     State(app_state): AppState,
+    api_key_ext: Option<Extension<RequestApiKeyExtension>>,
     StructuredJson(params): StructuredJson<Params>,
 ) -> Result<Json<FeedbackResponse>, Error> {
-    Ok(Json(feedback(app_state, params).await?))
+    Ok(Json(feedback(app_state, params, api_key_ext).await?))
 }
 
 // Helper function to avoid requiring axum types in the client
@@ -112,9 +121,11 @@ pub async fn feedback(
     AppStateData {
         config,
         clickhouse_connection_info,
+        deferred_tasks,
         ..
     }: AppStateData,
-    params: Params,
+    mut params: Params,
+    api_key_ext: Option<Extension<RequestApiKeyExtension>>,
 ) -> Result<FeedbackResponse, Error> {
     let span = tracing::Span::current();
     if let Some(inference_id) = params.inference_id {
@@ -123,11 +134,25 @@ pub async fn feedback(
     if let Some(episode_id) = params.episode_id {
         span.record("episode_id", episode_id.to_string());
     }
+
+    // Automatically add internal tag when internal=true
+    if params.internal {
+        params
+            .tags
+            .insert("tensorzero::internal".to_string(), "true".to_string());
+    }
+
     for (tag_key, tag_value) in &params.tags {
         span.set_attribute(format!("tags.{tag_key}"), tag_value.clone());
     }
     validate_tags(&params.tags, params.internal)?;
     validate_feedback_specific_tags(&params.tags)?;
+    if let Some(api_key_ext) = api_key_ext {
+        params.tags.insert(
+            "tensorzero::api_key_public_id".to_string(),
+            api_key_ext.0.api_key.get_public_id().into(),
+        );
+    }
     // Get the metric config or return an error if it doesn't exist
     let feedback_metadata = get_feedback_metadata(
         &config,
@@ -143,7 +168,7 @@ pub async fn feedback(
     // Increment the request count if we're not in dryrun mode
     if !dryrun {
         counter!(
-            "request_count",
+            "tensorzero_requests_total",
             "endpoint" => "feedback",
             "metric_name" => params.metric_name.to_string()
         )
@@ -154,18 +179,21 @@ pub async fn feedback(
         FeedbackType::Comment => {
             write_comment(
                 clickhouse_connection_info,
+                &deferred_tasks,
                 &params,
                 feedback_metadata.target_id,
                 feedback_metadata.level,
                 feedback_id,
                 dryrun,
                 config.gateway.unstable_disable_feedback_target_validation,
+                config.hash.clone(),
             )
             .await?;
         }
         FeedbackType::Demonstration => {
             write_demonstration(
                 clickhouse_connection_info,
+                &deferred_tasks,
                 &config,
                 &params,
                 feedback_metadata.target_id,
@@ -177,6 +205,7 @@ pub async fn feedback(
         FeedbackType::Float => {
             write_float(
                 clickhouse_connection_info,
+                &deferred_tasks,
                 &config,
                 params,
                 feedback_metadata.target_id,
@@ -189,6 +218,7 @@ pub async fn feedback(
         FeedbackType::Boolean => {
             write_boolean(
                 clickhouse_connection_info,
+                &deferred_tasks,
                 &config,
                 params,
                 feedback_metadata.target_id,
@@ -264,14 +294,17 @@ fn get_feedback_metadata<'a>(
     })
 }
 
+#[expect(clippy::too_many_arguments)]
 async fn write_comment(
     connection_info: ClickHouseConnectionInfo,
+    deferred_tasks: &TaskTracker,
     params: &Params,
     target_id: Uuid,
     level: &MetricConfigLevel,
     feedback_id: Uuid,
     dryrun: bool,
     disable_validation: bool,
+    snapshot_hash: SnapshotHash,
 ) -> Result<(), Error> {
     let Params { value, tags, .. } = params;
     // Verify that the function name exists.
@@ -286,10 +319,11 @@ async fn write_comment(
         "target_id": target_id,
         "value": value,
         "id": feedback_id,
-        "tags": tags
+        "tags": tags,
+        "snapshot_hash": snapshot_hash,
     });
     if !dryrun {
-        tokio::spawn(async move {
+        deferred_tasks.spawn(async move {
             let _ = connection_info
                 .write_batched(&[payload], TableName::CommentFeedback)
                 .await;
@@ -300,6 +334,7 @@ async fn write_comment(
 
 async fn write_demonstration(
     connection_info: ClickHouseConnectionInfo,
+    deferred_tasks: &TaskTracker,
     config: &Config,
     params: &Params,
     inference_id: Uuid,
@@ -319,6 +354,7 @@ async fn write_demonstration(
         inference_id,
         &function_info.name,
         &function_config,
+        &config.tools,
     )
     .await?;
     let parsed_value =
@@ -328,9 +364,9 @@ async fn write_demonstration(
             message: format!("Failed to serialize parsed value to json: {e}"),
         })
     })?;
-    let payload = json!({"inference_id": inference_id, "value": string_value, "id": feedback_id, "tags": tags});
+    let payload = json!({"inference_id": inference_id, "value": string_value, "id": feedback_id, "tags": tags, "snapshot_hash": config.hash});
     if !dryrun {
-        tokio::spawn(async move {
+        deferred_tasks.spawn(async move {
             let _ = connection_info
                 .write_batched(&[payload], TableName::DemonstrationFeedback)
                 .await;
@@ -339,8 +375,10 @@ async fn write_demonstration(
     Ok(())
 }
 
+#[expect(clippy::too_many_arguments)]
 async fn write_float(
     connection_info: ClickHouseConnectionInfo,
+    deferred_tasks: &TaskTracker,
     config: &Config,
     params: Params,
     target_id: Uuid,
@@ -367,9 +405,9 @@ async fn write_float(
             message: format!("Feedback value for metric `{metric_name}` must be a number"),
         })
     })?;
-    let payload = json!({"target_id": target_id, "value": value, "metric_name": metric_name, "id": feedback_id, "tags": tags});
+    let payload = json!({"target_id": target_id, "value": value, "metric_name": metric_name, "id": feedback_id, "tags": tags, "snapshot_hash": config.hash});
     if !dryrun {
-        tokio::spawn(async move {
+        deferred_tasks.spawn(async move {
             let payload = payload;
             let payload_array = [payload];
             let clickhouse = connection_info;
@@ -390,8 +428,10 @@ async fn write_float(
     Ok(())
 }
 
+#[expect(clippy::too_many_arguments)]
 async fn write_boolean(
     connection_info: ClickHouseConnectionInfo,
+    deferred_tasks: &TaskTracker,
     config: &Config,
     params: Params,
     target_id: Uuid,
@@ -417,9 +457,9 @@ async fn write_boolean(
             message: format!("Feedback value for metric `{metric_name}` must be a boolean"),
         })
     })?;
-    let payload = json!({"target_id": target_id, "value": value, "metric_name": metric_name, "id": feedback_id, "tags": tags});
+    let payload = json!({"target_id": target_id, "value": value, "metric_name": metric_name, "id": feedback_id, "tags": tags, "snapshot_hash": config.hash});
     if !dryrun {
-        tokio::spawn(async move {
+        deferred_tasks.spawn(async move {
             let payload_array = [payload];
             let clickhouse = connection_info;
             let _ = try_join!(
@@ -452,9 +492,20 @@ async fn throttled_get_function_info(
     target_id: &Uuid,
 ) -> Result<FunctionInfo, Error> {
     // Compute how long ago the target_id was created.
-    // Some UUIDs are in the future, e.g. for dynamic evaluation runs.
-    // In this case we should be conservative and assume no time has passed.
-    let elapsed = uuid_elapsed(target_id).unwrap_or(Duration::from_secs(0));
+    let elapsed = match uuid_elapsed(target_id) {
+        Ok(elapsed) => elapsed,
+        Err(e) => {
+            // Some UUIDs are in the future, e.g. for dynamic evaluation runs.
+            // In this case we should be conservative and assume no time has passed.
+            if matches!(e.get_details(), ErrorDetails::UuidInFuture { .. }) {
+                // We don't log anything, since this is an expected case.
+                e.suppress_logging_of_error_message();
+                Duration::from_secs(0)
+            } else {
+                return Err(e.log());
+            }
+        }
+    };
 
     // Calculate the remaining cooldown (which may be zero) and ensure we wait at least FEEDBACK_MINIMUM_WAIT_TIME.
     let wait_time = max(
@@ -465,14 +516,20 @@ async fn throttled_get_function_info(
 
     // Poll every 500ms until the deadline is reached.
     loop {
-        match get_function_info(connection_info, metric_config_level, target_id).await {
-            Ok(identifier) => return Ok(identifier),
-            Err(err) => {
+        // If an error occurs during lookup (distinct from the target_id not existing), we bail out immediately.
+        match get_function_info(connection_info, metric_config_level, target_id).await? {
+            Some(identifier) => return Ok(identifier),
+            None => {
                 if Instant::now() >= deadline {
+                    let identifier_type = match metric_config_level {
+                        MetricConfigLevel::Inference => "Inference",
+                        MetricConfigLevel::Episode => "Episode",
+                    };
                     // We log here since this means we were not able to find the target_id in the database
                     // and are timing out.
-                    err.log();
-                    return Err(err);
+                    return Err(Error::new(ErrorDetails::InvalidRequest {
+                        message: format!("{identifier_type} ID: {target_id} does not exist"),
+                    }));
                 } else {
                     tracing::info!(
                         "Failed to find function name for target_id: {target_id}. Retrying..."
@@ -496,18 +553,14 @@ async fn throttled_get_function_info(
 ///
 /// * On success:
 ///   - Returns a `FunctionInfo` containing the function name and type.
+///   - Returns `None` if the `target_id` does not exist.
 /// * On failure:
-///   - Returns an `Error` if the `target_id` is invalid or does not exist.
+///   - Returns an `Error` if the `target_id` exists, but is invalid
 async fn get_function_info(
     connection_info: &ClickHouseConnectionInfo,
     metric_config_level: &MetricConfigLevel,
     target_id: &Uuid,
-) -> Result<FunctionInfo, Error> {
-    let identifier_type = match metric_config_level {
-        MetricConfigLevel::Inference => "Inference",
-        MetricConfigLevel::Episode => "Episode",
-    };
-
+) -> Result<Option<FunctionInfo>, Error> {
     let query = match metric_config_level {
         MetricConfigLevel::Inference => format!(
             "SELECT function_name as name, function_type, variant_name, episode_id
@@ -530,16 +583,15 @@ async fn get_function_info(
         .run_query_synchronous_no_params(query)
         .await?;
     if response.response.is_empty() {
-        // We don't want to log here since this can happen if we send feedback immediately after the target is created.
-        return Err(Error::new_without_logging(ErrorDetails::InvalidRequest {
-            message: format!("{identifier_type} ID: {target_id} does not exist"),
-        }));
+        return Ok(None);
     };
-    serde_json::from_str(&response.response).map_err(|e| {
-        Error::new(ErrorDetails::ClickHouseDeserialization {
-            message: e.to_string(),
-        })
-    })
+    Ok(Some(serde_json::from_str(&response.response).map_err(
+        |e| {
+            Error::new(ErrorDetails::ClickHouseDeserialization {
+                message: e.to_string(),
+            })
+        },
+    )?))
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -554,6 +606,8 @@ struct FunctionInfo {
 struct DemonstrationToolCall {
     name: String,
     arguments: Value,
+    /// Demonstration tool calls require an ID to match up with tool call responses. See #4058.
+    id: String,
 }
 
 impl TryFrom<DemonstrationToolCall> for ToolCall {
@@ -566,13 +620,14 @@ impl TryFrom<DemonstrationToolCall> for ToolCall {
                     message: format!("Failed to serialize demonstration tool call arguments: {e}"),
                 })
             })?,
-            id: String::new(),
+            id: value.id,
         })
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Debug, PartialEq, TensorZeroDeserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 enum DemonstrationContentBlock {
     Text(Text),
     ToolCall(DemonstrationToolCall),
@@ -639,7 +694,7 @@ pub async fn validate_parse_demonstration(
                 .into_iter()
                 .map(DemonstrationContentBlock::try_into)
                 .collect::<Result<Vec<ContentBlockOutput>, Error>>()?;
-            let parsed_value = parse_chat_output(content_blocks, Some(&tool_call_config)).await;
+            let parsed_value = parse_chat_output(content_blocks, tool_call_config.as_ref(), None).await;
             for block in &parsed_value {
                 if let ContentBlockChatOutput::ToolCall(tool_call) = block {
                     if tool_call.name.is_none() {
@@ -661,8 +716,9 @@ pub async fn validate_parse_demonstration(
         }
         (FunctionConfig::Json(_), DynamicDemonstrationInfo::Json(output_schema)) => {
             // For json functions, the value should be a valid json object.
-            StaticJSONSchema::from_value(output_schema)?
+            JSONSchema::from_value(output_schema)?
                 .validate(value)
+                .await
                 .map_err(|e| {
                     Error::new(ErrorDetails::InvalidRequest {
                         message: format!(
@@ -685,13 +741,13 @@ pub async fn validate_parse_demonstration(
 /// Represents the different types of dynamic demonstration information that can be retrieved
 #[derive(Debug)]
 pub enum DynamicDemonstrationInfo {
-    Chat(ToolCallConfig),
+    Chat(Option<ToolCallConfig>),
     Json(Value),
 }
 
 #[derive(Debug, Deserialize)]
 struct ToolParamsResult {
-    #[serde(deserialize_with = "deserialize_optional_json_string")]
+    #[serde(flatten, deserialize_with = "deserialize_optional_tool_info")]
     tool_params: Option<ToolCallConfigDatabaseInsert>,
 }
 
@@ -707,10 +763,11 @@ async fn get_dynamic_demonstration_info(
     inference_id: Uuid,
     function_name: &str,
     function_config: &FunctionConfig,
+    static_tools: &HashMap<String, Arc<StaticToolConfig>>,
 ) -> Result<DynamicDemonstrationInfo, Error> {
     match function_config {
         FunctionConfig::Chat(..) => {
-            let parameterized_query = "SELECT tool_params FROM ChatInference WHERE function_name={function_name:String} and id={inference_id:String} FORMAT JSONEachRow".to_string();
+            let parameterized_query = "SELECT tool_params, dynamic_tools, dynamic_provider_tools, allowed_tools, tool_choice FROM ChatInference WHERE function_name={function_name:String} and id={inference_id:String} FORMAT JSONEachRow".to_string();
             let result = clickhouse_client
                 .run_query_synchronous(
                     parameterized_query,
@@ -733,8 +790,8 @@ async fn get_dynamic_demonstration_info(
                 // This is consistent with how they are serialized at inference time.
                 tool_params_result
                     .tool_params
-                    .map(ToolCallConfigDatabaseInsert::into)
-                    .unwrap_or_default(),
+                    .unwrap_or_default()
+                    .into_tool_call_config(function_config, static_tools)?,
             ))
         }
         FunctionConfig::Json(..) => {
@@ -883,10 +940,13 @@ mod tests {
     use std::sync::Arc;
 
     use crate::config::{Config, MetricConfig, MetricConfigOptimize, SchemaData};
+    use crate::experimentation::ExperimentationConfig;
     use crate::function::{FunctionConfigChat, FunctionConfigJson};
-    use crate::jsonschema_util::StaticJSONSchema;
+    use crate::jsonschema_util::JSONSchema;
     use crate::testing::get_unit_test_gateway_handle;
-    use crate::tool::{StaticToolConfig, ToolCallOutput, ToolChoice, ToolConfig};
+    use crate::tool::{
+        FunctionToolConfig, InferenceResponseToolCall, StaticToolConfig, ToolChoice,
+    };
 
     #[tokio::test]
     async fn test_get_feedback_metadata() {
@@ -898,6 +958,7 @@ mod tests {
                 r#type: MetricConfigType::Float,
                 level: MetricConfigLevel::Inference,
                 optimize: MetricConfigOptimize::Max,
+                description: None,
             },
         );
         let config = Config {
@@ -1014,6 +1075,7 @@ mod tests {
             r#type: MetricConfigType::Boolean,
             level: MetricConfigLevel::Episode,
             optimize: MetricConfigOptimize::Max,
+            description: None,
         };
         let mut metrics = HashMap::new();
         metrics.insert("test_metric".to_string(), metric_config);
@@ -1065,7 +1127,7 @@ mod tests {
         let config = Arc::new(Config {
             ..Default::default()
         });
-        let gateway_handle = get_unit_test_gateway_handle(config, true);
+        let gateway_handle = get_unit_test_gateway_handle(config);
         let timestamp = uuid::Timestamp::from_unix_time(1579751960, 0, 0, 0);
         let episode_id = Uuid::new_v7(timestamp);
         let value = json!("test comment");
@@ -1080,6 +1142,7 @@ mod tests {
         };
         let response = feedback_handler(
             State(gateway_handle.app_state.clone()),
+            None,
             StructuredJson(params),
         )
         .await;
@@ -1098,7 +1161,7 @@ mod tests {
         let config = Arc::new(Config {
             ..Default::default()
         });
-        let gateway_handle = get_unit_test_gateway_handle(config, true);
+        let gateway_handle = get_unit_test_gateway_handle(config);
         let timestamp = uuid::Timestamp::from_unix_time(1579751960, 0, 0, 0);
         let episode_id = Uuid::new_v7(timestamp);
         let value = json!("test demonstration");
@@ -1115,6 +1178,7 @@ mod tests {
         };
         let response = feedback_handler(
             State(gateway_handle.app_state.clone()),
+            None,
             StructuredJson(params),
         )
         .await
@@ -1141,6 +1205,7 @@ mod tests {
         };
         let response = feedback_handler(
             State(gateway_handle.app_state.clone()),
+            None,
             StructuredJson(params),
         )
         .await;
@@ -1163,13 +1228,14 @@ mod tests {
                 r#type: MetricConfigType::Float,
                 level: MetricConfigLevel::Episode,
                 optimize: MetricConfigOptimize::Max,
+                description: None,
             },
         );
         let config = Arc::new(Config {
             metrics,
             ..Default::default()
         });
-        let gateway_handle = get_unit_test_gateway_handle(config.clone(), true);
+        let gateway_handle = get_unit_test_gateway_handle(config);
         let value = json!(4.5);
         let timestamp = uuid::Timestamp::from_unix_time(1579751960, 0, 0, 0);
         let inference_id = Uuid::new_v7(timestamp);
@@ -1187,6 +1253,7 @@ mod tests {
         };
         let response = feedback_handler(
             State(gateway_handle.app_state.clone()),
+            None,
             StructuredJson(params),
         )
         .await
@@ -1211,6 +1278,7 @@ mod tests {
         };
         let response = feedback_handler(
             State(gateway_handle.app_state.clone()),
+            None,
             StructuredJson(params),
         )
         .await;
@@ -1233,13 +1301,14 @@ mod tests {
                 r#type: MetricConfigType::Boolean,
                 level: MetricConfigLevel::Inference,
                 optimize: MetricConfigOptimize::Max,
+                description: None,
             },
         );
         let config = Arc::new(Config {
             metrics,
             ..Default::default()
         });
-        let gateway_handle = get_unit_test_gateway_handle(config.clone(), true);
+        let gateway_handle = get_unit_test_gateway_handle(config.clone());
         let value = json!(true);
         let timestamp = uuid::Timestamp::from_unix_time(1579751960, 0, 0, 0);
         let inference_id = Uuid::new_v7(timestamp);
@@ -1254,6 +1323,7 @@ mod tests {
         };
         let response = feedback_handler(
             State(gateway_handle.app_state.clone()),
+            None,
             StructuredJson(params),
         )
         .await;
@@ -1271,8 +1341,9 @@ mod tests {
     async fn test_validate_parse_demonstration() {
         let weather_tool_config_static = StaticToolConfig {
             name: "get_temperature".to_string(),
+            key: "get_temperature".to_string(),
             description: "Get the current temperature in a given location".to_string(),
-            parameters: StaticJSONSchema::from_value(json!({
+            parameters: JSONSchema::from_value(json!({
                 "type": "object",
                 "properties": {
                     "location": {"type": "string"},
@@ -1296,15 +1367,20 @@ mod tests {
                 parallel_tool_calls: None,
                 description: None,
                 all_explicit_templates_names: HashSet::new(),
+                experimentation: ExperimentationConfig::default(),
             })));
 
         // Case 1: a string passed to a chat function
         let value = json!("Hello, world!");
-        let dynamic_demonstration_info = DynamicDemonstrationInfo::Chat(ToolCallConfig {
-            tools_available: tools.values().cloned().map(ToolConfig::Static).collect(),
-            tool_choice: ToolChoice::Auto,
-            parallel_tool_calls: None,
-        });
+        let dynamic_demonstration_info =
+            DynamicDemonstrationInfo::Chat(Some(ToolCallConfig::with_tools_available(
+                tools
+                    .values()
+                    .cloned()
+                    .map(FunctionToolConfig::Static)
+                    .collect(),
+                vec![],
+            )));
         let parsed_value = serde_json::to_string(
             &validate_parse_demonstration(
                 function_config_chat_tools,
@@ -1322,13 +1398,17 @@ mod tests {
         assert_eq!(expected_parsed_value, parsed_value);
 
         // Case 2: a tool call to get_temperature, which exists
-        let value = json!([{"type": "tool_call", "name": "get_temperature", "arguments": {"location": "London", "unit": "celsius"}}]
+        let value = json!([{"type": "tool_call", "id": "get_temperature_123", "name": "get_temperature", "arguments": {"location": "London", "unit": "celsius"}}]
         );
-        let dynamic_demonstration_info = DynamicDemonstrationInfo::Chat(ToolCallConfig {
-            tools_available: tools.values().cloned().map(ToolConfig::Static).collect(),
-            tool_choice: ToolChoice::Auto,
-            parallel_tool_calls: None,
-        });
+        let dynamic_demonstration_info =
+            DynamicDemonstrationInfo::Chat(Some(ToolCallConfig::with_tools_available(
+                tools
+                    .values()
+                    .cloned()
+                    .map(FunctionToolConfig::Static)
+                    .collect(),
+                vec![],
+            )));
         let parsed_value = serde_json::to_string(
             &validate_parse_demonstration(
                 function_config_chat_tools,
@@ -1339,9 +1419,9 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
-        let expected_parsed_value =
-            serde_json::to_string(&vec![ContentBlockChatOutput::ToolCall(ToolCallOutput {
-                id: String::new(),
+        let expected_parsed_value = serde_json::to_string(&vec![ContentBlockChatOutput::ToolCall(
+            InferenceResponseToolCall {
+                id: "get_temperature_123".to_string(),
                 name: Some("get_temperature".to_string()),
                 raw_name: "get_temperature".to_string(),
                 arguments: Some(json!({"location": "London", "unit": "celsius"})),
@@ -1349,18 +1429,23 @@ mod tests {
                     &json!({"location": "London", "unit": "celsius"}),
                 )
                 .unwrap(),
-            })])
-            .unwrap();
+            },
+        )])
+        .unwrap();
         assert_eq!(expected_parsed_value, parsed_value);
 
         // Case 3: a tool call to get_humidity, which does not exist
-        let value = json!([{"type": "tool_call", "name": "get_humidity", "arguments": {"location": "London", "unit": "celsius"}}]
+        let value = json!([{"type": "tool_call", "id": "get_humidity_123", "name": "get_humidity", "arguments": {"location": "London", "unit": "celsius"}}]
         );
-        let dynamic_demonstration_info = DynamicDemonstrationInfo::Chat(ToolCallConfig {
-            tools_available: tools.values().cloned().map(ToolConfig::Static).collect(),
-            tool_choice: ToolChoice::Auto,
-            parallel_tool_calls: None,
-        });
+        let dynamic_demonstration_info =
+            DynamicDemonstrationInfo::Chat(Some(ToolCallConfig::with_tools_available(
+                tools
+                    .values()
+                    .cloned()
+                    .map(FunctionToolConfig::Static)
+                    .collect(),
+                vec![],
+            )));
         let err = validate_parse_demonstration(
             function_config_chat_tools,
             &value,
@@ -1377,13 +1462,17 @@ mod tests {
         );
 
         // Case 4: a tool call to get_temperature, which exists but has bad arguments (place instead of location)
-        let value = json!([{"type": "tool_call", "name": "get_temperature", "arguments": {"place": "London", "unit": "celsius"}}]
+        let value = json!([{"type": "tool_call", "id": "get_temperature_123", "name": "get_temperature", "arguments": {"place": "London", "unit": "celsius"}}]
         );
-        let dynamic_demonstration_info = DynamicDemonstrationInfo::Chat(ToolCallConfig {
-            tools_available: tools.values().cloned().map(ToolConfig::Static).collect(),
-            tool_choice: ToolChoice::Auto,
-            parallel_tool_calls: None,
-        });
+        let dynamic_demonstration_info =
+            DynamicDemonstrationInfo::Chat(Some(ToolCallConfig::with_tools_available(
+                tools
+                    .values()
+                    .cloned()
+                    .map(FunctionToolConfig::Static)
+                    .collect(),
+                vec![],
+            )));
         let err = validate_parse_demonstration(
             function_config_chat_tools,
             &value,
@@ -1415,14 +1504,15 @@ mod tests {
           "required": ["name", "age"],
           "additionalProperties": false
         });
-        let implicit_tool_call_config = ToolCallConfig::implicit_from_value(&output_schema);
+        let json_mode_tool_call_config = ToolCallConfig::implicit_from_value(&output_schema);
         let function_config = Box::leak(Box::new(FunctionConfig::Json(FunctionConfigJson {
             variants: HashMap::new(),
             schemas: SchemaData::default(),
-            output_schema: StaticJSONSchema::from_value(output_schema.clone()).unwrap(),
-            implicit_tool_call_config,
+            output_schema: JSONSchema::from_value(output_schema.clone()).unwrap(),
+            json_mode_tool_call_config,
             description: None,
-            all_template_names: HashSet::new(),
+            all_explicit_template_names: HashSet::new(),
+            experimentation: ExperimentationConfig::default(),
         })));
 
         // Case 5: a JSON function with correct output
@@ -1449,9 +1539,10 @@ mod tests {
         let err = validate_parse_demonstration(function_config, &value, dynamic_demonstration_info)
             .await
             .unwrap_err();
-        assert!(err
-            .to_string()
-            .contains("Demonstration does not fit function output schema"));
+        assert!(
+            err.to_string()
+                .contains("Demonstration does not fit function output schema")
+        );
 
         // Case 7: Mismatched function type - Chat function with JSON demonstration info
         let value = json!("Hello, world!");
@@ -1476,11 +1567,15 @@ mod tests {
             "name": "John",
             "age": 30
         });
-        let dynamic_demonstration_info = DynamicDemonstrationInfo::Chat(ToolCallConfig {
-            tools_available: tools.values().cloned().map(ToolConfig::Static).collect(),
-            tool_choice: ToolChoice::Auto,
-            parallel_tool_calls: None,
-        });
+        let dynamic_demonstration_info =
+            DynamicDemonstrationInfo::Chat(Some(ToolCallConfig::with_tools_available(
+                tools
+                    .values()
+                    .cloned()
+                    .map(FunctionToolConfig::Static)
+                    .collect(),
+                vec![],
+            )));
         let err = validate_parse_demonstration(function_config, &value, dynamic_demonstration_info)
             .await
             .unwrap_err();

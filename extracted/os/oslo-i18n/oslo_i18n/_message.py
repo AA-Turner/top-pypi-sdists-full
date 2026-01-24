@@ -13,14 +13,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-"""Private Message class for lazy translation support.
-"""
+"""Private Message class for lazy translation support."""
 
 import copy
 import gettext
 import locale
 import logging
 import os
+from typing import Any
 import warnings
 
 from oslo_i18n import _locale
@@ -41,9 +41,23 @@ class Message(str):
     and can be treated as such.
     """
 
-    def __new__(cls, msgid, msgtext=None, params=None,
-                domain='oslo', has_contextual_form=False,
-                has_plural_form=False, *args):
+    # Declare attributes that are set in __new__
+    msgid: str | tuple[str, str] | tuple[str, str, int]
+    domain: str
+    params: Any
+    has_contextual_form: bool
+    has_plural_form: bool
+
+    def __new__(
+        cls,
+        msgid: str | tuple[str, str] | tuple[str, str, int],
+        msgtext: str | None = None,
+        params: Any = None,
+        domain: str = 'oslo',
+        has_contextual_form: bool = False,
+        has_plural_form: bool = False,
+        *args: Any,
+    ) -> 'Message':
         """Create a new Message object.
 
         In order for translation to work gettext requires a message ID, this
@@ -66,7 +80,7 @@ class Message(str):
         msg.has_plural_form = has_plural_form
         return msg
 
-    def translation(self, desired_locale=None):
+    def translation(self, desired_locale: str | None = None) -> str:
         """Translate this message to the desired locale.
 
         :param desired_locale: The desired locale to translate the message to,
@@ -75,11 +89,13 @@ class Message(str):
 
         :returns: the translated message in unicode
         """
-        translated_message = Message._translate_msgid(self.msgid,
-                                                      self.domain,
-                                                      desired_locale,
-                                                      self.has_contextual_form,
-                                                      self.has_plural_form)
+        translated_message = Message._translate_msgid(
+            self.msgid,
+            self.domain,
+            desired_locale,
+            self.has_contextual_form,
+            self.has_plural_form,
+        )
 
         if self.params is None:
             # No need for more translation
@@ -89,14 +105,20 @@ class Message(str):
         # Message objects as substitution arguments, given either as a single
         # argument, part of a tuple, or as one or more values in a dictionary.
         # When translating this Message we need to translate those Messages too
-        translated_params = _translate.translate_args(self.params,
-                                                      desired_locale)
+        translated_params = _translate.translate_args(
+            self.params, desired_locale
+        )
 
         return self._safe_translate(translated_message, translated_params)
 
     @staticmethod
-    def _translate_msgid(msgid, domain, desired_locale=None,
-                         has_contextual_form=False, has_plural_form=False):
+    def _translate_msgid(
+        msgid: str | tuple[str, str] | tuple[str, str, int],
+        domain: str,
+        desired_locale: str | None = None,
+        has_contextual_form: bool = False,
+        has_plural_form: bool = False,
+    ) -> str:
         if not desired_locale:
             system_locale = locale.getlocale(locale.LC_CTYPE)
             # If the system locale is not available to the runtime use English
@@ -108,14 +130,19 @@ class Message(str):
         locale_dir = os.environ.get(
             _locale.get_locale_dir_variable_name(domain)
         )
-        lang = gettext.translation(domain,
-                                   localedir=locale_dir,
-                                   languages=[desired_locale],
-                                   fallback=True)
+        lang = gettext.translation(
+            domain,
+            localedir=locale_dir,
+            languages=[desired_locale],
+            fallback=True,
+        )
 
         if not has_contextual_form and not has_plural_form:
             # This is the most common case, so check it first.
             translator = lang.gettext
+            # narrow type
+            if not isinstance(msgid, str):
+                raise ValueError("Simple msgid must be a string")
             translated_message = translator(msgid)
 
         elif has_contextual_form and has_plural_form:
@@ -124,10 +151,16 @@ class Message(str):
             raise ValueError("Unimplemented.")
 
         elif has_contextual_form:
-            (msgctx, msgtxt) = msgid
+            # narrow type
+            if not isinstance(msgid, tuple) or len(msgid) != 2:
+                raise ValueError(
+                    "contextual msgid must be a tuple of (context, text)"
+                )
+
+            msgctx, msgtxt = msgid
             translator = lang.gettext
 
-            msg_with_ctx = "{}{}{}".format(msgctx, CONTEXT_SEPARATOR, msgtxt)
+            msg_with_ctx = f"{msgctx}{CONTEXT_SEPARATOR}{msgtxt}"
             translated_message = translator(msg_with_ctx)
 
             if CONTEXT_SEPARATOR in translated_message:
@@ -135,19 +168,24 @@ class Message(str):
                 translated_message = msgtxt
 
         elif has_plural_form:
-            (msgsingle, msgplural, msgcount) = msgid
-            translator = lang.ngettext
-            translated_message = translator(msgsingle, msgplural, msgcount)
+            # narrow type
+            if not isinstance(msgid, tuple) or len(msgid) != 3:
+                raise ValueError(
+                    "plural msgid must be a tuple of (singular, plural, count)"
+                )
+
+            msgsingle, msgplural, msgcount = msgid
+            translated_message = lang.ngettext(msgsingle, msgplural, msgcount)
 
         return translated_message
 
-    def _safe_translate(self, translated_message, translated_params):
+    def _safe_translate(
+        self, translated_message: str, translated_params: Any
+    ) -> str:
         """Trap translation errors and fall back to default translation.
 
         :param translated_message: the requested translation
-
         :param translated_params: the params to be inserted
-
         :return: if parameter insertion is successful then it is the
                  translated_message with the translated_params inserted, if the
                  requested translation fails then it is the default translation
@@ -168,8 +206,10 @@ class Message(str):
             # Do not translate this log message even if it is used as a
             # warning message as a wrong translation of this message could
             # cause infinite recursion
-            msg = ('Failed to insert replacement values into translated '
-                   'message %s (Original: %r): %s')
+            msg = (
+                'Failed to insert replacement values into translated '
+                'message %s (Original: %r): %s'
+            )
             warnings.warn(msg % (translated_message, self.msgid, err))
             LOG.debug(msg, translated_message, self.msgid, err)
 
@@ -177,19 +217,18 @@ class Message(str):
 
         return translated_message
 
-    def __mod__(self, other):
+    def __mod__(self, other: Any) -> 'Message':
         # When we mod a Message we want the actual operation to be performed
         # by the base class (i.e. unicode()), the only thing  we do here is
         # save the original msgid and the parameters in case of a translation
         params = self._sanitize_mod_params(other)
         unicode_mod = self._safe_translate(str(self), params)
-        modded = Message(self.msgid,
-                         msgtext=unicode_mod,
-                         params=params,
-                         domain=self.domain)
+        modded = Message(
+            self.msgid, msgtext=unicode_mod, params=params, domain=self.domain
+        )
         return modded
 
-    def _sanitize_mod_params(self, other):
+    def _sanitize_mod_params(self, other: Any) -> Any:
         """Sanitize the object being modded with this Message.
 
         - Add support for modding 'None' so translation supports it
@@ -199,21 +238,24 @@ class Message(str):
         translated, it will be used as it was when the Message was created
         """
         if other is None:
-            params = (other,)
+            params: Any = (other,)
         elif isinstance(other, dict):
             # Merge the dictionaries
             # Copy each item in case one does not support deep copy.
             params = {}
             if isinstance(self.params, dict):
-                params.update((key, self._copy_param(val))
-                              for key, val in self.params.items())
-            params.update((key, self._copy_param(val))
-                          for key, val in other.items())
+                params.update(
+                    (key, self._copy_param(val))
+                    for key, val in self.params.items()
+                )
+            params.update(
+                (key, self._copy_param(val)) for key, val in other.items()
+            )
         else:
             params = self._copy_param(other)
         return params
 
-    def _copy_param(self, param):
+    def _copy_param(self, param: Any) -> Any:
         try:
             return copy.deepcopy(param)
         except Exception:
@@ -221,10 +263,11 @@ class Message(str):
             # python code-like objects that can't be deep-copied
             return str(param)
 
-    def __add__(self, other):
+    def __add__(self, other: Any) -> str:
         from oslo_i18n._i18n import _
+
         msg = _('Message objects do not support addition.')
         raise TypeError(msg)
 
-    def __radd__(self, other):
+    def __radd__(self, other: Any) -> str:
         return self.__add__(other)

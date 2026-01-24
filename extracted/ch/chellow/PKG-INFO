@@ -1,30 +1,30 @@
 Metadata-Version: 2.4
 Name: chellow
-Version: 1757320031.0.0
+Version: 1769184028.0.0
 Summary: Web Application for checking UK energy bills.
 Project-URL: Homepage, https://github.com/WessexWater/chellow
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.11
-Requires-Dist: flask-restx==1.3.0
-Requires-Dist: flask==3.1.1
-Requires-Dist: jsonschema==4.17.3
+Requires-Dist: flask-restx==1.3.2
+Requires-Dist: flask==3.1.2
+Requires-Dist: jsonschema==4.26.0
+Requires-Dist: markdown-it-py==4.0.0
 Requires-Dist: odio==0.0.23
 Requires-Dist: openpyxl==3.1.5
-Requires-Dist: paramiko==3.4.1
-Requires-Dist: pep3143daemon==0.1.0
-Requires-Dist: pg8000==1.31.1
+Requires-Dist: paramiko==4.0.0
+Requires-Dist: pg8000==1.31.5
 Requires-Dist: pip>=9.0.1
-Requires-Dist: psutil==5.9.5
-Requires-Dist: pympler==1.0.1
-Requires-Dist: pypdf==4.3.1
+Requires-Dist: psutil==7.1.1
+Requires-Dist: pympler==1.1
+Requires-Dist: pypdf==6.6.0
 Requires-Dist: python-dateutil==2.8.2
-Requires-Dist: pytz==2022.6
-Requires-Dist: requests==2.32.4
-Requires-Dist: sqlalchemy==2.0.41
-Requires-Dist: waitress==3.0.1
-Requires-Dist: xlrd==2.0.1
+Requires-Dist: pytz==2025.2
+Requires-Dist: requests==2.32.5
+Requires-Dist: sqlalchemy==2.0.45
+Requires-Dist: waitress==3.0.2
+Requires-Dist: xlrd==2.0.2
 Requires-Dist: zish==0.1.12
 Description-Content-Type: text/markdown
 
@@ -47,7 +47,7 @@ Chellow is a web application for checking UK electricity and gas bills. It's des
 for organizations with high electricity consumption. The software is hosted at
 https://github.com/WessexWater/chellow.
 
-[![Build Status](https://github.com/WessexWater/chellow/workflows/chellow/badge.svg)](https://github.com/WessexWater/chellow/workflows/chellow)
+[![Build Status](https://github.com/WessexWater/chellow/actions/workflows/chellow.yml/badge.svg)](https://github.com/WessexWater/chellow/actions/workflows/chellow.yml)
 
 
 ## Installation
@@ -55,8 +55,7 @@ https://github.com/WessexWater/chellow.
 Chellow is a Python web application that uses the PostgreSQL database. To install
 Chellow, follow these steps:
 
-* Install [PostgreSQL](http://www.postgresql.org/) 12
-  * Set the PostgreSQL time zone to 'UTC'.
+* Install [PostgreSQL](http://www.postgresql.org/) 15
 * Create a PostgreSQL database: `createdb --encoding=UTF8 chellow`
 * Set up the following environment variables to configure Chellow:
 
@@ -378,3 +377,7 @@ something like:
 ## Design Decisions
 
 Why don't you use the +/- infinity values for timestamps? The problem is that it's not clear how this would translate into Python. So we currently use null for infinity, which naturally translates into None in Python. 
+
+## Contributing
+
+The web interface uses HTML, CSS and [HTMX](https://htmx.org/).

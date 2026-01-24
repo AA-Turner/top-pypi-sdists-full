@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 import logging
+import sys
 import typing as t
 import uuid
 
-from globus_sdk import (
-    GlobusHTTPResponse,
-    GlobusSDKUsageError,
-    client,
-    exc,
-    paging,
-    utils,
-)
+from globus_sdk import GlobusHTTPResponse, client, paging
+from globus_sdk._internal import guards
+from globus_sdk._internal.remarshal import commajoin
+from globus_sdk._missing import MISSING, MissingType
 from globus_sdk.authorizers import GlobusAuthorizer
 from globus_sdk.globus_app import GlobusApp
-from globus_sdk.scopes import FlowsScopes, Scope, ScopeBuilder, SpecificFlowScopeBuilder
-from globus_sdk.utils import MISSING, MissingType
+from globus_sdk.scopes import (
+    FlowsScopes,
+    GCSCollectionScopes,
+    Scope,
+    SpecificFlowScopes,
+    TransferScopes,
+)
+from globus_sdk.transport import RequestsTransport, RetryConfig
 
 from .data import RunActivityNotificationPolicy
 from .errors import FlowsAPIError
@@ -24,6 +27,11 @@ from .response import (
     IterableRunLogsResponse,
     IterableRunsResponse,
 )
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 log = logging.getLogger(__name__)
 
@@ -40,22 +48,23 @@ class FlowsClient(client.BaseClient):
     error_class = FlowsAPIError
     service_name = "flows"
     scopes = FlowsScopes
-    default_scope_requirements = [Scope(FlowsScopes.all)]
+    default_scope_requirements = [FlowsScopes.all]
 
     def create_flow(
         self,
         title: str,
         definition: dict[str, t.Any],
         input_schema: dict[str, t.Any],
-        subtitle: str | None = None,
-        description: str | None = None,
-        flow_viewers: list[str] | None = None,
-        flow_starters: list[str] | None = None,
-        flow_administrators: list[str] | None = None,
-        run_managers: list[str] | None = None,
-        run_monitors: list[str] | None = None,
-        keywords: list[str] | None = None,
-        subscription_id: uuid.UUID | str | None = None,
+        subtitle: str | MissingType = MISSING,
+        description: str | MissingType = MISSING,
+        flow_viewers: list[str] | MissingType = MISSING,
+        flow_starters: list[str] | MissingType = MISSING,
+        flow_administrators: list[str] | MissingType = MISSING,
+        run_managers: list[str] | MissingType = MISSING,
+        run_monitors: list[str] | MissingType = MISSING,
+        keywords: list[str] | MissingType = MISSING,
+        subscription_id: uuid.UUID | str | None | MissingType = MISSING,
+        authentication_policy_id: uuid.UUID | str | None | MissingType = MISSING,
         additional_fields: dict[str, t.Any] | None = None,
     ) -> GlobusHTTPResponse:
         """
@@ -146,6 +155,8 @@ class FlowsClient(client.BaseClient):
             discovery operations (0 - 1024 items)
         :param subscription_id: The ID of the subscription to associate with the flow,
             marking as a subscription tier flow.
+        :param authentication_policy_id: The ID of the authentication policy to associate
+             with the flow.
         :param additional_fields: Additional Key/Value pairs sent to the create API
 
         .. tab-set::
@@ -186,25 +197,21 @@ class FlowsClient(client.BaseClient):
         """  # noqa E501
 
         data = {
-            k: v
-            for k, v in {
-                "title": title,
-                "definition": definition,
-                "input_schema": input_schema,
-                "subtitle": subtitle,
-                "description": description,
-                "flow_viewers": flow_viewers,
-                "flow_starters": flow_starters,
-                "flow_administrators": flow_administrators,
-                "run_managers": run_managers,
-                "run_monitors": run_monitors,
-                "keywords": keywords,
-                "subscription_id": subscription_id,
-            }.items()
-            if v is not None
+            "title": title,
+            "definition": definition,
+            "input_schema": input_schema,
+            "subtitle": subtitle,
+            "description": description,
+            "flow_viewers": flow_viewers,
+            "flow_starters": flow_starters,
+            "flow_administrators": flow_administrators,
+            "run_managers": run_managers,
+            "run_monitors": run_monitors,
+            "keywords": keywords,
+            "subscription_id": subscription_id,
+            "authentication_policy_id": authentication_policy_id,
+            **(additional_fields or {}),
         }
-        data.update(additional_fields or {})
-
         return self.post("/flows", data=data)
 
     def get_flow(
@@ -227,32 +234,23 @@ class FlowsClient(client.BaseClient):
                     :service: flows
                     :ref: Flows/paths/~1flows~1{flow_id}/get
         """
-
-        if query_params is None:
-            query_params = {}
-
         return self.get(f"/flows/{flow_id}", query_params=query_params)
 
     @paging.has_paginator(paging.MarkerPaginator, items_key="flows")
     def list_flows(
         self,
         *,
-        filter_role: str | None = None,
-        filter_roles: str | t.Iterable[str] | None = None,
-        filter_fulltext: str | None = None,
-        orderby: str | t.Iterable[str] | None = None,
-        marker: str | None = None,
+        filter_roles: str | t.Iterable[str] | MissingType = MISSING,
+        filter_fulltext: str | MissingType = MISSING,
+        orderby: str | t.Iterable[str] | MissingType = MISSING,
+        marker: str | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> IterableFlowsResponse:
         """
         List deployed flows
 
-        :param filter_role: (deprecated) A role name specifying the minimum permissions
-            required for a flow to be included in the response. Mutually exclusive with
-            **filter_roles**.
         :param filter_roles: A list of role names specifying the roles the user must
-            have for a flow to be included in the response. Mutually exclusive with
-            **filter_role**.
+            have for a flow to be included in the response.
         :param filter_fulltext: A string to use in a full-text search to filter results
         :param orderby: A criterion for ordering flows in the listing
         :param marker: A marker for pagination
@@ -272,15 +270,6 @@ class FlowsClient(client.BaseClient):
         - ``flow_owner``
         - ``run_monitor``
         - ``run_manager``
-
-        .. note::
-
-            The deprecated ``filter_role`` parameter has similar behavior.
-
-            ``filter_role`` accepts exactly one role name, and filters to flows
-            where the caller has the specified role or a strictly weaker role.
-            For example, ``filter_role="flow_administrator"`` will include flows
-            where the caller has the ``flow_starter`` role.
 
         **OrderBy Values**
 
@@ -314,7 +303,7 @@ class FlowsClient(client.BaseClient):
 
                     flows = FlowsClient(...)
                     my_frobulate_flows = flows.list_flows(
-                        filter_role="flow_owner",
+                        filter_roles="flow_owner",
                         filter_fulltext="frobulate",
                         orderby=("title ASC", "updated_at DESC"),
                     )
@@ -344,54 +333,37 @@ class FlowsClient(client.BaseClient):
                     :service: flows
                     :ref: Flows/paths/~1flows/get
         """
-
-        if query_params is None:
-            query_params = {}
-        if filter_role is not None:
-            exc.warn_deprecated(
-                "The `filter_role` parameter is deprecated. Use `filter_roles` instead."
-            )
-            query_params["filter_role"] = filter_role
-        if filter_roles is not None:
-            query_params["filter_roles"] = utils.commajoin(filter_roles)
-        if filter_fulltext is not None:
-            query_params["filter_fulltext"] = filter_fulltext
-
-        if filter_role is not None and filter_roles is not None:
-            msg = "Mutually exclusive parameters: filter_role and filter_roles."
-            raise GlobusSDKUsageError(msg)
-
-        if orderby is not None:
-            if isinstance(orderby, str):
-                query_params["orderby"] = orderby
-            else:
-                # copy any input sequence to force the type to `list` which is known to
-                # behave well
-                # this also ensures that we will consume non-sequence iterables
-                # (e.g. generator expressions) in a well-defined way
-                query_params["orderby"] = list(orderby)
-        if marker is not None:
-            query_params["marker"] = marker
-
+        query_params = {
+            "filter_roles": commajoin(filter_roles),
+            "filter_fulltext": filter_fulltext,
+            # if `orderby` is an iterable (e.g., generator expression), it gets
+            # converted to a list in this step
+            "orderby": (
+                orderby if isinstance(orderby, (str, MissingType)) else list(orderby)
+            ),
+            "marker": marker,
+            **(query_params or {}),
+        }
         return IterableFlowsResponse(self.get("/flows", query_params=query_params))
 
     def update_flow(
         self,
         flow_id: uuid.UUID | str,
         *,
-        title: str | None = None,
-        definition: dict[str, t.Any] | None = None,
-        input_schema: dict[str, t.Any] | None = None,
-        subtitle: str | None = None,
-        description: str | None = None,
-        flow_owner: str | None = None,
-        flow_viewers: list[str] | None = None,
-        flow_starters: list[str] | None = None,
-        flow_administrators: list[str] | None = None,
-        run_managers: list[str] | None = None,
-        run_monitors: list[str] | None = None,
-        keywords: list[str] | None = None,
+        title: str | MissingType = MISSING,
+        definition: dict[str, t.Any] | MissingType = MISSING,
+        input_schema: dict[str, t.Any] | MissingType = MISSING,
+        subtitle: str | MissingType = MISSING,
+        description: str | MissingType = MISSING,
+        flow_owner: str | MissingType = MISSING,
+        flow_viewers: list[str] | MissingType = MISSING,
+        flow_starters: list[str] | MissingType = MISSING,
+        flow_administrators: list[str] | MissingType = MISSING,
+        run_managers: list[str] | MissingType = MISSING,
+        run_monitors: list[str] | MissingType = MISSING,
+        keywords: list[str] | MissingType = MISSING,
         subscription_id: uuid.UUID | str | t.Literal["DEFAULT"] | MissingType = MISSING,
+        authentication_policy_id: uuid.UUID | str | MissingType = MISSING,
         additional_fields: dict[str, t.Any] | None = None,
     ) -> GlobusHTTPResponse:
         """
@@ -486,6 +458,7 @@ class FlowsClient(client.BaseClient):
         :param keywords: A set of terms used to categorize the flow used in query and
             discovery operations (0 - 1024 items)
         :param subscription_id: A subscription ID to assign to the flow.
+        :param authentication_policy_id: An authentication policy to assign to the flow.
         :param additional_fields: Additional Key/Value pairs sent to the create API
 
         .. tab-set::
@@ -514,26 +487,22 @@ class FlowsClient(client.BaseClient):
         """  # noqa E501
 
         data = {
-            k: v
-            for k, v in {
-                "title": title,
-                "definition": definition,
-                "input_schema": input_schema,
-                "subtitle": subtitle,
-                "description": description,
-                "flow_owner": flow_owner,
-                "flow_viewers": flow_viewers,
-                "flow_starters": flow_starters,
-                "flow_administrators": flow_administrators,
-                "run_managers": run_managers,
-                "run_monitors": run_monitors,
-                "keywords": keywords,
-                "subscription_id": subscription_id,
-            }.items()
-            if v is not None and v is not MISSING
+            "title": title,
+            "definition": definition,
+            "input_schema": input_schema,
+            "subtitle": subtitle,
+            "description": description,
+            "flow_owner": flow_owner,
+            "flow_viewers": flow_viewers,
+            "flow_starters": flow_starters,
+            "flow_administrators": flow_administrators,
+            "run_managers": run_managers,
+            "run_monitors": run_monitors,
+            "keywords": keywords,
+            "subscription_id": subscription_id,
+            "authentication_policy_id": authentication_policy_id,
+            **(additional_fields or {}),
         }
-        data.update(additional_fields or {})
-
         return self.put(f"/flows/{flow_id}", data=data)
 
     def delete_flow(
@@ -556,10 +525,6 @@ class FlowsClient(client.BaseClient):
                     :service: flows
                     :ref: Flows/paths/~1flows~1{flow_id}/delete
         """
-
-        if query_params is None:
-            query_params = {}
-
         return self.delete(f"/flows/{flow_id}", query_params=query_params)
 
     def validate_flow(
@@ -611,16 +576,21 @@ class FlowsClient(client.BaseClient):
                     :ref: Flows/paths/~1flows~1validate/post
         """  # noqa E501
 
-        data = {"definition": definition, "input_schema": input_schema}
+        data = {
+            "definition": definition,
+            "input_schema": input_schema,
+        }
         return self.post("/flows/validate", data=data)
 
     @paging.has_paginator(paging.MarkerPaginator, items_key="runs")
     def list_runs(
         self,
         *,
-        filter_flow_id: t.Iterable[uuid.UUID | str] | uuid.UUID | str | None = None,
-        filter_roles: str | t.Iterable[str] | None = None,
-        marker: str | None = None,
+        filter_flow_id: (
+            t.Iterable[uuid.UUID | str] | uuid.UUID | str | MissingType
+        ) = MISSING,
+        filter_roles: str | t.Iterable[str] | MissingType = MISSING,
+        marker: str | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> IterableRunsResponse:
         """
@@ -661,16 +631,12 @@ class FlowsClient(client.BaseClient):
                     :service: flows
                     :ref: Runs/paths/~1runs/get
         """
-        if query_params is None:
-            query_params = {}
-        if filter_flow_id is not None:
-            query_params["filter_flow_id"] = ",".join(
-                utils.safe_strseq_iter(filter_flow_id)
-            )
-        if filter_roles:
-            query_params["filter_roles"] = utils.commajoin(filter_roles)
-        if marker is not None:
-            query_params["marker"] = marker
+        query_params = {
+            "filter_flow_id": commajoin(filter_flow_id),
+            "filter_roles": commajoin(filter_roles),
+            "marker": marker,
+            **(query_params or {}),
+        }
         return IterableRunsResponse(self.get("/runs", query_params=query_params))
 
     @paging.has_paginator(paging.MarkerPaginator, items_key="entries")
@@ -678,9 +644,9 @@ class FlowsClient(client.BaseClient):
         self,
         run_id: uuid.UUID | str,
         *,
-        limit: int | None = None,
-        reverse_order: bool | None = None,
-        marker: str | None = None,
+        limit: int | MissingType = MISSING,
+        reverse_order: bool | MissingType = MISSING,
+        marker: str | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> IterableRunLogsResponse:
         """
@@ -719,8 +685,6 @@ class FlowsClient(client.BaseClient):
             "marker": marker,
             **(query_params or {}),
         }
-        # Filter out request keys with None values to allow server defaults
-        query_params = {k: v for k, v in query_params.items() if v is not None}
         return IterableRunLogsResponse(
             self.get(f"/runs/{run_id}/log", query_params=query_params)
         )
@@ -729,7 +693,7 @@ class FlowsClient(client.BaseClient):
         self,
         run_id: uuid.UUID | str,
         *,
-        include_flow_description: bool | None = None,
+        include_flow_description: bool | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> GlobusHTTPResponse:
         """
@@ -763,11 +727,10 @@ class FlowsClient(client.BaseClient):
                     :service: flows
                     :ref: Flows/paths/~1runs~1{run_id}/get
         """
-
-        query_params = query_params or {}
-        if include_flow_description is not None:
-            query_params["include_flow_description"] = include_flow_description
-
+        query_params = {
+            "include_flow_description": include_flow_description,
+            **(query_params or {}),
+        }
         return self.get(f"/runs/{run_id}", query_params=query_params)
 
     def get_run_definition(
@@ -838,10 +801,10 @@ class FlowsClient(client.BaseClient):
         self,
         run_id: uuid.UUID | str,
         *,
-        label: str | None = None,
-        tags: list[str] | None = None,
-        run_monitors: list[str] | None = None,
-        run_managers: list[str] | None = None,
+        label: str | MissingType = MISSING,
+        tags: list[str] | MissingType = MISSING,
+        run_monitors: list[str] | MissingType = MISSING,
+        run_managers: list[str] | MissingType = MISSING,
         additional_fields: dict[str, t.Any] | None = None,
     ) -> GlobusHTTPResponse:
         """
@@ -886,17 +849,12 @@ class FlowsClient(client.BaseClient):
         """
 
         data = {
-            k: v
-            for k, v in {
-                "tags": tags,
-                "label": label,
-                "run_monitors": run_monitors,
-                "run_managers": run_managers,
-            }.items()
-            if v is not None
+            "tags": tags,
+            "label": label,
+            "run_monitors": run_monitors,
+            "run_managers": run_managers,
+            **(additional_fields or {}),
         }
-        data.update(additional_fields or {})
-
         return self.put(f"/runs/{run_id}", data=data)
 
     def delete_run(self, run_id: uuid.UUID | str) -> GlobusHTTPResponse:
@@ -947,7 +905,7 @@ class SpecificFlowClient(client.BaseClient):
 
     error_class = FlowsAPIError
     service_name = "flows"
-    scopes: ScopeBuilder = SpecificFlowScopeBuilder._CLASS_STUB
+    scopes: SpecificFlowScopes = SpecificFlowScopes._build_class_stub()
 
     def __init__(
         self,
@@ -958,34 +916,96 @@ class SpecificFlowClient(client.BaseClient):
         app_scopes: list[Scope] | None = None,
         authorizer: GlobusAuthorizer | None = None,
         app_name: str | None = None,
-        transport_params: dict[str, t.Any] | None = None,
+        transport: RequestsTransport | None = None,
+        retry_config: RetryConfig | None = None,
     ) -> None:
         self._flow_id = flow_id
-        self.scopes = SpecificFlowScopeBuilder(flow_id)
+        self.scopes = SpecificFlowScopes(flow_id)
         super().__init__(
             app=app,
             app_scopes=app_scopes,
             environment=environment,
             authorizer=authorizer,
             app_name=app_name,
-            transport_params=transport_params,
+            transport=transport,
+            retry_config=retry_config,
         )
 
     @property
     def default_scope_requirements(self) -> list[Scope]:
-        return [Scope(self.scopes.user)]
+        return [self.scopes.user]
+
+    def add_app_transfer_data_access_scope(
+        self, collection_ids: uuid.UUID | str | t.Iterable[uuid.UUID | str]
+    ) -> Self:
+        """
+        Add a dependent ``data_access`` scope for one or more given ``collection_ids``
+        to this client's ``GlobusApp``, under the Transfer ``all`` scope.
+        Useful for preventing ``ConsentRequired`` errors when starting or resuming runs
+        of flows that use Globus Connect Server mapped collection(s).
+
+        .. warning::
+
+            This method must only be used on ``collection_ids`` for non-High-Assurance
+            GCS Mapped Collections.
+
+            Use on other collection types, e.g., on GCP Mapped Collections or any form
+            of Guest Collection, will result in "Unknown Scope" errors during the login
+            flow.
+
+        Returns ``self`` for chaining.
+
+        Raises ``GlobusSDKUsageError`` if this client was not initialized with an app.
+
+        :param collection_ids: a collection ID or an iterable of IDs.
+
+        .. tab-set::
+
+            .. tab-item:: Example Usage
+
+                .. code-block:: python
+
+                    flow_id = ...
+                    COLLECTION_ID = ...
+                    app = UserApp("myapp", client_id=NATIVE_APP_CLIENT_ID)
+                    client = SpecificFlowClient(FLOW_ID, app=app).add_app_transfer_data_access_scope(
+                        COLLECTION_ID
+                    )
+
+                    client.run_flow({"collection": COLLECTION_ID})
+        """  # noqa: E501
+        if isinstance(collection_ids, (str, uuid.UUID)):
+            guards.validators.uuidlike("collection_ids", collection_ids)
+            # wrap the collection_ids input in a list for consistent iteration below
+            collection_ids_ = [collection_ids]
+        else:
+            # copy to a list so that ephemeral iterables can be iterated multiple times
+            collection_ids_ = list(collection_ids)
+            for i, c in enumerate(collection_ids_):
+                guards.validators.uuidlike(f"collection_ids[{i}]", c)
+
+        transfer_scope = TransferScopes.all.with_optional(True)
+        for coll_id in collection_ids_:
+            data_access_scope = GCSCollectionScopes(
+                str(coll_id)
+            ).data_access.with_optional(True)
+            transfer_scope = transfer_scope.with_dependency(data_access_scope)
+
+        specific_flow_scope = self.scopes.user.with_dependency(transfer_scope)
+        self.add_app_scope(specific_flow_scope)
+        return self
 
     def run_flow(
         self,
         body: dict[str, t.Any],
         *,
-        label: str | None = None,
-        tags: list[str] | None = None,
+        label: str | MissingType = MISSING,
+        tags: list[str] | MissingType = MISSING,
         activity_notification_policy: (
-            dict[str, t.Any] | RunActivityNotificationPolicy | None
-        ) = None,
-        run_monitors: list[str] | None = None,
-        run_managers: list[str] | None = None,
+            dict[str, t.Any] | RunActivityNotificationPolicy | MissingType
+        ) = MISSING,
+        run_monitors: list[str] | MissingType = MISSING,
+        run_managers: list[str] | MissingType = MISSING,
         additional_fields: dict[str, t.Any] | None = None,
     ) -> GlobusHTTPResponse:
         """
@@ -1014,19 +1034,14 @@ class SpecificFlowClient(client.BaseClient):
                     :ref: ~1flows~1{flow_id}~1run/post
         """
         data = {
-            k: v
-            for k, v in {
-                "body": body,
-                "tags": tags,
-                "label": label,
-                "activity_notification_policy": activity_notification_policy,
-                "run_monitors": run_monitors,
-                "run_managers": run_managers,
-            }.items()
-            if v is not None
+            "body": body,
+            "tags": tags,
+            "label": label,
+            "activity_notification_policy": activity_notification_policy,
+            "run_monitors": run_monitors,
+            "run_managers": run_managers,
+            **(additional_fields or {}),
         }
-        data.update(additional_fields or {})
-
         return self.post(f"/flows/{self._flow_id}/run", data=data)
 
     def resume_run(self, run_id: uuid.UUID | str) -> GlobusHTTPResponse:

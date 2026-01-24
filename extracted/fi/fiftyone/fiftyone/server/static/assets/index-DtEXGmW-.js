@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./index.umd-BCnPSd55.js","./index-CaQ_cEQV.js","./index-EZ59jOV1.css"])))=>i.map(i=>d[i]);
+import{_ as n,a as o,b as a}from"./index-CaQ_cEQV.js";function u(e){return n(this,void 0,void 0,function(){var t;return o(this,function(r){switch(r.label){case 0:return[4,a(()=>import("./index.umd-BCnPSd55.js").then(i=>i.i),__vite__mapDeps([0,1,2]),import.meta.url)];case 1:return t=r.sent(),e._plugins=t,[2]}})})}export{u as loadLegacyVideoPlugins};

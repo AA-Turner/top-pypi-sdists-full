@@ -3,7 +3,7 @@ Type annotations for securityhub service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -40,6 +41,8 @@ from .literals import (
     ControlFindingGeneratorType,
     ControlStatusType,
     FindingHistoryUpdateSourceTypeType,
+    FindingsTrendsStringFieldType,
+    GranularityFieldType,
     GroupByFieldType,
     IntegrationTypeType,
     IntegrationV2TypeType,
@@ -49,6 +52,8 @@ from .literals import (
     NetworkDirectionType,
     OcsfBooleanFieldType,
     OcsfDateFieldType,
+    OcsfIpFieldType,
+    OcsfMapFieldType,
     OcsfNumberFieldType,
     OcsfStringFieldType,
     OrganizationConfigurationConfigurationTypeType,
@@ -62,6 +67,7 @@ from .literals import (
     ResourcesDateFieldType,
     ResourcesNumberFieldType,
     ResourcesStringFieldType,
+    ResourcesTrendsStringFieldType,
     RuleStatusType,
     RuleStatusV2Type,
     SecurityHubFeatureType,
@@ -84,12 +90,6 @@ from .literals import (
     WorkflowStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -1012,14 +1012,13 @@ __all__ = (
     "ComplianceTypeDef",
     "ComplianceUnionTypeDef",
     "CompositeFilterOutputTypeDef",
+    "CompositeFilterPaginatorTypeDef",
     "CompositeFilterTypeDef",
     "CompositeFilterUnionTypeDef",
     "ConfigurationOptionsTypeDef",
     "ConfigurationPolicyAssociationSummaryTypeDef",
     "ConfigurationPolicyAssociationTypeDef",
     "ConfigurationPolicySummaryTypeDef",
-    "ConnectorRegistrationsV2RequestTypeDef",
-    "ConnectorRegistrationsV2ResponseTypeDef",
     "ConnectorSummaryTypeDef",
     "ContainerDetailsOutputTypeDef",
     "ContainerDetailsTypeDef",
@@ -1123,6 +1122,11 @@ __all__ = (
     "FindingProviderFieldsTypeDef",
     "FindingProviderFieldsUnionTypeDef",
     "FindingProviderSeverityTypeDef",
+    "FindingsTrendsCompositeFilterPaginatorTypeDef",
+    "FindingsTrendsCompositeFilterTypeDef",
+    "FindingsTrendsFiltersPaginatorTypeDef",
+    "FindingsTrendsFiltersTypeDef",
+    "FindingsTrendsStringFilterTypeDef",
     "FirewallPolicyDetailsOutputTypeDef",
     "FirewallPolicyDetailsTypeDef",
     "FirewallPolicyDetailsUnionTypeDef",
@@ -1159,6 +1163,9 @@ __all__ = (
     "GetFindingsRequestPaginateTypeDef",
     "GetFindingsRequestTypeDef",
     "GetFindingsResponseTypeDef",
+    "GetFindingsTrendsV2RequestPaginateTypeDef",
+    "GetFindingsTrendsV2RequestTypeDef",
+    "GetFindingsTrendsV2ResponseTypeDef",
     "GetFindingsV2RequestPaginateTypeDef",
     "GetFindingsV2RequestTypeDef",
     "GetFindingsV2ResponseTypeDef",
@@ -1173,6 +1180,9 @@ __all__ = (
     "GetMembersResponseTypeDef",
     "GetResourcesStatisticsV2RequestTypeDef",
     "GetResourcesStatisticsV2ResponseTypeDef",
+    "GetResourcesTrendsV2RequestPaginateTypeDef",
+    "GetResourcesTrendsV2RequestTypeDef",
+    "GetResourcesTrendsV2ResponseTypeDef",
     "GetResourcesV2RequestPaginateTypeDef",
     "GetResourcesV2RequestTypeDef",
     "GetResourcesV2ResponseTypeDef",
@@ -1268,9 +1278,11 @@ __all__ = (
     "OcsfBooleanFilterTypeDef",
     "OcsfDateFilterTypeDef",
     "OcsfFindingFiltersOutputTypeDef",
+    "OcsfFindingFiltersPaginatorTypeDef",
     "OcsfFindingFiltersTypeDef",
     "OcsfFindingFiltersUnionTypeDef",
     "OcsfFindingIdentifierTypeDef",
+    "OcsfIpFilterTypeDef",
     "OcsfMapFilterTypeDef",
     "OcsfNumberFilterTypeDef",
     "OcsfStringFilterTypeDef",
@@ -1305,6 +1317,8 @@ __all__ = (
     "RangeTypeDef",
     "RecommendationTypeDef",
     "RecordTypeDef",
+    "RegisterConnectorV2RequestTypeDef",
+    "RegisterConnectorV2ResponseTypeDef",
     "RelatedFindingTypeDef",
     "RemediationTypeDef",
     "ResourceDetailsOutputTypeDef",
@@ -1318,12 +1332,22 @@ __all__ = (
     "ResourceTagTypeDef",
     "ResourceTypeDef",
     "ResourceUnionTypeDef",
+    "ResourcesCompositeFilterPaginatorTypeDef",
     "ResourcesCompositeFilterTypeDef",
+    "ResourcesCountTypeDef",
     "ResourcesDateFilterTypeDef",
+    "ResourcesFiltersPaginatorTypeDef",
     "ResourcesFiltersTypeDef",
     "ResourcesMapFilterTypeDef",
     "ResourcesNumberFilterTypeDef",
     "ResourcesStringFilterTypeDef",
+    "ResourcesTrendsCompositeFilterPaginatorTypeDef",
+    "ResourcesTrendsCompositeFilterTypeDef",
+    "ResourcesTrendsFiltersPaginatorTypeDef",
+    "ResourcesTrendsFiltersTypeDef",
+    "ResourcesTrendsMetricsResultTypeDef",
+    "ResourcesTrendsStringFilterTypeDef",
+    "ResourcesTrendsValuesTypeDef",
     "ResponseMetadataTypeDef",
     "ResultTypeDef",
     "RouteSetDetailsTypeDef",
@@ -1396,6 +1420,8 @@ __all__ = (
     "SequenceUnionTypeDef",
     "ServiceNowDetailTypeDef",
     "ServiceNowProviderConfigurationTypeDef",
+    "ServiceNowUpdateConfigurationTypeDef",
+    "SeverityTrendsCountTypeDef",
     "SeverityTypeDef",
     "SeverityUpdateTypeDef",
     "SignalOutputTypeDef",
@@ -1434,6 +1460,8 @@ __all__ = (
     "ThreatTypeDef",
     "ThreatUnionTypeDef",
     "TimestampTypeDef",
+    "TrendsMetricsResultTypeDef",
+    "TrendsValuesTypeDef",
     "UnprocessedAutomationRuleTypeDef",
     "UnprocessedConfigurationPolicyAssociationTypeDef",
     "UnprocessedSecurityControlTypeDef",
@@ -1633,7 +1661,7 @@ class AwsAmazonMqBrokerEncryptionOptionsDetailsTypeDef(TypedDict):
     UseAwsOwnedKey: NotRequired[bool]
 
 class AwsAmazonMqBrokerLdapServerMetadataDetailsOutputTypeDef(TypedDict):
-    Hosts: NotRequired[List[str]]
+    Hosts: NotRequired[list[str]]
     RoleBase: NotRequired[str]
     RoleName: NotRequired[str]
     RoleSearchMatching: NotRequired[str]
@@ -1679,7 +1707,7 @@ class AwsApiGatewayAccessLogSettingsTypeDef(TypedDict):
 class AwsApiGatewayCanarySettingsOutputTypeDef(TypedDict):
     PercentTraffic: NotRequired[float]
     DeploymentId: NotRequired[str]
-    StageVariableOverrides: NotRequired[Dict[str, str]]
+    StageVariableOverrides: NotRequired[dict[str, str]]
     UseStageCache: NotRequired[bool]
 
 class AwsApiGatewayCanarySettingsTypeDef(TypedDict):
@@ -1689,7 +1717,7 @@ class AwsApiGatewayCanarySettingsTypeDef(TypedDict):
     UseStageCache: NotRequired[bool]
 
 class AwsApiGatewayEndpointConfigurationOutputTypeDef(TypedDict):
-    Types: NotRequired[List[str]]
+    Types: NotRequired[list[str]]
 
 class AwsApiGatewayEndpointConfigurationTypeDef(TypedDict):
     Types: NotRequired[Sequence[str]]
@@ -1709,12 +1737,12 @@ class AwsApiGatewayMethodSettingsTypeDef(TypedDict):
     ResourcePath: NotRequired[str]
 
 class AwsCorsConfigurationOutputTypeDef(TypedDict):
-    AllowOrigins: NotRequired[List[str]]
+    AllowOrigins: NotRequired[list[str]]
     AllowCredentials: NotRequired[bool]
-    ExposeHeaders: NotRequired[List[str]]
+    ExposeHeaders: NotRequired[list[str]]
     MaxAge: NotRequired[int]
-    AllowMethods: NotRequired[List[str]]
-    AllowHeaders: NotRequired[List[str]]
+    AllowMethods: NotRequired[list[str]]
+    AllowHeaders: NotRequired[list[str]]
 
 class AwsApiGatewayV2RouteSettingsTypeDef(TypedDict):
     DetailedMetricsEnabled: NotRequired[bool]
@@ -1799,7 +1827,7 @@ class AwsAutoScalingLaunchConfigurationMetadataOptionsTypeDef(TypedDict):
     HttpTokens: NotRequired[str]
 
 class AwsBackupBackupPlanAdvancedBackupSettingsDetailsOutputTypeDef(TypedDict):
-    BackupOptions: NotRequired[Dict[str, str]]
+    BackupOptions: NotRequired[dict[str, str]]
     ResourceType: NotRequired[str]
 
 class AwsBackupBackupPlanAdvancedBackupSettingsDetailsTypeDef(TypedDict):
@@ -1811,7 +1839,7 @@ class AwsBackupBackupPlanLifecycleDetailsTypeDef(TypedDict):
     MoveToColdStorageAfterDays: NotRequired[int]
 
 class AwsBackupBackupVaultNotificationsDetailsOutputTypeDef(TypedDict):
-    BackupVaultEvents: NotRequired[List[str]]
+    BackupVaultEvents: NotRequired[list[str]]
     SnsTopicArn: NotRequired[str]
 
 class AwsBackupBackupVaultNotificationsDetailsTypeDef(TypedDict):
@@ -1881,11 +1909,11 @@ class AwsCloudFrontDistributionViewerCertificateTypeDef(TypedDict):
     SslSupportMethod: NotRequired[str]
 
 class AwsCloudFrontDistributionOriginSslProtocolsOutputTypeDef(TypedDict):
-    Items: NotRequired[List[str]]
+    Items: NotRequired[list[str]]
     Quantity: NotRequired[int]
 
 class AwsCloudFrontDistributionOriginGroupFailoverStatusCodesOutputTypeDef(TypedDict):
-    Items: NotRequired[List[int]]
+    Items: NotRequired[list[int]]
     Quantity: NotRequired[int]
 
 class AwsCloudFrontDistributionOriginGroupFailoverStatusCodesTypeDef(TypedDict):
@@ -1946,8 +1974,8 @@ AwsCodeBuildProjectSourceTypeDef = TypedDict(
 
 class AwsCodeBuildProjectVpcConfigOutputTypeDef(TypedDict):
     VpcId: NotRequired[str]
-    Subnets: NotRequired[List[str]]
-    SecurityGroupIds: NotRequired[List[str]]
+    Subnets: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
 
 AwsCodeBuildProjectEnvironmentEnvironmentVariablesDetailsTypeDef = TypedDict(
     "AwsCodeBuildProjectEnvironmentEnvironmentVariablesDetailsTypeDef",
@@ -2057,7 +2085,7 @@ class AwsDynamoDbTableStreamSpecificationTypeDef(TypedDict):
     StreamViewType: NotRequired[str]
 
 class AwsDynamoDbTableProjectionOutputTypeDef(TypedDict):
-    NonKeyAttributes: NotRequired[List[str]]
+    NonKeyAttributes: NotRequired[list[str]]
     ProjectionType: NotRequired[str]
 
 class AwsDynamoDbTableProjectionTypeDef(TypedDict):
@@ -2333,7 +2361,7 @@ class AwsEc2TransitGatewayDetailsOutputTypeDef(TypedDict):
     DefaultRouteTablePropagation: NotRequired[str]
     AutoAcceptSharedAttachments: NotRequired[str]
     DefaultRouteTableAssociation: NotRequired[str]
-    TransitGatewayCidrBlocks: NotRequired[List[str]]
+    TransitGatewayCidrBlocks: NotRequired[list[str]]
     AssociationDefaultRouteTableId: NotRequired[str]
     PropagationDefaultRouteTableId: NotRequired[str]
     VpnEcmpSupport: NotRequired[str]
@@ -2398,15 +2426,15 @@ class AwsEc2VpnConnectionVgwTelemetryDetailsTypeDef(TypedDict):
 
 class AwsEc2VpnConnectionOptionsTunnelOptionsDetailsOutputTypeDef(TypedDict):
     DpdTimeoutSeconds: NotRequired[int]
-    IkeVersions: NotRequired[List[str]]
+    IkeVersions: NotRequired[list[str]]
     OutsideIpAddress: NotRequired[str]
-    Phase1DhGroupNumbers: NotRequired[List[int]]
-    Phase1EncryptionAlgorithms: NotRequired[List[str]]
-    Phase1IntegrityAlgorithms: NotRequired[List[str]]
+    Phase1DhGroupNumbers: NotRequired[list[int]]
+    Phase1EncryptionAlgorithms: NotRequired[list[str]]
+    Phase1IntegrityAlgorithms: NotRequired[list[str]]
     Phase1LifetimeSeconds: NotRequired[int]
-    Phase2DhGroupNumbers: NotRequired[List[int]]
-    Phase2EncryptionAlgorithms: NotRequired[List[str]]
-    Phase2IntegrityAlgorithms: NotRequired[List[str]]
+    Phase2DhGroupNumbers: NotRequired[list[int]]
+    Phase2EncryptionAlgorithms: NotRequired[list[str]]
+    Phase2IntegrityAlgorithms: NotRequired[list[str]]
     Phase2LifetimeSeconds: NotRequired[int]
     PreSharedKey: NotRequired[str]
     RekeyFuzzPercentage: NotRequired[int]
@@ -2437,7 +2465,7 @@ class AwsEcrContainerImageDetailsOutputTypeDef(TypedDict):
     RepositoryName: NotRequired[str]
     Architecture: NotRequired[str]
     ImageDigest: NotRequired[str]
-    ImageTags: NotRequired[List[str]]
+    ImageTags: NotRequired[list[str]]
     ImagePublishedAt: NotRequired[str]
 
 class AwsEcrContainerImageDetailsTypeDef(TypedDict):
@@ -2522,8 +2550,8 @@ class AwsEcsServiceServiceRegistriesDetailsTypeDef(TypedDict):
 
 class AwsEcsServiceNetworkConfigurationAwsVpcConfigurationDetailsOutputTypeDef(TypedDict):
     AssignPublicIp: NotRequired[str]
-    SecurityGroups: NotRequired[List[str]]
-    Subnets: NotRequired[List[str]]
+    SecurityGroups: NotRequired[list[str]]
+    Subnets: NotRequired[list[str]]
 
 class AwsEcsServiceNetworkConfigurationAwsVpcConfigurationDetailsTypeDef(TypedDict):
     AssignPublicIp: NotRequired[str]
@@ -2553,13 +2581,13 @@ class AwsEcsTaskDefinitionContainerDefinitionsExtraHostsDetailsTypeDef(TypedDict
 AwsEcsTaskDefinitionContainerDefinitionsFirelensConfigurationDetailsOutputTypeDef = TypedDict(
     "AwsEcsTaskDefinitionContainerDefinitionsFirelensConfigurationDetailsOutputTypeDef",
     {
-        "Options": NotRequired[Dict[str, str]],
+        "Options": NotRequired[dict[str, str]],
         "Type": NotRequired[str],
     },
 )
 
 class AwsEcsTaskDefinitionContainerDefinitionsHealthCheckDetailsOutputTypeDef(TypedDict):
-    Command: NotRequired[List[str]]
+    Command: NotRequired[list[str]]
     Interval: NotRequired[int]
     Retries: NotRequired[int]
     StartPeriod: NotRequired[int]
@@ -2631,8 +2659,8 @@ class AwsEcsTaskDefinitionContainerDefinitionsHealthCheckDetailsTypeDef(TypedDic
 class AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersCapabilitiesDetailsOutputTypeDef(
     TypedDict
 ):
-    Add: NotRequired[List[str]]
-    Drop: NotRequired[List[str]]
+    Add: NotRequired[list[str]]
+    Drop: NotRequired[list[str]]
 
 class AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersCapabilitiesDetailsTypeDef(TypedDict):
     Add: NotRequired[Sequence[str]]
@@ -2641,11 +2669,11 @@ class AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersCapabilitiesDetails
 class AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersDevicesDetailsOutputTypeDef(TypedDict):
     ContainerPath: NotRequired[str]
     HostPath: NotRequired[str]
-    Permissions: NotRequired[List[str]]
+    Permissions: NotRequired[list[str]]
 
 class AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersTmpfsDetailsOutputTypeDef(TypedDict):
     ContainerPath: NotRequired[str]
-    MountOptions: NotRequired[List[str]]
+    MountOptions: NotRequired[list[str]]
     Size: NotRequired[int]
 
 class AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersDevicesDetailsTypeDef(TypedDict):
@@ -2683,8 +2711,8 @@ class AwsEcsTaskDefinitionProxyConfigurationProxyConfigurationPropertiesDetailsT
 class AwsEcsTaskDefinitionVolumesDockerVolumeConfigurationDetailsOutputTypeDef(TypedDict):
     Autoprovision: NotRequired[bool]
     Driver: NotRequired[str]
-    DriverOpts: NotRequired[Dict[str, str]]
-    Labels: NotRequired[Dict[str, str]]
+    DriverOpts: NotRequired[dict[str, str]]
+    Labels: NotRequired[dict[str, str]]
     Scope: NotRequired[str]
 
 class AwsEcsTaskDefinitionVolumesHostDetailsTypeDef(TypedDict):
@@ -2706,7 +2734,7 @@ class AwsEcsTaskVolumeHostDetailsTypeDef(TypedDict):
 
 class AwsEfsAccessPointPosixUserDetailsOutputTypeDef(TypedDict):
     Gid: NotRequired[str]
-    SecondaryGids: NotRequired[List[str]]
+    SecondaryGids: NotRequired[list[str]]
     Uid: NotRequired[str]
 
 class AwsEfsAccessPointPosixUserDetailsTypeDef(TypedDict):
@@ -2720,13 +2748,13 @@ class AwsEfsAccessPointRootDirectoryCreationInfoDetailsTypeDef(TypedDict):
     Permissions: NotRequired[str]
 
 class AwsEksClusterResourcesVpcConfigDetailsOutputTypeDef(TypedDict):
-    SecurityGroupIds: NotRequired[List[str]]
-    SubnetIds: NotRequired[List[str]]
+    SecurityGroupIds: NotRequired[list[str]]
+    SubnetIds: NotRequired[list[str]]
     EndpointPublicAccess: NotRequired[bool]
 
 class AwsEksClusterLoggingClusterLoggingDetailsOutputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
-    Types: NotRequired[List[str]]
+    Types: NotRequired[list[str]]
 
 class AwsEksClusterLoggingClusterLoggingDetailsTypeDef(TypedDict):
     Enabled: NotRequired[bool]
@@ -2777,9 +2805,9 @@ class AwsElasticsearchDomainServiceSoftwareOptionsTypeDef(TypedDict):
     UpdateStatus: NotRequired[str]
 
 class AwsElasticsearchDomainVPCOptionsOutputTypeDef(TypedDict):
-    AvailabilityZones: NotRequired[List[str]]
-    SecurityGroupIds: NotRequired[List[str]]
-    SubnetIds: NotRequired[List[str]]
+    AvailabilityZones: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
+    SubnetIds: NotRequired[list[str]]
     VPCId: NotRequired[str]
 
 class AwsElasticsearchDomainElasticsearchClusterConfigZoneAwarenessConfigDetailsTypeDef(TypedDict):
@@ -2825,7 +2853,7 @@ class AwsElbLoadBalancerCrossZoneLoadBalancingTypeDef(TypedDict):
 
 class AwsElbLoadBalancerBackendServerDescriptionOutputTypeDef(TypedDict):
     InstancePort: NotRequired[int]
-    PolicyNames: NotRequired[List[str]]
+    PolicyNames: NotRequired[list[str]]
 
 class AwsElbLoadBalancerBackendServerDescriptionTypeDef(TypedDict):
     InstancePort: NotRequired[int]
@@ -2987,8 +3015,8 @@ class AwsLambdaFunctionTracingConfigTypeDef(TypedDict):
     Mode: NotRequired[str]
 
 class AwsLambdaFunctionVpcConfigOutputTypeDef(TypedDict):
-    SecurityGroupIds: NotRequired[List[str]]
-    SubnetIds: NotRequired[List[str]]
+    SecurityGroupIds: NotRequired[list[str]]
+    SubnetIds: NotRequired[list[str]]
     VpcId: NotRequired[str]
 
 class AwsLambdaFunctionEnvironmentErrorTypeDef(TypedDict):
@@ -3002,7 +3030,7 @@ class AwsLambdaFunctionVpcConfigTypeDef(TypedDict):
 
 class AwsLambdaLayerVersionDetailsOutputTypeDef(TypedDict):
     Version: NotRequired[int]
-    CompatibleRuntimes: NotRequired[List[str]]
+    CompatibleRuntimes: NotRequired[list[str]]
     CreatedDate: NotRequired[str]
 
 class AwsLambdaLayerVersionDetailsTypeDef(TypedDict):
@@ -3011,7 +3039,7 @@ class AwsLambdaLayerVersionDetailsTypeDef(TypedDict):
     CreatedDate: NotRequired[str]
 
 class AwsMskClusterClusterInfoClientAuthenticationTlsDetailsOutputTypeDef(TypedDict):
-    CertificateAuthorityArnList: NotRequired[List[str]]
+    CertificateAuthorityArnList: NotRequired[list[str]]
     Enabled: NotRequired[bool]
 
 class AwsMskClusterClusterInfoClientAuthenticationUnauthenticatedDetailsTypeDef(TypedDict):
@@ -3070,8 +3098,8 @@ class AwsOpenSearchServiceDomainServiceSoftwareOptionsDetailsTypeDef(TypedDict):
     OptionalDeployment: NotRequired[bool]
 
 class AwsOpenSearchServiceDomainVpcOptionsDetailsOutputTypeDef(TypedDict):
-    SecurityGroupIds: NotRequired[List[str]]
-    SubnetIds: NotRequired[List[str]]
+    SecurityGroupIds: NotRequired[list[str]]
+    SubnetIds: NotRequired[list[str]]
 
 class AwsOpenSearchServiceDomainLogPublishingOptionTypeDef(TypedDict):
     CloudWatchLogsLogGroupArn: NotRequired[str]
@@ -3107,7 +3135,7 @@ class AwsRdsDbInstanceVpcSecurityGroupTypeDef(TypedDict):
 
 class AwsRdsDbClusterSnapshotDbClusterSnapshotAttributeOutputTypeDef(TypedDict):
     AttributeName: NotRequired[str]
-    AttributeValues: NotRequired[List[str]]
+    AttributeValues: NotRequired[list[str]]
 
 class AwsRdsDbClusterSnapshotDbClusterSnapshotAttributeTypeDef(TypedDict):
     AttributeName: NotRequired[str]
@@ -3142,8 +3170,8 @@ class AwsRdsDbStatusInfoTypeDef(TypedDict):
     Message: NotRequired[str]
 
 class AwsRdsPendingCloudWatchLogsExportsOutputTypeDef(TypedDict):
-    LogTypesToEnable: NotRequired[List[str]]
-    LogTypesToDisable: NotRequired[List[str]]
+    LogTypesToEnable: NotRequired[list[str]]
+    LogTypesToDisable: NotRequired[list[str]]
 
 class AwsRdsDbSecurityGroupEc2SecurityGroupTypeDef(TypedDict):
     Ec2SecurityGroupId: NotRequired[str]
@@ -3162,10 +3190,10 @@ class AwsRdsEventSubscriptionDetailsOutputTypeDef(TypedDict):
     CustSubscriptionId: NotRequired[str]
     CustomerAwsId: NotRequired[str]
     Enabled: NotRequired[bool]
-    EventCategoriesList: NotRequired[List[str]]
+    EventCategoriesList: NotRequired[list[str]]
     EventSubscriptionArn: NotRequired[str]
     SnsTopicArn: NotRequired[str]
-    SourceIdsList: NotRequired[List[str]]
+    SourceIdsList: NotRequired[list[str]]
     SourceType: NotRequired[str]
     Status: NotRequired[str]
     SubscriptionCreationTime: NotRequired[str]
@@ -3386,7 +3414,7 @@ class AwsSecurityFindingIdentifierTypeDef(TypedDict):
 class GeneratorDetailsOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
-    Labels: NotRequired[List[str]]
+    Labels: NotRequired[list[str]]
 
 MalwareTypeDef = TypedDict(
     "MalwareTypeDef",
@@ -3590,7 +3618,7 @@ class BatchDeleteAutomationRulesRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -3635,12 +3663,12 @@ class StandardsControlAssociationDetailTypeDef(TypedDict):
     SecurityControlId: str
     SecurityControlArn: str
     AssociationStatus: AssociationStatusType
-    RelatedRequirements: NotRequired[List[str]]
+    RelatedRequirements: NotRequired[list[str]]
     UpdatedAt: NotRequired[datetime]
     UpdatedReason: NotRequired[str]
     StandardsControlTitle: NotRequired[str]
     StandardsControlDescription: NotRequired[str]
-    StandardsControlArns: NotRequired[List[str]]
+    StandardsControlArns: NotRequired[list[str]]
 
 class ImportFindingsErrorTypeDef(TypedDict):
     Id: str
@@ -3684,7 +3712,7 @@ class CodeVulnerabilitiesFilePathTypeDef(TypedDict):
 
 class SecurityControlParameterOutputTypeDef(TypedDict):
     Name: NotRequired[str]
-    Value: NotRequired[List[str]]
+    Value: NotRequired[list[str]]
 
 class StatusReasonTypeDef(TypedDict):
     ReasonCode: str
@@ -3697,12 +3725,12 @@ class DoubleConfigurationOptionsTypeDef(TypedDict):
 
 class EnumConfigurationOptionsTypeDef(TypedDict):
     DefaultValue: NotRequired[str]
-    AllowedValues: NotRequired[List[str]]
+    AllowedValues: NotRequired[list[str]]
 
 class EnumListConfigurationOptionsTypeDef(TypedDict):
-    DefaultValue: NotRequired[List[str]]
+    DefaultValue: NotRequired[list[str]]
     MaxItems: NotRequired[int]
-    AllowedValues: NotRequired[List[str]]
+    AllowedValues: NotRequired[list[str]]
 
 class IntegerConfigurationOptionsTypeDef(TypedDict):
     DefaultValue: NotRequired[int]
@@ -3710,7 +3738,7 @@ class IntegerConfigurationOptionsTypeDef(TypedDict):
     Max: NotRequired[int]
 
 class IntegerListConfigurationOptionsTypeDef(TypedDict):
-    DefaultValue: NotRequired[List[int]]
+    DefaultValue: NotRequired[list[int]]
     Min: NotRequired[int]
     Max: NotRequired[int]
     MaxItems: NotRequired[int]
@@ -3721,7 +3749,7 @@ class StringConfigurationOptionsTypeDef(TypedDict):
     ExpressionDescription: NotRequired[str]
 
 class StringListConfigurationOptionsTypeDef(TypedDict):
-    DefaultValue: NotRequired[List[str]]
+    DefaultValue: NotRequired[list[str]]
     Re2Expression: NotRequired[str]
     MaxItems: NotRequired[int]
     ExpressionDescription: NotRequired[str]
@@ -3738,10 +3766,6 @@ class ConfigurationPolicySummaryTypeDef(TypedDict):
     Description: NotRequired[str]
     UpdatedAt: NotRequired[datetime]
     ServiceEnabled: NotRequired[bool]
-
-class ConnectorRegistrationsV2RequestTypeDef(TypedDict):
-    AuthCode: str
-    AuthState: str
 
 class ProviderSummaryTypeDef(TypedDict):
     ProviderName: NotRequired[ConnectorProviderNameType]
@@ -3774,6 +3798,7 @@ class CreateTicketV2RequestTypeDef(TypedDict):
     ConnectorId: str
     FindingMetadataUid: str
     ClientToken: NotRequired[str]
+    Mode: NotRequired[Literal["DRYRUN"]]
 
 class DateRangeTypeDef(TypedDict):
     Value: NotRequired[int]
@@ -3837,8 +3862,8 @@ class ProductTypeDef(TypedDict):
     ProductName: NotRequired[str]
     CompanyName: NotRequired[str]
     Description: NotRequired[str]
-    Categories: NotRequired[List[str]]
-    IntegrationTypes: NotRequired[List[IntegrationTypeType]]
+    Categories: NotRequired[list[str]]
+    IntegrationTypes: NotRequired[list[IntegrationTypeType]]
     MarketplaceUrl: NotRequired[str]
     ActivationUrl: NotRequired[str]
     ProductSubscriptionResourcePolicy: NotRequired[str]
@@ -3851,8 +3876,8 @@ class ProductV2TypeDef(TypedDict):
     ProductV2Name: NotRequired[str]
     CompanyName: NotRequired[str]
     Description: NotRequired[str]
-    Categories: NotRequired[List[str]]
-    IntegrationV2Types: NotRequired[List[IntegrationV2TypeType]]
+    Categories: NotRequired[list[str]]
+    IntegrationV2Types: NotRequired[list[IntegrationV2TypeType]]
     MarketplaceUrl: NotRequired[str]
     ActivationUrl: NotRequired[str]
 
@@ -3871,7 +3896,7 @@ class StandardsControlTypeDef(TypedDict):
     Description: NotRequired[str]
     RemediationUrl: NotRequired[str]
     SeverityRating: NotRequired[SeverityRatingType]
-    RelatedRequirements: NotRequired[List[str]]
+    RelatedRequirements: NotRequired[list[str]]
 
 class DescribeStandardsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -4008,7 +4033,7 @@ IndicatorOutputTypeDef = TypedDict(
     "IndicatorOutputTypeDef",
     {
         "Key": NotRequired[str],
-        "Values": NotRequired[List[str]],
+        "Values": NotRequired[list[str]],
         "Title": NotRequired[str],
         "Type": NotRequired[str],
     },
@@ -4041,7 +4066,7 @@ class JiraCloudProviderConfigurationTypeDef(TypedDict):
     ProjectKey: NotRequired[str]
 
 class JiraCloudUpdateConfigurationTypeDef(TypedDict):
-    ProjectKey: str
+    ProjectKey: NotRequired[str]
 
 class ListAggregatorsV2RequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -4102,7 +4127,7 @@ class StandardsControlAssociationSummaryTypeDef(TypedDict):
     SecurityControlId: str
     SecurityControlArn: str
     AssociationStatus: AssociationStatusType
-    RelatedRequirements: NotRequired[List[str]]
+    RelatedRequirements: NotRequired[list[str]]
     UpdatedAt: NotRequired[datetime]
     UpdatedReason: NotRequired[str]
     StandardsControlTitle: NotRequired[str]
@@ -4139,13 +4164,13 @@ class RecordTypeDef(TypedDict):
 
 class ParameterValueOutputTypeDef(TypedDict):
     Integer: NotRequired[int]
-    IntegerList: NotRequired[List[int]]
+    IntegerList: NotRequired[list[int]]
     Double: NotRequired[float]
     String: NotRequired[str]
-    StringList: NotRequired[List[str]]
+    StringList: NotRequired[list[str]]
     Boolean: NotRequired[bool]
     Enum: NotRequired[str]
-    EnumList: NotRequired[List[str]]
+    EnumList: NotRequired[list[str]]
 
 class ParameterValueTypeDef(TypedDict):
     Integer: NotRequired[int]
@@ -4159,13 +4184,15 @@ class ParameterValueTypeDef(TypedDict):
 
 class ServiceNowProviderConfigurationTypeDef(TypedDict):
     InstanceName: str
-    ClientId: str
-    ClientSecret: str
+    SecretArn: str
 
 class ServiceNowDetailTypeDef(TypedDict):
+    SecretArn: str
     AuthStatus: ConnectorAuthStatusType
     InstanceName: NotRequired[str]
-    ClientId: NotRequired[str]
+
+class ServiceNowUpdateConfigurationTypeDef(TypedDict):
+    SecretArn: NotRequired[str]
 
 RecommendationTypeDef = TypedDict(
     "RecommendationTypeDef",
@@ -4174,6 +4201,10 @@ RecommendationTypeDef = TypedDict(
         "Url": NotRequired[str],
     },
 )
+
+class RegisterConnectorV2RequestTypeDef(TypedDict):
+    AuthCode: str
+    AuthState: str
 
 class ResourceSeverityBreakdownTypeDef(TypedDict):
     Other: NotRequired[int]
@@ -4189,10 +4220,13 @@ class ResourceTagTypeDef(TypedDict):
     Key: str
     Value: str
 
+class ResourcesCountTypeDef(TypedDict):
+    AllResources: int
+
 class RuleGroupSourceListDetailsOutputTypeDef(TypedDict):
     GeneratedRulesType: NotRequired[str]
-    TargetTypes: NotRequired[List[str]]
-    Targets: NotRequired[List[str]]
+    TargetTypes: NotRequired[list[str]]
+    Targets: NotRequired[list[str]]
 
 class RuleGroupSourceListDetailsTypeDef(TypedDict):
     GeneratedRulesType: NotRequired[str]
@@ -4213,7 +4247,7 @@ RuleGroupSourceStatefulRulesHeaderDetailsTypeDef = TypedDict(
 
 class RuleGroupSourceStatefulRulesOptionsDetailsOutputTypeDef(TypedDict):
     Keyword: NotRequired[str]
-    Settings: NotRequired[List[str]]
+    Settings: NotRequired[list[str]]
 
 class RuleGroupSourceStatefulRulesOptionsDetailsTypeDef(TypedDict):
     Keyword: NotRequired[str]
@@ -4234,21 +4268,21 @@ class RuleGroupSourceStatelessRuleMatchAttributesSourcesTypeDef(TypedDict):
     AddressDefinition: NotRequired[str]
 
 class RuleGroupSourceStatelessRuleMatchAttributesTcpFlagsOutputTypeDef(TypedDict):
-    Flags: NotRequired[List[str]]
-    Masks: NotRequired[List[str]]
+    Flags: NotRequired[list[str]]
+    Masks: NotRequired[list[str]]
 
 class RuleGroupSourceStatelessRuleMatchAttributesTcpFlagsTypeDef(TypedDict):
     Flags: NotRequired[Sequence[str]]
     Masks: NotRequired[Sequence[str]]
 
 class RuleGroupVariablesIpSetsDetailsOutputTypeDef(TypedDict):
-    Definition: NotRequired[List[str]]
+    Definition: NotRequired[list[str]]
 
 class RuleGroupVariablesIpSetsDetailsTypeDef(TypedDict):
     Definition: NotRequired[Sequence[str]]
 
 class RuleGroupVariablesPortSetsDetailsOutputTypeDef(TypedDict):
-    Definition: NotRequired[List[str]]
+    Definition: NotRequired[list[str]]
 
 class RuleGroupVariablesPortSetsDetailsTypeDef(TypedDict):
     Definition: NotRequired[Sequence[str]]
@@ -4256,6 +4290,16 @@ class RuleGroupVariablesPortSetsDetailsTypeDef(TypedDict):
 class SecurityControlParameterTypeDef(TypedDict):
     Name: NotRequired[str]
     Value: NotRequired[Sequence[str]]
+
+class SeverityTrendsCountTypeDef(TypedDict):
+    Unknown: int
+    Informational: int
+    Low: int
+    Medium: int
+    High: int
+    Critical: int
+    Fatal: int
+    Other: int
 
 class SoftwarePackageTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -4345,7 +4389,7 @@ class CvssOutputTypeDef(TypedDict):
     BaseScore: NotRequired[float]
     BaseVector: NotRequired[str]
     Source: NotRequired[str]
-    Adjustments: NotRequired[List[AdjustmentTypeDef]]
+    Adjustments: NotRequired[list[AdjustmentTypeDef]]
 
 class CvssTypeDef(TypedDict):
     Version: NotRequired[str]
@@ -4374,7 +4418,7 @@ class AutomationRulesMetadataV2TypeDef(TypedDict):
     RuleName: NotRequired[str]
     RuleStatus: NotRequired[RuleStatusV2Type]
     Description: NotRequired[str]
-    Actions: NotRequired[List[AutomationRulesActionTypeObjectV2TypeDef]]
+    Actions: NotRequired[list[AutomationRulesActionTypeObjectV2TypeDef]]
     CreatedAt: NotRequired[datetime]
     UpdatedAt: NotRequired[datetime]
 
@@ -4393,10 +4437,10 @@ class AutomationRulesFindingFieldsUpdateOutputTypeDef(TypedDict):
     VerificationState: NotRequired[VerificationStateType]
     Confidence: NotRequired[int]
     Criticality: NotRequired[int]
-    Types: NotRequired[List[str]]
-    UserDefinedFields: NotRequired[Dict[str, str]]
+    Types: NotRequired[list[str]]
+    UserDefinedFields: NotRequired[dict[str, str]]
     Workflow: NotRequired[WorkflowUpdateTypeDef]
-    RelatedFindings: NotRequired[List[RelatedFindingTypeDef]]
+    RelatedFindings: NotRequired[list[RelatedFindingTypeDef]]
 
 class AutomationRulesFindingFieldsUpdateTypeDef(TypedDict):
     Note: NotRequired[NoteUpdateTypeDef]
@@ -4410,11 +4454,11 @@ class AutomationRulesFindingFieldsUpdateTypeDef(TypedDict):
     RelatedFindings: NotRequired[Sequence[RelatedFindingTypeDef]]
 
 class OcsfMapFilterTypeDef(TypedDict):
-    FieldName: NotRequired[Literal["resources.tags"]]
+    FieldName: NotRequired[OcsfMapFieldType]
     Filter: NotRequired[MapFilterTypeDef]
 
 class ResourcesMapFilterTypeDef(TypedDict):
-    FieldName: NotRequired[Literal["tags"]]
+    FieldName: NotRequired[Literal["ResourceTags"]]
     Filter: NotRequired[MapFilterTypeDef]
 
 class OcsfNumberFilterTypeDef(TypedDict):
@@ -4425,12 +4469,20 @@ class ResourcesNumberFilterTypeDef(TypedDict):
     FieldName: NotRequired[ResourcesNumberFieldType]
     Filter: NotRequired[NumberFilterTypeDef]
 
+class FindingsTrendsStringFilterTypeDef(TypedDict):
+    FieldName: NotRequired[FindingsTrendsStringFieldType]
+    Filter: NotRequired[StringFilterTypeDef]
+
 class OcsfStringFilterTypeDef(TypedDict):
     FieldName: NotRequired[OcsfStringFieldType]
     Filter: NotRequired[StringFilterTypeDef]
 
 class ResourcesStringFilterTypeDef(TypedDict):
     FieldName: NotRequired[ResourcesStringFieldType]
+    Filter: NotRequired[StringFilterTypeDef]
+
+class ResourcesTrendsStringFilterTypeDef(TypedDict):
+    FieldName: NotRequired[ResourcesTrendsStringFieldType]
     Filter: NotRequired[StringFilterTypeDef]
 
 AwsAmazonMqBrokerLdapServerMetadataDetailsUnionTypeDef = Union[
@@ -4455,7 +4507,7 @@ class AwsApiGatewayRestApiDetailsOutputTypeDef(TypedDict):
     Description: NotRequired[str]
     CreatedDate: NotRequired[str]
     Version: NotRequired[str]
-    BinaryMediaTypes: NotRequired[List[str]]
+    BinaryMediaTypes: NotRequired[list[str]]
     MinimumCompressionSize: NotRequired[int]
     ApiKeySource: NotRequired[str]
     EndpointConfiguration: NotRequired[AwsApiGatewayEndpointConfigurationOutputTypeDef]
@@ -4472,8 +4524,8 @@ class AwsApiGatewayStageDetailsOutputTypeDef(TypedDict):
     CacheClusterEnabled: NotRequired[bool]
     CacheClusterSize: NotRequired[str]
     CacheClusterStatus: NotRequired[str]
-    MethodSettings: NotRequired[List[AwsApiGatewayMethodSettingsTypeDef]]
-    Variables: NotRequired[Dict[str, str]]
+    MethodSettings: NotRequired[list[AwsApiGatewayMethodSettingsTypeDef]]
+    Variables: NotRequired[dict[str, str]]
     DocumentationVersion: NotRequired[str]
     AccessLogSettings: NotRequired[AwsApiGatewayAccessLogSettingsTypeDef]
     CanarySettings: NotRequired[AwsApiGatewayCanarySettingsOutputTypeDef]
@@ -4503,7 +4555,7 @@ class AwsApiGatewayV2StageDetailsOutputTypeDef(TypedDict):
     LastUpdatedDate: NotRequired[str]
     RouteSettings: NotRequired[AwsApiGatewayV2RouteSettingsTypeDef]
     StageName: NotRequired[str]
-    StageVariables: NotRequired[Dict[str, str]]
+    StageVariables: NotRequired[dict[str, str]]
     AccessLogSettings: NotRequired[AwsApiGatewayAccessLogSettingsTypeDef]
     AutoDeploy: NotRequired[bool]
     LastDeploymentStatusMessage: NotRequired[str]
@@ -4542,7 +4594,7 @@ class AwsAutoScalingAutoScalingGroupMixedInstancesPolicyLaunchTemplateDetailsOut
         AwsAutoScalingAutoScalingGroupMixedInstancesPolicyLaunchTemplateLaunchTemplateSpecificationTypeDef
     ]
     Overrides: NotRequired[
-        List[
+        list[
             AwsAutoScalingAutoScalingGroupMixedInstancesPolicyLaunchTemplateOverridesListDetailsTypeDef
         ]
     ]
@@ -4609,7 +4661,7 @@ class AwsCertificateManagerCertificateDomainValidationOptionOutputTypeDef(TypedD
     DomainName: NotRequired[str]
     ResourceRecord: NotRequired[AwsCertificateManagerCertificateResourceRecordTypeDef]
     ValidationDomain: NotRequired[str]
-    ValidationEmails: NotRequired[List[str]]
+    ValidationEmails: NotRequired[list[str]]
     ValidationMethod: NotRequired[str]
     ValidationStatus: NotRequired[str]
 
@@ -4622,15 +4674,15 @@ class AwsCertificateManagerCertificateDomainValidationOptionTypeDef(TypedDict):
     ValidationStatus: NotRequired[str]
 
 class AwsCloudFormationStackDetailsOutputTypeDef(TypedDict):
-    Capabilities: NotRequired[List[str]]
+    Capabilities: NotRequired[list[str]]
     CreationTime: NotRequired[str]
     Description: NotRequired[str]
     DisableRollback: NotRequired[bool]
     DriftInformation: NotRequired[AwsCloudFormationStackDriftInformationDetailsTypeDef]
     EnableTerminationProtection: NotRequired[bool]
     LastUpdatedTime: NotRequired[str]
-    NotificationArns: NotRequired[List[str]]
-    Outputs: NotRequired[List[AwsCloudFormationStackOutputsDetailsTypeDef]]
+    NotificationArns: NotRequired[list[str]]
+    Outputs: NotRequired[list[AwsCloudFormationStackOutputsDetailsTypeDef]]
     RoleArn: NotRequired[str]
     StackId: NotRequired[str]
     StackName: NotRequired[str]
@@ -4656,7 +4708,7 @@ class AwsCloudFormationStackDetailsTypeDef(TypedDict):
     TimeoutInMinutes: NotRequired[int]
 
 class AwsCloudFrontDistributionCacheBehaviorsOutputTypeDef(TypedDict):
-    Items: NotRequired[List[AwsCloudFrontDistributionCacheBehaviorTypeDef]]
+    Items: NotRequired[list[AwsCloudFrontDistributionCacheBehaviorTypeDef]]
 
 class AwsCloudFrontDistributionCacheBehaviorsTypeDef(TypedDict):
     Items: NotRequired[Sequence[AwsCloudFrontDistributionCacheBehaviorTypeDef]]
@@ -4683,21 +4735,21 @@ AwsCloudFrontDistributionOriginSslProtocolsUnionTypeDef = Union[
 
 class AwsCloudWatchAlarmDetailsOutputTypeDef(TypedDict):
     ActionsEnabled: NotRequired[bool]
-    AlarmActions: NotRequired[List[str]]
+    AlarmActions: NotRequired[list[str]]
     AlarmArn: NotRequired[str]
     AlarmConfigurationUpdatedTimestamp: NotRequired[str]
     AlarmDescription: NotRequired[str]
     AlarmName: NotRequired[str]
     ComparisonOperator: NotRequired[str]
     DatapointsToAlarm: NotRequired[int]
-    Dimensions: NotRequired[List[AwsCloudWatchAlarmDimensionsDetailsTypeDef]]
+    Dimensions: NotRequired[list[AwsCloudWatchAlarmDimensionsDetailsTypeDef]]
     EvaluateLowSampleCountPercentile: NotRequired[str]
     EvaluationPeriods: NotRequired[int]
     ExtendedStatistic: NotRequired[str]
-    InsufficientDataActions: NotRequired[List[str]]
+    InsufficientDataActions: NotRequired[list[str]]
     MetricName: NotRequired[str]
     Namespace: NotRequired[str]
-    OkActions: NotRequired[List[str]]
+    OkActions: NotRequired[list[str]]
     Period: NotRequired[int]
     Statistic: NotRequired[str]
     Threshold: NotRequired[float]
@@ -4734,7 +4786,7 @@ AwsCodeBuildProjectEnvironmentOutputTypeDef = TypedDict(
     {
         "Certificate": NotRequired[str],
         "EnvironmentVariables": NotRequired[
-            List[AwsCodeBuildProjectEnvironmentEnvironmentVariablesDetailsTypeDef]
+            list[AwsCodeBuildProjectEnvironmentEnvironmentVariablesDetailsTypeDef]
         ],
         "PrivilegedMode": NotRequired[bool],
         "ImagePullCredentialsType": NotRequired[str],
@@ -4781,7 +4833,7 @@ class AwsDmsReplicationInstanceDetailsOutputTypeDef(TypedDict):
     ReplicationSubnetGroup: NotRequired[
         AwsDmsReplicationInstanceReplicationSubnetGroupDetailsTypeDef
     ]
-    VpcSecurityGroups: NotRequired[List[AwsDmsReplicationInstanceVpcSecurityGroupsDetailsTypeDef]]
+    VpcSecurityGroups: NotRequired[list[AwsDmsReplicationInstanceVpcSecurityGroupsDetailsTypeDef]]
 
 class AwsDmsReplicationInstanceDetailsTypeDef(TypedDict):
     AllocatedStorage: NotRequired[int]
@@ -4808,14 +4860,14 @@ class AwsDynamoDbTableGlobalSecondaryIndexOutputTypeDef(TypedDict):
     IndexSizeBytes: NotRequired[int]
     IndexStatus: NotRequired[str]
     ItemCount: NotRequired[int]
-    KeySchema: NotRequired[List[AwsDynamoDbTableKeySchemaTypeDef]]
+    KeySchema: NotRequired[list[AwsDynamoDbTableKeySchemaTypeDef]]
     Projection: NotRequired[AwsDynamoDbTableProjectionOutputTypeDef]
     ProvisionedThroughput: NotRequired[AwsDynamoDbTableProvisionedThroughputTypeDef]
 
 class AwsDynamoDbTableLocalSecondaryIndexOutputTypeDef(TypedDict):
     IndexArn: NotRequired[str]
     IndexName: NotRequired[str]
-    KeySchema: NotRequired[List[AwsDynamoDbTableKeySchemaTypeDef]]
+    KeySchema: NotRequired[list[AwsDynamoDbTableKeySchemaTypeDef]]
     Projection: NotRequired[AwsDynamoDbTableProjectionOutputTypeDef]
 
 AwsDynamoDbTableProjectionUnionTypeDef = Union[
@@ -4852,14 +4904,14 @@ AwsEc2InstanceDetailsOutputTypeDef = TypedDict(
     {
         "Type": NotRequired[str],
         "ImageId": NotRequired[str],
-        "IpV4Addresses": NotRequired[List[str]],
-        "IpV6Addresses": NotRequired[List[str]],
+        "IpV4Addresses": NotRequired[list[str]],
+        "IpV6Addresses": NotRequired[list[str]],
         "KeyName": NotRequired[str],
         "IamInstanceProfileArn": NotRequired[str],
         "VpcId": NotRequired[str],
         "SubnetId": NotRequired[str],
         "LaunchedAt": NotRequired[str],
-        "NetworkInterfaces": NotRequired[List[AwsEc2InstanceNetworkInterfacesDetailsTypeDef]],
+        "NetworkInterfaces": NotRequired[list[AwsEc2InstanceNetworkInterfacesDetailsTypeDef]],
         "VirtualizationType": NotRequired[str],
         "MetadataOptions": NotRequired[AwsEc2InstanceMetadataOptionsTypeDef],
         "Monitoring": NotRequired[AwsEc2InstanceMonitoringDetailsTypeDef],
@@ -4904,22 +4956,22 @@ class AwsEc2LaunchTemplateDataInstanceRequirementsDetailsOutputTypeDef(TypedDict
     AcceleratorCount: NotRequired[
         AwsEc2LaunchTemplateDataInstanceRequirementsAcceleratorCountDetailsTypeDef
     ]
-    AcceleratorManufacturers: NotRequired[List[str]]
-    AcceleratorNames: NotRequired[List[str]]
+    AcceleratorManufacturers: NotRequired[list[str]]
+    AcceleratorNames: NotRequired[list[str]]
     AcceleratorTotalMemoryMiB: NotRequired[
         AwsEc2LaunchTemplateDataInstanceRequirementsAcceleratorTotalMemoryMiBDetailsTypeDef
     ]
-    AcceleratorTypes: NotRequired[List[str]]
+    AcceleratorTypes: NotRequired[list[str]]
     BareMetal: NotRequired[str]
     BaselineEbsBandwidthMbps: NotRequired[
         AwsEc2LaunchTemplateDataInstanceRequirementsBaselineEbsBandwidthMbpsDetailsTypeDef
     ]
     BurstablePerformance: NotRequired[str]
-    CpuManufacturers: NotRequired[List[str]]
-    ExcludedInstanceTypes: NotRequired[List[str]]
-    InstanceGenerations: NotRequired[List[str]]
+    CpuManufacturers: NotRequired[list[str]]
+    ExcludedInstanceTypes: NotRequired[list[str]]
+    InstanceGenerations: NotRequired[list[str]]
     LocalStorage: NotRequired[str]
-    LocalStorageTypes: NotRequired[List[str]]
+    LocalStorageTypes: NotRequired[list[str]]
     MemoryGiBPerVCpu: NotRequired[
         AwsEc2LaunchTemplateDataInstanceRequirementsMemoryGiBPerVCpuDetailsTypeDef
     ]
@@ -4976,25 +5028,25 @@ class AwsEc2LaunchTemplateDataNetworkInterfaceSetDetailsOutputTypeDef(TypedDict)
     DeleteOnTermination: NotRequired[bool]
     Description: NotRequired[str]
     DeviceIndex: NotRequired[int]
-    Groups: NotRequired[List[str]]
+    Groups: NotRequired[list[str]]
     InterfaceType: NotRequired[str]
     Ipv4PrefixCount: NotRequired[int]
     Ipv4Prefixes: NotRequired[
-        List[AwsEc2LaunchTemplateDataNetworkInterfaceSetIpv4PrefixesDetailsTypeDef]
+        list[AwsEc2LaunchTemplateDataNetworkInterfaceSetIpv4PrefixesDetailsTypeDef]
     ]
     Ipv6AddressCount: NotRequired[int]
     Ipv6Addresses: NotRequired[
-        List[AwsEc2LaunchTemplateDataNetworkInterfaceSetIpv6AddressesDetailsTypeDef]
+        list[AwsEc2LaunchTemplateDataNetworkInterfaceSetIpv6AddressesDetailsTypeDef]
     ]
     Ipv6PrefixCount: NotRequired[int]
     Ipv6Prefixes: NotRequired[
-        List[AwsEc2LaunchTemplateDataNetworkInterfaceSetIpv6PrefixesDetailsTypeDef]
+        list[AwsEc2LaunchTemplateDataNetworkInterfaceSetIpv6PrefixesDetailsTypeDef]
     ]
     NetworkCardIndex: NotRequired[int]
     NetworkInterfaceId: NotRequired[str]
     PrivateIpAddress: NotRequired[str]
     PrivateIpAddresses: NotRequired[
-        List[AwsEc2LaunchTemplateDataNetworkInterfaceSetPrivateIpAddressesDetailsTypeDef]
+        list[AwsEc2LaunchTemplateDataNetworkInterfaceSetPrivateIpAddressesDetailsTypeDef]
     ]
     SecondaryPrivateIpAddressCount: NotRequired[int]
     SubnetId: NotRequired[str]
@@ -5045,10 +5097,10 @@ AwsEc2NetworkAclEntryTypeDef = TypedDict(
 class AwsEc2NetworkInterfaceDetailsOutputTypeDef(TypedDict):
     Attachment: NotRequired[AwsEc2NetworkInterfaceAttachmentTypeDef]
     NetworkInterfaceId: NotRequired[str]
-    SecurityGroups: NotRequired[List[AwsEc2NetworkInterfaceSecurityGroupTypeDef]]
+    SecurityGroups: NotRequired[list[AwsEc2NetworkInterfaceSecurityGroupTypeDef]]
     SourceDestCheck: NotRequired[bool]
-    IpV6Addresses: NotRequired[List[AwsEc2NetworkInterfaceIpV6AddressDetailTypeDef]]
-    PrivateIpAddresses: NotRequired[List[AwsEc2NetworkInterfacePrivateIpAddressDetailTypeDef]]
+    IpV6Addresses: NotRequired[list[AwsEc2NetworkInterfaceIpV6AddressDetailTypeDef]]
+    PrivateIpAddresses: NotRequired[list[AwsEc2NetworkInterfacePrivateIpAddressDetailTypeDef]]
     PublicDnsName: NotRequired[str]
     PublicIp: NotRequired[str]
 
@@ -5066,10 +5118,10 @@ class AwsEc2SecurityGroupIpPermissionOutputTypeDef(TypedDict):
     IpProtocol: NotRequired[str]
     FromPort: NotRequired[int]
     ToPort: NotRequired[int]
-    UserIdGroupPairs: NotRequired[List[AwsEc2SecurityGroupUserIdGroupPairTypeDef]]
-    IpRanges: NotRequired[List[AwsEc2SecurityGroupIpRangeTypeDef]]
-    Ipv6Ranges: NotRequired[List[AwsEc2SecurityGroupIpv6RangeTypeDef]]
-    PrefixListIds: NotRequired[List[AwsEc2SecurityGroupPrefixListIdTypeDef]]
+    UserIdGroupPairs: NotRequired[list[AwsEc2SecurityGroupUserIdGroupPairTypeDef]]
+    IpRanges: NotRequired[list[AwsEc2SecurityGroupIpRangeTypeDef]]
+    Ipv6Ranges: NotRequired[list[AwsEc2SecurityGroupIpv6RangeTypeDef]]
+    PrefixListIds: NotRequired[list[AwsEc2SecurityGroupPrefixListIdTypeDef]]
 
 class AwsEc2SecurityGroupIpPermissionTypeDef(TypedDict):
     IpProtocol: NotRequired[str]
@@ -5093,7 +5145,7 @@ class AwsEc2SubnetDetailsOutputTypeDef(TypedDict):
     SubnetArn: NotRequired[str]
     SubnetId: NotRequired[str]
     VpcId: NotRequired[str]
-    Ipv6CidrBlockAssociationSet: NotRequired[List[Ipv6CidrBlockAssociationTypeDef]]
+    Ipv6CidrBlockAssociationSet: NotRequired[list[Ipv6CidrBlockAssociationTypeDef]]
 
 class AwsEc2SubnetDetailsTypeDef(TypedDict):
     AssignIpv6AddressOnCreation: NotRequired[bool]
@@ -5122,7 +5174,7 @@ class AwsEc2VolumeDetailsOutputTypeDef(TypedDict):
     SnapshotId: NotRequired[str]
     Status: NotRequired[str]
     KmsKeyId: NotRequired[str]
-    Attachments: NotRequired[List[AwsEc2VolumeAttachmentTypeDef]]
+    Attachments: NotRequired[list[AwsEc2VolumeAttachmentTypeDef]]
     VolumeId: NotRequired[str]
     VolumeType: NotRequired[str]
     VolumeScanStatus: NotRequired[str]
@@ -5141,8 +5193,8 @@ class AwsEc2VolumeDetailsTypeDef(TypedDict):
     VolumeScanStatus: NotRequired[str]
 
 class AwsEc2VpcDetailsOutputTypeDef(TypedDict):
-    CidrBlockAssociationSet: NotRequired[List[CidrBlockAssociationTypeDef]]
-    Ipv6CidrBlockAssociationSet: NotRequired[List[Ipv6CidrBlockAssociationTypeDef]]
+    CidrBlockAssociationSet: NotRequired[list[CidrBlockAssociationTypeDef]]
+    Ipv6CidrBlockAssociationSet: NotRequired[list[Ipv6CidrBlockAssociationTypeDef]]
     DhcpOptionsId: NotRequired[str]
     State: NotRequired[str]
 
@@ -5156,16 +5208,16 @@ AwsEc2VpcEndpointServiceDetailsOutputTypeDef = TypedDict(
     "AwsEc2VpcEndpointServiceDetailsOutputTypeDef",
     {
         "AcceptanceRequired": NotRequired[bool],
-        "AvailabilityZones": NotRequired[List[str]],
-        "BaseEndpointDnsNames": NotRequired[List[str]],
+        "AvailabilityZones": NotRequired[list[str]],
+        "BaseEndpointDnsNames": NotRequired[list[str]],
         "ManagesVpcEndpoints": NotRequired[bool],
-        "GatewayLoadBalancerArns": NotRequired[List[str]],
-        "NetworkLoadBalancerArns": NotRequired[List[str]],
+        "GatewayLoadBalancerArns": NotRequired[list[str]],
+        "NetworkLoadBalancerArns": NotRequired[list[str]],
         "PrivateDnsName": NotRequired[str],
         "ServiceId": NotRequired[str],
         "ServiceName": NotRequired[str],
         "ServiceState": NotRequired[str],
-        "ServiceType": NotRequired[List[AwsEc2VpcEndpointServiceServiceTypeDetailsTypeDef]],
+        "ServiceType": NotRequired[list[AwsEc2VpcEndpointServiceServiceTypeDetailsTypeDef]],
     },
 )
 AwsEc2VpcEndpointServiceDetailsTypeDef = TypedDict(
@@ -5187,8 +5239,8 @@ AwsEc2VpcEndpointServiceDetailsTypeDef = TypedDict(
 
 class AwsEc2VpcPeeringConnectionVpcInfoDetailsOutputTypeDef(TypedDict):
     CidrBlock: NotRequired[str]
-    CidrBlockSet: NotRequired[List[VpcInfoCidrBlockSetDetailsTypeDef]]
-    Ipv6CidrBlockSet: NotRequired[List[VpcInfoIpv6CidrBlockSetDetailsTypeDef]]
+    CidrBlockSet: NotRequired[list[VpcInfoCidrBlockSetDetailsTypeDef]]
+    Ipv6CidrBlockSet: NotRequired[list[VpcInfoIpv6CidrBlockSetDetailsTypeDef]]
     OwnerId: NotRequired[str]
     PeeringOptions: NotRequired[VpcInfoPeeringOptionsDetailsTypeDef]
     Region: NotRequired[str]
@@ -5205,7 +5257,7 @@ class AwsEc2VpcPeeringConnectionVpcInfoDetailsTypeDef(TypedDict):
 
 class AwsEc2VpnConnectionOptionsDetailsOutputTypeDef(TypedDict):
     StaticRoutesOnly: NotRequired[bool]
-    TunnelOptions: NotRequired[List[AwsEc2VpnConnectionOptionsTunnelOptionsDetailsOutputTypeDef]]
+    TunnelOptions: NotRequired[list[AwsEc2VpnConnectionOptionsTunnelOptionsDetailsOutputTypeDef]]
 
 AwsEc2VpnConnectionOptionsTunnelOptionsDetailsUnionTypeDef = Union[
     AwsEc2VpnConnectionOptionsTunnelOptionsDetailsTypeDef,
@@ -5235,7 +5287,7 @@ class AwsEcsClusterConfigurationExecuteCommandConfigurationDetailsTypeDef(TypedD
 class AwsEcsContainerDetailsOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     Image: NotRequired[str]
-    MountPoints: NotRequired[List[AwsMountPointTypeDef]]
+    MountPoints: NotRequired[list[AwsMountPointTypeDef]]
     Privileged: NotRequired[bool]
 
 class AwsEcsContainerDetailsTypeDef(TypedDict):
@@ -5278,14 +5330,14 @@ class AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersDetailsOutputTypeDe
         AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersCapabilitiesDetailsOutputTypeDef
     ]
     Devices: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersDevicesDetailsOutputTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersDevicesDetailsOutputTypeDef]
     ]
     InitProcessEnabled: NotRequired[bool]
     MaxSwap: NotRequired[int]
     SharedMemorySize: NotRequired[int]
     Swappiness: NotRequired[int]
     Tmpfs: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersTmpfsDetailsOutputTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersTmpfsDetailsOutputTypeDef]
     ]
 
 AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersDevicesDetailsUnionTypeDef = Union[
@@ -5299,9 +5351,9 @@ AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersTmpfsDetailsUnionTypeDef 
 
 class AwsEcsTaskDefinitionContainerDefinitionsLogConfigurationDetailsOutputTypeDef(TypedDict):
     LogDriver: NotRequired[str]
-    Options: NotRequired[Dict[str, str]]
+    Options: NotRequired[dict[str, str]]
     SecretOptions: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsLogConfigurationSecretOptionsDetailsTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsLogConfigurationSecretOptionsDetailsTypeDef]
     ]
 
 class AwsEcsTaskDefinitionContainerDefinitionsLogConfigurationDetailsTypeDef(TypedDict):
@@ -5318,7 +5370,7 @@ AwsEcsTaskDefinitionProxyConfigurationDetailsOutputTypeDef = TypedDict(
     {
         "ContainerName": NotRequired[str],
         "ProxyConfigurationProperties": NotRequired[
-            List[AwsEcsTaskDefinitionProxyConfigurationProxyConfigurationPropertiesDetailsTypeDef]
+            list[AwsEcsTaskDefinitionProxyConfigurationProxyConfigurationPropertiesDetailsTypeDef]
         ],
         "Type": NotRequired[str],
     },
@@ -5362,7 +5414,7 @@ class AwsEfsAccessPointRootDirectoryDetailsTypeDef(TypedDict):
     Path: NotRequired[str]
 
 class AwsEksClusterLoggingDetailsOutputTypeDef(TypedDict):
-    ClusterLogging: NotRequired[List[AwsEksClusterLoggingClusterLoggingDetailsOutputTypeDef]]
+    ClusterLogging: NotRequired[list[AwsEksClusterLoggingClusterLoggingDetailsOutputTypeDef]]
 
 AwsEksClusterLoggingClusterLoggingDetailsUnionTypeDef = Union[
     AwsEksClusterLoggingClusterLoggingDetailsTypeDef,
@@ -5382,9 +5434,9 @@ class AwsElasticBeanstalkEnvironmentDetailsOutputTypeDef(TypedDict):
     EndpointUrl: NotRequired[str]
     EnvironmentArn: NotRequired[str]
     EnvironmentId: NotRequired[str]
-    EnvironmentLinks: NotRequired[List[AwsElasticBeanstalkEnvironmentEnvironmentLinkTypeDef]]
+    EnvironmentLinks: NotRequired[list[AwsElasticBeanstalkEnvironmentEnvironmentLinkTypeDef]]
     EnvironmentName: NotRequired[str]
-    OptionSettings: NotRequired[List[AwsElasticBeanstalkEnvironmentOptionSettingTypeDef]]
+    OptionSettings: NotRequired[list[AwsElasticBeanstalkEnvironmentOptionSettingTypeDef]]
     PlatformArn: NotRequired[str]
     SolutionStackName: NotRequired[str]
     Status: NotRequired[str]
@@ -5430,9 +5482,9 @@ AwsElasticsearchDomainVPCOptionsUnionTypeDef = Union[
 ]
 
 class AwsElbLoadBalancerPoliciesOutputTypeDef(TypedDict):
-    AppCookieStickinessPolicies: NotRequired[List[AwsElbAppCookieStickinessPolicyTypeDef]]
-    LbCookieStickinessPolicies: NotRequired[List[AwsElbLbCookieStickinessPolicyTypeDef]]
-    OtherPolicies: NotRequired[List[str]]
+    AppCookieStickinessPolicies: NotRequired[list[AwsElbAppCookieStickinessPolicyTypeDef]]
+    LbCookieStickinessPolicies: NotRequired[list[AwsElbLbCookieStickinessPolicyTypeDef]]
+    OtherPolicies: NotRequired[list[str]]
 
 class AwsElbLoadBalancerPoliciesTypeDef(TypedDict):
     AppCookieStickinessPolicies: NotRequired[Sequence[AwsElbAppCookieStickinessPolicyTypeDef]]
@@ -5444,7 +5496,7 @@ class AwsElbLoadBalancerAttributesOutputTypeDef(TypedDict):
     ConnectionDraining: NotRequired[AwsElbLoadBalancerConnectionDrainingTypeDef]
     ConnectionSettings: NotRequired[AwsElbLoadBalancerConnectionSettingsTypeDef]
     CrossZoneLoadBalancing: NotRequired[AwsElbLoadBalancerCrossZoneLoadBalancingTypeDef]
-    AdditionalAttributes: NotRequired[List[AwsElbLoadBalancerAdditionalAttributeTypeDef]]
+    AdditionalAttributes: NotRequired[list[AwsElbLoadBalancerAdditionalAttributeTypeDef]]
 
 class AwsElbLoadBalancerAttributesTypeDef(TypedDict):
     AccessLog: NotRequired[AwsElbLoadBalancerAccessLogTypeDef]
@@ -5460,7 +5512,7 @@ AwsElbLoadBalancerBackendServerDescriptionUnionTypeDef = Union[
 
 class AwsElbLoadBalancerListenerDescriptionOutputTypeDef(TypedDict):
     Listener: NotRequired[AwsElbLoadBalancerListenerTypeDef]
-    PolicyNames: NotRequired[List[str]]
+    PolicyNames: NotRequired[list[str]]
 
 class AwsElbLoadBalancerListenerDescriptionTypeDef(TypedDict):
     Listener: NotRequired[AwsElbLoadBalancerListenerTypeDef]
@@ -5469,17 +5521,17 @@ class AwsElbLoadBalancerListenerDescriptionTypeDef(TypedDict):
 AwsElbv2LoadBalancerDetailsOutputTypeDef = TypedDict(
     "AwsElbv2LoadBalancerDetailsOutputTypeDef",
     {
-        "AvailabilityZones": NotRequired[List[AvailabilityZoneTypeDef]],
+        "AvailabilityZones": NotRequired[list[AvailabilityZoneTypeDef]],
         "CanonicalHostedZoneId": NotRequired[str],
         "CreatedTime": NotRequired[str],
         "DNSName": NotRequired[str],
         "IpAddressType": NotRequired[str],
         "Scheme": NotRequired[str],
-        "SecurityGroups": NotRequired[List[str]],
+        "SecurityGroups": NotRequired[list[str]],
         "State": NotRequired[LoadBalancerStateTypeDef],
         "Type": NotRequired[str],
         "VpcId": NotRequired[str],
-        "LoadBalancerAttributes": NotRequired[List[AwsElbv2LoadBalancerAttributeTypeDef]],
+        "LoadBalancerAttributes": NotRequired[list[AwsElbv2LoadBalancerAttributeTypeDef]],
     },
 )
 AwsElbv2LoadBalancerDetailsTypeDef = TypedDict(
@@ -5518,11 +5570,11 @@ class AwsIamAccessKeySessionContextTypeDef(TypedDict):
     SessionIssuer: NotRequired[AwsIamAccessKeySessionContextSessionIssuerTypeDef]
 
 class AwsIamGroupDetailsOutputTypeDef(TypedDict):
-    AttachedManagedPolicies: NotRequired[List[AwsIamAttachedManagedPolicyTypeDef]]
+    AttachedManagedPolicies: NotRequired[list[AwsIamAttachedManagedPolicyTypeDef]]
     CreateDate: NotRequired[str]
     GroupId: NotRequired[str]
     GroupName: NotRequired[str]
-    GroupPolicyList: NotRequired[List[AwsIamGroupPolicyTypeDef]]
+    GroupPolicyList: NotRequired[list[AwsIamGroupPolicyTypeDef]]
     Path: NotRequired[str]
 
 class AwsIamGroupDetailsTypeDef(TypedDict):
@@ -5539,7 +5591,7 @@ class AwsIamInstanceProfileOutputTypeDef(TypedDict):
     InstanceProfileId: NotRequired[str]
     InstanceProfileName: NotRequired[str]
     Path: NotRequired[str]
-    Roles: NotRequired[List[AwsIamInstanceProfileRoleTypeDef]]
+    Roles: NotRequired[list[AwsIamInstanceProfileRoleTypeDef]]
 
 class AwsIamInstanceProfileTypeDef(TypedDict):
     Arn: NotRequired[str]
@@ -5559,7 +5611,7 @@ class AwsIamPolicyDetailsOutputTypeDef(TypedDict):
     PermissionsBoundaryUsageCount: NotRequired[int]
     PolicyId: NotRequired[str]
     PolicyName: NotRequired[str]
-    PolicyVersionList: NotRequired[List[AwsIamPolicyVersionTypeDef]]
+    PolicyVersionList: NotRequired[list[AwsIamPolicyVersionTypeDef]]
     UpdateDate: NotRequired[str]
 
 class AwsIamPolicyDetailsTypeDef(TypedDict):
@@ -5576,14 +5628,14 @@ class AwsIamPolicyDetailsTypeDef(TypedDict):
     UpdateDate: NotRequired[str]
 
 class AwsIamUserDetailsOutputTypeDef(TypedDict):
-    AttachedManagedPolicies: NotRequired[List[AwsIamAttachedManagedPolicyTypeDef]]
+    AttachedManagedPolicies: NotRequired[list[AwsIamAttachedManagedPolicyTypeDef]]
     CreateDate: NotRequired[str]
-    GroupList: NotRequired[List[str]]
+    GroupList: NotRequired[list[str]]
     Path: NotRequired[str]
     PermissionsBoundary: NotRequired[AwsIamPermissionsBoundaryTypeDef]
     UserId: NotRequired[str]
     UserName: NotRequired[str]
-    UserPolicyList: NotRequired[List[AwsIamUserPolicyTypeDef]]
+    UserPolicyList: NotRequired[list[AwsIamUserPolicyTypeDef]]
 
 class AwsIamUserDetailsTypeDef(TypedDict):
     AttachedManagedPolicies: NotRequired[Sequence[AwsIamAttachedManagedPolicyTypeDef]]
@@ -5603,7 +5655,7 @@ class AwsKinesisStreamDetailsTypeDef(TypedDict):
     RetentionPeriodHours: NotRequired[int]
 
 class AwsLambdaFunctionEnvironmentOutputTypeDef(TypedDict):
-    Variables: NotRequired[Dict[str, str]]
+    Variables: NotRequired[dict[str, str]]
     Error: NotRequired[AwsLambdaFunctionEnvironmentErrorTypeDef]
 
 class AwsLambdaFunctionEnvironmentTypeDef(TypedDict):
@@ -5643,7 +5695,7 @@ class AwsNetworkFirewallFirewallDetailsOutputTypeDef(TypedDict):
     FirewallPolicyArn: NotRequired[str]
     FirewallPolicyChangeProtection: NotRequired[bool]
     SubnetChangeProtection: NotRequired[bool]
-    SubnetMappings: NotRequired[List[AwsNetworkFirewallFirewallSubnetMappingsDetailsTypeDef]]
+    SubnetMappings: NotRequired[list[AwsNetworkFirewallFirewallSubnetMappingsDetailsTypeDef]]
     VpcId: NotRequired[str]
 
 class AwsNetworkFirewallFirewallDetailsTypeDef(TypedDict):
@@ -5689,13 +5741,13 @@ AwsOpenSearchServiceDomainVpcOptionsDetailsUnionTypeDef = Union[
 
 class AwsRdsDbClusterDetailsOutputTypeDef(TypedDict):
     AllocatedStorage: NotRequired[int]
-    AvailabilityZones: NotRequired[List[str]]
+    AvailabilityZones: NotRequired[list[str]]
     BackupRetentionPeriod: NotRequired[int]
     DatabaseName: NotRequired[str]
     Status: NotRequired[str]
     Endpoint: NotRequired[str]
     ReaderEndpoint: NotRequired[str]
-    CustomEndpoints: NotRequired[List[str]]
+    CustomEndpoints: NotRequired[list[str]]
     MultiAz: NotRequired[bool]
     Engine: NotRequired[str]
     EngineVersion: NotRequired[str]
@@ -5703,27 +5755,27 @@ class AwsRdsDbClusterDetailsOutputTypeDef(TypedDict):
     MasterUsername: NotRequired[str]
     PreferredBackupWindow: NotRequired[str]
     PreferredMaintenanceWindow: NotRequired[str]
-    ReadReplicaIdentifiers: NotRequired[List[str]]
-    VpcSecurityGroups: NotRequired[List[AwsRdsDbInstanceVpcSecurityGroupTypeDef]]
+    ReadReplicaIdentifiers: NotRequired[list[str]]
+    VpcSecurityGroups: NotRequired[list[AwsRdsDbInstanceVpcSecurityGroupTypeDef]]
     HostedZoneId: NotRequired[str]
     StorageEncrypted: NotRequired[bool]
     KmsKeyId: NotRequired[str]
     DbClusterResourceId: NotRequired[str]
-    AssociatedRoles: NotRequired[List[AwsRdsDbClusterAssociatedRoleTypeDef]]
+    AssociatedRoles: NotRequired[list[AwsRdsDbClusterAssociatedRoleTypeDef]]
     ClusterCreateTime: NotRequired[str]
-    EnabledCloudWatchLogsExports: NotRequired[List[str]]
+    EnabledCloudWatchLogsExports: NotRequired[list[str]]
     EngineMode: NotRequired[str]
     DeletionProtection: NotRequired[bool]
     HttpEndpointEnabled: NotRequired[bool]
     ActivityStreamStatus: NotRequired[str]
     CopyTagsToSnapshot: NotRequired[bool]
     CrossAccountClone: NotRequired[bool]
-    DomainMemberships: NotRequired[List[AwsRdsDbDomainMembershipTypeDef]]
+    DomainMemberships: NotRequired[list[AwsRdsDbDomainMembershipTypeDef]]
     DbClusterParameterGroup: NotRequired[str]
     DbSubnetGroup: NotRequired[str]
-    DbClusterOptionGroupMemberships: NotRequired[List[AwsRdsDbClusterOptionGroupMembershipTypeDef]]
+    DbClusterOptionGroupMemberships: NotRequired[list[AwsRdsDbClusterOptionGroupMembershipTypeDef]]
     DbClusterIdentifier: NotRequired[str]
-    DbClusterMembers: NotRequired[List[AwsRdsDbClusterMemberTypeDef]]
+    DbClusterMembers: NotRequired[list[AwsRdsDbClusterMemberTypeDef]]
     IamDatabaseAuthenticationEnabled: NotRequired[bool]
     AutoMinorVersionUpgrade: NotRequired[bool]
 
@@ -5770,7 +5822,7 @@ class AwsRdsDbClusterDetailsTypeDef(TypedDict):
     AutoMinorVersionUpgrade: NotRequired[bool]
 
 class AwsRdsDbClusterSnapshotDetailsOutputTypeDef(TypedDict):
-    AvailabilityZones: NotRequired[List[str]]
+    AvailabilityZones: NotRequired[list[str]]
     SnapshotCreateTime: NotRequired[str]
     Engine: NotRequired[str]
     AllocatedStorage: NotRequired[int]
@@ -5789,7 +5841,7 @@ class AwsRdsDbClusterSnapshotDetailsOutputTypeDef(TypedDict):
     DbClusterSnapshotIdentifier: NotRequired[str]
     IamDatabaseAuthenticationEnabled: NotRequired[bool]
     DbClusterSnapshotAttributes: NotRequired[
-        List[AwsRdsDbClusterSnapshotDbClusterSnapshotAttributeOutputTypeDef]
+        list[AwsRdsDbClusterSnapshotDbClusterSnapshotAttributeOutputTypeDef]
     ]
 
 AwsRdsDbClusterSnapshotDbClusterSnapshotAttributeUnionTypeDef = Union[
@@ -5823,7 +5875,7 @@ class AwsRdsDbSnapshotDetailsOutputTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     Timezone: NotRequired[str]
     IamDatabaseAuthenticationEnabled: NotRequired[bool]
-    ProcessorFeatures: NotRequired[List[AwsRdsDbProcessorFeatureTypeDef]]
+    ProcessorFeatures: NotRequired[list[AwsRdsDbProcessorFeatureTypeDef]]
     DbiResourceId: NotRequired[str]
 
 class AwsRdsDbSnapshotDetailsTypeDef(TypedDict):
@@ -5870,14 +5922,14 @@ class AwsRdsDbPendingModifiedValuesOutputTypeDef(TypedDict):
     CaCertificateIdentifier: NotRequired[str]
     DbSubnetGroupName: NotRequired[str]
     PendingCloudWatchLogsExports: NotRequired[AwsRdsPendingCloudWatchLogsExportsOutputTypeDef]
-    ProcessorFeatures: NotRequired[List[AwsRdsDbProcessorFeatureTypeDef]]
+    ProcessorFeatures: NotRequired[list[AwsRdsDbProcessorFeatureTypeDef]]
 
 class AwsRdsDbSecurityGroupDetailsOutputTypeDef(TypedDict):
     DbSecurityGroupArn: NotRequired[str]
     DbSecurityGroupDescription: NotRequired[str]
     DbSecurityGroupName: NotRequired[str]
-    Ec2SecurityGroups: NotRequired[List[AwsRdsDbSecurityGroupEc2SecurityGroupTypeDef]]
-    IpRanges: NotRequired[List[AwsRdsDbSecurityGroupIpRangeTypeDef]]
+    Ec2SecurityGroups: NotRequired[list[AwsRdsDbSecurityGroupEc2SecurityGroupTypeDef]]
+    IpRanges: NotRequired[list[AwsRdsDbSecurityGroupIpRangeTypeDef]]
     OwnerId: NotRequired[str]
     VpcId: NotRequired[str]
 
@@ -5903,7 +5955,7 @@ AwsRdsPendingCloudWatchLogsExportsUnionTypeDef = Union[
 ]
 
 class AwsRedshiftClusterClusterParameterGroupOutputTypeDef(TypedDict):
-    ClusterParameterStatusList: NotRequired[List[AwsRedshiftClusterClusterParameterStatusTypeDef]]
+    ClusterParameterStatusList: NotRequired[list[AwsRedshiftClusterClusterParameterStatusTypeDef]]
     ParameterApplyStatus: NotRequired[str]
     ParameterGroupName: NotRequired[str]
 
@@ -5944,7 +5996,7 @@ AwsS3BucketBucketLifecycleConfigurationRulesFilterPredicateOperandsDetailsTypeDe
 )
 
 class AwsS3BucketNotificationConfigurationS3KeyFilterOutputTypeDef(TypedDict):
-    FilterRules: NotRequired[List[AwsS3BucketNotificationConfigurationS3KeyFilterRuleTypeDef]]
+    FilterRules: NotRequired[list[AwsS3BucketNotificationConfigurationS3KeyFilterRuleTypeDef]]
 
 class AwsS3BucketNotificationConfigurationS3KeyFilterTypeDef(TypedDict):
     FilterRules: NotRequired[Sequence[AwsS3BucketNotificationConfigurationS3KeyFilterRuleTypeDef]]
@@ -5962,8 +6014,8 @@ class AwsS3BucketWebsiteConfigurationRoutingRuleTypeDef(TypedDict):
     Redirect: NotRequired[AwsS3BucketWebsiteConfigurationRoutingRuleRedirectTypeDef]
 
 class AwsSageMakerNotebookInstanceDetailsOutputTypeDef(TypedDict):
-    AcceleratorTypes: NotRequired[List[str]]
-    AdditionalCodeRepositories: NotRequired[List[str]]
+    AcceleratorTypes: NotRequired[list[str]]
+    AdditionalCodeRepositories: NotRequired[list[str]]
     DefaultCodeRepository: NotRequired[str]
     DirectInternetAccess: NotRequired[str]
     FailureReason: NotRequired[str]
@@ -5980,7 +6032,7 @@ class AwsSageMakerNotebookInstanceDetailsOutputTypeDef(TypedDict):
     PlatformIdentifier: NotRequired[str]
     RoleArn: NotRequired[str]
     RootAccess: NotRequired[str]
-    SecurityGroups: NotRequired[List[str]]
+    SecurityGroups: NotRequired[list[str]]
     SubnetId: NotRequired[str]
     Url: NotRequired[str]
     VolumeSizeInGB: NotRequired[int]
@@ -6023,6 +6075,10 @@ class OcsfBooleanFilterTypeDef(TypedDict):
     FieldName: NotRequired[OcsfBooleanFieldType]
     Filter: NotRequired[BooleanFilterTypeDef]
 
+class OcsfIpFilterTypeDef(TypedDict):
+    FieldName: NotRequired[OcsfIpFieldType]
+    Filter: NotRequired[IpFilterTypeDef]
+
 class BatchUpdateFindingsRequestTypeDef(TypedDict):
     FindingIdentifiers: Sequence[AwsSecurityFindingIdentifierTypeDef]
     Note: NotRequired[NoteUpdateTypeDef]
@@ -6042,7 +6098,7 @@ class BatchUpdateFindingsUnprocessedFindingTypeDef(TypedDict):
 
 class AwsSnsTopicDetailsOutputTypeDef(TypedDict):
     KmsMasterKeyId: NotRequired[str]
-    Subscription: NotRequired[List[AwsSnsTopicSubscriptionTypeDef]]
+    Subscription: NotRequired[list[AwsSnsTopicSubscriptionTypeDef]]
     TopicName: NotRequired[str]
     Owner: NotRequired[str]
     SqsSuccessFeedbackRoleArn: NotRequired[str]
@@ -6080,7 +6136,7 @@ class AwsWafRateBasedRuleDetailsOutputTypeDef(TypedDict):
     RateKey: NotRequired[str]
     RateLimit: NotRequired[int]
     RuleId: NotRequired[str]
-    MatchPredicates: NotRequired[List[AwsWafRateBasedRuleMatchPredicateTypeDef]]
+    MatchPredicates: NotRequired[list[AwsWafRateBasedRuleMatchPredicateTypeDef]]
 
 class AwsWafRateBasedRuleDetailsTypeDef(TypedDict):
     MetricName: NotRequired[str]
@@ -6096,7 +6152,7 @@ class AwsWafRegionalRateBasedRuleDetailsOutputTypeDef(TypedDict):
     RateKey: NotRequired[str]
     RateLimit: NotRequired[int]
     RuleId: NotRequired[str]
-    MatchPredicates: NotRequired[List[AwsWafRegionalRateBasedRuleMatchPredicateTypeDef]]
+    MatchPredicates: NotRequired[list[AwsWafRegionalRateBasedRuleMatchPredicateTypeDef]]
 
 class AwsWafRegionalRateBasedRuleDetailsTypeDef(TypedDict):
     MetricName: NotRequired[str]
@@ -6109,7 +6165,7 @@ class AwsWafRegionalRateBasedRuleDetailsTypeDef(TypedDict):
 class AwsWafRegionalRuleDetailsOutputTypeDef(TypedDict):
     MetricName: NotRequired[str]
     Name: NotRequired[str]
-    PredicateList: NotRequired[List[AwsWafRegionalRulePredicateListDetailsTypeDef]]
+    PredicateList: NotRequired[list[AwsWafRegionalRulePredicateListDetailsTypeDef]]
     RuleId: NotRequired[str]
 
 class AwsWafRegionalRuleDetailsTypeDef(TypedDict):
@@ -6141,7 +6197,7 @@ AwsWafRegionalWebAclRulesListDetailsTypeDef = TypedDict(
 class AwsWafRuleDetailsOutputTypeDef(TypedDict):
     MetricName: NotRequired[str]
     Name: NotRequired[str]
-    PredicateList: NotRequired[List[AwsWafRulePredicateListDetailsTypeDef]]
+    PredicateList: NotRequired[list[AwsWafRulePredicateListDetailsTypeDef]]
     RuleId: NotRequired[str]
 
 class AwsWafRuleDetailsTypeDef(TypedDict):
@@ -6163,7 +6219,7 @@ AwsWafWebAclRuleOutputTypeDef = TypedDict(
     "AwsWafWebAclRuleOutputTypeDef",
     {
         "Action": NotRequired[WafActionTypeDef],
-        "ExcludedRules": NotRequired[List[WafExcludedRuleTypeDef]],
+        "ExcludedRules": NotRequired[list[WafExcludedRuleTypeDef]],
         "OverrideAction": NotRequired[WafOverrideActionTypeDef],
         "Priority": NotRequired[int],
         "RuleId": NotRequired[str],
@@ -6183,7 +6239,7 @@ AwsWafWebAclRuleTypeDef = TypedDict(
 )
 
 class AwsWafv2CustomRequestHandlingDetailsOutputTypeDef(TypedDict):
-    InsertHeaders: NotRequired[List[AwsWafv2CustomHttpHeaderTypeDef]]
+    InsertHeaders: NotRequired[list[AwsWafv2CustomHttpHeaderTypeDef]]
 
 class AwsWafv2CustomRequestHandlingDetailsTypeDef(TypedDict):
     InsertHeaders: NotRequired[Sequence[AwsWafv2CustomHttpHeaderTypeDef]]
@@ -6191,7 +6247,7 @@ class AwsWafv2CustomRequestHandlingDetailsTypeDef(TypedDict):
 class AwsWafv2CustomResponseDetailsOutputTypeDef(TypedDict):
     CustomResponseBodyKey: NotRequired[str]
     ResponseCode: NotRequired[int]
-    ResponseHeaders: NotRequired[List[AwsWafv2CustomHttpHeaderTypeDef]]
+    ResponseHeaders: NotRequired[list[AwsWafv2CustomHttpHeaderTypeDef]]
 
 class AwsWafv2CustomResponseDetailsTypeDef(TypedDict):
     CustomResponseBodyKey: NotRequired[str]
@@ -6201,11 +6257,6 @@ class AwsWafv2CustomResponseDetailsTypeDef(TypedDict):
 class AwsWafv2WebAclCaptchaConfigDetailsTypeDef(TypedDict):
     ImmunityTimeProperty: NotRequired[AwsWafv2WebAclCaptchaConfigImmunityTimePropertyDetailsTypeDef]
 
-class ConnectorRegistrationsV2ResponseTypeDef(TypedDict):
-    ConnectorArn: str
-    ConnectorId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class CreateActionTargetResponseTypeDef(TypedDict):
     ActionTargetArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6214,7 +6265,7 @@ class CreateAggregatorV2ResponseTypeDef(TypedDict):
     AggregatorV2Arn: str
     AggregationRegion: str
     RegionLinkingMode: str
-    LinkedRegions: List[str]
+    LinkedRegions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateAutomationRuleResponseTypeDef(TypedDict):
@@ -6230,13 +6281,14 @@ class CreateConnectorV2ResponseTypeDef(TypedDict):
     ConnectorArn: str
     ConnectorId: str
     AuthUrl: str
+    ConnectorStatus: ConnectorStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateFindingAggregatorResponseTypeDef(TypedDict):
     FindingAggregatorArn: str
     FindingAggregationRegion: str
     RegionLinkingMode: str
-    Regions: List[str]
+    Regions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateInsightResponseTypeDef(TypedDict):
@@ -6257,7 +6309,7 @@ class DeleteInsightResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeActionTargetsResponseTypeDef(TypedDict):
-    ActionTargets: List[ActionTargetTypeDef]
+    ActionTargets: list[ActionTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6290,7 +6342,7 @@ class GetAggregatorV2ResponseTypeDef(TypedDict):
     AggregatorV2Arn: str
     AggregationRegion: str
     RegionLinkingMode: str
-    LinkedRegions: List[str]
+    LinkedRegions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetConfigurationPolicyAssociationResponseTypeDef(TypedDict):
@@ -6307,11 +6359,11 @@ class GetFindingAggregatorResponseTypeDef(TypedDict):
     FindingAggregatorArn: str
     FindingAggregationRegion: str
     RegionLinkingMode: str
-    Regions: List[str]
+    Regions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetFindingsV2ResponseTypeDef(TypedDict):
-    Findings: List[Dict[str, Any]]
+    Findings: list[dict[str, Any]]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6320,28 +6372,33 @@ class GetInvitationsCountResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAggregatorsV2ResponseTypeDef(TypedDict):
-    AggregatorsV2: List[AggregatorV2TypeDef]
+    AggregatorsV2: list[AggregatorV2TypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAutomationRulesResponseTypeDef(TypedDict):
-    AutomationRulesMetadata: List[AutomationRulesMetadataTypeDef]
+    AutomationRulesMetadata: list[AutomationRulesMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListEnabledProductsForImportResponseTypeDef(TypedDict):
-    ProductSubscriptions: List[str]
+    ProductSubscriptions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListOrganizationAdminAccountsResponseTypeDef(TypedDict):
-    AdminAccounts: List[AdminAccountTypeDef]
+    AdminAccounts: list[AdminAccountTypeDef]
     Feature: SecurityHubFeatureType
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RegisterConnectorV2ResponseTypeDef(TypedDict):
+    ConnectorArn: str
+    ConnectorId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartConfigurationPolicyAssociationResponseTypeDef(TypedDict):
@@ -6358,31 +6415,31 @@ class UpdateAggregatorV2ResponseTypeDef(TypedDict):
     AggregatorV2Arn: str
     AggregationRegion: str
     RegionLinkingMode: str
-    LinkedRegions: List[str]
+    LinkedRegions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateFindingAggregatorResponseTypeDef(TypedDict):
     FindingAggregatorArn: str
     FindingAggregationRegion: str
     RegionLinkingMode: str
-    Regions: List[str]
+    Regions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchDeleteAutomationRulesResponseTypeDef(TypedDict):
-    ProcessedAutomationRules: List[str]
-    UnprocessedAutomationRules: List[UnprocessedAutomationRuleTypeDef]
+    ProcessedAutomationRules: list[str]
+    UnprocessedAutomationRules: list[UnprocessedAutomationRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchUpdateAutomationRulesResponseTypeDef(TypedDict):
-    ProcessedAutomationRules: List[str]
-    UnprocessedAutomationRules: List[UnprocessedAutomationRuleTypeDef]
+    ProcessedAutomationRules: list[str]
+    UnprocessedAutomationRules: list[UnprocessedAutomationRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchEnableStandardsRequestTypeDef(TypedDict):
     StandardsSubscriptionRequests: Sequence[StandardsSubscriptionRequestTypeDef]
 
 class ListConfigurationPolicyAssociationsResponseTypeDef(TypedDict):
-    ConfigurationPolicyAssociationSummaries: List[ConfigurationPolicyAssociationSummaryTypeDef]
+    ConfigurationPolicyAssociationSummaries: list[ConfigurationPolicyAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6397,7 +6454,7 @@ class UnprocessedStandardsControlAssociationTypeDef(TypedDict):
 class BatchImportFindingsResponseTypeDef(TypedDict):
     FailedCount: int
     SuccessCount: int
-    FailedFindings: List[ImportFindingsErrorTypeDef]
+    FailedFindings: list[ImportFindingsErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchUpdateFindingsV2ProcessedFindingTypeDef(TypedDict):
@@ -6426,7 +6483,7 @@ class UnprocessedStandardsControlAssociationUpdateTypeDef(TypedDict):
     ErrorReason: NotRequired[str]
 
 class VulnerabilityCodeVulnerabilitiesOutputTypeDef(TypedDict):
-    Cwes: NotRequired[List[str]]
+    Cwes: NotRequired[list[str]]
     FilePath: NotRequired[CodeVulnerabilitiesFilePathTypeDef]
     SourceArn: NotRequired[str]
 
@@ -6437,11 +6494,11 @@ class VulnerabilityCodeVulnerabilitiesTypeDef(TypedDict):
 
 class ComplianceOutputTypeDef(TypedDict):
     Status: NotRequired[ComplianceStatusType]
-    RelatedRequirements: NotRequired[List[str]]
-    StatusReasons: NotRequired[List[StatusReasonTypeDef]]
+    RelatedRequirements: NotRequired[list[str]]
+    StatusReasons: NotRequired[list[StatusReasonTypeDef]]
     SecurityControlId: NotRequired[str]
-    AssociatedStandards: NotRequired[List[AssociatedStandardTypeDef]]
-    SecurityControlParameters: NotRequired[List[SecurityControlParameterOutputTypeDef]]
+    AssociatedStandards: NotRequired[list[AssociatedStandardTypeDef]]
+    SecurityControlParameters: NotRequired[list[SecurityControlParameterOutputTypeDef]]
 
 class ConfigurationOptionsTypeDef(TypedDict):
     Integer: NotRequired[IntegerConfigurationOptionsTypeDef]
@@ -6468,7 +6525,7 @@ class StartConfigurationPolicyDisassociationRequestTypeDef(TypedDict):
     Target: NotRequired[TargetTypeDef]
 
 class ListConfigurationPoliciesResponseTypeDef(TypedDict):
-    ConfigurationPolicySummaries: List[ConfigurationPolicySummaryTypeDef]
+    ConfigurationPolicySummaries: list[ConfigurationPolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6486,7 +6543,7 @@ class ContainerDetailsOutputTypeDef(TypedDict):
     ImageId: NotRequired[str]
     ImageName: NotRequired[str]
     LaunchedAt: NotRequired[str]
-    VolumeMounts: NotRequired[List[VolumeMountTypeDef]]
+    VolumeMounts: NotRequired[list[VolumeMountTypeDef]]
     Privileged: NotRequired[bool]
 
 class ContainerDetailsTypeDef(TypedDict):
@@ -6499,23 +6556,23 @@ class ContainerDetailsTypeDef(TypedDict):
     Privileged: NotRequired[bool]
 
 class CreateMembersResponseTypeDef(TypedDict):
-    UnprocessedAccounts: List[ResultTypeDef]
+    UnprocessedAccounts: list[ResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeclineInvitationsResponseTypeDef(TypedDict):
-    UnprocessedAccounts: List[ResultTypeDef]
+    UnprocessedAccounts: list[ResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteInvitationsResponseTypeDef(TypedDict):
-    UnprocessedAccounts: List[ResultTypeDef]
+    UnprocessedAccounts: list[ResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteMembersResponseTypeDef(TypedDict):
-    UnprocessedAccounts: List[ResultTypeDef]
+    UnprocessedAccounts: list[ResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class InviteMembersResponseTypeDef(TypedDict):
-    UnprocessedAccounts: List[ResultTypeDef]
+    UnprocessedAccounts: list[ResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DateFilterTypeDef(TypedDict):
@@ -6597,17 +6654,17 @@ class UpdateOrganizationConfigurationRequestTypeDef(TypedDict):
     OrganizationConfiguration: NotRequired[OrganizationConfigurationTypeDef]
 
 class DescribeProductsResponseTypeDef(TypedDict):
-    Products: List[ProductTypeDef]
+    Products: list[ProductTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeProductsV2ResponseTypeDef(TypedDict):
-    ProductsV2: List[ProductV2TypeDef]
+    ProductsV2: list[ProductV2TypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeStandardsControlsResponseTypeDef(TypedDict):
-    Controls: List[StandardsControlTypeDef]
+    Controls: list[StandardsControlTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6615,7 +6672,7 @@ class ThreatOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     Severity: NotRequired[str]
     ItemCount: NotRequired[int]
-    FilePaths: NotRequired[List[FilePathsTypeDef]]
+    FilePaths: NotRequired[list[FilePathsTypeDef]]
 
 class ThreatTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -6624,7 +6681,7 @@ class ThreatTypeDef(TypedDict):
     FilePaths: NotRequired[Sequence[FilePathsTypeDef]]
 
 class ListFindingAggregatorsResponseTypeDef(TypedDict):
-    FindingAggregators: List[FindingAggregatorTypeDef]
+    FindingAggregators: list[FindingAggregatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6633,15 +6690,15 @@ class FindingHistoryRecordTypeDef(TypedDict):
     UpdateTime: NotRequired[datetime]
     FindingCreated: NotRequired[bool]
     UpdateSource: NotRequired[FindingHistoryUpdateSourceTypeDef]
-    Updates: NotRequired[List[FindingHistoryUpdateTypeDef]]
+    Updates: NotRequired[list[FindingHistoryUpdateTypeDef]]
     NextToken: NotRequired[str]
 
 class FindingProviderFieldsOutputTypeDef(TypedDict):
     Confidence: NotRequired[int]
     Criticality: NotRequired[int]
-    RelatedFindings: NotRequired[List[RelatedFindingTypeDef]]
+    RelatedFindings: NotRequired[list[RelatedFindingTypeDef]]
     Severity: NotRequired[FindingProviderSeverityTypeDef]
-    Types: NotRequired[List[str]]
+    Types: NotRequired[list[str]]
 
 class FindingProviderFieldsTypeDef(TypedDict):
     Confidence: NotRequired[int]
@@ -6661,7 +6718,7 @@ class GetMasterAccountResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListInvitationsResponseTypeDef(TypedDict):
-    Invitations: List[InvitationTypeDef]
+    Invitations: list[InvitationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6679,18 +6736,18 @@ class GetFindingHistoryRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 class GetMembersResponseTypeDef(TypedDict):
-    Members: List[MemberTypeDef]
-    UnprocessedAccounts: List[ResultTypeDef]
+    Members: list[MemberTypeDef]
+    UnprocessedAccounts: list[ResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListMembersResponseTypeDef(TypedDict):
-    Members: List[MemberTypeDef]
+    Members: list[MemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class GroupByResultTypeDef(TypedDict):
     GroupByField: NotRequired[str]
-    GroupByValues: NotRequired[List[GroupByValueTypeDef]]
+    GroupByValues: NotRequired[list[GroupByValueTypeDef]]
 
 SignalOutputTypeDef = TypedDict(
     "SignalOutputTypeDef",
@@ -6699,8 +6756,8 @@ SignalOutputTypeDef = TypedDict(
         "Id": NotRequired[str],
         "Title": NotRequired[str],
         "ProductArn": NotRequired[str],
-        "ResourceIds": NotRequired[List[str]],
-        "SignalIndicators": NotRequired[List[IndicatorOutputTypeDef]],
+        "ResourceIds": NotRequired[list[str]],
+        "SignalIndicators": NotRequired[list[IndicatorOutputTypeDef]],
         "Name": NotRequired[str],
         "CreatedAt": NotRequired[int],
         "UpdatedAt": NotRequired[int],
@@ -6708,8 +6765,8 @@ SignalOutputTypeDef = TypedDict(
         "LastSeenAt": NotRequired[int],
         "Severity": NotRequired[float],
         "Count": NotRequired[int],
-        "ActorIds": NotRequired[List[str]],
-        "EndpointIds": NotRequired[List[str]],
+        "ActorIds": NotRequired[list[str]],
+        "EndpointIds": NotRequired[list[str]],
     },
 )
 IndicatorUnionTypeDef = Union[IndicatorTypeDef, IndicatorOutputTypeDef]
@@ -6737,13 +6794,10 @@ SignalTypeDef = TypedDict(
 class InsightResultsTypeDef(TypedDict):
     InsightArn: str
     GroupByAttribute: str
-    ResultValues: List[InsightResultValueTypeDef]
-
-class ProviderUpdateConfigurationTypeDef(TypedDict):
-    JiraCloud: NotRequired[JiraCloudUpdateConfigurationTypeDef]
+    ResultValues: list[InsightResultValueTypeDef]
 
 class ListStandardsControlAssociationsResponseTypeDef(TypedDict):
-    StandardsControlAssociationSummaries: List[StandardsControlAssociationSummaryTypeDef]
+    StandardsControlAssociationSummaries: list[StandardsControlAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6757,8 +6811,8 @@ class NetworkEndpointTypeDef(TypedDict):
     Connection: NotRequired[NetworkConnectionTypeDef]
 
 class NetworkPathComponentDetailsOutputTypeDef(TypedDict):
-    Address: NotRequired[List[str]]
-    PortRanges: NotRequired[List[PortRangeTypeDef]]
+    Address: NotRequired[list[str]]
+    PortRanges: NotRequired[list[PortRangeTypeDef]]
 
 class NetworkPathComponentDetailsTypeDef(TypedDict):
     Address: NotRequired[Sequence[str]]
@@ -6801,6 +6855,10 @@ class ProviderDetailTypeDef(TypedDict):
     JiraCloud: NotRequired[JiraCloudDetailTypeDef]
     ServiceNow: NotRequired[ServiceNowDetailTypeDef]
 
+class ProviderUpdateConfigurationTypeDef(TypedDict):
+    JiraCloud: NotRequired[JiraCloudUpdateConfigurationTypeDef]
+    ServiceNow: NotRequired[ServiceNowUpdateConfigurationTypeDef]
+
 class RemediationTypeDef(TypedDict):
     Recommendation: NotRequired[RecommendationTypeDef]
 
@@ -6810,6 +6868,9 @@ class ResourceFindingsSummaryTypeDef(TypedDict):
     TotalFindings: int
     Severities: NotRequired[ResourceSeverityBreakdownTypeDef]
 
+class ResourcesTrendsValuesTypeDef(TypedDict):
+    ResourcesCount: ResourcesCountTypeDef
+
 RuleGroupSourceListDetailsUnionTypeDef = Union[
     RuleGroupSourceListDetailsTypeDef, RuleGroupSourceListDetailsOutputTypeDef
 ]
@@ -6817,7 +6878,7 @@ RuleGroupSourceListDetailsUnionTypeDef = Union[
 class RuleGroupSourceStatefulRulesDetailsOutputTypeDef(TypedDict):
     Action: NotRequired[str]
     Header: NotRequired[RuleGroupSourceStatefulRulesHeaderDetailsTypeDef]
-    RuleOptions: NotRequired[List[RuleGroupSourceStatefulRulesOptionsDetailsOutputTypeDef]]
+    RuleOptions: NotRequired[list[RuleGroupSourceStatefulRulesOptionsDetailsOutputTypeDef]]
 
 RuleGroupSourceStatefulRulesOptionsDetailsUnionTypeDef = Union[
     RuleGroupSourceStatefulRulesOptionsDetailsTypeDef,
@@ -6826,13 +6887,13 @@ RuleGroupSourceStatefulRulesOptionsDetailsUnionTypeDef = Union[
 
 class RuleGroupSourceStatelessRuleMatchAttributesOutputTypeDef(TypedDict):
     DestinationPorts: NotRequired[
-        List[RuleGroupSourceStatelessRuleMatchAttributesDestinationPortsTypeDef]
+        list[RuleGroupSourceStatelessRuleMatchAttributesDestinationPortsTypeDef]
     ]
-    Destinations: NotRequired[List[RuleGroupSourceStatelessRuleMatchAttributesDestinationsTypeDef]]
-    Protocols: NotRequired[List[int]]
-    SourcePorts: NotRequired[List[RuleGroupSourceStatelessRuleMatchAttributesSourcePortsTypeDef]]
-    Sources: NotRequired[List[RuleGroupSourceStatelessRuleMatchAttributesSourcesTypeDef]]
-    TcpFlags: NotRequired[List[RuleGroupSourceStatelessRuleMatchAttributesTcpFlagsOutputTypeDef]]
+    Destinations: NotRequired[list[RuleGroupSourceStatelessRuleMatchAttributesDestinationsTypeDef]]
+    Protocols: NotRequired[list[int]]
+    SourcePorts: NotRequired[list[RuleGroupSourceStatelessRuleMatchAttributesSourcePortsTypeDef]]
+    Sources: NotRequired[list[RuleGroupSourceStatelessRuleMatchAttributesSourcesTypeDef]]
+    TcpFlags: NotRequired[list[RuleGroupSourceStatelessRuleMatchAttributesTcpFlagsOutputTypeDef]]
 
 RuleGroupSourceStatelessRuleMatchAttributesTcpFlagsUnionTypeDef = Union[
     RuleGroupSourceStatelessRuleMatchAttributesTcpFlagsTypeDef,
@@ -6853,6 +6914,9 @@ SecurityControlParameterUnionTypeDef = Union[
     SecurityControlParameterTypeDef, SecurityControlParameterOutputTypeDef
 ]
 
+class TrendsValuesTypeDef(TypedDict):
+    SeverityTrends: SeverityTrendsCountTypeDef
+
 class StandardTypeDef(TypedDict):
     StandardsArn: NotRequired[str]
     Name: NotRequired[str]
@@ -6863,13 +6927,13 @@ class StandardTypeDef(TypedDict):
 class StandardsSubscriptionTypeDef(TypedDict):
     StandardsSubscriptionArn: str
     StandardsArn: str
-    StandardsInput: Dict[str, str]
+    StandardsInput: dict[str, str]
     StandardsStatus: StandardsStatusType
     StandardsControlsUpdatable: NotRequired[StandardsControlsUpdatableType]
     StandardsStatusReason: NotRequired[StandardsStatusReasonTypeDef]
 
 class StatelessCustomPublishMetricActionOutputTypeDef(TypedDict):
-    Dimensions: NotRequired[List[StatelessCustomPublishMetricActionDimensionTypeDef]]
+    Dimensions: NotRequired[list[StatelessCustomPublishMetricActionDimensionTypeDef]]
 
 class StatelessCustomPublishMetricActionTypeDef(TypedDict):
     Dimensions: NotRequired[Sequence[StatelessCustomPublishMetricActionDimensionTypeDef]]
@@ -6882,7 +6946,7 @@ AwsApiCallActionOutputTypeDef = TypedDict(
         "CallerType": NotRequired[str],
         "RemoteIpDetails": NotRequired[ActionRemoteIpDetailsTypeDef],
         "DomainDetails": NotRequired[AwsApiCallActionDomainDetailsTypeDef],
-        "AffectedResources": NotRequired[Dict[str, str]],
+        "AffectedResources": NotRequired[dict[str, str]],
         "FirstSeen": NotRequired[str],
         "LastSeen": NotRequired[str],
     },
@@ -6925,11 +6989,11 @@ class ActorTypeDef(TypedDict):
 CvssUnionTypeDef = Union[CvssTypeDef, CvssOutputTypeDef]
 
 class AwsEc2RouteTableDetailsOutputTypeDef(TypedDict):
-    AssociationSet: NotRequired[List[AssociationSetDetailsTypeDef]]
+    AssociationSet: NotRequired[list[AssociationSetDetailsTypeDef]]
     OwnerId: NotRequired[str]
-    PropagatingVgwSet: NotRequired[List[PropagatingVgwSetDetailsTypeDef]]
+    PropagatingVgwSet: NotRequired[list[PropagatingVgwSetDetailsTypeDef]]
     RouteTableId: NotRequired[str]
-    RouteSet: NotRequired[List[RouteSetDetailsTypeDef]]
+    RouteSet: NotRequired[list[RouteSetDetailsTypeDef]]
     VpcId: NotRequired[str]
 
 class AwsEc2RouteTableDetailsTypeDef(TypedDict):
@@ -6941,7 +7005,7 @@ class AwsEc2RouteTableDetailsTypeDef(TypedDict):
     VpcId: NotRequired[str]
 
 class ListAutomationRulesV2ResponseTypeDef(TypedDict):
-    Rules: List[AutomationRulesMetadataV2TypeDef]
+    Rules: list[AutomationRulesMetadataV2TypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6955,6 +7019,26 @@ AutomationRulesActionOutputTypeDef = TypedDict(
 AutomationRulesFindingFieldsUpdateUnionTypeDef = Union[
     AutomationRulesFindingFieldsUpdateTypeDef, AutomationRulesFindingFieldsUpdateOutputTypeDef
 ]
+
+class FindingsTrendsCompositeFilterPaginatorTypeDef(TypedDict):
+    StringFilters: NotRequired[Sequence[FindingsTrendsStringFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    Operator: NotRequired[AllowedOperatorsType]
+
+class FindingsTrendsCompositeFilterTypeDef(TypedDict):
+    StringFilters: NotRequired[Sequence[FindingsTrendsStringFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    Operator: NotRequired[AllowedOperatorsType]
+
+class ResourcesTrendsCompositeFilterPaginatorTypeDef(TypedDict):
+    StringFilters: NotRequired[Sequence[ResourcesTrendsStringFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    Operator: NotRequired[AllowedOperatorsType]
+
+class ResourcesTrendsCompositeFilterTypeDef(TypedDict):
+    StringFilters: NotRequired[Sequence[ResourcesTrendsStringFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    Operator: NotRequired[AllowedOperatorsType]
 
 class AwsAmazonMqBrokerDetailsOutputTypeDef(TypedDict):
     AuthenticationStrategy: NotRequired[str]
@@ -6973,10 +7057,10 @@ class AwsAmazonMqBrokerDetailsOutputTypeDef(TypedDict):
         AwsAmazonMqBrokerMaintenanceWindowStartTimeDetailsTypeDef
     ]
     PubliclyAccessible: NotRequired[bool]
-    SecurityGroups: NotRequired[List[str]]
+    SecurityGroups: NotRequired[list[str]]
     StorageType: NotRequired[str]
-    SubnetIds: NotRequired[List[str]]
-    Users: NotRequired[List[AwsAmazonMqBrokerUsersDetailsTypeDef]]
+    SubnetIds: NotRequired[list[str]]
+    Users: NotRequired[list[AwsAmazonMqBrokerUsersDetailsTypeDef]]
 
 class AwsAmazonMqBrokerDetailsTypeDef(TypedDict):
     AuthenticationStrategy: NotRequired[str]
@@ -7045,7 +7129,7 @@ class AwsAppSyncGraphQlApiDetailsOutputTypeDef(TypedDict):
     AuthenticationType: NotRequired[str]
     LogConfig: NotRequired[AwsAppSyncGraphQlApiLogConfigDetailsTypeDef]
     AdditionalAuthenticationProviders: NotRequired[
-        List[AwsAppSyncGraphQlApiAdditionalAuthenticationProvidersDetailsTypeDef]
+        list[AwsAppSyncGraphQlApiAdditionalAuthenticationProvidersDetailsTypeDef]
     ]
     WafWebAclArn: NotRequired[str]
 
@@ -7086,10 +7170,10 @@ AwsAutoScalingAutoScalingGroupMixedInstancesPolicyLaunchTemplateDetailsUnionType
 class AwsAutoScalingLaunchConfigurationDetailsOutputTypeDef(TypedDict):
     AssociatePublicIpAddress: NotRequired[bool]
     BlockDeviceMappings: NotRequired[
-        List[AwsAutoScalingLaunchConfigurationBlockDeviceMappingsDetailsTypeDef]
+        list[AwsAutoScalingLaunchConfigurationBlockDeviceMappingsDetailsTypeDef]
     ]
     ClassicLinkVpcId: NotRequired[str]
-    ClassicLinkVpcSecurityGroups: NotRequired[List[str]]
+    ClassicLinkVpcSecurityGroups: NotRequired[list[str]]
     CreatedTime: NotRequired[str]
     EbsOptimized: NotRequired[bool]
     IamInstanceProfile: NotRequired[str]
@@ -7103,7 +7187,7 @@ class AwsAutoScalingLaunchConfigurationDetailsOutputTypeDef(TypedDict):
     LaunchConfigurationName: NotRequired[str]
     PlacementTenancy: NotRequired[str]
     RamdiskId: NotRequired[str]
-    SecurityGroups: NotRequired[List[str]]
+    SecurityGroups: NotRequired[list[str]]
     SpotPrice: NotRequired[str]
     UserData: NotRequired[str]
     MetadataOptions: NotRequired[AwsAutoScalingLaunchConfigurationMetadataOptionsTypeDef]
@@ -7141,7 +7225,7 @@ class AwsBackupBackupPlanRuleDetailsOutputTypeDef(TypedDict):
     RuleId: NotRequired[str]
     EnableContinuousBackup: NotRequired[bool]
     CompletionWindowMinutes: NotRequired[int]
-    CopyActions: NotRequired[List[AwsBackupBackupPlanRuleCopyActionsDetailsTypeDef]]
+    CopyActions: NotRequired[list[AwsBackupBackupPlanRuleCopyActionsDetailsTypeDef]]
     Lifecycle: NotRequired[AwsBackupBackupPlanLifecycleDetailsTypeDef]
 
 class AwsBackupBackupPlanRuleDetailsTypeDef(TypedDict):
@@ -7164,7 +7248,7 @@ class AwsBackupBackupVaultDetailsTypeDef(TypedDict):
 
 class AwsCertificateManagerCertificateRenewalSummaryOutputTypeDef(TypedDict):
     DomainValidationOptions: NotRequired[
-        List[AwsCertificateManagerCertificateDomainValidationOptionOutputTypeDef]
+        list[AwsCertificateManagerCertificateDomainValidationOptionOutputTypeDef]
     ]
     RenewalStatus: NotRequired[str]
     RenewalStatusReason: NotRequired[str]
@@ -7221,14 +7305,14 @@ AwsCodeBuildProjectEnvironmentUnionTypeDef = Union[
 
 class AwsCodeBuildProjectDetailsOutputTypeDef(TypedDict):
     EncryptionKey: NotRequired[str]
-    Artifacts: NotRequired[List[AwsCodeBuildProjectArtifactsDetailsTypeDef]]
+    Artifacts: NotRequired[list[AwsCodeBuildProjectArtifactsDetailsTypeDef]]
     Environment: NotRequired[AwsCodeBuildProjectEnvironmentOutputTypeDef]
     Name: NotRequired[str]
     Source: NotRequired[AwsCodeBuildProjectSourceTypeDef]
     ServiceRole: NotRequired[str]
     LogsConfig: NotRequired[AwsCodeBuildProjectLogsConfigDetailsTypeDef]
     VpcConfig: NotRequired[AwsCodeBuildProjectVpcConfigOutputTypeDef]
-    SecondaryArtifacts: NotRequired[List[AwsCodeBuildProjectArtifactsDetailsTypeDef]]
+    SecondaryArtifacts: NotRequired[list[AwsCodeBuildProjectArtifactsDetailsTypeDef]]
 
 class AwsApiGatewayV2ApiDetailsTypeDef(TypedDict):
     ApiEndpoint: NotRequired[str]
@@ -7267,7 +7351,7 @@ AwsDynamoDbTableReplicaOutputTypeDef = TypedDict(
     "AwsDynamoDbTableReplicaOutputTypeDef",
     {
         "GlobalSecondaryIndexes": NotRequired[
-            List[AwsDynamoDbTableReplicaGlobalSecondaryIndexTypeDef]
+            list[AwsDynamoDbTableReplicaGlobalSecondaryIndexTypeDef]
         ],
         "KmsMasterKeyId": NotRequired[str],
         "ProvisionedThroughputOverride": NotRequired[
@@ -7298,16 +7382,16 @@ class AwsEc2ClientVpnEndpointDetailsOutputTypeDef(TypedDict):
     ClientVpnEndpointId: NotRequired[str]
     Description: NotRequired[str]
     ClientCidrBlock: NotRequired[str]
-    DnsServer: NotRequired[List[str]]
+    DnsServer: NotRequired[list[str]]
     SplitTunnel: NotRequired[bool]
     TransportProtocol: NotRequired[str]
     VpnPort: NotRequired[int]
     ServerCertificateArn: NotRequired[str]
     AuthenticationOptions: NotRequired[
-        List[AwsEc2ClientVpnEndpointAuthenticationOptionsDetailsTypeDef]
+        list[AwsEc2ClientVpnEndpointAuthenticationOptionsDetailsTypeDef]
     ]
     ConnectionLogOptions: NotRequired[AwsEc2ClientVpnEndpointConnectionLogOptionsDetailsTypeDef]
-    SecurityGroupIdSet: NotRequired[List[str]]
+    SecurityGroupIdSet: NotRequired[list[str]]
     VpcId: NotRequired[str]
     SelfServicePortalUrl: NotRequired[str]
     ClientConnectOptions: NotRequired[AwsEc2ClientVpnEndpointClientConnectOptionsDetailsTypeDef]
@@ -7348,7 +7432,7 @@ AwsEc2LaunchTemplateDataInstanceRequirementsDetailsUnionTypeDef = Union[
 
 class AwsEc2LaunchTemplateDataDetailsOutputTypeDef(TypedDict):
     BlockDeviceMappingSet: NotRequired[
-        List[AwsEc2LaunchTemplateDataBlockDeviceMappingSetDetailsTypeDef]
+        list[AwsEc2LaunchTemplateDataBlockDeviceMappingSetDetailsTypeDef]
     ]
     CapacityReservationSpecification: NotRequired[
         AwsEc2LaunchTemplateDataCapacityReservationSpecificationDetailsTypeDef
@@ -7359,10 +7443,10 @@ class AwsEc2LaunchTemplateDataDetailsOutputTypeDef(TypedDict):
     DisableApiTermination: NotRequired[bool]
     EbsOptimized: NotRequired[bool]
     ElasticGpuSpecificationSet: NotRequired[
-        List[AwsEc2LaunchTemplateDataElasticGpuSpecificationSetDetailsTypeDef]
+        list[AwsEc2LaunchTemplateDataElasticGpuSpecificationSetDetailsTypeDef]
     ]
     ElasticInferenceAcceleratorSet: NotRequired[
-        List[AwsEc2LaunchTemplateDataElasticInferenceAcceleratorSetDetailsTypeDef]
+        list[AwsEc2LaunchTemplateDataElasticInferenceAcceleratorSetDetailsTypeDef]
     ]
     EnclaveOptions: NotRequired[AwsEc2LaunchTemplateDataEnclaveOptionsDetailsTypeDef]
     HibernationOptions: NotRequired[AwsEc2LaunchTemplateDataHibernationOptionsDetailsTypeDef]
@@ -7376,18 +7460,18 @@ class AwsEc2LaunchTemplateDataDetailsOutputTypeDef(TypedDict):
     InstanceType: NotRequired[str]
     KernelId: NotRequired[str]
     KeyName: NotRequired[str]
-    LicenseSet: NotRequired[List[AwsEc2LaunchTemplateDataLicenseSetDetailsTypeDef]]
+    LicenseSet: NotRequired[list[AwsEc2LaunchTemplateDataLicenseSetDetailsTypeDef]]
     MaintenanceOptions: NotRequired[AwsEc2LaunchTemplateDataMaintenanceOptionsDetailsTypeDef]
     MetadataOptions: NotRequired[AwsEc2LaunchTemplateDataMetadataOptionsDetailsTypeDef]
     Monitoring: NotRequired[AwsEc2LaunchTemplateDataMonitoringDetailsTypeDef]
     NetworkInterfaceSet: NotRequired[
-        List[AwsEc2LaunchTemplateDataNetworkInterfaceSetDetailsOutputTypeDef]
+        list[AwsEc2LaunchTemplateDataNetworkInterfaceSetDetailsOutputTypeDef]
     ]
     Placement: NotRequired[AwsEc2LaunchTemplateDataPlacementDetailsTypeDef]
     PrivateDnsNameOptions: NotRequired[AwsEc2LaunchTemplateDataPrivateDnsNameOptionsDetailsTypeDef]
     RamDiskId: NotRequired[str]
-    SecurityGroupIdSet: NotRequired[List[str]]
-    SecurityGroupSet: NotRequired[List[str]]
+    SecurityGroupIdSet: NotRequired[list[str]]
+    SecurityGroupSet: NotRequired[list[str]]
     UserData: NotRequired[str]
 
 AwsEc2LaunchTemplateDataNetworkInterfaceSetDetailsUnionTypeDef = Union[
@@ -7400,8 +7484,8 @@ class AwsEc2NetworkAclDetailsOutputTypeDef(TypedDict):
     NetworkAclId: NotRequired[str]
     OwnerId: NotRequired[str]
     VpcId: NotRequired[str]
-    Associations: NotRequired[List[AwsEc2NetworkAclAssociationTypeDef]]
-    Entries: NotRequired[List[AwsEc2NetworkAclEntryTypeDef]]
+    Associations: NotRequired[list[AwsEc2NetworkAclAssociationTypeDef]]
+    Entries: NotRequired[list[AwsEc2NetworkAclEntryTypeDef]]
 
 class AwsEc2NetworkAclDetailsTypeDef(TypedDict):
     IsDefault: NotRequired[bool]
@@ -7420,8 +7504,8 @@ class AwsEc2SecurityGroupDetailsOutputTypeDef(TypedDict):
     GroupId: NotRequired[str]
     OwnerId: NotRequired[str]
     VpcId: NotRequired[str]
-    IpPermissions: NotRequired[List[AwsEc2SecurityGroupIpPermissionOutputTypeDef]]
-    IpPermissionsEgress: NotRequired[List[AwsEc2SecurityGroupIpPermissionOutputTypeDef]]
+    IpPermissions: NotRequired[list[AwsEc2SecurityGroupIpPermissionOutputTypeDef]]
+    IpPermissionsEgress: NotRequired[list[AwsEc2SecurityGroupIpPermissionOutputTypeDef]]
 
 AwsEc2SecurityGroupIpPermissionUnionTypeDef = Union[
     AwsEc2SecurityGroupIpPermissionTypeDef, AwsEc2SecurityGroupIpPermissionOutputTypeDef
@@ -7458,9 +7542,9 @@ AwsEc2VpnConnectionDetailsOutputTypeDef = TypedDict(
         "Type": NotRequired[str],
         "VpnGatewayId": NotRequired[str],
         "Category": NotRequired[str],
-        "VgwTelemetry": NotRequired[List[AwsEc2VpnConnectionVgwTelemetryDetailsTypeDef]],
+        "VgwTelemetry": NotRequired[list[AwsEc2VpnConnectionVgwTelemetryDetailsTypeDef]],
         "Options": NotRequired[AwsEc2VpnConnectionOptionsDetailsOutputTypeDef],
-        "Routes": NotRequired[List[AwsEc2VpnConnectionRoutesDetailsTypeDef]],
+        "Routes": NotRequired[list[AwsEc2VpnConnectionRoutesDetailsTypeDef]],
         "TransitGatewayId": NotRequired[str],
     },
 )
@@ -7481,7 +7565,7 @@ AwsEcsServiceDetailsOutputTypeDef = TypedDict(
     "AwsEcsServiceDetailsOutputTypeDef",
     {
         "CapacityProviderStrategy": NotRequired[
-            List[AwsEcsServiceCapacityProviderStrategyDetailsTypeDef]
+            list[AwsEcsServiceCapacityProviderStrategyDetailsTypeDef]
         ],
         "Cluster": NotRequired[str],
         "DeploymentConfiguration": NotRequired[AwsEcsServiceDeploymentConfigurationDetailsTypeDef],
@@ -7491,18 +7575,18 @@ AwsEcsServiceDetailsOutputTypeDef = TypedDict(
         "EnableExecuteCommand": NotRequired[bool],
         "HealthCheckGracePeriodSeconds": NotRequired[int],
         "LaunchType": NotRequired[str],
-        "LoadBalancers": NotRequired[List[AwsEcsServiceLoadBalancersDetailsTypeDef]],
+        "LoadBalancers": NotRequired[list[AwsEcsServiceLoadBalancersDetailsTypeDef]],
         "Name": NotRequired[str],
         "NetworkConfiguration": NotRequired[AwsEcsServiceNetworkConfigurationDetailsOutputTypeDef],
-        "PlacementConstraints": NotRequired[List[AwsEcsServicePlacementConstraintsDetailsTypeDef]],
-        "PlacementStrategies": NotRequired[List[AwsEcsServicePlacementStrategiesDetailsTypeDef]],
+        "PlacementConstraints": NotRequired[list[AwsEcsServicePlacementConstraintsDetailsTypeDef]],
+        "PlacementStrategies": NotRequired[list[AwsEcsServicePlacementStrategiesDetailsTypeDef]],
         "PlatformVersion": NotRequired[str],
         "PropagateTags": NotRequired[str],
         "Role": NotRequired[str],
         "SchedulingStrategy": NotRequired[str],
         "ServiceArn": NotRequired[str],
         "ServiceName": NotRequired[str],
-        "ServiceRegistries": NotRequired[List[AwsEcsServiceServiceRegistriesDetailsTypeDef]],
+        "ServiceRegistries": NotRequired[list[AwsEcsServiceServiceRegistriesDetailsTypeDef]],
         "TaskDefinition": NotRequired[str],
     },
 )
@@ -7528,23 +7612,23 @@ class AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersDetailsTypeDef(Type
     ]
 
 class AwsEcsTaskDefinitionContainerDefinitionsDetailsOutputTypeDef(TypedDict):
-    Command: NotRequired[List[str]]
+    Command: NotRequired[list[str]]
     Cpu: NotRequired[int]
-    DependsOn: NotRequired[List[AwsEcsTaskDefinitionContainerDefinitionsDependsOnDetailsTypeDef]]
+    DependsOn: NotRequired[list[AwsEcsTaskDefinitionContainerDefinitionsDependsOnDetailsTypeDef]]
     DisableNetworking: NotRequired[bool]
-    DnsSearchDomains: NotRequired[List[str]]
-    DnsServers: NotRequired[List[str]]
-    DockerLabels: NotRequired[Dict[str, str]]
-    DockerSecurityOptions: NotRequired[List[str]]
-    EntryPoint: NotRequired[List[str]]
+    DnsSearchDomains: NotRequired[list[str]]
+    DnsServers: NotRequired[list[str]]
+    DockerLabels: NotRequired[dict[str, str]]
+    DockerSecurityOptions: NotRequired[list[str]]
+    EntryPoint: NotRequired[list[str]]
     Environment: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsEnvironmentDetailsTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsEnvironmentDetailsTypeDef]
     ]
     EnvironmentFiles: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsEnvironmentFilesDetailsTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsEnvironmentFilesDetailsTypeDef]
     ]
     Essential: NotRequired[bool]
-    ExtraHosts: NotRequired[List[AwsEcsTaskDefinitionContainerDefinitionsExtraHostsDetailsTypeDef]]
+    ExtraHosts: NotRequired[list[AwsEcsTaskDefinitionContainerDefinitionsExtraHostsDetailsTypeDef]]
     FirelensConfiguration: NotRequired[
         AwsEcsTaskDefinitionContainerDefinitionsFirelensConfigurationDetailsOutputTypeDef
     ]
@@ -7554,7 +7638,7 @@ class AwsEcsTaskDefinitionContainerDefinitionsDetailsOutputTypeDef(TypedDict):
     Hostname: NotRequired[str]
     Image: NotRequired[str]
     Interactive: NotRequired[bool]
-    Links: NotRequired[List[str]]
+    Links: NotRequired[list[str]]
     LinuxParameters: NotRequired[
         AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersDetailsOutputTypeDef
     ]
@@ -7564,11 +7648,11 @@ class AwsEcsTaskDefinitionContainerDefinitionsDetailsOutputTypeDef(TypedDict):
     Memory: NotRequired[int]
     MemoryReservation: NotRequired[int]
     MountPoints: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsMountPointsDetailsTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsMountPointsDetailsTypeDef]
     ]
     Name: NotRequired[str]
     PortMappings: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsPortMappingsDetailsTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsPortMappingsDetailsTypeDef]
     ]
     Privileged: NotRequired[bool]
     PseudoTerminal: NotRequired[bool]
@@ -7577,18 +7661,18 @@ class AwsEcsTaskDefinitionContainerDefinitionsDetailsOutputTypeDef(TypedDict):
         AwsEcsTaskDefinitionContainerDefinitionsRepositoryCredentialsDetailsTypeDef
     ]
     ResourceRequirements: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsResourceRequirementsDetailsTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsResourceRequirementsDetailsTypeDef]
     ]
-    Secrets: NotRequired[List[AwsEcsTaskDefinitionContainerDefinitionsSecretsDetailsTypeDef]]
+    Secrets: NotRequired[list[AwsEcsTaskDefinitionContainerDefinitionsSecretsDetailsTypeDef]]
     StartTimeout: NotRequired[int]
     StopTimeout: NotRequired[int]
     SystemControls: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsSystemControlsDetailsTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsSystemControlsDetailsTypeDef]
     ]
-    Ulimits: NotRequired[List[AwsEcsTaskDefinitionContainerDefinitionsUlimitsDetailsTypeDef]]
+    Ulimits: NotRequired[list[AwsEcsTaskDefinitionContainerDefinitionsUlimitsDetailsTypeDef]]
     User: NotRequired[str]
     VolumesFrom: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsVolumesFromDetailsTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsVolumesFromDetailsTypeDef]
     ]
     WorkingDirectory: NotRequired[str]
 
@@ -7629,8 +7713,8 @@ class AwsEcsTaskDetailsOutputTypeDef(TypedDict):
     StartedAt: NotRequired[str]
     StartedBy: NotRequired[str]
     Group: NotRequired[str]
-    Volumes: NotRequired[List[AwsEcsTaskVolumeDetailsTypeDef]]
-    Containers: NotRequired[List[AwsEcsContainerDetailsOutputTypeDef]]
+    Volumes: NotRequired[list[AwsEcsTaskVolumeDetailsTypeDef]]
+    Containers: NotRequired[list[AwsEcsContainerDetailsOutputTypeDef]]
 
 class AwsEfsAccessPointDetailsOutputTypeDef(TypedDict):
     AccessPointId: NotRequired[str]
@@ -7672,7 +7756,7 @@ class AwsElasticsearchDomainDetailsOutputTypeDef(TypedDict):
     DomainId: NotRequired[str]
     DomainName: NotRequired[str]
     Endpoint: NotRequired[str]
-    Endpoints: NotRequired[Dict[str, str]]
+    Endpoints: NotRequired[dict[str, str]]
     ElasticsearchVersion: NotRequired[str]
     ElasticsearchClusterConfig: NotRequired[
         AwsElasticsearchDomainElasticsearchClusterConfigDetailsTypeDef
@@ -7712,24 +7796,24 @@ AwsElbLoadBalancerAttributesUnionTypeDef = Union[
 ]
 
 class AwsElbLoadBalancerDetailsOutputTypeDef(TypedDict):
-    AvailabilityZones: NotRequired[List[str]]
+    AvailabilityZones: NotRequired[list[str]]
     BackendServerDescriptions: NotRequired[
-        List[AwsElbLoadBalancerBackendServerDescriptionOutputTypeDef]
+        list[AwsElbLoadBalancerBackendServerDescriptionOutputTypeDef]
     ]
     CanonicalHostedZoneName: NotRequired[str]
     CanonicalHostedZoneNameID: NotRequired[str]
     CreatedTime: NotRequired[str]
     DnsName: NotRequired[str]
     HealthCheck: NotRequired[AwsElbLoadBalancerHealthCheckTypeDef]
-    Instances: NotRequired[List[AwsElbLoadBalancerInstanceTypeDef]]
-    ListenerDescriptions: NotRequired[List[AwsElbLoadBalancerListenerDescriptionOutputTypeDef]]
+    Instances: NotRequired[list[AwsElbLoadBalancerInstanceTypeDef]]
+    ListenerDescriptions: NotRequired[list[AwsElbLoadBalancerListenerDescriptionOutputTypeDef]]
     LoadBalancerAttributes: NotRequired[AwsElbLoadBalancerAttributesOutputTypeDef]
     LoadBalancerName: NotRequired[str]
     Policies: NotRequired[AwsElbLoadBalancerPoliciesOutputTypeDef]
     Scheme: NotRequired[str]
-    SecurityGroups: NotRequired[List[str]]
+    SecurityGroups: NotRequired[list[str]]
     SourceSecurityGroup: NotRequired[AwsElbLoadBalancerSourceSecurityGroupTypeDef]
-    Subnets: NotRequired[List[str]]
+    Subnets: NotRequired[list[str]]
     VpcId: NotRequired[str]
 
 AwsElbLoadBalancerListenerDescriptionUnionTypeDef = Union[
@@ -7763,13 +7847,13 @@ AwsIamGroupDetailsUnionTypeDef = Union[AwsIamGroupDetailsTypeDef, AwsIamGroupDet
 
 class AwsIamRoleDetailsOutputTypeDef(TypedDict):
     AssumeRolePolicyDocument: NotRequired[str]
-    AttachedManagedPolicies: NotRequired[List[AwsIamAttachedManagedPolicyTypeDef]]
+    AttachedManagedPolicies: NotRequired[list[AwsIamAttachedManagedPolicyTypeDef]]
     CreateDate: NotRequired[str]
-    InstanceProfileList: NotRequired[List[AwsIamInstanceProfileOutputTypeDef]]
+    InstanceProfileList: NotRequired[list[AwsIamInstanceProfileOutputTypeDef]]
     PermissionsBoundary: NotRequired[AwsIamPermissionsBoundaryTypeDef]
     RoleId: NotRequired[str]
     RoleName: NotRequired[str]
-    RolePolicyList: NotRequired[List[AwsIamRolePolicyTypeDef]]
+    RolePolicyList: NotRequired[list[AwsIamRolePolicyTypeDef]]
     MaxSessionDuration: NotRequired[int]
     Path: NotRequired[str]
 
@@ -7790,7 +7874,7 @@ class AwsLambdaFunctionDetailsOutputTypeDef(TypedDict):
     Handler: NotRequired[str]
     KmsKeyArn: NotRequired[str]
     LastModified: NotRequired[str]
-    Layers: NotRequired[List[AwsLambdaFunctionLayerTypeDef]]
+    Layers: NotRequired[list[AwsLambdaFunctionLayerTypeDef]]
     MasterArn: NotRequired[str]
     MemorySize: NotRequired[int]
     RevisionId: NotRequired[str]
@@ -7800,7 +7884,7 @@ class AwsLambdaFunctionDetailsOutputTypeDef(TypedDict):
     TracingConfig: NotRequired[AwsLambdaFunctionTracingConfigTypeDef]
     VpcConfig: NotRequired[AwsLambdaFunctionVpcConfigOutputTypeDef]
     Version: NotRequired[str]
-    Architectures: NotRequired[List[str]]
+    Architectures: NotRequired[list[str]]
     PackageType: NotRequired[str]
 
 AwsLambdaFunctionEnvironmentUnionTypeDef = Union[
@@ -7847,7 +7931,7 @@ class AwsOpenSearchServiceDomainDetailsOutputTypeDef(TypedDict):
     ]
     VpcOptions: NotRequired[AwsOpenSearchServiceDomainVpcOptionsDetailsOutputTypeDef]
     LogPublishingOptions: NotRequired[AwsOpenSearchServiceDomainLogPublishingOptionsDetailsTypeDef]
-    DomainEndpoints: NotRequired[Dict[str, str]]
+    DomainEndpoints: NotRequired[dict[str, str]]
     AdvancedSecurityOptions: NotRequired[
         AwsOpenSearchServiceDomainAdvancedSecurityOptionsDetailsTypeDef
     ]
@@ -7918,7 +8002,7 @@ class AwsRdsDbSubnetGroupOutputTypeDef(TypedDict):
     DbSubnetGroupDescription: NotRequired[str]
     VpcId: NotRequired[str]
     SubnetGroupStatus: NotRequired[str]
-    Subnets: NotRequired[List[AwsRdsDbSubnetGroupSubnetTypeDef]]
+    Subnets: NotRequired[list[AwsRdsDbSubnetGroupSubnetTypeDef]]
     DbSubnetGroupArn: NotRequired[str]
 
 class AwsRdsDbSubnetGroupTypeDef(TypedDict):
@@ -7953,18 +8037,18 @@ class AwsRedshiftClusterDetailsOutputTypeDef(TypedDict):
     ClusterAvailabilityStatus: NotRequired[str]
     ClusterCreateTime: NotRequired[str]
     ClusterIdentifier: NotRequired[str]
-    ClusterNodes: NotRequired[List[AwsRedshiftClusterClusterNodeTypeDef]]
-    ClusterParameterGroups: NotRequired[List[AwsRedshiftClusterClusterParameterGroupOutputTypeDef]]
+    ClusterNodes: NotRequired[list[AwsRedshiftClusterClusterNodeTypeDef]]
+    ClusterParameterGroups: NotRequired[list[AwsRedshiftClusterClusterParameterGroupOutputTypeDef]]
     ClusterPublicKey: NotRequired[str]
     ClusterRevisionNumber: NotRequired[str]
-    ClusterSecurityGroups: NotRequired[List[AwsRedshiftClusterClusterSecurityGroupTypeDef]]
+    ClusterSecurityGroups: NotRequired[list[AwsRedshiftClusterClusterSecurityGroupTypeDef]]
     ClusterSnapshotCopyStatus: NotRequired[AwsRedshiftClusterClusterSnapshotCopyStatusTypeDef]
     ClusterStatus: NotRequired[str]
     ClusterSubnetGroupName: NotRequired[str]
     ClusterVersion: NotRequired[str]
     DBName: NotRequired[str]
     DeferredMaintenanceWindows: NotRequired[
-        List[AwsRedshiftClusterDeferredMaintenanceWindowTypeDef]
+        list[AwsRedshiftClusterDeferredMaintenanceWindowTypeDef]
     ]
     ElasticIpStatus: NotRequired[AwsRedshiftClusterElasticIpStatusTypeDef]
     ElasticResizeNumberOfNodeOptions: NotRequired[str]
@@ -7974,7 +8058,7 @@ class AwsRedshiftClusterDetailsOutputTypeDef(TypedDict):
     ExpectedNextSnapshotScheduleTime: NotRequired[str]
     ExpectedNextSnapshotScheduleTimeStatus: NotRequired[str]
     HsmStatus: NotRequired[AwsRedshiftClusterHsmStatusTypeDef]
-    IamRoles: NotRequired[List[AwsRedshiftClusterIamRoleTypeDef]]
+    IamRoles: NotRequired[list[AwsRedshiftClusterIamRoleTypeDef]]
     KmsKeyId: NotRequired[str]
     MaintenanceTrackName: NotRequired[str]
     ManualSnapshotRetentionPeriod: NotRequired[int]
@@ -7982,7 +8066,7 @@ class AwsRedshiftClusterDetailsOutputTypeDef(TypedDict):
     NextMaintenanceWindowStartTime: NotRequired[str]
     NodeType: NotRequired[str]
     NumberOfNodes: NotRequired[int]
-    PendingActions: NotRequired[List[str]]
+    PendingActions: NotRequired[list[str]]
     PendingModifiedValues: NotRequired[AwsRedshiftClusterPendingModifiedValuesTypeDef]
     PreferredMaintenanceWindow: NotRequired[str]
     PubliclyAccessible: NotRequired[bool]
@@ -7991,7 +8075,7 @@ class AwsRedshiftClusterDetailsOutputTypeDef(TypedDict):
     SnapshotScheduleIdentifier: NotRequired[str]
     SnapshotScheduleState: NotRequired[str]
     VpcId: NotRequired[str]
-    VpcSecurityGroups: NotRequired[List[AwsRedshiftClusterVpcSecurityGroupTypeDef]]
+    VpcSecurityGroups: NotRequired[list[AwsRedshiftClusterVpcSecurityGroupTypeDef]]
     LoggingStatus: NotRequired[AwsRedshiftClusterLoggingStatusTypeDef]
 
 AwsRedshiftClusterClusterParameterGroupUnionTypeDef = Union[
@@ -8001,8 +8085,8 @@ AwsRedshiftClusterClusterParameterGroupUnionTypeDef = Union[
 
 class AwsRoute53HostedZoneDetailsOutputTypeDef(TypedDict):
     HostedZone: NotRequired[AwsRoute53HostedZoneObjectDetailsTypeDef]
-    Vpcs: NotRequired[List[AwsRoute53HostedZoneVpcDetailsTypeDef]]
-    NameServers: NotRequired[List[str]]
+    Vpcs: NotRequired[list[AwsRoute53HostedZoneVpcDetailsTypeDef]]
+    NameServers: NotRequired[list[str]]
     QueryLoggingConfig: NotRequired[AwsRoute53QueryLoggingConfigDetailsTypeDef]
 
 class AwsRoute53HostedZoneDetailsTypeDef(TypedDict):
@@ -8015,7 +8099,7 @@ AwsS3BucketBucketLifecycleConfigurationRulesFilterPredicateDetailsOutputTypeDef 
     "AwsS3BucketBucketLifecycleConfigurationRulesFilterPredicateDetailsOutputTypeDef",
     {
         "Operands": NotRequired[
-            List[AwsS3BucketBucketLifecycleConfigurationRulesFilterPredicateOperandsDetailsTypeDef]
+            list[AwsS3BucketBucketLifecycleConfigurationRulesFilterPredicateOperandsDetailsTypeDef]
         ],
         "Prefix": NotRequired[str],
         "Tag": NotRequired[
@@ -8053,7 +8137,7 @@ class AwsS3BucketObjectLockConfigurationTypeDef(TypedDict):
     Rule: NotRequired[AwsS3BucketObjectLockConfigurationRuleDetailsTypeDef]
 
 class AwsS3BucketServerSideEncryptionConfigurationOutputTypeDef(TypedDict):
-    Rules: NotRequired[List[AwsS3BucketServerSideEncryptionRuleTypeDef]]
+    Rules: NotRequired[list[AwsS3BucketServerSideEncryptionRuleTypeDef]]
 
 class AwsS3BucketServerSideEncryptionConfigurationTypeDef(TypedDict):
     Rules: NotRequired[Sequence[AwsS3BucketServerSideEncryptionRuleTypeDef]]
@@ -8062,7 +8146,7 @@ class AwsS3BucketWebsiteConfigurationOutputTypeDef(TypedDict):
     ErrorDocument: NotRequired[str]
     IndexDocumentSuffix: NotRequired[str]
     RedirectAllRequestsTo: NotRequired[AwsS3BucketWebsiteConfigurationRedirectToTypeDef]
-    RoutingRules: NotRequired[List[AwsS3BucketWebsiteConfigurationRoutingRuleTypeDef]]
+    RoutingRules: NotRequired[list[AwsS3BucketWebsiteConfigurationRoutingRuleTypeDef]]
 
 class AwsS3BucketWebsiteConfigurationTypeDef(TypedDict):
     ErrorDocument: NotRequired[str]
@@ -8075,8 +8159,8 @@ AwsSageMakerNotebookInstanceDetailsUnionTypeDef = Union[
 ]
 
 class BatchUpdateFindingsResponseTypeDef(TypedDict):
-    ProcessedFindings: List[AwsSecurityFindingIdentifierTypeDef]
-    UnprocessedFindings: List[BatchUpdateFindingsUnprocessedFindingTypeDef]
+    ProcessedFindings: list[AwsSecurityFindingIdentifierTypeDef]
+    UnprocessedFindings: list[BatchUpdateFindingsUnprocessedFindingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 AwsSnsTopicDetailsUnionTypeDef = Union[AwsSnsTopicDetailsTypeDef, AwsSnsTopicDetailsOutputTypeDef]
@@ -8086,7 +8170,7 @@ class AwsSsmPatchComplianceDetailsTypeDef(TypedDict):
 
 class AwsStepFunctionStateMachineLoggingConfigurationDetailsOutputTypeDef(TypedDict):
     Destinations: NotRequired[
-        List[AwsStepFunctionStateMachineLoggingConfigurationDestinationsDetailsTypeDef]
+        list[AwsStepFunctionStateMachineLoggingConfigurationDestinationsDetailsTypeDef]
     ]
     IncludeExecutionData: NotRequired[bool]
     Level: NotRequired[str]
@@ -8112,7 +8196,7 @@ class AwsWafRegionalRuleGroupDetailsOutputTypeDef(TypedDict):
     MetricName: NotRequired[str]
     Name: NotRequired[str]
     RuleGroupId: NotRequired[str]
-    Rules: NotRequired[List[AwsWafRegionalRuleGroupRulesDetailsTypeDef]]
+    Rules: NotRequired[list[AwsWafRegionalRuleGroupRulesDetailsTypeDef]]
 
 class AwsWafRegionalRuleGroupDetailsTypeDef(TypedDict):
     MetricName: NotRequired[str]
@@ -8124,7 +8208,7 @@ class AwsWafRegionalWebAclDetailsOutputTypeDef(TypedDict):
     DefaultAction: NotRequired[str]
     MetricName: NotRequired[str]
     Name: NotRequired[str]
-    RulesList: NotRequired[List[AwsWafRegionalWebAclRulesListDetailsTypeDef]]
+    RulesList: NotRequired[list[AwsWafRegionalWebAclRulesListDetailsTypeDef]]
     WebAclId: NotRequired[str]
 
 class AwsWafRegionalWebAclDetailsTypeDef(TypedDict):
@@ -8140,7 +8224,7 @@ class AwsWafRuleGroupDetailsOutputTypeDef(TypedDict):
     MetricName: NotRequired[str]
     Name: NotRequired[str]
     RuleGroupId: NotRequired[str]
-    Rules: NotRequired[List[AwsWafRuleGroupRulesDetailsTypeDef]]
+    Rules: NotRequired[list[AwsWafRuleGroupRulesDetailsTypeDef]]
 
 class AwsWafRuleGroupDetailsTypeDef(TypedDict):
     MetricName: NotRequired[str]
@@ -8151,7 +8235,7 @@ class AwsWafRuleGroupDetailsTypeDef(TypedDict):
 class AwsWafWebAclDetailsOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     DefaultAction: NotRequired[str]
-    Rules: NotRequired[List[AwsWafWebAclRuleOutputTypeDef]]
+    Rules: NotRequired[list[AwsWafWebAclRuleOutputTypeDef]]
     WebAclId: NotRequired[str]
 
 AwsWafWebAclRuleUnionTypeDef = Union[AwsWafWebAclRuleTypeDef, AwsWafWebAclRuleOutputTypeDef]
@@ -8177,31 +8261,31 @@ AwsWafv2CustomResponseDetailsUnionTypeDef = Union[
 ]
 
 class BatchGetStandardsControlAssociationsResponseTypeDef(TypedDict):
-    StandardsControlAssociationDetails: List[StandardsControlAssociationDetailTypeDef]
-    UnprocessedAssociations: List[UnprocessedStandardsControlAssociationTypeDef]
+    StandardsControlAssociationDetails: list[StandardsControlAssociationDetailTypeDef]
+    UnprocessedAssociations: list[UnprocessedStandardsControlAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchUpdateFindingsV2ResponseTypeDef(TypedDict):
-    ProcessedFindings: List[BatchUpdateFindingsV2ProcessedFindingTypeDef]
-    UnprocessedFindings: List[BatchUpdateFindingsV2UnprocessedFindingTypeDef]
+    ProcessedFindings: list[BatchUpdateFindingsV2ProcessedFindingTypeDef]
+    UnprocessedFindings: list[BatchUpdateFindingsV2UnprocessedFindingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchUpdateStandardsControlAssociationsResponseTypeDef(TypedDict):
-    UnprocessedAssociationUpdates: List[UnprocessedStandardsControlAssociationUpdateTypeDef]
+    UnprocessedAssociationUpdates: list[UnprocessedStandardsControlAssociationUpdateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class VulnerabilityOutputTypeDef(TypedDict):
     Id: str
-    VulnerablePackages: NotRequired[List[SoftwarePackageTypeDef]]
-    Cvss: NotRequired[List[CvssOutputTypeDef]]
-    RelatedVulnerabilities: NotRequired[List[str]]
+    VulnerablePackages: NotRequired[list[SoftwarePackageTypeDef]]
+    Cvss: NotRequired[list[CvssOutputTypeDef]]
+    RelatedVulnerabilities: NotRequired[list[str]]
     Vendor: NotRequired[VulnerabilityVendorTypeDef]
-    ReferenceUrls: NotRequired[List[str]]
+    ReferenceUrls: NotRequired[list[str]]
     FixAvailable: NotRequired[VulnerabilityFixAvailableType]
     EpssScore: NotRequired[float]
     ExploitAvailable: NotRequired[VulnerabilityExploitAvailableType]
     LastKnownExploitAt: NotRequired[str]
-    CodeVulnerabilities: NotRequired[List[VulnerabilityCodeVulnerabilitiesOutputTypeDef]]
+    CodeVulnerabilities: NotRequired[list[VulnerabilityCodeVulnerabilitiesOutputTypeDef]]
 
 VulnerabilityCodeVulnerabilitiesUnionTypeDef = Union[
     VulnerabilityCodeVulnerabilitiesTypeDef, VulnerabilityCodeVulnerabilitiesOutputTypeDef
@@ -8220,7 +8304,7 @@ class UnprocessedConfigurationPolicyAssociationTypeDef(TypedDict):
     ErrorReason: NotRequired[str]
 
 class ListConnectorsV2ResponseTypeDef(TypedDict):
-    Connectors: List[ConnectorSummaryTypeDef]
+    Connectors: list[ConnectorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8228,44 +8312,44 @@ ContainerDetailsUnionTypeDef = Union[ContainerDetailsTypeDef, ContainerDetailsOu
 AutomationRulesFindingFiltersOutputTypeDef = TypedDict(
     "AutomationRulesFindingFiltersOutputTypeDef",
     {
-        "ProductArn": NotRequired[List[StringFilterTypeDef]],
-        "AwsAccountId": NotRequired[List[StringFilterTypeDef]],
-        "Id": NotRequired[List[StringFilterTypeDef]],
-        "GeneratorId": NotRequired[List[StringFilterTypeDef]],
-        "Type": NotRequired[List[StringFilterTypeDef]],
-        "FirstObservedAt": NotRequired[List[DateFilterTypeDef]],
-        "LastObservedAt": NotRequired[List[DateFilterTypeDef]],
-        "CreatedAt": NotRequired[List[DateFilterTypeDef]],
-        "UpdatedAt": NotRequired[List[DateFilterTypeDef]],
-        "Confidence": NotRequired[List[NumberFilterTypeDef]],
-        "Criticality": NotRequired[List[NumberFilterTypeDef]],
-        "Title": NotRequired[List[StringFilterTypeDef]],
-        "Description": NotRequired[List[StringFilterTypeDef]],
-        "SourceUrl": NotRequired[List[StringFilterTypeDef]],
-        "ProductName": NotRequired[List[StringFilterTypeDef]],
-        "CompanyName": NotRequired[List[StringFilterTypeDef]],
-        "SeverityLabel": NotRequired[List[StringFilterTypeDef]],
-        "ResourceType": NotRequired[List[StringFilterTypeDef]],
-        "ResourceId": NotRequired[List[StringFilterTypeDef]],
-        "ResourcePartition": NotRequired[List[StringFilterTypeDef]],
-        "ResourceRegion": NotRequired[List[StringFilterTypeDef]],
-        "ResourceTags": NotRequired[List[MapFilterTypeDef]],
-        "ResourceDetailsOther": NotRequired[List[MapFilterTypeDef]],
-        "ComplianceStatus": NotRequired[List[StringFilterTypeDef]],
-        "ComplianceSecurityControlId": NotRequired[List[StringFilterTypeDef]],
-        "ComplianceAssociatedStandardsId": NotRequired[List[StringFilterTypeDef]],
-        "VerificationState": NotRequired[List[StringFilterTypeDef]],
-        "WorkflowStatus": NotRequired[List[StringFilterTypeDef]],
-        "RecordState": NotRequired[List[StringFilterTypeDef]],
-        "RelatedFindingsProductArn": NotRequired[List[StringFilterTypeDef]],
-        "RelatedFindingsId": NotRequired[List[StringFilterTypeDef]],
-        "NoteText": NotRequired[List[StringFilterTypeDef]],
-        "NoteUpdatedAt": NotRequired[List[DateFilterTypeDef]],
-        "NoteUpdatedBy": NotRequired[List[StringFilterTypeDef]],
-        "UserDefinedFields": NotRequired[List[MapFilterTypeDef]],
-        "ResourceApplicationArn": NotRequired[List[StringFilterTypeDef]],
-        "ResourceApplicationName": NotRequired[List[StringFilterTypeDef]],
-        "AwsAccountName": NotRequired[List[StringFilterTypeDef]],
+        "ProductArn": NotRequired[list[StringFilterTypeDef]],
+        "AwsAccountId": NotRequired[list[StringFilterTypeDef]],
+        "Id": NotRequired[list[StringFilterTypeDef]],
+        "GeneratorId": NotRequired[list[StringFilterTypeDef]],
+        "Type": NotRequired[list[StringFilterTypeDef]],
+        "FirstObservedAt": NotRequired[list[DateFilterTypeDef]],
+        "LastObservedAt": NotRequired[list[DateFilterTypeDef]],
+        "CreatedAt": NotRequired[list[DateFilterTypeDef]],
+        "UpdatedAt": NotRequired[list[DateFilterTypeDef]],
+        "Confidence": NotRequired[list[NumberFilterTypeDef]],
+        "Criticality": NotRequired[list[NumberFilterTypeDef]],
+        "Title": NotRequired[list[StringFilterTypeDef]],
+        "Description": NotRequired[list[StringFilterTypeDef]],
+        "SourceUrl": NotRequired[list[StringFilterTypeDef]],
+        "ProductName": NotRequired[list[StringFilterTypeDef]],
+        "CompanyName": NotRequired[list[StringFilterTypeDef]],
+        "SeverityLabel": NotRequired[list[StringFilterTypeDef]],
+        "ResourceType": NotRequired[list[StringFilterTypeDef]],
+        "ResourceId": NotRequired[list[StringFilterTypeDef]],
+        "ResourcePartition": NotRequired[list[StringFilterTypeDef]],
+        "ResourceRegion": NotRequired[list[StringFilterTypeDef]],
+        "ResourceTags": NotRequired[list[MapFilterTypeDef]],
+        "ResourceDetailsOther": NotRequired[list[MapFilterTypeDef]],
+        "ComplianceStatus": NotRequired[list[StringFilterTypeDef]],
+        "ComplianceSecurityControlId": NotRequired[list[StringFilterTypeDef]],
+        "ComplianceAssociatedStandardsId": NotRequired[list[StringFilterTypeDef]],
+        "VerificationState": NotRequired[list[StringFilterTypeDef]],
+        "WorkflowStatus": NotRequired[list[StringFilterTypeDef]],
+        "RecordState": NotRequired[list[StringFilterTypeDef]],
+        "RelatedFindingsProductArn": NotRequired[list[StringFilterTypeDef]],
+        "RelatedFindingsId": NotRequired[list[StringFilterTypeDef]],
+        "NoteText": NotRequired[list[StringFilterTypeDef]],
+        "NoteUpdatedAt": NotRequired[list[DateFilterTypeDef]],
+        "NoteUpdatedBy": NotRequired[list[StringFilterTypeDef]],
+        "UserDefinedFields": NotRequired[list[MapFilterTypeDef]],
+        "ResourceApplicationArn": NotRequired[list[StringFilterTypeDef]],
+        "ResourceApplicationName": NotRequired[list[StringFilterTypeDef]],
+        "AwsAccountName": NotRequired[list[StringFilterTypeDef]],
     },
 )
 AutomationRulesFindingFiltersTypeDef = TypedDict(
@@ -8314,110 +8398,110 @@ AutomationRulesFindingFiltersTypeDef = TypedDict(
 AwsSecurityFindingFiltersOutputTypeDef = TypedDict(
     "AwsSecurityFindingFiltersOutputTypeDef",
     {
-        "ProductArn": NotRequired[List[StringFilterTypeDef]],
-        "AwsAccountId": NotRequired[List[StringFilterTypeDef]],
-        "Id": NotRequired[List[StringFilterTypeDef]],
-        "GeneratorId": NotRequired[List[StringFilterTypeDef]],
-        "Region": NotRequired[List[StringFilterTypeDef]],
-        "Type": NotRequired[List[StringFilterTypeDef]],
-        "FirstObservedAt": NotRequired[List[DateFilterTypeDef]],
-        "LastObservedAt": NotRequired[List[DateFilterTypeDef]],
-        "CreatedAt": NotRequired[List[DateFilterTypeDef]],
-        "UpdatedAt": NotRequired[List[DateFilterTypeDef]],
-        "SeverityProduct": NotRequired[List[NumberFilterTypeDef]],
-        "SeverityNormalized": NotRequired[List[NumberFilterTypeDef]],
-        "SeverityLabel": NotRequired[List[StringFilterTypeDef]],
-        "Confidence": NotRequired[List[NumberFilterTypeDef]],
-        "Criticality": NotRequired[List[NumberFilterTypeDef]],
-        "Title": NotRequired[List[StringFilterTypeDef]],
-        "Description": NotRequired[List[StringFilterTypeDef]],
-        "RecommendationText": NotRequired[List[StringFilterTypeDef]],
-        "SourceUrl": NotRequired[List[StringFilterTypeDef]],
-        "ProductFields": NotRequired[List[MapFilterTypeDef]],
-        "ProductName": NotRequired[List[StringFilterTypeDef]],
-        "CompanyName": NotRequired[List[StringFilterTypeDef]],
-        "UserDefinedFields": NotRequired[List[MapFilterTypeDef]],
-        "MalwareName": NotRequired[List[StringFilterTypeDef]],
-        "MalwareType": NotRequired[List[StringFilterTypeDef]],
-        "MalwarePath": NotRequired[List[StringFilterTypeDef]],
-        "MalwareState": NotRequired[List[StringFilterTypeDef]],
-        "NetworkDirection": NotRequired[List[StringFilterTypeDef]],
-        "NetworkProtocol": NotRequired[List[StringFilterTypeDef]],
-        "NetworkSourceIpV4": NotRequired[List[IpFilterTypeDef]],
-        "NetworkSourceIpV6": NotRequired[List[IpFilterTypeDef]],
-        "NetworkSourcePort": NotRequired[List[NumberFilterTypeDef]],
-        "NetworkSourceDomain": NotRequired[List[StringFilterTypeDef]],
-        "NetworkSourceMac": NotRequired[List[StringFilterTypeDef]],
-        "NetworkDestinationIpV4": NotRequired[List[IpFilterTypeDef]],
-        "NetworkDestinationIpV6": NotRequired[List[IpFilterTypeDef]],
-        "NetworkDestinationPort": NotRequired[List[NumberFilterTypeDef]],
-        "NetworkDestinationDomain": NotRequired[List[StringFilterTypeDef]],
-        "ProcessName": NotRequired[List[StringFilterTypeDef]],
-        "ProcessPath": NotRequired[List[StringFilterTypeDef]],
-        "ProcessPid": NotRequired[List[NumberFilterTypeDef]],
-        "ProcessParentPid": NotRequired[List[NumberFilterTypeDef]],
-        "ProcessLaunchedAt": NotRequired[List[DateFilterTypeDef]],
-        "ProcessTerminatedAt": NotRequired[List[DateFilterTypeDef]],
-        "ThreatIntelIndicatorType": NotRequired[List[StringFilterTypeDef]],
-        "ThreatIntelIndicatorValue": NotRequired[List[StringFilterTypeDef]],
-        "ThreatIntelIndicatorCategory": NotRequired[List[StringFilterTypeDef]],
-        "ThreatIntelIndicatorLastObservedAt": NotRequired[List[DateFilterTypeDef]],
-        "ThreatIntelIndicatorSource": NotRequired[List[StringFilterTypeDef]],
-        "ThreatIntelIndicatorSourceUrl": NotRequired[List[StringFilterTypeDef]],
-        "ResourceType": NotRequired[List[StringFilterTypeDef]],
-        "ResourceId": NotRequired[List[StringFilterTypeDef]],
-        "ResourcePartition": NotRequired[List[StringFilterTypeDef]],
-        "ResourceRegion": NotRequired[List[StringFilterTypeDef]],
-        "ResourceTags": NotRequired[List[MapFilterTypeDef]],
-        "ResourceAwsEc2InstanceType": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsEc2InstanceImageId": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsEc2InstanceIpV4Addresses": NotRequired[List[IpFilterTypeDef]],
-        "ResourceAwsEc2InstanceIpV6Addresses": NotRequired[List[IpFilterTypeDef]],
-        "ResourceAwsEc2InstanceKeyName": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsEc2InstanceIamInstanceProfileArn": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsEc2InstanceVpcId": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsEc2InstanceSubnetId": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsEc2InstanceLaunchedAt": NotRequired[List[DateFilterTypeDef]],
-        "ResourceAwsS3BucketOwnerId": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsS3BucketOwnerName": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsIamAccessKeyUserName": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsIamAccessKeyPrincipalName": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsIamAccessKeyStatus": NotRequired[List[StringFilterTypeDef]],
-        "ResourceAwsIamAccessKeyCreatedAt": NotRequired[List[DateFilterTypeDef]],
-        "ResourceAwsIamUserUserName": NotRequired[List[StringFilterTypeDef]],
-        "ResourceContainerName": NotRequired[List[StringFilterTypeDef]],
-        "ResourceContainerImageId": NotRequired[List[StringFilterTypeDef]],
-        "ResourceContainerImageName": NotRequired[List[StringFilterTypeDef]],
-        "ResourceContainerLaunchedAt": NotRequired[List[DateFilterTypeDef]],
-        "ResourceDetailsOther": NotRequired[List[MapFilterTypeDef]],
-        "ComplianceStatus": NotRequired[List[StringFilterTypeDef]],
-        "VerificationState": NotRequired[List[StringFilterTypeDef]],
-        "WorkflowState": NotRequired[List[StringFilterTypeDef]],
-        "WorkflowStatus": NotRequired[List[StringFilterTypeDef]],
-        "RecordState": NotRequired[List[StringFilterTypeDef]],
-        "RelatedFindingsProductArn": NotRequired[List[StringFilterTypeDef]],
-        "RelatedFindingsId": NotRequired[List[StringFilterTypeDef]],
-        "NoteText": NotRequired[List[StringFilterTypeDef]],
-        "NoteUpdatedAt": NotRequired[List[DateFilterTypeDef]],
-        "NoteUpdatedBy": NotRequired[List[StringFilterTypeDef]],
-        "Keyword": NotRequired[List[KeywordFilterTypeDef]],
-        "FindingProviderFieldsConfidence": NotRequired[List[NumberFilterTypeDef]],
-        "FindingProviderFieldsCriticality": NotRequired[List[NumberFilterTypeDef]],
-        "FindingProviderFieldsRelatedFindingsId": NotRequired[List[StringFilterTypeDef]],
-        "FindingProviderFieldsRelatedFindingsProductArn": NotRequired[List[StringFilterTypeDef]],
-        "FindingProviderFieldsSeverityLabel": NotRequired[List[StringFilterTypeDef]],
-        "FindingProviderFieldsSeverityOriginal": NotRequired[List[StringFilterTypeDef]],
-        "FindingProviderFieldsTypes": NotRequired[List[StringFilterTypeDef]],
-        "Sample": NotRequired[List[BooleanFilterTypeDef]],
-        "ComplianceSecurityControlId": NotRequired[List[StringFilterTypeDef]],
-        "ComplianceAssociatedStandardsId": NotRequired[List[StringFilterTypeDef]],
-        "VulnerabilitiesExploitAvailable": NotRequired[List[StringFilterTypeDef]],
-        "VulnerabilitiesFixAvailable": NotRequired[List[StringFilterTypeDef]],
-        "ComplianceSecurityControlParametersName": NotRequired[List[StringFilterTypeDef]],
-        "ComplianceSecurityControlParametersValue": NotRequired[List[StringFilterTypeDef]],
-        "AwsAccountName": NotRequired[List[StringFilterTypeDef]],
-        "ResourceApplicationName": NotRequired[List[StringFilterTypeDef]],
-        "ResourceApplicationArn": NotRequired[List[StringFilterTypeDef]],
+        "ProductArn": NotRequired[list[StringFilterTypeDef]],
+        "AwsAccountId": NotRequired[list[StringFilterTypeDef]],
+        "Id": NotRequired[list[StringFilterTypeDef]],
+        "GeneratorId": NotRequired[list[StringFilterTypeDef]],
+        "Region": NotRequired[list[StringFilterTypeDef]],
+        "Type": NotRequired[list[StringFilterTypeDef]],
+        "FirstObservedAt": NotRequired[list[DateFilterTypeDef]],
+        "LastObservedAt": NotRequired[list[DateFilterTypeDef]],
+        "CreatedAt": NotRequired[list[DateFilterTypeDef]],
+        "UpdatedAt": NotRequired[list[DateFilterTypeDef]],
+        "SeverityProduct": NotRequired[list[NumberFilterTypeDef]],
+        "SeverityNormalized": NotRequired[list[NumberFilterTypeDef]],
+        "SeverityLabel": NotRequired[list[StringFilterTypeDef]],
+        "Confidence": NotRequired[list[NumberFilterTypeDef]],
+        "Criticality": NotRequired[list[NumberFilterTypeDef]],
+        "Title": NotRequired[list[StringFilterTypeDef]],
+        "Description": NotRequired[list[StringFilterTypeDef]],
+        "RecommendationText": NotRequired[list[StringFilterTypeDef]],
+        "SourceUrl": NotRequired[list[StringFilterTypeDef]],
+        "ProductFields": NotRequired[list[MapFilterTypeDef]],
+        "ProductName": NotRequired[list[StringFilterTypeDef]],
+        "CompanyName": NotRequired[list[StringFilterTypeDef]],
+        "UserDefinedFields": NotRequired[list[MapFilterTypeDef]],
+        "MalwareName": NotRequired[list[StringFilterTypeDef]],
+        "MalwareType": NotRequired[list[StringFilterTypeDef]],
+        "MalwarePath": NotRequired[list[StringFilterTypeDef]],
+        "MalwareState": NotRequired[list[StringFilterTypeDef]],
+        "NetworkDirection": NotRequired[list[StringFilterTypeDef]],
+        "NetworkProtocol": NotRequired[list[StringFilterTypeDef]],
+        "NetworkSourceIpV4": NotRequired[list[IpFilterTypeDef]],
+        "NetworkSourceIpV6": NotRequired[list[IpFilterTypeDef]],
+        "NetworkSourcePort": NotRequired[list[NumberFilterTypeDef]],
+        "NetworkSourceDomain": NotRequired[list[StringFilterTypeDef]],
+        "NetworkSourceMac": NotRequired[list[StringFilterTypeDef]],
+        "NetworkDestinationIpV4": NotRequired[list[IpFilterTypeDef]],
+        "NetworkDestinationIpV6": NotRequired[list[IpFilterTypeDef]],
+        "NetworkDestinationPort": NotRequired[list[NumberFilterTypeDef]],
+        "NetworkDestinationDomain": NotRequired[list[StringFilterTypeDef]],
+        "ProcessName": NotRequired[list[StringFilterTypeDef]],
+        "ProcessPath": NotRequired[list[StringFilterTypeDef]],
+        "ProcessPid": NotRequired[list[NumberFilterTypeDef]],
+        "ProcessParentPid": NotRequired[list[NumberFilterTypeDef]],
+        "ProcessLaunchedAt": NotRequired[list[DateFilterTypeDef]],
+        "ProcessTerminatedAt": NotRequired[list[DateFilterTypeDef]],
+        "ThreatIntelIndicatorType": NotRequired[list[StringFilterTypeDef]],
+        "ThreatIntelIndicatorValue": NotRequired[list[StringFilterTypeDef]],
+        "ThreatIntelIndicatorCategory": NotRequired[list[StringFilterTypeDef]],
+        "ThreatIntelIndicatorLastObservedAt": NotRequired[list[DateFilterTypeDef]],
+        "ThreatIntelIndicatorSource": NotRequired[list[StringFilterTypeDef]],
+        "ThreatIntelIndicatorSourceUrl": NotRequired[list[StringFilterTypeDef]],
+        "ResourceType": NotRequired[list[StringFilterTypeDef]],
+        "ResourceId": NotRequired[list[StringFilterTypeDef]],
+        "ResourcePartition": NotRequired[list[StringFilterTypeDef]],
+        "ResourceRegion": NotRequired[list[StringFilterTypeDef]],
+        "ResourceTags": NotRequired[list[MapFilterTypeDef]],
+        "ResourceAwsEc2InstanceType": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsEc2InstanceImageId": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsEc2InstanceIpV4Addresses": NotRequired[list[IpFilterTypeDef]],
+        "ResourceAwsEc2InstanceIpV6Addresses": NotRequired[list[IpFilterTypeDef]],
+        "ResourceAwsEc2InstanceKeyName": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsEc2InstanceIamInstanceProfileArn": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsEc2InstanceVpcId": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsEc2InstanceSubnetId": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsEc2InstanceLaunchedAt": NotRequired[list[DateFilterTypeDef]],
+        "ResourceAwsS3BucketOwnerId": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsS3BucketOwnerName": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsIamAccessKeyUserName": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsIamAccessKeyPrincipalName": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsIamAccessKeyStatus": NotRequired[list[StringFilterTypeDef]],
+        "ResourceAwsIamAccessKeyCreatedAt": NotRequired[list[DateFilterTypeDef]],
+        "ResourceAwsIamUserUserName": NotRequired[list[StringFilterTypeDef]],
+        "ResourceContainerName": NotRequired[list[StringFilterTypeDef]],
+        "ResourceContainerImageId": NotRequired[list[StringFilterTypeDef]],
+        "ResourceContainerImageName": NotRequired[list[StringFilterTypeDef]],
+        "ResourceContainerLaunchedAt": NotRequired[list[DateFilterTypeDef]],
+        "ResourceDetailsOther": NotRequired[list[MapFilterTypeDef]],
+        "ComplianceStatus": NotRequired[list[StringFilterTypeDef]],
+        "VerificationState": NotRequired[list[StringFilterTypeDef]],
+        "WorkflowState": NotRequired[list[StringFilterTypeDef]],
+        "WorkflowStatus": NotRequired[list[StringFilterTypeDef]],
+        "RecordState": NotRequired[list[StringFilterTypeDef]],
+        "RelatedFindingsProductArn": NotRequired[list[StringFilterTypeDef]],
+        "RelatedFindingsId": NotRequired[list[StringFilterTypeDef]],
+        "NoteText": NotRequired[list[StringFilterTypeDef]],
+        "NoteUpdatedAt": NotRequired[list[DateFilterTypeDef]],
+        "NoteUpdatedBy": NotRequired[list[StringFilterTypeDef]],
+        "Keyword": NotRequired[list[KeywordFilterTypeDef]],
+        "FindingProviderFieldsConfidence": NotRequired[list[NumberFilterTypeDef]],
+        "FindingProviderFieldsCriticality": NotRequired[list[NumberFilterTypeDef]],
+        "FindingProviderFieldsRelatedFindingsId": NotRequired[list[StringFilterTypeDef]],
+        "FindingProviderFieldsRelatedFindingsProductArn": NotRequired[list[StringFilterTypeDef]],
+        "FindingProviderFieldsSeverityLabel": NotRequired[list[StringFilterTypeDef]],
+        "FindingProviderFieldsSeverityOriginal": NotRequired[list[StringFilterTypeDef]],
+        "FindingProviderFieldsTypes": NotRequired[list[StringFilterTypeDef]],
+        "Sample": NotRequired[list[BooleanFilterTypeDef]],
+        "ComplianceSecurityControlId": NotRequired[list[StringFilterTypeDef]],
+        "ComplianceAssociatedStandardsId": NotRequired[list[StringFilterTypeDef]],
+        "VulnerabilitiesExploitAvailable": NotRequired[list[StringFilterTypeDef]],
+        "VulnerabilitiesFixAvailable": NotRequired[list[StringFilterTypeDef]],
+        "ComplianceSecurityControlParametersName": NotRequired[list[StringFilterTypeDef]],
+        "ComplianceSecurityControlParametersValue": NotRequired[list[StringFilterTypeDef]],
+        "AwsAccountName": NotRequired[list[StringFilterTypeDef]],
+        "ResourceApplicationName": NotRequired[list[StringFilterTypeDef]],
+        "ResourceApplicationArn": NotRequired[list[StringFilterTypeDef]],
     },
 )
 AwsSecurityFindingFiltersTypeDef = TypedDict(
@@ -8543,7 +8627,7 @@ class ResourcesDateFilterTypeDef(TypedDict):
 ThreatUnionTypeDef = Union[ThreatTypeDef, ThreatOutputTypeDef]
 
 class GetFindingHistoryResponseTypeDef(TypedDict):
-    Records: List[FindingHistoryRecordTypeDef]
+    Records: list[FindingHistoryRecordTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8552,11 +8636,11 @@ FindingProviderFieldsUnionTypeDef = Union[
 ]
 
 class GetFindingStatisticsV2ResponseTypeDef(TypedDict):
-    GroupByResults: List[GroupByResultTypeDef]
+    GroupByResults: list[GroupByResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetResourcesStatisticsV2ResponseTypeDef(TypedDict):
-    GroupByResults: List[GroupByResultTypeDef]
+    GroupByResults: list[GroupByResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 SignalUnionTypeDef = Union[SignalTypeDef, SignalOutputTypeDef]
@@ -8564,12 +8648,6 @@ SignalUnionTypeDef = Union[SignalTypeDef, SignalOutputTypeDef]
 class GetInsightResultsResponseTypeDef(TypedDict):
     InsightResults: InsightResultsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateConnectorV2RequestTypeDef(TypedDict):
-    ConnectorId: str
-    ClientSecret: NotRequired[str]
-    Description: NotRequired[str]
-    Provider: NotRequired[ProviderUpdateConfigurationTypeDef]
 
 NetworkHeaderOutputTypeDef = TypedDict(
     "NetworkHeaderOutputTypeDef",
@@ -8584,11 +8662,11 @@ NetworkPathComponentDetailsUnionTypeDef = Union[
 ]
 
 class OccurrencesOutputTypeDef(TypedDict):
-    LineRanges: NotRequired[List[RangeTypeDef]]
-    OffsetRanges: NotRequired[List[RangeTypeDef]]
-    Pages: NotRequired[List[PageTypeDef]]
-    Records: NotRequired[List[RecordTypeDef]]
-    Cells: NotRequired[List[CellTypeDef]]
+    LineRanges: NotRequired[list[RangeTypeDef]]
+    OffsetRanges: NotRequired[list[RangeTypeDef]]
+    Pages: NotRequired[list[PageTypeDef]]
+    Records: NotRequired[list[RecordTypeDef]]
+    Cells: NotRequired[list[CellTypeDef]]
 
 class OccurrencesTypeDef(TypedDict):
     LineRanges: NotRequired[Sequence[RangeTypeDef]]
@@ -8599,7 +8677,7 @@ class OccurrencesTypeDef(TypedDict):
 
 class SecurityControlCustomParameterOutputTypeDef(TypedDict):
     SecurityControlId: NotRequired[str]
-    Parameters: NotRequired[Dict[str, ParameterConfigurationOutputTypeDef]]
+    Parameters: NotRequired[dict[str, ParameterConfigurationOutputTypeDef]]
 
 class SecurityControlTypeDef(TypedDict):
     SecurityControlId: str
@@ -8610,7 +8688,7 @@ class SecurityControlTypeDef(TypedDict):
     SeverityRating: SeverityRatingType
     SecurityControlStatus: ControlStatusType
     UpdateStatus: NotRequired[UpdateStatusType]
-    Parameters: NotRequired[Dict[str, ParameterConfigurationOutputTypeDef]]
+    Parameters: NotRequired[dict[str, ParameterConfigurationOutputTypeDef]]
     LastUpdateReason: NotRequired[str]
 
 class ParameterConfigurationTypeDef(TypedDict):
@@ -8637,19 +8715,28 @@ class GetConnectorV2ResponseTypeDef(TypedDict):
     ProviderDetail: ProviderDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateConnectorV2RequestTypeDef(TypedDict):
+    ConnectorId: str
+    Description: NotRequired[str]
+    Provider: NotRequired[ProviderUpdateConfigurationTypeDef]
+
 class ResourceResultTypeDef(TypedDict):
     ResourceId: str
     AccountId: str
     Region: str
     ResourceDetailCaptureTimeDt: str
-    ResourceConfig: Dict[str, Any]
-    ResourceArn: NotRequired[str]
+    ResourceConfig: dict[str, Any]
+    ResourceGuid: NotRequired[str]
     ResourceCategory: NotRequired[ResourceCategoryType]
     ResourceType: NotRequired[str]
     ResourceName: NotRequired[str]
     ResourceCreationTimeDt: NotRequired[str]
-    FindingsSummary: NotRequired[List[ResourceFindingsSummaryTypeDef]]
-    ResourceTags: NotRequired[List[ResourceTagTypeDef]]
+    FindingsSummary: NotRequired[list[ResourceFindingsSummaryTypeDef]]
+    ResourceTags: NotRequired[list[ResourceTagTypeDef]]
+
+class ResourcesTrendsMetricsResultTypeDef(TypedDict):
+    Timestamp: datetime
+    TrendsValues: ResourcesTrendsValuesTypeDef
 
 class RuleGroupSourceStatefulRulesDetailsTypeDef(TypedDict):
     Action: NotRequired[str]
@@ -8657,7 +8744,7 @@ class RuleGroupSourceStatefulRulesDetailsTypeDef(TypedDict):
     RuleOptions: NotRequired[Sequence[RuleGroupSourceStatefulRulesOptionsDetailsUnionTypeDef]]
 
 class RuleGroupSourceStatelessRuleDefinitionOutputTypeDef(TypedDict):
-    Actions: NotRequired[List[str]]
+    Actions: NotRequired[list[str]]
     MatchAttributes: NotRequired[RuleGroupSourceStatelessRuleMatchAttributesOutputTypeDef]
 
 class RuleGroupSourceStatelessRuleMatchAttributesTypeDef(TypedDict):
@@ -8686,21 +8773,25 @@ class ComplianceTypeDef(TypedDict):
     AssociatedStandards: NotRequired[Sequence[AssociatedStandardTypeDef]]
     SecurityControlParameters: NotRequired[Sequence[SecurityControlParameterUnionTypeDef]]
 
+class TrendsMetricsResultTypeDef(TypedDict):
+    Timestamp: datetime
+    TrendsValues: TrendsValuesTypeDef
+
 class DescribeStandardsResponseTypeDef(TypedDict):
-    Standards: List[StandardTypeDef]
+    Standards: list[StandardTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class BatchDisableStandardsResponseTypeDef(TypedDict):
-    StandardsSubscriptions: List[StandardsSubscriptionTypeDef]
+    StandardsSubscriptions: list[StandardsSubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchEnableStandardsResponseTypeDef(TypedDict):
-    StandardsSubscriptions: List[StandardsSubscriptionTypeDef]
+    StandardsSubscriptions: list[StandardsSubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetEnabledStandardsResponseTypeDef(TypedDict):
-    StandardsSubscriptions: List[StandardsSubscriptionTypeDef]
+    StandardsSubscriptions: list[StandardsSubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -8713,7 +8804,7 @@ StatelessCustomPublishMetricActionUnionTypeDef = Union[
 AwsApiCallActionUnionTypeDef = Union[AwsApiCallActionTypeDef, AwsApiCallActionOutputTypeDef]
 
 class PortProbeActionOutputTypeDef(TypedDict):
-    PortProbeDetails: NotRequired[List[PortProbeDetailTypeDef]]
+    PortProbeDetails: NotRequired[list[PortProbeDetailTypeDef]]
     Blocked: NotRequired[bool]
 
 class PortProbeActionTypeDef(TypedDict):
@@ -8722,10 +8813,10 @@ class PortProbeActionTypeDef(TypedDict):
 
 class SequenceOutputTypeDef(TypedDict):
     Uid: NotRequired[str]
-    Actors: NotRequired[List[ActorTypeDef]]
-    Endpoints: NotRequired[List[NetworkEndpointTypeDef]]
-    Signals: NotRequired[List[SignalOutputTypeDef]]
-    SequenceIndicators: NotRequired[List[IndicatorOutputTypeDef]]
+    Actors: NotRequired[list[ActorTypeDef]]
+    Endpoints: NotRequired[list[NetworkEndpointTypeDef]]
+    Signals: NotRequired[list[SignalOutputTypeDef]]
+    SequenceIndicators: NotRequired[list[IndicatorOutputTypeDef]]
 
 AwsEc2RouteTableDetailsUnionTypeDef = Union[
     AwsEc2RouteTableDetailsTypeDef, AwsEc2RouteTableDetailsOutputTypeDef
@@ -8737,6 +8828,23 @@ AutomationRulesActionTypeDef = TypedDict(
         "FindingFieldsUpdate": NotRequired[AutomationRulesFindingFieldsUpdateUnionTypeDef],
     },
 )
+
+class FindingsTrendsFiltersPaginatorTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[FindingsTrendsCompositeFilterPaginatorTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
+
+class FindingsTrendsFiltersTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[FindingsTrendsCompositeFilterTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
+
+class ResourcesTrendsFiltersPaginatorTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[ResourcesTrendsCompositeFilterPaginatorTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
+
+class ResourcesTrendsFiltersTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[ResourcesTrendsCompositeFilterTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
+
 AwsAmazonMqBrokerDetailsUnionTypeDef = Union[
     AwsAmazonMqBrokerDetailsTypeDef, AwsAmazonMqBrokerDetailsOutputTypeDef
 ]
@@ -8758,7 +8866,7 @@ class AwsAthenaWorkGroupDetailsTypeDef(TypedDict):
 
 class AwsAutoScalingAutoScalingGroupDetailsOutputTypeDef(TypedDict):
     LaunchConfigurationName: NotRequired[str]
-    LoadBalancerNames: NotRequired[List[str]]
+    LoadBalancerNames: NotRequired[list[str]]
     HealthCheckType: NotRequired[str]
     HealthCheckGracePeriod: NotRequired[int]
     CreatedTime: NotRequired[str]
@@ -8766,7 +8874,7 @@ class AwsAutoScalingAutoScalingGroupDetailsOutputTypeDef(TypedDict):
         AwsAutoScalingAutoScalingGroupMixedInstancesPolicyDetailsOutputTypeDef
     ]
     AvailabilityZones: NotRequired[
-        List[AwsAutoScalingAutoScalingGroupAvailabilityZonesListDetailsTypeDef]
+        list[AwsAutoScalingAutoScalingGroupAvailabilityZonesListDetailsTypeDef]
     ]
     LaunchTemplate: NotRequired[
         AwsAutoScalingAutoScalingGroupLaunchTemplateLaunchTemplateSpecificationTypeDef
@@ -8789,9 +8897,9 @@ AwsAutoScalingLaunchConfigurationDetailsUnionTypeDef = Union[
 class AwsBackupBackupPlanBackupPlanDetailsOutputTypeDef(TypedDict):
     BackupPlanName: NotRequired[str]
     AdvancedBackupSettings: NotRequired[
-        List[AwsBackupBackupPlanAdvancedBackupSettingsDetailsOutputTypeDef]
+        list[AwsBackupBackupPlanAdvancedBackupSettingsDetailsOutputTypeDef]
     ]
-    BackupPlanRule: NotRequired[List[AwsBackupBackupPlanRuleDetailsOutputTypeDef]]
+    BackupPlanRule: NotRequired[list[AwsBackupBackupPlanRuleDetailsOutputTypeDef]]
 
 AwsBackupBackupPlanRuleDetailsUnionTypeDef = Union[
     AwsBackupBackupPlanRuleDetailsTypeDef, AwsBackupBackupPlanRuleDetailsOutputTypeDef
@@ -8806,18 +8914,18 @@ AwsCertificateManagerCertificateDetailsOutputTypeDef = TypedDict(
         "CreatedAt": NotRequired[str],
         "DomainName": NotRequired[str],
         "DomainValidationOptions": NotRequired[
-            List[AwsCertificateManagerCertificateDomainValidationOptionOutputTypeDef]
+            list[AwsCertificateManagerCertificateDomainValidationOptionOutputTypeDef]
         ],
         "ExtendedKeyUsages": NotRequired[
-            List[AwsCertificateManagerCertificateExtendedKeyUsageTypeDef]
+            list[AwsCertificateManagerCertificateExtendedKeyUsageTypeDef]
         ],
         "FailureReason": NotRequired[str],
         "ImportedAt": NotRequired[str],
-        "InUseBy": NotRequired[List[str]],
+        "InUseBy": NotRequired[list[str]],
         "IssuedAt": NotRequired[str],
         "Issuer": NotRequired[str],
         "KeyAlgorithm": NotRequired[str],
-        "KeyUsages": NotRequired[List[AwsCertificateManagerCertificateKeyUsageTypeDef]],
+        "KeyUsages": NotRequired[list[AwsCertificateManagerCertificateKeyUsageTypeDef]],
         "NotAfter": NotRequired[str],
         "NotBefore": NotRequired[str],
         "Options": NotRequired[AwsCertificateManagerCertificateOptionsTypeDef],
@@ -8827,7 +8935,7 @@ AwsCertificateManagerCertificateDetailsOutputTypeDef = TypedDict(
         "SignatureAlgorithm": NotRequired[str],
         "Status": NotRequired[str],
         "Subject": NotRequired[str],
-        "SubjectAlternativeNames": NotRequired[List[str]],
+        "SubjectAlternativeNames": NotRequired[list[str]],
         "Type": NotRequired[str],
     },
 )
@@ -8837,10 +8945,10 @@ AwsCertificateManagerCertificateRenewalSummaryUnionTypeDef = Union[
 ]
 
 class AwsCloudFrontDistributionOriginsOutputTypeDef(TypedDict):
-    Items: NotRequired[List[AwsCloudFrontDistributionOriginItemOutputTypeDef]]
+    Items: NotRequired[list[AwsCloudFrontDistributionOriginItemOutputTypeDef]]
 
 class AwsCloudFrontDistributionOriginGroupsOutputTypeDef(TypedDict):
-    Items: NotRequired[List[AwsCloudFrontDistributionOriginGroupOutputTypeDef]]
+    Items: NotRequired[list[AwsCloudFrontDistributionOriginGroupOutputTypeDef]]
 
 AwsCloudFrontDistributionOriginGroupFailoverUnionTypeDef = Union[
     AwsCloudFrontDistributionOriginGroupFailoverTypeDef,
@@ -8873,18 +8981,18 @@ AwsDynamoDbTableLocalSecondaryIndexUnionTypeDef = Union[
 ]
 
 class AwsDynamoDbTableDetailsOutputTypeDef(TypedDict):
-    AttributeDefinitions: NotRequired[List[AwsDynamoDbTableAttributeDefinitionTypeDef]]
+    AttributeDefinitions: NotRequired[list[AwsDynamoDbTableAttributeDefinitionTypeDef]]
     BillingModeSummary: NotRequired[AwsDynamoDbTableBillingModeSummaryTypeDef]
     CreationDateTime: NotRequired[str]
-    GlobalSecondaryIndexes: NotRequired[List[AwsDynamoDbTableGlobalSecondaryIndexOutputTypeDef]]
+    GlobalSecondaryIndexes: NotRequired[list[AwsDynamoDbTableGlobalSecondaryIndexOutputTypeDef]]
     GlobalTableVersion: NotRequired[str]
     ItemCount: NotRequired[int]
-    KeySchema: NotRequired[List[AwsDynamoDbTableKeySchemaTypeDef]]
+    KeySchema: NotRequired[list[AwsDynamoDbTableKeySchemaTypeDef]]
     LatestStreamArn: NotRequired[str]
     LatestStreamLabel: NotRequired[str]
-    LocalSecondaryIndexes: NotRequired[List[AwsDynamoDbTableLocalSecondaryIndexOutputTypeDef]]
+    LocalSecondaryIndexes: NotRequired[list[AwsDynamoDbTableLocalSecondaryIndexOutputTypeDef]]
     ProvisionedThroughput: NotRequired[AwsDynamoDbTableProvisionedThroughputTypeDef]
-    Replicas: NotRequired[List[AwsDynamoDbTableReplicaOutputTypeDef]]
+    Replicas: NotRequired[list[AwsDynamoDbTableReplicaOutputTypeDef]]
     RestoreSummary: NotRequired[AwsDynamoDbTableRestoreSummaryTypeDef]
     SseDescription: NotRequired[AwsDynamoDbTableSseDescriptionTypeDef]
     StreamSpecification: NotRequired[AwsDynamoDbTableStreamSpecificationTypeDef]
@@ -8978,11 +9086,11 @@ AwsEc2VpnConnectionOptionsDetailsUnionTypeDef = Union[
 class AwsEcsClusterDetailsOutputTypeDef(TypedDict):
     ClusterArn: NotRequired[str]
     ActiveServicesCount: NotRequired[int]
-    CapacityProviders: NotRequired[List[str]]
-    ClusterSettings: NotRequired[List[AwsEcsClusterClusterSettingsDetailsTypeDef]]
+    CapacityProviders: NotRequired[list[str]]
+    ClusterSettings: NotRequired[list[AwsEcsClusterClusterSettingsDetailsTypeDef]]
     Configuration: NotRequired[AwsEcsClusterConfigurationDetailsTypeDef]
     DefaultCapacityProviderStrategy: NotRequired[
-        List[AwsEcsClusterDefaultCapacityProviderStrategyDetailsTypeDef]
+        list[AwsEcsClusterDefaultCapacityProviderStrategyDetailsTypeDef]
     ]
     ClusterName: NotRequired[str]
     RegisteredContainerInstancesCount: NotRequired[int]
@@ -9025,23 +9133,23 @@ AwsEcsTaskDefinitionContainerDefinitionsLinuxParametersDetailsUnionTypeDef = Uni
 
 class AwsEcsTaskDefinitionDetailsOutputTypeDef(TypedDict):
     ContainerDefinitions: NotRequired[
-        List[AwsEcsTaskDefinitionContainerDefinitionsDetailsOutputTypeDef]
+        list[AwsEcsTaskDefinitionContainerDefinitionsDetailsOutputTypeDef]
     ]
     Cpu: NotRequired[str]
     ExecutionRoleArn: NotRequired[str]
     Family: NotRequired[str]
     InferenceAccelerators: NotRequired[
-        List[AwsEcsTaskDefinitionInferenceAcceleratorsDetailsTypeDef]
+        list[AwsEcsTaskDefinitionInferenceAcceleratorsDetailsTypeDef]
     ]
     IpcMode: NotRequired[str]
     Memory: NotRequired[str]
     NetworkMode: NotRequired[str]
     PidMode: NotRequired[str]
-    PlacementConstraints: NotRequired[List[AwsEcsTaskDefinitionPlacementConstraintsDetailsTypeDef]]
+    PlacementConstraints: NotRequired[list[AwsEcsTaskDefinitionPlacementConstraintsDetailsTypeDef]]
     ProxyConfiguration: NotRequired[AwsEcsTaskDefinitionProxyConfigurationDetailsOutputTypeDef]
-    RequiresCompatibilities: NotRequired[List[str]]
+    RequiresCompatibilities: NotRequired[list[str]]
     TaskRoleArn: NotRequired[str]
-    Volumes: NotRequired[List[AwsEcsTaskDefinitionVolumesDetailsOutputTypeDef]]
+    Volumes: NotRequired[list[AwsEcsTaskDefinitionVolumesDetailsOutputTypeDef]]
     Status: NotRequired[str]
 
 AwsEcsTaskDefinitionVolumesDetailsUnionTypeDef = Union[
@@ -9083,7 +9191,7 @@ class AwsEventsEndpointDetailsOutputTypeDef(TypedDict):
     Description: NotRequired[str]
     EndpointId: NotRequired[str]
     EndpointUrl: NotRequired[str]
-    EventBuses: NotRequired[List[AwsEventsEndpointEventBusesDetailsTypeDef]]
+    EventBuses: NotRequired[list[AwsEventsEndpointEventBusesDetailsTypeDef]]
     Name: NotRequired[str]
     ReplicationConfig: NotRequired[AwsEventsEndpointReplicationConfigDetailsTypeDef]
     RoleArn: NotRequired[str]
@@ -9168,7 +9276,7 @@ AwsRdsDbClusterSnapshotDetailsUnionTypeDef = Union[
 ]
 
 class AwsRdsDbInstanceDetailsOutputTypeDef(TypedDict):
-    AssociatedRoles: NotRequired[List[AwsRdsDbInstanceAssociatedRoleTypeDef]]
+    AssociatedRoles: NotRequired[list[AwsRdsDbInstanceAssociatedRoleTypeDef]]
     CACertificateIdentifier: NotRequired[str]
     DBClusterIdentifier: NotRequired[str]
     DBInstanceIdentifier: NotRequired[str]
@@ -9186,7 +9294,7 @@ class AwsRdsDbInstanceDetailsOutputTypeDef(TypedDict):
     PubliclyAccessible: NotRequired[bool]
     StorageEncrypted: NotRequired[bool]
     TdeCredentialArn: NotRequired[str]
-    VpcSecurityGroups: NotRequired[List[AwsRdsDbInstanceVpcSecurityGroupTypeDef]]
+    VpcSecurityGroups: NotRequired[list[AwsRdsDbInstanceVpcSecurityGroupTypeDef]]
     MultiAz: NotRequired[bool]
     EnhancedMonitoringResourceArn: NotRequired[str]
     DbInstanceStatus: NotRequired[str]
@@ -9194,8 +9302,8 @@ class AwsRdsDbInstanceDetailsOutputTypeDef(TypedDict):
     AllocatedStorage: NotRequired[int]
     PreferredBackupWindow: NotRequired[str]
     BackupRetentionPeriod: NotRequired[int]
-    DbSecurityGroups: NotRequired[List[str]]
-    DbParameterGroups: NotRequired[List[AwsRdsDbParameterGroupTypeDef]]
+    DbSecurityGroups: NotRequired[list[str]]
+    DbParameterGroups: NotRequired[list[AwsRdsDbParameterGroupTypeDef]]
     AvailabilityZone: NotRequired[str]
     DbSubnetGroup: NotRequired[AwsRdsDbSubnetGroupOutputTypeDef]
     PreferredMaintenanceWindow: NotRequired[str]
@@ -9203,16 +9311,16 @@ class AwsRdsDbInstanceDetailsOutputTypeDef(TypedDict):
     LatestRestorableTime: NotRequired[str]
     AutoMinorVersionUpgrade: NotRequired[bool]
     ReadReplicaSourceDBInstanceIdentifier: NotRequired[str]
-    ReadReplicaDBInstanceIdentifiers: NotRequired[List[str]]
-    ReadReplicaDBClusterIdentifiers: NotRequired[List[str]]
+    ReadReplicaDBInstanceIdentifiers: NotRequired[list[str]]
+    ReadReplicaDBClusterIdentifiers: NotRequired[list[str]]
     LicenseModel: NotRequired[str]
     Iops: NotRequired[int]
-    OptionGroupMemberships: NotRequired[List[AwsRdsDbOptionGroupMembershipTypeDef]]
+    OptionGroupMemberships: NotRequired[list[AwsRdsDbOptionGroupMembershipTypeDef]]
     CharacterSetName: NotRequired[str]
     SecondaryAvailabilityZone: NotRequired[str]
-    StatusInfos: NotRequired[List[AwsRdsDbStatusInfoTypeDef]]
+    StatusInfos: NotRequired[list[AwsRdsDbStatusInfoTypeDef]]
     StorageType: NotRequired[str]
-    DomainMemberships: NotRequired[List[AwsRdsDbDomainMembershipTypeDef]]
+    DomainMemberships: NotRequired[list[AwsRdsDbDomainMembershipTypeDef]]
     CopyTagsToSnapshot: NotRequired[bool]
     MonitoringInterval: NotRequired[int]
     MonitoringRoleArn: NotRequired[str]
@@ -9221,8 +9329,8 @@ class AwsRdsDbInstanceDetailsOutputTypeDef(TypedDict):
     PerformanceInsightsEnabled: NotRequired[bool]
     PerformanceInsightsKmsKeyId: NotRequired[str]
     PerformanceInsightsRetentionPeriod: NotRequired[int]
-    EnabledCloudWatchLogsExports: NotRequired[List[str]]
-    ProcessorFeatures: NotRequired[List[AwsRdsDbProcessorFeatureTypeDef]]
+    EnabledCloudWatchLogsExports: NotRequired[list[str]]
+    ProcessorFeatures: NotRequired[list[AwsRdsDbProcessorFeatureTypeDef]]
     ListenerEndpoint: NotRequired[AwsRdsDbInstanceEndpointTypeDef]
     MaxAllocatedStorage: NotRequired[int]
 
@@ -9299,7 +9407,7 @@ AwsS3BucketBucketLifecycleConfigurationRulesFilterPredicateDetailsUnionTypeDef =
 AwsS3BucketNotificationConfigurationDetailOutputTypeDef = TypedDict(
     "AwsS3BucketNotificationConfigurationDetailOutputTypeDef",
     {
-        "Events": NotRequired[List[str]],
+        "Events": NotRequired[list[str]],
         "Filter": NotRequired[AwsS3BucketNotificationConfigurationFilterOutputTypeDef],
         "Destination": NotRequired[str],
         "Type": NotRequired[str],
@@ -9395,12 +9503,12 @@ class SecurityControlDefinitionTypeDef(TypedDict):
     RemediationUrl: str
     SeverityRating: SeverityRatingType
     CurrentRegionAvailability: RegionAvailabilityStatusType
-    CustomizableProperties: NotRequired[List[Literal["Parameters"]]]
-    ParameterDefinitions: NotRequired[Dict[str, ParameterDefinitionTypeDef]]
+    CustomizableProperties: NotRequired[list[Literal["Parameters"]]]
+    ParameterDefinitions: NotRequired[dict[str, ParameterDefinitionTypeDef]]
 
 class BatchGetConfigurationPolicyAssociationsResponseTypeDef(TypedDict):
-    ConfigurationPolicyAssociations: List[ConfigurationPolicyAssociationSummaryTypeDef]
-    UnprocessedConfigurationPolicyAssociations: List[
+    ConfigurationPolicyAssociations: list[ConfigurationPolicyAssociationSummaryTypeDef]
+    UnprocessedConfigurationPolicyAssociations: list[
         UnprocessedConfigurationPolicyAssociationTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -9413,7 +9521,7 @@ class AutomationRulesConfigTypeDef(TypedDict):
     Description: NotRequired[str]
     IsTerminal: NotRequired[bool]
     Criteria: NotRequired[AutomationRulesFindingFiltersOutputTypeDef]
-    Actions: NotRequired[List[AutomationRulesActionOutputTypeDef]]
+    Actions: NotRequired[list[AutomationRulesActionOutputTypeDef]]
     CreatedAt: NotRequired[datetime]
     UpdatedAt: NotRequired[datetime]
     CreatedBy: NotRequired[str]
@@ -9433,11 +9541,23 @@ AwsSecurityFindingFiltersUnionTypeDef = Union[
 ]
 
 class CompositeFilterOutputTypeDef(TypedDict):
-    StringFilters: NotRequired[List[OcsfStringFilterTypeDef]]
-    DateFilters: NotRequired[List[OcsfDateFilterTypeDef]]
-    BooleanFilters: NotRequired[List[OcsfBooleanFilterTypeDef]]
-    NumberFilters: NotRequired[List[OcsfNumberFilterTypeDef]]
-    MapFilters: NotRequired[List[OcsfMapFilterTypeDef]]
+    StringFilters: NotRequired[list[OcsfStringFilterTypeDef]]
+    DateFilters: NotRequired[list[OcsfDateFilterTypeDef]]
+    BooleanFilters: NotRequired[list[OcsfBooleanFilterTypeDef]]
+    NumberFilters: NotRequired[list[OcsfNumberFilterTypeDef]]
+    MapFilters: NotRequired[list[OcsfMapFilterTypeDef]]
+    IpFilters: NotRequired[list[OcsfIpFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[list[dict[str, Any]]]
+    Operator: NotRequired[AllowedOperatorsType]
+
+class CompositeFilterPaginatorTypeDef(TypedDict):
+    StringFilters: NotRequired[Sequence[OcsfStringFilterTypeDef]]
+    DateFilters: NotRequired[Sequence[OcsfDateFilterTypeDef]]
+    BooleanFilters: NotRequired[Sequence[OcsfBooleanFilterTypeDef]]
+    NumberFilters: NotRequired[Sequence[OcsfNumberFilterTypeDef]]
+    MapFilters: NotRequired[Sequence[OcsfMapFilterTypeDef]]
+    IpFilters: NotRequired[Sequence[OcsfIpFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
     Operator: NotRequired[AllowedOperatorsType]
 
 class CompositeFilterTypeDef(TypedDict):
@@ -9446,6 +9566,16 @@ class CompositeFilterTypeDef(TypedDict):
     BooleanFilters: NotRequired[Sequence[OcsfBooleanFilterTypeDef]]
     NumberFilters: NotRequired[Sequence[OcsfNumberFilterTypeDef]]
     MapFilters: NotRequired[Sequence[OcsfMapFilterTypeDef]]
+    IpFilters: NotRequired[Sequence[OcsfIpFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    Operator: NotRequired[AllowedOperatorsType]
+
+class ResourcesCompositeFilterPaginatorTypeDef(TypedDict):
+    StringFilters: NotRequired[Sequence[ResourcesStringFilterTypeDef]]
+    DateFilters: NotRequired[Sequence[ResourcesDateFilterTypeDef]]
+    NumberFilters: NotRequired[Sequence[ResourcesNumberFilterTypeDef]]
+    MapFilters: NotRequired[Sequence[ResourcesMapFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
     Operator: NotRequired[AllowedOperatorsType]
 
 class ResourcesCompositeFilterTypeDef(TypedDict):
@@ -9453,6 +9583,7 @@ class ResourcesCompositeFilterTypeDef(TypedDict):
     DateFilters: NotRequired[Sequence[ResourcesDateFilterTypeDef]]
     NumberFilters: NotRequired[Sequence[ResourcesNumberFilterTypeDef]]
     MapFilters: NotRequired[Sequence[ResourcesMapFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
     Operator: NotRequired[AllowedOperatorsType]
 
 class SequenceTypeDef(TypedDict):
@@ -9494,13 +9625,13 @@ SensitiveDataDetectionsOutputTypeDef = TypedDict(
 OccurrencesUnionTypeDef = Union[OccurrencesTypeDef, OccurrencesOutputTypeDef]
 
 class SecurityControlsConfigurationOutputTypeDef(TypedDict):
-    EnabledSecurityControlIdentifiers: NotRequired[List[str]]
-    DisabledSecurityControlIdentifiers: NotRequired[List[str]]
-    SecurityControlCustomParameters: NotRequired[List[SecurityControlCustomParameterOutputTypeDef]]
+    EnabledSecurityControlIdentifiers: NotRequired[list[str]]
+    DisabledSecurityControlIdentifiers: NotRequired[list[str]]
+    SecurityControlCustomParameters: NotRequired[list[SecurityControlCustomParameterOutputTypeDef]]
 
 class BatchGetSecurityControlsResponseTypeDef(TypedDict):
-    SecurityControls: List[SecurityControlTypeDef]
-    UnprocessedIds: List[UnprocessedSecurityControlTypeDef]
+    SecurityControls: list[SecurityControlTypeDef]
+    UnprocessedIds: list[UnprocessedSecurityControlTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ParameterConfigurationUnionTypeDef = Union[
@@ -9512,7 +9643,13 @@ class SecurityControlCustomParameterTypeDef(TypedDict):
     Parameters: NotRequired[Mapping[str, ParameterConfigurationTypeDef]]
 
 class GetResourcesV2ResponseTypeDef(TypedDict):
-    Resources: List[ResourceResultTypeDef]
+    Resources: list[ResourceResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GetResourcesTrendsV2ResponseTypeDef(TypedDict):
+    Granularity: GranularityFieldType
+    TrendsMetrics: list[ResourcesTrendsMetricsResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9530,6 +9667,12 @@ RuleGroupSourceStatelessRuleMatchAttributesUnionTypeDef = Union[
 ]
 RuleGroupVariablesUnionTypeDef = Union[RuleGroupVariablesTypeDef, RuleGroupVariablesOutputTypeDef]
 ComplianceUnionTypeDef = Union[ComplianceTypeDef, ComplianceOutputTypeDef]
+
+class GetFindingsTrendsV2ResponseTypeDef(TypedDict):
+    Granularity: GranularityFieldType
+    TrendsMetrics: list[TrendsMetricsResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class FirewallPolicyStatelessCustomActionsDetailsOutputTypeDef(TypedDict):
     ActionDefinition: NotRequired[StatelessCustomActionDefinitionOutputTypeDef]
@@ -9559,6 +9702,33 @@ DetectionOutputTypeDef = TypedDict(
 AutomationRulesActionUnionTypeDef = Union[
     AutomationRulesActionTypeDef, AutomationRulesActionOutputTypeDef
 ]
+
+class GetFindingsTrendsV2RequestPaginateTypeDef(TypedDict):
+    StartTime: TimestampTypeDef
+    EndTime: TimestampTypeDef
+    Filters: NotRequired[FindingsTrendsFiltersPaginatorTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetFindingsTrendsV2RequestTypeDef(TypedDict):
+    StartTime: TimestampTypeDef
+    EndTime: TimestampTypeDef
+    Filters: NotRequired[FindingsTrendsFiltersTypeDef]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class GetResourcesTrendsV2RequestPaginateTypeDef(TypedDict):
+    StartTime: TimestampTypeDef
+    EndTime: TimestampTypeDef
+    Filters: NotRequired[ResourcesTrendsFiltersPaginatorTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetResourcesTrendsV2RequestTypeDef(TypedDict):
+    StartTime: TimestampTypeDef
+    EndTime: TimestampTypeDef
+    Filters: NotRequired[ResourcesTrendsFiltersTypeDef]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 AwsAutoScalingAutoScalingGroupMixedInstancesPolicyDetailsUnionTypeDef = Union[
     AwsAutoScalingAutoScalingGroupMixedInstancesPolicyDetailsTypeDef,
     AwsAutoScalingAutoScalingGroupMixedInstancesPolicyDetailsOutputTypeDef,
@@ -9810,7 +9980,7 @@ AwsEventsEndpointDetailsUnionTypeDef = Union[
 
 class AwsGuardDutyDetectorDetailsOutputTypeDef(TypedDict):
     DataSources: NotRequired[AwsGuardDutyDetectorDataSourcesDetailsTypeDef]
-    Features: NotRequired[List[AwsGuardDutyDetectorFeaturesDetailsTypeDef]]
+    Features: NotRequired[list[AwsGuardDutyDetectorFeaturesDetailsTypeDef]]
     FindingPublishingFrequency: NotRequired[str]
     ServiceRole: NotRequired[str]
     Status: NotRequired[str]
@@ -9914,12 +10084,12 @@ class AwsS3BucketBucketLifecycleConfigurationRulesDetailsOutputTypeDef(TypedDict
     ID: NotRequired[str]
     NoncurrentVersionExpirationInDays: NotRequired[int]
     NoncurrentVersionTransitions: NotRequired[
-        List[AwsS3BucketBucketLifecycleConfigurationRulesNoncurrentVersionTransitionsDetailsTypeDef]
+        list[AwsS3BucketBucketLifecycleConfigurationRulesNoncurrentVersionTransitionsDetailsTypeDef]
     ]
     Prefix: NotRequired[str]
     Status: NotRequired[str]
     Transitions: NotRequired[
-        List[AwsS3BucketBucketLifecycleConfigurationRulesTransitionsDetailsTypeDef]
+        list[AwsS3BucketBucketLifecycleConfigurationRulesTransitionsDetailsTypeDef]
     ]
 
 class AwsS3BucketBucketLifecycleConfigurationRulesFilterDetailsTypeDef(TypedDict):
@@ -9928,7 +10098,7 @@ class AwsS3BucketBucketLifecycleConfigurationRulesFilterDetailsTypeDef(TypedDict
     ]
 
 class AwsS3BucketNotificationConfigurationOutputTypeDef(TypedDict):
-    Configurations: NotRequired[List[AwsS3BucketNotificationConfigurationDetailOutputTypeDef]]
+    Configurations: NotRequired[list[AwsS3BucketNotificationConfigurationDetailOutputTypeDef]]
 
 AwsS3BucketNotificationConfigurationFilterUnionTypeDef = Union[
     AwsS3BucketNotificationConfigurationFilterTypeDef,
@@ -9981,17 +10151,17 @@ class GetSecurityControlDefinitionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListSecurityControlDefinitionsResponseTypeDef(TypedDict):
-    SecurityControlDefinitions: List[SecurityControlDefinitionTypeDef]
+    SecurityControlDefinitions: list[SecurityControlDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class BatchGetAutomationRulesResponseTypeDef(TypedDict):
-    Rules: List[AutomationRulesConfigTypeDef]
-    UnprocessedAutomationRules: List[UnprocessedAutomationRuleTypeDef]
+    Rules: list[AutomationRulesConfigTypeDef]
+    UnprocessedAutomationRules: list[UnprocessedAutomationRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetInsightsResponseTypeDef(TypedDict):
-    Insights: List[InsightTypeDef]
+    Insights: list[InsightTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10023,10 +10193,18 @@ class UpdateInsightRequestTypeDef(TypedDict):
     GroupByAttribute: NotRequired[str]
 
 class OcsfFindingFiltersOutputTypeDef(TypedDict):
-    CompositeFilters: NotRequired[List[CompositeFilterOutputTypeDef]]
+    CompositeFilters: NotRequired[list[CompositeFilterOutputTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
+
+class OcsfFindingFiltersPaginatorTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[CompositeFilterPaginatorTypeDef]]
     CompositeOperator: NotRequired[AllowedOperatorsType]
 
 CompositeFilterUnionTypeDef = Union[CompositeFilterTypeDef, CompositeFilterOutputTypeDef]
+
+class ResourcesFiltersPaginatorTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[ResourcesCompositeFilterPaginatorTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
 
 class ResourcesFiltersTypeDef(TypedDict):
     CompositeFilters: NotRequired[Sequence[ResourcesCompositeFilterTypeDef]]
@@ -10036,12 +10214,12 @@ SequenceUnionTypeDef = Union[SequenceTypeDef, SequenceOutputTypeDef]
 NetworkHeaderUnionTypeDef = Union[NetworkHeaderTypeDef, NetworkHeaderOutputTypeDef]
 
 class CustomDataIdentifiersResultOutputTypeDef(TypedDict):
-    Detections: NotRequired[List[CustomDataIdentifiersDetectionsOutputTypeDef]]
+    Detections: NotRequired[list[CustomDataIdentifiersDetectionsOutputTypeDef]]
     TotalCount: NotRequired[int]
 
 class SensitiveDataResultOutputTypeDef(TypedDict):
     Category: NotRequired[str]
-    Detections: NotRequired[List[SensitiveDataDetectionsOutputTypeDef]]
+    Detections: NotRequired[list[SensitiveDataDetectionsOutputTypeDef]]
     TotalCount: NotRequired[int]
 
 class CustomDataIdentifiersDetectionsTypeDef(TypedDict):
@@ -10061,7 +10239,7 @@ SensitiveDataDetectionsTypeDef = TypedDict(
 
 class SecurityHubPolicyOutputTypeDef(TypedDict):
     ServiceEnabled: NotRequired[bool]
-    EnabledStandardIdentifiers: NotRequired[List[str]]
+    EnabledStandardIdentifiers: NotRequired[list[str]]
     SecurityControlsConfiguration: NotRequired[SecurityControlsConfigurationOutputTypeDef]
 
 class UpdateSecurityControlRequestTypeDef(TypedDict):
@@ -10080,20 +10258,20 @@ class RuleGroupSourceStatelessRuleDefinitionTypeDef(TypedDict):
 
 class FirewallPolicyDetailsOutputTypeDef(TypedDict):
     StatefulRuleGroupReferences: NotRequired[
-        List[FirewallPolicyStatefulRuleGroupReferencesDetailsTypeDef]
+        list[FirewallPolicyStatefulRuleGroupReferencesDetailsTypeDef]
     ]
     StatelessCustomActions: NotRequired[
-        List[FirewallPolicyStatelessCustomActionsDetailsOutputTypeDef]
+        list[FirewallPolicyStatelessCustomActionsDetailsOutputTypeDef]
     ]
-    StatelessDefaultActions: NotRequired[List[str]]
-    StatelessFragmentDefaultActions: NotRequired[List[str]]
+    StatelessDefaultActions: NotRequired[list[str]]
+    StatelessFragmentDefaultActions: NotRequired[list[str]]
     StatelessRuleGroupReferences: NotRequired[
-        List[FirewallPolicyStatelessRuleGroupReferencesDetailsTypeDef]
+        list[FirewallPolicyStatelessRuleGroupReferencesDetailsTypeDef]
     ]
 
 class RuleGroupSourceStatelessRulesAndCustomActionsDetailsOutputTypeDef(TypedDict):
-    CustomActions: NotRequired[List[RuleGroupSourceCustomActionsDetailsOutputTypeDef]]
-    StatelessRules: NotRequired[List[RuleGroupSourceStatelessRulesDetailsOutputTypeDef]]
+    CustomActions: NotRequired[list[RuleGroupSourceCustomActionsDetailsOutputTypeDef]]
+    StatelessRules: NotRequired[list[RuleGroupSourceStatelessRulesDetailsOutputTypeDef]]
 
 StatelessCustomActionDefinitionUnionTypeDef = Union[
     StatelessCustomActionDefinitionTypeDef, StatelessCustomActionDefinitionOutputTypeDef
@@ -10191,7 +10369,7 @@ AwsRdsDbInstanceDetailsUnionTypeDef = Union[
 ]
 
 class AwsS3BucketBucketLifecycleConfigurationDetailsOutputTypeDef(TypedDict):
-    Rules: NotRequired[List[AwsS3BucketBucketLifecycleConfigurationRulesDetailsOutputTypeDef]]
+    Rules: NotRequired[list[AwsS3BucketBucketLifecycleConfigurationRulesDetailsOutputTypeDef]]
 
 AwsS3BucketBucketLifecycleConfigurationRulesFilterDetailsUnionTypeDef = Union[
     AwsS3BucketBucketLifecycleConfigurationRulesFilterDetailsTypeDef,
@@ -10216,7 +10394,7 @@ class AwsWafv2RuleGroupDetailsOutputTypeDef(TypedDict):
     Id: NotRequired[str]
     Name: NotRequired[str]
     Arn: NotRequired[str]
-    Rules: NotRequired[List[AwsWafv2RulesDetailsOutputTypeDef]]
+    Rules: NotRequired[list[AwsWafv2RulesDetailsOutputTypeDef]]
     Scope: NotRequired[str]
     VisibilityConfig: NotRequired[AwsWafv2VisibilityConfigDetailsTypeDef]
 
@@ -10229,7 +10407,7 @@ class AwsWafv2WebAclDetailsOutputTypeDef(TypedDict):
     CaptchaConfig: NotRequired[AwsWafv2WebAclCaptchaConfigDetailsTypeDef]
     DefaultAction: NotRequired[AwsWafv2WebAclActionDetailsOutputTypeDef]
     Description: NotRequired[str]
-    Rules: NotRequired[List[AwsWafv2RulesDetailsOutputTypeDef]]
+    Rules: NotRequired[list[AwsWafv2RulesDetailsOutputTypeDef]]
     VisibilityConfig: NotRequired[AwsWafv2VisibilityConfigDetailsTypeDef]
 
 class AwsWafv2RulesActionDetailsTypeDef(TypedDict):
@@ -10245,12 +10423,17 @@ class AwsWafv2WebAclActionDetailsTypeDef(TypedDict):
 class CriteriaOutputTypeDef(TypedDict):
     OcsfFindingCriteria: NotRequired[OcsfFindingFiltersOutputTypeDef]
 
+class GetFindingsV2RequestPaginateTypeDef(TypedDict):
+    Filters: NotRequired[OcsfFindingFiltersPaginatorTypeDef]
+    SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class OcsfFindingFiltersTypeDef(TypedDict):
     CompositeFilters: NotRequired[Sequence[CompositeFilterUnionTypeDef]]
     CompositeOperator: NotRequired[AllowedOperatorsType]
 
 class GetResourcesV2RequestPaginateTypeDef(TypedDict):
-    Filters: NotRequired[ResourcesFiltersTypeDef]
+    Filters: NotRequired[ResourcesFiltersPaginatorTypeDef]
     SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -10282,7 +10465,7 @@ class ClassificationResultOutputTypeDef(TypedDict):
     SizeClassified: NotRequired[int]
     AdditionalOccurrences: NotRequired[bool]
     Status: NotRequired[ClassificationStatusTypeDef]
-    SensitiveData: NotRequired[List[SensitiveDataResultOutputTypeDef]]
+    SensitiveData: NotRequired[list[SensitiveDataResultOutputTypeDef]]
     CustomDataIdentifiers: NotRequired[CustomDataIdentifiersResultOutputTypeDef]
 
 CustomDataIdentifiersDetectionsUnionTypeDef = Union[
@@ -10315,7 +10498,7 @@ class AwsNetworkFirewallFirewallPolicyDetailsOutputTypeDef(TypedDict):
 class RuleGroupSourceOutputTypeDef(TypedDict):
     RulesSourceList: NotRequired[RuleGroupSourceListDetailsOutputTypeDef]
     RulesString: NotRequired[str]
-    StatefulRules: NotRequired[List[RuleGroupSourceStatefulRulesDetailsOutputTypeDef]]
+    StatefulRules: NotRequired[list[RuleGroupSourceStatefulRulesDetailsOutputTypeDef]]
     StatelessRulesAndCustomActions: NotRequired[
         RuleGroupSourceStatelessRulesAndCustomActionsDetailsOutputTypeDef
     ]
@@ -10439,17 +10622,13 @@ class GetAutomationRuleV2ResponseTypeDef(TypedDict):
     RuleStatus: RuleStatusV2Type
     Description: str
     Criteria: CriteriaOutputTypeDef
-    Actions: List[AutomationRulesActionV2TypeDef]
+    Actions: list[AutomationRulesActionV2TypeDef]
     CreatedAt: datetime
     UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CriteriaTypeDef(TypedDict):
     OcsfFindingCriteria: NotRequired[OcsfFindingFiltersTypeDef]
-
-class GroupByRuleTypeDef(TypedDict):
-    GroupByField: GroupByFieldType
-    Filters: NotRequired[OcsfFindingFiltersTypeDef]
 
 OcsfFindingFiltersUnionTypeDef = Union[OcsfFindingFiltersTypeDef, OcsfFindingFiltersOutputTypeDef]
 
@@ -10556,21 +10735,15 @@ class AwsWafv2RulesDetailsTypeDef(TypedDict):
 
 CriteriaUnionTypeDef = Union[CriteriaTypeDef, CriteriaOutputTypeDef]
 
-class GetFindingStatisticsV2RequestTypeDef(TypedDict):
-    GroupByRules: Sequence[GroupByRuleTypeDef]
-    SortOrder: NotRequired[SortOrderType]
-    MaxStatisticResults: NotRequired[int]
-
-class GetFindingsV2RequestPaginateTypeDef(TypedDict):
-    Filters: NotRequired[OcsfFindingFiltersUnionTypeDef]
-    SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
 class GetFindingsV2RequestTypeDef(TypedDict):
     Filters: NotRequired[OcsfFindingFiltersUnionTypeDef]
     SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class GroupByRuleTypeDef(TypedDict):
+    GroupByField: GroupByFieldType
+    Filters: NotRequired[OcsfFindingFiltersUnionTypeDef]
 
 CustomDataIdentifiersResultUnionTypeDef = Union[
     CustomDataIdentifiersResultTypeDef, CustomDataIdentifiersResultOutputTypeDef
@@ -10663,6 +10836,11 @@ class UpdateAutomationRuleV2RequestTypeDef(TypedDict):
     Criteria: NotRequired[CriteriaUnionTypeDef]
     Actions: NotRequired[Sequence[AutomationRulesActionV2TypeDef]]
 
+class GetFindingStatisticsV2RequestTypeDef(TypedDict):
+    GroupByRules: Sequence[GroupByRuleTypeDef]
+    SortOrder: NotRequired[SortOrderType]
+    MaxStatisticResults: NotRequired[int]
+
 class ClassificationResultTypeDef(TypedDict):
     MimeType: NotRequired[str]
     SizeClassified: NotRequired[int]
@@ -10744,7 +10922,7 @@ ResourceDetailsOutputTypeDef = TypedDict(
         "AwsEcsContainer": NotRequired[AwsEcsContainerDetailsOutputTypeDef],
         "AwsEcsTaskDefinition": NotRequired[AwsEcsTaskDefinitionDetailsOutputTypeDef],
         "Container": NotRequired[ContainerDetailsOutputTypeDef],
-        "Other": NotRequired[Dict[str, str]],
+        "Other": NotRequired[dict[str, str]],
         "AwsRdsEventSubscription": NotRequired[AwsRdsEventSubscriptionDetailsOutputTypeDef],
         "AwsEcsService": NotRequired[AwsEcsServiceDetailsOutputTypeDef],
         "AwsAutoScalingLaunchConfiguration": NotRequired[
@@ -10844,7 +11022,7 @@ ResourceOutputTypeDef = TypedDict(
         "Partition": NotRequired[PartitionType],
         "Region": NotRequired[str],
         "ResourceRole": NotRequired[str],
-        "Tags": NotRequired[Dict[str, str]],
+        "Tags": NotRequired[dict[str, str]],
         "DataClassification": NotRequired[DataClassificationDetailsOutputTypeDef],
         "Details": NotRequired[ResourceDetailsOutputTypeDef],
         "ApplicationName": NotRequired[str],
@@ -10905,11 +11083,11 @@ class AwsSecurityFindingOutputTypeDef(TypedDict):
     UpdatedAt: str
     Title: str
     Description: str
-    Resources: List[ResourceOutputTypeDef]
+    Resources: list[ResourceOutputTypeDef]
     ProductName: NotRequired[str]
     CompanyName: NotRequired[str]
     Region: NotRequired[str]
-    Types: NotRequired[List[str]]
+    Types: NotRequired[list[str]]
     FirstObservedAt: NotRequired[str]
     LastObservedAt: NotRequired[str]
     Severity: NotRequired[SeverityTypeDef]
@@ -10917,22 +11095,22 @@ class AwsSecurityFindingOutputTypeDef(TypedDict):
     Criticality: NotRequired[int]
     Remediation: NotRequired[RemediationTypeDef]
     SourceUrl: NotRequired[str]
-    ProductFields: NotRequired[Dict[str, str]]
-    UserDefinedFields: NotRequired[Dict[str, str]]
-    Malware: NotRequired[List[MalwareTypeDef]]
+    ProductFields: NotRequired[dict[str, str]]
+    UserDefinedFields: NotRequired[dict[str, str]]
+    Malware: NotRequired[list[MalwareTypeDef]]
     Network: NotRequired[NetworkTypeDef]
-    NetworkPath: NotRequired[List[NetworkPathComponentOutputTypeDef]]
+    NetworkPath: NotRequired[list[NetworkPathComponentOutputTypeDef]]
     Process: NotRequired[ProcessDetailsTypeDef]
-    Threats: NotRequired[List[ThreatOutputTypeDef]]
-    ThreatIntelIndicators: NotRequired[List[ThreatIntelIndicatorTypeDef]]
+    Threats: NotRequired[list[ThreatOutputTypeDef]]
+    ThreatIntelIndicators: NotRequired[list[ThreatIntelIndicatorTypeDef]]
     Compliance: NotRequired[ComplianceOutputTypeDef]
     VerificationState: NotRequired[VerificationStateType]
     WorkflowState: NotRequired[WorkflowStateType]
     Workflow: NotRequired[WorkflowTypeDef]
     RecordState: NotRequired[RecordStateType]
-    RelatedFindings: NotRequired[List[RelatedFindingTypeDef]]
+    RelatedFindings: NotRequired[list[RelatedFindingTypeDef]]
     Note: NotRequired[NoteTypeDef]
-    Vulnerabilities: NotRequired[List[VulnerabilityOutputTypeDef]]
+    Vulnerabilities: NotRequired[list[VulnerabilityOutputTypeDef]]
     PatchSummary: NotRequired[PatchSummaryTypeDef]
     Action: NotRequired[ActionOutputTypeDef]
     FindingProviderFields: NotRequired[FindingProviderFieldsOutputTypeDef]
@@ -10953,7 +11131,7 @@ DataClassificationDetailsUnionTypeDef = Union[
 RuleGroupSourceUnionTypeDef = Union[RuleGroupSourceTypeDef, RuleGroupSourceOutputTypeDef]
 
 class GetFindingsResponseTypeDef(TypedDict):
-    Findings: List[AwsSecurityFindingOutputTypeDef]
+    Findings: list[AwsSecurityFindingOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

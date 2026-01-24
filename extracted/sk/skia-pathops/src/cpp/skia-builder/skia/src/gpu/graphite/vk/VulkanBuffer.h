@@ -14,16 +14,30 @@
 
 namespace skgpu::graphite {
 
+class VulkanCommandBuffer;
+
 class VulkanBuffer final : public Buffer {
 public:
-    static sk_sp<Buffer> Make(const VulkanSharedContext*, size_t, BufferType, PrioritizeGpuReads);
+    static sk_sp<Buffer> Make(const VulkanSharedContext*, size_t, BufferType, AccessPattern);
     void freeGpuData() override;
     VkBuffer vkBuffer() const { return fBuffer; }
     VkBufferUsageFlags bufferUsageFlags() const { return fBufferUsageFlags; }
 
+    void setBufferAccess(VulkanCommandBuffer* buffer,
+                         VkAccessFlags dstAccess,
+                         VkPipelineStageFlags dstStageMask) const;
+
+    bool bufferUsedForCpuRead() const { return fBufferUsedForCPURead; }
+
 private:
-    VulkanBuffer(const VulkanSharedContext*, size_t, BufferType, PrioritizeGpuReads, VkBuffer,
-                 const skgpu::VulkanAlloc&, VkBufferUsageFlags);
+    VulkanBuffer(const VulkanSharedContext*,
+                 size_t,
+                 BufferType,
+                 AccessPattern,
+                 VkBuffer,
+                 const skgpu::VulkanAlloc&,
+                 VkBufferUsageFlags,
+                 Protected isProtected);
 
     void onMap() override;
     void onUnmap() override;
@@ -40,6 +54,8 @@ private:
     VkBuffer fBuffer;
     skgpu::VulkanAlloc fAlloc;
     const VkBufferUsageFlags fBufferUsageFlags;
+    mutable VkAccessFlags fCurrentAccess = 0;
+
     /**
      * Buffers can either be mapped for:
      * 1) Reading from the CPU (The effect of writing would be undefined)

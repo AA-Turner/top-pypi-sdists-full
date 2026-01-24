@@ -11,7 +11,7 @@ import os
 import json
 from pathlib import Path
 from io import BytesIO
-from collections import namedtuple
+from collections import namedtuple, deque
 from datetime import datetime
 import tempfile
 
@@ -21,6 +21,8 @@ from .storage_injections import (
     STORAGE_INJECTIONS_SINGLE_FILE_SAVE,
     STORAGE_INJECTIONS_MULTIPLE_FILE_SAVE,
     STORAGE_INJECTIONS_LOAD_FILES,
+    STORAGE_INJECTIONS_DELETE,
+    STORAGE_INJECTIONS_DELETE_PREFIX,
 )
 from ..exceptions import KeyNotFoundError
 import json
@@ -126,6 +128,7 @@ class ObjectStorage(object):
         self._backend: DataStoreStorage = storage_backend
         self._storage_root = self._backend.datastore_root
         self._path_components = path_components
+        self._root_prefix = root_prefix
         self.set_full_prefix(root_prefix)
         self._inject_methods_to_storage_backend()
 
@@ -175,6 +178,18 @@ class ObjectStorage(object):
             )
         method = STORAGE_INJECTIONS_LOAD_FILES[self._backend.TYPE]
         setattr(self._backend, "load_files", partial(method, self._backend))
+
+        # Inject delete operations
+        if self._backend.TYPE not in STORAGE_INJECTIONS_DELETE:
+            raise NotImplementedError(
+                "Storage backend %s not supported for delete operations."
+                % self._backend.TYPE
+            )
+        method = STORAGE_INJECTIONS_DELETE[self._backend.TYPE]
+        setattr(self._backend, "delete", partial(method, self._backend))
+
+        method = STORAGE_INJECTIONS_DELETE_PREFIX[self._backend.TYPE]
+        setattr(self._backend, "delete_prefix", partial(method, self._backend))
 
     def set_full_prefix(self, root_prefix):
         self.FULL_PREFIX = os.path.join(root_prefix, "/".join(self._path_components))
@@ -296,25 +311,19 @@ class ObjectStorage(object):
                     key=_relative_url_convert(list_content_result.path),
                 )
         else:
-
-            def _list_content_recursive(x_keys):
-                _keys = []
-                for list_content_result in self._backend.list_content(x_keys):
+            # Iterative DFS approach - yields files immediately as they're discovered
+            # and avoids recursion depth limits for deeply nested directories
+            pending_dirs = deque(keys)
+            while pending_dirs:
+                current_key = pending_dirs.pop()  # DFS order (depth-first)
+                for list_content_result in self._backend.list_content([current_key]):
                     if list_content_result.is_file:
-                        _keys.append(
-                            ListPathResult(
-                                full_url=_full_url_convert(list_content_result.path),
-                                key=_relative_url_convert(list_content_result.path),
-                            )
+                        yield ListPathResult(
+                            full_url=_full_url_convert(list_content_result.path),
+                            key=_relative_url_convert(list_content_result.path),
                         )
                     else:
-                        _keys.extend(
-                            _list_content_recursive([list_content_result.path])
-                        )
-                return _keys
-
-            for x in _list_content_recursive(keys):
-                yield x
+                        pending_dirs.append(list_content_result.path)
 
     def _save_objects(
         self,
@@ -434,6 +443,43 @@ class ObjectStorage(object):
 
     def _load_metadata(self, key):
         return json.loads(self.get(key).blob)
+
+    def delete(self, key: str) -> bool:
+        """
+        Delete a single object by key.
+
+        Parameters
+        ----------
+        key : str
+            The key of the object to delete (relative to this store's path).
+
+        Returns
+        -------
+        bool
+            True if deletion was successful, False otherwise.
+        """
+        path = self.resolve_key_path(key)
+        return self._backend.delete(path)
+
+    def delete_prefix(self, key_prefix: str) -> bool:
+        """
+        Delete all objects under a key prefix.
+
+        This is used for deleting checkpoint/model artifacts that may consist
+        of multiple files stored under a common prefix.
+
+        Parameters
+        ----------
+        key_prefix : str
+            The key prefix to delete (relative to this store's path).
+
+        Returns
+        -------
+        bool
+            True if deletion was successful, False otherwise.
+        """
+        path = self.resolve_key_path(key_prefix)
+        return self._backend.delete_prefix(path)
 
     def __str__(self) -> str:
         return f"""

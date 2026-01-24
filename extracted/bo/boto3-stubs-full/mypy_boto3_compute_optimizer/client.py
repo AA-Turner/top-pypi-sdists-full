@@ -3,7 +3,7 @@ Type annotations for compute-optimizer service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -88,12 +89,6 @@ from .type_defs import (
     UpdateEnrollmentStatusResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -104,16 +99,16 @@ __all__ = ("ComputeOptimizerClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MissingAuthenticationToken: Type[BotocoreClientError]
-    OptInRequiredException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MissingAuthenticationToken: type[BotocoreClientError]
+    OptInRequiredException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 
 class ComputeOptimizerClient(BaseClient):
@@ -153,7 +148,7 @@ class ComputeOptimizerClient(BaseClient):
 
     def delete_recommendation_preferences(
         self, **kwargs: Unpack[DeleteRecommendationPreferencesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a recommendation preference, such as enhanced infrastructure metrics.
 
@@ -175,7 +170,7 @@ class ComputeOptimizerClient(BaseClient):
         self, **kwargs: Unpack[ExportAutoScalingGroupRecommendationsRequestTypeDef]
     ) -> ExportAutoScalingGroupRecommendationsResponseTypeDef:
         """
-        Exports optimization recommendations for Auto Scaling groups.
+        Exports optimization recommendations for Amazon EC2 Auto Scaling groups.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer/client/export_auto_scaling_group_recommendations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer/client/#export_auto_scaling_group_recommendations)
@@ -256,7 +251,7 @@ class ComputeOptimizerClient(BaseClient):
         self, **kwargs: Unpack[GetAutoScalingGroupRecommendationsRequestTypeDef]
     ) -> GetAutoScalingGroupRecommendationsResponseTypeDef:
         """
-        Returns Auto Scaling group recommendations.
+        Returns Amazon EC2 Auto Scaling group recommendations.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer/client/get_auto_scaling_group_recommendations.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_compute_optimizer/client/#get_auto_scaling_group_recommendations)
@@ -418,7 +413,7 @@ class ComputeOptimizerClient(BaseClient):
 
     def put_recommendation_preferences(
         self, **kwargs: Unpack[PutRecommendationPreferencesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a new recommendation preference or updates an existing recommendation
         preference, such as enhanced infrastructure metrics.

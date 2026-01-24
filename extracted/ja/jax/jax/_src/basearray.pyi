@@ -11,12 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import abc
 from collections.abc import Callable, Sequence
 from types import ModuleType
 from typing import Any, Protocol, runtime_checkable, Union
 import numpy as np
 
+from jax._src import literals
 from jax._src.partition_spec import PartitionSpec as P
 from jax._src.named_sharding import NamedSharding
 from jax._src.sharding import Sharding
@@ -41,12 +41,15 @@ Traceback = Any
 PrecisionLike = Any
 
 
-# TODO(slebedev): Remove the metaclass once ``jax_extension_version >= 325``.
-class Array(metaclass=abc.ABCMeta):
+class Array:
   aval: Any
 
   @property
   def dtype(self) -> np.dtype: ...
+
+  # TODO(jakevdp) set to None after deprecation period.
+  @property
+  def __numpy_dtype__(self) -> np.dtype: ...
 
   @property
   def ndim(self) -> int: ...
@@ -274,6 +277,8 @@ ArrayLike = Union[
   Array,  # JAX array type
   np.ndarray,  # NumPy array type
   StaticScalar,  # valid scalars
+  # Typed array and scalar types
+  literals.TypedNdArray,
 ]
 
 
@@ -286,13 +291,16 @@ class _IndexUpdateHelper:
 class _IndexUpdateRef:
   def get(self, indices_are_sorted: bool = False, unique_indices: bool = False,
           mode: str | None = None, fill_value: StaticScalar | None = None,
-          out_sharding: Sharding | P | None = None, wrap_negative_indices: bool = True) -> Array: ...
+          out_sharding: NamedSharding | P | None = None,
+          wrap_negative_indices: bool = True) -> Array: ...
   def set(self, values: Any,
           indices_are_sorted: bool = False, unique_indices: bool = False,
           mode: str | None = None, fill_value: StaticScalar | None = None,
+          out_sharding: NamedSharding | P | None = None,
           wrap_negative_indices: bool = True) -> Array: ...
   def add(self, values: Any, indices_are_sorted: bool = False,
           unique_indices: bool = False, mode: str | None = None,
+          out_sharding: NamedSharding | P | None = None,
           wrap_negative_indices: bool = True) -> Array: ...
   def subtract(self, values: Any, *, indices_are_sorted: bool = False,
                unique_indices: bool = False, mode: str | None = None,

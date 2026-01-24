@@ -15,7 +15,7 @@ class SimCardListParams(TypedDict, total=False):
     filter: Filter
     """Consolidated filter parameter for SIM cards (deepObject style).
 
-    Originally: filter[tags], filter[iccid], filter[status]
+    Originally: filter[iccid], filter[msisdn], filter[status], filter[tags]
     """
 
     filter_sim_card_group_id: Annotated[str, PropertyInfo(alias="filter[sim_card_group_id]")]
@@ -30,7 +30,7 @@ class SimCardListParams(TypedDict, total=False):
     Originally: page[number], page[size]
     """
 
-    sort: Literal["current_billing_period_consumed_data.amount"]
+    sort: Literal["current_billing_period_consumed_data.amount", "-current_billing_period_consumed_data.amount"]
     """Sorts SIM cards by the given field.
 
     Defaults to ascending order unless field is prefixed with a minus sign.
@@ -38,8 +38,16 @@ class SimCardListParams(TypedDict, total=False):
 
 
 class Filter(TypedDict, total=False):
+    """Consolidated filter parameter for SIM cards (deepObject style).
+
+    Originally: filter[iccid], filter[msisdn], filter[status], filter[tags]
+    """
+
     iccid: str
     """A search string to partially match for the SIM card's ICCID."""
+
+    msisdn: str
+    """A search string to match for the SIM card's MSISDN."""
 
     status: List[Literal["enabled", "disabled", "standby", "data_limit_exceeded", "unauthorized_imei"]]
     """Filter by a SIM card's status."""
@@ -59,6 +67,11 @@ class Filter(TypedDict, total=False):
 
 
 class Page(TypedDict, total=False):
+    """Consolidated pagination parameter (deepObject style).
+
+    Originally: page[number], page[size]
+    """
+
     number: int
     """The page number to load."""
 

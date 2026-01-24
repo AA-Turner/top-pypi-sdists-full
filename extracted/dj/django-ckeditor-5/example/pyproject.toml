@@ -42,7 +42,7 @@ exclude = '''
 
 [tool.pytest.ini_options]
 # py.test configuration: http://doc.pytest.org/en/latest/customize.html
-norecursedirs = "tests/fixtures *.egg .eggs dist build docs .tox .git __pycache__ venv env migrations"
+norecursedirs = "tests/fixtures *.egg .eggs dist build docs .tox .git __pycache__ venv env migrations node_modules django_ckeditor_5"
 DJANGO_SETTINGS_MODULE = "blog.test_settings"
 pythonpath = "."
 filterwarnings = """

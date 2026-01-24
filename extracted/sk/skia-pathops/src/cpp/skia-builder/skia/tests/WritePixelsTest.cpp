@@ -9,7 +9,6 @@
 #include "include/core/SkBitmap.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColor.h"
-#include "include/core/SkColorPriv.h"
 #include "include/core/SkColorType.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkMallocPixelRef.h"
@@ -20,19 +19,22 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "src/core/SkColorPriv.h"
 #if defined(SK_GRAPHITE)
 #include "include/gpu/graphite/Context.h"
+#include "include/gpu/graphite/Surface.h"
 #endif
-#include "include/private/SkColorData.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "include/private/base/SkCPUTypes.h"
 #include "include/private/base/SkMalloc.h"
 #include "include/private/base/SkSafe32.h"
 #include "include/private/base/SkTo.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/base/SkMathPriv.h"
+#include "src/core/SkColorData.h"
 #include "src/core/SkImageInfoPriv.h"
 #include "src/gpu/SkBackingFit.h"
 #include "src/gpu/ganesh/GrCaps.h"
@@ -167,7 +169,7 @@ static uint32_t premul(uint32_t color) {
     c0 = SkMulDiv255Ceiling(c0, a);
     c1 = SkMulDiv255Ceiling(c1, a);
     c2 = SkMulDiv255Ceiling(c2, a);
-    return SkPackARGB32NoCheck(a, c0, c1, c2);
+    return SkPackARGB32(a, c0, c1, c2);
 }
 
 static SkPMColor convert_to_PMColor(SkColorType ct, SkAlphaType at, uint32_t color) {
@@ -319,10 +321,6 @@ static bool alloc_row_bytes(SkBitmap* bm, const SkImageInfo& info, size_t rowByt
     return true;
 }
 
-static void free_pixels(void* pixels, void* ctx) {
-    sk_free(pixels);
-}
-
 static bool setup_bitmap(SkBitmap* bm, SkColorType ct, SkAlphaType at, int w, int h, int tightRB) {
     size_t rowBytes = tightRB ? 0 : 4 * w + 60;
     SkImageInfo info = SkImageInfo::Make(w, h, ct, at);
@@ -345,7 +343,7 @@ static void call_writepixels(SkSurface* surface) {
 
 DEF_TEST(WritePixelsSurfaceGenID, reporter) {
     const SkImageInfo info = SkImageInfo::MakeN32Premul(100, 100);
-    auto surface(SkSurface::MakeRaster(info));
+    auto surface(SkSurfaces::Raster(info));
     uint32_t genID1 = surface->generationID();
     call_writepixels(surface.get());
     uint32_t genID2 = surface->generationID();
@@ -446,6 +444,8 @@ static void test_write_pixels(skiatest::Reporter* reporter, SkSurface* surface,
     }
 }
 
+static void free_pixels(void* pixels, void* ctx) { sk_free(pixels); }
+
 DEF_TEST(WritePixels, reporter) {
     const SkImageInfo info = SkImageInfo::MakeN32Premul(DEV_W, DEV_H);
     for (auto& tightRowBytes : { true, false }) {
@@ -456,18 +456,18 @@ DEF_TEST(WritePixels, reporter) {
         if (!tightRowBytes) {
             memset(pixels, DEV_PAD, size);
         }
-        auto surface(SkSurface::MakeRasterDirectReleaseProc(info, pixels, rowBytes,
-                                                            free_pixels, nullptr));
+        auto surface(SkSurfaces::WrapPixels(info, pixels, rowBytes, free_pixels, nullptr));
         test_write_pixels(reporter, surface.get(), info);
     }
 }
 
+#if defined(SK_GANESH)
 static void test_write_pixels(skiatest::Reporter* reporter,
                               GrRecordingContext* rContext,
                               int sampleCnt) {
     const SkImageInfo ii = SkImageInfo::MakeN32Premul(DEV_W, DEV_H);
     for (auto& origin : { kTopLeft_GrSurfaceOrigin, kBottomLeft_GrSurfaceOrigin }) {
-        sk_sp<SkSurface> surface(SkSurface::MakeRenderTarget(
+        sk_sp<SkSurface> surface(SkSurfaces::RenderTarget(
                 rContext, skgpu::Budgeted::kNo, ii, sampleCnt, origin, nullptr));
         if (surface) {
             test_write_pixels(reporter, surface.get(), ii);
@@ -488,14 +488,14 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(WritePixelsMSAA_Gpu,
                                        CtsEnforcement::kApiLevel_T) {
     test_write_pixels(reporter, ctxInfo.directContext(), 1);
 }
+#endif
 
 #if defined(SK_GRAPHITE)
 static void test_write_pixels(skiatest::Reporter* reporter,
                               skgpu::graphite::Recorder* recorder,
                               int sampleCnt) {
     const SkImageInfo ii = SkImageInfo::MakeN32Premul(DEV_W, DEV_H);
-    sk_sp<SkSurface> surface = SkSurface::MakeGraphite(recorder,
-                                                       ii);
+    sk_sp<SkSurface> surface = SkSurfaces::RenderTarget(recorder, ii);
     if (surface) {
         test_write_pixels(reporter, surface.get(), ii);
     }
@@ -503,21 +503,18 @@ static void test_write_pixels(skiatest::Reporter* reporter,
 
 DEF_GRAPHITE_TEST_FOR_RENDERING_CONTEXTS(WritePixels_Graphite,
                                          reporter,
-                                         context) {
+                                         context,
+                                         CtsEnforcement::kApiLevel_202404) {
     std::unique_ptr<skgpu::graphite::Recorder> recorder = context->makeRecorder();
     test_write_pixels(reporter, recorder.get(), 1);
 }
 #endif
 
+#if defined(SK_GANESH)
 static void test_write_pixels_non_texture(skiatest::Reporter* reporter,
                                           GrDirectContext* dContext,
                                           int sampleCnt) {
-    // Dawn currently doesn't support writePixels to a texture-as-render-target.
-    // See http://skbug.com/10336.
-    if (GrBackendApi::kDawn == dContext->backend()) {
-        return;
-    }
-    for (auto& origin : { kTopLeft_GrSurfaceOrigin, kBottomLeft_GrSurfaceOrigin }) {
+    for (auto& origin : {kTopLeft_GrSurfaceOrigin, kBottomLeft_GrSurfaceOrigin}) {
         SkColorType colorType = kN32_SkColorType;
         auto surface = sk_gpu_test::MakeBackendRenderTargetSurface(dContext,
                                                                    {DEV_W, DEV_H},
@@ -549,8 +546,8 @@ static sk_sp<SkSurface> create_surf(GrRecordingContext* rContext, int width, int
     const SkImageInfo ii = SkImageInfo::Make(width, height,
                                              kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
-    sk_sp<SkSurface> surf = SkSurface::MakeRenderTarget(rContext, skgpu::Budgeted::kYes, ii);
-    surf->flushAndSubmit();
+    sk_sp<SkSurface> surf = SkSurfaces::RenderTarget(rContext, skgpu::Budgeted::kYes, ii);
+    skgpu::ganesh::FlushAndSubmit(surf);
     return surf;
 }
 
@@ -570,7 +567,7 @@ static sk_sp<SkImage> upload(const sk_sp<SkSurface>& surf, SkColor color) {
 // in between uses of the shared backing resource).
 // The unit test fails on Nexus 6P/Android M with driver 129.0 without the
 // "DisallowTexSubImageForUnormConfigTexturesEverBoundToFBO" workaround enabled.
-// skbug.com/11834
+// skbug.com/40042902
 DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(WritePixelsPendingIO,
                                        reporter,
                                        ctxInfo,
@@ -590,7 +587,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(WritePixelsPendingIO,
     const SkImageInfo halfII = SkImageInfo::Make(kHalfSize, kFullSize,
                                                  kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
-    sk_sp<SkSurface> dest = SkSurface::MakeRenderTarget(context, skgpu::Budgeted::kYes, fullII);
+    sk_sp<SkSurface> dest = SkSurfaces::RenderTarget(context, skgpu::Budgeted::kYes, fullII);
 
     {
         // Seed the resource cached with a scratch texture that will be reused by writePixels
@@ -603,7 +600,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(WritePixelsPendingIO,
                                                                 kDims,
                                                                 GrRenderable::kNo,
                                                                 1,
-                                                                GrMipmapped::kNo,
+                                                                skgpu::Mipmapped::kNo,
                                                                 SkBackingFit::kApprox,
                                                                 skgpu::Budgeted::kYes,
                                                                 GrProtected::kNo,
@@ -645,10 +642,11 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(WritePixelsPendingIO,
 
     REPORTER_ASSERT(reporter, isCorrect);
 }
+#endif
 
 DEF_TEST(WritePixels_InvalidRowBytes, reporter) {
     auto dstII = SkImageInfo::Make({10, 10}, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
-    auto surf = SkSurface::MakeRaster(dstII);
+    auto surf = SkSurfaces::Raster(dstII);
     for (int ct = 0; ct < kLastEnum_SkColorType + 1; ++ct) {
         auto colorType = static_cast<SkColorType>(ct);
 

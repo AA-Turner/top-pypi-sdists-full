@@ -5,7 +5,6 @@ import re
 import shutil
 import tempfile
 import time
-from typing import Tuple, List, Dict, Optional
 
 from cloudfoundry_client.client import CloudFoundryClient
 from cloudfoundry_client.operations.push.cf_ignore import CfIgnore
@@ -32,7 +31,7 @@ class PushOperation(object):
             if "path" in app_manifest or "docker" in app_manifest:
                 self._push_application(organization, space, app_manifest, restart)
 
-    def _retrieve_space_and_organization(self, space_id: str) -> Tuple[Entity, Entity]:
+    def _retrieve_space_and_organization(self, space_id: str) -> tuple[Entity, Entity]:
         space = self.client.v2.spaces.get(space_id)
         organization = space.organization()
         return organization, space
@@ -96,7 +95,7 @@ class PushOperation(object):
         return request
 
     @staticmethod
-    def _merge_environment(app: Optional[Entity], app_manifest: dict) -> dict:
+    def _merge_environment(app: Entity | None, app_manifest: dict) -> dict:
         environment = dict()
         if app is not None and "environment_json" in app["entity"]:
             environment.update(app["entity"]["environment_json"])
@@ -105,7 +104,7 @@ class PushOperation(object):
         return environment
 
     def _route_application(
-        self, organization: Entity, space: Entity, app: Entity, no_route: bool, routes: List[str], random_route: bool
+        self, organization: Entity, space: Entity, app: Entity, no_route: bool, routes: list[str], random_route: bool
     ):
         existing_routes = [route for route in app.routes()]
         if no_route:
@@ -115,7 +114,7 @@ class PushOperation(object):
         else:
             self._build_new_requested_routes(organization, space, app, existing_routes, routes)
 
-    def _remove_all_routes(self, app: Entity, routes: List[Entity]):
+    def _remove_all_routes(self, app: Entity, routes: list[Entity]):
         for route in routes:
             self.client.v2.apps.remove_route(app["metadata"]["guid"], route["metadata"]["guid"])
 
@@ -142,7 +141,7 @@ class PushOperation(object):
         self.client.v2.apps.associate_route(app["metadata"]["guid"], route["metadata"]["guid"])
 
     def _build_new_requested_routes(
-        self, organization: Entity, space: Entity, app: Entity, existing_routes: List[Entity], requested_routes: List[str]
+        self, organization: Entity, space: Entity, app: Entity, existing_routes: list[Entity], requested_routes: list[str]
     ):
         private_domains = {domain["entity"]["name"]: domain for domain in organization.private_domains()}
         shared_domains = {domain["entity"]["name"]: domain for domain in self.client.v2.shared_domains.list()}
@@ -211,7 +210,7 @@ class PushOperation(object):
         return existing_route
 
     @staticmethod
-    def _split_route(requested_route: Dict[str, str]) -> Tuple[str, int, str]:
+    def _split_route(requested_route: dict[str, str]) -> tuple[str, int, str]:
         route_splitted = PushOperation.SPLIT_ROUTE_PATTERN.match(requested_route["route"])
         if route_splitted is None:
             raise AssertionError("Invalid route: %s" % requested_route["route"])
@@ -222,8 +221,8 @@ class PushOperation(object):
 
     @staticmethod
     def _resolve_domain(
-        route: str, private_domains: Dict[str, Entity], shared_domains: Dict[str, Entity]
-    ) -> Tuple[str, str, Entity]:
+        route: str, private_domains: dict[str, Entity], shared_domains: dict[str, Entity]
+    ) -> tuple[str, str, Entity]:
         for domains in [private_domains, shared_domains]:
             if route in domains:
                 return "", route, domains[route]
@@ -310,7 +309,7 @@ class PushOperation(object):
                     )
         return application_items
 
-    def _bind_services(self, space: Entity, app: Entity, services: List[str]):
+    def _bind_services(self, space: Entity, app: Entity, services: list[str]):
         service_instances = [
             service_instance for service_instance in space.service_instances(return_user_provided_service_instances="true")
         ]

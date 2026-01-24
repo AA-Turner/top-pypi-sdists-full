@@ -39,8 +39,8 @@ class GcsObjectStoreTests(unittest.TestCase):
         self.assertIn("git", repr(self.store))
 
     def test_remove_pack(self):
-        """Test _remove_pack method."""
-        self.store._remove_pack("pack-1234")
+        """Test _remove_pack_by_name method."""
+        self.store._remove_pack_by_name("pack-1234")
         self.mock_bucket.delete_blobs.assert_called_once()
         args = self.mock_bucket.delete_blobs.call_args[0][0]
         self.assertEqual(
@@ -140,7 +140,7 @@ class GcsObjectStoreTests(unittest.TestCase):
             args = mock_pack_cls.from_lazy_objects.call_args[0]
             self.assertEqual(2, len(args))
 
-            # They should be callables
+            # Both should be callables (lazy loaders for data and index)
             self.assertTrue(callable(args[0]))
             self.assertTrue(callable(args[1]))
 

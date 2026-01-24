@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
@@ -29,12 +30,6 @@ from .literals import (
     MessageFormatTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -95,7 +90,7 @@ class DeleteSessionRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -105,7 +100,7 @@ DialogActionOutputTypeDef = TypedDict(
     {
         "type": DialogActionTypeType,
         "intentName": NotRequired[str],
-        "slots": NotRequired[Dict[str, str]],
+        "slots": NotRequired[dict[str, str]],
         "slotToElicit": NotRequired[str],
         "fulfillmentState": NotRequired[FulfillmentStateType],
         "message": NotRequired[str],
@@ -137,7 +132,7 @@ class IntentSummaryOutputTypeDef(TypedDict):
     dialogActionType: DialogActionTypeType
     intentName: NotRequired[str]
     checkpointLabel: NotRequired[str]
-    slots: NotRequired[Dict[str, str]]
+    slots: NotRequired[dict[str, str]]
     confirmationStatus: NotRequired[ConfirmationStatusType]
     fulfillmentState: NotRequired[FulfillmentStateType]
     slotToElicit: NotRequired[str]
@@ -165,7 +160,7 @@ class SentimentResponseTypeDef(TypedDict):
 class ActiveContextOutputTypeDef(TypedDict):
     name: str
     timeToLive: ActiveContextTimeToLiveTypeDef
-    parameters: Dict[str, str]
+    parameters: dict[str, str]
 
 
 class ActiveContextTypeDef(TypedDict):
@@ -191,7 +186,7 @@ class GenericAttachmentTypeDef(TypedDict):
     subTitle: NotRequired[str]
     attachmentLinkUrl: NotRequired[str]
     imageUrl: NotRequired[str]
-    buttons: NotRequired[List[ButtonTypeDef]]
+    buttons: NotRequired[list[ButtonTypeDef]]
 
 
 class DeleteSessionResponseTypeDef(TypedDict):
@@ -246,18 +241,18 @@ DialogActionUnionTypeDef = Union[DialogActionTypeDef, DialogActionOutputTypeDef]
 class PredictedIntentTypeDef(TypedDict):
     intentName: NotRequired[str]
     nluIntentConfidence: NotRequired[IntentConfidenceTypeDef]
-    slots: NotRequired[Dict[str, str]]
+    slots: NotRequired[dict[str, str]]
 
 
 IntentSummaryUnionTypeDef = Union[IntentSummaryTypeDef, IntentSummaryOutputTypeDef]
 
 
 class GetSessionResponseTypeDef(TypedDict):
-    recentIntentSummaryView: List[IntentSummaryOutputTypeDef]
-    sessionAttributes: Dict[str, str]
+    recentIntentSummaryView: list[IntentSummaryOutputTypeDef]
+    sessionAttributes: dict[str, str]
     sessionId: str
     dialogAction: DialogActionOutputTypeDef
-    activeContexts: List[ActiveContextOutputTypeDef]
+    activeContexts: list[ActiveContextOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -267,7 +262,7 @@ ActiveContextUnionTypeDef = Union[ActiveContextTypeDef, ActiveContextOutputTypeD
 class ResponseCardTypeDef(TypedDict):
     version: NotRequired[str]
     contentType: NotRequired[Literal["application/vnd.amazonaws.card.generic"]]
-    genericAttachments: NotRequired[List[GenericAttachmentTypeDef]]
+    genericAttachments: NotRequired[list[GenericAttachmentTypeDef]]
 
 
 class PostTextRequestTypeDef(TypedDict):
@@ -294,9 +289,9 @@ class PutSessionRequestTypeDef(TypedDict):
 class PostTextResponseTypeDef(TypedDict):
     intentName: str
     nluIntentConfidence: IntentConfidenceTypeDef
-    alternativeIntents: List[PredictedIntentTypeDef]
-    slots: Dict[str, str]
-    sessionAttributes: Dict[str, str]
+    alternativeIntents: list[PredictedIntentTypeDef]
+    slots: dict[str, str]
+    sessionAttributes: dict[str, str]
     message: str
     sentimentResponse: SentimentResponseTypeDef
     messageFormat: MessageFormatTypeType
@@ -305,5 +300,5 @@ class PostTextResponseTypeDef(TypedDict):
     responseCard: ResponseCardTypeDef
     sessionId: str
     botVersion: str
-    activeContexts: List[ActiveContextOutputTypeDef]
+    activeContexts: list[ActiveContextOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

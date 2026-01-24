@@ -21,14 +21,6 @@
 # experimental features and as a result, more flexibility to manage their status
 # and lifetimes.
 
-from jax.experimental.x64_context import (
-  enable_x64 as enable_x64,
-  disable_x64 as disable_x64,
-)
-from jax._src.api import (
-  saved_input_vjp as saved_input_vjp,
-  si_vjp as si_vjp
-)
 from jax._src.callback import (
   io_callback as io_callback
 )
@@ -39,6 +31,33 @@ from jax._src.earray import (
     EArray as EArray
 )
 from jax._src.core import (
-    mutable_array as mutable_array,
-    MutableArray as MutableArray,
+    cur_qdd as cur_qdd,
 )
+
+_deprecations = {
+  # Remove in v0.10.0
+  "disable_x64": (
+    ("jax.experimental.disable_x64 was removed in JAX v0.9.0;"
+     " use jax.enable_x64(False) instead."),
+    None,
+  ),
+  "enable_x64": (
+    ("jax.experimental.enable_x64 was removed in JAX v0.9.0;"
+     " use jax.enable_x64(True) instead."),
+    None
+  ),
+  "mutable_array": (
+    ("jax.experimental.mutable_array was removed in JAX v0.9.0;"
+     " use jax.new_ref instead."),
+    None,
+  ),
+  "MutableArray": (
+    ("jax.experimental.MutableArray was removed in JAX v0.9.0;"
+     " use jax.Ref instead."),
+    None,
+  ),
+}
+
+from jax._src.deprecations import deprecation_getattr as _deprecation_getattr
+__getattr__ = _deprecation_getattr(__name__, _deprecations)
+del _deprecation_getattr

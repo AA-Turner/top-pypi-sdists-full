@@ -3,7 +3,7 @@ Type annotations for appmesh service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appmesh/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -115,12 +116,6 @@ from .type_defs import (
     UpdateVirtualServiceOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -131,17 +126,17 @@ __all__ = ("AppMeshClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
 
 
 class AppMeshClient(AioBaseClient):
@@ -470,7 +465,7 @@ class AppMeshClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appmesh/client/#list_virtual_services)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Associates the specified tags to a resource with the specified
         <code>resourceArn</code>.
@@ -479,7 +474,7 @@ class AppMeshClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appmesh/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Deletes specified tags from a resource.
 
@@ -654,7 +649,7 @@ class AppMeshClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

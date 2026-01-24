@@ -4,6 +4,7 @@ import asyncio
 import copy
 import inspect
 import os
+import platform
 import random
 import time
 import traceback
@@ -14,7 +15,6 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 import fastapi
 import numpy as np
-import pandas as pd
 from anyio.to_thread import run_sync
 
 from gradio import route_utils, routes
@@ -68,6 +68,7 @@ class Event:
         self.progress: ProgressMessage | None = None
         self.progress_pending: bool = False
         self.alive = True
+        self.closed = False
         self.n_calls = 0
         self.run_time: float = 0
         self.signal = asyncio.Event()
@@ -80,6 +81,8 @@ class Event:
     def is_finished(self):
         if not self.streaming:
             raise ValueError("Cannot access if_finished during a non-streaming event")
+        if self.closed:
+            return True
         if self.fn.time_limit is None:
             return False
         return self.run_time >= self.fn.time_limit
@@ -135,8 +138,10 @@ class Queue:
             ProcessTime
         )
         self.live_updates = live_updates
-        self.sleep_when_free = 0.05
-        self.progress_update_sleep_when_free = 0.1
+        self.sleep_when_free = 0.05 if platform.system() == "Windows" else 0.001
+        self.progress_update_sleep_when_free = (
+            0.1 if platform.system() == "Windows" else 0.01
+        )
         self.max_size = max_size
         self.blocks = blocks
         self._asyncio_tasks: list[asyncio.Task] = []
@@ -150,17 +155,32 @@ class Queue:
             os.getenv("GRADIO_ANALYTICS_CACHE_FREQUENCY", "1")
         )
 
+    @staticmethod
+    def _get_df(event_analytics):
+        import pandas as pd
+
+        try:
+            with pd.option_context("future.no_silent_downcasting", True):
+                return (
+                    pd.DataFrame(list(event_analytics.values()))
+                    .fillna(value=np.nan)
+                    .infer_objects(copy=False)  # type: ignore
+                )
+        except Exception as e:
+            if "No such keys(s)" in str(e):
+                return (
+                    pd.DataFrame(list(event_analytics.values()))
+                    .fillna(value=np.nan)
+                    .infer_objects(copy=False)  # type: ignore
+                )
+            raise e
+
     def compute_analytics_summary(self, event_analytics):
         if (
             len(event_analytics) - self.event_count_at_last_cache
             >= self.ANAYLTICS_CACHE_FREQUENCY
         ):
-            with pd.option_context("future.no_silent_downcasting", True):
-                df = (
-                    pd.DataFrame(list(event_analytics.values()))
-                    .fillna(value=np.nan)
-                    .infer_objects(copy=False)
-                )  # type: ignore
+            df = self._get_df(event_analytics)
             self.event_count_at_last_cache = len(event_analytics)
             grouped = df.groupby("function")
             metrics = {"functions": {}}
@@ -294,7 +314,8 @@ class Queue:
             )
             validator_fn = BlockFunction(
                 fn=fn.validator,
-                api_name=False,
+                api_name=None,
+                api_visibility="undocumented",
                 batch=fn.batch,
                 concurrency_id=None,
                 concurrency_limit=None,

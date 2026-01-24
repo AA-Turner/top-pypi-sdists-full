@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-heatclient
-Version: 4.3.0
+Version: 5.0.0
 Summary: OpenStack Orchestration API Client Library
 Home-page: https://docs.openstack.org/python-heatclient/latest
 Author: OpenStack
@@ -33,19 +33,23 @@ Requires-Dist: keystoneauth1>=3.8.0
 Requires-Dist: python-swiftclient>=3.2.0
 Requires-Dist: PyYAML>=3.13
 Requires-Dist: requests>=2.14.2
-
-========================
-Team and repository tags
-========================
-
-.. image:: https://governance.openstack.org/tc/badges/python-heatclient.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-.. Change things from this point on
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =================
 python-heatclient
 =================
+
+.. image:: https://governance.openstack.org/tc/badges/python-heatclient.svg
+
+.. Change things from this point on
 
 .. image:: https://img.shields.io/pypi/v/python-heatclient.svg
     :target: https://pypi.org/project/python-heatclient/

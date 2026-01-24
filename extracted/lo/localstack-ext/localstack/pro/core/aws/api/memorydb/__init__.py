@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -78,90 +78,128 @@ class UpdateStrategy(StrEnum):
 
 
 class ACLAlreadyExistsFault(ServiceException):
+    """An ACL with the specified name already exists."""
+
     code: str = "ACLAlreadyExistsFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ACLNotFoundFault(ServiceException):
+    """The specified ACL does not exist."""
+
     code: str = "ACLNotFoundFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ACLQuotaExceededFault(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of ACLs allowed.
+    """
+
     code: str = "ACLQuotaExceededFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class APICallRateForCustomerExceededFault(ServiceException):
+    """The customer has exceeded the maximum number of API requests allowed per
+    time period.
+    """
+
     code: str = "APICallRateForCustomerExceededFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ClusterAlreadyExistsFault(ServiceException):
+    """A cluster with the specified name already exists."""
+
     code: str = "ClusterAlreadyExistsFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ClusterNotFoundFault(ServiceException):
+    """The specified cluster does not exist."""
+
     code: str = "ClusterNotFoundFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ClusterQuotaForCustomerExceededFault(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of clusters allowed for this customer.
+    """
+
     code: str = "ClusterQuotaForCustomerExceededFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class DefaultUserRequired(ServiceException):
+    """A default user is required and must be specified."""
+
     code: str = "DefaultUserRequired"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class DuplicateUserNameFault(ServiceException):
+    """A user with the specified name already exists."""
+
     code: str = "DuplicateUserNameFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InsufficientClusterCapacityFault(ServiceException):
+    """The cluster does not have sufficient capacity to perform the requested
+    operation.
+    """
+
     code: str = "InsufficientClusterCapacityFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidACLStateFault(ServiceException):
+    """The ACL is not in a valid state for the requested operation."""
+
     code: str = "InvalidACLStateFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidARNFault(ServiceException):
+    """The specified Amazon Resource Name (ARN) is not valid."""
+
     code: str = "InvalidARNFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidClusterStateFault(ServiceException):
+    """The cluster is not in a valid state for the requested operation."""
+
     code: str = "InvalidClusterStateFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidCredentialsException(ServiceException):
+    """The provided credentials are not valid."""
+
     code: str = "InvalidCredentialsException"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidKMSKeyFault(ServiceException):
+    """The specified KMS key is not valid or accessible."""
+
     code: str = "InvalidKMSKeyFault"
     sender_fault: bool = False
     status_code: int = 400
@@ -178,48 +216,64 @@ class InvalidMultiRegionClusterStateFault(ServiceException):
 
 
 class InvalidNodeStateFault(ServiceException):
+    """The node is not in a valid state for the requested operation."""
+
     code: str = "InvalidNodeStateFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidParameterCombinationException(ServiceException):
+    """The specified parameter combination is not valid."""
+
     code: str = "InvalidParameterCombinationException"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidParameterGroupStateFault(ServiceException):
+    """The parameter group is not in a valid state for the requested operation."""
+
     code: str = "InvalidParameterGroupStateFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidParameterValueException(ServiceException):
+    """The specified parameter value is not valid."""
+
     code: str = "InvalidParameterValueException"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidSnapshotStateFault(ServiceException):
+    """The snapshot is not in a valid state for the requested operation."""
+
     code: str = "InvalidSnapshotStateFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidSubnet(ServiceException):
+    """The specified subnet is not valid."""
+
     code: str = "InvalidSubnet"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidUserStateFault(ServiceException):
+    """The user is not in a valid state for the requested operation."""
+
     code: str = "InvalidUserStateFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class InvalidVPCNetworkStateFault(ServiceException):
+    """The VPC network is not in a valid state for the requested operation."""
+
     code: str = "InvalidVPCNetworkStateFault"
     sender_fault: bool = False
     status_code: int = 400
@@ -250,36 +304,54 @@ class MultiRegionParameterGroupNotFoundFault(ServiceException):
 
 
 class NoOperationFault(ServiceException):
+    """The requested operation would result in no changes."""
+
     code: str = "NoOperationFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class NodeQuotaForClusterExceededFault(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of nodes allowed for this cluster.
+    """
+
     code: str = "NodeQuotaForClusterExceededFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class NodeQuotaForCustomerExceededFault(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of nodes allowed for this customer.
+    """
+
     code: str = "NodeQuotaForCustomerExceededFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ParameterGroupAlreadyExistsFault(ServiceException):
+    """A parameter group with the specified name already exists."""
+
     code: str = "ParameterGroupAlreadyExistsFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ParameterGroupNotFoundFault(ServiceException):
+    """The specified parameter group does not exist."""
+
     code: str = "ParameterGroupNotFoundFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ParameterGroupQuotaExceededFault(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of parameter groups allowed.
+    """
+
     code: str = "ParameterGroupQuotaExceededFault"
     sender_fault: bool = False
     status_code: int = 400
@@ -320,134 +392,186 @@ class ReservedNodesOfferingNotFoundFault(ServiceException):
 
 
 class ServiceLinkedRoleNotFoundFault(ServiceException):
+    """The required service-linked role was not found."""
+
     code: str = "ServiceLinkedRoleNotFoundFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ServiceUpdateNotFoundFault(ServiceException):
+    """The specified service update does not exist."""
+
     code: str = "ServiceUpdateNotFoundFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ShardNotFoundFault(ServiceException):
+    """The specified shard does not exist."""
+
     code: str = "ShardNotFoundFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class ShardsPerClusterQuotaExceededFault(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of shards allowed per cluster.
+    """
+
     code: str = "ShardsPerClusterQuotaExceededFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class SnapshotAlreadyExistsFault(ServiceException):
+    """A snapshot with the specified name already exists."""
+
     code: str = "SnapshotAlreadyExistsFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class SnapshotNotFoundFault(ServiceException):
+    """The specified snapshot does not exist."""
+
     code: str = "SnapshotNotFoundFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class SnapshotQuotaExceededFault(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of snapshots allowed.
+    """
+
     code: str = "SnapshotQuotaExceededFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class SubnetGroupAlreadyExistsFault(ServiceException):
+    """A subnet group with the specified name already exists."""
+
     code: str = "SubnetGroupAlreadyExistsFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class SubnetGroupInUseFault(ServiceException):
+    """The subnet group is currently in use and cannot be deleted."""
+
     code: str = "SubnetGroupInUseFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class SubnetGroupNotFoundFault(ServiceException):
+    """The specified subnet group does not exist."""
+
     code: str = "SubnetGroupNotFoundFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class SubnetGroupQuotaExceededFault(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of subnet groups allowed.
+    """
+
     code: str = "SubnetGroupQuotaExceededFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class SubnetInUse(ServiceException):
+    """The subnet is currently in use and cannot be deleted."""
+
     code: str = "SubnetInUse"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class SubnetNotAllowedFault(ServiceException):
+    """The specified subnet is not allowed for this operation."""
+
     code: str = "SubnetNotAllowedFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class SubnetQuotaExceededFault(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of subnets allowed.
+    """
+
     code: str = "SubnetQuotaExceededFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class TagNotFoundFault(ServiceException):
+    """The specified tag does not exist."""
+
     code: str = "TagNotFoundFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class TagQuotaPerResourceExceeded(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of tags allowed per resource.
+    """
+
     code: str = "TagQuotaPerResourceExceeded"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class TestFailoverNotAvailableFault(ServiceException):
+    """Test failover is not available for this cluster configuration."""
+
     code: str = "TestFailoverNotAvailableFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class UserAlreadyExistsFault(ServiceException):
+    """A user with the specified name already exists."""
+
     code: str = "UserAlreadyExistsFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class UserNotFoundFault(ServiceException):
+    """The specified user does not exist."""
+
     code: str = "UserNotFoundFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
 class UserQuotaExceededFault(ServiceException):
+    """The request cannot be processed because it would exceed the maximum
+    number of users allowed.
+    """
+
     code: str = "UserQuotaExceededFault"
     sender_fault: bool = False
     status_code: int = 400
 
 
-ACLClusterNameList = List[String]
-UserNameList = List[UserName]
+ACLClusterNameList = list[String]
+UserNameList = list[UserName]
 
 
 class ACLPendingChanges(TypedDict, total=False):
     """Returns the updates being applied to the ACL."""
 
-    UserNamesToRemove: Optional[UserNameList]
-    UserNamesToAdd: Optional[UserNameList]
+    UserNamesToRemove: UserNameList | None
+    UserNamesToAdd: UserNameList | None
 
 
 class ACL(TypedDict, total=False):
@@ -457,23 +581,23 @@ class ACL(TypedDict, total=False):
     clusters.
     """
 
-    Name: Optional[String]
-    Status: Optional[String]
-    UserNames: Optional[UserNameList]
-    MinimumEngineVersion: Optional[String]
-    PendingChanges: Optional[ACLPendingChanges]
-    Clusters: Optional[ACLClusterNameList]
-    ARN: Optional[String]
+    Name: String | None
+    Status: String | None
+    UserNames: UserNameList | None
+    MinimumEngineVersion: String | None
+    PendingChanges: ACLPendingChanges | None
+    Clusters: ACLClusterNameList | None
+    ARN: String | None
 
 
-ACLList = List[ACL]
-ACLNameList = List[ACLName]
+ACLList = list[ACL]
+ACLNameList = list[ACLName]
 
 
 class ACLsUpdateStatus(TypedDict, total=False):
     """The status of the ACL update"""
 
-    ACLToApply: Optional[ACLName]
+    ACLToApply: ACLName | None
 
 
 class Authentication(TypedDict, total=False):
@@ -481,11 +605,11 @@ class Authentication(TypedDict, total=False):
     requires a password to authenticate. Used in output responses.
     """
 
-    Type: Optional[AuthenticationType]
-    PasswordCount: Optional[IntegerOptional]
+    Type: AuthenticationType | None
+    PasswordCount: IntegerOptional | None
 
 
-PasswordListInput = List[String]
+PasswordListInput = list[String]
 
 
 class AuthenticationMode(TypedDict, total=False):
@@ -493,8 +617,8 @@ class AuthenticationMode(TypedDict, total=False):
     requires a password to authenticate. Used in output responses.
     """
 
-    Type: Optional[InputAuthenticationType]
-    Passwords: Optional[PasswordListInput]
+    Type: InputAuthenticationType | None
+    Passwords: PasswordListInput | None
 
 
 class AvailabilityZone(TypedDict, total=False):
@@ -502,42 +626,42 @@ class AvailabilityZone(TypedDict, total=False):
     (singleaz).
     """
 
-    Name: Optional[String]
+    Name: String | None
 
 
 class ServiceUpdateRequest(TypedDict, total=False):
     """A request to apply a service update"""
 
-    ServiceUpdateNameToApply: Optional[String]
+    ServiceUpdateNameToApply: String | None
 
 
-ClusterNameList = List[String]
+ClusterNameList = list[String]
 
 
 class BatchUpdateClusterRequest(ServiceRequest):
     ClusterNames: ClusterNameList
-    ServiceUpdate: Optional[ServiceUpdateRequest]
+    ServiceUpdate: ServiceUpdateRequest | None
 
 
 class UnprocessedCluster(TypedDict, total=False):
     """A cluster whose updates have failed"""
 
-    ClusterName: Optional[String]
-    ErrorType: Optional[String]
-    ErrorMessage: Optional[String]
+    ClusterName: String | None
+    ErrorType: String | None
+    ErrorMessage: String | None
 
 
-UnprocessedClusterList = List[UnprocessedCluster]
+UnprocessedClusterList = list[UnprocessedCluster]
 
 
 class SecurityGroupMembership(TypedDict, total=False):
     """Represents a single security group and its status."""
 
-    SecurityGroupId: Optional[String]
-    Status: Optional[String]
+    SecurityGroupId: String | None
+    Status: String | None
 
 
-SecurityGroupMembershipList = List[SecurityGroupMembership]
+SecurityGroupMembershipList = list[SecurityGroupMembership]
 
 
 class Endpoint(TypedDict, total=False):
@@ -545,8 +669,8 @@ class Endpoint(TypedDict, total=False):
     the cluster and its nodes.
     """
 
-    Address: Optional[String]
-    Port: Optional[Integer]
+    Address: String | None
+    Port: Integer | None
 
 
 TStamp = datetime
@@ -557,14 +681,14 @@ class Node(TypedDict, total=False):
     instance of the cluster's protocol-compliant caching software.
     """
 
-    Name: Optional[String]
-    Status: Optional[String]
-    AvailabilityZone: Optional[String]
-    CreateTime: Optional[TStamp]
-    Endpoint: Optional[Endpoint]
+    Name: String | None
+    Status: String | None
+    AvailabilityZone: String | None
+    CreateTime: TStamp | None
+    Endpoint: Endpoint | None
 
 
-NodeList = List[Node]
+NodeList = list[Node]
 
 
 class Shard(TypedDict, total=False):
@@ -573,14 +697,14 @@ class Shard(TypedDict, total=False):
     Replica nodes.
     """
 
-    Name: Optional[String]
-    Status: Optional[String]
-    Slots: Optional[String]
-    Nodes: Optional[NodeList]
-    NumberOfNodes: Optional[IntegerOptional]
+    Name: String | None
+    Status: String | None
+    Slots: String | None
+    Nodes: NodeList | None
+    NumberOfNodes: IntegerOptional | None
 
 
-ShardList = List[Shard]
+ShardList = list[Shard]
 
 
 class PendingModifiedServiceUpdate(TypedDict, total=False):
@@ -588,74 +712,74 @@ class PendingModifiedServiceUpdate(TypedDict, total=False):
     apply/stop request
     """
 
-    ServiceUpdateName: Optional[String]
-    Status: Optional[ServiceUpdateStatus]
+    ServiceUpdateName: String | None
+    Status: ServiceUpdateStatus | None
 
 
-PendingModifiedServiceUpdateList = List[PendingModifiedServiceUpdate]
+PendingModifiedServiceUpdateList = list[PendingModifiedServiceUpdate]
 
 
 class SlotMigration(TypedDict, total=False):
     """Represents the progress of an online resharding operation."""
 
-    ProgressPercentage: Optional[Double]
+    ProgressPercentage: Double | None
 
 
 class ReshardingStatus(TypedDict, total=False):
     """The status of the online resharding"""
 
-    SlotMigration: Optional[SlotMigration]
+    SlotMigration: SlotMigration | None
 
 
 class ClusterPendingUpdates(TypedDict, total=False):
     """A list of updates being applied to the cluster"""
 
-    Resharding: Optional[ReshardingStatus]
-    ACLs: Optional[ACLsUpdateStatus]
-    ServiceUpdates: Optional[PendingModifiedServiceUpdateList]
+    Resharding: ReshardingStatus | None
+    ACLs: ACLsUpdateStatus | None
+    ServiceUpdates: PendingModifiedServiceUpdateList | None
 
 
 class Cluster(TypedDict, total=False):
     """Contains all of the attributes of a specific cluster."""
 
-    Name: Optional[String]
-    Description: Optional[String]
-    Status: Optional[String]
-    PendingUpdates: Optional[ClusterPendingUpdates]
-    MultiRegionClusterName: Optional[String]
-    NumberOfShards: Optional[IntegerOptional]
-    Shards: Optional[ShardList]
-    AvailabilityMode: Optional[AZStatus]
-    ClusterEndpoint: Optional[Endpoint]
-    NodeType: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    EnginePatchVersion: Optional[String]
-    ParameterGroupName: Optional[String]
-    ParameterGroupStatus: Optional[String]
-    SecurityGroups: Optional[SecurityGroupMembershipList]
-    SubnetGroupName: Optional[String]
-    TLSEnabled: Optional[BooleanOptional]
-    KmsKeyId: Optional[String]
-    ARN: Optional[String]
-    SnsTopicArn: Optional[String]
-    SnsTopicStatus: Optional[String]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    MaintenanceWindow: Optional[String]
-    SnapshotWindow: Optional[String]
-    ACLName: Optional[ACLName]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    DataTiering: Optional[DataTieringStatus]
-    NetworkType: Optional[NetworkType]
-    IpDiscovery: Optional[IpDiscovery]
+    Name: String | None
+    Description: String | None
+    Status: String | None
+    PendingUpdates: ClusterPendingUpdates | None
+    MultiRegionClusterName: String | None
+    NumberOfShards: IntegerOptional | None
+    Shards: ShardList | None
+    AvailabilityMode: AZStatus | None
+    ClusterEndpoint: Endpoint | None
+    NodeType: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    EnginePatchVersion: String | None
+    ParameterGroupName: String | None
+    ParameterGroupStatus: String | None
+    SecurityGroups: SecurityGroupMembershipList | None
+    SubnetGroupName: String | None
+    TLSEnabled: BooleanOptional | None
+    KmsKeyId: String | None
+    ARN: String | None
+    SnsTopicArn: String | None
+    SnsTopicStatus: String | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    MaintenanceWindow: String | None
+    SnapshotWindow: String | None
+    ACLName: ACLName | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    DataTiering: DataTieringStatus | None
+    NetworkType: NetworkType | None
+    IpDiscovery: IpDiscovery | None
 
 
-ClusterList = List[Cluster]
+ClusterList = list[Cluster]
 
 
 class BatchUpdateClusterResponse(TypedDict, total=False):
-    ProcessedClusters: Optional[ClusterList]
-    UnprocessedClusters: Optional[UnprocessedClusterList]
+    ProcessedClusters: ClusterList | None
+    UnprocessedClusters: UnprocessedClusterList | None
 
 
 class ShardConfiguration(TypedDict, total=False):
@@ -663,42 +787,42 @@ class ShardConfiguration(TypedDict, total=False):
     Slots and ReplicaCount.
     """
 
-    Slots: Optional[String]
-    ReplicaCount: Optional[IntegerOptional]
+    Slots: String | None
+    ReplicaCount: IntegerOptional | None
 
 
 class ShardDetail(TypedDict, total=False):
     """Provides details of a shard in a snapshot"""
 
-    Name: Optional[String]
-    Configuration: Optional[ShardConfiguration]
-    Size: Optional[String]
-    SnapshotCreationTime: Optional[TStamp]
+    Name: String | None
+    Configuration: ShardConfiguration | None
+    Size: String | None
+    SnapshotCreationTime: TStamp | None
 
 
-ShardDetails = List[ShardDetail]
+ShardDetails = list[ShardDetail]
 
 
 class ClusterConfiguration(TypedDict, total=False):
     """A list of cluster configuration options."""
 
-    Name: Optional[String]
-    Description: Optional[String]
-    NodeType: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    MaintenanceWindow: Optional[String]
-    TopicArn: Optional[String]
-    Port: Optional[IntegerOptional]
-    ParameterGroupName: Optional[String]
-    SubnetGroupName: Optional[String]
-    VpcId: Optional[String]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    SnapshotWindow: Optional[String]
-    NumShards: Optional[IntegerOptional]
-    Shards: Optional[ShardDetails]
-    MultiRegionParameterGroupName: Optional[String]
-    MultiRegionClusterName: Optional[String]
+    Name: String | None
+    Description: String | None
+    NodeType: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    MaintenanceWindow: String | None
+    TopicArn: String | None
+    Port: IntegerOptional | None
+    ParameterGroupName: String | None
+    SubnetGroupName: String | None
+    VpcId: String | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    SnapshotWindow: String | None
+    NumShards: IntegerOptional | None
+    Shards: ShardDetails | None
+    MultiRegionParameterGroupName: String | None
+    MultiRegionClusterName: String | None
 
 
 class Tag(TypedDict, total=False):
@@ -711,19 +835,19 @@ class Tag(TypedDict, total=False):
     resources <https://docs.aws.amazon.com/MemoryDB/latest/devguide/tagging-resources.html>`__
     """
 
-    Key: Optional[String]
-    Value: Optional[String]
+    Key: String | None
+    Value: String | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CopySnapshotRequest(ServiceRequest):
     SourceSnapshotName: String
     TargetSnapshotName: String
-    TargetBucket: Optional[TargetBucket]
-    KmsKeyId: Optional[KmsKeyId]
-    Tags: Optional[TagList]
+    TargetBucket: TargetBucket | None
+    KmsKeyId: KmsKeyId | None
+    Tags: TagList | None
 
 
 class Snapshot(TypedDict, total=False):
@@ -731,118 +855,118 @@ class Snapshot(TypedDict, total=False):
     was taken.
     """
 
-    Name: Optional[String]
-    Status: Optional[String]
-    Source: Optional[String]
-    KmsKeyId: Optional[String]
-    ARN: Optional[String]
-    ClusterConfiguration: Optional[ClusterConfiguration]
-    DataTiering: Optional[DataTieringStatus]
+    Name: String | None
+    Status: String | None
+    Source: String | None
+    KmsKeyId: String | None
+    ARN: String | None
+    ClusterConfiguration: ClusterConfiguration | None
+    DataTiering: DataTieringStatus | None
 
 
 class CopySnapshotResponse(TypedDict, total=False):
-    Snapshot: Optional[Snapshot]
+    Snapshot: Snapshot | None
 
 
-UserNameListInput = List[UserName]
+UserNameListInput = list[UserName]
 
 
 class CreateACLRequest(ServiceRequest):
     ACLName: String
-    UserNames: Optional[UserNameListInput]
-    Tags: Optional[TagList]
+    UserNames: UserNameListInput | None
+    Tags: TagList | None
 
 
 class CreateACLResponse(TypedDict, total=False):
-    ACL: Optional[ACL]
+    ACL: ACL | None
 
 
-SnapshotArnsList = List[String]
-SecurityGroupIdsList = List[String]
+SnapshotArnsList = list[String]
+SecurityGroupIdsList = list[String]
 
 
 class CreateClusterRequest(ServiceRequest):
     ClusterName: String
     NodeType: String
-    MultiRegionClusterName: Optional[String]
-    ParameterGroupName: Optional[String]
-    Description: Optional[String]
-    NumShards: Optional[IntegerOptional]
-    NumReplicasPerShard: Optional[IntegerOptional]
-    SubnetGroupName: Optional[String]
-    SecurityGroupIds: Optional[SecurityGroupIdsList]
-    MaintenanceWindow: Optional[String]
-    Port: Optional[IntegerOptional]
-    SnsTopicArn: Optional[String]
-    TLSEnabled: Optional[BooleanOptional]
-    KmsKeyId: Optional[String]
-    SnapshotArns: Optional[SnapshotArnsList]
-    SnapshotName: Optional[String]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    Tags: Optional[TagList]
-    SnapshotWindow: Optional[String]
+    MultiRegionClusterName: String | None
+    ParameterGroupName: String | None
+    Description: String | None
+    NumShards: IntegerOptional | None
+    NumReplicasPerShard: IntegerOptional | None
+    SubnetGroupName: String | None
+    SecurityGroupIds: SecurityGroupIdsList | None
+    MaintenanceWindow: String | None
+    Port: IntegerOptional | None
+    SnsTopicArn: String | None
+    TLSEnabled: BooleanOptional | None
+    KmsKeyId: String | None
+    SnapshotArns: SnapshotArnsList | None
+    SnapshotName: String | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    Tags: TagList | None
+    SnapshotWindow: String | None
     ACLName: ACLName
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    DataTiering: Optional[BooleanOptional]
-    NetworkType: Optional[NetworkType]
-    IpDiscovery: Optional[IpDiscovery]
+    Engine: String | None
+    EngineVersion: String | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    DataTiering: BooleanOptional | None
+    NetworkType: NetworkType | None
+    IpDiscovery: IpDiscovery | None
 
 
 class CreateClusterResponse(TypedDict, total=False):
-    Cluster: Optional[Cluster]
+    Cluster: Cluster | None
 
 
 class CreateMultiRegionClusterRequest(ServiceRequest):
     MultiRegionClusterNameSuffix: String
-    Description: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
+    Description: String | None
+    Engine: String | None
+    EngineVersion: String | None
     NodeType: String
-    MultiRegionParameterGroupName: Optional[String]
-    NumShards: Optional[IntegerOptional]
-    TLSEnabled: Optional[BooleanOptional]
-    Tags: Optional[TagList]
+    MultiRegionParameterGroupName: String | None
+    NumShards: IntegerOptional | None
+    TLSEnabled: BooleanOptional | None
+    Tags: TagList | None
 
 
 class RegionalCluster(TypedDict, total=False):
     """Represents a Regional cluster"""
 
-    ClusterName: Optional[String]
-    Region: Optional[String]
-    Status: Optional[String]
-    ARN: Optional[String]
+    ClusterName: String | None
+    Region: String | None
+    Status: String | None
+    ARN: String | None
 
 
-RegionalClusterList = List[RegionalCluster]
+RegionalClusterList = list[RegionalCluster]
 
 
 class MultiRegionCluster(TypedDict, total=False):
     """Represents a multi-Region cluster."""
 
-    MultiRegionClusterName: Optional[String]
-    Description: Optional[String]
-    Status: Optional[String]
-    NodeType: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    NumberOfShards: Optional[IntegerOptional]
-    Clusters: Optional[RegionalClusterList]
-    MultiRegionParameterGroupName: Optional[String]
-    TLSEnabled: Optional[BooleanOptional]
-    ARN: Optional[String]
+    MultiRegionClusterName: String | None
+    Description: String | None
+    Status: String | None
+    NodeType: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    NumberOfShards: IntegerOptional | None
+    Clusters: RegionalClusterList | None
+    MultiRegionParameterGroupName: String | None
+    TLSEnabled: BooleanOptional | None
+    ARN: String | None
 
 
 class CreateMultiRegionClusterResponse(TypedDict, total=False):
-    MultiRegionCluster: Optional[MultiRegionCluster]
+    MultiRegionCluster: MultiRegionCluster | None
 
 
 class CreateParameterGroupRequest(ServiceRequest):
     ParameterGroupName: String
     Family: String
-    Description: Optional[String]
-    Tags: Optional[TagList]
+    Description: String | None
+    Tags: TagList | None
 
 
 class ParameterGroup(TypedDict, total=False):
@@ -851,38 +975,38 @@ class ParameterGroup(TypedDict, total=False):
     that are passed to the engine software during startup.
     """
 
-    Name: Optional[String]
-    Family: Optional[String]
-    Description: Optional[String]
-    ARN: Optional[String]
+    Name: String | None
+    Family: String | None
+    Description: String | None
+    ARN: String | None
 
 
 class CreateParameterGroupResponse(TypedDict, total=False):
-    ParameterGroup: Optional[ParameterGroup]
+    ParameterGroup: ParameterGroup | None
 
 
 class CreateSnapshotRequest(ServiceRequest):
     ClusterName: String
     SnapshotName: String
-    KmsKeyId: Optional[String]
-    Tags: Optional[TagList]
+    KmsKeyId: String | None
+    Tags: TagList | None
 
 
 class CreateSnapshotResponse(TypedDict, total=False):
-    Snapshot: Optional[Snapshot]
+    Snapshot: Snapshot | None
 
 
-SubnetIdentifierList = List[String]
+SubnetIdentifierList = list[String]
 
 
 class CreateSubnetGroupRequest(ServiceRequest):
     SubnetGroupName: String
-    Description: Optional[String]
+    Description: String | None
     SubnetIds: SubnetIdentifierList
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
-NetworkTypeList = List[NetworkType]
+NetworkTypeList = list[NetworkType]
 
 
 class Subnet(TypedDict, total=False):
@@ -891,12 +1015,12 @@ class Subnet(TypedDict, total=False):
     with MemoryDB.
     """
 
-    Identifier: Optional[String]
-    AvailabilityZone: Optional[AvailabilityZone]
-    SupportedNetworkTypes: Optional[NetworkTypeList]
+    Identifier: String | None
+    AvailabilityZone: AvailabilityZone | None
+    SupportedNetworkTypes: NetworkTypeList | None
 
 
-SubnetList = List[Subnet]
+SubnetList = list[Subnet]
 
 
 class SubnetGroup(TypedDict, total=False):
@@ -911,23 +1035,23 @@ class SubnetGroup(TypedDict, total=False):
     Cloud (VPC) environment.
     """
 
-    Name: Optional[String]
-    Description: Optional[String]
-    VpcId: Optional[String]
-    Subnets: Optional[SubnetList]
-    ARN: Optional[String]
-    SupportedNetworkTypes: Optional[NetworkTypeList]
+    Name: String | None
+    Description: String | None
+    VpcId: String | None
+    Subnets: SubnetList | None
+    ARN: String | None
+    SupportedNetworkTypes: NetworkTypeList | None
 
 
 class CreateSubnetGroupResponse(TypedDict, total=False):
-    SubnetGroup: Optional[SubnetGroup]
+    SubnetGroup: SubnetGroup | None
 
 
 class CreateUserRequest(ServiceRequest):
     UserName: UserName
     AuthenticationMode: AuthenticationMode
     AccessString: AccessString
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class User(TypedDict, total=False):
@@ -937,17 +1061,17 @@ class User(TypedDict, total=False):
     to one or more MemoryDB clusters.
     """
 
-    Name: Optional[String]
-    Status: Optional[String]
-    AccessString: Optional[String]
-    ACLNames: Optional[ACLNameList]
-    MinimumEngineVersion: Optional[String]
-    Authentication: Optional[Authentication]
-    ARN: Optional[String]
+    Name: String | None
+    Status: String | None
+    AccessString: String | None
+    ACLNames: ACLNameList | None
+    MinimumEngineVersion: String | None
+    Authentication: Authentication | None
+    ARN: String | None
 
 
 class CreateUserResponse(TypedDict, total=False):
-    User: Optional[User]
+    User: User | None
 
 
 class DeleteACLRequest(ServiceRequest):
@@ -955,17 +1079,17 @@ class DeleteACLRequest(ServiceRequest):
 
 
 class DeleteACLResponse(TypedDict, total=False):
-    ACL: Optional[ACL]
+    ACL: ACL | None
 
 
 class DeleteClusterRequest(ServiceRequest):
     ClusterName: String
-    MultiRegionClusterName: Optional[String]
-    FinalSnapshotName: Optional[String]
+    MultiRegionClusterName: String | None
+    FinalSnapshotName: String | None
 
 
 class DeleteClusterResponse(TypedDict, total=False):
-    Cluster: Optional[Cluster]
+    Cluster: Cluster | None
 
 
 class DeleteMultiRegionClusterRequest(ServiceRequest):
@@ -973,7 +1097,7 @@ class DeleteMultiRegionClusterRequest(ServiceRequest):
 
 
 class DeleteMultiRegionClusterResponse(TypedDict, total=False):
-    MultiRegionCluster: Optional[MultiRegionCluster]
+    MultiRegionCluster: MultiRegionCluster | None
 
 
 class DeleteParameterGroupRequest(ServiceRequest):
@@ -981,7 +1105,7 @@ class DeleteParameterGroupRequest(ServiceRequest):
 
 
 class DeleteParameterGroupResponse(TypedDict, total=False):
-    ParameterGroup: Optional[ParameterGroup]
+    ParameterGroup: ParameterGroup | None
 
 
 class DeleteSnapshotRequest(ServiceRequest):
@@ -989,7 +1113,7 @@ class DeleteSnapshotRequest(ServiceRequest):
 
 
 class DeleteSnapshotResponse(TypedDict, total=False):
-    Snapshot: Optional[Snapshot]
+    Snapshot: Snapshot | None
 
 
 class DeleteSubnetGroupRequest(ServiceRequest):
@@ -997,7 +1121,7 @@ class DeleteSubnetGroupRequest(ServiceRequest):
 
 
 class DeleteSubnetGroupResponse(TypedDict, total=False):
-    SubnetGroup: Optional[SubnetGroup]
+    SubnetGroup: SubnetGroup | None
 
 
 class DeleteUserRequest(ServiceRequest):
@@ -1005,66 +1129,66 @@ class DeleteUserRequest(ServiceRequest):
 
 
 class DeleteUserResponse(TypedDict, total=False):
-    User: Optional[User]
+    User: User | None
 
 
 class DescribeACLsRequest(ServiceRequest):
-    ACLName: Optional[String]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    ACLName: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
 
 
 class DescribeACLsResponse(TypedDict, total=False):
-    ACLs: Optional[ACLList]
-    NextToken: Optional[String]
+    ACLs: ACLList | None
+    NextToken: String | None
 
 
 class DescribeClustersRequest(ServiceRequest):
-    ClusterName: Optional[String]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
-    ShowShardDetails: Optional[BooleanOptional]
+    ClusterName: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
+    ShowShardDetails: BooleanOptional | None
 
 
 class DescribeClustersResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    Clusters: Optional[ClusterList]
+    NextToken: String | None
+    Clusters: ClusterList | None
 
 
 class DescribeEngineVersionsRequest(ServiceRequest):
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    ParameterGroupFamily: Optional[String]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
-    DefaultOnly: Optional[Boolean]
+    Engine: String | None
+    EngineVersion: String | None
+    ParameterGroupFamily: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
+    DefaultOnly: Boolean | None
 
 
 class EngineVersionInfo(TypedDict, total=False):
     """Provides details of the Redis OSS engine version"""
 
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    EnginePatchVersion: Optional[String]
-    ParameterGroupFamily: Optional[String]
+    Engine: String | None
+    EngineVersion: String | None
+    EnginePatchVersion: String | None
+    ParameterGroupFamily: String | None
 
 
-EngineVersionInfoList = List[EngineVersionInfo]
+EngineVersionInfoList = list[EngineVersionInfo]
 
 
 class DescribeEngineVersionsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    EngineVersions: Optional[EngineVersionInfoList]
+    NextToken: String | None
+    EngineVersions: EngineVersionInfoList | None
 
 
 class DescribeEventsRequest(ServiceRequest):
-    SourceName: Optional[String]
-    SourceType: Optional[SourceType]
-    StartTime: Optional[TStamp]
-    EndTime: Optional[TStamp]
-    Duration: Optional[IntegerOptional]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    SourceName: String | None
+    SourceType: SourceType | None
+    StartTime: TStamp | None
+    EndTime: TStamp | None
+    Duration: IntegerOptional | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
 
 
 class Event(TypedDict, total=False):
@@ -1073,53 +1197,108 @@ class Event(TypedDict, total=False):
     removing a node.
     """
 
-    SourceName: Optional[String]
-    SourceType: Optional[SourceType]
-    Message: Optional[String]
-    Date: Optional[TStamp]
+    SourceName: String | None
+    SourceType: SourceType | None
+    Message: String | None
+    Date: TStamp | None
 
 
-EventList = List[Event]
+EventList = list[Event]
 
 
 class DescribeEventsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    Events: Optional[EventList]
+    NextToken: String | None
+    Events: EventList | None
 
 
 class DescribeMultiRegionClustersRequest(ServiceRequest):
-    MultiRegionClusterName: Optional[String]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
-    ShowClusterDetails: Optional[BooleanOptional]
+    MultiRegionClusterName: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
+    ShowClusterDetails: BooleanOptional | None
 
 
-MultiRegionClusterList = List[MultiRegionCluster]
+MultiRegionClusterList = list[MultiRegionCluster]
 
 
 class DescribeMultiRegionClustersResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    MultiRegionClusters: Optional[MultiRegionClusterList]
+    NextToken: String | None
+    MultiRegionClusters: MultiRegionClusterList | None
+
+
+class DescribeMultiRegionParameterGroupsRequest(ServiceRequest):
+    MultiRegionParameterGroupName: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
+
+
+class MultiRegionParameterGroup(TypedDict, total=False):
+    """Represents the output of a CreateMultiRegionParameterGroup operation. A
+    multi-region parameter group represents a collection of parameters that
+    can be applied to clusters across multiple regions.
+    """
+
+    Name: String | None
+    Family: String | None
+    Description: String | None
+    ARN: String | None
+
+
+MultiRegionParameterGroupList = list[MultiRegionParameterGroup]
+
+
+class DescribeMultiRegionParameterGroupsResponse(TypedDict, total=False):
+    NextToken: String | None
+    MultiRegionParameterGroups: MultiRegionParameterGroupList | None
+
+
+class DescribeMultiRegionParametersRequest(ServiceRequest):
+    MultiRegionParameterGroupName: String
+    Source: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
+
+
+class MultiRegionParameter(TypedDict, total=False):
+    """Describes an individual setting that controls some aspect of MemoryDB
+    behavior across multiple regions.
+    """
+
+    Name: String | None
+    Value: String | None
+    Description: String | None
+    Source: String | None
+    DataType: String | None
+    AllowedValues: String | None
+    MinimumEngineVersion: String | None
+
+
+MultiRegionParametersList = list[MultiRegionParameter]
+
+
+class DescribeMultiRegionParametersResponse(TypedDict, total=False):
+    NextToken: String | None
+    MultiRegionParameters: MultiRegionParametersList | None
 
 
 class DescribeParameterGroupsRequest(ServiceRequest):
-    ParameterGroupName: Optional[String]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    ParameterGroupName: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
 
 
-ParameterGroupList = List[ParameterGroup]
+ParameterGroupList = list[ParameterGroup]
 
 
 class DescribeParameterGroupsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    ParameterGroups: Optional[ParameterGroupList]
+    NextToken: String | None
+    ParameterGroups: ParameterGroupList | None
 
 
 class DescribeParametersRequest(ServiceRequest):
     ParameterGroupName: String
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
 
 
 class Parameter(TypedDict, total=False):
@@ -1127,159 +1306,159 @@ class Parameter(TypedDict, total=False):
     behavior.
     """
 
-    Name: Optional[String]
-    Value: Optional[String]
-    Description: Optional[String]
-    DataType: Optional[String]
-    AllowedValues: Optional[String]
-    MinimumEngineVersion: Optional[String]
+    Name: String | None
+    Value: String | None
+    Description: String | None
+    DataType: String | None
+    AllowedValues: String | None
+    MinimumEngineVersion: String | None
 
 
-ParametersList = List[Parameter]
+ParametersList = list[Parameter]
 
 
 class DescribeParametersResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    Parameters: Optional[ParametersList]
+    NextToken: String | None
+    Parameters: ParametersList | None
 
 
 class DescribeReservedNodesOfferingsRequest(ServiceRequest):
-    ReservedNodesOfferingId: Optional[String]
-    NodeType: Optional[String]
-    Duration: Optional[String]
-    OfferingType: Optional[String]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    ReservedNodesOfferingId: String | None
+    NodeType: String | None
+    Duration: String | None
+    OfferingType: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
 
 
 class RecurringCharge(TypedDict, total=False):
     """The recurring charge to run this reserved node."""
 
-    RecurringChargeAmount: Optional[Double]
-    RecurringChargeFrequency: Optional[String]
+    RecurringChargeAmount: Double | None
+    RecurringChargeFrequency: String | None
 
 
-RecurringChargeList = List[RecurringCharge]
+RecurringChargeList = list[RecurringCharge]
 
 
 class ReservedNodesOffering(TypedDict, total=False):
     """The offering type of this node."""
 
-    ReservedNodesOfferingId: Optional[String]
-    NodeType: Optional[String]
-    Duration: Optional[Integer]
-    FixedPrice: Optional[Double]
-    OfferingType: Optional[String]
-    RecurringCharges: Optional[RecurringChargeList]
+    ReservedNodesOfferingId: String | None
+    NodeType: String | None
+    Duration: Integer | None
+    FixedPrice: Double | None
+    OfferingType: String | None
+    RecurringCharges: RecurringChargeList | None
 
 
-ReservedNodesOfferingList = List[ReservedNodesOffering]
+ReservedNodesOfferingList = list[ReservedNodesOffering]
 
 
 class DescribeReservedNodesOfferingsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    ReservedNodesOfferings: Optional[ReservedNodesOfferingList]
+    NextToken: String | None
+    ReservedNodesOfferings: ReservedNodesOfferingList | None
 
 
 class DescribeReservedNodesRequest(ServiceRequest):
-    ReservationId: Optional[String]
-    ReservedNodesOfferingId: Optional[String]
-    NodeType: Optional[String]
-    Duration: Optional[String]
-    OfferingType: Optional[String]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    ReservationId: String | None
+    ReservedNodesOfferingId: String | None
+    NodeType: String | None
+    Duration: String | None
+    OfferingType: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
 
 
 class ReservedNode(TypedDict, total=False):
     """Represents the output of a ``PurchaseReservedNodesOffering`` operation."""
 
-    ReservationId: Optional[String]
-    ReservedNodesOfferingId: Optional[String]
-    NodeType: Optional[String]
-    StartTime: Optional[TStamp]
-    Duration: Optional[Integer]
-    FixedPrice: Optional[Double]
-    NodeCount: Optional[Integer]
-    OfferingType: Optional[String]
-    State: Optional[String]
-    RecurringCharges: Optional[RecurringChargeList]
-    ARN: Optional[String]
+    ReservationId: String | None
+    ReservedNodesOfferingId: String | None
+    NodeType: String | None
+    StartTime: TStamp | None
+    Duration: Integer | None
+    FixedPrice: Double | None
+    NodeCount: Integer | None
+    OfferingType: String | None
+    State: String | None
+    RecurringCharges: RecurringChargeList | None
+    ARN: String | None
 
 
-ReservedNodeList = List[ReservedNode]
+ReservedNodeList = list[ReservedNode]
 
 
 class DescribeReservedNodesResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    ReservedNodes: Optional[ReservedNodeList]
+    NextToken: String | None
+    ReservedNodes: ReservedNodeList | None
 
 
-ServiceUpdateStatusList = List[ServiceUpdateStatus]
+ServiceUpdateStatusList = list[ServiceUpdateStatus]
 
 
 class DescribeServiceUpdatesRequest(ServiceRequest):
-    ServiceUpdateName: Optional[String]
-    ClusterNames: Optional[ClusterNameList]
-    Status: Optional[ServiceUpdateStatusList]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    ServiceUpdateName: String | None
+    ClusterNames: ClusterNameList | None
+    Status: ServiceUpdateStatusList | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
 
 
 class ServiceUpdate(TypedDict, total=False):
     """An update that you can apply to your MemoryDB clusters."""
 
-    ClusterName: Optional[String]
-    ServiceUpdateName: Optional[String]
-    ReleaseDate: Optional[TStamp]
-    Description: Optional[String]
-    Status: Optional[ServiceUpdateStatus]
-    Type: Optional[ServiceUpdateType]
-    Engine: Optional[String]
-    NodesUpdated: Optional[String]
-    AutoUpdateStartDate: Optional[TStamp]
+    ClusterName: String | None
+    ServiceUpdateName: String | None
+    ReleaseDate: TStamp | None
+    Description: String | None
+    Status: ServiceUpdateStatus | None
+    Type: ServiceUpdateType | None
+    Engine: String | None
+    NodesUpdated: String | None
+    AutoUpdateStartDate: TStamp | None
 
 
-ServiceUpdateList = List[ServiceUpdate]
+ServiceUpdateList = list[ServiceUpdate]
 
 
 class DescribeServiceUpdatesResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    ServiceUpdates: Optional[ServiceUpdateList]
+    NextToken: String | None
+    ServiceUpdates: ServiceUpdateList | None
 
 
 class DescribeSnapshotsRequest(ServiceRequest):
-    ClusterName: Optional[String]
-    SnapshotName: Optional[String]
-    Source: Optional[String]
-    NextToken: Optional[String]
-    MaxResults: Optional[IntegerOptional]
-    ShowDetail: Optional[BooleanOptional]
+    ClusterName: String | None
+    SnapshotName: String | None
+    Source: String | None
+    NextToken: String | None
+    MaxResults: IntegerOptional | None
+    ShowDetail: BooleanOptional | None
 
 
-SnapshotList = List[Snapshot]
+SnapshotList = list[Snapshot]
 
 
 class DescribeSnapshotsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    Snapshots: Optional[SnapshotList]
+    NextToken: String | None
+    Snapshots: SnapshotList | None
 
 
 class DescribeSubnetGroupsRequest(ServiceRequest):
-    SubnetGroupName: Optional[String]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    SubnetGroupName: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
 
 
-SubnetGroupList = List[SubnetGroup]
+SubnetGroupList = list[SubnetGroup]
 
 
 class DescribeSubnetGroupsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    SubnetGroups: Optional[SubnetGroupList]
+    NextToken: String | None
+    SubnetGroups: SubnetGroupList | None
 
 
-FilterValueList = List[FilterValue]
+FilterValueList = list[FilterValue]
 
 
 class Filter(TypedDict, total=False):
@@ -1291,22 +1470,22 @@ class Filter(TypedDict, total=False):
     Values: FilterValueList
 
 
-FilterList = List[Filter]
+FilterList = list[Filter]
 
 
 class DescribeUsersRequest(ServiceRequest):
-    UserName: Optional[UserName]
-    Filters: Optional[FilterList]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    UserName: UserName | None
+    Filters: FilterList | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
 
 
-UserList = List[User]
+UserList = list[User]
 
 
 class DescribeUsersResponse(TypedDict, total=False):
-    Users: Optional[UserList]
-    NextToken: Optional[String]
+    Users: UserList | None
+    NextToken: String | None
 
 
 class FailoverShardRequest(ServiceRequest):
@@ -1315,22 +1494,22 @@ class FailoverShardRequest(ServiceRequest):
 
 
 class FailoverShardResponse(TypedDict, total=False):
-    Cluster: Optional[Cluster]
+    Cluster: Cluster | None
 
 
-KeyList = List[String]
+KeyList = list[String]
 
 
 class ListAllowedMultiRegionClusterUpdatesRequest(ServiceRequest):
     MultiRegionClusterName: String
 
 
-NodeTypeList = List[String]
+NodeTypeList = list[String]
 
 
 class ListAllowedMultiRegionClusterUpdatesResponse(TypedDict, total=False):
-    ScaleUpNodeTypes: Optional[NodeTypeList]
-    ScaleDownNodeTypes: Optional[NodeTypeList]
+    ScaleUpNodeTypes: NodeTypeList | None
+    ScaleDownNodeTypes: NodeTypeList | None
 
 
 class ListAllowedNodeTypeUpdatesRequest(ServiceRequest):
@@ -1338,8 +1517,8 @@ class ListAllowedNodeTypeUpdatesRequest(ServiceRequest):
 
 
 class ListAllowedNodeTypeUpdatesResponse(TypedDict, total=False):
-    ScaleUpNodeTypes: Optional[NodeTypeList]
-    ScaleDownNodeTypes: Optional[NodeTypeList]
+    ScaleUpNodeTypes: NodeTypeList | None
+    ScaleDownNodeTypes: NodeTypeList | None
 
 
 class ListTagsRequest(ServiceRequest):
@@ -1347,10 +1526,10 @@ class ListTagsRequest(ServiceRequest):
 
 
 class ListTagsResponse(TypedDict, total=False):
-    TagList: Optional[TagList]
+    TagList: TagList | None
 
 
-ParameterNameList = List[String]
+ParameterNameList = list[String]
 
 
 class ParameterNameValue(TypedDict, total=False):
@@ -1358,44 +1537,44 @@ class ParameterNameValue(TypedDict, total=False):
     parameter.
     """
 
-    ParameterName: Optional[String]
-    ParameterValue: Optional[String]
+    ParameterName: String | None
+    ParameterValue: String | None
 
 
-ParameterNameValueList = List[ParameterNameValue]
+ParameterNameValueList = list[ParameterNameValue]
 
 
 class PurchaseReservedNodesOfferingRequest(ServiceRequest):
     ReservedNodesOfferingId: String
-    ReservationId: Optional[String]
-    NodeCount: Optional[IntegerOptional]
-    Tags: Optional[TagList]
+    ReservationId: String | None
+    NodeCount: IntegerOptional | None
+    Tags: TagList | None
 
 
 class PurchaseReservedNodesOfferingResponse(TypedDict, total=False):
-    ReservedNode: Optional[ReservedNode]
+    ReservedNode: ReservedNode | None
 
 
 class ReplicaConfigurationRequest(TypedDict, total=False):
     """A request to configure the number of replicas in a shard"""
 
-    ReplicaCount: Optional[Integer]
+    ReplicaCount: Integer | None
 
 
 class ResetParameterGroupRequest(ServiceRequest):
     ParameterGroupName: String
-    AllParameters: Optional[Boolean]
-    ParameterNames: Optional[ParameterNameList]
+    AllParameters: Boolean | None
+    ParameterNames: ParameterNameList | None
 
 
 class ResetParameterGroupResponse(TypedDict, total=False):
-    ParameterGroup: Optional[ParameterGroup]
+    ParameterGroup: ParameterGroup | None
 
 
 class ShardConfigurationRequest(TypedDict, total=False):
     """A request to configure the sharding properties of a cluster"""
 
-    ShardCount: Optional[Integer]
+    ShardCount: Integer | None
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1404,7 +1583,7 @@ class TagResourceRequest(ServiceRequest):
 
 
 class TagResourceResponse(TypedDict, total=False):
-    TagList: Optional[TagList]
+    TagList: TagList | None
 
 
 class UntagResourceRequest(ServiceRequest):
@@ -1413,54 +1592,54 @@ class UntagResourceRequest(ServiceRequest):
 
 
 class UntagResourceResponse(TypedDict, total=False):
-    TagList: Optional[TagList]
+    TagList: TagList | None
 
 
 class UpdateACLRequest(ServiceRequest):
     ACLName: String
-    UserNamesToAdd: Optional[UserNameListInput]
-    UserNamesToRemove: Optional[UserNameListInput]
+    UserNamesToAdd: UserNameListInput | None
+    UserNamesToRemove: UserNameListInput | None
 
 
 class UpdateACLResponse(TypedDict, total=False):
-    ACL: Optional[ACL]
+    ACL: ACL | None
 
 
 class UpdateClusterRequest(ServiceRequest):
     ClusterName: String
-    Description: Optional[String]
-    SecurityGroupIds: Optional[SecurityGroupIdsList]
-    MaintenanceWindow: Optional[String]
-    SnsTopicArn: Optional[String]
-    SnsTopicStatus: Optional[String]
-    ParameterGroupName: Optional[String]
-    SnapshotWindow: Optional[String]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    NodeType: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    ReplicaConfiguration: Optional[ReplicaConfigurationRequest]
-    ShardConfiguration: Optional[ShardConfigurationRequest]
-    ACLName: Optional[ACLName]
-    IpDiscovery: Optional[IpDiscovery]
+    Description: String | None
+    SecurityGroupIds: SecurityGroupIdsList | None
+    MaintenanceWindow: String | None
+    SnsTopicArn: String | None
+    SnsTopicStatus: String | None
+    ParameterGroupName: String | None
+    SnapshotWindow: String | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    NodeType: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    ReplicaConfiguration: ReplicaConfigurationRequest | None
+    ShardConfiguration: ShardConfigurationRequest | None
+    ACLName: ACLName | None
+    IpDiscovery: IpDiscovery | None
 
 
 class UpdateClusterResponse(TypedDict, total=False):
-    Cluster: Optional[Cluster]
+    Cluster: Cluster | None
 
 
 class UpdateMultiRegionClusterRequest(ServiceRequest):
     MultiRegionClusterName: String
-    NodeType: Optional[String]
-    Description: Optional[String]
-    EngineVersion: Optional[String]
-    ShardConfiguration: Optional[ShardConfigurationRequest]
-    MultiRegionParameterGroupName: Optional[String]
-    UpdateStrategy: Optional[UpdateStrategy]
+    NodeType: String | None
+    Description: String | None
+    EngineVersion: String | None
+    ShardConfiguration: ShardConfigurationRequest | None
+    MultiRegionParameterGroupName: String | None
+    UpdateStrategy: UpdateStrategy | None
 
 
 class UpdateMultiRegionClusterResponse(TypedDict, total=False):
-    MultiRegionCluster: Optional[MultiRegionCluster]
+    MultiRegionCluster: MultiRegionCluster | None
 
 
 class UpdateParameterGroupRequest(ServiceRequest):
@@ -1469,32 +1648,32 @@ class UpdateParameterGroupRequest(ServiceRequest):
 
 
 class UpdateParameterGroupResponse(TypedDict, total=False):
-    ParameterGroup: Optional[ParameterGroup]
+    ParameterGroup: ParameterGroup | None
 
 
 class UpdateSubnetGroupRequest(ServiceRequest):
     SubnetGroupName: String
-    Description: Optional[String]
-    SubnetIds: Optional[SubnetIdentifierList]
+    Description: String | None
+    SubnetIds: SubnetIdentifierList | None
 
 
 class UpdateSubnetGroupResponse(TypedDict, total=False):
-    SubnetGroup: Optional[SubnetGroup]
+    SubnetGroup: SubnetGroup | None
 
 
 class UpdateUserRequest(ServiceRequest):
     UserName: UserName
-    AuthenticationMode: Optional[AuthenticationMode]
-    AccessString: Optional[AccessString]
+    AuthenticationMode: AuthenticationMode | None
+    AccessString: AccessString | None
 
 
 class UpdateUserResponse(TypedDict, total=False):
-    User: Optional[User]
+    User: User | None
 
 
 class MemorydbApi:
-    service = "memorydb"
-    version = "2021-01-01"
+    service: str = "memorydb"
+    version: str = "2021-01-01"
 
     @handler("BatchUpdateCluster")
     def batch_update_cluster(
@@ -2083,6 +2262,53 @@ class MemorydbApi:
         :raises InvalidParameterCombinationException:
         :raises InvalidParameterValueException:
         :raises MultiRegionClusterNotFoundFault:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeMultiRegionParameterGroups")
+    def describe_multi_region_parameter_groups(
+        self,
+        context: RequestContext,
+        multi_region_parameter_group_name: String | None = None,
+        max_results: IntegerOptional | None = None,
+        next_token: String | None = None,
+        **kwargs,
+    ) -> DescribeMultiRegionParameterGroupsResponse:
+        """Returns a list of multi-region parameter groups.
+
+        :param multi_region_parameter_group_name: The request for information on a specific multi-region parameter group.
+        :param max_results: The maximum number of records to include in the response.
+        :param next_token: An optional token returned from a prior request.
+        :returns: DescribeMultiRegionParameterGroupsResponse
+        :raises MultiRegionParameterGroupNotFoundFault:
+        :raises ServiceLinkedRoleNotFoundFault:
+        :raises InvalidParameterValueException:
+        :raises InvalidParameterCombinationException:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeMultiRegionParameters")
+    def describe_multi_region_parameters(
+        self,
+        context: RequestContext,
+        multi_region_parameter_group_name: String,
+        source: String | None = None,
+        max_results: IntegerOptional | None = None,
+        next_token: String | None = None,
+        **kwargs,
+    ) -> DescribeMultiRegionParametersResponse:
+        """Returns the detailed parameter list for a particular multi-region
+        parameter group.
+
+        :param multi_region_parameter_group_name: The name of the multi-region parameter group to return details for.
+        :param source: The parameter types to return.
+        :param max_results: The maximum number of records to include in the response.
+        :param next_token: An optional token returned from a prior request.
+        :returns: DescribeMultiRegionParametersResponse
+        :raises MultiRegionParameterGroupNotFoundFault:
+        :raises ServiceLinkedRoleNotFoundFault:
+        :raises InvalidParameterValueException:
+        :raises InvalidParameterCombinationException:
         """
         raise NotImplementedError
 

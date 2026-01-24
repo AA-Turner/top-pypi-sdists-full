@@ -3,7 +3,7 @@ Type annotations for athena service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -88,6 +89,10 @@ from .type_defs import (
     GetQueryResultsOutputTypeDef,
     GetQueryRuntimeStatisticsInputTypeDef,
     GetQueryRuntimeStatisticsOutputTypeDef,
+    GetResourceDashboardRequestTypeDef,
+    GetResourceDashboardResponseTypeDef,
+    GetSessionEndpointRequestTypeDef,
+    GetSessionEndpointResponseTypeDef,
     GetSessionRequestTypeDef,
     GetSessionResponseTypeDef,
     GetSessionStatusRequestTypeDef,
@@ -153,12 +158,6 @@ from .type_defs import (
     UpdateWorkGroupInputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -169,13 +168,13 @@ __all__ = ("AthenaClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    MetadataException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    SessionAlreadyExistsException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    MetadataException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    SessionAlreadyExistsException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 
 class AthenaClient(BaseClient):
@@ -248,7 +247,7 @@ class AthenaClient(BaseClient):
 
     def cancel_capacity_reservation(
         self, **kwargs: Unpack[CancelCapacityReservationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels the capacity reservation with the specified name.
 
@@ -258,7 +257,7 @@ class AthenaClient(BaseClient):
 
     def create_capacity_reservation(
         self, **kwargs: Unpack[CreateCapacityReservationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a capacity reservation with the specified name and number of requested
         data processing units.
@@ -300,7 +299,7 @@ class AthenaClient(BaseClient):
 
     def create_prepared_statement(
         self, **kwargs: Unpack[CreatePreparedStatementInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a prepared statement for use with SQL queries in Athena.
 
@@ -318,7 +317,7 @@ class AthenaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#create_presigned_notebook_url)
         """
 
-    def create_work_group(self, **kwargs: Unpack[CreateWorkGroupInputTypeDef]) -> Dict[str, Any]:
+    def create_work_group(self, **kwargs: Unpack[CreateWorkGroupInputTypeDef]) -> dict[str, Any]:
         """
         Creates a workgroup with the specified name.
 
@@ -328,7 +327,7 @@ class AthenaClient(BaseClient):
 
     def delete_capacity_reservation(
         self, **kwargs: Unpack[DeleteCapacityReservationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a cancelled capacity reservation.
 
@@ -346,7 +345,7 @@ class AthenaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#delete_data_catalog)
         """
 
-    def delete_named_query(self, **kwargs: Unpack[DeleteNamedQueryInputTypeDef]) -> Dict[str, Any]:
+    def delete_named_query(self, **kwargs: Unpack[DeleteNamedQueryInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the named query if you have access to the workgroup in which the query
         was saved.
@@ -355,7 +354,7 @@ class AthenaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#delete_named_query)
         """
 
-    def delete_notebook(self, **kwargs: Unpack[DeleteNotebookInputTypeDef]) -> Dict[str, Any]:
+    def delete_notebook(self, **kwargs: Unpack[DeleteNotebookInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified notebook.
 
@@ -365,7 +364,7 @@ class AthenaClient(BaseClient):
 
     def delete_prepared_statement(
         self, **kwargs: Unpack[DeletePreparedStatementInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the prepared statement with the specified name from the specified
         workgroup.
@@ -374,7 +373,7 @@ class AthenaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#delete_prepared_statement)
         """
 
-    def delete_work_group(self, **kwargs: Unpack[DeleteWorkGroupInputTypeDef]) -> Dict[str, Any]:
+    def delete_work_group(self, **kwargs: Unpack[DeleteWorkGroupInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the workgroup with the specified name.
 
@@ -526,6 +525,16 @@ class AthenaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#get_query_runtime_statistics)
         """
 
+    def get_resource_dashboard(
+        self, **kwargs: Unpack[GetResourceDashboardRequestTypeDef]
+    ) -> GetResourceDashboardResponseTypeDef:
+        """
+        Gets the Live UI/Persistence UI for a session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/get_resource_dashboard.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#get_resource_dashboard)
+        """
+
     def get_session(self, **kwargs: Unpack[GetSessionRequestTypeDef]) -> GetSessionResponseTypeDef:
         """
         Gets the full details of a previously created session, including the session
@@ -533,6 +542,16 @@ class AthenaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/get_session.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#get_session)
+        """
+
+    def get_session_endpoint(
+        self, **kwargs: Unpack[GetSessionEndpointRequestTypeDef]
+    ) -> GetSessionEndpointResponseTypeDef:
+        """
+        Gets a connection endpoint and authentication token for a given session Id.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/athena/client/get_session_endpoint.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#get_session_endpoint)
         """
 
     def get_session_status(
@@ -746,7 +765,7 @@ class AthenaClient(BaseClient):
 
     def put_capacity_assignment_configuration(
         self, **kwargs: Unpack[PutCapacityAssignmentConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Puts a new capacity assignment configuration for a specified capacity
         reservation.
@@ -797,7 +816,7 @@ class AthenaClient(BaseClient):
 
     def stop_query_execution(
         self, **kwargs: Unpack[StopQueryExecutionInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops a query execution.
 
@@ -805,7 +824,7 @@ class AthenaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#stop_query_execution)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to an Athena resource.
 
@@ -823,7 +842,7 @@ class AthenaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#terminate_session)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from an Athena resource.
 
@@ -833,7 +852,7 @@ class AthenaClient(BaseClient):
 
     def update_capacity_reservation(
         self, **kwargs: Unpack[UpdateCapacityReservationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the number of requested data processing units for the capacity
         reservation with the specified name.
@@ -844,7 +863,7 @@ class AthenaClient(BaseClient):
 
     def update_data_catalog(
         self, **kwargs: Unpack[UpdateDataCatalogInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the data catalog that has the specified name.
 
@@ -852,7 +871,7 @@ class AthenaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#update_data_catalog)
         """
 
-    def update_named_query(self, **kwargs: Unpack[UpdateNamedQueryInputTypeDef]) -> Dict[str, Any]:
+    def update_named_query(self, **kwargs: Unpack[UpdateNamedQueryInputTypeDef]) -> dict[str, Any]:
         """
         Updates a <a>NamedQuery</a> object.
 
@@ -860,7 +879,7 @@ class AthenaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#update_named_query)
         """
 
-    def update_notebook(self, **kwargs: Unpack[UpdateNotebookInputTypeDef]) -> Dict[str, Any]:
+    def update_notebook(self, **kwargs: Unpack[UpdateNotebookInputTypeDef]) -> dict[str, Any]:
         """
         Updates the contents of a Spark notebook.
 
@@ -870,7 +889,7 @@ class AthenaClient(BaseClient):
 
     def update_notebook_metadata(
         self, **kwargs: Unpack[UpdateNotebookMetadataInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the metadata for a notebook.
 
@@ -880,7 +899,7 @@ class AthenaClient(BaseClient):
 
     def update_prepared_statement(
         self, **kwargs: Unpack[UpdatePreparedStatementInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a prepared statement.
 
@@ -888,7 +907,7 @@ class AthenaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_athena/client/#update_prepared_statement)
         """
 
-    def update_work_group(self, **kwargs: Unpack[UpdateWorkGroupInputTypeDef]) -> Dict[str, Any]:
+    def update_work_group(self, **kwargs: Unpack[UpdateWorkGroupInputTypeDef]) -> dict[str, Any]:
         """
         Updates the workgroup with the specified name.
 

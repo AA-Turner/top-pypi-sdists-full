@@ -1,15 +1,13 @@
 Metadata-Version: 2.4
 Name: gersemi
-Version: 0.22.2
+Version: 0.25.1
 Summary: A formatter to make your CMake code the real treasure
-Home-page: https://github.com/BlankSpruce/gersemi
-Author: Blank Spruce
-Author-email: blankspruce@protonmail.com
-License: MPL 2.0
+Author-email: Blank Spruce <blankspruce@protonmail.com>
+License: MPL-2.0
+Project-URL: Homepage, https://github.com/BlankSpruce/gersemi
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
@@ -18,29 +16,23 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: appdirs
+Requires-Dist: ignore-python<0.4,>=0.3
 Requires-Dist: lark>=1.0
+Requires-Dist: platformdirs
 Requires-Dist: pyyaml<7,>=5
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
+Provides-Extra: color
+Requires-Dist: colorama>=0.4; extra == "color"
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # gersemi
 
-[![Status](https://github.com/BlankSpruce/gersemi/workflows/Tests/badge.svg)](https://github.com/BlankSpruce/gersemi/actions) [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Status](https://github.com/BlankSpruce/gersemi/workflows/Tests/badge.svg)](https://github.com/BlankSpruce/gersemi/actions) [![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 A formatter to make your CMake code the real treasure.
 
@@ -60,18 +52,19 @@ usage: gersemi [-c] [-i] [--diff] [--print-config {minimal,verbose,default}] [--
                [--definitions src [src ...]]
                [--list-expansion {favour-inlining,favour-expansion}]
                [--warn-about-unknown-commands] [--disable-formatting]
-               [--extensions extension-name [extension-name ...]] [-q] [--color]
-               [-w (INTEGER | max)] [--cache] [--config CONFIGURATION_FILE]
-               [--warnings-as-errors]
+               [--extensions extension-name-or-path [extension-name-or-path ...]] [-q]
+               [--color] [-w (INTEGER | max)] [--cache] [--cache-dir CACHE_DIR]
+               [--config CONFIGURATION_FILE] [--warnings-as-errors]
+               [--line-ranges LINE_RANGES] [--respect-ignore-files]
                [src ...]
 
 A formatter to make your CMake code the real treasure.
 
 positional arguments:
   src                   File or directory to format. When directory is provided then
-                        CMakeLists.txt and files with .cmake extension are automatically
-                        discovered. If only `-` is provided, input is taken from stdin
-                        instead.
+                        CMakeLists.txt, CMakeLists.txt.in and files with
+                        .cmake/.cmake.in extension are automatically discovered. If only
+                        `-` is provided, input is taken from stdin instead.
 
 modes:
   -c, --check           Check if files require reformatting. Return 0 when there's
@@ -105,7 +98,7 @@ outcome configuration:
   configuration file. Precedence: (command line arguments) > (configuration file) >
   (defaults)
 
-  -l INTEGER, --line-length INTEGER
+  -l, --line-length INTEGER
                         Maximum line length in characters. [default: 80]
   --indent (INTEGER | tabs)
                         Number of spaces used to indent or 'tabs' for indenting with
@@ -152,13 +145,18 @@ control configuration:
   --color, --no-color   If --diff is selected showed diff is colorized. Colorama has to
                         be installed for this option to work.
                         [default: don't colorize diff, same as --no-color]
-  -w (INTEGER | max), --workers (INTEGER | max)
+  -w, --workers (INTEGER | max)
                         Explicit number of workers or 'max' for maximum possible number
                         of workers on given machine used to format multiple files in
                         parallel. [default: max]
   --cache, --no-cache   Enables cache with data about files that are known to be
                         formatted to speed up execution.
                         [default: cache enabled, same as --cache]
+  --cache-dir CACHE_DIR
+                        Directory used to store cache file when cache is enabled. When
+                        omitted platform specific default cache directory will be used
+                        instead.
+                        [default: omitted]
   --config CONFIGURATION_FILE
                         Path to configuration file. When present this configuration file
                         will be used for determining configuration for all sources
@@ -167,7 +165,23 @@ control configuration:
   --warnings-as-errors  Treat warnings as errors so that status code becomes 1 when at
                         least one warning would be issued. This option is not inhibited
                         by --quiet.
-
+  --line-ranges LINE_RANGES
+                        Try to format code only in specified line ranges. This option
+                        works only with one input file. Range is specified as pairs of
+                        integers indicating line numbers (1-based) joined with `-`
+                        (dash) and each pair must be separated by comma. Examples of
+                        valid values of this option: a) single line range: 13-21 b)
+                        multiple line ranges: 10-49,51-100,111-123 c) single line: 7-7.
+                        This option can be specified multiple times and union of ranges
+                        will be considered, example: `--line-ranges 10-49 --line-ranges
+                        51-100` is the same as `--line-ranges 10-49,51-100`
+  --respect-ignore-files, --no-respect-ignore-files
+                        When directory is passed as a source argument gersemi will
+                        automatically discover relevant CMake files while respecting
+                        rules in the following ignore files: .ignore, .gitignore,
+                        .git/info/exclude and global gitignore globs. See:
+                        https://docs.rs/ignore/latest/ignore/index.html
+                        [default: respect ignore files, same as --respect-ignore-files]
 ```
 ### [pre-commit](https://pre-commit.com/) hook
 
@@ -176,7 +190,7 @@ You can use gersemi with a pre-commit hook by adding the following to `.pre-comm
 ```yaml
 repos:
 - repo: https://github.com/BlankSpruce/gersemi
-  rev: 0.22.2
+  rev: 0.25.1
   hooks:
   - id: gersemi
 ```
@@ -192,7 +206,7 @@ If you want to use extensions with pre-commit list them with [`additional_depend
 ```yaml
 repos:
 - repo: https://github.com/BlankSpruce/gersemi
-  rev: 0.22.2
+  rev: 0.25.1
   hooks:
   - id: gersemi
     additional_dependencies:
@@ -839,7 +853,7 @@ You can extend gersemi capabilities through Python modules listed with `--extens
 
 ### How to disable reformatting
 
-Gersemi can be disallowed to format block of code using pair of comments `# gersemi: off`/`# gersemi: on`. Example:
+Gersemi can be disallowed to format block of code using pair of fencing comments `# gersemi: off`/`# gersemi: on`. Example:
 
 ```cmake
 the_hobbit(
@@ -871,19 +885,28 @@ the_fellowship_of_the_ring     (
        Gandalf
        )
 # gersemi: on
-```
 
-Pair of comments should be in the same scope, so the following is not supported:
-```cmake
 # gersemi: off
-the_godfather()
+the_two_towers(
+            RING_BEARER Frodo
+        GARDENER Samwise
+    Merry Pippin Aragon
+    # gersemi: on
+    Boromir
+    Gimli
+    Legolas
+    Gandalf
+)
 
+# gersemi: off
 function(how_to_make_a_successful_movie args)
 step_one_have_a_good_scenario()
-# gersemi: on
-step_two_make_the_movie()
+    # gersemi: on
+    step_two_make_the_movie()
 endfunction()
 ```
+
+Fencing comments will be indented as usual comments (as in `the_two_towers` and `how_to_make_a_successful_movie` examples) so it's probably a good idea to disable formatting in code block representing the same semantic level.
 
 ## Contributing
 

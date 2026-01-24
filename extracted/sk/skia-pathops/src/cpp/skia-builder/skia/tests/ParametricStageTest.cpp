@@ -20,12 +20,12 @@ static void check_error(skiatest::Reporter* r, float limit, skcms_TransferFuncti
         out[i] = 0.0f;  // Not likely important.  Just being tidy.
     }
 
-    SkRasterPipeline_MemoryCtx ip = { in, 0},
+    SkRasterPipelineContexts::MemoryCtx ip = { in, 0},
                                op = {out, 0};
 
     SkRasterPipeline_<256> p;
     p.append(SkRasterPipelineOp::load_f32, &ip);
-    p.append_transfer_function(fn);
+    p.appendTransferFunction(fn);
     p.append(SkRasterPipelineOp::store_f32, &op);
 
     p.run(0,0, 256/4,1);

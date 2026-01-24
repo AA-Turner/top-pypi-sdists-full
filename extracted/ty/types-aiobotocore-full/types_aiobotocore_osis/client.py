@@ -3,7 +3,7 @@ Type annotations for osis service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,29 +20,45 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
-from typing import Any
+from typing import Any, overload
 
 from aiobotocore.client import AioBaseClient
 from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
+from .paginator import ListPipelineEndpointConnectionsPaginator, ListPipelineEndpointsPaginator
 from .type_defs import (
+    CreatePipelineEndpointRequestTypeDef,
+    CreatePipelineEndpointResponseTypeDef,
     CreatePipelineRequestTypeDef,
     CreatePipelineResponseTypeDef,
+    DeletePipelineEndpointRequestTypeDef,
     DeletePipelineRequestTypeDef,
+    DeleteResourcePolicyRequestTypeDef,
     GetPipelineBlueprintRequestTypeDef,
     GetPipelineBlueprintResponseTypeDef,
     GetPipelineChangeProgressRequestTypeDef,
     GetPipelineChangeProgressResponseTypeDef,
     GetPipelineRequestTypeDef,
     GetPipelineResponseTypeDef,
+    GetResourcePolicyRequestTypeDef,
+    GetResourcePolicyResponseTypeDef,
     ListPipelineBlueprintsResponseTypeDef,
+    ListPipelineEndpointConnectionsRequestTypeDef,
+    ListPipelineEndpointConnectionsResponseTypeDef,
+    ListPipelineEndpointsRequestTypeDef,
+    ListPipelineEndpointsResponseTypeDef,
     ListPipelinesRequestTypeDef,
     ListPipelinesResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PutResourcePolicyRequestTypeDef,
+    PutResourcePolicyResponseTypeDef,
+    RevokePipelineEndpointConnectionsRequestTypeDef,
+    RevokePipelineEndpointConnectionsResponseTypeDef,
     StartPipelineRequestTypeDef,
     StartPipelineResponseTypeDef,
     StopPipelineRequestTypeDef,
@@ -55,32 +71,26 @@ from .type_defs import (
     ValidatePipelineResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
-    from typing import Self, Unpack
+    from typing import Literal, Self, Unpack
 else:
-    from typing_extensions import Self, Unpack
+    from typing_extensions import Literal, Self, Unpack
 
 
 __all__ = ("OpenSearchIngestionClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DisabledOperationException: Type[BotocoreClientError]
-    InternalException: Type[BotocoreClientError]
-    InvalidPaginationTokenException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DisabledOperationException: type[BotocoreClientError]
+    InternalException: type[BotocoreClientError]
+    InvalidPaginationTokenException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class OpenSearchIngestionClient(AioBaseClient):
@@ -128,14 +138,44 @@ class OpenSearchIngestionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#create_pipeline)
         """
 
+    async def create_pipeline_endpoint(
+        self, **kwargs: Unpack[CreatePipelineEndpointRequestTypeDef]
+    ) -> CreatePipelineEndpointResponseTypeDef:
+        """
+        Creates a VPC endpoint for an OpenSearch Ingestion pipeline.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/create_pipeline_endpoint.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#create_pipeline_endpoint)
+        """
+
     async def delete_pipeline(
         self, **kwargs: Unpack[DeletePipelineRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an OpenSearch Ingestion pipeline.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/delete_pipeline.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#delete_pipeline)
+        """
+
+    async def delete_pipeline_endpoint(
+        self, **kwargs: Unpack[DeletePipelineEndpointRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a VPC endpoint for an OpenSearch Ingestion pipeline.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/delete_pipeline_endpoint.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#delete_pipeline_endpoint)
+        """
+
+    async def delete_resource_policy(
+        self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a resource-based policy from an OpenSearch Ingestion resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/delete_resource_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#delete_resource_policy)
         """
 
     async def get_pipeline(
@@ -169,12 +209,43 @@ class OpenSearchIngestionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#get_pipeline_change_progress)
         """
 
+    async def get_resource_policy(
+        self, **kwargs: Unpack[GetResourcePolicyRequestTypeDef]
+    ) -> GetResourcePolicyResponseTypeDef:
+        """
+        Retrieves the resource-based policy attached to an OpenSearch Ingestion
+        resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/get_resource_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#get_resource_policy)
+        """
+
     async def list_pipeline_blueprints(self) -> ListPipelineBlueprintsResponseTypeDef:
         """
         Retrieves a list of all available blueprints for Data Prepper.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/list_pipeline_blueprints.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#list_pipeline_blueprints)
+        """
+
+    async def list_pipeline_endpoint_connections(
+        self, **kwargs: Unpack[ListPipelineEndpointConnectionsRequestTypeDef]
+    ) -> ListPipelineEndpointConnectionsResponseTypeDef:
+        """
+        Lists the pipeline endpoints connected to pipelines in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/list_pipeline_endpoint_connections.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#list_pipeline_endpoint_connections)
+        """
+
+    async def list_pipeline_endpoints(
+        self, **kwargs: Unpack[ListPipelineEndpointsRequestTypeDef]
+    ) -> ListPipelineEndpointsResponseTypeDef:
+        """
+        Lists all pipeline endpoints in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/list_pipeline_endpoints.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#list_pipeline_endpoints)
         """
 
     async def list_pipelines(
@@ -198,6 +269,26 @@ class OpenSearchIngestionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#list_tags_for_resource)
         """
 
+    async def put_resource_policy(
+        self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
+    ) -> PutResourcePolicyResponseTypeDef:
+        """
+        Attaches a resource-based policy to an OpenSearch Ingestion resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/put_resource_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#put_resource_policy)
+        """
+
+    async def revoke_pipeline_endpoint_connections(
+        self, **kwargs: Unpack[RevokePipelineEndpointConnectionsRequestTypeDef]
+    ) -> RevokePipelineEndpointConnectionsResponseTypeDef:
+        """
+        Revokes pipeline endpoints from specified endpoint IDs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/revoke_pipeline_endpoint_connections.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#revoke_pipeline_endpoint_connections)
+        """
+
     async def start_pipeline(
         self, **kwargs: Unpack[StartPipelineRequestTypeDef]
     ) -> StartPipelineResponseTypeDef:
@@ -218,7 +309,7 @@ class OpenSearchIngestionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#stop_pipeline)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags an OpenSearch Ingestion pipeline.
 
@@ -226,7 +317,7 @@ class OpenSearchIngestionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from an OpenSearch Ingestion pipeline.
 
@@ -255,6 +346,28 @@ class OpenSearchIngestionClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#validate_pipeline)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_pipeline_endpoint_connections"]
+    ) -> ListPipelineEndpointConnectionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_pipeline_endpoints"]
+    ) -> ListPipelineEndpointsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_osis/client/#get_paginator)
+        """
+
     async def __aenter__(self) -> Self:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/osis.html#OpenSearchIngestion.Client)
@@ -263,7 +376,7 @@ class OpenSearchIngestionClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

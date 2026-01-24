@@ -42,13 +42,19 @@ def fit_main(fname,
              checkpoint_every=0.01,
              npool=None,
              dyn_pool=False,
-             neff=NEFF0):
+             neff=NEFF0,
+             ready_file=None):
     """
     Fit while checkpointing
     """
+    # Signal that we're ready (for spawn context timing)
+    if ready_file is not None:
+        with open(ready_file, 'w') as f:
+            f.write(str(time.time()))
+
     ndim = 2
     with (NullContextManager() if npool is None else (dynesty.pool.Pool(
-            npool, like, ptform) if dyn_pool else mp.Pool(npool))) as pool:
+            npool, like, ptform) if dyn_pool else mp.get_context('spawn').Pool(npool))) as pool:
         queue_size = 100 if npool is not None else None
         if dyn_pool:
             curlike, curpt = pool.loglike, pool.prior_transform
@@ -63,6 +69,7 @@ def fit_main(fname,
                                                pool=pool,
                                                queue_size=queue_size,
                                                blob=True)
+            kw = dict(n_effective=NEFF0)
         else:
             dns = dynesty.NestedSampler(curlike,
                                         curpt,
@@ -72,11 +79,11 @@ def fit_main(fname,
                                         pool=pool,
                                         queue_size=queue_size,
                                         blob=True)
-            neff = None
+            kw = dict()
         dns.run_nested(checkpoint_file=fname,
                        print_progress=printing,
                        checkpoint_every=checkpoint_every,
-                       n_effective=neff)
+                       **kw)
     return dns
 
 
@@ -91,7 +98,11 @@ def fit_resume(fname, dynamic, prev_logz, pool=None, neff=NEFF0):
         dns = dynesty.NestedSampler.restore(fname, pool=pool)
         neff = None
     print('resuming', file=sys.stderr)
-    dns.run_nested(resume=True, n_effective=neff, print_progress=printing)
+    if dynamic:
+        kw = dict(n_effective=neff)
+    else:
+        kw = dict()
+    dns.run_nested(resume=True, print_progress=printing, **kw)
     # verify that the logz value is *identical*
     if prev_logz is not None:
         assert dns.results['logz'][-1] == prev_logz
@@ -132,14 +143,12 @@ def getlogz(fname, save_every):
     return cache.dt, cache.logz
 
 
-@pytest.mark.parametrize("dynamic,delay_frac,with_pool,dyn_pool",
-                         itertools.chain(
-                             itertools.product([False, True],
-                                               [.2, .5, .75, .9], [False],
-                                               [False]),
-                             itertools.product([False, True], [.5], [True],
-                                               [False]),
-                             [[True, .5, True, True]]))
+@pytest.mark.parametrize(
+    "dynamic,delay_frac,with_pool,dyn_pool",
+    itertools.chain(
+        itertools.product([False, True], [.2, .5, .75, .9], [False], [False]),
+        itertools.product([False, True], [.5], [True], [False]),
+        [[True, .5, True, True]]))
 @pytest.mark.xdist_group(name="resume_group")
 def test_resume(dynamic, delay_frac, with_pool, dyn_pool):
     """
@@ -159,12 +168,28 @@ def test_resume(dynamic, delay_frac, with_pool, dyn_pool):
     curdt, curlogz = [_[dynamic, with_pool] for _ in [cache_dt, cache_logz]]
     save_every = min(save_every, curdt / 10)
     curdt *= delay_frac
+
+    # For spawn context, we need to account for startup time
+    ready_file = fname + '.ready'
+
     try:
-        fit_proc = mp.Process(target=fit_main,
-                              args=(fname, dynamic, save_every, npool,
-                                    dyn_pool))
+        # Always use spawn context to match actual usage
+        fit_proc = mp.get_context('spawn').Process(target=fit_main,
+                                                    args=(fname, dynamic, save_every, npool,
+                                                          dyn_pool, NEFF0, ready_file))
+        start_time = time.time()
         fit_proc.start()
-        res = fit_proc.join(curdt)
+
+        # Wait for spawn process to be ready before starting timer
+        while not os.path.exists(ready_file):
+            time.sleep(0.01)
+            if time.time() - start_time > 5:  # Safety timeout
+                raise RuntimeError("Process failed to start")
+        # Account for startup time in the timeout
+        startup_time = time.time() - start_time
+        actual_timeout = curdt + startup_time
+
+        res = fit_proc.join(actual_timeout)
         # proceed to terminate after curdt seconds
         if res is None:
             print('terminating', file=sys.stderr)
@@ -177,7 +202,7 @@ def test_resume(dynamic, delay_frac, with_pool, dyn_pool):
 
             with (NullContextManager() if npool is None else
                   (dynesty.pool.Pool(npool, like, ptform)
-                   if dyn_pool else mp.Pool(npool))) as pool:
+                   if dyn_pool else mp.get_context('spawn').Pool(npool))) as pool:
                 blob = fit_resume(fname, dynamic, curlogz, pool=pool)
                 if with_pool:
                     # the expectation is we ran in 2 pids before
@@ -197,6 +222,10 @@ def test_resume(dynamic, delay_frac, with_pool, dyn_pool):
             pass
         try:
             os.unlink(fname + '.tmp')
+        except:  # noqa
+            pass
+        try:
+            os.unlink(ready_file)
         except:  # noqa
             pass
 

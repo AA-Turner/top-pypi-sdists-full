@@ -1,14 +1,18 @@
-import asyncio
 import datetime
 import dataclasses
 import dotenv
 import enum
 import inspect
 import os
+import orjson
 import pydantic
 import queue
 import typing
 import uuid
+
+from lmnr.sdk.log import get_default_logger
+
+logger = get_default_logger(__name__)
 
 
 def is_method(func: typing.Callable) -> bool:
@@ -33,7 +37,7 @@ def is_async(func: typing.Callable) -> bool:
         return False
 
     # Check if the function is asynchronous
-    if asyncio.iscoroutinefunction(func):
+    if inspect.iscoroutinefunction(func):
         return True
 
     # Fallback: check if the function's code object contains 'async'.
@@ -113,6 +117,43 @@ def from_env(key: str) -> str | None:
     dotenv_path = dotenv.find_dotenv(usecwd=True)
     # use DotEnv directly so we can set verbose to False
     return dotenv.main.DotEnv(dotenv_path, verbose=False, encoding="utf-8").get(key)
+
+
+def get_frontend_url(
+    base_url: str | None = None, frontend_port: int | None = None
+) -> str:
+    """
+    Get the frontend URL from the base API URL.
+
+    Converts API URLs to frontend URLs:
+    - https://api.lmnr.ai -> https://www.laminar.sh
+    - http://localhost:8000 -> http://localhost:5667 (or custom frontend_port)
+    - http://127.0.0.1:8000 -> http://127.0.0.1:5667 (or custom frontend_port)
+
+    Args:
+        base_url: Base API URL (defaults to https://api.lmnr.ai)
+        frontend_port: Optional frontend port for localhost (defaults to 5667)
+
+    Returns:
+        Frontend URL
+    """
+    import re
+
+    if not base_url or base_url == "https://api.lmnr.ai":
+        base_url = "https://www.laminar.sh"
+        return base_url
+
+    url = base_url.rstrip("/")
+
+    # Handle localhost/127.0.0.1 - set frontend port
+    if "localhost" in url or "127.0.0.1" in url:
+        # Remove existing port if present
+        url = re.sub(r":\d+$", "", url)
+        # Add frontend port (default 5667)
+        port = frontend_port or 5667
+        url = f"{url}:{port}"
+
+    return url
 
 
 def is_otel_attribute_value_type(value: typing.Any) -> bool:
@@ -202,3 +243,40 @@ def format_id(id_value: str | int | uuid.UUID) -> str:
         return id_value
     else:
         raise ValueError(f"Invalid ID type: {type(id_value)}")
+
+
+DEFAULT_PLACEHOLDER = {}
+
+
+def default_json(o):
+    if isinstance(o, pydantic.BaseModel):
+        return o.model_dump()
+
+    # Handle various sequence types, but not strings or bytes
+    if isinstance(o, (list, tuple, set, frozenset)):
+        return list(o)
+
+    try:
+        return str(o)
+    except Exception:
+        logger.debug("Failed to serialize data to JSON, inner type: %s", type(o))
+        pass
+    return DEFAULT_PLACEHOLDER
+
+
+def json_dumps(data: dict, prevent_double_stringify: bool = False) -> str:
+    if prevent_double_stringify and isinstance(data, str):
+        return data
+    try:
+        return orjson.dumps(
+            data,
+            default=default_json,
+            option=orjson.OPT_SERIALIZE_DATACLASS
+            | orjson.OPT_SERIALIZE_UUID
+            | orjson.OPT_UTC_Z
+            | orjson.OPT_NON_STR_KEYS,
+        ).decode("utf-8")
+    except Exception:
+        # Log the exception and return a placeholder if serialization completely fails
+        logger.info("Failed to serialize data to JSON, type: %s", type(data))
+        return "{}"  # Return an empty JSON object as a fallback

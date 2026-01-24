@@ -1,10 +1,16 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 from __future__ import annotations
 
 from typing import Any, List, Tuple, Union, Mapping, TypeVar
 from urllib.parse import parse_qs, urlencode
 from typing_extensions import Literal, get_args
 
-from ._types import NOT_GIVEN, NotGiven, NotGivenOr
+from ._types import NotGiven, not_given
 from ._utils import flatten
 
 _T = TypeVar("_T")
@@ -41,8 +47,8 @@ class Querystring:
         self,
         params: Params,
         *,
-        array_format: NotGivenOr[ArrayFormat] = NOT_GIVEN,
-        nested_format: NotGivenOr[NestedFormat] = NOT_GIVEN,
+        array_format: ArrayFormat | NotGiven = not_given,
+        nested_format: NestedFormat | NotGiven = not_given,
     ) -> str:
         return urlencode(
             self.stringify_items(
@@ -56,8 +62,8 @@ class Querystring:
         self,
         params: Params,
         *,
-        array_format: NotGivenOr[ArrayFormat] = NOT_GIVEN,
-        nested_format: NotGivenOr[NestedFormat] = NOT_GIVEN,
+        array_format: ArrayFormat | NotGiven = not_given,
+        nested_format: NestedFormat | NotGiven = not_given,
     ) -> list[tuple[str, str]]:
         opts = Options(
             qs=self,
@@ -143,8 +149,8 @@ class Options:
         self,
         qs: Querystring = _qs,
         *,
-        array_format: NotGivenOr[ArrayFormat] = NOT_GIVEN,
-        nested_format: NotGivenOr[NestedFormat] = NOT_GIVEN,
+        array_format: ArrayFormat | NotGiven = not_given,
+        nested_format: NestedFormat | NotGiven = not_given,
     ) -> None:
         self.array_format = qs.array_format if isinstance(array_format, NotGiven) else array_format
         self.nested_format = qs.nested_format if isinstance(nested_format, NotGiven) else nested_format

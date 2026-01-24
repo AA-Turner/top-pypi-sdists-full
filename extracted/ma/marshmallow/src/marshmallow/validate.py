@@ -187,7 +187,7 @@ class URL(Validator):
         self.relative = relative
         self.absolute = absolute
         self.error: str = error or self.default_message
-        self.schemes = schemes or self.default_schemes
+        self.schemes = {s.lower() for s in schemes} if schemes else self.default_schemes
         self.require_tld = require_tld
 
     def _repr_args(self) -> str:
@@ -214,8 +214,8 @@ class URL(Validator):
 
         # Hostname is optional for file URLS. If absent it means `localhost`.
         # Fill it in for the validation if needed
-        if scheme == "file" and value.startswith("file:///"):
-            matched = regex.search(value.replace("file:///", "file://localhost/", 1))
+        if scheme == "file" and value.lower().startswith("file:///"):
+            matched = regex.search("file://localhost/" + value[8:])
         else:
             matched = regex.search(value)
 
@@ -623,8 +623,7 @@ class OneOf(Validator):
         :param valuegetter: Can be a callable or a string. In the former case, it must
             be a one-argument callable which returns the value of a
             choice. In the latter case, the string specifies the name
-            of an attribute of the choice objects. Defaults to `str()`
-            or `str()`.
+            of an attribute of the choice objects. Defaults to `str()`.
         """
         valuegetter = valuegetter if callable(valuegetter) else attrgetter(valuegetter)
         pairs = zip_longest(self.choices, self.labels, fillvalue="")

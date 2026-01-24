@@ -15,13 +15,19 @@ from .version import __version__  # noqa
 sys.path.append(os.path.dirname(__file__))  # noqa
 
 from .agilicus_api import *  # noqa
+from .agilicus_api.api_client import Endpoint
 from .agilicus_api import exceptions  # noqa
 from . import patches  # noqa
-from .pagination.pagination import get_many_entries
+from pagination.pagination import get_many_entries
+
+import agilicus_api.api_client
+
+endpoint_class = agilicus_api.api_client.Endpoint
 
 from .create import create_or_update, add_list_resources, AddInfo, AddResult, find_guid
 
 ApiClient = patches.patched_api_client()
+patches.patch_endpoint_class(endpoint_class)
 
 
 @dataclasses.dataclass

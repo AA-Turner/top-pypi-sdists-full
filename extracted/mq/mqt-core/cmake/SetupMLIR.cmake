@@ -1,5 +1,5 @@
-# Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
-# Copyright (c) 2025 Munich Quantum Software Company GmbH
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
 # All rights reserved.
 #
 # SPDX-License-Identifier: MIT
@@ -9,7 +9,9 @@
 # set the include directory for the build tree
 set(MQT_MLIR_SOURCE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/mlir/include")
 set(MQT_MLIR_BUILD_INCLUDE_DIR "${PROJECT_BINARY_DIR}/mlir/include")
-set(MQT_MLIR_MIN_VERSION 19.0)
+set(MQT_MLIR_MIN_VERSION
+    "21.0"
+    CACHE STRING "Minimum required MLIR version")
 
 # MLIR must be installed on the system
 find_package(MLIR REQUIRED CONFIG)
@@ -27,6 +29,8 @@ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(TableGen)
 include(AddLLVM)
 include(AddMLIR)
+set(LLVM_ENABLE_RTTI ON)
+set(LLVM_ENABLE_EH ON)
 include(HandleLLVMOptions)
 
 include_directories(${LLVM_INCLUDE_DIRS})

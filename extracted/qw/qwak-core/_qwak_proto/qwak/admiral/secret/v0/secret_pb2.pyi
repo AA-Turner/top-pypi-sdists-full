@@ -96,22 +96,41 @@ class SetUserEnvironmentSecretOptions(google.protobuf.message.Message):
 
     IDENTIFIER_FIELD_NUMBER: builtins.int
     SPEC_FIELD_NUMBER: builtins.int
+    PLATFORM_OPTIONS_FIELD_NUMBER: builtins.int
     @property
     def identifier(self) -> global___EnvironmentSecretIdentifier:
         """Secret identifier"""
     @property
     def spec(self) -> global___UserSecretSpec:
         """Secret Spec"""
+    @property
+    def platform_options(self) -> global___PlatformOptions: ...
     def __init__(
         self,
         *,
         identifier: global___EnvironmentSecretIdentifier | None = ...,
         spec: global___UserSecretSpec | None = ...,
+        platform_options: global___PlatformOptions | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["identifier", b"identifier", "spec", b"spec"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["identifier", b"identifier", "spec", b"spec"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["identifier", b"identifier", "optional_platform_options", b"optional_platform_options", "platform_options", b"platform_options", "spec", b"spec"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["identifier", b"identifier", "optional_platform_options", b"optional_platform_options", "platform_options", b"platform_options", "spec", b"spec"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["optional_platform_options", b"optional_platform_options"]) -> typing_extensions.Literal["platform_options"] | None: ...
 
 global___SetUserEnvironmentSecretOptions = SetUserEnvironmentSecretOptions
+
+class PlatformOptions(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    PROJECT_KEY_FIELD_NUMBER: builtins.int
+    project_key: builtins.str
+    def __init__(
+        self,
+        *,
+        project_key: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["project_key", b"project_key"]) -> None: ...
+
+global___PlatformOptions = PlatformOptions
 
 class SetSystemEnvironmentSecretOptions(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

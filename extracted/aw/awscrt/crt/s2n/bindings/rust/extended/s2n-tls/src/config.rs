@@ -3,6 +3,8 @@
 
 #[cfg(feature = "unstable-cert_authorities")]
 use crate::cert_authorities::CertificateRequestCallback;
+#[cfg(feature = "unstable-events")]
+use crate::events::{EventSubscriber, HandshakeEvent};
 #[cfg(feature = "unstable-renegotiate")]
 use crate::renegotiate::RenegotiateCallback;
 use crate::{
@@ -623,6 +625,54 @@ impl Builder {
         Ok(self)
     }
 
+    /// Set a callback function to perform custom cert validation synchronously.
+    ///
+    /// Corresponds to [s2n_config_set_cert_validation_cb], but the rust callback
+    /// can only perform in synchronous mode.
+    #[cfg(feature = "unstable-crl")]
+    pub fn set_cert_validation_callback_sync<T: 'static + CertValidationCallbackSync>(
+        &mut self,
+        handler: T,
+    ) -> Result<&mut Self, Error> {
+        unsafe extern "C" fn cert_validation_cb(
+            conn_ptr: *mut s2n_connection,
+            validation_info: *mut s2n_cert_validation_info,
+            _context: *mut core::ffi::c_void,
+        ) -> libc::c_int {
+            let mut info = CertValidationInfo::from_ptr(validation_info);
+            with_context(conn_ptr, |conn, context| {
+                let callback = context.cert_validation_callback_sync.as_ref();
+                callback.map(|callback| {
+                    let accepted = callback.handle_validation(conn, &mut info).unwrap();
+                    match accepted {
+                        true => info.accept().unwrap(),
+                        false => info.reject().unwrap(),
+                    }
+                })
+            });
+            CallbackResult::Success.into()
+        }
+
+        let handler = Box::new(handler);
+        let context = unsafe {
+            // SAFETY: usage of context_mut is safe in the builder, because while
+            // it is being built, the Builder is the only reference to the config.
+            self.config.context_mut()
+        };
+        context.cert_validation_callback_sync = Some(handler);
+
+        unsafe {
+            s2n_config_set_cert_validation_cb(
+                self.as_mut_ptr(),
+                Some(cert_validation_cb),
+                core::ptr::null_mut(),
+            )
+            .into_result()?;
+        }
+
+        Ok(self)
+    }
+
     /// Set a custom callback function which is run after parsing the client hello.
     ///
     /// Corresponds to [s2n_config_set_client_hello_cb].
@@ -661,6 +711,47 @@ impl Builder {
             .into_result()?;
         }
 
+        Ok(self)
+    }
+
+    /// Corresponds to [s2n_config_set_subscriber] and [s2n_config_set_handshake_event].
+    #[cfg(feature = "unstable-events")]
+    pub fn set_event_subscriber<T: 'static + EventSubscriber>(
+        &mut self,
+        subscriber: T,
+    ) -> Result<&mut Self, Error> {
+        unsafe extern "C" fn on_handshake_event(
+            conn_ptr: *mut s2n_tls_sys::s2n_connection,
+            _subscriber: *mut c_void,
+            event: *mut s2n_tls_sys::s2n_event_handshake,
+        ) {
+            with_context(conn_ptr, |conn, context| {
+                let callback = context.event_subscriber.as_ref();
+                if let Some(callback) = callback {
+                    callback.on_handshake_event(conn, &HandshakeEvent::new(&*event));
+                }
+            });
+        }
+
+        let handler = Box::new(subscriber);
+        let context = unsafe {
+            // SAFETY: usage of context_mut is safe in the builder, because while
+            // it is being built, the Builder is the only reference to the config.
+            self.config.context_mut()
+        };
+        context.event_subscriber = Some(handler);
+
+        unsafe {
+            s2n_config_set_subscriber(
+                self.as_mut_ptr(),
+                self.config.context_mut() as *mut Context as *mut c_void,
+            )
+        };
+
+        unsafe {
+            s2n_config_set_handshake_event(self.as_mut_ptr(), Some(on_handshake_event))
+                .into_result()
+        }?;
         Ok(self)
     }
 
@@ -1046,6 +1137,10 @@ pub(crate) struct Context {
     pub(crate) renegotiate: Option<Box<dyn RenegotiateCallback>>,
     #[cfg(feature = "unstable-cert_authorities")]
     pub(crate) cert_authorities: Option<Box<dyn CertificateRequestCallback>>,
+    #[cfg(feature = "unstable-crl")]
+    pub(crate) cert_validation_callback_sync: Option<Box<dyn CertValidationCallbackSync>>,
+    #[cfg(feature = "unstable-events")]
+    pub(crate) event_subscriber: Option<Box<dyn crate::events::EventSubscriber>>,
 }
 
 impl Default for Context {
@@ -1068,6 +1163,10 @@ impl Default for Context {
             renegotiate: None,
             #[cfg(feature = "unstable-cert_authorities")]
             cert_authorities: None,
+            #[cfg(feature = "unstable-crl")]
+            cert_validation_callback_sync: None,
+            #[cfg(feature = "unstable-events")]
+            event_subscriber: None,
         }
     }
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyAthena
-Version: 3.18.0
+Version: 3.25.0
 Summary: Python DB API 2.0 (PEP 249) client for Amazon Athena
 Project-URL: homepage, https://github.com/laughingman7743/PyAthena/
 Project-URL: repository, https://github.com/laughingman7743/PyAthena/
@@ -29,24 +29,26 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database :: Front-Ends
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: boto3>=1.26.4
 Requires-Dist: botocore>=1.29.4
 Requires-Dist: fsspec
 Requires-Dist: python-dateutil
 Requires-Dist: tenacity>=4.1.0
 Provides-Extra: arrow
-Requires-Dist: pyarrow>=7.0.0; extra == 'arrow'
-Provides-Extra: fastparquet
-Requires-Dist: fastparquet>=0.4.0; extra == 'fastparquet'
+Requires-Dist: pyarrow>=10.0.0; (python_version < '3.14') and extra == 'arrow'
+Requires-Dist: pyarrow>=22.0.0; (python_version >= '3.14') and extra == 'arrow'
 Provides-Extra: pandas
-Requires-Dist: pandas>=1.3.0; extra == 'pandas'
+Requires-Dist: pandas>=1.3.0; (python_version < '3.13') and extra == 'pandas'
+Requires-Dist: pandas>=2.3.0; (python_version >= '3.13') and extra == 'pandas'
+Provides-Extra: polars
+Requires-Dist: polars>=1.0.0; extra == 'polars'
 Provides-Extra: sqlalchemy
 Requires-Dist: sqlalchemy>=1.0.0; extra == 'sqlalchemy'
 Description-Content-Type: text/x-rst
@@ -93,7 +95,7 @@ Requirements
 
 * Python
 
-  - CPython 3.9 3.10, 3.11 3.12 3.13
+  - CPython 3.10, 3.11, 3.12, 3.13, 3.14
 
 .. _installation:
 
@@ -113,9 +115,9 @@ Extra packages:
 +---------------+---------------------------------------+------------------+
 | Pandas        | ``pip install PyAthena[Pandas]``      | >=1.3.0          |
 +---------------+---------------------------------------+------------------+
-| Arrow         | ``pip install PyAthena[Arrow]``       | >=7.0.0          |
+| Arrow         | ``pip install PyAthena[Arrow]``       | >=10.0.0         |
 +---------------+---------------------------------------+------------------+
-| fastparquet   | ``pip install PyAthena[fastparquet]`` | >=0.4.0          |
+| Polars        | ``pip install PyAthena[Polars]``      | >=1.0.0          |
 +---------------+---------------------------------------+------------------+
 
 .. _usage:

@@ -9,55 +9,62 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
+from typing import Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-
-class BillingUsageReport(GitHubModel):
-    """BillingUsageReport"""
-
-    usage_items: Missing[list[BillingUsageReportPropUsageItemsItems]] = Field(
-        default=UNSET, alias="usageItems"
-    )
+from .group_0003 import SimpleUser
+from .group_0047 import ReactionRollup
+from .group_0053 import ReleaseAsset
 
 
-class BillingUsageReportPropUsageItemsItems(GitHubModel):
-    """BillingUsageReportPropUsageItemsItems"""
+class ReleaseEventPropRelease(GitHubModel):
+    """ReleaseEventPropRelease"""
 
-    date: str = Field(description="Date of the usage line item.")
-    product: str = Field(description="Product name.")
-    sku: str = Field(description="SKU name.")
-    quantity: int = Field(description="Quantity of the usage line item.")
-    unit_type: str = Field(
-        alias="unitType", description="Unit type of the usage line item."
+    url: str = Field()
+    html_url: str = Field()
+    assets_url: str = Field()
+    upload_url: str = Field()
+    tarball_url: Union[str, None] = Field()
+    zipball_url: Union[str, None] = Field()
+    id: int = Field()
+    node_id: str = Field()
+    tag_name: str = Field(description="The name of the tag.")
+    target_commitish: str = Field(
+        description="Specifies the commitish value that determines where the Git tag is created from."
     )
-    price_per_unit: float = Field(
-        alias="pricePerUnit", description="Price per unit of the usage line item."
+    name: Union[str, None] = Field()
+    body: Missing[Union[str, None]] = Field(default=UNSET)
+    draft: bool = Field(
+        description="true to create a draft (unpublished) release, false to create a published one."
     )
-    gross_amount: float = Field(
-        alias="grossAmount", description="Gross amount of the usage line item."
+    prerelease: bool = Field(
+        description="Whether to identify the release as a prerelease or a full release."
     )
-    discount_amount: float = Field(
-        alias="discountAmount", description="Discount amount of the usage line item."
+    immutable: Missing[bool] = Field(
+        default=UNSET, description="Whether or not the release is immutable."
     )
-    net_amount: float = Field(
-        alias="netAmount", description="Net amount of the usage line item."
+    created_at: _dt.datetime = Field()
+    published_at: Union[_dt.datetime, None] = Field()
+    updated_at: Missing[Union[_dt.datetime, None]] = Field(default=UNSET)
+    author: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    assets: list[ReleaseAsset] = Field()
+    body_html: Missing[Union[str, None]] = Field(default=UNSET)
+    body_text: Missing[Union[str, None]] = Field(default=UNSET)
+    mentions_count: Missing[int] = Field(default=UNSET)
+    discussion_url: Missing[str] = Field(
+        default=UNSET, description="The URL of the release discussion."
     )
-    organization_name: str = Field(
-        alias="organizationName", description="Name of the organization."
-    )
-    repository_name: Missing[str] = Field(
-        default=UNSET, alias="repositoryName", description="Name of the repository."
-    )
+    reactions: Missing[ReactionRollup] = Field(default=UNSET, title="Reaction Rollup")
+    is_short_description_html_truncated: Missing[bool] = Field(default=UNSET)
+    short_description_html: Missing[str] = Field(default=UNSET)
 
 
-model_rebuild(BillingUsageReport)
-model_rebuild(BillingUsageReportPropUsageItemsItems)
+model_rebuild(ReleaseEventPropRelease)
 
-__all__ = (
-    "BillingUsageReport",
-    "BillingUsageReportPropUsageItemsItems",
-)
+__all__ = ("ReleaseEventPropRelease",)

@@ -24,6 +24,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator, Sequence
 from datetime import datetime
 
 from boto3.resources.base import ResourceMeta, ServiceResource
@@ -50,11 +51,6 @@ from .type_defs import (
     SetAlarmStateInputAlarmSetStateTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import list as List
-    from collections.abc import Iterator, Sequence
-else:
-    from typing import Iterator, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -148,7 +144,7 @@ class ServiceResourceAlarmsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/service_resource/#serviceresourcealarmscollection)
         """
 
-    def pages(self) -> Iterator[List[Alarm]]:
+    def pages(self) -> Iterator[list[Alarm]]:
         """
         A generator which yields pages of Alarms.
 
@@ -216,7 +212,7 @@ class ServiceResourceMetricsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/service_resource/#serviceresourcemetricscollection)
         """
 
-    def pages(self) -> Iterator[List[Metric]]:
+    def pages(self) -> Iterator[list[Metric]]:
         """
         A generator which yields pages of Metrics.
 
@@ -306,7 +302,7 @@ class MetricAlarmsCollection(ResourceCollection):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/service_resource/#metricalarms)
         """
 
-    def pages(self) -> Iterator[List[Alarm]]:
+    def pages(self) -> Iterator[list[Alarm]]:
         """
         A generator which yields pages of Alarms.
 
@@ -336,9 +332,9 @@ class Alarm(ServiceResource):
     alarm_description: str
     alarm_configuration_updated_timestamp: datetime
     actions_enabled: bool
-    ok_actions: List[str]
-    alarm_actions: List[str]
-    insufficient_data_actions: List[str]
+    ok_actions: list[str]
+    alarm_actions: list[str]
+    insufficient_data_actions: list[str]
     state_value: StateValueType
     state_reason: str
     state_reason_data: str
@@ -347,7 +343,7 @@ class Alarm(ServiceResource):
     namespace: str
     statistic: StatisticType
     extended_statistic: str
-    dimensions: List[DimensionTypeDef]
+    dimensions: list[DimensionTypeDef]
     period: int
     unit: StandardUnitType
     evaluation_periods: int
@@ -356,7 +352,7 @@ class Alarm(ServiceResource):
     comparison_operator: ComparisonOperatorType
     treat_missing_data: str
     evaluate_low_sample_count_percentile: str
-    metrics: List[MetricDataQueryAlarmTypeDef]
+    metrics: list[MetricDataQueryAlarmTypeDef]
     threshold_metric_id: str
     evaluation_state: Literal["PARTIAL_DATA"]
     state_transitioned_timestamp: datetime
@@ -438,7 +434,7 @@ class Metric(ServiceResource):
     name: str
     alarms: MetricAlarmsCollection
     metric_name: str
-    dimensions: List[DimensionTypeDef]
+    dimensions: list[DimensionTypeDef]
     meta: CloudWatchResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

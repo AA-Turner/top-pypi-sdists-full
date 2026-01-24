@@ -115,6 +115,7 @@ which stacks to synthesize, deploy and destroy. But you may also need to
 customize the behavior of the runner by changing its parameters. For example:
 
 ```python
+from aws_cdk.cloud_assembly_schema import CdkCommands, DeployCommand, DeployOptions, DestroyCommand, DestroyOptions
 app = App()
 
 stack_under_test = Stack(app, "StackUnderTest")
@@ -667,7 +668,7 @@ class ActualResult(
     @builtins.classmethod
     def from_custom_resource(
         cls,
-        custom_resource: _aws_cdk_ceddda9d.CustomResource,
+        custom_resource: "_aws_cdk_ceddda9d.CustomResource",
         attribute: builtins.str,
     ) -> "ActualResult":
         '''(experimental) Get the actual results from a CustomResource.
@@ -1030,12 +1031,12 @@ class AssertionsProvider(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         uuid: typing.Optional[builtins.str] = None,
         handler: typing.Optional[builtins.str] = None,
-        log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -1123,7 +1124,7 @@ class AssertionsProvider(
 
     @jsii.member(jsii_name="grantInvoke")
     def grant_invoke(self, principal_arn: builtins.str) -> None:
-        '''(experimental) Grant a principal access to invoke the assertion provider lambda function.
+        '''(experimental) Grant a principal access to invoke the assertion provider lambda function [disable-awslint:no-grants].
 
         :param principal_arn: the ARN of the principal that should be given permission to invoke the assertion provider.
 
@@ -1136,12 +1137,12 @@ class AssertionsProvider(
 
     @builtins.property
     @jsii.member(jsii_name="handlerRoleArn")
-    def handler_role_arn(self) -> _aws_cdk_ceddda9d.Reference:
+    def handler_role_arn(self) -> "_aws_cdk_ceddda9d.Reference":
         '''(experimental) A reference to the provider Lambda Function execution Role ARN.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_ceddda9d.Reference, jsii.get(self, "handlerRoleArn"))
+        return typing.cast("_aws_cdk_ceddda9d.Reference", jsii.get(self, "handlerRoleArn"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceToken")
@@ -1617,10 +1618,10 @@ class EqualsAssertion(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        actual: ActualResult,
+        actual: "ActualResult",
         expected: "ExpectedResult",
         fail_deployment: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -1666,7 +1667,7 @@ class EqualsAssertionProps:
     def __init__(
         self,
         *,
-        actual: ActualResult,
+        actual: "ActualResult",
         expected: "ExpectedResult",
         fail_deployment: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -1709,14 +1710,14 @@ class EqualsAssertionProps:
             self._values["fail_deployment"] = fail_deployment
 
     @builtins.property
-    def actual(self) -> ActualResult:
+    def actual(self) -> "ActualResult":
         '''(experimental) The actual results to compare.
 
         :stability: experimental
         '''
         result = self._values.get("actual")
         assert result is not None, "Required property 'actual' is missing"
-        return typing.cast(ActualResult, result)
+        return typing.cast("ActualResult", result)
 
     @builtins.property
     def expected(self) -> "ExpectedResult":
@@ -2182,7 +2183,7 @@ class HttpRequestParameters:
         self,
         *,
         url: builtins.str,
-        fetch_options: typing.Optional[typing.Union[FetchOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        fetch_options: typing.Optional[typing.Union["FetchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param url: (experimental) The url to fetch.
@@ -2234,13 +2235,13 @@ class HttpRequestParameters:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def fetch_options(self) -> typing.Optional[FetchOptions]:
+    def fetch_options(self) -> typing.Optional["FetchOptions"]:
         '''(experimental) Options for fetch.
 
         :stability: experimental
         '''
         result = self._values.get("fetch_options")
-        return typing.cast(typing.Optional[FetchOptions], result)
+        return typing.cast(typing.Optional["FetchOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2392,7 +2393,7 @@ class HttpResponseWrapper:
     def __init__(
         self,
         *,
-        api_call_response: typing.Union[HttpResponse, typing.Dict[builtins.str, typing.Any]],
+        api_call_response: typing.Union["HttpResponse", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''(experimental) Response from the HttpCall resource.
 
@@ -2432,14 +2433,14 @@ class HttpResponseWrapper:
         }
 
     @builtins.property
-    def api_call_response(self) -> HttpResponse:
+    def api_call_response(self) -> "HttpResponse":
         '''(experimental) The Response from the fetch request.
 
         :stability: experimental
         '''
         result = self._values.get("api_call_response")
         assert result is not None, "Required property 'api_call_response' is missing"
-        return typing.cast(HttpResponse, result)
+        return typing.cast("HttpResponse", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2462,7 +2463,7 @@ class IApiCall(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="provider")
-    def provider(self) -> AssertionsProvider:
+    def provider(self) -> "AssertionsProvider":
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
@@ -2486,7 +2487,7 @@ class IApiCall(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
     def assert_at_path(
         self,
         path: builtins.str,
-        expected: ExpectedResult,
+        expected: "ExpectedResult",
     ) -> "IApiCall":
         '''(experimental) Assert that the ExpectedResult is equal to the result of the AwsApiCall at the given path.
 
@@ -2523,7 +2524,7 @@ class IApiCall(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="expect")
-    def expect(self, expected: ExpectedResult) -> "IApiCall":
+    def expect(self, expected: "ExpectedResult") -> "IApiCall":
         '''(experimental) Assert that the ExpectedResult is equal to the result of the AwsApiCall.
 
         :param expected: -
@@ -2542,7 +2543,7 @@ class IApiCall(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="getAtt")
-    def get_att(self, attribute_name: builtins.str) -> _aws_cdk_ceddda9d.Reference:
+    def get_att(self, attribute_name: builtins.str) -> "_aws_cdk_ceddda9d.Reference":
         '''(experimental) Returns the value of an attribute of the custom resource of an arbitrary type.
 
         Attributes are returned from the custom resource provider through the
@@ -2599,8 +2600,8 @@ class IApiCall(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
         self,
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
@@ -2637,7 +2638,7 @@ class _IApiCallProxy(
 
     @builtins.property
     @jsii.member(jsii_name="provider")
-    def provider(self) -> AssertionsProvider:
+    def provider(self) -> "AssertionsProvider":
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
@@ -2655,10 +2656,14 @@ class _IApiCallProxy(
                 "Resource": ["*"]
             })
         '''
-        return typing.cast(AssertionsProvider, jsii.get(self, "provider"))
+        return typing.cast("AssertionsProvider", jsii.get(self, "provider"))
 
     @jsii.member(jsii_name="assertAtPath")
-    def assert_at_path(self, path: builtins.str, expected: ExpectedResult) -> IApiCall:
+    def assert_at_path(
+        self,
+        path: builtins.str,
+        expected: "ExpectedResult",
+    ) -> "IApiCall":
         '''(experimental) Assert that the ExpectedResult is equal to the result of the AwsApiCall at the given path.
 
         Providing a path will filter the output of the initial API call.
@@ -2695,10 +2700,10 @@ class _IApiCallProxy(
             type_hints = typing.get_type_hints(_typecheckingstub__f411c9c6ce09258efafb36af27db400c2f261d107ee630843a9353825628ab2a)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
-        return typing.cast(IApiCall, jsii.invoke(self, "assertAtPath", [path, expected]))
+        return typing.cast("IApiCall", jsii.invoke(self, "assertAtPath", [path, expected]))
 
     @jsii.member(jsii_name="expect")
-    def expect(self, expected: ExpectedResult) -> IApiCall:
+    def expect(self, expected: "ExpectedResult") -> "IApiCall":
         '''(experimental) Assert that the ExpectedResult is equal to the result of the AwsApiCall.
 
         :param expected: -
@@ -2717,10 +2722,10 @@ class _IApiCallProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eddf80736a88c6c822d6a25fbc32b7351e8da3accd460b8d16ff71eb55de6046)
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
-        return typing.cast(IApiCall, jsii.invoke(self, "expect", [expected]))
+        return typing.cast("IApiCall", jsii.invoke(self, "expect", [expected]))
 
     @jsii.member(jsii_name="getAtt")
-    def get_att(self, attribute_name: builtins.str) -> _aws_cdk_ceddda9d.Reference:
+    def get_att(self, attribute_name: builtins.str) -> "_aws_cdk_ceddda9d.Reference":
         '''(experimental) Returns the value of an attribute of the custom resource of an arbitrary type.
 
         Attributes are returned from the custom resource provider through the
@@ -2738,7 +2743,7 @@ class _IApiCallProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cfacb64b65fabe2392dc2b549890ca1c6de3d73472d8f4bbf082087228f4a805)
             check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
-        return typing.cast(_aws_cdk_ceddda9d.Reference, jsii.invoke(self, "getAtt", [attribute_name]))
+        return typing.cast("_aws_cdk_ceddda9d.Reference", jsii.invoke(self, "getAtt", [attribute_name]))
 
     @jsii.member(jsii_name="getAttString")
     def get_att_string(self, attribute_name: builtins.str) -> builtins.str:
@@ -2759,7 +2764,7 @@ class _IApiCallProxy(
         return typing.cast(builtins.str, jsii.invoke(self, "getAttString", [attribute_name]))
 
     @jsii.member(jsii_name="next")
-    def next(self, next: IApiCall) -> IApiCall:
+    def next(self, next: "IApiCall") -> "IApiCall":
         '''(experimental) Allows you to chain IApiCalls. This adds an explicit dependency betweent the two resources.
 
         Returns the IApiCall provided as ``next``
@@ -2779,16 +2784,16 @@ class _IApiCallProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48bcab731afdde04f06b7b02cad97732570960e944e237d4caa43e6fbceaf938)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
-        return typing.cast(IApiCall, jsii.invoke(self, "next", [next]))
+        return typing.cast("IApiCall", jsii.invoke(self, "next", [next]))
 
     @jsii.member(jsii_name="waitForAssertions")
     def wait_for_assertions(
         self,
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    ) -> IApiCall:
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
         If no expected response is specified then it will wait for
@@ -2813,7 +2818,7 @@ class _IApiCallProxy(
             backoff_rate=backoff_rate, interval=interval, total_timeout=total_timeout
         )
 
-        return typing.cast(IApiCall, jsii.invoke(self, "waitForAssertions", [options]))
+        return typing.cast("IApiCall", jsii.invoke(self, "waitForAssertions", [options]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IApiCall).__jsii_proxy_class__ = lambda : _IApiCallProxy
@@ -2836,7 +2841,7 @@ class IDeployAssert(typing_extensions.Protocol):
         api: builtins.str,
         parameters: typing.Any = None,
         output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> IApiCall:
+    ) -> "IApiCall":
         '''(experimental) Query AWS using JavaScript SDK API calls.
 
         This can be used to either
@@ -2885,8 +2890,8 @@ class IDeployAssert(typing_extensions.Protocol):
     def expect(
         self,
         id: builtins.str,
-        expected: ExpectedResult,
-        actual: ActualResult,
+        expected: "ExpectedResult",
+        actual: "ActualResult",
     ) -> None:
         '''(experimental) Assert that the ExpectedResult is equal to the ActualResult.
 
@@ -2916,7 +2921,7 @@ class IDeployAssert(typing_extensions.Protocol):
         headers: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         method: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
-    ) -> IApiCall:
+    ) -> "IApiCall":
         '''(experimental) Make an HTTP call to the provided endpoint.
 
         :param url: -
@@ -2945,10 +2950,10 @@ class IDeployAssert(typing_extensions.Protocol):
         *,
         function_name: builtins.str,
         invocation_type: typing.Optional["InvocationType"] = None,
-        log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
         log_type: typing.Optional["LogType"] = None,
         payload: typing.Optional[builtins.str] = None,
-    ) -> IApiCall:
+    ) -> "IApiCall":
         '''(experimental) Invoke a lambda function and return the response which can be asserted.
 
         :param function_name: (experimental) The name of the function to invoke.
@@ -2992,7 +2997,7 @@ class _IDeployAssertProxy:
         api: builtins.str,
         parameters: typing.Any = None,
         output_paths: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> IApiCall:
+    ) -> "IApiCall":
         '''(experimental) Query AWS using JavaScript SDK API calls.
 
         This can be used to either
@@ -3041,14 +3046,14 @@ class _IDeployAssertProxy:
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument output_paths", value=output_paths, expected_type=type_hints["output_paths"])
-        return typing.cast(IApiCall, jsii.invoke(self, "awsApiCall", [service, api, parameters, output_paths]))
+        return typing.cast("IApiCall", jsii.invoke(self, "awsApiCall", [service, api, parameters, output_paths]))
 
     @jsii.member(jsii_name="expect")
     def expect(
         self,
         id: builtins.str,
-        expected: ExpectedResult,
-        actual: ActualResult,
+        expected: "ExpectedResult",
+        actual: "ActualResult",
     ) -> None:
         '''(experimental) Assert that the ExpectedResult is equal to the ActualResult.
 
@@ -3083,7 +3088,7 @@ class _IDeployAssertProxy:
         headers: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         method: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
-    ) -> IApiCall:
+    ) -> "IApiCall":
         '''(experimental) Make an HTTP call to the provided endpoint.
 
         :param url: -
@@ -3109,7 +3114,7 @@ class _IDeployAssertProxy:
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         options = FetchOptions(body=body, headers=headers, method=method, port=port)
 
-        return typing.cast(IApiCall, jsii.invoke(self, "httpApiCall", [url, options]))
+        return typing.cast("IApiCall", jsii.invoke(self, "httpApiCall", [url, options]))
 
     @jsii.member(jsii_name="invokeFunction")
     def invoke_function(
@@ -3117,10 +3122,10 @@ class _IDeployAssertProxy:
         *,
         function_name: builtins.str,
         invocation_type: typing.Optional["InvocationType"] = None,
-        log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
         log_type: typing.Optional["LogType"] = None,
         payload: typing.Optional[builtins.str] = None,
-    ) -> IApiCall:
+    ) -> "IApiCall":
         '''(experimental) Invoke a lambda function and return the response which can be asserted.
 
         :param function_name: (experimental) The name of the function to invoke.
@@ -3151,7 +3156,7 @@ class _IDeployAssertProxy:
             payload=payload,
         )
 
-        return typing.cast(IApiCall, jsii.invoke(self, "invokeFunction", [props]))
+        return typing.cast("IApiCall", jsii.invoke(self, "invokeFunction", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDeployAssert).__jsii_proxy_class__ = lambda : _IDeployAssertProxy
@@ -3199,16 +3204,16 @@ class IntegTest(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        test_cases: typing.Sequence[_aws_cdk_ceddda9d.Stack],
-        assertion_stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
+        test_cases: typing.Sequence["_aws_cdk_ceddda9d.Stack"],
+        assertion_stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
         enable_lookups: typing.Optional[builtins.bool] = None,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -3247,12 +3252,12 @@ class IntegTest(
 
     @builtins.property
     @jsii.member(jsii_name="assertions")
-    def assertions(self) -> IDeployAssert:
+    def assertions(self) -> "IDeployAssert":
         '''(experimental) Make assertions on resources in this test case.
 
         :stability: experimental
         '''
-        return typing.cast(IDeployAssert, jsii.get(self, "assertions"))
+        return typing.cast("IDeployAssert", jsii.get(self, "assertions"))
 
 
 class IntegTestCase(
@@ -3270,6 +3275,7 @@ class IntegTestCase(
 
     Example::
 
+        from aws_cdk.cloud_assembly_schema import CdkCommands, DeployCommand, DeployOptions, DestroyCommand, DestroyOptions, Hooks
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         import aws_cdk.integ_tests_alpha as integ_tests_alpha
@@ -3382,15 +3388,15 @@ class IntegTestCase(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        stacks: typing.Sequence[_aws_cdk_ceddda9d.Stack],
-        assertion_stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
+        stacks: typing.Sequence["_aws_cdk_ceddda9d.Stack"],
+        assertion_stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -3427,16 +3433,16 @@ class IntegTestCase(
 
     @builtins.property
     @jsii.member(jsii_name="assertions")
-    def assertions(self) -> IDeployAssert:
+    def assertions(self) -> "IDeployAssert":
         '''(experimental) Make assertions on resources in this test case.
 
         :stability: experimental
         '''
-        return typing.cast(IDeployAssert, jsii.get(self, "assertions"))
+        return typing.cast("IDeployAssert", jsii.get(self, "assertions"))
 
     @builtins.property
     @jsii.member(jsii_name="manifest")
-    def manifest(self) -> _aws_cdk_cloud_assembly_schema_ceddda9d.IntegManifest:
+    def manifest(self) -> "_aws_cdk_cloud_assembly_schema_ceddda9d.IntegManifest":
         '''(experimental) The integration test manifest for this test case.
 
         Manifests are used
@@ -3444,7 +3450,7 @@ class IntegTestCase(
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_cloud_assembly_schema_ceddda9d.IntegManifest, jsii.get(self, "manifest"))
+        return typing.cast("_aws_cdk_cloud_assembly_schema_ceddda9d.IntegManifest", jsii.get(self, "manifest"))
 
 
 @jsii.data_type(
@@ -3466,13 +3472,13 @@ class IntegTestCaseProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
         self,
         *,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
-        stacks: typing.Sequence[_aws_cdk_ceddda9d.Stack],
-        assertion_stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
+        stacks: typing.Sequence["_aws_cdk_ceddda9d.Stack"],
+        assertion_stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
     ) -> None:
         '''(experimental) Properties of an integration test case.
 
@@ -3490,6 +3496,7 @@ class IntegTestCaseProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import CdkCommands, DeployCommand, DeployOptions, DestroyCommand, DestroyOptions, Hooks
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             import aws_cdk.integ_tests_alpha as integ_tests_alpha
@@ -3650,13 +3657,13 @@ class IntegTestCaseProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
     @builtins.property
     def cdk_command_options(
         self,
-    ) -> typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands]:
+    ) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"]:
         '''Additional options to use for each CDK command.
 
         :default: - runner default options
         '''
         result = self._values.get("cdk_command_options")
-        return typing.cast(typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands], result)
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"], result)
 
     @builtins.property
     def diff_assets(self) -> typing.Optional[builtins.bool]:
@@ -3671,7 +3678,7 @@ class IntegTestCaseProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def hooks(self) -> typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks]:
+    def hooks(self) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"]:
         '''Additional commands to run at predefined points in the test workflow.
 
         e.g. { postDeploy: ['yarn', 'test'] }
@@ -3679,7 +3686,7 @@ class IntegTestCaseProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
         :default: - no hooks
         '''
         result = self._values.get("hooks")
-        return typing.cast(typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks], result)
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"], result)
 
     @builtins.property
     def regions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3700,17 +3707,17 @@ class IntegTestCaseProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stacks(self) -> typing.List[_aws_cdk_ceddda9d.Stack]:
+    def stacks(self) -> typing.List["_aws_cdk_ceddda9d.Stack"]:
         '''(experimental) Stacks to be deployed during the test.
 
         :stability: experimental
         '''
         result = self._values.get("stacks")
         assert result is not None, "Required property 'stacks' is missing"
-        return typing.cast(typing.List[_aws_cdk_ceddda9d.Stack], result)
+        return typing.cast(typing.List["_aws_cdk_ceddda9d.Stack"], result)
 
     @builtins.property
-    def assertion_stack(self) -> typing.Optional[_aws_cdk_ceddda9d.Stack]:
+    def assertion_stack(self) -> typing.Optional["_aws_cdk_ceddda9d.Stack"]:
         '''(experimental) Specify a stack to use for assertions.
 
         :default: - a stack is created for you
@@ -3718,7 +3725,7 @@ class IntegTestCaseProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
         :stability: experimental
         '''
         result = self._values.get("assertion_stack")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Stack], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Stack"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3760,25 +3767,25 @@ class IntegTestCaseStack(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
         analytics_reporting: typing.Optional[builtins.bool] = None,
         cross_region_references: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
-        env: typing.Optional[typing.Union[_aws_cdk_ceddda9d.Environment, typing.Dict[builtins.str, typing.Any]]] = None,
+        env: typing.Optional[typing.Union["_aws_cdk_ceddda9d.Environment", typing.Dict[builtins.str, typing.Any]]] = None,
         notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        permissions_boundary: typing.Optional[_aws_cdk_ceddda9d.PermissionsBoundary] = None,
-        property_injectors: typing.Optional[typing.Sequence[_aws_cdk_ceddda9d.IPropertyInjector]] = None,
+        permissions_boundary: typing.Optional["_aws_cdk_ceddda9d.PermissionsBoundary"] = None,
+        property_injectors: typing.Optional[typing.Sequence["_aws_cdk_ceddda9d.IPropertyInjector"]] = None,
         stack_name: typing.Optional[builtins.str] = None,
         suppress_template_indentation: typing.Optional[builtins.bool] = None,
-        synthesizer: typing.Optional[_aws_cdk_ceddda9d.IStackSynthesizer] = None,
+        synthesizer: typing.Optional["_aws_cdk_ceddda9d.IStackSynthesizer"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         termination_protection: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -3849,12 +3856,12 @@ class IntegTestCaseStack(
 
     @builtins.property
     @jsii.member(jsii_name="assertions")
-    def assertions(self) -> IDeployAssert:
+    def assertions(self) -> "IDeployAssert":
         '''(experimental) Make assertions on resources in this test case.
 
         :stability: experimental
         '''
-        return typing.cast(IDeployAssert, jsii.get(self, "assertions"))
+        return typing.cast("IDeployAssert", jsii.get(self, "assertions"))
 
 
 @jsii.data_type(
@@ -3892,21 +3899,21 @@ class IntegTestCaseStackProps(
         self,
         *,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
         analytics_reporting: typing.Optional[builtins.bool] = None,
         cross_region_references: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
-        env: typing.Optional[typing.Union[_aws_cdk_ceddda9d.Environment, typing.Dict[builtins.str, typing.Any]]] = None,
+        env: typing.Optional[typing.Union["_aws_cdk_ceddda9d.Environment", typing.Dict[builtins.str, typing.Any]]] = None,
         notification_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        permissions_boundary: typing.Optional[_aws_cdk_ceddda9d.PermissionsBoundary] = None,
-        property_injectors: typing.Optional[typing.Sequence[_aws_cdk_ceddda9d.IPropertyInjector]] = None,
+        permissions_boundary: typing.Optional["_aws_cdk_ceddda9d.PermissionsBoundary"] = None,
+        property_injectors: typing.Optional[typing.Sequence["_aws_cdk_ceddda9d.IPropertyInjector"]] = None,
         stack_name: typing.Optional[builtins.str] = None,
         suppress_template_indentation: typing.Optional[builtins.bool] = None,
-        synthesizer: typing.Optional[_aws_cdk_ceddda9d.IStackSynthesizer] = None,
+        synthesizer: typing.Optional["_aws_cdk_ceddda9d.IStackSynthesizer"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         termination_protection: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -4028,13 +4035,13 @@ class IntegTestCaseStackProps(
     @builtins.property
     def cdk_command_options(
         self,
-    ) -> typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands]:
+    ) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"]:
         '''Additional options to use for each CDK command.
 
         :default: - runner default options
         '''
         result = self._values.get("cdk_command_options")
-        return typing.cast(typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands], result)
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"], result)
 
     @builtins.property
     def diff_assets(self) -> typing.Optional[builtins.bool]:
@@ -4049,7 +4056,7 @@ class IntegTestCaseStackProps(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def hooks(self) -> typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks]:
+    def hooks(self) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"]:
         '''Additional commands to run at predefined points in the test workflow.
 
         e.g. { postDeploy: ['yarn', 'test'] }
@@ -4057,7 +4064,7 @@ class IntegTestCaseStackProps(
         :default: - no hooks
         '''
         result = self._values.get("hooks")
-        return typing.cast(typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks], result)
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"], result)
 
     @builtins.property
     def regions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4113,7 +4120,7 @@ class IntegTestCaseStackProps(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def env(self) -> typing.Optional[_aws_cdk_ceddda9d.Environment]:
+    def env(self) -> typing.Optional["_aws_cdk_ceddda9d.Environment"]:
         '''The AWS environment (account/region) where this stack will be deployed.
 
         Set the ``region``/``account`` fields of ``env`` to either a concrete value to
@@ -4142,6 +4149,7 @@ class IntegTestCaseStackProps(
 
         Example::
 
+            from aws_cdk import Environment, Environment, Environment
             # Use a concrete account and region to deploy this stack to:
             # `.account` and `.region` will simply return these values.
             Stack(app, "Stack1",
@@ -4180,7 +4188,7 @@ class IntegTestCaseStackProps(
             MyStack(app, "Stack1")
         '''
         result = self._values.get("env")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Environment], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Environment"], result)
 
     @builtins.property
     def notification_arns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4194,24 +4202,24 @@ class IntegTestCaseStackProps(
     @builtins.property
     def permissions_boundary(
         self,
-    ) -> typing.Optional[_aws_cdk_ceddda9d.PermissionsBoundary]:
+    ) -> typing.Optional["_aws_cdk_ceddda9d.PermissionsBoundary"]:
         '''Options for applying a permissions boundary to all IAM Roles and Users created within this Stage.
 
         :default: - no permissions boundary is applied
         '''
         result = self._values.get("permissions_boundary")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.PermissionsBoundary], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.PermissionsBoundary"], result)
 
     @builtins.property
     def property_injectors(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_ceddda9d.IPropertyInjector]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_ceddda9d.IPropertyInjector"]]:
         '''A list of IPropertyInjector attached to this Stack.
 
         :default: - no PropertyInjectors
         '''
         result = self._values.get("property_injectors")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_ceddda9d.IPropertyInjector]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_ceddda9d.IPropertyInjector"]], result)
 
     @builtins.property
     def stack_name(self) -> typing.Optional[builtins.str]:
@@ -4236,7 +4244,7 @@ class IntegTestCaseStackProps(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def synthesizer(self) -> typing.Optional[_aws_cdk_ceddda9d.IStackSynthesizer]:
+    def synthesizer(self) -> typing.Optional["_aws_cdk_ceddda9d.IStackSynthesizer"]:
         '''Synthesis method to use while deploying this stack.
 
         The Stack Synthesizer controls aspects of synthesis and deployment,
@@ -4252,7 +4260,7 @@ class IntegTestCaseStackProps(
         :default: - The synthesizer specified on ``App``, or ``DefaultStackSynthesizer`` otherwise.
         '''
         result = self._values.get("synthesizer")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.IStackSynthesizer], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.IStackSynthesizer"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -4312,13 +4320,13 @@ class IntegTestProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
         self,
         *,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_command_options: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
-        test_cases: typing.Sequence[_aws_cdk_ceddda9d.Stack],
-        assertion_stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
+        test_cases: typing.Sequence["_aws_cdk_ceddda9d.Stack"],
+        assertion_stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
         enable_lookups: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Integration test properties.
@@ -4416,13 +4424,13 @@ class IntegTestProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
     @builtins.property
     def cdk_command_options(
         self,
-    ) -> typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands]:
+    ) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"]:
         '''Additional options to use for each CDK command.
 
         :default: - runner default options
         '''
         result = self._values.get("cdk_command_options")
-        return typing.cast(typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands], result)
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.CdkCommands"], result)
 
     @builtins.property
     def diff_assets(self) -> typing.Optional[builtins.bool]:
@@ -4437,7 +4445,7 @@ class IntegTestProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def hooks(self) -> typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks]:
+    def hooks(self) -> typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"]:
         '''Additional commands to run at predefined points in the test workflow.
 
         e.g. { postDeploy: ['yarn', 'test'] }
@@ -4445,7 +4453,7 @@ class IntegTestProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
         :default: - no hooks
         '''
         result = self._values.get("hooks")
-        return typing.cast(typing.Optional[_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks], result)
+        return typing.cast(typing.Optional["_aws_cdk_cloud_assembly_schema_ceddda9d.Hooks"], result)
 
     @builtins.property
     def regions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4466,17 +4474,17 @@ class IntegTestProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def test_cases(self) -> typing.List[_aws_cdk_ceddda9d.Stack]:
+    def test_cases(self) -> typing.List["_aws_cdk_ceddda9d.Stack"]:
         '''(experimental) List of test cases that make up this test.
 
         :stability: experimental
         '''
         result = self._values.get("test_cases")
         assert result is not None, "Required property 'test_cases' is missing"
-        return typing.cast(typing.List[_aws_cdk_ceddda9d.Stack], result)
+        return typing.cast(typing.List["_aws_cdk_ceddda9d.Stack"], result)
 
     @builtins.property
-    def assertion_stack(self) -> typing.Optional[_aws_cdk_ceddda9d.Stack]:
+    def assertion_stack(self) -> typing.Optional["_aws_cdk_ceddda9d.Stack"]:
         '''(experimental) Specify a stack to use for assertions.
 
         :default: - a stack is created for you
@@ -4484,7 +4492,7 @@ class IntegTestProps(_aws_cdk_cloud_assembly_schema_ceddda9d.TestOptions):
         :stability: experimental
         '''
         result = self._values.get("assertion_stack")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Stack], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Stack"], result)
 
     @builtins.property
     def enable_lookups(self) -> typing.Optional[builtins.bool]:
@@ -4594,7 +4602,7 @@ class LambdaFunctionProviderProps:
         self,
         *,
         handler: typing.Optional[builtins.str] = None,
-        log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
     ) -> None:
         '''(experimental) Properties for a lambda function provider.
 
@@ -4640,7 +4648,7 @@ class LambdaFunctionProviderProps:
     @builtins.property
     def log_retention(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays]:
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"]:
         '''(experimental) How long, in days, the log contents will be retained.
 
         :default: - no retention days specified
@@ -4648,7 +4656,7 @@ class LambdaFunctionProviderProps:
         :stability: experimental
         '''
         result = self._values.get("log_retention")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4678,8 +4686,8 @@ class LambdaInvokeFunctionProps:
         self,
         *,
         function_name: builtins.str,
-        invocation_type: typing.Optional[InvocationType] = None,
-        log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+        invocation_type: typing.Optional["InvocationType"] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
         log_type: typing.Optional["LogType"] = None,
         payload: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -4743,7 +4751,7 @@ class LambdaInvokeFunctionProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def invocation_type(self) -> typing.Optional[InvocationType]:
+    def invocation_type(self) -> typing.Optional["InvocationType"]:
         '''(experimental) The type of invocation to use.
 
         :default: InvocationType.REQUEST_RESPONSE
@@ -4751,12 +4759,12 @@ class LambdaInvokeFunctionProps:
         :stability: experimental
         '''
         result = self._values.get("invocation_type")
-        return typing.cast(typing.Optional[InvocationType], result)
+        return typing.cast(typing.Optional["InvocationType"], result)
 
     @builtins.property
     def log_retention(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays]:
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"]:
         '''(experimental) How long, in days, the log contents will be retained.
 
         :default: - no retention days specified
@@ -4764,7 +4772,7 @@ class LambdaInvokeFunctionProps:
         :stability: experimental
         '''
         result = self._values.get("log_retention")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"], result)
 
     @builtins.property
     def log_type(self) -> typing.Optional["LogType"]:
@@ -4982,12 +4990,12 @@ class WaiterStateMachine(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -5010,12 +5018,12 @@ class WaiterStateMachine(
 
     @builtins.property
     @jsii.member(jsii_name="isCompleteProvider")
-    def is_complete_provider(self) -> AssertionsProvider:
+    def is_complete_provider(self) -> "AssertionsProvider":
         '''(experimental) The AssertionsProvide that handles async requests.
 
         :stability: experimental
         '''
-        return typing.cast(AssertionsProvider, jsii.get(self, "isCompleteProvider"))
+        return typing.cast("AssertionsProvider", jsii.get(self, "isCompleteProvider"))
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -5050,8 +5058,8 @@ class WaiterStateMachineOptions:
         self,
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Options for creating a WaiterStateMachine.
 
@@ -5207,7 +5215,7 @@ class WaiterStateMachineOptions:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def interval(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def interval(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The interval (number of seconds) to wait between attempts.
 
         :default: Duration.seconds(5)
@@ -5215,10 +5223,10 @@ class WaiterStateMachineOptions:
         :stability: experimental
         '''
         result = self._values.get("interval")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def total_timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def total_timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The total time that the state machine will wait for a successful response.
 
         :default: Duration.minutes(30)
@@ -5226,7 +5234,7 @@ class WaiterStateMachineOptions:
         :stability: experimental
         '''
         result = self._values.get("total_timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5254,8 +5262,8 @@ class WaiterStateMachineProps(WaiterStateMachineOptions):
         self,
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''(experimental) Props for creating a WaiterStateMachine.
 
@@ -5310,7 +5318,7 @@ class WaiterStateMachineProps(WaiterStateMachineOptions):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def interval(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def interval(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The interval (number of seconds) to wait between attempts.
 
         :default: Duration.seconds(5)
@@ -5318,10 +5326,10 @@ class WaiterStateMachineProps(WaiterStateMachineOptions):
         :stability: experimental
         '''
         result = self._values.get("interval")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def total_timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def total_timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The total time that the state machine will wait for a successful response.
 
         :default: Duration.minutes(30)
@@ -5329,7 +5337,7 @@ class WaiterStateMachineProps(WaiterStateMachineOptions):
         :stability: experimental
         '''
         result = self._values.get("total_timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5354,7 +5362,11 @@ class ApiCallBase(
     :stability: experimental
     '''
 
-    def __init__(self, scope: _constructs_77d1e7e8.Construct, id: builtins.str) -> None:
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
         '''
         :param scope: -
         :param id: -
@@ -5369,7 +5381,11 @@ class ApiCallBase(
 
     @jsii.member(jsii_name="assertAtPath")
     @abc.abstractmethod
-    def assert_at_path(self, path: builtins.str, expected: ExpectedResult) -> IApiCall:
+    def assert_at_path(
+        self,
+        path: builtins.str,
+        expected: "ExpectedResult",
+    ) -> "IApiCall":
         '''(experimental) Assert that the ExpectedResult is equal to the result of the AwsApiCall at the given path.
 
         Providing a path will filter the output of the initial API call.
@@ -5387,7 +5403,7 @@ class ApiCallBase(
         ...
 
     @jsii.member(jsii_name="expect")
-    def expect(self, expected: ExpectedResult) -> IApiCall:
+    def expect(self, expected: "ExpectedResult") -> "IApiCall":
         '''(experimental) Assert that the ExpectedResult is equal to the result of the AwsApiCall.
 
         :param expected: -
@@ -5397,10 +5413,10 @@ class ApiCallBase(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b7c9aa0f42f1a833762c8119488d08ffbe967de907a60b24f416cf7c564fd91)
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
-        return typing.cast(IApiCall, jsii.invoke(self, "expect", [expected]))
+        return typing.cast("IApiCall", jsii.invoke(self, "expect", [expected]))
 
     @jsii.member(jsii_name="getAtt")
-    def get_att(self, attribute_name: builtins.str) -> _aws_cdk_ceddda9d.Reference:
+    def get_att(self, attribute_name: builtins.str) -> "_aws_cdk_ceddda9d.Reference":
         '''(experimental) Returns the value of an attribute of the custom resource of an arbitrary type.
 
         Attributes are returned from the custom resource provider through the
@@ -5413,7 +5429,7 @@ class ApiCallBase(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e6cf0fe113d623960a2bcd5ecbfd05737f899bcc55e5ff0e8d2c5e1a4567ea46)
             check_type(argname="argument attribute_name", value=attribute_name, expected_type=type_hints["attribute_name"])
-        return typing.cast(_aws_cdk_ceddda9d.Reference, jsii.invoke(self, "getAtt", [attribute_name]))
+        return typing.cast("_aws_cdk_ceddda9d.Reference", jsii.invoke(self, "getAtt", [attribute_name]))
 
     @jsii.member(jsii_name="getAttString")
     def get_att_string(self, attribute_name: builtins.str) -> builtins.str:
@@ -5432,7 +5448,7 @@ class ApiCallBase(
         return typing.cast(builtins.str, jsii.invoke(self, "getAttString", [attribute_name]))
 
     @jsii.member(jsii_name="next")
-    def next(self, next: IApiCall) -> IApiCall:
+    def next(self, next: "IApiCall") -> "IApiCall":
         '''(experimental) Allows you to chain IApiCalls. This adds an explicit dependency betweent the two resources.
 
         Returns the IApiCall provided as ``next``
@@ -5444,7 +5460,7 @@ class ApiCallBase(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b474cc33c103ba8fec955b34c41238ccfcd11dbdb11f7e6a2438893d316b2afa)
             check_type(argname="argument next", value=next, expected_type=type_hints["next"])
-        return typing.cast(IApiCall, jsii.invoke(self, "next", [next]))
+        return typing.cast("IApiCall", jsii.invoke(self, "next", [next]))
 
     @jsii.member(jsii_name="waitForAssertions")
     @abc.abstractmethod
@@ -5452,9 +5468,9 @@ class ApiCallBase(
         self,
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    ) -> IApiCall:
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
         If no expected response is specified then it will wait for
@@ -5471,7 +5487,7 @@ class ApiCallBase(
     @builtins.property
     @jsii.member(jsii_name="apiCallResource")
     @abc.abstractmethod
-    def _api_call_resource(self) -> _aws_cdk_ceddda9d.CustomResource:
+    def _api_call_resource(self) -> "_aws_cdk_ceddda9d.CustomResource":
         '''
         :stability: experimental
         '''
@@ -5480,7 +5496,7 @@ class ApiCallBase(
     @builtins.property
     @jsii.member(jsii_name="provider")
     @abc.abstractmethod
-    def provider(self) -> AssertionsProvider:
+    def provider(self) -> "AssertionsProvider":
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
@@ -5553,7 +5569,11 @@ class ApiCallBase(
 
 class _ApiCallBaseProxy(ApiCallBase):
     @jsii.member(jsii_name="assertAtPath")
-    def assert_at_path(self, path: builtins.str, expected: ExpectedResult) -> IApiCall:
+    def assert_at_path(
+        self,
+        path: builtins.str,
+        expected: "ExpectedResult",
+    ) -> "IApiCall":
         '''(experimental) Assert that the ExpectedResult is equal to the result of the AwsApiCall at the given path.
 
         Providing a path will filter the output of the initial API call.
@@ -5572,16 +5592,16 @@ class _ApiCallBaseProxy(ApiCallBase):
             type_hints = typing.get_type_hints(_typecheckingstub__13845f08ac36885e9e69aea7f533608f95aec490022e45da191534ce7c571fe8)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
-        return typing.cast(IApiCall, jsii.invoke(self, "assertAtPath", [path, expected]))
+        return typing.cast("IApiCall", jsii.invoke(self, "assertAtPath", [path, expected]))
 
     @jsii.member(jsii_name="waitForAssertions")
     def wait_for_assertions(
         self,
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    ) -> IApiCall:
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
         If no expected response is specified then it will wait for
@@ -5597,19 +5617,19 @@ class _ApiCallBaseProxy(ApiCallBase):
             backoff_rate=backoff_rate, interval=interval, total_timeout=total_timeout
         )
 
-        return typing.cast(IApiCall, jsii.invoke(self, "waitForAssertions", [options]))
+        return typing.cast("IApiCall", jsii.invoke(self, "waitForAssertions", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="apiCallResource")
-    def _api_call_resource(self) -> _aws_cdk_ceddda9d.CustomResource:
+    def _api_call_resource(self) -> "_aws_cdk_ceddda9d.CustomResource":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_ceddda9d.CustomResource, jsii.get(self, "apiCallResource"))
+        return typing.cast("_aws_cdk_ceddda9d.CustomResource", jsii.get(self, "apiCallResource"))
 
     @builtins.property
     @jsii.member(jsii_name="provider")
-    def provider(self) -> AssertionsProvider:
+    def provider(self) -> "AssertionsProvider":
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
@@ -5617,7 +5637,7 @@ class _ApiCallBaseProxy(ApiCallBase):
 
         :stability: experimental
         '''
-        return typing.cast(AssertionsProvider, jsii.get(self, "provider"))
+        return typing.cast("AssertionsProvider", jsii.get(self, "provider"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, ApiCallBase).__jsii_proxy_class__ = lambda : _ApiCallBaseProxy
@@ -5637,7 +5657,7 @@ class AssertionsProviderProps(LambdaFunctionProviderProps):
         self,
         *,
         handler: typing.Optional[builtins.str] = None,
-        log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
         uuid: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Properties for defining an AssertionsProvider.
@@ -5689,7 +5709,7 @@ class AssertionsProviderProps(LambdaFunctionProviderProps):
     @builtins.property
     def log_retention(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays]:
+    ) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"]:
         '''(experimental) How long, in days, the log contents will be retained.
 
         :default: - no retention days specified
@@ -5697,7 +5717,7 @@ class AssertionsProviderProps(LambdaFunctionProviderProps):
         :stability: experimental
         '''
         result = self._values.get("log_retention")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"], result)
 
     @builtins.property
     def uuid(self) -> typing.Optional[builtins.str]:
@@ -5751,7 +5771,7 @@ class AwsApiCall(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         api: builtins.str,
@@ -5780,7 +5800,11 @@ class AwsApiCall(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="assertAtPath")
-    def assert_at_path(self, path: builtins.str, expected: ExpectedResult) -> IApiCall:
+    def assert_at_path(
+        self,
+        path: builtins.str,
+        expected: "ExpectedResult",
+    ) -> "IApiCall":
         '''(experimental) Assert that the ExpectedResult is equal to the result of the AwsApiCall at the given path.
 
         Providing a path will filter the output of the initial API call.
@@ -5799,16 +5823,16 @@ class AwsApiCall(
             type_hints = typing.get_type_hints(_typecheckingstub__7c820409bea110666051dd23cfad75a1450d07826755868229c2b4934ec0bad8)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument expected", value=expected, expected_type=type_hints["expected"])
-        return typing.cast(IApiCall, jsii.invoke(self, "assertAtPath", [path, expected]))
+        return typing.cast("IApiCall", jsii.invoke(self, "assertAtPath", [path, expected]))
 
     @jsii.member(jsii_name="waitForAssertions")
     def wait_for_assertions(
         self,
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    ) -> IApiCall:
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
         If no expected response is specified then it will wait for
@@ -5824,19 +5848,19 @@ class AwsApiCall(
             backoff_rate=backoff_rate, interval=interval, total_timeout=total_timeout
         )
 
-        return typing.cast(IApiCall, jsii.invoke(self, "waitForAssertions", [options]))
+        return typing.cast("IApiCall", jsii.invoke(self, "waitForAssertions", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="apiCallResource")
-    def _api_call_resource(self) -> _aws_cdk_ceddda9d.CustomResource:
+    def _api_call_resource(self) -> "_aws_cdk_ceddda9d.CustomResource":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_ceddda9d.CustomResource, jsii.get(self, "apiCallResource"))
+        return typing.cast("_aws_cdk_ceddda9d.CustomResource", jsii.get(self, "apiCallResource"))
 
     @builtins.property
     @jsii.member(jsii_name="provider")
-    def provider(self) -> AssertionsProvider:
+    def provider(self) -> "AssertionsProvider":
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
@@ -5844,11 +5868,11 @@ class AwsApiCall(
 
         :stability: experimental
         '''
-        return typing.cast(AssertionsProvider, jsii.get(self, "provider"))
+        return typing.cast("AssertionsProvider", jsii.get(self, "provider"))
 
     @builtins.property
     @jsii.member(jsii_name="waiterProvider")
-    def waiter_provider(self) -> typing.Optional[AssertionsProvider]:
+    def waiter_provider(self) -> typing.Optional["AssertionsProvider"]:
         '''(experimental) access the AssertionsProvider for the waiter state machine.
 
         This can be used to add additional IAM policies
@@ -5866,10 +5890,10 @@ class AwsApiCall(
                 "Resource": ["*"]
             })
         '''
-        return typing.cast(typing.Optional[AssertionsProvider], jsii.get(self, "waiterProvider"))
+        return typing.cast(typing.Optional["AssertionsProvider"], jsii.get(self, "waiterProvider"))
 
     @waiter_provider.setter
-    def waiter_provider(self, value: typing.Optional[AssertionsProvider]) -> None:
+    def waiter_provider(self, value: typing.Optional["AssertionsProvider"]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e978f2b80fc7ca4cf867ebf9e4673daf1582477274721902259a31caf906a43)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -5898,11 +5922,11 @@ class HttpApiCall(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         url: builtins.str,
-        fetch_options: typing.Optional[typing.Union[FetchOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        fetch_options: typing.Optional[typing.Union["FetchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -5924,8 +5948,8 @@ class HttpApiCall(
     def assert_at_path(
         self,
         _path: builtins.str,
-        _expected: ExpectedResult,
-    ) -> IApiCall:
+        _expected: "ExpectedResult",
+    ) -> "IApiCall":
         '''(experimental) Assert that the ExpectedResult is equal to the result of the AwsApiCall at the given path.
 
         Providing a path will filter the output of the initial API call.
@@ -5944,16 +5968,16 @@ class HttpApiCall(
             type_hints = typing.get_type_hints(_typecheckingstub__eb5f6f39838f44a897965a4772b5b6db17ad826ce021bb98080a9af10f1207c9)
             check_type(argname="argument _path", value=_path, expected_type=type_hints["_path"])
             check_type(argname="argument _expected", value=_expected, expected_type=type_hints["_expected"])
-        return typing.cast(IApiCall, jsii.invoke(self, "assertAtPath", [_path, _expected]))
+        return typing.cast("IApiCall", jsii.invoke(self, "assertAtPath", [_path, _expected]))
 
     @jsii.member(jsii_name="waitForAssertions")
     def wait_for_assertions(
         self,
         *,
         backoff_rate: typing.Optional[jsii.Number] = None,
-        interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        total_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    ) -> IApiCall:
+        interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        total_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> "IApiCall":
         '''(experimental) Wait for the IApiCall to return the expected response.
 
         If no expected response is specified then it will wait for
@@ -5969,19 +5993,19 @@ class HttpApiCall(
             backoff_rate=backoff_rate, interval=interval, total_timeout=total_timeout
         )
 
-        return typing.cast(IApiCall, jsii.invoke(self, "waitForAssertions", [options]))
+        return typing.cast("IApiCall", jsii.invoke(self, "waitForAssertions", [options]))
 
     @builtins.property
     @jsii.member(jsii_name="apiCallResource")
-    def _api_call_resource(self) -> _aws_cdk_ceddda9d.CustomResource:
+    def _api_call_resource(self) -> "_aws_cdk_ceddda9d.CustomResource":
         '''
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_ceddda9d.CustomResource, jsii.get(self, "apiCallResource"))
+        return typing.cast("_aws_cdk_ceddda9d.CustomResource", jsii.get(self, "apiCallResource"))
 
     @builtins.property
     @jsii.member(jsii_name="provider")
-    def provider(self) -> AssertionsProvider:
+    def provider(self) -> "AssertionsProvider":
         '''(experimental) access the AssertionsProvider.
 
         This can be used to add additional IAM policies
@@ -5989,7 +6013,7 @@ class HttpApiCall(
 
         :stability: experimental
         '''
-        return typing.cast(AssertionsProvider, jsii.get(self, "provider"))
+        return typing.cast("AssertionsProvider", jsii.get(self, "provider"))
 
 
 @jsii.data_type(
@@ -6002,7 +6026,7 @@ class HttpCallProps(HttpRequestParameters):
         self,
         *,
         url: builtins.str,
-        fetch_options: typing.Optional[typing.Union[FetchOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        fetch_options: typing.Optional[typing.Union["FetchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options for creating an HttpApiCall provider.
 
@@ -6044,13 +6068,13 @@ class HttpCallProps(HttpRequestParameters):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def fetch_options(self) -> typing.Optional[FetchOptions]:
+    def fetch_options(self) -> typing.Optional["FetchOptions"]:
         '''(experimental) Options for fetch.
 
         :stability: experimental
         '''
         result = self._values.get("fetch_options")
-        return typing.cast(typing.Optional[FetchOptions], result)
+        return typing.cast(typing.Optional["FetchOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6098,13 +6122,13 @@ class LambdaInvokeFunction(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         function_name: builtins.str,
-        invocation_type: typing.Optional[InvocationType] = None,
-        log_retention: typing.Optional[_aws_cdk_aws_logs_ceddda9d.RetentionDays] = None,
-        log_type: typing.Optional[LogType] = None,
+        invocation_type: typing.Optional["InvocationType"] = None,
+        log_retention: typing.Optional["_aws_cdk_aws_logs_ceddda9d.RetentionDays"] = None,
+        log_type: typing.Optional["LogType"] = None,
         payload: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -6775,3 +6799,6 @@ def _typecheckingstub__fc846004ad65c16a9a1322c4c518ae25ebd02b2bc7803230f5bb11a28
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IApiCall, IDeployAssert]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

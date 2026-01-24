@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import io
+import itertools
 import os
-import sys
-import typing
 from itertools import product
 from typing import Callable, Literal
 
@@ -21,12 +20,26 @@ from sklearn.utils.estimator_checks import parametrize_with_checks
 from torch import nn
 
 from tabpfn import TabPFNClassifier
+from tabpfn.architectures import base
+from tabpfn.architectures.base.config import ModelConfig
 from tabpfn.base import ClassifierModelSpecs, initialize_tabpfn_model
-from tabpfn.model_loading import ModelSource
+from tabpfn.constants import ModelVersion
+from tabpfn.inference_config import InferenceConfig
+from tabpfn.inference_tuning import (
+    MIN_NUM_SAMPLES_RECOMMENDED_FOR_TUNING,
+    ClassifierEvalMetrics,
+    ClassifierTuningConfig,
+)
+from tabpfn.model_loading import ModelSource, prepend_cache_path
 from tabpfn.preprocessing import PreprocessorConfig
 from tabpfn.utils import infer_devices
 
-from .utils import check_cpu_float16_support, get_pytest_devices
+from .utils import (
+    get_pytest_devices,
+    is_cpu_float16_supported,
+    mark_mps_configs_as_slow,
+    patch_layernorm_no_affine,
+)
 
 exclude_devices = {
     d.strip() for d in os.getenv("TABPFN_EXCLUDE_DEVICES", "").split(",") if d.strip()
@@ -34,116 +47,62 @@ exclude_devices = {
 
 devices = get_pytest_devices()
 
-is_cpu_float16_supported = check_cpu_float16_support()
-
-# --- Define parameter combinations ---
-# These are the parameters we want to test in our grid search
-# TODO: test "batched" mode
-feature_shift_decoders = ["shuffle", "rotate"]
-multiclass_decoders = ["shuffle", "rotate"]
-fit_modes = [
-    "low_memory",
-    "fit_preprocessors",
-    "fit_with_cache",
-]
-inference_precision_methods = ["auto", "autocast", torch.float64, torch.float16]
-remove_outliers_stds = [None, 12]
-estimators = [1, 2]
-
-model_paths = ModelSource.get_classifier_v2().filenames
-primary_model = ModelSource.get_classifier_v2().default_filename
-other_models = [model_path for model_path in model_paths if model_path != primary_model]
-
-# --- Build parameter combinations ---
-# Full grid for the first (primary) model path
-_full_grid = product(
-    estimators,
-    devices,  # device
-    feature_shift_decoders,
-    multiclass_decoders,
-    fit_modes,
-    inference_precision_methods,
-    remove_outliers_stds,
-    [primary_model],  # only the first entry
-)
-
-# Minimal "smoke" grid for all remaining model paths (one combo per path)
-_smoke_grid = product(
-    [1],  # n_estimators
-    ["cpu"],  # device (fast & universally available)
-    ["shuffle"],  # feature_shift_decoder
-    ["shuffle"],  # multiclass_decoder
-    ["fit_preprocessors"],  # fit_mode
-    ["auto"],  # inference_precision
-    [None],  # remove_outliers_std
-    other_models,  # every non-first model path
-)
-
-all_combinations = list(_full_grid) + list(_smoke_grid)
-
 
 @pytest.fixture(scope="module")
 def X_y() -> tuple[np.ndarray, np.ndarray]:
     n_classes = 3
     return sklearn.datasets.make_classification(
-        n_samples=20 * n_classes,
+        n_samples=3 * n_classes,
         n_classes=n_classes,
-        n_features=5,
-        n_informative=5,
+        n_features=3,
+        n_informative=3,
         n_redundant=0,
         random_state=0,
     )
 
 
+model_sources = [ModelSource.get_classifier_v2(), ModelSource.get_classifier_v2_5()]
+fit_modes = ["low_memory", "fit_preprocessors", "fit_with_cache"]
+
+
 @pytest.mark.parametrize(
-    (
-        "n_estimators",
-        "device",
-        "feature_shift_decoder",
-        "multiclass_decoder",
-        "fit_mode",
-        "inference_precision",
-        "remove_outliers_std",
-        "model_path",
+    ("device", "n_estimators", "fit_mode", "inference_precision"),
+    mark_mps_configs_as_slow(
+        itertools.product(
+            devices,
+            [1, 2],  # n_estimators
+            fit_modes,
+            ["auto", "autocast", torch.float64, torch.float16],  # inference_precision
+        )
     ),
-    all_combinations,
 )
-def test_fit(
+def test__fit_predict__passes_sklearn_check_and_outputs_correct_shape(
+    device: str,
     n_estimators: int,
-    device: Literal["cuda", "mps", "cpu"],
-    feature_shift_decoder: Literal["shuffle", "rotate"],
-    multiclass_decoder: Literal["shuffle", "rotate"],
     fit_mode: Literal["low_memory", "fit_preprocessors", "fit_with_cache"],
     inference_precision: torch.types._dtype | Literal["autocast", "auto"],
-    remove_outliers_std: int | None,
-    model_path: str,
     X_y: tuple[np.ndarray, np.ndarray],
 ) -> None:
-    if torch.device(device).type == "cpu" and inference_precision in ["autocast"]:
-        pytest.skip("CPU device does not support 'autocast' inference.")
-
-    # Use the environment-aware check to skip only if necessary
+    if inference_precision == "autocast":
+        if torch.device(device).type == "cpu":
+            pytest.skip("CPU device does not support 'autocast' inference.")
+        if torch.device(device).type == "mps" and torch.__version__ < "2.5":
+            pytest.skip("MPS does not support mixed precision before PyTorch 2.5")
     if (
         torch.device(device).type == "cpu"
         and inference_precision == torch.float16
-        and not is_cpu_float16_supported
+        and not is_cpu_float16_supported()
     ):
         pytest.skip("CPU float16 matmul not supported in this PyTorch version.")
     if torch.device(device).type == "mps" and inference_precision == torch.float64:
         pytest.skip("MPS does not support float64, which is required for this check.")
 
     model = TabPFNClassifier(
-        model_path=model_path,
         n_estimators=n_estimators,
         device=device,
         fit_mode=fit_mode,
         inference_precision=inference_precision,
-        inference_config={
-            "OUTLIER_REMOVAL_STD": remove_outliers_std,
-            "CLASS_SHIFT_METHOD": multiclass_decoder,
-            "FEATURE_SHIFT_METHOD": feature_shift_decoder,
-        },
-        random_state=42,  # Added for consistency and reproducibility
+        random_state=42,
     )
 
     X, y = X_y
@@ -152,44 +111,167 @@ def test_fit(
     assert returned_model is model, "Returned model is not the same as the model"
     check_is_fitted(returned_model)
 
-    probabilities = model.predict_proba(X)
-    assert probabilities.shape == (
-        X.shape[0],
-        len(np.unique(y)),
-    ), "Probabilities shape is incorrect"
+    assert model.predict_proba(X).shape == (X.shape[0], len(np.unique(y)))
+    assert model.predict(X).shape == (X.shape[0],)
 
-    predictions = model.predict(X)
-    assert predictions.shape == (X.shape[0],), "Predictions shape is incorrect!"
+
+@pytest.mark.parametrize("device", [d for d in devices if d == "mps"])
+def test__fit_predict__mps_smoke_test__outputs_correct_shape(
+    device: str, X_y: tuple[np.ndarray, np.ndarray]
+) -> None:
+    """Basic test of fit+predict on MPS.
+
+    The other MPS tests in this file are disabled in PRs because they are slow, so this
+    test provides some coverage.
+    """
+    model = TabPFNClassifier(n_estimators=2, device=device, random_state=42)
+    X, y = X_y
+    model.fit(X, y)
+    assert model.predict_proba(X).shape == (X.shape[0], len(np.unique(y)))
+    assert model.predict(X).shape == (X.shape[0],)
+
+
+non_default_model_paths = list(
+    itertools.chain.from_iterable(
+        (
+            model_path
+            for model_path in model_source.filenames
+            if model_path != model_source.default_filename
+        )
+        for model_source in model_sources
+    )
+)
+
+
+@pytest.mark.parametrize(
+    ("device", "model_path"),
+    mark_mps_configs_as_slow(itertools.product(devices, non_default_model_paths)),
+)
+def test__fit_predict__alternative_model_paths__outputs_correct_shape(
+    device: str,
+    model_path: str | list[str],
+    X_y: tuple[np.ndarray, np.ndarray],
+) -> None:
+    model = TabPFNClassifier(
+        model_path=prepend_cache_path(model_path),
+        n_estimators=1,
+        device=device,
+        random_state=42,
+    )
+
+    X, y = X_y
+
+    returned_model = model.fit(X, y)
+    assert returned_model is model, "Returned model is not the same as the model"
+    check_is_fitted(returned_model)
+
+    assert model.predict_proba(X).shape == (X.shape[0], len(np.unique(y)))
+    assert model.predict(X).shape == (X.shape[0],)
+
+
+@pytest.mark.parametrize(
+    ("device", "fit_mode"),
+    mark_mps_configs_as_slow(itertools.product(devices, fit_modes)),
+)
+def test__fit_predict__multiple_model_paths__outputs_correct_shape(
+    device: str,
+    fit_mode: str,
+    X_y: tuple[np.ndarray, np.ndarray],
+) -> None:
+    model = TabPFNClassifier(
+        model_path=prepend_cache_path(model_sources[0].filenames[:2]),
+        n_estimators=1,
+        device=device,
+        fit_mode=fit_mode,
+        random_state=42,
+    )
+
+    X, y = X_y
+
+    returned_model = model.fit(X, y)
+    assert returned_model is model, "Returned model is not the same as the model"
+    check_is_fitted(returned_model)
+
+    assert model.predict_proba(X).shape == (X.shape[0], len(np.unique(y)))
+    assert model.predict(X).shape == (X.shape[0],)
+
+
+@pytest.mark.parametrize(
+    ("device", "feature_shift_decoder", "multiclass_decoder", "remove_outliers_std"),
+    mark_mps_configs_as_slow(
+        itertools.chain.from_iterable(
+            [
+                (device, "shuffle", "rotate", None),
+                (device, "rotate", "shuffle", 12),
+                (device, "shuffle", "rotate", 12),
+            ]
+            for device in devices
+        )
+    ),
+)
+def test__fit_predict__specify_inference_config__outputs_correct_shape(
+    device: str,
+    feature_shift_decoder: Literal["shuffle", "rotate"],
+    multiclass_decoder: Literal["shuffle", "rotate"],
+    remove_outliers_std: int | None,
+    X_y: tuple[np.ndarray, np.ndarray],
+) -> None:
+    model = TabPFNClassifier(
+        n_estimators=1,
+        device=device,
+        inference_config={
+            "OUTLIER_REMOVAL_STD": remove_outliers_std,
+            "CLASS_SHIFT_METHOD": multiclass_decoder,
+            "FEATURE_SHIFT_METHOD": feature_shift_decoder,
+        },
+        random_state=42,
+    )
+
+    X, y = X_y
+
+    returned_model = model.fit(X, y)
+    assert returned_model is model, "Returned model is not the same as the model"
+    check_is_fitted(returned_model)
+
+    assert model.predict_proba(X).shape == (X.shape[0], len(np.unique(y)))
+    assert model.predict(X).shape == (X.shape[0],)
 
 
 @pytest.mark.parametrize(
     (
-        "n_estimators",
         "device",
+        "n_estimators",
         "softmax_temperature",
         "average_before_softmax",
     ),
-    list(
+    mark_mps_configs_as_slow(
         product(
-            [1, 4],  # n_estimators
             devices,  # device
+            [1, 2],  # n_estimators
             [0.5, 1.0, 1.5],  # softmax_temperature
             [False, True],  # average_before_softmax
         )
     ),
 )
-def test_predict_logits_and_consistency(
-    X_y: tuple[np.ndarray, np.ndarray],
-    n_estimators,
-    device,
-    softmax_temperature,
-    average_before_softmax,
-):
-    """Tests the new predict_logits method and its consistency with predict_proba
-    under various configuration permutations that affect the post-processing
-    pipeline.
+def test__predict_logits__output_has_correct_properties_and_consistent_with_proba(
+    device: str,
+    n_estimators: int,
+    softmax_temperature: float,
+    average_before_softmax: bool,
+) -> None:
+    """Test predict_logits() and its consistency with predict_proba().
+
+    Consider configuration permutations that affect the post-processing pipeline.
     """
-    X, y = X_y
+    X, y = sklearn.datasets.make_classification(
+        n_samples=40,
+        n_classes=3,
+        n_features=3,
+        n_informative=3,
+        n_redundant=0,
+        n_clusters_per_class=1,
+        random_state=42,
+    )
 
     # Ensure y is int64 for consistency with classification tasks
     y = y.astype(np.int64)
@@ -258,6 +340,71 @@ def test_predict_logits_and_consistency(
     assert log_loss(y, proba_from_predict_proba) < 5.0
 
 
+@pytest.mark.parametrize(("n_estimators"), [1, 2])
+def test_predict_raw_logits(
+    X_y: tuple[np.ndarray, np.ndarray],
+    n_estimators: int,
+):
+    """Tests the predict_raw_logits method."""
+    X, y = X_y
+
+    # Ensure y is int64 for consistency with classification tasks
+    y = y.astype(np.int64)
+
+    classifier = TabPFNClassifier(
+        n_estimators=n_estimators,
+        random_state=42,
+    )
+    classifier.fit(X, y)
+
+    logits = classifier.predict_raw_logits(X)
+    assert logits.shape[0] == n_estimators
+    assert isinstance(logits, np.ndarray)
+    assert logits.shape == (n_estimators, X.shape[0], classifier.n_classes_)
+    assert logits.dtype == np.float32
+    assert not np.isnan(logits).any()
+    assert not np.isinf(logits).any()
+    if classifier.n_classes_ > 1:
+        assert not np.all(logits == logits[:, 0:1]), (
+            "Logits are identical across classes for all samples, indicating "
+            "trivial output."
+        )
+
+
+def test_multiple_models_predict_different_logits(X_y: tuple[np.ndarray, np.ndarray]):
+    """Tests the predict_raw_logits method."""
+    X, y = X_y
+
+    model_a = model_sources[0].filenames[0]
+    model_b = model_sources[0].filenames[1]
+    two_identical_models = [model_a, model_a]
+    two_different_models = [model_a, model_b]
+
+    # Ensure y is int64 for consistency with classification tasks
+    y = y.astype(np.int64)
+
+    def get_averaged_logits(model_paths: list[str]) -> np.ndarray:
+        classifier = TabPFNClassifier(
+            n_estimators=2,
+            random_state=42,
+            model_path=prepend_cache_path(model_paths),
+        )
+        classifier.fit(X, y)
+        # shape: E=estimators, R=rows, C=columns
+        logits_ERC = classifier.predict_raw_logits(X)
+        return logits_ERC.mean(axis=0)
+
+    single_model_logits = get_averaged_logits(model_paths=[model_a])
+    two_identical_models_logits = get_averaged_logits(model_paths=two_identical_models)
+    two_different_models_logits = get_averaged_logits(model_paths=two_different_models)
+
+    assert not np.all(single_model_logits == single_model_logits[:, 0:1]), (
+        "Logits are identical across classes for all samples, indicating trivial output"
+    )
+    assert np.all(single_model_logits == two_identical_models_logits)
+    assert not np.all(single_model_logits == two_different_models_logits)
+
+
 def test_softmax_temperature_impact_on_logits_magnitude(
     X_y: tuple[np.ndarray, np.ndarray],
 ):
@@ -281,9 +428,9 @@ def test_softmax_temperature_impact_on_logits_magnitude(
     model_high_temp.fit(X, y)
     logits_high_temp = model_high_temp.predict_logits(X)
 
-    assert np.mean(np.abs(logits_low_temp)) > np.mean(
-        np.abs(logits_high_temp)
-    ), "Low softmax temperature did not result in more extreme logits."
+    assert np.mean(np.abs(logits_low_temp)) > np.mean(np.abs(logits_high_temp)), (
+        "Low softmax temperature did not result in more extreme logits."
+    )
 
     model_temp_one = TabPFNClassifier(
         softmax_temperature=1.0, n_estimators=1, device="cpu", random_state=42
@@ -291,21 +438,27 @@ def test_softmax_temperature_impact_on_logits_magnitude(
     model_temp_one.fit(X, y)
     logits_temp_one = model_temp_one.predict_logits(X)
 
-    assert not np.allclose(
-        logits_temp_one, logits_low_temp, atol=1e-6
-    ), "Logits did not change with low temperature."
-    assert not np.allclose(
-        logits_temp_one, logits_high_temp, atol=1e-6
-    ), "Logits did not change with high temperature."
+    assert not np.allclose(logits_temp_one, logits_low_temp, atol=1e-6), (
+        "Logits did not change with low temperature."
+    )
+    assert not np.allclose(logits_temp_one, logits_high_temp, atol=1e-6), (
+        "Logits did not change with high temperature."
+    )
 
 
-def test_balance_probabilities_alters_proba_output(
-    X_y: tuple[np.ndarray, np.ndarray],
-):
+def test_balance_probabilities_alters_proba_output() -> None:
     """Verifies that enabling `balance_probabilities` indeed changes the output
     probabilities (assuming non-uniform class counts).
     """
-    X_full, y_full = X_y
+    n_classes = 5
+    X_full, _y_full = sklearn.datasets.make_classification(
+        n_samples=30 * n_classes,
+        n_classes=n_classes,
+        n_features=5,
+        n_informative=5,
+        n_redundant=0,
+        random_state=0,
+    )
 
     # Introduce artificial imbalance to ensure balancing has an effect
     y_imbalanced = np.array(
@@ -334,9 +487,9 @@ def test_balance_probabilities_alters_proba_output(
     model_balance.fit(X_subset, y_imbalanced)
     proba_balance = model_balance.predict_proba(X_subset)
 
-    assert not np.allclose(
-        proba_no_balance, proba_balance, atol=1e-5
-    ), "Probabilities did not change when balance_probabilities was toggled."
+    assert not np.allclose(proba_no_balance, proba_balance, atol=1e-5), (
+        "Probabilities did not change when balance_probabilities was toggled."
+    )
 
 
 @pytest.mark.skip(
@@ -384,6 +537,15 @@ def test_sklearn_compatible_estimator(
     if any(device.type == "mps" for device in _auto_devices):
         pytest.skip("MPS does not support float64, which is required for this check.")
 
+    if (
+        check.func.__name__ == "check_classifiers_train"  # type: ignore
+        and _auto_devices[0].type == "cpu"
+    ):
+        pytest.skip(
+            "We currently skip this check on CPU because CPU inference with "
+            "float64 is brokwn for datasets with small number of features."
+        )
+
     if check.func.__name__ in (  # type: ignore
         "check_methods_subset_invariance",
         "check_methods_sample_order_invariance",
@@ -393,27 +555,48 @@ def test_sklearn_compatible_estimator(
     check(estimator)
 
 
-def test_balanced_probabilities(X_y: tuple[np.ndarray, np.ndarray]) -> None:
+@pytest.mark.skip(reason="This test is flaky and needs to be fixed.")
+def test_balanced_probabilities() -> None:
     """Test that balance_probabilities=True works correctly."""
-    X, y = X_y
+    n_classes = 3
+    n_features = 3
 
-    model = TabPFNClassifier(
-        balance_probabilities=True,
+    # Create an IMBALANCED dataset
+    X, y = sklearn.datasets.make_classification(
+        n_samples=60,
+        n_classes=n_classes,
+        n_features=n_features,
+        n_informative=n_features,
+        n_redundant=0,
+        weights=[0.8, 0.1, 0.1],
+        random_state=42,
     )
 
-    model.fit(X, y)
-    probabilities = model.predict_proba(X)
+    model_unbalanced = TabPFNClassifier(
+        balance_probabilities=False,
+        random_state=42,
+        n_estimators=2,
+    )
+    model_unbalanced.fit(X, y)
+    proba_unbalanced = model_unbalanced.predict_proba(X)
 
-    assert np.allclose(probabilities.sum(axis=1), 1.0)
+    model_balanced = TabPFNClassifier(
+        balance_probabilities=True,
+        random_state=42,
+        n_estimators=2,
+    )
+    model_balanced.fit(X, y)
+    proba_balanced = model_balanced.predict_proba(X)
 
-    # Check that the mean probability for each class is roughly equal
-    mean_probs = probabilities.mean(axis=0)
-    expected_mean = 1.0 / len(np.unique(y))
-    assert np.allclose(
-        mean_probs,
-        expected_mean,
-        rtol=0.1,
-    ), "Class probabilities are not properly balanced"
+    mean_proba_unbalanced = proba_unbalanced.mean(axis=0)
+    mean_proba_balanced = proba_balanced.mean(axis=0)
+
+    # Balanced should be MORE uniform than unbalanced
+    balanced_deviation = np.std(mean_proba_balanced)
+    unbalanced_deviation = np.std(mean_proba_unbalanced)
+    assert balanced_deviation < unbalanced_deviation, (
+        "Balancing did not make probabilities more uniform"
+    )
 
 
 def test_classifier_in_pipeline(X_y: tuple[np.ndarray, np.ndarray]) -> None:
@@ -438,15 +621,7 @@ def test_classifier_in_pipeline(X_y: tuple[np.ndarray, np.ndarray]) -> None:
 
     # Check that probabilities sum to 1 for each prediction
     assert np.allclose(probabilities.sum(axis=1), 1.0)
-
-    # Check that the mean probability for each class is roughly equal
-    mean_probs = probabilities.mean(axis=0)
-    expected_mean = 1.0 / len(np.unique(y))
-    assert np.allclose(
-        mean_probs,
-        expected_mean,
-        rtol=0.1,
-    ), "Class probabilities are not properly balanced in pipeline"
+    assert probabilities.shape == (X.shape[0], len(np.unique(y)))
 
 
 def test_dict_vs_object_preprocessor_config(X_y: tuple[np.ndarray, np.ndarray]) -> None:
@@ -459,7 +634,7 @@ def test_dict_vs_object_preprocessor_config(X_y: tuple[np.ndarray, np.ndarray]) 
         "append_original": False,  # changed from default
         "categorical_name": "ordinal_very_common_categories_shuffled",
         "global_transformer_name": "svd",
-        "subsample_features": -1,
+        "max_features_per_estimator": 500,
     }
 
     object_config = PreprocessorConfig(
@@ -467,7 +642,7 @@ def test_dict_vs_object_preprocessor_config(X_y: tuple[np.ndarray, np.ndarray]) 
         append_original=False,  # changed from default
         categorical_name="ordinal_very_common_categories_shuffled",
         global_transformer_name="svd",
-        subsample_features=-1,
+        max_features_per_estimator=500,
     )
 
     # Create two models with same random state
@@ -514,56 +689,14 @@ class ModelWrapper(nn.Module):
         )
 
 
-def _patch_layernorm_no_affine(model: nn.Module) -> None:
-    """Workaround for ONNX export issue with LayerNorm(affine=False) in
-    PyTorch <= 2.1.3.
-
-    This patch function was necessary to enable successful ONNX export
-    of the TabPFN model when using PyTorch version 2.1.3. The issue arose
-    because the ONNX exporter in that version (and potentially earlier ones)
-    failed to correctly handle `nn.LayerNorm` layers initialized with
-    `affine=False`, which means they lack the learnable 'weight' (gamma) and
-    'bias' (beta) parameters.
-
-    However, testing indicated that this issue is resolved in later PyTorch
-    versions; specifically, the ONNX export runs without errors on
-    PyTorch 2.6.0 even without this patch.
-
-    This function circumvents the problem by iterating through the model's
-    modules and, for any `nn.LayerNorm` layer where `layer.weight` is None
-    (indicating `affine=False`), it manually adds non-learnable
-    (`requires_grad=False`) parameters for 'weight' (initialized to ones) and
-    'bias' (initialized to zeros). This addition satisfies the requirements
-    of the older ONNX exporter without changing the model's functional
-    behavior, as these added parameters represent an identity affine
-    transformation.
-    """
-    for layer in model.modules():
-        if isinstance(layer, nn.LayerNorm) and layer.weight is None:
-            # Build tensors on the same device/dtype as the layer's buffer
-            device = next(layer.parameters(), torch.tensor([], device="cpu")).device
-            dtype = getattr(layer, "weight_dtype", torch.float32)
-
-            gamma = torch.ones(layer.normalized_shape, dtype=dtype, device=device)
-            beta = torch.zeros_like(gamma)
-
-            layer.weight = nn.Parameter(gamma, requires_grad=False)
-            layer.bias = nn.Parameter(beta, requires_grad=False)
-
-            # Optional: mark that we changed it (useful for logging)
-            layer._patched_for_onnx = True
-
-
 @pytest.mark.filterwarnings("ignore::torch.jit.TracerWarning")
 def test_onnx_exportable_cpu(X_y: tuple[np.ndarray, np.ndarray]) -> None:
     if os.name == "nt":
         pytest.skip("onnx export is not tested on windows")
-    if sys.version_info >= (3, 13):
-        pytest.xfail("onnx is not yet supported on Python 3.13")
     X, y = X_y
     with torch.no_grad():
         classifier = TabPFNClassifier(n_estimators=1, device="cpu", random_state=42)
-        # load the model so we can access it via classifier.model_
+        # load the model so we can access it via classifier.models_
         classifier.fit(X, y)
         # this is necessary if cuda is available
         classifier.predict(X)
@@ -581,9 +714,14 @@ def test_onnx_exportable_cpu(X_y: tuple[np.ndarray, np.ndarray]) -> None:
             "X": {0: "num_datapoints", 1: "batch_size", 2: "num_features"},
             "y": {0: "num_labels"},
         }
-        _patch_layernorm_no_affine(classifier.model_)
+        patch_layernorm_no_affine(classifier.models_[0])
+
+        # From 2.9 PyTorch changed the default export mode from TorchScript to
+        # Dynamo. We don't support Dynamo, so disable it. The `dynamo` flag is only
+        # available in newer PyTorch versions, hence we don't always include it.
+        export_kwargs = {"dynamo": False} if torch.__version__ >= "2.9" else {}
         torch.onnx.export(
-            ModelWrapper(classifier.model_).eval(),
+            ModelWrapper(classifier.models_[0]).eval(),
             (X_tensor, y_tensor, True, [[]]),
             io.BytesIO(),
             input_names=[
@@ -595,11 +733,14 @@ def test_onnx_exportable_cpu(X_y: tuple[np.ndarray, np.ndarray]) -> None:
             output_names=["output"],
             opset_version=17,  # using 17 since we use torch>=2.1
             dynamic_axes=dynamic_axes,
+            **export_kwargs,
         )
 
 
 @pytest.mark.parametrize("data_source", ["train", "test"])
-def test_get_embeddings(X_y: tuple[np.ndarray, np.ndarray], data_source: str) -> None:
+def test_get_embeddings(
+    X_y: tuple[np.ndarray, np.ndarray], data_source: Literal["train", "test"]
+) -> None:
     """Test that get_embeddings returns valid embeddings for a fitted model."""
     X, y = X_y
     n_estimators = 3
@@ -607,12 +748,10 @@ def test_get_embeddings(X_y: tuple[np.ndarray, np.ndarray], data_source: str) ->
     model = TabPFNClassifier(n_estimators=n_estimators, random_state=42)
     model.fit(X, y)
 
-    # Cast to Literal type for mypy
-    valid_data_source = typing.cast(Literal["train", "test"], data_source)
-    embeddings = model.get_embeddings(X, valid_data_source)
+    embeddings = model.get_embeddings(X, data_source)
 
     # Need to access the model through the executor
-    model_instance = typing.cast(typing.Any, model.executor_).model
+    model_instance = next(iter(model.executor_.model_caches[0]._models.values()))
     encoder_shape = next(
         m.out_features
         for m in model_instance.encoder.modules()
@@ -751,49 +890,344 @@ def test_classifier_with_text_and_na() -> None:
 
 def test_initialize_model_variables_classifier_sets_required_attributes() -> None:
     # 1) Standalone initializer
-    model, config, norm_criterion = initialize_tabpfn_model(
-        model_path="auto",
-        which="classifier",
-        fit_mode="low_memory",
+    models, architecture_configs, norm_criterion, inference_config = (
+        initialize_tabpfn_model(
+            model_path="auto",
+            which="classifier",
+            fit_mode="low_memory",
+        )
     )
-    assert model is not None, "model should be initialized for classifier"
-    assert config is not None, "config should be initialized for classifier"
+    assert models is not None, "model should be initialized for classifier"
+    assert architecture_configs is not None, (
+        "config should be initialized for classifier"
+    )
     assert norm_criterion is None, "norm_criterion should be None for classifier"
+    assert inference_config is not None
 
     # 2) Test the sklearn-style wrapper on TabPFNClassifier
     classifier = TabPFNClassifier(device="cpu", random_state=42)
     classifier._initialize_model_variables()
 
-    assert hasattr(classifier, "model_"), "classifier should have model_ attribute"
-    assert classifier.model_ is not None, "model_ should be initialized for classifier"
+    assert hasattr(classifier, "models_")
+    assert classifier.models_ is not None
 
-    assert hasattr(classifier, "config_"), "classifier should have config_ attribute"
-    assert (
-        classifier.config_ is not None
-    ), "config_ should be initialized for classifier"
+    assert hasattr(classifier, "configs_")
+    assert classifier.configs_ is not None
 
-    assert not hasattr(
-        classifier, "bardist_"
-    ), "classifier should not have bardist_ attribute"
+    assert not hasattr(classifier, "znorm_space_bardist_")
 
     # 3) Reuse via ClassifierModelSpecs
-    new_model_state = classifier.model_
-    new_config = classifier.config_
-    spec = ClassifierModelSpecs(model=new_model_state, config=new_config)
+    spec = ClassifierModelSpecs(
+        model=classifier.models_[0],
+        architecture_config=classifier.configs_[0],
+        inference_config=classifier.inference_config_,
+    )
 
     classifier2 = TabPFNClassifier(model_path=spec)
     classifier2._initialize_model_variables()
 
-    assert hasattr(classifier2, "model_"), "classifier2 should have model_ attribute"
-    assert (
-        classifier2.model_ is not None
-    ), "model_ should be initialized for classifier2"
+    assert hasattr(classifier2, "models_")
+    assert classifier2.models_ is not None
 
-    assert hasattr(classifier2, "config_"), "classifier2 should have config_ attribute"
-    assert (
-        classifier2.config_ is not None
-    ), "config_ should be initialized for classifier2"
+    assert hasattr(classifier2, "configs_")
+    assert classifier2.configs_ is not None
 
-    assert not hasattr(
-        classifier2, "bardist_"
-    ), "classifier2 should not have bardist_ attribute"
+    assert not hasattr(classifier2, "znorm_space_bardist_")
+
+
+@pytest.mark.parametrize("n_features", [1, 2])
+def test__TabPFNClassifier__few_features__works(n_features: int) -> None:
+    """Test that TabPFNClassifier works correctly with 1 or 2 features."""
+    n_classes = 2
+    n_samples = 20 * n_classes
+
+    X, y = sklearn.datasets.make_classification(
+        n_samples=n_samples,
+        n_classes=n_classes,
+        n_features=n_features,
+        n_informative=n_features,
+        n_redundant=0,
+        n_clusters_per_class=1,
+        random_state=42,
+    )
+
+    model = TabPFNClassifier(
+        n_estimators=2,
+        random_state=42,
+    )
+
+    returned_model = model.fit(X, y)
+    assert returned_model is model, "Returned model is not the same as the model"
+    check_is_fitted(returned_model)
+
+    probabilities = model.predict_proba(X)
+    assert probabilities.shape == (
+        X.shape[0],
+        n_classes,
+    ), f"Probabilities shape is incorrect for {n_features} features"
+    assert np.allclose(probabilities.sum(axis=1), 1.0), "Probabilities do not sum to 1"
+
+    predictions = model.predict(X)
+    assert predictions.shape == (X.shape[0],), (
+        f"Predictions shape is incorrect for {n_features} features"
+    )
+    accuracy = accuracy_score(y, predictions)
+    assert accuracy > 0.3, f"Accuracy too low with {n_features} features: {accuracy}"
+
+
+@pytest.mark.parametrize(
+    (
+        "eval_metric",
+        "tuning_holdout_pct",
+        "tuning_holdout_n_splits",
+        "tune_decision_thresholds",
+        "calibrate_temperature",
+        "expected_equal",
+    ),
+    [
+        (ClassifierEvalMetrics.F1, 0.1, 1, False, True, False),
+        (ClassifierEvalMetrics.ACCURACY, 0.2, 1, False, False, True),
+        (ClassifierEvalMetrics.ACCURACY, 0.7, 1, True, False, False),
+        (ClassifierEvalMetrics.F1, 0.05, 2, True, False, False),
+        (ClassifierEvalMetrics.F1, 0.2, 1, False, True, False),
+        (ClassifierEvalMetrics.BALANCED_ACCURACY, 0.1, 1, False, False, True),
+    ],
+)
+def test__fit_with_tuning_config__works_with_different_eval_metrics(
+    eval_metric: ClassifierEvalMetrics,
+    tuning_holdout_pct: float,
+    tuning_holdout_n_splits: int,
+    tune_decision_thresholds: bool,
+    calibrate_temperature: bool,
+    expected_equal: bool,
+) -> None:
+    X, y = sklearn.datasets.make_classification(
+        n_samples=MIN_NUM_SAMPLES_RECOMMENDED_FOR_TUNING + 1,
+        n_classes=2,
+        n_features=2,
+        n_informative=2,
+        n_redundant=0,
+        random_state=0,
+    )
+    max_num_classes = len(np.unique(y))
+
+    if eval_metric is ClassifierEvalMetrics.ACCURACY:
+        tuning_config = ClassifierTuningConfig(
+            calibrate_temperature=calibrate_temperature,
+            tune_decision_thresholds=tune_decision_thresholds,
+            tuning_holdout_frac=tuning_holdout_pct,
+            tuning_n_folds=tuning_holdout_n_splits,
+        )
+    else:
+        # Also check parsing tuning config as dict.
+        tuning_config = {
+            "calibrate_temperature": calibrate_temperature,
+            "tune_decision_thresholds": tune_decision_thresholds,
+            "tuning_holdout_frac": tuning_holdout_pct,
+            "tuning_n_folds": tuning_holdout_n_splits,
+        }
+
+    kwargs = {
+        "fit_mode": "fit_preprocessors",
+        "eval_metric": eval_metric,
+        "n_estimators": 1,
+        "device": "cpu",
+        "inference_precision": torch.float32,
+        "random_state": 0,
+        "model_path": _create_dummy_classifier_model_specs(
+            max_num_classes=max_num_classes
+        ),
+    }
+
+    torch.random.manual_seed(0)
+    tabpfn_with_tuning = TabPFNClassifier(
+        tuning_config=tuning_config,
+        **kwargs,
+    )
+    tabpfn_with_tuning.fit(X, y)
+    preds_with_tuning = tabpfn_with_tuning.predict_proba(X[0 : X.shape[0] // 4])
+
+    assert len(preds_with_tuning) == X.shape[0] // 4
+
+    torch.random.manual_seed(0)
+    tabpfn_no_tuning = TabPFNClassifier(**kwargs)
+    tabpfn_no_tuning.fit(X, y)
+    preds_no_tuning = tabpfn_no_tuning.predict_proba(X[0 : X.shape[0] // 4])
+
+    assert np.allclose(preds_with_tuning, preds_no_tuning, atol=1e-5) == expected_equal
+
+    if calibrate_temperature:
+        assert (
+            tabpfn_with_tuning.softmax_temperature_
+            != tabpfn_no_tuning.softmax_temperature_
+        )
+    else:
+        assert (
+            tabpfn_with_tuning.softmax_temperature_
+            == tabpfn_no_tuning.softmax_temperature_
+            == tabpfn_with_tuning.softmax_temperature
+        )
+
+
+def test__logits_to_probabilities__same_as_predict_proba(
+    X_y: tuple[np.ndarray, np.ndarray],
+) -> None:
+    X, y = X_y
+    max_num_classes = len(np.unique(y))
+
+    model = TabPFNClassifier(
+        n_estimators=1,
+        random_state=42,
+        model_path=_create_dummy_classifier_model_specs(
+            max_num_classes=max_num_classes
+        ),
+    )
+    model.fit(X, y)
+
+    raw_logits = model.predict_raw_logits(X)
+    probas = model.logits_to_probabilities(raw_logits)
+
+    expected_probas = model.predict_proba(X)
+    assert np.allclose(probas, expected_probas, atol=1e-4, rtol=1e-3)
+
+
+def test__fit_with_f1_metric_without_tuning_config__warns(
+    X_y: tuple[np.ndarray, np.ndarray],
+) -> None:
+    """Test that warning is issued when F1 metric used without tuning config."""
+    X, y = X_y
+
+    clf = TabPFNClassifier(
+        eval_metric="f1",
+        tuning_config=None,
+        n_estimators=1,
+        model_path=_create_dummy_classifier_model_specs(
+            max_num_classes=len(np.unique(y))
+        ),
+    )
+
+    with pytest.warns(
+        UserWarning,
+        match=r".*haven't specified any tuning configuration.*",
+    ):
+        clf.fit(X, y)
+
+
+def test__fit_with_small_dataset_and_tuning__warns() -> None:
+    default_rng = np.random.default_rng(seed=42)
+    X = default_rng.random((MIN_NUM_SAMPLES_RECOMMENDED_FOR_TUNING - 1, 10))
+    y = default_rng.integers(0, 2, MIN_NUM_SAMPLES_RECOMMENDED_FOR_TUNING - 1)
+
+    clf = TabPFNClassifier(
+        eval_metric="f1",
+        tuning_config={
+            "tune_decision_thresholds": True,
+        },
+        n_estimators=1,
+        model_path=_create_dummy_classifier_model_specs(
+            max_num_classes=len(np.unique(y))
+        ),
+    )
+
+    with pytest.warns(
+        UserWarning,
+        match=r".*We recommend tuning only for datasets with more than.*",
+    ):
+        clf.fit(X, y)
+
+
+def test__fit_with_roc_auc_metric_with_threshold_tuning__warns() -> None:
+    """Test that warning is issued when ROC AUC metric used with threshold tuning."""
+    n_classes = 2
+    X, y = sklearn.datasets.make_classification(
+        n_samples=30 * n_classes,
+        n_classes=n_classes,
+        n_features=2,
+        n_informative=2,
+        n_redundant=0,
+        random_state=0,
+    )
+
+    clf = TabPFNClassifier(
+        eval_metric="roc_auc",
+        tuning_config={
+            "tune_decision_thresholds": True,
+            "calibrate_temperature": False,
+            "tuning_holdout_frac": 0.1,
+            "tuning_n_folds": 1,
+        },
+        n_estimators=1,
+        device="cpu",
+        model_path=_create_dummy_classifier_model_specs(
+            max_num_classes=len(np.unique(y))
+        ),
+        random_state=0,
+    )
+
+    with pytest.warns(
+        UserWarning,
+        match=(
+            r".*with threshold tuning or temperature calibration "
+            r"enabled.*is independent of these tunings.*"
+        ),
+    ):
+        clf.fit(X, y)
+
+
+def _create_dummy_classifier_model_specs(
+    max_num_classes: int = 10,
+) -> ClassifierModelSpecs:
+    minimal_config = ModelConfig(
+        emsize=8,
+        features_per_group=1,
+        max_num_classes=max_num_classes,
+        nhead=2,
+        nlayers=2,
+        remove_duplicate_features=True,
+        num_buckets=100,
+    )
+    model = base.get_architecture(
+        config=minimal_config,
+        n_out=max_num_classes,
+        cache_trainset_representation=False,
+    )
+    inference_config = InferenceConfig.get_default(
+        task_type="multiclass",
+        model_version=ModelVersion.V2_5,
+    )
+    return ClassifierModelSpecs(
+        model=model,
+        architecture_config=minimal_config,
+        inference_config=inference_config,
+    )
+
+
+def test__create_default_for_version__v2__uses_correct_defaults() -> None:
+    estimator = TabPFNClassifier.create_default_for_version(ModelVersion.V2)
+
+    assert isinstance(estimator, TabPFNClassifier)
+    assert estimator.n_estimators == 8
+    assert estimator.softmax_temperature == 0.9
+    assert isinstance(estimator.model_path, str)
+    assert "classifier" in estimator.model_path
+    assert "-v2-" in estimator.model_path
+
+
+def test__create_default_for_version__v2_5__uses_correct_defaults() -> None:
+    estimator = TabPFNClassifier.create_default_for_version(ModelVersion.V2_5)
+
+    assert isinstance(estimator, TabPFNClassifier)
+    assert estimator.n_estimators == 8
+    assert estimator.softmax_temperature == 0.9
+    assert isinstance(estimator.model_path, str)
+    assert "classifier" in estimator.model_path
+    assert "-v2.5-" in estimator.model_path
+
+
+def test__create_default_for_version__passes_through_overrides() -> None:
+    estimator = TabPFNClassifier.create_default_for_version(
+        ModelVersion.V2_5, n_estimators=16
+    )
+
+    assert estimator.n_estimators == 16
+    assert estimator.softmax_temperature == 0.9

@@ -178,6 +178,17 @@ class ExceHandler {
   }
 };
 
+template <typename WriterT>
+std::unique_ptr<WriterT> DftCreateWriterImpl(StringView name, std::uint32_t iter) {
+  std::unique_ptr<common::AlignedFileWriteStream> fo;
+  if (iter == 0) {
+    fo = std::make_unique<common::AlignedFileWriteStream>(name, "wb");
+  } else {
+    fo = std::make_unique<common::AlignedFileWriteStream>(name, "ab");
+  }
+  return fo;
+}
+
 /**
  * @brief Default implementation of the stream creater.
  */
@@ -189,18 +200,29 @@ class DefaultFormatStreamPolicy : public F<S> {
 
  public:
   std::unique_ptr<WriterT> CreateWriter(StringView name, std::uint32_t iter) {
-    std::unique_ptr<common::AlignedFileWriteStream> fo;
-    if (iter == 0) {
-      fo = std::make_unique<common::AlignedFileWriteStream>(name, "wb");
-    } else {
-      fo = std::make_unique<common::AlignedFileWriteStream>(name, "ab");
-    }
-    return fo;
+    return DftCreateWriterImpl<WriterT>(name, iter);
   }
 
   std::unique_ptr<ReaderT> CreateReader(StringView name, std::uint64_t offset,
                                         std::uint64_t length) const {
     return std::make_unique<common::PrivateMmapConstStream>(std::string{name}, offset, length);
+  }
+};
+
+template <typename S, template <typename> typename F>
+class MemBufFileReadFormatStreamPolicy : public F<S> {
+ public:
+  using WriterT = common::AlignedFileWriteStream;
+  using ReaderT = common::AlignedResourceReadStream;
+
+ public:
+  std::unique_ptr<WriterT> CreateWriter(StringView name, std::uint32_t iter) {
+    return DftCreateWriterImpl<WriterT>(name, iter);
+  }
+
+  std::unique_ptr<ReaderT> CreateReader(StringView name, std::uint64_t offset,
+                                        std::uint64_t length) const {
+    return std::make_unique<common::MemBufFileReadStream>(std::string{name}, offset, length);
   }
 };
 
@@ -297,11 +319,11 @@ class SparsePageSourceImpl : public BatchIteratorImpl<S>, public FormatStreamPol
       if (restart) {
         this->param_.prefetch_copy = true;
       }
-      ring_->at(fetch_it) = this->workers_.Submit([fetch_it, self, this] {
+      auto p = this->param_;
+      ring_->at(fetch_it) = this->workers_.Submit([fetch_it, self, p, this] {
         auto page = std::make_shared<S>();
         this->exce_.Run([&] {
-          std::unique_ptr<typename FormatStreamPolicy::FormatT> fmt{
-              self->CreatePageFormat(self->param_)};
+          std::unique_ptr<typename FormatStreamPolicy::FormatT> fmt{self->CreatePageFormat(p)};
           auto name = self->cache_info_->ShardName();
           auto [offset, length] = self->cache_info_->View(fetch_it);
           std::unique_ptr<typename FormatStreamPolicy::ReaderT> fi{
@@ -340,7 +362,7 @@ class SparsePageSourceImpl : public BatchIteratorImpl<S>, public FormatStreamPol
 
     timer.Stop();
     if (bytes != InvalidPageSize()) {
-      // Not entirely accurate, the kernels doesn't have to flush the data.
+      // Not entirely accurate, the kernel doesn't have to flush the data.
       LOG(INFO) << common::HumanMemUnit(bytes) << " written in " << timer.ElapsedSeconds()
                 << " seconds.";
       cache_info_->Push(bytes);
@@ -437,7 +459,7 @@ class SparsePageSource : public SparsePageSourceImpl<SparsePage> {
     if (!this->ReadCache()) {
       bool type_error{false};
       CHECK(proxy_);
-      HostAdapterDispatch(
+      cpu_impl::DispatchAny(
           proxy_,
           [&](auto const& adapter_batch) {
             page_->Push(adapter_batch, this->missing_, this->nthreads_);
@@ -459,7 +481,7 @@ class SparsePageSource : public SparsePageSourceImpl<SparsePage> {
                    DMatrixProxy* proxy, float missing, int nthreads, bst_feature_t n_features,
                    bst_idx_t n_batches, std::shared_ptr<Cache> cache)
       : SparsePageSourceImpl(missing, nthreads, n_features, cache),
-        iter_{iter},
+        iter_{std::move(iter)},
         proxy_{proxy},
         n_batches_{n_batches} {
     if (!cache_info_->written) {

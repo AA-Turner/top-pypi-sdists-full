@@ -526,8 +526,8 @@ class IcebergTableCollection(SchemaObjectCollectionParent["IcebergTableResource"
 class IcebergTableResource(SchemaObjectReferenceMixin[IcebergTableCollection]):
     """Represents a reference to a Snowflake Iceberg table.
 
-    With this Iceberg table reference, you can create, update, delete and fetch information
-    about Iceberg tables, as well as perform certain actions on them.
+    With this Iceberg table reference, you can fetch information about an Iceberg table, as well as
+    perform certain actions on it.
     """
 
     def __init__(self, name: StrictStr, collection: IcebergTableCollection) -> None:

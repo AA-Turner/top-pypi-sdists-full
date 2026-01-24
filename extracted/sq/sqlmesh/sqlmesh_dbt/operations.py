@@ -26,26 +26,38 @@ class DbtOperations:
         self,
         select: t.Optional[t.List[str]] = None,
         exclude: t.Optional[t.List[str]] = None,
+        models: t.Optional[t.List[str]] = None,
+        resource_type: t.Optional[str] = None,
     ) -> None:
         # dbt list prints:
         # - models
         # - "data tests" (audits) for those models
         # it also applies selectors which is useful for testing selectors
-        selected_models = list(self._selected_models(select, exclude).values())
-        self.console.list_models(selected_models)
+        selected_models = list(
+            self._selected_models(select, exclude, models, resource_type).values()
+        )
+        self.console.list_models(
+            selected_models, {k: v.node for k, v in self.context.snapshots.items()}
+        )
 
     def run(
         self,
         environment: t.Optional[str] = None,
         select: t.Optional[t.List[str]] = None,
         exclude: t.Optional[t.List[str]] = None,
+        models: t.Optional[t.List[str]] = None,
+        resource_type: t.Optional[str] = None,
         full_refresh: bool = False,
         empty: bool = False,
     ) -> Plan:
+        consolidated_select, consolidated_exclude = selectors.consolidate(
+            select or [], exclude or [], models or [], resource_type
+        )
+
         plan_builder = self._plan_builder(
             environment=environment,
-            select=select,
-            exclude=exclude,
+            select=consolidated_select,
+            exclude=consolidated_exclude,
             full_refresh=full_refresh,
             empty=empty,
         )
@@ -84,9 +96,15 @@ class DbtOperations:
         )
 
     def _selected_models(
-        self, select: t.Optional[t.List[str]] = None, exclude: t.Optional[t.List[str]] = None
+        self,
+        select: t.Optional[t.List[str]] = None,
+        exclude: t.Optional[t.List[str]] = None,
+        models: t.Optional[t.List[str]] = None,
+        resource_type: t.Optional[str] = None,
     ) -> t.Dict[str, Model]:
-        if sqlmesh_selector := selectors.to_sqlmesh(select or [], exclude or []):
+        if sqlmesh_selector := selectors.to_sqlmesh(
+            *selectors.consolidate(select or [], exclude or [], models or [], resource_type)
+        ):
             if self.debug:
                 self.console.print(f"dbt --select: {select}")
                 self.console.print(f"dbt --exclude: {exclude}")
@@ -183,7 +201,7 @@ class DbtOperations:
             options.update(
                 dict(
                     # Add every selected model as a restatement to force them to get repopulated from scratch
-                    restate_models=list(self.context.models)
+                    restate_models=[m.dbt_fqn for m in self.context.models.values() if m.dbt_fqn]
                     if not select_models
                     else select_models,
                     # by default in SQLMesh, restatements only operate on what has been committed to state.
@@ -214,10 +232,13 @@ class DbtOperations:
 
 def create(
     project_dir: t.Optional[Path] = None,
+    profiles_dir: t.Optional[Path] = None,
     profile: t.Optional[str] = None,
     target: t.Optional[str] = None,
     vars: t.Optional[t.Dict[str, t.Any]] = None,
+    threads: t.Optional[int] = None,
     debug: bool = False,
+    log_level: t.Optional[str] = None,
 ) -> DbtOperations:
     with Progress(transient=True) as progress:
         # Indeterminate progress bar before SQLMesh import to provide feedback to the user that something is indeed happening
@@ -229,6 +250,7 @@ def create(
         from sqlmesh.core.console import set_console
         from sqlmesh_dbt.console import DbtCliConsole
         from sqlmesh.utils.errors import SQLMeshError
+        from sqlmesh.core.selector import DbtSelector
 
         # clear any existing handlers set up by click/rich as defaults so that once SQLMesh logging config is applied,
         # we dont get duplicate messages logged from things like console.log_warning()
@@ -236,7 +258,7 @@ def create(
         while root_logger.hasHandlers():
             root_logger.removeHandler(root_logger.handlers[0])
 
-        configure_logging(force_debug=debug)
+        configure_logging(force_debug=debug, log_level=log_level)
         set_console(DbtCliConsole())
 
         progress.update(load_task_id, description="Loading project", total=None)
@@ -246,8 +268,16 @@ def create(
 
         sqlmesh_context = Context(
             paths=[project_dir],
-            config_loader_kwargs=dict(profile=profile, target=target, variables=vars),
+            config_loader_kwargs=dict(
+                profile=profile,
+                target=target,
+                variables=vars,
+                threads=threads,
+                profiles_dir=profiles_dir,
+            ),
             load=True,
+            # DbtSelector selects based on dbt model fqn's rather than SQLMesh model names
+            selector=DbtSelector,
         )
 
         dbt_loader = sqlmesh_context._loaders[0]
@@ -260,7 +290,7 @@ def create(
         return DbtOperations(sqlmesh_context, dbt_project, debug=debug)
 
 
-def init_project_if_required(project_dir: Path) -> None:
+def init_project_if_required(project_dir: Path, start: t.Optional[str] = None) -> None:
     """
     SQLMesh needs a start date to as the starting point for calculating intervals on incremental models, amongst other things
 
@@ -276,4 +306,6 @@ def init_project_if_required(project_dir: Path) -> None:
 
     if not any(f.exists() for f in [project_dir / file for file in ALL_CONFIG_FILENAMES]):
         get_console().log_warning("No existing SQLMesh config detected; creating one")
-        init_example_project(path=project_dir, engine_type=None, template=ProjectTemplate.DBT)
+        init_example_project(
+            path=project_dir, engine_type=None, template=ProjectTemplate.DBT, start=start
+        )

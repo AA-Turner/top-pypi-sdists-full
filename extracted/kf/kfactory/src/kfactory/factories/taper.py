@@ -3,21 +3,27 @@
 TODO: Non-linear tapers
 """
 
-from collections.abc import Callable
-from typing import Any, Protocol
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Protocol, Unpack, cast, overload
 
 from .. import kdb
 from ..conf import logger
-from ..enclosure import LayerEnclosure
 from ..kcell import KCell
-from ..layout import KCLayout, kcl
+from ..layout import CellKWargs, KCLayout  # noqa: TC001
+from ..port import rename_by_direction, rename_clockwise
 from ..settings import Info
-from ..typings import MetaData, dbu
+from ..typings import KC, KC_co, MetaData, dbu
 
-__all__ = ["taper"]
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from ..enclosure import LayerEnclosure
+
+__all__ = ["taper_factory"]
 
 
-class TaperFactory(Protocol):
+class TaperFactory(Protocol[KC_co]):
     def __call__(
         self,
         width1: dbu,
@@ -25,7 +31,7 @@ class TaperFactory(Protocol):
         length: dbu,
         layer: kdb.LayerInfo,
         enclosure: LayerEnclosure | None = None,
-    ) -> KCell:
+    ) -> KC_co:
         r"""Linear Taper [dbu].
 
                    __
@@ -51,17 +57,47 @@ class TaperFactory(Protocol):
         ...
 
 
+@overload
 def taper_factory(
     kcl: KCLayout,
-    basename: str | None = None,
+    *,
     additional_info: Callable[
         ...,
         dict[str, MetaData],
     ]
     | dict[str, MetaData]
     | None = None,
-    **cell_kwargs: Any,
-) -> TaperFactory:
+    port_type: str = "optical",
+    **cell_kwargs: Unpack[CellKWargs],
+) -> TaperFactory[KCell]: ...
+@overload
+def taper_factory(
+    kcl: KCLayout,
+    *,
+    additional_info: Callable[
+        ...,
+        dict[str, MetaData],
+    ]
+    | dict[str, MetaData]
+    | None = None,
+    output_type: type[KC],
+    port_type: str = "optical",
+    **cell_kwargs: Unpack[CellKWargs],
+) -> TaperFactory[KC]: ...
+
+
+def taper_factory(
+    kcl: KCLayout,
+    additional_info: Callable[
+        ...,
+        dict[str, MetaData],
+    ]
+    | dict[str, MetaData]
+    | None = None,
+    output_type: type[KC] | None = None,
+    port_type: str = "optical",
+    **cell_kwargs: Unpack[CellKWargs],
+) -> TaperFactory[KC]:
     r"""Returns a function generating linear tapers [dbu].
 
                __
@@ -80,7 +116,7 @@ def taper_factory(
     Args:
         kcl: The KCLayout which will be owned
         additional_info: Add additional key/values to the
-            [`KCell.info`][kfactory.kcell.KCell.info]. Can be a static dict
+            [`KCell.info`][kfactory.settings.Info]. Can be a static dict
             mapping info name to info value. Or can a callable which takes the straight
             functions' parameters as kwargs and returns a dict with the mapping.
         basename: Overwrite the prefix of the resulting KCell's name. By default
@@ -103,12 +139,19 @@ def taper_factory(
         _additional_info_func = additional_info_func
         _additional_info = additional_info or {}
 
-    @kcl.cell(
-        basename=basename,
-        output_type=KCell,
-        ports={"left": ["o1"], "right": ["o2"]},
-        **cell_kwargs,
-    )
+    ports = cell_kwargs.get("ports")
+    if ports is None:
+        if kcl.rename_function == rename_clockwise:
+            cell_kwargs["ports"] = {"left": ["o1"], "right": ["o2"]}
+        elif kcl.rename_function == rename_by_direction:
+            cell_kwargs["ports"] = {"left": ["W0"], "right": ["E0"]}
+
+    if output_type is not None:
+        cell = kcl.cell(output_type=output_type, **cell_kwargs)
+    else:
+        cell = kcl.cell(output_type=cast("type[KC]", KCell), **cell_kwargs)
+
+    @cell
     def taper(
         width1: dbu,
         width2: dbu,
@@ -174,8 +217,18 @@ def taper_factory(
             )
         )
 
-        c.create_port(trans=kdb.Trans(2, False, 0, 0), width=width1, layer=li)
-        c.create_port(trans=kdb.Trans(0, False, length, 0), width=width2, layer=li)
+        c.create_port(
+            trans=kdb.Trans(2, False, 0, 0),
+            width=width1,
+            layer=li,
+            port_type=port_type,
+        )
+        c.create_port(
+            trans=kdb.Trans(0, False, length, 0),
+            width=width2,
+            layer=li,
+            port_type=port_type,
+        )
 
         if enclosure is not None:
             enclosure.apply_minkowski_y(c, layer)
@@ -204,6 +257,3 @@ def taper_factory(
         return c
 
     return taper
-
-
-taper = taper_factory(kcl)

@@ -9,7 +9,6 @@ ioutil = pytest.importorskip("tiledbsoma.io.spatial._util")
 
 @attrs.define(frozen=True)
 class SpaceRangerMatrixData:
-
     # Version
     version: tuple[int, int, int]
 
@@ -34,9 +33,7 @@ class SpaceRangerMatrixData:
 
     def __attrs_post_init__(self):
         with h5py.File(self.filepath, "w") as root:
-            root.attrs["software_version"] = (
-                f"spaceranger-{self.version[0]}.{self.version[1]}.{self.version[2]}"
-            )
+            root.attrs["software_version"] = f"spaceranger-{self.version[0]}.{self.version[1]}.{self.version[2]}"
 
             # Create the matrix group.
             matrix_group = root.create_group("matrix")
@@ -48,15 +45,11 @@ class SpaceRangerMatrixData:
             matrix_group.create_dataset("data", data=X.data, dtype=np.int32)
             matrix_group.create_dataset("indices", data=X.indices, dtype=np.int64)
             matrix_group.create_dataset("indptr", data=X.indptr, dtype=np.int64)
-            matrix_group.create_dataset(
-                "shape", data=np.array([self.nvar, self.nobs], dtype=np.int32)
-            )
+            matrix_group.create_dataset("shape", data=np.array([self.nvar, self.nobs], dtype=np.int32))
 
             # Create the feature group.
             features_group = matrix_group.create_group("features")
-            features_group.create_dataset(
-                "feature_type", data=self.feature_type, dtype="S15"
-            )
+            features_group.create_dataset("feature_type", data=self.feature_type, dtype="S15")
             features_group.create_dataset("genome", data=self.genome, dtype="S6")
             features_group.create_dataset("id", data=self.gene_id, dtype="S15")
             features_group.create_dataset("name", data=self.var_name, dtype="S17")
@@ -68,7 +61,7 @@ def fake_space_ranger_matrix_1(tmp_path_factory):
     h5path = tmp_path_factory.mktemp("space_ranger") / "fake_space_ranger_matrix_1.h5"
 
     # Create test data.
-    test_data = SpaceRangerMatrixData(
+    return SpaceRangerMatrixData(
         version=(2, 0, 1),
         nobs=9,
         nvar=7,
@@ -128,7 +121,6 @@ def fake_space_ranger_matrix_1(tmp_path_factory):
         ),
         filepath=h5path,
     )
-    return test_data
 
 
 def check_reader(reader, data):
@@ -176,7 +168,6 @@ def check_reader(reader, data):
 
 
 def test_space_ranger_matrix_reader_direct_load(fake_space_ranger_matrix_1):
-
     # Open the reader, load the version and other data, and close.
     reader = ioutil.TenXCountMatrixReader(fake_space_ranger_matrix_1.filepath)
     reader.open()
@@ -188,6 +179,5 @@ def test_space_ranger_matrix_reader_direct_load(fake_space_ranger_matrix_1):
 
 
 def test_space_ranger_matrix_reader_lazy_load(fake_space_ranger_matrix_1):
-
     with ioutil.TenXCountMatrixReader(fake_space_ranger_matrix_1.filepath) as reader:
         check_reader(reader, fake_space_ranger_matrix_1)

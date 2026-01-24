@@ -9,27 +9,33 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Union
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
-from .group_0159 import RepositoryRuleUpdatePropParameters
+from .group_0003 import SimpleUser
 
 
-class RepositoryRuleUpdate(GitHubModel):
-    """update
+class AutoMerge(GitHubModel):
+    """Auto merge
 
-    Only allow users with bypass permission to update matching refs.
+    The status of auto merging a pull request.
     """
 
-    type: Literal["update"] = Field()
-    parameters: Missing[RepositoryRuleUpdatePropParameters] = Field(default=UNSET)
+    enabled_by: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    merge_method: Literal["merge", "squash", "rebase"] = Field(
+        description="The merge method to use."
+    )
+    commit_title: Union[str, None] = Field(
+        description="Title for the merge commit message."
+    )
+    commit_message: Union[str, None] = Field(
+        description="Commit message for the merge commit."
+    )
 
 
-model_rebuild(RepositoryRuleUpdate)
+model_rebuild(AutoMerge)
 
-__all__ = ("RepositoryRuleUpdate",)
+__all__ = ("AutoMerge",)

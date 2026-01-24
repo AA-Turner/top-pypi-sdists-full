@@ -27,7 +27,6 @@ import random
 import sys
 import time
 import traceback
-import warnings
 import zlib
 from heapq import heapify, heapreplace
 
@@ -676,20 +675,9 @@ class StatsEngine:
         for metric in metrics:
             self.record_time_metric(metric)
 
-    def record_exception(self, exc=None, value=None, tb=None, params=None, ignore_errors=None):
-        # Deprecation Warning
-        warnings.warn(
-            ("The record_exception function is deprecated. Please use the new api named notice_error instead."),
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        self.notice_error(error=(exc, value, tb), attributes=params, ignore=ignore_errors)
-
     def notice_error(self, error=None, attributes=None, expected=None, ignore=None, status_code=None):
         attributes = attributes if attributes is not None else {}
         settings = self.__settings
-
         if not settings:
             return
 
@@ -701,20 +689,26 @@ class StatsEngine:
         if not settings.collect_errors and not settings.collect_error_events:
             return
 
-        # Pull from sys.exc_info if no exception is passed
-        if not error or None in error:
+        # If an exception instance is passed, attempt to unpack it into an exception tuple with traceback
+        if isinstance(error, BaseException):
+            error = (type(error), error, getattr(error, "__traceback__", None))
+
+        # Use current exception from sys.exc_info() if no exception was passed,
+        # or if the exception tuple is missing components like the traceback
+        if not error or (isinstance(error, (tuple, list)) and None in error):
             error = sys.exc_info()
 
-            # If no exception to report, exit
-            if not error or None in error:
-                return
+        # Error should be a tuple or list of 3 elements by this point.
+        # If it's falsey or missing a component like the traceback, quietly exit early.
+        if not isinstance(error, (tuple, list)) or len(error) != 3 or None in error:
+            return
 
         exc, value, tb = error
 
         if getattr(value, "_nr_ignored", None):
             return
 
-        module, name, fullnames, message_raw = parse_exc_info(error)
+        _module, name, fullnames, message_raw = parse_exc_info(error)
         fullname = fullnames[0]
 
         # In the case case of JSON formatting for OpenAI models

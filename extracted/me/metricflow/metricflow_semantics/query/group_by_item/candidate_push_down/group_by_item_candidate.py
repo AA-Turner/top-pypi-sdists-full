@@ -8,9 +8,11 @@ from typing import Sequence, Tuple
 from dbt_semantic_interfaces.references import SemanticModelReference
 from typing_extensions import override
 
+from metricflow_semantics.experimental.semantic_graph.attribute_resolution.annotated_spec_linkable_element_set import (
+    GroupByItemSet,
+)
 from metricflow_semantics.model.semantic_model_derivation import SemanticModelDerivation
-from metricflow_semantics.model.semantics.linkable_element_set import LinkableElementSet
-from metricflow_semantics.model.semantics.linkable_element_set_base import BaseLinkableElementSet
+from metricflow_semantics.model.semantics.linkable_element_set_base import BaseGroupByItemSet
 from metricflow_semantics.query.group_by_item.path_prefixable import PathPrefixable
 from metricflow_semantics.query.group_by_item.resolution_path import MetricFlowQueryResolutionPath
 from metricflow_semantics.specs.instance_spec import LinkableInstanceSpec
@@ -29,21 +31,21 @@ class GroupByItemCandidateSet(PathPrefixable, SemanticModelDerivation):
     For logging / error reporting:
 
     * This includes the path from the leaf node to the measure node where the specs
-    originated. There can be multiple paths as when candidate sets are merged, there can be multiple measures were a
+    originated. There can be multiple paths as when candidate sets are merged, there can be multiple simple-metric inputs were a
     spec could have come from.
 
     * This includes the path from the leaf node to the node where this set was generated since during debugging or in
     error messages, you start analyzing from the leaf node.
     """
 
-    linkable_element_set: BaseLinkableElementSet
-    measure_paths: Tuple[MetricFlowQueryResolutionPath, ...]
+    linkable_element_set: BaseGroupByItemSet
+    simple_metric_input_paths: Tuple[MetricFlowQueryResolutionPath, ...]
     path_from_leaf_node: MetricFlowQueryResolutionPath
 
     def __post_init__(self) -> None:  # noqa: D105
-        # If there are no specs, there shouldn't be any measure paths.
-        assert (len(self.specs) > 0 and len(self.measure_paths) > 0) or (
-            len(self.specs) == 0 and len(self.measure_paths) == 0
+        # If there are no specs, there shouldn't be any simple-metric input paths.
+        assert (len(self.specs) > 0 and len(self.simple_metric_input_paths) > 0) or (
+            len(self.specs) == 0 and len(self.simple_metric_input_paths) == 0
         )
 
     @property
@@ -64,7 +66,7 @@ class GroupByItemCandidateSet(PathPrefixable, SemanticModelDerivation):
         elif len(candidate_sets) == 1:
             return GroupByItemCandidateSet(
                 linkable_element_set=candidate_sets[0].linkable_element_set,
-                measure_paths=candidate_sets[0].measure_paths,
+                simple_metric_input_paths=candidate_sets[0].simple_metric_input_paths,
                 path_from_leaf_node=path_from_leaf_node,
             )
         linkable_element_set_candidates = tuple(candidate_set.linkable_element_set for candidate_set in candidate_sets)
@@ -80,12 +82,12 @@ class GroupByItemCandidateSet(PathPrefixable, SemanticModelDerivation):
             return GroupByItemCandidateSet.empty_instance()
 
         measure_paths = tuple(
-            itertools.chain.from_iterable(candidate_set.measure_paths for candidate_set in candidate_sets)
+            itertools.chain.from_iterable(candidate_set.simple_metric_input_paths for candidate_set in candidate_sets)
         )
 
         return GroupByItemCandidateSet(
             linkable_element_set=intersection_result,
-            measure_paths=measure_paths,
+            simple_metric_input_paths=measure_paths,
             path_from_leaf_node=path_from_leaf_node,
         )
 
@@ -100,8 +102,8 @@ class GroupByItemCandidateSet(PathPrefixable, SemanticModelDerivation):
     @staticmethod
     def empty_instance() -> GroupByItemCandidateSet:  # noqa: D102
         return GroupByItemCandidateSet(
-            linkable_element_set=LinkableElementSet(),
-            measure_paths=(),
+            linkable_element_set=GroupByItemSet(),
+            simple_metric_input_paths=(),
             path_from_leaf_node=MetricFlowQueryResolutionPath.empty_instance(),
         )
 
@@ -115,7 +117,7 @@ class GroupByItemCandidateSet(PathPrefixable, SemanticModelDerivation):
             return GroupByItemCandidateSet.empty_instance()
         return GroupByItemCandidateSet(
             linkable_element_set=filtered_element_set,
-            measure_paths=self.measure_paths,
+            simple_metric_input_paths=self.simple_metric_input_paths,
             path_from_leaf_node=self.path_from_leaf_node,
         )
 
@@ -123,7 +125,9 @@ class GroupByItemCandidateSet(PathPrefixable, SemanticModelDerivation):
     def with_path_prefix(self, path_prefix: MetricFlowQueryResolutionPath) -> GroupByItemCandidateSet:
         return GroupByItemCandidateSet(
             linkable_element_set=self.linkable_element_set,
-            measure_paths=tuple(path.with_path_prefix(path_prefix) for path in self.measure_paths),
+            simple_metric_input_paths=tuple(
+                path.with_path_prefix(path_prefix) for path in self.simple_metric_input_paths
+            ),
             path_from_leaf_node=self.path_from_leaf_node.with_path_prefix(path_prefix),
         )
 

@@ -33,8 +33,8 @@ from evo.tools.settings import SETTINGS
 
 logger = logging.getLogger(__name__)
 
-PathOrTrajectory = typing.Union[PosePath3D, PoseTrajectory3D]
-PathOrTrajectoryType = typing.Type[PathOrTrajectory]
+PathOrTrajectory = PosePath3D | PoseTrajectory3D
+PathOrTrajectoryType = type[PathOrTrajectory]
 
 
 def trajectory_to_df(traj: PosePath3D) -> pd.DataFrame:
@@ -57,7 +57,7 @@ def trajectory_to_df(traj: PosePath3D) -> pd.DataFrame:
 
 
 def df_to_trajectory(
-    df: pd.DataFrame, as_type: typing.Optional[PathOrTrajectoryType] = None
+    df: pd.DataFrame, as_type: PathOrTrajectoryType | None = None
 ) -> PathOrTrajectory:
     """
     :param df: DataFrame created with trajectory_to_df()
@@ -72,33 +72,36 @@ def df_to_trajectory(
     return PoseTrajectory3D(positions_xyz, quat_wxyz, timestamps)
 
 
-def trajectory_stats_to_df(traj: PosePath3D,
-                           name: typing.Optional[str] = None) -> pd.DataFrame:
+def trajectory_stats_to_df(
+    traj: PosePath3D, name: str | None = None
+) -> pd.DataFrame:
     if not isinstance(traj, PosePath3D):
         raise TypeError("PosePath3D or derived required")
     data_dict = {k: v for k, v in traj.get_infos().items() if np.isscalar(v)}
     data_dict.update(traj.get_statistics())
-    index = [name] if name else ['0']
+    index = [name] if name else ["0"]
     return pd.DataFrame(data=data_dict, index=index)
 
 
 def trajectories_stats_to_df(
-        trajectories: typing.Dict[str, PosePath3D]) -> pd.DataFrame:
+    trajectories: dict[str, PosePath3D],
+) -> pd.DataFrame:
     df = pd.DataFrame()
     for name, traj in trajectories.items():
         df = pd.concat((df, trajectory_stats_to_df(traj, name)))
     return df
 
 
-def result_to_df(result_obj: result.Result,
-                 label: typing.Optional[str] = None) -> pd.DataFrame:
+def result_to_df(
+    result_obj: result.Result, label: str | None = None
+) -> pd.DataFrame:
     if not isinstance(result_obj, result.Result):
         raise TypeError("result.Result or derived required")
     data = {
         "info": result_obj.info,
         "stats": result_obj.stats,
         "np_arrays": {},
-        "trajectories": {}
+        "trajectories": {},
     }
     for name, array in result_obj.np_arrays.items():
         data["np_arrays"][name] = array
@@ -112,10 +115,13 @@ def result_to_df(result_obj: result.Result,
     return df.T.stack().to_frame(name=label)
 
 
-def save_df_as_table(df: pd.DataFrame, path: str,
-                     format_str: str = SETTINGS.table_export_format,
-                     transpose: str = SETTINGS.table_export_transpose,
-                     confirm_overwrite: bool = False) -> None:
+def save_df_as_table(
+    df: pd.DataFrame,
+    path: str,
+    format_str: str = SETTINGS.table_export_format,
+    transpose: str = SETTINGS.table_export_transpose,
+    confirm_overwrite: bool = False,
+) -> None:
     if confirm_overwrite and not user.check_and_confirm_overwrite(path):
         return
     if transpose:
@@ -126,12 +132,14 @@ def save_df_as_table(df: pd.DataFrame, path: str,
             df.to_excel(writer)
     else:
         getattr(df, "to_" + format_str)(path)
-    logger.debug("{} table saved to: {}".format(format_str, path))
+    logger.debug(f"{format_str} table saved to: {path}")
 
 
-def load_results_as_dataframe(result_files: typing.Iterable[str],
-                              use_filenames: bool = False,
-                              merge: bool = False) -> pd.DataFrame:
+def load_results_as_dataframe(
+    result_files: typing.Iterable[str],
+    use_filenames: bool = False,
+    merge: bool = False,
+) -> pd.DataFrame:
     """
     Load multiple result files into a MultiIndex dataframe.
     :param result_files: result files to load

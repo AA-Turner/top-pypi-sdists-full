@@ -4,8 +4,6 @@ import json
 import os
 from typing import TYPE_CHECKING, Any
 
-from jinja2 import Template
-
 from splink.internals.misc import EverythingEncoder, read_resource
 
 from .predict import _combine_prior_and_bfs
@@ -36,7 +34,10 @@ def row_examples(
 
     p = linker._settings_obj._probability_two_random_records_match
     bf_final_no_tf = _combine_prior_and_bfs(
-        p, bf_terms=bf_columns_no_tf, sql_infinity_expr=linker._infinity_expression
+        p,
+        bf_terms=bf_columns_no_tf,
+        sql_infinity_expr=linker._infinity_expression,
+        sql_dialect=linker._db_api.sql_dialect,
     )[0]
 
     sql = f"""
@@ -58,8 +59,7 @@ def row_examples(
     sql = """
     select *,
         ROW_NUMBER() OVER (PARTITION BY gam_concat order by rand_order)
-            AS row_example_index,
-        COUNT(*) OVER (PARTITION BY gam_concat) AS count
+            AS row_example_index
     from __splink__df_predict_with_row_id
     """
 
@@ -86,19 +86,22 @@ def row_examples(
 
 
 def comparison_viewer_table_sqls(
-    linker: Linker, example_rows_per_category: int = 2
+    linker: Linker,
+    example_rows_per_category: int = 2,
+    minimum_comparison_vector_count: int = 0,
 ) -> list[dict[str, str]]:
     sqls = row_examples(linker, example_rows_per_category)
 
-    sql = """
+    sql = f"""
     select ser.*,
            cvd.sum_gam,
-           cvd.count_rows_in_comparison_vector_group,
+           cvd.count_rows_in_comparison_vector_group as count,
            cvd.proportion_of_comparisons
     from __splink__df_example_rows as ser
     left join
      __splink__df_comparison_vector_distribution as cvd
     on ser.gam_concat = cvd.gam_concat
+    where cvd.count_rows_in_comparison_vector_group >= {minimum_comparison_vector_count}
     """
 
     sql_info = {
@@ -116,6 +119,8 @@ def render_splink_comparison_viewer_html(
     out_path: str,
     overwrite: bool = False,
 ) -> str:
+    from jinja2 import Template
+
     # When developing the package, it can be easier to point
     # ar the script live on observable using <script src=>
     # rather than bundling the whole thing into the html

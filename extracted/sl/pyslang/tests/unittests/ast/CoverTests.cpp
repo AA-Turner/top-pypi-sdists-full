@@ -429,34 +429,6 @@ endmodule
     CHECK(diags[3].code == diag::ExpectedFunctionPortList);
 }
 
-TEST_CASE("Covergroup expression errors") {
-    auto tree = SyntaxTree::fromText(R"(
-module m;
-    int asdf;
-    wire signed [31:0] w;
-    covergroup cg1 (int a, ref int r);
-        coverpoint a {
-            bins b = {r, asdf, w, foo()};
-        }
-    endgroup
-
-    function int foo;
-        return asdf;
-    endfunction
-endmodule
-)");
-
-    Compilation compilation;
-    compilation.addSyntaxTree(tree);
-
-    auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 4);
-    CHECK(diags[0].code == diag::CoverageExprVar);
-    CHECK(diags[1].code == diag::CoverageExprVar);
-    CHECK(diags[2].code == diag::CoverageExprVar);
-    CHECK(diags[3].code == diag::ConstEvalFunctionIdentifiersMustBeLocal);
-}
-
 TEST_CASE("Cover cross bins") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -752,4 +724,78 @@ endgroup
     CHECK(diags[3].code == diag::RealCoverpointWithExpr);
     CHECK(diags[4].code == diag::RealCoverpointTransBins);
     CHECK(diags[5].code == diag::RealCoverpointImplicit);
+}
+
+TEST_CASE("Covergroup formals are const") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    function foo(output int unsigned o);
+    endfunction
+
+    logic [31:0] a, b;
+    covergroup cg(ref int unsigned cg_lim);
+        coverpoint foo(cg_lim);
+        coverpoint b;
+
+        aXb : cross a, b
+        {
+            function CrossQueueType myFunc1(int unsigned f_lim);
+                cg_lim = 1;
+                for (int unsigned i = 0; i < f_lim; ++i)
+                    myFunc1.push_back('{i,i});
+            endfunction
+
+            bins one = myFunc1(cg_lim);
+            bins two = myFunc2(cg_lim);
+
+            function CrossQueueType myFunc2(logic [31:0] f_lim);
+                for (logic [31:0] i = 0; i < f_lim; ++i)
+                    myFunc2.push_back('{2*i,2*i});
+            endfunction
+        }
+    endgroup
+
+    int unsigned i;
+    cg cg_inst = new(i);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::AssignmentToConstVar);
+    CHECK(diags[1].code == diag::AssignmentToConstVar);
+}
+
+TEST_CASE("Coverpoint non-constant bins expressions") {
+    auto tree = SyntaxTree::fromText(R"(
+class A;
+    int unsigned NUM;
+
+    int unsigned id;
+
+    bit en;
+
+endclass
+
+class B;
+    A a;
+    event trig;
+
+    covergroup cg (string name) @trig;
+        label: coverpoint a.id {
+            bins b1 [] = {[0:a.NUM]};
+            bins b2 = {a.NUM+1} iff(a.en);
+            ignore_bins ig = {a.NUM+1} iff(!a.en);
+        }
+    endgroup
+
+endclass
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
 }

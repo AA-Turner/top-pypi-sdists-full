@@ -1,0 +1,68 @@
+flows:
+- name: login
+  description: Standard login flow for SuiteCRM
+  steps:
+  - description: Wait for page to fully load
+    duration: 5000
+    type: wait
+  - description: Fill username field
+    selector: 'input[name="username"], input[name="user_name"], #user_name, #username'
+    type: fill
+    value: user
+  - description: Fill password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    type: fill
+    value: bitnami
+  - description: Click login submit button
+    selector: 'input[type="submit"], button[type="submit"], #login_button, .button,
+      input.button, form button, form input[type="submit"], #btn_login, .login-btn,
+      .btn-login'
+    type: click
+  - description: Wait for login to process
+    duration: 3000
+    type: wait
+  - description: Wait for login to process
+    duration: 10000
+    type: wait
+  - description: Verify page loaded successfully after login
+    selector: 'iframe[src*="legacy/index.php?module=Home"], scrm-classic-view-ui,
+      scrm-base-navbar, .top-panel, nav.navbar, #content, #main-content, .main-content,
+      .content, #app, #root, .dashboard, .home-page, .main'
+    type: verify
+    verify_type: element_exists
+- name: incorrect_login
+  description: Verify login fails with incorrect password
+  steps:
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for username/email field
+    selector: 'input[name="username"], input[name="email"], input[name="login"], input[type="email"],
+      input[type="text"]:first-of-type, #username, #email, #login, #user'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username/email field with valid username
+    selector: 'input[name="username"], input[name="email"], input[name="login"], input[type="email"],
+      input[type="text"]:first-of-type, #username, #email, #login, #user'
+    type: fill
+    value: user
+  - description: Wait for password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field with incorrect password
+    selector: 'input[name="password"], input[type="password"], #password'
+    type: fill
+    value: wrongpassword
+  - description: Click login submit button
+    selector: button[type="submit"], input[type="submit"], .btn-primary, .login-button,
+      button.btn
+    type: click
+  - description: Wait for login attempt to process
+    duration: 3000
+    type: wait
+  - description: Verify error message is displayed
+    selector: .alert-danger, .alert-error, .error-message, .text-danger, .invalid-feedback,
+      .login-error, .auth-error, .error, .alert, .form-error, .o_error_detail
+    type: verify
+    verify_type: element_exists

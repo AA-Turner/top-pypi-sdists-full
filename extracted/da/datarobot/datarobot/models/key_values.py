@@ -68,28 +68,26 @@ class KeyValue(APIObject):
 
     _path = "keyValues/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("created_at"): String(),
-            t.Key("entity_id"): String(),
-            t.Key("entity_type"): t.Enum(*[e.value for e in KeyValueEntityType]),
-            t.Key("name"): String(),
-            t.Key("value"): String(),
-            t.Key("numeric_value"): t.Float(),
-            t.Key("boolean_value", optional=True, default=False): t.Bool(),
-            t.Key("value_type"): t.Enum(*[e.value for e in KeyValueType]),
-            t.Key("description"): String(allow_blank=True),
-            t.Key("creator_id"): String(),
-            t.Key("creator_name"): String(),
-            t.Key("category"): t.Enum(*[e.value for e in KeyValueCategory]),
-            t.Key("artifact_size"): t.Int(),
-            t.Key("original_file_name"): String(allow_blank=True),
-            t.Key("is_editable"): t.Bool(),
-            t.Key("is_dataset_missing"): t.Bool(),
-            t.Key("error_message"): String(allow_blank=True),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("created_at"): String(),
+        t.Key("entity_id"): String(),
+        t.Key("entity_type"): t.Enum(*[e.value for e in KeyValueEntityType]),
+        t.Key("name"): String(),
+        t.Key("value"): String(),
+        t.Key("numeric_value"): t.Float(),
+        t.Key("boolean_value", optional=True, default=False): t.Bool(),
+        t.Key("value_type"): t.Enum(*[e.value for e in KeyValueType]),
+        t.Key("description"): String(allow_blank=True),
+        t.Key("creator_id"): String(),
+        t.Key("creator_name"): String(),
+        t.Key("category"): t.Enum(*[e.value for e in KeyValueCategory]),
+        t.Key("artifact_size"): t.Int(),
+        t.Key("original_file_name"): String(allow_blank=True),
+        t.Key("is_editable"): t.Bool(),
+        t.Key("is_dataset_missing"): t.Bool(),
+        t.Key("error_message"): String(allow_blank=True),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -353,9 +351,7 @@ class KeyValue(APIObject):
             "name": name if name is not None else self.name,
             "category": category.value if category is not None else self.category.value,
             "valueType": value_type.value if value_type is not None else self.value_type.value,
-            "value": (
-                self.value if value is None else None
-            ),  # backend expects `value` to be always provided
+            "value": (self.value if value is None else None),  # backend expects `value` to be always provided
         }
         if value is not None:
             value_keys = {

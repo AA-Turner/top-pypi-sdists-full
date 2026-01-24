@@ -18,7 +18,7 @@ import copy
 import functools
 import inspect
 import types
-from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar, cast
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
@@ -43,7 +43,7 @@ class FunctionDecorator:
     ) -> FunctionDecorator:
         self = super().__new__(cls)
         functools.update_wrapper(self, func)
-        return cast(FunctionDecorator, self)
+        return cast("FunctionDecorator", self)
 
 
 def _copy_func(src: T, name: str | None = None) -> T:
@@ -59,7 +59,7 @@ def _copy_func(src: T, name: str | None = None) -> T:
     dst.__dict__.update(copy.deepcopy(src.__dict__))
     dst = functools.update_wrapper(dst, src)  # type: ignore[assignment]
     dst.__kwdefaults__ = src.__kwdefaults__
-    return cast(T, dst)
+    return cast("T", dst)
 
 
 class Func(FunctionDecorator):
@@ -69,15 +69,16 @@ class Func(FunctionDecorator):
         self,
         func: Callable[..., Any],
         python: _typing.Python = None,
-        reuse_venv: bool | None = None,
+        reuse_venv: bool | None = None,  # noqa: FBT001
         name: str | None = None,
-        venv_backend: Any = None,
+        venv_backend: str | None = None,
         venv_params: Sequence[str] = (),
         should_warn: Mapping[str, Any] | None = None,
         tags: Sequence[str] | None = None,
         *,
         default: bool = True,
         requires: Sequence[str] | None = None,
+        download_python: Literal["auto", "never", "always"] | None = None,
     ) -> None:
         self.func = func
         self.python = python
@@ -89,6 +90,10 @@ class Func(FunctionDecorator):
         self.tags = list(tags or [])
         self.default = default
         self.requires = list(requires or [])
+        self.download_python = download_python
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(name={self.name!r})"
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return self.func(*args, **kwargs)
@@ -107,6 +112,7 @@ class Func(FunctionDecorator):
             self.tags,
             default=self.default,
             requires=self._requires,
+            download_python=self.download_python,
         )
 
     @property
@@ -162,9 +168,13 @@ class Call(Func):
             func.tags + param_spec.tags,
             default=func.default,
             requires=func.requires,
+            download_python=func.download_python,
         )
         self.call_spec = call_spec
         self.session_signature = session_signature
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(name={self.name!r}, call_spec={self.call_spec!r}, session_signature={self.session_signature!r})"
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         kwargs.update(self.call_spec)

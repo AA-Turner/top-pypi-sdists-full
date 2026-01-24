@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use ignore::overrides::OverrideBuilder;
 use pyo3::prelude::*;
 
 fn path_buf_to_pathlib_path(py: Python, path_buf: PathBuf) -> PyResult<Py<PyAny>> {
@@ -32,6 +33,7 @@ impl Walker {
         require_git=None,
         additional_ignores=None,
         additional_ignore_paths=None,
+        overrides=None,
         max_depth=None,
         max_filesize=None,
         follow_links=None,
@@ -54,6 +56,7 @@ impl Walker {
 
         additional_ignores: Option<Vec<String>>,
         additional_ignore_paths: Option<Vec<String>>,
+        overrides: Option<Vec<String>>,
 
         max_depth: Option<usize>,
         max_filesize: Option<u64>,
@@ -62,9 +65,21 @@ impl Walker {
 
         case_insensitive: Option<bool>,
         same_file_system: Option<bool>,
-        should_exclude_entry: Option<PyObject>,
+        should_exclude_entry: Option<Py<PyAny>>,
     ) -> Self {
-        let mut builder = ignore::WalkBuilder::new(path);
+        let mut builder = ignore::WalkBuilder::new(&path);
+
+        // doing this at the beginning because otherwise it would override all the other options
+        if let Some(override_patterns) = overrides {
+            let mut override_builder = OverrideBuilder::new(&path);
+            for pattern in override_patterns {
+                let _ = override_builder.add(&pattern);
+            }
+
+            if let Ok(overrides) = override_builder.build() {
+                builder.overrides(overrides);
+            }
+        }
 
         if let Some(ignore_hidden) = ignore_hidden {
             builder.hidden(ignore_hidden);
@@ -121,9 +136,11 @@ impl Walker {
             builder.same_file_system(same_file_system);
         }
 
+
+
         if let Some(filter_func) = should_exclude_entry {
             let filter = Arc::new(move |entry: &ignore::DirEntry| -> PyResult<bool> {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let path_buf = entry.path().to_path_buf();
                     let pathlib_path = path_buf_to_pathlib_path(py, path_buf)?;
                     let args = (pathlib_path,);
@@ -142,6 +159,7 @@ impl Walker {
                 }
             });
         }
+
 
         Walker(builder.build())
     }
@@ -179,6 +197,7 @@ impl Walker {
     require_git=None,
     additional_ignores=None,
     additional_ignore_paths=None,
+    overrides=None,
     max_depth=None,
     max_filesize=None,
     follow_links=None,
@@ -201,6 +220,7 @@ fn walk(
 
     additional_ignores: Option<Vec<String>>,
     additional_ignore_paths: Option<Vec<String>>,
+    overrides: Option<Vec<String>>,
 
     max_depth: Option<usize>,
     max_filesize: Option<u64>,
@@ -210,7 +230,7 @@ fn walk(
     case_insensitive: Option<bool>,
     same_file_system: Option<bool>,
 
-    should_exclude_entry: Option<PyObject>,
+    should_exclude_entry: Option<Py<PyAny>>,
 ) -> PyResult<Walker> {
     Ok(Walker::new(
         path,
@@ -223,6 +243,7 @@ fn walk(
         require_git,
         additional_ignores,
         additional_ignore_paths,
+        overrides,
         max_depth,
         max_filesize,
         follow_links,
@@ -233,7 +254,7 @@ fn walk(
 }
 
 /// A Python module implemented in Rust.
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn rignore(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Walker>()?;
     m.add_function(wrap_pyfunction!(walk, m)?).unwrap();

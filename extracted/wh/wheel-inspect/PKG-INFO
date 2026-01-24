@@ -1,33 +1,32 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: wheel-inspect
-Version: 1.7.2
+Version: 1.8.0
 Summary: Extract information from wheels
 Project-URL: Source Code, https://github.com/wheelodex/wheel-inspect
 Project-URL: Bug Tracker, https://github.com/wheelodex/wheel-inspect/issues
 Author-email: John Thorvald Wodder II <wheel-inspect@varonathe.org>
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: *.dist-info,dist-info,package metadata,packages,pep427,wheel
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Software Distribution
-Requires-Python: ~=3.8
+Requires-Python: ~=3.10
 Requires-Dist: attrs>=18.1
 Requires-Dist: entry-points-txt~=0.2
 Requires-Dist: headerparser<0.6,>=0.4
 Requires-Dist: packaging>=17.1
 Requires-Dist: readme-renderer>=24.0
-Requires-Dist: wheel-filename~=1.1
+Requires-Dist: wheel-filename~=2.0
 Description-Content-Type: text/x-rst
 
 |repostatus| |ci-status| |coverage| |pyversions| |license|
@@ -69,7 +68,7 @@ or from the command line with the ``wheel2json`` command.
 
 Installation
 ============
-``wheel-inspect`` requires Python 3.8 or higher.  Just use `pip
+``wheel-inspect`` requires Python 3.10 or higher.  Just use `pip
 <https://pip.pypa.io>`_ for Python 3 (You have pip, right?) to install
 ``wheel-inspect`` and its dependencies::
 
@@ -338,14 +337,6 @@ API
 ``wheel_inspect.inspect_wheel(path)``
    Inspect the wheel file at the given ``path``.  The structure of the return
    value is described by ``WHEEL_SCHEMA``.
-
-Previous versions of ``wheel-inspect`` provided a ``parse_wheel_filename()``
-function.  As of version 1.5.0, that feature has been split off into its own
-package, `wheel-filename <https://github.com/jwodder/wheel-filename>`_.
-``wheel-inspect`` continues to re-export this function in order to maintain API
-compatibility with earlier versions, but this will change in the future.  Code
-that imports ``parse_wheel_filename()`` from ``wheel-inspect`` should be
-updated to use ``wheel-filename`` instead.
 
 
 Command

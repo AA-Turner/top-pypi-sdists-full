@@ -299,7 +299,7 @@ Keyword arguments:
 
     `wrapperProps` is a dict with keys:
 """
-    _children_props = ['label', 'description', 'error']
+    _children_props: typing.List[str] = ['label', 'description', 'error']
     _base_nodes = ['label', 'description', 'error', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Radio'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kr8s
-Version: 0.20.10
+Version: 0.20.15
 Summary: A Kubernetes API library
 Project-URL: Documentation, https://docs.kr8s.org/en/stable
 Project-URL: Repository, https://github.com/kr8s-org/kr8s.git
@@ -14,15 +14,16 @@ Keywords: kubectl,kubernetes
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.9
 Requires-Dist: anyio>=3.7.0
-Requires-Dist: asyncache>=0.3.1
+Requires-Dist: cachetools>=5.2.0
 Requires-Dist: cryptography>=35
 Requires-Dist: exceptiongroup>=1.2.0; python_version < '3.12'
 Requires-Dist: httpx-ws>=0.7.0
 Requires-Dist: httpx>=0.24.1
+Requires-Dist: packaging>=23.0
 Requires-Dist: python-box>=7.0.1
 Requires-Dist: python-jsonpath>=0.7.1
 Requires-Dist: pyyaml>=6.0
-Requires-Dist: typing-extensions>=4.12.2
+Requires-Dist: typing-extensions>=4.12.2; python_version < '3.12'
 Description-Content-Type: text/markdown
 
 <div style="text-align: center; width: 100%;"><img src="https://github.com/kr8s-org/kr8s/raw/v0.17.2/branding/logo-wide.png" style="max-height: 200px;" /></div>
@@ -33,8 +34,8 @@ Description-Content-Type: text/markdown
 [![Read the Docs](https://img.shields.io/readthedocs/kr8s?logo=readthedocs&logoColor=white)](https://docs.kr8s.org/en/stable/)
 [![EffVer Versioning](https://img.shields.io/badge/version_scheme-EffVer-0097a7)](https://jacobtomlinson.dev/effver)
 [![PyPI](https://img.shields.io/pypi/v/kr8s)](https://pypi.org/project/kr8s/)
-[![Python Version Support](https://img.shields.io/badge/Python%20support-3.9%7C3.10%7C3.11%7C3.12%7C3.13-blue)](https://pypi.org/project/kr8s/)
-[![Kubernetes Version Support](https://img.shields.io/badge/Kubernetes%20support-1.28%7C1.29%7C1.30%7C1.31%7C1.32%7C1.33-blue)](https://docs.kr8s.org/en/stable/installation.html#supported-kubernetes-versions)
+[![Python Version Support](https://img.shields.io/badge/Python%20support-3.9%7C3.10%7C3.11%7C3.12%7C3.13%7C3.14-blue)](https://pypi.org/project/kr8s/)
+[![Kubernetes Version Support](https://img.shields.io/badge/Kubernetes%20support-1.28%7C1.29%7C1.30%7C1.31%7C1.32%7C1.33%7C1.34%7C1.35-blue)](https://docs.kr8s.org/en/stable/installation.html#supported-kubernetes-versions)
 [![PyPI - Wheel](https://img.shields.io/pypi/wheel/kr8s)](https://pypi.org/project/kr8s/)
 [![PyPI - License](https://img.shields.io/pypi/l/kr8s)](https://pypi.org/project/kr8s/)
 

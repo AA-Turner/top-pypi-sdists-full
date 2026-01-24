@@ -1,17 +1,10 @@
 """
-.. note::
-
-    While modeltree is functional and well tested, it's in an early state of its
-    development. Backward incompatible api changes are possible. Feedback and
-    suggestions about the api are very welcome. Just open an issue on github.
-
-
 About
 -----
 Do you have a model layout with various relations and looking for a way to
 navigate it with ease? Then django-modeltree is what you are looking for. Build
 your modeltree in a single line and accessing related models and their objects
-in a elegant and performant way. No need for complex query building anymore.
+in a convenient and performant way. No need for complex query building anymore.
 Give it a try...
 
 
@@ -305,14 +298,15 @@ class ModelTree(AnyNode):
         self._build_tree()
 
     def __str__(self):
-        if self._field:
-            return '{} -> {}'.format(self._field.name, self._model._meta.object_name)
+        if self.is_root:
+            return self._model._meta.object_name
         else:
-            return '{}'.format(self._model._meta.object_name)
+            path = ' -> '.join(f'{n.parent.model._meta.object_name}.{n.field.name}' for n in self.path[1:])
+            return f'{path} => {self._model._meta.object_name}'
 
     def __repr__(self):
         classname = type(self).__name__
-        return '{}(model={}, field={})'.format(classname, repr(self._model), repr(self._field))
+        return f'{classname}(model={self._model}, field={self._field}, field_path={self.field_path})'
 
     def __contains__(self, __key):
         return self._children_by_field.__contains__(__key)
@@ -343,12 +337,12 @@ class ModelTree(AnyNode):
         """
         String describing the relation type of :attr:`.field`.
         See :attr:`.RELATION_TYPES` for possible values.
-        This is an empty string for the root node.
+        This is None for the root node.
         """
-        if self.field:
-            return [t for t in RELATION_TYPES if getattr(self.field, t)][0]
+        if self.is_root:
+            return None
         else:
-            return str()
+            return [t for t in RELATION_TYPES if getattr(self.field, t)][0]
 
     @property
     def field_path(self):
@@ -360,15 +354,10 @@ class ModelTree(AnyNode):
             >>> node_four.field_path
             'model_two__model_three__model_four'
 
-        Since the root-modelnode has no field by its own it is represented by
-        the string 'root'::
-
-            >>> tree.root.field_path
-            'root'
-
+        This is None for the root node.
         """
         if self.is_root:
-            return 'root'
+            return None
         else:
             return '__'.join(n.field.name for n in self.path[1:])
 
@@ -411,7 +400,10 @@ class ModelTree(AnyNode):
         """
         return RenderTree(self)
 
-    def show(self, format='{node}', root_format='{node}', with_items=False):
+    def show(self,
+             format='{node.field.name} -> {node.model._meta.object_name}',
+             root_format='{node.model._meta.object_name}',
+             with_items=False):
         """
         Print a tree. Each node will be rendered by using a format string which
         reference the node object by the key *node*::
@@ -459,7 +451,7 @@ class ModelTree(AnyNode):
         :param bool with_items: include the node's items (optional)
         """
         for prefix, multiline_prefix, node in self.render():
-            if root_format and node.is_root:
+            if node.is_root:
                 label = root_format.format(node=node)
             else:
                 label = format.format(node=node)
@@ -535,7 +527,7 @@ class ModelTree(AnyNode):
         * :class:`~anytree.iterators.levelorderiter.LevelOrderIter`
         * :class:`~anytree.iterators.levelordergroupiter.LevelOrderGroupIter`
 
-        By default an instance of the ProOrderIter class will be returned.
+        By default an instance of the PreOrderIter class will be returned.
 
         :param bool by_level: use the LevelOrderIter class
         :param bool by_grouped_level: use the LevelOrderGroupIter class

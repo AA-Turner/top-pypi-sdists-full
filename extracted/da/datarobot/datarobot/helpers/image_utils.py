@@ -77,13 +77,9 @@ class ImageOptions:
         should_resize: bool = DEFAULT_VISUAL_AI_SHOULD_RESIZE,
         force_size: bool = DEFAULT_VISUAL_AI_FORCE_SIZE,
         image_size: Tuple[int, int] = DEFAULT_VISUAL_AI_IMAGE_SIZE,
-        image_format: Optional[
-            str
-        ] = DEFAULT_VISUAL_AI_IMAGE_FORMAT,  # This constant is equal to None
+        image_format: Optional[str] = DEFAULT_VISUAL_AI_IMAGE_FORMAT,  # This constant is equal to None
         image_quality: int = DEFAULT_VISUAL_AI_IMAGE_QUALITY,
-        image_subsampling: Optional[
-            int
-        ] = DEFAULT_VISUAL_AI_IMAGE_SUBSAMPLING,  # This constant is equal to None
+        image_subsampling: Optional[int] = DEFAULT_VISUAL_AI_IMAGE_SUBSAMPLING,  # This constant is equal to None
         resample_method: int = DEFAULT_VISUAL_AI_IMAGE_RESAMPLE_METHOD,
         keep_quality: bool = DEFAULT_VISUAL_AI_IMAGE_QUALITY_KEEP_IF_POSSIBLE,
     ) -> None:
@@ -208,9 +204,7 @@ def format_image_bytes(image_bytes: bytes, image_options: ImageOptions) -> Optio
     # if image should be resized calculate new image size and resize original image
     if image_options.should_resize:
         if image_options.force_size:
-            image = image.resize(
-                size=image_options.image_size, resample=image_options.resample_method
-            )
+            image = image.resize(size=image_options.image_size, resample=image_options.resample_method)
         else:
             image.thumbnail(size=image_options.image_size, resample=image_options.resample_method)
 

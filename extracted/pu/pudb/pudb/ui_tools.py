@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from typing import Callable, ClassVar, Hashable, Literal, Sequence, TypeVar
+
 import urwid
-from urwid import calc_text_pos, calc_width
+from typing_extensions import TypeAlias, override
+from urwid import Widget, calc_text_pos, calc_width
 
 
 # generic urwid helpers -------------------------------------------------------
@@ -18,7 +21,7 @@ def text_width(txt):
     return calc_width(txt, 0, len(txt))
 
 
-def encode_like_urwid(s):
+def encode_like_urwid(s: str):
     from urwid.display import escape
     from urwid.util import _target_encoding
 
@@ -26,14 +29,18 @@ def encode_like_urwid(s):
     # https://github.com/urwid/urwid/blob/2cc54891965283faf9113da72202f5d405f90fa3/urwid/util.py#L126-L128
 
     s = s.replace(escape.SI+escape.SO, "")  # remove redundant shifts
-    s = s.encode(_target_encoding, "replace")
-    return s
+    return s.encode(_target_encoding, "replace")
 
 
-def make_canvas(txt, attr, maxcol, fill_attr=None):
-    processed_txt = []
-    processed_attr = []
-    processed_cs = []
+def make_canvas(
+            txt: Sequence[str],
+            attr: Sequence[Sequence[tuple[Hashable | None, int]]],
+            maxcol: int,
+            fill_attr: str | None = None
+        ):
+    processed_txt: list[bytes] = []
+    processed_attr: list[list[tuple[Hashable | None, int]]] = []
+    processed_cs: list[list[tuple[Literal["U", "0"] | None, int]]] = []
 
     for line, line_attr in zip(txt, attr):
         # filter out zero-length attrs
@@ -104,23 +111,39 @@ def focus_widget_in_container(container, widget) -> None:
 
 
 class SelectableText(urwid.Text):
+    @override
     def selectable(self):
         return True
 
-    def keypress(self, size, key):
+    @override
+    def keypress(self, size: UrwidSize, key: str):
         return key
 
 
-class SignalWrap(urwid.WidgetWrap):
-    def __init__(self, w, is_preemptive=False):
-        urwid.WidgetWrap.__init__(self, w)
+UrwidSize: TypeAlias = "tuple[()] | tuple[int] | tuple[int, int]"
+WrappedWidget = TypeVar("WrappedWidget", bound=Widget, covariant=True)
+EventListener: TypeAlias = Callable[
+        ["SignalWrap[WrappedWidget]", UrwidSize, str],
+        "str | None"]
+
+
+# pyright ignore to paper over variance disagreement with urwid
+class SignalWrap(urwid.WidgetWrap[WrappedWidget]):  # pyright: ignore[reportInvalidTypeArguments]
+    event_listeners: list[tuple[str | None, EventListener[WrappedWidget]]]
+    is_preemptive: bool
+
+    def __init__(self, w: WrappedWidget, is_preemptive: bool = False):
+        super().__init__(w)
         self.event_listeners = []
         self.is_preemptive = is_preemptive
 
-    def listen(self, mask, handler):
+    def listen(self, mask: str | None, handler: EventListener[WrappedWidget]):
         self.event_listeners.append((mask, handler))
 
-    def keypress(self, size, key):
+    @override
+    def keypress(self,
+                size: UrwidSize,
+                key: str):
         result = key
 
         if self.is_preemptive:
@@ -143,9 +166,20 @@ class SignalWrap(urwid.WidgetWrap):
 # {{{ debugger-specific stuff
 
 class StackFrame(urwid.Widget):
-    _sizing = frozenset([urwid.Sizing.FLOW])
+    _sizing: ClassVar[frozenset[urwid.Sizing]] = frozenset([urwid.Sizing.FLOW])
 
-    def __init__(self, is_current, name, class_name, filename, line):
+    is_current: bool
+    name: str
+    class_name: str | None
+    filename: str
+    line: int
+
+    def __init__(self,
+                is_current: bool,
+                name: str,
+                class_name: str | None,
+                filename: str,
+                line: int):
         super().__init__()
 
         self.is_current = is_current
@@ -154,13 +188,17 @@ class StackFrame(urwid.Widget):
         self.filename = filename
         self.line = line
 
+    @override
     def selectable(self):
         return True
 
-    def rows(self, size, focus=False):
+    @override
+    def rows(self, size: UrwidSize, focus: bool = False):
         return 1
 
-    def render(self, size, focus=False):
+    @override
+    def render(self, size: UrwidSize, focus: bool = False):
+        assert size  # FIXME?
         maxcol = size[0]
         if focus:
             apfx = "focused "
@@ -186,7 +224,8 @@ class StackFrame(urwid.Widget):
 
         return make_canvas([text], [attr], maxcol, apfx+"frame location")
 
-    def keypress(self, size, key):
+    @override
+    def keypress(self, size: UrwidSize, key: str):
         return key
 
 

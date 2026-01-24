@@ -10,11 +10,13 @@ T = TypeVar("T", bound="ListJobsResponse200ItemType1RawFlowModulesItemStopAfterI
 
 @_attrs_define
 class ListJobsResponse200ItemType1RawFlowModulesItemStopAfterIf:
-    """
+    """Early termination condition for a module
+
     Attributes:
-        expr (str):
-        skip_if_stopped (Union[Unset, bool]):
-        error_message (Union[Unset, str]):
+        expr (str): JavaScript expression evaluated after the module runs. Can use 'result' (step's result) or
+            'flow_input'. Return true to stop
+        skip_if_stopped (Union[Unset, bool]): If true, following steps are skipped when this condition triggers
+        error_message (Union[Unset, str]): Custom error message shown when stopping
     """
 
     expr: str

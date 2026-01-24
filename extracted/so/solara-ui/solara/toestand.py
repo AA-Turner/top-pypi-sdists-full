@@ -313,6 +313,10 @@ class KernelStore(ValueBase[S], ABC):
 
     def set(self, value: S):
         scope_dict, scope_id = self._get_dict()
+        if not solara.settings.main.allow_global_context and scope_id == "global":
+            raise RuntimeError(
+                f"No kernel context found, and global context is not allowed for task, context key was {solara.server.kernel_context.get_current_thread_key()}"
+            )
         old = self.get()
         if self.equals(old, value):
             return
@@ -971,6 +975,19 @@ class AutoSubscribeContextManagerReacton(AutoSubscribeContextManagerBase):
 
         def force_update():
             # can we do just x+1 to collapse multiple updates into one?
+            if logger.isEnabledFor(logging.INFO):
+                frame = _find_outside_solara_frame()
+                if frame is not None:
+                    tb = inspect.getframeinfo(frame)
+                else:
+                    tb = None
+                if tb is not None and tb.code_context:
+                    code = tb.code_context[0]
+                    hint = f"\n{tb.filename}:{tb.lineno}\n{code.rstrip()}"
+                else:
+                    hint = "<No code context available>"
+                logger.info("A rerender was triggered by: %s", hint)
+
             set_counter(lambda x: x + 1)
 
         super().__enter__()

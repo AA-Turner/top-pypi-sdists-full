@@ -191,7 +191,7 @@ impl TransactionLog {
             .is_some()
     }
 
-    fn root(&self) -> generated::TransactionLog {
+    fn root(&self) -> generated::TransactionLog<'_> {
         // without the unsafe version this is too slow
         // if we try to keep the root in the TransactionLog struct, we would need a lifetime
         unsafe { flatbuffers::root_unchecked::<generated::TransactionLog>(&self.buffer) }
@@ -260,9 +260,9 @@ impl DiffBuilder {
 
     pub async fn to_diff(self, from: &Session, to: &Session) -> SessionResult<Diff> {
         let nodes: HashMap<NodeId, Path> = from
-            .list_nodes()
+            .list_nodes(&Path::root())
             .await?
-            .chain(to.list_nodes().await?)
+            .chain(to.list_nodes(&Path::root()).await?)
             .map_ok(|n| (n.id, n.path))
             .try_collect()?;
         Ok(Diff::from_diff_builder(self, nodes))

@@ -25,9 +25,11 @@ class RnaSequence:
     """  """
 
     _aliases: Union[Unset, List[str]] = UNSET
+    _alignment_ids: Union[Unset, List[str]] = UNSET
     _annotations: Union[Unset, List[RnaAnnotation]] = UNSET
     _api_url: Union[Unset, str] = UNSET
     _archive_record: Union[Unset, None, ArchiveRecord] = UNSET
+    _authors: Union[Unset, List[UserSummary]] = UNSET
     _bases: Union[Unset, str] = UNSET
     _created_at: Union[Unset, datetime.datetime] = UNSET
     _creator: Union[Unset, UserSummary] = UNSET
@@ -49,15 +51,18 @@ class RnaSequence:
     _registry_id: Union[Unset, None, str] = UNSET
     _schema: Union[Unset, None, SchemaSummary] = UNSET
     _translations: Union[Unset, List[Translation]] = UNSET
+    _url: Union[Unset, str] = UNSET
     _web_url: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
 
     def __repr__(self):
         fields = []
         fields.append("aliases={}".format(repr(self._aliases)))
+        fields.append("alignment_ids={}".format(repr(self._alignment_ids)))
         fields.append("annotations={}".format(repr(self._annotations)))
         fields.append("api_url={}".format(repr(self._api_url)))
         fields.append("archive_record={}".format(repr(self._archive_record)))
+        fields.append("authors={}".format(repr(self._authors)))
         fields.append("bases={}".format(repr(self._bases)))
         fields.append("created_at={}".format(repr(self._created_at)))
         fields.append("creator={}".format(repr(self._creator)))
@@ -79,6 +84,7 @@ class RnaSequence:
         fields.append("registry_id={}".format(repr(self._registry_id)))
         fields.append("schema={}".format(repr(self._schema)))
         fields.append("translations={}".format(repr(self._translations)))
+        fields.append("url={}".format(repr(self._url)))
         fields.append("web_url={}".format(repr(self._web_url)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
         return "RnaSequence({})".format(", ".join(fields))
@@ -87,6 +93,10 @@ class RnaSequence:
         aliases: Union[Unset, List[Any]] = UNSET
         if not isinstance(self._aliases, Unset):
             aliases = self._aliases
+
+        alignment_ids: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._alignment_ids, Unset):
+            alignment_ids = self._alignment_ids
 
         annotations: Union[Unset, List[Any]] = UNSET
         if not isinstance(self._annotations, Unset):
@@ -100,6 +110,14 @@ class RnaSequence:
         archive_record: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self._archive_record, Unset):
             archive_record = self._archive_record.to_dict() if self._archive_record else None
+
+        authors: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._authors, Unset):
+            authors = []
+            for authors_item_data in self._authors:
+                authors_item = authors_item_data.to_dict()
+
+                authors.append(authors_item)
 
         bases = self._bases
         created_at: Union[Unset, str] = UNSET
@@ -164,6 +182,7 @@ class RnaSequence:
 
                 translations.append(translations_item)
 
+        url = self._url
         web_url = self._web_url
 
         field_dict: Dict[str, Any] = {}
@@ -171,12 +190,16 @@ class RnaSequence:
         # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
         if aliases is not UNSET:
             field_dict["aliases"] = aliases
+        if alignment_ids is not UNSET:
+            field_dict["alignmentIds"] = alignment_ids
         if annotations is not UNSET:
             field_dict["annotations"] = annotations
         if api_url is not UNSET:
             field_dict["apiURL"] = api_url
         if archive_record is not UNSET:
             field_dict["archiveRecord"] = archive_record
+        if authors is not UNSET:
+            field_dict["authors"] = authors
         if bases is not UNSET:
             field_dict["bases"] = bases
         if created_at is not UNSET:
@@ -219,6 +242,8 @@ class RnaSequence:
             field_dict["schema"] = schema
         if translations is not UNSET:
             field_dict["translations"] = translations
+        if url is not UNSET:
+            field_dict["url"] = url
         if web_url is not UNSET:
             field_dict["webURL"] = web_url
 
@@ -239,6 +264,18 @@ class RnaSequence:
             if strict:
                 raise
             aliases = cast(Union[Unset, List[str]], UNSET)
+
+        def get_alignment_ids() -> Union[Unset, List[str]]:
+            alignment_ids = cast(List[str], d.pop("alignmentIds"))
+
+            return alignment_ids
+
+        try:
+            alignment_ids = get_alignment_ids()
+        except KeyError:
+            if strict:
+                raise
+            alignment_ids = cast(Union[Unset, List[str]], UNSET)
 
         def get_annotations() -> Union[Unset, List[RnaAnnotation]]:
             annotations = []
@@ -283,6 +320,23 @@ class RnaSequence:
             if strict:
                 raise
             archive_record = cast(Union[Unset, None, ArchiveRecord], UNSET)
+
+        def get_authors() -> Union[Unset, List[UserSummary]]:
+            authors = []
+            _authors = d.pop("authors")
+            for authors_item_data in _authors or []:
+                authors_item = UserSummary.from_dict(authors_item_data, strict=False)
+
+                authors.append(authors_item)
+
+            return authors
+
+        try:
+            authors = get_authors()
+        except KeyError:
+            if strict:
+                raise
+            authors = cast(Union[Unset, List[UserSummary]], UNSET)
 
         def get_bases() -> Union[Unset, str]:
             bases = d.pop("bases")
@@ -566,6 +620,17 @@ class RnaSequence:
                 raise
             translations = cast(Union[Unset, List[Translation]], UNSET)
 
+        def get_url() -> Union[Unset, str]:
+            url = d.pop("url")
+            return url
+
+        try:
+            url = get_url()
+        except KeyError:
+            if strict:
+                raise
+            url = cast(Union[Unset, str], UNSET)
+
         def get_web_url() -> Union[Unset, str]:
             web_url = d.pop("webURL")
             return web_url
@@ -579,9 +644,11 @@ class RnaSequence:
 
         rna_sequence = cls(
             aliases=aliases,
+            alignment_ids=alignment_ids,
             annotations=annotations,
             api_url=api_url,
             archive_record=archive_record,
+            authors=authors,
             bases=bases,
             created_at=created_at,
             creator=creator,
@@ -603,6 +670,7 @@ class RnaSequence:
             registry_id=registry_id,
             schema=schema,
             translations=translations,
+            url=url,
             web_url=web_url,
         )
 
@@ -641,6 +709,21 @@ class RnaSequence:
     @aliases.deleter
     def aliases(self) -> None:
         self._aliases = UNSET
+
+    @property
+    def alignment_ids(self) -> List[str]:
+        """ API IDs of Nucleotide Alignments involving the RNA sequence """
+        if isinstance(self._alignment_ids, Unset):
+            raise NotPresentError(self, "alignment_ids")
+        return self._alignment_ids
+
+    @alignment_ids.setter
+    def alignment_ids(self, value: List[str]) -> None:
+        self._alignment_ids = value
+
+    @alignment_ids.deleter
+    def alignment_ids(self) -> None:
+        self._alignment_ids = UNSET
 
     @property
     def annotations(self) -> List[RnaAnnotation]:
@@ -684,6 +767,20 @@ class RnaSequence:
     @archive_record.deleter
     def archive_record(self) -> None:
         self._archive_record = UNSET
+
+    @property
+    def authors(self) -> List[UserSummary]:
+        if isinstance(self._authors, Unset):
+            raise NotPresentError(self, "authors")
+        return self._authors
+
+    @authors.setter
+    def authors(self, value: List[UserSummary]) -> None:
+        self._authors = value
+
+    @authors.deleter
+    def authors(self) -> None:
+        self._authors = UNSET
 
     @property
     def bases(self) -> str:
@@ -981,6 +1078,21 @@ class RnaSequence:
     @translations.deleter
     def translations(self) -> None:
         self._translations = UNSET
+
+    @property
+    def url(self) -> str:
+        """ The path of the web URL, omitting the tenant domain """
+        if isinstance(self._url, Unset):
+            raise NotPresentError(self, "url")
+        return self._url
+
+    @url.setter
+    def url(self, value: str) -> None:
+        self._url = value
+
+    @url.deleter
+    def url(self) -> None:
+        self._url = UNSET
 
     @property
     def web_url(self) -> str:

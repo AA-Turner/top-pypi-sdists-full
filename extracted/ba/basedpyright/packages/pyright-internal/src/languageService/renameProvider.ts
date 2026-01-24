@@ -20,6 +20,7 @@ import { Uri } from '../common/uri/uri';
 import { convertToWorkspaceEdit } from '../common/workspaceEditUtils';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { ParseFileResults } from '../parser/parser';
+import { Tokenizer } from '../parser/tokenizer';
 import { IPythonMode } from '../analyzer/sourceFile';
 import { LanguageServerInterface } from '../common/languageServerInterface';
 
@@ -82,6 +83,18 @@ export class RenameProvider {
             isUntitled
         );
 
+        // not returning `null` on error because that shows an extra "No Result" message. we could just send {}
+        // but that breaks the fourslash tests
+        const noChanges = { documentChanges: [] };
+        if (Tokenizer.isPythonKeyword(newName)) {
+            this._ls.window.showWarningMessage(`Cannot rename to "${newName}": it's a Python keyword`);
+            return noChanges;
+        }
+        if (!Tokenizer.isPythonIdentifier(newName)) {
+            this._ls.window.showWarningMessage(`Can only rename to a valid Python identitifer, got: "${newName}"`);
+            return noChanges;
+        }
+
         switch (renameMode) {
             case 'singleFileMode':
                 referenceProvider.addReferencesToResult(
@@ -141,7 +154,10 @@ export class RenameProvider {
             });
         });
 
-        return convertToWorkspaceEdit(this._ls, this._program.fileSystem, { edits, fileOperations: [] });
+        return convertToWorkspaceEdit(this._ls.convertUriToLspUriString, this._program.fileSystem, {
+            edits,
+            fileOperations: [],
+        });
     }
 
     static getRenameSymbolMode(

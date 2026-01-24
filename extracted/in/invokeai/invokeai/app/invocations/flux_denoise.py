@@ -47,8 +47,9 @@ from invokeai.backend.flux.sampling_utils import (
     pack,
     unpack,
 )
+from invokeai.backend.flux.schedulers import FLUX_SCHEDULER_LABELS, FLUX_SCHEDULER_MAP, FLUX_SCHEDULER_NAME_VALUES
 from invokeai.backend.flux.text_conditioning import FluxReduxConditioning, FluxTextConditioning
-from invokeai.backend.model_manager.taxonomy import ModelFormat, ModelVariantType
+from invokeai.backend.model_manager.taxonomy import BaseModelType, FluxVariantType, ModelFormat, ModelType
 from invokeai.backend.patches.layer_patcher import LayerPatcher
 from invokeai.backend.patches.lora_conversions.flux_lora_constants import FLUX_LORA_TRANSFORMER_PREFIX
 from invokeai.backend.patches.model_patch_raw import ModelPatchRaw
@@ -63,7 +64,7 @@ from invokeai.backend.util.devices import TorchDevice
     title="FLUX Denoise",
     tags=["image", "flux"],
     category="image",
-    version="4.1.0",
+    version="4.2.0",
 )
 class FluxDenoiseInvocation(BaseInvocation):
     """Run denoising process with a FLUX transformer model."""
@@ -131,6 +132,12 @@ class FluxDenoiseInvocation(BaseInvocation):
     height: int = InputField(default=1024, multiple_of=16, description="Height of the generated image.")
     num_steps: int = InputField(
         default=4, description="Number of diffusion steps. Recommended values are schnell: 4, dev: 50."
+    )
+    scheduler: FLUX_SCHEDULER_NAME_VALUES = InputField(
+        default="euler",
+        description="Scheduler (sampler) for the denoising process. 'euler' is fast and standard. "
+        "'heun' is 2nd-order (better quality, 2x slower). 'lcm' is optimized for few steps.",
+        ui_choice_labels=FLUX_SCHEDULER_LABELS,
     )
     guidance: float = InputField(
         default=4.0,
@@ -232,7 +239,8 @@ class FluxDenoiseInvocation(BaseInvocation):
         )
 
         transformer_config = context.models.get_config(self.transformer.transformer)
-        is_schnell = "schnell" in getattr(transformer_config, "config_path", "")
+        assert transformer_config.base is BaseModelType.Flux and transformer_config.type is ModelType.Main
+        is_schnell = transformer_config.variant is FluxVariantType.Schnell
 
         # Calculate the timestep schedule.
         timesteps = get_schedule(
@@ -240,6 +248,12 @@ class FluxDenoiseInvocation(BaseInvocation):
             image_seq_len=packed_h * packed_w,
             shift=not is_schnell,
         )
+
+        # Create scheduler if not using default euler
+        scheduler = None
+        if self.scheduler in FLUX_SCHEDULER_MAP:
+            scheduler_class = FLUX_SCHEDULER_MAP[self.scheduler]
+            scheduler = scheduler_class(num_train_timesteps=1000)
 
         # Clip the timesteps schedule based on denoising_start and denoising_end.
         timesteps = clip_timestep_schedule_fractional(timesteps, self.denoising_start, self.denoising_end)
@@ -277,7 +291,7 @@ class FluxDenoiseInvocation(BaseInvocation):
 
         # Prepare the extra image conditioning tensor (img_cond) for either FLUX structural control or FLUX Fill.
         img_cond: torch.Tensor | None = None
-        is_flux_fill = transformer_config.variant == ModelVariantType.Inpaint  # type: ignore
+        is_flux_fill = transformer_config.variant is FluxVariantType.DevFill
         if is_flux_fill:
             img_cond = self._prep_flux_fill_img_cond(
                 context, device=TorchDevice.choose_torch_device(), dtype=inference_dtype
@@ -425,6 +439,7 @@ class FluxDenoiseInvocation(BaseInvocation):
                 img_cond=img_cond,
                 img_cond_seq=img_cond_seq,
                 img_cond_seq_ids=img_cond_seq_ids,
+                scheduler=scheduler,
             )
 
         x = unpack(x.float(), self.height, self.width)

@@ -3,6 +3,7 @@
 from .basesdk import BaseSDK
 from orq_ai_sdk import models, utils
 from orq_ai_sdk._hooks import HookContext
+from orq_ai_sdk.models import parseop as models_parseop
 from orq_ai_sdk.types import BaseModel, OptionalNullable, UNSET
 from orq_ai_sdk.utils import get_security_from_env
 from orq_ai_sdk.utils.unmarshal_json_response import unmarshal_json_response
@@ -14,13 +15,14 @@ class Chunking(BaseSDK):
         self,
         *,
         request: Union[
-            models.ParseChunkingRequest, models.ParseChunkingRequestTypedDict
+            models_parseop.ParseChunkingRequest,
+            models_parseop.ParseChunkingRequestTypedDict,
         ],
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.ParseResponseBody]:
+    ) -> models.ParseResponseBody:
         r"""Parse text
 
         Split large text documents into smaller, manageable chunks using different chunking strategies optimized for RAG (Retrieval-Augmented Generation) workflows. This endpoint supports multiple chunking algorithms including token-based, sentence-based, recursive, semantic, and specialized strategies.
@@ -64,6 +66,7 @@ class Chunking(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, False, "json", models.ParseChunkingRequest
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -80,7 +83,7 @@ class Chunking(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="parse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -91,7 +94,7 @@ class Chunking(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.ParseResponseBody], http_res)
+            return unmarshal_json_response(models.ParseResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)
@@ -105,13 +108,14 @@ class Chunking(BaseSDK):
         self,
         *,
         request: Union[
-            models.ParseChunkingRequest, models.ParseChunkingRequestTypedDict
+            models_parseop.ParseChunkingRequest,
+            models_parseop.ParseChunkingRequestTypedDict,
         ],
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.ParseResponseBody]:
+    ) -> models.ParseResponseBody:
         r"""Parse text
 
         Split large text documents into smaller, manageable chunks using different chunking strategies optimized for RAG (Retrieval-Augmented Generation) workflows. This endpoint supports multiple chunking algorithms including token-based, sentence-based, recursive, semantic, and specialized strategies.
@@ -155,6 +159,7 @@ class Chunking(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request, False, False, "json", models.ParseChunkingRequest
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -171,7 +176,7 @@ class Chunking(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="parse",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -182,7 +187,7 @@ class Chunking(BaseSDK):
         )
 
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.ParseResponseBody], http_res)
+            return unmarshal_json_response(models.ParseResponseBody, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise models.APIError("API error occurred", http_res, http_res_text)

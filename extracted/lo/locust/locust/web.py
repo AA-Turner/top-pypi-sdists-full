@@ -59,6 +59,7 @@ class InputField(TypedDict, total=False):
     type: str | None
     default_value: bool | None
     choices: list[str] | None
+    is_multiple: bool | None
     is_secret: bool | None
     is_required: bool | None
 
@@ -256,48 +257,52 @@ class WebUI:
             user_count = None
             spawn_rate = None
             for key, value in request.form.items():
-                if key == "user_count":  # if we just renamed this field to "users" we wouldn't need this
-                    user_count = int(value)
-                    parsed_options_dict["users"] = user_count
-                elif key == "spawn_rate":
-                    spawn_rate = float(value)
-                    parsed_options_dict[key] = spawn_rate
-                elif key == "host":
-                    # Replace < > to guard against XSS
-                    environment.host = str(request.form["host"]).replace("<", "").replace(">", "")
-                    parsed_options_dict[key] = environment.host
-                elif key == "user_classes":
-                    # Set environment.parsed_options.user_classes to the selected user_classes
-                    parsed_options_dict[key] = request.form.getlist("user_classes")
-                elif key == "run_time":
-                    if not value:
-                        continue
-                    try:
-                        run_time = parse_timespan(value)
-                        parsed_options_dict[key] = run_time
-                    except ValueError:
-                        err_msg = "Valid run_time formats are : 20, 20s, 3m, 2h, 1h20m, 3h30m10s, etc."
-                        logger.error(err_msg)
-                        return jsonify({"success": False, "message": err_msg, "host": environment.host})
-                elif key == "profile":
-                    environment.profile = str(request.form["profile"]) or None
-                    parsed_options_dict[key] = environment.profile
-                elif key in parsed_options_dict:
-                    # update the value in environment.parsed_options, but dont change the type.
-                    parsed_options_value = parsed_options_dict[key]
+                match key:
+                    case "user_count":  # if we just renamed this field to "users" we wouldn't need this
+                        user_count = int(value)
+                        parsed_options_dict["users"] = user_count
+                    case "spawn_rate":
+                        spawn_rate = float(value)
+                        parsed_options_dict[key] = spawn_rate
+                    case "host":
+                        # Replace < > to guard against XSS
+                        environment.host = str(request.form["host"]).replace("<", "").replace(">", "")
+                        parsed_options_dict[key] = environment.host
+                    case "user_classes":
+                        # Set environment.parsed_options.user_classes to the selected user_classes
+                        parsed_options_dict[key] = request.form.getlist("user_classes")
+                    case "run_time":
+                        if not value:
+                            continue
+                        try:
+                            run_time = parse_timespan(value)
+                            parsed_options_dict[key] = run_time
+                        except ValueError:
+                            err_msg = "Valid run_time formats are : 20, 20s, 3m, 2h, 1h20m, 3h30m10s, etc."
+                            logger.error(err_msg)
+                            return jsonify({"success": False, "message": err_msg, "host": environment.host})
+                    case "profile":
+                        environment.profile = str(request.form["profile"]) or None
+                        parsed_options_dict[key] = environment.profile
+                    case _ if key in parsed_options_dict:
+                        # update the value in environment.parsed_options, but dont change the type.
+                        parsed_options_value = parsed_options_dict[key]
 
-                    if isinstance(parsed_options_value, bool):
-                        parsed_options_dict[key] = value == "true"
-                    elif parsed_options_value is None:
-                        parsed_options_dict[key] = value
-                    elif isinstance(parsed_options_value, list):
-                        value_as_list = value.split(",")
-                        if all(isinstance(x, int) for x in parsed_options_value):
-                            parsed_options_dict[key] = list(map(int, value_as_list))
+                        if isinstance(parsed_options_value, bool):
+                            parsed_options_dict[key] = value == "true"
+                        elif parsed_options_value is None:
+                            parsed_options_dict[key] = value
+                        elif isinstance(parsed_options_value, list):
+                            if "," in value:
+                                value_as_list = value.split(",")
+                            else:
+                                value_as_list = request.form.getlist(key)
+                            if all(isinstance(x, int) for x in parsed_options_value):
+                                parsed_options_dict[key] = list(map(int, value_as_list))
+                            else:
+                                parsed_options_dict[key] = value_as_list
                         else:
-                            parsed_options_dict[key] = value_as_list
-                    else:
-                        parsed_options_dict[key] = type(parsed_options_value)(value)
+                            parsed_options_dict[key] = type(parsed_options_value)(value)
 
             if environment.shape_class and environment.runner is not None:
                 environment.runner.start_shape()
@@ -314,7 +319,7 @@ class WebUI:
                 self._swarm_greenlet = None
 
             if environment.runner is not None:
-                if user_count is None or spawn_rate is None:
+                if user_count is None or not spawn_rate:
                     err_msg = "Missing user_count or spawn_rate from /swarm request"
                     logger.error(err_msg)
                     return jsonify({"success": False, "message": err_msg, "host": environment.host})

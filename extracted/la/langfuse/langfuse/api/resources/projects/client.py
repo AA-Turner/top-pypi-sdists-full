@@ -32,7 +32,7 @@ class ProjectsClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Projects:
         """
-        Get Project associated with API key
+        Get Project associated with API key (requires project-scoped API key). You can use GET /api/public/organizations/projects to get all projects with an organization-scoped key.
 
         Parameters
         ----------
@@ -169,8 +169,8 @@ class ProjectsClient:
         project_id: str,
         *,
         name: str,
-        retention: int,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        retention: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Project:
         """
@@ -182,11 +182,14 @@ class ProjectsClient:
 
         name : str
 
-        retention : int
-            Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
-
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Optional metadata for the project
+
+        retention : typing.Optional[int]
+            Number of days to retain data.
+            Must be 0 or at least 3 days.
+            Requires data-retention entitlement for non-zero values.
+            Optional. Will retain existing retention setting if omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -210,7 +213,6 @@ class ProjectsClient:
         client.projects.update(
             project_id="projectId",
             name="name",
-            retention=1,
         )
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -387,6 +389,8 @@ class ProjectsClient:
         project_id: str,
         *,
         note: typing.Optional[str] = OMIT,
+        public_key: typing.Optional[str] = OMIT,
+        secret_key: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiKeyResponse:
         """
@@ -398,6 +402,12 @@ class ProjectsClient:
 
         note : typing.Optional[str]
             Optional note for the API key
+
+        public_key : typing.Optional[str]
+            Optional predefined public key. Must start with 'pk-lf-'. If provided, secretKey must also be provided.
+
+        secret_key : typing.Optional[str]
+            Optional predefined secret key. Must start with 'sk-lf-'. If provided, publicKey must also be provided.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -425,7 +435,7 @@ class ProjectsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
             method="POST",
-            json={"note": note},
+            json={"note": note, "publicKey": public_key, "secretKey": secret_key},
             request_options=request_options,
             omit=OMIT,
         )
@@ -537,7 +547,7 @@ class AsyncProjectsClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> Projects:
         """
-        Get Project associated with API key
+        Get Project associated with API key (requires project-scoped API key). You can use GET /api/public/organizations/projects to get all projects with an organization-scoped key.
 
         Parameters
         ----------
@@ -690,8 +700,8 @@ class AsyncProjectsClient:
         project_id: str,
         *,
         name: str,
-        retention: int,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        retention: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Project:
         """
@@ -703,11 +713,14 @@ class AsyncProjectsClient:
 
         name : str
 
-        retention : int
-            Number of days to retain data. Must be 0 or at least 3 days. Requires data-retention entitlement for non-zero values. Optional.
-
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Optional metadata for the project
+
+        retention : typing.Optional[int]
+            Number of days to retain data.
+            Must be 0 or at least 3 days.
+            Requires data-retention entitlement for non-zero values.
+            Optional. Will retain existing retention setting if omitted.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -736,7 +749,6 @@ class AsyncProjectsClient:
             await client.projects.update(
                 project_id="projectId",
                 name="name",
-                retention=1,
             )
 
 
@@ -932,6 +944,8 @@ class AsyncProjectsClient:
         project_id: str,
         *,
         note: typing.Optional[str] = OMIT,
+        public_key: typing.Optional[str] = OMIT,
+        secret_key: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ApiKeyResponse:
         """
@@ -943,6 +957,12 @@ class AsyncProjectsClient:
 
         note : typing.Optional[str]
             Optional note for the API key
+
+        public_key : typing.Optional[str]
+            Optional predefined public key. Must start with 'pk-lf-'. If provided, secretKey must also be provided.
+
+        secret_key : typing.Optional[str]
+            Optional predefined secret key. Must start with 'sk-lf-'. If provided, publicKey must also be provided.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -978,7 +998,7 @@ class AsyncProjectsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/public/projects/{jsonable_encoder(project_id)}/apiKeys",
             method="POST",
-            json={"note": note},
+            json={"note": note, "publicKey": public_key, "secretKey": secret_key},
             request_options=request_options,
             omit=OMIT,
         )

@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, constr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class PermIdData(BaseModel):
     """
@@ -29,7 +31,7 @@ class PermIdData(BaseModel):
     ticker:  StrictStr = Field(...,alias="ticker", description="Ticker assigned to the instrument") 
     mic:  StrictStr = Field(...,alias="mic", description="ISO market identification code(MIC) of the desired instrument(s)") 
     quote_perm_id:  StrictStr = Field(...,alias="quotePermId", description="QuotePermId of the instrument") 
-    is_primary_quote: StrictBool = Field(..., alias="isPrimaryQuote", description="If the quote is primary")
+    is_primary_quote: StrictBool = Field(description="If the quote is primary", alias="isPrimaryQuote")
     legal_entity_identifier:  Optional[StrictStr] = Field(None,alias="legalEntityIdentifier", description="LEI assigned to the instrument") 
     __properties = ["figi", "ticker", "mic", "quotePermId", "isPrimaryQuote", "legalEntityIdentifier"]
 
@@ -90,3 +92,5 @@ class PermIdData(BaseModel):
             "legal_entity_identifier": obj.get("legalEntityIdentifier")
         })
         return _obj
+
+PermIdData.update_forward_refs()

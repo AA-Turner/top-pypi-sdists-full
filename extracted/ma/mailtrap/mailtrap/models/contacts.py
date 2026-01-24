@@ -1,4 +1,5 @@
-from enum import Enum
+from datetime import datetime
+from typing import Any
 from typing import Optional
 from typing import Union
 
@@ -43,11 +44,6 @@ class ContactList:
     name: str
 
 
-class ContactStatus(str, Enum):
-    SUBSCRIBED = "subscribed"
-    UNSUBSCRIBED = "unsubscribed"
-
-
 @dataclass
 class CreateContactParams(RequestParams):
     email: str
@@ -87,7 +83,7 @@ class Contact:
     email: str
     fields: dict[str, Union[str, int, float, bool]]  # field_merge_tag: value
     list_ids: list[int]
-    status: ContactStatus
+    status: str
     created_at: int
     updated_at: int
 
@@ -97,17 +93,10 @@ class ContactResponse:
     data: Contact
 
 
-class ContactImportStatus(str, Enum):
-    CREATED = "created"
-    STARTED = "started"
-    FINISHED = "finished"
-    FAILED = "failed"
-
-
 @dataclass
 class ContactImport:
     id: int
-    status: ContactImportStatus
+    status: str
     created_contacts_count: Optional[int] = None
     updated_contacts_count: Optional[int] = None
     contacts_over_limit_count: Optional[int] = None
@@ -121,3 +110,38 @@ class ImportContactParams(RequestParams):
     )
     list_ids_included: Optional[list[int]] = None
     list_ids_excluded: Optional[list[int]] = None
+
+
+@dataclass
+class ContactExportFilter(RequestParams):
+    name: str
+    operator: str
+    value: list[int]
+
+
+@dataclass
+class CreateContactExportParams(RequestParams):
+    filters: list[ContactExportFilter]
+
+
+@dataclass
+class ContactExportDetail:
+    id: int
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    url: Optional[str] = None
+
+
+@dataclass
+class ContactEventParams(RequestParams):
+    name: str
+    params: Optional[dict[str, Any]] = None
+
+
+@dataclass
+class ContactEvent:
+    contact_id: str
+    contact_email: str
+    name: str
+    params: Optional[dict[str, Any]] = None

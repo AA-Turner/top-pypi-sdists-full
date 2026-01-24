@@ -127,52 +127,100 @@ Utilities
 .. autofunction:: transmission_factor
 
 """
+from __future__ import annotations
 
 from math import cos, exp, isinf, log, log10, pi, radians, sin, sqrt, tan
 
 from fluids.constants import g, inch
 from fluids.core import Dean, Reynolds
-from fluids.numerics import lambertw, secant, cbrt
+from fluids.numerics import cbrt, lambertw, secant
 
-__all__ = ['friction_factor', 'friction_factor_methods',
-           'friction_factor_curved', 'helical_Re_crit',
-           'friction_factor_curved_methods', 'Colebrook',
-           'Clamond',
-           'friction_laminar', 'one_phase_dP', 'one_phase_dP_gravitational',
-           'one_phase_dP_dz_acceleration', 'one_phase_dP_acceleration',
-           'transmission_factor', 'material_roughness',
-           'nearest_material_roughness', 'roughness_Farshad',
-           '_Farshad_roughness', '_roughness', 'HHR_roughness',
-           'Moody', 'Alshul_1952', 'Wood_1966', 'Churchill_1973',
-'Eck_1973', 'Jain_1976', 'Swamee_Jain_1976', 'Churchill_1977', 'Chen_1979',
-'Round_1980', 'Shacham_1980', 'Barr_1981', 'Zigrang_Sylvester_1',
-'Zigrang_Sylvester_2', 'Haaland', 'Serghides_1', 'Serghides_2', 'Tsal_1989',
-'Manadilli_1997', 'Romeo_2002', 'Sonnad_Goudar_2006', 'Rao_Kumar_2007',
-'Buzzelli_2008', 'Avci_Karagoz_2009', 'Papaevangelo_2010', 'Brkic_2011_1',
-'Brkic_2011_2', 'Fang_2011', 'Blasius', 'von_Karman',
-'Prandtl_von_Karman_Nikuradse', 'ft_Crane', 'helical_laminar_fd_White',
-'helical_laminar_fd_Mori_Nakayama', 'helical_laminar_fd_Schmidt',
-'helical_turbulent_fd_Schmidt', 'helical_turbulent_fd_Mori_Nakayama',
-'helical_turbulent_fd_Prasad', 'helical_turbulent_fd_Czop',
-'helical_turbulent_fd_Guo', 'helical_turbulent_fd_Ju',
-'helical_turbulent_fd_Srinivasan',
-'helical_turbulent_fd_Mandal_Nigam', 'helical_transition_Re_Seth_Stahel',
-'helical_transition_Re_Ito', 'helical_transition_Re_Kubair_Kuloor',
-'helical_transition_Re_Kutateladze_Borishanskii',
-'helical_transition_Re_Schmidt', 'helical_transition_Re_Srinivasan',
-'LAMINAR_TRANSITION_PIPE', 'oregon_smooth_data',
-'friction_plate_Martin_1999', 'friction_plate_Martin_VDI',
-'friction_plate_Kumar', 'friction_plate_Muley_Manglik']
+__all__: list[str] = [
+    "LAMINAR_TRANSITION_PIPE",
+    "Alshul_1952",
+    "Avci_Karagoz_2009",
+    "Barr_1981",
+    "Blasius",
+    "Brkic_2011_1",
+    "Brkic_2011_2",
+    "Buzzelli_2008",
+    "Chen_1979",
+    "Churchill_1973",
+    "Churchill_1977",
+    "Clamond",
+    "Colebrook",
+    "Eck_1973",
+    "Fang_2011",
+    "HHR_roughness",
+    "Haaland",
+    "Jain_1976",
+    "Manadilli_1997",
+    "Moody",
+    "Papaevangelo_2010",
+    "Prandtl_von_Karman_Nikuradse",
+    "Rao_Kumar_2007",
+    "Romeo_2002",
+    "Round_1980",
+    "Serghides_1",
+    "Serghides_2",
+    "Shacham_1980",
+    "Sonnad_Goudar_2006",
+    "Swamee_Jain_1976",
+    "Tsal_1989",
+    "Wood_1966",
+    "Zigrang_Sylvester_1",
+    "Zigrang_Sylvester_2",
+    "_Farshad_roughness",
+    "_roughness",
+    "friction_factor",
+    "friction_factor_curved",
+    "friction_factor_curved_methods",
+    "friction_factor_methods",
+    "friction_laminar",
+    "friction_plate_Kumar",
+    "friction_plate_Martin_1999",
+    "friction_plate_Martin_VDI",
+    "friction_plate_Muley_Manglik",
+    "ft_Crane",
+    "helical_Re_crit",
+    "helical_laminar_fd_Mori_Nakayama",
+    "helical_laminar_fd_Schmidt",
+    "helical_laminar_fd_White",
+    "helical_transition_Re_Ito",
+    "helical_transition_Re_Kubair_Kuloor",
+    "helical_transition_Re_Kutateladze_Borishanskii",
+    "helical_transition_Re_Schmidt",
+    "helical_transition_Re_Seth_Stahel",
+    "helical_transition_Re_Srinivasan",
+    "helical_turbulent_fd_Czop",
+    "helical_turbulent_fd_Guo",
+    "helical_turbulent_fd_Ju",
+    "helical_turbulent_fd_Mandal_Nigam",
+    "helical_turbulent_fd_Mori_Nakayama",
+    "helical_turbulent_fd_Prasad",
+    "helical_turbulent_fd_Schmidt",
+    "helical_turbulent_fd_Srinivasan",
+    "material_roughness",
+    "nearest_material_roughness",
+    "one_phase_dP",
+    "one_phase_dP_acceleration",
+    "one_phase_dP_dz_acceleration",
+    "one_phase_dP_gravitational",
+    "oregon_smooth_data",
+    "roughness_Farshad",
+    "transmission_factor",
+    "von_Karman",
+]
 
 
 fuzzy_match_fun = None
-def fuzzy_match(name, strings):
+def fuzzy_match(name: str, strings: set[str]) -> str:
     global fuzzy_match_fun
     if fuzzy_match_fun is not None:
         return fuzzy_match_fun(name, strings)
 
     try:
-        from thefuzz import process
+        from thefuzz import process  # type: ignore[import-untyped]
         fuzzy_match_fun = lambda name, strings: process.extract(name, strings, limit=10)[0][0]
         # from thefuzz import process, fuzz
         # extractOne is faster but less reliable
@@ -215,8 +263,8 @@ A. J. SMITS. "Friction Factors for Smooth Pipe Flow." Journal of Fluid
 Mechanics 511 (July 1, 2004): 41-44. doi:10.1017/S0022112004009796.
 """
 
-def friction_laminar(Re):
-    r'''Calculates Darcy friction factor for laminar flow, as shown in [1]_ or
+def friction_laminar(Re: float) -> float:
+    r"""Calculates Darcy friction factor for laminar flow, as shown in [1]_ or
     anywhere else.
 
     .. math::
@@ -234,7 +282,7 @@ def friction_laminar(Re):
 
     Notes
     -----
-    For round pipes, this valid for :math:`Re \approx< 2040`.
+    For round pipes, this is valid for :math:`Re < 2040`.
 
     Results in [2]_ show that this theoretical solution calculates too low of
     friction factors from Re = 10 and up, with an average deviation of 4%.
@@ -251,12 +299,12 @@ def friction_laminar(Re):
     .. [2] McKEON, B. J., C. J. SWANSON, M. V. ZAGAROLA, R. J. DONNELLY, and
        A. J. SMITS. "Friction Factors for Smooth Pipe Flow." Journal of Fluid
        Mechanics 511 (July 1, 2004): 41-44. doi:10.1017/S0022112004009796.
-    '''
+    """
     return 64./Re
 
 
-def Blasius(Re):
-    r'''Calculates Darcy friction factor according to the Blasius formulation,
+def Blasius(Re: float) -> float:
+    r"""Calculates Darcy friction factor according to the Blasius formulation,
     originally presented in [1]_ and described more recently in [2]_.
 
     .. math::
@@ -290,14 +338,14 @@ def Blasius(Re):
        http://rd.springer.com/chapter/10.1007/978-3-662-02239-9_1.
     .. [2] Hager, W. H. "Blasius: A Life in Research and Education." In
        Experiments in Fluids, 566-571, 2003.
-    '''
+    """
     return 0.3164/sqrt(sqrt(Re))
 
 
-def Colebrook(Re, eD, tol=None):
-    r'''Calculates Darcy friction factor using the Colebrook equation
+def Colebrook(Re: float, eD: float, tol: float | None=None) -> float:
+    r"""Calculates Darcy friction factor using the Colebrook equation
     originally published in [1]_. Normally, this function uses an exact
-    solution to the Colebrook equation, derived with a CAS. A numerical can
+    solution to the Colebrook equation, derived with a CAS. A numerical solution can
     also be used.
 
     .. math::
@@ -370,7 +418,7 @@ def Colebrook(Re, eD, tol=None):
        to the Transition Region Between the Smooth and Rough Pipe Laws."
        Journal of the ICE 11, no. 4 (February 1, 1939): 133-156.
        doi:10.1680/ijoti.1939.13150.
-    '''
+    """
     if tol == -1:
         if Re > 10.0:
             return Clamond(Re, eD, False)
@@ -388,16 +436,16 @@ def Colebrook(Re, eD, tol=None):
             from mpmath import lambertw as mp_lambertw
             from mpmath import log, mp, mpf
             from mpmath import sqrt as sqrtmp
-        except:
-            raise ImportError('For exact solutions, the `mpmath` library is '
-                              'required')
+        except ImportError:
+            raise ImportError("For exact solutions, the `mpmath` library is "
+                              "required")
         mp.dps = 50
         Re = mpf(Re)
         eD_Re = mpf(eD)*Re
-        sub = 1/mpf('6.3001')*10**(1/mpf('9.287')*eD_Re)*Re*Re
+        sub = 1/mpf("6.3001")*10**(1/mpf("9.287")*eD_Re)*Re*Re
         lambert_term = mp_lambertw(log(sqrtmp(10))*sqrtmp(sub))
         den = log(10)*eD_Re - 18.574*lambert_term
-        return float(log(10)**2*mpf('3.7')**2*mpf('2.51')**2/(den*den))
+        return float(log(10)**2*mpf("3.7")**2*mpf("2.51")**2/(den*den))
     if tol is None:
         try:
             eD_Re = eD*Re
@@ -432,7 +480,7 @@ def Colebrook(Re, eD, tol=None):
     return fd
 
 
-def Clamond(Re, eD, fast=False):
+def Clamond(Re: float, eD: float, fast: bool=False) -> float:
     r"""Calculates Darcy friction factor using a solution accurate to almost
     machine precision. Recommended very strongly. For details of the algorithm,
     see [1]_.
@@ -458,7 +506,7 @@ def Clamond(Re, eD, fast=False):
     the LambertW function, and faster than many other approximations which are
     much less accurate.
 
-    The code used here is only slightly modified than that in [1]_, for further
+    The code used here is only slightly modified from that in [1]_, for further
     performance improvements.
 
     For 10 < Re < 1E12, and 0 < eD < 0.01, this equation has been confirmed
@@ -500,14 +548,14 @@ def Clamond(Re, eD, fast=False):
         E = (log(X1F) + F - X2)/(X1F1)
 
         b = (X1F1 + E*(1. + 1.0/3.0*E))
-        F = b/(b*F -  ((X1F1 + 0.5*E)*E*(X1F)))
+        F = b/(b*F - ((X1F1 + 0.5*E)*E*(X1F)))
         return 1.325474527619599502640416597148504422899*(F*F) # ((0.5*log(10))**2).evalf(40)
 
     return 1.325474527619599502640416597148504422899/(F*F) # ((0.5*log(10))**2).evalf(40)
 
 
-def Moody(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Moody (1947)
+def Moody(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Moody (1947)
     as shown in [1]_ and originally in [2]_.
 
     .. math::
@@ -528,7 +576,7 @@ def Moody(Re, eD):
 
     Notes
     -----
-    Range is Re >= 4E3 and Re <= 1E8; eD >= 0 < 0.01.
+    Range is 4E3 <= Re <= 1E8; 0 <= eD < 0.01.
 
     Examples
     --------
@@ -543,12 +591,12 @@ def Moody(Re, eD):
        doi:10.1007/s10494-012-9419-7
     .. [2] Moody, L.F.: An approximate formula for pipe friction factors.
        Trans. Am. Soc. Mech. Eng. 69,1005-1006 (1947)
-    '''
+    """
     return 4.0*(1.375E-3*(1.0 + cbrt(2E4*eD + 1E6/Re)))
 
 
-def Alshul_1952(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Alshul (1952)
+def Alshul_1952(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Alshul (1952)
     as shown in [1]_.
 
     .. math::
@@ -581,12 +629,12 @@ def Alshul_1952(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    '''
+    """
     return 0.11*sqrt(sqrt(68.0/Re + eD))
 
 
-def Wood_1966(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Wood (1966) [2]_
+def Wood_1966(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Wood (1966) [2]_
     as shown in [1]_.
 
     .. math::
@@ -623,15 +671,15 @@ def Wood_1966(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Wood, D.J.: An Explicit Friction Factor Relationship, vol. 60.
+    .. [2] Wood, D.J.: An Explicit Friction Factor Relationship, vol. 60.
        Civil Engineering American Society of Civil Engineers (1966)
-    '''
+    """
     A1 = 1.62*eD**0.134
-    return 0.094*eD**0.225 + 0.53*eD +88.0*eD**0.4*Re**-A1
+    return 0.094*eD**0.225 + 0.53*eD + 88.0*eD**0.4*Re**-A1
 
 
-def Churchill_1973(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Churchill (1973)
+def Churchill_1973(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Churchill (1973)
     [2]_ as shown in [1]_
 
     .. math::
@@ -668,13 +716,13 @@ def Churchill_1973(Re, eD):
     .. [2] Churchill, Stuart W. "Empirical Expressions for the Shear
        Stress in Turbulent Flow in Commercial Pipe." AIChE Journal 19, no. 2
        (March 1, 1973): 375-76. doi:10.1002/aic.690190228.
-    '''
+    """
     term = (-2.0*log10(eD*(1.0/3.7) + (7./Re)**0.9))
     return 1.0/(term*term)
 
 
-def Eck_1973(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Eck (1973)
+def Eck_1973(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Eck (1973)
     [2]_ as shown in [1]_.
 
     .. math::
@@ -708,14 +756,14 @@ def Eck_1973(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] Eck, B.: Technische Stromungslehre. Springer, New York (1973)
-    '''
+    .. [2] Eck, B.: Technische Strömungslehre. Springer, New York (1973)
+    """
     term = (-2.0*log10(eD*(1.0/3.715) + 15.0/Re))
     return 1.0/(term*term)
 
 
-def Jain_1976(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Jain (1976)
+def Jain_1976(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Jain (1976)
     [2]_ as shown in [1]_.
 
     .. math::
@@ -749,15 +797,15 @@ def Jain_1976(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Jain, Akalank K."Accurate Explicit Equation for Friction Factor."
+    .. [2] Jain, Akalank K. "Accurate Explicit Equation for Friction Factor."
        Journal of the Hydraulics Division 102, no. 5 (May 1976): 674-77.
-    '''
+    """
     term = (2.28-4.0*log10(eD+(29.843/Re)**0.9))
     return 4.0/(term*term)
 
 
-def Swamee_Jain_1976(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Swamee and
+def Swamee_Jain_1976(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Swamee and
     Jain (1976) [2]_ as shown in [1]_.
 
     .. math::
@@ -791,16 +839,16 @@ def Swamee_Jain_1976(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] Swamee, Prabhata K., and Akalank K. Jain."Explicit Equations for
+    .. [2] Swamee, Prabhata K., and Akalank K. Jain. "Explicit Equations for
        Pipe-Flow Problems." Journal of the Hydraulics Division 102, no. 5
        (May 1976): 657-664.
-    '''
+    """
     term = (-4.0*log10((6.97/Re)**0.9 + eD*(1.0/3.7)))
     return 4.0/(term*term)
 
 
-def Churchill_1977(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Churchill and
+def Churchill_1977(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method of Churchill
     (1977) [2]_ as shown in [1]_.
 
     .. math::
@@ -840,17 +888,17 @@ def Churchill_1977(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2]	Churchill, S.W.: Friction factor equation spans all fluid flow
+    .. [2] Churchill, S.W.: Friction factor equation spans all fluid flow
        regimes. Chem. Eng. J. 91, 91-92 (1977)
-    '''
+    """
     A3 = (37530/Re)**16
     A2 = (2.457*log((7./Re)**0.9 + 0.27*eD))**16
     ff = 2.0*((8.0/Re)**12 + 1.0/(A2+A3)**1.5)**(1.0/12.)
     return 4.0*ff
 
 
-def Chen_1979(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Chen (1979) [2]_
+def Chen_1979(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Chen (1979) [2]_
     as shown in [1]_.
 
     .. math::
@@ -888,17 +936,17 @@ def Chen_1979(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Chen, Ning Hsing. "An Explicit Equation for Friction Factor in
+    .. [2] Chen, Ning Hsing. "An Explicit Equation for Friction Factor in
        Pipe." Industrial & Engineering Chemistry Fundamentals 18, no. 3
        (August 1, 1979): 296-97. doi:10.1021/i160071a019.
-    '''
+    """
     A4 = eD**1.1098*(1.0/2.8257) + (7.149/Re)**0.8981
     term = (-4.0*log10(eD*(1.0/3.7065) - 5.0452/Re*log10(A4)))
     return 4.0/(term*term)
 
 
-def Round_1980(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Round (1980) [2]_
+def Round_1980(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Round (1980) [2]_
     as shown in [1]_.
 
     .. math::
@@ -932,17 +980,17 @@ def Round_1980(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] Round, G. F."An Explicit Approximation for the Friction
+    .. [2] Round, G. F. "An Explicit Approximation for the Friction
        Factor-Reynolds Number Relation for Rough and Smooth Pipes." The
        Canadian Journal of Chemical Engineering 58, no. 1 (February 1, 1980):
        122-23. doi:10.1002/cjce.5450580119.
-    '''
+    """
     term = (-3.6*log10(Re/(0.135*Re*eD+6.5)))
     return 4.0/(term*term)
 
 
-def Shacham_1980(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Shacham (1980) [2]_
+def Shacham_1980(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Shacham (1980) [2]_
     as shown in [1]_.
 
     .. math::
@@ -980,13 +1028,13 @@ def Shacham_1980(Re, eD):
     .. [2] Shacham, M. "Comments on: 'An Explicit Equation for Friction
        Factor in Pipe.'" Industrial & Engineering Chemistry Fundamentals 19,
        no. 2 (May 1, 1980): 228-228. doi:10.1021/i160074a019.
-    '''
+    """
     term = (-4.0*log10(eD*(1.0/3.7) - 5.02/Re*log10(eD*(1.0/3.7) + 14.5/Re)))
     return 4.0/(term*term)
 
 
-def Barr_1981(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Barr (1981) [2]_
+def Barr_1981(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Barr (1981) [2]_
     as shown in [1]_.
 
     .. math::
@@ -1021,18 +1069,18 @@ def Barr_1981(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2]	Barr, Dih, and Colebrook White."Technical Note. Solutions Of The
+    .. [2] Barr, Dih, and Colebrook White. "Technical Note. Solutions Of The
        Colebrook-White Function For Resistance To Uniform Turbulent Flow."
        ICE Proceedings 71, no. 2 (January 6, 1981): 529-35.
        doi:10.1680/iicep.1981.1895.
-    '''
+    """
     term = (-2.0*log10(eD*(1.0/3.7) + 4.518*log10(Re*(1.0/7.))/(Re*(1.0+Re**0.52*(1.0/29.0)*eD**0.7))))
     return 1.0/(term*term)
 
 
-def Zigrang_Sylvester_1(Re, eD):
-    r'''Calculates Darcy friction factor using the method in
-     Zigrang and Sylvester (1982) [2]_ as shown in [1]_.
+def Zigrang_Sylvester_1(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in
+    Zigrang and Sylvester (1982) [2]_ as shown in [1]_.
 
     .. math::
         \frac{1}{\sqrt{f_f}} = -4\log_{10}\left[\frac{\epsilon}{3.7D}
@@ -1067,18 +1115,18 @@ def Zigrang_Sylvester_1(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Zigrang, D. J., and N. D. Sylvester."Explicit Approximations to the
+    .. [2] Zigrang, D. J., and N. D. Sylvester. "Explicit Approximations to the
        Solution of Colebrook's Friction Factor Equation." AIChE Journal 28,
        no. 3 (May 1, 1982): 514-15. doi:10.1002/aic.690280323.
-    '''
+    """
     A5 = eD*(1.0/3.7) + 13.0/Re
     term = (-4.0*log10(eD*(1.0/3.7) - 5.02/Re*log10(A5)))
     return 4.0/(term*term)
 
 
-def Zigrang_Sylvester_2(Re, eD):
-    r'''Calculates Darcy friction factor using the second method in
-     Zigrang and Sylvester (1982) [2]_ as shown in [1]_.
+def Zigrang_Sylvester_2(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the second method in
+    Zigrang and Sylvester (1982) [2]_ as shown in [1]_.
 
     .. math::
         \frac{1}{\sqrt{f_f}} = -4\log_{10}\left[\frac{\epsilon}{3.7D}
@@ -1117,19 +1165,19 @@ def Zigrang_Sylvester_2(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Zigrang, D. J., and N. D. Sylvester."Explicit Approximations to the
+    .. [2] Zigrang, D. J., and N. D. Sylvester. "Explicit Approximations to the
        Solution of Colebrook's Friction Factor Equation." AIChE Journal 28,
        no. 3 (May 1, 1982): 514-15. doi:10.1002/aic.690280323.
-    '''
+    """
     A5 = eD*(1.0/3.7) + 13.0/Re
     A6 = eD*(1.0/3.7) - 5.02/Re*log10(A5)
     term = (-4.0*log10(eD*(1.0/3.7) - 5.02/Re*log10(A6)))
     return 4.0/(term*term)
 
 
-def Haaland(Re, eD):
-    r'''Calculates Darcy friction factor using the method in
-     Haaland (1983) [2]_ as shown in [1]_.
+def Haaland(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in
+    Haaland (1983) [2]_ as shown in [1]_.
 
     .. math::
         f_f = \left(-1.8\log_{10}\left[\left(\frac{\epsilon/D}{3.7}
@@ -1162,16 +1210,16 @@ def Haaland(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Haaland, S. E."Simple and Explicit Formulas for the Friction Factor
+    .. [2] Haaland, S. E. "Simple and Explicit Formulas for the Friction Factor
        in Turbulent Pipe Flow." Journal of Fluids Engineering 105, no. 1
        (March 1, 1983): 89-90. doi:10.1115/1.3240948.
-    '''
+    """
     term = (-3.6*log10(6.9/Re +(eD*(1.0/3.7))**1.11))
     return 4.0/(term*term)
 
 
-def Serghides_1(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Serghides (1984)
+def Serghides_1(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Serghides (1984)
     [2]_ as shown in [1]_.
 
     .. math::
@@ -1213,9 +1261,9 @@ def Serghides_1(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] Serghides T.K (1984)."Estimate friction factor accurately"
+    .. [2] Serghides, T. K. (1984). "Estimate friction factor accurately"
        Chemical Engineering, Vol. 91(5), pp. 63-64.
-    '''
+    """
     A = -2.0*log10(eD*(1.0/3.7) + 12.0/Re)
     B = -2.0*log10(eD*(1.0/3.7) + 2.51*A/Re)
     C = -2.0*log10(eD*(1.0/3.7) + 2.51*B/Re)
@@ -1224,8 +1272,8 @@ def Serghides_1(Re, eD):
     return 1.0/(term*term)
 
 
-def Serghides_2(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Serghides (1984)
+def Serghides_2(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Serghides (1984)
     [2]_ as shown in [1]_.
 
     .. math::
@@ -1266,9 +1314,9 @@ def Serghides_2(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2]	Serghides T.K (1984)."Estimate friction factor accurately"
+    .. [2] Serghides, T. K. (1984). "Estimate friction factor accurately"
        Chemical Engineering, Vol. 91(5), pp. 63-64.
-    '''
+    """
     A = -2.0*log10(eD*(1.0/3.7) + 12.0/Re)
     B = -2.0*log10(eD*(1.0/3.7) + 2.51*A/Re)
     x1 = A - 4.781
@@ -1276,8 +1324,8 @@ def Serghides_2(Re, eD):
     return 1.0/(term*term)
 
 
-def Tsal_1989(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Tsal (1989)
+def Tsal_1989(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Tsal (1989)
     [2]_ as shown in [1]_.
 
     .. math::
@@ -1316,7 +1364,7 @@ def Tsal_1989(Re, eD):
        doi:10.1007/s10494-012-9419-7
     .. [2] Tsal, R.J.: Altshul-Tsal friction factor equation.
        Heat-Piping-Air Cond. 8, 30-45 (1989)
-    '''
+    """
     A = 0.11*sqrt(sqrt(68.0/Re + eD))
     if A >= 0.018:
         return A
@@ -1324,8 +1372,8 @@ def Tsal_1989(Re, eD):
         return 0.0028 + 0.85*A
 
 
-def Manadilli_1997(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Manadilli (1997)
+def Manadilli_1997(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Manadilli (1997)
     [2]_ as shown in [1]_.
 
     .. math::
@@ -1359,19 +1407,19 @@ def Manadilli_1997(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Manadilli, G.: Replace implicit equations with signomial functions.
+    .. [2] Manadilli, G.: Replace implicit equations with signomial functions.
        Chem. Eng. 104, 129 (1997)
-    '''
+    """
     term = (-2.0*log10(eD*(1.0/3.7) + 95.0*Re**-0.983 - 96.82/Re))
     return 1.0/(term*term)
 
 
-def Romeo_2002(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Romeo (2002)
+def Romeo_2002(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Romeo (2002)
     [2]_ as shown in [1]_.
 
     .. math::
-        \frac{1}{\sqrt{f_d}} = -2\log_{10}\left\{\frac{\epsilon}{3.7065D}\times
+        \frac{1}{\sqrt{f_d}} = -2\log_{10}\left\{\frac{\epsilon}{3.7065D} -
         \frac{5.0272}{Re}\times\log_{10}\left[\frac{\epsilon}{3.827D} -
         \frac{4.567}{Re}\times\log_{10}\left(\frac{\epsilon}{7.7918D}^{0.9924} +
         \left(\frac{5.3326}{208.815+Re}\right)^{0.9345}\right)\right]\right\}
@@ -1403,17 +1451,17 @@ def Romeo_2002(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] Romeo, Eva, Carlos Royo, and Antonio Monzon."Improved Explicit
+    .. [2] Romeo, Eva, Carlos Royo, and Antonio Monzon. "Improved Explicit
        Equations for Estimation of the Friction Factor in Rough and Smooth
        Pipes." Chemical Engineering Journal 86, no. 3 (April 28, 2002): 369-74.
        doi:10.1016/S1385-8947(01)00254-6.
-    '''
+    """
     term = (-2.0*log10(eD*(1.0/3.7065)-5.0272/Re*log10(eD*(1.0/3.827)-4.567/Re*log10((eD*(1.0/7.7918))**0.9924+(5.3326/(208.815+Re))**0.9345))))
     return 1.0/(term*term)
 
 
-def Sonnad_Goudar_2006(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Sonnad and Goudar
+def Sonnad_Goudar_2006(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Sonnad and Goudar
     (2006) [2]_ as shown in [1]_.
 
     .. math::
@@ -1449,18 +1497,17 @@ def Sonnad_Goudar_2006(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Travis, Quentin B., and Larry W. Mays."Relationship between
-       Hazen-William and Colebrook-White Roughness Values." Journal of
-       Hydraulic Engineering 133, no. 11 (November 2007): 1270-73.
-       doi:10.1061/(ASCE)0733-9429(2007)133:11(1270).
-    '''
+    .. [2] Goudar, Chetan T., and Jagadeesh R. Sonnad. "Explicit Friction Factor
+       Correlation for Turbulent Flow in Smooth Pipes." Industrial & Engineering
+       Chemistry Research 42, no. 12 (2003): 2878-80. https://doi.org/10.1021/ie0300676.
+    """
     S = 0.124*eD*Re + log(0.4587*Re)
     term = (.8686*log(.4587*Re/S**(S/(S+1.0))))
     return 1.0/(term*term)
 
 
-def Rao_Kumar_2007(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Rao and Kumar
+def Rao_Kumar_2007(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Rao and Kumar
     (2007) [2]_ as shown in [1]_.
 
     .. math::
@@ -1503,15 +1550,15 @@ def Rao_Kumar_2007(Re, eD):
     .. [2] Rao, A.R., Kumar, B.: Friction factor for turbulent pipe flow.
        Division of Mechanical Sciences, Civil Engineering Indian Institute of
        Science Bangalore, India ID Code 9587 (2007)
-    '''
+    """
     term = log(Re*(1.0/6.5))
     beta = 1.0 - 0.55*exp(-0.33*term*term)
     term = (2.0*log10(1.0/((2.0*eD*beta)*((0.444+0.135*Re)/Re))))
     return 1.0/(term*term)
 
 
-def Buzzelli_2008(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Buzzelli (2008)
+def Buzzelli_2008(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Buzzelli (2008)
     [2]_ as shown in [1]_.
 
     .. math::
@@ -1551,17 +1598,17 @@ def Buzzelli_2008(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Buzzelli, D.: Calculating friction in one step.
+    .. [2] Buzzelli, D.: Calculating friction in one step.
        Mach. Des. 80, 54-55 (2008)
-    '''
+    """
     B1 = (.774*log(Re)-1.41)/(1.0 + 1.32*sqrt(eD))
     B2 = eD*(1.0/3.7)*Re + 2.51*B1
-    term = (B1- (B1+2.0*log10(B2/Re))/(1.0+2.18/B2))
+    term = (B1 - (B1 + 2.0*log10(B2/Re))/(1.0 + 2.18/B2))
     return 1.0/(term*term)
 
 
-def Avci_Karagoz_2009(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Avci and Karagoz
+def Avci_Karagoz_2009(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Avci and Karagoz
     (2009) [2]_ as shown in [1]_.
 
     .. math::
@@ -1596,15 +1643,15 @@ def Avci_Karagoz_2009(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2]	Avci, Atakan, and Irfan Karagoz."A Novel Explicit Equation for
+    .. [2] Avci, Atakan, and Irfan Karagoz. "A Novel Explicit Equation for
        Friction Factor in Smooth and Rough Pipes." Journal of Fluids
        Engineering 131, no. 6 (2009): 061203. doi:10.1115/1.3129132.
-    '''
+    """
     return 6.4*(log(Re) - log(1.0 + 0.01*Re*eD*(1.0+10.0*sqrt(eD))))**-2.4
 
 
-def Papaevangelo_2010(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Papaevangelo
+def Papaevangelo_2010(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Papaevangelo
     (2010) [2]_ as shown in [1]_.
 
     .. math::
@@ -1638,19 +1685,19 @@ def Papaevangelo_2010(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Papaevangelou, G., Evangelides, C., Tzimopoulos, C.: A New Explicit
+    .. [2] Papaevangelou, G., Evangelides, C., Tzimopoulos, C.: A New Explicit
        Relation for the Friction Factor Coefficient in the Darcy-Weisbach
        Equation, pp. 166-172. Protection and Restoration of the Environment
        Corfu, Greece: University of Ioannina Greece and Stevens Institute of
        Technology New Jersey (2010)
-    '''
+    """
     x1 = (7.0-log(Re))
     term = (log10(eD*(1.0/3.615) + 7.366*Re**-0.9142))
     return (0.2479-0.0000947*x1*x1*x1*x1)/(term*term)
 
 
-def Brkic_2011_1(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Brkic
+def Brkic_2011_1(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Brkic
     (2011) [2]_ as shown in [1]_.
 
     .. math::
@@ -1686,18 +1733,18 @@ def Brkic_2011_1(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Brkic, Dejan."Review of Explicit Approximations to the Colebrook
+    .. [2] Brkic, Dejan. "Review of Explicit Approximations to the Colebrook
        Relation for Flow Friction." Journal of Petroleum Science and
        Engineering 77, no. 1 (April 2011): 34-48.
        doi:10.1016/j.petrol.2011.02.006.
-    '''
+    """
     beta = log(Re/(1.816*log(1.1*Re/log(1.0+1.1*Re))))
     term = (-2.0*log10(10.0**(-0.4343*beta)+eD*(1.0/3.71)))
     return 1.0/(term*term)
 
 
-def Brkic_2011_2(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Brkic
+def Brkic_2011_2(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Brkic
     (2011) [2]_ as shown in [1]_.
 
     .. math::
@@ -1733,18 +1780,18 @@ def Brkic_2011_2(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Brkic, Dejan."Review of Explicit Approximations to the Colebrook
+    .. [2] Brkic, Dejan. "Review of Explicit Approximations to the Colebrook
        Relation for Flow Friction." Journal of Petroleum Science and
        Engineering 77, no. 1 (April 2011): 34-48.
        doi:10.1016/j.petrol.2011.02.006.
-    '''
+    """
     beta = log(Re/(1.816*log(1.1*Re/log(1.0+1.1*Re))))
     term = (-2.0*log10(2.18*beta/Re + eD*(1.0/3.71)))
     return 1.0/(term*term)
 
 
-def Fang_2011(Re, eD):
-    r'''Calculates Darcy friction factor using the method in Fang
+def Fang_2011(Re: float, eD: float) -> float:
+    r"""Calculates Darcy friction factor using the method in Fang
     (2011) [2]_ as shown in [1]_.
 
     .. math::
@@ -1779,19 +1826,19 @@ def Fang_2011(Re, eD):
        Computational Efficiency for Turbulent Flow in Pipes." Flow, Turbulence
        and Combustion 90, no. 1 (January 1, 2013): 1-27.
        doi:10.1007/s10494-012-9419-7
-    .. [2] 	Fang, Xiande, Yu Xu, and Zhanru Zhou."New Correlations of
+    .. [2] Fang, Xiande, Yu Xu, and Zhanru Zhou. "New Correlations of
        Single-Phase Friction Factor for Turbulent Pipe Flow and Evaluation of
        Existing Single-Phase Friction Factor Correlations." Nuclear Engineering
        and Design, The International Conference on Structural Mechanics in
        Reactor Technology (SMiRT19) Special Section, 241, no. 3 (March 2011):
        897-902. doi:10.1016/j.nucengdes.2010.12.019.
-    '''
+    """
     term = log(0.234*eD**1.1007 - 60.525*Re**-1.1105 + 56.291*Re**-1.0712)
     return 1.613/(term*term)
 
-def von_Karman(eD):
-    r'''Calculates Darcy friction factor for rough pipes at infinite Reynolds
-    number from the von Karman equation (as given in [1]_ and [2]_:
+def von_Karman(eD: float) -> float:
+    r"""Calculates Darcy friction factor for rough pipes at infinite Reynolds
+    number from the von Karman equation (as given in [1]_ and [2]_):
 
     .. math::
         \frac{1}{\sqrt{f_d}} = -2 \log_{10} \left(\frac{\epsilon/D}{3.7}\right)
@@ -1810,13 +1857,13 @@ def von_Karman(eD):
     -----
     This case does not actually occur; Reynolds number is always finite.
     It is normally applied as a "limiting" value when a pipe's roughness is so
-    high it has a friction factor curve effectively independent of Reynods
+    high it has a friction factor curve effectively independent of Reynolds
     number.
 
     Examples
     --------
     >>> von_Karman(1E-4)
-    0.01197365149564789
+    0.011979797083255311
 
     References
     ----------
@@ -1824,13 +1871,13 @@ def von_Karman(eD):
        and Comprehensive Guide. 1st edition. Hoboken, N.J: Wiley, 2012.
     .. [2] McGovern, Jim. "Technical Note: Friction Factor Diagrams for Pipe
        Flow." Paper, October 3, 2011. http://arrow.dit.ie/engschmecart/28.
-    '''
-    x = log10(eD*(1.0/3.71))
+    """
+    x = log10(eD*(1.0/3.7))
     return 0.25/(x*x)
 
 
-def Prandtl_von_Karman_Nikuradse(Re):
-    r'''Calculates Darcy friction factor for smooth pipes as a function of
+def Prandtl_von_Karman_Nikuradse(Re: float) -> float:
+    r"""Calculates Darcy friction factor for smooth pipes as a function of
     Reynolds number from the Prandtl-von Karman Nikuradse equation as given
     in [1]_ and [2]_:
 
@@ -1855,12 +1902,12 @@ def Prandtl_von_Karman_Nikuradse(Re):
     .. math::
         \frac{1}{\sqrt{f}}\approx 2\log_{10}(\text{Re}\sqrt{f})-0.8
 
-    This function is calculable for all Reynolds numbers between 1E151 and
-    1E-151. It is solved with the LambertW function from SciPy. The solution is:
+    This function is calculable for all Reynolds numbers between 1E150 and
+    1E-150. It is solved with the LambertW function from SciPy. The solution is:
 
     .. math::
         f_d = \frac{\frac{1}{4}\log_{10}^2}{\left(\text{lambertW}\left(\frac{
-        \lb(10)Re}{2(2.51)}\right)\right)^2}
+        \log(10)Re}{2(2.51)}\right)\right)^2}
 
     Examples
     --------
@@ -1873,7 +1920,7 @@ def Prandtl_von_Karman_Nikuradse(Re):
        and Comprehensive Guide. 1st edition. Hoboken, N.J: Wiley, 2012.
     .. [2] McGovern, Jim. "Technical Note: Friction Factor Diagrams for Pipe
        Flow." Paper, October 3, 2011. http://arrow.dit.ie/engschmecart/28.
-    '''
+    """
     # Good 1E150 to 1E-150
     c1 = 1.151292546497022842008995727342182103801 # log(10)/2
     c2 = 1.325474527619599502640416597148504422899 # log(10)**2/4
@@ -1892,8 +1939,8 @@ Crane_fts = [.026, .024, .022, .021, .02, .019, .018, .017, .016, .015, .015,
              .014, .013, .013, .012, .012, .011, .011]
 
 
-def ft_Crane(D):
-    r'''Calculates the Crane fully turbulent Darcy friction factor for flow in
+def ft_Crane(D: float) -> float:
+    r"""Calculates the Crane fully turbulent Darcy friction factor for flow in
     commercial pipe, as used in the Crane formulas for loss coefficients in
     various fittings. Note that this is **not generally applicable to loss
     due to friction in pipes**, as it does not take into account the roughness
@@ -1963,47 +2010,47 @@ def ft_Crane(D):
     ----------
     .. [1] Crane Co. Flow of Fluids Through Valves, Fittings, and Pipe. Crane,
        2009.
-    '''
+    """
     fast = True
     if D < 1E-2:
         fast = False
     return Clamond(7.5E6*D, 3.4126825352925e-5*D**-1.0112, fast)
 
 
-fmethods = {'Moody': (4000.0, 100000000.0, 0.0, 1.0),
- 'Alshul_1952': (None, None, None, None),
- 'Wood_1966': (4000.0, 50000000.0, 1e-05, 0.04),
- 'Churchill_1973': (None, None, None, None),
- 'Eck_1973': (None, None, None, None),
- 'Jain_1976': (5000.0, 10000000.0, 4e-05, 0.05),
- 'Swamee_Jain_1976': (5000.0, 100000000.0, 1e-06, 0.05),
- 'Churchill_1977': (None, None, None, None),
- 'Chen_1979': (4000.0, 400000000.0, 1e-07, 0.05),
- 'Round_1980': (4000.0, 400000000.0, 0.0, 0.05),
- 'Shacham_1980': (4000.0, 400000000.0, None, None),
- 'Barr_1981': (None, None, None, None),
- 'Zigrang_Sylvester_1': (4000.0, 100000000.0, 4e-05, 0.05),
- 'Zigrang_Sylvester_2': (4000.0, 100000000.0, 4e-05, 0.05),
- 'Haaland': (4000.0, 100000000.0, 1e-06, 0.05),
- 'Serghides_1': (None, None, None, None),
- 'Serghides_2': (None, None, None, None),
- 'Tsal_1989': (4000.0, 100000000.0, 0.0, 0.05),
- 'Manadilli_1997': (5245.0, 100000000.0, 0.0, 0.05),
- 'Romeo_2002': (3000.0, 150000000.0, 0.0, 0.05),
- 'Sonnad_Goudar_2006': (4000.0, 100000000.0, 1e-06, 0.05),
- 'Rao_Kumar_2007': (None, None, None, None),
- 'Buzzelli_2008': (None, None, None, None),
- 'Avci_Karagoz_2009': (None, None, None, None),
- 'Papaevangelo_2010': (10000.0, 10000000.0, 1e-05, 0.001),
- 'Brkic_2011_1': (None, None, None, None),
- 'Brkic_2011_2': (None, None, None, None),
- 'Fang_2011': (3000.0, 100000000.0, 0.0, 0.05),
- 'Clamond': (0, None, 0.0, None),
- 'Colebrook': (0, None, 0.0, None)}
+fmethods = {"Moody": (4000.0, 100000000.0, 0.0, 0.01),
+ "Alshul_1952": (None, None, None, None),
+ "Wood_1966": (4000.0, 50000000.0, 1e-05, 0.04),
+ "Churchill_1973": (None, None, None, None),
+ "Eck_1973": (None, None, None, None),
+ "Jain_1976": (5000.0, 10000000.0, 4e-05, 0.05),
+ "Swamee_Jain_1976": (5000.0, 100000000.0, 1e-06, 0.05),
+ "Churchill_1977": (None, None, None, None),
+ "Chen_1979": (4000.0, 400000000.0, 1e-07, 0.05),
+ "Round_1980": (4000.0, 400000000.0, 0.0, 0.05),
+ "Shacham_1980": (4000.0, 400000000.0, None, None),
+ "Barr_1981": (None, None, None, None),
+ "Zigrang_Sylvester_1": (4000.0, 100000000.0, 4e-05, 0.05),
+ "Zigrang_Sylvester_2": (4000.0, 100000000.0, 4e-05, 0.05),
+ "Haaland": (4000.0, 100000000.0, 1e-06, 0.05),
+ "Serghides_1": (None, None, None, None),
+ "Serghides_2": (None, None, None, None),
+ "Tsal_1989": (4000.0, 100000000.0, 0.0, 0.05),
+ "Manadilli_1997": (5245.0, 100000000.0, 0.0, 0.05),
+ "Romeo_2002": (3000.0, 150000000.0, 0.0, 0.05),
+ "Sonnad_Goudar_2006": (4000.0, 100000000.0, 1e-06, 0.05),
+ "Rao_Kumar_2007": (None, None, None, None),
+ "Buzzelli_2008": (None, None, None, None),
+ "Avci_Karagoz_2009": (None, None, None, None),
+ "Papaevangelo_2010": (10000.0, 10000000.0, 1e-05, 0.001),
+ "Brkic_2011_1": (None, None, None, None),
+ "Brkic_2011_2": (None, None, None, None),
+ "Fang_2011": (3000.0, 100000000.0, 0.0, 0.05),
+ "Clamond": (0, None, 0.0, None),
+ "Colebrook": (0, None, 0.0, None)}
 
 
-def friction_factor_methods(Re, eD=0.0, check_ranges=True):
-    r'''Returns a list of correlation names for calculating friction factor
+def friction_factor_methods(Re: float, eD: float=0.0, check_ranges: bool=True) -> list[str]:
+    r"""Returns a list of correlation names for calculating friction factor
     for internal pipe flow.
 
     Examples
@@ -2026,10 +2073,10 @@ def friction_factor_methods(Re, eD=0.0, check_ranges=True):
     methods : list
         List of methods which claim to be valid for the range of `Re` and `eD`
         given, [-]
-    '''
+    """
     if check_ranges:
         if Re < LAMINAR_TRANSITION_PIPE:
-            return ['laminar']
+            return ["laminar"]
         methods = []
         for n, (Re_min, Re_max, eD_min, eD_max) in fmethods.items():
             if Re_min is not None and Re < Re_min:
@@ -2043,11 +2090,11 @@ def friction_factor_methods(Re, eD=0.0, check_ranges=True):
             methods.append(n)
         return methods
     else:
-        return list(fmethods.keys()) + ['laminar']
+        return list(fmethods.keys()) + ["laminar"]
 
 
-def friction_factor(Re, eD=0.0, Method='Clamond', Darcy=True):
-    r'''Calculates friction factor. Uses a specified method, or automatically
+def friction_factor(Re: float, eD: float=0.0, Method: str | None="Clamond", Darcy: bool=True) -> float:
+    r"""Calculates friction factor. Uses a specified method, or automatically
     picks one from the dictionary of available methods. 29 approximations are
     available as well as the direct solution, described in the table below.
     The default is to use the exact solution.
@@ -2089,7 +2136,7 @@ def friction_factor(Re, eD=0.0, Method='Clamond', Darcy=True):
     Notes
     -----
     A table of the supposed limits of each correlation is as follows. Note that
-    the spaces in the method names are placed by underscores in the actual
+    the spaces in the method names are replaced by underscores in the actual
     function names and when provided as the `Method` argument. The default
     method is likely to be sufficient.
 
@@ -2161,11 +2208,11 @@ def friction_factor(Re, eD=0.0, Method='Clamond', Darcy=True):
     .. [1] Avila, Kerstin, David Moxey, Alberto de Lozar, Marc Avila, Dwight
        Barkley, and Björn Hof. "The Onset of Turbulence in Pipe Flow." Science
        333, no. 6039 (July 8, 2011): 192-96. doi:10.1126/science.1203223.
-    '''
+    """
     if Method is None:
-        Method = 'Clamond'
+        Method = "Clamond"
 
-    if Re < LAMINAR_TRANSITION_PIPE or Method == 'laminar':
+    if Re < LAMINAR_TRANSITION_PIPE or Method == "laminar":
         f = friction_laminar(Re)
     elif Method == "Clamond":
         f = Clamond(Re, eD, False)
@@ -2234,8 +2281,8 @@ def friction_factor(Re, eD=0.0, Method='Clamond', Darcy=True):
     return f
 
 
-def helical_laminar_fd_White(Re, Di, Dc):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_laminar_fd_White(Re: float, Di: float, Dc: float) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under laminar conditions, using the method of
     White [1]_ as shown in [2]_.
 
@@ -2286,7 +2333,7 @@ def helical_laminar_fd_White(Re, Di, Dc):
        (June 7, 2016): 1-28. doi:10.1080/01457632.2016.1194693.
     .. [3] Blevins, Robert D. Applied Fluid Dynamics Handbook. New York, N.Y.:
        Van Nostrand Reinhold Co., 1984.
-    '''
+    """
     De = Dean(Re=Re, Di=Di, D=Dc)
     fd = friction_laminar(Re)
     if De < 11.6:
@@ -2294,8 +2341,8 @@ def helical_laminar_fd_White(Re, Di, Dc):
     return fd/(1. - (1. - (11.6/De)**0.45)**(1./0.45)) # 1/.45 sometimes said to be 2.2
 
 
-def helical_laminar_fd_Mori_Nakayama(Re, Di, Dc):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_laminar_fd_Mori_Nakayama(Re: float, Di: float, Dc: float) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under laminar conditions, using the method of
     Mori and Nakayama [1]_ as shown in [2]_ and [3]_.
 
@@ -2345,16 +2392,16 @@ def helical_laminar_fd_Mori_Nakayama(Re, Di, Dc):
        Newtonian and Non-Newtonian Fluids Flowing in Laminar Regime in a
        Helical Coil." Experimental Thermal and Fluid Science 36 (January 2012):
        194-204. doi:10.1016/j.expthermflusci.2011.09.013.
-    '''
+    """
     De = Dean(Re=Re, Di=Di, D=Dc)
     fd = friction_laminar(Re)
     if De < 42.328036:
         return fd*1.405296
-    return fd*(0.108*sqrt(De))/(1. - 3.253*1.0/sqrt(De))
+    return fd*(0.108*sqrt(De))/(1. - 3.253/sqrt(De))
 
 
-def helical_laminar_fd_Schmidt(Re, Di, Dc):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_laminar_fd_Schmidt(Re: float, Di: float, Dc: float) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under laminar conditions, using the method of
     Schmidt [1]_ as shown in [2]_ and [3]_.
 
@@ -2404,14 +2451,14 @@ def helical_laminar_fd_Schmidt(Re, Di, Dc):
        Newtonian and Non-Newtonian Fluids Flowing in Laminar Regime in a
        Helical Coil." Experimental Thermal and Fluid Science 36 (January 2012):
        194-204. doi:10.1016/j.expthermflusci.2011.09.013.
-    '''
+    """
     fd = friction_laminar(Re)
     D_ratio = Di/Dc
     return fd*(1. + 0.14*D_ratio**0.97*Re**(1. - 0.644*D_ratio**0.312))
 
 
-def helical_turbulent_fd_Srinivasan(Re, Di, Dc):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_turbulent_fd_Srinivasan(Re: float, Di: float, Dc: float) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under turbulent conditions, using the method of
     Srinivasan [1]_, as shown in [2]_ and [3]_.
 
@@ -2456,13 +2503,13 @@ def helical_turbulent_fd_Srinivasan(Re, Di, Dc):
        Van Nostrand Reinhold Co., 1984.
     .. [3] Rohsenow, Warren and James Hartnett and Young Cho. Handbook of Heat
        Transfer, 3E. New York: McGraw-Hill, 1998.
-    '''
+    """
     De = Dean(Re=Re, Di=Di, D=Dc)
     return 0.336*De**-0.2
 
 
-def helical_turbulent_fd_Schmidt(Re, Di, Dc, roughness=0):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_turbulent_fd_Schmidt(Re: float, Di: float, Dc: float, roughness: float=0) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under turbulent conditions, using the method of
     Schmidt [1]_, also shown in [2]_.
 
@@ -2515,7 +2562,7 @@ def helical_turbulent_fd_Schmidt(Re, Di, Dc, roughness=0):
        Correlations for Convection Heat Transfer and Pressure Losses in
        Toroidal and Helically Coiled Tubes." Heat Transfer Engineering 0, no. 0
        (June 7, 2016): 1-28. doi:10.1080/01457632.2016.1194693.
-    '''
+    """
     fd = friction_factor(Re=Re, eD=roughness/Di)
     if Re < 2.2E4:
         return fd*(1. + 2.88E4/Re*(Di/Dc)**0.62)
@@ -2523,8 +2570,8 @@ def helical_turbulent_fd_Schmidt(Re, Di, Dc, roughness=0):
         return fd*(1. + 0.0823*(1. + Di/Dc)*(Di/Dc)**0.53*sqrt(sqrt(Re)))
 
 
-def helical_turbulent_fd_Mori_Nakayama(Re, Di, Dc):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_turbulent_fd_Mori_Nakayama(Re: float, Di: float, Dc: float) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under turbulent conditions, using the method of
     Mori and Nakayama [1]_, also shown in [2]_ and [3]_.
 
@@ -2573,14 +2620,14 @@ def helical_turbulent_fd_Mori_Nakayama(Re, Di, Dc):
     .. [3] Ali, Shaukat. "Pressure Drop Correlations for Flow through Regular
        Helical Coil Tubes." Fluid Dynamics Research 28, no. 4 (April 2001):
        295-310. doi:10.1016/S0169-5983(00)00034-4.
-    '''
+    """
     Di_Dc = Di/Dc
     term = (Re*Di_Dc*Di_Dc)**-0.2
-    return 0.3*1.0/sqrt(Dc/Di)*term*(1. + 0.112*term)
+    return 0.3/sqrt(Dc/Di)*term*(1. + 0.112*term)
 
 
-def helical_turbulent_fd_Prasad(Re, Di, Dc,roughness=0):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_turbulent_fd_Prasad(Re: float, Di: float, Dc: float, roughness: float=0) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under turbulent conditions, using the method of
     Prasad [1]_, also shown in [2]_.
 
@@ -2627,14 +2674,14 @@ def helical_turbulent_fd_Prasad(Re, Di, Dc,roughness=0):
        Correlations for Convection Heat Transfer and Pressure Losses in
        Toroidal and Helically Coiled Tubes." Heat Transfer Engineering 0, no. 0
        (June 7, 2016): 1-28. doi:10.1080/01457632.2016.1194693.
-    '''
+    """
     fd = friction_factor(Re=Re, eD=roughness/Di)
     Di_Dc = Di/Dc
     return fd*(1. + 0.18*sqrt(sqrt(Re*Di_Dc*Di_Dc)))
 
 
-def helical_turbulent_fd_Czop (Re, Di, Dc):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_turbulent_fd_Czop(Re: float, Di: float, Dc: float) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under turbulent conditions, using the method of
     Czop [1]_, also shown in [2]_.
 
@@ -2677,13 +2724,13 @@ def helical_turbulent_fd_Czop (Re, Di, Dc):
        Correlations for Convection Heat Transfer and Pressure Losses in
        Toroidal and Helically Coiled Tubes." Heat Transfer Engineering 0, no. 0
        (June 7, 2016): 1-28. doi:10.1080/01457632.2016.1194693.
-    '''
+    """
     De = Dean(Re=Re, Di=Di, D=Dc)
     return 0.096*De**-0.1517
 
 
-def helical_turbulent_fd_Guo(Re, Di, Dc):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_turbulent_fd_Guo(Re: float, Di: float, Dc: float) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under turbulent conditions, using the method of
     Guo [1]_, also shown in [2]_.
 
@@ -2726,12 +2773,12 @@ def helical_turbulent_fd_Guo(Re, Di, Dc):
        Correlations for Convection Heat Transfer and Pressure Losses in
        Toroidal and Helically Coiled Tubes." Heat Transfer Engineering 0, no. 0
        (June 7, 2016): 1-28. doi:10.1080/01457632.2016.1194693.
-    '''
+    """
     return 0.638*Re**-0.15*(Di/Dc)**0.51
 
 
-def helical_turbulent_fd_Ju(Re, Di, Dc,roughness=0.0):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_turbulent_fd_Ju(Re: float, Di: float, Dc: float, roughness: float=0.0) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under turbulent conditions, using the method of
     Ju et al. [1]_, also shown in [2]_.
 
@@ -2776,13 +2823,13 @@ def helical_turbulent_fd_Ju(Re, Di, Dc,roughness=0.0):
        Correlations for Convection Heat Transfer and Pressure Losses in
        Toroidal and Helically Coiled Tubes." Heat Transfer Engineering 0, no. 0
        (June 7, 2016): 1-28. doi:10.1080/01457632.2016.1194693.
-    '''
+    """
     fd = friction_factor(Re=Re, eD=roughness/Di)
     return fd*(1. + 0.11*Re**0.23*(Di/Dc)**0.14)
 
 
-def helical_turbulent_fd_Mandal_Nigam(Re, Di, Dc, roughness=0):
-    r'''Calculates Darcy friction factor for a fluid flowing inside a curved
+def helical_turbulent_fd_Mandal_Nigam(Re: float, Di: float, Dc: float, roughness: float=0) -> float:
+    r"""Calculates Darcy friction factor for a fluid flowing inside a curved
     pipe such as a helical coil under turbulent conditions, using the method of
     Mandal and Nigam [1]_, also shown in [2]_.
 
@@ -2827,14 +2874,14 @@ def helical_turbulent_fd_Mandal_Nigam(Re, Di, Dc, roughness=0):
        Correlations for Convection Heat Transfer and Pressure Losses in
        Toroidal and Helically Coiled Tubes." Heat Transfer Engineering 0, no. 0
        (June 7, 2016): 1-28. doi:10.1080/01457632.2016.1194693.
-    '''
+    """
     De = Dean(Re=Re, Di=Di, D=Dc)
     fd = friction_factor(Re=Re, eD=roughness/Di)
     return fd*(1. + 0.03*De**0.27)
 
 
-def helical_transition_Re_Seth_Stahel(Di, Dc):
-    r'''Calculates the transition Reynolds number for flow inside a curved or
+def helical_transition_Re_Seth_Stahel(Di: float, Dc: float) -> float:
+    r"""Calculates the transition Reynolds number for flow inside a curved or
     helical coil between laminar and turbulent flow, using the method of [1]_.
 
     .. math::
@@ -2867,12 +2914,12 @@ def helical_transition_Re_Seth_Stahel(Di, Dc):
     .. [1] Seth, K. K., and E. P. Stahel. "HEAT TRANSFER FROM HELICAL COILS
        IMMERSED IN AGITATED VESSELS." Industrial & Engineering Chemistry 61,
        no. 6 (June 1, 1969): 39-49. doi:10.1021/ie50714a007.
-    '''
+    """
     return 1900.*(1. + 8.*sqrt(Di/Dc))
 
 
-def helical_transition_Re_Ito(Di, Dc):
-    r'''Calculates the transition Reynolds number for flow inside a curved or
+def helical_transition_Re_Ito(Di: float, Dc: float) -> float:
+    r"""Calculates the transition Reynolds number for flow inside a curved or
     helical coil between laminar and turbulent flow, using the method of [1]_,
     as shown in [2]_ and in [3]_.
 
@@ -2914,12 +2961,12 @@ def helical_transition_Re_Ito(Di, Dc):
        Transfer in Curved Pipes." International Journal of Heat and Mass
        Transfer 10, no. 5 (May 1, 1967): 681-95.
        doi:10.1016/0017-9310(67)90113-5.
-    '''
+    """
     return 2E4*(Di/Dc)**0.32
 
 
-def helical_transition_Re_Kubair_Kuloor(Di, Dc):
-    r'''Calculates the transition Reynolds number for flow inside a curved or
+def helical_transition_Re_Kubair_Kuloor(Di: float, Dc: float) -> float:
+    r"""Calculates the transition Reynolds number for flow inside a curved or
     helical coil between laminar and turbulent flow, using the method of [1]_,
     as shown in [2]_.
 
@@ -2959,12 +3006,12 @@ def helical_transition_Re_Kubair_Kuloor(Di, Dc):
        Correlations for Convection Heat Transfer and Pressure Losses in
        Toroidal and Helically Coiled Tubes." Heat Transfer Engineering 0, no. 0
        (June 7, 2016): 1-28. doi:10.1080/01457632.2016.1194693.
-    '''
+    """
     return 1.273E4*(Di/Dc)**0.2
 
 
-def helical_transition_Re_Kutateladze_Borishanskii(Di, Dc):
-    r'''Calculates the transition Reynolds number for flow inside a curved or
+def helical_transition_Re_Kutateladze_Borishanskii(Di: float, Dc: float) -> float:
+    r"""Calculates the transition Reynolds number for flow inside a curved or
     helical coil between laminar and turbulent flow, using the method of [1]_,
     also shown in [2]_.
 
@@ -2992,7 +3039,7 @@ def helical_transition_Re_Kutateladze_Borishanskii(Di, Dc):
     Examples
     --------
     >>> helical_transition_Re_Kutateladze_Borishanskii(1, 7.)
-    7121.143774574058
+    8156.79316568
 
     References
     ----------
@@ -3002,12 +3049,12 @@ def helical_transition_Re_Kutateladze_Borishanskii(Di, Dc):
        Correlations for Convection Heat Transfer and Pressure Losses in
        Toroidal and Helically Coiled Tubes." Heat Transfer Engineering 0, no. 0
        (June 7, 2016): 1-28. doi:10.1080/01457632.2016.1194693.
-    '''
-    return 2300. + 1.05E4*(Di/Dc)**0.4
+    """
+    return 2300. + 1.05E4*(Di/Dc)**0.3
 
 
-def helical_transition_Re_Schmidt(Di, Dc):
-    r'''Calculates the transition Reynolds number for flow inside a curved or
+def helical_transition_Re_Schmidt(Di: float, Dc: float) -> float:
+    r"""Calculates the transition Reynolds number for flow inside a curved or
     helical coil between laminar and turbulent flow, using the method of [1]_,
     also shown in [2]_ and [3]_. Correlation recommended in [3]_.
 
@@ -3049,12 +3096,12 @@ def helical_transition_Re_Schmidt(Di, Dc):
     .. [3] Schlunder, Ernst U, and International Center for Heat and Mass
        Transfer. Heat Exchanger Design Handbook. Washington:
        Hemisphere Pub. Corp., 1983.
-    '''
+    """
     return 2300.*(1. + 8.6*(Di/Dc)**0.45)
 
 
-def helical_transition_Re_Srinivasan(Di, Dc):
-    r'''Calculates the transition Reynolds number for flow inside a curved or
+def helical_transition_Re_Srinivasan(Di: float, Dc: float) -> float:
+    r"""Calculates the transition Reynolds number for flow inside a curved or
     helical coil between laminar and turbulent flow, using the method of [1]_,
     also shown in [2]_ and [3]_. Correlation recommended in [3]_.
 
@@ -3095,39 +3142,39 @@ def helical_transition_Re_Srinivasan(Di, Dc):
        (June 7, 2016): 1-28. doi:10.1080/01457632.2016.1194693.
     .. [3] Rohsenow, Warren and James Hartnett and Young Cho. Handbook of Heat
        Transfer, 3E. New York: McGraw-Hill, 1998.
-    '''
+    """
     return 2100.*(1. + 12.*sqrt(Di/Dc))
 
 
-curved_friction_laminar_methods = {'White': helical_laminar_fd_White,
-                           'Mori Nakayama laminar': helical_laminar_fd_Mori_Nakayama,
-                           'Schmidt laminar': helical_laminar_fd_Schmidt}
+curved_friction_laminar_methods = {"White": helical_laminar_fd_White,
+                           "Mori Nakayama laminar": helical_laminar_fd_Mori_Nakayama,
+                           "Schmidt laminar": helical_laminar_fd_Schmidt}
 
 # Format: 'key': (correlation, supports_roughness)
-curved_friction_turbulent_methods = {'Schmidt turbulent': (helical_turbulent_fd_Schmidt, True),
-                                     'Mori Nakayama turbulent': (helical_turbulent_fd_Mori_Nakayama, False),
-                                     'Prasad': (helical_turbulent_fd_Prasad, True),
-                                     'Czop': (helical_turbulent_fd_Czop, False),
-                                     'Guo': (helical_turbulent_fd_Guo, False),
-                                     'Ju': (helical_turbulent_fd_Ju, True),
-                                     'Mandel Nigam': (helical_turbulent_fd_Mandal_Nigam, True),
-                                     'Srinivasan turbulent': (helical_turbulent_fd_Srinivasan, False)}
+curved_friction_turbulent_methods = {"Schmidt turbulent": (helical_turbulent_fd_Schmidt, True),
+                                     "Mori Nakayama turbulent": (helical_turbulent_fd_Mori_Nakayama, False),
+                                     "Prasad": (helical_turbulent_fd_Prasad, True),
+                                     "Czop": (helical_turbulent_fd_Czop, False),
+                                     "Guo": (helical_turbulent_fd_Guo, False),
+                                     "Ju": (helical_turbulent_fd_Ju, True),
+                                     "Mandal Nigam": (helical_turbulent_fd_Mandal_Nigam, True),
+                                     "Srinivasan turbulent": (helical_turbulent_fd_Srinivasan, False)}
 
-curved_friction_transition_methods = {'Seth Stahel': helical_transition_Re_Seth_Stahel,
-                                      'Ito': helical_transition_Re_Ito,
-                                      'Kubair Kuloor': helical_transition_Re_Kubair_Kuloor,
-                                      'Kutateladze Borishanskii': helical_transition_Re_Kutateladze_Borishanskii,
-                                      'Schmidt': helical_transition_Re_Schmidt,
-                                      'Srinivasan': helical_transition_Re_Srinivasan}
+curved_friction_transition_methods = {"Seth Stahel": helical_transition_Re_Seth_Stahel,
+                                      "Ito": helical_transition_Re_Ito,
+                                      "Kubair Kuloor": helical_transition_Re_Kubair_Kuloor,
+                                      "Kutateladze Borishanskii": helical_transition_Re_Kutateladze_Borishanskii,
+                                      "Schmidt": helical_transition_Re_Schmidt,
+                                      "Srinivasan": helical_transition_Re_Srinivasan}
 
 _bad_curved_transition_method = f"""Invalid method specified for transition Reynolds number;
 valid methods are {list(curved_friction_transition_methods.keys())}"""
 
-curved_friction_turbulent_methods_list = ['Schmidt turbulent', 'Mori Nakayama turbulent', 'Prasad', 'Czop', 'Guo', 'Ju', 'Mandel Nigam', 'Srinivasan turbulent']
-curved_friction_laminar_methods_list = ['White', 'Mori Nakayama laminar', 'Schmidt laminar']
+curved_friction_turbulent_methods_list = ["Schmidt turbulent", "Mori Nakayama turbulent", "Prasad", "Czop", "Guo", "Ju", "Mandal Nigam", "Srinivasan turbulent"]
+curved_friction_laminar_methods_list = ["White", "Mori Nakayama laminar", "Schmidt laminar"]
 
-def helical_Re_crit(Di, Dc, Method='Schmidt'):
-    r'''Calculates the transition Reynolds number for fluid flowing in a
+def helical_Re_crit(Di: float, Dc: float, Method: str="Schmidt") -> float:
+    r"""Calculates the transition Reynolds number for fluid flowing in a
     curved pipe or helical coil. Selects the appropriate regime by default.
     Optionally, a specific correlation can be specified with the `Method`
     keyword.
@@ -3173,27 +3220,27 @@ def helical_Re_crit(Di, Dc, Method='Schmidt'):
     .. [1] Schlunder, Ernst U, and International Center for Heat and Mass
        Transfer. Heat Exchanger Design Handbook. Washington:
        Hemisphere Pub. Corp., 1983.
-    '''
-    if Method == 'Schmidt':
+    """
+    if Method == "Schmidt":
         Re_crit = helical_transition_Re_Schmidt(Di, Dc)
-    elif Method == 'Seth Stahel':
+    elif Method == "Seth Stahel":
         Re_crit = helical_transition_Re_Seth_Stahel(Di, Dc)
-    elif Method == 'Ito':
+    elif Method == "Ito":
         Re_crit = helical_transition_Re_Ito(Di, Dc)
-    elif Method == 'Kubair Kuloor':
+    elif Method == "Kubair Kuloor":
         Re_crit = helical_transition_Re_Kubair_Kuloor(Di, Dc)
-    elif Method == 'Kutateladze Borishanskii':
+    elif Method == "Kutateladze Borishanskii":
         Re_crit = helical_transition_Re_Kutateladze_Borishanskii(Di, Dc)
-    elif Method == 'Srinivasan':
+    elif Method == "Srinivasan":
         Re_crit = helical_transition_Re_Srinivasan(Di, Dc)
     else:
         raise ValueError(_bad_curved_transition_method)
     return Re_crit
 
 
-def friction_factor_curved_methods(Re, Di, Dc, roughness=0.0,
-                                   check_ranges=True):
-    r'''Returns a list of correlation names for calculating friction factor
+def friction_factor_curved_methods(Re: float, Di: float, Dc: float, roughness: float=0.0,
+                                   check_ranges: bool=True) -> list[str]:
+    r"""Returns a list of correlation names for calculating friction factor
     of fluid flowing in a curved pipe or helical coil, supporting both laminar
     and turbulent regimes.
 
@@ -3222,8 +3269,8 @@ def friction_factor_curved_methods(Re, Di, Dc, roughness=0.0,
     methods : list
         List of methods in the regime the specified `Re` is in at the given
         `Di` and `Dc`.
-    '''
-    Re_crit = helical_Re_crit(Di=Di, Dc=Dc, Method='Schmidt')
+    """
+    Re_crit = helical_Re_crit(Di=Di, Dc=Dc, Method="Schmidt")
     turbulent = not Re < Re_crit
     if check_ranges:
         if turbulent:
@@ -3234,11 +3281,11 @@ def friction_factor_curved_methods(Re, Di, Dc, roughness=0.0,
         return curved_friction_turbulent_methods_list + curved_friction_laminar_methods_list
 
 
-def friction_factor_curved(Re, Di, Dc, roughness=0.0, Method=None,
-                           Rec_method='Schmidt',
-                           laminar_method='Schmidt laminar',
-                           turbulent_method='Schmidt turbulent', Darcy=True):
-    r'''Calculates friction factor fluid flowing in a curved pipe or helical
+def friction_factor_curved(Re: float, Di: float, Dc: float, roughness: float=0.0, Method: str | None=None,
+                           Rec_method: str="Schmidt",
+                           laminar_method: str="Schmidt laminar",
+                           turbulent_method: str="Schmidt turbulent", Darcy: bool=True) -> float:
+    r"""Calculates friction factor fluid flowing in a curved pipe or helical
     coil, supporting both laminar and turbulent regimes. Selects the
     appropriate regime by default, and has default correlation choices.
     Optionally, a specific correlation can be specified with the `Method`
@@ -3284,7 +3331,7 @@ def friction_factor_curved(Re, Di, Dc, roughness=0.0, Method=None,
         'Schmidt laminar'.
     turbulent_method : str, optional
         Friction factor correlation for the turbulent regime; one of
-        ['Guo', 'Ju', 'Schmidt turbulent', 'Prasad', 'Mandel Nigam',
+        ['Guo', 'Ju', 'Schmidt turbulent', 'Prasad', 'Mandal Nigam',
         'Mori Nakayama turbulent', 'Czop']; the default is 'Schmidt turbulent'.
     Darcy : bool, optional
         If False, will return fanning friction factor, 1/4 of the Darcy value
@@ -3312,7 +3359,7 @@ def friction_factor_curved(Re, Di, Dc, roughness=0.0, Method=None,
 
     Notes
     -----
-    The range of accuracy of these correlations is much than that in a
+    The range of accuracy of these correlations is much less than that in a
     straight pipe.
 
     References
@@ -3320,7 +3367,7 @@ def friction_factor_curved(Re, Di, Dc, roughness=0.0, Method=None,
     .. [1] Schlunder, Ernst U, and International Center for Heat and Mass
        Transfer. Heat Exchanger Design Handbook. Washington:
        Hemisphere Pub. Corp., 1983.
-    '''
+    """
     Re_crit = helical_Re_crit(Di=Di, Dc=Dc, Method=Rec_method)
     turbulent = not Re < Re_crit
 
@@ -3329,40 +3376,40 @@ def friction_factor_curved(Re, Di, Dc, roughness=0.0, Method=None,
     else:
         Method2 = Method # Use second variable to keep numba types happy
     # Laminar
-    if Method2 == 'Schmidt laminar':
+    if Method2 == "Schmidt laminar":
         f = helical_laminar_fd_Schmidt(Re, Di, Dc)
-    elif Method2 == 'White':
+    elif Method2 == "White":
         f = helical_laminar_fd_White(Re, Di, Dc)
-    elif Method2 == 'Mori Nakayama laminar':
+    elif Method2 == "Mori Nakayama laminar":
         f = helical_laminar_fd_Mori_Nakayama(Re, Di, Dc)
     # Turbulent with roughness support
-    elif Method2 == 'Schmidt turbulent':
+    elif Method2 == "Schmidt turbulent":
         f = helical_turbulent_fd_Schmidt(Re, Di, Dc, roughness)
-    elif Method2 == 'Prasad':
+    elif Method2 == "Prasad":
         f = helical_turbulent_fd_Prasad(Re, Di, Dc, roughness)
-    elif Method2 == 'Ju':
+    elif Method2 == "Ju":
         f = helical_turbulent_fd_Ju(Re, Di, Dc, roughness)
-    elif Method2 == 'Mandel Nigam':
+    elif Method2 == "Mandal Nigam":
         f = helical_turbulent_fd_Mandal_Nigam(Re, Di, Dc, roughness)
     # Turbulent without roughness support
-    elif Method2 == 'Mori Nakayama turbulent':
+    elif Method2 == "Mori Nakayama turbulent":
         f = helical_turbulent_fd_Mori_Nakayama(Re, Di, Dc)
-    elif Method2 == 'Czop':
+    elif Method2 == "Czop":
         f = helical_turbulent_fd_Czop(Re, Di, Dc)
-    elif Method2 == 'Guo':
+    elif Method2 == "Guo":
         f = helical_turbulent_fd_Guo(Re, Di, Dc)
-    elif Method2 == 'Srinivasan turbulent':
+    elif Method2 == "Srinivasan turbulent":
         f = helical_turbulent_fd_Srinivasan(Re, Di, Dc)
     else:
-        raise ValueError('Invalid method for friction factor calculation')
+        raise ValueError("Invalid method for friction factor calculation")
     if not Darcy:
         f *= 0.25
     return f
 
 ### Plate heat exchanger single phase
 
-def friction_plate_Martin_1999(Re, chevron_angle):
-    r'''Calculates Darcy friction factor for single-phase flow in a
+def friction_plate_Martin_1999(Re: float, chevron_angle: float) -> float:
+    r"""Calculates Darcy friction factor for single-phase flow in a
     Chevron-style plate heat exchanger according to [1]_.
 
     .. math::
@@ -3432,7 +3479,7 @@ def friction_plate_Martin_1999(Re, chevron_angle):
        https://doi.org/10.1016/0255-2701(95)04129-X.
     .. [3] Shah, Ramesh K., and Dusan P. Sekulic. Fundamentals of Heat
        Exchanger Design. 1st edition. Hoboken, NJ: Wiley, 2002.
-    '''
+    """
     phi = radians(chevron_angle)
 
     if Re < 2000.:
@@ -3448,8 +3495,8 @@ def friction_plate_Martin_1999(Re, chevron_angle):
     return ff*4.0
 
 
-def friction_plate_Martin_VDI(Re, chevron_angle):
-    r'''Calculates Darcy friction factor for single-phase flow in a
+def friction_plate_Martin_VDI(Re: float, chevron_angle: float) -> float:
+    r"""Calculates Darcy friction factor for single-phase flow in a
     Chevron-style plate heat exchanger according to [1]_.
 
     .. math::
@@ -3498,11 +3545,11 @@ def friction_plate_Martin_VDI(Re, chevron_angle):
     laminar to turbulent flow, although the literature suggests the transition
     is actually smooth.
 
-    This is a revision of the Martin's earlier model, adjusted to predidct
+    This is a revision of the Martin's earlier model, adjusted to predict
     higher friction factors.
 
-    There are three parameters in this model, a, b and c; it is posisble
-    to adjust them to better fit a know exchanger's pressure drop.
+    There are three parameters in this model, a, b and c; it is possible
+    to adjust them to better fit a known exchanger's pressure drop.
 
     See Also
     --------
@@ -3517,7 +3564,7 @@ def friction_plate_Martin_VDI(Re, chevron_angle):
     ----------
     .. [1] Gesellschaft, V. D. I., ed. VDI Heat Atlas. 2nd edition.
        Berlin; New York:: Springer, 2010.
-    '''
+    """
     phi = radians(chevron_angle)
 
     if Re < 2000.:
@@ -3549,7 +3596,7 @@ Kumar_C2s = [[50.0, 19.40, 2.990],
 
 # Is the second in the first row 0.589 (paper) or 0.598 (PHEWorks)
 # Believed to be the values from the paper, where this graph was
-# curve fit as the original did not contain and coefficients only a plot
+# curve fit as the original did not contain any coefficients only a plot
 Kumar_Ps = [[1.0, 0.589, 0.183],
       [1.0, 0.652, 0.206],
       [1.0, 0.631, 0.161],
@@ -3557,8 +3604,8 @@ Kumar_Ps = [[1.0, 0.589, 0.183],
       [1.0, 0.451, 0.213]]
 
 
-def friction_plate_Kumar(Re, chevron_angle):
-    r'''Calculates Darcy friction factor for single-phase flow in a
+def friction_plate_Kumar(Re: float, chevron_angle: float) -> float:
+    r"""Calculates Darcy friction factor for single-phase flow in a
     **well-designed** Chevron-style plate heat exchanger according to [1]_.
     The data is believed to have been developed by APV International Limited,
     since acquired by SPX Corporation. This uses a curve fit of that data
@@ -3621,7 +3668,7 @@ def friction_plate_Kumar(Re, chevron_angle):
        Transfer and Pressure Drop Correlations for Refrigerant Evaporators."
        Heat Transfer Engineering 24, no. 5 (September 1, 2003): 3-16.
        doi:10.1080/01457630304056.
-    '''
+    """
     beta_list_len = len(Kumar_beta_list)
 
     for i in range(beta_list_len):
@@ -3644,14 +3691,14 @@ def friction_plate_Kumar(Re, chevron_angle):
     return 4.0*C2*Re**-p
 
 
-def friction_plate_Muley_Manglik(Re, chevron_angle, plate_enlargement_factor):
-    r'''Calculates Darcy friction factor for single-phase flow in a
+def friction_plate_Muley_Manglik(Re: float, chevron_angle: float, plate_enlargement_factor: float) -> float:
+    r"""Calculates Darcy friction factor for single-phase flow in a
     Chevron-style plate heat exchanger according to [1]_, also shown and
     recommended in [2]_.
 
     .. math::
         f_f = [2.917 - 0.1277\beta + 2.016\times10^{-3} \beta^2]
-        \times[20.78 - 19.02\phi + 18.93\phi^2 - 5.341\phi^3]
+        \times[5.474 - 19.02\phi + 18.93\phi^2 - 5.341\phi^3]
         \times Re^{-[0.2 + 0.0577\sin[(\pi \beta/45)+2.1]]}
 
     Parameters
@@ -3675,7 +3722,7 @@ def friction_plate_Muley_Manglik(Re, chevron_angle, plate_enlargement_factor):
 
     Notes
     -----
-    Based on experimental data of plate enacement factors up to 1.5, and valid
+    Based on experimental data of plate enhancement factors up to 1.5, and valid
     for Re > 1000 and chevron angles from 30 to 60 degrees with sinusoidal
     shape. See `PlateExchanger` for further clarification on the definitions.
 
@@ -3700,9 +3747,9 @@ def friction_plate_Muley_Manglik(Re, chevron_angle, plate_enlargement_factor):
        Transfer and Pressure Drop Correlations for Refrigerant Evaporators."
        Heat Transfer Engineering 24, no. 5 (September 1, 2003): 3-16.
        doi:10.1080/01457630304056.
-    '''
+    """
     beta, phi = chevron_angle, plate_enlargement_factor
-    # Beta is indeed chevron angle; with respect to angle of mvoement
+    # Beta is indeed chevron angle; with respect to angle of movement
     # Still might be worth another check
     t1 = (2.917 - 0.1277*beta + 2.016E-3*beta**2)
     t2 = (5.474 - 19.02*phi + 18.93*phi**2 - 5.341*phi**3)
@@ -3713,227 +3760,227 @@ def friction_plate_Muley_Manglik(Re, chevron_angle, plate_enlargement_factor):
 
 # Data from the Handbook of Hydraulic Resistance, 4E, in format (min, max, avg)
 #  roughness in m; may have one, two, or three of the values.
-seamless_other_metals = {'Commercially smooth': (1.5E-6, 1.0E-5, None)}
+seamless_other_metals = {"Commercially smooth": (1.5E-6, 1.0E-5, None)}
 
-seamless_steel = {'New and unused': (2.0E-5, 1.0E-4, None),
-    'Cleaned, following years of use': (None, 4.0E-5, None),
-    'Bituminized': (None, 4.0E-5, None),
-    'Heating systems piping; either superheated steam pipes, or just water pipes of systems with deaerators and chemical treatment':
+seamless_steel = {"New and unused": (2.0E-5, 1.0E-4, None),
+    "Cleaned, following years of use": (None, 4.0E-5, None),
+    "Bituminized": (None, 4.0E-5, None),
+    "Heating systems piping; either superheated steam pipes, or just water pipes of systems with deaerators and chemical treatment":
     (None, None, 1.0E-4),
-    'Following one year as a gas pipeline': (None, None, 1.2E-4),
-    'Following multiple year as a gas pipeline': (4.0E-5, 2.0E-4, None),
-    'Casings in gas wells, different conditions, several years of use':
+    "Following one year as a gas pipeline": (None, None, 1.2E-4),
+    "Following multiple year as a gas pipeline": (4.0E-5, 2.0E-4, None),
+    "Casings in gas wells, different conditions, several years of use":
     (6.0E-5, 2.2E-4, None),
-    'Heating systems, saturated steam ducts or water pipes (with minor water leakage < 0.5%, and balance water deaerated)':
+    "Heating systems, saturated steam ducts or water pipes (with minor water leakage < 0.5%, and balance water deaerated)":
     (None, None, 2.0E-4),
-    'Water heating system pipelines, any source': (None, None, 2.0E-4),
-    'Oil pipelines, intermediate operating conditions ': (None, None, 2.0E-4),
-    'Corroded, moderately ': (None, None, 4.0E-4),
-    'Scale, small depositions only ': (None, None, 4.0E-4),
-    'Condensate pipes in open systems or periodically operated steam pipelines':
+    "Water heating system pipelines, any source": (None, None, 2.0E-4),
+    "Oil pipelines, intermediate operating conditions": (None, None, 2.0E-4),
+    "Corroded, moderately": (None, None, 4.0E-4),
+    "Scale, small depositions only": (None, None, 4.0E-4),
+    "Condensate pipes in open systems or periodically operated steam pipelines":
     (None, None, 5.0E-4),
-    'Compressed air piping': (None, None, 8.0E-4),
-    'Following multiple years of operation, generally corroded or with small amounts of scale':
+    "Compressed air piping": (None, None, 8.0E-4),
+    "Following multiple years of operation, generally corroded or with small amounts of scale":
     (1.5E-4, 1.0E-3, None),
-    'Water heating piping without deaeration but with chemical treatment of water; leakage up to 3%; or condensate piping operated periodically':
+    "Water heating piping without deaeration but with chemical treatment of water; leakage up to 3%; or condensate piping operated periodically":
     (None, None, 1.0E-3),
-    'Used water piping': (1.2E-3, 1.5E-3, None),
-    'Poor condition': (5.0E-3, None, None)}
+    "Used water piping": (1.2E-3, 1.5E-3, None),
+    "Poor condition": (5.0E-3, None, None)}
 
-welded_steel = {'Good condition': (4.0E-5, 1.0E-4, None),
-    'New and covered with bitumen': (None, None, 5.0E-5),
-    'Used and covered with partially dissolved bitumen; corroded':
+welded_steel = {"Good condition": (4.0E-5, 1.0E-4, None),
+    "New and covered with bitumen": (None, None, 5.0E-5),
+    "Used and covered with partially dissolved bitumen; corroded":
     (None, None, 1.0E-4),
-    'Used, suffering general corrosion': (None, None, 1.5E-4),
-    'Surface looks like new, 10 mm lacquer inside, even joints':
+    "Used, suffering general corrosion": (None, None, 1.5E-4),
+    "Surface looks like new, 10 mm lacquer inside, even joints":
     (3.0E-4, 4.0E-4, None),
-    'Used Gas mains': (None, None, 5.0E-4),
-    'Double or simple transverse riveted joints; with or without lacquer; without corrosion':
+    "Used Gas mains": (None, None, 5.0E-4),
+    "Double or simple transverse riveted joints; with or without lacquer; without corrosion":
     (6.0E-4, 7.0E-4, None),
-    'Lacquered inside but rusted': (9.5E-4, 1.0E-3, None),
-    'Gas mains, many years of use, with layered deposits': (None, None, 1.1E-3),
-    'Non-corroded and with double transverse riveted joints':
+    "Lacquered inside but rusted": (9.5E-4, 1.0E-3, None),
+    "Gas mains, many years of use, with layered deposits": (None, None, 1.1E-3),
+    "Non-corroded and with double transverse riveted joints":
     (1.2E-3, 1.5E-3, None),
-    'Small deposits': (None, None, 1.5E-3),
-    'Heavily corroded and with  double transverse riveted joints':
+    "Small deposits": (None, None, 1.5E-3),
+    "Heavily corroded and with double transverse riveted joints":
     (None, None, 2.0E-3),
-    'Appreciable deposits': (2.0E-3, 4.0E-3, None),
-    'Gas mains, many years of use, deposits of resin/naphthalene':
+    "Appreciable deposits": (2.0E-3, 4.0E-3, None),
+    "Gas mains, many years of use, deposits of resin/naphthalene":
         (None, None, 2.4E-3),
-    'Poor condition': (5.0E-3, None, None)}
+    "Poor condition": (5.0E-3, None, None)}
 
 riveted_steel = {
-    'Riveted laterally and longitudinally with one line; lacquered on the inside':
+    "Riveted laterally and longitudinally with one line; lacquered on the inside":
     (3.0E-4, 4.0E-4, None),
-    'Riveted laterally and longitudinally with two lines; with or without lacquer on the inside and without corrosion':
+    "Riveted laterally and longitudinally with two lines; with or without lacquer on the inside and without corrosion":
     (6.0E-4, 7.0E-4, None),
-    'Riveted laterally with one line and longitudinally with two lines; thickly lacquered or torred on the inside':
+    "Riveted laterally with one line and longitudinally with two lines; thickly lacquered or torred on the inside":
     (1.2E-3, 1.4E-3, None),
-    'Riveted longitudinally with six lines, after extensive use':
+    "Riveted longitudinally with six lines, after extensive use":
     (None, None, 2.0E-3),
-    'Riveted laterally with four line and longitudinally with six lines; overlapping joints inside':
+    "Riveted laterally with four line and longitudinally with six lines; overlapping joints inside":
     (None, None, 4.0E-3),
-    'Extremely poor surface; overlapping and uneven joints':
+    "Extremely poor surface; overlapping and uneven joints":
     (5.0E-3, None, None)}
 
-roofing_metal = {'Oiled': (1.5E-4, 1.1E-3, None),
-                 'Not Oiled': (2.0E-5, 4.0E-5, None)}
+roofing_metal = {"Oiled": (1.5E-4, 1.1E-3, None),
+                 "Not Oiled": (2.0E-5, 4.0E-5, None)}
 
-galvanized_steel_tube = {'Bright galvanization; new': (7.0E-5, 1.0E-4, None),
-                         'Ordinary galvanization': (1.0E-4, 1.5E-4, None)}
+galvanized_steel_tube = {"Bright galvanization; new": (7.0E-5, 1.0E-4, None),
+                         "Ordinary galvanization": (1.0E-4, 1.5E-4, None)}
 
-galvanized_steel_sheet = {'New': (None, None, 1.5E-4),
-                          'Used previously for water': (None, None, 1.8E-4)}
+galvanized_steel_sheet = {"New": (None, None, 1.5E-4),
+                          "Used previously for water": (None, None, 1.8E-4)}
 
-steel = {'Glass enamel coat': (1.0E-6, 1.0E-5, None),
-         'New': (2.5E-4, 1.0E-3, None)}
+steel = {"Glass enamel coat": (1.0E-6, 1.0E-5, None),
+         "New": (2.5E-4, 1.0E-3, None)}
 
-cast_iron = {'New, bituminized': (1.0E-4, 1.5E-4, None),
-             'Coated with asphalt': (1.2E-4, 3.0E-4, None),
-             'Used water pipelines': (None, None, 1.4E-3),
-             'Used and corroded': (1.0E-3, 1.5E-3, None),
-             'Deposits visible': (1.0E-3, 1.5E-3, None),
-             'Substantial deposits': (2.0E-3, 4.0E-3, None),
-             'Cleaned after extensive use': (3.0E-4, 1.5E-3, None),
-             'Severely corroded': (None, 3.0E-3, None)}
+cast_iron = {"New, bituminized": (1.0E-4, 1.5E-4, None),
+             "Coated with asphalt": (1.2E-4, 3.0E-4, None),
+             "Used water pipelines": (None, None, 1.4E-3),
+             "Used and corroded": (1.0E-3, 1.5E-3, None),
+             "Deposits visible": (1.0E-3, 1.5E-3, None),
+             "Substantial deposits": (2.0E-3, 4.0E-3, None),
+             "Cleaned after extensive use": (3.0E-4, 1.5E-3, None),
+             "Severely corroded": (None, 3.0E-3, None)}
 
 water_conduit_steel = {
-    'New, clean, seamless (without joints), well fitted':
+    "New, clean, seamless (without joints), well fitted":
     (1.5E-5, 4.0E-5, None),
-    'New, clean, welded lengthwise and well fitted': (1.2E-5, 3.0E-5, None),
-    'New, clean, welded lengthwise and well fitted, with transverse welded joints':
+    "New, clean, welded lengthwise and well fitted": (1.2E-5, 3.0E-5, None),
+    "New, clean, welded lengthwise and well fitted, with transverse welded joints":
     (8.0E-5, 1.7E-4, None),
-    'New, clean, coated, bituminized when manufactured': (1.4E-5, 1.8E-5, None),
-    'New, clean, coated, bituminized when manufactured, with transverse welded joints':
+    "New, clean, coated, bituminized when manufactured": (1.4E-5, 1.8E-5, None),
+    "New, clean, coated, bituminized when manufactured, with transverse welded joints":
     (2.0E-4, 6.0E-4, None),
-    'New, clean, coated, galvanized': (1.0E-4, 2.0E-4, None),
-    'New, clean, coated, roughly galvanized': (4.0E-4, 7.0E-4, None),
-    'New, clean, coated, bituminized, curved': (1.0E-4, 1.4E-3, None),
-    'Used, clean, slight corrosion': (1.0E-4, 3.0E-4, None),
-    'Used, clean, moderate corrosion or slight deposits':
+    "New, clean, coated, galvanized": (1.0E-4, 2.0E-4, None),
+    "New, clean, coated, roughly galvanized": (4.0E-4, 7.0E-4, None),
+    "New, clean, coated, bituminized, curved": (1.0E-4, 1.4E-3, None),
+    "Used, clean, slight corrosion": (1.0E-4, 3.0E-4, None),
+    "Used, clean, moderate corrosion or slight deposits":
     (3.0E-4, 7.0E-4, None),
-    'Used, clean, severe corrosion': (8.0E-4, 1.5E-3, None),
-    'Used, clean, previously cleaned of either deposits or rust':
+    "Used, clean, severe corrosion": (8.0E-4, 1.5E-3, None),
+    "Used, clean, previously cleaned of either deposits or rust":
         (1.5E-4, 2.0E-4, None)}
 
 water_conduit_steel_used = {
-    'Used, all welded, <2 years use, no deposits': (1.2E-4, 2.4E-4, None),
-    'Used, all welded, <20 years use, no deposits': (6.0E-4, 5.0E-3, None),
-    'Used, iron-bacterial corrosion': (3.0E-3, 4.0E-3, None),
-    'Used, heavy corrosion, or with incrustation (deposit 1.5 - 9 mm deep)':
+    "Used, all welded, <2 years use, no deposits": (1.2E-4, 2.4E-4, None),
+    "Used, all welded, <20 years use, no deposits": (6.0E-4, 5.0E-3, None),
+    "Used, iron-bacterial corrosion": (3.0E-3, 4.0E-3, None),
+    "Used, heavy corrosion, or with incrustation (deposit 1.5 - 9 mm deep)":
     (3.0E-3, 5.0E-3, None),
-    'Used, heavy corrosion, or with incrustation (deposit 3 - 25 mm deep)':
+    "Used, heavy corrosion, or with incrustation (deposit 3 - 25 mm deep)":
     (6.0E-3, 6.5E-3, None),
-    'Used, inside coating, bituminized, < 2 years use': (1.0E-4, 3.5E-4, None)}
+    "Used, inside coating, bituminized, < 2 years use": (1.0E-4, 3.5E-4, None)}
 
-steels = {'Seamless tubes made from brass, copper, lead, aluminum':
+steels = {"Seamless tubes made from brass, copper, lead, aluminum":
           seamless_other_metals,
-          'Seamless steel tubes': seamless_steel,
-          'Welded steel tubes': welded_steel,
-          'Riveted steel tubes': riveted_steel,
-          'Roofing steel sheets': roofing_metal,
-          'Galzanized steel tubes': galvanized_steel_tube,
-          'Galzanized sheet steel': galvanized_steel_sheet,
-          'Steel tubes': steel,
-          'Cast-iron tubes': cast_iron,
-          'Steel water conduits in generating stations': water_conduit_steel,
-          'Used steel water conduits in generating stations':
+          "Seamless steel tubes": seamless_steel,
+          "Welded steel tubes": welded_steel,
+          "Riveted steel tubes": riveted_steel,
+          "Roofing steel sheets": roofing_metal,
+          "Galvanized steel tubes": galvanized_steel_tube,
+          "Galvanized sheet steel": galvanized_steel_sheet,
+          "Steel tubes": steel,
+          "Cast-iron tubes": cast_iron,
+          "Steel water conduits in generating stations": water_conduit_steel,
+          "Used steel water conduits in generating stations":
           water_conduit_steel_used}
 
 
 concrete_water_conduits = {
-    'New and finished with plater; excellent manufacture (joints aligned, prime coated and smoothed)':
+    "New and finished with plaster; excellent manufacture (joints aligned, prime coated and smoothed)":
     (5.0E-5, 1.5E-4, None),
-    'Used and corroded; with a wavy surface and wood framework':
+    "Used and corroded; with a wavy surface and wood framework":
     (1.0E-3, 4.0E-3, None),
-    'Old, poor fitting and manufacture; with an overgrown surface and deposits of sand and gravel':
+    "Old, poor fitting and manufacture; with an overgrown surface and deposits of sand and gravel":
     (1.0E-3, 4.0E-3, None),
-    'Very old; damaged surface, very overgrown': (5.0E-3, None, None),
-    'Water conduit, finished with smoothed plaster': (5.0E-3, None, None),
-    'New, very well manufactured, hand smoothed, prime-coated joints':
+    "Very old; damaged surface, very overgrown": (5.0E-3, None, None),
+    "Water conduit, finished with smoothed plaster": (5.0E-3, None, None),
+    "New, very well manufactured, hand smoothed, prime-coated joints":
     (1.0E-4, 2.0E-4, None),
-    'Hand-smoothed cement finish and smoothed joints': (1.5E-4, 3.5E-4, None),
-    'Used, no deposits, moderately smooth, steel or wooden casing, joints prime coated but not smoothed':
+    "Hand-smoothed cement finish and smoothed joints": (1.5E-4, 3.5E-4, None),
+    "Used, no deposits, moderately smooth, steel or wooden casing, joints prime coated but not smoothed":
     (3.0E-4, 6.0E-4, None),
-    'Used, prefabricated monoliths, cement plaster (wood floated), rough joints':
+    "Used, prefabricated monoliths, cement plaster (wood floated), rough joints":
     (5.0E-4, 1.0E-3, None),
-    'Conduits for water, sprayed surface of concrete': (5.0E-4, 1.0E-3, None),
-    'Brushed air-placed, either sprayed concrete or concrete on more concrete':
+    "Conduits for water, sprayed surface of concrete": (5.0E-4, 1.0E-3, None),
+    "Brushed air-placed, either sprayed concrete or concrete on more concrete":
     (None, None, 2.3E-3),
-    'Non-smoothed air-placed, either sprayed concrete or concrete on more concrete':
+    "Non-smoothed air-placed, either sprayed concrete or concrete on more concrete":
     (3.0E-3, 6.0E-3, None),
-    'Smoothed air-placed, either sprayed concrete or concrete on more concrete':
+    "Smoothed air-placed, either sprayed concrete or concrete on more concrete":
     (6.0E-3, 1.7E-2, 5.0E-4)}
 
-concrete_reinforced_tubes = {'New': (2.5E-4, 3.4E-4, None),
-                             'Nonprocessed': (2.5E-3, None, None)}
+concrete_reinforced_tubes = {"New": (2.5E-4, 3.4E-4, None),
+                             "Nonprocessed": (2.5E-3, None, None)}
 
-asbestos_cement = {'New': (5.0E-5, 1.0E-4, None),
-                   'Average': (6.0E-4, None, None)}
+asbestos_cement = {"New": (5.0E-5, 1.0E-4, None),
+                   "Average": (6.0E-4, None, None)}
 
-cement_tubes = {'Smoothed': (3.0E-4, 8.0E-4, None),
-                'Non processed': (1.0E-3, 2.0E-3, None),
-                'Joints, non smoothed': (1.9E-3, 6.4E-3, None)}
+cement_tubes = {"Smoothed": (3.0E-4, 8.0E-4, None),
+                "Non processed": (1.0E-3, 2.0E-3, None),
+                "Joints, non smoothed": (1.9E-3, 6.4E-3, None)}
 
 cement_mortar_channels = {
-    'Plaster, cement, smoothed joints and protrusions, and a casing':
+    "Plaster, cement, smoothed joints and protrusions, and a casing":
     (5.0E-5, 2.2E-4, None),
-    'Steel trowled': (None, None, 5.0E-4)}
+    "Steel trowled": (None, None, 5.0E-4)}
 
-cement_other = {'Plaster over a screen': (1.0E-2, 1.5E-2, None),
-                'Salt-glazed ceramic': (None, None, 1.4E-3),
-                'Slag-concrete': (None, None, 1.5E-3),
-                'Slag and alabaster-filling': (1.0E-3, 1.5E-3, None)}
+cement_other = {"Plaster over a screen": (1.0E-2, 1.5E-2, None),
+                "Salt-glazed ceramic": (None, None, 1.4E-3),
+                "Slag-concrete": (None, None, 1.5E-3),
+                "Slag and alabaster-filling": (1.0E-3, 1.5E-3, None)}
 
-concretes = {'Concrete water conduits, no finish': concrete_water_conduits,
-             'Reinforced concrete tubes': concrete_reinforced_tubes,
-             'Asbestos cement tubes': asbestos_cement,
-             'Cement tubes': cement_tubes,
-             'Cement-mortar plaster channels': cement_mortar_channels,
-             'Other': cement_other}
+concretes = {"Concrete water conduits, no finish": concrete_water_conduits,
+             "Reinforced concrete tubes": concrete_reinforced_tubes,
+             "Asbestos cement tubes": asbestos_cement,
+             "Cement tubes": cement_tubes,
+             "Cement-mortar plaster channels": cement_mortar_channels,
+             "Other": cement_other}
 
 
-wood_tube = {'Boards, thoroughly dressed': (None, None, 1.5E-4),
-             'Boards, well dressed': (None, None, 3.0E-4),
-             'Boards, undressed but fitted': (None, None, 7.0E-4),
-             'Boards, undressed': (None, None, 1.0E-3),
-             'Staved': (None, None, 6.0E-4)}
+wood_tube = {"Boards, thoroughly dressed": (None, None, 1.5E-4),
+             "Boards, well dressed": (None, None, 3.0E-4),
+             "Boards, undressed but fitted": (None, None, 7.0E-4),
+             "Boards, undressed": (None, None, 1.0E-3),
+             "Staved": (None, None, 6.0E-4)}
 
-plywood_tube = {'Birch plywood, transverse grain, good quality':
+plywood_tube = {"Birch plywood, transverse grain, good quality":
                 (None, None, 1.2E-4),
-                'Birch plywood, longitudal grain, good quality':
+                "Birch plywood, longitudal grain, good quality":
                 (3.0E-5, 5.0E-5, None)}
 
-glass_tube = {'Glass': (1.5E-6, 1.0E-5, None)}
+glass_tube = {"Glass": (1.5E-6, 1.0E-5, None)}
 
-wood_plywood_glass = {'Wood tubes': wood_tube,
-                      'Plywood tubes': plywood_tube,
-                      'Glass tubes': glass_tube}
+wood_plywood_glass = {"Wood tubes": wood_tube,
+                      "Plywood tubes": plywood_tube,
+                      "Glass tubes": glass_tube}
 
 
-rock_channels = {'Blast-hewed, little jointing': (1.0E-1, 1.4E-1, None),
-                 'Blast-hewed, substantial jointing': (1.3E-1, 5.0E-1, None),
-                 'Roughly cut or very uneven surface': (5.0E-1, 1.5E+0, None)}
+rock_channels = {"Blast-hewed, little jointing": (1.0E-1, 1.4E-1, None),
+                 "Blast-hewed, substantial jointing": (1.3E-1, 5.0E-1, None),
+                 "Roughly cut or very uneven surface": (5.0E-1, 1.5E+0, None)}
 
-unlined_tunnels = {'Rocks, gneiss, diameter 3-13.5 m': (3.0E-1, 7.0E-1, None),
-                   'Rocks, granite, diameter 3-9 m': (2.0E-1, 7.0E-1, None),
-                   'Shale, diameter, diameter 9-12 m': (2.5E-1, 6.5E-1, None),
-                   'Shale, quartz, quartzile, diameter 7-10 m':
+unlined_tunnels = {"Rocks, gneiss, diameter 3-13.5 m": (3.0E-1, 7.0E-1, None),
+                   "Rocks, granite, diameter 3-9 m": (2.0E-1, 7.0E-1, None),
+                   "Shale, diameter 9-12 m": (2.5E-1, 6.5E-1, None),
+                   "Shale, quartz, quartzile, diameter 7-10 m":
                    (2.0E-1, 6.0E-1, None),
-                   'Shale, sedimentary, diameter 4-7 m': (None, None, 4.0E-1),
-                   'Shale, nephrite bearing, diameter 3-8 m':
+                   "Shale, sedimentary, diameter 4-7 m": (None, None, 4.0E-1),
+                   "Shale, nephrite bearing, diameter 3-8 m":
                    (None, None, 2.0E-1)}
 
-tunnels = {'Rough channels in rock': rock_channels,
-           'Unlined tunnels': unlined_tunnels}
+tunnels = {"Rough channels in rock": rock_channels,
+           "Unlined tunnels": unlined_tunnels}
 
 
 # Roughness, in m
-_roughness = {'Brass': .00000152, 'Lead': .00000152, 'Glass': .00000152,
-'Steel': .00000152, 'Asphalted cast iron': .000122, 'Galvanized iron': .000152,
-'Cast iron': .000259, 'Wood stave': .000183, 'Rough wood stave': .000914,
-'Concrete': .000305, 'Rough concrete': .00305, 'Riveted steel': .000914,
-'Rough riveted steel': .00914}
+_roughness = {"Brass": .00000152, "Lead": .00000152, "Glass": .00000152,
+"Steel": .00000152, "Asphalted cast iron": .000122, "Galvanized iron": .000152,
+"Cast iron": .000259, "Wood stave": .000183, "Rough wood stave": .000914,
+"Concrete": .000305, "Rough concrete": .00305, "Riveted steel": .000914,
+"Rough riveted steel": .00914}
 
 
 # Create a more friendly data structure
@@ -3951,31 +3998,29 @@ HHR_roughness_categories = {}
 [HHR_roughness_categories.update(i) for i in HHR_roughness_dicts]
 for d in HHR_roughness_dicts:
     for k, v in d.items():
-        for name, values in v.items():
-            HHR_roughness[str(k)+', ' + name] = values
+        for name, values in v.items():  # type: ignore[attr-defined]
+            HHR_roughness[str(k)+", " + name] = values
 
 # For searching only
 _all_roughness = HHR_roughness.copy()
 _all_roughness.update(_roughness)
 
 # Format : ID: (avg_roughness, coef A (inches), coef B (inches))
-_Farshad_roughness = {'Plastic coated': (5E-6, 0.0002, -1.0098),
-                      'Carbon steel, honed bare': (12.5E-6, 0.0005, -1.0101),
-                      'Cr13, electropolished bare': (30E-6, 0.0012, -1.0086),
-                      'Cement lining': (33E-6, 0.0014, -1.0105),
-                      'Carbon steel, bare': (36E-6, 0.0014, -1.0112),
-                      'Fiberglass lining': (38E-6, 0.0016, -1.0086),
-                      'Cr13, bare': (55E-6, 0.0021, -1.0055)  }
+_Farshad_roughness = {"Plastic coated": (5E-6, 0.0002, -1.0098),
+                      "Carbon steel, honed bare": (12.5E-6, 0.0005, -1.0101),
+                      "Cr13, electropolished bare": (30E-6, 0.0012, -1.0086),
+                      "Cement lining": (33E-6, 0.0014, -1.0105),
+                      "Carbon steel, bare": (36E-6, 0.0014, -1.0112),
+                      "Fiberglass lining": (38E-6, 0.0016, -1.0086),
+                      "Cr13, bare": (55E-6, 0.0021, -1.0055)  }
 
-try:
-    if IS_NUMBA: # type: ignore # noqa: F821
-        _Farshad_roughness_keys = tuple(_Farshad_roughness.keys())
-        _Farshad_roughness_values = tuple(_Farshad_roughness.values())
-except:
-    pass
+IS_NUMBA = "IS_NUMBA" in globals()
+if IS_NUMBA:
+    _Farshad_roughness_keys = tuple(_Farshad_roughness.keys())
+    _Farshad_roughness_values = tuple(_Farshad_roughness.values())
 
-def roughness_Farshad(ID=None, D=None, coeffs=None):
-    r'''Calculates of retrieves the roughness of a pipe based on the work of
+def roughness_Farshad(ID: str | None=None, D: float | None=None, coeffs: tuple[float, float] | None=None) -> float:
+    r"""Calculates or retrieves the roughness of a pipe based on the work of
     [1]_. This function will return an average value for pipes of a given
     material, or if diameter is provided, will calculate one specifically for
     the pipe inner diameter according to the following expression with
@@ -3984,7 +4029,7 @@ def roughness_Farshad(ID=None, D=None, coeffs=None):
     .. math::
         \epsilon = A\cdot D^{B+1}
 
-    Please not that `A` has units of inches, and `B` requires `D` to be in
+    Please note that `A` has units of inches, and `B` requires `D` to be in
     inches as well.
 
     The list of supported materials is as follows:
@@ -4046,9 +4091,11 @@ def roughness_Farshad(ID=None, D=None, coeffs=None):
     .. [1] Farshad, Fred F., and Herman H. Rieke. "Surface Roughness Design
        Values for Modern Pipes." SPE Drilling & Completion 21, no. 3 (September
        1, 2006): 212-215. doi:10.2118/89040-PA.
-    '''
+    """
     # Case 1, coeffs given; only run if ID is not given.
     if ID is None and coeffs is not None:
+        if D is None:
+            raise ValueError("D is required when using coeffs")
         A, B = coeffs
         return A*(D/inch)**(B + 1.0)*inch
     # Case 2, lookup parameters
@@ -4069,8 +4116,8 @@ roughness_clean_names = set(_roughness.keys())
 roughness_clean_names.update(_Farshad_roughness.keys())
 
 
-def nearest_material_roughness(name, clean=None):
-    r'''Searches through either a dict of clean pipe materials or used pipe
+def nearest_material_roughness(name: str, clean: bool | None=None) -> str:
+    r"""Searches through either a dict of clean pipe materials or used pipe
     materials and conditions and returns the ID of the nearest material.
     Search is performed with either the standard library's difflib or with
     the thefuzz module if available.
@@ -4099,19 +4146,19 @@ def nearest_material_roughness(name, clean=None):
     ----------
     .. [1] Idel`chik, I. E, and A. S Ginevskiĭ. Handbook of Hydraulic
        Resistance. Redding, CT: Begell House, 2007.
-    '''
+    """
     if clean is None:
-        d = _all_roughness.keys()
+        d = _all_roughness.keys()  # type: ignore[assignment]
     else:
         if clean:
-            d = roughness_clean_names
+            d = roughness_clean_names  # type: ignore[assignment]
         else:
             d = HHR_roughness.keys()
-    return fuzzy_match(name, d)
+    return fuzzy_match(name, d)  # type: ignore[arg-type]
 
 
-def material_roughness(ID, D=None, optimism=None):
-    r'''Searches through either a dict of clean pipe materials or used pipe
+def material_roughness(ID: str, D: float | None=None, optimism: bool | None=None) -> float:
+    r"""Searches through either a dict of clean pipe materials or used pipe
     materials and conditions and returns the ID of the nearest material.
     Search is performed with either the standard library's difflib or with
     the thefuzz module if available.
@@ -4146,7 +4193,7 @@ def material_roughness(ID, D=None, optimism=None):
     .. [2] Farshad, Fred F., and Herman H. Rieke. "Surface Roughness Design
        Values for Modern Pipes." SPE Drilling & Completion 21, no. 3 (September
        1, 2006): 212-215. doi:10.2118/89040-PA.
-    '''
+    """
     if ID in _Farshad_roughness:
         return roughness_Farshad(ID, D)
     elif ID in _roughness:
@@ -4163,8 +4210,8 @@ def material_roughness(ID, D=None, optimism=None):
         return material_roughness(nearest_material_roughness(ID, clean=False),
                                   D=D, optimism=optimism)
 
-def transmission_factor(fd=None, F=None):
-    r'''Calculates either transmission factor from Darcy friction factor,
+def transmission_factor(fd: float | None=None, F: float | None=None) -> float:
+    r"""Calculates either transmission factor from Darcy friction factor,
     or Darcy friction factor from the transmission factor. Raises an exception
     if neither input is given.
 
@@ -4200,17 +4247,17 @@ def transmission_factor(fd=None, F=None):
     ----------
     .. [1] Menon, E. Shashi. Gas Pipeline Hydraulics. 1st edition. Boca Raton,
        FL: CRC Press, 2005.
-    '''
+    """
     if fd is not None:
         return 2./sqrt(fd)
     elif F is not None:
         return 4./(F*F)
     else:
-        raise ValueError('Either Darcy friction factor or transmission factor is needed')
+        raise ValueError("Either Darcy friction factor or transmission factor is needed")
 
 
-def one_phase_dP(m, rho, mu, D, roughness=0.0, L=1.0, Method=None):
-    r'''Calculates single-phase pressure drop. This is a wrapper
+def one_phase_dP(m: float, rho: float, mu: float, D: float, roughness: float=0.0, L: float=1.0, Method: None=None) -> float:
+    r"""Calculates single-phase pressure drop. This is a wrapper
     around other methods.
 
     Parameters
@@ -4247,7 +4294,7 @@ def one_phase_dP(m, rho, mu, D, roughness=0.0, L=1.0, Method=None):
     ----------
     .. [1] Crane Co. Flow of Fluids Through Valves, Fittings, and Pipe. Crane,
        2009.
-    '''
+    """
     D2 = D*D
     V = m/(0.25*pi*D2*rho)
     Re = Reynolds(V=V, rho=rho, mu=mu, D=D)
@@ -4257,7 +4304,7 @@ def one_phase_dP(m, rho, mu, D, roughness=0.0, L=1.0, Method=None):
 
 
 def one_phase_dP_acceleration(m, D, rho_o, rho_i, D_i=None):
-    r'''This function handles calculation of one-phase fluid pressure drop
+    r"""This function handles calculation of one-phase fluid pressure drop
     due to acceleration for flow inside channels. This is a discrete
     calculation, providing the total differential in pressure for a given
     length and should be called as part of a segment solver routine.
@@ -4294,7 +4341,7 @@ def one_phase_dP_acceleration(m, D, rho_o, rho_i, D_i=None):
     0.06848310644876913
     >>> one_phase_dP_acceleration(m=1, D=0.1, rho_o=827.1, rho_i=830, D_i=.05)
     -146.1640615999393
-    '''
+    """
     if D_i is None:
         D_i = D
     A_i = 0.25*pi*D_i*D_i
@@ -4315,8 +4362,8 @@ def one_phase_dP_acceleration(m, D, rho_o, rho_i, D_i=None):
     # return 8.0*(G*G/rho_o - G_i*G_i/rho_i)
 
 
-def one_phase_dP_dz_acceleration(m, D, rho, dv_dP, dP_dL, dA_dL):
-    r'''This function handles calculation of one-phase fluid pressure drop
+def one_phase_dP_dz_acceleration(m: float, D: float, rho: float, dv_dP: float, dP_dL: float, dA_dL: float) -> float:
+    r"""This function handles calculation of one-phase fluid pressure drop
     due to acceleration for flow inside channels. This is a continuous
     calculation, providing the differential in pressure per unit length and
     should be called as part of an integration routine [1]_.
@@ -4367,14 +4414,14 @@ def one_phase_dP_dz_acceleration(m, D, rho, dv_dP, dP_dL, dA_dL):
     .. [1] Shoham, Ovadia. Mechanistic Modeling of Gas-Liquid Two-Phase Flow in
        Pipes. Pap/Cdr edition. Richardson, TX: Society of Petroleum Engineers,
        2006.
-    '''
+    """
     A = 0.25*pi*D*D
     G = m/A
     return -G*G*(dP_dL*dv_dP - dA_dL/(rho*A))
 
 
-def one_phase_dP_gravitational(angle, rho, L=1.0, g=g):
-    r'''This function handles calculation of one-phase liquid-gas pressure drop
+def one_phase_dP_gravitational(angle: float, rho: float, L: float=1.0, g: float=g) -> float:
+    r"""This function handles calculation of one-phase liquid-gas pressure drop
     due to gravitation for flow inside channels. This is either a differential
     calculation for a segment with an infinitesimal difference in elevation
     `L` = 1 or a discrete calculation.
@@ -4411,6 +4458,6 @@ def one_phase_dP_gravitational(angle, rho, L=1.0, g=g):
     25.49729
     >>> one_phase_dP_gravitational(angle=90, rho=2.6, L=4)
     101.98916
-    '''
+    """
     angle = radians(angle)
     return L*g*sin(angle)*rho

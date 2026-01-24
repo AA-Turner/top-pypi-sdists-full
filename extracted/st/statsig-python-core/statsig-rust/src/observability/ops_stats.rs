@@ -2,11 +2,15 @@ use super::{
     observability_client_adapter::ObservabilityEvent, sdk_errors_observer::ErrorBoundaryEvent,
     DiagnosticsEvent,
 };
-use crate::sdk_diagnostics::{
-    diagnostics::ContextType,
-    marker::{KeyType, Marker},
-};
+use crate::user::StatsigUserLoggable;
 use crate::{log_e, log_w, StatsigRuntime};
+use crate::{
+    observability::console_capture_observer::ConsoleCaptureEvent,
+    sdk_diagnostics::{
+        diagnostics::ContextType,
+        marker::{KeyType, Marker},
+    },
+};
 use async_trait::async_trait;
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
@@ -26,6 +30,12 @@ lazy_static! {
 
 pub struct OpsStats {
     instances_map: RwLock<HashMap<String, Weak<OpsStatsForInstance>>>, // key is sdk key
+}
+
+impl Default for OpsStats {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl OpsStats {
@@ -80,6 +90,7 @@ pub enum OpsStatsEvent {
     Observability(ObservabilityEvent),
     SDKError(ErrorBoundaryEvent),
     Diagnostics(DiagnosticsEvent),
+    ConsoleCapture(ConsoleCaptureEvent),
 }
 
 pub struct OpsStatsForInstance {
@@ -144,6 +155,23 @@ impl OpsStatsForInstance {
             context,
             key,
             should_enqueue: true,
+        }));
+    }
+
+    pub fn enqueue_console_capture_event(
+        &self,
+        level: String,
+        payload: Vec<String>,
+        timestamp: u64,
+        user: StatsigUserLoggable,
+        stack_trace: Option<String>,
+    ) {
+        self.log(OpsStatsEvent::ConsoleCapture(ConsoleCaptureEvent {
+            level,
+            payload,
+            timestamp,
+            user,
+            stack_trace,
         }));
     }
 

@@ -559,7 +559,7 @@ interface I #(parameter int q = 1);
 endinterface
 
 module m(I.m i);
-    if (i.q == 1) begin
+    if (i.q == 1) begin : blk
         int j = i.j;
     end
 endmodule
@@ -568,7 +568,7 @@ interface J #(parameter int r);
 endinterface
 
 module n(J j);
-    if (j.r == 1) begin
+    if (j.r == 1) begin : blk
         int j = asdf;
     end
 endmodule
@@ -859,4 +859,84 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Explicit modport expression issues") {
+    auto tree = SyntaxTree::fromText(R"(
+const int b = 1;
+
+interface J(wire clk);
+    clocking cb @(posedge clk);
+    endclocking
+
+    interface I(input int q);
+        int a;
+        modport m(input .i({a, q, b}));
+        modport n(input b, clocking cb);
+
+        struct { int i; } s;
+        modport o(input .q(s.i));
+    endinterface
+
+    I i(3);
+endinterface
+
+module m;
+    wire clk;
+    J j(clk);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::ModportMemberParent);
+    CHECK(diags[1].code == diag::ModportMemberParent);
+    CHECK(diags[2].code == diag::ModportMemberParent);
+}
+
+TEST_CASE("Interface containing virtual interface infinite loop regress") {
+    auto tree = SyntaxTree::fromText(R"(
+interface I;
+    virtual I O;
+endinterface
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::VirtualInterfaceIfaceMember);
+}
+
+TEST_CASE("Interface containing virtual interface items in generate blocks") {
+    auto tree = SyntaxTree::fromText(R"(
+interface A;
+endinterface
+
+interface B;
+endinterface
+
+interface C #(bit P);
+    if (P) begin: PSET
+        virtual A intf;
+    end else begin: PUNSET
+        virtual B intf;
+    end
+endinterface
+
+module top;
+    C #(1) c();
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::VirtualInterfaceIfaceMember);
 }

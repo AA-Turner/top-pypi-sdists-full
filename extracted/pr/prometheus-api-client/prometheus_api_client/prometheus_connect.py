@@ -4,7 +4,6 @@ import bz2
 import os
 import json
 import logging
-import numpy
 from datetime import datetime, timedelta
 import requests
 from requests.adapters import HTTPAdapter
@@ -41,6 +40,8 @@ class PrometheusConnect:
         Example: {"http_proxy": "<ip_address/hostname:port>", "https_proxy": "<ip_address/hostname:port>"}
     :param session (Optional) Custom requests.Session to enable complex HTTP configuration
     :param timeout: (Optional) A timeout (in seconds) applied to all requests
+    :param method: (Optional) (str) HTTP Method (GET or POST) to use for Query APIs that allow POST 
+        (/query, /query_range and /labels). Use POST for large and complex queries. Default is GET.
     """
 
     def __init__(
@@ -53,6 +54,7 @@ class PrometheusConnect:
         proxy: dict = None,
         session: Session = None,
         timeout: int = None,
+        method: str = "GET"
     ):
         """Functions as a Constructor for the class PrometheusConnect."""
         if url is None:
@@ -63,6 +65,15 @@ class PrometheusConnect:
         self.prometheus_host = urlparse(self.url).netloc
         self._all_metrics = None
         self._timeout = timeout
+
+        if not isinstance(method, str):
+            raise TypeError("Method must be a string")
+        
+        method = method.upper()
+        if method not in {"GET", "POST"}:
+            raise ValueError("Method can only be GET or POST")
+
+        self._method = method
 
         if retry is None:
             retry = Retry(
@@ -91,8 +102,9 @@ class PrometheusConnect:
             sent along with the API request.
         :returns: (bool) True if the endpoint can be reached, False if cannot be reached.
         """
-        response = self._session.get(
-            "{0}/".format(self.url),
+        response = self._session.request(
+            method="GET",
+            url="{0}/".format(self.url),
             verify=self._session.verify,
             headers=self.headers,
             params=params,
@@ -117,6 +129,42 @@ class PrometheusConnect:
         self._all_metrics = self.get_label_values(label_name="__name__", params=params)
         return self._all_metrics
 
+
+    def get_series(self, start: datetime, end: datetime, params: dict = None):
+        """
+        Get a list series happening between start and end times.
+
+        :param start: (int) Start time unix ts
+        :param end: (int) End time unix ts
+        :param params: (dict) Optional dictionary containing GET parameters to be
+            sent along with the API request, such as "start", "end" or "match[]".
+        :returns: (list) A list of labels from the specified prometheus host
+        :raises:
+            (RequestException) Raises an exception in case of a connection error
+            (PrometheusApiClientException) Raises in case of non 200 response status code
+        """
+        params = params or {}
+        params["start"] = start.timestamp()
+        params["end"] = end.timestamp()
+        response = self._session.get(
+            "{0}/api/v1/series".format(self.url),
+            verify=self._session.verify,
+            headers=self.headers,
+            params=params,
+            auth=self.auth,
+            cert=self._session.cert,
+            timeout=self._timeout,
+        )
+
+        if response.status_code == 200:
+            labels = response.json()["data"]
+        else:
+            raise PrometheusApiClientException(
+                "HTTP Status Code {} ({!r})".format(response.status_code, response.content)
+            )
+        return labels
+
+
     def get_label_names(self, params: dict = None):
         """
         Get a list of all labels.
@@ -129,8 +177,9 @@ class PrometheusConnect:
             (PrometheusApiClientException) Raises in case of non 200 response status code
         """
         params = params or {}
-        response = self._session.get(
-            "{0}/api/v1/labels".format(self.url),
+        response = self._session.request(
+            method=self._method,
+            url="{0}/api/v1/labels".format(self.url),
             verify=self._session.verify,
             headers=self.headers,
             params=params,
@@ -160,8 +209,9 @@ class PrometheusConnect:
             (PrometheusApiClientException) Raises in case of non 200 response status code
         """
         params = params or {}
-        response = self._session.get(
-            "{0}/api/v1/label/{1}/values".format(self.url, label_name),
+        response = self._session.request(
+            method="GET",
+            url="{0}/api/v1/label/{1}/values".format(self.url, label_name),
             verify=self._session.verify,
             headers=self.headers,
             params=params,
@@ -212,8 +262,9 @@ class PrometheusConnect:
             query = metric_name
 
         # using the query API to get raw data
-        response = self._session.get(
-            "{0}/api/v1/query".format(self.url),
+        response = self._session.request(
+            method=self._method,
+            url="{0}/api/v1/query".format(self.url),
             params={**{"query": query}, **params},
             verify=self._session.verify,
             headers=self.headers,
@@ -299,8 +350,9 @@ class PrometheusConnect:
                 chunk_seconds = end - start
 
             # using the query API to get raw data
-            response = self._session.get(
-                "{0}/api/v1/query".format(self.url),
+            response = self._session.request(
+                method=self._method,
+                url="{0}/api/v1/query".format(self.url),
                 params={
                     **{
                         "query": query + "[" + str(chunk_seconds) + "s" + "]",
@@ -407,8 +459,9 @@ class PrometheusConnect:
         query = str(query)
         timeout = self._timeout if timeout is None else timeout
         # using the query API to get raw data
-        response = self._session.get(
-            "{0}/api/v1/query".format(self.url),
+        response = self._session.request(
+            method=self._method,
+            url="{0}/api/v1/query".format(self.url),
             params={**{"query": query}, **params},
             verify=self._session.verify,
             headers=self.headers,
@@ -454,8 +507,9 @@ class PrometheusConnect:
         query = str(query)
         timeout = self._timeout if timeout is None else timeout
         # using the query_range API to get raw data
-        response = self._session.get(
-            "{0}/api/v1/query_range".format(self.url),
+        response = self._session.request(
+            method=self._method,
+            url="{0}/api/v1/query_range".format(self.url),
             params={**{"query": query, "start": start, "end": end, "step": step}, **params},
             verify=self._session.verify,
             headers=self.headers,
@@ -514,6 +568,15 @@ class PrometheusConnect:
                 'max': 6.009373
              }
         """
+        try:
+            import numpy
+        except ImportError as e:
+            raise ImportError(
+                "NumPy is required for metric aggregation operations. "
+                "Please install it with: pip install prometheus-api-client[analytics] "
+                "or pip install prometheus-api-client[all]"
+            ) from e
+        
         if not isinstance(operations, list):
             raise TypeError("Operations can be only of type list")
         if len(operations) == 0:
@@ -590,8 +653,9 @@ class PrometheusConnect:
         if scrape_pool:
             params['scrapePool'] = scrape_pool
 
-        response = self._session.get(
-            "{0}/api/v1/targets".format(self.url),
+        response = self._session.request(
+            method="GET",
+            url="{0}/api/v1/targets".format(self.url),
             verify=self._session.verify,
             headers=self.headers,
             params=params,
@@ -630,8 +694,9 @@ class PrometheusConnect:
                 ",".join(f'{k}="{v}"' for k, v in target.items()) + "}"
             params['match_target'] = match_target
 
-        response = self._session.get(
-            "{0}/api/v1/targets/metadata".format(self.url),
+        response = self._session.request(
+            method="GET",
+            url="{0}/api/v1/targets/metadata".format(self.url),
             verify=self._session.verify,
             headers=self.headers,
             params=params,
@@ -672,8 +737,9 @@ class PrometheusConnect:
         if limit_per_metric:
             params['limit_per_metric'] = limit_per_metric
 
-        response = self._session.get(
-            "{0}/api/v1/metadata".format(self.url),
+        response = self._session.request(
+            method="GET",
+            url="{0}/api/v1/metadata".format(self.url),
             verify=self._session.verify,
             headers=self.headers,
             params=params,

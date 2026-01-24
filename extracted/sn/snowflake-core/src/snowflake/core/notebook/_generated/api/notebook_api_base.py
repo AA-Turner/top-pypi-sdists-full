@@ -404,9 +404,13 @@ class NotebookResourceBase(SchemaObjectReferenceMixin["NotebookCollection"]):
 
         return PollingOperation(future, finalize)
 
-    def _rename_finalizer(self, target_name: str, target_schema: str, target_database: str) -> None:
+    def _rename_finalizer(self, target_name: str, target_schema: Optional[str], target_database: Optional[str]) -> None:
         """Finalizer for rename operation."""
         self._set_new_name(target_name)
+        if target_database is None:
+            target_database = self.database.name
+        if target_schema is None:
+            target_schema = self.schema.name
 
         # Schema level resource
         if target_database != self.database.name or target_schema != self.schema.name:

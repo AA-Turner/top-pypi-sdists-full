@@ -1,7 +1,7 @@
 import copy
 import socket
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from contextlib import ExitStack
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional, Union
@@ -10,6 +10,7 @@ import yaml
 from dagster import (
     Array,
     Field,
+    Map,
     String,
     _check as check,
 )
@@ -32,13 +33,9 @@ from dagster_cloud_cli.core.headers.auth import DagsterCloudInstanceScope
 from urllib3 import Retry
 
 from dagster_cloud.agent import AgentQueuesConfig
-from dagster_cloud.version import __version__
-
-from ..auth.constants import get_organization_name_from_agent_token
-from ..opentelemetry.config import opentelemetry_config_schema
-from ..opentelemetry.controller import OpenTelemetryController
-from ..storage.client import dagster_cloud_api_config
-from ..util import get_env_names_from_config, is_isolated_run
+from dagster_cloud.auth.constants import decode_agent_token
+from dagster_cloud.storage.client import dagster_cloud_api_config
+from dagster_cloud.util import get_env_names_from_config, is_isolated_run
 
 if TYPE_CHECKING:
     from requests import Session
@@ -80,21 +77,26 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
         agent_replicas=None,
         isolated_agents=None,
         agent_queues=None,
+        allowed_full_deployment_locations=None,
+        allowed_branch_deployment_locations=None,
         agent_metrics=None,
-        opentelemetry=None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
 
         self._unprocessed_dagster_cloud_api_config = dagster_cloud_api
-        self._dagster_cloud_api_config = self._get_processed_config(
-            "dagster_cloud_api", dagster_cloud_api, dagster_cloud_api_config()
+        self._dagster_cloud_api_config = check.not_none(
+            self._get_processed_config(
+                "dagster_cloud_api",
+                dagster_cloud_api,
+                dagster_cloud_api_config(),
+            )
         )
 
         check.invariant(
             not (
-                self._dagster_cloud_api_config.get("deployment")  # pyright: ignore[reportOptionalMemberAccess]
-                and self._dagster_cloud_api_config.get("deployments")  # pyright: ignore[reportOptionalMemberAccess]
+                self._dagster_cloud_api_config.get("deployment")
+                and self._dagster_cloud_api_config.get("deployments")
             ),
             "Cannot set both deployment and deployments in `dagster_cloud_api`",
         )
@@ -142,11 +144,12 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
         )
         self.agent_queues_config = AgentQueuesConfig(**processed_agent_queues_config)  # pyright: ignore[reportCallIssue]
 
-        self._opentelemetry_config: Optional[Mapping[str, Any]] = self._get_processed_config(
-            "opentelemetry", opentelemetry, opentelemetry_config_schema()
+        self._allowed_full_deployment_locations: Optional[dict[str, list[str]]] = (
+            allowed_full_deployment_locations
         )
-
-        self._opentelemetry_controller: Optional[OpenTelemetryController] = None
+        self._allowed_branch_deployment_locations: Optional[list[str]] = (
+            allowed_branch_deployment_locations
+        )
 
         self._instance_uuid = str(uuid.uuid4())
 
@@ -175,16 +178,16 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
         return processed_config.value
 
     def _dagster_cloud_api_config_for_deployment(self, deployment_name: Optional[str]):
-        new_api_config = dict(copy.deepcopy(self._dagster_cloud_api_config))  # pyright: ignore[reportArgumentType,reportCallIssue]
+        new_api_config = dict(copy.deepcopy(self._dagster_cloud_api_config))
         if deployment_name:
-            new_api_config["deployment"] = deployment_name  # pyright: ignore[reportArgumentType]
+            new_api_config["deployment"] = deployment_name
             if self.includes_branch_deployments:
-                del new_api_config["branch_deployments"]  # pyright: ignore
-            new_api_config.pop("deployments", None)  # pyright: ignore
-            new_api_config.pop("all_serverless_deployments", None)  # pyright: ignore
+                del new_api_config["branch_deployments"]
+            new_api_config.pop("deployments", None)
+            new_api_config.pop("all_serverless_deployments", None)
         else:
-            new_api_config.pop("deployment", None)  # pyright: ignore
-            new_api_config.pop("deployments", None)  # pyright: ignore
+            new_api_config.pop("deployment", None)
+            new_api_config.pop("deployments", None)
 
         return new_api_config
 
@@ -199,7 +202,7 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
         return create_agent_graphql_client(
             self.client_managed_retries_requests_session,
             self.dagster_cloud_graphql_url,
-            self._dagster_cloud_api_config_for_deployment(None),  # pyright: ignore[reportArgumentType]
+            self._dagster_cloud_api_config_for_deployment(None),
             scope=DagsterCloudInstanceScope.ORGANIZATION,
         )
 
@@ -207,13 +210,13 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
         return create_agent_graphql_client(
             self.client_managed_retries_requests_session,
             self.dagster_cloud_graphql_url,
-            self._dagster_cloud_api_config_for_deployment(deployment_name),  # pyright: ignore[reportArgumentType]
+            self._dagster_cloud_api_config_for_deployment(deployment_name),
             scope=DagsterCloudInstanceScope.DEPLOYMENT,
         )
 
     def headers_for_deployment(self, deployment_name: str):
         return get_agent_headers(
-            self._dagster_cloud_api_config_for_deployment(deployment_name),  # pyright: ignore[reportArgumentType]
+            self._dagster_cloud_api_config_for_deployment(deployment_name),
             DagsterCloudInstanceScope.DEPLOYMENT,
         )
 
@@ -238,11 +241,11 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
             return socket_option
 
     def _socket_options(self):
-        if self._dagster_cloud_api_config.get("socket_options") is None:  # pyright: ignore[reportOptionalMemberAccess]
+        if self._dagster_cloud_api_config.get("socket_options") is None:
             return None
 
         translated_socket_options = []
-        for socket_option in self._dagster_cloud_api_config["socket_options"]:  # pyright: ignore[reportOptionalSubscript]
+        for socket_option in self._dagster_cloud_api_config["socket_options"]:
             check.invariant(
                 len(socket_option) == 3, "Each socket option must be a list of three values"
             )
@@ -284,7 +287,7 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
                     adapter_kwargs=dict(
                         max_retries=Retry(
                             total=self.dagster_cloud_api_retries,
-                            backoff_factor=self._dagster_cloud_api_config["backoff_factor"],  # pyright: ignore[reportOptionalSubscript]
+                            backoff_factor=self._dagster_cloud_api_config["backoff_factor"],
                         ),
                         socket_options=self._socket_options(),
                     )
@@ -314,21 +317,26 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
 
     @property
     def dagster_cloud_url(self):
-        if "url" in self._dagster_cloud_api_config:  # pyright: ignore[reportOperatorIssue]
-            return self._dagster_cloud_api_config["url"]  # pyright: ignore[reportOptionalSubscript]
+        if "url" in self._dagster_cloud_api_config:
+            return self._dagster_cloud_api_config["url"]
 
-        organization = get_organization_name_from_agent_token(self.dagster_cloud_agent_token)  # pyright: ignore[reportArgumentType]
+        organization, region = decode_agent_token(self.dagster_cloud_agent_token)
         if not organization:
             raise DagsterInvariantViolationError(
                 "Could not derive Dagster Cloud URL from agent token. Create a new agent token or"
                 " set the `url` field under `dagster_cloud_api` in your `dagster.yaml`."
             )
 
-        return f"https://{organization}.agent.dagster.cloud"
+        return (
+            f"https://{organization}.agent.{region}.dagster.cloud"
+            if region
+            else f"https://{organization}.agent.dagster.cloud"
+        )
 
     @property
     def organization_name(self) -> Optional[str]:
-        return get_organization_name_from_agent_token(self.dagster_cloud_agent_token)  # pyright: ignore[reportArgumentType]
+        organization, _ = decode_agent_token(self.dagster_cloud_agent_token)
+        return organization
 
     @property
     def deployment_name(self) -> Optional[str]:
@@ -343,26 +351,31 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
 
     @property
     def deployment_names(self) -> list[str]:
-        if self._dagster_cloud_api_config.get("deployment"):  # pyright: ignore[reportOptionalMemberAccess]
-            return [self._dagster_cloud_api_config["deployment"]]  # pyright: ignore[reportOptionalSubscript]
+        if self._dagster_cloud_api_config.get("deployment"):
+            return [self._dagster_cloud_api_config["deployment"]]
 
-        return self._dagster_cloud_api_config.get("deployments", [])  # pyright: ignore[reportOptionalMemberAccess]
+        return self._dagster_cloud_api_config.get("deployments", [])
 
     @property
     def include_all_serverless_deployments(self) -> bool:
-        return self._dagster_cloud_api_config.get("all_serverless_deployments")  # pyright: ignore[reportOptionalMemberAccess,reportReturnType]
+        return self._dagster_cloud_api_config.get("all_serverless_deployments") or False
 
     @property
     def dagit_url(self):
-        organization = get_organization_name_from_agent_token(self.dagster_cloud_agent_token)  # pyright: ignore[reportArgumentType]
+        organization, region = decode_agent_token(self.dagster_cloud_agent_token)
         if not organization:
             raise Exception(
                 "Could not derive Dagster Cloud URL from agent token to generate a Dagit URL."
                 " Generate a new agent token in the Dagit UI."
             )
 
-        deployment = self._dagster_cloud_api_config.get("deployment")  # pyright: ignore[reportOptionalMemberAccess]
-        return f"https://{organization}.dagster.cloud/" + (f"{deployment}/" if deployment else "")
+        deployment = self._dagster_cloud_api_config.get("deployment")
+        base_url = (
+            f"https://{organization}.{region}.dagster.cloud/"
+            if region
+            else f"https://{organization}.dagster.cloud/"
+        )
+        return base_url + (f"{deployment}/" if deployment else "")
 
     @property
     def dagster_cloud_graphql_url(self):
@@ -412,37 +425,68 @@ class DagsterCloudAgentInstance(DagsterCloudInstance):
         return get_agent_headers(self._dagster_cloud_api_config, scope=scope)  # pyright: ignore[reportArgumentType]
 
     @property
-    def dagster_cloud_agent_token(self):
-        return self._dagster_cloud_api_config.get("agent_token")  # pyright: ignore[reportOptionalMemberAccess]
+    def dagster_cloud_agent_token(self) -> str:
+        check.invariant(
+            self._dagster_cloud_api_config.get("agent_token") is not None,
+            "No agent token found in dagster_cloud_api configuration. An agent token is required"
+            " for Dagster Cloud authentication.",
+        )
+        return self._dagster_cloud_api_config["agent_token"]
 
     @property
     def dagster_cloud_api_retries(self) -> int:
-        return self._dagster_cloud_api_config["retries"]  # pyright: ignore[reportOptionalSubscript]
+        return self._dagster_cloud_api_config["retries"]
 
     @property
     def dagster_cloud_api_timeout(self) -> int:
-        return self._dagster_cloud_api_config["timeout"]  # pyright: ignore[reportOptionalSubscript]
+        return self._dagster_cloud_api_config["timeout"]
 
     @property
     def dagster_cloud_api_proxies(self) -> Optional[dict[str, str]]:
         # Requests library modifies the proxies key so create a copy
         return (
             self._dagster_cloud_api_config.get("proxies").copy()  # pyright: ignore[reportOptionalMemberAccess]
-            if self._dagster_cloud_api_config.get("proxies")  # pyright: ignore[reportOptionalMemberAccess]
+            if self._dagster_cloud_api_config.get("proxies")
             else {}
         )
 
     @property
     def dagster_cloud_api_agent_label(self) -> Optional[str]:
-        return self._dagster_cloud_api_config.get("agent_label")  # pyright: ignore[reportOptionalMemberAccess]
+        return self._dagster_cloud_api_config.get("agent_label")
 
     @property
     def includes_branch_deployments(self) -> bool:
-        return self._dagster_cloud_api_config.get("branch_deployments", False)  # pyright: ignore[reportOptionalMemberAccess]
+        return self._dagster_cloud_api_config.get("branch_deployments", False)
 
     @property
     def instance_uuid(self) -> str:
         return self._instance_uuid
+
+    @property
+    def allowed_full_deployment_locations(self) -> Optional[dict[str, list[str]]]:
+        return self._allowed_full_deployment_locations
+
+    @property
+    def allowed_branch_deployment_locations(self) -> Optional[list[str]]:
+        return self._allowed_branch_deployment_locations
+
+    def is_location_allowed(
+        self, deployment_name: str, location_name: str, is_branch_deployment: bool
+    ) -> bool:
+        """Check if a location should be allowed based on the allowed locations configuration."""
+        if is_branch_deployment:
+            # For branch deployments, check the branch deployment locations list
+            if self._allowed_branch_deployment_locations is not None:
+                return location_name in self._allowed_branch_deployment_locations
+        else:
+            # For full deployments, check the deployment-specific locations map
+            if self._allowed_full_deployment_locations is not None:
+                allowed_locations = self._allowed_full_deployment_locations.get(deployment_name)
+                if allowed_locations is not None:
+                    return location_name in allowed_locations
+
+        # If no restrictions are configured, allow all locations
+        return True
 
     @property
     def agent_display_name(self) -> str:
@@ -518,8 +562,15 @@ instance_class:
                 cls._isolated_agents_config_schema(), is_required=False
             ),  # deprecated in favor of isolated_agents
             "agent_queues": Field(cls._agent_queues_config_schema(), is_required=False),
-            "opentelemetry": Field(
-                opentelemetry_config_schema(), is_required=False, default_value={"enabled": False}
+            "allowed_full_deployment_locations": Field(
+                Map(String, Array(String)),
+                is_required=False,
+                description="Mapping of full deployment names to allowed location names",
+            ),
+            "allowed_branch_deployment_locations": Field(
+                Array(String),
+                is_required=False,
+                description="List of allowed location names for branch deployments",
             ),
         }
 
@@ -603,9 +654,6 @@ instance_class:
 
     def dispose(self) -> None:
         super().dispose()
-        if self._opentelemetry_controller:
-            self._opentelemetry_controller.dispose()
-            self._opentelemetry_controller = None
         self._exit_stack.close()
 
     @property
@@ -625,17 +673,6 @@ instance_class:
     def dagster_cloud_run_worker_monitoring_interval_seconds(self) -> int:
         # potentially overridden interval in the serverless user code launcher
         return 30
-
-    @property
-    def opentelemetry(self) -> OpenTelemetryController:
-        if not self._opentelemetry_controller:
-            self._opentelemetry_controller = OpenTelemetryController(
-                instance_id=self.instance_uuid,
-                version=__version__,
-                config=self._opentelemetry_config,
-            )
-
-        return self._opentelemetry_controller
 
 
 @lru_cache(maxsize=100)  # Scales on order of active branch deployments

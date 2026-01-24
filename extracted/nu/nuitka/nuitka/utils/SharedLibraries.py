@@ -17,7 +17,7 @@ from nuitka.Options import getMacOSTargetArch, isShowInclusion, isUnstripped
 from nuitka.PythonVersions import python_version
 from nuitka.Tracing import inclusion_logger, postprocessing_logger
 
-from .Execution import executeToolChecked, withEnvironmentPathAdded
+from .Execution import executeToolChecked
 from .FileOperations import (
     addFileExecutablePermission,
     changeFilenameExtension,
@@ -28,8 +28,11 @@ from .FileOperations import (
 )
 from .Importing import importFromInlineCopy
 from .Utils import (
+    getOS,
     isAlpineLinux,
     isBSD,
+    isCoffUsingPlatform,
+    isElfUsingPlatform,
     isLinux,
     isMacOS,
     isWin32Windows,
@@ -262,6 +265,39 @@ def _getSharedLibraryRPATHsElf(filename):
     return rpaths
 
 
+_dump_usage = "The 'dump' is used to analyse dependencies on COFF using systems and required to be found."
+
+
+def _getSharedLibraryRPATHsCoff(filename):
+    rpaths = []
+
+    output = executeToolChecked(
+        logger=postprocessing_logger,
+        command=("dump", "-H", "-X", "any", filename),
+        absence_message=_dump_usage,
+        decoding=True,
+    )
+
+    assert (
+        "INDEX  PATH                          BASE                MEMBER" in output
+    ), output
+
+    output = output.split(
+        "INDEX  PATH                          BASE                MEMBER", 1
+    )[1]
+    start_offset = len("INDEX  P")
+
+    for line in output.split("\n"):
+        if len(line) < start_offset:
+            continue
+        if line[start_offset] != " ":
+            continue
+
+        rpaths.append(line[start_offset:])
+
+    return rpaths
+
+
 _otool_output_cache = {}
 
 
@@ -322,9 +358,8 @@ def getOtoolListing(filename, cached):
     return _getOToolCommandOutput("-l", filename, cached=cached)
 
 
-def getOtoolDependencyOutput(filename, package_specific_dirs):
-    with withEnvironmentPathAdded("DYLD_LIBRARY_PATH", *package_specific_dirs):
-        return _getOToolCommandOutput("-L", filename, cached=True)
+def getOtoolDependencyOutput(filename):
+    return _getOToolCommandOutput("-L", filename, cached=True)
 
 
 def parseOtoolListingOutput(output):
@@ -396,14 +431,18 @@ def _getSharedLibraryRPATHsDarwin(filename, cached):
 
 def getSharedLibraryRPATHs(filename, elements=False, cached=True):
     if isMacOS():
-        return _getSharedLibraryRPATHsDarwin(filename=filename, cached=cached)
-    else:
+        result = _getSharedLibraryRPATHsDarwin(filename=filename, cached=cached)
+    elif isElfUsingPlatform():
         result = _getSharedLibraryRPATHsElf(filename=filename)
+    elif isCoffUsingPlatform():
+        result = _getSharedLibraryRPATHsCoff(filename=filename)
+    else:
+        assert False, getOS()
 
-        if elements:
-            result = sum([r.split(":") for r in result], [])
+    if elements:
+        result = sum([r.split(":") for r in result], [])
 
-        return result
+    return result
 
 
 def _filterPatchelfErrorOutput(stderr):
@@ -440,8 +479,9 @@ def checkPatchElfPresenceAndUsability(logger):
         logger=logger,
         command=("patchelf", "--version"),
         absence_message="""\
-Error, standalone mode on Linux requires 'patchelf' to be \
-installed. Use 'apt/dnf/yum install patchelf' first.""",
+Error, standalone mode on %s requires 'patchelf' to be \
+installed. Use 'apt/dnf/yum install patchelf' first."""
+        % getOS(),
     )
 
     if output.split() == b"0.18.0":
@@ -738,7 +778,7 @@ def makeMacOSThinBinary(dest_path, original_path):
         )
 
 
-def copyDllFile(source_path, dist_dir, dest_path, executable):
+def copyDllFile(source_path, dist_dir, dest_path, executable, other_entry_points):
     """Copy an extension/DLL file making some adjustments on the way."""
 
     target_filename = os.path.join(dist_dir, dest_path)
@@ -752,15 +792,28 @@ def copyDllFile(source_path, dist_dir, dest_path, executable):
     if isMacOS() and getMacOSTargetArch() != "universal":
         makeMacOSThinBinary(dest_path=target_filename, original_path=source_path)
 
-    if isLinux():
+    if isElfUsingPlatform():
         # Path must be normalized for this to be correct, but entry points enforced that.
         count = dest_path.count(os.path.sep)
 
-        # TODO: This ought to depend on actual presence of used DLLs with middle
-        # paths and not just do it, but maybe there is not much harm in it.
-        rpaths = OrderedSet(
-            os.path.join("$ORIGIN", *([".."] * c)) for c in range(count, -1, -1)
-        )
+        # TODO: This ought to depend even more on actual presence of used DLLs
+        # in middle paths and not just do it, but maybe there is not much harm
+        # in it.
+
+        rpaths = OrderedSet()
+        for c in range(count, -1, -1):
+            if c > 0:
+                dest_path_candidate = os.path.normpath(
+                    os.path.join(dest_path, *([".."] * c))
+                )
+
+                if all(
+                    os.path.dirname(other_entry_point.dest_path) != dest_path_candidate
+                    for other_entry_point in other_entry_points
+                ):
+                    continue
+
+            rpaths.add(os.path.join("$ORIGIN", *([".."] * c)))
 
         # Make sure, sub-folders use by the original DLL are actually still
         # included.
@@ -787,15 +840,6 @@ def copyDllFile(source_path, dist_dir, dest_path, executable):
                     path=target_filename, extension=".pdb"
                 ),
             )
-
-    if isMacOS():
-        # spell-checker: ignore xattr
-
-        executeToolChecked(
-            logger=postprocessing_logger,
-            command=("xattr", "-c", target_filename),
-            absence_message="needs 'xattr' to remove extended attributes",
-        )
 
     if executable:
         addFileExecutablePermission(target_filename)

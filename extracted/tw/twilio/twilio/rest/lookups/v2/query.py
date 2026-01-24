@@ -15,6 +15,7 @@ r"""
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 from twilio.base import values
+from twilio.base.api_response import ApiResponse
 
 from twilio.base.instance_resource import InstanceResource
 from twilio.base.list_resource import ListResource
@@ -22,92 +23,6 @@ from twilio.base.version import Version
 
 
 class QueryInstance(InstanceResource):
-
-    class CallForwarding(object):
-        """
-        :ivar call_forwarding_enabled:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.call_forwarding_enabled: Optional[bool] = payload.get(
-                "call_forwarding_enabled"
-            )
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.call_forwarding_enabled,
-                "": self.error_code,
-            }
-
-    class CallerName(object):
-        """
-        :ivar caller_name:
-        :ivar caller_type:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.caller_name: Optional[str] = payload.get("caller_name")
-            self.caller_type: Optional[str] = payload.get("caller_type")
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.caller_name,
-                "": self.caller_type,
-                "": self.error_code,
-            }
-
-    class IdentityMatch(object):
-        """
-        :ivar first_name_match:
-        :ivar last_name_match:
-        :ivar address_line_match:
-        :ivar city_match:
-        :ivar state_match:
-        :ivar postal_code_match:
-        :ivar country_code_match:
-        :ivar national_id_match:
-        :ivar date_of_birth_match:
-        :ivar summary_score:
-        :ivar error_code:
-        :ivar error_message:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.first_name_match: Optional[str] = payload.get("first_name_match")
-            self.last_name_match: Optional[str] = payload.get("last_name_match")
-            self.address_line_match: Optional[str] = payload.get("address_line_match")
-            self.city_match: Optional[str] = payload.get("city_match")
-            self.state_match: Optional[str] = payload.get("state_match")
-            self.postal_code_match: Optional[str] = payload.get("postal_code_match")
-            self.country_code_match: Optional[str] = payload.get("country_code_match")
-            self.national_id_match: Optional[str] = payload.get("national_id_match")
-            self.date_of_birth_match: Optional[str] = payload.get("date_of_birth_match")
-            self.summary_score: Optional[int] = payload.get("summary_score")
-            self.error_code: Optional[int] = payload.get("error_code")
-            self.error_message: Optional[str] = payload.get("error_message")
-
-        def to_dict(self):
-            return {
-                "": self.first_name_match,
-                "": self.last_name_match,
-                "": self.address_line_match,
-                "": self.city_match,
-                "": self.state_match,
-                "": self.postal_code_match,
-                "": self.country_code_match,
-                "": self.national_id_match,
-                "": self.date_of_birth_match,
-                "": self.summary_score,
-                "": self.error_code,
-                "": self.error_message,
-            }
 
     class IdentityMatchParameters(object):
         """
@@ -152,7 +67,7 @@ class QueryInstance(InstanceResource):
                 "date_of_birth": self.date_of_birth,
             }
 
-    class LastSimSwap(object):
+    class LastSimSwapInfo(object):
         """
         :ivar last_sim_swap_date:
         :ivar swapped_period:
@@ -174,70 +89,7 @@ class QueryInstance(InstanceResource):
                 "": self.swapped_in_period,
             }
 
-    class LineStatus(object):
-        """
-        :ivar status:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.status: Optional[str] = payload.get("status")
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.status,
-                "": self.error_code,
-            }
-
-    class LineTypeIntelligence(object):
-        """
-        :ivar type:
-        :ivar carrier_name:
-        :ivar mobile_country_code:
-        :ivar mobile_network_code:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.type: Optional[str] = payload.get("type")
-            self.carrier_name: Optional[str] = payload.get("carrier_name")
-            self.mobile_country_code: Optional[str] = payload.get("mobile_country_code")
-            self.mobile_network_code: Optional[str] = payload.get("mobile_network_code")
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.type,
-                "": self.carrier_name,
-                "": self.mobile_country_code,
-                "": self.mobile_network_code,
-                "": self.error_code,
-            }
-
-    class LookupRequest1(object):
-        """
-        :ivar phone_numbers:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.phone_numbers: Optional[List[QueryList.LookupRequestWithCorId]] = (
-                payload.get("phone_numbers")
-            )
-
-        def to_dict(self):
-            return {
-                "phone_numbers": (
-                    [phone_numbers.to_dict() for phone_numbers in self.phone_numbers]
-                    if self.phone_numbers is not None
-                    else None
-                ),
-            }
-
-    class LookupRequestWithCorId(object):
+    class LookupBatchRequest(object):
         """
         :ivar correlation_id: Unique identifier used to match request with response
         :ivar phone_number:
@@ -257,11 +109,11 @@ class QueryInstance(InstanceResource):
             self.identity_match: Optional[QueryList.IdentityMatchParameters] = (
                 payload.get("identity_match")
             )
-            self.reassigned_number: Optional[QueryList.ReassignedNumberRequest] = (
+            self.reassigned_number: Optional[QueryList.ReassignedNumberParameters] = (
                 payload.get("reassigned_number")
             )
-            self.sms_pumping_risk: Optional[QueryList.SmsPumpingRiskParameters] = (
-                payload.get("sms_pumping_risk")
+            self.sms_pumping_risk: Optional[QueryList.RiskParameters] = payload.get(
+                "sms_pumping_risk"
             )
 
         def to_dict(self):
@@ -287,7 +139,27 @@ class QueryInstance(InstanceResource):
                 ),
             }
 
-    class ReassignedNumberRequest(object):
+    class LookupRequest(object):
+        """
+        :ivar phone_numbers:
+        """
+
+        def __init__(self, payload: Dict[str, Any]):
+
+            self.phone_numbers: Optional[List[QueryList.LookupBatchRequest]] = (
+                payload.get("phone_numbers")
+            )
+
+        def to_dict(self):
+            return {
+                "phone_numbers": (
+                    [phone_numbers.to_dict() for phone_numbers in self.phone_numbers]
+                    if self.phone_numbers is not None
+                    else None
+                ),
+            }
+
+    class ReassignedNumberParameters(object):
         """
         :ivar last_verified_date:
         """
@@ -301,96 +173,7 @@ class QueryInstance(InstanceResource):
                 "last_verified_date": self.last_verified_date,
             }
 
-    class ReassignedNumberResponse(object):
-        """
-        :ivar last_verified_date:
-        :ivar is_number_reassigned:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.last_verified_date: Optional[str] = payload.get("last_verified_date")
-            self.is_number_reassigned: Optional[str] = payload.get(
-                "is_number_reassigned"
-            )
-            self.error_code: Optional[str] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.last_verified_date,
-                "": self.is_number_reassigned,
-                "": self.error_code,
-            }
-
-    class SimSwap(object):
-        """
-        :ivar last_sim_swap:
-        :ivar carrier_name:
-        :ivar mobile_country_code:
-        :ivar mobile_network_code:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.last_sim_swap: Optional[LastSimSwap] = payload.get("last_sim_swap")
-            self.carrier_name: Optional[str] = payload.get("carrier_name")
-            self.mobile_country_code: Optional[str] = payload.get("mobile_country_code")
-            self.mobile_network_code: Optional[str] = payload.get("mobile_network_code")
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": (
-                    self.last_sim_swap.to_dict()
-                    if self.last_sim_swap is not None
-                    else None
-                ),
-                "": self.carrier_name,
-                "": self.mobile_country_code,
-                "": self.mobile_network_code,
-                "": self.error_code,
-            }
-
-    class SmsPumpingRisk(object):
-        """
-        :ivar carrier_risk_category:
-        :ivar number_blocked:
-        :ivar number_blocked_date:
-        :ivar number_blocked_last_3_months:
-        :ivar sms_pumping_risk_score:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.carrier_risk_category: Optional[str] = payload.get(
-                "carrier_risk_category"
-            )
-            self.number_blocked: Optional[bool] = payload.get("number_blocked")
-            self.number_blocked_date: Optional[datetime] = payload.get(
-                "number_blocked_date"
-            )
-            self.number_blocked_last_3_months: Optional[bool] = payload.get(
-                "number_blocked_last_3_months"
-            )
-            self.sms_pumping_risk_score: Optional[int] = payload.get(
-                "sms_pumping_risk_score"
-            )
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.carrier_risk_category,
-                "": self.number_blocked,
-                "": self.number_blocked_date,
-                "": self.number_blocked_last_3_months,
-                "": self.sms_pumping_risk_score,
-                "": self.error_code,
-            }
-
-    class SmsPumpingRiskParameters(object):
+    class RiskParameters(object):
         """
         :ivar partner_sub_id:
         """
@@ -425,92 +208,6 @@ class QueryInstance(InstanceResource):
 
 class QueryList(ListResource):
 
-    class CallForwarding(object):
-        """
-        :ivar call_forwarding_enabled:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.call_forwarding_enabled: Optional[bool] = payload.get(
-                "call_forwarding_enabled"
-            )
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.call_forwarding_enabled,
-                "": self.error_code,
-            }
-
-    class CallerName(object):
-        """
-        :ivar caller_name:
-        :ivar caller_type:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.caller_name: Optional[str] = payload.get("caller_name")
-            self.caller_type: Optional[str] = payload.get("caller_type")
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.caller_name,
-                "": self.caller_type,
-                "": self.error_code,
-            }
-
-    class IdentityMatch(object):
-        """
-        :ivar first_name_match:
-        :ivar last_name_match:
-        :ivar address_line_match:
-        :ivar city_match:
-        :ivar state_match:
-        :ivar postal_code_match:
-        :ivar country_code_match:
-        :ivar national_id_match:
-        :ivar date_of_birth_match:
-        :ivar summary_score:
-        :ivar error_code:
-        :ivar error_message:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.first_name_match: Optional[str] = payload.get("first_name_match")
-            self.last_name_match: Optional[str] = payload.get("last_name_match")
-            self.address_line_match: Optional[str] = payload.get("address_line_match")
-            self.city_match: Optional[str] = payload.get("city_match")
-            self.state_match: Optional[str] = payload.get("state_match")
-            self.postal_code_match: Optional[str] = payload.get("postal_code_match")
-            self.country_code_match: Optional[str] = payload.get("country_code_match")
-            self.national_id_match: Optional[str] = payload.get("national_id_match")
-            self.date_of_birth_match: Optional[str] = payload.get("date_of_birth_match")
-            self.summary_score: Optional[int] = payload.get("summary_score")
-            self.error_code: Optional[int] = payload.get("error_code")
-            self.error_message: Optional[str] = payload.get("error_message")
-
-        def to_dict(self):
-            return {
-                "": self.first_name_match,
-                "": self.last_name_match,
-                "": self.address_line_match,
-                "": self.city_match,
-                "": self.state_match,
-                "": self.postal_code_match,
-                "": self.country_code_match,
-                "": self.national_id_match,
-                "": self.date_of_birth_match,
-                "": self.summary_score,
-                "": self.error_code,
-                "": self.error_message,
-            }
-
     class IdentityMatchParameters(object):
         """
         :ivar first_name:
@@ -554,7 +251,7 @@ class QueryList(ListResource):
                 "date_of_birth": self.date_of_birth,
             }
 
-    class LastSimSwap(object):
+    class LastSimSwapInfo(object):
         """
         :ivar last_sim_swap_date:
         :ivar swapped_period:
@@ -576,70 +273,7 @@ class QueryList(ListResource):
                 "": self.swapped_in_period,
             }
 
-    class LineStatus(object):
-        """
-        :ivar status:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.status: Optional[str] = payload.get("status")
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.status,
-                "": self.error_code,
-            }
-
-    class LineTypeIntelligence(object):
-        """
-        :ivar type:
-        :ivar carrier_name:
-        :ivar mobile_country_code:
-        :ivar mobile_network_code:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.type: Optional[str] = payload.get("type")
-            self.carrier_name: Optional[str] = payload.get("carrier_name")
-            self.mobile_country_code: Optional[str] = payload.get("mobile_country_code")
-            self.mobile_network_code: Optional[str] = payload.get("mobile_network_code")
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.type,
-                "": self.carrier_name,
-                "": self.mobile_country_code,
-                "": self.mobile_network_code,
-                "": self.error_code,
-            }
-
-    class LookupRequest1(object):
-        """
-        :ivar phone_numbers:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.phone_numbers: Optional[List[QueryList.LookupRequestWithCorId]] = (
-                payload.get("phone_numbers")
-            )
-
-        def to_dict(self):
-            return {
-                "phone_numbers": (
-                    [phone_numbers.to_dict() for phone_numbers in self.phone_numbers]
-                    if self.phone_numbers is not None
-                    else None
-                ),
-            }
-
-    class LookupRequestWithCorId(object):
+    class LookupBatchRequest(object):
         """
         :ivar correlation_id: Unique identifier used to match request with response
         :ivar phone_number:
@@ -659,11 +293,11 @@ class QueryList(ListResource):
             self.identity_match: Optional[QueryList.IdentityMatchParameters] = (
                 payload.get("identity_match")
             )
-            self.reassigned_number: Optional[QueryList.ReassignedNumberRequest] = (
+            self.reassigned_number: Optional[QueryList.ReassignedNumberParameters] = (
                 payload.get("reassigned_number")
             )
-            self.sms_pumping_risk: Optional[QueryList.SmsPumpingRiskParameters] = (
-                payload.get("sms_pumping_risk")
+            self.sms_pumping_risk: Optional[QueryList.RiskParameters] = payload.get(
+                "sms_pumping_risk"
             )
 
         def to_dict(self):
@@ -689,7 +323,27 @@ class QueryList(ListResource):
                 ),
             }
 
-    class ReassignedNumberRequest(object):
+    class LookupRequest(object):
+        """
+        :ivar phone_numbers:
+        """
+
+        def __init__(self, payload: Dict[str, Any]):
+
+            self.phone_numbers: Optional[List[QueryList.LookupBatchRequest]] = (
+                payload.get("phone_numbers")
+            )
+
+        def to_dict(self):
+            return {
+                "phone_numbers": (
+                    [phone_numbers.to_dict() for phone_numbers in self.phone_numbers]
+                    if self.phone_numbers is not None
+                    else None
+                ),
+            }
+
+    class ReassignedNumberParameters(object):
         """
         :ivar last_verified_date:
         """
@@ -703,96 +357,7 @@ class QueryList(ListResource):
                 "last_verified_date": self.last_verified_date,
             }
 
-    class ReassignedNumberResponse(object):
-        """
-        :ivar last_verified_date:
-        :ivar is_number_reassigned:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.last_verified_date: Optional[str] = payload.get("last_verified_date")
-            self.is_number_reassigned: Optional[str] = payload.get(
-                "is_number_reassigned"
-            )
-            self.error_code: Optional[str] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.last_verified_date,
-                "": self.is_number_reassigned,
-                "": self.error_code,
-            }
-
-    class SimSwap(object):
-        """
-        :ivar last_sim_swap:
-        :ivar carrier_name:
-        :ivar mobile_country_code:
-        :ivar mobile_network_code:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.last_sim_swap: Optional[LastSimSwap] = payload.get("last_sim_swap")
-            self.carrier_name: Optional[str] = payload.get("carrier_name")
-            self.mobile_country_code: Optional[str] = payload.get("mobile_country_code")
-            self.mobile_network_code: Optional[str] = payload.get("mobile_network_code")
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": (
-                    self.last_sim_swap.to_dict()
-                    if self.last_sim_swap is not None
-                    else None
-                ),
-                "": self.carrier_name,
-                "": self.mobile_country_code,
-                "": self.mobile_network_code,
-                "": self.error_code,
-            }
-
-    class SmsPumpingRisk(object):
-        """
-        :ivar carrier_risk_category:
-        :ivar number_blocked:
-        :ivar number_blocked_date:
-        :ivar number_blocked_last_3_months:
-        :ivar sms_pumping_risk_score:
-        :ivar error_code:
-        """
-
-        def __init__(self, payload: Dict[str, Any]):
-
-            self.carrier_risk_category: Optional[str] = payload.get(
-                "carrier_risk_category"
-            )
-            self.number_blocked: Optional[bool] = payload.get("number_blocked")
-            self.number_blocked_date: Optional[datetime] = payload.get(
-                "number_blocked_date"
-            )
-            self.number_blocked_last_3_months: Optional[bool] = payload.get(
-                "number_blocked_last_3_months"
-            )
-            self.sms_pumping_risk_score: Optional[int] = payload.get(
-                "sms_pumping_risk_score"
-            )
-            self.error_code: Optional[int] = payload.get("error_code")
-
-        def to_dict(self):
-            return {
-                "": self.carrier_risk_category,
-                "": self.number_blocked,
-                "": self.number_blocked_date,
-                "": self.number_blocked_last_3_months,
-                "": self.sms_pumping_risk_score,
-                "": self.error_code,
-            }
-
-    class SmsPumpingRiskParameters(object):
+    class RiskParameters(object):
         """
         :ivar partner_sub_id:
         """
@@ -817,17 +382,64 @@ class QueryList(ListResource):
 
         self._uri = "/batch/query"
 
+    def _create(
+        self, lookup_request: Union[LookupRequest, object] = values.unset
+    ) -> tuple:
+        """
+        Internal helper for create operation
+
+        Returns:
+            tuple: (payload, status_code, headers)
+        """
+        data = lookup_request.to_dict()
+
+        headers = values.of({"Content-Type": "application/x-www-form-urlencoded"})
+
+        headers["Content-Type"] = "application/json"
+
+        headers["Accept"] = "application/json"
+
+        return self._version.create_with_response_info(
+            method="POST", uri=self._uri, data=data, headers=headers
+        )
+
     def create(
-        self, lookup_request1: Union[LookupRequest1, object] = values.unset
+        self, lookup_request: Union[LookupRequest, object] = values.unset
     ) -> QueryInstance:
         """
         Create the QueryInstance
 
-        :param lookup_request1:
+        :param lookup_request:
 
         :returns: The created QueryInstance
         """
-        data = lookup_request1.to_dict()
+        payload, _, _ = self._create(lookup_request=lookup_request)
+        return QueryInstance(self._version, payload)
+
+    def create_with_http_info(
+        self, lookup_request: Union[LookupRequest, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Create the QueryInstance and return response metadata
+
+        :param lookup_request:
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        payload, status_code, headers = self._create(lookup_request=lookup_request)
+        instance = QueryInstance(self._version, payload)
+        return ApiResponse(data=instance, status_code=status_code, headers=headers)
+
+    async def _create_async(
+        self, lookup_request: Union[LookupRequest, object] = values.unset
+    ) -> tuple:
+        """
+        Internal async helper for create operation
+
+        Returns:
+            tuple: (payload, status_code, headers)
+        """
+        data = lookup_request.to_dict()
 
         headers = values.of({"Content-Type": "application/x-www-form-urlencoded"})
 
@@ -835,35 +447,38 @@ class QueryList(ListResource):
 
         headers["Accept"] = "application/json"
 
-        payload = self._version.create(
+        return await self._version.create_with_response_info_async(
             method="POST", uri=self._uri, data=data, headers=headers
         )
 
-        return QueryInstance(self._version, payload)
-
     async def create_async(
-        self, lookup_request1: Union[LookupRequest1, object] = values.unset
+        self, lookup_request: Union[LookupRequest, object] = values.unset
     ) -> QueryInstance:
         """
         Asynchronously create the QueryInstance
 
-        :param lookup_request1:
+        :param lookup_request:
 
         :returns: The created QueryInstance
         """
-        data = lookup_request1.to_dict()
-
-        headers = values.of({"Content-Type": "application/x-www-form-urlencoded"})
-
-        headers["Content-Type"] = "application/json"
-
-        headers["Accept"] = "application/json"
-
-        payload = await self._version.create_async(
-            method="POST", uri=self._uri, data=data, headers=headers
-        )
-
+        payload, _, _ = await self._create_async(lookup_request=lookup_request)
         return QueryInstance(self._version, payload)
+
+    async def create_with_http_info_async(
+        self, lookup_request: Union[LookupRequest, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Asynchronously create the QueryInstance and return response metadata
+
+        :param lookup_request:
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        payload, status_code, headers = await self._create_async(
+            lookup_request=lookup_request
+        )
+        instance = QueryInstance(self._version, payload)
+        return ApiResponse(data=instance, status_code=status_code, headers=headers)
 
     def __repr__(self) -> str:
         """

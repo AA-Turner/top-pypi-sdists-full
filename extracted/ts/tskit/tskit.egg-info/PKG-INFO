@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tskit
-Version: 0.6.4
+Version: 1.0.0
 Summary: The tree sequence toolkit.
 Author-email: Tskit Developers <admin@tskit.dev>
 License: MIT
@@ -13,7 +13,6 @@ Keywords: population genetics,tree sequence,ancestral recombination graph,evolut
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -28,11 +27,70 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: jsonschema>=3.0.0
-Requires-Dist: numpy>=1.23.5
+Requires-Dist: numpy>=2
+Provides-Extra: test
+Requires-Dist: biopython==1.85; extra == "test"
+Requires-Dist: coverage==7.7.0; extra == "test"
+Requires-Dist: dendropy==5.0.1; extra == "test"
+Requires-Dist: kastore==0.3.3; extra == "test"
+Requires-Dist: lshmm==0.0.8; extra == "test"
+Requires-Dist: msgpack==1.1.0; extra == "test"
+Requires-Dist: msprime==1.3.4; extra == "test"
+Requires-Dist: networkx==3.2.1; extra == "test"
+Requires-Dist: numba==0.61.2; extra == "test"
+Requires-Dist: portion==2.6.0; extra == "test"
+Requires-Dist: pytest==8.3.5; extra == "test"
+Requires-Dist: pytest-cov==6.0.0; extra == "test"
+Requires-Dist: pytest-xdist==3.6.1; extra == "test"
+Requires-Dist: tszip==0.2.5; extra == "test"
+Requires-Dist: xmlunittest==1.0.1; extra == "test"
+Requires-Dist: svgwrite==1.4.3; extra == "test"
+Requires-Dist: newick==1.10.0; extra == "test"
+Requires-Dist: zarr<3; extra == "test"
+Provides-Extra: docs
+Requires-Dist: jupyter-book==1.0.4.post1; extra == "docs"
+Requires-Dist: breathe==4.35.0; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints==2.3.0; extra == "docs"
+Requires-Dist: sphinx-issues==5.0.0; extra == "docs"
+Requires-Dist: sphinx-argparse==0.5.2; extra == "docs"
+Requires-Dist: msprime==1.3.3; extra == "docs"
+Requires-Dist: numba==0.61.2; extra == "docs"
+Requires-Dist: sphinx-book-theme; extra == "docs"
+Requires-Dist: pandas==2.2.3; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: biopython>=1.70; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: dendropy; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: kastore; extra == "dev"
+Requires-Dist: lshmm; extra == "dev"
+Requires-Dist: msgpack; extra == "dev"
+Requires-Dist: msprime; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: networkx; extra == "dev"
+Requires-Dist: numba; extra == "dev"
+Requires-Dist: portion; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: setuptools_scm; extra == "dev"
+Requires-Dist: svgwrite; extra == "dev"
+Requires-Dist: tszip; extra == "dev"
+Requires-Dist: xmlunittest; extra == "dev"
+Requires-Dist: newick; extra == "dev"
+Requires-Dist: zarr<3; extra == "dev"
+Requires-Dist: jupyter-book; extra == "dev"
+Requires-Dist: breathe; extra == "dev"
+Requires-Dist: sphinx-autodoc-typehints; extra == "dev"
+Requires-Dist: sphinx-issues; extra == "dev"
+Requires-Dist: sphinx-argparse; extra == "dev"
+Requires-Dist: sphinx-book-theme; extra == "dev"
+Requires-Dist: pandas; extra == "dev"
 Dynamic: license-file
 
 

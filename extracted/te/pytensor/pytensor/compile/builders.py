@@ -4,6 +4,7 @@ import warnings
 from collections.abc import Callable, Sequence
 from copy import copy
 from functools import partial
+from itertools import chain
 from typing import Union, cast
 
 from pytensor.compile.function import function
@@ -16,13 +17,12 @@ from pytensor.graph.basic import (
     Constant,
     NominalVariable,
     Variable,
-    graph_inputs,
-    io_connection_pattern,
 )
 from pytensor.graph.fg import FunctionGraph
 from pytensor.graph.null_type import NullType
-from pytensor.graph.op import HasInnerGraph, Op
+from pytensor.graph.op import HasInnerGraph, Op, io_connection_pattern
 from pytensor.graph.replace import clone_replace
+from pytensor.graph.traversal import graph_inputs
 from pytensor.graph.utils import MissingInputError
 
 
@@ -48,11 +48,15 @@ def infer_shape(outs, inputs, input_shapes):
             assert len(inp_shp) == inp.type.ndim
 
     shape_feature = ShapeFeature()
-    shape_feature.on_attach(FunctionGraph([], []))
+    fgraph = FunctionGraph([], [], features=[shape_feature])
+    for v in chain.from_iterable(s for s in input_shapes if s is not None):
+        # Import input_shape nodes, as for some graphs ShapeFeature assumes these were seen before
+        if (node := v.owner) is not None:
+            fgraph.import_node(node, import_missing=True)
 
     # Initialize shape_of with the input shapes
     for inp, inp_shp in zip(inputs, input_shapes, strict=True):
-        shape_feature.set_shape(inp, inp_shp)
+        shape_feature.set_shape(inp, inp_shp, override=True)
 
     def local_traverse(out):
         """
@@ -123,7 +127,7 @@ def construct_nominal_fgraph(
     (
         local_inputs,
         local_outputs,
-        (clone_d, update_d, update_expr, new_shared_inputs),
+        (_clone_d, update_d, update_expr, new_shared_inputs),
     ) = new
 
     assert len(local_inputs) == len(inputs) + len(implicit_shared_inputs)
@@ -868,7 +872,7 @@ class OpFromGraph(Op, HasInnerGraph):
 
     def clone(self):
         res = copy(self)
-        res.fgraph = res.fgraph.clone()
+        res.fgraph = res.fgraph.clone(clone_inner_graphs=True)
         return res
 
     def perform(self, node, inputs, outputs):

@@ -69,7 +69,7 @@ node_dealloc(Node* self)
     Py_DECREF(self->value);
     assert(self->prev == NULL);
     assert(self->next == NULL);
-    PyObject_Del((PyObject*)self);
+    Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static PyObject*
@@ -199,18 +199,19 @@ lru_delete_last(LRU *self)
         return;
 
     if (self->callback) {
-
         arglist = Py_BuildValue("OO", n->key, n->value);
+        lru_remove_node(self, n);
         result = PyObject_CallObject(self->callback, arglist);
         Py_XDECREF(result);
         Py_DECREF(arglist);
     }
-
-    lru_remove_node(self, n);
+    else {
+        lru_remove_node(self, n);
+    }
     PUT_NODE(self->dict, n->key, NULL);
 }
 
-static Py_ssize_t
+static inline Py_ssize_t
 lru_length(LRU *self)
 {
     return PyDict_Size(self->dict);
@@ -219,11 +220,9 @@ lru_length(LRU *self)
 static PyObject *
 LRU_contains_key(LRU *self, PyObject *key)
 {
-    if (PyDict_Contains(self->dict, key)) {
+    if (PyDict_Contains(self->dict, key))
         Py_RETURN_TRUE;
-    } else {
-        Py_RETURN_FALSE;
-    }
+    Py_RETURN_FALSE;
 }
 
 static PyObject *
@@ -280,9 +279,8 @@ LRU_get(LRU *self, PyObject *args, PyObject *keywds)
     if (result)
         return result;
 
-    if (!default_obj) {
+    if (!default_obj)
         Py_RETURN_NONE;
-    }
 
     Py_INCREF(default_obj);
     return default_obj;
@@ -449,29 +447,17 @@ LRU_pop(LRU *self, PyObject *args, PyObject *keywds)
 static PyObject *
 LRU_peek_first_item(LRU *self)
 {
-    if (self->first) {
-        PyObject *tuple = PyTuple_New(2);
-        Py_INCREF(self->first->key);
-        PyTuple_SET_ITEM(tuple, 0, self->first->key);
-        Py_INCREF(self->first->value);
-        PyTuple_SET_ITEM(tuple, 1, self->first->value);
-        return tuple;
-    }
-    else Py_RETURN_NONE;
+    if (self->first)
+        return Py_BuildValue("OO", self->first->key, self->first->value);
+    Py_RETURN_NONE;
 }
 
 static PyObject *
 LRU_peek_last_item(LRU *self)
 {
-    if (self->last) {
-        PyObject *tuple = PyTuple_New(2);
-        Py_INCREF(self->last->key);
-        PyTuple_SET_ITEM(tuple, 0, self->last->key);
-        Py_INCREF(self->last->value);
-        PyTuple_SET_ITEM(tuple, 1, self->last->value);
-        return tuple;
-    }
-    else Py_RETURN_NONE;
+    if (self->last)
+        return Py_BuildValue("OO", self->last->key, self->last->value);
+    Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -690,10 +676,10 @@ LRU_dealloc(LRU *self)
 {
     if (self->dict) {
         LRU_clear(self);
-        Py_DECREF(self->dict);
+        Py_CLEAR(self->dict);
         Py_XDECREF(self->callback);
     }
-    PyObject_Del((PyObject*)self);
+    Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 PyDoc_STRVAR(lru_doc,
@@ -731,7 +717,7 @@ static PyTypeObject LRUType = {
     0,                       /* tp_getattro */
     0,                       /* tp_setattro */
     0,                       /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,      /* tp_flags */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,      /* tp_flags */
     lru_doc,                 /* tp_doc */
     0,                       /* tp_traverse */
     0,                       /* tp_clear */
@@ -749,7 +735,7 @@ static PyTypeObject LRUType = {
     0,                       /* tp_dictoffset */
     (initproc)LRU_init,      /* tp_init */
     0,                       /* tp_alloc */
-    0,                       /* tp_new */
+    PyType_GenericNew,       /* tp_new */
 };
 
 #if PY_MAJOR_VERSION >= 3
@@ -771,11 +757,11 @@ moduleinit(void)
 {
     PyObject *m;
 
-    NodeType.tp_new = PyType_GenericNew;
+    LRUType.tp_base = &PyBaseObject_Type;
+
     if (PyType_Ready(&NodeType) < 0)
         return NULL;
 
-    LRUType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&LRUType) < 0)
         return NULL;
 

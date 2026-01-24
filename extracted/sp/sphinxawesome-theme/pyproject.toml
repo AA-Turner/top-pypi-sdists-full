@@ -1,114 +1,104 @@
-[tool.poetry]
+[project]
 name = "sphinxawesome-theme"
-version = "5.3.2"
+version = "6.0.0"
 description = "An awesome theme for the Sphinx documentation generator"
 readme = "README.md"
-authors = ["Kai Welke <kai687@pm.me>"]
-homepage = "https://sphinxawesome.xyz"
-documentation = "https://sphinxawesome.xyz"
-repository = "https://github.com/kai687/sphinxawesome-theme"
-license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Kai Welke", email = "kai687@pm.me" }]
 classifiers = [
-  'Programming Language :: Python',
-  'Framework :: Sphinx',
-  'Framework :: Sphinx :: Theme',
-  'Topic :: Documentation',
-  'Topic :: Documentation :: Sphinx',
-  'Topic :: Software Development :: Documentation'
+  "Framework :: Sphinx",
+  "Framework :: Sphinx :: Theme",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Documentation",
+  "Topic :: Documentation :: Sphinx",
+  "Topic :: Software Development :: Documentation",
 ]
-packages = [
-  { include = "sphinxawesome_theme", from = "src" }
+dependencies = [
+  "beautifulsoup4>=4.9.1,<5",
+  "sphinx>7,<10",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.8"
-sphinx = [
-  { version = "<7.2", python = ">=3.8,<3.9" },
-  { version = "^7.2,<7.5", python = ">=3.9,<3.10" },
-  { version = "^8", python = ">=3.10,<3.13" },
+[project.urls]
+documentation = "https://sphinxawesome.xyz"
+homepage = "https://sphinxawesome.xyz"
+issues = "https://github.com/kai687/sphinxawesome-theme/issues"
+repository = "https://github.com/kai687/sphinxawesome-theme"
+
+[project.entry-points."sphinx.html_themes"]
+sphinxawesome_theme = "sphinxawesome_theme"
+
+[dependency-groups]
+dev = [
+  "coverage[toml]",
+  "pyright",
+  "pytest",
+  "pytest-cov",
+  "ruff",
+  "types-beautifulsoup4",
+  "types-docutils",
+  "types-pygments",
 ]
-beautifulsoup4 = "^4.9.1"
-
-[tool.poetry.group.docs]
-optional = true
-
-[tool.poetry.group.docs.dependencies]
-sphinx-autobuild = "*"
-sphinx-sitemap = "^2.2.0"
-sphinx-design = [
-  { version = "^0.5.0", python = ">=3.8,<3.9" },
-  { version = "^0.6.0", python = ">=3.9,<3.13" },
+docs = [
+  "myst-nb",
+  "python-dotenv",
+  "sphinx-autoapi",
+  "sphinx-autobuild",
+  "sphinx-design",
+  "sphinx-docsearch",
+  "sphinx-sitemap",
 ]
-sphinx-docsearch = "*"
-python-dotenv = "*"
-sphinx-autoapi = "^3.3.3"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8"
-pytest-cov = ">=4,<6"
-coverage = { extras = ["toml"], version = "^7.2" }
-types-docutils = ">=0.19.1.6,<0.22.0.0"
-mypy = "^1.0"
-
-[tool.poetry.group.lint]
-optional = true
-
-[tool.poetry.group.lint.dependencies]
-pre-commit = [
-  { version = "^3.5", python = ">=3.8,<3.9"},
-  { version = "^3.6", python = ">=3.9,<3.13"},
+netlify = [
+  "nox",
+  "uv",
 ]
-ruff = ">=0.5.2,<0.7.3"
 
-[tool.poetry.group.netlify]
-optional = true
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry.group.netlify.dependencies]
-nox = {version = ">=2023.4.22,<2025.0.0", python = "3.8"}
-poetry = {version = "^1.4.2", python = "3.8"}
-pipx = {version = "^1.2.0", python = "3.8"}
-pip = {version = ">=23.1.2,<25.0.0", python = "3.8"}
+[tool.hatch.build]
+sources = ["src"]
+dev-mode-dirs = ["src"]
 
-[tool.coverage.paths]
-source = ["src"]
+[tool.hatch.build.targets.wheel]
+packages = ["sphinxawesome_theme"]
 
-[tool.coverage.run]
-branch = true
-source = ["sphinxawesome_theme"]
+[tool.hatch.build.targets.sdist]
+packages = ["src/sphinxawesome_theme"]
 
-[tool.coverage.report]
-show_missing = true
+[tool.pyright]
+include = ["src", "noxfile.py"]
+reportUnnecessaryTypeIgnoreComment = "warning"
 
 [tool.ruff.lint]
-select = ["E", "F", "B", "Q", "W", "I", "C90", "D", "UP", "YTT", "S", "ANN", "SIM", "N"]
-ignore = ["ANN401", "D203", "D213", "SIM105", "E501"]
+# TODO: Check if all of these even make sense
+select = [
+  "E",
+  "F",
+  "B",
+  "Q",
+  "W",
+  "I",
+  "C90",
+  "D",
+  "UP",
+  "YTT",
+  "S",
+  "ANN",
+  "SIM",
+  "N"
+]
+ignore = ["E501", "ANN401"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
-[tool.mypy]
-files = ["src/sphinxawesome_theme/*.py", "tests/*.py", "noxfile.py", "docs/*.py"]
-show_error_codes = true
-show_error_context = true
-pretty = true
-strict = true
-show_column_numbers = true
-warn_unreachable = true
-warn_unused_ignores = false
-
-[[tool.mypy.overrides]]
-module = ["pygments.*", "dotenv", "sphinxcontrib.serializinghtml", "bs4"]
-ignore_missing_imports = true
-
-[tool.poetry.plugins."sphinx.html_themes"]
-sphinxawesome_theme = "sphinxawesome_theme"
-
-[build-system]
-requires = ["poetry_core"]
-build-backend = "poetry.core.masonry.api"

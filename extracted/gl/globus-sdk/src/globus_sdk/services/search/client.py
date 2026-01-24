@@ -4,11 +4,12 @@ import logging
 import typing as t
 import uuid
 
-from globus_sdk import client, paging, response, utils
-from globus_sdk.exc.warnings import warn_deprecated
-from globus_sdk.scopes import Scope, SearchScopes
+from globus_sdk import client, paging, response
+from globus_sdk._internal.remarshal import strseq_listify
+from globus_sdk._missing import MISSING, MissingType
+from globus_sdk.scopes import SearchScopes
 
-from .data import SearchQuery, SearchScrollQuery
+from .data import SearchQueryV1, SearchScrollQuery
 from .errors import SearchAPIError
 from .response import IndexListResponse
 
@@ -31,14 +32,11 @@ class SearchClient(client.BaseClient):
     error_class = SearchAPIError
     service_name = "search"
     scopes = SearchScopes
+    default_scope_requirements = [SearchScopes.search]
 
     #
     # Index Management
     #
-
-    @property
-    def default_scope_requirements(self) -> list[Scope]:
-        return [Scope(SearchScopes.search)]
 
     def create_index(
         self, display_name: str, description: str
@@ -79,6 +77,52 @@ class SearchClient(client.BaseClient):
         log.debug(f"SearchClient.create_index({display_name!r}, ...)")
         return self.post(
             "/v1/index", data={"display_name": display_name, "description": description}
+        )
+
+    def update_index(
+        self,
+        index_id: uuid.UUID | str,
+        *,
+        display_name: str | MissingType = MISSING,
+        description: str | MissingType = MISSING,
+    ) -> response.GlobusHTTPResponse:
+        """
+        Update index metadata.
+
+        :param index_id: the ID of the index
+        :param display_name: the name of the index
+        :param description: a description of the index
+
+        .. tab-set::
+
+            .. tab-item:: Example Usage
+
+                .. code-block:: python
+
+                    sc = globus_sdk.SearchClient(...)
+                    MY_INDEX_ID = ...
+                    r = sc.update_index(
+                        MY_INDEX_ID,
+                        display_name="My Awesome Index",
+                        description="Very awesome searchable data",
+                    )
+                    print(f"index ID: {r['id']}")
+
+            .. tab-item:: Example Response Data
+
+                .. expandtestfixture:: search.create_index
+
+            .. tab-item:: API Info
+
+                ``PATCH /v1/index/<index_id>``
+
+                .. extdoclink:: Index Update
+                    :ref: search/reference/index_update/
+        """
+        log.debug(f"SearchClient.update_index({index_id!r}, ...)")
+        return self.patch(
+            f"/v1/index/{index_id}",
+            data={"display_name": display_name, "description": description},
         )
 
     def delete_index(self, index_id: uuid.UUID | str) -> response.GlobusHTTPResponse:
@@ -234,9 +278,9 @@ class SearchClient(client.BaseClient):
         index_id: uuid.UUID | str,
         q: str,
         *,
-        offset: int = 0,
-        limit: int = 10,
-        advanced: bool = False,
+        offset: int | MissingType = MISSING,
+        limit: int | MissingType = MISSING,
+        advanced: bool | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
         """
@@ -278,17 +322,13 @@ class SearchClient(client.BaseClient):
 
                 .. expandtestfixture:: search.search
         """  # noqa: E501
-        if query_params is None:
-            query_params = {}
-        query_params.update(
-            {
-                "q": q,
-                "offset": offset,
-                "limit": limit,
-                "advanced": advanced,
-            }
-        )
-
+        query_params = {
+            "q": q,
+            "offset": offset,
+            "limit": limit,
+            "advanced": advanced,
+            **(query_params or {}),
+        }
         log.debug(f"SearchClient.search({index_id}, ...)")
         return self.get(f"/v1/index/{index_id}/search", query_params=query_params)
 
@@ -302,10 +342,10 @@ class SearchClient(client.BaseClient):
     def post_search(
         self,
         index_id: uuid.UUID | str,
-        data: dict[str, t.Any] | SearchQuery,
+        data: dict[str, t.Any] | SearchQueryV1,
         *,
-        offset: int | None = None,
-        limit: int | None = None,
+        offset: int | MissingType = MISSING,
+        limit: int | MissingType = MISSING,
     ) -> response.GlobusHTTPResponse:
         """
         Execute a complex Search Query, using a query document to express filters,
@@ -360,12 +400,11 @@ class SearchClient(client.BaseClient):
         """
         log.debug(f"SearchClient.post_search({index_id}, ...)")
         add_kwargs = {}
-        if offset is not None:
+        if offset is not MISSING:
             add_kwargs["offset"] = offset
-        if limit is not None:
+        if limit is not MISSING:
             add_kwargs["limit"] = limit
-        if add_kwargs:
-            data = {**data, **add_kwargs}
+        data = {**data, **add_kwargs}
         return self.post(f"v1/index/{index_id}/search", data=data)
 
     @paging.has_paginator(paging.MarkerPaginator, items_key="gmeta")
@@ -374,7 +413,7 @@ class SearchClient(client.BaseClient):
         index_id: uuid.UUID | str,
         data: dict[str, t.Any] | SearchScrollQuery,
         *,
-        marker: str | None = None,
+        marker: str | MissingType = MISSING,
     ) -> response.GlobusHTTPResponse:
         """
         Scroll all data in a Search index. The paginated version of this API should
@@ -412,10 +451,9 @@ class SearchClient(client.BaseClient):
         """
         log.debug(f"SearchClient.scroll({index_id}, ...)")
         add_kwargs = {}
-        if marker is not None:
+        if marker is not MISSING:
             add_kwargs["marker"] = marker
-        if add_kwargs:
-            data = {**data, **add_kwargs}
+        data = {**data, **add_kwargs}
         return self.post(f"v1/index/{index_id}/scroll", data=data)
 
     #
@@ -579,9 +617,10 @@ class SearchClient(client.BaseClient):
         # convert the provided subjects to a list and use the "safe iter" helper to
         # ensure that a single string is *not* treated as an iterable of strings,
         # which is usually not intentional
-        body = {"subjects": list(utils.safe_strseq_iter(subjects))}
-        if additional_params:
-            body.update(additional_params)
+        body = {
+            "subjects": strseq_listify(subjects),
+            **(additional_params or {}),
+        }
         return self.post(f"/v1/index/{index_id}/batch_delete_by_subject", data=body)
 
     #
@@ -621,10 +660,11 @@ class SearchClient(client.BaseClient):
                 .. extdoclink:: Get By Subject
                     :ref: search/reference/get_subject/
         """
-        if query_params is None:
-            query_params = {}
-        query_params["subject"] = subject
         log.debug(f"SearchClient.get_subject({index_id}, {subject}, ...)")
+        query_params = {
+            "subject": subject,
+            **(query_params or {}),
+        }
         return self.get(f"/v1/index/{index_id}/subject", query_params=query_params)
 
     def delete_subject(
@@ -664,11 +704,11 @@ class SearchClient(client.BaseClient):
                 .. extdoclink:: Delete By Subject
                     :ref: search/reference/delete_subject/
         """
-        if query_params is None:
-            query_params = {}
-        query_params["subject"] = subject
-
         log.debug(f"SearchClient.delete_subject({index_id}, {subject}, ...)")
+        query_params = {
+            "subject": subject,
+            **(query_params or {}),
+        }
         return self.delete(f"/v1/index/{index_id}/subject", query_params=query_params)
 
     #
@@ -680,7 +720,7 @@ class SearchClient(client.BaseClient):
         index_id: uuid.UUID | str,
         subject: str,
         *,
-        entry_id: str | None = None,
+        entry_id: str | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
         """
@@ -720,136 +760,24 @@ class SearchClient(client.BaseClient):
                 .. extdoclink:: Get Entry
                     :ref: search/reference/get_entry/
         """  # noqa: E501
-        if query_params is None:
-            query_params = {}
-        query_params["subject"] = subject
-        if entry_id is not None:
-            query_params["entry_id"] = entry_id
-
         log.debug(
             "SearchClient.get_entry({}, {}, {}, ...)".format(
                 index_id, subject, entry_id
             )
         )
+        query_params = {
+            "entry_id": entry_id,
+            "subject": subject,
+            **(query_params or {}),
+        }
         return self.get(f"/v1/index/{index_id}/entry", query_params=query_params)
-
-    def create_entry(
-        self, index_id: uuid.UUID | str, data: dict[str, t.Any]
-    ) -> response.GlobusHTTPResponse:
-        """
-        This API method is in effect an alias of ingest and is deprecated.
-        Users are recommended to use :meth:`~.ingest` instead.
-
-        Create or update one Entry document in Search.
-
-        The API does not enforce that the document does not exist, and will overwrite
-        any existing data.
-
-        :param index_id: the index containing this Entry
-        :param data: the entry document to write
-
-        .. tab-set::
-
-            .. tab-item:: Example Usage
-
-                Create an entry with a subject of ``https://example.com/foo/bar`` and
-                a null entry_id:
-
-                .. code-block:: python
-
-                    sc = globus_sdk.SearchClient(...)
-                    sc.create_entry(
-                        index_id,
-                        {
-                            "subject": "https://example.com/foo/bar",
-                            "visible_to": ["public"],
-                            "content": {"foo/bar": "some val"},
-                        },
-                    )
-
-                Create an entry with a subject of ``https://example.com/foo/bar`` and
-                an entry_id of ``foo/bar``:
-
-                .. code-block:: python
-
-                    sc = globus_sdk.SearchClient(...)
-                    sc.create_entry(
-                        index_id,
-                        {
-                            "subject": "https://example.com/foo/bar",
-                            "visible_to": ["public"],
-                            "id": "foo/bar",
-                            "content": {"foo/bar": "some val"},
-                        },
-                    )
-
-            .. tab-item:: API Info
-
-                ``POST /v1/index/<index_id>/entry``
-
-                .. extdoclink:: Create Entry
-                    :ref: search/reference/create_or_update_entry/
-        """
-        warn_deprecated(
-            "SearchClient.create_entry is deprecated. "
-            "Users should prefer using `SearchClient.ingest`"
-        )
-        log.debug(f"SearchClient.create_entry({index_id}, ...)")
-        return self.post(f"/v1/index/{index_id}/entry", data=data)
-
-    def update_entry(
-        self, index_id: uuid.UUID | str, data: dict[str, t.Any]
-    ) -> response.GlobusHTTPResponse:
-        """
-        This API method is in effect an alias of ingest and is deprecated.
-        Users are recommended to use :meth:`~.ingest` instead.
-
-        Create or update one Entry document in Search.
-
-        This does not do a partial update, but replaces the existing document.
-
-        :param index_id: the index containing this Entry
-        :param data: the entry document to write
-
-        .. tab-set::
-
-            .. tab-item:: Example Usage
-
-                Update an entry with a subject of ``https://example.com/foo/bar`` and
-                a null entry_id:
-
-                .. code-block:: python
-
-                    sc = globus_sdk.SearchClient(...)
-                    sc.update_entry(
-                        index_id,
-                        {
-                            "subject": "https://example.com/foo/bar",
-                            "visible_to": ["public"],
-                            "content": {"foo/bar": "some val"},
-                        },
-                    )
-
-            .. tab-item:: API Info
-
-                ``PUT /v1/index/<index_id>/entry``
-
-                .. extdoclink:: Update Entry
-                    :ref: search/reference/create_or_update_entry/
-        """
-        warn_deprecated(
-            "SearchClient.update_entry is deprecated. "
-            "Users should prefer using `SearchClient.ingest`"
-        )
-        log.debug(f"SearchClient.update_entry({index_id}, ...)")
-        return self.put(f"/v1/index/{index_id}/entry", data=data)
 
     def delete_entry(
         self,
         index_id: uuid.UUID | str,
         subject: str,
         *,
-        entry_id: str | None = None,
+        entry_id: str | MissingType = MISSING,
         query_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
         """
@@ -889,16 +817,16 @@ class SearchClient(client.BaseClient):
                 .. extdoclink:: Delete Entry
                     :ref: search/reference/delete_entry/
         """  # noqa: E501
-        if query_params is None:
-            query_params = {}
-        query_params["subject"] = subject
-        if entry_id is not None:
-            query_params["entry_id"] = entry_id
         log.debug(
             "SearchClient.delete_entry({}, {}, {}, ...)".format(
                 index_id, subject, entry_id
             )
         )
+        query_params = {
+            "entry_id": entry_id,
+            "subject": subject,
+            **(query_params or {}),
+        }
         return self.delete(f"/v1/index/{index_id}/entry", query_params=query_params)
 
     #

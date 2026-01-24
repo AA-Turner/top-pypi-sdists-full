@@ -25,7 +25,12 @@ class MetricInsights(InsightsConfiguration):
 
     @classmethod
     def list(
-        cls, playground: Union[str, Playground], llm_blueprint_ids: Sequence[str] | None = None
+        cls,
+        playground: Union[str, Playground],
+        llm_blueprint_ids: Sequence[str] | None = None,
+        with_aggregation_types_only: bool = False,
+        production_only: bool = False,
+        completed_only: bool = False,
     ) -> list[InsightsConfiguration]:
         """Get metric insights for playground.
 
@@ -35,6 +40,12 @@ class MetricInsights(InsightsConfiguration):
             Playground to get the supported metrics from.
         llm_blueprint_ids : Optional[Sequence[str]]
             LLM Blueprint IDs to check for additional metrics support for.
+        with_aggregation_types_only : bool
+            When `True`, only metrics that support aggregation will be listed.
+        production_only : bool
+            When `True`, only metrics that are supported in production will be listed.
+        completed_only : bool
+            When `True`, only metrics that are completed will be listed.
 
         Returns
         -------
@@ -44,14 +55,17 @@ class MetricInsights(InsightsConfiguration):
         """
         path = cls._path.format(get_entity_id(playground))
 
-        params = {}
+        params: dict[str, Union[bool, Sequence[str]]] = {}
         if llm_blueprint_ids:
             params["llmBlueprintIds"] = llm_blueprint_ids
+        if with_aggregation_types_only:
+            params["withAggregationTypesOnly"] = True
+        if production_only:
+            params["productionOnly"] = True
+        if completed_only:
+            params["completedOnly"] = True
         response_data = cls._client.get(url=f"{cls._client.domain}/{path}", params=params)
-        return [
-            cls.from_server_data(insight)
-            for insight in response_data.json()["insightsConfiguration"]
-        ]
+        return [cls.from_server_data(insight) for insight in response_data.json()["insightsConfiguration"]]
 
     @classmethod
     def copy_to_playground(
@@ -78,8 +92,5 @@ class MetricInsights(InsightsConfiguration):
             "add_to_existing": add_to_existing,
             "with_evaluation_datasets": with_evaluation_datasets,
         }
-        path = (
-            cls._path.format(get_entity_id(target_playground))
-            + f"{get_entity_id(source_playground)}/"
-        )
+        path = cls._path.format(get_entity_id(target_playground)) + f"{get_entity_id(source_playground)}/"
         cls._client.put(f"{cls._client.domain}/{path}", json=payload)

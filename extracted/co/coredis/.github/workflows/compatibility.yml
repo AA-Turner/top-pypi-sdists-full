@@ -1,0 +1,154 @@
+name: Compatibility
+
+on:
+  push:
+    branches: ['master']
+    tags: ['*']
+  schedule:
+  - cron: 0 23 * * *
+
+jobs:
+  lint:
+    name: Lint (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install uv and Python
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+        python-version: ${{ matrix.python-version }}
+    - name: Setup uv venv
+      run: |
+        uv sync --locked --all-extras --group dev
+    - name: Lint with ruff
+      run: |
+        uv run ruff check --select I coredis tests
+        uv run ruff check coredis tests
+    - name: Check types
+      run: |
+        uv run mypy coredis
+    - name: Check auto generated sources
+      run: |
+        make templated-sources
+        if [ ! -z "$(git diff coredis)" ];
+        then
+          echo "Auto-generated source are not up to date"
+          git diff
+          exit 1
+        fi;
+  test:
+    name: Test (Python ${{ matrix.python-version }}, Redis ${{ matrix.redis-version }}${{ matrix.uvloop == 'True' && ', uvloop' || ''}}${{ matrix.orjson == 'True' && ', orjson' || ''}}${{ matrix.extensions == 'True' && ', compiled' || ''}}${{ matrix.label && format(', {0}', matrix.label) || '' }})
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.redis-version == 'next' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        redis-version: ["7.0", "7.2", "7.4", "8.0", "8.2", "latest"]
+        test_params: ["-m '(not (dragonfly or valkey or redict))'"]
+        orjson: ["False"]
+        uvloop: ["False"]
+        runtime_type_checks: ["True"]
+        extensions: ["True"]
+        label: [""]
+        include:
+          - python-version: "3.13"
+            redis-version: "8.2"
+            test_params: "-m '(not (dragonfly or valkey or redict))'"
+            runtime_type_checks: "True"
+            label: ""
+          - python-version: "3.13"
+            redis-version: next
+            test_params: "-m '(not (dragonfly or valkey or redict))'"
+            runtime_type_checks: "True"
+            label: ""
+          - python-version: "3.13"
+            redis-version: latest
+            test_params: "-m '(not (dragonfly or valkey or redict))'"
+            extensions: "False"
+            runtime_type_checks: "True"
+            label: ""
+          - python-version: "3.13"
+            redis-version: latest
+            test_params: "-m '(not (dragonfly or valkey or redict))'"
+            runtime_type_checks: "True"
+            orjson: "True"
+            label: ""
+          - python-version: "3.13"
+            redis-version: latest
+            test_params: "-m '(not (dragonfly or valkey or redict))'"
+            runtime_type_checks: "True"
+            uvloop: "True"
+            label: ""
+          - python-version: "3.13"
+            redis-version: 7.4
+            test_params: "-m '(not (dragonfly or valkey or redict))'"
+            runtime_type_checks: "False"
+            label: ""
+          - python-version: "3.13"
+            redis-version: latest
+            test_params: "-m dragonfly"
+            label: "Dragonfly"
+          - python-version: "3.13"
+            redis-version: 7.0
+            test_params: "-m valkey"
+            label: "Valkey"
+          - python-version: "3.13"
+            redis-version: 8.0
+            test_params: "-m valkey"
+            label: "Valkey"
+          - python-version: "3.13"
+            redis-version: "7.0"
+            test_params: "-m redict"
+            label: "Redict"
+          - python-version: "pypy-3.10"
+            redis-version: 8.0
+            test_params: "-m '(not (dragonfly or valkey or redict))' tests/commands tests/test_tracking_cache.py"
+            runtime_type_checks: "False"
+            extensions: "False"
+            uvloop: "False"
+            label: ""
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install uv and Python
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+        python-version: ${{ matrix.python-version }}
+    - name: Setup uv venv
+      run: |
+        uv sync --locked --all-extras --group ci
+    - name: Compile extensions
+      if: ${{ matrix.extensions == 'True' }}
+      run: uv run mypyc coredis/constants.py coredis/parser.py coredis/_packer.py coredis/_utils.py
+    - name: Install uvloop
+      if: ${{ matrix.uvloop == 'True' }}
+      run:
+        uv pip install uvloop
+    - name: Install orjson
+      if: ${{ matrix.orjson == 'True' }}
+      run:
+        uv pip install orjson
+    - name: Tests with coverage
+      env:
+        COREDIS_UVLOOP: ${{ matrix.uvloop }}
+        HOST_OS: linux
+        CI: "True"
+        COREDIS_REDIS_VERSION: ${{matrix.redis-version}}
+        COREDIS_RUNTIME_CHECKS: ${{matrix.runtime_type_checks}}
+        PYTEST_SENTRY_DSN: ${{ matrix.extensions != 'True' && secrets.SENTRY_DSN || ''}}
+        COMPOSE_PARALLEL_LIMIT: 1
+      run: |
+        echo "Runtime checks: $COREDIS_RUNTIME_CHECKS"
+        echo "UVLoop: $COREDIS_UVLOOP"
+        echo "CI: $CI"
+        uv run pytest --reverse --reruns 2 --cov=coredis --cov-report=xml ${{ matrix.test_params }}
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4.2.0
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -1,21 +1,24 @@
 Metadata-Version: 2.4
 Name: langsmith
-Version: 0.4.30
-Summary: Client library to connect to the LangSmith LLM Tracing and Evaluation Platform.
+Version: 0.6.4
+Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://smith.langchain.com/
 Project-URL: Documentation, https://docs.smith.langchain.com/
 Project-URL: Repository, https://github.com/langchain-ai/langsmith-sdk
 Author-email: LangChain <support@langchain.dev>
 License: MIT
 Keywords: evaluation,langchain,langsmith,language,llm,nlp,platform,tracing,translation
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: orjson>=3.9.14; platform_python_implementation != 'PyPy'
 Requires-Dist: packaging>=23.2
-Requires-Dist: pydantic<3,>=1
+Requires-Dist: pydantic<3,>=2
 Requires-Dist: requests-toolbelt>=1.0.0
 Requires-Dist: requests>=2.0.0
+Requires-Dist: uuid-utils<1.0,>=0.12.0
 Requires-Dist: zstandard>=0.23.0
+Provides-Extra: claude-agent-sdk
+Requires-Dist: claude-agent-sdk>=0.1.0; (python_version >= '3.10') and extra == 'claude-agent-sdk'
 Provides-Extra: langsmith-pyo3
 Requires-Dist: langsmith-pyo3>=0.1.0rc2; extra == 'langsmith-pyo3'
 Provides-Extra: openai-agents
@@ -88,7 +91,8 @@ Sign up for [LangSmith](https://smith.langchain.com/) using your GitHub, Discord
 
 Then, create a unique API key on the [Settings Page](https://smith.langchain.com/settings), which is found in the menu at the top right corner of the page.
 
-Note: Save the API Key in a secure location. It will not be shown again.
+> [!NOTE]
+> Save the API Key in a secure location. It will not be shown again.
 
 ## 2. Log Traces
 
@@ -463,3 +467,13 @@ See also official pytest docs: [How to install and use plugins](https://docs.pyt
 ## Additional Documentation
 
 To learn more about the LangSmith platform, check out the [docs](https://docs.smith.langchain.com/).
+
+
+# License
+
+The LangSmith SDK is licensed under the [MIT License](../LICENSE).
+
+The copyright information for certain dependencies' are reproduced in their corresponding COPYRIGHT.txt files in this repo, including the following:
+
+- [uuid-utils](docs/templates/uuid-utils/COPYRIGHT.txt)
+- [zstandard](docs/templates/zstandard/COPYRIGHT.txt)

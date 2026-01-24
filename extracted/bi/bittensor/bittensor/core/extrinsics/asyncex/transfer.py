@@ -1,12 +1,18 @@
 import asyncio
 from typing import TYPE_CHECKING, Optional
 
-from bittensor.core.settings import NETWORK_EXPLORER_MAP
+from bittensor.core.extrinsics.asyncex.mev_shield import submit_encrypted_extrinsic
+from bittensor.core.extrinsics.pallets import Balances
+from bittensor.core.extrinsics.utils import get_transfer_fn_params
+from bittensor.core.settings import (
+    DEFAULT_MEV_PROTECTION,
+    NETWORK_EXPLORER_MAP,
+    DEFAULT_NETWORK,
+)
+from bittensor.core.types import ExtrinsicResponse
 from bittensor.utils import (
     get_explorer_url_for_network,
     is_valid_bittensor_address_or_public_key,
-    unlock_key,
-    get_transfer_fn_params,
 )
 from bittensor.utils.balance import Balance
 from bittensor.utils.btlogging import logging
@@ -16,183 +22,152 @@ if TYPE_CHECKING:
     from bittensor_wallet import Wallet
 
 
-async def _do_transfer(
-    subtensor: "AsyncSubtensor",
-    wallet: "Wallet",
-    destination: str,
-    amount: Optional[Balance],
-    wait_for_inclusion: bool = True,
-    wait_for_finalization: bool = False,
-    period: Optional[int] = None,
-    keep_alive: bool = True,
-) -> tuple[bool, str, str]:
-    """
-    Makes transfer from wallet to destination public key address.
-
-    Args:
-        subtensor (bittensor.core.async_subtensor.AsyncSubtensor): initialized AsyncSubtensor object used for transfer
-        wallet (bittensor_wallet.Wallet): Bittensor wallet object to make transfer from.
-        destination (str): Destination public key address (ss58_address or ed25519) of recipient.
-        amount (bittensor.utils.balance.Balance): Amount to stake as Bittensor balance.
-        wait_for_inclusion (bool): If set, waits for the extrinsic to enter a block before returning `True`, or returns
-            `False` if the extrinsic fails to enter the block within the timeout.
-        wait_for_finalization (bool): If set, waits for the extrinsic to be finalized on the chain before returning
-            `True`, or returns `False` if the extrinsic fails to be finalized within the timeout.
-        period (Optional[int]): The number of blocks during which the transaction will remain valid after it's submitted.
-            If the transaction is not included in a block within that number of blocks, it will expire and be rejected.
-            You can think of it as an expiration date for the transaction.
-        keep_alive (bool): If `True`, will keep the existential deposit in the account.
-
-    Returns:
-        success, block hash, formatted error message
-    """
-    call_function, call_params = get_transfer_fn_params(amount, destination, keep_alive)
-
-    call = await subtensor.substrate.compose_call(
-        call_module="Balances",
-        call_function=call_function,
-        call_params=call_params,
-    )
-
-    success, message = await subtensor.sign_and_send_extrinsic(
-        call=call,
-        wallet=wallet,
-        wait_for_inclusion=wait_for_inclusion,
-        wait_for_finalization=wait_for_finalization,
-        period=period,
-    )
-
-    # We only wait here if we expect finalization.
-    if not wait_for_finalization and not wait_for_inclusion:
-        return True, "", message
-
-    # Otherwise continue with finalization.
-    if success:
-        block_hash_ = await subtensor.get_block_hash()
-        return True, block_hash_, "Success with response."
-
-    return False, "", message
-
-
 async def transfer_extrinsic(
     subtensor: "AsyncSubtensor",
     wallet: "Wallet",
-    dest: str,
+    destination_ss58: str,
     amount: Optional[Balance],
-    transfer_all: bool = False,
-    wait_for_inclusion: bool = True,
-    wait_for_finalization: bool = False,
     keep_alive: bool = True,
+    transfer_all: bool = False,
+    *,
+    mev_protection: bool = DEFAULT_MEV_PROTECTION,
     period: Optional[int] = None,
-) -> bool:
+    raise_error: bool = False,
+    wait_for_inclusion: bool = True,
+    wait_for_finalization: bool = True,
+    wait_for_revealed_execution: bool = True,
+) -> ExtrinsicResponse:
     """Transfers funds from this wallet to the destination public key address.
 
-    Args:
-        subtensor (bittensor.core.async_subtensor.AsyncSubtensor): initialized AsyncSubtensor object used for transfer
-        wallet (bittensor_wallet.Wallet): Bittensor wallet object to make transfer from.
-        dest (str): Destination public key address (ss58_address or ed25519) of recipient.
-        amount (Optional[bittensor.utils.balance.Balance]): Amount to stake as Bittensor balance. `None` if
-            transferring all.
-        transfer_all (bool): Whether to transfer all funds from this wallet to the destination address.
-        wait_for_inclusion (bool): If set, waits for the extrinsic to enter a block before returning `True`, or returns
-            `False` if the extrinsic fails to enter the block within the timeout.
-        wait_for_finalization (bool): If set, waits for the extrinsic to be finalized on the chain before returning
-            `True`, or returns `False` if the extrinsic fails to be finalized within the timeout.
-        keep_alive (bool): If set, keeps the account alive by keeping the balance above the existential deposit.
-        period (Optional[int]): The number of blocks during which the transaction will remain valid after it's submitted.
-            If the transaction is not included in a block within that number of blocks, it will expire and be rejected.
-            You can think of it as an expiration date for the transaction.
+    Parameters:
+        subtensor: The Subtensor instance.
+        wallet: The wallet to sign the extrinsic.
+        destination_ss58: Destination public key address (ss58_address or ed25519) of recipient.
+        amount: Amount to stake as Bittensor balance. `None` if transferring all.
+        transfer_all: Whether to transfer all funds from this wallet to the destination address.
+        keep_alive: If set, keeps the account alive by keeping the balance above the existential deposit.
+        mev_protection: If True, encrypts and submits the transaction through the MEV Shield pallet to protect
+            against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+            decrypt and execute it. If False, submits the transaction directly without encryption.
+        period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+            transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
+            think of it as an expiration date for the transaction.
+        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        wait_for_inclusion: Whether to wait for the inclusion of the transaction.
+        wait_for_finalization: Whether to wait for the finalization of the transaction.
+        wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
     Returns:
-        success (bool): Flag is `True` if extrinsic was finalized or included in the block. If we did not wait for
-            finalization / inclusion, the response is `True`, regardless of its inclusion.
+        ExtrinsicResponse: The result object of the extrinsic execution.
     """
-    destination = dest
+    try:
+        if not (
+            unlocked := ExtrinsicResponse.unlock_wallet(wallet, raise_error)
+        ).success:
+            return unlocked
 
-    if amount is None and not transfer_all:
-        logging.error("If not transferring all, `amount` must be specified.")
-        return False
+        if amount is None and not transfer_all:
+            return ExtrinsicResponse(
+                False, "If not transferring all, `amount` must be specified."
+            ).with_log()
 
-    # Validate destination address.
-    if not is_valid_bittensor_address_or_public_key(destination):
-        logging.error(
-            f":cross_mark: [red]Invalid destination SS58 address[/red]: {destination}"
+        # Validate destination address.
+        if not is_valid_bittensor_address_or_public_key(destination_ss58):
+            return ExtrinsicResponse(
+                False, f"Invalid destination SS58 address: {destination_ss58}"
+            ).with_log()
+
+        # check existential deposit and fee
+        logging.debug("Fetching existential and fee.")
+        block_hash = await subtensor.substrate.get_chain_head()
+        old_balance, existential_deposit = await asyncio.gather(
+            subtensor.get_balance(
+                wallet.coldkeypub.ss58_address, block_hash=block_hash
+            ),
+            subtensor.get_existential_deposit(block_hash=block_hash),
         )
-        return False
 
-    logging.info(f"Initiating transfer on network: {subtensor.network}")
-    # Unlock wallet coldkey.
-    if not (unlock := unlock_key(wallet)).success:
-        logging.error(unlock.message)
-        return False
+        fee = await subtensor.get_transfer_fee(
+            wallet=wallet,
+            destination_ss58=destination_ss58,
+            amount=amount,
+            keep_alive=keep_alive,
+        )
 
-    # Check balance.
-    logging.info(
-        f":satellite: [magenta]Checking balance and fees on chain [/magenta] [blue]{subtensor.network}[/blue]"
-    )
-    # check existential deposit and fee
-    logging.debug("Fetching existential and fee")
-    block_hash = await subtensor.substrate.get_chain_head()
-    account_balance, existential_deposit = await asyncio.gather(
-        subtensor.get_balance(wallet.coldkeypub.ss58_address, block_hash=block_hash),
-        subtensor.get_existential_deposit(block_hash=block_hash),
-    )
+        if not keep_alive:
+            # Check if the transfer should keep_alive the account
+            existential_deposit = Balance(0)
 
-    fee = await subtensor.get_transfer_fee(
-        wallet=wallet, dest=destination, value=amount, keep_alive=keep_alive
-    )
+        # Check if we have enough balance.
+        if transfer_all:
+            if (old_balance - fee) < existential_deposit:
+                return ExtrinsicResponse(
+                    False, "Not enough balance to transfer all stake."
+                ).with_log()
 
-    if not keep_alive:
-        # Check if the transfer should keep_alive the account
-        existential_deposit = Balance(0)
+        elif old_balance < (amount + fee + existential_deposit):
+            return ExtrinsicResponse(
+                False,
+                f"Not enough balance for transfer {amount} to {destination_ss58}. "
+                f"Account balance is {old_balance}. Transfers fee is {fee}.",
+            ).with_log()
 
-    # Check if we have enough balance.
-    if transfer_all is True:
-        if (account_balance - fee) < existential_deposit:
-            logging.error("Not enough balance to transfer")
-            return False
-    elif account_balance < (amount + fee + existential_deposit):
-        logging.error(":cross_mark: [red]Not enough balance[/red]")
-        logging.error(f"\t\tBalance:\t[blue]{account_balance}[/blue]")
-        logging.error(f"\t\tAmount:\t[blue]{amount}[/blue]")
-        logging.error(f"\t\tFor fee:\t[blue]{fee}[/blue]")
-        return False
+        call_function, call_params = get_transfer_fn_params(
+            amount, destination_ss58, keep_alive
+        )
 
-    logging.info(":satellite: [magenta]Transferring...</magenta")
-    success, block_hash, err_msg = await _do_transfer(
-        subtensor=subtensor,
-        wallet=wallet,
-        destination=destination,
-        amount=amount,
-        keep_alive=keep_alive,
-        wait_for_finalization=wait_for_finalization,
-        wait_for_inclusion=wait_for_inclusion,
-        period=period,
-    )
+        call = await getattr(Balances(subtensor), call_function)(**call_params)
 
-    if success:
-        logging.success(":white_heavy_check_mark: [green]Finalized[/green]")
-        logging.info(f"[green]Block Hash:[/green] [blue]{block_hash}[/blue]")
-
-        if subtensor.network == "finney":
-            logging.debug("Fetching explorer URLs")
-            explorer_urls = get_explorer_url_for_network(
-                subtensor.network, block_hash, NETWORK_EXPLORER_MAP
+        if mev_protection:
+            response = await submit_encrypted_extrinsic(
+                subtensor=subtensor,
+                wallet=wallet,
+                call=call,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                wait_for_revealed_execution=wait_for_revealed_execution,
             )
-            if explorer_urls:
-                logging.info(
-                    f"[green]Opentensor Explorer Link: {explorer_urls.get('opentensor')}[/green]"
-                )
-                logging.info(
-                    f"[green]Taostats Explorer Link: {explorer_urls.get('taostats')}[/green]"
-                )
+        else:
+            response = await subtensor.sign_and_send_extrinsic(
+                call=call,
+                wallet=wallet,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                period=period,
+                raise_error=raise_error,
+            )
+        response.transaction_tao_fee = fee
 
-        logging.info(":satellite: [magenta]Checking Balance...[magenta]")
-        new_balance = await subtensor.get_balance(wallet.coldkeypub.ss58_address)
-        logging.info(
-            f"Balance: [blue]{account_balance}[/blue] :arrow_right: [green]{new_balance}[/green]"
-        )
-        return True
+        if response.success:
+            block_hash = await subtensor.get_block_hash()
 
-    logging.error(f":cross_mark: [red]Failed[/red]: {err_msg}")
-    return False
+            if subtensor.network == DEFAULT_NETWORK:
+                logging.debug("Fetching explorer URLs")
+                explorer_urls = get_explorer_url_for_network(
+                    subtensor.network, block_hash, NETWORK_EXPLORER_MAP
+                )
+                if explorer_urls:
+                    logging.debug(
+                        f"[green]Opentensor Explorer Link: {explorer_urls.get('opentensor')}[/green]"
+                    )
+                    logging.debug(
+                        f"[green]Taostats Explorer Link: {explorer_urls.get('taostats')}[/green]"
+                    )
+
+            new_balance = await subtensor.get_balance(wallet.coldkeypub.ss58_address)
+            logging.debug(
+                f"Balance: [blue]{old_balance}[/blue] :arrow_right: [green]{new_balance}[/green]"
+            )
+            response.data = {
+                "balance_before": old_balance,
+                "balance_after": new_balance,
+            }
+            return response
+
+        logging.error(f"[red]{response.message}[/red]")
+        return response
+
+    except Exception as error:
+        return ExtrinsicResponse.from_exception(raise_error=raise_error, error=error)

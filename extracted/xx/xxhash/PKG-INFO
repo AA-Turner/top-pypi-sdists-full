@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: xxhash
-Version: 3.5.0
+Version: 3.6.0
 Summary: Python binding for xxHash
 Home-page: https://github.com/ifduyue/python-xxhash
 Author: Yue Du
@@ -19,10 +19,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 python-xxhash
 =============
@@ -304,12 +316,20 @@ functions are required.
 Copyright and License
 ---------------------
 
-Copyright (c) 2014-2024 Yue Du - https://github.com/ifduyue
+Copyright (c) 2014-2025 Yue Du - https://github.com/ifduyue
 
 Licensed under `BSD 2-Clause License <http://opensource.org/licenses/BSD-2-Clause>`_
 
 CHANGELOG
 -----------
+
+v3.6.0 2025-10-02
+~~~~~~~~~~~~~~~~~
+
+- Build wheels for Python 3.14
+- Python free-threading support
+- Typing: Use Buffer type stubs
+- Deprecate xxhash.VERSION_TUPLE, it will be removed in the next major release
 
 v3.5.0 2024-08-17
 ~~~~~~~~~~~~~~~~~

@@ -40,6 +40,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+from decimal import Decimal
 
 class IngressErrorCode(Enum):
     """Category of Error."""
@@ -57,6 +58,7 @@ class IngressErrorCode(Enum):
     ConfigError = ...
     ArrayError = ...
     ProtocolVersionError = ...
+    DecimalError = ...
     BadDataFrame = ...
 
 
@@ -202,7 +204,7 @@ class SenderTransaction:
         *,
         symbols: Optional[Dict[str, Optional[str]]] = None,
         columns: Optional[
-            Dict[str, Union[None, bool, int, float, str, TimestampMicros, datetime, np.ndarray]]
+            Dict[str, Union[None, bool, int, float, str, TimestampMicros, datetime, np.ndarray, Decimal]]
         ] = None,
         at: Union[ServerTimestampType, TimestampNanos, datetime],
     ) -> SenderTransaction:
@@ -381,7 +383,7 @@ class Buffer:
         *,
         symbols: Optional[Dict[str, Optional[str]]] = None,
         columns: Optional[
-            Dict[str, Union[None, bool, int, float, str, TimestampMicros, datetime, np.ndarray]]
+            Dict[str, Union[None, bool, int, float, str, TimestampMicros, datetime, np.ndarray, Decimal]]
         ] = None,
         at: Union[ServerTimestampType, TimestampNanos, datetime],
     ) -> Buffer:
@@ -402,7 +404,8 @@ class Buffer:
                     'col5': TimestampMicros(123456789),
                     'col6': datetime(2019, 1, 1, 12, 0, 0),
                     'col7': np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
-                    'col8': None},
+                    'col8': None,
+                    'col9': Decimal('123.456')},
                 at=TimestampNanos(123456789))
 
             # Only symbols specified. Designated timestamp assigned by the db.
@@ -426,7 +429,7 @@ class Buffer:
         values to ``columns`` are going to be encoded as the ``STRING`` type.
 
         Refer to the
-        `QuestDB documentation <https://questdb.io/docs/concept/symbol/>`_ to
+        `QuestDB documentation <https://questdb.com/docs/concept/symbol/>`_ to
         understand the difference between the ``SYMBOL`` and ``STRING`` types
         (TL;DR: symbols are interned strings).
 
@@ -438,17 +441,19 @@ class Buffer:
             * - Python type
               - Serialized as ILP type
             * - ``bool``
-              - `BOOLEAN <https://questdb.io/docs/reference/api/ilp/columnset-types#boolean>`_
+              - `BOOLEAN <https://questdb.com/docs/reference/api/ilp/columnset-types#boolean>`_
             * - ``int``
-              - `INTEGER <https://questdb.io/docs/reference/api/ilp/columnset-types#integer>`_
+              - `INTEGER <https://questdb.com/docs/reference/api/ilp/columnset-types#integer>`_
             * - ``float``
-              - `FLOAT <https://questdb.io/docs/reference/api/ilp/columnset-types#float>`_
+              - `FLOAT <https://questdb.com/docs/reference/api/ilp/columnset-types#float>`_
             * - ``str``
-              - `STRING <https://questdb.io/docs/reference/api/ilp/columnset-types#string>`_
+              - `STRING <https://questdb.com/docs/reference/api/ilp/columnset-types#string>`_
             * - ``np.ndarray``
-              - `ARRAY <https://questdb.io/docs/reference/api/ilp/columnset-types#array>`_
+              - `ARRAY <https://questdb.com/docs/reference/api/ilp/columnset-types#array>`_
             * - ``datetime.datetime`` and ``TimestampMicros``
-              - `TIMESTAMP <https://questdb.io/docs/reference/api/ilp/columnset-types#timestamp>`_
+              - `TIMESTAMP <https://questdb.com/docs/reference/api/ilp/columnset-types#timestamp>`_
+            * - ``Decimal``
+              - `DECIMAL <https://questdb.com/docs/reference/api/ilp/columnset-types#decimal>`_
             * - ``None``
               - *Column is skipped and not serialized.*
 
@@ -541,7 +546,7 @@ class Buffer:
 
             Only columns containing strings can be serialized as symbols.
 
-        :type symbols: str or bool or list of str or list of int
+        :type symbols: str or bool or list[str] or list[int]
 
         :param at: The designated timestamp of the rows.
 
@@ -603,7 +608,7 @@ class Buffer:
 
         **Pandas to ILP datatype mappings**
 
-        .. seealso:: https://questdb.io/docs/reference/api/ilp/columnset-types/
+        .. seealso:: https://questdb.com/docs/reference/api/ilp/columnset-types/
 
         .. list-table:: Pandas Mappings
             :header-rows: 1
@@ -701,6 +706,9 @@ class Buffer:
             * - ``'datetime64[ns, tz]'``
               - Y
               - ``TIMESTAMP`` **ζ**
+            * - ``'object'`` (``Decimal`` objects)
+              - Y (``NaN``)
+              - ``DECIMAL``
 
         .. note::
 
@@ -1025,7 +1033,7 @@ class Sender:
         *,
         symbols: Optional[Dict[str, str]] = None,
         columns: Optional[
-            Dict[str, Union[bool, int, float, str, TimestampMicros, datetime, np.ndarray]]
+            Dict[str, Union[None, bool, int, float, str, TimestampMicros, datetime, np.ndarray]]
         ] = None,
         at: Union[TimestampNanos, datetime, ServerTimestampType],
     ) -> Sender:

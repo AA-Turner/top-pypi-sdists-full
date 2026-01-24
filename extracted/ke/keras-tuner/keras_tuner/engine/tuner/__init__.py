@@ -5,5 +5,5 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.engine.tuner import Tuner
-from keras_tuner.src.engine.tuner import maybe_distribute
+from keras_tuner.src.engine.tuner import Tuner as Tuner
+from keras_tuner.src.engine.tuner import maybe_distribute as maybe_distribute

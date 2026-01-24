@@ -1,0 +1,421 @@
+Metadata-Version: 2.4
+Name: mlrun
+Version: 1.10.1
+Summary: Tracking and config of machine learning runs
+Home-page: https://github.com/mlrun/mlrun
+Author: Yaron Haviv
+Author-email: yaronh@iguazio.com
+License: Apache License 2.0
+Keywords: mlrun,mlops,data-science,machine-learning,experiment-tracking
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.9, <3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: urllib3>=1.26.20
+Requires-Dist: v3io-frames~=0.10.16; python_version < "3.11"
+Requires-Dist: v3io-frames~=0.13.11; python_version >= "3.11"
+Requires-Dist: GitPython>=3.1.41,~=3.1
+Requires-Dist: aiohttp~=3.11
+Requires-Dist: aiohttp-retry~=2.9
+Requires-Dist: click~=8.1
+Requires-Dist: nest-asyncio~=1.0
+Requires-Dist: ipython~=8.10
+Requires-Dist: nuclio-jupyter~=0.11.2
+Requires-Dist: numpy<1.27.0,>=1.26.4
+Requires-Dist: pandas<2.2,>=1.2
+Requires-Dist: pyarrow<18,>=10.0
+Requires-Dist: pyyaml<7,>=6.0.2
+Requires-Dist: requests~=2.32
+Requires-Dist: tabulate~=0.8.6
+Requires-Dist: v3io~=0.7.0
+Requires-Dist: pydantic>=1.10.15
+Requires-Dist: mergedeep~=1.3
+Requires-Dist: semver~=3.0
+Requires-Dist: dependency-injector~=4.41
+Requires-Dist: fsspec<=2025.7.0,>=2025.5.1
+Requires-Dist: v3iofs~=0.1.17
+Requires-Dist: storey~=1.10.20
+Requires-Dist: inflection~=0.5.0
+Requires-Dist: python-dotenv~=1.0
+Requires-Dist: setuptools>=75.2
+Requires-Dist: deprecated~=1.2
+Requires-Dist: jinja2>=3.1.6,~=3.1
+Requires-Dist: orjson<4,>=3.9.15
+Requires-Dist: mlrun-pipelines-kfp-common~=0.5.9
+Requires-Dist: mlrun-pipelines-kfp-v1-8~=0.5.8
+Requires-Dist: docstring_parser~=0.16
+Requires-Dist: aiosmtplib~=3.0
+Requires-Dist: deepdiff<9.0.0,>=8.6.1
+Provides-Extra: s3
+Requires-Dist: boto3<1.36,>=1.28.0; extra == "s3"
+Requires-Dist: aiobotocore<2.16,>=2.5.0; extra == "s3"
+Requires-Dist: s3fs<=2025.7.0,>=2025.5.1; extra == "s3"
+Provides-Extra: azure-blob-storage
+Requires-Dist: msrest~=0.6.21; extra == "azure-blob-storage"
+Requires-Dist: azure-core~=1.24; extra == "azure-blob-storage"
+Requires-Dist: adlfs==2024.12.0; extra == "azure-blob-storage"
+Requires-Dist: pyopenssl>=23; extra == "azure-blob-storage"
+Provides-Extra: azure-key-vault
+Requires-Dist: azure-identity~=1.5; extra == "azure-key-vault"
+Requires-Dist: azure-keyvault-secrets~=4.2; extra == "azure-key-vault"
+Requires-Dist: pyopenssl>=23; extra == "azure-key-vault"
+Provides-Extra: plotly
+Requires-Dist: plotly~=5.23; extra == "plotly"
+Provides-Extra: graphviz
+Requires-Dist: graphviz~=0.20.0; extra == "graphviz"
+Provides-Extra: google-cloud
+Requires-Dist: google-cloud-storage==2.14.0; extra == "google-cloud"
+Requires-Dist: google-cloud-bigquery[bqstorage,pandas]==3.14.1; extra == "google-cloud"
+Requires-Dist: google-cloud-bigquery-storage~=2.17; extra == "google-cloud"
+Requires-Dist: google-cloud==0.34; extra == "google-cloud"
+Requires-Dist: gcsfs<=2025.7.0,>=2025.5.1; extra == "google-cloud"
+Provides-Extra: kafka
+Requires-Dist: kafka-python~=2.1.0; extra == "kafka"
+Requires-Dist: avro~=1.11; extra == "kafka"
+Provides-Extra: redis
+Requires-Dist: redis~=4.3; extra == "redis"
+Provides-Extra: databricks-sdk
+Requires-Dist: databricks-sdk~=0.20.0; extra == "databricks-sdk"
+Provides-Extra: sqlalchemy
+Requires-Dist: sqlalchemy~=2.0; extra == "sqlalchemy"
+Provides-Extra: dask
+Requires-Dist: dask~=2023.12.1; python_version < "3.11" and extra == "dask"
+Requires-Dist: dask==2024.8; python_version >= "3.11" and extra == "dask"
+Requires-Dist: distributed~=2023.12.1; python_version < "3.11" and extra == "dask"
+Requires-Dist: distributed==2024.8; python_version >= "3.11" and extra == "dask"
+Provides-Extra: alibaba-oss
+Requires-Dist: ossfs==2025.5.0; extra == "alibaba-oss"
+Requires-Dist: oss2==2.18.4; extra == "alibaba-oss"
+Provides-Extra: tdengine
+Requires-Dist: taos-ws-py==0.3.2; extra == "tdengine"
+Provides-Extra: snowflake
+Requires-Dist: snowflake-connector-python~=3.7; extra == "snowflake"
+Provides-Extra: dev-postgres
+Requires-Dist: pytest-mock-resources[postgres]~=2.12; extra == "dev-postgres"
+Provides-Extra: kfp18
+Requires-Dist: mlrun_pipelines_kfp_v1_8[kfp]~=0.5.8; extra == "kfp18"
+Provides-Extra: mlflow
+Requires-Dist: mlflow~=3.0; extra == "mlflow"
+Provides-Extra: api
+Requires-Dist: uvicorn~=0.32.1; extra == "api"
+Requires-Dist: dask-kubernetes~=0.11.0; extra == "api"
+Requires-Dist: apscheduler<4,>=3.11; extra == "api"
+Requires-Dist: objgraph~=3.6; extra == "api"
+Requires-Dist: igz-mgmt~=0.4.1; extra == "api"
+Requires-Dist: humanfriendly~=10.0; extra == "api"
+Requires-Dist: fastapi~=0.120.0; extra == "api"
+Requires-Dist: sqlalchemy~=2.0; extra == "api"
+Requires-Dist: sqlalchemy-utils~=0.41.2; extra == "api"
+Requires-Dist: pymysql~=1.1; extra == "api"
+Requires-Dist: psycopg2-binary~=2.9; extra == "api"
+Requires-Dist: alembic~=1.14; extra == "api"
+Requires-Dist: timelength~=1.1; extra == "api"
+Requires-Dist: memray~=1.12; sys_platform != "win32" and extra == "api"
+Requires-Dist: aiosmtplib~=3.0; extra == "api"
+Requires-Dist: pydantic<2,>=1; extra == "api"
+Requires-Dist: mlrun-pipelines-kfp-v1-8~=0.5.8; extra == "api"
+Provides-Extra: all
+Requires-Dist: adlfs==2024.12.0; extra == "all"
+Requires-Dist: aiobotocore<2.16,>=2.5.0; extra == "all"
+Requires-Dist: avro~=1.11; extra == "all"
+Requires-Dist: azure-core~=1.24; extra == "all"
+Requires-Dist: azure-identity~=1.5; extra == "all"
+Requires-Dist: azure-keyvault-secrets~=4.2; extra == "all"
+Requires-Dist: boto3<1.36,>=1.28.0; extra == "all"
+Requires-Dist: dask==2024.8; python_version >= "3.11" and extra == "all"
+Requires-Dist: dask~=2023.12.1; python_version < "3.11" and extra == "all"
+Requires-Dist: databricks-sdk~=0.20.0; extra == "all"
+Requires-Dist: distributed==2024.8; python_version >= "3.11" and extra == "all"
+Requires-Dist: distributed~=2023.12.1; python_version < "3.11" and extra == "all"
+Requires-Dist: gcsfs<=2025.7.0,>=2025.5.1; extra == "all"
+Requires-Dist: google-cloud-bigquery-storage~=2.17; extra == "all"
+Requires-Dist: google-cloud-bigquery[bqstorage,pandas]==3.14.1; extra == "all"
+Requires-Dist: google-cloud-storage==2.14.0; extra == "all"
+Requires-Dist: google-cloud==0.34; extra == "all"
+Requires-Dist: graphviz~=0.20.0; extra == "all"
+Requires-Dist: kafka-python~=2.1.0; extra == "all"
+Requires-Dist: msrest~=0.6.21; extra == "all"
+Requires-Dist: oss2==2.18.4; extra == "all"
+Requires-Dist: ossfs==2025.5.0; extra == "all"
+Requires-Dist: plotly~=5.23; extra == "all"
+Requires-Dist: pyopenssl>=23; extra == "all"
+Requires-Dist: redis~=4.3; extra == "all"
+Requires-Dist: s3fs<=2025.7.0,>=2025.5.1; extra == "all"
+Requires-Dist: snowflake-connector-python~=3.7; extra == "all"
+Requires-Dist: sqlalchemy~=2.0; extra == "all"
+Requires-Dist: taos-ws-py==0.3.2; extra == "all"
+Provides-Extra: complete
+Requires-Dist: adlfs==2024.12.0; extra == "complete"
+Requires-Dist: aiobotocore<2.16,>=2.5.0; extra == "complete"
+Requires-Dist: avro~=1.11; extra == "complete"
+Requires-Dist: azure-core~=1.24; extra == "complete"
+Requires-Dist: azure-identity~=1.5; extra == "complete"
+Requires-Dist: azure-keyvault-secrets~=4.2; extra == "complete"
+Requires-Dist: boto3<1.36,>=1.28.0; extra == "complete"
+Requires-Dist: dask==2024.8; python_version >= "3.11" and extra == "complete"
+Requires-Dist: dask~=2023.12.1; python_version < "3.11" and extra == "complete"
+Requires-Dist: databricks-sdk~=0.20.0; extra == "complete"
+Requires-Dist: distributed==2024.8; python_version >= "3.11" and extra == "complete"
+Requires-Dist: distributed~=2023.12.1; python_version < "3.11" and extra == "complete"
+Requires-Dist: gcsfs<=2025.7.0,>=2025.5.1; extra == "complete"
+Requires-Dist: google-cloud-bigquery-storage~=2.17; extra == "complete"
+Requires-Dist: google-cloud-bigquery[bqstorage,pandas]==3.14.1; extra == "complete"
+Requires-Dist: google-cloud-storage==2.14.0; extra == "complete"
+Requires-Dist: google-cloud==0.34; extra == "complete"
+Requires-Dist: graphviz~=0.20.0; extra == "complete"
+Requires-Dist: kafka-python~=2.1.0; extra == "complete"
+Requires-Dist: msrest~=0.6.21; extra == "complete"
+Requires-Dist: oss2==2.18.4; extra == "complete"
+Requires-Dist: ossfs==2025.5.0; extra == "complete"
+Requires-Dist: plotly~=5.23; extra == "complete"
+Requires-Dist: pyopenssl>=23; extra == "complete"
+Requires-Dist: redis~=4.3; extra == "complete"
+Requires-Dist: s3fs<=2025.7.0,>=2025.5.1; extra == "complete"
+Requires-Dist: snowflake-connector-python~=3.7; extra == "complete"
+Requires-Dist: sqlalchemy~=2.0; extra == "complete"
+Requires-Dist: taos-ws-py==0.3.2; extra == "complete"
+Provides-Extra: complete-api
+Requires-Dist: adlfs==2024.12.0; extra == "complete-api"
+Requires-Dist: aiobotocore<2.16,>=2.5.0; extra == "complete-api"
+Requires-Dist: aiosmtplib~=3.0; extra == "complete-api"
+Requires-Dist: alembic~=1.14; extra == "complete-api"
+Requires-Dist: apscheduler<4,>=3.11; extra == "complete-api"
+Requires-Dist: avro~=1.11; extra == "complete-api"
+Requires-Dist: azure-core~=1.24; extra == "complete-api"
+Requires-Dist: azure-identity~=1.5; extra == "complete-api"
+Requires-Dist: azure-keyvault-secrets~=4.2; extra == "complete-api"
+Requires-Dist: boto3<1.36,>=1.28.0; extra == "complete-api"
+Requires-Dist: dask-kubernetes~=0.11.0; extra == "complete-api"
+Requires-Dist: dask==2024.8; python_version >= "3.11" and extra == "complete-api"
+Requires-Dist: dask~=2023.12.1; python_version < "3.11" and extra == "complete-api"
+Requires-Dist: databricks-sdk~=0.20.0; extra == "complete-api"
+Requires-Dist: distributed==2024.8; python_version >= "3.11" and extra == "complete-api"
+Requires-Dist: distributed~=2023.12.1; python_version < "3.11" and extra == "complete-api"
+Requires-Dist: fastapi~=0.120.0; extra == "complete-api"
+Requires-Dist: gcsfs<=2025.7.0,>=2025.5.1; extra == "complete-api"
+Requires-Dist: google-cloud-bigquery-storage~=2.17; extra == "complete-api"
+Requires-Dist: google-cloud-bigquery[bqstorage,pandas]==3.14.1; extra == "complete-api"
+Requires-Dist: google-cloud-storage==2.14.0; extra == "complete-api"
+Requires-Dist: google-cloud==0.34; extra == "complete-api"
+Requires-Dist: graphviz~=0.20.0; extra == "complete-api"
+Requires-Dist: humanfriendly~=10.0; extra == "complete-api"
+Requires-Dist: igz-mgmt~=0.4.1; extra == "complete-api"
+Requires-Dist: kafka-python~=2.1.0; extra == "complete-api"
+Requires-Dist: memray~=1.12; sys_platform != "win32" and extra == "complete-api"
+Requires-Dist: mlrun-pipelines-kfp-v1-8~=0.5.8; extra == "complete-api"
+Requires-Dist: msrest~=0.6.21; extra == "complete-api"
+Requires-Dist: objgraph~=3.6; extra == "complete-api"
+Requires-Dist: oss2==2.18.4; extra == "complete-api"
+Requires-Dist: ossfs==2025.5.0; extra == "complete-api"
+Requires-Dist: plotly~=5.23; extra == "complete-api"
+Requires-Dist: psycopg2-binary~=2.9; extra == "complete-api"
+Requires-Dist: pydantic<2,>=1; extra == "complete-api"
+Requires-Dist: pymysql~=1.1; extra == "complete-api"
+Requires-Dist: pyopenssl>=23; extra == "complete-api"
+Requires-Dist: redis~=4.3; extra == "complete-api"
+Requires-Dist: s3fs<=2025.7.0,>=2025.5.1; extra == "complete-api"
+Requires-Dist: snowflake-connector-python~=3.7; extra == "complete-api"
+Requires-Dist: sqlalchemy-utils~=0.41.2; extra == "complete-api"
+Requires-Dist: sqlalchemy~=2.0; extra == "complete-api"
+Requires-Dist: taos-ws-py==0.3.2; extra == "complete-api"
+Requires-Dist: timelength~=1.1; extra == "complete-api"
+Requires-Dist: uvicorn~=0.32.1; extra == "complete-api"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+<a id="top"></a>
+[![Build Status](https://github.com/mlrun/mlrun/actions/workflows/build.yaml/badge.svg?branch=development)](https://github.com/mlrun/mlrun/actions/workflows/build.yaml?query=branch%3Adevelopment)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![PyPI version fury.io](https://badge.fury.io/py/mlrun.svg)](https://pypi.python.org/pypi/mlrun/)
+[![Documentation](https://readthedocs.org/projects/mlrun/badge/?version=latest)](https://mlrun.readthedocs.io/en/latest/?badge=latest)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/w/mlrun/mlrun)](https://github.com/mlrun/mlrun/commits/main)
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/mlrun/mlrun?sort=semver)](https://github.com/mlrun/mlrun/releases)
+[![Join MLOps Live](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://mlopslive.slack.com)
+
+<div>
+  <span>
+    <picture>
+      <img img align="left" src="./docs/_static/images/MLRun-logo.png" alt="MLRun logo" width="150"/>
+    </picture>
+  </span>
+  <span>
+    <picture>
+      <img img align="right" src="./docs/_static/images/maintenance_logo.svg" alt="Maintenance logo" width="250"/>
+    </picture>
+  </span>
+  <br clear="all"/>
+</div>
+
+# Using MLRun 
+
+MLRun is an open source AI orchestration platform for quickly building and managing continuous (gen) AI applications across their lifecycle. MLRun integrates into your development and CI/CD environment and automates the delivery of production data, ML pipelines, and online applications. 
+MLRun significantly reduces engineering efforts, time to production, and computation resources. 
+With MLRun, you can choose any IDE on your local machine or on the cloud. MLRun breaks the silos between data, ML, software, and DevOps/MLOps teams, enabling collaboration and fast continuous improvements.
+
+Get started with the MLRun [**Tutorials and Examples**](https://docs.mlrun.org/en/stable/tutorials/index.html) and the [**Installation and setup guide**](https://docs.mlrun.org/en/stable/install.html), or read about the [**MLRun Architecture**](https://docs.mlrun.org/en/stable/architecture.html).
+
+This page explains how MLRun addresses the [**gen AI tasks**](#genai-tasks), [**MLOps tasks**](#mlops-tasks), and presents the [**MLRun core components**](#core-components).
+
+See the supported data stores, development tools, services, platforms, etc., supported by MLRun's open architecture in **https://docs.mlrun.org/en/stable/ecosystem.html**.
+
+## Gen AI tasks
+
+<p align="center"><img src="./docs/_static/images/ai-tasks.png" alt="ai-tasks" width="800"/></p><br>
+
+Use MLRun to develop, scale, deploy, and monitor your AI model across your enterprise. The [**gen AI development workflow**](https://docs.mlrun.org/en/stable/genai/genai-flow.html) 
+section describes the different tasks and stages in detail.
+
+### Data management
+
+
+MLRun supports batch or realtime data processing at scale, data lineage and versioning, structured and unstructured data, and more. 
+Removing inappropriate data at an early stage saves resources that would otherwise be required later on.
+
+
+**Docs:**
+[Using LLMs to process unstructured data](https://docs.mlrun.org/en/stable/genai/data-mgmt/unstructured-data.html),
+[Vector databases](https://docs.mlrun.org/en/stable/genai/data-mgmt/vector-databases.html),
+[Guardrails for data management](https://docs.mlrun.org/en/stable/genai/data-mgmt/guardrails-data.html)
+**Demo:**
+[Call center demo](https://github.com/mlrun/demo-call-center)
+**Video:**
+[Call center](https://youtu.be/YycMbxRgLBA)
+
+### Development
+Use MLRun to build an automated ML pipeline to: collect data, 
+preprocess (prepare) the data, run the training pipeline, and evaluate the model.
+
+**Docs:**
+[Working with RAG](https://docs.mlrun.org/en/stable/genai/development/working-with-rag.html), [Evalating LLMs](https://docs.mlrun.org/en/stable/genai/development/evaluating-llms.html), [Fine tuning LLMS](https://docs.mlrun.org/en/stable/genai/development/fine-tuning-llms.html)
+**Demos:**
+[Call center demo](https://github.com/mlrun/demo-call-center),
+[Banking agent demo](https://github.com/mlrun/demo-banking-agent)
+**Video:**
+[Call center](https://youtu.be/YycMbxRgLBA)
+
+
+### Deployment
+MLRun serving can productize the newly trained LLM as a serverless function using real-time auto-scaling Nuclio serverless functions. 
+The application pipeline includes all the steps from accepting events or data, contextualizing it with a state  preparing the required model features, 
+inferring results using one or more models, and driving actions. 
+
+
+**Docs:**
+[Serving gen AI models](https://docs.mlrun.org/en/stable/genai/deployment/genai_serving.html), [GPU utilization](https://docs.mlrun.org/en/stable/genai/deployment/gpu_utilization.html), [Gen AI realtime serving graph](https://docs.mlrun.org/en/stable/genai/deployment/genai_serving_graph.html)
+**Tutorial:**
+[Deploy LLM using MLRun](https://docs.mlrun.org/en/stable/tutorials/genai-01-basic-tutorial.html)
+**Demos:**
+[Call center demo](https://github.com/mlrun/demo-call-center),
+[Banking agent demo](https://github.com/mlrun/demo-banking-agent)
+**Video:**
+[Call center](https://youtu.be/YycMbxRgLBA)
+
+
+### Live Ops
+Monitor all resources, data, model and application metrics to ensure performance. Then identify risks, control costs, and measure business KPIs.
+Collect production data, metadata, and metrics to tune the model and application further, and to enable governance and explainability.
+
+
+**Docs:**
+[Model monitoring <monitoring](https://docs.mlrun.org/en/stable/concepts/monitoring.html), [Alerts and notifications](https://docs.mlrun.org/en/stable/concepts/alerts-notifications.html)
+**Tutorials:**
+[Deploy LLM using MLRun](https://docs.mlrun.org/en/stable/tutorials/genai-01-basic-tutorial.html), [Model monitoring using LLM](https://docs.mlrun.org/en/stable/tutorials/genai-02-monitoring-llm.html)
+**Demo:**
+[Banking agent demo](https://github.com/mlrun/demo-banking-agent)
+
+
+<a id="mlops-tasks"></a>
+## MLOps tasks
+
+<p align="center"><img src="./docs/_static/images/mlops-task.png" alt="mlrun-tasks" width="800"/></p><br>
+
+The [**MLOps development workflow**](https://docs.mlrun.org/en/stable/mlops-dev-flow.html) section describes the different tasks and stages in detail.
+MLRun can be used to automate and orchestrate all the different tasks or just specific tasks (and integrate them with what you have already deployed).
+
+### Project management and CI/CD automation
+
+In MLRun the assets, metadata, and services (data, functions, jobs, artifacts, models, secrets, etc.) are organized into projects.
+Projects can be imported/exported as a whole, mapped to git repositories or IDE projects (in PyCharm, VSCode, etc.), which enables versioning, collaboration, and CI/CD. 
+Project access can be restricted to a set of users and roles. 
+
+**Docs:** [Projects and Automation](https://docs.mlrun.org/en/stable/projects/project.html), [CI/CD Integration](https://docs.mlrun.org/en/stable/projects/ci-integration.html)
+**Tutorials:** [Quick start](https://docs.mlrun.org/en/stable/tutorials/01-mlrun-basics.html), [Automated ML Pipeline](https://docs.mlrun.org/en/stable/tutorials/04-pipeline.html)
+**Video:** [Quick start](https://youtu.be/xI8KVGLlj7Q).
+
+### Ingest and process data
+
+MLRun provides abstract interfaces to various offline and online [**data sources**](https://docs.mlrun.org/en/stable/store/datastore.html), supports batch or realtime data processing at scale, data lineage and versioning, structured and unstructured data, and more. 
+In addition, the MLRun [**Feature Store**](https://docs.mlrun.org/en/stable/feature-store/feature-store.html) automates the collection, transformation, storage, catalog, serving, and monitoring of data features across the ML lifecycle and enables feature reuse and sharing. 
+
+See: **Docs:** [Ingest and process data](https://docs.mlrun.org/en/stable/data-prep/index.html), [Feature Store](https://docs.mlrun.org/en/stable/feature-store/feature-store.html), [Data & Artifacts](https://docs.mlrun.org/en/stable/concepts/data.html)
+**Tutorials:** [Quick start](https://docs.mlrun.org/en/stable/tutorials/01-mlrun-basics.html), [Feature Store](https://docs.mlrun.org/en/stable/feature-store/basic-demo.html).
+
+### Develop and train models
+
+MLRun allows you to easily build ML pipelines that take data from various sources or the Feature Store and process it, train models at scale with multiple parameters, test models, tracks each experiments, register, version and deploy models, etc. MLRun provides scalable built-in or custom model training services, integrate with any framework and can work with 3rd party training/auto-ML services. You can also bring your own pre-trained model and use it in the pipeline.
+
+**Docs:** [Develop and train models](https://docs.mlrun.org/en/stable/development/index.html), [Model Training and Tracking](https://docs.mlrun.org/en/stable/development/model-training-tracking.html), [Batch Runs and Workflows](https://docs.mlrun.org/en/stable/concepts/runs-workflows.html)
+**Tutorials:** [Train, compare, and register models](https://docs.mlrun.org/en/stable/tutorials/02-model-training.html), [Automated ML Pipeline](https://docs.mlrun.org/en/stable/tutorials/04-pipeline.html)
+**Video:** [Train and compare models](https://youtu.be/bZgBsmLMdQo).
+
+### Deploy models and applications
+
+MLRun rapidly deploys and manages production-grade real-time or batch application pipelines using elastic and resilient serverless functions. MLRun addresses the entire ML application: intercepting application/user requests, running data processing tasks, inferencing using one or more models, driving actions, and integrating with the application logic.
+
+**Docs:** [Deploy models and applications](https://docs.mlrun.org/en/stable/deployment/index.html), [Realtime Pipelines](https://docs.mlrun.org/en/stable/serving/serving-graph.html), [Batch Inference](https://docs.mlrun.org/en/stable/deployment/batch_inference.html)
+**Tutorials:** [Realtime Serving](https://docs.mlrun.org/en/stable/tutorials/03-model-serving.html), [Batch Inference](https://docs.mlrun.org/en/stable/tutorials/07-batch-infer.html), [Advanced Pipeline](https://docs.mlrun.org/en/stable/tutorials/07-batch-infer.html)
+**Video:** [Serving pre-trained models](https://youtu.be/OUjOus4dZfw).
+
+### Model Monitoring
+
+Observability is built into the different MLRun objects (data, functions, jobs, models, pipelines, etc.), eliminating the need for complex integrations and code instrumentation. With MLRun, you can observe the application/model resource usage and model behavior (drift, performance, etc.), define custom app metrics, and trigger alerts or retraining jobs.
+
+**Docs:** [Model monitoring](https://docs.mlrun.org/en/stable/concepts/model-monitoring.html), [Model Monitoring Overview](https://docs.mlrun.org/en/stable/monitoring/model-monitoring-deployment.html)
+**Tutorials:** [Model Monitoring & Drift Detection](https://docs.mlrun.org/en/stable/tutorials/05-model-monitoring.html).
+
+
+<a id="core-components"></a>
+## MLRun core components
+
+<p align="center"><img src="./docs/_static/images/mlops-core.png" alt="mlrun-core" width="800"/></p><br>
+
+
+MLRun includes the following major components:
+
+[**Project Management:**](https://docs.mlrun.org/en/stable/projects/project.html) A service (API, SDK, DB, UI) that manages the different project assets (data, functions, jobs, workflows, secrets, etc.) and provides central control and metadata layer.  
+
+[**Functions:**](https://docs.mlrun.org/en/stable/runtimes/functions.html) automatically deployed software package with one or more methods and runtime-specific attributes (such as image, libraries, command, arguments, resources, etc.).
+
+[**Data & Artifacts:**](https://docs.mlrun.org/en/stable/concepts/data.html) Glueless connectivity to various data sources, metadata management, catalog, and versioning for structures/unstructured artifacts.
+
+[**Batch Runs & Workflows:**](https://docs.mlrun.org/en/stable/concepts/runs-workflows.html) Execute one or more functions with specific parameters and collect, track, and compare all their results and artifacts.
+
+[**Real-Time Serving Pipeline:**](https://docs.mlrun.org/en/stable/serving/serving-graph.html) Rapid deployment of scalable data and ML pipelines using real-time serverless technology, including API handling, data preparation/enrichment, model serving, ensembles, driving and measuring actions, etc.
+
+[**Model monitoring:**](https://docs.mlrun.org/en/stable/monitoring/index.html) monitors data, models, resources, and production components and provides a feedback loop for exploring production data, identifying drift, alerting on anomalies or data quality issues, triggering retraining jobs, measuring business impact, etc.
+
+[**Alerts and notifications:**](https://docs.mlrun.org/en/stable/concepts/model-monitoring.html) Use alerts to identify and inform you of possible problem situations. Use notifications to report status on runs and pipelines.
+
+[**Feature Store:**](https://docs.mlrun.org/en/stable/feature-store/feature-store.html) automatically collects, prepares, catalogs, and serves production data features for development (offline) and real-time (online) deployment using minimal engineering effort.

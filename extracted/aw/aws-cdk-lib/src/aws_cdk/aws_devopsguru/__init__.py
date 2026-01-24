@@ -64,459 +64,17 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devopsguru.CfnLogAnomalyDetectionIntegrationProps",
-    jsii_struct_bases=[],
-    name_mapping={},
+from ..interfaces.aws_devopsguru import (
+    ILogAnomalyDetectionIntegrationRef as _ILogAnomalyDetectionIntegrationRef_9eeac4ad,
+    INotificationChannelRef as _INotificationChannelRef_a7e1f56b,
+    IResourceCollectionRef as _IResourceCollectionRef_9b7f69cf,
+    LogAnomalyDetectionIntegrationReference as _LogAnomalyDetectionIntegrationReference_218906ea,
+    NotificationChannelReference as _NotificationChannelReference_2caa8cee,
+    ResourceCollectionReference as _ResourceCollectionReference_73caee2b,
 )
-class CfnLogAnomalyDetectionIntegrationProps:
-    def __init__(self) -> None:
-        '''Properties for defining a ``CfnLogAnomalyDetectionIntegration``.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsguru-loganomalydetectionintegration.html
-        :exampleMetadata: fixture=_generated
 
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devopsguru as devopsguru
-            
-            cfn_log_anomaly_detection_integration_props = devopsguru.CfnLogAnomalyDetectionIntegrationProps()
-        '''
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLogAnomalyDetectionIntegrationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devopsguru.CfnNotificationChannelProps",
-    jsii_struct_bases=[],
-    name_mapping={"config": "config"},
-)
-class CfnNotificationChannelProps:
-    def __init__(
-        self,
-        *,
-        config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnNotificationChannel.NotificationChannelConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnNotificationChannel``.
-
-        :param config: A ``NotificationChannelConfig`` object that contains information about configured notification channels.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsguru-notificationchannel.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devopsguru as devopsguru
-            
-            cfn_notification_channel_props = devopsguru.CfnNotificationChannelProps(
-                config=devopsguru.CfnNotificationChannel.NotificationChannelConfigProperty(
-                    filters=devopsguru.CfnNotificationChannel.NotificationFilterConfigProperty(
-                        message_types=["messageTypes"],
-                        severities=["severities"]
-                    ),
-                    sns=devopsguru.CfnNotificationChannel.SnsChannelConfigProperty(
-                        topic_arn="topicArn"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4355b450ccbaf26da251417cf6bfda7a64bf8f5b28aa2a428ff14983f592a0d)
-            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "config": config,
-        }
-
-    @builtins.property
-    def config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnNotificationChannel.NotificationChannelConfigProperty"]:
-        '''A ``NotificationChannelConfig`` object that contains information about configured notification channels.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsguru-notificationchannel.html#cfn-devopsguru-notificationchannel-config
-        '''
-        result = self._values.get("config")
-        assert result is not None, "Required property 'config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnNotificationChannel.NotificationChannelConfigProperty"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnNotificationChannelProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devopsguru.CfnResourceCollectionProps",
-    jsii_struct_bases=[],
-    name_mapping={"resource_collection_filter": "resourceCollectionFilter"},
-)
-class CfnResourceCollectionProps:
-    def __init__(
-        self,
-        *,
-        resource_collection_filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceCollection.ResourceCollectionFilterProperty", typing.Dict[builtins.str, typing.Any]]],
-    ) -> None:
-        '''Properties for defining a ``CfnResourceCollection``.
-
-        :param resource_collection_filter: Information about a filter used to specify which AWS resources are analyzed for anomalous behavior by DevOps Guru.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsguru-resourcecollection.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devopsguru as devopsguru
-            
-            cfn_resource_collection_props = devopsguru.CfnResourceCollectionProps(
-                resource_collection_filter=devopsguru.CfnResourceCollection.ResourceCollectionFilterProperty(
-                    cloud_formation=devopsguru.CfnResourceCollection.CloudFormationCollectionFilterProperty(
-                        stack_names=["stackNames"]
-                    ),
-                    tags=[devopsguru.CfnResourceCollection.TagCollectionProperty(
-                        app_boundary_key="appBoundaryKey",
-                        tag_values=["tagValues"]
-                    )]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a350f923367858b1db2669f34b07661e6fd7d789e23538549313574a16f2ed62)
-            check_type(argname="argument resource_collection_filter", value=resource_collection_filter, expected_type=type_hints["resource_collection_filter"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_collection_filter": resource_collection_filter,
-        }
-
-    @builtins.property
-    def resource_collection_filter(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnResourceCollection.ResourceCollectionFilterProperty"]:
-        '''Information about a filter used to specify which AWS resources are analyzed for anomalous behavior by DevOps Guru.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsguru-resourcecollection.html#cfn-devopsguru-resourcecollection-resourcecollectionfilter
-        '''
-        result = self._values.get("resource_collection_filter")
-        assert result is not None, "Required property 'resource_collection_filter' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnResourceCollection.ResourceCollectionFilterProperty"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceCollectionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_devopsguru.ILogAnomalyDetectionIntegrationRef"
-)
-class ILogAnomalyDetectionIntegrationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a LogAnomalyDetectionIntegration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="logAnomalyDetectionIntegrationRef")
-    def log_anomaly_detection_integration_ref(
-        self,
-    ) -> "LogAnomalyDetectionIntegrationReference":
-        '''(experimental) A reference to a LogAnomalyDetectionIntegration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILogAnomalyDetectionIntegrationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LogAnomalyDetectionIntegration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_devopsguru.ILogAnomalyDetectionIntegrationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="logAnomalyDetectionIntegrationRef")
-    def log_anomaly_detection_integration_ref(
-        self,
-    ) -> "LogAnomalyDetectionIntegrationReference":
-        '''(experimental) A reference to a LogAnomalyDetectionIntegration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LogAnomalyDetectionIntegrationReference", jsii.get(self, "logAnomalyDetectionIntegrationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILogAnomalyDetectionIntegrationRef).__jsii_proxy_class__ = lambda : _ILogAnomalyDetectionIntegrationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_devopsguru.INotificationChannelRef")
-class INotificationChannelRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a NotificationChannel.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="notificationChannelRef")
-    def notification_channel_ref(self) -> "NotificationChannelReference":
-        '''(experimental) A reference to a NotificationChannel resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _INotificationChannelRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a NotificationChannel.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_devopsguru.INotificationChannelRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="notificationChannelRef")
-    def notification_channel_ref(self) -> "NotificationChannelReference":
-        '''(experimental) A reference to a NotificationChannel resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("NotificationChannelReference", jsii.get(self, "notificationChannelRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, INotificationChannelRef).__jsii_proxy_class__ = lambda : _INotificationChannelRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_devopsguru.IResourceCollectionRef")
-class IResourceCollectionRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResourceCollection.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceCollectionRef")
-    def resource_collection_ref(self) -> "ResourceCollectionReference":
-        '''(experimental) A reference to a ResourceCollection resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IResourceCollectionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResourceCollection.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_devopsguru.IResourceCollectionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceCollectionRef")
-    def resource_collection_ref(self) -> "ResourceCollectionReference":
-        '''(experimental) A reference to a ResourceCollection resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ResourceCollectionReference", jsii.get(self, "resourceCollectionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IResourceCollectionRef).__jsii_proxy_class__ = lambda : _IResourceCollectionRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devopsguru.LogAnomalyDetectionIntegrationReference",
-    jsii_struct_bases=[],
-    name_mapping={"account_id": "accountId"},
-)
-class LogAnomalyDetectionIntegrationReference:
-    def __init__(self, *, account_id: builtins.str) -> None:
-        '''A reference to a LogAnomalyDetectionIntegration resource.
-
-        :param account_id: The AccountId of the LogAnomalyDetectionIntegration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devopsguru as devopsguru
-            
-            log_anomaly_detection_integration_reference = devopsguru.LogAnomalyDetectionIntegrationReference(
-                account_id="accountId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69ff1149df2c259c3d99c30ac6f6abd9f9cd32e08f483eb91ae96a3f750bfab4)
-            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account_id": account_id,
-        }
-
-    @builtins.property
-    def account_id(self) -> builtins.str:
-        '''The AccountId of the LogAnomalyDetectionIntegration resource.'''
-        result = self._values.get("account_id")
-        assert result is not None, "Required property 'account_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LogAnomalyDetectionIntegrationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devopsguru.NotificationChannelReference",
-    jsii_struct_bases=[],
-    name_mapping={"notification_channel_id": "notificationChannelId"},
-)
-class NotificationChannelReference:
-    def __init__(self, *, notification_channel_id: builtins.str) -> None:
-        '''A reference to a NotificationChannel resource.
-
-        :param notification_channel_id: The Id of the NotificationChannel resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devopsguru as devopsguru
-            
-            notification_channel_reference = devopsguru.NotificationChannelReference(
-                notification_channel_id="notificationChannelId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef73e4ed8bbd0f3b265866c15dffc789d3db27edd346299940290b9dd86812c1)
-            check_type(argname="argument notification_channel_id", value=notification_channel_id, expected_type=type_hints["notification_channel_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "notification_channel_id": notification_channel_id,
-        }
-
-    @builtins.property
-    def notification_channel_id(self) -> builtins.str:
-        '''The Id of the NotificationChannel resource.'''
-        result = self._values.get("notification_channel_id")
-        assert result is not None, "Required property 'notification_channel_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NotificationChannelReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devopsguru.ResourceCollectionReference",
-    jsii_struct_bases=[],
-    name_mapping={"resource_collection_type": "resourceCollectionType"},
-)
-class ResourceCollectionReference:
-    def __init__(self, *, resource_collection_type: builtins.str) -> None:
-        '''A reference to a ResourceCollection resource.
-
-        :param resource_collection_type: The ResourceCollectionType of the ResourceCollection resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devopsguru as devopsguru
-            
-            resource_collection_reference = devopsguru.ResourceCollectionReference(
-                resource_collection_type="resourceCollectionType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e7988ce737df15b6e8f92bf8a22fbe7175d80802dc13b474ebaba30f7fde677)
-            check_type(argname="argument resource_collection_type", value=resource_collection_type, expected_type=type_hints["resource_collection_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_collection_type": resource_collection_type,
-        }
-
-    @builtins.property
-    def resource_collection_type(self) -> builtins.str:
-        '''The ResourceCollectionType of the ResourceCollection resource.'''
-        result = self._values.get("resource_collection_type")
-        assert result is not None, "Required property 'resource_collection_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ResourceCollectionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, ILogAnomalyDetectionIntegrationRef)
+@jsii.implements(_IInspectable_c2943556, _ILogAnomalyDetectionIntegrationRef_9eeac4ad)
 class CfnLogAnomalyDetectionIntegration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -537,8 +95,13 @@ class CfnLogAnomalyDetectionIntegration(
         cfn_log_anomaly_detection_integration = devopsguru.CfnLogAnomalyDetectionIntegration(self, "MyCfnLogAnomalyDetectionIntegration")
     '''
 
-    def __init__(self, scope: _constructs_77d1e7e8.Construct, id: builtins.str) -> None:
-        '''
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::DevOpsGuru::LogAnomalyDetectionIntegration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         '''
@@ -550,8 +113,20 @@ class CfnLogAnomalyDetectionIntegration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLogAnomalyDetectionIntegration")
+    @builtins.classmethod
+    def is_cfn_log_anomaly_detection_integration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLogAnomalyDetectionIntegration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bd9bb427696d5c02c85fa4a6bed8681733de36f3b08a4d15c1d74bb4c02bacec)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLogAnomalyDetectionIntegration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -598,12 +173,46 @@ class CfnLogAnomalyDetectionIntegration(
     @jsii.member(jsii_name="logAnomalyDetectionIntegrationRef")
     def log_anomaly_detection_integration_ref(
         self,
-    ) -> LogAnomalyDetectionIntegrationReference:
+    ) -> "_LogAnomalyDetectionIntegrationReference_218906ea":
         '''A reference to a LogAnomalyDetectionIntegration resource.'''
-        return typing.cast(LogAnomalyDetectionIntegrationReference, jsii.get(self, "logAnomalyDetectionIntegrationRef"))
+        return typing.cast("_LogAnomalyDetectionIntegrationReference_218906ea", jsii.get(self, "logAnomalyDetectionIntegrationRef"))
 
 
-@jsii.implements(_IInspectable_c2943556, INotificationChannelRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devopsguru.CfnLogAnomalyDetectionIntegrationProps",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class CfnLogAnomalyDetectionIntegrationProps:
+    def __init__(self) -> None:
+        '''Properties for defining a ``CfnLogAnomalyDetectionIntegration``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsguru-loganomalydetectionintegration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devopsguru as devopsguru
+            
+            cfn_log_anomaly_detection_integration_props = devopsguru.CfnLogAnomalyDetectionIntegrationProps()
+        '''
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLogAnomalyDetectionIntegrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _INotificationChannelRef_a7e1f56b)
 class CfnNotificationChannel(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -642,12 +251,13 @@ class CfnNotificationChannel(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnNotificationChannel.NotificationChannelConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnNotificationChannel.NotificationChannelConfigProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
-        '''
+        '''Create a new ``AWS::DevOpsGuru::NotificationChannel``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param config: A ``NotificationChannelConfig`` object that contains information about configured notification channels.
@@ -660,8 +270,20 @@ class CfnNotificationChannel(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnNotificationChannel")
+    @builtins.classmethod
+    def is_cfn_notification_channel(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnNotificationChannel.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e7cf698482e965143262477b2e6fc73156f4d9d188eacd138c835ddb9b799ee5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNotificationChannel", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -706,22 +328,22 @@ class CfnNotificationChannel(
 
     @builtins.property
     @jsii.member(jsii_name="notificationChannelRef")
-    def notification_channel_ref(self) -> NotificationChannelReference:
+    def notification_channel_ref(self) -> "_NotificationChannelReference_2caa8cee":
         '''A reference to a NotificationChannel resource.'''
-        return typing.cast(NotificationChannelReference, jsii.get(self, "notificationChannelRef"))
+        return typing.cast("_NotificationChannelReference_2caa8cee", jsii.get(self, "notificationChannelRef"))
 
     @builtins.property
     @jsii.member(jsii_name="config")
     def config(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnNotificationChannel.NotificationChannelConfigProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnNotificationChannel.NotificationChannelConfigProperty"]:
         '''A ``NotificationChannelConfig`` object that contains information about configured notification channels.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnNotificationChannel.NotificationChannelConfigProperty"], jsii.get(self, "config"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnNotificationChannel.NotificationChannelConfigProperty"], jsii.get(self, "config"))
 
     @config.setter
     def config(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnNotificationChannel.NotificationChannelConfigProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnNotificationChannel.NotificationChannelConfigProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99f146c8144832935a31424fa5b73be4a1c94b82c492846dc93af5c622327778)
@@ -737,8 +359,8 @@ class CfnNotificationChannel(
         def __init__(
             self,
             *,
-            filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnNotificationChannel.NotificationFilterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sns: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnNotificationChannel.SnsChannelConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNotificationChannel.NotificationFilterConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sns: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNotificationChannel.SnsChannelConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about notification channels you have configured with DevOps Guru.
 
@@ -779,7 +401,7 @@ class CfnNotificationChannel(
         @builtins.property
         def filters(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnNotificationChannel.NotificationFilterConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnNotificationChannel.NotificationFilterConfigProperty"]]:
             '''The filter configurations for the Amazon SNS notification topic you use with DevOps Guru.
 
             If you do not provide filter configurations, the default configurations are to receive notifications for all message types of ``High`` or ``Medium`` severity.
@@ -787,12 +409,12 @@ class CfnNotificationChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsguru-notificationchannel-notificationchannelconfig.html#cfn-devopsguru-notificationchannel-notificationchannelconfig-filters
             '''
             result = self._values.get("filters")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnNotificationChannel.NotificationFilterConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnNotificationChannel.NotificationFilterConfigProperty"]], result)
 
         @builtins.property
         def sns(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnNotificationChannel.SnsChannelConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnNotificationChannel.SnsChannelConfigProperty"]]:
             '''Information about a notification channel configured in DevOps Guru to send notifications when insights are created.
 
             If you use an Amazon SNS topic in another account, you must attach a policy to it that grants DevOps Guru permission to send it notifications. DevOps Guru adds the required policy on your behalf to send notifications using Amazon SNS in your account. DevOps Guru only supports standard SNS topics. For more information, see `Permissions for Amazon SNS topics <https://docs.aws.amazon.com/devops-guru/latest/userguide/sns-required-permissions.html>`_ .
@@ -802,7 +424,7 @@ class CfnNotificationChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsguru-notificationchannel-notificationchannelconfig.html#cfn-devopsguru-notificationchannel-notificationchannelconfig-sns
             '''
             result = self._values.get("sns")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnNotificationChannel.SnsChannelConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnNotificationChannel.SnsChannelConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -947,7 +569,74 @@ class CfnNotificationChannel(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IResourceCollectionRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devopsguru.CfnNotificationChannelProps",
+    jsii_struct_bases=[],
+    name_mapping={"config": "config"},
+)
+class CfnNotificationChannelProps:
+    def __init__(
+        self,
+        *,
+        config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnNotificationChannel.NotificationChannelConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnNotificationChannel``.
+
+        :param config: A ``NotificationChannelConfig`` object that contains information about configured notification channels.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsguru-notificationchannel.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devopsguru as devopsguru
+            
+            cfn_notification_channel_props = devopsguru.CfnNotificationChannelProps(
+                config=devopsguru.CfnNotificationChannel.NotificationChannelConfigProperty(
+                    filters=devopsguru.CfnNotificationChannel.NotificationFilterConfigProperty(
+                        message_types=["messageTypes"],
+                        severities=["severities"]
+                    ),
+                    sns=devopsguru.CfnNotificationChannel.SnsChannelConfigProperty(
+                        topic_arn="topicArn"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4355b450ccbaf26da251417cf6bfda7a64bf8f5b28aa2a428ff14983f592a0d)
+            check_type(argname="argument config", value=config, expected_type=type_hints["config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "config": config,
+        }
+
+    @builtins.property
+    def config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnNotificationChannel.NotificationChannelConfigProperty"]:
+        '''A ``NotificationChannelConfig`` object that contains information about configured notification channels.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsguru-notificationchannel.html#cfn-devopsguru-notificationchannel-config
+        '''
+        result = self._values.get("config")
+        assert result is not None, "Required property 'config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnNotificationChannel.NotificationChannelConfigProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNotificationChannelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IResourceCollectionRef_9b7f69cf)
 class CfnResourceCollection(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -982,12 +671,13 @@ class CfnResourceCollection(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        resource_collection_filter: typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceCollection.ResourceCollectionFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+        resource_collection_filter: typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceCollection.ResourceCollectionFilterProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
-        '''
+        '''Create a new ``AWS::DevOpsGuru::ResourceCollection``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param resource_collection_filter: Information about a filter used to specify which AWS resources are analyzed for anomalous behavior by DevOps Guru.
@@ -1002,8 +692,20 @@ class CfnResourceCollection(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnResourceCollection")
+    @builtins.classmethod
+    def is_cfn_resource_collection(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourceCollection.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90723f6e9696166d896b76b49283c60fb3299ad87778b997c50054613c3bee54)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceCollection", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1050,22 +752,22 @@ class CfnResourceCollection(
 
     @builtins.property
     @jsii.member(jsii_name="resourceCollectionRef")
-    def resource_collection_ref(self) -> ResourceCollectionReference:
+    def resource_collection_ref(self) -> "_ResourceCollectionReference_73caee2b":
         '''A reference to a ResourceCollection resource.'''
-        return typing.cast(ResourceCollectionReference, jsii.get(self, "resourceCollectionRef"))
+        return typing.cast("_ResourceCollectionReference_73caee2b", jsii.get(self, "resourceCollectionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceCollectionFilter")
     def resource_collection_filter(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnResourceCollection.ResourceCollectionFilterProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnResourceCollection.ResourceCollectionFilterProperty"]:
         '''Information about a filter used to specify which AWS resources are analyzed for anomalous behavior by DevOps Guru.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnResourceCollection.ResourceCollectionFilterProperty"], jsii.get(self, "resourceCollectionFilter"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnResourceCollection.ResourceCollectionFilterProperty"], jsii.get(self, "resourceCollectionFilter"))
 
     @resource_collection_filter.setter
     def resource_collection_filter(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnResourceCollection.ResourceCollectionFilterProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnResourceCollection.ResourceCollectionFilterProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__190553b64928ca35dedd8270f4831a7ae6fe3d91f6a7d73828303b5f2ee32926)
@@ -1138,7 +840,7 @@ class CfnResourceCollection(
         def __init__(
             self,
             *,
-            cloud_formation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceCollection.CloudFormationCollectionFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_formation: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceCollection.CloudFormationCollectionFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             tags: typing.Optional[typing.Sequence[typing.Union["CfnResourceCollection.TagCollectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Information about a filter used to specify which AWS resources are analyzed for anomalous behavior by DevOps Guru.
@@ -1178,7 +880,7 @@ class CfnResourceCollection(
         @builtins.property
         def cloud_formation(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceCollection.CloudFormationCollectionFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceCollection.CloudFormationCollectionFilterProperty"]]:
             '''Information about AWS CloudFormation stacks.
 
             You can use up to 1000 stacks to specify which AWS resources in your account to analyze. For more information, see `Stacks <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacks.html>`_ in the *AWS CloudFormation User Guide* .
@@ -1186,7 +888,7 @@ class CfnResourceCollection(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsguru-resourcecollection-resourcecollectionfilter.html#cfn-devopsguru-resourcecollection-resourcecollectionfilter-cloudformation
             '''
             result = self._values.get("cloud_formation")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceCollection.CloudFormationCollectionFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceCollection.CloudFormationCollectionFilterProperty"]], result)
 
         @builtins.property
         def tags(
@@ -1312,6 +1014,73 @@ class CfnResourceCollection(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devopsguru.CfnResourceCollectionProps",
+    jsii_struct_bases=[],
+    name_mapping={"resource_collection_filter": "resourceCollectionFilter"},
+)
+class CfnResourceCollectionProps:
+    def __init__(
+        self,
+        *,
+        resource_collection_filter: typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceCollection.ResourceCollectionFilterProperty", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''Properties for defining a ``CfnResourceCollection``.
+
+        :param resource_collection_filter: Information about a filter used to specify which AWS resources are analyzed for anomalous behavior by DevOps Guru.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsguru-resourcecollection.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devopsguru as devopsguru
+            
+            cfn_resource_collection_props = devopsguru.CfnResourceCollectionProps(
+                resource_collection_filter=devopsguru.CfnResourceCollection.ResourceCollectionFilterProperty(
+                    cloud_formation=devopsguru.CfnResourceCollection.CloudFormationCollectionFilterProperty(
+                        stack_names=["stackNames"]
+                    ),
+                    tags=[devopsguru.CfnResourceCollection.TagCollectionProperty(
+                        app_boundary_key="appBoundaryKey",
+                        tag_values=["tagValues"]
+                    )]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a350f923367858b1db2669f34b07661e6fd7d789e23538549313574a16f2ed62)
+            check_type(argname="argument resource_collection_filter", value=resource_collection_filter, expected_type=type_hints["resource_collection_filter"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_collection_filter": resource_collection_filter,
+        }
+
+    @builtins.property
+    def resource_collection_filter(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnResourceCollection.ResourceCollectionFilterProperty"]:
+        '''Information about a filter used to specify which AWS resources are analyzed for anomalous behavior by DevOps Guru.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsguru-resourcecollection.html#cfn-devopsguru-resourcecollection-resourcecollectionfilter
+        '''
+        result = self._values.get("resource_collection_filter")
+        assert result is not None, "Required property 'resource_collection_filter' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnResourceCollection.ResourceCollectionFilterProperty"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceCollectionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnLogAnomalyDetectionIntegration",
     "CfnLogAnomalyDetectionIntegrationProps",
@@ -1319,54 +1088,19 @@ __all__ = [
     "CfnNotificationChannelProps",
     "CfnResourceCollection",
     "CfnResourceCollectionProps",
-    "ILogAnomalyDetectionIntegrationRef",
-    "INotificationChannelRef",
-    "IResourceCollectionRef",
-    "LogAnomalyDetectionIntegrationReference",
-    "NotificationChannelReference",
-    "ResourceCollectionReference",
 ]
 
 publication.publish()
 
-def _typecheckingstub__a4355b450ccbaf26da251417cf6bfda7a64bf8f5b28aa2a428ff14983f592a0d(
-    *,
-    config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnNotificationChannel.NotificationChannelConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a350f923367858b1db2669f34b07661e6fd7d789e23538549313574a16f2ed62(
-    *,
-    resource_collection_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceCollection.ResourceCollectionFilterProperty, typing.Dict[builtins.str, typing.Any]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__69ff1149df2c259c3d99c30ac6f6abd9f9cd32e08f483eb91ae96a3f750bfab4(
-    *,
-    account_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ef73e4ed8bbd0f3b265866c15dffc789d3db27edd346299940290b9dd86812c1(
-    *,
-    notification_channel_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3e7988ce737df15b6e8f92bf8a22fbe7175d80802dc13b474ebaba30f7fde677(
-    *,
-    resource_collection_type: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__7dc62acf712b07249b67b80a94f4e15a261a6b082a35061105bf54719686ddc1(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd9bb427696d5c02c85fa4a6bed8681733de36f3b08a4d15c1d74bb4c02bacec(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1388,6 +1122,12 @@ def _typecheckingstub__fd2b521cca5ab7bb045c8de504725accf6a36d02b2e14e71a7be76772
     id: builtins.str,
     *,
     config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnNotificationChannel.NotificationChannelConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e7cf698482e965143262477b2e6fc73156f4d9d188eacd138c835ddb9b799ee5(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1433,11 +1173,24 @@ def _typecheckingstub__f676dd8e13b0e896b4dbd7914e021508023fd604626efc3db37424534
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a4355b450ccbaf26da251417cf6bfda7a64bf8f5b28aa2a428ff14983f592a0d(
+    *,
+    config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnNotificationChannel.NotificationChannelConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c3c60a96b04c3d10c4530a8ce94f0b7ce1f25e7d301936f232eea2b553bbd33b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     resource_collection_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceCollection.ResourceCollectionFilterProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90723f6e9696166d896b76b49283c60fb3299ad87778b997c50054613c3bee54(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1479,6 +1232,13 @@ def _typecheckingstub__0b4f37d65023f55182ed11e895b64bf88216adbee73234d0310a2bd1c
     *,
     app_boundary_key: typing.Optional[builtins.str] = None,
     tag_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a350f923367858b1db2669f34b07661e6fd7d789e23538549313574a16f2ed62(
+    *,
+    resource_collection_filter: typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceCollection.ResourceCollectionFilterProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

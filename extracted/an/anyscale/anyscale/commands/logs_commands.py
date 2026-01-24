@@ -156,6 +156,7 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
     # download files config
     download_dir: Optional[str],
     parallelism: int,
+    resource_id: Optional[str] = None,
 ):
 
     node_type: Optional[NodeType] = None
@@ -184,6 +185,7 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
             download_dir=download_dir,
             parallelism=parallelism,
             unpack=unpack,
+            resource_id=resource_id,
         )
 
     else:
@@ -253,7 +255,10 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
         click.echo()
 
 
-@log_cli.command(name="job", help="Access log files of a production job.")
+@log_cli.command(
+    name="job",
+    help="Access log files of a production job. Fetches logs for all job attempts.",
+)
 @click.option("--id", type=str, required=True, help="Provide a production job ID.")
 @option_download
 @option_tail
@@ -299,6 +304,118 @@ def anyscale_logs_job(  # noqa: PLR0913
         ttl=ttl,
         download_dir=download_dir,
         parallelism=parallelism,
+        resource_id=id if download else None,
+    )
+
+
+@log_cli.command(name="workspace", help="Access log files of a workspace.")
+@click.option("--id", type=str, required=True, help="Provide a workspace ID.")
+@option_download
+@option_tail
+@argument_glob
+@option_node_ip
+@option_instance_id
+@option_worker_only
+@option_head_only
+@option_unpack_combined_logs
+@option_download_dir
+@option_ttl
+@option_parallelism
+def anyscale_logs_workspace(  # noqa: PLR0913
+    id: str,  # noqa: A002
+    download: bool,
+    tail: int,
+    # filters
+    glob: Optional[str],
+    node_ip: Optional[str],
+    instance_id: Optional[str],
+    worker_only: bool,
+    head_only: bool,
+    unpack: bool,
+    # list files config
+    ttl: int,
+    # download files config
+    download_dir: Optional[str],
+    parallelism: int,
+) -> None:
+    logs_controller = LogsController()
+    cluster_id = logs_controller.get_cluster_id_for_workspace(workspace_id=id)
+    execute_anyscale_logs_cluster(
+        logs_controller=logs_controller,
+        cluster_id=cluster_id,
+        download=download,
+        tail=tail,
+        glob=glob,
+        node_ip=node_ip,
+        instance_id=instance_id,
+        worker_only=worker_only,
+        head_only=head_only,
+        unpack=unpack,
+        ttl=ttl,
+        download_dir=download_dir,
+        parallelism=parallelism,
+        resource_id=id if download else None,
+    )
+
+
+@log_cli.command(
+    name="service", help="Access log files of a service for a single service version."
+)
+@click.option("--id", type=str, required=True, help="Provide a service ID.")
+@click.option(
+    "--version",
+    type=str,
+    required=False,
+    help="Service version name or ID to get logs from. If not specified, uses the latest running version.",
+)
+@option_download
+@option_tail
+@argument_glob
+@option_node_ip
+@option_instance_id
+@option_worker_only
+@option_head_only
+@option_unpack_combined_logs
+@option_download_dir
+@option_ttl
+@option_parallelism
+def anyscale_logs_service(  # noqa: PLR0913
+    id: str,  # noqa: A002
+    version: Optional[str],
+    download: bool,
+    tail: int,
+    # filters
+    glob: Optional[str],
+    node_ip: Optional[str],
+    instance_id: Optional[str],
+    worker_only: bool,
+    head_only: bool,
+    unpack: bool,
+    # list files config
+    ttl: int,
+    # download files config
+    download_dir: Optional[str],
+    parallelism: int,
+) -> None:
+    logs_controller = LogsController()
+    cluster_id = logs_controller.get_cluster_id_for_service(
+        service_id=id, version_name_or_id=version
+    )
+    execute_anyscale_logs_cluster(
+        logs_controller=logs_controller,
+        cluster_id=cluster_id,
+        download=download,
+        tail=tail,
+        glob=glob,
+        node_ip=node_ip,
+        instance_id=instance_id,
+        worker_only=worker_only,
+        head_only=head_only,
+        unpack=unpack,
+        ttl=ttl,
+        download_dir=download_dir,
+        parallelism=parallelism,
+        resource_id=id if download else None,
     )
 
 
@@ -306,7 +423,7 @@ def convert_size(size_bytes):
     if size_bytes == 0:
         return "0B"
     size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
-    i = int(math.floor(math.log(size_bytes, 1024)))
+    i = math.floor(math.log(size_bytes, 1024))
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
     return f"{s} {size_name[i]}"

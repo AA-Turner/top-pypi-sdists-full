@@ -3,7 +3,7 @@ Type annotations for chime-sdk-identity service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_chime_sdk_identity/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -28,12 +29,6 @@ from .literals import (
     TargetedMessagesType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -165,7 +160,7 @@ class CreateAppInstanceAdminRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -349,18 +344,18 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 class ListAppInstanceBotsResponseTypeDef(TypedDict):
     AppInstanceArn: str
-    AppInstanceBots: List[AppInstanceBotSummaryTypeDef]
+    AppInstanceBots: list[AppInstanceBotSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAppInstanceUsersResponseTypeDef(TypedDict):
     AppInstanceArn: str
-    AppInstanceUsers: List[AppInstanceUserSummaryTypeDef]
+    AppInstanceUsers: list[AppInstanceUserSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAppInstancesResponseTypeDef(TypedDict):
-    AppInstances: List[AppInstanceSummaryTypeDef]
+    AppInstances: list[AppInstanceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -407,7 +402,7 @@ class CreateAppInstanceUserRequestTypeDef(TypedDict):
     ExpirationSettings: NotRequired[ExpirationSettingsTypeDef]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -423,7 +418,7 @@ class LexConfigurationTypeDef(TypedDict):
 
 class ListAppInstanceAdminsResponseTypeDef(TypedDict):
     AppInstanceArn: str
-    AppInstanceAdmins: List[AppInstanceAdminSummaryTypeDef]
+    AppInstanceAdmins: list[AppInstanceAdminSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -446,7 +441,7 @@ class PutAppInstanceRetentionSettingsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAppInstanceUserEndpointsResponseTypeDef(TypedDict):
-    AppInstanceUserEndpoints: List[AppInstanceUserEndpointSummaryTypeDef]
+    AppInstanceUserEndpoints: list[AppInstanceUserEndpointSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: owlready2
-Version: 0.48
+Version: 0.49
 Summary: A package for ontology-oriented programming in Python: load OWL 2.0 ontologies as Python objects, modify them, save them, and perform reasoning via HermiT. Includes an optimized RDF quadstore.
 Author-email: "Lamy Jean-Baptiste (Jiba)" <jibalamy@free.fr>
 License-Expression: LGPL-3.0-or-later
@@ -837,6 +837,23 @@ version 2 - 0.48
   * Use requests module for importing French ICD10 (urllib does not work)
   * Fix SPARQL query with fixed parameters
     
+version 2 - 0.49
+****************
+
+* Support custom Python-defined SPARQL functions (thanks Ehe)
+* Optimize STATIC SPARQL extention when used in simple union
+* Optimize SPARQL simple UNION on literals and paramaters
+* Support SPARQL queries using GROUP BY, HAVING, ORDER BY, LIMIT and/or OFFSET in subqueries
+* Support ORDER BY in SPARQL GROUP_CONCAT() aggregate function
+* Permits to customize XMLNS abbreviation for ontologies
+* Bugfixes:
+  * Fix usage of OWL classes as individual's attribute value (e.g. individual.attribute = Class)
+  * Fix BOUND() SPARQL function
+  * Fix SPARQL queries with 2 recursive parts that refer to each other
+  * Fix SPARQL queries with FILTER referring to variables inside a recursive part
+  * Fix FILTER NOT EXISTS in SPARQL when using new variables
+  * Fix string escape in dataproperty when using the Pellet reasoner (thanks Max Cutlyp)
+  
 
 Links
 -----

@@ -33,7 +33,7 @@ class FlowExecution:
 
 class Kestra:
     """
-    Kestra Class that is in charge of sending metrics, outputs and logs to the
+    Kestra Class that is in charge of sending metrics, outputs, assets and logs to the
     Kestra server.
 
     Example - Set a counter:
@@ -41,6 +41,16 @@ class Kestra:
 
     Example - Send an output:
         Kestra.outputs({"my_output": "my_value"})
+
+    Example - Send an asset:
+        Kestra.assets({
+            "id": "my_asset",
+            "type": "TABLE",
+            "name": "MY_TABLE",
+            "metadata": {
+                "owner": "team-a"
+            }
+        })
 
     Example - Log an error:
         Kestra.logger().error("An error occurred")
@@ -118,6 +128,17 @@ class Kestra:
         Kestra._send({"outputs": map_})
 
     @staticmethod
+    def assets(map_: dict):
+        """
+        The `Kestra` class provides a method to send a full asset to
+        the Kestra server.
+
+        Args:
+            map_ (dict): The full asset properties to send to the Kestra server.
+        """
+        Kestra._send({"assets": [map_]})
+
+    @staticmethod
     def counter(
         name: str,
         value: int,
@@ -159,6 +180,22 @@ class Kestra:
             )
         else:
             Kestra._metrics(name, "timer", duration, tags)
+
+    @staticmethod
+    def gauge(
+        name: str,
+        value: float,
+        tags: dict | None = None,
+    ):
+        """
+        The `Kestra` class provides a method to send gauge metrics to the Kestra server.
+
+        Args:
+            name (str): The name of the gauge.
+            value (float): The value of the gauge.
+            tags (dict): The tags of the gauge (optional).
+        """
+        Kestra._metrics(name, "gauge", value, tags)
 
     @staticmethod
     def logger():

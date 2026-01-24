@@ -9,6 +9,7 @@ Layout Plugin.
 """
 # Standard library imports
 import configparser as cp
+from functools import lru_cache
 import logging
 import os
 
@@ -27,7 +28,7 @@ from spyder.api.plugin_registration.registry import PLUGIN_REGISTRY
 from spyder.api.shortcuts import SpyderShortcutsMixin
 from spyder.api.translations import _
 from spyder.api.utils import get_class_values
-from spyder.plugins.mainmenu.api import ApplicationMenus, ViewMenuSections
+from spyder.plugins.mainmenu.api import ApplicationMenus, WindowMenuSections
 from spyder.plugins.layout.container import (
     LayoutContainer, LayoutContainerActions, LayoutPluginMenus)
 from spyder.plugins.layout.layouts import (DefaultLayouts,
@@ -37,7 +38,7 @@ from spyder.plugins.layout.layouts import (DefaultLayouts,
 from spyder.plugins.preferences.api import PreferencesActions
 from spyder.plugins.toolbar.api import (
     ApplicationToolbars, MainToolbarSections)
-from spyder.py3compat import qbytearray_to_str  # FIXME:
+from spyder.utils.qthelpers import qbytearray_to_str
 
 
 # For logging
@@ -95,7 +96,6 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
 
     def on_initialize(self):
         self._last_plugin = None
-        self._first_spyder_run = False
         self._fullscreen_flag = None
         # The following flag remember the maximized state even when
         # the window is in fullscreen mode:
@@ -105,6 +105,15 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         self._saved_normal_geometry = None
         self._state_before_maximizing = None
         self._interface_locked = self.get_conf('panes_locked', section='main')
+        # The following flag is used to apply the window settings only once
+        # during the first run
+        self._window_settings_applied_on_first_run = False
+
+        # If Spyder has already been run once, this option needs to be False.
+        # Note: _first_spyder_run needs to be accessed at least once in this
+        # method to be computed at startup.
+        if not self._first_spyder_run:
+            self.set_conf("first_time", False)
 
         # Register default layouts
         self.register_layout(self, SpyderLayout)
@@ -119,19 +128,20 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
     def on_main_menu_available(self):
         mainmenu = self.get_plugin(Plugins.MainMenu)
         container = self.get_container()
-        # Add Panes related actions to View application menu
+        # Add Panes related actions to Window application menu
         panes_items = [
             container._plugins_menu,
             container._lock_interface_action,
+            container._maximize_dockwidget_action,
             container._close_dockwidget_action,
-            container._maximize_dockwidget_action]
+        ]
         for panes_item in panes_items:
             mainmenu.add_item_to_application_menu(
                 panes_item,
-                menu_id=ApplicationMenus.View,
-                section=ViewMenuSections.Pane,
-                before_section=ViewMenuSections.Toolbar)
-        # Add layouts menu to View application menu
+                menu_id=ApplicationMenus.Window,
+                section=WindowMenuSections.Pane,
+                before_section=WindowMenuSections.Toolbar)
+        # Add layouts menu to Window application menu
         layout_items = [
             container._layouts_menu,
             container._toggle_next_layout_action,
@@ -139,14 +149,14 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         for layout_item in layout_items:
             mainmenu.add_item_to_application_menu(
                 layout_item,
-                menu_id=ApplicationMenus.View,
-                section=ViewMenuSections.Layout,
-                before_section=ViewMenuSections.Bottom)
-        # Add fullscreen action to View application menu
+                menu_id=ApplicationMenus.Window,
+                section=WindowMenuSections.Layout,
+                before_section=WindowMenuSections.Bottom)
+        # Add fullscreen action to Window application menu
         mainmenu.add_item_to_application_menu(
             container._fullscreen_action,
-            menu_id=ApplicationMenus.View,
-            section=ViewMenuSections.Bottom)
+            menu_id=ApplicationMenus.Window,
+            section=WindowMenuSections.Bottom)
 
     @on_plugin_available(plugin=Plugins.Toolbar)
     def on_toolbar_available(self):
@@ -163,7 +173,7 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
     @on_plugin_teardown(plugin=Plugins.MainMenu)
     def on_main_menu_teardown(self):
         mainmenu = self.get_plugin(Plugins.MainMenu)
-        # Remove Panes related actions from the View application menu
+        # Remove Panes actions from the Window application menu
         panes_items = [
             LayoutPluginMenus.PluginsMenu,
             LayoutContainerActions.LockDockwidgetsAndToolbars,
@@ -172,8 +182,8 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         for panes_item in panes_items:
             mainmenu.remove_item_from_application_menu(
                 panes_item,
-                menu_id=ApplicationMenus.View)
-        # Remove layouts menu from the View application menu
+                menu_id=ApplicationMenus.Window)
+        # Remove layouts menu from the Window application menu
         layout_items = [
             LayoutPluginMenus.LayoutsMenu,
             LayoutContainerActions.NextLayout,
@@ -181,11 +191,11 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         for layout_item in layout_items:
             mainmenu.remove_item_from_application_menu(
                 layout_item,
-                menu_id=ApplicationMenus.View)
-        # Remove fullscreen action from the View application menu
+                menu_id=ApplicationMenus.Window)
+        # Remove fullscreen action from the Window application menu
         mainmenu.remove_item_from_application_menu(
             LayoutContainerActions.Fullscreen,
-            menu_id=ApplicationMenus.View)
+            menu_id=ApplicationMenus.Window)
 
     @on_plugin_teardown(plugin=Plugins.Toolbar)
     def on_toolbar_teardown(self):
@@ -208,7 +218,7 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         self.setup_layout(default=False)
 
     def on_mainwindow_visible(self):
-        # Populate `Panes > View` menu.
+        # Populate `Panes > Window` menu.
         # This **MUST** be done before restoring the last visible plugins, so
         # that works as expected.
         self.create_plugins_menu()
@@ -234,6 +244,25 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
 
     # ---- Private API
     # -------------------------------------------------------------------------
+    @property
+    @lru_cache
+    def _first_spyder_run(self):
+        """
+        Check if Spyder is run for the first time.
+
+        Notes
+        -----
+        * We declare this as a property to prevent reassignments in other
+          places of this class.
+        * It only needs to be computed once at startup (i.e. it needs to be
+          accessed in on_initialize).
+        """
+        # We need to do this double check because we were not using the
+        # "first_time" option in 6.0 and older versions.
+        return (
+            self.get_conf("first_time", True) and self.get_conf("names") == []
+        )
+
     def _get_internal_dockable_plugins(self):
         """Get the list of internal dockable plugins"""
         return get_class_values(DockablePlugins)
@@ -280,12 +309,7 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         plugins to be hidden with them.
         """
         for plugin in self.get_dockable_plugins():
-            try:
-                # New API
-                action = plugin.toggle_view_action
-            except AttributeError:
-                # Old API
-                action = plugin._toggle_view_action
+            action = plugin.toggle_view_action
 
             if show:
                 section = plugin.CONF_SECTION
@@ -383,11 +407,9 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         settings = self.load_window_settings(prefix, default)
         hexstate = settings[0]
 
-        self._first_spyder_run = False
         if hexstate is None:
             # First Spyder execution:
             self.main.setWindowState(Qt.WindowMaximized)
-            self._first_spyder_run = True
             self.setup_default_layouts(DefaultLayouts.SpyderLayout, settings)
 
             # Restore the original defaults. This is necessary, for instance,
@@ -428,9 +450,7 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         main = self.main
         main.setUpdatesEnabled(False)
 
-        first_spyder_run = bool(self._first_spyder_run)  # Store copy
-
-        if first_spyder_run:
+        if self._first_spyder_run:
             self.set_window_settings(*settings)
         else:
             if self._last_plugin:
@@ -451,8 +471,8 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         # Apply selected layout
         layout.set_main_window_layout(self.main, self.get_dockable_plugins())
 
-        if first_spyder_run:
-            self._first_spyder_run = False
+        if self._first_spyder_run:
+            self.set_conf("first_time", False)
         else:
             self.main.setMinimumWidth(min_width)
             self.main.setMaximumWidth(max_width)
@@ -518,12 +538,7 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
 
         # Make sure the flags are correctly set for visible panes
         for plugin in self.get_dockable_plugins():
-            try:
-                # New API
-                action = plugin.toggle_view_action
-            except AttributeError:
-                # Old API
-                action = plugin._toggle_view_action
+            action = plugin.toggle_view_action
             action.setChecked(plugin.dockwidget.isVisible())
 
         # This is necessary to restore the style for dock tabbars after the
@@ -598,16 +613,28 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
     def set_window_settings(self, hexstate, window_size, pos, is_maximized,
                             is_fullscreen):
         """
-        Set window settings Symetric to the 'get_window_settings' accessor.
+        Set window settings.
+
+        Symetric to the 'get_window_settings' accessor.
         """
-        main = self.main
-        main.setUpdatesEnabled(False)
-        self.window_size = QSize(window_size[0],
-                                 window_size[1])  # width, height
-        self.window_position = QPoint(pos[0], pos[1])  # x,y
-        main.setWindowState(Qt.WindowNoState)
-        main.resize(self.window_size)
-        main.move(self.window_position)
+        # Prevent calling this method multiple times on first run because it
+        # causes main window flickering on Windows and Mac.
+        # Fixes spyder-ide/spyder#15074
+        if (
+            self._window_settings_applied_on_first_run
+            and self._first_spyder_run
+        ):
+            return
+
+        self.main.setUpdatesEnabled(False)
+
+        # Restore window properties
+        self.window_size = QSize(
+            window_size[0], window_size[1] # width, height
+        )
+        self.window_position = QPoint(pos[0], pos[1]) # x, y
+        self.main.resize(self.window_size)
+        self.main.move(self.window_position)
 
         # Window layout
         if hexstate:
@@ -635,6 +662,9 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
             self._maximized_flag = is_maximized
         elif is_maximized:
             self.main.setWindowState(Qt.WindowMaximized)
+
+        # Settings applied at startup
+        self._window_settings_applied_on_first_run = True
 
         self.main.setUpdatesEnabled(True)
 
@@ -704,17 +734,9 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         """Search for the currently focused plugin and close it."""
         widget = QApplication.focusWidget()
         for plugin in self.get_dockable_plugins():
-            # TODO: remove old API
-            try:
-                # New API
-                if plugin.get_widget().isAncestorOf(widget):
-                    plugin.toggle_view_action.setChecked(False)
-                    break
-            except AttributeError:
-                # Old API
-                if plugin.isAncestorOf(widget):
-                    plugin._toggle_view_action.setChecked(False)
-                    break
+            if plugin.get_widget().isAncestorOf(widget):
+                plugin.toggle_view_action.setChecked(False)
+                break
 
     @property
     def maximize_action(self):
@@ -747,15 +769,8 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
 
             for plugin in self.get_dockable_plugins():
                 plugin.dockwidget.hide()
-
-                try:
-                    # New API
-                    if plugin.get_widget().isAncestorOf(focus_widget):
-                        self._last_plugin = plugin
-                except Exception:
-                    # Old API
-                    if plugin.isAncestorOf(focus_widget):
-                        self._last_plugin = plugin
+                if plugin.get_widget().isAncestorOf(focus_widget):
+                    self._last_plugin = plugin
 
             # This prevents a possible error when the value of _last_plugin
             # turns out to be None.
@@ -768,26 +783,14 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
 
             # Maximize last_plugin
             self._last_plugin.dockwidget.toggleViewAction().setDisabled(True)
-            try:
-                # New API
-                self.main.setCentralWidget(self._last_plugin.get_widget())
-                self._last_plugin.get_widget().set_maximized_state(True)
-            except AttributeError:
-                # Old API
-                self.main.setCentralWidget(self._last_plugin)
-                self._last_plugin._ismaximized = True
+            self.main.setCentralWidget(self._last_plugin.get_widget())
+            self._last_plugin.get_widget().set_maximized_state(True)
 
             # Workaround to solve an issue with editor's outline explorer:
             # (otherwise the whole plugin is hidden and so is the outline
             # explorer and the latter won't be refreshed if not visible)
-            try:
-                # New API
-                self._last_plugin.get_widget().show()
-                self._last_plugin.change_visibility(True)
-            except AttributeError:
-                # Old API
-                self._last_plugin.show()
-                self._last_plugin._visibility_changed(True)
+            self._last_plugin.get_widget().show()
+            self._last_plugin.change_visibility(True)
 
             if self._last_plugin is editor:
                 # Automatically show the outline if the editor was maximized
@@ -795,24 +798,12 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
                     outline_explorer.dock_with_maximized_editor()
         else:
             # Restore original layout (before maximizing current dockwidget)
-            try:
-                # New API
-                self._last_plugin.dockwidget.setWidget(
-                    self._last_plugin.get_widget())
-            except AttributeError:
-                # Old API
-                self._last_plugin.dockwidget.setWidget(self._last_plugin)
-
+            self._last_plugin.dockwidget.setWidget(
+                self._last_plugin.get_widget()
+            )
             self._last_plugin.dockwidget.toggleViewAction().setEnabled(True)
             self.main.setCentralWidget(None)
-
-            try:
-                # New API
-                self._last_plugin.get_widget().set_maximized_state(False)
-            except AttributeError:
-                # Old API
-                self._last_plugin._ismaximized = False
-
+            self._last_plugin.get_widget().set_maximized_state(False)
             self.main.restoreState(
                 self._state_before_maximizing, version=WINDOW_STATE_VERSION
             )
@@ -822,12 +813,7 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
                 if outline_explorer is not None:
                     outline_explorer.hide_from_maximized_editor()
 
-            try:
-                # New API
-                self._last_plugin.get_widget().get_focus_widget().setFocus()
-            except AttributeError:
-                # Old API
-                self._last_plugin.get_focus_widget().setFocus()
+            self._last_plugin.get_widget().get_focus_widget().setFocus()
 
     def unmaximize_dockwidget(self):
         """Unmaximize any dockable plugin."""
@@ -842,14 +828,9 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         is_maximized = False
 
         if last_plugin is not None:
-            try:
-                # New API
-                is_maximized = (
-                    last_plugin.get_widget().get_maximized_state()
-                )
-            except AttributeError:
-                # Old API
-                is_maximized = last_plugin._ismaximized
+            is_maximized = (
+                last_plugin.get_widget().get_maximized_state()
+            )
 
         if (
             last_plugin is not None
@@ -870,46 +851,30 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         """
         last_plugin = self.get_last_plugin()
 
-        try:
-            # New API
-            if (
-                last_plugin is not None
-                and last_plugin.get_widget().get_maximized_state()
-                and last_plugin is not plugin
-            ):
-                if self.maximize_action.isChecked():
-                    self.maximize_action.setChecked(False)
-                else:
-                    self.maximize_action.setChecked(True)
-        except AttributeError:
-            # Old API
-            if (
-                last_plugin is not None
-                and last_plugin._ismaximized
-                and last_plugin is not plugin
-            ):
-                if self.maximize_action.isChecked():
-                    self.maximize_action.setChecked(False)
-                else:
-                    self.maximize_action.setChecked(True)
+        if (
+            last_plugin is not None
+            and last_plugin.get_widget().get_maximized_state()
+            and last_plugin is not plugin
+        ):
+            if self.maximize_action.isChecked():
+                self.maximize_action.setChecked(False)
+            else:
+                self.maximize_action.setChecked(True)
 
-        try:
-            # New API
-            if not plugin.toggle_view_action.isChecked():
-                plugin.toggle_view_action.setChecked(True)
-                plugin.get_widget().is_visible = False
-        except AttributeError:
-            # Old API
-            if not plugin._toggle_view_action.isChecked():
-                plugin._toggle_view_action.setChecked(True)
-                plugin._widget._is_visible = False
+        if not plugin.toggle_view_action.isChecked():
+            plugin.toggle_view_action.setChecked(True)
+            plugin.get_widget().is_visible = False
 
-        try:
-            # New API
+        if plugin.get_widget().windowwidget:
+            # This is necessary to give focus to undocked plugin windows
+            # from plugins in the main one when using the "switch to
+            # plugin" shortcuts. It also allows to switch between different
+            # undocked windows with those shortcuts.
+            # Fixes spyder-ide/spyder#1351
+            plugin.get_widget().windowwidget.activateWindow()
+        else:
             plugin.change_visibility(True, force_focus=force_focus)
-        except AttributeError:
-            # Old API
-            plugin._visibility_changed(True)
+            self.main.activateWindow()
 
     # ---- Menus and actions
     # -------------------------------------------------------------------------
@@ -982,14 +947,7 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         ]
 
         for plugin in self.get_dockable_plugins():
-            try:
-                # New API
-                action = plugin.toggle_view_action
-            except AttributeError:
-                # Old API
-                action = plugin._toggle_view_action
-                action.action_id = f'switch to {plugin.CONF_SECTION}'
-
+            action = plugin.toggle_view_action
             if action:
                 # Plugins that fail their compatibility checks don't have a
                 # dockwidget. So, we need to skip them from the plugins menu.
@@ -1075,6 +1033,13 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
                 Plugins.Editor,
             ]
 
+        # This is necessary because the visible state of dockable plugins is
+        # not set correctly for all of them at startup. So, we make it False
+        # first for all of them to then set it to True only for those that were
+        # visible during the last session.
+        for plugin in self.get_dockable_plugins():
+            plugin.change_visibility(False)
+
         # Restore visible plugins
         for plugin in visible_plugins:
             plugin_class = self.get_plugin(plugin, error=False)
@@ -1084,7 +1049,7 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
                 and plugin_class.dockwidget is not None
                 and plugin_class.dockwidget.isVisible()
             ):
-                plugin_class.dockwidget.raise_()
+                plugin_class.change_visibility(True, force_focus=False)
 
     def save_visible_plugins(self):
         """Save visible plugins."""
@@ -1092,14 +1057,8 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
 
         visible_plugins = []
         for plugin in self.get_dockable_plugins():
-            try:
-                # New API
-                if plugin.get_widget().is_visible:
-                    visible_plugins.append(plugin.NAME)
-            except AttributeError:
-                # Old API
-                if plugin._isvisible:
-                    visible_plugins.append(plugin.NAME)
+            if plugin.get_widget().is_visible:
+                visible_plugins.append(plugin.NAME)
 
         self.set_conf('last_visible_plugins', visible_plugins)
 
@@ -1236,3 +1195,8 @@ class Layout(SpyderPluginV2, SpyderShortcutsMixin):
         for plugin in self.get_dockable_plugins():
             if plugin.get_conf('first_time', True):
                 self.tabify_plugin(plugin, Plugins.Console)
+
+                # This is necessary in case the plugin doesn't set its TABIFY
+                # constant
+                plugin.set_conf("enable", True)
+                plugin.set_conf("first_time", False)

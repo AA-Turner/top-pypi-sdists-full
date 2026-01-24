@@ -3,7 +3,7 @@ Type annotations for pinpoint-sms-voice-v2 service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -57,6 +58,8 @@ from .type_defs import (
     AssociateOriginationIdentityResultTypeDef,
     AssociateProtectConfigurationRequestTypeDef,
     AssociateProtectConfigurationResultTypeDef,
+    CarrierLookupRequestTypeDef,
+    CarrierLookupResultTypeDef,
     CreateConfigurationSetRequestTypeDef,
     CreateConfigurationSetResultTypeDef,
     CreateEventDestinationRequestTypeDef,
@@ -229,12 +232,6 @@ from .type_defs import (
     VerifyDestinationNumberResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -245,14 +242,14 @@ __all__ = ("PinpointSMSVoiceV2Client",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class PinpointSMSVoiceV2Client(AioBaseClient):
@@ -308,6 +305,17 @@ class PinpointSMSVoiceV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/associate_protect_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/client/#associate_protect_configuration)
+        """
+
+    async def carrier_lookup(
+        self, **kwargs: Unpack[CarrierLookupRequestTypeDef]
+    ) -> CarrierLookupResultTypeDef:
+        """
+        Returns information about a destination phone number, including whether the
+        number type and whether it is valid, the carrier, and more.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/carrier_lookup.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/client/#carrier_lookup)
         """
 
     async def create_configuration_set(
@@ -570,8 +578,8 @@ class PinpointSMSVoiceV2Client(AioBaseClient):
         self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
     ) -> DeleteResourcePolicyResultTypeDef:
         """
-        Deletes the resource-based policy document attached to the AWS End User
-        Messaging SMS and Voice resource.
+        Deletes the resource-based policy document attached to the End User Messaging
+        SMS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/delete_resource_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/client/#delete_resource_policy)
@@ -623,8 +631,8 @@ class PinpointSMSVoiceV2Client(AioBaseClient):
         self, **kwargs: Unpack[DescribeAccountLimitsRequestTypeDef]
     ) -> DescribeAccountLimitsResultTypeDef:
         """
-        Describes the current AWS End User Messaging SMS and Voice SMS Voice V2
-        resource quotas for your account.
+        Describes the current End User Messaging SMS SMS Voice V2 resource quotas for
+        your account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/describe_account_limits.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/client/#describe_account_limits)
@@ -852,7 +860,7 @@ class PinpointSMSVoiceV2Client(AioBaseClient):
     ) -> GetResourcePolicyResultTypeDef:
         """
         Retrieves the JSON text of the resource-based policy document attached to the
-        AWS End User Messaging SMS and Voice resource.
+        End User Messaging SMS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/get_resource_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/client/#get_resource_policy)
@@ -957,9 +965,9 @@ class PinpointSMSVoiceV2Client(AioBaseClient):
         self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
     ) -> PutResourcePolicyResultTypeDef:
         """
-        Attaches a resource-based policy to a AWS End User Messaging SMS and Voice
-        resource(phone number, sender Id, phone poll, or opt-out list) that is used for
-        sharing the resource.
+        Attaches a resource-based policy to a End User Messaging SMS resource(phone
+        number, sender Id, phone poll, or opt-out list) that is used for sharing the
+        resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pinpoint-sms-voice-v2/client/put_resource_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/client/#put_resource_policy)
@@ -1127,7 +1135,7 @@ class PinpointSMSVoiceV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/client/#submit_registration_version)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or overwrites only the specified tags for the specified resource.
 
@@ -1135,7 +1143,7 @@ class PinpointSMSVoiceV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pinpoint_sms_voice_v2/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the association of the specified tags from a resource.
 
@@ -1467,7 +1475,7 @@ class PinpointSMSVoiceV2Client(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

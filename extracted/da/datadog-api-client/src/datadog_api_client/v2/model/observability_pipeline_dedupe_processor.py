@@ -3,11 +3,13 @@
 # Copyright 2019-Present Datadog, Inc.
 from __future__ import annotations
 
-from typing import List, TYPE_CHECKING
+from typing import List, Union, TYPE_CHECKING
 
 from datadog_api_client.model_utils import (
     ModelNormal,
     cached_property,
+    unset,
+    UnsetType,
 )
 
 
@@ -31,35 +33,46 @@ class ObservabilityPipelineDedupeProcessor(ModelNormal):
         )
 
         return {
+            "display_name": (str,),
+            "enabled": (bool,),
             "fields": ([str],),
             "id": (str,),
             "include": (str,),
-            "inputs": ([str],),
             "mode": (ObservabilityPipelineDedupeProcessorMode,),
             "type": (ObservabilityPipelineDedupeProcessorType,),
         }
 
     attribute_map = {
+        "display_name": "display_name",
+        "enabled": "enabled",
         "fields": "fields",
         "id": "id",
         "include": "include",
-        "inputs": "inputs",
         "mode": "mode",
         "type": "type",
     }
 
     def __init__(
         self_,
+        enabled: bool,
         fields: List[str],
         id: str,
         include: str,
-        inputs: List[str],
         mode: ObservabilityPipelineDedupeProcessorMode,
         type: ObservabilityPipelineDedupeProcessorType,
+        display_name: Union[str, UnsetType] = unset,
         **kwargs,
     ):
         """
         The ``dedupe`` processor removes duplicate fields in log events.
+
+        **Supported pipeline types:** logs
+
+        :param display_name: The display name for a component.
+        :type display_name: str, optional
+
+        :param enabled: Indicates whether the processor is enabled.
+        :type enabled: bool
 
         :param fields: A list of log field paths to check for duplicates.
         :type fields: [str]
@@ -70,20 +83,19 @@ class ObservabilityPipelineDedupeProcessor(ModelNormal):
         :param include: A Datadog search query used to determine which logs this processor targets.
         :type include: str
 
-        :param inputs: A list of component IDs whose output is used as the input for this processor.
-        :type inputs: [str]
-
         :param mode: The deduplication mode to apply to the fields.
         :type mode: ObservabilityPipelineDedupeProcessorMode
 
         :param type: The processor type. The value should always be ``dedupe``.
         :type type: ObservabilityPipelineDedupeProcessorType
         """
+        if display_name is not unset:
+            kwargs["display_name"] = display_name
         super().__init__(kwargs)
 
+        self_.enabled = enabled
         self_.fields = fields
         self_.id = id
         self_.include = include
-        self_.inputs = inputs
         self_.mode = mode
         self_.type = type

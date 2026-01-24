@@ -56,6 +56,8 @@ nav:
   - Extend:
     - Local commands: how-to/extend/local.md
     - Plugins: how-to/extend/plugin.md
+  - Feature flags:
+    - CI: how-to/feature-flags/ci.md
 - Tutorials:
   - CLI:
     - Creating a command: tutorials/cli/create-command.md
@@ -72,6 +74,8 @@ nav:
       - HTTP: reference/api/network/http.md
     - Retries: reference/api/retry.md
     - Platform: reference/api/platform.md
+    - Git: reference/api/git.md
+    - GitHub: reference/api/github.md
     - Date: reference/api/date.md
     - Tools: reference/api/tools.md
     - CI: reference/api/ci.md
@@ -81,6 +85,7 @@ nav:
     - Terminal: reference/api/terminal.md
     - Constants: reference/api/constants.md
     - Telemetry: reference/api/telemetry.md
+    - Feature flags: reference/api/feature_flags.md
   - Interface:
     - Tool: reference/interface/tool.md
     - Environments:
@@ -117,6 +122,9 @@ plugins:
         paths:
         - src
         options:
+          filters:
+          # Ignore both private and dunder members
+          - "!^_"
           # Rendering
           show_root_full_path: false
           # Headings

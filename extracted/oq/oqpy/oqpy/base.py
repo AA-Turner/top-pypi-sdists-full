@@ -197,7 +197,7 @@ def _get_type(val: AstConvertible) -> Optional[ast.ClassicalType]:
     elif isinstance(val, complex):
         return ast.ComplexType(ast.FloatType())
     else:
-        raise ValueError(f"Cannot multiply/divide oqpy expression with with {type(val)}")
+        raise ValueError(f"Cannot multiply/divide oqpy expression with {type(val)}")
 
 
 def compute_product_types(left: AstConvertible, right: AstConvertible) -> ast.ClassicalType:
@@ -572,6 +572,8 @@ def detect_and_convert_constants(val: float | np.floating[Any], program: Program
     if val == 0:
         return ast.FloatLiteral(val)
     if val < 0.5 or val > 100:
+        return ast.FloatLiteral(val)
+    if math.isnan(val):
         return ast.FloatLiteral(val)
     x = val / (math.pi / 4.0)
     rx = round(x)

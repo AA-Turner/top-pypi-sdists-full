@@ -3,7 +3,7 @@ Type annotations for route53resolver service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53resolver/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -180,12 +181,6 @@ from .type_defs import (
     UpdateResolverRuleResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -196,24 +191,24 @@ __all__ = ("Route53ResolverClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServiceErrorException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidPolicyDocument: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    InvalidTagException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceExistsException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceUnavailableException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnknownResourceException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServiceErrorException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidPolicyDocument: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidTagException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceExistsException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceUnavailableException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnknownResourceException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class Route53ResolverClient(BaseClient):
@@ -857,7 +852,7 @@ class Route53ResolverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53resolver/client/#put_resolver_rule_policy)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to a specified resource.
 
@@ -865,7 +860,7 @@ class Route53ResolverClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53resolver/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a specified resource.
 

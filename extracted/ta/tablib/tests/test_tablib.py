@@ -141,7 +141,7 @@ class TablibTestCase(BaseTestCase):
 
         data.append_col(new_col)
 
-        self.assertEqual(data[0], tuple([new_col[0]]))
+        self.assertEqual(data[0], (new_col[0],))
         self.assertEqual(data.width, 1)
         self.assertEqual(data.height, len(new_col))
 
@@ -154,7 +154,7 @@ class TablibTestCase(BaseTestCase):
 
         data.append_col(new_col, header='first_name')
 
-        self.assertEqual(data[0], tuple([new_col[0]]))
+        self.assertEqual(data[0], (new_col[0],))
         self.assertEqual(data.width, 1)
         self.assertEqual(data.height, len(new_col))
         self.assertEqual(data.headers, None)
@@ -324,7 +324,7 @@ class TablibTestCase(BaseTestCase):
 
     def test_str_no_columns(self):
         d = tablib.Dataset(['a', 1], ['b', 2], ['c', 3])
-        output = '%s' % d
+        output = f'{d}'
 
         self.assertEqual(output.splitlines(), [
             'a|1',
@@ -426,7 +426,7 @@ class TablibTestCase(BaseTestCase):
         self.assertEqual(tablib.detect_format(_tsv), 'tsv')
 
         _bunk = StringIO(
-            '¡¡¡¡¡¡---///\n\n\n' +
+            '¡¡¡¡¡¡---///\n\n\n'
             '¡¡£™∞¢£§∞§¶•¶ª∞¶•ªº••ª–º§•†•§º¶•†¥ª–º•§ƒø¥¨©πƒø†ˆ¥ç©¨√øˆ¥≈†ƒ¥ç©ø¨çˆ¥ƒçø¶'
         )
         self.assertEqual(tablib.detect_format(_bunk), None)
@@ -1108,7 +1108,7 @@ class CSVTests(BaseTestCase):
 
         expected = 'first_name;last_name;gpa\nJohn;Adams;90\nGeorge;Washington;67\n'
 
-        kwargs = dict(delimiter=';', lineterminator='\n')
+        kwargs = {'delimiter': ';', 'lineterminator': '\n'}
         _csv = data.export('csv', **kwargs)
         self.assertEqual(expected, _csv)
 
@@ -1182,9 +1182,18 @@ class ODSTests(BaseTestCase):
         date = dt.date(2019, 10, 4)
         date_time = dt.datetime(2019, 10, 4, 12, 30, 8)
         time = dt.time(14, 30)
-        data.append(('string', '004', 42, 21.55, Decimal('34.5'), date, time, date_time, None))
+        data.append(('string', '004', 42, 21.55, Decimal('34.5'), date, time, date_time, None, ''))
         data.headers = (
-            'string', 'start0', 'integer', 'float', 'decimal', 'date', 'time', 'date/time', 'None'
+            'string',
+            'start0',
+            'integer',
+            'float',
+            'decimal',
+            'date',
+            'time',
+            'date/time',
+            'None',
+            'empty',
         )
         _ods = data.ods
         data.ods = _ods
@@ -1197,6 +1206,7 @@ class ODSTests(BaseTestCase):
         self.assertEqual(data.dict[0]['time'], time)
         self.assertEqual(data.dict[0]['date/time'], date_time)
         self.assertEqual(data.dict[0]['None'], '')
+        self.assertEqual(data.dict[0]['empty'], '')
 
     def test_ods_export_display(self):
         """Test that exported datetime types are displayed correctly in office software"""
@@ -1236,6 +1246,7 @@ class ODSTests(BaseTestCase):
         with ods_source.open('rb') as fh:
             dbook = tablib.Databook().load(fh, 'ods')
         self.assertEqual(len(dbook.sheets()), 2)
+        self.assertEqual(["This", "is", "a", "second", "sheet"], dbook.sheets()[1].headers)
 
     def test_ods_import_set_skip_lines(self):
         data.append(('garbage', 'line', ''))
@@ -1256,7 +1267,7 @@ class ODSTests(BaseTestCase):
         # <table:table-cell office:value-type="unknown" calcext:value-type="string">
         ods_source = Path(__file__).parent / 'files' / 'unknown_value_type.ods'
         with ods_source.open('rb') as fh:
-            dataset = tablib.Dataset().load(fh, 'ods')
+            dataset = tablib.Dataset().load(fh, 'ods', headers=False)
         self.assertEqual(dataset.pop(), ('abcd',))
 
     def test_ods_export_dates(self):
@@ -1307,12 +1318,12 @@ class XLSTests(BaseTestCase):
             data = tablib.Dataset().load(fh.read())
         self.assertEqual(
             data.dict[0],
-            dict([
-                ('div by 0', '#DIV/0!'),
-                ('name unknown', '#NAME?'),
-                ('not available (formula)', '#N/A'),
-                ('not available (static)', '#N/A')
-            ])
+            {
+                'div by 0': '#DIV/0!',
+                'name unknown': '#NAME?',
+                'not available (formula)': '#N/A',
+                'not available (static)': '#N/A',
+            }
         )
 
     def test_book_import_from_stream(self):
@@ -1337,25 +1348,59 @@ class XLSTests(BaseTestCase):
         self.assertEqual('h:mm:ss', get_format_str(row[1]))
         self.assertEqual('m/d/yy h:mm', get_format_str(row[2]))
 
+    def test_xls_bad_chars_sheet_name(self):
+        """
+        Sheet names are limited to 30 chars and the following chars
+        are not permitted: \\ / * ? : [ ]
+        """
+        _dataset = tablib.Dataset(
+            title='bad name \\/*?:[]qwertyuiopasdfghjklzxcvbnm'
+        )
+        _xls = _dataset.export('xls')
+        new_data = tablib.Dataset().load(_xls)
+        self.assertEqual(new_data.title, 'bad name -------qwertyuiopasdfg')
+
+        _book = tablib.Databook()
+        _book.add_sheet(_dataset)
+        _xls = _book.export('xls')
+        new_data = tablib.Databook().load(_xls, 'xls')
+        self.assertEqual(new_data.sheets()[0].title, 'bad name -------qwertyuiopasdfg')
+
 
 class XLSXTests(BaseTestCase):
-    def _helper_export_column_width(self, column_width):
-        """check that column width adapts to value length"""
-        def _get_width(data, input_arg):
-            xlsx_content = data.export('xlsx', column_width=input_arg)
-            wb = load_workbook(filename=BytesIO(xlsx_content))
-            ws = wb.active
-            return ws.column_dimensions['A'].width
+    def _get_width(self, data, input_arg):
+        xlsx_content = data.export('xlsx', column_width=input_arg)
+        wb = load_workbook(filename=BytesIO(xlsx_content))
+        ws = wb.active
+        return ws.column_dimensions['A'].width
 
+    def _xlsx_cell_values_data(self, cls):
         xls_source = Path(__file__).parent / 'files' / 'xlsx_cell_values.xlsx'
         with xls_source.open('rb') as fh:
-            data = tablib.Dataset().load(fh)
-        width_before = _get_width(data, column_width)
+            return cls().load(fh, format='xlsx')
+
+    def _helper_export_column_width(self, column_width):
+        """check that column width adapts to value length"""
+
+        data = self._xlsx_cell_values_data(cls=tablib.Dataset)
+        width_before = self._get_width(data, column_width)
         data.append([
             'verylongvalue-verylongvalue-verylongvalue-verylongvalue-'
             'verylongvalue-verylongvalue-verylongvalue-verylongvalue',
         ])
-        width_after = _get_width(data, width_before)
+        width_after = self._get_width(data, width_before)
+        return width_before, width_after
+
+    def _book_helper_export_column_width(self, column_width):
+        """check that column width adapts to value length"""
+
+        data = self._xlsx_cell_values_data(cls=tablib.Databook)
+        width_before = self._get_width(data, column_width)
+        data.sheets()[0].append([
+            'verylongvalue-verylongvalue-verylongvalue-verylongvalue-'
+            'verylongvalue-verylongvalue-verylongvalue-verylongvalue',
+        ])
+        width_after = self._get_width(data, width_before)
         return width_before, width_after
 
     def test_xlsx_format_detect(self):
@@ -1525,6 +1570,29 @@ class XLSXTests(BaseTestCase):
         with self.assertRaises(ValueError):
             self._helper_export_column_width("invalid input")
 
+    def test_xlsx_book_column_width_adaptive(self):
+        """Test that column width adapts to value length from a databook"""
+        width_before, width_after = self._book_helper_export_column_width("adaptive")
+        self.assertEqual(width_before, 11)
+        self.assertEqual(width_after, 11)
+
+    def test_xlsx_book_column_width_integer(self):
+        """Test that column width changes to integer length from a databook"""
+        width_before, width_after = self._book_helper_export_column_width(10)
+        self.assertEqual(width_before, 10)
+        self.assertEqual(width_after, 10)
+
+    def test_xlsx_book_column_width_none(self):
+        """Test that column width does not change from a databook"""
+        width_before, width_after = self._book_helper_export_column_width(None)
+        self.assertEqual(width_before, 13)
+        self.assertEqual(width_after, 13)
+
+    def test_xlsx_book_column_width_value_error(self):
+        """Raise ValueError if column_width is not a valid input for a databook"""
+        with self.assertRaises(ValueError):
+            self._book_helper_export_column_width("invalid input")
+
 
 class JSONTests(BaseTestCase):
     def test_json_format_detect(self):
@@ -1579,8 +1647,8 @@ class JSONTests(BaseTestCase):
 
         expected_json = (
             '[{"first_name": "John", "last_name": "Adams", "gpa": 90, '
-            '"address_id": "%s"}, {"first_name": "名字", "last_name": "李", '
-            '"gpa": 60, "address_id": ""}]' % str(address_id)
+            f'"address_id": "{str(address_id)}"}}, {{"first_name": "名字", "last_name": "李", '
+            '"gpa": 60, "address_id": ""}]'
         )
 
         self.assertEqual(founders_json, expected_json)
@@ -1732,8 +1800,9 @@ class DBFTests(BaseTestCase):
             for reg_char, data_char in zip(_dbf, data.dbf):
                 so_far += chr(data_char)
                 if reg_char != data_char and index not in [1, 2, 3]:
-                    raise AssertionError('Failing at char {}: {} vs {} {}'.format(
-                        index, reg_char, data_char, so_far))
+                    raise AssertionError(
+                        f'Failing at char {index}: {reg_char} vs {data_char} {so_far}'
+                    )
                 index += 1
 
     def test_dbf_export_set(self):
@@ -1775,8 +1844,9 @@ class DBFTests(BaseTestCase):
                 # found_so_far += chr(data_char)
                 if reg_char != data_char and index not in [1, 2, 3]:
                     raise AssertionError(
-                        'Failing at char {}: {} vs {} (found {})'.format(
-                            index, reg_char, data_char, found_so_far))
+                        f'Failing at char {index}: '
+                        f'{reg_char} vs {data_char} (found {found_so_far})'
+                    )
                 index += 1
 
     def test_dbf_format_detect(self):
@@ -1862,3 +1932,86 @@ class CliTests(BaseTestCase):
             '+---+---+---+\n| a | b | c |\n+---+---+---+',
             tablib.Dataset(['a', 'b', 'c']).export('cli', tablefmt='grid')
         )
+
+
+class SQLFormatTests(unittest.TestCase):
+    def test_sql_date_and_timestamp_literals(self):
+        # ANSI SQL date and timestamp literals
+        ds = tablib.Dataset(title='tbl')
+        ds.headers = ['col_date', 'col_timestamp']
+        ds.append([
+            dt.date(2020, 1, 2),
+            dt.datetime(2020, 1, 2, 3, 4, 5)
+        ])
+        sql = ds.export('sql')
+        expected = (
+            "INSERT INTO tbl (col_date,col_timestamp) VALUES "
+            "(DATE '2020-01-02', TIMESTAMP '2020-01-02 03:04:05');\n"
+        )
+        self.assertEqual(sql, expected)
+
+    def test_sql_microseconds_and_default_table(self):
+        # Full microsecond precision and default table name 'data'
+        ds = tablib.Dataset()
+        ds.headers = ['ts']
+        ds.append([dt.datetime(2021, 12, 31, 23, 59, 59, 123456)])
+        sql = ds.export('sql')
+        expected = (
+            "INSERT INTO export_table (ts) VALUES "
+            "(TIMESTAMP '2021-12-31 23:59:59.123456');\n"
+        )
+        self.assertEqual(sql, expected)
+
+    def test_sql_regular_literals(self):
+        # Test int, quoted string, decimal, bool, NULL, and multiline string
+        ds = tablib.Dataset(title='t')
+        ds.headers = ['i', 's', 'd', 'b', 'n', 'm', 'ml']
+        ds.append([
+            1,
+            "O'Reilly",
+            Decimal('3.14'),
+            5.1,
+            False,
+            None,
+            'Line1\nLine2'
+        ])
+        sql = ds.export('sql')
+        expected = (
+            "INSERT INTO t (i,s,d,b,n,m,ml) VALUES (1, 'O''Reilly', 3.14, 5.1, "
+            "FALSE, NULL, 'Line1\nLine2');\n"
+        )
+        self.assertEqual(sql, expected)
+
+    def test_sql_no_headers(self):
+        # Test SQL export without headers
+        ds = tablib.Dataset(title='t')
+        ds.append([
+            1,
+            "O'Reilly",
+            Decimal('3.14'),
+            5.1,
+            False,
+            None,
+            'Line1\nLine2'
+        ])
+        sql = ds.export('sql')
+        expected = (
+            "INSERT INTO t VALUES (1, 'O''Reilly', 3.14, 5.1, "
+            "FALSE, NULL, 'Line1\nLine2');\n"
+        )
+        self.assertEqual(sql, expected)
+
+        # Test with default table name
+        ds = tablib.Dataset()
+        ds.append([1, 'test'])
+        sql = ds.export('sql')
+        expected = "INSERT INTO export_table VALUES (1, 'test');\n"
+        self.assertEqual(sql, expected)
+
+        ds = tablib.Dataset()
+        ds.append([1, 'test'])
+        sql = ds.export('sql', table='schema_name.custom_table',
+                        columns=['col1', 'col2'], commit=True)
+        expected = ("INSERT INTO schema_name.custom_table (col1,col2)"
+                    " VALUES (1, 'test');\nCOMMIT;\n")
+        self.assertEqual(sql, expected)

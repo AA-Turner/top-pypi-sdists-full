@@ -60,6 +60,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_activity, False, False, "json", shared.AtsActivity
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -76,7 +77,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsActivity",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -152,6 +153,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_activity, False, False, "json", shared.AtsActivity
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +170,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsActivity",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -244,6 +246,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_application, False, False, "json", shared.AtsApplication
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -260,7 +263,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -336,6 +339,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_application, False, False, "json", shared.AtsApplication
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -352,7 +356,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -428,6 +432,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_candidate, False, False, "json", shared.AtsCandidate
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -444,7 +449,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsCandidate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -520,6 +525,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_candidate, False, False, "json", shared.AtsCandidate
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -536,7 +542,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsCandidate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -612,6 +618,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -628,7 +635,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -704,6 +711,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -720,7 +728,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -796,6 +804,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_document, False, False, "json", shared.AtsDocument
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -812,7 +821,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsDocument",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -888,6 +897,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_document, False, False, "json", shared.AtsDocument
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -904,7 +914,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsDocument",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -980,6 +990,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_interview, False, False, "json", shared.AtsInterview
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -996,7 +1007,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsInterview",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1072,6 +1083,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_interview, False, False, "json", shared.AtsInterview
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1088,7 +1100,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsInterview",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1163,6 +1175,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_job, False, False, "json", shared.AtsJob
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1179,7 +1192,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsJob",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1252,6 +1265,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_job, False, False, "json", shared.AtsJob
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1268,7 +1282,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsJob",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1342,6 +1356,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_scorecard, False, False, "json", shared.AtsScorecard
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1358,7 +1373,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsScorecard",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1434,6 +1449,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_scorecard, False, False, "json", shared.AtsScorecard
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1450,7 +1466,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAtsScorecard",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1522,6 +1538,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1538,7 +1555,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsActivity",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1610,6 +1627,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1626,7 +1644,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsActivity",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1699,6 +1717,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1715,7 +1734,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1788,6 +1807,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1804,7 +1824,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1877,6 +1897,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1893,7 +1914,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsCandidate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1966,6 +1987,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1982,7 +2004,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsCandidate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2054,6 +2076,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2070,7 +2093,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2142,6 +2165,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2158,7 +2182,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2230,6 +2254,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2246,7 +2271,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsDocument",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2318,6 +2343,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2334,7 +2360,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsDocument",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2407,6 +2433,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2423,7 +2450,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsInterview",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2496,6 +2523,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2512,7 +2540,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsInterview",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2584,6 +2612,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2600,7 +2629,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsJob",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2670,6 +2699,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2686,7 +2716,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsJob",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2757,6 +2787,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2773,7 +2804,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsScorecard",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2846,6 +2877,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2862,7 +2894,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAtsScorecard",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2935,6 +2967,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2951,7 +2984,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsActivities",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3024,6 +3057,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3040,7 +3074,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsActivities",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3113,6 +3147,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3129,7 +3164,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsApplications",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3202,6 +3237,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3218,7 +3254,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsApplications",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3293,6 +3329,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3309,7 +3346,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsApplicationstatuses",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3384,6 +3421,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3400,7 +3438,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsApplicationstatuses",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3473,6 +3511,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3489,7 +3528,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsCandidates",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3562,6 +3601,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3578,7 +3618,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsCandidates",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3651,6 +3691,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3667,7 +3708,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsCompanies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3740,6 +3781,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3756,7 +3798,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsCompanies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3829,6 +3871,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3845,7 +3888,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsDocuments",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3918,6 +3961,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3934,7 +3978,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsDocuments",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4007,6 +4051,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4023,7 +4068,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsInterviews",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4096,6 +4141,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4112,7 +4158,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsInterviews",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4184,6 +4230,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4200,7 +4247,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsJobs",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4272,6 +4319,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4288,7 +4336,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsJobs",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4361,6 +4409,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4377,7 +4426,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsScorecards",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4450,6 +4499,7 @@ class Ats(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4466,7 +4516,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAtsScorecards",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4542,6 +4592,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_activity, False, False, "json", shared.AtsActivity
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4558,7 +4609,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsActivity",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4634,6 +4685,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_activity, False, False, "json", shared.AtsActivity
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4650,7 +4702,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsActivity",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4726,6 +4778,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_application, False, False, "json", shared.AtsApplication
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4742,7 +4795,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4818,6 +4871,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_application, False, False, "json", shared.AtsApplication
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4834,7 +4888,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4910,6 +4964,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_candidate, False, False, "json", shared.AtsCandidate
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4926,7 +4981,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsCandidate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5002,6 +5057,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_candidate, False, False, "json", shared.AtsCandidate
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5018,7 +5074,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsCandidate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5094,6 +5150,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5110,7 +5167,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5186,6 +5243,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5202,7 +5260,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5278,6 +5336,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_document, False, False, "json", shared.AtsDocument
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5294,7 +5353,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsDocument",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5370,6 +5429,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_document, False, False, "json", shared.AtsDocument
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5386,7 +5446,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsDocument",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5462,6 +5522,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_interview, False, False, "json", shared.AtsInterview
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5478,7 +5539,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsInterview",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5554,6 +5615,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_interview, False, False, "json", shared.AtsInterview
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5570,7 +5632,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsInterview",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5645,6 +5707,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_job, False, False, "json", shared.AtsJob
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5661,7 +5724,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsJob",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5734,6 +5797,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_job, False, False, "json", shared.AtsJob
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5750,7 +5814,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsJob",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5824,6 +5888,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_scorecard, False, False, "json", shared.AtsScorecard
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5840,7 +5905,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsScorecard",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -5916,6 +5981,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_scorecard, False, False, "json", shared.AtsScorecard
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -5932,7 +5998,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAtsScorecard",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6005,6 +6071,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6021,7 +6088,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsActivity",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6099,6 +6166,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6115,7 +6183,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsActivity",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6193,6 +6261,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6209,7 +6278,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6287,6 +6356,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6303,7 +6373,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6381,6 +6451,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6397,7 +6468,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsCandidate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6475,6 +6546,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6491,7 +6563,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsCandidate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6569,6 +6641,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6585,7 +6658,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6663,6 +6736,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6679,7 +6753,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6757,6 +6831,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6773,7 +6848,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsDocument",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6851,6 +6926,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6867,7 +6943,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsDocument",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -6945,6 +7021,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -6961,7 +7038,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsInterview",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7039,6 +7116,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7055,7 +7133,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsInterview",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7132,6 +7210,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7148,7 +7227,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsJob",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7225,6 +7304,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7241,7 +7321,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsJob",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7319,6 +7399,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7335,7 +7416,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsScorecard",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7413,6 +7494,7 @@ class Ats(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7429,7 +7511,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAtsScorecard",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7510,6 +7592,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_activity, False, False, "json", shared.AtsActivity
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7526,7 +7609,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsActivity",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7602,6 +7685,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_activity, False, False, "json", shared.AtsActivity
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7618,7 +7702,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsActivity",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7694,6 +7778,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_application, False, False, "json", shared.AtsApplication
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7710,7 +7795,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7786,6 +7871,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_application, False, False, "json", shared.AtsApplication
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7802,7 +7888,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7878,6 +7964,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_candidate, False, False, "json", shared.AtsCandidate
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7894,7 +7981,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsCandidate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -7970,6 +8057,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_candidate, False, False, "json", shared.AtsCandidate
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -7986,7 +8074,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsCandidate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -8062,6 +8150,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -8078,7 +8167,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -8154,6 +8243,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_company, False, False, "json", shared.AtsCompany
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -8170,7 +8260,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsCompany",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -8246,6 +8336,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_document, False, False, "json", shared.AtsDocument
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -8262,7 +8353,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsDocument",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -8338,6 +8429,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_document, False, False, "json", shared.AtsDocument
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -8354,7 +8446,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsDocument",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -8430,6 +8522,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_interview, False, False, "json", shared.AtsInterview
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -8446,7 +8539,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsInterview",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -8522,6 +8615,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_interview, False, False, "json", shared.AtsInterview
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -8538,7 +8632,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsInterview",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -8613,6 +8707,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_job, False, False, "json", shared.AtsJob
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -8629,7 +8724,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsJob",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -8702,6 +8797,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_job, False, False, "json", shared.AtsJob
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -8718,7 +8814,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsJob",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -8792,6 +8888,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_scorecard, False, False, "json", shared.AtsScorecard
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -8808,7 +8905,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsScorecard",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -8884,6 +8981,7 @@ class Ats(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.ats_scorecard, False, False, "json", shared.AtsScorecard
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -8900,7 +8998,7 @@ class Ats(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAtsScorecard",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

@@ -32,14 +32,12 @@ class DATA_PT_context_mesh(MeshButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -69,14 +67,12 @@ class DATA_PT_custom_props_mesh(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class DATA_PT_customdata(MeshButtonsPanel, _bpy_types.Panel):
@@ -93,14 +89,12 @@ class DATA_PT_customdata(MeshButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -133,14 +127,12 @@ class DATA_PT_mesh_animation(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -163,14 +155,12 @@ class DATA_PT_mesh_attributes(MeshButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -193,14 +183,12 @@ class DATA_PT_remesh(MeshButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -222,14 +210,12 @@ class DATA_PT_shape_keys(MeshButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -259,14 +245,12 @@ class DATA_PT_texture_space(MeshButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -289,14 +273,12 @@ class DATA_PT_uv_texture(MeshButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -319,14 +301,12 @@ class DATA_PT_vertex_colors(MeshButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -348,14 +328,12 @@ class DATA_PT_vertex_groups(MeshButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -380,14 +358,12 @@ class MESH_MT_attribute_context_menu(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -405,14 +381,12 @@ class MESH_MT_color_attribute_context_menu(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -430,14 +404,12 @@ class MESH_MT_shape_key_context_menu(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -455,14 +427,12 @@ class MESH_MT_shape_key_tree_context_menu(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -480,14 +450,12 @@ class MESH_MT_vertex_group_context_menu(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -505,14 +473,12 @@ class MESH_UL_attributes(_bpy_types.UIList):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_item(
@@ -554,14 +520,12 @@ class MESH_UL_uvmaps(_bpy_types.UIList):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_item(
@@ -595,14 +559,12 @@ class MESH_UL_vgroups(_bpy_types.UIList):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_item(
@@ -649,14 +611,12 @@ class MESH_UL_color_attributes(_bpy_types.UIList, ColorAttributesListBase):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_item(
@@ -691,14 +651,12 @@ class MESH_UL_color_attributes_selector(_bpy_types.UIList, ColorAttributesListBa
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_item(

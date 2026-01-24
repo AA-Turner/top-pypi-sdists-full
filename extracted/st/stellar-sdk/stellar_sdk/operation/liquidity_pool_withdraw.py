@@ -1,6 +1,6 @@
 import binascii
 from decimal import Decimal
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..muxed_account import MuxedAccount
@@ -18,7 +18,7 @@ class LiquidityPoolWithdraw(Operation):
 
     Threshold: Medium
 
-    See `Liquidity Pool Withdraw <https://developers.stellar.org/docs/start/list-of-operations/#liquidity-pool-withdraw>`_ for more information.
+    See `Liquidity Pool Withdraw <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#liquidity-pool-withdraw>`_ for more information.
 
     :param liquidity_pool_id: The liquidity pool ID.
     :param amount: Amount of pool shares to withdraw.
@@ -35,10 +35,10 @@ class LiquidityPoolWithdraw(Operation):
     def __init__(
         self,
         liquidity_pool_id: str,
-        amount: Union[str, Decimal],
-        min_amount_a: Union[str, Decimal],
-        min_amount_b: Union[str, Decimal],
-        source: Optional[Union[MuxedAccount, str]] = None,
+        amount: str | Decimal,
+        min_amount_a: str | Decimal,
+        min_amount_b: str | Decimal,
+        source: MuxedAccount | str | None = None,
     ):
         super().__init__(source)
         self.liquidity_pool_id: str = liquidity_pool_id

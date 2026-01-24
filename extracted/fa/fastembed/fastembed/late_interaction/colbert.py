@@ -8,7 +8,7 @@ from fastembed.common.preprocessor_utils import load_tokenizer
 from fastembed.common.types import NumpyArray
 from fastembed.common import OnnxProvider
 from fastembed.common.onnx_model import OnnxOutputContext
-from fastembed.common.utils import define_cache_dir
+from fastembed.common.utils import define_cache_dir, iter_batch
 from fastembed.late_interaction.late_interaction_embedding_base import (
     LateInteractionTextEmbeddingBase,
 )
@@ -96,6 +96,38 @@ class Colbert(LateInteractionTextEmbeddingBase, OnnxTextModel[NumpyArray]):
         encoded = self.tokenizer.encode_batch(documents)  # type: ignore[union-attr]
         return encoded
 
+    def token_count(
+        self,
+        texts: Union[str, Iterable[str]],
+        batch_size: int = 1024,
+        is_doc: bool = True,
+        include_extension: bool = False,
+        **kwargs: Any,
+    ) -> int:
+        if not hasattr(self, "model") or self.model is None:
+            self.load_onnx_model()  # loads the tokenizer as well
+        token_num = 0
+        texts = [texts] if isinstance(texts, str) else texts
+        tokenizer = self.tokenizer if is_doc else self.query_tokenizer
+        assert tokenizer is not None
+        for batch in iter_batch(texts, batch_size):
+            for tokens in tokenizer.encode_batch(batch):
+                if is_doc:
+                    token_num += sum(tokens.attention_mask)
+                else:
+                    attend_count = sum(tokens.attention_mask)
+                    if include_extension:
+                        token_num += max(attend_count, self.MIN_QUERY_LENGTH)
+
+                    else:
+                        token_num += attend_count
+            if include_extension:
+                token_num += len(
+                    batch
+                )  # add 1 for each cls.DOC_MARKER_TOKEN_ID or cls.QUERY_MARKER_TOKEN_ID
+
+        return token_num
+
     @classmethod
     def _list_supported_models(cls) -> list[DenseModelDescription]:
         """Lists the supported models.
@@ -143,6 +175,7 @@ class Colbert(LateInteractionTextEmbeddingBase, OnnxTextModel[NumpyArray]):
         super().__init__(model_name, cache_dir, threads, **kwargs)
         self.providers = providers
         self.lazy_load = lazy_load
+        self._extra_session_options = self._select_exposed_session_options(kwargs)
 
         # List of device ids, that can be used for data parallel processing in workers
         self.device_ids = device_ids
@@ -182,6 +215,7 @@ class Colbert(LateInteractionTextEmbeddingBase, OnnxTextModel[NumpyArray]):
             providers=self.providers,
             cuda=self.cuda,
             device_id=self.device_id,
+            extra_session_options=self._extra_session_options,
         )
         self.query_tokenizer, _ = load_tokenizer(model_dir=self._model_dir)
 
@@ -235,6 +269,7 @@ class Colbert(LateInteractionTextEmbeddingBase, OnnxTextModel[NumpyArray]):
             device_ids=self.device_ids,
             local_files_only=self._local_files_only,
             specific_model_path=self._specific_model_path,
+            extra_session_options=self._extra_session_options,
             **kwargs,
         )
 

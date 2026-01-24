@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -12,6 +12,94 @@ import QuantConnect.Python
 import QuantConnect.Securities
 import System
 import System.Collections.Generic
+
+
+class Fill(System.Object, typing.Iterable[QuantConnect.Orders.OrderEvent]):
+    """Defines a possible result for IfillModel.fill for a single order"""
+
+    @overload
+    def __init__(self, order_events: typing.List[QuantConnect.Orders.OrderEvent]) -> None:
+        """
+        Creates a new Fill instance
+        
+        :param order_events: The fill order events
+        """
+        ...
+
+    @overload
+    def __init__(self, order_event: QuantConnect.Orders.OrderEvent) -> None:
+        """
+        Creates a new Fill instance
+        
+        :param order_event: The fill order event
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[QuantConnect.Orders.OrderEvent]:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect.Orders.OrderEvent]:
+        """Returns the order events enumerator"""
+        ...
+
+
+class FillModelParameters(System.Object):
+    """Defines the parameters for the IFillModel method"""
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """Gets the security"""
+        ...
+
+    @property
+    def order(self) -> QuantConnect.Orders.Order:
+        """Gets the order"""
+        ...
+
+    @property
+    def config_provider(self) -> QuantConnect.Interfaces.ISubscriptionDataConfigProvider:
+        """Gets the SubscriptionDataConfig provider"""
+        ...
+
+    @property
+    def stale_price_time_span(self) -> datetime.timedelta:
+        """Gets the minimum time span elapsed to consider a market fill price as stale (defaults to one hour)"""
+        ...
+
+    @property
+    def securities_for_orders(self) -> System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security]:
+        """Gets the collection of securities by order"""
+        ...
+
+    @property
+    def on_order_updated(self) -> typing.Callable[[QuantConnect.Orders.Order], typing.Any]:
+        """Callback to notify when an order is updated by the fill model"""
+        ...
+
+    def __init__(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, config_provider: QuantConnect.Interfaces.ISubscriptionDataConfigProvider, stale_price_time_span: datetime.timedelta, securities_for_orders: System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security], on_order_updated: typing.Callable[[QuantConnect.Orders.Order], typing.Any] = None) -> None:
+        """
+        Creates a new instance
+        
+        :param security: Security asset we're filling
+        :param order: Order packet to model
+        :param config_provider: The ISubscriptionDataConfigProvider to use
+        :param stale_price_time_span: The minimum time span elapsed to consider a fill price as stale
+        :param securities_for_orders: Collection of securities for each order
+        """
+        ...
+
+
+class IFillModel(metaclass=abc.ABCMeta):
+    """Represents a model that simulates order fill events"""
+
+    def fill(self, parameters: QuantConnect.Orders.Fills.FillModelParameters) -> QuantConnect.Orders.Fills.Fill:
+        """
+        Return an order event with the fill details
+        
+        :param parameters: A FillModelParameters object containing the security and order
+        :returns: Order fill information detailing the average price and quantity filled.
+        """
+        ...
 
 
 class Prices(System.Object):
@@ -81,94 +169,6 @@ class Prices(System.Object):
         ...
 
 
-class Fill(System.Object, typing.Iterable[QuantConnect.Orders.OrderEvent]):
-    """Defines a possible result for IFillModel.Fill for a single order"""
-
-    @overload
-    def __init__(self, order_events: typing.List[QuantConnect.Orders.OrderEvent]) -> None:
-        """
-        Creates a new Fill instance
-        
-        :param order_events: The fill order events
-        """
-        ...
-
-    @overload
-    def __init__(self, order_event: QuantConnect.Orders.OrderEvent) -> None:
-        """
-        Creates a new Fill instance
-        
-        :param order_event: The fill order event
-        """
-        ...
-
-    def __iter__(self) -> typing.Iterator[QuantConnect.Orders.OrderEvent]:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect.Orders.OrderEvent]:
-        """Returns the order events enumerator"""
-        ...
-
-
-class FillModelParameters(System.Object):
-    """Defines the parameters for the IFillModel method"""
-
-    @property
-    def security(self) -> QuantConnect.Securities.Security:
-        """Gets the Security"""
-        ...
-
-    @property
-    def order(self) -> QuantConnect.Orders.Order:
-        """Gets the Order"""
-        ...
-
-    @property
-    def config_provider(self) -> QuantConnect.Interfaces.ISubscriptionDataConfigProvider:
-        """Gets the SubscriptionDataConfig provider"""
-        ...
-
-    @property
-    def stale_price_time_span(self) -> datetime.timedelta:
-        """Gets the minimum time span elapsed to consider a market fill price as stale (defaults to one hour)"""
-        ...
-
-    @property
-    def securities_for_orders(self) -> System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security]:
-        """Gets the collection of securities by order"""
-        ...
-
-    @property
-    def on_order_updated(self) -> typing.Callable[[QuantConnect.Orders.Order], typing.Any]:
-        """Callback to notify when an order is updated by the fill model"""
-        ...
-
-    def __init__(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, config_provider: QuantConnect.Interfaces.ISubscriptionDataConfigProvider, stale_price_time_span: datetime.timedelta, securities_for_orders: System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security], on_order_updated: typing.Callable[[QuantConnect.Orders.Order], typing.Any] = None) -> None:
-        """
-        Creates a new instance
-        
-        :param security: Security asset we're filling
-        :param order: Order packet to model
-        :param config_provider: The ISubscriptionDataConfigProvider to use
-        :param stale_price_time_span: The minimum time span elapsed to consider a fill price as stale
-        :param securities_for_orders: Collection of securities for each order
-        """
-        ...
-
-
-class IFillModel(metaclass=abc.ABCMeta):
-    """Represents a model that simulates order fill events"""
-
-    def fill(self, parameters: QuantConnect.Orders.Fills.FillModelParameters) -> QuantConnect.Orders.Fills.Fill:
-        """
-        Return an order event with the fill details
-        
-        :param parameters: A FillModelParameters object containing the security and order
-        :returns: Order fill information detailing the average price and quantity filled.
-        """
-        ...
-
-
 class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
     """Provides a base class for all fill models"""
 
@@ -177,7 +177,8 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         """
         The parameters instance to be used by the different XxxxFill() implementations
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -192,7 +193,8 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         When Python calls a C# method that calls a method that's overriden in python it won't
         run the python implementation unless the call is performed through python too.
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -243,7 +245,8 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         """
         Get the minimum and maximum price for this security in the last bar:
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param asset: Security asset we're checking
         :param direction: The order direction, decides whether to pick bid or ask
@@ -253,9 +256,9 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
     def get_prices_checking_python_wrapper(self, asset: QuantConnect.Securities.Security, direction: QuantConnect.Orders.OrderDirection) -> QuantConnect.Orders.Fills.Prices:
         """
         This is required due to a limitation in PythonNet to resolved
-        overriden methods. GetPrices
+        overriden methods. get_prices
         
-        This method is protected.
+        This codeEntityType is protected.
         """
         ...
 
@@ -263,7 +266,8 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         """
         Get data types the Security is subscribed to
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param asset: Security which has subscribed data types
         """
@@ -273,7 +277,8 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         """
         Determines if the exchange is open using the current time of the asset
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -291,6 +296,8 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         """
         Default limit if touched fill model implementation in base class security. (Limit If Touched Order Type)
         
+        :param asset: 
+        :param order: 
         :returns: Order fill information detailing the average price and quantity filled.
         """
         ...
@@ -367,7 +374,8 @@ class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
         """
         Get the minimum and maximum price for this security in the last bar:
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param asset: Security asset we're checking
         :param direction: The order direction, decides whether to pick bid or ask
@@ -377,9 +385,9 @@ class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
     def get_prices_checking_python_wrapper(self, asset: QuantConnect.Securities.Security, direction: QuantConnect.Orders.OrderDirection) -> QuantConnect.Orders.Fills.Prices:
         """
         This is required due to a limitation in PythonNet to resolved
-        overriden methods. GetPrices
+        overriden methods. get_prices
         
-        This method is protected.
+        This codeEntityType is protected.
         """
         ...
 
@@ -387,7 +395,8 @@ class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
         """
         Get data types the Security is subscribed to
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param asset: Security which has subscribed data types
         """
@@ -468,25 +477,6 @@ class ImmediateFillModel(QuantConnect.Orders.Fills.FillModel):
     """Represents the default fill model used to simulate order fills"""
 
 
-class LatestPriceFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
-    """
-    This fill model is provided for cases where the trade/quote distinction should be
-    ignored and the fill price should be determined from the latest pricing information.
-    """
-
-    def get_prices(self, asset: QuantConnect.Securities.Security, direction: QuantConnect.Orders.OrderDirection) -> QuantConnect.Orders.Fills.Prices:
-        """
-        Get the minimum and maximum price for this security in the last bar
-        Ignore the Trade/Quote distinction - fill with the latest pricing information
-        
-        This method is protected.
-        
-        :param asset: Security asset we're checking
-        :param direction: The order direction, decides whether to pick bid or ask
-        """
-        ...
-
-
 class FutureFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
     """Represents the fill model used to simulate order fills for futures"""
 
@@ -513,5 +503,25 @@ class FutureFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
 
 class FutureOptionFillModel(QuantConnect.Orders.Fills.FutureFillModel):
     """Represents the default fill model used to simulate order fills for future options"""
+
+
+class LatestPriceFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
+    """
+    This fill model is provided for cases where the trade/quote distinction should be
+    ignored and the fill price should be determined from the latest pricing information.
+    """
+
+    def get_prices(self, asset: QuantConnect.Securities.Security, direction: QuantConnect.Orders.OrderDirection) -> QuantConnect.Orders.Fills.Prices:
+        """
+        Get the minimum and maximum price for this security in the last bar
+        Ignore the Trade/Quote distinction - fill with the latest pricing information
+        
+        
+        This codeEntityType is protected.
+        
+        :param asset: Security asset we're checking
+        :param direction: The order direction, decides whether to pick bid or ask
+        """
+        ...
 
 

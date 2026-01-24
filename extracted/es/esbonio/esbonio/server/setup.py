@@ -2,18 +2,22 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import pathlib
 import typing
-from typing import Iterable
-from typing import Type
+from collections.abc import Iterable
 
 from lsprotocol import types
+from pygls.capabilities import get_capability
+
+from . import Uri
+from .feature import DocumentLinkContext
 
 if typing.TYPE_CHECKING:
     from .server import EsbonioLanguageServer
 
 
 def create_language_server(
-    server_cls: Type[EsbonioLanguageServer], modules: Iterable[str], *args, **kwargs
+    server_cls: type[EsbonioLanguageServer], modules: Iterable[str], *args, **kwargs
 ) -> EsbonioLanguageServer:
     """Create a new language server instance.
 
@@ -32,15 +36,46 @@ def create_language_server(
     for module in modules:
         _load_module(server, module)
 
-    return _configure_lsp_methods(server)
+    _register_lsp_methods(server)
+    _register_completion(server)
+    _register_hover(server)
+    return server
 
 
-def _configure_lsp_methods(server: EsbonioLanguageServer) -> EsbonioLanguageServer:
+def _register_lsp_methods(server: EsbonioLanguageServer):
     """Configure method handlers for the portions of the LSP spec we support."""
 
     @server.feature(types.INITIALIZE)
     async def on_initialize(ls: EsbonioLanguageServer, params: types.InitializeParams):
+        text_diagnostic = get_capability(
+            params.capabilities, "text_document.diagnostic", None
+        )
+        workspace_diagnostic = get_capability(
+            params.capabilities,
+            "workspace.diagnostics",
+            types.DiagnosticWorkspaceClientCapabilities(),
+        )
+
+        # While we can use the pull-based diagnostic model, we need the client to support
+        # `workspace/diagnositc/refresh` requests in order for the experience to be good.
+        if text_diagnostic is not None and workspace_diagnostic.refresh_support:
+            _register_pull_diagnostics(ls)
+
         ls.initialize(params)
+        await call_features(ls, "initialize", params)
+
+    @server.feature(types.INITIALIZED)
+    async def on_initialized(
+        ls: EsbonioLanguageServer, params: types.InitializedParams
+    ):
+        await ls.initialized(params)
+        await call_features(ls, "initialized", params)
+        ls.ready.set_result(True)
+
+    @server.feature(types.SHUTDOWN)
+    async def on_shutdown(ls: EsbonioLanguageServer, params: None):
+        ls.lsp_shutdown(params)
+        await call_features(ls, "shutdown", params)
 
     @server.feature(types.TEXT_DOCUMENT_DID_CHANGE)
     async def on_document_change(
@@ -65,18 +100,282 @@ def _configure_lsp_methods(server: EsbonioLanguageServer) -> EsbonioLanguageServ
         ls: EsbonioLanguageServer, params: types.DidSaveTextDocumentParams
     ):
         # Record the version number of the document
-        doc = ls.workspace.get_document(params.text_document.uri)
-        doc.saved_version = doc.version or 0
+        doc = ls.workspace.get_text_document(params.text_document.uri)
+        doc.saved_version = doc.version or 0  # type: ignore[attr-defined]
 
         await call_features(ls, "document_save", params)
+
+    @server.feature(types.TEXT_DOCUMENT_DEFINITION)
+    async def on_definition(ls: EsbonioLanguageServer, params: types.DefinitionParams):
+        uri = params.text_document.uri
+        pos = params.position
+        doc = ls.workspace.get_text_document(uri)
+        language = ls.get_language_at(doc, pos)
+
+        definitions = []
+
+        for cls, feature in ls:
+            if not feature.definition_trigger:
+                continue
+
+            context = feature.definition_trigger(
+                uri=Uri.parse(uri),
+                params=params,
+                document=doc,
+                language=language,
+                client_capabilities=ls.client_capabilities,
+            )
+
+            if context is None:
+                continue
+
+            ls.logger.debug("%s", context)
+            name = f"{cls.__name__}"
+
+            try:
+                result = feature.definition(context)
+                if inspect.isawaitable(result):
+                    result = await result
+            except Exception:
+                ls.logger.exception("Error in '%s.definition' handler", name)
+                continue
+
+            if result is not None:
+                definitions.extend(result)
+
+        return definitions if len(definitions) > 0 else None
+
+    @server.feature(types.TEXT_DOCUMENT_DOCUMENT_LINK)
+    async def on_document_link(
+        ls: EsbonioLanguageServer, params: types.DocumentLinkParams
+    ):
+        uri = params.text_document.uri
+        doc = ls.workspace.get_text_document(uri)
+        context = DocumentLinkContext(
+            uri=Uri.parse(uri), doc=doc, capabilities=ls.client_capabilities
+        )
+        ls.logger.debug("%s", context)
+
+        links = []
+        for cls, feature in ls:
+            name = f"{cls.__name__}"
+
+            try:
+                result = feature.document_link(context)
+                if inspect.isawaitable(result):
+                    result = await result
+
+                if isinstance(result, list):
+                    links.extend(result)
+
+            except Exception:
+                ls.logger.exception("Error in '%s.document_link' handler", name)
+                continue
+
+        return links or None
 
     @server.feature(types.TEXT_DOCUMENT_DOCUMENT_SYMBOL)
     async def on_document_symbol(
         ls: EsbonioLanguageServer, params: types.DocumentSymbolParams
     ):
-        return await call_features_return_first(ls, "document_symbol", params)
+        result = await return_first_result(ls, "document_symbol", params)
+        return result
 
-    return server
+    @server.feature(types.WORKSPACE_SYMBOL)
+    async def on_workspace_symbol(
+        ls: EsbonioLanguageServer, params: types.WorkspaceSymbolParams
+    ):
+        result = await return_first_result(ls, "workspace_symbol", params)
+        if len(result) == 0:
+            return None
+
+        return result
+
+    @server.feature(types.WORKSPACE_DID_CHANGE_CONFIGURATION)
+    async def on_did_change_configuration(
+        ls: EsbonioLanguageServer, params: types.DidChangeConfigurationParams
+    ):
+        ls.logger.debug("%s: %s", types.WORKSPACE_DID_CHANGE_CONFIGURATION, params)
+        await ls.configuration.update_workspace_configuration()
+
+    @server.feature(types.WORKSPACE_DID_CHANGE_WATCHED_FILES)
+    async def on_did_change_watched_files(
+        ls: EsbonioLanguageServer, params: types.DidChangeWatchedFilesParams
+    ):
+        ls.logger.debug("%s: %s", types.WORKSPACE_DID_CHANGE_WATCHED_FILES, params)
+        # TODO: Handle deleted files.
+        paths = [pathlib.Path(Uri.parse(event.uri)) for event in params.changes]
+        ls.configuration.update_file_configuration(paths)
+
+
+def _register_completion(server: EsbonioLanguageServer):
+    """Configuration completion handlers."""
+
+    trigger_characters: set[str] = set()
+
+    for _, feature in server:
+        if feature.completion_trigger is None:
+            continue
+
+        trigger_characters.update(feature.completion_trigger.characters)
+
+    @server.feature(
+        types.TEXT_DOCUMENT_COMPLETION,
+        types.CompletionOptions(
+            trigger_characters=list(trigger_characters),
+            resolve_provider=True,
+        ),
+    )
+    async def on_completion(ls: EsbonioLanguageServer, params: types.CompletionParams):
+        uri = params.text_document.uri
+        pos = params.position
+        doc = ls.workspace.get_text_document(uri)
+        language = ls.get_language_at(doc, pos)
+
+        items = []
+
+        for cls, feature in ls:
+            if not feature.completion_trigger:
+                continue
+
+            context = feature.completion_trigger(
+                uri=Uri.parse(uri),
+                params=params,
+                document=doc,
+                language=language,
+                client_capabilities=ls.client_capabilities,
+            )
+
+            if context is None:
+                continue
+
+            ls.logger.debug("%s", context)
+            name = f"{cls.__name__}"
+
+            try:
+                result = feature.completion(context)
+                if inspect.isawaitable(result):
+                    result = await result
+            except Exception:
+                ls.logger.exception("Error in '%s.complete' handler", name)
+                continue
+
+            for item in result or []:
+                item.data = {"source_feature": name, **(item.data or {})}  # type: ignore
+                items.append(item)
+
+        if len(items) > 0:
+            return types.CompletionList(is_incomplete=False, items=items)
+
+    @server.feature(types.COMPLETION_ITEM_RESOLVE)
+    def on_completion_resolve(
+        ls: EsbonioLanguageServer, item: types.CompletionItem
+    ) -> types.CompletionItem:
+        # source = (item.data or {}).get("source_feature", "")  # type: ignore
+        # feature = ls.get_feature(source)
+
+        # if not feature:
+        #     ls.logger.error(
+        #         "Unable to resolve completion item, unknown source: '%s'", source
+        #     )
+        #     return item
+
+        # return feature.completion_resolve(item)
+        return item
+
+
+def _register_pull_diagnostics(server: EsbonioLanguageServer):
+    """Configure method handlers for diagnostics."""
+
+    @server.feature(
+        types.TEXT_DOCUMENT_DIAGNOSTIC,
+        types.DiagnosticOptions(
+            identifier="esbonio",
+            inter_file_dependencies=True,
+            workspace_diagnostics=True,
+        ),
+    )
+    async def on_document_diagnostic(
+        ls: EsbonioLanguageServer, params: types.DocumentDiagnosticParams
+    ):
+        """Handle a ``textDocument/diagnostic`` request."""
+        doc_uri = Uri.parse(params.text_document.uri).resolve()
+        items = []
+
+        for (_, uri), diags in ls._diagnostics.items():
+            if uri.resolve() == doc_uri:
+                items.extend(diags)
+
+        # TODO: Detect no changes and send 'unchanged' responses
+        return types.RelatedFullDocumentDiagnosticReport(
+            items=items,
+            kind=types.DocumentDiagnosticReportKind.Full,
+        )
+
+    @server.feature(types.WORKSPACE_DIAGNOSTIC)
+    async def on_workspace_diagnostic(
+        ls: EsbonioLanguageServer, params: types.WorkspaceDiagnosticParams
+    ):
+        """Handle a ``workspace/diagnostic`` request."""
+        diagnostics: dict[Uri, list[types.Diagnostic]] = {}
+
+        for (_, uri), diags in ls._diagnostics.items():
+            diagnostics.setdefault(uri, []).extend(diags)
+
+        # TODO: Detect no changes and send 'unchanged' responses
+        reports = []
+        for uri, items in diagnostics.items():
+            reports.append(
+                types.WorkspaceFullDocumentDiagnosticReport(
+                    uri=str(uri),
+                    items=items,
+                    kind=types.DocumentDiagnosticReportKind.Full,
+                )
+            )
+
+        return types.WorkspaceDiagnosticReport(items=reports)
+
+
+def _register_hover(server: EsbonioLanguageServer):
+    """Configure the handlers for documentation hovers."""
+
+    @server.feature(types.TEXT_DOCUMENT_HOVER)
+    async def on_hover(ls: EsbonioLanguageServer, params: types.HoverParams):
+        uri = params.text_document.uri
+        pos = params.position
+        doc = ls.workspace.get_text_document(uri)
+        language = ls.get_language_at(doc, pos)
+
+        for cls, feature in ls:
+            if not feature.hover_trigger:
+                continue
+
+            context = feature.hover_trigger(
+                uri=Uri.parse(uri),
+                params=params,
+                document=doc,
+                language=language,
+                client_capabilities=ls.client_capabilities,
+            )
+
+            if context is None:
+                continue
+
+            ls.logger.debug("%s", context)
+            name = f"{cls.__name__}"
+
+            try:
+                result = feature.hover(context)
+                if inspect.isawaitable(result):
+                    result = await result
+            except Exception:
+                ls.logger.exception("Error in '%s.hover' handler", name)
+                continue
+
+            if result is not None:
+                return result
+
+        return None
 
 
 async def call_features(ls: EsbonioLanguageServer, method: str, *args, **kwargs):
@@ -95,9 +394,7 @@ async def call_features(ls: EsbonioLanguageServer, method: str, *args, **kwargs)
             ls.logger.error("Error in '%s.%s' handler", name, method, exc_info=True)
 
 
-async def call_features_return_first(
-    ls: EsbonioLanguageServer, method: str, *args, **kwargs
-):
+async def return_first_result(ls: EsbonioLanguageServer, method: str, *args, **kwargs):
     """Call all features, returning the first non ``None`` result we find."""
 
     for cls, feature in ls:
@@ -106,7 +403,7 @@ async def call_features_return_first(
 
             result = impl(*args, **kwargs)
             if inspect.isawaitable(result):
-                await result
+                result = await result
 
             if result is not None:
                 return result

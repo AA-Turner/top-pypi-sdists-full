@@ -18,7 +18,7 @@ class MediaOrderConflictWarning(RuntimeWarning): ...
 class MediaAsset:
     element_template: str
 
-    def __init__(self, path: str, **attributes: _OptAttrs) -> None: ...
+    def __init__(self, path: str, **attributes: Any) -> None: ...
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...
     def __html__(self) -> SafeString: ...
@@ -28,7 +28,7 @@ class MediaAsset:
 class Script(MediaAsset):
     element_template: str
 
-    def __init__(self, src: str, **attributes: _OptAttrs) -> None: ...
+    def __init__(self, src: str, **attributes: Any) -> None: ...
 
 class Media:
     def __init__(
@@ -320,34 +320,34 @@ class SelectDateWidget(Widget):
     def value_omitted_from_data(self, data: _DataT, files: _FilesT, name: str) -> bool: ...
 
 __all__ = (
-    "Script",
-    "Media",
-    "MediaDefiningClass",
-    "Widget",
-    "TextInput",
-    "NumberInput",
-    "EmailInput",
-    "URLInput",
-    "ColorInput",
-    "SearchInput",
-    "TelInput",
-    "PasswordInput",
-    "HiddenInput",
-    "MultipleHiddenInput",
-    "FileInput",
+    "CheckboxInput",
+    "CheckboxSelectMultiple",
     "ClearableFileInput",
-    "Textarea",
+    "ColorInput",
     "DateInput",
     "DateTimeInput",
-    "TimeInput",
-    "CheckboxInput",
-    "Select",
-    "NullBooleanSelect",
-    "SelectMultiple",
-    "RadioSelect",
-    "CheckboxSelectMultiple",
+    "EmailInput",
+    "FileInput",
+    "HiddenInput",
+    "Media",
+    "MediaDefiningClass",
     "MultiWidget",
+    "MultipleHiddenInput",
+    "NullBooleanSelect",
+    "NumberInput",
+    "PasswordInput",
+    "RadioSelect",
+    "Script",
+    "SearchInput",
+    "Select",
+    "SelectDateWidget",
+    "SelectMultiple",
     "SplitDateTimeWidget",
     "SplitHiddenDateTimeWidget",
-    "SelectDateWidget",
+    "TelInput",
+    "TextInput",
+    "Textarea",
+    "TimeInput",
+    "URLInput",
+    "Widget",
 )

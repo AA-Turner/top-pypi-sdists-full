@@ -3,7 +3,6 @@ package stream_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/stretchr/testify/assert"
@@ -15,13 +14,11 @@ import (
 	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/observabilitytest"
 	"github.com/wandb/wandb/core/internal/runfiles"
-	"github.com/wandb/wandb/core/internal/runupserter"
+	"github.com/wandb/wandb/core/internal/runhandle"
 	"github.com/wandb/wandb/core/internal/runworktest"
 	wbsettings "github.com/wandb/wandb/core/internal/settings"
 	"github.com/wandb/wandb/core/internal/stream"
-	"github.com/wandb/wandb/core/internal/waiting"
 	"github.com/wandb/wandb/core/internal/watchertest"
-	"github.com/wandb/wandb/core/internal/wboperation"
 	"github.com/wandb/wandb/core/pkg/artifacts"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 	"go.uber.org/mock/gomock"
@@ -34,7 +31,7 @@ const validLinkArtifactResponse = `{
 
 type testFixtures struct {
 	Sender    *stream.Sender
-	StreamRun *stream.StreamRun
+	RunHandle *runhandle.RunHandle
 	Settings  *wbsettings.Settings
 	Logger    *observability.CoreLogger
 }
@@ -48,13 +45,15 @@ func makeSender(t *testing.T, client graphql.Client) testFixtures {
 		Console: &wrapperspb.StringValue{Value: "off"},
 		ApiKey:  &wrapperspb.StringValue{Value: "test-api-key"},
 	})
-	backend := stream.NewBackend(logger, settings)
+	baseURL := stream.BaseURLFromSettings(logger, settings)
+	credentialProvider := stream.CredentialsFromSettings(logger, settings)
 	fileStreamFactory := &filestream.FileStreamFactory{
 		Logger:   logger,
 		Printer:  observability.NewPrinter(),
 		Settings: settings,
 	}
 	fileTransferManager := stream.NewFileTransferManager(
+		baseURL,
 		filetransfer.NewFileTransferStats(),
 		logger,
 		settings,
@@ -66,83 +65,27 @@ func makeSender(t *testing.T, client graphql.Client) testFixtures {
 		Logger:       logger,
 		Settings:     settings,
 	}
-	streamRun := stream.NewStreamRun()
+	runHandle := runhandle.New()
 
 	senderFactory := stream.SenderFactory{
+		BaseURL:                 baseURL,
+		CredentialProvider:      credentialProvider,
 		Logger:                  logger,
 		Settings:                settings,
-		Backend:                 backend,
 		FileStreamFactory:       fileStreamFactory,
 		FileTransferManager:     fileTransferManager,
 		RunfilesUploaderFactory: runfilesUploaderFactory,
 		Mailbox:                 mailbox.New(),
 		GraphqlClient:           client,
 		FeatureProvider:         featurechecker.NewServerFeaturesCache(nil, logger),
-		StreamRun:               streamRun,
+		RunHandle:               runHandle,
 	}
 	return testFixtures{
 		Sender:    senderFactory.New(runWork),
-		StreamRun: streamRun,
+		RunHandle: runHandle,
 		Settings:  settings,
 		Logger:    logger,
 	}
-}
-
-// Seed a minimal RunUpserter so Sender can resolve entity/project/run for GraphQL fallback.
-func seedRunUpserter(
-	t *testing.T,
-	sr *stream.StreamRun,
-	settings *wbsettings.Settings,
-	logger *observability.CoreLogger,
-) {
-	t.Helper()
-	rec := &spb.Record{RecordType: &spb.Record_Run{
-		Run: &spb.RunRecord{
-			Entity: "entity", Project: "project", RunId: "run",
-		},
-	}}
-	upserter, err := runupserter.InitRun(rec, runupserter.RunUpserterParams{
-		DebounceDelay:      waiting.NewDelay(1 * time.Millisecond),
-		ClientID:           "test-client",
-		Settings:           settings,
-		BeforeRunEndCtx:    context.Background(),
-		Operations:         wboperation.NewOperations(),
-		FeatureProvider:    featurechecker.NewServerFeaturesCache(nil, logger),
-		GraphqlClientOrNil: nil,
-		Logger:             logger,
-	})
-	assert.NoError(t, err)
-	assert.NoError(t, sr.SetRunUpserter(upserter))
-}
-
-func TestSendRequestStopStatus_FallsBackToGraphQL(t *testing.T) {
-	mockGQL := gqlmock.NewMockClient()
-	x := makeSender(t, mockGQL)
-
-	// Ensure Sender has a RunUpserter so it can construct gql vars.
-	seedRunUpserter(t, x.StreamRun, x.Settings, x.Logger)
-
-	rec := &spb.Record{
-		RecordType: &spb.Record_Request{
-			Request: &spb.Request{
-				RequestType: &spb.Request_StopStatus{
-					StopStatus: &spb.StopStatusRequest{},
-				},
-			},
-		},
-		Control: &spb.Control{MailboxSlot: "slot"},
-	}
-
-	mockGQL.StubMatchOnce(
-		gqlmock.WithOpName("RunStoppedStatus"),
-		`{"project": {"run": {"stopped": true}}}`,
-	)
-
-	x.Sender.SendRecord(rec)
-	res := <-x.Sender.ResponseChan()
-	resp := res.GetResponse().GetStopStatusResponse()
-	assert.NotNil(t, resp)
-	assert.Equal(t, true, resp.GetRunShouldStop())
 }
 
 // Verify that arguments are properly passed through to graphql
@@ -322,13 +265,33 @@ func TestLinkRegistryArtifact(t *testing.T) {
 		errorMessage      string
 	}{
 		{"Link registry artifact with orgName updated server", "orgName", false, ""},
-		{"Link registry artifact with orgName old server", "orgName", true, expectLinkArtifactFailure},
-		{"Link registry artifact with orgEntity name updated server", "orgEntityName_123", false, ""},
+		{
+			"Link registry artifact with orgName old server",
+			"orgName",
+			true,
+			expectLinkArtifactFailure,
+		},
+		{
+			"Link registry artifact with orgEntity name updated server",
+			"orgEntityName_123",
+			false,
+			"",
+		},
 		{"Link registry artifact with orgEntity name old server", "orgEntityName_123", true, ""},
 		{"Link registry artifact with short hand path updated server", "", false, ""},
 		{"Link registry artifact with short hand path old server", "", true, "unsupported"},
-		{"Link with wrong org/orgEntity name with updated server", "potato", false, "update the target path"},
-		{"Link with wrong org/orgEntity name with updated server", "potato", true, expectLinkArtifactFailure},
+		{
+			"Link with wrong org/orgEntity name with updated server",
+			"potato",
+			false,
+			"update the target path",
+		},
+		{
+			"Link with wrong org/orgEntity name with updated server",
+			"potato",
+			true,
+			expectLinkArtifactFailure,
+		},
 	}
 	for _, tc := range testCases {
 		mockGQL := gqlmock.NewMockClient()

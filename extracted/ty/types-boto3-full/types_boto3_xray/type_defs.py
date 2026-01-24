@@ -3,7 +3,7 @@ Type annotations for xray service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_xray/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -32,12 +33,6 @@ from .literals import (
     TraceSegmentDestinationType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -201,7 +196,7 @@ AliasTypeDef = TypedDict(
     "AliasTypeDef",
     {
         "Name": NotRequired[str],
-        "Names": NotRequired[List[str]],
+        "Names": NotRequired[list[str]],
         "Type": NotRequired[str],
     },
 )
@@ -217,7 +212,7 @@ ServiceIdTypeDef = TypedDict(
     "ServiceIdTypeDef",
     {
         "Name": NotRequired[str],
-        "Names": NotRequired[List[str]],
+        "Names": NotRequired[list[str]],
         "AccountId": NotRequired[str],
         "Type": NotRequired[str],
     },
@@ -251,7 +246,7 @@ class BatchGetTracesRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -387,7 +382,7 @@ class SamplingStrategyTypeDef(TypedDict):
 class GraphLinkTypeDef(TypedDict):
     ReferenceType: NotRequired[str]
     SourceTraceId: NotRequired[str]
-    DestinationTraceIds: NotRequired[List[str]]
+    DestinationTraceIds: NotRequired[list[str]]
 
 
 class HttpTypeDef(TypedDict):
@@ -514,12 +509,12 @@ class AnomalousServiceTypeDef(TypedDict):
 
 class TraceUserTypeDef(TypedDict):
     UserName: NotRequired[str]
-    ServiceIds: NotRequired[List[ServiceIdTypeDef]]
+    ServiceIds: NotRequired[list[ServiceIdTypeDef]]
 
 
 class ValueWithServiceIdsTypeDef(TypedDict):
     AnnotationValue: NotRequired[AnnotationValueTypeDef]
-    ServiceIds: NotRequired[List[ServiceIdTypeDef]]
+    ServiceIds: NotRequired[list[ServiceIdTypeDef]]
 
 
 class BatchGetTracesRequestPaginateTypeDef(TypedDict):
@@ -599,7 +594,7 @@ class CreateGroupRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -637,13 +632,13 @@ class PutEncryptionConfigResultTypeDef(TypedDict):
 
 class ErrorRootCauseEntityTypeDef(TypedDict):
     Name: NotRequired[str]
-    Exceptions: NotRequired[List[RootCauseExceptionTypeDef]]
+    Exceptions: NotRequired[list[RootCauseExceptionTypeDef]]
     Remote: NotRequired[bool]
 
 
 class FaultRootCauseEntityTypeDef(TypedDict):
     Name: NotRequired[str]
-    Exceptions: NotRequired[List[RootCauseExceptionTypeDef]]
+    Exceptions: NotRequired[list[RootCauseExceptionTypeDef]]
     Remote: NotRequired[bool]
 
 
@@ -740,7 +735,7 @@ class TelemetryRecordTypeDef(TypedDict):
 
 
 class GetSamplingStatisticSummariesResultTypeDef(TypedDict):
-    SamplingStatisticSummaries: List[SamplingStatisticSummaryTypeDef]
+    SamplingStatisticSummaries: list[SamplingStatisticSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -779,15 +774,15 @@ InsightImpactGraphServiceTypeDef = TypedDict(
         "ReferenceId": NotRequired[int],
         "Type": NotRequired[str],
         "Name": NotRequired[str],
-        "Names": NotRequired[List[str]],
+        "Names": NotRequired[list[str]],
         "AccountId": NotRequired[str],
-        "Edges": NotRequired[List[InsightImpactGraphEdgeTypeDef]],
+        "Edges": NotRequired[list[InsightImpactGraphEdgeTypeDef]],
     },
 )
 
 
 class ListResourcePoliciesResultTypeDef(TypedDict):
-    ResourcePolicies: List[ResourcePolicyTypeDef]
+    ResourcePolicies: list[ResourcePolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -798,7 +793,7 @@ class PutResourcePolicyResultTypeDef(TypedDict):
 
 
 class PutTraceSegmentsResultTypeDef(TypedDict):
-    UnprocessedTraceSegments: List[UnprocessedTraceSegmentTypeDef]
+    UnprocessedTraceSegments: list[UnprocessedTraceSegmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -806,10 +801,10 @@ ResponseTimeRootCauseServiceTypeDef = TypedDict(
     "ResponseTimeRootCauseServiceTypeDef",
     {
         "Name": NotRequired[str],
-        "Names": NotRequired[List[str]],
+        "Names": NotRequired[list[str]],
         "Type": NotRequired[str],
         "AccountId": NotRequired[str],
-        "EntityPath": NotRequired[List[ResponseTimeRootCauseEntityTypeDef]],
+        "EntityPath": NotRequired[list[ResponseTimeRootCauseEntityTypeDef]],
         "Inferred": NotRequired[bool],
     },
 )
@@ -818,7 +813,7 @@ ResponseTimeRootCauseServiceTypeDef = TypedDict(
 class RetrievedTraceTypeDef(TypedDict):
     Id: NotRequired[str]
     Duration: NotRequired[float]
-    Spans: NotRequired[List[SpanTypeDef]]
+    Spans: NotRequired[list[SpanTypeDef]]
 
 
 class SamplingTargetDocumentTypeDef(TypedDict):
@@ -845,7 +840,7 @@ SamplingRuleOutputTypeDef = TypedDict(
         "Version": int,
         "RuleName": NotRequired[str],
         "RuleARN": NotRequired[str],
-        "Attributes": NotRequired[Dict[str, str]],
+        "Attributes": NotRequired[dict[str, str]],
         "SamplingRateBoost": NotRequired[SamplingRateBoostTypeDef],
     },
 )
@@ -892,7 +887,7 @@ class TraceTypeDef(TypedDict):
     Id: NotRequired[str]
     Duration: NotRequired[float]
     LimitExceeded: NotRequired[bool]
-    Segments: NotRequired[List[SegmentTypeDef]]
+    Segments: NotRequired[list[SegmentTypeDef]]
 
 
 class InsightEventTypeDef(TypedDict):
@@ -900,7 +895,7 @@ class InsightEventTypeDef(TypedDict):
     EventTime: NotRequired[datetime]
     ClientRequestImpactStatistics: NotRequired[RequestImpactStatisticsTypeDef]
     RootCauseServiceRequestImpactStatistics: NotRequired[RequestImpactStatisticsTypeDef]
-    TopAnomalousServices: NotRequired[List[AnomalousServiceTypeDef]]
+    TopAnomalousServices: NotRequired[list[AnomalousServiceTypeDef]]
 
 
 class InsightSummaryTypeDef(TypedDict):
@@ -908,14 +903,14 @@ class InsightSummaryTypeDef(TypedDict):
     GroupARN: NotRequired[str]
     GroupName: NotRequired[str]
     RootCauseServiceId: NotRequired[ServiceIdTypeDef]
-    Categories: NotRequired[List[Literal["FAULT"]]]
+    Categories: NotRequired[list[Literal["FAULT"]]]
     State: NotRequired[InsightStateType]
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
     Summary: NotRequired[str]
     ClientRequestImpactStatistics: NotRequired[RequestImpactStatisticsTypeDef]
     RootCauseServiceRequestImpactStatistics: NotRequired[RequestImpactStatisticsTypeDef]
-    TopAnomalousServices: NotRequired[List[AnomalousServiceTypeDef]]
+    TopAnomalousServices: NotRequired[list[AnomalousServiceTypeDef]]
     LastUpdateTime: NotRequired[datetime]
 
 
@@ -924,18 +919,18 @@ class InsightTypeDef(TypedDict):
     GroupARN: NotRequired[str]
     GroupName: NotRequired[str]
     RootCauseServiceId: NotRequired[ServiceIdTypeDef]
-    Categories: NotRequired[List[Literal["FAULT"]]]
+    Categories: NotRequired[list[Literal["FAULT"]]]
     State: NotRequired[InsightStateType]
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
     Summary: NotRequired[str]
     ClientRequestImpactStatistics: NotRequired[RequestImpactStatisticsTypeDef]
     RootCauseServiceRequestImpactStatistics: NotRequired[RequestImpactStatisticsTypeDef]
-    TopAnomalousServices: NotRequired[List[AnomalousServiceTypeDef]]
+    TopAnomalousServices: NotRequired[list[AnomalousServiceTypeDef]]
 
 
 class GetGroupsResultTypeDef(TypedDict):
-    Groups: List[GroupSummaryTypeDef]
+    Groups: list[GroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -960,10 +955,10 @@ class EdgeTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
     SummaryStatistics: NotRequired[EdgeStatisticsTypeDef]
-    ResponseTimeHistogram: NotRequired[List[HistogramEntryTypeDef]]
-    Aliases: NotRequired[List[AliasTypeDef]]
+    ResponseTimeHistogram: NotRequired[list[HistogramEntryTypeDef]]
+    Aliases: NotRequired[list[AliasTypeDef]]
     EdgeType: NotRequired[str]
-    ReceivedEventAgeHistogram: NotRequired[List[HistogramEntryTypeDef]]
+    ReceivedEventAgeHistogram: NotRequired[list[HistogramEntryTypeDef]]
 
 
 class TimeSeriesServiceStatisticsTypeDef(TypedDict):
@@ -971,17 +966,17 @@ class TimeSeriesServiceStatisticsTypeDef(TypedDict):
     EdgeSummaryStatistics: NotRequired[EdgeStatisticsTypeDef]
     ServiceSummaryStatistics: NotRequired[ServiceStatisticsTypeDef]
     ServiceForecastStatistics: NotRequired[ForecastStatisticsTypeDef]
-    ResponseTimeHistogram: NotRequired[List[HistogramEntryTypeDef]]
+    ResponseTimeHistogram: NotRequired[list[HistogramEntryTypeDef]]
 
 
 ErrorRootCauseServiceTypeDef = TypedDict(
     "ErrorRootCauseServiceTypeDef",
     {
         "Name": NotRequired[str],
-        "Names": NotRequired[List[str]],
+        "Names": NotRequired[list[str]],
         "Type": NotRequired[str],
         "AccountId": NotRequired[str],
-        "EntityPath": NotRequired[List[ErrorRootCauseEntityTypeDef]],
+        "EntityPath": NotRequired[list[ErrorRootCauseEntityTypeDef]],
         "Inferred": NotRequired[bool],
     },
 )
@@ -989,10 +984,10 @@ FaultRootCauseServiceTypeDef = TypedDict(
     "FaultRootCauseServiceTypeDef",
     {
         "Name": NotRequired[str],
-        "Names": NotRequired[List[str]],
+        "Names": NotRequired[list[str]],
         "Type": NotRequired[str],
         "AccountId": NotRequired[str],
-        "EntityPath": NotRequired[List[FaultRootCauseEntityTypeDef]],
+        "EntityPath": NotRequired[list[FaultRootCauseEntityTypeDef]],
         "Inferred": NotRequired[bool],
     },
 )
@@ -1027,29 +1022,29 @@ class GetInsightImpactGraphResultTypeDef(TypedDict):
     EndTime: datetime
     ServiceGraphStartTime: datetime
     ServiceGraphEndTime: datetime
-    Services: List[InsightImpactGraphServiceTypeDef]
+    Services: list[InsightImpactGraphServiceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ResponseTimeRootCauseTypeDef(TypedDict):
-    Services: NotRequired[List[ResponseTimeRootCauseServiceTypeDef]]
+    Services: NotRequired[list[ResponseTimeRootCauseServiceTypeDef]]
     ClientImpacting: NotRequired[bool]
 
 
 class ListRetrievedTracesResultTypeDef(TypedDict):
     RetrievalStatus: RetrievalStatusType
     TraceFormat: TraceFormatTypeType
-    Traces: List[RetrievedTraceTypeDef]
+    Traces: list[RetrievedTraceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetSamplingTargetsResultTypeDef(TypedDict):
-    SamplingTargetDocuments: List[SamplingTargetDocumentTypeDef]
+    SamplingTargetDocuments: list[SamplingTargetDocumentTypeDef]
     LastRuleModification: datetime
-    UnprocessedStatistics: List[UnprocessedStatisticsTypeDef]
-    UnprocessedBoostStatistics: List[UnprocessedStatisticsTypeDef]
+    UnprocessedStatistics: list[UnprocessedStatisticsTypeDef]
+    UnprocessedBoostStatistics: list[UnprocessedStatisticsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1067,20 +1062,20 @@ class UpdateSamplingRuleRequestTypeDef(TypedDict):
 
 
 class BatchGetTracesResultTypeDef(TypedDict):
-    Traces: List[TraceTypeDef]
-    UnprocessedTraceIds: List[str]
+    Traces: list[TraceTypeDef]
+    UnprocessedTraceIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetInsightEventsResultTypeDef(TypedDict):
-    InsightEvents: List[InsightEventTypeDef]
+    InsightEvents: list[InsightEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetInsightSummariesResultTypeDef(TypedDict):
-    InsightSummaries: List[InsightSummaryTypeDef]
+    InsightSummaries: list[InsightSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1095,40 +1090,40 @@ ServiceTypeDef = TypedDict(
     {
         "ReferenceId": NotRequired[int],
         "Name": NotRequired[str],
-        "Names": NotRequired[List[str]],
+        "Names": NotRequired[list[str]],
         "Root": NotRequired[bool],
         "AccountId": NotRequired[str],
         "Type": NotRequired[str],
         "State": NotRequired[str],
         "StartTime": NotRequired[datetime],
         "EndTime": NotRequired[datetime],
-        "Edges": NotRequired[List[EdgeTypeDef]],
+        "Edges": NotRequired[list[EdgeTypeDef]],
         "SummaryStatistics": NotRequired[ServiceStatisticsTypeDef],
-        "DurationHistogram": NotRequired[List[HistogramEntryTypeDef]],
-        "ResponseTimeHistogram": NotRequired[List[HistogramEntryTypeDef]],
+        "DurationHistogram": NotRequired[list[HistogramEntryTypeDef]],
+        "ResponseTimeHistogram": NotRequired[list[HistogramEntryTypeDef]],
     },
 )
 
 
 class GetTimeSeriesServiceStatisticsResultTypeDef(TypedDict):
-    TimeSeriesServiceStatistics: List[TimeSeriesServiceStatisticsTypeDef]
+    TimeSeriesServiceStatistics: list[TimeSeriesServiceStatisticsTypeDef]
     ContainsOldGroupVersions: bool
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ErrorRootCauseTypeDef(TypedDict):
-    Services: NotRequired[List[ErrorRootCauseServiceTypeDef]]
+    Services: NotRequired[list[ErrorRootCauseServiceTypeDef]]
     ClientImpacting: NotRequired[bool]
 
 
 class FaultRootCauseTypeDef(TypedDict):
-    Services: NotRequired[List[FaultRootCauseServiceTypeDef]]
+    Services: NotRequired[list[FaultRootCauseServiceTypeDef]]
     ClientImpacting: NotRequired[bool]
 
 
 class GetIndexingRulesResultTypeDef(TypedDict):
-    IndexingRules: List[IndexingRuleTypeDef]
+    IndexingRules: list[IndexingRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1149,7 +1144,7 @@ class DeleteSamplingRuleResultTypeDef(TypedDict):
 
 
 class GetSamplingRulesResultTypeDef(TypedDict):
-    SamplingRuleRecords: List[SamplingRuleRecordTypeDef]
+    SamplingRuleRecords: list[SamplingRuleRecordTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1167,21 +1162,21 @@ class CreateSamplingRuleRequestTypeDef(TypedDict):
 class GetServiceGraphResultTypeDef(TypedDict):
     StartTime: datetime
     EndTime: datetime
-    Services: List[ServiceTypeDef]
+    Services: list[ServiceTypeDef]
     ContainsOldGroupVersions: bool
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetTraceGraphResultTypeDef(TypedDict):
-    Services: List[ServiceTypeDef]
+    Services: list[ServiceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class RetrievedServiceTypeDef(TypedDict):
     Service: NotRequired[ServiceTypeDef]
-    Links: NotRequired[List[GraphLinkTypeDef]]
+    Links: NotRequired[list[GraphLinkTypeDef]]
 
 
 class TraceSummaryTypeDef(TypedDict):
@@ -1194,29 +1189,29 @@ class TraceSummaryTypeDef(TypedDict):
     HasThrottle: NotRequired[bool]
     IsPartial: NotRequired[bool]
     Http: NotRequired[HttpTypeDef]
-    Annotations: NotRequired[Dict[str, List[ValueWithServiceIdsTypeDef]]]
-    Users: NotRequired[List[TraceUserTypeDef]]
-    ServiceIds: NotRequired[List[ServiceIdTypeDef]]
-    ResourceARNs: NotRequired[List[ResourceARNDetailTypeDef]]
-    InstanceIds: NotRequired[List[InstanceIdDetailTypeDef]]
-    AvailabilityZones: NotRequired[List[AvailabilityZoneDetailTypeDef]]
+    Annotations: NotRequired[dict[str, list[ValueWithServiceIdsTypeDef]]]
+    Users: NotRequired[list[TraceUserTypeDef]]
+    ServiceIds: NotRequired[list[ServiceIdTypeDef]]
+    ResourceARNs: NotRequired[list[ResourceARNDetailTypeDef]]
+    InstanceIds: NotRequired[list[InstanceIdDetailTypeDef]]
+    AvailabilityZones: NotRequired[list[AvailabilityZoneDetailTypeDef]]
     EntryPoint: NotRequired[ServiceIdTypeDef]
-    FaultRootCauses: NotRequired[List[FaultRootCauseTypeDef]]
-    ErrorRootCauses: NotRequired[List[ErrorRootCauseTypeDef]]
-    ResponseTimeRootCauses: NotRequired[List[ResponseTimeRootCauseTypeDef]]
+    FaultRootCauses: NotRequired[list[FaultRootCauseTypeDef]]
+    ErrorRootCauses: NotRequired[list[ErrorRootCauseTypeDef]]
+    ResponseTimeRootCauses: NotRequired[list[ResponseTimeRootCauseTypeDef]]
     Revision: NotRequired[int]
     MatchedEventTime: NotRequired[datetime]
 
 
 class GetRetrievedTracesGraphResultTypeDef(TypedDict):
     RetrievalStatus: RetrievalStatusType
-    Services: List[RetrievedServiceTypeDef]
+    Services: list[RetrievedServiceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetTraceSummariesResultTypeDef(TypedDict):
-    TraceSummaries: List[TraceSummaryTypeDef]
+    TraceSummaries: list[TraceSummaryTypeDef]
     ApproximateTime: datetime
     TracesProcessedCount: int
     ResponseMetadata: ResponseMetadataTypeDef

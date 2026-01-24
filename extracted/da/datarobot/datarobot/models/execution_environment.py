@@ -62,9 +62,7 @@ class RequiredMetadataKey(APIObject):
     def to_dict(self) -> Dict[str, str]:
         return cast(
             RequiredMetadataKeyType,
-            self._converter.check(
-                {"field_name": self.field_name, "display_name": self.display_name}
-            ),
+            self._converter.check({"field_name": self.field_name, "display_name": self.display_name}),
         )
 
 
@@ -99,24 +97,18 @@ class ExecutionEnvironment(APIObject):
     """
 
     _path = "executionEnvironments/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("name"): String(max_length=255),
-            t.Key("description", optional=True): t.Or(
-                String(max_length=10000, allow_blank=True), t.Null()
-            ),
-            t.Key("programming_language", optional=True): String(),
-            t.Key("is_public", optional=True): t.Bool(),
-            t.Key("created", optional=True) >> "created_at": String(),
-            t.Key("latest_version", optional=True): ExecutionEnvironmentVersion.schema,
-            t.Key("latest_successful_version", optional=True): ExecutionEnvironmentVersion.schema,
-            t.Key("required_metadata_keys", optional=True, default=list): t.List(
-                RequiredMetadataKey.schema
-            ),
-            t.Key("use_cases", optional=True, default=list): t.List(String()),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("name"): String(max_length=255),
+        t.Key("description", optional=True): t.Or(String(max_length=10000, allow_blank=True), t.Null()),
+        t.Key("programming_language", optional=True): String(),
+        t.Key("is_public", optional=True): t.Bool(),
+        t.Key("created", optional=True) >> "created_at": String(),
+        t.Key("latest_version", optional=True): ExecutionEnvironmentVersion.schema,
+        t.Key("latest_successful_version", optional=True): ExecutionEnvironmentVersion.schema,
+        t.Key("required_metadata_keys", optional=True, default=list): t.List(RequiredMetadataKey.schema),
+        t.Key("use_cases", optional=True, default=list): t.List(String()),
+    }).ignore_extra("*")
 
     def __init__(self, **kwargs: Any):
         self._set_values(**kwargs)
@@ -145,18 +137,14 @@ class ExecutionEnvironment(APIObject):
         self.created_at = created_at
         self.latest_version = None
         self.latest_successful_version = None
-        self.required_metadata_keys = [
-            RequiredMetadataKey.from_data(key) for key in required_metadata_keys or []
-        ]
+        self.required_metadata_keys = [RequiredMetadataKey.from_data(key) for key in required_metadata_keys or []]
         self.use_cases = use_cases
 
         if latest_version is not None:
             self.latest_version = ExecutionEnvironmentVersion(**latest_version)
 
         if latest_successful_version is not None:
-            self.latest_successful_version = ExecutionEnvironmentVersion(
-                **latest_successful_version
-            )
+            self.latest_successful_version = ExecutionEnvironmentVersion(**latest_successful_version)
 
     @classmethod
     def create(
@@ -220,6 +208,7 @@ class ExecutionEnvironment(APIObject):
         search_for: Optional[str] = None,
         is_own: Optional[bool] = None,
         use_cases: Optional[str] = None,
+        is_public: Optional[bool] = None,
         offset: Optional[int] = 0,
         limit: Optional[int] = 0,
     ) -> List["ExecutionEnvironment"]:
@@ -237,6 +226,8 @@ class ExecutionEnvironment(APIObject):
             Only return execution environments that were created by the current user.
         use_cases: str, optional
             Only return execution environments that contain the specified use case
+        is_public: Optional[bool]
+            Only return execution environments matching this parameter value.
         offset: Optional[int]
             The starting offset of the results. The default is 0.
         limit: Optional[int]
@@ -260,6 +251,8 @@ class ExecutionEnvironment(APIObject):
             param["is_own"] = is_own
         if use_cases is not None:
             param["use_cases"] = use_cases
+        if is_public is not None:
+            param["is_public"] = is_public
 
         if limit == 0:
             data = unpaginate(cls._path, param, cls._client)
@@ -389,9 +382,7 @@ class ExecutionEnvironment(APIObject):
         list of :class:`SharingAccess <datarobot.SharingAccess>`
         """
         url = f"{self._path}{self.id}/accessControl/"
-        return [
-            SharingAccess.from_server_data(datum) for datum in unpaginate(url, {}, self._client)
-        ]
+        return [SharingAccess.from_server_data(datum) for datum in unpaginate(url, {}, self._client)]
 
     def share(self, access_list: List[SharingAccess]) -> None:
         """Update the access control settings of this execution environment.

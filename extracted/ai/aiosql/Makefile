@@ -29,6 +29,7 @@ help:
 	echo " - clean.dev: also remove the development environment"
 	echo " - check.pytest: run pytest tests"
 	echo " - check.mypy: run mypy type checker"
+	echo " - check.pyright: run pyright type checker"
 	echo " - check.flake8: run flake8 code style checks"
 	echo " - check.ruff: run ruff code style checks"
 	echo " - check.black: run black formatter checks"
@@ -54,7 +55,7 @@ venv:
 
 venv/.dev: venv
 	source venv/bin/activate
-	$(PIP) install .[dev,dev-postgres,dev-sqlite,dev-duckdb]
+	$(PIP) install -e .[dev,dev-postgres,dev-sqlite,dev-duckdb]
 	touch $@
 
 venv/.dist: venv
@@ -201,6 +202,7 @@ check.pytest.postgres: $(INSTALL)
 	$(PYTEST) $(PYTOPT) \
 	  tests/test_psycopg2.py \
 	  tests/test_psycopg3.py \
+	  tests/test_apsycopg3.py \
 	  tests/test_pygresql.py \
 	  tests/test_pg8000.py \
 	  tests/test_asyncpg.py

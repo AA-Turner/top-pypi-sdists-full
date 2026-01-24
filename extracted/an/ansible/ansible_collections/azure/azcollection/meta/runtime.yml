@@ -167,11 +167,17 @@ action_groups:
     - azure.azcollection.azure_rm_monitoractivitylogalerts_info
     - azure.azcollection.azure_rm_monitordatacollectionrules
     - azure.azcollection.azure_rm_monitordatacollectionrules_info
+    - azure.azcollection.azure_rm_monitordatacollectionendpoint
+    - azure.azcollection.azure_rm_monitordatacollectionendpoint_info
+    - azure.azcollection.azure_rm_monitordatacollectionruleassociation
+    - azure.azcollection.azure_rm_monitordatacollectionruleassociation_info
     - azure.azcollection.azure_rm_monitordiagnosticsetting
     - azure.azcollection.azure_rm_monitordiagnosticsetting_info
     - azure.azcollection.azure_rm_monitorlogprofile
     - azure.azcollection.azure_rm_monitormetricalerts
     - azure.azcollection.azure_rm_monitormetricalerts_info
+    - azure.azcollection.azure_rm_monitorscheduledqueryrules
+    - azure.azcollection.azure_rm_monitorscheduledqueryrules_info
     - azure.azcollection.azure_rm_multiplemanageddisks
     - azure.azcollection.azure_rm_mysqlconfiguration
     - azure.azcollection.azure_rm_mysqlconfiguration_info
@@ -303,6 +309,10 @@ action_groups:
     - azure.azcollection.azure_rm_storageshare_info
     - azure.azcollection.azure_rm_subnet
     - azure.azcollection.azure_rm_subnet_info
+    - azure.azcollection.azure_rm_serviceendpointpolicy
+    - azure.azcollection.azure_rm_serviceendpointpolicy_info
+    - azure.azcollection.azure_rm_serviceendpointpolicydefinition
+    - azure.azcollection.azure_rm_serviceendpointpolicydefinition_info
     - azure.azcollection.azure_rm_subscription_info
     - azure.azcollection.azure_rm_trafficmanager
     - azure.azcollection.azure_rm_trafficmanagerendpoint

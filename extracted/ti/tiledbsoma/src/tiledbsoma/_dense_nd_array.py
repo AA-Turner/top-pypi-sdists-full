@@ -6,8 +6,7 @@
 
 from __future__ import annotations
 
-import warnings
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import pyarrow as pa
@@ -19,19 +18,14 @@ from . import _util
 from . import pytiledbsoma as clib
 from ._arrow_types import pyarrow_to_carrow_type
 from ._common_nd_array import NDArray
-from ._exception import SOMAError, map_exception_for_create
-from ._read_iters import ManagedQuery, TableReadIter
-from ._tdb_handles import DenseNDArrayWrapper
+from ._exception import DoesNotExistError, SOMAError, is_does_not_exist_error, map_exception_for_create
+from ._managed_query import ManagedQuery
+from ._read_iters import TableReadIter
 from ._types import OpenTimestamp, Slice
 from ._util import dense_indices_to_shape
-from .options._soma_tiledb_context import (
-    SOMATileDBContext,
-    _validate_soma_tiledb_context,
-)
-from .options._tiledb_create_write_options import (
-    TileDBCreateOptions,
-    TileDBWriteOptions,
-)
+from .options._soma_tiledb_context import SOMATileDBContext, _validate_soma_tiledb_context
+from .options._tiledb_create_write_options import TileDBCreateOptions, TileDBWriteOptions
+from .options._util import build_clib_platform_config
 
 
 class DenseNDArray(NDArray, somacore.DenseNDArray):
@@ -85,7 +79,7 @@ class DenseNDArray(NDArray, somacore.DenseNDArray):
 
     __slots__ = ()
 
-    _wrapper_type = DenseNDArrayWrapper
+    _handle_type = clib.SOMADenseNDArray
 
     @classmethod
     def create(
@@ -98,6 +92,48 @@ class DenseNDArray(NDArray, somacore.DenseNDArray):
         context: SOMATileDBContext | None = None,
         tiledb_timestamp: OpenTimestamp | None = None,
     ) -> Self:
+        """Creates a SOMA ``DenseNDArray`` at the given URI.
+
+        Args:
+            type:
+                The Arrow type to be stored in the NDArray. If the type is unsupported, an error will be raised.
+            shape:
+                The current maximum capacity of each dimension. All lengths must be in the positive int64 range. The
+                shape can be increased, but not decreased, after creation.
+            platform_config:
+                Platform-specific options used to create this array.
+                This may be provided as settings in a dictionary, with options
+                located in the ``{'tiledb': {'create': ...}}`` key,
+                or as a :class:`~tiledbsoma.TileDBCreateOptions` object.
+            tiledb_timestamp:
+                If specified, overrides the default timestamp
+                used to open this object. If unset, uses the timestamp provided by
+                the context.
+
+        Returns:
+            The created ``DenseNDArray``.
+
+        Raises:
+            TypeError:
+                If the ``type`` is unsupported.
+            ValueError:
+                If the ``shape`` is unsupported.
+            tiledbsoma.AlreadyExistsError:
+                If the underlying object already exists at the given URI.
+            TileDBError:
+                If unable to create the underlying object.
+
+        Examples:
+            >>> with tiledbsoma.DenseNDArray.create("array1", type=pa.float64(), shape=(1000, 100, 100)) as array:
+            >>>     print(array.schema)
+            soma_dim_0: int64 not null
+            soma_dim_1: int64 not null
+            soma_dim_2: int64 not null
+            soma_data: double not null
+
+        Lifecycle:
+            Maturing.
+        """
         context = _validate_soma_tiledb_context(context)
 
         index_column_schema = []
@@ -144,12 +180,10 @@ class DenseNDArray(NDArray, somacore.DenseNDArray):
                 dim_shape - 1,
             ]
 
-        index_column_info = pa.RecordBatch.from_pydict(
-            index_column_data, schema=pa.schema(index_column_schema)
-        )
+        index_column_info = pa.RecordBatch.from_pydict(index_column_data, schema=pa.schema(index_column_schema))
 
         carrow_type = pyarrow_to_carrow_type(type)
-        plt_cfg = _util.build_clib_platform_config(platform_config)
+        plt_cfg = build_clib_platform_config(platform_config)
         timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
         try:
             clib.SOMADenseNDArray.create(
@@ -163,11 +197,37 @@ class DenseNDArray(NDArray, somacore.DenseNDArray):
         except SOMAError as e:
             raise map_exception_for_create(e, uri) from None
 
-        handle = cls._wrapper_type.open(uri, "w", context, tiledb_timestamp)
+        try:
+            timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
+            handle = clib.SOMADenseNDArray.open(
+                uri,
+                mode=clib.OpenMode.soma_write,
+                context=context.native_context,
+                timestamp=(0, timestamp_ms),
+            )
+
+        except (RuntimeError, SOMAError) as tdbe:
+            if is_does_not_exist_error(tdbe):
+                raise DoesNotExistError(tdbe) from tdbe
+            raise SOMAError(tdbe) from tdbe
         return cls(
-            handle,
-            _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code",
+            handle, uri=uri, context=context, _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code"
         )
+
+    def delete_cells(
+        self, coords: options.DenseNDCoords, *, platform_config: options.PlatformConfig | None = None
+    ) -> None:
+        """Deletes cells at the specified coordinates. Not supported on dense arrays.
+
+        Not supported on DenseNDArray.
+
+        Args:
+            coords:
+                A per-dimension ``Sequence`` of scalar, slice, sequence of scalar or
+                `Arrow IntegerArray <https://arrow.apache.org/docs/python/generated/pyarrow.IntegerArray.html>` values
+                defining the region to read.
+        """
+        raise NotImplementedError("Support for deleting cells is not implemented on dense arrays.")
 
     def read(
         self,
@@ -189,8 +249,7 @@ class DenseNDArray(NDArray, somacore.DenseNDArray):
             coords:
                 The coordinates for slicing the array.
             result_order:
-                Order of read results.
-                This can be one of 'row-major' (default) or 'column-major'
+                Order of read results. This can be one of 'row-major' (default) or 'column-major'
             partitions:
                 An optional :class:`ReadPartitions` hint to indicate
                 how results should be organized.
@@ -218,16 +277,13 @@ class DenseNDArray(NDArray, somacore.DenseNDArray):
         #
         # The only exception is if the array has been created but no data have been written at
         # all, in which case the best we can do is use the schema shape.
-        handle: clib.SOMADenseNDArray = self._handle._handle
+        handle: clib.SOMADenseNDArray = self._handle
 
         if result_order == options.ResultOrder.AUTO:
-            warnings.warn(
-                "The use of 'result_order=\"auto\"' is deprecated and will be "
-                "removed in future versions. Please use 'row-order' (the default "
-                "if no option is provided) or 'col-order' instead.",
-                DeprecationWarning,
+            raise ValueError(
+                "The use of 'result_order=\"auto\"' is unsupported. Use 'row-order' (the default "
+                "if no option is provided) or 'col-order' instead."
             )
-            result_order = somacore.ResultOrder.ROW_MAJOR
 
         target_shape = dense_indices_to_shape(coords, tuple(handle.shape), result_order)
 
@@ -241,9 +297,7 @@ class DenseNDArray(NDArray, somacore.DenseNDArray):
         ).concat()
 
         if arrow_table is None:
-            raise SOMAError(
-                "internal error: at least one table-piece should have been returned"
-            )
+            raise SOMAError("internal error: at least one table-piece should have been returned")
 
         npval = arrow_table.column("soma_data").to_numpy()
         # TODO: as currently coded we're looking at the non-empty domain upper
@@ -287,7 +341,7 @@ class DenseNDArray(NDArray, somacore.DenseNDArray):
         """
         _util.check_type("values", values, (pa.Tensor,))
 
-        clib_handle = self._handle._handle
+        clib_handle = self._handle
 
         # Compute the coordinates for the dense array.
         new_coords: list[int | Slice[int] | None] = []
@@ -311,9 +365,10 @@ class DenseNDArray(NDArray, somacore.DenseNDArray):
 
         mq = ManagedQuery(self, platform_config)
         mq._handle.set_layout(order)
-        _util._set_coords(mq, new_coords)
+        mq.set_coords(new_coords)
         mq._handle.set_column_data("soma_data", input)
         mq._handle.submit_write()
+        mq._handle.finalize()
 
         tiledb_write_options = TileDBWriteOptions.from_platform_config(platform_config)
         if tiledb_write_options.consolidate_and_vacuum:
@@ -372,21 +427,15 @@ class DenseNDArray(NDArray, somacore.DenseNDArray):
 
         if dim_shape is None:
             dim_capacity = 2**63 - 1
-            dim_extent = min(
-                dim_capacity, create_options.dim_tile(dim_name, default_extent)
-            )
+            dim_extent = min(dim_capacity, create_options.dim_tile(dim_name, default_extent))
             # For core: "domain max expanded to multiple of tile extent exceeds max value
             # representable by domain type. Reduce domain max by 1 tile extent to allow for
             # expansion."
             dim_capacity -= dim_extent
         else:
             if dim_shape <= 0:
-                raise ValueError(
-                    "SOMASparseNDArray shape must be a non-zero-length tuple of positive ints or Nones"
-                )
+                raise ValueError("SOMASparseNDArray shape must be a non-zero-length tuple of positive ints or Nones")
             dim_capacity = dim_shape
-            dim_extent = min(
-                dim_shape, create_options.dim_tile(dim_name, default_extent)
-            )
+            dim_extent = min(dim_shape, create_options.dim_tile(dim_name, default_extent))
 
         return (dim_capacity, dim_extent)

@@ -2078,6 +2078,223 @@ class BGPInstance(AbstractModel):
         
 
 
+class BGPInstanceInfo(AbstractModel):
+    r"""{
+        "InstanceId": "bgp-00000436",
+        "InstanceChargePrepaid": {
+            "Period": 3,
+            "RenewFlag": "NOTIFY_AND_AUTO_RENEW"
+        },
+        "EnterprisePackageConfig": null,
+        "StandardPackageConfig": null,
+        "StandardPlusPackageConfig": {
+            "Region": "ap-guangzhou",
+            "ProtectCount": "TWO_TIMES",
+            "ProtectIpCount": 1,
+            "Bandwidth": 100,
+            "ElasticBandwidthFlag": true
+        },
+        "TagInfoList": [
+        ],
+        "PackageType": "StandardPlus",
+        "InstanceCount": 1,
+        "InstanceChargeType": "PREPAID",
+        "DryRun": false
+    }
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例Id
+        :type InstanceId: str
+        :param _InstanceChargePrepaid: 续费周期相关
+注意：此字段可能返回 null，表示取不到有效值。
+        :type InstanceChargePrepaid: :class:`tencentcloud.antiddos.v20200309.models.InstanceChargePrepaid`
+        :param _EnterprisePackageConfig: 企业版高防包配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :type EnterprisePackageConfig: :class:`tencentcloud.antiddos.v20200309.models.EnterprisePackageConfig`
+        :param _StandardPackageConfig: 标准版高防包配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :type StandardPackageConfig: :class:`tencentcloud.antiddos.v20200309.models.StandardPackageConfig`
+        :param _StandardPlusPackageConfig: 标准版2.0高防包配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :type StandardPlusPackageConfig: :class:`tencentcloud.antiddos.v20200309.models.StandardPlusPackageConfig`
+        :param _TagInfoList: tag信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TagInfoList: list of TagInfo
+        :param _PackageType: 高防包类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type PackageType: str
+        :param _InstanceCount: 数量1
+        :type InstanceCount: int
+        :param _InstanceChargeType: 付费方式
+        :type InstanceChargeType: str
+        :param _DryRun: 无实际意义，创建时如果为true，只进行参数校验，默认为false
+        :type DryRun: bool
+        """
+        self._InstanceId = None
+        self._InstanceChargePrepaid = None
+        self._EnterprisePackageConfig = None
+        self._StandardPackageConfig = None
+        self._StandardPlusPackageConfig = None
+        self._TagInfoList = None
+        self._PackageType = None
+        self._InstanceCount = None
+        self._InstanceChargeType = None
+        self._DryRun = None
+
+    @property
+    def InstanceId(self):
+        r"""实例Id
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def InstanceChargePrepaid(self):
+        r"""续费周期相关
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.antiddos.v20200309.models.InstanceChargePrepaid`
+        """
+        return self._InstanceChargePrepaid
+
+    @InstanceChargePrepaid.setter
+    def InstanceChargePrepaid(self, InstanceChargePrepaid):
+        self._InstanceChargePrepaid = InstanceChargePrepaid
+
+    @property
+    def EnterprisePackageConfig(self):
+        r"""企业版高防包配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.antiddos.v20200309.models.EnterprisePackageConfig`
+        """
+        return self._EnterprisePackageConfig
+
+    @EnterprisePackageConfig.setter
+    def EnterprisePackageConfig(self, EnterprisePackageConfig):
+        self._EnterprisePackageConfig = EnterprisePackageConfig
+
+    @property
+    def StandardPackageConfig(self):
+        r"""标准版高防包配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.antiddos.v20200309.models.StandardPackageConfig`
+        """
+        return self._StandardPackageConfig
+
+    @StandardPackageConfig.setter
+    def StandardPackageConfig(self, StandardPackageConfig):
+        self._StandardPackageConfig = StandardPackageConfig
+
+    @property
+    def StandardPlusPackageConfig(self):
+        r"""标准版2.0高防包配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.antiddos.v20200309.models.StandardPlusPackageConfig`
+        """
+        return self._StandardPlusPackageConfig
+
+    @StandardPlusPackageConfig.setter
+    def StandardPlusPackageConfig(self, StandardPlusPackageConfig):
+        self._StandardPlusPackageConfig = StandardPlusPackageConfig
+
+    @property
+    def TagInfoList(self):
+        r"""tag信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of TagInfo
+        """
+        return self._TagInfoList
+
+    @TagInfoList.setter
+    def TagInfoList(self, TagInfoList):
+        self._TagInfoList = TagInfoList
+
+    @property
+    def PackageType(self):
+        r"""高防包类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._PackageType
+
+    @PackageType.setter
+    def PackageType(self, PackageType):
+        self._PackageType = PackageType
+
+    @property
+    def InstanceCount(self):
+        r"""数量1
+        :rtype: int
+        """
+        return self._InstanceCount
+
+    @InstanceCount.setter
+    def InstanceCount(self, InstanceCount):
+        self._InstanceCount = InstanceCount
+
+    @property
+    def InstanceChargeType(self):
+        r"""付费方式
+        :rtype: str
+        """
+        return self._InstanceChargeType
+
+    @InstanceChargeType.setter
+    def InstanceChargeType(self, InstanceChargeType):
+        self._InstanceChargeType = InstanceChargeType
+
+    @property
+    def DryRun(self):
+        r"""无实际意义，创建时如果为true，只进行参数校验，默认为false
+        :rtype: bool
+        """
+        return self._DryRun
+
+    @DryRun.setter
+    def DryRun(self, DryRun):
+        self._DryRun = DryRun
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        if params.get("InstanceChargePrepaid") is not None:
+            self._InstanceChargePrepaid = InstanceChargePrepaid()
+            self._InstanceChargePrepaid._deserialize(params.get("InstanceChargePrepaid"))
+        if params.get("EnterprisePackageConfig") is not None:
+            self._EnterprisePackageConfig = EnterprisePackageConfig()
+            self._EnterprisePackageConfig._deserialize(params.get("EnterprisePackageConfig"))
+        if params.get("StandardPackageConfig") is not None:
+            self._StandardPackageConfig = StandardPackageConfig()
+            self._StandardPackageConfig._deserialize(params.get("StandardPackageConfig"))
+        if params.get("StandardPlusPackageConfig") is not None:
+            self._StandardPlusPackageConfig = StandardPlusPackageConfig()
+            self._StandardPlusPackageConfig._deserialize(params.get("StandardPlusPackageConfig"))
+        if params.get("TagInfoList") is not None:
+            self._TagInfoList = []
+            for item in params.get("TagInfoList"):
+                obj = TagInfo()
+                obj._deserialize(item)
+                self._TagInfoList.append(obj)
+        self._PackageType = params.get("PackageType")
+        self._InstanceCount = params.get("InstanceCount")
+        self._InstanceChargeType = params.get("InstanceChargeType")
+        self._DryRun = params.get("DryRun")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class BGPInstanceSpecification(AbstractModel):
     r"""高防包资产实例的规格信息
 
@@ -4031,6 +4248,218 @@ class ConnectLimitRelation(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class CreateBgpInstanceRequest(AbstractModel):
+    r"""CreateBgpInstance请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceChargeType: 付费类型：付费模式：PREPAID 预付费 POSTPAID_BY_MONTH 后付费
+        :type InstanceChargeType: str
+        :param _PackageType: 高防包类型：高防包类型，Enterprise(企业版) Standard(标准版) StandardPlus(标准版2.0)
+        :type PackageType: str
+        :param _InstanceCount: 购买高防包的数量，一次购买数量不超过10
+        :type InstanceCount: int
+        :param _InstanceChargePrepaid: { "Period": 3, "RenewFlag": "NOTIFY_AND_AUTO_RENEW" }
+        :type InstanceChargePrepaid: :class:`tencentcloud.antiddos.v20200309.models.InstanceChargePrepaid`
+        :param _EnterprisePackageConfig: { "Region": "ap-guangzhou", "ProtectIpCount": 1, "BasicProtectBandwidth": 300, "Bandwidth": 100, "ElasticProtectLimit": 0, "ElasticBandwidthFlag": true }
+        :type EnterprisePackageConfig: :class:`tencentcloud.antiddos.v20200309.models.EnterprisePackageConfig`
+        :param _StandardPackageConfig: { "Region": "ap-guangzhou", "ProtectIpCount": 1, "BasicProtectBandwidth": 300, "Bandwidth": 100, "ElasticProtectLimit": 0, "ElasticBandwidthFlag": true }
+        :type StandardPackageConfig: :class:`tencentcloud.antiddos.v20200309.models.StandardPackageConfig`
+        :param _StandardPlusPackageConfig: { "Region": "ap-guangzhou", "ProtectCount": "TWO_TIMES", "ProtectIpCount": 1, "Bandwidth": 100, "ElasticBandwidthFlag": true }
+        :type StandardPlusPackageConfig: :class:`tencentcloud.antiddos.v20200309.models.StandardPlusPackageConfig`
+        :param _TagInfoList: [ { "TagKey": "beal-test",                 "TagValue": "beal-test"               }             ]
+        :type TagInfoList: list of TagInfo
+        :param _DryRun: 默认为false,true表示只进行参数校验，不进行实际购买
+        :type DryRun: bool
+        """
+        self._InstanceChargeType = None
+        self._PackageType = None
+        self._InstanceCount = None
+        self._InstanceChargePrepaid = None
+        self._EnterprisePackageConfig = None
+        self._StandardPackageConfig = None
+        self._StandardPlusPackageConfig = None
+        self._TagInfoList = None
+        self._DryRun = None
+
+    @property
+    def InstanceChargeType(self):
+        r"""付费类型：付费模式：PREPAID 预付费 POSTPAID_BY_MONTH 后付费
+        :rtype: str
+        """
+        return self._InstanceChargeType
+
+    @InstanceChargeType.setter
+    def InstanceChargeType(self, InstanceChargeType):
+        self._InstanceChargeType = InstanceChargeType
+
+    @property
+    def PackageType(self):
+        r"""高防包类型：高防包类型，Enterprise(企业版) Standard(标准版) StandardPlus(标准版2.0)
+        :rtype: str
+        """
+        return self._PackageType
+
+    @PackageType.setter
+    def PackageType(self, PackageType):
+        self._PackageType = PackageType
+
+    @property
+    def InstanceCount(self):
+        r"""购买高防包的数量，一次购买数量不超过10
+        :rtype: int
+        """
+        return self._InstanceCount
+
+    @InstanceCount.setter
+    def InstanceCount(self, InstanceCount):
+        self._InstanceCount = InstanceCount
+
+    @property
+    def InstanceChargePrepaid(self):
+        r"""{ "Period": 3, "RenewFlag": "NOTIFY_AND_AUTO_RENEW" }
+        :rtype: :class:`tencentcloud.antiddos.v20200309.models.InstanceChargePrepaid`
+        """
+        return self._InstanceChargePrepaid
+
+    @InstanceChargePrepaid.setter
+    def InstanceChargePrepaid(self, InstanceChargePrepaid):
+        self._InstanceChargePrepaid = InstanceChargePrepaid
+
+    @property
+    def EnterprisePackageConfig(self):
+        r"""{ "Region": "ap-guangzhou", "ProtectIpCount": 1, "BasicProtectBandwidth": 300, "Bandwidth": 100, "ElasticProtectLimit": 0, "ElasticBandwidthFlag": true }
+        :rtype: :class:`tencentcloud.antiddos.v20200309.models.EnterprisePackageConfig`
+        """
+        return self._EnterprisePackageConfig
+
+    @EnterprisePackageConfig.setter
+    def EnterprisePackageConfig(self, EnterprisePackageConfig):
+        self._EnterprisePackageConfig = EnterprisePackageConfig
+
+    @property
+    def StandardPackageConfig(self):
+        r"""{ "Region": "ap-guangzhou", "ProtectIpCount": 1, "BasicProtectBandwidth": 300, "Bandwidth": 100, "ElasticProtectLimit": 0, "ElasticBandwidthFlag": true }
+        :rtype: :class:`tencentcloud.antiddos.v20200309.models.StandardPackageConfig`
+        """
+        return self._StandardPackageConfig
+
+    @StandardPackageConfig.setter
+    def StandardPackageConfig(self, StandardPackageConfig):
+        self._StandardPackageConfig = StandardPackageConfig
+
+    @property
+    def StandardPlusPackageConfig(self):
+        r"""{ "Region": "ap-guangzhou", "ProtectCount": "TWO_TIMES", "ProtectIpCount": 1, "Bandwidth": 100, "ElasticBandwidthFlag": true }
+        :rtype: :class:`tencentcloud.antiddos.v20200309.models.StandardPlusPackageConfig`
+        """
+        return self._StandardPlusPackageConfig
+
+    @StandardPlusPackageConfig.setter
+    def StandardPlusPackageConfig(self, StandardPlusPackageConfig):
+        self._StandardPlusPackageConfig = StandardPlusPackageConfig
+
+    @property
+    def TagInfoList(self):
+        r"""[ { "TagKey": "beal-test",                 "TagValue": "beal-test"               }             ]
+        :rtype: list of TagInfo
+        """
+        return self._TagInfoList
+
+    @TagInfoList.setter
+    def TagInfoList(self, TagInfoList):
+        self._TagInfoList = TagInfoList
+
+    @property
+    def DryRun(self):
+        r"""默认为false,true表示只进行参数校验，不进行实际购买
+        :rtype: bool
+        """
+        return self._DryRun
+
+    @DryRun.setter
+    def DryRun(self, DryRun):
+        self._DryRun = DryRun
+
+
+    def _deserialize(self, params):
+        self._InstanceChargeType = params.get("InstanceChargeType")
+        self._PackageType = params.get("PackageType")
+        self._InstanceCount = params.get("InstanceCount")
+        if params.get("InstanceChargePrepaid") is not None:
+            self._InstanceChargePrepaid = InstanceChargePrepaid()
+            self._InstanceChargePrepaid._deserialize(params.get("InstanceChargePrepaid"))
+        if params.get("EnterprisePackageConfig") is not None:
+            self._EnterprisePackageConfig = EnterprisePackageConfig()
+            self._EnterprisePackageConfig._deserialize(params.get("EnterprisePackageConfig"))
+        if params.get("StandardPackageConfig") is not None:
+            self._StandardPackageConfig = StandardPackageConfig()
+            self._StandardPackageConfig._deserialize(params.get("StandardPackageConfig"))
+        if params.get("StandardPlusPackageConfig") is not None:
+            self._StandardPlusPackageConfig = StandardPlusPackageConfig()
+            self._StandardPlusPackageConfig._deserialize(params.get("StandardPlusPackageConfig"))
+        if params.get("TagInfoList") is not None:
+            self._TagInfoList = []
+            for item in params.get("TagInfoList"):
+                obj = TagInfo()
+                obj._deserialize(item)
+                self._TagInfoList.append(obj)
+        self._DryRun = params.get("DryRun")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateBgpInstanceResponse(AbstractModel):
+    r"""CreateBgpInstance返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ResourceIds: bgpIds
+        :type ResourceIds: list of str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ResourceIds = None
+        self._RequestId = None
+
+    @property
+    def ResourceIds(self):
+        r"""bgpIds
+        :rtype: list of str
+        """
+        return self._ResourceIds
+
+    @ResourceIds.setter
+    def ResourceIds(self, ResourceIds):
+        self._ResourceIds = ResourceIds
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ResourceIds = params.get("ResourceIds")
+        self._RequestId = params.get("RequestId")
 
 
 class CreateBlackWhiteIpListRequest(AbstractModel):
@@ -8416,6 +8845,170 @@ class DescribeBgpBizTrendResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeBgpInstancesRequest(AbstractModel):
+    r"""DescribeBgpInstances请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FilterRegion: 地域
+        :type FilterRegion: str
+        :param _FilterInstanceIdList: ["bgp-0000041i"]
+        :type FilterInstanceIdList: list of str
+        :param _FilterTag: [{}]
+        :type FilterTag: list of TagInfo
+        :param _Limit: 分页数量
+        :type Limit: int
+        :param _Offset: 偏移量
+        :type Offset: int
+        """
+        self._FilterRegion = None
+        self._FilterInstanceIdList = None
+        self._FilterTag = None
+        self._Limit = None
+        self._Offset = None
+
+    @property
+    def FilterRegion(self):
+        r"""地域
+        :rtype: str
+        """
+        return self._FilterRegion
+
+    @FilterRegion.setter
+    def FilterRegion(self, FilterRegion):
+        self._FilterRegion = FilterRegion
+
+    @property
+    def FilterInstanceIdList(self):
+        r"""["bgp-0000041i"]
+        :rtype: list of str
+        """
+        return self._FilterInstanceIdList
+
+    @FilterInstanceIdList.setter
+    def FilterInstanceIdList(self, FilterInstanceIdList):
+        self._FilterInstanceIdList = FilterInstanceIdList
+
+    @property
+    def FilterTag(self):
+        r"""[{}]
+        :rtype: list of TagInfo
+        """
+        return self._FilterTag
+
+    @FilterTag.setter
+    def FilterTag(self, FilterTag):
+        self._FilterTag = FilterTag
+
+    @property
+    def Limit(self):
+        r"""分页数量
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Offset(self):
+        r"""偏移量
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+
+    def _deserialize(self, params):
+        self._FilterRegion = params.get("FilterRegion")
+        self._FilterInstanceIdList = params.get("FilterInstanceIdList")
+        if params.get("FilterTag") is not None:
+            self._FilterTag = []
+            for item in params.get("FilterTag"):
+                obj = TagInfo()
+                obj._deserialize(item)
+                self._FilterTag.append(obj)
+        self._Limit = params.get("Limit")
+        self._Offset = params.get("Offset")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeBgpInstancesResponse(AbstractModel):
+    r"""DescribeBgpInstances返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Total: 返回数量
+        :type Total: int
+        :param _BGPInstanceList: 返回购买高防包信息
+        :type BGPInstanceList: list of BGPInstanceInfo
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Total = None
+        self._BGPInstanceList = None
+        self._RequestId = None
+
+    @property
+    def Total(self):
+        r"""返回数量
+        :rtype: int
+        """
+        return self._Total
+
+    @Total.setter
+    def Total(self, Total):
+        self._Total = Total
+
+    @property
+    def BGPInstanceList(self):
+        r"""返回购买高防包信息
+        :rtype: list of BGPInstanceInfo
+        """
+        return self._BGPInstanceList
+
+    @BGPInstanceList.setter
+    def BGPInstanceList(self, BGPInstanceList):
+        self._BGPInstanceList = BGPInstanceList
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Total = params.get("Total")
+        if params.get("BGPInstanceList") is not None:
+            self._BGPInstanceList = []
+            for item in params.get("BGPInstanceList"):
+                obj = BGPInstanceInfo()
+                obj._deserialize(item)
+                self._BGPInstanceList.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeBizHttpStatusRequest(AbstractModel):
     r"""DescribeBizHttpStatus请求参数结构体
 
@@ -10364,7 +10957,7 @@ class DescribeCcGeoIPBlockConfigListRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Business: DDoS防护子产品代号（bgpip-multip：表示高防包；bgpip：表示高防IP）
+        :param _Business: DDoS防护子产品代号（bgp-multip：表示高防包；bgpip：表示高防IP）
         :type Business: str
         :param _Offset: 页起始偏移，取值为(页码-1)*一页条数
         :type Offset: int
@@ -10389,7 +10982,7 @@ class DescribeCcGeoIPBlockConfigListRequest(AbstractModel):
 
     @property
     def Business(self):
-        r"""DDoS防护子产品代号（bgpip-multip：表示高防包；bgpip：表示高防IP）
+        r"""DDoS防护子产品代号（bgp-multip：表示高防包；bgpip：表示高防IP）
         :rtype: str
         """
         return self._Business
@@ -13219,6 +13812,180 @@ class DescribeListPortAclListResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeListProtectThresholdConfigNewRequest(AbstractModel):
+    r"""DescribeListProtectThresholdConfigNew请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Offset: 页起始偏移，取值为(页码-1)*一页条数
+        :type Offset: int
+        :param _Limit: 一页条数，当Limit=0时，默认一页条数为100;最大取值为100
+        :type Limit: int
+        :param _FilterInstanceId: 资源实例ID搜索, 支持资源实例前缀通配搜索，例如bgp-*表示获取高防包类型的资源实例
+        :type FilterInstanceId: str
+        :param _FilterIp: IP搜索
+        :type FilterIp: str
+        :param _FilterDomain: 域名搜索，查询域名与协议的CC防护阈值时使用
+        :type FilterDomain: str
+        :param _FilterProtocol: 协议搜索，查询域名与协议的CC防护阈值时使用
+        :type FilterProtocol: str
+        """
+        self._Offset = None
+        self._Limit = None
+        self._FilterInstanceId = None
+        self._FilterIp = None
+        self._FilterDomain = None
+        self._FilterProtocol = None
+
+    @property
+    def Offset(self):
+        r"""页起始偏移，取值为(页码-1)*一页条数
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""一页条数，当Limit=0时，默认一页条数为100;最大取值为100
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def FilterInstanceId(self):
+        r"""资源实例ID搜索, 支持资源实例前缀通配搜索，例如bgp-*表示获取高防包类型的资源实例
+        :rtype: str
+        """
+        return self._FilterInstanceId
+
+    @FilterInstanceId.setter
+    def FilterInstanceId(self, FilterInstanceId):
+        self._FilterInstanceId = FilterInstanceId
+
+    @property
+    def FilterIp(self):
+        r"""IP搜索
+        :rtype: str
+        """
+        return self._FilterIp
+
+    @FilterIp.setter
+    def FilterIp(self, FilterIp):
+        self._FilterIp = FilterIp
+
+    @property
+    def FilterDomain(self):
+        r"""域名搜索，查询域名与协议的CC防护阈值时使用
+        :rtype: str
+        """
+        return self._FilterDomain
+
+    @FilterDomain.setter
+    def FilterDomain(self, FilterDomain):
+        self._FilterDomain = FilterDomain
+
+    @property
+    def FilterProtocol(self):
+        r"""协议搜索，查询域名与协议的CC防护阈值时使用
+        :rtype: str
+        """
+        return self._FilterProtocol
+
+    @FilterProtocol.setter
+    def FilterProtocol(self, FilterProtocol):
+        self._FilterProtocol = FilterProtocol
+
+
+    def _deserialize(self, params):
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        self._FilterInstanceId = params.get("FilterInstanceId")
+        self._FilterIp = params.get("FilterIp")
+        self._FilterDomain = params.get("FilterDomain")
+        self._FilterProtocol = params.get("FilterProtocol")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeListProtectThresholdConfigNewResponse(AbstractModel):
+    r"""DescribeListProtectThresholdConfigNew返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Total: 总记录数
+        :type Total: int
+        :param _ConfigList: 防护阈值配置列表
+        :type ConfigList: list of ProtectThresholdRelationNew
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Total = None
+        self._ConfigList = None
+        self._RequestId = None
+
+    @property
+    def Total(self):
+        r"""总记录数
+        :rtype: int
+        """
+        return self._Total
+
+    @Total.setter
+    def Total(self, Total):
+        self._Total = Total
+
+    @property
+    def ConfigList(self):
+        r"""防护阈值配置列表
+        :rtype: list of ProtectThresholdRelationNew
+        """
+        return self._ConfigList
+
+    @ConfigList.setter
+    def ConfigList(self, ConfigList):
+        self._ConfigList = ConfigList
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Total = params.get("Total")
+        if params.get("ConfigList") is not None:
+            self._ConfigList = []
+            for item in params.get("ConfigList"):
+                obj = ProtectThresholdRelationNew()
+                obj._deserialize(item)
+                self._ConfigList.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeListProtocolBlockConfigRequest(AbstractModel):
     r"""DescribeListProtocolBlockConfig请求参数结构体
 
@@ -15440,6 +16207,128 @@ other(托管IP)
         
 
 
+class EnterprisePackageConfig(AbstractModel):
+    r"""{
+        "Region": "ap-guangzhou",
+        "ProtectIpCount": 1,
+        "BasicProtectBandwidth": 300,
+        "Bandwidth": 100,
+        "ElasticProtectBandwidth": 0,
+        "ElasticBandwidthFlag": true
+    }
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Region: 购买高防包所属地域
+        :type Region: str
+        :param _ProtectIpCount: 防护IP数
+        :type ProtectIpCount: int
+        :param _BasicProtectBandwidth: 保底防护带宽
+        :type BasicProtectBandwidth: int
+        :param _Bandwidth: 业务带宽规模
+        :type Bandwidth: int
+        :param _ElasticProtectBandwidth: 弹性带宽 Gbps，可选择的弹性带宽[0,400,500,600,800,1000]
+默认为0
+        :type ElasticProtectBandwidth: int
+        :param _ElasticBandwidthFlag: 是否开启弹性业务带宽
+默认为false
+        :type ElasticBandwidthFlag: bool
+        """
+        self._Region = None
+        self._ProtectIpCount = None
+        self._BasicProtectBandwidth = None
+        self._Bandwidth = None
+        self._ElasticProtectBandwidth = None
+        self._ElasticBandwidthFlag = None
+
+    @property
+    def Region(self):
+        r"""购买高防包所属地域
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def ProtectIpCount(self):
+        r"""防护IP数
+        :rtype: int
+        """
+        return self._ProtectIpCount
+
+    @ProtectIpCount.setter
+    def ProtectIpCount(self, ProtectIpCount):
+        self._ProtectIpCount = ProtectIpCount
+
+    @property
+    def BasicProtectBandwidth(self):
+        r"""保底防护带宽
+        :rtype: int
+        """
+        return self._BasicProtectBandwidth
+
+    @BasicProtectBandwidth.setter
+    def BasicProtectBandwidth(self, BasicProtectBandwidth):
+        self._BasicProtectBandwidth = BasicProtectBandwidth
+
+    @property
+    def Bandwidth(self):
+        r"""业务带宽规模
+        :rtype: int
+        """
+        return self._Bandwidth
+
+    @Bandwidth.setter
+    def Bandwidth(self, Bandwidth):
+        self._Bandwidth = Bandwidth
+
+    @property
+    def ElasticProtectBandwidth(self):
+        r"""弹性带宽 Gbps，可选择的弹性带宽[0,400,500,600,800,1000]
+默认为0
+        :rtype: int
+        """
+        return self._ElasticProtectBandwidth
+
+    @ElasticProtectBandwidth.setter
+    def ElasticProtectBandwidth(self, ElasticProtectBandwidth):
+        self._ElasticProtectBandwidth = ElasticProtectBandwidth
+
+    @property
+    def ElasticBandwidthFlag(self):
+        r"""是否开启弹性业务带宽
+默认为false
+        :rtype: bool
+        """
+        return self._ElasticBandwidthFlag
+
+    @ElasticBandwidthFlag.setter
+    def ElasticBandwidthFlag(self, ElasticBandwidthFlag):
+        self._ElasticBandwidthFlag = ElasticBandwidthFlag
+
+
+    def _deserialize(self, params):
+        self._Region = params.get("Region")
+        self._ProtectIpCount = params.get("ProtectIpCount")
+        self._BasicProtectBandwidth = params.get("BasicProtectBandwidth")
+        self._Bandwidth = params.get("Bandwidth")
+        self._ElasticProtectBandwidth = params.get("ElasticProtectBandwidth")
+        self._ElasticBandwidthFlag = params.get("ElasticBandwidthFlag")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ForwardListener(AbstractModel):
     r"""转发监听器
 
@@ -15986,6 +16875,70 @@ class InsL7Rules(AbstractModel):
         self._AppId = params.get("AppId")
         self._VirtualPort = params.get("VirtualPort")
         self._SSLId = params.get("SSLId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class InstanceChargePrepaid(AbstractModel):
+    r"""{
+            "Period": 12,
+            "RenewFlag": "NOTIFY_AND_AUTO_RENEW"
+    }
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Period: 购买时长：单位月
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Period: int
+        :param _RenewFlag: NOTIFY_AND_MANUAL_RENEW：通知过期不自动续费
+NOTIFY_AND_AUTO_RENEW：到期通知且自动续费
+DISABLE_NOTIFY_AND_MANUAL_RENEW：不通知过期不自动续费
+默认为：通知过期不自动续费
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RenewFlag: str
+        """
+        self._Period = None
+        self._RenewFlag = None
+
+    @property
+    def Period(self):
+        r"""购买时长：单位月
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Period
+
+    @Period.setter
+    def Period(self, Period):
+        self._Period = Period
+
+    @property
+    def RenewFlag(self):
+        r"""NOTIFY_AND_MANUAL_RENEW：通知过期不自动续费
+NOTIFY_AND_AUTO_RENEW：到期通知且自动续费
+DISABLE_NOTIFY_AND_MANUAL_RENEW：不通知过期不自动续费
+默认为：通知过期不自动续费
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RenewFlag
+
+    @RenewFlag.setter
+    def RenewFlag(self, RenewFlag):
+        self._RenewFlag = RenewFlag
+
+
+    def _deserialize(self, params):
+        self._Period = params.get("Period")
+        self._RenewFlag = params.get("RenewFlag")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -17228,6 +18181,87 @@ class Layer7Rule(AbstractModel):
                 self._InstanceDetailRule.append(obj)
         self._Protocol = params.get("Protocol")
         self._Vport = params.get("Vport")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ListenerCcThresholdConfig(AbstractModel):
+    r"""域名与协议纬度的CC防护阈值
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Domain: 域名
+        :type Domain: str
+        :param _Protocol: 协议（可取值https）
+        :type Protocol: str
+        :param _CCEnable: 开关状态（0：关闭，1：开启）
+        :type CCEnable: int
+        :param _CCThreshold: cc防护阈值
+        :type CCThreshold: int
+        """
+        self._Domain = None
+        self._Protocol = None
+        self._CCEnable = None
+        self._CCThreshold = None
+
+    @property
+    def Domain(self):
+        r"""域名
+        :rtype: str
+        """
+        return self._Domain
+
+    @Domain.setter
+    def Domain(self, Domain):
+        self._Domain = Domain
+
+    @property
+    def Protocol(self):
+        r"""协议（可取值https）
+        :rtype: str
+        """
+        return self._Protocol
+
+    @Protocol.setter
+    def Protocol(self, Protocol):
+        self._Protocol = Protocol
+
+    @property
+    def CCEnable(self):
+        r"""开关状态（0：关闭，1：开启）
+        :rtype: int
+        """
+        return self._CCEnable
+
+    @CCEnable.setter
+    def CCEnable(self, CCEnable):
+        self._CCEnable = CCEnable
+
+    @property
+    def CCThreshold(self):
+        r"""cc防护阈值
+        :rtype: int
+        """
+        return self._CCThreshold
+
+    @CCThreshold.setter
+    def CCThreshold(self, CCThreshold):
+        self._CCThreshold = CCThreshold
+
+
+    def _deserialize(self, params):
+        self._Domain = params.get("Domain")
+        self._Protocol = params.get("Protocol")
+        self._CCEnable = params.get("CCEnable")
+        self._CCThreshold = params.get("CCThreshold")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -20115,6 +21149,332 @@ class PortSegment(AbstractModel):
         
 
 
+class ProtectThresholdRelationNew(AbstractModel):
+    r"""防护阈值配置相关信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DDoSLevel: DDoS防护等级，取值[
+low(宽松)
+middle(适中)
+high(严格)
+]
+        :type DDoSLevel: str
+        :param _DDoSThreshold: DDoS清洗阈值，单位Mbps
+        :type DDoSThreshold: int
+        :param _DDoSAI: DDoS的AI防护开关，取值[
+on(开启)
+off(关闭)
+]
+        :type DDoSAI: str
+        :param _CCEnable: CC清洗开关，取值[
+0(关闭)
+1(开启)
+]
+        :type CCEnable: int
+        :param _CCThreshold: CC清洗阈值，单位QPS
+        :type CCThreshold: int
+        :param _InstanceDetailList: 所属的资源实例
+        :type InstanceDetailList: list of InstanceRelation
+        :param _ListenerCcThresholdList: 域名与协议纬度的防护阈值
+        :type ListenerCcThresholdList: list of ListenerCcThresholdConfig
+        :param _SynFloodThreshold: SYN FLOOD流量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SynFloodThreshold: int
+        :param _SynFloodPktThreshold: SYN FLOOD包量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SynFloodPktThreshold: int
+        :param _UdpFloodThreshold: UDP FLOOD流量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UdpFloodThreshold: int
+        :param _UdpFloodPktThreshold: UDP FLOOD包量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UdpFloodPktThreshold: int
+        :param _AckFloodThreshold: ACK FLOOD流量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AckFloodThreshold: int
+        :param _AckFloodPktThreshold: ACK FLOOD包量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AckFloodPktThreshold: int
+        :param _SynAckFloodThreshold: SYNACK FLOOD流量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SynAckFloodThreshold: int
+        :param _SynAckFloodPktThreshold: SYNACK FLOOD包量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SynAckFloodPktThreshold: int
+        :param _RstFloodThreshold: RST FLOOD流量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RstFloodThreshold: int
+        :param _RstFloodPktThreshold: RST FLOOD包量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RstFloodPktThreshold: int
+        """
+        self._DDoSLevel = None
+        self._DDoSThreshold = None
+        self._DDoSAI = None
+        self._CCEnable = None
+        self._CCThreshold = None
+        self._InstanceDetailList = None
+        self._ListenerCcThresholdList = None
+        self._SynFloodThreshold = None
+        self._SynFloodPktThreshold = None
+        self._UdpFloodThreshold = None
+        self._UdpFloodPktThreshold = None
+        self._AckFloodThreshold = None
+        self._AckFloodPktThreshold = None
+        self._SynAckFloodThreshold = None
+        self._SynAckFloodPktThreshold = None
+        self._RstFloodThreshold = None
+        self._RstFloodPktThreshold = None
+
+    @property
+    def DDoSLevel(self):
+        r"""DDoS防护等级，取值[
+low(宽松)
+middle(适中)
+high(严格)
+]
+        :rtype: str
+        """
+        return self._DDoSLevel
+
+    @DDoSLevel.setter
+    def DDoSLevel(self, DDoSLevel):
+        self._DDoSLevel = DDoSLevel
+
+    @property
+    def DDoSThreshold(self):
+        r"""DDoS清洗阈值，单位Mbps
+        :rtype: int
+        """
+        return self._DDoSThreshold
+
+    @DDoSThreshold.setter
+    def DDoSThreshold(self, DDoSThreshold):
+        self._DDoSThreshold = DDoSThreshold
+
+    @property
+    def DDoSAI(self):
+        r"""DDoS的AI防护开关，取值[
+on(开启)
+off(关闭)
+]
+        :rtype: str
+        """
+        return self._DDoSAI
+
+    @DDoSAI.setter
+    def DDoSAI(self, DDoSAI):
+        self._DDoSAI = DDoSAI
+
+    @property
+    def CCEnable(self):
+        r"""CC清洗开关，取值[
+0(关闭)
+1(开启)
+]
+        :rtype: int
+        """
+        return self._CCEnable
+
+    @CCEnable.setter
+    def CCEnable(self, CCEnable):
+        self._CCEnable = CCEnable
+
+    @property
+    def CCThreshold(self):
+        r"""CC清洗阈值，单位QPS
+        :rtype: int
+        """
+        return self._CCThreshold
+
+    @CCThreshold.setter
+    def CCThreshold(self, CCThreshold):
+        self._CCThreshold = CCThreshold
+
+    @property
+    def InstanceDetailList(self):
+        r"""所属的资源实例
+        :rtype: list of InstanceRelation
+        """
+        return self._InstanceDetailList
+
+    @InstanceDetailList.setter
+    def InstanceDetailList(self, InstanceDetailList):
+        self._InstanceDetailList = InstanceDetailList
+
+    @property
+    def ListenerCcThresholdList(self):
+        r"""域名与协议纬度的防护阈值
+        :rtype: list of ListenerCcThresholdConfig
+        """
+        return self._ListenerCcThresholdList
+
+    @ListenerCcThresholdList.setter
+    def ListenerCcThresholdList(self, ListenerCcThresholdList):
+        self._ListenerCcThresholdList = ListenerCcThresholdList
+
+    @property
+    def SynFloodThreshold(self):
+        r"""SYN FLOOD流量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._SynFloodThreshold
+
+    @SynFloodThreshold.setter
+    def SynFloodThreshold(self, SynFloodThreshold):
+        self._SynFloodThreshold = SynFloodThreshold
+
+    @property
+    def SynFloodPktThreshold(self):
+        r"""SYN FLOOD包量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._SynFloodPktThreshold
+
+    @SynFloodPktThreshold.setter
+    def SynFloodPktThreshold(self, SynFloodPktThreshold):
+        self._SynFloodPktThreshold = SynFloodPktThreshold
+
+    @property
+    def UdpFloodThreshold(self):
+        r"""UDP FLOOD流量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._UdpFloodThreshold
+
+    @UdpFloodThreshold.setter
+    def UdpFloodThreshold(self, UdpFloodThreshold):
+        self._UdpFloodThreshold = UdpFloodThreshold
+
+    @property
+    def UdpFloodPktThreshold(self):
+        r"""UDP FLOOD包量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._UdpFloodPktThreshold
+
+    @UdpFloodPktThreshold.setter
+    def UdpFloodPktThreshold(self, UdpFloodPktThreshold):
+        self._UdpFloodPktThreshold = UdpFloodPktThreshold
+
+    @property
+    def AckFloodThreshold(self):
+        r"""ACK FLOOD流量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._AckFloodThreshold
+
+    @AckFloodThreshold.setter
+    def AckFloodThreshold(self, AckFloodThreshold):
+        self._AckFloodThreshold = AckFloodThreshold
+
+    @property
+    def AckFloodPktThreshold(self):
+        r"""ACK FLOOD包量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._AckFloodPktThreshold
+
+    @AckFloodPktThreshold.setter
+    def AckFloodPktThreshold(self, AckFloodPktThreshold):
+        self._AckFloodPktThreshold = AckFloodPktThreshold
+
+    @property
+    def SynAckFloodThreshold(self):
+        r"""SYNACK FLOOD流量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._SynAckFloodThreshold
+
+    @SynAckFloodThreshold.setter
+    def SynAckFloodThreshold(self, SynAckFloodThreshold):
+        self._SynAckFloodThreshold = SynAckFloodThreshold
+
+    @property
+    def SynAckFloodPktThreshold(self):
+        r"""SYNACK FLOOD包量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._SynAckFloodPktThreshold
+
+    @SynAckFloodPktThreshold.setter
+    def SynAckFloodPktThreshold(self, SynAckFloodPktThreshold):
+        self._SynAckFloodPktThreshold = SynAckFloodPktThreshold
+
+    @property
+    def RstFloodThreshold(self):
+        r"""RST FLOOD流量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._RstFloodThreshold
+
+    @RstFloodThreshold.setter
+    def RstFloodThreshold(self, RstFloodThreshold):
+        self._RstFloodThreshold = RstFloodThreshold
+
+    @property
+    def RstFloodPktThreshold(self):
+        r"""RST FLOOD包量阈值
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._RstFloodPktThreshold
+
+    @RstFloodPktThreshold.setter
+    def RstFloodPktThreshold(self, RstFloodPktThreshold):
+        self._RstFloodPktThreshold = RstFloodPktThreshold
+
+
+    def _deserialize(self, params):
+        self._DDoSLevel = params.get("DDoSLevel")
+        self._DDoSThreshold = params.get("DDoSThreshold")
+        self._DDoSAI = params.get("DDoSAI")
+        self._CCEnable = params.get("CCEnable")
+        self._CCThreshold = params.get("CCThreshold")
+        if params.get("InstanceDetailList") is not None:
+            self._InstanceDetailList = []
+            for item in params.get("InstanceDetailList"):
+                obj = InstanceRelation()
+                obj._deserialize(item)
+                self._InstanceDetailList.append(obj)
+        if params.get("ListenerCcThresholdList") is not None:
+            self._ListenerCcThresholdList = []
+            for item in params.get("ListenerCcThresholdList"):
+                obj = ListenerCcThresholdConfig()
+                obj._deserialize(item)
+                self._ListenerCcThresholdList.append(obj)
+        self._SynFloodThreshold = params.get("SynFloodThreshold")
+        self._SynFloodPktThreshold = params.get("SynFloodPktThreshold")
+        self._UdpFloodThreshold = params.get("UdpFloodThreshold")
+        self._UdpFloodPktThreshold = params.get("UdpFloodPktThreshold")
+        self._AckFloodThreshold = params.get("AckFloodThreshold")
+        self._AckFloodPktThreshold = params.get("AckFloodPktThreshold")
+        self._SynAckFloodThreshold = params.get("SynAckFloodThreshold")
+        self._SynAckFloodPktThreshold = params.get("SynAckFloodPktThreshold")
+        self._RstFloodThreshold = params.get("RstFloodThreshold")
+        self._RstFloodPktThreshold = params.get("RstFloodPktThreshold")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ProtocolBlockConfig(AbstractModel):
     r"""协议封禁配置
 
@@ -20807,6 +22167,220 @@ class SpeedValue(AbstractModel):
         
 
 
+class StandardPackageConfig(AbstractModel):
+    r"""{
+        "Region": "ap-guangzhou",
+        "ProtectIpCount": 1,
+        "Bandwidth": 100,
+        "ElasticBandwidthFlag": true
+    }
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Region: 高防包购买地域
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Region: str
+        :param _ProtectIpCount: 防护IP数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ProtectIpCount: int
+        :param _Bandwidth: 防护业务带宽 50Mbps
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Bandwidth: int
+        :param _ElasticBandwidthFlag: 是否开启弹性防护带宽 true 开启 
+默认为false 不开启
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ElasticBandwidthFlag: bool
+        """
+        self._Region = None
+        self._ProtectIpCount = None
+        self._Bandwidth = None
+        self._ElasticBandwidthFlag = None
+
+    @property
+    def Region(self):
+        r"""高防包购买地域
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def ProtectIpCount(self):
+        r"""防护IP数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._ProtectIpCount
+
+    @ProtectIpCount.setter
+    def ProtectIpCount(self, ProtectIpCount):
+        self._ProtectIpCount = ProtectIpCount
+
+    @property
+    def Bandwidth(self):
+        r"""防护业务带宽 50Mbps
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Bandwidth
+
+    @Bandwidth.setter
+    def Bandwidth(self, Bandwidth):
+        self._Bandwidth = Bandwidth
+
+    @property
+    def ElasticBandwidthFlag(self):
+        r"""是否开启弹性防护带宽 true 开启 
+默认为false 不开启
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._ElasticBandwidthFlag
+
+    @ElasticBandwidthFlag.setter
+    def ElasticBandwidthFlag(self, ElasticBandwidthFlag):
+        self._ElasticBandwidthFlag = ElasticBandwidthFlag
+
+
+    def _deserialize(self, params):
+        self._Region = params.get("Region")
+        self._ProtectIpCount = params.get("ProtectIpCount")
+        self._Bandwidth = params.get("Bandwidth")
+        self._ElasticBandwidthFlag = params.get("ElasticBandwidthFlag")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class StandardPlusPackageConfig(AbstractModel):
+    r"""{
+        "Region": "ap-guangzhou",
+        "ProtectCount": "TWO_TIMES",
+        "ProtectIpCount": 1,
+        "Bandwidth": 50,
+        "ElasticBandwidthFlag": true
+    }
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Region: 购买高防包所属地域
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Region: str
+        :param _ProtectCount: 防护次数：TWO_TIMES:两次全力防 UNLIMITED无限次防
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ProtectCount: str
+        :param _ProtectIpCount: 防护IP数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ProtectIpCount: int
+        :param _Bandwidth: 防护带宽50Mbps
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Bandwidth: int
+        :param _ElasticBandwidthFlag: 是否开启弹性业务带宽
+true 开启
+false 不开启 
+默认不开启
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ElasticBandwidthFlag: bool
+        """
+        self._Region = None
+        self._ProtectCount = None
+        self._ProtectIpCount = None
+        self._Bandwidth = None
+        self._ElasticBandwidthFlag = None
+
+    @property
+    def Region(self):
+        r"""购买高防包所属地域
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def ProtectCount(self):
+        r"""防护次数：TWO_TIMES:两次全力防 UNLIMITED无限次防
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ProtectCount
+
+    @ProtectCount.setter
+    def ProtectCount(self, ProtectCount):
+        self._ProtectCount = ProtectCount
+
+    @property
+    def ProtectIpCount(self):
+        r"""防护IP数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._ProtectIpCount
+
+    @ProtectIpCount.setter
+    def ProtectIpCount(self, ProtectIpCount):
+        self._ProtectIpCount = ProtectIpCount
+
+    @property
+    def Bandwidth(self):
+        r"""防护带宽50Mbps
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Bandwidth
+
+    @Bandwidth.setter
+    def Bandwidth(self, Bandwidth):
+        self._Bandwidth = Bandwidth
+
+    @property
+    def ElasticBandwidthFlag(self):
+        r"""是否开启弹性业务带宽
+true 开启
+false 不开启 
+默认不开启
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._ElasticBandwidthFlag
+
+    @ElasticBandwidthFlag.setter
+    def ElasticBandwidthFlag(self, ElasticBandwidthFlag):
+        self._ElasticBandwidthFlag = ElasticBandwidthFlag
+
+
+    def _deserialize(self, params):
+        self._Region = params.get("Region")
+        self._ProtectCount = params.get("ProtectCount")
+        self._ProtectIpCount = params.get("ProtectIpCount")
+        self._Bandwidth = params.get("Bandwidth")
+        self._ElasticBandwidthFlag = params.get("ElasticBandwidthFlag")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class StaticPackRelation(AbstractModel):
     r"""三网高防套餐详情
 
@@ -21106,9 +22680,9 @@ class TagInfo(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TagKey: 标签键
+        :param _TagKey: 标签键。
         :type TagKey: str
-        :param _TagValue: 标签值
+        :param _TagValue: 标签值。
         :type TagValue: str
         """
         self._TagKey = None
@@ -21116,7 +22690,7 @@ class TagInfo(AbstractModel):
 
     @property
     def TagKey(self):
-        r"""标签键
+        r"""标签键。
         :rtype: str
         """
         return self._TagKey
@@ -21127,7 +22701,7 @@ class TagInfo(AbstractModel):
 
     @property
     def TagValue(self):
-        r"""标签值
+        r"""标签值。
         :rtype: str
         """
         return self._TagValue

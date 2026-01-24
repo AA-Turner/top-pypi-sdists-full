@@ -1,20 +1,24 @@
 # imports - standard imports
+import ast
 import os
 import pathlib
 import re
-import sys
 import subprocess
-from typing import List, Optional
+import sys
+import warnings
 from functools import lru_cache
+from typing import List, Optional
+
+from bench.app import get_repo_dir
 
 # imports - module imports
 from bench.exceptions import (
-	InvalidRemoteException,
-	InvalidBranchException,
+	AppInstallationError,
 	CommandFailedError,
+	InvalidBranchException,
+	InvalidRemoteException,
 	VersionNotFound,
 )
-from bench.app import get_repo_dir
 
 
 def is_version_upgrade(app="frappe", bench_path=".", branch=None):
@@ -36,8 +40,9 @@ def is_version_upgrade(app="frappe", bench_path=".", branch=None):
 
 def switch_branch(branch, apps=None, bench_path=".", upgrade=False, check_upgrade=True):
 	import git
+
 	from bench.bench import Bench
-	from bench.utils import log, exec_cmd
+	from bench.utils import exec_cmd, log
 	from bench.utils.bench import (
 		build_assets,
 		patch_sites,
@@ -177,8 +182,9 @@ def get_current_branch(app, bench_path="."):
 
 @lru_cache(maxsize=5)
 def get_required_deps(org, name, branch, deps="hooks.py"):
-	import requests
 	import base64
+
+	import requests
 
 	git_api_url = f"https://api.github.com/repos/{org}/{name}/contents/{name}/{deps}"
 	params = {"ref": branch or "develop"}
@@ -222,6 +228,18 @@ def get_remote(app, bench_path="."):
 		return contents.splitlines()[0].split()[0]
 
 
+def get_app_name_from_setup(contents: str) -> str | None:
+	"""Parse the ast to find the app name in setup.py"""
+	tree = ast.parse(contents)
+	for node in tree.body:
+		if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+			call = node.value
+			if getattr(call.func, "id", None) == "setup":
+				for kwarg in call.keywords:
+					if kwarg.arg == "name" and isinstance(kwarg.value, ast.Constant):
+						return kwarg.value.value
+
+
 def get_app_name(bench_path: str, folder_name: str) -> str:
 	"""Retrieves `name` attribute of app - equivalent to distribution name
 	of python package. Fetches from pyproject.toml, setup.cfg or setup.py
@@ -247,7 +265,17 @@ def get_app_name(bench_path: str, folder_name: str) -> str:
 	if not app_name:
 		# retrieve app name from setup.py as fallback
 		with open(setup_py_path, "rb") as f:
-			app_name = re.search(r'name\s*=\s*[\'"](.*)[\'"]', f.read().decode("utf-8"))[1]
+			warnings.warn(
+			"setup.py is deprecated. Please migrate to pyproject.toml (PEP 621) for future releases.",
+			DeprecationWarning,
+		)
+			app_name = get_app_name_from_setup(f.read().decode("utf-8"))
+
+	if not app_name:
+		raise AppInstallationError(
+            "Could not determine the package name. Checked pyproject.toml, setup.cfg, and setup.py."
+        )
+
 
 	if app_name and folder_name != app_name:
 		os.rename(os.path.join(apps_path, folder_name), os.path.join(apps_path, app_name))

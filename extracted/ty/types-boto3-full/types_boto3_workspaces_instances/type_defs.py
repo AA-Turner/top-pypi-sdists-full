@@ -3,7 +3,7 @@ Type annotations for workspaces-instances service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_workspaces_instances/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -24,6 +25,7 @@ from .literals import (
     AmdSevSnpEnumType,
     AutoRecoveryEnumType,
     BandwidthWeightingEnumType,
+    BillingModeType,
     CapacityReservationPreferenceEnumType,
     CpuCreditsEnumType,
     DisassociateModeEnumType,
@@ -31,10 +33,12 @@ from .literals import (
     HttpEndpointEnumType,
     HttpProtocolIpv6EnumType,
     HttpTokensEnumType,
+    InstanceConfigurationTenancyEnumType,
     InstanceInterruptionBehaviorEnumType,
     InstanceMetadataTagsEnumType,
     InterfaceTypeEnumType,
     MarketTypeEnumType,
+    PlatformTypeEnumType,
     ProvisionStateEnumType,
     ResourceTypeEnumType,
     SpotInstanceTypeEnumType,
@@ -42,12 +46,6 @@ from .literals import (
     VolumeTypeEnumType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -56,6 +54,7 @@ else:
 
 __all__ = (
     "AssociateVolumeRequestTypeDef",
+    "BillingConfigurationTypeDef",
     "BlockDeviceMappingRequestTypeDef",
     "CapacityReservationSpecificationTypeDef",
     "CapacityReservationTargetTypeDef",
@@ -79,6 +78,7 @@ __all__ = (
     "GetWorkspaceInstanceResponseTypeDef",
     "HibernationOptionsRequestTypeDef",
     "IamInstanceProfileSpecificationTypeDef",
+    "InstanceConfigurationFilterTypeDef",
     "InstanceIpv6AddressTypeDef",
     "InstanceMaintenanceOptionsRequestTypeDef",
     "InstanceMarketOptionsRequestTypeDef",
@@ -109,6 +109,7 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "RunInstancesMonitoringEnabledTypeDef",
     "SpotMarketOptionsTypeDef",
+    "SupportedInstanceConfigurationTypeDef",
     "TagResourceRequestTypeDef",
     "TagSpecificationTypeDef",
     "TagTypeDef",
@@ -123,6 +124,10 @@ class AssociateVolumeRequestTypeDef(TypedDict):
     WorkspaceInstanceId: str
     VolumeId: str
     Device: str
+
+
+class BillingConfigurationTypeDef(TypedDict):
+    BillingMode: BillingModeType
 
 
 class EbsBlockDeviceTypeDef(TypedDict):
@@ -154,7 +159,7 @@ class CpuOptionsRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -219,6 +224,12 @@ class IamInstanceProfileSpecificationTypeDef(TypedDict):
     Name: NotRequired[str]
 
 
+class InstanceConfigurationFilterTypeDef(TypedDict):
+    BillingMode: BillingModeType
+    PlatformType: PlatformTypeEnumType
+    Tenancy: InstanceConfigurationTenancyEnumType
+
+
 class InstanceIpv6AddressTypeDef(TypedDict):
     Ipv6Address: NotRequired[str]
     IsPrimaryIpv6: NotRequired[bool]
@@ -253,8 +264,10 @@ class InstanceNetworkPerformanceOptionsRequestTypeDef(TypedDict):
     BandwidthWeighting: NotRequired[BandwidthWeightingEnumType]
 
 
-class InstanceTypeInfoTypeDef(TypedDict):
-    InstanceType: NotRequired[str]
+class SupportedInstanceConfigurationTypeDef(TypedDict):
+    BillingMode: NotRequired[BillingModeType]
+    PlatformType: NotRequired[PlatformTypeEnumType]
+    Tenancy: NotRequired[InstanceConfigurationTenancyEnumType]
 
 
 class LicenseConfigurationRequestTypeDef(TypedDict):
@@ -265,11 +278,6 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
-
-
-class ListInstanceTypesRequestTypeDef(TypedDict):
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
 
 
 class ListRegionsRequestTypeDef(TypedDict):
@@ -343,7 +351,7 @@ class CreateWorkspaceInstanceResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -369,21 +377,28 @@ class EnaSrdSpecificationRequestTypeDef(TypedDict):
 
 
 class GetWorkspaceInstanceResponseTypeDef(TypedDict):
-    WorkspaceInstanceErrors: List[WorkspaceInstanceErrorTypeDef]
-    EC2InstanceErrors: List[EC2InstanceErrorTypeDef]
+    WorkspaceInstanceErrors: list[WorkspaceInstanceErrorTypeDef]
+    EC2InstanceErrors: list[EC2InstanceErrorTypeDef]
     ProvisionState: ProvisionStateEnumType
     WorkspaceInstanceId: str
     EC2ManagedInstance: EC2ManagedInstanceTypeDef
+    BillingConfiguration: BillingConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ListInstanceTypesResponseTypeDef(TypedDict):
-    InstanceTypes: List[InstanceTypeInfoTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
+class ListInstanceTypesRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    InstanceConfigurationFilter: NotRequired[InstanceConfigurationFilterTypeDef]
+
+
+class InstanceTypeInfoTypeDef(TypedDict):
+    InstanceType: NotRequired[str]
+    SupportedInstanceConfigurations: NotRequired[list[SupportedInstanceConfigurationTypeDef]]
 
 
 class ListInstanceTypesRequestPaginateTypeDef(TypedDict):
+    InstanceConfigurationFilter: NotRequired[InstanceConfigurationFilterTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -397,7 +412,7 @@ class ListWorkspaceInstancesRequestPaginateTypeDef(TypedDict):
 
 
 class ListRegionsResponseTypeDef(TypedDict):
-    Regions: List[RegionTypeDef]
+    Regions: list[RegionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -424,7 +439,7 @@ class CreateVolumeRequestTypeDef(TypedDict):
 
 
 class ListWorkspaceInstancesResponseTypeDef(TypedDict):
-    WorkspaceInstances: List[WorkspaceInstanceTypeDef]
+    WorkspaceInstances: list[WorkspaceInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -451,6 +466,12 @@ class InstanceNetworkInterfaceSpecificationTypeDef(TypedDict):
     SecondaryPrivateIpAddressCount: NotRequired[int]
     Groups: NotRequired[Sequence[str]]
     SubnetId: NotRequired[str]
+
+
+class ListInstanceTypesResponseTypeDef(TypedDict):
+    InstanceTypes: list[InstanceTypeInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class InstanceMarketOptionsRequestTypeDef(TypedDict):
@@ -497,3 +518,4 @@ class CreateWorkspaceInstanceRequestTypeDef(TypedDict):
     ManagedInstance: ManagedInstanceRequestTypeDef
     ClientToken: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    BillingConfiguration: NotRequired[BillingConfigurationTypeDef]

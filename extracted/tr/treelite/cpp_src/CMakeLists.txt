@@ -3,7 +3,7 @@ cmake_policy(SET CMP0091 NEW)
 set(CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 
-project(treelite LANGUAGES CXX C VERSION 4.4.1)
+project(treelite LANGUAGES CXX C VERSION 4.6.1)
 if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
@@ -49,11 +49,12 @@ SET(ENABLED_SANITIZERS "address" "leak" "undefined" CACHE STRING
 if(MSVC)
   if(Treelite_USE_DYNAMIC_MSVC_RUNTIME)
     message(STATUS "Using dynamically linked MSVC runtime...")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    set(Treelite_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
   else()
     message(STATUS "Using statically linked MSVC runtime...")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    set(Treelite_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
   endif()
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "${Treelite_MSVC_RUNTIME_LIBRARY}")
 endif()
 
 if(USE_SANITIZER)
@@ -111,6 +112,10 @@ endif()
 
 foreach(lib ${TREELITE_TARGETS})
   set_output_directory(${lib} ${PROJECT_BINARY_DIR})
+  if(MSVC)
+    set_target_properties(${lib} PROPERTIES
+      MSVC_RUNTIME_LIBRARY "${Treelite_MSVC_RUNTIME_LIBRARY}")
+  endif()
 endforeach()
 
 # Export install targets

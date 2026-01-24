@@ -1,24 +1,20 @@
 """
 Provides an implementation of asynchronous context manager and its applications.
 
-.. versionchanged::
+.. note::
 
-   As aiotools 1.7+ drops support for Python 3.7 or earlier, most attributes
-   are just aliases of the standard contextlib.
+   The async context managers in this module are transparent aliases to
+   ``contextlib.asynccontextmanager`` of the standard library in Python 3.7
+   and later.
 """
 
 import asyncio
 import contextlib
+from collections.abc import Iterable
 from contextvars import ContextVar
-from typing import (
-    Generic,
-    Iterable,
-    List,
-    Optional,
-    TypeVar,
-)
+from typing import Any, Generic, TypeVar
 
-from .types import AClosable, AsyncClosable
+from .types import AsyncClosable, OptExcInfo
 
 __all__ = [
     "resetting",
@@ -29,17 +25,18 @@ __all__ = [
     "closing_async",
     "AsyncContextGroup",
     "actxgroup",
+    "AsyncExitStack",
 ]
 
-T = TypeVar("T")
-T_AClosable = TypeVar("T_AClosable", bound=AClosable)
-T_AsyncClosable = TypeVar("T_AsyncClosable", bound=AsyncClosable)
 
+T = TypeVar("T")
+T_AsyncClosable = TypeVar("T_AsyncClosable", bound=AsyncClosable)
 
 AbstractAsyncContextManager = contextlib.AbstractAsyncContextManager
 AsyncContextManager = contextlib._AsyncGeneratorContextManager
 AsyncExitStack = contextlib.AsyncExitStack
 async_ctx_manager = contextlib.asynccontextmanager
+aclosing = contextlib.aclosing
 
 
 class resetting(Generic[T]):
@@ -61,35 +58,12 @@ class resetting(Generic[T]):
     async def __aenter__(self) -> None:
         self._token = self._ctxvar.set(self._value)
 
-    def __exit__(self, *exc_info) -> Optional[bool]:
+    def __exit__(self, *exc_info: OptExcInfo) -> bool | None:
         self._ctxvar.reset(self._token)
         return None
 
-    async def __aexit__(self, *exc_info) -> Optional[bool]:
+    async def __aexit__(self, *exc_info: OptExcInfo) -> bool | None:
         self._ctxvar.reset(self._token)
-        return None
-
-
-class aclosing(Generic[T_AClosable]):
-    """
-    An analogy to :func:`contextlib.closing` for async generators.
-
-    The motivation has been proposed by:
-
-    * https://github.com/njsmith/async_generator
-    * https://vorpus.org/blog/some-thoughts-on-asynchronous-api-design-\
-in-a-post-asyncawait-world/#cleanup-in-generators-and-async-generators
-    * https://www.python.org/dev/peps/pep-0533/
-    """
-
-    def __init__(self, thing: T_AClosable) -> None:
-        self.thing = thing
-
-    async def __aenter__(self) -> T_AClosable:
-        return self.thing
-
-    async def __aexit__(self, *exc_info) -> Optional[bool]:
-        await self.thing.aclose()
         return None
 
 
@@ -107,7 +81,7 @@ class closing_async(Generic[T_AsyncClosable]):
     async def __aenter__(self) -> T_AsyncClosable:
         return self.thing
 
-    async def __aexit__(self, *exc_info) -> Optional[bool]:
+    async def __aexit__(self, *exc_info: OptExcInfo) -> bool | None:
         await self.thing.close()
         return None
 
@@ -152,19 +126,18 @@ class AsyncContextGroup:
     """
 
     def __init__(
-        self, context_managers: Optional[Iterable[AbstractAsyncContextManager]] = None
-    ):  # noqa
-        self._cm = list(context_managers) if context_managers else []
-        self._cm_yields: List[asyncio.Task] = []
-        self._cm_exits: List[asyncio.Task] = []
+        self, context_managers: Iterable[AbstractAsyncContextManager[Any]] | None = None
+    ) -> None:
+        self._cm: list[AbstractAsyncContextManager[Any]] = (
+            list(context_managers) if context_managers else []
+        )
+        self._cm_yields: list[Any | BaseException] = []
+        self._cm_exits: list[bool | None | BaseException] = []
 
-    def add(self, cm):
-        """
-        TODO: fill description
-        """
+    def add(self, cm: AbstractAsyncContextManager[Any]) -> None:
         self._cm.append(cm)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> list[Any | BaseException]:
         # Exceptions in context managers are stored into _cm_yields list.
         # NOTE: There is no way to "skip" the context body even if the entering
         #       process fails.
@@ -173,18 +146,19 @@ class AsyncContextGroup:
         )
         return self._cm_yields
 
-    async def __aexit__(self, *exc_info):
+    async def __aexit__(self, *exc_info: OptExcInfo) -> None:
         # Clear references to context variables.
         self._cm_yields.clear()
         # Exceptions are stored into _cm_exits list.
+        # The type-ignore comment is required to embrace the difference between T_T:
+        # types.OptExcInfo                                      = tuple[type[BaseException], BaseException, TracebackType] | tuple[None, None, None]
+        # args@contextlib.AbstractAsyncContextManager.__aexit__ = tuple[type[BaseException] | None, BaseException | None, TracebackType | None]
         self._cm_exits[:] = await asyncio.gather(
-            *(e.__aexit__(*exc_info) for e in self._cm), return_exceptions=True
+            *(e.__aexit__(*exc_info) for e in self._cm),  # type: ignore[arg-type]
+            return_exceptions=True,
         )
 
-    def exit_states(self):
-        """
-        TODO: fill description
-        """
+    def exit_states(self) -> list[bool | None | BaseException]:
         return self._cm_exits
 
 

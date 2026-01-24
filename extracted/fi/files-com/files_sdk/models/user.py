@@ -28,6 +28,7 @@ class User:
         "disabled": None,  # boolean - Is user disabled? Disabled users cannot log in, and do not count for billing purposes. Users can be automatically disabled after an inactivity period via a Site setting or schedule to be deactivated after specific date.
         "disabled_expired_or_inactive": None,  # boolean - Computed property that returns true if user disabled or expired or inactive.
         "email": None,  # email - User email address
+        "filesystem_layout": None,  # string - File system layout
         "first_login_at": None,  # date-time - User's first login time
         "ftp_permission": None,  # boolean - Can the user access with FTP/FTPS?
         "group_ids": None,  # string - Comma-separated list of group IDs of which this user is a member
@@ -49,6 +50,9 @@ class User:
         "notes": None,  # string - Any internal notes on the user
         "notification_daily_send_time": None,  # int64 - Hour of the day at which daily notifications should be sent. Can be in range 0 to 23
         "office_integration_enabled": None,  # boolean - Enable integration with Office for the web?
+        "partner_admin": None,  # boolean - Is this user a Partner administrator?
+        "partner_id": None,  # int64 - Partner ID if this user belongs to a Partner
+        "partner_name": None,  # string - Name of the Partner if this user belongs to a Partner
         "password_set_at": None,  # date-time - Last time the user's password was set
         "password_validity_days": None,  # int64 - Number of days to allow user to use the same password
         "public_keys_count": None,  # int64 - Number of public keys associated with this user
@@ -63,12 +67,15 @@ class User:
         "self_managed": None,  # boolean - Does this user manage it's own credentials or is it a shared/bot user?
         "sftp_permission": None,  # boolean - Can the user access with SFTP?
         "site_admin": None,  # boolean - Is the user an administrator for this site?
+        "workspace_admin": None,  # boolean - Is the user a Workspace administrator?  Applicable only to the workspace ID related to this user, if one is set.
         "site_id": None,  # int64 - Site ID
+        "workspace_id": None,  # int64 - Workspace ID
         "skip_welcome_screen": None,  # boolean - Skip Welcome page in the UI?
         "ssl_required": None,  # string - SSL required setting
         "sso_strategy_id": None,  # int64 - SSO (Single Sign On) strategy ID for the user, if applicable.
         "subscribe_to_newsletter": None,  # boolean - Is the user subscribed to the newsletter?
         "externally_managed": None,  # boolean - Is this user managed by a SsoStrategy?
+        "tags": None,  # string - Comma-separated list of Tags for this user. Tags are used for other features, such as UserLifecycleRules, which can target specific tags.  Tags must only contain lowercase letters, numbers, and hyphens.
         "time_zone": None,  # string - User time zone
         "type_of_2fa": None,  # string - Type(s) of 2FA methods in use, for programmatic use.  Will be either `sms`, `totp`, `webauthn`, `yubi`, `email`, or multiple values sorted alphabetically and joined by an underscore.  Does not specify whether user has more than one of a given method.
         "type_of_2fa_for_display": None,  # string - Type(s) of 2FA methods in use, formatted for displaying in the UI.  Unlike `type_of_2fa`, this value will make clear when a user has more than 1 of the same type of method.
@@ -87,6 +94,7 @@ class User:
         "password_confirmation": None,  # string - Optional, but if provided, we will ensure that it matches the value sent in `password`.
         "announcements_read": None,  # boolean - Signifies that the user has read all the announcements in the UI.
         "clear_2fa": None,  # boolean - If true when changing authentication_method from `password` to `sso`, remove all two-factor methods. Ignored in all other cases.
+        "convert_to_partner_user": None,  # boolean - If true, convert this user to a partner user by assigning the partner_id provided.
     }
 
     def __init__(self, attributes=None, options=None):
@@ -190,6 +198,7 @@ class User:
     #   bypass_site_allowed_ips - boolean - Allow this user to skip site-wide IP blacklists?
     #   dav_permission - boolean - Can the user connect with WebDAV?
     #   disabled - boolean - Is user disabled? Disabled users cannot log in, and do not count for billing purposes. Users can be automatically disabled after an inactivity period via a Site setting or schedule to be deactivated after specific date.
+    #   filesystem_layout - string - File system layout
     #   ftp_permission - boolean - Can the user access with FTP/FTPS?
     #   header_text - string - Text to display to the user in the header of the UI
     #   language - string - Preferred language
@@ -198,6 +207,8 @@ class User:
     #   company - string - User's company
     #   notes - string - Any internal notes on the user
     #   office_integration_enabled - boolean - Enable integration with Office for the web?
+    #   partner_admin - boolean - Is this user a Partner administrator?
+    #   partner_id - int64 - Partner ID if this user belongs to a Partner
     #   password_validity_days - int64 - Number of days to allow user to use the same password
     #   readonly_site_admin - boolean - Is the user an allowed to view all (non-billing) site configuration for this site?
     #   receive_admin_alerts - boolean - Should the user receive admin alerts such a certificate expiration notifications and overages?
@@ -212,11 +223,14 @@ class User:
     #   sso_strategy_id - int64 - SSO (Single Sign On) strategy ID for the user, if applicable.
     #   subscribe_to_newsletter - boolean - Is the user subscribed to the newsletter?
     #   require_2fa - string - 2FA required setting
+    #   tags - string - Comma-separated list of Tags for this user. Tags are used for other features, such as UserLifecycleRules, which can target specific tags.  Tags must only contain lowercase letters, numbers, and hyphens.
     #   time_zone - string - User time zone
     #   user_root - string - Root folder for FTP (and optionally SFTP if the appropriate site-wide setting is set).  Note that this is not used for API, Desktop, or Web interface.
     #   user_home - string - Home folder for FTP/SFTP.  Note that this is not used for API, Desktop, or Web interface.
+    #   workspace_admin - boolean - Is the user a Workspace administrator?  Applicable only to the workspace ID related to this user, if one is set.
     #   username - string - User's username
     #   clear_2fa - boolean - If true when changing authentication_method from `password` to `sso`, remove all two-factor methods. Ignored in all other cases.
+    #   convert_to_partner_user - boolean - If true, convert this user to a partner user by assigning the partner_id provided.
     def update(self, params=None):
         if not isinstance(params, dict):
             params = {}
@@ -291,6 +305,12 @@ class User:
             raise InvalidParameterError(
                 "Bad parameter: authentication_method must be an str"
             )
+        if "filesystem_layout" in params and not isinstance(
+            params["filesystem_layout"], str
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: filesystem_layout must be an str"
+            )
         if "header_text" in params and not isinstance(
             params["header_text"], str
         ):
@@ -315,6 +335,12 @@ class User:
             )
         if "notes" in params and not isinstance(params["notes"], str):
             raise InvalidParameterError("Bad parameter: notes must be an str")
+        if "partner_id" in params and not isinstance(
+            params["partner_id"], int
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: partner_id must be an int"
+            )
         if "password_validity_days" in params and not isinstance(
             params["password_validity_days"], int
         ):
@@ -345,6 +371,8 @@ class User:
             raise InvalidParameterError(
                 "Bad parameter: require_2fa must be an str"
             )
+        if "tags" in params and not isinstance(params["tags"], str):
+            raise InvalidParameterError("Bad parameter: tags must be an str")
         if "time_zone" in params and not isinstance(params["time_zone"], str):
             raise InvalidParameterError(
                 "Bad parameter: time_zone must be an str"
@@ -413,8 +441,8 @@ class User:
 # Parameters:
 #   cursor - string - Used for pagination.  When a list request has more records available, cursors are provided in the response headers `X-Files-Cursor-Next` and `X-Files-Cursor-Prev`.  Send one of those cursor value here to resume an existing list from the next available record.  Note: many of our SDKs have iterator methods that will automatically handle cursor-based pagination.
 #   per_page - int64 - Number of records to show per page.  (Max: 10,000, 1,000 or less is recommended).
-#   sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `site_id`, `authenticate_until`, `email`, `last_desktop_login_at`, `last_login_at`, `name`, `company`, `password_validity_days`, `ssl_required`, `username`, `site_admin` or `disabled`.
-#   filter - object - If set, return records where the specified field is equal to the supplied value. Valid fields are `username`, `name`, `email`, `company`, `site_admin`, `password_validity_days`, `ssl_required`, `last_login_at`, `authenticate_until`, `not_site_admin` or `disabled`. Valid field combinations are `[ site_admin, username ]`, `[ not_site_admin, username ]` or `[ company, name ]`.
+#   sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `site_id`, `workspace_id`, `company`, `name`, `disabled`, `authenticate_until`, `username`, `email`, `last_desktop_login_at`, `last_login_at`, `site_admin`, `password_validity_days` or `ssl_required`.
+#   filter - object - If set, return records where the specified field is equal to the supplied value. Valid fields are `username`, `name`, `email`, `company`, `site_admin`, `password_validity_days`, `ssl_required`, `last_login_at`, `authenticate_until`, `not_site_admin`, `disabled`, `partner_id` or `workspace_id`. Valid field combinations are `[ site_admin, username ]`, `[ not_site_admin, username ]`, `[ workspace_id, username ]`, `[ company, name ]`, `[ workspace_id, name ]`, `[ workspace_id, email ]`, `[ workspace_id, company ]`, `[ workspace_id, disabled ]`, `[ workspace_id, disabled, username ]` or `[ workspace_id, company, name ]`.
 #   filter_gt - object - If set, return records where the specified field is greater than the supplied value. Valid fields are `password_validity_days`, `last_login_at` or `authenticate_until`.
 #   filter_gteq - object - If set, return records where the specified field is greater than or equal the supplied value. Valid fields are `password_validity_days`, `last_login_at` or `authenticate_until`.
 #   filter_prefix - object - If set, return records where the specified field is prefixed by the supplied value. Valid fields are `username`, `name`, `email` or `company`. Valid field combinations are `[ company, name ]`.
@@ -515,6 +543,7 @@ def get(id, params=None, options=None):
 #   bypass_site_allowed_ips - boolean - Allow this user to skip site-wide IP blacklists?
 #   dav_permission - boolean - Can the user connect with WebDAV?
 #   disabled - boolean - Is user disabled? Disabled users cannot log in, and do not count for billing purposes. Users can be automatically disabled after an inactivity period via a Site setting or schedule to be deactivated after specific date.
+#   filesystem_layout - string - File system layout
 #   ftp_permission - boolean - Can the user access with FTP/FTPS?
 #   header_text - string - Text to display to the user in the header of the UI
 #   language - string - Preferred language
@@ -523,6 +552,8 @@ def get(id, params=None, options=None):
 #   company - string - User's company
 #   notes - string - Any internal notes on the user
 #   office_integration_enabled - boolean - Enable integration with Office for the web?
+#   partner_admin - boolean - Is this user a Partner administrator?
+#   partner_id - int64 - Partner ID if this user belongs to a Partner
 #   password_validity_days - int64 - Number of days to allow user to use the same password
 #   readonly_site_admin - boolean - Is the user an allowed to view all (non-billing) site configuration for this site?
 #   receive_admin_alerts - boolean - Should the user receive admin alerts such a certificate expiration notifications and overages?
@@ -537,10 +568,13 @@ def get(id, params=None, options=None):
 #   sso_strategy_id - int64 - SSO (Single Sign On) strategy ID for the user, if applicable.
 #   subscribe_to_newsletter - boolean - Is the user subscribed to the newsletter?
 #   require_2fa - string - 2FA required setting
+#   tags - string - Comma-separated list of Tags for this user. Tags are used for other features, such as UserLifecycleRules, which can target specific tags.  Tags must only contain lowercase letters, numbers, and hyphens.
 #   time_zone - string - User time zone
 #   user_root - string - Root folder for FTP (and optionally SFTP if the appropriate site-wide setting is set).  Note that this is not used for API, Desktop, or Web interface.
 #   user_home - string - Home folder for FTP/SFTP.  Note that this is not used for API, Desktop, or Web interface.
+#   workspace_admin - boolean - Is the user a Workspace administrator?  Applicable only to the workspace ID related to this user, if one is set.
 #   username (required) - string - User's username
+#   workspace_id - int64 - Workspace ID
 def create(params=None, options=None):
     if not isinstance(params, dict):
         params = {}
@@ -644,6 +678,12 @@ def create(params=None, options=None):
         )
     if "disabled" in params and not isinstance(params["disabled"], bool):
         raise InvalidParameterError("Bad parameter: disabled must be an bool")
+    if "filesystem_layout" in params and not isinstance(
+        params["filesystem_layout"], str
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: filesystem_layout must be an str"
+        )
     if "ftp_permission" in params and not isinstance(
         params["ftp_permission"], bool
     ):
@@ -674,6 +714,14 @@ def create(params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: office_integration_enabled must be an bool"
         )
+    if "partner_admin" in params and not isinstance(
+        params["partner_admin"], bool
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: partner_admin must be an bool"
+        )
+    if "partner_id" in params and not isinstance(params["partner_id"], int):
+        raise InvalidParameterError("Bad parameter: partner_id must be an int")
     if "password_validity_days" in params and not isinstance(
         params["password_validity_days"], int
     ):
@@ -754,14 +802,28 @@ def create(params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: require_2fa must be an str"
         )
+    if "tags" in params and not isinstance(params["tags"], str):
+        raise InvalidParameterError("Bad parameter: tags must be an str")
     if "time_zone" in params and not isinstance(params["time_zone"], str):
         raise InvalidParameterError("Bad parameter: time_zone must be an str")
     if "user_root" in params and not isinstance(params["user_root"], str):
         raise InvalidParameterError("Bad parameter: user_root must be an str")
     if "user_home" in params and not isinstance(params["user_home"], str):
         raise InvalidParameterError("Bad parameter: user_home must be an str")
+    if "workspace_admin" in params and not isinstance(
+        params["workspace_admin"], bool
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: workspace_admin must be an bool"
+        )
     if "username" in params and not isinstance(params["username"], str):
         raise InvalidParameterError("Bad parameter: username must be an str")
+    if "workspace_id" in params and not isinstance(
+        params["workspace_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: workspace_id must be an int"
+        )
     if "username" not in params:
         raise MissingParameterError("Parameter missing: username")
     response, options = Api.send_request("POST", "/users", params, options)
@@ -844,6 +906,7 @@ def user_2fa_reset(id, params=None, options=None):
 #   bypass_site_allowed_ips - boolean - Allow this user to skip site-wide IP blacklists?
 #   dav_permission - boolean - Can the user connect with WebDAV?
 #   disabled - boolean - Is user disabled? Disabled users cannot log in, and do not count for billing purposes. Users can be automatically disabled after an inactivity period via a Site setting or schedule to be deactivated after specific date.
+#   filesystem_layout - string - File system layout
 #   ftp_permission - boolean - Can the user access with FTP/FTPS?
 #   header_text - string - Text to display to the user in the header of the UI
 #   language - string - Preferred language
@@ -852,6 +915,8 @@ def user_2fa_reset(id, params=None, options=None):
 #   company - string - User's company
 #   notes - string - Any internal notes on the user
 #   office_integration_enabled - boolean - Enable integration with Office for the web?
+#   partner_admin - boolean - Is this user a Partner administrator?
+#   partner_id - int64 - Partner ID if this user belongs to a Partner
 #   password_validity_days - int64 - Number of days to allow user to use the same password
 #   readonly_site_admin - boolean - Is the user an allowed to view all (non-billing) site configuration for this site?
 #   receive_admin_alerts - boolean - Should the user receive admin alerts such a certificate expiration notifications and overages?
@@ -866,11 +931,14 @@ def user_2fa_reset(id, params=None, options=None):
 #   sso_strategy_id - int64 - SSO (Single Sign On) strategy ID for the user, if applicable.
 #   subscribe_to_newsletter - boolean - Is the user subscribed to the newsletter?
 #   require_2fa - string - 2FA required setting
+#   tags - string - Comma-separated list of Tags for this user. Tags are used for other features, such as UserLifecycleRules, which can target specific tags.  Tags must only contain lowercase letters, numbers, and hyphens.
 #   time_zone - string - User time zone
 #   user_root - string - Root folder for FTP (and optionally SFTP if the appropriate site-wide setting is set).  Note that this is not used for API, Desktop, or Web interface.
 #   user_home - string - Home folder for FTP/SFTP.  Note that this is not used for API, Desktop, or Web interface.
+#   workspace_admin - boolean - Is the user a Workspace administrator?  Applicable only to the workspace ID related to this user, if one is set.
 #   username - string - User's username
 #   clear_2fa - boolean - If true when changing authentication_method from `password` to `sso`, remove all two-factor methods. Ignored in all other cases.
+#   convert_to_partner_user - boolean - If true, convert this user to a partner user by assigning the partner_id provided.
 def update(id, params=None, options=None):
     if not isinstance(params, dict):
         params = {}
@@ -977,6 +1045,12 @@ def update(id, params=None, options=None):
         )
     if "disabled" in params and not isinstance(params["disabled"], bool):
         raise InvalidParameterError("Bad parameter: disabled must be an bool")
+    if "filesystem_layout" in params and not isinstance(
+        params["filesystem_layout"], str
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: filesystem_layout must be an str"
+        )
     if "ftp_permission" in params and not isinstance(
         params["ftp_permission"], bool
     ):
@@ -1007,6 +1081,14 @@ def update(id, params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: office_integration_enabled must be an bool"
         )
+    if "partner_admin" in params and not isinstance(
+        params["partner_admin"], bool
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: partner_admin must be an bool"
+        )
+    if "partner_id" in params and not isinstance(params["partner_id"], int):
+        raise InvalidParameterError("Bad parameter: partner_id must be an int")
     if "password_validity_days" in params and not isinstance(
         params["password_validity_days"], int
     ):
@@ -1087,16 +1169,30 @@ def update(id, params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: require_2fa must be an str"
         )
+    if "tags" in params and not isinstance(params["tags"], str):
+        raise InvalidParameterError("Bad parameter: tags must be an str")
     if "time_zone" in params and not isinstance(params["time_zone"], str):
         raise InvalidParameterError("Bad parameter: time_zone must be an str")
     if "user_root" in params and not isinstance(params["user_root"], str):
         raise InvalidParameterError("Bad parameter: user_root must be an str")
     if "user_home" in params and not isinstance(params["user_home"], str):
         raise InvalidParameterError("Bad parameter: user_home must be an str")
+    if "workspace_admin" in params and not isinstance(
+        params["workspace_admin"], bool
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: workspace_admin must be an bool"
+        )
     if "username" in params and not isinstance(params["username"], str):
         raise InvalidParameterError("Bad parameter: username must be an str")
     if "clear_2fa" in params and not isinstance(params["clear_2fa"], bool):
         raise InvalidParameterError("Bad parameter: clear_2fa must be an bool")
+    if "convert_to_partner_user" in params and not isinstance(
+        params["convert_to_partner_user"], bool
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: convert_to_partner_user must be an bool"
+        )
     if "id" not in params:
         raise MissingParameterError("Parameter missing: id")
     response, options = Api.send_request(

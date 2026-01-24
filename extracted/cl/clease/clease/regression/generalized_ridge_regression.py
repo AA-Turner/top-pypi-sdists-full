@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import numpy as np
 from scipy.optimize import minimize
@@ -42,7 +41,7 @@ class GeneralizedRidgeRegression(LinearRegression):
         initial guesses for alpha is provided.
     """
 
-    def __init__(self, alpha: Optional[np.ndarray] = None) -> None:
+    def __init__(self, alpha: np.ndarray | None = None) -> None:
         super().__init__()
         self.alpha = alpha
 
@@ -195,10 +194,8 @@ class GeneralizedRidgeRegression(LinearRegression):
         eff_num_params = np.trace(A)
         if eff_num_params < 0.0:
             logger.warning(
-                (
-                    "Warning! The effective number of parameters is negative. "
-                    "Try to change the initial guess for alpha."
-                )
+                "Warning! The effective number of parameters is negative. "
+                "Try to change the initial guess for alpha."
             )
         logger.info("Best GCV: %.3f", np.sqrt(res.fun))
         coeff = self._coeff(X, y, eigen)

@@ -1,7 +1,15 @@
 """A Class for metric object."""
 from copy import deepcopy
 import datetime
-import pandas
+
+try:
+    import pandas
+except ImportError as e:
+    raise ImportError(
+        "Pandas is required for Metric class. "
+        "Please install it with: pip install prometheus-api-client[dataframe] "
+        "or pip install prometheus-api-client[all]"
+    ) from e
 
 from prometheus_api_client.exceptions import MetricValueConversionError
 
@@ -54,10 +62,11 @@ class Metric:
             self.metric_values = metric.metric_values
             self.oldest_data_datetime = oldest_data_datetime
         else:
-            self.metric_name = metric["metric"]["__name__"]
+            self.metric_name = metric["metric"].get("__name__", None)
             self.label_config = deepcopy(metric["metric"])
+            if "__name__" in self.label_config:
+                del self.label_config["__name__"]
             self.oldest_data_datetime = oldest_data_datetime
-            del self.label_config["__name__"]
 
             # if it is a single value metric change key name
             if "value" in metric:

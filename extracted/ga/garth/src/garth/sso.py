@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import asyncio
+import inspect
 import re
 import time
-from typing import Any, Callable, Dict, Literal, Tuple
+from collections.abc import Callable
+from typing import Any, Literal
 from urllib.parse import parse_qs
 
 import requests
@@ -16,7 +20,7 @@ from .exc import GarthException
 CSRF_RE = re.compile(r'name="_csrf"\s+value="(.+?)"')
 TITLE_RE = re.compile(r"<title>(.+?)</title>")
 OAUTH_CONSUMER_URL = "https://thegarth.s3.amazonaws.com/oauth_consumer.json"
-OAUTH_CONSUMER: Dict[str, str] = {}
+OAUTH_CONSUMER: dict[str, str] = {}
 USER_AGENT = {"User-Agent": "com.garmin.android.apps.connectmobile"}
 
 
@@ -29,7 +33,13 @@ class GarminOAuth1Session(OAuth1Session):
     ):
         global OAUTH_CONSUMER
         if not OAUTH_CONSUMER:
-            OAUTH_CONSUMER = requests.get(OAUTH_CONSUMER_URL).json()
+            request_kwargs: dict[str, Any] = {}
+            if parent is not None:
+                request_kwargs["proxies"] = parent.proxies
+                request_kwargs["verify"] = parent.verify
+            OAUTH_CONSUMER = requests.get(
+                OAUTH_CONSUMER_URL, **request_kwargs
+            ).json()
         super().__init__(
             OAUTH_CONSUMER["consumer_key"],
             OAUTH_CONSUMER["consumer_secret"],
@@ -39,18 +49,19 @@ class GarminOAuth1Session(OAuth1Session):
             self.mount("https://", parent.adapters["https://"])
             self.proxies = parent.proxies
             self.verify = parent.verify
+            self.hooks["response"].extend(parent.hooks["response"])
 
 
 def login(
     email: str,
     password: str,
     /,
-    client: "http.Client | None" = None,
+    client: http.Client | None = None,
     prompt_mfa: Callable | None = lambda: input("MFA code: "),
     return_on_mfa: bool = False,
 ) -> (
-    Tuple[OAuth1Token, OAuth2Token]
-    | Tuple[Literal["needs_mfa"], dict[str, Any]]
+    tuple[OAuth1Token, OAuth2Token]
+    | tuple[Literal["needs_mfa"], dict[str, Any]]
 ):
     """Login to Garmin Connect.
 
@@ -131,7 +142,7 @@ def login(
     return _complete_login(client)
 
 
-def get_oauth1_token(ticket: str, client: "http.Client") -> OAuth1Token:
+def get_oauth1_token(ticket: str, client: http.Client) -> OAuth1Token:
     sess = GarminOAuth1Session(parent=client.sess)
     base_url = f"https://connectapi.{client.domain}/oauth-service/oauth/"
     login_url = f"https://sso.{client.domain}/sso/embed"
@@ -150,7 +161,7 @@ def get_oauth1_token(ticket: str, client: "http.Client") -> OAuth1Token:
     return OAuth1Token(domain=client.domain, **token)  # type: ignore
 
 
-def exchange(oauth1: OAuth1Token, client: "http.Client") -> OAuth2Token:
+def exchange(oauth1: OAuth1Token, client: http.Client) -> OAuth2Token:
     sess = GarminOAuth1Session(
         resource_owner_key=oauth1.oauth_token,
         resource_owner_secret=oauth1.oauth_token_secret,
@@ -175,10 +186,10 @@ def exchange(oauth1: OAuth1Token, client: "http.Client") -> OAuth2Token:
 
 
 def handle_mfa(
-    client: "http.Client", signin_params: dict, prompt_mfa: Callable
+    client: http.Client, signin_params: dict, prompt_mfa: Callable
 ) -> None:
     csrf_token = get_csrf_token(client.last_resp.text)
-    if asyncio.iscoroutinefunction(prompt_mfa):
+    if inspect.iscoroutinefunction(prompt_mfa):
         mfa_code = asyncio.run(prompt_mfa())
     else:
         mfa_code = prompt_mfa()
@@ -220,7 +231,7 @@ def get_title(html: str) -> str:
 
 def resume_login(
     client_state: dict, mfa_code: str
-) -> Tuple[OAuth1Token, OAuth2Token]:
+) -> tuple[OAuth1Token, OAuth2Token]:
     """Complete login after MFA code is provided.
 
     Args:
@@ -236,7 +247,7 @@ def resume_login(
     return _complete_login(client)
 
 
-def _complete_login(client: "http.Client") -> Tuple[OAuth1Token, OAuth2Token]:
+def _complete_login(client: http.Client) -> tuple[OAuth1Token, OAuth2Token]:
     """Complete the login process after successful authentication.
 
     Args:

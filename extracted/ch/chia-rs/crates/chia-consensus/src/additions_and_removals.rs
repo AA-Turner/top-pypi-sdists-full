@@ -4,10 +4,10 @@ use chia_protocol::Coin;
 
 use crate::allocator::make_allocator;
 use crate::consensus_constants::ConsensusConstants;
-use crate::validation_error::{atom, first, next, rest, ErrorCode, ValidationErr};
+use crate::validation_error::{ErrorCode, ValidationErr, atom, first, next, rest};
 use chia_protocol::{Bytes, Bytes32};
 use clvm_traits::FromClvm;
-use clvm_utils::{tree_hash_cached, TreeCache};
+use clvm_utils::{TreeCache, tree_hash_cached};
 use clvmr::allocator::NodePtr;
 use clvmr::chia_dialect::ChiaDialect;
 use clvmr::reduction::Reduction;
@@ -36,7 +36,7 @@ where
 
     let program = node_from_bytes_backrefs(&mut a, program)?;
 
-    let args = setup_generator_args(&mut a, block_refs)?;
+    let args = setup_generator_args(&mut a, block_refs, flags)?;
     let dialect = ChiaDialect::new(flags);
 
     let Reduction(clvm_cost, all_spends) = run_program(&mut a, &dialect, program, args, cost_left)?;
@@ -114,11 +114,7 @@ where
 
             let hint =
                 if let Ok(((hint, _), _)) = <((Bytes, NodePtr), NodePtr)>::from_clvm(&a, hint) {
-                    if hint.len() <= 32 {
-                        Some(hint)
-                    } else {
-                        None
-                    }
+                    if hint.len() <= 32 { Some(hint) } else { None }
                 } else {
                     None
                 };

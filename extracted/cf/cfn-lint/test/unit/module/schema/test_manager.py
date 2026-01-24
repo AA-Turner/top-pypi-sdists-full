@@ -244,6 +244,34 @@ class TestUpdateResourceSchemas(BaseTestCase):
 
         fake_pool.starmap.assert_called_once()
 
+    @patch("cfnlint.schema.manager.multiprocessing.Pool")
+    @patch("cfnlint.schema.manager.REGIONS", ["us-east-1", "us-west-2"])
+    def test_update_when_no_updates_needed(self, mock_pool):
+        """Test that update returns 0 when all regions are up to date"""
+        fake_pool = MagicMock()
+        mock_pool.return_value.__enter__.return_value = fake_pool
+        # All regions return False (no update needed)
+        fake_pool.starmap.return_value = [False, False]
+
+        result = self.manager.update(force=False)
+
+        self.assertEqual(result, 0)
+        fake_pool.starmap.assert_called_once()
+
+    @patch("cfnlint.schema.manager.multiprocessing.Pool")
+    @patch("cfnlint.schema.manager.REGIONS", ["us-east-1", "us-west-2"])
+    def test_update_when_all_regions_fail(self, mock_pool):
+        """Test that update returns 2 when all regions fail to download"""
+        fake_pool = MagicMock()
+        mock_pool.return_value.__enter__.return_value = fake_pool
+        # All regions return None (failed)
+        fake_pool.starmap.return_value = [None, None]
+
+        result = self.manager.update(force=False)
+
+        self.assertEqual(result, 2)
+        fake_pool.starmap.assert_called_once()
+
 
 class TestManagerGetResourceSchema(BaseTestCase):
     """Test get resource schema"""
@@ -256,10 +284,11 @@ class TestManagerGetResourceSchema(BaseTestCase):
     def test_getting_cached_schema(self):
         rt = "AWS::EC2::VPC"
 
-        self.manager.get_resource_schema("us-east-1", rt)
-        schema = self.manager.get_resource_schema("us-east-2", rt)
+        schema_east_1 = self.manager.get_resource_schema("us-east-1", rt)
+        schema_east_2 = self.manager.get_resource_schema("us-east-2", rt)
 
-        self.assertTrue(schema.is_cached)
+        # Schemas should be identical (same hash)
+        self.assertDictEqual(schema_east_1.schema, schema_east_2.schema)
 
     def test_removed_types(self):
         rt = "AWS::EC2::VPC"
@@ -275,8 +304,8 @@ class TestManagerGetResourceSchema(BaseTestCase):
         schema_us_east_1 = self.manager.get_resource_schema("us-east-1", rt)
         schema_iso = self.manager.get_resource_schema("us-iso-east-1", rt)
 
+        # ISO regions use us-east-1 schemas
         self.assertDictEqual(schema_us_east_1.schema, schema_iso.schema)
-        self.assertTrue(schema_iso.is_cached)
 
     def test_type_normalization(self):
         rt = "MyCompany::MODULE"

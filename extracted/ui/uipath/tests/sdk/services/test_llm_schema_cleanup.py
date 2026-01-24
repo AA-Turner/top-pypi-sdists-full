@@ -1,10 +1,8 @@
 """Tests for the _cleanup_schema function in LLM Gateway Service."""
 
-from typing import List, Optional
-
 from pydantic import BaseModel
 
-from uipath._services.llm_gateway_service import _cleanup_schema
+from uipath.platform.chat._llm_gateway_service import _cleanup_schema
 
 
 # Simple test models
@@ -15,13 +13,13 @@ class SimpleModel(BaseModel):
 
 
 class ModelWithList(BaseModel):
-    names: List[str]
-    numbers: List[int]
+    names: list[str]
+    numbers: list[int]
 
 
 class ModelWithOptional(BaseModel):
     required_field: str
-    optional_field: Optional[str] = None
+    optional_field: str | None = None
 
 
 # Complex nested models for comprehensive testing
@@ -34,26 +32,26 @@ class Task(BaseModel):
 class Project(BaseModel):
     project_id: int
     name: str
-    tasks: List[Task]
+    tasks: list[Task]
 
 
 class Team(BaseModel):
     team_id: int
     team_name: str
-    members: List[str]
-    projects: List[Project]
+    members: list[str]
+    projects: list[Project]
 
 
 class Department(BaseModel):
     department_id: int
     department_name: str
-    teams: List[Team]
+    teams: list[Team]
 
 
 class Company(BaseModel):
     company_id: int
     company_name: str
-    departments: List[Department]
+    departments: list[Department]
 
 
 class TestCleanupSchema:
@@ -61,7 +59,7 @@ class TestCleanupSchema:
 
     def test_simple_model_cleanup(self):
         """Test cleanup of a simple model without nested structures."""
-        schema = _cleanup_schema(SimpleModel)
+        schema = _cleanup_schema(SimpleModel.model_json_schema())
 
         assert schema["type"] == "object"
         assert schema["additionalProperties"] is False
@@ -80,7 +78,7 @@ class TestCleanupSchema:
 
     def test_model_with_list_cleanup(self):
         """Test cleanup of a model with list fields."""
-        schema = _cleanup_schema(ModelWithList)
+        schema = _cleanup_schema(ModelWithList.model_json_schema())
 
         assert schema["type"] == "object"
         assert schema["additionalProperties"] is False
@@ -101,13 +99,13 @@ class TestCleanupSchema:
 
     def test_model_with_optional_cleanup(self):
         """Test cleanup of a model with optional fields."""
-        schema = _cleanup_schema(ModelWithOptional)
+        schema = _cleanup_schema(ModelWithOptional.model_json_schema())
 
         assert schema["type"] == "object"
         assert schema["additionalProperties"] is False
 
         # Only required_field should be in required array
-        assert schema["required"] == ["required_field"]
+        assert schema["required"] == ["required_field", "optional_field"]
 
         # Both fields should be in properties
         assert "required_field" in schema["properties"]
@@ -115,7 +113,7 @@ class TestCleanupSchema:
 
     def test_complex_nested_model_cleanup(self):
         """Test cleanup of the complex nested Company model."""
-        schema = _cleanup_schema(Company)
+        schema = _cleanup_schema(Company.model_json_schema())
 
         assert schema["type"] == "object"
         assert schema["additionalProperties"] is False
@@ -138,7 +136,7 @@ class TestCleanupSchema:
 
     def test_schema_structure_integrity(self):
         """Test that the cleaned schema maintains proper JSON Schema structure."""
-        schema = _cleanup_schema(Company)
+        schema = _cleanup_schema(Company.model_json_schema())
 
         # Must have these top-level keys
         required_keys = {"type", "properties", "required", "additionalProperties"}
@@ -158,7 +156,7 @@ class TestCleanupSchema:
 
     def test_email_field_handling(self):
         """Test that EmailStr fields are properly handled."""
-        schema = _cleanup_schema(Team)
+        schema = _cleanup_schema(Team.model_json_schema())
 
         members_prop = schema["properties"]["members"]
         assert members_prop["type"] == "array"
@@ -172,7 +170,7 @@ class TestCleanupSchema:
 
     def test_nested_objects_cleanup(self):
         """Test that nested objects are properly cleaned."""
-        schema = _cleanup_schema(Department)
+        schema = _cleanup_schema(Department.model_json_schema())
 
         # Check teams property (array of Team objects)
         teams_prop = schema["properties"]["teams"]
@@ -200,7 +198,7 @@ class TestCleanupSchema:
 
     def test_function_returns_dict(self):
         """Test that the function returns a dictionary."""
-        result = _cleanup_schema(SimpleModel)
+        result = _cleanup_schema(SimpleModel.model_json_schema())
         assert isinstance(result, dict)
 
     def test_function_with_inheritance(self):
@@ -212,9 +210,9 @@ class TestCleanupSchema:
 
         class ExtendedEntity(BaseEntity):
             name: str
-            description: Optional[str] = None
+            description: str | None = None
 
-        schema = _cleanup_schema(ExtendedEntity)
+        schema = _cleanup_schema(ExtendedEntity.model_json_schema())
 
         # Should include fields from both base and derived class
         properties = schema["properties"]
@@ -228,5 +226,4 @@ class TestCleanupSchema:
         assert "id" in required_fields
         assert "created_at" in required_fields
         assert "name" in required_fields
-        # description is optional, so not in required
-        assert "description" not in required_fields
+        assert "description" in required_fields

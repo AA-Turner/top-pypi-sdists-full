@@ -371,9 +371,7 @@ def displaced_virtual_bill(ds):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -397,13 +395,9 @@ def displaced_virtual_bill(ds):
 
     sess.commit()
 
-    scenario_hh = {
-        "CI017": {
-            "generated": """
+    scenario_hh = {"CI017": {"generated": """
                 2009-08-01 00:00, 40
-                2009-08-15 00:00, 40"""
-        }
-    }
+                2009-08-15 00:00, 40"""}}
 
     era_maps = {
         utc_datetime(2000, 8, 1): {

@@ -5,8 +5,8 @@ import re
 
 import structlog
 
-from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 from schemachange.config.DeployConfig import DeployConfig
+from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 from schemachange.session.Script import get_all_scripts_recursively
 from schemachange.session.SnowflakeSession import SnowflakeSession
 
@@ -60,17 +60,14 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     # Find all scripts in the root folder (recursively) and sort them correctly
     all_scripts = get_all_scripts_recursively(
         root_directory=config.root_folder,
+        version_number_regex=config.version_number_validation_regex,
     )
     all_script_names = list(all_scripts.keys())
     # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
     all_script_names_sorted = (
         sorted_alphanumeric([script for script in all_script_names if script[0] == "v"])
-        + sorted_alphanumeric(
-            [script for script in all_script_names if script[0] == "r"]
-        )
-        + sorted_alphanumeric(
-            [script for script in all_script_names if script[0] == "a"]
-        )
+        + sorted_alphanumeric([script for script in all_script_names if script[0] == "r"])
+        + sorted_alphanumeric([script for script in all_script_names if script[0] == "a"])
     )
 
     scripts_skipped = 0
@@ -86,9 +83,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
             script_version=getattr(script, "version", "N/A"),
         )
         # Always process with jinja engine
-        jinja_processor = JinjaTemplateProcessor(
-            project_root=config.root_folder, modules_folder=config.modules_folder
-        )
+        jinja_processor = JinjaTemplateProcessor(project_root=config.root_folder, modules_folder=config.modules_folder)
         content = jinja_processor.render(
             jinja_processor.relpath(script.file_path),
             config.config_vars,
@@ -101,17 +96,20 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         if script.type == "V":
             script_metadata = versioned_scripts.get(script.name)
 
-            if (
-                max_published_version is not None
-                and get_alphanum_key(script.version) <= max_published_version
-            ):
+            if max_published_version is not None and get_alphanum_key(script.version) <= max_published_version:
                 if script_metadata is None:
-                    script_log.debug(
-                        "Skipping versioned script because it's older than the most recently applied change",
-                        max_published_version=max_published_version,
-                    )
-                    scripts_skipped += 1
-                    continue
+                    if config.raise_exception_on_ignored_versioned_script:
+                        raise ValueError(
+                            f"Versioned script will never be applied: {script.name}\n"
+                            f"Version number is less than the max version number: {max_published_version}"
+                        )
+                    else:
+                        script_log.debug(
+                            "Skipping versioned script because it's older than the most recently applied change",
+                            max_published_version=max_published_version,
+                        )
+                        scripts_skipped += 1
+                        continue
                 else:
                     script_log.debug(
                         "Script has already been applied",
@@ -133,9 +131,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
 
             # check if there is a change of the checksum in the script
             if checksum_current == checksum_last:
-                script_log.debug(
-                    "Skipping change script because there is no change since the last execution"
-                )
+                script_log.debug("Skipping change script because there is no change since the last execution")
                 scripts_skipped += 1
                 continue
 

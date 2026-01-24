@@ -1,52 +1,43 @@
 Metadata-Version: 2.4
 Name: Flask-Limiter
-Version: 3.13
+Version: 4.1.1
 Summary: Rate limiting for flask applications
-Home-page: https://flask-limiter.readthedocs.org
-Author: Ali-Akber Saifee
-Author-email: ali@indydevs.org
-License: MIT
+Project-URL: Homepage, https://flask-limiter.readthedocs.org
 Project-URL: Source, https://github.com/alisaifee/flask-limiter
+Project-URL: Documentation, https://flask-limiter.readthedocs.org
+Author-email: Ali-Akber Saifee <ali@indydevs.org>
+Maintainer-email: Ali-Akber Saifee <ali@indydevs.org>
+License-Expression: MIT
+License-File: LICENSE.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Flask
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
-Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: OS Independent
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-License-File: LICENSE.txt
+Requires-Dist: flask>=2
 Requires-Dist: limits>=3.13
-Requires-Dist: Flask>=2
 Requires-Dist: ordered-set<5,>4
-Requires-Dist: typing_extensions>=4.3
-Requires-Dist: rich<15,>=12
-Provides-Extra: redis
-Requires-Dist: limits[redis]; extra == "redis"
+Requires-Dist: typing-extensions>=4.3
+Provides-Extra: cli
+Requires-Dist: rich<15,>=12; extra == 'cli'
 Provides-Extra: memcached
-Requires-Dist: limits[memcached]; extra == "memcached"
+Requires-Dist: limits[memcached]; extra == 'memcached'
 Provides-Extra: mongodb
-Requires-Dist: limits[mongodb]; extra == "mongodb"
+Requires-Dist: limits[mongodb]; extra == 'mongodb'
+Provides-Extra: redis
+Requires-Dist: limits[redis]; extra == 'redis'
 Provides-Extra: valkey
-Requires-Dist: limits[valkey]; extra == "valkey"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: limits[valkey]; extra == 'valkey'
+Description-Content-Type: text/x-rst
 
 .. |ci| image:: https://github.com/alisaifee/flask-limiter/actions/workflows/main.yml/badge.svg?branch=master
    :target: https://github.com/alisaifee/flask-limiter/actions?query=branch%3Amaster+workflow%3ACI
@@ -140,6 +131,11 @@ Add the rate limiter to your flask app
 
 Inspect the limits using the command line interface
 ---------------------------------------------------
+
+.. code-block:: bash
+
+   pip install Flask-Limiter[cli]
+
 .. code-block:: bash
 
    $ FLASK_APP=app:app flask limiter limits

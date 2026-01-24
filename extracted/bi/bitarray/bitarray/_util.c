@@ -2249,12 +2249,17 @@ PyInit__util(void)
     if ((m = PyModule_Create(&moduledef)) == NULL)
         return NULL;
 
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
+
     if (PyType_Ready(&CHDI_Type) < 0)
         return NULL;
     Py_SET_TYPE(&CHDI_Type, &PyType_Type);
 
 #ifndef NDEBUG  /* expose segment size in debug mode for testing */
-    PyModule_AddObject(m, "_SEGSIZE", PyLong_FromSsize_t(SEGSIZE));
+    if (PyModule_AddIntConstant(m, "_SEGSIZE", SEGSIZE) < 0)
+        return NULL;
 #endif
 
     return m;

@@ -39,6 +39,7 @@ class CatBoostModel(AbstractModel):
     ag_priority_by_problem_type = MappingProxyType({
         SOFTCLASS: 60
     })
+    seed_name = "random_seed"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -48,7 +49,6 @@ class CatBoostModel(AbstractModel):
         default_params = get_param_baseline(problem_type=self.problem_type)
         for param, val in default_params.items():
             self._set_default_param_value(param, val)
-        self._set_default_param_value("random_seed", 0)  # Remove randomness for reproducibility
         # Set 'allow_writing_files' to True in order to keep log files created by catboost during training (these will be saved in the directory where AutoGluon stores this model)
         self._set_default_param_value("allow_writing_files", False)  # Disables creation of catboost logging files during training by default
         if self.problem_type != SOFTCLASS:  # TODO: remove this after catboost 0.24
@@ -126,6 +126,7 @@ class CatBoostModel(AbstractModel):
 
         ag_params = self._get_ag_params()
         params = self._get_model_params()
+
         params["thread_count"] = num_cpus
         if self.problem_type == SOFTCLASS:
             # FIXME: This is extremely slow due to unoptimized metric / objective sent to CatBoost
@@ -145,7 +146,7 @@ class CatBoostModel(AbstractModel):
         num_cols_train = len(X.columns)
         num_classes = self.num_classes if self.num_classes else 1  # self.num_classes could be None after initialization if it's a regression problem
 
-        X = self.preprocess(X)
+        X = self.preprocess(X, y=y, is_train=True)
         cat_features = list(X.select_dtypes(include="category").columns)
         X = Pool(data=X, label=y, cat_features=cat_features, weight=sample_weight)
 
@@ -310,6 +311,8 @@ class CatBoostModel(AbstractModel):
         max_memory_iters = math.floor(available_mem * max_memory_proportion / mem_usage_per_iter)
 
         final_iters = min(default_iters, min(max_memory_iters, estimated_iters_in_time))
+        if final_iters < 1:
+            raise TimeLimitExceeded
         return final_iters
 
     def _predict_proba(self, X, **kwargs):

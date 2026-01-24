@@ -7,7 +7,8 @@ import pathlib
 import re
 from abc import ABC
 from collections import defaultdict
-from typing import Callable, Optional, Union
+from os import PathLike
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import h5py
 import numpy as np
@@ -17,7 +18,6 @@ import xarray as xr
 from tidy3d.components.autograd.utils import split_list
 from tidy3d.components.base import JSON_TAG, Tidy3dBaseModel, cached_property
 from tidy3d.components.base_sim.data.sim_data import AbstractSimulationData
-from tidy3d.components.file_util import replace_values
 from tidy3d.components.monitor import Monitor
 from tidy3d.components.simulation import Simulation
 from tidy3d.components.source.current import CustomCurrentSource
@@ -25,13 +25,16 @@ from tidy3d.components.source.time import GaussianPulse
 from tidy3d.components.source.utils import SourceType
 from tidy3d.components.structure import Structure
 from tidy3d.components.types import Ax, Axis, ColormapType, FieldVal, PlotScale, annotate_type
+from tidy3d.components.types.monitor_data import MonitorDataType, MonitorDataTypes
 from tidy3d.components.viz import add_ax_if_none, equal_aspect
-from tidy3d.constants import C_0, inf
-from tidy3d.exceptions import DataError, FileError, Tidy3dKeyError
+from tidy3d.exceptions import DataError, SetupError, Tidy3dKeyError
 from tidy3d.log import log
 
 from .data_array import FreqDataArray, TimeDataArray
-from .monitor_data import AbstractFieldData, FieldTimeData, MonitorDataType, MonitorDataTypes
+from .monitor_data import AbstractFieldData, FieldTimeData
+
+if TYPE_CHECKING:
+    from matplotlib.colors import Colormap
 
 DATA_TYPE_MAP = {data.__fields__["monitor"].type_: data for data in MonitorDataTypes}
 
@@ -102,7 +105,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         Parameters
         ----------
         field_monitor_name : str
-            Name of field monitor used in the original :class:`Simulation`.
+            Name of field monitor used in the original :class:`.Simulation`.
 
         Returns
         -------
@@ -146,7 +149,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         Parameters
         ----------
         field_monitor_name : str
-            Name of field monitor used in the original :class:`Simulation`.
+            Name of field monitor used in the original :class:`.Simulation`.
 
         Returns
         -------
@@ -225,7 +228,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         Parameters
         ----------
         field_monitor_name : str
-            Name of field monitor used in the original :class:`Simulation`.
+            Name of field monitor used in the original :class:`.Simulation`.
 
         Returns
         -------
@@ -248,7 +251,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         Parameters
         ----------
         field_monitor_name : str
-            Name of field monitor used in the original :class:`Simulation`.
+            Name of field monitor used in the original :class:`.Simulation`.
         field_name : str
             Name of the derived field component: one of `('E', 'H', 'S', 'Sx', 'Sy', 'Sz')`.
         val : Literal['real', 'imag', 'abs', 'abs^2', 'phase'] = 'real'
@@ -358,7 +361,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         Parameters
         ----------
         field_monitor_name : str
-            Name of field monitor used in the original :class:`Simulation`.
+            Name of field monitor used in the original :class:`.Simulation`.
 
         Returns
         -------
@@ -371,12 +374,14 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         )
 
     @classmethod
-    def mnt_data_from_file(cls, fname: str, mnt_name: str, **parse_obj_kwargs) -> MonitorDataType:
+    def mnt_data_from_file(
+        cls, fname: PathLike, mnt_name: str, **parse_obj_kwargs: Any
+    ) -> MonitorDataType:
         """Loads data for a specific monitor from a .hdf5 file with data for a ``SimulationData``.
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to an hdf5 file containing :class:`.SimulationData` data.
         mnt_name : str, optional
             ``.name`` of the monitor to load the data from.
@@ -453,7 +458,8 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         vmax: Optional[float] = None,
         ax: Ax = None,
         shading: str = "flat",
-        **sel_kwargs,
+        cmap: Optional[Union[str, Colormap]] = None,
+        **sel_kwargs: Any,
     ) -> Ax:
         """Plot the field data for a monitor with simulation plot overlaid.
 
@@ -489,6 +495,8 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
             matplotlib axes to plot on, if not specified, one is created.
         shading: str = 'flat'
             Shading argument for Xarray plot method ('flat','nearest','goraud')
+        cmap : Optional[Union[str, Colormap]] = None
+            Colormap for visualizing the field values. ``None`` uses the default which infers it from the data.
         sel_kwargs : keyword arguments used to perform ``.sel()`` selection in the monitor data.
             These kwargs can select over the spatial dimensions (``x``, ``y``, ``z``),
             frequency or time dimensions (``f``, ``t``) or ``mode_index``, if applicable.
@@ -537,10 +545,10 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
                 ("E", "abs^2"): 10,
                 ("H", "abs^2"): 10,
             }.get((field_name[0], val), 20)
-            field_data = db_factor * np.log10(np.abs(field_data))
+            field_data = self._apply_log_scale(field_data, vmin=vmin, db_factor=db_factor)
             field_data.name += " (dB)"
             cmap_type = "sequential"
-        else:
+        elif scale == "lin":
             cmap_type = (
                 "cyclic"
                 if val == "phase"
@@ -550,6 +558,8 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
                     else "sequential"
                 )
             )
+        else:
+            raise SetupError(f"The scale '{scale}' is not supported for plotting field data.")
 
         # interp out any monitor.size==0 dimensions
         monitor = field_monitor_data.monitor
@@ -651,6 +661,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
             cmap_type=cmap_type,
             ax=ax,
             shading=shading,
+            cmap=cmap,
             infer_intervals=True if shading == "flat" else False,
         )
 
@@ -667,7 +678,8 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         vmax: Optional[float] = None,
         ax: Ax = None,
         shading: str = "flat",
-        **sel_kwargs,
+        cmap: Optional[Union[str, Colormap]] = None,
+        **sel_kwargs: Any,
     ) -> Ax:
         """Plot the field data for a monitor with simulation plot overlaid.
 
@@ -704,6 +716,8 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
             matplotlib axes to plot on, if not specified, one is created.
         shading: str = 'flat'
             Shading argument for Xarray plot method ('flat','nearest','goraud')
+        cmap : Optional[Union[str, Colormap]] = None
+            Colormap for visualizing the field values. ``None`` uses the default which infers it from the data.
         sel_kwargs : keyword arguments used to perform ``.sel()`` selection in the monitor data.
             These kwargs can select over the spatial dimensions (``x``, ``y``, ``z``),
             frequency or time dimensions (``f``, ``t``) or ``mode_index``, if applicable.
@@ -731,6 +745,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
             vmax=vmax,
             ax=ax,
             shading=shading,
+            cmap=cmap,
             **sel_kwargs,
         )
 
@@ -747,8 +762,9 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
         cmap_type: ColormapType = "divergent",
+        cmap: Optional[Union[str, Colormap]] = None,
         ax: Ax = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Ax:
         """Plot the field data for a monitor with simulation plot overlaid.
 
@@ -779,6 +795,8 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
             inferred from the data and other keyword arguments.
         cmap_type : Literal["divergent", "sequential", "cyclic"] = "divergent"
             Type of color map to use for plotting.
+        cmap : Optional[Union[str, Colormap]] = None
+            Colormap for visualizing the field values. ``None`` uses the default which infers it from the data. Overrides inferred colormap from `cmap_type`.
         ax : matplotlib.axes._subplots.Axes = None
             matplotlib axes to plot on, if not specified, one is created.
         **kwargs : Extra arguments to ``DataArray.plot``.
@@ -793,19 +811,23 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
         interp_kwarg = {"xyz"[axis]: position}
 
         if cmap_type == "divergent":
-            cmap = "RdBu"
+            default_cmap = "RdBu"
             center = 0.0
             eps_reverse = False
         elif cmap_type == "sequential":
-            cmap = "magma"
+            default_cmap = "magma"
             center = False
             eps_reverse = True
         elif cmap_type == "cyclic":
-            cmap = "twilight"
+            default_cmap = "twilight"
             vmin = -np.pi
             vmax = np.pi
             center = False
             eps_reverse = False
+        else:
+            default_cmap = None
+
+        cmap_to_use = default_cmap if cmap is None else cmap
 
         # plot the field
         xy_coord_labels = list("xyz")
@@ -815,7 +837,7 @@ class AbstractYeeGridSimulationData(AbstractSimulationData, ABC):
             ax=ax,
             x=x_coord_label,
             y=y_coord_label,
-            cmap=cmap,
+            cmap=cmap_to_use,
             vmin=vmin,
             vmax=vmax,
             robust=robust,
@@ -902,6 +924,13 @@ class SimulationData(AbstractYeeGridSimulationData):
 
         sim_data.to_file(fname='path/to/file.hdf5') # Save a SimulationData object to a HDF5 file
         sim_data = SimulationData.from_file(fname='path/to/file.hdf5') # Load a SimulationData object from a HDF5 file.
+
+    Optionally, the simulation data can be loaded in a lazy mode, which only holds a reference until a field is accessed
+    or a method is applied. This is useful to save I/O operations and memory.
+
+    .. code-block:: python
+
+        sim_data = SimulationData.from_file(fname='path/to/file.hdf5', lazy=True) # Does not contain data until accessed.
 
     See Also
     --------
@@ -1069,6 +1098,9 @@ class SimulationData(AbstractYeeGridSimulationData):
         for src_list in sources_adj_dict.values():
             adj_srcs += list(src_list)
 
+        if not adj_srcs:
+            return []
+
         adjoint_source_infos = self._process_adjoint_sources(adj_srcs=adj_srcs)
 
         if not adjoint_source_infos:
@@ -1098,8 +1130,12 @@ class SimulationData(AbstractYeeGridSimulationData):
                 "post_norm": adjoint_source_info.post_norm,
             }
 
-            if not adjoint_source_info.normalize_sim:
-                sim_adj_update_dict["normalize_index"] = None
+            if adjoint_source_info.normalize_sim:
+                normalize_index_adj = 0
+            else:
+                normalize_index_adj = None
+
+            sim_adj_update_dict["normalize_index"] = normalize_index_adj
 
             if sim_original.sources and grid_spec_original.wavelength is None:
                 sim_adj_update_dict["grid_spec"] = grid_spec_adj
@@ -1110,7 +1146,7 @@ class SimulationData(AbstractYeeGridSimulationData):
 
         return adj_sims
 
-    def _make_adjoint_sources(self, data_vjp_paths: set[tuple]) -> dict[str, SourceType]:
+    def _make_adjoint_sources(self, data_vjp_paths: set[tuple]) -> dict[str, list[SourceType]]:
         """Generate all of the non-zero sources for the adjoint simulation given the VJP data."""
 
         # map of index into 'self.data' to the list of datasets we need adjoint sources for
@@ -1125,10 +1161,11 @@ class SimulationData(AbstractYeeGridSimulationData):
             sources_adj = mnt_data._make_adjoint_sources(
                 dataset_names=dataset_names, fwidth=self._fwidth_adj
             )
-            sources_adj_all[mnt_data.monitor.name] = sources_adj
             log.info(
                 f"Created {len(sources_adj)} adjoint sources for monitor '{mnt_data.monitor.name}'."
             )
+            if sources_adj:
+                sources_adj_all[mnt_data.monitor.name] = sources_adj
 
         return sources_adj_all
 
@@ -1144,7 +1181,7 @@ class SimulationData(AbstractYeeGridSimulationData):
         adj_srcs_process_fwidth = []
         for adj_src in adj_srcs:
             source_time = adj_src.source_time
-            freq0 = source_time.freq0
+            freq0 = source_time._freq0
 
             fwidth = np.minimum(freq0 / NUM_ADJOINT_FWIDTH_TO_ZERO, source_time.fwidth)
 
@@ -1162,7 +1199,16 @@ class SimulationData(AbstractYeeGridSimulationData):
 
         adj_srcs_process_fwidth = self._adjoint_src_width_single(adj_srcs)
 
-        tmp_src_time = GaussianPulse(freq0=C_0, fwidth=inf)
+        min_freq_tmp_src = np.maximum(
+            0, np.min([src.source_time.freq0 - src.source_time.fwidth for src in adj_srcs])
+        )
+        max_freq_tmp_src = np.max(
+            [src.source_time.freq0 + src.source_time.fwidth for src in adj_srcs]
+        )
+        tmp_src_f0 = 0.5 * (min_freq_tmp_src + max_freq_tmp_src)
+        tmp_src_fwidth = max_freq_tmp_src - min_freq_tmp_src
+
+        tmp_src_time = GaussianPulse(freq0=tmp_src_f0, fwidth=tmp_src_fwidth)
         for src in adj_srcs_process_fwidth:
             tmp_src = src.updated_copy(source_time=tmp_src_time)
             tmp_src_hash = tmp_src._hash_self()
@@ -1171,16 +1217,16 @@ class SimulationData(AbstractYeeGridSimulationData):
 
         # Group sources by frequency or port, whichever gives fewer groups
         num_ports = len(hashes_to_src_times)
-        num_unique_freqs = len({src.source_time.freq0 for src in adj_srcs_process_fwidth})
+        num_unique_freqs = len({src.source_time._freq0 for src in adj_srcs_process_fwidth})
 
         log.info(f"Found {num_ports} spatial ports and {num_unique_freqs} unique frequencies.")
 
         adjoint_infos = []
         if num_unique_freqs <= num_ports:
             log.info("Grouping adjoint sources by frequency.")
-            unique_freqs = {src.source_time.freq0 for src in adj_srcs_process_fwidth}
+            unique_freqs = {src.source_time._freq0 for src in adj_srcs_process_fwidth}
             for freq0 in unique_freqs:
-                group = [src for src in adj_srcs_process_fwidth if src.source_time.freq0 == freq0]
+                group = [src for src in adj_srcs_process_fwidth if src.source_time._freq0 == freq0]
                 post_norm = xr.DataArray(data=np.array([1 + 0j]), coords={"f": [freq0]})
                 adjoint_infos.append(
                     AdjointSourceInfo(sources=group, post_norm=post_norm, normalize_sim=True)
@@ -1234,7 +1280,7 @@ class SimulationData(AbstractYeeGridSimulationData):
     def _adjoint_src_width_broadband(adj_srcs: list[SourceType]) -> float:
         """Find the adjoint source fwidth that sufficiently covers all adjoint frequencies."""
 
-        adj_srcs_f0 = [adj_src.source_time.freq0 for adj_src in adj_srcs]
+        adj_srcs_f0 = [adj_src.source_time._freq0 for adj_src in adj_srcs]
         middle_f0 = 0.5 * (np.max(adj_srcs_f0) + np.min(adj_srcs_f0))
         min_f0 = np.min(adj_srcs_f0)
 
@@ -1281,7 +1327,7 @@ class SimulationData(AbstractYeeGridSimulationData):
         amps_complex = []
         for src in adj_srcs:
             src_time = src.source_time
-            freqs.append(src_time.freq0)
+            freqs.append(src_time._freq0)
             amp_complex = src_time.amplitude * np.exp(1j * src_time.phase)
             amps_complex.append(amp_complex)
 
@@ -1294,50 +1340,3 @@ class SimulationData(AbstractYeeGridSimulationData):
 
         monitor_name = Structure._get_monitor_name(index=structure_index, data_type=data_type)
         return self[monitor_name]
-
-    def to_mat_file(self, fname: str, **kwargs):
-        """Output the ``SimulationData`` object as ``.mat`` MATLAB file.
-
-        Parameters
-        ----------
-        fname : str
-            Full path to the output file. Should include ``.mat`` file extension.
-        **kwargs : dict, optional
-            Extra arguments to ``scipy.io.savemat``: see ``scipy`` documentation for more detail.
-
-        Example
-        -------
-        >>> simData.to_mat_file('/path/to/file/data.mat') # doctest: +SKIP
-        """
-        # Check .mat file extension is given
-        extension = pathlib.Path(fname).suffixes[0].lower()
-        if len(extension) == 0:
-            raise FileError(f"File '{fname}' missing extension.")
-        if extension != ".mat":
-            raise FileError(f"File '{fname}' should have a .mat extension.")
-
-        # Handle m_dict in kwargs
-        if "m_dict" in kwargs:
-            raise ValueError(
-                "'m_dict' is automatically determined by 'to_mat_file', can't pass to 'savemat'."
-            )
-
-        # Get SimData object as dictionary
-        sim_dict = self.dict()
-
-        # set long field names true by default, otherwise it wont save fields with > 31 characters
-        if "long_field_names" not in kwargs:
-            kwargs["long_field_names"] = True
-
-        # Remove NoneType values from dict
-        # Built from theory discussed in https://github.com/scipy/scipy/issues/3488
-        modified_sim_dict = replace_values(sim_dict, None, [])
-
-        try:
-            from scipy.io import savemat
-
-            savemat(fname, modified_sim_dict, **kwargs)
-        except Exception as e:
-            raise ValueError(
-                "Could not save supplied 'SimulationData' to file. As this is an experimental feature, we may not be able to support the contents of your dataset. If you receive this error, please feel free to raise an issue on our front end repository so we can investigate."
-            ) from e

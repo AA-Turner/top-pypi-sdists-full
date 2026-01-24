@@ -157,7 +157,7 @@ class DistanceBetweenFacetsFilter(CellFilter):
         normal /= np.sqrt(normal.dot(normal))
 
         third_vec = set([0, 1, 2]) - set(span)
-        third_vec = list(third_vec)[0]
+        third_vec = next(iter(third_vec))
         d = normal.dot(cell[third_vec, :])
         return abs(d)
 

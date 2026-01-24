@@ -1,9 +1,11 @@
 """
 Record tqdm progress bar fail during session
 """
+
 import functools
 import logging
 
+# pylint: disable=invalid-name
 _SHOW_PROGRESS: bool = True
 
 

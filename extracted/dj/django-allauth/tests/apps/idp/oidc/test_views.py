@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlparse
 from django.urls import reverse
 from django.utils.http import urlencode
 
+import jwt
 import pytest
 from pytest_django.asserts import assertTemplateUsed
 
@@ -57,7 +58,11 @@ def test_userinfo(
         assert "email" not in data
 
 
-def test_client_credentials(client, oidc_client, oidc_client_secret):
+@pytest.mark.parametrize("access_token_format", ["jwt", "opaque"])
+def test_client_credentials(
+    client, oidc_client, oidc_client_secret, access_token_format, settings
+):
+    settings.IDP_OIDC_ACCESS_TOKEN_FORMAT = access_token_format
     resp = client.post(
         reverse("idp:oidc:token"),
         data={
@@ -79,6 +84,18 @@ def test_client_credentials(client, oidc_client, oidc_client_secret):
     assert token.client == oidc_client
     assert token.get_scopes() == ["profile", "email"]
 
+    if access_token_format == "jwt":
+        decoded = jwt.decode(data["access_token"], options={"verify_signature": False})
+        assert decoded == {
+            "client_id": oidc_client.id,
+            "exp": ANY,
+            "iat": ANY,
+            "iss": "http://testserver",
+            "jti": ANY,
+            "scope": "profile email",
+            "token_use": "access",
+        }
+
 
 def test_password_grant_is_blocked(
     client, oidc_client, oidc_client_secret, user, user_password
@@ -96,7 +113,7 @@ def test_password_grant_is_blocked(
         },
     )
     # We don't crash, but also don't grant.
-    assert resp.status_code == 400
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
     assert resp.json() == {
         "error": "invalid_grant",
         "error_description": "Invalid credentials given.",
@@ -149,7 +166,7 @@ def test_userinfo_access_token_as_query(
     # Pass along ID token as hint
     token, _ = access_token_generator(oidc_client, user, scopes=["openid"])
     resp = client.get(
-        reverse("idp:oidc:userinfo") + "?" + urlencode({"access_token": token}),
+        f"{reverse('idp:oidc:userinfo')}?{urlencode({'access_token': token})}",
     )
     assert resp.status_code == HTTPStatus.UNAUTHORIZED
 
@@ -162,18 +179,48 @@ def test_jwks_view(client):
     }
 
 
-def test_configuration_view(client, oidc_client):
-    resp = client.get(reverse("idp:oidc:configuration"))
+@pytest.mark.parametrize("custom_userinfo_endpoint", [False, True])
+def test_configuration_view(
+    client, oidc_client, custom_userinfo_endpoint, settings_impacting_urls
+):
+    with settings_impacting_urls(
+        IDP_OIDC_USERINFO_ENDPOINT=(
+            "https://remote/userinfo" if custom_userinfo_endpoint else None
+        )
+    ):
+        resp = client.get(reverse("idp:oidc:configuration"))
+        assert resp.status_code == HTTPStatus.OK
+        assert resp.json() == {
+            "authorization_endpoint": "http://testserver/identity/o/authorize",
+            "device_authorization_endpoint": "http://testserver/identity/o/api/device/code",
+            "end_session_endpoint": "http://testserver/identity/o/logout",
+            "id_token_signing_alg_values_supported": ["RS256"],
+            "issuer": "http://testserver",
+            "jwks_uri": "http://testserver/.well-known/jwks.json",
+            "response_types_supported": ["code", "token"],
+            "revocation_endpoint": "http://testserver/identity/o/api/revoke",
+            "subject_types_supported": ["public"],
+            "token_endpoint": "http://testserver/identity/o/api/token",
+            "userinfo_endpoint": (
+                "https://remote/userinfo"
+                if custom_userinfo_endpoint
+                else "http://testserver/identity/o/api/userinfo"
+            ),
+        }
+
+
+def test_post_userinfo(
+    client,
+    oidc_client,
+    user,
+    access_token_generator,
+):
+    # Pass along ID token as hint
+    token, token_instance = access_token_generator(oidc_client, user)
+    resp = client.post(
+        reverse("idp:oidc:userinfo"),
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json() == {
-        "authorization_endpoint": "http://testserver/identity/o/authorize",
-        "device_authorization_endpoint": "http://testserver/identity/o/api/device/code",
-        "id_token_signing_alg_values_supported": ["RS256"],
-        "issuer": "http://testserver",
-        "jwks_uri": "http://testserver/.well-known/jwks.json",
-        "response_types_supported": ["code", "token"],
-        "revocation_endpoint": "http://testserver/identity/o/api/revoke",
-        "subject_types_supported": ["public"],
-        "token_endpoint": "http://testserver/identity/o/api/token",
-        "userinfo_endpoint": "http://testserver/identity/o/api/userinfo",
-    }
+    data = resp.json()
+    assert data["sub"] == get_adapter().get_user_sub(oidc_client, user)

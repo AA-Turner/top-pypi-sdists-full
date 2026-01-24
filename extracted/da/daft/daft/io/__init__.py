@@ -3,10 +3,12 @@ from __future__ import annotations
 from daft.daft import (
     AzureConfig,
     GCSConfig,
+    GravitinoConfig,
     IOConfig,
     HTTPConfig,
     S3Config,
     S3Credentials,
+    TosConfig,
     UnityConfig,
     HuggingFaceConfig,
 )
@@ -14,7 +16,7 @@ from daft.io._csv import read_csv
 from daft.io.delta_lake._deltalake import read_deltalake
 from daft.io.hudi._hudi import read_hudi
 from daft.io.iceberg._iceberg import read_iceberg
-from daft.io.lance._lance import read_lance, merge_columns
+from daft.io.lance._lance import read_lance, merge_columns, merge_columns_df
 from daft.io._json import read_json
 from daft.io._parquet import read_parquet
 from daft.io._sql import read_sql
@@ -36,15 +38,18 @@ __all__ = [
     "DataSource",
     "DataSourceTask",
     "GCSConfig",
+    "GravitinoConfig",
     "HTTPConfig",
     "HuggingFaceConfig",
     "IOConfig",
     "S3Config",
     "S3Credentials",
+    "TosConfig",
     "UnityConfig",
     "_range",
     "from_glob_path",
     "merge_columns",
+    "merge_columns_df",
     "read_csv",
     "read_deltalake",
     "read_hudi",

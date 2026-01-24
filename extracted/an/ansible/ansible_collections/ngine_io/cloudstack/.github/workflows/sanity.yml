@@ -19,19 +19,19 @@ jobs:
       fail-fast: false
       matrix:
         ansible:
-        - stable-2.15
-        - stable-2.16
+        # - stable-2.15
+        # - stable-2.16
         - stable-2.17
-        - devel
+        # - devel
     runs-on: ubuntu-22.04
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: ansible_collections/ngine_io/cloudstack
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 

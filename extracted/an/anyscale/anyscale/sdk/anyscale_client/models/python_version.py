@@ -35,8 +35,9 @@ class PythonVersion(object):
     PY310 = "py310"
     PY311 = "py311"
     PY312 = "py312"
+    PY313 = "py313"
 
-    allowable_values = [PY36, PY37, PY38, PY39, PY310, PY311, PY312]  # noqa: E501
+    allowable_values = [PY36, PY37, PY38, PY39, PY310, PY311, PY312, PY313]  # noqa: E501
 
     """
     Attributes:

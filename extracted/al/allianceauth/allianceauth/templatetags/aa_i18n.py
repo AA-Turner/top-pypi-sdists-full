@@ -59,7 +59,7 @@ def get_datatables_language_static(language: str) -> str:
     mapped_language = get_datatable_language_code(language)
     static_url = (
         static(
-            path=f"allianceauth/libs/DataTables/Plugins/2.2.1/i18n/{mapped_language}.json"
+            path=f"allianceauth/libs/DataTables/Plugins/2.3.6/i18n/{mapped_language}.json"
         )
         if mapped_language
         else ""

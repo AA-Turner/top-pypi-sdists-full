@@ -19,7 +19,7 @@ jobs:
       matrix:
         coverage: [ unit_tests, c_api, fortran_api ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: lukka/get-cmake@latest
@@ -39,20 +39,20 @@ jobs:
     name: python_api
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.x
       - name: Setup spglib
         run: |
           python -m pip install --upgrade pip
           pip install -e .[test-cov] \
-             --config-settings=cmake.define.CMAKE_C_COMPILER=gcc \
-             --config-settings=cmake.define.SPGLIB_WITH_TESTS=ON \
-             --config-settings=cmake.define.SPGLIB_TEST_COVERAGE=ON \
-             --config-settings=build-dir=build
+            --config-settings=cmake.define.CMAKE_C_COMPILER=gcc \
+            --config-settings=cmake.define.SPGLIB_WITH_TESTS=ON \
+            --config-settings=cmake.define.SPGLIB_TEST_COVERAGE=ON \
+            --config-settings=build-dir=build
       - name: Test pytest with coverage
         run: pytest --cov=spglib
       - name: Upload coverage to Codecov

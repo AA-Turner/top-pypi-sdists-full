@@ -12,7 +12,7 @@ import google.protobuf.text_format as text_format
 
 import tablestore
 import tablestore.utils as utils
-from tablestore.auth import SignBase
+from tablestore.auth import SignBase, RequestContext
 from tablestore.error import *
 from tablestore.encoder import OTSProtoBufferEncoder
 from tablestore.decoder import OTSProtoBufferDecoder
@@ -75,24 +75,25 @@ class OTSProtocol(object):
         self.decoder = OTSProtoBufferDecoder(encoding)
         self.logger = logger
 
-    def _make_request_headers(self, body, query, signer: SignBase):
+    def _make_request_headers(self, body, query, signer: SignBase, request_context: RequestContext):
         # Compose request headers and process request body if needed.
         # Decode the byte type md5 in order to fit the signature method.
         md5 = base64.b64encode(hashlib.md5(body).digest()).decode(self.encoding)
         header_date = utils.get_now_utc_datetime().strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        credentials = request_context.get_credentials()
         headers = {
             'x-ots-date': header_date,
             'x-ots-apiversion': self.api_version,
-            'x-ots-accesskeyid': signer.get_credentials_provider().get_credentials().get_access_key_id(),
+            'x-ots-accesskeyid': credentials.get_access_key_id(),
             'x-ots-instancename': self.instance_name,
             'x-ots-contentmd5': md5,
         }
         # extra headers
-        sts_token = signer.get_credentials_provider().get_credentials().get_security_token()
+        sts_token = credentials.get_security_token()
         if sts_token is not None:
             headers['x-ots-ststoken'] = sts_token
 
-        signer.make_request_signature_and_add_headers(query, headers)
+        signer.make_request_signature_and_add_headers(query, headers, request_context)
         headers['User-Agent'] = self.user_agent
         return headers
 
@@ -146,7 +147,7 @@ class OTSProtocol(object):
             if abs(server_unix_time - now_unix_time) > 15 * 60:
                 raise OTSClientError('The difference between date in response and system time is more than 15 minutes.')
 
-    def _check_authorization(self, query, headers, status, signer: SignBase):
+    def _check_authorization(self, query, headers, status, signer: SignBase, request_context: RequestContext):
         auth = headers.get('authorization')
         if auth is None:
             if 200 <= status < 300:
@@ -160,22 +161,22 @@ class OTSProtocol(object):
 
         # 2, check access key id
         access_id, signature = auth[4:].split(':')
-        if access_id != signer.get_credentials_provider().get_credentials().get_access_key_id():
+        if access_id != request_context.get_credentials().get_access_key_id():
             raise OTSClientError('Invalid access key id in response.')
 
         # 3, check signature
         # decode the byte type
-        if signature != signer.make_response_signature(query, headers):
+        if signature != signer.make_response_signature(query, headers, signer.get_signing_key(request_context)):
             raise OTSClientError('Invalid signature in response.')
 
-    def make_request(self, api_name, signer: SignBase, *args, **kwargs):
+    def make_request(self, api_name, signer: SignBase, request_context: RequestContext, *args, **kwargs):
         if api_name not in self.api_list:
             raise OTSClientError('API %s is not supported.' % api_name)
 
         proto = self.encoder.encode_request(api_name, *args, **kwargs)
         body = proto.SerializeToString()
         query = '/' + api_name
-        headers = self._make_request_headers(body, query, signer)
+        headers = self._make_request_headers(body, query, signer, request_context)
 
         if self.logger.level <= logging.DEBUG:
             # prevent to generate formatted message which is time-consuming
@@ -209,7 +210,7 @@ class OTSProtocol(object):
 
         return ret
 
-    def handle_error(self, api_name, query, status, reason, headers, body, signer: SignBase):
+    def handle_error(self, api_name, query, status, reason, headers, body, signer: SignBase, request_context: RequestContext):
         # convert headers according to different urllib3 versions.
         std_headers = self._convert_urllib3_headers(headers)
 
@@ -224,7 +225,8 @@ class OTSProtocol(object):
         try:
             self._check_headers(std_headers, body, status=status)
             if status != 403:
-                self._check_authorization(query, std_headers, status=status, signer=signer)
+                self._check_authorization(query, std_headers, status=status, signer=signer,
+                                          request_context=request_context)
         except OTSClientError as e:
             e.http_status = status
             e.message += " HTTP status: %s." % status
@@ -247,7 +249,8 @@ class OTSProtocol(object):
 
             try:
                 if status == 403 and error_proto.code != "OTSAuthFailed":
-                    self._check_authorization(query, std_headers, status=status, signer=signer)
+                    self._check_authorization(query, std_headers, status=status, signer=signer,
+                                              request_context=request_context)
             except OTSClientError as e:
                 e.http_status = status
                 e.message += " HTTP status: %s." % status

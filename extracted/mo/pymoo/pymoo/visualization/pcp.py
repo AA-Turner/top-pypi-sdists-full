@@ -4,6 +4,7 @@ from pymoo.docs import parse_doc_string
 from pymoo.core.plot import Plot
 from pymoo.util.misc import set_if_none, set_if_none_from_tuples
 from pymoo.visualization.util import parse_bounds, normalize
+from pymoo.visualization.matplotlib import plt
 
 
 class PCP(Plot):
@@ -21,7 +22,7 @@ class PCP(Plot):
 
 
         Parameters
-        ----------------
+        ----------
 
         bounds : {bounds}
 
@@ -64,7 +65,7 @@ class PCP(Plot):
 
         # if no normalization of each axis the bounds are based on the overall min and max
         if not self.normalize_each_axis and self.bounds is None:
-            _F = np.row_stack([e[0] for e in self.to_plot])
+            _F = np.vstack([e[0] for e in self.to_plot])
             self.bounds = [_F.min(), _F.max()]
 
         # normalize the input
@@ -78,7 +79,7 @@ class PCP(Plot):
             set_if_none(_kwargs, "color", self.colors[k % len(self.colors)])
 
             for i in range(len(F)):
-                self.ax.plot(np.arange(F.shape[1]), F[i, :], **_kwargs)
+                plt.plot(np.arange(F.shape[1]), F[i, :], **_kwargs)
 
         # Plot the parallel coordinate axes
         for i in range(self.n_dim):

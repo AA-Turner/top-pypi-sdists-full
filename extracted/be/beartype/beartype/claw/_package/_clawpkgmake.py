@@ -19,7 +19,7 @@ from beartype.roar import (
 from beartype.typing import Optional
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.conftest import die_unless_conf
-from beartype._data.hint.datahinttyping import IterableStrs
+from beartype._data.typing.datatyping import IterableStrs
 from beartype._util.text.utiltextidentifier import die_unless_identifier
 from collections.abc import Iterable as IterableABC
 
@@ -103,14 +103,14 @@ def make_package_names_from_args(
 ) -> Optional[IterableStrs]:
     '''
     Validate all parameters passed by the caller to the current call of the
-    parent :func:`beartype.claw._package.clawpkghook.hook_packages` or
-    :func:`beartype.claw._package.clawpkghook.unhook_packages` function.
+    parent :func:`beartype.claw._package.clawpkgmain.hook_packages` or
+    :func:`beartype.claw._package.clawpkgmain.unhook_packages` function.
 
     Parameters
     ----------
     All keyword-only parameters accepted by the current call of the
-    parent :func:`beartype.claw._package.clawpkghook.hook_packages` or
-    :func:`beartype.claw._package.clawpkghook.unhook_packages` function.
+    parent :func:`beartype.claw._package.clawpkgmain.hook_packages` or
+    :func:`beartype.claw._package.clawpkgmain.unhook_packages` function.
 
     Returns
     -------

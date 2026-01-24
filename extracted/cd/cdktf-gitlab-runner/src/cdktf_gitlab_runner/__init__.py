@@ -177,23 +177,23 @@ class GitlabRunnerAutoscaling(
 ):
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         gitlab_token: builtins.str,
-        provider: _cdktf_cdktf_provider_google_provider_6cd2ae20.GoogleProvider,
+        provider: "_cdktf_cdktf_provider_google_provider_6cd2ae20.GoogleProvider",
         automatic_restart: typing.Optional[builtins.bool] = None,
-        compute_network: typing.Optional[_cdktf_cdktf_provider_google_data_google_compute_network_6cd2ae20.DataGoogleComputeNetwork] = None,
+        compute_network: typing.Optional["_cdktf_cdktf_provider_google_data_google_compute_network_6cd2ae20.DataGoogleComputeNetwork"] = None,
         concurrent: typing.Optional[jsii.Number] = None,
         default_disk_size_gb: typing.Optional[jsii.Number] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
-        docker_volumes: typing.Optional[typing.Sequence[typing.Union[DockerVolumes, typing.Dict[builtins.str, typing.Any]]]] = None,
+        docker_volumes: typing.Optional[typing.Sequence[typing.Union["DockerVolumes", typing.Dict[builtins.str, typing.Any]]]] = None,
         download_gitlab_runner_binary_url: typing.Optional[builtins.str] = None,
         gitlab_url: typing.Optional[builtins.str] = None,
         machine_type: typing.Optional[builtins.str] = None,
         network_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         preemptible: typing.Optional[builtins.bool] = None,
-        service_account: typing.Optional[typing.Union[_cdktf_cdktf_provider_google_compute_instance_template_6cd2ae20.ComputeInstanceTemplateServiceAccount, typing.Dict[builtins.str, typing.Any]]] = None,
+        service_account: typing.Optional[typing.Union["_cdktf_cdktf_provider_google_compute_instance_template_6cd2ae20.ComputeInstanceTemplateServiceAccount", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
@@ -244,19 +244,19 @@ class GitlabRunnerAutoscaling(
         self,
         *,
         gitlab_token: builtins.str,
-        provider: _cdktf_cdktf_provider_google_provider_6cd2ae20.GoogleProvider,
+        provider: "_cdktf_cdktf_provider_google_provider_6cd2ae20.GoogleProvider",
         automatic_restart: typing.Optional[builtins.bool] = None,
-        compute_network: typing.Optional[_cdktf_cdktf_provider_google_data_google_compute_network_6cd2ae20.DataGoogleComputeNetwork] = None,
+        compute_network: typing.Optional["_cdktf_cdktf_provider_google_data_google_compute_network_6cd2ae20.DataGoogleComputeNetwork"] = None,
         concurrent: typing.Optional[jsii.Number] = None,
         default_disk_size_gb: typing.Optional[jsii.Number] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
-        docker_volumes: typing.Optional[typing.Sequence[typing.Union[DockerVolumes, typing.Dict[builtins.str, typing.Any]]]] = None,
+        docker_volumes: typing.Optional[typing.Sequence[typing.Union["DockerVolumes", typing.Dict[builtins.str, typing.Any]]]] = None,
         download_gitlab_runner_binary_url: typing.Optional[builtins.str] = None,
         gitlab_url: typing.Optional[builtins.str] = None,
         machine_type: typing.Optional[builtins.str] = None,
         network_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         preemptible: typing.Optional[builtins.bool] = None,
-        service_account: typing.Optional[typing.Union[_cdktf_cdktf_provider_google_compute_instance_template_6cd2ae20.ComputeInstanceTemplateServiceAccount, typing.Dict[builtins.str, typing.Any]]] = None,
+        service_account: typing.Optional[typing.Union["_cdktf_cdktf_provider_google_compute_instance_template_6cd2ae20.ComputeInstanceTemplateServiceAccount", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> typing.List[builtins.str]:
         '''
@@ -325,19 +325,19 @@ class GitlabRunnerAutoscalingProps:
         self,
         *,
         gitlab_token: builtins.str,
-        provider: _cdktf_cdktf_provider_google_provider_6cd2ae20.GoogleProvider,
+        provider: "_cdktf_cdktf_provider_google_provider_6cd2ae20.GoogleProvider",
         automatic_restart: typing.Optional[builtins.bool] = None,
-        compute_network: typing.Optional[_cdktf_cdktf_provider_google_data_google_compute_network_6cd2ae20.DataGoogleComputeNetwork] = None,
+        compute_network: typing.Optional["_cdktf_cdktf_provider_google_data_google_compute_network_6cd2ae20.DataGoogleComputeNetwork"] = None,
         concurrent: typing.Optional[jsii.Number] = None,
         default_disk_size_gb: typing.Optional[jsii.Number] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
-        docker_volumes: typing.Optional[typing.Sequence[typing.Union[DockerVolumes, typing.Dict[builtins.str, typing.Any]]]] = None,
+        docker_volumes: typing.Optional[typing.Sequence[typing.Union["DockerVolumes", typing.Dict[builtins.str, typing.Any]]]] = None,
         download_gitlab_runner_binary_url: typing.Optional[builtins.str] = None,
         gitlab_url: typing.Optional[builtins.str] = None,
         machine_type: typing.Optional[builtins.str] = None,
         network_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         preemptible: typing.Optional[builtins.bool] = None,
-        service_account: typing.Optional[typing.Union[_cdktf_cdktf_provider_google_compute_instance_template_6cd2ae20.ComputeInstanceTemplateServiceAccount, typing.Dict[builtins.str, typing.Any]]] = None,
+        service_account: typing.Optional[typing.Union["_cdktf_cdktf_provider_google_compute_instance_template_6cd2ae20.ComputeInstanceTemplateServiceAccount", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
@@ -420,11 +420,13 @@ class GitlabRunnerAutoscalingProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def provider(self) -> _cdktf_cdktf_provider_google_provider_6cd2ae20.GoogleProvider:
+    def provider(
+        self,
+    ) -> "_cdktf_cdktf_provider_google_provider_6cd2ae20.GoogleProvider":
         '''Google Cloud Provider.'''
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
-        return typing.cast(_cdktf_cdktf_provider_google_provider_6cd2ae20.GoogleProvider, result)
+        return typing.cast("_cdktf_cdktf_provider_google_provider_6cd2ae20.GoogleProvider", result)
 
     @builtins.property
     def automatic_restart(self) -> typing.Optional[builtins.bool]:
@@ -440,7 +442,7 @@ class GitlabRunnerAutoscalingProps:
     @builtins.property
     def compute_network(
         self,
-    ) -> typing.Optional[_cdktf_cdktf_provider_google_data_google_compute_network_6cd2ae20.DataGoogleComputeNetwork]:
+    ) -> typing.Optional["_cdktf_cdktf_provider_google_data_google_compute_network_6cd2ae20.DataGoogleComputeNetwork"]:
         '''VPC for the Gitlab Runner .
 
         :default: - A new VPC will be created.
@@ -454,7 +456,7 @@ class GitlabRunnerAutoscalingProps:
             new GitlabRunnerAutoscaling(stack, 'runner', { gitlabToken: 'GITLAB_TOKEN', computeNetwork: computeNetwork });
         '''
         result = self._values.get("compute_network")
-        return typing.cast(typing.Optional[_cdktf_cdktf_provider_google_data_google_compute_network_6cd2ae20.DataGoogleComputeNetwork], result)
+        return typing.cast(typing.Optional["_cdktf_cdktf_provider_google_data_google_compute_network_6cd2ae20.DataGoogleComputeNetwork"], result)
 
     @builtins.property
     def concurrent(self) -> typing.Optional[jsii.Number]:
@@ -488,7 +490,7 @@ class GitlabRunnerAutoscalingProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def docker_volumes(self) -> typing.Optional[typing.List[DockerVolumes]]:
+    def docker_volumes(self) -> typing.Optional[typing.List["DockerVolumes"]]:
         '''add another Gitlab Container Runner Docker Volumes Path at job runner runtime.
 
         more detail see https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runnersdocker-section
@@ -505,7 +507,7 @@ class GitlabRunnerAutoscalingProps:
             ],
         '''
         result = self._values.get("docker_volumes")
-        return typing.cast(typing.Optional[typing.List[DockerVolumes]], result)
+        return typing.cast(typing.Optional[typing.List["DockerVolumes"]], result)
 
     @builtins.property
     def download_gitlab_runner_binary_url(self) -> typing.Optional[builtins.str]:
@@ -565,10 +567,10 @@ class GitlabRunnerAutoscalingProps:
     @builtins.property
     def service_account(
         self,
-    ) -> typing.Optional[_cdktf_cdktf_provider_google_compute_instance_template_6cd2ae20.ComputeInstanceTemplateServiceAccount]:
+    ) -> typing.Optional["_cdktf_cdktf_provider_google_compute_instance_template_6cd2ae20.ComputeInstanceTemplateServiceAccount"]:
         '''The Service Account to be used by the Gitlab Runner.'''
         result = self._values.get("service_account")
-        return typing.cast(typing.Optional[_cdktf_cdktf_provider_google_compute_instance_template_6cd2ae20.ComputeInstanceTemplateServiceAccount], result)
+        return typing.cast(typing.Optional["_cdktf_cdktf_provider_google_compute_instance_template_6cd2ae20.ComputeInstanceTemplateServiceAccount"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:

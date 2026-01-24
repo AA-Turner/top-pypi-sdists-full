@@ -1,7 +1,7 @@
 r'''
 # `github_actions_repository_permissions`
 
-Refer to the Terraform Registry for docs: [`github_actions_repository_permissions`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions).
+Refer to the Terraform Registry for docs: [`github_actions_repository_permissions`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ActionsRepositoryPermissions(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.actionsRepositoryPermissions.ActionsRepositoryPermissions",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions github_actions_repository_permissions}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions github_actions_repository_permissions}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ActionsRepositoryPermissions(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions github_actions_repository_permissions} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions github_actions_repository_permissions} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#repository ActionsRepositoryPermissions#repository}
-        :param allowed_actions: The permissions policy that controls the actions that are allowed to run. Can be one of: 'all', 'local_only', or 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#allowed_actions ActionsRepositoryPermissions#allowed_actions}
-        :param allowed_actions_config: allowed_actions_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#allowed_actions_config ActionsRepositoryPermissions#allowed_actions_config}
-        :param enabled: Should GitHub actions be enabled on this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#enabled ActionsRepositoryPermissions#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#id ActionsRepositoryPermissions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#repository ActionsRepositoryPermissions#repository}
+        :param allowed_actions: The permissions policy that controls the actions that are allowed to run. Can be one of: 'all', 'local_only', or 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#allowed_actions ActionsRepositoryPermissions#allowed_actions}
+        :param allowed_actions_config: allowed_actions_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#allowed_actions_config ActionsRepositoryPermissions#allowed_actions_config}
+        :param enabled: Should GitHub actions be enabled on this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#enabled ActionsRepositoryPermissions#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#id ActionsRepositoryPermissions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ActionsRepositoryPermissions(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ActionsRepositoryPermissions to import.
-        :param import_from_id: The id of the existing ActionsRepositoryPermissions that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ActionsRepositoryPermissions that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ActionsRepositoryPermissions to import is found.
         '''
         if __debug__:
@@ -135,9 +135,9 @@ class ActionsRepositoryPermissions(
         verified_allowed: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param github_owned_allowed: Whether GitHub-owned actions are allowed in the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#github_owned_allowed ActionsRepositoryPermissions#github_owned_allowed}
-        :param patterns_allowed: Specifies a list of string-matching patterns to allow specific action(s). Wildcards, tags, and SHAs are allowed. For example, 'monalisa/octocat@', 'monalisa/octocat@v2', 'monalisa/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#patterns_allowed ActionsRepositoryPermissions#patterns_allowed}
-        :param verified_allowed: Whether actions in GitHub Marketplace from verified creators are allowed. Set to 'true' to allow all GitHub Marketplace actions by verified creators. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#verified_allowed ActionsRepositoryPermissions#verified_allowed}
+        :param github_owned_allowed: Whether GitHub-owned actions are allowed in the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#github_owned_allowed ActionsRepositoryPermissions#github_owned_allowed}
+        :param patterns_allowed: Specifies a list of string-matching patterns to allow specific action(s). Wildcards, tags, and SHAs are allowed. For example, 'monalisa/octocat@', 'monalisa/octocat@v2', 'monalisa/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#patterns_allowed ActionsRepositoryPermissions#patterns_allowed}
+        :param verified_allowed: Whether actions in GitHub Marketplace from verified creators are allowed. Set to 'true' to allow all GitHub Marketplace actions by verified creators. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#verified_allowed ActionsRepositoryPermissions#verified_allowed}
         '''
         value = ActionsRepositoryPermissionsAllowedActionsConfig(
             github_owned_allowed=github_owned_allowed,
@@ -282,9 +282,9 @@ class ActionsRepositoryPermissionsAllowedActionsConfig:
         verified_allowed: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param github_owned_allowed: Whether GitHub-owned actions are allowed in the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#github_owned_allowed ActionsRepositoryPermissions#github_owned_allowed}
-        :param patterns_allowed: Specifies a list of string-matching patterns to allow specific action(s). Wildcards, tags, and SHAs are allowed. For example, 'monalisa/octocat@', 'monalisa/octocat@v2', 'monalisa/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#patterns_allowed ActionsRepositoryPermissions#patterns_allowed}
-        :param verified_allowed: Whether actions in GitHub Marketplace from verified creators are allowed. Set to 'true' to allow all GitHub Marketplace actions by verified creators. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#verified_allowed ActionsRepositoryPermissions#verified_allowed}
+        :param github_owned_allowed: Whether GitHub-owned actions are allowed in the repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#github_owned_allowed ActionsRepositoryPermissions#github_owned_allowed}
+        :param patterns_allowed: Specifies a list of string-matching patterns to allow specific action(s). Wildcards, tags, and SHAs are allowed. For example, 'monalisa/octocat@', 'monalisa/octocat@v2', 'monalisa/'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#patterns_allowed ActionsRepositoryPermissions#patterns_allowed}
+        :param verified_allowed: Whether actions in GitHub Marketplace from verified creators are allowed. Set to 'true' to allow all GitHub Marketplace actions by verified creators. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#verified_allowed ActionsRepositoryPermissions#verified_allowed}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f506c64ab5b99bfd8d6170495dd8f8d8d49b469916acb895d9e53f8ebc3a094b)
@@ -305,7 +305,7 @@ class ActionsRepositoryPermissionsAllowedActionsConfig:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether GitHub-owned actions are allowed in the repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#github_owned_allowed ActionsRepositoryPermissions#github_owned_allowed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#github_owned_allowed ActionsRepositoryPermissions#github_owned_allowed}
         '''
         result = self._values.get("github_owned_allowed")
         assert result is not None, "Required property 'github_owned_allowed' is missing"
@@ -317,7 +317,7 @@ class ActionsRepositoryPermissionsAllowedActionsConfig:
 
         Wildcards, tags, and SHAs are allowed. For example, 'monalisa/octocat@', 'monalisa/octocat@v2', 'monalisa/'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#patterns_allowed ActionsRepositoryPermissions#patterns_allowed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#patterns_allowed ActionsRepositoryPermissions#patterns_allowed}
         '''
         result = self._values.get("patterns_allowed")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -330,7 +330,7 @@ class ActionsRepositoryPermissionsAllowedActionsConfig:
 
         Set to 'true' to allow all GitHub Marketplace actions by verified creators.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#verified_allowed ActionsRepositoryPermissions#verified_allowed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#verified_allowed ActionsRepositoryPermissions#verified_allowed}
         '''
         result = self._values.get("verified_allowed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -501,11 +501,11 @@ class ActionsRepositoryPermissionsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#repository ActionsRepositoryPermissions#repository}
-        :param allowed_actions: The permissions policy that controls the actions that are allowed to run. Can be one of: 'all', 'local_only', or 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#allowed_actions ActionsRepositoryPermissions#allowed_actions}
-        :param allowed_actions_config: allowed_actions_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#allowed_actions_config ActionsRepositoryPermissions#allowed_actions_config}
-        :param enabled: Should GitHub actions be enabled on this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#enabled ActionsRepositoryPermissions#enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#id ActionsRepositoryPermissions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#repository ActionsRepositoryPermissions#repository}
+        :param allowed_actions: The permissions policy that controls the actions that are allowed to run. Can be one of: 'all', 'local_only', or 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#allowed_actions ActionsRepositoryPermissions#allowed_actions}
+        :param allowed_actions_config: allowed_actions_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#allowed_actions_config ActionsRepositoryPermissions#allowed_actions_config}
+        :param enabled: Should GitHub actions be enabled on this repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#enabled ActionsRepositoryPermissions#enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#id ActionsRepositoryPermissions#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -619,7 +619,7 @@ class ActionsRepositoryPermissionsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def repository(self) -> builtins.str:
         '''The GitHub repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#repository ActionsRepositoryPermissions#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#repository ActionsRepositoryPermissions#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -631,7 +631,7 @@ class ActionsRepositoryPermissionsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
         Can be one of: 'all', 'local_only', or 'selected'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#allowed_actions ActionsRepositoryPermissions#allowed_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#allowed_actions ActionsRepositoryPermissions#allowed_actions}
         '''
         result = self._values.get("allowed_actions")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -642,7 +642,7 @@ class ActionsRepositoryPermissionsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[ActionsRepositoryPermissionsAllowedActionsConfig]:
         '''allowed_actions_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#allowed_actions_config ActionsRepositoryPermissions#allowed_actions_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#allowed_actions_config ActionsRepositoryPermissions#allowed_actions_config}
         '''
         result = self._values.get("allowed_actions_config")
         return typing.cast(typing.Optional[ActionsRepositoryPermissionsAllowedActionsConfig], result)
@@ -653,14 +653,14 @@ class ActionsRepositoryPermissionsConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Should GitHub actions be enabled on this repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#enabled ActionsRepositoryPermissions#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#enabled ActionsRepositoryPermissions#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_permissions#id ActionsRepositoryPermissions#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_permissions#id ActionsRepositoryPermissions#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

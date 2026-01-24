@@ -57,8 +57,6 @@ you need to specify the connection name as a DAG parameter with name `mcd_sessio
 
 import logging
 from typing import Dict
-
-import pkg_resources
 from airflow_mcd.callbacks.utils import AirflowEventsClientUtils
 from airflow_mcd import airflow_major_version
 

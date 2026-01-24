@@ -120,6 +120,8 @@ class UserGraph {
     Mwpm& get_mwpm();
     Mwpm& get_mwpm_with_search_graph();
     void handle_dem_instruction(double p, const std::vector<size_t>& detectors, const std::vector<size_t>& observables);
+    void handle_dem_instruction_include_correlations(
+        double p, const std::vector<size_t>& detectors, const std::vector<size_t>& observables);
     void get_nodes_on_shortest_path_from_source(size_t src, size_t dst, std::vector<size_t>& out_nodes);
     void populate_implied_edge_weights(
         std::map<std::pair<size_t, size_t>, std::map<std::pair<size_t, size_t>, double>>& joint_probabilites);
@@ -130,6 +132,8 @@ class UserGraph {
     bool _mwpm_needs_updating;
     bool _all_edges_have_error_probabilities;
 };
+
+double to_weight_for_correlations(double probability);
 
 template <typename EdgeCallable, typename BoundaryEdgeCallable>
 inline double UserGraph::iter_discretized_edges(
@@ -249,7 +253,7 @@ struct DecomposedDemError {
     /// The probability of this error occurring.
     double probability;
     /// Effects of the error.
-    stim::FixedCapVector<UserEdge, 8> components;
+    std::vector<UserEdge> components;
 
     bool operator==(const DecomposedDemError& other) const;
     bool operator!=(const DecomposedDemError& other) const;
@@ -263,7 +267,8 @@ template <typename Handler>
 void iter_dem_instructions_include_correlations(
     const stim::DetectorErrorModel& detector_error_model,
     const Handler& handle_dem_error,
-    std::map<std::pair<size_t, size_t>, std::map<std::pair<size_t, size_t>, double>>& joint_probabilites) {
+    std::map<std::pair<size_t, size_t>, std::map<std::pair<size_t, size_t>, double>>& joint_probabilites,
+    bool include_decomposed_error_components_in_edge_weights = true) {
     detector_error_model.iter_flatten_error_instructions([&](const stim::DemInstruction& instruction) {
         double p = instruction.arg_data[0];
         pm::DecomposedDemError decomposed_err;
@@ -283,6 +288,7 @@ void iter_dem_instructions_include_correlations(
         component->node1 = SIZE_MAX;
         component->node2 = SIZE_MAX;
         size_t num_component_detectors = 0;
+        bool instruction_contains_separator = false;
         for (auto& target : instruction.target_data) {
             // Decompose error
             if (target.is_relative_detector_id()) {
@@ -309,14 +315,15 @@ void iter_dem_instructions_include_correlations(
             } else if (target.is_observable_id()) {
                 component->observable_indices.push_back(target.val());
             } else if (target.is_separator()) {
-                // If the previous error in the decomposition had 3 or more components, we ignore it.
-                if (component->node1 == SIZE_MAX) {
+                instruction_contains_separator = true;
+                // We cannot have num_component_detectors > 2 at this point, or we would have already thrown an
+                // exception
+                if (num_component_detectors == 0) {
                     throw std::invalid_argument(
-                        "Encountered a decomposed error instruction with a hyperedge component (3 or more detectors). "
+                        "Encountered a decomposed error instruction with an undetectable component (0 detectors). "
                         "This is not supported.");
-                } else if (p > 0) {
-                    handle_dem_error(p, {component->node1, component->node2}, component->observable_indices);
                 }
+                // The previous error in the decomposition must have 1 or 2 detectors
                 decomposed_err.components.push_back({});
                 component = &decomposed_err.components.back();
                 component->node1 = SIZE_MAX;
@@ -324,19 +331,27 @@ void iter_dem_instructions_include_correlations(
                 num_component_detectors = 0;
             }
         }
-        // If the final error in the decomposition had 3 or more components, we ignore it.
-        if (component->node1 == SIZE_MAX) {
-            // Undecomposed hyperedges are not supported
-            throw std::invalid_argument(
-                "Encountered an undecomposed error instruction with 3 or mode detectors. "
-                "This is not supported when using `enable_correlations=True`. "
-                "Did you forget to set `decompose_errors=True` when "
-                "converting the stim circuit to a detector error model?");
-        } else if (p > 0) {
-            if (component->node2 == SIZE_MAX) {
-                handle_dem_error(p, {component->node1}, component->observable_indices);
+
+        if (num_component_detectors == 0) {
+            if (instruction_contains_separator) {
+                throw std::invalid_argument(
+                    "Encountered a decomposed error instruction with an undetectable component (0 detectors). "
+                    "This is not supported.");
             } else {
-                handle_dem_error(p, {component->node1, component->node2}, component->observable_indices);
+                // Ignore errors that are undetectable, provided they are not a component of a decomposed error
+                return;
+            }
+        }
+
+        // If include_decomposed_error_components_in_edge_weights is False, then only add the edge into 
+        // the graph if it is not a component in a decomposed error with more than one component
+        if (include_decomposed_error_components_in_edge_weights || decomposed_err.components.size() == 1) {
+            for (pm::UserEdge& component : decomposed_err.components) {
+                if (component.node2 == SIZE_MAX) {
+                    handle_dem_error(p, {component.node1}, component.observable_indices);
+                } else {
+                    handle_dem_error(p, {component.node1, component.node2}, component.observable_indices);
+                }
             }
         }
 

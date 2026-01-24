@@ -1,0 +1,26 @@
+Metadata-Version: 2.3
+Name: snakemake-storage-plugin-s3
+Version: 0.3.6
+Summary: A Snakemake storage plugin for S3 API storage (AWS S3, MinIO, etc.)
+License: MIT
+Keywords: snakemake,plugin,storage,s3
+Author: Johannes Koester
+Author-email: johannes.koester@uni-due.de
+Requires-Python: >=3.11,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: boto3 (>=1.34.63,<2.0.0)
+Requires-Dist: botocore (>=1.34.63,<2.0.0)
+Requires-Dist: snakemake-interface-common (>=1.14.0,<2.0.0)
+Requires-Dist: snakemake-interface-storage-plugins (>=4.2.3,<5.0.0)
+Project-URL: Documentation, https://snakemake.github.io/snakemake-plugin-catalog/plugins/storage/s3.html
+Project-URL: Repository, https://github.com/snakemake/snakemake-storage-plugin-s3
+Description-Content-Type: text/markdown
+
+# Snakemake storage plugin: s3
+
+A Snakemake storage plugin for S3 API storage (AWS S3, MinIO, etc.).
+For documentation and usage instructions, see the [Snakemake plugin catalog](https://snakemake.github.io/snakemake-plugin-catalog/plugins/storage/s3.html).

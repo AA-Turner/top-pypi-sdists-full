@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib.machinery
 import logging
-import opcode
 import os
 import sys
 from contextlib import suppress
@@ -15,12 +14,13 @@ from sysconfig import get_config_var
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
-from cx_Freeze._compat import IS_WINDOWS
-from cx_Freeze.common import (
+from cx_Freeze._bytecode import (
     code_object_replace,
-    process_path_specs,
-    resource_path,
+    code_object_replace_package,
+    scan_code,
 )
+from cx_Freeze._compat import IS_WINDOWS
+from cx_Freeze.common import process_path_specs, resource_path
 from cx_Freeze.hooks.unused_modules import (
     DEFAULT_EXCLUDES,
     DEFAULT_IGNORE_NAMES,
@@ -41,26 +41,7 @@ if TYPE_CHECKING:
 ALL_SUFFIXES = importlib.machinery.all_suffixes()
 
 
-CALL_FUNCTION = opcode.opmap.get("CALL_FUNCTION")
-CALL = opcode.opmap.get("CALL")
-PRECALL = opcode.opmap.get("PRECALL")
-PUSH_NULL = opcode.opmap.get("PUSH_NULL")
-
-EXTENDED_ARG = opcode.opmap["EXTENDED_ARG"]
-LOAD_CONST = opcode.opmap["LOAD_CONST"]
-LOAD_NAME = opcode.opmap["LOAD_NAME"]
-IMPORT_NAME = opcode.opmap["IMPORT_NAME"]
-IMPORT_FROM = opcode.opmap["IMPORT_FROM"]
-# Python 3.12+ uses CALL_INTRINSIC_1 with argument 2
-IMPORT_STAR = (
-    opcode.opmap.get("IMPORT_STAR") or opcode.opmap["CALL_INTRINSIC_1"]
-)
-STORE_NAME = opcode.opmap["STORE_NAME"]
-STORE_GLOBAL = opcode.opmap["STORE_GLOBAL"]
-STORE_OPS = (STORE_NAME, STORE_GLOBAL)
-HAVE_ARGUMENT = opcode.HAVE_ARGUMENT
-
-__all__ = ["Module", "ModuleFinder"]
+__all__ = ["ModuleFinder"]
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +88,9 @@ class ModuleFinder:
         self._tmp_dir = TemporaryDirectory(prefix="cxfreeze-")
         self.cache_path = Path(self._tmp_dir.name)
         self.lib_files: dict[Path, str] = {}
+        self.packages_distributions = (
+            importlib.metadata.packages_distributions()
+        )
 
     def cleanup(self) -> None:
         self._tmp_dir.cleanup()
@@ -115,7 +99,7 @@ class ModuleFinder:
         self,
         name: str,
         path: Sequence[Path | str] | None = None,
-        filename: Path | None = None,
+        filename: Path | str | None = None,
         parent: Module | None = None,
     ) -> Module:
         """Add a module to the list of modules but if one is already found,
@@ -149,11 +133,11 @@ class ModuleFinder:
     def _builtin_modules(self) -> set[str]:
         """The built-in modules are determined based on the cx_Freeze build."""
         builtin_modules: set[str] = set(sys.builtin_module_names)
-        dynload = resource_path("bases/lib-dynload")
-        if dynload and dynload.is_dir():
-            # discard modules that exist in bases/lib-dynload
+        core_lib = resource_path("lib")
+        if core_lib and core_lib.is_dir():
+            # discard modules that exist in freeze-core 'lib'
             ext_suffix = get_config_var("EXT_SUFFIX")
-            for file in dynload.glob(f"*{ext_suffix}"):
+            for file in core_lib.glob(f"*{ext_suffix}"):
                 builtin_modules.discard(file.name.removesuffix(ext_suffix))
         return builtin_modules
 
@@ -369,21 +353,13 @@ class ModuleFinder:
             return None
         return module
 
-    @staticmethod
     def _find_editable_spec(
-        name: str, path: Sequence[str] | None
+        self, name: str, path: Sequence[str] | None
     ) -> importlib.machinery.ModuleSpec | None:
         """Find the spec for a module installed as an editable package."""
-        if hasattr(importlib.metadata, "packages_distributions"):
-            # the distribution name may vary from the module name (eg may include '-').
-            # packages_distributions returns the mapping but is only available on 3.10+
-            dist_names = importlib.metadata.packages_distributions().get(
-                name, []
-            )
-        else:
-            dist_names = [name]
-
-        for dist_name in dist_names:
+        # the distribution name may vary from the module name (eg may
+        # include '-'). packages_distributions returns the mapping
+        for dist_name in self.packages_distributions.get(name, []):
             dist = importlib.metadata.distribution(dist_name)
             if not dist:
                 continue
@@ -439,7 +415,7 @@ class ModuleFinder:
                 return module
 
         if not spec:
-            spec = ModuleFinder._find_editable_spec(name, path)
+            spec = self._find_editable_spec(name, path)
 
         if spec:
             loader = spec.loader
@@ -463,10 +439,10 @@ class ModuleFinder:
                     module.in_import = False
                     return module
                 logger.debug("Adding module [%s] [PACKAGE]", name)
-                module.file = Path(spec.origin)  # path of __init__.py
+                module.file = spec.origin  # path of __init__.py
             else:
                 module = self._add_module(
-                    name, filename=Path(spec.origin), parent=parent
+                    name, filename=spec.origin, parent=parent
                 )
 
         if module is not None:
@@ -480,7 +456,7 @@ class ModuleFinder:
         deferred_imports: DeferredList,
     ) -> Module | None:
         name = module.name
-        path = os.fspath(module.file)
+        path = os.path.normpath(module.file)
 
         if isinstance(loader, importlib.machinery.SourceFileLoader):
             logger.debug("Adding module [%s] [SOURCE]", name)
@@ -536,7 +512,7 @@ class ModuleFinder:
             self._scan_code(module, deferred_imports)
 
             # Verify __package__ in use
-            module.code = self._replace_package_in_code(module)
+            module.code = code_object_replace_package(module)
         elif module.stub_code is not None:
             self._scan_code(module, deferred_imports, module.stub_code)
 
@@ -580,42 +556,6 @@ class ModuleFinder:
         if module_name not in caller.ignore_names:
             callers = self._bad_modules.setdefault(module_name, {})
             callers[caller.name] = None
-
-    @staticmethod
-    def _replace_package_in_code(module: Module) -> CodeType:
-        """Replace the value of __package__ directly in the code, when the
-        module is in a package and will be stored in shared zip file.
-        """
-        code = module.code
-        # Check if module is in a package and will be stored in zip file
-        # and is not defined in the module, like 'six' do
-        if (
-            code is None
-            or module.parent is None
-            or "__package__" in module.global_names
-            or module.in_file_system >= 1
-        ):
-            return code
-        # Only if the code references it.
-        if "__package__" in code.co_names:
-            consts = list(code.co_consts)
-            pkg_const_index = len(consts)
-            pkg_name_index = code.co_names.index("__package__")
-            if pkg_const_index > 255 or pkg_name_index > 255:
-                # Don't touch modules with many constants or names;
-                # This is good for now.
-                return code
-            # Insert a bytecode to set __package__ as module.parent.name
-            codes = [LOAD_CONST, pkg_const_index, STORE_NAME, pkg_name_index]
-            codestring = bytes(codes) + code.co_code
-            if module.file.stem == "__init__":
-                consts.append(module.name)
-            else:
-                consts.append(module.parent.name)
-            code = code_object_replace(
-                code, co_code=codestring, co_consts=consts
-            )
-        return code
 
     def _replace_paths_in_code(
         self, module: Module, code: CodeType | None = None
@@ -670,70 +610,14 @@ class ModuleFinder:
         """
         if code is None:
             code = module.code
-        arguments = []
-        name = None
-        import_call = 0
+
         imported_module = None
-        extended_arg = 0
-        co_code = code.co_code
-        for i in range(0, len(co_code), 2):
-            opc = co_code[i]
-            if opc >= HAVE_ARGUMENT:
-                arg = co_code[i + 1] | extended_arg
-                extended_arg = (arg << 8) if opc == EXTENDED_ARG else 0
-            else:
-                arg = None
-                extended_arg = 0
-
-            # keep track of constants (these are used for importing)
-            # immediately restart loop so arguments are retained
-            if opc == LOAD_CONST:
-                arguments.append(code.co_consts[arg])
-                continue
-
-            # __import__ call
-            if opc == LOAD_NAME:
-                name = code.co_names[arg]
-                continue
-            if PUSH_NULL and opc == PUSH_NULL:
-                continue
-            if name and name == "__import__" and len(arguments) == 1:
-                # Try to identify a __import__ call
-                # Python 3.13 bytecode:
-                # 1            2 LOAD_NAME                0 (__import__)
-                #              4 PUSH_NULL
-                #              6 LOAD_CONST               0 ('pkgutil')
-                #              8 CALL                     1
-                # Python 3.12 bytecode:
-                # 20           2 PUSH_NULL
-                #              4 LOAD_NAME                0 (__import__)
-                #              6 LOAD_CONST               0 ('pkgutil')
-                #              8 CALL                     1
-                # Python 3.6 to 3.10 uses CALL_FUNCTION instead of CALL
-                # Python 3.11 uses PRECALL then CALL
-                if CALL_FUNCTION and (opc, arg) == (CALL_FUNCTION, 1):
-                    import_call = 1
-                elif PRECALL:
-                    if (opc, arg) == (PRECALL, 1):
-                        import_call = arg
-                        continue
-                    arg = import_call
-                if CALL and (opc, arg) == (CALL, 1):
-                    import_call = 1
-
-            # import statement: attempt to import module or __import__
-            if opc == IMPORT_NAME or import_call == 1:
-                if opc == IMPORT_NAME:
-                    name = code.co_names[arg]
-                else:
-                    name = arguments[0]
-                    arguments = []
-                    logger.debug("Scan code detected __import__(%r)", name)
-                if len(arguments) >= 2:
-                    relative_import_index, from_list = arguments[-2:]
-                else:
-                    relative_import_index = -1
-                    from_list = arguments[0] if arguments else []
+        for opc, args in scan_code(code):
+            # import statement: attempt to import module
+            if "import" in opc:
+                name, relative_import_index, from_list = args
+                if opc in ("__import__", "import_module"):
+                    logger.debug("Scan code detected %s(%r)", opc, name)
                 if name not in module.exclude_names:
                     imported_module = self._import_module(
                         name, deferred_imports, module, relative_import_index
@@ -751,24 +635,13 @@ class ModuleFinder:
                         )
 
             # import * statement: copy all global names
-            elif (
-                opc == IMPORT_STAR
-                and (arg == 2 if opc > HAVE_ARGUMENT else None)
-                and top_level
-                and imported_module is not None
-            ):
+            elif opc == "star" and top_level and imported_module is not None:
                 module.global_names.update(imported_module.global_names)
 
             # store operation: track only top level
-            elif top_level and opc in STORE_OPS:
-                name = code.co_names[arg]
+            elif opc == "store" and top_level:
+                (name,) = args
                 module.global_names.add(name)
-
-            # reset arguments; these are only needed for import statements so
-            # ignore them in all other cases!
-            arguments = []
-            name = None
-            import_call = 0
 
         # Scan the code objects from function & class definitions
         for constant in code.co_consts:

@@ -1,0 +1,44 @@
+[project]
+name = "webp"
+version = "0.4.0"
+description = "Python bindings for WebP"
+readme = { content-type = "text/markdown", file = "README.md" }
+authors = [{ name = "Aiden Nibali", email = "dismaldenizen@gmail.com" }]
+requires-python = ">=3.8"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "Pillow>=4.0.0",
+    "cffi>=1.12",
+    "numpy>=1.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+dev = [
+    "build>=1.0.0",
+    "conan>=2.0",
+    "conda-lock>=2.0.0",
+    "twine",
+]
+
+[project.urls]
+Homepage = "https://github.com/anibali/pywebp"
+
+[build-system]
+requires = [
+    "cffi>=1.12",
+    "conan>=2.0",
+    "setuptools>=45",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["webp"]

@@ -7,10 +7,10 @@ from numbers import Real
 from typing import Any
 from typing import TYPE_CHECKING
 from typing import Union
-import warnings
 
 import numpy as np
 
+from optuna._warnings import optuna_warn
 from optuna.distributions import BaseDistribution
 from optuna.logging import get_logger
 from optuna.samplers import BaseSampler
@@ -189,14 +189,14 @@ class GridSampler(BaseSampler):
             raise ValueError(message)
 
         if param_name not in self._search_space:
-            message = "The parameter name, {}, is not found in the given grid.".format(param_name)
+            message = f"The parameter name, {param_name}, is not found in the given grid."
             raise ValueError(message)
 
         grid_id = trial.system_attrs["grid_id"]
         param_value = self._all_grids[grid_id][self._param_names.index(param_name)]
         contains = param_distribution._contains(param_distribution.to_internal_repr(param_value))
         if not contains:
-            warnings.warn(
+            optuna_warn(
                 f"The value `{param_value}` is out of range of the parameter `{param_name}`. "
                 f"The value will be used but the actual distribution is: `{param_distribution}`."
             )
@@ -225,11 +225,11 @@ class GridSampler(BaseSampler):
             return
 
         message = (
-            "{} contains a value with the type of {}, which is not supported by "
-            "`GridSampler`. Please make sure a value is `str`, `int`, `float`, `bool`"
-            " or `None` for persistent storage.".format(param_name, type(param_value))
+            f"{param_name} contains a value with the type of {type(param_value)}, "
+            "which is not supported by `GridSampler`. Please make sure a value is `str`, "
+            "`int`, `float`, `bool` or `None` for persistent storage."
         )
-        warnings.warn(message)
+        optuna_warn(message)
 
     def _get_unvisited_grid_ids(self, study: Study) -> list[int]:
         # List up unvisited grids based on already finished ones.

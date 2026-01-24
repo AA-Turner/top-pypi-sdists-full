@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from PIL import Image
 
+from pilgram.types import RGBAColor, RGBColor, Size
 
-def fill(size, color):
+
+def fill(size: Size, color: RGBColor | RGBAColor) -> Image.Image:
     """Fills new image with the color.
 
     Arguments:
-        size: A tuple/list of 2 integers. The size of output image.
-        color: A tuple/list of 3 or 4 integers. The fill color.
+        size: A tuple of 2 integers. The size of output image.
+        color: A tuple of 3 or 4 integers. The fill color.
 
     Returns:
         The output image.
@@ -33,14 +36,16 @@ def fill(size, color):
     assert len(color) in [3, 4]
 
     if len(color) == 4:
-        color[3] = int(round(color[3] * 255))  # alpha
+        r, g, b, a = color
+        alpha_int = int(round(a * 255))
+        color = (r, g, b, alpha_int)
 
     uniqued = list(set(color))
-    cmap = {c: Image.new('L', size, c) for c in uniqued}
+    cmap = {c: Image.new("L", size, c) for c in uniqued}
 
     if len(color) == 3:
         r, g, b = color
-        return Image.merge('RGB', (cmap[r], cmap[g], cmap[b]))
+        return Image.merge("RGB", (cmap[r], cmap[g], cmap[b]))
     else:
         r, g, b, a = color
-        return Image.merge('RGBA', (cmap[r], cmap[g], cmap[b], cmap[a]))
+        return Image.merge("RGBA", (cmap[r], cmap[g], cmap[b], cmap[a]))

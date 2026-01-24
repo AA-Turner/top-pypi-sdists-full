@@ -11,6 +11,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .output_tool_messages_item import OutputToolMessagesItem
+from .output_tool_type import OutputToolType
 from .tool_rejection_plan import ToolRejectionPlan
 
 
@@ -22,7 +23,7 @@ class OutputTool(UncheckedBaseModel):
     For some tools, this is auto-filled based on special fields like `tool.destinations`. For others like the function tool, these can be custom configured.
     """
 
-    type: typing.Literal["output"] = pydantic.Field(default="output")
+    type: OutputToolType = pydantic.Field()
     """
     The type of tool. "output" for Output tool.
     """
@@ -58,7 +59,7 @@ class OutputTool(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '(?i)\\b(bye|goodbye|farewell|see you later|take care)\\b',
+        regex: '(?i)\\\\b(bye|goodbye|farewell|see you later|take care)\\\\b',
         target: { position: -1, role: 'user' },
         negate: true  // Reject if pattern does NOT match
       }]
@@ -70,7 +71,7 @@ class OutputTool(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '\\?',
+        regex: '\\\\?',
         target: { position: -1, role: 'user' }
       }]
     }

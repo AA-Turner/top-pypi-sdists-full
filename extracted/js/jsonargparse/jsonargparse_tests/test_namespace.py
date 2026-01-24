@@ -5,8 +5,8 @@ import platform
 
 import pytest
 
-from jsonargparse import Namespace, dict_to_namespace
-from jsonargparse._namespace import meta_keys
+from jsonargparse import Namespace
+from jsonargparse._namespace import NSKeyError, meta_keys
 
 skip_if_no_setattr_insertion_order = pytest.mark.skipif(
     platform.python_implementation() != "CPython",
@@ -151,6 +151,12 @@ def test_values_generator():
     assert values == [1, 2, 3, {"x": 4, "y": 5}]
 
 
+def test_non_str_keys():
+    ns = Namespace(a=Namespace(b=Namespace(c=1)))
+    with pytest.raises(NSKeyError, match="Key must be a string, got: 0"):
+        [x for x in ns.a.b]
+
+
 def test_namespace_from_dict():
     dic = {"a": 1, "b": {"c": 2}}
     ns = Namespace(dic)
@@ -215,13 +221,6 @@ def test_init_invalid():
         Namespace(1)
     with pytest.raises(ValueError):
         Namespace(argparse.Namespace(), x=1)
-
-
-def test_dict_to_namespace():
-    ns1 = Namespace(a=1, b=Namespace(c=2), d=[Namespace(e=3)])
-    dic = {"a": 1, "b": {"c": 2}, "d": [{"e": 3}]}
-    ns2 = dict_to_namespace(dic)
-    assert ns1 == ns2
 
 
 def test_use_for_kwargs():
@@ -290,3 +289,35 @@ def test_add_argument_meta_key_error(meta_key, parser):
     with pytest.raises(ValueError) as ctx:
         parser.add_argument(meta_key)
     ctx.match(f'"{meta_key}" not allowed')
+
+
+def test_items_branches_nested():
+    ns = Namespace()
+    ns["a.b"] = 1
+    ns["a.c"] = 2
+    ns["d"] = 3
+
+    items = list(ns.items(branches=True))
+    assert items == [("a", Namespace(b=1, c=2)), ("a.b", 1), ("a.c", 2), ("d", 3)]
+
+    items = list(ns.items(branches=True, nested=False))
+    assert items == [("a", Namespace(b=1, c=2)), ("d", 3)]
+
+    items = list(ns.items(nested=False))
+    assert items == [("d", 3)]
+
+
+def test_keys_branches_nested():
+    ns = Namespace()
+    ns["a.b"] = 1
+    ns["a.c"] = 2
+    ns["d"] = 3
+
+    keys = list(ns.keys(branches=True))
+    assert keys == ["a", "a.b", "a.c", "d"]
+
+    keys = list(ns.keys(branches=True, nested=False))
+    assert keys == ["a", "d"]
+
+    keys = list(ns.keys(nested=False))
+    assert keys == ["d"]

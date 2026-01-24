@@ -1,5 +1,6 @@
 import numpy as np
 
+from ._kernel import _lps_kernel
 from ._utils import _induce_cliques, _validate_geometry_input
 
 
@@ -61,7 +62,9 @@ def pdna_to_adj(origins, network, node_ids, threshold):
     return adj
 
 
-def build_travel_graph(df, network, threshold, mapping_distance):
+def build_travel_graph(
+    df, network, threshold, mapping_distance, kernel=None, taper=True, decay=False
+):
     """Compute the shortest path between gdf centroids via a pandana.Network
     and return an adjacency list with weight=cost. Note unlike distance_band,
     :math:`G_{ij}` and :math:`G_{ji}` are often different because travel networks
@@ -81,6 +84,21 @@ def build_travel_graph(df, network, threshold, mapping_distance):
         snapping tolerance passed to ``pandana.Network.get_node_ids`` that defines
         the maximum range at which observations are snapped to nearest nodes in the
         network. Default is None
+    kernel : str
+        kernel transformation applied to the weights. See
+        libpysal.graph.Graph.build_kernel for more information on kernel
+        transformation options. Default is None, in which case the Graph weight
+        is pure distance between focal and neighbor
+    taper : bool (default: True)
+        remove links with a weight equal to zero
+    decay : bool (default: False)
+        whether to calculate the kernel using the decay formulation.
+        In the decay form, a kernel measures the distance decay in
+        similarity between observations. It varies from from maximal
+        similarity (1) at a distance of zero to minimal similarity (0
+        or negative) at some very large (possibly infinite) distance.
+        Otherwise, kernel functions are treated as proper
+        volume-preserving probability distributions.
 
     Returns
     -------
@@ -117,5 +135,18 @@ def build_travel_graph(df, network, threshold, mapping_distance):
         .reindex(df.index, level=1)
         .reset_index()
     )
+
+    if callable(kernel):
+        adj_cliques["weight"] = kernel(
+            adj_cliques["weight"], threshold, decay=decay, taper=taper
+        )
+    else:
+        adj_cliques["weight"] = _lps_kernel(
+            adj_cliques["weight"].values,
+            kernel=kernel,
+            bandwidth=threshold,
+            decay=decay,
+            taper=taper,
+        )
 
     return adj_cliques

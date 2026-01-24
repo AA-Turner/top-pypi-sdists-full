@@ -197,6 +197,23 @@ class TestEvolve:
         with pytest.raises(TypeError):
             evolve(C(1), a=3, _a=2)  # type: ignore[arg-type]
 
+    def test_alias(self) -> None:
+        """
+        evolve() acts as `__init__` with regards to aliases.
+        """
+
+        @settings
+        class C:
+            b: str = option(alias="a")
+
+        assert evolve(C(1), a=2).b == 2  # type: ignore
+
+        with pytest.raises(TypeError):
+            evolve(C(1), b=2)  # type: ignore[arg-type]
+
+        with pytest.raises(TypeError):
+            evolve(C(1), a=3, b=2)  # type: ignore[arg-type]
+
     def test_non_init_attrs(self) -> None:
         """
         evolve() handles `init=False` attributes.

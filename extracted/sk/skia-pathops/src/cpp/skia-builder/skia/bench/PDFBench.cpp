@@ -11,15 +11,20 @@
 #include "include/core/SkData.h"
 #include "include/core/SkExecutor.h"
 #include "include/core/SkImage.h"
+#include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkPixmap.h"
 #include "include/core/SkStream.h"
+#include "include/docs/SkPDFJpegHelpers.h"
 #include "include/effects/SkGradientShader.h"
 #include "include/private/base/SkTo.h"
 #include "src/base/SkRandom.h"
 #include "src/core/SkAutoPixmapStorage.h"
 #include "src/pdf/SkPDFUnion.h"
 #include "src/utils/SkFloatToDecimal.h"
+#include "tools/DecodeUtils.h"
 #include "tools/Resources.h"
+#include "tools/fonts/FontToolUtils.h"
 
 namespace {
 struct WStreamWriteTextBenchmark : public Benchmark {
@@ -27,7 +32,7 @@ struct WStreamWriteTextBenchmark : public Benchmark {
     WStreamWriteTextBenchmark() : fWStream(new SkNullWStream) {}
     const char* onGetName() override { return "WStreamWriteText"; }
     bool isSuitableFor(Backend backend) override {
-        return backend == kNonRendering_Backend;
+        return backend == Backend::kNonRendering;
     }
     void onDraw(int loops, SkCanvas*) override {
         while (loops-- > 0) {
@@ -48,7 +53,7 @@ struct PDFScalarBench : public Benchmark {
     const char* fName;
     float (*fNextFloat)(SkRandom*);
     bool isSuitableFor(Backend b) override {
-        return b == kNonRendering_Backend;
+        return b == Backend::kNonRendering;
     }
     const char* onGetName() override { return fName; }
     void onDraw(int loops, SkCanvas*) override {
@@ -90,16 +95,16 @@ public:
 protected:
     const char* onGetName() override { return "PDFImage"; }
     bool isSuitableFor(Backend backend) override {
-        return backend == kNonRendering_Backend;
+        return backend == Backend::kNonRendering;
     }
     void onDelayedSetup() override {
-        sk_sp<SkImage> img(GetResourceAsImage("images/color_wheel.png"));
+        sk_sp<SkImage> img(ToolUtils::GetResourceAsImage("images/color_wheel.png"));
         if (img) {
             // force decoding, throw away reference to encoded data.
             SkAutoPixmapStorage pixmap;
             pixmap.alloc(SkImageInfo::MakeN32Premul(img->dimensions()));
             if (img->readPixels(nullptr, pixmap, 0, 0)) {
-                fImage = SkImage::MakeRasterCopy(pixmap);
+                fImage = SkImages::RasterFromPixmapCopy(pixmap);
             }
         }
     }
@@ -111,7 +116,7 @@ protected:
             SkNullWStream nullStream;
             SkPDFDocument doc(&nullStream, SkPDF::Metadata());
             doc.beginPage(256, 256);
-            (void)SkPDFSerializeImage(fImage.get(), &doc);
+            (void)SkPDFSerializeImage(fImage.get(), &doc, 101);
         }
     }
 
@@ -127,10 +132,10 @@ public:
 protected:
     const char* onGetName() override { return "PDFJpegImage"; }
     bool isSuitableFor(Backend backend) override {
-        return backend == kNonRendering_Backend;
+        return backend == Backend::kNonRendering;
     }
     void onDelayedSetup() override {
-        sk_sp<SkImage> img(GetResourceAsImage("images/mandrill_512_q075.jpg"));
+        sk_sp<SkImage> img(ToolUtils::GetResourceAsImage("images/mandrill_512_q075.jpg"));
         if (!img) { return; }
         sk_sp<SkData> encoded = img->refEncodedData();
         SkASSERT(encoded);
@@ -146,7 +151,7 @@ protected:
             SkNullWStream nullStream;
             SkPDFDocument doc(&nullStream, SkPDF::Metadata());
             doc.beginPage(256, 256);
-            (void)SkPDFSerializeImage(fImage.get(), &doc);
+            (void)SkPDFSerializeImage(fImage.get(), &doc, 101);
         }
     }
 
@@ -164,7 +169,7 @@ public:
 protected:
     const char* onGetName() override { return "PDFCompression"; }
     bool isSuitableFor(Backend backend) override {
-        return backend == kNonRendering_Backend;
+        return backend == Backend::kNonRendering;
     }
     void onDelayedSetup() override {
         fAsset = GetResourceAsStream("pdf_command_stream.txt");
@@ -187,7 +192,7 @@ private:
 
 struct PDFColorComponentBench : public Benchmark {
     bool isSuitableFor(Backend b) override {
-        return b == kNonRendering_Backend;
+        return b == Backend::kNonRendering;
     }
     const char* onGetName() override { return "PDFColorComponent"; }
     void onDraw(int loops, SkCanvas*) override {
@@ -203,7 +208,7 @@ struct PDFColorComponentBench : public Benchmark {
 struct PDFShaderBench : public Benchmark {
     sk_sp<SkShader> fShader;
     const char* onGetName() final { return "PDFShader"; }
-    bool isSuitableFor(Backend b) final { return b == kNonRendering_Backend; }
+    bool isSuitableFor(Backend b) final { return b == Backend::kNonRendering; }
     void onDelayedSetup() final {
         const SkPoint pts[2] = {{0.0f, 0.0f}, {100.0f, 100.0f}};
         const SkColor colors[] = {
@@ -231,7 +236,7 @@ struct WritePDFTextBenchmark : public Benchmark {
     WritePDFTextBenchmark() : fWStream(new SkNullWStream) {}
     const char* onGetName() override { return "WritePDFText"; }
     bool isSuitableFor(Backend backend) override {
-        return backend == kNonRendering_Backend;
+        return backend == Backend::kNonRendering;
     }
     void onDraw(int loops, SkCanvas*) override {
         static const char kHello[] = "HELLO SKIA!\n";
@@ -264,7 +269,7 @@ struct PDFClipPathBenchmark : public Benchmark {
                 tmp.drawCircle(128, 128, (float)r, paint);
             }
         }
-        fPath.reset();
+        SkPathBuilder builder;
         for (int y = 0; y < 256; ++y) {
             SkColor current = bitmap.getColor(0, y);
             int start = 0;
@@ -276,18 +281,19 @@ struct PDFClipPathBenchmark : public Benchmark {
                 if (color == SK_ColorBLACK) {
                     start = x;
                 } else {
-                    fPath.addRect(SkRect::Make(SkIRect{start, y, x, y + 1}));
+                    builder.addRect(SkRect::Make(SkIRect{start, y, x, y + 1}));
                 }
                 current = color;
             }
             if (current == SK_ColorBLACK) {
-                fPath.addRect(SkRect::Make(SkIRect{start, y, 256, y + 1}));
+                builder.addRect(SkRect::Make(SkIRect{start, y, 256, y + 1}));
             }
         }
+        fPath = builder.detach();
     }
     const char* onGetName() override { return "PDFClipPath"; }
     bool isSuitableFor(Backend backend) override {
-        return backend == kNonRendering_Backend;
+        return backend == Backend::kNonRendering;
     }
     void onDraw(int loops, SkCanvas*) override {
         while (loops-- > 0) {
@@ -375,7 +381,7 @@ void big_pdf_test(SkDocument* doc, const SkBitmap& background) {
     float y = 36;
     constexpr size_t kLineCount = std::size(kText);
     constexpr int kLoopCount = 200;
-    SkFont font;
+    SkFont font = ToolUtils::DefaultFont();
     SkPaint paint;
     for (int loop = 0; loop < kLoopCount; ++loop) {
         for (size_t line = 0; line < kLineCount; ++line) {
@@ -425,7 +431,7 @@ struct PDFBigDocBench : public Benchmark {
         static const char kNameSlow[] = "PDFBigDocBench_slow";
         return fFast ? kNameFast : kNameSlow;
     }
-    bool isSuitableFor(Backend backend) override { return backend == kNonRendering_Backend; }
+    bool isSuitableFor(Backend backend) override { return backend == Backend::kNonRendering; }
     void onDraw(int loops, SkCanvas*) override {
         while (loops-- > 0) {
             #ifdef SK_PDF_TEST_BIGDOCBENCH_OUTPUT
@@ -435,6 +441,8 @@ struct PDFBigDocBench : public Benchmark {
             #endif
             SkPDF::Metadata metadata;
             metadata.fExecutor = fExecutor.get();
+            metadata.jpegDecoder = SkPDF::JPEG::Decode;
+            metadata.jpegEncoder = SkPDF::JPEG::Encode;
             auto doc = SkPDF::MakeDocument(&wStream, metadata);
             big_pdf_test(doc.get(), fBackground);
         }

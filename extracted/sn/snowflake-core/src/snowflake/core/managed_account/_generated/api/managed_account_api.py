@@ -328,7 +328,7 @@ class ManagedAccountApi:
         # process the body parameter
         _body_params = None
 
-        if _params["managed_account"]:
+        if _params["managed_account"] is not None:
             _body_params = _params["managed_account"]
 
         # set the HTTP header `Accept`

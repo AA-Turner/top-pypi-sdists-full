@@ -1,5 +1,3 @@
-from typing import List, Optional, Tuple
-
 from a_sync import cgather
 
 from y._decorators import continue_on_revert, stuck_coro_debugger
@@ -26,8 +24,8 @@ class SolidlyRouterBase(UniswapRouterV2):
     @continue_on_revert
     @stuck_coro_debugger
     async def get_quote(
-        self, amount_in: int, path: Path, block: Optional[Block] = None
-    ) -> Tuple[int, int]:
+        self, amount_in: int, path: Path, block: Block | None = None
+    ) -> tuple[int, int]:
         """
         Get a price quote for a given input amount and swap path.
 
@@ -79,8 +77,6 @@ class SolidlyPool(UniswapV2Pool):
         - :class:`~y.prices.dex.uniswap.v2.UniswapV2Pool`
     """
 
-    pass
-
 
 class SolidlyRouter(SolidlyRouterBase):
     """
@@ -122,7 +118,7 @@ class SolidlyRouter(SolidlyRouterBase):
     @a_sync_ttl_cache
     async def get_pool(
         self, input_token: Address, output_token: Address, stable: bool, block: Block
-    ) -> Optional[SolidlyPool]:
+    ) -> SolidlyPool | None:
         """
         Get the pool object for a given token pair.
 
@@ -151,7 +147,7 @@ class SolidlyRouter(SolidlyRouterBase):
     @stuck_coro_debugger
     async def get_routes_from_path(
         self, path: Path, block: Block
-    ) -> List[Tuple[Address, Address, bool]]:
+    ) -> list[tuple[Address, Address, bool]]:
         """
         Determine the swap routes from a given path.
 

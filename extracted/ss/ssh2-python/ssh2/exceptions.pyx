@@ -1,18 +1,19 @@
-# This file is part of ssh2-python.
-# Copyright (C) 2017-2020 Panos Kittenis
+#  This file is part of ssh2-python.
+#  Copyright (C) 2017-2025 Panos Kittenis.
+#  Copyright (C) 2017-2025 ssh2-python Contributors.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 
 class SSH2Error(Exception):
@@ -301,6 +302,30 @@ class ChannelWindowFullError(SSH2Error):
 
 class KeyfileAuthFailedError(SSH2Error):
     """Raised on key file authentication error"""
+
+
+class RandGenError(SSH2Error):
+    """Raised on randon number generator error"""
+
+
+class MissingUserAuthBannerError(SSH2Error):
+    """Raised on missing user authentication banner error"""
+
+
+class AlgoUnsupportedError(SSH2Error):
+    """Raised on unsupported algorithm error"""
+
+
+class MacFailureError(SSH2Error):
+    """Raised on MAC failure error"""
+
+
+class HashInitError(SSH2Error):
+    """Raised on hash initialisation error"""
+
+
+class HashCalcError(SSH2Error):
+    """Raised on hash calculation error"""
 
 
 class UnknownError(SSH2Error):

@@ -391,13 +391,18 @@ class BigtableAsyncClient:
             header_params["app_profile_id"] = request.app_profile_id
 
         routing_param_regex = re.compile(
-            "^(?P<authorized_view_name>projects/[^/]+/instances/[^/]+/tables/[^/]+/authorizedViews/[^/]+)$"
+            "^(?P<table_name>projects/[^/]+/instances/[^/]+/tables/[^/]+)(?:/.*)?$"
         )
         regex_match = routing_param_regex.match(request.authorized_view_name)
-        if regex_match and regex_match.group("authorized_view_name"):
-            header_params["authorized_view_name"] = regex_match.group(
-                "authorized_view_name"
-            )
+        if regex_match and regex_match.group("table_name"):
+            header_params["table_name"] = regex_match.group("table_name")
+
+        routing_param_regex = re.compile(
+            "^(?P<name>projects/[^/]+/instances/[^/]+)(?:/.*)?$"
+        )
+        regex_match = routing_param_regex.match(request.materialized_view_name)
+        if regex_match and regex_match.group("name"):
+            header_params["name"] = regex_match.group("name")
 
         if header_params:
             metadata = tuple(metadata) + (
@@ -515,13 +520,18 @@ class BigtableAsyncClient:
             header_params["app_profile_id"] = request.app_profile_id
 
         routing_param_regex = re.compile(
-            "^(?P<authorized_view_name>projects/[^/]+/instances/[^/]+/tables/[^/]+/authorizedViews/[^/]+)$"
+            "^(?P<table_name>projects/[^/]+/instances/[^/]+/tables/[^/]+)(?:/.*)?$"
         )
         regex_match = routing_param_regex.match(request.authorized_view_name)
-        if regex_match and regex_match.group("authorized_view_name"):
-            header_params["authorized_view_name"] = regex_match.group(
-                "authorized_view_name"
-            )
+        if regex_match and regex_match.group("table_name"):
+            header_params["table_name"] = regex_match.group("table_name")
+
+        routing_param_regex = re.compile(
+            "^(?P<name>projects/[^/]+/instances/[^/]+)(?:/.*)?$"
+        )
+        regex_match = routing_param_regex.match(request.materialized_view_name)
+        if regex_match and regex_match.group("name"):
+            header_params["name"] = regex_match.group("name")
 
         if header_params:
             metadata = tuple(metadata) + (
@@ -660,13 +670,11 @@ class BigtableAsyncClient:
             header_params["app_profile_id"] = request.app_profile_id
 
         routing_param_regex = re.compile(
-            "^(?P<authorized_view_name>projects/[^/]+/instances/[^/]+/tables/[^/]+/authorizedViews/[^/]+)$"
+            "^(?P<table_name>projects/[^/]+/instances/[^/]+/tables/[^/]+)(?:/.*)?$"
         )
         regex_match = routing_param_regex.match(request.authorized_view_name)
-        if regex_match and regex_match.group("authorized_view_name"):
-            header_params["authorized_view_name"] = regex_match.group(
-                "authorized_view_name"
-            )
+        if regex_match and regex_match.group("table_name"):
+            header_params["table_name"] = regex_match.group("table_name")
 
         if header_params:
             metadata = tuple(metadata) + (
@@ -799,13 +807,11 @@ class BigtableAsyncClient:
             header_params["app_profile_id"] = request.app_profile_id
 
         routing_param_regex = re.compile(
-            "^(?P<authorized_view_name>projects/[^/]+/instances/[^/]+/tables/[^/]+/authorizedViews/[^/]+)$"
+            "^(?P<table_name>projects/[^/]+/instances/[^/]+/tables/[^/]+)(?:/.*)?$"
         )
         regex_match = routing_param_regex.match(request.authorized_view_name)
-        if regex_match and regex_match.group("authorized_view_name"):
-            header_params["authorized_view_name"] = regex_match.group(
-                "authorized_view_name"
-            )
+        if regex_match and regex_match.group("table_name"):
+            header_params["table_name"] = regex_match.group("table_name")
 
         if header_params:
             metadata = tuple(metadata) + (
@@ -979,13 +985,11 @@ class BigtableAsyncClient:
             header_params["app_profile_id"] = request.app_profile_id
 
         routing_param_regex = re.compile(
-            "^(?P<authorized_view_name>projects/[^/]+/instances/[^/]+/tables/[^/]+/authorizedViews/[^/]+)$"
+            "^(?P<table_name>projects/[^/]+/instances/[^/]+/tables/[^/]+)(?:/.*)?$"
         )
         regex_match = routing_param_regex.match(request.authorized_view_name)
-        if regex_match and regex_match.group("authorized_view_name"):
-            header_params["authorized_view_name"] = regex_match.group(
-                "authorized_view_name"
-            )
+        if regex_match and regex_match.group("table_name"):
+            header_params["table_name"] = regex_match.group("table_name")
 
         if header_params:
             metadata = tuple(metadata) + (
@@ -1242,13 +1246,11 @@ class BigtableAsyncClient:
             header_params["app_profile_id"] = request.app_profile_id
 
         routing_param_regex = re.compile(
-            "^(?P<authorized_view_name>projects/[^/]+/instances/[^/]+/tables/[^/]+/authorizedViews/[^/]+)$"
+            "^(?P<table_name>projects/[^/]+/instances/[^/]+/tables/[^/]+)(?:/.*)?$"
         )
         regex_match = routing_param_regex.match(request.authorized_view_name)
-        if regex_match and regex_match.group("authorized_view_name"):
-            header_params["authorized_view_name"] = regex_match.group(
-                "authorized_view_name"
-            )
+        if regex_match and regex_match.group("table_name"):
+            header_params["table_name"] = regex_match.group("table_name")
 
         if header_params:
             metadata = tuple(metadata) + (

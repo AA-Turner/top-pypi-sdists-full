@@ -1,4 +1,3 @@
-import io
 from typing import Optional
 
 from typing_extensions import override
@@ -20,7 +19,7 @@ class StringWriter(Writer):
     ) -> None:
         self.contents = StringWriter.sanitize_string(contents)
         self.extension_with_dot = extension
-        self.encoding = encoding
+        self.encoding = encoding or "utf-8"
         self.errors = errors
         self.newline = newline
 
@@ -34,9 +33,9 @@ class StringWriter(Writer):
     @override
     def write_received_file(self, received_file: str) -> str:
         create_directory_if_needed(received_file)
-        with io.open(
+        with open(
             received_file,
-            mode="wt",
+            mode="w",
             encoding=self.encoding,
             errors=self.errors,
             newline=self.newline,

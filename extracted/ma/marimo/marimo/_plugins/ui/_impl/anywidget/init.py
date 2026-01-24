@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
@@ -41,6 +41,10 @@ def init_marimo_widget(w: ipywidgets.Widget) -> None:
         metadata={"version": __protocol_version__},
         # html_deps=session._process_ui(TagList(widget_dep))["deps"],
     )
+
+    # Register ipywidgets' message handler so it can process incoming messages
+    # with proper buffer handling via _put_buffers and serializer support
+    w.comm.on_msg(w._handle_msg)
 
 
 WIDGET_COMM_MANAGER = MarimoCommManager()

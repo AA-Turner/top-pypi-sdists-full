@@ -22,10 +22,10 @@
  *
  ******************************************************************************/
 
-use crate::ingress::{Buffer, Protocol, ProtocolVersion, SenderBuilder, TimestampNanos};
-use crate::tests::mock::{certs_dir, HttpResponse, MockServer};
-use crate::tests::{assert_err_contains, TestResult};
 use crate::ErrorCode;
+use crate::ingress::{Buffer, Protocol, ProtocolVersion, SenderBuilder, TimestampNanos};
+use crate::tests::mock::{HttpResponse, MockServer, certs_dir};
+use crate::tests::{TestResult, assert_err_contains};
 use rstest::rstest;
 use std::io;
 use std::io::ErrorKind;
@@ -231,9 +231,11 @@ fn test_no_connection(
     assert!(res.is_err());
     let err = res.unwrap_err();
     assert_eq!(err.code(), ErrorCode::SocketError);
-    assert!(err
-        .msg()
-        .starts_with("Could not flush buffer: http://127.0.0.1:1/write: io: Connection refused"));
+    assert!(
+        err.msg().starts_with(
+            "Could not flush buffer: http://127.0.0.1:1/write: io: Connection refused"
+        )
+    );
     Ok(())
 }
 
@@ -723,10 +725,16 @@ fn _test_sender_auto_detect_protocol_version(
             )?,
             Some(_) => server.send_settings_response()?,
         }
+
+        let designated_ts = if expect_version == ProtocolVersion::V1 {
+            " 10000000\n"
+        } else {
+            " 10000000n\n"
+        };
         let exp = &[
             b"test,t1=v1 ",
             crate::tests::sender::f64_to_bytes("f1", 0.5, expect_version).as_slice(),
-            b" 10000000\n",
+            designated_ts.as_bytes(),
         ]
         .concat();
         let req = server.recv_http_q()?;
@@ -777,7 +785,7 @@ fn test_sender_auto_protocol_version_only_v2() -> TestResult {
 
 #[test]
 fn test_sender_auto_protocol_version_unsupported_client() -> TestResult {
-    let mut server = MockServer::new()?.configure_settings_response(&[3, 4], 127);
+    let mut server = MockServer::new()?.configure_settings_response(&[4, 5], 127);
     let sender_builder = server.lsb_http();
     let server_thread = std::thread::spawn(move || -> io::Result<MockServer> {
         server.accept()?;
@@ -787,7 +795,7 @@ fn test_sender_auto_protocol_version_unsupported_client() -> TestResult {
     assert_err_contains(
         sender_builder.build(),
         ErrorCode::ProtocolVersionError,
-        "Server does not support current client",
+        "Server does not support any of the client protocol versions",
     );
 
     // We keep the server around til the end of the test to ensure that the response is fully received.

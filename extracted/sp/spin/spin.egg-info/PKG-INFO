@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spin
-Version: 0.15
+Version: 0.17
 Summary: Developer tool for scientific Python libraries
 Maintainer-email: Scientific Python <spin@discuss.scientific-python.org>
 License: BSD 3-Clause License
@@ -41,17 +41,16 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: click<8.3,>=8
+Requires-Dist: click!=8.3.0,<8.4,>=8
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: colorama; platform_system == "Windows"
 Requires-Dist: importlib_metadata>=7
@@ -189,6 +188,7 @@ Available as `spin.cmds.build.*`:
 
 ```
 sdist      📦 Build a source distribution in `dist/`
+wheel      📦 Build a wheel distribution in `dist/`
 ```
 
 ### [pip](https://pip.pypa.io) (Package Installer for Python)
@@ -358,6 +358,9 @@ Other examples:
 nox -s test -- -v
 nox -s test -- -v spin/tests/test_meson.py
 ```
+
+`spin` takes a slightly more conservative approach than [SPEC 0](https://scientific-python.org/specs/spec-0000/), and
+supports all non-EOL versions of Python.
 
 ## History
 

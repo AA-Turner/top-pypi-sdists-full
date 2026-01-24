@@ -49,7 +49,7 @@ That last one is usually done to avoid a name collision or *sometimes* to make a
 "#;
 
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should not report MD029 errors for the second list starting at 1
@@ -81,7 +81,7 @@ This is a paragraph between the lists.
 "#;
 
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should not report MD029 errors for the second list
@@ -109,7 +109,7 @@ fn test_lists_separated_by_horizontal_rule() {
 "#;
 
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should not report MD029 errors for the second list
@@ -137,7 +137,7 @@ fn test_lists_separated_by_blockquote() {
 "#;
 
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should not report MD029 errors for the second list
@@ -167,7 +167,7 @@ fn test_deeply_nested_lists_with_separator() {
 "#;
 
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should not report MD029 errors for the second list
@@ -193,7 +193,7 @@ fn test_multiple_blank_lines_between_list_items() {
 "#;
 
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // This SHOULD report an MD029 error since blank lines alone don't separate lists
@@ -223,7 +223,7 @@ print("Hello")
 "#;
 
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should not report MD029 errors for the second list
@@ -253,7 +253,7 @@ fn test_table_between_lists() {
 "#;
 
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should not report MD029 errors for the second list
@@ -268,7 +268,7 @@ fn test_table_between_lists() {
 
 #[test]
 fn test_html_comment_between_lists() {
-    // Edge case: HTML comment alone might not separate lists (implementation specific)
+    // Edge case: HTML comment separates lists
     let content = r#"# Test
 
 1. First list item
@@ -280,14 +280,16 @@ fn test_html_comment_between_lists() {
 "#;
 
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
-    // HTML comments at top level separate lists, so we expect an MD029 error
-    assert_eq!(
-        result.len(),
-        1,
-        "HTML comments at top level should separate lists and cause MD029 error for incorrect numbering"
+    // CommonMark sees two separate lists:
+    // - List 1 starts at 1: items 1, 2 are correct
+    // - List 2 starts at 3: item 3 is correct
+    // With ListStyle::Ordered, we respect the CommonMark start values, so no warnings.
+    assert!(
+        result.is_empty(),
+        "No warnings - both lists are correctly numbered from their start values"
     );
 }
 
@@ -307,7 +309,7 @@ fn test_mixed_list_types() {
 "#;
 
     let rule = MD029OrderedListPrefix::new(ListStyle::Ordered);
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
 
     // Should not report MD029 errors - unordered list separates the ordered lists

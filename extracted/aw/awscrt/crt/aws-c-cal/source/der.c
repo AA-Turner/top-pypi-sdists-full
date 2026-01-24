@@ -80,16 +80,22 @@ static int s_der_read_tlv(struct aws_byte_cursor *cur, struct der_tlv *tlv) {
     if (len_bytes & 0x80) {
         len_bytes &= 0x7f;
         switch (len_bytes) {
-            case 1:
-                if (!aws_byte_cursor_read_u8(cur, (uint8_t *)&len)) {
+            case 1: {
+                uint8_t len_u8;
+                if (!aws_byte_cursor_read_u8(cur, &len_u8)) {
                     return aws_raise_error(AWS_ERROR_CAL_MALFORMED_ASN1_ENCOUNTERED);
                 }
+                len = len_u8;
                 break;
-            case 2:
-                if (!aws_byte_cursor_read_be16(cur, (uint16_t *)&len)) {
+            }
+            case 2: {
+                uint16_t len_u16;
+                if (!aws_byte_cursor_read_be16(cur, &len_u16)) {
                     return aws_raise_error(AWS_ERROR_CAL_MALFORMED_ASN1_ENCOUNTERED);
                 }
+                len = len_u16;
                 break;
+            }
             case 4:
                 if (!aws_byte_cursor_read_be32(cur, &len)) {
                     return aws_raise_error(AWS_ERROR_CAL_MALFORMED_ASN1_ENCOUNTERED);
@@ -204,7 +210,14 @@ static int s_der_write_tlv(struct der_tlv *tlv, struct aws_byte_buf *buf) {
         case AWS_DER_NULL:
             /* No value bytes */
             break;
-        default:
+        default: {
+            if (tlv->tag & AWS_DER_CLASS_CONTEXT) {
+                if (!aws_byte_buf_write(buf, tlv->value, tlv->length)) {
+                    return aws_raise_error(AWS_ERROR_INVALID_BUFFER_SIZE);
+                }
+                break;
+            }
+        }
             return aws_raise_error(AWS_ERROR_CAL_MISMATCHED_DER_TYPE);
     }
 
@@ -291,6 +304,17 @@ int aws_der_encoder_write_octet_string(struct aws_der_encoder *encoder, struct a
     return s_der_write_tlv(&tlv, encoder->buffer);
 }
 
+int aws_der_encoder_write_object_identifier(struct aws_der_encoder *encoder, struct aws_byte_cursor bytes) {
+    AWS_FATAL_ASSERT(bytes.len <= UINT32_MAX);
+    struct der_tlv tlv = {
+        .tag = AWS_DER_OBJECT_IDENTIFIER,
+        .length = (uint32_t)bytes.len,
+        .value = bytes.ptr,
+    };
+
+    return s_der_write_tlv(&tlv, encoder->buffer);
+}
+
 static int s_der_encoder_begin_container(struct aws_der_encoder *encoder, enum aws_der_type type) {
     struct aws_byte_buf *seq_buf = aws_mem_acquire(encoder->allocator, sizeof(struct aws_byte_buf));
     AWS_FATAL_ASSERT(seq_buf);
@@ -344,6 +368,25 @@ int aws_der_encoder_end_sequence(struct aws_der_encoder *encoder) {
     return s_der_encoder_end_container(encoder);
 }
 
+AWS_CAL_API int aws_der_encoder_begin_context_aware_tag(
+    struct aws_der_encoder *encoder,
+    bool is_constructed,
+    uint64_t tag_value) {
+    static uint8_t tag_mask = 0x1f; /* 5bit mask */
+    if (tag_value >= tag_mask) {
+        return aws_raise_error(AWS_ERROR_INVALID_ARGUMENT);
+    }
+
+    enum aws_der_type constructed_type =
+        AWS_DER_CLASS_CONTEXT | (is_constructed ? AWS_DER_FORM_CONSTRUCTED : 0) | ((uint8_t)tag_value & tag_mask);
+
+    return s_der_encoder_begin_container(encoder, constructed_type);
+}
+
+AWS_CAL_API int aws_der_encoder_end_context_aware_tag(struct aws_der_encoder *encoder) {
+    return s_der_encoder_end_container(encoder);
+}
+
 int aws_der_encoder_begin_set(struct aws_der_encoder *encoder) {
     return s_der_encoder_begin_container(encoder, AWS_DER_SET);
 }
@@ -392,6 +435,15 @@ error:
     aws_array_list_clean_up(&decoder->tlvs);
     aws_mem_release(allocator, decoder);
     return NULL;
+}
+
+struct aws_der_decoder *aws_der_decoder_nested_tlv_decoder(struct aws_der_decoder *decoder) {
+    struct aws_byte_cursor cursor;
+    AWS_ZERO_STRUCT(cursor);
+    if (aws_der_decoder_tlv_string(decoder, &cursor)) {
+        return NULL;
+    }
+    return aws_der_decoder_new(decoder->allocator, cursor);
 }
 
 void aws_der_decoder_destroy(struct aws_der_decoder *decoder) {
@@ -459,6 +511,10 @@ int s_decoder_parse(struct aws_der_decoder *decoder) {
 
 bool aws_der_decoder_next(struct aws_der_decoder *decoder) {
     return (++decoder->tlv_idx < (int)decoder->tlvs.length);
+}
+
+void aws_der_decoder_reset(struct aws_der_decoder *decoder) {
+    decoder->tlv_idx = -1;
 }
 
 static struct der_tlv s_decoder_tlv(struct aws_der_decoder *decoder) {

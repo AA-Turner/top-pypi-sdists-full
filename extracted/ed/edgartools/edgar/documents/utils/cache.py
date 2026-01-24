@@ -47,7 +47,7 @@ class CacheStats:
 class LRUCache(Generic[T]):
     """
     Thread-safe LRU cache implementation.
-
+    
     Used for caching expensive operations like style parsing
     and header detection results.
     """
@@ -55,7 +55,7 @@ class LRUCache(Generic[T]):
     def __init__(self, max_size: int = 1000):
         """
         Initialize LRU cache.
-
+        
         Args:
             max_size: Maximum number of items to cache
         """
@@ -67,10 +67,10 @@ class LRUCache(Generic[T]):
     def get(self, key: str) -> Optional[T]:
         """
         Get item from cache.
-
+        
         Args:
             key: Cache key
-
+            
         Returns:
             Cached value or None if not found
         """
@@ -91,7 +91,7 @@ class LRUCache(Generic[T]):
     def put(self, key: str, value: T) -> None:
         """
         Put item in cache.
-
+        
         Args:
             key: Cache key
             value: Value to cache
@@ -124,7 +124,7 @@ class LRUCache(Generic[T]):
 class WeakCache:
     """
     Weak reference cache for parsed nodes.
-
+    
     Allows garbage collection of unused nodes while
     maintaining references to actively used ones.
     """
@@ -138,10 +138,10 @@ class WeakCache:
     def get(self, key: str) -> Optional[Any]:
         """
         Get item from cache.
-
+        
         Args:
             key: Cache key
-
+            
         Returns:
             Cached object or None if not found or collected
         """
@@ -166,7 +166,7 @@ class WeakCache:
     def put(self, key: str, value: Any) -> None:
         """
         Put item in cache with weak reference.
-
+        
         Args:
             key: Cache key
             value: Object to cache
@@ -182,7 +182,7 @@ class WeakCache:
     def cleanup(self) -> int:
         """
         Remove dead references.
-
+        
         Returns:
             Number of references removed
         """
@@ -201,14 +201,14 @@ class WeakCache:
 class TimeBasedCache(Generic[T]):
     """
     Time-based expiring cache.
-
+    
     Items expire after a specified duration.
     """
 
     def __init__(self, ttl_seconds: int = 3600):
         """
         Initialize time-based cache.
-
+        
         Args:
             ttl_seconds: Time to live in seconds
         """
@@ -220,10 +220,10 @@ class TimeBasedCache(Generic[T]):
     def get(self, key: str) -> Optional[T]:
         """
         Get item from cache if not expired.
-
+        
         Args:
             key: Cache key
-
+            
         Returns:
             Cached value or None if not found or expired
         """
@@ -248,7 +248,7 @@ class TimeBasedCache(Generic[T]):
     def put(self, key: str, value: T) -> None:
         """
         Put item in cache with timestamp.
-
+        
         Args:
             key: Cache key
             value: Value to cache
@@ -264,7 +264,7 @@ class TimeBasedCache(Generic[T]):
     def cleanup(self) -> int:
         """
         Remove expired items.
-
+        
         Returns:
             Number of items removed
         """
@@ -285,11 +285,11 @@ class TimeBasedCache(Generic[T]):
 def cached(cache: LRUCache, key_func: Optional[Callable] = None):
     """
     Decorator for caching function results.
-
+    
     Args:
         cache: Cache instance to use
         key_func: Function to generate cache key from arguments
-
+        
     Returns:
         Decorated function
     """
@@ -322,7 +322,7 @@ def cached(cache: LRUCache, key_func: Optional[Callable] = None):
 class CacheManager:
     """
     Manages multiple caches for the parser.
-
+    
     Provides centralized cache management and monitoring.
     """
 
@@ -374,7 +374,7 @@ class CacheManager:
     def cleanup(self) -> Dict[str, int]:
         """
         Cleanup expired/dead entries in all caches.
-
+        
         Returns:
             Number of entries cleaned up per cache
         """
@@ -389,7 +389,7 @@ class CacheManager:
     def get_memory_usage(self) -> Dict[str, int]:
         """
         Estimate memory usage of caches.
-
+        
         Returns:
             Approximate memory usage in bytes per cache
         """

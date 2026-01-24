@@ -7,8 +7,8 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class BaseOutput(UniversalBaseModel):
-    value: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = None
-    delta: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = None
+    value: typing.Optional[typing.Optional[typing.Any]] = None
+    delta: typing.Optional[typing.Optional[typing.Any]] = None
     name: str
 
     if IS_PYDANTIC_V2:

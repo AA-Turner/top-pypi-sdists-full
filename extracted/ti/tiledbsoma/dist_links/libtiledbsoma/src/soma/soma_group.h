@@ -87,10 +87,17 @@ class SOMAGroup : public SOMAObject {
         std::string_view name,
         std::optional<TimestampRange> timestamp = std::nullopt);
 
-    SOMAGroup(
-        std::shared_ptr<SOMAContext> ctx,
-        std::shared_ptr<Group> group,
-        std::optional<TimestampRange> timestamp);
+    /**
+     * @brief Construct a new SOMAGroup object from a TileDB Group.
+     *
+     * This can only be used to create a SOMAGroup opened in read or write mode.
+     *
+     * @param ctx SOMA context
+     * @param group TileDB group to open as a SOMAGroup. Must be opened in read
+     * or write mode.
+     * @param timestamp
+     */
+    SOMAGroup(std::shared_ptr<SOMAContext> ctx, std::shared_ptr<Group> group, std::optional<TimestampRange> timestamp);
 
     SOMAGroup() = delete;
     SOMAGroup(const SOMAGroup&) = default;
@@ -103,18 +110,7 @@ class SOMAGroup : public SOMAObject {
      * @param mode read or write
      * @param timestamp Optional pair indicating timestamp start and end
      */
-    void open(
-        OpenMode mode, std::optional<TimestampRange> timestamp = std::nullopt);
-
-    /**
-     * Return a new SOMAGroup with the given mode at the current Unix timestamp.
-     *
-     * @param mode if the OpenMode is not given, If the SOMAObject was opened in
-     * READ mode, reopen it in WRITE mode and vice versa
-     * @param timestamp Timestamp
-     */
-    std::unique_ptr<SOMAGroup> reopen(
-        OpenMode mode, std::optional<TimestampRange> timestamp = std::nullopt);
+    void open(OpenMode mode, std::optional<TimestampRange> timestamp = std::nullopt);
 
     /**
      * Close the SOMAGroup object.
@@ -135,9 +131,8 @@ class SOMAGroup : public SOMAObject {
      *
      * @return OpenMode
      */
-    OpenMode mode() const {
-        return group_->query_type() == TILEDB_READ ? OpenMode::read :
-                                                     OpenMode::write;
+    inline OpenMode mode() const {
+        return soma_mode_;
     }
 
     /**
@@ -188,13 +183,9 @@ class SOMAGroup : public SOMAObject {
      * @param uri of member to add
      * @param uri_type whether the given URI is automatic (default), absolute,
      * or relative
-     * @param name of member
+     * @param soma_type the soma_type of the member
      */
-    void set(
-        const std::string& uri,
-        URIType uri_type,
-        const std::string& name,
-        const std::string& soma_type);
+    void set(const std::string& uri, URIType uri_type, const std::string& name, const std::string& soma_type);
 
     /**
      * Get the number of members in the SOMAGroup.
@@ -310,14 +301,7 @@ class SOMAGroup : public SOMAObject {
      * Helper function to set the pass in timestamp in the config associated
      * with the SOMAContext passed in
      */
-    static Config _set_timestamp(
-        std::shared_ptr<SOMAContext> ctx,
-        std::optional<TimestampRange> timestamp);
-
-    /**
-     * Fills the metadata and member-to-uri caches upon opening the array.
-     */
-    void fill_caches();
+    static Config _set_timestamp(std::shared_ptr<SOMAContext> ctx, std::optional<TimestampRange> timestamp);
 
     // SOMA context
     std::shared_ptr<SOMAContext> ctx_;
@@ -345,6 +329,9 @@ class SOMAGroup : public SOMAObject {
 
     // Read timestamp range (start, end)
     std::optional<TimestampRange> timestamp_;
+
+    // Current mode of the group.
+    OpenMode soma_mode_;
 
     // Member-to-URI cache
     std::map<std::string, SOMAGroupEntry> members_map_;

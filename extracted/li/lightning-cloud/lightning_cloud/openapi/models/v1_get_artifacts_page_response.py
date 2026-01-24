@@ -41,19 +41,29 @@ class V1GetArtifactsPageResponse(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'artifacts': 'list[V1Artifact]'
+        'artifacts': 'list[V1Artifact]',
+        'count': 'str',
+        'folder_index': 'V1GetFolderIndexResponse'
     }
 
     attribute_map = {
-        'artifacts': 'artifacts'
+        'artifacts': 'artifacts',
+        'count': 'count',
+        'folder_index': 'folderIndex'
     }
 
-    def __init__(self, artifacts: 'list[V1Artifact]' =None):  # noqa: E501
+    def __init__(self, artifacts: 'list[V1Artifact]' =None, count: 'str' =None, folder_index: 'V1GetFolderIndexResponse' =None):  # noqa: E501
         """V1GetArtifactsPageResponse - a model defined in Swagger"""  # noqa: E501
         self._artifacts = None
+        self._count = None
+        self._folder_index = None
         self.discriminator = None
         if artifacts is not None:
             self.artifacts = artifacts
+        if count is not None:
+            self.count = count
+        if folder_index is not None:
+            self.folder_index = folder_index
 
     @property
     def artifacts(self) -> 'list[V1Artifact]':
@@ -75,6 +85,48 @@ class V1GetArtifactsPageResponse(object):
         """
 
         self._artifacts = artifacts
+
+    @property
+    def count(self) -> 'str':
+        """Gets the count of this V1GetArtifactsPageResponse.  # noqa: E501
+
+
+        :return: The count of this V1GetArtifactsPageResponse.  # noqa: E501
+        :rtype: str
+        """
+        return self._count
+
+    @count.setter
+    def count(self, count: 'str'):
+        """Sets the count of this V1GetArtifactsPageResponse.
+
+
+        :param count: The count of this V1GetArtifactsPageResponse.  # noqa: E501
+        :type: str
+        """
+
+        self._count = count
+
+    @property
+    def folder_index(self) -> 'V1GetFolderIndexResponse':
+        """Gets the folder_index of this V1GetArtifactsPageResponse.  # noqa: E501
+
+
+        :return: The folder_index of this V1GetArtifactsPageResponse.  # noqa: E501
+        :rtype: V1GetFolderIndexResponse
+        """
+        return self._folder_index
+
+    @folder_index.setter
+    def folder_index(self, folder_index: 'V1GetFolderIndexResponse'):
+        """Sets the folder_index of this V1GetArtifactsPageResponse.
+
+
+        :param folder_index: The folder_index of this V1GetArtifactsPageResponse.  # noqa: E501
+        :type: V1GetFolderIndexResponse
+        """
+
+        self._folder_index = folder_index
 
     def to_dict(self) -> dict:
         """Returns the model properties as a dict"""

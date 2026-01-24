@@ -22,17 +22,18 @@ from beartype.roar import (
 )
 from beartype._cave._cavemap import NoneTypeOr
 from beartype._conf.confenum import (
-    BeartypeDecorationPosition,
     BeartypeStrategy,
     BeartypeViolationVerbosity,
 )
+from beartype._conf.decorplace.confplaceenum import BeartypeDecorPlace
 from beartype._conf._confoverrides import sanify_conf_kwargs_is_pep484_tower
-from beartype._data.hint.datahinttyping import (
+from beartype._data.typing.datatyping import (
     DictStrToAny,
     TypeException,
 )
 from beartype._util.cls.utilclstest import is_type_subclass
-from beartype._util.kind.map.utilmapfrozen import FrozenDict
+from beartype._util.error.utilerrwarn import issue_warning
+from beartype._util.kind.maplike.utilmapfrozen import FrozenDict
 from beartype._util.text.utiltextidentifier import is_identifier
 from collections.abc import (
     Collection as CollectionABC,
@@ -153,31 +154,31 @@ def die_if_conf_kwargs_invalid(conf_kwargs: DictStrToAny) -> None:
     '''
 
     # ..................{ VALIDATE                           }..................
-    # If "claw_decoration_position_funcs" is *NOT* an enumeration member, raise
+    # If "claw_decor_place_func" is *NOT* an enumeration member, raise
     # an exception.
     if not isinstance(
-        conf_kwargs['claw_decoration_position_funcs'],
-        BeartypeDecorationPosition
+        conf_kwargs['claw_decor_place_func'],
+        BeartypeDecorPlace
     ):
         raise BeartypeConfParamException(
-            f'Beartype configuration parameter "claw_decoration_position_funcs" '
-            f'value {repr(conf_kwargs["claw_decoration_position_funcs"])} not '
-            f'"beartype.BeartypeDecorationPosition" enumeration member.'
+            f'Beartype configuration parameter "claw_decor_place_func" '
+            f'value {repr(conf_kwargs["claw_decor_place_func"])} not '
+            f'"beartype.BeartypeDecorPlace" enumeration member.'
         )
-    # Else, "claw_decoration_position_funcs" is an enumeration member.
+    # Else, "claw_decor_place_func" is an enumeration member.
     #
-    # If "claw_decoration_position_types" is *NOT* an enumeration member, raise
+    # If "claw_decor_place_type" is *NOT* an enumeration member, raise
     # an exception.
     elif not isinstance(
-        conf_kwargs['claw_decoration_position_types'],
-        BeartypeDecorationPosition
+        conf_kwargs['claw_decor_place_type'],
+        BeartypeDecorPlace
     ):
         raise BeartypeConfParamException(
-            f'Beartype configuration parameter "claw_decoration_position_types" '
-            f'value {repr(conf_kwargs["claw_decoration_position_types"])} not '
-            f'"beartype.BeartypeDecorationPosition" enumeration member.'
+            f'Beartype configuration parameter "claw_decor_place_type" '
+            f'value {repr(conf_kwargs["claw_decor_place_type"])} not '
+            f'"beartype.BeartypeDecorPlace" enumeration member.'
         )
-    # Else, "claw_decoration_position_types" is an enumeration member.
+    # Else, "claw_decor_place_type" is an enumeration member.
     #
     # If "claw_is_pep526" is *NOT* a boolean, raise an exception.
     elif not isinstance(conf_kwargs['claw_is_pep526'], bool):
@@ -206,7 +207,7 @@ def die_if_conf_kwargs_invalid(conf_kwargs: DictStrToAny) -> None:
         raise BeartypeConfParamException(
             f'Beartype configuration parameter "claw_skip_package_names" '
             f'value {repr(conf_kwargs["claw_skip_package_names"])} not '
-            f'collection of non-empty strings.'
+            f'collection of "."-delimited Python identifiers.'
         )
     # Else, "claw_skip_package_names" is an iterable of non-empty strings.
     #
@@ -303,6 +304,37 @@ def die_if_conf_kwargs_invalid(conf_kwargs: DictStrToAny) -> None:
                 f'{repr(conf_kwargs[arg_name_exception_subclass])} not '
                 f'exception type.'
             )
+
+# ....................{ DEPRECATORS                        }....................
+def issue_warning_deprecated_option(
+    option_name_old: str, option_name_new: str) -> None:
+    '''
+    Issue a non-fatal deprecation warning advising the caller that the parameter
+    with the passed "old" name has been deprecated in favour of the parameter
+    with the passed "new" name.
+
+    Parameters
+    ----------
+    option_name_old : str
+        Name of the deprecated "old" configuration option passed by the caller.
+    option_name_new : str
+        Name of the corresponding non-deprecated "new" configuration option
+        *not* passed by the caller.
+    '''
+    assert isinstance(option_name_old, str)
+    assert isinstance(option_name_new, str)
+
+    # Issue this non-fatal deprecation warning.
+    issue_warning(
+        cls=DeprecationWarning,
+        message=(
+            f'Beartype configuration option "{option_name_old}" '
+            f'deprecated by new option "{option_name_new}", '
+            f'because beartype is here to annoy you when you were '
+            f'just about to go home.\n'
+            f'tl;dr: pass "{option_name_new}" instead, please. *sigh*'
+        ),
+    )
 
 # ....................{ SANIFIERS                          }....................
 def sanify_conf_kwargs(conf_kwargs: DictStrToAny) -> None:

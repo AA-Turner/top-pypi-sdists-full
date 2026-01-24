@@ -1,24 +1,42 @@
 import dataclasses
 import json
 import logging
+import pathlib
 import sys
 from typing import Any
-from typing import Union
+
+from sphinx.locale import _TranslationProxy
 
 logger = logging.getLogger("esbonio.sphinx_agent")
 
 
-def format_message(data: Any) -> str:
-    if dataclasses.is_dataclass(data):
-        data = dataclasses.asdict(data)
+def _serialize_message(obj):
+    # As far as I know there's not a public function to detect just instances of a
+    # dataclass...
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        return dataclasses.asdict(obj)
 
-    content = json.dumps(data)
+    if isinstance(obj, (_TranslationProxy, pathlib.Path)):
+        return str(obj)
+
+    if isinstance(obj, set):
+        return list(obj)
+
+    return obj
+
+
+def as_json(data: Any) -> str:
+    return json.dumps(data, default=_serialize_message)
+
+
+def format_message(data: Any) -> str:
+    content = as_json(data)
     content_length = len(content)
 
     return f"Content-Length: {content_length}\r\n\r\n{content}"
 
 
-def send_error(id: Union[str, int], code: int, message: str, data=None):
+def send_error(id: str | int, code: int, message: str, data=None):
     send_message(
         dict(
             id=id,

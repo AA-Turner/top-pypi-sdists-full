@@ -3,7 +3,7 @@ Type annotations for taxsettings service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_taxsettings/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -42,12 +43,6 @@ from .literals import (
     UzbekistanTaxRegistrationNumberTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -263,7 +258,7 @@ class IndiaAdditionalInfoTypeDef(TypedDict):
 
 class MalaysiaAdditionalInfoOutputTypeDef(TypedDict):
     businessRegistrationNumber: NotRequired[str]
-    serviceTaxCodes: NotRequired[List[MalaysiaServiceTaxCodeType]]
+    serviceTaxCodes: NotRequired[list[MalaysiaServiceTaxCodeType]]
     taxInformationNumber: NotRequired[str]
 
 
@@ -285,7 +280,7 @@ class BatchDeleteTaxRegistrationRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -380,7 +375,7 @@ class SupplementalTaxRegistrationTypeDef(TypedDict):
 class AccountMetaDataTypeDef(TypedDict):
     accountName: NotRequired[str]
     address: NotRequired[AddressTypeDef]
-    addressRoleMap: NotRequired[Dict[AddressRoleTypeType, JurisdictionTypeDef]]
+    addressRoleMap: NotRequired[dict[AddressRoleTypeType, JurisdictionTypeDef]]
     addressType: NotRequired[AddressRoleTypeType]
     seller: NotRequired[str]
 
@@ -410,13 +405,13 @@ class AdditionalInfoResponseTypeDef(TypedDict):
 
 
 class TaxExemptionTypeTypeDef(TypedDict):
-    applicableJurisdictions: NotRequired[List[AuthorityTypeDef]]
+    applicableJurisdictions: NotRequired[list[AuthorityTypeDef]]
     description: NotRequired[str]
     displayName: NotRequired[str]
 
 
 class BatchDeleteTaxRegistrationResponseTypeDef(TypedDict):
-    errors: List[BatchDeleteTaxRegistrationErrorTypeDef]
+    errors: list[BatchDeleteTaxRegistrationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -448,7 +443,7 @@ class PutTaxRegistrationResponseTypeDef(TypedDict):
 
 
 class BatchPutTaxRegistrationResponseTypeDef(TypedDict):
-    errors: List[BatchPutTaxRegistrationErrorTypeDef]
+    errors: list[BatchPutTaxRegistrationErrorTypeDef]
     status: TaxRegistrationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -490,7 +485,7 @@ class PutSupplementalTaxRegistrationRequestTypeDef(TypedDict):
 
 
 class ListSupplementalTaxRegistrationsResponseTypeDef(TypedDict):
-    taxRegistrations: List[SupplementalTaxRegistrationTypeDef]
+    taxRegistrations: list[SupplementalTaxRegistrationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -504,7 +499,7 @@ class TaxRegistrationTypeDef(TypedDict):
     additionalTaxInformation: NotRequired[AdditionalInfoResponseTypeDef]
     certifiedEmailId: NotRequired[str]
     sector: NotRequired[SectorType]
-    taxDocumentMetadatas: NotRequired[List[TaxDocumentMetadataTypeDef]]
+    taxDocumentMetadatas: NotRequired[list[TaxDocumentMetadataTypeDef]]
 
 
 class TaxRegistrationWithJurisdictionTypeDef(TypedDict):
@@ -516,11 +511,11 @@ class TaxRegistrationWithJurisdictionTypeDef(TypedDict):
     additionalTaxInformation: NotRequired[AdditionalInfoResponseTypeDef]
     certifiedEmailId: NotRequired[str]
     sector: NotRequired[SectorType]
-    taxDocumentMetadatas: NotRequired[List[TaxDocumentMetadataTypeDef]]
+    taxDocumentMetadatas: NotRequired[list[TaxDocumentMetadataTypeDef]]
 
 
 class GetTaxExemptionTypesResponseTypeDef(TypedDict):
-    taxExemptionTypes: List[TaxExemptionTypeTypeDef]
+    taxExemptionTypes: list[TaxExemptionTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -583,7 +578,7 @@ class TaxExemptionDetailsTypeDef(TypedDict):
     heritageObtainedDetails: NotRequired[bool]
     heritageObtainedParentEntity: NotRequired[str]
     heritageObtainedReason: NotRequired[str]
-    taxExemptions: NotRequired[List[TaxExemptionTypeDef]]
+    taxExemptions: NotRequired[list[TaxExemptionTypeDef]]
 
 
 class VerificationDetailsTypeDef(TypedDict):
@@ -592,19 +587,19 @@ class VerificationDetailsTypeDef(TypedDict):
 
 
 class ListTaxRegistrationsResponseTypeDef(TypedDict):
-    accountDetails: List[AccountDetailsTypeDef]
+    accountDetails: list[AccountDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class BatchGetTaxExemptionsResponseTypeDef(TypedDict):
-    failedAccounts: List[str]
-    taxExemptionDetailsMap: Dict[str, TaxExemptionDetailsTypeDef]
+    failedAccounts: list[str]
+    taxExemptionDetailsMap: dict[str, TaxExemptionDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTaxExemptionsResponseTypeDef(TypedDict):
-    taxExemptionDetailsMap: Dict[str, TaxExemptionDetailsTypeDef]
+    taxExemptionDetailsMap: dict[str, TaxExemptionDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

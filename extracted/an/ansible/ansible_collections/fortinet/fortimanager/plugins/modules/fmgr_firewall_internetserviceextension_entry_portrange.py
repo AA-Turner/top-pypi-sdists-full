@@ -16,7 +16,6 @@ short_description: Port ranges in the custom entry.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.10.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -126,8 +128,8 @@ EXAMPLES = '''
     - name: Port ranges in the custom entry.
       fortinet.fortimanager.fmgr_firewall_internetserviceextension_entry_portrange:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -197,13 +199,14 @@ def main():
         'internet-service-extension': {'type': 'str', 'api_name': 'internet_service_extension'},
         'internet_service_extension': {'type': 'str'},
         'entry': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_internetserviceextension_entry_portrange': {
             'type': 'dict',
-            'v_range': [['7.4.7', '7.4.7']],
+            'v_range': [['7.4.7', '7.4.8'], ['7.6.4', '']],
             'options': {
-                'end-port': {'v_range': [['7.4.7', '7.4.7']], 'type': 'int'},
-                'id': {'v_range': [['7.4.7', '7.4.7']], 'required': True, 'type': 'int'},
-                'start-port': {'v_range': [['7.4.7', '7.4.7']], 'type': 'int'}
+                'end-port': {'v_range': [['7.4.7', '7.4.8'], ['7.6.4', '']], 'type': 'int'},
+                'id': {'v_range': [['7.4.7', '7.4.8'], ['7.6.4', '']], 'required': True, 'type': 'int'},
+                'start-port': {'v_range': [['7.4.7', '7.4.8'], ['7.6.4', '']], 'type': 'int'}
             }
         }
     }

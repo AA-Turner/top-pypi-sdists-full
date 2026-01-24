@@ -1,6 +1,6 @@
 use pyo3::exceptions::PyNotImplementedError;
 use pyo3::prelude::*;
-use pyo3::sync::GILOnceCell;
+use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyDict, PyTuple};
 
 use crate::tools::safe_repr;
@@ -44,7 +44,7 @@ impl ArgsKwargs {
     }
 }
 
-static UNDEFINED_CELL: GILOnceCell<Py<PydanticUndefinedType>> = GILOnceCell::new();
+static UNDEFINED_CELL: PyOnceLock<Py<PydanticUndefinedType>> = PyOnceLock::new();
 
 #[pyclass(module = "pydantic_core._pydantic_core", frozen)]
 #[derive(Debug)]
@@ -60,10 +60,9 @@ impl PydanticUndefinedType {
     }
 
     #[staticmethod]
-    pub fn new(py: Python) -> Py<Self> {
-        UNDEFINED_CELL
-            .get_or_init(py, || Py::new(py, PydanticUndefinedType {}).unwrap())
-            .clone_ref(py)
+    #[pyo3(name = "new")]
+    pub fn get(py: Python<'_>) -> &Py<Self> {
+        UNDEFINED_CELL.get_or_init(py, || Py::new(py, PydanticUndefinedType {}).unwrap())
     }
 
     fn __repr__(&self) -> &'static str {

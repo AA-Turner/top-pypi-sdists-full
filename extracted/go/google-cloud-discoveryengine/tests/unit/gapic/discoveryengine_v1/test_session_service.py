@@ -65,6 +65,7 @@ from google.cloud.discoveryengine_v1.services.session_service import (
 )
 from google.cloud.discoveryengine_v1.types import (
     answer,
+    assist_answer,
     conversational_search_service,
     safety,
 )
@@ -168,12 +169,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            SessionServiceClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                SessionServiceClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert SessionServiceClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert SessionServiceClient._read_environment_variables() == (
@@ -210,6 +218,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert SessionServiceClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert SessionServiceClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert SessionServiceClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert SessionServiceClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert SessionServiceClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert SessionServiceClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert SessionServiceClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert SessionServiceClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert SessionServiceClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                SessionServiceClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert SessionServiceClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert SessionServiceClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -577,17 +684,6 @@ def test_session_service_client_client_options(
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -803,6 +899,119 @@ def test_session_service_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        (
+                            api_endpoint,
+                            cert_source,
+                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        (
+                            api_endpoint,
+                            cert_source,
+                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -851,18 +1060,6 @@ def test_session_service_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1146,6 +1343,7 @@ def test_create_session(request_type, transport: str = "grpc"):
             display_name="display_name_value",
             state=gcd_session.Session.State.IN_PROGRESS,
             user_pseudo_id="user_pseudo_id_value",
+            labels=["labels_value"],
             is_pinned=True,
         )
         response = client.create_session(request)
@@ -1162,6 +1360,7 @@ def test_create_session(request_type, transport: str = "grpc"):
     assert response.display_name == "display_name_value"
     assert response.state == gcd_session.Session.State.IN_PROGRESS
     assert response.user_pseudo_id == "user_pseudo_id_value"
+    assert response.labels == ["labels_value"]
     assert response.is_pinned is True
 
 
@@ -1293,6 +1492,7 @@ async def test_create_session_async(
                 display_name="display_name_value",
                 state=gcd_session.Session.State.IN_PROGRESS,
                 user_pseudo_id="user_pseudo_id_value",
+                labels=["labels_value"],
                 is_pinned=True,
             )
         )
@@ -1310,6 +1510,7 @@ async def test_create_session_async(
     assert response.display_name == "display_name_value"
     assert response.state == gcd_session.Session.State.IN_PROGRESS
     assert response.user_pseudo_id == "user_pseudo_id_value"
+    assert response.labels == ["labels_value"]
     assert response.is_pinned is True
 
 
@@ -1804,6 +2005,7 @@ def test_update_session(request_type, transport: str = "grpc"):
             display_name="display_name_value",
             state=gcd_session.Session.State.IN_PROGRESS,
             user_pseudo_id="user_pseudo_id_value",
+            labels=["labels_value"],
             is_pinned=True,
         )
         response = client.update_session(request)
@@ -1820,6 +2022,7 @@ def test_update_session(request_type, transport: str = "grpc"):
     assert response.display_name == "display_name_value"
     assert response.state == gcd_session.Session.State.IN_PROGRESS
     assert response.user_pseudo_id == "user_pseudo_id_value"
+    assert response.labels == ["labels_value"]
     assert response.is_pinned is True
 
 
@@ -1947,6 +2150,7 @@ async def test_update_session_async(
                 display_name="display_name_value",
                 state=gcd_session.Session.State.IN_PROGRESS,
                 user_pseudo_id="user_pseudo_id_value",
+                labels=["labels_value"],
                 is_pinned=True,
             )
         )
@@ -1964,6 +2168,7 @@ async def test_update_session_async(
     assert response.display_name == "display_name_value"
     assert response.state == gcd_session.Session.State.IN_PROGRESS
     assert response.user_pseudo_id == "user_pseudo_id_value"
+    assert response.labels == ["labels_value"]
     assert response.is_pinned is True
 
 
@@ -2146,6 +2351,7 @@ def test_get_session(request_type, transport: str = "grpc"):
             display_name="display_name_value",
             state=session.Session.State.IN_PROGRESS,
             user_pseudo_id="user_pseudo_id_value",
+            labels=["labels_value"],
             is_pinned=True,
         )
         response = client.get_session(request)
@@ -2162,6 +2368,7 @@ def test_get_session(request_type, transport: str = "grpc"):
     assert response.display_name == "display_name_value"
     assert response.state == session.Session.State.IN_PROGRESS
     assert response.user_pseudo_id == "user_pseudo_id_value"
+    assert response.labels == ["labels_value"]
     assert response.is_pinned is True
 
 
@@ -2293,6 +2500,7 @@ async def test_get_session_async(
                 display_name="display_name_value",
                 state=session.Session.State.IN_PROGRESS,
                 user_pseudo_id="user_pseudo_id_value",
+                labels=["labels_value"],
                 is_pinned=True,
             )
         )
@@ -2310,6 +2518,7 @@ async def test_get_session_async(
     assert response.display_name == "display_name_value"
     assert response.state == session.Session.State.IN_PROGRESS
     assert response.user_pseudo_id == "user_pseudo_id_value"
+    assert response.labels == ["labels_value"]
     assert response.is_pinned is True
 
 
@@ -4223,6 +4432,7 @@ async def test_create_session_empty_call_grpc_asyncio():
                 display_name="display_name_value",
                 state=gcd_session.Session.State.IN_PROGRESS,
                 user_pseudo_id="user_pseudo_id_value",
+                labels=["labels_value"],
                 is_pinned=True,
             )
         )
@@ -4277,6 +4487,7 @@ async def test_update_session_empty_call_grpc_asyncio():
                 display_name="display_name_value",
                 state=gcd_session.Session.State.IN_PROGRESS,
                 user_pseudo_id="user_pseudo_id_value",
+                labels=["labels_value"],
                 is_pinned=True,
             )
         )
@@ -4308,6 +4519,7 @@ async def test_get_session_empty_call_grpc_asyncio():
                 display_name="display_name_value",
                 state=session.Session.State.IN_PROGRESS,
                 user_pseudo_id="user_pseudo_id_value",
+                labels=["labels_value"],
                 is_pinned=True,
             )
         )
@@ -4515,9 +4727,62 @@ def test_create_session_rest_call_success(request_type):
                         }
                     ],
                 },
+                "detailed_assist_answer": {
+                    "name": "name_value",
+                    "state": 1,
+                    "replies": [
+                        {
+                            "grounded_content": {
+                                "text_grounding_metadata": {
+                                    "segments": [
+                                        {
+                                            "start_index": 1189,
+                                            "end_index": 942,
+                                            "reference_indices": [1774, 1775],
+                                            "grounding_score": 0.1608,
+                                            "text": "text_value",
+                                        }
+                                    ],
+                                    "references": [
+                                        {
+                                            "content": "content_value",
+                                            "document_metadata": {
+                                                "document": "document_value",
+                                                "uri": "uri_value",
+                                                "title": "title_value",
+                                                "page_identifier": "page_identifier_value",
+                                                "domain": "domain_value",
+                                            },
+                                        }
+                                    ],
+                                },
+                                "content": {
+                                    "text": "text_value",
+                                    "inline_data": {
+                                        "mime_type": "mime_type_value",
+                                        "data": b"data_blob",
+                                    },
+                                    "file": {
+                                        "mime_type": "mime_type_value",
+                                        "file_id": "file_id_value",
+                                    },
+                                    "executable_code": {"code": "code_value"},
+                                    "code_execution_result": {
+                                        "outcome": 1,
+                                        "output": "output_value",
+                                    },
+                                    "role": "role_value",
+                                    "thought": True,
+                                },
+                            }
+                        }
+                    ],
+                    "assist_skipped_reasons": [1],
+                },
                 "query_config": {},
             }
         ],
+        "labels": ["labels_value1", "labels_value2"],
         "start_time": {},
         "end_time": {},
         "is_pinned": True,
@@ -4601,6 +4866,7 @@ def test_create_session_rest_call_success(request_type):
             display_name="display_name_value",
             state=gcd_session.Session.State.IN_PROGRESS,
             user_pseudo_id="user_pseudo_id_value",
+            labels=["labels_value"],
             is_pinned=True,
         )
 
@@ -4622,6 +4888,7 @@ def test_create_session_rest_call_success(request_type):
     assert response.display_name == "display_name_value"
     assert response.state == gcd_session.Session.State.IN_PROGRESS
     assert response.user_pseudo_id == "user_pseudo_id_value"
+    assert response.labels == ["labels_value"]
     assert response.is_pinned is True
 
 
@@ -4968,9 +5235,62 @@ def test_update_session_rest_call_success(request_type):
                         }
                     ],
                 },
+                "detailed_assist_answer": {
+                    "name": "name_value",
+                    "state": 1,
+                    "replies": [
+                        {
+                            "grounded_content": {
+                                "text_grounding_metadata": {
+                                    "segments": [
+                                        {
+                                            "start_index": 1189,
+                                            "end_index": 942,
+                                            "reference_indices": [1774, 1775],
+                                            "grounding_score": 0.1608,
+                                            "text": "text_value",
+                                        }
+                                    ],
+                                    "references": [
+                                        {
+                                            "content": "content_value",
+                                            "document_metadata": {
+                                                "document": "document_value",
+                                                "uri": "uri_value",
+                                                "title": "title_value",
+                                                "page_identifier": "page_identifier_value",
+                                                "domain": "domain_value",
+                                            },
+                                        }
+                                    ],
+                                },
+                                "content": {
+                                    "text": "text_value",
+                                    "inline_data": {
+                                        "mime_type": "mime_type_value",
+                                        "data": b"data_blob",
+                                    },
+                                    "file": {
+                                        "mime_type": "mime_type_value",
+                                        "file_id": "file_id_value",
+                                    },
+                                    "executable_code": {"code": "code_value"},
+                                    "code_execution_result": {
+                                        "outcome": 1,
+                                        "output": "output_value",
+                                    },
+                                    "role": "role_value",
+                                    "thought": True,
+                                },
+                            }
+                        }
+                    ],
+                    "assist_skipped_reasons": [1],
+                },
                 "query_config": {},
             }
         ],
+        "labels": ["labels_value1", "labels_value2"],
         "start_time": {},
         "end_time": {},
         "is_pinned": True,
@@ -5054,6 +5374,7 @@ def test_update_session_rest_call_success(request_type):
             display_name="display_name_value",
             state=gcd_session.Session.State.IN_PROGRESS,
             user_pseudo_id="user_pseudo_id_value",
+            labels=["labels_value"],
             is_pinned=True,
         )
 
@@ -5075,6 +5396,7 @@ def test_update_session_rest_call_success(request_type):
     assert response.display_name == "display_name_value"
     assert response.state == gcd_session.Session.State.IN_PROGRESS
     assert response.user_pseudo_id == "user_pseudo_id_value"
+    assert response.labels == ["labels_value"]
     assert response.is_pinned is True
 
 
@@ -5193,6 +5515,7 @@ def test_get_session_rest_call_success(request_type):
             display_name="display_name_value",
             state=session.Session.State.IN_PROGRESS,
             user_pseudo_id="user_pseudo_id_value",
+            labels=["labels_value"],
             is_pinned=True,
         )
 
@@ -5214,6 +5537,7 @@ def test_get_session_rest_call_success(request_type):
     assert response.display_name == "display_name_value"
     assert response.state == session.Session.State.IN_PROGRESS
     assert response.user_pseudo_id == "user_pseudo_id_value"
+    assert response.labels == ["labels_value"]
     assert response.is_pinned is True
 
 
@@ -6048,6 +6372,7 @@ def test_session_service_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [
@@ -6177,6 +6502,43 @@ def test_parse_answer_path():
 
     # Check that the path construction is reversible.
     actual = SessionServiceClient.parse_answer_path(path)
+    assert expected == actual
+
+
+def test_assist_answer_path():
+    project = "scallop"
+    location = "abalone"
+    collection = "squid"
+    engine = "clam"
+    session = "whelk"
+    assist_answer = "octopus"
+    expected = "projects/{project}/locations/{location}/collections/{collection}/engines/{engine}/sessions/{session}/assistAnswers/{assist_answer}".format(
+        project=project,
+        location=location,
+        collection=collection,
+        engine=engine,
+        session=session,
+        assist_answer=assist_answer,
+    )
+    actual = SessionServiceClient.assist_answer_path(
+        project, location, collection, engine, session, assist_answer
+    )
+    assert expected == actual
+
+
+def test_parse_assist_answer_path():
+    expected = {
+        "project": "oyster",
+        "location": "nudibranch",
+        "collection": "cuttlefish",
+        "engine": "mussel",
+        "session": "winkle",
+        "assist_answer": "nautilus",
+    }
+    path = SessionServiceClient.assist_answer_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = SessionServiceClient.parse_assist_answer_path(path)
     assert expected == actual
 
 

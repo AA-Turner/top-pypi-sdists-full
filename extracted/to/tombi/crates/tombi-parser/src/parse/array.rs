@@ -1,12 +1,12 @@
 use tombi_syntax::{SyntaxKind::*, T};
 
 use crate::{
+    ErrorKind::*,
     parse::{
-        begin_dangling_comments, end_dangling_comments, leading_comments, peek_leading_comments,
-        trailing_comment, Parse,
+        Parse, begin_dangling_comments, end_dangling_comments, leading_comments,
+        peek_leading_comments, trailing_comment,
     },
     parser::Parser,
-    ErrorKind::*,
 };
 
 impl Parse for tombi_ast::Array {
@@ -15,13 +15,15 @@ impl Parse for tombi_ast::Array {
 
         leading_comments(p);
 
-        assert!(p.at(T!['[']));
+        debug_assert!(p.at(T!['[']));
 
         p.eat(T!['[']);
 
         begin_dangling_comments(p);
 
         loop {
+            while p.eat(LINE_BREAK) {}
+
             let n = peek_leading_comments(p);
             if p.nth_at(n, EOF) || p.nth_at(n, T![']']) {
                 break;
@@ -52,7 +54,7 @@ impl Parse for tombi_ast::Array {
 
 #[cfg(test)]
 mod test {
-    use crate::{test_parser, ErrorKind::*};
+    use crate::{ErrorKind::*, test_parser};
 
     test_parser! {
         #[test]

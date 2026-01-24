@@ -3,12 +3,12 @@
 from __future__ import annotations
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class ContentType(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -39,9 +39,7 @@ class KmsCommentTypedDict(TypedDict):
 class KmsComment(BaseModel):
     content: str
 
-    content_type: Annotated[
-        Optional[ContentType], PlainValidator(validate_open_enum(False))
-    ] = None
+    content_type: Optional[ContentType] = None
 
     created_at: Optional[datetime] = None
 
@@ -53,10 +51,54 @@ class KmsComment(BaseModel):
 
     raw: Optional[Dict[str, Any]] = None
 
-    type: Annotated[
-        Optional[KmsCommentType], PlainValidator(validate_open_enum(False))
-    ] = None
+    type: Optional[KmsCommentType] = None
 
     updated_at: Optional[datetime] = None
 
     user_id: Optional[str] = None
+
+    @field_serializer("content_type")
+    def serialize_content_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.ContentType(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("type")
+    def serialize_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.KmsCommentType(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "content_type",
+                "created_at",
+                "id",
+                "page_id",
+                "parent_id",
+                "raw",
+                "type",
+                "updated_at",
+                "user_id",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

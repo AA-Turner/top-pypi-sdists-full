@@ -5,6 +5,7 @@ import typing
 from ....core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ....core.request_options import RequestOptions
 from ....types.adhoc_agent_config_override_for_test_request_model import AdhocAgentConfigOverrideForTestRequestModel
+from ....types.get_test_invocations_page_response_model import GetTestInvocationsPageResponseModel
 from ....types.get_test_suite_invocation_response_model import GetTestSuiteInvocationResponseModel
 from .raw_client import AsyncRawInvocationsClient, RawInvocationsClient
 
@@ -26,6 +27,54 @@ class InvocationsClient:
         RawInvocationsClient
         """
         return self._raw_client
+
+    def list(
+        self,
+        *,
+        agent_id: str,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> GetTestInvocationsPageResponseModel:
+        """
+        Lists all test invocations with pagination support and optional search filtering.
+
+        Parameters
+        ----------
+        agent_id : str
+            Filter by agent ID
+
+        page_size : typing.Optional[int]
+            How many Tests to return at maximum. Can not exceed 100, defaults to 30.
+
+        cursor : typing.Optional[str]
+            Used for fetching next page. Cursor is returned in the response.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetTestInvocationsPageResponseModel
+            Successful Response
+
+        Examples
+        --------
+        from elevenlabs import ElevenLabs
+
+        client = ElevenLabs(
+            api_key="YOUR_API_KEY",
+        )
+        client.conversational_ai.tests.invocations.list(
+            agent_id="agent_id",
+            page_size=1,
+            cursor="cursor",
+        )
+        """
+        _response = self._raw_client.list(
+            agent_id=agent_id, page_size=page_size, cursor=cursor, request_options=request_options
+        )
+        return _response.data
 
     def get(
         self, test_invocation_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -67,8 +116,9 @@ class InvocationsClient:
         test_run_ids: typing.Sequence[str],
         agent_id: str,
         agent_config_override: typing.Optional[AdhocAgentConfigOverrideForTestRequestModel] = OMIT,
+        branch_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Resubmits specific test runs from a test invocation.
 
@@ -86,12 +136,15 @@ class InvocationsClient:
         agent_config_override : typing.Optional[AdhocAgentConfigOverrideForTestRequestModel]
             Configuration overrides to use for testing. If not provided, the agent's default configuration will be used.
 
+        branch_id : typing.Optional[str]
+            ID of the branch to run the tests on. If not provided, the tests will be run on the agent default configuration.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -112,6 +165,7 @@ class InvocationsClient:
             test_run_ids=test_run_ids,
             agent_id=agent_id,
             agent_config_override=agent_config_override,
+            branch_id=branch_id,
             request_options=request_options,
         )
         return _response.data
@@ -131,6 +185,62 @@ class AsyncInvocationsClient:
         AsyncRawInvocationsClient
         """
         return self._raw_client
+
+    async def list(
+        self,
+        *,
+        agent_id: str,
+        page_size: typing.Optional[int] = None,
+        cursor: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> GetTestInvocationsPageResponseModel:
+        """
+        Lists all test invocations with pagination support and optional search filtering.
+
+        Parameters
+        ----------
+        agent_id : str
+            Filter by agent ID
+
+        page_size : typing.Optional[int]
+            How many Tests to return at maximum. Can not exceed 100, defaults to 30.
+
+        cursor : typing.Optional[str]
+            Used for fetching next page. Cursor is returned in the response.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetTestInvocationsPageResponseModel
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from elevenlabs import AsyncElevenLabs
+
+        client = AsyncElevenLabs(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.conversational_ai.tests.invocations.list(
+                agent_id="agent_id",
+                page_size=1,
+                cursor="cursor",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.list(
+            agent_id=agent_id, page_size=page_size, cursor=cursor, request_options=request_options
+        )
+        return _response.data
 
     async def get(
         self, test_invocation_id: str, *, request_options: typing.Optional[RequestOptions] = None
@@ -180,8 +290,9 @@ class AsyncInvocationsClient:
         test_run_ids: typing.Sequence[str],
         agent_id: str,
         agent_config_override: typing.Optional[AdhocAgentConfigOverrideForTestRequestModel] = OMIT,
+        branch_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Resubmits specific test runs from a test invocation.
 
@@ -199,12 +310,15 @@ class AsyncInvocationsClient:
         agent_config_override : typing.Optional[AdhocAgentConfigOverrideForTestRequestModel]
             Configuration overrides to use for testing. If not provided, the agent's default configuration will be used.
 
+        branch_id : typing.Optional[str]
+            ID of the branch to run the tests on. If not provided, the tests will be run on the agent default configuration.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -233,6 +347,7 @@ class AsyncInvocationsClient:
             test_run_ids=test_run_ids,
             agent_id=agent_id,
             agent_config_override=agent_config_override,
+            branch_id=branch_id,
             request_options=request_options,
         )
         return _response.data

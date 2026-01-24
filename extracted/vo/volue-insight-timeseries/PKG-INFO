@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: volue_insight_timeseries
+Version: 2.1.0
+Summary: Volue Insight API python library
+Home-page: https://www.volueinsight.com
+Author: Volue Insight
+Author-email: support.insight@volue.com
+Requires-Python: >=3.10, <3.14
+License-File: LICENSE
+Requires-Dist: requests>=2.18
+Requires-Dist: sseclient-py>=1.7
+Requires-Dist: pandas>=1.5.0; python_version >= "3.10" and python_version < "3.13"
+Requires-Dist: pandas>=2.3.2; python_version ~= "3.13"
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+This library is meant as a simple toolkit for working with data from https://api.volueinsight.com/ (or equivalent services).  Note that access is based on some sort of login credentials, this library is not all that useful unless you have a valid Volue Insight account.

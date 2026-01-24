@@ -10,8 +10,7 @@ def _add_ssh_scheme_to_url(url: str) -> str:
     scheme: str = "ssh://"
     if url.startswith(scheme):
         return url
-    url_with_scheme = scheme + url
-    return url_with_scheme
+    return scheme + url
 
 
 def _url_has_port(url: str) -> bool:
@@ -65,8 +64,7 @@ def _set_default_ssh_port(url_with_scheme: str) -> str:
     if len(url_parts) < 3:
         return url_with_scheme
 
-    url_with_default_port = f"{url_parts[0]}:{url_parts[1]}:/{url_parts[2]}"
-    return url_with_default_port
+    return f"{url_parts[0]}:{url_parts[1]}:/{url_parts[2]}"
 
 
 def parse_ssh_url(url: str) -> str:
@@ -76,13 +74,12 @@ def parse_ssh_url(url: str) -> str:
     url_with_scheme = _add_ssh_scheme_to_url(url)
 
     # url misses an explicit ssh port
-    url_with_default_ssh_port = _set_default_ssh_port(url_with_scheme)
-    return url_with_default_ssh_port
+    return _set_default_ssh_port(url_with_scheme)
 
 
 def _create_ssh_file(temp_dir: str, credential_key: str) -> str:
-    ssh_file_name: str = os.path.join(temp_dir, str(uuid.uuid4()))
-    with open(
+    ssh_file_name: str = os.path.join(temp_dir, str(uuid.uuid4()))  # noqa: PTH118
+    with open(  # noqa: PTH123
         os.open(ssh_file_name, os.O_CREAT | os.O_WRONLY, 0o400),
         "w",
         encoding="utf-8",
@@ -139,7 +136,7 @@ async def ssh_ls_remote(
             return None, "git ls-remote time out"
 
         finally:
-            os.remove(ssh_file_name)
+            os.remove(ssh_file_name)  # noqa: PTH107
 
         if return_code == 0:
             return stdout.decode().split("\t")[0], None

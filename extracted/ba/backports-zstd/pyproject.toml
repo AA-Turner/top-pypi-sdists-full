@@ -1,0 +1,39 @@
+[project]
+name = "backports.zstd"
+version = "1.3.0"
+authors = [{ name = "Rogdham", email = "contact@rogdham.net" }]
+description = "Backport of compression.zstd"
+readme = { file = "README.md", content-type = "text/markdown" }
+keywords = ["backport", "backports", "pep-784", "zstd"]
+license = "PSF-2.0"
+license-files = ["LICENSE.txt", "LICENSE_zstd.txt"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: System :: Archiving :: Compression",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.9,<3.14"
+
+[project.urls]
+Homepage = "https://github.com/rogdham/backports.zstd"
+Source = "https://github.com/rogdham/backports.zstd"
+
+#
+# build
+#
+
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src/python"]
+include = ["backports*"]

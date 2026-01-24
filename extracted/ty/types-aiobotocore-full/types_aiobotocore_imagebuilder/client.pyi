@@ -3,7 +3,7 @@ Type annotations for imagebuilder service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_imagebuilder/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -92,6 +93,8 @@ from .type_defs import (
     DeleteLifecyclePolicyResponseTypeDef,
     DeleteWorkflowRequestTypeDef,
     DeleteWorkflowResponseTypeDef,
+    DistributeImageRequestTypeDef,
+    DistributeImageResponseTypeDef,
     GetComponentPolicyRequestTypeDef,
     GetComponentPolicyResponseTypeDef,
     GetComponentRequestTypeDef,
@@ -184,6 +187,8 @@ from .type_defs import (
     PutImagePolicyResponseTypeDef,
     PutImageRecipePolicyRequestTypeDef,
     PutImageRecipePolicyResponseTypeDef,
+    RetryImageRequestTypeDef,
+    RetryImageResponseTypeDef,
     SendWorkflowStepActionRequestTypeDef,
     SendWorkflowStepActionResponseTypeDef,
     StartImagePipelineExecutionRequestTypeDef,
@@ -202,12 +207,6 @@ from .type_defs import (
     UpdateLifecyclePolicyResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -216,24 +215,27 @@ else:
 __all__ = ("ImagebuilderClient",)
 
 class Exceptions(BaseClientExceptions):
-    CallRateLimitExceededException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ClientException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    IdempotentParameterMismatchException: Type[BotocoreClientError]
-    InvalidPaginationTokenException: Type[BotocoreClientError]
-    InvalidParameterCombinationException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    InvalidVersionNumberException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceDependencyException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    CallRateLimitExceededException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientException: type[BotocoreClientError]
+    DryRunOperationException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    IdempotentParameterMismatchException: type[BotocoreClientError]
+    InvalidPaginationTokenException: type[BotocoreClientError]
+    InvalidParameterCombinationException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidVersionNumberException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceDependencyException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 class ImagebuilderClient(AioBaseClient):
     """
@@ -469,6 +471,17 @@ class ImagebuilderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/delete_workflow.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_imagebuilder/client/#delete_workflow)
+        """
+
+    async def distribute_image(
+        self, **kwargs: Unpack[DistributeImageRequestTypeDef]
+    ) -> DistributeImageResponseTypeDef:
+        """
+        DistributeImage distributes existing AMIs to additional regions and accounts
+        without rebuilding the image.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/distribute_image.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_imagebuilder/client/#distribute_image)
         """
 
     async def get_component(
@@ -942,6 +955,16 @@ class ImagebuilderClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_imagebuilder/client/#put_image_recipe_policy)
         """
 
+    async def retry_image(
+        self, **kwargs: Unpack[RetryImageRequestTypeDef]
+    ) -> RetryImageResponseTypeDef:
+        """
+        RetryImage retries an image distribution without rebuilding the image.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/imagebuilder/client/retry_image.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_imagebuilder/client/#retry_image)
+        """
+
     async def send_workflow_step_action(
         self, **kwargs: Unpack[SendWorkflowStepActionRequestTypeDef]
     ) -> SendWorkflowStepActionResponseTypeDef:
@@ -974,7 +997,7 @@ class ImagebuilderClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_imagebuilder/client/#start_resource_state_update)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds a tag to a resource.
 
@@ -982,7 +1005,7 @@ class ImagebuilderClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_imagebuilder/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from a resource.
 
@@ -1269,7 +1292,7 @@ class ImagebuilderClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

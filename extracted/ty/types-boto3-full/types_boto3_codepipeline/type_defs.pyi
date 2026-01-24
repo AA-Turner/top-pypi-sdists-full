@@ -3,7 +3,7 @@ Type annotations for codepipeline service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codepipeline/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -50,12 +51,6 @@ from .literals import (
     WebhookAuthenticationTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -299,7 +294,7 @@ class AcknowledgeJobInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -322,7 +317,7 @@ ActionConfigurationPropertyTypeDef = TypedDict(
 )
 
 class ActionConfigurationTypeDef(TypedDict):
-    configuration: NotRequired[Dict[str, str]]
+    configuration: NotRequired[dict[str, str]]
 
 class ActionContextTypeDef(TypedDict):
     name: NotRequired[str]
@@ -348,7 +343,7 @@ class InputArtifactTypeDef(TypedDict):
 
 class OutputArtifactOutputTypeDef(TypedDict):
     name: str
-    files: NotRequired[List[str]]
+    files: NotRequired[list[str]]
 
 class OutputArtifactTypeDef(TypedDict):
     name: str
@@ -380,7 +375,7 @@ class ActionTypeIdentifierTypeDef(TypedDict):
     version: str
 
 class ActionTypePermissionsOutputTypeDef(TypedDict):
-    allowedAccounts: List[str]
+    allowedAccounts: list[str]
 
 class ActionTypePropertyTypeDef(TypedDict):
     name: str
@@ -492,8 +487,8 @@ class ExecutionTriggerTypeDef(TypedDict):
     triggerDetail: NotRequired[str]
 
 class JobWorkerExecutorConfigurationOutputTypeDef(TypedDict):
-    pollingAccounts: NotRequired[List[str]]
-    pollingServicePrincipals: NotRequired[List[str]]
+    pollingAccounts: NotRequired[list[str]]
+    pollingServicePrincipals: NotRequired[list[str]]
 
 class LambdaExecutorConfigurationTypeDef(TypedDict):
     lambdaFunctionArn: str
@@ -545,24 +540,24 @@ class GetThirdPartyJobDetailsInputTypeDef(TypedDict):
     clientToken: str
 
 class GitBranchFilterCriteriaOutputTypeDef(TypedDict):
-    includes: NotRequired[List[str]]
-    excludes: NotRequired[List[str]]
+    includes: NotRequired[list[str]]
+    excludes: NotRequired[list[str]]
 
 class GitBranchFilterCriteriaTypeDef(TypedDict):
     includes: NotRequired[Sequence[str]]
     excludes: NotRequired[Sequence[str]]
 
 class GitFilePathFilterCriteriaOutputTypeDef(TypedDict):
-    includes: NotRequired[List[str]]
-    excludes: NotRequired[List[str]]
+    includes: NotRequired[list[str]]
+    excludes: NotRequired[list[str]]
 
 class GitFilePathFilterCriteriaTypeDef(TypedDict):
     includes: NotRequired[Sequence[str]]
     excludes: NotRequired[Sequence[str]]
 
 class GitTagFilterCriteriaOutputTypeDef(TypedDict):
-    includes: NotRequired[List[str]]
-    excludes: NotRequired[List[str]]
+    includes: NotRequired[list[str]]
+    excludes: NotRequired[list[str]]
 
 class GitTagFilterCriteriaTypeDef(TypedDict):
     includes: NotRequired[Sequence[str]]
@@ -788,16 +783,16 @@ class ActionDeclarationOutputTypeDef(TypedDict):
     name: str
     actionTypeId: ActionTypeIdTypeDef
     runOrder: NotRequired[int]
-    configuration: NotRequired[Dict[str, str]]
-    commands: NotRequired[List[str]]
-    outputArtifacts: NotRequired[List[OutputArtifactOutputTypeDef]]
-    inputArtifacts: NotRequired[List[InputArtifactTypeDef]]
-    outputVariables: NotRequired[List[str]]
+    configuration: NotRequired[dict[str, str]]
+    commands: NotRequired[list[str]]
+    outputArtifacts: NotRequired[list[OutputArtifactOutputTypeDef]]
+    inputArtifacts: NotRequired[list[InputArtifactTypeDef]]
+    outputVariables: NotRequired[list[str]]
     roleArn: NotRequired[str]
     region: NotRequired[str]
     namespace: NotRequired[str]
     timeoutInMinutes: NotRequired[int]
-    environmentVariables: NotRequired[List[EnvironmentVariableTypeDef]]
+    environmentVariables: NotRequired[list[EnvironmentVariableTypeDef]]
 
 class ActionDeclarationTypeDef(TypedDict):
     name: str
@@ -877,7 +872,7 @@ ActionTypeTypeDef = TypedDict(
         "inputArtifactDetails": ArtifactDetailsTypeDef,
         "outputArtifactDetails": ArtifactDetailsTypeDef,
         "settings": NotRequired[ActionTypeSettingsTypeDef],
-        "actionConfigurationProperties": NotRequired[List[ActionConfigurationPropertyTypeDef]],
+        "actionConfigurationProperties": NotRequired[list[ActionConfigurationPropertyTypeDef]],
     },
 )
 
@@ -919,7 +914,7 @@ class CreateCustomActionTypeInputTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -952,7 +947,7 @@ class PutThirdPartyJobFailureResultInputTypeDef(TypedDict):
     failureDetails: FailureDetailsTypeDef
 
 class GitPullRequestFilterOutputTypeDef(TypedDict):
-    events: NotRequired[List[GitPullRequestEventTypeType]]
+    events: NotRequired[list[GitPullRequestEventTypeType]]
     branches: NotRequired[GitBranchFilterCriteriaOutputTypeDef]
     filePaths: NotRequired[GitFilePathFilterCriteriaOutputTypeDef]
 
@@ -1000,7 +995,7 @@ class ListDeployActionExecutionTargetsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class ListPipelinesOutputTypeDef(TypedDict):
-    pipelines: List[PipelineSummaryTypeDef]
+    pipelines: list[PipelineSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1020,7 +1015,7 @@ class PipelineExecutionSummaryTypeDef(TypedDict):
     statusSummary: NotRequired[str]
     startTime: NotRequired[datetime]
     lastUpdateTime: NotRequired[datetime]
-    sourceRevisions: NotRequired[List[SourceRevisionTypeDef]]
+    sourceRevisions: NotRequired[list[SourceRevisionTypeDef]]
     trigger: NotRequired[ExecutionTriggerTypeDef]
     stopTrigger: NotRequired[StopExecutionTriggerTypeDef]
     executionMode: NotRequired[ExecutionModeType]
@@ -1033,23 +1028,23 @@ class PipelineExecutionTypeDef(TypedDict):
     pipelineExecutionId: NotRequired[str]
     status: NotRequired[PipelineExecutionStatusType]
     statusSummary: NotRequired[str]
-    artifactRevisions: NotRequired[List[ArtifactRevisionTypeDef]]
-    variables: NotRequired[List[ResolvedPipelineVariableTypeDef]]
+    artifactRevisions: NotRequired[list[ArtifactRevisionTypeDef]]
+    variables: NotRequired[list[ResolvedPipelineVariableTypeDef]]
     trigger: NotRequired[ExecutionTriggerTypeDef]
     executionMode: NotRequired[ExecutionModeType]
     executionType: NotRequired[ExecutionTypeType]
     rollbackMetadata: NotRequired[PipelineRollbackMetadataTypeDef]
 
 class PollForThirdPartyJobsOutputTypeDef(TypedDict):
-    jobs: List[ThirdPartyJobTypeDef]
+    jobs: list[ThirdPartyJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RuleDeclarationOutputTypeDef(TypedDict):
     name: str
     ruleTypeId: RuleTypeIdTypeDef
-    configuration: NotRequired[Dict[str, str]]
-    commands: NotRequired[List[str]]
-    inputArtifacts: NotRequired[List[InputArtifactTypeDef]]
+    configuration: NotRequired[dict[str, str]]
+    commands: NotRequired[list[str]]
+    inputArtifacts: NotRequired[list[InputArtifactTypeDef]]
     roleArn: NotRequired[str]
     region: NotRequired[str]
     timeoutInMinutes: NotRequired[int]
@@ -1070,7 +1065,7 @@ RuleTypeTypeDef = TypedDict(
         "id": RuleTypeIdTypeDef,
         "inputArtifactDetails": ArtifactDetailsTypeDef,
         "settings": NotRequired[RuleTypeSettingsTypeDef],
-        "ruleConfigurationProperties": NotRequired[List[RuleConfigurationPropertyTypeDef]],
+        "ruleConfigurationProperties": NotRequired[list[RuleConfigurationPropertyTypeDef]],
     },
 )
 
@@ -1084,7 +1079,7 @@ class WebhookDefinitionOutputTypeDef(TypedDict):
     name: str
     targetPipeline: str
     targetAction: str
-    filters: List[WebhookFilterRuleTypeDef]
+    filters: list[WebhookFilterRuleTypeDef]
     authentication: WebhookAuthenticationTypeType
     authenticationConfiguration: WebhookAuthConfigurationTypeDef
 
@@ -1166,35 +1161,35 @@ class PutThirdPartyJobSuccessResultInputTypeDef(TypedDict):
 
 class CreateCustomActionTypeOutputTypeDef(TypedDict):
     actionType: ActionTypeTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListActionTypesOutputTypeDef(TypedDict):
-    actionTypes: List[ActionTypeTypeDef]
+    actionTypes: list[ActionTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ActionExecutionInputTypeDef(TypedDict):
     actionTypeId: NotRequired[ActionTypeIdTypeDef]
-    configuration: NotRequired[Dict[str, str]]
-    resolvedConfiguration: NotRequired[Dict[str, str]]
+    configuration: NotRequired[dict[str, str]]
+    resolvedConfiguration: NotRequired[dict[str, str]]
     roleArn: NotRequired[str]
     region: NotRequired[str]
-    inputArtifacts: NotRequired[List[ArtifactDetailTypeDef]]
+    inputArtifacts: NotRequired[list[ArtifactDetailTypeDef]]
     namespace: NotRequired[str]
 
 class ActionExecutionOutputTypeDef(TypedDict):
-    outputArtifacts: NotRequired[List[ArtifactDetailTypeDef]]
+    outputArtifacts: NotRequired[list[ArtifactDetailTypeDef]]
     executionResult: NotRequired[ActionExecutionResultTypeDef]
-    outputVariables: NotRequired[Dict[str, str]]
+    outputVariables: NotRequired[dict[str, str]]
 
 class RuleExecutionInputTypeDef(TypedDict):
     ruleTypeId: NotRequired[RuleTypeIdTypeDef]
-    configuration: NotRequired[Dict[str, str]]
-    resolvedConfiguration: NotRequired[Dict[str, str]]
+    configuration: NotRequired[dict[str, str]]
+    resolvedConfiguration: NotRequired[dict[str, str]]
     roleArn: NotRequired[str]
     region: NotRequired[str]
-    inputArtifacts: NotRequired[List[ArtifactDetailTypeDef]]
+    inputArtifacts: NotRequired[list[ArtifactDetailTypeDef]]
 
 class ArtifactTypeDef(TypedDict):
     name: NotRequired[str]
@@ -1207,7 +1202,7 @@ class DeployActionExecutionTargetTypeDef(TypedDict):
     status: NotRequired[str]
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
-    events: NotRequired[List[DeployTargetEventTypeDef]]
+    events: NotRequired[list[DeployTargetEventTypeDef]]
 
 ActionTypeExecutorOutputTypeDef = TypedDict(
     "ActionTypeExecutorOutputTypeDef",
@@ -1230,8 +1225,8 @@ ActionTypeExecutorTypeDef = TypedDict(
 
 class GitConfigurationOutputTypeDef(TypedDict):
     sourceActionName: str
-    push: NotRequired[List[GitPushFilterOutputTypeDef]]
-    pullRequest: NotRequired[List[GitPullRequestFilterOutputTypeDef]]
+    push: NotRequired[list[GitPushFilterOutputTypeDef]]
+    pullRequest: NotRequired[list[GitPullRequestFilterOutputTypeDef]]
 
 class GitConfigurationTypeDef(TypedDict):
     sourceActionName: str
@@ -1257,7 +1252,7 @@ ListPipelineExecutionsInputTypeDef = TypedDict(
 )
 
 class ListPipelineExecutionsOutputTypeDef(TypedDict):
-    pipelineExecutionSummaries: List[PipelineExecutionSummaryTypeDef]
+    pipelineExecutionSummaries: list[PipelineExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1267,14 +1262,14 @@ class GetPipelineExecutionOutputTypeDef(TypedDict):
 
 class ConditionOutputTypeDef(TypedDict):
     result: NotRequired[ResultType]
-    rules: NotRequired[List[RuleDeclarationOutputTypeDef]]
+    rules: NotRequired[list[RuleDeclarationOutputTypeDef]]
 
 class ConditionTypeDef(TypedDict):
     result: NotRequired[ResultType]
     rules: NotRequired[Sequence[RuleDeclarationTypeDef]]
 
 class ListRuleTypesOutputTypeDef(TypedDict):
-    ruleTypes: List[RuleTypeTypeDef]
+    ruleTypes: list[RuleTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListWebhookItemTypeDef(TypedDict):
@@ -1284,13 +1279,13 @@ class ListWebhookItemTypeDef(TypedDict):
     errorCode: NotRequired[str]
     lastTriggered: NotRequired[datetime]
     arn: NotRequired[str]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 WebhookDefinitionUnionTypeDef = Union[WebhookDefinitionTypeDef, WebhookDefinitionOutputTypeDef]
 
 class ConditionStateTypeDef(TypedDict):
     latestExecution: NotRequired[ConditionExecutionTypeDef]
-    ruleStates: NotRequired[List[RuleStateTypeDef]]
+    ruleStates: NotRequired[list[RuleStateTypeDef]]
 
 class PutActionRevisionInputTypeDef(TypedDict):
     pipelineName: str
@@ -1335,8 +1330,8 @@ class JobDataTypeDef(TypedDict):
     actionTypeId: NotRequired[ActionTypeIdTypeDef]
     actionConfiguration: NotRequired[ActionConfigurationTypeDef]
     pipelineContext: NotRequired[PipelineContextTypeDef]
-    inputArtifacts: NotRequired[List[ArtifactTypeDef]]
-    outputArtifacts: NotRequired[List[ArtifactTypeDef]]
+    inputArtifacts: NotRequired[list[ArtifactTypeDef]]
+    outputArtifacts: NotRequired[list[ArtifactTypeDef]]
     artifactCredentials: NotRequired[AWSSessionCredentialsTypeDef]
     continuationToken: NotRequired[str]
     encryptionKey: NotRequired[EncryptionKeyTypeDef]
@@ -1345,14 +1340,14 @@ class ThirdPartyJobDataTypeDef(TypedDict):
     actionTypeId: NotRequired[ActionTypeIdTypeDef]
     actionConfiguration: NotRequired[ActionConfigurationTypeDef]
     pipelineContext: NotRequired[PipelineContextTypeDef]
-    inputArtifacts: NotRequired[List[ArtifactTypeDef]]
-    outputArtifacts: NotRequired[List[ArtifactTypeDef]]
+    inputArtifacts: NotRequired[list[ArtifactTypeDef]]
+    outputArtifacts: NotRequired[list[ArtifactTypeDef]]
     artifactCredentials: NotRequired[AWSSessionCredentialsTypeDef]
     continuationToken: NotRequired[str]
     encryptionKey: NotRequired[EncryptionKeyTypeDef]
 
 class ListDeployActionExecutionTargetsOutputTypeDef(TypedDict):
-    targets: List[DeployActionExecutionTargetTypeDef]
+    targets: list[DeployActionExecutionTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1365,7 +1360,7 @@ ActionTypeDeclarationOutputTypeDef = TypedDict(
         "outputArtifactDetails": ActionTypeArtifactDetailsTypeDef,
         "description": NotRequired[str],
         "permissions": NotRequired[ActionTypePermissionsOutputTypeDef],
-        "properties": NotRequired[List[ActionTypePropertyTypeDef]],
+        "properties": NotRequired[list[ActionTypePropertyTypeDef]],
         "urls": NotRequired[ActionTypeUrlsTypeDef],
     },
 )
@@ -1392,15 +1387,15 @@ class PipelineTriggerDeclarationTypeDef(TypedDict):
     gitConfiguration: GitConfigurationTypeDef
 
 class BeforeEntryConditionsOutputTypeDef(TypedDict):
-    conditions: List[ConditionOutputTypeDef]
+    conditions: list[ConditionOutputTypeDef]
 
 class FailureConditionsOutputTypeDef(TypedDict):
     result: NotRequired[ResultType]
     retryConfiguration: NotRequired[RetryConfigurationTypeDef]
-    conditions: NotRequired[List[ConditionOutputTypeDef]]
+    conditions: NotRequired[list[ConditionOutputTypeDef]]
 
 class SuccessConditionsOutputTypeDef(TypedDict):
-    conditions: List[ConditionOutputTypeDef]
+    conditions: list[ConditionOutputTypeDef]
 
 class BeforeEntryConditionsTypeDef(TypedDict):
     conditions: Sequence[ConditionTypeDef]
@@ -1414,7 +1409,7 @@ class SuccessConditionsTypeDef(TypedDict):
     conditions: Sequence[ConditionTypeDef]
 
 class ListWebhooksOutputTypeDef(TypedDict):
-    webhooks: List[ListWebhookItemTypeDef]
+    webhooks: list[ListWebhookItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1428,15 +1423,15 @@ class PutWebhookInputTypeDef(TypedDict):
 
 class StageConditionStateTypeDef(TypedDict):
     latestExecution: NotRequired[StageConditionsExecutionTypeDef]
-    conditionStates: NotRequired[List[ConditionStateTypeDef]]
+    conditionStates: NotRequired[list[ConditionStateTypeDef]]
 
 class ListActionExecutionsOutputTypeDef(TypedDict):
-    actionExecutionDetails: List[ActionExecutionDetailTypeDef]
+    actionExecutionDetails: list[ActionExecutionDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListRuleExecutionsOutputTypeDef(TypedDict):
-    ruleExecutionDetails: List[RuleExecutionDetailTypeDef]
+    ruleExecutionDetails: list[RuleExecutionDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1476,8 +1471,8 @@ ActionTypeDeclarationUnionTypeDef = Union[
 
 class StageDeclarationOutputTypeDef(TypedDict):
     name: str
-    actions: List[ActionDeclarationOutputTypeDef]
-    blockers: NotRequired[List[BlockerDeclarationTypeDef]]
+    actions: list[ActionDeclarationOutputTypeDef]
+    blockers: NotRequired[list[BlockerDeclarationTypeDef]]
     onFailure: NotRequired[FailureConditionsOutputTypeDef]
     onSuccess: NotRequired[SuccessConditionsOutputTypeDef]
     beforeEntry: NotRequired[BeforeEntryConditionsOutputTypeDef]
@@ -1493,9 +1488,9 @@ class StageDeclarationTypeDef(TypedDict):
 class StageStateTypeDef(TypedDict):
     stageName: NotRequired[str]
     inboundExecution: NotRequired[StageExecutionTypeDef]
-    inboundExecutions: NotRequired[List[StageExecutionTypeDef]]
+    inboundExecutions: NotRequired[list[StageExecutionTypeDef]]
     inboundTransitionState: NotRequired[TransitionStateTypeDef]
-    actionStates: NotRequired[List[ActionStateTypeDef]]
+    actionStates: NotRequired[list[ActionStateTypeDef]]
     latestExecution: NotRequired[StageExecutionTypeDef]
     beforeEntryConditionState: NotRequired[StageConditionStateTypeDef]
     onSuccessConditionState: NotRequired[StageConditionStateTypeDef]
@@ -1507,7 +1502,7 @@ class GetJobDetailsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PollForJobsOutputTypeDef(TypedDict):
-    jobs: List[JobTypeDef]
+    jobs: list[JobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetThirdPartyJobDetailsOutputTypeDef(TypedDict):
@@ -1520,14 +1515,14 @@ class UpdateActionTypeInputTypeDef(TypedDict):
 class PipelineDeclarationOutputTypeDef(TypedDict):
     name: str
     roleArn: str
-    stages: List[StageDeclarationOutputTypeDef]
+    stages: list[StageDeclarationOutputTypeDef]
     artifactStore: NotRequired[ArtifactStoreTypeDef]
-    artifactStores: NotRequired[Dict[str, ArtifactStoreTypeDef]]
+    artifactStores: NotRequired[dict[str, ArtifactStoreTypeDef]]
     version: NotRequired[int]
     executionMode: NotRequired[ExecutionModeType]
     pipelineType: NotRequired[PipelineTypeType]
-    variables: NotRequired[List[PipelineVariableDeclarationTypeDef]]
-    triggers: NotRequired[List[PipelineTriggerDeclarationOutputTypeDef]]
+    variables: NotRequired[list[PipelineVariableDeclarationTypeDef]]
+    triggers: NotRequired[list[PipelineTriggerDeclarationOutputTypeDef]]
 
 class PipelineDeclarationTypeDef(TypedDict):
     name: str
@@ -1544,14 +1539,14 @@ class PipelineDeclarationTypeDef(TypedDict):
 class GetPipelineStateOutputTypeDef(TypedDict):
     pipelineName: str
     pipelineVersion: int
-    stageStates: List[StageStateTypeDef]
+    stageStates: list[StageStateTypeDef]
     created: datetime
     updated: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePipelineOutputTypeDef(TypedDict):
     pipeline: PipelineDeclarationOutputTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPipelineOutputTypeDef(TypedDict):

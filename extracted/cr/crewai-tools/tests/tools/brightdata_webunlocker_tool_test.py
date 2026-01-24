@@ -1,10 +1,9 @@
 from unittest.mock import Mock, patch
 
-import requests
-
 from crewai_tools.tools.brightdata_tool.brightdata_unlocker import (
     BrightDataWebUnlockerTool,
 )
+import requests
 
 
 @patch.dict(
@@ -20,9 +19,7 @@ def test_run_success_html(mock_post):
     mock_post.return_value = mock_response
 
     tool = BrightDataWebUnlockerTool()
-    result = tool._run(url="https://example.com", format="html", save_file=False)
-
-    print(result)
+    tool._run(url="https://example.com", format="html", save_file=False)
 
 
 @patch.dict(

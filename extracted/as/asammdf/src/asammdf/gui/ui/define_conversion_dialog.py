@@ -107,7 +107,7 @@ class Ui_ConversionDialog(object):
 
         self.b = QDoubleSpinBox(self.tab)
         self.b.setObjectName(u"b")
-        self.b.setDecimals(6)
+        self.b.setDecimals(10)
 
         self.gridLayout_5.addWidget(self.b, 2, 1, 1, 1)
 
@@ -128,7 +128,7 @@ class Ui_ConversionDialog(object):
         self.a = QDoubleSpinBox(self.tab)
         self.a.setObjectName(u"a")
         self.a.setMinimumSize(QSize(100, 0))
-        self.a.setDecimals(6)
+        self.a.setDecimals(10)
 
         self.gridLayout_5.addWidget(self.a, 1, 1, 1, 1)
 
@@ -154,20 +154,20 @@ class Ui_ConversionDialog(object):
 
         self.p3 = QDoubleSpinBox(self.tab_2)
         self.p3.setObjectName(u"p3")
-        self.p3.setDecimals(6)
+        self.p3.setDecimals(10)
 
         self.gridLayout_6.addWidget(self.p3, 3, 1, 1, 1)
 
         self.p1 = QDoubleSpinBox(self.tab_2)
         self.p1.setObjectName(u"p1")
         self.p1.setMinimumSize(QSize(100, 0))
-        self.p1.setDecimals(6)
+        self.p1.setDecimals(10)
 
         self.gridLayout_6.addWidget(self.p1, 1, 1, 1, 1)
 
         self.p2 = QDoubleSpinBox(self.tab_2)
         self.p2.setObjectName(u"p2")
-        self.p2.setDecimals(6)
+        self.p2.setDecimals(10)
 
         self.gridLayout_6.addWidget(self.p2, 2, 1, 1, 1)
 
@@ -188,13 +188,13 @@ class Ui_ConversionDialog(object):
 
         self.p6 = QDoubleSpinBox(self.tab_2)
         self.p6.setObjectName(u"p6")
-        self.p6.setDecimals(6)
+        self.p6.setDecimals(10)
 
         self.gridLayout_6.addWidget(self.p6, 6, 1, 1, 1)
 
         self.p5 = QDoubleSpinBox(self.tab_2)
         self.p5.setObjectName(u"p5")
-        self.p5.setDecimals(6)
+        self.p5.setDecimals(10)
 
         self.gridLayout_6.addWidget(self.p5, 5, 1, 1, 1)
 
@@ -205,7 +205,7 @@ class Ui_ConversionDialog(object):
 
         self.p4 = QDoubleSpinBox(self.tab_2)
         self.p4.setObjectName(u"p4")
-        self.p4.setDecimals(6)
+        self.p4.setDecimals(10)
 
         self.gridLayout_6.addWidget(self.p4, 4, 1, 1, 1)
 
@@ -474,3 +474,4 @@ class Ui_ConversionDialog(object):
         self.label_18.setText(QCoreApplication.translate("ConversionDialog", u"X -> X", None))
         self.tabs.setTabText(self.tabs.indexOf(self.tab_5), QCoreApplication.translate("ConversionDialog", u"1:1", None))
     # retranslateUi
+

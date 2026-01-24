@@ -15,3 +15,7 @@ class Aggregation(object):
     dominant = 9
     sum = 10
     spread = 11
+    anomaly = 12
+    sot10 = 13
+    sot90 = 14
+    efi = 15

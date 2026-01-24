@@ -7,13 +7,12 @@ from pathlib import Path
 from typing import Any
 
 import click
-from click_default_group import DefaultGroup
 
 from xsdata import __version__
 from xsdata.codegen.transformer import ResourceTransformer
 from xsdata.logger import logger
 from xsdata.models.config import GeneratorConfig, GeneratorOutput
-from xsdata.utils.click import LogFormatter, LogHandler, model_options
+from xsdata.utils.click import URL, LogFormatter, LogHandler, model_options
 from xsdata.utils.downloader import Downloader
 from xsdata.utils.hooks import load_entry_points
 
@@ -36,20 +35,7 @@ py_warnings.propagate = False
 logging.captureWarnings(True)
 
 
-class DeprecatedDefaultGroup(DefaultGroup):
-    """Deprecated default group."""
-
-    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command:
-        """Override to deprecate xsdata <source> shorthand."""
-        if cmd_name not in self.commands:
-            logger.warning(
-                "`xsdata <SOURCE>` is deprecated. "
-                "Use `xsdata generate <SOURCE>` instead."
-            )
-        return super().get_command(ctx, cmd_name)
-
-
-@click.group(cls=DeprecatedDefaultGroup, default="generate", default_if_no_args=False)
+@click.group()
 @click.pass_context
 @click.version_option(__version__)
 def cli(ctx: click.Context, **kwargs: Any) -> None:
@@ -96,7 +82,7 @@ def init_config(**kwargs: Any) -> None:
 
 
 @cli.command("download")
-@click.argument("source", required=True)
+@click.argument("source", type=URL(), required=True)
 @click.option(
     "-o",
     "--output",
@@ -112,6 +98,9 @@ def download(source: str, output: str) -> None:
     handler.emit_warnings()
 
 
+_SUPPORTED_EXTENSIONS = ("wsdl", "xsd", "dtd", "xml", "json")
+
+
 @cli.command("generate")
 @click.argument("source", required=True)
 @click.option(
@@ -124,6 +113,11 @@ def download(source: str, output: str) -> None:
 @click.option("-c", "--config", default=".xsdata.xml", help="Project configuration")
 @click.option("--cache", is_flag=True, default=False, help="Cache sources loading")
 @click.option("--debug", is_flag=True, default=False, help="Show debug messages")
+@click.option(
+    "--extensions",
+    default=",".join(_SUPPORTED_EXTENSIONS),
+    help="Comma-separated list of extensions to filter",
+)
 @model_options(GeneratorOutput)
 def generate(**kwargs: Any) -> None:
     """Generate code from xsd, dtd, wsdl, xml and json files.
@@ -140,21 +134,24 @@ def generate(**kwargs: Any) -> None:
     recursive = kwargs.pop("recursive")
     config_file = Path(kwargs.pop("config")).resolve()
 
+    # Parse the comma-separated extensions string into a tuple
+    extensions_str = kwargs.pop("extensions")
+    extensions = tuple(ext.strip() for ext in extensions_str.split(",") if ext.strip())
+
     params = {k.replace("__", "."): v for k, v in kwargs.items() if v is not None}
     config = GeneratorConfig.read(config_file)
     config.output.update(**params)
 
     transformer = ResourceTransformer(config=config)
-    uris = sorted(resolve_source(source, recursive=recursive))
+    uris = sorted(resolve_source(source, recursive=recursive, extensions=extensions))
     transformer.process(uris, cache=cache)
 
     handler.emit_warnings()
 
 
-_SUPPORTED_EXTENSIONS = ("wsdl", "xsd", "dtd", "xml", "json")
-
-
-def resolve_source(source: str, recursive: bool) -> Iterator[str]:
+def resolve_source(
+    source: str, recursive: bool, extensions: tuple[str, ...] = _SUPPORTED_EXTENSIONS
+) -> Iterator[str]:
     """Yields all supported resource URIs."""
     if source.find("://") > -1 and not source.startswith("file://"):
         yield source
@@ -162,7 +159,7 @@ def resolve_source(source: str, recursive: bool) -> Iterator[str]:
         path = Path(source).resolve()
         match = "**/*" if recursive else "*"
         if path.is_dir():
-            for ext in _SUPPORTED_EXTENSIONS:
+            for ext in extensions:
                 yield from (x.as_uri() for x in path.glob(f"{match}.{ext}"))
         else:  # is a file
             yield path.as_uri()

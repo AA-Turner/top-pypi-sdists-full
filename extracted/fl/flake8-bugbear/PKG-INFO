@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flake8-bugbear
-Version: 24.12.12
+Version: 25.11.29
 Summary: A plugin for flake8 finding likely bugs and design problems in your program. Contains warnings that don't belong in pyflakes and pycodestyle.
 Author-email: Łukasz Langa <lukasz@langa.pl>
 License: MIT
@@ -15,19 +15,18 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.8.1
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: flake8>=6.0.0
+Requires-Dist: flake8>=7.2.0
 Requires-Dist: attrs>=22.2.0
 Provides-Extra: dev
 Requires-Dist: tox; extra == "dev"
@@ -36,6 +35,7 @@ Requires-Dist: hypothesis; extra == "dev"
 Requires-Dist: hypothesmith>=0.2; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Dynamic: license-file
 
 ==============
 flake8-bugbear
@@ -274,6 +274,7 @@ limitations make it difficult.
 **B028**: No explicit stacklevel argument found. The warn method from the warnings module uses a
 stacklevel of 1 by default. This will only show a stack trace for the line on which the warn method is called.
 It is therefore recommended to use a stacklevel of 2 or greater to provide more information to the user.
+The check is skipped when skip_file_prefixes is used.
 
 .. _B029:
 
@@ -324,7 +325,24 @@ second usage. Save the result to a list if the result is needed multiple times.
 
 **B040**: Caught exception with call to ``add_note`` not used. Did you forget to ``raise`` it?
 
+.. _B041:
+
 **B041**: Repeated key-value pair in dictionary literal. Only emits errors when the key's value is *also* the same, being the opposite of the pyflakes like check.
+
+.. _B042:
+
+**B042**: Exception classes with a custom `__init__` should pass all args to `super().__init__()` to work correctly with `copy.copy` and `pickle`. 
+Both `BaseException.__reduce__` and `BaseException.__str__` rely on the `args` attribute being set correctly, which is set in `BaseException.__new__` and `BaseException.__init__`. 
+If you define `__init__` yourself without passing all arguments to `super().__init__` it is very easy to break pickling, especially if they pass keyword arguments which both 
+`BaseException.__new__` and `BaseException.__init__` ignore. It's also important that `__init__` not accept any keyword-only parameters. 
+Alternately you can define both `__str__` and `__reduce__` to bypass the need for correct handling of `args`. 
+If you define `__str__/__reduce__` in super classes this check is unable to detect it, and we advise disabling it.
+
+.. _B043:
+
+**B043**: Do not call ``delattr(x, 'attr')``, instead use ``del x.attr``. 
+There is no additional safety in using ``delattr`` if you know the attribute name ahead of time.
+
 
 Opinionated warnings
 ~~~~~~~~~~~~~~~~~~~~
@@ -402,6 +420,11 @@ This is meant to be enabled by developers writing visitors using the ``ast`` mod
 **B911**: ``itertools.batched()`` without an explicit `strict=` parameter set. ``strict=True`` causes the resulting iterator to raise a ``ValueError`` if the final batch is shorter than ``n``.
 
 The ``strict=`` argument was added in Python 3.13, so don't enable this flag for code that should work on <3.13.
+
+.. _B912:
+
+**B912**: ``map()`` without an explicit `strict=` parameter set. ``strict=True`` causes the resulting iterator
+to raise a ``ValueError`` if the arguments are exhausted at differing lengths.
 
 .. _B950:
 
@@ -510,6 +533,21 @@ MIT
 Change Log
 ----------
 
+25.11.29
+~~~~~~~~
+
+* B043: Add new check to state don't call delattr with constant (#514)
+* B042: ignore overloaded init, ignore if str+pickle dunder, improve README
+
+25.10.21
+~~~~~~~~
+
+* B042: New check for reminding to call super().__init__ in custom exceptions
+* B028: Skip if skip_file_prefixes is used (#503)
+* B912: New check for `map()` without an explicit `strict=` parameter. (#516)
+* Add python3.14 Support / CI
+* Remove python3.9 support / CI
+* flake8-bugbear now requires at least Python 3.10, like the next release of flake8
 
 24.12.12
 ~~~~~~~~

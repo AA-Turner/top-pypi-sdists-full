@@ -185,6 +185,14 @@ class ImportStatus:
 class LoroCounter:
     id: ContainerID
     value: float
+    def __float__(self) -> float: ...
+    def __int__(self) -> int: ...
+    def __add__(self, other: typing.Any) -> float: ...
+    def __radd__(self, other: typing.Any) -> float: ...
+    def __sub__(self, other: typing.Any) -> float: ...
+    def __rsub__(self, other: typing.Any) -> float: ...
+    def __neg__(self) -> float: ...
+    def __abs__(self) -> float: ...
     def __new__(
         cls,
     ): ...
@@ -213,6 +221,14 @@ class LoroCounter:
         - `doc.export(mode)` is called.
         - `doc.import(data)` is called.
         - `doc.checkout(version)` is called.
+        """
+        ...
+
+    def convert_pos(
+        self, index: int, from_: "PositionType", to: "PositionType"
+    ) -> typing.Optional[int]:
+        r"""
+        Convert a position between coordinate systems.
         """
         ...
 
@@ -664,6 +680,12 @@ class LoroDoc:
         """
         ...
 
+    def get_container(self, id: ContainerID) -> typing.Optional[Container]:
+        r"""
+        Get a container by its ID.
+        """
+        ...
+
     def get_cursor_pos(self, cursor: Cursor) -> PosQueryResult:
         r"""
         Get the absolute position of the given cursor.
@@ -756,6 +778,17 @@ class LoroDoc:
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].as_value().unwrap().to_json_value(), serde_json::json!(30));
         ```
+        """
+        ...
+
+    def subscribe_jsonpath(
+        self, path: str, callback: typing.Callable[[], None]
+    ) -> Subscription:
+        r"""
+        Subscribe to updates that might affect the given JSONPath query.
+
+        The callback may fire with false positives; use it as a lightweight signal before running
+        JSONPath yourself.
         """
         ...
 
@@ -1051,6 +1084,24 @@ class LoroList:
         """
         ...
 
+    @typing.overload
+    def __getitem__(self, index: int) -> ValueOrContainer: ...
+
+    @typing.overload
+    def __getitem__(self, index: slice) -> list[ValueOrContainer]: ...
+
+    @typing.overload
+    def __setitem__(self, index: int, value: LoroValue) -> None: ...
+
+    @typing.overload
+    def __setitem__(self, index: slice, value: typing.Iterable[LoroValue]) -> None: ...
+
+    @typing.overload
+    def __delitem__(self, index: int) -> None: ...
+
+    @typing.overload
+    def __delitem__(self, index: slice) -> None: ...
+
     def insert_container(self, pos: int, child: Container) -> Container:
         r"""
         Insert a container with the given type at the given index.
@@ -1193,6 +1244,15 @@ class LoroMap:
         """
         ...
 
+    def __contains__(self, key: str) -> bool: ...
+
+    @typing.overload
+    def __getitem__(self, key: str) -> ValueOrContainer: ...
+
+    def __setitem__(self, key: str, value: LoroValue) -> None: ...
+
+    def __delitem__(self, key: str) -> None: ...
+
     def is_empty(self) -> bool:
         r"""
         Whether the map is empty.
@@ -1263,6 +1323,8 @@ class LoroMap:
         Get the values of the map.
         """
         ...
+
+    def items(self) -> list[tuple[str, ValueOrContainer]]: ...
 
     def get_last_editor(self, key: str) -> typing.Optional[int]:
         r"""
@@ -1468,6 +1530,18 @@ class LoroMovableList:
         """
         ...
 
+    @typing.overload
+    def __setitem__(self, index: int, value: LoroValue) -> None: ...
+
+    @typing.overload
+    def __setitem__(self, index: slice, value: typing.Iterable[LoroValue]) -> None: ...
+
+    @typing.overload
+    def __delitem__(self, index: int) -> None: ...
+
+    @typing.overload
+    def __delitem__(self, index: slice) -> None: ...
+
     def get_creator_at(self, pos: int) -> typing.Optional[int]:
         r"""
         Get the creator of the list item at the given position.
@@ -1514,6 +1588,16 @@ class LoroText:
     len_utf8: int
     len_unicode: int
     len_utf16: int
+    def __str__(self) -> str: ...
+    def __repr__(self) -> str: ...
+    def __len__(self) -> int: ...
+    @typing.overload
+    def __getitem__(self, index: int) -> str: ...
+    @typing.overload
+    def __getitem__(self, index: slice) -> str: ...
+    def __contains__(self, item: typing.Any) -> bool: ...
+    def __add__(self, other: typing.Union[str, "LoroText"]) -> str: ...
+    def __radd__(self, other: typing.Union[str, "LoroText"]) -> str: ...
     def __new__(
         cls,
     ): ...
@@ -1529,6 +1613,12 @@ class LoroText:
         """
         ...
 
+    def insert_utf16(self, pos: int, s: str) -> None:
+        r"""
+        Insert a string at the given utf-16 position.
+        """
+        ...
+
     def delete(self, pos: int, len: int) -> None:
         r"""
         Delete a range of text at the given unicode position with unicode length.
@@ -1541,9 +1631,29 @@ class LoroText:
         """
         ...
 
+    def delete_utf16(self, pos: int, len: int) -> None:
+        r"""
+        Delete a range of text at the given utf-16 position with utf-16 length.
+        """
+        ...
+
     def slice(self, start_index: int, end_index: int) -> str:
         r"""
         Get a string slice at the given Unicode range
+        """
+        ...
+
+    def slice_utf16(self, start_index: int, end_index: int) -> str:
+        r"""
+        Get a string slice at the given UTF-16 range
+        """
+        ...
+
+    def slice_delta(
+        self, start_index: int, end_index: int, pos_type: "PositionType"
+    ) -> list[TextDelta]:
+        r"""
+        Get the rich-text delta within a range for the given position type.
         """
         ...
 
@@ -1556,6 +1666,12 @@ class LoroText:
     def splice(self, pos: int, len: int, s: str) -> str:
         r"""
         Delete specified character and insert string at the same position at given unicode position.
+        """
+        ...
+
+    def splice_utf16(self, pos: int, len: int, s: str) -> None:
+        r"""
+        Delete specified range and insert a string at the same UTF-16 position.
         """
         ...
 
@@ -1610,6 +1726,18 @@ class LoroText:
         """
         ...
 
+    def mark_utf8(self, start: int, end: int, key: str, value: LoroValue) -> None:
+        r"""
+        Mark a range of text using UTF-8 offsets.
+        """
+        ...
+
+    def mark_utf16(self, start: int, end: int, key: str, value: LoroValue) -> None:
+        r"""
+        Mark a range of text using UTF-16 offsets.
+        """
+        ...
+
     def unmark(self, start: int, end: int, key: str) -> None:
         r"""
         Unmark a range of text with a key and a value.
@@ -1628,6 +1756,12 @@ class LoroText:
         *You should make sure that a key is always associated with the same expand type.*
 
         Note: you cannot delete unmergeable annotations like comments by this method.
+        """
+        ...
+
+    def unmark_utf16(self, start: int, end: int, key: str) -> None:
+        r"""
+        Unmark a UTF-16 range of text with a key.
         """
         ...
 
@@ -1728,6 +1862,7 @@ class LoroTree:
     is_attached: bool
     roots: list[TreeID]
     id: ContainerID
+    def __contains__(self, target: TreeID) -> bool: ...
     def __new__(
         cls,
     ): ...
@@ -2521,6 +2656,13 @@ class Side(Enum):
     Left = "left"
     Middle = "middle"
     Right = "right"
+
+class PositionType(Enum):
+    Bytes = "bytes"
+    Unicode = "unicode"
+    Utf16 = "utf16"
+    Event = "event"
+    Entity = "entity"
 
 class TextDelta:
     class Retain(TextDelta):

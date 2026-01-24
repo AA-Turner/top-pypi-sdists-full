@@ -3,7 +3,6 @@ r"""Contain data loaders and savers."""
 from __future__ import annotations
 
 __all__ = [
-    "AutoFileLoader",
     "BaseFileSaver",
     "BaseLoader",
     "BaseSaver",
@@ -13,6 +12,7 @@ __all__ = [
     "JoblibSaver",
     "JsonLoader",
     "JsonSaver",
+    "LoaderRegistry",
     "PickleLoader",
     "PickleSaver",
     "TextLoader",
@@ -21,8 +21,10 @@ __all__ = [
     "TorchSaver",
     "YamlLoader",
     "YamlSaver",
+    "get_default_loader_registry",
     "is_loader_config",
     "is_saver_config",
+    "load",
     "load_cloudpickle",
     "load_joblib",
     "load_json",
@@ -30,6 +32,7 @@ __all__ = [
     "load_text",
     "load_torch",
     "load_yaml",
+    "register_loaders",
     "save_cloudpickle",
     "save_joblib",
     "save_json",
@@ -41,7 +44,6 @@ __all__ = [
     "setup_saver",
 ]
 
-from iden.io.auto import AutoFileLoader, register_auto_loaders
 from iden.io.base import (
     BaseFileSaver,
     BaseLoader,
@@ -59,9 +61,9 @@ from iden.io.cloudpickle import (
 )
 from iden.io.joblib import JoblibLoader, JoblibSaver, load_joblib, save_joblib
 from iden.io.json import JsonLoader, JsonSaver, load_json, save_json
+from iden.io.loading import get_default_loader_registry, load, register_loaders
 from iden.io.pickle import PickleLoader, PickleSaver, load_pickle, save_pickle
+from iden.io.registry import LoaderRegistry
 from iden.io.text import TextLoader, TextSaver, load_text, save_text
 from iden.io.torch import TorchLoader, TorchSaver, load_torch, save_torch
 from iden.io.yaml import YamlLoader, YamlSaver, load_yaml, save_yaml
-
-register_auto_loaders()

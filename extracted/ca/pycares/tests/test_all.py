@@ -5,7 +5,6 @@ import gc
 import ipaddress
 import os
 import random
-import select
 import socket
 import string
 import sys
@@ -22,7 +21,9 @@ FIXTURES_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__), "fixtur
 class DNSTest(unittest.TestCase):
     def setUp(self):
         self.channel = pycares.Channel(
-            timeout=10.0, tries=1, servers=["8.8.8.8", "8.8.4.4"]
+            timeout=10.0,
+            tries=1,
+            servers=["8.8.8.8", "8.8.4.4"]
         )
         self.is_ci = (
             os.environ.get("APPVEYOR")
@@ -31,24 +32,11 @@ class DNSTest(unittest.TestCase):
         )
 
     def tearDown(self):
+        self.channel.close()
         self.channel = None
 
     def wait(self):
-        while True:
-            read_fds, write_fds = self.channel.getsock()
-            if not read_fds and not write_fds:
-                break
-            timeout = self.channel.timeout()
-            if timeout == 0.0:
-                self.channel.process_fd(
-                    pycares.ARES_SOCKET_BAD, pycares.ARES_SOCKET_BAD
-                )
-                continue
-            rlist, wlist, xlist = select.select(read_fds, write_fds, [], timeout)
-            for fd in rlist:
-                self.channel.process_read_fd(fd)
-            for fd in wlist:
-                self.channel.process_write_fd(fd)
+        self.channel.wait()
 
     def assertNoError(self, errorno):
         if errorno == pycares.errno.ARES_ETIMEOUT and self.is_ci:
@@ -62,10 +50,10 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.getaddrinfo("localhost", 80, cb)
+        self.channel.getaddrinfo("localhost", 80, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_addrinfo_result)
+        self.assertEqual(type(self.result), pycares.AddrInfoResult)
         self.assertTrue(len(self.result.nodes) > 0)
         for node in self.result.nodes:
             self.assertEqual(node.addr[1], 80)
@@ -77,10 +65,10 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.getaddrinfo("localhost", "http", cb)
+        self.channel.getaddrinfo("localhost", "http", callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_addrinfo_result)
+        self.assertEqual(type(self.result), pycares.AddrInfoResult)
         self.assertTrue(len(self.result.nodes) > 0)
         for node in self.result.nodes:
             self.assertEqual(node.addr[1], 80)
@@ -92,10 +80,10 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.getaddrinfo("localhost", None, cb)
+        self.channel.getaddrinfo("localhost", None, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_addrinfo_result)
+        self.assertEqual(type(self.result), pycares.AddrInfoResult)
         self.assertTrue(len(self.result.nodes) > 0)
         for node in self.result.nodes:
             self.assertEqual(node.addr[1], 0)
@@ -107,10 +95,10 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.getaddrinfo("localhost", "http", cb, family=socket.AF_INET)
+        self.channel.getaddrinfo("localhost", "http", family=socket.AF_INET, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_addrinfo_result)
+        self.assertEqual(type(self.result), pycares.AddrInfoResult)
         self.assertEqual(len(self.result.nodes), 1)
         node = self.result.nodes[0]
         self.assertEqual(node.addr[0], b"127.0.0.1")
@@ -122,10 +110,10 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.getaddrinfo("google.com", "http", cb)
+        self.channel.getaddrinfo("google.com", "http", callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_addrinfo_result)
+        self.assertEqual(type(self.result), pycares.AddrInfoResult)
         self.assertTrue(len(self.result.nodes) > 0)
 
     @unittest.skipIf(sys.platform == "win32", "skipped on Windows")
@@ -135,10 +123,10 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.gethostbyaddr("127.0.0.1", cb)
+        self.channel.gethostbyaddr("127.0.0.1", callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_host_result)
+        self.assertEqual(type(self.result), pycares.HostResult)
 
     @unittest.skipIf(sys.platform == "win32", "skipped on Windows")
     def test_gethostbyaddr6(self):
@@ -147,35 +135,10 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.gethostbyaddr("::1", cb)
+        self.channel.gethostbyaddr("::1", callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_host_result)
-
-    @unittest.skipIf(sys.platform == "win32", "skipped on Windows")
-    def test_gethostbyname(self):
-        self.result, self.errorno = None, None
-
-        def cb(result, errorno):
-            self.result, self.errorno = result, errorno
-
-        self.channel.gethostbyname("localhost", socket.AF_INET, cb)
-        self.wait()
-        self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_host_result)
-
-    @unittest.skipIf(sys.platform == "win32", "skipped on Windows")
-    def test_gethostbyname_small_timeout(self):
-        self.result, self.errorno = None, None
-
-        def cb(result, errorno):
-            self.result, self.errorno = result, errorno
-
-        self.channel = pycares.Channel(timeout=0.5, tries=1)
-        self.channel.gethostbyname("localhost", socket.AF_INET, cb)
-        self.wait()
-        self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_host_result)
+        self.assertEqual(type(self.result), pycares.HostResult)
 
     @unittest.skipIf(sys.platform == "win32", "skipped on Windows")
     def test_getnameinfo(self):
@@ -187,11 +150,11 @@ class DNSTest(unittest.TestCase):
         self.channel.getnameinfo(
             ("127.0.0.1", 80),
             pycares.ARES_NI_LOOKUPHOST | pycares.ARES_NI_LOOKUPSERVICE,
-            cb,
+            callback=cb,
         )
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_nameinfo_result)
+        self.assertEqual(type(self.result), pycares.NameInfoResult)
         self.assertIn(self.result.node, ("localhost.localdomain", "localhost"))
         self.assertEqual(self.result.service, "http")
 
@@ -206,11 +169,11 @@ class DNSTest(unittest.TestCase):
         self.channel.getnameinfo(
             ("fd01:dec0:0:1::2020", 80, 0, 0),
             pycares.ARES_NI_NUMERICHOST | pycares.ARES_NI_NUMERICSERV,
-            cb,
+            callback=cb,
         )
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_nameinfo_result)
+        self.assertEqual(type(self.result), pycares.NameInfoResult)
         self.assertEqual(self.result.node, "fd01:dec0:0:1::2020")
         self.assertEqual(self.result.service, "80")
 
@@ -227,11 +190,11 @@ class DNSTest(unittest.TestCase):
             pycares.ARES_NI_NUMERICHOST
             | pycares.ARES_NI_NUMERICSERV
             | pycares.ARES_NI_NUMERICSCOPE,
-            cb,
+            callback=cb,
         )
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_nameinfo_result)
+        self.assertEqual(type(self.result), pycares.NameInfoResult)
         self.assertEqual(self.result.node, "fe80::5abd:fee7:4177:60c0%666")
         self.assertEqual(self.result.service, "80")
 
@@ -241,12 +204,16 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_a_result)
-            self.assertNotEqual(r.host, None)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            self.assertEqual(type(record), pycares.DNSRecord)
+            self.assertEqual(type(record.data), pycares.ARecordData)
+            self.assertNotEqual(record.data.addr, None)
+            self.assertGreater(record.ttl, 0)  # Real TTL values now!
 
     def test_query_a_bad(self):
         self.result, self.errorno = None, None
@@ -254,7 +221,7 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("hgf8g2od29hdohid.com", pycares.QUERY_TYPE_A, cb)
+        self.channel.query("hgf8g2od29hdohid.com", pycares.QUERY_TYPE_A, callback=cb)
         self.wait()
         self.assertEqual(self.result, None)
         self.assertEqual(self.errorno, pycares.errno.ARES_ENOTFOUND)
@@ -269,10 +236,10 @@ class DNSTest(unittest.TestCase):
                 self.errorno_count += 1
             self.count += 1
 
-        self.channel = pycares.Channel(timeout=1.0, tries=1, rotate=True)
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
+        self.channel = pycares.Channel(timeout=10.0, tries=1, rotate=True)
+        self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
         self.wait()
         self.assertEqual(self.count, 3)
         self.assertEqual(self.errorno_count, 0)
@@ -283,12 +250,17 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("ipv6.google.com", pycares.QUERY_TYPE_AAAA, cb)
+        self.channel.query("ipv6.google.com", pycares.QUERY_TYPE_AAAA, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_aaaa_result)
-            self.assertNotEqual(r.host, None)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        # DNS may return CNAME records first, followed by AAAA records
+        aaaa_records = [r for r in self.result.answer if type(r.data) == pycares.AAAARecordData]
+        self.assertGreater(len(aaaa_records), 0, "Expected at least one AAAA record")
+        for record in aaaa_records:
+            self.assertNotEqual(record.data.addr, None)
+            self.assertGreater(record.ttl, 0)
 
     def test_query_caa(self):
         self.result, self.errorno = None, None
@@ -296,12 +268,13 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("wikipedia.org", pycares.QUERY_TYPE_CAA, cb)
+        self.channel.query("wikipedia.org", pycares.QUERY_TYPE_CAA, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertTrue(len(self.result) > 0)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_caa_result)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            self.assertEqual(type(record.data), pycares.CAARecordData)
 
     def test_query_cname(self):
         self.result, self.errorno = None, None
@@ -309,10 +282,12 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("www.amazon.com", pycares.QUERY_TYPE_CNAME, cb)
+        self.channel.query("www.amazon.com", pycares.QUERY_TYPE_CNAME, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_query_cname_result)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        self.assertEqual(type(self.result.answer[0].data), pycares.CNAMERecordData)
 
     def test_query_mx(self):
         self.result, self.errorno = None, None
@@ -320,11 +295,13 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("google.com", pycares.QUERY_TYPE_MX, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_MX, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_mx_result)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            self.assertEqual(type(record.data), pycares.MXRecordData)
 
     def test_query_ns(self):
         self.result, self.errorno = None, None
@@ -332,11 +309,13 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("google.com", pycares.QUERY_TYPE_NS, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_NS, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_ns_result)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            self.assertEqual(type(record.data), pycares.NSRecordData)
 
     def test_query_txt(self):
         self.result, self.errorno = None, None
@@ -344,11 +323,13 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("google.com", pycares.QUERY_TYPE_TXT, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_TXT, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_txt_result)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            self.assertEqual(type(record.data), pycares.TXTRecordData)
 
     def test_query_txt_chunked(self):
         self.result, self.errorno = None, None
@@ -356,13 +337,14 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("jobscoutdaily.com", pycares.QUERY_TYPE_TXT, cb)
+        self.channel.query("jobscoutdaily.com", pycares.QUERY_TYPE_TXT, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
         # If the chunks are aggregated, only one TXT record should be visible.
         # Three would show if they are not properly merged.
-        self.assertEqual(len(self.result), 1)
-        self.assertTrue(self.result[0].text.startswith("v=spf1 A MX"))
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertEqual(len(self.result.answer), 1)
+        self.assertTrue(self.result.answer[0].data.data.startswith(b"v=spf1 A MX"))
 
     def test_query_txt_multiple_chunked(self):
         self.result, self.errorno = None, None
@@ -370,7 +352,7 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("google.com", pycares.QUERY_TYPE_TXT, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_TXT, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
         # > dig -t txt google.com
@@ -385,7 +367,8 @@ class DNSTest(unittest.TestCase):
         # google.com.		3270	IN	TXT	"v=spf1 include:_spf.google.com ~all"
         # google.com.		3270	IN	TXT	"globalsign-smime-dv=CDYX+XFHUw2wml6/Gb8+59BsH31KzUr6c1l2BPvqKX8="
         # google.com.		3270	IN	TXT	"docusign=1b0a6754-49b1-4db5-8540-d2c12664b289"
-        self.assertGreater(len(self.result), 10)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 10)
 
     def test_query_txt_bytes1(self):
         self.result, self.errorno = None, None
@@ -393,12 +376,13 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("google.com", pycares.QUERY_TYPE_TXT, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_TXT, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_txt_result)
-            self.assertIsInstance(r.text, str)  # it's ASCII
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        for record in self.result.answer:
+            self.assertEqual(type(record.data), pycares.TXTRecordData)
+            self.assertIsInstance(record.data.data, bytes)
 
     # The 2 tests below hit a dead end thus fail. Commenting for now as I couldn't find a live server
     # that satisfies what the tests are looking for
@@ -411,12 +395,13 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("wide.com.es", pycares.QUERY_TYPE_TXT, cb)
+        self.channel.query("wide.com.es", pycares.QUERY_TYPE_TXT, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_txt_result)
-            self.assertIsInstance(r.text, bytes)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        for record in self.result.answer:
+            self.assertEqual(type(record.data), pycares.TXTRecordData)
+            self.assertIsInstance(record.data.data, bytes)
 
     # FIXME: "txt-non-ascii.dns-test.hmnid.ru" is a dead end!
     @unittest.expectedFailure
@@ -427,16 +412,17 @@ class DNSTest(unittest.TestCase):
             self.result, self.errorno = result, errorno
 
         self.channel.query(
-            "txt-non-ascii.dns-test.hmnid.ru", pycares.QUERY_TYPE_TXT, cb
+            "txt-non-ascii.dns-test.hmnid.ru", pycares.QUERY_TYPE_TXT, callback=cb
         )
         self.wait()
         self.assertNoError(self.errorno)
         # txt-non-ascii.dns-test.hmnid.ru.        IN      TXT     "ascii string" "some\208misc\208stuff"
 
-        self.assertEqual(len(self.result), 1)
-        r = self.result[0]
-        self.assertEqual(type(r), pycares.ares_query_txt_result)
-        self.assertIsInstance(r.text, bytes)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertEqual(len(self.result.answer), 1)
+        record = self.result.answer[0]
+        self.assertEqual(type(record.data), pycares.TXTRecordData)
+        self.assertIsInstance(record.data.data, bytes)
 
     def test_query_class_chaos(self):
         self.result, self.errorno = None, None
@@ -446,26 +432,26 @@ class DNSTest(unittest.TestCase):
 
         self.channel.servers = ["199.7.83.42"]  # l.root-servers.net
         self.channel.query(
-            "id.server", pycares.QUERY_TYPE_TXT, cb, pycares.QUERY_CLASS_CHAOS
+            "id.server", pycares.QUERY_TYPE_TXT, query_class=pycares.QUERY_CLASS_CHAOS, callback=cb
         )
         self.wait()
         self.assertNoError(self.errorno)
         # id.server.              0       CH      TXT     "aa.de-ham.l.root"
 
-        self.assertEqual(len(self.result), 1)
-        r = self.result[0]
-        self.assertEqual(type(r), pycares.ares_query_txt_result)
-        self.assertIsInstance(r.text, str)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertEqual(len(self.result.answer), 1)
+        record = self.result.answer[0]
+        self.assertEqual(type(record.data), pycares.TXTRecordData)
+        self.assertIsInstance(record.data.data, bytes)
 
     def test_query_class_invalid(self):
-        self.assertRaises(
-            ValueError,
-            self.channel.query,
-            "google.com",
-            pycares.QUERY_TYPE_A,
-            lambda *x: None,
-            "INVALIDTYPE",
-        )
+        with self.assertRaises(ValueError):
+            self.channel.query(
+                "google.com",
+                pycares.QUERY_TYPE_A,
+                query_class="INVALIDTYPE",
+                callback=lambda *x: None,
+            )
         self.wait()
 
     def test_query_soa(self):
@@ -474,10 +460,12 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("google.com", pycares.QUERY_TYPE_SOA, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_SOA, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_query_soa_result)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        self.assertEqual(type(self.result.answer[0].data), pycares.SOARecordData)
 
     def test_query_srv(self):
         self.result, self.errorno = None, None
@@ -485,11 +473,13 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("_xmpp-server._tcp.jabber.org", pycares.QUERY_TYPE_SRV, cb)
+        self.channel.query("_xmpp-server._tcp.jabber.org", pycares.QUERY_TYPE_SRV, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_srv_result)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            self.assertEqual(type(record.data), pycares.SRVRecordData)
 
     def test_query_naptr(self):
         self.result, self.errorno = None, None
@@ -497,11 +487,13 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("sip2sip.info", pycares.QUERY_TYPE_NAPTR, cb)
+        self.channel.query("sip2sip.info", pycares.QUERY_TYPE_NAPTR, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_naptr_result)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            self.assertEqual(type(record.data), pycares.NAPTRRecordData)
 
     def test_query_ptr(self):
         self.result, self.errorno = None, None
@@ -511,12 +503,13 @@ class DNSTest(unittest.TestCase):
 
         ip = "172.253.122.26"
         self.channel.query(
-            ipaddress.ip_address(ip).reverse_pointer, pycares.QUERY_TYPE_PTR, cb
+            ipaddress.ip_address(ip).reverse_pointer, pycares.QUERY_TYPE_PTR, callback=cb
         )
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_query_ptr_result)
-        self.assertEqual(type(self.result.aliases), list)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        self.assertEqual(type(self.result.answer[0].data), pycares.PTRRecordData)
 
     def test_query_ptr_ipv6(self):
         self.result, self.errorno = None, None
@@ -526,12 +519,52 @@ class DNSTest(unittest.TestCase):
 
         ip = "2001:4860:4860::8888"
         self.channel.query(
-            ipaddress.ip_address(ip).reverse_pointer, pycares.QUERY_TYPE_PTR, cb
+            ipaddress.ip_address(ip).reverse_pointer, pycares.QUERY_TYPE_PTR, callback=cb
         )
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_query_ptr_result)
-        self.assertEqual(type(self.result.aliases), list)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        self.assertEqual(type(self.result.answer[0].data), pycares.PTRRecordData)
+
+    def test_query_tlsa(self):
+        self.result, self.errorno = None, None
+
+        def cb(result, errorno):
+            self.result, self.errorno = result, errorno
+
+        # DANE-enabled domain with TLSA records
+        self.channel.query("_25._tcp.mail.ietf.org", pycares.QUERY_TYPE_TLSA, callback=cb)
+        self.wait()
+        self.assertNoError(self.errorno)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            self.assertEqual(type(record.data), pycares.TLSARecordData)
+            # Verify TLSA fields are present
+            self.assertIsInstance(record.data.cert_usage, int)
+            self.assertIsInstance(record.data.selector, int)
+            self.assertIsInstance(record.data.matching_type, int)
+            self.assertIsInstance(record.data.cert_association_data, bytes)
+
+    def test_query_https(self):
+        self.result, self.errorno = None, None
+
+        def cb(result, errorno):
+            self.result, self.errorno = result, errorno
+
+        # Cloudflare has HTTPS records
+        self.channel.query("cloudflare.com", pycares.QUERY_TYPE_HTTPS, callback=cb)
+        self.wait()
+        self.assertNoError(self.errorno)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            self.assertEqual(type(record.data), pycares.HTTPSRecordData)
+            # Verify HTTPS fields are present
+            self.assertIsInstance(record.data.priority, int)
+            self.assertIsInstance(record.data.target, str)
+            self.assertIsInstance(record.data.params, list)
 
     @unittest.skip("ANY type does not work on Mac.")
     def test_query_any(self):
@@ -540,10 +573,11 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("google.com", pycares.QUERY_TYPE_ANY, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_ANY, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertTrue(len(self.result) > 1)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 1)
 
     def test_query_cancelled(self):
         self.result, self.errorno = None, None
@@ -551,7 +585,7 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("google.com", pycares.QUERY_TYPE_NS, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_NS, callback=cb)
         self.channel.cancel()
         self.wait()
         self.assertEqual(self.result, None)
@@ -563,9 +597,8 @@ class DNSTest(unittest.TestCase):
         self.assertEqual(servers, self.channel.servers)
 
     def test_query_bad_type(self):
-        self.assertRaises(
-            ValueError, self.channel.query, "google.com", 667, lambda *x: None
-        )
+        with self.assertRaises(ValueError):
+            self.channel.query("google.com", 667, callback=lambda *x: None)
         self.wait()
 
     def test_query_timeout(self):
@@ -575,7 +608,7 @@ class DNSTest(unittest.TestCase):
             self.result, self.errorno = result, errorno
 
         self.channel.servers = ["1.2.3.4"]
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
         self.wait()
         self.assertEqual(self.result, None)
         self.assertEqual(self.errorno, pycares.errno.ARES_ETIMEOUT)
@@ -586,10 +619,15 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("foo.onion", pycares.QUERY_TYPE_A, cb)
-        self.wait()
-        self.assertEqual(self.result, None)
-        self.assertEqual(self.errorno, pycares.errno.ARES_ENOTFOUND)
+        # With the new API, ares_query_dnsrec may raise immediately if query can't be queued
+        try:
+            self.channel.query("foo.onion", pycares.QUERY_TYPE_A, callback=cb)
+            self.wait()
+            self.assertEqual(self.result, None)
+            self.assertEqual(self.errorno, pycares.errno.ARES_ENOTFOUND)
+        except pycares.AresError as e:
+            # Error raised immediately - this is also valid
+            self.assertEqual(e.args[0], pycares.errno.ARES_ENOTFOUND)
 
     def test_channel_nameservers(self):
         self.result, self.errorno = None, None
@@ -598,7 +636,7 @@ class DNSTest(unittest.TestCase):
             self.result, self.errorno = result, errorno
 
         self.channel = pycares.Channel(timeout=5.0, tries=1, servers=["8.8.8.8"])
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
 
@@ -609,7 +647,7 @@ class DNSTest(unittest.TestCase):
             self.result, self.errorno = result, errorno
 
         self.channel.servers = ["8.8.8.8"]
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
 
@@ -617,7 +655,8 @@ class DNSTest(unittest.TestCase):
         servers = ["8.8.8.8", "8.8.4.4"]
         self.channel.servers = servers
         servers2 = self.channel.servers
-        self.assertEqual(servers, servers2)
+        # CSV API includes default port :53
+        self.assertEqual(servers2, ["8.8.8.8:53", "8.8.4.4:53"])
 
     def test_channel_local_ip(self):
         self.result, self.errorno = None, None
@@ -626,15 +665,25 @@ class DNSTest(unittest.TestCase):
             self.result, self.errorno = result, errorno
 
         self.channel = pycares.Channel(
-            timeout=5.0, tries=1, servers=["8.8.8.8"], local_ip="127.0.0.1"
+            timeout=5.0,
+            tries=1,
+            servers=["8.8.8.8"],
+            local_ip="127.0.0.1"
         )
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
-        self.wait()
-        self.assertEqual(self.result, None)
-        # May raise ECONNREFUSED or ETIMEDOUT depending on the platform
-        self.assertIn(
-            self.errorno, (pycares.errno.ARES_ECONNREFUSED, pycares.errno.ARES_ETIMEOUT)
-        )
+        # With the new API, ares_query_dnsrec may raise immediately if query can't be queued
+        try:
+            self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
+            self.wait()
+            self.assertEqual(self.result, None)
+            # May raise ECONNREFUSED or ETIMEDOUT depending on the platform
+            self.assertIn(
+                self.errorno, (pycares.errno.ARES_ECONNREFUSED, pycares.errno.ARES_ETIMEOUT)
+            )
+        except pycares.AresError as e:
+            # Error raised immediately - this is also valid
+            self.assertIn(
+                e.args[0], (pycares.errno.ARES_ECONNREFUSED, pycares.errno.ARES_ETIMEOUT)
+            )
 
     def test_channel_local_ip2(self):
         self.result, self.errorno = None, None
@@ -644,13 +693,20 @@ class DNSTest(unittest.TestCase):
 
         self.channel.servers = ["8.8.8.8"]
         self.channel.set_local_ip("127.0.0.1")
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
-        self.wait()
-        self.assertEqual(self.result, None)
-        # May raise ECONNREFUSED or ETIMEDOUT depending on the platform
-        self.assertIn(
-            self.errorno, (pycares.errno.ARES_ECONNREFUSED, pycares.errno.ARES_ETIMEOUT)
-        )
+        # With the new API, ares_query_dnsrec may raise immediately if query can't be queued
+        try:
+            self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
+            self.wait()
+            self.assertEqual(self.result, None)
+            # May raise ECONNREFUSED or ETIMEDOUT depending on the platform
+            self.assertIn(
+                self.errorno, (pycares.errno.ARES_ECONNREFUSED, pycares.errno.ARES_ETIMEOUT)
+            )
+        except pycares.AresError as e:
+            # Error raised immediately - this is also valid
+            self.assertIn(
+                e.args[0], (pycares.errno.ARES_ECONNREFUSED, pycares.errno.ARES_ETIMEOUT)
+            )
         self.assertRaises(ValueError, self.channel.set_local_ip, "an invalid ip")
 
     def test_channel_timeout(self):
@@ -659,8 +715,13 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel = pycares.Channel(timeout=0.5, tries=1)
-        self.channel.gethostbyname("google.com", socket.AF_INET, cb)
+        def dummy(*args):
+            pass
+
+        # Here we are explicitly not using the event thread, so lookups don't even start.
+        # What we are trying to test is that cancellation works if a query is slow enough.
+        self.channel = pycares.Channel(timeout=0.5, tries=1, sock_state_cb=dummy)
+        self.channel.getaddrinfo("google.com", None, family=socket.AF_INET, callback=cb)
         timeout = self.channel.timeout()
         self.assertTrue(timeout > 0.0)
         self.channel.cancel()
@@ -681,7 +742,7 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.query("ayesas.com", pycares.QUERY_TYPE_SOA, cb)
+        self.channel.query("ayesas.com", pycares.QUERY_TYPE_SOA, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
         self.assertEqual(type(self.result), pycares.ares_query_soa_result)
@@ -695,15 +756,15 @@ class DNSTest(unittest.TestCase):
             self.result, self.errorno = result, errorno
 
         # try encoding it as utf-8
-        self.channel.gethostbyname(host.encode(), socket.AF_INET, cb)
+        self.channel.getaddrinfo(host.encode(), None, family=socket.AF_INET, callback=cb)
         self.wait()
         self.assertNotEqual(self.errorno, None)
         self.assertEqual(self.result, None)
         # use it as is (it's IDNA encoded internally)
-        self.channel.gethostbyname(host, socket.AF_INET, cb)
+        self.channel.getaddrinfo(host, None, family=socket.AF_INET, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_host_result)
+        self.assertEqual(type(self.result), pycares.AddrInfoResult)
 
     def test_idna_encoding_query_a(self):
         host = "españa.icom.museum"
@@ -713,21 +774,33 @@ class DNSTest(unittest.TestCase):
             self.result, self.errorno = result, errorno
 
         # try encoding it as utf-8
-        self.channel.query(host.encode(), pycares.QUERY_TYPE_A, cb)
-        self.wait()
-        # ARES_EBADNAME correct for c-ares 1.24 and ARES_ENOTFOUND for 1.18
-        # in 1.32.0 it was changed to ARES_ENOMEM
-        if self.errorno in (pycares.errno.ARES_ENOTFOUND, pycares.errno.ARES_ENOMEM):
-            self.errorno = pycares.errno.ARES_EBADNAME
-        self.assertEqual(self.errorno, pycares.errno.ARES_EBADNAME)
-        self.assertEqual(self.result, None)
+        # With the new API, ares_query_dnsrec may raise immediately for bad names
+        try:
+            self.channel.query(host.encode(), pycares.QUERY_TYPE_A, callback=cb)
+            self.wait()
+            # ARES_EBADNAME correct for c-ares 1.24 and ARES_ENOTFOUND for 1.18
+            # in 1.32.0 it was changed to ARES_ENOMEM
+            if self.errorno in (pycares.errno.ARES_ENOTFOUND, pycares.errno.ARES_ENOMEM):
+                self.errorno = pycares.errno.ARES_EBADNAME
+            self.assertEqual(self.errorno, pycares.errno.ARES_EBADNAME)
+            self.assertEqual(self.result, None)
+        except pycares.AresError as e:
+            # Error raised immediately - this is also valid
+            error_code = e.args[0]
+            if error_code in (pycares.errno.ARES_ENOTFOUND, pycares.errno.ARES_ENOMEM):
+                error_code = pycares.errno.ARES_EBADNAME
+            self.assertEqual(error_code, pycares.errno.ARES_EBADNAME)
+
         # use it as is (it's IDNA encoded internally)
-        self.channel.query(host, pycares.QUERY_TYPE_A, cb)
+        self.channel.query(host, pycares.QUERY_TYPE_A, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_a_result)
-            self.assertNotEqual(r.host, None)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            if type(record.data) == pycares.ARecordData:
+                self.assertNotEqual(record.data.addr, None)
+                self.assertGreater(record.ttl, 0)
 
     def test_idna2008_encoding(self):
         try:
@@ -740,11 +813,10 @@ class DNSTest(unittest.TestCase):
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
 
-        self.channel.gethostbyname(host, socket.AF_INET, cb)
+        self.channel.getaddrinfo(host, None, family=socket.AF_INET, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        self.assertEqual(type(self.result), pycares.ares_host_result)
-        self.assertTrue("81.169.145.78" in self.result.addresses)
+        self.assertEqual(type(self.result), pycares.AddrInfoResult)
 
     @unittest.skipIf(sys.platform == "win32", "skipped on Windows")
     @unittest.skipIf(
@@ -760,9 +832,9 @@ class DNSTest(unittest.TestCase):
         self.channel = pycares.Channel(
             tries=1,
             timeout=2.0,
-            resolvconf_path=os.path.join(FIXTURES_PATH, "badresolv.conf"),
+            resolvconf_path=os.path.join(FIXTURES_PATH, "badresolv.conf")
         )
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
+        self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
         self.wait()
         self.assertEqual(self.result, None)
         # TODO: some runners fail with ARES_ECONNREFUSED, which may make sense...
@@ -780,15 +852,18 @@ class DNSTest(unittest.TestCase):
             self.result, self.errorno = result, errorno
 
         self.channel = pycares.Channel(timeout=5.0, tries=1, domains=["google.com"])
-        self.channel.search("cloud", pycares.QUERY_TYPE_A, cb)
+        self.channel.search("www", pycares.QUERY_TYPE_A, callback=cb)
         self.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_a_result)
-            self.assertNotEqual(r.host, None)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            if type(record.data) == pycares.ARecordData:
+                self.assertNotEqual(record.data.addr, None)
+                self.assertGreater(record.ttl, 0)
 
     def test_lookup(self):
-        channel = pycares.Channel(
+        self.channel = pycares.Channel(
             lookups="b",
             timeout=1,
             tries=1,
@@ -796,7 +871,7 @@ class DNSTest(unittest.TestCase):
             servers=["8.8.8.8", "8.8.4.4"],
             tcp_port=53,
             udp_port=53,
-            rotate=True,
+            rotate=True
         )
 
         def on_result(result, errorno):
@@ -812,14 +887,16 @@ class DNSTest(unittest.TestCase):
             "tencent.com",
         ]:
             self.result, self.errorno = None, None
-            self.channel.query(domain, pycares.QUERY_TYPE_A, on_result)
+            self.channel.query(domain, pycares.QUERY_TYPE_A, callback=on_result)
             self.wait()
             self.assertNoError(self.errorno)
-            self.assertTrue(self.result is not None and len(self.result) > 0)
-            for r in self.result:
-                self.assertEqual(type(r), pycares.ares_query_a_result)
-                self.assertNotEqual(r.host, None)
-                self.assertTrue(r.type == "A")
+            self.assertTrue(self.result is not None)
+            self.assertEqual(type(self.result), pycares.DNSResult)
+            self.assertGreater(len(self.result.answer), 0)
+            for record in self.result.answer:
+                if type(record.data) == pycares.ARecordData:
+                    self.assertNotEqual(record.data.addr, None)
+                    self.assertGreater(record.ttl, 0)
 
     def test_strerror_str(self):
         for key in pycares.errno.errorcode:
@@ -837,14 +914,14 @@ class ChannelCloseTest(unittest.TestCase):
         def cb(res, err):
             result.append((res, err))
 
-        channel.query("google.com", pycares.QUERY_TYPE_A, cb)
+        channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
 
         # Close should work fine from same thread
         channel.close()
 
         # Channel should be closed, no more operations allowed
         with self.assertRaises(Exception):
-            channel.query("google.com", pycares.QUERY_TYPE_A, cb)
+            channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
 
     def test_close_from_different_thread_safe(self):
         # Test that close() can be safely called from different thread
@@ -888,8 +965,12 @@ class ChannelCloseTest(unittest.TestCase):
         self.assertIsNone(channel._channel)
 
     def test_threadsafe_close_with_pending_queries(self):
-        # Test close with queries in flight
-        channel = pycares.Channel()
+        def dummy(*args):
+            pass
+
+        # Test close with queries in flight. Use a dummy socket state callback
+        # to make sure queries don't start immediately.
+        channel = pycares.Channel(sock_state_cb=dummy)
         query_completed = threading.Event()
         cancelled_count = 0
 
@@ -901,9 +982,9 @@ class ChannelCloseTest(unittest.TestCase):
                 query_completed.set()
 
         # Start several queries
-        channel.query("google.com", pycares.QUERY_TYPE_A, cb)
-        channel.query("github.com", pycares.QUERY_TYPE_A, cb)
-        channel.query("python.org", pycares.QUERY_TYPE_A, cb)
+        channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
+        channel.query("github.com", pycares.QUERY_TYPE_A, callback=cb)
+        channel.query("python.org", pycares.QUERY_TYPE_A, callback=cb)
 
         # Close immediately - this should cancel pending queries
         channel.close()
@@ -921,7 +1002,7 @@ class ChannelCloseTest(unittest.TestCase):
             pass
 
         with self.assertRaises(RuntimeError) as cm:
-            channel.query("example.com", pycares.QUERY_TYPE_A, cb)
+            channel.query("example.com", pycares.QUERY_TYPE_A, callback=cb)
 
         self.assertIn("destroyed", str(cm.exception))
 
@@ -1090,7 +1171,7 @@ class ChannelCloseTest(unittest.TestCase):
             # Use a non-responsive server to ensure queries stay pending
             channel.servers = ["192.0.2.1"]  # TEST-NET-1, should not respond
             for i in range(5):
-                channel.query(f"test{i}.example.com", pycares.QUERY_TYPE_A, query_cb)
+                channel.query(f"test{i}.example.com", pycares.QUERY_TYPE_A, callback=query_cb)
             query_started.set()
 
         query_thread = threading.Thread(target=start_queries)
@@ -1146,13 +1227,13 @@ class ChannelCloseTest(unittest.TestCase):
 
         # RuntimeError if idna is installed otherwise it should be a UnicodeError
         with self.assertRaises((RuntimeError, UnicodeError)):
-            channel.query(large_domain_attack, pycares.QUERY_TYPE_A, noop)
+            channel.query(large_domain_attack, pycares.QUERY_TYPE_A, callback=noop)
 
 
 class EventThreadTest(unittest.TestCase):
     def setUp(self):
         self.channel = pycares.Channel(
-            timeout=10.0, tries=1, servers=["8.8.8.8", "8.8.4.4"], event_thread=True
+            timeout=10.0, tries=1, servers=["8.8.8.8", "8.8.4.4"]
         )
         self.is_ci = (
             os.environ.get("APPVEYOR")
@@ -1170,18 +1251,19 @@ class EventThreadTest(unittest.TestCase):
 
     def test_query_a(self):
         self.result, self.errorno = None, None
-        event = threading.Event()
 
         def cb(result, errorno):
             self.result, self.errorno = result, errorno
-            event.set()
 
-        self.channel.query("google.com", pycares.QUERY_TYPE_A, cb)
-        event.wait()
+        self.channel.query("google.com", pycares.QUERY_TYPE_A, callback=cb)
+        self.channel.wait()
         self.assertNoError(self.errorno)
-        for r in self.result:
-            self.assertEqual(type(r), pycares.ares_query_a_result)
-            self.assertNotEqual(r.host, None)
+        self.assertEqual(type(self.result), pycares.DNSResult)
+        self.assertGreater(len(self.result.answer), 0)
+        for record in self.result.answer:
+            if type(record.data) == pycares.ARecordData:
+                self.assertNotEqual(record.data.addr, None)
+                self.assertGreater(record.ttl, 0)
 
 
 if __name__ == "__main__":

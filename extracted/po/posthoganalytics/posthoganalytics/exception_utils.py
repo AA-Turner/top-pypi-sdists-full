@@ -5,6 +5,7 @@
 # 💖open source (under MIT License)
 # We want to keep payloads as similar to Sentry as possible for easy interoperability
 
+import json
 import linecache
 import os
 import re
@@ -13,22 +14,23 @@ import types
 from datetime import datetime
 from types import FrameType, TracebackType  # noqa: F401
 from typing import (  # noqa: F401
+    TYPE_CHECKING,
     Any,
     Dict,
     Iterator,
     List,
     Literal,
     Optional,
+    Pattern,
     Set,
     Tuple,
     TypedDict,
     TypeVar,
     Union,
     cast,
-    TYPE_CHECKING,
 )
 
-from posthoganalytics.args import ExcInfo, ExceptionArg  # noqa: F401
+from posthoganalytics.args import ExceptionArg, ExcInfo  # noqa: F401
 
 try:
     # Python 3.11
@@ -39,6 +41,46 @@ except ImportError:
 
 
 DEFAULT_MAX_VALUE_LENGTH = 1024
+
+DEFAULT_CODE_VARIABLES_MASK_PATTERNS = [
+    r"(?i).*password.*",
+    r"(?i).*secret.*",
+    r"(?i).*passwd.*",
+    r"(?i).*pwd.*",
+    r"(?i).*api_key.*",
+    r"(?i).*apikey.*",
+    r"(?i).*auth.*",
+    r"(?i).*credentials.*",
+    r"(?i).*privatekey.*",
+    r"(?i).*private_key.*",
+    r"(?i).*token.*",
+    r"(?i).*aws_access_key_id.*",
+    r"(?i).*_pass",
+    r"(?i)sk_.*",
+    r"(?i).*jwt.*",
+]
+
+DEFAULT_CODE_VARIABLES_IGNORE_PATTERNS = [r"^__.*"]
+
+CODE_VARIABLES_REDACTED_VALUE = "$$_posthog_redacted_based_on_masking_rules_$$"
+
+DEFAULT_TOTAL_VARIABLES_SIZE_LIMIT = 20 * 1024
+
+
+class VariableSizeLimiter:
+    def __init__(self, max_size=DEFAULT_TOTAL_VARIABLES_SIZE_LIMIT):
+        self.max_size = max_size
+        self.current_size = 0
+
+    def can_add(self, size):
+        return self.current_size + size <= self.max_size
+
+    def add(self, size):
+        self.current_size += size
+
+    def get_remaining_space(self):
+        return self.max_size - self.current_size
+
 
 LogLevelStr = Literal["fatal", "critical", "error", "warning", "info", "debug"]
 
@@ -884,3 +926,209 @@ def strip_string(value, max_length=None):
             "rem": [["!limit", "x", max_length - 3, max_length]],
         },
     )
+
+
+def _compile_patterns(patterns):
+    compiled = []
+    for pattern in patterns:
+        try:
+            compiled.append(re.compile(pattern))
+        except Exception:
+            pass
+    return compiled
+
+
+def _pattern_matches(name, patterns):
+    for pattern in patterns:
+        if pattern.search(name):
+            return True
+    return False
+
+
+def _mask_sensitive_data(value, compiled_mask):
+    if not compiled_mask:
+        return value
+
+    if isinstance(value, dict):
+        result = {}
+        for k, v in value.items():
+            key_str = str(k) if not isinstance(k, str) else k
+            if _pattern_matches(key_str, compiled_mask):
+                result[k] = CODE_VARIABLES_REDACTED_VALUE
+            else:
+                result[k] = _mask_sensitive_data(v, compiled_mask)
+        return result
+    elif isinstance(value, (list, tuple)):
+        masked_items = [_mask_sensitive_data(item, compiled_mask) for item in value]
+        return type(value)(masked_items)
+    elif isinstance(value, str):
+        if _pattern_matches(value, compiled_mask):
+            return CODE_VARIABLES_REDACTED_VALUE
+        return value
+    else:
+        return value
+
+
+def _serialize_variable_value(value, limiter, max_length=1024, compiled_mask=None):
+    try:
+        if value is None:
+            result = "None"
+        elif isinstance(value, bool):
+            result = str(value)
+        elif isinstance(value, (int, float)):
+            result_size = len(str(value))
+            if not limiter.can_add(result_size):
+                return None
+            limiter.add(result_size)
+            return value
+        elif isinstance(value, str):
+            if compiled_mask and _pattern_matches(value, compiled_mask):
+                result = CODE_VARIABLES_REDACTED_VALUE
+            else:
+                result = value
+        else:
+            masked_value = _mask_sensitive_data(value, compiled_mask)
+            result = json.dumps(masked_value)
+
+        if len(result) > max_length:
+            result = result[: max_length - 3] + "..."
+
+        result_size = len(result)
+        if not limiter.can_add(result_size):
+            return None
+        limiter.add(result_size)
+
+        return result
+    except Exception:
+        try:
+            result = repr(value)
+            if len(result) > max_length:
+                result = result[: max_length - 3] + "..."
+
+            result_size = len(result)
+            if not limiter.can_add(result_size):
+                return None
+            limiter.add(result_size)
+            return result
+        except Exception:
+            try:
+                fallback = f"<{type(value).__name__}>"
+                fallback_size = len(fallback)
+                if not limiter.can_add(fallback_size):
+                    return None
+                limiter.add(fallback_size)
+                return fallback
+            except Exception:
+                fallback = "<unserializable object>"
+                fallback_size = len(fallback)
+                if not limiter.can_add(fallback_size):
+                    return None
+                limiter.add(fallback_size)
+                return fallback
+
+
+def _is_simple_type(value):
+    return isinstance(value, (type(None), bool, int, float, str))
+
+
+def serialize_code_variables(
+    frame, limiter, mask_patterns=None, ignore_patterns=None, max_length=1024
+):
+    if mask_patterns is None:
+        mask_patterns = []
+    if ignore_patterns is None:
+        ignore_patterns = []
+
+    compiled_mask = _compile_patterns(mask_patterns)
+    compiled_ignore = _compile_patterns(ignore_patterns)
+
+    try:
+        local_vars = frame.f_locals.copy()
+    except Exception:
+        return {}
+
+    simple_vars = {}
+    complex_vars = {}
+
+    for name, value in local_vars.items():
+        if _pattern_matches(name, compiled_ignore):
+            continue
+
+        if _is_simple_type(value):
+            simple_vars[name] = value
+        else:
+            complex_vars[name] = value
+
+    result = {}
+
+    all_vars = {**simple_vars, **complex_vars}
+    ordered_names = list(sorted(simple_vars.keys())) + list(sorted(complex_vars.keys()))
+
+    for name in ordered_names:
+        value = all_vars[name]
+
+        if _pattern_matches(name, compiled_mask):
+            redacted_value = CODE_VARIABLES_REDACTED_VALUE
+            redacted_size = len(redacted_value)
+            if not limiter.can_add(redacted_size):
+                break
+            limiter.add(redacted_size)
+            result[name] = redacted_value
+        else:
+            serialized = _serialize_variable_value(
+                value, limiter, max_length, compiled_mask
+            )
+            if serialized is None:
+                break
+            result[name] = serialized
+
+    return result
+
+
+def try_attach_code_variables_to_frames(
+    all_exceptions, exc_info, mask_patterns, ignore_patterns
+):
+    try:
+        attach_code_variables_to_frames(
+            all_exceptions, exc_info, mask_patterns, ignore_patterns
+        )
+    except Exception:
+        pass
+
+
+def attach_code_variables_to_frames(
+    all_exceptions, exc_info, mask_patterns, ignore_patterns
+):
+    exc_type, exc_value, traceback = exc_info
+
+    if traceback is None:
+        return
+
+    tb_frames = list(iter_stacks(traceback))
+
+    if not tb_frames:
+        return
+
+    limiter = VariableSizeLimiter()
+
+    for exception in all_exceptions:
+        stacktrace = exception.get("stacktrace")
+        if not stacktrace or "frames" not in stacktrace:
+            continue
+
+        serialized_frames = stacktrace["frames"]
+
+        for serialized_frame, tb_item in zip(serialized_frames, tb_frames):
+            if not serialized_frame.get("in_app"):
+                continue
+
+            variables = serialize_code_variables(
+                tb_item.tb_frame,
+                limiter,
+                mask_patterns=mask_patterns,
+                ignore_patterns=ignore_patterns,
+                max_length=1024,
+            )
+
+            if variables:
+                serialized_frame["code_variables"] = variables

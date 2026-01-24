@@ -1137,9 +1137,36 @@ class DomainsSmtpCredential(pulumi.CustomResource):
                  user: Optional[pulumi.Input[Union['DomainsSmtpCredentialUserArgs', 'DomainsSmtpCredentialUserArgsDict']]] = None,
                  __props__=None):
         """
-        This resource provides the Smtp Credential resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create a user's SMTP credentials.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_smtp_credential = oci.identity.DomainsSmtpCredential("test_smtp_credential",
+            idcs_endpoint=test_domain["url"],
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:smtpCredential"],
+            attribute_sets=[],
+            attributes="",
+            authorization=smtp_credential_authorization,
+            description=smtp_credential_description,
+            expires_on=smtp_credential_expires_on,
+            id=smtp_credential_id,
+            ocid=smtp_credential_ocid,
+            resource_type_schema_version=smtp_credential_resource_type_schema_version,
+            status=smtp_credential_status,
+            tags=[{
+                "key": smtp_credential_tags_key,
+                "value": smtp_credential_tags_value,
+            }],
+            urnietfparamsscimschemasoracleidcsextensionself_change_user={
+                "allow_self_change": smtp_credential_urnietfparamsscimschemasoracleidcsextensionself_change_user_allow_self_change,
+            },
+            user={
+                "ocid": test_user["ocid"],
+                "value": test_user["id"],
+            })
+        ```
 
         ## Import
 
@@ -1243,9 +1270,36 @@ class DomainsSmtpCredential(pulumi.CustomResource):
                  args: DomainsSmtpCredentialArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Smtp Credential resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create a user's SMTP credentials.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_smtp_credential = oci.identity.DomainsSmtpCredential("test_smtp_credential",
+            idcs_endpoint=test_domain["url"],
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:smtpCredential"],
+            attribute_sets=[],
+            attributes="",
+            authorization=smtp_credential_authorization,
+            description=smtp_credential_description,
+            expires_on=smtp_credential_expires_on,
+            id=smtp_credential_id,
+            ocid=smtp_credential_ocid,
+            resource_type_schema_version=smtp_credential_resource_type_schema_version,
+            status=smtp_credential_status,
+            tags=[{
+                "key": smtp_credential_tags_key,
+                "value": smtp_credential_tags_value,
+            }],
+            urnietfparamsscimschemasoracleidcsextensionself_change_user={
+                "allow_self_change": smtp_credential_urnietfparamsscimschemasoracleidcsextensionself_change_user_allow_self_change,
+            },
+            user={
+                "ocid": test_user["ocid"],
+                "value": test_user["id"],
+            })
+        ```
 
         ## Import
 

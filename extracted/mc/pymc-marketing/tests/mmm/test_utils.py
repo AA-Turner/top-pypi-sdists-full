@@ -12,6 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import arviz as az
 import numpy as np
 import pandas as pd
 import pytest
@@ -22,6 +23,7 @@ from pymc_marketing.mmm.utils import (
     _convert_frequency_to_timedelta,
     add_noise_to_channel_allocation,
     apply_sklearn_transformer_across_dim,
+    build_contributions,
     create_index,
     create_new_spend_data,
     create_zero_dataset,
@@ -131,7 +133,7 @@ def test_create_new_spend_data(
 
 def test_create_new_spend_data_value_errors() -> None:
     with pytest.raises(
-        ValueError, match="spend_leading_up must be the same length as the spend"
+        ValueError, match=r"spend_leading_up must be the same length as the spend"
     ):
         create_new_spend_data(
             spend=np.array([1, 2]),
@@ -319,7 +321,7 @@ class TestConvertFrequencyToTimedelta:
     def test_unrecognized_frequency_with_warning(self):
         """Test that unrecognized frequencies default to weeks and issue a warning."""
         with pytest.warns(
-            UserWarning, match="Unrecognized frequency 'XYZ'. Defaulting to weeks."
+            UserWarning, match=r"Unrecognized frequency 'XYZ'. Defaulting to weeks."
         ):
             result = _convert_frequency_to_timedelta(2, "XYZ")
             expected = pd.Timedelta(weeks=2)
@@ -458,7 +460,7 @@ class TestCreateZeroDataset:
         )
 
         with pytest.warns(
-            UserWarning, match="does not supply values for \\['channel2'\\]"
+            UserWarning, match=r"does not supply values for \['channel2'\]"
         ):
             result = create_zero_dataset(model, start_date, end_date, channel_values)
 
@@ -472,7 +474,7 @@ class TestCreateZeroDataset:
         end_date = "2022-02-10"
 
         # Test invalid channel_xr type
-        with pytest.raises(TypeError, match="must be an xarray Dataset or DataArray"):
+        with pytest.raises(TypeError, match=r"must be an xarray Dataset or DataArray"):
             create_zero_dataset(model, start_date, end_date, channel_xr="invalid")
 
         # Test channel_xr with invalid variables
@@ -480,7 +482,7 @@ class TestCreateZeroDataset:
             data_vars={"invalid_channel": (["region"], np.array([5.0, 7.0]))},
             coords={"region": np.array(["A", "B"])},
         )
-        with pytest.raises(ValueError, match="contains variables not in"):
+        with pytest.raises(ValueError, match=r"contains variables not in"):
             create_zero_dataset(model, start_date, end_date, invalid_channel_xr)
 
         # Test channel_xr with invalid dimensions
@@ -488,7 +490,7 @@ class TestCreateZeroDataset:
             data_vars={"channel1": (["invalid_dim"], np.array([5.0, 7.0]))},
             coords={"invalid_dim": np.array(["A", "B"])},
         )
-        with pytest.raises(ValueError, match="uses dims that are not recognised"):
+        with pytest.raises(ValueError, match=r"uses dims that are not recognised"):
             create_zero_dataset(model, start_date, end_date, invalid_dims_xr)
 
         # Test channel_xr with date dimension (not allowed)
@@ -503,7 +505,7 @@ class TestCreateZeroDataset:
         )
         # The date dimension check is caught by the unrecognized dims check first
         with pytest.raises(
-            ValueError, match="uses dims that are not recognised model dims"
+            ValueError, match=r"uses dims that are not recognised model dims"
         ):
             create_zero_dataset(model, start_date, end_date, date_dim_xr)
 
@@ -588,7 +590,7 @@ class TestCreateZeroDataset:
         start_date = "2022-02-10"
         end_date = "2022-02-01"
 
-        with pytest.raises(ValueError, match="Generated date range is empty"):
+        with pytest.raises(ValueError, match=r"Generated date range is empty"):
             create_zero_dataset(model, start_date, end_date)
 
     def test_create_zero_dataset_channel_xr_no_dims_all_channels(self):
@@ -668,7 +670,7 @@ class TestCreateZeroDataset:
         )
 
         with pytest.warns(
-            UserWarning, match="does not supply values for \\['channel2'\\]"
+            UserWarning, match=r"does not supply values for \['channel2'\]"
         ):
             result = create_zero_dataset(model, start_date, end_date, channel_values)
 
@@ -676,3 +678,204 @@ class TestCreateZeroDataset:
         assert len(result) == 5
         assert np.all(result["channel1"] == 50.0)
         assert np.all(result["channel2"] == 0.0)
+
+
+class TestBuildContributions:
+    """Test cases for build_contributions function."""
+
+    @pytest.fixture
+    def mock_idata_simple(self):
+        """Create simple InferenceData for testing build_contributions."""
+        dates = pd.date_range("2025-01-01", periods=10, freq="W-MON")
+        channels = ["C1", "C2"]
+
+        posterior = xr.Dataset(
+            {
+                "intercept_contribution": xr.DataArray(
+                    np.random.normal(size=(2, 50, 10)),
+                    dims=("chain", "draw", "date"),
+                    coords={
+                        "chain": [0, 1],
+                        "draw": np.arange(50),
+                        "date": dates,
+                    },
+                ),
+                "channel_contribution": xr.DataArray(
+                    np.random.normal(size=(2, 50, 10, 2)),
+                    dims=("chain", "draw", "date", "channel"),
+                    coords={
+                        "chain": [0, 1],
+                        "draw": np.arange(50),
+                        "date": dates,
+                        "channel": channels,
+                    },
+                ),
+            }
+        )
+        idata = az.InferenceData(posterior=posterior)
+        return idata
+
+    @pytest.fixture
+    def mock_idata_multidim(self):
+        """Create InferenceData with multiple dimensions."""
+        dates = pd.date_range("2025-01-01", periods=5, freq="W-MON")
+        channels = ["C1", "C2"]
+        geos = ["US", "UK"]
+
+        posterior = xr.Dataset(
+            {
+                "intercept_contribution": xr.DataArray(
+                    np.random.normal(size=(2, 30, 5, 2)),
+                    dims=("chain", "draw", "date", "geo"),
+                    coords={
+                        "chain": [0, 1],
+                        "draw": np.arange(30),
+                        "date": dates,
+                        "geo": geos,
+                    },
+                ),
+                "channel_contribution": xr.DataArray(
+                    np.random.normal(size=(2, 30, 5, 2, 2)),
+                    dims=("chain", "draw", "date", "channel", "geo"),
+                    coords={
+                        "chain": [0, 1],
+                        "draw": np.arange(30),
+                        "date": dates,
+                        "channel": channels,
+                        "geo": geos,
+                    },
+                ),
+            }
+        )
+        idata = az.InferenceData(posterior=posterior)
+        return idata
+
+    def test_build_contributions_basic(self, mock_idata_simple):
+        """Test basic functionality of build_contributions."""
+        df = build_contributions(
+            idata=mock_idata_simple,
+            var=["intercept_contribution", "channel_contribution"],
+            agg="mean",
+        )
+
+        # Check it returns a DataFrame
+        assert isinstance(df, pd.DataFrame)
+
+        # Should have date column
+        assert "date" in df.columns
+
+        # Should have expanded channel columns
+        assert "channel__C1" in df.columns
+        assert "channel__C2" in df.columns
+
+        # Should have intercept column (renamed from intercept_contribution)
+        assert "intercept" in df.columns
+
+        # Check that we have 10 rows (one per date)
+        assert len(df) == 10
+
+    def test_build_contributions_with_median(self, mock_idata_simple):
+        """Test build_contributions with median aggregation."""
+        df = build_contributions(
+            idata=mock_idata_simple,
+            var=["intercept_contribution"],
+            agg="median",
+        )
+
+        assert isinstance(df, pd.DataFrame)
+        assert "intercept" in df.columns
+        assert len(df) == 10
+
+    def test_build_contributions_multidimensional(self, mock_idata_multidim):
+        """Test build_contributions with multiple dimensions."""
+        df = build_contributions(
+            idata=mock_idata_multidim,
+            var=["intercept_contribution", "channel_contribution"],
+            agg="mean",
+        )
+
+        # Should have both date and geo columns
+        assert "date" in df.columns
+        assert "geo" in df.columns
+
+        # Should have expanded channel columns
+        assert "channel__C1" in df.columns
+        assert "channel__C2" in df.columns
+
+        # Should have intercept
+        assert "intercept" in df.columns
+
+        # Check that we have 10 rows (5 dates * 2 geos)
+        assert len(df) == 10
+
+        # Check geo is categorical
+        assert df["geo"].dtype.name == "category"
+
+    def test_build_contributions_custom_dims(self, mock_idata_simple):
+        """Test build_contributions with custom dimension parameters."""
+        df = build_contributions(
+            idata=mock_idata_simple,
+            var=["channel_contribution"],
+            agg="mean",
+            agg_dims=("chain", "draw"),
+            index_dims=("date",),
+            expand_dims=("channel",),
+        )
+
+        assert isinstance(df, pd.DataFrame)
+        assert "channel__C1" in df.columns
+        assert "channel__C2" in df.columns
+
+    def test_build_contributions_missing_variables(self, mock_idata_simple):
+        """Test that build_contributions raises error for missing variables."""
+        with pytest.raises(
+            ValueError,
+            match=r"None of the requested variables .* are present in idata.posterior",
+        ):
+            build_contributions(
+                idata=mock_idata_simple,
+                var=["nonexistent_variable"],
+                agg="mean",
+            )
+
+    def test_build_contributions_partial_variables(self, mock_idata_simple):
+        """Test build_contributions with some valid and some invalid variables."""
+        # Should work with only the valid variable
+        df = build_contributions(
+            idata=mock_idata_simple,
+            var=["intercept_contribution", "nonexistent"],
+            agg="mean",
+        )
+
+        # Should have the intercept column
+        assert "intercept" in df.columns
+        assert len(df) == 10
+
+    def test_build_contributions_no_category_cast(self, mock_idata_multidim):
+        """Test build_contributions without casting to category."""
+        df = build_contributions(
+            idata=mock_idata_multidim,
+            var=["intercept_contribution"],
+            agg="mean",
+            cast_regular_to_category=False,
+        )
+
+        # Geo should not be categorical
+        assert df["geo"].dtype.name != "category"
+
+    def test_build_contributions_custom_aggregation(self, mock_idata_simple):
+        """Test build_contributions with a custom aggregation function."""
+
+        def custom_agg(data, axis):
+            # Custom aggregation: 75th percentile
+            return np.quantile(data, 0.75, axis=axis)
+
+        df = build_contributions(
+            idata=mock_idata_simple,
+            var=["intercept_contribution"],
+            agg=custom_agg,
+        )
+
+        assert isinstance(df, pd.DataFrame)
+        assert "intercept" in df.columns
+        assert len(df) == 10

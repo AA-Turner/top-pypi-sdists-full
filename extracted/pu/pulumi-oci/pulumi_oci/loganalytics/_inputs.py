@@ -27,6 +27,10 @@ __all__ = [
     'LogAnalyticsObjectCollectionRuleOverrideArgsDict',
     'LogAnalyticsPreferencesManagementItemArgs',
     'LogAnalyticsPreferencesManagementItemArgsDict',
+    'NamespaceAssociationAssociationPropertyArgs',
+    'NamespaceAssociationAssociationPropertyArgsDict',
+    'NamespaceAssociationAssociationPropertyPatternArgs',
+    'NamespaceAssociationAssociationPropertyPatternArgsDict',
     'NamespaceIngestTimeRuleActionArgs',
     'NamespaceIngestTimeRuleActionArgsDict',
     'NamespaceIngestTimeRuleConditionsArgs',
@@ -57,6 +61,8 @@ __all__ = [
     'NamespaceStorageArchivalConfigArchivingConfigurationArgsDict',
     'GetLogAnalyticsEntitiesFilterArgs',
     'GetLogAnalyticsEntitiesFilterArgsDict',
+    'GetLogAnalyticsEntityAssociationsListFilterArgs',
+    'GetLogAnalyticsEntityAssociationsListFilterArgsDict',
     'GetLogAnalyticsEntityTopologyFilterArgs',
     'GetLogAnalyticsEntityTopologyFilterArgsDict',
     'GetLogAnalyticsEntityTypesFilterArgs',
@@ -558,6 +564,140 @@ class LogAnalyticsPreferencesManagementItemArgs:
     @value.setter
     def value(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "value", value)
+
+
+if not MYPY:
+    class NamespaceAssociationAssociationPropertyArgsDict(TypedDict):
+        name: pulumi.Input[_builtins.str]
+        """
+        The name of the association property.
+        """
+        patterns: NotRequired[pulumi.Input[Sequence[pulumi.Input['NamespaceAssociationAssociationPropertyPatternArgsDict']]]]
+        """
+        A list of pattern level overrides for this property.
+        """
+        value: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The value of the association property.
+        """
+elif False:
+    NamespaceAssociationAssociationPropertyArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class NamespaceAssociationAssociationPropertyArgs:
+    def __init__(__self__, *,
+                 name: pulumi.Input[_builtins.str],
+                 patterns: Optional[pulumi.Input[Sequence[pulumi.Input['NamespaceAssociationAssociationPropertyPatternArgs']]]] = None,
+                 value: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] name: The name of the association property.
+        :param pulumi.Input[Sequence[pulumi.Input['NamespaceAssociationAssociationPropertyPatternArgs']]] patterns: A list of pattern level overrides for this property.
+        :param pulumi.Input[_builtins.str] value: The value of the association property.
+        """
+        pulumi.set(__self__, "name", name)
+        if patterns is not None:
+            pulumi.set(__self__, "patterns", patterns)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The name of the association property.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def patterns(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['NamespaceAssociationAssociationPropertyPatternArgs']]]]:
+        """
+        A list of pattern level overrides for this property.
+        """
+        return pulumi.get(self, "patterns")
+
+    @patterns.setter
+    def patterns(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['NamespaceAssociationAssociationPropertyPatternArgs']]]]):
+        pulumi.set(self, "patterns", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The value of the association property.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "value", value)
+
+
+if not MYPY:
+    class NamespaceAssociationAssociationPropertyPatternArgsDict(TypedDict):
+        id: pulumi.Input[_builtins.str]
+        """
+        The pattern id.
+        """
+        value: pulumi.Input[_builtins.str]
+        """
+        (Updatable) The value of the property.
+        """
+        effective_level: NotRequired[pulumi.Input[_builtins.str]]
+elif False:
+    NamespaceAssociationAssociationPropertyPatternArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class NamespaceAssociationAssociationPropertyPatternArgs:
+    def __init__(__self__, *,
+                 id: pulumi.Input[_builtins.str],
+                 value: pulumi.Input[_builtins.str],
+                 effective_level: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] id: The pattern id.
+        :param pulumi.Input[_builtins.str] value: (Updatable) The value of the property.
+        """
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "value", value)
+        if effective_level is not None:
+            pulumi.set(__self__, "effective_level", effective_level)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> pulumi.Input[_builtins.str]:
+        """
+        The pattern id.
+        """
+        return pulumi.get(self, "id")
+
+    @id.setter
+    def id(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "id", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> pulumi.Input[_builtins.str]:
+        """
+        (Updatable) The value of the property.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "value", value)
+
+    @_builtins.property
+    @pulumi.getter(name="effectiveLevel")
+    def effective_level(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "effective_level")
+
+    @effective_level.setter
+    def effective_level(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "effective_level", value)
 
 
 if not MYPY:
@@ -1915,6 +2055,62 @@ class GetLogAnalyticsEntitiesFilterArgs:
     def name(self) -> _builtins.str:
         """
         A filter to return only log analytics entities whose name matches the entire name given. The match is case-insensitive.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: _builtins.str):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "values")
+
+    @values.setter
+    def values(self, value: Sequence[_builtins.str]):
+        pulumi.set(self, "values", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "regex")
+
+    @regex.setter
+    def regex(self, value: Optional[_builtins.bool]):
+        pulumi.set(self, "regex", value)
+
+
+if not MYPY:
+    class GetLogAnalyticsEntityAssociationsListFilterArgsDict(TypedDict):
+        name: _builtins.str
+        """
+        Log analytics entity name.
+        """
+        values: Sequence[_builtins.str]
+        regex: NotRequired[_builtins.bool]
+elif False:
+    GetLogAnalyticsEntityAssociationsListFilterArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class GetLogAnalyticsEntityAssociationsListFilterArgs:
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str],
+                 regex: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.str name: Log analytics entity name.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+        if regex is not None:
+            pulumi.set(__self__, "regex", regex)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Log analytics entity name.
         """
         return pulumi.get(self, "name")
 

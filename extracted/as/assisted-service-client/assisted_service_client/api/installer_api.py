@@ -2761,7 +2761,7 @@ class InstallerApi(object):
         :param str file_name: The file to be downloaded. (required)
         :param str mac: Mac address of the host running ipxe script.
         :param str ipxe_script_type: Specify the script type to be served for iPXE.
-        :param str discovery_iso_type: Overrides the ISO type for the disovery ignition, either 'full-iso' or 'minimal-iso'.
+        :param str discovery_iso_type: Overrides the ISO type for the discovery ignition.
         :return: file
                  If the method is called asynchronously,
                  returns the request thread.
@@ -2787,7 +2787,7 @@ class InstallerApi(object):
         :param str file_name: The file to be downloaded. (required)
         :param str mac: Mac address of the host running ipxe script.
         :param str ipxe_script_type: Specify the script type to be served for iPXE.
-        :param str discovery_iso_type: Overrides the ISO type for the disovery ignition, either 'full-iso' or 'minimal-iso'.
+        :param str discovery_iso_type: Overrides the ISO type for the discovery ignition.
         :return: file
                  If the method is called asynchronously,
                  returns the request thread.
@@ -6992,8 +6992,8 @@ class InstallerApi(object):
             raise ValueError("Missing the required parameter `logs_type` when calling `v2_upload_logs`")  # noqa: E501
 
         if ('upfile' in params and
-                len(params['upfile']) > 104857600):
-            raise ValueError("Invalid value for parameter `upfile` when calling `v2_upload_logs`, length must be less than or equal to `104857600`")  # noqa: E501
+                len(params['upfile']) > 262144000):
+            raise ValueError("Invalid value for parameter `upfile` when calling `v2_upload_logs`, length must be less than or equal to `262144000`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}

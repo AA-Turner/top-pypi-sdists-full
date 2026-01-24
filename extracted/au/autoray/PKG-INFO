@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoray
-Version: 0.8.0
+Version: 0.8.4
 Summary: Abstract your array operations.
 Project-URL: Documentation, https://autoray.readthedocs.io/
 Project-URL: Repository, https://github.com/jcmgray/autoray/
@@ -13,20 +13,20 @@ Keywords: agnostic,array,autograd,cupy,dask,dispatch,jax,numeric,numpy,tensor,te
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Provides-Extra: docs
-Requires-Dist: astroid<3; extra == 'docs'
+Requires-Dist: astroid; extra == 'docs'
 Requires-Dist: furo; extra == 'docs'
-Requires-Dist: ipython!=8.7.0; extra == 'docs'
+Requires-Dist: ipython; extra == 'docs'
 Requires-Dist: myst-nb; extra == 'docs'
 Requires-Dist: setuptools-scm; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-autoapi; extra == 'docs'
 Requires-Dist: sphinx-copybutton; extra == 'docs'
-Requires-Dist: sphinx>=2.0; extra == 'docs'
 Provides-Extra: tests
 Requires-Dist: coverage; extra == 'tests'
 Requires-Dist: numpy; extra == 'tests'
@@ -76,7 +76,7 @@ Beyond that, abstracting the array interface allows you to:
 ## Basic usage
 
 The main function of `autoray` is
-[`do`](https://autoray.readthedocs.io/en/latest/autoapi/autoray/autoray/index.html#autoray.autoray.do),
+[`do`](https://autoray.readthedocs.io/en/latest/autoapi/autoray/index.html#autoray.do),
 which takes a function
 name followed by `*args` and `**kwargs`, and automatically looks up (and
 caches) the correct function to match the equivalent numpy call:
@@ -122,9 +122,10 @@ np.exp(z)
 #        [2.7182817, 2.7182817, 2.7182817, 2.7182817]], dtype=float32)
 ```
 
-Alternatively you can use `autoray.get_namespace` to get a backend specific
-(with optional default device and dtype) namespace object, (c.f. the Python
-Array Api):
+Alternatively you can use
+[`autoray.get_namespace`](https://autoray.readthedocs.io/en/latest/autoapi/autoray/index.html#autoray.get_namespace)
+to get a backend specific (with optional default device and dtype) namespace
+object, (c.f. the [Python Array Api](https://data-apis.org/array-api/latest/)):
 
 ```python
 xp = ar.get_namespace(z)
@@ -133,7 +134,7 @@ xp.einsum("ii->i", z)
 
 Custom backends and functions can be dynamically registered with:
 
-* [`register_backend`](https://autoray.readthedocs.io/en/latest/autoapi/autoray/autoray/index.html#autoray.autoray.register_backend)
-* [`register_function`](https://autoray.readthedocs.io/en/latest/autoapi/autoray/autoray/index.html#autoray.autoray.register_function)
+* [`register_backend`](https://autoray.readthedocs.io/en/latest/autoapi/autoray/index.html#autoray.register_backend)
+* [`register_function`](https://autoray.readthedocs.io/en/latest/autoapi/autoray/index.html#autoray.register_function)
 
 The main documentation is available at [autoray.readthedocs.io](https://autoray.readthedocs.io/en/latest/).

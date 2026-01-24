@@ -1,0 +1,58 @@
+# -- GWpy CI/CD pipeline
+#
+# The configuration below is designed (badly, probably) to
+# maximise the test coverage (minimise risk of breakages)
+# whilst also minimising duplicate use of CI/CD credits for
+# the GWpy project or individual contributors.
+#
+
+stages:
+  - check
+  - build
+  - test
+  - conda
+  - docs
+  - deploy
+
+default:
+  # all jobs are, by default, interruptible
+  interruptible: true
+  # retry all jobs at most twice when gitlab-ci fails to start the job properly
+  # see https://docs.gitlab.com/ee/ci/yaml/#retry
+  retry:
+    max: 2
+    when:
+      - job_execution_timeout
+      - runner_system_failure
+      - stuck_or_timeout_failure
+  # no job should take more than an hour
+  timeout: 1h
+
+include:
+  # -- Quality assurance checks
+
+  - local: .gitlab/ci/qa.yml
+    inputs:
+      stage: check
+
+  # -- Build
+
+  - local: .gitlab/ci/python-dist.yml
+    inputs:
+      stage: build
+
+  # -- Test
+
+  - local: .gitlab/ci/test.yml
+
+  # -- Documentation
+
+  #- local: .gitlab/ci/sphinx.yml
+  #  inputs:
+  #    stage: docs
+
+  # -- Deploy release
+
+  - local: .gitlab/ci/twine.yml
+    inputs:
+      stage: deploy

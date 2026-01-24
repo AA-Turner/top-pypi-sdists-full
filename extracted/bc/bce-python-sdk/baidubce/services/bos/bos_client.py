@@ -64,7 +64,7 @@ class UploadTaskHandle:
     handle to control multi upload file with multi-thread
     """
     def __init__(self):
-        self.cancel_flag= False
+        self.cancel_flag = False
         self.cancel_lock = threading.Lock()
 
     def cancel(self):
@@ -707,6 +707,9 @@ class BosClient(BceBaseClient):
             **URL string**
         """
         key = compat.convert_to_bytes(key)
+        if len(key) == 0 or key == b'v1':
+            raise ValueError('generate url the key param error!')
+
         config = self._merge_config(config, bucket_name)
         headers = headers or {}
         params = params or {}
@@ -953,12 +956,16 @@ class BosClient(BceBaseClient):
         return True
 
     @required(bucket_name=(bytes, str), key=(bytes, str))
-    def get_object(self, bucket_name, key, range=None, traffic_limit=None, version_id=None, config=None):
+    def get_object(self, bucket_name, key, range=None, traffic_limit=None, version_id=None, 
+                   cond_read_write=None, config=None):
         """
 
         :param bucket_name:
         :param key:
         :param range:
+        :param traffic_limit:
+        :param version_id:
+        :param cond_read_write:
         :param config:
         :return:
         """
@@ -970,10 +977,17 @@ class BosClient(BceBaseClient):
         if len(key) == 0 or key.startswith(b"/"):
             raise BceClientError("Key can not be empty or start with '/' .")
         range_header = BosClient._get_range_header_dict(range)
+
         if traffic_limit is not None:
             if range_header is None:
                 range_header = {}
             range_header[http_headers.BOS_TRAFFIC_LIMIT] = traffic_limit
+        
+        if cond_read_write is not None:
+            if range_header is None:
+                range_header = {}
+            range_header = self._get_cond_read_write_headers(http_methods.GET, range_header, cond_read_write)
+        
         return self._send_request(
             http_methods.GET,
             bucket_name,
@@ -982,7 +996,8 @@ class BosClient(BceBaseClient):
             params=query_params,
             config=config,
             body_parser=BosClient._parse_bos_object)
-# restore object
+
+    # restore object
     @required(bucket_name=(bytes, str), key=(bytes, str))
     def restore_object(self, bucket_name, key, days=None, tier="Standard", config=None):
         """
@@ -1032,7 +1047,7 @@ class BosClient(BceBaseClient):
         return True
 
     @required(bucket_name=(bytes, str), key=(bytes, str))
-    def get_object_as_string(self, bucket_name, key, range=None, version_id=None, config=None):
+    def get_object_as_string(self, bucket_name, key, range=None, version_id=None, cond_read_write=None, config=None):
         """
 
         :param bucket_name:
@@ -1042,14 +1057,15 @@ class BosClient(BceBaseClient):
         :return:
         """
         key = compat.convert_to_bytes(key)
-        response = self.get_object(bucket_name, key, range=range, version_id = version_id, config=config)
+        response = self.get_object(bucket_name, key, range=range, version_id = version_id,
+                                   cond_read_write = cond_read_write, config=config)
         s = response.data.read()
         response.data.close()
         return s
 
     @required(bucket_name=(bytes, str), key=(bytes, str), file_name=(bytes, str))
     def get_object_to_file(self, bucket_name, key, file_name, range=None, config=None, 
-                            progress_callback=None, traffic_limit=None, version_id=None):
+                            progress_callback=None, traffic_limit=None, cond_read_write=None, version_id=None):
         """
         Get Content of Object and Put Content to File
 
@@ -1081,6 +1097,11 @@ class BosClient(BceBaseClient):
                 range_header = {}
             range_header[http_headers.BOS_TRAFFIC_LIMIT] = traffic_limit
         
+        if cond_read_write is not None:
+            if range_header is None:
+                range_header = {}
+            range_header = self._get_cond_read_write_headers(http_methods.GET, range_header, cond_read_write)
+        
         return self._send_request(
             http_methods.GET,
             bucket_name,
@@ -1097,7 +1118,7 @@ class BosClient(BceBaseClient):
 
 
     @required(bucket_name=(bytes, str), key=(bytes, str))
-    def get_object_meta_data(self, bucket_name, key, version_id=None, config=None):
+    def get_object_meta_data(self, bucket_name, key, version_id=None, cond_read_write=None, config=None):
         """
         Get head of object
 
@@ -1113,9 +1134,14 @@ class BosClient(BceBaseClient):
         if version_id is not None:
             version_id = compat.convert_to_bytes(version_id)
             query_params={b'versionId': version_id}
+
+        headers = {}
+        if cond_read_write is not None:
+            headers = self._get_cond_read_write_headers(http_methods.HEAD, headers, cond_read_write)
+        
         key = compat.convert_to_bytes(key)
         return self._send_request(http_methods.HEAD, bucket_name, key,
-        params=query_params, config=config)
+                                  headers=headers, params=query_params, config=config)
 
     @required(bucket_name=(bytes, str),
               key=(bytes, str),
@@ -1248,6 +1274,7 @@ class BosClient(BceBaseClient):
                    progress_callback=None,
                    traffic_limit=None,
                    object_tagging=None,
+                   cond_read_write=None,
                    config=None):
         """
         Put object and put content of file to the object
@@ -1280,6 +1307,9 @@ class BosClient(BceBaseClient):
             traffic_limit=traffic_limit,
             object_tagging=object_tagging,)
 
+        if cond_read_write is not None:
+            headers = self._get_cond_read_write_headers(http_methods.PUT, headers, cond_read_write)
+
         buf_size = self._get_config_parameter(config, 'recv_buf_size')
 
         if content_length > bos.MAX_PUT_OBJECT_LENGTH:
@@ -1311,6 +1341,7 @@ class BosClient(BceBaseClient):
                                progress_callback=None,
                                traffic_limit=None,
                                object_tagging=None,
+                               cond_read_write=None,
                                config=None):
         """
         Create object and put content of string to the object
@@ -1353,6 +1384,7 @@ class BosClient(BceBaseClient):
                                    progress_callback = progress_callback,
                                    traffic_limit=traffic_limit,
                                    object_tagging=object_tagging,
+                                   cond_read_write=cond_read_write,
                                    config=config)
         finally:
             if fp is not None:
@@ -1373,6 +1405,7 @@ class BosClient(BceBaseClient):
                              progress_callback=None,
                              traffic_limit=None,
                              object_tagging=None,
+                             cond_read_write=None,
                              config=None,
                              ):
 
@@ -1420,6 +1453,7 @@ class BosClient(BceBaseClient):
                                    progress_callback=progress_callback,
                                    traffic_limit=traffic_limit,
                                    object_tagging=object_tagging,
+                                   cond_read_write=cond_read_write,
                                    config=config)
         finally:
             fp.close()
@@ -1802,8 +1836,9 @@ class BosClient(BceBaseClient):
               part_list=list)
     def complete_multipart_upload(self, bucket_name, key,
                                   upload_id, part_list,
-                                  user_metadata=None,
                                   user_headers=None,
+                                  user_metadata=None,
+                                  cond_read_write=None,
                                   config=None):
         """
         After finish all the task, complete multi_upload_file.
@@ -1828,6 +1863,9 @@ class BosClient(BceBaseClient):
             content_type=http_content_types.JSON,
             user_metadata=user_metadata,
             user_headers=user_headers)
+
+        if cond_read_write is not None:
+            headers = self._get_cond_read_write_headers(http_methods.POST, headers, cond_read_write)
 
         return self._send_request(
             http_methods.POST,
@@ -2008,6 +2046,7 @@ class BosClient(BceBaseClient):
             user_headers=None,
             progress_callback=None,
             traffic_limit=None,
+            cond_read_write=None,
             config=None):
         """
         Multipart Upload file to bos
@@ -2063,7 +2102,7 @@ class BosClient(BceBaseClient):
         # sort
         part_list.sort(key=lambda x: x["partNumber"])
         # complete_multipart_upload
-        self.complete_multipart_upload(bucket_name, key, upload_id, part_list)
+        self.complete_multipart_upload(bucket_name, key, upload_id, part_list, cond_read_write)
         return True
 
     @required(bucket_name=(bytes, str), key=(bytes, str), acl=(list, dict))
@@ -2609,8 +2648,203 @@ class BosClient(BceBaseClient):
             params[b'versionIdMarker'] = version_marker
 
         return self._send_request(http_methods.GET, bucket_name, params=params, config=config)
+    
+    @required(bucket_name=(bytes, str), cors_configuration=list)
+    def init_bucket_object_lock(self, 
+                        bucket_name,
+                        retention_days,
+                        config=None):
+        """
+        init bucket object lock
+        :type bucket: string
+        :param bucket: None
 
-        
+        :type retention_days: int
+        :param retention_days: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.POST,
+                                  bucket_name,
+                                  params={b'objectlock': b''},
+                                  body=json.dumps({'retentionDays': retention_days}),
+                                  config=config)
+
+    @required(bucket_name=(bytes, str))
+    def get_bucket_object_lock(self, bucket_name, config=None):
+        """
+        get bucket object lock
+
+        :type bucket: string
+        :param bucket: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.GET,
+                                  bucket_name,
+                                  params={b'objectlock': b''},
+                                  config=config)
+
+    @required(bucket_name=(bytes, str))
+    def delete_bucket_object_lock(self, bucket_name, config=None):
+        """
+        Delete Bucket Object Lock
+
+        :type bucket: string
+        :param bucket: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.DELETE,
+                                  bucket_name,
+                                  params={b'objectlock': b''},
+                                  config=config)
+
+    @required(bucket_name=(bytes, str), cors_configuration=list)
+    def complete_bucket_object_lock(self, 
+                        bucket_name,
+                        config=None):
+        """
+        complete bucket object lock
+        :type bucket: string
+        :param bucket: None
+
+        :type retention_days: int
+        :param retention_days: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.POST,
+                                  bucket_name,
+                                  params={b'completeobjectlock': b''},
+                                  config=config)
+    
+    @required(bucket_name=(bytes, str), cors_configuration=list)
+    def extend_bucket_object_lock(self, 
+                        bucket_name,
+                        extend_retent_days,
+                        config=None):
+        """
+        extend bucket object lock
+        :type bucket: string
+        :param bucket: None
+
+        :type extend_retent_days: int
+        :param extend_retent_days: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.POST,
+                                  bucket_name,
+                                  params={b'extendobjectlock': b''},
+                                  body=json.dumps({'extendRetentionDays': extend_retent_days}),
+                                  config=config)
+
+    @required(bucket_name=(bytes, str), cors_configuration=list)
+    def get_bucket_quota(self, 
+                        bucket_name,
+                        config=None):
+        """
+        get bucket quota
+        :type bucket: string
+        :param bucket: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.GET,
+                                  bucket_name,
+                                  params={b'quota': b''},
+                                  config=config)
+    
+    @required(bucket_name=(bytes, str), cors_configuration=list)
+    def put_bucket_quota(self, 
+                        bucket_name,
+                        quota_conf,
+                        config=None):
+        """
+        put quota conf of bucket
+        :type bucket: string
+        :param bucket: None
+
+        :type retention_days: int
+        :param retention_days: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.PUT,
+                                  bucket_name,
+                                  body=json.dumps(quota_conf, default=BosClient._dump_acl_object),
+                                  params={b'quota': b''},
+                                  config=config)
+    
+    @required(bucket_name=(bytes, str), cors_configuration=list)
+    def delete_bucket_quota(self, 
+                        bucket_name,
+                        config=None):
+        """
+        get bucket quota
+        :type bucket: string
+        :param bucket: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.DELETE,
+                                  bucket_name,
+                                  params={b'quota': b''},
+                                  config=config)
+    
+    @required(bucket_name=(bytes, str), cors_configuration=list)
+    def get_bucket_tagging(self, 
+                        bucket_name,
+                        config=None):
+        """
+        get bucket tagging
+        :type bucket: string
+        :param bucket: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.GET,
+                                  bucket_name,
+                                  params={b'tagging': b''},
+                                  config=config)
+    
+    @required(bucket_name=(bytes, str), cors_configuration=list)
+    def put_bucket_tagging(self, 
+                        bucket_name,
+                        tag_conf,
+                        config=None):
+        """
+        put tagging conf of bucket
+        :type bucket: string
+        :param bucket: None
+
+        :type retention_days: int
+        :param retention_days: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.PUT,
+                                  bucket_name,
+                                  body=json.dumps(tag_conf, default=BosClient._dump_acl_object),
+                                  params={b'tagging': b''},
+                                  config=config)
+    
+    @required(bucket_name=(bytes, str), cors_configuration=list)
+    def delete_bucket_tagging(self, 
+                        bucket_name,
+                        config=None):
+        """
+        delete bucket tagging
+        :type bucket: string
+        :param bucket: None
+
+        :return:**Http Response**
+        """
+        return self._send_request(http_methods.DELETE,
+                                  bucket_name,
+                                  params={b'tagging': b''},
+                                  config=config)
 
     @staticmethod
     def _prepare_object_headers(
@@ -2692,6 +2926,37 @@ class BosClient(BceBaseClient):
 
         if object_tagging is not None:
             headers[http_headers.BOS_TAGGING] = compat.convert_to_bytes(object_tagging)
+
+        return headers
+
+
+    @staticmethod
+    def _get_cond_read_write_headers(http_method, headers, cond_read_write):
+        """
+        get if condition headers
+        :type http_method: string
+        :param http_method: GET, HEAD, PUT, POST
+
+        :type cond_read_write: string
+        :param cond_read_write: put_object, complete_multipart_upload, get_object, get_object_meta_data
+
+        :return: headers
+        """
+        cond_read_write_set = http_headers.BOS_COND_READ_WRITE_HEADERS
+        
+        if http_method == http_methods.GET or http_method == http_methods.HEAD:
+            cond_read_write_set = cond_read_write_set.union(set(
+                [http_headers.BOS_IF_MODIFIED_SINCE,
+                 http_headers.BOS_IF_UNMODIFIED_SINCE,
+                 http_headers.BOS_IF_MATCH,
+                 http_headers.BOS_IF_NONE_MATCH]))
+        
+        for k, v in iteritems(cond_read_write):
+            k = utils.convert_to_standard_string(k)
+            if k in cond_read_write_set:
+                headers[k] = v
+            else:
+                raise ValueError('%s is not valid in %s' % (k, http_method))
         return headers
 
 
@@ -2798,6 +3063,19 @@ class BosClient(BceBaseClient):
         return config.endpoint
 
     @staticmethod
+    def _need_retry_for_bos(config, error):
+        
+        if not isinstance(error, BceServerError):
+            return False
+
+        # if you need add more retry condition, please add it here
+        if error.status_code == http.client.FORBIDDEN:
+            _logger.debug('BOS retry condition matched: 403 Forbidden')
+            return True
+
+        return False
+
+    @staticmethod
     def _need_retry_backup_endpoint(error):
         # always retry on IOError
         if isinstance(error, IOError):
@@ -2810,6 +3088,8 @@ class BosClient(BceBaseClient):
             if error.status_code == http.client.SERVICE_UNAVAILABLE:
                 return True
             if error.code == BceServerError.REQUEST_EXPIRED:
+                return True
+            if error.status_code == http.client.FORBIDDEN:
                 return True
         return False
 
@@ -2828,23 +3108,42 @@ class BosClient(BceBaseClient):
             headers = headers or {}
             headers[http_headers.STS_SECURITY_TOKEN] = config.security_token
 
+        last_exception = None
+        e = None
         try:
             return bce_http_client.send_request(
                 config, bce_v1_signer.sign, [handler.parse_error, body_parser],
                 http_method, path, body, headers, params)
-        except BceHttpClientError as e:
-            # retry backup endpoint
-            if config.backup_endpoint is None:
-                raise e
-            if BosClient._need_retry_backup_endpoint(e.last_error):
-                _logger.debug(b'Retry for backup endpoint.')
+        except BceHttpClientError as ex:
+            last_exception = ex
+            e = ex
+
+        # retry backup endpoint
+        if e is not None and config.backup_endpoint is not None and BosClient._need_retry_backup_endpoint(e):
+            try:
+                _logger.debug(b'Retry for backup endpoint error code: %d.', e.status_code)
                 path = BosClient._get_path(config, bucket_name, key, True)
-                return bce_http_client.send_request_no_underlined(
+                return bce_http_client.send_request(
                     config, bce_v1_signer.sign, [handler.parse_error, body_parser],
                     http_method, path, body, headers, params, True)
-            else:
-                raise e
+            except BceHttpClientError as ex:
+                last_exception = ex
+                e = ex
 
+        # retry for bos error
+        if e is not None and BosClient._need_retry_for_bos(config, e.last_error):
+            try:
+                _logger.debug(b'Retry for BOS error code: %d.', e.status_code)
+                return bce_http_client.send_request(
+                    config, bce_v1_signer.sign, [handler.parse_error, body_parser],
+                    http_method, path, body, headers, params)
+            except BceHttpClientError as ex:
+                last_exception = ex
+                e = ex
+
+        if last_exception is None:
+            raise
+        raise last_exception
 
 class SelectMessage(object):
     """
@@ -2939,7 +3238,7 @@ class SelectResponse(object):
                     msg.set_end_message(headers_map, crc)
                     self.finish = True
                     yield msg
-            raise StopIteration
+            return
         finally:
             self.http_response.close()
 

@@ -7,8 +7,9 @@ import sys
 from pathlib import Path
 from typing import Callable
 
-import execnet
 import pytest
+
+import execnet
 from execnet import XSpec
 from execnet.gateway import Gateway
 from execnet.gateway_io import popen_args
@@ -41,7 +42,7 @@ class TestXSpec:
         assert spec.chdir is None
         assert spec.nice == "3"
 
-        spec = XSpec("ssh=user@host" "//chdir=/hello/this//python=/usr/bin/python2.5")
+        spec = XSpec("ssh=user@host//chdir=/hello/this//python=/usr/bin/python2.5")
         assert spec.ssh == "user@host"
         assert spec.python == "/usr/bin/python2.5"
         assert spec.chdir == "/hello/this"
@@ -55,8 +56,7 @@ class TestXSpec:
         assert spec.python == "python3"
 
         spec = XSpec(
-            "ssh=-i ~/.ssh/id_rsa-passwordless_login -p 22100 user@host"
-            "//python=python3"
+            "ssh=-i ~/.ssh/id_rsa-passwordless_login -p 22100 user@host//python=python3"
         )
         assert spec.ssh == "-i ~/.ssh/id_rsa-passwordless_login -p 22100 user@host"
         assert spec.python == "python3"

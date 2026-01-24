@@ -2,15 +2,16 @@ import logging
 import sys
 import warnings
 from collections.abc import Callable, Iterable, Sequence
-from itertools import chain, groupby
+from itertools import chain, groupby, zip_longest
 from typing import cast, overload
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_tuple
 
 import pytensor
 from pytensor import scalar as ps
 from pytensor.configdefaults import config
-from pytensor.gradient import DisconnectedType
+from pytensor.gradient import disconnected_type
 from pytensor.graph.basic import Apply, Constant, Variable
 from pytensor.graph.op import Op
 from pytensor.graph.replace import _vectorize_node
@@ -18,7 +19,6 @@ from pytensor.graph.type import Type
 from pytensor.graph.utils import MethodNotDefined
 from pytensor.link.c.op import COp
 from pytensor.link.c.params_type import ParamsType
-from pytensor.npy_2_compat import numpy_version, using_numpy_2
 from pytensor.printing import Printer, pprint, set_precedence
 from pytensor.scalar.basic import ScalarConstant, ScalarVariable
 from pytensor.tensor import (
@@ -39,7 +39,7 @@ from pytensor.tensor.basic import (
 from pytensor.tensor.blockwise import vectorize_node_fallback
 from pytensor.tensor.elemwise import DimShuffle
 from pytensor.tensor.exceptions import AdvancedIndexingError, NotScalarConstantError
-from pytensor.tensor.math import clip
+from pytensor.tensor.math import add, clip
 from pytensor.tensor.shape import Reshape, Shape_i, specify_broadcastable
 from pytensor.tensor.type import (
     TensorType,
@@ -63,6 +63,7 @@ from pytensor.tensor.type import (
 from pytensor.tensor.type_other import (
     MakeSlice,
     NoneConst,
+    NoneSliceConst,
     NoneTypeT,
     SliceConstant,
     SliceType,
@@ -844,6 +845,24 @@ def as_nontensor_scalar(a: Variable) -> ps.ScalarVariable:
         return ps.as_scalar(a)
 
 
+def slice_static_length(slc, dim_length):
+    if dim_length is None:
+        # TODO: Some cases must be zero by definition, we could handle those
+        return None
+
+    entries = [None, None, None]
+    for i, entry in enumerate((slc.start, slc.stop, slc.step)):
+        if entry is None:
+            continue
+
+        try:
+            entries[i] = get_scalar_constant_value(entry)
+        except NotScalarConstantError:
+            return None
+
+    return len(range(*slice(*entries).indices(dim_length)))
+
+
 class Subtensor(COp):
     """Basic NumPy indexing operator."""
 
@@ -886,50 +905,15 @@ class Subtensor(COp):
                 )
 
         padded = [
-            *get_idx_list((None, *inputs), self.idx_list),
+            *indices_from_subtensor(inputs, self.idx_list),
             *[slice(None, None, None)] * (x.type.ndim - len(idx_list)),
         ]
 
-        out_shape = []
-
-        def extract_const(value):
-            if value is None:
-                return value, True
-            try:
-                value = get_scalar_constant_value(value)
-                return value, True
-            except NotScalarConstantError:
-                return value, False
-
-        for the_slice, length in zip(padded, x.type.shape, strict=True):
-            if not isinstance(the_slice, slice):
-                continue
-
-            if length is None:
-                out_shape.append(None)
-                continue
-
-            start = the_slice.start
-            stop = the_slice.stop
-            step = the_slice.step
-
-            is_slice_const = True
-
-            start, is_const = extract_const(start)
-            is_slice_const = is_slice_const and is_const
-
-            stop, is_const = extract_const(stop)
-            is_slice_const = is_slice_const and is_const
-
-            step, is_const = extract_const(step)
-            is_slice_const = is_slice_const and is_const
-
-            if not is_slice_const:
-                out_shape.append(None)
-                continue
-
-            slice_length = len(range(*slice(start, stop, step).indices(length)))
-            out_shape.append(slice_length)
+        out_shape = [
+            slice_static_length(slc, length)
+            for slc, length in zip(padded, x.type.shape, strict=True)
+            if isinstance(slc, slice)
+        ]
 
         return Apply(
             self,
@@ -948,6 +932,9 @@ class Subtensor(COp):
         out[0] = np.asarray(x.__getitem__(cdata))
 
     def infer_shape(self, fgraph, node, shapes):
+        def _is_constant(const, x):
+            return isinstance(const, Constant) and const.data.item() == x
+
         xshp = shapes[0]
         assert len(xshp) == node.inputs[0].ndim
         outshp = []
@@ -961,10 +948,17 @@ class Subtensor(COp):
                 # If it is the default (None, None, None) slice, or a variant,
                 # the shape will be xl
                 if (
-                    (idx.start in [None, 0])
-                    and (idx.stop in [None, sys.maxsize])
-                    and (idx.step is None or idx.step == 1)
+                    (idx.start is None or _is_constant(idx.start, 0))
+                    and (idx.stop is None or _is_constant(idx.stop, sys.maxsize))
+                    and (idx.step is None or _is_constant(idx.step, 1))
                 ):
+                    outshp.append(xl)
+                elif (
+                    (idx.start is None)
+                    and (idx.stop is None)
+                    and _is_constant(idx.step, -1)
+                ):
+                    # Reverse slice
                     outshp.append(xl)
                 else:
                     cnf = get_canonical_form_slice(idx, xl)[0]
@@ -994,7 +988,7 @@ class Subtensor(COp):
             # set subtensor here at:
             # pytensor/tensor/opt.py:local_incsubtensor_of_zeros_to_setsubtensor()
             first = IncSubtensor(self.idx_list)(x.zeros_like(), gz, *rest)
-        return [first] + [DisconnectedType()()] * len(rest)
+        return [first, *(disconnected_type() for _ in range(len(rest)))]
 
     def connection_pattern(self, node):
         rval = [[True], *([False] for _ in node.inputs[1:])]
@@ -1160,7 +1154,7 @@ class Subtensor(COp):
         subtensor_init = "\n".join(init_cmds)
 
         (x,) = inputs[:1]
-        (z,) = outputs
+        (_z,) = outputs
 
         if view_ndim:
             rval = f"""
@@ -1423,7 +1417,6 @@ class SubtensorPrinter(Printer):
 pprint.assign(Subtensor, SubtensorPrinter())
 
 
-# TODO: Implement similar vectorize for Inc/SetSubtensor
 @_vectorize_node.register(Subtensor)
 def vectorize_subtensor(op: Subtensor, node, batch_x, *batch_idxs):
     """Rewrite subtensor with non-batched indexes as another Subtensor with prepended empty slices."""
@@ -1746,41 +1739,30 @@ class IncSubtensor(COp):
     def decl_view(self):
         return "PyArrayObject * zview = NULL;"
 
-    def perform(self, node, inputs, out_):
-        (out,) = out_
-        x, y = inputs[:2]
-        indices = list(reversed(inputs[2:]))
+    def perform(self, node, inputs, output_storage):
+        x, y, *flat_indices = inputs
 
-        def _convert(entry):
-            if isinstance(entry, Type):
-                return indices.pop()
-            elif isinstance(entry, slice):
-                return slice(
-                    _convert(entry.start), _convert(entry.stop), _convert(entry.step)
+        flat_indices_iterator = iter(flat_indices)
+        indices = tuple(
+            (
+                next(flat_indices_iterator)
+                if isinstance(entry, Type)
+                else slice(
+                    None if entry.start is None else next(flat_indices_iterator),
+                    None if entry.stop is None else next(flat_indices_iterator),
+                    None if entry.step is None else next(flat_indices_iterator),
                 )
-            else:
-                return entry
+            )
+            for entry in self.idx_list
+        )
 
-        cdata = tuple(map(_convert, self.idx_list))
-        if len(cdata) == 1:
-            cdata = cdata[0]
         if not self.inplace:
             x = x.copy()
-        sub_x = x.__getitem__(cdata)
-        if sub_x.shape:
-            # we've sliced out an N-D tensor with N > 0
-            if not self.set_instead_of_inc:
-                sub_x += y
-            else:
-                # sub_x += -sub_x + y
-                x.__setitem__(cdata, y)
+        if self.set_instead_of_inc:
+            x[indices] = y
         else:
-            # scalar case
-            if not self.set_instead_of_inc:
-                x.__setitem__(cdata, sub_x + y)
-            else:
-                x.__setitem__(cdata, y)
-        out[0] = x
+            x[indices] += y
+        output_storage[0][0] = x
 
     def c_code(self, node, name, inputs, outputs, sub):
         # This method delegates much of the work to helper
@@ -2041,12 +2023,12 @@ class IncSubtensor(COp):
             gy = Subtensor(idx_list=self.idx_list)(g_output, *idx_list)
             gy = _sum_grad_over_bcasted_dims(y, gy)
 
-        return [gx, gy] + [DisconnectedType()()] * len(idx_list)
+        return [gx, gy, *(disconnected_type() for _ in range(len(idx_list)))]
 
 
 class IncSubtensorPrinter(SubtensorPrinter):
     def process(self, r, pstate):
-        x, y, *idx_args = r.owner.inputs
+        x, _y, *idx_args = r.owner.inputs
 
         res = self._process(r.owner.op.idx_list, [x, *idx_args], pstate)
 
@@ -2153,7 +2135,7 @@ class AdvancedSubtensor1(COp):
                     " from a tensor with ndim != 2. ndim is " + str(x.type.ndim)
                 )
 
-            rval1 = [pytensor.sparse.construct_sparse_from_list(x, gz, ilist)]
+            rval1 = pytensor.sparse.construct_sparse_from_list(x, gz, ilist)
         else:
             if x.dtype in discrete_dtypes:
                 # The output dtype is the same as x
@@ -2162,8 +2144,8 @@ class AdvancedSubtensor1(COp):
                 raise NotImplementedError("No support for complex grad yet")
             else:
                 gx = x.zeros_like()
-            rval1 = [advanced_inc_subtensor1(gx, gz, ilist)]
-        return rval1 + [DisconnectedType()()] * (len(inputs) - 1)
+            rval1 = advanced_inc_subtensor1(gx, gz, ilist)
+        return [rval1, *(disconnected_type() for _ in range(len(inputs) - 1))]
 
     def R_op(self, inputs, eval_points):
         if eval_points[0] is None:
@@ -2348,199 +2330,6 @@ class AdvancedIncSubtensor1(COp):
         return f"""(PyArrayObject*)PyArray_FromAny(py_{x}, NULL, 0, 0,
                 NPY_ARRAY_ENSURECOPY, NULL)"""
 
-    def c_support_code(self, **kwargs):
-        if numpy_version < "1.8.0" or using_numpy_2:
-            return None
-
-        types = [
-            "npy_" + t
-            for t in [
-                "int8",
-                "int16",
-                "int32",
-                "int64",
-                "uint8",
-                "uint16",
-                "uint32",
-                "uint64",
-                "float16",
-                "float32",
-                "float64",
-            ]
-        ]
-
-        complex_types = ["npy_" + t for t in ("complex32", "complex64", "complex128")]
-
-        inplace_map_template = """
-        #if defined(%(typen)s)
-        static void %(type)s_inplace_add(PyArrayMapIterObject *mit,
-                                        PyArrayIterObject *it, int inc_or_set)
-        {
-            int index = mit->size;
-            while (index--) {
-                %(op)s
-
-                PyArray_MapIterNext(mit);
-                PyArray_ITER_NEXT(it);
-            }
-        }
-        #endif
-        """
-
-        floatadd = (
-            "((%(type)s*)mit->dataptr)[0] = "
-            "(inc_or_set ? ((%(type)s*)mit->dataptr)[0] : 0)"
-            " + ((%(type)s*)it->dataptr)[0];"
-        )
-        complexadd = """
-        ((%(type)s*)mit->dataptr)[0].real =
-            (inc_or_set ? ((%(type)s*)mit->dataptr)[0].real : 0)
-            + ((%(type)s*)it->dataptr)[0].real;
-        ((%(type)s*)mit->dataptr)[0].imag =
-            (inc_or_set ? ((%(type)s*)mit->dataptr)[0].imag : 0)
-            + ((%(type)s*)it->dataptr)[0].imag;
-        """
-
-        fns = "".join(
-            [
-                inplace_map_template
-                % {"type": t, "typen": t.upper(), "op": floatadd % {"type": t}}
-                for t in types
-            ]
-            + [
-                inplace_map_template
-                % {"type": t, "typen": t.upper(), "op": complexadd % {"type": t}}
-                for t in complex_types
-            ]
-        )
-
-        def gen_binop(type, typen):
-            return f"""
-    #if defined({typen})
-    {type}_inplace_add,
-    #endif
-    """
-
-        fn_array = (
-            "static inplace_map_binop addition_funcs[] = {"
-            + "".join(gen_binop(type=t, typen=t.upper()) for t in types + complex_types)
-            + "NULL};\n"
-        )
-
-        def gen_num(typen):
-            return f"""
-    #if defined({typen})
-    {typen},
-    #endif
-    """
-
-        type_number_array = (
-            "static int type_numbers[] = {"
-            + "".join(gen_num(typen=t.upper()) for t in types + complex_types)
-            + "-1000};"
-        )
-
-        code = (
-            """
-            typedef void (*inplace_map_binop)(PyArrayMapIterObject *,
-                                            PyArrayIterObject *, int inc_or_set);
-            """
-            + fns
-            + fn_array
-            + type_number_array
-            + """
-    static int
-    map_increment(PyArrayMapIterObject *mit, PyArrayObject *op,
-                inplace_map_binop add_inplace, int inc_or_set)
-    {
-        PyArrayObject *arr = NULL;
-        PyArrayIterObject *it;
-        PyArray_Descr *descr;
-        if (mit->ait == NULL) {
-            return -1;
-        }
-        descr = PyArray_DESCR(mit->ait->ao);
-        Py_INCREF(descr);
-        arr = (PyArrayObject *)PyArray_FromAny((PyObject *)op, descr,
-                                    0, 0, NPY_ARRAY_FORCECAST, NULL);
-        if (arr == NULL) {
-            return -1;
-        }
-        if ((mit->subspace != NULL) && (mit->consec)) {
-            PyArray_MapIterSwapAxes(mit, (PyArrayObject **)&arr, 0);
-            if (arr == NULL) {
-                return -1;
-            }
-        }
-        it = (PyArrayIterObject*)
-                PyArray_BroadcastToShape((PyObject*)arr, mit->dimensions, mit->nd);
-        if (it  == NULL) {
-            Py_DECREF(arr);
-            return -1;
-        }
-
-        (*add_inplace)(mit, it, inc_or_set);
-
-        Py_DECREF(arr);
-        Py_DECREF(it);
-        return 0;
-    }
-
-
-    static int
-    inplace_increment(PyArrayObject *a, PyObject *index, PyArrayObject *inc,
-                    int inc_or_set)
-    {
-        inplace_map_binop add_inplace = NULL;
-        int type_number = -1;
-        int i = 0;
-        PyArrayMapIterObject * mit;
-
-        if (PyArray_FailUnlessWriteable(a, "input/output array") < 0) {
-            return -1;
-        }
-
-        if (PyArray_NDIM(a) == 0) {
-            PyErr_SetString(PyExc_IndexError, "0-d arrays can't be indexed.");
-            return -1;
-        }
-        type_number = PyArray_TYPE(a);
-
-        while (type_numbers[i] >= 0 && addition_funcs[i] != NULL){
-            if (type_number == type_numbers[i]) {
-                add_inplace = addition_funcs[i];
-                break;
-            }
-            i++ ;
-        }
-
-        if (add_inplace == NULL) {
-            PyErr_SetString(PyExc_TypeError, "unsupported type for a");
-            return -1;
-        }
-        mit = (PyArrayMapIterObject *) PyArray_MapIterArray(a, index);
-        if (mit == NULL) {
-            goto fail;
-        }
-        if (map_increment(mit, inc, add_inplace, inc_or_set) != 0) {
-            goto fail;
-        }
-
-        Py_DECREF(mit);
-
-        Py_INCREF(Py_None);
-        return 0;
-
-    fail:
-        Py_XDECREF(mit);
-
-        return -1;
-    }
-    """
-        )
-
-        return code
-
     def c_code(self, node, name, input_names, output_names, sub):
         x, y, idx = input_names
         [out] = output_names
@@ -2654,34 +2443,7 @@ class AdvancedIncSubtensor1(COp):
             """
             return code
 
-        if numpy_version < "1.8.0" or using_numpy_2:
-            raise NotImplementedError
-
-        return f"""
-        PyObject* rval = NULL;
-        if ({params}->inplace)
-        {{
-            if ({x} != {out})
-            {{
-                Py_XDECREF({out});
-                Py_INCREF({x});
-                {out} = {x};
-            }}
-        }}
-        else
-        {{
-            Py_XDECREF({out});
-            {out} = {copy_of_x};
-            if (!{out}) {{
-                // Exception already set
-                {fail}
-            }}
-        }}
-        if (inplace_increment({out}, (PyObject *){idx}, {y}, (1 - {params}->set_instead_of_inc))) {{
-            {fail};
-        }}
-        Py_XDECREF(rval);
-        """
+        raise NotImplementedError
 
     def c_code_cache_version(self):
         return (10,)
@@ -2725,7 +2487,7 @@ class AdvancedIncSubtensor1(COp):
         output_storage[0][0] = x
 
     def infer_shape(self, fgraph, node, ishapes):
-        x, y, ilist = ishapes
+        x, _y, _ilist = ishapes
         return [x]
 
     def R_op(self, inputs, eval_points):
@@ -2757,7 +2519,7 @@ class AdvancedIncSubtensor1(COp):
             gy = advanced_subtensor1(g_output, idx_list)
             gy = _sum_grad_over_bcasted_dims(y, gy)
 
-        return [gx, gy, DisconnectedType()()]
+        return [gx, gy, disconnected_type()]
 
 
 advanced_inc_subtensor1 = AdvancedIncSubtensor1()
@@ -2816,36 +2578,116 @@ class AdvancedSubtensor(Op):
 
     __props__ = ()
 
-    def make_node(self, x, *index):
+    def make_node(self, x, *indices):
         x = as_tensor_variable(x)
-        index = tuple(map(as_index_variable, index))
+        indices = tuple(map(as_index_variable, indices))
 
-        # We create a fake symbolic shape tuple and identify the broadcast
-        # dimensions from the shape result of this entire subtensor operation.
-        with config.change_flags(compute_test_value="off"):
-            fake_shape = tuple(
-                tensor(dtype="int64", shape=()) if s != 1 else 1 for s in x.type.shape
+        explicit_indices = []
+        new_axes = []
+        for idx in indices:
+            if isinstance(idx.type, TensorType) and idx.dtype == "bool":
+                if idx.type.ndim == 0:
+                    raise NotImplementedError(
+                        "Indexing with scalar booleans not supported"
+                    )
+
+                # Check static shape aligned
+                axis = len(explicit_indices) - len(new_axes)
+                indexed_shape = x.type.shape[axis : axis + idx.type.ndim]
+                for j, (indexed_length, indexer_length) in enumerate(
+                    zip(indexed_shape, idx.type.shape)
+                ):
+                    if (
+                        indexed_length is not None
+                        and indexer_length is not None
+                        and indexed_length != indexer_length
+                    ):
+                        raise IndexError(
+                            f"boolean index did not match indexed tensor along axis {axis + j};"
+                            f"size of axis is {indexed_length} but size of corresponding boolean axis is {indexer_length}"
+                        )
+                # Convert boolean indices to integer with nonzero, to reason about static shape next
+                if isinstance(idx, Constant):
+                    nonzero_indices = [tensor_constant(i) for i in idx.data.nonzero()]
+                else:
+                    # Note: Sometimes we could infer a shape error by reasoning about the largest possible size of nonzero
+                    #  and seeing that other integer indices cannot possible match it
+                    nonzero_indices = idx.nonzero()
+                explicit_indices.extend(nonzero_indices)
+            else:
+                if isinstance(idx.type, NoneTypeT):
+                    new_axes.append(len(explicit_indices))
+                explicit_indices.append(idx)
+
+        if (len(explicit_indices) - len(new_axes)) > x.type.ndim:
+            raise IndexError(
+                f"too many indices for array: tensor is {x.type.ndim}-dimensional, but {len(explicit_indices) - len(new_axes)} were indexed"
             )
 
-            fake_index = tuple(
-                chain.from_iterable(
-                    pytensor.tensor.basic.nonzero(idx)
-                    if getattr(idx, "ndim", 0) > 0
-                    and getattr(idx, "dtype", None) == "bool"
-                    else (idx,)
-                    for idx in index
+        # Perform basic and advanced indexing shape inference separately
+        basic_group_shape = []
+        advanced_indices = []
+        adv_group_axis = None
+        last_adv_group_axis = None
+        if new_axes:
+            expanded_x_shape_list = list(x.type.shape)
+            for new_axis in new_axes:
+                expanded_x_shape_list.insert(new_axis, 1)
+            expanded_x_shape = tuple(expanded_x_shape_list)
+        else:
+            expanded_x_shape = x.type.shape
+        for i, (idx, dim_length) in enumerate(
+            zip_longest(explicit_indices, expanded_x_shape, fillvalue=NoneSliceConst)
+        ):
+            if isinstance(idx.type, NoneTypeT):
+                basic_group_shape.append(1)  # New-axis
+            elif isinstance(idx.type, SliceType):
+                if isinstance(idx, Constant):
+                    basic_group_shape.append(slice_static_length(idx.data, dim_length))
+                elif idx.owner is not None and isinstance(idx.owner.op, MakeSlice):
+                    basic_group_shape.append(
+                        slice_static_length(slice(*idx.owner.inputs), dim_length)
+                    )
+                else:
+                    # Symbolic root slice (owner is None), or slice operation we don't understand
+                    basic_group_shape.append(None)
+            else:  # TensorType
+                # Keep track of advanced group axis
+                if adv_group_axis is None:
+                    # First time we see an advanced index
+                    adv_group_axis, last_adv_group_axis = i, i
+                elif last_adv_group_axis == (i - 1):
+                    # Another advanced indexing aligned with the first group
+                    last_adv_group_axis = i
+                else:
+                    # Non-consecutive advanced index, all advanced index views get moved to the front
+                    adv_group_axis = 0
+                advanced_indices.append(idx)
+
+        if advanced_indices:
+            try:
+                # Use variadic add to infer static shape of advanced integer indices
+                advanced_group_static_shape = add(*advanced_indices).type.shape
+            except ValueError:
+                # It fails when static shapes are inconsistent
+                static_shapes = [idx.type.shape for idx in advanced_indices]
+                raise IndexError(
+                    f"shape mismatch: indexing tensors could not be broadcast together with shapes {static_shapes}"
                 )
-            )
-
-            out_shape = tuple(
-                i.value if isinstance(i, Constant) else None
-                for i in indexed_result_shape(fake_shape, fake_index)
-            )
+            # Combine advanced and basic views
+            indexed_shape = [
+                *basic_group_shape[:adv_group_axis],
+                *advanced_group_static_shape,
+                *basic_group_shape[adv_group_axis:],
+            ]
+        else:
+            # This could have been a basic subtensor!
+            indexed_shape = basic_group_shape
 
         return Apply(
             self,
-            (x, *index),
-            [tensor(dtype=x.type.dtype, shape=out_shape)],
+            [x, *indices],
+            [tensor(dtype=x.type.dtype, shape=tuple(indexed_shape))],
         )
 
     def R_op(self, inputs, eval_points):
@@ -2929,9 +2771,10 @@ class AdvancedSubtensor(Op):
         else:
             gx = x.zeros_like()
         rest = inputs[1:]
-        return [advanced_inc_subtensor(gx, gz, *rest)] + [DisconnectedType()()] * len(
-            rest
-        )
+        return [
+            advanced_inc_subtensor(gx, gz, *rest),
+            *(disconnected_type() for _ in range(len(rest))),
+        ]
 
     @staticmethod
     def non_contiguous_adv_indexing(node: Apply) -> bool:
@@ -3091,7 +2934,7 @@ class AdvancedIncSubtensor(Op):
             # Make sure to sum gy over the dimensions of y that have been
             # added or broadcasted
             gy = _sum_grad_over_bcasted_dims(y, gy)
-        return [gx, gy] + [DisconnectedType()() for _ in idxs]
+        return [gx, gy, *(disconnected_type() for _ in range(len(idxs)))]
 
     @staticmethod
     def non_contiguous_adv_indexing(node: Apply) -> bool:
@@ -3311,11 +3154,12 @@ def flip(
     if axis is None:
         index = ((slice(None, None, -1)),) * arr.ndim
     else:
-        if isinstance(axis, int):
-            axis = (axis,)
+        normalized_axis = normalize_axis_tuple(axis, arr.ndim)
         index = tuple(
             [
-                slice(None, None, -1) if i in axis else slice(None, None, None)
+                slice(None, None, -1)
+                if i in normalized_axis
+                else slice(None, None, None)
                 for i in range(arr.ndim)
             ]
         )
@@ -3324,9 +3168,9 @@ def flip(
 
 
 __all__ = [
-    "take",
     "flip",
-    "slice_at_axis",
     "inc_subtensor",
     "set_subtensor",
+    "slice_at_axis",
+    "take",
 ]

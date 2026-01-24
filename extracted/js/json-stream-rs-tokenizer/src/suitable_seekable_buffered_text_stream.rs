@@ -41,10 +41,10 @@ impl Utf8CharSource for SuitableSeekableBufferedTextStream {
             // becomes 0? => no seek), but probably not relevant
             self.buf_start_seek_pos = Some(self.inner.seek(OpaqueSeekFrom::Current)?);
             let buf = self.inner.read_string(self.buffer_size)?;
-            self.chars_iter = buf.into_chars();
+            self.chars_iter = OwnedCharsExt::into_chars(buf);
             self.chars_read_from_buf = 0;
             let oc = self.chars_iter.next();
-            if let Some(_) = oc {
+            if oc.is_some() {
                 self.chars_read_from_buf += 1;
             }
             Ok(oc)
@@ -56,7 +56,8 @@ impl ParkCursorChars for SuitableSeekableBufferedTextStream {
     fn park_cursor(&mut self) -> io::Result<()> {
         let chars_read_from_buf = self.chars_read_from_buf;
         if let Some(buf_start_seek_pos) = &self.buf_start_seek_pos {
-            self.inner.seek(OpaqueSeekFrom::Start(buf_start_seek_pos.clone()))?;
+            self.inner
+                .seek(OpaqueSeekFrom::Start(buf_start_seek_pos.clone()))?;
             self.inner.read_string(chars_read_from_buf)?;
             self.chars_iter = OwnedChars::from_string("".to_owned());
         }

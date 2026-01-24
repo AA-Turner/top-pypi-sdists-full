@@ -1,10 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: requests-file
-Version: 2.1.0
+Version: 3.0.1
 Summary: File transport adapter for Requests
 Author-email: David Shea <reallylongword@gmail.com>
 License: Apache 2.0
-Project-URL: Homepage, https://github.com/dashea/requests-file
+Project-URL: Homepage, https://codeberg.org/dashea/requests-file
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Plugins
 Classifier: Intended Audience :: Developers
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: requests>=1.0.0
+Dynamic: license-file
 
 Requests-File
 =============
@@ -50,7 +51,7 @@ Contributing
 ------------
 
 Contributions welcome! Feel free to open a pull request against
-https://github.com/dashea/requests-file
+https://codeberg.org/dashea/requests-file
 
 License
 -------
@@ -58,4 +59,4 @@ License
 To maximise compatibility with Requests, this code is licensed under the Apache
 license. See LICENSE for more details.
 
-.. _`Requests`: https://github.com/kennethreitz/requests
+.. _`Requests`: https://github.com/psf/requests

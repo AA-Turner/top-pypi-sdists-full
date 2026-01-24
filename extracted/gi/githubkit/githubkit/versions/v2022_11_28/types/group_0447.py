@@ -9,52 +9,34 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
-from .group_0010 import IntegrationType
-from .group_0064 import MinimalRepositoryType
-from .group_0230 import PullRequestMinimalType
+from .group_0443 import TrafficType, TrafficTypeForResponse
 
 
-class SimpleCheckSuiteType(TypedDict):
-    """SimpleCheckSuite
+class ViewTrafficType(TypedDict):
+    """View Traffic
 
-    A suite of checks performed on the code of a given code change
+    View Traffic
     """
 
-    after: NotRequired[Union[str, None]]
-    app: NotRequired[Union[IntegrationType, None]]
-    before: NotRequired[Union[str, None]]
-    conclusion: NotRequired[
-        Union[
-            None,
-            Literal[
-                "success",
-                "failure",
-                "neutral",
-                "cancelled",
-                "skipped",
-                "timed_out",
-                "action_required",
-                "stale",
-                "startup_failure",
-            ],
-        ]
-    ]
-    created_at: NotRequired[datetime]
-    head_branch: NotRequired[Union[str, None]]
-    head_sha: NotRequired[str]
-    id: NotRequired[int]
-    node_id: NotRequired[str]
-    pull_requests: NotRequired[list[PullRequestMinimalType]]
-    repository: NotRequired[MinimalRepositoryType]
-    status: NotRequired[
-        Literal["queued", "in_progress", "completed", "pending", "waiting"]
-    ]
-    updated_at: NotRequired[datetime]
-    url: NotRequired[str]
+    count: int
+    uniques: int
+    views: list[TrafficType]
 
 
-__all__ = ("SimpleCheckSuiteType",)
+class ViewTrafficTypeForResponse(TypedDict):
+    """View Traffic
+
+    View Traffic
+    """
+
+    count: int
+    uniques: int
+    views: list[TrafficTypeForResponse]
+
+
+__all__ = (
+    "ViewTrafficType",
+    "ViewTrafficTypeForResponse",
+)

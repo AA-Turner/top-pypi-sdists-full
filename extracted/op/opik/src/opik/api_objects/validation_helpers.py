@@ -1,10 +1,20 @@
 import logging
 from typing import Any, Optional, cast, Union, Dict
 
-from ..types import FeedbackScoreDict
+from ..types import BatchFeedbackScoreDict
 from ..validation import feedback_score as feedback_score_validator
 from .. import logging_messages, llm_usage
 from opik.types import LLMProvider
+
+
+def _is_already_backend_format(usage: Dict[str, Any]) -> bool:
+    """Check if usage dict is already in backend-compatible format.
+
+    Backend format has 'original_usage.' prefixed keys for provider-specific data.
+    This is used to detect usage data from exports that should be passed through
+    without reprocessing.
+    """
+    return any(key.startswith("original_usage.") for key in usage.keys())
 
 
 def validate_and_parse_usage(
@@ -17,6 +27,12 @@ def validate_and_parse_usage(
 
     if usage is None:
         return usage
+
+    # Check if usage is already in backend format (from export/import)
+    # If so, return it as-is to preserve the original values
+    if isinstance(usage, dict) and _is_already_backend_format(usage):
+        # Filter to only keep integer values as expected by backend
+        return {k: v for k, v in usage.items() if isinstance(v, int)}
 
     unknown_provider = (provider is None) or (not LLMProvider.has_value(provider))
 
@@ -38,7 +54,7 @@ def validate_and_parse_usage(
 
 def validate_feedback_score(
     feedback_score: Any, logger: logging.Logger
-) -> Optional[FeedbackScoreDict]:
+) -> Optional[BatchFeedbackScoreDict]:
     feedback_score_validator_ = feedback_score_validator.FeedbackScoreValidator(
         feedback_score
     )
@@ -51,4 +67,4 @@ def validate_feedback_score(
         )
         return None
 
-    return cast(FeedbackScoreDict, feedback_score)
+    return cast(BatchFeedbackScoreDict, feedback_score)

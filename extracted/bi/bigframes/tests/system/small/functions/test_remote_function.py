@@ -20,6 +20,7 @@ from typing import Sequence
 import bigframes_vendored.constants as constants
 import google.api_core.exceptions
 from google.cloud import bigquery
+import pandas
 import pandas as pd
 import pyarrow
 import pytest
@@ -27,12 +28,13 @@ import test_utils.prefixer
 
 import bigframes
 import bigframes.clients
+import bigframes.core.events
 import bigframes.dtypes
 import bigframes.exceptions
 from bigframes.functions import _utils as bff_utils
 from bigframes.functions import function as bff
 import bigframes.session._io.bigquery
-from bigframes.testing.utils import assert_pandas_df_equal, get_function_name
+from bigframes.testing.utils import assert_frame_equal, get_function_name
 
 _prefixer = test_utils.prefixer.Prefixer("bigframes", "")
 
@@ -157,7 +159,7 @@ def test_remote_function_direct_no_session_param(
     pd_result_col = pd_result_col.astype(pd.Int64Dtype())
     pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.flaky(retries=2, delay=120)
@@ -206,7 +208,7 @@ def test_remote_function_connection_w_location(
     pd_result_col = pd_result_col.astype(pd.Int64Dtype())
     pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.flaky(retries=2, delay=120)
@@ -298,7 +300,7 @@ def test_remote_function_connection_w_location_project(
     pd_result_col = pd_result_col.astype(pd.Int64Dtype())
     pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.flaky(retries=2, delay=120)
@@ -386,7 +388,7 @@ def test_remote_function_direct_session_param(
     pd_result_col = pd_result_col.astype(pd.Int64Dtype())
     pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.flaky(retries=2, delay=120)
@@ -435,7 +437,7 @@ def test_remote_function_via_session_default(
     pd_result_col = pd_result_col.astype(pd.Int64Dtype())
     pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.flaky(retries=2, delay=120)
@@ -480,7 +482,7 @@ def test_remote_function_via_session_with_overrides(
     pd_result_col = pd_result_col.astype(pd.Int64Dtype())
     pd_result = pd_int64_col_filtered.to_frame().assign(result=pd_result_col)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.flaky(retries=2, delay=120)
@@ -515,7 +517,7 @@ def test_dataframe_applymap(
     for col in pd_result:
         pd_result[col] = pd_result[col].astype(pd_int64_df_filtered[col].dtype)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.flaky(retries=2, delay=120)
@@ -550,7 +552,7 @@ def test_dataframe_applymap_explicit_filter(
     for col in pd_result:
         pd_result[col] = pd_result[col].astype(pd_int64_df_filtered[col].dtype)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.flaky(retries=2, delay=120)
@@ -583,7 +585,7 @@ def test_dataframe_applymap_na_ignore(
     for col in pd_result:
         pd_result[col] = pd_result[col].astype(pd_int64_df[col].dtype)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 @pytest.mark.flaky(retries=2, delay=120)
@@ -736,7 +738,7 @@ def test_read_gbq_function_like_original(
     s2_result_col = int64_col_filtered.apply(square2)
     s2_result = int64_col_filtered.to_frame().assign(result=s2_result_col)
 
-    assert_pandas_df_equal(s1_result.to_pandas(), s2_result.to_pandas())
+    assert_frame_equal(s1_result.to_pandas(), s2_result.to_pandas())
 
 
 def test_read_gbq_function_runs_existing_udf(session):
@@ -769,6 +771,7 @@ def test_read_gbq_function_runs_existing_udf_array_output(session, routine_id_un
         timeout=None,
         metrics=None,
         query_with_job=True,
+        publisher=bigframes.core.events.Publisher(),
     )
     func = session.read_gbq_function(routine_id_unique)
 
@@ -807,6 +810,7 @@ def test_read_gbq_function_runs_existing_udf_2_params_array_output(
         timeout=None,
         metrics=None,
         query_with_job=True,
+        publisher=bigframes.core.events.Publisher(),
     )
     func = session.read_gbq_function(routine_id_unique)
 
@@ -847,6 +851,7 @@ def test_read_gbq_function_runs_existing_udf_4_params_array_output(
         timeout=None,
         metrics=None,
         query_with_job=True,
+        publisher=bigframes.core.events.Publisher(),
     )
     func = session.read_gbq_function(routine_id_unique)
 
@@ -932,7 +937,7 @@ def test_read_gbq_function_reads_udfs(session, bigquery_client, dataset_id):
         indirect_df = indirect_df.assign(y=indirect_df.x.apply(square))
         converted_indirect_df = indirect_df.to_pandas()
 
-        assert_pandas_df_equal(
+        assert_frame_equal(
             direct_df, converted_indirect_df, ignore_order=True, check_index_type=False
         )
 
@@ -1166,7 +1171,7 @@ def test_df_apply_axis_1(session, scalars_dfs, dataset_id_permanent):
     ]
     scalars_df, scalars_pandas_df = scalars_dfs
 
-    def add_ints(row):
+    def add_ints(row: pandas.Series) -> int:
         return row["int64_col"] + row["int64_too"]
 
     with pytest.warns(
@@ -1174,8 +1179,6 @@ def test_df_apply_axis_1(session, scalars_dfs, dataset_id_permanent):
         match="input_types=Series is in preview.",
     ):
         add_ints_remote = session.remote_function(
-            input_types=bigframes.series.Series,
-            output_type=int,
             dataset=dataset_id_permanent,
             name=get_function_name(add_ints, is_row_processor=True),
             cloud_function_service_account="default",
@@ -1223,11 +1226,11 @@ def test_df_apply_axis_1_ordering(session, scalars_dfs, dataset_id_permanent):
     ordering_columns = ["bool_col", "int64_col"]
     scalars_df, scalars_pandas_df = scalars_dfs
 
-    def add_ints(row):
+    def add_ints(row: pandas.Series) -> int:
         return row["int64_col"] + row["int64_too"]
 
     add_ints_remote = session.remote_function(
-        input_types=bigframes.series.Series,
+        input_types=pandas.Series,
         output_type=int,
         dataset=dataset_id_permanent,
         name=get_function_name(add_ints, is_row_processor=True),
@@ -1267,7 +1270,7 @@ def test_df_apply_axis_1_multiindex(session, dataset_id_permanent):
         return row["x"] + row["y"]
 
     add_numbers_remote = session.remote_function(
-        input_types=bigframes.series.Series,
+        input_types=pandas.Series,
         output_type=float,
         dataset=dataset_id_permanent,
         name=get_function_name(add_numbers, is_row_processor=True),
@@ -1321,7 +1324,7 @@ def test_df_apply_axis_1_unsupported_dtype(session, scalars_dfs, dataset_id_perm
         return len(row)
 
     echo_len_remote = session.remote_function(
-        input_types=bigframes.series.Series,
+        input_types=pandas.Series,
         output_type=float,
         dataset=dataset_id_permanent,
         name=get_function_name(echo_len, is_row_processor=True),
@@ -1643,7 +1646,7 @@ def test_remote_function_unsupported_type(
 
     with pytest.raises(
         ValueError,
-        match=r"'typing\.Sequence\[int\]' must be one of the supported types",
+        match=r"must be one of the supported types",
     ):
         bff.remote_function(
             input_types=int,

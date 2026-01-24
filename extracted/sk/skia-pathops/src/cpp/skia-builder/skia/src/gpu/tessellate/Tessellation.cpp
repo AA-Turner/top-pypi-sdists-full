@@ -4,17 +4,22 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
 #include "src/gpu/tessellate/Tessellation.h"
 
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
+#include "include/core/SkPathTypes.h"
+#include "include/core/SkRect.h"
+#include "include/private/base/SkFloatingPoint.h"
+#include "include/private/base/SkTArray.h"
 #include "src/base/SkUtils.h"
+#include "src/base/SkVx.h"
 #include "src/core/SkGeometry.h"
 #include "src/core/SkPathPriv.h"
-#include "src/gpu/BufferWriter.h"
 #include "src/gpu/tessellate/CullTest.h"
-#include "src/gpu/tessellate/MiddleOutPolygonTriangulator.h"
 #include "src/gpu/tessellate/WangsFormula.h"
+
+using namespace skia_private;
 
 namespace skgpu::tess {
 
@@ -45,14 +50,17 @@ public:
             : fTessellationPrecision(tessellationPrecision)
             , fCullTest(viewport, matrix)
             , fVectorXform(matrix) {
-        fPath.setIsVolatile(true);
+        fBuilder.setIsVolatile(true);
     }
 
-    SkPath path() const { return fPath; }
+    SkPath detachPath(SkPathFillType ft) {
+        fBuilder.setFillType(ft);
+        return fBuilder.detach();
+    }
 
-    void moveTo(SkPoint p) { fPath.moveTo(p); }
-    void lineTo(const SkPoint p[2]) { fPath.lineTo(p[1]); }
-    void close() { fPath.close(); }
+    void moveTo(SkPoint p) { fBuilder.moveTo(p); }
+    void lineTo(const SkPoint p[2]) { fBuilder.lineTo(p[1]); }
+    void close() { fBuilder.close(); }
 
     void quadTo(const SkPoint quad[3]) {
         SkASSERT(fPointStack.empty());
@@ -62,7 +70,7 @@ public:
         while (!fPointStack.empty()) {
             const SkPoint* p = fPointStack.end() - 3;
             if (!fCullTest.areVisible3(p)) {
-                fPath.lineTo(p[2]);
+                fBuilder.lineTo(p[2]);
             } else {
                 float n4 = wangs_formula::quadratic_p4(fTessellationPrecision, p, fVectorXform);
                 if (n4 > kMaxSegmentsPerCurve_p4 && numChops < kMaxChopsPerCurve) {
@@ -74,7 +82,7 @@ public:
                     ++numChops;
                     continue;
                 }
-                fPath.quadTo(p[1], p[2]);
+                fBuilder.quadTo(p[1], p[2]);
             }
             fPointStack.pop_back_n(3);
         }
@@ -91,7 +99,7 @@ public:
             const SkPoint* p = fPointStack.end() - 3;
             float w = fWeightStack.back();
             if (!fCullTest.areVisible3(p)) {
-                fPath.lineTo(p[2]);
+                fBuilder.lineTo(p[2]);
             } else {
                 float n2 = wangs_formula::conic_p2(fTessellationPrecision, p, w, fVectorXform);
                 if (n2 > kMaxSegmentsPerCurve_p2 && numChops < kMaxChopsPerCurve) {
@@ -110,7 +118,7 @@ public:
                     ++numChops;
                     continue;
                 }
-                fPath.conicTo(p[1], p[2], w);
+                fBuilder.conicTo(p[1], p[2], w);
             }
             fPointStack.pop_back_n(3);
             fWeightStack.pop_back();
@@ -126,7 +134,7 @@ public:
         while (!fPointStack.empty()) {
             SkPoint* p = fPointStack.end() - 4;
             if (!fCullTest.areVisible4(p)) {
-                fPath.lineTo(p[3]);
+                fBuilder.lineTo(p[3]);
             } else {
                 float n4 = wangs_formula::cubic_p4(fTessellationPrecision, p, fVectorXform);
                 if (n4 > kMaxSegmentsPerCurve_p4 && numChops < kMaxChopsPerCurve) {
@@ -138,7 +146,7 @@ public:
                     ++numChops;
                     continue;
                 }
-                fPath.cubicTo(p[1], p[2], p[3]);
+                fBuilder.cubicTo(p[1], p[2], p[3]);
             }
             fPointStack.pop_back_n(4);
         }
@@ -148,11 +156,11 @@ private:
     const float fTessellationPrecision;
     const CullTest fCullTest;
     const wangs_formula::VectorXform fVectorXform;
-    SkPath fPath;
+    SkPathBuilder fBuilder;
 
     // Used for stack-based recursion (instead of using the runtime stack).
-    SkSTArray<8, SkPoint> fPointStack;
-    SkSTArray<2, float> fWeightStack;
+    STArray<8, SkPoint> fPointStack;
+    STArray<2, float> fWeightStack;
 };
 
 }  // namespace
@@ -192,7 +200,8 @@ SkPath PreChopPathCurves(float tessellationPrecision,
                 break;
         }
     }
-    return chopper.path();
+    // Must preserve the input path's fill type (see crbug.com/1472747)
+    return chopper.detachPath(path.getFillType());
 }
 
 int FindCubicConvex180Chops(const SkPoint pts[], float T[2], bool* areCusps) {
@@ -212,10 +221,10 @@ int FindCubicConvex180Chops(const SkPoint pts[], float T[2], bool* areCusps) {
     // kIEEE_one_minus_2_epsilon bits are correct.
     SkASSERT(sk_bit_cast<float>(kIEEE_one_minus_2_epsilon) == 1 - 2*kEpsilon);
 
-    float2 p0 = skvx::bit_pun<float2>(pts[0]);
-    float2 p1 = skvx::bit_pun<float2>(pts[1]);
-    float2 p2 = skvx::bit_pun<float2>(pts[2]);
-    float2 p3 = skvx::bit_pun<float2>(pts[3]);
+    float2 p0 = sk_bit_cast<float2>(pts[0]);
+    float2 p1 = sk_bit_cast<float2>(pts[1]);
+    float2 p2 = sk_bit_cast<float2>(pts[2]);
+    float2 p3 = sk_bit_cast<float2>(pts[3]);
 
     // Find the cubic's power basis coefficients. These define the bezier curve as:
     //
@@ -302,7 +311,14 @@ int FindCubicConvex180Chops(const SkPoint pts[], float T[2], bool* areCusps) {
         a = dot(tan0, A);
         b_over_minus_2 = -dot(tan0, B);
         c = dot(tan0, C);
-        discr_over_4 = std::max(b_over_minus_2*b_over_minus_2 - a*c, 0.f);
+        discr_over_4 = b_over_minus_2*b_over_minus_2 - a*c;
+        if (discr_over_4 < -cuspThreshold) {
+            // With the updated discriminant, this line actually wouldn't have cusps (e.g. it never
+            // turns back on itself).
+            return 0;
+        }
+
+        discr_over_4 = std::max(discr_over_4, 0.f);
     }
 
     // Solve our quadratic equation to find where to chop. See the quadratic formula from

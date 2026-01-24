@@ -37,9 +37,10 @@ class RowsIterator:
     Stops iterating when API has no more objects to fetch
     """
 
-    _trafaret = t.Dict(
-        {t.Key("data"): t.List(t.Dict().allow_extra("*")), t.Key("next"): t.Or(t.String, t.Null)}
-    ).allow_extra("*")
+    _trafaret = t.Dict({
+        t.Key("data"): t.List(t.Dict().allow_extra("*")),
+        t.Key("next"): t.Or(t.String, t.Null),
+    }).allow_extra("*")
 
     def __init__(self, client, path, limit=None):
         self.client = client
@@ -213,46 +214,36 @@ class TrainingPredictionsIterator(RowsIterator):
             print(row.row_id, row.prediction)
     """
 
-    _row_trafaret = t.Dict(
-        {
-            t.Key("row_id"): Int(),
-            t.Key("partition_id"): t.Or(String(), t.Float()),
-            t.Key("prediction"): t.Or(t.Float(), t.String(), t.List(String())),
-            t.Key("prediction_values"): t.List(
-                t.Dict(
-                    {t.Key("label"): t.Or(t.Float, t.String), t.Key("value"): t.Float}
-                ).ignore_extra("*")
-            ),
-            t.Key("timestamp", default=None): t.Or(String, t.Null),
-            t.Key("forecast_point", default=None): t.Or(String, t.Null),
-            t.Key("forecast_distance", default=None): t.Or(Int, t.Null),
-            t.Key("series_id", default=None): t.Or(String, Int, t.Null),
-            t.Key("prediction_explanations", default=None): t.List(
-                t.Dict(
-                    {
-                        t.Key("feature"): String(),
-                        t.Key("feature_value"): String(),
-                        t.Key("strength"): t.Float(),
-                        t.Key("label"): t.Or(t.Float(), String()),
-                    }
-                )
-            )
-            | t.Null(),
-            t.Key("shap_metadata", optional=True, default=None): t.Dict(
-                {
-                    t.Key("shap_base_value"): t.Float(),
-                    t.Key("shap_remaining_total"): t.Float(),
-                    t.Key("warnings", optional=True): t.Dict(
-                        {
-                            t.Key("mismatch_row_count"): Int(),
-                            t.Key("max_normalized_mismatch"): t.Float(),
-                        }
-                    ),
-                }
-            )
-            | t.Null(),
-        }
-    ).ignore_extra("*")
+    _row_trafaret = t.Dict({
+        t.Key("row_id"): Int(),
+        t.Key("partition_id"): t.Or(String(), t.Float()),
+        t.Key("prediction"): t.Or(t.Float(), t.String(), t.List(String())),
+        t.Key("prediction_values"): t.List(
+            t.Dict({t.Key("label"): t.Or(t.Float, t.String), t.Key("value"): t.Float}).ignore_extra("*")
+        ),
+        t.Key("timestamp", default=None): t.Or(String, t.Null),
+        t.Key("forecast_point", default=None): t.Or(String, t.Null),
+        t.Key("forecast_distance", default=None): t.Or(Int, t.Null),
+        t.Key("series_id", default=None): t.Or(String, Int, t.Null),
+        t.Key("prediction_explanations", default=None): t.List(
+            t.Dict({
+                t.Key("feature"): String(),
+                t.Key("feature_value"): String(),
+                t.Key("strength"): t.Float(),
+                t.Key("label"): t.Or(t.Float(), String()),
+            })
+        )
+        | t.Null(),
+        t.Key("shap_metadata", optional=True, default=None): t.Dict({
+            t.Key("shap_base_value"): t.Float(),
+            t.Key("shap_remaining_total"): t.Float(),
+            t.Key("warnings", optional=True): t.Dict({
+                t.Key("mismatch_row_count"): Int(),
+                t.Key("max_normalized_mismatch"): t.Float(),
+            }),
+        })
+        | t.Null(),
+    }).ignore_extra("*")
 
     def next(self):
         row_dict = super().next()
@@ -432,33 +423,25 @@ class TrainingPredictions(APIObject):
         -------
         A list of :py:class:`TrainingPredictions` objects
         """
-        _trafaret = t.Dict(
-            {
-                t.Key("data"): t.List(
-                    t.Dict(
-                        {
-                            t.Key("url"): String(),
-                            t.Key("model_id"): String(),
-                            t.Key("data_subset"): String(),
-                            t.Key("explanation_algorithm", optional=True): t.Or(String(), t.Null()),
-                            t.Key("max_explanations", optional=True): t.Or(Int(), t.Null()),
-                            t.Key("shap_warnings", optional=True): t.Dict(
-                                {
-                                    t.Key("partition_name"): String(),
-                                    t.Key("value"): t.Dict(
-                                        {
-                                            t.Key("mismatch_row_count"): Int(),
-                                            t.Key("max_normalized_mismatch"): t.Float(),
-                                        }
-                                    ),
-                                }
-                            )
-                            | t.Null(),
-                        }
-                    ).ignore_extra("*")
-                ),
-            }
-        ).ignore_extra("*")
+        _trafaret = t.Dict({
+            t.Key("data"): t.List(
+                t.Dict({
+                    t.Key("url"): String(),
+                    t.Key("model_id"): String(),
+                    t.Key("data_subset"): String(),
+                    t.Key("explanation_algorithm", optional=True): t.Or(String(), t.Null()),
+                    t.Key("max_explanations", optional=True): t.Or(Int(), t.Null()),
+                    t.Key("shap_warnings", optional=True): t.Dict({
+                        t.Key("partition_name"): String(),
+                        t.Key("value"): t.Dict({
+                            t.Key("mismatch_row_count"): Int(),
+                            t.Key("max_normalized_mismatch"): t.Float(),
+                        }),
+                    })
+                    | t.Null(),
+                }).ignore_extra("*")
+            ),
+        }).ignore_extra("*")
 
         path = cls.build_path(project_id)
         converted = from_api(cls._server_data(path), keep_null_keys=True)
@@ -552,9 +535,7 @@ class TrainingPredictions(APIObject):
 
         return serializers[serializer](class_prefix)
 
-    def _get_all_as_dataframe_json(
-        self, class_prefix
-    ):  # pylint: disable=missing-function-docstring
+    def _get_all_as_dataframe_json(self, class_prefix):  # pylint: disable=missing-function-docstring
         rows = self.iterate_rows()
 
         tmp, rows = itertools.tee(rows)
@@ -574,9 +555,7 @@ class TrainingPredictions(APIObject):
         elif self._is_time_series_project:
             return self._build_timeseries_dataframe(rows)
         else:
-            return self._build_regression_dataframe(
-                rows, is_datetime_partitioned, first_row.prediction_explanations
-            )
+            return self._build_regression_dataframe(rows, is_datetime_partitioned, first_row.prediction_explanations)
 
     @property
     def _is_time_series_project(self):
@@ -622,9 +601,7 @@ class TrainingPredictions(APIObject):
         return pd.DataFrame.from_records(data, columns=columns)
 
     @staticmethod
-    def _build_regression_dataframe(
-        rows, is_datetime_partitioned, prediction_explanations
-    ):  # pylint: disable=missing-function-docstring
+    def _build_regression_dataframe(rows, is_datetime_partitioned, prediction_explanations):  # pylint: disable=missing-function-docstring
         if is_datetime_partitioned:
             columns = (
                 "row_id",
@@ -675,9 +652,7 @@ class TrainingPredictions(APIObject):
         return pd.DataFrame.from_records(data, columns=columns)
 
     @staticmethod
-    def _build_classification_dataframe(
-        rows, columns, is_datetime_partitioned
-    ):  # pylint: disable=missing-function-docstring
+    def _build_classification_dataframe(rows, columns, is_datetime_partitioned):  # pylint: disable=missing-function-docstring
         data_list = []
         for row in rows:
             data_row = (row.row_id, row.partition_id, row.prediction)
@@ -747,7 +722,7 @@ class TrainingPredictions(APIObject):
         serializer : Optional[str]
             Serializer to use for the download. Options: ``json`` (default) or ``csv``.
         """
-        df = self.get_all_as_dataframe(serializer=serializer)
+        df = self.get_all_as_dataframe(serializer=serializer)  # noqa: PD901
         df.to_csv(
             path_or_buf=filename,
             header=True,

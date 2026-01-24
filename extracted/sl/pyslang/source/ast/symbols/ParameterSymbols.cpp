@@ -11,6 +11,7 @@
 #include "slang/ast/Compilation.h"
 #include "slang/ast/Expression.h"
 #include "slang/ast/expressions/MiscExpressions.h"
+#include "slang/ast/symbols/CheckerSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/PortSymbols.h"
 #include "slang/ast/symbols/SpecifySymbols.h"
@@ -232,6 +233,7 @@ void TypeParameterSymbol::fromSyntax(const Scope& scope,
         auto param = comp.emplace<TypeParameterSymbol>(scope, name, loc, isLocal, isPort,
                                                        typeRestriction);
         param->setSyntax(*decl);
+        param->setTypeSyntax(*decl);
 
         if (!decl->assignment) {
             param->targetType.setType(comp.getErrorType());
@@ -598,8 +600,7 @@ const Symbol* SpecparamSymbol::resolvePathTerminal(std::string_view terminalName
 
     SourceRange sourceRange{loc, loc + terminalName.length()};
     auto symbol = Lookup::unqualifiedAt(*parentParent, terminalName,
-                                        LookupLocation::after(parent.asSymbol()), sourceRange,
-                                        LookupFlags::NoParentScope);
+                                        LookupLocation::after(parent.asSymbol()), sourceRange);
     if (!symbol)
         return nullptr;
 

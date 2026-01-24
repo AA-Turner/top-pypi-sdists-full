@@ -28,7 +28,7 @@ from aws_advanced_python_wrapper.utils.log import Logger
 from aws_advanced_python_wrapper.utils.messages import Messages
 from aws_advanced_python_wrapper.utils.telemetry.telemetry import (
     TelemetryConst, TelemetryContext, TelemetryCounter, TelemetryFactory,
-    TelemetryTraceLevel)
+    TelemetryGauge, TelemetryTraceLevel)
 
 logger = Logger(__name__)
 
@@ -78,7 +78,7 @@ def post_copy(context: XRayTelemetryContext, trace_level: TelemetryTraceLevel):
         return
 
     if trace_level in [TelemetryTraceLevel.FORCE_TOP_LEVEL, TelemetryTraceLevel.TOP_LEVEL]:
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(thread_name_prefix=context.get_name()) as executor:
             future = executor.submit(_clone_and_close_context, context, trace_level)
             future.result()
     else:
@@ -110,7 +110,7 @@ def _clone_and_close_context(context: XRayTelemetryContext, trace_level: Telemet
 
 
 class XRayTelemetryFactory(TelemetryFactory):
-    def open_telemetry_context(self, name: str, trace_level: TelemetryTraceLevel) -> TelemetryContext:
+    def open_telemetry_context(self, name: str, trace_level: TelemetryTraceLevel) -> TelemetryContext | None:
         return XRayTelemetryContext(name, trace_level)
 
     def post_copy(self, context: TelemetryContext, trace_level: TelemetryTraceLevel):
@@ -119,8 +119,11 @@ class XRayTelemetryFactory(TelemetryFactory):
         else:
             raise RuntimeError(Messages.get_formatted("XRayTelemetryFactory.WrongParameterType", type(context)))
 
-    def create_counter(self, name: str) -> TelemetryCounter:
+    def create_counter(self, name: str) -> TelemetryCounter | None:
         raise RuntimeError(Messages.get_formatted("XRayTelemetryFactory.MetricsNotSupported"))
 
-    def create_gauge(self, name: str, callback):
+    def create_gauge(self, name: str, callback) -> TelemetryGauge | None:
         raise RuntimeError(Messages.get_formatted("XRayTelemetryFactory.MetricsNotSupported"))
+
+    def in_use(self) -> bool:
+        return True

@@ -32,9 +32,10 @@ u_bad: Foo[int, int] = Foo[float, int]()  # E:
 testcase!(
     test_covariance_inference_class,
     r#"
-from typing import Sequence
+from typing import Sequence, Any
 class ShouldBeCovariant[T](Sequence[T]):
-    pass
+    def __getitem__(self, *args, **kwargs) -> Any: ...
+    def __len__(self) -> int: ...
 
 vco2_1: ShouldBeCovariant[float] = ShouldBeCovariant[int]()
 vco2_2: ShouldBeCovariant[int] = ShouldBeCovariant[float]()  # E:
@@ -55,10 +56,10 @@ class ClassA[T1, T2, T3](list[T1]):
 
 def func_a(p1: ClassA[float, int, int], p2: ClassA[int, float, float]):
     v1: ClassA[int, int, int] = p1  # E:
-    v2: ClassA[float, float, int] = p1 # E: 
+    v2: ClassA[float, float, int] = p1 # E:
     v3: ClassA[float, int, float] = p1
 
-    v4: ClassA[int, int, int] = p2 # E: 
+    v4: ClassA[int, int, int] = p2 # E:
     v5: ClassA[int, int, float] = p2
 "#,
 );
@@ -77,7 +78,8 @@ class B[U]:
 a = A[int]()
 b = B[int]()
 
-x : A[float] = b.g(a)
+# We follow mypy and pyright's lead in treating bivariant type parameters as invariant.
+x: A[float] = b.g(a)  # E: `A[int]` is not assignable to `A[float]`
 "#,
 );
 
@@ -122,7 +124,7 @@ class ShouldBeCovariant3[U]:
         ...
 
 vco3_1: ShouldBeCovariant3[float] = ShouldBeCovariant3[int]()  # OK
-vco3_2: ShouldBeCovariant3[int] = ShouldBeCovariant3[float]()  # E: 
+vco3_2: ShouldBeCovariant3[int] = ShouldBeCovariant3[float]()  # E:
 
 "#,
 );
@@ -283,5 +285,38 @@ b = B[int]()
 
 y = b.f(3)
 z = b.f(3.0) # E:
+"#,
+);
+
+testcase!(
+    test_self_referential_covariance,
+    r#"
+class FooInferred[Node]:
+    def __init__(self, *options: FooInferred[Node]) -> None: ...
+    def __or__[OtherNode](self, other: FooInferred[OtherNode]) -> FooInferred[Node | OtherNode]:
+        # Node should be inferred as covariant since it only appears in covariant positions
+        # (the return type of __or__, and __init__ is skipped for variance inference)
+        return FooInferred[Node | OtherNode](self, other)
+
+# If FooInferred is covariant, this should work:
+# FooInferred[int] <: FooInferred[int | str] because int <: int | str
+foo_int: FooInferred[int] = FooInferred[int]()
+foo_str: FooInferred[str] = FooInferred[str]()
+foo_union: FooInferred[int | str] = foo_int | foo_str
+"#,
+);
+
+// Test variance inference with stdlib generic that has covariant type parameter
+testcase!(
+    test_class_variance_with_mapping,
+    r#"
+from collections.abc import Mapping
+
+class Container[T]:
+    def get(self) -> Mapping[str, T]:
+        ...
+
+def widen(c: Container[int]) -> Container[float]:
+    return c  # OK - T is covariant since Mapping's V type is covariant
 "#,
 );

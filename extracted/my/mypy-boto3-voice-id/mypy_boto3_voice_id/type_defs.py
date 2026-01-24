@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -35,12 +36,6 @@ from .literals import (
     StreamingStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -157,13 +152,13 @@ class FraudsterTypeDef(TypedDict):
     CreatedAt: NotRequired[datetime]
     DomainId: NotRequired[str]
     GeneratedFraudsterId: NotRequired[str]
-    WatchlistIds: NotRequired[List[str]]
+    WatchlistIds: NotRequired[list[str]]
 
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -275,7 +270,7 @@ class WatchlistDetailsTypeDef(TypedDict):
 class EnrollmentJobFraudDetectionConfigOutputTypeDef(TypedDict):
     FraudDetectionAction: NotRequired[FraudDetectionActionType]
     RiskThreshold: NotRequired[int]
-    WatchlistIds: NotRequired[List[str]]
+    WatchlistIds: NotRequired[list[str]]
 
 
 class EnrollmentJobFraudDetectionConfigTypeDef(TypedDict):
@@ -324,14 +319,14 @@ class OutputDataConfigTypeDef(TypedDict):
 class RegistrationConfigOutputTypeDef(TypedDict):
     DuplicateRegistrationAction: NotRequired[DuplicateRegistrationActionType]
     FraudsterSimilarityThreshold: NotRequired[int]
-    WatchlistIds: NotRequired[List[str]]
+    WatchlistIds: NotRequired[list[str]]
 
 
 class FraudsterSummaryTypeDef(TypedDict):
     CreatedAt: NotRequired[datetime]
     DomainId: NotRequired[str]
     GeneratedFraudsterId: NotRequired[str]
-    WatchlistIds: NotRequired[List[str]]
+    WatchlistIds: NotRequired[list[str]]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -471,7 +466,7 @@ class CreateDomainRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -584,7 +579,7 @@ class FraudsterRegistrationJobTypeDef(TypedDict):
 
 
 class ListFraudstersResponseTypeDef(TypedDict):
-    FraudsterSummaries: List[FraudsterSummaryTypeDef]
+    FraudsterSummaries: list[FraudsterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -622,13 +617,13 @@ class ListWatchlistsRequestPaginateTypeDef(TypedDict):
 
 
 class ListSpeakersResponseTypeDef(TypedDict):
-    SpeakerSummaries: List[SpeakerSummaryTypeDef]
+    SpeakerSummaries: list[SpeakerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListWatchlistsResponseTypeDef(TypedDict):
-    WatchlistSummaries: List[WatchlistSummaryTypeDef]
+    WatchlistSummaries: list[WatchlistSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -637,7 +632,7 @@ RegistrationConfigUnionTypeDef = Union[RegistrationConfigTypeDef, RegistrationCo
 
 
 class ListDomainsResponseTypeDef(TypedDict):
-    DomainSummaries: List[DomainSummaryTypeDef]
+    DomainSummaries: list[DomainSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -681,18 +676,18 @@ class FraudDetectionResultTypeDef(TypedDict):
     Configuration: NotRequired[FraudDetectionConfigurationTypeDef]
     Decision: NotRequired[FraudDetectionDecisionType]
     FraudDetectionResultId: NotRequired[str]
-    Reasons: NotRequired[List[FraudDetectionReasonType]]
+    Reasons: NotRequired[list[FraudDetectionReasonType]]
     RiskDetails: NotRequired[FraudRiskDetailsTypeDef]
 
 
 class ListFraudsterRegistrationJobsResponseTypeDef(TypedDict):
-    JobSummaries: List[FraudsterRegistrationJobSummaryTypeDef]
+    JobSummaries: list[FraudsterRegistrationJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSpeakerEnrollmentJobsResponseTypeDef(TypedDict):
-    JobSummaries: List[SpeakerEnrollmentJobSummaryTypeDef]
+    JobSummaries: list[SpeakerEnrollmentJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

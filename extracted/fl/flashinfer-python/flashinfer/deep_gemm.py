@@ -41,11 +41,16 @@ except ImportError as e:
 
 import torch
 
-from .artifacts import ArtifactPath, MetaInfoHash
+from .artifacts import ArtifactPath
 from .cuda_utils import checkCudaErrors
 from .jit.cubin_loader import get_cubin
 from .jit.env import FLASHINFER_CUBIN_DIR
-from .utils import ceil_div, round_up
+from .utils import (
+    ceil_div,
+    round_up,
+    supported_compute_capability,
+    backend_requirement,
+)
 
 
 class GemmType(enum.Enum):
@@ -193,8 +198,14 @@ def transform_sf_into_required_layout(
     gran = (recipe[0 if is_sfa else 1], recipe[2])
 
     should_skip_transform = (
-        sf.dtype == torch.int and gran == (1, 128) and get_device_arch() == "100a"
-    ) or (sf.dtype == torch.int and gran == (128, 128) and get_device_arch() == "100a")
+        sf.dtype == torch.int
+        and gran == (1, 128)
+        and get_device_arch() in ("100a", "103a")
+    ) or (
+        sf.dtype == torch.int
+        and gran == (128, 128)
+        and get_device_arch() in ("100a", "103a")
+    )
 
     if not should_skip_transform:
         # Pre-transform checks
@@ -205,7 +216,11 @@ def transform_sf_into_required_layout(
         raise NotImplementedError
 
     # (FP32, 1, 128) on SM100: transform to (INT, 1, 128), TMA-aligned and MN-major
-    if sf.dtype == torch.float and gran == (1, 128) and get_device_arch() == "100a":
+    if (
+        sf.dtype == torch.float
+        and gran == (1, 128)
+        and get_device_arch() in ("100a", "103a")
+    ):
         sf = get_col_major_tma_aligned_packed_tensor(sf)
         return check_sf_layout(
             sf,
@@ -222,7 +237,11 @@ def transform_sf_into_required_layout(
         raise NotImplementedError
 
     # (FP32, 128, 128) on SM100: transform to (INT, 1, 128), TMA-aligned and MN-major
-    if sf.dtype == torch.float and gran == (128, 128) and get_device_arch() == "100a":
+    if (
+        sf.dtype == torch.float
+        and gran == (128, 128)
+        and get_device_arch() in ("100a", "103a")
+    ):
         sf = sf.index_select(-2, torch.arange(mn, device=sf.device) // 128)
         sf = get_col_major_tma_aligned_packed_tensor(sf)
         return check_sf_layout(
@@ -247,7 +266,9 @@ def transform_sf_into_required_layout(
             type_check=torch.int,
         )
 
-    AssertionError(f"Unknown cases: {sf.dtype=}, {gran=}, arch={get_device_arch()}")
+    raise AssertionError(
+        f"Unknown cases: {sf.dtype=}, {gran=}, arch={get_device_arch()}"
+    )
 
 
 @functools.lru_cache(maxsize=None)
@@ -268,6 +289,7 @@ def must_be_k_major() -> bool:
     return {
         "90a": True,
         "100a": False,
+        "103a": False,
     }[get_device_arch()]
 
 
@@ -280,6 +302,8 @@ def get_default_recipe(
         ("90a", torch.float): (1, 128, 128),
         ("100a", torch.float): (1, 128, 128),
         ("100a", torch.int): (1, 1, 128),
+        ("103a", torch.float): (1, 128, 128),
+        ("103a", torch.int): (1, 1, 128),
     }[(get_device_arch(), sfb_dtype)]
 
 
@@ -798,11 +822,13 @@ class SM100FP8GemmRuntime:
 
     def __del__(self) -> None:
         if self.lib is not None:
-            try:
-                checkCudaErrors(self._cleanup_func(self.lib))
-            except Exception as e:
-                # Ignore any errors during shutdown
-                print(f"Failed to delete SM100FP8GemmRuntime: {e}")
+            cleanup = getattr(self, "_cleanup_func", None)
+            if callable(cleanup):
+                try:
+                    cleanup(self.lib)
+                except Exception as e:
+                    # Ignore any errors during shutdown
+                    print(f"Failed to delete SM100FP8GemmRuntime with exception: {e}")
 
     @staticmethod
     def generate(kwargs: Dict[str, Any]) -> str:
@@ -913,8 +939,9 @@ def load_all():
         if cubin_name in RUNTIME_CACHE:
             continue
         symbol, sha256 = KERNEL_MAP[cubin_name]
-        get_cubin(ArtifactPath.DEEPGEMM + cubin_name, sha256)
-        path = FLASHINFER_CUBIN_DIR / f"{ArtifactPath.DEEPGEMM + cubin_name}.cubin"
+        cubin_name = cubin_name + ".cubin"
+        get_cubin(ArtifactPath.DEEPGEMM + "/" + cubin_name, sha256)
+        path = FLASHINFER_CUBIN_DIR / ArtifactPath.DEEPGEMM / cubin_name
         assert path.exists()
         RUNTIME_CACHE[cubin_name] = SM100FP8GemmRuntime(str(path), symbol)
 
@@ -923,12 +950,13 @@ def load(name: str, code: str) -> SM100FP8GemmRuntime:
     signature = f"{name}$${code}"
     cubin_name = f"kernel.{name}.{hash_to_hex(signature)}"
     if cubin_name not in KERNEL_MAP:
-        raise ValueError("cubin not registered")
+        raise ValueError(f"cubin not registered: {cubin_name}")
     if cubin_name in RUNTIME_CACHE:
         return RUNTIME_CACHE[cubin_name]
     symbol, sha256 = KERNEL_MAP[cubin_name]
-    get_cubin(ArtifactPath.DEEPGEMM + cubin_name, sha256)
-    path = FLASHINFER_CUBIN_DIR / f"{ArtifactPath.DEEPGEMM + cubin_name}.cubin"
+    cubin_name = cubin_name + ".cubin"
+    get_cubin(ArtifactPath.DEEPGEMM + "/" + cubin_name, sha256)
+    path = FLASHINFER_CUBIN_DIR / ArtifactPath.DEEPGEMM / cubin_name
     assert path.exists()
     RUNTIME_CACHE[cubin_name] = SM100FP8GemmRuntime(str(path), symbol)
     return RUNTIME_CACHE[cubin_name]
@@ -1111,7 +1139,7 @@ def m_grouped_fp8_gemm_nt_contiguous_kwargs_gen(
     return static_kwargs, all_kwargs
 
 
-def m_grouped_fp8_gemm_nt_contiguous_sm100(
+def m_grouped_fp8_gemm_nt_contiguous_sm10x(
     a: torch.Tensor,
     sfa: torch.Tensor,
     b: torch.Tensor,
@@ -1314,7 +1342,7 @@ def m_grouped_fp8_gemm_nt_masked_kwargs_gen(
     return static_kwargs, all_kwargs
 
 
-def m_grouped_fp8_gemm_nt_masked_sm100(
+def m_grouped_fp8_gemm_nt_masked_sm10x(
     a: torch.Tensor,
     sfa: torch.Tensor,
     b: torch.Tensor,
@@ -1335,6 +1363,60 @@ def m_grouped_fp8_gemm_nt_masked_sm100(
     runtime(**all_kwargs)
 
 
+@supported_compute_capability([100, 103])
+def _check_group_deepgemm_fp8_nt_contiguous_problem_size(
+    a_fp8: Tuple[torch.Tensor, torch.Tensor],
+    b_fp8: Tuple[torch.Tensor, torch.Tensor],
+    d: torch.Tensor,
+    m_indices: torch.Tensor,
+    recipe: Optional[Tuple[int, int, int]] = None,
+    compiled_dims: str = "nk",
+) -> bool:
+    # NOTES: shape must be `[M, K] @ [G, N, K].mT`
+    major_a = get_major_type_ab(a_fp8[0])
+    major_b = get_major_type_ab(b_fp8[0])
+    if major_a != MajorTypeAB.KMajor:
+        raise ValueError(f"major_a must be KMajor, but got {major_a}")
+    if must_be_k_major() and (major_b != MajorTypeAB.KMajor):
+        raise ValueError(f"major_b must be KMajor, but got {major_b}")
+
+    if not m_indices.is_contiguous():
+        raise ValueError(
+            f"m_indices must be contiguous, but got {m_indices.is_contiguous()}"
+        )
+
+    a, sfa = a_fp8
+    b, sfb = b_fp8
+    m, k = a.shape
+    num_groups, n, k_ = b.shape
+    m_, n_ = d.shape
+    m__ = m_indices.numel()
+
+    # Type and shape checks
+    if m != m_ or k != k_ or n != n_ or m__ != m_:
+        raise ValueError(
+            f"Shape mismatch. m = {m}, m_ = {m_}, k = {k}, k_ = {k_}, n = {n}, n_ = {n_}, m__ = {m__}"
+        )
+    if a.dtype != torch.float8_e4m3fn:
+        raise ValueError(f"a must be float8_e4m3fn, but got {a.dtype}")
+    if b.dtype != torch.float8_e4m3fn:
+        raise ValueError(f"b must be float8_e4m3fn, but got {b.dtype}")
+    if d.dtype != torch.bfloat16:
+        raise ValueError(f"d must be bfloat16, but got {d.dtype}")
+    if m_indices.dtype != torch.int32:
+        raise ValueError(f"m_indices must be int32, but got {m_indices.dtype}")
+
+    # D must be N-major
+    if get_major_type_cd(d) != MajorTypeCD.NMajor:
+        raise ValueError(f"d must be N-major, but got {get_major_type_cd(d)}")
+
+    return True
+
+
+@backend_requirement(
+    {},
+    common_check=_check_group_deepgemm_fp8_nt_contiguous_problem_size,
+)
 def m_grouped_fp8_gemm_nt_contiguous(
     a_fp8: Tuple[torch.Tensor, torch.Tensor],
     b_fp8: Tuple[torch.Tensor, torch.Tensor],
@@ -1346,31 +1428,13 @@ def m_grouped_fp8_gemm_nt_contiguous(
     # Compiled dims can be upper cases
     compiled_dims = compiled_dims.lower()
 
-    # NOTES: shape must be `[M, K] @ [G, N, K].mT`
     major_a = get_major_type_ab(a_fp8[0])
     major_b = get_major_type_ab(b_fp8[0])
-    assert major_a == MajorTypeAB.KMajor
-    if must_be_k_major():
-        assert major_b == MajorTypeAB.KMajor
-    assert m_indices.is_contiguous()
 
     a, sfa = a_fp8
     b, sfb = b_fp8
     m, k = a.shape
     num_groups, n, k_ = b.shape
-    m_, n_ = d.shape
-    m__ = m_indices.numel()
-
-    # Type and shape checks
-    assert m == m_ == m__ and n == n_ and k == k_
-    assert n > 0 and k > 0 and num_groups > 0
-    assert a.dtype == torch.float8_e4m3fn
-    assert b.dtype == torch.float8_e4m3fn
-    assert d.dtype == torch.bfloat16
-    assert m_indices.dtype == torch.int32
-
-    # D must be N-major
-    assert get_major_type_cd(d) == MajorTypeCD.NMajor
 
     # Do nothing if the problem is empty
     if m == 0:
@@ -1385,15 +1449,87 @@ def m_grouped_fp8_gemm_nt_contiguous(
 
     impl = {
         "100a": functools.partial(
-            m_grouped_fp8_gemm_nt_contiguous_sm100,
+            m_grouped_fp8_gemm_nt_contiguous_sm10x,
             major_a=major_a,
             major_b=major_b,
             compiled_dims=compiled_dims,
-        )
+        ),
+        "103a": functools.partial(
+            m_grouped_fp8_gemm_nt_contiguous_sm10x,
+            major_a=major_a,
+            major_b=major_b,
+            compiled_dims=compiled_dims,
+        ),
     }[get_device_arch()]
     impl(a, sfa, b, sfb, d, m_indices)
 
 
+@supported_compute_capability([100, 103])
+def _check_m_grouped_fp8_gemm_nt_masked_problem_size(
+    a_fp8: Tuple[torch.Tensor, torch.Tensor],
+    b_fp8: Tuple[torch.Tensor, torch.Tensor],
+    d: torch.Tensor,
+    masked_m: torch.Tensor,
+    expected_m: int,
+    recipe: Optional[Tuple[int, int, int]] = None,
+    compiled_dims: str = "nk",
+) -> bool:
+    major_a = get_major_type_ab(a_fp8[0])
+    major_b = get_major_type_ab(b_fp8[0])
+    if major_a != MajorTypeAB.KMajor:
+        raise ValueError(f"major_a must be KMajor, but got {major_a}")
+    if major_b != MajorTypeAB.KMajor:
+        raise ValueError(f"major_b must be KMajor, but got {major_b}")
+
+    if not masked_m.is_contiguous():
+        raise ValueError(
+            f"masked_m must be contiguous, but got {masked_m.is_contiguous()}"
+        )
+
+    a, sfa = a_fp8
+    b, sfb = b_fp8
+    num_groups, m, k = a.shape
+    num_groups_, n, k_ = b.shape
+    num_groups__, m_, n_ = d.shape
+    num_groups___ = masked_m.numel()
+
+    # Type and shape checks
+    if (
+        num_groups != num_groups_
+        or num_groups != num_groups__
+        or num_groups != num_groups___
+    ):
+        raise ValueError(
+            f"num_groups mismatch. num_groups = {num_groups}, num_groups_ = {num_groups_}, num_groups__ = {num_groups__}, num_groups___ = {num_groups___}"
+        )
+    if m != m_ or n != n_ or k != k_:
+        raise ValueError(
+            f"m, n, k mismatch. m = {m}, m_ = {m_}, n = {n}, n_ = {n_}, k = {k}, k_ = {k_}"
+        )
+    if expected_m <= 0 or m <= 0 or n <= 0 or k <= 0 or num_groups <= 0:
+        raise ValueError(
+            f"expected_m, m, n, k, num_groups must be greater than 0, but got expected_m = {expected_m}, m = {m}, n = {n}, k = {k}, num_groups = {num_groups}"
+        )
+    if a.dtype != torch.float8_e4m3fn:
+        raise ValueError(f"a must be float8_e4m3fn, but got {a.dtype}")
+    if b.dtype != torch.float8_e4m3fn:
+        raise ValueError(f"b must be float8_e4m3fn, but got {b.dtype}")
+    if d.dtype != torch.bfloat16:
+        raise ValueError(f"d must be bfloat16, but got {d.dtype}")
+    if masked_m.dtype != torch.int32:
+        raise ValueError(f"masked_m must be int32, but got {masked_m.dtype}")
+
+    # D must be N-major
+    if get_major_type_cd(d) != MajorTypeCD.NMajor:
+        raise ValueError(f"d must be N-major, but got {get_major_type_cd(d)}")
+
+    return True
+
+
+@backend_requirement(
+    {},
+    common_check=_check_m_grouped_fp8_gemm_nt_masked_problem_size,
+)
 def m_grouped_fp8_gemm_nt_masked(
     a_fp8: Tuple[torch.Tensor, torch.Tensor],
     b_fp8: Tuple[torch.Tensor, torch.Tensor],
@@ -1416,20 +1552,6 @@ def m_grouped_fp8_gemm_nt_masked(
     b, sfb = b_fp8
     num_groups, m, k = a.shape
     num_groups_, n, k_ = b.shape
-    num_groups__, m_, n_ = d.shape
-    num_groups___ = masked_m.numel()
-
-    # Type and shape checks
-    assert num_groups == num_groups_ == num_groups__ == num_groups___
-    assert m == m_ and n == n_ and k == k_
-    assert expected_m > 0 and m > 0 and n > 0 and k > 0 and num_groups > 0
-    assert a.dtype == torch.float8_e4m3fn
-    assert b.dtype == torch.float8_e4m3fn
-    assert d.dtype == torch.bfloat16
-    assert masked_m.dtype == torch.int32
-
-    # D must be N-major
-    assert get_major_type_cd(d) == MajorTypeCD.NMajor
 
     # Transform SFA and SFB into compute-required layout
     recipe = get_default_recipe(sfa.dtype, sfb.dtype) if recipe is None else recipe
@@ -1442,26 +1564,34 @@ def m_grouped_fp8_gemm_nt_masked(
 
     impl = {
         "100a": functools.partial(
-            m_grouped_fp8_gemm_nt_masked_sm100,
+            m_grouped_fp8_gemm_nt_masked_sm10x,
             major_a=major_a,
             major_b=major_b,
             compiled_dims=compiled_dims,
-        )
+        ),
+        "103a": functools.partial(
+            m_grouped_fp8_gemm_nt_masked_sm10x,
+            major_a=major_a,
+            major_b=major_b,
+            compiled_dims=compiled_dims,
+        ),
     }[get_device_arch()]
     impl(a, sfa, b, sfb, d, masked_m, expected_m)
 
 
 class KernelMap:
-    def __init__(self, sha256: str):
-        self.sha256 = sha256
+    # Hash for kernel_map.json, updated when deepgemm cubins are republished
+    KERNEL_MAP_HASH = "f161e031826adb8c4f0d31ddbd2ed77e4909e4e43cdfc9728918162a62fcccfb"
+
+    def __init__(self):
         self.indice = None
 
     def init_indices(self):
-        indice_path = ArtifactPath.DEEPGEMM + "kernel_map"
-        assert get_cubin(indice_path, self.sha256, file_extension=".json"), (
+        indice_path = ArtifactPath.DEEPGEMM + "/" + "kernel_map.json"
+        assert get_cubin(indice_path, self.KERNEL_MAP_HASH), (
             "cubin kernel map file not found, nor downloaded with matched sha256"
         )
-        path = FLASHINFER_CUBIN_DIR / f"{indice_path}.json"
+        path = FLASHINFER_CUBIN_DIR / indice_path
         assert path.exists()
         with open(path, "r") as f:
             self.indice = json.load(f)
@@ -1478,4 +1608,4 @@ class KernelMap:
         return self.indice[key]
 
 
-KERNEL_MAP = KernelMap(MetaInfoHash.DEEPGEMM)
+KERNEL_MAP = KernelMap()

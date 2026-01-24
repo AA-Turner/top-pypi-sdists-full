@@ -1,69 +1,56 @@
 Metadata-Version: 2.4
 Name: spyder-kernels
-Version: 3.0.5
+Version: 3.1.2
 Summary: Jupyter kernels for Spyder's console
-Home-page: https://github.com/spyder-ide/spyder-kernels
-Download-URL: https://www.spyder-ide.org/#fh5co-download
-Author: Spyder Development Team
-Author-email: spyderlib@googlegroups.com
-License: MIT
+Author-email: Spyder Development Team <spyderlib@googlegroups.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/spyder-ide/spyder-kernels
 Keywords: spyder jupyter kernel ipython console
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Framework :: Jupyter
 Classifier: Framework :: IPython
+Classifier: Framework :: Jupyter
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Software Development :: Interpreters
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: AUTHORS.txt
 Requires-Dist: cloudpickle
 Requires-Dist: ipykernel<7,>=6.29.3
-Requires-Dist: ipython<8.13,>=8.12.2; python_version == "3.8"
-Requires-Dist: ipython!=8.17.1,<9,>=8.13.0; python_version > "3.8"
+Requires-Dist: ipython!=8.17.1,!=9.1.0,!=9.2.0,!=9.3.0,!=9.4.0,<10,>=8.15.0
 Requires-Dist: jupyter-client<9,>=7.4.9
-Requires-Dist: pyzmq>=24.0.0
+Requires-Dist: packaging
 Requires-Dist: pyxdg>=0.26; platform_system == "Linux"
+Requires-Dist: pyzmq>=24.0.0
 Requires-Dist: traitlets>=5.14.3
 Requires-Dist: wurlitzer>=1.0.3; platform_system != "Windows"
 Provides-Extra: test
+Requires-Dist: anyio; extra == "test"
 Requires-Dist: cython; extra == "test"
 Requires-Dist: dask[distributed]; extra == "test"
+Requires-Dist: django; extra == "test"
 Requires-Dist: flaky; extra == "test"
+Requires-Dist: h5py; extra == "test"
 Requires-Dist: matplotlib; extra == "test"
 Requires-Dist: mock; extra == "test"
 Requires-Dist: numpy; extra == "test"
 Requires-Dist: pandas; extra == "test"
+Requires-Dist: pillow; extra == "test"
+Requires-Dist: polars; extra == "test"
+Requires-Dist: pyarrow; extra == "test"
+Requires-Dist: pydicom; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: scipy; extra == "test"
 Requires-Dist: xarray; extra == "test"
-Requires-Dist: pillow; extra == "test"
-Requires-Dist: django; extra == "test"
-Requires-Dist: h5py; extra == "test"
-Requires-Dist: pydicom; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # Jupyter kernels for the Spyder console
 

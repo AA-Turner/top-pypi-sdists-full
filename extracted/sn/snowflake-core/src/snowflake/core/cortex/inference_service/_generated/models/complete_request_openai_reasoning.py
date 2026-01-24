@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictStr, field_validator
 
 
 class CompleteRequestOpenaiReasoning(BaseModel):
@@ -44,9 +44,10 @@ class CompleteRequestOpenaiReasoning(BaseModel):
             raise ValueError("must validate the enum values ('low','medium','high')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -71,7 +72,7 @@ class CompleteRequestOpenaiReasoning(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -86,9 +87,9 @@ class CompleteRequestOpenaiReasoning(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return CompleteRequestOpenaiReasoning.parse_obj(obj)
+            return CompleteRequestOpenaiReasoning.model_validate(obj)
 
-        _obj = CompleteRequestOpenaiReasoning.parse_obj(
+        _obj = CompleteRequestOpenaiReasoning.model_validate(
             {
                 "effort": obj.get("effort"),
             }

@@ -1,22 +1,23 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: python-lokalise-api
-Version: 3.5.1
+Version: 4.0.1
 Summary: Official Python interface for the Lokalise API v2
-License: BSD-3-Clause
-Keywords: lokalise,api,client
-Author: Ilya Krukowski
-Author-email: golosizpru@gmail.com
-Requires-Python: >=3.9
+Project-URL: Homepage, https://python-lokalise-api.readthedocs.io/
+Project-URL: Repository, https://github.com/lokalise/python-lokalise-api
+Project-URL: Issues, https://github.com/lokalise/python-lokalise-api/issues
+Project-URL: Documentation, https://python-lokalise-api.readthedocs.io/
+Author-email: Ilya Krukowski <elskruk@proton.me>
+License-File: LICENSE
+Keywords: api,client,lokalise
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
-Requires-Dist: exceptiongroup (>=1.0,<2.0) ; python_version < "3.11"
-Requires-Dist: requests (>=2.32.0,<3.0.0)
-Project-URL: Homepage, https://python-lokalise-api.readthedocs.io/
-Project-URL: Repository, https://github.com/lokalise/python-lokalise-api/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: exceptiongroup<2.0,>=1.0; python_version < '3.11'
+Requires-Dist: requests<3,>=2.32.5
 Description-Content-Type: text/markdown
 
 # Lokalise API v2 official Python interface
@@ -31,15 +32,19 @@ Official Python 3 interface for the [Lokalise APIv2](https://developers.lokalise
 
 ## Quick start
 
-This plugin requires Python 3.9 and above. Install it:
+This plugin requires Python 3.10 and above. Install it:
 
-    pip install python-lokalise-api
+```
+pip install python-lokalise-api
+```
 
 Obtain a Lokalise API token (in your *Personal profile*) and use it:
 
 ```python
 import lokalise
+
 client = lokalise.Client('YOUR_API_TOKEN')
+
 project = client.project('123.abc')
 print(project.name)
 
@@ -72,4 +77,3 @@ Find detailed documentation at [python-lokalise-api.readthedocs.io](https://pyth
 This plugin is licensed under the [BSD 3 Clause License](https://github.com/lokalise/python-lokalise-api/blob/master/LICENSE).
 
 Copyright (c) [Lokalise group](https://lokalise.com) and [Ilya Krukowski](http://bodrovis.tech)
-

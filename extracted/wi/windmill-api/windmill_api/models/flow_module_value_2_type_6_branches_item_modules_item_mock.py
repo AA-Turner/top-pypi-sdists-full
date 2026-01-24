@@ -10,10 +10,11 @@ T = TypeVar("T", bound="FlowModuleValue2Type6BranchesItemModulesItemMock")
 
 @_attrs_define
 class FlowModuleValue2Type6BranchesItemModulesItemMock:
-    """
+    """Mock configuration for testing without executing the actual step
+
     Attributes:
-        enabled (Union[Unset, bool]):
-        return_value (Union[Unset, Any]):
+        enabled (Union[Unset, bool]): If true, return mock value instead of executing
+        return_value (Union[Unset, Any]): Value to return when mocked
     """
 
     enabled: Union[Unset, bool] = UNSET

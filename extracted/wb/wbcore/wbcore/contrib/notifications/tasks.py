@@ -9,6 +9,7 @@ from wbcore.contrib.notifications.models.notification_types import (
     NotificationTypeSetting,
 )
 from wbcore.contrib.notifications.models.notifications import Notification
+from wbcore.workers import Queue
 
 
 def send_notification_email(notification: Notification):
@@ -35,7 +36,7 @@ def send_notification_email(notification: Notification):
     msg.send()
 
 
-@shared_task
+@shared_task(queue=Queue.HIGH_PRIORITY.value)
 def send_notification_task(notification_pk: int):
     """A celery task to send out a notification via email, web or mobile
 

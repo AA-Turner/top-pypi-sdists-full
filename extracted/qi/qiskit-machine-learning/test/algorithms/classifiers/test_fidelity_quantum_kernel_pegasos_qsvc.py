@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2021, 2024.
+# (C) Copyright IBM 2021, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -10,7 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-""" Test Pegasos QSVC """
+"""Test Pegasos QSVC"""
 import os
 import tempfile
 import unittest
@@ -18,13 +18,15 @@ import unittest
 from test import QiskitMachineLearningTestCase
 
 import numpy as np
-from qiskit.circuit.library import ZFeatureMap
+from qiskit import QuantumCircuit
+from qiskit.circuit.library import z_feature_map
 from sklearn.datasets import make_blobs
 from sklearn.preprocessing import MinMaxScaler
 
 from qiskit_machine_learning.utils import algorithm_globals
 from qiskit_machine_learning.algorithms import PegasosQSVC, SerializableModelMixin
 from qiskit_machine_learning.kernels import FidelityQuantumKernel
+from qiskit_machine_learning import QiskitMachineLearningError
 
 
 class TestPegasosQSVC(QiskitMachineLearningTestCase):
@@ -40,7 +42,7 @@ class TestPegasosQSVC(QiskitMachineLearningTestCase):
         # number of steps performed during the training procedure
         self.tau = 100
 
-        self.feature_map = ZFeatureMap(feature_dimension=self.q, reps=1)
+        self.feature_map = z_feature_map(feature_dimension=self.q, reps=1)
 
         sample, label = make_blobs(
             n_samples=20, n_features=2, centers=2, random_state=3, shuffle=True
@@ -56,7 +58,7 @@ class TestPegasosQSVC(QiskitMachineLearningTestCase):
         # The same for a 4-dimensional example
         # number of qubits is equal to the number of features
         self.q_4d = 4
-        self.feature_map_4d = ZFeatureMap(feature_dimension=self.q_4d, reps=1)
+        self.feature_map_4d = z_feature_map(feature_dimension=self.q_4d, reps=1)
 
         sample_4d, label_4d = make_blobs(
             n_samples=20, n_features=self.q_4d, centers=2, random_state=3, shuffle=True
@@ -119,10 +121,12 @@ class TestPegasosQSVC(QiskitMachineLearningTestCase):
 
     def test_change_kernel(self):
         """Test QSVC with QuantumKernel later"""
-        qkernel = FidelityQuantumKernel(feature_map=self.feature_map)
+        empty_kernel = QuantumCircuit(2)
+        pegasos_qsvc = PegasosQSVC(C=1000, num_steps=self.tau, quantum_kernel=empty_kernel)
 
-        pegasos_qsvc = PegasosQSVC(C=1000, num_steps=self.tau)
+        qkernel = FidelityQuantumKernel(feature_map=self.feature_map)
         pegasos_qsvc.quantum_kernel = qkernel
+
         pegasos_qsvc.fit(self.sample_train, self.label_train)
         score = pegasos_qsvc.score(self.sample_test, self.label_test)
 
@@ -150,10 +154,8 @@ class TestPegasosQSVC(QiskitMachineLearningTestCase):
     def test_constructor(self):
         """Tests properties of PegasosQSVC"""
         with self.subTest("Default parameters"):
-            pegasos_qsvc = PegasosQSVC()
-            self.assertIsInstance(pegasos_qsvc.quantum_kernel, FidelityQuantumKernel)
-            self.assertFalse(pegasos_qsvc.precomputed)
-            self.assertEqual(pegasos_qsvc.num_steps, 1000)
+            with self.assertRaises(QiskitMachineLearningError):
+                pegasos_qsvc = PegasosQSVC()
 
         with self.subTest("PegasosQSVC with QuantumKernel"):
             qkernel = FidelityQuantumKernel(feature_map=self.feature_map)
@@ -208,9 +210,9 @@ class TestPegasosQSVC(QiskitMachineLearningTestCase):
 
         # save/load, change the quantum instance and check if predicted values are the same
         file_name = os.path.join(tempfile.gettempdir(), "pegasos.model")
-        regressor.save(file_name)
+        regressor.to_dill(file_name)
         try:
-            regressor_load = PegasosQSVC.load(file_name)
+            regressor_load = PegasosQSVC.from_dill(file_name)
             loaded_model_predicts = regressor_load.predict(test_features)
 
             np.testing.assert_array_almost_equal(original_predicts, loaded_model_predicts)
@@ -222,7 +224,7 @@ class TestPegasosQSVC(QiskitMachineLearningTestCase):
                 pass
 
             with self.assertRaises(TypeError):
-                FakeModel.load(file_name)
+                FakeModel.from_dill(file_name)
 
         finally:
             os.remove(file_name)

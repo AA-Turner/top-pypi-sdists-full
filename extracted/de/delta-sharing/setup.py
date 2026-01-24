@@ -42,7 +42,7 @@ setup(
     ],
     python_requires='>=3.8',
     install_requires=[
-        'delta-kernel-rust-sharing-wrapper>=0.2.0',
+        'delta-kernel-rust-sharing-wrapper>=0.3.1',
         'pandas',
         'pyarrow>=16.1.0',
         'fsspec>=0.7.4',
@@ -50,6 +50,7 @@ setup(
         'aiohttp',
         'dataclasses;python_version<"3.8"',
         'yarl>=1.6.0',
+        'jwcrypto>=1.5.6',
     ],
     extras_require={
         's3': ['s3fs'],

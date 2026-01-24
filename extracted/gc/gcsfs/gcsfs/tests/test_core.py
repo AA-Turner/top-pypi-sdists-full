@@ -15,8 +15,8 @@ from fsspec.utils import seek_delimiter
 
 import gcsfs.checkers
 import gcsfs.tests.settings
+from gcsfs import GCSFileSystem
 from gcsfs import __version__ as version
-from gcsfs.core import GCSFileSystem, quote
 from gcsfs.credentials import GoogleCredentials
 from gcsfs.tests.conftest import a, allfiles, b, csv_files, files, text_files
 from gcsfs.tests.utils import tempdir, tmpfile
@@ -48,13 +48,13 @@ def test_dircache_filled(gcs):
     assert len(gcs.dircache)
 
 
-def test_many_connect(docker_gcs):
+def test_many_connect(gcs_factory):
     from multiprocessing.pool import ThreadPool
 
-    GCSFileSystem(endpoint_url=docker_gcs)
+    gcs_factory()
 
     def task(i):
-        GCSFileSystem(endpoint_url=docker_gcs).ls("")
+        gcs_factory().ls("")
         return True
 
     pool = ThreadPool(processes=20)
@@ -64,12 +64,12 @@ def test_many_connect(docker_gcs):
     pool.join()
 
 
-def test_many_connect_new(docker_gcs):
+def test_many_connect_new(gcs_factory):
     from multiprocessing.pool import ThreadPool
 
     def task(i):
         # first instance is made within thread - creating loop
-        GCSFileSystem(endpoint_url=docker_gcs).ls("")
+        gcs_factory().ls("")
         return True
 
     pool = ThreadPool(processes=20)
@@ -99,6 +99,8 @@ def test_simple_upload_with_kms(gcs):
 
 
 def test_large_upload(gcs):
+    import gcsfs.core
+
     orig = gcsfs.core.GCS_MAX_BLOCK_SIZE
     gcsfs.core.GCS_MAX_BLOCK_SIZE = 262144  # minimum block size
     try:
@@ -112,6 +114,8 @@ def test_large_upload(gcs):
 
 
 def test_large_upload_with_kms(gcs):
+    import gcsfs.core
+
     if not gcs.on_google:
         pytest.skip("emulator does not support kmsKeyName")
     orig = gcsfs.core.GCS_MAX_BLOCK_SIZE
@@ -224,6 +228,35 @@ def test_info(gcs):
     assert gcs.info(a)["mtime"] == gcs.modified(a)
 
 
+def test_info_on_directory_with_only_subdirectories(gcs):
+    """Test info() on a path that contains no direct files but has subdirectories."""
+    # Setup: create a file inside a nested directory
+    path = f"{TEST_BUCKET}/dir_with_only_subdirs/subdir1/file.txt"
+    gcs.touch(path)
+    path = f"{TEST_BUCKET}/dir_with_only_subdirs/subdir2/file.txt"
+    gcs.touch(path)
+    path = f"{TEST_BUCKET}/dir_with_only_subdirs/subdir3/file.txt"
+    gcs.touch(path)
+    path = f"{TEST_BUCKET}/dir_with_only_subdirs/subdir4/file.txt"
+    gcs.touch(path)
+
+    # The path to test with info()
+    dir_path = f"{TEST_BUCKET}/dir_with_only_subdirs"
+
+    # Mock the _call method to count invocations
+    with mock.patch.object(gcs, "_call", wraps=gcs._call) as mock_call:
+        # Get info for the directory
+        info = gcs.info(dir_path)
+
+        # Assertions
+        assert info["type"] == "directory"
+        assert info["name"] == dir_path
+        # one call is for exact file check and one call for directory
+        assert (
+            mock_call.call_count == 2
+        ), "info() should only make two calls to GCS for a directory."
+
+
 def test_ls2(gcs):
     assert TEST_BUCKET + "/" in gcs.ls("")
     with pytest.raises((OSError, IOError)):
@@ -256,7 +289,12 @@ def test_pickle(gcs):
 
 
 def test_ls_touch(gcs):
-    assert not gcs.exists(TEST_BUCKET + "/tmp/test")
+    path = TEST_BUCKET + "/tmp/test"
+    if gcs.exists(path):
+        try:
+            gcs.rm(path, recursive=True)
+        except Exception:
+            pass
 
     gcs.touch(a)
     gcs.touch(b)
@@ -405,6 +443,8 @@ def test_read_keys_from_bucket(gcs):
 
 
 def test_url(gcs):
+    from gcsfs.core import quote
+
     fn = TEST_BUCKET + "/nested/file1"
     url = gcs.url(fn)
     assert "http" in url
@@ -497,16 +537,23 @@ def test_move(gcs):
     assert not gcs.exists(fn)
 
 
-@pytest.mark.parametrize("slash_from", ([False, True]))
-def test_move_recursive(gcs, slash_from):
+def test_move_recursive_no_slash(gcs):
     # See issue #489
     dir_from = TEST_BUCKET + "/nested"
-    if slash_from:
-        dir_from += "/"
     dir_to = TEST_BUCKET + "/new_name"
 
     gcs.mv(dir_from, dir_to, recursive=True)
     assert not gcs.exists(dir_from)
+    assert gcs.ls(dir_to) == [dir_to + "/file1", dir_to + "/file2", dir_to + "/nested2"]
+
+
+def test_move_recursive_with_slash(gcs):
+    # See issue #489
+    dir_from = TEST_BUCKET + "/nested/"
+    dir_to = TEST_BUCKET + "/new_name_with_slash"
+
+    gcs.mv(dir_from, dir_to, recursive=True)
+    assert not gcs.exists(dir_from.rstrip("/"))
     assert gcs.ls(dir_to) == [dir_to + "/file1", dir_to + "/file2", dir_to + "/nested2"]
 
 
@@ -1019,10 +1066,8 @@ def test_attrs(gcs):
     assert gcs.getxattr(a, "something") == "not"
 
 
-def test_request_user_project(gcs):
-    gcs = GCSFileSystem(
-        endpoint_url=gcs._endpoint, requester_pays=True, project=TEST_PROJECT
-    )
+def test_request_user_project(gcs_factory):
+    gcs = gcs_factory(requester_pays=True, project=TEST_PROJECT)
     # test directly against `_call` to inspect the result
     r = gcs.call(
         "GET",
@@ -1038,8 +1083,8 @@ def test_request_user_project(gcs):
     assert result["userProject"] == [TEST_PROJECT]
 
 
-def test_request_user_project_string(gcs):
-    gcs = GCSFileSystem(endpoint_url=gcs._endpoint, requester_pays=TEST_PROJECT)
+def test_request_user_project_string(gcs_factory):
+    gcs = gcs_factory(requester_pays=TEST_PROJECT)
     assert gcs.requester_pays == TEST_PROJECT
     # test directly against `_call` to inspect the result
     r = gcs.call(
@@ -1056,8 +1101,8 @@ def test_request_user_project_string(gcs):
     assert result["userProject"] == [TEST_PROJECT]
 
 
-def test_request_header(gcs):
-    gcs = GCSFileSystem(endpoint_url=gcs._endpoint, requester_pays=True)
+def test_request_header(gcs_factory):
+    gcs = gcs_factory(requester_pays=True)
     # test directly against `_call` to inspect the result
     r = gcs.call(
         "GET",
@@ -1223,6 +1268,8 @@ def test_find_dircache(gcs):
         f"{TEST_BUCKET}/2014-01-01.csv",
         f"{TEST_BUCKET}/2014-01-02.csv",
         f"{TEST_BUCKET}/2014-01-03.csv",
+        f"{TEST_BUCKET}/multi_threaded_test_file",
+        f"{TEST_BUCKET}/zonal",
     }
     assert set(gcs.ls(f"{TEST_BUCKET}/nested")) == {
         f"{TEST_BUCKET}/nested/file1",
@@ -1331,13 +1378,13 @@ def test_dir_marker_info_eq_ls(gcs):
     out1 = gcs.info(f"{TEST_BUCKET}/psudodir")
     out2 = gcs.ls(f"{TEST_BUCKET}/psudodir", detail=True)[0]
     assert out1["type"] == "directory"
-    assert out1 == out2
+    assert {k: v for k, v in out1.items() if k in out2} == out2
 
     gcs.invalidate_cache()
     out3 = gcs.ls(f"{TEST_BUCKET}/psudodir", detail=True)[0]
     out4 = gcs.info(f"{TEST_BUCKET}/psudodir")
     assert out3["type"] == "directory"
-    assert out3 == out4
+    assert {k: v for k, v in out4.items() if k in out3} == out3
 
 
 def test_mkdir_with_path(gcs):
@@ -1361,70 +1408,6 @@ def test_deep_find_wthdirs(gcs):
         f"{TEST_BUCKET}/deep/nested",
         f"{TEST_BUCKET}/deep/nested/dir",
     ]
-
-
-def test_info_versioned(gcs_versioned):
-    with gcs_versioned.open(a, "wb") as wo:
-        wo.write(b"v1")
-    v1 = gcs_versioned.info(a)["generation"]
-    assert v1 is not None
-    with gcs_versioned.open(a, "wb") as wo:
-        wo.write(b"v2")
-    v2 = gcs_versioned.info(a)["generation"]
-    assert v2 is not None and v1 != v2
-    assert gcs_versioned.info(f"{a}#{v1}")["generation"] == v1
-    assert gcs_versioned.info(f"{a}?generation={v2}")["generation"] == v2
-
-
-def test_cat_versioned(gcs_versioned):
-    with gcs_versioned.open(a, "wb") as wo:
-        wo.write(b"v1")
-    v1 = gcs_versioned.info(a)["generation"]
-    assert v1 is not None
-    with gcs_versioned.open(a, "wb") as wo:
-        wo.write(b"v2")
-    gcs_versioned.cat(f"{a}#{v1}") == b"v1"
-
-
-def test_cp_versioned(gcs_versioned):
-    with gcs_versioned.open(a, "wb") as wo:
-        wo.write(b"v1")
-    v1 = gcs_versioned.info(a)["generation"]
-    assert v1 is not None
-    with gcs_versioned.open(a, "wb") as wo:
-        wo.write(b"v2")
-    gcs_versioned.cp_file(f"{a}#{v1}", b)
-    assert gcs_versioned.cat(b) == b"v1"
-
-
-def test_ls_versioned(gcs_versioned):
-    import posixpath
-
-    with gcs_versioned.open(a, "wb") as wo:
-        wo.write(b"v1")
-    v1 = gcs_versioned.info(a)["generation"]
-    with gcs_versioned.open(a, "wb") as wo:
-        wo.write(b"v2")
-    v2 = gcs_versioned.info(a)["generation"]
-    dpath = posixpath.dirname(a)
-    versions = {f"{a}#{v1}", f"{a}#{v2}"}
-    assert versions == set(gcs_versioned.ls(dpath, versions=True))
-    assert versions == {
-        entry["name"] for entry in gcs_versioned.ls(dpath, detail=True, versions=True)
-    }
-    assert gcs_versioned.ls(TEST_BUCKET, versions=True) == ["gcsfs_test/tmp"]
-
-
-def test_find_versioned(gcs_versioned):
-    with gcs_versioned.open(a, "wb") as wo:
-        wo.write(b"v1")
-    v1 = gcs_versioned.info(a)["generation"]
-    with gcs_versioned.open(a, "wb") as wo:
-        wo.write(b"v2")
-    v2 = gcs_versioned.info(a)["generation"]
-    versions = {f"{a}#{v1}", f"{a}#{v2}"}
-    assert versions == set(gcs_versioned.find(a, versions=True))
-    assert versions == set(gcs_versioned.find(a, detail=True, versions=True))
 
 
 def test_cp_directory_recursive(gcs):
@@ -1699,6 +1682,61 @@ def test_near_find(gcs):
     assert not out
 
 
+def test_ls_with_max_results(gcs):
+    """
+    Test that ls with max_results returns the correct number of items,
+    especially when the listing includes both files and directories (prefixes)
+    and requires pagination.
+    """
+    if not gcs.on_google:
+        pytest.skip("emulator does not respect max_results")
+    parent_dir = f"{TEST_BUCKET}/max_results_test"
+    # Create directories/prefixes under parent directory.
+    dirs_to_create = {f"{parent_dir}/xdir{i}/subfile{i}": b"" for i in range(50)}
+    # Create many files to ensure pagination is triggered.
+    files_to_create = {f"{parent_dir}/file{i}": b"" for i in range(1000)}
+    all_files_to_create = {**dirs_to_create, **files_to_create}
+    gcs.pipe(all_files_to_create)
+
+    # Test for triggering pagination, default page_size is 1000
+    results = gcs.ls(parent_dir, max_results=1020)
+    assert len(results) == 1020
+
+    results = gcs.ls(parent_dir, max_results=5)
+    assert len(results) == 5
+
+
 def test_get_error(gcs):
     with pytest.raises(FileNotFoundError):
         gcs.get_file(f"{TEST_BUCKET}/doesnotexist", "other")
+
+
+def test_custom_gcp_universe(monkeypatch):
+    # Make sure we simulate a mock less connection
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    monkeypatch.delenv("STORAGE_EMULATOR_HOST", raising=False)
+
+    monkeypatch.setenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN", "s3nsapis.fr")
+    fs = fsspec.filesystem("gcs", token="anon")
+    assert fs.base == "https://storage.s3nsapis.fr/storage/v1/"
+    assert fs.on_google is True
+    assert (
+        fs.url("/test/path")
+        == "https://storage.s3nsapis.fr/download/storage/v1/b/test/o/path?alt=media"
+    )
+    assert fs.batch_url_base == "https://storage.s3nsapis.fr/batch/storage/v1"
+
+
+def test_default_gcp_universe(monkeypatch):
+    # Make sure we simulate a mock less connection
+    monkeypatch.delenv("STORAGE_EMULATOR_HOST", raising=False)
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+
+    fs = fsspec.filesystem("gcs", token="anon")
+    assert fs.base == "https://storage.googleapis.com/storage/v1/"
+    assert fs.on_google is True
+    assert (
+        fs.url("/test/path")
+        == "https://storage.googleapis.com/download/storage/v1/b/test/o/path?alt=media"
+    )
+    assert fs.batch_url_base == "https://storage.googleapis.com/batch/storage/v1"

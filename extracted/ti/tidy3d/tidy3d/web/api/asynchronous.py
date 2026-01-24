@@ -2,26 +2,30 @@
 
 from __future__ import annotations
 
+from os import PathLike
 from typing import Literal, Optional, Union
 
+from tidy3d.components.types.workflow import WorkflowType
 from tidy3d.log import log
 from tidy3d.web.core.types import PayType
 
 from .container import DEFAULT_DATA_DIR, Batch, BatchData
-from .tidy3d_stub import SimulationType
 
 
 def run_async(
-    simulations: dict[str, SimulationType],
+    simulations: Union[dict[str, WorkflowType], tuple[WorkflowType], list[WorkflowType]],
     folder_name: str = "default",
-    path_dir: str = DEFAULT_DATA_DIR,
+    path_dir: PathLike = DEFAULT_DATA_DIR,
     callback_url: Optional[str] = None,
     num_workers: Optional[int] = None,
     verbose: bool = True,
     simulation_type: str = "tidy3d",
+    solver_version: Optional[str] = None,
     parent_tasks: Optional[dict[str, list[str]]] = None,
     reduce_simulation: Literal["auto", True, False] = "auto",
     pay_type: Union[PayType, str] = PayType.AUTO,
+    priority: Optional[int] = None,
+    lazy: bool = False,
 ) -> BatchData:
     """Submits a set of Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`] objects to server,
     starts running, monitors progress, downloads, and loads results as a :class:`.BatchData` object.
@@ -30,11 +34,11 @@ def run_async(
 
     Parameters
     ----------
-    simulations : Dict[str, Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`]]
-        Mapping of task name to simulation.
+    simulations : Union[Dict[str, Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`]], tuple[Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`]], list[Union[:class:`.Simulation`, :class:`.HeatSimulation`, :class:`.EMESimulation`]]]
+        Mapping of task name to simulation or list of simulations.
     folder_name : str = "default"
         Name of folder to store each task on web UI.
-    path_dir : str
+    path_dir : PathLike
         Base directory where data will be downloaded, by default current working directory.
     callback_url : str = None
         Http PUT url to receive simulation finish event. The body content is a json file with
@@ -43,10 +47,20 @@ def run_async(
         Number of tasks to submit at once in a batch, if None, will run all at the same time.
     verbose : bool = True
         If ``True``, will print progressbars and status, otherwise, will run silently.
+    simulation_type : str = "tidy3d"
+        Type of simulation being uploaded.
+    solver_version: Optional[str] = None
+        Target solver version.
     reduce_simulation: Literal["auto", True, False] = "auto"
         Whether to reduce structures in the simulation to the simulation domain only. Note: currently only implemented for the mode solver.
     pay_type: Union[PayType, str] = PayType.AUTO
         Specify the payment method.
+    priority: int = None
+        Priority of the simulation in the Virtual GPU (vGPU) queue (1 = lowest, 10 = highest).
+        It affects only simulations from vGPU licenses and does not impact simulations using FlexCredits.
+    lazy : bool = False
+        Whether to load the actual data (``lazy=False``) or return a proxy that loads
+        the data when accessed (``lazy=True``).
 
     Returns
     ------
@@ -61,7 +75,7 @@ def run_async(
         Interface for managing the running of a Simulation on server.
 
     :class:`Batch`
-        Interface for submitting several :class:`Simulation` objects to sever.
+        Interface for submitting several :class:`.Simulation` objects to sever.
     """
     if simulation_type is None:
         simulation_type = "tidy3d"
@@ -79,10 +93,12 @@ def run_async(
         callback_url=callback_url,
         verbose=verbose,
         simulation_type=simulation_type,
+        solver_version=solver_version,
         parent_tasks=parent_tasks,
         reduce_simulation=reduce_simulation,
         pay_type=pay_type,
+        lazy=lazy,
     )
 
-    batch_data = batch.run(path_dir=path_dir)
+    batch_data = batch.run(path_dir=path_dir, priority=priority)
     return batch_data

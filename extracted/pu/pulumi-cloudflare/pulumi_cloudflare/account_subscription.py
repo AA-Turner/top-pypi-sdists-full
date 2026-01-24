@@ -228,6 +228,24 @@ class AccountSubscription(pulumi.CustomResource):
         """
         ## Example Usage
 
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_account_subscription = cloudflare.AccountSubscription("example_account_subscription",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            frequency="monthly",
+            rate_plan={
+                "id": "free",
+                "currency": "USD",
+                "externally_managed": False,
+                "is_contract": False,
+                "public_name": "Business Plan",
+                "scope": "zone",
+                "sets": ["string"],
+            })
+        ```
+
         ## Import
 
         ```sh
@@ -249,6 +267,24 @@ class AccountSubscription(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_account_subscription = cloudflare.AccountSubscription("example_account_subscription",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            frequency="monthly",
+            rate_plan={
+                "id": "free",
+                "currency": "USD",
+                "externally_managed": False,
+                "is_contract": False,
+                "public_name": "Business Plan",
+                "scope": "zone",
+                "sets": ["string"],
+            })
+        ```
 
         ## Import
 
@@ -377,7 +413,7 @@ class AccountSubscription(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def frequency(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def frequency(self) -> pulumi.Output[_builtins.str]:
         """
         How often the subscription is renewed automatically.
         Available values: "weekly", "monthly", "quarterly", "yearly".
@@ -394,7 +430,7 @@ class AccountSubscription(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="ratePlan")
-    def rate_plan(self) -> pulumi.Output[Optional['outputs.AccountSubscriptionRatePlan']]:
+    def rate_plan(self) -> pulumi.Output['outputs.AccountSubscriptionRatePlan']:
         """
         The rate plan applied to the subscription.
         """

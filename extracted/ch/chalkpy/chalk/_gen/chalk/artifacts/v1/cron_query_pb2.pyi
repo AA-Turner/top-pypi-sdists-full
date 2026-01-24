@@ -1,3 +1,4 @@
+from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -37,6 +38,7 @@ class CronQuery(_message.Message):
         "incremental_sources",
         "resource_group",
         "planner_options",
+        "completion_deadline",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -61,6 +63,7 @@ class CronQuery(_message.Message):
     INCREMENTAL_SOURCES_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    COMPLETION_DEADLINE_FIELD_NUMBER: _ClassVar[int]
     name: str
     cron: str
     file_name: str
@@ -76,6 +79,7 @@ class CronQuery(_message.Message):
     incremental_sources: _containers.RepeatedScalarFieldContainer[str]
     resource_group: str
     planner_options: _containers.ScalarMap[str, str]
+    completion_deadline: _duration_pb2.Duration
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -93,4 +97,5 @@ class CronQuery(_message.Message):
         incremental_sources: _Optional[_Iterable[str]] = ...,
         resource_group: _Optional[str] = ...,
         planner_options: _Optional[_Mapping[str, str]] = ...,
+        completion_deadline: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...

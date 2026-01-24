@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2025-09-20 AT 15:57:04
+# AUTO GENERATED ON 2025-12-15 AT 13:53:47
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -1080,23 +1080,59 @@ def by_signature(lib):
     f.dir = ['out', 'in', 'in', 'out', 'out']
     out['awkward_NumpyArray_unique_strings', uint8, int64, int64, int64] = f
 
-    f = lib.awkward_NumpyArray_prepare_utf8_to_utf32_padded
+    f = lib.awkward_NumpyArray_prepare_utf8_to_utf32_padded_int32
+    f.argtypes = [POINTER(c_uint8), POINTER(c_int32), c_int64, POINTER(c_int64)]
+    f.restype = ERROR
+    f.dir = ['in', 'in', 'in', 'out']
+    out['awkward_NumpyArray_prepare_utf8_to_utf32_padded', uint8, int32, int64] = f
+
+    f = lib.awkward_NumpyArray_prepare_utf8_to_utf32_padded_int64
     f.argtypes = [POINTER(c_uint8), POINTER(c_int64), c_int64, POINTER(c_int64)]
     f.restype = ERROR
     f.dir = ['in', 'in', 'in', 'out']
     out['awkward_NumpyArray_prepare_utf8_to_utf32_padded', uint8, int64, int64] = f
 
-    f = lib.awkward_NumpyArray_utf8_to_utf32_padded
+    f = lib.awkward_NumpyArray_prepare_utf8_to_utf32_padded_uint32
+    f.argtypes = [POINTER(c_uint8), POINTER(c_uint32), c_int64, POINTER(c_int64)]
+    f.restype = ERROR
+    f.dir = ['in', 'in', 'in', 'out']
+    out['awkward_NumpyArray_prepare_utf8_to_utf32_padded', uint8, uint32, int64] = f
+
+    f = lib.awkward_NumpyArray_utf8_to_utf32_padded_int32
+    f.argtypes = [POINTER(c_uint8), POINTER(c_int32), c_int64, c_int64, POINTER(c_uint32)]
+    f.restype = ERROR
+    f.dir = ['in', 'in', 'in', 'in', 'out']
+    out['awkward_NumpyArray_utf8_to_utf32_padded', uint8, int32, uint32] = f
+
+    f = lib.awkward_NumpyArray_utf8_to_utf32_padded_int64
     f.argtypes = [POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64, POINTER(c_uint32)]
     f.restype = ERROR
     f.dir = ['in', 'in', 'in', 'in', 'out']
     out['awkward_NumpyArray_utf8_to_utf32_padded', uint8, int64, uint32] = f
 
-    f = lib.awkward_NumpyArray_pad_zero_to_length_uint8
+    f = lib.awkward_NumpyArray_utf8_to_utf32_padded_uint32
+    f.argtypes = [POINTER(c_uint8), POINTER(c_uint32), c_int64, c_int64, POINTER(c_uint32)]
+    f.restype = ERROR
+    f.dir = ['in', 'in', 'in', 'in', 'out']
+    out['awkward_NumpyArray_utf8_to_utf32_padded', uint8, uint32, uint32] = f
+
+    f = lib.awkward_NumpyArray_pad_zero_to_length_uint8_int32
+    f.argtypes = [POINTER(c_uint8), POINTER(c_int32), c_int64, c_int64, POINTER(c_uint8)]
+    f.restype = ERROR
+    f.dir = ['in', 'in', 'in', 'in', 'out']
+    out['awkward_NumpyArray_pad_zero_to_length', uint8, int32, uint8] = f
+
+    f = lib.awkward_NumpyArray_pad_zero_to_length_uint8_int64
     f.argtypes = [POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64, POINTER(c_uint8)]
     f.restype = ERROR
     f.dir = ['in', 'in', 'in', 'in', 'out']
     out['awkward_NumpyArray_pad_zero_to_length', uint8, int64, uint8] = f
+
+    f = lib.awkward_NumpyArray_pad_zero_to_length_uint8_uint32
+    f.argtypes = [POINTER(c_uint8), POINTER(c_uint32), c_int64, c_int64, POINTER(c_uint8)]
+    f.restype = ERROR
+    f.dir = ['in', 'in', 'in', 'in', 'out']
+    out['awkward_NumpyArray_pad_zero_to_length', uint8, uint32, uint8] = f
 
     f = lib.awkward_NumpyArray_subrange_equal_bool
     f.argtypes = [POINTER(c_bool), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_bool)]

@@ -1,11 +1,10 @@
 Metadata-Version: 2.1
 Name: tccli-intl-en
-Version: 3.0.1263.1
+Version: 3.1.35.1
 Summary: Universal Command Line Environment for Tencent Cloud
 Home-page: https://github.com/TencentCloud/tencentcloud-cli-intl-en.git
 Author: Tencent Cloud
 Maintainer-email: TencentCloudApi@tencent.com
-License: UNKNOWN
 Platform: unix
 Platform: linux
 Platform: win64
@@ -22,6 +21,9 @@ Classifier: Programming Language :: Python :: 3.4
 Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
 License-File: LICENSE
+Requires-Dist: tencentcloud-sdk-python-intl-en>=3.1.35
+Requires-Dist: jmespath==0.10.0
+Requires-Dist: six==1.16.0
 
 Install
 =======
@@ -60,5 +62,3 @@ Compliance Notice
 =================
 
 Please prioritize using the ​default domain names configured in the SDK for each product. If using other domains, note that ​overseas domains may pose ​data compliance risks.
-
-

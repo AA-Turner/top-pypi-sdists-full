@@ -212,20 +212,50 @@ async def entrada_de_notas_37(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
         await worker_sleep(3)
 
-        if str(cfop).startswith("6"):
-            set_combobox("||List", "2556-COMPRA DE MERCADORIAS SEM ESTOQUE- 2.556")
-        elif str(cfop).startswith("5"):
-            set_combobox("||List", "1556-COMPRA DE MERCADORIAS SEM ESTOQUE- 1.556")
+        # ============================
+        # ✅ Natureza Operação (modelo novo) - somente 2556 e 1556
+        # ============================
+
+        cfop_str = str(cfop).strip()
+
+        if cfop_str.startswith("6"):
+            key = "2556"
+            codigo_combo = "2.556"
+        elif cfop_str.startswith("5"):
+            key = "1556"
+            codigo_combo = "1.556"
         else:
             console.print(
-                "Erro mapeado, CFOP diferente de inicio com 540 ou 510, necessario ação manual ou ajuste no robo...\n"
+                f"Erro mapeado, CFOP '{cfop_str}' diferente de início com 5 ou 6, necessário ação manual ou ajuste no robô...\n"
             )
             return RpaRetornoProcessoDTO(
                 sucesso=False,
-                retorno=f"Erro mapeado, CFOP diferente de inicio com 540 ou 510, necessario ação manual ou ajuste no robo.",
+                retorno=f"Erro mapeado, CFOP '{cfop_str}' diferente de início com 5 ou 6, necessário ação manual ou ajuste no robô.",
                 status=RpaHistoricoStatusEnum.Falha,
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
             )
+
+        # localizar e selecionar no combobox (modelo novo)
+        opcao_encontrada = None
+        for opc in combo_box_natureza_operacao.item_texts():
+            if (f"{key}-COMPRA DE MERCADORIAS SEM ESTOQUE" in opc) and (codigo_combo in opc):
+                opcao_encontrada = opc
+                break
+
+        if not opcao_encontrada:
+            console.print(
+                f"Natureza de operação não encontrada no combobox para chave {key} e código {codigo_combo}. "
+                f"CFOP: {cfop_str}\n"
+            )
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Natureza de operação não encontrada no combobox para {key} ({codigo_combo}).",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+            )
+
+        combo_box_natureza_operacao.select(opcao_encontrada)
+        send_keys("{ENTER}")
         
         await worker_sleep(3)
 
@@ -384,6 +414,16 @@ async def entrada_de_notas_37(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
         main_window.set_focus()
 
+        try:
+            apagar_parcela =  main_window.child_window(class_name="TDBIBitBtn", found_index=0).click_input()
+
+            app_conf = Application().connect(class_name="TMessageForm")
+            main_window_conf = app_conf["TMessageForm"]
+            clicar_ok = main_window_conf.child_window(class_name="TButton", found_index=1).click_input() 
+        except:
+            pass
+            
+
         panel_TPage = main_window.child_window(class_name="TPage", title="Formulario")
         panel_TTabSheet = panel_TPage.child_window(class_name="TPageControl")
 
@@ -398,14 +438,25 @@ async def entrada_de_notas_37(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         await worker_sleep(1)
         send_keys(valor_nota)
 
-        tipo_cobranca = panel_TTabSheet.child_window(
-            class_name="TDBIComboBox", found_index=0
-        )
-        tipo_cobranca.click()
-        try:
-            set_combobox("||List", "BANCO DO BRASIL BOLETO")
-        except:
-            set_combobox("||List", "BOLETO")
+        # Combo alvo (ajuste found_index se precisar)
+        tipo_cobranca = panel_TTabSheet.child_window(class_name="TDBIComboBox", found_index=0)
+
+        # Ordem de preferência
+        opcoes = [
+            "BANCO DO BRASIL BOLETO",
+            "BOLETO",
+        ]
+
+        # 1) Tenta .select() direto (não digita nada)
+        selecionado = None
+        for alvo in opcoes:
+            try:
+                tipo_cobranca.select(alvo)
+                if tipo_cobranca.window_text().strip().lower() == alvo.lower():
+                    selecionado = alvo
+                    break
+            except Exception:
+                pass
         
         await worker_sleep(3)
         

@@ -7,14 +7,15 @@ from typing import Any, TYPE_CHECKING
 
 import networkx
 from cle import SymbolType
-import angr.ailment as ailment
 
+from angr import ailment
 from angr.analyses.cfg import CFGFast
 from angr.knowledge_plugins.functions.function import Function
 from angr.knowledge_base import KnowledgeBase
 from angr.sim_variable import SimMemoryVariable, SimRegisterVariable, SimStackVariable
 from angr.utils import timethis
 from angr.analyses import Analysis, AnalysesHub
+from .clinic import ClinicStage
 from .structured_codegen.c import CStructuredCodeGenerator
 from .structuring import RecursiveStructurer, PhoenixStructurer, DEFAULT_STRUCTURER
 from .region_identifier import RegionIdentifier
@@ -67,19 +68,34 @@ class Decompiler(Analysis):
         binop_operators=None,
         decompile=True,
         regen_clinic=True,
-        inline_functions=frozenset(),
-        desired_variables=frozenset(),
+        inline_functions=None,
+        desired_variables=None,
         update_memory_data: bool = True,
+        want_full_graph: bool = False,
         generate_code: bool = True,
         use_cache: bool = True,
         expr_collapse_depth: int = 16,
         clinic_graph=None,
         clinic_arg_vvars=None,
         clinic_start_stage=None,
+        clinic_end_stage=None,
+        clinic_skip_stages=(),
+        static_vvars: dict | None = None,
+        static_buffers: dict | None = None,
     ):
         if not isinstance(func, Function):
             func = self.kb.functions[func]
         self.func: Function = func
+        if self.func.evicted:
+            l.warning(
+                "The Function instance %r has been evicted. Pass in a non-evicted Function instance or the "
+                "function address instead to avoid unexpected decompilation output caused by using out-dated "
+                "data.",
+                func,
+            )
+
+        if cfg is None:
+            cfg = self.func._function_manager._kb.cfgs.get_most_accurate()
         self._cfg = cfg.model if isinstance(cfg, CFGFast) else cfg
         self._options = self._parse_options(options) if options else []
 
@@ -108,9 +124,12 @@ class Decompiler(Analysis):
         self._binop_operators = binop_operators
         self._regen_clinic = regen_clinic
         self._update_memory_data = update_memory_data
+        self._want_full_graph = want_full_graph
         self._generate_code = generate_code
-        self._inline_functions = inline_functions
-        self._desired_variables = desired_variables
+        self._inline_functions = frozenset(inline_functions) if inline_functions else set()
+        self._desired_variables = frozenset(desired_variables) if desired_variables else set()
+        self._static_vvars = static_vvars if static_vvars is not None else {}
+        self._static_buffers = static_buffers if static_buffers is not None else {}
         self._cache_parameters = (
             {
                 "cfg": self._cfg,
@@ -127,6 +146,8 @@ class Decompiler(Analysis):
                 "binop_operators": self._binop_operators,
                 "inline_functions": self._inline_functions,
                 "desired_variables": self._desired_variables,
+                "static_vvars": self._static_vvars,
+                "static_buffers": self._static_buffers,
             }
             if use_cache
             else None
@@ -136,6 +157,8 @@ class Decompiler(Analysis):
         self._clinic_graph = clinic_graph
         self._clinic_arg_vvars = clinic_arg_vvars
         self._clinic_start_stage = clinic_start_stage
+        self._clinic_end_stage = clinic_end_stage
+        self._clinic_skip_stages = clinic_skip_stages
         self.codegen: CStructuredCodeGenerator | None = None
         self.cache: DecompilationCache | None = None
         self.options_by_class = None
@@ -147,6 +170,7 @@ class Decompiler(Analysis):
         self._optimization_scratch: dict[str, Any] = {}
         self.expr_collapse_depth = expr_collapse_depth
         self.notes: dict[str, DecompilationNote] = {}
+        self.region_identifier = None
 
         if decompile:
             with self._resilience():
@@ -157,7 +181,7 @@ class Decompiler(Analysis):
                 for error in self.errors:
                     self.kb.decompilations[(self.func.addr, self._flavor)].errors.append(error.format())
                 with self._resilience():
-                    l.info("Decompilation failed for %s. Switching to basic preset and trying again.")
+                    l.info("Decompilation failed for %s. Switching to basic preset and trying again.", self.func)
                     if preset != DECOMPILATION_PRESETS["basic"]:
                         self._optimization_passes = DECOMPILATION_PRESETS["basic"].get_optimization_passes(
                             self.project.arch, self.project.simos.name
@@ -284,7 +308,11 @@ class Decompiler(Analysis):
                 ail_graph=self._clinic_graph,
                 arg_vvars=self._clinic_arg_vvars,
                 start_stage=self._clinic_start_stage,
+                end_stage=self._clinic_end_stage,
+                skip_stages=self._clinic_skip_stages,
                 notes=self.notes,
+                static_vvars=self._static_vvars,
+                static_buffers=self._static_buffers,
                 **self.options_to_params(self.options_by_class["clinic"]),
             )
         else:
@@ -321,23 +349,24 @@ class Decompiler(Analysis):
         delay_graph_updates = any(
             pass_.STAGE == OptimizationPassStage.DURING_REGION_IDENTIFICATION for pass_ in self._optimization_passes
         )
-        ri = self._recover_regions(clinic.graph, cond_proc, update_graph=not delay_graph_updates)
+        self.region_identifier = self._recover_regions(clinic.graph, cond_proc, update_graph=not delay_graph_updates)
 
         self._update_progress(73.0, text="Running region-simplification passes")
 
         # run optimizations that may require re-RegionIdentification
-        clinic.graph, ri = self._run_region_simplification_passes(
+        clinic.graph, self.region_identifier = self._run_region_simplification_passes(
             clinic.graph,
-            ri,
+            self.region_identifier,
             clinic.reaching_definitions,
             ite_exprs=ite_exprs,
             arg_vvars=set(clinic.arg_vvars),
             edges_to_remove=clinic.edges_to_remove,
         )
 
-        # finally (no more graph-based simplifications will run in the future), we can remove the edges that should be
-        # removed!
-        remove_edges_in_ailgraph(clinic.graph, clinic.edges_to_remove)
+        if not self._want_full_graph:
+            # finally (no more graph-based simplifications will run in the future),
+            # we can remove the edges that should be removed!
+            remove_edges_in_ailgraph(clinic.graph, clinic.edges_to_remove)
 
         # save the graph before structuring happens (for AIL view)
         clinic.cc_graph = clinic.copy_graph()
@@ -346,12 +375,15 @@ class Decompiler(Analysis):
         seq_node = None
         # in the event that the decompiler is used without code generation as the target, we should avoid all
         # heavy analysis that is used only for the purpose of code generation
-        if self._generate_code:
+        # we also do not want to run structurer if clinic stopped before variable recovery
+        if self._generate_code and (
+            self._clinic_end_stage is None or self._clinic_end_stage >= ClinicStage.RECOVER_VARIABLES
+        ):
             self._update_progress(75.0, text="Structuring code")
 
             # structure it
             rs = self.project.analyses[RecursiveStructurer].prep(kb=self.kb, fail_fast=self._fail_fast)(
-                ri.region,
+                self.region_identifier.region,
                 cond_proc=cond_proc,
                 func=self.func,
                 **self._recursive_structurer_params,
@@ -359,12 +391,17 @@ class Decompiler(Analysis):
             self._update_progress(80.0, text="Simplifying regions")
 
             # simplify it
+            # Get variable manager for loop counter naming in RegionSimplifier
+            variable_manager = None
+            if clinic.variable_kb is not None and self.func.addr in clinic.variable_kb.variables:
+                variable_manager = clinic.variable_kb.variables[self.func.addr]
             s = self.project.analyses.RegionSimplifier(
                 self.func,
                 rs.result,
                 arg_vvars=set(self.clinic.arg_vvars),
                 kb=self.kb,
                 fail_fast=self._fail_fast,
+                variable_manager=variable_manager,
                 **self.options_to_params(self.options_by_class["region_simplifier"]),
             )
             seq_node = s.result
@@ -379,25 +416,26 @@ class Decompiler(Analysis):
             if self._cfg is not None and self._update_memory_data:
                 self.find_data_references_and_update_memory_data(seq_node)
 
-            self._update_progress(85.0, text="Generating code")
-            codegen = self.project.analyses.StructuredCodeGenerator(
-                self.func,
-                seq_node,
-                cfg=self._cfg,
-                ail_graph=clinic.graph,
-                flavor=self._flavor,
-                func_args=clinic.arg_list,
-                kb=self.kb,
-                fail_fast=self._fail_fast,
-                variable_kb=clinic.variable_kb,
-                expr_comments=old_codegen.expr_comments if old_codegen is not None else None,
-                stmt_comments=old_codegen.stmt_comments if old_codegen is not None else None,
-                const_formats=old_codegen.const_formats if old_codegen is not None else None,
-                externs=clinic.externs,
-                binop_depth_cutoff=self.expr_collapse_depth,
-                notes=self.notes,
-                **self.options_to_params(self.options_by_class["codegen"]),
-            )
+            if self._clinic_end_stage is None or self._clinic_end_stage >= ClinicStage.RECOVER_VARIABLES:
+                self._update_progress(85.0, text="Generating code")
+                codegen = self.project.analyses.StructuredCodeGenerator(
+                    self.func,
+                    seq_node,
+                    cfg=self._cfg,
+                    ail_graph=clinic.graph,
+                    flavor=self._flavor,
+                    func_args=clinic.arg_list,
+                    kb=self.kb,
+                    fail_fast=self._fail_fast,
+                    variable_kb=clinic.variable_kb,
+                    expr_comments=old_codegen.expr_comments if old_codegen is not None else None,
+                    stmt_comments=old_codegen.stmt_comments if old_codegen is not None else None,
+                    const_formats=old_codegen.const_formats if old_codegen is not None else None,
+                    externs=clinic.externs,
+                    binop_depth_cutoff=self.expr_collapse_depth,
+                    notes=self.notes,
+                    **self.options_to_params(self.options_by_class["codegen"]),
+                )
 
         self._update_progress(90.0, text="Finishing up")
         self.seq_node = seq_node
@@ -582,17 +620,24 @@ class Decompiler(Analysis):
                 global_variables.set_variable(
                     "global",
                     symbol.rebased_addr,
-                    SimMemoryVariable(symbol.rebased_addr, 1, name=symbol.name, ident=ident),
+                    SimMemoryVariable(symbol.rebased_addr, symbol.size or 1, name=symbol.name, ident=ident),
                 )
 
-    def reflow_variable_types(
-        self, type_constraints: dict[TypeVariable, set[TypeConstraint]], func_typevar, var_to_typevar: dict, codegen
-    ):
+    def reflow_variable_types(self, cache: DecompilationCache):
         """
         Re-run type inference on an existing variable recovery result, then rerun codegen to generate new results.
 
         :return:
         """
+
+        # extract everything from the cache
+        type_constraints: dict[TypeVariable, set[TypeConstraint]] = cache.type_constraints
+        func_typevar = cache.func_typevar
+        var_to_typevar = cache.var_to_typevar
+        arg_vvars = cache.arg_vvars
+        stack_offset_typevars = cache.stack_offset_typevars
+        stackvar_max_sizes = cache.stackvar_max_sizes
+        codegen = cache.codegen
 
         var_kb = self._variable_kb if self._variable_kb is not None else KnowledgeBase(self.project)
 
@@ -609,6 +654,12 @@ class Decompiler(Analysis):
                     for typevar in var_to_typevar[variable]:
                         groundtruth[typevar] = vartype
 
+        if self.func.prototype is not None and not self.func.is_prototype_guessed:
+            for arg_i, (_, variable) in arg_vvars.items():
+                if arg_i < len(self.func.prototype.args):
+                    for tv in var_to_typevar[variable]:
+                        groundtruth[tv] = self.func.prototype.args[arg_i]
+
         # variables that must be interpreted as structs
         if self._vars_must_struct:
             must_struct = set()
@@ -618,6 +669,16 @@ class Decompiler(Analysis):
                         must_struct.add(typevar)
         else:
             must_struct = None
+
+        tv_max_sizes = {}
+        for v, s in stackvar_max_sizes.items():
+            assert isinstance(v, SimStackVariable)
+            if v in var_to_typevar:
+                for tv in var_to_typevar[v]:
+                    tv_max_sizes[tv] = s
+            if v.offset in stack_offset_typevars:
+                tv = stack_offset_typevars[v.offset]
+                tv_max_sizes[tv] = s
 
         # Type inference
         try:
@@ -629,6 +690,8 @@ class Decompiler(Analysis):
                 var_mapping=var_to_typevar,
                 must_struct=must_struct,
                 ground_truth=groundtruth,
+                stack_offset_tvs=stack_offset_typevars,
+                stackvar_max_sizes=tv_max_sizes,
             )
             tp.update_variable_types(
                 self.func.addr,
@@ -639,7 +702,7 @@ class Decompiler(Analysis):
                 {v: t for v, t in var_to_typevar.items() if isinstance(v, (SimRegisterVariable, SimStackVariable))},
             )
             # update the function prototype if needed
-            if self.func.prototype is not None and self.func.prototype.args:
+            if self.func.is_prototype_guessed and self.func.prototype is not None and self.func.prototype.args:
                 var_manager = var_kb.variables[self.func.addr]
                 for i, arg in enumerate(codegen.cfunc.arg_list):
                     if i >= len(self.func.prototype.args):
@@ -670,7 +733,7 @@ class Decompiler(Analysis):
             const_values.add(expr.value)
 
         def _handle_block(block: ailment.Block, **kwargs):  # pylint:disable=unused-argument
-            block_walker = ailment.AILBlockWalkerBase(
+            block_walker = ailment.AILBlockViewer(
                 expr_handlers={
                     ailment.Expr.Const: _handle_Const,
                 }

@@ -245,12 +245,12 @@ def test_plugin_extend_set_env(tox_project: ToxProjectCreator, mocker: MockerFix
 
 def test_plugin_config_frozen_past_add_env(tox_project: ToxProjectCreator, mocker: MockerFixture) -> None:
     def _cannot_extend_config(config_set: ConfigSet) -> None:
-        for _conf in (
+        for conf in (
             lambda c: c.add_constant("c", "desc", "v"),
             lambda c: c.add_config("c", of_type=str, default="c", desc="d"),
         ):
             try:
-                _conf(config_set)  # type: ignore[no-untyped-call] # call to not typed function
+                conf(config_set)  # type: ignore[no-untyped-call] # call to not typed function
                 raise NotImplementedError
             except RuntimeError as exc:  # noqa: PERF203
                 assert str(exc) == "config set has been marked final and cannot be extended"  # noqa: PT017
@@ -304,9 +304,11 @@ def test_disable_external_plugins(
         self.register(DummyPluginB(), name="dummy_plugin_b")
 
     project = tox_project({"tox.ini": ""})
-    with patch("pluggy.PluginManager.load_setuptools_entrypoints", fake_load_entrypoints), patch(
-        "tox.plugin.manager.MANAGER", Plugin()
-    ), patch.dict(os.environ, {"TOX_DISABLED_EXTERNAL_PLUGINS": env_val}, clear=False):
+    with (
+        patch("pluggy.PluginManager.load_setuptools_entrypoints", fake_load_entrypoints),
+        patch("tox.plugin.manager.MANAGER", Plugin()),
+        patch.dict(os.environ, {"TOX_DISABLED_EXTERNAL_PLUGINS": env_val}, clear=False),
+    ):
         result = project.run("--version")
 
     result.assert_success()

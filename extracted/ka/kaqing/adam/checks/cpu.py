@@ -5,8 +5,10 @@ from adam.checks.check_context import CheckContext
 from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
 from adam.config import Config
-from adam.k8s_utils.cassandra_nodes import CassandraNodes
-from adam.k8s_utils.custom_resources import CustomResources
+from adam.utils import Color
+from adam.utils_k8s.cassandra_nodes import CassandraNodes
+from adam.utils_k8s.custom_resources import CustomResources
+from adam.utils_k8s.pods import Pods
 
 class Cpu(Check):
     def name(self):
@@ -20,12 +22,17 @@ class Cpu(Check):
             'namespace': ctx.namespace,
             'statefulset': ctx.statefulset,
             'cpu': 'Unknown',
-            'idle': 'Unknown'
+            'idle': 'Unknown',
+            'limit': 'NA'
         }
 
         try:
+            container = Pods.get_container(ctx.namespace, ctx.pod, container_name='cassandra')
+            if container.resources.limits and "cpu" in container.resources.limits:
+                details['limit'] = container.resources.limits["cpu"]
+
             idle = 'Unknown'
-            result = CassandraNodes.exec(ctx.pod, ctx.namespace, "mpstat 5 2 | grep Average | awk '{print $NF}'", show_out=ctx.show_output)
+            result = CassandraNodes.exec(ctx.pod, ctx.namespace, "mpstat 5 2 | grep Average | awk '{print $NF}'", show_out=ctx.show_output, text_color=Color.gray)
             lines = result.stdout.strip(' \r\n').split('\n')
             line = lines[len(lines) - 1].strip(' \r')
             idle = details['idle'] = line

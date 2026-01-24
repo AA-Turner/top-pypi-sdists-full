@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: laspy
-Version: 2.6.1
+Version: 2.7.0
 Summary: Native Python ASPRS LAS read/write library
-Home-page: https://github.com/laspy/laspy
-Author: Grant Brown, Thomas Montaigu
-Author-email: grant.brown73@gmail.com, thomas.montaigu@laposte.net
-License: BSD
-Keywords: gis lidar las
+Project-URL: Homepage, https://github.com/laspy/laspy
+Author-email: Grant Brown <grant.brown73@gmail.com>, Thomas Montaigu <thomas.montaigu@laposte.net>
+License-Expression: BSD-2-Clause
+License-File: LICENSE.txt
+Keywords: gis,las,lidar
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -14,46 +14,29 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
-License-File: LICENSE.txt
+Requires-Python: >=3.10
 Requires-Dist: numpy
-Provides-Extra: dev
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: coverage; extra == "dev"
-Requires-Dist: sphinx; extra == "dev"
-Requires-Dist: sphinx-rtd-theme; extra == "dev"
-Requires-Dist: nox; extra == "dev"
-Requires-Dist: attrs>=24.1; extra == "dev"
-Requires-Dist: black==22.3.0; extra == "dev"
-Requires-Dist: pytest-benchmark; extra == "dev"
-Requires-Dist: m2r2; extra == "dev"
-Requires-Dist: rangehttpserver; extra == "dev"
-Requires-Dist: isort==5.11.5; extra == "dev"
-Provides-Extra: lazrs
-Requires-Dist: lazrs<0.8.0,>=0.7.0; extra == "lazrs"
-Provides-Extra: laszip
-Requires-Dist: laszip<0.3.0,>=0.2.1; extra == "laszip"
-Provides-Extra: pyproj
-Requires-Dist: pyproj; extra == "pyproj"
-Provides-Extra: requests
-Requires-Dist: requests; extra == "requests"
 Provides-Extra: cli
-Requires-Dist: typer[all]>=0.8.0; extra == "cli"
-Requires-Dist: rich>=10.11.0; extra == "cli"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: rich>=10.11.0; extra == 'cli'
+Requires-Dist: typer>=0.16.0; extra == 'cli'
+Provides-Extra: dev
+Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: m2r2; extra == 'dev'
+Requires-Dist: nox; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-benchmark; extra == 'dev'
+Requires-Dist: rangehttpserver; extra == 'dev'
+Requires-Dist: sphinx; extra == 'dev'
+Requires-Dist: sphinx-rtd-theme; extra == 'dev'
+Provides-Extra: laszip
+Requires-Dist: laszip<0.4.0,>=0.3.0; extra == 'laszip'
+Provides-Extra: lazrs
+Requires-Dist: lazrs<0.9.0,>=0.8.0; extra == 'lazrs'
+Provides-Extra: pyproj
+Requires-Dist: pyproj; extra == 'pyproj'
+Provides-Extra: requests
+Requires-Dist: requests; extra == 'requests'
+Description-Content-Type: text/markdown
 
 # Laspy
 

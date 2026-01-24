@@ -108,8 +108,8 @@ from batcharray.nested.permutation import (
     shuffle_along_batch,
     shuffle_along_seq,
 )
+from batcharray.nested.pointwise import abs  # noqa: A004
 from batcharray.nested.pointwise import (
-    abs,
     clip,
     exp,
     exp2,

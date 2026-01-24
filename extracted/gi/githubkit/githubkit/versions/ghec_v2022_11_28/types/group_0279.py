@@ -12,52 +12,27 @@ from __future__ import annotations
 from typing_extensions import TypedDict
 
 
-class PullRequestMinimalType(TypedDict):
-    """Pull Request Minimal"""
+class OrganizationFineGrainedPermissionType(TypedDict):
+    """Organization Fine-Grained Permission
 
-    id: int
-    number: int
-    url: str
-    head: PullRequestMinimalPropHeadType
-    base: PullRequestMinimalPropBaseType
+    A fine-grained permission that protects organization resources.
+    """
 
-
-class PullRequestMinimalPropHeadType(TypedDict):
-    """PullRequestMinimalPropHead"""
-
-    ref: str
-    sha: str
-    repo: PullRequestMinimalPropHeadPropRepoType
-
-
-class PullRequestMinimalPropHeadPropRepoType(TypedDict):
-    """PullRequestMinimalPropHeadPropRepo"""
-
-    id: int
-    url: str
     name: str
+    description: str
 
 
-class PullRequestMinimalPropBaseType(TypedDict):
-    """PullRequestMinimalPropBase"""
+class OrganizationFineGrainedPermissionTypeForResponse(TypedDict):
+    """Organization Fine-Grained Permission
 
-    ref: str
-    sha: str
-    repo: PullRequestMinimalPropBasePropRepoType
+    A fine-grained permission that protects organization resources.
+    """
 
-
-class PullRequestMinimalPropBasePropRepoType(TypedDict):
-    """PullRequestMinimalPropBasePropRepo"""
-
-    id: int
-    url: str
     name: str
+    description: str
 
 
 __all__ = (
-    "PullRequestMinimalPropBasePropRepoType",
-    "PullRequestMinimalPropBaseType",
-    "PullRequestMinimalPropHeadPropRepoType",
-    "PullRequestMinimalPropHeadType",
-    "PullRequestMinimalType",
+    "OrganizationFineGrainedPermissionType",
+    "OrganizationFineGrainedPermissionTypeForResponse",
 )

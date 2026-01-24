@@ -48,10 +48,10 @@ from translate.storage import base
 try:
     # FIXME see if we can't use lxml
     from bs4 import BeautifulSoup
-except ImportError:
+except ImportError as error:
     raise ImportError(
         "BeautifulSoup 4 is not installed. Support for Trados txt is disabled."
-    )
+    ) from error
 
 
 __all__ = (
@@ -110,7 +110,7 @@ def escape(text):
 class TradosTxtDate:
     """Manages the timestamps in the Trados .txt format of DDMMYYY, hh:mm:ss."""
 
-    def __init__(self, newtime=None):
+    def __init__(self, newtime=None) -> None:
         self._time = None
         if newtime:
             if isinstance(newtime, str):
@@ -124,12 +124,11 @@ class TradosTxtDate:
             return None
         return time.strftime(TRADOS_TIMEFORMAT, self._time)
 
-    def set_timestring(self, timestring):
+    def set_timestring(self, timestring: str) -> None:
         """
         Set the time_struct object using a Trados time formatted string.
 
         :param timestring: A Trados time string (DDMMYYYY, hh:mm:ss)
-        :type timestring: String
         """
         self._time = time.strptime(timestring, TRADOS_TIMEFORMAT)
 
@@ -139,12 +138,11 @@ class TradosTxtDate:
         """Get the time_struct object."""
         return self._time
 
-    def set_time(self, newtime):
+    def set_time(self, newtime: time.struct_time | None) -> None:
         """
         Set the time_struct object.
 
         :param newtime: a new time object
-        :type newtime: time.time_struct
         """
         if newtime and isinstance(newtime, time.struct_time):
             self._time = newtime
@@ -153,27 +151,27 @@ class TradosTxtDate:
 
     time = property(get_time, set_time)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if not self.timestring:
             return ""
         return self.timestring
 
 
 class TradosUnit(base.TranslationUnit):
-    def __init__(self, source=None):
+    def __init__(self, source=None) -> None:
         self._soup = None
         super().__init__(source)
 
     @property
     def source(self):
-        return unescape(self._soup.findAll("seg")[0].contents[0])
+        return unescape(self._soup.findAll("seg")[0].contents[0])  # ty:ignore[possibly-missing-attribute]
 
     @source.setter
-    def source(self, source):
+    def source(self, source) -> None:
         pass
 
     def gettarget(self):
-        return unescape(self._soup.findAll("seg")[1].contents[0])
+        return unescape(self._soup.findAll("seg")[1].contents[0])  # ty:ignore[possibly-missing-attribute]
 
     target = property(gettarget, None)
 
@@ -196,14 +194,14 @@ class TradosTxtTmFile(base.TranslationStore):
     UnitClass = TradosUnit
     default_encoding = "iso-8859-1"
 
-    def __init__(self, inputfile=None, **kwargs):
+    def __init__(self, inputfile=None, **kwargs) -> None:
         """Construct a Wordfast TM, optionally reading in from inputfile."""
         super().__init__(**kwargs)
         self.filename = ""
         if inputfile is not None:
             self.parse(inputfile)
 
-    def parse(self, input):
+    def parse(self, input) -> None:  # ty:ignore[invalid-method-override]
         if hasattr(input, "name"):
             self.filename = input.name
         elif not getattr(self, "filename", ""):
@@ -213,11 +211,11 @@ class TradosTxtTmFile(base.TranslationStore):
             input.close()
             input = tmsrc
         self._soup = TradosSoup(input)
-        for tu in self._soup.findAll("tru"):
+        for tu in self._soup.findAll("tru"):  # codespell:ignore
             unit = TradosUnit()
             unit._soup = TradosSoup(str(tu))
             self.addunit(unit)
 
-    def serialize(self, out):
+    def serialize(self, out) -> None:
         # FIXME turn the lowercased tags back into mixed case
         out.write(self._soup.prettify())

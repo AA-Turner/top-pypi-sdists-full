@@ -1,0 +1,64 @@
+[project]
+name = "aiohttp-asgi-connector"
+version = "1.1.2"
+description = "AIOHTTP Connector for running ASGI applications"
+authors = [
+    { name = "thearchitector", email = "me@eliasfgabriel.com" },
+]
+requires-python = ">=3.8"
+dependencies = [
+    "aiohttp>=3.1.0; python_version >= '3.9'",
+    "aiohttp<3.11,>=3.1.0; python_version ~= '3.8.0'",
+]
+keywords = [
+    "fastapi",
+    "aiohttp",
+    "asgi",
+    "testing",
+    "starlette",
+    "httpx",
+    "asyncio",
+]
+readme = "README.md"
+
+[project.license]
+text = "BSD-3-Clause"
+
+[dependency-groups]
+dev = [
+    "fastapi>=0.111.0",
+    "pytest>=8.2.2",
+    "pytest-asyncio>=0.23.7",
+    "mypy>=1.10.1",
+    "typing-extensions>=4.12.2",
+    "python-multipart>=0.0.9",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra -vv -p 'no:anyio'"
+testpaths = [
+    "tests",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+
+[tool.mypy]
+strict = true
+
+[tool.pyright]
+ignore = [
+    "tests",
+]
+
+[tool.ruff.lint]
+extend-select = [
+    "B",
+    "I",
+    "ASYNC",
+]
+
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"

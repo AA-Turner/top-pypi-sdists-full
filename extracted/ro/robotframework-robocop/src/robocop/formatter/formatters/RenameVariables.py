@@ -9,7 +9,7 @@ from robot.api.parsing import Arguments, Token
 from robot.errors import VariableError
 from robot.variables.search import search_variable
 
-from robocop.errors import InvalidParameterValueError
+from robocop.exceptions import InvalidParameterValueError
 from robocop.formatter.disablers import skip_if_disabled, skip_section_if_disabled
 from robocop.formatter.formatters import Formatter
 from robocop.formatter.utils import misc, variable_matcher
@@ -217,6 +217,7 @@ class RenameVariables(Formatter):
     ENABLED = False
     HANDLES_SKIP = frozenset({"skip_sections"})
     MORE_THAN_2_SPACES: Pattern = re.compile(r"\s{2,}")
+    REPLACE_SPACES: Pattern = re.compile(r"(?<![+\-*|/%=!><&^~]) (?![+\-*|/%=!><&^~])")
     CAMEL_CASE: Pattern = re.compile(r"((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))")
     EXTENDED_SYNTAX: Pattern = re.compile(r"(.+?)([^\s\w].+)", re.UNICODE)
     DEFAULT_IGNORE_CASE = {"\\n", "None", "True", "False"}
@@ -458,7 +459,10 @@ class RenameVariables(Formatter):
         if variable:
             if self._is_var_scope_local(node):
                 self.variables_scope.add_local(variable.value)
-            variable.value = self.rename_value(variable.value, variable_case=VariableCase.AUTO, is_var=False)
+                variable.value = self.rename_value(variable.value, variable_case=VariableCase.LOWER, is_var=False)
+            else:
+                self.variables_scope.change_scope_from_local_to_global(variable.value)
+                variable.value = self.rename_value(variable.value, variable_case=VariableCase.UPPER, is_var=False)
         return node
 
     @staticmethod
@@ -551,14 +555,14 @@ class RenameVariables(Formatter):
         # to handle cases like ${var_${variable}_} we need to only strip whitespace at start/end depending on the type
         variable_name = getattr(variable_name, strip_fn)()
         if self.variable_separator == VariableSeparator.UNDERSCORE:
-            variable_name = variable_name.replace(" ", "_")
+            variable_name = self.REPLACE_SPACES.sub("_", variable_name)
         variable_name = self.set_name_case(variable_name, case)
         return variable_name + item_access
 
 
 def split_string_on_delimiter(string: str) -> tuple[str, str]:
     """
-    Split string on first occurrence of the delimiters.
+    Split string on the first occurrence of the delimiters.
 
     Return string before and after split, retaining delimiter.
 

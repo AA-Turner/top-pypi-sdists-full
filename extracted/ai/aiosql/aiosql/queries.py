@@ -4,7 +4,7 @@ from pathlib import Path
 from types import MethodType
 
 # TODO drop most of this ugly stuff when >= 3.10
-from typing import Any, Callable, List, Optional, Set, Tuple, Union, Dict, cast
+from typing import Any, Callable, cast
 
 from .types import DriverAdapterProtocol, QueryDatum, QueryDataTree, QueryFn, SQLOperationType
 from .utils import SQLLoadException, SQLParseException, log
@@ -34,18 +34,18 @@ class Queries:
         self.driver_adapter: DriverAdapterProtocol = driver_adapter
         self.is_aio: bool = getattr(driver_adapter, "is_aio_driver", False)
         self._kwargs_only = kwargs_only
-        self._available_queries: Set[str] = set()
+        self._available_queries: set[str] = set()
 
     #
     # INTERNAL UTILS
     #
     def _params(
             self,
-            attributes: Optional[Dict[str, Dict[str, str]]],
-            params: Optional[List[str]],
-            args: Union[List[Any], Tuple[Any]],
-            kwargs: Dict[str, Any],
-        ) -> Union[List[Any], Tuple[Any], Dict[str, Any]]:
+            attributes: dict[str, dict[str, str]]|None,
+            params: list[str]|None,
+            args: list[Any]|tuple[Any],
+            kwargs: dict[str, Any],
+        ) -> list[Any]|tuple[Any]|dict[str, Any]:
         """Handle query parameters.
 
         - update attribute references ``:u.a`` to ``:u__a``.
@@ -87,13 +87,13 @@ class Queries:
             self,
             fn: Callable[..., Any],
             name: str,
-            doc: Optional[str],
+            doc: str|None,
             sql: str,
             operation: SQLOperationType,
-            signature: Optional[inspect.Signature],
-            floc: Tuple[Union[Path, str], int] = ("<unknown>", 0),
-            attributes: Optional[Dict[str, Dict[str, str]]] = None,
-            params: Optional[List[str]] = None,
+            signature: inspect.Signature|None,
+            floc: tuple[Path|str, int] = ("<unknown>", 0),
+            attributes: dict[str, dict[str, str]]|None = None,
+            params: list[str]|None = None,
         ) -> QueryFn:
         """Add custom-made metadata to a dynamically generated function."""
         fname, lineno = floc
@@ -113,7 +113,7 @@ class Queries:
     # source, coverage does note detect that the "fn" functions are actually called,
     # hence the "no cover" hints.
     def _make_sync_fn(self, query_datum: QueryDatum) -> QueryFn:
-        """Build a dynamic method from a parsed query."""
+        """Build a synchronous dynamic method from a parsed query."""
 
         query_name, doc_comments, operation, sql, record_class, signature, floc, attributes, params = (
             query_datum
@@ -182,14 +182,77 @@ class Queries:
             fn, query_name, doc_comments, sql, operation, signature, floc, attributes, params
         )
 
-    # NOTE does this make sense?
-    def _make_async_fn(self, fn: QueryFn) -> QueryFn:
-        """Wrap in an async function."""
+    def _make_async_fn(self, query_datum: QueryDatum) -> QueryFn:
+        """Build an asynchronous dynamic method from a parsed query."""
 
-        async def afn(self, conn, *args, **kwargs):  # pragma: no cover
-            return await fn(self, conn, *args, **kwargs)
+        query_name, doc_comments, operation, sql, record_class, signature, floc, attributes, params = (
+            query_datum
+        )
 
-        return self._query_fn(afn, fn.__name__, fn.__doc__, fn.sql, fn.operation, fn.__signature__)
+        if operation == SQLOperationType.INSERT_RETURNING:
+
+            async def afn(self, conn, *args, **kwargs):  # pragma: no cover
+                return await self.driver_adapter.insert_returning(
+                    conn, query_name, sql, self._params(attributes, params, args, kwargs)
+                )
+
+        elif operation == SQLOperationType.INSERT_UPDATE_DELETE:
+
+            async def afn(self, conn, *args, **kwargs):  # type: ignore # pragma: no cover
+                return await self.driver_adapter.insert_update_delete(
+                    conn, query_name, sql, self._params(attributes, params, args, kwargs)
+                )
+
+        elif operation == SQLOperationType.INSERT_UPDATE_DELETE_MANY:
+
+            async def afn(self, conn, *args, **kwargs):  # type: ignore # pragma: no cover
+                assert not kwargs, "cannot use named parameters in many query"  # help type checker
+                return await self.driver_adapter.insert_update_delete_many(conn, query_name, sql, *args)
+
+        elif operation == SQLOperationType.SCRIPT:
+
+            if params:  # pragma: no cover
+                # NOTE this is caught earlier
+                raise SQLParseException(f"cannot use named parameters in SQL script: {query_name}")
+
+            async def afn(self, conn, *args, **kwargs):  # type: ignore # pragma: no cover
+                assert not args and not kwargs, f"cannot use parameters in SQL script: {query_name}"
+                return await self.driver_adapter.execute_script(conn, sql)
+
+        elif operation == SQLOperationType.SELECT:
+
+            # sanity check in passing…
+            if not self._look_like_a_select(sql):
+                fname, lineno = floc
+                log.warning(f"query {query_name} at {fname}:{lineno} may not be a select, consider adding an operator, eg '!'")
+
+            # async generator
+            async def afn(self, conn, *args, **kwargs):  # type: ignore # pragma: no cover
+                async for row in self.driver_adapter.select(
+                    conn, query_name, sql, self._params(attributes, params, args, kwargs), record_class
+                ):
+                    yield row
+
+        elif operation == SQLOperationType.SELECT_ONE:
+
+            async def afn(self, conn, *args, **kwargs):  # pragma: no cover
+                return await self.driver_adapter.select_one(
+                    conn, query_name, sql, self._params(attributes, params, args, kwargs), record_class
+                )
+
+        elif operation == SQLOperationType.SELECT_VALUE:
+
+            async def afn(self, conn, *args, **kwargs):  # pragma: no cover
+                return await self.driver_adapter.select_value(
+                    conn, query_name, sql, self._params(attributes, params, args, kwargs)
+                )
+
+        else:
+            raise ValueError(f"Unknown operation: {operation}")  # pragma: no cover
+
+        return self._query_fn(
+            afn, query_name, doc_comments, sql, operation, signature, floc, attributes, params
+        )
 
     def _make_ctx_mgr(self, fn: QueryFn) -> QueryFn:
         """Wrap in a context manager function."""
@@ -203,15 +266,10 @@ class Queries:
             ctx_mgr, f"{fn.__name__}_cursor", fn.__doc__, fn.sql, fn.operation, fn.__signature__
         )
 
-    def _create_methods(self, query_datum: QueryDatum, is_aio: bool) -> List[QueryFn]:
+    def _create_methods(self, query_datum: QueryDatum, is_aio: bool) -> list[QueryFn]:
         """Internal function to feed add_queries."""
 
-        # standarc version
-        fn = self._make_sync_fn(query_datum)
-
-        # asynchroneous wrapper
-        if is_aio:
-            fn = self._make_async_fn(fn)
+        fn = self._make_async_fn(query_datum) if is_aio else self._make_sync_fn(query_datum)
 
         # context manager
         if query_datum.operation_type == SQLOperationType.SELECT:
@@ -224,7 +282,7 @@ class Queries:
     # PUBLIC INTERFACE
     #
     @property
-    def available_queries(self) -> List[str]:
+    def available_queries(self) -> list[str]:
         """Returns listing of all the available query methods loaded in this class.
 
         **Returns:** ``list[str]`` List of dot-separated method accessor names.
@@ -248,7 +306,7 @@ class Queries:
         setattr(self, query_name, fn)
         self._available_queries.add(query_name)
 
-    def add_queries(self, queries: List[QueryFn]) -> None:
+    def add_queries(self, queries: list[QueryFn]) -> None:
         """Add query methods to `Queries` instance."""
         for fn in queries:
             query_name = fn.__name__.rpartition(".")[2]
@@ -269,7 +327,7 @@ class Queries:
         for child_query_name in child_queries.available_queries:
             self._available_queries.add(f"{child_name}.{child_query_name}")
 
-    def load_from_list(self, query_data: List[QueryDatum]):
+    def load_from_list(self, query_data: list[QueryDatum]):
         """Load Queries from a list of `QueryDatum`"""
         for query_datum in query_data:
             self.add_queries(self._create_methods(query_datum, self.is_aio))

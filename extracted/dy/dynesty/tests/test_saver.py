@@ -34,7 +34,7 @@ def test_saving(dopool, maxiter):
     rstate = get_rstate()
     kw = {}
 
-    with (NullContextManager() if not dopool else mp.Pool(2)) as pool:
+    with (NullContextManager() if not dopool else mp.get_context('spawn').Pool(2)) as pool:
         if dopool:
             pool = pool
             kw['pool'] = pool
@@ -44,7 +44,7 @@ def test_saving(dopool, maxiter):
                                         prior_transform,
                                         ndim,
                                         nlive=nlive,
-                                        save_history=True,
+                                        save_evaluation_history=True,
                                         history_filename=fname,
                                         rstate=rstate,
                                         **kw)

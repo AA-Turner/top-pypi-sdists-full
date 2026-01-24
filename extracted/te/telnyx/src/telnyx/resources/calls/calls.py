@@ -12,6 +12,7 @@ from ...types import (
     StreamBidirectionalMode,
     StreamBidirectionalCodec,
     StreamBidirectionalTargetLegs,
+    StreamBidirectionalSamplingRate,
     call_dial_params,
 )
 from .actions import (
@@ -43,6 +44,7 @@ from ...types.stream_bidirectional_mode import StreamBidirectionalMode
 from ...types.stream_bidirectional_codec import StreamBidirectionalCodec
 from ...types.call_retrieve_status_response import CallRetrieveStatusResponse
 from ...types.stream_bidirectional_target_legs import StreamBidirectionalTargetLegs
+from ...types.stream_bidirectional_sampling_rate import StreamBidirectionalSamplingRate
 from ...types.calls.transcription_start_request_param import TranscriptionStartRequestParam
 
 __all__ = ["CallsResource", "AsyncCallsResource"]
@@ -97,6 +99,7 @@ class CallsResource(SyncAPIResource):
         link_to: str | Omit = omit,
         media_encryption: Literal["disabled", "SRTP", "DTLS"] | Omit = omit,
         media_name: str | Omit = omit,
+        park_after_unbridge: str | Omit = omit,
         preferred_codecs: str | Omit = omit,
         record: Literal["record-from-answer"] | Omit = omit,
         record_channels: Literal["single", "dual"] | Omit = omit,
@@ -110,11 +113,12 @@ class CallsResource(SyncAPIResource):
         sip_auth_password: str | Omit = omit,
         sip_auth_username: str | Omit = omit,
         sip_headers: Iterable[SipHeaderParam] | Omit = omit,
+        sip_region: Literal["US", "Europe", "Canada", "Australia", "Middle East"] | Omit = omit,
         sip_transport_protocol: Literal["UDP", "TCP", "TLS"] | Omit = omit,
         sound_modifications: SoundModificationsParam | Omit = omit,
         stream_bidirectional_codec: StreamBidirectionalCodec | Omit = omit,
         stream_bidirectional_mode: StreamBidirectionalMode | Omit = omit,
-        stream_bidirectional_sampling_rate: Literal[8000, 16000, 22050, 24000, 48000] | Omit = omit,
+        stream_bidirectional_sampling_rate: StreamBidirectionalSamplingRate | Omit = omit,
         stream_bidirectional_target_legs: StreamBidirectionalTargetLegs | Omit = omit,
         stream_codec: StreamCodec | Omit = omit,
         stream_establish_before_call_originate: bool | Omit = omit,
@@ -230,6 +234,10 @@ class CallsResource(SyncAPIResource):
               api.telnyx.com/v2/media by the same user/organization. The file must either be a
               WAV or MP3 file.
 
+          park_after_unbridge: If supplied with the value `self`, the current leg will be parked after
+              unbridge. If not set, the default behavior is to hang up the leg. When
+              park_after_unbridge is set, link_to becomes required.
+
           preferred_codecs: The list of comma-separated codecs in a preferred order for the forked media to
               be received.
 
@@ -268,6 +276,8 @@ class CallsResource(SyncAPIResource):
 
           sip_headers: SIP headers to be added to the SIP INVITE request. Currently only User-to-User
               header is supported.
+
+          sip_region: Defines the SIP region to be used for the call.
 
           sip_transport_protocol: Defines SIP transport protocol to be used on the call.
 
@@ -351,6 +361,7 @@ class CallsResource(SyncAPIResource):
                     "link_to": link_to,
                     "media_encryption": media_encryption,
                     "media_name": media_name,
+                    "park_after_unbridge": park_after_unbridge,
                     "preferred_codecs": preferred_codecs,
                     "record": record,
                     "record_channels": record_channels,
@@ -364,6 +375,7 @@ class CallsResource(SyncAPIResource):
                     "sip_auth_password": sip_auth_password,
                     "sip_auth_username": sip_auth_username,
                     "sip_headers": sip_headers,
+                    "sip_region": sip_region,
                     "sip_transport_protocol": sip_transport_protocol,
                     "sound_modifications": sound_modifications,
                     "stream_bidirectional_codec": stream_bidirectional_codec,
@@ -474,6 +486,7 @@ class AsyncCallsResource(AsyncAPIResource):
         link_to: str | Omit = omit,
         media_encryption: Literal["disabled", "SRTP", "DTLS"] | Omit = omit,
         media_name: str | Omit = omit,
+        park_after_unbridge: str | Omit = omit,
         preferred_codecs: str | Omit = omit,
         record: Literal["record-from-answer"] | Omit = omit,
         record_channels: Literal["single", "dual"] | Omit = omit,
@@ -487,11 +500,12 @@ class AsyncCallsResource(AsyncAPIResource):
         sip_auth_password: str | Omit = omit,
         sip_auth_username: str | Omit = omit,
         sip_headers: Iterable[SipHeaderParam] | Omit = omit,
+        sip_region: Literal["US", "Europe", "Canada", "Australia", "Middle East"] | Omit = omit,
         sip_transport_protocol: Literal["UDP", "TCP", "TLS"] | Omit = omit,
         sound_modifications: SoundModificationsParam | Omit = omit,
         stream_bidirectional_codec: StreamBidirectionalCodec | Omit = omit,
         stream_bidirectional_mode: StreamBidirectionalMode | Omit = omit,
-        stream_bidirectional_sampling_rate: Literal[8000, 16000, 22050, 24000, 48000] | Omit = omit,
+        stream_bidirectional_sampling_rate: StreamBidirectionalSamplingRate | Omit = omit,
         stream_bidirectional_target_legs: StreamBidirectionalTargetLegs | Omit = omit,
         stream_codec: StreamCodec | Omit = omit,
         stream_establish_before_call_originate: bool | Omit = omit,
@@ -607,6 +621,10 @@ class AsyncCallsResource(AsyncAPIResource):
               api.telnyx.com/v2/media by the same user/organization. The file must either be a
               WAV or MP3 file.
 
+          park_after_unbridge: If supplied with the value `self`, the current leg will be parked after
+              unbridge. If not set, the default behavior is to hang up the leg. When
+              park_after_unbridge is set, link_to becomes required.
+
           preferred_codecs: The list of comma-separated codecs in a preferred order for the forked media to
               be received.
 
@@ -645,6 +663,8 @@ class AsyncCallsResource(AsyncAPIResource):
 
           sip_headers: SIP headers to be added to the SIP INVITE request. Currently only User-to-User
               header is supported.
+
+          sip_region: Defines the SIP region to be used for the call.
 
           sip_transport_protocol: Defines SIP transport protocol to be used on the call.
 
@@ -728,6 +748,7 @@ class AsyncCallsResource(AsyncAPIResource):
                     "link_to": link_to,
                     "media_encryption": media_encryption,
                     "media_name": media_name,
+                    "park_after_unbridge": park_after_unbridge,
                     "preferred_codecs": preferred_codecs,
                     "record": record,
                     "record_channels": record_channels,
@@ -741,6 +762,7 @@ class AsyncCallsResource(AsyncAPIResource):
                     "sip_auth_password": sip_auth_password,
                     "sip_auth_username": sip_auth_username,
                     "sip_headers": sip_headers,
+                    "sip_region": sip_region,
                     "sip_transport_protocol": sip_transport_protocol,
                     "sound_modifications": sound_modifications,
                     "stream_bidirectional_codec": stream_bidirectional_codec,

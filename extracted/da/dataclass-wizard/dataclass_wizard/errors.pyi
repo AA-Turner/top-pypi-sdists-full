@@ -39,11 +39,11 @@ class JSONWizardError(ABC, Exception):
 
     def class_name(self) -> str | None: ...
     # noinspection PyRedeclaration
-    def class_name(self) -> None: ...
+    def class_name(self) -> None: ...  # type: ignore[no-redef]
 
     def parent_cls(self) -> type | None: ...
     # noinspection PyRedeclaration
-    def parent_cls(self, value: type | None) -> None: ...
+    def parent_cls(self, value: type | None) -> None: ...  # type: ignore[no-redef]
 
     @staticmethod
     def name(obj) -> str: ...
@@ -67,6 +67,7 @@ class ParseError(JSONWizardError):
 
     obj: Any
     obj_type: type
+    phase: str
     ann_type: type | Iterable | None
     base_error: Exception
     kwargs: dict[str, Any]
@@ -79,6 +80,7 @@ class ParseError(JSONWizardError):
     def __init__(self, base_err: Exception,
                  obj: Any,
                  ann_type: type | Iterable | None,
+                 phase: str,
                  _default_class: type | None = None,
                  _field_name: str | None = None,
                  _json_object: Any = None,

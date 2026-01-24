@@ -17,24 +17,30 @@ from sklearn.preprocessing import StandardScaler
 
 
 def make_lag_features(X: pd.DataFrame, y: pd.Series, lags: int):
-    """Transform input data X, y into autoregressive form - shift
-    them appropriately based on horizon and create `lags` columns.
+    """Transform input data X, y into autoregressive form by creating `lags` columns.
+
+    This function is called automatically by FLAML during the training process
+    to convert time series data into a format suitable for sklearn-based regression
+    models (e.g., lgbm, rf, xgboost). Users do NOT need to manually call this function
+    or create lagged features themselves.
 
     Parameters
     ----------
     X : pandas.DataFrame
-        Input features.
+        Input feature DataFrame, which may contain temporal features and/or exogenous variables.
 
     y : array_like, (1d)
-        Target vector.
+        Target vector (time series values to forecast).
 
-    horizon : int
-        length of X for `predict` method
+    lags : int
+        Number of lagged time steps to use as features.
 
     Returns
     -------
     pandas.DataFrame
-        shifted dataframe with `lags` columns
+        Shifted dataframe with `lags` columns for each original feature.
+        The target variable y is also lagged to prevent data leakage
+        (i.e., we use y(t-1), y(t-2), ..., y(t-lags) to predict y(t)).
     """
     lag_features = []
 
@@ -55,6 +61,17 @@ def make_lag_features(X: pd.DataFrame, y: pd.Series, lags: int):
 
 
 class SklearnWrapper:
+    """Wrapper class for using sklearn-based models for time series forecasting.
+
+    This wrapper automatically handles the transformation of time series data into
+    a supervised learning format by creating lagged features. It trains separate
+    models for each step in the forecast horizon.
+
+    Users typically don't interact with this class directly - it's used internally
+    by FLAML when sklearn-based estimators (lgbm, rf, xgboost, etc.) are selected
+    for time series forecasting tasks.
+    """
+
     def __init__(
         self,
         model_class: type,
@@ -76,6 +93,8 @@ class SklearnWrapper:
             self.pca = None
 
     def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs):
+        if "is_retrain" in kwargs:
+            kwargs.pop("is_retrain")
         self._X = X
         self._y = y
 
@@ -92,7 +111,14 @@ class SklearnWrapper:
 
         for i, model in enumerate(self.models):
             offset = i + self.lags
-            model.fit(X_trans[: len(X) - offset], y[offset:], **fit_params)
+            if len(X) - offset > 2:
+                # series with length 2 will meet All features are either constant or ignored.
+                # TODO: see why the non-constant features are ignored. Selector?
+                model.fit(X_trans[: len(X) - offset], y[offset:], **fit_params)
+            elif len(X) > offset and "catboost" not in str(model).lower():
+                model.fit(X_trans[: len(X) - offset], y[offset:], **fit_params)
+            else:
+                print("[INFO]: Length of data should longer than period + lags.")
         return self
 
     def predict(self, X, X_train=None, y_train=None):

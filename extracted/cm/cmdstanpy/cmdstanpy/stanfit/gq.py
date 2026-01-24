@@ -6,14 +6,11 @@ generate quantities (GQ) method
 from collections import Counter
 from typing import (
     Any,
-    Dict,
     Generic,
     Hashable,
-    List,
     MutableMapping,
     NoReturn,
     Optional,
-    Tuple,
     TypeVar,
     Union,
     overload,
@@ -31,8 +28,12 @@ except ImportError:
 
 
 from cmdstanpy.cmdstan_args import Method
-from cmdstanpy.utils import build_xarray_data, flatten_chains, get_logger
-from cmdstanpy.utils.stancsv import scan_generic_csv
+from cmdstanpy.utils import (
+    build_xarray_data,
+    flatten_chains,
+    get_logger,
+    stancsv,
+)
 
 from .mcmc import CmdStanMCMC
 from .metadata import InferenceMetadata
@@ -65,8 +66,7 @@ class CmdStanGQ(Generic[Fit]):
         self.previous_fit: Fit = previous_fit
 
         self._draws: np.ndarray = np.array(())
-        config = self._validate_csv_files()
-        self._metadata = InferenceMetadata(config)
+        self._metadata = self._validate_csv_files()
 
     def __repr__(self) -> str:
         repr = 'CmdStanGQ: model={} chains={}{}'.format(
@@ -99,48 +99,38 @@ class CmdStanGQ(Generic[Fit]):
         self._assemble_generated_quantities()
         return self.__dict__
 
-    def _validate_csv_files(self) -> Dict[str, Any]:
+    def _validate_csv_files(self) -> InferenceMetadata:
         """
         Checks that Stan CSV output files for all chains are consistent
-        and returns dict containing config and column names.
+        and returns InferenceMetadata object containing config and column names.
 
-        Raises exception when inconsistencies detected.
+        Raises exception if inconsistencies are detected.
         """
-        dzero = {}
-        for i in range(self.chains):
-            if i == 0:
-                dzero = scan_generic_csv(
-                    path=self.runset.csv_files[i],
-                )
-            else:
-                drest = scan_generic_csv(
-                    path=self.runset.csv_files[i],
-                )
-                for key in dzero:
-                    if (
-                        key
-                        not in [
-                            'id',
-                            'fitted_params',
-                            'diagnostic_file',
-                            'metric_file',
-                            'profile_file',
-                            'init',
-                            'seed',
-                            'start_datetime',
-                        ]
-                        and dzero[key] != drest[key]
-                    ):
-                        raise ValueError(
-                            'CmdStan config mismatch in Stan CSV file {}: '
-                            'arg {} is {}, expected {}'.format(
-                                self.runset.csv_files[i],
-                                key,
-                                dzero[key],
-                                drest[key],
-                            )
+        excluded_fields = {
+            'id',
+            'fitted_params',
+            'diagnostic_file',
+            'metric_file',
+            'profile_file',
+            'init',
+            'seed',
+            'start_datetime',
+        }
+        meta0 = InferenceMetadata.from_csv(self.runset.csv_files[0])
+        for i in range(1, self.chains):
+            meta = InferenceMetadata.from_csv(self.runset.csv_files[i])
+            for key in set(meta._cmdstan_config.keys()) - excluded_fields:
+                if meta0[key] != meta[key]:
+                    raise ValueError(
+                        'CmdStan config mismatch in Stan CSV file {}: '
+                        'arg {} is {}, expected {}'.format(
+                            self.runset.csv_files[i],
+                            key,
+                            meta0[key],
+                            meta[key],
                         )
-        return dzero
+                    )
+        return meta0
 
     @property
     def chains(self) -> int:
@@ -148,16 +138,16 @@ class CmdStanGQ(Generic[Fit]):
         return self.runset.chains
 
     @property
-    def chain_ids(self) -> List[int]:
+    def chain_ids(self) -> list[int]:
         """Chain ids."""
         return self.runset.chain_ids
 
     @property
-    def column_names(self) -> Tuple[str, ...]:
+    def column_names(self) -> tuple[str, ...]:
         """
         Names of generated quantities of interest.
         """
-        return self._metadata.cmdstan_config['column_names']  # type: ignore
+        return self._metadata.column_names
 
     @property
     def metadata(self) -> InferenceMetadata:
@@ -237,7 +227,7 @@ class CmdStanGQ(Generic[Fit]):
                 for item, count in Counter(cols_1 + cols_2).items()
                 if count > 1
             ]
-            drop_cols: List[int] = []
+            drop_cols: list[int] = []
             for dup in dups:
                 drop_cols.extend(
                     self.previous_fit._metadata.stan_vars[dup].columns()
@@ -267,7 +257,7 @@ class CmdStanGQ(Generic[Fit]):
 
     def draws_pd(
         self,
-        vars: Union[List[str], str, None] = None,
+        vars: Union[list[str], str, None] = None,
         inc_warmup: bool = False,
         inc_sample: bool = False,
     ) -> pd.DataFrame:
@@ -325,8 +315,8 @@ class CmdStanGQ(Generic[Fit]):
 
         all_columns = ['chain__', 'iter__', 'draw__'] + list(self.column_names)
 
-        gq_cols: List[str] = []
-        mcmc_vars: List[str] = []
+        gq_cols: list[str] = []
+        mcmc_vars: list[str] = []
         if vars is not None:
             for var in vars_list:
                 if var in self._metadata.stan_vars:
@@ -412,7 +402,7 @@ class CmdStanGQ(Generic[Fit]):
     @overload
     def draws_xr(
         self: Union["CmdStanGQ[CmdStanMLE]", "CmdStanGQ[CmdStanVB]"],
-        vars: Union[str, List[str], None] = None,
+        vars: Union[str, list[str], None] = None,
         inc_warmup: bool = False,
         inc_sample: bool = False,
     ) -> NoReturn:
@@ -421,7 +411,7 @@ class CmdStanGQ(Generic[Fit]):
     @overload
     def draws_xr(
         self: "CmdStanGQ[CmdStanMCMC]",
-        vars: Union[str, List[str], None] = None,
+        vars: Union[str, list[str], None] = None,
         inc_warmup: bool = False,
         inc_sample: bool = False,
     ) -> "xr.Dataset":
@@ -429,7 +419,7 @@ class CmdStanGQ(Generic[Fit]):
 
     def draws_xr(
         self,
-        vars: Union[str, List[str], None] = None,
+        vars: Union[str, list[str], None] = None,
         inc_warmup: bool = False,
         inc_sample: bool = False,
     ) -> "xr.Dataset":
@@ -593,7 +583,7 @@ class CmdStanGQ(Generic[Fit]):
         out: np.ndarray = self._metadata.stan_vars[var].extract_reshape(draws)
         return out
 
-    def stan_variables(self, **kwargs: bool) -> Dict[str, np.ndarray]:
+    def stan_variables(self, **kwargs: bool) -> dict[str, np.ndarray]:
         """
         Return a dictionary mapping Stan program variables names
         to the corresponding numpy.ndarray containing the inferred values.
@@ -633,14 +623,20 @@ class CmdStanGQ(Generic[Fit]):
             order='F',
         )
         for chain in range(self.chains):
-            with open(self.runset.csv_files[chain], 'r') as fd:
-                lines = (line for line in fd if not line.startswith('#'))
-                gq_sample[:, chain, :] = np.loadtxt(
-                    lines, dtype=np.ndarray, ndmin=2, skiprows=1, delimiter=','
+            csv_file = self.runset.csv_files[chain]
+            try:
+                *_, draws = stancsv.parse_comments_header_and_draws(
+                    self.runset.csv_files[chain]
                 )
+                gq_sample[:, chain, :] = stancsv.csv_bytes_list_to_numpy(draws)
+            except Exception as exc:
+                raise ValueError(
+                    f"An error occurred when parsing Stan csv {csv_file}"
+                    f" for chain {chain}"
+                ) from exc
         self._draws = gq_sample
 
-    def _draws_start(self, inc_warmup: bool) -> Tuple[int, int]:
+    def _draws_start(self, inc_warmup: bool) -> tuple[int, int]:
         draw1 = 0
         p_fit = self.previous_fit
         if isinstance(p_fit, CmdStanMCMC):
@@ -690,10 +686,10 @@ class CmdStanGQ(Generic[Fit]):
             return p_fit.variational_sample[:, None]
 
     def _previous_draws_pd(
-        self, vars: List[str], inc_warmup: bool
+        self, vars: list[str], inc_warmup: bool
     ) -> pd.DataFrame:
         if vars:
-            sel: Union[List[str], slice] = vars
+            sel: Union[list[str], slice] = vars
         else:
             sel = slice(None, None)
 

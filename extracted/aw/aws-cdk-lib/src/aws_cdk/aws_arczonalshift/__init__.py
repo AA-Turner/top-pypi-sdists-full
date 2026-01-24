@@ -74,66 +74,145 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_arczonalshift.AutoshiftObserverNotificationStatusReference",
-    jsii_struct_bases=[],
-    name_mapping={"account_id": "accountId", "region": "region"},
+from ..interfaces.aws_arczonalshift import (
+    AutoshiftObserverNotificationStatusReference as _AutoshiftObserverNotificationStatusReference_9514dd80,
+    IAutoshiftObserverNotificationStatusRef as _IAutoshiftObserverNotificationStatusRef_37965c1b,
+    IZonalAutoshiftConfigurationRef as _IZonalAutoshiftConfigurationRef_e67bf699,
+    ZonalAutoshiftConfigurationReference as _ZonalAutoshiftConfigurationReference_d88ceb0c,
 )
-class AutoshiftObserverNotificationStatusReference:
-    def __init__(self, *, account_id: builtins.str, region: builtins.str) -> None:
-        '''A reference to a AutoshiftObserverNotificationStatus resource.
 
-        :param account_id: The AccountId of the AutoshiftObserverNotificationStatus resource.
-        :param region: The Region of the AutoshiftObserverNotificationStatus resource.
 
-        :exampleMetadata: fixture=_generated
+@jsii.implements(_IInspectable_c2943556, _IAutoshiftObserverNotificationStatusRef_37965c1b)
+class CfnAutoshiftObserverNotificationStatus(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_arczonalshift.CfnAutoshiftObserverNotificationStatus",
+):
+    '''Definition of AWS::ARCZonalShift::AutoshiftObserverNotificationStatus Resource Type.
 
-        Example::
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-autoshiftobservernotificationstatus.html
+    :cloudformationResource: AWS::ARCZonalShift::AutoshiftObserverNotificationStatus
+    :exampleMetadata: fixture=_generated
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_arczonalshift as arczonalshift
-            
-            autoshift_observer_notification_status_reference = arczonalshift.AutoshiftObserverNotificationStatusReference(
-                account_id="accountId",
-                region="region"
-            )
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_arczonalshift as arczonalshift
+        
+        cfn_autoshift_observer_notification_status = arczonalshift.CfnAutoshiftObserverNotificationStatus(self, "MyCfnAutoshiftObserverNotificationStatus",
+            status="status"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        status: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::ARCZonalShift::AutoshiftObserverNotificationStatus``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param status: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a24854b6579d73cf54ba182c54cff3381284d38de023509701a1c0080f4817f)
-            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account_id": account_id,
-            "region": region,
-        }
+            type_hints = typing.get_type_hints(_typecheckingstub__a641c95b7291cd74504f21deec131b94f9a4820ca9da19c12dcb74b342b75c5f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAutoshiftObserverNotificationStatusProps(status=status)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnAutoshiftObserverNotificationStatus")
+    @builtins.classmethod
+    def is_cfn_autoshift_observer_notification_status(
+        cls,
+        x: typing.Any,
+    ) -> builtins.bool:
+        '''Checks whether the given object is a CfnAutoshiftObserverNotificationStatus.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__35a130ce569d5e9229a16be838630fa70ca411e2c19ffacfb80ab99a66557347)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAutoshiftObserverNotificationStatus", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__367a58f6c0a1e21e312519427c6e0c9dec1c77bae6f15f5e3bb87efaf051de75)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f50aa9c339197b955491d70b247d392f25ffabeb5671525df666d3ee91a733a0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    def account_id(self) -> builtins.str:
-        '''The AccountId of the AutoshiftObserverNotificationStatus resource.'''
-        result = self._values.get("account_id")
-        assert result is not None, "Required property 'account_id' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="attrAccountId")
+    def attr_account_id(self) -> builtins.str:
+        '''User account id, used as part of the primary identifier for the resource.
+
+        :cloudformationAttribute: AccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
 
     @builtins.property
-    def region(self) -> builtins.str:
-        '''The Region of the AutoshiftObserverNotificationStatus resource.'''
-        result = self._values.get("region")
-        assert result is not None, "Required property 'region' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="attrRegion")
+    def attr_region(self) -> builtins.str:
+        '''Region, used as part of the primary identifier for the resource.
 
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
+        :cloudformationAttribute: Region
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegion"))
 
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
+    @builtins.property
+    @jsii.member(jsii_name="autoshiftObserverNotificationStatusRef")
+    def autoshift_observer_notification_status_ref(
+        self,
+    ) -> "_AutoshiftObserverNotificationStatusReference_9514dd80":
+        '''A reference to a AutoshiftObserverNotificationStatus resource.'''
+        return typing.cast("_AutoshiftObserverNotificationStatusReference_9514dd80", jsii.get(self, "autoshiftObserverNotificationStatusRef"))
 
-    def __repr__(self) -> str:
-        return "AutoshiftObserverNotificationStatusReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef429db68210cb2d5549e51165dc50e2f32e0d65575831ef012354037d1bcfd0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -188,391 +267,7 @@ class CfnAutoshiftObserverNotificationStatusProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_arczonalshift.CfnZonalAutoshiftConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resource_identifier": "resourceIdentifier",
-        "practice_run_configuration": "practiceRunConfiguration",
-        "zonal_autoshift_status": "zonalAutoshiftStatus",
-    },
-)
-class CfnZonalAutoshiftConfigurationProps:
-    def __init__(
-        self,
-        *,
-        resource_identifier: builtins.str,
-        practice_run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        zonal_autoshift_status: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnZonalAutoshiftConfiguration``.
-
-        :param resource_identifier: The identifier for the resource that AWS shifts traffic for. The identifier is the Amazon Resource Name (ARN) for the resource. At this time, supported resources are Network Load Balancers and Application Load Balancers.
-        :param practice_run_configuration: A practice run configuration for a resource includes the Amazon CloudWatch alarms that you've specified for a practice run, as well as any blocked dates or blocked windows for the practice run. When a resource has a practice run configuration, ARC shifts traffic for the resource weekly for practice runs. Practice runs are required for zonal autoshift. The zonal shifts that ARC starts for practice runs help you to ensure that shifting away traffic from an Availability Zone during an autoshift is safe for your application. You can update or delete a practice run configuration. Before you delete a practice run configuration, you must disable zonal autoshift for the resource. A practice run configuration is required when zonal autoshift is enabled.
-        :param zonal_autoshift_status: When zonal autoshift is ``ENABLED`` , you authorize AWS to shift away resource traffic for an application from an Availability Zone during events, on your behalf, to help reduce time to recovery. Traffic is also shifted away for the required weekly practice runs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-zonalautoshiftconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_arczonalshift as arczonalshift
-            
-            cfn_zonal_autoshift_configuration_props = arczonalshift.CfnZonalAutoshiftConfigurationProps(
-                resource_identifier="resourceIdentifier",
-            
-                # the properties below are optional
-                practice_run_configuration=arczonalshift.CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty(
-                    outcome_alarms=[arczonalshift.CfnZonalAutoshiftConfiguration.ControlConditionProperty(
-                        alarm_identifier="alarmIdentifier",
-                        type="type"
-                    )],
-            
-                    # the properties below are optional
-                    blocked_dates=["blockedDates"],
-                    blocked_windows=["blockedWindows"],
-                    blocking_alarms=[arczonalshift.CfnZonalAutoshiftConfiguration.ControlConditionProperty(
-                        alarm_identifier="alarmIdentifier",
-                        type="type"
-                    )]
-                ),
-                zonal_autoshift_status="zonalAutoshiftStatus"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df846ffeb392d27b90c69c753d2f5defce1421dd94b678654bb7fe32434590d0)
-            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
-            check_type(argname="argument practice_run_configuration", value=practice_run_configuration, expected_type=type_hints["practice_run_configuration"])
-            check_type(argname="argument zonal_autoshift_status", value=zonal_autoshift_status, expected_type=type_hints["zonal_autoshift_status"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_identifier": resource_identifier,
-        }
-        if practice_run_configuration is not None:
-            self._values["practice_run_configuration"] = practice_run_configuration
-        if zonal_autoshift_status is not None:
-            self._values["zonal_autoshift_status"] = zonal_autoshift_status
-
-    @builtins.property
-    def resource_identifier(self) -> builtins.str:
-        '''The identifier for the resource that AWS shifts traffic for.
-
-        The identifier is the Amazon Resource Name (ARN) for the resource.
-
-        At this time, supported resources are Network Load Balancers and Application Load Balancers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-zonalautoshiftconfiguration.html#cfn-arczonalshift-zonalautoshiftconfiguration-resourceidentifier
-        '''
-        result = self._values.get("resource_identifier")
-        assert result is not None, "Required property 'resource_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def practice_run_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]]:
-        '''A practice run configuration for a resource includes the Amazon CloudWatch alarms that you've specified for a practice run, as well as any blocked dates or blocked windows for the practice run.
-
-        When a resource has a practice run configuration, ARC shifts traffic for the resource weekly for practice runs.
-
-        Practice runs are required for zonal autoshift. The zonal shifts that ARC starts for practice runs help you to ensure that shifting away traffic from an Availability Zone during an autoshift is safe for your application.
-
-        You can update or delete a practice run configuration. Before you delete a practice run configuration, you must disable zonal autoshift for the resource. A practice run configuration is required when zonal autoshift is enabled.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-zonalautoshiftconfiguration.html#cfn-arczonalshift-zonalautoshiftconfiguration-practicerunconfiguration
-        '''
-        result = self._values.get("practice_run_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]], result)
-
-    @builtins.property
-    def zonal_autoshift_status(self) -> typing.Optional[builtins.str]:
-        '''When zonal autoshift is ``ENABLED`` , you authorize AWS to shift away resource traffic for an application from an Availability Zone during events, on your behalf, to help reduce time to recovery.
-
-        Traffic is also shifted away for the required weekly practice runs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-zonalautoshiftconfiguration.html#cfn-arczonalshift-zonalautoshiftconfiguration-zonalautoshiftstatus
-        '''
-        result = self._values.get("zonal_autoshift_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnZonalAutoshiftConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_arczonalshift.IAutoshiftObserverNotificationStatusRef"
-)
-class IAutoshiftObserverNotificationStatusRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a AutoshiftObserverNotificationStatus.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="autoshiftObserverNotificationStatusRef")
-    def autoshift_observer_notification_status_ref(
-        self,
-    ) -> AutoshiftObserverNotificationStatusReference:
-        '''(experimental) A reference to a AutoshiftObserverNotificationStatus resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAutoshiftObserverNotificationStatusRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a AutoshiftObserverNotificationStatus.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_arczonalshift.IAutoshiftObserverNotificationStatusRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="autoshiftObserverNotificationStatusRef")
-    def autoshift_observer_notification_status_ref(
-        self,
-    ) -> AutoshiftObserverNotificationStatusReference:
-        '''(experimental) A reference to a AutoshiftObserverNotificationStatus resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AutoshiftObserverNotificationStatusReference, jsii.get(self, "autoshiftObserverNotificationStatusRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAutoshiftObserverNotificationStatusRef).__jsii_proxy_class__ = lambda : _IAutoshiftObserverNotificationStatusRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_arczonalshift.IZonalAutoshiftConfigurationRef"
-)
-class IZonalAutoshiftConfigurationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ZonalAutoshiftConfiguration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="zonalAutoshiftConfigurationRef")
-    def zonal_autoshift_configuration_ref(
-        self,
-    ) -> "ZonalAutoshiftConfigurationReference":
-        '''(experimental) A reference to a ZonalAutoshiftConfiguration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IZonalAutoshiftConfigurationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ZonalAutoshiftConfiguration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_arczonalshift.IZonalAutoshiftConfigurationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="zonalAutoshiftConfigurationRef")
-    def zonal_autoshift_configuration_ref(
-        self,
-    ) -> "ZonalAutoshiftConfigurationReference":
-        '''(experimental) A reference to a ZonalAutoshiftConfiguration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ZonalAutoshiftConfigurationReference", jsii.get(self, "zonalAutoshiftConfigurationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IZonalAutoshiftConfigurationRef).__jsii_proxy_class__ = lambda : _IZonalAutoshiftConfigurationRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_arczonalshift.ZonalAutoshiftConfigurationReference",
-    jsii_struct_bases=[],
-    name_mapping={"resource_identifier": "resourceIdentifier"},
-)
-class ZonalAutoshiftConfigurationReference:
-    def __init__(self, *, resource_identifier: builtins.str) -> None:
-        '''A reference to a ZonalAutoshiftConfiguration resource.
-
-        :param resource_identifier: The ResourceIdentifier of the ZonalAutoshiftConfiguration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_arczonalshift as arczonalshift
-            
-            zonal_autoshift_configuration_reference = arczonalshift.ZonalAutoshiftConfigurationReference(
-                resource_identifier="resourceIdentifier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89b0e04bafd3f3cd1f1d94b989fa1209212435e118d78b56fbbe1fb563af1100)
-            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_identifier": resource_identifier,
-        }
-
-    @builtins.property
-    def resource_identifier(self) -> builtins.str:
-        '''The ResourceIdentifier of the ZonalAutoshiftConfiguration resource.'''
-        result = self._values.get("resource_identifier")
-        assert result is not None, "Required property 'resource_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ZonalAutoshiftConfigurationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IAutoshiftObserverNotificationStatusRef)
-class CfnAutoshiftObserverNotificationStatus(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_arczonalshift.CfnAutoshiftObserverNotificationStatus",
-):
-    '''Definition of AWS::ARCZonalShift::AutoshiftObserverNotificationStatus Resource Type.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-autoshiftobservernotificationstatus.html
-    :cloudformationResource: AWS::ARCZonalShift::AutoshiftObserverNotificationStatus
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_arczonalshift as arczonalshift
-        
-        cfn_autoshift_observer_notification_status = arczonalshift.CfnAutoshiftObserverNotificationStatus(self, "MyCfnAutoshiftObserverNotificationStatus",
-            status="status"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        status: builtins.str,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param status: 
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a641c95b7291cd74504f21deec131b94f9a4820ca9da19c12dcb74b342b75c5f)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAutoshiftObserverNotificationStatusProps(status=status)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__367a58f6c0a1e21e312519427c6e0c9dec1c77bae6f15f5e3bb87efaf051de75)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f50aa9c339197b955491d70b247d392f25ffabeb5671525df666d3ee91a733a0)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAccountId")
-    def attr_account_id(self) -> builtins.str:
-        '''User account id, used as part of the primary identifier for the resource.
-
-        :cloudformationAttribute: AccountId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRegion")
-    def attr_region(self) -> builtins.str:
-        '''Region, used as part of the primary identifier for the resource.
-
-        :cloudformationAttribute: Region
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRegion"))
-
-    @builtins.property
-    @jsii.member(jsii_name="autoshiftObserverNotificationStatusRef")
-    def autoshift_observer_notification_status_ref(
-        self,
-    ) -> AutoshiftObserverNotificationStatusReference:
-        '''A reference to a AutoshiftObserverNotificationStatus resource.'''
-        return typing.cast(AutoshiftObserverNotificationStatusReference, jsii.get(self, "autoshiftObserverNotificationStatusRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="status")
-    def status(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "status"))
-
-    @status.setter
-    def status(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef429db68210cb2d5549e51165dc50e2f32e0d65575831ef012354037d1bcfd0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IZonalAutoshiftConfigurationRef)
+@jsii.implements(_IInspectable_c2943556, _IZonalAutoshiftConfigurationRef_e67bf699)
 class CfnZonalAutoshiftConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -618,14 +313,15 @@ class CfnZonalAutoshiftConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         resource_identifier: builtins.str,
-        practice_run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        practice_run_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         zonal_autoshift_status: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ARCZonalShift::ZonalAutoshiftConfiguration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param resource_identifier: The identifier for the resource that AWS shifts traffic for. The identifier is the Amazon Resource Name (ARN) for the resource. At this time, supported resources are Network Load Balancers and Application Load Balancers.
@@ -644,8 +340,20 @@ class CfnZonalAutoshiftConfiguration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnZonalAutoshiftConfiguration")
+    @builtins.classmethod
+    def is_cfn_zonal_autoshift_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnZonalAutoshiftConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__532529b765c4aea983c9eac0bed4cf71fd15d11cb156c4e06f3316c506c45ffd)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnZonalAutoshiftConfiguration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -681,9 +389,11 @@ class CfnZonalAutoshiftConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="zonalAutoshiftConfigurationRef")
-    def zonal_autoshift_configuration_ref(self) -> ZonalAutoshiftConfigurationReference:
+    def zonal_autoshift_configuration_ref(
+        self,
+    ) -> "_ZonalAutoshiftConfigurationReference_d88ceb0c":
         '''A reference to a ZonalAutoshiftConfiguration resource.'''
-        return typing.cast(ZonalAutoshiftConfigurationReference, jsii.get(self, "zonalAutoshiftConfigurationRef"))
+        return typing.cast("_ZonalAutoshiftConfigurationReference_d88ceb0c", jsii.get(self, "zonalAutoshiftConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceIdentifier")
@@ -702,14 +412,14 @@ class CfnZonalAutoshiftConfiguration(
     @jsii.member(jsii_name="practiceRunConfiguration")
     def practice_run_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]]:
         '''A practice run configuration for a resource includes the Amazon CloudWatch alarms that you've specified for a practice run, as well as any blocked dates or blocked windows for the practice run.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]], jsii.get(self, "practiceRunConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]], jsii.get(self, "practiceRunConfiguration"))
 
     @practice_run_configuration.setter
     def practice_run_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__deabf71a3e0015b91f35f23b96354f1d2feeb19a3f783edd9e6c4be281a4d00a)
@@ -822,10 +532,10 @@ class CfnZonalAutoshiftConfiguration(
         def __init__(
             self,
             *,
-            outcome_alarms: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnZonalAutoshiftConfiguration.ControlConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            outcome_alarms: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnZonalAutoshiftConfiguration.ControlConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
             blocked_dates: typing.Optional[typing.Sequence[builtins.str]] = None,
             blocked_windows: typing.Optional[typing.Sequence[builtins.str]] = None,
-            blocking_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnZonalAutoshiftConfiguration.ControlConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            blocking_alarms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnZonalAutoshiftConfiguration.ControlConditionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A practice run configuration for a resource includes the Amazon CloudWatch alarms that you've specified for a practice run, as well as any blocked dates or blocked windows for the practice run.
 
@@ -881,7 +591,7 @@ class CfnZonalAutoshiftConfiguration(
         @builtins.property
         def outcome_alarms(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]:
             '''The alarm that you specify to monitor the health of your application during practice runs.
 
             When the outcome alarm goes into an ``ALARM`` state, the practice run is ended and the outcome is set to ``FAILED`` .
@@ -890,7 +600,7 @@ class CfnZonalAutoshiftConfiguration(
             '''
             result = self._values.get("outcome_alarms")
             assert result is not None, "Required property 'outcome_alarms' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]], result)
 
         @builtins.property
         def blocked_dates(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -924,7 +634,7 @@ class CfnZonalAutoshiftConfiguration(
         @builtins.property
         def blocking_alarms(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]]:
             '''An optional alarm that you can specify that blocks practice runs when the alarm is in an ``ALARM`` state.
 
             When a blocking alarm goes into an ``ALARM`` state, it prevents practice runs from being started, and ends practice runs that are in progress.
@@ -932,7 +642,7 @@ class CfnZonalAutoshiftConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arczonalshift-zonalautoshiftconfiguration-practicerunconfiguration.html#cfn-arczonalshift-zonalautoshiftconfiguration-practicerunconfiguration-blockingalarms
             '''
             result = self._values.get("blocking_alarms")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.ControlConditionProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -946,55 +656,146 @@ class CfnZonalAutoshiftConfiguration(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_arczonalshift.CfnZonalAutoshiftConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_identifier": "resourceIdentifier",
+        "practice_run_configuration": "practiceRunConfiguration",
+        "zonal_autoshift_status": "zonalAutoshiftStatus",
+    },
+)
+class CfnZonalAutoshiftConfigurationProps:
+    def __init__(
+        self,
+        *,
+        resource_identifier: builtins.str,
+        practice_run_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        zonal_autoshift_status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnZonalAutoshiftConfiguration``.
+
+        :param resource_identifier: The identifier for the resource that AWS shifts traffic for. The identifier is the Amazon Resource Name (ARN) for the resource. At this time, supported resources are Network Load Balancers and Application Load Balancers.
+        :param practice_run_configuration: A practice run configuration for a resource includes the Amazon CloudWatch alarms that you've specified for a practice run, as well as any blocked dates or blocked windows for the practice run. When a resource has a practice run configuration, ARC shifts traffic for the resource weekly for practice runs. Practice runs are required for zonal autoshift. The zonal shifts that ARC starts for practice runs help you to ensure that shifting away traffic from an Availability Zone during an autoshift is safe for your application. You can update or delete a practice run configuration. Before you delete a practice run configuration, you must disable zonal autoshift for the resource. A practice run configuration is required when zonal autoshift is enabled.
+        :param zonal_autoshift_status: When zonal autoshift is ``ENABLED`` , you authorize AWS to shift away resource traffic for an application from an Availability Zone during events, on your behalf, to help reduce time to recovery. Traffic is also shifted away for the required weekly practice runs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-zonalautoshiftconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_arczonalshift as arczonalshift
+            
+            cfn_zonal_autoshift_configuration_props = arczonalshift.CfnZonalAutoshiftConfigurationProps(
+                resource_identifier="resourceIdentifier",
+            
+                # the properties below are optional
+                practice_run_configuration=arczonalshift.CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty(
+                    outcome_alarms=[arczonalshift.CfnZonalAutoshiftConfiguration.ControlConditionProperty(
+                        alarm_identifier="alarmIdentifier",
+                        type="type"
+                    )],
+            
+                    # the properties below are optional
+                    blocked_dates=["blockedDates"],
+                    blocked_windows=["blockedWindows"],
+                    blocking_alarms=[arczonalshift.CfnZonalAutoshiftConfiguration.ControlConditionProperty(
+                        alarm_identifier="alarmIdentifier",
+                        type="type"
+                    )]
+                ),
+                zonal_autoshift_status="zonalAutoshiftStatus"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df846ffeb392d27b90c69c753d2f5defce1421dd94b678654bb7fe32434590d0)
+            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
+            check_type(argname="argument practice_run_configuration", value=practice_run_configuration, expected_type=type_hints["practice_run_configuration"])
+            check_type(argname="argument zonal_autoshift_status", value=zonal_autoshift_status, expected_type=type_hints["zonal_autoshift_status"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_identifier": resource_identifier,
+        }
+        if practice_run_configuration is not None:
+            self._values["practice_run_configuration"] = practice_run_configuration
+        if zonal_autoshift_status is not None:
+            self._values["zonal_autoshift_status"] = zonal_autoshift_status
+
+    @builtins.property
+    def resource_identifier(self) -> builtins.str:
+        '''The identifier for the resource that AWS shifts traffic for.
+
+        The identifier is the Amazon Resource Name (ARN) for the resource.
+
+        At this time, supported resources are Network Load Balancers and Application Load Balancers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-zonalautoshiftconfiguration.html#cfn-arczonalshift-zonalautoshiftconfiguration-resourceidentifier
+        '''
+        result = self._values.get("resource_identifier")
+        assert result is not None, "Required property 'resource_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def practice_run_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]]:
+        '''A practice run configuration for a resource includes the Amazon CloudWatch alarms that you've specified for a practice run, as well as any blocked dates or blocked windows for the practice run.
+
+        When a resource has a practice run configuration, ARC shifts traffic for the resource weekly for practice runs.
+
+        Practice runs are required for zonal autoshift. The zonal shifts that ARC starts for practice runs help you to ensure that shifting away traffic from an Availability Zone during an autoshift is safe for your application.
+
+        You can update or delete a practice run configuration. Before you delete a practice run configuration, you must disable zonal autoshift for the resource. A practice run configuration is required when zonal autoshift is enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-zonalautoshiftconfiguration.html#cfn-arczonalshift-zonalautoshiftconfiguration-practicerunconfiguration
+        '''
+        result = self._values.get("practice_run_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty"]], result)
+
+    @builtins.property
+    def zonal_autoshift_status(self) -> typing.Optional[builtins.str]:
+        '''When zonal autoshift is ``ENABLED`` , you authorize AWS to shift away resource traffic for an application from an Availability Zone during events, on your behalf, to help reduce time to recovery.
+
+        Traffic is also shifted away for the required weekly practice runs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-arczonalshift-zonalautoshiftconfiguration.html#cfn-arczonalshift-zonalautoshiftconfiguration-zonalautoshiftstatus
+        '''
+        result = self._values.get("zonal_autoshift_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnZonalAutoshiftConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "AutoshiftObserverNotificationStatusReference",
     "CfnAutoshiftObserverNotificationStatus",
     "CfnAutoshiftObserverNotificationStatusProps",
     "CfnZonalAutoshiftConfiguration",
     "CfnZonalAutoshiftConfigurationProps",
-    "IAutoshiftObserverNotificationStatusRef",
-    "IZonalAutoshiftConfigurationRef",
-    "ZonalAutoshiftConfigurationReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__4a24854b6579d73cf54ba182c54cff3381284d38de023509701a1c0080f4817f(
-    *,
-    account_id: builtins.str,
-    region: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__02982b02d19d6396959a28b523ecc10a35db9ead5858b9c048a1ff36123d13d7(
-    *,
-    status: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__df846ffeb392d27b90c69c753d2f5defce1421dd94b678654bb7fe32434590d0(
-    *,
-    resource_identifier: builtins.str,
-    practice_run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    zonal_autoshift_status: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__89b0e04bafd3f3cd1f1d94b989fa1209212435e118d78b56fbbe1fb563af1100(
-    *,
-    resource_identifier: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__a641c95b7291cd74504f21deec131b94f9a4820ca9da19c12dcb74b342b75c5f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35a130ce569d5e9229a16be838630fa70ca411e2c19ffacfb80ab99a66557347(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1017,6 +818,13 @@ def _typecheckingstub__ef429db68210cb2d5549e51165dc50e2f32e0d65575831ef012354037
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__02982b02d19d6396959a28b523ecc10a35db9ead5858b9c048a1ff36123d13d7(
+    *,
+    status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8c7357d3884cea81f1166de2f6ac59cb16a8663a471270d73a743eb77c875eb9(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1024,6 +832,12 @@ def _typecheckingstub__8c7357d3884cea81f1166de2f6ac59cb16a8663a471270d73a743eb77
     resource_identifier: builtins.str,
     practice_run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     zonal_autoshift_status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__532529b765c4aea983c9eac0bed4cf71fd15d11cb156c4e06f3316c506c45ffd(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1072,6 +886,15 @@ def _typecheckingstub__09d714a4c978f7c2d70e24869d7ce300d549509a8b35174736a9571be
     blocked_dates: typing.Optional[typing.Sequence[builtins.str]] = None,
     blocked_windows: typing.Optional[typing.Sequence[builtins.str]] = None,
     blocking_alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnZonalAutoshiftConfiguration.ControlConditionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df846ffeb392d27b90c69c753d2f5defce1421dd94b678654bb7fe32434590d0(
+    *,
+    resource_identifier: builtins.str,
+    practice_run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnZonalAutoshiftConfiguration.PracticeRunConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    zonal_autoshift_status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

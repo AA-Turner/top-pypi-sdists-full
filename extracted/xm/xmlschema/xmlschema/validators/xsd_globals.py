@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2024, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -8,37 +8,41 @@
 # @author Davide Brunato <brunato@sissa.it>
 #
 import copy
+import importlib
 import threading
 import warnings
 from collections.abc import Collection, Iterator, Iterable
 from contextlib import contextmanager
 from functools import cached_property
 from itertools import dropwhile
-from typing import Any, cast, Optional, Type
-
-from elementpath import XPathToken
+from typing import Any, cast, Optional
+from elementpath import XPathToken, XPath2Parser
 
 import xmlschema.names as nm
-from xmlschema.aliases import SchemaType, BaseXsdType, LocationsType, \
-    SchemaGlobalType, SchemaSourceType, NsmapType, StagedItemType, ComponentClassType
+from xmlschema.aliases import SchemaType, BaseXsdType, SchemaGlobalType, \
+    SourceArgType, NsmapType, StagedItemType, ComponentClassType
 from xmlschema.exceptions import XMLSchemaAttributeError, XMLSchemaTypeError, \
     XMLSchemaValueError, XMLSchemaWarning, XMLSchemaNamespaceError, XMLSchemaException
 from xmlschema.translation import gettext as _
 from xmlschema.utils.misc import deprecated
 from xmlschema.utils.qnames import get_extended_qname
-from xmlschema.utils.descriptors import validator_property
 from xmlschema.utils.urls import get_url, normalize_url
-from xmlschema.namespaces import NamespaceResourcesMap
-from xmlschema.loaders import SchemaLoader
+from xmlschema.locations import NamespaceResourcesMap
 from xmlschema.resources import XMLResource
+from xmlschema.xpath import XsdAssertionXPathParser
+from xmlschema.settings import SchemaSettings
 
-from .exceptions import XMLSchemaModelError, XMLSchemaModelDepthError, XMLSchemaParseError
+from .exceptions import XMLSchemaValidatorError, XMLSchemaModelError, \
+    XMLSchemaModelDepthError, XMLSchemaParseError
 from .xsdbase import XsdValidator, XsdComponent
 from .models import check_model
 from . import XsdAttribute, XsdSimpleType, XsdComplexType, XsdElement, \
     XsdGroup, XsdIdentity, XsdUnion, XsdAtomicRestriction, \
     XsdAtomic, XsdAtomicBuiltin, XsdNotation, XsdAttributeGroup
-from .builders import GLOBAL_MAP_ATTRIBUTE, GlobalMaps
+from .builders import GLOBAL_MAP_ATTRIBUTE, GlobalMaps, TypesMap, NotationsMap, \
+    AttributesMap, AttributeGroupsMap, ElementsMap, GroupsMap
+from xmlschema import _limits
+
 
 # Default placeholder for deprecation of argument 'validation' in XsdGlobals
 _strict = type('str', (str,), {})('strict')
@@ -63,25 +67,51 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
     location hints to load well-known namespaces (e.g. xhtml).
     :param use_xpath3: if `True` an XSD 1.1 schema instance uses the XPath 3 processor \
     for assertions. For default a full XPath 2.0 processor is used.
+    :param kwargs: other keyword arguments passed to :class:`SchemaLoader`.
     """
     _schemas: set[SchemaType]
-    namespaces: NamespaceResourcesMap[SchemaType]
-    loader: SchemaLoader
-    substitution_groups: dict[str, set[XsdElement]]
-    identities: dict[str, XsdIdentity]
 
-    __slots__ = ('_build_lock', '_schemas', '_parent', 'validation', 'errors',
-                 'validator', 'namespaces', 'loader', 'global_maps', 'types',
-                 'notations', 'attributes', 'attribute_groups', 'elements',
-                 'groups', 'substitution_groups', 'identities', '_built')
+    settings: SchemaSettings
+    namespaces: NamespaceResourcesMap[SchemaType]
+
+    types: TypesMap
+    """Global types map"""
+
+    notations: NotationsMap
+    """Notations map"""
+
+    attributes: AttributesMap
+    """Global attributes map"""
+
+    attribute_groups: AttributeGroupsMap
+    """Attribute groups map"""
+
+    elements: ElementsMap
+    """Global elements map"""
+
+    groups: GroupsMap
+    """Model groups map"""
+
+    substitution_groups: dict[str, set[XsdElement]]
+    """Substitution groups map"""
+
+    identities: dict[str, XsdIdentity]
+    """Identity constraints map"""
+
+    xpath_parser_class: type[XPath2Parser]
+    assertion_parser_class: type[XsdAssertionXPathParser]
+
+    __slots__ = ('_build_lock', '_built', '_schemas', '_parent', 'validation',
+                 'errors', 'validator', 'namespaces', 'loader', 'global_maps',
+                 'types', 'notations', 'attributes', 'attribute_groups',
+                 'elements', 'groups', 'substitution_groups', 'identities',
+                 'xpath_parser_class', 'assertion_parser_class', 'settings', 'cache')
 
     def __init__(self, validator: SchemaType,
                  validation: str = _strict,
                  parent: Optional[SchemaType] = None,
-                 loader_class: Optional[Type[SchemaLoader]] = None,
-                 locations: Optional[LocationsType] = None,
-                 use_fallback: bool = True,
-                 use_xpath3: bool = False) -> None:
+                 settings: Optional[SchemaSettings] = None,
+                 **kwargs: Any) -> None:
 
         if not isinstance(validation, _strict.__class__):
             msg = "argument 'validation' is not used and will be removed in v5.0"
@@ -103,6 +133,19 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
         self.substitution_groups = {}
         self.identities = {}
 
+        if isinstance(settings, SchemaSettings):
+            self.settings = settings
+        else:
+            self.settings = SchemaSettings(**kwargs)
+
+        if self.settings.use_xpath3:
+            module = importlib.import_module('xmlschema.xpath.xpath3')
+            self.xpath_parser_class = module.XPath3Parser
+            self.assertion_parser_class = module.XsdAssertionXPath3Parser
+        else:
+            self.xpath_parser_class = XPath2Parser
+            self.assertion_parser_class = XsdAssertionXPathParser
+
         for ancestor in self.iter_ancestors():
             self._schemas.update(ancestor.maps.schemas)
             self.namespaces.update(ancestor.maps.namespaces)
@@ -112,10 +155,9 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
             self.substitution_groups.update(ancestor.maps.substitution_groups)
             self.identities.update(ancestor.maps.identities)
 
+        self.loader = self.settings.get_loader(self)
+        self.cache = self.settings.get_cache()
         self.validator.maps = self
-        self.loader = (loader_class or SchemaLoader)(
-            self, locations, use_fallback, use_xpath3
-        )
 
     @property
     def schemas(self) -> set[SchemaType]:
@@ -130,6 +172,20 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
     def parent(self) -> Optional[SchemaType]:
         return self._parent
 
+    @cached_property
+    def any_type(self) -> 'XsdComplexType':
+        return self.validator.create_any_type()
+
+    @cached_property
+    def any_simple_type(self) -> 'XsdSimpleType':
+        """Property that references to the xs:anySimpleType instance of the global maps."""
+        return cast('XsdSimpleType', self.types[nm.XSD_ANY_SIMPLE_TYPE])
+
+    @cached_property
+    def any_atomic_type(self) -> 'XsdSimpleType':
+        """Property that references to the xs:anyAtomicType instance of the global maps."""
+        return cast('XsdSimpleType', self.types[nm.XSD_ANY_ATOMIC_TYPE])
+
     def __repr__(self) -> str:
         return '%s(validator=%r)' % (self.__class__.__name__, self.validator)
 
@@ -137,7 +193,7 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
         if hasattr(self, name):
             if name == '_built':
                 self.__dict__.clear()
-            elif name != '_parent':
+            elif name != '_parent' and name != 'settings':
                 msg = _("can't change attribute {!r} of a global maps instance")
                 raise XMLSchemaAttributeError(msg.format(name))
         super().__setattr__(name, value)
@@ -152,20 +208,22 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
         return obj in self._schemas
 
     def __getstate__(self) -> dict[str, Any]:
-        return {a: getattr(self, a) for a in self._mro_slots() if a != '_build_lock'}
+        return {
+            a: getattr(self, a) for a in self._mro_slots() if a not in ('_build_lock', 'cache')
+        }
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         for attr, value in state.items():
             object.__setattr__(self, attr, value)
         self._build_lock = threading.Lock()
+        self.cache = self.settings.get_cache()
 
     def __copy__(self) -> 'XsdGlobals':
         other = type(self)(
             validator=copy.copy(self.validator),
             parent=self._parent,
-            loader_class=self.loader.__class__,
+            settings=self.settings
         )
-
         other.loader.__dict__.update(self.loader.__dict__)
         other.loader.locations = self.loader.locations.copy()
         other.loader.missing_locations.update(self.loader.missing_locations)
@@ -281,15 +339,15 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
         else:
             return 'valid'
 
-    @validator_property
-    def xpath_constructors(self) -> dict[str, Type[XPathToken]]:
+    @cached_property
+    def xpath_constructors(self) -> dict[str, type[XPathToken]]:
         if not self._built:
             return {}
 
-        xpath_parser = self.loader.xpath_parser_class()
+        xpath_parser = self.xpath_parser_class()
         xpath_parser.schema = self.validator.xpath_proxy
 
-        constructors: dict[str, Type[XPathToken]] = {}
+        constructors: dict[str, type[XPathToken]] = {}
         for name, xsd_type in self.types.items():
             if isinstance(xsd_type, XsdAtomic) and \
                     not isinstance(xsd_type, XsdAtomicBuiltin) and \
@@ -319,7 +377,7 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
     def total_errors(self) -> int:
         return sum(s.total_errors for s in self._schemas)
 
-    def create_bindings(self, *bases: Type[Any], **attrs: Any) -> None:
+    def create_bindings(self, *bases: type[Any], **attrs: Any) -> None:
         """Creates data object bindings for the XSD elements of built schemas."""
         for xsd_element in self.iter_components(xsd_classes=XsdElement):
             assert isinstance(xsd_element, XsdElement)
@@ -359,7 +417,7 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
         yield from reversed(ancestors)
 
     def get_schema(self, namespace: Optional[str] = None,
-                   source: Optional[SchemaSourceType] = None,
+                   source: Optional[SourceArgType] = None,
                    base_url: Optional[str] = None) -> Optional[SchemaType]:
         schemas: Optional[list[SchemaType]]
 
@@ -419,6 +477,11 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
                 f"another schema loaded from {source_ref!r} is already registered"
             )
 
+        if _limits.MAX_SCHEMA_SOURCES < len(self._schemas):
+            raise XMLSchemaValidatorError(
+                self, f"number of schema sources loaded by {self!r} exceeded"
+            )
+
         self._built = False
 
     def merge(self, ancestor: SchemaType) -> None:
@@ -451,9 +514,11 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
         self.substitution_groups.clear()
         self.identities.clear()
 
+        # Clear maps cache and cached properties of schemas
+        self.cache.clear()
         for schema in self._schemas:
             if schema.maps is self:
-                schema.clear()   # clear XPath and component lazy properties
+                schema.clear()
 
         if remove_schemas:
             self._schemas.clear()
@@ -497,6 +562,13 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
             self.global_maps.load(schemas)
             self.types.build_builtins(self.validator)
             self.global_maps.build(schemas)
+
+            # Update substitutes of global elements
+            for name in self.substitution_groups:
+                xsd_element = self.elements[name]
+                assert not isinstance(xsd_element.substitutes, tuple)
+                xsd_element.substitutes.update(e.name for e in xsd_element.iter_substitutes())
+
             self.check(schemas)
 
             self._built = True
@@ -566,9 +638,8 @@ class XsdGlobals(XsdValidator, Collection[SchemaType]):
             schemas = {s for s in self._schemas if s.maps is self}
 
         # Checks substitution groups circularity
-        for qname in self.substitution_groups:
-            xsd_element = self.elements[qname]
-            if any(e is xsd_element for e in xsd_element.iter_substitutes()):
+        for xsd_element in self.elements.values():
+            if xsd_element.name in xsd_element.substitutes:
                 msg = _("circularity found for substitution group with head element {}")
                 xsd_element.parse_error(msg.format(xsd_element))
 

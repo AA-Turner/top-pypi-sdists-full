@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
 import json
-from ssl import create_default_context
+from ssl import SSLContext, create_default_context
+from typing import Any, Optional, Union
 
 from kafka import KafkaProducer
 from kafka.errors import NoBrokersAvailable, UnknownTopicOrPartitionError
-from collections import OrderedDict
-from parsedmarc.utils import human_timestamp_to_datetime
 
 from parsedmarc import __version__
 from parsedmarc.log import logger
+from parsedmarc.utils import human_timestamp_to_datetime
 
 
 class KafkaError(RuntimeError):
@@ -18,7 +20,13 @@ class KafkaError(RuntimeError):
 
 class KafkaClient(object):
     def __init__(
-        self, kafka_hosts, ssl=False, username=None, password=None, ssl_context=None
+        self,
+        kafka_hosts: list[str],
+        *,
+        ssl: Optional[bool] = False,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        ssl_context: Optional[SSLContext] = None,
     ):
         """
         Initializes the Kafka client
@@ -28,7 +36,7 @@ class KafkaClient(object):
             ssl (bool): Use a SSL/TLS connection
             username (str): An optional username
             password (str):  An optional password
-            ssl_context: SSL context options
+            ssl_context (SSLContext): SSL context options
 
         Notes:
             ``use_ssl=True`` is implied when a username or password are
@@ -38,7 +46,7 @@ class KafkaClient(object):
             ``$ConnectionString``, and the password is the
             Azure Event Hub connection string.
         """
-        config = dict(
+        config: dict[str, Any] = dict(
             value_serializer=lambda v: json.dumps(v).encode("utf-8"),
             bootstrap_servers=kafka_hosts,
             client_id="parsedmarc-{0}".format(__version__),
@@ -55,7 +63,7 @@ class KafkaClient(object):
             raise KafkaError("No Kafka brokers available")
 
     @staticmethod
-    def strip_metadata(report):
+    def strip_metadata(report: dict[str, Any]):
         """
         Duplicates org_name, org_email and report_id into JSON root
         and removes report_metadata key to bring it more inline
@@ -69,7 +77,7 @@ class KafkaClient(object):
         return report
 
     @staticmethod
-    def generate_daterange(report):
+    def generate_date_range(report: dict[str, Any]):
         """
         Creates a date_range timestamp with format YYYY-MM-DD-T-HH:MM:SS
         based on begin and end dates for easier parsing in Kibana.
@@ -86,7 +94,11 @@ class KafkaClient(object):
         logger.debug("date_range is {}".format(date_range))
         return date_range
 
-    def save_aggregate_reports_to_kafka(self, aggregate_reports, aggregate_topic):
+    def save_aggregate_reports_to_kafka(
+        self,
+        aggregate_reports: Union[dict[str, Any], list[dict[str, Any]]],
+        aggregate_topic: str,
+    ):
         """
         Saves aggregate DMARC reports to Kafka
 
@@ -96,16 +108,14 @@ class KafkaClient(object):
             aggregate_topic (str): The name of the Kafka topic
 
         """
-        if isinstance(aggregate_reports, dict) or isinstance(
-            aggregate_reports, OrderedDict
-        ):
+        if isinstance(aggregate_reports, dict):
             aggregate_reports = [aggregate_reports]
 
         if len(aggregate_reports) < 1:
             return
 
         for report in aggregate_reports:
-            report["date_range"] = self.generate_daterange(report)
+            report["date_range"] = self.generate_date_range(report)
             report = self.strip_metadata(report)
 
             for slice in report["records"]:
@@ -129,7 +139,11 @@ class KafkaClient(object):
                 except Exception as e:
                     raise KafkaError("Kafka error: {0}".format(e.__str__()))
 
-    def save_forensic_reports_to_kafka(self, forensic_reports, forensic_topic):
+    def save_forensic_reports_to_kafka(
+        self,
+        forensic_reports: Union[dict[str, Any], list[dict[str, Any]]],
+        forensic_topic: str,
+    ):
         """
         Saves forensic DMARC reports to Kafka, sends individual
         records (slices) since Kafka requires messages to be <= 1MB
@@ -159,7 +173,11 @@ class KafkaClient(object):
         except Exception as e:
             raise KafkaError("Kafka error: {0}".format(e.__str__()))
 
-    def save_smtp_tls_reports_to_kafka(self, smtp_tls_reports, smtp_tls_topic):
+    def save_smtp_tls_reports_to_kafka(
+        self,
+        smtp_tls_reports: Union[list[dict[str, Any]], dict[str, Any]],
+        smtp_tls_topic: str,
+    ):
         """
         Saves SMTP TLS reports to Kafka, sends individual
         records (slices) since Kafka requires messages to be <= 1MB

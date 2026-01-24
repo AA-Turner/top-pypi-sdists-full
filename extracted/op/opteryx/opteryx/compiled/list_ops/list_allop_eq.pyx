@@ -72,9 +72,9 @@ cdef uint8_t[::1] _allop_eq_string_chunk(object literal, object list_array):
     Follows SQL semantics: NULL == X → UNKNOWN → row = FALSE
     """
     cdef:
-        bytes literal_bytes = b'' if literal is None else literal.encode('utf-8')
+        bytes literal_bytes = literal.encode('utf-8') if literal is not None else b''
         const char* literal_ptr = PyBytes_AsString(literal_bytes)
-        size_t literal_len = len(literal_bytes)
+        Py_ssize_t literal_len = len(literal_bytes)
 
         list buffers = list_array.buffers()
         const uint8_t* outer_validity = NULL
@@ -130,7 +130,7 @@ cdef uint8_t[::1] _allop_eq_string_chunk(object literal, object list_array):
             val_end = value_offsets[j + 1]
             val_len = val_end - val_start
 
-            if val_len != literal_len or memcmp(value_data + val_start, literal_ptr, literal_len) != 0:
+            if val_len != literal_len or memcmp(value_data + val_start, literal_ptr, <size_t>literal_len) != 0:
                 break  # found non-match → row is FALSE
         else:
             result_view[i] = 1  # ALL matched

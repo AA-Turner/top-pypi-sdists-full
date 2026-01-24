@@ -9,6 +9,8 @@ import typing as t
 
 from colorama import Fore, Style
 
+from tmuxp._internal.colors import unstyle
+
 LEVEL_COLORS = {
     "DEBUG": Fore.BLUE,  # Blue
     "INFO": Fore.GREEN,  # Green
@@ -76,14 +78,13 @@ class LogFormatter(logging.Formatter):
 
         Parameters
         ----------
-        :py:class:`logging.LogRecord` :
-            object. this is passed in from inside the
-            :py:meth:`logging.Formatter.format` record.
+        record : :py:class:`logging.LogRecord`
+            Object passed from :py:meth:`logging.Formatter.format`.
 
         Returns
         -------
         str
-            template for logger message
+            Template for logger message.
         """
         reset = Style.RESET_ALL
         levelname = set_style(
@@ -147,9 +148,8 @@ def debug_log_template(
 
     Parameters
     ----------
-    record :  :py:class:`logging.LogRecord`
-        This is passed in from inside the :py:meth:`logging.Formatter.format`
-        record.
+    record : :py:class:`logging.LogRecord`
+        Object passed from :py:meth:`logging.Formatter.format`.
 
     Returns
     -------
@@ -202,3 +202,44 @@ class DebugLogFormatter(LogFormatter):
     """Provides greater technical details than standard log Formatter."""
 
     template = debug_log_template
+
+
+# Use tmuxp root logger so messages propagate to CLI handlers
+_echo_logger = logging.getLogger("tmuxp")
+
+
+def tmuxp_echo(
+    message: str | None = None,
+    log_level: str = "INFO",
+    style_log: bool = False,
+) -> None:
+    """Combine logging.log and print for CLI output.
+
+    Parameters
+    ----------
+    message : str | None
+        Message to log and print. If None, does nothing.
+    log_level : str
+        Log level to use (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+        Default is INFO.
+    style_log : bool
+        If True, preserve ANSI styling in log output.
+        If False, strip ANSI codes from log output. Default is False.
+
+    Examples
+    --------
+    >>> tmuxp_echo("Session loaded")  # doctest: +ELLIPSIS
+    Session loaded
+
+    >>> tmuxp_echo("Warning message", log_level="WARNING")  # doctest: +ELLIPSIS
+    Warning message
+    """
+    if message is None:
+        return
+
+    if style_log:
+        _echo_logger.log(LOG_LEVELS[log_level], message)
+    else:
+        _echo_logger.log(LOG_LEVELS[log_level], unstyle(message))
+
+    print(message)

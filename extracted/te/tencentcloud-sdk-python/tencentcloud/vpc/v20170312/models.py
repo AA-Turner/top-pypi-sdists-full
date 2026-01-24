@@ -353,12 +353,15 @@ class AddBandwidthPackageResourcesRequest(AbstractModel):
         :type ResourceType: str
         :param _Protocol: 带宽包协议类型。当前支持'ipv4'和'ipv6'协议类型。
         :type Protocol: str
+        :param _InternetMaxBandwidthOut: 用于带宽包内添加IP资源时指定IP带宽值。<p>说明：当前功能处于内测中，如需使用，请提交[工单申请](https://console.cloud.tencent.com/workorder/category)。</p>
+        :type InternetMaxBandwidthOut: int
         """
         self._ResourceIds = None
         self._BandwidthPackageId = None
         self._NetworkType = None
         self._ResourceType = None
         self._Protocol = None
+        self._InternetMaxBandwidthOut = None
 
     @property
     def ResourceIds(self):
@@ -423,6 +426,17 @@ class AddBandwidthPackageResourcesRequest(AbstractModel):
     def Protocol(self, Protocol):
         self._Protocol = Protocol
 
+    @property
+    def InternetMaxBandwidthOut(self):
+        r"""用于带宽包内添加IP资源时指定IP带宽值。<p>说明：当前功能处于内测中，如需使用，请提交[工单申请](https://console.cloud.tencent.com/workorder/category)。</p>
+        :rtype: int
+        """
+        return self._InternetMaxBandwidthOut
+
+    @InternetMaxBandwidthOut.setter
+    def InternetMaxBandwidthOut(self, InternetMaxBandwidthOut):
+        self._InternetMaxBandwidthOut = InternetMaxBandwidthOut
+
 
     def _deserialize(self, params):
         self._ResourceIds = params.get("ResourceIds")
@@ -430,6 +444,7 @@ class AddBandwidthPackageResourcesRequest(AbstractModel):
         self._NetworkType = params.get("NetworkType")
         self._ResourceType = params.get("ResourceType")
         self._Protocol = params.get("Protocol")
+        self._InternetMaxBandwidthOut = params.get("InternetMaxBandwidthOut")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1586,6 +1601,8 @@ class AddressTemplateItem(AbstractModel):
 
     @property
     def AddressTemplateName(self):
+        warnings.warn("parameter `AddressTemplateName` is deprecated", DeprecationWarning) 
+
         r"""IP模板名称，废弃字段。
         :rtype: str
         """
@@ -1593,10 +1610,14 @@ class AddressTemplateItem(AbstractModel):
 
     @AddressTemplateName.setter
     def AddressTemplateName(self, AddressTemplateName):
+        warnings.warn("parameter `AddressTemplateName` is deprecated", DeprecationWarning) 
+
         self._AddressTemplateName = AddressTemplateName
 
     @property
     def From(self):
+        warnings.warn("parameter `From` is deprecated", DeprecationWarning) 
+
         r"""废弃字段。
         :rtype: str
         """
@@ -1604,10 +1625,14 @@ class AddressTemplateItem(AbstractModel):
 
     @From.setter
     def From(self, From):
+        warnings.warn("parameter `From` is deprecated", DeprecationWarning) 
+
         self._From = From
 
     @property
     def To(self):
+        warnings.warn("parameter `To` is deprecated", DeprecationWarning) 
+
         r"""废弃字段
         :rtype: str
         """
@@ -1615,6 +1640,8 @@ class AddressTemplateItem(AbstractModel):
 
     @To.setter
     def To(self, To):
+        warnings.warn("parameter `To` is deprecated", DeprecationWarning) 
+
         self._To = To
 
     @property
@@ -1884,6 +1911,9 @@ class AllocateAddressesRequest(AbstractModel):
 <li>TRAFFIC_POSTPAID_BY_HOUR：流量按小时后付费</li></ul>默认值：TRAFFIC_POSTPAID_BY_HOUR。</li>
 <li>传统账户类型，无需传递此参数，EIP计费方式与其绑定的实例的计费方式一致，无需传递此参数。</li></ul>
         :type InternetChargeType: str
+        :param _IPChargeType: IP 资源计费模式，当前仅支持原生 IP。
+<ul style="margin:0"><li>账号为标准账户类型的用户，可选值：<ul><li>IP_POSTPAID_BY_HOUR：IP资源按小时后付费</li><li>IP_PREPAID_BY_MONTH：IP资源包月预付费</li></ul></li></ul>
+        :type IPChargeType: str
         :param _InternetMaxBandwidthOut: EIP出带宽上限，单位：Mbps。
 <ul style="margin:0"><li>标准账户类型EIP出带宽上限，可选值范围取决于EIP计费方式：<ul><li>BANDWIDTH_PACKAGE：1 Mbps 至 2000 Mbps</li>
 <li>BANDWIDTH_POSTPAID_BY_HOUR：1 Mbps 至 100 Mbps</li>
@@ -1897,7 +1927,9 @@ class AllocateAddressesRequest(AbstractModel):
 <li>EIP：弹性公网 IP。 </li>
 <li>AnycastEIP：加速 IP，已开通 [Anycast 公网加速](https://cloud.tencent.com/document/product/644)白名单的用户可选。仅部分地域支持加速IP，详情可见Anycast公网加速[购买指南](https://cloud.tencent.com/document/product/644/12617)。</li>
 <li>HighQualityEIP：精品 IP。仅新加坡和中国香港支持精品IP。</li>
-<li>AntiDDoSEIP：高防 IP。仅部分地域支持高防IP，详情可见弹性公网IP[产品概述](https://cloud.tencent.com/document/product/1199/41646)。</li>
+<li>AntiDDoSEIP：高防 IP。仅部分地域支持高防IP。</li>
+<li>ResidentialEIP：原生 IP。仅部分地域支持原生IP。</li>
+关于弹性公网 IP 支持的 IP 类型，请见[产品概述](https://cloud.tencent.com/document/product/1199/41646)。
         :type AddressType: str
         :param _AnycastZone: Anycast发布域。
 <ul style="margin:0"><li>已开通Anycast公网加速白名单的用户，可选值：<ul><li>ANYCAST_ZONE_GLOBAL：全球发布域（需要额外开通Anycast全球加速白名单）</li><li>ANYCAST_ZONE_OVERSEAS：境外发布域</li></ul>默认值：ANYCAST_ZONE_OVERSEAS。</li></ul>
@@ -1933,6 +1965,7 @@ AnycastEIP是否用于绑定负载均衡。
         self._AddressCount = None
         self._InternetServiceProvider = None
         self._InternetChargeType = None
+        self._IPChargeType = None
         self._InternetMaxBandwidthOut = None
         self._AddressChargePrepaid = None
         self._AddressType = None
@@ -1992,6 +2025,18 @@ AnycastEIP是否用于绑定负载均衡。
         self._InternetChargeType = InternetChargeType
 
     @property
+    def IPChargeType(self):
+        r"""IP 资源计费模式，当前仅支持原生 IP。
+<ul style="margin:0"><li>账号为标准账户类型的用户，可选值：<ul><li>IP_POSTPAID_BY_HOUR：IP资源按小时后付费</li><li>IP_PREPAID_BY_MONTH：IP资源包月预付费</li></ul></li></ul>
+        :rtype: str
+        """
+        return self._IPChargeType
+
+    @IPChargeType.setter
+    def IPChargeType(self, IPChargeType):
+        self._IPChargeType = IPChargeType
+
+    @property
     def InternetMaxBandwidthOut(self):
         r"""EIP出带宽上限，单位：Mbps。
 <ul style="margin:0"><li>标准账户类型EIP出带宽上限，可选值范围取决于EIP计费方式：<ul><li>BANDWIDTH_PACKAGE：1 Mbps 至 2000 Mbps</li>
@@ -2024,7 +2069,9 @@ AnycastEIP是否用于绑定负载均衡。
 <li>EIP：弹性公网 IP。 </li>
 <li>AnycastEIP：加速 IP，已开通 [Anycast 公网加速](https://cloud.tencent.com/document/product/644)白名单的用户可选。仅部分地域支持加速IP，详情可见Anycast公网加速[购买指南](https://cloud.tencent.com/document/product/644/12617)。</li>
 <li>HighQualityEIP：精品 IP。仅新加坡和中国香港支持精品IP。</li>
-<li>AntiDDoSEIP：高防 IP。仅部分地域支持高防IP，详情可见弹性公网IP[产品概述](https://cloud.tencent.com/document/product/1199/41646)。</li>
+<li>AntiDDoSEIP：高防 IP。仅部分地域支持高防IP。</li>
+<li>ResidentialEIP：原生 IP。仅部分地域支持原生IP。</li>
+关于弹性公网 IP 支持的 IP 类型，请见[产品概述](https://cloud.tencent.com/document/product/1199/41646)。
         :rtype: str
         """
         return self._AddressType
@@ -2171,6 +2218,7 @@ AnycastEIP是否用于绑定负载均衡。
         self._AddressCount = params.get("AddressCount")
         self._InternetServiceProvider = params.get("InternetServiceProvider")
         self._InternetChargeType = params.get("InternetChargeType")
+        self._IPChargeType = params.get("IPChargeType")
         self._InternetMaxBandwidthOut = params.get("InternetMaxBandwidthOut")
         if params.get("AddressChargePrepaid") is not None:
             self._AddressChargePrepaid = AddressChargePrepaid()
@@ -3931,6 +3979,7 @@ class AssociateNatGatewayAddressRequest(AbstractModel):
         :param _PublicIpAddresses: 绑定NAT网关的弹性IP数组，其中AddressCount和PublicAddresses至少传递一个。
         :type PublicIpAddresses: list of str
         :param _Zone: 弹性IP可用区，自动分配弹性IP时传递。
+其中产品可用区查询接口为[查询产品可用区列表](https://cloud.tencent.com/document/product/1596/77929)
         :type Zone: str
         :param _StockPublicIpAddressesBandwidthOut: 绑定NAT网关的弹性IP带宽大小（单位Mbps），默认为当前用户类型所能使用的最大值。
         :type StockPublicIpAddressesBandwidthOut: int
@@ -3938,6 +3987,8 @@ class AssociateNatGatewayAddressRequest(AbstractModel):
         :type PublicIpAddressesBandwidthOut: int
         :param _PublicIpFromSameZone: 公网IP是否强制与NAT网关来自同可用区，true表示需要与NAT网关同可用区；false表示可与NAT网关不是同一个可用区。此参数只有当参数Zone存在时才能生效。
         :type PublicIpFromSameZone: bool
+        :param _IpAddressEnableMode: 启用或者禁用NAT网关绑定的EIP
+        :type IpAddressEnableMode: bool
         """
         self._NatGatewayId = None
         self._AddressCount = None
@@ -3946,6 +3997,7 @@ class AssociateNatGatewayAddressRequest(AbstractModel):
         self._StockPublicIpAddressesBandwidthOut = None
         self._PublicIpAddressesBandwidthOut = None
         self._PublicIpFromSameZone = None
+        self._IpAddressEnableMode = None
 
     @property
     def NatGatewayId(self):
@@ -3983,6 +4035,7 @@ class AssociateNatGatewayAddressRequest(AbstractModel):
     @property
     def Zone(self):
         r"""弹性IP可用区，自动分配弹性IP时传递。
+其中产品可用区查询接口为[查询产品可用区列表](https://cloud.tencent.com/document/product/1596/77929)
         :rtype: str
         """
         return self._Zone
@@ -4024,6 +4077,17 @@ class AssociateNatGatewayAddressRequest(AbstractModel):
     def PublicIpFromSameZone(self, PublicIpFromSameZone):
         self._PublicIpFromSameZone = PublicIpFromSameZone
 
+    @property
+    def IpAddressEnableMode(self):
+        r"""启用或者禁用NAT网关绑定的EIP
+        :rtype: bool
+        """
+        return self._IpAddressEnableMode
+
+    @IpAddressEnableMode.setter
+    def IpAddressEnableMode(self, IpAddressEnableMode):
+        self._IpAddressEnableMode = IpAddressEnableMode
+
 
     def _deserialize(self, params):
         self._NatGatewayId = params.get("NatGatewayId")
@@ -4033,6 +4097,7 @@ class AssociateNatGatewayAddressRequest(AbstractModel):
         self._StockPublicIpAddressesBandwidthOut = params.get("StockPublicIpAddressesBandwidthOut")
         self._PublicIpAddressesBandwidthOut = params.get("PublicIpAddressesBandwidthOut")
         self._PublicIpFromSameZone = params.get("PublicIpFromSameZone")
+        self._IpAddressEnableMode = params.get("IpAddressEnableMode")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5352,6 +5417,8 @@ class CCN(AbstractModel):
         :type QosLevel: str
         :param _InstanceChargeType: 付费类型，PREPAID为预付费，POSTPAID为后付费。
         :type InstanceChargeType: str
+        :param _InstanceMeteringType: 计量类型
+        :type InstanceMeteringType: str
         :param _BandwidthLimitType: 限速类型，`INTER_REGION_LIMIT` 为地域间限速；`OUTER_REGION_LIMIT` 为地域出口限速。
         :type BandwidthLimitType: str
         :param _TagSet: 标签键值对。
@@ -5380,8 +5447,12 @@ class CCN(AbstractModel):
         :type Ipv6Flag: bool
         :param _MrtbAggregatePolicyFlag: 是否支持路由表聚合策略
         :type MrtbAggregatePolicyFlag: bool
-        :param _MrtbPolicyValueFlag: 是否支持策略值
+        :param _MrtbPolicyValueFlag: 是否支持AsPath策略值
         :type MrtbPolicyValueFlag: bool
+        :param _RouteTablePolicyValueCommunityFlag: 是否支持Community策略值
+        :type RouteTablePolicyValueCommunityFlag: bool
+        :param _PolicyBasedRoutingFlag: 是否支持策略路由
+        :type PolicyBasedRoutingFlag: bool
         """
         self._CcnId = None
         self._CcnName = None
@@ -5391,6 +5462,7 @@ class CCN(AbstractModel):
         self._State = None
         self._QosLevel = None
         self._InstanceChargeType = None
+        self._InstanceMeteringType = None
         self._BandwidthLimitType = None
         self._TagSet = None
         self._RoutePriorityFlag = None
@@ -5406,6 +5478,8 @@ class CCN(AbstractModel):
         self._Ipv6Flag = None
         self._MrtbAggregatePolicyFlag = None
         self._MrtbPolicyValueFlag = None
+        self._RouteTablePolicyValueCommunityFlag = None
+        self._PolicyBasedRoutingFlag = None
 
     @property
     def CcnId(self):
@@ -5494,6 +5568,17 @@ class CCN(AbstractModel):
     @InstanceChargeType.setter
     def InstanceChargeType(self, InstanceChargeType):
         self._InstanceChargeType = InstanceChargeType
+
+    @property
+    def InstanceMeteringType(self):
+        r"""计量类型
+        :rtype: str
+        """
+        return self._InstanceMeteringType
+
+    @InstanceMeteringType.setter
+    def InstanceMeteringType(self, InstanceMeteringType):
+        self._InstanceMeteringType = InstanceMeteringType
 
     @property
     def BandwidthLimitType(self):
@@ -5651,7 +5736,7 @@ class CCN(AbstractModel):
 
     @property
     def MrtbPolicyValueFlag(self):
-        r"""是否支持策略值
+        r"""是否支持AsPath策略值
         :rtype: bool
         """
         return self._MrtbPolicyValueFlag
@@ -5659,6 +5744,28 @@ class CCN(AbstractModel):
     @MrtbPolicyValueFlag.setter
     def MrtbPolicyValueFlag(self, MrtbPolicyValueFlag):
         self._MrtbPolicyValueFlag = MrtbPolicyValueFlag
+
+    @property
+    def RouteTablePolicyValueCommunityFlag(self):
+        r"""是否支持Community策略值
+        :rtype: bool
+        """
+        return self._RouteTablePolicyValueCommunityFlag
+
+    @RouteTablePolicyValueCommunityFlag.setter
+    def RouteTablePolicyValueCommunityFlag(self, RouteTablePolicyValueCommunityFlag):
+        self._RouteTablePolicyValueCommunityFlag = RouteTablePolicyValueCommunityFlag
+
+    @property
+    def PolicyBasedRoutingFlag(self):
+        r"""是否支持策略路由
+        :rtype: bool
+        """
+        return self._PolicyBasedRoutingFlag
+
+    @PolicyBasedRoutingFlag.setter
+    def PolicyBasedRoutingFlag(self, PolicyBasedRoutingFlag):
+        self._PolicyBasedRoutingFlag = PolicyBasedRoutingFlag
 
 
     def _deserialize(self, params):
@@ -5670,6 +5777,7 @@ class CCN(AbstractModel):
         self._State = params.get("State")
         self._QosLevel = params.get("QosLevel")
         self._InstanceChargeType = params.get("InstanceChargeType")
+        self._InstanceMeteringType = params.get("InstanceMeteringType")
         self._BandwidthLimitType = params.get("BandwidthLimitType")
         if params.get("TagSet") is not None:
             self._TagSet = []
@@ -5690,6 +5798,8 @@ class CCN(AbstractModel):
         self._Ipv6Flag = params.get("Ipv6Flag")
         self._MrtbAggregatePolicyFlag = params.get("MrtbAggregatePolicyFlag")
         self._MrtbPolicyValueFlag = params.get("MrtbPolicyValueFlag")
+        self._RouteTablePolicyValueCommunityFlag = params.get("RouteTablePolicyValueCommunityFlag")
+        self._PolicyBasedRoutingFlag = params.get("PolicyBasedRoutingFlag")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8587,6 +8697,8 @@ class CloneSecurityGroupRequest(AbstractModel):
         :param _Tags: 指定绑定的标签列表，例如：[{"Key": "city", "Value": "shanghai"}]。
 若指定Tags入参且指定IsCloneTags为true，会合并源安全组的标签和新增的标签。
         :type Tags: list of Tag
+        :param _IsCloneTags: 是否克隆标签。
+        :type IsCloneTags: bool
         """
         self._SecurityGroupId = None
         self._GroupName = None
@@ -8594,6 +8706,7 @@ class CloneSecurityGroupRequest(AbstractModel):
         self._ProjectId = None
         self._RemoteRegion = None
         self._Tags = None
+        self._IsCloneTags = None
 
     @property
     def SecurityGroupId(self):
@@ -8662,6 +8775,17 @@ class CloneSecurityGroupRequest(AbstractModel):
     def Tags(self, Tags):
         self._Tags = Tags
 
+    @property
+    def IsCloneTags(self):
+        r"""是否克隆标签。
+        :rtype: bool
+        """
+        return self._IsCloneTags
+
+    @IsCloneTags.setter
+    def IsCloneTags(self, IsCloneTags):
+        self._IsCloneTags = IsCloneTags
+
 
     def _deserialize(self, params):
         self._SecurityGroupId = params.get("SecurityGroupId")
@@ -8675,6 +8799,7 @@ class CloneSecurityGroupRequest(AbstractModel):
                 obj = Tag()
                 obj._deserialize(item)
                 self._Tags.append(obj)
+        self._IsCloneTags = params.get("IsCloneTags")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8750,6 +8875,8 @@ class ConflictItem(AbstractModel):
 
     @property
     def ConfilctId(self):
+        warnings.warn("parameter `ConfilctId` is deprecated", DeprecationWarning) 
+
         r"""冲突资源的ID。已废弃
         :rtype: str
         """
@@ -8757,6 +8884,8 @@ class ConflictItem(AbstractModel):
 
     @ConfilctId.setter
     def ConfilctId(self, ConfilctId):
+        warnings.warn("parameter `ConfilctId` is deprecated", DeprecationWarning) 
+
         self._ConfilctId = ConfilctId
 
     @property
@@ -8857,6 +8986,72 @@ class ConflictSource(AbstractModel):
                 obj = ConflictItem()
                 obj._deserialize(item)
                 self._ConflictItemSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ConnectionStateTimeouts(AbstractModel):
+    r"""NAT网关超时时间
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UDPMappingTimeout: UDP映射空闲时间，指多少秒以后UDP流停止向端点发送。取值范围为：3-7200秒，默认为10秒。
+        :type UDPMappingTimeout: int
+        :param _TCPEstablishedConnectionTimeout: TCP已建立的连接空闲超时，指多少秒以后连接变为空闲状态。取值范围为：40-10800秒，默认为10800秒。
+        :type TCPEstablishedConnectionTimeout: int
+        :param _TcpTimeWaitTimeout: TCP TIME_WAIT超时，指完全关闭的TCP连接在到期后保留在NAT映射中的秒数。取值范围为：10-600秒，默认为120秒。
+        :type TcpTimeWaitTimeout: int
+        """
+        self._UDPMappingTimeout = None
+        self._TCPEstablishedConnectionTimeout = None
+        self._TcpTimeWaitTimeout = None
+
+    @property
+    def UDPMappingTimeout(self):
+        r"""UDP映射空闲时间，指多少秒以后UDP流停止向端点发送。取值范围为：3-7200秒，默认为10秒。
+        :rtype: int
+        """
+        return self._UDPMappingTimeout
+
+    @UDPMappingTimeout.setter
+    def UDPMappingTimeout(self, UDPMappingTimeout):
+        self._UDPMappingTimeout = UDPMappingTimeout
+
+    @property
+    def TCPEstablishedConnectionTimeout(self):
+        r"""TCP已建立的连接空闲超时，指多少秒以后连接变为空闲状态。取值范围为：40-10800秒，默认为10800秒。
+        :rtype: int
+        """
+        return self._TCPEstablishedConnectionTimeout
+
+    @TCPEstablishedConnectionTimeout.setter
+    def TCPEstablishedConnectionTimeout(self, TCPEstablishedConnectionTimeout):
+        self._TCPEstablishedConnectionTimeout = TCPEstablishedConnectionTimeout
+
+    @property
+    def TcpTimeWaitTimeout(self):
+        r"""TCP TIME_WAIT超时，指完全关闭的TCP连接在到期后保留在NAT映射中的秒数。取值范围为：10-600秒，默认为120秒。
+        :rtype: int
+        """
+        return self._TcpTimeWaitTimeout
+
+    @TcpTimeWaitTimeout.setter
+    def TcpTimeWaitTimeout(self, TcpTimeWaitTimeout):
+        self._TcpTimeWaitTimeout = TcpTimeWaitTimeout
+
+
+    def _deserialize(self, params):
+        self._UDPMappingTimeout = params.get("UDPMappingTimeout")
+        self._TCPEstablishedConnectionTimeout = params.get("TCPEstablishedConnectionTimeout")
+        self._TcpTimeWaitTimeout = params.get("TcpTimeWaitTimeout")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9753,6 +9948,8 @@ class CreateCcnRequest(AbstractModel):
         :type QosLevel: str
         :param _InstanceChargeType: 计费模式，`PREPAID`：表示预付费，即包年包月，`POSTPAID`：表示后付费，即按量计费。默认：`POSTPAID`。
         :type InstanceChargeType: str
+        :param _InstanceMeteringType: 计量模式
+        :type InstanceMeteringType: str
         :param _BandwidthLimitType: 限速类型，`OUTER_REGION_LIMIT`表示地域出口限速，`INTER_REGION_LIMIT`为地域间限速，默认为`OUTER_REGION_LIMIT`。预付费模式仅支持地域间限速，后付费模式支持地域间限速和地域出口限速。
         :type BandwidthLimitType: str
         :param _Tags: 指定绑定的标签列表，例如：[{"Key": "city", "Value": "shanghai"}]
@@ -9762,6 +9959,7 @@ class CreateCcnRequest(AbstractModel):
         self._CcnDescription = None
         self._QosLevel = None
         self._InstanceChargeType = None
+        self._InstanceMeteringType = None
         self._BandwidthLimitType = None
         self._Tags = None
 
@@ -9810,6 +10008,17 @@ class CreateCcnRequest(AbstractModel):
         self._InstanceChargeType = InstanceChargeType
 
     @property
+    def InstanceMeteringType(self):
+        r"""计量模式
+        :rtype: str
+        """
+        return self._InstanceMeteringType
+
+    @InstanceMeteringType.setter
+    def InstanceMeteringType(self, InstanceMeteringType):
+        self._InstanceMeteringType = InstanceMeteringType
+
+    @property
     def BandwidthLimitType(self):
         r"""限速类型，`OUTER_REGION_LIMIT`表示地域出口限速，`INTER_REGION_LIMIT`为地域间限速，默认为`OUTER_REGION_LIMIT`。预付费模式仅支持地域间限速，后付费模式支持地域间限速和地域出口限速。
         :rtype: str
@@ -9837,6 +10046,7 @@ class CreateCcnRequest(AbstractModel):
         self._CcnDescription = params.get("CcnDescription")
         self._QosLevel = params.get("QosLevel")
         self._InstanceChargeType = params.get("InstanceChargeType")
+        self._InstanceMeteringType = params.get("InstanceMeteringType")
         self._BandwidthLimitType = params.get("BandwidthLimitType")
         if params.get("Tags") is not None:
             self._Tags = []
@@ -10822,7 +11032,7 @@ class CreateFlowLogRequest(AbstractModel):
         r"""
         :param _FlowLogName: 流日志实例名称。长度为不超过60个字符。
         :type FlowLogName: str
-        :param _ResourceType: 流日志所属资源类型，VPC（私有网络），SUBNET（子网），NETWORKINTERFACE（网卡），CCN（云联网），NAT（网络地址转化），DCG（专线网关）。当选择VPC，SUBNET，CCN，DCG时，请通过工单加入白名单。
+        :param _ResourceType: 流日志所属资源类型，NETWORKINTERFACE（网卡），CCN（云联网），NAT（网络地址转化），DCG（专线网关）。当选择CCN，DCG时，请通过工单加入白名单。
         :type ResourceType: str
         :param _ResourceId: 资源唯一ID。
         :type ResourceId: str
@@ -10843,6 +11053,8 @@ class CreateFlowLogRequest(AbstractModel):
         :type FlowLogStorage: :class:`tencentcloud.vpc.v20170312.models.FlowLogStorage`
         :param _CloudLogRegion: 流日志存储ID对应的地域，不传递默认为本地域。
         :type CloudLogRegion: str
+        :param _Period: 流日志采集周期，只支持CCN类型流日志。取值范围（单位s）：60， 300， 600。
+        :type Period: int
         """
         self._FlowLogName = None
         self._ResourceType = None
@@ -10855,6 +11067,7 @@ class CreateFlowLogRequest(AbstractModel):
         self._StorageType = None
         self._FlowLogStorage = None
         self._CloudLogRegion = None
+        self._Period = None
 
     @property
     def FlowLogName(self):
@@ -10869,7 +11082,7 @@ class CreateFlowLogRequest(AbstractModel):
 
     @property
     def ResourceType(self):
-        r"""流日志所属资源类型，VPC（私有网络），SUBNET（子网），NETWORKINTERFACE（网卡），CCN（云联网），NAT（网络地址转化），DCG（专线网关）。当选择VPC，SUBNET，CCN，DCG时，请通过工单加入白名单。
+        r"""流日志所属资源类型，NETWORKINTERFACE（网卡），CCN（云联网），NAT（网络地址转化），DCG（专线网关）。当选择CCN，DCG时，请通过工单加入白名单。
         :rtype: str
         """
         return self._ResourceType
@@ -10978,6 +11191,17 @@ class CreateFlowLogRequest(AbstractModel):
     def CloudLogRegion(self, CloudLogRegion):
         self._CloudLogRegion = CloudLogRegion
 
+    @property
+    def Period(self):
+        r"""流日志采集周期，只支持CCN类型流日志。取值范围（单位s）：60， 300， 600。
+        :rtype: int
+        """
+        return self._Period
+
+    @Period.setter
+    def Period(self, Period):
+        self._Period = Period
+
 
     def _deserialize(self, params):
         self._FlowLogName = params.get("FlowLogName")
@@ -10998,6 +11222,7 @@ class CreateFlowLogRequest(AbstractModel):
             self._FlowLogStorage = FlowLogStorage()
             self._FlowLogStorage._deserialize(params.get("FlowLogStorage"))
         self._CloudLogRegion = params.get("CloudLogRegion")
+        self._Period = params.get("Period")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -11924,7 +12149,7 @@ class CreateNatGatewayRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _NatGatewayName: NAT网关名称
+        :param _NatGatewayName: NAT网关名称，限制60字符
         :type NatGatewayName: str
         :param _VpcId: VPC实例ID。可通过DescribeVpcs接口返回值中的VpcId获取。
         :type VpcId: str
@@ -11952,6 +12177,8 @@ class CreateNatGatewayRequest(AbstractModel):
         :type NatProductVersion: int
         :param _DeletionProtectionEnabled: NAT实例是否开启删除保护
         :type DeletionProtectionEnabled: bool
+        :param _ExclusiveType: 独享实例规格。取值范围：ExclusiveSmall/ExclusiveMedium1/ExclusiveLarge1
+        :type ExclusiveType: str
         """
         self._NatGatewayName = None
         self._VpcId = None
@@ -11967,10 +12194,11 @@ class CreateNatGatewayRequest(AbstractModel):
         self._PublicIpFromSameZone = None
         self._NatProductVersion = None
         self._DeletionProtectionEnabled = None
+        self._ExclusiveType = None
 
     @property
     def NatGatewayName(self):
-        r"""NAT网关名称
+        r"""NAT网关名称，限制60字符
         :rtype: str
         """
         return self._NatGatewayName
@@ -12126,6 +12354,17 @@ class CreateNatGatewayRequest(AbstractModel):
     def DeletionProtectionEnabled(self, DeletionProtectionEnabled):
         self._DeletionProtectionEnabled = DeletionProtectionEnabled
 
+    @property
+    def ExclusiveType(self):
+        r"""独享实例规格。取值范围：ExclusiveSmall/ExclusiveMedium1/ExclusiveLarge1
+        :rtype: str
+        """
+        return self._ExclusiveType
+
+    @ExclusiveType.setter
+    def ExclusiveType(self, ExclusiveType):
+        self._ExclusiveType = ExclusiveType
+
 
     def _deserialize(self, params):
         self._NatGatewayName = params.get("NatGatewayName")
@@ -12147,6 +12386,7 @@ class CreateNatGatewayRequest(AbstractModel):
         self._PublicIpFromSameZone = params.get("PublicIpFromSameZone")
         self._NatProductVersion = params.get("NatProductVersion")
         self._DeletionProtectionEnabled = params.get("DeletionProtectionEnabled")
+        self._ExclusiveType = params.get("ExclusiveType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13167,7 +13407,7 @@ class CreatePrivateNatGatewayRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _NatGatewayName: 私网网关名称
+        :param _NatGatewayName: 私网网关名称，限制60个字符
         :type NatGatewayName: str
         :param _VpcId: 私有网络实例ID。当创建VPC类型私网NAT网关或者专线网关类型私网NAT网关时，此参数必填。
         :type VpcId: str
@@ -13192,7 +13432,7 @@ class CreatePrivateNatGatewayRequest(AbstractModel):
 
     @property
     def NatGatewayName(self):
-        r"""私网网关名称
+        r"""私网网关名称，限制60个字符
         :rtype: str
         """
         return self._NatGatewayName
@@ -13363,15 +13603,15 @@ class CreatePrivateNatGatewayTranslationAclRuleRequest(AbstractModel):
         r"""
         :param _NatGatewayId: 私网网关唯一`ID`，形如：`intranat-xxxxxxxx`。
         :type NatGatewayId: str
-        :param _TranslationDirection: 转换规则目标，可选值"LOCAL"。
+        :param _TranslationDirection: 转换规则目标，可选值LOCAL。
         :type TranslationDirection: str
-        :param _TranslationType: 转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        :param _TranslationType: 转换规则类型，可选值NETWORK_LAYER、TRANSPORT_LAYER。分别对应三层、四层。
         :type TranslationType: str
-        :param _TranslationIp: 转换`IP`,当转换规则类型为四层时为`IP`池。
+        :param _TranslationIp: 映射后`IP`,当转换规则类型为四层时为`IP`池。
         :type TranslationIp: str
         :param _TranslationAclRules: 访问控制列表。
         :type TranslationAclRules: list of TranslationAclRule
-        :param _OriginalIp: 源`IP`,当转换规则类型为三层时有效。
+        :param _OriginalIp: 映射前`IP`,当转换规则类型为三层时有效。
         :type OriginalIp: str
         """
         self._NatGatewayId = None
@@ -13394,7 +13634,7 @@ class CreatePrivateNatGatewayTranslationAclRuleRequest(AbstractModel):
 
     @property
     def TranslationDirection(self):
-        r"""转换规则目标，可选值"LOCAL"。
+        r"""转换规则目标，可选值LOCAL。
         :rtype: str
         """
         return self._TranslationDirection
@@ -13405,7 +13645,7 @@ class CreatePrivateNatGatewayTranslationAclRuleRequest(AbstractModel):
 
     @property
     def TranslationType(self):
-        r"""转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        r"""转换规则类型，可选值NETWORK_LAYER、TRANSPORT_LAYER。分别对应三层、四层。
         :rtype: str
         """
         return self._TranslationType
@@ -13416,7 +13656,7 @@ class CreatePrivateNatGatewayTranslationAclRuleRequest(AbstractModel):
 
     @property
     def TranslationIp(self):
-        r"""转换`IP`,当转换规则类型为四层时为`IP`池。
+        r"""映射后`IP`,当转换规则类型为四层时为`IP`池。
         :rtype: str
         """
         return self._TranslationIp
@@ -13438,7 +13678,7 @@ class CreatePrivateNatGatewayTranslationAclRuleRequest(AbstractModel):
 
     @property
     def OriginalIp(self):
-        r"""源`IP`,当转换规则类型为三层时有效。
+        r"""映射前`IP`,当转换规则类型为三层时有效。
         :rtype: str
         """
         return self._OriginalIp
@@ -13477,10 +13717,24 @@ class CreatePrivateNatGatewayTranslationAclRuleResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _TranslationAclRuleSet: 创建成功的访问控制列表。
+        :type TranslationAclRuleSet: list of TranslationAclRule
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._TranslationAclRuleSet = None
         self._RequestId = None
+
+    @property
+    def TranslationAclRuleSet(self):
+        r"""创建成功的访问控制列表。
+        :rtype: list of TranslationAclRule
+        """
+        return self._TranslationAclRuleSet
+
+    @TranslationAclRuleSet.setter
+    def TranslationAclRuleSet(self, TranslationAclRuleSet):
+        self._TranslationAclRuleSet = TranslationAclRuleSet
 
     @property
     def RequestId(self):
@@ -13495,6 +13749,12 @@ class CreatePrivateNatGatewayTranslationAclRuleResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        if params.get("TranslationAclRuleSet") is not None:
+            self._TranslationAclRuleSet = []
+            for item in params.get("TranslationAclRuleSet"):
+                obj = TranslationAclRule()
+                obj._deserialize(item)
+                self._TranslationAclRuleSet.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -13803,6 +14063,275 @@ class CreateReserveIpAddressesResponse(AbstractModel):
                 obj = ReserveIpAddressInfo()
                 obj._deserialize(item)
                 self._ReserveIpAddressSet.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class CreateRoutePolicyAssociationsRequest(AbstractModel):
+    r"""CreateRoutePolicyAssociations请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyAssociationSet: 路由接收策略绑定对象列表。
+        :type RoutePolicyAssociationSet: list of RoutePolicyAssociation
+        """
+        self._RoutePolicyAssociationSet = None
+
+    @property
+    def RoutePolicyAssociationSet(self):
+        r"""路由接收策略绑定对象列表。
+        :rtype: list of RoutePolicyAssociation
+        """
+        return self._RoutePolicyAssociationSet
+
+    @RoutePolicyAssociationSet.setter
+    def RoutePolicyAssociationSet(self, RoutePolicyAssociationSet):
+        self._RoutePolicyAssociationSet = RoutePolicyAssociationSet
+
+
+    def _deserialize(self, params):
+        if params.get("RoutePolicyAssociationSet") is not None:
+            self._RoutePolicyAssociationSet = []
+            for item in params.get("RoutePolicyAssociationSet"):
+                obj = RoutePolicyAssociation()
+                obj._deserialize(item)
+                self._RoutePolicyAssociationSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateRoutePolicyAssociationsResponse(AbstractModel):
+    r"""CreateRoutePolicyAssociations返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class CreateRoutePolicyEntriesRequest(AbstractModel):
+    r"""CreateRoutePolicyEntries请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: 路由接收策略实例ID。
+        :type RoutePolicyId: str
+        :param _RoutePolicyEntrySet: 路由接收策略条目列表。
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyEntrySet = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""路由接收策略实例ID。
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""路由接收策略条目列表。
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateRoutePolicyEntriesResponse(AbstractModel):
+    r"""CreateRoutePolicyEntries返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class CreateRoutePolicyRequest(AbstractModel):
+    r"""CreateRoutePolicy请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyDescription: 路由策略描述。
+        :type RoutePolicyDescription: str
+        :param _RoutePolicyName: 路由策略名。
+        :type RoutePolicyName: str
+        :param _RoutePolicyEntrySet: 路由策略条目列表。
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        """
+        self._RoutePolicyDescription = None
+        self._RoutePolicyName = None
+        self._RoutePolicyEntrySet = None
+
+    @property
+    def RoutePolicyDescription(self):
+        r"""路由策略描述。
+        :rtype: str
+        """
+        return self._RoutePolicyDescription
+
+    @RoutePolicyDescription.setter
+    def RoutePolicyDescription(self, RoutePolicyDescription):
+        self._RoutePolicyDescription = RoutePolicyDescription
+
+    @property
+    def RoutePolicyName(self):
+        r"""路由策略名。
+        :rtype: str
+        """
+        return self._RoutePolicyName
+
+    @RoutePolicyName.setter
+    def RoutePolicyName(self, RoutePolicyName):
+        self._RoutePolicyName = RoutePolicyName
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""路由策略条目列表。
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyDescription = params.get("RoutePolicyDescription")
+        self._RoutePolicyName = params.get("RoutePolicyName")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateRoutePolicyResponse(AbstractModel):
+    r"""CreateRoutePolicy返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicy: 路由策略ID及规则。
+        :type RoutePolicy: :class:`tencentcloud.vpc.v20170312.models.RoutePolicy`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RoutePolicy = None
+        self._RequestId = None
+
+    @property
+    def RoutePolicy(self):
+        r"""路由策略ID及规则。
+        :rtype: :class:`tencentcloud.vpc.v20170312.models.RoutePolicy`
+        """
+        return self._RoutePolicy
+
+    @RoutePolicy.setter
+    def RoutePolicy(self, RoutePolicy):
+        self._RoutePolicy = RoutePolicy
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("RoutePolicy") is not None:
+            self._RoutePolicy = RoutePolicy()
+            self._RoutePolicy._deserialize(params.get("RoutePolicy"))
         self._RequestId = params.get("RequestId")
 
 
@@ -15731,6 +16260,8 @@ class CreateVpcEndPointServiceRequest(AbstractModel):
 
     @property
     def IsPassService(self):
+        warnings.warn("parameter `IsPassService` is deprecated", DeprecationWarning) 
+
         r"""~~是否是PassService类型。该字段已废弃，请不要使用该字段。~~
         :rtype: bool
         """
@@ -15738,6 +16269,8 @@ class CreateVpcEndPointServiceRequest(AbstractModel):
 
     @IsPassService.setter
     def IsPassService(self, IsPassService):
+        warnings.warn("parameter `IsPassService` is deprecated", DeprecationWarning) 
+
         self._IsPassService = IsPassService
 
     @property
@@ -16175,6 +16708,10 @@ class CreateVpcRequest(AbstractModel):
         :type DomainName: str
         :param _Tags: 指定绑定的标签列表，例如：[{"Key": "city", "Value": "shanghai"}]。
         :type Tags: list of Tag
+        :param _EnableRouteVpcPublish: vpc关联云联网时路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时,请通过工单加入白名单
+        :type EnableRouteVpcPublish: bool
+        :param _EnableRouteVpcPublishIpv6: vpc关联云联网时IPv6类型路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时，请通过工单加入白名单。
+        :type EnableRouteVpcPublishIpv6: bool
         """
         self._VpcName = None
         self._CidrBlock = None
@@ -16182,6 +16719,8 @@ class CreateVpcRequest(AbstractModel):
         self._DnsServers = None
         self._DomainName = None
         self._Tags = None
+        self._EnableRouteVpcPublish = None
+        self._EnableRouteVpcPublishIpv6 = None
 
     @property
     def VpcName(self):
@@ -16249,6 +16788,28 @@ class CreateVpcRequest(AbstractModel):
     def Tags(self, Tags):
         self._Tags = Tags
 
+    @property
+    def EnableRouteVpcPublish(self):
+        r"""vpc关联云联网时路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时,请通过工单加入白名单
+        :rtype: bool
+        """
+        return self._EnableRouteVpcPublish
+
+    @EnableRouteVpcPublish.setter
+    def EnableRouteVpcPublish(self, EnableRouteVpcPublish):
+        self._EnableRouteVpcPublish = EnableRouteVpcPublish
+
+    @property
+    def EnableRouteVpcPublishIpv6(self):
+        r"""vpc关联云联网时IPv6类型路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时，请通过工单加入白名单。
+        :rtype: bool
+        """
+        return self._EnableRouteVpcPublishIpv6
+
+    @EnableRouteVpcPublishIpv6.setter
+    def EnableRouteVpcPublishIpv6(self, EnableRouteVpcPublishIpv6):
+        self._EnableRouteVpcPublishIpv6 = EnableRouteVpcPublishIpv6
+
 
     def _deserialize(self, params):
         self._VpcName = params.get("VpcName")
@@ -16262,6 +16823,8 @@ class CreateVpcRequest(AbstractModel):
                 obj = Tag()
                 obj._deserialize(item)
                 self._Tags.append(obj)
+        self._EnableRouteVpcPublish = params.get("EnableRouteVpcPublish")
+        self._EnableRouteVpcPublishIpv6 = params.get("EnableRouteVpcPublishIpv6")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -19833,8 +20396,11 @@ class DeleteNatGatewayRequest(AbstractModel):
         r"""
         :param _NatGatewayId: NAT网关的ID，形如：`nat-df45454`。
         :type NatGatewayId: str
+        :param _IgnoreOperationRisk: 忽略操作风险
+        :type IgnoreOperationRisk: bool
         """
         self._NatGatewayId = None
+        self._IgnoreOperationRisk = None
 
     @property
     def NatGatewayId(self):
@@ -19847,9 +20413,21 @@ class DeleteNatGatewayRequest(AbstractModel):
     def NatGatewayId(self, NatGatewayId):
         self._NatGatewayId = NatGatewayId
 
+    @property
+    def IgnoreOperationRisk(self):
+        r"""忽略操作风险
+        :rtype: bool
+        """
+        return self._IgnoreOperationRisk
+
+    @IgnoreOperationRisk.setter
+    def IgnoreOperationRisk(self, IgnoreOperationRisk):
+        self._IgnoreOperationRisk = IgnoreOperationRisk
+
 
     def _deserialize(self, params):
         self._NatGatewayId = params.get("NatGatewayId")
+        self._IgnoreOperationRisk = params.get("IgnoreOperationRisk")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -20416,8 +20994,11 @@ class DeletePrivateNatGatewayRequest(AbstractModel):
         r"""
         :param _NatGatewayId: 私网网关唯一`ID`，形如"intranat-xxxxxxxx"。
         :type NatGatewayId: str
+        :param _IgnoreOperationRisk: 忽略操作风险
+        :type IgnoreOperationRisk: bool
         """
         self._NatGatewayId = None
+        self._IgnoreOperationRisk = None
 
     @property
     def NatGatewayId(self):
@@ -20430,9 +21011,21 @@ class DeletePrivateNatGatewayRequest(AbstractModel):
     def NatGatewayId(self, NatGatewayId):
         self._NatGatewayId = NatGatewayId
 
+    @property
+    def IgnoreOperationRisk(self):
+        r"""忽略操作风险
+        :rtype: bool
+        """
+        return self._IgnoreOperationRisk
+
+    @IgnoreOperationRisk.setter
+    def IgnoreOperationRisk(self, IgnoreOperationRisk):
+        self._IgnoreOperationRisk = IgnoreOperationRisk
+
 
     def _deserialize(self, params):
         self._NatGatewayId = params.get("NatGatewayId")
+        self._IgnoreOperationRisk = params.get("IgnoreOperationRisk")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -20480,15 +21073,15 @@ class DeletePrivateNatGatewayTranslationAclRuleRequest(AbstractModel):
         r"""
         :param _NatGatewayId: 私网网关唯一`ID`，形如：`intranat-xxxxxxxx`。
         :type NatGatewayId: str
-        :param _TranslationDirection: 转换规则目标，可选值"LOCAL"。
+        :param _TranslationDirection: 转换规则目标，可选值LOCAL。
         :type TranslationDirection: str
-        :param _TranslationType: 转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        :param _TranslationType: 转换规则类型，可选值NETWORK_LAYER、TRANSPORT_LAYER。分别对应三层、四层。
         :type TranslationType: str
-        :param _TranslationIp: 转换`IP`,当转换规则类型为四层时为`IP`池
+        :param _TranslationIp: 映射后`IP`,当转换规则类型为四层时为`IP`池
         :type TranslationIp: str
         :param _AclRuleIds: 访问控制规则对应`ID`
         :type AclRuleIds: list of int non-negative
-        :param _OriginalIp: 源`IP`,当转换规则类型为三层时有效
+        :param _OriginalIp: 映射前`IP`,当转换规则类型为三层时有效
         :type OriginalIp: str
         """
         self._NatGatewayId = None
@@ -20511,7 +21104,7 @@ class DeletePrivateNatGatewayTranslationAclRuleRequest(AbstractModel):
 
     @property
     def TranslationDirection(self):
-        r"""转换规则目标，可选值"LOCAL"。
+        r"""转换规则目标，可选值LOCAL。
         :rtype: str
         """
         return self._TranslationDirection
@@ -20522,7 +21115,7 @@ class DeletePrivateNatGatewayTranslationAclRuleRequest(AbstractModel):
 
     @property
     def TranslationType(self):
-        r"""转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        r"""转换规则类型，可选值NETWORK_LAYER、TRANSPORT_LAYER。分别对应三层、四层。
         :rtype: str
         """
         return self._TranslationType
@@ -20533,7 +21126,7 @@ class DeletePrivateNatGatewayTranslationAclRuleRequest(AbstractModel):
 
     @property
     def TranslationIp(self):
-        r"""转换`IP`,当转换规则类型为四层时为`IP`池
+        r"""映射后`IP`,当转换规则类型为四层时为`IP`池
         :rtype: str
         """
         return self._TranslationIp
@@ -20555,7 +21148,7 @@ class DeletePrivateNatGatewayTranslationAclRuleRequest(AbstractModel):
 
     @property
     def OriginalIp(self):
-        r"""源`IP`,当转换规则类型为三层时有效
+        r"""映射前`IP`,当转换规则类型为三层时有效
         :rtype: str
         """
         return self._OriginalIp
@@ -20777,6 +21370,223 @@ class DeleteReserveIpAddressesRequest(AbstractModel):
 
 class DeleteReserveIpAddressesResponse(AbstractModel):
     r"""DeleteReserveIpAddresses返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteRoutePolicyAssociationsRequest(AbstractModel):
+    r"""DeleteRoutePolicyAssociations请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyAssociationSet: 路由策略绑定对象列表，删除路由策略绑定时，仅需使用RoutePolicyAssociation的RouteTableId字段和RoutePolicyId字段（不需要填写Priority字段）。
+        :type RoutePolicyAssociationSet: list of RoutePolicyAssociation
+        """
+        self._RoutePolicyAssociationSet = None
+
+    @property
+    def RoutePolicyAssociationSet(self):
+        r"""路由策略绑定对象列表，删除路由策略绑定时，仅需使用RoutePolicyAssociation的RouteTableId字段和RoutePolicyId字段（不需要填写Priority字段）。
+        :rtype: list of RoutePolicyAssociation
+        """
+        return self._RoutePolicyAssociationSet
+
+    @RoutePolicyAssociationSet.setter
+    def RoutePolicyAssociationSet(self, RoutePolicyAssociationSet):
+        self._RoutePolicyAssociationSet = RoutePolicyAssociationSet
+
+
+    def _deserialize(self, params):
+        if params.get("RoutePolicyAssociationSet") is not None:
+            self._RoutePolicyAssociationSet = []
+            for item in params.get("RoutePolicyAssociationSet"):
+                obj = RoutePolicyAssociation()
+                obj._deserialize(item)
+                self._RoutePolicyAssociationSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteRoutePolicyAssociationsResponse(AbstractModel):
+    r"""DeleteRoutePolicyAssociations返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteRoutePolicyEntriesRequest(AbstractModel):
+    r"""DeleteRoutePolicyEntries请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: 路由接收策略实例ID。
+        :type RoutePolicyId: str
+        :param _RoutePolicyEntrySet: 路由接收策略条目列表，删除路由策略规则时，仅需使用RoutePolicyEntry的RoutePolicyEntryIdId字段。
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyEntrySet = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""路由接收策略实例ID。
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""路由接收策略条目列表，删除路由策略规则时，仅需使用RoutePolicyEntry的RoutePolicyEntryIdId字段。
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteRoutePolicyEntriesResponse(AbstractModel):
+    r"""DeleteRoutePolicyEntries返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteRoutePolicyRequest(AbstractModel):
+    r"""DeleteRoutePolicy请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: 路由接收策略唯一ID。
+        :type RoutePolicyId: str
+        """
+        self._RoutePolicyId = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""路由接收策略唯一ID。
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteRoutePolicyResponse(AbstractModel):
+    r"""DeleteRoutePolicy返回参数结构体
 
     """
 
@@ -22538,6 +23348,100 @@ class DescribeAddressQuotaResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeAddressTemplateGroupInstancesRequest(AbstractModel):
+    r"""DescribeAddressTemplateGroupInstances请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AddressTemplateGroupId: IP地址组实例ID。例如：ipmg-12345678。
+        :type AddressTemplateGroupId: str
+        :param _Offset: 偏移量，默认为0。
+        :type Offset: int
+        :param _Limit: 返回数量，默认为20，最大值为100。
+        :type Limit: int
+        """
+        self._AddressTemplateGroupId = None
+        self._Offset = None
+        self._Limit = None
+
+    @property
+    def AddressTemplateGroupId(self):
+        r"""IP地址组实例ID。例如：ipmg-12345678。
+        :rtype: str
+        """
+        return self._AddressTemplateGroupId
+
+    @AddressTemplateGroupId.setter
+    def AddressTemplateGroupId(self, AddressTemplateGroupId):
+        self._AddressTemplateGroupId = AddressTemplateGroupId
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0。
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""返回数量，默认为20，最大值为100。
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+
+    def _deserialize(self, params):
+        self._AddressTemplateGroupId = params.get("AddressTemplateGroupId")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeAddressTemplateGroupInstancesResponse(AbstractModel):
+    r"""DescribeAddressTemplateGroupInstances返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeAddressTemplateGroupsRequest(AbstractModel):
     r"""DescribeAddressTemplateGroups请求参数结构体
 
@@ -22748,6 +23652,100 @@ class DescribeAddressTemplateGroupsResponse(AbstractModel):
                 obj = AddressTemplateGroup()
                 obj._deserialize(item)
                 self._AddressTemplateGroupSet.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeAddressTemplateInstancesRequest(AbstractModel):
+    r"""DescribeAddressTemplateInstances请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AddressTemplateId: IP地址实例ID。例如：ipm-12345678。
+        :type AddressTemplateId: str
+        :param _Offset: 偏移量，默认为0。
+        :type Offset: int
+        :param _Limit: 返回数量，默认为20，最大值为100。
+        :type Limit: int
+        """
+        self._AddressTemplateId = None
+        self._Offset = None
+        self._Limit = None
+
+    @property
+    def AddressTemplateId(self):
+        r"""IP地址实例ID。例如：ipm-12345678。
+        :rtype: str
+        """
+        return self._AddressTemplateId
+
+    @AddressTemplateId.setter
+    def AddressTemplateId(self, AddressTemplateId):
+        self._AddressTemplateId = AddressTemplateId
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0。
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""返回数量，默认为20，最大值为100。
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+
+    def _deserialize(self, params):
+        self._AddressTemplateId = params.get("AddressTemplateId")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeAddressTemplateInstancesResponse(AbstractModel):
+    r"""DescribeAddressTemplateInstances返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -22977,14 +23975,16 @@ class DescribeAddressesRequest(AbstractModel):
         :type AddressIds: list of str
         :param _Filters: 每次请求的`Filters`的上限为10，`Filter.Values`的上限为100。详细的过滤条件如下：
 <li> address-id - String - 是否必填：否 - （过滤条件）按照 EIP 的唯一 ID 过滤。EIP 唯一 ID 形如：eip-11112222。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取address-id。</li>
-<li> address-name - String - 是否必填：否 - （过滤条件）按照 EIP 名称过滤。不支持模糊过滤。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取address-name。</li>
+<li> address-name - String - 是否必填：否 - （过滤条件）按照 EIP 名称过滤。不支持模糊过滤。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取address-name。注意：当指定 address-name 参数时，仅支持按第一个传入的 address-name 参数执行查询操作。</li>
 <li> address-ip - String - 是否必填：否 - （过滤条件）按照 EIP 的 IP 地址过滤。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取address-ip。</li>
 <li> address-status - String - 是否必填：否 - （过滤条件）按照 EIP 的状态过滤。状态包含：'CREATING'：创建中，'BINDING'：绑定中，'BIND'：已绑，'UNBINDING'：解绑中，'UNBIND'：未绑定，'OFFLINING'：下线中，'BIND_ENI'：绑定了ENI。</li>
 <li> instance-id - String - 是否必填：否 - （过滤条件）按照 EIP 绑定的实例 ID 过滤。实例 ID 形如：ins-11112222。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取instance-id。</li>
-<li> private-ip-address - String - 是否必填：否 - （过滤条件）按照 EIP 绑定的内网 IP 过滤。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取private-ip-address。</li>
+<li> private-ip-address - String - 是否必填：否 - （过滤条件）按照 EIP 绑定的内网 IP 过滤。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取private-ip-address。注意：当指定 private-ip-address 参数时，仅支持按第一个传入的 private-ip-address 参数执行查询操作。</li>
 <li> network-interface-id - String - 是否必填：否 - （过滤条件）按照 EIP 绑定的弹性网卡 ID 过滤。弹性网卡 ID 形如：eni-11112222。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取network-interface-id。</li>
 <li> is-arrears - String - 是否必填：否 - （过滤条件）按照 EIP 是否欠费进行过滤。（TRUE：EIP 处于欠费状态|FALSE：EIP 费用状态正常）</li>
-<li> address-type - String - 是否必填：否 - （过滤条件）按照 IP类型 进行过滤。可选值：'WanIP'：普通公网 IP, 'EIP'：弹性公网 IP，'AnycastEIP'：加速 IP，'HighQualityEIP'：精品弹性公网 IP， 'AntiDDoSEIP'：高防 IP。默认值是'EIP'。</li>
+<li> instance-type - String - 是否必填：否 - （过滤条件）按照 EIP 绑定的实例类型进行过滤。绑定的实例类型可选值：'CVM'：云服务器，'NAT'：NAT 网关，'ENI'：弹性网卡，'CLB'：负载均衡，'HAVIP'：高可用虚拟IP，'DHCPIP'：弹性内网IP，'EKS'：弹性容器服务，'VPCE'：终端节点，'WAF'：Web 应用防火墙。
+注意：过滤条件仅使用 instance-type 时，系统默认返回所有EIP类型（包括EIP、AnycastEIP、HighQualityEIP、AntiDDoSEIP、ResidentialEIP）绑定的资源列表。若需查询特定EIP类型绑定的资源，或查询普通公网IP绑定的资源，请同时指定 instance-type 和 address-type 参数进行配置。</li>
+<li> address-type - String - 是否必填：否 - （过滤条件）按照 IP类型 进行过滤。可选值：'WanIP'：普通公网 IP, 'EIP'：弹性公网 IP，'AnycastEIP'：加速 IP，'HighQualityEIP'：精品弹性公网 IP， 'AntiDDoSEIP'：高防 IP，'ResidentialEIP'：原生 IP。默认值是'EIP'。</li>
 <li> address-isp - String - 是否必填：否 - （过滤条件）按照 运营商类型 进行过滤。可选值：'BGP'：常规BGP，'CMCC'：移动，'CUCC'：联通, 'CTCC'：电信</li>
 <li> dedicated-cluster-id - String - 是否必填：否 - （过滤条件）按照 CDC 的唯一 ID 过滤。CDC 唯一 ID 形如：cluster-11112222。</li>
 <li> tag-key - String - 是否必填：否 - （过滤条件）按照标签键进行过滤。</li>
@@ -23016,14 +24016,16 @@ class DescribeAddressesRequest(AbstractModel):
     def Filters(self):
         r"""每次请求的`Filters`的上限为10，`Filter.Values`的上限为100。详细的过滤条件如下：
 <li> address-id - String - 是否必填：否 - （过滤条件）按照 EIP 的唯一 ID 过滤。EIP 唯一 ID 形如：eip-11112222。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取address-id。</li>
-<li> address-name - String - 是否必填：否 - （过滤条件）按照 EIP 名称过滤。不支持模糊过滤。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取address-name。</li>
+<li> address-name - String - 是否必填：否 - （过滤条件）按照 EIP 名称过滤。不支持模糊过滤。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取address-name。注意：当指定 address-name 参数时，仅支持按第一个传入的 address-name 参数执行查询操作。</li>
 <li> address-ip - String - 是否必填：否 - （过滤条件）按照 EIP 的 IP 地址过滤。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取address-ip。</li>
 <li> address-status - String - 是否必填：否 - （过滤条件）按照 EIP 的状态过滤。状态包含：'CREATING'：创建中，'BINDING'：绑定中，'BIND'：已绑，'UNBINDING'：解绑中，'UNBIND'：未绑定，'OFFLINING'：下线中，'BIND_ENI'：绑定了ENI。</li>
 <li> instance-id - String - 是否必填：否 - （过滤条件）按照 EIP 绑定的实例 ID 过滤。实例 ID 形如：ins-11112222。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取instance-id。</li>
-<li> private-ip-address - String - 是否必填：否 - （过滤条件）按照 EIP 绑定的内网 IP 过滤。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取private-ip-address。</li>
+<li> private-ip-address - String - 是否必填：否 - （过滤条件）按照 EIP 绑定的内网 IP 过滤。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取private-ip-address。注意：当指定 private-ip-address 参数时，仅支持按第一个传入的 private-ip-address 参数执行查询操作。</li>
 <li> network-interface-id - String - 是否必填：否 - （过滤条件）按照 EIP 绑定的弹性网卡 ID 过滤。弹性网卡 ID 形如：eni-11112222。可以使用[DescribeAddresses](https://cloud.tencent.com/document/product/215/16702)接口获取network-interface-id。</li>
 <li> is-arrears - String - 是否必填：否 - （过滤条件）按照 EIP 是否欠费进行过滤。（TRUE：EIP 处于欠费状态|FALSE：EIP 费用状态正常）</li>
-<li> address-type - String - 是否必填：否 - （过滤条件）按照 IP类型 进行过滤。可选值：'WanIP'：普通公网 IP, 'EIP'：弹性公网 IP，'AnycastEIP'：加速 IP，'HighQualityEIP'：精品弹性公网 IP， 'AntiDDoSEIP'：高防 IP。默认值是'EIP'。</li>
+<li> instance-type - String - 是否必填：否 - （过滤条件）按照 EIP 绑定的实例类型进行过滤。绑定的实例类型可选值：'CVM'：云服务器，'NAT'：NAT 网关，'ENI'：弹性网卡，'CLB'：负载均衡，'HAVIP'：高可用虚拟IP，'DHCPIP'：弹性内网IP，'EKS'：弹性容器服务，'VPCE'：终端节点，'WAF'：Web 应用防火墙。
+注意：过滤条件仅使用 instance-type 时，系统默认返回所有EIP类型（包括EIP、AnycastEIP、HighQualityEIP、AntiDDoSEIP、ResidentialEIP）绑定的资源列表。若需查询特定EIP类型绑定的资源，或查询普通公网IP绑定的资源，请同时指定 instance-type 和 address-type 参数进行配置。</li>
+<li> address-type - String - 是否必填：否 - （过滤条件）按照 IP类型 进行过滤。可选值：'WanIP'：普通公网 IP, 'EIP'：弹性公网 IP，'AnycastEIP'：加速 IP，'HighQualityEIP'：精品弹性公网 IP， 'AntiDDoSEIP'：高防 IP，'ResidentialEIP'：原生 IP。默认值是'EIP'。</li>
 <li> address-isp - String - 是否必填：否 - （过滤条件）按照 运营商类型 进行过滤。可选值：'BGP'：常规BGP，'CMCC'：移动，'CUCC'：联通, 'CTCC'：电信</li>
 <li> dedicated-cluster-id - String - 是否必填：否 - （过滤条件）按照 CDC 的唯一 ID 过滤。CDC 唯一 ID 形如：cluster-11112222。</li>
 <li> tag-key - String - 是否必填：否 - （过滤条件）按照标签键进行过滤。</li>
@@ -27469,6 +28471,7 @@ class DescribeHaVipsRequest(AbstractModel):
         :param _HaVipIds: `HAVIP`唯一`ID`，形如：`havip-9o233uri`。
         :type HaVipIds: list of str
         :param _Filters: 过滤条件，参数不支持同时指定`HaVipIds`和`Filters`。<li>havip-id - String - `HAVIP`唯一`ID`，形如：`havip-9o233uri`。</li><li>havip-name - String - `HAVIP`名称。</li><li>vpc-id - String - `HAVIP`所在私有网络`ID`。</li><li>subnet-id - String - `HAVIP`所在子网`ID`。</li><li>vip - String - `HAVIP`的地址`VIP`。</li><li>address-ip - String - `HAVIP`绑定的弹性公网`IP`。</li><li>havip-association.instance-id - String - `HAVIP`绑定的子机或网卡。</li><li>havip-association.instance-type - String - `HAVIP`绑定的类型，取值:CVM, ENI。</li><li>check-associate - Bool - 是否开启HaVip飘移时校验绑定的子机或网卡。</li><li>cdc-id - String - CDC实例ID。</li>
+<li>type- String - HAVIP类型。取值: NORMAL(普通); GWLB(网关负载均衡); OPTIMIZATION(优化模式)。</li>
         :type Filters: list of Filter
         :param _Offset: 偏移量，默认为0。
 
@@ -27496,6 +28499,7 @@ class DescribeHaVipsRequest(AbstractModel):
     @property
     def Filters(self):
         r"""过滤条件，参数不支持同时指定`HaVipIds`和`Filters`。<li>havip-id - String - `HAVIP`唯一`ID`，形如：`havip-9o233uri`。</li><li>havip-name - String - `HAVIP`名称。</li><li>vpc-id - String - `HAVIP`所在私有网络`ID`。</li><li>subnet-id - String - `HAVIP`所在子网`ID`。</li><li>vip - String - `HAVIP`的地址`VIP`。</li><li>address-ip - String - `HAVIP`绑定的弹性公网`IP`。</li><li>havip-association.instance-id - String - `HAVIP`绑定的子机或网卡。</li><li>havip-association.instance-type - String - `HAVIP`绑定的类型，取值:CVM, ENI。</li><li>check-associate - Bool - 是否开启HaVip飘移时校验绑定的子机或网卡。</li><li>cdc-id - String - CDC实例ID。</li>
+<li>type- String - HAVIP类型。取值: NORMAL(普通); GWLB(网关负载均衡); OPTIMIZATION(优化模式)。</li>
         :rtype: list of Filter
         """
         return self._Filters
@@ -29635,6 +30639,60 @@ class DescribeNatGatewaySourceIpTranslationNatRulesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeNatGatewayZonesRequest(AbstractModel):
+    r"""DescribeNatGatewayZones请求参数结构体
+
+    """
+
+
+class DescribeNatGatewayZonesResponse(AbstractModel):
+    r"""DescribeNatGatewayZones返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneSet: 可售卖可用区信息列表
+        :type ZoneSet: list of NatZoneInfo
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ZoneSet = None
+        self._RequestId = None
+
+    @property
+    def ZoneSet(self):
+        r"""可售卖可用区信息列表
+        :rtype: list of NatZoneInfo
+        """
+        return self._ZoneSet
+
+    @ZoneSet.setter
+    def ZoneSet(self, ZoneSet):
+        self._ZoneSet = ZoneSet
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ZoneSet") is not None:
+            self._ZoneSet = []
+            for item in params.get("ZoneSet"):
+                obj = NatZoneInfo()
+                obj._deserialize(item)
+                self._ZoneSet.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeNatGatewaysRequest(AbstractModel):
     r"""DescribeNatGateways请求参数结构体
 
@@ -29644,7 +30702,7 @@ class DescribeNatGatewaysRequest(AbstractModel):
         r"""
         :param _NatGatewayIds: NAT网关统一 ID，形如：`nat-123xx454`。每次请求的实例上限为100。参数不支持同时指定NatGatewayIds和Filters。
         :type NatGatewayIds: list of str
-        :param _Filters: 过滤条件，参数不支持同时指定NatGatewayIds和Filters。每次请求的Filters的上限为10，Filter.Values的上限为5。<li>nat-gateway-id - String - （过滤条件）NAT实例ID，形如：`nat-123xx454`。</li><li>vpc-id - String - （过滤条件）私有网络 唯一ID，形如：`vpc-123xx454`。</li><li>nat-gateway-name - String - （过滤条件）协议端口模板实例名称，形如：`test_nat`。</li><li>tag-key - String - （过滤条件）标签键，形如：`test-key`。</li><li>nat-status - String - （过滤条件）NAT实例当前状态，形如：`AVAILABLE`。</li>
+        :param _Filters: 过滤条件，参数不支持同时指定NatGatewayIds和Filters。每次请求的Filters的上限为10，Filter.Values的上限为5。<li>nat-gateway-id - String - （过滤条件）NAT实例ID，形如：`nat-123xx454`。</li><li>vpc-id - String - （过滤条件）私有网络 唯一ID，形如：`vpc-123xx454`。</li><li>nat-gateway-name - String - （过滤条件）协议端口模板实例名称，形如：`test_nat`。</li><li>tag-key - String - （过滤条件）标签键，形如：`test-key`。</li><li>nat-state - String - （过滤条件）NAT实例当前状态，形如：`AVAILABLE`。</li>
         :type Filters: list of Filter
         :param _Offset: 偏移量，默认为0。
         :type Offset: int
@@ -29669,7 +30727,7 @@ class DescribeNatGatewaysRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""过滤条件，参数不支持同时指定NatGatewayIds和Filters。每次请求的Filters的上限为10，Filter.Values的上限为5。<li>nat-gateway-id - String - （过滤条件）NAT实例ID，形如：`nat-123xx454`。</li><li>vpc-id - String - （过滤条件）私有网络 唯一ID，形如：`vpc-123xx454`。</li><li>nat-gateway-name - String - （过滤条件）协议端口模板实例名称，形如：`test_nat`。</li><li>tag-key - String - （过滤条件）标签键，形如：`test-key`。</li><li>nat-status - String - （过滤条件）NAT实例当前状态，形如：`AVAILABLE`。</li>
+        r"""过滤条件，参数不支持同时指定NatGatewayIds和Filters。每次请求的Filters的上限为10，Filter.Values的上限为5。<li>nat-gateway-id - String - （过滤条件）NAT实例ID，形如：`nat-123xx454`。</li><li>vpc-id - String - （过滤条件）私有网络 唯一ID，形如：`vpc-123xx454`。</li><li>nat-gateway-name - String - （过滤条件）协议端口模板实例名称，形如：`test_nat`。</li><li>tag-key - String - （过滤条件）标签键，形如：`test-key`。</li><li>nat-state - String - （过滤条件）NAT实例当前状态，形如：`AVAILABLE`。</li>
         :rtype: list of Filter
         """
         return self._Filters
@@ -30862,7 +31920,7 @@ class DescribePrivateNatGatewayDestinationIpPortTranslationNatRulesRequest(Abstr
         r"""
         :param _NatGatewayId: 私网网关唯一`ID`，形如"intranat-xxxxxxxx)
         :type NatGatewayId: str
-        :param _Filters: 过滤条件，Name可选值"OriginalIp",  "TranslationIp", "OriginalPort","TranslationPort",  "Protocol", "Description"
+        :param _Filters: 过滤条件，Name可选值：OriginalIp、TranslationIp、OriginalPort、TranslationPort、Protocol、Description，分别表示映射前IP、映射后IP、映射前端口、映射后端口、协议类型、描述
         :type Filters: list of Filter
         :param _Offset: 偏移量，默认值为0。
         :type Offset: int
@@ -30887,7 +31945,7 @@ class DescribePrivateNatGatewayDestinationIpPortTranslationNatRulesRequest(Abstr
 
     @property
     def Filters(self):
-        r"""过滤条件，Name可选值"OriginalIp",  "TranslationIp", "OriginalPort","TranslationPort",  "Protocol", "Description"
+        r"""过滤条件，Name可选值：OriginalIp、TranslationIp、OriginalPort、TranslationPort、Protocol、Description，分别表示映射前IP、映射后IP、映射前端口、映射后端口、协议类型、描述
         :rtype: list of Filter
         """
         return self._Filters
@@ -31216,13 +32274,13 @@ class DescribePrivateNatGatewayTranslationAclRulesRequest(AbstractModel):
         r"""
         :param _NatGatewayId: 私网网关唯一`ID`，形如：`intranat-xxxxxxxx`。
         :type NatGatewayId: str
-        :param _TranslationDirection: 转换规则目标，可选值"LOCAL"。
+        :param _TranslationDirection: 转换规则目标，可选值LOCAL。
         :type TranslationDirection: str
-        :param _TranslationType: 转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        :param _TranslationType: 转换规则类型，可选值NETWORK_LAYER、TRANSPORT_LAYER。分别对应三层、四层。
         :type TranslationType: str
-        :param _TranslationIp: 转换`IP`,当转换规则类型为四层时为`IP`池。
+        :param _TranslationIp: 映射后`IP`,当转换规则类型为四层时为`IP`池。
         :type TranslationIp: str
-        :param _OriginalIp: 源`IP`,当转换规则类型为三层时有效。
+        :param _OriginalIp: 映射前`IP`,当转换规则类型为三层时有效。
         :type OriginalIp: str
         :param _Offset: 偏移量。默认值为0。
         :type Offset: int
@@ -31230,6 +32288,8 @@ class DescribePrivateNatGatewayTranslationAclRulesRequest(AbstractModel):
         :type Limit: int
         :param _Description: ACL规则描述
         :type Description: str
+        :param _Filters: 过滤条件。<li>AclRuleId - Integer - ACL规则ID。</li>
+        :type Filters: list of Filter
         """
         self._NatGatewayId = None
         self._TranslationDirection = None
@@ -31239,6 +32299,7 @@ class DescribePrivateNatGatewayTranslationAclRulesRequest(AbstractModel):
         self._Offset = None
         self._Limit = None
         self._Description = None
+        self._Filters = None
 
     @property
     def NatGatewayId(self):
@@ -31253,7 +32314,7 @@ class DescribePrivateNatGatewayTranslationAclRulesRequest(AbstractModel):
 
     @property
     def TranslationDirection(self):
-        r"""转换规则目标，可选值"LOCAL"。
+        r"""转换规则目标，可选值LOCAL。
         :rtype: str
         """
         return self._TranslationDirection
@@ -31264,7 +32325,7 @@ class DescribePrivateNatGatewayTranslationAclRulesRequest(AbstractModel):
 
     @property
     def TranslationType(self):
-        r"""转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        r"""转换规则类型，可选值NETWORK_LAYER、TRANSPORT_LAYER。分别对应三层、四层。
         :rtype: str
         """
         return self._TranslationType
@@ -31275,7 +32336,7 @@ class DescribePrivateNatGatewayTranslationAclRulesRequest(AbstractModel):
 
     @property
     def TranslationIp(self):
-        r"""转换`IP`,当转换规则类型为四层时为`IP`池。
+        r"""映射后`IP`,当转换规则类型为四层时为`IP`池。
         :rtype: str
         """
         return self._TranslationIp
@@ -31286,7 +32347,7 @@ class DescribePrivateNatGatewayTranslationAclRulesRequest(AbstractModel):
 
     @property
     def OriginalIp(self):
-        r"""源`IP`,当转换规则类型为三层时有效。
+        r"""映射前`IP`,当转换规则类型为三层时有效。
         :rtype: str
         """
         return self._OriginalIp
@@ -31328,6 +32389,17 @@ class DescribePrivateNatGatewayTranslationAclRulesRequest(AbstractModel):
     def Description(self, Description):
         self._Description = Description
 
+    @property
+    def Filters(self):
+        r"""过滤条件。<li>AclRuleId - Integer - ACL规则ID。</li>
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
 
     def _deserialize(self, params):
         self._NatGatewayId = params.get("NatGatewayId")
@@ -31338,6 +32410,12 @@ class DescribePrivateNatGatewayTranslationAclRulesRequest(AbstractModel):
         self._Offset = params.get("Offset")
         self._Limit = params.get("Limit")
         self._Description = params.get("Description")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -31576,6 +32654,7 @@ class DescribePrivateNatGatewaysRequest(AbstractModel):
     def __init__(self):
         r"""
         :param _NatGatewayIds: 私网网关唯一`ID`，形如：`intranat-0g3blj80`。
+注意：NatGatewayIds和Filters参数互斥，不能同时传入。
         :type NatGatewayIds: list of str
         :param _Filters: 过滤条件。<li>NatGatewayId - String - 私网网关唯一`ID`，形如：`intranat-0g3blj80`。</li><li>NatGatewayName - String - 专线网关名称，默认模糊查询。</li><li>VpcId - String - 私网网关所在`VpcId`。</li><li>TagKey - Tag数组 - 私网网关标签键值对数组</li><li>intranat-status - String - （过滤条件）NAT实例当前状态，形如：`AVAILABLE`。</li>
         :type Filters: list of Filter
@@ -31583,9 +32662,9 @@ class DescribePrivateNatGatewaysRequest(AbstractModel):
         :type Offset: int
         :param _Limit: 返回数量，默认为20。
         :type Limit: int
-        :param _OrderField: 排序字段。可选值："NatGatewayId"、"NatGatewayName"、"CreatedTime"
+        :param _OrderField: 排序字段。可选值：NatGatewayId、NatGatewayName、CreatedTime。
         :type OrderField: str
-        :param _OrderDirection: 排序方式。可选值："ASC"、"DESC"。
+        :param _OrderDirection: 排序方式。可选值：ASC、DESC。分别表示升序、降序。
         :type OrderDirection: str
         """
         self._NatGatewayIds = None
@@ -31598,6 +32677,7 @@ class DescribePrivateNatGatewaysRequest(AbstractModel):
     @property
     def NatGatewayIds(self):
         r"""私网网关唯一`ID`，形如：`intranat-0g3blj80`。
+注意：NatGatewayIds和Filters参数互斥，不能同时传入。
         :rtype: list of str
         """
         return self._NatGatewayIds
@@ -31641,7 +32721,7 @@ class DescribePrivateNatGatewaysRequest(AbstractModel):
 
     @property
     def OrderField(self):
-        r"""排序字段。可选值："NatGatewayId"、"NatGatewayName"、"CreatedTime"
+        r"""排序字段。可选值：NatGatewayId、NatGatewayName、CreatedTime。
         :rtype: str
         """
         return self._OrderField
@@ -31652,7 +32732,7 @@ class DescribePrivateNatGatewaysRequest(AbstractModel):
 
     @property
     def OrderDirection(self):
-        r"""排序方式。可选值："ASC"、"DESC"。
+        r"""排序方式。可选值：ASC、DESC。分别表示升序、降序。
         :rtype: str
         """
         return self._OrderDirection
@@ -32260,6 +33340,383 @@ class DescribeRouteListResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeRoutePoliciesRequest(AbstractModel):
+    r"""DescribeRoutePolicies请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyIds: 路由策略实例唯一ID。形如：rrp-q7ywkx31。每次请求的实例的上限为100。参数不支持同时指定RoutePolicyIds和Filters。
+        :type RoutePolicyIds: list of str
+        :param _Filters: 过滤条件，不支持同时指定RoutePolicyIds和Filters参数。
+支持的过滤条件如下：
+<li>route-policy-name：路由策略实例名称，支持模糊查询。</li>
+<li>route-policy-description：路由策略实例描述，支持模糊查询。</li>
+<li>route-policy-id ：路由策略实例ID，例如：rrp-q7ywkx3w。</li>
+
+  **说明：**若同一个过滤条件（Filter）存在多个Values，则同一Filter下Values间的关系为逻辑或（OR）关系；若存在多个过滤条件（Filter），Filter之间的关系为逻辑与（AND）关系。
+        :type Filters: list of Filter
+        :param _Offset: 偏移量，默认为0。
+        :type Offset: str
+        :param _Limit: 返回数量，默认为20，最大值为100。
+        :type Limit: str
+        :param _NeedRoutePolicyEntry: 是否返回路由策略条目。默认为False。当该参数为False时，仍然会返回空的返回空的RoutePolicyEntrySet。
+        :type NeedRoutePolicyEntry: bool
+        """
+        self._RoutePolicyIds = None
+        self._Filters = None
+        self._Offset = None
+        self._Limit = None
+        self._NeedRoutePolicyEntry = None
+
+    @property
+    def RoutePolicyIds(self):
+        r"""路由策略实例唯一ID。形如：rrp-q7ywkx31。每次请求的实例的上限为100。参数不支持同时指定RoutePolicyIds和Filters。
+        :rtype: list of str
+        """
+        return self._RoutePolicyIds
+
+    @RoutePolicyIds.setter
+    def RoutePolicyIds(self, RoutePolicyIds):
+        self._RoutePolicyIds = RoutePolicyIds
+
+    @property
+    def Filters(self):
+        r"""过滤条件，不支持同时指定RoutePolicyIds和Filters参数。
+支持的过滤条件如下：
+<li>route-policy-name：路由策略实例名称，支持模糊查询。</li>
+<li>route-policy-description：路由策略实例描述，支持模糊查询。</li>
+<li>route-policy-id ：路由策略实例ID，例如：rrp-q7ywkx3w。</li>
+
+  **说明：**若同一个过滤条件（Filter）存在多个Values，则同一Filter下Values间的关系为逻辑或（OR）关系；若存在多个过滤条件（Filter），Filter之间的关系为逻辑与（AND）关系。
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0。
+        :rtype: str
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""返回数量，默认为20，最大值为100。
+        :rtype: str
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def NeedRoutePolicyEntry(self):
+        r"""是否返回路由策略条目。默认为False。当该参数为False时，仍然会返回空的返回空的RoutePolicyEntrySet。
+        :rtype: bool
+        """
+        return self._NeedRoutePolicyEntry
+
+    @NeedRoutePolicyEntry.setter
+    def NeedRoutePolicyEntry(self, NeedRoutePolicyEntry):
+        self._NeedRoutePolicyEntry = NeedRoutePolicyEntry
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyIds = params.get("RoutePolicyIds")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        self._NeedRoutePolicyEntry = params.get("NeedRoutePolicyEntry")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeRoutePoliciesResponse(AbstractModel):
+    r"""DescribeRoutePolicies返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: 符合条件的对象数。
+        :type TotalCount: int
+        :param _RoutePolicySet: 路由策略对象。
+        :type RoutePolicySet: list of RoutePolicy
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._RoutePolicySet = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""符合条件的对象数。
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RoutePolicySet(self):
+        r"""路由策略对象。
+        :rtype: list of RoutePolicy
+        """
+        return self._RoutePolicySet
+
+    @RoutePolicySet.setter
+    def RoutePolicySet(self, RoutePolicySet):
+        self._RoutePolicySet = RoutePolicySet
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("RoutePolicySet") is not None:
+            self._RoutePolicySet = []
+            for item in params.get("RoutePolicySet"):
+                obj = RoutePolicy()
+                obj._deserialize(item)
+                self._RoutePolicySet.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeRoutePolicyEntriesRequest(AbstractModel):
+    r"""DescribeRoutePolicyEntries请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Filters: 过滤条件，参数不支持同时指定RoutePolicyEntryIds和Filters。
+<li>route-policy-id - String - （过滤条件）路由接收策略实例ID，形如：rrp-f49l6u0z。</li>
+<li>cidr-block - String - （过滤条件）CIDR(只取掩码前的子网部分)，形如：10.0.0.0/8。</li>
+<li>priority - Integer - （过滤条件）优先级，形如：20。</li>
+<li>gateway-type - String - （过滤条件）下一跳类型，形如：CVM。</li>
+<li>gateway-id - String - （过滤条件）下一跳实例唯一ID，形如：ccn-f49l6u0z。</li>
+<li>route-type - String - （过滤条件）路由类型，取值：USER（用户路由），NETD（网络探测下发的路由），CCN（云联网路由）。</li>
+<li>action - String - （过滤条件）动作，取值：DROP（丢弃），DISABLE（接收且禁用），ACCEPT（接收且启用）。</li>
+<li>description - String - （过滤条件）描述，形如：TEST。</li>
+<li>route-policy-item-id - String - （过滤条件）路由接收策略条目唯一ID，形如：rrpi-dq782kw7。</li>
+        :type Filters: list of Filter
+        :param _Offset: 偏移量。
+        :type Offset: int
+        :param _Limit: 请求对象个数。
+        :type Limit: int
+        :param _OrderField: 排序字段。当前只支持优先级Prioriry字段。
+        :type OrderField: str
+        :param _OrderDirection: 排序方向。
+ASC：升序。
+DESC：降序。
+        :type OrderDirection: str
+        :param _RoutePolicyEntryIds: 路由策略条目ID。
+        :type RoutePolicyEntryIds: list of str
+        """
+        self._Filters = None
+        self._Offset = None
+        self._Limit = None
+        self._OrderField = None
+        self._OrderDirection = None
+        self._RoutePolicyEntryIds = None
+
+    @property
+    def Filters(self):
+        r"""过滤条件，参数不支持同时指定RoutePolicyEntryIds和Filters。
+<li>route-policy-id - String - （过滤条件）路由接收策略实例ID，形如：rrp-f49l6u0z。</li>
+<li>cidr-block - String - （过滤条件）CIDR(只取掩码前的子网部分)，形如：10.0.0.0/8。</li>
+<li>priority - Integer - （过滤条件）优先级，形如：20。</li>
+<li>gateway-type - String - （过滤条件）下一跳类型，形如：CVM。</li>
+<li>gateway-id - String - （过滤条件）下一跳实例唯一ID，形如：ccn-f49l6u0z。</li>
+<li>route-type - String - （过滤条件）路由类型，取值：USER（用户路由），NETD（网络探测下发的路由），CCN（云联网路由）。</li>
+<li>action - String - （过滤条件）动作，取值：DROP（丢弃），DISABLE（接收且禁用），ACCEPT（接收且启用）。</li>
+<li>description - String - （过滤条件）描述，形如：TEST。</li>
+<li>route-policy-item-id - String - （过滤条件）路由接收策略条目唯一ID，形如：rrpi-dq782kw7。</li>
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+    @property
+    def Offset(self):
+        r"""偏移量。
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""请求对象个数。
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def OrderField(self):
+        r"""排序字段。当前只支持优先级Prioriry字段。
+        :rtype: str
+        """
+        return self._OrderField
+
+    @OrderField.setter
+    def OrderField(self, OrderField):
+        self._OrderField = OrderField
+
+    @property
+    def OrderDirection(self):
+        r"""排序方向。
+ASC：升序。
+DESC：降序。
+        :rtype: str
+        """
+        return self._OrderDirection
+
+    @OrderDirection.setter
+    def OrderDirection(self, OrderDirection):
+        self._OrderDirection = OrderDirection
+
+    @property
+    def RoutePolicyEntryIds(self):
+        r"""路由策略条目ID。
+        :rtype: list of str
+        """
+        return self._RoutePolicyEntryIds
+
+    @RoutePolicyEntryIds.setter
+    def RoutePolicyEntryIds(self, RoutePolicyEntryIds):
+        self._RoutePolicyEntryIds = RoutePolicyEntryIds
+
+
+    def _deserialize(self, params):
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        self._OrderField = params.get("OrderField")
+        self._OrderDirection = params.get("OrderDirection")
+        self._RoutePolicyEntryIds = params.get("RoutePolicyEntryIds")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeRoutePolicyEntriesResponse(AbstractModel):
+    r"""DescribeRoutePolicyEntries返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyEntrySet: 路由接收策略条目列表。
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        :param _TotalCount: 符合条件的实例数量。
+        :type TotalCount: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RoutePolicyEntrySet = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""路由接收策略条目列表。
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+    @property
+    def TotalCount(self):
+        r"""符合条件的实例数量。
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeRouteTableAssociatedInstancesRequest(AbstractModel):
     r"""DescribeRouteTableAssociatedInstances请求参数结构体
 
@@ -32588,6 +34045,7 @@ class DescribeRouteTablesRequest(AbstractModel):
 <li>association.main - String - （过滤条件）是否主路由表。</li>
 <li>tag-key - String -是否必填：否 - （过滤条件）按照标签键进行过滤。</li>
 <li>tag:tag-key - String - 是否必填：否 - （过滤条件）按照标签键值对进行过滤。 tag-key使用具体的标签键进行替换。使用请参考示例2。</li>
+<li>visible - String - （过滤条件）是否可见。</li>
 <li>next-hop-type - String - 是否必填：否 - （过滤条件）按下一跳类型进行过滤。使用next-hop-type进行过滤时，必须同时携带route-table-id与vpc-id。
 目前我们支持的类型有：
 LOCAL: 本地路由
@@ -32601,6 +34059,7 @@ NORMAL_CVM：普通云服务器；
 EIP：云服务器的公网IP；
 CCN：云联网；
 LOCAL_GATEWAY：本地网关。
+GWLB_ENDPOINT：网关负载均衡终端节点。
 </li>
         :type Filters: list of Filter
         :param _RouteTableIds: 路由表实例ID，例如：rtb-azd4dt1c。
@@ -32627,6 +34086,7 @@ LOCAL_GATEWAY：本地网关。
 <li>association.main - String - （过滤条件）是否主路由表。</li>
 <li>tag-key - String -是否必填：否 - （过滤条件）按照标签键进行过滤。</li>
 <li>tag:tag-key - String - 是否必填：否 - （过滤条件）按照标签键值对进行过滤。 tag-key使用具体的标签键进行替换。使用请参考示例2。</li>
+<li>visible - String - （过滤条件）是否可见。</li>
 <li>next-hop-type - String - 是否必填：否 - （过滤条件）按下一跳类型进行过滤。使用next-hop-type进行过滤时，必须同时携带route-table-id与vpc-id。
 目前我们支持的类型有：
 LOCAL: 本地路由
@@ -32640,6 +34100,7 @@ NORMAL_CVM：普通云服务器；
 EIP：云服务器的公网IP；
 CCN：云联网；
 LOCAL_GATEWAY：本地网关。
+GWLB_ENDPOINT：网关负载均衡终端节点。
 </li>
         :rtype: list of Filter
         """
@@ -33001,6 +34462,125 @@ class DescribeSecurityGroupAssociationStatisticsResponse(AbstractModel):
                 obj = SecurityGroupAssociationStatistics()
                 obj._deserialize(item)
                 self._SecurityGroupAssociationStatisticsSet.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeSecurityGroupExpandedPoliciesRequest(AbstractModel):
+    r"""DescribeSecurityGroupExpandedPolicies请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SecurityGroupId: 安全组实例ID，例如：sg-33ocnj9n，可通过<a href="https://cloud.tencent.com/document/product/215/15808">DescribeSecurityGroups</a>获取。
+        :type SecurityGroupId: str
+        :param _Filters: 过滤条件。
+<li>security-group-id - String - 规则中的安全组ID。</li>
+<li>ip - String - IP，支持IPV4和IPV6模糊匹配。</li>
+<li>address-module - String - IP地址模板或IP地址组模板ID。</li>
+<li>service-module - String - 协议端口模板或协议端口组模板ID。</li>
+<li>protocol-type - String - 安全组策略支持的协议，可选值：`TCP`, `UDP`, `ICMP`, `ICMPV6`, `GRE`, `ALL`。</li>
+<li>port - String - 是否必填：否 -协议端口，支持模糊匹配，值为`ALL`时，查询所有的端口。</li>
+<li>poly - String - 协议策略，可选值：`ALL`，所有策略；`ACCEPT`，允许；`DROP`，拒绝。</li>
+<li>direction - String - 协议规则，可选值：`ALL`，所有策略；`INBOUND`，入站规则；`OUTBOUND`，出站规则。</li>
+<li>description - String - 协议描述，该过滤条件支持模糊匹配。</li>
+        :type Filters: list of Filter
+        """
+        self._SecurityGroupId = None
+        self._Filters = None
+
+    @property
+    def SecurityGroupId(self):
+        r"""安全组实例ID，例如：sg-33ocnj9n，可通过<a href="https://cloud.tencent.com/document/product/215/15808">DescribeSecurityGroups</a>获取。
+        :rtype: str
+        """
+        return self._SecurityGroupId
+
+    @SecurityGroupId.setter
+    def SecurityGroupId(self, SecurityGroupId):
+        self._SecurityGroupId = SecurityGroupId
+
+    @property
+    def Filters(self):
+        r"""过滤条件。
+<li>security-group-id - String - 规则中的安全组ID。</li>
+<li>ip - String - IP，支持IPV4和IPV6模糊匹配。</li>
+<li>address-module - String - IP地址模板或IP地址组模板ID。</li>
+<li>service-module - String - 协议端口模板或协议端口组模板ID。</li>
+<li>protocol-type - String - 安全组策略支持的协议，可选值：`TCP`, `UDP`, `ICMP`, `ICMPV6`, `GRE`, `ALL`。</li>
+<li>port - String - 是否必填：否 -协议端口，支持模糊匹配，值为`ALL`时，查询所有的端口。</li>
+<li>poly - String - 协议策略，可选值：`ALL`，所有策略；`ACCEPT`，允许；`DROP`，拒绝。</li>
+<li>direction - String - 协议规则，可选值：`ALL`，所有策略；`INBOUND`，入站规则；`OUTBOUND`，出站规则。</li>
+<li>description - String - 协议描述，该过滤条件支持模糊匹配。</li>
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+
+    def _deserialize(self, params):
+        self._SecurityGroupId = params.get("SecurityGroupId")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeSecurityGroupExpandedPoliciesResponse(AbstractModel):
+    r"""DescribeSecurityGroupExpandedPolicies返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SecurityGroupPolicySet: 安全组规则集合。
+        :type SecurityGroupPolicySet: :class:`tencentcloud.vpc.v20170312.models.SecurityGroupPolicySet`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._SecurityGroupPolicySet = None
+        self._RequestId = None
+
+    @property
+    def SecurityGroupPolicySet(self):
+        r"""安全组规则集合。
+        :rtype: :class:`tencentcloud.vpc.v20170312.models.SecurityGroupPolicySet`
+        """
+        return self._SecurityGroupPolicySet
+
+    @SecurityGroupPolicySet.setter
+    def SecurityGroupPolicySet(self, SecurityGroupPolicySet):
+        self._SecurityGroupPolicySet = SecurityGroupPolicySet
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("SecurityGroupPolicySet") is not None:
+            self._SecurityGroupPolicySet = SecurityGroupPolicySet()
+            self._SecurityGroupPolicySet._deserialize(params.get("SecurityGroupPolicySet"))
         self._RequestId = params.get("RequestId")
 
 
@@ -33447,6 +35027,100 @@ class DescribeSecurityGroupsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeServiceTemplateGroupInstancesRequest(AbstractModel):
+    r"""DescribeServiceTemplateGroupInstances请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ServiceTemplateGroupId: 协议端口实例ID。例如：ppmg-12345678。
+        :type ServiceTemplateGroupId: str
+        :param _Offset: 偏移量，默认为0。
+        :type Offset: int
+        :param _Limit: 返回数量，默认为20，最大值为100。
+        :type Limit: int
+        """
+        self._ServiceTemplateGroupId = None
+        self._Offset = None
+        self._Limit = None
+
+    @property
+    def ServiceTemplateGroupId(self):
+        r"""协议端口实例ID。例如：ppmg-12345678。
+        :rtype: str
+        """
+        return self._ServiceTemplateGroupId
+
+    @ServiceTemplateGroupId.setter
+    def ServiceTemplateGroupId(self, ServiceTemplateGroupId):
+        self._ServiceTemplateGroupId = ServiceTemplateGroupId
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0。
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""返回数量，默认为20，最大值为100。
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+
+    def _deserialize(self, params):
+        self._ServiceTemplateGroupId = params.get("ServiceTemplateGroupId")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeServiceTemplateGroupInstancesResponse(AbstractModel):
+    r"""DescribeServiceTemplateGroupInstances返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeServiceTemplateGroupsRequest(AbstractModel):
     r"""DescribeServiceTemplateGroups请求参数结构体
 
@@ -33657,6 +35331,100 @@ class DescribeServiceTemplateGroupsResponse(AbstractModel):
                 obj = ServiceTemplateGroup()
                 obj._deserialize(item)
                 self._ServiceTemplateGroupSet.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeServiceTemplateInstancesRequest(AbstractModel):
+    r"""DescribeServiceTemplateInstances请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ServiceTemplateId: 协议端口实例ID。例如：ppm-12345678。
+        :type ServiceTemplateId: str
+        :param _Offset: 偏移量，默认为0。
+        :type Offset: int
+        :param _Limit: 返回数量，默认为20，最大值为100。
+        :type Limit: int
+        """
+        self._ServiceTemplateId = None
+        self._Offset = None
+        self._Limit = None
+
+    @property
+    def ServiceTemplateId(self):
+        r"""协议端口实例ID。例如：ppm-12345678。
+        :rtype: str
+        """
+        return self._ServiceTemplateId
+
+    @ServiceTemplateId.setter
+    def ServiceTemplateId(self, ServiceTemplateId):
+        self._ServiceTemplateId = ServiceTemplateId
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0。
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""返回数量，默认为20，最大值为100。
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+
+    def _deserialize(self, params):
+        self._ServiceTemplateId = params.get("ServiceTemplateId")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeServiceTemplateInstancesResponse(AbstractModel):
+    r"""DescribeServiceTemplateInstances返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -34898,11 +36666,17 @@ class DescribeSubnetsRequest(AbstractModel):
         :type Offset: str
         :param _Limit: 返回数量，默认为20，最大值为100。
         :type Limit: str
+        :param _MaxResults: 每次调用返回的最大结果数。如果查询返回的时候有NextToken返回，您可以使用NextToken值获取更多页结果， 当NextToke返回空或者返回的结果数量小于MaxResults时，表示没有更多数据了。允许的最大页面大小为 100。
+        :type MaxResults: int
+        :param _NextToken: 如果NextToken返回非空字符串 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :type NextToken: str
         """
         self._SubnetIds = None
         self._Filters = None
         self._Offset = None
         self._Limit = None
+        self._MaxResults = None
+        self._NextToken = None
 
     @property
     def SubnetIds(self):
@@ -34962,6 +36736,28 @@ class DescribeSubnetsRequest(AbstractModel):
     def Limit(self, Limit):
         self._Limit = Limit
 
+    @property
+    def MaxResults(self):
+        r"""每次调用返回的最大结果数。如果查询返回的时候有NextToken返回，您可以使用NextToken值获取更多页结果， 当NextToke返回空或者返回的结果数量小于MaxResults时，表示没有更多数据了。允许的最大页面大小为 100。
+        :rtype: int
+        """
+        return self._MaxResults
+
+    @MaxResults.setter
+    def MaxResults(self, MaxResults):
+        self._MaxResults = MaxResults
+
+    @property
+    def NextToken(self):
+        r"""如果NextToken返回非空字符串 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :rtype: str
+        """
+        return self._NextToken
+
+    @NextToken.setter
+    def NextToken(self, NextToken):
+        self._NextToken = NextToken
+
 
     def _deserialize(self, params):
         self._SubnetIds = params.get("SubnetIds")
@@ -34973,6 +36769,8 @@ class DescribeSubnetsRequest(AbstractModel):
                 self._Filters.append(obj)
         self._Offset = params.get("Offset")
         self._Limit = params.get("Limit")
+        self._MaxResults = params.get("MaxResults")
+        self._NextToken = params.get("NextToken")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -34994,11 +36792,14 @@ class DescribeSubnetsResponse(AbstractModel):
         :type TotalCount: int
         :param _SubnetSet: 子网对象。
         :type SubnetSet: list of Subnet
+        :param _NextToken: 如果NextToken返回非空字符串 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :type NextToken: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._TotalCount = None
         self._SubnetSet = None
+        self._NextToken = None
         self._RequestId = None
 
     @property
@@ -35024,6 +36825,17 @@ class DescribeSubnetsResponse(AbstractModel):
         self._SubnetSet = SubnetSet
 
     @property
+    def NextToken(self):
+        r"""如果NextToken返回非空字符串 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :rtype: str
+        """
+        return self._NextToken
+
+    @NextToken.setter
+    def NextToken(self, NextToken):
+        self._NextToken = NextToken
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -35043,6 +36855,7 @@ class DescribeSubnetsResponse(AbstractModel):
                 obj = Subnet()
                 obj._deserialize(item)
                 self._SubnetSet.append(obj)
+        self._NextToken = params.get("NextToken")
         self._RequestId = params.get("RequestId")
 
 
@@ -35948,14 +37761,20 @@ class DescribeVpcEndPointRequest(AbstractModel):
         :param _EndPointId: 终端节点ID列表。可通过[DescribeVpcEndPoint](https://cloud.tencent.com/document/product/215/54679) 
 获取。
         :type EndPointId: list of str
-        :param _IpAddressType: 协议类型，支持 Ipv4，Ipv6，默认 Ipv4。
+        :param _IpAddressType: 协议类型，支持 Ipv4，Ipv6， DualStack，默认 Ipv4。使用DualStack查询双栈的时候，必须要使用MaxResult配合NextToken查询。第1次查询的时候只需要携带MaxResult，如果返回NextToken非空，表示有更多可用数据。第2次查询的时候就需要携带NextToken进行分页查询。
         :type IpAddressType: str
+        :param _MaxResults: 每次调用返回的最大结果数。如果查询返回的时候有NextToken返回，您可以使用NextToken值获取更多页结果， 当NextToke返回空或者返回的结果数量小于MaxResults时，表示没有更多数据了。允许的最大页面大小为 100。
+        :type MaxResults: int
+        :param _NextToken: 如果NextToken返回非空字符串 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :type NextToken: str
         """
         self._Filters = None
         self._Offset = None
         self._Limit = None
         self._EndPointId = None
         self._IpAddressType = None
+        self._MaxResults = None
+        self._NextToken = None
 
     @property
     def Filters(self):
@@ -36011,7 +37830,7 @@ class DescribeVpcEndPointRequest(AbstractModel):
 
     @property
     def IpAddressType(self):
-        r"""协议类型，支持 Ipv4，Ipv6，默认 Ipv4。
+        r"""协议类型，支持 Ipv4，Ipv6， DualStack，默认 Ipv4。使用DualStack查询双栈的时候，必须要使用MaxResult配合NextToken查询。第1次查询的时候只需要携带MaxResult，如果返回NextToken非空，表示有更多可用数据。第2次查询的时候就需要携带NextToken进行分页查询。
         :rtype: str
         """
         return self._IpAddressType
@@ -36019,6 +37838,28 @@ class DescribeVpcEndPointRequest(AbstractModel):
     @IpAddressType.setter
     def IpAddressType(self, IpAddressType):
         self._IpAddressType = IpAddressType
+
+    @property
+    def MaxResults(self):
+        r"""每次调用返回的最大结果数。如果查询返回的时候有NextToken返回，您可以使用NextToken值获取更多页结果， 当NextToke返回空或者返回的结果数量小于MaxResults时，表示没有更多数据了。允许的最大页面大小为 100。
+        :rtype: int
+        """
+        return self._MaxResults
+
+    @MaxResults.setter
+    def MaxResults(self, MaxResults):
+        self._MaxResults = MaxResults
+
+    @property
+    def NextToken(self):
+        r"""如果NextToken返回非空字符串 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :rtype: str
+        """
+        return self._NextToken
+
+    @NextToken.setter
+    def NextToken(self, NextToken):
+        self._NextToken = NextToken
 
 
     def _deserialize(self, params):
@@ -36032,6 +37873,8 @@ class DescribeVpcEndPointRequest(AbstractModel):
         self._Limit = params.get("Limit")
         self._EndPointId = params.get("EndPointId")
         self._IpAddressType = params.get("IpAddressType")
+        self._MaxResults = params.get("MaxResults")
+        self._NextToken = params.get("NextToken")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -36053,11 +37896,14 @@ class DescribeVpcEndPointResponse(AbstractModel):
         :type EndPointSet: list of EndPoint
         :param _TotalCount: 符合查询条件的终端节点个数。
         :type TotalCount: int
+        :param _NextToken: 如果NextToken返回非空字符串 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :type NextToken: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._EndPointSet = None
         self._TotalCount = None
+        self._NextToken = None
         self._RequestId = None
 
     @property
@@ -36083,6 +37929,17 @@ class DescribeVpcEndPointResponse(AbstractModel):
         self._TotalCount = TotalCount
 
     @property
+    def NextToken(self):
+        r"""如果NextToken返回非空字符串 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :rtype: str
+        """
+        return self._NextToken
+
+    @NextToken.setter
+    def NextToken(self, NextToken):
+        self._NextToken = NextToken
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -36102,6 +37959,7 @@ class DescribeVpcEndPointResponse(AbstractModel):
                 obj._deserialize(item)
                 self._EndPointSet.append(obj)
         self._TotalCount = params.get("TotalCount")
+        self._NextToken = params.get("NextToken")
         self._RequestId = params.get("RequestId")
 
 
@@ -36131,8 +37989,12 @@ GWLB可通过[DescribeGatewayLoadBalancers](https://cloud.tencent.com/document/p
         :type EndPointServiceIds: list of str
         :param _IsListAuthorizedEndPointService: <li>不支持同时传入参数 Filters 。</li> <li>列出授权给当前账号的终端节点服务信息。可以配合EndPointServiceIds参数进行过滤，哪些终端节点服务授权了该账户。</li>
         :type IsListAuthorizedEndPointService: bool
-        :param _IpAddressType: 协议类型，支持 Ipv4，Ipv6，默认 Ipv4。
+        :param _IpAddressType: 协议类型，支持 Ipv4，Ipv6， DualStack，默认 Ipv4。使用DualStack查询双栈的时候，必须要使用MaxResult配合NextToken查询。第1次查询的时候只需要携带MaxResult，如果返回NextToken非空，表示有更多可用数据。第2次查询的时候就需要携带NextToken进行分页查询。
         :type IpAddressType: str
+        :param _MaxResults: 每次调用返回的最大结果数。如果查询返回的时候有NextToken返回，您可以使用NextToken值获取更多页结果， 当NextToke返回空或者返回的结果数量小于MaxResults时，表示没有更多数据了。允许的最大页面大小为 100。
+        :type MaxResults: int
+        :param _NextToken: 如果NextToken返回 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :type NextToken: str
         """
         self._Filters = None
         self._Offset = None
@@ -36140,6 +38002,8 @@ GWLB可通过[DescribeGatewayLoadBalancers](https://cloud.tencent.com/document/p
         self._EndPointServiceIds = None
         self._IsListAuthorizedEndPointService = None
         self._IpAddressType = None
+        self._MaxResults = None
+        self._NextToken = None
 
     @property
     def Filters(self):
@@ -36207,7 +38071,7 @@ GWLB可通过[DescribeGatewayLoadBalancers](https://cloud.tencent.com/document/p
 
     @property
     def IpAddressType(self):
-        r"""协议类型，支持 Ipv4，Ipv6，默认 Ipv4。
+        r"""协议类型，支持 Ipv4，Ipv6， DualStack，默认 Ipv4。使用DualStack查询双栈的时候，必须要使用MaxResult配合NextToken查询。第1次查询的时候只需要携带MaxResult，如果返回NextToken非空，表示有更多可用数据。第2次查询的时候就需要携带NextToken进行分页查询。
         :rtype: str
         """
         return self._IpAddressType
@@ -36215,6 +38079,28 @@ GWLB可通过[DescribeGatewayLoadBalancers](https://cloud.tencent.com/document/p
     @IpAddressType.setter
     def IpAddressType(self, IpAddressType):
         self._IpAddressType = IpAddressType
+
+    @property
+    def MaxResults(self):
+        r"""每次调用返回的最大结果数。如果查询返回的时候有NextToken返回，您可以使用NextToken值获取更多页结果， 当NextToke返回空或者返回的结果数量小于MaxResults时，表示没有更多数据了。允许的最大页面大小为 100。
+        :rtype: int
+        """
+        return self._MaxResults
+
+    @MaxResults.setter
+    def MaxResults(self, MaxResults):
+        self._MaxResults = MaxResults
+
+    @property
+    def NextToken(self):
+        r"""如果NextToken返回 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :rtype: str
+        """
+        return self._NextToken
+
+    @NextToken.setter
+    def NextToken(self, NextToken):
+        self._NextToken = NextToken
 
 
     def _deserialize(self, params):
@@ -36229,6 +38115,8 @@ GWLB可通过[DescribeGatewayLoadBalancers](https://cloud.tencent.com/document/p
         self._EndPointServiceIds = params.get("EndPointServiceIds")
         self._IsListAuthorizedEndPointService = params.get("IsListAuthorizedEndPointService")
         self._IpAddressType = params.get("IpAddressType")
+        self._MaxResults = params.get("MaxResults")
+        self._NextToken = params.get("NextToken")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -36250,11 +38138,14 @@ class DescribeVpcEndPointServiceResponse(AbstractModel):
         :type EndPointServiceSet: list of EndPointService
         :param _TotalCount: 符合查询条件的个数。
         :type TotalCount: int
+        :param _NextToken: 如果NextToken返回非空字符串 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :type NextToken: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._EndPointServiceSet = None
         self._TotalCount = None
+        self._NextToken = None
         self._RequestId = None
 
     @property
@@ -36280,6 +38171,17 @@ class DescribeVpcEndPointServiceResponse(AbstractModel):
         self._TotalCount = TotalCount
 
     @property
+    def NextToken(self):
+        r"""如果NextToken返回非空字符串 ，表示还有更多可用结果。 NextToken是每个页面唯一的分页令牌。使用返回的令牌再次调用以检索下一页。需要保持所有其他参数不变。每个分页令牌在 24 小时后过期。
+        :rtype: str
+        """
+        return self._NextToken
+
+    @NextToken.setter
+    def NextToken(self, NextToken):
+        self._NextToken = NextToken
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -36299,6 +38201,7 @@ class DescribeVpcEndPointServiceResponse(AbstractModel):
                 obj._deserialize(item)
                 self._EndPointServiceSet.append(obj)
         self._TotalCount = params.get("TotalCount")
+        self._NextToken = params.get("NextToken")
         self._RequestId = params.get("RequestId")
 
 
@@ -36402,6 +38305,8 @@ class DescribeVpcEndPointServiceWhiteListResponse(AbstractModel):
 
     @property
     def VpcEndpointServiceUserSet(self):
+        warnings.warn("parameter `VpcEndpointServiceUserSet` is deprecated", DeprecationWarning) 
+
         r"""白名单对象数组。已废弃
         :rtype: list of VpcEndPointServiceUser
         """
@@ -36409,6 +38314,8 @@ class DescribeVpcEndPointServiceWhiteListResponse(AbstractModel):
 
     @VpcEndpointServiceUserSet.setter
     def VpcEndpointServiceUserSet(self, VpcEndpointServiceUserSet):
+        warnings.warn("parameter `VpcEndpointServiceUserSet` is deprecated", DeprecationWarning) 
+
         self._VpcEndpointServiceUserSet = VpcEndpointServiceUserSet
 
     @property
@@ -37037,7 +38944,7 @@ class DescribeVpcPrivateIpAddressesRequest(AbstractModel):
         r"""
         :param _VpcId: `VPC`实例`ID`，形如：`vpc-f49l6u0z`。
         :type VpcId: str
-        :param _PrivateIpAddresses: 内网`IP`地址列表，批量查询单次请求最多支持`10`个。
+        :param _PrivateIpAddresses: 内网`IP`地址列表，批量查询单次请求最多支持`100`个。
         :type PrivateIpAddresses: list of str
         """
         self._VpcId = None
@@ -37056,7 +38963,7 @@ class DescribeVpcPrivateIpAddressesRequest(AbstractModel):
 
     @property
     def PrivateIpAddresses(self):
-        r"""内网`IP`地址列表，批量查询单次请求最多支持`10`个。
+        r"""内网`IP`地址列表，批量查询单次请求最多支持`100`个。
         :rtype: list of str
         """
         return self._PrivateIpAddresses
@@ -38556,23 +40463,23 @@ class DestinationIpPortTranslationNatRuleDiff(AbstractModel):
         r"""
         :param _Protocol: 协议
         :type Protocol: str
-        :param _OriginalPort: 源端口
+        :param _OriginalPort: 映射前端口
         :type OriginalPort: int
-        :param _OriginalIp: 源IP
+        :param _OriginalIp: 映射前IP
         :type OriginalIp: str
-        :param _TranslationPort: 目的端口
+        :param _TranslationPort: 映射后端口
         :type TranslationPort: int
-        :param _TranslationIp: 目的IP
+        :param _TranslationIp: 映射后IP
         :type TranslationIp: str
         :param _OldProtocol: 旧协议。
         :type OldProtocol: str
-        :param _OldOriginalPort: 旧源端口
+        :param _OldOriginalPort: 旧映射前端口
         :type OldOriginalPort: int
-        :param _OldOriginalIp: 旧源IP
+        :param _OldOriginalIp: 旧映射前IP
         :type OldOriginalIp: str
-        :param _OldTranslationPort: 旧目的端口
+        :param _OldTranslationPort: 旧映射后端口
         :type OldTranslationPort: int
-        :param _OldTranslationIp: 旧目的IP
+        :param _OldTranslationIp: 旧映射后IP
         :type OldTranslationIp: str
         :param _Description: 描述
         :type Description: str
@@ -38602,7 +40509,7 @@ class DestinationIpPortTranslationNatRuleDiff(AbstractModel):
 
     @property
     def OriginalPort(self):
-        r"""源端口
+        r"""映射前端口
         :rtype: int
         """
         return self._OriginalPort
@@ -38613,7 +40520,7 @@ class DestinationIpPortTranslationNatRuleDiff(AbstractModel):
 
     @property
     def OriginalIp(self):
-        r"""源IP
+        r"""映射前IP
         :rtype: str
         """
         return self._OriginalIp
@@ -38624,7 +40531,7 @@ class DestinationIpPortTranslationNatRuleDiff(AbstractModel):
 
     @property
     def TranslationPort(self):
-        r"""目的端口
+        r"""映射后端口
         :rtype: int
         """
         return self._TranslationPort
@@ -38635,7 +40542,7 @@ class DestinationIpPortTranslationNatRuleDiff(AbstractModel):
 
     @property
     def TranslationIp(self):
-        r"""目的IP
+        r"""映射后IP
         :rtype: str
         """
         return self._TranslationIp
@@ -38657,7 +40564,7 @@ class DestinationIpPortTranslationNatRuleDiff(AbstractModel):
 
     @property
     def OldOriginalPort(self):
-        r"""旧源端口
+        r"""旧映射前端口
         :rtype: int
         """
         return self._OldOriginalPort
@@ -38668,7 +40575,7 @@ class DestinationIpPortTranslationNatRuleDiff(AbstractModel):
 
     @property
     def OldOriginalIp(self):
-        r"""旧源IP
+        r"""旧映射前IP
         :rtype: str
         """
         return self._OldOriginalIp
@@ -38679,7 +40586,7 @@ class DestinationIpPortTranslationNatRuleDiff(AbstractModel):
 
     @property
     def OldTranslationPort(self):
-        r"""旧目的端口
+        r"""旧映射后端口
         :rtype: int
         """
         return self._OldTranslationPort
@@ -38690,7 +40597,7 @@ class DestinationIpPortTranslationNatRuleDiff(AbstractModel):
 
     @property
     def OldTranslationIp(self):
-        r"""旧目的IP
+        r"""旧映射后IP
         :rtype: str
         """
         return self._OldTranslationIp
@@ -42480,13 +44387,13 @@ class FlowLog(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _VpcId: 私用网络唯一ID。可通过[DescribeVpcs](https://cloud.tencent.com/document/product/215/15778)接口获取。
+        :param _VpcId: 私有网络唯一ID。可通过[DescribeVpcs](https://cloud.tencent.com/document/product/215/15778)接口获取。
         :type VpcId: str
         :param _FlowLogId: 流日志唯一ID。
         :type FlowLogId: str
         :param _FlowLogName: 流日志实例名字。
         :type FlowLogName: str
-        :param _ResourceType: 流日志所属资源类型：VPC(私有网络)，SUBNET（子网），NETWORKINTERFACE（网卡），CCN（云联网），NAT（网络地址转化），DCG（专线网关）。
+        :param _ResourceType: 流日志所属资源类型：VPC(私有网络)，SUBNET（子网），NETWORKINTERFACE（网卡），CCN（云联网），NAT（网络地址转换），DCG（专线网关）。
         :type ResourceType: str
         :param _ResourceId: 资源唯一ID。
         :type ResourceId: str
@@ -42510,6 +44417,8 @@ class FlowLog(AbstractModel):
         :type FlowLogStorage: :class:`tencentcloud.vpc.v20170312.models.FlowLogStorage`
         :param _CloudLogRegion: 流日志存储ID对应的地域信息。
         :type CloudLogRegion: str
+        :param _Period: 流日志采集周期，只支持CCN类型流日志。取值范围（单位s）：60， 300， 600。
+        :type Period: int
         """
         self._VpcId = None
         self._FlowLogId = None
@@ -42526,10 +44435,11 @@ class FlowLog(AbstractModel):
         self._StorageType = None
         self._FlowLogStorage = None
         self._CloudLogRegion = None
+        self._Period = None
 
     @property
     def VpcId(self):
-        r"""私用网络唯一ID。可通过[DescribeVpcs](https://cloud.tencent.com/document/product/215/15778)接口获取。
+        r"""私有网络唯一ID。可通过[DescribeVpcs](https://cloud.tencent.com/document/product/215/15778)接口获取。
         :rtype: str
         """
         return self._VpcId
@@ -42562,7 +44472,7 @@ class FlowLog(AbstractModel):
 
     @property
     def ResourceType(self):
-        r"""流日志所属资源类型：VPC(私有网络)，SUBNET（子网），NETWORKINTERFACE（网卡），CCN（云联网），NAT（网络地址转化），DCG（专线网关）。
+        r"""流日志所属资源类型：VPC(私有网络)，SUBNET（子网），NETWORKINTERFACE（网卡），CCN（云联网），NAT（网络地址转换），DCG（专线网关）。
         :rtype: str
         """
         return self._ResourceType
@@ -42692,6 +44602,17 @@ class FlowLog(AbstractModel):
     def CloudLogRegion(self, CloudLogRegion):
         self._CloudLogRegion = CloudLogRegion
 
+    @property
+    def Period(self):
+        r"""流日志采集周期，只支持CCN类型流日志。取值范围（单位s）：60， 300， 600。
+        :rtype: int
+        """
+        return self._Period
+
+    @Period.setter
+    def Period(self, Period):
+        self._Period = Period
+
 
     def _deserialize(self, params):
         self._VpcId = params.get("VpcId")
@@ -42716,6 +44637,7 @@ class FlowLog(AbstractModel):
             self._FlowLogStorage = FlowLogStorage()
             self._FlowLogStorage._deserialize(params.get("FlowLogStorage"))
         self._CloudLogRegion = params.get("CloudLogRegion")
+        self._Period = params.get("Period")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -42914,15 +44836,18 @@ class GatewayQos(AbstractModel):
         :type VpcId: str
         :param _IpAddress: 云服务器内网IP。
         :type IpAddress: str
-        :param _Bandwidth: 流控带宽值。
+        :param _Bandwidth: 网关流控出方向带宽值，当值为-1时，代表未限速；当值大于等于0时，限速带宽上限为返回值。
         :type Bandwidth: int
         :param _CreateTime: 创建时间。
         :type CreateTime: str
+        :param _InBandwidth: 网关流控入方向带宽值，当值为-1时，代表未限速；当值大于等于0时，限速带宽上限为返回值。
+        :type InBandwidth: int
         """
         self._VpcId = None
         self._IpAddress = None
         self._Bandwidth = None
         self._CreateTime = None
+        self._InBandwidth = None
 
     @property
     def VpcId(self):
@@ -42948,7 +44873,7 @@ class GatewayQos(AbstractModel):
 
     @property
     def Bandwidth(self):
-        r"""流控带宽值。
+        r"""网关流控出方向带宽值，当值为-1时，代表未限速；当值大于等于0时，限速带宽上限为返回值。
         :rtype: int
         """
         return self._Bandwidth
@@ -42968,12 +44893,24 @@ class GatewayQos(AbstractModel):
     def CreateTime(self, CreateTime):
         self._CreateTime = CreateTime
 
+    @property
+    def InBandwidth(self):
+        r"""网关流控入方向带宽值，当值为-1时，代表未限速；当值大于等于0时，限速带宽上限为返回值。
+        :rtype: int
+        """
+        return self._InBandwidth
+
+    @InBandwidth.setter
+    def InBandwidth(self, InBandwidth):
+        self._InBandwidth = InBandwidth
+
 
     def _deserialize(self, params):
         self._VpcId = params.get("VpcId")
         self._IpAddress = params.get("IpAddress")
         self._Bandwidth = params.get("Bandwidth")
         self._CreateTime = params.get("CreateTime")
+        self._InBandwidth = params.get("InBandwidth")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -44793,11 +46730,19 @@ class InquiryPriceAllocateAddressesRequest(AbstractModel):
 <ul style="margin:0"><li>精品IP，可选值：<ul><li>HighQualityEIP：精品IP</li></ul>注意：仅新加坡和中国香港支持精品IP。</li></ul>
 <ul style="margin:0"><li>高防IP，可选值：<ul><li>AntiDDoSEIP：高防IP</li></ul>注意：仅部分地域支持高防IP，详情可见弹性公网IP[产品概述](https://cloud.tencent.com/document/product/1199/41646)。</li></ul>
         :type AddressType: str
+        :param _IPChargeType: 原生EIP IP资源的计费方式。
+<ul style="margin:0"><li>账号为标准账户类型的用户，可选值：<ul>
+<li>IP_POSTPAID_BY_HOUR：IP资源按小时后付费</li>
+<li>IP_PREPAID_BY_MONTH：IP资源包月预付费</li>
+</ul></li>
+</ul>
+        :type IPChargeType: str
         """
         self._InternetChargeType = None
         self._InternetMaxBandwidthOut = None
         self._AddressChargePrepaid = None
         self._AddressType = None
+        self._IPChargeType = None
 
     @property
     def InternetChargeType(self):
@@ -44858,6 +46803,22 @@ class InquiryPriceAllocateAddressesRequest(AbstractModel):
     def AddressType(self, AddressType):
         self._AddressType = AddressType
 
+    @property
+    def IPChargeType(self):
+        r"""原生EIP IP资源的计费方式。
+<ul style="margin:0"><li>账号为标准账户类型的用户，可选值：<ul>
+<li>IP_POSTPAID_BY_HOUR：IP资源按小时后付费</li>
+<li>IP_PREPAID_BY_MONTH：IP资源包月预付费</li>
+</ul></li>
+</ul>
+        :rtype: str
+        """
+        return self._IPChargeType
+
+    @IPChargeType.setter
+    def IPChargeType(self, IPChargeType):
+        self._IPChargeType = IPChargeType
+
 
     def _deserialize(self, params):
         self._InternetChargeType = params.get("InternetChargeType")
@@ -44866,6 +46827,7 @@ class InquiryPriceAllocateAddressesRequest(AbstractModel):
             self._AddressChargePrepaid = AddressChargePrepaid()
             self._AddressChargePrepaid._deserialize(params.get("AddressChargePrepaid"))
         self._AddressType = params.get("AddressType")
+        self._IPChargeType = params.get("IPChargeType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -45786,14 +47748,23 @@ class InternetPrice(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _AddressPrice: 公网IP询价详细参数。
+        :param _AddressPrice: 公网IP网络费询价详细参数。
         :type AddressPrice: :class:`tencentcloud.vpc.v20170312.models.InternetPriceDetail`
+        :param _IPPrice: 公网IP资源费询价详细参数。仅原生IP价格查询返回。
+        :type IPPrice: :class:`tencentcloud.vpc.v20170312.models.InternetPriceDetail`
+        :param _OriginalPrice: 总原价，单位：元，仅预付费价格查询返回。
+        :type OriginalPrice: float
+        :param _DiscountPrice: 折扣后的总价格，单位：元。仅预付费价格查询返回。
+        :type DiscountPrice: float
         """
         self._AddressPrice = None
+        self._IPPrice = None
+        self._OriginalPrice = None
+        self._DiscountPrice = None
 
     @property
     def AddressPrice(self):
-        r"""公网IP询价详细参数。
+        r"""公网IP网络费询价详细参数。
         :rtype: :class:`tencentcloud.vpc.v20170312.models.InternetPriceDetail`
         """
         return self._AddressPrice
@@ -45802,11 +47773,49 @@ class InternetPrice(AbstractModel):
     def AddressPrice(self, AddressPrice):
         self._AddressPrice = AddressPrice
 
+    @property
+    def IPPrice(self):
+        r"""公网IP资源费询价详细参数。仅原生IP价格查询返回。
+        :rtype: :class:`tencentcloud.vpc.v20170312.models.InternetPriceDetail`
+        """
+        return self._IPPrice
+
+    @IPPrice.setter
+    def IPPrice(self, IPPrice):
+        self._IPPrice = IPPrice
+
+    @property
+    def OriginalPrice(self):
+        r"""总原价，单位：元，仅预付费价格查询返回。
+        :rtype: float
+        """
+        return self._OriginalPrice
+
+    @OriginalPrice.setter
+    def OriginalPrice(self, OriginalPrice):
+        self._OriginalPrice = OriginalPrice
+
+    @property
+    def DiscountPrice(self):
+        r"""折扣后的总价格，单位：元。仅预付费价格查询返回。
+        :rtype: float
+        """
+        return self._DiscountPrice
+
+    @DiscountPrice.setter
+    def DiscountPrice(self, DiscountPrice):
+        self._DiscountPrice = DiscountPrice
+
 
     def _deserialize(self, params):
         if params.get("AddressPrice") is not None:
             self._AddressPrice = InternetPriceDetail()
             self._AddressPrice._deserialize(params.get("AddressPrice"))
+        if params.get("IPPrice") is not None:
+            self._IPPrice = InternetPriceDetail()
+            self._IPPrice._deserialize(params.get("IPPrice"))
+        self._OriginalPrice = params.get("OriginalPrice")
+        self._DiscountPrice = params.get("DiscountPrice")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -46962,15 +48971,15 @@ class LocalDestinationIpPortTranslationNatRule(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Protocol: 协议
+        :param _Protocol: 协议，包含TCP和UDP
         :type Protocol: str
-        :param _OriginalPort: 源端口
+        :param _OriginalPort: 映射前端口
         :type OriginalPort: int
-        :param _OriginalIp: 源IP
+        :param _OriginalIp: 映射前IP
         :type OriginalIp: str
-        :param _TranslationPort: 目的端口
+        :param _TranslationPort: 映射后端口
         :type TranslationPort: int
-        :param _TranslationIp: 目的IP
+        :param _TranslationIp: 映射后IP
         :type TranslationIp: str
         :param _Description: 描述
         :type Description: str
@@ -46984,7 +48993,7 @@ class LocalDestinationIpPortTranslationNatRule(AbstractModel):
 
     @property
     def Protocol(self):
-        r"""协议
+        r"""协议，包含TCP和UDP
         :rtype: str
         """
         return self._Protocol
@@ -46995,7 +49004,7 @@ class LocalDestinationIpPortTranslationNatRule(AbstractModel):
 
     @property
     def OriginalPort(self):
-        r"""源端口
+        r"""映射前端口
         :rtype: int
         """
         return self._OriginalPort
@@ -47006,7 +49015,7 @@ class LocalDestinationIpPortTranslationNatRule(AbstractModel):
 
     @property
     def OriginalIp(self):
-        r"""源IP
+        r"""映射前IP
         :rtype: str
         """
         return self._OriginalIp
@@ -47017,7 +49026,7 @@ class LocalDestinationIpPortTranslationNatRule(AbstractModel):
 
     @property
     def TranslationPort(self):
-        r"""目的端口
+        r"""映射后端口
         :rtype: int
         """
         return self._TranslationPort
@@ -47028,7 +49037,7 @@ class LocalDestinationIpPortTranslationNatRule(AbstractModel):
 
     @property
     def TranslationIp(self):
-        r"""目的IP
+        r"""映射后IP
         :rtype: str
         """
         return self._TranslationIp
@@ -49342,11 +51351,14 @@ class ModifyFlowLogAttributeRequest(AbstractModel):
         :type FlowLogName: str
         :param _FlowLogDescription: 流日志实例描述。长度为不超过512个字符。
         :type FlowLogDescription: str
+        :param _Period: 流日志采集周期，只支持CCN类型流日志。 取值范围（单位s）：60， 300， 600。
+        :type Period: int
         """
         self._FlowLogId = None
         self._VpcId = None
         self._FlowLogName = None
         self._FlowLogDescription = None
+        self._Period = None
 
     @property
     def FlowLogId(self):
@@ -49392,12 +51404,24 @@ class ModifyFlowLogAttributeRequest(AbstractModel):
     def FlowLogDescription(self, FlowLogDescription):
         self._FlowLogDescription = FlowLogDescription
 
+    @property
+    def Period(self):
+        r"""流日志采集周期，只支持CCN类型流日志。 取值范围（单位s）：60， 300， 600。
+        :rtype: int
+        """
+        return self._Period
+
+    @Period.setter
+    def Period(self, Period):
+        self._Period = Period
+
 
     def _deserialize(self, params):
         self._FlowLogId = params.get("FlowLogId")
         self._VpcId = params.get("VpcId")
         self._FlowLogName = params.get("FlowLogName")
         self._FlowLogDescription = params.get("FlowLogDescription")
+        self._Period = params.get("Period")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -50729,9 +52753,9 @@ class ModifyNatGatewayAttributeRequest(AbstractModel):
         r"""
         :param _NatGatewayId: NAT网关的ID，形如：`nat-df45454`。
         :type NatGatewayId: str
-        :param _NatGatewayName: NAT网关的名称，形如：`test_nat`。
+        :param _NatGatewayName: NAT网关的名称，形如：`test_nat`，边界值：[1,60] 字符。
         :type NatGatewayName: str
-        :param _InternetMaxBandwidthOut: NAT网关最大外网出带宽(单位:Mbps)。
+        :param _InternetMaxBandwidthOut: NAT网关最大外网出带宽(单位:Mbps)，边界值：[0,50000]。
         :type InternetMaxBandwidthOut: int
         :param _ModifySecurityGroup: 是否修改NAT网关绑定的安全组。
         :type ModifySecurityGroup: bool
@@ -50739,6 +52763,8 @@ class ModifyNatGatewayAttributeRequest(AbstractModel):
         :type SecurityGroupIds: list of str
         :param _DeletionProtectionEnabled: NAT实例是否开启删除保护
         :type DeletionProtectionEnabled: bool
+        :param _PublicAddressAffinity: 同一个内网地址通过NAT网关访问同一个目的IP时，是否使用固定的弹性公网IP。默认为true，使用固定IP；false代表使用随机IP。当前适用于标准型NAT网关。
+        :type PublicAddressAffinity: bool
         """
         self._NatGatewayId = None
         self._NatGatewayName = None
@@ -50746,6 +52772,7 @@ class ModifyNatGatewayAttributeRequest(AbstractModel):
         self._ModifySecurityGroup = None
         self._SecurityGroupIds = None
         self._DeletionProtectionEnabled = None
+        self._PublicAddressAffinity = None
 
     @property
     def NatGatewayId(self):
@@ -50760,7 +52787,7 @@ class ModifyNatGatewayAttributeRequest(AbstractModel):
 
     @property
     def NatGatewayName(self):
-        r"""NAT网关的名称，形如：`test_nat`。
+        r"""NAT网关的名称，形如：`test_nat`，边界值：[1,60] 字符。
         :rtype: str
         """
         return self._NatGatewayName
@@ -50771,7 +52798,7 @@ class ModifyNatGatewayAttributeRequest(AbstractModel):
 
     @property
     def InternetMaxBandwidthOut(self):
-        r"""NAT网关最大外网出带宽(单位:Mbps)。
+        r"""NAT网关最大外网出带宽(单位:Mbps)，边界值：[0,50000]。
         :rtype: int
         """
         return self._InternetMaxBandwidthOut
@@ -50813,6 +52840,17 @@ class ModifyNatGatewayAttributeRequest(AbstractModel):
     def DeletionProtectionEnabled(self, DeletionProtectionEnabled):
         self._DeletionProtectionEnabled = DeletionProtectionEnabled
 
+    @property
+    def PublicAddressAffinity(self):
+        r"""同一个内网地址通过NAT网关访问同一个目的IP时，是否使用固定的弹性公网IP。默认为true，使用固定IP；false代表使用随机IP。当前适用于标准型NAT网关。
+        :rtype: bool
+        """
+        return self._PublicAddressAffinity
+
+    @PublicAddressAffinity.setter
+    def PublicAddressAffinity(self, PublicAddressAffinity):
+        self._PublicAddressAffinity = PublicAddressAffinity
+
 
     def _deserialize(self, params):
         self._NatGatewayId = params.get("NatGatewayId")
@@ -50821,6 +52859,7 @@ class ModifyNatGatewayAttributeRequest(AbstractModel):
         self._ModifySecurityGroup = params.get("ModifySecurityGroup")
         self._SecurityGroupIds = params.get("SecurityGroupIds")
         self._DeletionProtectionEnabled = params.get("DeletionProtectionEnabled")
+        self._PublicAddressAffinity = params.get("PublicAddressAffinity")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -50966,7 +53005,7 @@ class ModifyNatGatewaySourceIpTranslationNatRuleRequest(AbstractModel):
         r"""
         :param _NatGatewayId: NAT网关的ID，形如：`nat-df453454`。
         :type NatGatewayId: str
-        :param _SourceIpTranslationNatRule: NAT网关的SNAT转换规则。
+        :param _SourceIpTranslationNatRule: NAT网关的SNAT转换规则。仅支持根据指定的NatGatewaySnatId修改PublicIpAddresses或Description。
         :type SourceIpTranslationNatRule: :class:`tencentcloud.vpc.v20170312.models.SourceIpTranslationNatRule`
         """
         self._NatGatewayId = None
@@ -50985,7 +53024,7 @@ class ModifyNatGatewaySourceIpTranslationNatRuleRequest(AbstractModel):
 
     @property
     def SourceIpTranslationNatRule(self):
-        r"""NAT网关的SNAT转换规则。
+        r"""NAT网关的SNAT转换规则。仅支持根据指定的NatGatewaySnatId修改PublicIpAddresses或Description。
         :rtype: :class:`tencentcloud.vpc.v20170312.models.SourceIpTranslationNatRule`
         """
         return self._SourceIpTranslationNatRule
@@ -51799,9 +53838,12 @@ class ModifyPrivateNatGatewayAttributeRequest(AbstractModel):
         :type NatGatewayId: str
         :param _NatGatewayName: 私网网关名称，可任意命名，但不得超过60个字符。
         :type NatGatewayName: str
+        :param _DeletionProtectionEnabled: 私网NAT实例是否开启删除保护
+        :type DeletionProtectionEnabled: bool
         """
         self._NatGatewayId = None
         self._NatGatewayName = None
+        self._DeletionProtectionEnabled = None
 
     @property
     def NatGatewayId(self):
@@ -51825,10 +53867,22 @@ class ModifyPrivateNatGatewayAttributeRequest(AbstractModel):
     def NatGatewayName(self, NatGatewayName):
         self._NatGatewayName = NatGatewayName
 
+    @property
+    def DeletionProtectionEnabled(self):
+        r"""私网NAT实例是否开启删除保护
+        :rtype: bool
+        """
+        return self._DeletionProtectionEnabled
+
+    @DeletionProtectionEnabled.setter
+    def DeletionProtectionEnabled(self, DeletionProtectionEnabled):
+        self._DeletionProtectionEnabled = DeletionProtectionEnabled
+
 
     def _deserialize(self, params):
         self._NatGatewayId = params.get("NatGatewayId")
         self._NatGatewayName = params.get("NatGatewayName")
+        self._DeletionProtectionEnabled = params.get("DeletionProtectionEnabled")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -52277,6 +54331,100 @@ class ModifyReserveIpAddressRequest(AbstractModel):
 
 class ModifyReserveIpAddressResponse(AbstractModel):
     r"""ModifyReserveIpAddress返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyRoutePolicyAttributeRequest(AbstractModel):
+    r"""ModifyRoutePolicyAttribute请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: 路由接收策略实例ID，例如：rrp-dz0219jq。
+        :type RoutePolicyId: str
+        :param _RoutePolicyName: 路由接收策略名称。
+        :type RoutePolicyName: str
+        :param _RoutePolicyDescription: 路由接收策略描述。
+        :type RoutePolicyDescription: str
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyName = None
+        self._RoutePolicyDescription = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""路由接收策略实例ID，例如：rrp-dz0219jq。
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyName(self):
+        r"""路由接收策略名称。
+        :rtype: str
+        """
+        return self._RoutePolicyName
+
+    @RoutePolicyName.setter
+    def RoutePolicyName(self, RoutePolicyName):
+        self._RoutePolicyName = RoutePolicyName
+
+    @property
+    def RoutePolicyDescription(self):
+        r"""路由接收策略描述。
+        :rtype: str
+        """
+        return self._RoutePolicyDescription
+
+    @RoutePolicyDescription.setter
+    def RoutePolicyDescription(self, RoutePolicyDescription):
+        self._RoutePolicyDescription = RoutePolicyDescription
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        self._RoutePolicyName = params.get("RoutePolicyName")
+        self._RoutePolicyDescription = params.get("RoutePolicyDescription")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyRoutePolicyAttributeResponse(AbstractModel):
+    r"""ModifyRoutePolicyAttribute返回参数结构体
 
     """
 
@@ -53308,15 +55456,21 @@ class ModifyVpcAttributeRequest(AbstractModel):
         :type DnsServers: list of str
         :param _DomainName: 域名。
         :type DomainName: str
+        :param _EnableRouteVpcPublish: vpc关联云联网时路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时,请通过工单加入白名单
+        :type EnableRouteVpcPublish: bool
         :param _EnableCdcPublish: 发布cdc 子网到云联网的开关。true: 发布, false: 不发布。
         :type EnableCdcPublish: bool
+        :param _EnableRouteVpcPublishIpv6: vpc关联云联网时IPv6类型路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时，请通过工单加入白名单。
+        :type EnableRouteVpcPublishIpv6: bool
         """
         self._VpcId = None
         self._VpcName = None
         self._EnableMulticast = None
         self._DnsServers = None
         self._DomainName = None
+        self._EnableRouteVpcPublish = None
         self._EnableCdcPublish = None
+        self._EnableRouteVpcPublishIpv6 = None
 
     @property
     def VpcId(self):
@@ -53374,6 +55528,17 @@ class ModifyVpcAttributeRequest(AbstractModel):
         self._DomainName = DomainName
 
     @property
+    def EnableRouteVpcPublish(self):
+        r"""vpc关联云联网时路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时,请通过工单加入白名单
+        :rtype: bool
+        """
+        return self._EnableRouteVpcPublish
+
+    @EnableRouteVpcPublish.setter
+    def EnableRouteVpcPublish(self, EnableRouteVpcPublish):
+        self._EnableRouteVpcPublish = EnableRouteVpcPublish
+
+    @property
     def EnableCdcPublish(self):
         r"""发布cdc 子网到云联网的开关。true: 发布, false: 不发布。
         :rtype: bool
@@ -53384,6 +55549,17 @@ class ModifyVpcAttributeRequest(AbstractModel):
     def EnableCdcPublish(self, EnableCdcPublish):
         self._EnableCdcPublish = EnableCdcPublish
 
+    @property
+    def EnableRouteVpcPublishIpv6(self):
+        r"""vpc关联云联网时IPv6类型路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时，请通过工单加入白名单。
+        :rtype: bool
+        """
+        return self._EnableRouteVpcPublishIpv6
+
+    @EnableRouteVpcPublishIpv6.setter
+    def EnableRouteVpcPublishIpv6(self, EnableRouteVpcPublishIpv6):
+        self._EnableRouteVpcPublishIpv6 = EnableRouteVpcPublishIpv6
+
 
     def _deserialize(self, params):
         self._VpcId = params.get("VpcId")
@@ -53391,7 +55567,9 @@ class ModifyVpcAttributeRequest(AbstractModel):
         self._EnableMulticast = params.get("EnableMulticast")
         self._DnsServers = params.get("DnsServers")
         self._DomainName = params.get("DomainName")
+        self._EnableRouteVpcPublish = params.get("EnableRouteVpcPublish")
         self._EnableCdcPublish = params.get("EnableCdcPublish")
+        self._EnableRouteVpcPublishIpv6 = params.get("EnableRouteVpcPublishIpv6")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -54960,12 +57138,24 @@ class NatGateway(AbstractModel):
         :type RestrictState: str
         :param _NatProductVersion: NAT网关类型，1表示传统型NAT网关，2表示标准型NAT网关
         :type NatProductVersion: int
+        :param _StrictSnatMode: true代表仅允许匹配SNAT规则的内网IP的流量进行转发，false代表所有内网IP发起的流量都进行转发。默认为false。
+        :type StrictSnatMode: bool
         :param _SmartScheduleMode: 是否启用根据目的网段选择SNAT使用的EIP功能	
         :type SmartScheduleMode: bool
         :param _DedicatedClusterId: NAT实例归属的专属集群id
         :type DedicatedClusterId: str
         :param _DeletionProtectionEnabled: NAT实例是否开启删除保护
         :type DeletionProtectionEnabled: bool
+        :param _ConnectionStateTimeouts: NAT实例连接超时时间
+        :type ConnectionStateTimeouts: :class:`tencentcloud.vpc.v20170312.models.ConnectionStateTimeouts`
+        :param _ExclusiveType: 独享实例规格。取值范围：ExclusiveSmall/ExclusiveMedium1/ExclusiveLarge1
+        :type ExclusiveType: str
+        :param _AutoScaling: 标准型NAT网关自动扩容
+        :type AutoScaling: bool
+        :param _ICMPProxy: 是否代答公网发给NAT网关上弹性公网IP的ICMP echo请求报文，当前适用于标准型NAT网关
+        :type ICMPProxy: bool
+        :param _PublicAddressAffinity: true代表同一个私网IP访问同一个公网目的IP时，固定使用同一个NAT网关上的弹性公网IP；false代表这种情况下使用的弹性公网IP不固定。默认为true。
+        :type PublicAddressAffinity: bool
         """
         self._NatGatewayId = None
         self._NatGatewayName = None
@@ -54987,9 +57177,15 @@ class NatGateway(AbstractModel):
         self._ExclusiveGatewayBandwidth = None
         self._RestrictState = None
         self._NatProductVersion = None
+        self._StrictSnatMode = None
         self._SmartScheduleMode = None
         self._DedicatedClusterId = None
         self._DeletionProtectionEnabled = None
+        self._ConnectionStateTimeouts = None
+        self._ExclusiveType = None
+        self._AutoScaling = None
+        self._ICMPProxy = None
+        self._PublicAddressAffinity = None
 
     @property
     def NatGatewayId(self):
@@ -55214,6 +57410,17 @@ class NatGateway(AbstractModel):
         self._NatProductVersion = NatProductVersion
 
     @property
+    def StrictSnatMode(self):
+        r"""true代表仅允许匹配SNAT规则的内网IP的流量进行转发，false代表所有内网IP发起的流量都进行转发。默认为false。
+        :rtype: bool
+        """
+        return self._StrictSnatMode
+
+    @StrictSnatMode.setter
+    def StrictSnatMode(self, StrictSnatMode):
+        self._StrictSnatMode = StrictSnatMode
+
+    @property
     def SmartScheduleMode(self):
         r"""是否启用根据目的网段选择SNAT使用的EIP功能	
         :rtype: bool
@@ -55245,6 +57452,61 @@ class NatGateway(AbstractModel):
     @DeletionProtectionEnabled.setter
     def DeletionProtectionEnabled(self, DeletionProtectionEnabled):
         self._DeletionProtectionEnabled = DeletionProtectionEnabled
+
+    @property
+    def ConnectionStateTimeouts(self):
+        r"""NAT实例连接超时时间
+        :rtype: :class:`tencentcloud.vpc.v20170312.models.ConnectionStateTimeouts`
+        """
+        return self._ConnectionStateTimeouts
+
+    @ConnectionStateTimeouts.setter
+    def ConnectionStateTimeouts(self, ConnectionStateTimeouts):
+        self._ConnectionStateTimeouts = ConnectionStateTimeouts
+
+    @property
+    def ExclusiveType(self):
+        r"""独享实例规格。取值范围：ExclusiveSmall/ExclusiveMedium1/ExclusiveLarge1
+        :rtype: str
+        """
+        return self._ExclusiveType
+
+    @ExclusiveType.setter
+    def ExclusiveType(self, ExclusiveType):
+        self._ExclusiveType = ExclusiveType
+
+    @property
+    def AutoScaling(self):
+        r"""标准型NAT网关自动扩容
+        :rtype: bool
+        """
+        return self._AutoScaling
+
+    @AutoScaling.setter
+    def AutoScaling(self, AutoScaling):
+        self._AutoScaling = AutoScaling
+
+    @property
+    def ICMPProxy(self):
+        r"""是否代答公网发给NAT网关上弹性公网IP的ICMP echo请求报文，当前适用于标准型NAT网关
+        :rtype: bool
+        """
+        return self._ICMPProxy
+
+    @ICMPProxy.setter
+    def ICMPProxy(self, ICMPProxy):
+        self._ICMPProxy = ICMPProxy
+
+    @property
+    def PublicAddressAffinity(self):
+        r"""true代表同一个私网IP访问同一个公网目的IP时，固定使用同一个NAT网关上的弹性公网IP；false代表这种情况下使用的弹性公网IP不固定。默认为true。
+        :rtype: bool
+        """
+        return self._PublicAddressAffinity
+
+    @PublicAddressAffinity.setter
+    def PublicAddressAffinity(self, PublicAddressAffinity):
+        self._PublicAddressAffinity = PublicAddressAffinity
 
 
     def _deserialize(self, params):
@@ -55288,9 +57550,17 @@ class NatGateway(AbstractModel):
         self._ExclusiveGatewayBandwidth = params.get("ExclusiveGatewayBandwidth")
         self._RestrictState = params.get("RestrictState")
         self._NatProductVersion = params.get("NatProductVersion")
+        self._StrictSnatMode = params.get("StrictSnatMode")
         self._SmartScheduleMode = params.get("SmartScheduleMode")
         self._DedicatedClusterId = params.get("DedicatedClusterId")
         self._DeletionProtectionEnabled = params.get("DeletionProtectionEnabled")
+        if params.get("ConnectionStateTimeouts") is not None:
+            self._ConnectionStateTimeouts = ConnectionStateTimeouts()
+            self._ConnectionStateTimeouts._deserialize(params.get("ConnectionStateTimeouts"))
+        self._ExclusiveType = params.get("ExclusiveType")
+        self._AutoScaling = params.get("AutoScaling")
+        self._ICMPProxy = params.get("ICMPProxy")
+        self._PublicAddressAffinity = params.get("PublicAddressAffinity")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -55668,6 +57938,57 @@ class NatRegionInfoWithArea(AbstractModel):
     r"""NAT地域地区对象
 
     """
+
+
+class NatZoneInfo(AbstractModel):
+    r"""NAT网关可用区集合
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Zone: 可用区名称
+        :type Zone: str
+        :param _ZoneId: 可用区id
+        :type ZoneId: int
+        """
+        self._Zone = None
+        self._ZoneId = None
+
+    @property
+    def Zone(self):
+        r"""可用区名称
+        :rtype: str
+        """
+        return self._Zone
+
+    @Zone.setter
+    def Zone(self, Zone):
+        self._Zone = Zone
+
+    @property
+    def ZoneId(self):
+        r"""可用区id
+        :rtype: int
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+
+    def _deserialize(self, params):
+        self._Zone = params.get("Zone")
+        self._ZoneId = params.get("ZoneId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class NetDetect(AbstractModel):
@@ -56579,6 +58900,10 @@ class NetworkAclQuintupleEntry(AbstractModel):
         :type CreateTime: str
         :param _NetworkAclDirection: 方向，INGRESS或EGRESS，用于DescribeNetworkAclQuintupleEntries的出参。
         :type NetworkAclDirection: str
+        :param _SourceIPv6Cidr: IPv6源CIDR。
+        :type SourceIPv6Cidr: str
+        :param _DestinationIPv6Cidr: IPv6目的CIDR。
+        :type DestinationIPv6Cidr: str
         """
         self._Protocol = None
         self._Description = None
@@ -56591,6 +58916,8 @@ class NetworkAclQuintupleEntry(AbstractModel):
         self._Priority = None
         self._CreateTime = None
         self._NetworkAclDirection = None
+        self._SourceIPv6Cidr = None
+        self._DestinationIPv6Cidr = None
 
     @property
     def Protocol(self):
@@ -56713,6 +59040,28 @@ class NetworkAclQuintupleEntry(AbstractModel):
     def NetworkAclDirection(self, NetworkAclDirection):
         self._NetworkAclDirection = NetworkAclDirection
 
+    @property
+    def SourceIPv6Cidr(self):
+        r"""IPv6源CIDR。
+        :rtype: str
+        """
+        return self._SourceIPv6Cidr
+
+    @SourceIPv6Cidr.setter
+    def SourceIPv6Cidr(self, SourceIPv6Cidr):
+        self._SourceIPv6Cidr = SourceIPv6Cidr
+
+    @property
+    def DestinationIPv6Cidr(self):
+        r"""IPv6目的CIDR。
+        :rtype: str
+        """
+        return self._DestinationIPv6Cidr
+
+    @DestinationIPv6Cidr.setter
+    def DestinationIPv6Cidr(self, DestinationIPv6Cidr):
+        self._DestinationIPv6Cidr = DestinationIPv6Cidr
+
 
     def _deserialize(self, params):
         self._Protocol = params.get("Protocol")
@@ -56726,6 +59075,8 @@ class NetworkAclQuintupleEntry(AbstractModel):
         self._Priority = params.get("Priority")
         self._CreateTime = params.get("CreateTime")
         self._NetworkAclDirection = params.get("NetworkAclDirection")
+        self._SourceIPv6Cidr = params.get("SourceIPv6Cidr")
+        self._DestinationIPv6Cidr = params.get("DestinationIPv6Cidr")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -57967,13 +60318,13 @@ class PrivateNatDestinationIpPortTranslationNatRule(AbstractModel):
         r"""
         :param _Protocol: 协议
         :type Protocol: str
-        :param _OriginalPort: 原端口
+        :param _OriginalPort: 映射前端口
         :type OriginalPort: int
-        :param _OriginalIp: 原IP
+        :param _OriginalIp: 映射前IP
         :type OriginalIp: str
-        :param _TranslationPort: 映射端口
+        :param _TranslationPort: 映射后端口
         :type TranslationPort: int
-        :param _TranslationIp: 映射IP
+        :param _TranslationIp: 映射后IP
         :type TranslationIp: str
         :param _Description: 描述
         :type Description: str
@@ -58004,7 +60355,7 @@ class PrivateNatDestinationIpPortTranslationNatRule(AbstractModel):
 
     @property
     def OriginalPort(self):
-        r"""原端口
+        r"""映射前端口
         :rtype: int
         """
         return self._OriginalPort
@@ -58015,7 +60366,7 @@ class PrivateNatDestinationIpPortTranslationNatRule(AbstractModel):
 
     @property
     def OriginalIp(self):
-        r"""原IP
+        r"""映射前IP
         :rtype: str
         """
         return self._OriginalIp
@@ -58026,7 +60377,7 @@ class PrivateNatDestinationIpPortTranslationNatRule(AbstractModel):
 
     @property
     def TranslationPort(self):
-        r"""映射端口
+        r"""映射后端口
         :rtype: int
         """
         return self._TranslationPort
@@ -58037,7 +60388,7 @@ class PrivateNatDestinationIpPortTranslationNatRule(AbstractModel):
 
     @property
     def TranslationIp(self):
-        r"""映射IP
+        r"""映射后IP
         :rtype: str
         """
         return self._TranslationIp
@@ -58122,7 +60473,7 @@ class PrivateNatGateway(AbstractModel):
         :type TagSet: list of Tag
         :param _DirectConnectGatewayIds: 专线网关唯一`ID`
         :type DirectConnectGatewayIds: list of str
-        :param _NatType: 私网网关类型
+        :param _NatType: 私网网关类型。可选类型："DCG","VPC","CCN"，分别对应专线网关、私有网络、云联网。
         :type NatType: str
         :param _CrossDomainInfo: 私网NAT跨域信息
         :type CrossDomainInfo: :class:`tencentcloud.vpc.v20170312.models.PrivateNatCrossDomainInfo`
@@ -58237,7 +60588,7 @@ class PrivateNatGateway(AbstractModel):
 
     @property
     def NatType(self):
-        r"""私网网关类型
+        r"""私网网关类型。可选类型："DCG","VPC","CCN"，分别对应专线网关、私有网络、云联网。
         :rtype: str
         """
         return self._NatType
@@ -58657,7 +61008,7 @@ class RefreshDirectConnectGatewayRouteToNatGatewayRequest(AbstractModel):
         :type VpcId: str
         :param _NatGatewayId: NAT网关ID
         :type NatGatewayId: str
-        :param _DryRun: 是否是预刷新；True:是， False:否
+        :param _DryRun: 是否是预刷新；true:是， false:否
         :type DryRun: bool
         """
         self._VpcId = None
@@ -58688,7 +61039,7 @@ class RefreshDirectConnectGatewayRouteToNatGatewayRequest(AbstractModel):
 
     @property
     def DryRun(self):
-        r"""是否是预刷新；True:是， False:否
+        r"""是否是预刷新；true:是， false:否
         :rtype: bool
         """
         return self._DryRun
@@ -59160,10 +61511,16 @@ class RemoveBandwidthPackageResourcesRequest(AbstractModel):
 <li>Address：弹性公网IP</li>
 <li>LoadBalance：负载均衡</li>
         :type ResourceType: str
+        :param _InternetMaxBandwidthOut: 用于移除带宽包内IP资源时指定IP的带宽值。<p>说明：当前功能处于内测中，如需使用，请提交[工单申请](https://console.cloud.tencent.com/workorder/category)。</p>
+        :type InternetMaxBandwidthOut: int
+        :param _InternetChargeType: 用于移除带宽包内IP资源时指定资源移除后的计费模式。<li>小时流量：TRAFFIC_POSTPAID_BY_HOUR；</li><li>小时带宽：BANDWIDTH_POSTPAID_BY_HOUR</li><p>说明：当前功能处于内测中，如需使用，请提交[工单申请](https://console.cloud.tencent.com/workorder/category)。</p>
+        :type InternetChargeType: str
         """
         self._ResourceIds = None
         self._BandwidthPackageId = None
         self._ResourceType = None
+        self._InternetMaxBandwidthOut = None
+        self._InternetChargeType = None
 
     @property
     def ResourceIds(self):
@@ -59200,11 +61557,35 @@ class RemoveBandwidthPackageResourcesRequest(AbstractModel):
     def ResourceType(self, ResourceType):
         self._ResourceType = ResourceType
 
+    @property
+    def InternetMaxBandwidthOut(self):
+        r"""用于移除带宽包内IP资源时指定IP的带宽值。<p>说明：当前功能处于内测中，如需使用，请提交[工单申请](https://console.cloud.tencent.com/workorder/category)。</p>
+        :rtype: int
+        """
+        return self._InternetMaxBandwidthOut
+
+    @InternetMaxBandwidthOut.setter
+    def InternetMaxBandwidthOut(self, InternetMaxBandwidthOut):
+        self._InternetMaxBandwidthOut = InternetMaxBandwidthOut
+
+    @property
+    def InternetChargeType(self):
+        r"""用于移除带宽包内IP资源时指定资源移除后的计费模式。<li>小时流量：TRAFFIC_POSTPAID_BY_HOUR；</li><li>小时带宽：BANDWIDTH_POSTPAID_BY_HOUR</li><p>说明：当前功能处于内测中，如需使用，请提交[工单申请](https://console.cloud.tencent.com/workorder/category)。</p>
+        :rtype: str
+        """
+        return self._InternetChargeType
+
+    @InternetChargeType.setter
+    def InternetChargeType(self, InternetChargeType):
+        self._InternetChargeType = InternetChargeType
+
 
     def _deserialize(self, params):
         self._ResourceIds = params.get("ResourceIds")
         self._BandwidthPackageId = params.get("BandwidthPackageId")
         self._ResourceType = params.get("ResourceType")
+        self._InternetMaxBandwidthOut = params.get("InternetMaxBandwidthOut")
+        self._InternetChargeType = params.get("InternetChargeType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -59790,7 +62171,7 @@ class ReplaceHighPriorityRouteTableAssociationRequest(AbstractModel):
         r"""
         :param _HighPriorityRouteTableId: 高优路由表唯一 ID。
         :type HighPriorityRouteTableId: str
-        :param _SubnetId: 子网唯一 ID
+        :param _SubnetId: 子网唯一 ID。对于存在子网唯一ID的场景，该参数为必选。对于不存在子网ID的特殊场景，SubnetId和CidrBlock参数至少提供一个，二选一。
         :type SubnetId: str
         """
         self._HighPriorityRouteTableId = None
@@ -59809,7 +62190,7 @@ class ReplaceHighPriorityRouteTableAssociationRequest(AbstractModel):
 
     @property
     def SubnetId(self):
-        r"""子网唯一 ID
+        r"""子网唯一 ID。对于存在子网唯一ID的场景，该参数为必选。对于不存在子网ID的特殊场景，SubnetId和CidrBlock参数至少提供一个，二选一。
         :rtype: str
         """
         return self._SubnetId
@@ -59984,6 +62365,159 @@ class ReplaceHighPriorityRoutesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ReplaceRoutePolicyAssociationsRequest(AbstractModel):
+    r"""ReplaceRoutePolicyAssociations请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyAssociationSet: 路由接收策略绑定对象列表。需要指定路由接收策略实例ID（RoutePolicyId）和路由表实例ID（RouteTableId）。
+        :type RoutePolicyAssociationSet: list of RoutePolicyAssociation
+        """
+        self._RoutePolicyAssociationSet = None
+
+    @property
+    def RoutePolicyAssociationSet(self):
+        r"""路由接收策略绑定对象列表。需要指定路由接收策略实例ID（RoutePolicyId）和路由表实例ID（RouteTableId）。
+        :rtype: list of RoutePolicyAssociation
+        """
+        return self._RoutePolicyAssociationSet
+
+    @RoutePolicyAssociationSet.setter
+    def RoutePolicyAssociationSet(self, RoutePolicyAssociationSet):
+        self._RoutePolicyAssociationSet = RoutePolicyAssociationSet
+
+
+    def _deserialize(self, params):
+        if params.get("RoutePolicyAssociationSet") is not None:
+            self._RoutePolicyAssociationSet = []
+            for item in params.get("RoutePolicyAssociationSet"):
+                obj = RoutePolicyAssociation()
+                obj._deserialize(item)
+                self._RoutePolicyAssociationSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ReplaceRoutePolicyAssociationsResponse(AbstractModel):
+    r"""ReplaceRoutePolicyAssociations返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ReplaceRoutePolicyEntriesRequest(AbstractModel):
+    r"""ReplaceRoutePolicyEntries请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: 路由策略实例ID，例如：rrp-azd4dt1c。
+        :type RoutePolicyId: str
+        :param _RoutePolicyEntrySet: 路由策略规则列表。需要指定路由策略规则ID（RoutePolicyEntryId）。
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyEntrySet = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""路由策略实例ID，例如：rrp-azd4dt1c。
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""路由策略规则列表。需要指定路由策略规则ID（RoutePolicyEntryId）。
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ReplaceRoutePolicyEntriesResponse(AbstractModel):
+    r"""ReplaceRoutePolicyEntries返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ReplaceRouteTableAssociationRequest(AbstractModel):
     r"""ReplaceRouteTableAssociation请求参数结构体
 
@@ -59991,24 +62525,13 @@ class ReplaceRouteTableAssociationRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SubnetId: 子网实例ID，例如：subnet-3x5lf5q0。可通过DescribeSubnets接口查询。
-        :type SubnetId: str
         :param _RouteTableId: 路由表实例ID，例如：rtb-azd4dt1c。
         :type RouteTableId: str
+        :param _SubnetId: 子网实例ID，例如：subnet-3x5lf5q0。可通过DescribeSubnets接口查询。对于存在子网唯一ID的子网，该参数为必选；否则， SubnetId和CidrBlock必选二选一。
+        :type SubnetId: str
         """
-        self._SubnetId = None
         self._RouteTableId = None
-
-    @property
-    def SubnetId(self):
-        r"""子网实例ID，例如：subnet-3x5lf5q0。可通过DescribeSubnets接口查询。
-        :rtype: str
-        """
-        return self._SubnetId
-
-    @SubnetId.setter
-    def SubnetId(self, SubnetId):
-        self._SubnetId = SubnetId
+        self._SubnetId = None
 
     @property
     def RouteTableId(self):
@@ -60021,10 +62544,21 @@ class ReplaceRouteTableAssociationRequest(AbstractModel):
     def RouteTableId(self, RouteTableId):
         self._RouteTableId = RouteTableId
 
+    @property
+    def SubnetId(self):
+        r"""子网实例ID，例如：subnet-3x5lf5q0。可通过DescribeSubnets接口查询。对于存在子网唯一ID的子网，该参数为必选；否则， SubnetId和CidrBlock必选二选一。
+        :rtype: str
+        """
+        return self._SubnetId
+
+    @SubnetId.setter
+    def SubnetId(self, SubnetId):
+        self._SubnetId = SubnetId
+
 
     def _deserialize(self, params):
-        self._SubnetId = params.get("SubnetId")
         self._RouteTableId = params.get("RouteTableId")
+        self._SubnetId = params.get("SubnetId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -60187,6 +62721,141 @@ class ReplaceRoutesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ReplaceRoutesWithRoutePolicyRequest(AbstractModel):
+    r"""ReplaceRoutesWithRoutePolicy请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RouteTableId: 路由表实例ID。
+        :type RouteTableId: str
+        :param _Routes: 路由策略对象。需要指定路由策略唯一ID（RouteItemId）。
+        :type Routes: list of ReplaceRoutesWithRoutePolicyRoute
+        """
+        self._RouteTableId = None
+        self._Routes = None
+
+    @property
+    def RouteTableId(self):
+        r"""路由表实例ID。
+        :rtype: str
+        """
+        return self._RouteTableId
+
+    @RouteTableId.setter
+    def RouteTableId(self, RouteTableId):
+        self._RouteTableId = RouteTableId
+
+    @property
+    def Routes(self):
+        r"""路由策略对象。需要指定路由策略唯一ID（RouteItemId）。
+        :rtype: list of ReplaceRoutesWithRoutePolicyRoute
+        """
+        return self._Routes
+
+    @Routes.setter
+    def Routes(self, Routes):
+        self._Routes = Routes
+
+
+    def _deserialize(self, params):
+        self._RouteTableId = params.get("RouteTableId")
+        if params.get("Routes") is not None:
+            self._Routes = []
+            for item in params.get("Routes"):
+                obj = ReplaceRoutesWithRoutePolicyRoute()
+                obj._deserialize(item)
+                self._Routes.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ReplaceRoutesWithRoutePolicyResponse(AbstractModel):
+    r"""ReplaceRoutesWithRoutePolicy返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ReplaceRoutesWithRoutePolicyRoute(AbstractModel):
+    r"""匹配路由接收策略对象
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RouteItemId: 路由唯一策略ID。
+        :type RouteItemId: str
+        :param _ForceMatchPolicy: 匹配路由接收策略标记。
+        :type ForceMatchPolicy: bool
+        """
+        self._RouteItemId = None
+        self._ForceMatchPolicy = None
+
+    @property
+    def RouteItemId(self):
+        r"""路由唯一策略ID。
+        :rtype: str
+        """
+        return self._RouteItemId
+
+    @RouteItemId.setter
+    def RouteItemId(self, RouteItemId):
+        self._RouteItemId = RouteItemId
+
+    @property
+    def ForceMatchPolicy(self):
+        r"""匹配路由接收策略标记。
+        :rtype: bool
+        """
+        return self._ForceMatchPolicy
+
+    @ForceMatchPolicy.setter
+    def ForceMatchPolicy(self, ForceMatchPolicy):
+        self._ForceMatchPolicy = ForceMatchPolicy
+
+
+    def _deserialize(self, params):
+        self._RouteItemId = params.get("RouteItemId")
+        self._ForceMatchPolicy = params.get("ForceMatchPolicy")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ReplaceSecurityGroupPoliciesRequest(AbstractModel):
     r"""ReplaceSecurityGroupPolicies请求参数结构体
 
@@ -60198,12 +62867,15 @@ class ReplaceSecurityGroupPoliciesRequest(AbstractModel):
         :type SecurityGroupId: str
         :param _SecurityGroupPolicySet: 安全组规则集合对象。
         :type SecurityGroupPolicySet: :class:`tencentcloud.vpc.v20170312.models.SecurityGroupPolicySet`
-        :param _OriginalSecurityGroupPolicySet: 旧的安全组规则集合对象，可选，日志记录用。
+        :param _OriginalSecurityGroupPolicySet: 旧的安全组规则集合对象，当更新优先级时为必选，且修改顺序与SecurityGroupPolicySet参数顺序一一对应，入参长度需要与SecurityGroupPolicySet参数保持一致。
         :type OriginalSecurityGroupPolicySet: :class:`tencentcloud.vpc.v20170312.models.SecurityGroupPolicySet`
+        :param _UpdateType: 更新类型，默认 Policy  Policy：只更新内容  Priority：只更新优先级  Both：内容和优先级都更新
+        :type UpdateType: str
         """
         self._SecurityGroupId = None
         self._SecurityGroupPolicySet = None
         self._OriginalSecurityGroupPolicySet = None
+        self._UpdateType = None
 
     @property
     def SecurityGroupId(self):
@@ -60229,7 +62901,7 @@ class ReplaceSecurityGroupPoliciesRequest(AbstractModel):
 
     @property
     def OriginalSecurityGroupPolicySet(self):
-        r"""旧的安全组规则集合对象，可选，日志记录用。
+        r"""旧的安全组规则集合对象，当更新优先级时为必选，且修改顺序与SecurityGroupPolicySet参数顺序一一对应，入参长度需要与SecurityGroupPolicySet参数保持一致。
         :rtype: :class:`tencentcloud.vpc.v20170312.models.SecurityGroupPolicySet`
         """
         return self._OriginalSecurityGroupPolicySet
@@ -60237,6 +62909,17 @@ class ReplaceSecurityGroupPoliciesRequest(AbstractModel):
     @OriginalSecurityGroupPolicySet.setter
     def OriginalSecurityGroupPolicySet(self, OriginalSecurityGroupPolicySet):
         self._OriginalSecurityGroupPolicySet = OriginalSecurityGroupPolicySet
+
+    @property
+    def UpdateType(self):
+        r"""更新类型，默认 Policy  Policy：只更新内容  Priority：只更新优先级  Both：内容和优先级都更新
+        :rtype: str
+        """
+        return self._UpdateType
+
+    @UpdateType.setter
+    def UpdateType(self, UpdateType):
+        self._UpdateType = UpdateType
 
 
     def _deserialize(self, params):
@@ -60247,6 +62930,7 @@ class ReplaceSecurityGroupPoliciesRequest(AbstractModel):
         if params.get("OriginalSecurityGroupPolicySet") is not None:
             self._OriginalSecurityGroupPolicySet = SecurityGroupPolicySet()
             self._OriginalSecurityGroupPolicySet._deserialize(params.get("OriginalSecurityGroupPolicySet"))
+        self._UpdateType = params.get("UpdateType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -60783,9 +63467,12 @@ class ResetNatGatewayConnectionRequest(AbstractModel):
         :type NatGatewayId: str
         :param _MaxConcurrentConnection: NAT网关并发连接上限，形如：1000000、3000000、10000000。
         :type MaxConcurrentConnection: int
+        :param _ExclusiveType: 独享实例规格。如果要变配到独享实例，此参数必选，取值范围：ExclusiveSmall/ExclusiveMedium1/ExclusiveLarge1
+        :type ExclusiveType: str
         """
         self._NatGatewayId = None
         self._MaxConcurrentConnection = None
+        self._ExclusiveType = None
 
     @property
     def NatGatewayId(self):
@@ -60809,10 +63496,22 @@ class ResetNatGatewayConnectionRequest(AbstractModel):
     def MaxConcurrentConnection(self, MaxConcurrentConnection):
         self._MaxConcurrentConnection = MaxConcurrentConnection
 
+    @property
+    def ExclusiveType(self):
+        r"""独享实例规格。如果要变配到独享实例，此参数必选，取值范围：ExclusiveSmall/ExclusiveMedium1/ExclusiveLarge1
+        :rtype: str
+        """
+        return self._ExclusiveType
+
+    @ExclusiveType.setter
+    def ExclusiveType(self, ExclusiveType):
+        self._ExclusiveType = ExclusiveType
+
 
     def _deserialize(self, params):
         self._NatGatewayId = params.get("NatGatewayId")
         self._MaxConcurrentConnection = params.get("MaxConcurrentConnection")
+        self._ExclusiveType = params.get("ExclusiveType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -60825,6 +63524,204 @@ class ResetNatGatewayConnectionRequest(AbstractModel):
 
 class ResetNatGatewayConnectionResponse(AbstractModel):
     r"""ResetNatGatewayConnection返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ResetRoutePolicyAssociationsRequest(AbstractModel):
+    r"""ResetRoutePolicyAssociations请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RouteTableId: 路由表实例ID，例如：rtb-azd4dt1c。
+        :type RouteTableId: str
+        :param _RoutePolicyAssociationSet: 路由策略绑定对象（RoutePolicyAssociation）列表。注意：路由策略绑定中的路由表实例ID（RouteTableId）需要和该接口的RouteTableId参数保持一致（也就是该接口只支持修改同一个路由表实例下的路有策略绑定关系及优先级）。
+        :type RoutePolicyAssociationSet: list of RoutePolicyAssociation
+        """
+        self._RouteTableId = None
+        self._RoutePolicyAssociationSet = None
+
+    @property
+    def RouteTableId(self):
+        r"""路由表实例ID，例如：rtb-azd4dt1c。
+        :rtype: str
+        """
+        return self._RouteTableId
+
+    @RouteTableId.setter
+    def RouteTableId(self, RouteTableId):
+        self._RouteTableId = RouteTableId
+
+    @property
+    def RoutePolicyAssociationSet(self):
+        r"""路由策略绑定对象（RoutePolicyAssociation）列表。注意：路由策略绑定中的路由表实例ID（RouteTableId）需要和该接口的RouteTableId参数保持一致（也就是该接口只支持修改同一个路由表实例下的路有策略绑定关系及优先级）。
+        :rtype: list of RoutePolicyAssociation
+        """
+        return self._RoutePolicyAssociationSet
+
+    @RoutePolicyAssociationSet.setter
+    def RoutePolicyAssociationSet(self, RoutePolicyAssociationSet):
+        self._RoutePolicyAssociationSet = RoutePolicyAssociationSet
+
+
+    def _deserialize(self, params):
+        self._RouteTableId = params.get("RouteTableId")
+        if params.get("RoutePolicyAssociationSet") is not None:
+            self._RoutePolicyAssociationSet = []
+            for item in params.get("RoutePolicyAssociationSet"):
+                obj = RoutePolicyAssociation()
+                obj._deserialize(item)
+                self._RoutePolicyAssociationSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ResetRoutePolicyAssociationsResponse(AbstractModel):
+    r"""ResetRoutePolicyAssociations返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ResetRoutePolicyEntriesRequest(AbstractModel):
+    r"""ResetRoutePolicyEntries请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: 路由接收策略实例ID，例如：rrp-azd4dt1c。
+        :type RoutePolicyId: str
+        :param _RoutePolicyEntrySet: 路由接收策略条目列表。需要指定路由策略条目ID（RoutePolicyEntryId）。
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        :param _RoutePolicyDescription: 路由接收策略描述。
+        :type RoutePolicyDescription: str
+        :param _RoutePolicyName: 路由接收策略名字。
+        :type RoutePolicyName: str
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyEntrySet = None
+        self._RoutePolicyDescription = None
+        self._RoutePolicyName = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""路由接收策略实例ID，例如：rrp-azd4dt1c。
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""路由接收策略条目列表。需要指定路由策略条目ID（RoutePolicyEntryId）。
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+    @property
+    def RoutePolicyDescription(self):
+        r"""路由接收策略描述。
+        :rtype: str
+        """
+        return self._RoutePolicyDescription
+
+    @RoutePolicyDescription.setter
+    def RoutePolicyDescription(self, RoutePolicyDescription):
+        self._RoutePolicyDescription = RoutePolicyDescription
+
+    @property
+    def RoutePolicyName(self):
+        r"""路由接收策略名字。
+        :rtype: str
+        """
+        return self._RoutePolicyName
+
+    @RoutePolicyName.setter
+    def RoutePolicyName(self, RoutePolicyName):
+        self._RoutePolicyName = RoutePolicyName
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        self._RoutePolicyDescription = params.get("RoutePolicyDescription")
+        self._RoutePolicyName = params.get("RoutePolicyName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ResetRoutePolicyEntriesResponse(AbstractModel):
+    r"""ResetRoutePolicyEntries返回参数结构体
 
     """
 
@@ -62429,8 +65326,8 @@ NORMAL_CVM：普通云服务器；
 EIP：云服务器的公网IP；
 LOCAL_GATEWAY：CDC本地网关；
 INTRANAT：私网NAT网关；
-USER_CCN；云联网（自定义路由）。
-
+USER_CCN：云联网（自定义路由）；
+GWLB_ENDPOINT：网关负载均衡终端节点。
         :type GatewayType: str
         :param _GatewayId: 下一跳地址，这里只需要指定不同下一跳类型的网关ID，系统会自动匹配到下一跳地址。
 特殊说明：
@@ -62501,8 +65398,8 @@ NORMAL_CVM：普通云服务器；
 EIP：云服务器的公网IP；
 LOCAL_GATEWAY：CDC本地网关；
 INTRANAT：私网NAT网关；
-USER_CCN；云联网（自定义路由）。
-
+USER_CCN：云联网（自定义路由）；
+GWLB_ENDPOINT：网关负载均衡终端节点。
         :rtype: str
         """
         return self._GatewayType
@@ -62777,6 +65674,446 @@ class RouteECMPAlgorithm(AbstractModel):
     def _deserialize(self, params):
         self._DestinationCidrBlock = params.get("DestinationCidrBlock")
         self._SubnetRouteAlgorithm = params.get("SubnetRouteAlgorithm")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RoutePolicy(AbstractModel):
+    r"""路由接收策略。当云联网或其他业务添加路由到VPC自定义路由表时，可以丢弃或启用，禁用相应的路由条目。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: 路由策略唯一ID。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RoutePolicyId: str
+        :param _RoutePolicyName: 路由策略名。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RoutePolicyName: str
+        :param _RoutePolicyDescription: 路由策略描述。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RoutePolicyDescription: str
+        :param _RoutePolicyEntrySet: 路由策略规则列表。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        :param _RoutePolicyAssociationSet: 路由策略绑定。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RoutePolicyAssociationSet: list of RoutePolicyAssociation
+        :param _CreatedTime: 创建时间。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CreatedTime: str
+        :param _TagSet: 标签键值对。
+        :type TagSet: list of Tag
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyName = None
+        self._RoutePolicyDescription = None
+        self._RoutePolicyEntrySet = None
+        self._RoutePolicyAssociationSet = None
+        self._CreatedTime = None
+        self._TagSet = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""路由策略唯一ID。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyName(self):
+        r"""路由策略名。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RoutePolicyName
+
+    @RoutePolicyName.setter
+    def RoutePolicyName(self, RoutePolicyName):
+        self._RoutePolicyName = RoutePolicyName
+
+    @property
+    def RoutePolicyDescription(self):
+        r"""路由策略描述。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RoutePolicyDescription
+
+    @RoutePolicyDescription.setter
+    def RoutePolicyDescription(self, RoutePolicyDescription):
+        self._RoutePolicyDescription = RoutePolicyDescription
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""路由策略规则列表。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+    @property
+    def RoutePolicyAssociationSet(self):
+        r"""路由策略绑定。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of RoutePolicyAssociation
+        """
+        return self._RoutePolicyAssociationSet
+
+    @RoutePolicyAssociationSet.setter
+    def RoutePolicyAssociationSet(self, RoutePolicyAssociationSet):
+        self._RoutePolicyAssociationSet = RoutePolicyAssociationSet
+
+    @property
+    def CreatedTime(self):
+        r"""创建时间。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._CreatedTime
+
+    @CreatedTime.setter
+    def CreatedTime(self, CreatedTime):
+        self._CreatedTime = CreatedTime
+
+    @property
+    def TagSet(self):
+        r"""标签键值对。
+        :rtype: list of Tag
+        """
+        return self._TagSet
+
+    @TagSet.setter
+    def TagSet(self, TagSet):
+        self._TagSet = TagSet
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        self._RoutePolicyName = params.get("RoutePolicyName")
+        self._RoutePolicyDescription = params.get("RoutePolicyDescription")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        if params.get("RoutePolicyAssociationSet") is not None:
+            self._RoutePolicyAssociationSet = []
+            for item in params.get("RoutePolicyAssociationSet"):
+                obj = RoutePolicyAssociation()
+                obj._deserialize(item)
+                self._RoutePolicyAssociationSet.append(obj)
+        self._CreatedTime = params.get("CreatedTime")
+        if params.get("TagSet") is not None:
+            self._TagSet = []
+            for item in params.get("TagSet"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._TagSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RoutePolicyAssociation(AbstractModel):
+    r"""路由接收策略绑定。用来绑定路由表和路由接收策略以及绑定的优先级。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RouteTableId: 路由表唯一ID。
+        :type RouteTableId: str
+        :param _RoutePolicyId: 路由接收策略唯一ID。
+        :type RoutePolicyId: str
+        :param _Priority: 优先级。
+        :type Priority: int
+        """
+        self._RouteTableId = None
+        self._RoutePolicyId = None
+        self._Priority = None
+
+    @property
+    def RouteTableId(self):
+        r"""路由表唯一ID。
+        :rtype: str
+        """
+        return self._RouteTableId
+
+    @RouteTableId.setter
+    def RouteTableId(self, RouteTableId):
+        self._RouteTableId = RouteTableId
+
+    @property
+    def RoutePolicyId(self):
+        r"""路由接收策略唯一ID。
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def Priority(self):
+        r"""优先级。
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
+
+    def _deserialize(self, params):
+        self._RouteTableId = params.get("RouteTableId")
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        self._Priority = params.get("Priority")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RoutePolicyEntry(AbstractModel):
+    r"""路由接收策略条目。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyEntryId: 路由策略条目IPv4唯一ID。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RoutePolicyEntryId: str
+        :param _CidrBlock: 目标网段。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CidrBlock: str
+        :param _Description: 路由策略规则描述。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Description: str
+        :param _RouteType: 路由类型。
+USER：用户自定义类型。
+NETD：网络探测下发的路由。
+CCN：云联网路由。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RouteType: str
+        :param _GatewayType: 下一跳类型。目前我们支持的类型有：
+CVM：公网网关类型的云服务器；
+VPN：VPN网关；
+DIRECTCONNECT：专线网关；
+PEERCONNECTION：对等连接；
+HAVIP：高可用虚拟IP；
+NAT：NAT网关; 
+EIP：云服务器的公网IP；
+LOCAL_GATEWAY：本地网关;
+PVGW：PVGW网关。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type GatewayType: str
+        :param _GatewayId: 网关唯一ID。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type GatewayId: str
+        :param _Priority: 优先级。数值越小，优先级越高。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Priority: int
+        :param _Action: 动作。
+DROP：丢弃。
+DISABLE：接收且禁用。
+ACCEPT：接收且启用。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Action: str
+        :param _CreatedTime: 创建时间。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CreatedTime: str
+        :param _Region: 地域。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Region: str
+        """
+        self._RoutePolicyEntryId = None
+        self._CidrBlock = None
+        self._Description = None
+        self._RouteType = None
+        self._GatewayType = None
+        self._GatewayId = None
+        self._Priority = None
+        self._Action = None
+        self._CreatedTime = None
+        self._Region = None
+
+    @property
+    def RoutePolicyEntryId(self):
+        r"""路由策略条目IPv4唯一ID。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RoutePolicyEntryId
+
+    @RoutePolicyEntryId.setter
+    def RoutePolicyEntryId(self, RoutePolicyEntryId):
+        self._RoutePolicyEntryId = RoutePolicyEntryId
+
+    @property
+    def CidrBlock(self):
+        r"""目标网段。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._CidrBlock
+
+    @CidrBlock.setter
+    def CidrBlock(self, CidrBlock):
+        self._CidrBlock = CidrBlock
+
+    @property
+    def Description(self):
+        r"""路由策略规则描述。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def RouteType(self):
+        r"""路由类型。
+USER：用户自定义类型。
+NETD：网络探测下发的路由。
+CCN：云联网路由。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RouteType
+
+    @RouteType.setter
+    def RouteType(self, RouteType):
+        self._RouteType = RouteType
+
+    @property
+    def GatewayType(self):
+        r"""下一跳类型。目前我们支持的类型有：
+CVM：公网网关类型的云服务器；
+VPN：VPN网关；
+DIRECTCONNECT：专线网关；
+PEERCONNECTION：对等连接；
+HAVIP：高可用虚拟IP；
+NAT：NAT网关; 
+EIP：云服务器的公网IP；
+LOCAL_GATEWAY：本地网关;
+PVGW：PVGW网关。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._GatewayType
+
+    @GatewayType.setter
+    def GatewayType(self, GatewayType):
+        self._GatewayType = GatewayType
+
+    @property
+    def GatewayId(self):
+        r"""网关唯一ID。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+    @property
+    def Priority(self):
+        r"""优先级。数值越小，优先级越高。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
+    @property
+    def Action(self):
+        r"""动作。
+DROP：丢弃。
+DISABLE：接收且禁用。
+ACCEPT：接收且启用。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Action
+
+    @Action.setter
+    def Action(self, Action):
+        self._Action = Action
+
+    @property
+    def CreatedTime(self):
+        r"""创建时间。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._CreatedTime
+
+    @CreatedTime.setter
+    def CreatedTime(self, CreatedTime):
+        self._CreatedTime = CreatedTime
+
+    @property
+    def Region(self):
+        r"""地域。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyEntryId = params.get("RoutePolicyEntryId")
+        self._CidrBlock = params.get("CidrBlock")
+        self._Description = params.get("Description")
+        self._RouteType = params.get("RouteType")
+        self._GatewayType = params.get("GatewayType")
+        self._GatewayId = params.get("GatewayId")
+        self._Priority = params.get("Priority")
+        self._Action = params.get("Action")
+        self._CreatedTime = params.get("CreatedTime")
+        self._Region = params.get("Region")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -63633,6 +66970,8 @@ class SecurityGroupPolicy(AbstractModel):
         :type PolicyDescription: str
         :param _ModifyTime: 安全组最近修改时间。
         :type ModifyTime: str
+        :param _Priority: 安全组规则优先级，值会随着安全组规则的变更动态变化。使用Priority时，请先调用`DescribeSecurityGroupPolicies`获取到规则的Priority，并且结合返回值中的Version一起使用处理规则。
+        :type Priority: int
         """
         self._PolicyIndex = None
         self._Protocol = None
@@ -63645,6 +66984,7 @@ class SecurityGroupPolicy(AbstractModel):
         self._Action = None
         self._PolicyDescription = None
         self._ModifyTime = None
+        self._Priority = None
 
     @property
     def PolicyIndex(self):
@@ -63768,6 +67108,17 @@ class SecurityGroupPolicy(AbstractModel):
     def ModifyTime(self, ModifyTime):
         self._ModifyTime = ModifyTime
 
+    @property
+    def Priority(self):
+        r"""安全组规则优先级，值会随着安全组规则的变更动态变化。使用Priority时，请先调用`DescribeSecurityGroupPolicies`获取到规则的Priority，并且结合返回值中的Version一起使用处理规则。
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
 
     def _deserialize(self, params):
         self._PolicyIndex = params.get("PolicyIndex")
@@ -63785,6 +67136,7 @@ class SecurityGroupPolicy(AbstractModel):
         self._Action = params.get("Action")
         self._PolicyDescription = params.get("PolicyDescription")
         self._ModifyTime = params.get("ModifyTime")
+        self._Priority = params.get("Priority")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -64920,7 +68272,7 @@ class SourceIpTranslationNatRule(AbstractModel):
         r"""
         :param _ResourceId: 资源ID，如果ResourceType为USERDEFINED，可以为空字符串
         :type ResourceId: str
-        :param _ResourceType: 资源类型，目前包含SUBNET、NETWORKINTERFACE、USERDEFINED
+        :param _ResourceType: 资源类型，目前包含SUBNET、NETWORKINTERFACE、USERDEFINED，分别表示子网、网卡、自定义网段
         :type ResourceType: str
         :param _PrivateIpAddress: 源IP/网段
         :type PrivateIpAddress: str
@@ -64960,7 +68312,7 @@ class SourceIpTranslationNatRule(AbstractModel):
 
     @property
     def ResourceType(self):
-        r"""资源类型，目前包含SUBNET、NETWORKINTERFACE、USERDEFINED
+        r"""资源类型，目前包含SUBNET、NETWORKINTERFACE、USERDEFINED，分别表示子网、网卡、自定义网段
         :rtype: str
         """
         return self._ResourceType
@@ -67274,12 +70626,12 @@ class TranslationAclRule(AbstractModel):
         :type Protocol: str
         :param _SourcePort: 源端口。
         :type SourcePort: str
-        :param _SourceCidr: 源地址。支持`ip`或`cidr`格式"xxx.xxx.xxx.000/xx"
-        :type SourceCidr: str
         :param _DestinationPort: 目的端口。
         :type DestinationPort: str
         :param _DestinationCidr: 目的地址。
         :type DestinationCidr: str
+        :param _SourceCidr: 源地址。支持`ip`或`cidr`格式"xxx.xxx.xxx.000/xx"
+        :type SourceCidr: str
         :param _AclRuleId: ACL规则`ID`。
         :type AclRuleId: int
         :param _Action: 是否匹配。
@@ -67289,9 +70641,9 @@ class TranslationAclRule(AbstractModel):
         """
         self._Protocol = None
         self._SourcePort = None
-        self._SourceCidr = None
         self._DestinationPort = None
         self._DestinationCidr = None
+        self._SourceCidr = None
         self._AclRuleId = None
         self._Action = None
         self._Description = None
@@ -67319,17 +70671,6 @@ class TranslationAclRule(AbstractModel):
         self._SourcePort = SourcePort
 
     @property
-    def SourceCidr(self):
-        r"""源地址。支持`ip`或`cidr`格式"xxx.xxx.xxx.000/xx"
-        :rtype: str
-        """
-        return self._SourceCidr
-
-    @SourceCidr.setter
-    def SourceCidr(self, SourceCidr):
-        self._SourceCidr = SourceCidr
-
-    @property
     def DestinationPort(self):
         r"""目的端口。
         :rtype: str
@@ -67350,6 +70691,17 @@ class TranslationAclRule(AbstractModel):
     @DestinationCidr.setter
     def DestinationCidr(self, DestinationCidr):
         self._DestinationCidr = DestinationCidr
+
+    @property
+    def SourceCidr(self):
+        r"""源地址。支持`ip`或`cidr`格式"xxx.xxx.xxx.000/xx"
+        :rtype: str
+        """
+        return self._SourceCidr
+
+    @SourceCidr.setter
+    def SourceCidr(self, SourceCidr):
+        self._SourceCidr = SourceCidr
 
     @property
     def AclRuleId(self):
@@ -67388,9 +70740,9 @@ class TranslationAclRule(AbstractModel):
     def _deserialize(self, params):
         self._Protocol = params.get("Protocol")
         self._SourcePort = params.get("SourcePort")
-        self._SourceCidr = params.get("SourceCidr")
         self._DestinationPort = params.get("DestinationPort")
         self._DestinationCidr = params.get("DestinationCidr")
+        self._SourceCidr = params.get("SourceCidr")
         self._AclRuleId = params.get("AclRuleId")
         self._Action = params.get("Action")
         self._Description = params.get("Description")
@@ -67413,13 +70765,13 @@ class TranslationNatRule(AbstractModel):
         r"""
         :param _TranslationDirection: 转换规则目标，可选值"LOCAL","PEER"。
         :type TranslationDirection: str
-        :param _TranslationType: 转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        :param _TranslationType: 转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。分别对应三层和四层。
         :type TranslationType: str
-        :param _TranslationIp: 转换`IP`,当转换规则类型为四层时为`IP`池。
+        :param _TranslationIp: 映射后IP,当转换规则类型为四层时为`IP`池。
         :type TranslationIp: str
         :param _Description: 转换规则描述。
         :type Description: str
-        :param _OriginalIp: 源`IP`,当转换规则类型为三层时有效。
+        :param _OriginalIp: 映射前IP,当转换规则类型为三层时有效。
         :type OriginalIp: str
         :param _CreateTime: 创建时间。
         :type CreateTime: str
@@ -67447,7 +70799,7 @@ class TranslationNatRule(AbstractModel):
 
     @property
     def TranslationType(self):
-        r"""转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        r"""转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。分别对应三层和四层。
         :rtype: str
         """
         return self._TranslationType
@@ -67458,7 +70810,7 @@ class TranslationNatRule(AbstractModel):
 
     @property
     def TranslationIp(self):
-        r"""转换`IP`,当转换规则类型为四层时为`IP`池。
+        r"""映射后IP,当转换规则类型为四层时为`IP`池。
         :rtype: str
         """
         return self._TranslationIp
@@ -67480,7 +70832,7 @@ class TranslationNatRule(AbstractModel):
 
     @property
     def OriginalIp(self):
-        r"""源`IP`,当转换规则类型为三层时有效。
+        r"""映射前IP,当转换规则类型为三层时有效。
         :rtype: str
         """
         return self._OriginalIp
@@ -67539,24 +70891,24 @@ class TranslationNatRuleDiff(AbstractModel):
         r"""
         :param _TranslationDirection: 转发规则目标，可选值"LOCAL","PEER"。
         :type TranslationDirection: str
-        :param _TranslationType: 转发规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        :param _TranslationType: 转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。分别对应三层、四层。
         :type TranslationType: str
-        :param _TranslationIp: 转发规则映射`IP`,当转发规则类型为四层时为`IP`池
+        :param _TranslationIp: 转发规则映射后`IP`,当转发规则类型为四层时为`IP`池
         :type TranslationIp: str
+        :param _OldTranslationIp: 旧转发规则映射后`IP`,当转发规则类型为四层时为`IP`池
+        :type OldTranslationIp: str
         :param _Description: 转发规则描述。
         :type Description: str
-        :param _OldTranslationIp: 旧转发规则映射`IP`,当转发规则类型为四层时为`IP`池
-        :type OldTranslationIp: str
-        :param _OriginalIp: 新转发规则源`IP`,当转发规则类型为三层时有效
+        :param _OriginalIp: 新转发规则映射前`IP`,当转发规则类型为三层时有效
         :type OriginalIp: str
-        :param _OldOriginalIp: 旧转发规则源`IP`,当转发规则类型为三层时有效
+        :param _OldOriginalIp: 旧转发规则映射前`IP`,当转发规则类型为三层时有效
         :type OldOriginalIp: str
         """
         self._TranslationDirection = None
         self._TranslationType = None
         self._TranslationIp = None
-        self._Description = None
         self._OldTranslationIp = None
+        self._Description = None
         self._OriginalIp = None
         self._OldOriginalIp = None
 
@@ -67573,7 +70925,7 @@ class TranslationNatRuleDiff(AbstractModel):
 
     @property
     def TranslationType(self):
-        r"""转发规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        r"""转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。分别对应三层、四层。
         :rtype: str
         """
         return self._TranslationType
@@ -67584,7 +70936,7 @@ class TranslationNatRuleDiff(AbstractModel):
 
     @property
     def TranslationIp(self):
-        r"""转发规则映射`IP`,当转发规则类型为四层时为`IP`池
+        r"""转发规则映射后`IP`,当转发规则类型为四层时为`IP`池
         :rtype: str
         """
         return self._TranslationIp
@@ -67592,6 +70944,17 @@ class TranslationNatRuleDiff(AbstractModel):
     @TranslationIp.setter
     def TranslationIp(self, TranslationIp):
         self._TranslationIp = TranslationIp
+
+    @property
+    def OldTranslationIp(self):
+        r"""旧转发规则映射后`IP`,当转发规则类型为四层时为`IP`池
+        :rtype: str
+        """
+        return self._OldTranslationIp
+
+    @OldTranslationIp.setter
+    def OldTranslationIp(self, OldTranslationIp):
+        self._OldTranslationIp = OldTranslationIp
 
     @property
     def Description(self):
@@ -67605,19 +70968,8 @@ class TranslationNatRuleDiff(AbstractModel):
         self._Description = Description
 
     @property
-    def OldTranslationIp(self):
-        r"""旧转发规则映射`IP`,当转发规则类型为四层时为`IP`池
-        :rtype: str
-        """
-        return self._OldTranslationIp
-
-    @OldTranslationIp.setter
-    def OldTranslationIp(self, OldTranslationIp):
-        self._OldTranslationIp = OldTranslationIp
-
-    @property
     def OriginalIp(self):
-        r"""新转发规则源`IP`,当转发规则类型为三层时有效
+        r"""新转发规则映射前`IP`,当转发规则类型为三层时有效
         :rtype: str
         """
         return self._OriginalIp
@@ -67628,7 +70980,7 @@ class TranslationNatRuleDiff(AbstractModel):
 
     @property
     def OldOriginalIp(self):
-        r"""旧转发规则源`IP`,当转发规则类型为三层时有效
+        r"""旧转发规则映射前`IP`,当转发规则类型为三层时有效
         :rtype: str
         """
         return self._OldOriginalIp
@@ -67642,8 +70994,8 @@ class TranslationNatRuleDiff(AbstractModel):
         self._TranslationDirection = params.get("TranslationDirection")
         self._TranslationType = params.get("TranslationType")
         self._TranslationIp = params.get("TranslationIp")
-        self._Description = params.get("Description")
         self._OldTranslationIp = params.get("OldTranslationIp")
+        self._Description = params.get("Description")
         self._OriginalIp = params.get("OriginalIp")
         self._OldOriginalIp = params.get("OldOriginalIp")
         memeber_set = set(params.keys())
@@ -67665,13 +71017,13 @@ class TranslationNatRuleInput(AbstractModel):
         r"""
         :param _TranslationDirection: 转换规则目标，可选值"LOCAL","PEER"。
         :type TranslationDirection: str
-        :param _TranslationType: 转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        :param _TranslationType: 转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。分别对应三层、四层。
         :type TranslationType: str
-        :param _TranslationIp: 转换`IP`,当转换规则类型为四层时为`IP`池。
+        :param _TranslationIp: 映射后`IP`,当转换规则类型为四层时为`IP`池。
         :type TranslationIp: str
         :param _Description: 转换规则描述。
         :type Description: str
-        :param _OriginalIp: 源`IP`,当转换规则类型为三层时有效。
+        :param _OriginalIp: 映射前`IP`,当转换规则类型为三层时有效。
         :type OriginalIp: str
         """
         self._TranslationDirection = None
@@ -67693,7 +71045,7 @@ class TranslationNatRuleInput(AbstractModel):
 
     @property
     def TranslationType(self):
-        r"""转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。
+        r"""转换规则类型，可选值"NETWORK_LAYER","TRANSPORT_LAYER"。分别对应三层、四层。
         :rtype: str
         """
         return self._TranslationType
@@ -67704,7 +71056,7 @@ class TranslationNatRuleInput(AbstractModel):
 
     @property
     def TranslationIp(self):
-        r"""转换`IP`,当转换规则类型为四层时为`IP`池。
+        r"""映射后`IP`,当转换规则类型为四层时为`IP`池。
         :rtype: str
         """
         return self._TranslationIp
@@ -67726,7 +71078,7 @@ class TranslationNatRuleInput(AbstractModel):
 
     @property
     def OriginalIp(self):
-        r"""源`IP`,当转换规则类型为三层时有效。
+        r"""映射前`IP`,当转换规则类型为三层时有效。
         :rtype: str
         """
         return self._OriginalIp
@@ -68415,6 +71767,117 @@ class UpdateTrafficMirrorDirectionResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class UpgradeNatGatewayProductVersionRequest(AbstractModel):
+    r"""UpgradeNatGatewayProductVersion请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _VpcId: VPC实例ID。可通过DescribeVpcs接口返回值中的VpcId获取。
+        :type VpcId: str
+        :param _NatGatewayId: NAT网关的ID，形如：`nat-ig8xpno8`。
+        :type NatGatewayId: str
+        :param _Force: 是否热迁移。1表示冷迁移，0表示热迁移，默认值是0。
+        :type Force: int
+        :param _CheckOnlyMode: 是否仅校验迁移可能性。true表示仅校验能否迁移，不做实际迁移。false表示正常迁移。默认值为false。
+仅校验模式，不报错表示校验迁移成功。
+        :type CheckOnlyMode: bool
+        """
+        self._VpcId = None
+        self._NatGatewayId = None
+        self._Force = None
+        self._CheckOnlyMode = None
+
+    @property
+    def VpcId(self):
+        r"""VPC实例ID。可通过DescribeVpcs接口返回值中的VpcId获取。
+        :rtype: str
+        """
+        return self._VpcId
+
+    @VpcId.setter
+    def VpcId(self, VpcId):
+        self._VpcId = VpcId
+
+    @property
+    def NatGatewayId(self):
+        r"""NAT网关的ID，形如：`nat-ig8xpno8`。
+        :rtype: str
+        """
+        return self._NatGatewayId
+
+    @NatGatewayId.setter
+    def NatGatewayId(self, NatGatewayId):
+        self._NatGatewayId = NatGatewayId
+
+    @property
+    def Force(self):
+        r"""是否热迁移。1表示冷迁移，0表示热迁移，默认值是0。
+        :rtype: int
+        """
+        return self._Force
+
+    @Force.setter
+    def Force(self, Force):
+        self._Force = Force
+
+    @property
+    def CheckOnlyMode(self):
+        r"""是否仅校验迁移可能性。true表示仅校验能否迁移，不做实际迁移。false表示正常迁移。默认值为false。
+仅校验模式，不报错表示校验迁移成功。
+        :rtype: bool
+        """
+        return self._CheckOnlyMode
+
+    @CheckOnlyMode.setter
+    def CheckOnlyMode(self, CheckOnlyMode):
+        self._CheckOnlyMode = CheckOnlyMode
+
+
+    def _deserialize(self, params):
+        self._VpcId = params.get("VpcId")
+        self._NatGatewayId = params.get("NatGatewayId")
+        self._Force = params.get("Force")
+        self._CheckOnlyMode = params.get("CheckOnlyMode")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpgradeNatGatewayProductVersionResponse(AbstractModel):
+    r"""UpgradeNatGatewayProductVersion返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class UsedDetail(AbstractModel):
     r"""共享流量包用量明细
 
@@ -68627,8 +72090,12 @@ class Vpc(AbstractModel):
         :type TagSet: list of Tag
         :param _AssistantCidrSet: 辅助CIDR
         :type AssistantCidrSet: list of AssistantCidr
+        :param _EnableRouteVpcPublish: vpc关联云联网时路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时,请通过工单加入白名单
+        :type EnableRouteVpcPublish: bool
         :param _Ipv6CidrBlockSet: 返回多运营商IPv6 Cidr Block
         :type Ipv6CidrBlockSet: list of ISPIPv6CidrBlock
+        :param _EnableRouteVpcPublishIpv6: vpc关联云联网时IPv6类型路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时，请通过工单加入白名单。
+        :type EnableRouteVpcPublishIpv6: bool
         """
         self._VpcName = None
         self._VpcId = None
@@ -68643,7 +72110,9 @@ class Vpc(AbstractModel):
         self._Ipv6CidrBlock = None
         self._TagSet = None
         self._AssistantCidrSet = None
+        self._EnableRouteVpcPublish = None
         self._Ipv6CidrBlockSet = None
+        self._EnableRouteVpcPublishIpv6 = None
 
     @property
     def VpcName(self):
@@ -68789,6 +72258,17 @@ class Vpc(AbstractModel):
         self._AssistantCidrSet = AssistantCidrSet
 
     @property
+    def EnableRouteVpcPublish(self):
+        r"""vpc关联云联网时路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时,请通过工单加入白名单
+        :rtype: bool
+        """
+        return self._EnableRouteVpcPublish
+
+    @EnableRouteVpcPublish.setter
+    def EnableRouteVpcPublish(self, EnableRouteVpcPublish):
+        self._EnableRouteVpcPublish = EnableRouteVpcPublish
+
+    @property
     def Ipv6CidrBlockSet(self):
         r"""返回多运营商IPv6 Cidr Block
         :rtype: list of ISPIPv6CidrBlock
@@ -68798,6 +72278,17 @@ class Vpc(AbstractModel):
     @Ipv6CidrBlockSet.setter
     def Ipv6CidrBlockSet(self, Ipv6CidrBlockSet):
         self._Ipv6CidrBlockSet = Ipv6CidrBlockSet
+
+    @property
+    def EnableRouteVpcPublishIpv6(self):
+        r"""vpc关联云联网时IPv6类型路由发布策略， true：开启cidr路由发布，false：开启subnet子网路由发布。创建vpc时默认为子网路由发布，当选择cidr路由发布时，请通过工单加入白名单。
+        :rtype: bool
+        """
+        return self._EnableRouteVpcPublishIpv6
+
+    @EnableRouteVpcPublishIpv6.setter
+    def EnableRouteVpcPublishIpv6(self, EnableRouteVpcPublishIpv6):
+        self._EnableRouteVpcPublishIpv6 = EnableRouteVpcPublishIpv6
 
 
     def _deserialize(self, params):
@@ -68824,12 +72315,14 @@ class Vpc(AbstractModel):
                 obj = AssistantCidr()
                 obj._deserialize(item)
                 self._AssistantCidrSet.append(obj)
+        self._EnableRouteVpcPublish = params.get("EnableRouteVpcPublish")
         if params.get("Ipv6CidrBlockSet") is not None:
             self._Ipv6CidrBlockSet = []
             for item in params.get("Ipv6CidrBlockSet"):
                 obj = ISPIPv6CidrBlock()
                 obj._deserialize(item)
                 self._Ipv6CidrBlockSet.append(obj)
+        self._EnableRouteVpcPublishIpv6 = params.get("EnableRouteVpcPublishIpv6")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -70063,6 +73556,8 @@ class VpnGatewayRoute(AbstractModel):
         :type CreateTime: str
         :param _UpdateTime: 更新时间。
         :type UpdateTime: str
+        :param _Description: 路由备注
+        :type Description: str
         """
         self._DestinationCidrBlock = None
         self._InstanceType = None
@@ -70073,6 +73568,7 @@ class VpnGatewayRoute(AbstractModel):
         self._Type = None
         self._CreateTime = None
         self._UpdateTime = None
+        self._Description = None
 
     @property
     def DestinationCidrBlock(self):
@@ -70173,6 +73669,17 @@ class VpnGatewayRoute(AbstractModel):
     def UpdateTime(self, UpdateTime):
         self._UpdateTime = UpdateTime
 
+    @property
+    def Description(self):
+        r"""路由备注
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
 
     def _deserialize(self, params):
         self._DestinationCidrBlock = params.get("DestinationCidrBlock")
@@ -70184,6 +73691,7 @@ class VpnGatewayRoute(AbstractModel):
         self._Type = params.get("Type")
         self._CreateTime = params.get("CreateTime")
         self._UpdateTime = params.get("UpdateTime")
+        self._Description = params.get("Description")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -70205,9 +73713,12 @@ class VpnGatewayRouteModify(AbstractModel):
         :type RouteId: str
         :param _Status: VPN网关状态, ENABLE 启用, DISABLE禁用。
         :type Status: str
+        :param _Description: VPN路由备注
+        :type Description: str
         """
         self._RouteId = None
         self._Status = None
+        self._Description = None
 
     @property
     def RouteId(self):
@@ -70231,10 +73742,22 @@ class VpnGatewayRouteModify(AbstractModel):
     def Status(self, Status):
         self._Status = Status
 
+    @property
+    def Description(self):
+        r"""VPN路由备注
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
 
     def _deserialize(self, params):
         self._RouteId = params.get("RouteId")
         self._Status = params.get("Status")
+        self._Description = params.get("Description")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

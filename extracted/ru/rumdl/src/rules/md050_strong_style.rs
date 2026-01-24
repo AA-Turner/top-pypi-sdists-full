@@ -1,17 +1,13 @@
-use crate::utils::range_utils::{LineIndex, calculate_match_range};
+use crate::utils::range_utils::calculate_match_range;
 use crate::utils::regex_cache::{BOLD_ASTERISK_REGEX, BOLD_UNDERSCORE_REGEX};
 
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, Severity};
 use crate::rules::strong_style::StrongStyle;
-use lazy_static::lazy_static;
-use regex::Regex;
+use crate::utils::regex_cache::get_cached_regex;
+use crate::utils::skip_context::{is_in_math_context, is_in_mkdocs_markup};
 
-lazy_static! {
-    // Reference definition pattern - matches [ref]: url "title"
-    static ref REF_DEF_REGEX: Regex = Regex::new(
-        r#"(?m)^[ ]{0,3}\[([^\]]+)\]:\s*([^\s]+)(?:\s+(?:"([^"]*)"|'([^']*)'))?$"#
-    ).unwrap();
-}
+// Reference definition pattern
+const REF_DEF_REGEX_STR: &str = r#"(?m)^[ ]{0,3}\[([^\]]+)\]:\s*([^\s]+)(?:\s+(?:"([^"]*)"|'([^']*)'))?$"#;
 
 mod md050_config;
 use md050_config::MD050Config;
@@ -54,9 +50,11 @@ impl MD050StrongStyle {
         }
 
         // Check reference definitions [ref]: url "title" using regex pattern
-        for m in REF_DEF_REGEX.find_iter(ctx.content) {
-            if m.start() <= byte_pos && byte_pos < m.end() {
-                return true;
+        if let Ok(re) = get_cached_regex(REF_DEF_REGEX_STR) {
+            for m in re.find_iter(ctx.content) {
+                if m.start() <= byte_pos && byte_pos < m.end() {
+                    return true;
+                }
             }
         }
 
@@ -115,60 +113,74 @@ impl MD050StrongStyle {
 
     fn detect_style(&self, ctx: &crate::lint_context::LintContext) -> Option<StrongStyle> {
         let content = ctx.content;
+        let lines: Vec<&str> = content.lines().collect();
 
-        // Find the first occurrence of either style that's not in a code block, link, HTML tag, or front matter
-        let mut first_asterisk = None;
+        // Count how many times each marker appears (prevalence-based approach)
+        let mut asterisk_count = 0;
         for m in BOLD_ASTERISK_REGEX.find_iter(content) {
             // Skip matches in front matter
-            let (line_num, _) = ctx.offset_to_line_col(m.start());
+            let (line_num, col) = ctx.offset_to_line_col(m.start());
             let in_front_matter = ctx
                 .line_info(line_num)
                 .map(|info| info.in_front_matter)
                 .unwrap_or(false);
+
+            // Check MkDocs markup
+            let in_mkdocs_markup = lines
+                .get(line_num.saturating_sub(1))
+                .is_some_and(|line| is_in_mkdocs_markup(line, col.saturating_sub(1), ctx.flavor));
 
             if !in_front_matter
                 && !ctx.is_in_code_block_or_span(m.start())
                 && !self.is_in_link(ctx, m.start())
                 && !self.is_in_html_tag(ctx, m.start())
                 && !self.is_in_html_code_content(ctx, m.start())
+                && !in_mkdocs_markup
+                && !is_in_math_context(ctx, m.start())
             {
-                first_asterisk = Some(m);
-                break;
+                asterisk_count += 1;
             }
         }
 
-        let mut first_underscore = None;
+        let mut underscore_count = 0;
         for m in BOLD_UNDERSCORE_REGEX.find_iter(content) {
             // Skip matches in front matter
-            let (line_num, _) = ctx.offset_to_line_col(m.start());
+            let (line_num, col) = ctx.offset_to_line_col(m.start());
             let in_front_matter = ctx
                 .line_info(line_num)
                 .map(|info| info.in_front_matter)
                 .unwrap_or(false);
+
+            // Check MkDocs markup
+            let in_mkdocs_markup = lines
+                .get(line_num.saturating_sub(1))
+                .is_some_and(|line| is_in_mkdocs_markup(line, col.saturating_sub(1), ctx.flavor));
 
             if !in_front_matter
                 && !ctx.is_in_code_block_or_span(m.start())
                 && !self.is_in_link(ctx, m.start())
                 && !self.is_in_html_tag(ctx, m.start())
                 && !self.is_in_html_code_content(ctx, m.start())
+                && !in_mkdocs_markup
+                && !is_in_math_context(ctx, m.start())
             {
-                first_underscore = Some(m);
-                break;
+                underscore_count += 1;
             }
         }
 
-        match (first_asterisk, first_underscore) {
-            (Some(a), Some(u)) => {
-                // Whichever pattern appears first determines the style
-                if a.start() < u.start() {
+        match (asterisk_count, underscore_count) {
+            (0, 0) => None,
+            (_, 0) => Some(StrongStyle::Asterisk),
+            (0, _) => Some(StrongStyle::Underscore),
+            (a, u) => {
+                // Use the most prevalent marker as the target style
+                // In case of a tie, prefer asterisk (matches CommonMark recommendation)
+                if a >= u {
                     Some(StrongStyle::Asterisk)
                 } else {
                     Some(StrongStyle::Underscore)
                 }
             }
-            (Some(_), None) => Some(StrongStyle::Asterisk),
-            (None, Some(_)) => Some(StrongStyle::Underscore),
-            (None, None) => None,
         }
     }
 
@@ -203,7 +215,7 @@ impl Rule for MD050StrongStyle {
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let content = ctx.content;
-        let _line_index = LineIndex::new(content.to_string());
+        let line_index = &ctx.line_index;
 
         let mut warnings = Vec::new();
 
@@ -222,26 +234,26 @@ impl Rule for MD050StrongStyle {
             }
         };
 
-        // Track byte position for each line
-        let mut byte_pos = 0;
-
         for (line_num, line) in content.lines().enumerate() {
             // Skip if this line is in front matter
             if let Some(line_info) = ctx.line_info(line_num + 1)
                 && line_info.in_front_matter
             {
-                byte_pos += line.len() + 1; // +1 for newline
                 continue;
             }
+
+            let byte_pos = line_index.get_line_start_byte(line_num + 1).unwrap_or(0);
 
             for m in strong_regex.find_iter(line) {
                 // Calculate the byte position of this match in the document
                 let match_byte_pos = byte_pos + m.start();
 
-                // Skip if this strong text is inside a code block, code span, link, or HTML code content
+                // Skip if this strong text is inside a code block, code span, link, HTML code content, MkDocs markup, or math block
                 if ctx.is_in_code_block_or_span(match_byte_pos)
                     || self.is_in_link(ctx, match_byte_pos)
                     || self.is_in_html_code_content(ctx, match_byte_pos)
+                    || is_in_mkdocs_markup(line, m.start(), ctx.flavor)
+                    || is_in_math_context(ctx, match_byte_pos)
                 {
                     continue;
                 }
@@ -262,14 +274,17 @@ impl Rule for MD050StrongStyle {
 
                 if !self.is_escaped(line, m.start()) {
                     let text = &line[m.start() + 2..m.end() - 2];
+
+                    // NOTE: Intentional deviation from markdownlint behavior.
+                    // markdownlint reports two warnings per emphasis (one for opening marker,
+                    // one for closing marker). We report one warning per emphasis block because:
+                    // 1. The markers are semantically one unit - you can't fix one without the other
+                    // 2. Cleaner output - "10 issues" vs "20 issues" for 10 bold words
+                    // 3. The fix is atomic - replacing the entire emphasis at once
                     let message = match target_style {
                         StrongStyle::Asterisk => "Strong emphasis should use ** instead of __",
                         StrongStyle::Underscore => "Strong emphasis should use __ instead of **",
-                        StrongStyle::Consistent => {
-                            // This case is handled separately in the calling code
-                            // but fallback to asterisk style for safety
-                            "Strong emphasis should use ** instead of __"
-                        }
+                        StrongStyle::Consistent => "Strong emphasis should use ** instead of __",
                     };
 
                     // Calculate precise character range for the entire strong emphasis
@@ -277,7 +292,7 @@ impl Rule for MD050StrongStyle {
                         calculate_match_range(line_num + 1, line, m.start(), m.len());
 
                     warnings.push(LintWarning {
-                        rule_name: Some(self.name()),
+                        rule_name: Some(self.name().to_string()),
                         line: start_line,
                         column: start_col,
                         end_line,
@@ -285,23 +300,16 @@ impl Rule for MD050StrongStyle {
                         message: message.to_string(),
                         severity: Severity::Warning,
                         fix: Some(Fix {
-                            range: _line_index.line_col_to_byte_range(line_num + 1, m.start() + 1),
+                            range: line_index.line_col_to_byte_range_with_length(line_num + 1, m.start() + 1, m.len()),
                             replacement: match target_style {
                                 StrongStyle::Asterisk => format!("**{text}**"),
                                 StrongStyle::Underscore => format!("__{text}__"),
-                                StrongStyle::Consistent => {
-                                    // This case is handled separately in the calling code
-                                    // but fallback to asterisk style for safety
-                                    format!("**{text}**")
-                                }
+                                StrongStyle::Consistent => format!("**{text}**"),
                             },
                         }),
                     });
                 }
             }
-
-            // Update byte position for next line
-            byte_pos += line.len() + 1; // +1 for newline
         }
 
         Ok(warnings)
@@ -326,21 +334,28 @@ impl Rule for MD050StrongStyle {
         };
 
         // Store matches with their positions
+        let lines: Vec<&str> = content.lines().collect();
 
         let matches: Vec<(usize, usize)> = strong_regex
             .find_iter(content)
             .filter(|m| {
                 // Skip matches in front matter
-                let (line_num, _) = ctx.offset_to_line_col(m.start());
+                let (line_num, col) = ctx.offset_to_line_col(m.start());
                 if let Some(line_info) = ctx.line_info(line_num)
                     && line_info.in_front_matter
                 {
                     return false;
                 }
+                // Skip MkDocs markup and math blocks
+                let in_mkdocs_markup = lines
+                    .get(line_num.saturating_sub(1))
+                    .is_some_and(|line| is_in_mkdocs_markup(line, col.saturating_sub(1), ctx.flavor));
                 !ctx.is_in_code_block_or_span(m.start())
                     && !self.is_in_link(ctx, m.start())
                     && !self.is_in_html_tag(ctx, m.start())
                     && !self.is_in_html_code_content(ctx, m.start())
+                    && !in_mkdocs_markup
+                    && !is_in_math_context(ctx, m.start())
             })
             .filter(|m| !self.is_escaped(content, m.start()))
             .map(|m| (m.start(), m.end()))
@@ -368,7 +383,8 @@ impl Rule for MD050StrongStyle {
 
     /// Check if this rule should be skipped
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        ctx.content.is_empty() || (!ctx.content.contains("**") && !ctx.content.contains("__"))
+        // Strong uses double markers, but likely_has_emphasis checks for count > 1
+        ctx.content.is_empty() || !ctx.likely_has_emphasis()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -401,7 +417,7 @@ mod tests {
     fn test_asterisk_style_with_asterisks() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "This is **strong text** here.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -411,7 +427,7 @@ mod tests {
     fn test_asterisk_style_with_underscores() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "This is __strong text__ here.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -428,7 +444,7 @@ mod tests {
     fn test_underscore_style_with_underscores() {
         let rule = MD050StrongStyle::new(StrongStyle::Underscore);
         let content = "This is __strong text__ here.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -438,7 +454,7 @@ mod tests {
     fn test_underscore_style_with_asterisks() {
         let rule = MD050StrongStyle::new(StrongStyle::Underscore);
         let content = "This is **strong text** here.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -453,7 +469,7 @@ mod tests {
     fn test_consistent_style_first_asterisk() {
         let rule = MD050StrongStyle::new(StrongStyle::Consistent);
         let content = "First **strong** then __also strong__.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // First strong is **, so __ should be flagged
@@ -466,25 +482,30 @@ mod tests {
     }
 
     #[test]
-    fn test_consistent_style_first_underscore() {
+    fn test_consistent_style_tie_prefers_asterisk() {
         let rule = MD050StrongStyle::new(StrongStyle::Consistent);
         let content = "First __strong__ then **also strong**.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
-        // First strong is __, so ** should be flagged
+        // Equal counts (1 vs 1), so prefer asterisks per CommonMark recommendation
+        // The __ should be flagged to change to **
         assert_eq!(result.len(), 1);
         assert!(
             result[0]
                 .message
-                .contains("Strong emphasis should use __ instead of **")
+                .contains("Strong emphasis should use ** instead of __")
         );
     }
 
     #[test]
     fn test_detect_style_asterisk() {
         let rule = MD050StrongStyle::new(StrongStyle::Consistent);
-        let ctx = LintContext::new("This has **strong** text.", crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(
+            "This has **strong** text.",
+            crate::config::MarkdownFlavor::Standard,
+            None,
+        );
         let style = rule.detect_style(&ctx);
 
         assert_eq!(style, Some(StrongStyle::Asterisk));
@@ -493,7 +514,11 @@ mod tests {
     #[test]
     fn test_detect_style_underscore() {
         let rule = MD050StrongStyle::new(StrongStyle::Consistent);
-        let ctx = LintContext::new("This has __strong__ text.", crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(
+            "This has __strong__ text.",
+            crate::config::MarkdownFlavor::Standard,
+            None,
+        );
         let style = rule.detect_style(&ctx);
 
         assert_eq!(style, Some(StrongStyle::Underscore));
@@ -502,7 +527,7 @@ mod tests {
     #[test]
     fn test_detect_style_none() {
         let rule = MD050StrongStyle::new(StrongStyle::Consistent);
-        let ctx = LintContext::new("No strong text here.", crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new("No strong text here.", crate::config::MarkdownFlavor::Standard, None);
         let style = rule.detect_style(&ctx);
 
         assert_eq!(style, None);
@@ -512,7 +537,7 @@ mod tests {
     fn test_strong_in_code_block() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "```\n__strong__ in code\n```\n__strong__ outside";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only the strong outside code block should be flagged
@@ -524,7 +549,7 @@ mod tests {
     fn test_strong_in_inline_code() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "Text with `__strong__` in code and __strong__ outside.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only the strong outside inline code should be flagged
@@ -535,7 +560,7 @@ mod tests {
     fn test_escaped_strong() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "This is \\__not strong\\__ but __this is__.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only the unescaped strong should be flagged
@@ -548,7 +573,7 @@ mod tests {
     fn test_fix_asterisks_to_underscores() {
         let rule = MD050StrongStyle::new(StrongStyle::Underscore);
         let content = "This is **strong** text.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "This is __strong__ text.");
@@ -558,7 +583,7 @@ mod tests {
     fn test_fix_underscores_to_asterisks() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "This is __strong__ text.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "This is **strong** text.");
@@ -568,7 +593,7 @@ mod tests {
     fn test_fix_multiple_strong() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "First __strong__ and second __also strong__.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "First **strong** and second **also strong**.");
@@ -578,7 +603,7 @@ mod tests {
     fn test_fix_preserves_code_blocks() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "```\n__strong__ in code\n```\n__strong__ outside";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         assert_eq!(fixed, "```\n__strong__ in code\n```\n**strong** outside");
@@ -588,7 +613,7 @@ mod tests {
     fn test_multiline_content() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "Line 1 with __strong__\nLine 2 with __another__\nLine 3 normal";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 2);
@@ -600,7 +625,7 @@ mod tests {
     fn test_nested_emphasis() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "This has __strong with *emphasis* inside__.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -610,7 +635,7 @@ mod tests {
     fn test_empty_content() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -634,7 +659,7 @@ Hint:
 
 
 [__dict__]: https://www.pythonmorsels.com/where-are-attributes-stored/"#;
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // None of the __ patterns in links should be flagged
@@ -651,7 +676,7 @@ Instead of assigning to `self.value`, we're relying on the [`__dict__`][__dict__
 This is __real strong text__ that should be flagged.
 
 [__dict__]: https://www.pythonmorsels.com/where-are-attributes-stored/"#;
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only the real strong text should be flagged, not the __ in links
@@ -669,7 +694,7 @@ This is __real strong text__ that should be flagged.
     fn test_front_matter_not_flagged() {
         let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
         let content = "---\ntitle: What's __init__.py?\nother: __value__\n---\n\nThis __should be flagged__.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only the strong text outside front matter should be flagged
@@ -692,7 +717,7 @@ This has HTML with underscores:
 <iframe src="https://example.com/__init__/__repr__"> </iframe>
 
 This __should be flagged__ as inconsistent."#;
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only the strong text outside HTML tags should be flagged
@@ -703,5 +728,202 @@ This __should be flagged__ as inconsistent."#;
                 .message
                 .contains("Strong emphasis should use ** instead of __")
         );
+    }
+
+    #[test]
+    fn test_mkdocs_keys_notation_not_flagged() {
+        // Keys notation uses ++ which shouldn't be flagged as strong emphasis
+        let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
+        let content = "Press ++ctrl+alt+del++ to restart.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Keys notation should not be flagged as strong emphasis
+        assert!(
+            result.is_empty(),
+            "Keys notation should not be flagged as strong emphasis. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_mkdocs_caret_notation_not_flagged() {
+        // Insert notation (^^text^^) should not be flagged as strong emphasis
+        let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
+        let content = "This is ^^inserted^^ text.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Insert notation should not be flagged as strong emphasis. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_mkdocs_mark_notation_not_flagged() {
+        // Mark notation (==highlight==) should not be flagged
+        let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
+        let content = "This is ==highlighted== text.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert!(
+            result.is_empty(),
+            "Mark notation should not be flagged as strong emphasis. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_mkdocs_mixed_content_with_real_strong() {
+        // Mixed content: MkDocs markup + real strong emphasis that should be flagged
+        let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
+        let content = "Press ++ctrl++ and __underscore strong__ here.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Only the real underscore strong should be flagged (not Keys notation)
+        assert_eq!(result.len(), 1, "Expected 1 warning, got: {result:?}");
+        assert!(
+            result[0]
+                .message
+                .contains("Strong emphasis should use ** instead of __")
+        );
+    }
+
+    #[test]
+    fn test_mkdocs_icon_shortcode_not_flagged() {
+        // Icon shortcodes like :material-star: should not affect strong detection
+        let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
+        let content = "Click :material-check: and __this should be flagged__.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // The underscore strong should still be flagged
+        assert_eq!(result.len(), 1);
+        assert!(
+            result[0]
+                .message
+                .contains("Strong emphasis should use ** instead of __")
+        );
+    }
+
+    #[test]
+    fn test_math_block_not_flagged() {
+        // Math blocks contain _ and * characters that are not emphasis
+        let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
+        let content = r#"# Math Section
+
+$$
+E = mc^2
+x_1 + x_2 = y
+a**b = c
+$$
+
+This __should be flagged__ outside math.
+"#;
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Quarto, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Only the strong outside math block should be flagged
+        assert_eq!(result.len(), 1, "Expected 1 warning, got: {result:?}");
+        assert!(result[0].line > 7, "Warning should be on line after math block");
+    }
+
+    #[test]
+    fn test_math_block_with_underscores_not_flagged() {
+        // LaTeX subscripts use underscores that shouldn't be flagged
+        let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
+        let content = r#"$$
+x_1 + x_2 + x__3 = y
+\alpha__\beta
+$$
+"#;
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Quarto, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Nothing should be flagged - all content is in math block
+        assert!(
+            result.is_empty(),
+            "Math block content should not be flagged. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_math_block_with_asterisks_not_flagged() {
+        // LaTeX multiplication uses asterisks that shouldn't be flagged
+        let rule = MD050StrongStyle::new(StrongStyle::Underscore);
+        let content = r#"$$
+a**b = c
+2 ** 3 = 8
+x***y
+$$
+"#;
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Quarto, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Nothing should be flagged - all content is in math block
+        assert!(
+            result.is_empty(),
+            "Math block content should not be flagged. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_math_block_fix_preserves_content() {
+        // Fix should not modify content inside math blocks
+        let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
+        let content = r#"$$
+x__y = z
+$$
+
+This __word__ should change.
+"#;
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Quarto, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // Math block content should be unchanged
+        assert!(fixed.contains("x__y = z"), "Math block content should be preserved");
+        // Strong outside should be fixed
+        assert!(fixed.contains("**word**"), "Strong outside math should be fixed");
+    }
+
+    #[test]
+    fn test_inline_math_simple() {
+        // Simple inline math without underscore patterns that could be confused with strong
+        let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
+        let content = "The formula $E = mc^2$ is famous and __this__ is strong.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Quarto, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // __this__ should be flagged (it's outside the inline math)
+        assert_eq!(
+            result.len(),
+            1,
+            "Expected 1 warning for strong outside math. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_multiple_math_blocks_and_strong() {
+        // Test with multiple math blocks and strong emphasis between them
+        let rule = MD050StrongStyle::new(StrongStyle::Asterisk);
+        let content = r#"# Document
+
+$$
+a = b
+$$
+
+This __should be flagged__ text.
+
+$$
+c = d
+$$
+"#;
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Quarto, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Only the strong between math blocks should be flagged
+        assert_eq!(result.len(), 1, "Expected 1 warning. Got: {result:?}");
+        assert!(result[0].message.contains("**"));
     }
 }

@@ -19,6 +19,7 @@ from ..._response import (
     async_to_streamed_response_wrapper,
 )
 from ..._base_client import make_request_options
+from ...types.ai.chat_create_completion_response import ChatCreateCompletionResponse
 
 __all__ = ["ChatResource", "AsyncChatResource"]
 
@@ -75,7 +76,7 @@ class ChatResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> ChatCreateCompletionResponse:
         """Chat with a language model.
 
         This endpoint is consistent with the
@@ -118,10 +119,7 @@ class ChatResource(SyncAPIResource):
               [many prefer](https://github.com/huggingface/transformers/issues/27670). Must be
               in [0, 1].
 
-          model: The language model to chat with. If you are optimizing for speed + price, try
-              `meta-llama/Meta-Llama-3.1-8B-Instruct`. For quality, try
-              `meta-llama/Meta-Llama-3.1-70B-Instruct`. Or explore our
-              [LLM Library](https://telnyx.com/products/llm-library).
+          model: The language model to chat with.
 
           n: This will return multiple choices for you instead of a single chat completion.
 
@@ -139,7 +137,7 @@ class ChatResource(SyncAPIResource):
           tools: The `function` tool type follows the same schema as the
               [OpenAI Chat Completions API](https://platform.openai.com/docs/api-reference/chat).
               The `retrieval` tool type is unique to Telnyx. You may pass a list of
-              [embedded storage buckets](https://developers.telnyx.com/api/inference/inference-embedding/post-embedding)
+              [embedded storage buckets](https://developers.telnyx.com/api-reference/embeddings/embed-documents)
               for retrieval-augmented generation.
 
           top_logprobs: This is used with `logprobs`. An integer between 0 and 20 specifying the number
@@ -194,7 +192,7 @@ class ChatResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=object,
+            cast_to=ChatCreateCompletionResponse,
         )
 
 
@@ -250,7 +248,7 @@ class AsyncChatResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> ChatCreateCompletionResponse:
         """Chat with a language model.
 
         This endpoint is consistent with the
@@ -293,10 +291,7 @@ class AsyncChatResource(AsyncAPIResource):
               [many prefer](https://github.com/huggingface/transformers/issues/27670). Must be
               in [0, 1].
 
-          model: The language model to chat with. If you are optimizing for speed + price, try
-              `meta-llama/Meta-Llama-3.1-8B-Instruct`. For quality, try
-              `meta-llama/Meta-Llama-3.1-70B-Instruct`. Or explore our
-              [LLM Library](https://telnyx.com/products/llm-library).
+          model: The language model to chat with.
 
           n: This will return multiple choices for you instead of a single chat completion.
 
@@ -314,7 +309,7 @@ class AsyncChatResource(AsyncAPIResource):
           tools: The `function` tool type follows the same schema as the
               [OpenAI Chat Completions API](https://platform.openai.com/docs/api-reference/chat).
               The `retrieval` tool type is unique to Telnyx. You may pass a list of
-              [embedded storage buckets](https://developers.telnyx.com/api/inference/inference-embedding/post-embedding)
+              [embedded storage buckets](https://developers.telnyx.com/api-reference/embeddings/embed-documents)
               for retrieval-augmented generation.
 
           top_logprobs: This is used with `logprobs`. An integer between 0 and 20 specifying the number
@@ -369,7 +364,7 @@ class AsyncChatResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=object,
+            cast_to=ChatCreateCompletionResponse,
         )
 
 

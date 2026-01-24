@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
@@ -9,10 +9,9 @@ import System.Runtime.Intrinsics.Wasm
 
 
 class PackedSimd(System.Object, metaclass=abc.ABCMeta):
-    """Provides access to the WebAssembly packed SIMD instructions via intrinsics."""
+    """This class has no documentation."""
 
     IS_SUPPORTED: bool
-    """Gets a value that indicates whether the APIs in this class are supported."""
 
     @staticmethod
     @overload

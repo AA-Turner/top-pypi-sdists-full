@@ -317,6 +317,34 @@ class RunningJobSet(object):
                     return pod
         return {}
 
+
+
+    @k8s_retry()
+    def _fetch_control_job(self):
+        # Fetch pod metadata.
+        client = self._client.get()
+        jobs = (
+            client.BatchV1Api()
+            .list_namespaced_job(
+                namespace=self._namespace,
+                label_selector="jobset.sigs.k8s.io/jobset-name={}".format(self._name),
+            )
+            .to_dict()["items"]
+        )
+         
+        if jobs:
+            for job in jobs:
+                # check the labels of the pod to see if
+                # the `jobset.sigs.k8s.io/replicatedjob-name` is set to `control`
+                if (
+                    job["metadata"]["labels"].get(
+                        "jobset.sigs.k8s.io/replicatedjob-name"
+                    )
+                    == "control"
+                ):
+                    return job
+        return {}
+
     def kill(self):
         plural = "jobsets"
         client = self._client.get()
@@ -367,6 +395,14 @@ class RunningJobSet(object):
                     )
 
     @property
+    def is_unschedulable(self):
+        self._control_job = self._fetch_control_job()
+        # Safely check if the metadata and annotations fields exist to avoid KeyError
+        return self._control_job["metadata"]["annotations"].get("metaflow/job_status", "") in [
+                "Incompatible_Node_Selector",
+                "Unsatisfiable_Resource_Request",
+            ]
+    @property
     def id(self):
         if self._pod_name:
             return "pod %s" % self._pod_name
@@ -382,6 +418,7 @@ class RunningJobSet(object):
                 self._jobset_is_completed
                 or self._jobset_has_failed
                 or self._jobset_was_terminated
+                or self.is_unschedulable
             )
 
         if not done():
@@ -413,7 +450,7 @@ class RunningJobSet(object):
 
     @property
     def has_failed(self):
-        return self.is_done and self._jobset_has_failed
+        return self.is_unschedulable or (self.is_done and self._jobset_has_failed)
 
     @property
     def is_running(self):
@@ -436,8 +473,12 @@ class RunningJobSet(object):
 
     @property
     def reason(self):
+        if self.is_unschedulable:
+            return 1, self._control_job["metadata"]["annotations"].get(
+                        "metaflow/job_status_reason", ""
+                    )
         # return exit code and reason
-        if self.is_done and not self.has_succeeded:
+        elif self.is_done and not self.has_succeeded:
             self._pod = self._fetch_pod()
         elif self.has_succeeded:
             return 0, None

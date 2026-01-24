@@ -9,29 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+from typing import Literal
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0151 import RulesetVersionPropActor
-from .group_0154 import RulesetVersionWithStateAllof1PropState
+from .group_0153 import RepositoryRuleFileExtensionRestrictionPropParameters
 
 
-class RulesetVersionWithState(GitHubModel):
-    """RulesetVersionWithState"""
+class RepositoryRuleFileExtensionRestriction(GitHubModel):
+    """file_extension_restriction
 
-    version_id: int = Field(description="The ID of the previous version of the ruleset")
-    actor: RulesetVersionPropActor = Field(
-        description="The actor who updated the ruleset"
+    Prevent commits that include files with specified file extensions from being
+    pushed to the commit graph.
+    """
+
+    type: Literal["file_extension_restriction"] = Field()
+    parameters: Missing[RepositoryRuleFileExtensionRestrictionPropParameters] = Field(
+        default=UNSET
     )
-    updated_at: datetime = Field()
-    state: RulesetVersionWithStateAllof1PropState = Field(
-        description="The state of the ruleset version"
-    )
 
 
-model_rebuild(RulesetVersionWithState)
+model_rebuild(RepositoryRuleFileExtensionRestriction)
 
-__all__ = ("RulesetVersionWithState",)
+__all__ = ("RepositoryRuleFileExtensionRestriction",)

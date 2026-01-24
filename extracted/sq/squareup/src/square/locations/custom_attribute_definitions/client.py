@@ -13,6 +13,7 @@ from ...types.custom_attribute_definition import CustomAttributeDefinition
 from ...types.delete_location_custom_attribute_definition_response import (
     DeleteLocationCustomAttributeDefinitionResponse,
 )
+from ...types.list_location_custom_attribute_definitions_response import ListLocationCustomAttributeDefinitionsResponse
 from ...types.retrieve_location_custom_attribute_definition_response import (
     RetrieveLocationCustomAttributeDefinitionResponse,
 )
@@ -48,7 +49,7 @@ class CustomAttributeDefinitionsClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[CustomAttributeDefinition]:
+    ) -> SyncPager[CustomAttributeDefinition, ListLocationCustomAttributeDefinitionsResponse]:
         """
         Lists the location-related [custom attribute definitions](entity:CustomAttributeDefinition) that belong to a Square seller account.
         When all response pages are retrieved, the results include all custom attribute definitions
@@ -75,7 +76,7 @@ class CustomAttributeDefinitionsClient:
 
         Returns
         -------
-        SyncPager[CustomAttributeDefinition]
+        SyncPager[CustomAttributeDefinition, ListLocationCustomAttributeDefinitionsResponse]
             Success
 
         Examples
@@ -85,7 +86,11 @@ class CustomAttributeDefinitionsClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.locations.custom_attribute_definitions.list()
+        response = client.locations.custom_attribute_definitions.list(
+            visibility_filter="ALL",
+            limit=1,
+            cursor="cursor",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -196,6 +201,7 @@ class CustomAttributeDefinitionsClient:
         )
         client.locations.custom_attribute_definitions.get(
             key="key",
+            version=1,
         )
         """
         _response = self._raw_client.get(key, version=version, request_options=request_options)
@@ -330,7 +336,7 @@ class AsyncCustomAttributeDefinitionsClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[CustomAttributeDefinition]:
+    ) -> AsyncPager[CustomAttributeDefinition, ListLocationCustomAttributeDefinitionsResponse]:
         """
         Lists the location-related [custom attribute definitions](entity:CustomAttributeDefinition) that belong to a Square seller account.
         When all response pages are retrieved, the results include all custom attribute definitions
@@ -357,7 +363,7 @@ class AsyncCustomAttributeDefinitionsClient:
 
         Returns
         -------
-        AsyncPager[CustomAttributeDefinition]
+        AsyncPager[CustomAttributeDefinition, ListLocationCustomAttributeDefinitionsResponse]
             Success
 
         Examples
@@ -372,7 +378,11 @@ class AsyncCustomAttributeDefinitionsClient:
 
 
         async def main() -> None:
-            response = await client.locations.custom_attribute_definitions.list()
+            response = await client.locations.custom_attribute_definitions.list(
+                visibility_filter="ALL",
+                limit=1,
+                cursor="cursor",
+            )
             async for item in response:
                 yield item
 
@@ -500,6 +510,7 @@ class AsyncCustomAttributeDefinitionsClient:
         async def main() -> None:
             await client.locations.custom_attribute_definitions.get(
                 key="key",
+                version=1,
             )
 
 

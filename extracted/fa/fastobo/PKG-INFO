@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastobo
-Version: 0.13.0
+Version: 0.14.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
@@ -23,9 +24,7 @@ Classifier: Typing :: Typed
 License-File: COPYING
 Summary: Faultless AST for Open Biomedical Ontologies in Python.
 Keywords: ontologies,ontology,obo,obofoundry,parser,syntax,ast
-Author: Martin Larralde <martin.larralde@embl.de>
 Author-email: Martin Larralde <martin.larralde@embl.de>
-License: MIT
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/fastobo/fastobo-py/
@@ -34,7 +33,7 @@ Project-URL: Changelog, https://fastobo.readthedocs.io/en/latest/changes.html
 Project-URL: Documentation, https://fastobo.readthedocs.io/
 Project-URL: Builds, https://github.com/fastobo/fastobo-py/actions/
 Project-URL: PyPI, https://pypi.org/project/fastobo
-Project-URL: Conda, https://anaconda.org/bioconda/fastobo
+Project-URL: Conda, https://anaconda.org/conda-forge/fastobo
 Project-URL: PiWheels, https://www.piwheels.org/project/fastobo/
 
 # `fastobo-py` [![Star me](https://img.shields.io/github/stars/fastobo/fastobo-py.svg?style=social&label=Star&maxAge=3600)](https://github.com/fastobo/fastobo-py/stargazers)
@@ -47,7 +46,7 @@ Project-URL: PiWheels, https://www.piwheels.org/project/fastobo/
 [![Source](https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square)](https://github.com/fastobo/fastobo-py/)
 [![PyPI](https://img.shields.io/pypi/v/fastobo.svg?style=flat-square&maxAge=600)](https://pypi.org/project/fastobo)
 [![Wheel](https://img.shields.io/pypi/wheel/fastobo.svg?style=flat-square&maxAge=2678400)](https://pypi.org/project/fastobo/#files)
-[![Bioconda](https://img.shields.io/conda/vn/bioconda/fastobo?style=flat-square&maxAge=3600)](https://anaconda.org/bioconda/fastobo)
+[![Conda](https://img.shields.io/conda/vn/conda-forge/fastobo?style=flat-square&maxAge=3600)](https://anaconda.org/conda-forge/fastobo)
 [![Python Versions](https://img.shields.io/pypi/pyversions/fastobo.svg?style=flat-square&maxAge=600)](https://pypi.org/project/fastobo/#files)
 [![PyPI - Implementation](https://img.shields.io/pypi/implementation/fastobo.svg?style=flat-square&maxAge=600)](https://pypi.org/project/fastobo/#files)
 [![Changelog](https://img.shields.io/badge/keep%20a-changelog-8A0707.svg?maxAge=2678400&style=flat-square)](https://github.com/fastobo/fastobo-py/blob/master/CHANGELOG.md)
@@ -93,10 +92,6 @@ import fastobo
 import gzip
 gzdoc = fastobo.load(gzip.open("../data/cl.obo.gz"))
 ```
-
-*Comments can be parsed but neither edited nor serialized, because of a limitation
-with `pyo3` (the library used to generate the Python bindings). They are supported
-in the Rust version of `fastobo`.*
 
 ## Feedback
 

@@ -16,7 +16,6 @@ short_description: Form data.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -125,8 +127,8 @@ EXAMPLES = '''
     - name: Form data.
       fortinet.fortimanager.fmgr_vpnsslweb_portal_bookmarkgroup_bookmarks_formdata:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -197,6 +199,7 @@ def main():
         'bookmark-group': {'type': 'str', 'api_name': 'bookmark_group'},
         'bookmark_group': {'type': 'str'},
         'bookmarks': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'vpnsslweb_portal_bookmarkgroup_bookmarks_formdata': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

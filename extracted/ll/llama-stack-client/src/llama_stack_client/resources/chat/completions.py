@@ -1,13 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Union, Iterable, cast
+from typing import Dict, Union, Iterable, Optional
 from typing_extensions import Literal, overload
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import required_args, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -18,9 +24,8 @@ from ..._response import (
     async_to_streamed_response_wrapper,
 )
 from ..._streaming import Stream, AsyncStream
-from ...pagination import SyncOpenAICursorPage, AsyncOpenAICursorPage
 from ...types.chat import completion_list_params, completion_create_params
-from ..._base_client import AsyncPaginator, make_request_options
+from ..._base_client import make_request_options
 from ...types.chat_completion_chunk import ChatCompletionChunk
 from ...types.chat.completion_list_response import CompletionListResponse
 from ...types.chat.completion_create_response import CompletionCreateResponse
@@ -55,87 +60,42 @@ class CompletionsResource(SyncAPIResource):
         *,
         messages: Iterable[completion_create_params.Message],
         model: str,
-        frequency_penalty: float | NotGiven = NOT_GIVEN,
-        function_call: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        functions: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        logit_bias: Dict[str, float] | NotGiven = NOT_GIVEN,
-        logprobs: bool | NotGiven = NOT_GIVEN,
-        max_completion_tokens: int | NotGiven = NOT_GIVEN,
-        max_tokens: int | NotGiven = NOT_GIVEN,
-        n: int | NotGiven = NOT_GIVEN,
-        parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-        presence_penalty: float | NotGiven = NOT_GIVEN,
-        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
-        seed: int | NotGiven = NOT_GIVEN,
-        stop: Union[str, List[str]] | NotGiven = NOT_GIVEN,
-        stream: Literal[False] | NotGiven = NOT_GIVEN,
-        stream_options: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        temperature: float | NotGiven = NOT_GIVEN,
-        tool_choice: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        tools: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        top_logprobs: int | NotGiven = NOT_GIVEN,
-        top_p: float | NotGiven = NOT_GIVEN,
-        user: str | NotGiven = NOT_GIVEN,
+        frequency_penalty: Optional[float] | Omit = omit,
+        function_call: Union[str, Dict[str, object], None] | Omit = omit,
+        functions: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        logit_bias: Optional[Dict[str, float]] | Omit = omit,
+        logprobs: Optional[bool] | Omit = omit,
+        max_completion_tokens: Optional[int] | Omit = omit,
+        max_tokens: Optional[int] | Omit = omit,
+        n: Optional[int] | Omit = omit,
+        parallel_tool_calls: Optional[bool] | Omit = omit,
+        presence_penalty: Optional[float] | Omit = omit,
+        response_format: Optional[completion_create_params.ResponseFormat] | Omit = omit,
+        seed: Optional[int] | Omit = omit,
+        stop: Union[str, SequenceNotStr[str], None] | Omit = omit,
+        stream: Optional[Literal[False]] | Omit = omit,
+        stream_options: Optional[Dict[str, object]] | Omit = omit,
+        temperature: Optional[float] | Omit = omit,
+        tool_choice: Union[str, Dict[str, object], None] | Omit = omit,
+        tools: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        top_logprobs: Optional[int] | Omit = omit,
+        top_p: Optional[float] | Omit = omit,
+        user: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse:
         """
+        Create chat completions.
+
         Generate an OpenAI-compatible chat completion for the given messages using the
         specified model.
 
         Args:
-          messages: List of messages in the conversation.
-
-          model: The identifier of the model to use. The model must be registered with Llama
-              Stack and available via the /models endpoint.
-
-          frequency_penalty: (Optional) The penalty for repeated tokens.
-
-          function_call: (Optional) The function call to use.
-
-          functions: (Optional) List of functions to use.
-
-          logit_bias: (Optional) The logit bias to use.
-
-          logprobs: (Optional) The log probabilities to use.
-
-          max_completion_tokens: (Optional) The maximum number of tokens to generate.
-
-          max_tokens: (Optional) The maximum number of tokens to generate.
-
-          n: (Optional) The number of completions to generate.
-
-          parallel_tool_calls: (Optional) Whether to parallelize tool calls.
-
-          presence_penalty: (Optional) The penalty for repeated tokens.
-
-          response_format: (Optional) The response format to use.
-
-          seed: (Optional) The seed to use.
-
-          stop: (Optional) The stop tokens to use.
-
-          stream: (Optional) Whether to stream the response.
-
-          stream_options: (Optional) The stream options to use.
-
-          temperature: (Optional) The temperature to use.
-
-          tool_choice: (Optional) The tool choice to use.
-
-          tools: (Optional) The tools to use.
-
-          top_logprobs: (Optional) The top log probabilities to use.
-
-          top_p: (Optional) The top p to use.
-
-          user: (Optional) The user to use.
+          response_format: Text response format for OpenAI-compatible chat completion requests.
 
           extra_headers: Send extra headers
 
@@ -154,86 +114,41 @@ class CompletionsResource(SyncAPIResource):
         messages: Iterable[completion_create_params.Message],
         model: str,
         stream: Literal[True],
-        frequency_penalty: float | NotGiven = NOT_GIVEN,
-        function_call: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        functions: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        logit_bias: Dict[str, float] | NotGiven = NOT_GIVEN,
-        logprobs: bool | NotGiven = NOT_GIVEN,
-        max_completion_tokens: int | NotGiven = NOT_GIVEN,
-        max_tokens: int | NotGiven = NOT_GIVEN,
-        n: int | NotGiven = NOT_GIVEN,
-        parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-        presence_penalty: float | NotGiven = NOT_GIVEN,
-        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
-        seed: int | NotGiven = NOT_GIVEN,
-        stop: Union[str, List[str]] | NotGiven = NOT_GIVEN,
-        stream_options: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        temperature: float | NotGiven = NOT_GIVEN,
-        tool_choice: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        tools: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        top_logprobs: int | NotGiven = NOT_GIVEN,
-        top_p: float | NotGiven = NOT_GIVEN,
-        user: str | NotGiven = NOT_GIVEN,
+        frequency_penalty: Optional[float] | Omit = omit,
+        function_call: Union[str, Dict[str, object], None] | Omit = omit,
+        functions: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        logit_bias: Optional[Dict[str, float]] | Omit = omit,
+        logprobs: Optional[bool] | Omit = omit,
+        max_completion_tokens: Optional[int] | Omit = omit,
+        max_tokens: Optional[int] | Omit = omit,
+        n: Optional[int] | Omit = omit,
+        parallel_tool_calls: Optional[bool] | Omit = omit,
+        presence_penalty: Optional[float] | Omit = omit,
+        response_format: Optional[completion_create_params.ResponseFormat] | Omit = omit,
+        seed: Optional[int] | Omit = omit,
+        stop: Union[str, SequenceNotStr[str], None] | Omit = omit,
+        stream_options: Optional[Dict[str, object]] | Omit = omit,
+        temperature: Optional[float] | Omit = omit,
+        tool_choice: Union[str, Dict[str, object], None] | Omit = omit,
+        tools: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        top_logprobs: Optional[int] | Omit = omit,
+        top_p: Optional[float] | Omit = omit,
+        user: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Stream[ChatCompletionChunk]:
         """
+        Create chat completions.
+
         Generate an OpenAI-compatible chat completion for the given messages using the
         specified model.
 
         Args:
-          messages: List of messages in the conversation.
-
-          model: The identifier of the model to use. The model must be registered with Llama
-              Stack and available via the /models endpoint.
-
-          stream: (Optional) Whether to stream the response.
-
-          frequency_penalty: (Optional) The penalty for repeated tokens.
-
-          function_call: (Optional) The function call to use.
-
-          functions: (Optional) List of functions to use.
-
-          logit_bias: (Optional) The logit bias to use.
-
-          logprobs: (Optional) The log probabilities to use.
-
-          max_completion_tokens: (Optional) The maximum number of tokens to generate.
-
-          max_tokens: (Optional) The maximum number of tokens to generate.
-
-          n: (Optional) The number of completions to generate.
-
-          parallel_tool_calls: (Optional) Whether to parallelize tool calls.
-
-          presence_penalty: (Optional) The penalty for repeated tokens.
-
-          response_format: (Optional) The response format to use.
-
-          seed: (Optional) The seed to use.
-
-          stop: (Optional) The stop tokens to use.
-
-          stream_options: (Optional) The stream options to use.
-
-          temperature: (Optional) The temperature to use.
-
-          tool_choice: (Optional) The tool choice to use.
-
-          tools: (Optional) The tools to use.
-
-          top_logprobs: (Optional) The top log probabilities to use.
-
-          top_p: (Optional) The top p to use.
-
-          user: (Optional) The user to use.
+          response_format: Text response format for OpenAI-compatible chat completion requests.
 
           extra_headers: Send extra headers
 
@@ -252,86 +167,41 @@ class CompletionsResource(SyncAPIResource):
         messages: Iterable[completion_create_params.Message],
         model: str,
         stream: bool,
-        frequency_penalty: float | NotGiven = NOT_GIVEN,
-        function_call: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        functions: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        logit_bias: Dict[str, float] | NotGiven = NOT_GIVEN,
-        logprobs: bool | NotGiven = NOT_GIVEN,
-        max_completion_tokens: int | NotGiven = NOT_GIVEN,
-        max_tokens: int | NotGiven = NOT_GIVEN,
-        n: int | NotGiven = NOT_GIVEN,
-        parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-        presence_penalty: float | NotGiven = NOT_GIVEN,
-        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
-        seed: int | NotGiven = NOT_GIVEN,
-        stop: Union[str, List[str]] | NotGiven = NOT_GIVEN,
-        stream_options: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        temperature: float | NotGiven = NOT_GIVEN,
-        tool_choice: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        tools: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        top_logprobs: int | NotGiven = NOT_GIVEN,
-        top_p: float | NotGiven = NOT_GIVEN,
-        user: str | NotGiven = NOT_GIVEN,
+        frequency_penalty: Optional[float] | Omit = omit,
+        function_call: Union[str, Dict[str, object], None] | Omit = omit,
+        functions: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        logit_bias: Optional[Dict[str, float]] | Omit = omit,
+        logprobs: Optional[bool] | Omit = omit,
+        max_completion_tokens: Optional[int] | Omit = omit,
+        max_tokens: Optional[int] | Omit = omit,
+        n: Optional[int] | Omit = omit,
+        parallel_tool_calls: Optional[bool] | Omit = omit,
+        presence_penalty: Optional[float] | Omit = omit,
+        response_format: Optional[completion_create_params.ResponseFormat] | Omit = omit,
+        seed: Optional[int] | Omit = omit,
+        stop: Union[str, SequenceNotStr[str], None] | Omit = omit,
+        stream_options: Optional[Dict[str, object]] | Omit = omit,
+        temperature: Optional[float] | Omit = omit,
+        tool_choice: Union[str, Dict[str, object], None] | Omit = omit,
+        tools: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        top_logprobs: Optional[int] | Omit = omit,
+        top_p: Optional[float] | Omit = omit,
+        user: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse | Stream[ChatCompletionChunk]:
         """
+        Create chat completions.
+
         Generate an OpenAI-compatible chat completion for the given messages using the
         specified model.
 
         Args:
-          messages: List of messages in the conversation.
-
-          model: The identifier of the model to use. The model must be registered with Llama
-              Stack and available via the /models endpoint.
-
-          stream: (Optional) Whether to stream the response.
-
-          frequency_penalty: (Optional) The penalty for repeated tokens.
-
-          function_call: (Optional) The function call to use.
-
-          functions: (Optional) List of functions to use.
-
-          logit_bias: (Optional) The logit bias to use.
-
-          logprobs: (Optional) The log probabilities to use.
-
-          max_completion_tokens: (Optional) The maximum number of tokens to generate.
-
-          max_tokens: (Optional) The maximum number of tokens to generate.
-
-          n: (Optional) The number of completions to generate.
-
-          parallel_tool_calls: (Optional) Whether to parallelize tool calls.
-
-          presence_penalty: (Optional) The penalty for repeated tokens.
-
-          response_format: (Optional) The response format to use.
-
-          seed: (Optional) The seed to use.
-
-          stop: (Optional) The stop tokens to use.
-
-          stream_options: (Optional) The stream options to use.
-
-          temperature: (Optional) The temperature to use.
-
-          tool_choice: (Optional) The tool choice to use.
-
-          tools: (Optional) The tools to use.
-
-          top_logprobs: (Optional) The top log probabilities to use.
-
-          top_p: (Optional) The top p to use.
-
-          user: (Optional) The user to use.
+          response_format: Text response format for OpenAI-compatible chat completion requests.
 
           extra_headers: Send extra headers
 
@@ -349,38 +219,36 @@ class CompletionsResource(SyncAPIResource):
         *,
         messages: Iterable[completion_create_params.Message],
         model: str,
-        frequency_penalty: float | NotGiven = NOT_GIVEN,
-        function_call: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        functions: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        logit_bias: Dict[str, float] | NotGiven = NOT_GIVEN,
-        logprobs: bool | NotGiven = NOT_GIVEN,
-        max_completion_tokens: int | NotGiven = NOT_GIVEN,
-        max_tokens: int | NotGiven = NOT_GIVEN,
-        n: int | NotGiven = NOT_GIVEN,
-        parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-        presence_penalty: float | NotGiven = NOT_GIVEN,
-        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
-        seed: int | NotGiven = NOT_GIVEN,
-        stop: Union[str, List[str]] | NotGiven = NOT_GIVEN,
-        stream: Literal[False] | Literal[True] | NotGiven = NOT_GIVEN,
-        stream_options: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        temperature: float | NotGiven = NOT_GIVEN,
-        tool_choice: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        tools: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        top_logprobs: int | NotGiven = NOT_GIVEN,
-        top_p: float | NotGiven = NOT_GIVEN,
-        user: str | NotGiven = NOT_GIVEN,
+        frequency_penalty: Optional[float] | Omit = omit,
+        function_call: Union[str, Dict[str, object], None] | Omit = omit,
+        functions: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        logit_bias: Optional[Dict[str, float]] | Omit = omit,
+        logprobs: Optional[bool] | Omit = omit,
+        max_completion_tokens: Optional[int] | Omit = omit,
+        max_tokens: Optional[int] | Omit = omit,
+        n: Optional[int] | Omit = omit,
+        parallel_tool_calls: Optional[bool] | Omit = omit,
+        presence_penalty: Optional[float] | Omit = omit,
+        response_format: Optional[completion_create_params.ResponseFormat] | Omit = omit,
+        seed: Optional[int] | Omit = omit,
+        stop: Union[str, SequenceNotStr[str], None] | Omit = omit,
+        stream: Optional[Literal[False]] | Literal[True] | Omit = omit,
+        stream_options: Optional[Dict[str, object]] | Omit = omit,
+        temperature: Optional[float] | Omit = omit,
+        tool_choice: Union[str, Dict[str, object], None] | Omit = omit,
+        tools: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        top_logprobs: Optional[int] | Omit = omit,
+        top_p: Optional[float] | Omit = omit,
+        user: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse | Stream[ChatCompletionChunk]:
         return self._post(
-            "/v1/openai/v1/chat/completions",
+            "/v1/chat/completions",
             body=maybe_transform(
                 {
                     "messages": messages,
@@ -414,9 +282,7 @@ class CompletionsResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(
-                Any, CompletionCreateResponse
-            ),  # Union types cannot be passed in as arguments in the type system
+            cast_to=CompletionCreateResponse,
             stream=stream or False,
             stream_cls=Stream[ChatCompletionChunk],
         )
@@ -430,9 +296,11 @@ class CompletionsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionRetrieveResponse:
         """
+        Get chat completion.
+
         Describe a chat completion by its ID.
 
         Args:
@@ -447,7 +315,7 @@ class CompletionsResource(SyncAPIResource):
         if not completion_id:
             raise ValueError(f"Expected a non-empty value for `completion_id` but received {completion_id!r}")
         return self._get(
-            f"/v1/openai/v1/chat/completions/{completion_id}",
+            f"/v1/chat/completions/{completion_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -457,28 +325,22 @@ class CompletionsResource(SyncAPIResource):
     def list(
         self,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        model: str | NotGiven = NOT_GIVEN,
-        order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
+        after: Optional[str] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        model: Optional[str] | Omit = omit,
+        order: Optional[Literal["asc", "desc"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> SyncOpenAICursorPage[CompletionListResponse]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> CompletionListResponse:
         """
-        List all chat completions.
+        List chat completions.
 
         Args:
-          after: The ID of the last chat completion to return.
-
-          limit: The maximum number of chat completions to return.
-
-          model: The model to filter by.
-
-          order: The order to sort the chat completions by: "asc" or "desc". Defaults to "desc".
+          order: Sort order for paginated responses.
 
           extra_headers: Send extra headers
 
@@ -488,9 +350,8 @@ class CompletionsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get_api_list(
-            "/v1/openai/v1/chat/completions",
-            page=SyncOpenAICursorPage[CompletionListResponse],
+        return self._get(
+            "/v1/chat/completions",
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -506,7 +367,7 @@ class CompletionsResource(SyncAPIResource):
                     completion_list_params.CompletionListParams,
                 ),
             ),
-            model=CompletionListResponse,
+            cast_to=CompletionListResponse,
         )
 
 
@@ -536,87 +397,42 @@ class AsyncCompletionsResource(AsyncAPIResource):
         *,
         messages: Iterable[completion_create_params.Message],
         model: str,
-        frequency_penalty: float | NotGiven = NOT_GIVEN,
-        function_call: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        functions: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        logit_bias: Dict[str, float] | NotGiven = NOT_GIVEN,
-        logprobs: bool | NotGiven = NOT_GIVEN,
-        max_completion_tokens: int | NotGiven = NOT_GIVEN,
-        max_tokens: int | NotGiven = NOT_GIVEN,
-        n: int | NotGiven = NOT_GIVEN,
-        parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-        presence_penalty: float | NotGiven = NOT_GIVEN,
-        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
-        seed: int | NotGiven = NOT_GIVEN,
-        stop: Union[str, List[str]] | NotGiven = NOT_GIVEN,
-        stream: Literal[False] | NotGiven = NOT_GIVEN,
-        stream_options: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        temperature: float | NotGiven = NOT_GIVEN,
-        tool_choice: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        tools: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        top_logprobs: int | NotGiven = NOT_GIVEN,
-        top_p: float | NotGiven = NOT_GIVEN,
-        user: str | NotGiven = NOT_GIVEN,
+        frequency_penalty: Optional[float] | Omit = omit,
+        function_call: Union[str, Dict[str, object], None] | Omit = omit,
+        functions: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        logit_bias: Optional[Dict[str, float]] | Omit = omit,
+        logprobs: Optional[bool] | Omit = omit,
+        max_completion_tokens: Optional[int] | Omit = omit,
+        max_tokens: Optional[int] | Omit = omit,
+        n: Optional[int] | Omit = omit,
+        parallel_tool_calls: Optional[bool] | Omit = omit,
+        presence_penalty: Optional[float] | Omit = omit,
+        response_format: Optional[completion_create_params.ResponseFormat] | Omit = omit,
+        seed: Optional[int] | Omit = omit,
+        stop: Union[str, SequenceNotStr[str], None] | Omit = omit,
+        stream: Optional[Literal[False]] | Omit = omit,
+        stream_options: Optional[Dict[str, object]] | Omit = omit,
+        temperature: Optional[float] | Omit = omit,
+        tool_choice: Union[str, Dict[str, object], None] | Omit = omit,
+        tools: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        top_logprobs: Optional[int] | Omit = omit,
+        top_p: Optional[float] | Omit = omit,
+        user: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse:
         """
+        Create chat completions.
+
         Generate an OpenAI-compatible chat completion for the given messages using the
         specified model.
 
         Args:
-          messages: List of messages in the conversation.
-
-          model: The identifier of the model to use. The model must be registered with Llama
-              Stack and available via the /models endpoint.
-
-          frequency_penalty: (Optional) The penalty for repeated tokens.
-
-          function_call: (Optional) The function call to use.
-
-          functions: (Optional) List of functions to use.
-
-          logit_bias: (Optional) The logit bias to use.
-
-          logprobs: (Optional) The log probabilities to use.
-
-          max_completion_tokens: (Optional) The maximum number of tokens to generate.
-
-          max_tokens: (Optional) The maximum number of tokens to generate.
-
-          n: (Optional) The number of completions to generate.
-
-          parallel_tool_calls: (Optional) Whether to parallelize tool calls.
-
-          presence_penalty: (Optional) The penalty for repeated tokens.
-
-          response_format: (Optional) The response format to use.
-
-          seed: (Optional) The seed to use.
-
-          stop: (Optional) The stop tokens to use.
-
-          stream: (Optional) Whether to stream the response.
-
-          stream_options: (Optional) The stream options to use.
-
-          temperature: (Optional) The temperature to use.
-
-          tool_choice: (Optional) The tool choice to use.
-
-          tools: (Optional) The tools to use.
-
-          top_logprobs: (Optional) The top log probabilities to use.
-
-          top_p: (Optional) The top p to use.
-
-          user: (Optional) The user to use.
+          response_format: Text response format for OpenAI-compatible chat completion requests.
 
           extra_headers: Send extra headers
 
@@ -635,86 +451,41 @@ class AsyncCompletionsResource(AsyncAPIResource):
         messages: Iterable[completion_create_params.Message],
         model: str,
         stream: Literal[True],
-        frequency_penalty: float | NotGiven = NOT_GIVEN,
-        function_call: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        functions: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        logit_bias: Dict[str, float] | NotGiven = NOT_GIVEN,
-        logprobs: bool | NotGiven = NOT_GIVEN,
-        max_completion_tokens: int | NotGiven = NOT_GIVEN,
-        max_tokens: int | NotGiven = NOT_GIVEN,
-        n: int | NotGiven = NOT_GIVEN,
-        parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-        presence_penalty: float | NotGiven = NOT_GIVEN,
-        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
-        seed: int | NotGiven = NOT_GIVEN,
-        stop: Union[str, List[str]] | NotGiven = NOT_GIVEN,
-        stream_options: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        temperature: float | NotGiven = NOT_GIVEN,
-        tool_choice: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        tools: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        top_logprobs: int | NotGiven = NOT_GIVEN,
-        top_p: float | NotGiven = NOT_GIVEN,
-        user: str | NotGiven = NOT_GIVEN,
+        frequency_penalty: Optional[float] | Omit = omit,
+        function_call: Union[str, Dict[str, object], None] | Omit = omit,
+        functions: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        logit_bias: Optional[Dict[str, float]] | Omit = omit,
+        logprobs: Optional[bool] | Omit = omit,
+        max_completion_tokens: Optional[int] | Omit = omit,
+        max_tokens: Optional[int] | Omit = omit,
+        n: Optional[int] | Omit = omit,
+        parallel_tool_calls: Optional[bool] | Omit = omit,
+        presence_penalty: Optional[float] | Omit = omit,
+        response_format: Optional[completion_create_params.ResponseFormat] | Omit = omit,
+        seed: Optional[int] | Omit = omit,
+        stop: Union[str, SequenceNotStr[str], None] | Omit = omit,
+        stream_options: Optional[Dict[str, object]] | Omit = omit,
+        temperature: Optional[float] | Omit = omit,
+        tool_choice: Union[str, Dict[str, object], None] | Omit = omit,
+        tools: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        top_logprobs: Optional[int] | Omit = omit,
+        top_p: Optional[float] | Omit = omit,
+        user: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncStream[ChatCompletionChunk]:
         """
+        Create chat completions.
+
         Generate an OpenAI-compatible chat completion for the given messages using the
         specified model.
 
         Args:
-          messages: List of messages in the conversation.
-
-          model: The identifier of the model to use. The model must be registered with Llama
-              Stack and available via the /models endpoint.
-
-          stream: (Optional) Whether to stream the response.
-
-          frequency_penalty: (Optional) The penalty for repeated tokens.
-
-          function_call: (Optional) The function call to use.
-
-          functions: (Optional) List of functions to use.
-
-          logit_bias: (Optional) The logit bias to use.
-
-          logprobs: (Optional) The log probabilities to use.
-
-          max_completion_tokens: (Optional) The maximum number of tokens to generate.
-
-          max_tokens: (Optional) The maximum number of tokens to generate.
-
-          n: (Optional) The number of completions to generate.
-
-          parallel_tool_calls: (Optional) Whether to parallelize tool calls.
-
-          presence_penalty: (Optional) The penalty for repeated tokens.
-
-          response_format: (Optional) The response format to use.
-
-          seed: (Optional) The seed to use.
-
-          stop: (Optional) The stop tokens to use.
-
-          stream_options: (Optional) The stream options to use.
-
-          temperature: (Optional) The temperature to use.
-
-          tool_choice: (Optional) The tool choice to use.
-
-          tools: (Optional) The tools to use.
-
-          top_logprobs: (Optional) The top log probabilities to use.
-
-          top_p: (Optional) The top p to use.
-
-          user: (Optional) The user to use.
+          response_format: Text response format for OpenAI-compatible chat completion requests.
 
           extra_headers: Send extra headers
 
@@ -733,86 +504,41 @@ class AsyncCompletionsResource(AsyncAPIResource):
         messages: Iterable[completion_create_params.Message],
         model: str,
         stream: bool,
-        frequency_penalty: float | NotGiven = NOT_GIVEN,
-        function_call: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        functions: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        logit_bias: Dict[str, float] | NotGiven = NOT_GIVEN,
-        logprobs: bool | NotGiven = NOT_GIVEN,
-        max_completion_tokens: int | NotGiven = NOT_GIVEN,
-        max_tokens: int | NotGiven = NOT_GIVEN,
-        n: int | NotGiven = NOT_GIVEN,
-        parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-        presence_penalty: float | NotGiven = NOT_GIVEN,
-        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
-        seed: int | NotGiven = NOT_GIVEN,
-        stop: Union[str, List[str]] | NotGiven = NOT_GIVEN,
-        stream_options: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        temperature: float | NotGiven = NOT_GIVEN,
-        tool_choice: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        tools: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        top_logprobs: int | NotGiven = NOT_GIVEN,
-        top_p: float | NotGiven = NOT_GIVEN,
-        user: str | NotGiven = NOT_GIVEN,
+        frequency_penalty: Optional[float] | Omit = omit,
+        function_call: Union[str, Dict[str, object], None] | Omit = omit,
+        functions: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        logit_bias: Optional[Dict[str, float]] | Omit = omit,
+        logprobs: Optional[bool] | Omit = omit,
+        max_completion_tokens: Optional[int] | Omit = omit,
+        max_tokens: Optional[int] | Omit = omit,
+        n: Optional[int] | Omit = omit,
+        parallel_tool_calls: Optional[bool] | Omit = omit,
+        presence_penalty: Optional[float] | Omit = omit,
+        response_format: Optional[completion_create_params.ResponseFormat] | Omit = omit,
+        seed: Optional[int] | Omit = omit,
+        stop: Union[str, SequenceNotStr[str], None] | Omit = omit,
+        stream_options: Optional[Dict[str, object]] | Omit = omit,
+        temperature: Optional[float] | Omit = omit,
+        tool_choice: Union[str, Dict[str, object], None] | Omit = omit,
+        tools: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        top_logprobs: Optional[int] | Omit = omit,
+        top_p: Optional[float] | Omit = omit,
+        user: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse | AsyncStream[ChatCompletionChunk]:
         """
+        Create chat completions.
+
         Generate an OpenAI-compatible chat completion for the given messages using the
         specified model.
 
         Args:
-          messages: List of messages in the conversation.
-
-          model: The identifier of the model to use. The model must be registered with Llama
-              Stack and available via the /models endpoint.
-
-          stream: (Optional) Whether to stream the response.
-
-          frequency_penalty: (Optional) The penalty for repeated tokens.
-
-          function_call: (Optional) The function call to use.
-
-          functions: (Optional) List of functions to use.
-
-          logit_bias: (Optional) The logit bias to use.
-
-          logprobs: (Optional) The log probabilities to use.
-
-          max_completion_tokens: (Optional) The maximum number of tokens to generate.
-
-          max_tokens: (Optional) The maximum number of tokens to generate.
-
-          n: (Optional) The number of completions to generate.
-
-          parallel_tool_calls: (Optional) Whether to parallelize tool calls.
-
-          presence_penalty: (Optional) The penalty for repeated tokens.
-
-          response_format: (Optional) The response format to use.
-
-          seed: (Optional) The seed to use.
-
-          stop: (Optional) The stop tokens to use.
-
-          stream_options: (Optional) The stream options to use.
-
-          temperature: (Optional) The temperature to use.
-
-          tool_choice: (Optional) The tool choice to use.
-
-          tools: (Optional) The tools to use.
-
-          top_logprobs: (Optional) The top log probabilities to use.
-
-          top_p: (Optional) The top p to use.
-
-          user: (Optional) The user to use.
+          response_format: Text response format for OpenAI-compatible chat completion requests.
 
           extra_headers: Send extra headers
 
@@ -830,38 +556,36 @@ class AsyncCompletionsResource(AsyncAPIResource):
         *,
         messages: Iterable[completion_create_params.Message],
         model: str,
-        frequency_penalty: float | NotGiven = NOT_GIVEN,
-        function_call: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        functions: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        logit_bias: Dict[str, float] | NotGiven = NOT_GIVEN,
-        logprobs: bool | NotGiven = NOT_GIVEN,
-        max_completion_tokens: int | NotGiven = NOT_GIVEN,
-        max_tokens: int | NotGiven = NOT_GIVEN,
-        n: int | NotGiven = NOT_GIVEN,
-        parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-        presence_penalty: float | NotGiven = NOT_GIVEN,
-        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
-        seed: int | NotGiven = NOT_GIVEN,
-        stop: Union[str, List[str]] | NotGiven = NOT_GIVEN,
-        stream: Literal[False] | Literal[True] | NotGiven = NOT_GIVEN,
-        stream_options: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        temperature: float | NotGiven = NOT_GIVEN,
-        tool_choice: Union[str, Dict[str, Union[bool, float, str, Iterable[object], object, None]]]
-        | NotGiven = NOT_GIVEN,
-        tools: Iterable[Dict[str, Union[bool, float, str, Iterable[object], object, None]]] | NotGiven = NOT_GIVEN,
-        top_logprobs: int | NotGiven = NOT_GIVEN,
-        top_p: float | NotGiven = NOT_GIVEN,
-        user: str | NotGiven = NOT_GIVEN,
+        frequency_penalty: Optional[float] | Omit = omit,
+        function_call: Union[str, Dict[str, object], None] | Omit = omit,
+        functions: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        logit_bias: Optional[Dict[str, float]] | Omit = omit,
+        logprobs: Optional[bool] | Omit = omit,
+        max_completion_tokens: Optional[int] | Omit = omit,
+        max_tokens: Optional[int] | Omit = omit,
+        n: Optional[int] | Omit = omit,
+        parallel_tool_calls: Optional[bool] | Omit = omit,
+        presence_penalty: Optional[float] | Omit = omit,
+        response_format: Optional[completion_create_params.ResponseFormat] | Omit = omit,
+        seed: Optional[int] | Omit = omit,
+        stop: Union[str, SequenceNotStr[str], None] | Omit = omit,
+        stream: Optional[Literal[False]] | Literal[True] | Omit = omit,
+        stream_options: Optional[Dict[str, object]] | Omit = omit,
+        temperature: Optional[float] | Omit = omit,
+        tool_choice: Union[str, Dict[str, object], None] | Omit = omit,
+        tools: Optional[Iterable[Dict[str, object]]] | Omit = omit,
+        top_logprobs: Optional[int] | Omit = omit,
+        top_p: Optional[float] | Omit = omit,
+        user: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionCreateResponse | AsyncStream[ChatCompletionChunk]:
         return await self._post(
-            "/v1/openai/v1/chat/completions",
+            "/v1/chat/completions",
             body=await async_maybe_transform(
                 {
                     "messages": messages,
@@ -895,9 +619,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(
-                Any, CompletionCreateResponse
-            ),  # Union types cannot be passed in as arguments in the type system
+            cast_to=CompletionCreateResponse,
             stream=stream or False,
             stream_cls=AsyncStream[ChatCompletionChunk],
         )
@@ -911,9 +633,11 @@ class AsyncCompletionsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CompletionRetrieveResponse:
         """
+        Get chat completion.
+
         Describe a chat completion by its ID.
 
         Args:
@@ -928,38 +652,32 @@ class AsyncCompletionsResource(AsyncAPIResource):
         if not completion_id:
             raise ValueError(f"Expected a non-empty value for `completion_id` but received {completion_id!r}")
         return await self._get(
-            f"/v1/openai/v1/chat/completions/{completion_id}",
+            f"/v1/chat/completions/{completion_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=CompletionRetrieveResponse,
         )
 
-    def list(
+    async def list(
         self,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        model: str | NotGiven = NOT_GIVEN,
-        order: Literal["asc", "desc"] | NotGiven = NOT_GIVEN,
+        after: Optional[str] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        model: Optional[str] | Omit = omit,
+        order: Optional[Literal["asc", "desc"]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> AsyncPaginator[CompletionListResponse, AsyncOpenAICursorPage[CompletionListResponse]]:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> CompletionListResponse:
         """
-        List all chat completions.
+        List chat completions.
 
         Args:
-          after: The ID of the last chat completion to return.
-
-          limit: The maximum number of chat completions to return.
-
-          model: The model to filter by.
-
-          order: The order to sort the chat completions by: "asc" or "desc". Defaults to "desc".
+          order: Sort order for paginated responses.
 
           extra_headers: Send extra headers
 
@@ -969,15 +687,14 @@ class AsyncCompletionsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get_api_list(
-            "/v1/openai/v1/chat/completions",
-            page=AsyncOpenAICursorPage[CompletionListResponse],
+        return await self._get(
+            "/v1/chat/completions",
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform(
+                query=await async_maybe_transform(
                     {
                         "after": after,
                         "limit": limit,
@@ -987,7 +704,7 @@ class AsyncCompletionsResource(AsyncAPIResource):
                     completion_list_params.CompletionListParams,
                 ),
             ),
-            model=CompletionListResponse,
+            cast_to=CompletionListResponse,
         )
 
 

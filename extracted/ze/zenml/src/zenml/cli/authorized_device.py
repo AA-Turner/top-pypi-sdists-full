@@ -19,7 +19,7 @@ import click
 
 from zenml.cli import utils as cli_utils
 from zenml.cli.cli import TagGroup, cli
-from zenml.cli.utils import list_options
+from zenml.cli.utils import OutputFormat, list_options
 from zenml.client import Client
 from zenml.console import console
 from zenml.enums import CliCategories
@@ -47,7 +47,7 @@ def describe_authorized_device(id_or_prefix: str) -> None:
             id_or_prefix=id_or_prefix,
         )
     except KeyError as e:
-        cli_utils.error(str(e))
+        cli_utils.exception(e)
 
     cli_utils.print_pydantic_model(
         title=f"Authorized device `{device.id}`",
@@ -59,24 +59,35 @@ def describe_authorized_device(id_or_prefix: str) -> None:
 @authorized_device.command(
     "list", help="List all authorized devices for the current user."
 )
-@list_options(OAuthDeviceFilter)
-def list_authorized_devices(**kwargs: Any) -> None:
+@list_options(
+    OAuthDeviceFilter,
+    default_columns=[
+        "id",
+        "status",
+        "expires",
+        "hostname",
+        "os",
+    ],
+)
+def list_authorized_devices(
+    columns: str, output_format: OutputFormat, **kwargs: Any
+) -> None:
     """List all authorized devices.
 
     Args:
+        columns: Columns to display in output.
+        output_format: Format for output (table/json/yaml/csv/tsv).
         **kwargs: Keyword arguments to filter authorized devices.
     """
     with console.status("Listing authorized devices...\n"):
         devices = Client().list_authorized_devices(**kwargs)
 
-        if not devices.items:
-            cli_utils.declare("No authorized devices found for this filter.")
-            return
-
-        cli_utils.print_pydantic_models(
-            devices,
-            columns=["id", "status", "ip_address", "hostname", "os"],
-        )
+    cli_utils.print_page(
+        devices,
+        columns,
+        output_format,
+        empty_message="No authorized devices found for this filter.",
+    )
 
 
 @authorized_device.command("lock")
@@ -93,7 +104,7 @@ def lock_authorized_device(id: str) -> None:
             locked=True,
         )
     except KeyError as e:
-        cli_utils.error(str(e))
+        cli_utils.exception(e)
     else:
         cli_utils.declare(f"Locked authorized device `{id}`.")
 
@@ -112,7 +123,7 @@ def unlock_authorized_device(id: str) -> None:
             locked=False,
         )
     except KeyError as e:
-        cli_utils.error(str(e))
+        cli_utils.exception(e)
     else:
         cli_utils.declare(f"Locked authorized device `{id}`.")
 
@@ -143,6 +154,6 @@ def delete_authorized_device(id: str, yes: bool = False) -> None:
     try:
         Client().delete_authorized_device(id_or_prefix=id)
     except KeyError as e:
-        cli_utils.error(str(e))
+        cli_utils.exception(e)
     else:
         cli_utils.declare(f"Deleted authorized device `{id}`.")

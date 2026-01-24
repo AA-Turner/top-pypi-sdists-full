@@ -1,14 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-from asyncio import iscoroutinefunction
 from collections.abc import ItemsView, Iterator, KeysView, ValuesView
-from typing import (
-    Any,
-    Protocol,
-    TypeGuard,
-    overload,
-    runtime_checkable,
-)
+from inspect import iscoroutinefunction
+from typing import TYPE_CHECKING, Any, Protocol, TypeGuard, overload, runtime_checkable
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeForm
 
 
 class URI(Protocol):
@@ -79,6 +76,14 @@ def is_bytes_reader(obj: Any) -> TypeGuard[BytesReader]:
     )
 
 
+@runtime_checkable
+class SeekableBytesReader(BytesReader, Protocol):
+    """A synchronous bytes reader with seek and tell methods."""
+
+    def tell(self) -> int: ...
+    def seek(self, offset: int, whence: int = 0, /) -> int: ...
+
+
 # A union of all acceptable streaming blob types. Deserialized payloads will
 # always return a ByteStream, or AsyncByteStream if async is enabled.
 type StreamingBlob = BytesReader | bytes | bytearray
@@ -114,26 +119,18 @@ class PropertyKey[T](Protocol):
 
     For a concrete implementation, see :py:class:`smithy_core.types.PropertyKey`.
 
-    Note that unions and other special types cannot easily be used here due to being
-    incompatible with ``type[T]``. PEP747 proposes a fix to this case, but it has not
-    yet been accepted. In the meantime, there is a workaround. The PropertyKey must
-    be assigned to an explicitly typed variable, and the ``value_type`` parameter of
-    the constructor must have a ``# type: ignore`` comment, like so:
-
     .. code-block:: python
 
         UNION_PROPERTY: PropertyKey[str | int] = PropertyKey(
             key="union",
-            value_type=str | int,  # type: ignore
+            value_type=str | int,
         )
-
-    Type checkers will be able to use such a property as expected.
     """
 
     key: str
     """The string key used to access the value."""
 
-    value_type: type[T]
+    value_type: "TypeForm[T]"
     """The type of the associated value in the properties bag."""
 
     def __str__(self) -> str:

@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 
 def instantiate_toolkit_with_client(toolkit_config: Dict[str, Any], 
                                    llm_client: Any, 
-                                   alita_client: Optional[Any] = None) -> List[Any]:
+                                   alita_client: Optional[Any] = None,
+                                   mcp_tokens: Optional[Dict[str, Any]] = None,
+                                   use_prefix: bool = False) -> List[Any]:
     """
     Instantiate a toolkit with LLM client support.
     
@@ -22,20 +24,25 @@ def instantiate_toolkit_with_client(toolkit_config: Dict[str, Any],
     Args:
         toolkit_config: Configuration dictionary for the toolkit
         llm_client: LLM client instance for tools that need LLM capabilities
-        client: Optional additional client instance
+        alita_client: Optional additional client instance
+        mcp_tokens: Optional dictionary of MCP OAuth tokens by server URL
+        use_prefix: If True, tools get prefixed with toolkit_name to prevent collisions
+                   (for agent use). If False, tools use base names only (for testing interface).
+                   Default False for backward compatibility with testing.
     
     Returns:
         List of instantiated tools from the toolkit
         
     Raises:
         ValueError: If required configuration or client is missing
+        McpAuthorizationRequired: If MCP server requires OAuth authorization
         Exception: If toolkit instantiation fails
     """
+    toolkit_name = toolkit_config.get('toolkit_name', 'unknown')
     try:
         from ..toolkits.tools import get_tools
         
-        toolkit_name = toolkit_config.get('toolkit_name')
-        if not toolkit_name:
+        if not toolkit_name or toolkit_name == 'unknown':
             raise ValueError("toolkit_name is required in configuration")
         
         if not llm_client:
@@ -46,18 +53,24 @@ def instantiate_toolkit_with_client(toolkit_config: Dict[str, Any],
         # Log the configuration being used
         logger.info(f"Instantiating toolkit {toolkit_name} with LLM client")
         logger.debug(f"Toolkit {toolkit_name} configuration: {toolkit_config}")
-        
+
+        # Use toolkit type from config, or fall back to lowercase toolkit name
+        toolkit_type = toolkit_config.get('type', toolkit_name.lower())
+
         # Create a tool configuration dict with required fields
+        # Note: MCP toolkit always requires toolkit_name, other toolkits respect use_prefix flag
+        # Note: 'name' is always set for provider-based toolkits (used by provider_worker.utils.tools)
         tool_config = {
             'id': toolkit_config.get('id', random.randint(1, 1000000)),
-            'type': toolkit_config.get('type', toolkit_name.lower()),
+            'type': toolkit_config.get('type', toolkit_type),
             'settings': settings,
-            'toolkit_name': toolkit_name
+            'name': toolkit_name,  # Always pass name for provider toolkits
+            'toolkit_name': toolkit_name if (use_prefix or toolkit_type == 'mcp') else None
         }
         
         # Get tools using the toolkit configuration with clients
-        # Parameter order: get_tools(tools_list, alita_client, llm, memory_store)
-        tools = get_tools([tool_config], alita_client, llm_client)
+        # Parameter order: get_tools(tools_list, alita_client, llm, memory_store, debug_mode, mcp_tokens)
+        tools = get_tools([tool_config], alita_client, llm_client, mcp_tokens=mcp_tokens)
         
         if not tools:
             logger.warning(f"No tools returned for toolkit {toolkit_name}")
@@ -67,6 +80,14 @@ def instantiate_toolkit_with_client(toolkit_config: Dict[str, Any],
         return tools
             
     except Exception as e:
+        # Re-raise McpAuthorizationRequired without logging as error
+        from ..utils.mcp_oauth import McpAuthorizationRequired
+        
+        if isinstance(e, McpAuthorizationRequired):
+            logger.info(f"Toolkit {toolkit_name} requires MCP OAuth authorization")
+            raise
+        
+        # Log and re-raise other errors
         logger.error(f"Error instantiating toolkit {toolkit_name} with client: {str(e)}")
         raise
 

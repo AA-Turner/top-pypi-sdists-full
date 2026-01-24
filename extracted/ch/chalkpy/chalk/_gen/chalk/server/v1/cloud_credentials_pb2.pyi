@@ -91,6 +91,22 @@ class GetCloudCredentialsResponse(_message.Message):
     credentials: CloudCredentialsResponse
     def __init__(self, credentials: _Optional[_Union[CloudCredentialsResponse, _Mapping]] = ...) -> None: ...
 
+class UpdateCloudCredentialsRequest(_message.Message):
+    __slots__ = ("id", "credentials")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    credentials: CloudCredentialsRequest
+    def __init__(
+        self, id: _Optional[str] = ..., credentials: _Optional[_Union[CloudCredentialsRequest, _Mapping]] = ...
+    ) -> None: ...
+
+class UpdateCloudCredentialsResponse(_message.Message):
+    __slots__ = ("credentials",)
+    CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
+    credentials: CloudCredentialsResponse
+    def __init__(self, credentials: _Optional[_Union[CloudCredentialsResponse, _Mapping]] = ...) -> None: ...
+
 class DeleteCloudCredentialsRequest(_message.Message):
     __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -100,3 +116,23 @@ class DeleteCloudCredentialsRequest(_message.Message):
 class DeleteCloudCredentialsResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class TestCloudCredentialsRequest(_message.Message):
+    __slots__ = ("id", "config")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    config: CloudCredentialsRequest
+    def __init__(
+        self, id: _Optional[str] = ..., config: _Optional[_Union[CloudCredentialsRequest, _Mapping]] = ...
+    ) -> None: ...
+
+class TestCloudCredentialsResponse(_message.Message):
+    __slots__ = ("success", "message", "error")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    message: str
+    error: str
+    def __init__(self, success: bool = ..., message: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...

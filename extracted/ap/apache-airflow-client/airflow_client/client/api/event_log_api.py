@@ -290,7 +290,8 @@ class EventLogApi:
 
         # authentication setting
         _auth_settings: List[str] = [
-            'OAuth2PasswordBearer'
+            'OAuth2PasswordBearer', 
+            'HTTPBearer'
         ]
 
         return self.api_client.param_serialize(
@@ -316,7 +317,7 @@ class EventLogApi:
         self,
         limit: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
         offset: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
-        order_by: Optional[StrictStr] = None,
+        order_by: Annotated[Optional[List[StrictStr]], Field(description="Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `id, dttm, dag_id, task_id, run_id, event, logical_date, owner, extra, when, event_log_id`")] = None,
         dag_id: Optional[StrictStr] = None,
         task_id: Optional[StrictStr] = None,
         run_id: Optional[StrictStr] = None,
@@ -328,6 +329,11 @@ class EventLogApi:
         included_events: Optional[List[StrictStr]] = None,
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
+        dag_id_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        task_id_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        run_id_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        owner_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        event_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -349,8 +355,8 @@ class EventLogApi:
         :type limit: int
         :param offset:
         :type offset: int
-        :param order_by:
-        :type order_by: str
+        :param order_by: Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `id, dttm, dag_id, task_id, run_id, event, logical_date, owner, extra, when, event_log_id`
+        :type order_by: List[str]
         :param dag_id:
         :type dag_id: str
         :param task_id:
@@ -373,6 +379,16 @@ class EventLogApi:
         :type before: datetime
         :param after:
         :type after: datetime
+        :param dag_id_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type dag_id_pattern: str
+        :param task_id_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type task_id_pattern: str
+        :param run_id_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type run_id_pattern: str
+        :param owner_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type owner_pattern: str
+        :param event_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type event_pattern: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -410,6 +426,11 @@ class EventLogApi:
             included_events=included_events,
             before=before,
             after=after,
+            dag_id_pattern=dag_id_pattern,
+            task_id_pattern=task_id_pattern,
+            run_id_pattern=run_id_pattern,
+            owner_pattern=owner_pattern,
+            event_pattern=event_pattern,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -438,7 +459,7 @@ class EventLogApi:
         self,
         limit: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
         offset: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
-        order_by: Optional[StrictStr] = None,
+        order_by: Annotated[Optional[List[StrictStr]], Field(description="Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `id, dttm, dag_id, task_id, run_id, event, logical_date, owner, extra, when, event_log_id`")] = None,
         dag_id: Optional[StrictStr] = None,
         task_id: Optional[StrictStr] = None,
         run_id: Optional[StrictStr] = None,
@@ -450,6 +471,11 @@ class EventLogApi:
         included_events: Optional[List[StrictStr]] = None,
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
+        dag_id_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        task_id_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        run_id_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        owner_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        event_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -471,8 +497,8 @@ class EventLogApi:
         :type limit: int
         :param offset:
         :type offset: int
-        :param order_by:
-        :type order_by: str
+        :param order_by: Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `id, dttm, dag_id, task_id, run_id, event, logical_date, owner, extra, when, event_log_id`
+        :type order_by: List[str]
         :param dag_id:
         :type dag_id: str
         :param task_id:
@@ -495,6 +521,16 @@ class EventLogApi:
         :type before: datetime
         :param after:
         :type after: datetime
+        :param dag_id_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type dag_id_pattern: str
+        :param task_id_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type task_id_pattern: str
+        :param run_id_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type run_id_pattern: str
+        :param owner_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type owner_pattern: str
+        :param event_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type event_pattern: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -532,6 +568,11 @@ class EventLogApi:
             included_events=included_events,
             before=before,
             after=after,
+            dag_id_pattern=dag_id_pattern,
+            task_id_pattern=task_id_pattern,
+            run_id_pattern=run_id_pattern,
+            owner_pattern=owner_pattern,
+            event_pattern=event_pattern,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -560,7 +601,7 @@ class EventLogApi:
         self,
         limit: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
         offset: Optional[Annotated[int, Field(strict=True, ge=0)]] = None,
-        order_by: Optional[StrictStr] = None,
+        order_by: Annotated[Optional[List[StrictStr]], Field(description="Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `id, dttm, dag_id, task_id, run_id, event, logical_date, owner, extra, when, event_log_id`")] = None,
         dag_id: Optional[StrictStr] = None,
         task_id: Optional[StrictStr] = None,
         run_id: Optional[StrictStr] = None,
@@ -572,6 +613,11 @@ class EventLogApi:
         included_events: Optional[List[StrictStr]] = None,
         before: Optional[datetime] = None,
         after: Optional[datetime] = None,
+        dag_id_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        task_id_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        run_id_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        owner_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
+        event_pattern: Annotated[Optional[StrictStr], Field(description="SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -593,8 +639,8 @@ class EventLogApi:
         :type limit: int
         :param offset:
         :type offset: int
-        :param order_by:
-        :type order_by: str
+        :param order_by: Attributes to order by, multi criteria sort is supported. Prefix with `-` for descending order. Supported attributes: `id, dttm, dag_id, task_id, run_id, event, logical_date, owner, extra, when, event_log_id`
+        :type order_by: List[str]
         :param dag_id:
         :type dag_id: str
         :param task_id:
@@ -617,6 +663,16 @@ class EventLogApi:
         :type before: datetime
         :param after:
         :type after: datetime
+        :param dag_id_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type dag_id_pattern: str
+        :param task_id_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type task_id_pattern: str
+        :param run_id_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type run_id_pattern: str
+        :param owner_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type owner_pattern: str
+        :param event_pattern: SQL LIKE expression — use `%` / `_` wildcards (e.g. `%customer_%`). Regular expressions are **not** supported.
+        :type event_pattern: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -654,6 +710,11 @@ class EventLogApi:
             included_events=included_events,
             before=before,
             after=after,
+            dag_id_pattern=dag_id_pattern,
+            task_id_pattern=task_id_pattern,
+            run_id_pattern=run_id_pattern,
+            owner_pattern=owner_pattern,
+            event_pattern=event_pattern,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -689,6 +750,11 @@ class EventLogApi:
         included_events,
         before,
         after,
+        dag_id_pattern,
+        task_id_pattern,
+        run_id_pattern,
+        owner_pattern,
+        event_pattern,
         _request_auth,
         _content_type,
         _headers,
@@ -698,6 +764,7 @@ class EventLogApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'order_by': 'multi',
             'excluded_events': 'multi',
             'included_events': 'multi',
         }
@@ -787,6 +854,26 @@ class EventLogApi:
             else:
                 _query_params.append(('after', after))
             
+        if dag_id_pattern is not None:
+            
+            _query_params.append(('dag_id_pattern', dag_id_pattern))
+            
+        if task_id_pattern is not None:
+            
+            _query_params.append(('task_id_pattern', task_id_pattern))
+            
+        if run_id_pattern is not None:
+            
+            _query_params.append(('run_id_pattern', run_id_pattern))
+            
+        if owner_pattern is not None:
+            
+            _query_params.append(('owner_pattern', owner_pattern))
+            
+        if event_pattern is not None:
+            
+            _query_params.append(('event_pattern', event_pattern))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -803,7 +890,8 @@ class EventLogApi:
 
         # authentication setting
         _auth_settings: List[str] = [
-            'OAuth2PasswordBearer'
+            'OAuth2PasswordBearer', 
+            'HTTPBearer'
         ]
 
         return self.api_client.param_serialize(

@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_model`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_model`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_model`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerModel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model aws_sagemaker_model}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model aws_sagemaker_model}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class SagemakerModel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model aws_sagemaker_model} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model aws_sagemaker_model} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#execution_role_arn SagemakerModel#execution_role_arn}.
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#container SagemakerModel#container}
-        :param enable_network_isolation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#enable_network_isolation SagemakerModel#enable_network_isolation}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#id SagemakerModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inference_execution_config: inference_execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#inference_execution_config SagemakerModel#inference_execution_config}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#name SagemakerModel#name}.
-        :param primary_container: primary_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#primary_container SagemakerModel#primary_container}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#region SagemakerModel#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#tags SagemakerModel#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#tags_all SagemakerModel#tags_all}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#vpc_config SagemakerModel#vpc_config}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#execution_role_arn SagemakerModel#execution_role_arn}.
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#container SagemakerModel#container}
+        :param enable_network_isolation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#enable_network_isolation SagemakerModel#enable_network_isolation}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#id SagemakerModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inference_execution_config: inference_execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#inference_execution_config SagemakerModel#inference_execution_config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#name SagemakerModel#name}.
+        :param primary_container: primary_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#primary_container SagemakerModel#primary_container}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#region SagemakerModel#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#tags SagemakerModel#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#tags_all SagemakerModel#tags_all}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#vpc_config SagemakerModel#vpc_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class SagemakerModel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerModel to import.
-        :param import_from_id: The id of the existing SagemakerModel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerModel that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerModel to import is found.
         '''
         if __debug__:
@@ -160,7 +160,7 @@ class SagemakerModel(
     @jsii.member(jsii_name="putInferenceExecutionConfig")
     def put_inference_execution_config(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#mode SagemakerModel#mode}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#mode SagemakerModel#mode}.
         '''
         value = SagemakerModelInferenceExecutionConfig(mode=mode)
 
@@ -170,6 +170,7 @@ class SagemakerModel(
     def put_primary_container(
         self,
         *,
+        additional_model_data_source: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerModelPrimaryContainerAdditionalModelDataSource", typing.Dict[builtins.str, typing.Any]]]]] = None,
         container_hostname: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         image: typing.Optional[builtins.str] = None,
@@ -182,18 +183,20 @@ class SagemakerModel(
         multi_model_config: typing.Optional[typing.Union["SagemakerModelPrimaryContainerMultiModelConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param container_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#container_hostname SagemakerModel#container_hostname}.
-        :param environment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#environment SagemakerModel#environment}.
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#image SagemakerModel#image}.
-        :param image_config: image_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#image_config SagemakerModel#image_config}
-        :param inference_specification_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#inference_specification_name SagemakerModel#inference_specification_name}.
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#mode SagemakerModel#mode}.
-        :param model_data_source: model_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_data_source SagemakerModel#model_data_source}
-        :param model_data_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_data_url SagemakerModel#model_data_url}.
-        :param model_package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_package_name SagemakerModel#model_package_name}.
-        :param multi_model_config: multi_model_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#multi_model_config SagemakerModel#multi_model_config}
+        :param additional_model_data_source: additional_model_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#additional_model_data_source SagemakerModel#additional_model_data_source}
+        :param container_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#container_hostname SagemakerModel#container_hostname}.
+        :param environment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#environment SagemakerModel#environment}.
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#image SagemakerModel#image}.
+        :param image_config: image_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#image_config SagemakerModel#image_config}
+        :param inference_specification_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#inference_specification_name SagemakerModel#inference_specification_name}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#mode SagemakerModel#mode}.
+        :param model_data_source: model_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_data_source SagemakerModel#model_data_source}
+        :param model_data_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_data_url SagemakerModel#model_data_url}.
+        :param model_package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_package_name SagemakerModel#model_package_name}.
+        :param multi_model_config: multi_model_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#multi_model_config SagemakerModel#multi_model_config}
         '''
         value = SagemakerModelPrimaryContainer(
+            additional_model_data_source=additional_model_data_source,
             container_hostname=container_hostname,
             environment=environment,
             image=image,
@@ -216,8 +219,8 @@ class SagemakerModel(
         subnets: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#security_group_ids SagemakerModel#security_group_ids}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#subnets SagemakerModel#subnets}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#security_group_ids SagemakerModel#security_group_ids}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#subnets SagemakerModel#subnets}.
         '''
         value = SagemakerModelVpcConfig(
             security_group_ids=security_group_ids, subnets=subnets
@@ -515,17 +518,17 @@ class SagemakerModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#execution_role_arn SagemakerModel#execution_role_arn}.
-        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#container SagemakerModel#container}
-        :param enable_network_isolation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#enable_network_isolation SagemakerModel#enable_network_isolation}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#id SagemakerModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param inference_execution_config: inference_execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#inference_execution_config SagemakerModel#inference_execution_config}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#name SagemakerModel#name}.
-        :param primary_container: primary_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#primary_container SagemakerModel#primary_container}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#region SagemakerModel#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#tags SagemakerModel#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#tags_all SagemakerModel#tags_all}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#vpc_config SagemakerModel#vpc_config}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#execution_role_arn SagemakerModel#execution_role_arn}.
+        :param container: container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#container SagemakerModel#container}
+        :param enable_network_isolation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#enable_network_isolation SagemakerModel#enable_network_isolation}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#id SagemakerModel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param inference_execution_config: inference_execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#inference_execution_config SagemakerModel#inference_execution_config}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#name SagemakerModel#name}.
+        :param primary_container: primary_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#primary_container SagemakerModel#primary_container}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#region SagemakerModel#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#tags SagemakerModel#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#tags_all SagemakerModel#tags_all}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#vpc_config SagemakerModel#vpc_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -659,7 +662,7 @@ class SagemakerModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def execution_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#execution_role_arn SagemakerModel#execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#execution_role_arn SagemakerModel#execution_role_arn}.'''
         result = self._values.get("execution_role_arn")
         assert result is not None, "Required property 'execution_role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -670,7 +673,7 @@ class SagemakerModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelContainer"]]]:
         '''container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#container SagemakerModel#container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#container SagemakerModel#container}
         '''
         result = self._values.get("container")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelContainer"]]], result)
@@ -679,13 +682,13 @@ class SagemakerModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_network_isolation(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#enable_network_isolation SagemakerModel#enable_network_isolation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#enable_network_isolation SagemakerModel#enable_network_isolation}.'''
         result = self._values.get("enable_network_isolation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#id SagemakerModel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#id SagemakerModel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -699,14 +702,14 @@ class SagemakerModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["SagemakerModelInferenceExecutionConfig"]:
         '''inference_execution_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#inference_execution_config SagemakerModel#inference_execution_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#inference_execution_config SagemakerModel#inference_execution_config}
         '''
         result = self._values.get("inference_execution_config")
         return typing.cast(typing.Optional["SagemakerModelInferenceExecutionConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#name SagemakerModel#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#name SagemakerModel#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -714,7 +717,7 @@ class SagemakerModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def primary_container(self) -> typing.Optional["SagemakerModelPrimaryContainer"]:
         '''primary_container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#primary_container SagemakerModel#primary_container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#primary_container SagemakerModel#primary_container}
         '''
         result = self._values.get("primary_container")
         return typing.cast(typing.Optional["SagemakerModelPrimaryContainer"], result)
@@ -723,20 +726,20 @@ class SagemakerModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#region SagemakerModel#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#region SagemakerModel#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#tags SagemakerModel#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#tags SagemakerModel#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#tags_all SagemakerModel#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#tags_all SagemakerModel#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -744,7 +747,7 @@ class SagemakerModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_config(self) -> typing.Optional["SagemakerModelVpcConfig"]:
         '''vpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#vpc_config SagemakerModel#vpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#vpc_config SagemakerModel#vpc_config}
         '''
         result = self._values.get("vpc_config")
         return typing.cast(typing.Optional["SagemakerModelVpcConfig"], result)
@@ -765,6 +768,7 @@ class SagemakerModelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelContainer",
     jsii_struct_bases=[],
     name_mapping={
+        "additional_model_data_source": "additionalModelDataSource",
         "container_hostname": "containerHostname",
         "environment": "environment",
         "image": "image",
@@ -781,6 +785,7 @@ class SagemakerModelContainer:
     def __init__(
         self,
         *,
+        additional_model_data_source: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerModelContainerAdditionalModelDataSource", typing.Dict[builtins.str, typing.Any]]]]] = None,
         container_hostname: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         image: typing.Optional[builtins.str] = None,
@@ -793,16 +798,17 @@ class SagemakerModelContainer:
         multi_model_config: typing.Optional[typing.Union["SagemakerModelContainerMultiModelConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param container_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#container_hostname SagemakerModel#container_hostname}.
-        :param environment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#environment SagemakerModel#environment}.
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#image SagemakerModel#image}.
-        :param image_config: image_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#image_config SagemakerModel#image_config}
-        :param inference_specification_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#inference_specification_name SagemakerModel#inference_specification_name}.
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#mode SagemakerModel#mode}.
-        :param model_data_source: model_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_data_source SagemakerModel#model_data_source}
-        :param model_data_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_data_url SagemakerModel#model_data_url}.
-        :param model_package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_package_name SagemakerModel#model_package_name}.
-        :param multi_model_config: multi_model_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#multi_model_config SagemakerModel#multi_model_config}
+        :param additional_model_data_source: additional_model_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#additional_model_data_source SagemakerModel#additional_model_data_source}
+        :param container_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#container_hostname SagemakerModel#container_hostname}.
+        :param environment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#environment SagemakerModel#environment}.
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#image SagemakerModel#image}.
+        :param image_config: image_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#image_config SagemakerModel#image_config}
+        :param inference_specification_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#inference_specification_name SagemakerModel#inference_specification_name}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#mode SagemakerModel#mode}.
+        :param model_data_source: model_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_data_source SagemakerModel#model_data_source}
+        :param model_data_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_data_url SagemakerModel#model_data_url}.
+        :param model_package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_package_name SagemakerModel#model_package_name}.
+        :param multi_model_config: multi_model_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#multi_model_config SagemakerModel#multi_model_config}
         '''
         if isinstance(image_config, dict):
             image_config = SagemakerModelContainerImageConfig(**image_config)
@@ -812,6 +818,7 @@ class SagemakerModelContainer:
             multi_model_config = SagemakerModelContainerMultiModelConfig(**multi_model_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68307bd8f100616bb4e87ddd3f2c7ead9daa917afb5190dee0730b2be85c7d46)
+            check_type(argname="argument additional_model_data_source", value=additional_model_data_source, expected_type=type_hints["additional_model_data_source"])
             check_type(argname="argument container_hostname", value=container_hostname, expected_type=type_hints["container_hostname"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
@@ -823,6 +830,8 @@ class SagemakerModelContainer:
             check_type(argname="argument model_package_name", value=model_package_name, expected_type=type_hints["model_package_name"])
             check_type(argname="argument multi_model_config", value=multi_model_config, expected_type=type_hints["multi_model_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_model_data_source is not None:
+            self._values["additional_model_data_source"] = additional_model_data_source
         if container_hostname is not None:
             self._values["container_hostname"] = container_hostname
         if environment is not None:
@@ -845,8 +854,19 @@ class SagemakerModelContainer:
             self._values["multi_model_config"] = multi_model_config
 
     @builtins.property
+    def additional_model_data_source(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelContainerAdditionalModelDataSource"]]]:
+        '''additional_model_data_source block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#additional_model_data_source SagemakerModel#additional_model_data_source}
+        '''
+        result = self._values.get("additional_model_data_source")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelContainerAdditionalModelDataSource"]]], result)
+
+    @builtins.property
     def container_hostname(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#container_hostname SagemakerModel#container_hostname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#container_hostname SagemakerModel#container_hostname}.'''
         result = self._values.get("container_hostname")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -854,13 +874,13 @@ class SagemakerModelContainer:
     def environment(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#environment SagemakerModel#environment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#environment SagemakerModel#environment}.'''
         result = self._values.get("environment")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def image(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#image SagemakerModel#image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#image SagemakerModel#image}.'''
         result = self._values.get("image")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -868,20 +888,20 @@ class SagemakerModelContainer:
     def image_config(self) -> typing.Optional["SagemakerModelContainerImageConfig"]:
         '''image_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#image_config SagemakerModel#image_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#image_config SagemakerModel#image_config}
         '''
         result = self._values.get("image_config")
         return typing.cast(typing.Optional["SagemakerModelContainerImageConfig"], result)
 
     @builtins.property
     def inference_specification_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#inference_specification_name SagemakerModel#inference_specification_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#inference_specification_name SagemakerModel#inference_specification_name}.'''
         result = self._values.get("inference_specification_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#mode SagemakerModel#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#mode SagemakerModel#mode}.'''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -891,20 +911,20 @@ class SagemakerModelContainer:
     ) -> typing.Optional["SagemakerModelContainerModelDataSource"]:
         '''model_data_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_data_source SagemakerModel#model_data_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_data_source SagemakerModel#model_data_source}
         '''
         result = self._values.get("model_data_source")
         return typing.cast(typing.Optional["SagemakerModelContainerModelDataSource"], result)
 
     @builtins.property
     def model_data_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_data_url SagemakerModel#model_data_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_data_url SagemakerModel#model_data_url}.'''
         result = self._values.get("model_data_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def model_package_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_package_name SagemakerModel#model_package_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_package_name SagemakerModel#model_package_name}.'''
         result = self._values.get("model_package_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -914,7 +934,7 @@ class SagemakerModelContainer:
     ) -> typing.Optional["SagemakerModelContainerMultiModelConfig"]:
         '''multi_model_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#multi_model_config SagemakerModel#multi_model_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#multi_model_config SagemakerModel#multi_model_config}
         '''
         result = self._values.get("multi_model_config")
         return typing.cast(typing.Optional["SagemakerModelContainerMultiModelConfig"], result)
@@ -929,6 +949,649 @@ class SagemakerModelContainer:
         return "SagemakerModelContainer(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelContainerAdditionalModelDataSource",
+    jsii_struct_bases=[],
+    name_mapping={"channel_name": "channelName", "s3_data_source": "s3DataSource"},
+)
+class SagemakerModelContainerAdditionalModelDataSource:
+    def __init__(
+        self,
+        *,
+        channel_name: builtins.str,
+        s3_data_source: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerModelContainerAdditionalModelDataSourceS3DataSource", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param channel_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#channel_name SagemakerModel#channel_name}.
+        :param s3_data_source: s3_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b229d736e3e5a5bfca47008ef271e1019d5ff49ca8141e03e204caf4d03e6fde)
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument s3_data_source", value=s3_data_source, expected_type=type_hints["s3_data_source"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_name": channel_name,
+            "s3_data_source": s3_data_source,
+        }
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#channel_name SagemakerModel#channel_name}.'''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def s3_data_source(
+        self,
+    ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelContainerAdditionalModelDataSourceS3DataSource"]]:
+        '''s3_data_source block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
+        '''
+        result = self._values.get("s3_data_source")
+        assert result is not None, "Required property 's3_data_source' is missing"
+        return typing.cast(typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelContainerAdditionalModelDataSourceS3DataSource"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SagemakerModelContainerAdditionalModelDataSource(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SagemakerModelContainerAdditionalModelDataSourceList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelContainerAdditionalModelDataSourceList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__93ba1366b9590a7bac8efd07ac5d2eeb648d0037617ac0ba8895eec653b9e89b)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "SagemakerModelContainerAdditionalModelDataSourceOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dde0bfa058f74306b91e0352fb125faeab9272949d5378297fbab524ddf173fb)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("SagemakerModelContainerAdditionalModelDataSourceOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f96b15f2ab1bd663882a6f0d732abc50f3249816f0aa3598c35a655e19e52f0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eb0047c0d908a3337803fb37f3465ed52a3071108cb1cd1d8aafb00a48fcc806)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c3cb6c6da719c1bb808d390b05714c9b12e851def195bdf3270af82c502c07c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelContainerAdditionalModelDataSource]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelContainerAdditionalModelDataSource]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelContainerAdditionalModelDataSource]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ac3bbc5406b54816000accd9cd2adade16e063deffdf80d234eba7f14cd82c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class SagemakerModelContainerAdditionalModelDataSourceOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelContainerAdditionalModelDataSourceOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd2710bd4d3832202a367adc258ac7cf407c4ce4263a3cc5f40f8818515e004f)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="putS3DataSource")
+    def put_s3_data_source(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerModelContainerAdditionalModelDataSourceS3DataSource", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a33408c76cc58bb36f0f1922713acc4ec04fa35af9d4b600190f605bb4119b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putS3DataSource", [value]))
+
+    @builtins.property
+    @jsii.member(jsii_name="s3DataSource")
+    def s3_data_source(
+        self,
+    ) -> "SagemakerModelContainerAdditionalModelDataSourceS3DataSourceList":
+        return typing.cast("SagemakerModelContainerAdditionalModelDataSourceS3DataSourceList", jsii.get(self, "s3DataSource"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelNameInput")
+    def channel_name_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "channelNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="s3DataSourceInput")
+    def s3_data_source_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelContainerAdditionalModelDataSourceS3DataSource"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelContainerAdditionalModelDataSourceS3DataSource"]]], jsii.get(self, "s3DataSourceInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelName")
+    def channel_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "channelName"))
+
+    @channel_name.setter
+    def channel_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecd8f044005a1dc179bce1ce765683f6e6dff177b94463f17e1ef23298cd91f5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelContainerAdditionalModelDataSource]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelContainerAdditionalModelDataSource]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelContainerAdditionalModelDataSource]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73faa091fb19b524ebeb7c86a8f6c52cb93e701b0aca08119724f61d161043b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelContainerAdditionalModelDataSourceS3DataSource",
+    jsii_struct_bases=[],
+    name_mapping={
+        "compression_type": "compressionType",
+        "s3_data_type": "s3DataType",
+        "s3_uri": "s3Uri",
+        "model_access_config": "modelAccessConfig",
+    },
+)
+class SagemakerModelContainerAdditionalModelDataSourceS3DataSource:
+    def __init__(
+        self,
+        *,
+        compression_type: builtins.str,
+        s3_data_type: builtins.str,
+        s3_uri: builtins.str,
+        model_access_config: typing.Optional[typing.Union["SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.
+        :param s3_data_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.
+        :param model_access_config: model_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
+        '''
+        if isinstance(model_access_config, dict):
+            model_access_config = SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig(**model_access_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e9f7fdbde3467ed9bf358b77242b060d5e1bd39bed07d8b9c7cb7fe36d82d7e)
+            check_type(argname="argument compression_type", value=compression_type, expected_type=type_hints["compression_type"])
+            check_type(argname="argument s3_data_type", value=s3_data_type, expected_type=type_hints["s3_data_type"])
+            check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+            check_type(argname="argument model_access_config", value=model_access_config, expected_type=type_hints["model_access_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "compression_type": compression_type,
+            "s3_data_type": s3_data_type,
+            "s3_uri": s3_uri,
+        }
+        if model_access_config is not None:
+            self._values["model_access_config"] = model_access_config
+
+    @builtins.property
+    def compression_type(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.'''
+        result = self._values.get("compression_type")
+        assert result is not None, "Required property 'compression_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def s3_data_type(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.'''
+        result = self._values.get("s3_data_type")
+        assert result is not None, "Required property 's3_data_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def s3_uri(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.'''
+        result = self._values.get("s3_uri")
+        assert result is not None, "Required property 's3_uri' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_access_config(
+        self,
+    ) -> typing.Optional["SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig"]:
+        '''model_access_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
+        '''
+        result = self._values.get("model_access_config")
+        return typing.cast(typing.Optional["SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SagemakerModelContainerAdditionalModelDataSourceS3DataSource(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SagemakerModelContainerAdditionalModelDataSourceS3DataSourceList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelContainerAdditionalModelDataSourceS3DataSourceList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00a7355560fe4e769fd6c304095b95704065936714cbb05697c6ca2c721977dd)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "SagemakerModelContainerAdditionalModelDataSourceS3DataSourceOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05c6d2b55e9167717a5b72c0bebb02d42061a512698606b8e4d7b637fc29c733)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("SagemakerModelContainerAdditionalModelDataSourceS3DataSourceOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b5bdab6c67a3bcbd010ac8d43380050447bc89614919b30a140787a7c389869)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f2209316ba4ce4be717c81b1daddb839a5cb0591f92b59f76f0af1bf44170f0c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc67ecbe71712a77739d181a3baec233f2d0c1af7d314acb007da7a8731de851)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelContainerAdditionalModelDataSourceS3DataSource]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelContainerAdditionalModelDataSourceS3DataSource]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelContainerAdditionalModelDataSourceS3DataSource]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__289613ad3e6f91bdf7d3b4d6cd5c5b27ed1dd6d74fb3b8b1e7a50fd9b363506c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig",
+    jsii_struct_bases=[],
+    name_mapping={"accept_eula": "acceptEula"},
+)
+class SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig:
+    def __init__(
+        self,
+        *,
+        accept_eula: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        '''
+        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__012782a872dc13381cd7c741965a8eb62f655c44448adf28fe7dc9a7ef9c7f69)
+            check_type(argname="argument accept_eula", value=accept_eula, expected_type=type_hints["accept_eula"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "accept_eula": accept_eula,
+        }
+
+    @builtins.property
+    def accept_eula(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.'''
+        result = self._values.get("accept_eula")
+        assert result is not None, "Required property 'accept_eula' is missing"
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8da94b9cd39016253113e0a3d676f077df5ee46a07ee3cee74831fc8ba2cccc9)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptEulaInput")
+    def accept_eula_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "acceptEulaInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptEula")
+    def accept_eula(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "acceptEula"))
+
+    @accept_eula.setter
+    def accept_eula(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a829253dbc00dce3b0077937d548164770fac6b8bbd03e0b141217db1db72a75)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptEula", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig]:
+        return typing.cast(typing.Optional[SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecf5431d99fbcf1c7a29934f67274046fc386b583b1e76f9111d51d436f67c5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class SagemakerModelContainerAdditionalModelDataSourceS3DataSourceOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelContainerAdditionalModelDataSourceS3DataSourceOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f49c4a2cfc8e98ee267174f42a3854f2d94fe2a3812b17b11ef3fda542a467b)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="putModelAccessConfig")
+    def put_model_access_config(
+        self,
+        *,
+        accept_eula: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        '''
+        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
+        '''
+        value = SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig(
+            accept_eula=accept_eula
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putModelAccessConfig", [value]))
+
+    @jsii.member(jsii_name="resetModelAccessConfig")
+    def reset_model_access_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetModelAccessConfig", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="modelAccessConfig")
+    def model_access_config(
+        self,
+    ) -> SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigOutputReference:
+        return typing.cast(SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigOutputReference, jsii.get(self, "modelAccessConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="compressionTypeInput")
+    def compression_type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "compressionTypeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="modelAccessConfigInput")
+    def model_access_config_input(
+        self,
+    ) -> typing.Optional[SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig]:
+        return typing.cast(typing.Optional[SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig], jsii.get(self, "modelAccessConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="s3DataTypeInput")
+    def s3_data_type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3DataTypeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="s3UriInput")
+    def s3_uri_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3UriInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="compressionType")
+    def compression_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "compressionType"))
+
+    @compression_type.setter
+    def compression_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d1faa3be69cd7575c72ff1faa11f86c5c1cdd4b4f98824f26cc2bd9f45c98fd1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "compressionType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3DataType")
+    def s3_data_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "s3DataType"))
+
+    @s3_data_type.setter
+    def s3_data_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__714f41ee8d94c26b980bea439bcd8c924d946e0b8e37f6f29e54369aed17c12a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3DataType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3Uri")
+    def s3_uri(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "s3Uri"))
+
+    @s3_uri.setter
+    def s3_uri(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57c1e3112f9ba34e995711d075a887630f3361c32a3fc3dfb6d6072f06ae149e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3Uri", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelContainerAdditionalModelDataSourceS3DataSource]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelContainerAdditionalModelDataSourceS3DataSource]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelContainerAdditionalModelDataSourceS3DataSource]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d8425a1f781d131d8567c8298461e7d7b68b69943f04f7a13dd0cc18a874b22a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -947,8 +1610,8 @@ class SagemakerModelContainerImageConfig:
         repository_auth_config: typing.Optional[typing.Union["SagemakerModelContainerImageConfigRepositoryAuthConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param repository_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.
-        :param repository_auth_config: repository_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
+        :param repository_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.
+        :param repository_auth_config: repository_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
         '''
         if isinstance(repository_auth_config, dict):
             repository_auth_config = SagemakerModelContainerImageConfigRepositoryAuthConfig(**repository_auth_config)
@@ -964,7 +1627,7 @@ class SagemakerModelContainerImageConfig:
 
     @builtins.property
     def repository_access_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.'''
         result = self._values.get("repository_access_mode")
         assert result is not None, "Required property 'repository_access_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -975,7 +1638,7 @@ class SagemakerModelContainerImageConfig:
     ) -> typing.Optional["SagemakerModelContainerImageConfigRepositoryAuthConfig"]:
         '''repository_auth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
         '''
         result = self._values.get("repository_auth_config")
         return typing.cast(typing.Optional["SagemakerModelContainerImageConfigRepositoryAuthConfig"], result)
@@ -1019,7 +1682,7 @@ class SagemakerModelContainerImageConfigOutputReference(
         repository_credentials_provider_arn: builtins.str,
     ) -> None:
         '''
-        :param repository_credentials_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.
+        :param repository_credentials_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.
         '''
         value = SagemakerModelContainerImageConfigRepositoryAuthConfig(
             repository_credentials_provider_arn=repository_credentials_provider_arn
@@ -1088,7 +1751,7 @@ class SagemakerModelContainerImageConfigOutputReference(
 class SagemakerModelContainerImageConfigRepositoryAuthConfig:
     def __init__(self, *, repository_credentials_provider_arn: builtins.str) -> None:
         '''
-        :param repository_credentials_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.
+        :param repository_credentials_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92b66dd144f0f919ec042f1d37e8648c6161929b36162948d15799f0b7ebf90f)
@@ -1099,7 +1762,7 @@ class SagemakerModelContainerImageConfigRepositoryAuthConfig:
 
     @builtins.property
     def repository_credentials_provider_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.'''
         result = self._values.get("repository_credentials_provider_arn")
         assert result is not None, "Required property 'repository_credentials_provider_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1275,7 +1938,7 @@ class SagemakerModelContainerModelDataSource:
         s3_data_source: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerModelContainerModelDataSourceS3DataSource", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param s3_data_source: s3_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
+        :param s3_data_source: s3_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bce44b315b57b7e6af76adb58e873e18731db99a93b4cbfbfa3640186d3e1eb5)
@@ -1290,7 +1953,7 @@ class SagemakerModelContainerModelDataSource:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelContainerModelDataSourceS3DataSource"]]:
         '''s3_data_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
         '''
         result = self._values.get("s3_data_source")
         assert result is not None, "Required property 's3_data_source' is missing"
@@ -1391,10 +2054,10 @@ class SagemakerModelContainerModelDataSourceS3DataSource:
         model_access_config: typing.Optional[typing.Union["SagemakerModelContainerModelDataSourceS3DataSourceModelAccessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.
-        :param s3_data_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.
-        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.
-        :param model_access_config: model_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
+        :param compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.
+        :param s3_data_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.
+        :param model_access_config: model_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
         '''
         if isinstance(model_access_config, dict):
             model_access_config = SagemakerModelContainerModelDataSourceS3DataSourceModelAccessConfig(**model_access_config)
@@ -1414,21 +2077,21 @@ class SagemakerModelContainerModelDataSourceS3DataSource:
 
     @builtins.property
     def compression_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.'''
         result = self._values.get("compression_type")
         assert result is not None, "Required property 'compression_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_data_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.'''
         result = self._values.get("s3_data_type")
         assert result is not None, "Required property 's3_data_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.'''
         result = self._values.get("s3_uri")
         assert result is not None, "Required property 's3_uri' is missing"
         return typing.cast(builtins.str, result)
@@ -1439,7 +2102,7 @@ class SagemakerModelContainerModelDataSourceS3DataSource:
     ) -> typing.Optional["SagemakerModelContainerModelDataSourceS3DataSourceModelAccessConfig"]:
         '''model_access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
         '''
         result = self._values.get("model_access_config")
         return typing.cast(typing.Optional["SagemakerModelContainerModelDataSourceS3DataSourceModelAccessConfig"], result)
@@ -1561,7 +2224,7 @@ class SagemakerModelContainerModelDataSourceS3DataSourceModelAccessConfig:
         accept_eula: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
+        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a81e6fdf1902d325455e0b082ba1ecd52760100dda304e0fedcdc6a06d1c8b1c)
@@ -1572,7 +2235,7 @@ class SagemakerModelContainerModelDataSourceS3DataSourceModelAccessConfig:
 
     @builtins.property
     def accept_eula(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.'''
         result = self._values.get("accept_eula")
         assert result is not None, "Required property 'accept_eula' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1682,7 +2345,7 @@ class SagemakerModelContainerModelDataSourceS3DataSourceOutputReference(
         accept_eula: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
+        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
         '''
         value = SagemakerModelContainerModelDataSourceS3DataSourceModelAccessConfig(
             accept_eula=accept_eula
@@ -1789,7 +2452,7 @@ class SagemakerModelContainerMultiModelConfig:
         model_cache_setting: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param model_cache_setting: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.
+        :param model_cache_setting: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e7203c2b57552299c6910979fd5390c7c34251707f3cdbaacb44eeca275e2caf)
@@ -1800,7 +2463,7 @@ class SagemakerModelContainerMultiModelConfig:
 
     @builtins.property
     def model_cache_setting(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.'''
         result = self._values.get("model_cache_setting")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1901,6 +2564,19 @@ class SagemakerModelContainerOutputReference(
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
+    @jsii.member(jsii_name="putAdditionalModelDataSource")
+    def put_additional_model_data_source(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelContainerAdditionalModelDataSource, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__760d72eb1cd5f55986caa7cfc7fb4089e847c29465e4cebb6374b9f346654ae0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putAdditionalModelDataSource", [value]))
+
     @jsii.member(jsii_name="putImageConfig")
     def put_image_config(
         self,
@@ -1909,8 +2585,8 @@ class SagemakerModelContainerOutputReference(
         repository_auth_config: typing.Optional[typing.Union[SagemakerModelContainerImageConfigRepositoryAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param repository_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.
-        :param repository_auth_config: repository_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
+        :param repository_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.
+        :param repository_auth_config: repository_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
         '''
         value = SagemakerModelContainerImageConfig(
             repository_access_mode=repository_access_mode,
@@ -1926,7 +2602,7 @@ class SagemakerModelContainerOutputReference(
         s3_data_source: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelContainerModelDataSourceS3DataSource, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param s3_data_source: s3_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
+        :param s3_data_source: s3_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
         '''
         value = SagemakerModelContainerModelDataSource(s3_data_source=s3_data_source)
 
@@ -1939,13 +2615,17 @@ class SagemakerModelContainerOutputReference(
         model_cache_setting: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param model_cache_setting: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.
+        :param model_cache_setting: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.
         '''
         value = SagemakerModelContainerMultiModelConfig(
             model_cache_setting=model_cache_setting
         )
 
         return typing.cast(None, jsii.invoke(self, "putMultiModelConfig", [value]))
+
+    @jsii.member(jsii_name="resetAdditionalModelDataSource")
+    def reset_additional_model_data_source(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAdditionalModelDataSource", []))
 
     @jsii.member(jsii_name="resetContainerHostname")
     def reset_container_hostname(self) -> None:
@@ -1988,6 +2668,13 @@ class SagemakerModelContainerOutputReference(
         return typing.cast(None, jsii.invoke(self, "resetMultiModelConfig", []))
 
     @builtins.property
+    @jsii.member(jsii_name="additionalModelDataSource")
+    def additional_model_data_source(
+        self,
+    ) -> SagemakerModelContainerAdditionalModelDataSourceList:
+        return typing.cast(SagemakerModelContainerAdditionalModelDataSourceList, jsii.get(self, "additionalModelDataSource"))
+
+    @builtins.property
     @jsii.member(jsii_name="imageConfig")
     def image_config(self) -> SagemakerModelContainerImageConfigOutputReference:
         return typing.cast(SagemakerModelContainerImageConfigOutputReference, jsii.get(self, "imageConfig"))
@@ -2005,6 +2692,13 @@ class SagemakerModelContainerOutputReference(
         self,
     ) -> SagemakerModelContainerMultiModelConfigOutputReference:
         return typing.cast(SagemakerModelContainerMultiModelConfigOutputReference, jsii.get(self, "multiModelConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalModelDataSourceInput")
+    def additional_model_data_source_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelContainerAdditionalModelDataSource]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelContainerAdditionalModelDataSource]]], jsii.get(self, "additionalModelDataSourceInput"))
 
     @builtins.property
     @jsii.member(jsii_name="containerHostnameInput")
@@ -2172,7 +2866,7 @@ class SagemakerModelContainerOutputReference(
 class SagemakerModelInferenceExecutionConfig:
     def __init__(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#mode SagemakerModel#mode}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#mode SagemakerModel#mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__efde63e0ff2c1f21efd5a693b45d0fcbc164abb96d8215f6c5b4d5d0aa2936c4)
@@ -2183,7 +2877,7 @@ class SagemakerModelInferenceExecutionConfig:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#mode SagemakerModel#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#mode SagemakerModel#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
@@ -2257,6 +2951,7 @@ class SagemakerModelInferenceExecutionConfigOutputReference(
     jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelPrimaryContainer",
     jsii_struct_bases=[],
     name_mapping={
+        "additional_model_data_source": "additionalModelDataSource",
         "container_hostname": "containerHostname",
         "environment": "environment",
         "image": "image",
@@ -2273,6 +2968,7 @@ class SagemakerModelPrimaryContainer:
     def __init__(
         self,
         *,
+        additional_model_data_source: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerModelPrimaryContainerAdditionalModelDataSource", typing.Dict[builtins.str, typing.Any]]]]] = None,
         container_hostname: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         image: typing.Optional[builtins.str] = None,
@@ -2285,16 +2981,17 @@ class SagemakerModelPrimaryContainer:
         multi_model_config: typing.Optional[typing.Union["SagemakerModelPrimaryContainerMultiModelConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param container_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#container_hostname SagemakerModel#container_hostname}.
-        :param environment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#environment SagemakerModel#environment}.
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#image SagemakerModel#image}.
-        :param image_config: image_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#image_config SagemakerModel#image_config}
-        :param inference_specification_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#inference_specification_name SagemakerModel#inference_specification_name}.
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#mode SagemakerModel#mode}.
-        :param model_data_source: model_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_data_source SagemakerModel#model_data_source}
-        :param model_data_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_data_url SagemakerModel#model_data_url}.
-        :param model_package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_package_name SagemakerModel#model_package_name}.
-        :param multi_model_config: multi_model_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#multi_model_config SagemakerModel#multi_model_config}
+        :param additional_model_data_source: additional_model_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#additional_model_data_source SagemakerModel#additional_model_data_source}
+        :param container_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#container_hostname SagemakerModel#container_hostname}.
+        :param environment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#environment SagemakerModel#environment}.
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#image SagemakerModel#image}.
+        :param image_config: image_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#image_config SagemakerModel#image_config}
+        :param inference_specification_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#inference_specification_name SagemakerModel#inference_specification_name}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#mode SagemakerModel#mode}.
+        :param model_data_source: model_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_data_source SagemakerModel#model_data_source}
+        :param model_data_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_data_url SagemakerModel#model_data_url}.
+        :param model_package_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_package_name SagemakerModel#model_package_name}.
+        :param multi_model_config: multi_model_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#multi_model_config SagemakerModel#multi_model_config}
         '''
         if isinstance(image_config, dict):
             image_config = SagemakerModelPrimaryContainerImageConfig(**image_config)
@@ -2304,6 +3001,7 @@ class SagemakerModelPrimaryContainer:
             multi_model_config = SagemakerModelPrimaryContainerMultiModelConfig(**multi_model_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8dcc3ebd8ddee0ce41ec70f5c0e04be47d24b6d66c286611986157d7184bcf7)
+            check_type(argname="argument additional_model_data_source", value=additional_model_data_source, expected_type=type_hints["additional_model_data_source"])
             check_type(argname="argument container_hostname", value=container_hostname, expected_type=type_hints["container_hostname"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
@@ -2315,6 +3013,8 @@ class SagemakerModelPrimaryContainer:
             check_type(argname="argument model_package_name", value=model_package_name, expected_type=type_hints["model_package_name"])
             check_type(argname="argument multi_model_config", value=multi_model_config, expected_type=type_hints["multi_model_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_model_data_source is not None:
+            self._values["additional_model_data_source"] = additional_model_data_source
         if container_hostname is not None:
             self._values["container_hostname"] = container_hostname
         if environment is not None:
@@ -2337,8 +3037,19 @@ class SagemakerModelPrimaryContainer:
             self._values["multi_model_config"] = multi_model_config
 
     @builtins.property
+    def additional_model_data_source(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelPrimaryContainerAdditionalModelDataSource"]]]:
+        '''additional_model_data_source block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#additional_model_data_source SagemakerModel#additional_model_data_source}
+        '''
+        result = self._values.get("additional_model_data_source")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelPrimaryContainerAdditionalModelDataSource"]]], result)
+
+    @builtins.property
     def container_hostname(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#container_hostname SagemakerModel#container_hostname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#container_hostname SagemakerModel#container_hostname}.'''
         result = self._values.get("container_hostname")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2346,13 +3057,13 @@ class SagemakerModelPrimaryContainer:
     def environment(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#environment SagemakerModel#environment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#environment SagemakerModel#environment}.'''
         result = self._values.get("environment")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def image(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#image SagemakerModel#image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#image SagemakerModel#image}.'''
         result = self._values.get("image")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2362,20 +3073,20 @@ class SagemakerModelPrimaryContainer:
     ) -> typing.Optional["SagemakerModelPrimaryContainerImageConfig"]:
         '''image_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#image_config SagemakerModel#image_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#image_config SagemakerModel#image_config}
         '''
         result = self._values.get("image_config")
         return typing.cast(typing.Optional["SagemakerModelPrimaryContainerImageConfig"], result)
 
     @builtins.property
     def inference_specification_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#inference_specification_name SagemakerModel#inference_specification_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#inference_specification_name SagemakerModel#inference_specification_name}.'''
         result = self._values.get("inference_specification_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#mode SagemakerModel#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#mode SagemakerModel#mode}.'''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2385,20 +3096,20 @@ class SagemakerModelPrimaryContainer:
     ) -> typing.Optional["SagemakerModelPrimaryContainerModelDataSource"]:
         '''model_data_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_data_source SagemakerModel#model_data_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_data_source SagemakerModel#model_data_source}
         '''
         result = self._values.get("model_data_source")
         return typing.cast(typing.Optional["SagemakerModelPrimaryContainerModelDataSource"], result)
 
     @builtins.property
     def model_data_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_data_url SagemakerModel#model_data_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_data_url SagemakerModel#model_data_url}.'''
         result = self._values.get("model_data_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def model_package_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_package_name SagemakerModel#model_package_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_package_name SagemakerModel#model_package_name}.'''
         result = self._values.get("model_package_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2408,7 +3119,7 @@ class SagemakerModelPrimaryContainer:
     ) -> typing.Optional["SagemakerModelPrimaryContainerMultiModelConfig"]:
         '''multi_model_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#multi_model_config SagemakerModel#multi_model_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#multi_model_config SagemakerModel#multi_model_config}
         '''
         result = self._values.get("multi_model_config")
         return typing.cast(typing.Optional["SagemakerModelPrimaryContainerMultiModelConfig"], result)
@@ -2423,6 +3134,649 @@ class SagemakerModelPrimaryContainer:
         return "SagemakerModelPrimaryContainer(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelPrimaryContainerAdditionalModelDataSource",
+    jsii_struct_bases=[],
+    name_mapping={"channel_name": "channelName", "s3_data_source": "s3DataSource"},
+)
+class SagemakerModelPrimaryContainerAdditionalModelDataSource:
+    def __init__(
+        self,
+        *,
+        channel_name: builtins.str,
+        s3_data_source: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param channel_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#channel_name SagemakerModel#channel_name}.
+        :param s3_data_source: s3_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09a8dbed1ad5390d872eebe1f7a3abeac7f39c6a57ebd367bbc1f5c1544ff4f7)
+            check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+            check_type(argname="argument s3_data_source", value=s3_data_source, expected_type=type_hints["s3_data_source"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "channel_name": channel_name,
+            "s3_data_source": s3_data_source,
+        }
+
+    @builtins.property
+    def channel_name(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#channel_name SagemakerModel#channel_name}.'''
+        result = self._values.get("channel_name")
+        assert result is not None, "Required property 'channel_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def s3_data_source(
+        self,
+    ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource"]]:
+        '''s3_data_source block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
+        '''
+        result = self._values.get("s3_data_source")
+        assert result is not None, "Required property 's3_data_source' is missing"
+        return typing.cast(typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SagemakerModelPrimaryContainerAdditionalModelDataSource(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SagemakerModelPrimaryContainerAdditionalModelDataSourceList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelPrimaryContainerAdditionalModelDataSourceList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c3ce4f870403c9cf00ea93db6a8b4a425104bb6d714c7460f4416560705cca6)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "SagemakerModelPrimaryContainerAdditionalModelDataSourceOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9349c31c2fb553681849924dc0d4689924bb7e893dfc5ce1a3191cf9b5dc78c6)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("SagemakerModelPrimaryContainerAdditionalModelDataSourceOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a3d6c00048400c313e0acdf2d92fce3ea865e9e949dc61edf6b6b31569e34264)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c23f85ca6bc0f355324c0b3ae347b90d330d7e11f5969ca060bdd55f7eddb64e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68bc900c96812852c3166b398bca0e1a3a6f77a1b77b186bec95d32539e9beba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelPrimaryContainerAdditionalModelDataSource]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelPrimaryContainerAdditionalModelDataSource]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelPrimaryContainerAdditionalModelDataSource]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43b87b9c2916a910e85cbe8670a9e302302a68cdae7db83d1680b76e0861c3b4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class SagemakerModelPrimaryContainerAdditionalModelDataSourceOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelPrimaryContainerAdditionalModelDataSourceOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1fca31192cbf689f40ce079d4208777a2a7163d4f73559d0777170b32ecf4557)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="putS3DataSource")
+    def put_s3_data_source(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b0effb4de51d63f85acb70d7d2a61993754c3865bf71c1c1d473279774d44ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putS3DataSource", [value]))
+
+    @builtins.property
+    @jsii.member(jsii_name="s3DataSource")
+    def s3_data_source(
+        self,
+    ) -> "SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceList":
+        return typing.cast("SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceList", jsii.get(self, "s3DataSource"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelNameInput")
+    def channel_name_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "channelNameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="s3DataSourceInput")
+    def s3_data_source_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource"]]], jsii.get(self, "s3DataSourceInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="channelName")
+    def channel_name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "channelName"))
+
+    @channel_name.setter
+    def channel_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__390244c4eaa7eb12acf6c26ad57e03c3188ecc31ca2429983c3d858db871bed6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelPrimaryContainerAdditionalModelDataSource]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelPrimaryContainerAdditionalModelDataSource]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelPrimaryContainerAdditionalModelDataSource]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aed58163cb9021194fd523090360487ff5ff93a887346970d62ba20c3a62b0b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource",
+    jsii_struct_bases=[],
+    name_mapping={
+        "compression_type": "compressionType",
+        "s3_data_type": "s3DataType",
+        "s3_uri": "s3Uri",
+        "model_access_config": "modelAccessConfig",
+    },
+)
+class SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource:
+    def __init__(
+        self,
+        *,
+        compression_type: builtins.str,
+        s3_data_type: builtins.str,
+        s3_uri: builtins.str,
+        model_access_config: typing.Optional[typing.Union["SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.
+        :param s3_data_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.
+        :param model_access_config: model_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
+        '''
+        if isinstance(model_access_config, dict):
+            model_access_config = SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig(**model_access_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aad85bf52cd2252d650ed92985ed7fb613d7bba7860141023ccc77b8b911a3fd)
+            check_type(argname="argument compression_type", value=compression_type, expected_type=type_hints["compression_type"])
+            check_type(argname="argument s3_data_type", value=s3_data_type, expected_type=type_hints["s3_data_type"])
+            check_type(argname="argument s3_uri", value=s3_uri, expected_type=type_hints["s3_uri"])
+            check_type(argname="argument model_access_config", value=model_access_config, expected_type=type_hints["model_access_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "compression_type": compression_type,
+            "s3_data_type": s3_data_type,
+            "s3_uri": s3_uri,
+        }
+        if model_access_config is not None:
+            self._values["model_access_config"] = model_access_config
+
+    @builtins.property
+    def compression_type(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.'''
+        result = self._values.get("compression_type")
+        assert result is not None, "Required property 'compression_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def s3_data_type(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.'''
+        result = self._values.get("s3_data_type")
+        assert result is not None, "Required property 's3_data_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def s3_uri(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.'''
+        result = self._values.get("s3_uri")
+        assert result is not None, "Required property 's3_uri' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_access_config(
+        self,
+    ) -> typing.Optional["SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig"]:
+        '''model_access_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
+        '''
+        result = self._values.get("model_access_config")
+        return typing.cast(typing.Optional["SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5310fe3726088a10396920b9dd18a837c049694c29d2d2d335fab3fc1103c235)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1111109ee9704a677db128e20b3451f2948ebbb1e82d91765460aa1a87772ba8)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec31c245b4eaf68c59d56025c8f72d6aa87375f9fa1fab03722ed4fee580badd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce2e12f8687856b4b14e5b4c030fec9ed5b59314c7fddb64700b8fb3b7e5aac8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4b4f7e86269850ca57eda04f7dd1291e776705fc54970e3ea5ce3b5b2b9b7e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b58392897edcb7071401285c45b8296d50a940e976476d7e0fe796d595a5d436)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig",
+    jsii_struct_bases=[],
+    name_mapping={"accept_eula": "acceptEula"},
+)
+class SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig:
+    def __init__(
+        self,
+        *,
+        accept_eula: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        '''
+        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a80de60e000e169c5544f94c197661af1eb243c4c4ff75f79d312ed1e6af908f)
+            check_type(argname="argument accept_eula", value=accept_eula, expected_type=type_hints["accept_eula"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "accept_eula": accept_eula,
+        }
+
+    @builtins.property
+    def accept_eula(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.'''
+        result = self._values.get("accept_eula")
+        assert result is not None, "Required property 'accept_eula' is missing"
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__55999d0b5ae130bcbda1e6de416f67346b861ec0b7b3fdd24ea40096cb032293)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptEulaInput")
+    def accept_eula_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "acceptEulaInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="acceptEula")
+    def accept_eula(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "acceptEula"))
+
+    @accept_eula.setter
+    def accept_eula(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f6ec08afb095de68a782afe641db806bb59145be9457aeb28a1e53a182c6acd3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acceptEula", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig]:
+        return typing.cast(typing.Optional[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26d13b347359ea460264d7534cfa7939f2783a0fa3c91494293e3b40571f638c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.sagemakerModel.SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9650a2dda13a3d4135890bab9a78b1e732a14651448b10fcb0771088fe1655f7)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="putModelAccessConfig")
+    def put_model_access_config(
+        self,
+        *,
+        accept_eula: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        '''
+        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
+        '''
+        value = SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig(
+            accept_eula=accept_eula
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putModelAccessConfig", [value]))
+
+    @jsii.member(jsii_name="resetModelAccessConfig")
+    def reset_model_access_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetModelAccessConfig", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="modelAccessConfig")
+    def model_access_config(
+        self,
+    ) -> SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigOutputReference:
+        return typing.cast(SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigOutputReference, jsii.get(self, "modelAccessConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="compressionTypeInput")
+    def compression_type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "compressionTypeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="modelAccessConfigInput")
+    def model_access_config_input(
+        self,
+    ) -> typing.Optional[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig]:
+        return typing.cast(typing.Optional[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig], jsii.get(self, "modelAccessConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="s3DataTypeInput")
+    def s3_data_type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3DataTypeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="s3UriInput")
+    def s3_uri_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "s3UriInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="compressionType")
+    def compression_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "compressionType"))
+
+    @compression_type.setter
+    def compression_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60e277b9c903ab6157d1fb229a5501d253a50ca3939e44fe094b428a0ee6ad7a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "compressionType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3DataType")
+    def s3_data_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "s3DataType"))
+
+    @s3_data_type.setter
+    def s3_data_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b0c1325f35af6e54fc13ae953266532444f6f154263b752642050a21d867f5c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3DataType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="s3Uri")
+    def s3_uri(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "s3Uri"))
+
+    @s3_uri.setter
+    def s3_uri(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0804b2e8485a308250ceca59d82d15b3f778d317e849ce701d70bc85b5f9de2a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3Uri", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f5ca0e04a07967d94a7665b312bfb6ffe5da3a83300273436f1728281c6dcebb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -2441,8 +3795,8 @@ class SagemakerModelPrimaryContainerImageConfig:
         repository_auth_config: typing.Optional[typing.Union["SagemakerModelPrimaryContainerImageConfigRepositoryAuthConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param repository_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.
-        :param repository_auth_config: repository_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
+        :param repository_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.
+        :param repository_auth_config: repository_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
         '''
         if isinstance(repository_auth_config, dict):
             repository_auth_config = SagemakerModelPrimaryContainerImageConfigRepositoryAuthConfig(**repository_auth_config)
@@ -2458,7 +3812,7 @@ class SagemakerModelPrimaryContainerImageConfig:
 
     @builtins.property
     def repository_access_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.'''
         result = self._values.get("repository_access_mode")
         assert result is not None, "Required property 'repository_access_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -2469,7 +3823,7 @@ class SagemakerModelPrimaryContainerImageConfig:
     ) -> typing.Optional["SagemakerModelPrimaryContainerImageConfigRepositoryAuthConfig"]:
         '''repository_auth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
         '''
         result = self._values.get("repository_auth_config")
         return typing.cast(typing.Optional["SagemakerModelPrimaryContainerImageConfigRepositoryAuthConfig"], result)
@@ -2513,7 +3867,7 @@ class SagemakerModelPrimaryContainerImageConfigOutputReference(
         repository_credentials_provider_arn: builtins.str,
     ) -> None:
         '''
-        :param repository_credentials_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.
+        :param repository_credentials_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.
         '''
         value = SagemakerModelPrimaryContainerImageConfigRepositoryAuthConfig(
             repository_credentials_provider_arn=repository_credentials_provider_arn
@@ -2584,7 +3938,7 @@ class SagemakerModelPrimaryContainerImageConfigOutputReference(
 class SagemakerModelPrimaryContainerImageConfigRepositoryAuthConfig:
     def __init__(self, *, repository_credentials_provider_arn: builtins.str) -> None:
         '''
-        :param repository_credentials_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.
+        :param repository_credentials_provider_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ee80d760ac1dd95bb4e011da1f54686a423919b1eac14c3ea4ac2fde26b11f2b)
@@ -2595,7 +3949,7 @@ class SagemakerModelPrimaryContainerImageConfigRepositoryAuthConfig:
 
     @builtins.property
     def repository_credentials_provider_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_credentials_provider_arn SagemakerModel#repository_credentials_provider_arn}.'''
         result = self._values.get("repository_credentials_provider_arn")
         assert result is not None, "Required property 'repository_credentials_provider_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -2681,7 +4035,7 @@ class SagemakerModelPrimaryContainerModelDataSource:
         s3_data_source: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerModelPrimaryContainerModelDataSourceS3DataSource", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param s3_data_source: s3_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
+        :param s3_data_source: s3_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fd6bad988512408c3bbdb4f3351f90c3f0aeaf8914aaf776c91426c353e35465)
@@ -2696,7 +4050,7 @@ class SagemakerModelPrimaryContainerModelDataSource:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerModelPrimaryContainerModelDataSourceS3DataSource"]]:
         '''s3_data_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
         '''
         result = self._values.get("s3_data_source")
         assert result is not None, "Required property 's3_data_source' is missing"
@@ -2799,10 +4153,10 @@ class SagemakerModelPrimaryContainerModelDataSourceS3DataSource:
         model_access_config: typing.Optional[typing.Union["SagemakerModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.
-        :param s3_data_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.
-        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.
-        :param model_access_config: model_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
+        :param compression_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.
+        :param s3_data_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.
+        :param s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.
+        :param model_access_config: model_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
         '''
         if isinstance(model_access_config, dict):
             model_access_config = SagemakerModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfig(**model_access_config)
@@ -2822,21 +4176,21 @@ class SagemakerModelPrimaryContainerModelDataSourceS3DataSource:
 
     @builtins.property
     def compression_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#compression_type SagemakerModel#compression_type}.'''
         result = self._values.get("compression_type")
         assert result is not None, "Required property 'compression_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_data_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_type SagemakerModel#s3_data_type}.'''
         result = self._values.get("s3_data_type")
         assert result is not None, "Required property 's3_data_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def s3_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_uri SagemakerModel#s3_uri}.'''
         result = self._values.get("s3_uri")
         assert result is not None, "Required property 's3_uri' is missing"
         return typing.cast(builtins.str, result)
@@ -2847,7 +4201,7 @@ class SagemakerModelPrimaryContainerModelDataSourceS3DataSource:
     ) -> typing.Optional["SagemakerModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfig"]:
         '''model_access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_access_config SagemakerModel#model_access_config}
         '''
         result = self._values.get("model_access_config")
         return typing.cast(typing.Optional["SagemakerModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfig"], result)
@@ -2969,7 +4323,7 @@ class SagemakerModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfig
         accept_eula: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
+        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d6cb580cb48e6b276ff982b2e5c1914118f51ac9292d1269533058fd1d0a49fc)
@@ -2980,7 +4334,7 @@ class SagemakerModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfig
 
     @builtins.property
     def accept_eula(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.'''
         result = self._values.get("accept_eula")
         assert result is not None, "Required property 'accept_eula' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -3090,7 +4444,7 @@ class SagemakerModelPrimaryContainerModelDataSourceS3DataSourceOutputReference(
         accept_eula: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
+        :param accept_eula: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#accept_eula SagemakerModel#accept_eula}.
         '''
         value = SagemakerModelPrimaryContainerModelDataSourceS3DataSourceModelAccessConfig(
             accept_eula=accept_eula
@@ -3197,7 +4551,7 @@ class SagemakerModelPrimaryContainerMultiModelConfig:
         model_cache_setting: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param model_cache_setting: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.
+        :param model_cache_setting: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a6676b2b59c2e4a24b9086c1270da0117fc18fa6ecf535a074c728641defe101)
@@ -3208,7 +4562,7 @@ class SagemakerModelPrimaryContainerMultiModelConfig:
 
     @builtins.property
     def model_cache_setting(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.'''
         result = self._values.get("model_cache_setting")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3303,6 +4657,19 @@ class SagemakerModelPrimaryContainerOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="putAdditionalModelDataSource")
+    def put_additional_model_data_source(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelPrimaryContainerAdditionalModelDataSource, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__abe55c025caf98193ee6435cc55e81dd157287f003242251cf041d5c44b79668)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putAdditionalModelDataSource", [value]))
+
     @jsii.member(jsii_name="putImageConfig")
     def put_image_config(
         self,
@@ -3311,8 +4678,8 @@ class SagemakerModelPrimaryContainerOutputReference(
         repository_auth_config: typing.Optional[typing.Union[SagemakerModelPrimaryContainerImageConfigRepositoryAuthConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param repository_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.
-        :param repository_auth_config: repository_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
+        :param repository_access_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_access_mode SagemakerModel#repository_access_mode}.
+        :param repository_auth_config: repository_auth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#repository_auth_config SagemakerModel#repository_auth_config}
         '''
         value = SagemakerModelPrimaryContainerImageConfig(
             repository_access_mode=repository_access_mode,
@@ -3328,7 +4695,7 @@ class SagemakerModelPrimaryContainerOutputReference(
         s3_data_source: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelPrimaryContainerModelDataSourceS3DataSource, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param s3_data_source: s3_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
+        :param s3_data_source: s3_data_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#s3_data_source SagemakerModel#s3_data_source}
         '''
         value = SagemakerModelPrimaryContainerModelDataSource(
             s3_data_source=s3_data_source
@@ -3343,13 +4710,17 @@ class SagemakerModelPrimaryContainerOutputReference(
         model_cache_setting: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param model_cache_setting: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.
+        :param model_cache_setting: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#model_cache_setting SagemakerModel#model_cache_setting}.
         '''
         value = SagemakerModelPrimaryContainerMultiModelConfig(
             model_cache_setting=model_cache_setting
         )
 
         return typing.cast(None, jsii.invoke(self, "putMultiModelConfig", [value]))
+
+    @jsii.member(jsii_name="resetAdditionalModelDataSource")
+    def reset_additional_model_data_source(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAdditionalModelDataSource", []))
 
     @jsii.member(jsii_name="resetContainerHostname")
     def reset_container_hostname(self) -> None:
@@ -3392,6 +4763,13 @@ class SagemakerModelPrimaryContainerOutputReference(
         return typing.cast(None, jsii.invoke(self, "resetMultiModelConfig", []))
 
     @builtins.property
+    @jsii.member(jsii_name="additionalModelDataSource")
+    def additional_model_data_source(
+        self,
+    ) -> SagemakerModelPrimaryContainerAdditionalModelDataSourceList:
+        return typing.cast(SagemakerModelPrimaryContainerAdditionalModelDataSourceList, jsii.get(self, "additionalModelDataSource"))
+
+    @builtins.property
     @jsii.member(jsii_name="imageConfig")
     def image_config(self) -> SagemakerModelPrimaryContainerImageConfigOutputReference:
         return typing.cast(SagemakerModelPrimaryContainerImageConfigOutputReference, jsii.get(self, "imageConfig"))
@@ -3409,6 +4787,13 @@ class SagemakerModelPrimaryContainerOutputReference(
         self,
     ) -> SagemakerModelPrimaryContainerMultiModelConfigOutputReference:
         return typing.cast(SagemakerModelPrimaryContainerMultiModelConfigOutputReference, jsii.get(self, "multiModelConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="additionalModelDataSourceInput")
+    def additional_model_data_source_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelPrimaryContainerAdditionalModelDataSource]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelPrimaryContainerAdditionalModelDataSource]]], jsii.get(self, "additionalModelDataSourceInput"))
 
     @builtins.property
     @jsii.member(jsii_name="containerHostnameInput")
@@ -3581,8 +4966,8 @@ class SagemakerModelVpcConfig:
         subnets: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#security_group_ids SagemakerModel#security_group_ids}.
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#subnets SagemakerModel#subnets}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#security_group_ids SagemakerModel#security_group_ids}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#subnets SagemakerModel#subnets}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8bf98db05fca6815f9eb4a9a60639fc420ccb28c861433ff3f376553f249240)
@@ -3595,14 +4980,14 @@ class SagemakerModelVpcConfig:
 
     @builtins.property
     def security_group_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#security_group_ids SagemakerModel#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#security_group_ids SagemakerModel#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         assert result is not None, "Required property 'security_group_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def subnets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_model#subnets SagemakerModel#subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_model#subnets SagemakerModel#subnets}.'''
         result = self._values.get("subnets")
         assert result is not None, "Required property 'subnets' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -3690,6 +5075,14 @@ __all__ = [
     "SagemakerModel",
     "SagemakerModelConfig",
     "SagemakerModelContainer",
+    "SagemakerModelContainerAdditionalModelDataSource",
+    "SagemakerModelContainerAdditionalModelDataSourceList",
+    "SagemakerModelContainerAdditionalModelDataSourceOutputReference",
+    "SagemakerModelContainerAdditionalModelDataSourceS3DataSource",
+    "SagemakerModelContainerAdditionalModelDataSourceS3DataSourceList",
+    "SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig",
+    "SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigOutputReference",
+    "SagemakerModelContainerAdditionalModelDataSourceS3DataSourceOutputReference",
     "SagemakerModelContainerImageConfig",
     "SagemakerModelContainerImageConfigOutputReference",
     "SagemakerModelContainerImageConfigRepositoryAuthConfig",
@@ -3708,6 +5101,14 @@ __all__ = [
     "SagemakerModelInferenceExecutionConfig",
     "SagemakerModelInferenceExecutionConfigOutputReference",
     "SagemakerModelPrimaryContainer",
+    "SagemakerModelPrimaryContainerAdditionalModelDataSource",
+    "SagemakerModelPrimaryContainerAdditionalModelDataSourceList",
+    "SagemakerModelPrimaryContainerAdditionalModelDataSourceOutputReference",
+    "SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource",
+    "SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceList",
+    "SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig",
+    "SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfigOutputReference",
+    "SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceOutputReference",
     "SagemakerModelPrimaryContainerImageConfig",
     "SagemakerModelPrimaryContainerImageConfigOutputReference",
     "SagemakerModelPrimaryContainerImageConfigRepositoryAuthConfig",
@@ -3837,6 +5238,7 @@ def _typecheckingstub__a09783e2ec505e4c79f2c0e3caaa408e9e840d5b1bf1df364cd019a92
 
 def _typecheckingstub__68307bd8f100616bb4e87ddd3f2c7ead9daa917afb5190dee0730b2be85c7d46(
     *,
+    additional_model_data_source: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelContainerAdditionalModelDataSource, typing.Dict[builtins.str, typing.Any]]]]] = None,
     container_hostname: typing.Optional[builtins.str] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     image: typing.Optional[builtins.str] = None,
@@ -3847,6 +5249,186 @@ def _typecheckingstub__68307bd8f100616bb4e87ddd3f2c7ead9daa917afb5190dee0730b2be
     model_data_url: typing.Optional[builtins.str] = None,
     model_package_name: typing.Optional[builtins.str] = None,
     multi_model_config: typing.Optional[typing.Union[SagemakerModelContainerMultiModelConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b229d736e3e5a5bfca47008ef271e1019d5ff49ca8141e03e204caf4d03e6fde(
+    *,
+    channel_name: builtins.str,
+    s3_data_source: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelContainerAdditionalModelDataSourceS3DataSource, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93ba1366b9590a7bac8efd07ac5d2eeb648d0037617ac0ba8895eec653b9e89b(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dde0bfa058f74306b91e0352fb125faeab9272949d5378297fbab524ddf173fb(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f96b15f2ab1bd663882a6f0d732abc50f3249816f0aa3598c35a655e19e52f0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb0047c0d908a3337803fb37f3465ed52a3071108cb1cd1d8aafb00a48fcc806(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c3cb6c6da719c1bb808d390b05714c9b12e851def195bdf3270af82c502c07c(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ac3bbc5406b54816000accd9cd2adade16e063deffdf80d234eba7f14cd82c9(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelContainerAdditionalModelDataSource]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd2710bd4d3832202a367adc258ac7cf407c4ce4263a3cc5f40f8818515e004f(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a33408c76cc58bb36f0f1922713acc4ec04fa35af9d4b600190f605bb4119b8(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelContainerAdditionalModelDataSourceS3DataSource, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecd8f044005a1dc179bce1ce765683f6e6dff177b94463f17e1ef23298cd91f5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73faa091fb19b524ebeb7c86a8f6c52cb93e701b0aca08119724f61d161043b8(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelContainerAdditionalModelDataSource]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e9f7fdbde3467ed9bf358b77242b060d5e1bd39bed07d8b9c7cb7fe36d82d7e(
+    *,
+    compression_type: builtins.str,
+    s3_data_type: builtins.str,
+    s3_uri: builtins.str,
+    model_access_config: typing.Optional[typing.Union[SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00a7355560fe4e769fd6c304095b95704065936714cbb05697c6ca2c721977dd(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05c6d2b55e9167717a5b72c0bebb02d42061a512698606b8e4d7b637fc29c733(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b5bdab6c67a3bcbd010ac8d43380050447bc89614919b30a140787a7c389869(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2209316ba4ce4be717c81b1daddb839a5cb0591f92b59f76f0af1bf44170f0c(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc67ecbe71712a77739d181a3baec233f2d0c1af7d314acb007da7a8731de851(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__289613ad3e6f91bdf7d3b4d6cd5c5b27ed1dd6d74fb3b8b1e7a50fd9b363506c(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelContainerAdditionalModelDataSourceS3DataSource]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__012782a872dc13381cd7c741965a8eb62f655c44448adf28fe7dc9a7ef9c7f69(
+    *,
+    accept_eula: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8da94b9cd39016253113e0a3d676f077df5ee46a07ee3cee74831fc8ba2cccc9(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a829253dbc00dce3b0077937d548164770fac6b8bbd03e0b141217db1db72a75(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecf5431d99fbcf1c7a29934f67274046fc386b583b1e76f9111d51d436f67c5a(
+    value: typing.Optional[SagemakerModelContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f49c4a2cfc8e98ee267174f42a3854f2d94fe2a3812b17b11ef3fda542a467b(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d1faa3be69cd7575c72ff1faa11f86c5c1cdd4b4f98824f26cc2bd9f45c98fd1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__714f41ee8d94c26b980bea439bcd8c924d946e0b8e37f6f29e54369aed17c12a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57c1e3112f9ba34e995711d075a887630f3361c32a3fc3dfb6d6072f06ae149e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8425a1f781d131d8567c8298461e7d7b68b69943f04f7a13dd0cc18a874b22a(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelContainerAdditionalModelDataSourceS3DataSource]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4110,6 +5692,12 @@ def _typecheckingstub__884bf514ae76f9792966316eee8a3fe78ac03d971369beac2bf52ecea
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__760d72eb1cd5f55986caa7cfc7fb4089e847c29465e4cebb6374b9f346654ae0(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelContainerAdditionalModelDataSource, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__640dba2934a3039bdf778811287f020d40cfae7673c14df30a79bbccc44b0c17(
     value: builtins.str,
 ) -> None:
@@ -4186,6 +5774,7 @@ def _typecheckingstub__a3aba6c88214fbbf862cdb06a83931693dd089ef824d2eb427237a07f
 
 def _typecheckingstub__f8dcc3ebd8ddee0ce41ec70f5c0e04be47d24b6d66c286611986157d7184bcf7(
     *,
+    additional_model_data_source: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelPrimaryContainerAdditionalModelDataSource, typing.Dict[builtins.str, typing.Any]]]]] = None,
     container_hostname: typing.Optional[builtins.str] = None,
     environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     image: typing.Optional[builtins.str] = None,
@@ -4196,6 +5785,186 @@ def _typecheckingstub__f8dcc3ebd8ddee0ce41ec70f5c0e04be47d24b6d66c286611986157d7
     model_data_url: typing.Optional[builtins.str] = None,
     model_package_name: typing.Optional[builtins.str] = None,
     multi_model_config: typing.Optional[typing.Union[SagemakerModelPrimaryContainerMultiModelConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09a8dbed1ad5390d872eebe1f7a3abeac7f39c6a57ebd367bbc1f5c1544ff4f7(
+    *,
+    channel_name: builtins.str,
+    s3_data_source: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c3ce4f870403c9cf00ea93db6a8b4a425104bb6d714c7460f4416560705cca6(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9349c31c2fb553681849924dc0d4689924bb7e893dfc5ce1a3191cf9b5dc78c6(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3d6c00048400c313e0acdf2d92fce3ea865e9e949dc61edf6b6b31569e34264(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c23f85ca6bc0f355324c0b3ae347b90d330d7e11f5969ca060bdd55f7eddb64e(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68bc900c96812852c3166b398bca0e1a3a6f77a1b77b186bec95d32539e9beba(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43b87b9c2916a910e85cbe8670a9e302302a68cdae7db83d1680b76e0861c3b4(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelPrimaryContainerAdditionalModelDataSource]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1fca31192cbf689f40ce079d4208777a2a7163d4f73559d0777170b32ecf4557(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b0effb4de51d63f85acb70d7d2a61993754c3865bf71c1c1d473279774d44ad(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__390244c4eaa7eb12acf6c26ad57e03c3188ecc31ca2429983c3d858db871bed6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aed58163cb9021194fd523090360487ff5ff93a887346970d62ba20c3a62b0b3(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelPrimaryContainerAdditionalModelDataSource]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aad85bf52cd2252d650ed92985ed7fb613d7bba7860141023ccc77b8b911a3fd(
+    *,
+    compression_type: builtins.str,
+    s3_data_type: builtins.str,
+    s3_uri: builtins.str,
+    model_access_config: typing.Optional[typing.Union[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5310fe3726088a10396920b9dd18a837c049694c29d2d2d335fab3fc1103c235(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1111109ee9704a677db128e20b3451f2948ebbb1e82d91765460aa1a87772ba8(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec31c245b4eaf68c59d56025c8f72d6aa87375f9fa1fab03722ed4fee580badd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce2e12f8687856b4b14e5b4c030fec9ed5b59314c7fddb64700b8fb3b7e5aac8(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4b4f7e86269850ca57eda04f7dd1291e776705fc54970e3ea5ce3b5b2b9b7e8(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b58392897edcb7071401285c45b8296d50a940e976476d7e0fe796d595a5d436(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a80de60e000e169c5544f94c197661af1eb243c4c4ff75f79d312ed1e6af908f(
+    *,
+    accept_eula: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55999d0b5ae130bcbda1e6de416f67346b861ec0b7b3fdd24ea40096cb032293(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6ec08afb095de68a782afe641db806bb59145be9457aeb28a1e53a182c6acd3(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26d13b347359ea460264d7534cfa7939f2783a0fa3c91494293e3b40571f638c(
+    value: typing.Optional[SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSourceModelAccessConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9650a2dda13a3d4135890bab9a78b1e732a14651448b10fcb0771088fe1655f7(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60e277b9c903ab6157d1fb229a5501d253a50ca3939e44fe094b428a0ee6ad7a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b0c1325f35af6e54fc13ae953266532444f6f154263b752642050a21d867f5c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0804b2e8485a308250ceca59d82d15b3f778d317e849ce701d70bc85b5f9de2a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f5ca0e04a07967d94a7665b312bfb6ffe5da3a83300273436f1728281c6dcebb(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, SagemakerModelPrimaryContainerAdditionalModelDataSourceS3DataSource]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4415,6 +6184,12 @@ def _typecheckingstub__5f256c8065995420bcc0864d5998ad33f51567564b5c33c709a3db933
 def _typecheckingstub__dca8246beee1437ddb9d242422a52f80be45ffb35a47b986fc35a6f4c5a9da92(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__abe55c025caf98193ee6435cc55e81dd157287f003242251cf041d5c44b79668(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerModelPrimaryContainerAdditionalModelDataSource, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass

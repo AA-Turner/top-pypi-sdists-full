@@ -1,6 +1,10 @@
 import sys
-from _typeshed import SupportsRead
-from typing import Iterable, Iterator, Literal, TypeVar, overload
+from collections.abc import (
+    Iterable,
+    Iterator,
+)
+from typing import Literal, TypeVar, overload
+from typing_extensions import disjoint_base
 
 from .._types import (
     _ElementOrTree,
@@ -21,6 +25,11 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import LiteralString
 
+if sys.version_info >= (3, 14):
+    from io import Reader
+else:
+    from typing_extensions import Reader
+
 _T_co = TypeVar("_T_co", covariant=True)
 
 # See https://lxml.de/parsing.html#event-types
@@ -28,6 +37,7 @@ _T_co = TypeVar("_T_co", covariant=True)
 _NoNSEventNames = Literal["start", "end", "comment", "pi"]
 _SaxNsEventValues = tuple[str, str] | None  # for start-ns & end-ns event
 
+@disjoint_base
 class iterparse(Iterator[_T_co]):
     """Incremental parser. Parses XML into a tree and generates tuples (event, element) in a
     SAX-like fashion.
@@ -51,7 +61,7 @@ class iterparse(Iterator[_T_co]):
     @overload  # html mode -> namespace events suppressed
     def __new__(  # type: ignore[overload-overlap]  # pyright: ignore[reportOverlappingOverload]
         cls,
-        source: _FilePath | SupportsRead[bytes],
+        source: _FilePath | Reader[bytes],
         events: Iterable[_SaxEventNames] = ("end",),
         *,
         tag: _TagSelector | Iterable[_TagSelector] | None = None,
@@ -68,7 +78,7 @@ class iterparse(Iterator[_T_co]):
     @overload  # element-only events
     def __new__(
         cls,
-        source: _FilePath | SupportsRead[bytes],
+        source: _FilePath | Reader[bytes],
         events: Iterable[_NoNSEventNames],
         *,
         tag: _TagSelector | Iterable[_TagSelector] | None = None,
@@ -92,7 +102,7 @@ class iterparse(Iterator[_T_co]):
     @overload  # NS-only events
     def __new__(
         cls,
-        source: _FilePath | SupportsRead[bytes],
+        source: _FilePath | Reader[bytes],
         events: Iterable[Literal["start-ns", "end-ns"]],
         *,
         tag: _TagSelector | Iterable[_TagSelector] | None = None,
@@ -118,7 +128,7 @@ class iterparse(Iterator[_T_co]):
     @overload  # other mixed events
     def __new__(
         cls,
-        source: _FilePath | SupportsRead[bytes],
+        source: _FilePath | Reader[bytes],
         events: Iterable[_SaxEventNames],
         *,
         tag: _TagSelector | Iterable[_TagSelector] | None = None,
@@ -146,7 +156,7 @@ class iterparse(Iterator[_T_co]):
     @overload  # events absent -> only 'end' event emitted
     def __new__(
         cls,
-        source: _FilePath | SupportsRead[bytes],
+        source: _FilePath | Reader[bytes],
         *,
         tag: _TagSelector | Iterable[_TagSelector] | None = None,
         attribute_defaults: bool = False,
@@ -182,6 +192,7 @@ class iterparse(Iterator[_T_co]):
     ) -> None: ...
     makeelement: type[_T_co]
 
+@disjoint_base
 class iterwalk(Iterator[_T_co]):
     """Tree walker that generates events from an existing tree as if it
     was parsing XML data with ``iterparse()``

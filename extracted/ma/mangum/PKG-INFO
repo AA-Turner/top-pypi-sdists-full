@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: mangum
-Version: 0.19.0
+Version: 0.20.0
 Summary: AWS Lambda support for ASGI applications
 Project-URL: Homepage, https://github.com/Kludex/mangum
 Project-URL: Documentation, https://mangum.fastapiexpert.com
@@ -12,15 +12,14 @@ License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Requires-Dist: typing-extensions
 Description-Content-Type: text/markdown
 

@@ -185,8 +185,9 @@ from pymc_marketing.mmm.components.saturation import (
 )
 from pymc_marketing.mmm.events import EventEffect
 from pymc_marketing.mmm.fourier import YearlyFourier
-from pymc_marketing.mmm.hsgp import HSGPBase
+from pymc_marketing.mmm.hsgp import HSGPBase, hsgp_from_dict
 from pymc_marketing.mmm.lift_test import (
+    add_cost_per_target_potentials,
     add_lift_measurements_to_likelihood_from_saturation,
     scale_lift_measurements,
 )
@@ -489,7 +490,7 @@ class MMM(RegressionModelBuilder):
             If the event effect dimensions do not contain the prefix and model dimensions.
 
         """
-        if not set(effect.dims).issubset((prefix, self.dims)):
+        if not set(effect.dims).issubset((prefix, *self.dims)):
             raise ValueError(
                 f"Event effect dims {effect.dims} must contain {prefix} and {self.dims}"
             )
@@ -526,8 +527,22 @@ class MMM(RegressionModelBuilder):
         attrs["control_columns"] = json.dumps(self.control_columns)
         attrs["channel_columns"] = json.dumps(self.channel_columns)
         attrs["yearly_seasonality"] = json.dumps(self.yearly_seasonality)
-        attrs["time_varying_intercept"] = json.dumps(self.time_varying_intercept)
-        attrs["time_varying_media"] = json.dumps(self.time_varying_media)
+        attrs["time_varying_intercept"] = json.dumps(
+            self.time_varying_intercept
+            if not isinstance(self.time_varying_intercept, HSGPBase)
+            else {
+                **self.time_varying_intercept.to_dict(),
+                **{"hsgp_class": self.time_varying_intercept.__class__.__name__},
+            }
+        )
+        attrs["time_varying_media"] = json.dumps(
+            self.time_varying_media
+            if not isinstance(self.time_varying_media, HSGPBase)
+            else {
+                **self.time_varying_media.to_dict(),
+                **{"hsgp_class": self.time_varying_media.__class__.__name__},
+            }
+        )
         attrs["target_column"] = self.target_column
         attrs["scaling"] = json.dumps(self.scaling.model_dump(mode="json"))
         attrs["dag"] = json.dumps(getattr(self, "dag", None))
@@ -585,11 +600,13 @@ class MMM(RegressionModelBuilder):
             "saturation": saturation_from_dict(json.loads(attrs["saturation"])),
             "adstock_first": json.loads(attrs.get("adstock_first", "true")),
             "yearly_seasonality": json.loads(attrs["yearly_seasonality"]),
-            "time_varying_intercept": json.loads(
-                attrs.get("time_varying_intercept", "false")
+            "time_varying_intercept": hsgp_from_dict(
+                json.loads(attrs.get("time_varying_intercept", "false"))
             ),
             "target_column": attrs["target_column"],
-            "time_varying_media": json.loads(attrs.get("time_varying_media", "false")),
+            "time_varying_media": hsgp_from_dict(
+                json.loads(attrs.get("time_varying_media", "false"))
+            ),
             "sampler_config": json.loads(attrs["sampler_config"]),
             "dims": tuple(json.loads(attrs.get("dims", "[]"))),
             "scaling": json.loads(attrs.get("scaling", "null")),
@@ -615,7 +632,9 @@ class MMM(RegressionModelBuilder):
                 sigma=Prior("HalfNormal", sigma=2, dims=self.dims),
                 dims=self.dims,
             ),
-            "gamma_control": Prior("Normal", mu=0, sigma=2, dims="control"),
+            "gamma_control": Prior(
+                "Normal", mu=0, sigma=2, dims=(*self.dims, "control")
+            ),
             "gamma_fourier": Prior(
                 "Laplace", mu=0, b=1, dims=(*self.dims, "fourier_mode")
             ),
@@ -994,11 +1013,14 @@ class MMM(RegressionModelBuilder):
 
         Examples
         --------
-        >>> mmm = MMM(
-            date_column="date_week",
-            channel_columns=["channel_1", "channel_2"],
-            target_column="target",
-        )
+        .. code-block:: python
+
+            mmm = MMM(
+                date_column="date_week",
+                channel_columns=["channel_1", "channel_2"],
+                target_column="target",
+            )
+
         """
         first, second = (
             (self.adstock, self.saturation)
@@ -1036,13 +1058,16 @@ class MMM(RegressionModelBuilder):
 
         Examples
         --------
-        >>> mmm = MMM(
-            date_column="date_week",
-            channel_columns=["channel_1", "channel_2"],
-            target_column="target",
-        )
-        >>> mmm.build_model(X, y)
-        >>> mmm.get_scales_as_xarray()
+        .. code-block:: python
+
+            mmm = MMM(
+                date_column="date_week",
+                channel_columns=["channel_1", "channel_2"],
+                target_column="target",
+            )
+            mmm.build_model(X, y)
+            mmm.get_scales_as_xarray()
+
         """
         if not hasattr(self, "scalers"):
             raise ValueError(
@@ -1081,9 +1106,12 @@ class MMM(RegressionModelBuilder):
 
         Examples
         --------
-        >>> model.add_original_scale_contribution_variable(
-        >>>     var=["channel_contribution", "total_media_contribution", "y"]
-        >>> )
+        .. code-block:: python
+
+            model.add_original_scale_contribution_variable(
+                var=["channel_contribution", "total_media_contribution", "y"]
+            )
+
         """
         self._validate_model_was_built()
         target_dims = self.scalers._target.dims
@@ -1676,8 +1704,11 @@ class MMM(RegressionModelBuilder):
                 self.idata, **sample_posterior_predictive_kwargs
             )
 
-            if extend_idata:
-                self.idata.extend(post_pred, join="right")  # type: ignore
+            if extend_idata and self.idata is not None:
+                self.idata.add_groups(
+                    posterior_predictive=post_pred.posterior_predictive,
+                    posterior_predictive_constant_data=post_pred.constant_data,
+                )  # type: ignore
 
         group = "posterior_predictive"
         posterior_predictive_samples = az.extract(post_pred, group, combined=combined)
@@ -1704,13 +1735,19 @@ class MMM(RegressionModelBuilder):
 
         Examples
         --------
-        >>> mmm.sensitivity.run_sweep(
-        ...     var_names=["channel_1", "channel_2"],
-        ...     sweep_values=np.linspace(0.5, 2.0, 10),
-        ...     sweep_type="multiplicative",
-        ... )
+        .. code-block:: python
+
+            mmm.sensitivity.run_sweep(
+                var_names=["channel_1", "channel_2"],
+                sweep_values=np.linspace(0.5, 2.0, 10),
+                sweep_type="multiplicative",
+            )
+
         """
-        return SensitivityAnalysis(mmm=self)
+        # Provide the underlying PyMC model, the model's inference data, and dims
+        return SensitivityAnalysis(
+            pymc_model=self.model, idata=self.idata, dims=self.dims
+        )
 
     def _make_channel_transform(
         self, df_lift_test: pd.DataFrame
@@ -1948,6 +1985,135 @@ class MMM(RegressionModelBuilder):
             name=name,
         )
 
+    def add_cost_per_target_calibration(
+        self,
+        data: pd.DataFrame,
+        calibration_data: pd.DataFrame,
+        name_prefix: str = "cpt_calibration",
+    ) -> None:
+        """Calibrate cost-per-target using constraints via ``pm.Potential``.
+
+        This adds a deterministic ``cpt_variable_name`` computed as
+        ``channel_data_spend / channel_contribution_original_scale`` and creates
+        per-row penalty terms based on ``calibration_data`` using a quadratic penalty:
+
+        ``penalty = - |cpt_mean - target|^2 / (2 * sigma^2)``.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Feature-like DataFrame with columns matching training ``X`` but with
+            channel values representing spend (original units). Must include the
+            same ``date`` and any model ``dims`` columns.
+        calibration_data : pd.DataFrame
+            DataFrame with rows specifying calibration targets. Must include:
+              - ``channel``: channel name in ``self.channel_columns``
+              - ``cost_per_target``: desired CPT value
+              - ``sigma``: accepted deviation; larger => weaker penalty
+            and one column per dimension in ``self.dims``.
+        cpt_variable_name : str
+            Name for the cost-per-target Deterministic in the model.
+        name_prefix : str
+            Prefix to use for generated potential names.
+
+        Examples
+        --------
+        Build a model and calibrate CPT for selected (dims, channel):
+
+        .. code-block:: python
+
+            # spend data in original scale with the same structure as X
+            spend_df = X.copy()
+            # e.g., if X contains impressions, replace with monetary spend
+            # spend_df[channels] = ...
+
+            calibration_df = pd.DataFrame(
+                {
+                    "channel": ["C1", "C2"],
+                    "geo": ["US", "US"],  # dims columns as needed
+                    "cost_per_target": [30.0, 45.0],
+                    "sigma": [2.0, 3.0],
+                }
+            )
+
+            mmm.add_cost_per_target_calibration(
+                data=spend_df,
+                calibration_data=calibration_df,
+                name_prefix="cpt_calibration",
+            )
+        """
+        if not hasattr(self, "model"):
+            raise RuntimeError("Model must be built before adding calibration.")
+
+        # Validate required columns in calibration_data
+        if "channel" not in calibration_data.columns:
+            raise KeyError("'channel' column missing in calibration_data")
+        for dim in self.dims:
+            if dim not in calibration_data.columns:
+                raise KeyError(
+                    f"The {dim} column is required in calibration_data to map to model dims."
+                )
+
+        # Prepare spend data as xarray (original units)
+        spend_ds = (
+            self._create_xarray_from_pandas(
+                data=data,
+                date_column=self.date_column,
+                dims=self.dims,
+                metric_list=self.channel_columns,
+                metric_coordinate_name="channel",
+            )
+            .transpose("date", *self.dims, "channel")
+            .fillna(0)
+        )
+
+        spend_array = spend_ds._channel
+        # Compute expected shape from the model
+        channel_data_dims = self.model.named_vars_to_dims["channel_data"]
+        expected_shape = tuple(len(self.model.coords[dim]) for dim in channel_data_dims)
+
+        # Align spend array to the models dim order
+        spend_aligned = spend_array.transpose(*channel_data_dims)
+
+        # Now the check will fail when a coord (e.g., a country) is missing
+        if spend_aligned.shape != expected_shape:
+            raise ValueError(
+                "Spend data shape does not match channel data dims in the model: "
+                f"expected {expected_shape}, got {spend_aligned.shape}"
+            )
+
+        for dim in channel_data_dims:
+            spend_labels = np.asarray(spend_aligned.coords[dim].values)
+            model_labels = np.asarray(self.model.coords[dim])
+            if not np.array_equal(spend_labels, model_labels):
+                raise ValueError(
+                    f"Spend data coordinates for dim {dim!r} do not match model coords: "
+                    f"expected {model_labels.tolist()}, got {spend_labels.tolist()}"
+                )
+
+        spend_tensor = pt.as_tensor_variable(spend_aligned.values)
+
+        with self.model:
+            # Ensure original-scale contribution exists
+            if "channel_contribution_original_scale" not in self.model.named_vars:
+                raise ValueError(
+                    "`channel_contribution_original_scale` is not in the model."
+                    "Please, add the original scale contribution variable using the method "
+                    "`add_original_scale_contribution_variable` before adding the cost-per-target calibration."
+                )
+
+            denom = pt.clip(
+                self.model["channel_contribution_original_scale"], 1e-12, np.inf
+            )
+            cpt_tensor = spend_tensor / denom
+
+        add_cost_per_target_potentials(
+            calibration_df=calibration_data,
+            model=self.model,
+            cpt_value=cpt_tensor,
+            name_prefix=name_prefix,
+        )
+
     def create_fit_data(
         self,
         X: pd.DataFrame | xr.Dataset | xr.DataArray,
@@ -1994,7 +2160,10 @@ class MMM(RegressionModelBuilder):
 
         Examples
         --------
-        >>> ds = mmm.create_fit_data(X, y)
+        .. code-block:: python
+
+            ds = mmm.create_fit_data(X, y)
+
         """
         # --- Coerce X to DataFrame ---
         if isinstance(X, xr.Dataset):
@@ -2016,7 +2185,7 @@ class MMM(RegressionModelBuilder):
             y_s = pd.Series(y, index=X_df.index)
         else:
             y_s = y.copy()
-        y_s.name = self.output_var
+        y_s.name = self.target_column
 
         dims_in_X = [d for d in self.dims if d in X_df.columns]
         coord_cols = [self.date_column, *dims_in_X]
@@ -2035,10 +2204,10 @@ class MMM(RegressionModelBuilder):
                     how="left",
                 )
             else:
-                X_df[self.output_var] = aligned.values
+                X_df[self.target_column] = aligned.values
         elif len(y_s) == len(X_df):
             # Positional
-            X_df[self.output_var] = y_s.to_numpy()
+            X_df[self.target_column] = y_s.to_numpy()
         else:
             # Try merge if y has columns as index levels
             if isinstance(y_s.index, pd.MultiIndex) and set(coord_cols).issubset(
@@ -2050,8 +2219,10 @@ class MMM(RegressionModelBuilder):
                     "Cannot align y with X; incompatible indices / lengths"
                 )
 
-        if self.output_var not in X_df.columns:
-            raise RuntimeError("Target column missing after alignment")
+        if self.target_column not in X_df.columns:
+            raise RuntimeError(
+                f"Target column {self.target_column} missing after alignment"
+            )
 
         ds = X_df.sort_values(coord_cols).set_index(coord_cols).to_xarray()
         return ds
@@ -2081,7 +2252,10 @@ class MMM(RegressionModelBuilder):
 
         Examples
         --------
-        >>> mmm.build_from_idata(idata)
+        .. code-block:: python
+
+            mmm.build_from_idata(idata)
+
         """
         dataset = idata.fit_data.to_dataframe()
 
@@ -2090,8 +2264,8 @@ class MMM(RegressionModelBuilder):
         ):
             dataset = dataset.reset_index()
         # type: ignore
-        X = dataset.drop(columns=[self.output_var])
-        y = dataset[self.output_var]
+        X = dataset.drop(columns=[self.target_column])
+        y = dataset[self.target_column]
 
         self.build_model(X, y)  # type: ignore
 
@@ -2142,7 +2316,13 @@ def create_sample_kwargs(
 class MultiDimensionalBudgetOptimizerWrapper(OptimizerCompatibleModelWrapper):
     """Wrapper for the BudgetOptimizer to handle multi-dimensional model."""
 
-    def __init__(self, model: MMM, start_date: str, end_date: str):
+    def __init__(
+        self,
+        model: MMM,
+        start_date: str,
+        end_date: str,
+        compile_kwargs: dict | None = None,
+    ):
         self.model_class = model
         self.start_date = start_date
         self.end_date = end_date
@@ -2154,6 +2334,7 @@ class MultiDimensionalBudgetOptimizerWrapper(OptimizerCompatibleModelWrapper):
             include_carryover=False,
         )
         self.num_periods = len(self.zero_data[self.model_class.date_column].unique())
+        self.compile_kwargs = compile_kwargs
         # Adding missing dependencies for compatibility with BudgetOptimizer
         self._channel_scales = 1.0
 
@@ -2252,6 +2433,7 @@ class MultiDimensionalBudgetOptimizerWrapper(OptimizerCompatibleModelWrapper):
             budgets_to_optimize=budgets_to_optimize,
             budget_distribution_over_period=budget_distribution_over_period,
             model=self,  # Pass the wrapper instance itself to the BudgetOptimizer
+            compile_kwargs=self.compile_kwargs,
         )
 
         return allocator.allocate_budget(

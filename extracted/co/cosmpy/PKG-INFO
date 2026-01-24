@@ -1,8 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: cosmpy
-Version: 0.11.1
+Version: 0.11.2
 Summary: A library for interacting with the cosmos networks
 License: Apache-2.0
+License-File: AUTHORS.md
+License-File: LICENSE
 Keywords: CosmPy,Cosmos-SDK
 Author: Fetch.AI Limited
 Requires-Python: >=3.9,<4.0
@@ -21,9 +23,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System
+Requires-Dist: bcrypt (==5.0.0)
 Requires-Dist: bech32
 Requires-Dist: ecdsa
 Requires-Dist: googleapis-common-protos
@@ -31,6 +35,7 @@ Requires-Dist: grpcio
 Requires-Dist: jsonschema (>=3.2.0,<5)
 Requires-Dist: protobuf (>=4.21.6,<6.0dev)
 Requires-Dist: pycryptodome (>=3.18.0,<4.0.0)
+Requires-Dist: pynacl (==1.6.0)
 Requires-Dist: python-dateutil
 Requires-Dist: requests
 Requires-Dist: sortedcontainers (==2.4.0)

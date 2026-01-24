@@ -237,33 +237,7 @@ Shields
 		.. rest-example::
 
 			.. actions-shield::
-				:workflow: Windows Tests
-
-
-.. rst:directive:: requires-io-shield
-
-	Shield to show the *Requires.io* status.
-
-	.. rst:directive:option:: username
-
-		The GitHub username. Defaults to :confval:`github_username`.
-
-	.. rst:directive:option:: repository
-
-		The GitHub repository. Defaults to :confval:`github_repository`.
-
-	.. rst:directive:option:: branch
-
-		The branch to show the build status for. Default ``master``.
-
-
-	.. only:: html
-
-		**Example**
-
-		.. rest-example::
-
-			.. requires-io-shield::
+				:workflow: Windows
 
 
 .. rst:directive:: coveralls-shield
@@ -383,6 +357,7 @@ Shields
 #
 
 # stdlib
+import warnings
 from typing import List, Optional, Tuple
 from urllib.parse import quote
 
@@ -446,7 +421,7 @@ class Shield(SphinxDirective):
 	option_spec: OptionSpec = {  # type: ignore[assignment]
 		"target": directives.unchanged_required,
 		**shield_default_option_spec,
-		}
+	}
 
 	def run(self) -> List[nodes.Node]:
 		"""
@@ -582,9 +557,8 @@ class GitHubActionsShield(GitHubBackedShield):
 		workflow = quote(self.options["workflow"])
 
 		self.arguments = [str(make_github_url(username, repository) / "workflows" / workflow / "badge.svg")]
-		self.options["target"] = str(
-				make_github_url(username, repository) / f"actions?query=workflow%3A%22{workflow}%22"
-				)
+		url = make_github_url(username, repository) / f"actions?query=workflow%3A%22{workflow}%22"
+		self.options["target"] = str(url)
 
 		return super().run()
 
@@ -592,6 +566,8 @@ class GitHubActionsShield(GitHubBackedShield):
 class RequiresIOShield(GitHubBackedShield):
 	"""
 	Shield to show the `Requires.io <https://requires.io>`_ status.
+
+	.. deprecated:: The ``requires.io`` service has shut down.
 	"""
 
 	option_spec: OptionSpec = {
@@ -605,6 +581,11 @@ class RequiresIOShield(GitHubBackedShield):
 		"""
 		Process the content of the shield directive.
 		"""
+
+		warnings.warn(
+				"RequiresIOShield (.. requires-io-shield::) is deprecated as requires.io has shut down",
+				DeprecationWarning,
+				)
 
 		username, repository = self.get_repo_details()
 		branch = self.options.pop("branch", "master")
@@ -822,9 +803,8 @@ class PreCommitShield(Shield):
 		Process the content of the shield directive.
 		"""
 
-		self.arguments = [
-				"https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white"
-				]
+		url = "https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white"
+		self.arguments = [url]
 		self.options["target"] = "https://github.com/pre-commit/pre-commit"
 		return super().run()
 

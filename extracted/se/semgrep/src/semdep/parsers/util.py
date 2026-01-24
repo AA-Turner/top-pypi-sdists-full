@@ -73,13 +73,16 @@ Pos = Tuple[int, int]
 
 @dataclass
 class DependencyParser:
+    """This class is a callable wrapper around a lockfile and manifest parser
+    whose job is to catch all exceptions and turn them into an error value."""
+
     parser: Callable[
         [Path, Optional[Path]],
         Tuple[List[FoundDependency], List[DependencyParserError]],
     ]
 
     def __call__(
-        self, lockfile_path: Path, manifest_path: Optional[Path]
+        self, *, lockfile_path: Path, manifest_path: Optional[Path]
     ) -> Tuple[
         List[FoundDependency], List[DependencyParserError | out.ScaResolutionError]
     ]:
@@ -87,7 +90,9 @@ class DependencyParser:
             # Covariant subtyping doesn't work in mypy :(
             return self.parser(lockfile_path, manifest_path)  # type: ignore[return-value]
         except Exception as e:
-            logger.error(f"Failed to parse {lockfile_path} with exception {e}")
+            logger.error(
+                f"Failed to parse {lockfile_path} with exception {type(e).__name__}: {e}"
+            )
             return (
                 [],
                 [

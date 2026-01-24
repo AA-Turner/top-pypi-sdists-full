@@ -16,6 +16,12 @@ from .. import _utilities
 from ._enums import *
 
 __all__ = [
+    'AllowedImagesSettingsImageCriterionArgs',
+    'AllowedImagesSettingsImageCriterionArgsDict',
+    'AllowedImagesSettingsImageCriterionCreationDateConditionArgs',
+    'AllowedImagesSettingsImageCriterionCreationDateConditionArgsDict',
+    'AllowedImagesSettingsImageCriterionDeprecationTimeConditionArgs',
+    'AllowedImagesSettingsImageCriterionDeprecationTimeConditionArgsDict',
     'AmiCopyEbsBlockDeviceArgs',
     'AmiCopyEbsBlockDeviceArgsDict',
     'AmiCopyEphemeralBlockDeviceArgs',
@@ -44,6 +50,26 @@ __all__ = [
     'DefaultSecurityGroupIngressArgsDict',
     'EipDomainNameTimeoutsArgs',
     'EipDomainNameTimeoutsArgsDict',
+    'EncryptionControlResourceExclusionsArgs',
+    'EncryptionControlResourceExclusionsArgsDict',
+    'EncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs',
+    'EncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgsDict',
+    'EncryptionControlResourceExclusionsElasticFileSystemArgs',
+    'EncryptionControlResourceExclusionsElasticFileSystemArgsDict',
+    'EncryptionControlResourceExclusionsInternetGatewayArgs',
+    'EncryptionControlResourceExclusionsInternetGatewayArgsDict',
+    'EncryptionControlResourceExclusionsLambdaArgs',
+    'EncryptionControlResourceExclusionsLambdaArgsDict',
+    'EncryptionControlResourceExclusionsNatGatewayArgs',
+    'EncryptionControlResourceExclusionsNatGatewayArgsDict',
+    'EncryptionControlResourceExclusionsVirtualPrivateGatewayArgs',
+    'EncryptionControlResourceExclusionsVirtualPrivateGatewayArgsDict',
+    'EncryptionControlResourceExclusionsVpcLatticeArgs',
+    'EncryptionControlResourceExclusionsVpcLatticeArgsDict',
+    'EncryptionControlResourceExclusionsVpcPeeringArgs',
+    'EncryptionControlResourceExclusionsVpcPeeringArgsDict',
+    'EncryptionControlTimeoutsArgs',
+    'EncryptionControlTimeoutsArgsDict',
     'FleetFleetInstanceSetArgs',
     'FleetFleetInstanceSetArgsDict',
     'FleetLaunchTemplateConfigArgs',
@@ -192,8 +218,12 @@ __all__ = [
     'LaunchTemplateTagSpecificationArgsDict',
     'ManagedPrefixListEntryArgs',
     'ManagedPrefixListEntryArgsDict',
+    'NatGatewayAvailabilityZoneAddressArgs',
+    'NatGatewayAvailabilityZoneAddressArgsDict',
     'NatGatewayEipAssociationTimeoutsArgs',
     'NatGatewayEipAssociationTimeoutsArgsDict',
+    'NatGatewayRegionalNatGatewayAddressArgs',
+    'NatGatewayRegionalNatGatewayAddressArgsDict',
     'NetworkAclEgressArgs',
     'NetworkAclEgressArgsDict',
     'NetworkAclIngressArgs',
@@ -458,6 +488,26 @@ __all__ = [
     'VpcBlockPublicAccessExclusionTimeoutsArgsDict',
     'VpcBlockPublicAccessOptionsTimeoutsArgs',
     'VpcBlockPublicAccessOptionsTimeoutsArgsDict',
+    'VpcEncryptionControlResourceExclusionsArgs',
+    'VpcEncryptionControlResourceExclusionsArgsDict',
+    'VpcEncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs',
+    'VpcEncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgsDict',
+    'VpcEncryptionControlResourceExclusionsElasticFileSystemArgs',
+    'VpcEncryptionControlResourceExclusionsElasticFileSystemArgsDict',
+    'VpcEncryptionControlResourceExclusionsInternetGatewayArgs',
+    'VpcEncryptionControlResourceExclusionsInternetGatewayArgsDict',
+    'VpcEncryptionControlResourceExclusionsLambdaArgs',
+    'VpcEncryptionControlResourceExclusionsLambdaArgsDict',
+    'VpcEncryptionControlResourceExclusionsNatGatewayArgs',
+    'VpcEncryptionControlResourceExclusionsNatGatewayArgsDict',
+    'VpcEncryptionControlResourceExclusionsVirtualPrivateGatewayArgs',
+    'VpcEncryptionControlResourceExclusionsVirtualPrivateGatewayArgsDict',
+    'VpcEncryptionControlResourceExclusionsVpcLatticeArgs',
+    'VpcEncryptionControlResourceExclusionsVpcLatticeArgsDict',
+    'VpcEncryptionControlResourceExclusionsVpcPeeringArgs',
+    'VpcEncryptionControlResourceExclusionsVpcPeeringArgsDict',
+    'VpcEncryptionControlTimeoutsArgs',
+    'VpcEncryptionControlTimeoutsArgsDict',
     'VpcEndpointDnsEntryArgs',
     'VpcEndpointDnsEntryArgsDict',
     'VpcEndpointDnsOptionsArgs',
@@ -598,11 +648,189 @@ __all__ = [
     'GetVpcPeeringConnectionsFilterArgsDict',
     'GetVpcsFilterArgs',
     'GetVpcsFilterArgsDict',
+    'GetVpnConnectionFilterArgs',
+    'GetVpnConnectionFilterArgsDict',
     'GetVpnGatewayFilterArgs',
     'GetVpnGatewayFilterArgsDict',
 ]
 
 MYPY = False
+
+if not MYPY:
+    class AllowedImagesSettingsImageCriterionArgsDict(TypedDict):
+        creation_date_condition: NotRequired[pulumi.Input['AllowedImagesSettingsImageCriterionCreationDateConditionArgsDict']]
+        """
+        Condition based on AMI creation date. See `creation_date_condition` below.
+        """
+        deprecation_time_condition: NotRequired[pulumi.Input['AllowedImagesSettingsImageCriterionDeprecationTimeConditionArgsDict']]
+        """
+        Condition based on AMI deprecation time. See `deprecation_time_condition` below.
+        """
+        image_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        Set of AMI name patterns to allow. Maximum of 50 names.
+        """
+        image_providers: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        Set of image providers to allow. Maximum of 200 providers. Valid values include `amazon`, `aws-marketplace`, `aws-backup-vault`, `none`, or a 12-digit AWS account ID.
+        """
+        marketplace_product_codes: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        Set of AWS Marketplace product codes to allow. Maximum of 50 product codes.
+        """
+elif False:
+    AllowedImagesSettingsImageCriterionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AllowedImagesSettingsImageCriterionArgs:
+    def __init__(__self__, *,
+                 creation_date_condition: Optional[pulumi.Input['AllowedImagesSettingsImageCriterionCreationDateConditionArgs']] = None,
+                 deprecation_time_condition: Optional[pulumi.Input['AllowedImagesSettingsImageCriterionDeprecationTimeConditionArgs']] = None,
+                 image_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 image_providers: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 marketplace_product_codes: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input['AllowedImagesSettingsImageCriterionCreationDateConditionArgs'] creation_date_condition: Condition based on AMI creation date. See `creation_date_condition` below.
+        :param pulumi.Input['AllowedImagesSettingsImageCriterionDeprecationTimeConditionArgs'] deprecation_time_condition: Condition based on AMI deprecation time. See `deprecation_time_condition` below.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] image_names: Set of AMI name patterns to allow. Maximum of 50 names.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] image_providers: Set of image providers to allow. Maximum of 200 providers. Valid values include `amazon`, `aws-marketplace`, `aws-backup-vault`, `none`, or a 12-digit AWS account ID.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] marketplace_product_codes: Set of AWS Marketplace product codes to allow. Maximum of 50 product codes.
+        """
+        if creation_date_condition is not None:
+            pulumi.set(__self__, "creation_date_condition", creation_date_condition)
+        if deprecation_time_condition is not None:
+            pulumi.set(__self__, "deprecation_time_condition", deprecation_time_condition)
+        if image_names is not None:
+            pulumi.set(__self__, "image_names", image_names)
+        if image_providers is not None:
+            pulumi.set(__self__, "image_providers", image_providers)
+        if marketplace_product_codes is not None:
+            pulumi.set(__self__, "marketplace_product_codes", marketplace_product_codes)
+
+    @_builtins.property
+    @pulumi.getter(name="creationDateCondition")
+    def creation_date_condition(self) -> Optional[pulumi.Input['AllowedImagesSettingsImageCriterionCreationDateConditionArgs']]:
+        """
+        Condition based on AMI creation date. See `creation_date_condition` below.
+        """
+        return pulumi.get(self, "creation_date_condition")
+
+    @creation_date_condition.setter
+    def creation_date_condition(self, value: Optional[pulumi.Input['AllowedImagesSettingsImageCriterionCreationDateConditionArgs']]):
+        pulumi.set(self, "creation_date_condition", value)
+
+    @_builtins.property
+    @pulumi.getter(name="deprecationTimeCondition")
+    def deprecation_time_condition(self) -> Optional[pulumi.Input['AllowedImagesSettingsImageCriterionDeprecationTimeConditionArgs']]:
+        """
+        Condition based on AMI deprecation time. See `deprecation_time_condition` below.
+        """
+        return pulumi.get(self, "deprecation_time_condition")
+
+    @deprecation_time_condition.setter
+    def deprecation_time_condition(self, value: Optional[pulumi.Input['AllowedImagesSettingsImageCriterionDeprecationTimeConditionArgs']]):
+        pulumi.set(self, "deprecation_time_condition", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imageNames")
+    def image_names(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        Set of AMI name patterns to allow. Maximum of 50 names.
+        """
+        return pulumi.get(self, "image_names")
+
+    @image_names.setter
+    def image_names(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "image_names", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imageProviders")
+    def image_providers(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        Set of image providers to allow. Maximum of 200 providers. Valid values include `amazon`, `aws-marketplace`, `aws-backup-vault`, `none`, or a 12-digit AWS account ID.
+        """
+        return pulumi.get(self, "image_providers")
+
+    @image_providers.setter
+    def image_providers(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "image_providers", value)
+
+    @_builtins.property
+    @pulumi.getter(name="marketplaceProductCodes")
+    def marketplace_product_codes(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        Set of AWS Marketplace product codes to allow. Maximum of 50 product codes.
+        """
+        return pulumi.get(self, "marketplace_product_codes")
+
+    @marketplace_product_codes.setter
+    def marketplace_product_codes(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "marketplace_product_codes", value)
+
+
+if not MYPY:
+    class AllowedImagesSettingsImageCriterionCreationDateConditionArgsDict(TypedDict):
+        maximum_days_since_created: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Maximum number of days since the AMI was created.
+        """
+elif False:
+    AllowedImagesSettingsImageCriterionCreationDateConditionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AllowedImagesSettingsImageCriterionCreationDateConditionArgs:
+    def __init__(__self__, *,
+                 maximum_days_since_created: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.int] maximum_days_since_created: Maximum number of days since the AMI was created.
+        """
+        if maximum_days_since_created is not None:
+            pulumi.set(__self__, "maximum_days_since_created", maximum_days_since_created)
+
+    @_builtins.property
+    @pulumi.getter(name="maximumDaysSinceCreated")
+    def maximum_days_since_created(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Maximum number of days since the AMI was created.
+        """
+        return pulumi.get(self, "maximum_days_since_created")
+
+    @maximum_days_since_created.setter
+    def maximum_days_since_created(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "maximum_days_since_created", value)
+
+
+if not MYPY:
+    class AllowedImagesSettingsImageCriterionDeprecationTimeConditionArgsDict(TypedDict):
+        maximum_days_since_deprecated: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Maximum number of days since the AMI was deprecated. Setting this to `0` means no deprecated images are allowed.
+        """
+elif False:
+    AllowedImagesSettingsImageCriterionDeprecationTimeConditionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AllowedImagesSettingsImageCriterionDeprecationTimeConditionArgs:
+    def __init__(__self__, *,
+                 maximum_days_since_deprecated: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.int] maximum_days_since_deprecated: Maximum number of days since the AMI was deprecated. Setting this to `0` means no deprecated images are allowed.
+        """
+        if maximum_days_since_deprecated is not None:
+            pulumi.set(__self__, "maximum_days_since_deprecated", maximum_days_since_deprecated)
+
+    @_builtins.property
+    @pulumi.getter(name="maximumDaysSinceDeprecated")
+    def maximum_days_since_deprecated(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Maximum number of days since the AMI was deprecated. Setting this to `0` means no deprecated images are allowed.
+        """
+        return pulumi.get(self, "maximum_days_since_deprecated")
+
+    @maximum_days_since_deprecated.setter
+    def maximum_days_since_deprecated(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "maximum_days_since_deprecated", value)
+
 
 if not MYPY:
     class AmiCopyEbsBlockDeviceArgsDict(TypedDict):
@@ -2557,6 +2785,642 @@ elif False:
 
 @pulumi.input_type
 class EipDomainNameTimeoutsArgs:
+    def __init__(__self__, *,
+                 create: Optional[pulumi.Input[_builtins.str]] = None,
+                 delete: Optional[pulumi.Input[_builtins.str]] = None,
+                 update: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] create: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        :param pulumi.Input[_builtins.str] delete: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        :param pulumi.Input[_builtins.str] update: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        if create is not None:
+            pulumi.set(__self__, "create", create)
+        if delete is not None:
+            pulumi.set(__self__, "delete", delete)
+        if update is not None:
+            pulumi.set(__self__, "update", update)
+
+    @_builtins.property
+    @pulumi.getter
+    def create(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "create")
+
+    @create.setter
+    def create(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "create", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def delete(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        return pulumi.get(self, "delete")
+
+    @delete.setter
+    def delete(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "delete", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def update(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "update")
+
+    @update.setter
+    def update(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "update", value)
+
+
+if not MYPY:
+    class EncryptionControlResourceExclusionsArgsDict(TypedDict):
+        egress_only_internet_gateway: pulumi.Input['EncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for Egress-Only Internet Gateways.
+        """
+        elastic_file_system: pulumi.Input['EncryptionControlResourceExclusionsElasticFileSystemArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for Elastic File System (EFS).
+        """
+        internet_gateway: pulumi.Input['EncryptionControlResourceExclusionsInternetGatewayArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for Internet Gateways.
+        """
+        lambda_: pulumi.Input['EncryptionControlResourceExclusionsLambdaArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for Lambda Functions.
+        """
+        nat_gateway: pulumi.Input['EncryptionControlResourceExclusionsNatGatewayArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for NAT Gateways.
+        """
+        virtual_private_gateway: pulumi.Input['EncryptionControlResourceExclusionsVirtualPrivateGatewayArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for Virtual Private Gateways.
+        """
+        vpc_lattice: pulumi.Input['EncryptionControlResourceExclusionsVpcLatticeArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for VPC Lattice.
+        """
+        vpc_peering: pulumi.Input['EncryptionControlResourceExclusionsVpcPeeringArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for peered VPCs.
+        """
+elif False:
+    EncryptionControlResourceExclusionsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EncryptionControlResourceExclusionsArgs:
+    def __init__(__self__, *,
+                 egress_only_internet_gateway: pulumi.Input['EncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs'],
+                 elastic_file_system: pulumi.Input['EncryptionControlResourceExclusionsElasticFileSystemArgs'],
+                 internet_gateway: pulumi.Input['EncryptionControlResourceExclusionsInternetGatewayArgs'],
+                 lambda_: pulumi.Input['EncryptionControlResourceExclusionsLambdaArgs'],
+                 nat_gateway: pulumi.Input['EncryptionControlResourceExclusionsNatGatewayArgs'],
+                 virtual_private_gateway: pulumi.Input['EncryptionControlResourceExclusionsVirtualPrivateGatewayArgs'],
+                 vpc_lattice: pulumi.Input['EncryptionControlResourceExclusionsVpcLatticeArgs'],
+                 vpc_peering: pulumi.Input['EncryptionControlResourceExclusionsVpcPeeringArgs']):
+        """
+        :param pulumi.Input['EncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs'] egress_only_internet_gateway: `state` and `state_message` describing encryption enforcement state for Egress-Only Internet Gateways.
+        :param pulumi.Input['EncryptionControlResourceExclusionsElasticFileSystemArgs'] elastic_file_system: `state` and `state_message` describing encryption enforcement state for Elastic File System (EFS).
+        :param pulumi.Input['EncryptionControlResourceExclusionsInternetGatewayArgs'] internet_gateway: `state` and `state_message` describing encryption enforcement state for Internet Gateways.
+        :param pulumi.Input['EncryptionControlResourceExclusionsLambdaArgs'] lambda_: `state` and `state_message` describing encryption enforcement state for Lambda Functions.
+        :param pulumi.Input['EncryptionControlResourceExclusionsNatGatewayArgs'] nat_gateway: `state` and `state_message` describing encryption enforcement state for NAT Gateways.
+        :param pulumi.Input['EncryptionControlResourceExclusionsVirtualPrivateGatewayArgs'] virtual_private_gateway: `state` and `state_message` describing encryption enforcement state for Virtual Private Gateways.
+        :param pulumi.Input['EncryptionControlResourceExclusionsVpcLatticeArgs'] vpc_lattice: `state` and `state_message` describing encryption enforcement state for VPC Lattice.
+        :param pulumi.Input['EncryptionControlResourceExclusionsVpcPeeringArgs'] vpc_peering: `state` and `state_message` describing encryption enforcement state for peered VPCs.
+        """
+        pulumi.set(__self__, "egress_only_internet_gateway", egress_only_internet_gateway)
+        pulumi.set(__self__, "elastic_file_system", elastic_file_system)
+        pulumi.set(__self__, "internet_gateway", internet_gateway)
+        pulumi.set(__self__, "lambda_", lambda_)
+        pulumi.set(__self__, "nat_gateway", nat_gateway)
+        pulumi.set(__self__, "virtual_private_gateway", virtual_private_gateway)
+        pulumi.set(__self__, "vpc_lattice", vpc_lattice)
+        pulumi.set(__self__, "vpc_peering", vpc_peering)
+
+    @_builtins.property
+    @pulumi.getter(name="egressOnlyInternetGateway")
+    def egress_only_internet_gateway(self) -> pulumi.Input['EncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for Egress-Only Internet Gateways.
+        """
+        return pulumi.get(self, "egress_only_internet_gateway")
+
+    @egress_only_internet_gateway.setter
+    def egress_only_internet_gateway(self, value: pulumi.Input['EncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs']):
+        pulumi.set(self, "egress_only_internet_gateway", value)
+
+    @_builtins.property
+    @pulumi.getter(name="elasticFileSystem")
+    def elastic_file_system(self) -> pulumi.Input['EncryptionControlResourceExclusionsElasticFileSystemArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for Elastic File System (EFS).
+        """
+        return pulumi.get(self, "elastic_file_system")
+
+    @elastic_file_system.setter
+    def elastic_file_system(self, value: pulumi.Input['EncryptionControlResourceExclusionsElasticFileSystemArgs']):
+        pulumi.set(self, "elastic_file_system", value)
+
+    @_builtins.property
+    @pulumi.getter(name="internetGateway")
+    def internet_gateway(self) -> pulumi.Input['EncryptionControlResourceExclusionsInternetGatewayArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for Internet Gateways.
+        """
+        return pulumi.get(self, "internet_gateway")
+
+    @internet_gateway.setter
+    def internet_gateway(self, value: pulumi.Input['EncryptionControlResourceExclusionsInternetGatewayArgs']):
+        pulumi.set(self, "internet_gateway", value)
+
+    @_builtins.property
+    @pulumi.getter(name="lambda")
+    def lambda_(self) -> pulumi.Input['EncryptionControlResourceExclusionsLambdaArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for Lambda Functions.
+        """
+        return pulumi.get(self, "lambda_")
+
+    @lambda_.setter
+    def lambda_(self, value: pulumi.Input['EncryptionControlResourceExclusionsLambdaArgs']):
+        pulumi.set(self, "lambda_", value)
+
+    @_builtins.property
+    @pulumi.getter(name="natGateway")
+    def nat_gateway(self) -> pulumi.Input['EncryptionControlResourceExclusionsNatGatewayArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for NAT Gateways.
+        """
+        return pulumi.get(self, "nat_gateway")
+
+    @nat_gateway.setter
+    def nat_gateway(self, value: pulumi.Input['EncryptionControlResourceExclusionsNatGatewayArgs']):
+        pulumi.set(self, "nat_gateway", value)
+
+    @_builtins.property
+    @pulumi.getter(name="virtualPrivateGateway")
+    def virtual_private_gateway(self) -> pulumi.Input['EncryptionControlResourceExclusionsVirtualPrivateGatewayArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for Virtual Private Gateways.
+        """
+        return pulumi.get(self, "virtual_private_gateway")
+
+    @virtual_private_gateway.setter
+    def virtual_private_gateway(self, value: pulumi.Input['EncryptionControlResourceExclusionsVirtualPrivateGatewayArgs']):
+        pulumi.set(self, "virtual_private_gateway", value)
+
+    @_builtins.property
+    @pulumi.getter(name="vpcLattice")
+    def vpc_lattice(self) -> pulumi.Input['EncryptionControlResourceExclusionsVpcLatticeArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for VPC Lattice.
+        """
+        return pulumi.get(self, "vpc_lattice")
+
+    @vpc_lattice.setter
+    def vpc_lattice(self, value: pulumi.Input['EncryptionControlResourceExclusionsVpcLatticeArgs']):
+        pulumi.set(self, "vpc_lattice", value)
+
+    @_builtins.property
+    @pulumi.getter(name="vpcPeering")
+    def vpc_peering(self) -> pulumi.Input['EncryptionControlResourceExclusionsVpcPeeringArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for peered VPCs.
+        """
+        return pulumi.get(self, "vpc_peering")
+
+    @vpc_peering.setter
+    def vpc_peering(self, value: pulumi.Input['EncryptionControlResourceExclusionsVpcPeeringArgs']):
+        pulumi.set(self, "vpc_peering", value)
+
+
+if not MYPY:
+    class EncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    EncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class EncryptionControlResourceExclusionsElasticFileSystemArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    EncryptionControlResourceExclusionsElasticFileSystemArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EncryptionControlResourceExclusionsElasticFileSystemArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class EncryptionControlResourceExclusionsInternetGatewayArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    EncryptionControlResourceExclusionsInternetGatewayArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EncryptionControlResourceExclusionsInternetGatewayArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class EncryptionControlResourceExclusionsLambdaArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    EncryptionControlResourceExclusionsLambdaArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EncryptionControlResourceExclusionsLambdaArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class EncryptionControlResourceExclusionsNatGatewayArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    EncryptionControlResourceExclusionsNatGatewayArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EncryptionControlResourceExclusionsNatGatewayArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class EncryptionControlResourceExclusionsVirtualPrivateGatewayArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    EncryptionControlResourceExclusionsVirtualPrivateGatewayArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EncryptionControlResourceExclusionsVirtualPrivateGatewayArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class EncryptionControlResourceExclusionsVpcLatticeArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    EncryptionControlResourceExclusionsVpcLatticeArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EncryptionControlResourceExclusionsVpcLatticeArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class EncryptionControlResourceExclusionsVpcPeeringArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    EncryptionControlResourceExclusionsVpcPeeringArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EncryptionControlResourceExclusionsVpcPeeringArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class EncryptionControlTimeoutsArgsDict(TypedDict):
+        create: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        delete: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        update: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+elif False:
+    EncryptionControlTimeoutsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EncryptionControlTimeoutsArgs:
     def __init__(__self__, *,
                  create: Optional[pulumi.Input[_builtins.str]] = None,
                  delete: Optional[pulumi.Input[_builtins.str]] = None,
@@ -6421,7 +7285,7 @@ if not MYPY:
         """
         kms_key_id: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The ARN of the AWS Key Management Service (AWS KMS) customer master key (CMK) to use when creating the encrypted volume.
+        Identifier (key ID, key alias, key ARN, or alias ARN) of the customer managed KMS key to use for EBS encryption.
         `encrypted` must be set to `true` when this is set.
         """
         snapshot_id: NotRequired[pulumi.Input[_builtins.str]]
@@ -6467,7 +7331,7 @@ class LaunchTemplateBlockDeviceMappingEbsArgs:
                Cannot be used with `snapshot_id`.
         :param pulumi.Input[_builtins.int] iops: The amount of provisioned [IOPS](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-io-characteristics.html).
                This must be set with a `volume_type` of `"io1/io2/gp3"`.
-        :param pulumi.Input[_builtins.str] kms_key_id: The ARN of the AWS Key Management Service (AWS KMS) customer master key (CMK) to use when creating the encrypted volume.
+        :param pulumi.Input[_builtins.str] kms_key_id: Identifier (key ID, key alias, key ARN, or alias ARN) of the customer managed KMS key to use for EBS encryption.
                `encrypted` must be set to `true` when this is set.
         :param pulumi.Input[_builtins.str] snapshot_id: The Snapshot ID to mount.
         :param pulumi.Input[_builtins.int] throughput: The throughput to provision for a `gp3` volume in MiB/s (specified as an integer, e.g., 500), with a maximum of 1,000 MiB/s.
@@ -6538,7 +7402,7 @@ class LaunchTemplateBlockDeviceMappingEbsArgs:
     @pulumi.getter(name="kmsKeyId")
     def kms_key_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The ARN of the AWS Key Management Service (AWS KMS) customer master key (CMK) to use when creating the encrypted volume.
+        Identifier (key ID, key alias, key ARN, or alias ARN) of the customer managed KMS key to use for EBS encryption.
         `encrypted` must be set to `true` when this is set.
         """
         return pulumi.get(self, "kms_key_id")
@@ -9084,9 +9948,13 @@ if not MYPY:
         """
         The Availability Zone for the instance.
         """
+        group_id: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The ID of the placement group for the instance. Conflicts with `group_name`.
+        """
         group_name: NotRequired[pulumi.Input[_builtins.str]]
         """
-        The name of the placement group for the instance.
+        The name of the placement group for the instance. Conflicts with `group_id`.
         """
         host_id: NotRequired[pulumi.Input[_builtins.str]]
         """
@@ -9116,6 +9984,7 @@ class LaunchTemplatePlacementArgs:
     def __init__(__self__, *,
                  affinity: Optional[pulumi.Input[_builtins.str]] = None,
                  availability_zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 group_id: Optional[pulumi.Input[_builtins.str]] = None,
                  group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  host_id: Optional[pulumi.Input[_builtins.str]] = None,
                  host_resource_group_arn: Optional[pulumi.Input[_builtins.str]] = None,
@@ -9125,7 +9994,8 @@ class LaunchTemplatePlacementArgs:
         """
         :param pulumi.Input[_builtins.str] affinity: The affinity setting for an instance on a Dedicated Host.
         :param pulumi.Input[_builtins.str] availability_zone: The Availability Zone for the instance.
-        :param pulumi.Input[_builtins.str] group_name: The name of the placement group for the instance.
+        :param pulumi.Input[_builtins.str] group_id: The ID of the placement group for the instance. Conflicts with `group_name`.
+        :param pulumi.Input[_builtins.str] group_name: The name of the placement group for the instance. Conflicts with `group_id`.
         :param pulumi.Input[_builtins.str] host_id: The ID of the Dedicated Host for the instance.
         :param pulumi.Input[_builtins.str] host_resource_group_arn: The ARN of the Host Resource Group in which to launch instances.
         :param pulumi.Input[_builtins.int] partition_number: The number of the partition the instance should launch in. Valid only if the placement group strategy is set to partition.
@@ -9136,6 +10006,8 @@ class LaunchTemplatePlacementArgs:
             pulumi.set(__self__, "affinity", affinity)
         if availability_zone is not None:
             pulumi.set(__self__, "availability_zone", availability_zone)
+        if group_id is not None:
+            pulumi.set(__self__, "group_id", group_id)
         if group_name is not None:
             pulumi.set(__self__, "group_name", group_name)
         if host_id is not None:
@@ -9174,10 +10046,22 @@ class LaunchTemplatePlacementArgs:
         pulumi.set(self, "availability_zone", value)
 
     @_builtins.property
+    @pulumi.getter(name="groupId")
+    def group_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The ID of the placement group for the instance. Conflicts with `group_name`.
+        """
+        return pulumi.get(self, "group_id")
+
+    @group_id.setter
+    def group_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "group_id", value)
+
+    @_builtins.property
     @pulumi.getter(name="groupName")
     def group_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The name of the placement group for the instance.
+        The name of the placement group for the instance. Conflicts with `group_id`.
         """
         return pulumi.get(self, "group_name")
 
@@ -9422,6 +10306,78 @@ class ManagedPrefixListEntryArgs:
 
 
 if not MYPY:
+    class NatGatewayAvailabilityZoneAddressArgsDict(TypedDict):
+        allocation_ids: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        List of allocation IDs of the Elastic IP addresses (EIPs) to be used for handling outbound NAT traffic in this specific Availability Zone.
+        """
+        availability_zone: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Availability Zone (e.g. `us-west-2a`) where this specific NAT gateway configuration will be active. Exactly one of `availability_zone` or `availability_zone_id` must be specified.
+        """
+        availability_zone_id: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Availability Zone ID (e.g. `usw2-az2`) where this specific NAT gateway configuration will be active. Exactly one of `availability_zone` or `availability_zone_id` must be specified.
+        """
+elif False:
+    NatGatewayAvailabilityZoneAddressArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class NatGatewayAvailabilityZoneAddressArgs:
+    def __init__(__self__, *,
+                 allocation_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 availability_zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 availability_zone_id: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allocation_ids: List of allocation IDs of the Elastic IP addresses (EIPs) to be used for handling outbound NAT traffic in this specific Availability Zone.
+        :param pulumi.Input[_builtins.str] availability_zone: Availability Zone (e.g. `us-west-2a`) where this specific NAT gateway configuration will be active. Exactly one of `availability_zone` or `availability_zone_id` must be specified.
+        :param pulumi.Input[_builtins.str] availability_zone_id: Availability Zone ID (e.g. `usw2-az2`) where this specific NAT gateway configuration will be active. Exactly one of `availability_zone` or `availability_zone_id` must be specified.
+        """
+        if allocation_ids is not None:
+            pulumi.set(__self__, "allocation_ids", allocation_ids)
+        if availability_zone is not None:
+            pulumi.set(__self__, "availability_zone", availability_zone)
+        if availability_zone_id is not None:
+            pulumi.set(__self__, "availability_zone_id", availability_zone_id)
+
+    @_builtins.property
+    @pulumi.getter(name="allocationIds")
+    def allocation_ids(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        List of allocation IDs of the Elastic IP addresses (EIPs) to be used for handling outbound NAT traffic in this specific Availability Zone.
+        """
+        return pulumi.get(self, "allocation_ids")
+
+    @allocation_ids.setter
+    def allocation_ids(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "allocation_ids", value)
+
+    @_builtins.property
+    @pulumi.getter(name="availabilityZone")
+    def availability_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Availability Zone (e.g. `us-west-2a`) where this specific NAT gateway configuration will be active. Exactly one of `availability_zone` or `availability_zone_id` must be specified.
+        """
+        return pulumi.get(self, "availability_zone")
+
+    @availability_zone.setter
+    def availability_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "availability_zone", value)
+
+    @_builtins.property
+    @pulumi.getter(name="availabilityZoneId")
+    def availability_zone_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Availability Zone ID (e.g. `usw2-az2`) where this specific NAT gateway configuration will be active. Exactly one of `availability_zone` or `availability_zone_id` must be specified.
+        """
+        return pulumi.get(self, "availability_zone_id")
+
+    @availability_zone_id.setter
+    def availability_zone_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "availability_zone_id", value)
+
+
+if not MYPY:
     class NatGatewayEipAssociationTimeoutsArgsDict(TypedDict):
         create: NotRequired[pulumi.Input[_builtins.str]]
         """
@@ -9471,6 +10427,158 @@ class NatGatewayEipAssociationTimeoutsArgs:
     @delete.setter
     def delete(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "delete", value)
+
+
+if not MYPY:
+    class NatGatewayRegionalNatGatewayAddressArgsDict(TypedDict):
+        allocation_id: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The Allocation ID of the Elastic IP address for the NAT Gateway. Required when `connectivity_type` is set to `public` and `availability_mode` is set to `zonal`. When `availability_mode` is set to `regional`, this must not be set; instead, use the `availability_zone_address` block to specify EIPs for each AZ.
+        """
+        association_id: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Association ID of the Elastic IP address.
+        """
+        availability_zone: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Availability Zone where this specific NAT gateway configuration is active.
+        """
+        availability_zone_id: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Availability Zone ID where this specific NAT gateway configuration is active
+        """
+        network_interface_id: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        ID of the network interface.
+        """
+        public_ip: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Public IP address.
+        """
+        status: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Status of the NAT gateway address.
+        """
+elif False:
+    NatGatewayRegionalNatGatewayAddressArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class NatGatewayRegionalNatGatewayAddressArgs:
+    def __init__(__self__, *,
+                 allocation_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 association_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 availability_zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 availability_zone_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 network_interface_id: Optional[pulumi.Input[_builtins.str]] = None,
+                 public_ip: Optional[pulumi.Input[_builtins.str]] = None,
+                 status: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] allocation_id: The Allocation ID of the Elastic IP address for the NAT Gateway. Required when `connectivity_type` is set to `public` and `availability_mode` is set to `zonal`. When `availability_mode` is set to `regional`, this must not be set; instead, use the `availability_zone_address` block to specify EIPs for each AZ.
+        :param pulumi.Input[_builtins.str] association_id: Association ID of the Elastic IP address.
+        :param pulumi.Input[_builtins.str] availability_zone: Availability Zone where this specific NAT gateway configuration is active.
+        :param pulumi.Input[_builtins.str] availability_zone_id: Availability Zone ID where this specific NAT gateway configuration is active
+        :param pulumi.Input[_builtins.str] network_interface_id: ID of the network interface.
+        :param pulumi.Input[_builtins.str] public_ip: Public IP address.
+        :param pulumi.Input[_builtins.str] status: Status of the NAT gateway address.
+        """
+        if allocation_id is not None:
+            pulumi.set(__self__, "allocation_id", allocation_id)
+        if association_id is not None:
+            pulumi.set(__self__, "association_id", association_id)
+        if availability_zone is not None:
+            pulumi.set(__self__, "availability_zone", availability_zone)
+        if availability_zone_id is not None:
+            pulumi.set(__self__, "availability_zone_id", availability_zone_id)
+        if network_interface_id is not None:
+            pulumi.set(__self__, "network_interface_id", network_interface_id)
+        if public_ip is not None:
+            pulumi.set(__self__, "public_ip", public_ip)
+        if status is not None:
+            pulumi.set(__self__, "status", status)
+
+    @_builtins.property
+    @pulumi.getter(name="allocationId")
+    def allocation_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The Allocation ID of the Elastic IP address for the NAT Gateway. Required when `connectivity_type` is set to `public` and `availability_mode` is set to `zonal`. When `availability_mode` is set to `regional`, this must not be set; instead, use the `availability_zone_address` block to specify EIPs for each AZ.
+        """
+        return pulumi.get(self, "allocation_id")
+
+    @allocation_id.setter
+    def allocation_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "allocation_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="associationId")
+    def association_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Association ID of the Elastic IP address.
+        """
+        return pulumi.get(self, "association_id")
+
+    @association_id.setter
+    def association_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "association_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="availabilityZone")
+    def availability_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Availability Zone where this specific NAT gateway configuration is active.
+        """
+        return pulumi.get(self, "availability_zone")
+
+    @availability_zone.setter
+    def availability_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "availability_zone", value)
+
+    @_builtins.property
+    @pulumi.getter(name="availabilityZoneId")
+    def availability_zone_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Availability Zone ID where this specific NAT gateway configuration is active
+        """
+        return pulumi.get(self, "availability_zone_id")
+
+    @availability_zone_id.setter
+    def availability_zone_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "availability_zone_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="networkInterfaceId")
+    def network_interface_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        ID of the network interface.
+        """
+        return pulumi.get(self, "network_interface_id")
+
+    @network_interface_id.setter
+    def network_interface_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "network_interface_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="publicIp")
+    def public_ip(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Public IP address.
+        """
+        return pulumi.get(self, "public_ip")
+
+    @public_ip.setter
+    def public_ip(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "public_ip", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Status of the NAT gateway address.
+        """
+        return pulumi.get(self, "status")
+
+    @status.setter
+    def status(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "status", value)
 
 
 if not MYPY:
@@ -20696,6 +21804,642 @@ class VpcBlockPublicAccessOptionsTimeoutsArgs:
 
 
 if not MYPY:
+    class VpcEncryptionControlResourceExclusionsArgsDict(TypedDict):
+        egress_only_internet_gateway: pulumi.Input['VpcEncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for Egress-Only Internet Gateways.
+        """
+        elastic_file_system: pulumi.Input['VpcEncryptionControlResourceExclusionsElasticFileSystemArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for Elastic File System (EFS).
+        """
+        internet_gateway: pulumi.Input['VpcEncryptionControlResourceExclusionsInternetGatewayArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for Internet Gateways.
+        """
+        lambda_: pulumi.Input['VpcEncryptionControlResourceExclusionsLambdaArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for Lambda Functions.
+        """
+        nat_gateway: pulumi.Input['VpcEncryptionControlResourceExclusionsNatGatewayArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for NAT Gateways.
+        """
+        virtual_private_gateway: pulumi.Input['VpcEncryptionControlResourceExclusionsVirtualPrivateGatewayArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for Virtual Private Gateways.
+        """
+        vpc_lattice: pulumi.Input['VpcEncryptionControlResourceExclusionsVpcLatticeArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for VPC Lattice.
+        """
+        vpc_peering: pulumi.Input['VpcEncryptionControlResourceExclusionsVpcPeeringArgsDict']
+        """
+        `state` and `state_message` describing encryption enforcement state for peered VPCs.
+        """
+elif False:
+    VpcEncryptionControlResourceExclusionsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VpcEncryptionControlResourceExclusionsArgs:
+    def __init__(__self__, *,
+                 egress_only_internet_gateway: pulumi.Input['VpcEncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs'],
+                 elastic_file_system: pulumi.Input['VpcEncryptionControlResourceExclusionsElasticFileSystemArgs'],
+                 internet_gateway: pulumi.Input['VpcEncryptionControlResourceExclusionsInternetGatewayArgs'],
+                 lambda_: pulumi.Input['VpcEncryptionControlResourceExclusionsLambdaArgs'],
+                 nat_gateway: pulumi.Input['VpcEncryptionControlResourceExclusionsNatGatewayArgs'],
+                 virtual_private_gateway: pulumi.Input['VpcEncryptionControlResourceExclusionsVirtualPrivateGatewayArgs'],
+                 vpc_lattice: pulumi.Input['VpcEncryptionControlResourceExclusionsVpcLatticeArgs'],
+                 vpc_peering: pulumi.Input['VpcEncryptionControlResourceExclusionsVpcPeeringArgs']):
+        """
+        :param pulumi.Input['VpcEncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs'] egress_only_internet_gateway: `state` and `state_message` describing encryption enforcement state for Egress-Only Internet Gateways.
+        :param pulumi.Input['VpcEncryptionControlResourceExclusionsElasticFileSystemArgs'] elastic_file_system: `state` and `state_message` describing encryption enforcement state for Elastic File System (EFS).
+        :param pulumi.Input['VpcEncryptionControlResourceExclusionsInternetGatewayArgs'] internet_gateway: `state` and `state_message` describing encryption enforcement state for Internet Gateways.
+        :param pulumi.Input['VpcEncryptionControlResourceExclusionsLambdaArgs'] lambda_: `state` and `state_message` describing encryption enforcement state for Lambda Functions.
+        :param pulumi.Input['VpcEncryptionControlResourceExclusionsNatGatewayArgs'] nat_gateway: `state` and `state_message` describing encryption enforcement state for NAT Gateways.
+        :param pulumi.Input['VpcEncryptionControlResourceExclusionsVirtualPrivateGatewayArgs'] virtual_private_gateway: `state` and `state_message` describing encryption enforcement state for Virtual Private Gateways.
+        :param pulumi.Input['VpcEncryptionControlResourceExclusionsVpcLatticeArgs'] vpc_lattice: `state` and `state_message` describing encryption enforcement state for VPC Lattice.
+        :param pulumi.Input['VpcEncryptionControlResourceExclusionsVpcPeeringArgs'] vpc_peering: `state` and `state_message` describing encryption enforcement state for peered VPCs.
+        """
+        pulumi.set(__self__, "egress_only_internet_gateway", egress_only_internet_gateway)
+        pulumi.set(__self__, "elastic_file_system", elastic_file_system)
+        pulumi.set(__self__, "internet_gateway", internet_gateway)
+        pulumi.set(__self__, "lambda_", lambda_)
+        pulumi.set(__self__, "nat_gateway", nat_gateway)
+        pulumi.set(__self__, "virtual_private_gateway", virtual_private_gateway)
+        pulumi.set(__self__, "vpc_lattice", vpc_lattice)
+        pulumi.set(__self__, "vpc_peering", vpc_peering)
+
+    @_builtins.property
+    @pulumi.getter(name="egressOnlyInternetGateway")
+    def egress_only_internet_gateway(self) -> pulumi.Input['VpcEncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for Egress-Only Internet Gateways.
+        """
+        return pulumi.get(self, "egress_only_internet_gateway")
+
+    @egress_only_internet_gateway.setter
+    def egress_only_internet_gateway(self, value: pulumi.Input['VpcEncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs']):
+        pulumi.set(self, "egress_only_internet_gateway", value)
+
+    @_builtins.property
+    @pulumi.getter(name="elasticFileSystem")
+    def elastic_file_system(self) -> pulumi.Input['VpcEncryptionControlResourceExclusionsElasticFileSystemArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for Elastic File System (EFS).
+        """
+        return pulumi.get(self, "elastic_file_system")
+
+    @elastic_file_system.setter
+    def elastic_file_system(self, value: pulumi.Input['VpcEncryptionControlResourceExclusionsElasticFileSystemArgs']):
+        pulumi.set(self, "elastic_file_system", value)
+
+    @_builtins.property
+    @pulumi.getter(name="internetGateway")
+    def internet_gateway(self) -> pulumi.Input['VpcEncryptionControlResourceExclusionsInternetGatewayArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for Internet Gateways.
+        """
+        return pulumi.get(self, "internet_gateway")
+
+    @internet_gateway.setter
+    def internet_gateway(self, value: pulumi.Input['VpcEncryptionControlResourceExclusionsInternetGatewayArgs']):
+        pulumi.set(self, "internet_gateway", value)
+
+    @_builtins.property
+    @pulumi.getter(name="lambda")
+    def lambda_(self) -> pulumi.Input['VpcEncryptionControlResourceExclusionsLambdaArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for Lambda Functions.
+        """
+        return pulumi.get(self, "lambda_")
+
+    @lambda_.setter
+    def lambda_(self, value: pulumi.Input['VpcEncryptionControlResourceExclusionsLambdaArgs']):
+        pulumi.set(self, "lambda_", value)
+
+    @_builtins.property
+    @pulumi.getter(name="natGateway")
+    def nat_gateway(self) -> pulumi.Input['VpcEncryptionControlResourceExclusionsNatGatewayArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for NAT Gateways.
+        """
+        return pulumi.get(self, "nat_gateway")
+
+    @nat_gateway.setter
+    def nat_gateway(self, value: pulumi.Input['VpcEncryptionControlResourceExclusionsNatGatewayArgs']):
+        pulumi.set(self, "nat_gateway", value)
+
+    @_builtins.property
+    @pulumi.getter(name="virtualPrivateGateway")
+    def virtual_private_gateway(self) -> pulumi.Input['VpcEncryptionControlResourceExclusionsVirtualPrivateGatewayArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for Virtual Private Gateways.
+        """
+        return pulumi.get(self, "virtual_private_gateway")
+
+    @virtual_private_gateway.setter
+    def virtual_private_gateway(self, value: pulumi.Input['VpcEncryptionControlResourceExclusionsVirtualPrivateGatewayArgs']):
+        pulumi.set(self, "virtual_private_gateway", value)
+
+    @_builtins.property
+    @pulumi.getter(name="vpcLattice")
+    def vpc_lattice(self) -> pulumi.Input['VpcEncryptionControlResourceExclusionsVpcLatticeArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for VPC Lattice.
+        """
+        return pulumi.get(self, "vpc_lattice")
+
+    @vpc_lattice.setter
+    def vpc_lattice(self, value: pulumi.Input['VpcEncryptionControlResourceExclusionsVpcLatticeArgs']):
+        pulumi.set(self, "vpc_lattice", value)
+
+    @_builtins.property
+    @pulumi.getter(name="vpcPeering")
+    def vpc_peering(self) -> pulumi.Input['VpcEncryptionControlResourceExclusionsVpcPeeringArgs']:
+        """
+        `state` and `state_message` describing encryption enforcement state for peered VPCs.
+        """
+        return pulumi.get(self, "vpc_peering")
+
+    @vpc_peering.setter
+    def vpc_peering(self, value: pulumi.Input['VpcEncryptionControlResourceExclusionsVpcPeeringArgs']):
+        pulumi.set(self, "vpc_peering", value)
+
+
+if not MYPY:
+    class VpcEncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    VpcEncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VpcEncryptionControlResourceExclusionsEgressOnlyInternetGatewayArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class VpcEncryptionControlResourceExclusionsElasticFileSystemArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    VpcEncryptionControlResourceExclusionsElasticFileSystemArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VpcEncryptionControlResourceExclusionsElasticFileSystemArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class VpcEncryptionControlResourceExclusionsInternetGatewayArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    VpcEncryptionControlResourceExclusionsInternetGatewayArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VpcEncryptionControlResourceExclusionsInternetGatewayArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class VpcEncryptionControlResourceExclusionsLambdaArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    VpcEncryptionControlResourceExclusionsLambdaArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VpcEncryptionControlResourceExclusionsLambdaArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class VpcEncryptionControlResourceExclusionsNatGatewayArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    VpcEncryptionControlResourceExclusionsNatGatewayArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VpcEncryptionControlResourceExclusionsNatGatewayArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class VpcEncryptionControlResourceExclusionsVirtualPrivateGatewayArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    VpcEncryptionControlResourceExclusionsVirtualPrivateGatewayArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VpcEncryptionControlResourceExclusionsVirtualPrivateGatewayArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class VpcEncryptionControlResourceExclusionsVpcLatticeArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    VpcEncryptionControlResourceExclusionsVpcLatticeArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VpcEncryptionControlResourceExclusionsVpcLatticeArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class VpcEncryptionControlResourceExclusionsVpcPeeringArgsDict(TypedDict):
+        state: pulumi.Input[_builtins.str]
+        """
+        The current state of the VPC Encryption Control.
+        """
+        state_message: pulumi.Input[_builtins.str]
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+elif False:
+    VpcEncryptionControlResourceExclusionsVpcPeeringArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VpcEncryptionControlResourceExclusionsVpcPeeringArgs:
+    def __init__(__self__, *,
+                 state: pulumi.Input[_builtins.str],
+                 state_message: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] state: The current state of the VPC Encryption Control.
+        :param pulumi.Input[_builtins.str] state_message: A message providing additional information about the state of the VPC Encryption Control.
+        """
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "state_message", state_message)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[_builtins.str]:
+        """
+        The current state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="stateMessage")
+    def state_message(self) -> pulumi.Input[_builtins.str]:
+        """
+        A message providing additional information about the state of the VPC Encryption Control.
+        """
+        return pulumi.get(self, "state_message")
+
+    @state_message.setter
+    def state_message(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "state_message", value)
+
+
+if not MYPY:
+    class VpcEncryptionControlTimeoutsArgsDict(TypedDict):
+        create: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        delete: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        update: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+elif False:
+    VpcEncryptionControlTimeoutsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class VpcEncryptionControlTimeoutsArgs:
+    def __init__(__self__, *,
+                 create: Optional[pulumi.Input[_builtins.str]] = None,
+                 delete: Optional[pulumi.Input[_builtins.str]] = None,
+                 update: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] create: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        :param pulumi.Input[_builtins.str] delete: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        :param pulumi.Input[_builtins.str] update: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        if create is not None:
+            pulumi.set(__self__, "create", create)
+        if delete is not None:
+            pulumi.set(__self__, "delete", delete)
+        if update is not None:
+            pulumi.set(__self__, "update", update)
+
+    @_builtins.property
+    @pulumi.getter
+    def create(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "create")
+
+    @create.setter
+    def create(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "create", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def delete(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        return pulumi.get(self, "delete")
+
+    @delete.setter
+    def delete(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "delete", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def update(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "update")
+
+    @update.setter
+    def update(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "update", value)
+
+
+if not MYPY:
     class VpcEndpointDnsEntryArgsDict(TypedDict):
         dns_name: NotRequired[pulumi.Input[_builtins.str]]
         """
@@ -20755,7 +22499,15 @@ if not MYPY:
         """
         private_dns_only_for_inbound_resolver_endpoint: NotRequired[pulumi.Input[_builtins.bool]]
         """
-        Indicates whether to enable private DNS only for inbound endpoints. This option is available only for services that support both gateway and interface endpoints. It routes traffic that originates from the VPC to the gateway endpoint and traffic that originates from on-premises to the interface endpoint. Default is `false`. Can only be specified if private_dns_enabled is `true`.
+        Boolean indicating whether to enable private DNS only for inbound endpoints. This option is available only for interface endpoints of services that support both gateway and interface endpoints. A gateway endpoint for the same service must be created before an interface endpoint is created. Traffic originating from the VPC is routed to the gateway endpoint, while traffic originating from on-premises is routed to the interface endpoint. Defaults to `false`. This argument can be specified only if `private_dns_enabled` is `true`.
+        """
+        private_dns_preference: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Preference for which private domains have a private hosted zone created for and associated with the specified VPC. Valid values are `ALL_DOMAINS`, `VERIFIED_DOMAINS_ONLY`, `VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS`, and `SPECIFIED_DOMAINS_ONLY`. Only supported when `private_dns_enabled` is `true` and when the `vpc_endpoint_type` is `ServiceNetwork` or `Resource`.
+        """
+        private_dns_specified_domains: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        List of private domains to create private hosted zones for and associate with the specified VPC. Must be specified when `private_dns_enabled` is `true` and `private_dns_preference` is set to either `VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS` or `SPECIFIED_DOMAINS_ONLY`. In all other cases, this argument must not be specified.
         """
 elif False:
     VpcEndpointDnsOptionsArgsDict: TypeAlias = Mapping[str, Any]
@@ -20764,15 +22516,23 @@ elif False:
 class VpcEndpointDnsOptionsArgs:
     def __init__(__self__, *,
                  dns_record_ip_type: Optional[pulumi.Input[_builtins.str]] = None,
-                 private_dns_only_for_inbound_resolver_endpoint: Optional[pulumi.Input[_builtins.bool]] = None):
+                 private_dns_only_for_inbound_resolver_endpoint: Optional[pulumi.Input[_builtins.bool]] = None,
+                 private_dns_preference: Optional[pulumi.Input[_builtins.str]] = None,
+                 private_dns_specified_domains: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         :param pulumi.Input[_builtins.str] dns_record_ip_type: The DNS records created for the endpoint. Valid values are `ipv4`, `dualstack`, `service-defined`, and `ipv6`.
-        :param pulumi.Input[_builtins.bool] private_dns_only_for_inbound_resolver_endpoint: Indicates whether to enable private DNS only for inbound endpoints. This option is available only for services that support both gateway and interface endpoints. It routes traffic that originates from the VPC to the gateway endpoint and traffic that originates from on-premises to the interface endpoint. Default is `false`. Can only be specified if private_dns_enabled is `true`.
+        :param pulumi.Input[_builtins.bool] private_dns_only_for_inbound_resolver_endpoint: Boolean indicating whether to enable private DNS only for inbound endpoints. This option is available only for interface endpoints of services that support both gateway and interface endpoints. A gateway endpoint for the same service must be created before an interface endpoint is created. Traffic originating from the VPC is routed to the gateway endpoint, while traffic originating from on-premises is routed to the interface endpoint. Defaults to `false`. This argument can be specified only if `private_dns_enabled` is `true`.
+        :param pulumi.Input[_builtins.str] private_dns_preference: Preference for which private domains have a private hosted zone created for and associated with the specified VPC. Valid values are `ALL_DOMAINS`, `VERIFIED_DOMAINS_ONLY`, `VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS`, and `SPECIFIED_DOMAINS_ONLY`. Only supported when `private_dns_enabled` is `true` and when the `vpc_endpoint_type` is `ServiceNetwork` or `Resource`.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] private_dns_specified_domains: List of private domains to create private hosted zones for and associate with the specified VPC. Must be specified when `private_dns_enabled` is `true` and `private_dns_preference` is set to either `VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS` or `SPECIFIED_DOMAINS_ONLY`. In all other cases, this argument must not be specified.
         """
         if dns_record_ip_type is not None:
             pulumi.set(__self__, "dns_record_ip_type", dns_record_ip_type)
         if private_dns_only_for_inbound_resolver_endpoint is not None:
             pulumi.set(__self__, "private_dns_only_for_inbound_resolver_endpoint", private_dns_only_for_inbound_resolver_endpoint)
+        if private_dns_preference is not None:
+            pulumi.set(__self__, "private_dns_preference", private_dns_preference)
+        if private_dns_specified_domains is not None:
+            pulumi.set(__self__, "private_dns_specified_domains", private_dns_specified_domains)
 
     @_builtins.property
     @pulumi.getter(name="dnsRecordIpType")
@@ -20790,13 +22550,37 @@ class VpcEndpointDnsOptionsArgs:
     @pulumi.getter(name="privateDnsOnlyForInboundResolverEndpoint")
     def private_dns_only_for_inbound_resolver_endpoint(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        Indicates whether to enable private DNS only for inbound endpoints. This option is available only for services that support both gateway and interface endpoints. It routes traffic that originates from the VPC to the gateway endpoint and traffic that originates from on-premises to the interface endpoint. Default is `false`. Can only be specified if private_dns_enabled is `true`.
+        Boolean indicating whether to enable private DNS only for inbound endpoints. This option is available only for interface endpoints of services that support both gateway and interface endpoints. A gateway endpoint for the same service must be created before an interface endpoint is created. Traffic originating from the VPC is routed to the gateway endpoint, while traffic originating from on-premises is routed to the interface endpoint. Defaults to `false`. This argument can be specified only if `private_dns_enabled` is `true`.
         """
         return pulumi.get(self, "private_dns_only_for_inbound_resolver_endpoint")
 
     @private_dns_only_for_inbound_resolver_endpoint.setter
     def private_dns_only_for_inbound_resolver_endpoint(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "private_dns_only_for_inbound_resolver_endpoint", value)
+
+    @_builtins.property
+    @pulumi.getter(name="privateDnsPreference")
+    def private_dns_preference(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Preference for which private domains have a private hosted zone created for and associated with the specified VPC. Valid values are `ALL_DOMAINS`, `VERIFIED_DOMAINS_ONLY`, `VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS`, and `SPECIFIED_DOMAINS_ONLY`. Only supported when `private_dns_enabled` is `true` and when the `vpc_endpoint_type` is `ServiceNetwork` or `Resource`.
+        """
+        return pulumi.get(self, "private_dns_preference")
+
+    @private_dns_preference.setter
+    def private_dns_preference(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "private_dns_preference", value)
+
+    @_builtins.property
+    @pulumi.getter(name="privateDnsSpecifiedDomains")
+    def private_dns_specified_domains(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        List of private domains to create private hosted zones for and associate with the specified VPC. Must be specified when `private_dns_enabled` is `true` and `private_dns_preference` is set to either `VERIFIED_DOMAINS_AND_SPECIFIED_DOMAINS` or `SPECIFIED_DOMAINS_ONLY`. In all other cases, this argument must not be specified.
+        """
+        return pulumi.get(self, "private_dns_specified_domains")
+
+    @private_dns_specified_domains.setter
+    def private_dns_specified_domains(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "private_dns_specified_domains", value)
 
 
 if not MYPY:
@@ -21323,6 +23107,18 @@ class VpnConnectionTunnel1LogOptionsArgs:
 
 if not MYPY:
     class VpnConnectionTunnel1LogOptionsCloudwatchLogOptionsArgsDict(TypedDict):
+        bgp_log_enabled: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Enable or disable BGP logging feature. The default is `false`.
+        """
+        bgp_log_group_arn: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The Amazon Resource Name (ARN) of the CloudWatch log group to send BGP logs to.
+        """
+        bgp_log_output_format: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Set BGP log format. Default format is json. Possible values are: `json` and `text`. The default is `json`.
+        """
         log_enabled: NotRequired[pulumi.Input[_builtins.bool]]
         """
         Enable or disable VPN tunnel logging feature. The default is `false`.
@@ -21341,20 +23137,68 @@ elif False:
 @pulumi.input_type
 class VpnConnectionTunnel1LogOptionsCloudwatchLogOptionsArgs:
     def __init__(__self__, *,
+                 bgp_log_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 bgp_log_group_arn: Optional[pulumi.Input[_builtins.str]] = None,
+                 bgp_log_output_format: Optional[pulumi.Input[_builtins.str]] = None,
                  log_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  log_group_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  log_output_format: Optional[pulumi.Input[_builtins.str]] = None):
         """
+        :param pulumi.Input[_builtins.bool] bgp_log_enabled: Enable or disable BGP logging feature. The default is `false`.
+        :param pulumi.Input[_builtins.str] bgp_log_group_arn: The Amazon Resource Name (ARN) of the CloudWatch log group to send BGP logs to.
+        :param pulumi.Input[_builtins.str] bgp_log_output_format: Set BGP log format. Default format is json. Possible values are: `json` and `text`. The default is `json`.
         :param pulumi.Input[_builtins.bool] log_enabled: Enable or disable VPN tunnel logging feature. The default is `false`.
         :param pulumi.Input[_builtins.str] log_group_arn: The Amazon Resource Name (ARN) of the CloudWatch log group to send logs to.
         :param pulumi.Input[_builtins.str] log_output_format: Set log format. Default format is json. Possible values are: `json` and `text`. The default is `json`.
         """
+        if bgp_log_enabled is not None:
+            pulumi.set(__self__, "bgp_log_enabled", bgp_log_enabled)
+        if bgp_log_group_arn is not None:
+            pulumi.set(__self__, "bgp_log_group_arn", bgp_log_group_arn)
+        if bgp_log_output_format is not None:
+            pulumi.set(__self__, "bgp_log_output_format", bgp_log_output_format)
         if log_enabled is not None:
             pulumi.set(__self__, "log_enabled", log_enabled)
         if log_group_arn is not None:
             pulumi.set(__self__, "log_group_arn", log_group_arn)
         if log_output_format is not None:
             pulumi.set(__self__, "log_output_format", log_output_format)
+
+    @_builtins.property
+    @pulumi.getter(name="bgpLogEnabled")
+    def bgp_log_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Enable or disable BGP logging feature. The default is `false`.
+        """
+        return pulumi.get(self, "bgp_log_enabled")
+
+    @bgp_log_enabled.setter
+    def bgp_log_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "bgp_log_enabled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="bgpLogGroupArn")
+    def bgp_log_group_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The Amazon Resource Name (ARN) of the CloudWatch log group to send BGP logs to.
+        """
+        return pulumi.get(self, "bgp_log_group_arn")
+
+    @bgp_log_group_arn.setter
+    def bgp_log_group_arn(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "bgp_log_group_arn", value)
+
+    @_builtins.property
+    @pulumi.getter(name="bgpLogOutputFormat")
+    def bgp_log_output_format(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Set BGP log format. Default format is json. Possible values are: `json` and `text`. The default is `json`.
+        """
+        return pulumi.get(self, "bgp_log_output_format")
+
+    @bgp_log_output_format.setter
+    def bgp_log_output_format(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "bgp_log_output_format", value)
 
     @_builtins.property
     @pulumi.getter(name="logEnabled")
@@ -21427,6 +23271,18 @@ class VpnConnectionTunnel2LogOptionsArgs:
 
 if not MYPY:
     class VpnConnectionTunnel2LogOptionsCloudwatchLogOptionsArgsDict(TypedDict):
+        bgp_log_enabled: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Enable or disable BGP logging feature. The default is `false`.
+        """
+        bgp_log_group_arn: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The Amazon Resource Name (ARN) of the CloudWatch log group to send BGP logs to.
+        """
+        bgp_log_output_format: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Set BGP log format. Default format is json. Possible values are: `json` and `text`. The default is `json`.
+        """
         log_enabled: NotRequired[pulumi.Input[_builtins.bool]]
         """
         Enable or disable VPN tunnel logging feature. The default is `false`.
@@ -21445,20 +23301,68 @@ elif False:
 @pulumi.input_type
 class VpnConnectionTunnel2LogOptionsCloudwatchLogOptionsArgs:
     def __init__(__self__, *,
+                 bgp_log_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 bgp_log_group_arn: Optional[pulumi.Input[_builtins.str]] = None,
+                 bgp_log_output_format: Optional[pulumi.Input[_builtins.str]] = None,
                  log_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  log_group_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  log_output_format: Optional[pulumi.Input[_builtins.str]] = None):
         """
+        :param pulumi.Input[_builtins.bool] bgp_log_enabled: Enable or disable BGP logging feature. The default is `false`.
+        :param pulumi.Input[_builtins.str] bgp_log_group_arn: The Amazon Resource Name (ARN) of the CloudWatch log group to send BGP logs to.
+        :param pulumi.Input[_builtins.str] bgp_log_output_format: Set BGP log format. Default format is json. Possible values are: `json` and `text`. The default is `json`.
         :param pulumi.Input[_builtins.bool] log_enabled: Enable or disable VPN tunnel logging feature. The default is `false`.
         :param pulumi.Input[_builtins.str] log_group_arn: The Amazon Resource Name (ARN) of the CloudWatch log group to send logs to.
         :param pulumi.Input[_builtins.str] log_output_format: Set log format. Default format is json. Possible values are: `json` and `text`. The default is `json`.
         """
+        if bgp_log_enabled is not None:
+            pulumi.set(__self__, "bgp_log_enabled", bgp_log_enabled)
+        if bgp_log_group_arn is not None:
+            pulumi.set(__self__, "bgp_log_group_arn", bgp_log_group_arn)
+        if bgp_log_output_format is not None:
+            pulumi.set(__self__, "bgp_log_output_format", bgp_log_output_format)
         if log_enabled is not None:
             pulumi.set(__self__, "log_enabled", log_enabled)
         if log_group_arn is not None:
             pulumi.set(__self__, "log_group_arn", log_group_arn)
         if log_output_format is not None:
             pulumi.set(__self__, "log_output_format", log_output_format)
+
+    @_builtins.property
+    @pulumi.getter(name="bgpLogEnabled")
+    def bgp_log_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Enable or disable BGP logging feature. The default is `false`.
+        """
+        return pulumi.get(self, "bgp_log_enabled")
+
+    @bgp_log_enabled.setter
+    def bgp_log_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "bgp_log_enabled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="bgpLogGroupArn")
+    def bgp_log_group_arn(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The Amazon Resource Name (ARN) of the CloudWatch log group to send BGP logs to.
+        """
+        return pulumi.get(self, "bgp_log_group_arn")
+
+    @bgp_log_group_arn.setter
+    def bgp_log_group_arn(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "bgp_log_group_arn", value)
+
+    @_builtins.property
+    @pulumi.getter(name="bgpLogOutputFormat")
+    def bgp_log_output_format(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Set BGP log format. Default format is json. Possible values are: `json` and `text`. The default is `json`.
+        """
+        return pulumi.get(self, "bgp_log_output_format")
+
+    @bgp_log_output_format.setter
+    def bgp_log_output_format(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "bgp_log_output_format", value)
 
     @_builtins.property
     @pulumi.getter(name="logEnabled")
@@ -21992,7 +23896,14 @@ class GetElasticIpFilterArgs:
 if not MYPY:
     class GetInstanceFilterArgsDict(TypedDict):
         name: _builtins.str
+        """
+        Name of the filter.
+        For a full reference of filter names, see [describe-instances in the AWS CLI reference][1].
+        """
         values: Sequence[_builtins.str]
+        """
+        One or more values to match.
+        """
 elif False:
     GetInstanceFilterArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -22001,12 +23912,21 @@ class GetInstanceFilterArgs:
     def __init__(__self__, *,
                  name: _builtins.str,
                  values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str name: Name of the filter.
+               For a full reference of filter names, see [describe-instances in the AWS CLI reference][1].
+        :param Sequence[_builtins.str] values: One or more values to match.
+        """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "values", values)
 
     @_builtins.property
     @pulumi.getter
     def name(self) -> _builtins.str:
+        """
+        Name of the filter.
+        For a full reference of filter names, see [describe-instances in the AWS CLI reference][1].
+        """
         return pulumi.get(self, "name")
 
     @name.setter
@@ -22016,6 +23936,9 @@ class GetInstanceFilterArgs:
     @_builtins.property
     @pulumi.getter
     def values(self) -> Sequence[_builtins.str]:
+        """
+        One or more values to match.
+        """
         return pulumi.get(self, "values")
 
     @values.setter
@@ -22176,7 +24099,14 @@ class GetInstanceTypesFilterArgs:
 if not MYPY:
     class GetInstancesFilterArgsDict(TypedDict):
         name: _builtins.str
+        """
+        Name of the filter.
+        For a full reference of filter names, see [describe-instances in the AWS CLI reference][1].
+        """
         values: Sequence[_builtins.str]
+        """
+        One or more values to match.
+        """
 elif False:
     GetInstancesFilterArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -22185,12 +24115,21 @@ class GetInstancesFilterArgs:
     def __init__(__self__, *,
                  name: _builtins.str,
                  values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str name: Name of the filter.
+               For a full reference of filter names, see [describe-instances in the AWS CLI reference][1].
+        :param Sequence[_builtins.str] values: One or more values to match.
+        """
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "values", values)
 
     @_builtins.property
     @pulumi.getter
     def name(self) -> _builtins.str:
+        """
+        Name of the filter.
+        For a full reference of filter names, see [describe-instances in the AWS CLI reference][1].
+        """
         return pulumi.get(self, "name")
 
     @name.setter
@@ -22200,6 +24139,9 @@ class GetInstancesFilterArgs:
     @_builtins.property
     @pulumi.getter
     def values(self) -> Sequence[_builtins.str]:
+        """
+        One or more values to match.
+        """
         return pulumi.get(self, "values")
 
     @values.setter
@@ -24296,6 +26238,56 @@ class GetVpcsFilterArgs:
         """
         Set of values that are accepted for the given field.
         A VPC will be selected if any one of the given values matches.
+        """
+        return pulumi.get(self, "values")
+
+    @values.setter
+    def values(self, value: Sequence[_builtins.str]):
+        pulumi.set(self, "values", value)
+
+
+if not MYPY:
+    class GetVpnConnectionFilterArgsDict(TypedDict):
+        name: _builtins.str
+        """
+        Name of the filter field. Valid values can be found in the [EC2 `DescribeVPNConnections` API Reference](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpnConnections.html).
+        """
+        values: Sequence[_builtins.str]
+        """
+        Set of values that are accepted for the given filter field. Results will be selected if any given value matches.
+        """
+elif False:
+    GetVpnConnectionFilterArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class GetVpnConnectionFilterArgs:
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str name: Name of the filter field. Valid values can be found in the [EC2 `DescribeVPNConnections` API Reference](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpnConnections.html).
+        :param Sequence[_builtins.str] values: Set of values that are accepted for the given filter field. Results will be selected if any given value matches.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the filter field. Valid values can be found in the [EC2 `DescribeVPNConnections` API Reference](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpnConnections.html).
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: _builtins.str):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        Set of values that are accepted for the given filter field. Results will be selected if any given value matches.
         """
         return pulumi.get(self, "values")
 

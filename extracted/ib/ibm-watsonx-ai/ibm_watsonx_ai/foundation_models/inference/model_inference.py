@@ -1,37 +1,43 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
 from enum import Enum
+from functools import partial
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
+    Callable,
     Generator,
     Literal,
     cast,
-    overload,
 )
 from warnings import warn
 
-import httpx
-
-import ibm_watsonx_ai._wrappers.requests as requests
-from ibm_watsonx_ai._wrappers.requests import (
-    _get_async_client,
+from ibm_watsonx_ai._wrappers.httpx_wrapper import (
+    _get_async_httpx_client,
     _get_httpx_client,
+    _httpx_transport_params,
 )
 from ibm_watsonx_ai.foundation_models.schema import (
+    Crypto,
     TextChatParameters,
     TextGenParameters,
 )
+from ibm_watsonx_ai.messages.messages import Messages
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import (
     InvalidMultipleArguments,
     MissingExtension,
     ParamOutOfRange,
+    UnsupportedOperation,
     WMLClientError,
 )
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 from .base_model_inference import BaseModelInference
 from .deployment_model_inference import DeploymentModelInference
@@ -43,7 +49,7 @@ if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient, Credentials
 
 
-class ModelInference(BaseModelInference):
+class ModelInference(WMLResource):
     """Instantiate the model interface.
 
     .. hint::
@@ -73,18 +79,13 @@ class ModelInference(BaseModelInference):
         * the path of directory with certificates of trusted CAs
         * `True` - default path to truststore will be taken
         * `False` - no verification will be made
-    :type verify: bool or str, optional
+    :type verify: bool | str | Path, optional
 
     :param api_client: initialized APIClient object with a set project ID or space ID. If passed, ``credentials`` and ``project_id``/``space_id`` are not required.
     :type api_client: APIClient, optional
 
     :param validate: Model ID validation, defaults to True
     :type validate: bool, optional
-
-    :param persistent_connection: Whether to keep persistent connection when evaluating `generate`, `generate_text` or `tokenize` methods.
-                                  This parameter is only applicable for the mentioned methods when the prompt is a str type.
-                                  To close the connection, run `model.close_persistent_connection()`, defaults to True. Added in 1.1.2.
-    :type persistent_connection: bool, optional
 
     :param max_retries: number of retries performed when request was not successful and status code is in retry_status_codes, defaults to 10
     :type max_retries: int, optional
@@ -111,23 +112,24 @@ class ModelInference(BaseModelInference):
         from ibm_watsonx_ai import Credentials
         from ibm_watsonx_ai.foundation_models import ModelInference
         from ibm_watsonx_ai.metanames import GenTextParamsMetaNames as GenParams
-        from ibm_watsonx_ai.foundation_models.utils.enums import ModelTypes, DecodingMethods
+        from ibm_watsonx_ai.foundation_models.utils.enums import (
+            ModelTypes,
+            DecodingMethods,
+        )
 
         # To display example params enter
         GenParams().get_example_values()
 
-        generate_params = {
-            GenParams.MAX_NEW_TOKENS: 25
-        }
+        generate_params = {GenParams.MAX_NEW_TOKENS: 25}
 
         model_inference = ModelInference(
             model_id=ModelTypes.FLAN_UL2,
             params=generate_params,
             credentials=Credentials(
-                api_key = IAM_API_KEY,
-                url = "https://us-south.ml.cloud.ibm.com"),
-            project_id="*****"
-            )
+                api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+            ),
+            project_id="*****",
+        )
 
     .. code-block:: python
 
@@ -137,10 +139,10 @@ class ModelInference(BaseModelInference):
         deployment_inference = ModelInference(
             deployment_id="<ID of deployed model>",
             credentials=Credentials(
-                api_key = IAM_API_KEY,
-                url = "https://us-south.ml.cloud.ibm.com"),
-            project_id="*****"
-            )
+                api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+            ),
+            project_id="*****",
+        )
 
     """
 
@@ -153,26 +155,32 @@ class ModelInference(BaseModelInference):
         credentials: dict | Credentials | None = None,
         project_id: str | None = None,
         space_id: str | None = None,
-        verify: bool | str | None = None,
+        verify: bool | str | Path | None = None,
         api_client: APIClient | None = None,
         validate: bool = True,
-        persistent_connection: bool = True,
         max_retries: int | None = None,
         delay_time: float | None = None,
         retry_status_codes: list[int] | None = None,
+        **kwargs: Any,
     ) -> None:
-        self.model_id = model_id
-        if isinstance(self.model_id, Enum):
-            self.model_id = self.model_id.value
+        if "persistent_connection" in kwargs:
+            warn(
+                "The `persistent_connection` parameter is no longer supported and any value provided for this parameter will be ignored."
+            )
+            kwargs.pop("persistent_connection")
 
-        self.deployment_id = deployment_id
+        self._model_id = model_id
+        if isinstance(self._model_id, Enum):
+            self._model_id = self._model_id.value
 
-        if self.model_id and self.deployment_id:
+        self._deployment_id = deployment_id
+
+        if self._model_id and self._deployment_id:
             raise InvalidMultipleArguments(
                 params_names_list=["model_id", "deployment_id"],
                 reason="Both arguments were provided.",
             )
-        elif not self.model_id and not self.deployment_id:
+        elif not self._model_id and not self._deployment_id:
             raise InvalidMultipleArguments(
                 params_names_list=["model_id", "deployment_id"],
                 reason="None of the arguments were provided.",
@@ -182,6 +190,8 @@ class ModelInference(BaseModelInference):
         ModelInference._validate_type(
             params, "params", [dict, TextChatParameters, TextGenParameters], False, True
         )
+        if isinstance(verify, str):
+            verify = Path(verify)
 
         if credentials:
             from ibm_watsonx_ai import APIClient
@@ -216,35 +226,92 @@ class ModelInference(BaseModelInference):
                 reason="None of the arguments were provided.",
             )
 
-        if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version < 4.8:
-            raise WMLClientError(error_msg="Operation is unsupported for this release.")
-
         self._inference: BaseModelInference
-        if self.model_id:
+        if self._model_id:
             self._inference = FMModelInference(
-                model_id=self.model_id,
+                model_id=self._model_id,
                 api_client=self._client,
                 params=self.params,
                 validate=validate,
-                persistent_connection=persistent_connection,
                 max_retries=max_retries,
                 delay_time=delay_time,
                 retry_status_codes=retry_status_codes,
             )
         else:
-            self.deployment_id = cast(str, self.deployment_id)
+            self._deployment_id = cast(str, self._deployment_id)
             self._inference = DeploymentModelInference(
-                deployment_id=self.deployment_id,
+                deployment_id=self._deployment_id,
                 api_client=self._client,
                 params=self.params,
                 validate=validate,
-                persistent_connection=persistent_connection,
                 max_retries=max_retries,
                 delay_time=delay_time,
                 retry_status_codes=retry_status_codes,
             )
 
-        self._transport_params = requests._httpx_transport_params(self._client)
+        self._transport_params = _httpx_transport_params(self._client)
+
+        WMLResource.__init__(self, __name__, self._client)
+
+    @property
+    def model_id(self) -> str | None:
+        """Get the model ID from the underlying inference object.
+
+        :return: model ID if using Foundation Model, None otherwise
+        :rtype: str | None
+        """
+        if isinstance(self._inference, FMModelInference):
+            return self._inference.model_id
+        return None
+
+    @model_id.setter
+    def model_id(self, value: str) -> None:
+        """Set the model ID in the underlying inference object.
+
+        :param value: new model ID value
+        :type value: str
+
+        :raises WMLClientError: if trying to set model_id on a deployment-based inference
+        """
+        if isinstance(self._inference, FMModelInference):
+            self._inference.model_id = value
+            self._model_id = value
+        else:
+            error_message = (
+                "Cannot set 'model_id' on a deployment-based ModelInference. "
+                "This instance was initialized with 'deployment_id'."
+            )
+            raise WMLClientError(error_message)
+
+    @property
+    def deployment_id(self) -> str | None:
+        """Get the deployment ID from the underlying inference object.
+
+        :return: deployment ID if using Deployed Model, None otherwise
+        :rtype: str | None
+        """
+        if isinstance(self._inference, DeploymentModelInference):
+            return self._inference.deployment_id
+        return None
+
+    @deployment_id.setter
+    def deployment_id(self, value: str) -> None:
+        """Set the deployment ID in the underlying inference object.
+
+        :param value: new deployment ID value
+        :type value: str
+
+        :raises WMLClientError: if trying to set deployment_id on a model-based inference
+        """
+        if isinstance(self._inference, DeploymentModelInference):
+            self._inference.deployment_id = value
+            self._deployment_id = value
+        else:
+            error_message = (
+                "Cannot set 'deployment_id' on a model-based ModelInference. "
+                "This instance was initialized with 'model_id'."
+            )
+            raise WMLClientError(error_message)
 
     def get_details(self) -> dict:
         """Get the details of a model interface
@@ -267,8 +334,9 @@ class ModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         """
         Given a list of messages comprising a conversation, the model will return a response.
@@ -286,11 +354,14 @@ class ModelInference(BaseModelInference):
         :type tool_choice: dict, optional
 
         :param tool_choice_option: Tool choice option
-        :type tool_choice_option: Literal["none", "auto"], optional
+        :type tool_choice_option: Literal["none", "auto", "required"], optional
 
         :param context: context variable can be present in chat `system_prompt` or chat messages content fields and are
             identified by sentence '{{ context }}'. Supported only with `deployment_id`, defaults to None.
         :type context: str, optional
+
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
 
         :return: scoring result containing generated chat content.
         :rtype: dict
@@ -305,7 +376,10 @@ class ModelInference(BaseModelInference):
 
                     messages = [
                         {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": "Who won the world series in 2020?"}
+                        {
+                            "role": "user",
+                            "content": "Who won the world series in 2020?",
+                        },
                     ]
                     generated_response = model.chat(messages=messages)
 
@@ -314,6 +388,48 @@ class ModelInference(BaseModelInference):
 
                     # Print only content
                     print(generated_response["choices"][0]["message"]["content"])
+
+            .. tab-item:: Audio/Video input
+
+                .. code-block:: python
+
+                    import base64
+
+                    # Path to your MP3 file
+                    file_path = "sample_audio_file.mp3"
+
+                    # Read file as binary and encode to Base64
+                    with open(file_path, "rb") as mp3_file:
+                        encoded_bytes = base64.b64encode(mp3_file.read())
+
+                    encoded_string = encoded_bytes.decode("utf-8")
+
+                    messages = [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "Please extract the text from the mp3 file",
+                                },
+                                {
+                                    "type": "input_audio",  # `input_video`
+                                    "input_audio": {
+                                        "data": encoded_string,
+                                        "format": "mp3",
+                                    },
+                                },
+                            ],
+                        }
+                    ]
+                    generated_response = model.chat(messages=messages)
+
+                    # Print full response
+                    print(generated_response)
+
+                    # Print only content
+                    print(generated_response["choices"][0]["message"]["content"])
+
 
             .. tab-item:: Control messages
 
@@ -328,7 +444,10 @@ class ModelInference(BaseModelInference):
                     messages = [
                         {"role": "control", "content": "thinking"},
                         {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": "Who won the world series in 2020?"}
+                        {
+                            "role": "user",
+                            "content": "Who won the world series in 2020?",
+                        },
                     ]
                     generated_response = model.chat(messages=messages)
 
@@ -346,7 +465,16 @@ class ModelInference(BaseModelInference):
                 "The `context` parameter is only supported for inferring a chat prompt deployment."
             )
 
-        return self._inference.chat(
+        if isinstance(self._inference, FMModelInference):
+            chat_fn: Callable = partial(self._inference.chat, crypto=crypto)
+        else:
+            if crypto:
+                raise WMLClientError(
+                    "The `crypto` parameter is not supported for inferring a chat prompt deployment."
+                )
+            chat_fn = self._inference.chat
+
+        return chat_fn(
             messages=messages,
             params=params,
             tools=tools,
@@ -361,7 +489,7 @@ class ModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> Generator:
         """
@@ -380,7 +508,7 @@ class ModelInference(BaseModelInference):
         :type tool_choice: dict, optional
 
         :param tool_choice_option: Tool choice option
-        :type tool_choice_option: Literal["none", "auto"], optional
+        :type tool_choice_option: Literal["none", "auto", "required"], optional
 
         :param context: context variable can be present in chat `system_prompt` or chat messages content fields and are
             identified by sentence '{{ context }}'. Supported only with `deployment_id`, defaults to None.
@@ -395,13 +523,17 @@ class ModelInference(BaseModelInference):
 
             messages = [
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Who won the world series in 2020?"}
+                {"role": "user", "content": "Who won the world series in 2020?"},
             ]
             generated_response = model.chat_stream(messages=messages)
 
             for chunk in generated_response:
-                if chunk['choices']:
-                    print(chunk['choices'][0]['delta'].get('content', ''), end='', flush=True)
+                if chunk["choices"]:
+                    print(
+                        chunk["choices"][0]["delta"].get("content", ""),
+                        end="",
+                        flush=True,
+                    )
 
         """
         self._validate_type(messages, "messages", list, True)
@@ -427,8 +559,9 @@ class ModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         """
         Given a list of messages comprising a conversation with a chat model in an asynchronous manner.
@@ -446,11 +579,14 @@ class ModelInference(BaseModelInference):
         :type tool_choice: dict, optional
 
         :param tool_choice_option: Tool choice option
-        :type tool_choice_option: Literal["none", "auto"], optional
+        :type tool_choice_option: Literal["none", "auto", "required"], optional
 
         :param context: context variable can be present in chat `system_prompt` or chat messages content fields and are
             identified by sentence '{{ context }}'. Supported only with `deployment_id`, defaults to None.
         :type context: str, optional
+
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
 
         :return: scoring result containing generated chat content.
         :rtype: dict
@@ -461,7 +597,7 @@ class ModelInference(BaseModelInference):
 
             messages = [
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Who won the world series in 2020?"}
+                {"role": "user", "content": "Who won the world series in 2020?"},
             ]
             generated_response = await model.achat(messages=messages)
 
@@ -469,7 +605,7 @@ class ModelInference(BaseModelInference):
             print(generated_response)
 
             # Print only content
-            print(generated_response['choices'][0]['message']['content'])
+            print(generated_response["choices"][0]["message"]["content"])
 
         """
         self._validate_type(messages, "messages", list, True)
@@ -480,7 +616,16 @@ class ModelInference(BaseModelInference):
                 "The `context` parameter is only supported for inferring a chat prompt deployment."
             )
 
-        return await self._inference.achat(
+        if isinstance(self._inference, FMModelInference):
+            achat_fn: Callable = partial(self._inference.achat, crypto=crypto)
+        else:
+            if crypto:
+                raise WMLClientError(
+                    "The `crypto` parameter is not supported for inferring a chat prompt deployment."
+                )
+            achat_fn = self._inference.achat
+
+        return await achat_fn(
             messages=messages,
             params=params,
             tools=tools,
@@ -495,7 +640,7 @@ class ModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> AsyncGenerator:
         """
@@ -514,7 +659,7 @@ class ModelInference(BaseModelInference):
         :type tool_choice: dict, optional
 
         :param tool_choice_option: Tool choice option
-        :type tool_choice_option: Literal["none", "auto"], optional
+        :type tool_choice_option: Literal["none", "auto", "required"], optional
 
         :param context: context variable can be present in chat `system_prompt` or chat messages content fields and are
             identified by sentence '{{ context }}'. Supported only with `deployment_id`, defaults to None.
@@ -529,13 +674,17 @@ class ModelInference(BaseModelInference):
 
             messages = [
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Who won the world series in 2020?"}
+                {"role": "user", "content": "Who won the world series in 2020?"},
             ]
             generated_response = await model.achat_stream(messages=messages)
 
             async for chunk in generated_response:
-                if chunk['choices']:
-                    print(chunk['choices'][0]['delta'].get('content', ''), end='', flush=True)
+                if chunk["choices"]:
+                    print(
+                        chunk["choices"][0]["delta"].get("content", ""),
+                        end="",
+                        flush=True,
+                    )
 
         """
         self._validate_type(messages, "messages", list, True)
@@ -555,48 +704,6 @@ class ModelInference(BaseModelInference):
             context=context,
         )
 
-    @overload
-    def generate(
-        self,
-        prompt: str | list | None = ...,
-        params: dict | TextGenParameters | None = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        async_mode: Literal[False] = ...,
-        validate_prompt_variables: bool = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> dict | list[dict]: ...
-
-    @overload
-    def generate(
-        self,
-        prompt: str | list | None,
-        params: dict | TextGenParameters | None,
-        guardrails: bool,
-        guardrails_hap_params: dict | None,
-        guardrails_pii_params: dict | None,
-        concurrency_limit: int,
-        async_mode: Literal[True],
-        validate_prompt_variables: bool,
-        guardrails_granite_guardian_params: dict | None,
-    ) -> Generator: ...
-
-    @overload
-    def generate(
-        self,
-        prompt: str | list | None = ...,
-        params: dict | TextGenParameters | None = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        async_mode: bool = ...,
-        validate_prompt_variables: bool = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> dict | list[dict] | Generator: ...
-
     def generate(
         self,
         prompt: str | list | None = None,
@@ -608,6 +715,7 @@ class ModelInference(BaseModelInference):
         async_mode: bool = False,
         validate_prompt_variables: bool = True,
         guardrails_granite_guardian_params: dict | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict | list[dict] | Generator:
         """Generates a completion text as generated_text after getting a text prompt as input and parameters for the
         selected model (model_id) or deployment (deployment_id). For prompt template deployment, `prompt` should be None.
@@ -618,7 +726,7 @@ class ModelInference(BaseModelInference):
         :param concurrency_limit: number of requests to be sent in parallel, max is 10
         :type concurrency_limit: int
 
-        :param prompt: prompt string or list of strings. If list of strings is passed, requests will be managed in parallel with the rate of concurency_limit, defaults to None
+        :param prompt: prompt string or list of strings. If list of strings is passed, requests will be managed in parallel with the rate of concurrency_limit, defaults to None
         :type prompt: (str | list | None), optional
 
         :param guardrails: If True, the detection filter for potentially hateful, abusive, and/or profane language (HAP)
@@ -641,6 +749,9 @@ class ModelInference(BaseModelInference):
         :param guardrails_granite_guardian_params: parameters for Granite Guardian moderations
         :type guardrails_granite_guardian_params: dict, optional
 
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
+
         :return: scoring result the contains the generated content
         :rtype: dict
 
@@ -656,7 +767,7 @@ class ModelInference(BaseModelInference):
 
                     generated_response = model_inference.generate(prompt=q)
 
-                    print(generated_response['results'][0]['generated_text'])
+                    print(generated_response["results"][0]["generated_text"])
 
             .. tab-item:: Generate with Params
 
@@ -664,7 +775,7 @@ class ModelInference(BaseModelInference):
 
                     from ibm_watsonx_ai.foundation_models.schema import (
                         TextGenParameters,
-                        TextGenDecodingMethod
+                        TextGenDecodingMethod,
                     )
 
                     q = "What is 1 + 1?"
@@ -672,7 +783,7 @@ class ModelInference(BaseModelInference):
                     generate_params = TextGenParameters(
                         decoding_method=TextGenDecodingMethod.SAMPLE,
                         temperature=0.8,
-                        top_p=0.3
+                        top_p=0.3,
                     )
 
                     generated_response = model_inference.generate(
@@ -680,7 +791,7 @@ class ModelInference(BaseModelInference):
                         params=generate_params,
                     )
 
-                    print(generated_response['results'][0]['generated_text'])
+                    print(generated_response["results"][0]["generated_text"])
 
             .. tab-item:: Generate with Granite Guardian
 
@@ -692,7 +803,7 @@ class ModelInference(BaseModelInference):
 
                     guardrails_granite_guardian_params = {
                         GenTextModerationsMetaNames.INPUT: True,
-                        GenTextModerationsMetaNames.THRESHOLD: 0.01
+                        GenTextModerationsMetaNames.THRESHOLD: 0.01,
                     }
 
                     generated_response = model_inference.generate(
@@ -710,6 +821,7 @@ class ModelInference(BaseModelInference):
             False,
             raise_error_for_list=True,
         )
+        self._validate_type(crypto, "crypto", [dict, Crypto], False, True)
 
         if isinstance(concurrency_limit, float):  # convert float (ex. 10.0) to int
             concurrency_limit = int(concurrency_limit)
@@ -725,7 +837,18 @@ class ModelInference(BaseModelInference):
                 "To use non-blocking native async inference method you may use `ModelInference.agenerate(...)`"
             )
             warn(warning_async_mode)
-        return self._inference.generate(
+
+        if isinstance(self._inference, FMModelInference):
+            generate_fn: Callable = partial(self._inference.generate, crypto=crypto)
+
+        else:
+            if crypto:
+                raise WMLClientError(
+                    "The `crypto` parameter is not supported for inferring a generate prompt deployment."
+                )
+            generate_fn = self._inference.generate
+
+        return generate_fn(
             prompt=prompt,
             params=params,
             guardrails=guardrails,
@@ -737,7 +860,7 @@ class ModelInference(BaseModelInference):
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
         )
 
-    async def _agenerate_single(  # type: ignore[override]
+    async def _agenerate_single(
         self,
         prompt: str | None = None,
         params: dict | TextGenParameters | None = None,
@@ -816,7 +939,7 @@ class ModelInference(BaseModelInference):
             generated_response = await model_inference.agenerate_stream(prompt=q)
 
             async for chunk in generated_response:
-                print(chunk, end='', flush=True)
+                print(chunk, end="", flush=True)
 
         """
 
@@ -831,62 +954,6 @@ class ModelInference(BaseModelInference):
             validate_prompt_variables=validate_prompt_variables,
         )
 
-    @overload
-    def generate_text(
-        self,
-        prompt: str | None = ...,
-        params: dict | TextGenParameters | None = ...,
-        raw_response: Literal[False] = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        validate_prompt_variables: bool = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> str: ...
-
-    @overload
-    def generate_text(
-        self,
-        prompt: list,
-        params: dict | TextGenParameters | None = ...,
-        raw_response: Literal[False] = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        validate_prompt_variables: bool = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> list[str]: ...
-
-    @overload
-    def generate_text(
-        self,
-        prompt: str | list | None,
-        params: dict | TextGenParameters | None,
-        raw_response: Literal[True],
-        guardrails: bool,
-        guardrails_hap_params: dict | None,
-        guardrails_pii_params: dict | None,
-        concurrency_limit: int,
-        validate_prompt_variables: bool,
-        guardrails_granite_guardian_params: dict | None,
-    ) -> list[dict] | dict: ...
-
-    @overload
-    def generate_text(
-        self,
-        prompt: str | list | None,
-        params: dict | TextGenParameters | None,
-        raw_response: bool,
-        guardrails: bool,
-        guardrails_hap_params: dict | None,
-        guardrails_pii_params: dict | None,
-        concurrency_limit: int,
-        validate_prompt_variables: bool,
-        guardrails_granite_guardian_params: dict | None,
-    ) -> str | list | dict: ...
-
     def generate_text(
         self,
         prompt: str | list | None = None,
@@ -898,7 +965,8 @@ class ModelInference(BaseModelInference):
         concurrency_limit: int = BaseModelInference.DEFAULT_CONCURRENCY_LIMIT,
         validate_prompt_variables: bool = True,
         guardrails_granite_guardian_params: dict | None = None,
-    ) -> str | list | dict:
+        crypto: dict | Crypto | None = None,
+    ) -> str | list[str | dict] | dict:
         """Generates a completion text as generated_text after getting a text prompt as input and
         parameters for the selected model (model_id). For prompt template deployment, `prompt` should be None.
 
@@ -908,7 +976,7 @@ class ModelInference(BaseModelInference):
         :param concurrency_limit: number of requests to be sent in parallel, max is 10
         :type concurrency_limit: int
 
-        :param prompt: prompt string or list of strings. If list of strings is passed, requests will be managed in parallel with the rate of concurency_limit, defaults to None
+        :param prompt: prompt string or list of strings. If list of strings is passed, requests will be managed in parallel with the rate of concurrency_limit, defaults to None
         :type prompt: (str | list | None), optional
 
         :param guardrails: If True, the detection filter for potentially hateful, abusive, and/or profane language (HAP) is toggle on for both prompt and generated text, defaults to False
@@ -928,6 +996,9 @@ class ModelInference(BaseModelInference):
 
         :param guardrails_granite_guardian_params: parameters for Granite Guardian moderations
         :type guardrails_granite_guardian_params: dict, optional
+
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
 
         :return: generated content
         :rtype: str | list | dict
@@ -962,7 +1033,7 @@ class ModelInference(BaseModelInference):
 
                     from ibm_watsonx_ai.foundation_models.schema import (
                         TextGenParameters,
-                        TextGenDecodingMethod
+                        TextGenDecodingMethod,
                     )
 
                     q = "What is 1 + 1?"
@@ -970,12 +1041,11 @@ class ModelInference(BaseModelInference):
                     generate_params = TextGenParameters(
                         decoding_method=TextGenDecodingMethod.SAMPLE,
                         temperature=0.8,
-                        top_p=0.3
+                        top_p=0.3,
                     )
 
                     generated_text = model_inference.generate_text(
-                        prompt=q,
-                        params=generate_params
+                        prompt=q, params=generate_params
                     )
 
                     print(generated_text)
@@ -991,17 +1061,22 @@ class ModelInference(BaseModelInference):
             concurrency_limit=concurrency_limit,
             validate_prompt_variables=validate_prompt_variables,
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
+            crypto=crypto,
         )
         if raw_response:
-            return metadata
+            return metadata  # type: ignore[return-value]
         else:
             if isinstance(prompt, list):
                 return [
-                    self._return_guardrails_stats(single_response)["generated_text"]
+                    self._inference._return_guardrails_stats(single_response)[
+                        "generated_text"
+                    ]
                     for single_response in metadata
                 ]
             else:
-                return self._return_guardrails_stats(metadata)["generated_text"]  # type: ignore[arg-type]
+                return self._inference._return_guardrails_stats(cast(dict, metadata))[
+                    "generated_text"
+                ]
 
     def generate_text_stream(
         self,
@@ -1066,7 +1141,7 @@ class ModelInference(BaseModelInference):
                     generated_response = model_inference.generate_text_stream(prompt=q)
 
                     for chunk in generated_response:
-                        print(chunk, end='', flush=True)
+                        print(chunk, end="", flush=True)
 
             .. tab-item:: Generate Text Stream with Params
 
@@ -1074,7 +1149,7 @@ class ModelInference(BaseModelInference):
 
                     from ibm_watsonx_ai.foundation_models.schema import (
                         TextGenParameters,
-                        TextGenDecodingMethod
+                        TextGenDecodingMethod,
                     )
 
                     q = "Write an epigram about the sun"
@@ -1082,7 +1157,7 @@ class ModelInference(BaseModelInference):
                     generate_params = TextGenParameters(
                         decoding_method=TextGenDecodingMethod.SAMPLE,
                         temperature=0.8,
-                        top_p=0.3
+                        top_p=0.3,
                     )
 
                     generated_response = model_inference.generate_text_stream(
@@ -1091,7 +1166,7 @@ class ModelInference(BaseModelInference):
                     )
 
                     for chunk in generated_response:
-                        print(chunk, end='', flush=True)
+                        print(chunk, end="", flush=True)
 
         """
         self._validate_type(params, "params", [dict, TextGenParameters], False, True)
@@ -1107,7 +1182,12 @@ class ModelInference(BaseModelInference):
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
         )
 
-    def tokenize(self, prompt: str, return_tokens: bool = False) -> dict:
+    def tokenize(
+        self,
+        prompt: str,
+        return_tokens: bool = False,
+        crypto: dict | Crypto | None = None,
+    ) -> dict:
         """
         The text tokenize operation allows you to check the conversion of provided input to tokens for a given model.
         It splits text into words or sub-words, which then are converted to IDs through a look-up table (vocabulary).
@@ -1122,6 +1202,9 @@ class ModelInference(BaseModelInference):
         :param return_tokens: parameter for text tokenization, defaults to False
         :type return_tokens: bool
 
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
+
         :return: result of tokenizing the input string
         :rtype: dict
 
@@ -1130,11 +1213,21 @@ class ModelInference(BaseModelInference):
         .. code-block:: python
 
             q = "Write an epigram about the moon"
-            tokenized_response = model_inference.tokenize(prompt=q, return_tokens=True)
+            tokenized_response = model_inference.tokenize(
+                prompt=q, return_tokens=True
+            )
             print(tokenized_response["result"])
 
         """
-        return self._inference.tokenize(prompt=prompt, return_tokens=return_tokens)
+
+        if isinstance(self._inference, FMModelInference):
+            return self._inference.tokenize(
+                prompt=prompt, return_tokens=return_tokens, crypto=crypto
+            )
+        else:
+            raise UnsupportedOperation(
+                Messages.get_message(message_id="fm_tokenize_no_supported_deployment")
+            )
 
     def to_langchain(self) -> WatsonxLLM:
         """
@@ -1155,15 +1248,18 @@ class ModelInference(BaseModelInference):
             flan_ul2_model = ModelInference(
                 model_id=ModelTypes.FLAN_UL2,
                 credentials=Credentials(
-                                    api_key = IAM_API_KEY,
-                                    url = "https://us-south.ml.cloud.ibm.com"),
-                project_id="*****"
-                )
+                    api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+                ),
+                project_id="*****",
+            )
 
             prompt_template = "What color is the {flower}?"
 
-            llm_chain = LLMChain(llm=flan_ul2_model.to_langchain(), prompt=PromptTemplate.from_template(prompt_template))
-            llm_chain.invoke('sunflower')
+            llm_chain = LLMChain(
+                llm=flan_ul2_model.to_langchain(),
+                prompt=PromptTemplate.from_template(prompt_template),
+            )
+            llm_chain.invoke("sunflower")
 
         .. code-block:: python
 
@@ -1176,21 +1272,24 @@ class ModelInference(BaseModelInference):
             deployed_model = ModelInference(
                 deployment_id="<ID of deployed model>",
                 credentials=Credentials(
-                                    api_key = IAM_API_KEY,
-                                    url = "https://us-south.ml.cloud.ibm.com"),
-                space_id="*****"
-                )
+                    api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
+                ),
+                space_id="*****",
+            )
 
             prompt_template = "What color is the {car}?"
 
-            llm_chain = LLMChain(llm=deployed_model.to_langchain(), prompt=PromptTemplate.from_template(prompt_template))
-            llm_chain.invoke('sunflower')
+            llm_chain = LLMChain(
+                llm=deployed_model.to_langchain(),
+                prompt=PromptTemplate.from_template(prompt_template),
+            )
+            llm_chain.invoke("sunflower")
 
         """
-        try:
-            from langchain_ibm import WatsonxLLM
-        except ImportError:
-            raise MissingExtension("langchain_ibm")
+        if not is_lib_installed(ext := "langchain-ibm"):
+            raise MissingExtension(ext, extra_info="rag")
+        from langchain_ibm import WatsonxLLM
+
         return WatsonxLLM(watsonx_model=self)
 
     def get_identifying_params(self) -> dict:
@@ -1199,19 +1298,12 @@ class ModelInference(BaseModelInference):
 
     def close_persistent_connection(self) -> None:
         """
-        Only applicable if persistent_connection was set to True in ModelInference initialization.
         Calling this method closes the current `httpx.Client` and recreates a new `httpx.Client` with default values:
         timeout: httpx.Timeout(timeout=30 * 60, connect=10)
         limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=HTTPX_KEEPALIVE_EXPIRY)
         """
-        if self._inference._persistent_connection and isinstance(
-            self._inference._http_client, httpx.Client
-        ):
-            self._inference._http_client.close()
-            self._client.httpx_client = _get_httpx_client(
-                transport_params=self._transport_params
-            )
-            self._inference._http_client = self._client.httpx_client
+        self._client.httpx_client.close()
+        self._client.httpx_client = _get_httpx_client(transport=self._transport_params)
 
     def set_api_client(self, api_client: APIClient) -> None:
         """
@@ -1242,6 +1334,7 @@ class ModelInference(BaseModelInference):
         guardrails_pii_params: dict | None = None,
         validate_prompt_variables: bool = True,
         guardrails_granite_guardian_params: dict | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         """Generate a response in an asynchronous manner.
 
@@ -1266,11 +1359,28 @@ class ModelInference(BaseModelInference):
         :param guardrails_granite_guardian_params: parameters for Granite Guardian moderations
         :type guardrails_granite_guardian_params: dict, optional
 
+        :param crypto: configuration for tenant-level encryption
+        :type crypto: dict, Crypto, optional
+
         :return: raw response that contains the generated content
         :rtype: dict
         """
         self._validate_type(params, "params", dict, False)
-        return await self._inference._agenerate_single(
+        self._validate_type(crypto, "crypto", [dict, Crypto], False, True)
+
+        if isinstance(self._inference, FMModelInference):
+            agenerate_fn: Callable = partial(
+                self._inference._agenerate_single, crypto=crypto
+            )
+
+        else:
+            agenerate_fn = self._inference._agenerate_single
+            if crypto:
+                raise WMLClientError(
+                    "The `crypto` parameter is not supported for inferring a generate prompt deployment."
+                )
+
+        return await agenerate_fn(
             prompt=prompt,
             params=params,
             guardrails=guardrails,
@@ -1281,12 +1391,17 @@ class ModelInference(BaseModelInference):
         )
 
     async def aclose_persistent_connection(self) -> None:
-        """Only applicable if persistent_connection was set to True in the ModelInference initialization."""
-        if self._inference._persistent_connection and isinstance(
-            self._inference._async_http_client, httpx.AsyncClient
-        ):
-            await self._inference._async_http_client.aclose()
-            self._client.async_httpx_client = _get_async_client(
-                transport_params=self._transport_params
-            )
-            self._inference._async_http_client = self._client.async_httpx_client
+        """
+        Calling this method closes the current `httpx.AsyncClient` and recreates a new `httpx.AsyncClient` with default values:
+        timeout: httpx.Timeout(timeout=30 * 60, connect=10)
+        limit: httpx.Limits(max_connections=10, max_keepalive_connections=10, keepalive_expiry=HTTPX_KEEPALIVE_EXPIRY)
+        """
+        await self._client.async_httpx_client.aclose()
+        self._client.async_httpx_client = _get_async_httpx_client(
+            transport=self._transport_params
+        )
+
+    def _return_guardrails_stats(  # Added for backward compatibility
+        self, single_response: dict
+    ) -> dict:
+        return self._inference._return_guardrails_stats(single_response=single_response)

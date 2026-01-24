@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -96,11 +97,6 @@ from .waiter import (
     MLModelAvailableWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -109,15 +105,15 @@ else:
 __all__ = ("MachineLearningClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    IdempotentParameterMismatchException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    InvalidTagException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    PredictorNotMountedException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TagLimitExceededException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    IdempotentParameterMismatchException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    InvalidTagException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    PredictorNotMountedException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TagLimitExceededException: type[BotocoreClientError]
 
 class MachineLearningClient(BaseClient):
     """

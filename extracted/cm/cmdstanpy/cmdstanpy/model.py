@@ -1,5 +1,6 @@
 """CmdStanModel"""
 
+import io
 import os
 import platform
 import re
@@ -15,9 +16,7 @@ from multiprocessing import cpu_count
 from typing import (
     Any,
     Callable,
-    Dict,
     Iterable,
-    List,
     Literal,
     Mapping,
     Optional,
@@ -25,16 +24,11 @@ from typing import (
     Union,
 )
 
+import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
-from cmdstanpy import (
-    _CMDSTAN_REFRESH,
-    _CMDSTAN_SAMPLING,
-    _CMDSTAN_WARMUP,
-    _TMPDIR,
-    compilation,
-)
+from cmdstanpy import _CMDSTAN_SAMPLING, _CMDSTAN_WARMUP, _TMPDIR, compilation
 from cmdstanpy.cmdstan_args import (
     CmdStanArgs,
     GenerateQuantitiesArgs,
@@ -60,9 +54,13 @@ from cmdstanpy.utils import (
     cmdstan_version_before,
     do_command,
     get_logger,
-    returncode_msg,
 )
-from cmdstanpy.utils.filesystem import temp_inits, temp_single_json
+from cmdstanpy.utils.filesystem import (
+    temp_inits,
+    temp_metrics,
+    temp_single_json,
+)
+from cmdstanpy.utils.stancsv import try_deduce_metric_type
 
 from . import progress as progbar
 
@@ -120,8 +118,8 @@ class CmdStanModel:
         stan_file: OptionalPath = None,
         exe_file: OptionalPath = None,
         force_compile: bool = False,
-        stanc_options: Optional[Dict[str, Any]] = None,
-        cpp_options: Optional[Dict[str, Any]] = None,
+        stanc_options: Optional[dict[str, Any]] = None,
+        cpp_options: Optional[dict[str, Any]] = None,
         user_header: OptionalPath = None,
         *,
         compile: Union[bool, Literal['force'], None] = None,
@@ -282,14 +280,14 @@ class CmdStanModel:
         """Full path to Stan exe file."""
         return self._exe_file
 
-    def exe_info(self) -> Dict[str, str]:
+    def exe_info(self) -> dict[str, str]:
         """
         Run model with option 'info'. Parse output statements, which all
         have form 'key = value' into a Dict.
         If exe file compiled with CmdStan < 2.27, option 'info' isn't
         available and the method returns an empty dictionary.
         """
-        result: Dict[str, str] = {}
+        result: dict[str, str] = {}
         if self.exe_file is None:
             return result
         try:
@@ -306,7 +304,7 @@ class CmdStanModel:
             get_logger().debug(e)
             return result
 
-    def src_info(self) -> Dict[str, Any]:
+    def src_info(self) -> dict[str, Any]:
         """
         Run stanc with option '--info'.
 
@@ -365,12 +363,12 @@ class CmdStanModel:
         )
 
     @property
-    def stanc_options(self) -> Dict[str, Union[bool, int, str]]:
+    def stanc_options(self) -> dict[str, Union[bool, int, str]]:
         """Options to stanc compilers."""
         return self._compiler_options._stanc_options
 
     @property
-    def cpp_options(self) -> Dict[str, Union[bool, int]]:
+    def cpp_options(self) -> dict[str, Union[bool, int]]:
         """Options to C++ compilers."""
         return self._compiler_options._cpp_options
 
@@ -398,8 +396,8 @@ class CmdStanModel:
     def compile(
         self,
         force: bool = False,
-        stanc_options: Optional[Dict[str, Any]] = None,
-        cpp_options: Optional[Dict[str, Any]] = None,
+        stanc_options: Optional[dict[str, Any]] = None,
+        cpp_options: Optional[dict[str, Any]] = None,
         user_header: OptionalPath = None,
         override_options: bool = False,
         *,
@@ -623,9 +621,10 @@ class CmdStanModel:
                 "in CmdStan 2.32 and above."
             )
 
-        with temp_single_json(data) as _data, temp_inits(
-            inits, allow_multiple=False
-        ) as _inits:
+        with (
+            temp_single_json(data) as _data,
+            temp_inits(inits, allow_multiple=False) as _inits,
+        ):
             args = CmdStanArgs(
                 self._name,
                 self._exe_file,
@@ -667,14 +666,14 @@ class CmdStanModel:
         chains: Optional[int] = None,
         parallel_chains: Optional[int] = None,
         threads_per_chain: Optional[int] = None,
-        seed: Union[int, List[int], None] = None,
-        chain_ids: Union[int, List[int], None] = None,
+        seed: Union[int, list[int], None] = None,
+        chain_ids: Union[int, list[int], None] = None,
         inits: Union[
             Mapping[str, Any],
             float,
             str,
-            List[str],
-            List[Mapping[str, Any]],
+            list[str],
+            list[Mapping[str, Any]],
             None,
         ] = None,
         iter_warmup: Optional[int] = None,
@@ -683,9 +682,9 @@ class CmdStanModel:
         thin: Optional[int] = None,
         max_treedepth: Optional[int] = None,
         metric: Union[
-            str, Dict[str, Any], List[str], List[Dict[str, Any]], None
+            str, dict[str, Any], list[str], list[dict[str, Any]], None
         ] = None,
-        step_size: Union[float, List[float], None] = None,
+        step_size: Union[float, list[float], None] = None,
         adapt_engaged: bool = True,
         adapt_delta: Optional[float] = None,
         adapt_init_phase: Optional[int] = None,
@@ -703,6 +702,13 @@ class CmdStanModel:
         timeout: Optional[float] = None,
         *,
         force_one_process_per_chain: Optional[bool] = None,
+        inv_metric: Union[
+            str,
+            np.ndarray,
+            Mapping[str, Any],
+            list[Union[str, np.ndarray, Mapping[str, Any]]],
+            None,
+        ] = None,
     ) -> CmdStanMCMC:
         """
         Run or more chains of the NUTS-HMC sampler to produce a set of draws
@@ -791,29 +797,25 @@ class CmdStanModel:
         :param max_treedepth: Maximum depth of trees evaluated by NUTS sampler
             per iteration.
 
-        :param metric: Specification of the mass matrix, either as a
-            vector consisting of the diagonal elements of the covariance
-            matrix ('diag' or 'diag_e') or the full covariance matrix
-            ('dense' or 'dense_e').
+        :param metric: Specify the type of the inverse mass matrix. Options are
+            'diag' or 'diag_e' for diagonal matrix, 'dense' or 'dense_e'
+            for a dense matrix, or 'unit_e' an identity mass matrix. To provide
+            an initial value for the inverse mass matrix, use the ``inv_metric``
+            argument.
 
-            If the value of the metric argument is a string other than
-            'diag', 'diag_e', 'dense', or 'dense_e', it must be
-            a valid filepath to a JSON or Rdump file which contains an entry
-            'inv_metric' whose value is either the diagonal vector or
-            the full covariance matrix.
+        :param inv_metric: Provide an initial value for the inverse
+            mass matrix.
 
-            If the value of the metric argument is a list of paths, its
-            length must match the number of chains and all paths must be
-            unique.
-
-            If the value of the metric argument is a Python dict object, it
-            must contain an entry 'inv_metric' which specifies either the
-            diagnoal or dense matrix.
-
-            If the value of the metric argument is a list of Python dicts,
-            its length must match the number of chains and all dicts must
-            containan entry 'inv_metric' and all 'inv_metric' entries must
-            have the same shape.
+            Valid options include:
+             - a string, which must be a valid filepath to a JSON or
+               Rdump file which contains an entry 'inv_metric' whose value
+               is either a diagonal vector or dense matrix.
+             - a numpy array containing either the diagonal vector or dense
+               matrix.
+             - a dictionary containing an entry 'inv_metric' whose value
+                is either a diagonal vector or dense matrix.
+             - a list of any of the above, of length num_chains, with
+               the same shape of metric in each entry.
 
         :param step_size: Initial step size for HMC sampler.  The value is
             either a single number or a list of numbers which will be used
@@ -926,8 +928,8 @@ class CmdStanModel:
             parallel_chains = chains
         elif parallel_chains < 1:
             raise ValueError(
-                'Argument parallel_chains must be a positive integer, '
-                'found {}.'.format(parallel_chains)
+                'Argument parallel_chains must be a positive '
+                'integer, found {}.'.format(parallel_chains)
             )
         if threads_per_chain is None:
             threads_per_chain = 1
@@ -982,8 +984,8 @@ class CmdStanModel:
             if isinstance(chain_ids, int):
                 if chain_ids < 1:
                     raise ValueError(
-                        'Chain_id must be a positive integer value,'
-                        ' found {}.'.format(chain_ids)
+                        'Chain_id must be a positive integer value, '
+                        'found {}.'.format(chain_ids)
                     )
                 chain_ids = [i + chain_ids for i in range(chains)]
             else:
@@ -1007,34 +1009,79 @@ class CmdStanModel:
                             'Chain_id must be a non-negative integer value,'
                             ' found {}.'.format(chain_id)
                         )
+        if metric is not None and metric not in (
+            'diag',
+            'dense',
+            'unit_e',
+            'diag_e',
+            'dense_e',
+        ):
+            get_logger().warning(
+                "Providing anything other than metric type for"
+                " 'metric' is deprecated and will be removed"
+                " in the next major release."
+                " Please provide such information via"
+                " 'inv_metric' argument."
+            )
+            if inv_metric is not None:
+                raise ValueError(
+                    "Cannot provide both (deprecated) non-metric-type 'metric'"
+                    " argument and 'inv_metric' argument."
+                )
+            inv_metric = metric  # type: ignore # for backwards compatibility
+            metric = None
 
-        sampler_args = SamplerArgs(
-            num_chains=1 if one_process_per_chain else chains,
-            iter_warmup=iter_warmup,
-            iter_sampling=iter_sampling,
-            save_warmup=save_warmup,
-            thin=thin,
-            max_treedepth=max_treedepth,
-            metric=metric,
-            step_size=step_size,
-            adapt_engaged=adapt_engaged,
-            adapt_delta=adapt_delta,
-            adapt_init_phase=adapt_init_phase,
-            adapt_metric_window=adapt_metric_window,
-            adapt_step_size=adapt_step_size,
-            fixed_param=fixed_param,
-        )
+        if metric is None and inv_metric is not None:
+            metric = try_deduce_metric_type(inv_metric)
 
-        with temp_single_json(data) as _data, temp_inits(
-            inits, id=chain_ids[0]
-        ) as _inits:
-            cmdstan_inits: Union[str, List[str], int, float, None]
+        if isinstance(inv_metric, list):
+            if not len(inv_metric) == chains:
+                raise ValueError(
+                    'Number of metric files must match number of chains,'
+                    ' found {} metric files for {} chains.'.format(
+                        len(inv_metric), chains
+                    )
+                )
+
+        with (
+            temp_single_json(data) as _data,
+            temp_inits(inits, id=chain_ids[0]) as _inits,
+            temp_metrics(inv_metric, id=chain_ids[0]) as _inv_metric,
+        ):
+            cmdstan_inits: Union[str, list[str], int, float, None]
+            cmdstan_metrics: Union[str, list[str], None]
+
             if one_process_per_chain and isinstance(inits, list):  # legacy
                 cmdstan_inits = [
                     f"{_inits[:-5]}_{i}.json" for i in chain_ids  # type: ignore
                 ]
             else:
                 cmdstan_inits = _inits
+            if one_process_per_chain and isinstance(inv_metric, list):  # legacy
+                cmdstan_metrics = [
+                    f"{_inv_metric[:-5]}_{i}.json"  # type: ignore
+                    for i in chain_ids
+                ]
+            else:
+                cmdstan_metrics = _inv_metric
+
+            sampler_args = SamplerArgs(
+                num_chains=1 if one_process_per_chain else chains,
+                iter_warmup=iter_warmup,
+                iter_sampling=iter_sampling,
+                save_warmup=save_warmup,
+                thin=thin,
+                max_treedepth=max_treedepth,
+                metric_type=metric,  # type: ignore
+                metric_file=cmdstan_metrics,
+                step_size=step_size,
+                adapt_engaged=adapt_engaged,
+                adapt_delta=adapt_delta,
+                adapt_init_phase=adapt_init_phase,
+                adapt_metric_window=adapt_metric_window,
+                adapt_step_size=adapt_step_size,
+                fixed_param=fixed_param,
+            )
 
             args = CmdStanArgs(
                 self._name,
@@ -1068,9 +1115,6 @@ class CmdStanModel:
                     iter_total += _CMDSTAN_SAMPLING
                 else:
                     iter_total += iter_sampling
-                if refresh is None:
-                    refresh = _CMDSTAN_REFRESH
-                iter_total = iter_total // refresh + 2
 
                 progress_hook = self._wrap_sampler_progress_hook(
                     chain_ids=chain_ids,
@@ -1149,7 +1193,7 @@ class CmdStanModel:
     def generate_quantities(
         self,
         data: Union[Mapping[str, Any], str, os.PathLike, None] = None,
-        previous_fit: Union[Fit, List[str], None] = None,
+        previous_fit: Union[Fit, list[str], None] = None,
         seed: Optional[int] = None,
         gq_output_dir: OptionalPath = None,
         sig_figs: Optional[int] = None,
@@ -1158,7 +1202,7 @@ class CmdStanModel:
         time_fmt: str = "%Y%m%d%H%M%S",
         timeout: Optional[float] = None,
         *,
-        mcmc_sample: Union[CmdStanMCMC, List[str], None] = None,
+        mcmc_sample: Union[CmdStanMCMC, list[str], None] = None,
     ) -> CmdStanGQ[Fit]:
         """
         Run CmdStan's generate_quantities method which runs the generated
@@ -1489,9 +1533,10 @@ class CmdStanModel:
             output_samples=draws,
         )
 
-        with temp_single_json(data) as _data, temp_inits(
-            inits, allow_multiple=False
-        ) as _inits:
+        with (
+            temp_single_json(data) as _data,
+            temp_inits(inits, allow_multiple=False) as _inits,
+        ):
             args = CmdStanArgs(
                 self._name,
                 self._exe_file,
@@ -1579,7 +1624,7 @@ class CmdStanModel:
         calculate_lp: bool = True,
         # arguments standard to all methods
         seed: Optional[int] = None,
-        inits: Union[Dict[str, float], float, str, os.PathLike, None] = None,
+        inits: Union[dict[str, float], float, str, os.PathLike, None] = None,
         output_dir: OptionalPath = None,
         sig_figs: Optional[int] = None,
         save_profile: bool = False,
@@ -1790,7 +1835,7 @@ class CmdStanModel:
 
     def log_prob(
         self,
-        params: Union[Dict[str, Any], str, os.PathLike],
+        params: Union[dict[str, Any], str, os.PathLike],
         data: Union[Mapping[str, Any], str, os.PathLike, None] = None,
         *,
         jacobian: bool = True,
@@ -1832,9 +1877,10 @@ class CmdStanModel:
                 "Method 'log_prob' not available for CmdStan versions "
                 "before 2.31"
             )
-        with temp_single_json(data) as _data, temp_single_json(
-            params
-        ) as _params:
+        with (
+            temp_single_json(data) as _data,
+            temp_single_json(params) as _params,
+        ):
             cmd = [
                 str(self.exe_file),
                 "log_prob",
@@ -1885,7 +1931,7 @@ class CmdStanModel:
         refresh: Optional[int] = None,
         time_fmt: str = "%Y%m%d%H%M%S",
         timeout: Optional[float] = None,
-        opt_args: Optional[Dict[str, Any]] = None,
+        opt_args: Optional[dict[str, Any]] = None,
     ) -> CmdStanLaplace:
         """
         Run a Laplace approximation around the posterior mode.
@@ -2115,20 +2161,19 @@ class CmdStanModel:
             get_logger().info('%s done processing', logger_prefix)
 
         if retcode != 0:
-            retcode_summary = returncode_msg(retcode)
             serror = ''
             try:
                 serror = os.strerror(retcode)
             except (ArithmeticError, ValueError):
                 pass
             get_logger().error(
-                '%s error: %s %s', logger_prefix, retcode_summary, serror
+                "%s error: code '%d' %s", logger_prefix, retcode, serror
             )
 
     @staticmethod
     @progbar.wrap_callback
     def _wrap_sampler_progress_hook(
-        chain_ids: List[int],
+        chain_ids: list[int],
         total: int,
     ) -> Optional[Callable[[str, int], None]]:
         """
@@ -2137,13 +2182,12 @@ class CmdStanModel:
         process, "Chain [id] Iteration" for multi-chain processing.
         For the latter, manage array of pbars, update accordingly.
         """
-        pat = re.compile(r'Chain \[(\d*)\] (Iteration.*)')
-        pbars: Dict[int, tqdm] = {
+        chain_pat = re.compile(r'(Chain \[(\d+)\] )?Iteration:\s+(\d+)')
+        pbars: dict[int, tqdm] = {
             chain_id: tqdm(
                 total=total,
-                bar_format="{desc} |{bar}| {elapsed} {postfix[0][value]}",
-                postfix=[{"value": "Status"}],
                 desc=f'chain {chain_id}',
+                postfix='(Warmup)',
                 colour='yellow',
             )
             for chain_id in chain_ids
@@ -2152,22 +2196,132 @@ class CmdStanModel:
         def progress_hook(line: str, idx: int) -> None:
             if line == "Done":
                 for pbar in pbars.values():
-                    pbar.postfix[0]["value"] = 'Sampling completed'
+                    pbar.set_postfix_str('(Sampling completed)')
                     pbar.update(total - pbar.n)
                     pbar.close()
-            else:
-                match = pat.match(line)
-                if match:
-                    idx = int(match.group(1))
-                    mline = match.group(2).strip()
-                elif line.startswith("Iteration"):
-                    mline = line
-                    idx = chain_ids[idx]
-                else:
-                    return
-                if 'Sampling' in mline:
-                    pbars[idx].colour = 'blue'
-                pbars[idx].update(1)
-                pbars[idx].postfix[0]["value"] = mline
+            elif (match := chain_pat.match(line)) is not None:
+                idx = int(match.group(2) or chain_ids[idx])
+                current_iter = int(match.group(3))
+
+                pbar = pbars[idx]
+                if pbar.colour == 'yellow' and 'Sampling' in line:
+                    pbar.colour = 'blue'
+                    pbar.set_postfix_str('(Sampling)')
+
+                pbar.update(current_iter - pbar.n)
 
         return progress_hook
+
+    def diagnose(
+        self,
+        inits: Union[dict[str, Any], str, os.PathLike, None] = None,
+        data: Union[Mapping[str, Any], str, os.PathLike, None] = None,
+        *,
+        epsilon: Optional[float] = None,
+        error: Optional[float] = None,
+        require_gradients_ok: bool = True,
+        sig_figs: Optional[int] = None,
+    ) -> pd.DataFrame:
+        """
+        Run diagnostics to calculate the gradients at the specified parameter
+        values and compare them with gradients calculated by finite differences.
+
+        :param inits: Specifies how the sampler initializes parameter values.
+            Initialization is either uniform random on a range centered on 0,
+            exactly 0, or a dictionary or file of initial values for some or
+            all parameters in the model. The default initialization behavior
+            will initialize all parameter values on range [-2, 2] on the
+            *unconstrained* support. The following value types are allowed:
+            * Single number, n > 0 - initialization range is [-n, n].
+            * 0 - all parameters are initialized to 0.
+            * dictionary - pairs parameter name : initial value.
+            * string - pathname to a JSON or Rdump data file.
+
+        :param data: Values for all data variables in the model, specified
+            either as a dictionary with entries matching the data variables,
+            or as the path of a data file in JSON or Rdump format.
+
+        :param sig_figs: Numerical precision used for output CSV and text files.
+            Must be an integer between 1 and 18.  If unspecified, the default
+            precision for the system file I/O is used; the usual value is 6.
+
+        :param epsilon: Step size for finite difference gradients.
+
+        :param error: Absolute error threshold for comparing autodiff and finite
+            difference gradients.
+
+        :param require_gradients_ok: Whether or not to raise an error if Stan
+            reports that the difference between autodiff gradients and finite
+            difference gradients exceed the error threshold.
+
+        :return: A pandas.DataFrame containing columns
+            * "param_idx": increasing parameter index.
+            * "value": Parameter value.
+            * "model": Gradients evaluated using autodiff.
+            * "finite_diff": Gradients evaluated using finite differences.
+            * "error": Delta between autodiff and finite difference gradients.
+
+            Gradients are evaluated in the unconstrained space.
+        """
+
+        with temp_single_json(data) as _data, temp_single_json(inits) as _inits:
+            cmd = [
+                str(self.exe_file),
+                "diagnose",
+                "test=gradient",
+            ]
+            if epsilon is not None:
+                cmd.append(f"epsilon={epsilon}")
+            if error is not None:
+                cmd.append(f"epsilon={error}")
+            if _data is not None:
+                cmd += ["data", f"file={_data}"]
+            if _inits is not None:
+                cmd.append(f"init={_inits}")
+
+            output_dir = tempfile.mkdtemp(prefix=self.name, dir=_TMPDIR)
+
+            output = os.path.join(output_dir, "output.csv")
+            cmd += ["output", f"file={output}"]
+            if sig_figs is not None:
+                cmd.append(f"sig_figs={sig_figs}")
+
+            get_logger().debug("Cmd: %s", str(cmd))
+
+            proc = subprocess.run(
+                cmd, capture_output=True, check=False, text=True
+            )
+            if proc.returncode:
+                get_logger().error(
+                    "'diagnose' command failed!\nstdout:%s\nstderr:%s",
+                    proc.stdout,
+                    proc.stderr,
+                )
+                if require_gradients_ok:
+                    raise RuntimeError(
+                        "The difference between autodiff and finite difference "
+                        "gradients may exceed the error threshold. If you "
+                        "would like to inspect the output, re-call with "
+                        "`require_gradients_ok=False`."
+                    )
+                get_logger().warning(
+                    "The difference between autodiff and finite difference "
+                    "gradients may exceed the error threshold. Proceeding "
+                    "because `require_gradients_ok` is set to `False`."
+                )
+
+            # Read the text and get the last chunk separated by a single # char.
+            try:
+                with open(output) as handle:
+                    text = handle.read()
+            except FileNotFoundError as exc:
+                raise RuntimeError(
+                    "Output of 'diagnose' command does not exist."
+                ) from exc
+            *_, table = re.split(r"#\s*\n", text)
+            table = (
+                re.sub(r"^#\s*", "", table, flags=re.M)
+                .replace("param idx", "param_idx")
+                .replace("finite diff", "finite_diff")
+            )
+            return pd.read_csv(io.StringIO(table), sep=r"\s+")

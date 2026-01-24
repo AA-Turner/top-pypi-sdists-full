@@ -22,6 +22,20 @@ class StrategyMissingFeatureError(SocialAuthBaseException):
         return f"Strategy {self.strategy_name} does not support {self.feature_name}"
 
 
+class DefaultStrategyMissingError(SocialAuthBaseException):
+    """Default strategy is not configured."""
+
+    def __str__(self) -> str:
+        return "Default strategy is not configured"
+
+
+class StrategyMissingBackendError(SocialAuthBaseException):
+    """Strategy storage backend is not configured."""
+
+    def __str__(self) -> str:
+        return "Strategy storage backend is not configured"
+
+
 class WrongBackend(SocialAuthBaseException):
     def __init__(self, backend_name: str) -> None:
         self.backend_name = backend_name
@@ -169,3 +183,15 @@ class AuthConnectionError(AuthException):
     def __str__(self) -> str:
         msg = super().__str__()
         return f"Connection error: {msg}"
+
+
+class InvalidExpiryValue(SocialAuthBaseException):
+    """Invalid expiry value in extra_data."""
+
+    def __init__(self, field_name: str, value: object) -> None:
+        self.field_name = field_name
+        self.value = value
+        super().__init__()
+
+    def __str__(self) -> str:
+        return f"Invalid expiry value for field '{self.field_name}': {self.value}"

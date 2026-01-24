@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -79,11 +80,6 @@ from .type_defs import (
     UpdateSubnetGroupResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -94,34 +90,35 @@ __all__ = ("DAXClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ClusterAlreadyExistsFault: Type[BotocoreClientError]
-    ClusterNotFoundFault: Type[BotocoreClientError]
-    ClusterQuotaForCustomerExceededFault: Type[BotocoreClientError]
-    InsufficientClusterCapacityFault: Type[BotocoreClientError]
-    InvalidARNFault: Type[BotocoreClientError]
-    InvalidClusterStateFault: Type[BotocoreClientError]
-    InvalidParameterCombinationException: Type[BotocoreClientError]
-    InvalidParameterGroupStateFault: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    InvalidSubnet: Type[BotocoreClientError]
-    InvalidVPCNetworkStateFault: Type[BotocoreClientError]
-    NodeNotFoundFault: Type[BotocoreClientError]
-    NodeQuotaForClusterExceededFault: Type[BotocoreClientError]
-    NodeQuotaForCustomerExceededFault: Type[BotocoreClientError]
-    ParameterGroupAlreadyExistsFault: Type[BotocoreClientError]
-    ParameterGroupNotFoundFault: Type[BotocoreClientError]
-    ParameterGroupQuotaExceededFault: Type[BotocoreClientError]
-    ServiceLinkedRoleNotFoundFault: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    SubnetGroupAlreadyExistsFault: Type[BotocoreClientError]
-    SubnetGroupInUseFault: Type[BotocoreClientError]
-    SubnetGroupNotFoundFault: Type[BotocoreClientError]
-    SubnetGroupQuotaExceededFault: Type[BotocoreClientError]
-    SubnetInUse: Type[BotocoreClientError]
-    SubnetQuotaExceededFault: Type[BotocoreClientError]
-    TagNotFoundFault: Type[BotocoreClientError]
-    TagQuotaPerResourceExceeded: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClusterAlreadyExistsFault: type[BotocoreClientError]
+    ClusterNotFoundFault: type[BotocoreClientError]
+    ClusterQuotaForCustomerExceededFault: type[BotocoreClientError]
+    InsufficientClusterCapacityFault: type[BotocoreClientError]
+    InvalidARNFault: type[BotocoreClientError]
+    InvalidClusterStateFault: type[BotocoreClientError]
+    InvalidParameterCombinationException: type[BotocoreClientError]
+    InvalidParameterGroupStateFault: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    InvalidSubnet: type[BotocoreClientError]
+    InvalidVPCNetworkStateFault: type[BotocoreClientError]
+    NodeNotFoundFault: type[BotocoreClientError]
+    NodeQuotaForClusterExceededFault: type[BotocoreClientError]
+    NodeQuotaForCustomerExceededFault: type[BotocoreClientError]
+    ParameterGroupAlreadyExistsFault: type[BotocoreClientError]
+    ParameterGroupNotFoundFault: type[BotocoreClientError]
+    ParameterGroupQuotaExceededFault: type[BotocoreClientError]
+    ServiceLinkedRoleNotFoundFault: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    SubnetGroupAlreadyExistsFault: type[BotocoreClientError]
+    SubnetGroupInUseFault: type[BotocoreClientError]
+    SubnetGroupNotFoundFault: type[BotocoreClientError]
+    SubnetGroupQuotaExceededFault: type[BotocoreClientError]
+    SubnetInUse: type[BotocoreClientError]
+    SubnetNotAllowedFault: type[BotocoreClientError]
+    SubnetQuotaExceededFault: type[BotocoreClientError]
+    TagNotFoundFault: type[BotocoreClientError]
+    TagQuotaPerResourceExceeded: type[BotocoreClientError]
 
 
 class DAXClient(BaseClient):

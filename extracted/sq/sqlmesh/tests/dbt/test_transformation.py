@@ -1,5 +1,5 @@
 import agate
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import logging
 import typing as t
@@ -53,6 +53,7 @@ from sqlmesh.dbt.column import (
 )
 from sqlmesh.dbt.context import DbtContext
 from sqlmesh.dbt.model import Materialization, ModelConfig
+from sqlmesh.dbt.source import SourceConfig
 from sqlmesh.dbt.project import Project
 from sqlmesh.dbt.relation import Policy
 from sqlmesh.dbt.seed import SeedConfig
@@ -64,7 +65,7 @@ from sqlmesh.dbt.target import (
     PostgresConfig,
 )
 from sqlmesh.dbt.test import TestConfig
-from sqlmesh.utils.errors import ConfigError, MacroEvalError, SQLMeshError
+from sqlmesh.utils.errors import ConfigError, SQLMeshError
 from sqlmesh.utils.jinja import MacroReference
 
 pytestmark = [pytest.mark.dbt, pytest.mark.slow]
@@ -111,6 +112,129 @@ def test_materialization():
     # clickhouse "dictionary" materialization
     with pytest.raises(ConfigError):
         ModelConfig(name="model", alias="model", schema="schema", materialized="dictionary")
+
+
+def test_dbt_custom_materialization():
+    sushi_context = Context(paths=["tests/fixtures/dbt/sushi_test"])
+
+    plan_builder = sushi_context.plan_builder(select_models=["sushi.custom_incremental_model"])
+    plan = plan_builder.build()
+    assert len(plan.selected_models) == 1
+    selected_model = list(plan.selected_models)[0]
+    assert selected_model == "model.sushi.custom_incremental_model"
+
+    query = "SELECT * FROM sushi.custom_incremental_model ORDER BY created_at"
+    hook_table = "SELECT * FROM hook_table ORDER BY id"
+    sushi_context.apply(plan)
+    result = sushi_context.engine_adapter.fetchdf(query)
+    assert len(result) == 1
+    assert {"created_at", "id"}.issubset(result.columns)
+
+    # assert the pre/post hooks executed as well as part of the custom materialization
+    hook_result = sushi_context.engine_adapter.fetchdf(hook_table)
+    assert len(hook_result) == 1
+    assert {"length_col", "id", "updated_at"}.issubset(hook_result.columns)
+    assert int(hook_result["length_col"][0]) >= 519
+    assert hook_result["id"][0] == 1
+
+    # running with execution time one day in the future to simulate an incremental insert
+    tomorrow = datetime.now() + timedelta(days=1)
+    sushi_context.run(select_models=["sushi.custom_incremental_model"], execution_time=tomorrow)
+
+    result_after_run = sushi_context.engine_adapter.fetchdf(query)
+    assert {"created_at", "id"}.issubset(result_after_run.columns)
+
+    # this should have added new unique values for the new row
+    assert len(result_after_run) == 2
+    assert result_after_run["id"].is_unique
+    assert result_after_run["created_at"].is_unique
+
+    # validate the hooks executed as part of the run as well
+    hook_result = sushi_context.engine_adapter.fetchdf(hook_table)
+    assert len(hook_result) == 2
+    assert hook_result["id"][1] == 2
+    assert int(hook_result["length_col"][1]) >= 519
+    assert hook_result["id"].is_monotonic_increasing
+    assert hook_result["updated_at"].is_unique
+    assert not hook_result["length_col"].is_unique
+
+
+def test_dbt_custom_materialization_with_time_filter_and_macro():
+    sushi_context = Context(paths=["tests/fixtures/dbt/sushi_test"])
+    today = datetime.now()
+
+    # select both custom materialiasation models with the wildcard
+    selector = ["sushi.custom_incremental*"]
+    plan_builder = sushi_context.plan_builder(select_models=selector, execution_time=today)
+    plan = plan_builder.build()
+
+    assert len(plan.selected_models) == 2
+    assert {
+        "model.sushi.custom_incremental_model",
+        "model.sushi.custom_incremental_with_filter",
+    }.issubset(plan.selected_models)
+
+    # the model that daily (default cron) populates with data
+    select_daily = "SELECT * FROM sushi.custom_incremental_model ORDER BY created_at"
+
+    # this model uses `run_started_at` as a filter (which we populate with execution time) with 2 day interval
+    select_filter = "SELECT * FROM sushi.custom_incremental_with_filter ORDER BY created_at"
+
+    sushi_context.apply(plan)
+    result = sushi_context.engine_adapter.fetchdf(select_daily)
+    assert len(result) == 1
+    assert {"created_at", "id"}.issubset(result.columns)
+
+    result = sushi_context.engine_adapter.fetchdf(select_filter)
+    assert len(result) == 1
+    assert {"created_at", "id"}.issubset(result.columns)
+
+    # - run ONE DAY LATER
+    a_day_later = today + timedelta(days=1)
+    sushi_context.run(select_models=selector, execution_time=a_day_later)
+    result_after_run = sushi_context.engine_adapter.fetchdf(select_daily)
+
+    # the new row is inserted in the normal incremental model
+    assert len(result_after_run) == 2
+    assert {"created_at", "id"}.issubset(result_after_run.columns)
+    assert result_after_run["id"].is_unique
+    assert result_after_run["created_at"].is_unique
+
+    # this model due to the filter shouldn't populate with any new data
+    result_after_run_filter = sushi_context.engine_adapter.fetchdf(select_filter)
+    assert len(result_after_run_filter) == 1
+    assert {"created_at", "id"}.issubset(result_after_run_filter.columns)
+    assert result.equals(result_after_run_filter)
+    assert result_after_run_filter["id"].is_unique
+    assert result_after_run_filter["created_at"][0].date() == today.date()
+
+    # - run TWO DAYS LATER
+    two_days_later = a_day_later + timedelta(days=1)
+    sushi_context.run(select_models=selector, execution_time=two_days_later)
+    result_after_run = sushi_context.engine_adapter.fetchdf(select_daily)
+
+    # again a new row is inserted in the normal model
+    assert len(result_after_run) == 3
+    assert {"created_at", "id"}.issubset(result_after_run.columns)
+    assert result_after_run["id"].is_unique
+    assert result_after_run["created_at"].is_unique
+
+    # the model with the filter now should populate as well
+    result_after_run_filter = sushi_context.engine_adapter.fetchdf(select_filter)
+    assert len(result_after_run_filter) == 2
+    assert {"created_at", "id"}.issubset(result_after_run_filter.columns)
+    assert result_after_run_filter["id"].is_unique
+    assert result_after_run_filter["created_at"][0].date() == today.date()
+    assert result_after_run_filter["created_at"][1].date() == two_days_later.date()
+
+    # assert hooks have executed for both plan and incremental runs
+    hook_result = sushi_context.engine_adapter.fetchdf("SELECT * FROM hook_table ORDER BY id")
+    assert len(hook_result) == 3
+    hook_result["id"][0] == 1
+    assert hook_result["id"].is_monotonic_increasing
+    assert hook_result["updated_at"].is_unique
+    assert int(hook_result["length_col"][1]) >= 519
+    assert not hook_result["length_col"].is_unique
 
 
 def test_model_kind():
@@ -167,6 +291,32 @@ def test_model_kind():
         on_destructive_change=OnDestructiveChange.IGNORE,
         on_additive_change=OnAdditiveChange.ALLOW,
     )
+
+    check_cols_with_cast = ModelConfig(
+        materialized=Materialization.SNAPSHOT,
+        unique_key=["id"],
+        strategy="check",
+        check_cols=["created_at::TIMESTAMPTZ"],
+    ).model_kind(context)
+    assert isinstance(check_cols_with_cast, SCDType2ByColumnKind)
+    assert check_cols_with_cast.execution_time_as_valid_from is True
+    assert len(check_cols_with_cast.columns) == 1
+    assert isinstance(check_cols_with_cast.columns[0], exp.Cast)
+    assert check_cols_with_cast.columns[0].sql() == 'CAST("created_at" AS TIMESTAMPTZ)'
+
+    check_cols_multiple_expr = ModelConfig(
+        materialized=Materialization.SNAPSHOT,
+        unique_key=["id"],
+        strategy="check",
+        check_cols=["created_at::TIMESTAMPTZ", "COALESCE(status, 'active')"],
+    ).model_kind(context)
+    assert isinstance(check_cols_multiple_expr, SCDType2ByColumnKind)
+    assert len(check_cols_multiple_expr.columns) == 2
+    assert isinstance(check_cols_multiple_expr.columns[0], exp.Cast)
+    assert isinstance(check_cols_multiple_expr.columns[1], exp.Coalesce)
+
+    assert check_cols_multiple_expr.columns[0].sql() == 'CAST("created_at" AS TIMESTAMPTZ)'
+    assert check_cols_multiple_expr.columns[1].sql() == "COALESCE(\"status\", 'active')"
 
     assert ModelConfig(materialized=Materialization.INCREMENTAL, time_column="foo").model_kind(
         context
@@ -529,6 +679,23 @@ def test_model_kind():
         == ManagedKind()
     )
 
+    assert ModelConfig(
+        materialized=Materialization.SNAPSHOT,
+        unique_key=["id"],
+        updated_at="updated_at::timestamp",
+        strategy="timestamp",
+        dialect="redshift",
+    ).model_kind(context) == SCDType2ByTimeKind(
+        unique_key=["id"],
+        valid_from_name="dbt_valid_from",
+        valid_to_name="dbt_valid_to",
+        updated_at_as_valid_from=True,
+        updated_at_name="updated_at",
+        dialect="redshift",
+        on_destructive_change=OnDestructiveChange.IGNORE,
+        on_additive_change=OnAdditiveChange.ALLOW,
+    )
+
 
 def test_model_kind_snapshot_bigquery():
     context = DbtContext()
@@ -698,6 +865,28 @@ def test_seed_column_types():
         "name": exp.DataType.build("text"),
     }
     sqlmesh_seed = seed.to_sqlmesh(context)
+    assert sqlmesh_seed.columns_to_types == expected_column_types
+
+    seed = SeedConfig(
+        name="foo",
+        package="package",
+        path=Path("examples/sushi_dbt/seeds/waiter_names.csv"),
+        column_types={
+            "id": "TEXT",
+            "name": "TEXT NOT NULL",
+        },
+        quote_columns=True,
+    )
+
+    expected_column_types = {
+        "id": exp.DataType.build("text"),
+        "name": exp.DataType.build("text"),
+    }
+
+    logger = logging.getLogger("sqlmesh.dbt.column")
+    with patch.object(logger, "warning") as mock_logger:
+        sqlmesh_seed = seed.to_sqlmesh(context)
+    assert "Ignoring unsupported constraints" in mock_logger.call_args[0][0]
     assert sqlmesh_seed.columns_to_types == expected_column_types
 
 
@@ -1023,8 +1212,41 @@ def test_target_jinja(sushi_test_project: Project):
         user="user",
         password="password",
         warehouse="warehouse",
+        role="role",
+        threads=1,
     )
+    assert context.render("{{ target.threads }}") == "1"
+    assert context.render("{{ target.database }}") == "test"
     assert context.render("{{ target.warehouse }}") == "warehouse"
+    assert context.render("{{ target.user }}") == "user"
+    assert context.render("{{ target.role }}") == "role"
+    assert context.render("{{ target.account }}") == "account"
+
+    context = DbtContext()
+    context._target = PostgresConfig(
+        name="target",
+        schema="test",
+        database="test",
+        dbname="test",
+        host="host",
+        port=5432,
+        user="user",
+        password="password",
+    )
+    assert context.render("{{ target.dbname }}") == "test"
+    assert context.render("{{ target.host }}") == "host"
+    assert context.render("{{ target.port }}") == "5432"
+
+    context = DbtContext()
+    context._target = BigQueryConfig(
+        name="target",
+        schema="test_value",
+        database="test_project",
+    )
+    assert context.render("{{ target.project }}") == "test_project"
+    assert context.render("{{ target.database }}") == "test_project"
+    assert context.render("{{ target.schema }}") == "test_value"
+    assert context.render("{{ target.dataset }}") == "test_value"
 
 
 @pytest.mark.xdist_group("dbt_manifest")
@@ -1419,6 +1641,29 @@ def test_exceptions(sushi_test_project: Project):
 
 
 @pytest.mark.xdist_group("dbt_manifest")
+def test_try_or_compiler_error(sushi_test_project: Project):
+    context = sushi_test_project.context
+
+    result = context.render(
+        '{{ try_or_compiler_error("Error message", modules.datetime.datetime.strptime, "2023-01-15", "%Y-%m-%d") }}'
+    )
+    assert "2023-01-15" in result
+
+    with pytest.raises(CompilationError, match="Invalid date format"):
+        context.render(
+            '{{ try_or_compiler_error("Invalid date format", modules.datetime.datetime.strptime, "invalid", "%Y-%m-%d") }}'
+        )
+
+    # built-in macro calling try_or_compiler_error works
+    result = context.render(
+        '{{ dbt.dates_in_range("2023-01-01", "2023-01-03", "%Y-%m-%d", "%Y-%m-%d") }}'
+    )
+    assert "2023-01-01" in result
+    assert "2023-01-02" in result
+    assert "2023-01-03" in result
+
+
+@pytest.mark.xdist_group("dbt_manifest")
 def test_modules(sushi_test_project: Project):
     context = sushi_test_project.context
 
@@ -1506,12 +1751,10 @@ def test_as_filters(sushi_test_project: Project):
     context = sushi_test_project.context
 
     assert context.render("{{ True | as_bool }}") == "True"
-    with pytest.raises(MacroEvalError, match="Failed to convert 'invalid' into boolean."):
-        context.render("{{ 'invalid' | as_bool }}")
+    assert context.render("{{ 'valid' | as_bool }}") == "valid"
 
     assert context.render("{{ 123 | as_number }}") == "123"
-    with pytest.raises(MacroEvalError, match="Failed to convert 'invalid' into number."):
-        context.render("{{ 'invalid' | as_number }}")
+    assert context.render("{{ 'valid' | as_number }}") == "valid"
 
     assert context.render("{{ None | as_text }}") == ""
 
@@ -1640,7 +1883,7 @@ def test_parsetime_adapter_call(
 
 
 @pytest.mark.xdist_group("dbt_manifest")
-def test_partition_by(sushi_test_project: Project):
+def test_partition_by(sushi_test_project: Project, caplog):
     context = sushi_test_project.context
     context.target = BigQueryConfig(name="production", database="main", schema="sushi")
     model_config = ModelConfig(
@@ -1683,6 +1926,15 @@ def test_partition_by(sushi_test_project: Project):
     context.target = DuckDbConfig(name="target", schema="foo")
     assert model_config.to_sqlmesh(context).partitioned_by == []
 
+    context.target = SnowflakeConfig(
+        name="target", schema="test", database="test", account="foo", user="bar", password="baz"
+    )
+    assert model_config.to_sqlmesh(context).partitioned_by == []
+    assert (
+        "Ignoring partition_by config for model 'model' targeting snowflake. The partition_by config is not supported for Snowflake."
+        in caplog.text
+    )
+
     model_config = ModelConfig(
         name="model",
         alias="model",
@@ -1694,6 +1946,29 @@ def test_partition_by(sushi_test_project: Project):
         sql="""SELECT 1 AS one, ds FROM foo""",
     )
     assert model_config.to_sqlmesh(context).partitioned_by == []
+
+    model_config = ModelConfig(
+        name="model",
+        alias="model",
+        schema="test",
+        package_name="package",
+        materialized=Materialization.EPHEMERAL.value,
+        unique_key="ds",
+        partition_by={"field": "ds", "granularity": "month"},
+        sql="""SELECT 1 AS one, ds FROM foo""",
+    )
+    assert model_config.to_sqlmesh(context).partitioned_by == []
+
+    with pytest.raises(ConfigError, match="Unexpected data_type 'string' in partition_by"):
+        ModelConfig(
+            name="model",
+            alias="model",
+            schema="test",
+            package_name="package",
+            materialized="table",
+            partition_by={"field": "ds", "data_type": "string"},
+            sql="""SELECT 1 AS one, ds FROM foo""",
+        )
 
 
 @pytest.mark.xdist_group("dbt_manifest")
@@ -1965,8 +2240,9 @@ def test_snapshot_json_payload():
     assert snapshot_json["node"]["jinja_macros"]["global_objs"]["target"] == {
         "type": "duckdb",
         "name": "in_memory",
-        "schema": "sushi",
         "database": "memory",
+        "schema": "sushi",
+        "threads": 1,
         "target_name": "in_memory",
     }
 
@@ -2084,6 +2360,60 @@ def test_model_cluster_by():
         materialized=Materialization.EPHEMERAL.value,
     )
     assert model.to_sqlmesh(context).clustered_by == []
+
+    model = ModelConfig(
+        name="model",
+        alias="model",
+        package_name="package",
+        target_schema="test",
+        cluster_by="Bar, qux",
+        sql="SELECT * FROM baz",
+        materialized=Materialization.TABLE.value,
+    )
+    assert model.to_sqlmesh(context).clustered_by == [
+        exp.to_column('"BAR"'),
+        exp.to_column('"QUX"'),
+    ]
+
+    model = ModelConfig(
+        name="model",
+        alias="model",
+        package_name="package",
+        target_schema="test",
+        cluster_by=['"Bar,qux"'],
+        sql="SELECT * FROM baz",
+        materialized=Materialization.TABLE.value,
+    )
+    assert model.to_sqlmesh(context).clustered_by == [
+        exp.to_column('"Bar,qux"'),
+    ]
+
+    model = ModelConfig(
+        name="model",
+        alias="model",
+        package_name="package",
+        target_schema="test",
+        cluster_by='"Bar,qux"',
+        sql="SELECT * FROM baz",
+        materialized=Materialization.TABLE.value,
+    )
+    assert model.to_sqlmesh(context).clustered_by == [
+        exp.to_column('"Bar,qux"'),
+    ]
+
+    model = ModelConfig(
+        name="model",
+        alias="model",
+        package_name="package",
+        target_schema="test",
+        cluster_by=["to_date(Bar),qux"],
+        sql="SELECT * FROM baz",
+        materialized=Materialization.TABLE.value,
+    )
+    assert model.to_sqlmesh(context).clustered_by == [
+        exp.TsOrDsToDate(this=exp.to_column('"BAR"')),
+        exp.to_column('"QUX"'),
+    ]
 
 
 def test_snowflake_dynamic_table():
@@ -2492,3 +2822,208 @@ def test_selected_resources_context_variable(
 
     result = context.render(test_condition, selected_resources=selected_resources)
     assert result.strip() == "has_resources"
+
+
+def test_ignore_source_depends_on_when_also_model(dbt_dummy_postgres_config: PostgresConfig):
+    context = DbtContext()
+    context._target = dbt_dummy_postgres_config
+
+    source_a = SourceConfig(
+        name="source_a",
+        fqn=["package", "schema", "model_a"],
+    )
+    source_a._canonical_name = "schema.source_a"
+    source_b = SourceConfig(
+        name="source_b",
+        fqn=["package", "schema", "source_b"],
+    )
+    source_b._canonical_name = "schema.source_b"
+    context.sources = {"source_a": source_a, "source_b": source_b}
+
+    model = ModelConfig(
+        dependencies=Dependencies(sources={"source_a", "source_b"}),
+        fqn=["package", "schema", "test_model"],
+    )
+    context.models = {
+        "test_model": model,
+        "model_a": ModelConfig(name="model_a", fqn=["package", "schema", "model_a"]),
+    }
+
+    assert model.sqlmesh_model_kwargs(context)["depends_on"] == {"schema.source_b"}
+
+
+@pytest.mark.xdist_group("dbt_manifest")
+def test_dbt_hooks_with_transaction_flag(sushi_test_dbt_context: Context):
+    model_fqn = '"memory"."sushi"."model_with_transaction_hooks"'
+    assert model_fqn in sushi_test_dbt_context.models
+
+    model = sushi_test_dbt_context.models[model_fqn]
+
+    pre_statements = model.pre_statements_
+    assert pre_statements is not None
+    assert len(pre_statements) >= 3
+
+    # we need to check the expected SQL but more importantly that the transaction flags are there
+    assert any(
+        s.sql == 'JINJA_STATEMENT_BEGIN;\n{{ log("pre-hook") }}\nJINJA_END;'
+        and s.transaction is True
+        for s in pre_statements
+    )
+    assert any(
+        "CREATE TABLE IF NOT EXISTS hook_outside_pre_table" in s.sql and s.transaction is False
+        for s in pre_statements
+    )
+    assert any(
+        "CREATE TABLE IF NOT EXISTS shared_hook_table" in s.sql and s.transaction is False
+        for s in pre_statements
+    )
+    assert any(
+        "{{ insert_into_shared_hook_table('inside_pre') }}" in s.sql and s.transaction is True
+        for s in pre_statements
+    )
+
+    post_statements = model.post_statements_
+    assert post_statements is not None
+    assert len(post_statements) >= 4
+    assert any(
+        s.sql == 'JINJA_STATEMENT_BEGIN;\n{{ log("post-hook") }}\nJINJA_END;'
+        and s.transaction is True
+        for s in post_statements
+    )
+    assert any(
+        "{{ insert_into_shared_hook_table('inside_post') }}" in s.sql and s.transaction is True
+        for s in post_statements
+    )
+    assert any(
+        "CREATE TABLE IF NOT EXISTS hook_outside_post_table" in s.sql and s.transaction is False
+        for s in post_statements
+    )
+    assert any(
+        "{{ insert_into_shared_hook_table('after_commit') }}" in s.sql and s.transaction is False
+        for s in post_statements
+    )
+
+    # render_pre_statements with inside_transaction=True should only return inserrt
+    inside_pre_statements = model.render_pre_statements(inside_transaction=True)
+    assert len(inside_pre_statements) == 1
+    assert (
+        inside_pre_statements[0].sql()
+        == """INSERT INTO "shared_hook_table" ("id", "hook_name", "execution_order", "created_at") VALUES ((SELECT COALESCE(MAX("id"), 0) + 1 FROM "shared_hook_table"), 'inside_pre', (SELECT COALESCE(MAX("id"), 0) + 1 FROM "shared_hook_table"), NOW())"""
+    )
+
+    # while for render_pre_statements with inside_transaction=False the create statements
+    outside_pre_statements = model.render_pre_statements(inside_transaction=False)
+    assert len(outside_pre_statements) == 2
+    assert "CREATE" in outside_pre_statements[0].sql()
+    assert "hook_outside_pre_table" in outside_pre_statements[0].sql()
+    assert "CREATE" in outside_pre_statements[1].sql()
+    assert "shared_hook_table" in outside_pre_statements[1].sql()
+
+    # similarly for post statements
+    inside_post_statements = model.render_post_statements(inside_transaction=True)
+    assert len(inside_post_statements) == 1
+    assert (
+        inside_post_statements[0].sql()
+        == """INSERT INTO "shared_hook_table" ("id", "hook_name", "execution_order", "created_at") VALUES ((SELECT COALESCE(MAX("id"), 0) + 1 FROM "shared_hook_table"), 'inside_post', (SELECT COALESCE(MAX("id"), 0) + 1 FROM "shared_hook_table"), NOW())"""
+    )
+
+    outside_post_statements = model.render_post_statements(inside_transaction=False)
+    assert len(outside_post_statements) == 2
+    assert "CREATE" in outside_post_statements[0].sql()
+    assert "hook_outside_post_table" in outside_post_statements[0].sql()
+    assert "INSERT" in outside_post_statements[1].sql()
+    assert "shared_hook_table" in outside_post_statements[1].sql()
+
+
+@pytest.mark.xdist_group("dbt_manifest")
+def test_dbt_hooks_with_transaction_flag_execution(sushi_test_dbt_context: Context):
+    model_fqn = '"memory"."sushi"."model_with_transaction_hooks"'
+    assert model_fqn in sushi_test_dbt_context.models
+
+    plan = sushi_test_dbt_context.plan(select_models=["sushi.model_with_transaction_hooks"])
+    sushi_test_dbt_context.apply(plan)
+
+    result = sushi_test_dbt_context.engine_adapter.fetchdf(
+        "SELECT * FROM sushi.model_with_transaction_hooks"
+    )
+    assert len(result) == 1
+    assert result["id"][0] == 1
+    assert result["name"][0] == "test"
+
+    # ensure the outside pre-hook and post-hook table were created
+    pre_outside = sushi_test_dbt_context.engine_adapter.fetchdf(
+        "SELECT * FROM hook_outside_pre_table"
+    )
+    assert len(pre_outside) == 1
+    assert pre_outside["id"][0] == 1
+    assert pre_outside["location"][0] == "outside"
+    assert pre_outside["execution_order"][0] == 1
+
+    post_outside = sushi_test_dbt_context.engine_adapter.fetchdf(
+        "SELECT * FROM hook_outside_post_table"
+    )
+    assert len(post_outside) == 1
+    assert post_outside["id"][0] == 5
+    assert post_outside["location"][0] == "outside"
+    assert post_outside["execution_order"][0] == 5
+
+    # verify the shared table that was created by before_begin and populated by all hooks
+    shared_table = sushi_test_dbt_context.engine_adapter.fetchdf(
+        "SELECT * FROM shared_hook_table ORDER BY execution_order"
+    )
+    assert len(shared_table) == 3
+    assert shared_table["execution_order"].is_monotonic_increasing
+
+    # The order of creation and insertion will verify the following order of execution
+    # 1. before_begin (transaction=false) ran BEFORE the transaction started and created the table
+    # 2. inside_pre (transaction=true) ran INSIDE the transaction and could insert into the table
+    # 3. inside_post (transaction=true) ran INSIDE the transaction and could insert into the table (but after pre statement)
+    # 4. after_commit (transaction=false) ran AFTER the transaction committed
+
+    assert shared_table["id"][0] == 1
+    assert shared_table["hook_name"][0] == "inside_pre"
+    assert shared_table["execution_order"][0] == 1
+
+    assert shared_table["id"][1] == 2
+    assert shared_table["hook_name"][1] == "inside_post"
+    assert shared_table["execution_order"][1] == 2
+
+    assert shared_table["id"][2] == 3
+    assert shared_table["hook_name"][2] == "after_commit"
+    assert shared_table["execution_order"][2] == 3
+
+    # the timestamps also should be monotonically increasing for the same reason
+    for i in range(len(shared_table) - 1):
+        assert shared_table["created_at"][i] <= shared_table["created_at"][i + 1]
+
+    # the tables using the alternate syntax should have correct order as well
+    assert pre_outside["created_at"][0] < shared_table["created_at"][0]
+    assert post_outside["created_at"][0] > shared_table["created_at"][1]
+
+    # running with execution time one day in the future to simulate a run
+    tomorrow = datetime.now() + timedelta(days=1)
+    sushi_test_dbt_context.run(
+        select_models=["sushi.model_with_transaction_hooks"], execution_time=tomorrow
+    )
+
+    # to verify that the transaction information persists in state and is respected
+    shared_table = sushi_test_dbt_context.engine_adapter.fetchdf(
+        "SELECT * FROM shared_hook_table ORDER BY execution_order"
+    )
+
+    # and the execution order for run is similar
+    assert shared_table["execution_order"].is_monotonic_increasing
+    assert shared_table["id"][3] == 4
+    assert shared_table["hook_name"][3] == "inside_pre"
+    assert shared_table["execution_order"][3] == 4
+
+    assert shared_table["id"][4] == 5
+    assert shared_table["hook_name"][4] == "inside_post"
+    assert shared_table["execution_order"][4] == 5
+
+    assert shared_table["id"][5] == 6
+    assert shared_table["hook_name"][5] == "after_commit"
+    assert shared_table["execution_order"][5] == 6
+
+    for i in range(len(shared_table) - 1):
+        assert shared_table["created_at"][i] <= shared_table["created_at"][i + 1]

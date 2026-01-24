@@ -205,6 +205,14 @@ def test_url_custom_scheme():
     assert validator(url) == url
 
 
+def test_url_custom_scheme_case_insensitive():
+    validator = validate.URL(schemes={"HTTP"})
+    assert validator("http://example.com") == "http://example.com"
+
+    validator = validate.URL(schemes={"HtTp"})
+    assert validator("hTtP://example.com") == "hTtP://example.com"
+
+
 @pytest.mark.parametrize(
     "valid_url",
     (
@@ -216,6 +224,14 @@ def test_url_custom_scheme():
         "file:///tmp/test%20file.txt",
         "file:///",
         "file://localhost/",
+        "FILE:///tmp/tmp1234",
+        "FILE://localhost/tmp/tmp1234",
+        "FILE:///C:/Users/test/file.txt",
+        "FILE://localhost/C:/Program%20Files/file.exe",
+        "FILE:///home/user/documents/test.pdf",
+        "FILE:///tmp/test%20file.txt",
+        "FILE:///",
+        "FILE://localhost/",
     ),
 )
 def test_url_accepts_valid_file_urls(valid_url):

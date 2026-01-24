@@ -15,12 +15,16 @@ T = TypeVar("T", bound="GetHubFlowByIdResponse200Flow")
 
 @_attrs_define
 class GetHubFlowByIdResponse200Flow:
-    """
+    """Top-level flow definition containing metadata, configuration, and the flow structure
+
     Attributes:
-        summary (str):
-        value (GetHubFlowByIdResponse200FlowValue):
-        description (Union[Unset, str]):
-        schema (Union[Unset, GetHubFlowByIdResponse200FlowSchema]):
+        summary (str): Short description of what this flow does
+        value (GetHubFlowByIdResponse200FlowValue): The flow structure containing modules and optional
+            preprocessor/failure handlers
+        description (Union[Unset, str]): Detailed documentation for this flow
+        schema (Union[Unset, GetHubFlowByIdResponse200FlowSchema]): JSON Schema for flow inputs. Use this to define
+            input parameters, their types, defaults, and validation. For resource inputs, set type to 'object' and format to
+            'resource-<type>' (e.g., 'resource-stripe')
     """
 
     summary: str

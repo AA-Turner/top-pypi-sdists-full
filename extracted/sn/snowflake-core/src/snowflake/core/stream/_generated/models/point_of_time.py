@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, ClassVar, Dict, Optional, Union
 
-from pydantic import BaseModel, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictStr, field_validator
 
 import snowflake.core.stream._generated.models
 
@@ -46,9 +46,10 @@ class PointOfTime(BaseModel):
             raise ValueError("must validate the enum values ('at','before')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     # JSON field name that stores the object type
     __discriminator_property_name: ClassVar[str] = "point_of_time_type"
@@ -106,7 +107,7 @@ class PointOfTime(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 

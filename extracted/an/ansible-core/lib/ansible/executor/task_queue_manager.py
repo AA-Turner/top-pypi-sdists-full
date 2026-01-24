@@ -18,8 +18,10 @@
 from __future__ import annotations
 
 import dataclasses
+import errno
 import os
 import sys
+import signal
 import tempfile
 import threading
 import time
@@ -57,8 +59,6 @@ STDOUT_FILENO = 1
 STDERR_FILENO = 2
 
 display = Display()
-
-_T = t.TypeVar('_T')
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
@@ -187,8 +187,48 @@ class TaskQueueManager:
         # plugins for inter-process locking.
         self._connection_lockfile = tempfile.TemporaryFile()
 
+        self._workers: list[WorkerProcess | None] = []
+
+        # signal handlers to propagate signals to workers
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
+
     def _initialize_processes(self, num: int) -> None:
-        self._workers: list[WorkerProcess | None] = [None] * num
+        # mutable update to ensure the reference stays the same
+        self._workers[:] = [None] * num
+
+    def _signal_handler(self, signum, frame) -> None:
+        """
+        terminate all running process groups created as a result of calling
+        setsid from within a WorkerProcess.
+
+        Since the children become process leaders, signals will not
+        automatically propagate to them.
+        """
+        signal.signal(signum, signal.SIG_DFL)
+
+        for worker in self._workers:
+            if worker is None or not worker.is_alive():
+                continue
+            if worker.pid:
+                try:
+                    # notify workers
+                    os.kill(worker.pid, signum)
+                except OSError as e:
+                    if e.errno != errno.ESRCH:
+                        signame = signal.strsignal(signum)
+                        display.error(f'Unable to send {signame} to child[{worker.pid}]: {e}')
+
+        if signum == signal.SIGINT:
+            # Defer to CLI handling
+            raise KeyboardInterrupt()
+
+        pid = os.getpid()
+        try:
+            os.kill(pid, signum)
+        except OSError as e:
+            signame = signal.strsignal(signum)
+            display.error(f'Unable to send {signame} to {pid}: {e}')
 
     def load_callbacks(self):
         """
@@ -413,7 +453,7 @@ class TaskQueueManager:
         return defunct
 
     @staticmethod
-    def _first_arg_of_type(value_type: t.Type[_T], args: t.Sequence) -> _T | None:
+    def _first_arg_of_type[T](value_type: t.Type[T], args: t.Sequence) -> T | None:
         return next((arg for arg in args if isinstance(arg, value_type)), None)
 
     @lock_decorator(attr='_callback_lock')

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Union, Iterable, Optional
+from typing import Dict, Union, Iterable, Optional
 from datetime import datetime
 from typing_extensions import Literal
 
 import httpx
 
 from ..types import refund_list_params, refund_create_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -51,20 +51,23 @@ class RefundsResource(SyncAPIResource):
         self,
         *,
         payment_id: str,
-        items: Optional[Iterable[refund_create_params.Item]] | NotGiven = NOT_GIVEN,
-        reason: Optional[str] | NotGiven = NOT_GIVEN,
+        items: Optional[Iterable[refund_create_params.Item]] | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        reason: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Refund:
         """
         Args:
           payment_id: The unique identifier of the payment to be refunded.
 
           items: Partially Refund an Individual Item
+
+          metadata: Additional metadata associated with the refund.
 
           reason: The reason for the refund, if any. Maximum length is 3000 characters. Optional.
 
@@ -82,6 +85,7 @@ class RefundsResource(SyncAPIResource):
                 {
                     "payment_id": payment_id,
                     "items": items,
+                    "metadata": metadata,
                     "reason": reason,
                 },
                 refund_create_params.RefundCreateParams,
@@ -101,7 +105,7 @@ class RefundsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Refund:
         """
         Args:
@@ -126,18 +130,18 @@ class RefundsResource(SyncAPIResource):
     def list(
         self,
         *,
-        created_at_gte: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        created_at_lte: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        customer_id: str | NotGiven = NOT_GIVEN,
-        page_number: int | NotGiven = NOT_GIVEN,
-        page_size: int | NotGiven = NOT_GIVEN,
-        status: Literal["succeeded", "failed", "pending", "review"] | NotGiven = NOT_GIVEN,
+        created_at_gte: Union[str, datetime] | Omit = omit,
+        created_at_lte: Union[str, datetime] | Omit = omit,
+        customer_id: str | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
+        status: Literal["succeeded", "failed", "pending", "review"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncDefaultPageNumberPagination[RefundListResponse]:
         """
         Args:
@@ -209,20 +213,23 @@ class AsyncRefundsResource(AsyncAPIResource):
         self,
         *,
         payment_id: str,
-        items: Optional[Iterable[refund_create_params.Item]] | NotGiven = NOT_GIVEN,
-        reason: Optional[str] | NotGiven = NOT_GIVEN,
+        items: Optional[Iterable[refund_create_params.Item]] | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        reason: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Refund:
         """
         Args:
           payment_id: The unique identifier of the payment to be refunded.
 
           items: Partially Refund an Individual Item
+
+          metadata: Additional metadata associated with the refund.
 
           reason: The reason for the refund, if any. Maximum length is 3000 characters. Optional.
 
@@ -240,6 +247,7 @@ class AsyncRefundsResource(AsyncAPIResource):
                 {
                     "payment_id": payment_id,
                     "items": items,
+                    "metadata": metadata,
                     "reason": reason,
                 },
                 refund_create_params.RefundCreateParams,
@@ -259,7 +267,7 @@ class AsyncRefundsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Refund:
         """
         Args:
@@ -284,18 +292,18 @@ class AsyncRefundsResource(AsyncAPIResource):
     def list(
         self,
         *,
-        created_at_gte: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        created_at_lte: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        customer_id: str | NotGiven = NOT_GIVEN,
-        page_number: int | NotGiven = NOT_GIVEN,
-        page_size: int | NotGiven = NOT_GIVEN,
-        status: Literal["succeeded", "failed", "pending", "review"] | NotGiven = NOT_GIVEN,
+        created_at_gte: Union[str, datetime] | Omit = omit,
+        created_at_lte: Union[str, datetime] | Omit = omit,
+        customer_id: str | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
+        status: Literal["succeeded", "failed", "pending", "review"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[RefundListResponse, AsyncDefaultPageNumberPagination[RefundListResponse]]:
         """
         Args:

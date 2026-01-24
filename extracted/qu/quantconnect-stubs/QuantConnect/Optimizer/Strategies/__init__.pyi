@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -25,19 +25,6 @@ class OptimizationStrategySettings(System.Object):
 
     @max_runtime.setter
     def max_runtime(self, value: datetime.timedelta) -> None:
-        ...
-
-
-class StepBaseOptimizationStrategySettings(QuantConnect.Optimizer.Strategies.OptimizationStrategySettings):
-    """Defines the specific optimization strategy settings"""
-
-    @property
-    def default_segment_amount(self) -> int:
-        """Defines the default number of segments for the next step"""
-        ...
-
-    @default_segment_amount.setter
-    def default_segment_amount(self, value: int) -> None:
         ...
 
 
@@ -92,7 +79,8 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         """
         Indicates was strategy initialized or no
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -105,7 +93,8 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         """
         Optimization parameters
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -118,7 +107,8 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         """
         Optimization target, i.e. maximize or minimize
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -131,7 +121,8 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         """
         Optimization constraints; if it doesn't comply just drop the backtest
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -192,14 +183,15 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         """
         Handles new parameter set
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param parameter_set: New parameter set
         """
         ...
 
     def process_new_result(self, result: QuantConnect.Optimizer.OptimizationResult) -> None:
-        """This method is protected."""
+        """This codeEntityType is protected."""
         ...
 
     def push_new_results(self, result: QuantConnect.Optimizer.OptimizationResult) -> None:
@@ -214,8 +206,10 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         """
         Enumerate all possible arrangements
         
-        This method is protected.
         
+        This codeEntityType is protected.
+        
+        :param args: 
         :returns: Collection of possible combinations for given optimization parameters settings.
         """
         ...
@@ -239,7 +233,8 @@ class EulerSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBase
         """
         Handles new parameter set
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param parameter_set: New parameter set
         """
@@ -251,6 +246,19 @@ class EulerSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBase
         
         :param result: Lean compute job result and corresponding parameter set
         """
+        ...
+
+
+class StepBaseOptimizationStrategySettings(QuantConnect.Optimizer.Strategies.OptimizationStrategySettings):
+    """Defines the specific optimization strategy settings"""
+
+    @property
+    def default_segment_amount(self) -> int:
+        """Defines the default number of segments for the next step"""
+        ...
+
+    @default_segment_amount.setter
+    def default_segment_amount(self, value: int) -> None:
         ...
 
 

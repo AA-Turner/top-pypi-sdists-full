@@ -4,6 +4,7 @@ import typing as t
 from os import PathLike
 
 from ry import FileType, FsPath, Glob, GlobSet, Globster
+from ry.protocols import RyIterator
 
 @t.final
 class WalkDirEntry:
@@ -33,19 +34,18 @@ _T_walkdir = t.TypeVar(
 )
 
 @t.final
-class WalkdirGen(t.Generic[_T_walkdir]):
+class WalkdirGen(RyIterator[_T_walkdir]):
     """walkdir::Walkdir iterable wrapper"""
-    def __init__(
-        self,
-    ) -> t.NoReturn: ...
+    def __init__(self) -> t.NoReturn: ...
+    def __iter__(self) -> t.Self: ...
     def __next__(self) -> _T_walkdir: ...
     def collect(self) -> list[_T_walkdir]: ...
     def take(self, n: int = 1) -> list[_T_walkdir]: ...
-    def __iter__(self) -> t.Iterator[_T_walkdir]: ...
 
 @t.overload
 def walkdir(
     path: str | PathLike[str] | None = None,
+    /,
     *,
     files: bool = True,
     dirs: bool = True,
@@ -53,13 +53,16 @@ def walkdir(
     min_depth: int = 0,
     max_depth: int | None = None,
     follow_links: bool = False,
+    follow_root_links: bool = True,
     same_file_system: bool = False,
+    sort_by_file_name: bool = False,
     glob: Glob | GlobSet | Globster | t.Sequence[str] | str | None = None,
     objects: t.Literal[True],
 ) -> WalkdirGen[WalkDirEntry]: ...
 @t.overload
 def walkdir(
     path: str | PathLike[str] | None = None,
+    /,
     *,
     objects: t.Literal[False] = False,
     files: bool = True,
@@ -68,6 +71,8 @@ def walkdir(
     min_depth: int = 0,
     max_depth: int | None = None,
     follow_links: bool = False,
+    follow_root_links: bool = True,
     same_file_system: bool = False,
+    sort_by_file_name: bool = False,
     glob: Glob | GlobSet | Globster | t.Sequence[str] | str | None = None,
 ) -> WalkdirGen[str]: ...

@@ -60,16 +60,22 @@ class AgentResource(SyncAPIResource):
         ]
         | Omit = omit,
         ambient_sound_volume: float | Omit = omit,
+        analysis_successful_prompt: Optional[str] | Omit = omit,
+        analysis_summary_prompt: Optional[str] | Omit = omit,
         backchannel_frequency: float | Omit = omit,
         backchannel_words: Optional[SequenceNotStr[str]] | Omit = omit,
         begin_message_delay_ms: int | Omit = omit,
         boosted_keywords: Optional[SequenceNotStr[str]] | Omit = omit,
+        custom_stt_config: agent_create_params.CustomSttConfig | Omit = omit,
         data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"] | Omit = omit,
         denoising_mode: Literal["noise-cancellation", "noise-and-background-speech-cancellation"] | Omit = omit,
         enable_backchannel: bool | Omit = omit,
+        enable_voicemail_detection: bool | Omit = omit,
         end_call_after_silence_ms: int | Omit = omit,
         fallback_voice_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         interruption_sensitivity: float | Omit = omit,
+        is_public: Optional[bool] | Omit = omit,
+        ivr_option: Optional[agent_create_params.IvrOption] | Omit = omit,
         language: Literal[
             "en-US",
             "en-IN",
@@ -93,11 +99,11 @@ class AgentResource(SyncAPIResource):
             "nl-BE",
             "pl-PL",
             "tr-TR",
-            "th-TH",
             "vi-VN",
             "ro-RO",
             "bg-BG",
             "ca-ES",
+            "th-TH",
             "da-DK",
             "fi-FI",
             "el-GR",
@@ -106,6 +112,33 @@ class AgentResource(SyncAPIResource):
             "no-NO",
             "sk-SK",
             "sv-SE",
+            "lt-LT",
+            "lv-LV",
+            "ms-MY",
+            "af-ZA",
+            "ar-SA",
+            "az-AZ",
+            "bs-BA",
+            "cy-GB",
+            "fa-IR",
+            "fil-PH",
+            "gl-ES",
+            "he-IL",
+            "hr-HR",
+            "hy-AM",
+            "is-IS",
+            "kk-KZ",
+            "kn-IN",
+            "mk-MK",
+            "mr-IN",
+            "ne-NP",
+            "sl-SI",
+            "sr-RS",
+            "sw-KE",
+            "ta-IN",
+            "ur-IN",
+            "yue-CN",
+            "uk-UA",
             "multi",
         ]
         | Omit = omit,
@@ -114,22 +147,22 @@ class AgentResource(SyncAPIResource):
         opt_in_signed_url: bool | Omit = omit,
         pii_config: agent_create_params.PiiConfig | Omit = omit,
         post_call_analysis_data: Optional[Iterable[agent_create_params.PostCallAnalysisData]] | Omit = omit,
-        post_call_analysis_model: Literal[
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-4.1-nano",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "claude-4.0-sonnet",
-            "claude-3.7-sonnet",
-            "claude-3.5-haiku",
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
+        post_call_analysis_model: Optional[
+            Literal[
+                "gpt-4.1",
+                "gpt-4.1-mini",
+                "gpt-4.1-nano",
+                "gpt-5",
+                "gpt-5.1",
+                "gpt-5.2",
+                "gpt-5-mini",
+                "gpt-5-nano",
+                "claude-4.5-sonnet",
+                "claude-4.5-haiku",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
+                "gemini-3.0-flash",
+            ]
         ]
         | Omit = omit,
         pronunciation_dictionary: Optional[Iterable[agent_create_params.PronunciationDictionary]] | Omit = omit,
@@ -137,9 +170,12 @@ class AgentResource(SyncAPIResource):
         reminder_trigger_ms: float | Omit = omit,
         responsiveness: float | Omit = omit,
         ring_duration_ms: int | Omit = omit,
-        stt_mode: Literal["fast", "accurate"] | Omit = omit,
+        signed_url_expiration_ms: Optional[int] | Omit = omit,
+        stt_mode: Literal["fast", "accurate", "custom"] | Omit = omit,
         user_dtmf_options: Optional[agent_create_params.UserDtmfOptions] | Omit = omit,
+        version_description: Optional[str] | Omit = omit,
         vocab_specialization: Literal["general", "medical"] | Omit = omit,
+        voice_emotion: Optional[str] | Omit = omit,
         voice_model: Optional[
             Literal[
                 "eleven_turbo_v2",
@@ -147,13 +183,20 @@ class AgentResource(SyncAPIResource):
                 "eleven_turbo_v2_5",
                 "eleven_flash_v2_5",
                 "eleven_multilingual_v2",
+                "sonic-2",
+                "sonic-3",
+                "sonic-3-latest",
+                "sonic-turbo",
                 "tts-1",
                 "gpt-4o-mini-tts",
+                "speech-02-turbo",
             ]
         ]
         | Omit = omit,
         voice_speed: float | Omit = omit,
         voice_temperature: float | Omit = omit,
+        voicemail_detection_timeout_ms: int | Omit = omit,
+        voicemail_message: str | Omit = omit,
         voicemail_option: Optional[agent_create_params.VoicemailOption] | Omit = omit,
         volume: float | Omit = omit,
         webhook_timeout_ms: int | Omit = omit,
@@ -186,28 +229,29 @@ class AgentResource(SyncAPIResource):
 
               - `coffee-shop`: Coffee shop ambience with people chatting in background.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/coffee-shop.wav)
-
               - `convention-hall`: Convention hall ambience, with some echo and people
                 chatting in background.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/convention-hall.wav)
-
               - `summer-outdoor`: Summer outdoor ambience with cicada chirping.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/summer-outdoor.wav)
-
               - `mountain-outdoor`: Mountain outdoor ambience with birds singing.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/mountain-outdoor.wav)
-
               - `static-noise`: Constant static noise.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/static-noise.wav)
-
               - `call-center`: Call center work noise.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/call-center.wav)
-
-              Set to `null` to remove ambient sound from this agent.
+                Set to `null` to remove ambient sound from this agent.
 
           ambient_sound_volume: If set, will control the volume of the ambient sound. Value ranging from [0,2].
               Lower value means quieter ambient sound, while higher value means louder ambient
               sound. If unset, default value 1 will apply.
+
+          analysis_successful_prompt: Prompt to determine whether the post call or chat analysis should mark the
+              interaction as successful. Set to null to use the default prompt.
+
+          analysis_summary_prompt: Prompt to guide how the post call or chat analysis summary should be generated.
+              When unset, the default system prompt is used. Set to null to use the default
+              prompt.
 
           backchannel_frequency: Only applicable when enable_backchannel is true. Controls how often the agent
               would backchannel when a backchannel is possible. Value ranging from [0,1].
@@ -219,7 +263,7 @@ class AgentResource(SyncAPIResource):
               Check out
               [backchannel default words](/agent/interaction-configuration#backchannel) for
               more details. Note that certain voices do not work too well with certain words,
-              so it's recommended to expeirment before adding any words.
+              so it's recommended to experiment before adding any words.
 
           begin_message_delay_ms: If set, will delay the first message by the specified amount of milliseconds, so
               that it gives user more time to prepare to take the call. Valid range is [0,
@@ -229,6 +273,8 @@ class AgentResource(SyncAPIResource):
           boosted_keywords: Provide a customized list of keywords to bias the transcriber model, so that
               these words are more likely to get transcribed. Commonly used for names, brands,
               street, etc.
+
+          custom_stt_config: Custom STT configuration. Only used when stt_mode is set to custom.
 
           data_storage_setting: Granular setting to manage how Retell stores sensitive data (transcripts,
               recordings, logs, etc.). This replaces the deprecated
@@ -247,6 +293,9 @@ class AgentResource(SyncAPIResource):
               when enabled tends to show up more in longer user utterances. If not set, agent
               will not backchannel.
 
+          enable_voicemail_detection: If set to true, will detect whether the call enters a voicemail. Note that this
+              feature is only available for phone calls.
+
           end_call_after_silence_ms: If users stay silent for a period after agent speech, end the call. The minimum
               value allowed is 10,000 ms (10 s). By default, this is set to 600000 (10 min).
 
@@ -262,10 +311,17 @@ class AgentResource(SyncAPIResource):
               unset, default value 1 will apply. When this is set to 0, agent would never be
               interrupted.
 
+          is_public: Whether the agent is public. When set to true, the agent is available for public
+              agent preview link.
+
+          ivr_option: If this option is set, the call will try to detect IVR in the first 3 minutes of
+              the call. Actions defined will be applied when the IVR is detected. Set this to
+              null to disable IVR detection.
+
           language: Specifies what language (and dialect) the speech recognition will operate in.
               For instance, selecting `en-GB` optimizes speech recognition for British
               English. If unset, will use default value `en-US`. Select `multi` for
-              multilingual support, currently this supports Spanish and English.
+              multilingual support.
 
           max_call_duration_ms: Maximum allowed length for the call, will force end the call if reached. The
               minimum value allowed is 60,000 ms (1 min), and maximum value allowed is
@@ -289,7 +345,7 @@ class AgentResource(SyncAPIResource):
               pre-defined variables extracted in the call analysis. This will be available
               after the call ends.
 
-          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4o-mini.
+          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4.1-mini.
 
           pronunciation_dictionary: A list of words / phrases and their pronunciation to be used to guide the audio
               synthesize for consistent pronunciation. Currently only supported for English &
@@ -312,17 +368,26 @@ class AgentResource(SyncAPIResource):
               This applies for both outbound call ringtime, and call transfer ringtime.
               Default to 30000 (30 s). Valid range is [5000, 90000].
 
+          signed_url_expiration_ms: The expiration time for the signed url in milliseconds. Only applicable when
+              opt_in_signed_url is true. If not set, default value of 86400000 (24 hours) will
+              apply.
+
           stt_mode: If set, determines whether speech to text should focus on latency or accuracy.
-              Default to fast mode.
+              Default to fast mode. When set to custom, custom_stt_config must be provided.
+
+          version_description: Optional description of the agent version. Used for your own reference and
+              documentation.
 
           vocab_specialization: If set, determines the vocabulary set to use for transcription. This setting
               only applies for English agents, for non English agent, this setting is a no-op.
               Default to general.
 
-          voice_model: Optionally set the voice model used for the selected voice. Currently only
-              elevenlab voices have voice model selections. Set to null to remove voice model
-              selection, and default ones will apply. Check out the dashboard for details on
-              each voice model.
+          voice_emotion: Controls the emotional tone of the agent's voice. Currently supported for
+              Cartesia and Minimax TTS providers. If unset, no emotion will be used.
+
+          voice_model: Select the voice model used for the selected voice. Each provider has a set of
+              available voice models. Set to null to remove voice model selection, and default
+              ones will apply. Check out dashboard for more details of each voice model.
 
           voice_speed: Controls speed of voice. Value ranging from [0.5,2]. Lower value means slower
               speech, while higher value means faster speech rate. If unset, default value 1
@@ -332,6 +397,15 @@ class AgentResource(SyncAPIResource):
               more stable, and higher value means more variant speech generation. Currently
               this setting only applies to `11labs` voices. If unset, default value 1 will
               apply.
+
+          voicemail_detection_timeout_ms: Configures when to stop running voicemail detection, as it becomes unlikely to
+              hit voicemail after a couple minutes, and keep running it will only have
+              negative impact. The minimum value allowed is 5,000 ms (5 s), and maximum value
+              allowed is 180,000 (3 minutes). By default, this is set to 30,000 (30 s).
+
+          voicemail_message: The message to be played when the call enters a voicemail. Note that this
+              feature is only available for phone calls. If you want to hangup after hitting
+              voicemail, set this to empty string.
 
           voicemail_option: If this option is set, the call will try to detect voicemail in the first 3
               minutes of the call. Actions defined (hangup, or leave a message) will be
@@ -368,16 +442,22 @@ class AgentResource(SyncAPIResource):
                     "allow_user_dtmf": allow_user_dtmf,
                     "ambient_sound": ambient_sound,
                     "ambient_sound_volume": ambient_sound_volume,
+                    "analysis_successful_prompt": analysis_successful_prompt,
+                    "analysis_summary_prompt": analysis_summary_prompt,
                     "backchannel_frequency": backchannel_frequency,
                     "backchannel_words": backchannel_words,
                     "begin_message_delay_ms": begin_message_delay_ms,
                     "boosted_keywords": boosted_keywords,
+                    "custom_stt_config": custom_stt_config,
                     "data_storage_setting": data_storage_setting,
                     "denoising_mode": denoising_mode,
                     "enable_backchannel": enable_backchannel,
+                    "enable_voicemail_detection": enable_voicemail_detection,
                     "end_call_after_silence_ms": end_call_after_silence_ms,
                     "fallback_voice_ids": fallback_voice_ids,
                     "interruption_sensitivity": interruption_sensitivity,
+                    "is_public": is_public,
+                    "ivr_option": ivr_option,
                     "language": language,
                     "max_call_duration_ms": max_call_duration_ms,
                     "normalize_for_speech": normalize_for_speech,
@@ -390,12 +470,17 @@ class AgentResource(SyncAPIResource):
                     "reminder_trigger_ms": reminder_trigger_ms,
                     "responsiveness": responsiveness,
                     "ring_duration_ms": ring_duration_ms,
+                    "signed_url_expiration_ms": signed_url_expiration_ms,
                     "stt_mode": stt_mode,
                     "user_dtmf_options": user_dtmf_options,
+                    "version_description": version_description,
                     "vocab_specialization": vocab_specialization,
+                    "voice_emotion": voice_emotion,
                     "voice_model": voice_model,
                     "voice_speed": voice_speed,
                     "voice_temperature": voice_temperature,
+                    "voicemail_detection_timeout_ms": voicemail_detection_timeout_ms,
+                    "voicemail_message": voicemail_message,
                     "voicemail_option": voicemail_option,
                     "volume": volume,
                     "webhook_timeout_ms": webhook_timeout_ms,
@@ -464,16 +549,22 @@ class AgentResource(SyncAPIResource):
         ]
         | Omit = omit,
         ambient_sound_volume: float | Omit = omit,
+        analysis_successful_prompt: Optional[str] | Omit = omit,
+        analysis_summary_prompt: Optional[str] | Omit = omit,
         backchannel_frequency: float | Omit = omit,
         backchannel_words: Optional[SequenceNotStr[str]] | Omit = omit,
         begin_message_delay_ms: int | Omit = omit,
         boosted_keywords: Optional[SequenceNotStr[str]] | Omit = omit,
+        custom_stt_config: agent_update_params.CustomSttConfig | Omit = omit,
         data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"] | Omit = omit,
         denoising_mode: Literal["noise-cancellation", "noise-and-background-speech-cancellation"] | Omit = omit,
         enable_backchannel: bool | Omit = omit,
+        enable_voicemail_detection: bool | Omit = omit,
         end_call_after_silence_ms: int | Omit = omit,
         fallback_voice_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         interruption_sensitivity: float | Omit = omit,
+        is_public: Optional[bool] | Omit = omit,
+        ivr_option: Optional[agent_update_params.IvrOption] | Omit = omit,
         language: Literal[
             "en-US",
             "en-IN",
@@ -497,11 +588,11 @@ class AgentResource(SyncAPIResource):
             "nl-BE",
             "pl-PL",
             "tr-TR",
-            "th-TH",
             "vi-VN",
             "ro-RO",
             "bg-BG",
             "ca-ES",
+            "th-TH",
             "da-DK",
             "fi-FI",
             "el-GR",
@@ -510,6 +601,33 @@ class AgentResource(SyncAPIResource):
             "no-NO",
             "sk-SK",
             "sv-SE",
+            "lt-LT",
+            "lv-LV",
+            "ms-MY",
+            "af-ZA",
+            "ar-SA",
+            "az-AZ",
+            "bs-BA",
+            "cy-GB",
+            "fa-IR",
+            "fil-PH",
+            "gl-ES",
+            "he-IL",
+            "hr-HR",
+            "hy-AM",
+            "is-IS",
+            "kk-KZ",
+            "kn-IN",
+            "mk-MK",
+            "mr-IN",
+            "ne-NP",
+            "sl-SI",
+            "sr-RS",
+            "sw-KE",
+            "ta-IN",
+            "ur-IN",
+            "yue-CN",
+            "uk-UA",
             "multi",
         ]
         | Omit = omit,
@@ -518,22 +636,22 @@ class AgentResource(SyncAPIResource):
         opt_in_signed_url: bool | Omit = omit,
         pii_config: agent_update_params.PiiConfig | Omit = omit,
         post_call_analysis_data: Optional[Iterable[agent_update_params.PostCallAnalysisData]] | Omit = omit,
-        post_call_analysis_model: Literal[
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-4.1-nano",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "claude-4.0-sonnet",
-            "claude-3.7-sonnet",
-            "claude-3.5-haiku",
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
+        post_call_analysis_model: Optional[
+            Literal[
+                "gpt-4.1",
+                "gpt-4.1-mini",
+                "gpt-4.1-nano",
+                "gpt-5",
+                "gpt-5.1",
+                "gpt-5.2",
+                "gpt-5-mini",
+                "gpt-5-nano",
+                "claude-4.5-sonnet",
+                "claude-4.5-haiku",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
+                "gemini-3.0-flash",
+            ]
         ]
         | Omit = omit,
         pronunciation_dictionary: Optional[Iterable[agent_update_params.PronunciationDictionary]] | Omit = omit,
@@ -542,9 +660,12 @@ class AgentResource(SyncAPIResource):
         response_engine: agent_update_params.ResponseEngine | Omit = omit,
         responsiveness: float | Omit = omit,
         ring_duration_ms: int | Omit = omit,
-        stt_mode: Literal["fast", "accurate"] | Omit = omit,
+        signed_url_expiration_ms: Optional[int] | Omit = omit,
+        stt_mode: Literal["fast", "accurate", "custom"] | Omit = omit,
         user_dtmf_options: Optional[agent_update_params.UserDtmfOptions] | Omit = omit,
+        version_description: Optional[str] | Omit = omit,
         vocab_specialization: Literal["general", "medical"] | Omit = omit,
+        voice_emotion: Optional[str] | Omit = omit,
         voice_id: str | Omit = omit,
         voice_model: Optional[
             Literal[
@@ -553,13 +674,20 @@ class AgentResource(SyncAPIResource):
                 "eleven_turbo_v2_5",
                 "eleven_flash_v2_5",
                 "eleven_multilingual_v2",
+                "sonic-2",
+                "sonic-3",
+                "sonic-3-latest",
+                "sonic-turbo",
                 "tts-1",
                 "gpt-4o-mini-tts",
+                "speech-02-turbo",
             ]
         ]
         | Omit = omit,
         voice_speed: float | Omit = omit,
         voice_temperature: float | Omit = omit,
+        voicemail_detection_timeout_ms: int | Omit = omit,
+        voicemail_message: str | Omit = omit,
         voicemail_option: Optional[agent_update_params.VoicemailOption] | Omit = omit,
         volume: float | Omit = omit,
         webhook_timeout_ms: int | Omit = omit,
@@ -587,28 +715,29 @@ class AgentResource(SyncAPIResource):
 
               - `coffee-shop`: Coffee shop ambience with people chatting in background.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/coffee-shop.wav)
-
               - `convention-hall`: Convention hall ambience, with some echo and people
                 chatting in background.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/convention-hall.wav)
-
               - `summer-outdoor`: Summer outdoor ambience with cicada chirping.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/summer-outdoor.wav)
-
               - `mountain-outdoor`: Mountain outdoor ambience with birds singing.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/mountain-outdoor.wav)
-
               - `static-noise`: Constant static noise.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/static-noise.wav)
-
               - `call-center`: Call center work noise.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/call-center.wav)
-
-              Set to `null` to remove ambient sound from this agent.
+                Set to `null` to remove ambient sound from this agent.
 
           ambient_sound_volume: If set, will control the volume of the ambient sound. Value ranging from [0,2].
               Lower value means quieter ambient sound, while higher value means louder ambient
               sound. If unset, default value 1 will apply.
+
+          analysis_successful_prompt: Prompt to determine whether the post call or chat analysis should mark the
+              interaction as successful. Set to null to use the default prompt.
+
+          analysis_summary_prompt: Prompt to guide how the post call or chat analysis summary should be generated.
+              When unset, the default system prompt is used. Set to null to use the default
+              prompt.
 
           backchannel_frequency: Only applicable when enable_backchannel is true. Controls how often the agent
               would backchannel when a backchannel is possible. Value ranging from [0,1].
@@ -620,7 +749,7 @@ class AgentResource(SyncAPIResource):
               Check out
               [backchannel default words](/agent/interaction-configuration#backchannel) for
               more details. Note that certain voices do not work too well with certain words,
-              so it's recommended to expeirment before adding any words.
+              so it's recommended to experiment before adding any words.
 
           begin_message_delay_ms: If set, will delay the first message by the specified amount of milliseconds, so
               that it gives user more time to prepare to take the call. Valid range is [0,
@@ -630,6 +759,8 @@ class AgentResource(SyncAPIResource):
           boosted_keywords: Provide a customized list of keywords to bias the transcriber model, so that
               these words are more likely to get transcribed. Commonly used for names, brands,
               street, etc.
+
+          custom_stt_config: Custom STT configuration. Only used when stt_mode is set to custom.
 
           data_storage_setting: Granular setting to manage how Retell stores sensitive data (transcripts,
               recordings, logs, etc.). This replaces the deprecated
@@ -648,6 +779,9 @@ class AgentResource(SyncAPIResource):
               when enabled tends to show up more in longer user utterances. If not set, agent
               will not backchannel.
 
+          enable_voicemail_detection: If set to true, will detect whether the call enters a voicemail. Note that this
+              feature is only available for phone calls.
+
           end_call_after_silence_ms: If users stay silent for a period after agent speech, end the call. The minimum
               value allowed is 10,000 ms (10 s). By default, this is set to 600000 (10 min).
 
@@ -663,10 +797,17 @@ class AgentResource(SyncAPIResource):
               unset, default value 1 will apply. When this is set to 0, agent would never be
               interrupted.
 
+          is_public: Whether the agent is public. When set to true, the agent is available for public
+              agent preview link.
+
+          ivr_option: If this option is set, the call will try to detect IVR in the first 3 minutes of
+              the call. Actions defined will be applied when the IVR is detected. Set this to
+              null to disable IVR detection.
+
           language: Specifies what language (and dialect) the speech recognition will operate in.
               For instance, selecting `en-GB` optimizes speech recognition for British
               English. If unset, will use default value `en-US`. Select `multi` for
-              multilingual support, currently this supports Spanish and English.
+              multilingual support.
 
           max_call_duration_ms: Maximum allowed length for the call, will force end the call if reached. The
               minimum value allowed is 60,000 ms (1 min), and maximum value allowed is
@@ -690,7 +831,7 @@ class AgentResource(SyncAPIResource):
               pre-defined variables extracted in the call analysis. This will be available
               after the call ends.
 
-          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4o-mini.
+          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4.1-mini.
 
           pronunciation_dictionary: A list of words / phrases and their pronunciation to be used to guide the audio
               synthesize for consistent pronunciation. Currently only supported for English &
@@ -717,20 +858,29 @@ class AgentResource(SyncAPIResource):
               This applies for both outbound call ringtime, and call transfer ringtime.
               Default to 30000 (30 s). Valid range is [5000, 90000].
 
+          signed_url_expiration_ms: The expiration time for the signed url in milliseconds. Only applicable when
+              opt_in_signed_url is true. If not set, default value of 86400000 (24 hours) will
+              apply.
+
           stt_mode: If set, determines whether speech to text should focus on latency or accuracy.
-              Default to fast mode.
+              Default to fast mode. When set to custom, custom_stt_config must be provided.
+
+          version_description: Optional description of the agent version. Used for your own reference and
+              documentation.
 
           vocab_specialization: If set, determines the vocabulary set to use for transcription. This setting
               only applies for English agents, for non English agent, this setting is a no-op.
               Default to general.
 
+          voice_emotion: Controls the emotional tone of the agent's voice. Currently supported for
+              Cartesia and Minimax TTS providers. If unset, no emotion will be used.
+
           voice_id: Unique voice id used for the agent. Find list of available voices and their
               preview in Dashboard.
 
-          voice_model: Optionally set the voice model used for the selected voice. Currently only
-              elevenlab voices have voice model selections. Set to null to remove voice model
-              selection, and default ones will apply. Check out the dashboard for details on
-              each voice model.
+          voice_model: Select the voice model used for the selected voice. Each provider has a set of
+              available voice models. Set to null to remove voice model selection, and default
+              ones will apply. Check out dashboard for more details of each voice model.
 
           voice_speed: Controls speed of voice. Value ranging from [0.5,2]. Lower value means slower
               speech, while higher value means faster speech rate. If unset, default value 1
@@ -740,6 +890,15 @@ class AgentResource(SyncAPIResource):
               more stable, and higher value means more variant speech generation. Currently
               this setting only applies to `11labs` voices. If unset, default value 1 will
               apply.
+
+          voicemail_detection_timeout_ms: Configures when to stop running voicemail detection, as it becomes unlikely to
+              hit voicemail after a couple minutes, and keep running it will only have
+              negative impact. The minimum value allowed is 5,000 ms (5 s), and maximum value
+              allowed is 180,000 (3 minutes). By default, this is set to 30,000 (30 s).
+
+          voicemail_message: The message to be played when the call enters a voicemail. Note that this
+              feature is only available for phone calls. If you want to hangup after hitting
+              voicemail, set this to empty string.
 
           voicemail_option: If this option is set, the call will try to detect voicemail in the first 3
               minutes of the call. Actions defined (hangup, or leave a message) will be
@@ -776,16 +935,22 @@ class AgentResource(SyncAPIResource):
                     "allow_user_dtmf": allow_user_dtmf,
                     "ambient_sound": ambient_sound,
                     "ambient_sound_volume": ambient_sound_volume,
+                    "analysis_successful_prompt": analysis_successful_prompt,
+                    "analysis_summary_prompt": analysis_summary_prompt,
                     "backchannel_frequency": backchannel_frequency,
                     "backchannel_words": backchannel_words,
                     "begin_message_delay_ms": begin_message_delay_ms,
                     "boosted_keywords": boosted_keywords,
+                    "custom_stt_config": custom_stt_config,
                     "data_storage_setting": data_storage_setting,
                     "denoising_mode": denoising_mode,
                     "enable_backchannel": enable_backchannel,
+                    "enable_voicemail_detection": enable_voicemail_detection,
                     "end_call_after_silence_ms": end_call_after_silence_ms,
                     "fallback_voice_ids": fallback_voice_ids,
                     "interruption_sensitivity": interruption_sensitivity,
+                    "is_public": is_public,
+                    "ivr_option": ivr_option,
                     "language": language,
                     "max_call_duration_ms": max_call_duration_ms,
                     "normalize_for_speech": normalize_for_speech,
@@ -799,13 +964,18 @@ class AgentResource(SyncAPIResource):
                     "response_engine": response_engine,
                     "responsiveness": responsiveness,
                     "ring_duration_ms": ring_duration_ms,
+                    "signed_url_expiration_ms": signed_url_expiration_ms,
                     "stt_mode": stt_mode,
                     "user_dtmf_options": user_dtmf_options,
+                    "version_description": version_description,
                     "vocab_specialization": vocab_specialization,
+                    "voice_emotion": voice_emotion,
                     "voice_id": voice_id,
                     "voice_model": voice_model,
                     "voice_speed": voice_speed,
                     "voice_temperature": voice_temperature,
+                    "voicemail_detection_timeout_ms": voicemail_detection_timeout_ms,
+                    "voicemail_message": voicemail_message,
                     "voicemail_option": voicemail_option,
                     "volume": volume,
                     "webhook_timeout_ms": webhook_timeout_ms,
@@ -1016,16 +1186,22 @@ class AsyncAgentResource(AsyncAPIResource):
         ]
         | Omit = omit,
         ambient_sound_volume: float | Omit = omit,
+        analysis_successful_prompt: Optional[str] | Omit = omit,
+        analysis_summary_prompt: Optional[str] | Omit = omit,
         backchannel_frequency: float | Omit = omit,
         backchannel_words: Optional[SequenceNotStr[str]] | Omit = omit,
         begin_message_delay_ms: int | Omit = omit,
         boosted_keywords: Optional[SequenceNotStr[str]] | Omit = omit,
+        custom_stt_config: agent_create_params.CustomSttConfig | Omit = omit,
         data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"] | Omit = omit,
         denoising_mode: Literal["noise-cancellation", "noise-and-background-speech-cancellation"] | Omit = omit,
         enable_backchannel: bool | Omit = omit,
+        enable_voicemail_detection: bool | Omit = omit,
         end_call_after_silence_ms: int | Omit = omit,
         fallback_voice_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         interruption_sensitivity: float | Omit = omit,
+        is_public: Optional[bool] | Omit = omit,
+        ivr_option: Optional[agent_create_params.IvrOption] | Omit = omit,
         language: Literal[
             "en-US",
             "en-IN",
@@ -1049,11 +1225,11 @@ class AsyncAgentResource(AsyncAPIResource):
             "nl-BE",
             "pl-PL",
             "tr-TR",
-            "th-TH",
             "vi-VN",
             "ro-RO",
             "bg-BG",
             "ca-ES",
+            "th-TH",
             "da-DK",
             "fi-FI",
             "el-GR",
@@ -1062,6 +1238,33 @@ class AsyncAgentResource(AsyncAPIResource):
             "no-NO",
             "sk-SK",
             "sv-SE",
+            "lt-LT",
+            "lv-LV",
+            "ms-MY",
+            "af-ZA",
+            "ar-SA",
+            "az-AZ",
+            "bs-BA",
+            "cy-GB",
+            "fa-IR",
+            "fil-PH",
+            "gl-ES",
+            "he-IL",
+            "hr-HR",
+            "hy-AM",
+            "is-IS",
+            "kk-KZ",
+            "kn-IN",
+            "mk-MK",
+            "mr-IN",
+            "ne-NP",
+            "sl-SI",
+            "sr-RS",
+            "sw-KE",
+            "ta-IN",
+            "ur-IN",
+            "yue-CN",
+            "uk-UA",
             "multi",
         ]
         | Omit = omit,
@@ -1070,22 +1273,22 @@ class AsyncAgentResource(AsyncAPIResource):
         opt_in_signed_url: bool | Omit = omit,
         pii_config: agent_create_params.PiiConfig | Omit = omit,
         post_call_analysis_data: Optional[Iterable[agent_create_params.PostCallAnalysisData]] | Omit = omit,
-        post_call_analysis_model: Literal[
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-4.1-nano",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "claude-4.0-sonnet",
-            "claude-3.7-sonnet",
-            "claude-3.5-haiku",
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
+        post_call_analysis_model: Optional[
+            Literal[
+                "gpt-4.1",
+                "gpt-4.1-mini",
+                "gpt-4.1-nano",
+                "gpt-5",
+                "gpt-5.1",
+                "gpt-5.2",
+                "gpt-5-mini",
+                "gpt-5-nano",
+                "claude-4.5-sonnet",
+                "claude-4.5-haiku",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
+                "gemini-3.0-flash",
+            ]
         ]
         | Omit = omit,
         pronunciation_dictionary: Optional[Iterable[agent_create_params.PronunciationDictionary]] | Omit = omit,
@@ -1093,9 +1296,12 @@ class AsyncAgentResource(AsyncAPIResource):
         reminder_trigger_ms: float | Omit = omit,
         responsiveness: float | Omit = omit,
         ring_duration_ms: int | Omit = omit,
-        stt_mode: Literal["fast", "accurate"] | Omit = omit,
+        signed_url_expiration_ms: Optional[int] | Omit = omit,
+        stt_mode: Literal["fast", "accurate", "custom"] | Omit = omit,
         user_dtmf_options: Optional[agent_create_params.UserDtmfOptions] | Omit = omit,
+        version_description: Optional[str] | Omit = omit,
         vocab_specialization: Literal["general", "medical"] | Omit = omit,
+        voice_emotion: Optional[str] | Omit = omit,
         voice_model: Optional[
             Literal[
                 "eleven_turbo_v2",
@@ -1103,13 +1309,20 @@ class AsyncAgentResource(AsyncAPIResource):
                 "eleven_turbo_v2_5",
                 "eleven_flash_v2_5",
                 "eleven_multilingual_v2",
+                "sonic-2",
+                "sonic-3",
+                "sonic-3-latest",
+                "sonic-turbo",
                 "tts-1",
                 "gpt-4o-mini-tts",
+                "speech-02-turbo",
             ]
         ]
         | Omit = omit,
         voice_speed: float | Omit = omit,
         voice_temperature: float | Omit = omit,
+        voicemail_detection_timeout_ms: int | Omit = omit,
+        voicemail_message: str | Omit = omit,
         voicemail_option: Optional[agent_create_params.VoicemailOption] | Omit = omit,
         volume: float | Omit = omit,
         webhook_timeout_ms: int | Omit = omit,
@@ -1142,28 +1355,29 @@ class AsyncAgentResource(AsyncAPIResource):
 
               - `coffee-shop`: Coffee shop ambience with people chatting in background.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/coffee-shop.wav)
-
               - `convention-hall`: Convention hall ambience, with some echo and people
                 chatting in background.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/convention-hall.wav)
-
               - `summer-outdoor`: Summer outdoor ambience with cicada chirping.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/summer-outdoor.wav)
-
               - `mountain-outdoor`: Mountain outdoor ambience with birds singing.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/mountain-outdoor.wav)
-
               - `static-noise`: Constant static noise.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/static-noise.wav)
-
               - `call-center`: Call center work noise.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/call-center.wav)
-
-              Set to `null` to remove ambient sound from this agent.
+                Set to `null` to remove ambient sound from this agent.
 
           ambient_sound_volume: If set, will control the volume of the ambient sound. Value ranging from [0,2].
               Lower value means quieter ambient sound, while higher value means louder ambient
               sound. If unset, default value 1 will apply.
+
+          analysis_successful_prompt: Prompt to determine whether the post call or chat analysis should mark the
+              interaction as successful. Set to null to use the default prompt.
+
+          analysis_summary_prompt: Prompt to guide how the post call or chat analysis summary should be generated.
+              When unset, the default system prompt is used. Set to null to use the default
+              prompt.
 
           backchannel_frequency: Only applicable when enable_backchannel is true. Controls how often the agent
               would backchannel when a backchannel is possible. Value ranging from [0,1].
@@ -1175,7 +1389,7 @@ class AsyncAgentResource(AsyncAPIResource):
               Check out
               [backchannel default words](/agent/interaction-configuration#backchannel) for
               more details. Note that certain voices do not work too well with certain words,
-              so it's recommended to expeirment before adding any words.
+              so it's recommended to experiment before adding any words.
 
           begin_message_delay_ms: If set, will delay the first message by the specified amount of milliseconds, so
               that it gives user more time to prepare to take the call. Valid range is [0,
@@ -1185,6 +1399,8 @@ class AsyncAgentResource(AsyncAPIResource):
           boosted_keywords: Provide a customized list of keywords to bias the transcriber model, so that
               these words are more likely to get transcribed. Commonly used for names, brands,
               street, etc.
+
+          custom_stt_config: Custom STT configuration. Only used when stt_mode is set to custom.
 
           data_storage_setting: Granular setting to manage how Retell stores sensitive data (transcripts,
               recordings, logs, etc.). This replaces the deprecated
@@ -1203,6 +1419,9 @@ class AsyncAgentResource(AsyncAPIResource):
               when enabled tends to show up more in longer user utterances. If not set, agent
               will not backchannel.
 
+          enable_voicemail_detection: If set to true, will detect whether the call enters a voicemail. Note that this
+              feature is only available for phone calls.
+
           end_call_after_silence_ms: If users stay silent for a period after agent speech, end the call. The minimum
               value allowed is 10,000 ms (10 s). By default, this is set to 600000 (10 min).
 
@@ -1218,10 +1437,17 @@ class AsyncAgentResource(AsyncAPIResource):
               unset, default value 1 will apply. When this is set to 0, agent would never be
               interrupted.
 
+          is_public: Whether the agent is public. When set to true, the agent is available for public
+              agent preview link.
+
+          ivr_option: If this option is set, the call will try to detect IVR in the first 3 minutes of
+              the call. Actions defined will be applied when the IVR is detected. Set this to
+              null to disable IVR detection.
+
           language: Specifies what language (and dialect) the speech recognition will operate in.
               For instance, selecting `en-GB` optimizes speech recognition for British
               English. If unset, will use default value `en-US`. Select `multi` for
-              multilingual support, currently this supports Spanish and English.
+              multilingual support.
 
           max_call_duration_ms: Maximum allowed length for the call, will force end the call if reached. The
               minimum value allowed is 60,000 ms (1 min), and maximum value allowed is
@@ -1245,7 +1471,7 @@ class AsyncAgentResource(AsyncAPIResource):
               pre-defined variables extracted in the call analysis. This will be available
               after the call ends.
 
-          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4o-mini.
+          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4.1-mini.
 
           pronunciation_dictionary: A list of words / phrases and their pronunciation to be used to guide the audio
               synthesize for consistent pronunciation. Currently only supported for English &
@@ -1268,17 +1494,26 @@ class AsyncAgentResource(AsyncAPIResource):
               This applies for both outbound call ringtime, and call transfer ringtime.
               Default to 30000 (30 s). Valid range is [5000, 90000].
 
+          signed_url_expiration_ms: The expiration time for the signed url in milliseconds. Only applicable when
+              opt_in_signed_url is true. If not set, default value of 86400000 (24 hours) will
+              apply.
+
           stt_mode: If set, determines whether speech to text should focus on latency or accuracy.
-              Default to fast mode.
+              Default to fast mode. When set to custom, custom_stt_config must be provided.
+
+          version_description: Optional description of the agent version. Used for your own reference and
+              documentation.
 
           vocab_specialization: If set, determines the vocabulary set to use for transcription. This setting
               only applies for English agents, for non English agent, this setting is a no-op.
               Default to general.
 
-          voice_model: Optionally set the voice model used for the selected voice. Currently only
-              elevenlab voices have voice model selections. Set to null to remove voice model
-              selection, and default ones will apply. Check out the dashboard for details on
-              each voice model.
+          voice_emotion: Controls the emotional tone of the agent's voice. Currently supported for
+              Cartesia and Minimax TTS providers. If unset, no emotion will be used.
+
+          voice_model: Select the voice model used for the selected voice. Each provider has a set of
+              available voice models. Set to null to remove voice model selection, and default
+              ones will apply. Check out dashboard for more details of each voice model.
 
           voice_speed: Controls speed of voice. Value ranging from [0.5,2]. Lower value means slower
               speech, while higher value means faster speech rate. If unset, default value 1
@@ -1288,6 +1523,15 @@ class AsyncAgentResource(AsyncAPIResource):
               more stable, and higher value means more variant speech generation. Currently
               this setting only applies to `11labs` voices. If unset, default value 1 will
               apply.
+
+          voicemail_detection_timeout_ms: Configures when to stop running voicemail detection, as it becomes unlikely to
+              hit voicemail after a couple minutes, and keep running it will only have
+              negative impact. The minimum value allowed is 5,000 ms (5 s), and maximum value
+              allowed is 180,000 (3 minutes). By default, this is set to 30,000 (30 s).
+
+          voicemail_message: The message to be played when the call enters a voicemail. Note that this
+              feature is only available for phone calls. If you want to hangup after hitting
+              voicemail, set this to empty string.
 
           voicemail_option: If this option is set, the call will try to detect voicemail in the first 3
               minutes of the call. Actions defined (hangup, or leave a message) will be
@@ -1324,16 +1568,22 @@ class AsyncAgentResource(AsyncAPIResource):
                     "allow_user_dtmf": allow_user_dtmf,
                     "ambient_sound": ambient_sound,
                     "ambient_sound_volume": ambient_sound_volume,
+                    "analysis_successful_prompt": analysis_successful_prompt,
+                    "analysis_summary_prompt": analysis_summary_prompt,
                     "backchannel_frequency": backchannel_frequency,
                     "backchannel_words": backchannel_words,
                     "begin_message_delay_ms": begin_message_delay_ms,
                     "boosted_keywords": boosted_keywords,
+                    "custom_stt_config": custom_stt_config,
                     "data_storage_setting": data_storage_setting,
                     "denoising_mode": denoising_mode,
                     "enable_backchannel": enable_backchannel,
+                    "enable_voicemail_detection": enable_voicemail_detection,
                     "end_call_after_silence_ms": end_call_after_silence_ms,
                     "fallback_voice_ids": fallback_voice_ids,
                     "interruption_sensitivity": interruption_sensitivity,
+                    "is_public": is_public,
+                    "ivr_option": ivr_option,
                     "language": language,
                     "max_call_duration_ms": max_call_duration_ms,
                     "normalize_for_speech": normalize_for_speech,
@@ -1346,12 +1596,17 @@ class AsyncAgentResource(AsyncAPIResource):
                     "reminder_trigger_ms": reminder_trigger_ms,
                     "responsiveness": responsiveness,
                     "ring_duration_ms": ring_duration_ms,
+                    "signed_url_expiration_ms": signed_url_expiration_ms,
                     "stt_mode": stt_mode,
                     "user_dtmf_options": user_dtmf_options,
+                    "version_description": version_description,
                     "vocab_specialization": vocab_specialization,
+                    "voice_emotion": voice_emotion,
                     "voice_model": voice_model,
                     "voice_speed": voice_speed,
                     "voice_temperature": voice_temperature,
+                    "voicemail_detection_timeout_ms": voicemail_detection_timeout_ms,
+                    "voicemail_message": voicemail_message,
                     "voicemail_option": voicemail_option,
                     "volume": volume,
                     "webhook_timeout_ms": webhook_timeout_ms,
@@ -1420,16 +1675,22 @@ class AsyncAgentResource(AsyncAPIResource):
         ]
         | Omit = omit,
         ambient_sound_volume: float | Omit = omit,
+        analysis_successful_prompt: Optional[str] | Omit = omit,
+        analysis_summary_prompt: Optional[str] | Omit = omit,
         backchannel_frequency: float | Omit = omit,
         backchannel_words: Optional[SequenceNotStr[str]] | Omit = omit,
         begin_message_delay_ms: int | Omit = omit,
         boosted_keywords: Optional[SequenceNotStr[str]] | Omit = omit,
+        custom_stt_config: agent_update_params.CustomSttConfig | Omit = omit,
         data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"] | Omit = omit,
         denoising_mode: Literal["noise-cancellation", "noise-and-background-speech-cancellation"] | Omit = omit,
         enable_backchannel: bool | Omit = omit,
+        enable_voicemail_detection: bool | Omit = omit,
         end_call_after_silence_ms: int | Omit = omit,
         fallback_voice_ids: Optional[SequenceNotStr[str]] | Omit = omit,
         interruption_sensitivity: float | Omit = omit,
+        is_public: Optional[bool] | Omit = omit,
+        ivr_option: Optional[agent_update_params.IvrOption] | Omit = omit,
         language: Literal[
             "en-US",
             "en-IN",
@@ -1453,11 +1714,11 @@ class AsyncAgentResource(AsyncAPIResource):
             "nl-BE",
             "pl-PL",
             "tr-TR",
-            "th-TH",
             "vi-VN",
             "ro-RO",
             "bg-BG",
             "ca-ES",
+            "th-TH",
             "da-DK",
             "fi-FI",
             "el-GR",
@@ -1466,6 +1727,33 @@ class AsyncAgentResource(AsyncAPIResource):
             "no-NO",
             "sk-SK",
             "sv-SE",
+            "lt-LT",
+            "lv-LV",
+            "ms-MY",
+            "af-ZA",
+            "ar-SA",
+            "az-AZ",
+            "bs-BA",
+            "cy-GB",
+            "fa-IR",
+            "fil-PH",
+            "gl-ES",
+            "he-IL",
+            "hr-HR",
+            "hy-AM",
+            "is-IS",
+            "kk-KZ",
+            "kn-IN",
+            "mk-MK",
+            "mr-IN",
+            "ne-NP",
+            "sl-SI",
+            "sr-RS",
+            "sw-KE",
+            "ta-IN",
+            "ur-IN",
+            "yue-CN",
+            "uk-UA",
             "multi",
         ]
         | Omit = omit,
@@ -1474,22 +1762,22 @@ class AsyncAgentResource(AsyncAPIResource):
         opt_in_signed_url: bool | Omit = omit,
         pii_config: agent_update_params.PiiConfig | Omit = omit,
         post_call_analysis_data: Optional[Iterable[agent_update_params.PostCallAnalysisData]] | Omit = omit,
-        post_call_analysis_model: Literal[
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4.1",
-            "gpt-4.1-mini",
-            "gpt-4.1-nano",
-            "gpt-5",
-            "gpt-5-mini",
-            "gpt-5-nano",
-            "claude-4.0-sonnet",
-            "claude-3.7-sonnet",
-            "claude-3.5-haiku",
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
+        post_call_analysis_model: Optional[
+            Literal[
+                "gpt-4.1",
+                "gpt-4.1-mini",
+                "gpt-4.1-nano",
+                "gpt-5",
+                "gpt-5.1",
+                "gpt-5.2",
+                "gpt-5-mini",
+                "gpt-5-nano",
+                "claude-4.5-sonnet",
+                "claude-4.5-haiku",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
+                "gemini-3.0-flash",
+            ]
         ]
         | Omit = omit,
         pronunciation_dictionary: Optional[Iterable[agent_update_params.PronunciationDictionary]] | Omit = omit,
@@ -1498,9 +1786,12 @@ class AsyncAgentResource(AsyncAPIResource):
         response_engine: agent_update_params.ResponseEngine | Omit = omit,
         responsiveness: float | Omit = omit,
         ring_duration_ms: int | Omit = omit,
-        stt_mode: Literal["fast", "accurate"] | Omit = omit,
+        signed_url_expiration_ms: Optional[int] | Omit = omit,
+        stt_mode: Literal["fast", "accurate", "custom"] | Omit = omit,
         user_dtmf_options: Optional[agent_update_params.UserDtmfOptions] | Omit = omit,
+        version_description: Optional[str] | Omit = omit,
         vocab_specialization: Literal["general", "medical"] | Omit = omit,
+        voice_emotion: Optional[str] | Omit = omit,
         voice_id: str | Omit = omit,
         voice_model: Optional[
             Literal[
@@ -1509,13 +1800,20 @@ class AsyncAgentResource(AsyncAPIResource):
                 "eleven_turbo_v2_5",
                 "eleven_flash_v2_5",
                 "eleven_multilingual_v2",
+                "sonic-2",
+                "sonic-3",
+                "sonic-3-latest",
+                "sonic-turbo",
                 "tts-1",
                 "gpt-4o-mini-tts",
+                "speech-02-turbo",
             ]
         ]
         | Omit = omit,
         voice_speed: float | Omit = omit,
         voice_temperature: float | Omit = omit,
+        voicemail_detection_timeout_ms: int | Omit = omit,
+        voicemail_message: str | Omit = omit,
         voicemail_option: Optional[agent_update_params.VoicemailOption] | Omit = omit,
         volume: float | Omit = omit,
         webhook_timeout_ms: int | Omit = omit,
@@ -1543,28 +1841,29 @@ class AsyncAgentResource(AsyncAPIResource):
 
               - `coffee-shop`: Coffee shop ambience with people chatting in background.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/coffee-shop.wav)
-
               - `convention-hall`: Convention hall ambience, with some echo and people
                 chatting in background.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/convention-hall.wav)
-
               - `summer-outdoor`: Summer outdoor ambience with cicada chirping.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/summer-outdoor.wav)
-
               - `mountain-outdoor`: Mountain outdoor ambience with birds singing.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/mountain-outdoor.wav)
-
               - `static-noise`: Constant static noise.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/static-noise.wav)
-
               - `call-center`: Call center work noise.
                 [Listen to Ambience](https://retell-utils-public.s3.us-west-2.amazonaws.com/call-center.wav)
-
-              Set to `null` to remove ambient sound from this agent.
+                Set to `null` to remove ambient sound from this agent.
 
           ambient_sound_volume: If set, will control the volume of the ambient sound. Value ranging from [0,2].
               Lower value means quieter ambient sound, while higher value means louder ambient
               sound. If unset, default value 1 will apply.
+
+          analysis_successful_prompt: Prompt to determine whether the post call or chat analysis should mark the
+              interaction as successful. Set to null to use the default prompt.
+
+          analysis_summary_prompt: Prompt to guide how the post call or chat analysis summary should be generated.
+              When unset, the default system prompt is used. Set to null to use the default
+              prompt.
 
           backchannel_frequency: Only applicable when enable_backchannel is true. Controls how often the agent
               would backchannel when a backchannel is possible. Value ranging from [0,1].
@@ -1576,7 +1875,7 @@ class AsyncAgentResource(AsyncAPIResource):
               Check out
               [backchannel default words](/agent/interaction-configuration#backchannel) for
               more details. Note that certain voices do not work too well with certain words,
-              so it's recommended to expeirment before adding any words.
+              so it's recommended to experiment before adding any words.
 
           begin_message_delay_ms: If set, will delay the first message by the specified amount of milliseconds, so
               that it gives user more time to prepare to take the call. Valid range is [0,
@@ -1586,6 +1885,8 @@ class AsyncAgentResource(AsyncAPIResource):
           boosted_keywords: Provide a customized list of keywords to bias the transcriber model, so that
               these words are more likely to get transcribed. Commonly used for names, brands,
               street, etc.
+
+          custom_stt_config: Custom STT configuration. Only used when stt_mode is set to custom.
 
           data_storage_setting: Granular setting to manage how Retell stores sensitive data (transcripts,
               recordings, logs, etc.). This replaces the deprecated
@@ -1604,6 +1905,9 @@ class AsyncAgentResource(AsyncAPIResource):
               when enabled tends to show up more in longer user utterances. If not set, agent
               will not backchannel.
 
+          enable_voicemail_detection: If set to true, will detect whether the call enters a voicemail. Note that this
+              feature is only available for phone calls.
+
           end_call_after_silence_ms: If users stay silent for a period after agent speech, end the call. The minimum
               value allowed is 10,000 ms (10 s). By default, this is set to 600000 (10 min).
 
@@ -1619,10 +1923,17 @@ class AsyncAgentResource(AsyncAPIResource):
               unset, default value 1 will apply. When this is set to 0, agent would never be
               interrupted.
 
+          is_public: Whether the agent is public. When set to true, the agent is available for public
+              agent preview link.
+
+          ivr_option: If this option is set, the call will try to detect IVR in the first 3 minutes of
+              the call. Actions defined will be applied when the IVR is detected. Set this to
+              null to disable IVR detection.
+
           language: Specifies what language (and dialect) the speech recognition will operate in.
               For instance, selecting `en-GB` optimizes speech recognition for British
               English. If unset, will use default value `en-US`. Select `multi` for
-              multilingual support, currently this supports Spanish and English.
+              multilingual support.
 
           max_call_duration_ms: Maximum allowed length for the call, will force end the call if reached. The
               minimum value allowed is 60,000 ms (1 min), and maximum value allowed is
@@ -1646,7 +1957,7 @@ class AsyncAgentResource(AsyncAPIResource):
               pre-defined variables extracted in the call analysis. This will be available
               after the call ends.
 
-          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4o-mini.
+          post_call_analysis_model: The model to use for post call analysis. Default to gpt-4.1-mini.
 
           pronunciation_dictionary: A list of words / phrases and their pronunciation to be used to guide the audio
               synthesize for consistent pronunciation. Currently only supported for English &
@@ -1673,20 +1984,29 @@ class AsyncAgentResource(AsyncAPIResource):
               This applies for both outbound call ringtime, and call transfer ringtime.
               Default to 30000 (30 s). Valid range is [5000, 90000].
 
+          signed_url_expiration_ms: The expiration time for the signed url in milliseconds. Only applicable when
+              opt_in_signed_url is true. If not set, default value of 86400000 (24 hours) will
+              apply.
+
           stt_mode: If set, determines whether speech to text should focus on latency or accuracy.
-              Default to fast mode.
+              Default to fast mode. When set to custom, custom_stt_config must be provided.
+
+          version_description: Optional description of the agent version. Used for your own reference and
+              documentation.
 
           vocab_specialization: If set, determines the vocabulary set to use for transcription. This setting
               only applies for English agents, for non English agent, this setting is a no-op.
               Default to general.
 
+          voice_emotion: Controls the emotional tone of the agent's voice. Currently supported for
+              Cartesia and Minimax TTS providers. If unset, no emotion will be used.
+
           voice_id: Unique voice id used for the agent. Find list of available voices and their
               preview in Dashboard.
 
-          voice_model: Optionally set the voice model used for the selected voice. Currently only
-              elevenlab voices have voice model selections. Set to null to remove voice model
-              selection, and default ones will apply. Check out the dashboard for details on
-              each voice model.
+          voice_model: Select the voice model used for the selected voice. Each provider has a set of
+              available voice models. Set to null to remove voice model selection, and default
+              ones will apply. Check out dashboard for more details of each voice model.
 
           voice_speed: Controls speed of voice. Value ranging from [0.5,2]. Lower value means slower
               speech, while higher value means faster speech rate. If unset, default value 1
@@ -1696,6 +2016,15 @@ class AsyncAgentResource(AsyncAPIResource):
               more stable, and higher value means more variant speech generation. Currently
               this setting only applies to `11labs` voices. If unset, default value 1 will
               apply.
+
+          voicemail_detection_timeout_ms: Configures when to stop running voicemail detection, as it becomes unlikely to
+              hit voicemail after a couple minutes, and keep running it will only have
+              negative impact. The minimum value allowed is 5,000 ms (5 s), and maximum value
+              allowed is 180,000 (3 minutes). By default, this is set to 30,000 (30 s).
+
+          voicemail_message: The message to be played when the call enters a voicemail. Note that this
+              feature is only available for phone calls. If you want to hangup after hitting
+              voicemail, set this to empty string.
 
           voicemail_option: If this option is set, the call will try to detect voicemail in the first 3
               minutes of the call. Actions defined (hangup, or leave a message) will be
@@ -1732,16 +2061,22 @@ class AsyncAgentResource(AsyncAPIResource):
                     "allow_user_dtmf": allow_user_dtmf,
                     "ambient_sound": ambient_sound,
                     "ambient_sound_volume": ambient_sound_volume,
+                    "analysis_successful_prompt": analysis_successful_prompt,
+                    "analysis_summary_prompt": analysis_summary_prompt,
                     "backchannel_frequency": backchannel_frequency,
                     "backchannel_words": backchannel_words,
                     "begin_message_delay_ms": begin_message_delay_ms,
                     "boosted_keywords": boosted_keywords,
+                    "custom_stt_config": custom_stt_config,
                     "data_storage_setting": data_storage_setting,
                     "denoising_mode": denoising_mode,
                     "enable_backchannel": enable_backchannel,
+                    "enable_voicemail_detection": enable_voicemail_detection,
                     "end_call_after_silence_ms": end_call_after_silence_ms,
                     "fallback_voice_ids": fallback_voice_ids,
                     "interruption_sensitivity": interruption_sensitivity,
+                    "is_public": is_public,
+                    "ivr_option": ivr_option,
                     "language": language,
                     "max_call_duration_ms": max_call_duration_ms,
                     "normalize_for_speech": normalize_for_speech,
@@ -1755,13 +2090,18 @@ class AsyncAgentResource(AsyncAPIResource):
                     "response_engine": response_engine,
                     "responsiveness": responsiveness,
                     "ring_duration_ms": ring_duration_ms,
+                    "signed_url_expiration_ms": signed_url_expiration_ms,
                     "stt_mode": stt_mode,
                     "user_dtmf_options": user_dtmf_options,
+                    "version_description": version_description,
                     "vocab_specialization": vocab_specialization,
+                    "voice_emotion": voice_emotion,
                     "voice_id": voice_id,
                     "voice_model": voice_model,
                     "voice_speed": voice_speed,
                     "voice_temperature": voice_temperature,
+                    "voicemail_detection_timeout_ms": voicemail_detection_timeout_ms,
+                    "voicemail_message": voicemail_message,
                     "voicemail_option": voicemail_option,
                     "volume": volume,
                     "webhook_timeout_ms": webhook_timeout_ms,

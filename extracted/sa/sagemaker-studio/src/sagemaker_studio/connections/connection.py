@@ -16,6 +16,36 @@ from sagemaker_studio.exceptions import AWSClientException
 
 from .catalog import Catalog
 
+# Supported Glue connection types for spark_options
+SUPPORTED_GLUE_CONNECTION_TYPES = [
+    "SNOWFLAKE",
+    "BIGQUERY",
+    "DOCUMENTDB",
+    "DYNAMODB",
+    "MYSQL",
+    "OPENSEARCH",
+    "ORACLE",
+    "POSTGRESQL",
+    "REDSHIFT",
+    "SAPHANA",
+    "SQLSERVER",
+    "TERADATA",
+    "VERTICA",
+]
+
+
+class MaskedDict(dict):
+    """Dictionary that masks password values when printed but allows normal access."""
+
+    def __repr__(self):
+        masked = self.copy()
+        if "password" in masked:
+            masked["password"] = "****"
+        return dict.__repr__(masked)
+
+    def __str__(self):
+        return self.__repr__()
+
 
 @dataclass
 class PhysicalEndpoint:
@@ -150,6 +180,7 @@ class Connection:
         glue_api: BaseClient,
         datazone_api: BaseClient,
         secrets_manager_api: BaseClient,
+        kms_api: BaseClient,
         project_config: ClientConfig,
     ):
         """
@@ -177,11 +208,12 @@ class Connection:
         self.project_id = self.__connection_data.get("projectId", None)
         self.iam_role = self.__connection_data.get("environmentUserRole", None)
         self._project_config = project_config
-        if self.type in ["LAKEHOUSE", "IAM"]:
+        if self.type in ["LAKEHOUSE", "IAM"] or self.type in SUPPORTED_GLUE_CONNECTION_TYPES:
             self._glue_api: BaseClient = self._get_aws_client_with_connection_credentials(
                 "glue", self._connection_creds, glue_api
             )
         self._secrets_manager_api = secrets_manager_api
+        self._kms_api = kms_api
 
     def __str__(self) -> str:
         """
@@ -355,6 +387,51 @@ class Connection:
                 f"Connection {self.name} does not have associated secret. Please check the connection type"
             )
 
+    def _spark_options(self) -> Optional[Dict]:
+        """
+        Returns the Spark option properties using GlueConnectionLib.
+        """
+        if self.type is None or self.type not in SUPPORTED_GLUE_CONNECTION_TYPES:
+            raise AttributeError(f"Connection Type {self.type} not supported")
+
+        if self.physical_endpoints and self.physical_endpoints[0].glue_connection_name:
+            from .glue_connection_lib import GlueConnectionWrapper, GlueConnectionWrapperInputs
+
+            try:
+                glue_connection_name = self.physical_endpoints[0].glue_connection_name
+                connection = self._glue_api.get_connection(
+                    Name=glue_connection_name, ApplyOverrideForComputeEnvironment="SPARK"
+                )["Connection"]
+
+                kms_client: BaseClient = self._get_aws_client_with_connection_credentials(
+                    "kms", self._connection_creds, self._kms_api
+                )
+
+                secrets_manager_client: BaseClient = self._get_aws_client_with_connection_credentials(  # type: ignore
+                    "secretsmanager", self._connection_creds, self._secrets_manager_api
+                )
+
+                wrapper_input = GlueConnectionWrapperInputs(
+                    connection=connection,
+                    kms_client=kms_client,
+                    secrets_manager_client=secrets_manager_client,
+                    additional_options={},
+                )
+
+                wrapper = GlueConnectionWrapper.create(wrapper_input)
+                resolved_connection = wrapper.get_resolved_connection()
+                spark_properties = resolved_connection.get("SparkProperties")
+
+                if spark_properties:
+                    return MaskedDict(spark_properties)
+                return spark_properties
+
+            except Exception as e:
+                raise RuntimeError(
+                    f"Encountered an error getting spark options for the connection:{self.name} {e}"
+                )
+        return None
+
     def create_client(self, service_name: Optional[str] = None) -> BaseClient:
         """
         Returns a boto3 client initialized with the connection's credentials.
@@ -365,17 +442,17 @@ class Connection:
         Returns:
             BaseClient: A boto3 client
         """
-        DefaulAwsServicesByConnectionType = {
+        default_aws_services_by_connection_type = {
             "ATHENA": "athena",
             "DYNAMODB": "dynamodb",
             "REDSHIFT": "redshift",
             "S3": "s3",
             "S3_FOLDER": "s3",
         }
-        if not service_name and self.type not in DefaulAwsServicesByConnectionType:
+        if not service_name and self.type not in default_aws_services_by_connection_type:
             raise RuntimeError("Please specify a service name to initialize a client")
         return self._get_aws_client_with_connection_credentials(
-            service_name or DefaulAwsServicesByConnectionType[self.type],
+            service_name or default_aws_services_by_connection_type[self.type],
             self._connection_creds,
             self._secrets_manager_api,
         )
@@ -398,6 +475,18 @@ class Connection:
             auth_config = getattr(endpoint.glue_connection, "authentication_configuration", None)
             if auth_config and isinstance(auth_config, dict):
                 secret_arn = auth_config.get("secretArn")
+        elif self.type == "REDSHIFT":
+            connection_without_secret = self._datazone_api.get_connection(  # type: ignore
+                domainIdentifier=self.domain_id,
+                identifier=self.id,
+                withSecret=False,
+            )
+            secret_arn = (
+                connection_without_secret.get("props", {})
+                .get("redshiftProperties", {})
+                .get("credentials", {})
+                .get("secretArn")
+            )
         if not secret_arn:
             raise AttributeError(f"Connection {self.name} does not have associated secret")
         return secret_arn
@@ -545,7 +634,7 @@ class Connection:
                 getattr(connection_credentials, key) is None
                 for key in ["access_key_id", "secret_access_key", "session_token"]
             ):
-                raise RuntimeError("Unable to find credentials for project.iam connection")
+                raise RuntimeError("Unable to find credentials for default IAM connection")
             region_name = existing_client.meta.region_name
             project_override_config = self._project_config.overrides.get(service_name, {})
             override_region_name = project_override_config.get("region")
@@ -574,6 +663,7 @@ class Connection:
             type=get_catalog_response.get("CatalogType"),
             spark_catalog_name=spark_catalog_name,
             resource_arn=get_catalog_response.get("ResourceArn"),
+            federated_catalog=get_catalog_response.get("FederatedCatalog", {}),
             domain_id=str(self.domain_id),
             project_id=str(self.project_id),
             glue_api=self._glue_api,

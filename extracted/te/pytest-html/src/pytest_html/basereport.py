@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import time
 import warnings
 from collections import defaultdict
 from html import escape
@@ -33,6 +34,7 @@ class BaseReport:
         self._reports = defaultdict(dict)
         self._report = report_data
         self._report.title = self._report_path.name
+        self._suite_start_time = time.time()
 
     @property
     def css(self):
@@ -173,7 +175,8 @@ class BaseReport:
         self._report.table_header = _fix_py(headers)
 
         self._report.running_state = "started"
-        self._generate_report()
+        if self._config.getini("generate_report_on_test"):
+            self._generate_report()
 
     @pytest.hookimpl(trylast=True)
     def pytest_sessionfinish(self, session):
@@ -184,6 +187,8 @@ class BaseReport:
             session=session,
         )
         self._report.running_state = "finished"
+        suite_stop_time = time.time()
+        self._report.total_duration = suite_stop_time - self._suite_start_time
         self._generate_report()
 
     @pytest.hookimpl(trylast=True)
@@ -196,7 +201,7 @@ class BaseReport:
     @pytest.hookimpl(trylast=True)
     def pytest_collectreport(self, report):
         if report.failed:
-            self._process_report(report, 0)
+            self._process_report(report, 0, [])
 
     @pytest.hookimpl(trylast=True)
     def pytest_collection_finish(self, session):
@@ -223,8 +228,6 @@ class BaseReport:
         else:
             self._reports[report.nodeid][key] = [report]
 
-        self._report.total_duration += report.duration
-
         finished = report.when == "teardown" and report.outcome != "rerun"
         if not finished:
             return
@@ -238,16 +241,25 @@ class BaseReport:
             if outcome != "rerun":
                 test_duration += reports[0].duration
 
+        processed_extras = []
+        for key, reports in self._reports[report.nodeid].items():
+            when, _ = key
+            for each in reports:
+                test_id = report.nodeid
+                if when != "call":
+                    test_id += f"::{when}"
+                processed_extras += self._process_extras(each, test_id)
+
         for key, reports in self._reports[report.nodeid].items():
             when, _ = key
             for each in reports:
                 dur = test_duration if when == "call" else each.duration
-                self._process_report(each, dur)
+                self._process_report(each, dur, processed_extras)
 
         if self._config.getini("generate_report_on_test"):
             self._generate_report()
 
-    def _process_report(self, report, duration):
+    def _process_report(self, report, duration, processed_extras):
         outcome = _process_outcome(report)
         try:
             # hook returns as list for some reason
@@ -262,8 +274,9 @@ class BaseReport:
             test_id += f"::{report.when}"
 
         data = {
-            "extras": self._process_extras(report, test_id),
+            "extras": processed_extras,
         }
+
         links = [
             extra
             for extra in data["extras"]
@@ -293,7 +306,7 @@ class BaseReport:
 
 def _format_duration(duration):
     if duration < 1:
-        return "{} ms".format(round(duration * 1000))
+        return f"{round(duration * 1000)} ms"
 
     hours = math.floor(duration / 3600)
     remaining_seconds = duration % 3600

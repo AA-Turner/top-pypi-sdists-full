@@ -23,7 +23,7 @@ setup(
     long_description_content_type="text/markdown",
     url='https://github.com/zbirenbaum/polyfile-weave',
     author='Trail of Bits',
-    version="0.5.7",
+    version="0.5.9",
     packages=find_packages(exclude=("tests",)),
     python_requires='>=3.8',
     install_requires=[
@@ -31,16 +31,22 @@ setup(
         "chardet>=5.0.0",
         "cint>=1.0.0",
         "fickling>=0.0.8",
+        # Python 3.9: filelock 3.20.3+ requires Python>=3.10, so we use 3.19.1
+        # KNOWN VULNERABILITIES IN 3.19.1:
+        # - CVE-2025-68146 (GHSA-w853-jp5j-5j7f): TOCTOU symlink attack - fixed in 3.20.1
+        # - CVE-2026-22701 (GHSA-qmgc-5h2g-mvrw): TOCTOU in SoftFileLock - fixed in 3.20.3
+        # Risk accepted for Python 3.9. Users requiring security should upgrade to Python 3.10+
+        "filelock>=3.13.0,<3.20.0;python_version<'3.10'",
+        "filelock>=3.20.3;python_version>='3.10'",
         "graphviz>=0.20.1",
         "intervaltree>=2.4.0",
         "jinja2>=2.1.0",
-        "kaitaistruct~=0.10",
+        "kaitaistruct>=0.11",
         "networkx>=2.6.3",
-        "pdfminer.six>=20220524,<=20250506",
         "Pillow>=5.0.0",
         "pyreadline3;platform_system=='Windows'",
         "pyyaml>=3.13",
-        "setuptools>=80.9.0"
+        "pdfminer.six>=20251230;python_version>='3.10'"
     ],
     extras_require={
         'demangle': ['cxxfilt'],

@@ -20,11 +20,14 @@ T = TypeVar("T", bound="ListMqttTriggersResponse200ItemRetry")
 
 @_attrs_define
 class ListMqttTriggersResponse200ItemRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, ListMqttTriggersResponse200ItemRetryConstant]):
-        exponential (Union[Unset, ListMqttTriggersResponse200ItemRetryExponential]):
-        retry_if (Union[Unset, ListMqttTriggersResponse200ItemRetryRetryIf]):
+        constant (Union[Unset, ListMqttTriggersResponse200ItemRetryConstant]): Retry with constant delay between
+            attempts
+        exponential (Union[Unset, ListMqttTriggersResponse200ItemRetryExponential]): Retry with exponential backoff
+            (delay doubles each time)
+        retry_if (Union[Unset, ListMqttTriggersResponse200ItemRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "ListMqttTriggersResponse200ItemRetryConstant"] = UNSET

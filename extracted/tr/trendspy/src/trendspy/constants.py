@@ -1,0 +1,21 @@
+TREND_TOPICS = {
+    1: "Autos and Vehicles",
+    2: "Beauty and Fashion",
+    3: "Business and Finance",
+    20: "Climate",
+    4: "Entertainment",
+    5: "Food and Drink",
+    6: "Games",
+    7: "Health",
+    8: "Hobbies and Leisure",
+    9: "Jobs and Education",
+    10: "Law and Government",
+    11: "Other",
+    13: "Pets and Animals",
+    14: "Politics",
+    15: "Science",
+    16: "Shopping",
+    17: "Sports",
+    18: "Technology",
+    19: "Travel and Transportation"
+}

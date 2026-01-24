@@ -108,7 +108,8 @@ class Inline(Element):
         the line break state of the inline text
         
         - defaults to :code:`False`
-        - set to :code:`True` to add a line break to the end of the element (i.e., `<br>`)
+        - set to :code:`True` to add a line break to the 
+          end of the element (i.e., `<br>`)
     """
 
     def __init__(
@@ -184,7 +185,8 @@ class Inline(Element):
             f"bold={self._bold!r}, "
             f"italics={self._italics!r}, "
             f"strikethrough={self._strikethrough!r}, "
-            f"code={self._code!r}"
+            f"code={self._code!r}, "
+            f"linebreak={self._linebreak!r}"
             ")"
         )
 
@@ -385,6 +387,38 @@ class Inline(Element):
         self._code = False
         return self
 
+    def breakline(self) -> Inline:
+        """
+        Adds a linebreak to self.
+
+        .. doctest:: inline
+
+            >>> inline = Inline("Hello").breakline()
+            >>> print(inline)
+            Hello<br />
+
+        :return:
+            self
+        """
+        self._linebreak = True
+        return self
+
+    def unbreakline(self) -> Inline:
+        """
+        Removes linebreak from self.
+
+        .. doctest:: inline
+
+            >>> inline = Inline("Hello", linebreak=True).unbreakline()
+            >>> print(inline)
+            Hello
+
+        :return:
+            self
+        """
+        self._linebreak = False
+        return self
+
     def link(self, link: str) -> Inline:
         """
         Adds link to self.
@@ -447,6 +481,19 @@ class Inline(Element):
         self._italics = False
         self._bold = False
         self._strikethrough = False
+        return self
+
+    def _apply_styles_from(self, text: Inline) -> Inline:
+        """
+        A helper method that applies text styling to self from another 
+        Inline object. This includes only boolean styling information
+        related to the behavior of is_text(). In other words, link, image, 
+        and code information is not copied over.  
+        """
+        self._bold = text._bold
+        self._italics = text._italics
+        self._strikethrough = text._strikethrough
+        self._linebreak = text._linebreak
         return self
 
 
@@ -799,6 +846,9 @@ class MDList(Block):
           (i.e., :code:`- [x]`)
         - set to :code:`Iterable[bool]` to render the checked
           status of the top-level list elements directly
+          
+        .. deprecated:: 2.4
+            Use :class:`snakemd.Checklist` template instead
     """
 
     def __init__(
@@ -813,8 +863,9 @@ class MDList(Block):
             checked if checked is None or isinstance(checked, bool) else list(checked)
         )
         self._space = ""
-        if isinstance(self._checked, list) and self._top_level_count() != len(
-            self._checked
+        if (
+            isinstance(self._checked, list)
+            and MDList._top_level_count(self._items) != len(self._checked)
         ):
             raise ValueError(
                 "Number of top-level elements in checklist does not "
@@ -850,7 +901,7 @@ class MDList(Block):
         i = 1
         for item in self._items:
             if isinstance(item, MDList):
-                item._space = self._space + " " * self._get_indent_size(i)
+                item._space = self._space + " " * self._get_indent_size(self._ordered, i)
                 output.append(str(item))
             else:
                 # Create the start of the row based on `order` parameter
@@ -918,7 +969,8 @@ class MDList(Block):
                 processed.append(item)
         return processed
 
-    def _top_level_count(self) -> int:
+    @staticmethod
+    def _top_level_count(items) -> int:
         """
         Given that MDList can accept a variety of blocks,
         we need to know how many items in the provided list
@@ -926,26 +978,31 @@ class MDList(Block):
         We use this number to throw errors if this count does
         not match up with the checklist count.
 
+        :param items:
+            a list of items
         :return:
             a count of top-level elements
         """
         count = 0
-        for item in self._items:
+        for item in items:
             if not isinstance(item, MDList):
                 count += 1
         return count
 
-    def _get_indent_size(self, item_index: int = -1) -> int:
+    @staticmethod
+    def _get_indent_size(ordered: bool, item_index: int = -1) -> int:
         """
         Returns the number of spaces that any sublists should be indented.
 
+        :param bool ordered:
+            the boolean value indicating if a list is ordered
         :param int item_index:
             the index of the item to check (only used for ordered lists);
             defaults to -1
         :return:
             the number of spaces
         """
-        if not self._ordered:
+        if not ordered:
             return 2
         # Ordered items vary in length, so we adjust the result based on the index
         return 2 + len(str(item_index))
@@ -1056,23 +1113,34 @@ class Paragraph(Block):
         :return:
             self
         """
-        i = 0
-        content = []
+        content: list[Inline] = []
         for inline_text in self._content:
-            if (
-                inline_text.is_text()
-                and len(items := inline_text.get_text().split(target)) > 1
-            ):
-                for item in items:
-                    content.append(Inline(item))
-                    if count == -1 or i < count:
-                        content.append(text)
-                        i += 1
-                    else:
-                        content.append(Inline(target))
-                content.pop()
-            else:
+            # Skip inline elements that we don't care about
+            if not inline_text.is_text() or target not in inline_text.get_text():
                 content.append(inline_text)
+                continue
+
+            # Split the inline element into pieces
+            items = [
+                Inline(item)._apply_styles_from(inline_text)
+                for item in inline_text.get_text().split(target, count)
+            ]
+
+            # Adds text back in with appropriate style information
+            for item in items:
+                content.append(item)
+                content.append(text._apply_styles_from(inline_text))
+            content.pop()
+
+            # Trim empty strings from edges
+            if content[-1].get_text() == "":
+                content.pop()
+            if content[0].get_text() == "":
+                content = content[1:]
+
+            # Remove line breaks that may have been distributed by applying styles
+            content[:-1] = map(lambda item: item.unbreakline(), content[:-1])
+                
         self._content = content
         return self
 
@@ -1267,8 +1335,10 @@ class Quote(Block):
         else:
             processed_lines = []
             for line in lines:
-                if isinstance(line, (str, Inline)):
+                if isinstance(line, str):
                     processed_lines.append(Raw(line))
+                elif isinstance(line, Inline):
+                    processed_lines.append(Paragraph([line]))
                 else:
                     processed_lines.append(line)
         logger.debug("Processed quote lines: %r", processed_lines)

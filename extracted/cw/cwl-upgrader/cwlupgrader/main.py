@@ -8,9 +8,9 @@ import os
 import os.path
 import stat
 import sys
-from collections.abc import MutableMapping, MutableSequence, Sequence
+from collections.abc import Callable, MutableMapping, MutableSequence, Sequence
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
 
 import ruamel.yaml
 from ruamel.yaml.comments import CommentedMap  # for consistent sort order
@@ -59,15 +59,15 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def main(args: Optional[list[str]] = None) -> int:
-    """Hook to set the args."""
+def main(args: list[str] | None = None) -> int:
+    """Run with optional arguments override."""
     if not args:
         args = sys.argv[1:]
     return run(parse_args(args))
 
 
 def run(args: argparse.Namespace) -> int:
-    """Main function."""
+    """Run the program using the provided arguments."""
     imports: set[str] = set()
     if args.dir and not os.path.exists(args.dir):
         os.makedirs(args.dir)
@@ -106,8 +106,8 @@ def run(args: argparse.Namespace) -> int:
 def upgrade_document(
     document: Any,
     output_dir: str,
-    target_version: Optional[str] = "latest",
-    imports: Optional[set[str]] = None,
+    target_version: str | None = "latest",
+    imports: set[str] | None = None,
 ) -> Any:
     if imports is None:
         imports = set()
@@ -120,51 +120,47 @@ def upgrade_document(
     main_updater = None
     inner_updater = None
 
-    if version == "cwl:draft-3" or version == "draft-3":
-        if target_version == "v1.0":
-            main_updater = draft3_to_v1_0
-            inner_updater = _draft3_to_v1_0
-        elif target_version == "v1.1":
-            main_updater = draft3_to_v1_1
-            inner_updater = _draft3_to_v1_1
-        elif target_version == "v1.2":
-            main_updater = draft3_to_v1_2
-            inner_updater = _draft3_to_v1_2
-        elif target_version == "latest":
-            main_updater = draft3_to_v1_2
-            inner_updater = _draft3_to_v1_2
-    elif version == "v1.0":
-        if target_version == "v1.0":
-            _logger.info("Not upgrading v1.0 document as requested.")
+    match version:
+        case "cwl:draft-3" | "draft-3":
+            match target_version:
+                case "v1.0":
+                    main_updater = draft3_to_v1_0
+                    inner_updater = _draft3_to_v1_0
+                case "v1.1":
+                    main_updater = draft3_to_v1_1
+                    inner_updater = _draft3_to_v1_1
+                case "v1.2" | "latest":
+                    main_updater = draft3_to_v1_2
+                    inner_updater = _draft3_to_v1_2
+        case "v1.0":
+            match target_version:
+                case "v1.0":
+                    _logger.info("Not upgrading v1.0 document as requested.")
+                    return
+                case "v1.1":
+                    main_updater = v1_0_to_v1_1
+                    inner_updater = _v1_0_to_v1_1
+                case "v1.2" | "latest":
+                    main_updater = v1_0_to_v1_2
+                    inner_updater = _v1_0_to_v1_2
+        case "v1.1":
+            match target_version:
+                case "v1.1":
+                    _logger.info("Not upgrading v1.1 document as requested.")
+                    return
+                case "v1.2" | "latest":
+                    main_updater = v1_1_to_v1_2
+                    inner_updater = _v1_1_to_v1_2
+        case "v1.2":
+            match target_version:
+                case "v1.2":
+                    _logger.info("Not upgrading v1.2 document as requested.")
+                    return document
+                case "latest":
+                    return document
+        case _:
+            _logger.error(f"Unknown cwlVersion in source document: {version}")
             return
-        elif target_version == "v1.1":
-            main_updater = v1_0_to_v1_1
-            inner_updater = _v1_0_to_v1_1
-        elif target_version == "v1.2":
-            main_updater = v1_0_to_v1_2
-            inner_updater = _v1_0_to_v1_2
-        elif target_version == "latest":
-            main_updater = v1_0_to_v1_2
-            inner_updater = _v1_0_to_v1_2
-    elif version == "v1.1":
-        if target_version == "v1.1":
-            _logger.info("Not upgrading v1.1 document as requested.")
-            return
-        elif target_version == "v1.2":
-            main_updater = v1_1_to_v1_2
-            inner_updater = _v1_1_to_v1_2
-        elif target_version == "latest":
-            main_updater = v1_1_to_v1_2
-            inner_updater = _v1_1_to_v1_2
-    elif version == "v1.2":
-        if target_version == "v1.2":
-            _logger.info("Not upgrading v1.2 document as requested.")
-            return document
-        elif target_version == "latest":
-            return document
-    else:
-        _logger.error(f"Unknown cwlVersion in source document: {version}")
-        return
 
     if main_updater is None or inner_updater is None:
         _logger.error(f"Cannot downgrade from cwlVersion {version} to {target_version}")
@@ -188,7 +184,7 @@ def load_cwl_document(path: str) -> Any:
 
 
 def write_cwl_document(document: Any, name: str, dirname: str) -> None:
-    """
+    r"""
     Serialize the document using the Ruamel YAML round trip dumper.
 
     Will also prepend "#!/usr/bin/env cwl-runner\n" and
@@ -265,7 +261,7 @@ def v1_1_to_v1_2(document: CommentedMap, outdir: str) -> CommentedMap:
 
 
 def draft3_to_v1_0(document: CommentedMap, outdir: str) -> CommentedMap:
-    """Transformation loop."""
+    """Transform a draft3 document to a version 1.0 document."""
     _draft3_to_v1_0(document, outdir)
     if isinstance(document, MutableMapping):
         for key, value in document.items():
@@ -281,23 +277,23 @@ def draft3_to_v1_0(document: CommentedMap, outdir: str) -> CommentedMap:
 
 
 def draft3_to_v1_1(document: CommentedMap, outdir: str) -> CommentedMap:
-    """transformation loop."""
+    """Transform a draft3 document to a version 1.1 document."""
     return v1_0_to_v1_1(draft3_to_v1_0(document, outdir), outdir)
 
 
 def draft3_to_v1_2(document: CommentedMap, outdir: str) -> CommentedMap:
-    """transformation loop."""
+    """Transform a draft3 document to a version 1.2 document."""
     return v1_1_to_v1_2(v1_0_to_v1_1(draft3_to_v1_0(document, outdir), outdir), outdir)
 
 
 def _draft3_to_v1_0(document: CommentedMap, outdir: str) -> CommentedMap:
     """Inner loop for transforming draft-3 to v1.0."""
-    if "class" in document:
-        if document["class"] == "Workflow":
+    match document:
+        case {"class": "Workflow"}:
             workflow_clean(document)
-        elif document["class"] == "File":
+        case {"class": "File"}:
             document["location"] = document.pop("path")
-        elif document["class"] == "CommandLineTool":
+        case {"class": "CommandLineTool"}:
             input_output_clean(document)
             hints_and_requirements_clean(document)
             if (
@@ -340,32 +336,19 @@ V1_0_TO_V1_1_REWRITE = {
 
 def _v1_0_to_v1_1(document: CommentedMap, outdir: str) -> CommentedMap:
     """Inner loop for transforming draft-3 to v1.0."""
-    if "class" in document:
-        if document["class"] == "Workflow":
+    match document:
+        case {"class": "Workflow"}:
             upgrade_v1_0_hints_and_reqs(document)
             move_up_loadcontents(document)
             cleanup_v1_0_input_bindings(document)
-            steps = document["steps"]
-            if isinstance(steps, MutableSequence):
-                for index, entry in enumerate(steps):
-                    with SourceLine(steps, index, Exception):
-                        upgrade_v1_0_hints_and_reqs(entry)
-                        if "run" in entry and isinstance(entry["run"], CommentedMap):
-                            process = entry["run"]
-                            _v1_0_to_v1_1(process, outdir)
-                            if "cwlVersion" in process:
-                                del process["cwlVersion"]
-                        elif isinstance(entry["run"], str) and "#" not in entry["run"]:
-                            path = Path(document.lc.filename).parent / entry["run"]
-                            process = v1_0_to_v1_1(load_cwl_document(str(path)), outdir)
-                            write_cwl_document(process, path.name, outdir)
-            elif isinstance(steps, MutableMapping):
-                for step_name in steps:
-                    with SourceLine(steps, step_name, Exception):
-                        entry = steps[step_name]
-                        upgrade_v1_0_hints_and_reqs(entry)
-                        if "run" in entry:
-                            if isinstance(entry["run"], CommentedMap):
+            match document["steps"]:
+                case MutableSequence() as steps:
+                    for index, entry in enumerate(steps):
+                        with SourceLine(steps, index, Exception):
+                            upgrade_v1_0_hints_and_reqs(entry)
+                            if "run" in entry and isinstance(
+                                entry["run"], CommentedMap
+                            ):
                                 process = entry["run"]
                                 _v1_0_to_v1_1(process, outdir)
                                 if "cwlVersion" in process:
@@ -379,43 +362,59 @@ def _v1_0_to_v1_1(document: CommentedMap, outdir: str) -> CommentedMap:
                                     load_cwl_document(str(path)), outdir
                                 )
                                 write_cwl_document(process, path.name, outdir)
-                            elif isinstance(entry["run"], str) and "#" in entry["run"]:
-                                pass  # reference to $graph entry
-                            else:
-                                raise Exception(
-                                    "'run' entry was neither a CWL Process nor "
-                                    "a path to one: %s.",
-                                    entry["run"],
-                                )
-        elif document["class"] == "CommandLineTool":
+                case MutableMapping() as steps:
+                    for step_name in steps:
+                        with SourceLine(steps, step_name, Exception):
+                            entry = steps[step_name]
+                            upgrade_v1_0_hints_and_reqs(entry)
+                            match entry:
+                                case {"run": CommentedMap() as process}:
+                                    _v1_0_to_v1_1(process, outdir)
+                                    if "cwlVersion" in process:
+                                        del process["cwlVersion"]
+                                case {"run": str(run)} if "#" not in run:
+                                    path = Path(document.lc.filename).parent / run
+                                    process = v1_0_to_v1_1(
+                                        load_cwl_document(str(path)), outdir
+                                    )
+                                    write_cwl_document(process, path.name, outdir)
+                                case {"run": str(run)} if "#" in run:
+                                    pass  # reference to $graph entry
+                                case _:
+                                    raise Exception(
+                                        "'run' entry was neither a CWL Process nor "
+                                        "a path to one: %s.",
+                                        entry["run"],
+                                    )
+        case {"class": "CommandLineTool"}:
             upgrade_v1_0_hints_and_reqs(document)
             move_up_loadcontents(document)
             network_access = has_hint_or_req(document, "NetworkAccess")
             listing = has_hint_or_req(document, "LoadListingRequirement")
-            reqs = document.get("requirements", {})
             # TODO: add comments to explain the extra hints
-            if isinstance(reqs, MutableSequence):
-                if not network_access:
-                    reqs.append({"class": "NetworkAccess", "networkAccess": True})
-                if not listing:
-                    reqs.append(
-                        cmap(
-                            {
-                                "class": "LoadListingRequirement",
-                                "loadListing": "deep_listing",
-                            }
-                        )
-                    )
-            elif isinstance(reqs, MutableMapping):
-                if not network_access:
-                    reqs["NetworkAccess"] = {"networkAccess": True}
-                if not listing:
-                    reqs["LoadListingRequirement"] = cmap(
-                        {"loadListing": "deep_listing"}
-                    )
             if "requirements" not in document:
-                document["requirements"] = reqs
-        elif document["class"] == "ExpressionTool":
+                document["requirements"] = {}
+            match document:
+                case {"requirements": MutableSequence() as reqs}:
+                    if not network_access:
+                        reqs.append({"class": "NetworkAccess", "networkAccess": True})
+                    if not listing:
+                        reqs.append(
+                            cmap(
+                                {
+                                    "class": "LoadListingRequirement",
+                                    "loadListing": "deep_listing",
+                                }
+                            )
+                        )
+                case {"requirements": MutableMapping() as reqs}:
+                    if not network_access:
+                        reqs["NetworkAccess"] = {"networkAccess": True}
+                    if not listing:
+                        reqs["LoadListingRequirement"] = cmap(
+                            {"loadListing": "deep_listing"}
+                        )
+        case {"class": "ExpressionTool"}:
             move_up_loadcontents(document)
             cleanup_v1_0_input_bindings(document)
     return document
@@ -427,57 +426,46 @@ def _v1_0_to_v1_2(document: CommentedMap, outdir: str) -> CommentedMap:
 
 
 def _v1_1_to_v1_2(document: CommentedMap, outdir: str) -> CommentedMap:
-    if "class" in document:
-        if document["class"] == "Workflow":
-            steps = document["steps"]
-            if isinstance(steps, MutableSequence):
-                for index, entry in enumerate(steps):
-                    with SourceLine(steps, index, Exception):
-                        if "run" in entry and isinstance(entry["run"], CommentedMap):
-                            process = entry["run"]
+    match document:
+        case {"class": "Workflow", "steps": MutableSequence() as steps}:
+            for index, entry in enumerate(steps):
+                with SourceLine(steps, index, Exception):
+                    match entry:
+                        case {"run": CommentedMap() as process}:
                             _v1_1_to_v1_2(process, outdir)
                             if "cwlVersion" in process:
                                 del process["cwlVersion"]
-
-                        elif isinstance(entry["run"], str) and "#" not in entry["run"]:
+                        case {"run": str(run)} if "#" not in run:
                             if hasattr(document.lc, "filename"):
                                 dirname = Path(document.lc.filename).parent
                             else:
                                 dirname = Path(outdir)
-                            path = dirname / entry["run"]
+                            path = dirname / run
                             process = v1_1_to_v1_2(load_cwl_document(str(path)), outdir)
                             write_cwl_document(process, path.name, outdir)
-            elif isinstance(steps, MutableMapping):
-                for step_name in steps:
-                    with SourceLine(steps, step_name, Exception):
-                        entry = steps[step_name]
-                        if "run" in entry:
-                            if isinstance(entry["run"], CommentedMap):
-                                process = entry["run"]
-                                _v1_1_to_v1_2(process, outdir)
-                                if "cwlVersion" in process:
-                                    del process["cwlVersion"]
-                            elif (
-                                isinstance(entry["run"], str)
-                                and "#" not in entry["run"]
-                            ):
-                                if hasattr(document.lc, "filename"):
-                                    dirname = Path(document.lc.filename).parent
-                                else:
-                                    dirname = Path(outdir)
-                                path = dirname / entry["run"]
-                                process = v1_1_to_v1_2(
-                                    load_cwl_document(str(path)), outdir
-                                )
-                                write_cwl_document(process, path.name, outdir)
-                            elif isinstance(entry["run"], str) and "#" in entry["run"]:
-                                pass  # reference to $graph entry
+        case {"class": "Workflow", "steps": MutableMapping() as steps}:
+            for step_name in steps:
+                with SourceLine(steps, step_name, Exception):
+                    match steps[step_name]:
+                        case {"run": CommentedMap() as process}:
+                            _v1_1_to_v1_2(process, outdir)
+                            if "cwlVersion" in process:
+                                del process["cwlVersion"]
+                        case {"run": str(run)} if "#" not in run:
+                            if hasattr(document.lc, "filename"):
+                                dirname = Path(document.lc.filename).parent
                             else:
-                                raise Exception(
-                                    "'run' entry was neither a CWL Process nor "
-                                    "a path to one: %s.",
-                                    entry["run"],
-                                )
+                                dirname = Path(outdir)
+                            path = dirname / run
+                            process = v1_1_to_v1_2(load_cwl_document(str(path)), outdir)
+                            write_cwl_document(process, path.name, outdir)
+                        case {"run": str(run)} if "#" in run:
+                            pass  # reference to $graph entry
+                        case {"run": run}:
+                            raise Exception(
+                                "'run' entry was neither a CWL Process nor "
+                                "a path to one: {run}."
+                            )
     return document
 
 
@@ -556,7 +544,7 @@ def upgrade_v1_0_hints_and_reqs(document: dict[str, Any]) -> None:
 
 
 def has_hint_or_req(document: dict[str, Any], name: str) -> bool:
-    """Detects an existing named hint or requirement."""
+    """Detect an existing named hint or requirement."""
     for extra in ("requirements", "hints"):
         if extra in document:
             with SourceLine(document, extra, Exception):
@@ -572,7 +560,7 @@ def has_hint_or_req(document: dict[str, Any], name: str) -> bool:
 
 
 def workflow_clean(document: dict[str, Any]) -> None:
-    """Transform draft-3 style Workflows to more idiomatic v1.0"""
+    """Transform draft-3 style Workflows to more idiomatic v1.0."""
     input_output_clean(document)
     hints_and_requirements_clean(document)
     outputs = document["outputs"]
@@ -683,22 +671,21 @@ def input_output_clean(document: dict[str, Any]) -> None:
 
 def array_type_raise_sf(param: MutableMapping[str, Any]) -> None:
     """Move up draft-3 secondaryFile specs on File members in Arrays."""
-    typ = param["type"]
-    if isinstance(typ, MutableSequence):
-        for index, param2 in enumerate(typ):
-            with SourceLine(typ, index, Exception):
-                if isinstance(param2, MutableMapping) and "type" in param2:
-                    array_type_raise_sf(param2)
-    elif (
-        isinstance(typ, MutableMapping)
-        and "type" in typ
-        and typ["type"] == "array"
-        and "items" in typ
-        and "File" in typ["items"]
-        and "secondaryFiles" in typ
-    ):
-        param["secondaryFiles"] = typ["secondaryFiles"]
-        del typ["secondaryFiles"]
+    match param["type"]:
+        case MutableSequence() as typ:
+            for index, param2 in enumerate(typ):
+                with SourceLine(typ, index, Exception):
+                    if isinstance(param2, MutableMapping) and "type" in param2:
+                        array_type_raise_sf(param2)
+        case {
+            "type": "array",
+            "items": items,
+            "secondaryFiles": sec_files,
+        } as typ if (
+            "File" in items
+        ):
+            param["secondaryFiles"] = sec_files
+            del typ["secondaryFiles"]
 
 
 def hints_and_requirements_clean(document: dict[str, Any]) -> None:
@@ -736,7 +723,7 @@ def hints_and_requirements_clean(document: dict[str, Any]) -> None:
                 document[section] = new_section
 
 
-def shorten_type(type_obj: Union[str, list[Any]]) -> Union[str, list[Any]]:
+def shorten_type(type_obj: str | list[Any]) -> str | list[Any]:
     """Transform draft-3 style type declarations into idiomatic v1.0 types."""
     if isinstance(type_obj, str) or not isinstance(type_obj, Sequence):
         return type_obj
@@ -760,7 +747,7 @@ def shorten_type(type_obj: Union[str, list[Any]]) -> Union[str, list[Any]]:
 
 
 def clean_secondary_files(document: dict[str, Any]) -> None:
-    """Cleanup for secondaryFiles"""
+    """Cleanup for secondaryFiles."""
     if "secondaryFiles" in document:
         for i, sfile in enumerate(document["secondaryFiles"]):
             if "$(" in sfile or "${" in sfile:

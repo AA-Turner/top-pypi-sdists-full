@@ -5,7 +5,7 @@ from __future__ import annotations
 __all__ = ["JsonShard", "create_json_shard"]
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
@@ -17,42 +17,44 @@ from iden.shard.file import FileShard
 if TYPE_CHECKING:
     from pathlib import Path
 
-logger = logging.getLogger(__name__)
+T = TypeVar("T")
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
-class JsonShard(FileShard[Any]):
-    r"""Implement a JSON shard.
+class JsonShard(FileShard[T]):
+    r"""Implement a JSON shard for human-readable data persistence.
 
-    The data are stored in a JSON file.
+    This shard stores data in JSON (JavaScript Object Notation) format,
+    providing a text-based, human-readable serialization. The data are
+    stored in a JSON file.
 
     Args:
         uri: The shard's URI.
         path: The path to the JSON file.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.shard import JsonShard
+        >>> from iden.io import save_json
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     file = Path(tmpdir).joinpath("data.json")
+        ...     save_json([1, 2, 3], file)
+        ...     shard = JsonShard(uri="file:///data/1234456789", path=file)
+        ...     shard.get_data()
+        ...
+        [1, 2, 3]
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.shard import JsonShard
-    >>> from iden.io import save_json
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     file = Path(tmpdir).joinpath("data.json")
-    ...     save_json([1, 2, 3], file)
-    ...     shard = JsonShard(uri="file:///data/1234456789", path=file)
-    ...     shard.get_data()
-    ...
-    [1, 2, 3]
-
-    ```
+        ```
     """
 
     def __init__(self, uri: str, path: Path | str) -> None:
         super().__init__(uri, path, loader=JsonLoader())
 
     @classmethod
-    def generate_uri_config(cls, path: Path) -> dict:
+    def generate_uri_config(cls, path: Path) -> dict[str, Any]:
         r"""Generate the minimal config that is used to load the shard
         from its URI.
 
@@ -64,20 +66,19 @@ class JsonShard(FileShard[Any]):
         Returns:
             The minimal config to load the shard from its URI.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from iden.shard import JsonShard
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     file = Path(tmpdir).joinpath("data.json")
+            ...     JsonShard.generate_uri_config(file)
+            ...
+            {'kwargs': {'path': '.../data.json'},
+             'loader': {'_target_': 'iden.shard.loader.JsonShardLoader'}}
 
-        ```pycon
-        >>> import tempfile
-        >>> from pathlib import Path
-        >>> from iden.shard import JsonShard
-        >>> with tempfile.TemporaryDirectory() as tmpdir:
-        ...     file = Path(tmpdir).joinpath("data.json")
-        ...     JsonShard.generate_uri_config(file)
-        ...
-        {'kwargs': {'path': '.../data.json'},
-         'loader': {'_target_': 'iden.shard.loader.JsonShardLoader'}}
-
-        ```
+            ```
         """
         return {
             KWARGS: {"path": sanitize_path(path).as_posix()},
@@ -85,7 +86,7 @@ class JsonShard(FileShard[Any]):
         }
 
 
-def create_json_shard(data: Any, uri: str, path: Path | None = None) -> JsonShard:
+def create_json_shard(data: T, uri: str, path: Path | None = None) -> JsonShard[T]:
     r"""Create a ``JsonShard`` from data.
 
     Note:
@@ -102,20 +103,18 @@ def create_json_shard(data: Any, uri: str, path: Path | None = None) -> JsonShar
     Returns:
         The ``JsonShard`` object.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.shard import create_json_shard
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     shard = create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("my_uri").as_uri())
+        ...     shard.get_data()
+        ...
+        [1, 2, 3]
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.shard import create_json_shard
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     shard = create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("my_uri").as_uri())
-    ...     shard.get_data()
-    ...
-    [1, 2, 3]
-
-    ```
+        ```
     """
     if path is None:
         path = sanitize_path(uri + ".json")

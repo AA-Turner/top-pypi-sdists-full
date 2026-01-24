@@ -3,7 +3,7 @@ Type annotations for mpa service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mpa/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -74,12 +75,6 @@ from .type_defs import (
     UpdateApprovalTeamResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -88,16 +83,16 @@ else:
 __all__ = ("MultipartyApprovalClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class MultipartyApprovalClient(BaseClient):
     """
@@ -134,7 +129,7 @@ class MultipartyApprovalClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mpa/client/#generate_presigned_url)
         """
 
-    def cancel_session(self, **kwargs: Unpack[CancelSessionRequestTypeDef]) -> Dict[str, Any]:
+    def cancel_session(self, **kwargs: Unpack[CancelSessionRequestTypeDef]) -> dict[str, Any]:
         """
         Cancels an approval session.
 
@@ -174,7 +169,7 @@ class MultipartyApprovalClient(BaseClient):
 
     def delete_inactive_approval_team_version(
         self, **kwargs: Unpack[DeleteInactiveApprovalTeamVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an inactive approval team.
 
@@ -310,7 +305,7 @@ class MultipartyApprovalClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mpa/client/#start_active_approval_team_deletion)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Creates or updates a resource tag.
 
@@ -318,7 +313,7 @@ class MultipartyApprovalClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mpa/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a resource tag.
 

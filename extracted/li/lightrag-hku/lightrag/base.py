@@ -11,11 +11,14 @@ from typing import (
     TypedDict,
     TypeVar,
     Callable,
+    Optional,
+    Dict,
+    List,
+    AsyncIterator,
 )
 from .utils import EmbeddingFunc
 from .types import KnowledgeGraph
 from .constants import (
-    GRAPH_FIELD_SEP,
     DEFAULT_TOP_K,
     DEFAULT_CHUNK_TOP_K,
     DEFAULT_MAX_ENTITY_TOKENS,
@@ -132,13 +135,13 @@ class QueryParam:
     ll_keywords: list[str] = field(default_factory=list)
     """List of low-level keywords to refine retrieval focus."""
 
-    # TODO: Deprecated - history message have negtive effect on query performance
+    # History mesages is only send to LLM for context, not used for retrieval
     conversation_history: list[dict[str, str]] = field(default_factory=list)
     """Stores past conversation history to maintain context.
     Format: [{"role": "user/assistant", "content": "message"}].
     """
 
-    # TODO: Deprecated - history message have negtive effect on query performance
+    # TODO: deprecated. No longer used in the codebase, all conversation_history messages is send to LLM
     history_turns: int = int(os.getenv("HISTORY_TURNS", str(DEFAULT_HISTORY_TURNS)))
     """Number of complete conversation turns (user-assistant pairs) to consider in the response context."""
 
@@ -150,12 +153,19 @@ class QueryParam:
 
     user_prompt: str | None = None
     """User-provided prompt for the query.
-    If proivded, this will be use instead of the default vaulue from prompt template.
+    Addition instructions for LLM. If provided, this will be inject into the prompt template.
+    It's purpose is the let user customize the way LLM generate the response.
     """
 
     enable_rerank: bool = os.getenv("RERANK_BY_DEFAULT", "true").lower() == "true"
     """Enable reranking for retrieved text chunks. If True but no rerank model is configured, a warning will be issued.
     Default is True to enable reranking when rerank model is available.
+    """
+
+    include_references: bool = False
+    """If True, includes reference list in the response for supported endpoints.
+    This parameter controls whether the API response includes a references field
+    containing citation information for the retrieved content.
     """
 
 
@@ -209,6 +219,44 @@ class BaseVectorStorage(StorageNameSpace, ABC):
     embedding_func: EmbeddingFunc
     cosine_better_than_threshold: float = field(default=0.2)
     meta_fields: set[str] = field(default_factory=set)
+
+    def _validate_embedding_func(self):
+        """Validate that embedding_func is provided.
+
+        This method should be called at the beginning of __post_init__
+        in all vector storage implementations.
+
+        Raises:
+            ValueError: If embedding_func is None
+        """
+        if self.embedding_func is None:
+            raise ValueError(
+                "embedding_func is required for vector storage. "
+                "Please provide a valid EmbeddingFunc instance."
+            )
+
+    def _generate_collection_suffix(self) -> str | None:
+        """Generates collection/table suffix from embedding_func.
+
+        Return suffix if model_name exists in embedding_func, otherwise return None.
+        Note: embedding_func is guaranteed to exist (validated in __post_init__).
+
+        Returns:
+            str | None: Suffix string e.g. "text_embedding_3_large_3072d", or None if model_name not available
+        """
+        import re
+
+        # Check if model_name exists (model_name is optional in EmbeddingFunc)
+        model_name = getattr(self.embedding_func, "model_name", None)
+        if not model_name:
+            return None
+
+        # embedding_dim is required in EmbeddingFunc
+        embedding_dim = self.embedding_func.embedding_dim
+
+        # Generate suffix: clean model name and append dimension
+        safe_model_name = re.sub(r"[^a-zA-Z0-9_]", "_", model_name.lower())
+        return f"{safe_model_name}_{embedding_dim}d"
 
     @abstractmethod
     async def query(
@@ -342,6 +390,14 @@ class BaseKVStorage(StorageNameSpace, ABC):
 
         Returns:
             None
+        """
+
+    @abstractmethod
+    async def is_empty(self) -> bool:
+        """Check if the storage is empty
+
+        Returns:
+            bool: True if storage contains no data, False otherwise
         """
 
 
@@ -510,56 +566,6 @@ class BaseGraphStorage(StorageNameSpace, ABC):
         return result
 
     @abstractmethod
-    async def get_nodes_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
-        """Get all nodes that are associated with the given chunk_ids.
-
-        Args:
-            chunk_ids (list[str]): A list of chunk IDs to find associated nodes for.
-
-        Returns:
-            list[dict]: A list of nodes, where each node is a dictionary of its properties.
-                        An empty list if no matching nodes are found.
-        """
-
-    @abstractmethod
-    async def get_edges_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
-        """Get all edges that are associated with the given chunk_ids.
-
-        Args:
-            chunk_ids (list[str]): A list of chunk IDs to find associated edges for.
-
-        Returns:
-            list[dict]: A list of edges, where each edge is a dictionary of its properties.
-                        An empty list if no matching edges are found.
-        """
-        # Default implementation iterates through all nodes and their edges, which is inefficient.
-        # This method should be overridden by subclasses for better performance.
-        all_edges = []
-        all_labels = await self.get_all_labels()
-        processed_edges = set()
-
-        for label in all_labels:
-            edges = await self.get_node_edges(label)
-            if edges:
-                for src_id, tgt_id in edges:
-                    # Avoid processing the same edge twice in an undirected graph
-                    edge_tuple = tuple(sorted((src_id, tgt_id)))
-                    if edge_tuple in processed_edges:
-                        continue
-                    processed_edges.add(edge_tuple)
-
-                    edge = await self.get_edge(src_id, tgt_id)
-                    if edge and "source_id" in edge:
-                        source_ids = set(edge["source_id"].split(GRAPH_FIELD_SEP))
-                        if not source_ids.isdisjoint(chunk_ids):
-                            # Add source and target to the edge dict for easier processing later
-                            edge_with_nodes = edge.copy()
-                            edge_with_nodes["source"] = src_id
-                            edge_with_nodes["target"] = tgt_id
-                            all_edges.append(edge_with_nodes)
-        return all_edges
-
-    @abstractmethod
     async def upsert_node(self, node_id: str, node_data: dict[str, str]) -> None:
         """Insert a new node or update an existing node in the graph.
 
@@ -629,6 +635,7 @@ class BaseGraphStorage(StorageNameSpace, ABC):
             edges: List of edges to be deleted, each edge is a (source, target) tuple
         """
 
+    # TODO: deprecated
     @abstractmethod
     async def get_all_labels(self) -> list[str]:
         """Get all labels in the graph.
@@ -671,12 +678,36 @@ class BaseGraphStorage(StorageNameSpace, ABC):
             A list of all edges, where each edge is a dictionary of its properties
         """
 
+    @abstractmethod
+    async def get_popular_labels(self, limit: int = 300) -> list[str]:
+        """Get popular labels by node degree (most connected entities)
+
+        Args:
+            limit: Maximum number of labels to return
+
+        Returns:
+            List of labels sorted by degree (highest first)
+        """
+
+    @abstractmethod
+    async def search_labels(self, query: str, limit: int = 50) -> list[str]:
+        """Search labels with fuzzy matching
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results to return
+
+        Returns:
+            List of matching labels sorted by relevance
+        """
+
 
 class DocStatus(str, Enum):
     """Document processing status"""
 
     PENDING = "pending"
     PROCESSING = "processing"
+    PREPROCESSED = "preprocessed"
     PROCESSED = "processed"
     FAILED = "failed"
 
@@ -707,6 +738,25 @@ class DocProcessingStatus:
     """Error message if failed"""
     metadata: dict[str, Any] = field(default_factory=dict)
     """Additional metadata"""
+    multimodal_processed: bool | None = field(default=None, repr=False)
+    """Internal field: indicates if multimodal processing is complete. Not shown in repr() but accessible for debugging."""
+
+    def __post_init__(self):
+        """
+        Handle status conversion based on multimodal_processed field.
+
+        Business rules:
+        - If multimodal_processed is False and status is PROCESSED,
+          then change status to PREPROCESSED
+        - The multimodal_processed field is kept (with repr=False) for internal use and debugging
+        """
+        # Apply status conversion logic
+        if self.multimodal_processed is not None:
+            if (
+                self.multimodal_processed is False
+                and self.status == DocStatus.PROCESSED
+            ):
+                self.status = DocStatus.PREPROCESSED
 
 
 @dataclass
@@ -759,6 +809,18 @@ class DocStatusStorage(BaseKVStorage, ABC):
             Dictionary mapping status names to counts
         """
 
+    @abstractmethod
+    async def get_doc_by_file_path(self, file_path: str) -> dict[str, Any] | None:
+        """Get document by file path
+
+        Args:
+            file_path: The file path to search for
+
+        Returns:
+            dict[str, Any] | None: Document data if found, None otherwise
+            Returns the same format as get_by_ids method
+        """
+
 
 class StoragesStatus(str, Enum):
     """Storages status"""
@@ -778,3 +840,68 @@ class DeletionResult:
     message: str
     status_code: int = 200
     file_path: str | None = None
+
+
+# Unified Query Result Data Structures for Reference List Support
+
+
+@dataclass
+class QueryResult:
+    """
+    Unified query result data structure for all query modes.
+
+    Attributes:
+        content: Text content for non-streaming responses
+        response_iterator: Streaming response iterator for streaming responses
+        raw_data: Complete structured data including references and metadata
+        is_streaming: Whether this is a streaming result
+    """
+
+    content: Optional[str] = None
+    response_iterator: Optional[AsyncIterator[str]] = None
+    raw_data: Optional[Dict[str, Any]] = None
+    is_streaming: bool = False
+
+    @property
+    def reference_list(self) -> List[Dict[str, str]]:
+        """
+        Convenient property to extract reference list from raw_data.
+
+        Returns:
+            List[Dict[str, str]]: Reference list in format:
+            [{"reference_id": "1", "file_path": "/path/to/file.pdf"}, ...]
+        """
+        if self.raw_data:
+            return self.raw_data.get("data", {}).get("references", [])
+        return []
+
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """
+        Convenient property to extract metadata from raw_data.
+
+        Returns:
+            Dict[str, Any]: Query metadata including query_mode, keywords, etc.
+        """
+        if self.raw_data:
+            return self.raw_data.get("metadata", {})
+        return {}
+
+
+@dataclass
+class QueryContextResult:
+    """
+    Unified query context result data structure.
+
+    Attributes:
+        context: LLM context string
+        raw_data: Complete structured data including reference_list
+    """
+
+    context: str
+    raw_data: Dict[str, Any]
+
+    @property
+    def reference_list(self) -> List[Dict[str, str]]:
+        """Convenient property to extract reference list from raw_data."""
+        return self.raw_data.get("data", {}).get("references", [])

@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -8,13 +8,11 @@ from typing import TYPE_CHECKING, Callable
 
 from ibm_watsonx_ai.utils.auth import IAMTokenAuth
 from ibm_watsonx_ai.utils.auth.base_auth import (
-    STATUS_FORCELIST,
     RefreshableTokenAuth,
     TokenAuth,
     TokenInfo,
     _get_token_info,
 )
-from ibm_watsonx_ai.utils.utils import _requests_retry_session
 from ibm_watsonx_ai.wml_client_error import (
     AuthenticationError,
     InvalidCredentialsError,
@@ -111,11 +109,38 @@ class TrustedProfileAuth(RefreshableTokenAuth):
             "Content-Type": "application/x-www-form-urlencoded",
         }
 
-        response = _requests_retry_session(status_forcelist=STATUS_FORCELIST).post(
-            self._href_definitions.get_iam_token_url(),
+        response = self._api_client.httpx_client.post(
+            self._api_client._href_definitions.get_iam_token_url(),
             params={
                 "grant_type": "urn:ibm:params:oauth:grant-type:assume",
                 "access_token": self._internal_auth_method.get_token(),
+                "profile_id": self._trusted_profile_id,
+            },
+            headers=headers,
+        )
+
+        if response.status_code == 200:
+            return TokenInfo(response.json().get("access_token"))
+        elif 400 <= response.status_code < 500:
+            raise InvalidCredentialsError(reason=response.text)
+        else:
+            raise AuthenticationError("trusted profile IAM", response)
+
+    async def _agenerate_token(self) -> TokenInfo:
+        """Generate token from scratch using user provided credentials.
+
+        :returns: token info to be used by auth method
+        :rtype: TokenInfo
+        """
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+
+        response = await self._api_client.async_httpx_client.post(
+            url=self._api_client._href_definitions.get_iam_token_url(),
+            params={
+                "grant_type": "urn:ibm:params:oauth:grant-type:assume",
+                "access_token": await self._internal_auth_method.aget_token(),
                 "profile_id": self._trusted_profile_id,
             },
             headers=headers,

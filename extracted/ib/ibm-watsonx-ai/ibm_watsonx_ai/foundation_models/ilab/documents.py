@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -12,6 +12,7 @@ from ibm_watsonx_ai.foundation_models.ilab.helper import BaseRuns, wait_for_run_
 from ibm_watsonx_ai.helpers.connections import (
     DataConnection,
 )
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -54,7 +55,7 @@ class DocumentExtraction:
         :return: status of document extraction
         :rtype: str
         """
-        return self.get_run_details()["entity"].get("status", {}).get("state")
+        return get_from_json(self.get_run_details(), ["entity", "status", "state"])
 
     def delete_run(self) -> str:
         """Delete document extraction run"""
@@ -111,7 +112,7 @@ class DocumentExtractionsRuns(BaseRuns):
         """
         doc_extr_details = self.get_run_details(document_extraction_id)
         doc_extr = DocumentExtraction(
-            doc_extr_details.get("metadata", {}).get("name"), self._client
+            get_from_json(doc_extr_details, ["metadata", "name"]), self._client
         )
         doc_extr.id = document_extraction_id
         return doc_extr

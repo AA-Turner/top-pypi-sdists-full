@@ -1550,6 +1550,9 @@ examples:
     text: az vm application set -g MyResourceGroup -n MyVm --app-version-ids /subscriptions/subid/resourceGroups/MyResourceGroup/providers/Microsoft.Compute/galleries/myGallery1/applications/MyApplication1/versions/1.0 \
 /subscriptions/subid/resourceGroups/MyResourceGroup/providers/Microsoft.Compute/galleries/myGallery1/applications/MyApplication1/versions/1.1 \
 --app-config-overrides https://mystorageaccount.blob.core.windows.net/configurations/settings.config null
+  - name: Set applications for vm with auto upgrade
+    text: az vm application set -g MyResourceGroup -n MyVm --app-version-ids /subscriptions/subid/resourceGroups/MyResourceGroup/providers/Microsoft.Compute/galleries/myGallery1/applications/MyApplication1/versions/1.0 \
+/subscriptions/subid/resourceGroups/MyResourceGroup/providers/Microsoft.Compute/galleries/myGallery1/applications/MyApplication2/versions/1.1 --enable-automatic-upgrade True False
 """
 
 helps['vm application list'] = """
@@ -1955,16 +1958,6 @@ examples:
            az vm run-command update --resource-group "myResourceGroup" --location "West US" \
 --script "Write-Host Hello World!" --run-command-name "myRunCommand" --vm-name "myVM" --output-blob-uri \
 "https://mystorageaccount.blob.core.windows.net/mycontainer/RuncommandOutput.txt?sp=racw&st=2022-10-17T19:02:15Z&se=2022-10-18T03:02:15Z&spr=https&sv=2021-06-08&sr=b&sig=3BxtEasfdasdfasdfdYki9yvYsqc60V0%3D"
-"""
-
-helps['vm run-command delete'] = """
-type: command
-short-summary: "The operation to delete the run command."
-examples:
-  - name: Delete a run command.
-    text: |-
-           az vm run-command delete --resource-group "myResourceGroup" --run-command-name \
-"myRunCommand" --vm-name "myVM"
 """
 
 helps['vm run-command wait'] = """
@@ -2606,6 +2599,13 @@ examples:
     crafted: true
 """
 
+helps['vmss list-instances'] = """
+type: command
+short-summary: List all virtual machines in a VM scale sets.
+long-summary: Return a list of virtual machines managed by VMSS. For VMSS in Flexible Orchestration mode,
+        please use "az vm list" to get full details.
+"""
+
 helps['vmss reimage'] = """
 type: command
 short-summary: Reimage VMs within a VMSS.
@@ -2734,25 +2734,6 @@ helps['vmss run-command update'] = """
 --async-execution false --parameters arg1=param1 arg2=value1 --run-as-password "<runAsPassword>" \
 --run-as-user "user1" --script "Write-Host Hello World!" --timeout-in-seconds 3600 \
 --run-command-name "myRunCommand" --vmss-name "myVMSS"
-"""
-
-helps['vmss run-command delete'] = """
-    type: command
-    short-summary: "The operation to delete the run command."
-    examples:
-      - name: The operation to delete the VMSS run command..
-        text: |-
-               az vmss run-command delete --resource-group "myResourceGroup" --instance-id "0" --run-command-name \
-"myRunCommand" --vmss-name "myVMSS"
-"""
-
-helps['vmss run-command list'] = """
-    type: command
-    short-summary: "The operation to get all run commands of an instance in Virtual Machine Scaleset."
-    examples:
-      - name: List run commands in Vmss instance.
-        text: |-
-               az vmss run-command list --resource-group "myResourceGroup" --vmss-name "myVMSS" --instance-id "0"
 """
 
 helps['vmss run-command show'] = """
@@ -3042,34 +3023,4 @@ helps['restore-point collection show'] = """
       - name: Get a restore point collection, including the restore points contained in the restore point collection
         text: |-
                az restore-point collection show --resource-group "myResourceGroup" --collection-name "rpcName"
-"""
-
-helps['restore-point collection create'] = """
-    type: command
-    short-summary: "Create the restore point collection. Please refer to https://aka.ms/RestorePoints \
-for more details. When updating a restore point collection, only tags may be modified."
-    examples:
-      - name: Create or update a restore point collection.
-        text: |-
-               az restore-point collection create --location "norwayeast" --source-id "/subscriptions/{subscription-id}\
-/resourceGroups/myResourceGroup/providers/Microsoft.Compute/virtualMachines/myVM" --tags myTag1="tagValue1" \
---resource-group "myResourceGroup" --collection-name "myRpc"
-"""
-
-helps['restore-point collection update'] = """
-    type: command
-    short-summary: "Update the restore point collection."
-"""
-
-helps['restore-point collection wait'] = """
-    type: command
-    short-summary: Place the CLI in a waiting state until a condition of the restore-point-collection is met.
-    parameters:
-      - name: --expand
-        short-summary: The expand expression to apply on the operation. If expand=restorePoints, server will return all
-                       contained restore points in the restorePointCollection. "restorePoints" Default value is None.
-    examples:
-      - name: Pause executing next line of CLI script until the restore-point-collection is successfully deleted.
-        text: |-
-               az restore-point collection wait --resource-group "myResourceGroup" --collection-name "rpcName" --deleted
 """

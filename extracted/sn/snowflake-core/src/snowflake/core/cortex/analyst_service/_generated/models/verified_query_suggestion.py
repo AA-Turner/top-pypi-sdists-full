@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional, Union
 
-from pydantic import BaseModel, StrictFloat, StrictInt
+from pydantic import BaseModel, ConfigDict, StrictFloat, StrictInt
 
 from snowflake.core.cortex.analyst_service._generated.models.verified_query import VerifiedQuery, VerifiedQueryModel
 
@@ -45,9 +45,10 @@ class VerifiedQuerySuggestion(BaseModel):
 
     __properties = ["score", "vq_to_add", "vq_to_remove"]
 
-    class Config:  # noqa: D106
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -72,7 +73,7 @@ class VerifiedQuerySuggestion(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of vq_to_add
         if self.vq_to_add:
@@ -95,9 +96,9 @@ class VerifiedQuerySuggestion(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return VerifiedQuerySuggestion.parse_obj(obj)
+            return VerifiedQuerySuggestion.model_validate(obj)
 
-        _obj = VerifiedQuerySuggestion.parse_obj(
+        _obj = VerifiedQuerySuggestion.model_validate(
             {
                 "score": obj.get("score"),
                 "vq_to_add": VerifiedQuery.from_dict(obj.get("vq_to_add"))

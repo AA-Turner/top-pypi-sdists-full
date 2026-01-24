@@ -1,5 +1,7 @@
 """Greek cross test structure."""
 
+__all__ = ["greek_cross", "greek_cross_with_pads"]
+
 import gdsfactory as gf
 from gdsfactory.cross_section import metal1
 from gdsfactory.typings import ComponentSpec, CrossSectionSpec, Floats, LayerSpecs
@@ -32,22 +34,23 @@ def greek_cross(
             via_stack
             <------->
             _________       length          ________
-            |       |<-------------------->|
-        2x  |       |     |   ↓       |<-->|
-            |       |======== width =======|
-            |_______|<--> |   ↑       |<-->|________
+            |       |<-------------------->|        |
+        2x  |       |     |   ↓       |<-->|        |
+            |       |======== width =======|        |
+            |_______|<--> |   ↑       |<-->|________|
                     offset            offset
 
 
     References:
+
     - Walton, Anthony J.. “MICROELECTRONIC TEST STRUCTURES.” (1999).
     - W. Versnel, Analysis of the Greek cross, a Van der Pauw structure with finite
-        contacts, Solid-State Electronics, Volume 22, Issue 11, 1979, Pages 911-914,
-        ISSN 0038-1101, https://doi.org/10.1016/0038-1101(79)90061-3.
+      contacts, Solid-State Electronics, Volume 22, Issue 11, 1979, Pages 911-914,
+      ISSN 0038-1101, https://doi.org/10.1016/0038-1101(79)90061-3.
     - S. Enderling et al., "Sheet resistance measurement of non-standard cleanroom
-        materials using suspended Greek cross test structures," IEEE Transactions on
-        Semiconductor Manufacturing, vol. 19, no. 1, pp. 2-9, Feb. 2006,
-        doi: 10.1109/TSM.2005.863248.
+      materials using suspended Greek cross test structures," IEEE Transactions on
+      Semiconductor Manufacturing, vol. 19, no. 1, pp. 2-9, Feb. 2006,
+      doi: 10.1109/TSM.2005.863248.
     - https://download.tek.com/document/S530_VanDerPauwSheetRstnce.pdf
 
     """
@@ -57,9 +60,10 @@ def greek_cross(
         raise ValueError("len(layers) must equal len(widths).")
 
     offsets = offsets or (0.0,) * len(layers)
-    index = 0
 
-    for layer, width, offset in zip(layers, widths, offsets, strict=False):
+    for index, (layer, width, offset) in enumerate(
+        zip(layers, widths, offsets, strict=False)
+    ):
         ref = c << gf.c.cross(
             length=length + 2 * offset,
             width=width,
@@ -68,7 +72,6 @@ def greek_cross(
         )
         if index == layer_index:
             cross_ref = ref
-        index += 1
 
     # Add via
     for port in cross_ref.ports:

@@ -10,7 +10,6 @@ import calendar
 import json
 import os
 
-PYTHON_VERSION_COMPATIBILITY = "PY3"
 
 DEPS = [
   'env',
@@ -115,8 +114,6 @@ def RunSteps(api):
 
 TEST_BUILDERS = [
   'Perf-Android-Clang-Nexus7-CPU-Tegra3-arm-Debug-All-Android',
-  ('Perf-Ubuntu18-Clang-Golo-GPU-QuadroP400-x86_64-Release-All'
-   '-Valgrind_SK_CPU_LIMIT_SSE41'),
   'Perf-Win10-Clang-Golo-GPU-QuadroP400-x86_64-Release-All-ANGLE',
 ]
 
@@ -134,25 +131,24 @@ def GenTests(api):
       revision='abc123',
       swarm_out_dir='[SWARM_OUT_DIR]'
     )
-    if 'Valgrind' not in builder and 'Debug' not in builder:
+    props['svgs'] = 'true'
+    if 'Debug' not in builder:
       props['do_upload'] = 'true'
     if 'GPU' not in builder:
       props['images'] = 'true'
     if 'iOS' not in builder:
       props['skps'] = 'true'
-    if 'Valgrind' not in builder:
-      props['svgs'] = 'true'
     if 'Android' in builder and 'CPU' in builder:
       props['texttraces'] = 'true'
     test = (
       api.test(builder) +
       api.properties(**props) +
       api.path.exists(
-          api.path['start_dir'].join('skia'),
-          api.path['start_dir'].join('skia', 'infra', 'bots', 'assets',
-                                     'skimage', 'VERSION'),
-          api.path['start_dir'].join('skia', 'infra', 'bots', 'assets',
-                                     'skp', 'VERSION'),
+          api.path.start_dir.joinpath('skia'),
+          api.path.start_dir.joinpath('skia', 'infra', 'bots', 'assets',
+                                      'skimage', 'VERSION'),
+          api.path.start_dir.joinpath('skia', 'infra', 'bots', 'assets',
+                                      'skp', 'VERSION'),
       ) +
       api.step_data('get swarming bot id',
           stdout=api.raw_io.output('skia-bot-123')) +

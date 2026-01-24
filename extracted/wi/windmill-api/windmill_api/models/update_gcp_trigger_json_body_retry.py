@@ -16,11 +16,13 @@ T = TypeVar("T", bound="UpdateGcpTriggerJsonBodyRetry")
 
 @_attrs_define
 class UpdateGcpTriggerJsonBodyRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, UpdateGcpTriggerJsonBodyRetryConstant]):
-        exponential (Union[Unset, UpdateGcpTriggerJsonBodyRetryExponential]):
-        retry_if (Union[Unset, UpdateGcpTriggerJsonBodyRetryRetryIf]):
+        constant (Union[Unset, UpdateGcpTriggerJsonBodyRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, UpdateGcpTriggerJsonBodyRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, UpdateGcpTriggerJsonBodyRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "UpdateGcpTriggerJsonBodyRetryConstant"] = UNSET

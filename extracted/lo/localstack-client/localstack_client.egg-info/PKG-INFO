@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: localstack-client
-Version: 2.10
+Version: 2.11
 Summary: A lightweight Python client for LocalStack.
 Home-page: https://github.com/localstack/localstack-python-client
 Author: LocalStack Team
@@ -24,3 +24,4 @@ Requires-Dist: flake8; extra == "test"
 Requires-Dist: isort; extra == "test"
 Requires-Dist: localstack; extra == "test"
 Requires-Dist: pytest; extra == "test"
+Dynamic: license-file

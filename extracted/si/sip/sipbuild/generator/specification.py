@@ -1,12 +1,16 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Copyright (c) 2024 Phil Thompson <phil@riverbankcomputing.com>
+# Copyright (c) 2025 Phil Thompson <phil@riverbankcomputing.com>
 
 
 from dataclasses import dataclass, field
 from enum import auto, Enum
-from typing import Any, Optional, Union
+from typing import Any
 
+from ..sip_module_configuration import SipModuleConfiguration
+
+from .indexed_lists import (IndexedCachedNameList, IndexedClassList,
+        IndexedEnumList, IndexedMappedTypeList, IndexedTypedefList)
 from .scoped_name import ScopedName
 
 
@@ -289,6 +293,16 @@ class GILAction(Enum):
     RELEASE = auto()
 
 
+class GILUse(Enum):
+    """ A module's use of the GIL. """
+
+    # The module depends on the presence of the GIL.
+    USED = auto()
+
+    # The module is safe to run without an active GIL.
+    NOT_USED = auto()
+
+
 class IfaceFileType(Enum):
     """ The type of an interface file. """
 
@@ -317,6 +331,21 @@ class KwArgs(Enum):
     # All named optional arguments (ie. those with a default value) can be
     # passed as keyword arguments.
     OPTIONAL = auto()
+
+
+class MultiInterpreterSupport(Enum):
+    """ A module's support for multiple interpreters. """
+
+    # The module does not support being imported by subinterpreters.
+    NOT_SUPPORTED = auto()
+
+    # The module supports being imported in subinterpreters, even when they
+    # have their own GIL.
+    PER_INTERPRETER_GIL_SUPPORTED = auto()
+
+    # The module supports being imported in subinterpreters, but only when they
+    # share the main interpreter’s GIL.
+    SUPPORTED = auto()
 
 
 class PyQtMethodSpecifier(Enum):
@@ -485,7 +514,7 @@ class PySlot(Enum):
     # tp_iter_next
     NEXT = auto()
 
-    # tp_setattr
+    # tp_setattro
     SETATTR = auto()
 
     # Internal to the parser (implemented as tp_setattr)
@@ -575,7 +604,7 @@ class Argument:
     array: ArrayArgument = ArrayArgument.NONE
 
     # The optional default value.
-    default_value: Optional[list['Value']] = None
+    default_value: list['Value']|None = None
 
     # The optional definition.  What this is depends on the type.
     definition: Any = None
@@ -606,16 +635,16 @@ class Argument:
     is_reference: bool = False
 
     # The key for a reference.  If None then /KeepReference/ wasn't specified.
-    key: Optional[int] = None
+    key: int|None = None
 
     # The optional name.
-    name: Optional['CachedName'] = None
+    name: 'CachedName|None' = None
 
     # Set if /NoCopy/ was specified.
     no_copy: bool = False
 
     # The original type if it was a typedef.
-    original_typedef: Optional['WrappedTypedef'] = None
+    original_typedef: 'WrappedTypedef|None' = None
 
     # Set if /ResultSize/ was specified.
     result_size: bool = False
@@ -624,13 +653,13 @@ class Argument:
     scopes_stripped: int = 0
 
     # The source location.
-    source_location: Optional['SourceLocation'] = None
+    source_location: 'SourceLocation|None' = None
 
     # Any transfer of ownership.
     transfer: Transfer = Transfer.NONE
 
     # The non-default type hints.
-    type_hints: Optional['TypeHints'] = None
+    type_hints: 'TypeHints|None' = None
 
     def __hash__(self):
         """ Reimplemented so an Argument object can be used as a dict key. """
@@ -687,13 +716,13 @@ class Constructor:
     py_signature: 'Signature'
 
     # The C/C++ signature.  It will be none if /NoDerived/ was specified.
-    cpp_signature: Optional['Signature'] = None
+    cpp_signature: 'Signature|None' = None
 
     # deprecated message if /Deprecated/ was specified.
-    deprecated: Optional[str] = None
+    deprecated: str|None = None
 
     # The docstring.
-    docstring: Optional['Docstring'] = None
+    docstring: 'Docstring|None' = None
 
     # The action required on the GIL.
     gil_action: GILAction = GILAction.DEFAULT
@@ -705,25 +734,25 @@ class Constructor:
     kw_args: KwArgs = KwArgs.NONE
 
     # The code specified by any %MethodCode directive.
-    method_code: Optional[CodeBlock] = None
+    method_code: CodeBlock|None = None
 
     # Set if the type hint should be suppressed.
     no_type_hint: bool = False
 
     # The /PostHook/ name.
-    posthook: Optional[str] = None
+    posthook: str|None = None
 
     # The /PreHook/ name.
-    prehook: Optional[str] = None
+    prehook: str|None = None
 
     # The code specified by any %PreMethodCode directive.
-    premethod_code: Optional[CodeBlock] = None
+    premethod_code: CodeBlock|None = None
 
     # Set if a Python exception is raised.
     raises_py_exception: bool = False
 
     # The optional throw arguments.  Replace with 'noexcept' in SIP v7.
-    throw_args: Optional['ThrowArguments'] = None
+    throw_args: 'ThrowArguments|None' = None
 
     # Any transfer of ownership.
     transfer: Transfer = Transfer.NONE
@@ -775,21 +804,21 @@ class IfaceFile:
     # The C/C++ name.  It will be None if the interface file relates to a
     # template.  Note that this is fully qualified and so overlaps with
     # 'fq_cpp_name'.
-    cpp_name: Optional[CachedName] = None
+    cpp_name: CachedName|None = None
 
     # The filename extension.
-    file_extension: Optional[str] = None
+    file_extension: str|None = None
 
     # The fully qualified C/C++ name.  It will be None if the interface file
     # relates to a template.
-    fq_cpp_name: Optional[ScopedName] = None
+    fq_cpp_name: ScopedName|None = None
 
     # The generated type number. (resolver)
     type_nr: int = -1
 
     # The defining module.  It will be None if the interface file relates to a
     # template.
-    module: Optional['Module'] = None
+    module: 'Module|None' = None
 
     # Set if this interface file is needed by the module for which code is to
     # be generated.
@@ -810,13 +839,13 @@ class License:
     type: str
 
     # The licensee.
-    licensee: Optional[str] = None
+    licensee: str|None = None
 
     # The timestamp.
-    timestamp: Optional[str] = None
+    timestamp: str|None = None
 
     # The signature.
-    signature: Optional[str] = None
+    signature: str|None = None
 
 
 @dataclass
@@ -830,19 +859,19 @@ class MappedType:
     type: Argument
 
     # The %ConvertFromTypeCode.
-    convert_from_type_code: Optional[CodeBlock] = None
+    convert_from_type_code: CodeBlock|None = None
 
     # The %ConvertToTypeCode.
-    convert_to_type_code: Optional[CodeBlock] = None
+    convert_to_type_code: CodeBlock|None = None
 
     # The C/C++ name.  It will be None for mapped type templates.
-    cpp_name: Optional[CachedName] = None
+    cpp_name: CachedName|None = None
 
     # Set if /AllowNone/ was specified.
     handles_none: bool = False
 
     # The %InstanceCode.
-    instance_code: Optional[CodeBlock] = None
+    instance_code: CodeBlock|None = None
 
     # The member functions.
     members: list['Member'] = field(default_factory=list)
@@ -869,22 +898,22 @@ class MappedType:
     overloads: list['Overload'] = field(default_factory=list)
 
     # The Python name.  It will be None for mapped type templates.
-    py_name: Optional[CachedName] = None
+    py_name: CachedName|None = None
 
     # The /PyQtFlags/.
     pyqt_flags: int = 0
 
     # The %ReleaseCode.
-    release_code: Optional[CodeBlock] = None
+    release_code: CodeBlock|None = None
 
     # The %TypeCode.
     type_code: list[CodeBlock] = field(default_factory=list)
 
     # The %TypeHintCode.
-    type_hint_code: Optional[CodeBlock] = None
+    type_hint_code: CodeBlock|None = None
 
     # The type hints.
-    type_hints: Optional['TypeHints'] = None
+    type_hints: 'TypeHints|None' = None
 
 
 @dataclass
@@ -924,13 +953,13 @@ class Member:
     member_nr: int = -1
 
     # The original interface file if the function was defined in a namespace.
-    namespace_iface_file: Optional[IfaceFile] = None
+    namespace_iface_file: IfaceFile|None = None
 
     # Set if /NoArgParser/ was specified.
     no_arg_parser: bool = False
 
     # The Python slot if it is not an ordinary member function.
-    py_slot: Optional[PySlot] = None
+    py_slot: PySlot|None = None
 
 
 @dataclass
@@ -953,24 +982,27 @@ class Module:
     default_docstring_signature: DocstringSignature = DocstringSignature.DISCARDED
 
     # The default exception.
-    default_exception: Optional['WrappedException'] = None
+    default_exception: 'WrappedException|None' = None
 
     # The default meta-type.
-    default_metatype: Optional[CachedName] = None
+    default_metatype: CachedName|None = None
 
     # The default super-type.
-    default_supertype: Optional[CachedName] = None
+    default_supertype: CachedName|None = None
 
     # The handler called when a Python re-implementation of a virtual C++
     # function raises an exception.
-    default_virtual_error_handler: Optional[str] = None
+    default_virtual_error_handler: str|None = None
 
     # The module's docstring.
-    docstring: Optional[Docstring] = None
+    docstring: Docstring|None = None
 
     # The fully qualified name of the module.  It is only None until %Module is
     # specified.
-    fq_py_name: Optional[CachedName] = None
+    fq_py_name: CachedName|None = None
+
+    # The module's use of the GIL.
+    gil_use: GILUse = GILUse.USED
 
     # The global functions.
     global_functions: list[Member] = field(default_factory=list)
@@ -985,13 +1017,16 @@ class Module:
     initialisation_code: list[CodeBlock] = field(default_factory=list)
 
     # The software license.
-    license: Optional[License] = None
+    license: License|None = None
 
     # The %ModuleCode.
     module_code: list[CodeBlock] = field(default_factory=list)
 
     # The %ModuleHeaderCode.
     module_header_code: list[CodeBlock] = field(default_factory=list)
+
+    # The module's support for multiple interpreters.
+    multi_interpreter_support: MultiInterpreterSupport = MultiInterpreterSupport.NOT_SUPPORTED
 
     # The next key to auto-allocate.
     next_key: int = -1
@@ -1021,7 +1056,7 @@ class Module:
     preinitialisation_code: list[CodeBlock] = field(default_factory=list)
 
     # The name of the module. (resolver)
-    py_name: Optional[str] = None
+    py_name: str|None = None
 
     # Set if the generated bindings are Py_ssize_t clean.
     py_ssize_t_clean: bool = False
@@ -1054,7 +1089,7 @@ class Overload:
     """ Encapsulate an overloaded member function. """
 
     # The access specifier.
-    access_specifier: Optional[AccessSpecifier]
+    access_specifier: AccessSpecifier|None
 
     # The member common to all overloads.
     common: Member
@@ -1075,10 +1110,10 @@ class Overload:
     access_is_really_protected: bool = False
 
     # deprecated message if /Deprecated/ was specified.
-    deprecated: Optional[str] = None
+    deprecated: str|None = None
     
     # The docstring.
-    docstring: Optional[Docstring] = None
+    docstring: Docstring|None = None
 
     # Set if /Factory/ was specified.
     factory: bool = False
@@ -1126,7 +1161,7 @@ class Overload:
     kw_args: KwArgs = KwArgs.NONE
 
     # The code specified by any %MethodCode directive.
-    method_code: Optional[CodeBlock] = None
+    method_code: CodeBlock|None = None
 
     # Set if /NewThread/ was specified.
     new_thread: bool = False
@@ -1138,37 +1173,37 @@ class Overload:
     no_virtual_error_handler: bool = False
 
     # The /PostHook/ name.
-    posthook: Optional[str] = None
+    posthook: str|None = None
 
     # The /PreHook/ name.
-    prehook: Optional[str] = None
+    prehook: str|None = None
 
     # The code specified by any %PreMethodCode directive.
-    premethod_code: Optional[CodeBlock] = None
+    premethod_code: CodeBlock|None = None
 
     # The PyQt method specifier.
-    pyqt_method_specifier: Optional[PyQtMethodSpecifier] = None
+    pyqt_method_specifier: PyQtMethodSpecifier|None = None
 
     # Set if a Python exception is raised.
     raises_py_exception: bool = False
 
     # The source location.
-    source_location: Optional['SourceLocation'] = None
+    source_location: 'SourceLocation|None' = None
 
     # The optional throw arguments.  Replace with 'noexcept' in SIP v7.
-    throw_args: Optional['ThrowArguments'] = None
+    throw_args: 'ThrowArguments|None' = None
 
     # Any transfer of ownership.
     transfer: Transfer = Transfer.NONE
 
     # The code specified by any %VirtualCallCode directive.
-    virtual_call_code: Optional[CodeBlock] = None
+    virtual_call_code: CodeBlock|None = None
 
     # The code specified by any %VirtualCatcherCode directive.
-    virtual_catcher_code: Optional[CodeBlock] = None
+    virtual_catcher_code: CodeBlock|None = None
 
     # The name of the virtual error handler to use.
-    virtual_error_handler: Optional[str] = None
+    virtual_error_handler: str|None = None
 
 
 @dataclass
@@ -1182,10 +1217,10 @@ class Property:
     name: CachedName
 
     # The docstring.
-    docstring: Optional[Docstring] = None
+    docstring: Docstring|None = None
 
     # The name of the optional setter.
-    setter: Optional[str] = None
+    setter: str|None = None
 
 
 @dataclass
@@ -1209,7 +1244,7 @@ class Qualifier:
     order: int = 0
 
     # The timeline number within the defining module if it is a TIME qualifier.
-    # A negative value implies the SIP timeline.
+    # A negative value implies a pseudo-timeline.
     timeline: int = -1
 
 
@@ -1221,7 +1256,7 @@ class Signature:
     args: list[Argument] = field(default_factory=list)
 
     # The type of the result.
-    result: Optional[Argument] = None
+    result: Argument|None = None
 
 
 @dataclass
@@ -1243,23 +1278,27 @@ class Specification:
     """ Encapsulate a parsed .sip file. """
 
     # The version of the ABI being targeted.
-    target_abi: Optional[tuple]
+    target_abi: tuple|None
 
     # Set if the specification is strict.
     is_strict: bool
 
     # The fully qualified name of the sip module.  If it is None then there is
     # no shared sip module.
-    sip_module: Optional[str]
+    sip_module: str|None
+
+    # The required configuration of the sip module.
+    sip_module_configuration: SipModuleConfiguration = field(
+            default_factory=lambda: SipModuleConfiguration(0))
 
     # Set if the bindings are for C rather than C++.
     c_bindings: bool = False
 
     # The list of classes.
-    classes: list['WrappedClass'] = field(default_factory=list)
+    classes: IndexedClassList = field(default_factory=IndexedClassList)
 
     # The list of enums.
-    enums: list['WrappedEnum'] = field(default_factory=list)
+    enums: IndexedEnumList = field(default_factory=IndexedEnumList)
 
     # The list of exceptions.
     exceptions: list['WrappedException'] = field(default_factory=list)
@@ -1283,13 +1322,14 @@ class Specification:
     mapped_type_templates: list[MappedTypeTemplate] = field(default_factory=list)
 
     # The mapped types.
-    mapped_types: list[MappedType] = field(default_factory=list)
+    mapped_types: IndexedMappedTypeList = field(default_factory=IndexedMappedTypeList)
 
     # The module for which code is to be generated.
     module: Module = field(default_factory=Module)
 
     # The cache of names that may be required as strings in the generated code.
-    name_cache: dict[int, list[CachedName]] = field(default_factory=dict)
+    # Indexed by name length.
+    name_cache: dict[int, IndexedCachedNameList] = field(default_factory=dict)
 
     # The number of virtual handlers. (resolver)
     nr_virtual_handlers: int = 0
@@ -1299,10 +1339,10 @@ class Specification:
     plugins: list[str] = field(default_factory=list)
 
     # The QObject class.
-    pyqt_qobject: Optional['WrappedClass'] = None
+    pyqt_qobject: 'WrappedClass|None' = None
 
     # The list of typedefs.
-    typedefs: list['WrappedTypedef'] = field(default_factory=list)
+    typedefs: IndexedTypedefList = field(default_factory=IndexedTypedefList)
 
     # The list of variables.
     variables: list['WrappedVariable'] = field(default_factory=list)
@@ -1337,7 +1377,7 @@ class ThrowArguments:
 
     # The list of the argument names. If it is None then 'noexcept' was
     # specified, otherwise there will be at least one argument.
-    arguments: Optional[list['WrappedException']] = None
+    arguments: list['WrappedException']|None = None
 
 
 @dataclass
@@ -1345,13 +1385,13 @@ class TypeHints:
     """ Encapsulate a set of PEP 484 type hints for a type. """
 
     # The type hint when used to pass a value into a callable.
-    hint_in: Optional[str]
+    hint_in: str|None
 
     # The type hint used to return a value from a callable.
-    hint_out: Optional[str]
+    hint_out: str|None
 
     # The representation of a default value in a type hint.
-    default_value: Optional[str]
+    default_value: str|None
 
 
 @dataclass
@@ -1362,16 +1402,16 @@ class Value:
     value_type: ValueType
 
     # Any literal value.
-    value: Optional[Union[str, int, float, FunctionCall, ScopedName]]
+    value: str|int|float|FunctionCall|ScopedName|None
 
     # Any binary operator.
-    binary_operator: Optional[str] = None
+    binary_operator: str|None = None
 
     # Any cast.
-    cast: Optional[ScopedName] = None
+    cast: ScopedName|None = None
 
     # Any unary operator.
-    unary_operator: Optional[str] = None
+    unary_operator: str|None = None
 
 
 @dataclass
@@ -1402,7 +1442,7 @@ class VirtualHandler:
     py_signature: Signature
 
     # The code specified by any %VirtualCatcherCode directive.
-    virtual_catcher_code: Optional[CodeBlock]
+    virtual_catcher_code: CodeBlock|None
 
     # The virtual error handler.
     virtual_error_handler: VirtualErrorHandler
@@ -1426,7 +1466,7 @@ class VirtualOverload:
 
     # The handler for the overload.  It is only set for the module for which
     # code is being generated.
-    handler: Optional[VirtualHandler]
+    handler: VirtualHandler|None
 
 
 @dataclass
@@ -1451,13 +1491,13 @@ class WrappedClass:
     py_name: CachedName
 
     # The enclosing scope.
-    scope: Optional['WrappedClass']
+    scope: 'WrappedClass|None'
 
     # The %BIGetBufferCode.
-    bi_get_buffer_code: Optional[CodeBlock] = None
+    bi_get_buffer_code: CodeBlock|None = None
 
     # The %BIReleaseBufferCode.
-    bi_release_buffer_code: Optional[CodeBlock] = None
+    bi_release_buffer_code: CodeBlock|None = None
 
     # Set if the class has usable constructors.
     can_create: bool = False
@@ -1472,16 +1512,16 @@ class WrappedClass:
     casts: list[Argument] = field(default_factory=list)
 
     # The specific type of class.  It will be None for namespaces.
-    class_key: Optional[ClassKey] = None
+    class_key: ClassKey|None = None
 
     # The %ConvertFromTypeCode.
-    convert_from_type_code: Optional[CodeBlock] = None
+    convert_from_type_code: CodeBlock|None = None
 
     # The %ConvertToSubClassCode.
-    convert_to_subclass_code: Optional[CodeBlock] = None
+    convert_to_subclass_code: CodeBlock|None = None
 
     # The %ConvertToTypeCode.
-    convert_to_type_code: Optional[CodeBlock] = None
+    convert_to_type_code: CodeBlock|None = None
 
     # The constructors.
     ctors: list[Constructor] = field(default_factory=list)
@@ -1490,43 +1530,46 @@ class WrappedClass:
     dealloc_code: list[CodeBlock] = field(default_factory=list)
 
     # The constructor that has /Default/ specified.
-    default_ctor: Optional[Constructor] = None
+    default_ctor: Constructor|None = None
 
     # Set if /DelayDtor/ was specified.
     delay_dtor: bool = False
 
     # deprecated message if /Deprecated/ was specified.
-    deprecated: Optional[str] = None
+    deprecated: str|None = None
 
     # The docstring.
-    docstring: Optional[Docstring] = None
+    docstring: Docstring|None = None
 
     # The access specifier of any dtor.
-    dtor: Optional[AccessSpecifier] = None
+    dtor: AccessSpecifier|None = None
 
     # The action required on the GIL.
     dtor_gil_action: GILAction = GILAction.DEFAULT
 
     # The optional dtor throw arguments.  Replace with 'noexcept' in SIP v7.
-    dtor_throw_args: Optional[ThrowArguments] = None
+    dtor_throw_args: ThrowArguments|None = None
 
     # The code specified by any dtor %VirtualCatcherCode directive.
-    dtor_virtual_catcher_code: Optional[CodeBlock] = None
+    dtor_virtual_catcher_code: CodeBlock|None = None
 
     # Set if /ExportDerived/ was specified.
     export_derived: bool = False
+
+    # Set if /ExportDerivedLocally/ was specified.
+    export_derived_locally: bool = False
 
     # Set if /External/ was specified.
     external: bool = False
 
     # The %FinalisationCode.
-    finalisation_code: Optional[CodeBlock] = None
+    finalisation_code: CodeBlock|None = None
 
     # The %GCClearCode.
-    gc_clear_code: Optional[CodeBlock] = None
+    gc_clear_code: CodeBlock|None = None
 
     # The %GCTraverseCode.
-    gc_traverse_code: Optional[CodeBlock] = None
+    gc_traverse_code: CodeBlock|None = None
 
     # Set if /AllowNone/ was specified.
     handles_none: bool = False
@@ -1541,7 +1584,7 @@ class WrappedClass:
     has_variable_handlers: bool = False
 
     # The %InstanceCode.
-    instance_code: Optional[CodeBlock] = None
+    instance_code: CodeBlock|None = None
 
     # Set if the class is abstract.
     is_abstract: bool = False
@@ -1552,7 +1595,7 @@ class WrappedClass:
     # Set if the class is incomplete.
     is_incomplete: bool = False
 
-    # Set if the class is opaque.
+    # Set if the class is opaque (has no body).
     is_opaque: bool = False
 
     # Set if the class is defined in a protected section.
@@ -1562,13 +1605,13 @@ class WrappedClass:
     is_qobject: bool = False
 
     # The C++ name of any overload annotated with __len__.
-    len_cpp_name: Optional[str] = None
+    len_cpp_name: str|None = None
 
     # The methods.
     members: list[Member] = field(default_factory=list)
 
     # The value of /Metatype/ if specified.
-    metatype: Optional[CachedName] = None
+    metatype: CachedName|None = None
 
     # Set if /Mixin/ was specified.
     mixin: bool = False
@@ -1600,7 +1643,7 @@ class WrappedClass:
     overloads: list[Overload] = field(default_factory=list)
 
     # The %PickleCode.
-    pickle_code: Optional[CodeBlock] = None
+    pickle_code: CodeBlock|None = None
 
     # The properties.
     properties: list[Property] = field(default_factory=list)
@@ -1609,41 +1652,44 @@ class WrappedClass:
     pyqt_flags: int = 0
 
     # The /PyQtFlagsEnums/.
-    pyqt_flags_enums: Optional[list[str]] = None
+    pyqt_flags_enums: list[str]|None = None
 
     # The /PyQtInterface/.
-    pyqt_interface: Optional[str] = None
+    pyqt_interface: str|None = None
 
     # Set if /PyQtNoQMetaObject/ was specified.
     pyqt_no_qmetaobject: bool = False
 
     # The real class if this is a proxy or a namespace extender.
-    real_class: Optional['WrappedClass'] = None
+    real_class: 'WrappedClass|None' = None
 
     # The sub-class base class. (resolver)
-    subclass_base: Optional['WrappedClass'] = None
+    subclass_base: 'WrappedClass|None' = None
 
     # The super-classes.  A super-class can only be a template argument in a
     # class template.
-    superclasses: list[Union[Argument, 'WrappedClass']] = field(default_factory=list)
+    superclasses: list['Argument|WrappedClass'] = field(default_factory=list)
 
     # The value of /Supertype/ if specified.
-    supertype: Optional[CachedName] = None
+    supertype: CachedName|None = None
 
     # The template that was instantiated to create this class.
-    template: Optional[Template] = None
+    template: Template|None = None
 
     # The %TypeCode.
     type_code: list[CodeBlock] = field(default_factory=list)
 
+    # The %TypeDerivedCode.
+    type_derived_code: list[CodeBlock] = field(default_factory=list)
+
     # The %TypeHintCode.
-    type_hint_code: Optional[CodeBlock] = None
+    type_hint_code: CodeBlock|None = None
 
     # The type hints.
-    type_hints: Optional[TypeHints] = None
+    type_hints: TypeHints|None = None
 
     # The name of the virtual error handler to use.
-    virtual_error_handler: Optional[str] = None
+    virtual_error_handler: str|None = None
 
     # The virtual overloaded methods. (resolver)
     virtual_overloads: list[VirtualOverload] = field(default_factory=list)
@@ -1665,16 +1711,16 @@ class WrappedEnum:
     base_type: EnumBaseType
 
     # The fully qualified C++ name.
-    fq_cpp_name: Optional[ScopedName]
+    fq_cpp_name: ScopedName|None
 
     # The defining module.
     module: Module
 
     # The C++11 enum base type.
-    enum_base_type: Optional[Argument] = None
+    enum_base_type: Argument|None = None
 
     # The cached fully qualified C++ name.
-    cached_fq_cpp_name: Optional[CachedName] = None
+    cached_fq_cpp_name: CachedName|None = None
 
     # Set if the enum is defined in a protected section.
     is_protected: bool = False
@@ -1699,10 +1745,10 @@ class WrappedEnum:
     overloads: list['Overload'] = field(default_factory=list)
 
     # The Python name.
-    py_name: Optional[CachedName] = None
+    py_name: CachedName|None = None
 
     # The enclosing scope.
-    scope: Optional[Union[MappedType, WrappedClass]] = None
+    scope: MappedType|WrappedClass|None = None
 
     # The slot member functions.  These can only be created by global operators
     # being moved. (resolver)
@@ -1712,7 +1758,8 @@ class WrappedEnum:
     type_nr: int = -1
 
     def __hash__(self):
-        """ Reimplemented so an Argument object can be used as a dict key. """
+        """ Reimplemented so a WrappedEnum object can be used as a dict key.
+        """
 
         return id(self)
 
@@ -1745,14 +1792,14 @@ class WrappedException:
     raise_code: CodeBlock
 
     # The base exception if it is a builtin.
-    builtin_base_exception: Optional[str] = None
+    builtin_base_exception: str|None = None
 
     # The class that implements the exception (if the exception is not a Python
     # exception).
-    class_exception: Optional[WrappedClass] = None
+    class_exception: WrappedClass|None = None
 
     # The base exception if it is defined in the specification.
-    defined_base_exception: Optional['WrappedException'] = None
+    defined_base_exception: 'WrappedException|None' = None
 
     # The number of the exception (only if a Python exception object is
     # required. (resolver)
@@ -1763,7 +1810,7 @@ class WrappedException:
     needed: bool = False
 
     # The Python name.
-    py_name: Optional[str] = None
+    py_name: str|None = None
 
 
 @dataclass
@@ -1777,7 +1824,7 @@ class WrappedTypedef:
     module: Module
 
     # The enclosing scope.
-    scope: Optional[WrappedClass]
+    scope: WrappedClass|None
 
     # The type.
     type: Argument
@@ -1800,16 +1847,16 @@ class WrappedVariable:
     py_name: CachedName
 
     # The enclosing scope.
-    scope: Optional[WrappedClass]
+    scope: WrappedClass|None
 
     # The type.
     type: Argument
 
     # The code specified by any %AccessCode directive.
-    access_code: Optional[CodeBlock] = None
+    access_code: CodeBlock|None = None
 
     # The code specified by any %GetCode directive.
-    get_code: Optional[CodeBlock] = None
+    get_code: CodeBlock|None = None
 
     # Set if the variable is static.
     is_static: bool = False
@@ -1824,4 +1871,4 @@ class WrappedVariable:
     no_setter: bool = False
 
     # The code specified by any %SetCode directive.
-    set_code: Optional[CodeBlock] = None
+    set_code: CodeBlock|None = None

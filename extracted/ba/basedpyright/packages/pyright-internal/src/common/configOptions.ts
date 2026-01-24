@@ -399,9 +399,6 @@ export interface DiagnosticRuleSet {
     // Report code that is determined to be unreachable via type analysis.
     reportUnreachable: DiagnosticLevel;
 
-    // Report files that match stdlib modules.
-    reportShadowedImports: DiagnosticLevel;
-
     // Report missing @override decorator.
     reportImplicitOverride: DiagnosticLevel;
 
@@ -416,6 +413,7 @@ export interface DiagnosticRuleSet {
      */
     failOnWarnings: boolean;
     strictGenericNarrowing: boolean;
+    enableBasedFeatures: boolean;
     reportAny: DiagnosticLevel;
     reportExplicitAny: DiagnosticLevel;
     reportIgnoreCommentWithoutRule: DiagnosticLevel;
@@ -428,6 +426,7 @@ export interface DiagnosticRuleSet {
     reportUnannotatedClassAttribute: DiagnosticLevel;
     reportIncompatibleUnannotatedOverride: DiagnosticLevel;
     reportInvalidAbstractMethod: DiagnosticLevel;
+    reportSelfClsDefault: DiagnosticLevel;
     allowedUntypedLibraries: string[];
 }
 
@@ -445,6 +444,7 @@ export function getBooleanDiagnosticRules(includeNonOverridable = false) {
         DiagnosticRule.strictDictionaryInference,
         DiagnosticRule.analyzeUnannotatedFunctions,
         DiagnosticRule.strictParameterNoneValue,
+        DiagnosticRule.enableBasedFeatures,
         DiagnosticRule.enableExperimentalFeatures,
         DiagnosticRule.deprecateTypingAliases,
         DiagnosticRule.disableBytesTypePromotions,
@@ -546,7 +546,6 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnnecessaryTypeIgnoreComment,
         DiagnosticRule.reportMatchNotExhaustive,
         DiagnosticRule.reportUnreachable,
-        DiagnosticRule.reportShadowedImports,
         DiagnosticRule.reportImplicitOverride,
         DiagnosticRule.reportAny,
         DiagnosticRule.reportExplicitAny,
@@ -560,6 +559,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnannotatedClassAttribute,
         DiagnosticRule.reportIncompatibleUnannotatedOverride,
         DiagnosticRule.reportInvalidAbstractMethod,
+        DiagnosticRule.reportSelfClsDefault,
     ];
 }
 
@@ -596,6 +596,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         strictDictionaryInference: false,
         analyzeUnannotatedFunctions: true, // required for completions
         strictParameterNoneValue: false,
+        enableBasedFeatures: false,
         enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true,
         enableReachabilityAnalysis: false,
@@ -681,7 +682,6 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportUnreachable: 'hint',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
         failOnWarnings: false,
         strictGenericNarrowing: false,
@@ -697,6 +697,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnannotatedClassAttribute: 'none',
         reportIncompatibleUnannotatedOverride: 'none',
         reportInvalidAbstractMethod: 'none',
+        reportSelfClsDefault: 'none',
         allowedUntypedLibraries: [],
     };
 
@@ -715,6 +716,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         strictDictionaryInference: false,
         analyzeUnannotatedFunctions: true,
         strictParameterNoneValue: true,
+        enableBasedFeatures: false,
         enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true,
         enableReachabilityAnalysis: true,
@@ -800,7 +802,6 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportUnreachable: 'hint',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
         failOnWarnings: false,
         strictGenericNarrowing: false,
@@ -816,6 +817,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnannotatedClassAttribute: 'none',
         reportIncompatibleUnannotatedOverride: 'none',
         reportInvalidAbstractMethod: 'none',
+        reportSelfClsDefault: 'none',
         allowedUntypedLibraries: [],
     };
 
@@ -834,6 +836,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         strictDictionaryInference: false,
         analyzeUnannotatedFunctions: true,
         strictParameterNoneValue: true,
+        enableBasedFeatures: false,
         enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true,
         enableReachabilityAnalysis: true,
@@ -919,7 +922,6 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'none',
         reportUnreachable: 'hint',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
         failOnWarnings: false,
         strictGenericNarrowing: false,
@@ -935,6 +937,7 @@ export function getStandardDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnannotatedClassAttribute: 'none',
         reportIncompatibleUnannotatedOverride: 'none',
         reportInvalidAbstractMethod: 'none',
+        reportSelfClsDefault: 'none',
         allowedUntypedLibraries: [],
     };
 
@@ -952,6 +955,7 @@ export const getRecommendedDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     strictDictionaryInference: true,
     analyzeUnannotatedFunctions: true,
     strictParameterNoneValue: true,
+    enableBasedFeatures: false,
     enableExperimentalFeatures: false,
     enableTypeIgnoreComments: false,
     enableReachabilityAnalysis: true,
@@ -1036,7 +1040,6 @@ export const getRecommendedDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     reportUnusedExpression: 'warning',
     reportUnnecessaryTypeIgnoreComment: 'warning',
     reportMatchNotExhaustive: 'warning',
-    reportShadowedImports: 'warning',
     reportImplicitOverride: 'warning',
     failOnWarnings: true,
     strictGenericNarrowing: true,
@@ -1053,6 +1056,7 @@ export const getRecommendedDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     reportUnannotatedClassAttribute: 'warning',
     reportIncompatibleUnannotatedOverride: 'none', // TODO: change to error when we're confident there's no performance issues with this rule
     reportInvalidAbstractMethod: 'warning',
+    reportSelfClsDefault: 'warning',
     allowedUntypedLibraries: [],
 });
 
@@ -1067,6 +1071,7 @@ export const getAllDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     strictDictionaryInference: true,
     analyzeUnannotatedFunctions: true,
     strictParameterNoneValue: true,
+    enableBasedFeatures: false,
     enableExperimentalFeatures: false,
     enableTypeIgnoreComments: false,
     enableReachabilityAnalysis: true,
@@ -1151,7 +1156,6 @@ export const getAllDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     reportUnusedExpression: 'error',
     reportUnnecessaryTypeIgnoreComment: 'error',
     reportMatchNotExhaustive: 'error',
-    reportShadowedImports: 'error',
     reportImplicitOverride: 'error',
     failOnWarnings: true,
     strictGenericNarrowing: true,
@@ -1168,6 +1172,7 @@ export const getAllDiagnosticRuleSet = (): DiagnosticRuleSet => ({
     reportUnannotatedClassAttribute: 'error',
     reportIncompatibleUnannotatedOverride: 'error',
     reportInvalidAbstractMethod: 'error',
+    reportSelfClsDefault: 'error',
     allowedUntypedLibraries: [],
 });
 
@@ -1183,6 +1188,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         strictDictionaryInference: true,
         analyzeUnannotatedFunctions: true,
         strictParameterNoneValue: true,
+        enableBasedFeatures: false,
         enableExperimentalFeatures: false,
         enableTypeIgnoreComments: true, // Not overridden by strict mode
         enableReachabilityAnalysis: true, // Not overridden by strict mode
@@ -1268,7 +1274,6 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryTypeIgnoreComment: 'none',
         reportMatchNotExhaustive: 'error',
         reportUnreachable: 'hint',
-        reportShadowedImports: 'none',
         reportImplicitOverride: 'none',
         failOnWarnings: false,
         strictGenericNarrowing: false,
@@ -1284,6 +1289,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnannotatedClassAttribute: 'none',
         reportIncompatibleUnannotatedOverride: 'none',
         reportInvalidAbstractMethod: 'none',
+        reportSelfClsDefault: 'none',
         allowedUntypedLibraries: [],
     };
 
@@ -1719,7 +1725,7 @@ export class ConfigOptions {
         // or supported. It was added specifically to improve initialization
         // performance for playgrounds or web-based environments where native
         // libraries will not be present.
-        if (configObj.skipNativeLibraries) {
+        if (configObj.skipNativeLibraries !== undefined) {
             if (typeof configObj.skipNativeLibraries === 'boolean') {
                 this.skipNativeLibraries = configObj.skipNativeLibraries;
             } else {
@@ -1850,7 +1856,7 @@ export class ConfigOptions {
         }
 
         for (const key of unusedConfigDetector.unreadOptions()) {
-            console.error(`unknown config option: ${key}`);
+            console.error(`Config contains unrecognized setting "${key}".`);
         }
     }
 

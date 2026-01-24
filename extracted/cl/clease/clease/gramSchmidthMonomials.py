@@ -1,5 +1,3 @@
-from typing import Dict, List
-
 import numpy as np
 
 
@@ -46,14 +44,14 @@ class GramSchmidtMonimial:
 
         self.bf_values = []
 
-    def spin_dict(self, symbols: List[str]) -> Dict[str, int]:
+    def spin_dict(self, symbols: list[str]) -> dict[str, int]:
         """
         Return a dictionary with the spin variable for each of the
         passed symbols
         """
         return {s: self.values[i] for i, s in enumerate(symbols)}
 
-    def basis_functions(self, symbols: List[str]) -> List[Dict[str, float]]:
+    def basis_functions(self, symbols: list[str]) -> list[dict[str, float]]:
         """
         Construct the spin dictionary from a list of symbols
         """
@@ -137,7 +135,7 @@ class GramSchmidtMonimial:
             )
         return dot_prod / len(self.values)
 
-    def norm(self, bf: List[float]) -> float:
+    def norm(self, bf: list[float]) -> float:
         """
         Computes the norm of a basis function
 
@@ -148,7 +146,7 @@ class GramSchmidtMonimial:
         """
         return np.sqrt(self.dot(bf, bf))
 
-    def eval(self, bf: List[float], valueIndex: int) -> float:
+    def eval(self, bf: list[float], valueIndex: int) -> float:
         """
         Evaluates the basis function
 

@@ -27,19 +27,17 @@ from datarobot.models.api_object import APIObject
 class GuardInterventionCondition(APIObject):
     """Defines a condition for intervention."""
 
-    _converter = t.Dict(
-        {
-            t.Key("comparator"): t.Enum(*[e.value for e in ModerationGuardConditionOperator]),
-            t.Key("comparand"): t.Or(
-                t.Float(),
+    _converter = t.Dict({
+        t.Key("comparator"): t.Enum(*[e.value for e in ModerationGuardConditionOperator]),
+        t.Key("comparand"): t.Or(
+            t.Float(),
+            t.String(),
+            t.Bool(),
+            t.List(
                 t.String(),
-                t.Bool(),
-                t.List(
-                    t.String(),
-                ),
             ),
-        }
-    ).ignore_extra("*")
+        ),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -75,17 +73,13 @@ class GuardInterventionForTemplate(APIObject):
     templates were baked in.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("action"): t.Enum(*[e.value for e in ModerationGuardAction]),
-            t.Key("conditions"): t.List(GuardInterventionCondition.schema),
-            t.Key("modify_message"): t.String(allow_blank=True),
-            t.Key("allowed_actions"): t.List(t.Enum(*[e.value for e in ModerationGuardAction])),
-            t.Key("condition_logic", optional=True): t.Enum(
-                *[e.value for e in ModerationGuardConditionLogic]
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("action"): t.Enum(*[e.value for e in ModerationGuardAction]),
+        t.Key("conditions"): t.List(GuardInterventionCondition.schema),
+        t.Key("modify_message"): t.String(allow_blank=True),
+        t.Key("allowed_actions"): t.List(t.Enum(*[e.value for e in ModerationGuardAction])),
+        t.Key("condition_logic", optional=True): t.Enum(*[e.value for e in ModerationGuardConditionLogic]),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -104,9 +98,7 @@ class GuardInterventionForTemplate(APIObject):
         conditions: list[GuardInterventionCondition | str],
         modify_message: str,
         allowed_actions: list[ModerationGuardAction | str],
-        condition_logic: Optional[
-            ModerationGuardConditionLogic
-        ] = ModerationGuardConditionLogic.ANY,
+        condition_logic: Optional[ModerationGuardConditionLogic] = ModerationGuardConditionLogic.ANY,
     ) -> None:
         """
         Initialize an intervention object based on values from init or server data.
@@ -114,9 +106,7 @@ class GuardInterventionForTemplate(APIObject):
         # from_server_data() may not convert inner objects
         c_obj = [
             (
-                x
-                if isinstance(x, GuardInterventionCondition)
-                else GuardInterventionCondition(**x)  # type: ignore[arg-type]
+                x if isinstance(x, GuardInterventionCondition) else GuardInterventionCondition(**x)  # type: ignore[arg-type]
             )
             for x in conditions
         ]
@@ -137,9 +127,7 @@ class GuardInterventionForTemplate(APIObject):
         }
 
     @classmethod
-    def ensure_object(
-        cls, maybe_dict: Dict[str, str] | GuardInterventionForTemplate
-    ) -> GuardInterventionForTemplate:
+    def ensure_object(cls, maybe_dict: Dict[str, str] | GuardInterventionForTemplate) -> GuardInterventionForTemplate:
         """intervention may arrive as an object, or as a dict. Return an object."""
         if isinstance(maybe_dict, GuardInterventionForTemplate):
             return maybe_dict
@@ -156,17 +144,13 @@ class GuardInterventionForConfiguration(APIObject):
     templates were baked in.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("action"): t.Enum(*[e.value for e in ModerationGuardAction]),
-            t.Key("conditions"): t.List(GuardInterventionCondition.schema),
-            t.Key("message"): String(allow_blank=True),
-            t.Key("allowed_actions"): t.List(t.Enum(*[e.value for e in ModerationGuardAction])),
-            t.Key("condition_logic", optional=True): t.Enum(
-                *[e.value for e in ModerationGuardConditionLogic]
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("action"): t.Enum(*[e.value for e in ModerationGuardAction]),
+        t.Key("conditions"): t.List(GuardInterventionCondition.schema),
+        t.Key("message"): String(allow_blank=True),
+        t.Key("allowed_actions"): t.List(t.Enum(*[e.value for e in ModerationGuardAction])),
+        t.Key("condition_logic", optional=True): t.Enum(*[e.value for e in ModerationGuardConditionLogic]),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -185,9 +169,7 @@ class GuardInterventionForConfiguration(APIObject):
         conditions: list[GuardInterventionCondition | str],
         message: str,
         allowed_actions: list[ModerationGuardAction | str],
-        condition_logic: Optional[
-            ModerationGuardConditionLogic
-        ] = ModerationGuardConditionLogic.ANY,
+        condition_logic: Optional[ModerationGuardConditionLogic] = ModerationGuardConditionLogic.ANY,
     ) -> None:
         """
         Initialize an intervention object based on values from init or server data.
@@ -195,9 +177,7 @@ class GuardInterventionForConfiguration(APIObject):
         # from_server_data() may not convert inner objects
         c_obj = [
             (
-                x
-                if isinstance(x, GuardInterventionCondition)
-                else GuardInterventionCondition(**x)  # type: ignore[arg-type]
+                x if isinstance(x, GuardInterventionCondition) else GuardInterventionCondition(**x)  # type: ignore[arg-type]
             )
             for x in conditions
         ]

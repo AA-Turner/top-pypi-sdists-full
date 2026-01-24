@@ -70,6 +70,7 @@ from ._domains import (
     resolve_domain_id,
     unassign_domain_workspaces,
     unassign_all_domain_workspaces,
+    sync_role_assignments_to_subdomains,
 )
 from ._items import (
     list_item_access_details,
@@ -97,6 +98,10 @@ from ._tenant_keys import (
 from ._sharing_links import (
     remove_all_sharing_links,
     remove_sharing_links,
+)
+from ._labels import (
+    bulk_set_labels,
+    bulk_remove_labels,
 )
 
 __all__ = [
@@ -161,4 +166,7 @@ __all__ = [
     "rotate_tenant_key",
     "remove_all_sharing_links",
     "remove_sharing_links",
+    "bulk_set_labels",
+    "bulk_remove_labels",
+    "sync_role_assignments_to_subdomains",
 ]

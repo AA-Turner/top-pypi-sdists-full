@@ -4,8 +4,10 @@
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::ops::Range;
+use std::sync::LazyLock;
 
 use colored::Colorize;
+use path_slash::PathExt;
 use ruff_db::diagnostic::{Diagnostic, DiagnosticId};
 use ruff_db::files::File;
 use ruff_db::source::{SourceText, line_index, source_text};
@@ -198,17 +200,55 @@ impl UnmatchedWithColumn for &Diagnostic {
 
 /// Discard `@Todo`-type metadata from expected types, which is not available
 /// when running in release mode.
+///
+/// Some `@Todo` variants (like `@Todo(StarredExpression)` and `@Todo(typing.Unpack)`)
+/// are hardcoded enum variants that always display their message, so we preserve those.
 fn discard_todo_metadata(ty: &str) -> Cow<'_, str> {
     #[cfg(not(debug_assertions))]
     {
-        static TODO_METADATA_REGEX: std::sync::LazyLock<regex::Regex> =
-            std::sync::LazyLock::new(|| regex::Regex::new(r"@Todo\([^)]*\)").unwrap());
+        /// `@Todo` variants that are hardcoded and always display their message,
+        /// even in release mode.
+        const PRESERVED_TODO_VARIANTS: &[&str] =
+            &["@Todo(StarredExpression)", "@Todo(typing.Unpack)"];
 
-        TODO_METADATA_REGEX.replace_all(ty, "@Todo")
+        static TODO_METADATA_REGEX: LazyLock<regex::Regex> =
+            LazyLock::new(|| regex::Regex::new(r"@Todo\([^)]*\)").unwrap());
+
+        TODO_METADATA_REGEX.replace_all(ty, |caps: &regex::Captures| {
+            let matched = caps.get(0).unwrap().as_str();
+            if PRESERVED_TODO_VARIANTS.contains(&matched) {
+                matched.to_string()
+            } else {
+                "@Todo".to_string()
+            }
+        })
     }
 
     #[cfg(debug_assertions)]
     Cow::Borrowed(ty)
+}
+
+/// Normalize paths in diagnostics to Unix paths before comparing them against
+/// the expected type. Doing otherwise means that it's hard to write cross-platform
+/// tests, since in some edge cases the display of a type can include a path to the
+/// file in which the type was defined (e.g. `foo.bar.A @ src/foo/bar.py:10:5` on Unix,
+/// but `foo.bar.A @ src\foo\bar.py:10:5` on Windows).
+fn normalize_paths(ty: &str) -> Cow<'_, str> {
+    static PATH_IN_CLASS_DISPLAY_REGEX: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"( @ )([^\.]+?)(\.pyi?:\d)").unwrap());
+
+    fn normalize_path_captures(path_captures: &regex::Captures) -> String {
+        let normalized_path = std::path::Path::new(&path_captures[2])
+            .to_slash()
+            .expect("Python module paths should be valid UTF-8");
+
+        format!(
+            "{}{}{}",
+            &path_captures[1], normalized_path, &path_captures[3]
+        )
+    }
+
+    PATH_IN_CLASS_DISPLAY_REGEX.replace_all(ty, normalize_path_captures)
 }
 
 struct Matcher {
@@ -294,7 +334,7 @@ impl Matcher {
                         .column
                         .is_none_or(|col| col == self.column(diagnostic));
                     let message_matches = error.message_contains.is_none_or(|needle| {
-                        diagnostic.concise_message().to_string().contains(needle)
+                        normalize_paths(&diagnostic.concise_message().to_str()).contains(needle)
                     });
                     lint_name_matches && column_matches && message_matches
                 });
@@ -320,29 +360,23 @@ impl Matcher {
                         return false;
                     };
 
-                    // reveal_type
-                    if primary_message == "Revealed type"
-                        && primary_annotation == expected_reveal_type_message
+                    let primary_annotation = normalize_paths(primary_annotation);
+
+                    // reveal_type, reveal_protocol_interface
+                    if matches!(
+                        primary_message,
+                        "Revealed type" | "Revealed protocol interface"
+                    ) && primary_annotation == expected_reveal_type_message
                     {
                         return true;
                     }
 
-                    // reveal_protocol_interface
-                    if primary_message == "Revealed protocol interface"
-                        && primary_annotation == expected_reveal_type_message
+                    // reveal_when_assignable_to, reveal_when_subtype_of, reveal_mro
+                    if matches!(
+                        primary_message,
+                        "Assignability holds" | "Subtyping holds" | "Revealed MRO"
+                    ) && primary_annotation == expected_type
                     {
-                        return true;
-                    }
-
-                    // reveal_when_assignable_to
-                    if primary_message == "Assignability holds"
-                        && primary_annotation == expected_type
-                    {
-                        return true;
-                    }
-
-                    // reveal_when_subtype_of
-                    if primary_message == "Subtyping holds" && primary_annotation == expected_type {
                         return true;
                     }
 
@@ -386,9 +420,8 @@ mod tests {
     use ruff_python_trivia::textwrap::dedent;
     use ruff_source_file::OneIndexed;
     use ruff_text_size::TextRange;
-    use ty_python_semantic::{
-        Program, ProgramSettings, PythonPlatform, PythonVersionWithSource, SearchPathSettings,
-    };
+    use ty_module_resolver::SearchPathSettings;
+    use ty_python_semantic::{Program, ProgramSettings, PythonPlatform, PythonVersionWithSource};
 
     struct ExpectedDiagnostic {
         id: DiagnosticId,
@@ -410,10 +443,16 @@ mod tests {
             let mut diag = if self.id == DiagnosticId::RevealedType {
                 Diagnostic::new(self.id, Severity::Error, "Revealed type")
             } else {
-                Diagnostic::new(self.id, Severity::Error, "")
+                Diagnostic::new(self.id, Severity::Error, self.message)
             };
             let span = Span::from(file).with_range(self.range);
-            diag.annotate(Annotation::primary(span).message(self.message));
+            let mut annotation = Annotation::primary(span);
+
+            if self.id == DiagnosticId::RevealedType {
+                annotation = annotation.message(self.message);
+            }
+
+            diag.annotate(annotation);
             diag
         }
     }
@@ -1351,6 +1390,30 @@ mod tests {
                 0,
                 &[
                     "invalid assertion: expected '\"' to be the final character in an assertion with an error message",
+                    r#"unexpected error: 1 [some-rule] "some message""#,
+                ],
+            )],
+        );
+    }
+
+    #[test]
+    fn trailing_quote_without_message_not_allowed() {
+        let source = "x  # error: [some-rule]\"";
+        let result = get_result(
+            source,
+            vec![ExpectedDiagnostic::new(
+                DiagnosticId::lint("some-rule"),
+                "some message",
+                0,
+            )],
+        );
+
+        assert_fail(
+            result,
+            &[(
+                0,
+                &[
+                    "invalid assertion: expected message text and closing '\"' after opening '\"'",
                     r#"unexpected error: 1 [some-rule] "some message""#,
                 ],
             )],

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sanic
-Version: 25.3.0
+Version: 25.12.0
 Summary: A web server and web framework that's written to go fast. Build fast. Run fast.
 Home-page: http://github.com/sanic-org/sanic/
 Author: Sanic Community
@@ -10,12 +10,12 @@ Platform: any
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: sanic-routing>=23.12.0
 Requires-Dist: httptools>=0.0.10
@@ -25,12 +25,14 @@ Requires-Dist: aiofiles>=0.6.0
 Requires-Dist: websockets>=10.0
 Requires-Dist: multidict<7.0,>=5.0
 Requires-Dist: html5tagger>=1.2.1
-Requires-Dist: tracerite>=1.0.0
+Requires-Dist: tracerite>=2.2.0
 Requires-Dist: typing-extensions>=4.4.0
 Requires-Dist: setuptools>=70.1.0
 Provides-Extra: test
 Requires-Dist: sanic-testing>=23.6.0; extra == "test"
 Requires-Dist: pytest>=8.2.2; extra == "test"
+Requires-Dist: pytest-xdist>=3.5.0; extra == "test"
+Requires-Dist: pytest-cov>=4.0.0; extra == "test"
 Requires-Dist: coverage; extra == "test"
 Requires-Dist: beautifulsoup4; extra == "test"
 Requires-Dist: pytest-sanic; extra == "test"
@@ -47,6 +49,8 @@ Requires-Dist: types-ujson; (sys_platform != "win32" and implementation_name == 
 Provides-Extra: dev
 Requires-Dist: sanic-testing>=23.6.0; extra == "dev"
 Requires-Dist: pytest>=8.2.2; extra == "dev"
+Requires-Dist: pytest-xdist>=3.5.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: beautifulsoup4; extra == "dev"
 Requires-Dist: pytest-sanic; extra == "dev"
@@ -70,33 +74,43 @@ Requires-Dist: docutils; extra == "docs"
 Requires-Dist: pygments; extra == "docs"
 Requires-Dist: m2r2; extra == "docs"
 Requires-Dist: enum-tools[sphinx]; extra == "docs"
-Requires-Dist: mistune<2.0.0; extra == "docs"
+Requires-Dist: mistune>=2.0.0; extra == "docs"
 Requires-Dist: autodocsumm>=0.2.11; extra == "docs"
+Requires-Dist: msgspec; extra == "docs"
+Requires-Dist: python-frontmatter; extra == "docs"
+Requires-Dist: docstring-parser; extra == "docs"
+Requires-Dist: libsass; extra == "docs"
 Provides-Extra: all
-Requires-Dist: sphinx_rtd_theme>=0.4.3; extra == "all"
-Requires-Dist: types-ujson; (sys_platform != "win32" and implementation_name == "cpython") and extra == "all"
-Requires-Dist: pygments; extra == "all"
+Requires-Dist: msgspec; extra == "all"
 Requires-Dist: towncrier; extra == "all"
-Requires-Dist: m2r2; extra == "all"
-Requires-Dist: sanic-testing>=23.6.0; extra == "all"
 Requires-Dist: uvicorn; extra == "all"
+Requires-Dist: sanic-testing>=23.6.0; extra == "all"
 Requires-Dist: enum-tools[sphinx]; extra == "all"
-Requires-Dist: tox; extra == "all"
-Requires-Dist: autodocsumm>=0.2.11; extra == "all"
-Requires-Dist: pytest-sanic; extra == "all"
-Requires-Dist: coverage; extra == "all"
-Requires-Dist: bandit; extra == "all"
-Requires-Dist: docutils; extra == "all"
-Requires-Dist: pytest-benchmark; extra == "all"
-Requires-Dist: mistune<2.0.0; extra == "all"
-Requires-Dist: pytest>=8.2.2; extra == "all"
-Requires-Dist: beautifulsoup4; extra == "all"
-Requires-Dist: chardet==3.*; extra == "all"
-Requires-Dist: mypy; extra == "all"
-Requires-Dist: sphinx>=2.1.2; extra == "all"
-Requires-Dist: ruff; extra == "all"
-Requires-Dist: cryptography; extra == "all"
+Requires-Dist: pytest-cov>=4.0.0; extra == "all"
 Requires-Dist: slotscheck<1,>=0.8.0; extra == "all"
+Requires-Dist: bandit; extra == "all"
+Requires-Dist: m2r2; extra == "all"
+Requires-Dist: pygments; extra == "all"
+Requires-Dist: sphinx>=2.1.2; extra == "all"
+Requires-Dist: types-ujson; (sys_platform != "win32" and implementation_name == "cpython") and extra == "all"
+Requires-Dist: coverage; extra == "all"
+Requires-Dist: chardet==3.*; extra == "all"
+Requires-Dist: autodocsumm>=0.2.11; extra == "all"
+Requires-Dist: tox; extra == "all"
+Requires-Dist: mypy; extra == "all"
+Requires-Dist: cryptography; extra == "all"
+Requires-Dist: docutils; extra == "all"
+Requires-Dist: beautifulsoup4; extra == "all"
+Requires-Dist: libsass; extra == "all"
+Requires-Dist: python-frontmatter; extra == "all"
+Requires-Dist: pytest-xdist>=3.5.0; extra == "all"
+Requires-Dist: sphinx_rtd_theme>=0.4.3; extra == "all"
+Requires-Dist: docstring-parser; extra == "all"
+Requires-Dist: pytest>=8.2.2; extra == "all"
+Requires-Dist: pytest-sanic; extra == "all"
+Requires-Dist: ruff; extra == "all"
+Requires-Dist: mistune>=2.0.0; extra == "all"
+Requires-Dist: pytest-benchmark; extra == "all"
 Provides-Extra: ext
 Requires-Dist: sanic-ext; extra == "ext"
 Provides-Extra: http3
@@ -174,7 +188,7 @@ Sanic | Build fast. Run fast.
 
 .. end-badges
 
-Sanic is a **Python 3.9+** web server and web framework that's written to go fast. It allows the usage of the ``async/await`` syntax added in Python 3.5, which makes your code non-blocking and speedy.
+Sanic is a **Python 3.10+** web server and web framework that's written to go fast. It allows the usage of the ``async/await`` syntax added in Python 3.5, which makes your code non-blocking and speedy.
 
 Sanic is also ASGI compliant, so you can deploy it with an `alternative ASGI webserver <https://sanicframework.org/en/guide/deployment/running.html#asgi>`_.
 
@@ -245,7 +259,7 @@ And, we can verify it is working: ``curl localhost:8000 -i``
 
 **Now, let's go build something fast!**
 
-Minimum Python version is 3.9.
+Minimum Python version is 3.10.
 
 Documentation
 -------------
@@ -261,4 +275,4 @@ Questions and Discussion
 Contribution
 ------------
 
-We are always happy to have new contributions. We have `marked issues good for anyone looking to get started <https://github.com/sanic-org/sanic/issues?q=is%3Aopen+is%3Aissue+label%3Abeginner>`_, and welcome `questions on the forums <https://community.sanicframework.org/>`_. Please take a look at our `Contribution guidelines <https://github.com/sanic-org/sanic/blob/master/CONTRIBUTING.rst>`_.
+We are always happy to have new contributions. We have `marked issues good for anyone looking to get started <https://github.com/sanic-org/sanic/issues?q=is%3Aopen+is%3Aissue+label%3Abeginner>`_, and welcome `questions on the forums <https://community.sanicframework.org/>`_. Please take a look at our `Contribution guidelines <https://github.com/sanic-org/sanic/blob/master/CONTRIBUTING.md>`_.

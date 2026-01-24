@@ -3,15 +3,15 @@
 
 from __future__ import annotations
 
-import logging
-from datetime import datetime, timedelta, timezone
-from typing import Union
-import re
-from collections import OrderedDict
-from sys import getsizeof
 import base64
 import gzip
 import hashlib
+import logging
+import re
+from collections.abc import Sequence
+from datetime import datetime, timedelta, timezone
+from sys import getsizeof
+from typing import Optional, Union, TypedDict, Any
 
 try:
     from importlib.resources import files
@@ -20,36 +20,36 @@ except ImportError:
     from importlib_resources import files
 
 
-import dns
+import dns.exception
+import dns.resolver
+from dns.nameserver import Nameserver
 import requests
 import xmltodict
-from pyleri import Grammar, Regex, Sequence, List
-
 from cryptography import x509
 from cryptography.x509 import (
     ExtensionNotFound,
+    ExtensionOID,  # pyright: ignore[reportPrivateImportUsage]
     NameOID,
-    ExtensionOID,
     ObjectIdentifier,
     load_pem_x509_certificates,
 )
-
 from cryptography.x509.verification import (
-    Store,
-    PolicyBuilder,
-    ExtensionPolicy,
     Criticality,
+    ExtensionPolicy,
+    PolicyBuilder,
+    Store,
     VerificationError,
 )
+import pyleri
 
 import checkdmarc.resources
-from checkdmarc._constants import SYNTAX_ERROR_MARKER, USER_AGENT, DEFAULT_HTTP_TIMEOUT
+from checkdmarc._constants import DEFAULT_HTTP_TIMEOUT, SYNTAX_ERROR_MARKER, USER_AGENT
 from checkdmarc.utils import (
-    WSP_REGEX,
     HTTPS_REGEX,
-    query_dns,
-    normalize_domain,
+    WSP_REGEX,
     get_base_domain,
+    normalize_domain,
+    query_dns,
 )
 
 """Copyright 2019-2023 Sean Whalen
@@ -65,6 +65,82 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License."""
+
+
+# TypedDict definitions for BIMI record structures
+
+
+# These typedicts can't be used in Python 3.9-3.10 because there is no way to set a field as optional, but keeping them for later
+class SVGMetadata(TypedDict):
+    """Metadata extracted from SVG image"""
+
+    svg_version: str
+    base_profile: str
+    x: str
+    y: str
+    title: str
+    description: str
+    overflow: str
+    width: float
+    height: float
+    filesize: str
+    sha256: str
+
+
+class CertificateMetadata(TypedDict):
+    """Metadata about a Verified Mark Certificate (VMC)"""
+
+    issuer: dict[str, str]
+    subject: dict[str, str]
+    serial_number: int
+    not_valid_before: str
+    not_valid_after: str
+    expired: bool
+    valid: bool
+    domains: Optional[list[str]]
+    logotype_sha256: Optional[str]
+    warnings: list[str]
+    validation_errors: list[str]
+
+
+class BIMIQueryResult(TypedDict):
+    """Result from querying a BIMI record"""
+
+    record: str
+    location: str
+    warnings: list[str]
+
+
+class BIMITagValue(TypedDict, total=False):
+    """BIMI tag value structure"""
+
+    value: str
+    name: str
+    description: str
+
+
+class BIMIParseResult(TypedDict):
+    """Result from parsing a BIMI record"""
+
+    tags: dict[str, BIMITagValue]
+    image: Union[SVGMetadata, dict[str, str]]
+    certificate: Union[CertificateMetadata, dict[str, str]]
+    warnings: list[str]
+
+
+class BIMICheckResult(TypedDict, total=False):
+    """Result from checking BIMI for a domain"""
+
+    record: Optional[str]
+    valid: bool
+    selector: str
+    location: str
+    tags: dict[str, BIMITagValue]
+    image: Union[SVGMetadata, dict[str, str]]
+    certificate: Union[CertificateMetadata, dict[str, str]]
+    warnings: list[str]
+    error: str
+
 
 BIMI_VERSION_REGEX_STRING = rf"v{WSP_REGEX}*={WSP_REGEX}*BIMI1{WSP_REGEX}*;"
 BIMI_TAG_VALUE_REGEX_STRING = (
@@ -221,11 +297,11 @@ for ksf_dict in _ksf_dicts:
 KNOWN_SUBJECT_FIELDS = set(KNOWN_SUBJECT_FIELDS)
 
 
-BIMI_TAGS = OrderedDict(
-    v=OrderedDict(
-        name="Version",
-        required=True,
-        description="Identifies the record "
+BIMI_TAGS = {
+    "v": {
+        "name": "Version",
+        "required": True,
+        "description": "Identifies the record "
         "retrieved as a BIMI "
         "record. It MUST have the "
         'value of "BIMI1". The '
@@ -236,12 +312,12 @@ BIMI_TAGS = OrderedDict(
         "record MUST be ignored. "
         "It MUST be the first "
         "tag in the list.",
-    ),
-    a=OrderedDict(
-        name="Authority Evidence Location",
-        required=False,
-        default="",
-        description="If present, this tag MUST have an empty value "
+    },
+    "a": {
+        "name": "Authority Evidence Location",
+        "required": False,
+        "default": "",
+        "description": "If present, this tag MUST have an empty value "
         "or its value MUST be a single URI. An empty "
         "value for the tag is interpreted to mean the "
         "Domain Owner does not wish to publish or does "
@@ -251,27 +327,32 @@ BIMI_TAGS = OrderedDict(
         'HTTPS as the URI scheme ("https"). The URI '
         "SHOULD specify the location of a publicly "
         "retrievable BIMI Evidence Document.",
-    ),
-    l=OrderedDict(
-        name="Location",
-        required=False,
-        default="",
-        description="The value of this tag is either empty "
+    },
+    "l": {
+        "name": "Location",
+        "required": False,
+        "default": "",
+        "description": "The value of this tag is either empty "
         "indicating declination to publish, or a single "
         "URI representing the location of a Brand "
         "Indicator file. The only supported transport "
         "is HTTPS.",
-    ),
-    avp=OrderedDict(
-        name="Avatar Preference",
-        required=False,
-        default="brand",
-        description="For mail sent to those mailbox providers that both participate in BIMI and "
+    },
+    "lps": {
+        "name": "Local-Part Selectors",
+        "default": "",
+        "description": "A comma separated list of allowed Local-Part Selectors",
+    },
+    "avp": {
+        "name": "Avatar Preference",
+        "required": False,
+        "default": "brand",
+        "description": "For mail sent to those mailbox providers that both participate in BIMI and "
         "support the display of personal avatars, this flag is a way for the Domain "
         "Owner to express its preference as to whether to show the BIMI logo or the "
-        "personal avatar.",
-    ),
-)
+        "personal avatar. Options are personal or brand",
+    },
+}
 
 _mvaca_path = str(files(checkdmarc.resources).joinpath("MVACAs.pem"))
 
@@ -305,7 +386,7 @@ _verifier = _builder.build_client_verifier()
 class BIMIError(Exception):
     """Raised when a fatal BIMI error occurs"""
 
-    def __init__(self, msg: str, data: dict = None):
+    def __init__(self, msg: str, data: Optional[dict] = None):
         """
         Args:
             msg (str): The error message
@@ -358,19 +439,21 @@ class MultipleBIMIRecords(BIMIError):
     """Raised when multiple BIMI records are found"""
 
 
-class _BIMIGrammar(Grammar):
+class _BIMIGrammar(pyleri.Grammar):
     """Defines Pyleri grammar for BIMI records"""
 
-    version_tag = Regex(BIMI_VERSION_REGEX_STRING)
-    tag_value = Regex(BIMI_TAG_VALUE_REGEX_STRING, re.IGNORECASE)
-    START = Sequence(
+    version_tag = pyleri.Regex(BIMI_VERSION_REGEX_STRING)
+    tag_value = pyleri.Regex(BIMI_TAG_VALUE_REGEX_STRING, re.IGNORECASE)
+    START = pyleri.Sequence(
         version_tag,
-        List(tag_value, delimiter=Regex(f"{WSP_REGEX}*;{WSP_REGEX}*"), opt=True),
+        pyleri.List(
+            tag_value, delimiter=pyleri.Regex(f"{WSP_REGEX}*;{WSP_REGEX}*"), opt=True
+        ),
     )
 
 
-def get_svg_metadata(raw_xml: Union[str, bytes]) -> OrderedDict:
-    metadata = OrderedDict()
+def get_svg_metadata(raw_xml: Union[str, bytes]) -> dict[str, Any]:
+    metadata = {}
     if isinstance(raw_xml, bytes):
         raw_xml = raw_xml.decode(errors="ignore")
     try:
@@ -399,13 +482,15 @@ def get_svg_metadata(raw_xml: Union[str, bytes]) -> OrderedDict:
         metadata["width"] = width
         metadata["height"] = height
         metadata["filesize"] = f"{getsizeof(raw_xml) / 1000} KB"
-        metadata["sha256"] = hashlib.sha256(raw_xml.encode("utf-8")).hexdigest()
+        metadata["sha256"] = hashlib.sha256(
+            raw_xml.encode("utf-8")  # pyright: ignore[reportAttributeAccessIssue]
+        ).hexdigest()  # pyright: ignore[reportAttributeAccessIssue]
         return metadata
     except Exception as e:
         raise ValueError(f"Not a SVG file: {str(e)}")
 
 
-def check_svg_requirements(svg_metadata: OrderedDict) -> list[str]:
+def check_svg_requirements(svg_metadata: dict) -> list[str]:
     _errors = []
     if svg_metadata["svg_version"] != "1.2":
         _errors.append(
@@ -432,21 +517,52 @@ def check_svg_requirements(svg_metadata: OrderedDict) -> list[str]:
     return _errors
 
 
-def extract_logo_from_certificate(cert: Union[x509.Certificate, bytes]):
+def extract_logo_from_certificate(
+    cert: Union[x509.Certificate, bytes],
+) -> Optional[bytes]:
     try:
         if not isinstance(cert, x509.Certificate):
             cert = load_pem_x509_certificates(cert)[1]
+
         ext = cert.extensions.get_extension_for_oid(OID_LOGOTYPE)
-        ext_bytes = ext.value.value
-        ext_str = ext_bytes.decode("utf-8", errors="ignore")
-        logo_base64 = base64.b64decode(ext_str.split(",")[1])
-        logo = gzip.decompress(logo_base64)
-        return logo
+
+        # This is DER (binary ASN.1)
+        ext_bytes: bytes = ext.value.value  # pyright: ignore[reportAttributeAccessIssue]
+
+        marker = b"data:"
+        idx = ext_bytes.find(marker)
+        if idx == -1:
+            return None
+
+        # Take bytes from the first "data:" onward.
+        tail = ext_bytes[idx:]
+
+        # Decode tail as ASCII/UTF-8 since data: URIs are plain text.
+        tail_str = tail.decode("utf-8", errors="strict")
+
+        # Example: data:image/svg+xml;base64,AAAA....
+        if ";base64," not in tail_str:
+            return None
+
+        b64_part = tail_str.split(";base64,", 1)[1]
+
+        # Some certs may embed trailing ASN.1 bytes after the base64;
+        # strip anything that isn't base64 alphabet.
+        b64_clean = "".join(ch for ch in b64_part if ch.isalnum() or ch in "+/=\n\r")
+
+        compressed = base64.b64decode(b64_clean, validate=False)
+
+        # If it’s gzipped SVG (common), decompress. Otherwise return raw.
+        try:
+            return gzip.decompress(compressed)
+        except OSError:
+            return compressed
+
     except ExtensionNotFound:
         return None
 
 
-def get_certificate_metadata(pem_crt: bytes, *, domain=None) -> OrderedDict:
+def get_certificate_metadata(pem_crt: bytes, *, domain=None) -> dict[str, Any]:
     """Get metadata about a Verified Mark Certificate (VMC)"""
 
     def get_cert_name_components(cert_field: x509.Name):
@@ -455,7 +571,7 @@ def get_certificate_metadata(pem_crt: bytes, *, domain=None) -> OrderedDict:
             for attr in rdn:
                 label = OID_LABELS.get(attr.oid) or attr.oid.dotted_string
                 mapping.append((label, attr.value))
-        return OrderedDict(mapping)
+        return {k: v for k, v in mapping}
 
     def get_certificate_domains(cert: x509.Certificate):
         try:
@@ -464,12 +580,14 @@ def get_certificate_metadata(pem_crt: bytes, *, domain=None) -> OrderedDict:
             )
         except ExtensionNotFound:
             return None
-        return ext.value.get_values_for_type(x509.DNSName)
+        return ext.value.get_values_for_type(  # pyright: ignore[reportAttributeAccessIssue]
+            x509.DNSName
+        )  # pyright: ignore[reportAttributeAccessIssue]
 
-    metadata = OrderedDict()
+    metadata = {}
     valid = True
-    validation_errors = []
-    warnings = []
+    validation_errors: list[str] = []
+    warnings: list[str] = []
     certs = load_pem_x509_certificates(pem_crt)
     vmc = certs[0]
     for ext in REQUIRED_EXTENSIONS:
@@ -512,6 +630,7 @@ def get_certificate_metadata(pem_crt: bytes, *, domain=None) -> OrderedDict:
         if "all candidates exhausted with no interior errors" in e_str:
             e_str = "The certificate was not issued by a recognized Mark Verifying Authority (MVA)."
             validation_errors.append(e_str)
+            valid = False
     not_valid_before_timestamp = vmc.not_valid_before_utc.strftime("%Y-%m-%d %H:%M:%SZ")
     not_valid_after_timestamp = vmc.not_valid_after_utc.strftime("%Y-%m-%d %H:%M:%SZ")
     not_yet_valid = datetime.now(timezone.utc) < vmc.not_valid_before_utc
@@ -538,7 +657,7 @@ def get_certificate_metadata(pem_crt: bytes, *, domain=None) -> OrderedDict:
     if domain is not None:
         base_domain = get_base_domain(domain).encode("utf-8").decode("unicode_escape")
         if cert_domains is not None:
-            if base_domain not in cert_domains:
+            if domain not in cert_domains and base_domain not in cert_domains:
                 plural = "domain" if len(cert_domains) == 1 else "domains"
                 cert_domains = ". ".join(cert_domains)
                 validation_errors.append(
@@ -631,21 +750,22 @@ def get_certificate_metadata(pem_crt: bytes, *, domain=None) -> OrderedDict:
         if logotype is not None:
             metadata["logotype_sha256"] = hashlib.sha256(logotype).hexdigest()
         metadata["warnings"] = warnings
-        metadata["Validation_errors"] = validation_errors
+        metadata["validation_errors"] = validation_errors
     except Exception as e:
         validation_errors.append(str(e))
         metadata["valid"] = False
-        metadata["Validation_errors"] = validation_errors
+        metadata["validation_errors"] = validation_errors
     return metadata
 
 
 def _query_bimi_record(
     domain: str,
     *,
-    selector: str = "default",
-    nameservers: list[str] = None,
-    resolver: dns.resolver.Resolver = None,
+    selector: Optional[str] = "default",
+    nameservers: Optional[Sequence[str | Nameserver]] = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
     timeout: float = 2.0,
+    timeout_retries: int = 2,
 ):
     """
     Queries DNS for a BIMI record
@@ -657,6 +777,7 @@ def _query_bimi_record(
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                           requests
         timeout (float): number of seconds to wait for a record from DNS
+        timeout_retries (int): The number of times to reattempt a query after a timeout
 
     Returns:
         str: A record string or None
@@ -670,7 +791,12 @@ def _query_bimi_record(
 
     try:
         records = query_dns(
-            target, "TXT", nameservers=nameservers, resolver=resolver, timeout=timeout
+            target,
+            "TXT",
+            nameservers=nameservers,
+            resolver=resolver,
+            timeout=timeout,
+            timeout_retries=timeout_retries,
         )
         for record in records:
             if record.startswith(txt_prefix):
@@ -707,7 +833,7 @@ def _query_bimi_record(
         except dns.resolver.NoAnswer:
             pass
         except dns.resolver.NXDOMAIN:
-            raise BIMIRecordNotFound(f"The domain {domain} does not exist.")
+            raise BIMIRecordNotFound("The domain does not exist.")
         except Exception as error:
             BIMIRecordNotFound(error)
 
@@ -722,11 +848,12 @@ def _query_bimi_record(
 def query_bimi_record(
     domain: str,
     *,
-    selector: str = "default",
-    nameservers: list[str] = None,
-    resolver: dns.resolver.Resolver = None,
+    selector: Optional[str] = "default",
+    nameservers: Optional[Sequence[str | Nameserver]] = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
     timeout: float = 2.0,
-) -> OrderedDict:
+    timeout_retries: int = 2,
+) -> BIMIQueryResult:
     """
     Queries DNS for a BIMI record
 
@@ -737,9 +864,10 @@ def query_bimi_record(
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                           requests
         timeout (float): number of seconds to wait for a record from DNS
+        timeout_retries (int): The number of times to reattempt a query after a timeout
 
     Returns:
-        OrderedDict: An ``OrderedDict`` with the following keys:
+        dict: a ``dict`` with the following keys:
                      - ``record`` - the unparsed BIMI record string
                      - ``location`` - the domain where the record was found
                      - ``warnings`` - warning conditions found
@@ -761,29 +889,38 @@ def query_bimi_record(
         nameservers=nameservers,
         resolver=resolver,
         timeout=timeout,
+        timeout_retries=timeout_retries,
     )
     try:
         root_records = query_dns(
-            domain, "TXT", nameservers=nameservers, resolver=resolver, timeout=timeout
+            domain,
+            "TXT",
+            nameservers=nameservers,
+            resolver=resolver,
+            timeout=timeout,
+            timeout_retries=timeout_retries,
         )
         for root_record in root_records:
             if root_record.startswith("v=BIMI1"):
                 warnings.append(f"BIMI record at root of {domain} has no effect.")
     except dns.resolver.NXDOMAIN:
-        raise BIMIRecordNotFound(f"The domain {domain} does not exist.")
+        raise BIMIRecordNotFound("The domain does not exist.")
     except dns.exception.DNSException:
         pass
 
     if record is None and domain != base_domain:
         record = _query_bimi_record(
-            base_domain, nameservers=nameservers, resolver=resolver, timeout=timeout
+            base_domain,
+            nameservers=nameservers,
+            resolver=resolver,
+            timeout=timeout,
+            timeout_retries=timeout_retries,
         )
         location = base_domain
     if record is None:
         if domain == base_domain:
             raise BIMIRecordNotFound(
-                f"A BIMI record does not exist at the {selector} selector for "
-                f"this domain."
+                f"A BIMI record does not exist at the {selector} selector."
             )
         else:
             raise BIMIRecordNotFound(
@@ -791,20 +928,18 @@ def query_bimi_record(
                 "this subdomain or its base domain."
             )
 
-    return OrderedDict(
-        [("record", record), ("location", location), ("warnings", warnings)]
-    )
+    return {"record": record, "location": location, "warnings": warnings}
 
 
 def parse_bimi_record(
     record: str,
     *,
-    domain: str = None,
-    parsed_dmarc_record: dict = None,
+    domain: Optional[str] = None,
+    parsed_dmarc_record: Optional[dict] = None,
     include_tag_descriptions: bool = False,
     syntax_error_marker: str = SYNTAX_ERROR_MARKER,
     http_timeout: float = DEFAULT_HTTP_TIMEOUT,
-) -> OrderedDict:
+) -> dict[str, Any]:
     """
     Parses a BIMI record
 
@@ -817,8 +952,8 @@ def parse_bimi_record(
         http_timeout (float): HTTP timeout in seconds
 
     Returns:
-        OrderedDict: An ``OrderedDict`` with the following keys:
-         - ``tags`` - An ``OrderedDict`` of BIMI tags
+        dict: a ``dict`` with the following keys:
+         - ``tags`` - a ``dict`` of BIMI tags
 
            - ``value`` - The BIMI tag value
            - ``description`` - A description of the tag/value
@@ -841,7 +976,7 @@ def parse_bimi_record(
         :exc:`checkdmarc.bimi.InvalidBIMITagValue`
         :exc:`checkdmarc.bimi.SPFRecordFoundWhereBIMIRecordShouldBe`
     """
-    results = OrderedDict()
+    results = {}
     svg_metadata = None
     cert_metadata = None
     logging.debug("Parsing the BIMI record")
@@ -877,16 +1012,29 @@ def parse_bimi_record(
             f"{marked_record}"
         )
 
-    pairs = BIMI_TAG_VALUE_REGEX.findall(record)
-    tags = OrderedDict()
+    pairs: list[tuple[str, str]] = BIMI_TAG_VALUE_REGEX.findall(record)
+    tags = {}
     hash_match = False
 
+    seen_tags: list[str] = []
+    duplicate_tags: list[str] = []
     for pair in pairs:
         tag = pair[0].lower().strip()
         tag_value = str(pair[1].strip())
         if tag not in BIMI_TAGS:
             raise InvalidBIMITag(f"{tag} is not a valid BIMI record tag.")
-        tags[tag] = OrderedDict(value=tag_value)
+        # Check for duplicate tags
+        if tag in seen_tags:
+            if tag not in duplicate_tags:
+                duplicate_tags.append(tag)
+        else:
+            seen_tags.append(tag)
+        if len(duplicate_tags):
+            duplicate_tags_str = ",".join(duplicate_tags)
+            raise InvalidBIMITag(
+                f"Duplicate {duplicate_tags_str} tags are not permitted"
+            )
+        tags[tag] = {"value": tag_value}
         if include_tag_descriptions:
             tags[tag]["name"] = BIMI_TAGS[tag]["name"]
             tags[tag]["description"] = BIMI_TAGS[tag]["description"]
@@ -897,9 +1045,9 @@ def parse_bimi_record(
                 response.raise_for_status()
                 raw_xml = response.content
             except Exception as e:
-                results["image"] = dict(
-                    error=f"Failed to download BIMI image at {tag_value} - {str(e)}"
-                )
+                results["image"] = {
+                    "error": f"Failed to download BIMI image at {tag_value} - {str(e)}"
+                }
             if raw_xml is not None:
                 try:
                     svg_metadata = get_svg_metadata(raw_xml)
@@ -911,9 +1059,9 @@ def parse_bimi_record(
                     if len(svg_validation_errors) > 0:
                         svg_metadata["validation_errors"] = svg_validation_errors
                 except Exception as e:
-                    results["image"] = dict(
-                        error=f"Failed to process BIMI image at {tag_value} - {str(e)}"
-                    )
+                    results["image"] = {
+                        "error": f"Failed to process BIMI image at {tag_value} - {str(e)}"
+                    }
         elif tag == "a" and tag_value != "":
             cert_metadata = None
             try:
@@ -929,14 +1077,19 @@ def parse_bimi_record(
                             "The image at the l= tag URL does not match the image embedded in the certificate."
                         )
             except Exception as e:
-                results["certificate"] = dict(
-                    error=f"Failed to download the mark certificate at {tag_value} - {str(e)}"
-                )
+                results["certificate"] = {
+                    "error": f"Failed to download the mark certificate at {tag_value} - {str(e)}"
+                }
         elif tag == "avp":
             if tag_value not in ["brand", "personal"]:
                 raise BIMISyntaxError(
                     f"Acceptable avp tag values are personal or brand, not {tag_value}"
                 )
+        elif tag == "lps":
+            tag_value = tag_value.split(",")
+            for i in range(len(tag_value)):
+                tag_value[i] = tag_value[i].lower()
+
     if parsed_dmarc_record and not tags["l"] == "":
         if not parsed_dmarc_record["valid"]:
             warnings.append(
@@ -961,11 +1114,13 @@ def parse_bimi_record(
                 warnings.append(
                     "The DMARC pct tag must be set to 100 (the implicit default) if it is used."
                 )
-    matching_certificate_provided = hash_match and cert_metadata["valid"]
-    if ("l" in tags and tags["l"]["value"] != "") and not matching_certificate_provided:
-        warnings.append(
-            "Most email providers will not display a BIMI image without a valid mark certificate."
-        )
+    if cert_metadata:
+        matching_certificate_provided = hash_match and cert_metadata["valid"]
+        l_tag_value = tags.get("l", {}).get("value", "")
+        if l_tag_value != "" and not matching_certificate_provided:
+            warnings.append(
+                "Most email providers will not display a BIMI image without a valid mark certificate."
+            )
     results["tags"] = tags
     if svg_metadata is not None:
         results["image"] = svg_metadata
@@ -980,12 +1135,13 @@ def check_bimi(
     domain: str,
     *,
     selector: str = "default",
-    parsed_dmarc_record: dict = None,
+    parsed_dmarc_record: Optional[dict] = None,
     include_tag_descriptions: bool = False,
-    nameservers: list[str] = None,
-    resolver: dns.resolver.Resolver = None,
+    nameservers: Optional[Sequence[str | Nameserver]] = None,
+    resolver: Optional[dns.resolver.Resolver] = None,
     timeout: float = 2.0,
-) -> OrderedDict:
+    timeout_retries: int = 2,
+) -> BIMICheckResult:
     """
     Returns a dictionary with a parsed BIMI record or an error.
 
@@ -1004,9 +1160,10 @@ def check_bimi(
         resolver (dns.resolver.Resolver): A resolver object to use for DNS
                                           requests
         timeout (float): number of seconds to wait for an answer from DNS
+        timeout_retries (int): The number of times to reattempt a query after a timeout
 
     Returns:
-        OrderedDict: An ``OrderedDict`` with the following keys:
+        dict: a ``dict`` with the following keys:
 
                        - ``record`` - The BIMI record string
                        - ``parsed`` - The parsed BIMI record
@@ -1019,7 +1176,7 @@ def check_bimi(
                       - ``error`` - Tne error message
                       - ``valid`` - False
     """
-    bimi_results = OrderedDict([("record", None), ("valid", True)])
+    bimi_results: BIMICheckResult = {"record": None, "valid": True}
     selector = selector.lower()
     try:
         bimi_query = query_bimi_record(
@@ -1028,6 +1185,7 @@ def check_bimi(
             nameservers=nameservers,
             resolver=resolver,
             timeout=timeout,
+            timeout_retries=timeout_retries,
         )
         bimi_results["selector"] = selector
         bimi_results["location"] = bimi_query["location"]

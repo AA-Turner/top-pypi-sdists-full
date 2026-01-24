@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect
@@ -36,13 +36,14 @@ class Crypto(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurr
         :param base_currency: The cash object that represent the base currency
         :param config: The subscription configuration for this security
         :param symbol_properties: The symbol properties for this security
-        :param currency_converter: Currency converter used to convert CashAmount instances into units of the account currency
+        :param currency_converter: Currency converter used to convert CashAmount
+        instances into units of the account currency
         :param registered_types: Provides all data types registered in the algorithm
         """
         ...
 
     @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, base_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache) -> None:
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, base_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache) -> None:
         """
         Constructor for the Crypto security
         
@@ -51,14 +52,15 @@ class Crypto(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurr
         :param quote_currency: The cash object that represent the quote currency
         :param base_currency: The cash object that represent the base currency
         :param symbol_properties: The symbol properties for this security
-        :param currency_converter: Currency converter used to convert CashAmount instances into units of the account currency
+        :param currency_converter: Currency converter used to convert CashAmount
+        instances into units of the account currency
         :param registered_types: Provides all data types registered in the algorithm
         :param security_cache: Cache to store Security data
         """
         ...
 
     @staticmethod
-    def decompose_currency_pair(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], symbol_properties: QuantConnect.Securities.SymbolProperties, base_currency: typing.Optional[str], quote_currency: typing.Optional[str]) -> typing.Tuple[None, str, str]:
+    def decompose_currency_pair(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], symbol_properties: QuantConnect.Securities.SymbolProperties, base_currency: typing.Optional[str], quote_currency: typing.Optional[str]) -> typing.Tuple[None, str, str]:
         """
         Decomposes the specified currency pair into a base and quote currency provided as out parameters
         

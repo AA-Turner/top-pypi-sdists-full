@@ -38,7 +38,7 @@ def test_dask_load_csr(
     )
     n_blocks = (X.shape[0] + obs_chunk_size - 1) // obs_chunk_size
     assert X.blocks.shape == (n_blocks, 1)
-    blocks = [X.blocks[(i, 0)].compute() for i in range(n_blocks)]
+    blocks = [X.blocks[i, 0].compute() for i in range(n_blocks)]
     csr = vstack(blocks)
     X = X.compute()
     assert X.shape == (80, 20)
@@ -61,7 +61,7 @@ def test_dask_load_csc(
     )
     n_blocks = (X.shape[1] + var_chunk_size - 1) // var_chunk_size
     assert X.blocks.shape == (1, n_blocks)
-    blocks = [X.blocks[(0, i)].compute() for i in range(n_blocks)]
+    blocks = [X.blocks[0, i].compute() for i in range(n_blocks)]
     csc = hstack(blocks)
     X = X.compute()
     assert X.shape == (80, 20)
@@ -74,9 +74,7 @@ def test_dask_load_csc(
 class VerifyDaskArray(Protocol):
     """Type-alias for the verifier-function returned by the ``verify_dask_array`` fixture below."""
 
-    def __call__(
-        self, X1: csr_matrix, X2: DaskArray, nnz: int | None = None
-    ) -> None: ...
+    def __call__(self, X1: csr_matrix, X2: DaskArray, nnz: int | None = None) -> None: ...
 
 
 @pytest.fixture
@@ -125,10 +123,13 @@ sweep_queries = pytest.mark.parametrize(
         (filter("nCount_RNA > 100"), filter('attr("vst.variance.standardized") > 2.0'), (62, 5), 310),
     ],
 )
+
+
 # fmt: on
 @sweep_queries
 @pytest.mark.parametrize("obs_chunk_size", [20, 30, 80, 100])
 @pytest.mark.parametrize("var_chunk_size", [3, 10, 20])
+@pytest.mark.medium_runner
 def test_dask_query_to_anndata(
     conftest_pbmc_small_exp: Experiment,
     obs_query: AxisQuery,
@@ -154,6 +155,7 @@ def test_dask_query_to_anndata(
     "obs_query,var_query,shape,nnz,obs_chunk_size,var_chunk_size",
     [(AxisQuery(), AxisQuery(), (80, 20), 1600, 20, 3)],
 )
+@pytest.mark.medium_runner
 def test_dask_query_to_anndata_timestamp(
     conftest_pbmc_small_exp_path: Path,
     obs_query: AxisQuery,
@@ -171,15 +173,13 @@ def test_dask_query_to_anndata_timestamp(
             data = X["data"]
             shape = data.shape
             R, C = shape
-            soma_dim_0, soma_dim_1, soma_data = zip(
-                *[(r, c, v) for r in range(R) for c in range(C)]
-            )
+            soma_dim_0, soma_dim_1, soma_data = zip(*[(r, c, v) for r in range(R) for c in range(C)])
             tbl = pa.Table.from_pydict(
                 dict(
                     soma_dim_0=soma_dim_0,
                     soma_dim_1=soma_dim_1,
                     soma_data=soma_data,
-                )
+                ),
             )
             data.write(tbl)
         return ts
@@ -227,6 +227,7 @@ def test_dask_query_to_anndata_timestamp(
     "obs_query,var_query,shape,nnz,obs_chunk_size,var_chunk_size",
     [(AxisQuery(), AxisQuery(), (80, 20), 1600, 20, 3)],
 )
+@pytest.mark.medium_runner
 def test_dask_query_to_anndata_layers(
     conftest_pbmc_small_exp_path: Path,
     obs_query: AxisQuery,

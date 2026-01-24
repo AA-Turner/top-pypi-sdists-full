@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dask-image
-Version: 2024.5.3
+Version: 2025.11.0
 Summary: Distributed image processing
 Author: dask-image contributors. see https://github.com/dask/dask-image/graphs/contributors
 License: BSD-3-Clause
@@ -39,6 +39,7 @@ Requires-Dist: pytest-timeout>=2.3.1; extra == "test"
 Requires-Dist: twine>=3.1.1; extra == "test"
 Provides-Extra: gpu
 Requires-Dist: cupy>=9.0.0; extra == "gpu"
+Dynamic: license-file
 
 ==========
 dask-image

@@ -1,40 +1,41 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
     Generator,
     Literal,
     cast,
-    overload,
 )
-from warnings import catch_warnings, simplefilter
+
+import httpx
 
 __all__ = ["FMModelInference"]
 
 
 from ibm_watsonx_ai.foundation_models.schema import (
     BaseSchema,
+    Crypto,
     TextChatParameters,
     TextGenParameters,
 )
 from ibm_watsonx_ai.foundation_models.utils.enums import DecodingMethods
 from ibm_watsonx_ai.foundation_models.utils.utils import (
     _check_model_state,
-    get_model_specs,
 )
-from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 
-from .base_model_inference import BaseModelInference
+from .base_model_inference import _RETRY_STATUS_CODES, BaseModelInference
 
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
@@ -50,7 +51,6 @@ class FMModelInference(BaseModelInference):
         api_client: APIClient,
         params: dict | TextChatParameters | TextGenParameters | None = None,
         validate: bool = True,
-        persistent_connection: bool = True,
         max_retries: int | None = None,
         delay_time: float | None = None,
         retry_status_codes: list[int] | None = None,
@@ -67,37 +67,24 @@ class FMModelInference(BaseModelInference):
         self._client = api_client
         self._tech_preview = False
         if validate:
-            model_specs: dict = dict()
-
-            if self._client._use_fm_ga_api:
-                model_specs = self._client.foundation_models.get_model_specs()  # type: ignore[assignment]
-            else:
-                with catch_warnings():
-                    simplefilter("ignore", category=DeprecationWarning)
-                    model_specs = get_model_specs(self._client.credentials.url)  # type: ignore[arg-type]
+            model_specs = cast(dict, self._client.foundation_models.get_model_specs())
 
             supported_models = [
                 spec["model_id"] for spec in model_specs.get("resources", [])
             ]
 
-            if self._client._use_fm_ga_api and self.model_id not in supported_models:
-                model_specs = self._client.foundation_models.get_chat_model_specs()  # type: ignore[assignment]
-                supported_models = [
-                    spec["model_id"] for spec in model_specs.get("resources", [])
-                ]
-
             if self.model_id not in supported_models:
-                if self._client._use_fm_ga_api:
-                    model_specs = self._client.foundation_models.get_model_specs(  # type: ignore[assignment]
-                        tech_preview=True
-                    )
-                    supported_models.clear()
-                    for spec in model_specs.get("resources", []):
-                        supported_models.append(spec["model_id"])
-                        if self.model_id == spec["model_id"]:
-                            if "tech_preview" in spec:  # check if tech_preview model
-                                self._tech_preview = True
-                            break
+                model_specs = cast(
+                    dict,
+                    self._client.foundation_models.get_model_specs(tech_preview=True),
+                )
+                supported_models.clear()
+                for spec in model_specs.get("resources", []):
+                    supported_models.append(spec["model_id"])
+                    if self.model_id == spec["model_id"]:
+                        if "tech_preview" in spec:  # check if tech_preview model
+                            self._tech_preview = True
+                        break
 
                 if not self._tech_preview:
                     raise WMLClientError(
@@ -113,14 +100,10 @@ class FMModelInference(BaseModelInference):
                 model_specs=model_specs,
             )
 
-        if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version < 4.8:
-            raise WMLClientError(error_msg="Operation is unsupported for this release.")
-
         BaseModelInference.__init__(
             self,
             __name__,
             self._client,
-            persistent_connection,
             max_retries,
             delay_time,
             retry_status_codes,
@@ -133,14 +116,9 @@ class FMModelInference(BaseModelInference):
         :return: details of model or deployment
         :rtype: dict
         """
-        if self._client._use_fm_ga_api:
-            return self._client.foundation_models.get_model_specs(
-                self.model_id, tech_preview=self._tech_preview
-            )  # type: ignore[return-value]
-        else:
-            with catch_warnings():
-                simplefilter("ignore", category=DeprecationWarning)
-                return get_model_specs(self._client.credentials.url, self.model_id)  # type: ignore[arg-type]
+        return self._client.foundation_models.get_model_specs(
+            self.model_id, tech_preview=self._tech_preview
+        )  # type: ignore[return-value]
 
     def chat(
         self,
@@ -148,8 +126,9 @@ class FMModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         text_chat_url = self._client._href_definitions.get_fm_chat_href("chat")
 
@@ -160,6 +139,7 @@ class FMModelInference(BaseModelInference):
             tools=tools,
             tool_choice=tool_choice,
             tool_choice_option=tool_choice_option,
+            crypto=crypto,
         )
 
     def chat_stream(
@@ -168,7 +148,7 @@ class FMModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> Generator:
         text_chat_stream_url = self._client._href_definitions.get_fm_chat_href(
@@ -190,8 +170,9 @@ class FMModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         text_chat_url = self._client._href_definitions.get_fm_chat_href("chat")
 
@@ -203,11 +184,17 @@ class FMModelInference(BaseModelInference):
             tool_choice_option=tool_choice_option,
         )
 
+        if isinstance(crypto, BaseSchema):
+            crypto = crypto.to_dict()
+
+        if crypto:
+            payload["crypto"] = crypto
+
         response = await self._apost(
-            self._async_http_client,
+            self._client.async_httpx_client,
             url=text_chat_url,
             json=payload,
-            headers=self._client._get_headers(),
+            headers=await self._client._aget_headers(),
             params=self._client._params(skip_for_create=True, skip_userfs=True),
         )
 
@@ -219,7 +206,7 @@ class FMModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> AsyncGenerator:
         text_chat_stream_url = self._client._href_definitions.get_fm_chat_href(
@@ -235,48 +222,6 @@ class FMModelInference(BaseModelInference):
             tool_choice_option=tool_choice_option,
         )
 
-    @overload
-    def generate(
-        self,
-        prompt: str | list | None = ...,
-        params: dict | TextGenParameters | None = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        async_mode: Literal[False] = ...,
-        validate_prompt_variables: bool = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> dict | list[dict]: ...
-
-    @overload
-    def generate(
-        self,
-        prompt: str | list | None,
-        params: dict | TextGenParameters | None,
-        guardrails: bool,
-        guardrails_hap_params: dict | None,
-        guardrails_pii_params: dict | None,
-        concurrency_limit: int,
-        async_mode: Literal[True],
-        validate_prompt_variables: bool,
-        guardrails_granite_guardian_params: dict | None,
-    ) -> Generator: ...
-
-    @overload
-    def generate(
-        self,
-        prompt: str | list | None = ...,
-        params: dict | TextGenParameters | None = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        async_mode: bool = ...,
-        validate_prompt_variables: bool = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> dict | list[dict] | Generator: ...
-
     def generate(
         self,
         prompt: str | list | None = None,
@@ -288,6 +233,7 @@ class FMModelInference(BaseModelInference):
         async_mode: bool = False,
         validate_prompt_variables: bool = True,
         guardrails_granite_guardian_params: dict | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict | list[dict] | Generator:
         """
         Given a text prompt as input, and parameters the selected inference
@@ -318,31 +264,35 @@ class FMModelInference(BaseModelInference):
             "text"
         )
         prompt = cast(str | list, prompt)
-        if async_mode:
-            self.params = cast(dict | TextGenParameters, self.params)
 
-            return self._generate_with_url_async(
-                prompt=prompt,
-                params=params or self.params,
-                generate_url=generate_text_url,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
-                concurrency_limit=concurrency_limit,
-            )
+        prompts = prompt if isinstance(prompt, list) else [prompt]
 
-        else:
-            return self._generate_with_url(
-                prompt=prompt,
+        payloads = [
+            self._prepare_inference_payload(
+                prompt=p,
                 params=params,
-                generate_url=generate_text_url,
                 guardrails=guardrails,
                 guardrails_hap_params=guardrails_hap_params,
                 guardrails_pii_params=guardrails_pii_params,
                 guardrails_granite_guardian_params=guardrails_granite_guardian_params,
+                crypto=crypto,
+            )
+            for p in prompts
+        ]
+
+        if async_mode:
+            return self._generate_with_url_async(
+                payloads=payloads,
+                generate_url=generate_text_url,
                 concurrency_limit=concurrency_limit,
             )
+        else:
+            results = self._generate_with_url(
+                payloads=payloads,
+                generate_url=generate_text_url,
+                concurrency_limit=concurrency_limit,
+            )
+            return results if isinstance(prompt, list) else list(results)[0]
 
     async def _agenerate_single(
         self,
@@ -353,6 +303,7 @@ class FMModelInference(BaseModelInference):
         guardrails_pii_params: dict | None = None,
         guardrails_granite_guardian_params: dict | None = None,
         validate_prompt_variables: bool = True,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         if not validate_prompt_variables:
             raise ValueError(
@@ -376,19 +327,19 @@ class FMModelInference(BaseModelInference):
             "text"
         )
 
-        async_params = params or self.params or {}
-
-        if isinstance(async_params, BaseSchema):
-            async_params = async_params.to_dict()
-
-        return await self._asend_inference_payload(
-            prompt=prompt,
-            params=async_params,
-            generate_url=generate_text_url,
+        payload = self._prepare_inference_payload(
+            prompt=prompt,  # type: ignore[arg-type]
+            params=params,
             guardrails=guardrails,
             guardrails_hap_params=guardrails_hap_params,
             guardrails_pii_params=guardrails_pii_params,
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
+            crypto=crypto,
+        )
+
+        return await self._asend_inference_payload(
+            generate_url=generate_text_url,
+            payload=payload,
         )
 
     async def agenerate_stream(
@@ -426,23 +377,22 @@ class FMModelInference(BaseModelInference):
 
         self._validate_type(prompt, "prompt", str, True)
 
-        generate_text_url = (
+        generate_stream_url = (
             self._client._href_definitions.get_fm_generation_stream_href()
         )
 
-        async_params = params or self.params or {}
-
-        if isinstance(async_params, BaseSchema):
-            async_params = async_params.to_dict()
-
-        return self._agenerate_stream_with_url(
-            prompt=prompt,
-            params=async_params,
-            generate_url=generate_text_url,
+        payload = self._prepare_inference_payload(
+            prompt=prompt,  # type: ignore[arg-type]
+            params=params,
             guardrails=guardrails,
             guardrails_hap_params=guardrails_hap_params,
             guardrails_pii_params=guardrails_pii_params,
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
+        )
+
+        return self._agenerate_stream_with_url(
+            generate_url=generate_stream_url,
+            payload=payload,
         )
 
     def generate_text_stream(
@@ -466,37 +416,44 @@ class FMModelInference(BaseModelInference):
                 "`validate_prompt_variables` is only applicable for Prompt Template Asset deployment. Do not change it value for others scenarios."
             )
         self._validate_type(prompt, "prompt", str, True)
-        if self._client._use_fm_ga_api:
-            generate_text_stream_url = (
-                self._client._href_definitions.get_fm_generation_stream_href()
-            )
-        else:
-            generate_text_stream_url = (
-                self._client._href_definitions.get_fm_generation_href("text_stream")
-            )  # Remove on CPD 5.0 release
+        generate_text_stream_url = (
+            self._client._href_definitions.get_fm_generation_stream_href()
+        )
         prompt = cast(str, prompt)
-        return self._generate_stream_with_url(
+
+        payload = self._prepare_inference_payload(
             prompt=prompt,
             params=params,
-            raw_response=raw_response,
-            generate_stream_url=generate_text_stream_url,
             guardrails=guardrails,
             guardrails_hap_params=guardrails_hap_params,
             guardrails_pii_params=guardrails_pii_params,
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
         )
 
-    def tokenize(self, prompt: str, return_tokens: bool = False) -> dict:
+        return self._generate_stream_with_url(
+            generate_stream_url=generate_text_stream_url,
+            payload=payload,
+            raw_response=raw_response,
+        )
+
+    def tokenize(
+        self,
+        prompt: str,
+        return_tokens: bool = False,
+        crypto: dict | Crypto | None = None,
+    ) -> dict:
         """
         Given a text prompt as input, and return_tokens parameter will return tokenized input text.
         """
         self._validate_type(prompt, "prompt", str, True)
+        self._validate_type(crypto, "crypto", [dict, Crypto], False, True)
         generate_tokenize_url = self._client._href_definitions.get_fm_tokenize_href()
 
         return self._tokenize_with_url(
             prompt=prompt,
             tokenize_url=generate_tokenize_url,
             return_tokens=return_tokens,
+            crypto=crypto,
         )
 
     def get_identifying_params(self) -> dict:
@@ -521,11 +478,19 @@ class FMModelInference(BaseModelInference):
         guardrails_hap_params: dict | None = None,
         guardrails_pii_params: dict | None = None,
         guardrails_granite_guardian_params: dict | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
         payload: dict = {
             "model_id": self.model_id,
             "input": prompt,
         }
+
+        if isinstance(crypto, BaseSchema):
+            crypto = crypto.to_dict()
+
+        if crypto:
+            payload["crypto"] = crypto
+
         if guardrails:
             if (
                 guardrails_hap_params is None
@@ -594,27 +559,16 @@ class FMModelInference(BaseModelInference):
         elif self._client.default_space_id:
             payload["space_id"] = self._client.default_space_id
 
-        if "parameters" in payload and "return_options" in payload["parameters"]:
-            if not (
-                payload["parameters"]["return_options"].get("input_text", False)
-                or payload["parameters"]["return_options"].get("input_tokens", False)
-            ):
-                raise WMLClientError(
-                    Messages.get_message(
-                        message_id="fm_required_parameters_not_provided"
-                    )
-                )
-
         return payload
 
-    def _prepare_chat_payload(  # type: ignore[override]
+    def _prepare_chat_payload(
         self,
         messages: list[dict],
         params: dict | TextChatParameters | None = None,
         context: str | None = None,
         tools: list[dict] | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: str | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
     ) -> dict:
         payload: dict = {
             "model_id": self.model_id,
@@ -659,88 +613,186 @@ class FMModelInference(BaseModelInference):
 
         return payload
 
-    def _prepare_beta_inference_payload(  # type: ignore[override]
-        self,  # Remove on CPD 5.0 release
-        prompt: str,
-        params: dict | TextGenParameters | None = None,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
+    def _send_chat_payload(
+        self,
+        messages: list[dict],
+        params: dict | TextChatParameters | None,
+        generate_url: str,
+        tools: list[dict] | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
+        crypto: dict | Crypto | None = None,
     ) -> dict:
-        payload: dict = {
-            "model_id": self.model_id,
-            "input": prompt,
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
+
+        if isinstance(crypto, BaseSchema):
+            crypto = crypto.to_dict()
+
+        if crypto:
+            payload["crypto"] = crypto
+
+        post_params: dict[str, Any] = {
+            "url": generate_url,
+            "json": payload,
+            "params": self._client._params(skip_for_create=True, skip_userfs=True),
+            "headers": self._client._get_headers(),
         }
-        if guardrails:
-            default_moderations_params = {"input": True, "output": True}
-            payload.update(
-                {
-                    "moderations": {
-                        "hap": (
-                            default_moderations_params | (guardrails_hap_params or {})
-                        )
-                    }
-                }
-            )
 
-            if guardrails_pii_params is not None:
-                payload["moderations"].update({"pii": guardrails_pii_params})
-            if guardrails_granite_guardian_params is not None:
-                payload["moderations"].update(
-                    {"granite_guardian": guardrails_granite_guardian_params}
-                )
+        response_scoring = self._post(self._client.httpx_client, **post_params)
 
-        if params is not None:
-            parameters = params
+        return self._handle_response(
+            200,
+            "chat",
+            response_scoring,
+            _field_to_hide="choices",
+        )
 
-            if isinstance(parameters, BaseSchema):
-                parameters = parameters.to_dict()
+    def _generate_chat_stream_with_url(
+        self,
+        messages: list[dict],
+        params: dict | TextChatParameters | None,
+        chat_stream_url: str,
+        tools: list[dict] | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
+    ) -> Generator:
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
 
-        elif self.params is not None:
-            self.params = cast(dict | TextGenParameters, self.params)
-            parameters = deepcopy(self.params)
-
-            if isinstance(parameters, BaseSchema):
-                parameters = parameters.to_dict()
-
-            if isinstance(parameters, dict):
-                parameters = self._validate_and_overwrite_params(
-                    parameters, TextGenParameters()
-                )
-
+        if hasattr(self._client.httpx_client, "post_stream"):
+            stream_function = self._client.httpx_client.post_stream
         else:
-            parameters = None
+            stream_function = self._client.httpx_client.stream
 
-        if parameters:
-            payload["parameters"] = parameters
+        kw_args: dict = {
+            "method": "POST",
+            "url": chat_stream_url,
+            "json": payload,
+            "headers": self._client._get_headers(),
+            "params": self._client._params(skip_for_create=True, skip_userfs=True),
+        }
 
-        if (
-            "parameters" in payload
-            and GenTextParamsMetaNames.DECODING_METHOD in payload["parameters"]
-        ):
-            if isinstance(
-                payload["parameters"][GenTextParamsMetaNames.DECODING_METHOD],
-                DecodingMethods,
-            ):
-                payload["parameters"][GenTextParamsMetaNames.DECODING_METHOD] = payload[
-                    "parameters"
-                ][GenTextParamsMetaNames.DECODING_METHOD].value
+        with self._stream(stream_function, **kw_args) as resp:
+            if resp.status_code == 200:
+                resp_iter = (
+                    resp.iter_lines()
+                    if isinstance(resp, httpx.Response)
+                    else resp.iter_lines(decode_unicode=False)
+                )
+                for chunk in resp_iter:
+                    if chunk.strip() == "event: error":
+                        chunk = next(resp_iter)
+                        field_name, _, response = chunk.partition(":")
+                        raise WMLClientError(
+                            error_msg="Error event occurred during chat stream.",
+                            reason=response,
+                        )
 
-        if self._client.default_project_id:
-            payload["project_id"] = self._client.default_project_id
-        elif self._client.default_space_id:
-            payload["space_id"] = self._client.default_space_id
+                    field_name, _, response = chunk.partition(":")
+                    if field_name == "data" and response:
+                        try:
+                            parsed_response = json.loads(response)
+                        except json.JSONDecodeError:
+                            raise Exception(f"Could not parse {response} as json")
+                        yield parsed_response
 
-        if "parameters" in payload and "return_options" in payload["parameters"]:
-            if not (
-                payload["parameters"]["return_options"].get("input_text", False)
-                or payload["parameters"]["return_options"].get("input_tokens", False)
-            ):
+            else:
+                if isinstance(resp, httpx.Response):
+                    resp.read()
                 raise WMLClientError(
-                    Messages.get_message(
-                        message_id="fm_required_parameters_not_provided"
-                    )
+                    f"Request failed with: {resp.text} ({resp.status_code})"
                 )
 
-        return payload
+    async def _agenerate_chat_stream_with_url(
+        self,
+        messages: list[dict],
+        params: dict | TextChatParameters | None,
+        chat_stream_url: str,
+        tools: list[dict] | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
+    ) -> AsyncGenerator:
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
+
+        if hasattr(self._client.async_httpx_client, "post_stream"):
+            stream_function = self._client.async_httpx_client.post_stream
+        else:
+            stream_function = self._client.async_httpx_client.stream
+
+        kw_args: dict = {
+            "method": "POST",
+            "url": chat_stream_url,
+            "json": payload,
+            "headers": await self._client._aget_headers(),
+            "params": self._client._params(skip_for_create=True, skip_userfs=True),
+        }
+
+        async with self._astream(stream_function, **kw_args) as resp:
+            if resp.status_code == 200:
+                resp_iter = resp.aiter_lines()
+
+                async for chunk in resp_iter:
+                    if chunk.strip() == "event: error":
+                        chunk = await anext(resp_iter)
+                        field_name, _, response = chunk.partition(":")
+                        raise WMLClientError(
+                            error_msg="Error event occurred during achat stream.",
+                            reason=response,
+                        )
+
+                    field_name, _, response = chunk.partition(":")
+                    if field_name == "data" and response:
+                        try:
+                            parsed_response = json.loads(response)
+                        except json.JSONDecodeError:
+                            raise Exception(f"Could not parse {response} as json")
+                        yield parsed_response
+
+            elif resp.status_code != 200:
+                await resp.aread()
+                raise WMLClientError(
+                    f"Request failed with: ({resp.text} {resp.status_code})"
+                )
+
+    def _tokenize_with_url(
+        self,
+        prompt: str,
+        tokenize_url: str,
+        return_tokens: bool,
+        crypto: dict | Crypto | None,
+    ) -> dict:
+        payload = self._prepare_inference_payload(prompt, crypto=crypto)
+        payload.setdefault("parameters", {})["return_tokens"] = return_tokens
+
+        post_params: dict[str, Any] = {
+            "url": tokenize_url,
+            "json": payload,
+            "params": self._client._params(skip_for_create=True, skip_userfs=True),
+            "headers": self._client._get_headers(),
+        }
+        if not isinstance(self._client.httpx_client, httpx.Client):
+            post_params["_retry_status_codes"] = _RETRY_STATUS_CODES
+
+        response_scoring = self._post(self._client.httpx_client, **post_params)
+
+        if response_scoring.status_code == 404:
+            raise WMLClientError("Tokenize is not supported for this release")
+
+        return self._handle_response(200, "tokenize", response_scoring)

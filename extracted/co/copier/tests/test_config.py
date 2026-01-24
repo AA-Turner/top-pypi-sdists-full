@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 from plumbum import local
@@ -110,6 +111,8 @@ def test_settings_defaults_precedence(
                     - one
                     - two
                     - three
+                a_string_without_default:
+                    type: str
                 """
             ),
             (src / "user_data.txt.jinja"): (
@@ -118,6 +121,7 @@ def test_settings_defaults_precedence(
                 A number: [[ a_number ]]
                 A boolean: [[ a_boolean ]]
                 A list: [[ ", ".join(a_list) ]]
+                A string without default: [[ a_string_without_default ]]
                 """
             ),
         }
@@ -132,6 +136,7 @@ def test_settings_defaults_precedence(
             a_list:
                 - one
                 - two
+            a_string_without_default: something
     """
         )
     )
@@ -142,6 +147,7 @@ def test_settings_defaults_precedence(
         A number: 42
         A boolean: False
         A list: one, two
+        A string without default: something
         """
     )
 

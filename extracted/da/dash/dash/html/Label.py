@@ -4,13 +4,10 @@ import typing  # noqa: F401
 from typing_extensions import TypedDict, NotRequired, Literal  # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
 
+ComponentSingleType = typing.Union[str, int, float, Component, None]
 ComponentType = typing.Union[
-    str,
-    int,
-    float,
-    Component,
-    None,
-    typing.Sequence[typing.Union[str, int, float, Component, None]],
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
 ]
 
 NumberType = typing.Union[
@@ -60,9 +57,6 @@ class Label(Component):
     - draggable (string; optional):
         Defines whether the element can be dragged.
 
-    - form (string; optional):
-        Indicates the form that is the owner of the element.
-
     - hidden (a value equal to: 'hidden', 'HIDDEN' | boolean; optional):
         Prevents rendering of given element, while keeping child elements,
         e.g. script elements, active.
@@ -101,7 +95,7 @@ class Label(Component):
     - title (string; optional):
         Text to be displayed in a tooltip when hovering over the element."""
 
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ["children"]
     _namespace = "dash_html_components"
     _type = "Label"
@@ -115,7 +109,6 @@ class Label(Component):
         disable_n_clicks: typing.Optional[bool] = None,
         key: typing.Optional[str] = None,
         htmlFor: typing.Optional[str] = None,
-        form: typing.Optional[str] = None,
         accessKey: typing.Optional[str] = None,
         className: typing.Optional[str] = None,
         contentEditable: typing.Optional[str] = None,
@@ -141,7 +134,6 @@ class Label(Component):
             "dir",
             "disable_n_clicks",
             "draggable",
-            "form",
             "hidden",
             "htmlFor",
             "key",
@@ -166,7 +158,6 @@ class Label(Component):
             "dir",
             "disable_n_clicks",
             "draggable",
-            "form",
             "hidden",
             "htmlFor",
             "key",

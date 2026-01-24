@@ -1,7 +1,5 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Dict, List, Literal, Optional, Set, Tuple
-
-from tests.formats.dataclass.cases import PY310
 
 cases = [
     (int, False),
@@ -13,14 +11,9 @@ cases = [
     (List[object], ((object,), list, None)),
     (Tuple[object, ...], ((object,), tuple, None)),
     (Iterable[object, ...], ((object,), list, None)),
+    (Sequence[object, ...], ((object,), list, None)),
     (Optional[object], ((object,), None, None)),
+    (list[object], ((object,), list, None)),
+    (tuple[object, ...], ((object,), tuple, None)),
+    (object | None, ((object,), None, None)),
 ]
-
-if PY310:
-    cases.extend(
-        [
-            (list[object], ((object,), list, None)),
-            (tuple[object, ...], ((object,), tuple, None)),
-            (object | None, ((object,), None, None)),
-        ]
-    )

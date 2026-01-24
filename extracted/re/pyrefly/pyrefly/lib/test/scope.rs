@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+// @lint-ignore-every SPELL deliberately testing bad spelling
+
 use crate::testcase;
 
 testcase!(
@@ -15,6 +17,92 @@ class C:
 
     def m(self) -> None:
         x  # E: Could not find name `x`
+"#,
+);
+
+testcase!(
+    test_unknown_name_suggests_similar,
+    r#"
+long_variable_name = 1
+long_variable_name2 = long_variuble_name  # E: Did you mean `long_variable_name`?
+"#,
+);
+
+testcase!(
+    test_unknown_name_suggests_from_enclosing_scope,
+    r#"
+outer_value = 10
+def f() -> int:
+    return outer_vlaue  # E: Did you mean `outer_value`?
+"#,
+);
+
+testcase!(
+    test_unknown_name_no_suggest_from_future_defs,
+    r#"
+future_value = missing  # E: `missing` is uninitialized
+missing = 1
+"#,
+);
+
+testcase!(
+    test_unknown_name_no_suggest_from_class_scope_in_method,
+    r#"
+class C:
+    x = 1
+    def m(self) -> int:
+        return x  # E: Could not find name `x`
+"#,
+);
+
+testcase!(
+    test_unknown_name_suggests_in_class_body,
+    r#"
+class Foo:
+    abc = 42
+    y = ab + 42  # E: Did you mean `abc`?
+"#,
+);
+
+testcase!(
+    test_unknown_name_no_suggest_single_letter_names,
+    r#"
+a = 1
+b = 2
+aa  # E: Could not find name `aa`
+"#,
+);
+
+testcase!(
+    test_unknown_name_prefers_inner_scope,
+    r#"
+value = 0
+def f() -> int:
+    local_value = 1
+    return local_valu  # E: Did you mean `local_value`?
+"#,
+);
+
+testcase!(
+    test_unknown_name_ties_prefer_shallower_scope,
+    r#"
+global_value = 1
+def outer() -> int:
+    global_value2 = 2
+    def inner() -> int:
+        globl_value = 3
+        return globl_valu  # E: Did you mean `globl_value`?
+    return inner()
+"#,
+);
+
+testcase!(
+    test_unknown_name_no_suggestion_when_far,
+    r#"
+alpha = 1
+beta = 2
+gamma = 3
+missing_completely = delta  # E: Could not find name `delta`
 "#,
 );
 
@@ -92,146 +180,46 @@ async def test_async():
 );
 
 testcase!(
+    test_await_and_async_comprehensions,
+    r#"
+from typing import Any
+
+# A bare (parenthesized) generator containing an await immediately produces an
+# AsyncGenerator[_, _] result. It is legal to use in a synchronous function, although
+# it cannot be iterated except in an async function.
+#
+# Other kinds of comprehensions (list, set, etc) cannot use `await` unless in an async
+# function.
+
+def test(xs: Any):
+    (await x for x in xs)  # Ok
+    [await x for x in xs]  # E:
+    {await x for x in xs}  # E:
+    {0: await x for x in xs}  # E:
+    {await x: 0 for x in xs}  # E:
+
+    (x async for x in xs)  # OK
+    [x async for x in xs]  # E:
+    {x async for x in xs}  # E:
+    {x: 0 async for x in xs}  # E:
+
+    (x for x in await xs)  # E:
+    [x for x in await xs]  # E:
+    {x for x in await xs}  # E:
+    {x: 0 for x in await xs}  # E:
+
+    (await x async for x in (await y async for y in xs))  # Ok
+    [await x async for x in (await y async for y in xs)]  # E: `async` # E: `await`
+"#,
+);
+
+testcase!(
     test_global_simple,
     r#"
 x: str = ""
 def f():
   global x
   x = "foo"
-"#,
-);
-
-testcase!(
-    test_global_ref_before_def,
-    r#"
-def f():
-    global x
-    x = "foo"
-x: str = ""
-"#,
-);
-
-testcase!(
-    test_global_not_found,
-    r#"
-x: str = ""
-global a  # E: Could not find name `a`
-"#,
-);
-
-testcase!(
-    test_global_assign_before_def,
-    r#"
-x: str = ""
-global x  # E: `x` was assigned in the current scope before the global declaration
-"#,
-);
-
-// Note: the root cause of behavior in this test is that if there is no assignment, we ignore the
-// mutable capture entirely (leading to an error saying the mutation is invalid), whereas
-// if there is an assignment we incorrectly mark the name as defined in the local scope.
-testcase!(
-    bug = "We fail to mark a del of a mutable capture as illegal",
-    test_global_del,
-    r#"
-x: str = ""
-def f():
-    global x
-    x = "foo"
-    del x  # Not okay: it will work at runtime, but is not statically analyzable
-f()
-f()  # This will crash at runtime!
-"#,
-);
-
-testcase!(
-    bug = "It is not safe to treat global as a normal flow-sensitive definition",
-    test_unannotated_global_with_reassignment,
-    r#"
-from typing import assert_type, Literal
-x = "x"
-def f():
-    global x
-    x = 42  # Should be a type error, does not respect module-level static analysis
-    assert_type(x, Literal[42])
-f()
-# This is why allowing the reassignment is unsafe
-assert_type(x, Literal['x'])
-"#,
-);
-
-testcase!(
-    test_global_assign_incompatible,
-    r#"
-x: str = ""
-def f():
-    global x
-    x = 1  # E: `Literal[1]` is not assignable to variable `x` with type `str`
-def g():
-    x = 1  # OK, this is a new x
-"#,
-);
-
-testcase!(
-    test_global_after_local_define,
-    r#"
-x: str = ""
-def f() -> None:
-    y: int = 1
-    global y  # E: `y` was assigned in the current scope before the global declaration
-"#,
-);
-
-testcase!(
-    bug = "We fail to add x to the global scope so that it's visible from `outer`",
-    test_global_can_see_past_enclosing_scopes,
-    r#"
-from typing import assert_type
-x: str = ""
-def outer():
-    x: int = 5
-    def f():
-        # This works fine in Python, `x` is the global `x`, not the one from `outer`.
-        global x # E: Found `x`, but it was not the global scope
-        assert_type(x, str)  # E: assert_type(Any, str)
-"#,
-);
-
-testcase!(
-    bug = "We currently never complain on aug assign, but when we fix it we need to be careful about type changes",
-    test_global_aug_assign_incompatible_type,
-    r#"
-from typing import assert_type
-class C:
-    def __iadd__(self, other: C) -> C: ...
-    def __sub__(self, other: C) -> C: ...
-    def __mul__(self, other: C) -> int: ...
-c0, c1, c2 = C(), C(), C()
-def f():
-    global c0
-    global c1
-    global c2
-    # Should be permitted, the resulting operation is in-place
-    c0 += C()
-    # Should be permitted, the resulting operation returns a new C which is okay
-    c1 -= C()
-    # Should *not* be permitted, this changes the type of the global in a way
-    # that is incompatible with static analysis of the global scope
-    c2 *= C()
-f()
-# This shows what would go wrong if we allow the aug assign on `c2`
-assert_type(c2, C)
-"#,
-);
-
-testcase!(
-    test_global_reference_in_nested_function,
-    r#"
-x: str = ""
-def f() -> None:
-    global x
-    def g() -> str:
-        return x
 "#,
 );
 
@@ -246,12 +234,30 @@ def f(x: int) -> None:
 );
 
 testcase!(
+    test_global_ref_before_def,
+    r#"
+def f():
+    global x
+    x = "foo"
+x: str = ""
+"#,
+);
+
+testcase!(
     test_nonlocal_ref_before_def,
     r#"
 def f(x: int) -> None:
     def g():
         nonlocal x
         x = 1
+"#,
+);
+
+testcase!(
+    test_global_not_found,
+    r#"
+x: str = ""
+global a  # E: Could not find name `a`
 "#,
 );
 
@@ -267,7 +273,49 @@ def f() -> None:
 );
 
 testcase!(
-    test_nonlocal_assign_before_def,
+    test_global_can_see_past_enclosing_scopes,
+    r#"
+from typing import assert_type
+x: str = ""
+def outer():
+    x: int = 5
+    def f():
+        global x
+        assert_type(x, str)
+"#,
+);
+
+testcase!(
+    test_nonlocal_finds_global,
+    r#"
+from typing import Any, assert_type
+x: str = ""
+def f() -> None:
+    nonlocal x  # E: Found `x`, but it is coming from the global scope
+def outer():
+    x: int = 5
+    def middle():
+        global x
+        assert_type(x, str)
+        def inner():
+            nonlocal x  # E: Found `x`, but it is coming from the global scope
+            assert_type(x, Any)
+"#,
+);
+
+testcase!(
+    test_global_reference_in_nested_function,
+    r#"
+x: str = ""
+def f() -> None:
+    global x
+    def g() -> str:
+        return x
+"#,
+);
+
+testcase!(
+    test_mutable_capture_assign_before_def,
     r#"
 def f() -> None:
     a: str = ""
@@ -280,7 +328,7 @@ def f() -> None:
 // if there is an assignment we incorrectly mark the name as defined in the local scope.
 testcase!(
     bug = "We fail to mark a del of a mutable capture as illegal",
-    test_nonlocal_del,
+    test_mutable_capture_del,
     r#"
 def outer():
     x: str = ""
@@ -299,7 +347,7 @@ def outer():
 
 testcase!(
     bug = "It is not safe to treat nonlocal as a normal flow-sensitive definition",
-    test_unannotated_nonlocal_with_reassignment,
+    test_unannotated_mutable_capture_with_reassignment,
     r#"
 from typing import assert_type, Literal
 def outer():
@@ -314,7 +362,7 @@ def outer():
 "#,
 );
 testcase!(
-    test_nonlocal_assign_incompatible,
+    test_mutable_capture_assign_incompatible,
     r#"
 def f() -> None:
     a: str = ""
@@ -327,7 +375,7 @@ def f() -> None:
 );
 
 testcase!(
-    test_nonlocal_multiple_annotations,
+    test_mutable_capture_multiple_annotations,
     r#"
 def f() -> None:
     a: str = ""
@@ -338,16 +386,7 @@ def f() -> None:
 );
 
 testcase!(
-    test_nonlocal_not_in_local_scope,
-    r#"
-x: str = ""
-def f() -> None:
-    nonlocal x  # E: Found `x`, but it was not in a valid enclosing scope
-"#,
-);
-
-testcase!(
-    test_nonlocal_reference_in_nested_function,
+    test_mutable_capture_reference_in_nested_function,
     r#"
 def f() -> None:
     x: str = ""
@@ -359,7 +398,6 @@ def f() -> None:
 );
 
 testcase!(
-    bug = "A mutable capture is not actually in scope, it can't define a class attribute.",
     test_mutable_capture_class_body,
     r#"
 from typing import assert_type
@@ -367,7 +405,18 @@ x = 5
 class C:
     global x
     x = 7
-assert_type(C().x, int)  # This should be a lookup error
+C().x  # E: `C` has no attribute `x`
+"#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/1210
+testcase!(
+    test_mutable_capture_with_annotation_class_body,
+    r#"
+x = 5
+class C:
+    global x
+    x: int
 "#,
 );
 
@@ -394,6 +443,17 @@ def f():
     # We should really be producing an error more like the compiler's, which says you can't use `x` before the declaration
     print(x)  # E: `x` is uninitialized
     global x
+"#,
+);
+
+// Regression test against a panic in the presence of parser error recovery:
+// https://github.com/facebook/pyrefly/issues/1203
+testcase!(
+    test_mutable_capture_syntax_error,
+    r#"
+def f():
+    be be:  # E: `be` is uninitialized  # E: Parse error  # E: Parse error
+    global be   # E: `be` was assigned in the current scope before the global declaration
 "#,
 );
 
@@ -505,7 +565,7 @@ def f() -> None:
 testcase!(
     test_comprehension_shadows_variable,
     r#"
-from typing import assert_type, reveal_type
+from typing import assert_type
 x: list[int] = [1, 2, 3]
 y = [x for x in x]
 assert_type(y, list[int])
@@ -654,25 +714,87 @@ __all__ += []  # E: `__all__` is uninitialized
 testcase!(
     test_aug_assign_lookup_inconsistencies,
     r#"
-from typing import reveal_type
+from typing import assert_type, Any
 def f():
-    reveal_type(x)  # E: revealed type: Unknown  # E: `x` is uninitialized
+    assert_type(x, Any)  # E: `x` is uninitialized
     x += 5  # E: `x` is uninitialized
-    reveal_type(x)  # E: revealed type: Unknown
+    assert_type(x, Any)
 "#,
 );
 
 testcase!(
     test_del_defines_a_local,
     r#"
-from typing import reveal_type
+from typing import Any, assert_type
 x = 5
 def f():
-    reveal_type(y)  # E: revealed type: Unknown  # E: `y` is uninitialized
-    reveal_type(x)  # E: revealed type: Unknown  # E: `x` is uninitialized
+    assert_type(y, Any)  # E: `y` is uninitialized
+    assert_type(x, Any)  # E: `x` is uninitialized
     del y  # E: `y` is uninitialized
     del x  # E: `x` is uninitialized
 f()
+"#,
+);
+
+testcase!(
+    test_parameter_is_only_deleted_by_body,
+    r#"
+def fun(arg):
+    def inner():
+        arg  # The capture here makes sure we don't panic on a bad key lookup
+    del arg
+    return inner
+    "#,
+);
+
+testcase!(
+    test_parameter_is_declared_as_mutable_capture,
+    r#"
+x = 42
+def fun(x):
+    def inner():
+        x  # The capture here makes sure we don't panic on a bad key lookup
+    global x  # E: `x` was assigned in the current scope before the global declaration
+    return inner
+    "#,
+);
+
+testcase!(
+    test_type_statement_scope,
+    r#"
+from typing import assert_type
+class A: pass
+type X[A] = list[A]
+assert_type(A, type[A])
+    "#,
+);
+
+// This does come up in practice - see https://github.com/facebook/pyrefly/issues/1146
+testcase!(
+    test_class_scope_annotation_shadows_global,
+    r#"
+class A: pass
+class B:
+    # This sets `A` in `__annotations__`, but because class scopes are dynamic,
+    # `A` still refers to the global.
+    A: A
+    x: A = A()
+class C:
+    # The use of `del` is more of an edge case, but our implementation has to
+    # define the behavior and we should test it. It behaves the same.
+    A = A()
+    del A
+    y: A = A()
+"#,
+);
+
+testcase!(
+    test_class_scope_annotation_shadows_function,
+    r#"
+class D:
+    def int(self) -> None:
+        ...
+    y: int = 0  # E: Expected a type form
 "#,
 );
 
@@ -680,19 +802,18 @@ f()
 // body. This applies not only to methods but also other scopes like lambda, inner
 // class bodies, and comprehensions. See https://github.com/facebook/pyrefly/issues/264
 testcase!(
-    bug = "All these should show `Literal['string']`. The issue with comprehension persists, see also the next test case.",
     test_class_scope_lookups_when_skip,
     r#"
-from typing import reveal_type
+from typing import assert_type, Literal
 x = 'string'
 class A:
     x = 42
     def f():
-        reveal_type(x) # E: revealed type: Literal['string']
-    lambda_f = lambda: reveal_type(x) # E: revealed type: Literal['string']
+        assert_type(x, Literal['string'])
+    lambda_f = lambda: assert_type(x, Literal['string'])
     class B:
-        reveal_type(x) # E: revealed type: Literal['string']
-    [reveal_type(x) for _ in range(1)] # E: revealed type: Literal['string']
+        assert_type(x, Literal['string'])
+    [assert_type(x, Literal['string']) for _ in range(1)]
 "#,
 );
 
@@ -745,5 +866,35 @@ class C:
     class Inner:
         def g(self, z = x):  # E: Could not find name `x`
             pass
+    "#,
+);
+
+testcase!(
+    test_global_in_inner_function,
+    r#"
+from typing import assert_type
+
+x: int = 1
+
+def outer():
+    x: str = ""
+
+    def inner():
+        global x
+        assert_type(x, int)
+    "#,
+);
+
+testcase!(
+    test_global_with_same_name_as_local,
+    r#"
+from typing import assert_type, Literal
+
+x = 42
+
+def f():
+    global x
+    assert_type(x, Literal[42])
+    x = "foo"
     "#,
 );

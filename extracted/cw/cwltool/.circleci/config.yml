@@ -16,7 +16,7 @@ jobs:
 
     machine:
       image: ubuntu-2404:current
-    resource_class: arm.medium  # 2 vCPUs
+    resource_class: arm.large  # 4 vCPUs
 
     environment:
       CIBW_ARCHS: "aarch64"
@@ -98,4 +98,4 @@ workflows:
             tags:
               only: /.*/
           build: "*musllinux*"
-          image: quay.io/pypa/musllinux_1_2_aarch64:2025.02.02-1
+          image: quay.io/pypa/musllinux_1_2_aarch64

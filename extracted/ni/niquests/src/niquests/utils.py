@@ -33,9 +33,11 @@ from urllib.request import (  # type: ignore[attr-defined]  # type: ignore[attr-
 from urllib.request import parse_http_list as _parse_list_header
 
 import wassima
+from charset_normalizer import from_bytes
 
 from .__version__ import __version__
 from .exceptions import InvalidURL, MissingSchema, UnrewindableBodyError
+from .extensions.revocation import RevocationConfiguration, RevocationStrategy
 from .packages.urllib3 import ConnectionInfo
 from .packages.urllib3.contrib.resolver import (
     BaseResolver,
@@ -54,9 +56,9 @@ from .packages.urllib3.util import make_headers, parse_url
 from .structures import CaseInsensitiveDict
 
 if typing.TYPE_CHECKING:
-    from ._typing import AsyncResolverType, ResolverType
     from .cookies import RequestsCookieJar
     from .models import AsyncResponse, PreparedRequest, Request, Response
+    from .typing import AsyncResolverType, ResolverType
 
 
 getproxies = lru_cache()(getproxies)
@@ -1175,6 +1177,38 @@ def is_crl_capable(conn_info: ConnectionInfo | None) -> bool:
     return True
 
 
+def should_check_crl(conn_info: ConnectionInfo | None, revocation_configuration: RevocationConfiguration | None) -> bool:
+    if not is_crl_capable(conn_info):
+        return False
+
+    if revocation_configuration is None:
+        return False
+
+    if revocation_configuration.strategy in {RevocationStrategy.PREFER_CRL, RevocationStrategy.CHECK_ALL}:
+        return True
+
+    if not is_ocsp_capable(conn_info):
+        return True
+
+    return False
+
+
+def should_check_ocsp(conn_info: ConnectionInfo | None, revocation_configuration: RevocationConfiguration | None) -> bool:
+    if not is_ocsp_capable(conn_info):
+        return False
+
+    if revocation_configuration is None:
+        return False
+
+    if revocation_configuration.strategy in {RevocationStrategy.PREFER_OCSP, RevocationStrategy.CHECK_ALL}:
+        return True
+
+    if not is_crl_capable(conn_info):
+        return True
+
+    return False
+
+
 def wrap_extension_for_http(
     extension: type[ExtensionFromHTTP],
 ) -> type[ExtensionFromHTTP]:
@@ -1370,3 +1404,25 @@ def is_cancelled_error_root_cause(exc: BaseException) -> bool:
         seen.add(cur)
         cur = cur.__cause__ or cur.__context__
     return False
+
+
+def guess_json_utf(data: bytes) -> str | None:
+    encoding_guess = from_bytes(
+        data,
+        cp_isolation=[
+            "utf-8",
+            "utf-16",
+            "utf-32",
+            "utf-16-le",
+            "utf-16-be",
+            "utf-32-le",
+            "utf-32-be",
+        ],
+    ).best()
+
+    if encoding_guess is not None:
+        if encoding_guess.encoding == "utf_8" and encoding_guess.bom:
+            return "utf-8-sig"
+        return encoding_guess.encoding.replace("_", "-")
+
+    return None

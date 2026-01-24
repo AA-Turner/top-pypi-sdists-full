@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blis
-Version: 1.3.0
+Version: 1.3.3
 Summary: The Blis BLAS-like linear algebra library, as a self-contained C-extension.
 Home-page: https://github.com/explosion/cython-blis
 Author: Matthew Honnibal
@@ -16,8 +16,10 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.6,<3.14
+Requires-Python: >=3.9,<3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy<3.0.0,>=1.15.0; python_version < "3.9"

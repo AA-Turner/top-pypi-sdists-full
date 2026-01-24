@@ -18,14 +18,12 @@ class PHYSICS_PT_softbody(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -49,14 +47,12 @@ class PHYSICS_PT_softbody_cache(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -80,14 +76,12 @@ class PHYSICS_PT_softbody_collision(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -117,14 +111,12 @@ class PHYSICS_PT_softbody_edge(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -154,14 +146,12 @@ class PHYSICS_PT_softbody_edge_aerodynamics(PhysicButtonsPanel, _bpy_types.Panel
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -185,14 +175,12 @@ class PHYSICS_PT_softbody_edge_stiffness(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -222,14 +210,12 @@ class PHYSICS_PT_softbody_field_weights(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -253,14 +239,12 @@ class PHYSICS_PT_softbody_goal(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -290,14 +274,12 @@ class PHYSICS_PT_softbody_goal_settings(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -321,14 +303,12 @@ class PHYSICS_PT_softbody_goal_strengths(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -352,14 +332,12 @@ class PHYSICS_PT_softbody_object(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -383,14 +361,12 @@ class PHYSICS_PT_softbody_simulation(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -414,14 +390,12 @@ class PHYSICS_PT_softbody_solver(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -445,14 +419,12 @@ class PHYSICS_PT_softbody_solver_diagnostics(PhysicButtonsPanel, _bpy_types.Pane
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -476,14 +448,12 @@ class PHYSICS_PT_softbody_solver_helpers(PhysicButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:

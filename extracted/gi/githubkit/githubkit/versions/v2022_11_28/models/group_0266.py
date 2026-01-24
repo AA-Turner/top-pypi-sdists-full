@@ -12,20 +12,21 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class CodeScanningAutofixCommitsResponse(GitHubModel):
-    """CodeScanningAutofixCommitsResponse"""
+class WorkflowDispatchResponse(GitHubModel):
+    """Workflow Dispatch Response
 
-    target_ref: Missing[str] = Field(
-        default=UNSET,
-        description='The Git reference of target branch for the commit. For more information, see "[Git References](https://git-scm.com/book/en/v2/Git-Internals-Git-References)" in the Git documentation.',
+    Response containing the workflow run ID and URLs.
+    """
+
+    workflow_run_id: int = Field(
+        title="Workflow Run ID", description="The ID of the workflow run."
     )
-    sha: Missing[str] = Field(default=UNSET, description="SHA of commit with autofix.")
+    run_url: str = Field(description="The URL to the workflow run.")
+    html_url: str = Field()
 
 
-model_rebuild(CodeScanningAutofixCommitsResponse)
+model_rebuild(WorkflowDispatchResponse)
 
-__all__ = ("CodeScanningAutofixCommitsResponse",)
+__all__ = ("WorkflowDispatchResponse",)

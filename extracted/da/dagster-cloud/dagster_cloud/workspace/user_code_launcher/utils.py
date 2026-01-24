@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import uuid
 from typing import Optional
 
@@ -7,6 +8,19 @@ import yaml
 from dagster._core.instance.ref import InstanceRef
 from dagster._serdes import serialize_value
 from dagster_cloud_cli.core.workspace import CodeLocationDeployData
+
+DEFAULT_CODE_SERVER_PORT = 4000
+
+
+def get_code_server_port() -> int:
+    """Returns the code server port from DAGSTER_CLOUD_CODE_SERVER_PORT env var.
+
+    Defaults to 4000 if the environment variable is not set.
+    """
+    port_str = os.environ.get("DAGSTER_CLOUD_CODE_SERVER_PORT")
+    if port_str is None:
+        return DEFAULT_CODE_SERVER_PORT
+    return int(port_str)
 
 
 def unique_resource_name(deployment_name, location_name, length_limit, sanitize_fn):
@@ -46,7 +60,14 @@ def get_instance_ref_for_user_code(instance_ref: InstanceRef) -> InstanceRef:
     if custom_instance_class_data:
         config_dict = custom_instance_class_data.config_dict
         new_config_dict = {
-            key: val for key, val in config_dict.items() if key not in {"agent_queues"}
+            key: val
+            for key, val in config_dict.items()
+            if key
+            not in {
+                "agent_queues",
+                "allowed_full_deployment_locations",
+                "allowed_branch_deployment_locations",
+            }
         }
 
         user_code_launcher_config = config_dict.get("user_code_launcher", {}).get("config")

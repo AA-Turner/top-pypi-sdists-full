@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -9,15 +9,14 @@ import QuantConnect.Data
 import QuantConnect.Data.Fundamental
 import QuantConnect.Data.Market
 import QuantConnect.Data.UniverseSelection
+import QuantConnect.Securities
 import System
 import System.Collections.Generic
-
-ReusuableCLRObject = typing.Any
 
 QuantConnect_Data_Fundamental_MultiPeriodField_T = typing.TypeVar("QuantConnect_Data_Fundamental_MultiPeriodField_T")
 
 
-class FundamentalTimeDependentProperty(ReusuableCLRObject, metaclass=abc.ABCMeta):
+class FundamentalTimeDependentProperty(metaclass=abc.ABCMeta):
     """Simple base class shared by top layer fundamental properties which depend on a time provider"""
 
     @property
@@ -25,7 +24,8 @@ class FundamentalTimeDependentProperty(ReusuableCLRObject, metaclass=abc.ABCMeta
         """
         The time provider instance to use
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34,7 +34,8 @@ class FundamentalTimeDependentProperty(ReusuableCLRObject, metaclass=abc.ABCMeta
         """
         The SID instance to use
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -324,7 +325,8 @@ class FinancialStatementsPeriodEndingDate(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -404,7 +406,8 @@ class FinancialStatementsFileDate(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -484,7 +487,8 @@ class FinancialStatementsAccessionNumber(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -559,7 +563,8 @@ class FinancialStatementsFormType(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -639,7 +644,8 @@ class PeriodAuditor(QuantConnect.Data.Fundamental.MultiPeriodField[str]):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -719,7 +725,8 @@ class AuditorReportStatus(QuantConnect.Data.Fundamental.MultiPeriodField[str]):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -799,7 +806,8 @@ class InventoryValuationMethod(QuantConnect.Data.Fundamental.MultiPeriodField[st
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -879,7 +887,8 @@ class NumberOfShareHolders(QuantConnect.Data.Fundamental.MultiPeriodField[int]):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -959,7 +968,8 @@ class FinancialStatementsPeriodType(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1039,7 +1049,8 @@ class TotalRiskBasedCapital(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1114,7 +1125,8 @@ class IncomeStatementFileDate(QuantConnect.Data.Fundamental.MultiPeriodField[dat
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1194,7 +1206,8 @@ class AmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1274,7 +1287,8 @@ class SecuritiesAmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1349,7 +1363,8 @@ class CostOfRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1429,7 +1444,8 @@ class DepletionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1499,7 +1515,8 @@ class DepreciationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1574,7 +1591,8 @@ class DepreciationAndAmortizationIncomeStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1654,7 +1672,8 @@ class DepreciationAmortizationDepletionIncomeStatement(QuantConnect.Data.Fundame
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1734,7 +1753,8 @@ class NetIncomeDiscontinuousOperationsIncomeStatement(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1814,7 +1834,8 @@ class ExciseTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1884,7 +1905,8 @@ class NetIncomeExtraordinaryIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1964,7 +1986,8 @@ class FeeRevenueAndOtherIncomeIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2034,7 +2057,8 @@ class GeneralAndAdministrativeExpenseIncomeStatement(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2114,7 +2138,8 @@ class GrossProfitIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2194,7 +2219,8 @@ class InterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2274,7 +2300,8 @@ class InterestExpenseNonOperatingIncomeStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2354,7 +2381,8 @@ class InterestIncomeAfterProvisionForLoanLossIncomeStatement(QuantConnect.Data.F
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2434,7 +2462,8 @@ class InterestIncomeNonOperatingIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2514,7 +2543,8 @@ class NetNonOperatingInterestIncomeExpenseIncomeStatement(QuantConnect.Data.Fund
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2594,7 +2624,8 @@ class LossAdjustmentExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2664,7 +2695,8 @@ class MinorityInterestsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2744,7 +2776,8 @@ class NetIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2824,7 +2857,8 @@ class NetIncomeCommonStockholdersIncomeStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2904,7 +2938,8 @@ class NetIncomeContinuousOperationsIncomeStatement(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -2984,7 +3019,8 @@ class NetInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3064,7 +3100,8 @@ class NetInvestmentIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3134,7 +3171,8 @@ class TotalRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3214,7 +3252,8 @@ class NonInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3294,7 +3333,8 @@ class NonInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3374,7 +3414,8 @@ class OperatingExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3454,7 +3495,8 @@ class OperatingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3534,7 +3576,8 @@ class OperatingRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3614,7 +3657,8 @@ class OtherIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3694,7 +3738,8 @@ class PolicyAcquisitionExpenseIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3764,7 +3809,8 @@ class NetPolicyholderBenefitsAndClaimsIncomeStatement(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3834,7 +3880,8 @@ class PreferredStockDividendsIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3914,7 +3961,8 @@ class TotalPremiumsEarnedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3984,7 +4032,8 @@ class PretaxIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4064,7 +4113,8 @@ class TaxProvisionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4144,7 +4194,8 @@ class CreditLossesProvisionIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4219,7 +4270,8 @@ class ResearchAndDevelopmentIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4299,7 +4351,8 @@ class SellingAndMarketingExpenseIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4379,7 +4432,8 @@ class SellingGeneralAndAdministrationIncomeStatement(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4459,7 +4513,8 @@ class SpecialIncomeChargesIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4539,7 +4594,8 @@ class TotalExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4619,7 +4675,8 @@ class InterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4699,7 +4756,8 @@ class EBITIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4779,7 +4837,8 @@ class EBITDAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4859,7 +4918,8 @@ class NetIncomeContinuousOperationsNetMinorityInterestIncomeStatement(QuantConne
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4929,7 +4989,8 @@ class CededPremiumsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -4999,7 +5060,8 @@ class CommissionExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5079,7 +5141,8 @@ class CreditCardIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5149,7 +5212,8 @@ class DividendIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5229,7 +5293,8 @@ class EarningsFromEquityInterestIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5309,7 +5374,8 @@ class EquipmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5379,7 +5445,8 @@ class ExplorationDevelopmentAndMineralPropertyLeaseExpensesIncomeStatement(Quant
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5449,7 +5516,8 @@ class FeesAndCommissionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5524,7 +5592,8 @@ class ForeignExchangeTradingGainsIncomeStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5594,7 +5663,8 @@ class FuelIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5674,7 +5744,8 @@ class FuelAndPurchasePowerIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5744,7 +5815,8 @@ class GainOnSaleOfBusinessIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5824,7 +5896,8 @@ class GainOnSaleOfPPEIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5899,7 +5972,8 @@ class GainOnSaleOfSecurityIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -5979,7 +6053,8 @@ class GrossPremiumsWrittenIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6049,7 +6124,8 @@ class ImpairmentOfCapitalAssetsIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6129,7 +6205,8 @@ class IncreaseDecreaseInNetUnearnedPremiumReservesIncomeStatement(QuantConnect.D
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6199,7 +6276,8 @@ class InsuranceAndClaimsIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6269,7 +6347,8 @@ class InterestExpenseForDepositIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6344,7 +6423,8 @@ class InterestExpenseForFederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToRe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6414,7 +6494,8 @@ class InterestExpenseForLongTermDebtAndCapitalSecuritiesIncomeStatement(QuantCon
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6489,7 +6570,8 @@ class InterestExpenseForShortTermDebtIncomeStatement(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6559,7 +6641,8 @@ class InterestIncomeFromDepositsIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6634,7 +6717,8 @@ class InterestIncomeFromFederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToRe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6704,7 +6788,8 @@ class InterestIncomeFromLeasesIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6779,7 +6864,8 @@ class InterestIncomeFromLoansIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6854,7 +6940,8 @@ class InterestIncomeFromLoansAndLeaseIncomeStatement(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -6929,7 +7016,8 @@ class InterestIncomeFromSecuritiesIncomeStatement(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7009,7 +7097,8 @@ class InvestmentBankingProfitIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7079,7 +7168,8 @@ class MaintenanceAndRepairsIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7159,7 +7249,8 @@ class NetForeignExchangeGainLossIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7229,7 +7320,8 @@ class NetOccupancyExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7299,7 +7391,8 @@ class NetPremiumsWrittenIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7369,7 +7462,8 @@ class NetRealizedGainLossOnInvestmentsIncomeStatement(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7439,7 +7533,8 @@ class OccupancyAndEquipmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7509,7 +7604,8 @@ class OperationAndMaintenanceIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7589,7 +7685,8 @@ class OtherCustomerServicesIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7664,7 +7761,8 @@ class OtherInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7739,7 +7837,8 @@ class OtherInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7814,7 +7913,8 @@ class OtherNonInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7894,7 +7994,8 @@ class OtherSpecialChargesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -7969,7 +8070,8 @@ class OtherTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8049,7 +8151,8 @@ class PolicyholderBenefitsCededIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8104,7 +8207,8 @@ class PolicyholderBenefitsGrossIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8174,7 +8278,8 @@ class PolicyholderDividendsIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8244,7 +8349,8 @@ class PolicyholderInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8314,7 +8420,8 @@ class ProfessionalExpenseAndContractServicesExpenseIncomeStatement(QuantConnect.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8394,7 +8501,8 @@ class ProvisionForDoubtfulAccountsIncomeStatement(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8469,7 +8577,8 @@ class RentAndLandingFeesIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8549,7 +8658,8 @@ class RestructuringAndMergernAcquisitionIncomeStatement(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8629,7 +8739,8 @@ class SalariesAndWagesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8709,7 +8820,8 @@ class SecuritiesActivitiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8779,7 +8891,8 @@ class ServiceChargeOnDepositorAccountsIncomeStatement(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8854,7 +8967,8 @@ class TradingGainLossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8929,7 +9043,8 @@ class TrustFeesbyCommissionsIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -8999,7 +9114,8 @@ class UnderwritingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9069,7 +9185,8 @@ class WriteOffIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9139,7 +9256,8 @@ class OtherNonInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9214,7 +9332,8 @@ class AmortizationOfIntangiblesIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9294,7 +9413,8 @@ class NetIncomeFromContinuingAndDiscontinuedOperationIncomeStatement(QuantConnec
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9374,7 +9494,8 @@ class NetIncomeFromTaxLossCarryforwardIncomeStatement(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9444,7 +9565,8 @@ class OtherOperatingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9524,7 +9646,8 @@ class TotalMoneyMarketInvestmentsIncomeStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9599,7 +9722,8 @@ class ReconciledCostOfRevenueIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9679,7 +9803,8 @@ class ReconciledDepreciationIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9759,7 +9884,8 @@ class NormalizedIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9839,7 +9965,8 @@ class NetIncomeFromContinuingOperationNetMinorityInterestIncomeStatement(QuantCo
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9919,7 +10046,8 @@ class GainLossonSaleofAssetsIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -9994,7 +10122,8 @@ class GainonSaleofLoansIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10069,7 +10198,8 @@ class GainonSaleofInvestmentPropertyIncomeStatement(QuantConnect.Data.Fundamenta
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10139,7 +10269,8 @@ class LossonExtinguishmentofDebtIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10209,7 +10340,8 @@ class EarningsfromEquityInterestNetOfTaxIncomeStatement(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10289,7 +10421,8 @@ class NetIncomeIncludingNoncontrollingInterestsIncomeStatement(QuantConnect.Data
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10369,7 +10502,8 @@ class OtherunderPreferredStockDividendIncomeStatement(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10444,7 +10578,8 @@ class StaffCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10519,7 +10654,8 @@ class SocialSecurityCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10574,7 +10710,8 @@ class PensionCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10629,7 +10766,8 @@ class OtherOperatingIncomeTotalIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10704,7 +10842,8 @@ class IncomefromAssociatesandOtherParticipatingInterestsIncomeStatement(QuantCon
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10774,7 +10913,8 @@ class TotalOtherFinanceCostIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10844,7 +10984,8 @@ class GrossDividendPaymentIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10909,7 +11050,8 @@ class FeesandCommissionIncomeIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -10979,7 +11121,8 @@ class FeesandCommissionExpenseIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11049,7 +11192,8 @@ class NetTradingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11104,7 +11248,8 @@ class OtherStaffCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11159,7 +11304,8 @@ class GainonInvestmentPropertiesIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11229,7 +11375,8 @@ class AverageDilutionEarningsIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11299,7 +11446,8 @@ class GainLossonFinancialInstrumentsDesignatedasCashFlowHedgesIncomeStatement(Qu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11369,7 +11517,8 @@ class GainLossonDerecognitionofAvailableForSaleFinancialAssetsIncomeStatement(Qu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11439,7 +11588,8 @@ class NegativeGoodwillImmediatelyRecognizedIncomeStatement(QuantConnect.Data.Fun
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11504,7 +11654,8 @@ class GainsLossesonFinancialInstrumentsDuetoFairValueAdjustmentsinHedgeAccountin
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11574,7 +11725,8 @@ class ImpairmentLossesReversalsFinancialInstrumentsNetIncomeStatement(QuantConne
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11644,7 +11796,8 @@ class ClaimsandPaidIncurredIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11714,7 +11867,8 @@ class ReinsuranceRecoveriesClaimsandBenefitsIncomeStatement(QuantConnect.Data.Fu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11784,7 +11938,8 @@ class ChangeinInsuranceLiabilitiesNetofReinsuranceIncomeStatement(QuantConnect.D
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11854,7 +12009,8 @@ class ChangeinInvestmentContractIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11924,7 +12080,8 @@ class CreditRiskProvisionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -11994,7 +12151,8 @@ class WagesandSalariesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12054,7 +12212,8 @@ class OtherNonOperatingIncomeExpensesIncomeStatement(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12129,7 +12288,8 @@ class OtherNonOperatingIncomeIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12199,7 +12359,8 @@ class OtherNonOperatingExpensesIncomeStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12269,7 +12430,8 @@ class TotalUnusualItemsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12349,7 +12511,8 @@ class TotalUnusualItemsExcludingGoodwillIncomeStatement(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12429,7 +12592,8 @@ class TaxRateForCalcsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12509,7 +12673,8 @@ class TaxEffectOfUnusualItemsIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12589,7 +12754,8 @@ class NormalizedEBITDAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12669,7 +12835,8 @@ class StockBasedCompensationIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12739,7 +12906,8 @@ class DilutedNIAvailtoComStockholdersIncomeStatement(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12809,7 +12977,8 @@ class InvestmentContractLiabilitiesIncurredIncomeStatement(QuantConnect.Data.Fun
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12879,7 +13048,8 @@ class ReinsuranceRecoveriesofInvestmentContractIncomeStatement(QuantConnect.Data
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -12949,7 +13119,8 @@ class TotalDividendPaymentofEquitySharesIncomeStatement(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13019,7 +13190,8 @@ class TotalDividendPaymentofNonEquitySharesIncomeStatement(QuantConnect.Data.Fun
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13089,7 +13261,8 @@ class ChangeinTheGrossProvisionforUnearnedPremiumsIncomeStatement(QuantConnect.D
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13159,7 +13332,8 @@ class ChangeinTheGrossProvisionforUnearnedPremiumsReinsurersShareIncomeStatement
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13229,7 +13403,8 @@ class ClaimsandChangeinInsuranceLiabilitiesIncomeStatement(QuantConnect.Data.Fun
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13299,7 +13474,8 @@ class ReinsuranceRecoveriesofInsuranceLiabilitiesIncomeStatement(QuantConnect.Da
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13369,7 +13545,8 @@ class TotalOperatingIncomeAsReportedIncomeStatement(QuantConnect.Data.Fundamenta
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13439,7 +13616,8 @@ class OtherGAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13509,7 +13687,8 @@ class OtherCostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13579,7 +13758,8 @@ class RentandLandingFeesCostofRevenueIncomeStatement(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13649,7 +13829,8 @@ class DDACostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13719,7 +13900,8 @@ class RentExpenseSupplementalIncomeStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13789,7 +13971,8 @@ class NormalizedPreTaxIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13859,7 +14042,8 @@ class ResearchAndDevelopmentExpensesSupplementalIncomeStatement(QuantConnect.Dat
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13929,7 +14113,8 @@ class DepreciationSupplementalIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -13999,7 +14184,8 @@ class AmortizationSupplementalIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -14069,7 +14255,8 @@ class TotalRevenueAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -14139,7 +14326,8 @@ class OperatingExpenseAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -14209,7 +14397,8 @@ class NormalizedIncomeAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -14279,7 +14468,8 @@ class NormalizedEBITDAAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -14349,7 +14539,8 @@ class NormalizedEBITAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -14419,7 +14610,8 @@ class NormalizedOperatingProfitAsReportedIncomeStatement(QuantConnect.Data.Funda
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -14489,7 +14681,8 @@ class EffectiveTaxRateAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -14551,7 +14744,7 @@ class EffectiveTaxRateAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class IncomeStatement(ReusuableCLRObject):
+class IncomeStatement:
     """Definition of the IncomeStatement class"""
 
     @property
@@ -15477,7 +15670,8 @@ class BalanceSheetFileDate(QuantConnect.Data.Fundamental.MultiPeriodField[dateti
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -15542,7 +15736,8 @@ class AccountsPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -15622,7 +15817,8 @@ class AccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -15702,7 +15898,8 @@ class CurrentAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -15782,7 +15979,8 @@ class NonCurrentAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -15852,7 +16050,8 @@ class AccruedInvestmentIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -15917,7 +16116,8 @@ class AccumulatedDepreciationBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -15997,7 +16197,8 @@ class GainsLossesNotAffectingRetainedEarningsBalanceSheet(QuantConnect.Data.Fund
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16077,7 +16278,8 @@ class AdditionalPaidInCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16157,7 +16359,8 @@ class AllowanceForLoansAndLeaseLossesBalanceSheet(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16227,7 +16430,8 @@ class AvailableForSaleSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16297,7 +16501,8 @@ class CapitalStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16377,7 +16582,8 @@ class CashBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16457,7 +16663,8 @@ class CashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16527,7 +16734,8 @@ class CashAndCashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16607,7 +16815,8 @@ class CashAndDueFromBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16677,7 +16886,8 @@ class CashCashEquivalentsAndFederalFundsSoldBalanceSheet(QuantConnect.Data.Funda
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16752,7 +16962,8 @@ class CashCashEquivalentsAndMarketableSecuritiesBalanceSheet(QuantConnect.Data.F
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16832,7 +17043,8 @@ class CommonStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16912,7 +17124,8 @@ class CurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -16992,7 +17205,8 @@ class CurrentDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17072,7 +17286,8 @@ class CurrentDebtAndCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundame
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17152,7 +17367,8 @@ class CurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17232,7 +17448,8 @@ class CurrentCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17312,7 +17529,8 @@ class DeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17382,7 +17600,8 @@ class DeferredCostsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17462,7 +17681,8 @@ class NonCurrentDeferredLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17542,7 +17762,8 @@ class CurrentDeferredLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17622,7 +17843,8 @@ class DeferredPolicyAcquisitionCostsBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17692,7 +17914,8 @@ class CurrentDeferredRevenueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17772,7 +17995,8 @@ class NonCurrentDeferredRevenueBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17852,7 +18076,8 @@ class DeferredTaxAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -17922,7 +18147,8 @@ class CurrentDeferredTaxesAssetsBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18002,7 +18228,8 @@ class CurrentDeferredTaxesLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18072,7 +18299,8 @@ class NonCurrentDeferredTaxesAssetsBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18152,7 +18380,8 @@ class NonCurrentDeferredTaxesLiabilitiesBalanceSheet(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18232,7 +18461,8 @@ class EquityInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18297,7 +18527,8 @@ class FederalFundsPurchasedAndSecuritiesSoldUnderAgreementToRepurchaseBalanceShe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18362,7 +18593,8 @@ class FederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToResellBalanceSheet(Q
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18432,7 +18664,8 @@ class FixedMaturityInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18502,7 +18735,8 @@ class FuturePolicyBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18562,7 +18796,8 @@ class GeneralPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18627,7 +18862,8 @@ class GoodwillBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18707,7 +18943,8 @@ class GoodwillAndOtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18787,7 +19024,8 @@ class GrossLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18857,7 +19095,8 @@ class GrossPPEBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -18937,7 +19176,8 @@ class HeldToMaturitySecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19007,7 +19247,8 @@ class IncomeTaxPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19082,7 +19323,8 @@ class InterestBearingDepositsLiabilitiesBalanceSheet(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19152,7 +19394,8 @@ class InterestPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19232,7 +19475,8 @@ class InterestBearingDepositsAssetsBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19302,7 +19546,8 @@ class InventoryBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19382,7 +19627,8 @@ class InvestmentsAndAdvancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19462,7 +19708,8 @@ class LimitedPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19527,7 +19774,8 @@ class LongTermDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19607,7 +19855,8 @@ class LongTermDebtAndCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19687,7 +19936,8 @@ class LongTermInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19752,7 +20002,8 @@ class LongTermCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19832,7 +20083,8 @@ class MinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19912,7 +20164,8 @@ class MoneyMarketInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -19982,7 +20235,8 @@ class NetLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20052,7 +20306,8 @@ class NetPPEBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20132,7 +20387,8 @@ class NonInterestBearingDepositsBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20202,7 +20458,8 @@ class CurrentNotesPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20282,7 +20539,8 @@ class NotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20347,7 +20605,8 @@ class NonCurrentNoteReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20417,7 +20676,8 @@ class OtherCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20497,7 +20757,8 @@ class OtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20577,7 +20838,8 @@ class OtherShortTermInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20652,7 +20914,8 @@ class PayablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20732,7 +20995,8 @@ class PayablesAndAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20812,7 +21076,8 @@ class PolicyReservesBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20882,7 +21147,8 @@ class PolicyholderFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -20942,7 +21208,8 @@ class PreferredSecuritiesOutsideStockEquityBalanceSheet(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21017,7 +21284,8 @@ class PreferredStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21097,7 +21365,8 @@ class PrepaidAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21177,7 +21446,8 @@ class NonCurrentPrepaidAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21247,7 +21517,8 @@ class ReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21327,7 +21598,8 @@ class ReinsuranceRecoverableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21387,7 +21659,8 @@ class RetainedEarningsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21467,7 +21740,8 @@ class SecuritiesLendingCollateralBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21527,7 +21801,8 @@ class SecurityAgreeToBeResellBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21587,7 +21862,8 @@ class SecuritySoldNotYetRepurchasedBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21647,7 +21923,8 @@ class SeparateAccountAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21707,7 +21984,8 @@ class SeparateAccountBusinessBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21767,7 +22045,8 @@ class ShortTermInvestmentsAvailableForSaleBalanceSheet(QuantConnect.Data.Fundame
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21827,7 +22106,8 @@ class ShortTermInvestmentsHeldToMaturityBalanceSheet(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21887,7 +22167,8 @@ class ShortTermInvestmentsTradingBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -21947,7 +22228,8 @@ class StockholdersEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22027,7 +22309,8 @@ class TotalTaxPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22107,7 +22390,8 @@ class TotalAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22187,7 +22471,8 @@ class TotalDepositsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22257,7 +22542,8 @@ class TotalInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22322,7 +22608,8 @@ class TotalNonCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22402,7 +22689,8 @@ class TotalPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22467,7 +22755,8 @@ class TradingAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22527,7 +22816,8 @@ class TradingLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22587,7 +22877,8 @@ class TradingSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22652,7 +22943,8 @@ class TreasuryStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22732,7 +23024,8 @@ class UnearnedIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22802,7 +23095,8 @@ class UnearnedPremiumsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22872,7 +23166,8 @@ class UnpaidLossAndLossReserveBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -22942,7 +23237,8 @@ class InvestedCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23022,7 +23318,8 @@ class CurrentDeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23102,7 +23399,8 @@ class NonCurrentDeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23182,7 +23480,8 @@ class SecuritiesAndInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23257,7 +23556,8 @@ class TotalLiabilitiesNetMinorityInterestBalanceSheet(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23337,7 +23637,8 @@ class TotalNonCurrentLiabilitiesNetMinorityInterestBalanceSheet(QuantConnect.Dat
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23417,7 +23718,8 @@ class TotalEquityGrossMinorityInterestBalanceSheet(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23497,7 +23799,8 @@ class GrossAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23557,7 +23860,8 @@ class NonCurrentAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23627,7 +23931,8 @@ class AccruedInterestReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23702,7 +24007,8 @@ class AdvanceFromFederalHomeLoanBanksBalanceSheet(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23772,7 +24078,8 @@ class AllowanceForDoubtfulAccountsReceivableBalanceSheet(QuantConnect.Data.Funda
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23832,7 +24139,8 @@ class AllowanceForNotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23892,7 +24200,8 @@ class AssetsHeldForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -23952,7 +24261,8 @@ class AssetsOfDiscontinuedOperationsBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24012,7 +24322,8 @@ class BankIndebtednessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24072,7 +24383,8 @@ class BankOwnedLifeInsuranceBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24142,7 +24454,8 @@ class SecurityBorrowedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24202,7 +24515,8 @@ class BuildingsAndImprovementsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24282,7 +24596,8 @@ class CommercialLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24352,7 +24667,8 @@ class CommercialPaperBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24412,7 +24728,8 @@ class CommonStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24492,7 +24809,8 @@ class ConstructionInProgressBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24572,7 +24890,8 @@ class ConsumerLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24642,7 +24961,8 @@ class MinimumPensionLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24702,7 +25022,8 @@ class CustomerAcceptancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24762,7 +25083,8 @@ class DefinedPensionBenefitBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24827,7 +25149,8 @@ class DerivativeProductLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24907,7 +25230,8 @@ class DerivativeAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -24972,7 +25296,8 @@ class DividendsPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25047,7 +25372,8 @@ class EmployeeBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25122,7 +25448,8 @@ class FederalFundsPurchasedBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25182,7 +25509,8 @@ class FederalFundsSoldBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25247,7 +25575,8 @@ class FederalHomeLoanBankStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25317,7 +25646,8 @@ class FinancialAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25382,7 +25712,8 @@ class FinancialInstrumentsSoldUnderAgreementsToRepurchaseBalanceSheet(QuantConne
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25447,7 +25778,8 @@ class FinishedGoodsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25527,7 +25859,8 @@ class FlightFleetVehicleAndRelatedEquipmentsBalanceSheet(QuantConnect.Data.Funda
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25592,7 +25925,8 @@ class ForeclosedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25657,7 +25991,8 @@ class ForeignCurrencyTranslationAdjustmentsBalanceSheet(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25732,7 +26067,8 @@ class InventoriesAdjustmentsAllowancesBalanceSheet(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25802,7 +26138,8 @@ class InvestmentsInOtherVenturesUnderEquityMethodBalanceSheet(QuantConnect.Data.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25862,7 +26199,8 @@ class LandAndImprovementsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -25942,7 +26280,8 @@ class LeasesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26022,7 +26361,8 @@ class LiabilitiesOfDiscontinuedOperationsBalanceSheet(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26082,7 +26422,8 @@ class LineOfCreditBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26152,7 +26493,8 @@ class LoansHeldForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26222,7 +26564,8 @@ class LoansReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26297,7 +26640,8 @@ class MachineryFurnitureEquipmentBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26377,7 +26721,8 @@ class MaterialsAndSuppliesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26437,7 +26782,8 @@ class MineralPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26507,7 +26853,8 @@ class MortgageLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26577,7 +26924,8 @@ class MortgageAndConsumerloansBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26637,7 +26985,8 @@ class GrossNotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26697,7 +27046,8 @@ class OtherAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26772,7 +27122,8 @@ class OtherCapitalStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26842,7 +27193,8 @@ class OtherCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26922,7 +27274,8 @@ class OtherCurrentBorrowingsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -26992,7 +27345,8 @@ class OtherEquityAdjustmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27062,7 +27416,8 @@ class OtherInventoriesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27137,7 +27492,8 @@ class OtherInvestedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27197,7 +27553,8 @@ class OtherNonCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27277,7 +27634,8 @@ class OtherPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27352,7 +27710,8 @@ class OtherRealEstateOwnedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27422,7 +27781,8 @@ class OtherReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27497,7 +27857,8 @@ class NonCurrentPensionAndOtherPostretirementBenefitPlansBalanceSheet(QuantConne
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27572,7 +27933,8 @@ class PolicyLoansBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27632,7 +27994,8 @@ class PreferredStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27712,7 +28075,8 @@ class PropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27772,7 +28136,8 @@ class CurrentProvisionsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27842,7 +28207,8 @@ class LongTermProvisionsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27912,7 +28278,8 @@ class RawMaterialsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -27987,7 +28354,8 @@ class ReceivablesAdjustmentsAllowancesBalanceSheet(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28052,7 +28420,8 @@ class RegulatoryAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28112,7 +28481,8 @@ class RegulatoryLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28172,7 +28542,8 @@ class ReinsuranceBalancesPayableBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28232,7 +28603,8 @@ class RestrictedCashBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28312,7 +28684,8 @@ class RestrictedCashAndCashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28382,7 +28755,8 @@ class RestrictedCashAndInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28452,7 +28826,8 @@ class RestrictedCommonStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28517,7 +28892,8 @@ class RestrictedInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28577,7 +28953,8 @@ class TaxesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28652,7 +29029,8 @@ class TotalCapitalizationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28732,7 +29110,8 @@ class TotalDeferredCreditsAndOtherNonCurrentLiabilitiesBalanceSheet(QuantConnect
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28802,7 +29181,8 @@ class UnbilledReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28862,7 +29242,8 @@ class UnrealizedGainLossBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -28927,7 +29308,8 @@ class WorkInProcessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29007,7 +29389,8 @@ class OtherNonCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29087,7 +29470,8 @@ class CapitalLeaseObligationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29167,7 +29551,8 @@ class OtherLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29242,7 +29627,8 @@ class OtherPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29322,7 +29708,8 @@ class TangibleBookValueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29402,7 +29789,8 @@ class TotalEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29482,7 +29870,8 @@ class WorkingCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29562,7 +29951,8 @@ class TotalDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29642,7 +30032,8 @@ class CommonUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29707,7 +30098,8 @@ class ElectricUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29767,7 +30159,8 @@ class NaturalGasFuelAndOtherBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29827,7 +30220,8 @@ class NetUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29892,7 +30286,8 @@ class WaterProductionBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -29952,7 +30347,8 @@ class OrdinarySharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30012,7 +30408,8 @@ class PreferredSharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30072,7 +30469,8 @@ class TreasurySharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30132,7 +30530,8 @@ class TradingAndOtherReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30192,7 +30591,8 @@ class EquityAttributableToOwnersOfParentBalanceSheet(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30257,7 +30657,8 @@ class SecuritiesLoanedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30317,7 +30718,8 @@ class NetTangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30397,7 +30799,8 @@ class DuefromRelatedPartiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30457,7 +30860,8 @@ class DuefromRelatedPartiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30517,7 +30921,8 @@ class DuetoRelatedPartiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30577,7 +30982,8 @@ class DuetoRelatedPartiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30637,7 +31043,8 @@ class DuetoRelatedPartiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30697,7 +31104,8 @@ class InvestmentPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30757,7 +31165,8 @@ class InvestmentsinSubsidiariesatCostBalanceSheet(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30817,7 +31226,8 @@ class InvestmentsinAssociatesatCostBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30877,7 +31287,8 @@ class InvestmentsinJointVenturesatCostBalanceSheet(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -30937,7 +31348,8 @@ class InvestmentinFinancialAssetsBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31002,7 +31414,8 @@ class FinanceLeaseReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31062,7 +31475,8 @@ class ConvertibleLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31117,7 +31531,8 @@ class BankLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31177,7 +31592,8 @@ class OtherLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31237,7 +31653,8 @@ class AccruedandDeferredIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31297,7 +31714,8 @@ class BankLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31357,7 +31775,8 @@ class OtherLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31417,7 +31836,8 @@ class OtherReservesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31477,7 +31897,8 @@ class LoansandAdvancestoBankBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31537,7 +31958,8 @@ class LoansandAdvancestoCustomerBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31597,7 +32019,8 @@ class TreasuryBillsandOtherEligibleBillsBalanceSheet(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31657,7 +32080,8 @@ class EquitySharesInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31717,7 +32141,8 @@ class DepositsbyBankBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31777,7 +32202,8 @@ class CustomerAccountsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31837,7 +32263,8 @@ class ItemsinTheCourseofTransmissiontoOtherBanksBalanceSheet(QuantConnect.Data.F
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31897,7 +32324,8 @@ class TradingandFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -31957,7 +32385,8 @@ class DebtSecuritiesinIssueBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32017,7 +32446,8 @@ class SubordinatedLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32077,7 +32507,8 @@ class ProvisionsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32137,7 +32568,8 @@ class OperatingLeaseAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32197,7 +32629,8 @@ class ClaimsOutstandingBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32257,7 +32690,8 @@ class LiabilitiesHeldforSaleCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32317,7 +32751,8 @@ class LiabilitiesHeldforSaleNonCurrentBalanceSheet(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32377,7 +32812,8 @@ class DebtSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32437,7 +32873,8 @@ class TotalFinancialLeaseObligationsBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32497,7 +32934,8 @@ class AccruedandDeferredIncomeCurrentBalanceSheet(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32557,7 +32995,8 @@ class AccruedandDeferredIncomeNonCurrentBalanceSheet(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32617,7 +33056,8 @@ class FinanceLeaseReceivablesCurrentBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32677,7 +33117,8 @@ class FinanceLeaseReceivablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamenta
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32737,7 +33178,8 @@ class FinancialLiabilitiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32797,7 +33239,8 @@ class FinancialLiabilitiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32857,7 +33300,8 @@ class FinancialAssetsDesignatedasFairValueThroughProfitorLossTotalBalanceSheet(Q
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32917,7 +33361,8 @@ class TaxesAssetsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -32977,7 +33422,8 @@ class OtherEquityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33037,7 +33483,8 @@ class InterestBearingBorrowingsNonCurrentBalanceSheet(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33097,7 +33544,8 @@ class NonInterestBearingBorrowingsNonCurrentBalanceSheet(QuantConnect.Data.Funda
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33157,7 +33605,8 @@ class TradeandOtherPayablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33217,7 +33666,8 @@ class NonInterestBearingBorrowingsCurrentBalanceSheet(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33277,7 +33727,8 @@ class PensionandOtherPostRetirementBenefitPlansCurrentBalanceSheet(QuantConnect.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33337,7 +33788,8 @@ class OtherLoanAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33397,7 +33849,8 @@ class AssetsPledgedasCollateralSubjecttoSaleorRepledgingTotalBalanceSheet(QuantC
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33457,7 +33910,8 @@ class TaxAssetsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33517,7 +33971,8 @@ class AdvancesfromCentralBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33577,7 +34032,8 @@ class DepositCertificatesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33637,7 +34093,8 @@ class NonInterestBearingBorrowingsTotalBalanceSheet(QuantConnect.Data.Fundamenta
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33697,7 +34154,8 @@ class OtherBorrowedFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33757,7 +34215,8 @@ class FinancialLiabilitiesDesignatedasFairValueThroughProfitorLossTotalBalanceSh
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33817,7 +34276,8 @@ class FinancialLiabilitiesMeasuredatAmortizedCostTotalBalanceSheet(QuantConnect.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33877,7 +34337,8 @@ class AccruedLiabilitiesTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -33942,7 +34403,8 @@ class DeferredIncomeTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34002,7 +34464,8 @@ class DeferredTaxLiabilitiesTotalBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34062,7 +34525,8 @@ class ReinsuranceAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34122,7 +34586,8 @@ class DepositsMadeunderAssumedReinsuranceContractBalanceSheet(QuantConnect.Data.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34182,7 +34647,8 @@ class InsuranceContractAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34242,7 +34708,8 @@ class InsuranceContractLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34302,7 +34769,8 @@ class DepositsReceivedunderCededInsuranceContractBalanceSheet(QuantConnect.Data.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34362,7 +34830,8 @@ class InvestmentContractLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34422,7 +34891,8 @@ class PensionAndOtherPostretirementBenefitPlansTotalBalanceSheet(QuantConnect.Da
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34482,7 +34952,8 @@ class LiabilitiesHeldforSaleTotalBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34542,7 +35013,8 @@ class HedgingAssetsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34602,7 +35074,8 @@ class ConvertibleLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34662,7 +35135,8 @@ class BankLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34722,7 +35196,8 @@ class OtherLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34782,7 +35257,8 @@ class InsuranceFundsNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34842,7 +35318,8 @@ class DebtTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34902,7 +35379,8 @@ class ComTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -34962,7 +35440,8 @@ class PreTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35015,14 +35494,15 @@ class PreTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
 
 
 class NetDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is a metric that shows a company's overall debt situation by netting the value of a company's liabilities and debts with its cash and other similar liquid assets. It is calculated using [Current Debt] + [Long Term Debt] - [Cash and Cash Equivalents]."""
+    """This is a metric that shows a company's overall debt situation by netting the value of a company's liabilities and debts with its cash and other similar liquid assets. It is calculated using <Current Debt> + <Long Term Debt> - <Cash and Cash Equivalents>."""
 
     @property
     def default_period(self) -> str:
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35102,7 +35582,8 @@ class ShareIssuedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35162,7 +35643,8 @@ class AssetsHeldForSaleCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35222,7 +35704,8 @@ class AssetsHeldForSaleNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35282,7 +35765,8 @@ class BiologicalAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35342,7 +35826,8 @@ class CashRestrictedOrPledgedBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35402,7 +35887,8 @@ class ConvertibleLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35462,7 +35948,8 @@ class FinancialOrDerivativeInvestmentCurrentLiabilitiesBalanceSheet(QuantConnect
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35522,7 +36009,8 @@ class OtherInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35582,7 +36070,8 @@ class TradeAndOtherReceivablesNonCurrentBalanceSheet(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35642,7 +36131,8 @@ class DueFromRelatedPartiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35702,7 +36192,8 @@ class UnallocatedSurplusBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35762,7 +36253,8 @@ class DebtDueInYear1BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35822,7 +36314,8 @@ class DebtDueInYear2BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35882,7 +36375,8 @@ class DebtDueInYear5BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -35942,7 +36436,8 @@ class DebtDueBeyondBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -36002,7 +36497,8 @@ class TotalDebtInMaturityScheduleBalanceSheet(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -36062,7 +36558,8 @@ class FixedAssetsRevaluationReserveBalanceSheet(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -36122,7 +36619,8 @@ class CurrentOtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -36182,7 +36680,8 @@ class NonCurrentOtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -36242,7 +36741,8 @@ class OtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -36302,7 +36802,8 @@ class TotalLiabilitiesAsReportedBalanceSheet(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -36362,7 +36863,8 @@ class TotalEquityAsReportedBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -36414,7 +36916,7 @@ class TotalEquityAsReportedBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class BalanceSheet(ReusuableCLRObject):
+class BalanceSheet:
     """Definition of the BalanceSheet class"""
 
     @property
@@ -37849,7 +38351,7 @@ class BalanceSheet(ReusuableCLRObject):
 
     @property
     def net_debt(self) -> QuantConnect.Data.Fundamental.NetDebtBalanceSheet:
-        """This is a metric that shows a company's overall debt situation by netting the value of a company's liabilities and debts with its cash and other similar liquid assets. It is calculated using [Current Debt] + [Long Term Debt] - [Cash and Cash Equivalents]."""
+        """This is a metric that shows a company's overall debt situation by netting the value of a company's liabilities and debts with its cash and other similar liquid assets. It is calculated using <Current Debt> + <Long Term Debt> - <Cash and Cash Equivalents>."""
         ...
 
     @property
@@ -37975,7 +38477,8 @@ class CashFlowFileDate(QuantConnect.Data.Fundamental.MultiPeriodField[datetime.d
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38055,7 +38558,8 @@ class AmortizationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38135,7 +38639,8 @@ class CapitalExpenditureCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38215,7 +38720,8 @@ class CashDividendsPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38295,7 +38801,8 @@ class CashFlowFromContinuingFinancingActivitiesCashFlowStatement(QuantConnect.Da
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38370,7 +38877,8 @@ class CashFlowFromContinuingInvestingActivitiesCashFlowStatement(QuantConnect.Da
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38445,7 +38953,8 @@ class CashFlowFromContinuingOperatingActivitiesCashFlowStatement(QuantConnect.Da
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38520,7 +39029,8 @@ class CashFlowFromDiscontinuedOperationCashFlowStatement(QuantConnect.Data.Funda
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38590,7 +39100,8 @@ class FinancingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38670,7 +39181,8 @@ class InvestingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38750,7 +39262,8 @@ class OperatingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38830,7 +39343,8 @@ class BeginningCashPositionCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38910,7 +39424,8 @@ class EndCashPositionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -38990,7 +39505,8 @@ class CashFromDiscontinuedFinancingActivitiesCashFlowStatement(QuantConnect.Data
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39060,7 +39576,8 @@ class CashFromDiscontinuedInvestingActivitiesCashFlowStatement(QuantConnect.Data
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39130,7 +39647,8 @@ class ChangeInAccountPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39210,7 +39728,8 @@ class ChangeInTaxPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39290,7 +39809,8 @@ class ChangeInAccruedExpenseCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39370,7 +39890,8 @@ class ChangeInAccruedInvestmentIncomeCashFlowStatement(QuantConnect.Data.Fundame
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39440,7 +39961,8 @@ class ChangesInCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39520,7 +40042,8 @@ class ChangeInDeferredAcquisitionCostsCashFlowStatement(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39590,7 +40113,8 @@ class ChangeInFederalFundsAndSecuritiesSoldForRepurchaseCashFlowStatement(QuantC
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39660,7 +40184,8 @@ class ChangeInFundsWithheldCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39730,7 +40255,8 @@ class ChangeInIncomeTaxPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39810,7 +40336,8 @@ class ChangeInInterestPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39890,7 +40417,8 @@ class ChangeInInventoryCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -39970,7 +40498,8 @@ class ChangeInLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40040,7 +40569,8 @@ class ChangeInLossAndLossAdjustmentExpenseReservesCashFlowStatement(QuantConnect
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40110,7 +40640,8 @@ class ChangeInPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40190,7 +40721,8 @@ class ChangeInPayablesAndAccruedExpenseCashFlowStatement(QuantConnect.Data.Funda
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40270,7 +40802,8 @@ class ChangeInPrepaidAssetsCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40350,7 +40883,8 @@ class ChangeInReceivablesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40430,7 +40964,8 @@ class ChangeInReinsuranceRecoverableOnPaidAndUnpaidLossesCashFlowStatement(Quant
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40500,7 +41035,8 @@ class ChangeInRestrictedCashCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40560,7 +41096,8 @@ class ChangeInTradingAccountSecuritiesCashFlowStatement(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40630,7 +41167,8 @@ class ChangeInWorkingCapitalCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40710,7 +41248,8 @@ class DeferredIncomeTaxCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40790,7 +41329,8 @@ class DeferredTaxCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40870,7 +41410,8 @@ class DepletionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -40940,7 +41481,8 @@ class DepreciationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41020,7 +41562,8 @@ class DepreciationAndAmortizationCashFlowStatement(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41100,7 +41643,8 @@ class DepreciationAmortizationDepletionCashFlowStatement(QuantConnect.Data.Funda
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41180,7 +41724,8 @@ class EffectOfExchangeRateChangesCashFlowStatement(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41260,7 +41805,8 @@ class IncreaseDecreaseInDepositCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41330,7 +41876,8 @@ class NetCommonStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41410,7 +41957,8 @@ class NetIssuancePaymentsOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41490,7 +42038,8 @@ class NetLongTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41570,7 +42119,8 @@ class NetPreferredStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41650,7 +42200,8 @@ class NetShortTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41730,7 +42281,8 @@ class NetCashFromDiscontinuedOperationsCashFlowStatement(QuantConnect.Data.Funda
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41800,7 +42352,8 @@ class NetForeignCurrencyExchangeGainLossCashFlowStatement(QuantConnect.Data.Fund
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41875,7 +42428,8 @@ class NetIncomeFromContinuingOperationsCashFlowStatement(QuantConnect.Data.Funda
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -41955,7 +42509,8 @@ class PaymentForLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42025,7 +42580,8 @@ class CommonStockPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42105,7 +42661,8 @@ class PreferredStockPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42180,7 +42737,8 @@ class LongTermDebtPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42260,7 +42818,8 @@ class ShortTermDebtPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42340,7 +42899,8 @@ class ProceedsFromLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42410,7 +42970,8 @@ class ProceedsFromStockOptionExercisedCashFlowStatement(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42490,7 +43051,8 @@ class CommonStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42570,7 +43132,8 @@ class LongTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42650,7 +43213,8 @@ class PreferredStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42730,7 +43294,8 @@ class ShortTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42810,7 +43375,8 @@ class NetProceedsPaymentForLoanCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42880,7 +43446,8 @@ class ProceedsPaymentInInterestBearingDepositsInBankCashFlowStatement(QuantConne
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -42950,7 +43517,8 @@ class PurchaseOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43030,7 +43598,8 @@ class PurchaseOfInvestmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43110,7 +43679,8 @@ class PurchaseOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43190,7 +43760,8 @@ class PurchaseOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43270,7 +43841,8 @@ class NetBusinessPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43350,7 +43922,8 @@ class NetIntangiblesPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43430,7 +44003,8 @@ class NetInvestmentPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamenta
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43510,7 +44084,8 @@ class NetPPEPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43590,7 +44165,8 @@ class SaleOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43670,7 +44246,8 @@ class SaleOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43745,7 +44322,8 @@ class SaleOfInvestmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43825,7 +44403,8 @@ class SaleOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43905,7 +44484,8 @@ class ChangesInAccountReceivablesCashFlowStatement(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -43985,7 +44565,8 @@ class AmortizationOfFinancingCostsAndDiscountsCashFlowStatement(QuantConnect.Dat
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44065,7 +44646,8 @@ class AmortizationOfSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44145,7 +44727,8 @@ class AssetImpairmentChargeCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44225,7 +44808,8 @@ class ChangeInDividendPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44295,7 +44879,8 @@ class ChangeInDeferredChargesCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44365,7 +44950,8 @@ class ChangeInOtherCurrentAssetsCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44445,7 +45031,8 @@ class ChangeInOtherCurrentLiabilitiesCashFlowStatement(QuantConnect.Data.Fundame
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44525,7 +45112,8 @@ class ChangeInOtherWorkingCapitalCashFlowStatement(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44605,7 +45193,8 @@ class ChangeInUnearnedPremiumsCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44675,7 +45264,8 @@ class CommonStockDividendPaidCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44755,7 +45345,8 @@ class EarningsLossesFromEquityInvestmentsCashFlowStatement(QuantConnect.Data.Fun
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44835,7 +45426,8 @@ class ExcessTaxBenefitFromStockBasedCompensationCashFlowStatement(QuantConnect.D
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44910,7 +45502,8 @@ class GainLossOnInvestmentSecuritiesCashFlowStatement(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -44990,7 +45583,8 @@ class GainLossOnSaleOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45070,7 +45664,8 @@ class GainLossOnSaleOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45150,7 +45745,8 @@ class InterestCreditedOnPolicyholderDepositsCashFlowStatement(QuantConnect.Data.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45220,7 +45816,8 @@ class CashFromDiscontinuedOperatingActivitiesCashFlowStatement(QuantConnect.Data
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45290,7 +45887,8 @@ class OperatingGainsLossesCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45370,7 +45968,8 @@ class NetOtherFinancingChargesCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45450,7 +46049,8 @@ class NetOtherInvestingChangesCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45530,7 +46130,8 @@ class OtherNonCashItemsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45610,7 +46211,8 @@ class PensionAndEmployeeBenefitExpenseCashFlowStatement(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45690,7 +46292,8 @@ class PreferredStockDividendPaidCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45770,7 +46373,8 @@ class ProceedsPaymentFederalFundsSoldAndSecuritiesPurchasedUnderAgreementToResel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45840,7 +46444,8 @@ class ProvisionForLoanLeaseAndOtherLossesCashFlowStatement(QuantConnect.Data.Fun
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45910,7 +46515,8 @@ class RealizedGainLossOnSaleOfLoansAndLeaseCashFlowStatement(QuantConnect.Data.F
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -45985,7 +46591,8 @@ class StockBasedCompensationCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46065,7 +46672,8 @@ class UnrealizedGainLossOnInvestmentSecuritiesCashFlowStatement(QuantConnect.Dat
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46145,7 +46753,8 @@ class UnrealizedGainsLossesOnDerivativesCashFlowStatement(QuantConnect.Data.Fund
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46205,7 +46814,8 @@ class AmortizationOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46285,7 +46895,8 @@ class IncomeTaxPaidSupplementalDataCashFlowStatement(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46365,7 +46976,8 @@ class InterestPaidSupplementalDataCashFlowStatement(QuantConnect.Data.Fundamenta
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46445,7 +47057,8 @@ class IssuanceOfCapitalStockCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46525,7 +47138,8 @@ class IssuanceOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46605,7 +47219,8 @@ class RepaymentOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46685,7 +47300,8 @@ class RepurchaseOfCapitalStockCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46765,7 +47381,8 @@ class FreeCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46845,7 +47462,8 @@ class DecreaseInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46915,7 +47533,8 @@ class IncreaseInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -46985,7 +47604,8 @@ class InterestReceivedCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47055,7 +47675,8 @@ class InterestPaidCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47125,7 +47746,8 @@ class PurchaseOfSubsidiariesCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47195,7 +47817,8 @@ class PurchaseOfJointVentureAssociateCashFlowStatement(QuantConnect.Data.Fundame
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47265,7 +47888,8 @@ class SaleOfSubsidiariesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47325,7 +47949,8 @@ class SaleOfJointVentureAssociateCashFlowStatement(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47395,7 +48020,8 @@ class IncreaseDecreaseInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47465,7 +48091,8 @@ class IncreaseInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47525,7 +48152,8 @@ class RepaymentInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47595,7 +48223,8 @@ class ShareOfAssociatesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47665,7 +48294,8 @@ class ProfitOnDisposalsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47735,7 +48365,8 @@ class ReorganizationOtherCostsCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47805,7 +48436,8 @@ class NetOutwardLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47860,7 +48492,8 @@ class IssueExpensesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47935,7 +48568,8 @@ class ChangeinDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.Data.Fun
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -47990,7 +48624,8 @@ class CashFlowsfromusedinOperatingActivitiesDirectCashFlowStatement(QuantConnect
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48065,7 +48700,8 @@ class ClassesofCashReceiptsfromOperatingActivitiesCashFlowStatement(QuantConnect
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48140,7 +48776,8 @@ class OtherCashReceiptsfromOperatingActivitiesCashFlowStatement(QuantConnect.Dat
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48215,7 +48852,8 @@ class ClassesofCashPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48290,7 +48928,8 @@ class PaymentstoSuppliersforGoodsandServicesCashFlowStatement(QuantConnect.Data.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48360,7 +48999,8 @@ class PaymentsonBehalfofEmployeesCashFlowStatement(QuantConnect.Data.Fundamental
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48430,7 +49070,8 @@ class OtherCashPaymentsfromOperatingActivitiesCashFlowStatement(QuantConnect.Dat
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48505,7 +49146,8 @@ class DividendsPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48560,7 +49202,8 @@ class DividendsReceivedDirectCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48630,7 +49273,8 @@ class InterestPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48700,7 +49344,8 @@ class InterestReceivedDirectCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48770,7 +49415,8 @@ class TaxesRefundPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48840,7 +49486,8 @@ class TotalAdjustmentsforNonCashItemsCashFlowStatement(QuantConnect.Data.Fundame
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48915,7 +49562,8 @@ class ImpairmentLossReversalRecognizedinProfitorLossCashFlowStatement(QuantConne
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -48985,7 +49633,8 @@ class DividendPaidCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49040,7 +49689,8 @@ class DividendReceivedCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49100,7 +49750,8 @@ class TaxesRefundPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49170,7 +49821,8 @@ class OtherOperatingInflowsOutflowsofCashCashFlowStatement(QuantConnect.Data.Fun
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49240,7 +49892,8 @@ class CashAdvancesandLoansMadetoOtherPartiesCashFlowStatement(QuantConnect.Data.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49295,7 +49948,8 @@ class CashReceiptsfromRepaymentofAdvancesandLoansMadetoOtherPartiesCashFlowState
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49355,7 +50009,8 @@ class DividendsReceivedCFICashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49425,7 +50080,8 @@ class InterestReceivedCFICashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49495,7 +50151,8 @@ class InterestPaidCFFCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49565,7 +50222,8 @@ class ChangeinAccruedIncomeCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49635,7 +50293,8 @@ class ChangeinFinancialAssetsCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49690,7 +50349,8 @@ class ChangeinAdvancesfromCentralBanksCashFlowStatement(QuantConnect.Data.Fundam
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49760,7 +50420,8 @@ class ChangeinFinancialLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamenta
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49830,7 +50491,8 @@ class ChangeinInsuranceContractAssetsCashFlowStatement(QuantConnect.Data.Fundame
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49900,7 +50562,8 @@ class ChangeinReinsuranceReceivablesCashFlowStatement(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -49970,7 +50633,8 @@ class ChangeinDeferredAcquisitionCostsNetCashFlowStatement(QuantConnect.Data.Fun
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50040,7 +50704,8 @@ class ChangeinInsuranceFundsCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50110,7 +50775,8 @@ class ChangeinInvestmentContractLiabilitiesCashFlowStatement(QuantConnect.Data.F
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50180,7 +50846,8 @@ class ChangeinInsuranceContractLiabilitiesCashFlowStatement(QuantConnect.Data.Fu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50250,7 +50917,8 @@ class ProvisionandWriteOffofAssetsCashFlowStatement(QuantConnect.Data.Fundamenta
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50320,7 +50988,8 @@ class ReceiptsfromCustomersCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50390,7 +51059,8 @@ class ReceiptsfromGovernmentGrantsCashFlowStatement(QuantConnect.Data.Fundamenta
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50460,7 +51130,8 @@ class MinorityInterestCashFlowStatement(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50515,7 +51186,8 @@ class CapExReportedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50595,7 +51267,8 @@ class CashReceiptsfromTaxRefundsCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50665,7 +51338,8 @@ class CashReceiptsfromDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50740,7 +51414,8 @@ class CashReceiptsfromLoansCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50815,7 +51490,8 @@ class CashReceiptsfromSecuritiesRelatedActivitiesCashFlowStatement(QuantConnect.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50890,7 +51566,8 @@ class CashReceiptsfromFeesandCommissionsCashFlowStatement(QuantConnect.Data.Fund
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -50960,7 +51637,8 @@ class CashPaymentsforDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.D
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51035,7 +51713,8 @@ class CashPaymentsforLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51105,7 +51784,8 @@ class InterestandCommissionPaidCashFlowStatement(QuantConnect.Data.Fundamental.M
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51175,7 +51855,8 @@ class AllTaxesPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51250,7 +51931,8 @@ class CashReceivedfromInsuranceActivitiesCashFlowStatement(QuantConnect.Data.Fun
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51320,7 +52002,8 @@ class PremiumReceivedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51390,7 +52073,8 @@ class ReinsuranceandOtherRecoveriesReceivedCashFlowStatement(QuantConnect.Data.F
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51460,7 +52144,8 @@ class PolicyholderDepositInvestmentReceivedCashFlowStatement(QuantConnect.Data.F
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51530,7 +52215,8 @@ class CashPaidforInsuranceActivitiesCashFlowStatement(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51600,7 +52286,8 @@ class ClaimsPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51670,7 +52357,8 @@ class CommissionPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51740,7 +52428,8 @@ class CashPaidtoReinsurersCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51810,7 +52499,8 @@ class OtherUnderwritingExpensesPaidCashFlowStatement(QuantConnect.Data.Fundament
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51880,7 +52570,8 @@ class CashDividendsForMinoritiesCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -51950,7 +52641,8 @@ class CashGeneratedfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fu
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -52020,7 +52712,8 @@ class FundFromOperationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -52090,7 +52783,8 @@ class NetInvestmentPropertiesPurchaseAndSaleCashFlowStatement(QuantConnect.Data.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -52160,7 +52854,8 @@ class PurchaseOfInvestmentPropertiesCashFlowStatement(QuantConnect.Data.Fundamen
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -52230,7 +52925,8 @@ class SaleOfInvestmentPropertiesCashFlowStatement(QuantConnect.Data.Fundamental.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -52300,7 +52996,8 @@ class OtherCashAdjustIncludedIntoChangeinCashCashFlowStatement(QuantConnect.Data
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -52370,7 +53067,8 @@ class OtherCashAdjustExcludeFromChangeinCashCashFlowStatement(QuantConnect.Data.
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -52440,7 +53138,8 @@ class ChangeinCashSupplementalAsReportedCashFlowStatement(QuantConnect.Data.Fund
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -52502,7 +53201,7 @@ class ChangeinCashSupplementalAsReportedCashFlowStatement(QuantConnect.Data.Fund
         ...
 
 
-class CashFlowStatement(ReusuableCLRObject):
+class CashFlowStatement:
     """Definition of the CashFlowStatement class"""
 
     @property
@@ -53580,7 +54279,8 @@ class EarningReportsPeriodEndingDate(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -53660,7 +54360,8 @@ class EarningReportsFileDate(QuantConnect.Data.Fundamental.MultiPeriodField[date
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -53740,7 +54441,8 @@ class EarningReportsAccessionNumber(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -53815,7 +54517,8 @@ class EarningReportsFormType(QuantConnect.Data.Fundamental.MultiPeriodField[str]
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -53895,7 +54598,8 @@ class EarningReportsPeriodType(QuantConnect.Data.Fundamental.MultiPeriodField[st
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -53975,7 +54679,8 @@ class BasicContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54055,7 +54760,8 @@ class BasicDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54135,7 +54841,8 @@ class BasicExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54215,7 +54922,8 @@ class BasicAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54285,7 +54993,8 @@ class BasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54365,7 +55074,8 @@ class DilutedContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54445,7 +55155,8 @@ class DilutedDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodFi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54525,7 +55236,8 @@ class DilutedExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54605,7 +55317,8 @@ class DilutedAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54675,7 +55388,8 @@ class DilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54755,7 +55469,8 @@ class BasicAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54835,7 +55550,8 @@ class DilutedAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54915,7 +55631,8 @@ class DividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54995,7 +55712,8 @@ class BasicEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55065,7 +55783,8 @@ class ContinuingAndDiscontinuedBasicEPS(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55145,7 +55864,8 @@ class TaxLossCarryforwardBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55215,7 +55935,8 @@ class DilutedEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55285,7 +56006,8 @@ class ContinuingAndDiscontinuedDilutedEPS(QuantConnect.Data.Fundamental.MultiPer
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55365,7 +56087,8 @@ class TaxLossCarryforwardDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55435,7 +56158,8 @@ class NormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55515,7 +56239,8 @@ class NormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55595,7 +56320,8 @@ class TotalDividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55675,7 +56401,8 @@ class ReportedNormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55745,7 +56472,8 @@ class ReportedNormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodFiel
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -55815,7 +56543,8 @@ class DividendCoverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56047,7 +56776,8 @@ class RevenueGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56117,7 +56847,8 @@ class OperationIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56187,7 +56918,8 @@ class NetIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56257,7 +56989,8 @@ class NetIncomeContOpsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56327,7 +57060,8 @@ class CFOGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56392,7 +57126,8 @@ class FCFGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56457,7 +57192,8 @@ class OperationRevenueGrowth3MonthAvg(QuantConnect.Data.Fundamental.MultiPeriodF
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56527,7 +57263,8 @@ class GrossMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56607,7 +57344,8 @@ class OperationMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56687,7 +57425,8 @@ class PretaxMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56767,7 +57506,8 @@ class NetMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56840,14 +57580,15 @@ class NetMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
 
 
 class TaxRate(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of tax provision to pretax income. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Tax Provision / Pretax Income. [Note: Valid only when positive pretax income, and positive tax expense (not tax benefit)]"""
+    """Refers to the ratio of tax provision to pretax income. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Tax Provision / Pretax Income. <Note: Valid only when positive pretax income, and positive tax expense (not tax benefit)>"""
 
     @property
     def default_period(self) -> str:
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -56927,7 +57668,8 @@ class EBITMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57007,7 +57749,8 @@ class EBITDAMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57087,7 +57830,8 @@ class SalesPerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57167,7 +57911,8 @@ class CurrentRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57247,7 +57992,8 @@ class QuickRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57327,7 +58073,8 @@ class LongTermDebtTotalCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodFie
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57407,7 +58154,8 @@ class InterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57480,14 +58228,15 @@ class InterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField):
 
 
 class LongTermDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of Long Term Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / Common Equity. [Note: Common Equity = Total Shareholder's Equity - Preferred Stock]"""
+    """Refers to the ratio of Long Term Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
 
     @property
     def default_period(self) -> str:
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57560,14 +58309,15 @@ class LongTermDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
 
 
 class FinancialLeverage(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of Total Assets to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Total Assets / Common Equity. [Note: Common Equity = Total Shareholder's Equity - Preferred Stock]"""
+    """Refers to the ratio of Total Assets to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Total Assets / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
 
     @property
     def default_period(self) -> str:
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57640,14 +58390,15 @@ class FinancialLeverage(QuantConnect.Data.Fundamental.MultiPeriodField):
 
 
 class TotalDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of Total Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: (Current Debt And Current Capital Lease Obligation + Long-Term Debt And Long-Term Capital Lease Obligation / Common Equity. [Note: Common Equity = Total Shareholder's Equity - Preferred Stock]"""
+    """Refers to the ratio of Total Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: (Current Debt And Current Capital Lease Obligation + Long-Term Debt And Long-Term Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
 
     @property
     def default_period(self) -> str:
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57727,7 +58478,8 @@ class NormalizedNetProfitMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57807,7 +58559,8 @@ class DaysInSales(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57872,7 +58625,8 @@ class DaysInInventory(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -57937,7 +58691,8 @@ class DaysInPayment(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58002,7 +58757,8 @@ class CashConversionCycle(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58067,7 +58823,8 @@ class ReceivableTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58132,7 +58889,8 @@ class InventoryTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58197,7 +58955,8 @@ class PaymentTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58262,7 +59021,8 @@ class FixAssetsTuronver(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58327,7 +59087,8 @@ class AssetsTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58392,7 +59153,8 @@ class ROE(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58457,7 +59219,8 @@ class ROA(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58522,7 +59285,8 @@ class ROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58587,7 +59351,8 @@ class FCFSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58642,7 +59407,8 @@ class FCFNetIncomeRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58697,7 +59463,8 @@ class CapExSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58752,7 +59519,8 @@ class DebtToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58832,7 +59600,8 @@ class CommonEquityToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58912,7 +59681,8 @@ class CapitalExpenditureAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -58977,7 +59747,8 @@ class GrossProfitAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59042,7 +59813,8 @@ class GrossMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59097,7 +59869,8 @@ class PostTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59152,7 +59925,8 @@ class PreTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59207,7 +59981,8 @@ class ProfitMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59262,7 +60037,8 @@ class ROE5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59317,7 +60093,8 @@ class ROA5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59372,7 +60149,8 @@ class AVG5YrsROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59420,14 +60198,15 @@ class AVG5YrsROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
 
 
 class NormalizedROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """[Normalized Income + (Interest Expense * (1-Tax Rate))] / Invested Capital"""
+    """<Normalized Income + (Interest Expense * (1-Tax Rate))> / Invested Capital"""
 
     @property
     def default_period(self) -> str:
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59492,7 +60271,8 @@ class RegressionGrowthOperatingRevenue5Years(QuantConnect.Data.Fundamental.Multi
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59547,7 +60327,8 @@ class CashRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59607,7 +60388,8 @@ class CashtoTotalAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59667,7 +60449,8 @@ class CapitalExpendituretoEBITDA(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59722,7 +60505,8 @@ class FCFtoCFO(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59777,7 +60561,8 @@ class StockholdersEquityGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59842,7 +60627,8 @@ class TotalAssetsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59907,7 +60693,8 @@ class TotalLiabilitiesGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -59972,7 +60759,8 @@ class TotalDebtEquityRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60037,7 +60825,8 @@ class CashRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60102,7 +60891,8 @@ class EBITDAGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60167,7 +60957,8 @@ class CashFlowFromFinancingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60232,7 +61023,8 @@ class CashFlowFromInvestingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60297,7 +61089,8 @@ class CapExGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60362,7 +61155,8 @@ class CurrentRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60427,7 +61221,8 @@ class WorkingCapitalTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60487,7 +61282,8 @@ class NetIncomePerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60547,7 +61343,8 @@ class SolvencyRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60607,7 +61404,8 @@ class ExpenseRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60667,7 +61465,8 @@ class LossRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -60779,7 +61578,7 @@ class OperationRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProp
 
     @property
     def tax_rate(self) -> QuantConnect.Data.Fundamental.TaxRate:
-        """Refers to the ratio of tax provision to pretax income. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Tax Provision / Pretax Income. [Note: Valid only when positive pretax income, and positive tax expense (not tax benefit)]"""
+        """Refers to the ratio of tax provision to pretax income. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Tax Provision / Pretax Income. <Note: Valid only when positive pretax income, and positive tax expense (not tax benefit)>"""
         ...
 
     @property
@@ -60819,17 +61618,17 @@ class OperationRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProp
 
     @property
     def long_term_debt_equity_ratio(self) -> QuantConnect.Data.Fundamental.LongTermDebtEquityRatio:
-        """Refers to the ratio of Long Term Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / Common Equity. [Note: Common Equity = Total Shareholder's Equity - Preferred Stock]"""
+        """Refers to the ratio of Long Term Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
         ...
 
     @property
     def financial_leverage(self) -> QuantConnect.Data.Fundamental.FinancialLeverage:
-        """Refers to the ratio of Total Assets to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Total Assets / Common Equity. [Note: Common Equity = Total Shareholder's Equity - Preferred Stock]"""
+        """Refers to the ratio of Total Assets to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Total Assets / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
         ...
 
     @property
     def total_debt_equity_ratio(self) -> QuantConnect.Data.Fundamental.TotalDebtEquityRatio:
-        """Refers to the ratio of Total Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: (Current Debt And Current Capital Lease Obligation + Long-Term Debt And Long-Term Capital Lease Obligation / Common Equity. [Note: Common Equity = Total Shareholder's Equity - Preferred Stock]"""
+        """Refers to the ratio of Total Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: (Current Debt And Current Capital Lease Obligation + Long-Term Debt And Long-Term Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
         ...
 
     @property
@@ -60969,7 +61768,7 @@ class OperationRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProp
 
     @property
     def normalized_roic(self) -> QuantConnect.Data.Fundamental.NormalizedROIC:
-        """[Normalized Income + (Interest Expense * (1-Tax Rate))] / Invested Capital"""
+        """<Normalized Income + (Interest Expense * (1-Tax Rate))> / Invested Capital"""
         ...
 
     @property
@@ -61089,7 +61888,8 @@ class DilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -61159,7 +61959,8 @@ class DilutedContEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -61229,7 +62030,8 @@ class DPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -61299,7 +62101,8 @@ class EquityPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -61369,7 +62172,8 @@ class RegressionGrowthofDividends5Years(QuantConnect.Data.Fundamental.MultiPerio
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -61424,7 +62228,8 @@ class FCFPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -61489,7 +62294,8 @@ class BookValuePerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -61559,7 +62365,8 @@ class NormalizedDilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField)
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -61629,7 +62436,8 @@ class NormalizedBasicEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         """
         The default period
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -61863,7 +62671,7 @@ class ValuationRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProp
 
     @property
     def peg_payback(self) -> float:
-        """The number of years it would take for a company's cumulative earnings to equal the stock's current trading price, assuming that the company continues to increase its annual earnings at the growth rate used to calculate the PEG ratio. [ Log (PG/E + 1) / Log (1 + G) ] - 1 Where P=Price E=Next Fiscal Year's Estimated EPS G=Long-term Average Earning Growth"""
+        """The number of years it would take for a company's cumulative earnings to equal the stock's current trading price, assuming that the company continues to increase its annual earnings at the growth rate used to calculate the PEG ratio. < Log (PG/E + 1) / Log (1 + G) > - 1 Where P=Price E=Next Fiscal Year's Estimated EPS G=Long-term Average Earning Growth"""
         ...
 
     @property
@@ -62653,7 +63461,7 @@ class FundamentalInstanceProvider(System.Object):
     """Per symbol we will have a fundamental class provider so the instances can be reused"""
 
     @staticmethod
-    def get(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Fundamental.FundamentalInstanceProvider:
+    def get(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Fundamental.FundamentalInstanceProvider:
         """
         Get's the fundamental instance provider for the requested symbol
         
@@ -62771,12 +63579,12 @@ class FineFundamental(QuantConnect.Data.UniverseSelection.CoarseFundamental):
         ...
 
     @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
         """Creates a new instance for the given time and security"""
         ...
 
     @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], fundamental_instance_provider: QuantConnect.Data.Fundamental.FundamentalInstanceProvider) -> None:
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fundamental_instance_provider: QuantConnect.Data.Fundamental.FundamentalInstanceProvider) -> None:
         """Creates a new instance for the given time and security"""
         ...
 
@@ -62802,43 +63610,6 @@ class FineFundamental(QuantConnect.Data.UniverseSelection.CoarseFundamental):
     def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
         """This is a daily data set"""
         ...
-
-
-class Period(System.Object):
-    """Period constants for multi-period fields"""
-
-    ONE_MONTH: str = "1M"
-    """Period constant for one month"""
-
-    TWO_MONTHS: str = "2M"
-    """Period constant for two months"""
-
-    THREE_MONTHS: str = "3M"
-    """Period constant for three months"""
-
-    SIX_MONTHS: str = "6M"
-    """Period constant for six months"""
-
-    NINE_MONTHS: str = "9M"
-    """Period constant for nine months"""
-
-    TWELVE_MONTHS: str = "12M"
-    """Period constant for twelve months"""
-
-    ONE_YEAR: str = "1Y"
-    """Period constant for one year"""
-
-    TWO_YEARS: str = "2Y"
-    """Period constant for two years"""
-
-    THREE_YEARS: str = "3Y"
-    """Period constant for three years"""
-
-    FIVE_YEARS: str = "5Y"
-    """Period constant for five years"""
-
-    TEN_YEARS: str = "10Y"
-    """Period constant for ten years"""
 
 
 class Fundamental(QuantConnect.Data.Fundamental.FineFundamental):
@@ -62880,7 +63651,7 @@ class Fundamental(QuantConnect.Data.Fundamental.FineFundamental):
         ...
 
     @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
         """
         Creates a new instance
         
@@ -62918,138 +63689,107 @@ class Fundamental(QuantConnect.Data.Fundamental.FineFundamental):
         ...
 
 
-class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodField_T], ReusuableCLRObject, metaclass=abc.ABCMeta):
-    """Abstract base class for multi-period fields"""
-
-    NO_VALUE: QuantConnect_Data_Fundamental_MultiPeriodField_T
-    """No Value"""
-
-    @property
-    def time_provider(self) -> QuantConnect.ITimeProvider:
-        """
-        The time provider instance to use
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    @abc.abstractmethod
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def security_identifier(self) -> QuantConnect.SecurityIdentifier:
-        """
-        The target security identifier
-        
-        This property is protected.
-        """
-        ...
-
-    @security_identifier.setter
-    def security_identifier(self, value: QuantConnect.SecurityIdentifier) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
-        """Returns the default value for the field"""
-        ...
+class FundamentalUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Lean fundamentals universe data class"""
 
     @overload
     def __init__(self) -> None:
-        """
-        Creates an empty instance
-        
-        This method is protected.
-        """
+        """Creates a new instance"""
         ...
 
     @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
         """
         Creates a new instance
         
-        This method is protected.
+        :param time: The current time
+        :param symbol: The associated symbol
         """
         ...
 
-    def convert_period(self, period: str) -> str:
+    def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Returns a string that represents the current object.
+        Will clone the current instance
         
-        This method is protected.
+        :returns: The cloned instance.
         """
         ...
 
-    def get_period_names(self) -> typing.Iterable[str]:
-        """Gets the list of available period names for the field"""
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
-    def get_period_value(self, period: str) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Return the URL string source of the file. This will be converted to a stream"""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Gets the value of the field for the requested period
+        Will read a new instance from the given line
         
-        :param period: The requested period
-        :returns: The value for the period.
+        :param config: The associated requested configuration
+        :param line: The line to parse
+        :param date: The current time
+        :param is_live_mode: True if live mode
+        :returns: A new instance or null.
         """
         ...
 
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, QuantConnect_Data_Fundamental_MultiPeriodField_T]:
-        """Gets a dictionary of period names and values for the field"""
-        ...
-
-    def has_period_value(self, period: str) -> bool:
+    def universe_symbol(self, market: str = None) -> QuantConnect.Symbol:
         """
-        Returns true if the field contains a value for the requested period
+        Creates the universe symbol for the target market
         
-        :returns: True if the field contains a value for the requested period.
+        :returns: The universe symbol to use.
         """
         ...
 
-    def has_values(self) -> bool:
-        """Returns true if the field has at least one value for one period"""
-        ...
-
-    def to_string(self) -> str:
-        """Returns a string that represents the current object."""
-        ...
-
-
-class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], metaclass=abc.ABCMeta):
-    """Abstract class for multi-period fields long"""
-
+    @staticmethod
     @overload
-    def __init__(self) -> None:
+    def usa(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
         """
-        Creates an empty instance
+        Creates a new fundamental universe for the USA market
         
-        This method is protected.
+        :param selector: The selector function
+        :param universe_settings: The universe settings to use, will default to algorithms if not provided
+        :returns: A configured new universe instance.
         """
         ...
 
+    @staticmethod
     @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+    def usa(selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
         """
-        Creates a new instance
+        Creates a new fundamental universe for the USA market
         
-        This method is protected.
+        :param selector: The selector function
+        :param universe_settings: The universe settings to use, will default to algorithms if not provided
+        :returns: A configured new universe instance.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def usa(selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], System.Object], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
+        """
+        Creates a new fundamental universe for the USA market
+        
+        :param selector: The selector function
+        :param universe_settings: The universe settings to use, will default to algorithms if not provided
+        :returns: A configured new universe instance.
         """
         ...
 
 
-class FundamentalProperty(Enum):
+class Fundamentals(QuantConnect.Data.Fundamental.FundamentalUniverse):
+    """
+    Lean fundamentals universe data class
+    
+    
+    'Fundamentals' was renamed to 'FundamentalUniverse'
+    """
+
+
+class FundamentalProperty(IntEnum):
     """The fundamental property to access"""
 
     MARKET = 0
@@ -70296,111 +71036,191 @@ class FundamentalProperty(Enum):
 
     ASSET_CLASSIFICATION_CANNAICS = 3621
 
-    def __int__(self) -> int:
+
+class Period(System.Object):
+    """Period constants for multi-period fields"""
+
+    ONE_MONTH: str = "1M"
+    """Period constant for one month"""
+
+    TWO_MONTHS: str = "2M"
+    """Period constant for two months"""
+
+    THREE_MONTHS: str = "3M"
+    """Period constant for three months"""
+
+    SIX_MONTHS: str = "6M"
+    """Period constant for six months"""
+
+    NINE_MONTHS: str = "9M"
+    """Period constant for nine months"""
+
+    TWELVE_MONTHS: str = "12M"
+    """Period constant for twelve months"""
+
+    ONE_YEAR: str = "1Y"
+    """Period constant for one year"""
+
+    TWO_YEARS: str = "2Y"
+    """Period constant for two years"""
+
+    THREE_YEARS: str = "3Y"
+    """Period constant for three years"""
+
+    FIVE_YEARS: str = "5Y"
+    """Period constant for five years"""
+
+    TEN_YEARS: str = "10Y"
+    """Period constant for ten years"""
+
+
+class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodField_T], metaclass=abc.ABCMeta):
+    """Abstract base class for multi-period fields"""
+
+    NO_VALUE: QuantConnect_Data_Fundamental_MultiPeriodField_T
+    """No Value"""
+
+    @property
+    def time_provider(self) -> QuantConnect.ITimeProvider:
+        """
+        The time provider instance to use
+        
+        
+        This codeEntityType is protected.
+        """
         ...
 
+    @property
+    @abc.abstractmethod
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
 
-class FundamentalUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Lean fundamentals universe data class"""
+    @property
+    def security_identifier(self) -> QuantConnect.SecurityIdentifier:
+        """
+        The target security identifier
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @security_identifier.setter
+    def security_identifier(self, value: QuantConnect.SecurityIdentifier) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
+        """Returns the default value for the field"""
+        ...
 
     @overload
     def __init__(self) -> None:
-        """Creates a new instance"""
+        """
+        Creates an empty instance
+        
+        
+        This codeEntityType is protected.
+        """
         ...
 
     @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
         """
         Creates a new instance
         
-        :param time: The current time
-        :param symbol: The associated symbol
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Will clone the current instance
         
-        :returns: The cloned instance.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """Return the URL string source of the file. This will be converted to a stream"""
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Will read a new instance from the given line
+        This codeEntityType is protected.
         
-        :param config: The associated requested configuration
-        :param line: The line to parse
-        :param date: The current time
-        :param is_live_mode: True if live mode
-        :returns: A new instance or null.
+        :param time_provider: 
+        :param security_identifier: 
         """
         ...
 
-    def universe_symbol(self, market: str = None) -> QuantConnect.Symbol:
+    def convert_period(self, period: str) -> str:
         """
-        Creates the universe symbol for the target market
+        Returns a string that represents the current object.
         
-        :returns: The universe symbol to use.
+        
+        This codeEntityType is protected.
         """
         ...
 
-    @staticmethod
+    def get_period_names(self) -> typing.Iterable[str]:
+        """Gets the list of available period names for the field"""
+        ...
+
+    def get_period_value(self, period: str) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, QuantConnect_Data_Fundamental_MultiPeriodField_T]:
+        """Gets a dictionary of period names and values for the field"""
+        ...
+
+    def has_period_value(self, period: str) -> bool:
+        """
+        Returns true if the field contains a value for the requested period
+        
+        :returns: True if the field contains a value for the requested period.
+        """
+        ...
+
+    def has_values(self) -> bool:
+        """Returns true if the field has at least one value for one period"""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string that represents the current object."""
+        ...
+
+
+class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], metaclass=abc.ABCMeta):
+    """Abstract class for multi-period fields long"""
+
     @overload
-    def usa(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
+    def __init__(self) -> None:
         """
-        Creates a new fundamental universe for the USA market
+        Creates an empty instance
         
-        :param selector: The selector function
-        :param universe_settings: The universe settings to use, will default to algorithms if not provided
-        :returns: A configured new universe instance.
+        
+        This codeEntityType is protected.
         """
         ...
 
-    @staticmethod
     @overload
-    def usa(selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
         """
-        Creates a new fundamental universe for the USA market
+        Creates a new instance
         
-        :param selector: The selector function
-        :param universe_settings: The universe settings to use, will default to algorithms if not provided
-        :returns: A configured new universe instance.
+        
+        This codeEntityType is protected.
+        
+        :param time_provider: 
+        :param security_identifier: 
         """
         ...
-
-    @staticmethod
-    @overload
-    def usa(selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], System.Object], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
-        """
-        Creates a new fundamental universe for the USA market
-        
-        :param selector: The selector function
-        :param universe_settings: The universe settings to use, will default to algorithms if not provided
-        :returns: A configured new universe instance.
-        """
-        ...
-
-
-class Fundamentals(QuantConnect.Data.Fundamental.FundamentalUniverse):
-    """
-    Lean fundamentals universe data class
-    
-    'Fundamentals' was renamed to 'FundamentalUniverse'
-    """
 
 
 class StockType(System.Object):
-    """Helper class for the AssetClassification's StockType field AssetClassification.StockType"""
+    """Helper class for the AssetClassification's StockType field AssetClassification.stock_type"""
 
     AGGRESSIVE_GROWTH: int = 1
     """
@@ -70453,7 +71273,7 @@ class StockType(System.Object):
 
 class StyleBox(System.Object):
     """
-    Helper class for the AssetClassification's StyleBox field AssetClassification.StyleBox.
+    Helper class for the AssetClassification's StyleBox field AssetClassification.style_box.
     For stocks and stock funds, it classifies securities according to market capitalization and growth and value factor
     """
 
@@ -70477,7 +71297,7 @@ class StyleBox(System.Object):
 
 
 class MorningstarEconomySphereCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarEconomySphereCode field AssetClassification.MorningstarEconomySphereCode."""
+    """Helper class for the AssetClassification's MorningstarEconomySphereCode field AssetClassification.morningstar_economy_sphere_code."""
 
     CYCLICAL: int = 1
     """
@@ -70506,7 +71326,7 @@ class MorningstarEconomySphereCode(System.Object):
 
 
 class MorningstarSectorCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarSectorCode field AssetClassification.MorningstarSectorCode."""
+    """Helper class for the AssetClassification's MorningstarSectorCode field AssetClassification.morningstar_sector_code."""
 
     BASIC_MATERIALS: int = 101
     """
@@ -70575,7 +71395,7 @@ class MorningstarSectorCode(System.Object):
 
 
 class MorningstarIndustryGroupCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarIndustryGroupCode field AssetClassification.MorningstarIndustryGroupCode."""
+    """Helper class for the AssetClassification's MorningstarIndustryGroupCode field AssetClassification.morningstar_industry_group_code."""
 
     AGRICULTURE: int = 10110
 
@@ -70691,7 +71511,7 @@ class MorningstarIndustryGroupCode(System.Object):
 
 
 class MorningstarIndustryCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarIndustryCode field AssetClassification.MorningstarIndustryCode."""
+    """Helper class for the AssetClassification's MorningstarIndustryCode field AssetClassification.morningstar_industry_code."""
 
     AGRICULTURAL_INPUTS: int = 10110010
     """

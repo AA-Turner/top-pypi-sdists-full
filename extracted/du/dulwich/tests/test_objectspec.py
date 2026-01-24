@@ -45,16 +45,19 @@ class ParseObjectTests(TestCase):
 
     def test_nonexistent(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         self.assertRaises(KeyError, parse_object, r, "thisdoesnotexist")
 
     def test_blob_by_sha(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         b = Blob.from_string(b"Blah")
         r.object_store.add_object(b)
         self.assertEqual(b, parse_object(r, b.id))
 
     def test_parent_caret(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         c1, c2, c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 1, 2]])
         # c3's parents are [c1, c2]
         self.assertEqual(c1, parse_object(r, c3.id + b"^1"))
@@ -63,6 +66,7 @@ class ParseObjectTests(TestCase):
 
     def test_parent_tilde(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         c1, c2, c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 2]])
         self.assertEqual(c2, parse_object(r, c3.id + b"~"))
         self.assertEqual(c2, parse_object(r, c3.id + b"~1"))
@@ -70,7 +74,8 @@ class ParseObjectTests(TestCase):
 
     def test_combined_operators(self) -> None:
         r = MemoryRepo()
-        c1, c2, c3, c4 = build_commit_graph(
+        self.addCleanup(r.close)
+        c1, c2, _c3, c4 = build_commit_graph(
             r.object_store, [[1], [2, 1], [3, 1, 2], [4, 3]]
         )
         # c4~1^2 means: go back 1 generation from c4 (to c3), then take its 2nd parent
@@ -80,6 +85,7 @@ class ParseObjectTests(TestCase):
 
     def test_with_ref(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         c1, c2, c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 2]])
         r.refs[b"refs/heads/master"] = c3.id
         self.assertEqual(c2, parse_object(r, b"master~"))
@@ -87,6 +93,7 @@ class ParseObjectTests(TestCase):
 
     def test_caret_zero(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         c1, c2 = build_commit_graph(r.object_store, [[1], [2, 1]])
         # ^0 means the commit itself
         self.assertEqual(c2, parse_object(r, c2.id + b"^0"))
@@ -94,6 +101,7 @@ class ParseObjectTests(TestCase):
 
     def test_missing_parent(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         c1, c2 = build_commit_graph(r.object_store, [[1], [2, 1]])
         # c2 only has 1 parent, so ^2 should fail
         self.assertRaises(ValueError, parse_object, r, c2.id + b"^2")
@@ -102,11 +110,13 @@ class ParseObjectTests(TestCase):
 
     def test_empty_base(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         self.assertRaises(ValueError, parse_object, r, b"~1")
         self.assertRaises(ValueError, parse_object, r, b"^1")
 
     def test_non_commit_with_operators(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         b = Blob.from_string(b"Blah")
         r.object_store.add_object(b)
         # Can't apply ~ or ^ to a blob
@@ -114,6 +124,7 @@ class ParseObjectTests(TestCase):
 
     def test_tag_dereference(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         [c1] = build_commit_graph(r.object_store, [[1]])
         # Create an annotated tag
         tag = Tag()
@@ -129,6 +140,7 @@ class ParseObjectTests(TestCase):
 
     def test_nested_tag_dereference(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         [c1] = build_commit_graph(r.object_store, [[1]])
         # Create a tag pointing to a commit
         tag1 = Tag()
@@ -155,6 +167,7 @@ class ParseObjectTests(TestCase):
 
     def test_path_in_tree(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         # Create a blob
         b = Blob.from_string(b"Test content")
 
@@ -168,6 +181,7 @@ class ParseObjectTests(TestCase):
 
     def test_path_in_tree_nested(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         # Create blobs
         b1 = Blob.from_string(b"Content 1")
         b2 = Blob.from_string(b"Content 2")
@@ -246,22 +260,196 @@ class ParseObjectTests(TestCase):
             # HEAD@{2} is the third/oldest (c1)
             self.assertEqual(c1, parse_object(r, b"HEAD@{2}"))
 
+    def test_reflog_time_lookup(self) -> None:
+        # Use a real repo for reflog testing with time specifications
+        import tempfile
+
+        from dulwich.repo import Repo
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r = Repo.init_bare(tmpdir)
+            c1, c2, c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 2]])
+
+            # Write reflog entries with specific timestamps
+            # 1234567890 = 2009-02-13 23:31:30 UTC
+            r._write_reflog(
+                b"HEAD",
+                None,
+                c1.id,
+                b"Test User <test@example.com>",
+                1234567890,
+                0,
+                b"commit: Initial commit",
+            )
+            # 1234657890 = 2009-02-14 23:31:30 UTC (1 day + 1 second later)
+            r._write_reflog(
+                b"HEAD",
+                c1.id,
+                c2.id,
+                b"Test User <test@example.com>",
+                1234657890,
+                0,
+                b"commit: Second commit",
+            )
+            # 1235000000 = 2009-02-18 19:33:20 UTC
+            r._write_reflog(
+                b"HEAD",
+                c2.id,
+                c3.id,
+                b"Test User <test@example.com>",
+                1235000000,
+                0,
+                b"commit: Third commit",
+            )
+
+            # Lookup by timestamp - should get the most recent entry at or before time
+            self.assertEqual(c1, parse_object(r, b"HEAD@{1234567890}"))
+            self.assertEqual(c2, parse_object(r, b"HEAD@{1234657890}"))
+            self.assertEqual(c3, parse_object(r, b"HEAD@{1235000000}"))
+            # Future timestamp should get latest entry
+            self.assertEqual(c3, parse_object(r, b"HEAD@{9999999999}"))
+
+    def test_index_path_lookup_stage0(self) -> None:
+        # Test index path lookup for stage 0 (normal files)
+        import tempfile
+
+        from dulwich.repo import Repo
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r = Repo.init(tmpdir)
+
+            # Create a blob and add it to the index
+            b = Blob.from_string(b"Test content")
+            r.object_store.add_object(b)
+
+            # Add to index
+            index = r.open_index()
+            from dulwich.index import IndexEntry
+
+            index[b"test.txt"] = IndexEntry(
+                ctime=(0, 0),
+                mtime=(0, 0),
+                dev=0,
+                ino=0,
+                mode=0o100644,
+                uid=0,
+                gid=0,
+                size=len(b.data),
+                sha=b.id,
+            )
+            index.write()
+
+            # Test :path syntax (defaults to stage 0)
+            result = parse_object(r, b":test.txt")
+            self.assertEqual(b"Test content", result.data)
+
+            # Test :0:path syntax (explicit stage 0)
+            result = parse_object(r, b":0:test.txt")
+            self.assertEqual(b"Test content", result.data)
+
+    def test_index_path_lookup_conflicts(self) -> None:
+        # Test index path lookup with merge conflicts (stages 1-3)
+        import tempfile
+
+        from dulwich.index import ConflictedIndexEntry, IndexEntry
+        from dulwich.repo import Repo
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r = Repo.init(tmpdir)
+
+            # Create three different versions of a file
+            b_ancestor = Blob.from_string(b"Ancestor content")
+            b_this = Blob.from_string(b"This content")
+            b_other = Blob.from_string(b"Other content")
+            r.object_store.add_object(b_ancestor)
+            r.object_store.add_object(b_this)
+            r.object_store.add_object(b_other)
+
+            # Add conflicted entry to index
+            index = r.open_index()
+            index[b"conflict.txt"] = ConflictedIndexEntry(
+                ancestor=IndexEntry(
+                    ctime=(0, 0),
+                    mtime=(0, 0),
+                    dev=0,
+                    ino=0,
+                    mode=0o100644,
+                    uid=0,
+                    gid=0,
+                    size=len(b_ancestor.data),
+                    sha=b_ancestor.id,
+                ),
+                this=IndexEntry(
+                    ctime=(0, 0),
+                    mtime=(0, 0),
+                    dev=0,
+                    ino=0,
+                    mode=0o100644,
+                    uid=0,
+                    gid=0,
+                    size=len(b_this.data),
+                    sha=b_this.id,
+                ),
+                other=IndexEntry(
+                    ctime=(0, 0),
+                    mtime=(0, 0),
+                    dev=0,
+                    ino=0,
+                    mode=0o100644,
+                    uid=0,
+                    gid=0,
+                    size=len(b_other.data),
+                    sha=b_other.id,
+                ),
+            )
+            index.write()
+
+            # Test stage 1 (ancestor)
+            result = parse_object(r, b":1:conflict.txt")
+            self.assertEqual(b"Ancestor content", result.data)
+
+            # Test stage 2 (this)
+            result = parse_object(r, b":2:conflict.txt")
+            self.assertEqual(b"This content", result.data)
+
+            # Test stage 3 (other)
+            result = parse_object(r, b":3:conflict.txt")
+            self.assertEqual(b"Other content", result.data)
+
+            # Test that :conflict.txt raises an error for conflicted files
+            self.assertRaises(ValueError, parse_object, r, b":conflict.txt")
+
+    def test_index_path_not_found(self) -> None:
+        # Test error when path not in index
+        import tempfile
+
+        from dulwich.repo import Repo
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            r = Repo.init(tmpdir)
+
+            # Try to lookup non-existent path
+            self.assertRaises(KeyError, parse_object, r, b":nonexistent.txt")
+
 
 class ParseCommitRangeTests(TestCase):
     """Test parse_commit_range."""
 
     def test_nonexistent(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         self.assertRaises(KeyError, parse_commit_range, r, "thisdoesnotexist..HEAD")
 
     def test_commit_by_sha(self) -> None:
         r = MemoryRepo()
-        c1, c2, c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 1, 2]])
+        self.addCleanup(r.close)
+        c1, _c2, _c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 1, 2]])
         self.assertIsNone(parse_commit_range(r, c1.id))
 
     def test_commit_range(self) -> None:
         r = MemoryRepo()
-        c1, c2, c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 1, 2]])
+        self.addCleanup(r.close)
+        c1, c2, _c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 1, 2]])
         result = parse_commit_range(r, f"{c1.id.decode()}..{c2.id.decode()}")
         self.assertIsNotNone(result)
         start_commit, end_commit = result
@@ -274,20 +462,24 @@ class ParseCommitTests(TestCase):
 
     def test_nonexistent(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         self.assertRaises(KeyError, parse_commit, r, "thisdoesnotexist")
 
     def test_commit_by_sha(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         [c1] = build_commit_graph(r.object_store, [[1]])
         self.assertEqual(c1, parse_commit(r, c1.id))
 
     def test_commit_by_short_sha(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         [c1] = build_commit_graph(r.object_store, [[1]])
         self.assertEqual(c1, parse_commit(r, c1.id[:10]))
 
     def test_annotated_tag(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         [c1] = build_commit_graph(r.object_store, [[1]])
         # Create an annotated tag pointing to the commit
         tag = Tag()
@@ -303,6 +495,7 @@ class ParseCommitTests(TestCase):
 
     def test_nested_tags(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         [c1] = build_commit_graph(r.object_store, [[1]])
         # Create an annotated tag pointing to the commit
         tag1 = Tag()
@@ -345,6 +538,7 @@ class ParseCommitTests(TestCase):
 
     def test_tag_to_blob(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         # Create a blob
         blob = Blob.from_string(b"Test content")
         r.object_store.add_object(blob)
@@ -364,6 +558,7 @@ class ParseCommitTests(TestCase):
 
     def test_commit_object(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         [c1] = build_commit_graph(r.object_store, [[1]])
         # Test that passing a Commit object directly returns the same object
         self.assertEqual(c1, parse_commit(r, c1))
@@ -530,22 +725,26 @@ class ParseTreeTests(TestCase):
 
     def test_nonexistent(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         self.assertRaises(KeyError, parse_tree, r, "thisdoesnotexist")
 
     def test_from_commit(self) -> None:
         r = MemoryRepo()
-        c1, c2, c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 1, 2]])
+        self.addCleanup(r.close)
+        c1, _c2, _c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 1, 2]])
         self.assertEqual(r[c1.tree], parse_tree(r, c1.id))
         self.assertEqual(r[c1.tree], parse_tree(r, c1.tree))
 
     def test_from_ref(self) -> None:
         r = MemoryRepo()
-        c1, c2, c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 1, 2]])
+        self.addCleanup(r.close)
+        c1, _c2, _c3 = build_commit_graph(r.object_store, [[1], [2, 1], [3, 1, 2]])
         r.refs[b"refs/heads/foo"] = c1.id
         self.assertEqual(r[c1.tree], parse_tree(r, b"foo"))
 
     def test_tree_object(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         [c1] = build_commit_graph(r.object_store, [[1]])
         tree = r[c1.tree]
         # Test that passing a Tree object directly returns the same object
@@ -553,12 +752,14 @@ class ParseTreeTests(TestCase):
 
     def test_commit_object(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         [c1] = build_commit_graph(r.object_store, [[1]])
         # Test that passing a Commit object returns its tree
         self.assertEqual(r[c1.tree], parse_tree(r, c1))
 
     def test_tag_object(self) -> None:
         r = MemoryRepo()
+        self.addCleanup(r.close)
         [c1] = build_commit_graph(r.object_store, [[1]])
         # Create an annotated tag pointing to the commit
         tag = Tag()

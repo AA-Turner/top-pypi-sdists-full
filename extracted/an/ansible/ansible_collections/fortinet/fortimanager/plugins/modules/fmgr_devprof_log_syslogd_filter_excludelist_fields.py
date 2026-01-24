@@ -16,7 +16,6 @@ short_description: System template log syslogd filter exclude list fields
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.2.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -126,8 +125,8 @@ EXAMPLES = '''
     - name: System template log syslogd filter exclude list fields
       fortinet.fortimanager.fmgr_devprof_log_syslogd_filter_excludelist_fields:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -198,11 +197,11 @@ def main():
         'exclude_list': {'type': 'str'},
         'devprof_log_syslogd_filter_excludelist_fields': {
             'type': 'dict',
-            'v_range': [['7.0.4', '7.0.13']],
+            'v_range': [['7.0.4', '7.0.15']],
             'options': {
-                'args': {'v_range': [['7.0.4', '7.0.13']], 'type': 'raw'},
-                'field': {'v_range': [['7.0.4', '7.0.13']], 'type': 'str'},
-                'negate': {'v_range': [['7.0.4', '7.0.13']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                'args': {'v_range': [['7.0.4', '7.0.15']], 'type': 'raw'},
+                'field': {'v_range': [['7.0.4', '7.0.15']], 'type': 'str'},
+                'negate': {'v_range': [['7.0.4', '7.0.15']], 'choices': ['disable', 'enable'], 'type': 'str'}
             }
         }
     }

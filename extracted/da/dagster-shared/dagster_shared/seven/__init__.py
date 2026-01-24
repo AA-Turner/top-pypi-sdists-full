@@ -11,9 +11,7 @@ from collections.abc import Sequence
 from importlib.machinery import ModuleSpec
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, List, Optional, Type, Union  # noqa: F401, UP035
-
-from typing_extensions import TypeGuard
+from typing import Any, Callable, List, Optional, Type, TypeGuard, Union  # noqa: F401, UP035
 
 import dagster_shared.seven.json as json  # noqa: F401
 from dagster_shared.seven.json import (
@@ -26,6 +24,7 @@ from dagster_shared.seven.temp_dir import get_system_temp_directory as get_syste
 IS_WINDOWS = os.name == "nt"
 IS_PYTHON_3_12 = (sys.version_info[0], sys.version_info[1]) == (3, 12)
 IS_PYTHON_3_13 = (sys.version_info[0], sys.version_info[1]) == (3, 13)
+IS_PYTHON_3_14 = (sys.version_info[0], sys.version_info[1]) == (3, 14)
 
 # TODO implement a generic import by name -- see https://stackoverflow.com/questions/301134/how-to-import-a-module-given-its-name
 

@@ -10,6 +10,7 @@
 #include "slang/diagnostics/LexerDiags.h"
 #include "slang/diagnostics/PreprocessorDiags.h"
 #include "slang/syntax/AllSyntax.h"
+#include "slang/text/Glob.h"
 #include "slang/text/SourceManager.h"
 #include "slang/util/BumpAllocator.h"
 #include "slang/util/ScopeGuard.h"
@@ -98,14 +99,74 @@ void Preprocessor::pushSource(std::string_view source, std::string_view name) {
 void Preprocessor::pushSource(SourceBuffer buffer) {
     SLANG_ASSERT(buffer.id);
 
+    if (!options.keywordMapping.empty()) {
+        std::optional<KeywordVersion> bufVersion;
+        auto& bufferPath = sourceManager.getFullPath(buffer.id);
+        for (auto& [pattern, version] : options.keywordMapping) {
+            if (svGlobMatches(bufferPath, pattern)) {
+                bufVersion = version;
+                break;
+            }
+        }
+
+        if (bufVersion.has_value()) {
+            keywordVersionStack.push_back({*bufVersion, KeywordVersionState::Source::Mapping});
+        }
+        else if (!keywordVersionStack.empty() &&
+                 keywordVersionStack.back().source == KeywordVersionState::Source::Mapping) {
+            // This new buffer is unmapped so find the last version we were using prior to
+            // a forced mapping and use that (i.e. restore it).
+            for (auto it = keywordVersionStack.rbegin(); it != keywordVersionStack.rend(); ++it) {
+                if (it->source != KeywordVersionState::Source::Mapping) {
+                    keywordVersionStack.push_back(
+                        {it->version, KeywordVersionState::Source::Restored});
+                    break;
+                }
+            }
+        }
+    }
+
     lexerStack.emplace_back(
         std::make_unique<Lexer>(buffer, alloc, diagnostics, sourceManager, lexerOptions));
+
+    // If we have an active macro expansion we need to pause it while
+    // we process this new buffer.
+    if (currentMacroToken) {
+        auto& frame = pendingMacroFrames.emplace_back();
+        frame.index = currentMacroToken - expandedTokens.begin();
+        frame.tokens = std::move(expandedTokens);
+
+        currentMacroToken = nullptr;
+        expandedTokens.clear();
+    }
 }
 
-void Preprocessor::popSource() {
+bool Preprocessor::popSource() {
     if (includeDepth)
         includeDepth--;
+
+    if (!keywordVersionStack.empty() &&
+        keywordVersionStack.back().source != KeywordVersionState::Source::Directive) {
+        keywordVersionStack.pop_back();
+    }
+
     lexerStack.pop_back();
+
+    if (!pendingMacroFrames.empty()) {
+        auto& frame = pendingMacroFrames.back();
+        expandedTokens = std::move(frame.tokens);
+        currentMacroToken = expandedTokens.begin() + frame.index;
+        pendingMacroFrames.pop_back();
+        return false;
+    }
+
+    if (!lexerStack.empty())
+        return false;
+
+    if (!branchStack.empty())
+        addDiag(diag::MissingEndIfDirective, branchStack.back().directive.range());
+
+    return true;
 }
 
 void Preprocessor::predefine(const std::string& definition, std::string_view name) {
@@ -243,6 +304,7 @@ Token Preprocessor::nextProcessed() {
         case TokenKind::MacroEscapedQuote:
         case TokenKind::MacroPaste:
         case TokenKind::LineContinuation:
+        case TokenKind::EmptyMacroArgument:
         case TokenKind::Unknown:
             return handleDirectives(token);
         case TokenKind::Directive:
@@ -280,6 +342,11 @@ Token Preprocessor::handleDirectives(Token token) {
                 addDiag(diag::MacroOpsOutsideDefinition, token.range());
                 break;
             }
+            case TokenKind::EmptyMacroArgument:
+                // This can happen when expanding a macro that has trailing synthetic comments
+                // that we need to preserve in the trivia.
+                trivia.append_range(token.trivia());
+                break;
             case TokenKind::Unknown: {
                 // This is an error in the lexer. See if we should issue any more
                 // specific diagnostics here (that were deferred until we know we're
@@ -410,39 +477,30 @@ Token Preprocessor::nextRaw() {
     if (currentToken)
         return std::exchange(currentToken, Token());
 
-    // if we just expanded a macro we'll have tokens from that to return
-    if (currentMacroToken) {
-        auto result = *currentMacroToken;
-        currentMacroToken++;
-        if (currentMacroToken == expandedTokens.end()) {
-            currentMacroToken = nullptr;
-            expandedTokens.clear();
+    auto getNext = [&] {
+        // if we are expandeding a macro we'll have tokens from that to return
+        if (currentMacroToken) {
+            auto result = *currentMacroToken;
+            currentMacroToken++;
+            if (currentMacroToken == expandedTokens.end()) {
+                currentMacroToken = nullptr;
+                expandedTokens.clear();
+            }
+            return result;
         }
-        return result;
-    }
 
-    // if this assert fires, the user disregarded an EoF and kept calling next()
-    SLANG_ASSERT(!lexerStack.empty());
+        SLANG_ASSERT(!lexerStack.empty());
+        return lexerStack.back()->lex(keywordVersionStack.back().version);
+    };
 
-    // Pull the next token from the active source.
-    // This is the common case.
-    auto& source = lexerStack.back();
-    auto token = source->lex(keywordVersionStack.back());
+    auto token = getNext();
     if (token.kind != TokenKind::EndOfFile)
         return token;
 
-    auto checkBranchStack = [&] {
-        if (!branchStack.empty())
-            addDiag(diag::MissingEndIfDirective, branchStack.back().directive.range());
-    };
-
     // don't return EndOfFile tokens for included files, fall
     // through to loop to merge trivia
-    popSource();
-    if (lexerStack.empty()) {
-        checkBranchStack();
+    if (popSource())
         return token;
-    }
 
     // Rare case: we have an EoF from an include file... we don't want to return
     // that one, but we do want to merge its trivia with whatever comes next.
@@ -455,20 +513,10 @@ Token Preprocessor::nextRaw() {
     };
 
     appendTrivia(token);
-
-    while (true) {
-        auto& nextSource = lexerStack.back();
-        token = nextSource->lex(keywordVersionStack.back());
+    do {
+        token = getNext();
         appendTrivia(token);
-        if (token.kind != TokenKind::EndOfFile)
-            break;
-
-        popSource();
-        if (lexerStack.empty()) {
-            checkBranchStack();
-            break;
-        }
-    }
+    } while (token.kind == TokenKind::EndOfFile && !popSource());
 
     // Ensure EoL at the end of trivia to prevent inlining issues
     if (trivia.empty() || trivia.back().kind != TriviaKind::EndOfLine)
@@ -1004,10 +1052,23 @@ Trivia Preprocessor::handleBeginKeywordsDirective(Token directive) {
 Trivia Preprocessor::handleEndKeywordsDirective(Token directive) {
     checkOutsideDesignElement(directive);
 
-    if (keywordVersionStack.size() == 1)
-        addDiag(diag::MismatchedEndKeywordsDirective, directive.range());
-    else
-        keywordVersionStack.pop_back();
+    // Find the last entry that came from a directive and remove it.
+    // We always have at least the default "Directive" entry at the
+    // base of the stack so we're guaranteed to do something in the loop.
+    SLANG_ASSERT(!keywordVersionStack.empty());
+    for (auto it = keywordVersionStack.rbegin(); it != keywordVersionStack.rend(); ++it) {
+        if (it->source == KeywordVersionState::Source::Directive) {
+            if (it == keywordVersionStack.rend() - 1) {
+                // If we find the end of the stack it means the user has
+                // unbalanced begin / end keyword directives.
+                addDiag(diag::MismatchedEndKeywordsDirective, directive.range());
+            }
+            else {
+                keywordVersionStack.erase(it.base() - 1);
+            }
+            break;
+        }
+    }
 
     return createSimpleDirective(directive);
 }
@@ -1038,7 +1099,7 @@ std::pair<Trivia, Trivia> Preprocessor::handlePragmaDirective(Token directive) {
             wantComma = true;
 
             if (!succeeded) {
-                while (peekSameLine())
+                while (peekSameLine() && peek().kind != TokenKind::EndOfFile)
                     skipped.push_back(consume());
 
                 ok = false;

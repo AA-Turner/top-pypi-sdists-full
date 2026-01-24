@@ -17,6 +17,7 @@ from . import outputs
 
 __all__ = [
     'AclAclEntry',
+    'ClusterBrokerCapacityConfig',
     'ClusterCapacityConfig',
     'ClusterGcpConfig',
     'ClusterGcpConfigAccessConfig',
@@ -106,6 +107,42 @@ class AclAclEntry(dict):
         The permission type. Accepted values are (case insensitive): ALLOW, DENY.
         """
         return pulumi.get(self, "permission_type")
+
+
+@pulumi.output_type
+class ClusterBrokerCapacityConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "diskSizeGib":
+            suggest = "disk_size_gib"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ClusterBrokerCapacityConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ClusterBrokerCapacityConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ClusterBrokerCapacityConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 disk_size_gib: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str disk_size_gib: The disk to provision for each broker in Gibibytes. Minimum: 100 GiB.
+        """
+        if disk_size_gib is not None:
+            pulumi.set(__self__, "disk_size_gib", disk_size_gib)
+
+    @_builtins.property
+    @pulumi.getter(name="diskSizeGib")
+    def disk_size_gib(self) -> Optional[_builtins.str]:
+        """
+        The disk to provision for each broker in Gibibytes. Minimum: 100 GiB.
+        """
+        return pulumi.get(self, "disk_size_gib")
 
 
 @pulumi.output_type
@@ -557,7 +594,10 @@ class ConnectClusterGcpConfigAccessConfigNetworkConfig(dict):
                  dns_domain_names: Optional[Sequence[_builtins.str]] = None):
         """
         :param _builtins.str primary_subnet: VPC subnet to make available to the Kafka Connect cluster. Structured like: projects/{project}/regions/{region}/subnetworks/{subnet_id}. It is used to create a Private Service Connect (PSC) interface for the Kafka Connect workers. It must be located in the same region as the Kafka Connect cluster. The CIDR range of the subnet must be within the IPv4 address ranges for private networks, as specified in RFC 1918. The primary subnet CIDR range must have a minimum size of /22 (1024 addresses).
-        :param Sequence[_builtins.str] additional_subnets: Additional subnets may be specified. They may be in another region, but must be in the same VPC network. The Connect workers can communicate with network endpoints in either the primary or additional subnets.
+        :param Sequence[_builtins.str] additional_subnets: (Optional, Deprecated)
+               Additional subnets may be specified. They may be in another region, but must be in the same VPC network. The Connect workers can communicate with network endpoints in either the primary or additional subnets.
+               
+               > **Warning:** `additionalSubnets` is deprecated and will be removed in a future major release. Managed Kafka Connect clusters can now reach any endpoint accessible from the primary subnet without the need to define additional subnets. Please see https://cloud.google.com/managed-service-for-apache-kafka/docs/connect-cluster/create-connect-cluster#worker-subnet for more information.
         :param Sequence[_builtins.str] dns_domain_names: Additional DNS domain names from the subnet's network to be made visible to the Connect Cluster. When using MirrorMaker2, it's necessary to add the bootstrap address's dns domain name of the target cluster to make it visible to the connector. For example: my-kafka-cluster.us-central1.managedkafka.my-project.cloud.goog
         """
         pulumi.set(__self__, "primary_subnet", primary_subnet)
@@ -576,9 +616,13 @@ class ConnectClusterGcpConfigAccessConfigNetworkConfig(dict):
 
     @_builtins.property
     @pulumi.getter(name="additionalSubnets")
+    @_utilities.deprecated("""`additionalSubnets` is deprecated and will be removed in a future major release. Managed Kafka Connect clusters can now reach any endpoint accessible from the primary subnet without the need to define additional subnets. Please see https://cloud.google.com/managed-service-for-apache-kafka/docs/connect-cluster/create-connect-cluster#worker-subnet for more information.""")
     def additional_subnets(self) -> Optional[Sequence[_builtins.str]]:
         """
+        (Optional, Deprecated)
         Additional subnets may be specified. They may be in another region, but must be in the same VPC network. The Connect workers can communicate with network endpoints in either the primary or additional subnets.
+
+        > **Warning:** `additionalSubnets` is deprecated and will be removed in a future major release. Managed Kafka Connect clusters can now reach any endpoint accessible from the primary subnet without the need to define additional subnets. Please see https://cloud.google.com/managed-service-for-apache-kafka/docs/connect-cluster/create-connect-cluster#worker-subnet for more information.
         """
         return pulumi.get(self, "additional_subnets")
 

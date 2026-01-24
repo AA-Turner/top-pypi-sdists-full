@@ -36,7 +36,9 @@ class GetPublicAppByCustomPathResponse200:
         policy (GetPublicAppByCustomPathResponse200Policy):
         execution_mode (GetPublicAppByCustomPathResponse200ExecutionMode):
         extra_perms (GetPublicAppByCustomPathResponse200ExtraPerms):
+        raw_app (bool):
         custom_path (Union[Unset, str]):
+        bundle_secret (Union[Unset, str]):
     """
 
     id: int
@@ -50,7 +52,9 @@ class GetPublicAppByCustomPathResponse200:
     policy: "GetPublicAppByCustomPathResponse200Policy"
     execution_mode: GetPublicAppByCustomPathResponse200ExecutionMode
     extra_perms: "GetPublicAppByCustomPathResponse200ExtraPerms"
+    raw_app: bool
     custom_path: Union[Unset, str] = UNSET
+    bundle_secret: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -71,7 +75,9 @@ class GetPublicAppByCustomPathResponse200:
 
         extra_perms = self.extra_perms.to_dict()
 
+        raw_app = self.raw_app
         custom_path = self.custom_path
+        bundle_secret = self.bundle_secret
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -88,10 +94,13 @@ class GetPublicAppByCustomPathResponse200:
                 "policy": policy,
                 "execution_mode": execution_mode,
                 "extra_perms": extra_perms,
+                "raw_app": raw_app,
             }
         )
         if custom_path is not UNSET:
             field_dict["custom_path"] = custom_path
+        if bundle_secret is not UNSET:
+            field_dict["bundle_secret"] = bundle_secret
 
         return field_dict
 
@@ -126,7 +135,11 @@ class GetPublicAppByCustomPathResponse200:
 
         extra_perms = GetPublicAppByCustomPathResponse200ExtraPerms.from_dict(d.pop("extra_perms"))
 
+        raw_app = d.pop("raw_app")
+
         custom_path = d.pop("custom_path", UNSET)
+
+        bundle_secret = d.pop("bundle_secret", UNSET)
 
         get_public_app_by_custom_path_response_200 = cls(
             id=id,
@@ -140,7 +153,9 @@ class GetPublicAppByCustomPathResponse200:
             policy=policy,
             execution_mode=execution_mode,
             extra_perms=extra_perms,
+            raw_app=raw_app,
             custom_path=custom_path,
+            bundle_secret=bundle_secret,
         )
 
         get_public_app_by_custom_path_response_200.additional_properties = d

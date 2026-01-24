@@ -66,1155 +66,19 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCisScanConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "scan_name": "scanName",
-        "schedule": "schedule",
-        "security_level": "securityLevel",
-        "targets": "targets",
-        "tags": "tags",
-    },
+from ..interfaces.aws_inspectorv2 import (
+    CisScanConfigurationReference as _CisScanConfigurationReference_a54cc7e6,
+    CodeSecurityIntegrationReference as _CodeSecurityIntegrationReference_0787ed51,
+    CodeSecurityScanConfigurationReference as _CodeSecurityScanConfigurationReference_b4a97ccc,
+    FilterReference as _FilterReference_d368c0f2,
+    ICisScanConfigurationRef as _ICisScanConfigurationRef_8f6555b3,
+    ICodeSecurityIntegrationRef as _ICodeSecurityIntegrationRef_b418c2a5,
+    ICodeSecurityScanConfigurationRef as _ICodeSecurityScanConfigurationRef_4a00a90e,
+    IFilterRef as _IFilterRef_37875571,
 )
-class CfnCisScanConfigurationProps:
-    def __init__(
-        self,
-        *,
-        scan_name: builtins.str,
-        schedule: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCisScanConfiguration.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
-        security_level: builtins.str,
-        targets: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCisScanConfiguration.CisTargetsProperty", typing.Dict[builtins.str, typing.Any]]],
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCisScanConfiguration``.
 
-        :param scan_name: The name of the CIS scan configuration.
-        :param schedule: The CIS scan configuration's schedule.
-        :param security_level: The CIS scan configuration's CIS Benchmark level.
-        :param targets: The CIS scan configuration's targets.
-        :param tags: The CIS scan configuration's tags.
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_inspectorv2 as inspectorv2
-            
-            # one_time: Any
-            
-            cfn_cis_scan_configuration_props = inspectorv2.CfnCisScanConfigurationProps(
-                scan_name="scanName",
-                schedule=inspectorv2.CfnCisScanConfiguration.ScheduleProperty(
-                    daily=inspectorv2.CfnCisScanConfiguration.DailyScheduleProperty(
-                        start_time=inspectorv2.CfnCisScanConfiguration.TimeProperty(
-                            time_of_day="timeOfDay",
-                            time_zone="timeZone"
-                        )
-                    ),
-                    monthly=inspectorv2.CfnCisScanConfiguration.MonthlyScheduleProperty(
-                        day="day",
-                        start_time=inspectorv2.CfnCisScanConfiguration.TimeProperty(
-                            time_of_day="timeOfDay",
-                            time_zone="timeZone"
-                        )
-                    ),
-                    one_time=one_time,
-                    weekly=inspectorv2.CfnCisScanConfiguration.WeeklyScheduleProperty(
-                        days=["days"],
-                        start_time=inspectorv2.CfnCisScanConfiguration.TimeProperty(
-                            time_of_day="timeOfDay",
-                            time_zone="timeZone"
-                        )
-                    )
-                ),
-                security_level="securityLevel",
-                targets=inspectorv2.CfnCisScanConfiguration.CisTargetsProperty(
-                    account_ids=["accountIds"],
-                    target_resource_tags={
-                        "target_resource_tags_key": ["targetResourceTags"]
-                    }
-                ),
-            
-                # the properties below are optional
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3f0430cb9cf97c73c0c85526ac298bc695a6c9d3bf5e578a6d9b5c85d5623dc)
-            check_type(argname="argument scan_name", value=scan_name, expected_type=type_hints["scan_name"])
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-            check_type(argname="argument security_level", value=security_level, expected_type=type_hints["security_level"])
-            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "scan_name": scan_name,
-            "schedule": schedule,
-            "security_level": security_level,
-            "targets": targets,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def scan_name(self) -> builtins.str:
-        '''The name of the CIS scan configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html#cfn-inspectorv2-cisscanconfiguration-scanname
-        '''
-        result = self._values.get("scan_name")
-        assert result is not None, "Required property 'scan_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schedule(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.ScheduleProperty"]:
-        '''The CIS scan configuration's schedule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html#cfn-inspectorv2-cisscanconfiguration-schedule
-        '''
-        result = self._values.get("schedule")
-        assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.ScheduleProperty"], result)
-
-    @builtins.property
-    def security_level(self) -> builtins.str:
-        '''The CIS scan configuration's CIS Benchmark level.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html#cfn-inspectorv2-cisscanconfiguration-securitylevel
-        '''
-        result = self._values.get("security_level")
-        assert result is not None, "Required property 'security_level' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def targets(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.CisTargetsProperty"]:
-        '''The CIS scan configuration's targets.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html#cfn-inspectorv2-cisscanconfiguration-targets
-        '''
-        result = self._values.get("targets")
-        assert result is not None, "Required property 'targets' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.CisTargetsProperty"], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The CIS scan configuration's tags.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html#cfn-inspectorv2-cisscanconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCisScanConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegrationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "create_integration_details": "createIntegrationDetails",
-        "name": "name",
-        "tags": "tags",
-        "type": "type",
-        "update_integration_details": "updateIntegrationDetails",
-    },
-)
-class CfnCodeSecurityIntegrationProps:
-    def __init__(
-        self,
-        *,
-        create_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.CreateDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        type: typing.Optional[builtins.str] = None,
-        update_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.UpdateDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCodeSecurityIntegration``.
-
-        :param create_integration_details: Contains details required to create a code security integration with a specific repository provider.
-        :param name: The name of the code security integration.
-        :param tags: The tags to apply to the code security integration.
-        :param type: The type of repository provider for the integration.
-        :param update_integration_details: The updated integration details specific to the repository provider type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_inspectorv2 as inspectorv2
-            
-            cfn_code_security_integration_props = inspectorv2.CfnCodeSecurityIntegrationProps(
-                create_integration_details=inspectorv2.CfnCodeSecurityIntegration.CreateDetailsProperty(
-                    gitlab_self_managed=inspectorv2.CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty(
-                        access_token="accessToken",
-                        instance_url="instanceUrl"
-                    )
-                ),
-                name="name",
-                tags={
-                    "tags_key": "tags"
-                },
-                type="type",
-                update_integration_details=inspectorv2.CfnCodeSecurityIntegration.UpdateDetailsProperty(
-                    github=inspectorv2.CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty(
-                        code="code",
-                        installation_id="installationId"
-                    ),
-                    gitlab_self_managed=inspectorv2.CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty(
-                        auth_code="authCode"
-                    )
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71aafe099f5a07cc45a5a16ed7c8165fc3beaaf581b2a7075ad79583b48897ae)
-            check_type(argname="argument create_integration_details", value=create_integration_details, expected_type=type_hints["create_integration_details"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument update_integration_details", value=update_integration_details, expected_type=type_hints["update_integration_details"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if create_integration_details is not None:
-            self._values["create_integration_details"] = create_integration_details
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-        if type is not None:
-            self._values["type"] = type
-        if update_integration_details is not None:
-            self._values["update_integration_details"] = update_integration_details
-
-    @builtins.property
-    def create_integration_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateDetailsProperty"]]:
-        '''Contains details required to create a code security integration with a specific repository provider.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-createintegrationdetails
-        '''
-        result = self._values.get("create_integration_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateDetailsProperty"]], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the code security integration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags to apply to the code security integration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[builtins.str]:
-        '''The type of repository provider for the integration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-type
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def update_integration_details(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateDetailsProperty"]]:
-        '''The updated integration details specific to the repository provider type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-updateintegrationdetails
-        '''
-        result = self._values.get("update_integration_details")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateDetailsProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCodeSecurityIntegrationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityScanConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "configuration": "configuration",
-        "level": "level",
-        "name": "name",
-        "scope_settings": "scopeSettings",
-        "tags": "tags",
-    },
-)
-class CfnCodeSecurityScanConfigurationProps:
-    def __init__(
-        self,
-        *,
-        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        level: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        scope_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.ScopeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCodeSecurityScanConfiguration``.
-
-        :param configuration: The configuration settings for the code security scan.
-        :param level: The security level for the scan configuration.
-        :param name: The name of the scan configuration.
-        :param scope_settings: The scope settings that define which repositories will be scanned.
-        :param tags: The tags to apply to the scan configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_inspectorv2 as inspectorv2
-            
-            cfn_code_security_scan_configuration_props = inspectorv2.CfnCodeSecurityScanConfigurationProps(
-                configuration=inspectorv2.CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty(
-                    rule_set_categories=["ruleSetCategories"],
-            
-                    # the properties below are optional
-                    continuous_integration_scan_configuration=inspectorv2.CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty(
-                        supported_events=["supportedEvents"]
-                    ),
-                    periodic_scan_configuration=inspectorv2.CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty(
-                        frequency="frequency",
-                        frequency_expression="frequencyExpression"
-                    )
-                ),
-                level="level",
-                name="name",
-                scope_settings=inspectorv2.CfnCodeSecurityScanConfiguration.ScopeSettingsProperty(
-                    project_selection_scope="projectSelectionScope"
-                ),
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ea2faaa39ad7a4370f1a43aa967ae3ded5ad2ac9c212905e92dd56f603ec204)
-            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
-            check_type(argname="argument level", value=level, expected_type=type_hints["level"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument scope_settings", value=scope_settings, expected_type=type_hints["scope_settings"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if configuration is not None:
-            self._values["configuration"] = configuration
-        if level is not None:
-            self._values["level"] = level
-        if name is not None:
-            self._values["name"] = name
-        if scope_settings is not None:
-            self._values["scope_settings"] = scope_settings
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]]:
-        '''The configuration settings for the code security scan.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-configuration
-        '''
-        result = self._values.get("configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]], result)
-
-    @builtins.property
-    def level(self) -> typing.Optional[builtins.str]:
-        '''The security level for the scan configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-level
-        '''
-        result = self._values.get("level")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the scan configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def scope_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]]:
-        '''The scope settings that define which repositories will be scanned.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-scopesettings
-        '''
-        result = self._values.get("scope_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags to apply to the scan configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCodeSecurityScanConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnFilterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "filter_action": "filterAction",
-        "filter_criteria": "filterCriteria",
-        "name": "name",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnFilterProps:
-    def __init__(
-        self,
-        *,
-        filter_action: builtins.str,
-        filter_criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.FilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnFilter``.
-
-        :param filter_action: The action that is to be applied to the findings that match the filter.
-        :param filter_criteria: Details on the filter criteria associated with this filter.
-        :param name: The name of the filter.
-        :param description: A description of the filter.
-        :param tags: The tags attached to the filter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_inspectorv2 as inspectorv2
-            
-            cfn_filter_props = inspectorv2.CfnFilterProps(
-                filter_action="filterAction",
-                filter_criteria=inspectorv2.CfnFilter.FilterCriteriaProperty(
-                    aws_account_id=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    code_vulnerability_detector_name=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    code_vulnerability_detector_tags=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    code_vulnerability_file_path=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    component_id=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    component_type=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    ec2_instance_image_id=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    ec2_instance_subnet_id=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    ec2_instance_vpc_id=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    ecr_image_architecture=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    ecr_image_hash=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    ecr_image_pushed_at=[inspectorv2.CfnFilter.DateFilterProperty(
-                        end_inclusive=123,
-                        start_inclusive=123
-                    )],
-                    ecr_image_registry=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    ecr_image_repository_name=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    ecr_image_tags=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    epss_score=[inspectorv2.CfnFilter.NumberFilterProperty(
-                        lower_inclusive=123,
-                        upper_inclusive=123
-                    )],
-                    exploit_available=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    finding_arn=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    finding_status=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    finding_type=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    first_observed_at=[inspectorv2.CfnFilter.DateFilterProperty(
-                        end_inclusive=123,
-                        start_inclusive=123
-                    )],
-                    fix_available=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    inspector_score=[inspectorv2.CfnFilter.NumberFilterProperty(
-                        lower_inclusive=123,
-                        upper_inclusive=123
-                    )],
-                    lambda_function_execution_role_arn=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    lambda_function_last_modified_at=[inspectorv2.CfnFilter.DateFilterProperty(
-                        end_inclusive=123,
-                        start_inclusive=123
-                    )],
-                    lambda_function_layers=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    lambda_function_name=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    lambda_function_runtime=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    last_observed_at=[inspectorv2.CfnFilter.DateFilterProperty(
-                        end_inclusive=123,
-                        start_inclusive=123
-                    )],
-                    network_protocol=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    port_range=[inspectorv2.CfnFilter.PortRangeFilterProperty(
-                        begin_inclusive=123,
-                        end_inclusive=123
-                    )],
-                    related_vulnerabilities=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_id=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    resource_tags=[inspectorv2.CfnFilter.MapFilterProperty(
-                        comparison="comparison",
-            
-                        # the properties below are optional
-                        key="key",
-                        value="value"
-                    )],
-                    resource_type=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    severity=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    title=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    updated_at=[inspectorv2.CfnFilter.DateFilterProperty(
-                        end_inclusive=123,
-                        start_inclusive=123
-                    )],
-                    vendor_severity=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    vulnerability_id=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    vulnerability_source=[inspectorv2.CfnFilter.StringFilterProperty(
-                        comparison="comparison",
-                        value="value"
-                    )],
-                    vulnerable_packages=[inspectorv2.CfnFilter.PackageFilterProperty(
-                        architecture=inspectorv2.CfnFilter.StringFilterProperty(
-                            comparison="comparison",
-                            value="value"
-                        ),
-                        epoch=inspectorv2.CfnFilter.NumberFilterProperty(
-                            lower_inclusive=123,
-                            upper_inclusive=123
-                        ),
-                        file_path=inspectorv2.CfnFilter.StringFilterProperty(
-                            comparison="comparison",
-                            value="value"
-                        ),
-                        name=inspectorv2.CfnFilter.StringFilterProperty(
-                            comparison="comparison",
-                            value="value"
-                        ),
-                        release=inspectorv2.CfnFilter.StringFilterProperty(
-                            comparison="comparison",
-                            value="value"
-                        ),
-                        source_lambda_layer_arn=inspectorv2.CfnFilter.StringFilterProperty(
-                            comparison="comparison",
-                            value="value"
-                        ),
-                        source_layer_hash=inspectorv2.CfnFilter.StringFilterProperty(
-                            comparison="comparison",
-                            value="value"
-                        ),
-                        version=inspectorv2.CfnFilter.StringFilterProperty(
-                            comparison="comparison",
-                            value="value"
-                        )
-                    )]
-                ),
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags={
-                    "tags_key": "tags"
-                }
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__701269c3a3c8675419393e41eacb02f94675d9b8c43500c7ae0bd7ea72e3129f)
-            check_type(argname="argument filter_action", value=filter_action, expected_type=type_hints["filter_action"])
-            check_type(argname="argument filter_criteria", value=filter_criteria, expected_type=type_hints["filter_criteria"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "filter_action": filter_action,
-            "filter_criteria": filter_criteria,
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def filter_action(self) -> builtins.str:
-        '''The action that is to be applied to the findings that match the filter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-filteraction
-        '''
-        result = self._values.get("filter_action")
-        assert result is not None, "Required property 'filter_action' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def filter_criteria(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnFilter.FilterCriteriaProperty"]:
-        '''Details on the filter criteria associated with this filter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-filtercriteria
-        '''
-        result = self._values.get("filter_criteria")
-        assert result is not None, "Required property 'filter_criteria' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFilter.FilterCriteriaProperty"], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the filter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the filter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''The tags attached to the filter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnFilterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_inspectorv2.CisScanConfigurationReference",
-    jsii_struct_bases=[],
-    name_mapping={"cis_scan_configuration_arn": "cisScanConfigurationArn"},
-)
-class CisScanConfigurationReference:
-    def __init__(self, *, cis_scan_configuration_arn: builtins.str) -> None:
-        '''A reference to a CisScanConfiguration resource.
-
-        :param cis_scan_configuration_arn: The Arn of the CisScanConfiguration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_inspectorv2 as inspectorv2
-            
-            cis_scan_configuration_reference = inspectorv2.CisScanConfigurationReference(
-                cis_scan_configuration_arn="cisScanConfigurationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1257f2ad4d7989c2a8f0687b03220f632b791cf262a4f9a12cc0d72d7baa9ab8)
-            check_type(argname="argument cis_scan_configuration_arn", value=cis_scan_configuration_arn, expected_type=type_hints["cis_scan_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "cis_scan_configuration_arn": cis_scan_configuration_arn,
-        }
-
-    @builtins.property
-    def cis_scan_configuration_arn(self) -> builtins.str:
-        '''The Arn of the CisScanConfiguration resource.'''
-        result = self._values.get("cis_scan_configuration_arn")
-        assert result is not None, "Required property 'cis_scan_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CisScanConfigurationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_inspectorv2.CodeSecurityIntegrationReference",
-    jsii_struct_bases=[],
-    name_mapping={"code_security_integration_arn": "codeSecurityIntegrationArn"},
-)
-class CodeSecurityIntegrationReference:
-    def __init__(self, *, code_security_integration_arn: builtins.str) -> None:
-        '''A reference to a CodeSecurityIntegration resource.
-
-        :param code_security_integration_arn: The Arn of the CodeSecurityIntegration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_inspectorv2 as inspectorv2
-            
-            code_security_integration_reference = inspectorv2.CodeSecurityIntegrationReference(
-                code_security_integration_arn="codeSecurityIntegrationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a608fbee7d79a9af03f0054d9c56ae030b8390e37bd866a5bf27a5ae3bb139d)
-            check_type(argname="argument code_security_integration_arn", value=code_security_integration_arn, expected_type=type_hints["code_security_integration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "code_security_integration_arn": code_security_integration_arn,
-        }
-
-    @builtins.property
-    def code_security_integration_arn(self) -> builtins.str:
-        '''The Arn of the CodeSecurityIntegration resource.'''
-        result = self._values.get("code_security_integration_arn")
-        assert result is not None, "Required property 'code_security_integration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CodeSecurityIntegrationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_inspectorv2.CodeSecurityScanConfigurationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "code_security_scan_configuration_arn": "codeSecurityScanConfigurationArn",
-    },
-)
-class CodeSecurityScanConfigurationReference:
-    def __init__(self, *, code_security_scan_configuration_arn: builtins.str) -> None:
-        '''A reference to a CodeSecurityScanConfiguration resource.
-
-        :param code_security_scan_configuration_arn: The Arn of the CodeSecurityScanConfiguration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_inspectorv2 as inspectorv2
-            
-            code_security_scan_configuration_reference = inspectorv2.CodeSecurityScanConfigurationReference(
-                code_security_scan_configuration_arn="codeSecurityScanConfigurationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__403a5f3e75366736bd7adcfc3ce393ad12b0046faf3e82e513fce879df23c673)
-            check_type(argname="argument code_security_scan_configuration_arn", value=code_security_scan_configuration_arn, expected_type=type_hints["code_security_scan_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "code_security_scan_configuration_arn": code_security_scan_configuration_arn,
-        }
-
-    @builtins.property
-    def code_security_scan_configuration_arn(self) -> builtins.str:
-        '''The Arn of the CodeSecurityScanConfiguration resource.'''
-        result = self._values.get("code_security_scan_configuration_arn")
-        assert result is not None, "Required property 'code_security_scan_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CodeSecurityScanConfigurationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_inspectorv2.FilterReference",
-    jsii_struct_bases=[],
-    name_mapping={"filter_arn": "filterArn"},
-)
-class FilterReference:
-    def __init__(self, *, filter_arn: builtins.str) -> None:
-        '''A reference to a Filter resource.
-
-        :param filter_arn: The Arn of the Filter resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_inspectorv2 as inspectorv2
-            
-            filter_reference = inspectorv2.FilterReference(
-                filter_arn="filterArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87d5e4874706c916c7327ae4acf89a310d7949ddbd92c913cbf4e824b1c837d4)
-            check_type(argname="argument filter_arn", value=filter_arn, expected_type=type_hints["filter_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "filter_arn": filter_arn,
-        }
-
-    @builtins.property
-    def filter_arn(self) -> builtins.str:
-        '''The Arn of the Filter resource.'''
-        result = self._values.get("filter_arn")
-        assert result is not None, "Required property 'filter_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "FilterReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_inspectorv2.ICisScanConfigurationRef")
-class ICisScanConfigurationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CisScanConfiguration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="cisScanConfigurationRef")
-    def cis_scan_configuration_ref(self) -> CisScanConfigurationReference:
-        '''(experimental) A reference to a CisScanConfiguration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICisScanConfigurationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CisScanConfiguration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_inspectorv2.ICisScanConfigurationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="cisScanConfigurationRef")
-    def cis_scan_configuration_ref(self) -> CisScanConfigurationReference:
-        '''(experimental) A reference to a CisScanConfiguration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CisScanConfigurationReference, jsii.get(self, "cisScanConfigurationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICisScanConfigurationRef).__jsii_proxy_class__ = lambda : _ICisScanConfigurationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_inspectorv2.ICodeSecurityIntegrationRef")
-class ICodeSecurityIntegrationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CodeSecurityIntegration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="codeSecurityIntegrationRef")
-    def code_security_integration_ref(self) -> CodeSecurityIntegrationReference:
-        '''(experimental) A reference to a CodeSecurityIntegration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICodeSecurityIntegrationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CodeSecurityIntegration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_inspectorv2.ICodeSecurityIntegrationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="codeSecurityIntegrationRef")
-    def code_security_integration_ref(self) -> CodeSecurityIntegrationReference:
-        '''(experimental) A reference to a CodeSecurityIntegration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CodeSecurityIntegrationReference, jsii.get(self, "codeSecurityIntegrationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICodeSecurityIntegrationRef).__jsii_proxy_class__ = lambda : _ICodeSecurityIntegrationRefProxy
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_inspectorv2.ICodeSecurityScanConfigurationRef"
-)
-class ICodeSecurityScanConfigurationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CodeSecurityScanConfiguration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="codeSecurityScanConfigurationRef")
-    def code_security_scan_configuration_ref(
-        self,
-    ) -> CodeSecurityScanConfigurationReference:
-        '''(experimental) A reference to a CodeSecurityScanConfiguration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICodeSecurityScanConfigurationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CodeSecurityScanConfiguration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_inspectorv2.ICodeSecurityScanConfigurationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="codeSecurityScanConfigurationRef")
-    def code_security_scan_configuration_ref(
-        self,
-    ) -> CodeSecurityScanConfigurationReference:
-        '''(experimental) A reference to a CodeSecurityScanConfiguration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CodeSecurityScanConfigurationReference, jsii.get(self, "codeSecurityScanConfigurationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICodeSecurityScanConfigurationRef).__jsii_proxy_class__ = lambda : _ICodeSecurityScanConfigurationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_inspectorv2.IFilterRef")
-class IFilterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Filter.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="filterRef")
-    def filter_ref(self) -> FilterReference:
-        '''(experimental) A reference to a Filter resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IFilterRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Filter.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_inspectorv2.IFilterRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="filterRef")
-    def filter_ref(self) -> FilterReference:
-        '''(experimental) A reference to a Filter resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(FilterReference, jsii.get(self, "filterRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IFilterRef).__jsii_proxy_class__ = lambda : _IFilterRefProxy
-
-
-@jsii.implements(_IInspectable_c2943556, ICisScanConfigurationRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _ICisScanConfigurationRef_8f6555b3, _ITaggableV2_4e6798f8)
 class CfnCisScanConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1276,16 +140,17 @@ class CfnCisScanConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         scan_name: builtins.str,
-        schedule: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCisScanConfiguration.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        schedule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCisScanConfiguration.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
         security_level: builtins.str,
-        targets: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCisScanConfiguration.CisTargetsProperty", typing.Dict[builtins.str, typing.Any]]],
+        targets: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCisScanConfiguration.CisTargetsProperty", typing.Dict[builtins.str, typing.Any]]],
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::InspectorV2::CisScanConfiguration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param scan_name: The name of the CIS scan configuration.
@@ -1308,8 +173,34 @@ class CfnCisScanConfiguration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForCisScanConfiguration")
+    @builtins.classmethod
+    def arn_for_cis_scan_configuration(
+        cls,
+        resource: "_ICisScanConfigurationRef_8f6555b3",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__17bb5d9e0d4a2d165ecc0f9d6c045ff79fb5bd35d06a65c705104aaf297f5690)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCisScanConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnCisScanConfiguration")
+    @builtins.classmethod
+    def is_cfn_cis_scan_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCisScanConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0157dbe9d0e6a256bfb1f48831eecbee74bad3bf884fbf7b8719bed932bc494b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCisScanConfiguration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1349,9 +240,9 @@ class CfnCisScanConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -1360,9 +251,9 @@ class CfnCisScanConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cisScanConfigurationRef")
-    def cis_scan_configuration_ref(self) -> CisScanConfigurationReference:
+    def cis_scan_configuration_ref(self) -> "_CisScanConfigurationReference_a54cc7e6":
         '''A reference to a CisScanConfiguration resource.'''
-        return typing.cast(CisScanConfigurationReference, jsii.get(self, "cisScanConfigurationRef"))
+        return typing.cast("_CisScanConfigurationReference_a54cc7e6", jsii.get(self, "cisScanConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="scanName")
@@ -1381,14 +272,14 @@ class CfnCisScanConfiguration(
     @jsii.member(jsii_name="schedule")
     def schedule(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.ScheduleProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.ScheduleProperty"]:
         '''The CIS scan configuration's schedule.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.ScheduleProperty"], jsii.get(self, "schedule"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.ScheduleProperty"], jsii.get(self, "schedule"))
 
     @schedule.setter
     def schedule(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.ScheduleProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.ScheduleProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__17c38c82086f8ffe9712e88585d2f980663e72bbb5b6ac70574594200cb759c2)
@@ -1412,14 +303,14 @@ class CfnCisScanConfiguration(
     @jsii.member(jsii_name="targets")
     def targets(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.CisTargetsProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.CisTargetsProperty"]:
         '''The CIS scan configuration's targets.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.CisTargetsProperty"], jsii.get(self, "targets"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.CisTargetsProperty"], jsii.get(self, "targets"))
 
     @targets.setter
     def targets(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.CisTargetsProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.CisTargetsProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8afffccf2a9a470f423d247abd4a6dfe735dc39c53a2abe26c8cdb1844ec12a2)
@@ -1455,7 +346,7 @@ class CfnCisScanConfiguration(
             self,
             *,
             account_ids: typing.Sequence[builtins.str],
-            target_resource_tags: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Sequence[builtins.str]]],
+            target_resource_tags: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Sequence[builtins.str]]],
         ) -> None:
             '''The CIS targets.
 
@@ -1500,14 +391,14 @@ class CfnCisScanConfiguration(
         @builtins.property
         def target_resource_tags(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.List[builtins.str]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.List[builtins.str]]]:
             '''The CIS target resource tags.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-cisscanconfiguration-cistargets.html#cfn-inspectorv2-cisscanconfiguration-cistargets-targetresourcetags
             '''
             result = self._values.get("target_resource_tags")
             assert result is not None, "Required property 'target_resource_tags' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.List[builtins.str]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.List[builtins.str]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1529,7 +420,7 @@ class CfnCisScanConfiguration(
         def __init__(
             self,
             *,
-            start_time: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCisScanConfiguration.TimeProperty", typing.Dict[builtins.str, typing.Any]]],
+            start_time: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCisScanConfiguration.TimeProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A daily schedule.
 
@@ -1561,14 +452,14 @@ class CfnCisScanConfiguration(
         @builtins.property
         def start_time(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.TimeProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.TimeProperty"]:
             '''The schedule start time.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-cisscanconfiguration-dailyschedule.html#cfn-inspectorv2-cisscanconfiguration-dailyschedule-starttime
             '''
             result = self._values.get("start_time")
             assert result is not None, "Required property 'start_time' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.TimeProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.TimeProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1591,7 +482,7 @@ class CfnCisScanConfiguration(
             self,
             *,
             day: builtins.str,
-            start_time: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCisScanConfiguration.TimeProperty", typing.Dict[builtins.str, typing.Any]]],
+            start_time: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCisScanConfiguration.TimeProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A monthly schedule.
 
@@ -1637,14 +528,14 @@ class CfnCisScanConfiguration(
         @builtins.property
         def start_time(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.TimeProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.TimeProperty"]:
             '''The monthly schedule's start time.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-cisscanconfiguration-monthlyschedule.html#cfn-inspectorv2-cisscanconfiguration-monthlyschedule-starttime
             '''
             result = self._values.get("start_time")
             assert result is not None, "Required property 'start_time' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.TimeProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.TimeProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1671,10 +562,10 @@ class CfnCisScanConfiguration(
         def __init__(
             self,
             *,
-            daily: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCisScanConfiguration.DailyScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            monthly: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCisScanConfiguration.MonthlyScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            daily: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCisScanConfiguration.DailyScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            monthly: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCisScanConfiguration.MonthlyScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             one_time: typing.Any = None,
-            weekly: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCisScanConfiguration.WeeklyScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            weekly: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCisScanConfiguration.WeeklyScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The schedule the CIS scan configuration runs on.
 
@@ -1739,24 +630,24 @@ class CfnCisScanConfiguration(
         @builtins.property
         def daily(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.DailyScheduleProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.DailyScheduleProperty"]]:
             '''A daily schedule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-cisscanconfiguration-schedule.html#cfn-inspectorv2-cisscanconfiguration-schedule-daily
             '''
             result = self._values.get("daily")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.DailyScheduleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.DailyScheduleProperty"]], result)
 
         @builtins.property
         def monthly(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.MonthlyScheduleProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.MonthlyScheduleProperty"]]:
             '''A monthly schedule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-cisscanconfiguration-schedule.html#cfn-inspectorv2-cisscanconfiguration-schedule-monthly
             '''
             result = self._values.get("monthly")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.MonthlyScheduleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.MonthlyScheduleProperty"]], result)
 
         @builtins.property
         def one_time(self) -> typing.Any:
@@ -1770,13 +661,13 @@ class CfnCisScanConfiguration(
         @builtins.property
         def weekly(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.WeeklyScheduleProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.WeeklyScheduleProperty"]]:
             '''A weekly schedule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-cisscanconfiguration-schedule.html#cfn-inspectorv2-cisscanconfiguration-schedule-weekly
             '''
             result = self._values.get("weekly")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.WeeklyScheduleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.WeeklyScheduleProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1870,7 +761,7 @@ class CfnCisScanConfiguration(
             self,
             *,
             days: typing.Sequence[builtins.str],
-            start_time: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCisScanConfiguration.TimeProperty", typing.Dict[builtins.str, typing.Any]]],
+            start_time: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCisScanConfiguration.TimeProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A weekly schedule.
 
@@ -1916,14 +807,14 @@ class CfnCisScanConfiguration(
         @builtins.property
         def start_time(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.TimeProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.TimeProperty"]:
             '''The weekly schedule's start time.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-cisscanconfiguration-weeklyschedule.html#cfn-inspectorv2-cisscanconfiguration-weeklyschedule-starttime
             '''
             result = self._values.get("start_time")
             assert result is not None, "Required property 'start_time' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCisScanConfiguration.TimeProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.TimeProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1937,7 +828,167 @@ class CfnCisScanConfiguration(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ICodeSecurityIntegrationRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCisScanConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "scan_name": "scanName",
+        "schedule": "schedule",
+        "security_level": "securityLevel",
+        "targets": "targets",
+        "tags": "tags",
+    },
+)
+class CfnCisScanConfigurationProps:
+    def __init__(
+        self,
+        *,
+        scan_name: builtins.str,
+        schedule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCisScanConfiguration.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        security_level: builtins.str,
+        targets: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCisScanConfiguration.CisTargetsProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCisScanConfiguration``.
+
+        :param scan_name: The name of the CIS scan configuration.
+        :param schedule: The CIS scan configuration's schedule.
+        :param security_level: The CIS scan configuration's CIS Benchmark level.
+        :param targets: The CIS scan configuration's targets.
+        :param tags: The CIS scan configuration's tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_inspectorv2 as inspectorv2
+            
+            # one_time: Any
+            
+            cfn_cis_scan_configuration_props = inspectorv2.CfnCisScanConfigurationProps(
+                scan_name="scanName",
+                schedule=inspectorv2.CfnCisScanConfiguration.ScheduleProperty(
+                    daily=inspectorv2.CfnCisScanConfiguration.DailyScheduleProperty(
+                        start_time=inspectorv2.CfnCisScanConfiguration.TimeProperty(
+                            time_of_day="timeOfDay",
+                            time_zone="timeZone"
+                        )
+                    ),
+                    monthly=inspectorv2.CfnCisScanConfiguration.MonthlyScheduleProperty(
+                        day="day",
+                        start_time=inspectorv2.CfnCisScanConfiguration.TimeProperty(
+                            time_of_day="timeOfDay",
+                            time_zone="timeZone"
+                        )
+                    ),
+                    one_time=one_time,
+                    weekly=inspectorv2.CfnCisScanConfiguration.WeeklyScheduleProperty(
+                        days=["days"],
+                        start_time=inspectorv2.CfnCisScanConfiguration.TimeProperty(
+                            time_of_day="timeOfDay",
+                            time_zone="timeZone"
+                        )
+                    )
+                ),
+                security_level="securityLevel",
+                targets=inspectorv2.CfnCisScanConfiguration.CisTargetsProperty(
+                    account_ids=["accountIds"],
+                    target_resource_tags={
+                        "target_resource_tags_key": ["targetResourceTags"]
+                    }
+                ),
+            
+                # the properties below are optional
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e3f0430cb9cf97c73c0c85526ac298bc695a6c9d3bf5e578a6d9b5c85d5623dc)
+            check_type(argname="argument scan_name", value=scan_name, expected_type=type_hints["scan_name"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument security_level", value=security_level, expected_type=type_hints["security_level"])
+            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "scan_name": scan_name,
+            "schedule": schedule,
+            "security_level": security_level,
+            "targets": targets,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def scan_name(self) -> builtins.str:
+        '''The name of the CIS scan configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html#cfn-inspectorv2-cisscanconfiguration-scanname
+        '''
+        result = self._values.get("scan_name")
+        assert result is not None, "Required property 'scan_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.ScheduleProperty"]:
+        '''The CIS scan configuration's schedule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html#cfn-inspectorv2-cisscanconfiguration-schedule
+        '''
+        result = self._values.get("schedule")
+        assert result is not None, "Required property 'schedule' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.ScheduleProperty"], result)
+
+    @builtins.property
+    def security_level(self) -> builtins.str:
+        '''The CIS scan configuration's CIS Benchmark level.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html#cfn-inspectorv2-cisscanconfiguration-securitylevel
+        '''
+        result = self._values.get("security_level")
+        assert result is not None, "Required property 'security_level' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def targets(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.CisTargetsProperty"]:
+        '''The CIS scan configuration's targets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html#cfn-inspectorv2-cisscanconfiguration-targets
+        '''
+        result = self._values.get("targets")
+        assert result is not None, "Required property 'targets' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCisScanConfiguration.CisTargetsProperty"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The CIS scan configuration's tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-cisscanconfiguration.html#cfn-inspectorv2-cisscanconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCisScanConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ICodeSecurityIntegrationRef_b418c2a5, _ITaggableV2_4e6798f8)
 class CfnCodeSecurityIntegration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1981,16 +1032,17 @@ class CfnCodeSecurityIntegration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        create_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.CreateDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        create_integration_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityIntegration.CreateDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         type: typing.Optional[builtins.str] = None,
-        update_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.UpdateDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        update_integration_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityIntegration.UpdateDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::InspectorV2::CodeSecurityIntegration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param create_integration_details: Contains details required to create a code security integration with a specific repository provider.
@@ -2013,8 +1065,34 @@ class CfnCodeSecurityIntegration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForCodeSecurityIntegration")
+    @builtins.classmethod
+    def arn_for_code_security_integration(
+        cls,
+        resource: "_ICodeSecurityIntegrationRef_b418c2a5",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ca7e2752a7e90b087558c274f5098a9e8bc7c5d74e989dc2358c5a144c1d57e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCodeSecurityIntegration", [resource]))
+
+    @jsii.member(jsii_name="isCfnCodeSecurityIntegration")
+    @builtins.classmethod
+    def is_cfn_code_security_integration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCodeSecurityIntegration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b98f80c5b07b3b4699f81f95546fed657ea28fce1615629bee70f86785ce350f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCodeSecurityIntegration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2099,9 +1177,9 @@ class CfnCodeSecurityIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2110,22 +1188,24 @@ class CfnCodeSecurityIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="codeSecurityIntegrationRef")
-    def code_security_integration_ref(self) -> CodeSecurityIntegrationReference:
+    def code_security_integration_ref(
+        self,
+    ) -> "_CodeSecurityIntegrationReference_0787ed51":
         '''A reference to a CodeSecurityIntegration resource.'''
-        return typing.cast(CodeSecurityIntegrationReference, jsii.get(self, "codeSecurityIntegrationRef"))
+        return typing.cast("_CodeSecurityIntegrationReference_0787ed51", jsii.get(self, "codeSecurityIntegrationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="createIntegrationDetails")
     def create_integration_details(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateDetailsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.CreateDetailsProperty"]]:
         '''Contains details required to create a code security integration with a specific repository provider.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateDetailsProperty"]], jsii.get(self, "createIntegrationDetails"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.CreateDetailsProperty"]], jsii.get(self, "createIntegrationDetails"))
 
     @create_integration_details.setter
     def create_integration_details(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateDetailsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.CreateDetailsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95bada6a0a63eed0487660762db52cf7634424d68b180f5bdde1aa127cbc6ca1)
@@ -2178,14 +1258,14 @@ class CfnCodeSecurityIntegration(
     @jsii.member(jsii_name="updateIntegrationDetails")
     def update_integration_details(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateDetailsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.UpdateDetailsProperty"]]:
         '''The updated integration details specific to the repository provider type.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateDetailsProperty"]], jsii.get(self, "updateIntegrationDetails"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.UpdateDetailsProperty"]], jsii.get(self, "updateIntegrationDetails"))
 
     @update_integration_details.setter
     def update_integration_details(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateDetailsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.UpdateDetailsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c450107a89d380f98e1bb112fb4f8df187acd5d7b74c42bca8a125923588adc)
@@ -2201,7 +1281,7 @@ class CfnCodeSecurityIntegration(
         def __init__(
             self,
             *,
-            gitlab_self_managed: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]],
+            gitlab_self_managed: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''Contains details required to create a code security integration with a specific repository provider.
 
@@ -2233,14 +1313,14 @@ class CfnCodeSecurityIntegration(
         @builtins.property
         def gitlab_self_managed(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty"]:
             '''Details specific to creating an integration with a self-managed GitLab instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-createdetails.html#cfn-inspectorv2-codesecurityintegration-createdetails-gitlabselfmanaged
             '''
             result = self._values.get("gitlab_self_managed")
             assert result is not None, "Required property 'gitlab_self_managed' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2333,8 +1413,8 @@ class CfnCodeSecurityIntegration(
         def __init__(
             self,
             *,
-            github: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            gitlab_self_managed: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            github: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            gitlab_self_managed: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains details required to update a code security integration with a specific repository provider.
 
@@ -2373,24 +1453,24 @@ class CfnCodeSecurityIntegration(
         @builtins.property
         def github(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty"]]:
             '''Details specific to updating an integration with GitHub.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updatedetails.html#cfn-inspectorv2-codesecurityintegration-updatedetails-github
             '''
             result = self._values.get("github")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty"]], result)
 
         @builtins.property
         def gitlab_self_managed(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty"]]:
             '''Details specific to updating an integration with a self-managed GitLab instance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updatedetails.html#cfn-inspectorv2-codesecurityintegration-updatedetails-gitlabselfmanaged
             '''
             result = self._values.get("gitlab_self_managed")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2527,7 +1607,148 @@ class CfnCodeSecurityIntegration(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ICodeSecurityScanConfigurationRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegrationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "create_integration_details": "createIntegrationDetails",
+        "name": "name",
+        "tags": "tags",
+        "type": "type",
+        "update_integration_details": "updateIntegrationDetails",
+    },
+)
+class CfnCodeSecurityIntegrationProps:
+    def __init__(
+        self,
+        *,
+        create_integration_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityIntegration.CreateDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        type: typing.Optional[builtins.str] = None,
+        update_integration_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityIntegration.UpdateDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCodeSecurityIntegration``.
+
+        :param create_integration_details: Contains details required to create a code security integration with a specific repository provider.
+        :param name: The name of the code security integration.
+        :param tags: The tags to apply to the code security integration.
+        :param type: The type of repository provider for the integration.
+        :param update_integration_details: The updated integration details specific to the repository provider type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_inspectorv2 as inspectorv2
+            
+            cfn_code_security_integration_props = inspectorv2.CfnCodeSecurityIntegrationProps(
+                create_integration_details=inspectorv2.CfnCodeSecurityIntegration.CreateDetailsProperty(
+                    gitlab_self_managed=inspectorv2.CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty(
+                        access_token="accessToken",
+                        instance_url="instanceUrl"
+                    )
+                ),
+                name="name",
+                tags={
+                    "tags_key": "tags"
+                },
+                type="type",
+                update_integration_details=inspectorv2.CfnCodeSecurityIntegration.UpdateDetailsProperty(
+                    github=inspectorv2.CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty(
+                        code="code",
+                        installation_id="installationId"
+                    ),
+                    gitlab_self_managed=inspectorv2.CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty(
+                        auth_code="authCode"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71aafe099f5a07cc45a5a16ed7c8165fc3beaaf581b2a7075ad79583b48897ae)
+            check_type(argname="argument create_integration_details", value=create_integration_details, expected_type=type_hints["create_integration_details"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument update_integration_details", value=update_integration_details, expected_type=type_hints["update_integration_details"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if create_integration_details is not None:
+            self._values["create_integration_details"] = create_integration_details
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+        if type is not None:
+            self._values["type"] = type
+        if update_integration_details is not None:
+            self._values["update_integration_details"] = update_integration_details
+
+    @builtins.property
+    def create_integration_details(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.CreateDetailsProperty"]]:
+        '''Contains details required to create a code security integration with a specific repository provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-createintegrationdetails
+        '''
+        result = self._values.get("create_integration_details")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.CreateDetailsProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the code security integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags to apply to the code security integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''The type of repository provider for the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def update_integration_details(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.UpdateDetailsProperty"]]:
+        '''The updated integration details specific to the repository provider type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-updateintegrationdetails
+        '''
+        result = self._values.get("update_integration_details")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityIntegration.UpdateDetailsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCodeSecurityIntegrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ICodeSecurityScanConfigurationRef_4a00a90e, _ITaggableV2_4e6798f8)
 class CfnCodeSecurityScanConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2571,16 +1792,17 @@ class CfnCodeSecurityScanConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         level: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        scope_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.ScopeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        scope_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityScanConfiguration.ScopeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::InspectorV2::CodeSecurityScanConfiguration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param configuration: The configuration settings for the code security scan.
@@ -2603,8 +1825,34 @@ class CfnCodeSecurityScanConfiguration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForCodeSecurityScanConfiguration")
+    @builtins.classmethod
+    def arn_for_code_security_scan_configuration(
+        cls,
+        resource: "_ICodeSecurityScanConfigurationRef_4a00a90e",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4e2ba232f61f3996b58dc5cfd25237fcbd03e5685907e35ac8cd5f40d55260b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCodeSecurityScanConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnCodeSecurityScanConfiguration")
+    @builtins.classmethod
+    def is_cfn_code_security_scan_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCodeSecurityScanConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1f6d967d4a3eb9c698e7e4d9da2813e02cf4fa4c7e56bc813ceb4ed4d3d1817)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCodeSecurityScanConfiguration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2644,9 +1892,9 @@ class CfnCodeSecurityScanConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2657,22 +1905,22 @@ class CfnCodeSecurityScanConfiguration(
     @jsii.member(jsii_name="codeSecurityScanConfigurationRef")
     def code_security_scan_configuration_ref(
         self,
-    ) -> CodeSecurityScanConfigurationReference:
+    ) -> "_CodeSecurityScanConfigurationReference_b4a97ccc":
         '''A reference to a CodeSecurityScanConfiguration resource.'''
-        return typing.cast(CodeSecurityScanConfigurationReference, jsii.get(self, "codeSecurityScanConfigurationRef"))
+        return typing.cast("_CodeSecurityScanConfigurationReference_b4a97ccc", jsii.get(self, "codeSecurityScanConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
     def configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]]:
         '''The configuration settings for the code security scan.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]], jsii.get(self, "configuration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]], jsii.get(self, "configuration"))
 
     @configuration.setter
     def configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45b63b68b5efac81af01f69f6fc536a7e0c56ab5d78f7c4d82199c868ce47b16)
@@ -2709,14 +1957,14 @@ class CfnCodeSecurityScanConfiguration(
     @jsii.member(jsii_name="scopeSettings")
     def scope_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]]:
         '''The scope settings that define which repositories will be scanned.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]], jsii.get(self, "scopeSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]], jsii.get(self, "scopeSettings"))
 
     @scope_settings.setter
     def scope_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2418e2e1becb18ab1d3613df2cc71f18c45d161aa5b3aa4b796643c5c109a1b8)
@@ -2753,8 +2001,8 @@ class CfnCodeSecurityScanConfiguration(
             self,
             *,
             rule_set_categories: typing.Sequence[builtins.str],
-            continuous_integration_scan_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            periodic_scan_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            continuous_integration_scan_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            periodic_scan_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains the configuration settings for code security scans.
 
@@ -2810,24 +2058,24 @@ class CfnCodeSecurityScanConfiguration(
         @builtins.property
         def continuous_integration_scan_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty"]]:
             '''Configuration settings for continuous integration scans that run automatically when code changes are made.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration-continuousintegrationscanconfiguration
             '''
             result = self._values.get("continuous_integration_scan_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty"]], result)
 
         @builtins.property
         def periodic_scan_configuration(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty"]]:
             '''Configuration settings for periodic scans that run on a scheduled basis.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration-periodicscanconfiguration
             '''
             result = self._values.get("periodic_scan_configuration")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3025,7 +2273,148 @@ class CfnCodeSecurityScanConfiguration(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IFilterRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityScanConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration": "configuration",
+        "level": "level",
+        "name": "name",
+        "scope_settings": "scopeSettings",
+        "tags": "tags",
+    },
+)
+class CfnCodeSecurityScanConfigurationProps:
+    def __init__(
+        self,
+        *,
+        configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        level: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        scope_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCodeSecurityScanConfiguration.ScopeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCodeSecurityScanConfiguration``.
+
+        :param configuration: The configuration settings for the code security scan.
+        :param level: The security level for the scan configuration.
+        :param name: The name of the scan configuration.
+        :param scope_settings: The scope settings that define which repositories will be scanned.
+        :param tags: The tags to apply to the scan configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_inspectorv2 as inspectorv2
+            
+            cfn_code_security_scan_configuration_props = inspectorv2.CfnCodeSecurityScanConfigurationProps(
+                configuration=inspectorv2.CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty(
+                    rule_set_categories=["ruleSetCategories"],
+            
+                    # the properties below are optional
+                    continuous_integration_scan_configuration=inspectorv2.CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty(
+                        supported_events=["supportedEvents"]
+                    ),
+                    periodic_scan_configuration=inspectorv2.CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty(
+                        frequency="frequency",
+                        frequency_expression="frequencyExpression"
+                    )
+                ),
+                level="level",
+                name="name",
+                scope_settings=inspectorv2.CfnCodeSecurityScanConfiguration.ScopeSettingsProperty(
+                    project_selection_scope="projectSelectionScope"
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ea2faaa39ad7a4370f1a43aa967ae3ded5ad2ac9c212905e92dd56f603ec204)
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument scope_settings", value=scope_settings, expected_type=type_hints["scope_settings"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if configuration is not None:
+            self._values["configuration"] = configuration
+        if level is not None:
+            self._values["level"] = level
+        if name is not None:
+            self._values["name"] = name
+        if scope_settings is not None:
+            self._values["scope_settings"] = scope_settings
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]]:
+        '''The configuration settings for the code security scan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-configuration
+        '''
+        result = self._values.get("configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]], result)
+
+    @builtins.property
+    def level(self) -> typing.Optional[builtins.str]:
+        '''The security level for the scan configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-level
+        '''
+        result = self._values.get("level")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the scan configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scope_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]]:
+        '''The scope settings that define which repositories will be scanned.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-scopesettings
+        '''
+        result = self._values.get("scope_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags to apply to the scan configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCodeSecurityScanConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IFilterRef_37875571, _ITaggableV2_4e6798f8)
 class CfnFilter(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3260,16 +2649,17 @@ class CfnFilter(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         filter_action: builtins.str,
-        filter_criteria: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.FilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        filter_criteria: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.FilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::InspectorV2::Filter``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param filter_action: The action that is to be applied to the findings that match the filter.
@@ -3292,8 +2682,31 @@ class CfnFilter(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForFilter")
+    @builtins.classmethod
+    def arn_for_filter(cls, resource: "_IFilterRef_37875571") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__704d307380b328e752813838e45cc7632f81ee6e606de43e80cdab6fbc9f46bb)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFilter", [resource]))
+
+    @jsii.member(jsii_name="isCfnFilter")
+    @builtins.classmethod
+    def is_cfn_filter(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFilter.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4e088efafc9f496c3c6fa7871d5344534a4487772b0dada5b37c9bf1911c2234)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFilter", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3333,9 +2746,9 @@ class CfnFilter(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3344,9 +2757,9 @@ class CfnFilter(
 
     @builtins.property
     @jsii.member(jsii_name="filterRef")
-    def filter_ref(self) -> FilterReference:
+    def filter_ref(self) -> "_FilterReference_d368c0f2":
         '''A reference to a Filter resource.'''
-        return typing.cast(FilterReference, jsii.get(self, "filterRef"))
+        return typing.cast("_FilterReference_d368c0f2", jsii.get(self, "filterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="filterAction")
@@ -3365,14 +2778,14 @@ class CfnFilter(
     @jsii.member(jsii_name="filterCriteria")
     def filter_criteria(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnFilter.FilterCriteriaProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnFilter.FilterCriteriaProperty"]:
         '''Details on the filter criteria associated with this filter.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFilter.FilterCriteriaProperty"], jsii.get(self, "filterCriteria"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFilter.FilterCriteriaProperty"], jsii.get(self, "filterCriteria"))
 
     @filter_criteria.setter
     def filter_criteria(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnFilter.FilterCriteriaProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnFilter.FilterCriteriaProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b566081cfe458076187f61e1afab9cbbb5fb2cdd114aad2fa6e38280867325e5)
@@ -3546,48 +2959,48 @@ class CfnFilter(
         def __init__(
             self,
             *,
-            aws_account_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            code_vulnerability_detector_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            code_vulnerability_detector_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            code_vulnerability_file_path: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            component_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            component_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ec2_instance_image_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ec2_instance_subnet_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ec2_instance_vpc_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ecr_image_architecture: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ecr_image_hash: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ecr_image_pushed_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ecr_image_registry: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ecr_image_repository_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            ecr_image_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            epss_score: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            exploit_available: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            finding_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            finding_status: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            finding_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            first_observed_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            fix_available: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            inspector_score: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            lambda_function_execution_role_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            lambda_function_last_modified_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            lambda_function_layers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            lambda_function_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            lambda_function_runtime: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            last_observed_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            network_protocol: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            port_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.PortRangeFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            related_vulnerabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            resource_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.MapFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            resource_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            severity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            title: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            updated_at: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            vendor_severity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            vulnerability_id: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            vulnerability_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            vulnerable_packages: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.PackageFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            aws_account_id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            code_vulnerability_detector_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            code_vulnerability_detector_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            code_vulnerability_file_path: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            component_id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            component_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ec2_instance_image_id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ec2_instance_subnet_id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ec2_instance_vpc_id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ecr_image_architecture: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ecr_image_hash: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ecr_image_pushed_at: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ecr_image_registry: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ecr_image_repository_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ecr_image_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            epss_score: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            exploit_available: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            finding_arn: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            finding_status: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            finding_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            first_observed_at: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            fix_available: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            inspector_score: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lambda_function_execution_role_arn: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lambda_function_last_modified_at: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lambda_function_layers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lambda_function_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            lambda_function_runtime: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            last_observed_at: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            network_protocol: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            port_range: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.PortRangeFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            related_vulnerabilities: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            resource_id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.MapFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            resource_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            severity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            title: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            updated_at: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            vendor_severity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            vulnerability_id: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            vulnerability_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            vulnerable_packages: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.PackageFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Details on the criteria used to define the filter.
 
@@ -3980,453 +3393,453 @@ class CfnFilter(
         @builtins.property
         def aws_account_id(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details of the AWS account IDs used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-awsaccountid
             '''
             result = self._values.get("aws_account_id")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def code_vulnerability_detector_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-codevulnerabilitydetectorname
             '''
             result = self._values.get("code_vulnerability_detector_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def code_vulnerability_detector_tags(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-codevulnerabilitydetectortags
             '''
             result = self._values.get("code_vulnerability_detector_tags")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def code_vulnerability_file_path(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-codevulnerabilityfilepath
             '''
             result = self._values.get("code_vulnerability_file_path")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def component_id(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details of the component IDs used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-componentid
             '''
             result = self._values.get("component_id")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def component_type(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details of the component types used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-componenttype
             '''
             result = self._values.get("component_type")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def ec2_instance_image_id(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details of the Amazon EC2 instance image IDs used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-ec2instanceimageid
             '''
             result = self._values.get("ec2_instance_image_id")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def ec2_instance_subnet_id(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details of the Amazon EC2 instance subnet IDs used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-ec2instancesubnetid
             '''
             result = self._values.get("ec2_instance_subnet_id")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def ec2_instance_vpc_id(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details of the Amazon EC2 instance VPC IDs used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-ec2instancevpcid
             '''
             result = self._values.get("ec2_instance_vpc_id")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def ecr_image_architecture(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details of the Amazon ECR image architecture types used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-ecrimagearchitecture
             '''
             result = self._values.get("ecr_image_architecture")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def ecr_image_hash(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details of the Amazon ECR image hashes used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-ecrimagehash
             '''
             result = self._values.get("ecr_image_hash")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def ecr_image_pushed_at(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.DateFilterProperty"]]]]:
             '''Details on the Amazon ECR image push date and time used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-ecrimagepushedat
             '''
             result = self._values.get("ecr_image_pushed_at")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.DateFilterProperty"]]]], result)
 
         @builtins.property
         def ecr_image_registry(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the Amazon ECR registry used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-ecrimageregistry
             '''
             result = self._values.get("ecr_image_registry")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def ecr_image_repository_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the name of the Amazon ECR repository used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-ecrimagerepositoryname
             '''
             result = self._values.get("ecr_image_repository_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def ecr_image_tags(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''The tags attached to the Amazon ECR container image.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-ecrimagetags
             '''
             result = self._values.get("ecr_image_tags")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def epss_score(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.NumberFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-epssscore
             '''
             result = self._values.get("epss_score")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.NumberFilterProperty"]]]], result)
 
         @builtins.property
         def exploit_available(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-exploitavailable
             '''
             result = self._values.get("exploit_available")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def finding_arn(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the finding ARNs used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-findingarn
             '''
             result = self._values.get("finding_arn")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def finding_status(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the finding status types used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-findingstatus
             '''
             result = self._values.get("finding_status")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def finding_type(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the finding types used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-findingtype
             '''
             result = self._values.get("finding_type")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def first_observed_at(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.DateFilterProperty"]]]]:
             '''Details on the date and time a finding was first seen used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-firstobservedat
             '''
             result = self._values.get("first_observed_at")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.DateFilterProperty"]]]], result)
 
         @builtins.property
         def fix_available(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-fixavailable
             '''
             result = self._values.get("fix_available")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def inspector_score(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.NumberFilterProperty"]]]]:
             '''The Amazon Inspector score to filter on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-inspectorscore
             '''
             result = self._values.get("inspector_score")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.NumberFilterProperty"]]]], result)
 
         @builtins.property
         def lambda_function_execution_role_arn(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lambdafunctionexecutionrolearn
             '''
             result = self._values.get("lambda_function_execution_role_arn")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def lambda_function_last_modified_at(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.DateFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lambdafunctionlastmodifiedat
             '''
             result = self._values.get("lambda_function_last_modified_at")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.DateFilterProperty"]]]], result)
 
         @builtins.property
         def lambda_function_layers(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lambdafunctionlayers
             '''
             result = self._values.get("lambda_function_layers")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def lambda_function_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lambdafunctionname
             '''
             result = self._values.get("lambda_function_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def lambda_function_runtime(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lambdafunctionruntime
             '''
             result = self._values.get("lambda_function_runtime")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def last_observed_at(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.DateFilterProperty"]]]]:
             '''Details on the date and time a finding was last seen used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-lastobservedat
             '''
             result = self._values.get("last_observed_at")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.DateFilterProperty"]]]], result)
 
         @builtins.property
         def network_protocol(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on network protocol used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-networkprotocol
             '''
             result = self._values.get("network_protocol")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def port_range(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.PortRangeFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.PortRangeFilterProperty"]]]]:
             '''Details on the port ranges used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-portrange
             '''
             result = self._values.get("port_range")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.PortRangeFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.PortRangeFilterProperty"]]]], result)
 
         @builtins.property
         def related_vulnerabilities(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the related vulnerabilities used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-relatedvulnerabilities
             '''
             result = self._values.get("related_vulnerabilities")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def resource_id(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the resource IDs used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-resourceid
             '''
             result = self._values.get("resource_id")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def resource_tags(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.MapFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.MapFilterProperty"]]]]:
             '''Details on the resource tags used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-resourcetags
             '''
             result = self._values.get("resource_tags")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.MapFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.MapFilterProperty"]]]], result)
 
         @builtins.property
         def resource_type(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the resource types used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-resourcetype
             '''
             result = self._values.get("resource_type")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def severity(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the severity used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-severity
             '''
             result = self._values.get("severity")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def title(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the finding title used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-title
             '''
             result = self._values.get("title")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def updated_at(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.DateFilterProperty"]]]]:
             '''Details on the date and time a finding was last updated at used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-updatedat
             '''
             result = self._values.get("updated_at")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.DateFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.DateFilterProperty"]]]], result)
 
         @builtins.property
         def vendor_severity(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the vendor severity used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-vendorseverity
             '''
             result = self._values.get("vendor_severity")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def vulnerability_id(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the vulnerability ID used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-vulnerabilityid
             '''
             result = self._values.get("vulnerability_id")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def vulnerability_source(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]]:
             '''Details on the vulnerability score to filter findings by.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-vulnerabilitysource
             '''
             result = self._values.get("vulnerability_source")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]]], result)
 
         @builtins.property
         def vulnerable_packages(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.PackageFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.PackageFilterProperty"]]]]:
             '''Details on the vulnerable packages used to filter findings.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-vulnerablepackages
             '''
             result = self._values.get("vulnerable_packages")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFilter.PackageFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnFilter.PackageFilterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4618,14 +4031,14 @@ class CfnFilter(
         def __init__(
             self,
             *,
-            architecture: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            epoch: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            file_path: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            release: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            source_lambda_layer_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            source_layer_hash: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            architecture: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            epoch: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            file_path: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            release: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_lambda_layer_arn: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_layer_hash: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains information on the details of a package filter.
 
@@ -4713,88 +4126,88 @@ class CfnFilter(
         @builtins.property
         def architecture(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]:
             '''An object that contains details on the package architecture type to filter on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-architecture
             '''
             result = self._values.get("architecture")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]], result)
 
         @builtins.property
         def epoch(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.NumberFilterProperty"]]:
             '''An object that contains details on the package epoch to filter on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-epoch
             '''
             result = self._values.get("epoch")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.NumberFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.NumberFilterProperty"]], result)
 
         @builtins.property
         def file_path(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-filepath
             '''
             result = self._values.get("file_path")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]], result)
 
         @builtins.property
         def name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]:
             '''An object that contains details on the name of the package to filter on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-name
             '''
             result = self._values.get("name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]], result)
 
         @builtins.property
         def release(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]:
             '''An object that contains details on the package release to filter on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-release
             '''
             result = self._values.get("release")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]], result)
 
         @builtins.property
         def source_lambda_layer_arn(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-sourcelambdalayerarn
             '''
             result = self._values.get("source_lambda_layer_arn")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]], result)
 
         @builtins.property
         def source_layer_hash(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]:
             '''An object that contains details on the source layer hash to filter on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-sourcelayerhash
             '''
             result = self._values.get("source_layer_hash")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]], result)
 
         @builtins.property
         def version(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]]:
             '''The package version to filter on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-packagefilter.html#cfn-inspectorv2-filter-packagefilter-version
             '''
             result = self._values.get("version")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFilter.StringFilterProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFilter.StringFilterProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4947,6 +4360,337 @@ class CfnFilter(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnFilterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "filter_action": "filterAction",
+        "filter_criteria": "filterCriteria",
+        "name": "name",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnFilterProps:
+    def __init__(
+        self,
+        *,
+        filter_action: builtins.str,
+        filter_criteria: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFilter.FilterCriteriaProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFilter``.
+
+        :param filter_action: The action that is to be applied to the findings that match the filter.
+        :param filter_criteria: Details on the filter criteria associated with this filter.
+        :param name: The name of the filter.
+        :param description: A description of the filter.
+        :param tags: The tags attached to the filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_inspectorv2 as inspectorv2
+            
+            cfn_filter_props = inspectorv2.CfnFilterProps(
+                filter_action="filterAction",
+                filter_criteria=inspectorv2.CfnFilter.FilterCriteriaProperty(
+                    aws_account_id=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    code_vulnerability_detector_name=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    code_vulnerability_detector_tags=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    code_vulnerability_file_path=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    component_id=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    component_type=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    ec2_instance_image_id=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    ec2_instance_subnet_id=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    ec2_instance_vpc_id=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    ecr_image_architecture=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    ecr_image_hash=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    ecr_image_pushed_at=[inspectorv2.CfnFilter.DateFilterProperty(
+                        end_inclusive=123,
+                        start_inclusive=123
+                    )],
+                    ecr_image_registry=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    ecr_image_repository_name=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    ecr_image_tags=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    epss_score=[inspectorv2.CfnFilter.NumberFilterProperty(
+                        lower_inclusive=123,
+                        upper_inclusive=123
+                    )],
+                    exploit_available=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    finding_arn=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    finding_status=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    finding_type=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    first_observed_at=[inspectorv2.CfnFilter.DateFilterProperty(
+                        end_inclusive=123,
+                        start_inclusive=123
+                    )],
+                    fix_available=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    inspector_score=[inspectorv2.CfnFilter.NumberFilterProperty(
+                        lower_inclusive=123,
+                        upper_inclusive=123
+                    )],
+                    lambda_function_execution_role_arn=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    lambda_function_last_modified_at=[inspectorv2.CfnFilter.DateFilterProperty(
+                        end_inclusive=123,
+                        start_inclusive=123
+                    )],
+                    lambda_function_layers=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    lambda_function_name=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    lambda_function_runtime=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    last_observed_at=[inspectorv2.CfnFilter.DateFilterProperty(
+                        end_inclusive=123,
+                        start_inclusive=123
+                    )],
+                    network_protocol=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    port_range=[inspectorv2.CfnFilter.PortRangeFilterProperty(
+                        begin_inclusive=123,
+                        end_inclusive=123
+                    )],
+                    related_vulnerabilities=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_id=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    resource_tags=[inspectorv2.CfnFilter.MapFilterProperty(
+                        comparison="comparison",
+            
+                        # the properties below are optional
+                        key="key",
+                        value="value"
+                    )],
+                    resource_type=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    severity=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    title=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    updated_at=[inspectorv2.CfnFilter.DateFilterProperty(
+                        end_inclusive=123,
+                        start_inclusive=123
+                    )],
+                    vendor_severity=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    vulnerability_id=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    vulnerability_source=[inspectorv2.CfnFilter.StringFilterProperty(
+                        comparison="comparison",
+                        value="value"
+                    )],
+                    vulnerable_packages=[inspectorv2.CfnFilter.PackageFilterProperty(
+                        architecture=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        ),
+                        epoch=inspectorv2.CfnFilter.NumberFilterProperty(
+                            lower_inclusive=123,
+                            upper_inclusive=123
+                        ),
+                        file_path=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        ),
+                        name=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        ),
+                        release=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        ),
+                        source_lambda_layer_arn=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        ),
+                        source_layer_hash=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        ),
+                        version=inspectorv2.CfnFilter.StringFilterProperty(
+                            comparison="comparison",
+                            value="value"
+                        )
+                    )]
+                ),
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__701269c3a3c8675419393e41eacb02f94675d9b8c43500c7ae0bd7ea72e3129f)
+            check_type(argname="argument filter_action", value=filter_action, expected_type=type_hints["filter_action"])
+            check_type(argname="argument filter_criteria", value=filter_criteria, expected_type=type_hints["filter_criteria"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "filter_action": filter_action,
+            "filter_criteria": filter_criteria,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def filter_action(self) -> builtins.str:
+        '''The action that is to be applied to the findings that match the filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-filteraction
+        '''
+        result = self._values.get("filter_action")
+        assert result is not None, "Required property 'filter_action' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def filter_criteria(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnFilter.FilterCriteriaProperty"]:
+        '''Details on the filter criteria associated with this filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-filtercriteria
+        '''
+        result = self._values.get("filter_criteria")
+        assert result is not None, "Required property 'filter_criteria' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnFilter.FilterCriteriaProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The tags attached to the filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-filter.html#cfn-inspectorv2-filter-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFilterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnCisScanConfiguration",
     "CfnCisScanConfigurationProps",
@@ -4956,89 +4700,9 @@ __all__ = [
     "CfnCodeSecurityScanConfigurationProps",
     "CfnFilter",
     "CfnFilterProps",
-    "CisScanConfigurationReference",
-    "CodeSecurityIntegrationReference",
-    "CodeSecurityScanConfigurationReference",
-    "FilterReference",
-    "ICisScanConfigurationRef",
-    "ICodeSecurityIntegrationRef",
-    "ICodeSecurityScanConfigurationRef",
-    "IFilterRef",
 ]
 
 publication.publish()
-
-def _typecheckingstub__e3f0430cb9cf97c73c0c85526ac298bc695a6c9d3bf5e578a6d9b5c85d5623dc(
-    *,
-    scan_name: builtins.str,
-    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCisScanConfiguration.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
-    security_level: builtins.str,
-    targets: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCisScanConfiguration.CisTargetsProperty, typing.Dict[builtins.str, typing.Any]]],
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__71aafe099f5a07cc45a5a16ed7c8165fc3beaaf581b2a7075ad79583b48897ae(
-    *,
-    create_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.CreateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    type: typing.Optional[builtins.str] = None,
-    update_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.UpdateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ea2faaa39ad7a4370f1a43aa967ae3ded5ad2ac9c212905e92dd56f603ec204(
-    *,
-    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    level: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    scope_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.ScopeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__701269c3a3c8675419393e41eacb02f94675d9b8c43500c7ae0bd7ea72e3129f(
-    *,
-    filter_action: builtins.str,
-    filter_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.FilterCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1257f2ad4d7989c2a8f0687b03220f632b791cf262a4f9a12cc0d72d7baa9ab8(
-    *,
-    cis_scan_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8a608fbee7d79a9af03f0054d9c56ae030b8390e37bd866a5bf27a5ae3bb139d(
-    *,
-    code_security_integration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__403a5f3e75366736bd7adcfc3ce393ad12b0046faf3e82e513fce879df23c673(
-    *,
-    code_security_scan_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__87d5e4874706c916c7327ae4acf89a310d7949ddbd92c913cbf4e824b1c837d4(
-    *,
-    filter_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__ee74cd979e0690afc5238694387a2bb443783c172f8af7544b4b5c468df80b9c(
     scope: _constructs_77d1e7e8.Construct,
@@ -5049,6 +4713,18 @@ def _typecheckingstub__ee74cd979e0690afc5238694387a2bb443783c172f8af7544b4b5c468
     security_level: builtins.str,
     targets: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCisScanConfiguration.CisTargetsProperty, typing.Dict[builtins.str, typing.Any]]],
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__17bb5d9e0d4a2d165ecc0f9d6c045ff79fb5bd35d06a65c705104aaf297f5690(
+    resource: _ICisScanConfigurationRef_8f6555b3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0157dbe9d0e6a256bfb1f48831eecbee74bad3bf884fbf7b8719bed932bc494b(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5144,6 +4820,17 @@ def _typecheckingstub__d30b6b9756e498926a5cf63c7bbf5e7f937d68b176005d1670779697c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e3f0430cb9cf97c73c0c85526ac298bc695a6c9d3bf5e578a6d9b5c85d5623dc(
+    *,
+    scan_name: builtins.str,
+    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCisScanConfiguration.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    security_level: builtins.str,
+    targets: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCisScanConfiguration.CisTargetsProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__80799b4356912cf375014b9f868e52ed37e885f4e1f3c1ddd85598a234badc5f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5153,6 +4840,18 @@ def _typecheckingstub__80799b4356912cf375014b9f868e52ed37e885f4e1f3c1ddd85598a23
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     type: typing.Optional[builtins.str] = None,
     update_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.UpdateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ca7e2752a7e90b087558c274f5098a9e8bc7c5d74e989dc2358c5a144c1d57e(
+    resource: _ICodeSecurityIntegrationRef_b418c2a5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b98f80c5b07b3b4699f81f95546fed657ea28fce1615629bee70f86785ce350f(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5237,6 +4936,17 @@ def _typecheckingstub__2e29538aad68be3e1d38e6aa515bc380b1c5dbb5fcc5c4ed65df93069
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__71aafe099f5a07cc45a5a16ed7c8165fc3beaaf581b2a7075ad79583b48897ae(
+    *,
+    create_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.CreateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    type: typing.Optional[builtins.str] = None,
+    update_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.UpdateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1f8087fd99eb325ae09773df4a6c219dda10efe85e43341cb1f5b576a1e88cef(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5246,6 +4956,18 @@ def _typecheckingstub__1f8087fd99eb325ae09773df4a6c219dda10efe85e43341cb1f5b576a
     name: typing.Optional[builtins.str] = None,
     scope_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.ScopeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4e2ba232f61f3996b58dc5cfd25237fcbd03e5685907e35ac8cd5f40d55260b(
+    resource: _ICodeSecurityScanConfigurationRef_4a00a90e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1f6d967d4a3eb9c698e7e4d9da2813e02cf4fa4c7e56bc813ceb4ed4d3d1817(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5323,6 +5045,17 @@ def _typecheckingstub__911607f762372da4ac39dfe813875203be92e9a87447c67741aae32d5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6ea2faaa39ad7a4370f1a43aa967ae3ded5ad2ac9c212905e92dd56f603ec204(
+    *,
+    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    level: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    scope_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.ScopeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__76aaac8f8d755716225a5dd2d4902f3e7ec007381fa82a2d163553362c975c9d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5332,6 +5065,18 @@ def _typecheckingstub__76aaac8f8d755716225a5dd2d4902f3e7ec007381fa82a2d163553362
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__704d307380b328e752813838e45cc7632f81ee6e606de43e80cdab6fbc9f46bb(
+    resource: _IFilterRef_37875571,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4e088efafc9f496c3c6fa7871d5344534a4487772b0dada5b37c9bf1911c2234(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5477,6 +5222,17 @@ def _typecheckingstub__d081b1255c15164560e59790e612b8f1e2382868fcbfff794be0ca614
     *,
     comparison: builtins.str,
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__701269c3a3c8675419393e41eacb02f94675d9b8c43500c7ae0bd7ea72e3129f(
+    *,
+    filter_action: builtins.str,
+    filter_criteria: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFilter.FilterCriteriaProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

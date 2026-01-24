@@ -17,7 +17,7 @@
 # <http://www.gnu.org/licenses/> for a copy of the GNU General Public License
 # and <http://www.apache.org/licenses/LICENSE-2.0> for a copy of the Apache
 # License, Version 2.0.
-
+#
 
 """Requests HTTP client support for Dulwich.
 
@@ -31,8 +31,14 @@ the dulwich.client.HttpGitClient attribute:
 This implementation is experimental and does not have any tests.
 """
 
+__all__ = [
+    "RequestsHttpGitClient",
+    "get_session",
+]
+
+from collections.abc import Callable, Iterator
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..config import ConfigFile
@@ -49,15 +55,33 @@ from ..errors import GitProtocolError, NotGitRepository
 
 
 class RequestsHttpGitClient(AbstractHttpGitClient):
+    """HTTP Git client using the requests library."""
+
     def __init__(
         self,
         base_url: str,
-        dumb: Optional[bool] = None,
-        config: Optional["ConfigFile"] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        **kwargs: object,
+        dumb: bool | None = None,
+        config: "ConfigFile | None" = None,
+        username: str | None = None,
+        password: str | None = None,
+        thin_packs: bool = True,
+        report_activity: Callable[[int, str], None] | None = None,
+        quiet: bool = False,
+        include_tags: bool = False,
     ) -> None:
+        """Initialize RequestsHttpGitClient.
+
+        Args:
+          base_url: Base URL of the Git repository
+          dumb: Whether to use dumb HTTP transport
+          config: Git configuration file
+          username: Username for authentication
+          password: Password for authentication
+          thin_packs: Whether to use thin packs
+          report_activity: Function to report activity
+          quiet: Whether to suppress output
+          include_tags: Whether to include tags
+        """
         self._username = username
         self._password = password
 
@@ -67,24 +91,27 @@ class RequestsHttpGitClient(AbstractHttpGitClient):
             self.session.auth = (username, password)  # type: ignore[assignment]
 
         super().__init__(
-            base_url=base_url, dumb=bool(dumb) if dumb is not None else False, **kwargs
+            base_url=base_url,
+            dumb=bool(dumb) if dumb is not None else False,
+            thin_packs=thin_packs,
+            report_activity=report_activity,
+            quiet=quiet,
+            include_tags=include_tags,
         )
 
     def _http_request(
         self,
         url: str,
-        headers: Optional[dict[str, str]] = None,
-        data: Optional[bytes] = None,
-        allow_compression: bool = False,
+        headers: dict[str, str] | None = None,
+        data: bytes | Iterator[bytes] | None = None,
+        raise_for_status: bool = True,
     ) -> tuple[Any, Callable[[int], bytes]]:
         req_headers = self.session.headers.copy()  # type: ignore[attr-defined]
         if headers is not None:
             req_headers.update(headers)
 
-        if allow_compression:
-            req_headers["Accept-Encoding"] = "gzip"
-        else:
-            req_headers["Accept-Encoding"] = "identity"
+        # Accept compression by default
+        req_headers.setdefault("Accept-Encoding", "gzip")
 
         if data:
             resp = self.session.post(url, headers=req_headers, data=data)
@@ -111,14 +138,22 @@ class RequestsHttpGitClient(AbstractHttpGitClient):
         return resp, read
 
 
-def get_session(config: Optional["ConfigFile"]) -> Session:
+def get_session(config: "ConfigFile | None") -> Session:
+    """Create a requests session with Git configuration.
+
+    Args:
+      config: Git configuration file
+
+    Returns:
+      Configured requests Session
+    """
     session = Session()
     session.headers.update({"Pragma": "no-cache"})
 
-    proxy_server: Optional[str] = None
-    user_agent: Optional[str] = None
-    ca_certs: Optional[str] = None
-    ssl_verify: Optional[bool] = None
+    proxy_server: str | None = None
+    user_agent: str | None = None
+    ca_certs: str | None = None
+    ssl_verify: bool | None = None
 
     if config is not None:
         try:

@@ -29,6 +29,7 @@ __all__ = (
     "AdsInteractionPublishOptInEventTypeType",
     "AlertCategoryType",
     "ChannelStateType",
+    "CompressionMethodType",
     "FillPolicyType",
     "GetChannelSchedulePaginatorName",
     "InsertionModeType",
@@ -45,6 +46,7 @@ __all__ = (
     "ManifestServiceExcludeEventTypeType",
     "MediaTailorServiceName",
     "MessageTypeType",
+    "MethodType",
     "ModeType",
     "OperatorType",
     "OriginManifestTypeType",
@@ -111,6 +113,7 @@ AdsInteractionExcludeEventTypeType = Literal[
 AdsInteractionPublishOptInEventTypeType = Literal["RAW_ADS_RESPONSE"]
 AlertCategoryType = Literal["INFO", "PLAYBACK_WARNING", "SCHEDULING_ERROR"]
 ChannelStateType = Literal["RUNNING", "STOPPED"]
+CompressionMethodType = Literal["GZIP", "NONE"]
 FillPolicyType = Literal["FULL_AVAIL_ONLY", "PARTIAL_AVAIL"]
 GetChannelSchedulePaginatorName = Literal["get_channel_schedule"]
 InsertionModeType = Literal["PLAYER_SELECT", "STITCHED_ONLY"]
@@ -159,6 +162,7 @@ ManifestServiceExcludeEventTypeType = Literal[
     "UNSUPPORTED_SINGLE_PERIOD_DASH_MANIFEST",
 ]
 MessageTypeType = Literal["SPLICE_INSERT", "TIME_SIGNAL"]
+MethodType = Literal["GET", "POST"]
 ModeType = Literal["AFTER_LIVE_EDGE", "BEHIND_LIVE_EDGE", "OFF"]
 OperatorType = Literal["EQUALS"]
 OriginManifestTypeType = Literal["MULTI_PERIOD", "SINGLE_PERIOD"]
@@ -168,7 +172,7 @@ RelativePositionType = Literal["AFTER_PROGRAM", "BEFORE_PROGRAM"]
 ScheduleEntryTypeType = Literal["ALTERNATE_MEDIA", "FILLER_SLATE", "PROGRAM"]
 StreamingMediaFileConditioningType = Literal["NONE", "TRANSCODE"]
 TierType = Literal["BASIC", "STANDARD"]
-TrafficShapingTypeType = Literal["RETRIEVAL_WINDOW"]
+TrafficShapingTypeType = Literal["RETRIEVAL_WINDOW", "TPS"]
 TypeType = Literal["DASH", "HLS"]
 MediaTailorServiceName = Literal["mediatailor"]
 ServiceName = Literal[
@@ -197,7 +201,7 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -209,8 +213,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -264,6 +270,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -362,7 +369,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -401,8 +407,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -437,6 +441,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -446,18 +451,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -479,8 +486,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -495,15 +500,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -534,8 +540,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -586,16 +592,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "get_channel_schedule",

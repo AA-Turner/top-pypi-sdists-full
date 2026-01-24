@@ -126,13 +126,13 @@ class DataLakeServiceClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMi
         self._loop = kwargs.get('loop', None)
 
     async def __aenter__(self) -> Self:
-        await super(DataLakeServiceClient, self).__aenter__()
+        await self._client.__aenter__()
         await self._blob_service_client.__aenter__()
         return self
 
     async def __aexit__(self, *args: Any) -> None:
-        await self._blob_service_client.close()
-        await super(DataLakeServiceClient, self).__aexit__(*args)
+        await self._blob_service_client.__aexit__(*args)
+        await self._client.__aexit__(*args)
 
     async def close(self) -> None:  # type: ignore
         """ This method is to close the sockets opened by the client.
@@ -141,7 +141,8 @@ class DataLakeServiceClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMi
         :return: None
         :rtype: None
         """
-        await self.__aexit__()
+        await self._blob_service_client.close()
+        await self._client.close()
 
     def _format_url(self, hostname: str) -> str:
         """Format the endpoint URL according to hostname.
@@ -175,6 +176,9 @@ class DataLakeServiceClient(AsyncStorageAccountHostsMixin, StorageAccountHostsMi
             ~azure.core.credentials.AzureSasCredential or
             ~azure.core.credentials_async.AsyncTokenCredential or
             str or Dict[str, str] or None
+        :keyword str api_version:
+            The Storage API version to use for requests. Default value is the most recent service version that is
+            compatible with the current SDK. Setting to an older version may result in reduced feature compatibility.
         :keyword str audience: The audience to use when requesting tokens for Azure Active Directory
             authentication. Only has an effect when credential is of type AsyncTokenCredential. The value could be
             https://storage.azure.com/ (default) or https://<account>.blob.core.windows.net.

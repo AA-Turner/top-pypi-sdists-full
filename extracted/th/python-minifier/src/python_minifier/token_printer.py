@@ -103,7 +103,7 @@ class TokenPrinter(object):
     def __str__(self):
         """Return the output code."""
         return self._code
-    
+
     def __unicode__(self):
         """Return the output code as unicode (for Python 2.7 compatibility)."""
         return self._code
@@ -173,6 +173,16 @@ class TokenPrinter(object):
 
     def fstring(self, s):
         """Add an f-string to the output code."""
+        assert isinstance(s, str)
+
+        if self.previous_token in [TokenTypes.Identifier, TokenTypes.Keyword, TokenTypes.SoftKeyword]:
+            self.delimiter(' ')
+
+        self._code += s
+        self.previous_token = TokenTypes.NonNumberLiteral
+
+    def tstring(self, s):
+        """Add a template string (t-string) to the output code."""
         assert isinstance(s, str)
 
         if self.previous_token in [TokenTypes.Identifier, TokenTypes.Keyword, TokenTypes.SoftKeyword]:
@@ -296,7 +306,7 @@ class TokenPrinter(object):
     def end_statement(self):
         """ End a statement with a newline, or a semi-colon if it saves characters. """
 
-        if self.indent == 0:
+        if self.indent == 0 and not self._prefer_single_line:
             self.newline()
         else:
             if self._code[-1] != ';':

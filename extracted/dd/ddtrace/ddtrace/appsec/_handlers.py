@@ -1,14 +1,16 @@
-import asyncio
 import io
 import json
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import Union
 
 from ddtrace._trace.span import Span
 from ddtrace.appsec._asm_request_context import _call_waf
 from ddtrace.appsec._asm_request_context import _call_waf_first
+from ddtrace.appsec._asm_request_context import call_waf_callback
 from ddtrace.appsec._asm_request_context import get_blocked
 from ddtrace.appsec._asm_request_context import set_body_response
 from ddtrace.appsec._constants import APPSEC
@@ -16,6 +18,7 @@ from ddtrace.appsec._constants import SPAN_DATA_NAMES
 from ddtrace.appsec._http_utils import extract_cookies_from_headers
 from ddtrace.appsec._http_utils import normalize_headers
 from ddtrace.appsec._http_utils import parse_http_body
+from ddtrace.appsec._utils import Block_config
 from ddtrace.contrib import trace_utils
 from ddtrace.contrib.internal.trace_utils_base import _get_request_header_user_agent
 from ddtrace.contrib.internal.trace_utils_base import _set_url_tag
@@ -24,9 +27,9 @@ from ddtrace.internal import core
 from ddtrace.internal import telemetry
 from ddtrace.internal.constants import RESPONSE_HEADERS
 from ddtrace.internal.logger import get_logger
+from ddtrace.internal.settings.asm import config as asm_config
 from ddtrace.internal.utils import http as http_utils
 from ddtrace.internal.utils.http import parse_form_multipart
-from ddtrace.settings.asm import config as asm_config
 import ddtrace.vendor.xmltodict as xmltodict
 
 
@@ -171,6 +174,9 @@ def _on_lambda_parse_body(
 
 async def _on_asgi_request_parse_body(receive, headers):
     if asm_config._asm_enabled:
+        # This must not be imported globally due to 3rd party patching timeline
+        import asyncio
+
         more_body = True
         body_parts = []
         try:
@@ -290,83 +296,80 @@ def _on_grpc_server_data(headers, request_message, method, metadata):
         set_waf_address(SPAN_DATA_NAMES.GRPC_SERVER_REQUEST_METADATA, dict(metadata))
 
 
-def _wsgi_make_block_content(ctx, construct_url):
+def _wsgi_make_block_content(ctx, construct_url) -> Tuple[int, List[Tuple[str, str]], bytes]:
     middleware = ctx.get_item("middleware")
     req_span = ctx.get_item("req_span")
     headers = ctx.get_item("headers")
     environ = ctx.get_item("environ")
     if req_span is None:
         raise ValueError("request span not found")
-    block_config = get_blocked()
-    desired_type = block_config.get("type", "auto")
+    block_config: Block_config = get_blocked() or Block_config()
     ctype = None
-    if desired_type == "none":
-        content = ""
-        resp_headers = [("content-type", "text/plain; charset=utf-8"), ("location", block_config.get("location", ""))]
+    if block_config.type == "none":
+        content = b""
+        resp_headers = [("content-type", "text/plain; charset=utf-8"), ("location", block_config.location)]
     else:
-        ctype = block_config.get("content-type", "application/json")
-        content = http_utils._get_blocked_template(ctype).encode("UTF-8")
+        ctype = block_config.content_type
+        content = http_utils._get_blocked_template(ctype, block_config.block_id).encode("UTF-8")
         resp_headers = [("content-type", ctype)]
-    status = block_config.get("status_code", 403)
+    status = block_config.status_code
     try:
-        req_span.set_tag_str(RESPONSE_HEADERS + ".content-length", str(len(content)))
+        req_span._set_tag_str(RESPONSE_HEADERS + ".content-length", str(len(content)))
         if ctype is not None:
-            req_span.set_tag_str(RESPONSE_HEADERS + ".content-type", ctype)
-        req_span.set_tag_str(http.STATUS_CODE, str(status))
+            req_span._set_tag_str(RESPONSE_HEADERS + ".content-type", ctype)
+        req_span._set_tag_str(http.STATUS_CODE, str(status))
         url = construct_url(environ)
         query_string = environ.get("QUERY_STRING")
         _set_url_tag(middleware._config, req_span, url, query_string)
         if query_string and middleware._config.trace_query_string:
-            req_span.set_tag_str(http.QUERY_STRING, query_string)
+            req_span._set_tag_str(http.QUERY_STRING, query_string)
         method = environ.get("REQUEST_METHOD")
         if method:
-            req_span.set_tag_str(http.METHOD, method)
+            req_span._set_tag_str(http.METHOD, method)
         user_agent = _get_request_header_user_agent(headers, headers_are_case_sensitive=True)
         if user_agent:
-            req_span.set_tag_str(http.USER_AGENT, user_agent)
+            req_span._set_tag_str(http.USER_AGENT, user_agent)
     except Exception as e:
         log.warning("Could not set some span tags on blocked request: %s", str(e))
     resp_headers.append(("Content-Length", str(len(content))))
     return status, resp_headers, content
 
 
-def _asgi_make_block_content(ctx, url):
+def _asgi_make_block_content(ctx, url) -> Tuple[int, List[Tuple[bytes, bytes]], bytes]:
     middleware = ctx.get_item("middleware")
     req_span = ctx.get_item("req_span")
     headers = ctx.get_item("headers")
     environ = ctx.get_item("environ")
     if req_span is None:
         raise ValueError("request span not found")
-    block_config = get_blocked()
-    desired_type = block_config.get("type", "auto")
+    block_config = get_blocked() or Block_config()
     ctype = None
-    if desired_type == "none":
-        content = ""
+    if block_config.type == "none":
+        content = b""
         resp_headers = [
             (b"content-type", b"text/plain; charset=utf-8"),
-            (b"location", block_config.get("location", "").encode()),
+            (b"location", block_config.location.encode()),
         ]
     else:
-        ctype = block_config.get("content-type", "application/json")
-        content = http_utils._get_blocked_template(ctype).encode("UTF-8")
+        content = http_utils._get_blocked_template(block_config.content_type, block_config.block_id).encode("UTF-8")
         # ctype = f"{ctype}; charset=utf-8" can be considered at some point
-        resp_headers = [(b"content-type", ctype.encode())]
-    status = block_config.get("status_code", 403)
+        resp_headers = [(b"content-type", block_config.content_type.encode())]
+    status = block_config.status_code
     try:
-        req_span.set_tag_str(RESPONSE_HEADERS + ".content-length", str(len(content)))
+        req_span._set_tag_str(RESPONSE_HEADERS + ".content-length", str(len(content)))
         if ctype is not None:
-            req_span.set_tag_str(RESPONSE_HEADERS + ".content-type", ctype)
-        req_span.set_tag_str(http.STATUS_CODE, str(status))
+            req_span._set_tag_str(RESPONSE_HEADERS + ".content-type", ctype)
+        req_span._set_tag_str(http.STATUS_CODE, str(status))
         query_string = environ.get("QUERY_STRING")
         _set_url_tag(middleware.integration_config, req_span, url, query_string)
         if query_string and middleware._config.trace_query_string:
-            req_span.set_tag_str(http.QUERY_STRING, query_string)
+            req_span._set_tag_str(http.QUERY_STRING, query_string)
         method = environ.get("REQUEST_METHOD")
         if method:
-            req_span.set_tag_str(http.METHOD, method)
+            req_span._set_tag_str(http.METHOD, method)
         user_agent = _get_request_header_user_agent(headers, headers_are_case_sensitive=True)
         if user_agent:
-            req_span.set_tag_str(http.USER_AGENT, user_agent)
+            req_span._set_tag_str(http.USER_AGENT, user_agent)
     except Exception as e:
         log.warning("Could not set some span tags on blocked request: %s", str(e))
     resp_headers.append((b"Content-Length", str(len(content)).encode()))
@@ -374,7 +377,7 @@ def _asgi_make_block_content(ctx, url):
 
 
 def _on_flask_blocked_request(span):
-    span.set_tag_str(http.STATUS_CODE, "403")
+    span._set_tag_str(http.STATUS_CODE, "403")
     request = core.find_item("flask_request")
     try:
         base_url = getattr(request, "base_url", None)
@@ -382,12 +385,12 @@ def _on_flask_blocked_request(span):
         if base_url and query_string:
             _set_url_tag(core.find_item("flask_config"), span, base_url, query_string)
         if query_string and core.find_item("flask_config").trace_query_string:
-            span.set_tag_str(http.QUERY_STRING, query_string)
+            span._set_tag_str(http.QUERY_STRING, query_string)
         if request.method is not None:
-            span.set_tag_str(http.METHOD, request.method)
+            span._set_tag_str(http.METHOD, request.method)
         user_agent = _get_request_header_user_agent(request.headers)
         if user_agent:
-            span.set_tag_str(http.USER_AGENT, user_agent)
+            span._set_tag_str(http.USER_AGENT, user_agent)
     except Exception as e:
         log.warning("Could not set some span tags on blocked request: %s", str(e))
 
@@ -411,6 +414,123 @@ def _on_telemetry_periodic():
         log.debug("Could not set appsec_enabled telemetry config status", exc_info=True)
 
 
+# Stripe
+
+
+def _on_checkout_session_create(session):
+    try:
+        mode = session.mode
+        if mode != "payment":
+            return
+
+        discounts_coupon = None
+        discounts_promotion_code = None
+        if session.discounts:
+            discount = session.discounts[0]
+            coupon = discount.coupon
+            if coupon:
+                if isinstance(coupon, str):
+                    discounts_coupon = coupon
+                else:
+                    discounts_coupon = coupon.id
+
+            promotion_code = discount.promotion_code
+            if promotion_code:
+                if isinstance(promotion_code, str):
+                    discounts_promotion_code = promotion_code
+                else:
+                    discounts_promotion_code = promotion_code.id
+
+        total_details_amount_discount = None
+        total_details_amount_shipping = None
+        if session.total_details:
+            total_details_amount_discount = session.total_details.amount_discount
+            total_details_amount_shipping = session.total_details.amount_shipping
+
+        payment_creation_data = {
+            "integration": "stripe",
+            "id": session.id,
+            "amount_total": session.amount_total,
+            "client_reference_id": session.client_reference_id,
+            "currency": session.currency,
+            "customer_email": session.customer_email,
+            "discounts.coupon": discounts_coupon,
+            "discounts.promotion_code": discounts_promotion_code,
+            "livemode": session.livemode,
+            "total_details.amount_discount": total_details_amount_discount,
+            "total_details.amount_shipping": total_details_amount_shipping,
+        }
+
+        call_waf_callback({"PAYMENT_CREATION": payment_creation_data})
+    except AttributeError:
+        log.debug("can't extract payment creation data from Session object", exc_info=True)
+
+
+def _on_payment_intent_create(payment_intent):
+    try:
+        payment_method = payment_intent.payment_method
+        if not isinstance(payment_method, str):
+            payment_method = payment_method.id
+
+        payment_creation_data = {
+            "integration": "stripe",
+            "id": payment_intent.id,
+            "amount": payment_intent.amount,
+            "currency": payment_intent.currency,
+            "livemode": payment_intent.livemode,
+            "payment_method": payment_method,
+            "receipt_email": payment_intent.receipt_email,
+        }
+
+        call_waf_callback({"PAYMENT_CREATION": payment_creation_data})
+    except AttributeError:
+        log.debug("can't extract payment creation data from PaymentIntent object", exc_info=True)
+
+
+def _on_payment_intent_event(event):
+    try:
+        if event.type == "payment_intent.succeeded":
+            waf_data_name = "PAYMENT_SUCCESS"
+
+            payment_intent_webhook_data = {
+                "payment_method": event.data.object.payment_method,
+            }
+
+        elif event.type == "payment_intent.payment_failed":
+            waf_data_name = "PAYMENT_FAILURE"
+
+            payment_intent_webhook_data = {
+                "last_payment_error.code": event.data.object.last_payment_error.code,
+                "last_payment_error.decline_code": event.data.object.last_payment_error.decline_code,
+                "last_payment_error.payment_method.id": event.data.object.last_payment_error.payment_method.id,
+                "last_payment_error.payment_method.billing_details.email": (
+                    event.data.object.last_payment_error.payment_method.billing_details.email
+                ),
+                "last_payment_error.payment_method.type": event.data.object.last_payment_error.payment_method.type,
+            }
+        elif event.type == "payment_intent.canceled":
+            waf_data_name = "PAYMENT_CANCELLATION"
+
+            payment_intent_webhook_data = {
+                "cancellation_reason": event.data.object.cancellation_reason,
+                "receipt_email": event.data.object.receipt_email,
+            }
+        else:
+            return
+
+        payment_intent_webhook_data |= {
+            "integration": "stripe",
+            "id": event.data.object.id,
+            "amount": event.data.object.amount,
+            "currency": event.data.object.currency,
+            "livemode": event.data.object.livemode,
+        }
+
+        call_waf_callback({waf_data_name: payment_intent_webhook_data})
+    except AttributeError:
+        log.debug("can't extract payment_intent event data from Event object", exc_info=True)
+
+
 def listen():
     core.on("telemetry.periodic", _on_telemetry_periodic)
 
@@ -426,6 +546,12 @@ def listen():
     core.on("aws_lambda.start_request", _on_lambda_start_request)
     core.on("aws_lambda.start_response", _on_lambda_start_response)
     core.on("aws_lambda.parse_body", _on_lambda_parse_body)
+
+    core.on("appsec.stripe.checkout.session.create", _on_checkout_session_create)
+    core.on("appsec.stripe.payment_intent.create", _on_payment_intent_create)
+    core.on("appsec.stripe.webhook.construct_event", _on_payment_intent_event)
+    core.on("appsec.stripe.stripe_client.construct_event", _on_payment_intent_event)
+    core.on("appsec.stripe.stripe_client.parse_event_notification", _on_payment_intent_event)
 
     # disabling threats grpc listeners.
     # core.on("grpc.server.response.message", _on_grpc_server_response)

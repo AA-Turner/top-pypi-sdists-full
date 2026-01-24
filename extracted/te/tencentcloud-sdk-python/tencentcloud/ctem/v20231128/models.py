@@ -18,6 +18,419 @@ import warnings
 from tencentcloud.common.abstract_model import AbstractModel
 
 
+class CreateAppRequest(AbstractModel):
+    r"""CreateApp请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业ID
+        :type CustomerId: int
+        :param _Name: 移动端名称
+        :type Name: str
+        :param _Logo: 图片地址
+        :type Logo: str
+        :param _Platform: 平台，ios或android
+        :type Platform: str
+        :param _AppVersion: 版本
+        :type AppVersion: str
+        :param _DownloadUrl: 下载地址
+        :type DownloadUrl: str
+        :param _PackageName: 安装包名
+        :type PackageName: str
+        :param _Developer: 开发者
+        :type Developer: str
+        :param _ServerUrl: 移动端地址
+        :type ServerUrl: str
+        :param _Description: 描述
+        :type Description: str
+        :param _EnterpriseUid: 子公司ID
+        :type EnterpriseUid: str
+        """
+        self._CustomerId = None
+        self._Name = None
+        self._Logo = None
+        self._Platform = None
+        self._AppVersion = None
+        self._DownloadUrl = None
+        self._PackageName = None
+        self._Developer = None
+        self._ServerUrl = None
+        self._Description = None
+        self._EnterpriseUid = None
+
+    @property
+    def CustomerId(self):
+        r"""企业ID
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Name(self):
+        r"""移动端名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Logo(self):
+        r"""图片地址
+        :rtype: str
+        """
+        return self._Logo
+
+    @Logo.setter
+    def Logo(self, Logo):
+        self._Logo = Logo
+
+    @property
+    def Platform(self):
+        r"""平台，ios或android
+        :rtype: str
+        """
+        return self._Platform
+
+    @Platform.setter
+    def Platform(self, Platform):
+        self._Platform = Platform
+
+    @property
+    def AppVersion(self):
+        r"""版本
+        :rtype: str
+        """
+        return self._AppVersion
+
+    @AppVersion.setter
+    def AppVersion(self, AppVersion):
+        self._AppVersion = AppVersion
+
+    @property
+    def DownloadUrl(self):
+        r"""下载地址
+        :rtype: str
+        """
+        return self._DownloadUrl
+
+    @DownloadUrl.setter
+    def DownloadUrl(self, DownloadUrl):
+        self._DownloadUrl = DownloadUrl
+
+    @property
+    def PackageName(self):
+        r"""安装包名
+        :rtype: str
+        """
+        return self._PackageName
+
+    @PackageName.setter
+    def PackageName(self, PackageName):
+        self._PackageName = PackageName
+
+    @property
+    def Developer(self):
+        r"""开发者
+        :rtype: str
+        """
+        return self._Developer
+
+    @Developer.setter
+    def Developer(self, Developer):
+        self._Developer = Developer
+
+    @property
+    def ServerUrl(self):
+        r"""移动端地址
+        :rtype: str
+        """
+        return self._ServerUrl
+
+    @ServerUrl.setter
+    def ServerUrl(self, ServerUrl):
+        self._ServerUrl = ServerUrl
+
+    @property
+    def Description(self):
+        r"""描述
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司ID
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._Name = params.get("Name")
+        self._Logo = params.get("Logo")
+        self._Platform = params.get("Platform")
+        self._AppVersion = params.get("AppVersion")
+        self._DownloadUrl = params.get("DownloadUrl")
+        self._PackageName = params.get("PackageName")
+        self._Developer = params.get("Developer")
+        self._ServerUrl = params.get("ServerUrl")
+        self._Description = params.get("Description")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateAppResponse(AbstractModel):
+    r"""CreateApp返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateAssetRequest(AbstractModel):
+    r"""CreateAsset请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ip: IP地址
+        :type Ip: str
+        :param _CustomerId: 企业Id
+        :type CustomerId: int
+        :param _Os: 类型
+        :type Os: str
+        :param _Country: 国家
+        :type Country: str
+        :param _Province: 省份
+        :type Province: str
+        :param _City: 城市
+        :type City: str
+        :param _Isp: 运营商
+        :type Isp: str
+        :param _EnterpriseUid: 子公司Id
+        :type EnterpriseUid: str
+        """
+        self._Ip = None
+        self._CustomerId = None
+        self._Os = None
+        self._Country = None
+        self._Province = None
+        self._City = None
+        self._Isp = None
+        self._EnterpriseUid = None
+
+    @property
+    def Ip(self):
+        r"""IP地址
+        :rtype: str
+        """
+        return self._Ip
+
+    @Ip.setter
+    def Ip(self, Ip):
+        self._Ip = Ip
+
+    @property
+    def CustomerId(self):
+        r"""企业Id
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Os(self):
+        r"""类型
+        :rtype: str
+        """
+        return self._Os
+
+    @Os.setter
+    def Os(self, Os):
+        self._Os = Os
+
+    @property
+    def Country(self):
+        r"""国家
+        :rtype: str
+        """
+        return self._Country
+
+    @Country.setter
+    def Country(self, Country):
+        self._Country = Country
+
+    @property
+    def Province(self):
+        r"""省份
+        :rtype: str
+        """
+        return self._Province
+
+    @Province.setter
+    def Province(self, Province):
+        self._Province = Province
+
+    @property
+    def City(self):
+        r"""城市
+        :rtype: str
+        """
+        return self._City
+
+    @City.setter
+    def City(self, City):
+        self._City = City
+
+    @property
+    def Isp(self):
+        r"""运营商
+        :rtype: str
+        """
+        return self._Isp
+
+    @Isp.setter
+    def Isp(self, Isp):
+        self._Isp = Isp
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司Id
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+
+    def _deserialize(self, params):
+        self._Ip = params.get("Ip")
+        self._CustomerId = params.get("CustomerId")
+        self._Os = params.get("Os")
+        self._Country = params.get("Country")
+        self._Province = params.get("Province")
+        self._City = params.get("City")
+        self._Isp = params.get("Isp")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateAssetResponse(AbstractModel):
+    r"""CreateAsset返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
 class CreateCustomerRequest(AbstractModel):
     r"""CreateCustomer请求参数结构体
 
@@ -322,6 +735,648 @@ class CreateCustomerResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CreateDomainRequest(AbstractModel):
+    r"""CreateDomain请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业Id
+        :type CustomerId: int
+        :param _Domain: 主域名
+        :type Domain: str
+        :param _ICP: ICP
+        :type ICP: str
+        :param _RegisteredTime: 注册时间
+        :type RegisteredTime: str
+        :param _ExpiredTime: 过期时间
+        :type ExpiredTime: str
+        :param _Company: 公司
+        :type Company: str
+        :param _EnterpriseUid: 子公司
+        :type EnterpriseUid: str
+        """
+        self._CustomerId = None
+        self._Domain = None
+        self._ICP = None
+        self._RegisteredTime = None
+        self._ExpiredTime = None
+        self._Company = None
+        self._EnterpriseUid = None
+
+    @property
+    def CustomerId(self):
+        r"""企业Id
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Domain(self):
+        r"""主域名
+        :rtype: str
+        """
+        return self._Domain
+
+    @Domain.setter
+    def Domain(self, Domain):
+        self._Domain = Domain
+
+    @property
+    def ICP(self):
+        r"""ICP
+        :rtype: str
+        """
+        return self._ICP
+
+    @ICP.setter
+    def ICP(self, ICP):
+        self._ICP = ICP
+
+    @property
+    def RegisteredTime(self):
+        r"""注册时间
+        :rtype: str
+        """
+        return self._RegisteredTime
+
+    @RegisteredTime.setter
+    def RegisteredTime(self, RegisteredTime):
+        self._RegisteredTime = RegisteredTime
+
+    @property
+    def ExpiredTime(self):
+        r"""过期时间
+        :rtype: str
+        """
+        return self._ExpiredTime
+
+    @ExpiredTime.setter
+    def ExpiredTime(self, ExpiredTime):
+        self._ExpiredTime = ExpiredTime
+
+    @property
+    def Company(self):
+        r"""公司
+        :rtype: str
+        """
+        return self._Company
+
+    @Company.setter
+    def Company(self, Company):
+        self._Company = Company
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._Domain = params.get("Domain")
+        self._ICP = params.get("ICP")
+        self._RegisteredTime = params.get("RegisteredTime")
+        self._ExpiredTime = params.get("ExpiredTime")
+        self._Company = params.get("Company")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateDomainResponse(AbstractModel):
+    r"""CreateDomain返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateEnterpriseRequest(AbstractModel):
+    r"""CreateEnterprise请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业ID
+        :type CustomerId: int
+        :param _Name: 名称
+        :type Name: str
+        :param _ParentEnterpriseUid: 上一级企业
+        :type ParentEnterpriseUid: str
+        :param _CreditCode: 统一社会信用代码
+        :type CreditCode: str
+        :param _Status: 企业状态:存续、已注销
+        :type Status: str
+        :param _RegisteredCapital: 注册资本（单位:元）
+        :type RegisteredCapital: str
+        :param _ShareholdingRatio: 持股比例
+        :type ShareholdingRatio: str
+        :param _LegalPerson: 法人代表
+        :type LegalPerson: str
+        :param _Type: 类型
+        :type Type: str
+        :param _Industry: 行业类型
+        :type Industry: str
+        :param _EnterpriseUid: 子公司ID
+        :type EnterpriseUid: str
+        """
+        self._CustomerId = None
+        self._Name = None
+        self._ParentEnterpriseUid = None
+        self._CreditCode = None
+        self._Status = None
+        self._RegisteredCapital = None
+        self._ShareholdingRatio = None
+        self._LegalPerson = None
+        self._Type = None
+        self._Industry = None
+        self._EnterpriseUid = None
+
+    @property
+    def CustomerId(self):
+        r"""企业ID
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Name(self):
+        r"""名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def ParentEnterpriseUid(self):
+        r"""上一级企业
+        :rtype: str
+        """
+        return self._ParentEnterpriseUid
+
+    @ParentEnterpriseUid.setter
+    def ParentEnterpriseUid(self, ParentEnterpriseUid):
+        self._ParentEnterpriseUid = ParentEnterpriseUid
+
+    @property
+    def CreditCode(self):
+        r"""统一社会信用代码
+        :rtype: str
+        """
+        return self._CreditCode
+
+    @CreditCode.setter
+    def CreditCode(self, CreditCode):
+        self._CreditCode = CreditCode
+
+    @property
+    def Status(self):
+        r"""企业状态:存续、已注销
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def RegisteredCapital(self):
+        r"""注册资本（单位:元）
+        :rtype: str
+        """
+        return self._RegisteredCapital
+
+    @RegisteredCapital.setter
+    def RegisteredCapital(self, RegisteredCapital):
+        self._RegisteredCapital = RegisteredCapital
+
+    @property
+    def ShareholdingRatio(self):
+        r"""持股比例
+        :rtype: str
+        """
+        return self._ShareholdingRatio
+
+    @ShareholdingRatio.setter
+    def ShareholdingRatio(self, ShareholdingRatio):
+        self._ShareholdingRatio = ShareholdingRatio
+
+    @property
+    def LegalPerson(self):
+        r"""法人代表
+        :rtype: str
+        """
+        return self._LegalPerson
+
+    @LegalPerson.setter
+    def LegalPerson(self, LegalPerson):
+        self._LegalPerson = LegalPerson
+
+    @property
+    def Type(self):
+        r"""类型
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Industry(self):
+        r"""行业类型
+        :rtype: str
+        """
+        return self._Industry
+
+    @Industry.setter
+    def Industry(self, Industry):
+        self._Industry = Industry
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司ID
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._Name = params.get("Name")
+        self._ParentEnterpriseUid = params.get("ParentEnterpriseUid")
+        self._CreditCode = params.get("CreditCode")
+        self._Status = params.get("Status")
+        self._RegisteredCapital = params.get("RegisteredCapital")
+        self._ShareholdingRatio = params.get("ShareholdingRatio")
+        self._LegalPerson = params.get("LegalPerson")
+        self._Type = params.get("Type")
+        self._Industry = params.get("Industry")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateEnterpriseResponse(AbstractModel):
+    r"""CreateEnterprise返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateHttpRequest(AbstractModel):
+    r"""CreateHttp请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业Id
+        :type CustomerId: int
+        :param _Url: Url
+        :type Url: str
+        :param _EnterpriseUid: 子公司
+        :type EnterpriseUid: str
+        :param _Title: 标题
+        :type Title: str
+        :param _ContentLength: 报文长度
+        :type ContentLength: int
+        :param _Content: 报文内容
+        :type Content: str
+        :param _ScreenshotUrl: 缩略图Url
+        :type ScreenshotUrl: str
+        :param _Tags: 标签
+        :type Tags: str
+        :param _Code: 状态码
+        :type Code: int
+        :param _Ip: 解析的IP
+        :type Ip: str
+        :param _Ssl: 证书信息
+        :type Ssl: str
+        :param _SslExpiredTime: ssl证书过期时间
+        :type SslExpiredTime: str
+        """
+        self._CustomerId = None
+        self._Url = None
+        self._EnterpriseUid = None
+        self._Title = None
+        self._ContentLength = None
+        self._Content = None
+        self._ScreenshotUrl = None
+        self._Tags = None
+        self._Code = None
+        self._Ip = None
+        self._Ssl = None
+        self._SslExpiredTime = None
+
+    @property
+    def CustomerId(self):
+        r"""企业Id
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Url(self):
+        r"""Url
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+    @property
+    def Title(self):
+        r"""标题
+        :rtype: str
+        """
+        return self._Title
+
+    @Title.setter
+    def Title(self, Title):
+        self._Title = Title
+
+    @property
+    def ContentLength(self):
+        r"""报文长度
+        :rtype: int
+        """
+        return self._ContentLength
+
+    @ContentLength.setter
+    def ContentLength(self, ContentLength):
+        self._ContentLength = ContentLength
+
+    @property
+    def Content(self):
+        r"""报文内容
+        :rtype: str
+        """
+        return self._Content
+
+    @Content.setter
+    def Content(self, Content):
+        self._Content = Content
+
+    @property
+    def ScreenshotUrl(self):
+        r"""缩略图Url
+        :rtype: str
+        """
+        return self._ScreenshotUrl
+
+    @ScreenshotUrl.setter
+    def ScreenshotUrl(self, ScreenshotUrl):
+        self._ScreenshotUrl = ScreenshotUrl
+
+    @property
+    def Tags(self):
+        r"""标签
+        :rtype: str
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def Code(self):
+        r"""状态码
+        :rtype: int
+        """
+        return self._Code
+
+    @Code.setter
+    def Code(self, Code):
+        self._Code = Code
+
+    @property
+    def Ip(self):
+        r"""解析的IP
+        :rtype: str
+        """
+        return self._Ip
+
+    @Ip.setter
+    def Ip(self, Ip):
+        self._Ip = Ip
+
+    @property
+    def Ssl(self):
+        r"""证书信息
+        :rtype: str
+        """
+        return self._Ssl
+
+    @Ssl.setter
+    def Ssl(self, Ssl):
+        self._Ssl = Ssl
+
+    @property
+    def SslExpiredTime(self):
+        r"""ssl证书过期时间
+        :rtype: str
+        """
+        return self._SslExpiredTime
+
+    @SslExpiredTime.setter
+    def SslExpiredTime(self, SslExpiredTime):
+        self._SslExpiredTime = SslExpiredTime
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._Url = params.get("Url")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        self._Title = params.get("Title")
+        self._ContentLength = params.get("ContentLength")
+        self._Content = params.get("Content")
+        self._ScreenshotUrl = params.get("ScreenshotUrl")
+        self._Tags = params.get("Tags")
+        self._Code = params.get("Code")
+        self._Ip = params.get("Ip")
+        self._Ssl = params.get("Ssl")
+        self._SslExpiredTime = params.get("SslExpiredTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateHttpResponse(AbstractModel):
+    r"""CreateHttp返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
 class CreateJobRecordRequest(AbstractModel):
     r"""CreateJobRecord请求参数结构体
 
@@ -436,6 +1491,1294 @@ class CreateJobRecordResponse(AbstractModel):
     @property
     def Id(self):
         r"""任务Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateManageRequest(AbstractModel):
+    r"""CreateManage请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业Id
+        :type CustomerId: int
+        :param _Url: Url
+        :type Url: str
+        :param _Title: 标题
+        :type Title: str
+        :param _Screenshot: Screenshot
+        :type Screenshot: str
+        :param _Code: 状态码
+        :type Code: int
+        :param _EnterpriseUid: 子公司
+        :type EnterpriseUid: str
+        """
+        self._CustomerId = None
+        self._Url = None
+        self._Title = None
+        self._Screenshot = None
+        self._Code = None
+        self._EnterpriseUid = None
+
+    @property
+    def CustomerId(self):
+        r"""企业Id
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Url(self):
+        r"""Url
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+    @property
+    def Title(self):
+        r"""标题
+        :rtype: str
+        """
+        return self._Title
+
+    @Title.setter
+    def Title(self, Title):
+        self._Title = Title
+
+    @property
+    def Screenshot(self):
+        r"""Screenshot
+        :rtype: str
+        """
+        return self._Screenshot
+
+    @Screenshot.setter
+    def Screenshot(self, Screenshot):
+        self._Screenshot = Screenshot
+
+    @property
+    def Code(self):
+        r"""状态码
+        :rtype: int
+        """
+        return self._Code
+
+    @Code.setter
+    def Code(self, Code):
+        self._Code = Code
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._Url = params.get("Url")
+        self._Title = params.get("Title")
+        self._Screenshot = params.get("Screenshot")
+        self._Code = params.get("Code")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateManageResponse(AbstractModel):
+    r"""CreateManage返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
+class CreatePortRequest(AbstractModel):
+    r"""CreatePort请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业Id
+        :type CustomerId: int
+        :param _Port: 端口
+        :type Port: int
+        :param _Asset: IP或域名地址
+        :type Asset: str
+        :param _IsHighRisk: 是否高危
+        :type IsHighRisk: bool
+        :param _EnterpriseUid: 子公司
+        :type EnterpriseUid: str
+        :param _Banner: base64编码后的指纹
+        :type Banner: str
+        :param _Ip: 解析的IP
+        :type Ip: str
+        :param _App: 组件名称
+        :type App: str
+        :param _Service: 服务名称
+        :type Service: str
+        """
+        self._CustomerId = None
+        self._Port = None
+        self._Asset = None
+        self._IsHighRisk = None
+        self._EnterpriseUid = None
+        self._Banner = None
+        self._Ip = None
+        self._App = None
+        self._Service = None
+
+    @property
+    def CustomerId(self):
+        r"""企业Id
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Port(self):
+        r"""端口
+        :rtype: int
+        """
+        return self._Port
+
+    @Port.setter
+    def Port(self, Port):
+        self._Port = Port
+
+    @property
+    def Asset(self):
+        r"""IP或域名地址
+        :rtype: str
+        """
+        return self._Asset
+
+    @Asset.setter
+    def Asset(self, Asset):
+        self._Asset = Asset
+
+    @property
+    def IsHighRisk(self):
+        r"""是否高危
+        :rtype: bool
+        """
+        return self._IsHighRisk
+
+    @IsHighRisk.setter
+    def IsHighRisk(self, IsHighRisk):
+        self._IsHighRisk = IsHighRisk
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+    @property
+    def Banner(self):
+        r"""base64编码后的指纹
+        :rtype: str
+        """
+        return self._Banner
+
+    @Banner.setter
+    def Banner(self, Banner):
+        self._Banner = Banner
+
+    @property
+    def Ip(self):
+        r"""解析的IP
+        :rtype: str
+        """
+        return self._Ip
+
+    @Ip.setter
+    def Ip(self, Ip):
+        self._Ip = Ip
+
+    @property
+    def App(self):
+        r"""组件名称
+        :rtype: str
+        """
+        return self._App
+
+    @App.setter
+    def App(self, App):
+        self._App = App
+
+    @property
+    def Service(self):
+        r"""服务名称
+        :rtype: str
+        """
+        return self._Service
+
+    @Service.setter
+    def Service(self, Service):
+        self._Service = Service
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._Port = params.get("Port")
+        self._Asset = params.get("Asset")
+        self._IsHighRisk = params.get("IsHighRisk")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        self._Banner = params.get("Banner")
+        self._Ip = params.get("Ip")
+        self._App = params.get("App")
+        self._Service = params.get("Service")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreatePortResponse(AbstractModel):
+    r"""CreatePort返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateSeedsRequest(AbstractModel):
+    r"""CreateSeeds请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业ID
+        :type CustomerId: int
+        :param _Ips: ip种子数组
+        :type Ips: list of str
+        :param _Icons: icon种子数组
+        :type Icons: list of str
+        :param _Domains: 主域名种子数组
+        :type Domains: list of str
+        :param _Titles: title种子数组
+        :type Titles: list of str
+        :param _SubDomains: 子域名种子数组
+        :type SubDomains: list of str
+        :param _Keywords: 关键词种子数组
+        :type Keywords: list of str
+        :param _ParentCompanies: 母公司种子数组
+        :type ParentCompanies: list of str
+        """
+        self._CustomerId = None
+        self._Ips = None
+        self._Icons = None
+        self._Domains = None
+        self._Titles = None
+        self._SubDomains = None
+        self._Keywords = None
+        self._ParentCompanies = None
+
+    @property
+    def CustomerId(self):
+        r"""企业ID
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Ips(self):
+        r"""ip种子数组
+        :rtype: list of str
+        """
+        return self._Ips
+
+    @Ips.setter
+    def Ips(self, Ips):
+        self._Ips = Ips
+
+    @property
+    def Icons(self):
+        r"""icon种子数组
+        :rtype: list of str
+        """
+        return self._Icons
+
+    @Icons.setter
+    def Icons(self, Icons):
+        self._Icons = Icons
+
+    @property
+    def Domains(self):
+        r"""主域名种子数组
+        :rtype: list of str
+        """
+        return self._Domains
+
+    @Domains.setter
+    def Domains(self, Domains):
+        self._Domains = Domains
+
+    @property
+    def Titles(self):
+        r"""title种子数组
+        :rtype: list of str
+        """
+        return self._Titles
+
+    @Titles.setter
+    def Titles(self, Titles):
+        self._Titles = Titles
+
+    @property
+    def SubDomains(self):
+        r"""子域名种子数组
+        :rtype: list of str
+        """
+        return self._SubDomains
+
+    @SubDomains.setter
+    def SubDomains(self, SubDomains):
+        self._SubDomains = SubDomains
+
+    @property
+    def Keywords(self):
+        r"""关键词种子数组
+        :rtype: list of str
+        """
+        return self._Keywords
+
+    @Keywords.setter
+    def Keywords(self, Keywords):
+        self._Keywords = Keywords
+
+    @property
+    def ParentCompanies(self):
+        r"""母公司种子数组
+        :rtype: list of str
+        """
+        return self._ParentCompanies
+
+    @ParentCompanies.setter
+    def ParentCompanies(self, ParentCompanies):
+        self._ParentCompanies = ParentCompanies
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._Ips = params.get("Ips")
+        self._Icons = params.get("Icons")
+        self._Domains = params.get("Domains")
+        self._Titles = params.get("Titles")
+        self._SubDomains = params.get("SubDomains")
+        self._Keywords = params.get("Keywords")
+        self._ParentCompanies = params.get("ParentCompanies")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateSeedsResponse(AbstractModel):
+    r"""CreateSeeds返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class CreateSubDomainRequest(AbstractModel):
+    r"""CreateSubDomain请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业Id
+        :type CustomerId: int
+        :param _SubDomain: 子域名
+        :type SubDomain: str
+        :param _Ip: Ip
+        :type Ip: str
+        :param _Country: 国家
+        :type Country: str
+        :param _Province: 省
+        :type Province: str
+        :param _City: 城市
+        :type City: str
+        :param _Isp: Isp
+        :type Isp: str
+        :param _EnterpriseUid: 子公司
+        :type EnterpriseUid: str
+        """
+        self._CustomerId = None
+        self._SubDomain = None
+        self._Ip = None
+        self._Country = None
+        self._Province = None
+        self._City = None
+        self._Isp = None
+        self._EnterpriseUid = None
+
+    @property
+    def CustomerId(self):
+        r"""企业Id
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def SubDomain(self):
+        r"""子域名
+        :rtype: str
+        """
+        return self._SubDomain
+
+    @SubDomain.setter
+    def SubDomain(self, SubDomain):
+        self._SubDomain = SubDomain
+
+    @property
+    def Ip(self):
+        r"""Ip
+        :rtype: str
+        """
+        return self._Ip
+
+    @Ip.setter
+    def Ip(self, Ip):
+        self._Ip = Ip
+
+    @property
+    def Country(self):
+        r"""国家
+        :rtype: str
+        """
+        return self._Country
+
+    @Country.setter
+    def Country(self, Country):
+        self._Country = Country
+
+    @property
+    def Province(self):
+        r"""省
+        :rtype: str
+        """
+        return self._Province
+
+    @Province.setter
+    def Province(self, Province):
+        self._Province = Province
+
+    @property
+    def City(self):
+        r"""城市
+        :rtype: str
+        """
+        return self._City
+
+    @City.setter
+    def City(self, City):
+        self._City = City
+
+    @property
+    def Isp(self):
+        r"""Isp
+        :rtype: str
+        """
+        return self._Isp
+
+    @Isp.setter
+    def Isp(self, Isp):
+        self._Isp = Isp
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._SubDomain = params.get("SubDomain")
+        self._Ip = params.get("Ip")
+        self._Country = params.get("Country")
+        self._Province = params.get("Province")
+        self._City = params.get("City")
+        self._Isp = params.get("Isp")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateSubDomainResponse(AbstractModel):
+    r"""CreateSubDomain返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateSuspiciousAssetRequest(AbstractModel):
+    r"""CreateSuspiciousAsset请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业Id
+        :type CustomerId: int
+        :param _Url: Url
+        :type Url: str
+        :param _EnterpriseUid: 子公司
+        :type EnterpriseUid: str
+        :param _Title: 标题
+        :type Title: str
+        :param _Tags: 标签
+        :type Tags: str
+        :param _Owner: 所属者
+        :type Owner: str
+        :param _SourceType: 来源类型
+        :type SourceType: str
+        :param _SourceValue: 来源值
+        :type SourceValue: str
+        :param _Trusted: 是否信任
+        :type Trusted: bool
+        """
+        self._CustomerId = None
+        self._Url = None
+        self._EnterpriseUid = None
+        self._Title = None
+        self._Tags = None
+        self._Owner = None
+        self._SourceType = None
+        self._SourceValue = None
+        self._Trusted = None
+
+    @property
+    def CustomerId(self):
+        r"""企业Id
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Url(self):
+        r"""Url
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+    @property
+    def Title(self):
+        r"""标题
+        :rtype: str
+        """
+        return self._Title
+
+    @Title.setter
+    def Title(self, Title):
+        self._Title = Title
+
+    @property
+    def Tags(self):
+        r"""标签
+        :rtype: str
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def Owner(self):
+        r"""所属者
+        :rtype: str
+        """
+        return self._Owner
+
+    @Owner.setter
+    def Owner(self, Owner):
+        self._Owner = Owner
+
+    @property
+    def SourceType(self):
+        r"""来源类型
+        :rtype: str
+        """
+        return self._SourceType
+
+    @SourceType.setter
+    def SourceType(self, SourceType):
+        self._SourceType = SourceType
+
+    @property
+    def SourceValue(self):
+        r"""来源值
+        :rtype: str
+        """
+        return self._SourceValue
+
+    @SourceValue.setter
+    def SourceValue(self, SourceValue):
+        self._SourceValue = SourceValue
+
+    @property
+    def Trusted(self):
+        r"""是否信任
+        :rtype: bool
+        """
+        return self._Trusted
+
+    @Trusted.setter
+    def Trusted(self, Trusted):
+        self._Trusted = Trusted
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._Url = params.get("Url")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        self._Title = params.get("Title")
+        self._Tags = params.get("Tags")
+        self._Owner = params.get("Owner")
+        self._SourceType = params.get("SourceType")
+        self._SourceValue = params.get("SourceValue")
+        self._Trusted = params.get("Trusted")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateSuspiciousAssetResponse(AbstractModel):
+    r"""CreateSuspiciousAsset返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateWechatAppletRequest(AbstractModel):
+    r"""CreateWechatApplet请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业Id
+        :type CustomerId: int
+        :param _Name: 名称
+        :type Name: str
+        :param _Logo: 图片地址
+        :type Logo: str
+        :param _AccountId: 账号
+        :type AccountId: str
+        :param _QrCode: 二维码
+        :type QrCode: str
+        :param _Description: 描述
+        :type Description: str
+        :param _EnterpriseUid: 子公司
+        :type EnterpriseUid: str
+        :param _AccountAppid: 账号Appid
+        :type AccountAppid: str
+        :param _RecordSubject: 认证主体
+        :type RecordSubject: str
+        """
+        self._CustomerId = None
+        self._Name = None
+        self._Logo = None
+        self._AccountId = None
+        self._QrCode = None
+        self._Description = None
+        self._EnterpriseUid = None
+        self._AccountAppid = None
+        self._RecordSubject = None
+
+    @property
+    def CustomerId(self):
+        r"""企业Id
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Name(self):
+        r"""名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Logo(self):
+        r"""图片地址
+        :rtype: str
+        """
+        return self._Logo
+
+    @Logo.setter
+    def Logo(self, Logo):
+        self._Logo = Logo
+
+    @property
+    def AccountId(self):
+        r"""账号
+        :rtype: str
+        """
+        return self._AccountId
+
+    @AccountId.setter
+    def AccountId(self, AccountId):
+        self._AccountId = AccountId
+
+    @property
+    def QrCode(self):
+        r"""二维码
+        :rtype: str
+        """
+        return self._QrCode
+
+    @QrCode.setter
+    def QrCode(self, QrCode):
+        self._QrCode = QrCode
+
+    @property
+    def Description(self):
+        r"""描述
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+    @property
+    def AccountAppid(self):
+        r"""账号Appid
+        :rtype: str
+        """
+        return self._AccountAppid
+
+    @AccountAppid.setter
+    def AccountAppid(self, AccountAppid):
+        self._AccountAppid = AccountAppid
+
+    @property
+    def RecordSubject(self):
+        r"""认证主体
+        :rtype: str
+        """
+        return self._RecordSubject
+
+    @RecordSubject.setter
+    def RecordSubject(self, RecordSubject):
+        self._RecordSubject = RecordSubject
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._Name = params.get("Name")
+        self._Logo = params.get("Logo")
+        self._AccountId = params.get("AccountId")
+        self._QrCode = params.get("QrCode")
+        self._Description = params.get("Description")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        self._AccountAppid = params.get("AccountAppid")
+        self._RecordSubject = params.get("RecordSubject")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateWechatAppletResponse(AbstractModel):
+    r"""CreateWechatApplet返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateWechatOfficialAccountRequest(AbstractModel):
+    r"""CreateWechatOfficialAccount请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业Id
+        :type CustomerId: int
+        :param _Name: 名称
+        :type Name: str
+        :param _Logo: 图片地址
+        :type Logo: str
+        :param _AccountId: 账号
+        :type AccountId: str
+        :param _QrCode: 二维码
+        :type QrCode: str
+        :param _Description: 描述
+        :type Description: str
+        :param _EnterpriseUid: 子公司
+        :type EnterpriseUid: str
+        :param _RecordSubject: 认证主体
+        :type RecordSubject: str
+        """
+        self._CustomerId = None
+        self._Name = None
+        self._Logo = None
+        self._AccountId = None
+        self._QrCode = None
+        self._Description = None
+        self._EnterpriseUid = None
+        self._RecordSubject = None
+
+    @property
+    def CustomerId(self):
+        r"""企业Id
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Name(self):
+        r"""名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Logo(self):
+        r"""图片地址
+        :rtype: str
+        """
+        return self._Logo
+
+    @Logo.setter
+    def Logo(self, Logo):
+        self._Logo = Logo
+
+    @property
+    def AccountId(self):
+        r"""账号
+        :rtype: str
+        """
+        return self._AccountId
+
+    @AccountId.setter
+    def AccountId(self, AccountId):
+        self._AccountId = AccountId
+
+    @property
+    def QrCode(self):
+        r"""二维码
+        :rtype: str
+        """
+        return self._QrCode
+
+    @QrCode.setter
+    def QrCode(self, QrCode):
+        self._QrCode = QrCode
+
+    @property
+    def Description(self):
+        r"""描述
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def EnterpriseUid(self):
+        r"""子公司
+        :rtype: str
+        """
+        return self._EnterpriseUid
+
+    @EnterpriseUid.setter
+    def EnterpriseUid(self, EnterpriseUid):
+        self._EnterpriseUid = EnterpriseUid
+
+    @property
+    def RecordSubject(self):
+        r"""认证主体
+        :rtype: str
+        """
+        return self._RecordSubject
+
+    @RecordSubject.setter
+    def RecordSubject(self, RecordSubject):
+        self._RecordSubject = RecordSubject
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._Name = params.get("Name")
+        self._Logo = params.get("Logo")
+        self._AccountId = params.get("AccountId")
+        self._QrCode = params.get("QrCode")
+        self._Description = params.get("Description")
+        self._EnterpriseUid = params.get("EnterpriseUid")
+        self._RecordSubject = params.get("RecordSubject")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateWechatOfficialAccountResponse(AbstractModel):
+    r"""CreateWechatOfficialAccount返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: Id
+        :type Id: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Id = None
+        self._RequestId = None
+
+    @property
+    def Id(self):
+        r"""Id
         :rtype: int
         """
         return self._Id
@@ -827,6 +3170,1223 @@ class Customer(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class DeleteAppsRequest(AbstractModel):
+    r"""DeleteApps请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        """
+        self._Ids = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteAppsResponse(AbstractModel):
+    r"""DeleteApps返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteAssetsRequest(AbstractModel):
+    r"""DeleteAssets请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        """
+        self._Ids = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteAssetsResponse(AbstractModel):
+    r"""DeleteAssets返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteDomainsRequest(AbstractModel):
+    r"""DeleteDomains请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        """
+        self._Ids = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteDomainsResponse(AbstractModel):
+    r"""DeleteDomains返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteEnterprisesRequest(AbstractModel):
+    r"""DeleteEnterprises请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        """
+        self._Ids = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteEnterprisesResponse(AbstractModel):
+    r"""DeleteEnterprises返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteHttpsRequest(AbstractModel):
+    r"""DeleteHttps请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        :param _CustomerIdList: 企业ID列表，可多选
+        :type CustomerIdList: list of int
+        :param _IsAggregation: 是否聚合数据
+        :type IsAggregation: bool
+        """
+        self._Ids = None
+        self._CustomerIdList = None
+        self._IsAggregation = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+    @property
+    def CustomerIdList(self):
+        r"""企业ID列表，可多选
+        :rtype: list of int
+        """
+        return self._CustomerIdList
+
+    @CustomerIdList.setter
+    def CustomerIdList(self, CustomerIdList):
+        self._CustomerIdList = CustomerIdList
+
+    @property
+    def IsAggregation(self):
+        r"""是否聚合数据
+        :rtype: bool
+        """
+        return self._IsAggregation
+
+    @IsAggregation.setter
+    def IsAggregation(self, IsAggregation):
+        self._IsAggregation = IsAggregation
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        self._CustomerIdList = params.get("CustomerIdList")
+        self._IsAggregation = params.get("IsAggregation")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteHttpsResponse(AbstractModel):
+    r"""DeleteHttps返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteManagesRequest(AbstractModel):
+    r"""DeleteManages请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        :param _CustomerIdList: 企业ID列表，可多选
+        :type CustomerIdList: list of int
+        :param _IsAggregation: 是否聚合数据
+        :type IsAggregation: bool
+        """
+        self._Ids = None
+        self._CustomerIdList = None
+        self._IsAggregation = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+    @property
+    def CustomerIdList(self):
+        r"""企业ID列表，可多选
+        :rtype: list of int
+        """
+        return self._CustomerIdList
+
+    @CustomerIdList.setter
+    def CustomerIdList(self, CustomerIdList):
+        self._CustomerIdList = CustomerIdList
+
+    @property
+    def IsAggregation(self):
+        r"""是否聚合数据
+        :rtype: bool
+        """
+        return self._IsAggregation
+
+    @IsAggregation.setter
+    def IsAggregation(self, IsAggregation):
+        self._IsAggregation = IsAggregation
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        self._CustomerIdList = params.get("CustomerIdList")
+        self._IsAggregation = params.get("IsAggregation")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteManagesResponse(AbstractModel):
+    r"""DeleteManages返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeletePortsRequest(AbstractModel):
+    r"""DeletePorts请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        :param _CustomerIdList: 企业ID列表，可多选
+        :type CustomerIdList: list of int
+        :param _IsAggregation: 是否聚合数据
+        :type IsAggregation: bool
+        """
+        self._Ids = None
+        self._CustomerIdList = None
+        self._IsAggregation = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+    @property
+    def CustomerIdList(self):
+        r"""企业ID列表，可多选
+        :rtype: list of int
+        """
+        return self._CustomerIdList
+
+    @CustomerIdList.setter
+    def CustomerIdList(self, CustomerIdList):
+        self._CustomerIdList = CustomerIdList
+
+    @property
+    def IsAggregation(self):
+        r"""是否聚合数据
+        :rtype: bool
+        """
+        return self._IsAggregation
+
+    @IsAggregation.setter
+    def IsAggregation(self, IsAggregation):
+        self._IsAggregation = IsAggregation
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        self._CustomerIdList = params.get("CustomerIdList")
+        self._IsAggregation = params.get("IsAggregation")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeletePortsResponse(AbstractModel):
+    r"""DeletePorts返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteSeedsRequest(AbstractModel):
+    r"""DeleteSeeds请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        """
+        self._Ids = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteSeedsResponse(AbstractModel):
+    r"""DeleteSeeds返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteSubDomainsRequest(AbstractModel):
+    r"""DeleteSubDomains请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        :param _CustomerIdList: 企业ID列表，可多选
+        :type CustomerIdList: list of int
+        :param _IsAggregation: 是否聚合数据
+        :type IsAggregation: bool
+        """
+        self._Ids = None
+        self._CustomerIdList = None
+        self._IsAggregation = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+    @property
+    def CustomerIdList(self):
+        r"""企业ID列表，可多选
+        :rtype: list of int
+        """
+        return self._CustomerIdList
+
+    @CustomerIdList.setter
+    def CustomerIdList(self, CustomerIdList):
+        self._CustomerIdList = CustomerIdList
+
+    @property
+    def IsAggregation(self):
+        r"""是否聚合数据
+        :rtype: bool
+        """
+        return self._IsAggregation
+
+    @IsAggregation.setter
+    def IsAggregation(self, IsAggregation):
+        self._IsAggregation = IsAggregation
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        self._CustomerIdList = params.get("CustomerIdList")
+        self._IsAggregation = params.get("IsAggregation")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteSubDomainsResponse(AbstractModel):
+    r"""DeleteSubDomains返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteSuspiciousAssetsRequest(AbstractModel):
+    r"""DeleteSuspiciousAssets请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        :param _CustomerIdList: 企业ID列表，可多选
+        :type CustomerIdList: list of int
+        :param _IsAggregation: 是否聚合数据
+        :type IsAggregation: bool
+        """
+        self._Ids = None
+        self._CustomerIdList = None
+        self._IsAggregation = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+    @property
+    def CustomerIdList(self):
+        r"""企业ID列表，可多选
+        :rtype: list of int
+        """
+        return self._CustomerIdList
+
+    @CustomerIdList.setter
+    def CustomerIdList(self, CustomerIdList):
+        self._CustomerIdList = CustomerIdList
+
+    @property
+    def IsAggregation(self):
+        r"""是否聚合数据
+        :rtype: bool
+        """
+        return self._IsAggregation
+
+    @IsAggregation.setter
+    def IsAggregation(self, IsAggregation):
+        self._IsAggregation = IsAggregation
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        self._CustomerIdList = params.get("CustomerIdList")
+        self._IsAggregation = params.get("IsAggregation")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteSuspiciousAssetsResponse(AbstractModel):
+    r"""DeleteSuspiciousAssets返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteWechatAppletsRequest(AbstractModel):
+    r"""DeleteWechatApplets请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        """
+        self._Ids = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteWechatAppletsResponse(AbstractModel):
+    r"""DeleteWechatApplets返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteWechatOfficialAccountsRequest(AbstractModel):
+    r"""DeleteWechatOfficialAccounts请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        """
+        self._Ids = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteWechatOfficialAccountsResponse(AbstractModel):
+    r"""DeleteWechatOfficialAccounts返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeApiSecsRequest(AbstractModel):
+    r"""DescribeApiSecs请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IsAggregation: 是否聚合数据
+        :type IsAggregation: bool
+        :param _Offset: 分页偏移
+        :type Offset: int
+        :param _Limit: 分页大小
+        :type Limit: int
+        :param _Ignored: 是否显示被忽略的数据
+        :type Ignored: bool
+        :param _UpdateAtEnd: 更新时间-结束
+        :type UpdateAtEnd: str
+        :param _CreateAtEnd: 创建时间-结束
+        :type CreateAtEnd: str
+        :param _UpdateAtStart: 更新时间-开始
+        :type UpdateAtStart: str
+        :param _CreateAtStart: 创建时间-开始
+        :type CreateAtStart: str
+        :param _Format: 数据输出格式：json、file，默认不填为json
+        :type Format: str
+        :param _IsNew: 是否新增数据
+        :type IsNew: bool
+        :param _CustomerIdList: 企业ID列表，可多选
+        :type CustomerIdList: list of int
+        :param _EnterpriseUidList: 子公司ID列表
+        :type EnterpriseUidList: list of str
+        :param _Filters: 查询数组
+        :type Filters: list of Filter
+        :param _CustomerId: 企业ID
+        :type CustomerId: int
+        """
+        self._IsAggregation = None
+        self._Offset = None
+        self._Limit = None
+        self._Ignored = None
+        self._UpdateAtEnd = None
+        self._CreateAtEnd = None
+        self._UpdateAtStart = None
+        self._CreateAtStart = None
+        self._Format = None
+        self._IsNew = None
+        self._CustomerIdList = None
+        self._EnterpriseUidList = None
+        self._Filters = None
+        self._CustomerId = None
+
+    @property
+    def IsAggregation(self):
+        r"""是否聚合数据
+        :rtype: bool
+        """
+        return self._IsAggregation
+
+    @IsAggregation.setter
+    def IsAggregation(self, IsAggregation):
+        self._IsAggregation = IsAggregation
+
+    @property
+    def Offset(self):
+        r"""分页偏移
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""分页大小
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Ignored(self):
+        r"""是否显示被忽略的数据
+        :rtype: bool
+        """
+        return self._Ignored
+
+    @Ignored.setter
+    def Ignored(self, Ignored):
+        self._Ignored = Ignored
+
+    @property
+    def UpdateAtEnd(self):
+        r"""更新时间-结束
+        :rtype: str
+        """
+        return self._UpdateAtEnd
+
+    @UpdateAtEnd.setter
+    def UpdateAtEnd(self, UpdateAtEnd):
+        self._UpdateAtEnd = UpdateAtEnd
+
+    @property
+    def CreateAtEnd(self):
+        r"""创建时间-结束
+        :rtype: str
+        """
+        return self._CreateAtEnd
+
+    @CreateAtEnd.setter
+    def CreateAtEnd(self, CreateAtEnd):
+        self._CreateAtEnd = CreateAtEnd
+
+    @property
+    def UpdateAtStart(self):
+        r"""更新时间-开始
+        :rtype: str
+        """
+        return self._UpdateAtStart
+
+    @UpdateAtStart.setter
+    def UpdateAtStart(self, UpdateAtStart):
+        self._UpdateAtStart = UpdateAtStart
+
+    @property
+    def CreateAtStart(self):
+        r"""创建时间-开始
+        :rtype: str
+        """
+        return self._CreateAtStart
+
+    @CreateAtStart.setter
+    def CreateAtStart(self, CreateAtStart):
+        self._CreateAtStart = CreateAtStart
+
+    @property
+    def Format(self):
+        r"""数据输出格式：json、file，默认不填为json
+        :rtype: str
+        """
+        return self._Format
+
+    @Format.setter
+    def Format(self, Format):
+        self._Format = Format
+
+    @property
+    def IsNew(self):
+        r"""是否新增数据
+        :rtype: bool
+        """
+        return self._IsNew
+
+    @IsNew.setter
+    def IsNew(self, IsNew):
+        self._IsNew = IsNew
+
+    @property
+    def CustomerIdList(self):
+        r"""企业ID列表，可多选
+        :rtype: list of int
+        """
+        return self._CustomerIdList
+
+    @CustomerIdList.setter
+    def CustomerIdList(self, CustomerIdList):
+        self._CustomerIdList = CustomerIdList
+
+    @property
+    def EnterpriseUidList(self):
+        r"""子公司ID列表
+        :rtype: list of str
+        """
+        return self._EnterpriseUidList
+
+    @EnterpriseUidList.setter
+    def EnterpriseUidList(self, EnterpriseUidList):
+        self._EnterpriseUidList = EnterpriseUidList
+
+    @property
+    def Filters(self):
+        r"""查询数组
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+    @property
+    def CustomerId(self):
+        r"""企业ID
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+
+    def _deserialize(self, params):
+        self._IsAggregation = params.get("IsAggregation")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        self._Ignored = params.get("Ignored")
+        self._UpdateAtEnd = params.get("UpdateAtEnd")
+        self._CreateAtEnd = params.get("CreateAtEnd")
+        self._UpdateAtStart = params.get("UpdateAtStart")
+        self._CreateAtStart = params.get("CreateAtStart")
+        self._Format = params.get("Format")
+        self._IsNew = params.get("IsNew")
+        self._CustomerIdList = params.get("CustomerIdList")
+        self._EnterpriseUidList = params.get("EnterpriseUidList")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        self._CustomerId = params.get("CustomerId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeApiSecsResponse(AbstractModel):
+    r"""DescribeApiSecs返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Total: 总数
+        :type Total: int
+        :param _List: API安全数组
+        :type List: list of DisplayApiSec
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Total = None
+        self._List = None
+        self._RequestId = None
+
+    @property
+    def Total(self):
+        r"""总数
+        :rtype: int
+        """
+        return self._Total
+
+    @Total.setter
+    def Total(self, Total):
+        self._Total = Total
+
+    @property
+    def List(self):
+        r"""API安全数组
+        :rtype: list of DisplayApiSec
+        """
+        return self._List
+
+    @List.setter
+    def List(self, List):
+        self._List = List
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Total = params.get("Total")
+        if params.get("List") is not None:
+            self._List = []
+            for item in params.get("List"):
+                obj = DisplayApiSec()
+                obj._deserialize(item)
+                self._List.append(obj)
+        self._RequestId = params.get("RequestId")
 
 
 class DescribeAppsRequest(AbstractModel):
@@ -4209,6 +7769,8 @@ class DescribeHttpsRequest(AbstractModel):
         :type IsShowChange: bool
         :param _HasExpirationRisk: 是否仅显示过期风险资产
         :type HasExpirationRisk: bool
+        :param _OnlyOffline: 是否只查询离线网站
+        :type OnlyOffline: bool
         """
         self._CustomerIdList = None
         self._IsAggregation = None
@@ -4226,6 +7788,7 @@ class DescribeHttpsRequest(AbstractModel):
         self._Ignored = None
         self._IsShowChange = None
         self._HasExpirationRisk = None
+        self._OnlyOffline = None
 
     @property
     def CustomerIdList(self):
@@ -4403,6 +7966,17 @@ class DescribeHttpsRequest(AbstractModel):
     def HasExpirationRisk(self, HasExpirationRisk):
         self._HasExpirationRisk = HasExpirationRisk
 
+    @property
+    def OnlyOffline(self):
+        r"""是否只查询离线网站
+        :rtype: bool
+        """
+        return self._OnlyOffline
+
+    @OnlyOffline.setter
+    def OnlyOffline(self, OnlyOffline):
+        self._OnlyOffline = OnlyOffline
+
 
     def _deserialize(self, params):
         self._CustomerIdList = params.get("CustomerIdList")
@@ -4426,6 +8000,7 @@ class DescribeHttpsRequest(AbstractModel):
         self._Ignored = params.get("Ignored")
         self._IsShowChange = params.get("IsShowChange")
         self._HasExpirationRisk = params.get("HasExpirationRisk")
+        self._OnlyOffline = params.get("OnlyOffline")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -6547,6 +10122,185 @@ class DescribePortsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeSeedsRequest(AbstractModel):
+    r"""DescribeSeeds请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CustomerId: 企业ID
+        :type CustomerId: int
+        :param _CreateAtStart: 创建时间-开始
+        :type CreateAtStart: str
+        :param _CreateAtEnd: 创建时间-结束
+        :type CreateAtEnd: str
+        :param _Offset: 分页偏移
+        :type Offset: int
+        :param _Limit: 分页大小
+        :type Limit: int
+        :param _Filters: 查询数组
+        :type Filters: list of Filter
+        """
+        self._CustomerId = None
+        self._CreateAtStart = None
+        self._CreateAtEnd = None
+        self._Offset = None
+        self._Limit = None
+        self._Filters = None
+
+    @property
+    def CustomerId(self):
+        r"""企业ID
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def CreateAtStart(self):
+        r"""创建时间-开始
+        :rtype: str
+        """
+        return self._CreateAtStart
+
+    @CreateAtStart.setter
+    def CreateAtStart(self, CreateAtStart):
+        self._CreateAtStart = CreateAtStart
+
+    @property
+    def CreateAtEnd(self):
+        r"""创建时间-结束
+        :rtype: str
+        """
+        return self._CreateAtEnd
+
+    @CreateAtEnd.setter
+    def CreateAtEnd(self, CreateAtEnd):
+        self._CreateAtEnd = CreateAtEnd
+
+    @property
+    def Offset(self):
+        r"""分页偏移
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""分页大小
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Filters(self):
+        r"""查询数组
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+
+    def _deserialize(self, params):
+        self._CustomerId = params.get("CustomerId")
+        self._CreateAtStart = params.get("CreateAtStart")
+        self._CreateAtEnd = params.get("CreateAtEnd")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeSeedsResponse(AbstractModel):
+    r"""DescribeSeeds返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Total: 总数
+        :type Total: int
+        :param _List: 种子列表
+        :type List: list of DisplaySeed
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Total = None
+        self._List = None
+        self._RequestId = None
+
+    @property
+    def Total(self):
+        r"""总数
+        :rtype: int
+        """
+        return self._Total
+
+    @Total.setter
+    def Total(self, Total):
+        self._Total = Total
+
+    @property
+    def List(self):
+        r"""种子列表
+        :rtype: list of DisplaySeed
+        """
+        return self._List
+
+    @List.setter
+    def List(self, List):
+        self._List = List
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Total = params.get("Total")
+        if params.get("List") is not None:
+            self._List = []
+            for item in params.get("List"):
+                obj = DisplaySeed()
+                obj._deserialize(item)
+                self._List.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeSensitiveInfosRequest(AbstractModel):
     r"""DescribeSensitiveInfos请求参数结构体
 
@@ -6881,6 +10635,8 @@ class DescribeSubDomainsRequest(AbstractModel):
         :type Filters: list of Filter
         :param _Ignored: 是否显示被忽略的数据
         :type Ignored: bool
+        :param _OnlyOffline: 是否只查询离线子域名
+        :type OnlyOffline: bool
         """
         self._CustomerIdList = None
         self._IsNew = None
@@ -6896,6 +10652,7 @@ class DescribeSubDomainsRequest(AbstractModel):
         self._UpdateAtEnd = None
         self._Filters = None
         self._Ignored = None
+        self._OnlyOffline = None
 
     @property
     def CustomerIdList(self):
@@ -7051,6 +10808,17 @@ class DescribeSubDomainsRequest(AbstractModel):
     def Ignored(self, Ignored):
         self._Ignored = Ignored
 
+    @property
+    def OnlyOffline(self):
+        r"""是否只查询离线子域名
+        :rtype: bool
+        """
+        return self._OnlyOffline
+
+    @OnlyOffline.setter
+    def OnlyOffline(self, OnlyOffline):
+        self._OnlyOffline = OnlyOffline
+
 
     def _deserialize(self, params):
         self._CustomerIdList = params.get("CustomerIdList")
@@ -7072,6 +10840,7 @@ class DescribeSubDomainsRequest(AbstractModel):
                 obj._deserialize(item)
                 self._Filters.append(obj)
         self._Ignored = params.get("Ignored")
+        self._OnlyOffline = params.get("OnlyOffline")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8580,6 +12349,194 @@ class DescribeWechatOfficialAccountsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DisplayApiSec(AbstractModel):
+    r"""API安全详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 主键ID
+        :type Id: int
+        :param _DisplayToolCommon: 公共字段
+        :type DisplayToolCommon: :class:`tencentcloud.ctem.v20231128.models.DisplayToolCommon`
+        :param _Url: Url
+        :type Url: str
+        :param _Host: Host地址
+        :type Host: str
+        :param _Path: Path路径
+        :type Path: str
+        :param _Method: 方法：POST、GET、DELETE等
+        :type Method: str
+        :param _Status: 修复状态：unrepaired:未修复，repaired:已修复, ignore:已忽略,checking:复测中
+        :type Status: str
+        :param _Code: 状态码
+        :type Code: int
+        :param _Request: 请求体
+        :type Request: str
+        :param _Response: 响应体
+        :type Response: str
+        :param _IsRiskAPI: 是否风险API
+        :type IsRiskAPI: bool
+        """
+        self._Id = None
+        self._DisplayToolCommon = None
+        self._Url = None
+        self._Host = None
+        self._Path = None
+        self._Method = None
+        self._Status = None
+        self._Code = None
+        self._Request = None
+        self._Response = None
+        self._IsRiskAPI = None
+
+    @property
+    def Id(self):
+        r"""主键ID
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def DisplayToolCommon(self):
+        r"""公共字段
+        :rtype: :class:`tencentcloud.ctem.v20231128.models.DisplayToolCommon`
+        """
+        return self._DisplayToolCommon
+
+    @DisplayToolCommon.setter
+    def DisplayToolCommon(self, DisplayToolCommon):
+        self._DisplayToolCommon = DisplayToolCommon
+
+    @property
+    def Url(self):
+        r"""Url
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+    @property
+    def Host(self):
+        r"""Host地址
+        :rtype: str
+        """
+        return self._Host
+
+    @Host.setter
+    def Host(self, Host):
+        self._Host = Host
+
+    @property
+    def Path(self):
+        r"""Path路径
+        :rtype: str
+        """
+        return self._Path
+
+    @Path.setter
+    def Path(self, Path):
+        self._Path = Path
+
+    @property
+    def Method(self):
+        r"""方法：POST、GET、DELETE等
+        :rtype: str
+        """
+        return self._Method
+
+    @Method.setter
+    def Method(self, Method):
+        self._Method = Method
+
+    @property
+    def Status(self):
+        r"""修复状态：unrepaired:未修复，repaired:已修复, ignore:已忽略,checking:复测中
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Code(self):
+        r"""状态码
+        :rtype: int
+        """
+        return self._Code
+
+    @Code.setter
+    def Code(self, Code):
+        self._Code = Code
+
+    @property
+    def Request(self):
+        r"""请求体
+        :rtype: str
+        """
+        return self._Request
+
+    @Request.setter
+    def Request(self, Request):
+        self._Request = Request
+
+    @property
+    def Response(self):
+        r"""响应体
+        :rtype: str
+        """
+        return self._Response
+
+    @Response.setter
+    def Response(self, Response):
+        self._Response = Response
+
+    @property
+    def IsRiskAPI(self):
+        r"""是否风险API
+        :rtype: bool
+        """
+        return self._IsRiskAPI
+
+    @IsRiskAPI.setter
+    def IsRiskAPI(self, IsRiskAPI):
+        self._IsRiskAPI = IsRiskAPI
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        if params.get("DisplayToolCommon") is not None:
+            self._DisplayToolCommon = DisplayToolCommon()
+            self._DisplayToolCommon._deserialize(params.get("DisplayToolCommon"))
+        self._Url = params.get("Url")
+        self._Host = params.get("Host")
+        self._Path = params.get("Path")
+        self._Method = params.get("Method")
+        self._Status = params.get("Status")
+        self._Code = params.get("Code")
+        self._Request = params.get("Request")
+        self._Response = params.get("Response")
+        self._IsRiskAPI = params.get("IsRiskAPI")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class DisplayApp(AbstractModel):
     r"""移动资产详情
 
@@ -8799,6 +12756,10 @@ class DisplayAsset(AbstractModel):
         :type Domains: str
         :param _LastModify: 端口和服务最近更新时间
         :type LastModify: str
+        :param _IsCloudAsset: 是否为云资产
+        :type IsCloudAsset: int
+        :param _CloudAssetStatus: 云资产状态，-1为下线
+        :type CloudAssetStatus: int
         """
         self._Id = None
         self._Os = None
@@ -8812,6 +12773,8 @@ class DisplayAsset(AbstractModel):
         self._Services = None
         self._Domains = None
         self._LastModify = None
+        self._IsCloudAsset = None
+        self._CloudAssetStatus = None
 
     @property
     def Id(self):
@@ -8945,6 +12908,28 @@ class DisplayAsset(AbstractModel):
     def LastModify(self, LastModify):
         self._LastModify = LastModify
 
+    @property
+    def IsCloudAsset(self):
+        r"""是否为云资产
+        :rtype: int
+        """
+        return self._IsCloudAsset
+
+    @IsCloudAsset.setter
+    def IsCloudAsset(self, IsCloudAsset):
+        self._IsCloudAsset = IsCloudAsset
+
+    @property
+    def CloudAssetStatus(self):
+        r"""云资产状态，-1为下线
+        :rtype: int
+        """
+        return self._CloudAssetStatus
+
+    @CloudAssetStatus.setter
+    def CloudAssetStatus(self, CloudAssetStatus):
+        self._CloudAssetStatus = CloudAssetStatus
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -8961,6 +12946,8 @@ class DisplayAsset(AbstractModel):
         self._Services = params.get("Services")
         self._Domains = params.get("Domains")
         self._LastModify = params.get("LastModify")
+        self._IsCloudAsset = params.get("IsCloudAsset")
+        self._CloudAssetStatus = params.get("CloudAssetStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9000,6 +12987,10 @@ class DisplayConfig(AbstractModel):
         :type RiskLevel: int
         :param _Suggestion: 建议
         :type Suggestion: str
+        :param _IsCloudAsset: 是否为云资产
+        :type IsCloudAsset: int
+        :param _CloudAssetStatus: 云资产状态，-1为下线
+        :type CloudAssetStatus: int
         """
         self._Id = None
         self._Url = None
@@ -9012,6 +13003,8 @@ class DisplayConfig(AbstractModel):
         self._AIAnalysis = None
         self._RiskLevel = None
         self._Suggestion = None
+        self._IsCloudAsset = None
+        self._CloudAssetStatus = None
 
     @property
     def Id(self):
@@ -9134,6 +13127,28 @@ class DisplayConfig(AbstractModel):
     def Suggestion(self, Suggestion):
         self._Suggestion = Suggestion
 
+    @property
+    def IsCloudAsset(self):
+        r"""是否为云资产
+        :rtype: int
+        """
+        return self._IsCloudAsset
+
+    @IsCloudAsset.setter
+    def IsCloudAsset(self, IsCloudAsset):
+        self._IsCloudAsset = IsCloudAsset
+
+    @property
+    def CloudAssetStatus(self):
+        r"""云资产状态，-1为下线
+        :rtype: int
+        """
+        return self._CloudAssetStatus
+
+    @CloudAssetStatus.setter
+    def CloudAssetStatus(self, CloudAssetStatus):
+        self._CloudAssetStatus = CloudAssetStatus
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -9149,6 +13164,8 @@ class DisplayConfig(AbstractModel):
         self._AIAnalysis = params.get("AIAnalysis")
         self._RiskLevel = params.get("RiskLevel")
         self._Suggestion = params.get("Suggestion")
+        self._IsCloudAsset = params.get("IsCloudAsset")
+        self._CloudAssetStatus = params.get("CloudAssetStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9293,6 +13310,10 @@ class DisplayDomain(AbstractModel):
         :type Company: str
         :param _DisplayToolCommon: 公共字段
         :type DisplayToolCommon: :class:`tencentcloud.ctem.v20231128.models.DisplayToolCommon`
+        :param _IsCloudAsset: 是否为云资产
+        :type IsCloudAsset: int
+        :param _CloudAssetStatus: 云资产状态，-1为下线
+        :type CloudAssetStatus: int
         """
         self._Id = None
         self._Domain = None
@@ -9301,6 +13322,8 @@ class DisplayDomain(AbstractModel):
         self._ExpiredTime = None
         self._Company = None
         self._DisplayToolCommon = None
+        self._IsCloudAsset = None
+        self._CloudAssetStatus = None
 
     @property
     def Id(self):
@@ -9379,6 +13402,28 @@ class DisplayDomain(AbstractModel):
     def DisplayToolCommon(self, DisplayToolCommon):
         self._DisplayToolCommon = DisplayToolCommon
 
+    @property
+    def IsCloudAsset(self):
+        r"""是否为云资产
+        :rtype: int
+        """
+        return self._IsCloudAsset
+
+    @IsCloudAsset.setter
+    def IsCloudAsset(self, IsCloudAsset):
+        self._IsCloudAsset = IsCloudAsset
+
+    @property
+    def CloudAssetStatus(self):
+        r"""云资产状态，-1为下线
+        :rtype: int
+        """
+        return self._CloudAssetStatus
+
+    @CloudAssetStatus.setter
+    def CloudAssetStatus(self, CloudAssetStatus):
+        self._CloudAssetStatus = CloudAssetStatus
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -9390,6 +13435,8 @@ class DisplayDomain(AbstractModel):
         if params.get("DisplayToolCommon") is not None:
             self._DisplayToolCommon = DisplayToolCommon()
             self._DisplayToolCommon._deserialize(params.get("DisplayToolCommon"))
+        self._IsCloudAsset = params.get("IsCloudAsset")
+        self._CloudAssetStatus = params.get("CloudAssetStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -10429,6 +14476,18 @@ class DisplayHttp(AbstractModel):
         :param _IsChange: 资产是否发生变动
 注意：此字段可能返回 null，表示取不到有效值。
         :type IsChange: bool
+        :param _IsCloudAsset: 是否为云资产：0-非云资产 1-是云资产
+        :type IsCloudAsset: int
+        :param _CloudAssetStatus: 云资产是否下线：-1-已下线 0-正常
+        :type CloudAssetStatus: int
+        :param _AvailabilityRate: 可用率（百分比）
+        :type AvailabilityRate: int
+        :param _AvailabilityState: 可用状态 1:异常 0:正常
+        :type AvailabilityState: int
+        :param _ResponseTime: 平均响应时间：单位ms
+        :type ResponseTime: int
+        :param _AnalysisState: 域名解析状态 1:异常 0:正常
+        :type AnalysisState: int
         """
         self._Id = None
         self._DisplayToolCommon = None
@@ -10444,6 +14503,12 @@ class DisplayHttp(AbstractModel):
         self._Ssl = None
         self._SslExpiredTime = None
         self._IsChange = None
+        self._IsCloudAsset = None
+        self._CloudAssetStatus = None
+        self._AvailabilityRate = None
+        self._AvailabilityState = None
+        self._ResponseTime = None
+        self._AnalysisState = None
 
     @property
     def Id(self):
@@ -10600,6 +14665,72 @@ class DisplayHttp(AbstractModel):
     def IsChange(self, IsChange):
         self._IsChange = IsChange
 
+    @property
+    def IsCloudAsset(self):
+        r"""是否为云资产：0-非云资产 1-是云资产
+        :rtype: int
+        """
+        return self._IsCloudAsset
+
+    @IsCloudAsset.setter
+    def IsCloudAsset(self, IsCloudAsset):
+        self._IsCloudAsset = IsCloudAsset
+
+    @property
+    def CloudAssetStatus(self):
+        r"""云资产是否下线：-1-已下线 0-正常
+        :rtype: int
+        """
+        return self._CloudAssetStatus
+
+    @CloudAssetStatus.setter
+    def CloudAssetStatus(self, CloudAssetStatus):
+        self._CloudAssetStatus = CloudAssetStatus
+
+    @property
+    def AvailabilityRate(self):
+        r"""可用率（百分比）
+        :rtype: int
+        """
+        return self._AvailabilityRate
+
+    @AvailabilityRate.setter
+    def AvailabilityRate(self, AvailabilityRate):
+        self._AvailabilityRate = AvailabilityRate
+
+    @property
+    def AvailabilityState(self):
+        r"""可用状态 1:异常 0:正常
+        :rtype: int
+        """
+        return self._AvailabilityState
+
+    @AvailabilityState.setter
+    def AvailabilityState(self, AvailabilityState):
+        self._AvailabilityState = AvailabilityState
+
+    @property
+    def ResponseTime(self):
+        r"""平均响应时间：单位ms
+        :rtype: int
+        """
+        return self._ResponseTime
+
+    @ResponseTime.setter
+    def ResponseTime(self, ResponseTime):
+        self._ResponseTime = ResponseTime
+
+    @property
+    def AnalysisState(self):
+        r"""域名解析状态 1:异常 0:正常
+        :rtype: int
+        """
+        return self._AnalysisState
+
+    @AnalysisState.setter
+    def AnalysisState(self, AnalysisState):
+        self._AnalysisState = AnalysisState
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -10618,6 +14749,12 @@ class DisplayHttp(AbstractModel):
         self._Ssl = params.get("Ssl")
         self._SslExpiredTime = params.get("SslExpiredTime")
         self._IsChange = params.get("IsChange")
+        self._IsCloudAsset = params.get("IsCloudAsset")
+        self._CloudAssetStatus = params.get("CloudAssetStatus")
+        self._AvailabilityRate = params.get("AvailabilityRate")
+        self._AvailabilityState = params.get("AvailabilityState")
+        self._ResponseTime = params.get("ResponseTime")
+        self._AnalysisState = params.get("AnalysisState")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -11585,6 +15722,10 @@ class DisplayManage(AbstractModel):
         :param _Status: 状态：not_converged:未收敛, converged:已收敛, ignore:已忽略
 
         :type Status: str
+        :param _IsCloudAsset: 是否为云资产：0-非云资产 1-是云资产
+        :type IsCloudAsset: int
+        :param _CloudAssetStatus: 云资产是否下线：-1-已下线 0-正常
+        :type CloudAssetStatus: int
         """
         self._Id = None
         self._DisplayToolCommon = None
@@ -11595,6 +15736,8 @@ class DisplayManage(AbstractModel):
         self._Code = None
         self._Host = None
         self._Status = None
+        self._IsCloudAsset = None
+        self._CloudAssetStatus = None
 
     @property
     def Id(self):
@@ -11696,6 +15839,28 @@ class DisplayManage(AbstractModel):
     def Status(self, Status):
         self._Status = Status
 
+    @property
+    def IsCloudAsset(self):
+        r"""是否为云资产：0-非云资产 1-是云资产
+        :rtype: int
+        """
+        return self._IsCloudAsset
+
+    @IsCloudAsset.setter
+    def IsCloudAsset(self, IsCloudAsset):
+        self._IsCloudAsset = IsCloudAsset
+
+    @property
+    def CloudAssetStatus(self):
+        r"""云资产是否下线：-1-已下线 0-正常
+        :rtype: int
+        """
+        return self._CloudAssetStatus
+
+    @CloudAssetStatus.setter
+    def CloudAssetStatus(self, CloudAssetStatus):
+        self._CloudAssetStatus = CloudAssetStatus
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -11709,6 +15874,8 @@ class DisplayManage(AbstractModel):
         self._Code = params.get("Code")
         self._Host = params.get("Host")
         self._Status = params.get("Status")
+        self._IsCloudAsset = params.get("IsCloudAsset")
+        self._CloudAssetStatus = params.get("CloudAssetStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -11876,6 +16043,12 @@ class DisplayPort(AbstractModel):
         :type LastCheckTime: str
         :param _Status: 状态，close:连接超时，端口可能已关闭，open:端口开放, checking:复测中, ignore:已忽略
         :type Status: str
+        :param _IsCloudAsset: 是否为云资产：0-非云资产 1-是云资产
+        :type IsCloudAsset: int
+        :param _CloudAssetStatus: 云资产是否下线：-1-已下线 0-正常
+        :type CloudAssetStatus: int
+        :param _AnalysisState: 域名解析状态 1:异常 0:正常
+        :type AnalysisState: int
         """
         self._Id = None
         self._DisplayToolCommon = None
@@ -11888,6 +16061,9 @@ class DisplayPort(AbstractModel):
         self._Banner = None
         self._LastCheckTime = None
         self._Status = None
+        self._IsCloudAsset = None
+        self._CloudAssetStatus = None
+        self._AnalysisState = None
 
     @property
     def Id(self):
@@ -12010,6 +16186,39 @@ class DisplayPort(AbstractModel):
     def Status(self, Status):
         self._Status = Status
 
+    @property
+    def IsCloudAsset(self):
+        r"""是否为云资产：0-非云资产 1-是云资产
+        :rtype: int
+        """
+        return self._IsCloudAsset
+
+    @IsCloudAsset.setter
+    def IsCloudAsset(self, IsCloudAsset):
+        self._IsCloudAsset = IsCloudAsset
+
+    @property
+    def CloudAssetStatus(self):
+        r"""云资产是否下线：-1-已下线 0-正常
+        :rtype: int
+        """
+        return self._CloudAssetStatus
+
+    @CloudAssetStatus.setter
+    def CloudAssetStatus(self, CloudAssetStatus):
+        self._CloudAssetStatus = CloudAssetStatus
+
+    @property
+    def AnalysisState(self):
+        r"""域名解析状态 1:异常 0:正常
+        :rtype: int
+        """
+        return self._AnalysisState
+
+    @AnalysisState.setter
+    def AnalysisState(self, AnalysisState):
+        self._AnalysisState = AnalysisState
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -12025,6 +16234,152 @@ class DisplayPort(AbstractModel):
         self._Banner = params.get("Banner")
         self._LastCheckTime = params.get("LastCheckTime")
         self._Status = params.get("Status")
+        self._IsCloudAsset = params.get("IsCloudAsset")
+        self._CloudAssetStatus = params.get("CloudAssetStatus")
+        self._AnalysisState = params.get("AnalysisState")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DisplaySeed(AbstractModel):
+    r"""种子详情
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 主键ID
+        :type Id: int
+        :param _CustomerId: 企业ID
+        :type CustomerId: int
+        :param _Category: 分类，包括：domain(主域名)、icon(图标)、ip(IP)、
+keyword(关键词)、parent_company(母公司)、sub_domain(子域名)、title(标题)
+        :type Category: str
+        :param _Value: 值
+        :type Value: str
+        :param _Md5: md5值
+        :type Md5: str
+        :param _Source: 来源
+        :type Source: str
+        :param _CreateAt: 创建时间
+        :type CreateAt: str
+        :param _IsValid: 是否可信
+        :type IsValid: bool
+        """
+        self._Id = None
+        self._CustomerId = None
+        self._Category = None
+        self._Value = None
+        self._Md5 = None
+        self._Source = None
+        self._CreateAt = None
+        self._IsValid = None
+
+    @property
+    def Id(self):
+        r"""主键ID
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def CustomerId(self):
+        r"""企业ID
+        :rtype: int
+        """
+        return self._CustomerId
+
+    @CustomerId.setter
+    def CustomerId(self, CustomerId):
+        self._CustomerId = CustomerId
+
+    @property
+    def Category(self):
+        r"""分类，包括：domain(主域名)、icon(图标)、ip(IP)、
+keyword(关键词)、parent_company(母公司)、sub_domain(子域名)、title(标题)
+        :rtype: str
+        """
+        return self._Category
+
+    @Category.setter
+    def Category(self, Category):
+        self._Category = Category
+
+    @property
+    def Value(self):
+        r"""值
+        :rtype: str
+        """
+        return self._Value
+
+    @Value.setter
+    def Value(self, Value):
+        self._Value = Value
+
+    @property
+    def Md5(self):
+        r"""md5值
+        :rtype: str
+        """
+        return self._Md5
+
+    @Md5.setter
+    def Md5(self, Md5):
+        self._Md5 = Md5
+
+    @property
+    def Source(self):
+        r"""来源
+        :rtype: str
+        """
+        return self._Source
+
+    @Source.setter
+    def Source(self, Source):
+        self._Source = Source
+
+    @property
+    def CreateAt(self):
+        r"""创建时间
+        :rtype: str
+        """
+        return self._CreateAt
+
+    @CreateAt.setter
+    def CreateAt(self, CreateAt):
+        self._CreateAt = CreateAt
+
+    @property
+    def IsValid(self):
+        r"""是否可信
+        :rtype: bool
+        """
+        return self._IsValid
+
+    @IsValid.setter
+    def IsValid(self, IsValid):
+        self._IsValid = IsValid
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._CustomerId = params.get("CustomerId")
+        self._Category = params.get("Category")
+        self._Value = params.get("Value")
+        self._Md5 = params.get("Md5")
+        self._Source = params.get("Source")
+        self._CreateAt = params.get("CreateAt")
+        self._IsValid = params.get("IsValid")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12052,12 +16407,18 @@ class DisplaySensitiveInfo(AbstractModel):
         :type Value: str
         :param _DisplayToolCommon: 公共字段
         :type DisplayToolCommon: :class:`tencentcloud.ctem.v20231128.models.DisplayToolCommon`
+        :param _IsCloudAsset: 是否为云资产：0-非云资产 1-是云资产
+        :type IsCloudAsset: int
+        :param _CloudAssetStatus: 云资产是否下线：-1-已下线 0-正常
+        :type CloudAssetStatus: int
         """
         self._Id = None
         self._Type = None
         self._Source = None
         self._Value = None
         self._DisplayToolCommon = None
+        self._IsCloudAsset = None
+        self._CloudAssetStatus = None
 
     @property
     def Id(self):
@@ -12114,6 +16475,28 @@ class DisplaySensitiveInfo(AbstractModel):
     def DisplayToolCommon(self, DisplayToolCommon):
         self._DisplayToolCommon = DisplayToolCommon
 
+    @property
+    def IsCloudAsset(self):
+        r"""是否为云资产：0-非云资产 1-是云资产
+        :rtype: int
+        """
+        return self._IsCloudAsset
+
+    @IsCloudAsset.setter
+    def IsCloudAsset(self, IsCloudAsset):
+        self._IsCloudAsset = IsCloudAsset
+
+    @property
+    def CloudAssetStatus(self):
+        r"""云资产是否下线：-1-已下线 0-正常
+        :rtype: int
+        """
+        return self._CloudAssetStatus
+
+    @CloudAssetStatus.setter
+    def CloudAssetStatus(self, CloudAssetStatus):
+        self._CloudAssetStatus = CloudAssetStatus
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -12123,6 +16506,8 @@ class DisplaySensitiveInfo(AbstractModel):
         if params.get("DisplayToolCommon") is not None:
             self._DisplayToolCommon = DisplayToolCommon()
             self._DisplayToolCommon._deserialize(params.get("DisplayToolCommon"))
+        self._IsCloudAsset = params.get("IsCloudAsset")
+        self._CloudAssetStatus = params.get("CloudAssetStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12156,6 +16541,20 @@ class DisplaySubDomain(AbstractModel):
         :type Isp: str
         :param _DisplayToolCommon: 公共字段
         :type DisplayToolCommon: :class:`tencentcloud.ctem.v20231128.models.DisplayToolCommon`
+        :param _IsCloudAsset: 是否为云资产：0-非云资产 1-是云资产
+        :type IsCloudAsset: int
+        :param _CloudAssetStatus: 云资产是否下线：-1-已下线 0-正常
+        :type CloudAssetStatus: int
+        :param _AvailabilityRate: 可用率（百分比）
+        :type AvailabilityRate: int
+        :param _AvailabilityState: 可用状态 1:异常 0:正常
+        :type AvailabilityState: int
+        :param _AnalysisState: 域名解析状态 1:异常 0:正常
+        :type AnalysisState: int
+        :param _AverageDelay: 平均时延：单位ms
+        :type AverageDelay: int
+        :param _LossRate: 丢包率（百分比）
+        :type LossRate: int
         """
         self._Id = None
         self._SubDomain = None
@@ -12165,6 +16564,13 @@ class DisplaySubDomain(AbstractModel):
         self._City = None
         self._Isp = None
         self._DisplayToolCommon = None
+        self._IsCloudAsset = None
+        self._CloudAssetStatus = None
+        self._AvailabilityRate = None
+        self._AvailabilityState = None
+        self._AnalysisState = None
+        self._AverageDelay = None
+        self._LossRate = None
 
     @property
     def Id(self):
@@ -12254,6 +16660,83 @@ class DisplaySubDomain(AbstractModel):
     def DisplayToolCommon(self, DisplayToolCommon):
         self._DisplayToolCommon = DisplayToolCommon
 
+    @property
+    def IsCloudAsset(self):
+        r"""是否为云资产：0-非云资产 1-是云资产
+        :rtype: int
+        """
+        return self._IsCloudAsset
+
+    @IsCloudAsset.setter
+    def IsCloudAsset(self, IsCloudAsset):
+        self._IsCloudAsset = IsCloudAsset
+
+    @property
+    def CloudAssetStatus(self):
+        r"""云资产是否下线：-1-已下线 0-正常
+        :rtype: int
+        """
+        return self._CloudAssetStatus
+
+    @CloudAssetStatus.setter
+    def CloudAssetStatus(self, CloudAssetStatus):
+        self._CloudAssetStatus = CloudAssetStatus
+
+    @property
+    def AvailabilityRate(self):
+        r"""可用率（百分比）
+        :rtype: int
+        """
+        return self._AvailabilityRate
+
+    @AvailabilityRate.setter
+    def AvailabilityRate(self, AvailabilityRate):
+        self._AvailabilityRate = AvailabilityRate
+
+    @property
+    def AvailabilityState(self):
+        r"""可用状态 1:异常 0:正常
+        :rtype: int
+        """
+        return self._AvailabilityState
+
+    @AvailabilityState.setter
+    def AvailabilityState(self, AvailabilityState):
+        self._AvailabilityState = AvailabilityState
+
+    @property
+    def AnalysisState(self):
+        r"""域名解析状态 1:异常 0:正常
+        :rtype: int
+        """
+        return self._AnalysisState
+
+    @AnalysisState.setter
+    def AnalysisState(self, AnalysisState):
+        self._AnalysisState = AnalysisState
+
+    @property
+    def AverageDelay(self):
+        r"""平均时延：单位ms
+        :rtype: int
+        """
+        return self._AverageDelay
+
+    @AverageDelay.setter
+    def AverageDelay(self, AverageDelay):
+        self._AverageDelay = AverageDelay
+
+    @property
+    def LossRate(self):
+        r"""丢包率（百分比）
+        :rtype: int
+        """
+        return self._LossRate
+
+    @LossRate.setter
+    def LossRate(self, LossRate):
+        self._LossRate = LossRate
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -12266,6 +16749,13 @@ class DisplaySubDomain(AbstractModel):
         if params.get("DisplayToolCommon") is not None:
             self._DisplayToolCommon = DisplayToolCommon()
             self._DisplayToolCommon._deserialize(params.get("DisplayToolCommon"))
+        self._IsCloudAsset = params.get("IsCloudAsset")
+        self._CloudAssetStatus = params.get("CloudAssetStatus")
+        self._AvailabilityRate = params.get("AvailabilityRate")
+        self._AvailabilityState = params.get("AvailabilityState")
+        self._AnalysisState = params.get("AnalysisState")
+        self._AverageDelay = params.get("AverageDelay")
+        self._LossRate = params.get("LossRate")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12818,6 +17308,12 @@ class DisplayVul(AbstractModel):
         :type Status: str
         :param _LastCheckTime: 上次复测时间
         :type LastCheckTime: str
+        :param _IsCloudAsset: 是否为云资产：0-非云资产 1-是云资产
+        :type IsCloudAsset: int
+        :param _CloudAssetStatus: 云资产是否下线：-1-已下线 0-正常
+        :type CloudAssetStatus: int
+        :param _AnalysisState: 域名解析状态 1:异常 0:正常
+        :type AnalysisState: int
         """
         self._Id = None
         self._DisplayToolCommon = None
@@ -12832,6 +17328,9 @@ class DisplayVul(AbstractModel):
         self._AiJudge = None
         self._Status = None
         self._LastCheckTime = None
+        self._IsCloudAsset = None
+        self._CloudAssetStatus = None
+        self._AnalysisState = None
 
     @property
     def Id(self):
@@ -12976,6 +17475,39 @@ class DisplayVul(AbstractModel):
     def LastCheckTime(self, LastCheckTime):
         self._LastCheckTime = LastCheckTime
 
+    @property
+    def IsCloudAsset(self):
+        r"""是否为云资产：0-非云资产 1-是云资产
+        :rtype: int
+        """
+        return self._IsCloudAsset
+
+    @IsCloudAsset.setter
+    def IsCloudAsset(self, IsCloudAsset):
+        self._IsCloudAsset = IsCloudAsset
+
+    @property
+    def CloudAssetStatus(self):
+        r"""云资产是否下线：-1-已下线 0-正常
+        :rtype: int
+        """
+        return self._CloudAssetStatus
+
+    @CloudAssetStatus.setter
+    def CloudAssetStatus(self, CloudAssetStatus):
+        self._CloudAssetStatus = CloudAssetStatus
+
+    @property
+    def AnalysisState(self):
+        r"""域名解析状态 1:异常 0:正常
+        :rtype: int
+        """
+        return self._AnalysisState
+
+    @AnalysisState.setter
+    def AnalysisState(self, AnalysisState):
+        self._AnalysisState = AnalysisState
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -12993,6 +17525,9 @@ class DisplayVul(AbstractModel):
         self._AiJudge = params.get("AiJudge")
         self._Status = params.get("Status")
         self._LastCheckTime = params.get("LastCheckTime")
+        self._IsCloudAsset = params.get("IsCloudAsset")
+        self._CloudAssetStatus = params.get("CloudAssetStatus")
+        self._AnalysisState = params.get("AnalysisState")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13026,7 +17561,7 @@ class DisplayWeakPassword(AbstractModel):
         :type Account: str
         :param _Password: 弱口令密码
         :type Password: str
-        :param _IsHoneypot: 是否蜜罐
+        :param _IsHoneypot: 是否为蜜罐
         :type IsHoneypot: bool
         :param _ScreenshotUrl: 截图
         :type ScreenshotUrl: str
@@ -13034,6 +17569,10 @@ class DisplayWeakPassword(AbstractModel):
         :type Status: str
         :param _LastCheckTime: 上次复测时间
         :type LastCheckTime: str
+        :param _IsCloudAsset: 是否为云资产：0-非云资产 1-是云资产
+        :type IsCloudAsset: int
+        :param _CloudAssetStatus: 云资产是否下线：-1-已下线 0-正常
+        :type CloudAssetStatus: int
         """
         self._Id = None
         self._DisplayToolCommon = None
@@ -13047,6 +17586,8 @@ class DisplayWeakPassword(AbstractModel):
         self._ScreenshotUrl = None
         self._Status = None
         self._LastCheckTime = None
+        self._IsCloudAsset = None
+        self._CloudAssetStatus = None
 
     @property
     def Id(self):
@@ -13138,7 +17679,7 @@ class DisplayWeakPassword(AbstractModel):
 
     @property
     def IsHoneypot(self):
-        r"""是否蜜罐
+        r"""是否为蜜罐
         :rtype: bool
         """
         return self._IsHoneypot
@@ -13180,6 +17721,28 @@ class DisplayWeakPassword(AbstractModel):
     def LastCheckTime(self, LastCheckTime):
         self._LastCheckTime = LastCheckTime
 
+    @property
+    def IsCloudAsset(self):
+        r"""是否为云资产：0-非云资产 1-是云资产
+        :rtype: int
+        """
+        return self._IsCloudAsset
+
+    @IsCloudAsset.setter
+    def IsCloudAsset(self, IsCloudAsset):
+        self._IsCloudAsset = IsCloudAsset
+
+    @property
+    def CloudAssetStatus(self):
+        r"""云资产是否下线：-1-已下线 0-正常
+        :rtype: int
+        """
+        return self._CloudAssetStatus
+
+    @CloudAssetStatus.setter
+    def CloudAssetStatus(self, CloudAssetStatus):
+        self._CloudAssetStatus = CloudAssetStatus
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -13196,6 +17759,8 @@ class DisplayWeakPassword(AbstractModel):
         self._ScreenshotUrl = params.get("ScreenshotUrl")
         self._Status = params.get("Status")
         self._LastCheckTime = params.get("LastCheckTime")
+        self._IsCloudAsset = params.get("IsCloudAsset")
+        self._CloudAssetStatus = params.get("CloudAssetStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13227,6 +17792,10 @@ class DisplayWechatApplet(AbstractModel):
         :type QrCode: str
         :param _Description: 描述
         :type Description: str
+        :param _RecordSubject: 认证主体
+        :type RecordSubject: str
+        :param _AccountAppid: 账号Appid
+        :type AccountAppid: str
         """
         self._Id = None
         self._DisplayToolCommon = None
@@ -13235,6 +17804,8 @@ class DisplayWechatApplet(AbstractModel):
         self._AccountId = None
         self._QrCode = None
         self._Description = None
+        self._RecordSubject = None
+        self._AccountAppid = None
 
     @property
     def Id(self):
@@ -13313,6 +17884,28 @@ class DisplayWechatApplet(AbstractModel):
     def Description(self, Description):
         self._Description = Description
 
+    @property
+    def RecordSubject(self):
+        r"""认证主体
+        :rtype: str
+        """
+        return self._RecordSubject
+
+    @RecordSubject.setter
+    def RecordSubject(self, RecordSubject):
+        self._RecordSubject = RecordSubject
+
+    @property
+    def AccountAppid(self):
+        r"""账号Appid
+        :rtype: str
+        """
+        return self._AccountAppid
+
+    @AccountAppid.setter
+    def AccountAppid(self, AccountAppid):
+        self._AccountAppid = AccountAppid
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -13324,6 +17917,8 @@ class DisplayWechatApplet(AbstractModel):
         self._AccountId = params.get("AccountId")
         self._QrCode = params.get("QrCode")
         self._Description = params.get("Description")
+        self._RecordSubject = params.get("RecordSubject")
+        self._AccountAppid = params.get("AccountAppid")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13355,6 +17950,8 @@ class DisplayWechatOfficialAccount(AbstractModel):
         :type QrCode: str
         :param _Description: 描述
         :type Description: str
+        :param _RecordSubject: 认证主体
+        :type RecordSubject: str
         """
         self._Id = None
         self._DisplayToolCommon = None
@@ -13363,6 +17960,7 @@ class DisplayWechatOfficialAccount(AbstractModel):
         self._AccountId = None
         self._QrCode = None
         self._Description = None
+        self._RecordSubject = None
 
     @property
     def Id(self):
@@ -13441,6 +18039,17 @@ class DisplayWechatOfficialAccount(AbstractModel):
     def Description(self, Description):
         self._Description = Description
 
+    @property
+    def RecordSubject(self):
+        r"""认证主体
+        :rtype: str
+        """
+        return self._RecordSubject
+
+    @RecordSubject.setter
+    def RecordSubject(self, RecordSubject):
+        self._RecordSubject = RecordSubject
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -13452,6 +18061,7 @@ class DisplayWechatOfficialAccount(AbstractModel):
         self._AccountId = params.get("AccountId")
         self._QrCode = params.get("QrCode")
         self._Description = params.get("Description")
+        self._RecordSubject = params.get("RecordSubject")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13566,6 +18176,145 @@ class IdndValue(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class IgnoreDataRequest(AbstractModel):
+    r"""IgnoreData请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Ids: ID列表
+        :type Ids: list of int
+        :param _Module: 模块，包括：enterprise：企业架构，domain：主域名，sub_domain：子域名，asset：IP资产，port：端口服务，http：HTTP资产，vul：漏洞信息，app：APP，wechat_applet：微信小程序，wechat_official_account：微信公众号，github：Github信息泄露，manage：管理后台暴露，config：目录爆破，dark_web：暗网泄露，net_disk：文库网盘泄露，supply_chain：供应链，weak_password：弱口令，sensitive_info：敏感信息泄露
+        :type Module: str
+        :param _CustomerIdList: 企业ID列表，可多选
+        :type CustomerIdList: list of int
+        :param _IsAggregation: 是否聚合数据
+        :type IsAggregation: bool
+        :param _Ignored: 是否显示被忽略的数据
+        :type Ignored: bool
+        :param _IsAffectOther: 是否忽略全部
+        :type IsAffectOther: bool
+        """
+        self._Ids = None
+        self._Module = None
+        self._CustomerIdList = None
+        self._IsAggregation = None
+        self._Ignored = None
+        self._IsAffectOther = None
+
+    @property
+    def Ids(self):
+        r"""ID列表
+        :rtype: list of int
+        """
+        return self._Ids
+
+    @Ids.setter
+    def Ids(self, Ids):
+        self._Ids = Ids
+
+    @property
+    def Module(self):
+        r"""模块，包括：enterprise：企业架构，domain：主域名，sub_domain：子域名，asset：IP资产，port：端口服务，http：HTTP资产，vul：漏洞信息，app：APP，wechat_applet：微信小程序，wechat_official_account：微信公众号，github：Github信息泄露，manage：管理后台暴露，config：目录爆破，dark_web：暗网泄露，net_disk：文库网盘泄露，supply_chain：供应链，weak_password：弱口令，sensitive_info：敏感信息泄露
+        :rtype: str
+        """
+        return self._Module
+
+    @Module.setter
+    def Module(self, Module):
+        self._Module = Module
+
+    @property
+    def CustomerIdList(self):
+        r"""企业ID列表，可多选
+        :rtype: list of int
+        """
+        return self._CustomerIdList
+
+    @CustomerIdList.setter
+    def CustomerIdList(self, CustomerIdList):
+        self._CustomerIdList = CustomerIdList
+
+    @property
+    def IsAggregation(self):
+        r"""是否聚合数据
+        :rtype: bool
+        """
+        return self._IsAggregation
+
+    @IsAggregation.setter
+    def IsAggregation(self, IsAggregation):
+        self._IsAggregation = IsAggregation
+
+    @property
+    def Ignored(self):
+        r"""是否显示被忽略的数据
+        :rtype: bool
+        """
+        return self._Ignored
+
+    @Ignored.setter
+    def Ignored(self, Ignored):
+        self._Ignored = Ignored
+
+    @property
+    def IsAffectOther(self):
+        r"""是否忽略全部
+        :rtype: bool
+        """
+        return self._IsAffectOther
+
+    @IsAffectOther.setter
+    def IsAffectOther(self, IsAffectOther):
+        self._IsAffectOther = IsAffectOther
+
+
+    def _deserialize(self, params):
+        self._Ids = params.get("Ids")
+        self._Module = params.get("Module")
+        self._CustomerIdList = params.get("CustomerIdList")
+        self._IsAggregation = params.get("IsAggregation")
+        self._Ignored = params.get("Ignored")
+        self._IsAffectOther = params.get("IsAffectOther")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IgnoreDataResponse(AbstractModel):
+    r"""IgnoreData返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
 
 
 class JobRecordProgress(AbstractModel):
@@ -14126,6 +18875,85 @@ class ModifyLabelRequest(AbstractModel):
 
 class ModifyLabelResponse(AbstractModel):
     r"""ModifyLabel返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifySeedStatusRequest(AbstractModel):
+    r"""ModifySeedStatus请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: ID
+        :type Id: int
+        :param _IsValid: 是否可信
+        :type IsValid: bool
+        """
+        self._Id = None
+        self._IsValid = None
+
+    @property
+    def Id(self):
+        r"""ID
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def IsValid(self):
+        r"""是否可信
+        :rtype: bool
+        """
+        return self._IsValid
+
+    @IsValid.setter
+    def IsValid(self, IsValid):
+        self._IsValid = IsValid
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._IsValid = params.get("IsValid")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifySeedStatusResponse(AbstractModel):
+    r"""ModifySeedStatus返回参数结构体
 
     """
 

@@ -1,5 +1,9 @@
 # exec command python3 -m unittest tests/test_converter.py
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import unittest
 from markdown_to_mrkdwn.converter import SlackMarkdownConverter
 
@@ -657,6 +661,80 @@ Left-aligned | Center-aligned | Right-aligned"""
             return text
         with self.assertRaises(ValueError):
             converter.register_plugin("invalid_timing", dummy_plugin, scope="line", timing="invalid")
+
+    def test_convert_headers_with_trailing_whitespace(self):
+        self.assertEqual(self.converter.convert("# Header 1 "), "*Header 1*")
+        self.assertEqual(self.converter.convert("## Header 2   "), "*Header 2*")
+        self.assertEqual(self.converter.convert("### Header 3\t"), "*Header 3*")
+
+    def test_code_block_with_trailing_whitespace(self):
+        markdown = "```python \ndef hello():\n    pass\n```"
+        expected = "```python\ndef hello():\n    pass\n```"
+        self.assertEqual(self.converter.convert(markdown), expected)
+
+    def test_line_endings(self):
+        markdown = "Line 1\r\nLine 2\rLine 3"
+        expected = "Line 1\nLine 2\nLine 3"
+        self.assertEqual(self.converter.convert(markdown), expected)
+
+    def test_state_reset(self):
+        # Test that state is reset between convert calls
+        markdown1 = "```python\ncode"
+        self.converter.convert(markdown1)
+        
+        markdown2 = "# Header"
+        self.assertEqual(self.converter.convert(markdown2), "*Header*")
+
+    def test_table_inside_code_block(self):
+        """Test that tables inside code blocks are not converted (Issue #30)"""
+        markdown = """結果:
+```
+| col1 | col2 |
+|------|------|
+| a    | b    |
+```"""
+        expected = """結果:
+```
+| col1 | col2 |
+|------|------|
+| a    | b    |
+```"""
+        self.assertEqual(self.converter.convert(markdown), expected)
+
+    def test_table_outside_code_block(self):
+        """Test that tables outside code blocks are still converted"""
+        markdown = """結果:
+| col1 | col2 |
+|------|------|
+| a    | b    |"""
+        expected = """結果:
+*col1* | *col2*
+a | b"""
+        self.assertEqual(self.converter.convert(markdown), expected)
+
+    def test_table_and_code_block_mixed(self):
+        """Test that tables outside code blocks are converted, but inside are not"""
+        markdown = """Table outside:
+| Header 1 | Header 2 |
+|----------|----------|
+| Value 1  | Value 2  |
+
+Code block with table:
+```
+| col1 | col2 |
+|------|------|
+| a    | b    |
+```"""
+        expected = """Table outside:
+*Header 1* | *Header 2*
+Value 1 | Value 2
+Code block with table:
+```
+| col1 | col2 |
+|------|------|
+| a    | b    |
+```"""
+        self.assertEqual(self.converter.convert(markdown), expected)
 
 
 if __name__ == "__main__":

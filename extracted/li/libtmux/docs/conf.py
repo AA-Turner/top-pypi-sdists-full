@@ -92,7 +92,7 @@ html_theme_options: dict[str, str | list[dict[str, str]]] = {
     "source_repository": f"{about['__github__']}/",
     "source_branch": "master",
     "source_directory": "docs/",
-    "announcement": "<em>Friendly reminder:</em> 📌 Pin the package, libtmux is pre-1.0 and APIs will be <a href='/migration.html'>changing</a> throughout 2025.",
+    "announcement": "<em>Friendly reminder:</em> 📌 Pin the package, libtmux is pre-1.0 and APIs will be <a href='/migration.html'>changing</a> throughout 2026.",
 }
 html_sidebars = {
     "**": [
@@ -117,6 +117,13 @@ autodoc_typehints = "description"
 # Don't show class signature with the class' name.
 autodoc_class_signature = "separated"
 toc_object_entries_show_parents = "hide"
+
+# sphinx-autodoc-typehints
+# Suppress warnings for forward references that can't be resolved
+# (types in TYPE_CHECKING blocks used for circular import avoidance)
+suppress_warnings = [
+    "sphinx_autodoc_typehints.forward_reference",
+]
 
 # sphinx-copybutton
 copybutton_prompt_text = (

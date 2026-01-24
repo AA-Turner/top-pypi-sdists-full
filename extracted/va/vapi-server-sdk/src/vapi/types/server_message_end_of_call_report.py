@@ -14,10 +14,12 @@ from .analysis import Analysis
 from .artifact import Artifact
 from .call import Call
 from .chat import Chat
+from .compliance import Compliance
 from .create_customer_dto import CreateCustomerDto
 from .server_message_end_of_call_report_costs_item import ServerMessageEndOfCallReportCostsItem
 from .server_message_end_of_call_report_ended_reason import ServerMessageEndOfCallReportEndedReason
 from .server_message_end_of_call_report_phone_number import ServerMessageEndOfCallReportPhoneNumber
+from .server_message_end_of_call_report_type import ServerMessageEndOfCallReportType
 
 
 class ServerMessageEndOfCallReport(UncheckedBaseModel):
@@ -28,7 +30,7 @@ class ServerMessageEndOfCallReport(UncheckedBaseModel):
     This is the phone number that the message is associated with.
     """
 
-    type: typing.Literal["end-of-call-report"] = pydantic.Field(default="end-of-call-report")
+    type: ServerMessageEndOfCallReportType = pydantic.Field()
     """
     This is the type of the message. "end-of-call-report" is sent when the call ends and post-processing is complete.
     """
@@ -99,6 +101,11 @@ class ServerMessageEndOfCallReport(UncheckedBaseModel):
     This is the ISO 8601 date-time string of when the call ended. This can also be found at `call.endedAt` on GET /call/:id.
     """
 
+    compliance: typing.Optional[Compliance] = pydantic.Field(default=None)
+    """
+    This is the compliance result of the call. This can also be found at `call.compliance` on GET /call/:id.
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:
@@ -111,6 +118,7 @@ class ServerMessageEndOfCallReport(UncheckedBaseModel):
 
 from .anthropic_model import AnthropicModel  # noqa: E402, F401, I001
 from .anyscale_model import AnyscaleModel  # noqa: E402, F401, I001
+from .assistant_overrides import AssistantOverrides  # noqa: E402, F401, I001
 from .call_hook_assistant_speech_interrupted import CallHookAssistantSpeechInterrupted  # noqa: E402, F401, I001
 from .call_hook_call_ending import CallHookCallEnding  # noqa: E402, F401, I001
 from .call_hook_customer_speech_interrupted import CallHookCustomerSpeechInterrupted  # noqa: E402, F401, I001

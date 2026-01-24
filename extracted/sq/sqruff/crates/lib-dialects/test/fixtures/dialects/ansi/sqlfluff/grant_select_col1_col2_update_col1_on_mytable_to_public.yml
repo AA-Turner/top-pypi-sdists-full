@@ -1,0 +1,26 @@
+file:
+- statement:
+  - access_statement:
+    - keyword: grant
+    - keyword: select
+    - bracketed:
+      - start_bracket: (
+      - column_reference:
+        - naked_identifier: col1
+      - comma: ','
+      - column_reference:
+        - naked_identifier: col2
+      - end_bracket: )
+    - comma: ','
+    - keyword: update
+    - bracketed:
+      - start_bracket: (
+      - column_reference:
+        - naked_identifier: col1
+      - end_bracket: )
+    - keyword: on
+    - object_reference:
+      - naked_identifier: mytable
+    - keyword: to
+    - role_reference:
+      - naked_identifier: public

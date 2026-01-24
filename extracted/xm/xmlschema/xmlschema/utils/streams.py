@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2024, SISSA (International School for Advanced Studies).
+# Copyright (c), 2024-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -109,6 +109,8 @@ class DefusableReader(BufferedIOBase):
             return self._read_unlocked(size)
 
     def _read_unlocked(self, size: Optional[int] = None) -> bytes:
+        data: Union[bytes, bytearray]
+
         if self._pos >= self._buffer_size:
             data = self._fp.read(size)
             self._pos += len(data)
@@ -135,6 +137,8 @@ class DefusableReader(BufferedIOBase):
             data = b"".join(chunks)
 
         self._pos += len(data)
+        if isinstance(data, bytearray):
+            return bytes(data)
         return data
 
     def read1(self, size: int = -1) -> bytes:

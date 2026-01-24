@@ -139,5 +139,8 @@ def satellite_missed_pulp_agent_queues(broker):
                     return DatasourceProvider(
                         missed_queues,
                         relative_path='insights_datasources/satellite_missed_pulp_agent_queues',
+                        ds=Specs.satellite_missed_pulp_agent_queues,
+                        ctx=broker.get(HostContext),
+                        cleaner=broker.get("cleaner"),
                     )
     raise SkipComponent

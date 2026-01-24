@@ -14,6 +14,7 @@
 #include "include/core/SkMaskFilter.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkPathUtils.h"
 #include "include/core/SkPoint.h"
 #include "include/core/SkRect.h"
@@ -26,13 +27,15 @@
 #include "src/core/SkReadBuffer.h"
 #include "src/core/SkWriteBuffer.h"
 #include "tests/Test.h"
+#include "tools/fonts/FontToolUtils.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <initializer_list>
 #include <optional>
-#include <string>
 
 #undef ASSERT
 
@@ -66,25 +69,25 @@ DEF_TEST(Paint_copy, reporter) {
 // found and fixed for webkit: mishandling when we hit recursion limit on
 // mostly degenerate cubic flatness test
 DEF_TEST(Paint_regression_cubic, reporter) {
-    SkPath path, stroke;
+    SkPathBuilder builder;
     SkPaint paint;
 
-    path.moveTo(460.2881309415525f,
-                303.250847066498f);
-    path.cubicTo(463.36378422175284f,
-                 302.1169735073363f,
-                 456.32239330810046f,
-                 304.720354932878f,
-                 453.15255460013304f,
-                 305.788586869862f);
+    builder.moveTo(460.2881309415525f,
+                   303.250847066498f);
+    builder.cubicTo(463.36378422175284f,
+                    302.1169735073363f,
+                    456.32239330810046f,
+                    304.720354932878f,
+                    453.15255460013304f,
+                    305.788586869862f);
+    SkPath path = builder.detach();
 
-    SkRect fillR, strokeR;
-    fillR = path.getBounds();
+    SkRect fillR = path.getBounds();
 
     paint.setStyle(SkPaint::kStroke_Style);
     paint.setStrokeWidth(SkIntToScalar(2));
-    skpathutils::FillPathWithPaint(path, paint, &stroke);
-    strokeR = stroke.getBounds();
+    skpathutils::FillPathWithPaint(path, paint, &builder);
+    SkRect strokeR = builder.computeBounds();
 
     SkRect maxR = fillR;
     SkScalar miter = std::max(SK_Scalar1, paint.getStrokeMiter());
@@ -127,7 +130,7 @@ DEF_TEST(Paint_flattening, reporter) {
     FOR_SETUP(m, joins, setStrokeJoin)
     FOR_SETUP(p, styles, setStyle)
 
-    SkBinaryWriteBuffer writer;
+    SkBinaryWriteBuffer writer({});
     SkPaintPriv::Flatten(paint, writer);
 
     SkAutoMalloc buf(writer.bytesWritten());
@@ -145,7 +148,7 @@ DEF_TEST(Paint_flattening, reporter) {
 // found and fixed for android: not initializing rect for string's of length 0
 DEF_TEST(Paint_regression_measureText, reporter) {
 
-    SkFont font;
+    SkFont font = ToolUtils::DefaultFont();
     font.setSize(12.0f);
 
     SkRect r;
@@ -163,7 +166,7 @@ DEF_TEST(Paint_MoreFlattening, r) {
     paint.setColor(0x00AABBCC);
     paint.setBlendMode(SkBlendMode::kModulate);
 
-    SkBinaryWriteBuffer writer;
+    SkBinaryWriteBuffer writer({});
     SkPaintPriv::Flatten(paint, writer);
 
     SkAutoMalloc buf(writer.bytesWritten());
@@ -203,20 +206,15 @@ DEF_TEST(Paint_nothingToDraw, r) {
 }
 
 DEF_TEST(Font_getpos, r) {
-    SkFont font;
+    SkFont font = ToolUtils::DefaultFont();
     const char text[] = "Hamburgefons!@#!#23425,./;'[]";
     int count = font.countText(text, strlen(text), SkTextEncoding::kUTF8);
-    AutoTArray<uint16_t> glyphStorage(count);
-    uint16_t* glyphs = glyphStorage.get();
-    (void)font.textToGlyphs(text, strlen(text), SkTextEncoding::kUTF8, glyphs, count);
+    AutoTArray<SkGlyphID> glyphs(count);
+    (void)font.textToGlyphs(text, strlen(text), SkTextEncoding::kUTF8, glyphs);
 
-    AutoTArray<SkScalar> widthStorage(count);
-    AutoTArray<SkScalar> xposStorage(count);
-    AutoTArray<SkPoint> posStorage(count);
-
-    SkScalar* widths = widthStorage.get();
-    SkScalar* xpos = xposStorage.get();
-    SkPoint* pos = posStorage.get();
+    AutoTArray<SkScalar> widths(count);
+    AutoTArray<SkScalar> xpos(count);
+    AutoTArray<SkPoint> pos(count);
 
     for (bool subpix : { false, true }) {
         font.setSubpixel(subpix);
@@ -225,9 +223,9 @@ DEF_TEST(Font_getpos, r) {
             for (auto size : { 1.0f, 12.0f, 100.0f }) {
                 font.setSize(size);
 
-                font.getWidths(glyphs, count, widths);
-                font.getXPos(glyphs, count, xpos, 10);
-                font.getPos(glyphs, count, pos, {10, 20});
+                font.getWidths(glyphs, widths);
+                font.getXPos(glyphs, xpos, 10);
+                font.getPos(glyphs, pos, {10, 20});
 
                 auto nearly_eq = [](SkScalar a, SkScalar b) {
                     return SkScalarAbs(a - b) < 0.000001f;

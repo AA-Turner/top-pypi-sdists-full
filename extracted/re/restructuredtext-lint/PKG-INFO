@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: restructuredtext_lint
-Version: 1.4.0
+Version: 2.0.2
 Summary: reStructuredText linter
 Home-page: https://github.com/twolfson/restructuredtext-lint
 Download-URL: https://github.com/twolfson/restructuredtext-lint/archive/master.zip
@@ -8,18 +8,30 @@ Author: Todd Wolfson
 Author-email: todd@twolfson.com
 License: UNLICENSE
 Keywords: restructuredtext,restructured text,rest,rst,lint
-Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: Public Domain
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Text Processing :: Markup
+Description-Content-Type: text/x-rst
+Requires-Dist: docutils<1.0,>=0.11
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary
 
 restructuredtext-lint
 =====================
 
-.. image:: https://travis-ci.org/twolfson/restructuredtext-lint.png?branch=master
-   :target: https://travis-ci.org/twolfson/restructuredtext-lint
+.. image:: https://github.com/twolfson/restructuredtext-lint/actions/workflows/test.yml/badge.svg
+   :target: https://github.com/twolfson/restructuredtext-lint/actions/workflows/test.yml
    :alt: Build Status
 
 `reStructuredText`_ `linter`_
@@ -55,7 +67,7 @@ For your convenience, we present a CLI utility ``rst-lint`` (also available as `
 .. code:: console
 
     $ rst-lint --help
-    usage: rst-lint [-h] [--version] [--format {text,json}] [--encoding ENCODING]
+    usage: rst-lint [-h] [--version] [--format {text,json}]
                     [--level {debug,info,warning,error,severe}]
                     [--rst-prolog RST_PROLOG]
                     path [path ...]
@@ -70,7 +82,6 @@ For your convenience, we present a CLI utility ``rst-lint`` (also available as `
       -h, --help            show this help message and exit
       --version             show program's version number and exit
       --format {text,json}  Format of the output (default: "text")
-      --encoding ENCODING   Encoding of the input file (e.g. "utf-8")
       --level {debug,info,warning,error,severe}
                             Minimum error level to report (default: "warning")
       --rst-prolog RST_PROLOG
@@ -105,6 +116,17 @@ While a document may lint cleanly locally, there can be issues when submitted it
   - Please use absolute hyperlinks (e.g. ``https://github.com/twolfson/restructuredtext-lint/blob/master/UNLICENSE``)
 
 .. _`#27`: https://github.com/twolfson/restructuredtext-lint/issues/27
+
+Breaking changes in 2.0.0
+-------------------------
+We removed the ``--encoding`` CLI parameter and its correspodning keyword argument.
+
+This was because not using "utf-8" by default was confusing and detracted from the purpose of our tool (`#65`_).
+
+i.e. ``rst-lint's`` purpose is to check reST structural elements, not the content itself.
+
+.. _`#65`: https://github.com/twolfson/restructuredtext-lint/issues/65
+
 
 Documentation
 -------------
@@ -143,20 +165,13 @@ Returns:
 
 .. _`docutils`: http://docutils.sourceforge.net/
 
-``restructuredtext_lint.lint_file(filepath, encoding=None, *args, **kwargs)``
+``restructuredtext_lint.lint_file(filepath, *args, **kwargs)``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Lint a `reStructuredText`_ file and return errors
 
 - filepath ``String`` - Path to file for linting
-- encoding ``String`` - Encoding to read file in as
-
-  - When ``None`` is provided, it will use OS default as provided by `locale.getpreferredencoding`_
-  - The list of supported encodings can be found at http://docs.python.org/2/library/codecs.html#standard-encodings
-
 - ``*args`` - Additional arguments to be passed to ``lint``
 - ``**kwargs`` - Additional keyword arguments to be passed to ``lint``
-
-.. _`locale.getpreferredencoding`: http://docs.python.org/2/library/locale.html#locale.getpreferredencoding
 
 Returns: Same structure as ``restructuredtext_lint.lint``
 
@@ -228,7 +243,22 @@ Here is an example of all invalid properties
 
 Contributing
 ------------
-In lieu of a formal styleguide, take care to maintain the existing coding style. Add unit tests for any new or changed functionality. Test via ``nosetests``.
+In lieu of a formal styleguide, take care to maintain the existing coding style. Add unit tests for any new or changed functionality.
+
+Testing
+-------
+Testing can be performed locally via:
+
+.. code:: bash
+
+    # Configure local `rst-lint` to use run from this package
+    python setup.py develop
+
+    # Install development dependencies
+    pip install -r requirements-dev.txt
+
+    # Run our test suite
+    ./test.sh
 
 Donating
 --------
@@ -246,5 +276,3 @@ As of Nov 22 2013, Todd Wolfson has released this repository and its contents to
 It has been released under the `UNLICENSE`_.
 
 .. _UNLICENSE: https://github.com/twolfson/restructuredtext-lint/blob/master/UNLICENSE
-
-

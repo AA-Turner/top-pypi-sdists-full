@@ -3,9 +3,15 @@
 isort:skip_file
 """
 import builtins
+import collections.abc
 import google.protobuf.descriptor
+import google.protobuf.internal.containers
 import google.protobuf.message
+import google.protobuf.timestamp_pb2
+import qwak.feature_store.features.execution_pb2
+import qwak.feature_store.features.feature_set_types_pb2
 import sys
+import typing
 
 if sys.version_info >= (3, 8):
     import typing as typing_extensions
@@ -84,12 +90,76 @@ class StreamingAggregationBackfillIngestion(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     FEATURESET_NAME_FIELD_NUMBER: builtins.int
+    EXECUTION_SPEC_FIELD_NUMBER: builtins.int
+    START_TIMESTAMP_FIELD_NUMBER: builtins.int
+    END_TIMESTAMP_FIELD_NUMBER: builtins.int
+    TRANSFORMATION_FIELD_NUMBER: builtins.int
+    DATA_SOURCE_SPECS_FIELD_NUMBER: builtins.int
     featureset_name: builtins.str
+    @property
+    def execution_spec(self) -> qwak.feature_store.features.execution_pb2.ExecutionSpec: ...
+    @property
+    def start_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def end_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def transformation(self) -> qwak.feature_store.features.feature_set_types_pb2.Transformation: ...
+    @property
+    def data_source_specs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___BackfillDataSource]: ...
     def __init__(
         self,
         *,
         featureset_name: builtins.str = ...,
+        execution_spec: qwak.feature_store.features.execution_pb2.ExecutionSpec | None = ...,
+        start_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        end_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        transformation: qwak.feature_store.features.feature_set_types_pb2.Transformation | None = ...,
+        data_source_specs: collections.abc.Iterable[global___BackfillDataSource] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["featureset_name", b"featureset_name"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["end_timestamp", b"end_timestamp", "execution_spec", b"execution_spec", "start_timestamp", b"start_timestamp", "transformation", b"transformation"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["data_source_specs", b"data_source_specs", "end_timestamp", b"end_timestamp", "execution_spec", b"execution_spec", "featureset_name", b"featureset_name", "start_timestamp", b"start_timestamp", "transformation", b"transformation"]) -> None: ...
 
 global___StreamingAggregationBackfillIngestion = StreamingAggregationBackfillIngestion
+
+class BackfillDataSource(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DATA_SOURCE_NAME_FIELD_NUMBER: builtins.int
+    TIME_RANGE_FIELD_NUMBER: builtins.int
+    data_source_name: builtins.str
+    @property
+    def time_range(self) -> global___TimeRange: ...
+    def __init__(
+        self,
+        *,
+        data_source_name: builtins.str = ...,
+        time_range: global___TimeRange | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["time_range", b"time_range"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["data_source_name", b"data_source_name", "time_range", b"time_range"]) -> None: ...
+
+global___BackfillDataSource = BackfillDataSource
+
+class TimeRange(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    START_TIMESTAMP_FIELD_NUMBER: builtins.int
+    END_TIMESTAMP_FIELD_NUMBER: builtins.int
+    @property
+    def start_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def end_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        start_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        end_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["end_optional", b"end_optional", "end_timestamp", b"end_timestamp", "start_optional", b"start_optional", "start_timestamp", b"start_timestamp"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["end_optional", b"end_optional", "end_timestamp", b"end_timestamp", "start_optional", b"start_optional", "start_timestamp", b"start_timestamp"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["end_optional", b"end_optional"]) -> typing_extensions.Literal["end_timestamp"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["start_optional", b"start_optional"]) -> typing_extensions.Literal["start_timestamp"] | None: ...
+
+global___TimeRange = TimeRange

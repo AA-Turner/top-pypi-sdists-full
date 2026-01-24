@@ -18,9 +18,10 @@ from pytensor.compile import Function, SharedVariable
 from pytensor.compile.io import In, Out
 from pytensor.compile.profiling import ProfileStats
 from pytensor.configdefaults import config
-from pytensor.graph.basic import Apply, Constant, Variable, graph_inputs, io_toposort
+from pytensor.graph.basic import Apply, Constant, Variable
 from pytensor.graph.fg import FunctionGraph
 from pytensor.graph.op import HasInnerGraph, Op, StorageMapType
+from pytensor.graph.traversal import graph_inputs, toposort
 from pytensor.graph.utils import Scratchpad
 
 
@@ -294,8 +295,10 @@ N.B.:
         if hasattr(var.owner, "op"):
             if (
                 isinstance(var.owner.op, HasInnerGraph)
-                or hasattr(var.owner.op, "scalar_op")
-                and isinstance(var.owner.op.scalar_op, HasInnerGraph)
+                or (
+                    hasattr(var.owner.op, "scalar_op")
+                    and isinstance(var.owner.op.scalar_op, HasInnerGraph)
+                )
             ) and var not in inner_graph_vars:
                 inner_graph_vars.append(var)
             if print_op_info:
@@ -674,8 +677,10 @@ def _debugprint(
                 if hasattr(in_var, "owner") and hasattr(in_var.owner, "op"):
                     if (
                         isinstance(in_var.owner.op, HasInnerGraph)
-                        or hasattr(in_var.owner.op, "scalar_op")
-                        and isinstance(in_var.owner.op.scalar_op, HasInnerGraph)
+                        or (
+                            hasattr(in_var.owner.op, "scalar_op")
+                            and isinstance(in_var.owner.op.scalar_op, HasInnerGraph)
+                        )
                     ) and in_var not in inner_graph_ops:
                         inner_graph_ops.append(in_var)
 
@@ -881,7 +886,9 @@ class OperatorPrinter(Printer):
         max_i = len(node.inputs) - 1
         for i, input in enumerate(node.inputs):
             new_precedence = self.precedence
-            if self.assoc == "left" and i != 0 or self.assoc == "right" and i != max_i:
+            if (self.assoc == "left" and i != 0) or (
+                self.assoc == "right" and i != max_i
+            ):
                 new_precedence += 1e-6
 
             with set_precedence(pstate, new_precedence):
@@ -1102,7 +1109,7 @@ class PPrinter(Printer):
         )
         inv_updates = {b: a for (a, b) in updates.items()}
         i = 1
-        for node in io_toposort([*inputs, *updates], [*outputs, *updates.values()]):
+        for node in toposort([*outputs, *updates.values()], [*inputs, *updates]):
             for output in node.outputs:
                 if output in inv_updates:
                     name = str(inv_updates[output])

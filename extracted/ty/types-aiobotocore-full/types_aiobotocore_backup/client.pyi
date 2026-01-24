@@ -3,7 +3,7 @@ Type annotations for backup service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -48,6 +49,9 @@ from .paginator import (
     ListRestoreJobsPaginator,
     ListRestoreTestingPlansPaginator,
     ListRestoreTestingSelectionsPaginator,
+    ListScanJobsPaginator,
+    ListScanJobSummariesPaginator,
+    ListTieringConfigurationsPaginator,
 )
 from .type_defs import (
     AssociateBackupVaultMpaApprovalTeamInputTypeDef,
@@ -72,6 +76,8 @@ from .type_defs import (
     CreateRestoreTestingPlanOutputTypeDef,
     CreateRestoreTestingSelectionInputTypeDef,
     CreateRestoreTestingSelectionOutputTypeDef,
+    CreateTieringConfigurationInputTypeDef,
+    CreateTieringConfigurationOutputTypeDef,
     DeleteBackupPlanInputTypeDef,
     DeleteBackupPlanOutputTypeDef,
     DeleteBackupSelectionInputTypeDef,
@@ -84,6 +90,7 @@ from .type_defs import (
     DeleteReportPlanInputTypeDef,
     DeleteRestoreTestingPlanInputTypeDef,
     DeleteRestoreTestingSelectionInputTypeDef,
+    DeleteTieringConfigurationInputTypeDef,
     DescribeBackupJobInputTypeDef,
     DescribeBackupJobOutputTypeDef,
     DescribeBackupVaultInputTypeDef,
@@ -104,6 +111,8 @@ from .type_defs import (
     DescribeReportPlanOutputTypeDef,
     DescribeRestoreJobInputTypeDef,
     DescribeRestoreJobOutputTypeDef,
+    DescribeScanJobInputTypeDef,
+    DescribeScanJobOutputTypeDef,
     DisassociateBackupVaultMpaApprovalTeamInputTypeDef,
     DisassociateRecoveryPointFromParentInputTypeDef,
     DisassociateRecoveryPointInputTypeDef,
@@ -137,6 +146,8 @@ from .type_defs import (
     GetRestoreTestingSelectionInputTypeDef,
     GetRestoreTestingSelectionOutputTypeDef,
     GetSupportedResourceTypesOutputTypeDef,
+    GetTieringConfigurationInputTypeDef,
+    GetTieringConfigurationOutputTypeDef,
     ListBackupJobsInputTypeDef,
     ListBackupJobsOutputTypeDef,
     ListBackupJobSummariesInputTypeDef,
@@ -187,8 +198,14 @@ from .type_defs import (
     ListRestoreTestingPlansOutputTypeDef,
     ListRestoreTestingSelectionsInputTypeDef,
     ListRestoreTestingSelectionsOutputTypeDef,
+    ListScanJobsInputTypeDef,
+    ListScanJobsOutputTypeDef,
+    ListScanJobSummariesInputTypeDef,
+    ListScanJobSummariesOutputTypeDef,
     ListTagsInputTypeDef,
     ListTagsOutputTypeDef,
+    ListTieringConfigurationsInputTypeDef,
+    ListTieringConfigurationsOutputTypeDef,
     PutBackupVaultAccessPolicyInputTypeDef,
     PutBackupVaultLockConfigurationInputTypeDef,
     PutBackupVaultNotificationsInputTypeDef,
@@ -202,6 +219,8 @@ from .type_defs import (
     StartReportJobOutputTypeDef,
     StartRestoreJobInputTypeDef,
     StartRestoreJobOutputTypeDef,
+    StartScanJobInputTypeDef,
+    StartScanJobOutputTypeDef,
     StopBackupJobInputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
@@ -221,14 +240,10 @@ from .type_defs import (
     UpdateRestoreTestingPlanOutputTypeDef,
     UpdateRestoreTestingSelectionInputTypeDef,
     UpdateRestoreTestingSelectionOutputTypeDef,
+    UpdateTieringConfigurationInputTypeDef,
+    UpdateTieringConfigurationOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -237,17 +252,17 @@ else:
 __all__ = ("BackupClient",)
 
 class Exceptions(BaseClientExceptions):
-    AlreadyExistsException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DependencyFailureException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    InvalidResourceStateException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MissingParameterValueException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DependencyFailureException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidResourceStateException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MissingParameterValueException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
 
 class BackupClient(AioBaseClient):
     """
@@ -296,7 +311,7 @@ class BackupClient(AioBaseClient):
 
     async def cancel_legal_hold(
         self, **kwargs: Unpack[CancelLegalHoldInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified legal hold on a recovery point.
 
@@ -406,6 +421,16 @@ class BackupClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/create_restore_testing_selection.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#create_restore_testing_selection)
+        """
+
+    async def create_tiering_configuration(
+        self, **kwargs: Unpack[CreateTieringConfigurationInputTypeDef]
+    ) -> CreateTieringConfigurationOutputTypeDef:
+        """
+        Creates a tiering configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/create_tiering_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#create_tiering_configuration)
         """
 
     async def delete_backup_plan(
@@ -519,6 +544,16 @@ class BackupClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#delete_restore_testing_selection)
         """
 
+    async def delete_tiering_configuration(
+        self, **kwargs: Unpack[DeleteTieringConfigurationInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the tiering configuration specified by a tiering configuration name.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/delete_tiering_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#delete_tiering_configuration)
+        """
+
     async def describe_backup_job(
         self, **kwargs: Unpack[DescribeBackupJobInputTypeDef]
     ) -> DescribeBackupJobOutputTypeDef:
@@ -629,6 +664,16 @@ class BackupClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/describe_restore_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#describe_restore_job)
+        """
+
+    async def describe_scan_job(
+        self, **kwargs: Unpack[DescribeScanJobInputTypeDef]
+    ) -> DescribeScanJobOutputTypeDef:
+        """
+        Returns scan job details for the specified ScanJobID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/describe_scan_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#describe_scan_job)
         """
 
     async def disassociate_backup_vault_mpa_approval_team(
@@ -818,6 +863,17 @@ class BackupClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_supported_resource_types.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#get_supported_resource_types)
+        """
+
+    async def get_tiering_configuration(
+        self, **kwargs: Unpack[GetTieringConfigurationInputTypeDef]
+    ) -> GetTieringConfigurationOutputTypeDef:
+        """
+        Returns <code>TieringConfiguration</code> details for the specified
+        <code>TieringConfigurationName</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_tiering_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#get_tiering_configuration)
         """
 
     async def list_backup_job_summaries(
@@ -1086,6 +1142,28 @@ class BackupClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_restore_testing_selections)
         """
 
+    async def list_scan_job_summaries(
+        self, **kwargs: Unpack[ListScanJobSummariesInputTypeDef]
+    ) -> ListScanJobSummariesOutputTypeDef:
+        """
+        This is a request for a summary of scan jobs created or running within the most
+        recent 30 days.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_scan_job_summaries.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_scan_job_summaries)
+        """
+
+    async def list_scan_jobs(
+        self, **kwargs: Unpack[ListScanJobsInputTypeDef]
+    ) -> ListScanJobsOutputTypeDef:
+        """
+        Returns a list of existing scan jobs for an authenticated account for the last
+        30 days.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_scan_jobs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_scan_jobs)
+        """
+
     async def list_tags(self, **kwargs: Unpack[ListTagsInputTypeDef]) -> ListTagsOutputTypeDef:
         """
         Returns the tags assigned to the resource, such as a target recovery point,
@@ -1093,6 +1171,16 @@ class BackupClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_tags.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_tags)
+        """
+
+    async def list_tiering_configurations(
+        self, **kwargs: Unpack[ListTieringConfigurationsInputTypeDef]
+    ) -> ListTieringConfigurationsOutputTypeDef:
+        """
+        Returns a list of tiering configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_tiering_configurations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_tiering_configurations)
         """
 
     async def put_backup_vault_access_policy(
@@ -1187,6 +1275,16 @@ class BackupClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/start_restore_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#start_restore_job)
+        """
+
+    async def start_scan_job(
+        self, **kwargs: Unpack[StartScanJobInputTypeDef]
+    ) -> StartScanJobOutputTypeDef:
+        """
+        Starts scanning jobs for specific resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/start_scan_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#start_scan_job)
         """
 
     async def stop_backup_job(
@@ -1309,6 +1407,16 @@ class BackupClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/update_restore_testing_selection.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#update_restore_testing_selection)
+        """
+
+    async def update_tiering_configuration(
+        self, **kwargs: Unpack[UpdateTieringConfigurationInputTypeDef]
+    ) -> UpdateTieringConfigurationOutputTypeDef:
+        """
+        This request will send changes to your specified tiering configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/update_tiering_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#update_tiering_configuration)
         """
 
     @overload  # type: ignore[override]
@@ -1520,6 +1628,39 @@ class BackupClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#get_paginator)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_scan_job_summaries"]
+    ) -> ListScanJobSummariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_scan_jobs"]
+    ) -> ListScanJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_tiering_configurations"]
+    ) -> ListTieringConfigurationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#get_paginator)
+        """
+
     async def __aenter__(self) -> Self:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup.html#Backup.Client)
@@ -1528,7 +1669,7 @@ class BackupClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

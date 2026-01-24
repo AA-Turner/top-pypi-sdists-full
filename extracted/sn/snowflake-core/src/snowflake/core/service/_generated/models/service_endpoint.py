@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 
 
 class ServiceEndpoint(BaseModel):
@@ -39,7 +39,7 @@ class ServiceEndpoint(BaseModel):
     is_public : bool,  default False
         True, if the endpoint is public, accessible from internet.
     ingress_url : str, optional
-        Endpoint URL accessible from the internet.
+        Endpoint URL accessible from the internet — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Optional[StrictStr] = None
@@ -56,9 +56,10 @@ class ServiceEndpoint(BaseModel):
 
     __properties = ["name", "port", "portRange", "protocol", "is_public", "ingress_url"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -87,7 +88,7 @@ class ServiceEndpoint(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -102,9 +103,9 @@ class ServiceEndpoint(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ServiceEndpoint.parse_obj(obj)
+            return ServiceEndpoint.model_validate(obj)
 
-        _obj = ServiceEndpoint.parse_obj(
+        _obj = ServiceEndpoint.model_validate(
             {
                 "name": obj.get("name"),
                 "port": obj.get("port"),

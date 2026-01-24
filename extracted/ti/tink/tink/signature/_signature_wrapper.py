@@ -14,9 +14,10 @@
 
 """Public Key Sign wrapper."""
 
-from typing import Type
+from typing import Optional, Type
 
 from tink.proto import tink_pb2
+from tink import _monitoring
 from tink import core
 from tink.signature import _public_key_sign
 from tink.signature import _public_key_verify
@@ -25,8 +26,13 @@ from tink.signature import _public_key_verify
 class _WrappedPublicKeySign(_public_key_sign.PublicKeySign):
   """Implements PublicKeySign for a set of PublicKeySign primitives."""
 
-  def __init__(self, primitives_set: core.PrimitiveSet):
+  def __init__(
+      self,
+      primitives_set: core.PrimitiveSet,
+      monitor: Optional[_monitoring.KeyUsageMonitor] = None,
+  ):
     self._primitive_set = primitives_set
+    self._monitor = monitor
 
   def sign(self, data: bytes) -> bytes:
     """Computes the signature for data using the primary primitive.
@@ -46,7 +52,12 @@ class _WrappedPublicKeySign(_public_key_sign.PublicKeySign):
     if primary.output_prefix_type == tink_pb2.LEGACY:
       sign_data = sign_data + b'\x00'
 
-    return primary.identifier + primary.primitive.sign(sign_data)
+    result = primary.identifier + primary.primitive.sign(sign_data)
+
+    if self._monitor:
+      self._monitor.log(primary.key_id, len(sign_data))
+
+    return result
 
 
 class PublicKeySignWrapper(
@@ -59,8 +70,7 @@ class PublicKeySignWrapper(
   signature a certain prefix associated with the primary key.
   """
 
-  def wrap(self, primitives_set: core.PrimitiveSet
-          ) -> _WrappedPublicKeySign:
+  def wrap(self, primitives_set: core.PrimitiveSet) -> _WrappedPublicKeySign:
     return _WrappedPublicKeySign(primitives_set)
 
   def primitive_class(self) -> Type[_public_key_sign.PublicKeySign]:
@@ -69,12 +79,31 @@ class PublicKeySignWrapper(
   def input_primitive_class(self) -> Type[_public_key_sign.PublicKeySign]:
     return _public_key_sign.PublicKeySign
 
+  def _wrap_with_monitoring_info(
+      self,
+      primitives_set: core.PrimitiveSet,
+      monitoring_keyset_info: _monitoring.MonitoringKeySetInfo,
+  ) -> _public_key_sign.PublicKeySign:
+    key_usage_monitor = _monitoring.get_key_usage_monitor_or_none(
+        _monitoring.MonitoringContext(
+            primitive='public_key_sign',
+            api_function='sign',
+            keyset_info=monitoring_keyset_info,
+        )
+    )
+    return _WrappedPublicKeySign(primitives_set, key_usage_monitor)
+
 
 class _WrappedPublicKeyVerify(_public_key_verify.PublicKeyVerify):
   """Implements PublicKeyVerify for a set of PublicKeyVerify primitives."""
 
-  def __init__(self, primitives_set: core.PrimitiveSet):
+  def __init__(
+      self,
+      primitives_set: core.PrimitiveSet,
+      monitor: Optional[_monitoring.KeyUsageMonitor] = None,
+  ):
     self._primitive_set = primitives_set
+    self._monitor = monitor
 
   def verify(self, signature: bytes, data: bytes):
     """Verifies that signature is a digital signature for data.
@@ -87,6 +116,8 @@ class _WrappedPublicKeyVerify(_public_key_verify.PublicKeyVerify):
       tink_error.TinkError if the verification fails.
     """
     if len(signature) <= core.crypto_format.NON_RAW_PREFIX_SIZE:
+      if self._monitor:
+        self._monitor.log_failure()
       # This also rejects raw signatures with size of 4 bytes or fewer.
       # We're not aware of any schemes that output signatures that small.
       raise core.TinkError('signature too short')
@@ -101,6 +132,8 @@ class _WrappedPublicKeyVerify(_public_key_verify.PublicKeyVerify):
         else:
           entry.primitive.verify(raw_sig, data)
         # Signature is valid, we can return
+        if self._monitor:
+          self._monitor.log(entry.key_id, len(signature))
         return
       except core.TinkError:
         pass
@@ -110,9 +143,15 @@ class _WrappedPublicKeyVerify(_public_key_verify.PublicKeyVerify):
       try:
         entry.primitive.verify(signature, data)
         # Signature is valid, we can return
+        if self._monitor:
+          self._monitor.log(entry.key_id, len(signature))
         return
       except core.TinkError:
         pass
+
+    # nothing works.
+    if self._monitor:
+      self._monitor.log_failure()
 
     raise core.TinkError('invalid signature')
 
@@ -133,8 +172,7 @@ class PublicKeyVerifyWrapper(
   primitive tries all keys with tink_pb2.OutputPrefixType = tink_pb2.RAW.
   """
 
-  def wrap(self, primitives_set: core.PrimitiveSet
-          ) -> _WrappedPublicKeyVerify:
+  def wrap(self, primitives_set: core.PrimitiveSet) -> _WrappedPublicKeyVerify:
     return _WrappedPublicKeyVerify(primitives_set)
 
   def primitive_class(self) -> Type[_public_key_verify.PublicKeyVerify]:
@@ -142,3 +180,17 @@ class PublicKeyVerifyWrapper(
 
   def input_primitive_class(self) -> Type[_public_key_verify.PublicKeyVerify]:
     return _public_key_verify.PublicKeyVerify
+
+  def _wrap_with_monitoring_info(
+      self,
+      primitives_set: core.PrimitiveSet,
+      monitoring_keyset_info: _monitoring.MonitoringKeySetInfo,
+  ) -> _public_key_verify.PublicKeyVerify:
+    key_usage_monitor = _monitoring.get_key_usage_monitor_or_none(
+        _monitoring.MonitoringContext(
+            primitive='public_key_verify',
+            api_function='verify',
+            keyset_info=monitoring_keyset_info,
+        )
+    )
+    return _WrappedPublicKeyVerify(primitives_set, key_usage_monitor)

@@ -30,7 +30,7 @@ def get_module_root():
 def read_file(path: str):
     """Read a file"""
     with open(path, "r", encoding="utf-8") as fp:
-        return fp.read()
+        return fp.read().strip()
 
 
 def get_sql_files(path: str) -> Union[List[str], Iterator[str]]:

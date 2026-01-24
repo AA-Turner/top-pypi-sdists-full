@@ -14,13 +14,14 @@
 
 from __future__ import annotations
 
-import sqlglot.expressions as sge
+import bigframes_vendored.sqlglot.expressions as sge
 
 from bigframes import operations as ops
 from bigframes.core.compile.sqlglot.expressions.typed_expr import TypedExpr
 import bigframes.core.compile.sqlglot.scalar_compiler as scalar_compiler
 
 register_unary_op = scalar_compiler.scalar_op_compiler.register_unary_op
+register_binary_op = scalar_compiler.scalar_op_compiler.register_binary_op
 
 
 @register_unary_op(ops.geo_area_op)
@@ -59,6 +60,11 @@ def _(expr: TypedExpr) -> sge.Expression:
     return sge.func("ST_CONVEXHULL", expr.expr)
 
 
+@register_binary_op(ops.geo_st_geogpoint_op)
+def _(left: TypedExpr, right: TypedExpr) -> sge.Expression:
+    return sge.func("ST_GEOGPOINT", left.expr, right.expr)
+
+
 @register_unary_op(ops.geo_st_geogfromtext_op)
 def _(expr: TypedExpr) -> sge.Expression:
     return sge.func("SAFE.ST_GEOGFROMTEXT", expr.expr)
@@ -74,11 +80,52 @@ def _(expr: TypedExpr, op: ops.GeoStLengthOp) -> sge.Expression:
     return sge.func("ST_LENGTH", expr.expr)
 
 
+@register_unary_op(ops.GeoStRegionStatsOp, pass_op=True)
+def _(
+    geography: TypedExpr,
+    op: ops.GeoStRegionStatsOp,
+):
+    args = [geography.expr, sge.convert(op.raster_id)]
+    if op.band:
+        args.append(sge.Kwarg(this="band", expression=sge.convert(op.band)))
+    if op.include:
+        args.append(sge.Kwarg(this="include", expression=sge.convert(op.include)))
+    if op.options:
+        args.append(
+            sge.Kwarg(this="options", expression=sge.JSON(this=sge.convert(op.options)))
+        )
+    return sge.func("ST_REGIONSTATS", *args)
+
+
+@register_unary_op(ops.GeoStSimplifyOp, pass_op=True)
+def _(expr: TypedExpr, op: ops.GeoStSimplifyOp) -> sge.Expression:
+    return sge.func(
+        "ST_SIMPLIFY",
+        expr.expr,
+        sge.convert(op.tolerance_meters),
+    )
+
+
 @register_unary_op(ops.geo_x_op)
 def _(expr: TypedExpr) -> sge.Expression:
-    return sge.func("SAFE.ST_X", expr.expr)
+    return sge.func("ST_X", expr.expr)
 
 
 @register_unary_op(ops.geo_y_op)
 def _(expr: TypedExpr) -> sge.Expression:
-    return sge.func("SAFE.ST_Y", expr.expr)
+    return sge.func("ST_Y", expr.expr)
+
+
+@register_binary_op(ops.GeoStDistanceOp, pass_op=True)
+def _(left: TypedExpr, right: TypedExpr, op: ops.GeoStDistanceOp) -> sge.Expression:
+    return sge.func("ST_DISTANCE", left.expr, right.expr, sge.convert(op.use_spheroid))
+
+
+@register_binary_op(ops.geo_st_difference_op)
+def _(left: TypedExpr, right: TypedExpr) -> sge.Expression:
+    return sge.func("ST_DIFFERENCE", left.expr, right.expr)
+
+
+@register_binary_op(ops.geo_st_intersection_op)
+def _(left: TypedExpr, right: TypedExpr) -> sge.Expression:
+    return sge.func("ST_INTERSECTION", left.expr, right.expr)

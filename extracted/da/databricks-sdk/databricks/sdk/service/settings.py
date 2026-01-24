@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
-from ._internal import _enum, _from_dict, _repeated_dict, _repeated_enum
+from databricks.sdk.service._internal import (_enum, _from_dict,
+                                              _repeated_dict, _repeated_enum)
 
 _LOG = logging.getLogger("databricks.sdk")
 
@@ -660,7 +661,8 @@ class ComplianceSecurityProfileSetting:
 
 
 class ComplianceStandard(Enum):
-    """Compliance stardard for SHIELD customers"""
+    """Compliance standard for SHIELD customers. See README.md for how instructions of how to add new
+    standards."""
 
     CANADA_PROTECTED_B = "CANADA_PROTECTED_B"
     CYBER_ESSENTIAL_PLUS = "CYBER_ESSENTIAL_PLUS"
@@ -668,6 +670,7 @@ class ComplianceStandard(Enum):
     FEDRAMP_IL5 = "FEDRAMP_IL5"
     FEDRAMP_MODERATE = "FEDRAMP_MODERATE"
     GERMANY_C5 = "GERMANY_C5"
+    GERMANY_TISAX = "GERMANY_TISAX"
     HIPAA = "HIPAA"
     HITRUST = "HITRUST"
     IRAP_PROTECTED = "IRAP_PROTECTED"
@@ -843,6 +846,8 @@ class CreatePrivateEndpointRule:
     """The full target AWS endpoint service name that connects to the destination resources of the
     private endpoint."""
 
+    error_message: Optional[str] = None
+
     group_id: Optional[str] = None
     """Not used by customer-managed private endpoint services.
     
@@ -866,6 +871,8 @@ class CreatePrivateEndpointRule:
             body["domain_names"] = [v for v in self.domain_names]
         if self.endpoint_service is not None:
             body["endpoint_service"] = self.endpoint_service
+        if self.error_message is not None:
+            body["error_message"] = self.error_message
         if self.group_id is not None:
             body["group_id"] = self.group_id
         if self.resource_id is not None:
@@ -881,6 +888,8 @@ class CreatePrivateEndpointRule:
             body["domain_names"] = self.domain_names
         if self.endpoint_service is not None:
             body["endpoint_service"] = self.endpoint_service
+        if self.error_message is not None:
+            body["error_message"] = self.error_message
         if self.group_id is not None:
             body["group_id"] = self.group_id
         if self.resource_id is not None:
@@ -895,6 +904,7 @@ class CreatePrivateEndpointRule:
         return cls(
             domain_names=d.get("domain_names", None),
             endpoint_service=d.get("endpoint_service", None),
+            error_message=d.get("error_message", None),
             group_id=d.get("group_id", None),
             resource_id=d.get("resource_id", None),
             resource_names=d.get("resource_names", None),
@@ -1069,6 +1079,8 @@ class CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRule:
     """The full target AWS endpoint service name that connects to the destination resources of the
     private endpoint."""
 
+    error_message: Optional[str] = None
+
     network_connectivity_config_id: Optional[str] = None
     """The ID of a network connectivity configuration, which is the parent resource of this private
     endpoint rule object."""
@@ -1108,6 +1120,8 @@ class CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRule:
             body["enabled"] = self.enabled
         if self.endpoint_service is not None:
             body["endpoint_service"] = self.endpoint_service
+        if self.error_message is not None:
+            body["error_message"] = self.error_message
         if self.network_connectivity_config_id is not None:
             body["network_connectivity_config_id"] = self.network_connectivity_config_id
         if self.resource_names:
@@ -1139,6 +1153,8 @@ class CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRule:
             body["enabled"] = self.enabled
         if self.endpoint_service is not None:
             body["endpoint_service"] = self.endpoint_service
+        if self.error_message is not None:
+            body["error_message"] = self.error_message
         if self.network_connectivity_config_id is not None:
             body["network_connectivity_config_id"] = self.network_connectivity_config_id
         if self.resource_names:
@@ -1167,6 +1183,7 @@ class CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRule:
             domain_names=d.get("domain_names", None),
             enabled=d.get("enabled", None),
             endpoint_service=d.get("endpoint_service", None),
+            error_message=d.get("error_message", None),
             network_connectivity_config_id=d.get("network_connectivity_config_id", None),
             resource_names=d.get("resource_names", None),
             rule_id=d.get("rule_id", None),
@@ -1177,6 +1194,8 @@ class CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRule:
 
 class CustomerFacingNetworkConnectivityConfigAwsPrivateEndpointRulePrivateLinkConnectionState(Enum):
 
+    CREATE_FAILED = "CREATE_FAILED"
+    CREATING = "CREATING"
     DISCONNECTED = "DISCONNECTED"
     ESTABLISHED = "ESTABLISHED"
     EXPIRED = "EXPIRED"
@@ -1692,24 +1711,6 @@ class DeletePersonalComputeSettingResponse:
     def from_dict(cls, d: Dict[str, Any]) -> DeletePersonalComputeSettingResponse:
         """Deserializes the DeletePersonalComputeSettingResponse from a dictionary."""
         return cls(etag=d.get("etag", None))
-
-
-@dataclass
-class DeleteResponse:
-    def as_dict(self) -> dict:
-        """Serializes the DeleteResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the DeleteResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> DeleteResponse:
-        """Deserializes the DeleteResponse from a dictionary."""
-        return cls()
 
 
 @dataclass
@@ -3747,6 +3748,8 @@ class NccAzurePrivateEndpointRule:
     endpoint_name: Optional[str] = None
     """The name of the Azure private endpoint resource."""
 
+    error_message: Optional[str] = None
+
     group_id: Optional[str] = None
     """Only used by private endpoints to Azure first-party services.
     
@@ -3781,6 +3784,8 @@ class NccAzurePrivateEndpointRule:
             body["domain_names"] = [v for v in self.domain_names]
         if self.endpoint_name is not None:
             body["endpoint_name"] = self.endpoint_name
+        if self.error_message is not None:
+            body["error_message"] = self.error_message
         if self.group_id is not None:
             body["group_id"] = self.group_id
         if self.network_connectivity_config_id is not None:
@@ -3808,6 +3813,8 @@ class NccAzurePrivateEndpointRule:
             body["domain_names"] = self.domain_names
         if self.endpoint_name is not None:
             body["endpoint_name"] = self.endpoint_name
+        if self.error_message is not None:
+            body["error_message"] = self.error_message
         if self.group_id is not None:
             body["group_id"] = self.group_id
         if self.network_connectivity_config_id is not None:
@@ -3830,6 +3837,7 @@ class NccAzurePrivateEndpointRule:
             deactivated_at=d.get("deactivated_at", None),
             domain_names=d.get("domain_names", None),
             endpoint_name=d.get("endpoint_name", None),
+            error_message=d.get("error_message", None),
             group_id=d.get("group_id", None),
             network_connectivity_config_id=d.get("network_connectivity_config_id", None),
             resource_id=d.get("resource_id", None),
@@ -3840,6 +3848,8 @@ class NccAzurePrivateEndpointRule:
 
 class NccAzurePrivateEndpointRuleConnectionState(Enum):
 
+    CREATE_FAILED = "CREATE_FAILED"
+    CREATING = "CREATING"
     DISCONNECTED = "DISCONNECTED"
     ESTABLISHED = "ESTABLISHED"
     EXPIRED = "EXPIRED"
@@ -4022,7 +4032,10 @@ class NccPrivateEndpointRule:
     and is ready to use in your serverless compute resources. - REJECTED: Connection was rejected by
     the private link resource owner. - DISCONNECTED: Connection was removed by the private link
     resource owner, the private endpoint becomes informative and should be deleted for clean-up. -
-    EXPIRED: If the endpoint was created but not approved in 14 days, it will be EXPIRED."""
+    EXPIRED: If the endpoint was created but not approved in 14 days, it will be EXPIRED. -
+    CREATING: The endpoint creation is in progress. Once successfully created, the state will
+    transition to PENDING. - CREATE_FAILED: The endpoint creation failed. You can check the
+    error_message field for more details."""
 
     creation_time: Optional[int] = None
     """Time in epoch milliseconds when this object was created."""
@@ -4051,6 +4064,8 @@ class NccPrivateEndpointRule:
     endpoint_service: Optional[str] = None
     """The full target AWS endpoint service name that connects to the destination resources of the
     private endpoint."""
+
+    error_message: Optional[str] = None
 
     group_id: Optional[str] = None
     """Not used by customer-managed private endpoint services.
@@ -4102,6 +4117,8 @@ class NccPrivateEndpointRule:
             body["endpoint_name"] = self.endpoint_name
         if self.endpoint_service is not None:
             body["endpoint_service"] = self.endpoint_service
+        if self.error_message is not None:
+            body["error_message"] = self.error_message
         if self.group_id is not None:
             body["group_id"] = self.group_id
         if self.network_connectivity_config_id is not None:
@@ -4139,6 +4156,8 @@ class NccPrivateEndpointRule:
             body["endpoint_name"] = self.endpoint_name
         if self.endpoint_service is not None:
             body["endpoint_service"] = self.endpoint_service
+        if self.error_message is not None:
+            body["error_message"] = self.error_message
         if self.group_id is not None:
             body["group_id"] = self.group_id
         if self.network_connectivity_config_id is not None:
@@ -4168,6 +4187,7 @@ class NccPrivateEndpointRule:
             enabled=d.get("enabled", None),
             endpoint_name=d.get("endpoint_name", None),
             endpoint_service=d.get("endpoint_service", None),
+            error_message=d.get("error_message", None),
             group_id=d.get("group_id", None),
             network_connectivity_config_id=d.get("network_connectivity_config_id", None),
             resource_id=d.get("resource_id", None),
@@ -4180,6 +4200,8 @@ class NccPrivateEndpointRule:
 
 class NccPrivateEndpointRulePrivateLinkConnectionState(Enum):
 
+    CREATE_FAILED = "CREATE_FAILED"
+    CREATING = "CREATING"
     DISCONNECTED = "DISCONNECTED"
     ESTABLISHED = "ESTABLISHED"
     EXPIRED = "EXPIRED"
@@ -4549,24 +4571,6 @@ class PublicTokenInfo:
 
 
 @dataclass
-class ReplaceResponse:
-    def as_dict(self) -> dict:
-        """Serializes the ReplaceResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the ReplaceResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> ReplaceResponse:
-        """Deserializes the ReplaceResponse from a dictionary."""
-        return cls()
-
-
-@dataclass
 class RestrictWorkspaceAdminsMessage:
     status: RestrictWorkspaceAdminsMessageStatus
 
@@ -4661,24 +4665,6 @@ class RevokeTokenResponse:
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> RevokeTokenResponse:
         """Deserializes the RevokeTokenResponse from a dictionary."""
-        return cls()
-
-
-@dataclass
-class SetStatusResponse:
-    def as_dict(self) -> dict:
-        """Serializes the SetStatusResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the SetStatusResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> SetStatusResponse:
-        """Deserializes the SetStatusResponse from a dictionary."""
         return cls()
 
 
@@ -5171,6 +5157,8 @@ class UpdatePrivateEndpointRule:
     Update this field to activate/deactivate this private endpoint to allow egress access from
     serverless compute resources."""
 
+    error_message: Optional[str] = None
+
     resource_names: Optional[List[str]] = None
     """Only used by private endpoints towards AWS S3 service.
     
@@ -5185,6 +5173,8 @@ class UpdatePrivateEndpointRule:
             body["domain_names"] = [v for v in self.domain_names]
         if self.enabled is not None:
             body["enabled"] = self.enabled
+        if self.error_message is not None:
+            body["error_message"] = self.error_message
         if self.resource_names:
             body["resource_names"] = [v for v in self.resource_names]
         return body
@@ -5196,6 +5186,8 @@ class UpdatePrivateEndpointRule:
             body["domain_names"] = self.domain_names
         if self.enabled is not None:
             body["enabled"] = self.enabled
+        if self.error_message is not None:
+            body["error_message"] = self.error_message
         if self.resource_names:
             body["resource_names"] = self.resource_names
         return body
@@ -5206,26 +5198,9 @@ class UpdatePrivateEndpointRule:
         return cls(
             domain_names=d.get("domain_names", None),
             enabled=d.get("enabled", None),
+            error_message=d.get("error_message", None),
             resource_names=d.get("resource_names", None),
         )
-
-
-@dataclass
-class UpdateResponse:
-    def as_dict(self) -> dict:
-        """Serializes the UpdateResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the UpdateResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> UpdateResponse:
-        """Deserializes the UpdateResponse from a dictionary."""
-        return cls()
 
 
 WorkspaceConf = Dict[str, str]
@@ -5312,6 +5287,7 @@ class AccountIpAccessListsAPI:
 
         :returns: :class:`CreateIpAccessListResponse`
         """
+
         body = {}
         if ip_addresses is not None:
             body["ip_addresses"] = [v for v in ip_addresses]
@@ -5407,6 +5383,7 @@ class AccountIpAccessListsAPI:
 
 
         """
+
         body = {}
         if enabled is not None:
             body["enabled"] = enabled
@@ -5461,6 +5438,7 @@ class AccountIpAccessListsAPI:
 
 
         """
+
         body = {}
         if enabled is not None:
             body["enabled"] = enabled
@@ -5614,6 +5592,7 @@ class AibiDashboardEmbeddingAccessPolicyAPI:
 
         :returns: :class:`AibiDashboardEmbeddingAccessPolicySetting`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -5718,6 +5697,7 @@ class AibiDashboardEmbeddingApprovedDomainsAPI:
 
         :returns: :class:`AibiDashboardEmbeddingApprovedDomainsSetting`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -5795,6 +5775,7 @@ class AutomaticClusterUpdateAPI:
 
         :returns: :class:`AutomaticClusterUpdateSetting`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -5871,6 +5852,7 @@ class ComplianceSecurityProfileAPI:
 
         :returns: :class:`ComplianceSecurityProfileSetting`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -5911,6 +5893,7 @@ class CredentialsManagerAPI:
 
         :returns: :class:`ExchangeTokenResponse`
         """
+
         body = {}
         if partition_id is not None:
             body["partitionId"] = partition_id.as_dict()
@@ -5987,6 +5970,7 @@ class CspEnablementAccountAPI:
 
         :returns: :class:`CspEnablementAccountSetting`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6090,6 +6074,7 @@ class DashboardEmailSubscriptionsAPI:
 
         :returns: :class:`DashboardEmailSubscriptions`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6200,6 +6185,7 @@ class DefaultNamespaceAPI:
 
         :returns: :class:`DefaultNamespaceSetting`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6294,6 +6280,7 @@ class DefaultWarehouseIdAPI:
 
         :returns: :class:`DefaultWarehouseId`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6391,6 +6378,7 @@ class DisableLegacyAccessAPI:
 
         :returns: :class:`DisableLegacyAccess`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6491,6 +6479,7 @@ class DisableLegacyDbfsAPI:
 
         :returns: :class:`DisableLegacyDbfs`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6594,6 +6583,7 @@ class DisableLegacyFeaturesAPI:
 
         :returns: :class:`DisableLegacyFeatures`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6658,6 +6648,7 @@ class EnableExportNotebookAPI:
 
         :returns: :class:`EnableExportNotebook`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6758,6 +6749,7 @@ class EnableIpAccessListsAPI:
 
         :returns: :class:`AccountIpAccessEnable`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6824,6 +6816,7 @@ class EnableNotebookTableClipboardAPI:
 
         :returns: :class:`EnableNotebookTableClipboard`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6884,6 +6877,7 @@ class EnableResultsDownloadingAPI:
 
         :returns: :class:`EnableResultsDownloading`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -6962,6 +6956,7 @@ class EnhancedSecurityMonitoringAPI:
 
         :returns: :class:`EnhancedSecurityMonitoringSetting`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -7037,6 +7032,7 @@ class EsmEnablementAccountAPI:
 
         :returns: :class:`EsmEnablementAccountSetting`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -7105,6 +7101,7 @@ class IpAccessListsAPI:
 
         :returns: :class:`CreateIpAccessListResponse`
         """
+
         body = {}
         if ip_addresses is not None:
             body["ip_addresses"] = [v for v in ip_addresses]
@@ -7195,6 +7192,7 @@ class IpAccessListsAPI:
 
 
         """
+
         body = {}
         if enabled is not None:
             body["enabled"] = enabled
@@ -7245,6 +7243,7 @@ class IpAccessListsAPI:
 
 
         """
+
         body = {}
         if enabled is not None:
             body["enabled"] = enabled
@@ -7316,6 +7315,7 @@ class LlmProxyPartnerPoweredAccountAPI:
 
         :returns: :class:`LlmProxyPartnerPoweredAccount`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -7393,6 +7393,7 @@ class LlmProxyPartnerPoweredEnforceAPI:
 
         :returns: :class:`LlmProxyPartnerPoweredEnforce`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -7491,6 +7492,7 @@ class LlmProxyPartnerPoweredWorkspaceAPI:
 
         :returns: :class:`LlmProxyPartnerPoweredWorkspace`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -7541,6 +7543,7 @@ class NetworkConnectivityAPI:
 
         :returns: :class:`NetworkConnectivityConfiguration`
         """
+
         body = network_connectivity_config.as_dict()
         headers = {
             "Accept": "application/json",
@@ -7571,6 +7574,7 @@ class NetworkConnectivityAPI:
 
         :returns: :class:`NccPrivateEndpointRule`
         """
+
         body = private_endpoint_rule.as_dict()
         headers = {
             "Accept": "application/json",
@@ -7768,6 +7772,7 @@ class NetworkConnectivityAPI:
 
         :returns: :class:`NccPrivateEndpointRule`
         """
+
         body = private_endpoint_rule.as_dict()
         query = {}
         if update_mask is not None:
@@ -7807,6 +7812,7 @@ class NetworkPoliciesAPI:
 
         :returns: :class:`AccountNetworkPolicy`
         """
+
         body = network_policy.as_dict()
         headers = {
             "Accept": "application/json",
@@ -7892,6 +7898,7 @@ class NetworkPoliciesAPI:
 
         :returns: :class:`AccountNetworkPolicy`
         """
+
         body = network_policy.as_dict()
         headers = {
             "Accept": "application/json",
@@ -7926,6 +7933,7 @@ class NotificationDestinationsAPI:
 
         :returns: :class:`NotificationDestination`
         """
+
         body = {}
         if config is not None:
             body["config"] = config.as_dict()
@@ -8012,6 +8020,7 @@ class NotificationDestinationsAPI:
 
         :returns: :class:`NotificationDestination`
         """
+
         body = {}
         if config is not None:
             body["config"] = config.as_dict()
@@ -8113,6 +8122,7 @@ class PersonalComputeAPI:
 
         :returns: :class:`PersonalComputeSetting`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -8225,6 +8235,7 @@ class RestrictWorkspaceAdminsAPI:
 
         :returns: :class:`RestrictWorkspaceAdminsSetting`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -8423,6 +8434,7 @@ class SqlResultsDownloadAPI:
 
         :returns: :class:`SqlResultsDownload`
         """
+
         body = {}
         if allow_missing is not None:
             body["allow_missing"] = allow_missing
@@ -8462,6 +8474,7 @@ class TokenManagementAPI:
 
         :returns: :class:`CreateOboTokenResponse`
         """
+
         body = {}
         if application_id is not None:
             body["application_id"] = application_id
@@ -8570,6 +8583,7 @@ class TokenManagementAPI:
 
         :returns: :class:`TokenPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -8590,6 +8604,7 @@ class TokenManagementAPI:
 
         :returns: :class:`TokenPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -8623,6 +8638,7 @@ class TokensAPI:
 
         :returns: :class:`CreateTokenResponse`
         """
+
         body = {}
         if comment is not None:
             body["comment"] = comment
@@ -8646,6 +8662,7 @@ class TokensAPI:
 
 
         """
+
         body = {}
         if token_id is not None:
             body["token_id"] = token_id
@@ -8748,6 +8765,7 @@ class WorkspaceNetworkConfigurationAPI:
 
         :returns: :class:`WorkspaceNetworkOption`
         """
+
         body = workspace_network_option.as_dict()
         headers = {
             "Accept": "application/json",

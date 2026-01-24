@@ -243,12 +243,37 @@ def _inner_evaluate(root: Node, table: Table):
             return short_cut_and(root, table)
 
         if node_type in LOGICAL_OPERATIONS:
-            left = _inner_evaluate(root.left, table) if root.left else [None]
-            right = _inner_evaluate(root.right, table) if root.right else [None]
+            left = (
+                _inner_evaluate(root.left, table)
+                if root.left
+                else pyarrow.nulls(1, type=pyarrow.bool_())
+            )
+            right = (
+                _inner_evaluate(root.right, table)
+                if root.right
+                else pyarrow.nulls(1, type=pyarrow.bool_())
+            )
+
+            if not isinstance(left, pyarrow.Array):
+                left = pyarrow.array(left, type=pyarrow.bool_())
+            if not isinstance(right, pyarrow.Array):
+                right = pyarrow.array(right, type=pyarrow.bool_())
+
             return LOGICAL_OPERATIONS[node_type](left, right)  # type:ignore
 
         if node_type == NodeType.NOT:
-            centre = _inner_evaluate(root.centre, table) if root.centre else [None]
+            centre = (
+                _inner_evaluate(root.centre, table)
+                if root.centre
+                else pyarrow.nulls(1, type=pyarrow.bool_())
+            )
+            # Convert to numpy array if it's not already a PyArrow array
+            # This handles memoryviews, Cython memoryviewslices, and other array-like objects
+            if not isinstance(centre, pyarrow.Array):
+                centre = numpy.asarray(centre)
+                # Convert numeric types (e.g., uint8 from list_contains_any) to boolean
+                if numpy.issubdtype(centre.dtype, numpy.integer):
+                    centre = centre.astype(numpy.bool_)
             centre = pyarrow.array(centre, type=pyarrow.bool_())
             return pyarrow.compute.invert(centre)
 
@@ -407,9 +432,6 @@ def evaluate_and_append(expressions, table: Table):
             # we make all unknown fields to object type
             new_column = pyarrow.array([], type=statement.schema_column.arrow_field.type)
 
-        if isinstance(new_column, pyarrow.ChunkedArray):
-            new_column = new_column.combine_chunks()
-
         # if we know the intended type of the result column, cast it
         field = statement.schema_column.identity
         if statement.schema_column.type not in (
@@ -422,14 +444,31 @@ def evaluate_and_append(expressions, table: Table):
                 type=statement.schema_column.arrow_field.type,
             )
             try:
-                if isinstance(new_column, pyarrow.Array):
+                if isinstance(new_column, (pyarrow.Array, pyarrow.ChunkedArray)):
                     new_column = new_column.cast(field.type)
                 else:
-                    new_column = pyarrow.array(new_column[0], type=field.type)
+                    # Use Draken's vector_from_sequence for efficient array construction
+                    from opteryx.draken.interop.arrow import vector_from_sequence
+                    
+                    # Convert numpy arrays to lists to avoid dimension issues
+                    if hasattr(new_column, 'tolist'):
+                        new_column = new_column.tolist()
+                    
+                    vec = vector_from_sequence(new_column)
+                    new_column = vec.to_arrow()
+                    # Cast to the expected type if needed
+                    if new_column.type != field.type:
+                        try:
+                            new_column = new_column.cast(field.type)
+                        except pyarrow.lib.ArrowInvalid:
+                            # If safe casting fails, try unsafe cast
+                            new_column = new_column.cast(field.type, safe=False)
             except pyarrow.lib.ArrowInvalid as e:
                 raise IncorrectTypeError(
                     f"Unable to cast '{statement.schema_column.name}' to {field.type}"
                 ) from e
+        elif not isinstance(new_column, (pyarrow.Array, pyarrow.ChunkedArray)):
+            new_column = pyarrow.array(new_column)
 
         table = table.append_column(field, new_column)
         existing_cols.add(identity)
@@ -459,7 +498,7 @@ def evaluate_statement(statement, table):
     new_column = evaluate(statement, table)
     if is_mask(new_column, statement, table):
         new_column = create_mask(new_column, table.num_rows)
-    return [new_column]
+    return new_column
 
 
 def is_mask(new_column, statement, table):

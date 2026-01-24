@@ -11,7 +11,7 @@ keywords = [ "abstract syntax tree", "python", "static code analysis" ]
 license = "LGPL-2.1-or-later"
 license-files = [ "LICENSE", "CONTRIBUTORS.txt" ]
 
-requires-python = ">=3.9.0"
+requires-python = ">=3.10.0"
 classifiers = [
   "Development Status :: 6 - Mature",
   "Environment :: Console",
@@ -19,11 +19,11 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Topic :: Software Development :: Libraries :: Python Modules",
@@ -50,11 +50,13 @@ include = [ "astroid*" ]
 version = { attr = "astroid.__pkginfo__.__version__" }
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 
 # ruff is less lenient than pylint and does not make any exceptions
 # (for docstrings, strings and comments in particular).
 line-length = 110
+
+extend-exclude = [ "tests/testdata/" ]
 
 lint.select = [
   "B",   # bugbear
@@ -81,6 +83,9 @@ lint.fixable = [
 ]
 lint.unfixable = [ "RUF001" ]
 
+[tool.pyproject-fmt]
+max_supported_python = "3.14"
+
 [tool.pytest.ini_options]
 addopts = '-m "not acceptance"'
 python_files = [ "*test_*.py" ]
@@ -88,11 +93,58 @@ testpaths = [ "tests" ]
 filterwarnings = "error"
 
 [tool.mypy]
-enable_error_code = "ignore-without-code"
-no_implicit_optional = true
+python_version = "3.10"
+files = [
+  "astroid/_ast.py",
+  "astroid/astroid_manager.py",
+  "astroid/brain/brain_crypt.py",
+  "astroid/brain/brain_ctypes.py",
+  "astroid/brain/brain_curses.py",
+  "astroid/brain/brain_datetime.py",
+  "astroid/brain/brain_dateutil.py",
+  "astroid/brain/brain_hashlib.py",
+  "astroid/brain/brain_http.py",
+  "astroid/brain/brain_hypothesis.py",
+  "astroid/brain/brain_mechanize.py",
+  "astroid/brain/brain_numpy_core_einsumfunc.py",
+  "astroid/brain/brain_numpy_core_fromnumeric.py",
+  "astroid/brain/brain_numpy_core_function_base.py",
+  "astroid/brain/brain_numpy_core_multiarray.py",
+  "astroid/brain/brain_numpy_core_numeric.py",
+  "astroid/brain/brain_numpy_core_numerictypes.py",
+  "astroid/brain/brain_numpy_core_umath.py",
+  "astroid/brain/brain_numpy_ma.py",
+  "astroid/brain/brain_numpy_random_mtrand.py",
+  "astroid/brain/brain_pkg_resources.py",
+  "astroid/brain/brain_pytest.py",
+  "astroid/brain/brain_responses.py",
+  "astroid/brain/brain_scipy_signal.py",
+  "astroid/brain/brain_sqlalchemy.py",
+  "astroid/brain/brain_ssl.py",
+  "astroid/brain/brain_subprocess.py",
+  "astroid/brain/brain_threading.py",
+  "astroid/brain/brain_unittest.py",
+  "astroid/brain/brain_uuid.py",
+  "astroid/const.py",
+  "astroid/context.py",
+  "astroid/interpreter/_import/",
+  "astroid/modutils.py",
+  "astroid/nodes/const.py",
+  "astroid/nodes/utils.py",
+]
+always_false = [
+  "PY311_PLUS",
+  "PY312_PLUS",
+  "PY313_PLUS",
+]
+disallow_any_decorated = true
+disallow_any_explicit = true
+follow_imports = "silent"
 scripts_are_modules = true
 show_error_codes = true
+strict = true
 warn_redundant_casts = true
+warn_unreachable = true
 
 [[tool.mypy.overrides]]
 # Importlib typeshed stubs do not include the private functions we use
@@ -100,7 +152,6 @@ module = [
   "_io.*",
   "gi.*",
   "importlib.*",
-  "nose.*",
   "numpy.*",
   "pytest",
   "setuptools",

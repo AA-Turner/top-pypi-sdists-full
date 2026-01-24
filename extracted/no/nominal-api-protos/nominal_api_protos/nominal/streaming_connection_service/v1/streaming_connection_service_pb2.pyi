@@ -19,7 +19,6 @@ class StreamingConnectionErrorType(int, metaclass=_enum_type_wrapper.EnumTypeWra
     __slots__ = ()
     STREAMING_CONNECTION_ERROR_TYPE_UNSPECIFIED: _ClassVar[StreamingConnectionErrorType]
     STREAMING_CONNECTION_ERROR_TYPE_CONNECTION_NOT_FOUND: _ClassVar[StreamingConnectionErrorType]
-    STREAMING_CONNECTION_ERROR_TYPE_WORKFLOW_NOT_FOUND: _ClassVar[StreamingConnectionErrorType]
     STREAMING_CONNECTION_ERROR_TYPE_STREAMING_CONNECTION_ALREADY_RUNNING: _ClassVar[StreamingConnectionErrorType]
 
 class StreamingConnectionStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -29,7 +28,6 @@ class StreamingConnectionStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrappe
     DISCONNECTED: _ClassVar[StreamingConnectionStatus]
 STREAMING_CONNECTION_ERROR_TYPE_UNSPECIFIED: StreamingConnectionErrorType
 STREAMING_CONNECTION_ERROR_TYPE_CONNECTION_NOT_FOUND: StreamingConnectionErrorType
-STREAMING_CONNECTION_ERROR_TYPE_WORKFLOW_NOT_FOUND: StreamingConnectionErrorType
 STREAMING_CONNECTION_ERROR_TYPE_STREAMING_CONNECTION_ALREADY_RUNNING: StreamingConnectionErrorType
 STREAMING_CONNECTION_STATUS_UNSPECIFIED: StreamingConnectionStatus
 CONNECTED: StreamingConnectionStatus
@@ -76,16 +74,22 @@ class StreamingConnection(_message.Message):
     streaming_connection_rid: str
     name: str
     description: str
-    connection_details: StreamingConnectionDetails
+    connection_details: StreamingConnectionDetailsSecret
     status: StreamingConnectionStatus
     created_at: _timestamp_pb2.Timestamp
-    def __init__(self, streaming_connection_rid: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., connection_details: _Optional[_Union[StreamingConnectionDetails, _Mapping]] = ..., status: _Optional[_Union[StreamingConnectionStatus, str]] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, streaming_connection_rid: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., connection_details: _Optional[_Union[StreamingConnectionDetailsSecret, _Mapping]] = ..., status: _Optional[_Union[StreamingConnectionStatus, str]] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class StreamingConnectionDetails(_message.Message):
     __slots__ = ("opc_ua",)
     OPC_UA_FIELD_NUMBER: _ClassVar[int]
     opc_ua: _opc_ua_pb2.OpcUaConnectionDetails
     def __init__(self, opc_ua: _Optional[_Union[_opc_ua_pb2.OpcUaConnectionDetails, _Mapping]] = ...) -> None: ...
+
+class StreamingConnectionDetailsSecret(_message.Message):
+    __slots__ = ("opc_ua",)
+    OPC_UA_FIELD_NUMBER: _ClassVar[int]
+    opc_ua: _opc_ua_pb2.OpcUaConnectionDetailsSecret
+    def __init__(self, opc_ua: _Optional[_Union[_opc_ua_pb2.OpcUaConnectionDetailsSecret, _Mapping]] = ...) -> None: ...
 
 class StreamingScrapingConfig(_message.Message):
     __slots__ = ("opc_ua",)

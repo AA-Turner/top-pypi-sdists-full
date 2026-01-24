@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neoteroi-mkdocs
-Version: 1.1.3
+Version: 1.2.0
 Summary: Plugins for MkDocs and Python Markdown
 Project-URL: Homepage, https://github.com/Neoteroi/mkdocs-plugins
 Project-URL: Bug Tracker, https://github.com/Neoteroi/mkdocs-plugins/issues
@@ -11,16 +11,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Requires-Dist: click
-Requires-Dist: essentials-openapi>=1.2.1
+Requires-Dist: essentials-openapi>=1.3.0
 Requires-Dist: httpx
 Requires-Dist: jinja2
 Requires-Dist: mkdocs
@@ -31,7 +29,6 @@ Description-Content-Type: text/markdown
 [![pypi](https://img.shields.io/pypi/v/neoteroi-mkdocs.svg)](https://pypi.python.org/pypi/neoteroi-mkdocs)
 [![versions](https://img.shields.io/pypi/pyversions/neoteroi-mkdocs.svg)](https://github.com/neoteroi/mkdocs-plugins)
 [![license](https://img.shields.io/github/license/neoteroi/mkdocs-plugins.svg)](https://github.com/neoteroi/mkdocs-plugins/blob/main/LICENSE)
-[![codecov](https://codecov.io/gh/Neoteroi/mkdocs-plugins/branch/main/graph/badge.svg)](https://codecov.io/gh/Neoteroi/mkdocs-plugins)
 [![documentation](https://img.shields.io/badge/📖-docs-purple)](https://www.neoteroi.dev/mkdocs-plugins/)
 
 

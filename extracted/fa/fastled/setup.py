@@ -3,8 +3,6 @@ Setup file.
 """
 
 import os
-import re
-from pathlib import Path
 
 from setuptools import setup
 
@@ -19,6 +17,6 @@ if __name__ == "__main__":
         maintainer="Zachary Vorhies",
         keywords=KEYWORDS,
         url=URL,
-        package_data={"": ["assets/example.txt"]},
+        package_data={"": ["assets/example.txt", "assets/localhost.pem", "assets/localhost-key.pem"]},
         include_package_data=True)
 

@@ -12,16 +12,14 @@ from ...types import Response
 def _get_kwargs(
     workspace: str,
     version: float,
-    path: str,
 ) -> Dict[str, Any]:
     pass
 
     return {
         "method": "get",
-        "url": "/w/{workspace}/flows/get/v/{version}/p/{path}".format(
+        "url": "/w/{workspace}/flows/get/v/{version}".format(
             workspace=workspace,
             version=version,
-            path=path,
         ),
     }
 
@@ -53,7 +51,6 @@ def _build_response(
 def sync_detailed(
     workspace: str,
     version: float,
-    path: str,
     *,
     client: Union[AuthenticatedClient, Client],
 ) -> Response[GetFlowVersionResponse200]:
@@ -62,7 +59,6 @@ def sync_detailed(
     Args:
         workspace (str):
         version (float):
-        path (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -75,7 +71,6 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         version=version,
-        path=path,
     )
 
     response = client.get_httpx_client().request(
@@ -88,7 +83,6 @@ def sync_detailed(
 def sync(
     workspace: str,
     version: float,
-    path: str,
     *,
     client: Union[AuthenticatedClient, Client],
 ) -> Optional[GetFlowVersionResponse200]:
@@ -97,7 +91,6 @@ def sync(
     Args:
         workspace (str):
         version (float):
-        path (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -110,7 +103,6 @@ def sync(
     return sync_detailed(
         workspace=workspace,
         version=version,
-        path=path,
         client=client,
     ).parsed
 
@@ -118,7 +110,6 @@ def sync(
 async def asyncio_detailed(
     workspace: str,
     version: float,
-    path: str,
     *,
     client: Union[AuthenticatedClient, Client],
 ) -> Response[GetFlowVersionResponse200]:
@@ -127,7 +118,6 @@ async def asyncio_detailed(
     Args:
         workspace (str):
         version (float):
-        path (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -140,7 +130,6 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         version=version,
-        path=path,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -151,7 +140,6 @@ async def asyncio_detailed(
 async def asyncio(
     workspace: str,
     version: float,
-    path: str,
     *,
     client: Union[AuthenticatedClient, Client],
 ) -> Optional[GetFlowVersionResponse200]:
@@ -160,7 +148,6 @@ async def asyncio(
     Args:
         workspace (str):
         version (float):
-        path (str):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -174,7 +161,6 @@ async def asyncio(
         await asyncio_detailed(
             workspace=workspace,
             version=version,
-            path=path,
             client=client,
         )
     ).parsed

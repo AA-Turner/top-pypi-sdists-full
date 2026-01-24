@@ -1,8 +1,8 @@
 from dataclasses import MISSING
-from typing import Any, Sequence
+from typing import Any, Sequence, TypeAlias, Union
 
-type PathPart = str | int | float | bool
-type PathType = Sequence[PathPart]
+PathPart: TypeAlias = Union[str, int, float, bool]
+PathType: TypeAlias = Sequence[PathPart]
 
 
 def safe_get(data: dict | list,
@@ -35,6 +35,31 @@ def safe_get(data: dict | list,
 def v1_safe_get(data: dict | list,
                 path: PathType,
                 raise_: bool) -> Any:
+    """
+    Retrieve a value from a nested structure safely.
+
+    Traverses a nested structure (e.g., dictionaries or lists) following a sequence of keys or indices specified in `path`.
+    Handles missing keys, out-of-bounds indices, or invalid types gracefully.
+
+    Args:
+        data (Any): The nested structure to traverse.
+        path (Iterable): A sequence of keys or indices to follow.
+        raise_ (bool): True to raise an error on invalid path.
+
+    Returns:
+        Any: The value at the specified path, or `MISSING` if traversal fails.
+
+    Raises:
+        KeyError, IndexError, AttributeError, TypeError: If `default` is not provided
+        and an error occurs during traversal.
+    """
+    ...
+
+
+def v1_env_safe_get(data: dict | list,
+                    first_key: PathPart,
+                    path: PathType,
+                    raise_: bool) -> Any:
     """
     Retrieve a value from a nested structure safely.
 

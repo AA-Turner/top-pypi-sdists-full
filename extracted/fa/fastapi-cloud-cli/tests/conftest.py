@@ -1,11 +1,13 @@
 import sys
+from collections.abc import Generator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator
 from unittest.mock import patch
 
 import pytest
 from typer import rich_utils
+
+from .utils import create_jwt_token
 
 
 @pytest.fixture(autouse=True)
@@ -26,7 +28,9 @@ def setup_terminal() -> None:
 
 @pytest.fixture
 def logged_in_cli(temp_auth_config: Path) -> Generator[None, None, None]:
-    temp_auth_config.write_text('{"access_token": "test_token_12345"}')
+    valid_token = create_jwt_token({"sub": "test_user_12345"})
+
+    temp_auth_config.write_text(f'{{"access_token": "{valid_token}"}}')
 
     yield
 

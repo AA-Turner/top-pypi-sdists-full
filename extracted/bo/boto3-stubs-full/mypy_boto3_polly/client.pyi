@@ -3,7 +3,7 @@ Type annotations for polly service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_polly/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -49,12 +50,6 @@ from .type_defs import (
     SynthesizeSpeechOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -63,28 +58,28 @@ else:
 __all__ = ("PollyClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    EngineNotSupportedException: Type[BotocoreClientError]
-    InvalidLexiconException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidS3BucketException: Type[BotocoreClientError]
-    InvalidS3KeyException: Type[BotocoreClientError]
-    InvalidSampleRateException: Type[BotocoreClientError]
-    InvalidSnsTopicArnException: Type[BotocoreClientError]
-    InvalidSsmlException: Type[BotocoreClientError]
-    InvalidTaskIdException: Type[BotocoreClientError]
-    LanguageNotSupportedException: Type[BotocoreClientError]
-    LexiconNotFoundException: Type[BotocoreClientError]
-    LexiconSizeExceededException: Type[BotocoreClientError]
-    MarksNotSupportedForFormatException: Type[BotocoreClientError]
-    MaxLexemeLengthExceededException: Type[BotocoreClientError]
-    MaxLexiconsNumberExceededException: Type[BotocoreClientError]
-    ServiceFailureException: Type[BotocoreClientError]
-    SsmlMarksNotSupportedForTextTypeException: Type[BotocoreClientError]
-    SynthesisTaskNotFoundException: Type[BotocoreClientError]
-    TextLengthExceededException: Type[BotocoreClientError]
-    UnsupportedPlsAlphabetException: Type[BotocoreClientError]
-    UnsupportedPlsLanguageException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    EngineNotSupportedException: type[BotocoreClientError]
+    InvalidLexiconException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidS3BucketException: type[BotocoreClientError]
+    InvalidS3KeyException: type[BotocoreClientError]
+    InvalidSampleRateException: type[BotocoreClientError]
+    InvalidSnsTopicArnException: type[BotocoreClientError]
+    InvalidSsmlException: type[BotocoreClientError]
+    InvalidTaskIdException: type[BotocoreClientError]
+    LanguageNotSupportedException: type[BotocoreClientError]
+    LexiconNotFoundException: type[BotocoreClientError]
+    LexiconSizeExceededException: type[BotocoreClientError]
+    MarksNotSupportedForFormatException: type[BotocoreClientError]
+    MaxLexemeLengthExceededException: type[BotocoreClientError]
+    MaxLexiconsNumberExceededException: type[BotocoreClientError]
+    ServiceFailureException: type[BotocoreClientError]
+    SsmlMarksNotSupportedForTextTypeException: type[BotocoreClientError]
+    SynthesisTaskNotFoundException: type[BotocoreClientError]
+    TextLengthExceededException: type[BotocoreClientError]
+    UnsupportedPlsAlphabetException: type[BotocoreClientError]
+    UnsupportedPlsLanguageException: type[BotocoreClientError]
 
 class PollyClient(BaseClient):
     """
@@ -121,7 +116,7 @@ class PollyClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_polly/client/#generate_presigned_url)
         """
 
-    def delete_lexicon(self, **kwargs: Unpack[DeleteLexiconInputTypeDef]) -> Dict[str, Any]:
+    def delete_lexicon(self, **kwargs: Unpack[DeleteLexiconInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified pronunciation lexicon stored in an Amazon Web Services
         Region.
@@ -181,7 +176,7 @@ class PollyClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_polly/client/#list_speech_synthesis_tasks)
         """
 
-    def put_lexicon(self, **kwargs: Unpack[PutLexiconInputTypeDef]) -> Dict[str, Any]:
+    def put_lexicon(self, **kwargs: Unpack[PutLexiconInputTypeDef]) -> dict[str, Any]:
         """
         Stores a pronunciation lexicon in an Amazon Web Services Region.
 

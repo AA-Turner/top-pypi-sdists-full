@@ -70,6 +70,11 @@ class LambdaHandler:
             if self.settings.LOG_LEVEL:
                 level = logging.getLevelName(self.settings.LOG_LEVEL)
                 logger.setLevel(level)
+                # https://github.com/zappa/Zappa/issues/1336
+                # @ceturc 2024-08-13
+                # Backwards compatibility to set root logger level after 0.59.0
+                root_logger = logging.getLogger()
+                root_logger.setLevel(level)
 
             remote_env = getattr(self.settings, "REMOTE_ENV", None)
             remote_bucket, remote_file = parse_s3_url(remote_env)
@@ -393,7 +398,6 @@ class LambdaHandler:
 
         """
         settings = self.settings
-
         # If in DEBUG mode, log all raw incoming events.
         if settings.DEBUG:
             logger.debug("Zappa Event: {}".format(event))
@@ -522,26 +526,20 @@ class LambdaHandler:
             try:
                 time_start = datetime.datetime.now()
 
-                script_name = ""
-                host = event.get("headers", {}).get("host")
-                if host:
-                    if "amazonaws.com" in host:
-                        logger.debug("amazonaws found in host")
-                        # The path provided in th event doesn't include the
-                        # stage, so we must tell Flask to include the API
-                        # stage in the url it calculates. See https://github.com/Miserlou/Zappa/issues/1014
-                        script_name = f"/{settings.API_STAGE}"
+                # Determine if this is API Gateway v2 (has stage) or Function URL (no stage)
+                # API Gateway v2 includes stage in requestContext
+                request_context = event.get("requestContext", {})
+                stage = request_context.get("stage")
+
+                # For API Gateway v2, the stage is included in rawPath and we need to
+                # set script_name so it can be stripped from PATH_INFO
+                # For Function URLs (no stage), leave script_name empty
+                if stage:
+                    # API Gateway v2 with named stage - rawPath includes the stage
+                    script_name = f"/{stage}"
                 else:
-                    # This is a test request sent from the AWS console
-                    if settings.DOMAIN:
-                        # Assume the requests received will be on the specified
-                        # domain. No special handling is required
-                        pass
-                    else:
-                        # Assume the requests received will be to the
-                        # amazonaws.com endpoint, so tell Flask to include the
-                        # API stage
-                        script_name = f"/{settings.API_STAGE}"
+                    # Function URL - no stage
+                    script_name = ""
 
                 base_path = getattr(settings, "BASE_PATH", None)
                 environ = create_wsgi_request(
@@ -662,7 +660,11 @@ class LambdaHandler:
                             # The path provided in th event doesn't include the
                             # stage, so we must tell Flask to include the API
                             # stage in the url it calculates. See https://github.com/Miserlou/Zappa/issues/1014
-                            script_name = "/" + settings.API_STAGE
+                            script_name = f"/{settings.API_STAGE}"
+                        # fix function url domain
+                        if host.find("lambda-url") > -1 and event.get("headers", {}).get("cloudfront-host"):
+                            # https://stackoverflow.com/questions/73024633/cloudfront-forward-host-header-to-lambda-function-url-origin
+                            event["headers"]["host"] = event["headers"]["cloudfront-host"]
                     else:
                         # This is a test request sent from the AWS console
                         if settings.DOMAIN:
@@ -673,7 +675,7 @@ class LambdaHandler:
                             # Assume the requests received will be to the
                             # amazonaws.com endpoint, so tell Flask to include the
                             # API stage
-                            script_name = "/" + settings.API_STAGE
+                            script_name = f"/{settings.API_STAGE}"
 
                 base_path = getattr(settings, "BASE_PATH", None)
 

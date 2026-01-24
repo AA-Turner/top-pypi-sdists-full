@@ -49,6 +49,7 @@ __all__ = [
     'ReportGroupExportConfigS3Destination',
     'WebhookFilterGroup',
     'WebhookFilterGroupFilter',
+    'WebhookPullRequestBuildPolicy',
     'WebhookScopeConfiguration',
     'GetFleetComputeConfigurationResult',
     'GetFleetScalingConfigurationResult',
@@ -692,11 +693,30 @@ class ProjectBuildBatchConfigRestrictions(dict):
 
 @pulumi.output_type
 class ProjectCache(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "cacheNamespace":
+            suggest = "cache_namespace"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ProjectCache. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ProjectCache.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ProjectCache.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
+                 cache_namespace: Optional[_builtins.str] = None,
                  location: Optional[_builtins.str] = None,
                  modes: Optional[Sequence[_builtins.str]] = None,
                  type: Optional[_builtins.str] = None):
         """
+        :param _builtins.str cache_namespace: Namespace that determines the scope in which a cache is shared across multiple projects.
         :param _builtins.str location: Location where the AWS CodeBuild project stores cached resources. For
                type `S3`, the value must be a valid S3 bucket name/prefix.
         :param Sequence[_builtins.str] modes: Specifies settings that AWS CodeBuild uses to store and reuse build
@@ -704,12 +724,22 @@ class ProjectCache(dict):
         :param _builtins.str type: Type of storage that will be used for the AWS CodeBuild project cache. Valid values: `NO_CACHE`,
                `LOCAL`, `S3`. Defaults to `NO_CACHE`.
         """
+        if cache_namespace is not None:
+            pulumi.set(__self__, "cache_namespace", cache_namespace)
         if location is not None:
             pulumi.set(__self__, "location", location)
         if modes is not None:
             pulumi.set(__self__, "modes", modes)
         if type is not None:
             pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter(name="cacheNamespace")
+    def cache_namespace(self) -> Optional[_builtins.str]:
+        """
+        Namespace that determines the scope in which a cache is shared across multiple projects.
+        """
+        return pulumi.get(self, "cache_namespace")
 
     @_builtins.property
     @pulumi.getter
@@ -2384,7 +2414,7 @@ class WebhookFilterGroup(dict):
     def __init__(__self__, *,
                  filters: Optional[Sequence['outputs.WebhookFilterGroupFilter']] = None):
         """
-        :param Sequence['WebhookFilterGroupFilterArgs'] filters: A webhook filter for the group. Filter blocks are documented below.
+        :param Sequence['WebhookFilterGroupFilterArgs'] filters: A webhook filter for the group. See filter for details.
         """
         if filters is not None:
             pulumi.set(__self__, "filters", filters)
@@ -2393,7 +2423,7 @@ class WebhookFilterGroup(dict):
     @pulumi.getter
     def filters(self) -> Optional[Sequence['outputs.WebhookFilterGroupFilter']]:
         """
-        A webhook filter for the group. Filter blocks are documented below.
+        A webhook filter for the group. See filter for details.
         """
         return pulumi.get(self, "filters")
 
@@ -2454,6 +2484,55 @@ class WebhookFilterGroupFilter(dict):
         If set to `true`, the specified filter does *not* trigger a build. Defaults to `false`.
         """
         return pulumi.get(self, "exclude_matched_pattern")
+
+
+@pulumi.output_type
+class WebhookPullRequestBuildPolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "requiresCommentApproval":
+            suggest = "requires_comment_approval"
+        elif key == "approverRoles":
+            suggest = "approver_roles"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in WebhookPullRequestBuildPolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        WebhookPullRequestBuildPolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        WebhookPullRequestBuildPolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 requires_comment_approval: _builtins.str,
+                 approver_roles: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str requires_comment_approval: Specifies when comment-based approval is required before triggering a build on pull requests. Valid values are: `DISABLED`, `ALL_PULL_REQUESTS`, and `FORK_PULL_REQUESTS`.
+        :param Sequence[_builtins.str] approver_roles: List of repository roles that have approval privileges for pull request builds when comment approval is required. This argument must be specified only when `requires_comment_approval` is not `DISABLED`. See the [AWS documentation](https://docs.aws.amazon.com/codebuild/latest/userguide/pull-request-build-policy.html#pull-request-build-policy.configuration) for valid values and defaults.
+        """
+        pulumi.set(__self__, "requires_comment_approval", requires_comment_approval)
+        if approver_roles is not None:
+            pulumi.set(__self__, "approver_roles", approver_roles)
+
+    @_builtins.property
+    @pulumi.getter(name="requiresCommentApproval")
+    def requires_comment_approval(self) -> _builtins.str:
+        """
+        Specifies when comment-based approval is required before triggering a build on pull requests. Valid values are: `DISABLED`, `ALL_PULL_REQUESTS`, and `FORK_PULL_REQUESTS`.
+        """
+        return pulumi.get(self, "requires_comment_approval")
+
+    @_builtins.property
+    @pulumi.getter(name="approverRoles")
+    def approver_roles(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of repository roles that have approval privileges for pull request builds when comment approval is required. This argument must be specified only when `requires_comment_approval` is not `DISABLED`. See the [AWS documentation](https://docs.aws.amazon.com/codebuild/latest/userguide/pull-request-build-policy.html#pull-request-build-policy.configuration) for valid values and defaults.
+        """
+        return pulumi.get(self, "approver_roles")
 
 
 @pulumi.output_type

@@ -1,12 +1,14 @@
 """Integration tests for the SQLAlchemy Repository implementation using session-based fixtures."""
 
+import asyncio
 import datetime
 from collections.abc import Generator
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, cast
+from unittest.mock import create_autospec
 from uuid import UUID
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import Session
 from time_machine import travel
 
@@ -17,6 +19,7 @@ from advanced_alchemy.filters import (
     SearchFilter,
 )
 from advanced_alchemy.repository import SQLAlchemyAsyncRepository
+from advanced_alchemy.repository._util import DEFAULT_ERROR_MESSAGE_TEMPLATES
 from advanced_alchemy.repository.memory import (
     SQLAlchemyAsyncMockRepository,
     SQLAlchemySyncMockRepository,
@@ -339,7 +342,10 @@ async def test_repo_update_method(seeded_test_session_async: "tuple[AsyncSession
     # Get first author
     authors = await maybe_async(author_repo.list())
     author = authors[0]
+
     original_name = author.name
+    original_created_at = author.created_at
+    original_updated_at = author.updated_at
 
     # Update the author
     author.name = "Updated Name"
@@ -347,6 +353,32 @@ async def test_repo_update_method(seeded_test_session_async: "tuple[AsyncSession
 
     assert updated_author.name == "Updated Name"
     assert updated_author.name != original_name
+    assert updated_author.created_at == original_created_at
+    assert updated_author.updated_at > original_updated_at
+
+
+async def test_service_update_with_dict_data_refreshes_timestamp(
+    seeded_test_session_async: "tuple[AsyncSession, dict[str, type]]",
+    frozen_datetime: "Coordinates",
+) -> None:
+    """Service update should refresh audit timestamps when supplied with dict payloads."""
+    session, models = seeded_test_session_async
+    author_service = get_service_from_session((session, models), "author")
+
+    authors = await maybe_async(author_service.list())
+    author = authors[0]
+
+    original_created_at = author.created_at
+    original_updated_at = author.updated_at
+
+    frozen_datetime.shift(datetime.timedelta(seconds=5))
+    update_payload = {"name": "Dict Driven Update"}
+
+    updated_author = await maybe_async(author_service.update(update_payload, item_id=author.id))
+
+    assert updated_author.name == "Dict Driven Update"
+    assert updated_author.created_at == original_created_at
+    assert updated_author.updated_at > original_updated_at
 
 
 async def test_repo_update_many_method_stale_data_fix(
@@ -385,7 +417,7 @@ async def test_repo_update_many_method_stale_data_fix(
         # updated_at should be newer than before
         if updated_author.id == authors[0].id:
             assert updated_author.created_at == original_created_at
-            assert updated_author.updated_at >= original_updated_at
+            assert updated_author.updated_at > original_updated_at
 
 
 async def test_repo_update_many_mixed_types(seeded_test_session_async: "tuple[AsyncSession, dict[str, type]]") -> None:
@@ -498,11 +530,18 @@ async def test_service_update_method(seeded_test_session_async: "tuple[AsyncSess
     author = authors[0]
     author_id = author.id
 
+    original_name = author.name
+    original_created_at = author.created_at
+    original_updated_at = author.updated_at
+
     # Update via service - correct parameter order is (data, item_id)
-    update_data = {"name": "Service Updated Name"}
-    updated_author = await maybe_async(author_service.update(update_data, item_id=author_id))
+    author.name = "Service Updated Name"
+    updated_author = await maybe_async(author_service.update(author, item_id=author_id))
 
     assert updated_author.name == "Service Updated Name"
+    assert updated_author.name != original_name
+    assert updated_author.created_at == original_created_at
+    assert updated_author.updated_at > original_updated_at
 
 
 async def test_service_delete_method(seeded_test_session_async: "tuple[AsyncSession, dict[str, type]]") -> None:
@@ -598,6 +637,64 @@ async def test_repo_error_messages(seeded_test_session_async: "tuple[AsyncSessio
         await maybe_async(author_repo.get(non_existent_id))
 
 
+def _make_mock_session(engine: AsyncEngine) -> AsyncSession:
+    session = cast(AsyncSession, create_autospec(AsyncSession, instance=True))
+    session.bind = engine
+    session.get_bind.return_value = engine
+    return session
+
+
+@pytest.mark.mock_async
+def test_repo_error_message_overrides_are_isolated(
+    mock_async_engine: AsyncEngine, uuid_models_dba: "dict[str, type]"
+) -> None:
+    author_model = cast(type[Any], uuid_models_dba["author"])
+    default_not_found = DEFAULT_ERROR_MESSAGE_TEMPLATES.get("not_found")
+
+    class BaseRepo(SQLAlchemyAsyncRepository[Any]):
+        model_type = author_model
+
+    class RepoA(BaseRepo):
+        error_messages = {"not_found": "Author A not found"}
+
+    class RepoB(BaseRepo):
+        error_messages = {"not_found": "Author B not found"}
+
+    repo_a_first = RepoA(session=_make_mock_session(mock_async_engine))
+    repo_b = RepoB(session=_make_mock_session(mock_async_engine))
+    repo_a_second = RepoA(session=_make_mock_session(mock_async_engine))
+
+    assert repo_a_first.error_messages is not DEFAULT_ERROR_MESSAGE_TEMPLATES
+    assert repo_a_first.error_messages is not repo_b.error_messages
+    assert repo_a_first.error_messages["not_found"] == "Author A not found"
+    assert repo_b.error_messages["not_found"] == "Author B not found"
+    assert repo_a_second.error_messages["not_found"] == "Author A not found"
+    assert DEFAULT_ERROR_MESSAGE_TEMPLATES["not_found"] == default_not_found
+
+
+@pytest.mark.mock_async
+def test_mock_repo_error_message_overrides_are_isolated(
+    mock_async_engine: AsyncEngine, uuid_models_dba: "dict[str, type]"
+) -> None:
+    author_model = cast(type[Any], uuid_models_dba["author"])
+
+    class BaseMockRepo(SQLAlchemyAsyncMockRepository[Any]):
+        model_type = author_model
+
+    class RepoA(BaseMockRepo):
+        error_messages = {"not_found": "Mock Author A not found"}
+
+    class RepoB(BaseMockRepo):
+        error_messages = {"not_found": "Mock Author B not found"}
+
+    repo_a = RepoA(session=_make_mock_session(mock_async_engine))
+    repo_b = RepoB(session=_make_mock_session(mock_async_engine))
+
+    assert repo_a.error_messages is not repo_b.error_messages
+    assert repo_a.error_messages["not_found"] == "Mock Author A not found"
+    assert repo_b.error_messages["not_found"] == "Mock Author B not found"
+
+
 # Comprehensive tests for GitHub issue #535 and bug_fix.md issues
 async def test_service_pydantic_partial_update_github_535(
     seeded_test_session_async: "tuple[AsyncSession, dict[str, type]]",
@@ -679,6 +776,10 @@ async def test_service_update_many_schema_types_github_535(
 
     original_dob1 = author1.dob
     original_dob2 = author2.dob
+    original_created_at1 = author1.created_at
+    original_created_at2 = author2.created_at
+    original_updated_at1 = author1.updated_at
+    original_updated_at2 = author2.updated_at
 
     # Get ID type from model for dynamic schema creation
     # For Pydantic compatibility, we need to map database-specific types to Python types
@@ -707,6 +808,9 @@ async def test_service_update_many_schema_types_github_535(
         AuthorUpdateMsgspecSchema(id=author2.id, name="Updated Author Two"),  # msgspec with UNSET dob
     ]
 
+    # Sleep to ensure timestamp difference for databases with lower precision
+    await asyncio.sleep(1.1)
+
     # Update via service - should only update names, leave dobs unchanged
     updated_authors = await maybe_async(author_service.update_many(update_data))
 
@@ -720,9 +824,13 @@ async def test_service_update_many_schema_types_github_535(
     # Verify: names were updated, but dobs remain unchanged
     assert updated_author1.name == "Updated Author One"
     assert updated_author1.dob == original_dob1  # Should be unchanged
+    assert updated_author1.created_at == original_created_at1
+    assert updated_author1.updated_at > original_updated_at1
 
     assert updated_author2.name == "Updated Author Two"
     assert updated_author2.dob == original_dob2  # Should be unchanged
+    assert updated_author2.created_at == original_created_at2
+    assert updated_author2.updated_at > original_updated_at2
 
 
 async def test_repo_update_many_non_returning_backend_refresh(
@@ -831,3 +939,73 @@ async def test_service_mixed_input_types_update_many(
         assert author.dob is not None
         assert author.created_at is not None
         assert author.updated_at is not None
+
+
+async def test_repo_update_with_model_instance_partial_fields_github_560(
+    seeded_test_session_async: "tuple[AsyncSession, dict[str, type]]",
+) -> None:
+    """Test repository update with model instances for partial updates (GitHub Issue #560).
+
+    This test verifies that when updating with a model instance where only some fields
+    are explicitly set, the unset fields do not overwrite existing data with None.
+    """
+    _session, models = seeded_test_session_async
+    author_model = models["author"]
+    author_repo = get_repository_from_session(seeded_test_session_async, "author")
+
+    # Create an author with all fields populated
+    author = await maybe_async(author_repo.create({"name": "Original Name", "dob": datetime.date(1990, 1, 1)}))
+    original_dob = author.dob
+    original_id = author.id
+
+    # Create a partial update using a model instance with only id and name set
+    # This mimics the pattern: Author(id=1, name="Updated Name")
+    # SQLAlchemy initializes 'dob' to None, but it wasn't explicitly set by the user
+    partial_update = author_model(id=original_id, name="Updated Name")
+
+    # Update via repository - should only update name, leave dob unchanged
+    updated_author = await maybe_async(author_repo.update(partial_update))
+
+    # Verify: name was updated, but dob remains unchanged (not overwritten with None)
+    assert updated_author.name == "Updated Name"
+    assert updated_author.dob == original_dob  # Should be unchanged
+    assert updated_author.id == original_id
+
+
+async def test_repo_update_many_with_model_instances_partial_fields_github_560(
+    seeded_test_session_async: "tuple[AsyncSession, dict[str, type]]",
+) -> None:
+    """Test repository update_many with model instances for partial updates (GitHub Issue #560).
+
+    This test verifies that update_many correctly handles model instances with partially
+    set fields, preventing None values from overwriting existing data.
+    """
+    _session, models = seeded_test_session_async
+    author_model = models["author"]
+    author_repo = get_repository_from_session(seeded_test_session_async, "author")
+
+    # Create multiple authors with all fields populated
+    author1 = await maybe_async(author_repo.create({"name": "Author One", "dob": datetime.date(1990, 1, 1)}))
+    author2 = await maybe_async(author_repo.create({"name": "Author Two", "dob": datetime.date(1991, 2, 2)}))
+
+    original_dob1 = author1.dob
+    original_dob2 = author2.dob
+
+    # Create partial updates using model instances with only id and name set
+    partial_updates = [
+        author_model(id=author1.id, name="Updated One"),
+        author_model(id=author2.id, name="Updated Two"),
+    ]
+
+    # Update via repository - should only update names, leave dobs unchanged
+    updated_authors = await maybe_async(author_repo.update_many(partial_updates))
+
+    # Verify: names were updated, but dobs remain unchanged
+    assert len(updated_authors) == 2
+    updated_by_id = {author.id: author for author in updated_authors}
+
+    assert updated_by_id[author1.id].name == "Updated One"
+    assert updated_by_id[author1.id].dob == original_dob1  # Should be unchanged
+
+    assert updated_by_id[author2.id].name == "Updated Two"
+    assert updated_by_id[author2.id].dob == original_dob2  # Should be unchanged

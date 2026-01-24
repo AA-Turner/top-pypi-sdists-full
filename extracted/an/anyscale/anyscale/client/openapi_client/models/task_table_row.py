@@ -35,12 +35,14 @@ class TaskTableRow(object):
     openapi_types = {
         'id': 'str',
         'attempt_number': 'int',
+        'total_attempts': 'int',
         'job_id': 'str',
         'function_name': 'str',
         'task_type': 'TaskType',
         'current_state': 'TaskState',
         'error_message': 'str',
         'start_time_ns': 'int',
+        'start_running_time_ns': 'int',
         'end_time_ns': 'int',
         'required_resources': 'str',
         'runtime_env': 'str',
@@ -49,18 +51,21 @@ class TaskTableRow(object):
         'worker_pid': 'str',
         'parent_task_id': 'str',
         'ray_session_name': 'str',
-        'exception_type': 'str'
+        'exception_type': 'str',
+        'data_operator_id': 'str'
     }
 
     attribute_map = {
         'id': 'id',
         'attempt_number': 'attempt_number',
+        'total_attempts': 'total_attempts',
         'job_id': 'job_id',
         'function_name': 'function_name',
         'task_type': 'task_type',
         'current_state': 'current_state',
         'error_message': 'error_message',
         'start_time_ns': 'start_time_ns',
+        'start_running_time_ns': 'start_running_time_ns',
         'end_time_ns': 'end_time_ns',
         'required_resources': 'required_resources',
         'runtime_env': 'runtime_env',
@@ -69,10 +74,11 @@ class TaskTableRow(object):
         'worker_pid': 'worker_pid',
         'parent_task_id': 'parent_task_id',
         'ray_session_name': 'ray_session_name',
-        'exception_type': 'exception_type'
+        'exception_type': 'exception_type',
+        'data_operator_id': 'data_operator_id'
     }
 
-    def __init__(self, id=None, attempt_number=None, job_id=None, function_name=None, task_type=None, current_state=None, error_message=None, start_time_ns=None, end_time_ns=None, required_resources=None, runtime_env=None, node_id=None, worker_id=None, worker_pid=None, parent_task_id=None, ray_session_name=None, exception_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, attempt_number=None, total_attempts=None, job_id=None, function_name=None, task_type=None, current_state=None, error_message=None, start_time_ns=None, start_running_time_ns=None, end_time_ns=None, required_resources=None, runtime_env=None, node_id=None, worker_id=None, worker_pid=None, parent_task_id=None, ray_session_name=None, exception_type=None, data_operator_id=None, local_vars_configuration=None):  # noqa: E501
         """TaskTableRow - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -80,12 +86,14 @@ class TaskTableRow(object):
 
         self._id = None
         self._attempt_number = None
+        self._total_attempts = None
         self._job_id = None
         self._function_name = None
         self._task_type = None
         self._current_state = None
         self._error_message = None
         self._start_time_ns = None
+        self._start_running_time_ns = None
         self._end_time_ns = None
         self._required_resources = None
         self._runtime_env = None
@@ -95,10 +103,13 @@ class TaskTableRow(object):
         self._parent_task_id = None
         self._ray_session_name = None
         self._exception_type = None
+        self._data_operator_id = None
         self.discriminator = None
 
         self.id = id
         self.attempt_number = attempt_number
+        if total_attempts is not None:
+            self.total_attempts = total_attempts
         self.job_id = job_id
         self.function_name = function_name
         self.task_type = task_type
@@ -107,6 +118,7 @@ class TaskTableRow(object):
         if error_message is not None:
             self.error_message = error_message
         self.start_time_ns = start_time_ns
+        self.start_running_time_ns = start_running_time_ns
         if end_time_ns is not None:
             self.end_time_ns = end_time_ns
         if required_resources is not None:
@@ -124,6 +136,8 @@ class TaskTableRow(object):
         self.ray_session_name = ray_session_name
         if exception_type is not None:
             self.exception_type = exception_type
+        if data_operator_id is not None:
+            self.data_operator_id = data_operator_id
 
     @property
     def id(self):
@@ -170,6 +184,27 @@ class TaskTableRow(object):
             raise ValueError("Invalid value for `attempt_number`, must not be `None`")  # noqa: E501
 
         self._attempt_number = attempt_number
+
+    @property
+    def total_attempts(self):
+        """Gets the total_attempts of this TaskTableRow.  # noqa: E501
+
+
+        :return: The total_attempts of this TaskTableRow.  # noqa: E501
+        :rtype: int
+        """
+        return self._total_attempts
+
+    @total_attempts.setter
+    def total_attempts(self, total_attempts):
+        """Sets the total_attempts of this TaskTableRow.
+
+
+        :param total_attempts: The total_attempts of this TaskTableRow.  # noqa: E501
+        :type: int
+        """
+
+        self._total_attempts = total_attempts
 
     @property
     def job_id(self):
@@ -304,6 +339,29 @@ class TaskTableRow(object):
             raise ValueError("Invalid value for `start_time_ns`, must not be `None`")  # noqa: E501
 
         self._start_time_ns = start_time_ns
+
+    @property
+    def start_running_time_ns(self):
+        """Gets the start_running_time_ns of this TaskTableRow.  # noqa: E501
+
+
+        :return: The start_running_time_ns of this TaskTableRow.  # noqa: E501
+        :rtype: int
+        """
+        return self._start_running_time_ns
+
+    @start_running_time_ns.setter
+    def start_running_time_ns(self, start_running_time_ns):
+        """Sets the start_running_time_ns of this TaskTableRow.
+
+
+        :param start_running_time_ns: The start_running_time_ns of this TaskTableRow.  # noqa: E501
+        :type: int
+        """
+        if self.local_vars_configuration.client_side_validation and start_running_time_ns is None:  # noqa: E501
+            raise ValueError("Invalid value for `start_running_time_ns`, must not be `None`")  # noqa: E501
+
+        self._start_running_time_ns = start_running_time_ns
 
     @property
     def end_time_ns(self):
@@ -495,6 +553,27 @@ class TaskTableRow(object):
         """
 
         self._exception_type = exception_type
+
+    @property
+    def data_operator_id(self):
+        """Gets the data_operator_id of this TaskTableRow.  # noqa: E501
+
+
+        :return: The data_operator_id of this TaskTableRow.  # noqa: E501
+        :rtype: str
+        """
+        return self._data_operator_id
+
+    @data_operator_id.setter
+    def data_operator_id(self, data_operator_id):
+        """Sets the data_operator_id of this TaskTableRow.
+
+
+        :param data_operator_id: The data_operator_id of this TaskTableRow.  # noqa: E501
+        :type: str
+        """
+
+        self._data_operator_id = data_operator_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

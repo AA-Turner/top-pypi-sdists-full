@@ -3,7 +3,7 @@ Type annotations for codedeploy service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codedeploy/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -57,12 +58,6 @@ from .literals import (
     TriggerEventTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -260,7 +255,7 @@ class ApplicationInfoTypeDef(TypedDict):
 
 class AutoRollbackConfigurationOutputTypeDef(TypedDict):
     enabled: NotRequired[bool]
-    events: NotRequired[List[AutoRollbackEventType]]
+    events: NotRequired[list[AutoRollbackEventType]]
 
 class AutoRollbackConfigurationTypeDef(TypedDict):
     enabled: NotRequired[bool]
@@ -274,7 +269,7 @@ class AutoScalingGroupTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -373,7 +368,7 @@ class LastDeploymentInfoTypeDef(TypedDict):
 class TriggerConfigOutputTypeDef(TypedDict):
     triggerName: NotRequired[str]
     triggerTargetArn: NotRequired[str]
-    triggerEvents: NotRequired[List[TriggerEventTypeType]]
+    triggerEvents: NotRequired[list[TriggerEventTypeType]]
 
 class DeploymentOverviewTypeDef(TypedDict):
     Pending: NotRequired[int]
@@ -389,7 +384,7 @@ class ErrorInformationTypeDef(TypedDict):
 
 class RelatedDeploymentsTypeDef(TypedDict):
     autoUpdateOutdatedInstancesRootDeploymentId: NotRequired[str]
-    autoUpdateOutdatedInstancesDeploymentIds: NotRequired[List[str]]
+    autoUpdateOutdatedInstancesDeploymentIds: NotRequired[list[str]]
 
 class RollbackInfoTypeDef(TypedDict):
     rollbackDeploymentId: NotRequired[str]
@@ -413,7 +408,7 @@ class ELBInfoTypeDef(TypedDict):
 
 class GenericRevisionInfoTypeDef(TypedDict):
     description: NotRequired[str]
-    deploymentGroups: NotRequired[List[str]]
+    deploymentGroups: NotRequired[list[str]]
     firstUsedTime: NotRequired[datetime]
     lastUsedTime: NotRequired[datetime]
     registerTime: NotRequired[datetime]
@@ -536,7 +531,7 @@ class StopDeploymentInputTypeDef(TypedDict):
     autoRollbackEnabled: NotRequired[bool]
 
 class TrafficRouteOutputTypeDef(TypedDict):
-    listenerArns: NotRequired[List[str]]
+    listenerArns: NotRequired[list[str]]
 
 class TrafficRouteTypeDef(TypedDict):
     listenerArns: NotRequired[Sequence[str]]
@@ -580,7 +575,7 @@ class InstanceInfoTypeDef(TypedDict):
     instanceArn: NotRequired[str]
     registerTime: NotRequired[datetime]
     deregisterTime: NotRequired[datetime]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 class RemoveTagsFromOnPremisesInstancesInputTypeDef(TypedDict):
     tags: Sequence[TagTypeDef]
@@ -593,7 +588,7 @@ class TagResourceInputTypeDef(TypedDict):
 class AlarmConfigurationOutputTypeDef(TypedDict):
     enabled: NotRequired[bool]
     ignorePollAlarmFailure: NotRequired[bool]
-    alarms: NotRequired[List[AlarmTypeDef]]
+    alarms: NotRequired[list[AlarmTypeDef]]
 
 class AlarmConfigurationTypeDef(TypedDict):
     enabled: NotRequired[bool]
@@ -605,7 +600,7 @@ AutoRollbackConfigurationUnionTypeDef = Union[
 ]
 
 class BatchGetApplicationsOutputTypeDef(TypedDict):
-    applicationsInfo: List[ApplicationInfoTypeDef]
+    applicationsInfo: list[ApplicationInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateApplicationOutputTypeDef(TypedDict):
@@ -625,7 +620,7 @@ class CreateDeploymentOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteDeploymentGroupOutputTypeDef(TypedDict):
-    hooksNotCleanedUp: List[AutoScalingGroupTypeDef]
+    hooksNotCleanedUp: list[AutoScalingGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteGitHubAccountTokenOutputTypeDef(TypedDict):
@@ -640,48 +635,48 @@ class GetApplicationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApplicationsOutputTypeDef(TypedDict):
-    applications: List[str]
+    applications: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListDeploymentConfigsOutputTypeDef(TypedDict):
-    deploymentConfigsList: List[str]
+    deploymentConfigsList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListDeploymentGroupsOutputTypeDef(TypedDict):
     applicationName: str
-    deploymentGroups: List[str]
+    deploymentGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListDeploymentInstancesOutputTypeDef(TypedDict):
-    instancesList: List[str]
+    instancesList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListDeploymentTargetsOutputTypeDef(TypedDict):
-    targetIds: List[str]
+    targetIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListDeploymentsOutputTypeDef(TypedDict):
-    deployments: List[str]
+    deployments: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListGitHubAccountTokenNamesOutputTypeDef(TypedDict):
-    tokenNameList: List[str]
+    tokenNameList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListOnPremisesInstancesOutputTypeDef(TypedDict):
-    instanceNames: List[str]
+    instanceNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -695,7 +690,7 @@ class StopDeploymentOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateDeploymentGroupOutputTypeDef(TypedDict):
-    hooksNotCleanedUp: List[AutoScalingGroupTypeDef]
+    hooksNotCleanedUp: list[AutoScalingGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BlueGreenDeploymentConfigurationTypeDef(TypedDict):
@@ -704,7 +699,7 @@ class BlueGreenDeploymentConfigurationTypeDef(TypedDict):
     greenFleetProvisioningOption: NotRequired[GreenFleetProvisioningOptionTypeDef]
 
 class EC2TagSetOutputTypeDef(TypedDict):
-    ec2TagSetList: NotRequired[List[List[EC2TagFilterTypeDef]]]
+    ec2TagSetList: NotRequired[list[list[EC2TagFilterTypeDef]]]
 
 class EC2TagSetTypeDef(TypedDict):
     ec2TagSetList: NotRequired[Sequence[Sequence[EC2TagFilterTypeDef]]]
@@ -715,7 +710,7 @@ class ListOnPremisesInstancesInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class OnPremisesTagSetOutputTypeDef(TypedDict):
-    onPremisesTagSetList: NotRequired[List[List[TagFilterTypeDef]]]
+    onPremisesTagSetList: NotRequired[list[list[TagFilterTypeDef]]]
 
 class OnPremisesTagSetTypeDef(TypedDict):
     onPremisesTagSetList: NotRequired[Sequence[Sequence[TagFilterTypeDef]]]
@@ -792,7 +787,7 @@ class RevisionLocationTypeDef(TypedDict):
     appSpecContent: NotRequired[AppSpecContentTypeDef]
 
 class TargetGroupPairInfoOutputTypeDef(TypedDict):
-    targetGroups: NotRequired[List[TargetGroupInfoTypeDef]]
+    targetGroups: NotRequired[list[TargetGroupInfoTypeDef]]
     prodTrafficRoute: NotRequired[TrafficRouteOutputTypeDef]
     testTrafficRoute: NotRequired[TrafficRouteOutputTypeDef]
 
@@ -817,7 +812,7 @@ class TimeRangeTypeDef(TypedDict):
 TriggerConfigUnionTypeDef = Union[TriggerConfigTypeDef, TriggerConfigOutputTypeDef]
 
 class BatchGetOnPremisesInstancesOutputTypeDef(TypedDict):
-    instanceInfos: List[InstanceInfoTypeDef]
+    instanceInfos: list[InstanceInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetOnPremisesInstanceOutputTypeDef(TypedDict):
@@ -827,8 +822,8 @@ class GetOnPremisesInstanceOutputTypeDef(TypedDict):
 AlarmConfigurationUnionTypeDef = Union[AlarmConfigurationTypeDef, AlarmConfigurationOutputTypeDef]
 
 class TargetInstancesOutputTypeDef(TypedDict):
-    tagFilters: NotRequired[List[EC2TagFilterTypeDef]]
-    autoScalingGroups: NotRequired[List[str]]
+    tagFilters: NotRequired[list[EC2TagFilterTypeDef]]
+    autoScalingGroups: NotRequired[list[str]]
     ec2TagSet: NotRequired[EC2TagSetOutputTypeDef]
 
 EC2TagSetUnionTypeDef = Union[EC2TagSetTypeDef, EC2TagSetOutputTypeDef]
@@ -844,7 +839,7 @@ class CloudFormationTargetTypeDef(TypedDict):
     deploymentId: NotRequired[str]
     targetId: NotRequired[str]
     lastUpdatedAt: NotRequired[datetime]
-    lifecycleEvents: NotRequired[List[LifecycleEventTypeDef]]
+    lifecycleEvents: NotRequired[list[LifecycleEventTypeDef]]
     status: NotRequired[TargetStatusType]
     resourceType: NotRequired[str]
     targetVersionWeight: NotRequired[float]
@@ -854,7 +849,7 @@ class InstanceSummaryTypeDef(TypedDict):
     instanceId: NotRequired[str]
     status: NotRequired[InstanceStatusType]
     lastUpdatedAt: NotRequired[datetime]
-    lifecycleEvents: NotRequired[List[LifecycleEventTypeDef]]
+    lifecycleEvents: NotRequired[list[LifecycleEventTypeDef]]
     instanceType: NotRequired[InstanceTypeType]
 
 class InstanceTargetTypeDef(TypedDict):
@@ -863,7 +858,7 @@ class InstanceTargetTypeDef(TypedDict):
     targetArn: NotRequired[str]
     status: NotRequired[TargetStatusType]
     lastUpdatedAt: NotRequired[datetime]
-    lifecycleEvents: NotRequired[List[LifecycleEventTypeDef]]
+    lifecycleEvents: NotRequired[list[LifecycleEventTypeDef]]
     instanceLabel: NotRequired[TargetLabelType]
 
 class LambdaTargetTypeDef(TypedDict):
@@ -872,7 +867,7 @@ class LambdaTargetTypeDef(TypedDict):
     targetArn: NotRequired[str]
     status: NotRequired[TargetStatusType]
     lastUpdatedAt: NotRequired[datetime]
-    lifecycleEvents: NotRequired[List[LifecycleEventTypeDef]]
+    lifecycleEvents: NotRequired[list[LifecycleEventTypeDef]]
     lambdaFunctionInfo: NotRequired[LambdaFunctionInfoTypeDef]
 
 class ECSTargetTypeDef(TypedDict):
@@ -880,9 +875,9 @@ class ECSTargetTypeDef(TypedDict):
     targetId: NotRequired[str]
     targetArn: NotRequired[str]
     lastUpdatedAt: NotRequired[datetime]
-    lifecycleEvents: NotRequired[List[LifecycleEventTypeDef]]
+    lifecycleEvents: NotRequired[list[LifecycleEventTypeDef]]
     status: NotRequired[TargetStatusType]
-    taskSetsInfo: NotRequired[List[ECSTaskSetTypeDef]]
+    taskSetsInfo: NotRequired[list[ECSTaskSetTypeDef]]
 
 class BatchGetApplicationRevisionsInputTypeDef(TypedDict):
     applicationName: str
@@ -899,7 +894,7 @@ class GetApplicationRevisionOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApplicationRevisionsOutputTypeDef(TypedDict):
-    revisions: List[RevisionLocationTypeDef]
+    revisions: list[RevisionLocationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -913,9 +908,9 @@ class RevisionInfoTypeDef(TypedDict):
     genericRevisionInfo: NotRequired[GenericRevisionInfoTypeDef]
 
 class LoadBalancerInfoOutputTypeDef(TypedDict):
-    elbInfoList: NotRequired[List[ELBInfoTypeDef]]
-    targetGroupInfoList: NotRequired[List[TargetGroupInfoTypeDef]]
-    targetGroupPairInfoList: NotRequired[List[TargetGroupPairInfoOutputTypeDef]]
+    elbInfoList: NotRequired[list[ELBInfoTypeDef]]
+    targetGroupInfoList: NotRequired[list[TargetGroupInfoTypeDef]]
+    targetGroupPairInfoList: NotRequired[list[TargetGroupPairInfoOutputTypeDef]]
 
 class LoadBalancerInfoTypeDef(TypedDict):
     elbInfoList: NotRequired[Sequence[ELBInfoTypeDef]]
@@ -957,7 +952,7 @@ class ListDeploymentsInputTypeDef(TypedDict):
 TargetInstancesUnionTypeDef = Union[TargetInstancesTypeDef, TargetInstancesOutputTypeDef]
 
 class BatchGetDeploymentInstancesOutputTypeDef(TypedDict):
-    instancesSummary: List[InstanceSummaryTypeDef]
+    instancesSummary: list[InstanceSummaryTypeDef]
     errorMessage: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -975,7 +970,7 @@ class DeploymentTargetTypeDef(TypedDict):
 class BatchGetApplicationRevisionsOutputTypeDef(TypedDict):
     applicationName: str
     errorMessage: str
-    revisions: List[RevisionInfoTypeDef]
+    revisions: list[RevisionInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeploymentGroupInfoTypeDef(TypedDict):
@@ -983,12 +978,12 @@ class DeploymentGroupInfoTypeDef(TypedDict):
     deploymentGroupId: NotRequired[str]
     deploymentGroupName: NotRequired[str]
     deploymentConfigName: NotRequired[str]
-    ec2TagFilters: NotRequired[List[EC2TagFilterTypeDef]]
-    onPremisesInstanceTagFilters: NotRequired[List[TagFilterTypeDef]]
-    autoScalingGroups: NotRequired[List[AutoScalingGroupTypeDef]]
+    ec2TagFilters: NotRequired[list[EC2TagFilterTypeDef]]
+    onPremisesInstanceTagFilters: NotRequired[list[TagFilterTypeDef]]
+    autoScalingGroups: NotRequired[list[AutoScalingGroupTypeDef]]
     serviceRoleArn: NotRequired[str]
     targetRevision: NotRequired[RevisionLocationTypeDef]
-    triggerConfigurations: NotRequired[List[TriggerConfigOutputTypeDef]]
+    triggerConfigurations: NotRequired[list[TriggerConfigOutputTypeDef]]
     alarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
     autoRollbackConfiguration: NotRequired[AutoRollbackConfigurationOutputTypeDef]
     deploymentStyle: NotRequired[DeploymentStyleTypeDef]
@@ -1000,7 +995,7 @@ class DeploymentGroupInfoTypeDef(TypedDict):
     ec2TagSet: NotRequired[EC2TagSetOutputTypeDef]
     onPremisesTagSet: NotRequired[OnPremisesTagSetOutputTypeDef]
     computePlatform: NotRequired[ComputePlatformType]
-    ecsServices: NotRequired[List[ECSServiceTypeDef]]
+    ecsServices: NotRequired[list[ECSServiceTypeDef]]
     terminationHookEnabled: NotRequired[bool]
 
 class DeploymentInfoTypeDef(TypedDict):
@@ -1029,7 +1024,7 @@ class DeploymentInfoTypeDef(TypedDict):
     loadBalancerInfo: NotRequired[LoadBalancerInfoOutputTypeDef]
     additionalDeploymentStatusInfo: NotRequired[str]
     fileExistsBehavior: NotRequired[FileExistsBehaviorType]
-    deploymentStatusMessages: NotRequired[List[str]]
+    deploymentStatusMessages: NotRequired[list[str]]
     computePlatform: NotRequired[ComputePlatformType]
     externalId: NotRequired[str]
     relatedDeployments: NotRequired[RelatedDeploymentsTypeDef]
@@ -1055,7 +1050,7 @@ class CreateDeploymentInputTypeDef(TypedDict):
     overrideAlarmConfiguration: NotRequired[AlarmConfigurationUnionTypeDef]
 
 class BatchGetDeploymentTargetsOutputTypeDef(TypedDict):
-    deploymentTargets: List[DeploymentTargetTypeDef]
+    deploymentTargets: list[DeploymentTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetDeploymentTargetOutputTypeDef(TypedDict):
@@ -1063,7 +1058,7 @@ class GetDeploymentTargetOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetDeploymentGroupsOutputTypeDef(TypedDict):
-    deploymentGroupsInfo: List[DeploymentGroupInfoTypeDef]
+    deploymentGroupsInfo: list[DeploymentGroupInfoTypeDef]
     errorMessage: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1072,7 +1067,7 @@ class GetDeploymentGroupOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetDeploymentsOutputTypeDef(TypedDict):
-    deploymentsInfo: List[DeploymentInfoTypeDef]
+    deploymentsInfo: list[DeploymentInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetDeploymentOutputTypeDef(TypedDict):

@@ -13,6 +13,7 @@ from langgraph.checkpoint.memory import PersistentDict
 from typing_extensions import TypedDict
 
 from langgraph_runtime_inmem import store
+from langgraph_runtime_inmem._persistence import register_persistent_dict
 from langgraph_runtime_inmem.inmem_stream import start_stream, stop_stream
 
 if TYPE_CHECKING:
@@ -114,6 +115,10 @@ class InMemoryRetryCounter:
 GLOBAL_RETRY_COUNTER = InMemoryRetryCounter()
 GLOBAL_STORE = GlobalStore(filename=OPS_FILENAME)
 
+# Register for periodic flushing
+register_persistent_dict(GLOBAL_STORE)
+register_persistent_dict(GLOBAL_RETRY_COUNTER._counters)
+
 
 class InMemConnectionProto:
     def __init__(self):
@@ -142,7 +147,9 @@ class InMemConnectionProto:
 
 
 @asynccontextmanager
-async def connect(*, __test__: bool = False) -> AsyncIterator["AsyncConnectionProto"]:
+async def connect(
+    *, supports_core_api: bool = False, __test__: bool = False
+) -> AsyncIterator["AsyncConnectionProto"]:
     yield InMemConnectionProto()
 
 

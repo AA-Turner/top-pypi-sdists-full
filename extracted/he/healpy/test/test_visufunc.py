@@ -27,12 +27,22 @@ class TestNoCrash(unittest.TestCase):
     def test_cartview_nocrash(self):
         cartview(self.m)
 
+    def test_cartview_no_arguments(self):
+        # Test that cartview() can be called with no arguments
+        # This should create a blank map without errors
+        cartview()
+
     def test_cartview_crash(self):
         with self.assertRaises(TypeError):
             cartview(self.m_wrong_npix)
 
     def test_mollview_nocrash(self):
         mollview(self.m)
+
+    def test_mollview_no_arguments(self):
+        # Test that mollview() can be called with no arguments
+        # This should create a blank map without errors
+        mollview()
 
     def test_mollview_crash(self):
         with self.assertRaises(TypeError):
@@ -41,6 +51,11 @@ class TestNoCrash(unittest.TestCase):
     def test_gnomview_nocrash(self):
         gnomview(self.m)
 
+    def test_gnomview_no_arguments(self):
+        # Test that gnomview() can be called with no arguments
+        # This should create a blank map without errors
+        gnomview()
+
     def test_gnomview_crash(self):
         with self.assertRaises(TypeError):
             gnomview(self.m_wrong_npix)
@@ -48,12 +63,22 @@ class TestNoCrash(unittest.TestCase):
     def test_orthview_nocrash(self):
         orthview(self.m)
 
+    def test_orthview_no_arguments(self):
+        # Test that orthview() can be called with no arguments
+        # This should create a blank map without errors
+        orthview()
+
     def test_orthview_crash(self):
         with self.assertRaises(TypeError):
             orthview(self.m_wrong_npix)
 
     def test_azeqview_nocrash(self):
         azeqview(self.m)
+
+    def test_azeqview_no_arguments(self):
+        # Test that azeqview() can be called with no arguments
+        # This should create a blank map without errors
+        azeqview()
 
     def test_azeqview_crash(self):
         with self.assertRaises(TypeError):
@@ -120,3 +145,52 @@ class TestNoCrash(unittest.TestCase):
         orthview(self.m, reuse_axes=True)
         azeqview(self.m)
         azeqview(self.m, reuse_axes=True)
+
+    def test_colormap_object_preservation(self):
+        """Test that user-modified Colormap objects preserve their colors"""
+        from healpy.projaxes import create_colormap
+        
+        # Test 1: String colormap should apply badcolor/bgcolor
+        cm1 = create_colormap('viridis', badcolor='red', bgcolor='blue')
+        bad_is_red = np.allclose(cm1._rgba_bad[:3], [1.0, 0.0, 0.0])
+        under_is_blue = np.allclose(cm1._rgba_under[:3], [0.0, 0.0, 1.0])
+        assert bad_is_red, "String colormap should apply badcolor"
+        assert under_is_blue, "String colormap should apply bgcolor"
+        
+        # Test 2: Colormap object with pre-set colors should preserve them
+        cmap_obj = plt.get_cmap('viridis').copy()
+        cmap_obj.set_bad('white')
+        cmap_obj.set_under('yellow')
+        
+        cm2 = create_colormap(cmap_obj, badcolor='red', bgcolor='blue')
+        bad_is_white = np.allclose(cm2._rgba_bad[:3], [1.0, 1.0, 1.0])
+        under_is_yellow = np.allclose(cm2._rgba_under[:3], [1.0, 1.0, 0.0])
+        assert bad_is_white, "Colormap object should preserve bad color"
+        assert under_is_yellow, "Colormap object should preserve under color"
+        
+        # Test 3: None should apply badcolor/bgcolor (backward compatibility)
+        cm3 = create_colormap(None, badcolor='red', bgcolor='blue')
+        bad_is_red = np.allclose(cm3._rgba_bad[:3], [1.0, 0.0, 0.0])
+        under_is_blue = np.allclose(cm3._rgba_under[:3], [0.0, 0.0, 1.0])
+        assert bad_is_red, "None colormap should apply badcolor"
+        assert under_is_blue, "None colormap should apply bgcolor"
+    
+    def test_mollview_with_colormap_object(self):
+        """Test that mollview preserves user-modified Colormap object colors"""
+        # Create a colormap with custom bad/under colors
+        cmap = plt.get_cmap('viridis').copy()
+        cmap.set_bad('white')
+        cmap.set_under('yellow')
+        
+        # Call mollview with the colormap object
+        mollview(self.m, cmap=cmap)
+        
+        # Get the colormap from the plot
+        ax = plt.gca()
+        if hasattr(ax, 'images') and len(ax.images) > 0:
+            plot_cmap = ax.images[0].get_cmap()
+            # Verify colors are preserved
+            bad_is_white = np.allclose(plot_cmap._rgba_bad[:3], [1.0, 1.0, 1.0])
+            under_is_yellow = np.allclose(plot_cmap._rgba_under[:3], [1.0, 1.0, 0.0])
+            assert bad_is_white, "mollview should preserve Colormap bad color"
+            assert under_is_yellow, "mollview should preserve Colormap under color"

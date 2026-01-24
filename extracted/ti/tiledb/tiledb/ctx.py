@@ -81,6 +81,12 @@ class Config(lt.Config):
         :raises: :py:exc:`tiledb.TileDBError`
 
         """
+        if key is None:
+            raise ValueError("Config key cannot be None")
+
+        if value is None:
+            value = ""
+
         self.set(str(key), str(value))
 
     def get(self, key: str, raise_keyerror: bool = True):
@@ -445,6 +451,18 @@ class Ctx(lt.Context):
             print(output)
         else:
             return output
+
+    def data_protocol(self, uri: str):
+        """Returns the data protocol version for the given URI.
+
+        :param uri: URI to check for data protocol version
+        :return: DataProtocol enum value (DATA_PROTOCOL_V2 or DATA_PROTOCOL_V3)
+        :rtype: tiledb.DataProtocol
+
+        For TileDB Cloud URIs (tiledb://), returns either v2 (legacy) or v3 (TileDB 3.0+).
+        For non-TileDB URIs (S3, Azure, GCS, etc.), returns v2.
+        """
+        return super().data_protocol(uri)
 
 
 class CtxMixin:

@@ -26,6 +26,7 @@ from localstack.aws.api.opensearch import (
     CognitoOptions,
     CognitoOptionsStatus,
     ColdStorageOptions,
+    CompatibleVersionsMap,
     CreateDomainRequest,
     CreateDomainResponse,
     DeleteDomainResponse,
@@ -75,7 +76,6 @@ from localstack.aws.api.opensearch import (
     VolumeType,
     VPCDerivedInfoStatus,
 )
-from localstack.constants import OPENSEARCH_DEFAULT_VERSION
 from localstack.services.opensearch import versions
 from localstack.services.opensearch.cluster import SecurityOptions
 from localstack.services.opensearch.cluster_manager import (
@@ -84,6 +84,7 @@ from localstack.services.opensearch.cluster_manager import (
     create_cluster_manager,
 )
 from localstack.services.opensearch.models import OpenSearchStore, opensearch_stores
+from localstack.services.opensearch.packages import OPENSEARCH_DEFAULT_VERSION
 from localstack.services.plugins import ServiceLifecycleHook
 from localstack.state import AssetDirectory, StateVisitor
 from localstack.utils.aws.arns import parse_arn
@@ -113,6 +114,11 @@ DEFAULT_OPENSEARCH_DOMAIN_ENDPOINT_OPTIONS = DomainEndpointOptions(
     EnforceHTTPS=False,
     TLSSecurityPolicy=TLSSecurityPolicy.Policy_Min_TLS_1_0_2019_07,
     CustomEndpointEnabled=False,
+)
+
+DEFAULT_AUTOTUNE_OPTIONS = AutoTuneOptionsOutput(
+    State=AutoTuneState.ENABLED,
+    UseOffPeakWindow=False,
 )
 
 
@@ -202,6 +208,13 @@ def _status_to_config(status: DomainStatus) -> DomainConfig:
     cluster_cfg = status.get("ClusterConfig") or {}
     default_cfg = DEFAULT_OPENSEARCH_CLUSTER_CONFIG
     config_status = get_domain_config_status()
+    autotune_options = status.get("AutoTuneOptions") or DEFAULT_AUTOTUNE_OPTIONS
+    autotune_state = autotune_options.get("State") or AutoTuneState.ENABLED
+    desired_state = (
+        AutoTuneDesiredState.ENABLED
+        if autotune_state == AutoTuneState.ENABLED
+        else AutoTuneDesiredState.DISABLED
+    )
     return DomainConfig(
         AccessPolicies=AccessPoliciesStatus(
             Options=status.get("AccessPolicies", ""),
@@ -274,15 +287,16 @@ def _status_to_config(status: DomainStatus) -> DomainConfig:
         ),
         AutoTuneOptions=AutoTuneOptionsStatus(
             Options=AutoTuneOptions(
-                DesiredState=AutoTuneDesiredState.ENABLED,
+                DesiredState=desired_state,
                 RollbackOnDisable=RollbackOnDisable.NO_ROLLBACK,
                 MaintenanceSchedules=[],
+                UseOffPeakWindow=autotune_options.get("UseOffPeakWindow", False),
             ),
             Status=AutoTuneStatus(
                 CreationDate=config_status.get("CreationDate"),
                 UpdateDate=config_status.get("UpdateDate"),
                 UpdateVersion=config_status.get("UpdateVersion"),
-                State=AutoTuneState.ENABLED,
+                State=autotune_state,
                 PendingDeletion=config_status.get("PendingDeletion"),
             ),
         ),
@@ -313,6 +327,22 @@ def get_domain_status(
         stored_status = deepcopy(stored_status)
         stored_status.update(request)
         default_cfg.update(request.get("ClusterConfig", {}))
+
+    autotune_options = stored_status.get("AutoTuneOptions") or deepcopy(DEFAULT_AUTOTUNE_OPTIONS)
+    if request and (request_options := request.get("AutoTuneOptions")):
+        desired_state = request_options.get("DesiredState") or AutoTuneDesiredState.ENABLED
+        state = (
+            AutoTuneState.ENABLED
+            if desired_state == AutoTuneDesiredState.ENABLED
+            else AutoTuneState.DISABLED
+        )
+        autotune_options = AutoTuneOptionsOutput(
+            State=state,
+            UseOffPeakWindow=request_options.get(
+                "UseOffPeakWindow", autotune_options.get("UseOffPeakWindow", False)
+            ),
+        )
+    stored_status["AutoTuneOptions"] = autotune_options
 
     domain_processing_status = stored_status.get("DomainProcessingStatus", None)
     processing = stored_status.get("Processing", True)
@@ -376,7 +406,10 @@ def get_domain_status(
         AdvancedSecurityOptions=AdvancedSecurityOptions(
             Enabled=False, InternalUserDatabaseEnabled=False
         ),
-        AutoTuneOptions=AutoTuneOptionsOutput(State=AutoTuneState.ENABLE_IN_PROGRESS),
+        AutoTuneOptions=AutoTuneOptionsOutput(
+            State=stored_status.get("AutoTuneOptions", {}).get("State"),
+            UseOffPeakWindow=autotune_options.get("UseOffPeakWindow", False),
+        ),
     )
     return new_status
 
@@ -581,6 +614,24 @@ class OpensearchProvider(OpensearchApi, ServiceLifecycleHook):
             if domain_status is None:
                 raise ResourceNotFoundException(f"Domain not found: {domain_key.domain_name}")
 
+            if payload.get("AutoTuneOptions"):
+                auto_request = payload.pop("AutoTuneOptions")
+                desired_state = auto_request.get("DesiredState") or AutoTuneDesiredState.ENABLED
+
+                state = (
+                    AutoTuneState.ENABLED
+                    if desired_state == AutoTuneDesiredState.ENABLED
+                    else AutoTuneState.DISABLED
+                )
+
+                current_autotune = domain_status.get("AutoTuneOptions", {})
+                domain_status["AutoTuneOptions"] = AutoTuneOptionsOutput(
+                    State=state,
+                    UseOffPeakWindow=auto_request.get(
+                        "UseOffPeakWindow", current_autotune.get("UseOffPeakWindow", False)
+                    ),
+                )
+
             status_update: dict = _update_domain_config_request_to_status(payload)
             domain_status.update(status_update)
 
@@ -650,6 +701,10 @@ class OpensearchProvider(OpensearchApi, ServiceLifecycleHook):
                 for comp in versions.compatible_versions
                 if comp["SourceVersion"] == version_filter
             ]
+            if not compatible_versions:
+                compatible_versions = [
+                    CompatibleVersionsMap(SourceVersion=version_filter, TargetVersions=[])
+                ]
         return GetCompatibleVersionsResponse(CompatibleVersions=compatible_versions)
 
     def describe_domain_config(

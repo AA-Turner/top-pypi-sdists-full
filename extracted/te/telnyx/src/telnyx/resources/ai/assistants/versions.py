@@ -20,16 +20,15 @@ from ...._base_client import make_request_options
 from ....types.ai.assistants import version_update_params, version_retrieve_params
 from ....types.ai.assistants_list import AssistantsList
 from ....types.ai.enabled_features import EnabledFeatures
+from ....types.ai.inference_embedding import InferenceEmbedding
 from ....types.ai.assistant_tool_param import AssistantToolParam
 from ....types.ai.voice_settings_param import VoiceSettingsParam
+from ....types.ai.widget_settings_param import WidgetSettingsParam
 from ....types.ai.insight_settings_param import InsightSettingsParam
 from ....types.ai.privacy_settings_param import PrivacySettingsParam
 from ....types.ai.messaging_settings_param import MessagingSettingsParam
 from ....types.ai.telephony_settings_param import TelephonySettingsParam
 from ....types.ai.transcription_settings_param import TranscriptionSettingsParam
-from ....types.ai.assistants.version_update_response import VersionUpdateResponse
-from ....types.ai.assistants.version_promote_response import VersionPromoteResponse
-from ....types.ai.assistants.version_retrieve_response import VersionRetrieveResponse
 
 __all__ = ["VersionsResource", "AsyncVersionsResource"]
 
@@ -66,7 +65,7 @@ class VersionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> VersionRetrieveResponse:
+    ) -> InferenceEmbedding:
         """
         Retrieves a specific version of an assistant by assistant_id and version_id
 
@@ -94,7 +93,7 @@ class VersionsResource(SyncAPIResource):
                     {"include_mcp_servers": include_mcp_servers}, version_retrieve_params.VersionRetrieveParams
                 ),
             ),
-            cast_to=VersionRetrieveResponse,
+            cast_to=InferenceEmbedding,
         )
 
     def update(
@@ -118,13 +117,14 @@ class VersionsResource(SyncAPIResource):
         tools: Iterable[AssistantToolParam] | Omit = omit,
         transcription: TranscriptionSettingsParam | Omit = omit,
         voice_settings: VoiceSettingsParam | Omit = omit,
+        widget_settings: WidgetSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> VersionUpdateResponse:
+    ) -> InferenceEmbedding:
         """Updates the configuration of a specific assistant version.
 
         Can not update main
@@ -140,23 +140,28 @@ class VersionsResource(SyncAPIResource):
 
           greeting: Text that the assistant will use to start the conversation. This may be
               templated with
-              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables).
+              Use an empty string to have the assistant wait for the user to speak first. Use
+              the special value `<assistant-speaks-first-with-model-generated-message>` to
+              have the assistant generate the greeting based on the system instructions.
 
           instructions: System instructions for the assistant. These may be templated with
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
 
           llm_api_key_ref: This is only needed when using third-party inference providers. The `identifier`
               for an integration secret
-              [/v2/integration_secrets](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+              [/v2/integration_secrets](https://developers.telnyx.com/api-reference/integration-secrets/create-a-secret)
               that refers to your LLM provider's API key. Warning: Free plans are unlikely to
               work with this integration.
 
           model: ID of the model to use. You can use the
-              [Get models API](https://developers.telnyx.com/api/inference/inference-embedding/get-models-public-models-get)
+              [Get models API](https://developers.telnyx.com/api-reference/chat/get-available-models)
               to see all of your available models,
 
           tools: The tools that the assistant can use. These may be templated with
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+
+          widget_settings: Configuration settings for the assistant's web widget.
 
           extra_headers: Send extra headers
 
@@ -190,13 +195,14 @@ class VersionsResource(SyncAPIResource):
                     "tools": tools,
                     "transcription": transcription,
                     "voice_settings": voice_settings,
+                    "widget_settings": widget_settings,
                 },
                 version_update_params.VersionUpdateParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=VersionUpdateResponse,
+            cast_to=InferenceEmbedding,
         )
 
     def list(
@@ -283,7 +289,7 @@ class VersionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> VersionPromoteResponse:
+    ) -> InferenceEmbedding:
         """
         Promotes a specific version to be the main/current version of the assistant.
         This will delete any existing canary deploy configuration and send all live
@@ -307,7 +313,7 @@ class VersionsResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=VersionPromoteResponse,
+            cast_to=InferenceEmbedding,
         )
 
 
@@ -343,7 +349,7 @@ class AsyncVersionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> VersionRetrieveResponse:
+    ) -> InferenceEmbedding:
         """
         Retrieves a specific version of an assistant by assistant_id and version_id
 
@@ -371,7 +377,7 @@ class AsyncVersionsResource(AsyncAPIResource):
                     {"include_mcp_servers": include_mcp_servers}, version_retrieve_params.VersionRetrieveParams
                 ),
             ),
-            cast_to=VersionRetrieveResponse,
+            cast_to=InferenceEmbedding,
         )
 
     async def update(
@@ -395,13 +401,14 @@ class AsyncVersionsResource(AsyncAPIResource):
         tools: Iterable[AssistantToolParam] | Omit = omit,
         transcription: TranscriptionSettingsParam | Omit = omit,
         voice_settings: VoiceSettingsParam | Omit = omit,
+        widget_settings: WidgetSettingsParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> VersionUpdateResponse:
+    ) -> InferenceEmbedding:
         """Updates the configuration of a specific assistant version.
 
         Can not update main
@@ -417,23 +424,28 @@ class AsyncVersionsResource(AsyncAPIResource):
 
           greeting: Text that the assistant will use to start the conversation. This may be
               templated with
-              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+              [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables).
+              Use an empty string to have the assistant wait for the user to speak first. Use
+              the special value `<assistant-speaks-first-with-model-generated-message>` to
+              have the assistant generate the greeting based on the system instructions.
 
           instructions: System instructions for the assistant. These may be templated with
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
 
           llm_api_key_ref: This is only needed when using third-party inference providers. The `identifier`
               for an integration secret
-              [/v2/integration_secrets](https://developers.telnyx.com/api/secrets-manager/integration-secrets/create-integration-secret)
+              [/v2/integration_secrets](https://developers.telnyx.com/api-reference/integration-secrets/create-a-secret)
               that refers to your LLM provider's API key. Warning: Free plans are unlikely to
               work with this integration.
 
           model: ID of the model to use. You can use the
-              [Get models API](https://developers.telnyx.com/api/inference/inference-embedding/get-models-public-models-get)
+              [Get models API](https://developers.telnyx.com/api-reference/chat/get-available-models)
               to see all of your available models,
 
           tools: The tools that the assistant can use. These may be templated with
               [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables)
+
+          widget_settings: Configuration settings for the assistant's web widget.
 
           extra_headers: Send extra headers
 
@@ -467,13 +479,14 @@ class AsyncVersionsResource(AsyncAPIResource):
                     "tools": tools,
                     "transcription": transcription,
                     "voice_settings": voice_settings,
+                    "widget_settings": widget_settings,
                 },
                 version_update_params.VersionUpdateParams,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=VersionUpdateResponse,
+            cast_to=InferenceEmbedding,
         )
 
     async def list(
@@ -560,7 +573,7 @@ class AsyncVersionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> VersionPromoteResponse:
+    ) -> InferenceEmbedding:
         """
         Promotes a specific version to be the main/current version of the assistant.
         This will delete any existing canary deploy configuration and send all live
@@ -584,7 +597,7 @@ class AsyncVersionsResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=VersionPromoteResponse,
+            cast_to=InferenceEmbedding,
         )
 
 

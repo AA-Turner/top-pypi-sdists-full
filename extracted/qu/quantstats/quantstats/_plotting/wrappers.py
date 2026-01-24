@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: UTF-8 -*-
 #
 # Quantreturns: Portfolio analytics for quants
 # https://github.com/ranaroussi/quantreturns
@@ -18,7 +17,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import warnings
+from typing import TYPE_CHECKING, Any
+
 import matplotlib.pyplot as _plt
 from matplotlib.ticker import (
     StrMethodFormatter as _StrMethodFormatter,
@@ -30,13 +33,34 @@ import pandas as _pd
 from .._compat import safe_resample
 import seaborn as _sns
 
-from .. import (
-    stats as _stats,
-    utils as _utils,
-)
+# Lazy imports to avoid circular dependency during package initialization
+# These modules are imported when first accessed via _get_stats() and _get_utils()
+_stats = None
+_utils = None
+
+
+def _get_stats():
+    global _stats
+    if _stats is None:
+        from .. import stats
+        _stats = stats
+    return _stats
+
+
+def _get_utils():
+    global _utils
+    if _utils is None:
+        from .. import utils
+        _utils = utils
+    return _utils
 
 from . import core as _core
 
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure as _Figure
+
+# Type alias for return data (Series or DataFrame)
+Returns = _pd.Series | _pd.DataFrame
 
 _FLATUI_COLORS = ["#fedd78", "#348dc1", "#af4b64", "#4fa487", "#9b59b6", "#808080"]
 _GRAYSCALE_COLORS = (len(_FLATUI_COLORS) * ["black"]) + ["white"]
@@ -51,7 +75,7 @@ except ImportError:
     pass
 
 
-def to_plotly(fig):
+def to_plotly(fig: _Figure) -> _Figure:
     """
     Convert a matplotlib figure to a Plotly interactive plot.
 
@@ -84,19 +108,19 @@ def to_plotly(fig):
 
 
 def snapshot(
-    returns,
-    grayscale=False,
-    figsize=(10, 8),
-    title="Portfolio Summary",
-    fontname="Arial",
-    lw=1.5,
-    mode="comp",
-    subtitle=True,
-    savefig=None,
-    show=True,
-    log_scale=False,
+    returns: Returns,
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 8),
+    title: str = "Portfolio Summary",
+    fontname: str = "Arial",
+    lw: float = 1.5,
+    mode: str = "comp",
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    log_scale: bool = False,
     **kwargs,
-):
+) -> _Figure | None:
     """
     Generate a comprehensive portfolio performance snapshot with multiple subplots.
 
@@ -161,7 +185,7 @@ def snapshot(
     # Select color scheme based on grayscale preference
     colors = _GRAYSCALE_COLORS if grayscale else _FLATUI_COLORS
     # Convert to portfolio format and calculate percentage changes
-    returns = _utils.make_portfolio(returns.dropna(), 1, mode).pct_change(fill_method=None).fillna(0)
+    returns = _get_utils().make_portfolio(returns.dropna(), 1, mode).pct_change(fill_method=None).fillna(0)
 
     # Use current figure size if not specified
     if figsize is None:
@@ -210,7 +234,7 @@ def snapshot(
                 % (
                     returns.index.date[:1][0].strftime("%e %b '%y"),  # type: ignore
                     returns.index.date[-1:][0].strftime("%e %b '%y"),  # type: ignore
-                    _stats.sharpe(returns),
+                    _get_stats().sharpe(returns),
                 ),
                 fontsize=12,
                 color="gray",
@@ -237,7 +261,7 @@ def snapshot(
         if mode.lower() in ["cumsum", "sum"]:
             cum_ret = returns.cumsum() * 100
         else:
-            cum_ret = _stats.compsum(returns) * 100
+            cum_ret = _get_stats().compsum(returns) * 100
         # Plot cumulative returns line
         axes[0].plot(
             cum_ret,
@@ -251,7 +275,7 @@ def snapshot(
             if mode.lower() in ["cumsum", "sum"]:
                 cum_ret = returns[col].cumsum() * 100
             else:
-                cum_ret = _stats.compsum(returns[col]) * 100
+                cum_ret = _get_stats().compsum(returns[col]) * 100
             axes[0].plot(
                 cum_ret,
                 label=col,
@@ -266,17 +290,17 @@ def snapshot(
     # axes[0].legend(fontsize=12)
 
     # Configure second subplot: Drawdown
-    dd = _stats.to_drawdown_series(returns) * 100
+    dd = _get_stats().to_drawdown_series(returns) * 100
     # Calculate appropriate tick spacing for drawdown
-    ddmin = _utils._round_to_closest(abs(dd.min()), 5)
+    ddmin = _get_utils()._round_to_closest(abs(dd.min()), 5)
     ddmin_ticks = 5
     if ddmin > 50:
         ddmin_ticks = ddmin / 4
     elif ddmin > 20:
         ddmin_ticks = ddmin / 3
-    ddmin_ticks = int(_utils._round_to_closest(ddmin_ticks, 5))
+    ddmin_ticks = int(_get_utils()._round_to_closest(ddmin_ticks, 5))
 
-    # ddmin_ticks = int(_utils._round_to_closest(ddmin, 5))
+    # ddmin_ticks = int(_get_utils()._round_to_closest(ddmin, 5))
     axes[1].set_ylabel("Drawdown", fontname=fontname, fontweight="bold", fontsize=12)
     axes[1].set_yticks(_np.arange(-ddmin, 0, step=ddmin_ticks))
 
@@ -324,15 +348,15 @@ def snapshot(
     # axes[2].legend(fontsize=12)
 
     # Calculate appropriate tick spacing for daily returns
-    retmax = _utils._round_to_closest(returns.max() * 100, 5)
-    retmin = _utils._round_to_closest(returns.min() * 100, 5)
+    retmax = _get_utils()._round_to_closest(returns.max() * 100, 5)
+    retmin = _get_utils()._round_to_closest(returns.min() * 100, 5)
     retdiff = retmax - retmin
     steps = 5
     if retdiff > 50:
         steps = retdiff / 5
     elif retdiff > 30:
         steps = retdiff / 4
-    steps = _utils._round_to_closest(steps, 5)
+    steps = _get_utils()._round_to_closest(steps, 5)
     axes[2].set_yticks(_np.arange(retmin, retmax, step=steps))
 
     # Apply common formatting to all axes
@@ -375,18 +399,18 @@ def snapshot(
 
 
 def earnings(
-    returns,
-    start_balance=1e5,
-    mode="comp",
-    grayscale=False,
-    figsize=(10, 6),
-    title="Portfolio Earnings",
-    fontname="Arial",
-    lw=1.5,
-    subtitle=True,
-    savefig=None,
-    show=True,
-):
+    returns: Returns,
+    start_balance: float = 1e5,
+    mode: str = "comp",
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 6),
+    title: str = "Portfolio Earnings",
+    fontname: str = "Arial",
+    lw: float = 1.5,
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+) -> _Figure | None:
     """
     Plot portfolio earnings over time showing absolute dollar value growth.
 
@@ -430,7 +454,7 @@ def earnings(
     alpha = 0.5 if grayscale else 0.8
 
     # Convert returns to portfolio dollar values
-    returns = _utils.make_portfolio(returns, start_balance, mode)
+    returns = _get_utils().make_portfolio(returns, start_balance, mode)
 
     # Use current figure size if not specified
     if figsize is None:
@@ -463,10 +487,10 @@ def earnings(
             % (
                 returns.index.date[1:2][0].strftime("%e %b '%y"),  # type: ignore
                 returns.index.date[-1:][0].strftime("%e %b '%y"),  # type: ignore
-                _utils._score_str(
+                _get_utils()._score_str(
                     "${:,}".format(round(returns.values[-1] - returns.values[0], 2))
                 ),
-                _utils._score_str(
+                _get_utils()._score_str(
                     "{:,}%".format(
                         round((returns.values[-1] / returns.values[0] - 1) * 100, 2)
                     )
@@ -545,21 +569,21 @@ def earnings(
 
 
 def returns(
-    returns,
-    benchmark=None,
-    grayscale=False,
-    figsize=(10, 6),
-    fontname="Arial",
-    lw=1.5,
-    match_volatility=False,
-    compound=True,
-    resample=None,
-    ylabel="Cumulative Returns",
-    subtitle=True,
-    savefig=None,
-    show=True,
-    prepare_returns=True,
-):
+    returns: Returns,
+    benchmark: Returns | str | None = None,
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 6),
+    fontname: str = "Arial",
+    lw: float = 1.5,
+    match_volatility: bool = False,
+    compound: bool = True,
+    resample: str | None = None,
+    ylabel: str = "Cumulative Returns",
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    prepare_returns: bool = True,
+) -> _Figure | None:
     """
     Plot cumulative returns over time, optionally compared to a benchmark.
 
@@ -615,11 +639,11 @@ def returns(
             title += " (Volatility Matched)"
 
         # Prepare benchmark data to match returns index
-        benchmark = _utils._prepare_benchmark(benchmark, returns.index)
+        benchmark = _get_utils()._prepare_benchmark(benchmark, returns.index)
 
     # Prepare returns data if requested
     if prepare_returns:
-        returns = _utils._prepare_returns(returns)
+        returns = _get_utils()._prepare_returns(returns)
 
     # Use core plotting function for time series
     fig = _core.plot_timeseries(
@@ -644,21 +668,21 @@ def returns(
 
 
 def log_returns(
-    returns,
-    benchmark=None,
-    grayscale=False,
-    figsize=(10, 5),
-    fontname="Arial",
-    lw=1.5,
-    match_volatility=False,
-    compound=True,
-    resample=None,
-    ylabel="Cumulative Returns",
-    subtitle=True,
-    savefig=None,
-    show=True,
-    prepare_returns=True,
-):
+    returns: Returns,
+    benchmark: Returns | str | None = None,
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 5),
+    fontname: str = "Arial",
+    lw: float = 1.5,
+    match_volatility: bool = False,
+    compound: bool = True,
+    resample: str | None = None,
+    ylabel: str = "Cumulative Returns",
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    prepare_returns: bool = True,
+) -> _Figure | None:
     """
     Plot cumulative returns on a logarithmic scale for better trend visualization.
 
@@ -718,10 +742,10 @@ def log_returns(
 
     # Prepare returns data if requested
     if prepare_returns:
-        returns = _utils._prepare_returns(returns)
+        returns = _get_utils()._prepare_returns(returns)
 
     # Prepare benchmark data to match returns index
-    benchmark = _utils._prepare_benchmark(benchmark, returns.index)  # type: ignore
+    benchmark = _get_utils()._prepare_benchmark(benchmark, returns.index)  # type: ignore
 
     # Use core plotting function with log scale enabled
     fig = _core.plot_timeseries(
@@ -746,20 +770,20 @@ def log_returns(
 
 
 def daily_returns(
-    returns,
-    benchmark,
-    grayscale=False,
-    figsize=(10, 4),
-    fontname="Arial",
-    lw=0.5,
-    log_scale=False,
-    ylabel="Returns",
-    subtitle=True,
-    savefig=None,
-    show=True,
-    prepare_returns=True,
-    active=False,
-):
+    returns: Returns,
+    benchmark: Returns | str | None,
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 4),
+    fontname: str = "Arial",
+    lw: float = 0.5,
+    log_scale: bool = False,
+    ylabel: str = "Returns",
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    prepare_returns: bool = True,
+    active: bool = False,
+) -> _Figure | None:
     """
     Plot daily returns over time, optionally as active returns vs benchmark.
 
@@ -804,10 +828,10 @@ def daily_returns(
     """
     # Prepare returns data if requested
     if prepare_returns:
-        returns = _utils._prepare_returns(returns)
+        returns = _get_utils()._prepare_returns(returns)
         # Calculate active returns if requested
         if active and benchmark is not None:
-            benchmark = _utils._prepare_returns(benchmark)
+            benchmark = _get_utils()._prepare_returns(benchmark)
             returns = returns - benchmark
 
     # Set plot title based on active returns setting
@@ -837,23 +861,23 @@ def daily_returns(
 
 
 def yearly_returns(
-    returns,
-    benchmark=None,
-    fontname="Arial",
-    grayscale=False,
-    hlw=1.5,
-    hlcolor="red",
-    hllabel="",
-    match_volatility=False,
-    log_scale=False,
-    figsize=(10, 5),
-    ylabel=True,
-    subtitle=True,
-    compounded=True,
-    savefig=None,
-    show=True,
-    prepare_returns=True,
-):
+    returns: Returns,
+    benchmark: Returns | str | None = None,
+    fontname: str = "Arial",
+    grayscale: bool = False,
+    hlw: float = 1.5,
+    hlcolor: str = "red",
+    hllabel: str = "",
+    match_volatility: bool = False,
+    log_scale: bool = False,
+    figsize: tuple[float, float] = (10, 5),
+    ylabel: bool = True,
+    subtitle: bool = True,
+    compounded: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    prepare_returns: bool = True,
+) -> _Figure | None:
     """
     Plot end-of-year returns as a bar chart, optionally compared to benchmark.
 
@@ -906,17 +930,17 @@ def yearly_returns(
     if benchmark is not None:
         title += "  vs Benchmark"
         # Prepare and resample benchmark data
-        benchmark = _utils._prepare_benchmark(benchmark, returns.index)
-        benchmark = safe_resample(benchmark, "YE", _stats.comp)
+        benchmark = _get_utils()._prepare_benchmark(benchmark, returns.index)
+        benchmark = safe_resample(benchmark, "YE", _get_stats().comp)
         benchmark = safe_resample(benchmark, "YE", "last")
 
     # Prepare returns data if requested
     if prepare_returns:
-        returns = _utils._prepare_returns(returns)
+        returns = _get_utils()._prepare_returns(returns)
 
     # Resample returns to year-end based on compounding preference
     if compounded:
-        returns = safe_resample(returns, "YE", _stats.comp)
+        returns = safe_resample(returns, "YE", _get_stats().comp)
     else:
         returns = safe_resample(returns, "YE", "sum")
     returns = safe_resample(returns, "YE", "last")
@@ -946,18 +970,18 @@ def yearly_returns(
 
 
 def distribution(
-    returns,
-    fontname="Arial",
-    grayscale=False,
-    ylabel=True,
-    figsize=(10, 6),
-    subtitle=True,
-    compounded=True,
-    savefig=None,
-    show=True,
-    title=None,
-    prepare_returns=True,
-):
+    returns: Returns,
+    fontname: str = "Arial",
+    grayscale: bool = False,
+    ylabel: bool = True,
+    figsize: tuple[float, float] = (10, 6),
+    subtitle: bool = True,
+    compounded: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    title: str | None = None,
+    prepare_returns: bool = True,
+) -> _Figure | None:
     """
     Plot the distribution of returns using histogram and density curves.
 
@@ -998,7 +1022,7 @@ def distribution(
     """
     # Prepare returns data if requested
     if prepare_returns:
-        returns = _utils._prepare_returns(returns)
+        returns = _get_utils()._prepare_returns(returns)
 
     # Use core plotting function for distribution
     fig = _core.plot_distribution(
@@ -1018,19 +1042,19 @@ def distribution(
 
 
 def histogram(
-    returns,
-    benchmark=None,
-    resample="ME",
-    fontname="Arial",
-    grayscale=False,
-    figsize=(10, 5),
-    ylabel=True,
-    subtitle=True,
-    compounded=True,
-    savefig=None,
-    show=True,
-    prepare_returns=True,
-):
+    returns: Returns,
+    benchmark: Returns | str | None = None,
+    resample: str = "ME",
+    fontname: str = "Arial",
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 5),
+    ylabel: bool = True,
+    subtitle: bool = True,
+    compounded: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    prepare_returns: bool = True,
+) -> _Figure | None:
     """
     Plot histogram of returns resampled to specified frequency.
 
@@ -1074,9 +1098,9 @@ def histogram(
     """
     # Prepare returns data if requested
     if prepare_returns:
-        returns = _utils._prepare_returns(returns)
+        returns = _get_utils()._prepare_returns(returns)
         if benchmark is not None:
-            benchmark = _utils._prepare_returns(benchmark)
+            benchmark = _get_utils()._prepare_returns(benchmark)
 
     # Determine title based on resampling frequency
     if resample == "W":
@@ -1108,20 +1132,20 @@ def histogram(
 
 
 def drawdown(
-    returns,
-    grayscale=False,
-    figsize=(10, 5),
-    fontname="Arial",
-    lw=1,
-    log_scale=False,
-    match_volatility=False,
-    compound=False,
-    ylabel="Drawdown",
-    resample=None,
-    subtitle=True,
-    savefig=None,
-    show=True,
-):
+    returns: Returns,
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 5),
+    fontname: str = "Arial",
+    lw: float = 1,
+    log_scale: bool = False,
+    match_volatility: bool = False,
+    compound: bool = False,
+    ylabel: str = "Drawdown",
+    resample: str | None = None,
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+) -> _Figure | None:
     """
     Plot drawdown series over time showing periods of loss from peak values.
 
@@ -1165,7 +1189,7 @@ def drawdown(
     line as reference. Useful for understanding portfolio risk and recovery periods.
     """
     # Convert returns to drawdown series
-    dd = _stats.to_drawdown_series(returns)
+    dd = _get_stats().to_drawdown_series(returns)
 
     # Use core plotting function for drawdown time series
     fig = _core.plot_timeseries(
@@ -1195,21 +1219,21 @@ def drawdown(
 
 
 def drawdowns_periods(
-    returns,
-    periods=5,
-    lw=1.5,
-    log_scale=False,
-    fontname="Arial",
-    grayscale=False,
-    title=None,
-    figsize=(10, 5),
-    ylabel=True,
-    subtitle=True,
-    compounded=True,
-    savefig=None,
-    show=True,
-    prepare_returns=True,
-):
+    returns: Returns,
+    periods: int = 5,
+    lw: float = 1.5,
+    log_scale: bool = False,
+    fontname: str = "Arial",
+    grayscale: bool = False,
+    title: str | None = None,
+    figsize: tuple[float, float] = (10, 5),
+    ylabel: bool = True,
+    subtitle: bool = True,
+    compounded: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    prepare_returns: bool = True,
+) -> _Figure | None:
     """
     Plot the longest drawdown periods as separate lines for detailed analysis.
 
@@ -1256,7 +1280,7 @@ def drawdowns_periods(
     """
     # Prepare returns data if requested
     if prepare_returns:
-        returns = _utils._prepare_returns(returns)
+        returns = _get_utils()._prepare_returns(returns)
 
     # Use core plotting function for longest drawdown periods
     fig = _core.plot_longest_drawdowns(
@@ -1279,22 +1303,22 @@ def drawdowns_periods(
 
 
 def rolling_beta(
-    returns,
-    benchmark,
-    window1=126,
-    window1_label="6-Months",
-    window2=252,
-    window2_label="12-Months",
-    lw=1.5,
-    fontname="Arial",
-    grayscale=False,
-    figsize=(10, 3),
-    ylabel=True,
-    subtitle=True,
-    savefig=None,
-    show=True,
-    prepare_returns=True,
-):
+    returns: Returns,
+    benchmark: Returns | str,
+    window1: int = 126,
+    window1_label: str = "6-Months",
+    window2: int = 252,
+    window2_label: str = "12-Months",
+    lw: float = 1.5,
+    fontname: str = "Arial",
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 3),
+    ylabel: bool = True,
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    prepare_returns: bool = True,
+) -> _Figure | None:
     """
     Plot rolling beta coefficients over time using multiple window sizes.
 
@@ -1343,10 +1367,10 @@ def rolling_beta(
     """
     # Prepare returns data if requested
     if prepare_returns:
-        returns = _utils._prepare_returns(returns)
+        returns = _get_utils()._prepare_returns(returns)
 
     # Prepare benchmark data to match returns index
-    benchmark = _utils._prepare_benchmark(benchmark, returns.index)  # type: ignore
+    benchmark = _get_utils()._prepare_benchmark(benchmark, returns.index)  # type: ignore
 
     # Use core plotting function for rolling beta
     fig = _core.plot_rolling_beta(
@@ -1371,20 +1395,20 @@ def rolling_beta(
 
 
 def rolling_volatility(
-    returns,
-    benchmark=None,
-    period=126,
-    period_label="6-Months",
-    periods_per_year=252,
-    lw=1.5,
-    fontname="Arial",
-    grayscale=False,
-    figsize=(10, 3),
-    ylabel="Volatility",
-    subtitle=True,
-    savefig=None,
-    show=True,
-):
+    returns: Returns,
+    benchmark: Returns | str | None = None,
+    period: int = 126,
+    period_label: str = "6-Months",
+    periods_per_year: int = 252,
+    lw: float = 1.5,
+    fontname: str = "Arial",
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 3),
+    ylabel: str = "Volatility",
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+) -> _Figure | None:
     """
     Plot rolling volatility over time, optionally compared to benchmark.
 
@@ -1428,12 +1452,12 @@ def rolling_volatility(
     as horizontal reference line. Useful for understanding risk patterns over time.
     """
     # Calculate rolling volatility for returns
-    returns = _stats.rolling_volatility(returns, period, periods_per_year)
+    returns = _get_stats().rolling_volatility(returns, period, periods_per_year)
 
     # Calculate rolling volatility for benchmark if provided
     if benchmark is not None:
-        benchmark = _utils._prepare_benchmark(benchmark, returns.index)
-        benchmark = _stats.rolling_volatility(
+        benchmark = _get_utils()._prepare_benchmark(benchmark, returns.index)
+        benchmark = _get_stats().rolling_volatility(
             benchmark, period, periods_per_year, prepare_returns=False
         )
 
@@ -1458,21 +1482,21 @@ def rolling_volatility(
 
 
 def rolling_sharpe(
-    returns,
-    benchmark=None,
-    rf=0.0,
-    period=126,
-    period_label="6-Months",
-    periods_per_year=252,
-    lw=1.25,
-    fontname="Arial",
-    grayscale=False,
-    figsize=(10, 3),
-    ylabel="Sharpe",
-    subtitle=True,
-    savefig=None,
-    show=True,
-):
+    returns: Returns,
+    benchmark: Returns | str | None = None,
+    rf: float = 0.0,
+    period: int = 126,
+    period_label: str = "6-Months",
+    periods_per_year: int = 252,
+    lw: float = 1.25,
+    fontname: str = "Arial",
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 3),
+    ylabel: str = "Sharpe",
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+) -> _Figure | None:
     """
     Plot rolling Sharpe ratio over time, optionally compared to benchmark.
 
@@ -1518,7 +1542,7 @@ def rolling_sharpe(
     indicate better risk-adjusted performance. Includes mean Sharpe as reference.
     """
     # Calculate rolling Sharpe ratio for returns
-    returns = _stats.rolling_sharpe(
+    returns = _get_stats().rolling_sharpe(
         returns,
         rf,
         period,
@@ -1528,8 +1552,8 @@ def rolling_sharpe(
 
     # Calculate rolling Sharpe ratio for benchmark if provided
     if benchmark is not None:
-        benchmark = _utils._prepare_benchmark(benchmark, returns.index, rf)
-        benchmark = _stats.rolling_sharpe(
+        benchmark = _get_utils()._prepare_benchmark(benchmark, returns.index, rf)
+        benchmark = _get_stats().rolling_sharpe(
             benchmark, rf, period, True, periods_per_year, prepare_returns=False
         )
 
@@ -1554,21 +1578,21 @@ def rolling_sharpe(
 
 
 def rolling_sortino(
-    returns,
-    benchmark=None,
-    rf=0.0,
-    period=126,
-    period_label="6-Months",
-    periods_per_year=252,
-    lw=1.25,
-    fontname="Arial",
-    grayscale=False,
-    figsize=(10, 3),
-    ylabel="Sortino",
-    subtitle=True,
-    savefig=None,
-    show=True,
-):
+    returns: Returns,
+    benchmark: Returns | str | None = None,
+    rf: float = 0.0,
+    period: int = 126,
+    period_label: str = "6-Months",
+    periods_per_year: int = 252,
+    lw: float = 1.25,
+    fontname: str = "Arial",
+    grayscale: bool = False,
+    figsize: tuple[float, float] = (10, 3),
+    ylabel: str = "Sortino",
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+) -> _Figure | None:
     """
     Plot rolling Sortino ratio over time, optionally compared to benchmark.
 
@@ -1615,12 +1639,12 @@ def rolling_sortino(
     better downside-adjusted performance.
     """
     # Calculate rolling Sortino ratio for returns
-    returns = _stats.rolling_sortino(returns, rf, period, True, periods_per_year)
+    returns = _get_stats().rolling_sortino(returns, rf, period, True, periods_per_year)
 
     # Calculate rolling Sortino ratio for benchmark if provided
     if benchmark is not None:
-        benchmark = _utils._prepare_benchmark(benchmark, returns.index, rf)
-        benchmark = _stats.rolling_sortino(
+        benchmark = _get_utils()._prepare_benchmark(benchmark, returns.index, rf)
+        benchmark = _get_stats().rolling_sortino(
             benchmark, rf, period, True, periods_per_year, prepare_returns=False
         )
 
@@ -1645,22 +1669,22 @@ def rolling_sortino(
 
 
 def monthly_heatmap(
-    returns,
-    benchmark=None,
-    annot_size=10,
-    figsize=(8, 5),
-    cbar=True,
-    square=False,
-    returns_label="Strategy",
-    compounded=True,
-    eoy=False,
-    grayscale=False,
-    fontname="Arial",
-    ylabel=True,
-    savefig=None,
-    show=True,
-    active=False,
-):
+    returns: Returns,
+    benchmark: Returns | str | None = None,
+    annot_size: int = 10,
+    figsize: tuple[float, float] = (8, 5),
+    cbar: bool = True,
+    square: bool = False,
+    returns_label: str = "Strategy",
+    compounded: bool = True,
+    eoy: bool = False,
+    grayscale: bool = False,
+    fontname: str = "Arial",
+    ylabel: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    active: bool = False,
+) -> _Figure | None:
     """
     Create a heatmap of monthly returns showing performance across years and months.
 
@@ -1713,7 +1737,7 @@ def monthly_heatmap(
     cmap = "gray" if grayscale else "RdYlGn"
 
     # Convert to monthly returns and convert to percentage
-    returns = _stats.monthly_returns(returns, eoy=eoy, compounded=compounded) * 100
+    returns = _get_stats().monthly_returns(returns, eoy=eoy, compounded=compounded) * 100
 
     # Calculate figure height based on number of years
     fig_height = len(returns) / 2.5
@@ -1755,7 +1779,7 @@ def monthly_heatmap(
         )
         # Calculate benchmark monthly returns
         benchmark = (
-            _stats.monthly_returns(benchmark, eoy=eoy, compounded=compounded) * 100
+            _get_stats().monthly_returns(benchmark, eoy=eoy, compounded=compounded) * 100
         )
         # Calculate active returns (strategy - benchmark)
         active_returns = returns - benchmark
@@ -1845,19 +1869,19 @@ def monthly_heatmap(
 
 
 def monthly_returns(
-    returns,
-    annot_size=9,
-    figsize=(10, 5),
-    cbar=True,
-    square=False,
-    compounded=True,
-    eoy=False,
-    grayscale=False,
-    fontname="Arial",
-    ylabel=True,
-    savefig=None,
-    show=True,
-):
+    returns: Returns,
+    annot_size: int = 9,
+    figsize: tuple[float, float] = (10, 5),
+    cbar: bool = True,
+    square: bool = False,
+    compounded: bool = True,
+    eoy: bool = False,
+    grayscale: bool = False,
+    fontname: str = "Arial",
+    ylabel: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+) -> _Figure | None:
     """
     Create a heatmap of monthly returns (wrapper function for monthly_heatmap).
 
@@ -1912,4 +1936,179 @@ def monthly_returns(
         ylabel=ylabel,
         savefig=savefig,
         show=show,
+    )
+
+
+# ======== MONTE CARLO PLOTS ========
+
+
+def montecarlo(
+    mc_result_or_returns: Returns | Any,
+    sims: int = 1000,
+    bust: float | None = None,
+    goal: float | None = None,
+    seed: int | None = None,
+    title: str = "Monte Carlo Simulation",
+    figsize: tuple[float, float] = (10, 6),
+    grayscale: bool = False,
+    fontname: str = "Arial",
+    ylabel: bool = True,
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    confidence_level: float = 0.95,
+) -> _Figure | None:
+    """
+    Plot Monte Carlo simulation results.
+
+    This function can accept either a MonteCarloResult object (from qs.stats.montecarlo)
+    or a returns Series to run a new simulation.
+
+    Parameters
+    ----------
+    mc_result_or_returns : MonteCarloResult or pd.Series
+        Either a MonteCarloResult object or a returns Series to simulate.
+    sims : int, optional
+        Number of simulations (only used if returns Series provided, default: 1000).
+    bust : float, optional
+        Drawdown threshold for "bust" probability (e.g., -0.1 for -10%).
+    goal : float, optional
+        Return threshold for "goal" probability (e.g., 1.0 for +100%).
+    seed : int, optional
+        Random seed for reproducibility.
+    title : str, optional
+        Chart title (default: "Monte Carlo Simulation").
+    figsize : tuple, optional
+        Figure size (default: (10, 6)).
+    grayscale : bool, optional
+        Whether to use grayscale colors (default: False).
+    fontname : str, optional
+        Font name for labels (default: "Arial").
+    ylabel : bool, optional
+        Whether to show y-axis label (default: True).
+    subtitle : bool, optional
+        Whether to show subtitle with statistics (default: True).
+    savefig : str or dict, optional
+        Save figure parameters.
+    show : bool, optional
+        Whether to display the plot (default: True).
+    confidence_level : float, optional
+        Confidence level for shaded band (default: 0.95).
+
+    Returns
+    -------
+    matplotlib.figure.Figure or None
+        Figure object if show=False, otherwise None.
+
+    Examples
+    --------
+    >>> import quantstats as qs
+    >>> returns = qs.utils.download_returns("SPY")
+    >>> # Run simulation and plot
+    >>> qs.plots.montecarlo(returns, sims=1000, bust=-0.2, goal=0.5)
+    >>> # Or use pre-computed result
+    >>> mc = qs.stats.montecarlo(returns, sims=1000)
+    >>> mc.plot()
+    """
+    from .._montecarlo import MonteCarloResult
+
+    # Check if we received a MonteCarloResult or returns data
+    if isinstance(mc_result_or_returns, MonteCarloResult):
+        mc_result = mc_result_or_returns
+    else:
+        # Run Monte Carlo simulation
+        mc_result = _get_stats().montecarlo(
+            mc_result_or_returns,
+            sims=sims,
+            bust=bust,
+            goal=goal,
+            seed=seed,
+        )
+
+    return _core.plot_montecarlo(
+        mc_result,
+        title=title,
+        figsize=figsize,
+        grayscale=grayscale,
+        fontname=fontname,
+        ylabel=ylabel,
+        subtitle=subtitle,
+        savefig=savefig,
+        show=show,
+        confidence_level=confidence_level,
+    )
+
+
+def montecarlo_distribution(
+    mc_result_or_returns: Returns | Any,
+    sims: int = 1000,
+    seed: int | None = None,
+    title: str = "Terminal Value Distribution",
+    figsize: tuple[float, float] = (10, 6),
+    grayscale: bool = False,
+    fontname: str = "Arial",
+    ylabel: bool = True,
+    subtitle: bool = True,
+    savefig: str | dict | None = None,
+    show: bool = True,
+    bins: int = 50,
+) -> _Figure | None:
+    """
+    Plot histogram of terminal values from Monte Carlo simulation.
+
+    This function can accept either a MonteCarloResult object (from qs.stats.montecarlo)
+    or a returns Series to run a new simulation.
+
+    Parameters
+    ----------
+    mc_result_or_returns : MonteCarloResult or pd.Series
+        Either a MonteCarloResult object or a returns Series to simulate.
+    sims : int, optional
+        Number of simulations (only used if returns Series provided, default: 1000).
+    seed : int, optional
+        Random seed for reproducibility.
+    title : str, optional
+        Chart title (default: "Terminal Value Distribution").
+    figsize : tuple, optional
+        Figure size (default: (10, 6)).
+    grayscale : bool, optional
+        Whether to use grayscale colors (default: False).
+    fontname : str, optional
+        Font name for labels (default: "Arial").
+    ylabel : bool, optional
+        Whether to show y-axis label (default: True).
+    subtitle : bool, optional
+        Whether to show subtitle with statistics (default: True).
+    savefig : str or dict, optional
+        Save figure parameters.
+    show : bool, optional
+        Whether to display the plot (default: True).
+    bins : int, optional
+        Number of histogram bins (default: 50).
+
+    Returns
+    -------
+    matplotlib.figure.Figure or None
+        Figure object if show=False, otherwise None.
+    """
+    from .._montecarlo import MonteCarloResult
+
+    # Check if we received a MonteCarloResult or returns data
+    if isinstance(mc_result_or_returns, MonteCarloResult):
+        mc_result = mc_result_or_returns
+    else:
+        # Run Monte Carlo simulation
+        mc_result = _get_stats().montecarlo(mc_result_or_returns, sims=sims, seed=seed)
+
+    return _core.plot_montecarlo_distribution(
+        mc_result,
+        title=title,
+        figsize=figsize,
+        grayscale=grayscale,
+        fontname=fontname,
+        ylabel=ylabel,
+        subtitle=subtitle,
+        savefig=savefig,
+        show=show,
+        bins=bins,
     )

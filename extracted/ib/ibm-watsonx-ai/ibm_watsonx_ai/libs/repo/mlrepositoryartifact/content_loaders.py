@@ -1,30 +1,15 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 import os
 
-from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
 from ibm_watsonx_ai.libs.repo.base_constants import *
+from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
 
 lib_checker = LibraryChecker()
 
-if lib_checker.installed_libs[PYSPARK]:
-    from pyspark.ml import Pipeline, PipelineModel
-
-if lib_checker.installed_libs[SCIKIT]:
-    from ..mlrepositoryartifact.version_helper import ScikitModelBinary
-    try:
-        # note only up to scikit version 0.20.3
-        from sklearn.externals import joblib
-    except ImportError:
-        # only for scikit 0.23.*
-        import joblib
-
-    if lib_checker.installed_libs[XGBOOST]:
-        from xgboost import Booster
-        from ibm_watsonx_ai.libs.repo.mlrepositoryartifact.version_helper import XGBoostModelBinary
 
 def get_file_list(dir_path, ext):
     file_list = []
@@ -33,10 +18,13 @@ def get_file_list(dir_path, ext):
             file_list.append(os.path.join(dir_path, file))
     return file_list
 
+
 class SparkPipelineContentLoader(object):
     @staticmethod
     def load_content(content_dir):
         lib_checker.check_lib(PYSPARK)
+        from pyspark.ml import Pipeline
+
         return Pipeline.read().load(content_dir)
 
 
@@ -45,6 +33,7 @@ class MLPipelineContentLoader(object):
     def load_content(content_dir):
         lib_checker.check_lib(MLPIPELINE)
         from mlpipelinepy.mlpipeline import MLPipeline
+
         return MLPipeline.read().load(content_dir)
 
 
@@ -53,6 +42,7 @@ class IBMSparkPipelineContentLoader(object):
     def load_content(content_dir):
         lib_checker.check_lib(IBMSPARKPIPELINE)
         from pipeline import IBMSparkPipeline
+
         return IBMSparkPipeline.read().load(content_dir)
 
 
@@ -60,6 +50,8 @@ class SparkPipelineModelContentLoader(object):
     @staticmethod
     def load_content(content_dir):
         lib_checker.check_lib(PYSPARK)
+        from pyspark.ml import PipelineModel
+
         return PipelineModel.read().load(content_dir)
 
 
@@ -68,6 +60,7 @@ class MLPipelineModelContentLoader(object):
     def load_content(content_dir):
         lib_checker.check_lib(MLPIPELINE)
         from mlpipelinepy.mlpipeline import MLPipelineModel
+
         return MLPipelineModel.read().load(content_dir)
 
 
@@ -76,55 +69,84 @@ class IBMSparkPipelineModelContentLoader(object):
     def load_content(content_dir):
         lib_checker.check_lib(IBMSPARKPIPELINE)
         from pipeline import IBMSparkPipelineModel
+
         return IBMSparkPipelineModel.read().load(content_dir)
 
 
 class ScikitPipelineModelContentLoader(object):
-    INCOMPAT_MESSAGE = 'You may be trying to read with python 3 a joblib pickle generated with python 2. This feature is not supported by joblib.'
+    INCOMPAT_MESSAGE = "You may be trying to read with python 3 a joblib pickle generated with python 2. This feature is not supported by joblib."
 
     @staticmethod
     def load_content(content_dir):
+        if lib_checker.installed_libs[SCIKIT]:
+            from ..mlrepositoryartifact.version_helper import ScikitModelBinary
+
+            try:
+                # note only up to scikit version 0.20.3
+                from sklearn.externals import joblib
+            except ImportError:
+                # only for scikit 0.23.*
+                import joblib
+
+            if lib_checker.installed_libs[XGBOOST]:
+                pass
+
         lib_checker.check_lib(SCIKIT)
         extracted_files = get_file_list(content_dir, ScikitModelBinary.bin_ext())
-        if(len(extracted_files)==0):
+        if len(extracted_files) == 0:
             extracted_files = get_file_list(content_dir, ScikitModelBinary.bin_ext_v0())
             if (len(extracted_files) == 0) or (extracted_files is None):
-                raise Exception("No" + ScikitModelBinary.bin_ext() +
-                                " file found in the saved model artifact")
+                raise Exception(
+                    "No"
+                    + ScikitModelBinary.bin_ext()
+                    + " file found in the saved model artifact"
+                )
         try:
             full_file_name = extracted_files[0]
             artifact_instance = joblib.load(full_file_name)
             return artifact_instance
         except ValueError as ve_ex:
             if ScikitPipelineModelContentLoader.INCOMPAT_MESSAGE in str(ve_ex):
-                raise ValueError("Unable to load the model that was saved in Python 2.x runtime. Retry using the " +
-                                 "model saved in Python 3.5 runtime.")
+                raise ValueError(
+                    "Unable to load the model that was saved in Python 2.x runtime. Retry using the "
+                    + "model saved in Python 3.5 runtime."
+                )
             else:
                 raise ve_ex
         except Exception as ex:
-            print ('Unable to load scikit model with sklearn.externals.joblib version ' + joblib.__version__)
-            print ('Error message: ' + str(ex))
+            print(
+                "Unable to load scikit model with sklearn.externals.joblib version "
+                + joblib.__version__
+            )
+            print("Error message: " + str(ex))
             raise ex
 
 
-
 class TensorflowPipelineModelContentLoader(object):
-
     @staticmethod
-    def load_content(content_dir,session,tags):
+    def load_content(content_dir, session, tags):
         lib_checker.check_lib(TENSORFLOW)
         import tensorflow as tf
-        from ibm_watsonx_ai.libs.repo.mlrepositoryartifact.version_helper import TensorflowModelBinary
+
+        from ibm_watsonx_ai.libs.repo.mlrepositoryartifact.version_helper import (
+            TensorflowModelBinary,
+        )
 
         extracted_files = get_file_list(content_dir, TensorflowModelBinary.bin_ext())
-        if len(extracted_files)==0:
-            raise Exception("No " + TensorflowModelBinary.bin_ext() +
-                            " file found in the saved model artifact")
+        if len(extracted_files) == 0:
+            raise Exception(
+                "No "
+                + TensorflowModelBinary.bin_ext()
+                + " file found in the saved model artifact"
+            )
         try:
             from tensorflow import logging
+
             logging.set_verbosity(logging.WARN)
-            if '2.1.0' in tf.__version__:
-                metagraphdef = tf.compat.v1.saved_model.loader.load(session, tags, content_dir)
+            if "2.1.0" in tf.__version__:
+                metagraphdef = tf.compat.v1.saved_model.loader.load(
+                    session, tags, content_dir
+                )
             else:
                 metagraphdef = tf.saved_model.loader.load(session, tags, content_dir)
 
@@ -138,25 +160,24 @@ class TensorflowPipelineModelContentLoader(object):
 
             for output_key in list(sig_def.outputs.keys()):
                 tensor_name = sig_def.outputs[output_key].name
-                output_tensors[output_key] = session.graph.get_tensor_by_name(tensor_name)
+                output_tensors[output_key] = session.graph.get_tensor_by_name(
+                    tensor_name
+                )
 
-            return TensorflowRuntimeArtifact(input_tensors, output_tensors,metagraphdef,session)
+            return TensorflowRuntimeArtifact(
+                input_tensors, output_tensors, metagraphdef, session
+            )
         except Exception as ex:
-            print ('Unable to load Tensorflow model. Error: ' + str(ex))
+            print("Unable to load Tensorflow model. Error: " + str(ex))
             raise ex
 
 
 class TensorflowRuntimeArtifact(object):
-    def __init__(self,
-                 input_tensors,
-                 output_tensors,
-                 metagraphdef,
-                 session):
+    def __init__(self, input_tensors, output_tensors, metagraphdef, session):
         self.input_tensors = input_tensors
         self.output_tensors = output_tensors
         self.metagraphdef = metagraphdef
         self.session = session
-
 
     def get_input_tensors(self):
         return self.input_tensors

@@ -49,8 +49,8 @@ def validate_nested_representation(instance, value):
 
 
 class WBCoreSerializerMetaClass(SerializerMetaclass):
-    def __new__(cls, name, bases, dct):
-        _class = super().__new__(cls, name, bases, dct)
+    def __new__(cls, *args, **kwargs):  # noqa: C901
+        _class = super().__new__(cls, *args, **kwargs)
 
         if _meta := getattr(_class, "Meta", None):
             model = _meta.model
@@ -334,6 +334,7 @@ class RepresentationSerializer(WBCoreSerializerFieldMixin, ModelSerializer):
             getattr(self, "optional_get_parameters", None),
         )
         self.tree_config = tree_config
+        self.select_first_choice = kwargs.pop("select_first_choice", getattr(self, "select_first_choice", None))
         super().__init__(*args, **kwargs)
 
     def to_representation(self, value):
@@ -409,6 +410,9 @@ class RepresentationSerializer(WBCoreSerializerFieldMixin, ModelSerializer):
                 "label_key": self.label_key,
             },
         }
+
+        if self.select_first_choice:
+            representation["select_first_choice"] = True
 
         if self.help_text:
             representation["help_text"] = self.help_text

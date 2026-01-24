@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import List, Union
 
 from ...asset import Asset
 from ...call_builder.base import BaseStrictSendPathsCallBuilder
@@ -30,7 +29,7 @@ class StrictSendPathsCallBuilder(BaseCallBuilder, BaseStrictSendPathsCallBuilder
     used to determine if there a given path can satisfy a payment of the desired
     amount.
 
-    See `List Strict Send Payment Paths <https://developers.stellar.org/api/aggregations/paths/strict-send/>`__ for more information.
+    See `List Strict Send Payment Paths <https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-strict-send-payment-paths>`__ for more information.
 
     :param horizon_url: Horizon server URL.
     :param client: The client instance used to send request.
@@ -44,8 +43,8 @@ class StrictSendPathsCallBuilder(BaseCallBuilder, BaseStrictSendPathsCallBuilder
         horizon_url: str,
         client: BaseSyncClient,
         source_asset: Asset,
-        source_amount: Union[str, Decimal],
-        destination: Union[str, List[Asset]],
+        source_amount: str | Decimal,
+        destination: str | list[Asset],
     ) -> None:
         super().__init__(
             horizon_url=horizon_url,

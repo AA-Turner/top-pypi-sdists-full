@@ -7,7 +7,7 @@ use progress_tracking::{ProgressUpdate, TrackingProgressUpdater};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::PyAnyMethods;
 use pyo3::types::{IntoPyDict, PyList, PyString};
-use pyo3::{pyclass, IntoPyObjectExt, Py, PyAny, PyResult, Python};
+use pyo3::{IntoPyObjectExt, Py, PyAny, PyResult, Python, pyclass};
 use tracing::error;
 use xet_runtime::exports::tokio;
 
@@ -151,7 +151,7 @@ impl WrappedProgressUpdaterImpl {
         // increment.
         //
         // Run on compute thread that doesn't block async workers
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let func = py_func.bind(py);
 
             // Test if it's enabled first; if None is passed in, then this is disabled.
@@ -207,7 +207,7 @@ impl WrappedProgressUpdaterImpl {
                     return Err(PyTypeError::new_err(format!(
                         "Function {name} must take exactly 1 or 2 arguments, but got {}",
                         param_names.len()
-                    )))
+                    )));
                 },
             };
 
@@ -223,7 +223,7 @@ impl WrappedProgressUpdaterImpl {
     async fn register_updates_impl(self: Arc<Self>, updates: ProgressUpdate) -> PyResult<()> {
         // Run on compute thread that doesn't block async workers
         tokio::task::spawn_blocking(move || {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let f = self.py_func.bind(py);
 
                 if self.update_with_detailed_progress {

@@ -40,9 +40,7 @@ from alembic import op
 from alembic import testing
 from alembic import util
 from alembic.autogenerate import api
-from alembic.autogenerate.compare import _compare_server_default
-from alembic.autogenerate.compare import _compare_tables
-from alembic.autogenerate.compare import _render_server_default_for_compare
+from alembic.autogenerate.compare.tables import _compare_tables
 from alembic.migration import MigrationContext
 from alembic.operations import ops
 from alembic.script import ScriptDirectory
@@ -65,6 +63,15 @@ from alembic.testing.fixtures import op_fixture
 from alembic.testing.fixtures import TablesTest
 from alembic.testing.fixtures import TestBase
 from alembic.testing.suite._autogen_fixtures import AutogenFixtureTest
+
+
+if True:
+    from alembic.autogenerate.compare.server_defaults import (
+        _render_server_default_for_compare,
+    )  # noqa: E501
+    from alembic.autogenerate.compare.server_defaults import (
+        _dialect_impl_compare_server_default as _compare_server_default,
+    )
 
 
 class PostgresqlOpTest(TestBase):
@@ -347,12 +354,13 @@ class PostgresqlOpTest(TestBase):
         op.drop_table_comment("t2", existing_comment="t2 table", schema="foo")
         context.assert_("COMMENT ON TABLE foo.t2 IS NULL")
 
-    @config.requirements.computed_columns
     def test_add_column_computed(self):
         context = op_fixture("postgresql")
         op.add_column(
             "t1",
-            Column("some_column", Integer, Computed("foo * 5")),
+            Column(
+                "some_column", Integer, Computed("foo * 5", persisted=True)
+            ),
         )
         context.assert_(
             "ALTER TABLE t1 ADD COLUMN some_column "
@@ -367,7 +375,6 @@ class PostgresqlOpTest(TestBase):
             lambda: Computed("foo * 5"),
         ),
     )
-    @config.requirements.computed_columns
     def test_alter_column_computed_not_supported(self, sd, esd):
         op_fixture("postgresql")
         assert_raises_message(
@@ -382,7 +389,6 @@ class PostgresqlOpTest(TestBase):
             existing_server_default=esd(),
         )
 
-    @config.requirements.identity_columns
     @combinations(
         ({}, None),
         (dict(always=True), None),
@@ -404,7 +410,6 @@ class PostgresqlOpTest(TestBase):
             "INTEGER GENERATED %s AS IDENTITY%s" % (qualification, options)
         )
 
-    @config.requirements.identity_columns
     @combinations(
         ({}, None),
         (dict(always=True), None),
@@ -428,7 +433,6 @@ class PostgresqlOpTest(TestBase):
             "GENERATED %s AS IDENTITY%s" % (qualification, options)
         )
 
-    @config.requirements.identity_columns
     def test_remove_identity_from_column(self):
         context = op_fixture("postgresql")
         op.alter_column(
@@ -441,7 +445,6 @@ class PostgresqlOpTest(TestBase):
             "ALTER TABLE t1 ALTER COLUMN some_column DROP IDENTITY"
         )
 
-    @config.requirements.identity_columns
     @combinations(
         ({}, dict(always=True), "SET GENERATED ALWAYS"),
         (
@@ -665,13 +668,13 @@ class PostgresqlDefaultCompareTest(TestBase):
     def setup_class(cls):
         cls.bind = config.db
         staging_env()
-        cls.migration_context = MigrationContext.configure(
-            connection=cls.bind.connect(),
-            opts={"compare_type": True, "compare_server_default": True},
-        )
 
     def setUp(self):
         self.metadata = MetaData()
+        self.migration_context = MigrationContext.configure(
+            connection=self.bind.connect(),
+            opts={"compare_type": True, "compare_server_default": True},
+        )
         self.autogen_context = api.AutogenContext(self.migration_context)
 
     @classmethod
@@ -679,12 +682,18 @@ class PostgresqlDefaultCompareTest(TestBase):
         clear_staging_env()
 
     def tearDown(self):
+        self.migration_context.connection.close()
+
         with config.db.begin() as conn:
             self.metadata.drop_all(conn)
 
     def _compare_default_roundtrip(
         self, type_, orig_default, alternate=None, diff_expected=None
     ):
+        # note this only tests compare_server_default including
+        # postgresql.compare_server_default.  it does not run PG
+        # autogen_column_reflect() which is involved with omitting SERIAL
+        # columns
         diff_expected = (
             diff_expected
             if diff_expected is not None
@@ -851,6 +860,16 @@ class PostgresqlDefaultCompareTest(TestBase):
         )
         assert not self._compare_default(t1, t2, t2.c.id, "")
 
+    def test_non_pk_sequence(self):
+        """test issue #1507"""
+        sequential_id_seq = Sequence(
+            "post_sequential_id_seq", metadata=self.metadata, start=1
+        )
+        sequential_id_seq.create(self.bind)
+        self._compare_default_roundtrip(
+            Integer, sequential_id_seq.next_value()
+        )
+
 
 class PostgresqlDetectSerialTest(TestBase):
     __only_on__ = "postgresql"
@@ -940,8 +959,9 @@ class PostgresqlDetectSerialTest(TestBase):
             seq,
         )
 
-    @testing.combinations((None,), ("test_schema",))
-    def test_numeric(self, schema):
+    @testing.combinations((None,), ("test_schema",), argnames="schema")
+    @testing.variation("use_pk", [True, False])
+    def test_numeric(self, schema, use_pk):
         seq = Sequence("x_id_seq", schema=schema)
         seq_name = seq.name if schema is None else f"{schema}.{seq.name}"
         self._expect_default(
@@ -950,7 +970,7 @@ class PostgresqlDetectSerialTest(TestBase):
                 "x",
                 Numeric(8, 2),
                 server_default=seq.next_value(),
-                primary_key=True,
+                primary_key=bool(use_pk),
             ),
             schema,
             seq,

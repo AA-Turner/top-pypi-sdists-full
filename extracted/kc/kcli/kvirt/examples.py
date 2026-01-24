@@ -19,7 +19,7 @@ $ kcli create dns -d karmalabs.corp -i 192.168.122.253 api.jhendrix
 $ kcli create dns -n network2 -d karmalabs.corp -i 192.168.122.253 api.jhendrix
 
 # Do the same with an extra wildcard alias
-$ kcli create dns -d karmalabs.corp -i 104.197.157.226 -a '*' api.jhendrix
+$ kcli create dns -d karmalabs.corp -i 104n.197.157.226 -a '*' api.jhendrix
 """
 
 hostcreate = """# Add a KVM host
@@ -358,24 +358,24 @@ kubeadmregistrycreate = """# Generate a kubeadm/generic registry vm for latest k
 $ kcli create registry kubeadm
 """
 
-openshiftregistrycreate = """# Generate an openshift registry vm for 4.19
-$ kcli create registry openshift -P version=stable -P tag='4.19'
+openshiftregistrycreate = """# Generate an openshift registry vm for 4.20
+$ kcli create registry openshift -P version=stable -P tag='4.20'
 
 # Do the same over an ipv4 network
-$ kcli create registry openshift -P version=nightly -P tag='4.19' -P disconnected_ipv6_network=false
+$ kcli create registry openshift -P version=nightly -P tag='4.20' -P disconnected_ipv6_network=false
 
-# Use specific version and add extra operators (from 4.18)
-$ kcli create registry openshift -P version=nightly -P tag='4.19' -P disconnected_operators=[sriov-network-operator]
+# Use specific version and add extra operators (from 4.20)
+$ kcli create registry openshift -P version=nightly -P tag='4.21' -P disconnected_operators=[sriov-network-operator]
 
 # Deploy registry without content
 $ kcli create registry openshift -P disconnected_sync=false
 """
 
-openshiftregistryupdate = """# Update openshift registry for 4.19
-$ kcli update openshift-registry -P version=stable -P tag='4.19' -P disconnected_url=192.168.122.200.sslip.io:5000 myreg
+openshiftregistryupdate = """# Update openshift registry for 4.20
+$ kcli update openshift-registry -P version=stable -P tag='4.20' -P disconnected_url=192.168.122.200.sslip.io:5000 myreg
 
 # Update openshift registry taking parameter from existing cluster install named myopenshift
-$ kcli update openshift-registry -P tag='4.19.0' myopenshift
+$ kcli update openshift-registry -P tag='4.20.0' myopenshift
 """
 
 
@@ -583,6 +583,13 @@ $ kcli reset baremetal-host -P user=admin -P password=admin 10.10.10.10
 $ kcli reset baremetal-host -u admin -p admin 10.10.10.10
 """
 
+restarthost = """# Restart a baremetal host
+$ kcli restart baremetal-host -P user=admin -P password=admin 10.10.10.10
+
+# Restart a baremetal host with dedicated flags for credentials
+$ kcli restart baremetal-host -u admin -p admin 10.10.10.10
+"""
+
 starthost = """# Start a baremetal host
 $ kcli start baremetal-host -P user=admin -P password=admin 10.10.10.10
 
@@ -614,27 +621,27 @@ $ kcli update baremetal-host -P user=admin -P password=admin 10.10.10.10 -P secu
 $ kcli update baremetal-host -u admin -p admin 10.10.10.10 -P secureboot=true
 """
 
-ocdownload = """# Download 4.19 stable
-$ kcli download oc -P version=stable -P tag=4.19
+ocdownload = """# Download latest stable
+$ kcli download oc -P version=stable
 
 # Download specific tag
 $ kcli download oc -P version=tag -P tag=4.16.4
 
 # Download nightly
-$ kcli download oc -P version=nightly -P tag=4.19
+$ kcli download oc -P version=nightly
 
 # Download older version from CI
 $ kcli download oc -P version=ci -P tag=4.14
 """
 
-ocmirrordownload = """# Download 4.19 stable
-$ kcli download oc-mirror -P version=stable -P tag=4.19
+ocmirrordownload = """# Download latest stable
+$ kcli download oc-mirror -P version=stable
 
 # Download specific tag
 $ kcli download oc-mirror -P version=tag -P tag=4.16.4
 
 # Download nightly
-$ kcli download oc-mirror -P version=nightly -P tag=4.20
+$ kcli download oc-mirror -P version=nightly
 
 """
 
@@ -688,6 +695,9 @@ $ kcli create lb -P ports=[80,443] -P vms=[myvm1,myvm2] -P domain=mysuperdomain.
 
 # Customize check path and checkport
 $ kcli create lb -P ports=[6443] -P vms=[myvm1,myvm2] -P checkport=6080 -P checkpath='/'
+
+# Create an LB vm for accessing a private kubernetes cluster from outside
+$ kcli create lb -P ports=[443,6443] -P nets=[default,baremetal] -P vms=[ctlplane0,ctlplane1,ctlplane2] myproxy
 """
 
 networkcreate = """# Create a network
@@ -731,6 +741,9 @@ $ kcli create network -P macvtap=true -P nic=eno2 mytap
 
 # Create a network with custom dnsmasq options
 $ kcli create network -c 192.168.123.0/24 -P arp-timeout=120 mynetwork
+
+# Create a network with a custom route
+$ kcli create network -c 192.168.123.0/24 -P classless-static-route=192.168.124.100/32,192.168.123.2 mynetwork
 
 # Create an ovn overlay network (on KubeVirt) with a localnet topology and connected to br-ex bridge
 $ kcli create network -c 192.168.126.0/24 mynetwork

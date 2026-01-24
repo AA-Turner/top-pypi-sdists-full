@@ -20,10 +20,8 @@ These are the objects that can be added to a KML file.
 """
 
 import logging
+from collections.abc import Iterable
 from typing import Any
-from typing import Dict
-from typing import Iterable
-from typing import List
 from typing import Optional
 from typing import Union
 
@@ -32,7 +30,6 @@ from pygeoif.types import GeoType
 
 from fastkml import atom
 from fastkml import config
-from fastkml import gx
 from fastkml.base import _XMLObject
 from fastkml.data import ExtendedData
 from fastkml.geometry import AnyGeometryType
@@ -42,6 +39,8 @@ from fastkml.geometry import MultiGeometry
 from fastkml.geometry import Point
 from fastkml.geometry import Polygon
 from fastkml.geometry import create_kml_geometry
+from fastkml.gx.track import MultiTrack
+from fastkml.gx.track import Track
 from fastkml.helpers import attribute_int_kwarg
 from fastkml.helpers import bool_subelement
 from fastkml.helpers import clean_string
@@ -81,8 +80,8 @@ KmlGeometry = Union[
     Polygon,
     Model,
     MultiGeometry,
-    gx.MultiTrack,
-    gx.Track,
+    MultiTrack,
+    Track,
 ]
 
 
@@ -111,7 +110,7 @@ class Snippet(_XMLObject):
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         text: Optional[str] = None,
         max_lines: Optional[int] = None,
         **kwargs: Any,
@@ -220,7 +219,7 @@ class _Feature(TimeMixin, _BaseObject):
     snippet: Optional[Snippet]
     description: Optional[str]
     style_url: Optional[StyleUrl]
-    styles: List[Union[Style, StyleMap]]
+    styles: list[Union[Style, StyleMap]]
     view: Union[Camera, LookAt, None]
     region: Optional[Region]
     extended_data: Optional[ExtendedData]
@@ -228,7 +227,7 @@ class _Feature(TimeMixin, _BaseObject):
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         id: Optional[str] = None,
         target_id: Optional[str] = None,
         name: Optional[str] = None,
@@ -500,7 +499,7 @@ class Placemark(_Feature):
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         id: Optional[str] = None,
         target_id: Optional[str] = None,
         name: Optional[str] = None,
@@ -677,8 +676,8 @@ registry.register(
             Polygon,
             MultiGeometry,
             Model,
-            gx.MultiTrack,
-            gx.Track,
+            MultiTrack,
+            Track,
         ),
         get_kwarg=xml_subelement_kwarg,
         set_element=xml_subelement,
@@ -734,7 +733,7 @@ class NetworkLink(_Feature):
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         id: Optional[str] = None,
         target_id: Optional[str] = None,
         name: Optional[str] = None,

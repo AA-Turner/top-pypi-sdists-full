@@ -67,307 +67,13 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediastore.CfnContainerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "container_name": "containerName",
-        "access_logging_enabled": "accessLoggingEnabled",
-        "cors_policy": "corsPolicy",
-        "lifecycle_policy": "lifecyclePolicy",
-        "metric_policy": "metricPolicy",
-        "policy": "policy",
-        "tags": "tags",
-    },
+from ..interfaces.aws_mediastore import (
+    ContainerReference as _ContainerReference_26fdd3c6,
+    IContainerRef as _IContainerRef_72a1f507,
 )
-class CfnContainerProps:
-    def __init__(
-        self,
-        *,
-        container_name: builtins.str,
-        access_logging_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        cors_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainer.CorsRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        lifecycle_policy: typing.Optional[builtins.str] = None,
-        metric_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainer.MetricPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        policy: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnContainer``.
-
-        :param container_name: The name for the container. The name must be from 1 to 255 characters. Container names must be unique to your AWS account within a specific region. As an example, you could create a container named ``movies`` in every region, as long as you don’t have an existing container with that name.
-        :param access_logging_enabled: The state of access logging on the container. This value is ``false`` by default, indicating that AWS Elemental MediaStore does not send access logs to Amazon CloudWatch Logs. When you enable access logging on the container, MediaStore changes this value to ``true`` , indicating that the service delivers access logs for objects stored in that container to CloudWatch Logs.
-        :param cors_policy: .. epigraph:: End of support notice: On November 13, 2025, AWS will discontinue support for AWS Elemental MediaStore. After November 13, 2025, you will no longer be able to access the AWS Elemental MediaStore console or AWS Elemental MediaStore resources. For more information, visit this `blog post <https://docs.aws.amazon.com/media/support-for-aws-elemental-mediastore-ending-soon/>`_ . Sets the cross-origin resource sharing (CORS) configuration on a container so that the container can service cross-origin requests. For example, you might want to enable a request whose origin is http://www.example.com to access your AWS Elemental MediaStore container at my.example.container.com by using the browser's XMLHttpRequest capability. To enable CORS on a container, you attach a CORS policy to the container. In the CORS policy, you configure rules that identify origins and the HTTP methods that can be executed on your container. The policy can contain up to 398,000 characters. You can add up to 100 rules to a CORS policy. If more than one rule applies, the service uses the first applicable rule listed. To learn more about CORS, see `Cross-Origin Resource Sharing (CORS) in AWS Elemental MediaStore <https://docs.aws.amazon.com/mediastore/latest/ug/cors-policy.html>`_ .
-        :param lifecycle_policy: .. epigraph:: End of support notice: On November 13, 2025, AWS will discontinue support for AWS Elemental MediaStore. After November 13, 2025, you will no longer be able to access the AWS Elemental MediaStore console or AWS Elemental MediaStore resources. For more information, visit this `blog post <https://docs.aws.amazon.com/media/support-for-aws-elemental-mediastore-ending-soon/>`_ . Writes an object lifecycle policy to a container. If the container already has an object lifecycle policy, the service replaces the existing policy with the new policy. It takes up to 20 minutes for the change to take effect. For information about how to construct an object lifecycle policy, see `Components of an Object Lifecycle Policy <https://docs.aws.amazon.com/mediastore/latest/ug/policies-object-lifecycle-components.html>`_ .
-        :param metric_policy: The metric policy that is associated with the container. A metric policy allows AWS Elemental MediaStore to send metrics to Amazon CloudWatch. In the policy, you must indicate whether you want MediaStore to send container-level metrics. You can also include rules to define groups of objects that you want MediaStore to send object-level metrics for. To view examples of how to construct a metric policy for your use case, see `Example Metric Policies <https://docs.aws.amazon.com/mediastore/latest/ug/policies-metric-examples.html>`_ .
-        :param policy: Creates an access policy for the specified container to restrict the users and clients that can access it. For information about the data that is included in an access policy, see the `AWS Identity and Access Management User Guide <https://docs.aws.amazon.com/iam/>`_ . For this release of the REST API, you can create only one policy for a container. If you enter ``PutContainerPolicy`` twice, the second command modifies the existing policy.
-        :param tags: 
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediastore as mediastore
-            
-            cfn_container_props = mediastore.CfnContainerProps(
-                container_name="containerName",
-            
-                # the properties below are optional
-                access_logging_enabled=False,
-                cors_policy=[mediastore.CfnContainer.CorsRuleProperty(
-                    allowed_headers=["allowedHeaders"],
-                    allowed_methods=["allowedMethods"],
-                    allowed_origins=["allowedOrigins"],
-                    expose_headers=["exposeHeaders"],
-                    max_age_seconds=123
-                )],
-                lifecycle_policy="lifecyclePolicy",
-                metric_policy=mediastore.CfnContainer.MetricPolicyProperty(
-                    container_level_metrics="containerLevelMetrics",
-            
-                    # the properties below are optional
-                    metric_policy_rules=[mediastore.CfnContainer.MetricPolicyRuleProperty(
-                        object_group="objectGroup",
-                        object_group_name="objectGroupName"
-                    )]
-                ),
-                policy="policy",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__40306af5b770854abc9e3f568c4ca2d80a5a5886a6f698d75584f726b0f11f7e)
-            check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
-            check_type(argname="argument access_logging_enabled", value=access_logging_enabled, expected_type=type_hints["access_logging_enabled"])
-            check_type(argname="argument cors_policy", value=cors_policy, expected_type=type_hints["cors_policy"])
-            check_type(argname="argument lifecycle_policy", value=lifecycle_policy, expected_type=type_hints["lifecycle_policy"])
-            check_type(argname="argument metric_policy", value=metric_policy, expected_type=type_hints["metric_policy"])
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "container_name": container_name,
-        }
-        if access_logging_enabled is not None:
-            self._values["access_logging_enabled"] = access_logging_enabled
-        if cors_policy is not None:
-            self._values["cors_policy"] = cors_policy
-        if lifecycle_policy is not None:
-            self._values["lifecycle_policy"] = lifecycle_policy
-        if metric_policy is not None:
-            self._values["metric_policy"] = metric_policy
-        if policy is not None:
-            self._values["policy"] = policy
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def container_name(self) -> builtins.str:
-        '''The name for the container.
-
-        The name must be from 1 to 255 characters. Container names must be unique to your AWS account within a specific region. As an example, you could create a container named ``movies`` in every region, as long as you don’t have an existing container with that name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-containername
-        '''
-        result = self._values.get("container_name")
-        assert result is not None, "Required property 'container_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def access_logging_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''The state of access logging on the container.
-
-        This value is ``false`` by default, indicating that AWS Elemental MediaStore does not send access logs to Amazon CloudWatch Logs. When you enable access logging on the container, MediaStore changes this value to ``true`` , indicating that the service delivers access logs for objects stored in that container to CloudWatch Logs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-accessloggingenabled
-        '''
-        result = self._values.get("access_logging_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def cors_policy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainer.CorsRuleProperty"]]]]:
-        '''.. epigraph::
-
-   End of support notice: On November 13, 2025, AWS will discontinue support for AWS Elemental MediaStore.
-
-        After November 13, 2025, you will no longer be able to access the AWS Elemental MediaStore console or AWS Elemental MediaStore resources. For more information, visit this `blog post <https://docs.aws.amazon.com/media/support-for-aws-elemental-mediastore-ending-soon/>`_ .
-
-        Sets the cross-origin resource sharing (CORS) configuration on a container so that the container can service cross-origin requests. For example, you might want to enable a request whose origin is http://www.example.com to access your AWS Elemental MediaStore container at my.example.container.com by using the browser's XMLHttpRequest capability.
-
-        To enable CORS on a container, you attach a CORS policy to the container. In the CORS policy, you configure rules that identify origins and the HTTP methods that can be executed on your container. The policy can contain up to 398,000 characters. You can add up to 100 rules to a CORS policy. If more than one rule applies, the service uses the first applicable rule listed.
-
-        To learn more about CORS, see `Cross-Origin Resource Sharing (CORS) in AWS Elemental MediaStore <https://docs.aws.amazon.com/mediastore/latest/ug/cors-policy.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-corspolicy
-        '''
-        result = self._values.get("cors_policy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainer.CorsRuleProperty"]]]], result)
-
-    @builtins.property
-    def lifecycle_policy(self) -> typing.Optional[builtins.str]:
-        '''.. epigraph::
-
-   End of support notice: On November 13, 2025, AWS will discontinue support for AWS Elemental MediaStore.
-
-        After November 13, 2025, you will no longer be able to access the AWS Elemental MediaStore console or AWS Elemental MediaStore resources. For more information, visit this `blog post <https://docs.aws.amazon.com/media/support-for-aws-elemental-mediastore-ending-soon/>`_ .
-
-        Writes an object lifecycle policy to a container. If the container already has an object lifecycle policy, the service replaces the existing policy with the new policy. It takes up to 20 minutes for the change to take effect.
-
-        For information about how to construct an object lifecycle policy, see `Components of an Object Lifecycle Policy <https://docs.aws.amazon.com/mediastore/latest/ug/policies-object-lifecycle-components.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-lifecyclepolicy
-        '''
-        result = self._values.get("lifecycle_policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def metric_policy(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainer.MetricPolicyProperty"]]:
-        '''The metric policy that is associated with the container.
-
-        A metric policy allows AWS Elemental MediaStore to send metrics to Amazon CloudWatch. In the policy, you must indicate whether you want MediaStore to send container-level metrics. You can also include rules to define groups of objects that you want MediaStore to send object-level metrics for.
-
-        To view examples of how to construct a metric policy for your use case, see `Example Metric Policies <https://docs.aws.amazon.com/mediastore/latest/ug/policies-metric-examples.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-metricpolicy
-        '''
-        result = self._values.get("metric_policy")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainer.MetricPolicyProperty"]], result)
-
-    @builtins.property
-    def policy(self) -> typing.Optional[builtins.str]:
-        '''Creates an access policy for the specified container to restrict the users and clients that can access it.
-
-        For information about the data that is included in an access policy, see the `AWS Identity and Access Management User Guide <https://docs.aws.amazon.com/iam/>`_ .
-
-        For this release of the REST API, you can create only one policy for a container. If you enter ``PutContainerPolicy`` twice, the second command modifies the existing policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-policy
-        '''
-        result = self._values.get("policy")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnContainerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_mediastore.ContainerReference",
-    jsii_struct_bases=[],
-    name_mapping={"container_id": "containerId"},
-)
-class ContainerReference:
-    def __init__(self, *, container_id: builtins.str) -> None:
-        '''A reference to a Container resource.
-
-        :param container_id: The Id of the Container resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_mediastore as mediastore
-            
-            container_reference = mediastore.ContainerReference(
-                container_id="containerId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8a5363d0dabddb97936c14e70368db65558fbac228e107f4c7868f7539a3423)
-            check_type(argname="argument container_id", value=container_id, expected_type=type_hints["container_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "container_id": container_id,
-        }
-
-    @builtins.property
-    def container_id(self) -> builtins.str:
-        '''The Id of the Container resource.'''
-        result = self._values.get("container_id")
-        assert result is not None, "Required property 'container_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ContainerReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_mediastore.IContainerRef")
-class IContainerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Container.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="containerRef")
-    def container_ref(self) -> ContainerReference:
-        '''(experimental) A reference to a Container resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IContainerRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Container.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_mediastore.IContainerRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="containerRef")
-    def container_ref(self) -> ContainerReference:
-        '''(experimental) A reference to a Container resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ContainerReference, jsii.get(self, "containerRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IContainerRef).__jsii_proxy_class__ = lambda : _IContainerRefProxy
-
-
-@jsii.implements(_IInspectable_c2943556, IContainerRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IContainerRef_72a1f507, _ITaggable_36806126)
 class CfnContainer(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -377,7 +83,7 @@ class CfnContainer(
 
     A container is similar to a bucket in Amazon S3.
 
-    When you create a container using AWS CloudFormation , the template manages data for five API actions: creating a container, setting access logging, updating the default container policy, adding a cross-origin resource sharing (CORS) policy, and adding an object lifecycle policy.
+    When you create a container using CloudFormation , the template manages data for five API actions: creating a container, setting access logging, updating the default container policy, adding a cross-origin resource sharing (CORS) policy, and adding an object lifecycle policy.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html
     :cloudformationResource: AWS::MediaStore::Container
@@ -385,6 +91,7 @@ class CfnContainer(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_mediastore as mediastore
@@ -421,18 +128,19 @@ class CfnContainer(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         container_name: builtins.str,
-        access_logging_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        cors_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainer.CorsRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        access_logging_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        cors_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainer.CorsRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         lifecycle_policy: typing.Optional[builtins.str] = None,
-        metric_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainer.MetricPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        metric_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainer.MetricPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         policy: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::MediaStore::Container``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param container_name: The name for the container. The name must be from 1 to 255 characters. Container names must be unique to your AWS account within a specific region. As an example, you could create a container named ``movies`` in every region, as long as you don’t have an existing container with that name.
@@ -459,8 +167,31 @@ class CfnContainer(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForContainer")
+    @builtins.classmethod
+    def arn_for_container(cls, resource: "_IContainerRef_72a1f507") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d02cf1041bf3416fafe0ad7ee78da44b29a4414e772770bc9d4f87e8a76cdde4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContainer", [resource]))
+
+    @jsii.member(jsii_name="isCfnContainer")
+    @builtins.classmethod
+    def is_cfn_container(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnContainer.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e98b5e78b67730b87f775b3b6d1e8b776295b5eff8f31e9501369713a3d5713)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContainer", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -515,15 +246,15 @@ class CfnContainer(
 
     @builtins.property
     @jsii.member(jsii_name="containerRef")
-    def container_ref(self) -> ContainerReference:
+    def container_ref(self) -> "_ContainerReference_26fdd3c6":
         '''A reference to a Container resource.'''
-        return typing.cast(ContainerReference, jsii.get(self, "containerRef"))
+        return typing.cast("_ContainerReference_26fdd3c6", jsii.get(self, "containerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="containerName")
@@ -542,14 +273,14 @@ class CfnContainer(
     @jsii.member(jsii_name="accessLoggingEnabled")
     def access_logging_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''The state of access logging on the container.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "accessLoggingEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "accessLoggingEnabled"))
 
     @access_logging_enabled.setter
     def access_logging_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa774c7c5a8092f174195c7b605a1516571a888f5be6c2df2f5a2584d8b581c1)
@@ -560,16 +291,16 @@ class CfnContainer(
     @jsii.member(jsii_name="corsPolicy")
     def cors_policy(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainer.CorsRuleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContainer.CorsRuleProperty"]]]]:
         '''.. epigraph::
 
    End of support notice: On November 13, 2025, AWS will discontinue support for AWS Elemental MediaStore.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainer.CorsRuleProperty"]]]], jsii.get(self, "corsPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContainer.CorsRuleProperty"]]]], jsii.get(self, "corsPolicy"))
 
     @cors_policy.setter
     def cors_policy(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainer.CorsRuleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContainer.CorsRuleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__467426d7f4bad0107abaee763e8b698f349eb6f7e80bec30278bb48af442d70e)
@@ -595,14 +326,14 @@ class CfnContainer(
     @jsii.member(jsii_name="metricPolicy")
     def metric_policy(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainer.MetricPolicyProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainer.MetricPolicyProperty"]]:
         '''The metric policy that is associated with the container.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainer.MetricPolicyProperty"]], jsii.get(self, "metricPolicy"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainer.MetricPolicyProperty"]], jsii.get(self, "metricPolicy"))
 
     @metric_policy.setter
     def metric_policy(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnContainer.MetricPolicyProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainer.MetricPolicyProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6fbe17101e1cbabe4ada35b516bf8c1866a67969c1a431e3e00e64089669ff87)
@@ -624,11 +355,11 @@ class CfnContainer(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__af8f09217c9fcffb59ad0a4b95e405df0ad5d481e0b17745a0feaf4d46e6c880)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -782,7 +513,7 @@ class CfnContainer(
             self,
             *,
             container_level_metrics: builtins.str,
-            metric_policy_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnContainer.MetricPolicyRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_policy_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainer.MetricPolicyRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The metric policy that is associated with the container.
 
@@ -835,7 +566,7 @@ class CfnContainer(
         @builtins.property
         def metric_policy_rules(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainer.MetricPolicyRuleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContainer.MetricPolicyRuleProperty"]]]]:
             '''A parameter that holds an array of rules that enable metrics at the object level.
 
             This parameter is optional, but if you choose to include it, you must also include at least one rule. By default, you can include up to five rules. You can also `request a quota increase <https://docs.aws.amazon.com/servicequotas/home?region=us-east-1#!/services/mediastore/quotas>`_ to allow up to 300 rules per policy.
@@ -843,7 +574,7 @@ class CfnContainer(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediastore-container-metricpolicy.html#cfn-mediastore-container-metricpolicy-metricpolicyrules
             '''
             result = self._values.get("metric_policy_rules")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnContainer.MetricPolicyRuleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContainer.MetricPolicyRuleProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -935,34 +666,222 @@ class CfnContainer(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_mediastore.CfnContainerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "container_name": "containerName",
+        "access_logging_enabled": "accessLoggingEnabled",
+        "cors_policy": "corsPolicy",
+        "lifecycle_policy": "lifecyclePolicy",
+        "metric_policy": "metricPolicy",
+        "policy": "policy",
+        "tags": "tags",
+    },
+)
+class CfnContainerProps:
+    def __init__(
+        self,
+        *,
+        container_name: builtins.str,
+        access_logging_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        cors_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainer.CorsRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        lifecycle_policy: typing.Optional[builtins.str] = None,
+        metric_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainer.MetricPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        policy: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContainer``.
+
+        :param container_name: The name for the container. The name must be from 1 to 255 characters. Container names must be unique to your AWS account within a specific region. As an example, you could create a container named ``movies`` in every region, as long as you don’t have an existing container with that name.
+        :param access_logging_enabled: The state of access logging on the container. This value is ``false`` by default, indicating that AWS Elemental MediaStore does not send access logs to Amazon CloudWatch Logs. When you enable access logging on the container, MediaStore changes this value to ``true`` , indicating that the service delivers access logs for objects stored in that container to CloudWatch Logs.
+        :param cors_policy: .. epigraph:: End of support notice: On November 13, 2025, AWS will discontinue support for AWS Elemental MediaStore. After November 13, 2025, you will no longer be able to access the AWS Elemental MediaStore console or AWS Elemental MediaStore resources. For more information, visit this `blog post <https://docs.aws.amazon.com/media/support-for-aws-elemental-mediastore-ending-soon/>`_ . Sets the cross-origin resource sharing (CORS) configuration on a container so that the container can service cross-origin requests. For example, you might want to enable a request whose origin is http://www.example.com to access your AWS Elemental MediaStore container at my.example.container.com by using the browser's XMLHttpRequest capability. To enable CORS on a container, you attach a CORS policy to the container. In the CORS policy, you configure rules that identify origins and the HTTP methods that can be executed on your container. The policy can contain up to 398,000 characters. You can add up to 100 rules to a CORS policy. If more than one rule applies, the service uses the first applicable rule listed. To learn more about CORS, see `Cross-Origin Resource Sharing (CORS) in AWS Elemental MediaStore <https://docs.aws.amazon.com/mediastore/latest/ug/cors-policy.html>`_ .
+        :param lifecycle_policy: .. epigraph:: End of support notice: On November 13, 2025, AWS will discontinue support for AWS Elemental MediaStore. After November 13, 2025, you will no longer be able to access the AWS Elemental MediaStore console or AWS Elemental MediaStore resources. For more information, visit this `blog post <https://docs.aws.amazon.com/media/support-for-aws-elemental-mediastore-ending-soon/>`_ . Writes an object lifecycle policy to a container. If the container already has an object lifecycle policy, the service replaces the existing policy with the new policy. It takes up to 20 minutes for the change to take effect. For information about how to construct an object lifecycle policy, see `Components of an Object Lifecycle Policy <https://docs.aws.amazon.com/mediastore/latest/ug/policies-object-lifecycle-components.html>`_ .
+        :param metric_policy: The metric policy that is associated with the container. A metric policy allows AWS Elemental MediaStore to send metrics to Amazon CloudWatch. In the policy, you must indicate whether you want MediaStore to send container-level metrics. You can also include rules to define groups of objects that you want MediaStore to send object-level metrics for. To view examples of how to construct a metric policy for your use case, see `Example Metric Policies <https://docs.aws.amazon.com/mediastore/latest/ug/policies-metric-examples.html>`_ .
+        :param policy: Creates an access policy for the specified container to restrict the users and clients that can access it. For information about the data that is included in an access policy, see the `AWS Identity and Access Management User Guide <https://docs.aws.amazon.com/iam/>`_ . For this release of the REST API, you can create only one policy for a container. If you enter ``PutContainerPolicy`` twice, the second command modifies the existing policy.
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_mediastore as mediastore
+            
+            cfn_container_props = mediastore.CfnContainerProps(
+                container_name="containerName",
+            
+                # the properties below are optional
+                access_logging_enabled=False,
+                cors_policy=[mediastore.CfnContainer.CorsRuleProperty(
+                    allowed_headers=["allowedHeaders"],
+                    allowed_methods=["allowedMethods"],
+                    allowed_origins=["allowedOrigins"],
+                    expose_headers=["exposeHeaders"],
+                    max_age_seconds=123
+                )],
+                lifecycle_policy="lifecyclePolicy",
+                metric_policy=mediastore.CfnContainer.MetricPolicyProperty(
+                    container_level_metrics="containerLevelMetrics",
+            
+                    # the properties below are optional
+                    metric_policy_rules=[mediastore.CfnContainer.MetricPolicyRuleProperty(
+                        object_group="objectGroup",
+                        object_group_name="objectGroupName"
+                    )]
+                ),
+                policy="policy",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__40306af5b770854abc9e3f568c4ca2d80a5a5886a6f698d75584f726b0f11f7e)
+            check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
+            check_type(argname="argument access_logging_enabled", value=access_logging_enabled, expected_type=type_hints["access_logging_enabled"])
+            check_type(argname="argument cors_policy", value=cors_policy, expected_type=type_hints["cors_policy"])
+            check_type(argname="argument lifecycle_policy", value=lifecycle_policy, expected_type=type_hints["lifecycle_policy"])
+            check_type(argname="argument metric_policy", value=metric_policy, expected_type=type_hints["metric_policy"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "container_name": container_name,
+        }
+        if access_logging_enabled is not None:
+            self._values["access_logging_enabled"] = access_logging_enabled
+        if cors_policy is not None:
+            self._values["cors_policy"] = cors_policy
+        if lifecycle_policy is not None:
+            self._values["lifecycle_policy"] = lifecycle_policy
+        if metric_policy is not None:
+            self._values["metric_policy"] = metric_policy
+        if policy is not None:
+            self._values["policy"] = policy
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def container_name(self) -> builtins.str:
+        '''The name for the container.
+
+        The name must be from 1 to 255 characters. Container names must be unique to your AWS account within a specific region. As an example, you could create a container named ``movies`` in every region, as long as you don’t have an existing container with that name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-containername
+        '''
+        result = self._values.get("container_name")
+        assert result is not None, "Required property 'container_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_logging_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''The state of access logging on the container.
+
+        This value is ``false`` by default, indicating that AWS Elemental MediaStore does not send access logs to Amazon CloudWatch Logs. When you enable access logging on the container, MediaStore changes this value to ``true`` , indicating that the service delivers access logs for objects stored in that container to CloudWatch Logs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-accessloggingenabled
+        '''
+        result = self._values.get("access_logging_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def cors_policy(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContainer.CorsRuleProperty"]]]]:
+        '''.. epigraph::
+
+   End of support notice: On November 13, 2025, AWS will discontinue support for AWS Elemental MediaStore.
+
+        After November 13, 2025, you will no longer be able to access the AWS Elemental MediaStore console or AWS Elemental MediaStore resources. For more information, visit this `blog post <https://docs.aws.amazon.com/media/support-for-aws-elemental-mediastore-ending-soon/>`_ .
+
+        Sets the cross-origin resource sharing (CORS) configuration on a container so that the container can service cross-origin requests. For example, you might want to enable a request whose origin is http://www.example.com to access your AWS Elemental MediaStore container at my.example.container.com by using the browser's XMLHttpRequest capability.
+
+        To enable CORS on a container, you attach a CORS policy to the container. In the CORS policy, you configure rules that identify origins and the HTTP methods that can be executed on your container. The policy can contain up to 398,000 characters. You can add up to 100 rules to a CORS policy. If more than one rule applies, the service uses the first applicable rule listed.
+
+        To learn more about CORS, see `Cross-Origin Resource Sharing (CORS) in AWS Elemental MediaStore <https://docs.aws.amazon.com/mediastore/latest/ug/cors-policy.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-corspolicy
+        '''
+        result = self._values.get("cors_policy")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnContainer.CorsRuleProperty"]]]], result)
+
+    @builtins.property
+    def lifecycle_policy(self) -> typing.Optional[builtins.str]:
+        '''.. epigraph::
+
+   End of support notice: On November 13, 2025, AWS will discontinue support for AWS Elemental MediaStore.
+
+        After November 13, 2025, you will no longer be able to access the AWS Elemental MediaStore console or AWS Elemental MediaStore resources. For more information, visit this `blog post <https://docs.aws.amazon.com/media/support-for-aws-elemental-mediastore-ending-soon/>`_ .
+
+        Writes an object lifecycle policy to a container. If the container already has an object lifecycle policy, the service replaces the existing policy with the new policy. It takes up to 20 minutes for the change to take effect.
+
+        For information about how to construct an object lifecycle policy, see `Components of an Object Lifecycle Policy <https://docs.aws.amazon.com/mediastore/latest/ug/policies-object-lifecycle-components.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-lifecyclepolicy
+        '''
+        result = self._values.get("lifecycle_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metric_policy(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainer.MetricPolicyProperty"]]:
+        '''The metric policy that is associated with the container.
+
+        A metric policy allows AWS Elemental MediaStore to send metrics to Amazon CloudWatch. In the policy, you must indicate whether you want MediaStore to send container-level metrics. You can also include rules to define groups of objects that you want MediaStore to send object-level metrics for.
+
+        To view examples of how to construct a metric policy for your use case, see `Example Metric Policies <https://docs.aws.amazon.com/mediastore/latest/ug/policies-metric-examples.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-metricpolicy
+        '''
+        result = self._values.get("metric_policy")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainer.MetricPolicyProperty"]], result)
+
+    @builtins.property
+    def policy(self) -> typing.Optional[builtins.str]:
+        '''Creates an access policy for the specified container to restrict the users and clients that can access it.
+
+        For information about the data that is included in an access policy, see the `AWS Identity and Access Management User Guide <https://docs.aws.amazon.com/iam/>`_ .
+
+        For this release of the REST API, you can create only one policy for a container. If you enter ``PutContainerPolicy`` twice, the second command modifies the existing policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-policy
+        '''
+        result = self._values.get("policy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediastore-container.html#cfn-mediastore-container-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContainerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnContainer",
     "CfnContainerProps",
-    "ContainerReference",
-    "IContainerRef",
 ]
 
 publication.publish()
-
-def _typecheckingstub__40306af5b770854abc9e3f568c4ca2d80a5a5886a6f698d75584f726b0f11f7e(
-    *,
-    container_name: builtins.str,
-    access_logging_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    cors_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainer.CorsRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    lifecycle_policy: typing.Optional[builtins.str] = None,
-    metric_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainer.MetricPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    policy: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b8a5363d0dabddb97936c14e70368db65558fbac228e107f4c7868f7539a3423(
-    *,
-    container_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__cd8b42cebeb5c28f65fdaf7cdf3151c7003f34b222c43c9272971e72f3d1b79c(
     scope: _constructs_77d1e7e8.Construct,
@@ -975,6 +894,18 @@ def _typecheckingstub__cd8b42cebeb5c28f65fdaf7cdf3151c7003f34b222c43c9272971e72f
     metric_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainer.MetricPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     policy: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d02cf1041bf3416fafe0ad7ee78da44b29a4414e772770bc9d4f87e8a76cdde4(
+    resource: _IContainerRef_72a1f507,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e98b5e78b67730b87f775b3b6d1e8b776295b5eff8f31e9501369713a3d5713(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1056,6 +987,19 @@ def _typecheckingstub__63f217ee2499d5b4f967ce2813a4594f4eb7d56cce030a41aaf5c3155
     *,
     object_group: builtins.str,
     object_group_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40306af5b770854abc9e3f568c4ca2d80a5a5886a6f698d75584f726b0f11f7e(
+    *,
+    container_name: builtins.str,
+    access_logging_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    cors_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainer.CorsRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    lifecycle_policy: typing.Optional[builtins.str] = None,
+    metric_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainer.MetricPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    policy: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

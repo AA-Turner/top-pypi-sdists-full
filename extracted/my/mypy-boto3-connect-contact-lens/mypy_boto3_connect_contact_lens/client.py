@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -30,11 +31,6 @@ from .type_defs import (
     ListRealtimeContactAnalysisSegmentsResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -45,12 +41,12 @@ __all__ = ("ConnectContactLensClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 
 class ConnectContactLensClient(BaseClient):

@@ -5,8 +5,8 @@ use crate::{
         datatype::{DataTypeMappingSet, DataTypeMappingSetIterator},
         software_component::{
             ClientServerOperation, ModeDeclaration, ModeGroup, PPortPrototype, RPortPrototype,
-            VariableDataPrototype, port_prototype_to_pyobject, pyobject_to_port_prototype,
-            sw_component_type_to_pyobject,
+            VariableDataPrototype, port_prototype_to_pyany, pyany_to_port_prototype,
+            sw_component_type_to_pyany,
         },
     },
     iterator_wrapper,
@@ -44,6 +44,15 @@ impl SwcInternalBehavior {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -65,10 +74,10 @@ impl SwcInternalBehavior {
 
     /// Get the software component type that contains the `SwcInternalBehavior`
     #[getter]
-    fn sw_component_type(&self) -> Option<PyObject> {
+    fn sw_component_type(&self) -> Option<Py<PyAny>> {
         self.0
             .sw_component_type()
-            .and_then(|value| sw_component_type_to_pyobject(value).ok())
+            .and_then(|value| sw_component_type_to_pyany(value).ok())
     }
 
     /// Create a new RunnableEntity in the SwcInternalBehavior
@@ -178,7 +187,7 @@ impl SwcInternalBehavior {
         variable_data_prototype: &VariableDataPrototype,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<DataReceivedEvent> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         match self.0.create_data_received_event(
             name,
             &runnable.0,
@@ -218,7 +227,7 @@ impl SwcInternalBehavior {
         mode_declaration: &ModeDeclaration,
         second_mode_declaration: Option<&ModeDeclaration>,
     ) -> PyResult<SwcModeSwitchEvent> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         match self.0.create_mode_switch_event(
             name,
             &runnable.0,
@@ -237,7 +246,7 @@ impl SwcInternalBehavior {
         RteEventIterator::new(
             self.0
                 .events()
-                .filter_map(|event| rte_event_to_pyobject(event).ok()),
+                .filter_map(|event| rte_event_to_pyany(event).ok()),
         )
     }
 }
@@ -271,6 +280,15 @@ impl RunnableEntity {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -297,11 +315,11 @@ impl RunnableEntity {
     }
 
     /// Iterate over all events that can trigger the `RunnableEntity`
-    fn events(&self) -> Vec<PyObject> {
+    fn events(&self) -> Vec<Py<PyAny>> {
         self.0
             .events()
             .into_iter()
-            .filter_map(|event| rte_event_to_pyobject(event).ok())
+            .filter_map(|event| rte_event_to_pyany(event).ok())
             .collect()
     }
 
@@ -318,7 +336,7 @@ impl RunnableEntity {
         data_element: &VariableDataPrototype,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<VariableAccess> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         match self
             .0
             .create_data_read_access(name, &data_element.0, &context_port)
@@ -346,7 +364,7 @@ impl RunnableEntity {
         data_element: &VariableDataPrototype,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<VariableAccess> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         match self
             .0
             .create_data_write_access(name, &data_element.0, &context_port)
@@ -372,7 +390,7 @@ impl RunnableEntity {
         data_element: &VariableDataPrototype,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<VariableAccess> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         match self
             .0
             .create_data_send_point(name, &data_element.0, &context_port)
@@ -400,7 +418,7 @@ impl RunnableEntity {
         data_element: &VariableDataPrototype,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<VariableAccess> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         match self
             .0
             .create_data_receive_point_by_argument(name, &data_element.0, &context_port)
@@ -426,7 +444,7 @@ impl RunnableEntity {
         data_element: &VariableDataPrototype,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<VariableAccess> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         match self
             .0
             .create_data_receive_point_by_value(name, &data_element.0, &context_port)
@@ -474,7 +492,7 @@ impl RunnableEntity {
         mode_group: &ModeGroup,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<ModeAccessPoint> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         match self
             .0
             .create_mode_access_point(name, &mode_group.0, &context_port)
@@ -496,7 +514,7 @@ impl RunnableEntity {
         mode_group: &ModeGroup,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<ModeSwitchPoint> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         match self
             .0
             .create_mode_switch_point(name, &mode_group.0, &context_port)
@@ -541,6 +559,15 @@ impl VariableAccess {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -570,7 +597,7 @@ impl VariableAccess {
         variable: &VariableDataPrototype,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         self.0
             .set_accessed_variable(&variable.0, &context_port)
             .map_err(abstraction_err_to_pyerr)
@@ -578,10 +605,10 @@ impl VariableAccess {
 
     /// Get the accessed variable
     #[getter]
-    fn accessed_variable(&self) -> Option<(VariableDataPrototype, PyObject)> {
+    fn accessed_variable(&self) -> Option<(VariableDataPrototype, Py<PyAny>)> {
         let (variable_data_prototype, context_port) = self.0.accessed_variable()?;
         let variable = VariableDataPrototype(variable_data_prototype);
-        let context_port = port_prototype_to_pyobject(context_port).ok()?;
+        let context_port = port_prototype_to_pyany(context_port).ok()?;
         Some((variable, context_port))
     }
 
@@ -619,6 +646,15 @@ impl SynchronousServerCallPoint {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -703,6 +739,15 @@ impl ModeAccessPoint {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -730,7 +775,7 @@ impl ModeAccessPoint {
         mode_group: &ModeGroup,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         self.0
             .set_mode_group(&mode_group.0, &context_port)
             .map_err(abstraction_err_to_pyerr)
@@ -738,10 +783,10 @@ impl ModeAccessPoint {
 
     /// Get the mode group and context port of the `ModeAccessPoint`
     #[getter]
-    fn mode_group(&self) -> Option<(ModeGroup, PyObject)> {
+    fn mode_group(&self) -> Option<(ModeGroup, Py<PyAny>)> {
         let (mode_group, context_port) = self.0.mode_group()?;
         let mode_group = ModeGroup(mode_group);
-        let context_port = port_prototype_to_pyobject(context_port).ok()?;
+        let context_port = port_prototype_to_pyany(context_port).ok()?;
         Some((mode_group, context_port))
     }
 
@@ -781,6 +826,15 @@ impl ModeSwitchPoint {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -808,7 +862,7 @@ impl ModeSwitchPoint {
         mode_group: &ModeGroup,
         context_port: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let context_port = pyobject_to_port_prototype(context_port)?;
+        let context_port = pyany_to_port_prototype(context_port)?;
         self.0
             .set_mode_group(&mode_group.0, &context_port)
             .map_err(abstraction_err_to_pyerr)
@@ -816,10 +870,10 @@ impl ModeSwitchPoint {
 
     /// Get the mode group and context port of the `ModeAccessPoint`
     #[getter]
-    fn mode_group(&self) -> Option<(ModeGroup, PyObject)> {
+    fn mode_group(&self) -> Option<(ModeGroup, Py<PyAny>)> {
         let (mode_group, context_port) = self.0.mode_group()?;
         let mode_group = ModeGroup(mode_group);
-        let context_port = port_prototype_to_pyobject(context_port).ok()?;
+        let context_port = port_prototype_to_pyany(context_port).ok()?;
         Some((mode_group, context_port))
     }
 

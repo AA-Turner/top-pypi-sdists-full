@@ -26,7 +26,7 @@ from chalk.features._document import Document
 from chalk.features._last import Last
 from chalk.features.filter import freeze_time
 from chalk.features.pseudofeatures import Distance, Now
-from chalk.features.resolver import OfflineResolver, OnlineResolver, Resolver, offline, online
+from chalk.features.resolver import OfflineResolver, OnlineResolver, Resolver, make_model_resolver, offline, online
 from chalk.features.tag import BranchId, EnvironmentId
 from chalk.features.underscore import _, __, underscore
 from chalk.importer import get_resolver
@@ -98,6 +98,7 @@ __all__ = (
     "has_many",
     "has_one",
     "is_primary",
+    "make_model_resolver",
     "make_sql_file_resolver",
     "offline",
     "online",

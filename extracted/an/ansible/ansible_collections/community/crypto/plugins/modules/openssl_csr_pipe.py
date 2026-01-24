@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: openssl_csr_pipe
 short_description: Generate OpenSSL Certificate Signing Request (CSR)
@@ -137,9 +136,9 @@ from ansible_collections.community.crypto.plugins.module_utils._crypto.module_ba
     select_backend,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.module_utils._crypto.module_backends.csr import (  # pragma: no cover
         CertificateSigningRequestBackend,
     )

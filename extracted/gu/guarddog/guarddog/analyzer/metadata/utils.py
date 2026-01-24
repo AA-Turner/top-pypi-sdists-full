@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from functools import cache
 from typing import Optional
 
+import hashlib
 import whois  # type: ignore
 
 NPM_MAINTAINER_EMAIL_WARNING = (
@@ -26,7 +27,7 @@ def get_domain_creation_date(domain) -> tuple[Optional[datetime], bool]:
 
     try:
         domain_information = whois.whois(domain)
-    except whois.parser.PywhoisError as e:
+    except whois.exceptions.PywhoisError as e:
         # The domain doesn't exist at all, if that's the case we consider it vulnerable
         # since someone could register it
         return None, (not str(e).lower().startswith("no match for"))
@@ -53,3 +54,25 @@ def extract_email_address_domain(email_address: str):
 
     except IndexError:
         raise ValueError(f"Invalid email address: {email_address}")
+
+
+def get_file_hash(path: str) -> tuple[str, list[str]]:
+    """
+    Gets the sha256 of the file
+
+    Args:
+        path (str): Full file path
+
+    Returns:
+        str: The SHA256 hash of the file as a hexadecimal string
+        list: The file contents as a list of lines
+    """
+    with open(path, "rb") as f:
+        # Read the contents of the file
+        file_contents = f.read()
+        # Create a hash object
+        hash_object = hashlib.sha256()
+        # Feed the file contents to the hash object
+        hash_object.update(file_contents)
+        # Get the hexadecimal hash value
+        return hash_object.hexdigest(), str(file_contents).strip().splitlines()

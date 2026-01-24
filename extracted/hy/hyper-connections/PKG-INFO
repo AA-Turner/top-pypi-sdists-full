@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyper-connections
-Version: 0.2.1
+Version: 0.4.7
 Summary: Hyper-Connections
 Project-URL: Homepage, https://pypi.org/project/hyper-connections/
 Project-URL: Repository, https://github.com/lucidrains/hyper-connections
@@ -34,8 +34,8 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9
-Requires-Dist: einops>=0.8.0
-Requires-Dist: torch>=2.3
+Requires-Dist: einops>=0.8.1
+Requires-Dist: torch>=2.5
 Provides-Extra: examples
 Description-Content-Type: text/markdown
 
@@ -44,6 +44,8 @@ Description-Content-Type: text/markdown
 ## Hyper Connections
 
 Attempt to make multiple residual streams, proposed in [Hyper-Connections paper](https://arxiv.org/abs/2409.19606) out of Bytedance AI lab, accessible as an easy to use library, as well as for following any new research in this direction.
+
+[Write up on mHC from Subhadip Mitra](https://subhadipmitra.com/blog/2026/deepseek-mhc-manifold-constrained-hyper-connections/)
 
 ## Install
 
@@ -175,5 +177,17 @@ get_init_and_expand_reduce_stream_functions(1, num_fracs = 4) # also allows you 
     year    = {2025},
     volume  = {abs/2503.14125},
     url     = {https://api.semanticscholar.org/CorpusID:277104144}
+}
+```
+
+```bibtex
+@misc{xie2025mhcmanifoldconstrainedhyperconnections,
+    title   = {mHC: Manifold-Constrained Hyper-Connections}, 
+    author  = {Zhenda Xie and Yixuan Wei and Huanqi Cao and Chenggang Zhao and Chengqi Deng and Jiashi Li and Damai Dai and Huazuo Gao and Jiang Chang and Liang Zhao and Shangyan Zhou and Zhean Xu and Zhengyan Zhang and Wangding Zeng and Shengding Hu and Yuqing Wang and Jingyang Yuan and Lean Wang and Wenfeng Liang},
+    year    = {2025},
+    eprint  = {2512.24880},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.CL},
+    url     = {https://arxiv.org/abs/2512.24880}, 
 }
 ```

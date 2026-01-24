@@ -1,41 +1,67 @@
 """
 Publish Markdown files to Confluence wiki.
 
-Copyright 2022-2025, Levente Hunyadi
+Copyright 2022-2026, Levente Hunyadi
 
 :see: https://github.com/hunyadi/md2conf
 """
 
+import sys
+import tempfile
 import unittest
-from collections.abc import Container, Iterable
-from typing import Optional, TypeVar, Union
+from collections.abc import Container, Generator, Iterable
+from contextlib import contextmanager
+from pathlib import Path
+from typing import TypeVar
 from unittest.util import safe_repr
+
+
+@contextmanager
+def temporary_file(data: str | bytes, *, suffix: str | None = None) -> Generator[Path]:
+    match data:
+        case str():
+            with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False) as f:
+                f.write(data)
+                p = f.name
+        case _:
+            with tempfile.NamedTemporaryFile(mode="wb", suffix=suffix, delete=False) as f:
+                f.write(data)
+                p = f.name
+
+    path = Path(p)
+    try:
+        yield path
+    finally:
+        path.unlink()
+
 
 T = TypeVar("T")
 
 
 class TypedTestCase(unittest.TestCase):
-    def assertEqual(self, first: T, second: T, msg: Optional[str] = None) -> None:
+    def assertEqual(self, first: T, second: T, msg: str | None = None) -> None:
         super().assertEqual(first, second, msg)
 
-    def assertNotEqual(self, first: T, second: T, msg: Optional[str] = None) -> None:
+    def assertNotEqual(self, first: T, second: T, msg: str | None = None) -> None:
         super().assertNotEqual(first, second, msg)
 
-    def assertIn(self, member: T, container: Union[Iterable[T], Container[T]], msg: Optional[str] = None) -> None:
+    def assertIn(self, member: T, container: Iterable[T] | Container[T], msg: str | None = None) -> None:
         super().assertIn(member, container, msg)
 
-    def assertNotIn(self, member: T, container: Union[Iterable[T], Container[T]], msg: Optional[str] = None) -> None:
+    def assertNotIn(self, member: T, container: Iterable[T] | Container[T], msg: str | None = None) -> None:
         super().assertNotIn(member, container, msg)
 
-    def assertListEqual(self, list1: list[T], list2: list[T], msg: Optional[str] = None) -> None:
+    def assertListEqual(self, list1: list[T], list2: list[T], msg: str | None = None) -> None:
         super().assertListEqual(list1, list2, msg=msg)
 
-    def assertStartsWith(self, text: str, prefix: str, msg: Optional[str] = None) -> None:
-        """Just like self.assertTrue(text.startswith(prefix)), but with a nicer default message."""
+    if sys.version_info < (3, 14):
 
-        if not text.startswith(prefix):
-            standardMsg = "%s does not start with %s" % (
-                safe_repr(text),
-                safe_repr(prefix),
-            )
-            self.fail(self._formatMessage(msg, standardMsg))
+        def assertStartsWith(self, text: str, prefix: str, msg: str | None = None) -> None:
+            """Just like self.assertTrue(text.startswith(prefix)), but with a nicer default message."""
+
+            if not text.startswith(prefix):
+                standardMsg = "%s does not start with %s" % (
+                    safe_repr(text),
+                    safe_repr(prefix),
+                )
+                self.fail(self._formatMessage(msg, standardMsg))

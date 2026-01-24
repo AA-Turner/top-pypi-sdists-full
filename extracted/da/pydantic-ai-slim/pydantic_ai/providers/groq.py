@@ -5,9 +5,9 @@ from typing import overload
 
 import httpx
 
+from pydantic_ai import ModelProfile
 from pydantic_ai.exceptions import UserError
 from pydantic_ai.models import cached_async_http_client
-from pydantic_ai.profiles import ModelProfile
 from pydantic_ai.profiles.deepseek import deepseek_model_profile
 from pydantic_ai.profiles.google import google_model_profile
 from pydantic_ai.profiles.groq import groq_model_profile
@@ -107,7 +107,7 @@ class GroqProvider(Provider[AsyncGroq]):
             groq_client: An existing
                 [`AsyncGroq`](https://github.com/groq/groq-python?tab=readme-ov-file#async-usage)
                 client to use. If provided, `api_key` and `http_client` must be `None`.
-            http_client: An existing `AsyncHTTPClient` to use for making HTTP requests.
+            http_client: An existing `AsyncClient` to use for making HTTP requests.
         """
         if groq_client is not None:
             assert http_client is None, 'Cannot provide both `groq_client` and `http_client`'

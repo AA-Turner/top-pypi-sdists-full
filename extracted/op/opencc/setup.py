@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import subprocess
 import sys
 import warnings
@@ -161,6 +162,10 @@ packages = ['opencc', 'opencc.clib']
 version_info = get_version_info()
 author_info = get_author_info()
 
+setup_requires = []
+if not shutil.which('cmake'):
+    setup_requires.append('cmake')
+
 setuptools.setup(
     name='OpenCC',
     version=version_info,
@@ -176,8 +181,9 @@ setuptools.setup(
     ext_modules=[OpenCCExtension('opencc.clib.opencc_clib', 'python')],
     cmdclass={
         'build_ext': BuildExtCommand,
-        'bdist_wheel': BDistWheelCommand
+        'bdist_wheel': BDistWheelCommand,
     },
+    setup_requires=setup_requires,
 
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -194,7 +200,8 @@ setuptools.setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: Localization',
         'Topic :: Text Processing :: Linguistic',
+        'Typing :: Typed',
     ],
     license='Apache License 2.0',
-    keywords=['opencc', 'convert', 'chinese']
+    keywords=['opencc', 'convert', 'chinese'],
 )

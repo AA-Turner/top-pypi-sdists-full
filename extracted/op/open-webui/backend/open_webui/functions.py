@@ -37,7 +37,7 @@ from open_webui.utils.plugin import (
 from open_webui.utils.tools import get_tools
 from open_webui.utils.access_control import has_access
 
-from open_webui.env import SRC_LOG_LEVELS, GLOBAL_LOG_LEVEL
+from open_webui.env import GLOBAL_LOG_LEVEL
 
 from open_webui.utils.misc import (
     add_or_update_system_message,
@@ -54,7 +54,6 @@ from open_webui.utils.payload import (
 
 logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL)
 log = logging.getLogger(__name__)
-log.setLevel(SRC_LOG_LEVELS["MAIN"])
 
 
 def get_function_module_by_id(request: Request, pipe_id: str):
@@ -85,6 +84,10 @@ async def get_function_models(request):
     for pipe in pipes:
         try:
             function_module = get_function_module_by_id(request, pipe.id)
+
+            has_user_valves = False
+            if hasattr(function_module, "UserValves"):
+                has_user_valves = True
 
             # Check if function is a manifold
             if hasattr(function_module, "pipes"):
@@ -124,6 +127,7 @@ async def get_function_models(request):
                             "created": pipe.created_at,
                             "owned_by": "openai",
                             "pipe": pipe_flag,
+                            "has_user_valves": has_user_valves,
                         }
                     )
             else:
@@ -141,6 +145,7 @@ async def get_function_models(request):
                         "created": pipe.created_at,
                         "owned_by": "openai",
                         "pipe": pipe_flag,
+                        "has_user_valves": has_user_valves,
                     }
                 )
         except Exception as e:
@@ -239,7 +244,7 @@ async def generate_function_chat_completion(
     oauth_token = None
     try:
         if request.cookies.get("oauth_session_id", None):
-            oauth_token = request.app.state.oauth_manager.get_oauth_token(
+            oauth_token = await request.app.state.oauth_manager.get_oauth_token(
                 user.id,
                 request.cookies.get("oauth_session_id", None),
             )

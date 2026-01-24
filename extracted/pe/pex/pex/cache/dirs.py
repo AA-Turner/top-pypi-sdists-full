@@ -144,7 +144,7 @@ class CacheDir(Enum["CacheDir.Value"]):
 
     INSTALLED_WHEELS = Value(
         "installed_wheels",
-        version=0,
+        version=2,
         name="Pre-installed Wheels",
         description=(
             "Pre-installed wheel chroots used to both build PEXes and serve as runtime `sys.path` "
@@ -178,7 +178,7 @@ class CacheDir(Enum["CacheDir.Value"]):
 
     PIP = Value(
         "pip",
-        version=1,
+        version=3,
         name="Pip Versions",
         description="Isolated Pip caches and Pip PEXes Pex uses to resolve distributions.",
         dependencies=[INSTALLED_WHEELS],
@@ -190,6 +190,16 @@ class CacheDir(Enum["CacheDir.Value"]):
         name="Abbreviated Platforms",
         description=(
             "Information calculated about abbreviated platforms specified via `--platform`."
+        ),
+    )
+
+    REPACKED_WHEELS = Value(
+        "repacked_wheels",
+        version=0,
+        name="Reconstituted Wheels",
+        description=(
+            "Wheels that have been reconstituted from {installed_wheels!r}, as well as from wheels "
+            "installed in venvs.".format(installed_wheels=INSTALLED_WHEELS.rel_path())
         ),
     )
 
@@ -226,7 +236,7 @@ class CacheDir(Enum["CacheDir.Value"]):
 
     UNZIPPED_PEXES = Value(
         "unzipped_pexes",
-        version=1,
+        version=3,
         name="Unzipped PEXes",
         description="The unzipped PEX files executed on this machine.",
         dependencies=[BOOTSTRAPS, USER_CODE, INSTALLED_WHEELS],
@@ -234,7 +244,7 @@ class CacheDir(Enum["CacheDir.Value"]):
 
     VENVS = Value(
         "venvs",
-        version=1,
+        version=3,
         name="Virtual Environments",
         description="Virtual environments generated at runtime for `--venv` mode PEXes.",
         dependencies=[INSTALLED_WHEELS],
@@ -604,7 +614,10 @@ class PipPexDir(AtomicCacheDir):
         from pex.pip.version import PipVersion
 
         for base_dir in glob.glob(CacheDir.PIP.path("*", pex_root=pex_root)):
-            version = PipVersion.for_value(os.path.basename(base_dir))
+            dir_name = os.path.basename(base_dir)
+            version = (
+                PipVersion.ADHOC if dir_name.startswith("adhoc") else PipVersion.for_value(dir_name)
+            )
             cache_dir = os.path.join(base_dir, "pip_cache")
             for pex_dir in glob.glob(os.path.join(base_dir, "pip.pex", "*", "*")):
                 yield cls(path=pex_dir, version=version, base_dir=base_dir, cache_dir=cache_dir)
@@ -619,7 +632,7 @@ class PipPexDir(AtomicCacheDir):
 
         from pex.third_party import isolated
 
-        base_dir = CacheDir.PIP.path(str(version))
+        base_dir = CacheDir.PIP.path(version.cache_dir_name())
         return cls(
             path=os.path.join(base_dir, "pip.pex", isolated().pex_hash, fingerprint),
             version=version,
@@ -719,7 +732,7 @@ class BuiltWheelDir(AtomicCacheDir):
 
         from pex.dist_metadata import ProjectNameAndVersion, UnrecognizedDistributionFormat
 
-        for path in glob.glob(CacheDir.BUILT_WHEELS.path("sdists", "*", "*")):
+        for path in glob.glob(CacheDir.BUILT_WHEELS.path("sdists", "*", "*", pex_root=pex_root)):
             sdist, fingerprint = os.path.split(path)
             try:
                 pnav = ProjectNameAndVersion.from_filename(sdist)
@@ -735,7 +748,7 @@ class BuiltWheelDir(AtomicCacheDir):
                     yield BuiltWheelDir(path=dist_dir, dist_dir=dist_dir, file_name=file_name)
 
         for built_wheel in glob.glob(
-            CacheDir.BUILT_WHEELS.path("local_projects", "*", "*", "*", "*")
+            CacheDir.BUILT_WHEELS.path("local_projects", "*", "*", "*", "*", pex_root=pex_root)
         ):
             file_name = os.path.basename(built_wheel)
             dist_dir = os.path.dirname(built_wheel)
@@ -745,26 +758,21 @@ class BuiltWheelDir(AtomicCacheDir):
     def create(
         cls,
         sdist,  # type: str
-        fingerprint=None,  # type: Optional[str]
+        fingerprint,  # type: str
         pnav=None,  # type: Optional[ProjectNameAndVersion]
         target=None,  # type: Optional[Target]
         pex_root=ENV,  # type: Union[str, Variables]
     ):
         # type: (...) -> BuiltWheelDir
 
-        import hashlib
-
         from pex import targets
         from pex.dist_metadata import is_sdist
-        from pex.util import CacheHelper
 
         if is_sdist(sdist):
             dist_type = "sdists"
-            fingerprint = fingerprint or CacheHelper.hash(sdist, hasher=hashlib.sha256)
             file_name = os.path.basename(sdist)
         else:
             dist_type = "local_projects"
-            fingerprint = fingerprint or CacheHelper.dir_hash(sdist, hasher=hashlib.sha256)
             file_name = None
 
         # For the purposes of building a wheel from source, the product should be uniqued by the

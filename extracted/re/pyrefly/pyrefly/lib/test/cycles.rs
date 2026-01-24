@@ -21,7 +21,16 @@ no placeholder types involved. The loop creates a cycle in the definition of
 The one I've left uncommented is the one where there's no race condition.
 */
 
-fn env_leaky_loop() -> TestEnv {
+/* Improving loop handling in D85922045 made these tests once again
+ * nondeterministic in cargo tests, because some percentage of the time
+ * the type check for `y, x = f(x)` passes.
+ *
+ * This is occurring because it is entrypoint-dependent whether we type
+ * check that binding once or twice, and if we type check it twice then
+ * the second type check can produce a different answer due to
+ * non-idempotence
+
+ fn env_leaky_loop() -> TestEnv {
     TestEnv::one(
         "leaky_loop",
         r#"
@@ -29,8 +38,8 @@ x = None
 def f(_: str | None) -> tuple[str, str]: ...
 def g(_: int | None) -> tuple[int, int]: ...
 while True: # E: `int | None` is not assignable to `str | None` (caused by inconsistent types when breaking cycles)
-    y, x = f(x)
-    z, x = g(x) # E: Argument `str` is not assignable to parameter `_` with type `int | None` in function `g`
+    y, x = f(x)  # E: Argument `int | None` is not assignable to parameter `_` with type `str | None` in function `f`
+    z, x = g(x)  # E: Argument `str` is not assignable to parameter `_` with type `int | None` in function `g`
 "#,
     )
 }
@@ -58,6 +67,7 @@ from leaky_loop import x
 assert_type(x, int | None)
 "#,
 );
+*/
 
 /*
 The variant of this test that exercises an actual race condition can potentially
@@ -307,23 +317,6 @@ assert_type(fy, Callable[..., int])
 );
 */
 
-testcase!(
-    bug = "This cycle is deterministic but ill-behaved. Both speculative Phi and narrowing pinning Var are contributing",
-    test_inconsistent_types_from_cycle_in_loop,
-    r#"
-from typing import Iterable, Iterator, cast
-
-def iterate[T](*items: T | Iterable[T]) -> Iterator[T]:
-    for item in items:  # E: `Iterable[T] | str | T` is not assignable to `Iterable[T] | T` (caused by inconsistent types when breaking cycles)
-        if isinstance(item, str):
-            yield cast(T, item)
-        elif isinstance(item, Iterable):
-            yield from item
-        else:
-            yield item
-"#,
-);
-
 // This pair of tests failed until we separated Mro out from ClassMetadata - parsing base
 // types depends on the metadata but not the Mro, which was leading to patterns where a base
 // class in the cycle is generic over a class in the cycle to incorrectly fail to resolve
@@ -362,6 +355,20 @@ assert_type(B().x, B)
 );
 
 testcase!(
+    potential_cycle_through_generic_base_union,
+    r#"
+type A = Child | int
+class Base[T]:
+    def __init__(self, value: T) -> None:
+        ...
+class Child(Base[A]):  # Note how the Base targ is a union of `Child` and another class
+    pass
+
+Child("abc")  # E: not assignable to parameter `value` with type `Child | int`
+"#,
+);
+
+testcase!(
     test_init_cycle,
     r#"
 from typing import reveal_type
@@ -373,4 +380,15 @@ class A:
         pass
 reveal_type(A.__init__)  # E: revealed type: (self: A) -> None
     "#,
+);
+
+// Regression test for issue #1791, which was a stack overflow due to recursion
+// with an infinite loop of Type::Vars.
+testcase!(
+    force_for_narrowing_cycle_detection,
+    r#"
+def f(  # E: Expected `)`, found newline
+    if n:  # E: Type narrowing encountered a cycle in Type::Var # E: Expected an indented block after `if` statement
+)n = min(n, size)  # E: Expected a statement # E: `n` is uninitialized # E: Could not find name `size`
+"#,
 );

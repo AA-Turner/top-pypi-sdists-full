@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Union
 from types import MethodType
 
 import itertools
@@ -14,7 +14,7 @@ import pandas as pd
 from scipy import stats, special, interpolate
 
 from . import common_args
-from ..util import read_param_file, ResultDict
+from ..util import read_param_file, ResultDict, handle_seed
 
 from SALib.plotting.hdmr import plot as hdmr_plot
 from SALib.util.problem import ProblemSpec
@@ -35,7 +35,7 @@ def analyze(
     alpha: float = 0.95,
     lambdax: float = 0.01,
     print_to_console: bool = False,
-    seed: int = None,
+    seed: Union[int, bool, None] = None,
 ) -> Dict:
     """Compute global sensitivity indices using the meta-modeling technique
     known as High-Dimensional Model Representation (HDMR).
@@ -126,7 +126,7 @@ def analyze(
     print_to_console : bool
         Print results directly to console (default: False)
 
-    seed : bool
+    seed : {int, bool, None}
         Seed to generate a random number
 
     Returns
@@ -178,7 +178,7 @@ def analyze(
 
     # Random Seed
     if seed:
-        np.random.seed(seed)
+        rng = handle_seed(seed)
 
     # Initial part: Check input arguments and define HDMR variables
     settings = _check_settings(X, Y, maxorder, maxiter, m, K, R, alpha, lambdax)
@@ -671,30 +671,39 @@ def f_test(Y, f0, Y_em, R, alpha, m1, m2, m3, n1, n2, n3, n):
     return select
 
 
-def ancova(Y, Y_em, V_Y, R, n):
-    """Analysis of Covariance."""
+def ancova(Y, Y_em, V_Y, n, R):
+    """
+    Perform Analysis of Covariance (ANCOVA) on model and emulator outputs.
+
+    Returns
+    --------
+    tuple : A tuple containing sensitivity indices (S),
+              of structural contributions (S_a) and of correlative contributions (S_b).
+    """
+    # R is currently unused
     # Compute the sum of all Y_em terms
+    m = Y_em.shape[1]
     Y0 = np.sum(Y_em, axis=1)
+    Y0_minus_Y_em = Y0[:, None] - Y_em
 
-    # Initialize each variable
-    S, S_a, S_b = np.zeros((3, n))
+    # Covariance matrix of Y_em terms with actual Y
+    C_all = np.cov(Y_em, Y, rowvar=False)[:m, m]
 
-    # Analysis of covariance
-    for j in range(n):
-        # Covariance matrix of jth term of Y_em and actual Y
-        C = np.cov(np.stack((Y_em[:, j], Y), axis=0))
+    # Total sensitivity of each term (vectorized computation)
+    S = C_all / V_Y
 
-        # Total sensitivity of jth term         ( = Eq. 19 of Li et al )
-        S[j] = C[0, 1] / V_Y
+    # For each term, compute covariance with the emulator Y without the current term
+    # See Li et al. (2010)  for more details
 
-        # Covariance matrix of jth term with emulator Y without jth term
-        C = np.cov(np.stack((Y_em[:, j], Y0 - Y_em[:, j]), axis=0))
+    # Structural contribution of jth term ( = Eq. 20 of Li et al )
+    S_a = np.var(Y_em, axis=0) / V_Y
 
-        # Structural contribution of jth term   ( = Eq. 20 of Li et al )
-        S_a[j] = C[0, 0] / V_Y
+    # Correlative contribution of jth term ( = Eq. 21 of Li et al )
+    cov_matrix = np.empty((m, m))
+    for i in range(m):
+        cov_matrix[i] = np.cov(Y_em[:, i], Y0_minus_Y_em[:, i])[0, 1]
 
-        # Correlative contribution of jth term  ( = Eq. 21 of Li et al )
-        S_b[j] = C[0, 1] / V_Y
+    S_b = cov_matrix.diagonal() / V_Y
 
     return (S, S_a, S_b)
 

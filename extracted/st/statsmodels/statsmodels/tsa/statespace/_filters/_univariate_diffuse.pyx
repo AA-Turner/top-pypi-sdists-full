@@ -119,7 +119,7 @@ cdef int sforecast_univariate_diffuse(sKalmanFilter kfilter, sStatespace model):
             # Loglikelihood
             kfilter._loglikelihood[0] = (
                 kfilter._loglikelihood[0] - 0.5*(
-                    dlog(2 * NPY_PI * forecast_error_diffuse_cov)))
+                    dlog(2 * M_PI * forecast_error_diffuse_cov)))
         elif forecast_error_cov > kfilter.tolerance_diffuse:
             kfilter.nobs_kendog_diffuse_nonsingular = kfilter.nobs_kendog_diffuse_nonsingular + 1
             forecast_error_cov_inv = 1.0 / forecast_error_cov
@@ -154,7 +154,7 @@ cdef int sforecast_univariate_diffuse(sKalmanFilter kfilter, sStatespace model):
             if not forecast_error_cov == 0:
                 kfilter._loglikelihood[0] = (
                     kfilter._loglikelihood[0] - 0.5*(
-                        dlog(2 * NPY_PI * forecast_error_cov)))
+                        dlog(2 * M_PI * forecast_error_cov)))
 
                 if kfilter.filter_method & FILTER_CONCENTRATED:
                     kfilter._scale[0] = kfilter._scale[0] + kfilter._forecast_error[i]**2 * forecast_error_cov_inv
@@ -360,7 +360,7 @@ cdef int dforecast_univariate_diffuse(dKalmanFilter kfilter, dStatespace model):
             # Loglikelihood
             kfilter._loglikelihood[0] = (
                 kfilter._loglikelihood[0] - 0.5*(
-                    dlog(2 * NPY_PI * forecast_error_diffuse_cov)))
+                    dlog(2 * M_PI * forecast_error_diffuse_cov)))
         elif forecast_error_cov > kfilter.tolerance_diffuse:
             kfilter.nobs_kendog_diffuse_nonsingular = kfilter.nobs_kendog_diffuse_nonsingular + 1
             forecast_error_cov_inv = 1.0 / forecast_error_cov
@@ -395,7 +395,7 @@ cdef int dforecast_univariate_diffuse(dKalmanFilter kfilter, dStatespace model):
             if not forecast_error_cov == 0:
                 kfilter._loglikelihood[0] = (
                     kfilter._loglikelihood[0] - 0.5*(
-                        dlog(2 * NPY_PI * forecast_error_cov)))
+                        dlog(2 * M_PI * forecast_error_cov)))
 
                 if kfilter.filter_method & FILTER_CONCENTRATED:
                     kfilter._scale[0] = kfilter._scale[0] + kfilter._forecast_error[i]**2 * forecast_error_cov_inv
@@ -601,7 +601,7 @@ cdef int cforecast_univariate_diffuse(cKalmanFilter kfilter, cStatespace model):
             # Loglikelihood
             kfilter._loglikelihood[0] = (
                 kfilter._loglikelihood[0] - 0.5*(
-                    zlog(2 * NPY_PI * forecast_error_diffuse_cov)))
+                    zlog(2 * M_PI * forecast_error_diffuse_cov)))
         elif forecast_error_cov.real > kfilter.tolerance_diffuse:
             kfilter.nobs_kendog_diffuse_nonsingular = kfilter.nobs_kendog_diffuse_nonsingular + 1
             forecast_error_cov_inv = 1.0 / forecast_error_cov
@@ -636,7 +636,7 @@ cdef int cforecast_univariate_diffuse(cKalmanFilter kfilter, cStatespace model):
             if not forecast_error_cov == 0:
                 kfilter._loglikelihood[0] = (
                     kfilter._loglikelihood[0] - 0.5*(
-                        zlog(2 * NPY_PI * forecast_error_cov)))
+                        zlog(2 * M_PI * forecast_error_cov)))
 
                 if kfilter.filter_method & FILTER_CONCENTRATED:
                     kfilter._scale[0] = kfilter._scale[0] + kfilter._forecast_error[i]**2 * forecast_error_cov_inv
@@ -843,7 +843,7 @@ cdef int zforecast_univariate_diffuse(zKalmanFilter kfilter, zStatespace model):
             # Loglikelihood
             kfilter._loglikelihood[0] = (
                 kfilter._loglikelihood[0] - 0.5*(
-                    zlog(2 * NPY_PI * forecast_error_diffuse_cov)))
+                    zlog(2 * M_PI * forecast_error_diffuse_cov)))
         elif forecast_error_cov.real > kfilter.tolerance_diffuse:
             kfilter.nobs_kendog_diffuse_nonsingular = kfilter.nobs_kendog_diffuse_nonsingular + 1
             forecast_error_cov_inv = 1.0 / forecast_error_cov
@@ -878,7 +878,7 @@ cdef int zforecast_univariate_diffuse(zKalmanFilter kfilter, zStatespace model):
             if not forecast_error_cov == 0:
                 kfilter._loglikelihood[0] = (
                     kfilter._loglikelihood[0] - 0.5*(
-                        zlog(2 * NPY_PI * forecast_error_cov)))
+                        zlog(2 * M_PI * forecast_error_cov)))
 
                 if kfilter.filter_method & FILTER_CONCENTRATED:
                     kfilter._scale[0] = kfilter._scale[0] + kfilter._forecast_error[i]**2 * forecast_error_cov_inv

@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from githubkit.compat import model_dump, type_validate_python
 from githubkit.typing import Missing, UnsetType
-from githubkit.utils import UNSET, exclude_unset
+from githubkit.utils import UNSET, exclude_unset, parse_query_params
 
 if TYPE_CHECKING:
     from typing import Literal, Union
@@ -30,12 +30,20 @@ if TYPE_CHECKING:
     from ..models import (
         ActionsArtifactAndLogRetentionResponse,
         ActionsCacheList,
+        ActionsCacheRetentionLimitForEnterprise,
+        ActionsCacheRetentionLimitForOrganization,
+        ActionsCacheRetentionLimitForRepository,
+        ActionsCacheStorageLimitForEnterprise,
+        ActionsCacheStorageLimitForOrganization,
+        ActionsCacheStorageLimitForRepository,
         ActionsCacheUsageByRepository,
         ActionsCacheUsageOrgEnterprise,
         ActionsForkPrContributorApproval,
         ActionsForkPrWorkflowsPrivateRepos,
         ActionsGetDefaultWorkflowPermissions,
         ActionsHostedRunner,
+        ActionsHostedRunnerCustomImage,
+        ActionsHostedRunnerCustomImageVersion,
         ActionsHostedRunnerLimits,
         ActionsOrganizationPermissions,
         ActionsPublicKey,
@@ -54,6 +62,8 @@ if TYPE_CHECKING:
         OrganizationActionsVariable,
         OrgsOrgActionsCacheUsageByRepositoryGetResponse200,
         OrgsOrgActionsHostedRunnersGetResponse200,
+        OrgsOrgActionsHostedRunnersImagesCustomGetResponse200,
+        OrgsOrgActionsHostedRunnersImagesCustomImageDefinitionIdVersionsGetResponse200,
         OrgsOrgActionsHostedRunnersImagesGithubOwnedGetResponse200,
         OrgsOrgActionsHostedRunnersImagesPartnerGetResponse200,
         OrgsOrgActionsHostedRunnersMachineSizesGetResponse200,
@@ -98,115 +108,134 @@ if TYPE_CHECKING:
         WorkflowUsage,
     )
     from ..types import (
-        ActionsArtifactAndLogRetentionResponseType,
+        ActionsArtifactAndLogRetentionResponseTypeForResponse,
         ActionsArtifactAndLogRetentionType,
-        ActionsCacheListType,
-        ActionsCacheUsageByRepositoryType,
-        ActionsCacheUsageOrgEnterpriseType,
+        ActionsCacheListTypeForResponse,
+        ActionsCacheRetentionLimitForEnterpriseType,
+        ActionsCacheRetentionLimitForEnterpriseTypeForResponse,
+        ActionsCacheRetentionLimitForOrganizationType,
+        ActionsCacheRetentionLimitForOrganizationTypeForResponse,
+        ActionsCacheRetentionLimitForRepositoryType,
+        ActionsCacheRetentionLimitForRepositoryTypeForResponse,
+        ActionsCacheStorageLimitForEnterpriseType,
+        ActionsCacheStorageLimitForEnterpriseTypeForResponse,
+        ActionsCacheStorageLimitForOrganizationType,
+        ActionsCacheStorageLimitForOrganizationTypeForResponse,
+        ActionsCacheStorageLimitForRepositoryType,
+        ActionsCacheStorageLimitForRepositoryTypeForResponse,
+        ActionsCacheUsageByRepositoryTypeForResponse,
+        ActionsCacheUsageOrgEnterpriseTypeForResponse,
         ActionsForkPrContributorApprovalType,
+        ActionsForkPrContributorApprovalTypeForResponse,
         ActionsForkPrWorkflowsPrivateReposRequestType,
-        ActionsForkPrWorkflowsPrivateReposType,
-        ActionsGetDefaultWorkflowPermissionsType,
-        ActionsHostedRunnerLimitsType,
-        ActionsHostedRunnerType,
-        ActionsOrganizationPermissionsType,
-        ActionsPublicKeyType,
-        ActionsRepositoryPermissionsType,
-        ActionsSecretType,
+        ActionsForkPrWorkflowsPrivateReposTypeForResponse,
+        ActionsGetDefaultWorkflowPermissionsTypeForResponse,
+        ActionsHostedRunnerCustomImageTypeForResponse,
+        ActionsHostedRunnerCustomImageVersionTypeForResponse,
+        ActionsHostedRunnerLimitsTypeForResponse,
+        ActionsHostedRunnerTypeForResponse,
+        ActionsOrganizationPermissionsTypeForResponse,
+        ActionsPublicKeyTypeForResponse,
+        ActionsRepositoryPermissionsTypeForResponse,
+        ActionsSecretTypeForResponse,
         ActionsSetDefaultWorkflowPermissionsType,
-        ActionsVariableType,
+        ActionsVariableTypeForResponse,
         ActionsWorkflowAccessToRepositoryType,
-        ArtifactType,
-        AuthenticationTokenType,
-        DeploymentType,
-        EmptyObjectType,
-        EnvironmentApprovalsType,
-        JobType,
-        OidcCustomSubRepoType,
-        OrganizationActionsSecretType,
-        OrganizationActionsVariableType,
-        OrgsOrgActionsCacheUsageByRepositoryGetResponse200Type,
-        OrgsOrgActionsHostedRunnersGetResponse200Type,
+        ActionsWorkflowAccessToRepositoryTypeForResponse,
+        ArtifactTypeForResponse,
+        AuthenticationTokenTypeForResponse,
+        DeploymentTypeForResponse,
+        EmptyObjectTypeForResponse,
+        EnvironmentApprovalsTypeForResponse,
+        JobTypeForResponse,
+        OidcCustomSubRepoTypeForResponse,
+        OrganizationActionsSecretTypeForResponse,
+        OrganizationActionsVariableTypeForResponse,
+        OrgsOrgActionsCacheUsageByRepositoryGetResponse200TypeForResponse,
+        OrgsOrgActionsHostedRunnersGetResponse200TypeForResponse,
         OrgsOrgActionsHostedRunnersHostedRunnerIdPatchBodyType,
-        OrgsOrgActionsHostedRunnersImagesGithubOwnedGetResponse200Type,
-        OrgsOrgActionsHostedRunnersImagesPartnerGetResponse200Type,
-        OrgsOrgActionsHostedRunnersMachineSizesGetResponse200Type,
-        OrgsOrgActionsHostedRunnersPlatformsGetResponse200Type,
+        OrgsOrgActionsHostedRunnersImagesCustomGetResponse200TypeForResponse,
+        OrgsOrgActionsHostedRunnersImagesCustomImageDefinitionIdVersionsGetResponse200TypeForResponse,
+        OrgsOrgActionsHostedRunnersImagesGithubOwnedGetResponse200TypeForResponse,
+        OrgsOrgActionsHostedRunnersImagesPartnerGetResponse200TypeForResponse,
+        OrgsOrgActionsHostedRunnersMachineSizesGetResponse200TypeForResponse,
+        OrgsOrgActionsHostedRunnersPlatformsGetResponse200TypeForResponse,
         OrgsOrgActionsHostedRunnersPostBodyPropImageType,
         OrgsOrgActionsHostedRunnersPostBodyType,
         OrgsOrgActionsPermissionsPutBodyType,
-        OrgsOrgActionsPermissionsRepositoriesGetResponse200Type,
+        OrgsOrgActionsPermissionsRepositoriesGetResponse200TypeForResponse,
         OrgsOrgActionsPermissionsRepositoriesPutBodyType,
         OrgsOrgActionsPermissionsSelfHostedRunnersPutBodyType,
-        OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesGetResponse200Type,
+        OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesGetResponse200TypeForResponse,
         OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesPutBodyType,
-        OrgsOrgActionsRunnerGroupsGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsGetResponse200TypeForResponse,
         OrgsOrgActionsRunnerGroupsPostBodyType,
-        OrgsOrgActionsRunnerGroupsRunnerGroupIdHostedRunnersGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsRunnerGroupIdHostedRunnersGetResponse200TypeForResponse,
         OrgsOrgActionsRunnerGroupsRunnerGroupIdPatchBodyType,
-        OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesGetResponse200TypeForResponse,
         OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesPutBodyType,
-        OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersGetResponse200TypeForResponse,
         OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersPutBodyType,
         OrgsOrgActionsRunnersGenerateJitconfigPostBodyType,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
-        OrgsOrgActionsRunnersGetResponse200Type,
-        OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200Type,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
+        OrgsOrgActionsRunnersGetResponse200TypeForResponse,
+        OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200TypeForResponse,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
         OrgsOrgActionsRunnersRunnerIdLabelsPostBodyType,
         OrgsOrgActionsRunnersRunnerIdLabelsPutBodyType,
-        OrgsOrgActionsSecretsGetResponse200Type,
+        OrgsOrgActionsSecretsGetResponse200TypeForResponse,
         OrgsOrgActionsSecretsSecretNamePutBodyType,
-        OrgsOrgActionsSecretsSecretNameRepositoriesGetResponse200Type,
+        OrgsOrgActionsSecretsSecretNameRepositoriesGetResponse200TypeForResponse,
         OrgsOrgActionsSecretsSecretNameRepositoriesPutBodyType,
-        OrgsOrgActionsVariablesGetResponse200Type,
+        OrgsOrgActionsVariablesGetResponse200TypeForResponse,
         OrgsOrgActionsVariablesNamePatchBodyType,
-        OrgsOrgActionsVariablesNameRepositoriesGetResponse200Type,
+        OrgsOrgActionsVariablesNameRepositoriesGetResponse200TypeForResponse,
         OrgsOrgActionsVariablesNameRepositoriesPutBodyType,
         OrgsOrgActionsVariablesPostBodyType,
-        PendingDeploymentType,
-        ReposOwnerRepoActionsArtifactsGetResponse200Type,
+        PendingDeploymentTypeForResponse,
+        ReposOwnerRepoActionsArtifactsGetResponse200TypeForResponse,
         ReposOwnerRepoActionsJobsJobIdRerunPostBodyType,
         ReposOwnerRepoActionsOidcCustomizationSubPutBodyType,
-        ReposOwnerRepoActionsOrganizationSecretsGetResponse200Type,
-        ReposOwnerRepoActionsOrganizationVariablesGetResponse200Type,
+        ReposOwnerRepoActionsOrganizationSecretsGetResponse200TypeForResponse,
+        ReposOwnerRepoActionsOrganizationVariablesGetResponse200TypeForResponse,
         ReposOwnerRepoActionsPermissionsPutBodyType,
         ReposOwnerRepoActionsRunnersGenerateJitconfigPostBodyType,
-        ReposOwnerRepoActionsRunnersGetResponse200Type,
+        ReposOwnerRepoActionsRunnersGetResponse200TypeForResponse,
         ReposOwnerRepoActionsRunnersRunnerIdLabelsPostBodyType,
         ReposOwnerRepoActionsRunnersRunnerIdLabelsPutBodyType,
-        ReposOwnerRepoActionsRunsGetResponse200Type,
-        ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200Type,
-        ReposOwnerRepoActionsRunsRunIdAttemptsAttemptNumberJobsGetResponse200Type,
-        ReposOwnerRepoActionsRunsRunIdJobsGetResponse200Type,
+        ReposOwnerRepoActionsRunsGetResponse200TypeForResponse,
+        ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200TypeForResponse,
+        ReposOwnerRepoActionsRunsRunIdAttemptsAttemptNumberJobsGetResponse200TypeForResponse,
+        ReposOwnerRepoActionsRunsRunIdJobsGetResponse200TypeForResponse,
         ReposOwnerRepoActionsRunsRunIdPendingDeploymentsPostBodyType,
         ReposOwnerRepoActionsRunsRunIdRerunFailedJobsPostBodyType,
         ReposOwnerRepoActionsRunsRunIdRerunPostBodyType,
-        ReposOwnerRepoActionsSecretsGetResponse200Type,
+        ReposOwnerRepoActionsSecretsGetResponse200TypeForResponse,
         ReposOwnerRepoActionsSecretsSecretNamePutBodyType,
-        ReposOwnerRepoActionsVariablesGetResponse200Type,
+        ReposOwnerRepoActionsVariablesGetResponse200TypeForResponse,
         ReposOwnerRepoActionsVariablesNamePatchBodyType,
         ReposOwnerRepoActionsVariablesPostBodyType,
-        ReposOwnerRepoActionsWorkflowsGetResponse200Type,
+        ReposOwnerRepoActionsWorkflowsGetResponse200TypeForResponse,
         ReposOwnerRepoActionsWorkflowsWorkflowIdDispatchesPostBodyPropInputsType,
         ReposOwnerRepoActionsWorkflowsWorkflowIdDispatchesPostBodyType,
-        ReposOwnerRepoActionsWorkflowsWorkflowIdRunsGetResponse200Type,
-        ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200Type,
+        ReposOwnerRepoActionsWorkflowsWorkflowIdRunsGetResponse200TypeForResponse,
+        ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200TypeForResponse,
         ReposOwnerRepoEnvironmentsEnvironmentNameSecretsSecretNamePutBodyType,
-        ReposOwnerRepoEnvironmentsEnvironmentNameVariablesGetResponse200Type,
+        ReposOwnerRepoEnvironmentsEnvironmentNameVariablesGetResponse200TypeForResponse,
         ReposOwnerRepoEnvironmentsEnvironmentNameVariablesNamePatchBodyType,
         ReposOwnerRepoEnvironmentsEnvironmentNameVariablesPostBodyType,
         ReviewCustomGatesCommentRequiredType,
         ReviewCustomGatesStateRequiredType,
-        RunnerApplicationType,
-        RunnerGroupsOrgType,
-        RunnerType,
+        RunnerApplicationTypeForResponse,
+        RunnerGroupsOrgTypeForResponse,
+        RunnerTypeForResponse,
         SelectedActionsType,
-        SelfHostedRunnersSettingsType,
-        WorkflowRunType,
-        WorkflowRunUsageType,
-        WorkflowType,
-        WorkflowUsageType,
+        SelectedActionsTypeForResponse,
+        SelfHostedRunnersSettingsTypeForResponse,
+        WorkflowRunTypeForResponse,
+        WorkflowRunUsageTypeForResponse,
+        WorkflowTypeForResponse,
+        WorkflowUsageTypeForResponse,
     )
 
 
@@ -225,13 +254,895 @@ class ActionsClient:
             "Do not use this client after the client has been collected."
         )
 
+    def get_actions_cache_retention_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheRetentionLimitForEnterprise,
+        ActionsCacheRetentionLimitForEnterpriseTypeForResponse,
+    ]:
+        """actions/get-actions-cache-retention-limit-for-enterprise
+
+        GET /enterprises/{enterprise}/actions/cache/retention-limit
+
+        Gets GitHub Actions cache retention limit for an enterprise. All organizations and repositories under this
+        enterprise may not set a higher cache retention limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:enterprise` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-retention-limit-for-an-enterprise
+        """
+
+        from ..models import ActionsCacheRetentionLimitForEnterprise, BasicError
+
+        url = f"/enterprises/{enterprise}/actions/cache/retention-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheRetentionLimitForEnterprise,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_get_actions_cache_retention_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheRetentionLimitForEnterprise,
+        ActionsCacheRetentionLimitForEnterpriseTypeForResponse,
+    ]:
+        """actions/get-actions-cache-retention-limit-for-enterprise
+
+        GET /enterprises/{enterprise}/actions/cache/retention-limit
+
+        Gets GitHub Actions cache retention limit for an enterprise. All organizations and repositories under this
+        enterprise may not set a higher cache retention limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:enterprise` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-retention-limit-for-an-enterprise
+        """
+
+        from ..models import ActionsCacheRetentionLimitForEnterprise, BasicError
+
+        url = f"/enterprises/{enterprise}/actions/cache/retention-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheRetentionLimitForEnterprise,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    def set_actions_cache_retention_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheRetentionLimitForEnterpriseType,
+    ) -> Response: ...
+
+    @overload
+    def set_actions_cache_retention_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_retention_days: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    def set_actions_cache_retention_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheRetentionLimitForEnterpriseType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-retention-limit-for-enterprise
+
+        PUT /enterprises/{enterprise}/actions/cache/retention-limit
+
+        Sets GitHub Actions cache retention limit for an enterprise. All organizations and repositories under this
+        enterprise may not set a higher cache retention limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:enterprise` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-retention-limit-for-an-enterprise
+        """
+
+        from ..models import ActionsCacheRetentionLimitForEnterprise, BasicError
+
+        url = f"/enterprises/{enterprise}/actions/cache/retention-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheRetentionLimitForEnterprise, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    async def async_set_actions_cache_retention_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheRetentionLimitForEnterpriseType,
+    ) -> Response: ...
+
+    @overload
+    async def async_set_actions_cache_retention_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_retention_days: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    async def async_set_actions_cache_retention_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheRetentionLimitForEnterpriseType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-retention-limit-for-enterprise
+
+        PUT /enterprises/{enterprise}/actions/cache/retention-limit
+
+        Sets GitHub Actions cache retention limit for an enterprise. All organizations and repositories under this
+        enterprise may not set a higher cache retention limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:enterprise` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-retention-limit-for-an-enterprise
+        """
+
+        from ..models import ActionsCacheRetentionLimitForEnterprise, BasicError
+
+        url = f"/enterprises/{enterprise}/actions/cache/retention-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheRetentionLimitForEnterprise, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    def get_actions_cache_storage_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheStorageLimitForEnterprise,
+        ActionsCacheStorageLimitForEnterpriseTypeForResponse,
+    ]:
+        """actions/get-actions-cache-storage-limit-for-enterprise
+
+        GET /enterprises/{enterprise}/actions/cache/storage-limit
+
+        Gets GitHub Actions cache storage limit for an enterprise. All organizations and repositories under this
+        enterprise may not set a higher cache storage limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:enterprise` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-storage-limit-for-an-enterprise
+        """
+
+        from ..models import ActionsCacheStorageLimitForEnterprise, BasicError
+
+        url = f"/enterprises/{enterprise}/actions/cache/storage-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheStorageLimitForEnterprise,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_get_actions_cache_storage_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheStorageLimitForEnterprise,
+        ActionsCacheStorageLimitForEnterpriseTypeForResponse,
+    ]:
+        """actions/get-actions-cache-storage-limit-for-enterprise
+
+        GET /enterprises/{enterprise}/actions/cache/storage-limit
+
+        Gets GitHub Actions cache storage limit for an enterprise. All organizations and repositories under this
+        enterprise may not set a higher cache storage limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:enterprise` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-storage-limit-for-an-enterprise
+        """
+
+        from ..models import ActionsCacheStorageLimitForEnterprise, BasicError
+
+        url = f"/enterprises/{enterprise}/actions/cache/storage-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheStorageLimitForEnterprise,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    def set_actions_cache_storage_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheStorageLimitForEnterpriseType,
+    ) -> Response: ...
+
+    @overload
+    def set_actions_cache_storage_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_size_gb: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    def set_actions_cache_storage_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheStorageLimitForEnterpriseType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-storage-limit-for-enterprise
+
+        PUT /enterprises/{enterprise}/actions/cache/storage-limit
+
+        Sets GitHub Actions cache storage limit for an enterprise. All organizations and repositories under this
+        enterprise may not set a higher cache storage limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:enterprise` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-storage-limit-for-an-enterprise
+        """
+
+        from ..models import ActionsCacheStorageLimitForEnterprise, BasicError
+
+        url = f"/enterprises/{enterprise}/actions/cache/storage-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheStorageLimitForEnterprise, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    async def async_set_actions_cache_storage_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheStorageLimitForEnterpriseType,
+    ) -> Response: ...
+
+    @overload
+    async def async_set_actions_cache_storage_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_size_gb: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    async def async_set_actions_cache_storage_limit_for_enterprise(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheStorageLimitForEnterpriseType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-storage-limit-for-enterprise
+
+        PUT /enterprises/{enterprise}/actions/cache/storage-limit
+
+        Sets GitHub Actions cache storage limit for an enterprise. All organizations and repositories under this
+        enterprise may not set a higher cache storage limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:enterprise` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-storage-limit-for-an-enterprise
+        """
+
+        from ..models import ActionsCacheStorageLimitForEnterprise, BasicError
+
+        url = f"/enterprises/{enterprise}/actions/cache/storage-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheStorageLimitForEnterprise, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    def get_actions_cache_retention_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheRetentionLimitForOrganization,
+        ActionsCacheRetentionLimitForOrganizationTypeForResponse,
+    ]:
+        """actions/get-actions-cache-retention-limit-for-organization
+
+        GET /organizations/{org}/actions/cache/retention-limit
+
+        Gets GitHub Actions cache retention limit for an organization. All repositories under this
+        organization may not set a higher cache retention limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:organization` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-retention-limit-for-an-organization
+        """
+
+        from ..models import ActionsCacheRetentionLimitForOrganization, BasicError
+
+        url = f"/organizations/{org}/actions/cache/retention-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheRetentionLimitForOrganization,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_get_actions_cache_retention_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheRetentionLimitForOrganization,
+        ActionsCacheRetentionLimitForOrganizationTypeForResponse,
+    ]:
+        """actions/get-actions-cache-retention-limit-for-organization
+
+        GET /organizations/{org}/actions/cache/retention-limit
+
+        Gets GitHub Actions cache retention limit for an organization. All repositories under this
+        organization may not set a higher cache retention limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:organization` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-retention-limit-for-an-organization
+        """
+
+        from ..models import ActionsCacheRetentionLimitForOrganization, BasicError
+
+        url = f"/organizations/{org}/actions/cache/retention-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheRetentionLimitForOrganization,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    def set_actions_cache_retention_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheRetentionLimitForOrganizationType,
+    ) -> Response: ...
+
+    @overload
+    def set_actions_cache_retention_limit_for_organization(
+        self,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_retention_days: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    def set_actions_cache_retention_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheRetentionLimitForOrganizationType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-retention-limit-for-organization
+
+        PUT /organizations/{org}/actions/cache/retention-limit
+
+        Sets GitHub Actions cache retention limit for an organization. All repositories under this
+        organization may not set a higher cache retention limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:organization` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-retention-limit-for-an-organization
+        """
+
+        from ..models import ActionsCacheRetentionLimitForOrganization, BasicError
+
+        url = f"/organizations/{org}/actions/cache/retention-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheRetentionLimitForOrganization, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    async def async_set_actions_cache_retention_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheRetentionLimitForOrganizationType,
+    ) -> Response: ...
+
+    @overload
+    async def async_set_actions_cache_retention_limit_for_organization(
+        self,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_retention_days: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    async def async_set_actions_cache_retention_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheRetentionLimitForOrganizationType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-retention-limit-for-organization
+
+        PUT /organizations/{org}/actions/cache/retention-limit
+
+        Sets GitHub Actions cache retention limit for an organization. All repositories under this
+        organization may not set a higher cache retention limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:organization` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-retention-limit-for-an-organization
+        """
+
+        from ..models import ActionsCacheRetentionLimitForOrganization, BasicError
+
+        url = f"/organizations/{org}/actions/cache/retention-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheRetentionLimitForOrganization, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    def get_actions_cache_storage_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheStorageLimitForOrganization,
+        ActionsCacheStorageLimitForOrganizationTypeForResponse,
+    ]:
+        """actions/get-actions-cache-storage-limit-for-organization
+
+        GET /organizations/{org}/actions/cache/storage-limit
+
+        Gets GitHub Actions cache storage limit for an organization. All repositories under this
+        organization may not set a higher cache storage limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:organization` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-storage-limit-for-an-organization
+        """
+
+        from ..models import ActionsCacheStorageLimitForOrganization, BasicError
+
+        url = f"/organizations/{org}/actions/cache/storage-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheStorageLimitForOrganization,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_get_actions_cache_storage_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheStorageLimitForOrganization,
+        ActionsCacheStorageLimitForOrganizationTypeForResponse,
+    ]:
+        """actions/get-actions-cache-storage-limit-for-organization
+
+        GET /organizations/{org}/actions/cache/storage-limit
+
+        Gets GitHub Actions cache storage limit for an organization. All repositories under this
+        organization may not set a higher cache storage limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:organization` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-storage-limit-for-an-organization
+        """
+
+        from ..models import ActionsCacheStorageLimitForOrganization, BasicError
+
+        url = f"/organizations/{org}/actions/cache/storage-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheStorageLimitForOrganization,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    def set_actions_cache_storage_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheStorageLimitForOrganizationType,
+    ) -> Response: ...
+
+    @overload
+    def set_actions_cache_storage_limit_for_organization(
+        self,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_size_gb: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    def set_actions_cache_storage_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheStorageLimitForOrganizationType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-storage-limit-for-organization
+
+        PUT /organizations/{org}/actions/cache/storage-limit
+
+        Sets GitHub Actions cache storage limit for an organization. All organizations and repositories under this
+        organization may not set a higher cache storage limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:organization` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-storage-limit-for-an-organization
+        """
+
+        from ..models import ActionsCacheStorageLimitForOrganization, BasicError
+
+        url = f"/organizations/{org}/actions/cache/storage-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheStorageLimitForOrganization, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    async def async_set_actions_cache_storage_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheStorageLimitForOrganizationType,
+    ) -> Response: ...
+
+    @overload
+    async def async_set_actions_cache_storage_limit_for_organization(
+        self,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_size_gb: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    async def async_set_actions_cache_storage_limit_for_organization(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheStorageLimitForOrganizationType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-storage-limit-for-organization
+
+        PUT /organizations/{org}/actions/cache/storage-limit
+
+        Sets GitHub Actions cache storage limit for an organization. All organizations and repositories under this
+        organization may not set a higher cache storage limit.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:organization` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-storage-limit-for-an-organization
+        """
+
+        from ..models import ActionsCacheStorageLimitForOrganization, BasicError
+
+        url = f"/organizations/{org}/actions/cache/storage-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheStorageLimitForOrganization, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
     def get_actions_cache_usage_for_org(
         self,
         org: str,
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsCacheUsageOrgEnterprise, ActionsCacheUsageOrgEnterpriseType]:
+    ) -> Response[
+        ActionsCacheUsageOrgEnterprise, ActionsCacheUsageOrgEnterpriseTypeForResponse
+    ]:
         """actions/get-actions-cache-usage-for-org
 
         GET /orgs/{org}/actions/cache/usage
@@ -264,7 +1175,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsCacheUsageOrgEnterprise, ActionsCacheUsageOrgEnterpriseType]:
+    ) -> Response[
+        ActionsCacheUsageOrgEnterprise, ActionsCacheUsageOrgEnterpriseTypeForResponse
+    ]:
         """actions/get-actions-cache-usage-for-org
 
         GET /orgs/{org}/actions/cache/usage
@@ -301,7 +1214,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsCacheUsageByRepositoryGetResponse200,
-        OrgsOrgActionsCacheUsageByRepositoryGetResponse200Type,
+        OrgsOrgActionsCacheUsageByRepositoryGetResponse200TypeForResponse,
     ]:
         """actions/get-actions-cache-usage-by-repo-for-org
 
@@ -329,7 +1242,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsCacheUsageByRepositoryGetResponse200,
@@ -345,7 +1258,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsCacheUsageByRepositoryGetResponse200,
-        OrgsOrgActionsCacheUsageByRepositoryGetResponse200Type,
+        OrgsOrgActionsCacheUsageByRepositoryGetResponse200TypeForResponse,
     ]:
         """actions/get-actions-cache-usage-by-repo-for-org
 
@@ -373,7 +1286,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsCacheUsageByRepositoryGetResponse200,
@@ -389,7 +1302,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsHostedRunnersGetResponse200,
-        OrgsOrgActionsHostedRunnersGetResponse200Type,
+        OrgsOrgActionsHostedRunnersGetResponse200TypeForResponse,
     ]:
         """actions/list-hosted-runners-for-org
 
@@ -416,7 +1329,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsHostedRunnersGetResponse200,
@@ -432,7 +1345,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsHostedRunnersGetResponse200,
-        OrgsOrgActionsHostedRunnersGetResponse200Type,
+        OrgsOrgActionsHostedRunnersGetResponse200TypeForResponse,
     ]:
         """actions/list-hosted-runners-for-org
 
@@ -459,7 +1372,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsHostedRunnersGetResponse200,
@@ -473,7 +1386,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsHostedRunnersPostBodyType,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]: ...
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]: ...
 
     @overload
     def create_hosted_runner_for_org(
@@ -489,7 +1402,8 @@ class ActionsClient:
         runner_group_id: int,
         maximum_runners: Missing[int] = UNSET,
         enable_static_ip: Missing[bool] = UNSET,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]: ...
+        image_gen: Missing[bool] = UNSET,
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]: ...
 
     def create_hosted_runner_for_org(
         self,
@@ -499,7 +1413,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsHostedRunnersPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]:
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]:
         """actions/create-hosted-runner-for-org
 
         POST /orgs/{org}/actions/hosted-runners
@@ -542,7 +1456,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsHostedRunnersPostBodyType,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]: ...
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]: ...
 
     @overload
     async def async_create_hosted_runner_for_org(
@@ -558,7 +1472,8 @@ class ActionsClient:
         runner_group_id: int,
         maximum_runners: Missing[int] = UNSET,
         enable_static_ip: Missing[bool] = UNSET,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]: ...
+        image_gen: Missing[bool] = UNSET,
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]: ...
 
     async def async_create_hosted_runner_for_org(
         self,
@@ -568,7 +1483,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsHostedRunnersPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]:
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]:
         """actions/create-hosted-runner-for-org
 
         POST /orgs/{org}/actions/hosted-runners
@@ -603,6 +1518,418 @@ class ActionsClient:
             response_model=ActionsHostedRunner,
         )
 
+    def list_custom_images_for_org(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        OrgsOrgActionsHostedRunnersImagesCustomGetResponse200,
+        OrgsOrgActionsHostedRunnersImagesCustomGetResponse200TypeForResponse,
+    ]:
+        """actions/list-custom-images-for-org
+
+        GET /orgs/{org}/actions/hosted-runners/images/custom
+
+        List custom images for an organization.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#list-custom-images-for-an-organization
+        """
+
+        from ..models import OrgsOrgActionsHostedRunnersImagesCustomGetResponse200
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=OrgsOrgActionsHostedRunnersImagesCustomGetResponse200,
+        )
+
+    async def async_list_custom_images_for_org(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        OrgsOrgActionsHostedRunnersImagesCustomGetResponse200,
+        OrgsOrgActionsHostedRunnersImagesCustomGetResponse200TypeForResponse,
+    ]:
+        """actions/list-custom-images-for-org
+
+        GET /orgs/{org}/actions/hosted-runners/images/custom
+
+        List custom images for an organization.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#list-custom-images-for-an-organization
+        """
+
+        from ..models import OrgsOrgActionsHostedRunnersImagesCustomGetResponse200
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=OrgsOrgActionsHostedRunnersImagesCustomGetResponse200,
+        )
+
+    def get_custom_image_for_org(
+        self,
+        org: str,
+        image_definition_id: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsHostedRunnerCustomImage, ActionsHostedRunnerCustomImageTypeForResponse
+    ]:
+        """actions/get-custom-image-for-org
+
+        GET /orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}
+
+        Get a custom image definition for GitHub Actions Hosted Runners.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#get-a-custom-image-definition-for-github-actions-hosted-runners
+        """
+
+        from ..models import ActionsHostedRunnerCustomImage
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsHostedRunnerCustomImage,
+        )
+
+    async def async_get_custom_image_for_org(
+        self,
+        org: str,
+        image_definition_id: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsHostedRunnerCustomImage, ActionsHostedRunnerCustomImageTypeForResponse
+    ]:
+        """actions/get-custom-image-for-org
+
+        GET /orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}
+
+        Get a custom image definition for GitHub Actions Hosted Runners.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#get-a-custom-image-definition-for-github-actions-hosted-runners
+        """
+
+        from ..models import ActionsHostedRunnerCustomImage
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsHostedRunnerCustomImage,
+        )
+
+    def delete_custom_image_from_org(
+        self,
+        org: str,
+        image_definition_id: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response:
+        """actions/delete-custom-image-from-org
+
+        DELETE /orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}
+
+        Delete a custom image from the organization.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#delete-a-custom-image-from-the-organization
+        """
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "DELETE",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+        )
+
+    async def async_delete_custom_image_from_org(
+        self,
+        org: str,
+        image_definition_id: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response:
+        """actions/delete-custom-image-from-org
+
+        DELETE /orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}
+
+        Delete a custom image from the organization.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#delete-a-custom-image-from-the-organization
+        """
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "DELETE",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+        )
+
+    def list_custom_image_versions_for_org(
+        self,
+        image_definition_id: int,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        OrgsOrgActionsHostedRunnersImagesCustomImageDefinitionIdVersionsGetResponse200,
+        OrgsOrgActionsHostedRunnersImagesCustomImageDefinitionIdVersionsGetResponse200TypeForResponse,
+    ]:
+        """actions/list-custom-image-versions-for-org
+
+        GET /orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions
+
+        List image versions of a custom image for an organization.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#list-image-versions-of-a-custom-image-for-an-organization
+        """
+
+        from ..models import (
+            OrgsOrgActionsHostedRunnersImagesCustomImageDefinitionIdVersionsGetResponse200,
+        )
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=OrgsOrgActionsHostedRunnersImagesCustomImageDefinitionIdVersionsGetResponse200,
+        )
+
+    async def async_list_custom_image_versions_for_org(
+        self,
+        image_definition_id: int,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        OrgsOrgActionsHostedRunnersImagesCustomImageDefinitionIdVersionsGetResponse200,
+        OrgsOrgActionsHostedRunnersImagesCustomImageDefinitionIdVersionsGetResponse200TypeForResponse,
+    ]:
+        """actions/list-custom-image-versions-for-org
+
+        GET /orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions
+
+        List image versions of a custom image for an organization.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#list-image-versions-of-a-custom-image-for-an-organization
+        """
+
+        from ..models import (
+            OrgsOrgActionsHostedRunnersImagesCustomImageDefinitionIdVersionsGetResponse200,
+        )
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=OrgsOrgActionsHostedRunnersImagesCustomImageDefinitionIdVersionsGetResponse200,
+        )
+
+    def get_custom_image_version_for_org(
+        self,
+        org: str,
+        image_definition_id: int,
+        version: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsHostedRunnerCustomImageVersion,
+        ActionsHostedRunnerCustomImageVersionTypeForResponse,
+    ]:
+        """actions/get-custom-image-version-for-org
+
+        GET /orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions/{version}
+
+        Get an image version of a custom image for GitHub Actions Hosted Runners.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#get-an-image-version-of-a-custom-image-for-github-actions-hosted-runners
+        """
+
+        from ..models import ActionsHostedRunnerCustomImageVersion
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions/{version}"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsHostedRunnerCustomImageVersion,
+        )
+
+    async def async_get_custom_image_version_for_org(
+        self,
+        org: str,
+        image_definition_id: int,
+        version: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsHostedRunnerCustomImageVersion,
+        ActionsHostedRunnerCustomImageVersionTypeForResponse,
+    ]:
+        """actions/get-custom-image-version-for-org
+
+        GET /orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions/{version}
+
+        Get an image version of a custom image for GitHub Actions Hosted Runners.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#get-an-image-version-of-a-custom-image-for-github-actions-hosted-runners
+        """
+
+        from ..models import ActionsHostedRunnerCustomImageVersion
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions/{version}"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsHostedRunnerCustomImageVersion,
+        )
+
+    def delete_custom_image_version_from_org(
+        self,
+        org: str,
+        image_definition_id: int,
+        version: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response:
+        """actions/delete-custom-image-version-from-org
+
+        DELETE /orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions/{version}
+
+        Delete an image version of custom image from the organization.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#delete-an-image-version-of-custom-image-from-the-organization
+        """
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions/{version}"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "DELETE",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+        )
+
+    async def async_delete_custom_image_version_from_org(
+        self,
+        org: str,
+        image_definition_id: int,
+        version: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response:
+        """actions/delete-custom-image-version-from-org
+
+        DELETE /orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions/{version}
+
+        Delete an image version of custom image from the organization.
+
+        OAuth tokens and personal access tokens (classic) need the `manage_runners:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/hosted-runners#delete-an-image-version-of-custom-image-from-the-organization
+        """
+
+        url = f"/orgs/{org}/actions/hosted-runners/images/custom/{image_definition_id}/versions/{version}"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "DELETE",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+        )
+
     def get_hosted_runners_github_owned_images_for_org(
         self,
         org: str,
@@ -611,7 +1938,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsHostedRunnersImagesGithubOwnedGetResponse200,
-        OrgsOrgActionsHostedRunnersImagesGithubOwnedGetResponse200Type,
+        OrgsOrgActionsHostedRunnersImagesGithubOwnedGetResponse200TypeForResponse,
     ]:
         """actions/get-hosted-runners-github-owned-images-for-org
 
@@ -644,7 +1971,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsHostedRunnersImagesGithubOwnedGetResponse200,
-        OrgsOrgActionsHostedRunnersImagesGithubOwnedGetResponse200Type,
+        OrgsOrgActionsHostedRunnersImagesGithubOwnedGetResponse200TypeForResponse,
     ]:
         """actions/get-hosted-runners-github-owned-images-for-org
 
@@ -677,7 +2004,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsHostedRunnersImagesPartnerGetResponse200,
-        OrgsOrgActionsHostedRunnersImagesPartnerGetResponse200Type,
+        OrgsOrgActionsHostedRunnersImagesPartnerGetResponse200TypeForResponse,
     ]:
         """actions/get-hosted-runners-partner-images-for-org
 
@@ -710,7 +2037,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsHostedRunnersImagesPartnerGetResponse200,
-        OrgsOrgActionsHostedRunnersImagesPartnerGetResponse200Type,
+        OrgsOrgActionsHostedRunnersImagesPartnerGetResponse200TypeForResponse,
     ]:
         """actions/get-hosted-runners-partner-images-for-org
 
@@ -741,7 +2068,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsHostedRunnerLimits, ActionsHostedRunnerLimitsType]:
+    ) -> Response[ActionsHostedRunnerLimits, ActionsHostedRunnerLimitsTypeForResponse]:
         """actions/get-hosted-runners-limits-for-org
 
         GET /orgs/{org}/actions/hosted-runners/limits
@@ -771,7 +2098,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsHostedRunnerLimits, ActionsHostedRunnerLimitsType]:
+    ) -> Response[ActionsHostedRunnerLimits, ActionsHostedRunnerLimitsTypeForResponse]:
         """actions/get-hosted-runners-limits-for-org
 
         GET /orgs/{org}/actions/hosted-runners/limits
@@ -803,7 +2130,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsHostedRunnersMachineSizesGetResponse200,
-        OrgsOrgActionsHostedRunnersMachineSizesGetResponse200Type,
+        OrgsOrgActionsHostedRunnersMachineSizesGetResponse200TypeForResponse,
     ]:
         """actions/get-hosted-runners-machine-specs-for-org
 
@@ -836,7 +2163,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsHostedRunnersMachineSizesGetResponse200,
-        OrgsOrgActionsHostedRunnersMachineSizesGetResponse200Type,
+        OrgsOrgActionsHostedRunnersMachineSizesGetResponse200TypeForResponse,
     ]:
         """actions/get-hosted-runners-machine-specs-for-org
 
@@ -869,7 +2196,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsHostedRunnersPlatformsGetResponse200,
-        OrgsOrgActionsHostedRunnersPlatformsGetResponse200Type,
+        OrgsOrgActionsHostedRunnersPlatformsGetResponse200TypeForResponse,
     ]:
         """actions/get-hosted-runners-platforms-for-org
 
@@ -902,7 +2229,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsHostedRunnersPlatformsGetResponse200,
-        OrgsOrgActionsHostedRunnersPlatformsGetResponse200Type,
+        OrgsOrgActionsHostedRunnersPlatformsGetResponse200TypeForResponse,
     ]:
         """actions/get-hosted-runners-platforms-for-org
 
@@ -934,7 +2261,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]:
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]:
         """actions/get-hosted-runner-for-org
 
         GET /orgs/{org}/actions/hosted-runners/{hosted_runner_id}
@@ -967,7 +2294,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]:
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]:
         """actions/get-hosted-runner-for-org
 
         GET /orgs/{org}/actions/hosted-runners/{hosted_runner_id}
@@ -1000,7 +2327,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]:
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]:
         """actions/delete-hosted-runner-for-org
 
         DELETE /orgs/{org}/actions/hosted-runners/{hosted_runner_id}
@@ -1031,7 +2358,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]:
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]:
         """actions/delete-hosted-runner-for-org
 
         DELETE /orgs/{org}/actions/hosted-runners/{hosted_runner_id}
@@ -1064,7 +2391,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsHostedRunnersHostedRunnerIdPatchBodyType,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]: ...
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]: ...
 
     @overload
     def update_hosted_runner_for_org(
@@ -1079,7 +2406,10 @@ class ActionsClient:
         runner_group_id: Missing[int] = UNSET,
         maximum_runners: Missing[int] = UNSET,
         enable_static_ip: Missing[bool] = UNSET,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]: ...
+        size: Missing[str] = UNSET,
+        image_id: Missing[str] = UNSET,
+        image_version: Missing[Union[str, None]] = UNSET,
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]: ...
 
     def update_hosted_runner_for_org(
         self,
@@ -1090,7 +2420,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsHostedRunnersHostedRunnerIdPatchBodyType] = UNSET,
         **kwargs,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]:
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]:
         """actions/update-hosted-runner-for-org
 
         PATCH /orgs/{org}/actions/hosted-runners/{hosted_runner_id}
@@ -1139,7 +2469,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsHostedRunnersHostedRunnerIdPatchBodyType,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]: ...
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]: ...
 
     @overload
     async def async_update_hosted_runner_for_org(
@@ -1154,7 +2484,10 @@ class ActionsClient:
         runner_group_id: Missing[int] = UNSET,
         maximum_runners: Missing[int] = UNSET,
         enable_static_ip: Missing[bool] = UNSET,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]: ...
+        size: Missing[str] = UNSET,
+        image_id: Missing[str] = UNSET,
+        image_version: Missing[Union[str, None]] = UNSET,
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]: ...
 
     async def async_update_hosted_runner_for_org(
         self,
@@ -1165,7 +2498,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsHostedRunnersHostedRunnerIdPatchBodyType] = UNSET,
         **kwargs,
-    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerType]:
+    ) -> Response[ActionsHostedRunner, ActionsHostedRunnerTypeForResponse]:
         """actions/update-hosted-runner-for-org
 
         PATCH /orgs/{org}/actions/hosted-runners/{hosted_runner_id}
@@ -1211,7 +2544,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsOrganizationPermissions, ActionsOrganizationPermissionsType]:
+    ) -> Response[
+        ActionsOrganizationPermissions, ActionsOrganizationPermissionsTypeForResponse
+    ]:
         """actions/get-github-actions-permissions-organization
 
         GET /orgs/{org}/actions/permissions
@@ -1243,7 +2578,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsOrganizationPermissions, ActionsOrganizationPermissionsType]:
+    ) -> Response[
+        ActionsOrganizationPermissions, ActionsOrganizationPermissionsTypeForResponse
+    ]:
         """actions/get-github-actions-permissions-organization
 
         GET /orgs/{org}/actions/permissions
@@ -1409,7 +2746,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ActionsArtifactAndLogRetentionResponse,
-        ActionsArtifactAndLogRetentionResponseType,
+        ActionsArtifactAndLogRetentionResponseTypeForResponse,
     ]:
         """actions/get-artifact-and-log-retention-settings-organization
 
@@ -1448,7 +2785,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ActionsArtifactAndLogRetentionResponse,
-        ActionsArtifactAndLogRetentionResponseType,
+        ActionsArtifactAndLogRetentionResponseTypeForResponse,
     ]:
         """actions/get-artifact-and-log-retention-settings-organization
 
@@ -1626,7 +2963,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsForkPrContributorApproval, ActionsForkPrContributorApprovalType
+        ActionsForkPrContributorApproval,
+        ActionsForkPrContributorApprovalTypeForResponse,
     ]:
         """actions/get-fork-pr-contributor-approval-permissions-organization
 
@@ -1663,7 +3001,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsForkPrContributorApproval, ActionsForkPrContributorApprovalType
+        ActionsForkPrContributorApproval,
+        ActionsForkPrContributorApprovalTypeForResponse,
     ]:
         """actions/get-fork-pr-contributor-approval-permissions-organization
 
@@ -1852,7 +3191,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsForkPrWorkflowsPrivateRepos, ActionsForkPrWorkflowsPrivateReposType
+        ActionsForkPrWorkflowsPrivateRepos,
+        ActionsForkPrWorkflowsPrivateReposTypeForResponse,
     ]:
         """actions/get-private-repo-fork-pr-workflows-settings-organization
 
@@ -1888,7 +3228,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsForkPrWorkflowsPrivateRepos, ActionsForkPrWorkflowsPrivateReposType
+        ActionsForkPrWorkflowsPrivateRepos,
+        ActionsForkPrWorkflowsPrivateReposTypeForResponse,
     ]:
         """actions/get-private-repo-fork-pr-workflows-settings-organization
 
@@ -2075,7 +3416,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsPermissionsRepositoriesGetResponse200,
-        OrgsOrgActionsPermissionsRepositoriesGetResponse200Type,
+        OrgsOrgActionsPermissionsRepositoriesGetResponse200TypeForResponse,
     ]:
         """actions/list-selected-repositories-enabled-github-actions-organization
 
@@ -2102,7 +3443,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsPermissionsRepositoriesGetResponse200,
@@ -2118,7 +3459,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsPermissionsRepositoriesGetResponse200,
-        OrgsOrgActionsPermissionsRepositoriesGetResponse200Type,
+        OrgsOrgActionsPermissionsRepositoriesGetResponse200TypeForResponse,
     ]:
         """actions/list-selected-repositories-enabled-github-actions-organization
 
@@ -2145,7 +3486,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsPermissionsRepositoriesGetResponse200,
@@ -2411,7 +3752,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[SelectedActions, SelectedActionsType]:
+    ) -> Response[SelectedActions, SelectedActionsTypeForResponse]:
         """actions/get-allowed-actions-organization
 
         GET /orgs/{org}/actions/permissions/selected-actions
@@ -2443,7 +3784,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[SelectedActions, SelectedActionsType]:
+    ) -> Response[SelectedActions, SelectedActionsTypeForResponse]:
         """actions/get-allowed-actions-organization
 
         GET /orgs/{org}/actions/permissions/selected-actions
@@ -2607,7 +3948,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[SelfHostedRunnersSettings, SelfHostedRunnersSettingsType]:
+    ) -> Response[SelfHostedRunnersSettings, SelfHostedRunnersSettingsTypeForResponse]:
         """actions/get-self-hosted-runners-permissions-organization
 
         GET /orgs/{org}/actions/permissions/self-hosted-runners
@@ -2643,7 +3984,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[SelfHostedRunnersSettings, SelfHostedRunnersSettingsType]:
+    ) -> Response[SelfHostedRunnersSettings, SelfHostedRunnersSettingsTypeForResponse]:
         """actions/get-self-hosted-runners-permissions-organization
 
         GET /orgs/{org}/actions/permissions/self-hosted-runners
@@ -2835,7 +4176,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesGetResponse200,
-        OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesGetResponse200Type,
+        OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesGetResponse200TypeForResponse,
     ]:
         """actions/list-selected-repositories-self-hosted-runners-organization
 
@@ -2865,7 +4206,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesGetResponse200,
@@ -2885,7 +4226,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesGetResponse200,
-        OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesGetResponse200Type,
+        OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesGetResponse200TypeForResponse,
     ]:
         """actions/list-selected-repositories-self-hosted-runners-organization
 
@@ -2915,7 +4256,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsPermissionsSelfHostedRunnersRepositoriesGetResponse200,
@@ -3238,7 +4579,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsGetDefaultWorkflowPermissions, ActionsGetDefaultWorkflowPermissionsType
+        ActionsGetDefaultWorkflowPermissions,
+        ActionsGetDefaultWorkflowPermissionsTypeForResponse,
     ]:
         """actions/get-github-actions-default-workflow-permissions-organization
 
@@ -3274,7 +4616,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsGetDefaultWorkflowPermissions, ActionsGetDefaultWorkflowPermissionsType
+        ActionsGetDefaultWorkflowPermissions,
+        ActionsGetDefaultWorkflowPermissionsTypeForResponse,
     ]:
         """actions/get-github-actions-default-workflow-permissions-organization
 
@@ -3448,7 +4791,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnerGroupsGetResponse200,
-        OrgsOrgActionsRunnerGroupsGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsGetResponse200TypeForResponse,
     ]:
         """actions/list-self-hosted-runner-groups-for-org
 
@@ -3476,7 +4819,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsRunnerGroupsGetResponse200,
@@ -3493,7 +4836,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnerGroupsGetResponse200,
-        OrgsOrgActionsRunnerGroupsGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsGetResponse200TypeForResponse,
     ]:
         """actions/list-self-hosted-runner-groups-for-org
 
@@ -3521,7 +4864,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsRunnerGroupsGetResponse200,
@@ -3535,7 +4878,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsRunnerGroupsPostBodyType,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]: ...
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]: ...
 
     @overload
     def create_self_hosted_runner_group_for_org(
@@ -3553,7 +4896,7 @@ class ActionsClient:
         restricted_to_workflows: Missing[bool] = UNSET,
         selected_workflows: Missing[list[str]] = UNSET,
         network_configuration_id: Missing[str] = UNSET,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]: ...
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]: ...
 
     def create_self_hosted_runner_group_for_org(
         self,
@@ -3563,7 +4906,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsRunnerGroupsPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]:
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]:
         """actions/create-self-hosted-runner-group-for-org
 
         POST /orgs/{org}/actions/runner-groups
@@ -3607,7 +4950,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsRunnerGroupsPostBodyType,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]: ...
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]: ...
 
     @overload
     async def async_create_self_hosted_runner_group_for_org(
@@ -3625,7 +4968,7 @@ class ActionsClient:
         restricted_to_workflows: Missing[bool] = UNSET,
         selected_workflows: Missing[list[str]] = UNSET,
         network_configuration_id: Missing[str] = UNSET,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]: ...
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]: ...
 
     async def async_create_self_hosted_runner_group_for_org(
         self,
@@ -3635,7 +4978,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsRunnerGroupsPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]:
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]:
         """actions/create-self-hosted-runner-group-for-org
 
         POST /orgs/{org}/actions/runner-groups
@@ -3678,7 +5021,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]:
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]:
         """actions/get-self-hosted-runner-group-for-org
 
         GET /orgs/{org}/actions/runner-groups/{runner_group_id}
@@ -3711,7 +5054,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]:
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]:
         """actions/get-self-hosted-runner-group-for-org
 
         GET /orgs/{org}/actions/runner-groups/{runner_group_id}
@@ -3806,7 +5149,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsRunnerGroupsRunnerGroupIdPatchBodyType,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]: ...
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]: ...
 
     @overload
     def update_self_hosted_runner_group_for_org(
@@ -3823,7 +5166,7 @@ class ActionsClient:
         restricted_to_workflows: Missing[bool] = UNSET,
         selected_workflows: Missing[list[str]] = UNSET,
         network_configuration_id: Missing[Union[str, None]] = UNSET,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]: ...
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]: ...
 
     def update_self_hosted_runner_group_for_org(
         self,
@@ -3834,7 +5177,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsRunnerGroupsRunnerGroupIdPatchBodyType] = UNSET,
         **kwargs,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]:
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]:
         """actions/update-self-hosted-runner-group-for-org
 
         PATCH /orgs/{org}/actions/runner-groups/{runner_group_id}
@@ -3884,7 +5227,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsRunnerGroupsRunnerGroupIdPatchBodyType,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]: ...
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]: ...
 
     @overload
     async def async_update_self_hosted_runner_group_for_org(
@@ -3901,7 +5244,7 @@ class ActionsClient:
         restricted_to_workflows: Missing[bool] = UNSET,
         selected_workflows: Missing[list[str]] = UNSET,
         network_configuration_id: Missing[Union[str, None]] = UNSET,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]: ...
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]: ...
 
     async def async_update_self_hosted_runner_group_for_org(
         self,
@@ -3912,7 +5255,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsRunnerGroupsRunnerGroupIdPatchBodyType] = UNSET,
         **kwargs,
-    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgType]:
+    ) -> Response[RunnerGroupsOrg, RunnerGroupsOrgTypeForResponse]:
         """actions/update-self-hosted-runner-group-for-org
 
         PATCH /orgs/{org}/actions/runner-groups/{runner_group_id}
@@ -3964,7 +5307,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnerGroupsRunnerGroupIdHostedRunnersGetResponse200,
-        OrgsOrgActionsRunnerGroupsRunnerGroupIdHostedRunnersGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsRunnerGroupIdHostedRunnersGetResponse200TypeForResponse,
     ]:
         """actions/list-github-hosted-runners-in-group-for-org
 
@@ -3993,7 +5336,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsRunnerGroupsRunnerGroupIdHostedRunnersGetResponse200,
@@ -4010,7 +5353,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnerGroupsRunnerGroupIdHostedRunnersGetResponse200,
-        OrgsOrgActionsRunnerGroupsRunnerGroupIdHostedRunnersGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsRunnerGroupIdHostedRunnersGetResponse200TypeForResponse,
     ]:
         """actions/list-github-hosted-runners-in-group-for-org
 
@@ -4039,7 +5382,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsRunnerGroupsRunnerGroupIdHostedRunnersGetResponse200,
@@ -4056,7 +5399,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesGetResponse200,
-        OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-access-to-self-hosted-runner-group-in-org
 
@@ -4085,7 +5428,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesGetResponse200,
@@ -4102,7 +5445,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesGetResponse200,
-        OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-access-to-self-hosted-runner-group-in-org
 
@@ -4131,7 +5474,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsRunnerGroupsRunnerGroupIdRepositoriesGetResponse200,
@@ -4414,7 +5757,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersGetResponse200,
-        OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersGetResponse200TypeForResponse,
     ]:
         """actions/list-self-hosted-runners-in-group-for-org
 
@@ -4443,7 +5786,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersGetResponse200,
@@ -4460,7 +5803,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersGetResponse200,
-        OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersGetResponse200Type,
+        OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersGetResponse200TypeForResponse,
     ]:
         """actions/list-self-hosted-runners-in-group-for-org
 
@@ -4489,7 +5832,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsRunnerGroupsRunnerGroupIdRunnersGetResponse200,
@@ -4771,7 +6114,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        OrgsOrgActionsRunnersGetResponse200, OrgsOrgActionsRunnersGetResponse200Type
+        OrgsOrgActionsRunnersGetResponse200,
+        OrgsOrgActionsRunnersGetResponse200TypeForResponse,
     ]:
         """actions/list-self-hosted-runners-for-org
 
@@ -4801,7 +6145,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsRunnersGetResponse200,
@@ -4817,7 +6161,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        OrgsOrgActionsRunnersGetResponse200, OrgsOrgActionsRunnersGetResponse200Type
+        OrgsOrgActionsRunnersGetResponse200,
+        OrgsOrgActionsRunnersGetResponse200TypeForResponse,
     ]:
         """actions/list-self-hosted-runners-for-org
 
@@ -4847,7 +6192,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsRunnersGetResponse200,
@@ -4859,7 +6204,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[RunnerApplication], list[RunnerApplicationType]]:
+    ) -> Response[list[RunnerApplication], list[RunnerApplicationTypeForResponse]]:
         """actions/list-runner-applications-for-org
 
         GET /orgs/{org}/actions/runners/downloads
@@ -4893,7 +6238,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[RunnerApplication], list[RunnerApplicationType]]:
+    ) -> Response[list[RunnerApplication], list[RunnerApplicationTypeForResponse]]:
         """actions/list-runner-applications-for-org
 
         GET /orgs/{org}/actions/runners/downloads
@@ -4931,7 +6276,7 @@ class ActionsClient:
         data: OrgsOrgActionsRunnersGenerateJitconfigPostBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -4948,7 +6293,7 @@ class ActionsClient:
         work_folder: Missing[str] = UNSET,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]: ...
 
     def generate_runner_jitconfig_for_org(
@@ -4961,7 +6306,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]:
         """actions/generate-runner-jitconfig-for-org
 
@@ -5022,7 +6367,7 @@ class ActionsClient:
         data: OrgsOrgActionsRunnersGenerateJitconfigPostBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -5039,7 +6384,7 @@ class ActionsClient:
         work_folder: Missing[str] = UNSET,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]: ...
 
     async def async_generate_runner_jitconfig_for_org(
@@ -5052,7 +6397,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]:
         """actions/generate-runner-jitconfig-for-org
 
@@ -5109,7 +6454,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[AuthenticationToken, AuthenticationTokenType]:
+    ) -> Response[AuthenticationToken, AuthenticationTokenTypeForResponse]:
         """actions/create-registration-token-for-org
 
         POST /orgs/{org}/actions/runners/registration-token
@@ -5149,7 +6494,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[AuthenticationToken, AuthenticationTokenType]:
+    ) -> Response[AuthenticationToken, AuthenticationTokenTypeForResponse]:
         """actions/create-registration-token-for-org
 
         POST /orgs/{org}/actions/runners/registration-token
@@ -5189,7 +6534,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[AuthenticationToken, AuthenticationTokenType]:
+    ) -> Response[AuthenticationToken, AuthenticationTokenTypeForResponse]:
         """actions/create-remove-token-for-org
 
         POST /orgs/{org}/actions/runners/remove-token
@@ -5229,7 +6574,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[AuthenticationToken, AuthenticationTokenType]:
+    ) -> Response[AuthenticationToken, AuthenticationTokenTypeForResponse]:
         """actions/create-remove-token-for-org
 
         POST /orgs/{org}/actions/runners/remove-token
@@ -5270,7 +6615,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[Runner, RunnerType]:
+    ) -> Response[Runner, RunnerTypeForResponse]:
         """actions/get-self-hosted-runner-for-org
 
         GET /orgs/{org}/actions/runners/{runner_id}
@@ -5305,7 +6650,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[Runner, RunnerType]:
+    ) -> Response[Runner, RunnerTypeForResponse]:
         """actions/get-self-hosted-runner-for-org
 
         GET /orgs/{org}/actions/runners/{runner_id}
@@ -5416,7 +6761,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/list-labels-for-self-hosted-runner-for-org
 
@@ -5460,7 +6805,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/list-labels-for-self-hosted-runner-for-org
 
@@ -5506,7 +6851,7 @@ class ActionsClient:
         data: OrgsOrgActionsRunnersRunnerIdLabelsPutBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -5521,7 +6866,7 @@ class ActionsClient:
         labels: list[str],
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     def set_custom_labels_for_self_hosted_runner_for_org(
@@ -5535,7 +6880,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/set-custom-labels-for-self-hosted-runner-for-org
 
@@ -5597,7 +6942,7 @@ class ActionsClient:
         data: OrgsOrgActionsRunnersRunnerIdLabelsPutBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -5612,7 +6957,7 @@ class ActionsClient:
         labels: list[str],
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     async def async_set_custom_labels_for_self_hosted_runner_for_org(
@@ -5626,7 +6971,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/set-custom-labels-for-self-hosted-runner-for-org
 
@@ -5688,7 +7033,7 @@ class ActionsClient:
         data: OrgsOrgActionsRunnersRunnerIdLabelsPostBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -5703,7 +7048,7 @@ class ActionsClient:
         labels: list[str],
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     def add_custom_labels_to_self_hosted_runner_for_org(
@@ -5717,7 +7062,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/add-custom-labels-to-self-hosted-runner-for-org
 
@@ -5778,7 +7123,7 @@ class ActionsClient:
         data: OrgsOrgActionsRunnersRunnerIdLabelsPostBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -5793,7 +7138,7 @@ class ActionsClient:
         labels: list[str],
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     async def async_add_custom_labels_to_self_hosted_runner_for_org(
@@ -5807,7 +7152,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/add-custom-labels-to-self-hosted-runner-for-org
 
@@ -5866,7 +7211,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200TypeForResponse,
     ]:
         """actions/remove-all-custom-labels-from-self-hosted-runner-for-org
 
@@ -5911,7 +7256,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200TypeForResponse,
     ]:
         """actions/remove-all-custom-labels-from-self-hosted-runner-for-org
 
@@ -5957,7 +7302,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/remove-custom-label-from-self-hosted-runner-for-org
 
@@ -6008,7 +7353,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/remove-custom-label-from-self-hosted-runner-for-org
 
@@ -6058,7 +7403,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        OrgsOrgActionsSecretsGetResponse200, OrgsOrgActionsSecretsGetResponse200Type
+        OrgsOrgActionsSecretsGetResponse200,
+        OrgsOrgActionsSecretsGetResponse200TypeForResponse,
     ]:
         """actions/list-org-secrets
 
@@ -6088,7 +7434,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsSecretsGetResponse200,
@@ -6103,7 +7449,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        OrgsOrgActionsSecretsGetResponse200, OrgsOrgActionsSecretsGetResponse200Type
+        OrgsOrgActionsSecretsGetResponse200,
+        OrgsOrgActionsSecretsGetResponse200TypeForResponse,
     ]:
         """actions/list-org-secrets
 
@@ -6133,7 +7480,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsSecretsGetResponse200,
@@ -6145,7 +7492,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsPublicKey, ActionsPublicKeyType]:
+    ) -> Response[ActionsPublicKey, ActionsPublicKeyTypeForResponse]:
         """actions/get-org-public-key
 
         GET /orgs/{org}/actions/secrets/public-key
@@ -6180,7 +7527,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsPublicKey, ActionsPublicKeyType]:
+    ) -> Response[ActionsPublicKey, ActionsPublicKeyTypeForResponse]:
         """actions/get-org-public-key
 
         GET /orgs/{org}/actions/secrets/public-key
@@ -6216,7 +7563,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[OrganizationActionsSecret, OrganizationActionsSecretType]:
+    ) -> Response[OrganizationActionsSecret, OrganizationActionsSecretTypeForResponse]:
         """actions/get-org-secret
 
         GET /orgs/{org}/actions/secrets/{secret_name}
@@ -6251,7 +7598,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[OrganizationActionsSecret, OrganizationActionsSecretType]:
+    ) -> Response[OrganizationActionsSecret, OrganizationActionsSecretTypeForResponse]:
         """actions/get-org-secret
 
         GET /orgs/{org}/actions/secrets/{secret_name}
@@ -6288,7 +7635,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsSecretsSecretNamePutBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     def create_or_update_org_secret(
@@ -6303,7 +7650,7 @@ class ActionsClient:
         key_id: str,
         visibility: Literal["all", "private", "selected"],
         selected_repository_ids: Missing[list[int]] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     def create_or_update_org_secret(
         self,
@@ -6314,7 +7661,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsSecretsSecretNamePutBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-or-update-org-secret
 
         PUT /orgs/{org}/actions/secrets/{secret_name}
@@ -6362,7 +7709,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsSecretsSecretNamePutBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     async def async_create_or_update_org_secret(
@@ -6377,7 +7724,7 @@ class ActionsClient:
         key_id: str,
         visibility: Literal["all", "private", "selected"],
         selected_repository_ids: Missing[list[int]] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     async def async_create_or_update_org_secret(
         self,
@@ -6388,7 +7735,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsSecretsSecretNamePutBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-or-update-org-secret
 
         PUT /orgs/{org}/actions/secrets/{secret_name}
@@ -6502,7 +7849,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsSecretsSecretNameRepositoriesGetResponse200,
-        OrgsOrgActionsSecretsSecretNameRepositoriesGetResponse200Type,
+        OrgsOrgActionsSecretsSecretNameRepositoriesGetResponse200TypeForResponse,
     ]:
         """actions/list-selected-repos-for-org-secret
 
@@ -6532,7 +7879,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsSecretsSecretNameRepositoriesGetResponse200,
@@ -6549,7 +7896,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsSecretsSecretNameRepositoriesGetResponse200,
-        OrgsOrgActionsSecretsSecretNameRepositoriesGetResponse200Type,
+        OrgsOrgActionsSecretsSecretNameRepositoriesGetResponse200TypeForResponse,
     ]:
         """actions/list-selected-repos-for-org-secret
 
@@ -6579,7 +7926,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsSecretsSecretNameRepositoriesGetResponse200,
@@ -6884,7 +8231,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        OrgsOrgActionsVariablesGetResponse200, OrgsOrgActionsVariablesGetResponse200Type
+        OrgsOrgActionsVariablesGetResponse200,
+        OrgsOrgActionsVariablesGetResponse200TypeForResponse,
     ]:
         """actions/list-org-variables
 
@@ -6913,7 +8261,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsVariablesGetResponse200,
@@ -6928,7 +8276,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        OrgsOrgActionsVariablesGetResponse200, OrgsOrgActionsVariablesGetResponse200Type
+        OrgsOrgActionsVariablesGetResponse200,
+        OrgsOrgActionsVariablesGetResponse200TypeForResponse,
     ]:
         """actions/list-org-variables
 
@@ -6957,7 +8306,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsVariablesGetResponse200,
@@ -6971,7 +8320,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsVariablesPostBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     def create_org_variable(
@@ -6985,7 +8334,7 @@ class ActionsClient:
         value: str,
         visibility: Literal["all", "private", "selected"],
         selected_repository_ids: Missing[list[int]] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     def create_org_variable(
         self,
@@ -6995,7 +8344,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsVariablesPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-org-variable
 
         POST /orgs/{org}/actions/variables
@@ -7041,7 +8390,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgActionsVariablesPostBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     async def async_create_org_variable(
@@ -7055,7 +8404,7 @@ class ActionsClient:
         value: str,
         visibility: Literal["all", "private", "selected"],
         selected_repository_ids: Missing[list[int]] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     async def async_create_org_variable(
         self,
@@ -7065,7 +8414,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[OrgsOrgActionsVariablesPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-org-variable
 
         POST /orgs/{org}/actions/variables
@@ -7110,7 +8459,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[OrganizationActionsVariable, OrganizationActionsVariableType]:
+    ) -> Response[
+        OrganizationActionsVariable, OrganizationActionsVariableTypeForResponse
+    ]:
         """actions/get-org-variable
 
         GET /orgs/{org}/actions/variables/{name}
@@ -7145,7 +8496,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[OrganizationActionsVariable, OrganizationActionsVariableType]:
+    ) -> Response[
+        OrganizationActionsVariable, OrganizationActionsVariableTypeForResponse
+    ]:
         """actions/get-org-variable
 
         GET /orgs/{org}/actions/variables/{name}
@@ -7390,7 +8743,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsVariablesNameRepositoriesGetResponse200,
-        OrgsOrgActionsVariablesNameRepositoriesGetResponse200Type,
+        OrgsOrgActionsVariablesNameRepositoriesGetResponse200TypeForResponse,
     ]:
         """actions/list-selected-repos-for-org-variable
 
@@ -7420,7 +8773,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsVariablesNameRepositoriesGetResponse200,
@@ -7438,7 +8791,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsVariablesNameRepositoriesGetResponse200,
-        OrgsOrgActionsVariablesNameRepositoriesGetResponse200Type,
+        OrgsOrgActionsVariablesNameRepositoriesGetResponse200TypeForResponse,
     ]:
         """actions/list-selected-repos-for-org-variable
 
@@ -7468,7 +8821,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgActionsVariablesNameRepositoriesGetResponse200,
@@ -7777,7 +9130,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsArtifactsGetResponse200,
-        ReposOwnerRepoActionsArtifactsGetResponse200Type,
+        ReposOwnerRepoActionsArtifactsGetResponse200TypeForResponse,
     ]:
         """actions/list-artifacts-for-repo
 
@@ -7807,7 +9160,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsArtifactsGetResponse200,
@@ -7825,7 +9178,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsArtifactsGetResponse200,
-        ReposOwnerRepoActionsArtifactsGetResponse200Type,
+        ReposOwnerRepoActionsArtifactsGetResponse200TypeForResponse,
     ]:
         """actions/list-artifacts-for-repo
 
@@ -7855,7 +9208,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsArtifactsGetResponse200,
@@ -7869,7 +9222,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[Artifact, ArtifactType]:
+    ) -> Response[Artifact, ArtifactTypeForResponse]:
         """actions/get-artifact
 
         GET /repos/{owner}/{repo}/actions/artifacts/{artifact_id}
@@ -7905,7 +9258,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[Artifact, ArtifactType]:
+    ) -> Response[Artifact, ArtifactTypeForResponse]:
         """actions/get-artifact
 
         GET /repos/{owner}/{repo}/actions/artifacts/{artifact_id}
@@ -8069,6 +9422,462 @@ class ActionsClient:
             },
         )
 
+    def get_actions_cache_retention_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheRetentionLimitForRepository,
+        ActionsCacheRetentionLimitForRepositoryTypeForResponse,
+    ]:
+        """actions/get-actions-cache-retention-limit-for-repository
+
+        GET /repos/{owner}/{repo}/actions/cache/retention-limit
+
+        Gets GitHub Actions cache retention limit for a repository. This determines how long caches will be retained for, if
+        not manually removed or evicted due to size constraints.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:repository` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-retention-limit-for-a-repository
+        """
+
+        from ..models import ActionsCacheRetentionLimitForRepository, BasicError
+
+        url = f"/repos/{owner}/{repo}/actions/cache/retention-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheRetentionLimitForRepository,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_get_actions_cache_retention_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheRetentionLimitForRepository,
+        ActionsCacheRetentionLimitForRepositoryTypeForResponse,
+    ]:
+        """actions/get-actions-cache-retention-limit-for-repository
+
+        GET /repos/{owner}/{repo}/actions/cache/retention-limit
+
+        Gets GitHub Actions cache retention limit for a repository. This determines how long caches will be retained for, if
+        not manually removed or evicted due to size constraints.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:repository` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-retention-limit-for-a-repository
+        """
+
+        from ..models import ActionsCacheRetentionLimitForRepository, BasicError
+
+        url = f"/repos/{owner}/{repo}/actions/cache/retention-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheRetentionLimitForRepository,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    def set_actions_cache_retention_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheRetentionLimitForRepositoryType,
+    ) -> Response: ...
+
+    @overload
+    def set_actions_cache_retention_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_retention_days: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    def set_actions_cache_retention_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheRetentionLimitForRepositoryType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-retention-limit-for-repository
+
+        PUT /repos/{owner}/{repo}/actions/cache/retention-limit
+
+        Sets GitHub Actions cache retention limit for a repository. This determines how long caches will be retained for, if
+        not manually removed or evicted due to size constraints.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:repository` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-retention-limit-for-a-repository
+        """
+
+        from ..models import ActionsCacheRetentionLimitForRepository, BasicError
+
+        url = f"/repos/{owner}/{repo}/actions/cache/retention-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheRetentionLimitForRepository, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    async def async_set_actions_cache_retention_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheRetentionLimitForRepositoryType,
+    ) -> Response: ...
+
+    @overload
+    async def async_set_actions_cache_retention_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_retention_days: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    async def async_set_actions_cache_retention_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheRetentionLimitForRepositoryType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-retention-limit-for-repository
+
+        PUT /repos/{owner}/{repo}/actions/cache/retention-limit
+
+        Sets GitHub Actions cache retention limit for a repository. This determines how long caches will be retained for, if
+        not manually removed or evicted due to size constraints.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:repository` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-retention-limit-for-a-repository
+        """
+
+        from ..models import ActionsCacheRetentionLimitForRepository, BasicError
+
+        url = f"/repos/{owner}/{repo}/actions/cache/retention-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheRetentionLimitForRepository, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    def get_actions_cache_storage_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheStorageLimitForRepository,
+        ActionsCacheStorageLimitForRepositoryTypeForResponse,
+    ]:
+        """actions/get-actions-cache-storage-limit-for-repository
+
+        GET /repos/{owner}/{repo}/actions/cache/storage-limit
+
+        Gets GitHub Actions cache storage limit for a repository. This determines the maximum size of caches that can be
+        stored before eviction occurs.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:repository` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-storage-limit-for-a-repository
+        """
+
+        from ..models import ActionsCacheStorageLimitForRepository, BasicError
+
+        url = f"/repos/{owner}/{repo}/actions/cache/storage-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheStorageLimitForRepository,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_get_actions_cache_storage_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        ActionsCacheStorageLimitForRepository,
+        ActionsCacheStorageLimitForRepositoryTypeForResponse,
+    ]:
+        """actions/get-actions-cache-storage-limit-for-repository
+
+        GET /repos/{owner}/{repo}/actions/cache/storage-limit
+
+        Gets GitHub Actions cache storage limit for a repository. This determines the maximum size of caches that can be
+        stored before eviction occurs.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:repository` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#get-github-actions-cache-storage-limit-for-a-repository
+        """
+
+        from ..models import ActionsCacheStorageLimitForRepository, BasicError
+
+        url = f"/repos/{owner}/{repo}/actions/cache/storage-limit"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ActionsCacheStorageLimitForRepository,
+            error_models={
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    def set_actions_cache_storage_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheStorageLimitForRepositoryType,
+    ) -> Response: ...
+
+    @overload
+    def set_actions_cache_storage_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_size_gb: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    def set_actions_cache_storage_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheStorageLimitForRepositoryType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-storage-limit-for-repository
+
+        PUT /repos/{owner}/{repo}/actions/cache/storage-limit
+
+        Sets GitHub Actions cache storage limit for a repository. This determines the maximum size of caches that can be
+        stored before eviction occurs.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:repository` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-storage-limit-for-a-repository
+        """
+
+        from ..models import ActionsCacheStorageLimitForRepository, BasicError
+
+        url = f"/repos/{owner}/{repo}/actions/cache/storage-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheStorageLimitForRepository, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    async def async_set_actions_cache_storage_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: ActionsCacheStorageLimitForRepositoryType,
+    ) -> Response: ...
+
+    @overload
+    async def async_set_actions_cache_storage_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        max_cache_size_gb: Missing[int] = UNSET,
+    ) -> Response: ...
+
+    async def async_set_actions_cache_storage_limit_for_repository(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[ActionsCacheStorageLimitForRepositoryType] = UNSET,
+        **kwargs,
+    ) -> Response:
+        """actions/set-actions-cache-storage-limit-for-repository
+
+        PUT /repos/{owner}/{repo}/actions/cache/storage-limit
+
+        Sets GitHub Actions cache storage limit for a repository. This determines the maximum size of caches that can be
+        stored before eviction occurs.
+
+        OAuth tokens and personal access tokens (classic) need the `admin:repository` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/actions/cache#set-github-actions-cache-storage-limit-for-a-repository
+        """
+
+        from ..models import ActionsCacheStorageLimitForRepository, BasicError
+
+        url = f"/repos/{owner}/{repo}/actions/cache/storage-limit"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(ActionsCacheStorageLimitForRepository, json)
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "400": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
     def get_actions_cache_usage(
         self,
         owner: str,
@@ -8076,7 +9885,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsCacheUsageByRepository, ActionsCacheUsageByRepositoryType]:
+    ) -> Response[
+        ActionsCacheUsageByRepository, ActionsCacheUsageByRepositoryTypeForResponse
+    ]:
         """actions/get-actions-cache-usage
 
         GET /repos/{owner}/{repo}/actions/cache/usage
@@ -8112,7 +9923,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsCacheUsageByRepository, ActionsCacheUsageByRepositoryType]:
+    ) -> Response[
+        ActionsCacheUsageByRepository, ActionsCacheUsageByRepositoryTypeForResponse
+    ]:
         """actions/get-actions-cache-usage
 
         GET /repos/{owner}/{repo}/actions/cache/usage
@@ -8156,7 +9969,7 @@ class ActionsClient:
         direction: Missing[Literal["asc", "desc"]] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsCacheList, ActionsCacheListType]:
+    ) -> Response[ActionsCacheList, ActionsCacheListTypeForResponse]:
         """actions/get-actions-cache-list
 
         GET /repos/{owner}/{repo}/actions/caches
@@ -8186,7 +9999,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ActionsCacheList,
@@ -8207,7 +10020,7 @@ class ActionsClient:
         direction: Missing[Literal["asc", "desc"]] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsCacheList, ActionsCacheListType]:
+    ) -> Response[ActionsCacheList, ActionsCacheListTypeForResponse]:
         """actions/get-actions-cache-list
 
         GET /repos/{owner}/{repo}/actions/caches
@@ -8237,7 +10050,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ActionsCacheList,
@@ -8252,7 +10065,7 @@ class ActionsClient:
         ref: Missing[str] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsCacheList, ActionsCacheListType]:
+    ) -> Response[ActionsCacheList, ActionsCacheListTypeForResponse]:
         """actions/delete-actions-cache-by-key
 
         DELETE /repos/{owner}/{repo}/actions/caches
@@ -8278,7 +10091,7 @@ class ActionsClient:
         return self._github.request(
             "DELETE",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ActionsCacheList,
@@ -8293,7 +10106,7 @@ class ActionsClient:
         ref: Missing[str] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsCacheList, ActionsCacheListType]:
+    ) -> Response[ActionsCacheList, ActionsCacheListTypeForResponse]:
         """actions/delete-actions-cache-by-key
 
         DELETE /repos/{owner}/{repo}/actions/caches
@@ -8319,7 +10132,7 @@ class ActionsClient:
         return await self._github.arequest(
             "DELETE",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ActionsCacheList,
@@ -8395,7 +10208,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[Job, JobType]:
+    ) -> Response[Job, JobTypeForResponse]:
         """actions/get-job-for-workflow-run
 
         GET /repos/{owner}/{repo}/actions/jobs/{job_id}
@@ -8431,7 +10244,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[Job, JobType]:
+    ) -> Response[Job, JobTypeForResponse]:
         """actions/get-job-for-workflow-run
 
         GET /repos/{owner}/{repo}/actions/jobs/{job_id}
@@ -8539,7 +10352,7 @@ class ActionsClient:
         data: Missing[
             Union[ReposOwnerRepoActionsJobsJobIdRerunPostBodyType, None]
         ] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     def re_run_job_for_workflow_run(
@@ -8552,7 +10365,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         enable_debug_logging: Missing[bool] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     def re_run_job_for_workflow_run(
         self,
@@ -8566,7 +10379,7 @@ class ActionsClient:
             Union[ReposOwnerRepoActionsJobsJobIdRerunPostBodyType, None]
         ] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/re-run-job-for-workflow-run
 
         POST /repos/{owner}/{repo}/actions/jobs/{job_id}/rerun
@@ -8625,7 +10438,7 @@ class ActionsClient:
         data: Missing[
             Union[ReposOwnerRepoActionsJobsJobIdRerunPostBodyType, None]
         ] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     async def async_re_run_job_for_workflow_run(
@@ -8638,7 +10451,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         enable_debug_logging: Missing[bool] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     async def async_re_run_job_for_workflow_run(
         self,
@@ -8652,7 +10465,7 @@ class ActionsClient:
             Union[ReposOwnerRepoActionsJobsJobIdRerunPostBodyType, None]
         ] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/re-run-job-for-workflow-run
 
         POST /repos/{owner}/{repo}/actions/jobs/{job_id}/rerun
@@ -8706,7 +10519,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[OidcCustomSubRepo, OidcCustomSubRepoType]:
+    ) -> Response[OidcCustomSubRepo, OidcCustomSubRepoTypeForResponse]:
         """actions/get-custom-oidc-sub-claim-for-repo
 
         GET /repos/{owner}/{repo}/actions/oidc/customization/sub
@@ -8743,7 +10556,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[OidcCustomSubRepo, OidcCustomSubRepoType]:
+    ) -> Response[OidcCustomSubRepo, OidcCustomSubRepoTypeForResponse]:
         """actions/get-custom-oidc-sub-claim-for-repo
 
         GET /repos/{owner}/{repo}/actions/oidc/customization/sub
@@ -8782,7 +10595,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoActionsOidcCustomizationSubPutBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     def set_custom_oidc_sub_claim_for_repo(
@@ -8795,7 +10608,7 @@ class ActionsClient:
         stream: bool = False,
         use_default: bool,
         include_claim_keys: Missing[list[str]] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     def set_custom_oidc_sub_claim_for_repo(
         self,
@@ -8806,7 +10619,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[ReposOwnerRepoActionsOidcCustomizationSubPutBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/set-custom-oidc-sub-claim-for-repo
 
         PUT /repos/{owner}/{repo}/actions/oidc/customization/sub
@@ -8863,7 +10676,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoActionsOidcCustomizationSubPutBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     async def async_set_custom_oidc_sub_claim_for_repo(
@@ -8876,7 +10689,7 @@ class ActionsClient:
         stream: bool = False,
         use_default: bool,
         include_claim_keys: Missing[list[str]] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     async def async_set_custom_oidc_sub_claim_for_repo(
         self,
@@ -8887,7 +10700,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[ReposOwnerRepoActionsOidcCustomizationSubPutBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/set-custom-oidc-sub-claim-for-repo
 
         PUT /repos/{owner}/{repo}/actions/oidc/customization/sub
@@ -8946,7 +10759,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsOrganizationSecretsGetResponse200,
-        ReposOwnerRepoActionsOrganizationSecretsGetResponse200Type,
+        ReposOwnerRepoActionsOrganizationSecretsGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-organization-secrets
 
@@ -8976,7 +10789,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsOrganizationSecretsGetResponse200,
@@ -8993,7 +10806,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsOrganizationSecretsGetResponse200,
-        ReposOwnerRepoActionsOrganizationSecretsGetResponse200Type,
+        ReposOwnerRepoActionsOrganizationSecretsGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-organization-secrets
 
@@ -9023,7 +10836,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsOrganizationSecretsGetResponse200,
@@ -9040,7 +10853,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsOrganizationVariablesGetResponse200,
-        ReposOwnerRepoActionsOrganizationVariablesGetResponse200Type,
+        ReposOwnerRepoActionsOrganizationVariablesGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-organization-variables
 
@@ -9069,7 +10882,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsOrganizationVariablesGetResponse200,
@@ -9086,7 +10899,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsOrganizationVariablesGetResponse200,
-        ReposOwnerRepoActionsOrganizationVariablesGetResponse200Type,
+        ReposOwnerRepoActionsOrganizationVariablesGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-organization-variables
 
@@ -9115,7 +10928,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsOrganizationVariablesGetResponse200,
@@ -9128,7 +10941,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsRepositoryPermissions, ActionsRepositoryPermissionsType]:
+    ) -> Response[
+        ActionsRepositoryPermissions, ActionsRepositoryPermissionsTypeForResponse
+    ]:
         """actions/get-github-actions-permissions-repository
 
         GET /repos/{owner}/{repo}/actions/permissions
@@ -9161,7 +10976,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsRepositoryPermissions, ActionsRepositoryPermissionsType]:
+    ) -> Response[
+        ActionsRepositoryPermissions, ActionsRepositoryPermissionsTypeForResponse
+    ]:
         """actions/get-github-actions-permissions-repository
 
         GET /repos/{owner}/{repo}/actions/permissions
@@ -9333,7 +11150,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsWorkflowAccessToRepository, ActionsWorkflowAccessToRepositoryType
+        ActionsWorkflowAccessToRepository,
+        ActionsWorkflowAccessToRepositoryTypeForResponse,
     ]:
         """actions/get-workflow-access-to-repository
 
@@ -9370,7 +11188,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsWorkflowAccessToRepository, ActionsWorkflowAccessToRepositoryType
+        ActionsWorkflowAccessToRepository,
+        ActionsWorkflowAccessToRepositoryTypeForResponse,
     ]:
         """actions/get-workflow-access-to-repository
 
@@ -9546,7 +11365,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ActionsArtifactAndLogRetentionResponse,
-        ActionsArtifactAndLogRetentionResponseType,
+        ActionsArtifactAndLogRetentionResponseTypeForResponse,
     ]:
         """actions/get-artifact-and-log-retention-settings-repository
 
@@ -9585,7 +11404,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ActionsArtifactAndLogRetentionResponse,
-        ActionsArtifactAndLogRetentionResponseType,
+        ActionsArtifactAndLogRetentionResponseTypeForResponse,
     ]:
         """actions/get-artifact-and-log-retention-settings-repository
 
@@ -9765,7 +11584,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsForkPrContributorApproval, ActionsForkPrContributorApprovalType
+        ActionsForkPrContributorApproval,
+        ActionsForkPrContributorApprovalTypeForResponse,
     ]:
         """actions/get-fork-pr-contributor-approval-permissions-repository
 
@@ -9803,7 +11623,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsForkPrContributorApproval, ActionsForkPrContributorApprovalType
+        ActionsForkPrContributorApproval,
+        ActionsForkPrContributorApprovalTypeForResponse,
     ]:
         """actions/get-fork-pr-contributor-approval-permissions-repository
 
@@ -9999,7 +11820,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsForkPrWorkflowsPrivateRepos, ActionsForkPrWorkflowsPrivateReposType
+        ActionsForkPrWorkflowsPrivateRepos,
+        ActionsForkPrWorkflowsPrivateReposTypeForResponse,
     ]:
         """actions/get-private-repo-fork-pr-workflows-settings-repository
 
@@ -10040,7 +11862,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsForkPrWorkflowsPrivateRepos, ActionsForkPrWorkflowsPrivateReposType
+        ActionsForkPrWorkflowsPrivateRepos,
+        ActionsForkPrWorkflowsPrivateReposTypeForResponse,
     ]:
         """actions/get-private-repo-fork-pr-workflows-settings-repository
 
@@ -10240,7 +12063,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[SelectedActions, SelectedActionsType]:
+    ) -> Response[SelectedActions, SelectedActionsTypeForResponse]:
         """actions/get-allowed-actions-repository
 
         GET /repos/{owner}/{repo}/actions/permissions/selected-actions
@@ -10273,7 +12096,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[SelectedActions, SelectedActionsType]:
+    ) -> Response[SelectedActions, SelectedActionsTypeForResponse]:
         """actions/get-allowed-actions-repository
 
         GET /repos/{owner}/{repo}/actions/permissions/selected-actions
@@ -10445,7 +12268,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsGetDefaultWorkflowPermissions, ActionsGetDefaultWorkflowPermissionsType
+        ActionsGetDefaultWorkflowPermissions,
+        ActionsGetDefaultWorkflowPermissionsTypeForResponse,
     ]:
         """actions/get-github-actions-default-workflow-permissions-repository
 
@@ -10482,7 +12306,8 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
     ) -> Response[
-        ActionsGetDefaultWorkflowPermissions, ActionsGetDefaultWorkflowPermissionsType
+        ActionsGetDefaultWorkflowPermissions,
+        ActionsGetDefaultWorkflowPermissionsTypeForResponse,
     ]:
         """actions/get-github-actions-default-workflow-permissions-repository
 
@@ -10665,7 +12490,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsRunnersGetResponse200,
-        ReposOwnerRepoActionsRunnersGetResponse200Type,
+        ReposOwnerRepoActionsRunnersGetResponse200TypeForResponse,
     ]:
         """actions/list-self-hosted-runners-for-repo
 
@@ -10695,7 +12520,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsRunnersGetResponse200,
@@ -10713,7 +12538,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsRunnersGetResponse200,
-        ReposOwnerRepoActionsRunnersGetResponse200Type,
+        ReposOwnerRepoActionsRunnersGetResponse200TypeForResponse,
     ]:
         """actions/list-self-hosted-runners-for-repo
 
@@ -10743,7 +12568,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsRunnersGetResponse200,
@@ -10756,7 +12581,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[RunnerApplication], list[RunnerApplicationType]]:
+    ) -> Response[list[RunnerApplication], list[RunnerApplicationTypeForResponse]]:
         """actions/list-runner-applications-for-repo
 
         GET /repos/{owner}/{repo}/actions/runners/downloads
@@ -10791,7 +12616,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[RunnerApplication], list[RunnerApplicationType]]:
+    ) -> Response[list[RunnerApplication], list[RunnerApplicationTypeForResponse]]:
         """actions/list-runner-applications-for-repo
 
         GET /repos/{owner}/{repo}/actions/runners/downloads
@@ -10830,7 +12655,7 @@ class ActionsClient:
         data: ReposOwnerRepoActionsRunnersGenerateJitconfigPostBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -10848,7 +12673,7 @@ class ActionsClient:
         work_folder: Missing[str] = UNSET,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]: ...
 
     def generate_runner_jitconfig_for_repo(
@@ -10864,7 +12689,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]:
         """actions/generate-runner-jitconfig-for-repo
 
@@ -10926,7 +12751,7 @@ class ActionsClient:
         data: ReposOwnerRepoActionsRunnersGenerateJitconfigPostBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -10944,7 +12769,7 @@ class ActionsClient:
         work_folder: Missing[str] = UNSET,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]: ...
 
     async def async_generate_runner_jitconfig_for_repo(
@@ -10960,7 +12785,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersGenerateJitconfigPostResponse201,
-        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201Type,
+        OrgsOrgActionsRunnersGenerateJitconfigPostResponse201TypeForResponse,
     ]:
         """actions/generate-runner-jitconfig-for-repo
 
@@ -11018,7 +12843,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[AuthenticationToken, AuthenticationTokenType]:
+    ) -> Response[AuthenticationToken, AuthenticationTokenTypeForResponse]:
         """actions/create-registration-token-for-repo
 
         POST /repos/{owner}/{repo}/actions/runners/registration-token
@@ -11059,7 +12884,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[AuthenticationToken, AuthenticationTokenType]:
+    ) -> Response[AuthenticationToken, AuthenticationTokenTypeForResponse]:
         """actions/create-registration-token-for-repo
 
         POST /repos/{owner}/{repo}/actions/runners/registration-token
@@ -11100,7 +12925,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[AuthenticationToken, AuthenticationTokenType]:
+    ) -> Response[AuthenticationToken, AuthenticationTokenTypeForResponse]:
         """actions/create-remove-token-for-repo
 
         POST /repos/{owner}/{repo}/actions/runners/remove-token
@@ -11141,7 +12966,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[AuthenticationToken, AuthenticationTokenType]:
+    ) -> Response[AuthenticationToken, AuthenticationTokenTypeForResponse]:
         """actions/create-remove-token-for-repo
 
         POST /repos/{owner}/{repo}/actions/runners/remove-token
@@ -11183,7 +13008,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[Runner, RunnerType]:
+    ) -> Response[Runner, RunnerTypeForResponse]:
         """actions/get-self-hosted-runner-for-repo
 
         GET /repos/{owner}/{repo}/actions/runners/{runner_id}
@@ -11219,7 +13044,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[Runner, RunnerType]:
+    ) -> Response[Runner, RunnerTypeForResponse]:
         """actions/get-self-hosted-runner-for-repo
 
         GET /repos/{owner}/{repo}/actions/runners/{runner_id}
@@ -11333,7 +13158,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/list-labels-for-self-hosted-runner-for-repo
 
@@ -11378,7 +13203,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/list-labels-for-self-hosted-runner-for-repo
 
@@ -11425,7 +13250,7 @@ class ActionsClient:
         data: ReposOwnerRepoActionsRunnersRunnerIdLabelsPutBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -11441,7 +13266,7 @@ class ActionsClient:
         labels: list[str],
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     def set_custom_labels_for_self_hosted_runner_for_repo(
@@ -11456,7 +13281,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/set-custom-labels-for-self-hosted-runner-for-repo
 
@@ -11519,7 +13344,7 @@ class ActionsClient:
         data: ReposOwnerRepoActionsRunnersRunnerIdLabelsPutBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -11535,7 +13360,7 @@ class ActionsClient:
         labels: list[str],
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     async def async_set_custom_labels_for_self_hosted_runner_for_repo(
@@ -11550,7 +13375,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/set-custom-labels-for-self-hosted-runner-for-repo
 
@@ -11613,7 +13438,7 @@ class ActionsClient:
         data: ReposOwnerRepoActionsRunnersRunnerIdLabelsPostBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -11629,7 +13454,7 @@ class ActionsClient:
         labels: list[str],
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     def add_custom_labels_to_self_hosted_runner_for_repo(
@@ -11644,7 +13469,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/add-custom-labels-to-self-hosted-runner-for-repo
 
@@ -11706,7 +13531,7 @@ class ActionsClient:
         data: ReposOwnerRepoActionsRunnersRunnerIdLabelsPostBodyType,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -11722,7 +13547,7 @@ class ActionsClient:
         labels: list[str],
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]: ...
 
     async def async_add_custom_labels_to_self_hosted_runner_for_repo(
@@ -11737,7 +13562,7 @@ class ActionsClient:
         **kwargs,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/add-custom-labels-to-self-hosted-runner-for-repo
 
@@ -11797,7 +13622,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200TypeForResponse,
     ]:
         """actions/remove-all-custom-labels-from-self-hosted-runner-for-repo
 
@@ -11843,7 +13668,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsDeleteResponse200TypeForResponse,
     ]:
         """actions/remove-all-custom-labels-from-self-hosted-runner-for-repo
 
@@ -11890,7 +13715,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/remove-custom-label-from-self-hosted-runner-for-repo
 
@@ -11942,7 +13767,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200,
-        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200Type,
+        OrgsOrgActionsRunnersRunnerIdLabelsGetResponse200TypeForResponse,
     ]:
         """actions/remove-custom-label-from-self-hosted-runner-for-repo
 
@@ -12019,7 +13844,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsRunsGetResponse200,
-        ReposOwnerRepoActionsRunsGetResponse200Type,
+        ReposOwnerRepoActionsRunsGetResponse200TypeForResponse,
     ]:
         """actions/list-workflow-runs-for-repo
 
@@ -12058,7 +13883,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsRunsGetResponse200,
@@ -12100,7 +13925,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsRunsGetResponse200,
-        ReposOwnerRepoActionsRunsGetResponse200Type,
+        ReposOwnerRepoActionsRunsGetResponse200TypeForResponse,
     ]:
         """actions/list-workflow-runs-for-repo
 
@@ -12139,7 +13964,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsRunsGetResponse200,
@@ -12154,7 +13979,7 @@ class ActionsClient:
         exclude_pull_requests: Missing[bool] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[WorkflowRun, WorkflowRunType]:
+    ) -> Response[WorkflowRun, WorkflowRunTypeForResponse]:
         """actions/get-workflow-run
 
         GET /repos/{owner}/{repo}/actions/runs/{run_id}
@@ -12181,7 +14006,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=WorkflowRun,
@@ -12196,7 +14021,7 @@ class ActionsClient:
         exclude_pull_requests: Missing[bool] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[WorkflowRun, WorkflowRunType]:
+    ) -> Response[WorkflowRun, WorkflowRunTypeForResponse]:
         """actions/get-workflow-run
 
         GET /repos/{owner}/{repo}/actions/runs/{run_id}
@@ -12223,7 +14048,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=WorkflowRun,
@@ -12303,7 +14128,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[EnvironmentApprovals], list[EnvironmentApprovalsType]]:
+    ) -> Response[
+        list[EnvironmentApprovals], list[EnvironmentApprovalsTypeForResponse]
+    ]:
         """actions/get-reviews-for-run
 
         GET /repos/{owner}/{repo}/actions/runs/{run_id}/approvals
@@ -12337,7 +14164,9 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[EnvironmentApprovals], list[EnvironmentApprovalsType]]:
+    ) -> Response[
+        list[EnvironmentApprovals], list[EnvironmentApprovalsTypeForResponse]
+    ]:
         """actions/get-reviews-for-run
 
         GET /repos/{owner}/{repo}/actions/runs/{run_id}/approvals
@@ -12371,7 +14200,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/approve-workflow-run
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/approve
@@ -12409,7 +14238,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/approve-workflow-run
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/approve
@@ -12452,7 +14281,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200,
-        ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200Type,
+        ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200TypeForResponse,
     ]:
         """actions/list-workflow-run-artifacts
 
@@ -12482,7 +14311,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200,
@@ -12501,7 +14330,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200,
-        ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200Type,
+        ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200TypeForResponse,
     ]:
         """actions/list-workflow-run-artifacts
 
@@ -12531,7 +14360,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsRunsRunIdArtifactsGetResponse200,
@@ -12547,7 +14376,7 @@ class ActionsClient:
         exclude_pull_requests: Missing[bool] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[WorkflowRun, WorkflowRunType]:
+    ) -> Response[WorkflowRun, WorkflowRunTypeForResponse]:
         """actions/get-workflow-run-attempt
 
         GET /repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt_number}
@@ -12574,7 +14403,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=WorkflowRun,
@@ -12590,7 +14419,7 @@ class ActionsClient:
         exclude_pull_requests: Missing[bool] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[WorkflowRun, WorkflowRunType]:
+    ) -> Response[WorkflowRun, WorkflowRunTypeForResponse]:
         """actions/get-workflow-run-attempt
 
         GET /repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt_number}
@@ -12617,7 +14446,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=WorkflowRun,
@@ -12636,7 +14465,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsRunsRunIdAttemptsAttemptNumberJobsGetResponse200,
-        ReposOwnerRepoActionsRunsRunIdAttemptsAttemptNumberJobsGetResponse200Type,
+        ReposOwnerRepoActionsRunsRunIdAttemptsAttemptNumberJobsGetResponse200TypeForResponse,
     ]:
         """actions/list-jobs-for-workflow-run-attempt
 
@@ -12669,7 +14498,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsRunsRunIdAttemptsAttemptNumberJobsGetResponse200,
@@ -12691,7 +14520,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsRunsRunIdAttemptsAttemptNumberJobsGetResponse200,
-        ReposOwnerRepoActionsRunsRunIdAttemptsAttemptNumberJobsGetResponse200Type,
+        ReposOwnerRepoActionsRunsRunIdAttemptsAttemptNumberJobsGetResponse200TypeForResponse,
     ]:
         """actions/list-jobs-for-workflow-run-attempt
 
@@ -12724,7 +14553,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsRunsRunIdAttemptsAttemptNumberJobsGetResponse200,
@@ -12811,7 +14640,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/cancel-workflow-run
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/cancel
@@ -12848,7 +14677,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/cancel-workflow-run
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/cancel
@@ -13091,7 +14920,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/force-cancel-workflow-run
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/force-cancel
@@ -13129,7 +14958,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/force-cancel-workflow-run
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/force-cancel
@@ -13172,7 +15001,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsRunsRunIdJobsGetResponse200,
-        ReposOwnerRepoActionsRunsRunIdJobsGetResponse200Type,
+        ReposOwnerRepoActionsRunsRunIdJobsGetResponse200TypeForResponse,
     ]:
         """actions/list-jobs-for-workflow-run
 
@@ -13203,7 +15032,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsRunsRunIdJobsGetResponse200,
@@ -13222,7 +15051,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsRunsRunIdJobsGetResponse200,
-        ReposOwnerRepoActionsRunsRunIdJobsGetResponse200Type,
+        ReposOwnerRepoActionsRunsRunIdJobsGetResponse200TypeForResponse,
     ]:
         """actions/list-jobs-for-workflow-run
 
@@ -13253,7 +15082,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsRunsRunIdJobsGetResponse200,
@@ -13409,7 +15238,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[PendingDeployment], list[PendingDeploymentType]]:
+    ) -> Response[list[PendingDeployment], list[PendingDeploymentTypeForResponse]]:
         """actions/get-pending-deployments-for-run
 
         GET /repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments
@@ -13445,7 +15274,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[PendingDeployment], list[PendingDeploymentType]]:
+    ) -> Response[list[PendingDeployment], list[PendingDeploymentTypeForResponse]]:
         """actions/get-pending-deployments-for-run
 
         GET /repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments
@@ -13483,7 +15312,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoActionsRunsRunIdPendingDeploymentsPostBodyType,
-    ) -> Response[list[Deployment], list[DeploymentType]]: ...
+    ) -> Response[list[Deployment], list[DeploymentTypeForResponse]]: ...
 
     @overload
     def review_pending_deployments_for_run(
@@ -13498,7 +15327,7 @@ class ActionsClient:
         environment_ids: list[int],
         state: Literal["approved", "rejected"],
         comment: str,
-    ) -> Response[list[Deployment], list[DeploymentType]]: ...
+    ) -> Response[list[Deployment], list[DeploymentTypeForResponse]]: ...
 
     def review_pending_deployments_for_run(
         self,
@@ -13512,7 +15341,7 @@ class ActionsClient:
             ReposOwnerRepoActionsRunsRunIdPendingDeploymentsPostBodyType
         ] = UNSET,
         **kwargs,
-    ) -> Response[list[Deployment], list[DeploymentType]]:
+    ) -> Response[list[Deployment], list[DeploymentTypeForResponse]]:
         """actions/review-pending-deployments-for-run
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments
@@ -13565,7 +15394,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoActionsRunsRunIdPendingDeploymentsPostBodyType,
-    ) -> Response[list[Deployment], list[DeploymentType]]: ...
+    ) -> Response[list[Deployment], list[DeploymentTypeForResponse]]: ...
 
     @overload
     async def async_review_pending_deployments_for_run(
@@ -13580,7 +15409,7 @@ class ActionsClient:
         environment_ids: list[int],
         state: Literal["approved", "rejected"],
         comment: str,
-    ) -> Response[list[Deployment], list[DeploymentType]]: ...
+    ) -> Response[list[Deployment], list[DeploymentTypeForResponse]]: ...
 
     async def async_review_pending_deployments_for_run(
         self,
@@ -13594,7 +15423,7 @@ class ActionsClient:
             ReposOwnerRepoActionsRunsRunIdPendingDeploymentsPostBodyType
         ] = UNSET,
         **kwargs,
-    ) -> Response[list[Deployment], list[DeploymentType]]:
+    ) -> Response[list[Deployment], list[DeploymentTypeForResponse]]:
         """actions/review-pending-deployments-for-run
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments
@@ -13649,7 +15478,7 @@ class ActionsClient:
         data: Missing[
             Union[ReposOwnerRepoActionsRunsRunIdRerunPostBodyType, None]
         ] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     def re_run_workflow(
@@ -13662,7 +15491,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         enable_debug_logging: Missing[bool] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     def re_run_workflow(
         self,
@@ -13676,7 +15505,7 @@ class ActionsClient:
             Union[ReposOwnerRepoActionsRunsRunIdRerunPostBodyType, None]
         ] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/re-run-workflow
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/rerun
@@ -13728,7 +15557,7 @@ class ActionsClient:
         data: Missing[
             Union[ReposOwnerRepoActionsRunsRunIdRerunPostBodyType, None]
         ] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     async def async_re_run_workflow(
@@ -13741,7 +15570,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         enable_debug_logging: Missing[bool] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     async def async_re_run_workflow(
         self,
@@ -13755,7 +15584,7 @@ class ActionsClient:
             Union[ReposOwnerRepoActionsRunsRunIdRerunPostBodyType, None]
         ] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/re-run-workflow
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/rerun
@@ -13807,7 +15636,7 @@ class ActionsClient:
         data: Missing[
             Union[ReposOwnerRepoActionsRunsRunIdRerunFailedJobsPostBodyType, None]
         ] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     def re_run_workflow_failed_jobs(
@@ -13820,7 +15649,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         enable_debug_logging: Missing[bool] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     def re_run_workflow_failed_jobs(
         self,
@@ -13834,7 +15663,7 @@ class ActionsClient:
             Union[ReposOwnerRepoActionsRunsRunIdRerunFailedJobsPostBodyType, None]
         ] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/re-run-workflow-failed-jobs
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/rerun-failed-jobs
@@ -13889,7 +15718,7 @@ class ActionsClient:
         data: Missing[
             Union[ReposOwnerRepoActionsRunsRunIdRerunFailedJobsPostBodyType, None]
         ] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     async def async_re_run_workflow_failed_jobs(
@@ -13902,7 +15731,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         enable_debug_logging: Missing[bool] = UNSET,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     async def async_re_run_workflow_failed_jobs(
         self,
@@ -13916,7 +15745,7 @@ class ActionsClient:
             Union[ReposOwnerRepoActionsRunsRunIdRerunFailedJobsPostBodyType, None]
         ] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/re-run-workflow-failed-jobs
 
         POST /repos/{owner}/{repo}/actions/runs/{run_id}/rerun-failed-jobs
@@ -13967,7 +15796,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[WorkflowRunUsage, WorkflowRunUsageType]:
+    ) -> Response[WorkflowRunUsage, WorkflowRunUsageTypeForResponse]:
         """actions/get-workflow-run-usage
 
         GET /repos/{owner}/{repo}/actions/runs/{run_id}/timing
@@ -14006,7 +15835,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[WorkflowRunUsage, WorkflowRunUsageType]:
+    ) -> Response[WorkflowRunUsage, WorkflowRunUsageTypeForResponse]:
         """actions/get-workflow-run-usage
 
         GET /repos/{owner}/{repo}/actions/runs/{run_id}/timing
@@ -14048,7 +15877,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsSecretsGetResponse200,
-        ReposOwnerRepoActionsSecretsGetResponse200Type,
+        ReposOwnerRepoActionsSecretsGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-secrets
 
@@ -14078,7 +15907,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsSecretsGetResponse200,
@@ -14095,7 +15924,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsSecretsGetResponse200,
-        ReposOwnerRepoActionsSecretsGetResponse200Type,
+        ReposOwnerRepoActionsSecretsGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-secrets
 
@@ -14125,7 +15954,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsSecretsGetResponse200,
@@ -14138,7 +15967,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsPublicKey, ActionsPublicKeyType]:
+    ) -> Response[ActionsPublicKey, ActionsPublicKeyTypeForResponse]:
         """actions/get-repo-public-key
 
         GET /repos/{owner}/{repo}/actions/secrets/public-key
@@ -14174,7 +16003,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsPublicKey, ActionsPublicKeyType]:
+    ) -> Response[ActionsPublicKey, ActionsPublicKeyTypeForResponse]:
         """actions/get-repo-public-key
 
         GET /repos/{owner}/{repo}/actions/secrets/public-key
@@ -14211,7 +16040,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsSecret, ActionsSecretType]:
+    ) -> Response[ActionsSecret, ActionsSecretTypeForResponse]:
         """actions/get-repo-secret
 
         GET /repos/{owner}/{repo}/actions/secrets/{secret_name}
@@ -14247,7 +16076,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsSecret, ActionsSecretType]:
+    ) -> Response[ActionsSecret, ActionsSecretTypeForResponse]:
         """actions/get-repo-secret
 
         GET /repos/{owner}/{repo}/actions/secrets/{secret_name}
@@ -14285,7 +16114,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoActionsSecretsSecretNamePutBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     def create_or_update_repo_secret(
@@ -14299,7 +16128,7 @@ class ActionsClient:
         stream: bool = False,
         encrypted_value: str,
         key_id: str,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     def create_or_update_repo_secret(
         self,
@@ -14311,7 +16140,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[ReposOwnerRepoActionsSecretsSecretNamePutBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-or-update-repo-secret
 
         PUT /repos/{owner}/{repo}/actions/secrets/{secret_name}
@@ -14362,7 +16191,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoActionsSecretsSecretNamePutBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     async def async_create_or_update_repo_secret(
@@ -14376,7 +16205,7 @@ class ActionsClient:
         stream: bool = False,
         encrypted_value: str,
         key_id: str,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     async def async_create_or_update_repo_secret(
         self,
@@ -14388,7 +16217,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[ReposOwnerRepoActionsSecretsSecretNamePutBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-or-update-repo-secret
 
         PUT /repos/{owner}/{repo}/actions/secrets/{secret_name}
@@ -14506,7 +16335,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsVariablesGetResponse200,
-        ReposOwnerRepoActionsVariablesGetResponse200Type,
+        ReposOwnerRepoActionsVariablesGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-variables
 
@@ -14535,7 +16364,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsVariablesGetResponse200,
@@ -14552,7 +16381,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsVariablesGetResponse200,
-        ReposOwnerRepoActionsVariablesGetResponse200Type,
+        ReposOwnerRepoActionsVariablesGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-variables
 
@@ -14581,7 +16410,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsVariablesGetResponse200,
@@ -14596,7 +16425,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoActionsVariablesPostBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     def create_repo_variable(
@@ -14609,7 +16438,7 @@ class ActionsClient:
         stream: bool = False,
         name: str,
         value: str,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     def create_repo_variable(
         self,
@@ -14620,7 +16449,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[ReposOwnerRepoActionsVariablesPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-repo-variable
 
         POST /repos/{owner}/{repo}/actions/variables
@@ -14667,7 +16496,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoActionsVariablesPostBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     async def async_create_repo_variable(
@@ -14680,7 +16509,7 @@ class ActionsClient:
         stream: bool = False,
         name: str,
         value: str,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     async def async_create_repo_variable(
         self,
@@ -14691,7 +16520,7 @@ class ActionsClient:
         stream: bool = False,
         data: Missing[ReposOwnerRepoActionsVariablesPostBodyType] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-repo-variable
 
         POST /repos/{owner}/{repo}/actions/variables
@@ -14737,7 +16566,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsVariable, ActionsVariableType]:
+    ) -> Response[ActionsVariable, ActionsVariableTypeForResponse]:
         """actions/get-repo-variable
 
         GET /repos/{owner}/{repo}/actions/variables/{name}
@@ -14773,7 +16602,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsVariable, ActionsVariableType]:
+    ) -> Response[ActionsVariable, ActionsVariableTypeForResponse]:
         """actions/get-repo-variable
 
         GET /repos/{owner}/{repo}/actions/variables/{name}
@@ -15026,7 +16855,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsWorkflowsGetResponse200,
-        ReposOwnerRepoActionsWorkflowsGetResponse200Type,
+        ReposOwnerRepoActionsWorkflowsGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-workflows
 
@@ -15055,7 +16884,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsWorkflowsGetResponse200,
@@ -15072,7 +16901,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsWorkflowsGetResponse200,
-        ReposOwnerRepoActionsWorkflowsGetResponse200Type,
+        ReposOwnerRepoActionsWorkflowsGetResponse200TypeForResponse,
     ]:
         """actions/list-repo-workflows
 
@@ -15101,7 +16930,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsWorkflowsGetResponse200,
@@ -15115,7 +16944,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[Workflow, WorkflowType]:
+    ) -> Response[Workflow, WorkflowTypeForResponse]:
         """actions/get-workflow
 
         GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}
@@ -15152,7 +16981,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[Workflow, WorkflowType]:
+    ) -> Response[Workflow, WorkflowTypeForResponse]:
         """actions/get-workflow
 
         GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}
@@ -15500,7 +17329,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsWorkflowsWorkflowIdRunsGetResponse200,
-        ReposOwnerRepoActionsWorkflowsWorkflowIdRunsGetResponse200Type,
+        ReposOwnerRepoActionsWorkflowsWorkflowIdRunsGetResponse200TypeForResponse,
     ]:
         """actions/list-workflow-runs
 
@@ -15539,7 +17368,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsWorkflowsWorkflowIdRunsGetResponse200,
@@ -15582,7 +17411,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoActionsWorkflowsWorkflowIdRunsGetResponse200,
-        ReposOwnerRepoActionsWorkflowsWorkflowIdRunsGetResponse200Type,
+        ReposOwnerRepoActionsWorkflowsWorkflowIdRunsGetResponse200TypeForResponse,
     ]:
         """actions/list-workflow-runs
 
@@ -15621,7 +17450,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoActionsWorkflowsWorkflowIdRunsGetResponse200,
@@ -15635,7 +17464,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[WorkflowUsage, WorkflowUsageType]:
+    ) -> Response[WorkflowUsage, WorkflowUsageTypeForResponse]:
         """actions/get-workflow-usage
 
         GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/timing
@@ -15676,7 +17505,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[WorkflowUsage, WorkflowUsageType]:
+    ) -> Response[WorkflowUsage, WorkflowUsageTypeForResponse]:
         """actions/get-workflow-usage
 
         GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/timing
@@ -15721,7 +17550,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200,
-        ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200Type,
+        ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200TypeForResponse,
     ]:
         """actions/list-environment-secrets
 
@@ -15753,7 +17582,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200,
@@ -15771,7 +17600,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200,
-        ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200Type,
+        ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200TypeForResponse,
     ]:
         """actions/list-environment-secrets
 
@@ -15803,7 +17632,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoEnvironmentsEnvironmentNameSecretsGetResponse200,
@@ -15817,7 +17646,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsPublicKey, ActionsPublicKeyType]:
+    ) -> Response[ActionsPublicKey, ActionsPublicKeyTypeForResponse]:
         """actions/get-environment-public-key
 
         GET /repos/{owner}/{repo}/environments/{environment_name}/secrets/public-key
@@ -15856,7 +17685,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsPublicKey, ActionsPublicKeyType]:
+    ) -> Response[ActionsPublicKey, ActionsPublicKeyTypeForResponse]:
         """actions/get-environment-public-key
 
         GET /repos/{owner}/{repo}/environments/{environment_name}/secrets/public-key
@@ -15896,7 +17725,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsSecret, ActionsSecretType]:
+    ) -> Response[ActionsSecret, ActionsSecretTypeForResponse]:
         """actions/get-environment-secret
 
         GET /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}
@@ -15933,7 +17762,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsSecret, ActionsSecretType]:
+    ) -> Response[ActionsSecret, ActionsSecretTypeForResponse]:
         """actions/get-environment-secret
 
         GET /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}
@@ -15972,7 +17801,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoEnvironmentsEnvironmentNameSecretsSecretNamePutBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     def create_or_update_environment_secret(
@@ -15987,7 +17816,7 @@ class ActionsClient:
         stream: bool = False,
         encrypted_value: str,
         key_id: str,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     def create_or_update_environment_secret(
         self,
@@ -16002,7 +17831,7 @@ class ActionsClient:
             ReposOwnerRepoEnvironmentsEnvironmentNameSecretsSecretNamePutBodyType
         ] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-or-update-environment-secret
 
         PUT /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}
@@ -16057,7 +17886,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoEnvironmentsEnvironmentNameSecretsSecretNamePutBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     async def async_create_or_update_environment_secret(
@@ -16072,7 +17901,7 @@ class ActionsClient:
         stream: bool = False,
         encrypted_value: str,
         key_id: str,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     async def async_create_or_update_environment_secret(
         self,
@@ -16087,7 +17916,7 @@ class ActionsClient:
             ReposOwnerRepoEnvironmentsEnvironmentNameSecretsSecretNamePutBodyType
         ] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-or-update-environment-secret
 
         PUT /repos/{owner}/{repo}/environments/{environment_name}/secrets/{secret_name}
@@ -16211,7 +18040,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoEnvironmentsEnvironmentNameVariablesGetResponse200,
-        ReposOwnerRepoEnvironmentsEnvironmentNameVariablesGetResponse200Type,
+        ReposOwnerRepoEnvironmentsEnvironmentNameVariablesGetResponse200TypeForResponse,
     ]:
         """actions/list-environment-variables
 
@@ -16242,7 +18071,7 @@ class ActionsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoEnvironmentsEnvironmentNameVariablesGetResponse200,
@@ -16260,7 +18089,7 @@ class ActionsClient:
         stream: bool = False,
     ) -> Response[
         ReposOwnerRepoEnvironmentsEnvironmentNameVariablesGetResponse200,
-        ReposOwnerRepoEnvironmentsEnvironmentNameVariablesGetResponse200Type,
+        ReposOwnerRepoEnvironmentsEnvironmentNameVariablesGetResponse200TypeForResponse,
     ]:
         """actions/list-environment-variables
 
@@ -16291,7 +18120,7 @@ class ActionsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ReposOwnerRepoEnvironmentsEnvironmentNameVariablesGetResponse200,
@@ -16307,7 +18136,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoEnvironmentsEnvironmentNameVariablesPostBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     def create_environment_variable(
@@ -16321,7 +18150,7 @@ class ActionsClient:
         stream: bool = False,
         name: str,
         value: str,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     def create_environment_variable(
         self,
@@ -16335,7 +18164,7 @@ class ActionsClient:
             ReposOwnerRepoEnvironmentsEnvironmentNameVariablesPostBodyType
         ] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-environment-variable
 
         POST /repos/{owner}/{repo}/environments/{environment_name}/variables
@@ -16388,7 +18217,7 @@ class ActionsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: ReposOwnerRepoEnvironmentsEnvironmentNameVariablesPostBodyType,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     @overload
     async def async_create_environment_variable(
@@ -16402,7 +18231,7 @@ class ActionsClient:
         stream: bool = False,
         name: str,
         value: str,
-    ) -> Response[EmptyObject, EmptyObjectType]: ...
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]: ...
 
     async def async_create_environment_variable(
         self,
@@ -16416,7 +18245,7 @@ class ActionsClient:
             ReposOwnerRepoEnvironmentsEnvironmentNameVariablesPostBodyType
         ] = UNSET,
         **kwargs,
-    ) -> Response[EmptyObject, EmptyObjectType]:
+    ) -> Response[EmptyObject, EmptyObjectTypeForResponse]:
         """actions/create-environment-variable
 
         POST /repos/{owner}/{repo}/environments/{environment_name}/variables
@@ -16468,7 +18297,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsVariable, ActionsVariableType]:
+    ) -> Response[ActionsVariable, ActionsVariableTypeForResponse]:
         """actions/get-environment-variable
 
         GET /repos/{owner}/{repo}/environments/{environment_name}/variables/{name}
@@ -16505,7 +18334,7 @@ class ActionsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ActionsVariable, ActionsVariableType]:
+    ) -> Response[ActionsVariable, ActionsVariableTypeForResponse]:
         """actions/get-environment-variable
 
         GET /repos/{owner}/{repo}/environments/{environment_name}/variables/{name}

@@ -10,7 +10,7 @@ class TestCondition:
     def test_errors_satisfied_not_called(self, condition_factory):
         condition = condition_factory()
         with pytest.raises(ValueError):
-            condition.errors
+            assert condition.errors == []
 
     def test_errors(self, condition_factory):
         condition = condition_factory()

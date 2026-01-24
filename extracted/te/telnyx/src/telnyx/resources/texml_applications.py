@@ -23,10 +23,11 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from .._base_client import make_request_options
+from ..pagination import SyncDefaultPagination, AsyncDefaultPagination
+from .._base_client import AsyncPaginator, make_request_options
 from ..types.dtmf_type import DtmfType
+from ..types.texml_application import TexmlApplication
 from ..types.anchorsite_override import AnchorsiteOverride
-from ..types.texml_application_list_response import TexmlApplicationListResponse
 from ..types.texml_application_create_response import TexmlApplicationCreateResponse
 from ..types.texml_application_delete_response import TexmlApplicationDeleteResponse
 from ..types.texml_application_update_response import TexmlApplicationUpdateResponse
@@ -62,6 +63,7 @@ class TexmlApplicationsResource(SyncAPIResource):
         voice_url: str,
         active: bool | Omit = omit,
         anchorsite_override: AnchorsiteOverride | Omit = omit,
+        call_cost_in_webhooks: bool | Omit = omit,
         dtmf_type: DtmfType | Omit = omit,
         first_command_timeout: bool | Omit = omit,
         first_command_timeout_secs: int | Omit = omit,
@@ -92,6 +94,8 @@ class TexmlApplicationsResource(SyncAPIResource):
           anchorsite_override: `Latency` directs Telnyx to route media through the site with the lowest
               round-trip time to the user's connection. Telnyx calculates this time using ICMP
               ping messages. This can be disabled by specifying a site to handle all media.
+
+          call_cost_in_webhooks: Specifies if call cost webhooks should be sent for this TeXML Application.
 
           dtmf_type: Sets the type of DTMF digits sent from Telnyx to this Connection. Note that DTMF
               digits sent to Telnyx will be accepted in all formats.
@@ -130,6 +134,7 @@ class TexmlApplicationsResource(SyncAPIResource):
                     "voice_url": voice_url,
                     "active": active,
                     "anchorsite_override": anchorsite_override,
+                    "call_cost_in_webhooks": call_cost_in_webhooks,
                     "dtmf_type": dtmf_type,
                     "first_command_timeout": first_command_timeout,
                     "first_command_timeout_secs": first_command_timeout_secs,
@@ -190,6 +195,7 @@ class TexmlApplicationsResource(SyncAPIResource):
         voice_url: str,
         active: bool | Omit = omit,
         anchorsite_override: AnchorsiteOverride | Omit = omit,
+        call_cost_in_webhooks: bool | Omit = omit,
         dtmf_type: DtmfType | Omit = omit,
         first_command_timeout: bool | Omit = omit,
         first_command_timeout_secs: int | Omit = omit,
@@ -220,6 +226,8 @@ class TexmlApplicationsResource(SyncAPIResource):
           anchorsite_override: `Latency` directs Telnyx to route media through the site with the lowest
               round-trip time to the user's connection. Telnyx calculates this time using ICMP
               ping messages. This can be disabled by specifying a site to handle all media.
+
+          call_cost_in_webhooks: Specifies if call cost webhooks should be sent for this TeXML Application.
 
           dtmf_type: Sets the type of DTMF digits sent from Telnyx to this Connection. Note that DTMF
               digits sent to Telnyx will be accepted in all formats.
@@ -260,6 +268,7 @@ class TexmlApplicationsResource(SyncAPIResource):
                     "voice_url": voice_url,
                     "active": active,
                     "anchorsite_override": anchorsite_override,
+                    "call_cost_in_webhooks": call_cost_in_webhooks,
                     "dtmf_type": dtmf_type,
                     "first_command_timeout": first_command_timeout,
                     "first_command_timeout_secs": first_command_timeout_secs,
@@ -291,7 +300,7 @@ class TexmlApplicationsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> TexmlApplicationListResponse:
+    ) -> SyncDefaultPagination[TexmlApplication]:
         """
         Returns a list of your TeXML Applications.
 
@@ -326,8 +335,9 @@ class TexmlApplicationsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get(
+        return self._get_api_list(
             "/texml_applications",
+            page=SyncDefaultPagination[TexmlApplication],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -342,7 +352,7 @@ class TexmlApplicationsResource(SyncAPIResource):
                     texml_application_list_params.TexmlApplicationListParams,
                 ),
             ),
-            cast_to=TexmlApplicationListResponse,
+            model=TexmlApplication,
         )
 
     def delete(
@@ -406,6 +416,7 @@ class AsyncTexmlApplicationsResource(AsyncAPIResource):
         voice_url: str,
         active: bool | Omit = omit,
         anchorsite_override: AnchorsiteOverride | Omit = omit,
+        call_cost_in_webhooks: bool | Omit = omit,
         dtmf_type: DtmfType | Omit = omit,
         first_command_timeout: bool | Omit = omit,
         first_command_timeout_secs: int | Omit = omit,
@@ -436,6 +447,8 @@ class AsyncTexmlApplicationsResource(AsyncAPIResource):
           anchorsite_override: `Latency` directs Telnyx to route media through the site with the lowest
               round-trip time to the user's connection. Telnyx calculates this time using ICMP
               ping messages. This can be disabled by specifying a site to handle all media.
+
+          call_cost_in_webhooks: Specifies if call cost webhooks should be sent for this TeXML Application.
 
           dtmf_type: Sets the type of DTMF digits sent from Telnyx to this Connection. Note that DTMF
               digits sent to Telnyx will be accepted in all formats.
@@ -474,6 +487,7 @@ class AsyncTexmlApplicationsResource(AsyncAPIResource):
                     "voice_url": voice_url,
                     "active": active,
                     "anchorsite_override": anchorsite_override,
+                    "call_cost_in_webhooks": call_cost_in_webhooks,
                     "dtmf_type": dtmf_type,
                     "first_command_timeout": first_command_timeout,
                     "first_command_timeout_secs": first_command_timeout_secs,
@@ -534,6 +548,7 @@ class AsyncTexmlApplicationsResource(AsyncAPIResource):
         voice_url: str,
         active: bool | Omit = omit,
         anchorsite_override: AnchorsiteOverride | Omit = omit,
+        call_cost_in_webhooks: bool | Omit = omit,
         dtmf_type: DtmfType | Omit = omit,
         first_command_timeout: bool | Omit = omit,
         first_command_timeout_secs: int | Omit = omit,
@@ -564,6 +579,8 @@ class AsyncTexmlApplicationsResource(AsyncAPIResource):
           anchorsite_override: `Latency` directs Telnyx to route media through the site with the lowest
               round-trip time to the user's connection. Telnyx calculates this time using ICMP
               ping messages. This can be disabled by specifying a site to handle all media.
+
+          call_cost_in_webhooks: Specifies if call cost webhooks should be sent for this TeXML Application.
 
           dtmf_type: Sets the type of DTMF digits sent from Telnyx to this Connection. Note that DTMF
               digits sent to Telnyx will be accepted in all formats.
@@ -604,6 +621,7 @@ class AsyncTexmlApplicationsResource(AsyncAPIResource):
                     "voice_url": voice_url,
                     "active": active,
                     "anchorsite_override": anchorsite_override,
+                    "call_cost_in_webhooks": call_cost_in_webhooks,
                     "dtmf_type": dtmf_type,
                     "first_command_timeout": first_command_timeout,
                     "first_command_timeout_secs": first_command_timeout_secs,
@@ -623,7 +641,7 @@ class AsyncTexmlApplicationsResource(AsyncAPIResource):
             cast_to=TexmlApplicationUpdateResponse,
         )
 
-    async def list(
+    def list(
         self,
         *,
         filter: texml_application_list_params.Filter | Omit = omit,
@@ -635,7 +653,7 @@ class AsyncTexmlApplicationsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> TexmlApplicationListResponse:
+    ) -> AsyncPaginator[TexmlApplication, AsyncDefaultPagination[TexmlApplication]]:
         """
         Returns a list of your TeXML Applications.
 
@@ -670,14 +688,15 @@ class AsyncTexmlApplicationsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return await self._get(
+        return self._get_api_list(
             "/texml_applications",
+            page=AsyncDefaultPagination[TexmlApplication],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform(
+                query=maybe_transform(
                     {
                         "filter": filter,
                         "page": page,
@@ -686,7 +705,7 @@ class AsyncTexmlApplicationsResource(AsyncAPIResource):
                     texml_application_list_params.TexmlApplicationListParams,
                 ),
             ),
-            cast_to=TexmlApplicationListResponse,
+            model=TexmlApplication,
         )
 
     async def delete(

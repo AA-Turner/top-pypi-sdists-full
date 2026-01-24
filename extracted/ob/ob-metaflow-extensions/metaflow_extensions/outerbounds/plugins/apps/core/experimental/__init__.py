@@ -21,6 +21,10 @@ def capsule_input_overrides(app_config: "AppConfig", capsule_input: dict):
     if persistence is not None and persistence != "none":
         capsule_input["persistence"] = persistence
 
+    capsule_input["generateStaticUrl"] = app_config.get_state(
+        "generate_static_url", False
+    )
+
     model_asset_conf = app_config.get_state("models", None)
     data_asset_conf = app_config.get_state("data", None)
     code_info = _code_info(app_config)

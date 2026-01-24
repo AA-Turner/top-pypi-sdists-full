@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: efel
-Version: 5.7.19
+Version: 5.7.20
 Summary: Electrophys Feature Extract Library (eFEL)
 Home-page: https://github.com/openbraininstitute/eFEL
 Author: BlueBrain Project, EPFL
@@ -8,7 +8,6 @@ Maintainer: Werner Van Geit
 Maintainer-email: werner.vangeit@epfl.ch
 License: LGPLv3
 Keywords: feature,extraction,electrophysiology,BlueBrainProject
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
@@ -22,6 +21,23 @@ License-File: LICENSE.txt
 License-File: COPYING
 License-File: COPYING.less
 License-File: AUTHORS.txt
+Requires-Dist: numpy>=1.6
+Requires-Dist: neo>=0.5.2
+Requires-Dist: pynwb>=2.6.0
+Requires-Dist: typing-extensions>=4.8.0
+Requires-Dist: scipy<2.0.0,>=1.12.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-dist
+Dynamic: summary
 
 <img src="https://raw.githubusercontent.com/openbraininstitute/eFEL/master/docs/source/logo/eFELBanner.png" alt="eFEL banner" />
 
@@ -266,5 +282,3 @@ Lausanne (EPFL), from the Swiss government’s ETH Board of the Swiss Federal In
 Copyright (c) 2009-2024 Blue Brain Project/EPFL
 
 Copyright (c) 2025 Open Brain Institute
-
-

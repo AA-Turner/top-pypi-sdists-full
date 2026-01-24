@@ -8,20 +8,21 @@ from argparse import (
     Action,
     HelpFormatter,
     _HelpAction,
+    _SubParsersAction,
 )
+from collections.abc import Iterable
 from io import StringIO
 from string import Template
-from typing import Iterable, Optional, Union
+from typing import Optional, Union
 
 from ._actions import (
     ActionConfigFile,
     ActionYesNo,
     _ActionConfigLoad,
-    _ActionHelpClassPath,
-    _ActionPrintConfig,
     _ActionSubCommands,
     _find_action,
-    filter_default_actions,
+    filter_non_parsing_actions,
+    non_parsing_actions,
 )
 from ._common import (
     defaults_cache,
@@ -29,7 +30,6 @@ from ._common import (
     parent_parser,
     supports_optionals_as_positionals,
 )
-from ._completions import ShtabAction
 from ._deprecated import HelpFormatterDeprecations
 from ._link_arguments import ActionLink
 from ._namespace import Namespace, NSKeyError
@@ -85,7 +85,7 @@ class YAMLCommentFormatter:
             group_titles[parser_key] = parser.description
             prefix = "" if parser_key is None else parser_key + "."
             for group in parser._action_groups:
-                actions = filter_default_actions(group._group_actions)
+                actions = filter_non_parsing_actions(group._group_actions)
                 actions = [
                     a for a in actions if not isinstance(a, (_ActionConfigLoad, ActionConfigFile, _ActionSubCommands))
                 ]
@@ -201,8 +201,9 @@ class DefaultHelpFormatter(HelpFormatterDeprecations, HelpFormatter):
             help_str += action.extra_help()
         return action_help + (" (" + help_str + ")" if help_str else "")
 
-    def _format_usage(self, *args, **kwargs) -> str:
-        usage = super()._format_usage(*args, **kwargs)
+    def _format_usage(self, usage, actions, *args, **kwargs) -> str:
+        actions = filter_non_parsing_actions(actions)
+        usage = super()._format_usage(usage, actions, *args, **kwargs)
 
         parser = parent_parser.get()
         if not parser:
@@ -249,8 +250,11 @@ class DefaultHelpFormatter(HelpFormatterDeprecations, HelpFormatter):
             return value
         if not parser.default_env:
             return super()._format_action_invocation(action)
+        # Subcommand choices (individual subcommands in the list) don't get ARG: prefix or ENV: line
+        if isinstance(action, _SubParsersAction._ChoicesPseudoAction):
+            return super()._format_action_invocation(action)
         extr = ""
-        if not isinstance(action, (_ActionHelpClassPath, _ActionPrintConfig, ShtabAction, _HelpAction)):
+        if not isinstance(action, non_parsing_actions):
             extr += "\n  ENV:   " + get_env_var(self, action)
         return "ARG:   " + super()._format_action_invocation(action) + extr
 

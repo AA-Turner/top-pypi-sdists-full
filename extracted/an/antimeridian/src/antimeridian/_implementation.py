@@ -358,10 +358,19 @@ def fix_polygon(
         if shapely.is_ccw(polygon.exterior):
             return polygon
         else:
-            return Polygon(
+            pole_covering_polygon = Polygon(
                 [(-180, 90), (-180, -90), (180, -90), (180, 90)],
                 [polygon.exterior.coords],
             )
+            if shapely.is_valid(pole_covering_polygon):
+                return pole_covering_polygon
+            else:
+                raise ValueError(
+                    "Fixed polygon is invalid, check your input polygon for validity. "
+                    "Reason your polygon is invalid: "
+                    + shapely.is_valid_reason(polygon)
+                )
+
     else:
         return MultiPolygon(polygons)
 
@@ -573,7 +582,7 @@ def crossing_latitude_great_circle(start: XY, end: XY) -> float:
 
 def crossing_latitude_flat(start: XY, end: XY) -> float:
     latitude_delta = end[1] - start[1]
-    if end[0] > 0:
+    if end[0] < 0:
         return round(
             start[1]
             + (180.0 - start[0]) * latitude_delta / (end[0] + 360.0 - start[0]),

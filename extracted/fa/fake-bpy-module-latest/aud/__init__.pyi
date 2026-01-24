@@ -29,7 +29,6 @@ class AnimateableProperty:
         """Reads the properties value at the given position.
 
         :param position: The position in the animation in frames.
-        :type position: float
         :return: A numpy array of values representing the properties value.
         """
 
@@ -37,9 +36,7 @@ class AnimateableProperty:
         """Reads the properties value at the given position, assuming there is exactly one value.
 
         :param position: The position in the animation in frames.
-        :type position: float
         :return: The value at that position.
-        :rtype: float
         """
 
     def write(self, data, position: int) -> None:
@@ -48,7 +45,6 @@ class AnimateableProperty:
 
                 :param data: numpy array of float32 values.
                 :param position: The starting position in frames.
-                :type position: int
         """
 
     def writeConstantRange(self, data, position_start: int, position_end: int) -> None:
@@ -56,9 +52,7 @@ class AnimateableProperty:
 
         :param data: numpy array of float values representing the constant value.
         :param position_start: The start position in frames.
-        :type position_start: int
         :param position_end: The end position in frames.
-        :type position_end: int
         """
 
 class Device:
@@ -108,12 +102,9 @@ The speed of sound in air is typically 343.3 m/s."""
         """Plays a sound.
 
                 :param sound: The sound to play.
-                :type sound: Sound
                 :param keep: See `Handle.keep`.
-                :type keep: bool
                 :return: The playback handle with which playback can be
         controlled with.
-                :rtype: Handle
         """
 
     def stopAll(self) -> None:
@@ -149,43 +140,34 @@ class DynamicMusic:
         """Adds a new scene.
 
         :param scene: The scene sound.
-        :type scene: Sound
         :return: The new scene id.
-        :rtype: int
         """
 
     def addTransition(self, ini: int, end: int, transition: Sound) -> bool:
         """Adds a new scene.
 
         :param ini: the initial scene foor the transition.
-        :type ini: int
         :param end: The final scene for the transition.
-        :type end: int
         :param transition: The transition sound.
-        :type transition: Sound
         :return: false if the ini or end scenes dont exist, true otherwise.
-        :rtype: bool
         """
 
     def pause(self) -> bool:
         """Pauses playback of the scene.
 
         :return: Whether the action succeeded.
-        :rtype: bool
         """
 
     def resume(self) -> bool:
         """Resumes playback of the scene.
 
         :return: Whether the action succeeded.
-        :rtype: bool
         """
 
     def stop(self) -> bool:
         """Stops playback of the scene.
 
         :return: Whether the action succeeded.
-        :rtype: bool
         """
 
 class HRTF:
@@ -195,20 +177,16 @@ class HRTF:
         """Loads all HRTFs from a directory.
 
         :param extension: The file extension of the hrtfs.
-        :type extension: str
         :param directory: The path to where the HRTF files are located.
         :return: The loaded `HRTF` object.
-        :rtype: typing_extensions.Self
         """
 
     def loadRightHrtfSet(self, extension: str, directory) -> typing_extensions.Self:
         """Loads all HRTFs from a directory.
 
         :param extension: The file extension of the hrtfs.
-        :type extension: str
         :param directory: The path to where the HRTF files are located.
         :return: The loaded `HRTF` object.
-        :rtype: typing_extensions.Self
         """
 
     def addImpulseResponseFromSound(
@@ -217,13 +195,9 @@ class HRTF:
         """Adds a new hrtf to the HRTF object
 
         :param sound: The sound that contains the hrtf.
-        :type sound: Sound
         :param azimuth: The azimuth angle of the hrtf.
-        :type azimuth: float
         :param elevation: The elevation angle of the hrtf.
-        :type elevation: float
         :return: Whether the action succeeded.
-        :rtype: bool
         """
 
 class Handle:
@@ -291,21 +265,18 @@ This can be used to seek the sound to some position and start playback again."""
         """Pauses playback.
 
         :return: Whether the action succeeded.
-        :rtype: bool
         """
 
     def resume(self) -> bool:
         """Resumes playback.
 
         :return: Whether the action succeeded.
-        :rtype: bool
         """
 
     def stop(self) -> bool:
         """Stops playback.
 
         :return: Whether the action succeeded.
-        :rtype: bool
         """
 
 class ImpulseResponse:
@@ -318,9 +289,7 @@ class PlaybackManager:
         """Adds a category with a custom volume.
 
         :param volume: The volume for ther new category.
-        :type volume: float
         :return: The key of the new category.
-        :rtype: int
         """
 
     def clean(self) -> None:
@@ -330,59 +299,45 @@ class PlaybackManager:
         """Retrieves the volume of a category.
 
         :param catKey: the key of the category.
-        :type catKey: int
         :return: The volume of the category.
-        :rtype: float
         """
 
     def pause(self, catKey: int) -> bool:
         """Pauses playback of the category.
 
         :param catKey: the key of the category.
-        :type catKey: int
         :return: Whether the action succeeded.
-        :rtype: bool
         """
 
     def play(self, sound: Sound, catKey: int) -> Handle:
         """Plays a sound through the playback manager and assigns it to a category.
 
                 :param sound: The sound to play.
-                :type sound: Sound
                 :param catKey: the key of the category in which the sound will be added,
         if it doesnt exist, a new one will be created.
-                :type catKey: int
                 :return: The playback handle with which playback can be controlled with.
-                :rtype: Handle
         """
 
     def resume(self, catKey: int) -> bool:
         """Resumes playback of the catgory.
 
         :param catKey: the key of the category.
-        :type catKey: int
         :return: Whether the action succeeded.
-        :rtype: bool
         """
 
     def setVolume(self, volume: float, catKey: int) -> int:
         """Changes the volume of a category.
 
         :param volume: the new volume value.
-        :type volume: float
         :param catKey: the key of the category.
-        :type catKey: int
         :return: Whether the action succeeded.
-        :rtype: int
         """
 
     def stop(self, catKey: int) -> bool:
         """Stops playback of the category.
 
         :param catKey: the key of the category.
-        :type catKey: int
         :return: Whether the action succeeded.
-        :rtype: bool
         """
 
 class Sequence:
@@ -415,7 +370,6 @@ The speed of sound in air is typically 343.3 m/s."""
         """Adds a new entry to the sequence.
 
         :return: The entry added.
-        :rtype: SequenceEntry
         """
 
     def remove(self) -> None:
@@ -484,9 +438,7 @@ class Sound:
 
         :param data: The data as two dimensional numpy array.
         :param rate: The sample rate.
-        :type rate: float
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     @classmethod
@@ -494,9 +446,7 @@ class Sound:
         """Creates a sound object of a sound file.
 
         :param filename: Path of the file.
-        :type filename: str
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     @classmethod
@@ -504,7 +454,6 @@ class Sound:
         """Creates an empty sound list that can contain several sounds.
 
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     @classmethod
@@ -512,12 +461,9 @@ class Sound:
         """Creates a sawtooth sound which plays a sawtooth wave.
 
                 :param frequency: The frequency of the sawtooth wave in Hz.
-                :type frequency: float
                 :param rate: The sampling rate in Hz. Its recommended to set this
         value to the playback devices sampling rate to avoid resampling.
-                :type rate: int
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     @classmethod
@@ -526,9 +472,7 @@ class Sound:
 
                 :param rate: The sampling rate in Hz. Its recommended to set this
         value to the playback devices sampling rate to avoid resampling.
-                :type rate: int
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     @classmethod
@@ -536,12 +480,9 @@ class Sound:
         """Creates a sine sound which plays a sine wave.
 
                 :param frequency: The frequency of the sine wave in Hz.
-                :type frequency: float
                 :param rate: The sampling rate in Hz. Its recommended to set this
         value to the playback devices sampling rate to avoid resampling.
-                :type rate: int
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     @classmethod
@@ -549,12 +490,9 @@ class Sound:
         """Creates a square sound which plays a square wave.
 
                 :param frequency: The frequency of the square wave in Hz.
-                :type frequency: float
                 :param rate: The sampling rate in Hz. Its recommended to set this
         value to the playback devices sampling rate to avoid resampling.
-                :type rate: int
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     @classmethod
@@ -562,12 +500,9 @@ class Sound:
         """Creates a triangle sound which plays a triangle wave.
 
                 :param frequency: The frequency of the triangle wave in Hz.
-                :type frequency: float
                 :param rate: The sampling rate in Hz. Its recommended to set this
         value to the playback devices sampling rate to avoid resampling.
-                :type rate: int
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def ADSR(
@@ -577,15 +512,10 @@ class Sound:
         Note: there is currently no way to trigger the release with this API.
 
                 :param attack: The attack time in seconds.
-                :type attack: float
                 :param decay: The decay time in seconds.
-                :type decay: float
                 :param sustain: The sustain level.
-                :type sustain: float
                 :param release: The release level.
-                :type release: float
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def accumulate(self, additive=False) -> typing_extensions.Self:
@@ -596,21 +526,36 @@ class Sound:
 
                 :param additive: Whether the accumulation should be additive or not.
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def addSound(self, sound: typing_extensions.Self) -> None:
         """Adds a new sound to a sound list.
 
         :param sound: The sound that will be added to the list.
-        :type sound: typing_extensions.Self
+        """
+
+    def animateableTimeStretchPitchScale(
+        self,
+        fps: float,
+        time_stretch: float,
+        pitch_scale: float,
+        quality: int,
+        preserve_formant: bool,
+    ) -> typing_extensions.Self:
+        """Applies time-stretching and pitch-scaling to the sound.
+
+        :param fps: The FPS of the animation system.
+        :param time_stretch: The factor by which to stretch or compress time.
+        :param pitch_scale: The factor by which to adjust the pitch.
+        :param quality:
+        :param preserve_formant: Whether to preserve the vocal formants during pitch-shifting.
+        :return: The created `Sound` object.
         """
 
     def binaural(self) -> typing_extensions.Self:
         """Creates a binaural sound using another sound as source. The original sound must be mono
 
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def cache(self) -> typing_extensions.Self:
@@ -619,14 +564,12 @@ class Sound:
         but it consumes a lot of memory.
 
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def convolver(self) -> typing_extensions.Self:
         """Creates a sound that will apply convolution to another sound.
 
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def data(self) -> None:
@@ -639,9 +582,16 @@ class Sound:
         """Delays by playing adding silence in front of the other sounds data.
 
         :param time: How many seconds of silence should be added before the sound.
-        :type time: float
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
+        """
+
+    def Echo(self, delay: float, feedback: float, mix: float) -> typing_extensions.Self:
+        """Adds Echo effect to the sound.
+
+        :param delay: The delay time in seconds.
+        :param feedback: The feedback amount (0.0 to 1.0).
+        :param mix: The wet/dry mix (0.0 to 1.0).
+        :return: The created `Sound` object.
         """
 
     def envelope(
@@ -650,15 +600,10 @@ class Sound:
         """Delays by playing adding silence in front of the other sounds data.
 
         :param attack: The attack factor.
-        :type attack: float
         :param release: The release factor.
-        :type release: float
         :param threshold: The general threshold value.
-        :type threshold: float
         :param arthreshold: The attack/release threshold value.
-        :type arthreshold: float
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def fadein(self, start: float, length: float) -> typing_extensions.Self:
@@ -666,11 +611,8 @@ class Sound:
         time interval.
 
                 :param start: Time in seconds when the fading should start.
-                :type start: float
                 :param length: Time in seconds how long the fading should last.
-                :type length: float
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def fadeout(self, start: float, length: float) -> typing_extensions.Self:
@@ -678,11 +620,8 @@ class Sound:
         time interval.
 
                 :param start: Time in seconds when the fading should start.
-                :type start: float
                 :param length: Time in seconds how long the fading should last.
-                :type length: float
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def filter(self, b: list[float], a: list[float] = (1)) -> typing_extensions.Self:
@@ -694,11 +633,8 @@ class Sound:
         in the end, you dont have to scale yourself.
 
                 :param b: The nominator filter coefficients.
-                :type b: list[float]
                 :param a: The denominator filter coefficients.
-                :type a: list[float]
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def highpass(self, frequency: float, Q: float = 0.5) -> typing_extensions.Self:
@@ -706,31 +642,23 @@ class Sound:
         function H(s) = s^2 / (s^2 + s/Q + 1)
 
                 :param frequency: The cut off trequency of the highpass.
-                :type frequency: float
                 :param Q: Q factor of the lowpass.
-                :type Q: float
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def join(self, sound: typing_extensions.Self) -> typing_extensions.Self:
         """Plays two factories in sequence.
 
         :param sound: The sound to play second.
-        :type sound: typing_extensions.Self
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def limit(self, start: float, end: float) -> typing_extensions.Self:
         """Limits a sound within a specific start and end time.
 
         :param start: Start time in seconds.
-        :type start: float
         :param end: End time in seconds.
-        :type end: float
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def loop(self, count: int) -> typing_extensions.Self:
@@ -738,38 +666,29 @@ class Sound:
 
                 :param count: How often the sound should be looped.
         Negative values mean endlessly.
-                :type count: int
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def lowpass(self, frequency: float, Q: float = 0.5) -> typing_extensions.Self:
         """Creates a second order lowpass filter based on the transfer    function H(s) = 1 / (s^2 + s/Q + 1)
 
         :param frequency: The cut off trequency of the lowpass.
-        :type frequency: float
         :param Q: Q factor of the lowpass.
-        :type Q: float
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def mix(self, sound: typing_extensions.Self) -> typing_extensions.Self:
         """Mixes two factories.
 
         :param sound: The sound to mix over the other.
-        :type sound: typing_extensions.Self
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def modulate(self, sound: typing_extensions.Self) -> typing_extensions.Self:
         """Modulates two factories.
 
         :param sound: The sound to modulate over the other.
-        :type sound: typing_extensions.Self
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def mutable(self) -> typing_extensions.Self:
@@ -777,7 +696,6 @@ class Sound:
         If the original sound is a sound list, the playing sound can change.
 
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def pingpong(self) -> typing_extensions.Self:
@@ -785,50 +703,40 @@ class Sound:
         This is like joining a sound with its reverse.
 
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
         """
 
     def pitch(self, factor: float) -> typing_extensions.Self:
         """Changes the pitch of a sound with a specific factor.
 
         :param factor: The factor to change the pitch with.
-        :type factor: float
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def rechannel(self, channels: int) -> typing_extensions.Self:
         """Rechannels the sound.
 
         :param channels: The new channel configuration.
-        :type channels: int
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def resample(self, rate: float, quality: int) -> typing_extensions.Self:
         """Resamples the sound.
 
         :param rate: The new sample rate.
-        :type rate: float
         :param quality: Resampler performance vs quality choice (0=fastest, 3=slowest).
-        :type quality: int
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def reverse(self) -> typing_extensions.Self:
         """Plays a sound reversed.
 
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def sum(self) -> typing_extensions.Self:
         """Sums the samples of a sound.
 
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def threshold(self, threshold: float = 0) -> typing_extensions.Self:
@@ -838,18 +746,30 @@ class Sound:
 
                 :param threshold: Threshold value over which an amplitude counts
         non-zero.
-                :type threshold: float
                 :return: The created `Sound` object.
-                :rtype: typing_extensions.Self
+        """
+
+    def timeStretchPitchScale(
+        self,
+        time_stretch: float,
+        pitch_scale: float,
+        quality: int,
+        preserve_formant: bool,
+    ) -> typing_extensions.Self:
+        """Applies time-stretching and pitch-scaling to the sound.
+
+        :param time_stretch: The factor by which to stretch or compress time.
+        :param pitch_scale: The factor by which to adjust the pitch.
+        :param quality: Rubberband stretcher quality (STRETCHER_QUALITY_*).
+        :param preserve_formant: Whether to preserve the vocal formants during pitch-shifting.
+        :return: The created `Sound` object.
         """
 
     def volume(self, volume: float) -> typing_extensions.Self:
         """Changes the volume of a sound.
 
         :param volume: The new volume..
-        :type volume: float
         :return: The created `Sound` object.
-        :rtype: typing_extensions.Self
         """
 
     def write(
@@ -866,21 +786,13 @@ class Sound:
         """Writes the sound to a file.
 
         :param filename: The path to write to.
-        :type filename: str
         :param rate: The sample rate to write with.
-        :type rate: int
         :param channels: The number of channels to write with.
-        :type channels: int
         :param format: The sample format to write with.
-        :type format: int
         :param container: The container format for the file.
-        :type container: int
         :param codec: The codec to use in the file.
-        :type codec: int
         :param bitrate: The bitrate to write with.
-        :type bitrate: int
         :param buffersize: The size of the writing buffer.
-        :type buffersize: int
         """
 
 class Source:
@@ -1150,4 +1062,16 @@ STATUS_PLAYING: typing.Any
 
 STATUS_STOPPED: typing.Any
 """ Constant value 3
+"""
+
+STRETCHER_QUALITY_CONSISTENT: typing.Any
+""" Constant value 2
+"""
+
+STRETCHER_QUALITY_FAST: typing.Any
+""" Constant value 1
+"""
+
+STRETCHER_QUALITY_HIGH: typing.Any
+""" Constant value 0
 """

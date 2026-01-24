@@ -189,7 +189,7 @@ class NotifyOpsgenie(NotifyBase):
     secure_protocol = "opsgenie"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_opsgenie"
+    setup_url = "https://appriseit.com/services/opsgenie/"
 
     # The maximum length of the body
     body_maxlen = 15000
@@ -581,13 +581,13 @@ class NotifyOpsgenie(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 return (False, content.get("requestId"))
 
             # If we reach here; the message was sent
             self.logger.info("Sent Opsgenie notification")
-            self.logger.debug(f"Response Details:\r\n{r.content}")
 
             return (True, content.get("requestId"))
 

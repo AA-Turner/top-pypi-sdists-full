@@ -1,0 +1,18 @@
+pipeline: generic-events
+description: Issue platform
+services:
+  producers:
+    - getsentry/sentry
+  consumers:
+    - getsentry/snuba
+schemas:
+  - version: 1
+    compatibility_mode: none
+    type: json
+    resource: generic-events.v1.schema.json
+    examples:
+      - generic-events/1/
+topic_creation_config:
+  compression.type: lz4
+  message.timestamp.type: LogAppendTime
+  retention.ms: "86400000"

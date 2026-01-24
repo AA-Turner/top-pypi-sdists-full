@@ -1,6 +1,6 @@
 use common::array::{sort, sort_strings, transform};
 use common::create::{make_array, make_array_entry, make_comma, make_entry_of_string, make_newline};
-use common::pep508::{format_requirement, get_canonic_requirement_name};
+use common::pep508::Requirement;
 use common::string::{load_text, update_content};
 use common::table::{collapse_sub_tables, for_entries, reorder_table_keys, Tables};
 use common::taplo::syntax::SyntaxKind::{
@@ -13,12 +13,14 @@ use lexical_sort::natural_lexical_cmp;
 use regex::Regex;
 use std::cell::RefMut;
 use std::cmp::Ordering;
+use std::sync::LazyLock;
 
 pub fn fix(
     tables: &mut Tables,
     keep_full_version: bool,
     max_supported_python: (u8, u8),
     min_supported_python: (u8, u8),
+    generate_python_version_classifiers: bool,
 ) {
     collapse_sub_tables(tables, "project");
     let table_element = tables.get("project");
@@ -26,42 +28,47 @@ pub fn fix(
         return;
     }
     let table = &mut table_element.unwrap().first().unwrap().borrow_mut();
+    static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r" \.(\W)").unwrap());
     expand_entry_points_inline_tables(table);
     for_entries(table, &mut |key, entry| match key.split('.').next().unwrap() {
         "name" => {
-            update_content(entry, get_canonic_requirement_name);
+            update_content(entry, |s| Requirement::new(s).unwrap().canonical_name());
         }
         "version" | "readme" | "license-files" | "scripts" | "entry-points" | "gui-scripts" => {
             update_content(entry, |s| String::from(s));
         }
         "description" => {
             update_content(entry, |s| {
-                s.trim()
-                    .lines()
-                    .map(|part| {
-                        part.trim()
-                            .split(char::is_whitespace)
-                            .filter(|part| !part.trim().is_empty())
-                            .collect::<Vec<&str>>()
-                            .join(" ")
-                            .replace(" .", ".")
-                    })
-                    .collect::<Vec<String>>()
-                    .join(" ")
+                RE.replace_all(
+                    &s.trim()
+                        .lines()
+                        .map(|part| {
+                            part.split_whitespace()
+                                .filter(|part| !part.trim().is_empty())
+                                .collect::<Vec<&str>>()
+                                .join(" ")
+                        })
+                        .collect::<Vec<String>>()
+                        .join(" "),
+                    ".$1",
+                )
+                .to_string()
             });
         }
         "requires-python" => {
             update_content(entry, |s| s.split_whitespace().collect());
         }
         "dependencies" | "optional-dependencies" => {
-            transform(entry, &|s| format_requirement(s, keep_full_version));
+            transform(entry, &|s| {
+                Requirement::new(s).unwrap().normalize(keep_full_version).to_string()
+            });
             sort::<(String, String), _, _>(
                 entry,
                 |node| {
                     for child in node.children_with_tokens() {
                         if let STRING = child.kind() {
                             let val = load_text(child.as_token().unwrap().text(), STRING);
-                            let package_name = get_canonic_requirement_name(val.as_str()).to_lowercase();
+                            let package_name = Requirement::new(val.as_str()).unwrap().canonical_name();
                             return Some((package_name, val));
                         }
                     }
@@ -80,6 +87,13 @@ pub fn fix(
             transform(entry, &|s| String::from(s));
             sort_strings::<String, _, _>(entry, |s| s.to_lowercase(), &|lhs, rhs| natural_lexical_cmp(lhs, rhs));
         }
+        "import-names" | "import-namespaces" => {
+            transform(entry, &|s| {
+                static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\s*;\s*").unwrap());
+                RE.replace_all(s, "; ").trim_end().to_string()
+            });
+            sort_strings::<String, _, _>(entry, |s| s.to_lowercase(), &|lhs, rhs| natural_lexical_cmp(lhs, rhs));
+        }
         "classifiers" => {
             transform(entry, &|s| String::from(s));
             sort_strings::<String, _, _>(entry, |s| s.to_lowercase(), &|lhs, rhs| natural_lexical_cmp(lhs, rhs));
@@ -87,7 +101,13 @@ pub fn fix(
         _ => {}
     });
 
-    generate_classifiers(table, max_supported_python, min_supported_python);
+    generate_classifiers(
+        table,
+        max_supported_python,
+        min_supported_python,
+        generate_python_version_classifiers,
+    );
+
     for_entries(table, &mut |key, entry| {
         if key.as_str() == "classifiers" {
             sort_strings::<String, _, _>(entry, |s| s.to_lowercase(), &|lhs, rhs| natural_lexical_cmp(lhs, rhs));
@@ -99,6 +119,8 @@ pub fn fix(
             "",
             "name",
             "version",
+            "import-names",
+            "import-namespaces",
             "description",
             "readme",
             "keywords",
@@ -181,30 +203,84 @@ fn generate_classifiers(
     table: &mut RefMut<Vec<SyntaxElement>>,
     max_supported_python: (u8, u8),
     min_supported_python: (u8, u8),
+    generate_python_version_classifiers: bool,
 ) {
-    let (min, max, omit, classifiers) =
-        get_python_requires_with_classifier(table, max_supported_python, min_supported_python);
-    match classifiers {
-        None => {
-            let entry = make_array("classifiers");
-            generate_classifiers_to_entry(entry.as_node().unwrap(), min, max, &omit, &HashSet::new());
-            table.push(entry);
-        }
-        Some(c) => {
-            let mut key_value = String::new();
-            for table_row in table.iter() {
-                if table_row.kind() == ENTRY {
-                    for entry in table_row.as_node().unwrap().children_with_tokens() {
-                        if entry.kind() == KEY {
-                            key_value = entry.as_node().unwrap().text().to_string().trim().to_string();
-                        } else if entry.kind() == VALUE && key_value == "classifiers" {
-                            generate_classifiers_to_entry(table_row.as_node().unwrap(), min, max, &omit, &c);
+    if generate_python_version_classifiers {
+        let (min, max, omit, classifiers) =
+            get_python_requires_with_classifier(table, max_supported_python, min_supported_python);
+        match classifiers {
+            None => {
+                let entry = make_array("classifiers");
+                generate_classifiers_to_entry(entry.as_node().unwrap(), min, max, &omit, &HashSet::new());
+                table.push(entry);
+            }
+            Some(c) => {
+                let mut key_value = String::new();
+                for table_row in table.iter() {
+                    if table_row.kind() == ENTRY {
+                        for entry in table_row.as_node().unwrap().children_with_tokens() {
+                            if entry.kind() == KEY {
+                                key_value = entry.as_node().unwrap().text().to_string().trim().to_string();
+                            } else if entry.kind() == VALUE && key_value == "classifiers" {
+                                generate_classifiers_to_entry(table_row.as_node().unwrap(), min, max, &omit, &c);
+                            }
                         }
                     }
                 }
             }
-        }
-    };
+        };
+    } else {
+        for_entries(table, &mut |key, entry| {
+            if key.as_str() == "classifiers" {
+                for child in entry.children_with_tokens() {
+                    if child.kind() == ARRAY {
+                        let orig = child.as_node().unwrap().children_with_tokens().collect::<Vec<_>>();
+                        let mut new_children: Vec<SyntaxElement> = Vec::new();
+                        let mut at = 0;
+                        while at < orig.len() {
+                            let node = &orig[at];
+                            if node.kind() == VALUE {
+                                // determine if this VALUE is a Python classifier
+                                let mut is_python = false;
+                                for inner in node.as_node().unwrap().children_with_tokens() {
+                                    if inner.kind() == STRING {
+                                        let txt = load_text(inner.as_token().unwrap().text(), STRING);
+                                        if txt.starts_with("Programming Language :: Python :: 3")
+                                            || txt.starts_with("Programming Language :: Python :: Implementation")
+                                        {
+                                            is_python = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if is_python {
+                                    // skip this VALUE and also skip following comma/newline if present
+                                    at += 1;
+                                    if at < orig.len() && orig[at].kind() == COMMA {
+                                        at += 1;
+                                    }
+                                    if at < orig.len() && orig[at].kind() == NEWLINE {
+                                        at += 1;
+                                    }
+                                    continue;
+                                } else {
+                                    new_children.push(node.clone());
+                                    at += 1;
+                                }
+                            } else {
+                                new_children.push(node.clone());
+                                at += 1;
+                            }
+                        }
+                        child
+                            .as_node()
+                            .unwrap()
+                            .splice_children(0..child.as_node().unwrap().children_with_tokens().count(), new_children);
+                    }
+                }
+            }
+        });
+    }
 }
 
 fn generate_classifiers_to_entry(
@@ -323,14 +399,13 @@ fn get_python_requires_with_classifier(
 
     for_entries(table, &mut |key, entry| {
         if key == "requires-python" {
-            let re = Regex::new(r"^(?<op><|<=|==|!=|>=|>)3[.](?<minor>\d+)").unwrap();
+            static RE: LazyLock<Regex> =
+                LazyLock::new(|| Regex::new(r"^(?<op><|<=|==|!=|>=|>)3[.](?<minor>\d+)").unwrap());
             for child in entry.children_with_tokens() {
                 if child.kind() == STRING {
                     let found_str_value = load_text(child.as_token().unwrap().text(), STRING);
                     for part in found_str_value.split(',') {
-                        let capture = re.captures(part);
-                        if capture.is_some() {
-                            let caps = capture.unwrap();
+                        if let Some(caps) = RE.captures(part) {
                             let minor = caps["minor"].parse::<u8>().unwrap();
                             match &caps["op"] {
                                 "==" => {

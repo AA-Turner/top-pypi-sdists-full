@@ -80,7 +80,13 @@ class IndexView(generic.IndexView):
         return getattr(settings, "WAGTAILIMAGES_INDEX_PAGE_SIZE", 30)
 
     def get_valid_orderings(self):
-        return self.ORDERING_OPTIONS
+        orderings = self.ORDERING_OPTIONS.copy()
+        if self.is_searching:
+            # Ordering by usage count not currently available when searching,
+            # due to https://github.com/wagtail/django-modelsearch/issues/51
+            orderings.pop("usage_count", None)
+            orderings.pop("-usage_count", None)
+        return orderings.keys()
 
     def get_base_queryset(self):
         # Get images (filtered by user permission)
@@ -92,12 +98,20 @@ class IndexView(generic.IndexView):
             .prefetch_renditions("max-165x165")
         )
 
-        # Annotate with usage count from the ReferenceIndex
-        images = images.annotate(
-            usage_count=ReferenceIndex.usage_count_subquery(self.model)
-        )
+        if self.needs_usage_count_subquery:
+            # Annotate usage_count on the whole queryset to allow ordering/filtering
+            # (On some databases, this can be slow when there are many objects)
+            images = images.annotate(
+                usage_count=ReferenceIndex.usage_count_subquery(self.model)
+            )
 
         return images
+
+    @cached_property
+    def needs_usage_count_subquery(self):
+        return self.ordering in ["usage_count", "-usage_count"] or (
+            self.is_filtering and "usage_count" in self.filters.form.cleaned_data
+        )
 
     @cached_property
     def current_collection(self):
@@ -123,6 +137,19 @@ class IndexView(generic.IndexView):
             next_url += "?" + request_query_string
         return next_url
 
+    def decorate_paginated_queryset(self, object_list):
+        if self.needs_usage_count_subquery:
+            # Already annotated in get_base_queryset
+            return object_list
+
+        # Use a separate, more efficient query that only gets usage counts for
+        # objects on the current page
+        # See https://github.com/wagtail/wagtail/issues/13561
+        counts = ReferenceIndex.get_count_references_to_in_bulk(list(object_list))
+        for obj in object_list:
+            obj.usage_count = counts.get(obj, 0)
+        return object_list
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -133,6 +160,7 @@ class IndexView(generic.IndexView):
                 "current_ordering": self.ordering,
                 "ORDERING_OPTIONS": self.ORDERING_OPTIONS,
                 "layout": self.layout,
+                "object_list": self.decorate_paginated_queryset(context["object_list"]),
             }
         )
 
@@ -172,7 +200,9 @@ class IndexView(generic.IndexView):
                 UsageCountColumn(
                     "usage_count",
                     label=_("Usage"),
-                    sort_key="usage_count",
+                    # Ordering by usage count not currently available when searching,
+                    # due to https://github.com/wagtail/django-modelsearch/issues/51
+                    sort_key="usage_count" if not self.is_searching else None,
                     width="16%",
                 ),
             ]

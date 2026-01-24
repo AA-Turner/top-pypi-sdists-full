@@ -1,5 +1,5 @@
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 import pytest
@@ -347,7 +347,8 @@ def test_expect_query_results_to_match_comparison_missing_and_unexpected_values(
             base_query=base_query,
             comparison_data_source_name=multi_source_batch.comparison_data_source_name,
             comparison_query=f"SELECT source FROM {multi_source_batch.comparison_table_name}",
-        )
+        ),
+        result_format="COMPLETE",
     )
 
     assert result.result["details"] == {
@@ -408,7 +409,8 @@ def test_column_ordering(
             comparison_query=comparison_query.replace(
                 "{source_table}", multi_source_batch.comparison_table_name
             ),
-        )
+        ),
+        result_format="COMPLETE",
     )
 
     assert result.result["details"] == {
@@ -485,7 +487,8 @@ def test_rendering_no_differences(multi_source_batch: MultiSourceBatch):
             base_query="SELECT e, a, d, g, b, e FROM {batch} ORDER BY e",
             comparison_data_source_name=multi_source_batch.comparison_data_source_name,
             comparison_query=f"SELECT g, d, g, c, e, a  FROM {source_table} ORDER BY g",
-        )
+        ),
+        result_format="COMPLETE",
     )
     result.render()
 
@@ -507,7 +510,8 @@ def test_rendering_with_missing_and_unexpected(multi_source_batch: MultiSourceBa
             base_query="SELECT a, b, c, d FROM {batch} ORDER BY e",
             comparison_data_source_name=multi_source_batch.comparison_data_source_name,
             comparison_query=f"SELECT e, f, g, h  FROM {source_table} ORDER BY g",
-        )
+        ),
+        result_format="COMPLETE",
     )
     result.render()
 
@@ -587,7 +591,8 @@ def test_rendering_with_one_column(multi_source_batch: MultiSourceBatch):
             comparison_data_source_name=multi_source_batch.comparison_data_source_name,
             comparison_query=f"SELECT foo FROM {source_table}",
             base_query="SELECT bar FROM {batch}",
-        )
+        ),
+        result_format="COMPLETE",
     )
     result.render()
 
@@ -656,7 +661,8 @@ def test_rendering_with_one_value(multi_source_batch: MultiSourceBatch):
             comparison_data_source_name=multi_source_batch.comparison_data_source_name,
             comparison_query=f"SELECT foo FROM {source_table}",
             base_query="SELECT bar FROM {batch}",
-        )
+        ),
+        result_format="COMPLETE",
     )
     result.render()
 
@@ -705,7 +711,8 @@ def test_rendering_only_missing_rows_single_column(multi_source_batch: MultiSour
             comparison_data_source_name=multi_source_batch.comparison_data_source_name,
             comparison_query=f"SELECT foo FROM {source_table}",
             base_query="SELECT bar FROM {batch}",
-        )
+        ),
+        result_format="COMPLETE",
     )
     result.render()
 
@@ -760,7 +767,8 @@ def test_rendering_only_unexpected_rows_single_column(multi_source_batch: MultiS
             comparison_data_source_name=multi_source_batch.comparison_data_source_name,
             comparison_query=f"SELECT foo FROM {source_table}",
             base_query="SELECT bar FROM {batch}",
-        )
+        ),
+        result_format="COMPLETE",
     )
     result.render()
 
@@ -878,7 +886,8 @@ def test_rendering_table_with_multiple_uuid():
                 comparison_data_source_name=data_source_name,
                 comparison_query=f"SELECT name, id FROM {source_table}",
                 base_query="SELECT name, id FROM {batch}",
-            )
+            ),
+            result_format="COMPLETE",
         )
         result.render()
 
@@ -921,7 +930,7 @@ def _create_table_rendered_atomic_content(
     params: dict[str, Any],
     col_names: list[str],
     col_types: list[RendererValueType],
-    rows: list[list[str]],
+    rows: list[list[Any]],
 ) -> RenderedAtomicContent:
     return RenderedAtomicContent(
         name=AtomicDiagnosticRendererType.OBSERVED_VALUE,
@@ -941,13 +950,236 @@ def _create_table_rendered_atomic_content(
                         schema=RendererSchema(type=col_type),
                         value=cell_value,
                     )
-                    for cell_value, col_type in zip(row, col_types)
+                    for cell_value, col_type in zip(row, col_types, strict=False)
                 ]
                 for row in rows
             ],
         ),
         value_type="TableType",
     )
+
+
+@multi_source_batch_setup(
+    multi_source_test_configs=SQLITE_ONLY,
+    base_data=pd.DataFrame({"col1": [1, 2], "col2": [None, 4], "col3": [5, None]}),
+    comparison_data=pd.DataFrame({"col1": [1, 3], "col2": [None, 6], "col3": [5, None]}),
+)
+def test_rendering_table_with_null_values(multi_source_batch: MultiSourceBatch):
+    """Test that tables with null values are rendered correctly with proper schema types."""
+    source_table = multi_source_batch.comparison_table_name
+    result = multi_source_batch.base_batch.validate(
+        gxe.ExpectQueryResultsToMatchComparison(
+            comparison_data_source_name=multi_source_batch.comparison_data_source_name,
+            comparison_query=f"SELECT col1, col2, col3 FROM {source_table}",
+            base_query="SELECT col1, col2, col3 FROM {batch}",
+        ),
+        result_format="COMPLETE",
+    )
+    result.render()
+
+    # Expected: row with col1=1, col2=None, col3=5 matches
+    # Unexpected rows: [2, 4, None] (from base)
+    # Missing rows: [3, 6, None] (from comparison)
+    assert result.rendered_content == [
+        _create_table_rendered_atomic_content(
+            template="Unexpected rows found in current table: $row_count",
+            params={
+                "row_count": {
+                    "schema": RendererSchema(type=RendererValueType.NUMBER),
+                    "value": 1,
+                }
+            },
+            col_names=["col1", "col2", "col3"],
+            col_types=[
+                RendererValueType.NUMBER,
+                RendererValueType.NUMBER,
+                RendererValueType.STRING,
+            ],
+            rows=[
+                [2, 4, None],
+            ],
+        ),
+        _create_table_rendered_atomic_content(
+            template="Expected rows not found in current table: $row_count",
+            params={
+                "row_count": {
+                    "schema": RendererSchema(type=RendererValueType.NUMBER),
+                    "value": 1,
+                }
+            },
+            col_names=["col1", "col2", "col3"],
+            col_types=[
+                RendererValueType.NUMBER,
+                RendererValueType.NUMBER,
+                RendererValueType.STRING,
+            ],
+            rows=[
+                [3, 6, None],
+            ],
+        ),
+    ]
+
+
+@multi_source_batch_setup(
+    multi_source_test_configs=SQLITE_ONLY,
+    base_data=pd.DataFrame({"name": ["Alice", "Bob", "Charlie"], "age": [25, None, 30]}),
+    comparison_data=pd.DataFrame({"name": ["Alice", "Dave", "Eve"], "age": [25, 28, None]}),
+)
+def test_rendering_table_with_mixed_null_values(multi_source_batch: MultiSourceBatch):
+    """Test that tables with mixed null and non-null values render correctly."""
+    source_table = multi_source_batch.comparison_table_name
+    result = multi_source_batch.base_batch.validate(
+        gxe.ExpectQueryResultsToMatchComparison(
+            comparison_data_source_name=multi_source_batch.comparison_data_source_name,
+            comparison_query=f"SELECT name, age FROM {source_table}",
+            base_query="SELECT name, age FROM {batch}",
+        ),
+        result_format="COMPLETE",
+    )
+    result.render()
+
+    # Expected: row ["Alice", 25] matches
+    # Unexpected rows: ["Bob", None], ["Charlie", 30] (from base)
+    # Missing rows: ["Dave", 28], ["Eve", None] (from comparison)
+    # Note: When null values are present, the actual rendering determines type per cell,
+    # not per column, so we manually construct the expected content
+    assert result.rendered_content == [
+        RenderedAtomicContent(
+            name=AtomicDiagnosticRendererType.OBSERVED_VALUE,
+            value=RenderedAtomicValue(
+                template="Unexpected rows found in current table: $row_count",
+                params={
+                    "row_count": {
+                        "schema": RendererSchema(type=RendererValueType.NUMBER),
+                        "value": 2,
+                    }
+                },
+                header_row=[
+                    RendererTableValue(
+                        schema=RendererSchema(type=RendererValueType.STRING),
+                        value="name",
+                    ),
+                    RendererTableValue(
+                        schema=RendererSchema(type=RendererValueType.STRING),
+                        value="age",
+                    ),
+                ],
+                table=[
+                    [
+                        RendererTableValue(
+                            schema=RendererSchema(type=RendererValueType.STRING),
+                            value="Bob",
+                        ),
+                        RendererTableValue(
+                            schema=RendererSchema(type=RendererValueType.STRING),
+                            value=None,
+                        ),
+                    ],
+                    [
+                        RendererTableValue(
+                            schema=RendererSchema(type=RendererValueType.STRING),
+                            value="Charlie",
+                        ),
+                        RendererTableValue(
+                            schema=RendererSchema(type=RendererValueType.NUMBER),
+                            value=30,
+                        ),
+                    ],
+                ],
+            ),
+            value_type="TableType",
+        ),
+        RenderedAtomicContent(
+            name=AtomicDiagnosticRendererType.OBSERVED_VALUE,
+            value=RenderedAtomicValue(
+                template="Expected rows not found in current table: $row_count",
+                params={
+                    "row_count": {
+                        "schema": RendererSchema(type=RendererValueType.NUMBER),
+                        "value": 2,
+                    }
+                },
+                header_row=[
+                    RendererTableValue(
+                        schema=RendererSchema(type=RendererValueType.STRING),
+                        value="name",
+                    ),
+                    RendererTableValue(
+                        schema=RendererSchema(type=RendererValueType.STRING),
+                        value="age",
+                    ),
+                ],
+                table=[
+                    [
+                        RendererTableValue(
+                            schema=RendererSchema(type=RendererValueType.STRING),
+                            value="Dave",
+                        ),
+                        RendererTableValue(
+                            schema=RendererSchema(type=RendererValueType.NUMBER),
+                            value=28,
+                        ),
+                    ],
+                    [
+                        RendererTableValue(
+                            schema=RendererSchema(type=RendererValueType.STRING),
+                            value="Eve",
+                        ),
+                        RendererTableValue(
+                            schema=RendererSchema(type=RendererValueType.STRING),
+                            value=None,
+                        ),
+                    ],
+                ],
+            ),
+            value_type="TableType",
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    "result_format,expected_keys",
+    [
+        pytest.param("BOOLEAN_ONLY", {"success"}, id="boolean_only"),
+        pytest.param("BASIC", {"success", "result"}, id="basic"),
+        pytest.param("SUMMARY", {"success", "result"}, id="summary"),
+        pytest.param("COMPLETE", {"success", "result"}, id="complete"),
+    ],
+)
+@multi_source_batch_setup(
+    multi_source_test_configs=SQLITE_ONLY,
+    base_data=MISSING_AND_UNEXPECTED_DF,
+    comparison_data=MISSING_AND_UNEXPECTED_DF,
+)
+def test_result_format_controls_details_visibility(
+    multi_source_batch: MultiSourceBatch,
+    result_format: Literal["BOOLEAN_ONLY", "BASIC", "SUMMARY", "COMPLETE"],
+    expected_keys: set[str],
+) -> None:
+    """Test that missing_rows and unexpected_rows are only visible with COMPLETE result format."""
+    result = multi_source_batch.base_batch.validate(
+        gxe.ExpectQueryResultsToMatchComparison(
+            base_query="SELECT missing_and_unexpected FROM {batch}",
+            comparison_data_source_name=multi_source_batch.comparison_data_source_name,
+            comparison_query=f"SELECT source FROM {multi_source_batch.comparison_table_name}",
+        ),
+        result_format=result_format,
+    )
+
+    # Verify top-level keys
+    assert set(result.to_json_dict().keys()) >= expected_keys
+
+    if result_format == "BOOLEAN_ONLY":
+        assert result.result == {}
+    elif result_format == "COMPLETE":
+        assert "details" in result.result
+        assert "missing_rows" in result.result["details"]
+        assert "unexpected_rows" in result.result["details"]
+    else:
+        # BASIC and SUMMARY should not have details
+        assert "details" not in result.result
+        assert "unexpected_count" in result.result
+        assert "unexpected_percent" in result.result
 
 
 @multi_source_batch_setup(

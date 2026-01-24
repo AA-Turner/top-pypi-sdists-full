@@ -399,10 +399,6 @@ class PathAnalyzerTest(pulumi.CustomResource):
                  source_endpoint: Optional[pulumi.Input[Union['PathAnalyzerTestSourceEndpointArgs', 'PathAnalyzerTestSourceEndpointArgsDict']]] = None,
                  __props__=None):
         """
-        This resource provides the Path Analyzer Test resource in Oracle Cloud Infrastructure Vn Monitoring service.
-
-        Creates a new `PathAnalyzerTest` resource.
-
         ## Example Usage
 
         ```python
@@ -418,6 +414,7 @@ class PathAnalyzerTest(pulumi.CustomResource):
                 "listener_id": test_listener["id"],
                 "load_balancer_id": test_load_balancer["id"],
                 "network_load_balancer_id": test_network_load_balancer["id"],
+                "psa_id": test_psa["id"],
                 "subnet_id": test_subnet["id"],
                 "vlan_id": test_vlan["id"],
                 "vnic_id": test_vnic_attachment["id"],
@@ -430,6 +427,7 @@ class PathAnalyzerTest(pulumi.CustomResource):
                 "listener_id": test_listener["id"],
                 "load_balancer_id": test_load_balancer["id"],
                 "network_load_balancer_id": test_network_load_balancer["id"],
+                "psa_id": test_psa["id"],
                 "subnet_id": test_subnet["id"],
                 "vlan_id": test_vlan["id"],
                 "vnic_id": test_vnic_attachment["id"],
@@ -480,10 +478,6 @@ class PathAnalyzerTest(pulumi.CustomResource):
                  args: PathAnalyzerTestArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Path Analyzer Test resource in Oracle Cloud Infrastructure Vn Monitoring service.
-
-        Creates a new `PathAnalyzerTest` resource.
-
         ## Example Usage
 
         ```python
@@ -499,6 +493,7 @@ class PathAnalyzerTest(pulumi.CustomResource):
                 "listener_id": test_listener["id"],
                 "load_balancer_id": test_load_balancer["id"],
                 "network_load_balancer_id": test_network_load_balancer["id"],
+                "psa_id": test_psa["id"],
                 "subnet_id": test_subnet["id"],
                 "vlan_id": test_vlan["id"],
                 "vnic_id": test_vnic_attachment["id"],
@@ -511,6 +506,7 @@ class PathAnalyzerTest(pulumi.CustomResource):
                 "listener_id": test_listener["id"],
                 "load_balancer_id": test_load_balancer["id"],
                 "network_load_balancer_id": test_network_load_balancer["id"],
+                "psa_id": test_psa["id"],
                 "subnet_id": test_subnet["id"],
                 "vlan_id": test_vlan["id"],
                 "vnic_id": test_vnic_attachment["id"],

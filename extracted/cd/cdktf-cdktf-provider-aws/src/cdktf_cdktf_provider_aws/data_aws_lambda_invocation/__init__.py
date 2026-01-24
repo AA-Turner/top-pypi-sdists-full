@@ -1,7 +1,7 @@
 r'''
 # `data_aws_lambda_invocation`
 
-Refer to the Terraform Registry for docs: [`data_aws_lambda_invocation`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation).
+Refer to the Terraform Registry for docs: [`data_aws_lambda_invocation`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsLambdaInvocation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsLambdaInvocation.DataAwsLambdaInvocation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation aws_lambda_invocation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation aws_lambda_invocation}.'''
 
     def __init__(
         self,
@@ -56,6 +56,7 @@ class DataAwsLambdaInvocation(
         id: typing.Optional[builtins.str] = None,
         qualifier: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
+        tenant_id: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -64,15 +65,16 @@ class DataAwsLambdaInvocation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation aws_lambda_invocation} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation aws_lambda_invocation} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#function_name DataAwsLambdaInvocation#function_name}.
-        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#input DataAwsLambdaInvocation#input}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#id DataAwsLambdaInvocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#qualifier DataAwsLambdaInvocation#qualifier}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#region DataAwsLambdaInvocation#region}
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#function_name DataAwsLambdaInvocation#function_name}.
+        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#input DataAwsLambdaInvocation#input}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#id DataAwsLambdaInvocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#qualifier DataAwsLambdaInvocation#qualifier}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#region DataAwsLambdaInvocation#region}
+        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#tenant_id DataAwsLambdaInvocation#tenant_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -91,6 +93,7 @@ class DataAwsLambdaInvocation(
             id=id,
             qualifier=qualifier,
             region=region,
+            tenant_id=tenant_id,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -115,7 +118,7 @@ class DataAwsLambdaInvocation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsLambdaInvocation to import.
-        :param import_from_id: The id of the existing DataAwsLambdaInvocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsLambdaInvocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsLambdaInvocation to import is found.
         '''
         if __debug__:
@@ -137,6 +140,10 @@ class DataAwsLambdaInvocation(
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetRegion", []))
+
+    @jsii.member(jsii_name="resetTenantId")
+    def reset_tenant_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTenantId", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -180,6 +187,11 @@ class DataAwsLambdaInvocation(
     @jsii.member(jsii_name="regionInput")
     def region_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tenantIdInput")
+    def tenant_id_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tenantIdInput"))
 
     @builtins.property
     @jsii.member(jsii_name="functionName")
@@ -241,6 +253,18 @@ class DataAwsLambdaInvocation(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tenantId")
+    def tenant_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "tenantId"))
+
+    @tenant_id.setter
+    def tenant_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a930634cc007cc1b1db9155021261f6fc590fa445387b80ec95ccdba6197776c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tenantId", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.dataAwsLambdaInvocation.DataAwsLambdaInvocationConfig",
@@ -258,6 +282,7 @@ class DataAwsLambdaInvocation(
         "id": "id",
         "qualifier": "qualifier",
         "region": "region",
+        "tenant_id": "tenantId",
     },
 )
 class DataAwsLambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -276,6 +301,7 @@ class DataAwsLambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         id: typing.Optional[builtins.str] = None,
         qualifier: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
+        tenant_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -285,11 +311,12 @@ class DataAwsLambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#function_name DataAwsLambdaInvocation#function_name}.
-        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#input DataAwsLambdaInvocation#input}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#id DataAwsLambdaInvocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#qualifier DataAwsLambdaInvocation#qualifier}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#region DataAwsLambdaInvocation#region}
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#function_name DataAwsLambdaInvocation#function_name}.
+        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#input DataAwsLambdaInvocation#input}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#id DataAwsLambdaInvocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param qualifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#qualifier DataAwsLambdaInvocation#qualifier}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#region DataAwsLambdaInvocation#region}
+        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#tenant_id DataAwsLambdaInvocation#tenant_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -307,6 +334,7 @@ class DataAwsLambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument qualifier", value=qualifier, expected_type=type_hints["qualifier"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "function_name": function_name,
             "input": input,
@@ -331,6 +359,8 @@ class DataAwsLambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["qualifier"] = qualifier
         if region is not None:
             self._values["region"] = region
+        if tenant_id is not None:
+            self._values["tenant_id"] = tenant_id
 
     @builtins.property
     def connection(
@@ -398,21 +428,21 @@ class DataAwsLambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def function_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#function_name DataAwsLambdaInvocation#function_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#function_name DataAwsLambdaInvocation#function_name}.'''
         result = self._values.get("function_name")
         assert result is not None, "Required property 'function_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def input(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#input DataAwsLambdaInvocation#input}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#input DataAwsLambdaInvocation#input}.'''
         result = self._values.get("input")
         assert result is not None, "Required property 'input' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#id DataAwsLambdaInvocation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#id DataAwsLambdaInvocation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -422,7 +452,7 @@ class DataAwsLambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def qualifier(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#qualifier DataAwsLambdaInvocation#qualifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#qualifier DataAwsLambdaInvocation#qualifier}.'''
         result = self._values.get("qualifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -430,9 +460,15 @@ class DataAwsLambdaInvocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/lambda_invocation#region DataAwsLambdaInvocation#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#region DataAwsLambdaInvocation#region}
         '''
         result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tenant_id(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/lambda_invocation#tenant_id DataAwsLambdaInvocation#tenant_id}.'''
+        result = self._values.get("tenant_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -463,6 +499,7 @@ def _typecheckingstub__7eafa767cefdca0c75eed1ca93df12bb61f93f5e5ea02c07d3fa87373
     id: typing.Optional[builtins.str] = None,
     qualifier: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+    tenant_id: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -513,6 +550,12 @@ def _typecheckingstub__b0d56823615e55a3f22fc9a41ad2c51450f049f5ecab4fe1679e05126
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a930634cc007cc1b1db9155021261f6fc590fa445387b80ec95ccdba6197776c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__376a769ee3675556c48f9d05b776077fe82e12a7aa1bad71e33c082132951170(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -527,6 +570,7 @@ def _typecheckingstub__376a769ee3675556c48f9d05b776077fe82e12a7aa1bad71e33c08213
     id: typing.Optional[builtins.str] = None,
     qualifier: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+    tenant_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

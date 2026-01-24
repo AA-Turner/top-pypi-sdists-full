@@ -1,6 +1,15 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright © 2019-2023 Taylor C. Richberger
-# This code is released under the license described in the LICENSE file
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+# This code is Copyright 2019 - 2023 Absolute Performance, Inc, and 2024 - 2025
+# ProCern Technology Solutions.
+# It is written and maintained by Taylor C. Richberger <taylor.richberger@procern.com>
+
+''''A simple optionally-async python inotify library, focused on simplicity of use and operation, and leveraging modern Python features'''
+
+__version__ = '4.3.2'
 
 from contextlib import contextmanager
 from enum import IntFlag
@@ -8,6 +17,7 @@ from io import BytesIO
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Callable, Generator, Optional, Union, Dict, List, cast
 import os
+from warnings import warn
 import weakref
 from weakref import ReferenceType
 from asyncio import Future
@@ -70,6 +80,9 @@ class Mask(IntFlag):
     '''
 
     __slots__ = ()
+
+    #: No flag, to facilitate defaults
+    ZERO = 0
 
     #: File was accessed (e.g., read(2), execve(2)).
     ACCESS = 0x00000001
@@ -176,6 +189,10 @@ class Mask(IntFlag):
     #: Monitor the filesystem object corresponding to pathname for one event,
     #: then remove from watch list.
     ONESHOT = 0x80000000
+
+    #: Monitor all common types of events.  This does not include modifier flags like ONESHOT, MASK_CREATE, EXEC_UNLINK, etc.
+    ALL = ACCESS | MODIFY | ATTRIB | CLOSE | OPEN | MOVE | CREATE | DELETE | DELETE_SELF | MOVE_SELF
+
 
 
 class Watch:
@@ -631,25 +648,122 @@ class Inotify:
             self._events = future.result
         return self._events.pop(0)
 
-    def __aiter__(self) -> 'Inotify':
+    def __aiter__(self) -> "Inotify":
         return self
 
-    def __iter__(self) -> 'Inotify':
+    def __iter__(self) -> "Inotify":
         return self
 
     async def __anext__(self) -> Event:
-        '''Iterate inotify events forever with :meth:`get`.'''
+        """Iterate inotify events forever with :meth:`get`."""
         return await self.get()
 
     def __next__(self) -> Event:
-        '''Iterate inotify events with :meth:`sync_get`.
+        """Iterate inotify events with :meth:`sync_get`.
 
         If sync_timeout is None or -1, this will iterate forever, otherwise it iterates until a timeout is reached.
-        '''
+        """
         event = self.sync_get()
         if event is None:
             raise StopIteration
         return event
+
+    @property
+    def watches(self) -> List[Watch]:
+        return list(self._watches.values())
+
+
+class RecursiveInotify(Inotify):
+    '''A Recursive superclass of Inotify.
+
+    Adds the :meth:`add_recursive_watch` method, but otherwise works the same.
+
+    Automatically adds and removes subdirectories as they are added and removed.
+    '''
+    _DIR_MASK = Mask.MOVED_FROM | Mask.MOVED_TO | Mask.CREATE | Mask.IGNORED
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._mask_map: Dict[Path, Optional[Mask]] = {}
+
+    def add_recursive_watch(
+        self, path: Path, mask: Optional[Mask] = None
+    ) -> List[Watch]:
+        '''Add a watch for the given directory path, which must be a directory, and all subdirectories.
+
+        Returns the watch for this path and all subdirectories, breadth-first (so the passed-in path is always first in the list.
+        '''
+        if not path.is_dir():
+            raise ValueError('Path must refer to a directory')
+        watches: List[Watch] = []
+        if mask is None:
+            set_mask = self._DIR_MASK
+        else:
+            set_mask = mask | self._DIR_MASK
+        watches.append(self.add_watch(path, set_mask))
+        self._mask_map[path] = mask
+        for child in path.iterdir():
+            if child.is_dir():
+                watches += self.add_recursive_watch(child, mask)
+
+        return watches
+
+    def __enter__(self) -> "RecursiveInotify":
+        return self
+
+    def __iter__(self) -> "RecursiveInotify":
+        return self
+
+    def __aiter__(self) -> "RecursiveInotify":
+        return self
+
+    def sync_get(self) -> Optional[Event]:
+        ev = super().sync_get()
+        if ev is None:
+            return
+
+        if Mask.ISDIR in ev.mask:
+            self._handle_directory_event(ev)
+
+        if Mask.IGNORED in ev.mask and ev.path in self._mask_map:
+            del self._mask_map[ev.path]
+
+        return ev
+
+    async def get(self) -> Event:
+        ev = await super().get()
+
+        if Mask.ISDIR in ev.mask:
+            self._handle_directory_event(ev)
+
+        if Mask.IGNORED in ev.mask and ev.path in self._mask_map:
+            del self._mask_map[ev.path]
+
+        return ev
+
+    def _handle_directory_event(self, event: Event) -> None:
+        if event.path is None:
+            return
+
+        elif event.path.parent not in self._mask_map:
+            warn(f"Not handling directory event in non-recursive path {event.path}")
+
+        elif Mask.CREATE in event.mask or Mask.MOVED_TO in event.mask:
+            # created new folder or folder moved in, add watches
+            mask = self._DIR_MASK
+            stored_mask = self._mask_map.get(event.path)
+            if stored_mask is not None:
+                mask |= stored_mask
+            self.add_recursive_watch(event.path, mask)
+
+        elif Mask.MOVED_FROM in event.mask:
+            event_path = PurePath(event.path)
+            # a folder is moved to another location, remove watch
+            # for this folder and subfolders
+            for watch in self._watches.values():
+                if watch.path == event_path or event_path in watch.path.parents:
+                    self.rm_watch(watch)
+
 
 class RecursiveWatcher:
     """
@@ -684,7 +798,13 @@ class RecursiveWatcher:
             inotify = Inotify()
 
         try:
-            mask = self._mask | Mask.MOVED_FROM | Mask.MOVED_TO | Mask.CREATE | Mask.IGNORED
+            mask = (
+                self._mask
+                | Mask.MOVED_FROM
+                | Mask.MOVED_TO
+                | Mask.CREATE
+                | Mask.IGNORED
+            )
             for directory in self._get_directories_recursive(self._path):
                 inotify.add_watch(directory, mask)
 
@@ -706,7 +826,12 @@ class RecursiveWatcher:
                     if Mask.MOVED_FROM in event.mask:
                         event_path = PurePath(event.path)
                         # a folder is moved to another location, remove watch for this folder and subfolders
-                        watches = [watch for watch in inotify._watches.values() if watch.path == event_path or event_path in watch.path.parents]
+                        watches = [
+                            watch
+                            for watch in inotify._watches.values()
+                            if watch.path == event_path
+                            or event_path in watch.path.parents
+                        ]
                         for watch in watches:
                             inotify.rm_watch(watch)
 

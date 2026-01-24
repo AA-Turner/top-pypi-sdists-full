@@ -38,7 +38,7 @@ dependencies = [
     # NOTE: Maintainers, please do not require google-cloud-core>=2.x.x
     # Until this issue is closed
     # https://github.com/googleapis/google-cloud-python/issues/10566
-    "google-cloud-core >= 1.4.4, < 3.0dev",
+    "google-cloud-core >= 1.4.4, < 3.0.0",
 ]
 extras = {}
 
@@ -80,6 +80,8 @@ setuptools.setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Operating System :: OS Independent",
         "Topic :: Internet",
     ],

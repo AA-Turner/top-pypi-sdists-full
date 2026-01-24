@@ -33,8 +33,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         Union,
     )
     from beartype._cave._cavefast import IntType
-    from beartype._data.hint.datahinttyping import S, T
-    from beartype._data.hint.pep.sign.datapepsigns import (
+    from beartype._data.hint.sign.datahintsigns import (
         HintSignAbstractSet,
         HintSignByteString,
         HintSignCallable,
@@ -46,8 +45,8 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         HintSignDefaultDict,
         HintSignDeque,
         HintSignDict,
-        HintSignPep484585GenericSubscripted,
-        HintSignPep484585GenericUnsubscripted,
+        HintSignPep484585GenericSubbed,
+        HintSignPep484585GenericUnsubbed,
         HintSignItemsView,
         HintSignIterable,
         HintSignKeysView,
@@ -61,11 +60,11 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         HintSignPattern,
         HintSignSequence,
         HintSignTuple,
-        HintSignTupleFixed,
+        HintSignPep484585TupleFixed,
         HintSignType,
         HintSignValuesView,
     )
-    from beartype_test.a00_unit.data.hint.pep.proposal.pep484585.data_pep484585generic import (
+    from beartype_test.a00_unit.data.pep.generic.data_pep585generic import (
         Pep585ContextManagerTSequenceT,
         Pep585IterableTContainerT,
         Pep585IterableTupleSTContainerTupleST,
@@ -73,6 +72,9 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         Pep585ListListStr,
         Pep585ListStr,
         Pep585ListT,
+        # Pep585ListRootU,
+        Pep585ListStemT,
+        Pep585ListLeafS,
         T_Pep585ListT,
     )
     from beartype_test.a00_unit.data.data_type import (
@@ -91,6 +93,10 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         HintPepMetadata,
         HintPithSatisfiedMetadata,
         HintPithUnsatisfiedMetadata,
+    )
+    from beartype_test.a00_unit.data.pep.data_pep484 import (
+        S,
+        T,
     )
     from collections import (
         ChainMap,
@@ -245,7 +251,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignContainer,
             isinstanceable_type=Container,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Set of items all of the same type.
                 HintPithSatisfiedMetadata({
@@ -373,7 +379,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignIterable,
             isinstanceable_type=Iterable,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Set of items all of the same type.
                 HintPithSatisfiedMetadata({
@@ -497,7 +503,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignCollection,
             isinstanceable_type=Collection,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Set of items all of the same type.
                 HintPithSatisfiedMetadata({
@@ -569,7 +575,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # container type.
         HintPepMetadata(
             hint=Pep585ListStr,
-            pep_sign=HintSignPep484585GenericUnsubscripted,
+            pep_sign=HintSignPep484585GenericUnsubbed,
             generic_type=Pep585ListStr,
             is_pep585_generic=True,
             piths_meta=(
@@ -595,7 +601,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # type.
         HintPepMetadata(
             hint=Pep585ListListStr,
-            pep_sign=HintSignPep484585GenericUnsubscripted,
+            pep_sign=HintSignPep484585GenericUnsubbed,
             generic_type=Pep585ListListStr,
             is_pep585_generic=True,
             piths_meta=(
@@ -629,13 +635,38 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             ),
         ),
 
+        # Generic subclassing a single parametrized builtin container, itself
+        # parametrized by the same multiple type variables in the same order.
+        HintPepMetadata(
+            hint=Pep585DictST[S, T],
+            pep_sign=HintSignPep484585GenericSubbed,
+            generic_type=Pep585DictST,
+            is_pep585_generic=True,
+            typeargs_packed=(S, T,),
+            piths_meta=(
+                # Subclass-specific generic dictionary of string constants.
+                HintPithSatisfiedMetadata(Pep585DictST({
+                    'Bandage‐managed': 'Into Faithless redaction’s',
+                    'didact enactment': '— crookedly',
+                })),
+                # String constant.
+                HintPithUnsatisfiedMetadata('Down‐bound'),
+                # List of string constants.
+                HintPithUnsatisfiedMetadata([
+                    'To prayer',
+                    'To Ɯṙaith‐like‐upwreathed ligaments',
+                ]),
+            ),
+        ),
+
+        # ................{ GENERICS ~ single : recursion      }................
         # Generic subclassing a single parametrized builtin container type.
         HintPepMetadata(
             hint=Pep585ListT,
-            pep_sign=HintSignPep484585GenericUnsubscripted,
+            pep_sign=HintSignPep484585GenericUnsubbed,
             generic_type=Pep585ListT,
             is_pep585_generic=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Subclass-specific generic list of string constants.
                 HintPithSatisfiedMetadata(Pep585ListT((
@@ -657,7 +688,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # subscripted by itself and thus indirectly inducing recursion.
         HintPepMetadata(
             hint=Pep585ListT[Pep585ListT],
-            pep_sign=HintSignPep484585GenericSubscripted,
+            pep_sign=HintSignPep484585GenericSubbed,
             generic_type=Pep585ListT,
             is_pep585_generic=True,
             piths_meta=(
@@ -677,10 +708,10 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # thus indirectly inducing recursion.
         HintPepMetadata(
             hint=Pep585ListT[T_Pep585ListT],
-            pep_sign=HintSignPep484585GenericSubscripted,
+            pep_sign=HintSignPep484585GenericSubbed,
             generic_type=Pep585ListT,
             is_pep585_generic=True,
-            typevars=(T_Pep585ListT,),
+            typeargs_packed=(T_Pep585ListT,),
             piths_meta=(
                 # Subclass-specific recursive generic list.
                 HintPithSatisfiedMetadata(Pep585ListT_recursive),
@@ -693,39 +724,61 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             ),
         ),
 
-        # Generic subclassing a single parametrized builtin container, itself
-        # parametrized by the same multiple type variables in the same order.
-        HintPepMetadata(
-            hint=Pep585DictST[S, T],
-            pep_sign=HintSignPep484585GenericSubscripted,
-            generic_type=Pep585DictST,
-            is_pep585_generic=True,
-            typevars=(S, T,),
-            piths_meta=(
-                # Subclass-specific generic dictionary of string constants.
-                HintPithSatisfiedMetadata(Pep585DictST({
-                    'Bandage‐managed': 'Into Faithless redaction’s',
-                    'didact enactment': '— crookedly',
-                })),
-                # String constant.
-                HintPithUnsatisfiedMetadata('Down‐bound'),
-                # List of string constants.
-                HintPithUnsatisfiedMetadata([
-                    'To prayer',
-                    'To Ɯṙaith‐like‐upwreathed ligaments',
-                ]),
-            ),
-        ),
+        # ................{ GENERICS ~ single : hierarchy      }................
+        #FIXME: Sadly broken at the moment. Resume us up tomorrow, please!
+
+        # # Subscripted generic subclassing a parametrized generic subclassing a
+        # # single parametrized builtin container type.
+        # HintPepMetadata(
+        #     hint=Pep585ListStemT[str],
+        #     pep_sign=HintSignPep484585GenericSubbed,
+        #     generic_type=Pep585ListStemT,
+        #     is_pep585_generic=True,
+        #     typeargs_packed=(T, U,),
+        #     piths_meta=(
+        #         # Subclass-specific generic list of string constants.
+        #         HintPithSatisfiedMetadata(Pep585ListStemT((
+        #             'Blazing Hyperion on', 'his orbed fire',))),
+        #         # Subclass-specific generic list of integer constants.
+        #         HintPithUnsatisfiedMetadata(Pep585ListStemT((
+        #             len("From man to the sun's God;"), len('yet unsecure:'),))),
+        #         # String constant.
+        #         HintPithUnsatisfiedMetadata(
+        #             "Still sat, still snuff'd the incense, teeming up"),
+        #     ),
+        # ),
+        #
+        # # Subscripted generic subclassing a parametrized generic subclassing
+        # # another parametrized generic subclassing a single parametrized builtin
+        # # container type. Type hierarchies go hard and so do we. \o/
+        # HintPepMetadata(
+        #     hint=Pep585ListLeafS[str],
+        #     pep_sign=HintSignPep484585GenericSubbed,
+        #     generic_type=Pep585ListLeafS,
+        #     is_pep585_generic=True,
+        #     typeargs_packed=(S, T, U,),
+        #     piths_meta=(
+        #         # Subclass-specific generic list of string constants.
+        #         HintPithSatisfiedMetadata(Pep585ListStemT((
+        #             'For as among us mortals', 'omens drear',))),
+        #         # Subclass-specific generic list of integer constants.
+        #         HintPithUnsatisfiedMetadata(Pep585ListStemT((
+        #             len('Fright and perplex,'), len('so also shuddered he—'),))),
+        #         # String constant.
+        #         HintPithUnsatisfiedMetadata(
+        #             "Not at dog's howl, or gloom-bird's hated screech,"),
+        #     ),
+        # ),
 
         # ................{ GENERICS ~ multiple                }................
         # Generic subclassing multiple unparametrized "collection.abc" abstract
         # base class (ABCs) *AND* an unsubscripted "collection.abc" ABC.
         HintPepMetadata(
             hint=Pep585ContextManagerTSequenceT,
-            pep_sign=HintSignPep484585GenericUnsubscripted,
+            pep_sign=HintSignPep484585GenericUnsubbed,
             generic_type=Pep585ContextManagerTSequenceT,
             is_pep585_generic=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Subclass-specific generic 2-tuple of string constants.
                 HintPithSatisfiedMetadata(Pep585ContextManagerTSequenceT((
@@ -746,10 +799,10 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # base classes (ABCs).
         HintPepMetadata(
             hint=Pep585IterableTContainerT,
-            pep_sign=HintSignPep484585GenericUnsubscripted,
+            pep_sign=HintSignPep484585GenericUnsubbed,
             generic_type=Pep585IterableTContainerT,
             is_pep585_generic=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Subclass-specific generic iterable of string constants.
                 HintPithSatisfiedMetadata(Pep585IterableTContainerT((
@@ -766,10 +819,10 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # unparametrized "collections.abc" ABC.
         HintPepMetadata(
             hint=Pep585IterableTupleSTContainerTupleST,
-            pep_sign=HintSignPep484585GenericUnsubscripted,
+            pep_sign=HintSignPep484585GenericUnsubbed,
             generic_type=Pep585IterableTupleSTContainerTupleST,
             is_pep585_generic=True,
-            typevars=(S, T,),
+            typeargs_packed=(S, T,),
             piths_meta=(
                 # Subclass-specific generic iterable of 2-tuples of string
                 # constants.
@@ -821,7 +874,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # mapping to that type variable.
         HintPepMetadata(
             hint=Pep585IterableTContainerT[str],
-            pep_sign=HintSignPep484585GenericSubscripted,
+            pep_sign=HintSignPep484585GenericSubbed,
             generic_type=Pep585IterableTContainerT,
             is_pep585_generic=True,
             piths_meta=(
@@ -843,7 +896,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # variable.
         HintPepMetadata(
             hint=Pep585ContextManagerTSequenceT[bytes],
-            pep_sign=HintSignPep484585GenericSubscripted,
+            pep_sign=HintSignPep484585GenericSubbed,
             generic_type=Pep585ContextManagerTSequenceT,
             is_pep585_generic=True,
             piths_meta=(
@@ -865,7 +918,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # those type variables.
         HintPepMetadata(
             hint=Pep585IterableTupleSTContainerTupleST[str, bytes],
-            pep_sign=HintSignPep484585GenericSubscripted,
+            pep_sign=HintSignPep484585GenericSubbed,
             generic_type=Pep585IterableTupleSTContainerTupleST,
             is_pep585_generic=True,
             piths_meta=(
@@ -1008,7 +1061,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignDict,
             isinstanceable_type=dict,
             is_pep585_builtin_subbed=True,
-            typevars=(S, T,),
+            typeargs_packed=(S, T,),
             piths_meta=(
                 # Dictionary mapping keys of one type to values of another.
                 HintPithSatisfiedMetadata({
@@ -1410,7 +1463,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignAbstractSet,
             isinstanceable_type=Set,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Set of items all of the same type.
                 HintPithSatisfiedMetadata({
@@ -1512,7 +1565,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignDeque,
             isinstanceable_type=deque,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Deque of items all of the same type.
                 HintPithSatisfiedMetadata(deque((
@@ -1621,7 +1674,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignItemsView,
             isinstanceable_type=ItemsView,
             is_pep585_builtin_subbed=True,
-            typevars=(S, T,),
+            typeargs_packed=(S, T,),
             piths_meta=(
                 # Items view of items all of the same type.
                 HintPithSatisfiedMetadata({
@@ -1730,7 +1783,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignKeysView,
             isinstanceable_type=KeysView,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Keys view of items all of the same type.
                 HintPithSatisfiedMetadata({
@@ -1833,7 +1886,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignValuesView,
             isinstanceable_type=ValuesView,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Values view of items all of the same type.
                 HintPithSatisfiedMetadata({
@@ -1932,7 +1985,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignMutableSet,
             isinstanceable_type=MutableSet,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Set of items all of the same type.
                 HintPithSatisfiedMetadata({
@@ -2036,7 +2089,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignList,
             isinstanceable_type=list,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Empty list, which satisfies all hint arguments by definition.
                 HintPithSatisfiedMetadata([]),
@@ -2174,7 +2227,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignDict,
             isinstanceable_type=dict,
             is_pep585_builtin_subbed=True,
-            typevars=(S, T,),
+            typeargs_packed=(S, T,),
             piths_meta=(
                 # Dictionary mapping string keys to integer values.
                 HintPithSatisfiedMetadata({
@@ -2275,7 +2328,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         #     TypeError: Parameters to generic types must be types. Got [].
         HintPepMetadata(
             hint=tuple[()],
-            pep_sign=HintSignTupleFixed,
+            pep_sign=HintSignPep484585TupleFixed,
             isinstanceable_type=tuple,
             is_pep585_builtin_subbed=True,
             piths_meta=(
@@ -2299,7 +2352,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # Fixed-length tuple of only ignorable child hints.
         HintPepMetadata(
             hint=tuple[Any, object,],
-            pep_sign=HintSignTupleFixed,
+            pep_sign=HintSignPep484585TupleFixed,
             isinstanceable_type=tuple,
             is_pep585_builtin_subbed=True,
             piths_meta=(
@@ -2323,7 +2376,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # Fixed-length tuple of at least one ignorable child hint.
         HintPepMetadata(
             hint=tuple[float, Any, str,],
-            pep_sign=HintSignTupleFixed,
+            pep_sign=HintSignPep484585TupleFixed,
             isinstanceable_type=tuple,
             is_pep585_builtin_subbed=True,
             piths_meta=(
@@ -2421,10 +2474,10 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
         # Generic fixed-length tuple.
         HintPepMetadata(
             hint=tuple[S, T],
-            pep_sign=HintSignTupleFixed,
+            pep_sign=HintSignPep484585TupleFixed,
             isinstanceable_type=tuple,
             is_pep585_builtin_subbed=True,
-            typevars=(S, T,),
+            typeargs_packed=(S, T,),
             piths_meta=(
                 # Tuple containing a floating-point number and string (in that
                 # exact order).
@@ -2479,7 +2532,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignTuple,
             isinstanceable_type=tuple,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Tuple containing arbitrarily many string constants.
                 HintPithSatisfiedMetadata((
@@ -2580,7 +2633,7 @@ def hints_pep585_meta() -> 'List[HintPepMetadata]':
             pep_sign=HintSignType,
             isinstanceable_type=type,
             is_pep585_builtin_subbed=True,
-            typevars=(T,),
+            typeargs_packed=(T,),
             piths_meta=(
                 # Arbitrary class.
                 HintPithSatisfiedMetadata(int),

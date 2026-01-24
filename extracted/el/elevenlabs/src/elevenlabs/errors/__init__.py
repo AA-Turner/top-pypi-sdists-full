@@ -7,6 +7,7 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .bad_request_error import BadRequestError
+    from .conflict_error import ConflictError
     from .forbidden_error import ForbiddenError
     from .not_found_error import NotFoundError
     from .too_early_error import TooEarlyError
@@ -14,6 +15,7 @@ if typing.TYPE_CHECKING:
     from .unprocessable_entity_error import UnprocessableEntityError
 _dynamic_imports: typing.Dict[str, str] = {
     "BadRequestError": ".bad_request_error",
+    "ConflictError": ".conflict_error",
     "ForbiddenError": ".forbidden_error",
     "NotFoundError": ".not_found_error",
     "TooEarlyError": ".too_early_error",
@@ -28,8 +30,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -43,6 +47,7 @@ def __dir__():
 
 __all__ = [
     "BadRequestError",
+    "ConflictError",
     "ForbiddenError",
     "NotFoundError",
     "TooEarlyError",

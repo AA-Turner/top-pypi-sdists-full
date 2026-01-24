@@ -1,46 +1,68 @@
-# ruff: noqa: E402
 import os
 
 if not (
     (disable_truststore := os.getenv("DISABLE_TRUSTSTORE"))
     and disable_truststore.lower() == "true"
 ):
-    import truststore  # noqa: F401
+    import truststore
 
-    truststore.inject_into_ssl()  # noqa: F401
+    truststore.inject_into_ssl()
 
 import asyncio
-import contextlib
+import functools
 import json
 import logging.config
 import pathlib
 import signal
-from contextlib import asynccontextmanager
-from typing import cast
+import socket
 
 import structlog
 
-from langgraph_runtime.database import pool_stats
-from langgraph_runtime.lifespan import lifespan
+from langgraph_api.utils.errors import GraphLoadError, HealthServerStartupError
+from langgraph_runtime import lifespan
+from langgraph_runtime.database import healthcheck, pool_stats
 from langgraph_runtime.metrics import get_metrics
 
 logger = structlog.stdlib.get_logger(__name__)
 
 
+def _ensure_port_available(host: str, port: int) -> None:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((host, port))
+    except OSError as exc:
+        raise HealthServerStartupError(host, port, exc) from exc
+
+
 async def health_and_metrics_server():
     import uvicorn
     from starlette.applications import Starlette
+    from starlette.requests import Request
     from starlette.responses import JSONResponse, PlainTextResponse
-    from starlette.routing import Route
+    from starlette.routing import Mount, Route
+
+    from langgraph_api import config as lc_config
+    from langgraph_api.api.meta import METRICS_FORMATS
 
     port = int(os.getenv("PORT", "8080"))
+    host = os.getenv("LANGGRAPH_SERVER_HOST", "0.0.0.0")
 
     async def health_endpoint(request):
+        # if db or redis is not healthy, this will raise an exception
+        await healthcheck()
         return JSONResponse({"status": "ok"})
 
-    async def metrics_endpoint(request):
+    async def metrics_endpoint(request: Request):
+        metrics_format = request.query_params.get("format", "prometheus")
+        if metrics_format not in METRICS_FORMATS:
+            await logger.awarning(
+                f"metrics format {metrics_format} not supported, falling back to prometheus"
+            )
+            metrics_format = "prometheus"
+
         metrics = get_metrics()
-        worker_metrics = cast(dict[str, int], metrics["workers"])
+        worker_metrics = metrics["workers"]
         workers_max = worker_metrics["max"]
         workers_active = worker_metrics["active"]
         workers_available = worker_metrics["available"]
@@ -48,40 +70,64 @@ async def health_and_metrics_server():
         project_id = os.getenv("LANGSMITH_HOST_PROJECT_ID")
         revision_id = os.getenv("LANGSMITH_HOST_REVISION_ID")
 
-        metrics_lines = [
-            "# HELP lg_api_workers_max The maximum number of workers available.",
-            "# TYPE lg_api_workers_max gauge",
-            f'lg_api_workers_max{{project_id="{project_id}", revision_id="{revision_id}"}} {workers_max}',
-            "# HELP lg_api_workers_active The number of currently active workers.",
-            "# TYPE lg_api_workers_active gauge",
-            f'lg_api_workers_active{{project_id="{project_id}", revision_id="{revision_id}"}} {workers_active}',
-            "# HELP lg_api_workers_available The number of available (idle) workers.",
-            "# TYPE lg_api_workers_available gauge",
-            f'lg_api_workers_available{{project_id="{project_id}", revision_id="{revision_id}"}} {workers_available}',
-        ]
+        pg_redis_stats = pool_stats(
+            project_id=project_id,
+            revision_id=revision_id,
+            format=metrics_format,
+        )
 
-        metrics_lines.extend(
-            pool_stats(
-                project_id=project_id,
-                revision_id=revision_id,
+        if metrics_format == "json":
+            resp = {
+                **pg_redis_stats,
+                "workers": worker_metrics,
+            }
+            return JSONResponse(resp)
+        elif metrics_format == "prometheus":
+            metrics_lines = [
+                "# HELP lg_api_workers_max The maximum number of workers available.",
+                "# TYPE lg_api_workers_max gauge",
+                f'lg_api_workers_max{{project_id="{project_id}", revision_id="{revision_id}"}} {workers_max}',
+                "# HELP lg_api_workers_active The number of currently active workers.",
+                "# TYPE lg_api_workers_active gauge",
+                f'lg_api_workers_active{{project_id="{project_id}", revision_id="{revision_id}"}} {workers_active}',
+                "# HELP lg_api_workers_available The number of available (idle) workers.",
+                "# TYPE lg_api_workers_available gauge",
+                f'lg_api_workers_available{{project_id="{project_id}", revision_id="{revision_id}"}} {workers_available}',
+            ]
+
+            metrics_lines.extend(pg_redis_stats)
+
+            return PlainTextResponse(
+                "\n".join(metrics_lines),
+                media_type="text/plain; version=0.0.4; charset=utf-8",
             )
+
+    routes = [
+        Route("/ok", health_endpoint),
+        Route("/metrics", metrics_endpoint),
+    ]
+    app = Starlette(routes=routes)
+    if lc_config.MOUNT_PREFIX:
+        app = Starlette(
+            routes=[*routes, Mount(lc_config.MOUNT_PREFIX, app=app)],
+            lifespan=app.router.lifespan_context,
+            exception_handlers=app.exception_handlers,
         )
 
-        return PlainTextResponse(
-            "\n".join(metrics_lines),
-            media_type="text/plain; version=0.0.4; charset=utf-8",
+    try:
+        _ensure_port_available(host, port)
+    except HealthServerStartupError as exc:
+        await logger.aerror(
+            str(exc),
+            host=exc.host,
+            port=exc.port,
+            cause=str(exc.cause),
         )
-
-    app = Starlette(
-        routes=[
-            Route("/ok", health_endpoint),
-            Route("/metrics", metrics_endpoint),
-        ]
-    )
+        raise
 
     config = uvicorn.Config(
         app,
-        host=os.getenv("LANGGRAPH_SERVER_HOST", "0.0.0.0"),
+        host=host,
         port=port,
         log_level="error",
         access_log=False,
@@ -89,8 +135,33 @@ async def health_and_metrics_server():
     # Server will run indefinitely until the process is terminated
     server = uvicorn.Server(config)
 
-    logger.info(f"Health and metrics server started at http://0.0.0.0:{port}")
-    await server.serve()
+    logger.info(f"Health and metrics server started at http://{host}:{port}")
+    try:
+        await server.serve()
+    except SystemExit as exc:
+        if exc.code == 0:
+            return
+        try:
+            _ensure_port_available(host, port)
+        except HealthServerStartupError as port_exc:
+            await logger.aerror(
+                str(port_exc),
+                host=port_exc.host,
+                port=port_exc.port,
+                cause=str(port_exc.cause),
+            )
+            raise port_exc from None
+        error = HealthServerStartupError(host, port, exc)
+        await logger.aerror(
+            str(error), host=error.host, port=error.port, cause=str(error.cause)
+        )
+        raise error from None
+    except OSError as exc:
+        error = HealthServerStartupError(host, port, exc)
+        await logger.aerror(
+            str(error), host=error.host, port=error.port, cause=str(error.cause)
+        )
+        raise error from exc
 
 
 async def entrypoint(
@@ -99,39 +170,32 @@ async def entrypoint(
     cancel_event: asyncio.Event | None = None,
 ):
     from langgraph_api import logging as lg_logging
+    from langgraph_api import timing
     from langgraph_api.api import user_router
+    from langgraph_api.server import app
 
     lg_logging.set_logging_context({"entrypoint": entrypoint_name})
     tasks: set[asyncio.Task] = set()
-
-    original_lifespan = user_router.router.lifespan_context if user_router else None
-
-    @asynccontextmanager
-    async def combined_lifespan(
-        app, with_cron_scheduler=False, grpc_port=None, taskset=None
-    ):
-        async with lifespan(
-            app,
-            with_cron_scheduler=with_cron_scheduler,
+    user_lifespan = None if user_router is None else user_router.router.lifespan_context
+    wrapped_lifespan = timing.combine_lifespans(
+        functools.partial(
+            lifespan.lifespan,
+            with_cron_scheduler=False,
             grpc_port=grpc_port,
-            taskset=taskset,
+            taskset=tasks,
             cancel_event=cancel_event,
-        ):
-            if original_lifespan:
-                async with original_lifespan(app):
-                    yield
-            else:
-                yield
+        ),
+        user_lifespan,
+    )
 
-    async with combined_lifespan(
-        None, with_cron_scheduler=False, grpc_port=grpc_port, taskset=tasks
-    ):
+    async with wrapped_lifespan(app):
         tasks.add(asyncio.create_task(health_and_metrics_server()))
         await asyncio.gather(*tasks)
 
 
 async def main(grpc_port: int | None = None, entrypoint_name: str = "python-queue"):
     """Run the queue entrypoint and shut down gracefully on SIGTERM/SIGINT."""
+
     loop = asyncio.get_running_loop()
     stop_event = asyncio.Event()
 
@@ -157,8 +221,23 @@ async def main(grpc_port: int | None = None, entrypoint_name: str = "python-queu
 
     logger.warning("Cancelling queue entrypoint task")
     entry_task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
+    try:
         await entry_task
+    except asyncio.CancelledError:
+        pass
+    except (GraphLoadError, HealthServerStartupError) as exc:
+        raise SystemExit(1) from exc
+    except RuntimeError as exc:
+        if str(exc) == "generator didn't yield":
+            last_error = lifespan.get_last_error()
+            if last_error is not None:
+                logger.exception(
+                    "Application startup failed",
+                    error_type=type(last_error).__name__,
+                    error_message=str(last_error),
+                )
+                raise SystemExit(1) from None
+        raise
 
 
 if __name__ == "__main__":

@@ -9,17 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
-class RepositoryRuleDetailedOneof0Type(TypedDict):
-    """RepositoryRuleDetailedOneof0"""
+class CheckImmutableReleasesType(TypedDict):
+    """Check immutable releases
 
-    type: Literal["creation"]
-    ruleset_source_type: NotRequired[Literal["Repository", "Organization"]]
-    ruleset_source: NotRequired[str]
-    ruleset_id: NotRequired[int]
+    Check immutable releases
+    """
+
+    enabled: bool
+    enforced_by_owner: bool
 
 
-__all__ = ("RepositoryRuleDetailedOneof0Type",)
+class CheckImmutableReleasesTypeForResponse(TypedDict):
+    """Check immutable releases
+
+    Check immutable releases
+    """
+
+    enabled: bool
+    enforced_by_owner: bool
+
+
+__all__ = (
+    "CheckImmutableReleasesType",
+    "CheckImmutableReleasesTypeForResponse",
+)

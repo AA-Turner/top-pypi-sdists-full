@@ -16,7 +16,6 @@ short_description: Entries added to the Internet Service database and custom dat
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -148,7 +150,7 @@ EXAMPLES = '''
       fortinet.fortimanager.fmgr_firewall_internetservicecustom_entry:
         bypass_validation: false
         adom: ansible
-        internet-service-custom: "ansible-test" # name
+        internet_service_custom: "ansible-test" # name
         state: present
         firewall_internetservicecustom_entry:
           # dst: 'ansible'
@@ -170,7 +172,7 @@ EXAMPLES = '''
           selector: "firewall_internetservicecustom_entry"
           params:
             adom: "ansible"
-            internet-service-custom: "ansible-test" # name
+            internet_service_custom: "ansible-test" # name
             entry: "your_value"
 '''
 
@@ -230,6 +232,7 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'internet-service-custom': {'type': 'str', 'api_name': 'internet_service_custom'},
         'internet_service_custom': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_internetservicecustom_entry': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

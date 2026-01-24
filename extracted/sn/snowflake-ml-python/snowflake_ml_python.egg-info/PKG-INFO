@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-ml-python
-Version: 1.14.0
+Version: 1.24.0
 Summary: The machine learning client library that is used for interacting with Snowflake to build machine learning solutions.
 Author-email: "Snowflake, Inc" <support@snowflake.com>
 License: 
@@ -230,10 +230,9 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: <3.13,>=3.9
+Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: absl-py<2,>=0.15
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: cachetools<6,>=3.1.1
 Requires-Dist: cloudpickle>=2.0.0
@@ -241,7 +240,7 @@ Requires-Dist: cryptography
 Requires-Dist: fsspec[http]<2026,>=2024.6.1
 Requires-Dist: importlib_resources<7,>=6.1.1
 Requires-Dist: numpy<3,>=1.23
-Requires-Dist: packaging<25,>=20.9
+Requires-Dist: packaging<26,>=20.9
 Requires-Dist: pandas<3,>=2.1.4
 Requires-Dist: platformdirs<5
 Requires-Dist: pyarrow<19.0.0
@@ -251,22 +250,23 @@ Requires-Dist: pytimeparse<2,>=1.1.8
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: retrying<2,>=1.3.3
 Requires-Dist: s3fs<2026,>=2024.6.1
-Requires-Dist: scikit-learn<1.7
+Requires-Dist: scikit-learn<1.8
 Requires-Dist: scipy<2,>=1.9
 Requires-Dist: shap<1,>=0.46.0
-Requires-Dist: snowflake-connector-python[pandas]<4,>=3.16.0
+Requires-Dist: snowflake-connector-python[pandas]<4,>=3.17.3
 Requires-Dist: snowflake-snowpark-python!=1.26.0,<2,>=1.17.0
 Requires-Dist: snowflake.core<2,>=1.0.2
 Requires-Dist: sqlparse<1,>=0.4
 Requires-Dist: tqdm<5
 Requires-Dist: typing-extensions<5,>=4.1.0
-Requires-Dist: xgboost<3,>=1.7.3
+Requires-Dist: xgboost<4
 Provides-Extra: all
 Requires-Dist: altair<6,>=5; extra == "all"
 Requires-Dist: catboost<2,>=1.2.0; extra == "all"
 Requires-Dist: keras<4,>=2.0.0; extra == "all"
 Requires-Dist: lightgbm<5,>=4.1.0; extra == "all"
 Requires-Dist: mlflow<3,>=2.16.0; extra == "all"
+Requires-Dist: prophet<2,>=1.1.0; extra == "all"
 Requires-Dist: sentence-transformers<4,>=2.7.0; extra == "all"
 Requires-Dist: sentencepiece<0.2.0,>=0.1.95; extra == "all"
 Requires-Dist: streamlit<2,>=1.30.0; extra == "all"
@@ -285,8 +285,18 @@ Requires-Dist: tensorflow<3,>=2.17.0; extra == "keras"
 Requires-Dist: torch<3,>=2.0.1; extra == "keras"
 Provides-Extra: lightgbm
 Requires-Dist: lightgbm<5,>=4.1.0; extra == "lightgbm"
+Provides-Extra: llm
+Requires-Dist: mlflow<3,>=2.16.0; extra == "llm"
+Requires-Dist: sentence-transformers<4,>=2.7.0; extra == "llm"
+Requires-Dist: sentencepiece<0.2.0,>=0.1.95; extra == "llm"
+Requires-Dist: tokenizers<1,>=0.15.1; extra == "llm"
+Requires-Dist: torch<3,>=2.0.1; extra == "llm"
+Requires-Dist: torchdata<1,>=0.4; extra == "llm"
+Requires-Dist: transformers!=4.51.3,<5,>=4.39.3; extra == "llm"
 Provides-Extra: mlflow
 Requires-Dist: mlflow<3,>=2.16.0; extra == "mlflow"
+Provides-Extra: prophet
+Requires-Dist: prophet<2,>=1.1.0; extra == "prophet"
 Provides-Extra: streamlit
 Requires-Dist: streamlit<2,>=1.30.0; extra == "streamlit"
 Provides-Extra: tensorflow
@@ -302,21 +312,21 @@ Requires-Dist: torch<3,>=2.0.1; extra == "transformers"
 Requires-Dist: transformers!=4.51.3,<5,>=4.39.3; extra == "transformers"
 Dynamic: license-file
 
-# Snowpark ML
+# Snowflake ML Python
 
-Snowpark ML is a set of tools including SDKs and underlying infrastructure to build and deploy machine learning models.
-With Snowpark ML, you can pre-process data, train, manage and deploy ML models all within Snowflake, using a single SDK,
+Snowflake ML Python is a set of tools including SDKs and underlying infrastructure to build and deploy machine learning models.
+With Snowflake ML Python, you can pre-process data, train, manage and deploy ML models all within Snowflake,
 and benefit from Snowflake’s proven performance, scalability, stability and governance at every stage of the Machine
 Learning workflow.
 
-## Key Components of Snowpark ML
+## Key Components of Snowflake ML Python
 
-The Snowpark ML Python SDK provides a number of APIs to support each stage of an end-to-end Machine Learning development
-and deployment process, and includes two key components.
+The Snowflake ML Python SDK provides a number of APIs to support each stage of an end-to-end Machine Learning development
+and deployment process.
 
-### Snowpark ML Development
+### Snowflake ML Model Development
 
-[Snowpark ML Development](https://docs.snowflake.com/en/developer-guide/snowpark-ml/index#ml-modeling)
+[Snowflake ML Model Development](https://docs.snowflake.com/developer-guide/snowflake-ml/overview#ml-modeling)
 provides a collection of python APIs enabling efficient ML model development directly in Snowflake:
 
 1. Modeling API (`snowflake.ml.modeling`) for data preprocessing, feature engineering and model training in Snowflake.
@@ -327,19 +337,16 @@ model development classes based on sklearn, xgboost, and lightgbm.
 1. Framework Connectors: Optimized, secure and performant data provisioning for Pytorch and Tensorflow frameworks in
 their native data loader formats.
 
-1. FileSet API: FileSet provides a Python fsspec-compliant API for materializing data into a Snowflake internal stage
-from a query or Snowpark Dataframe along with a number of convenience APIs.
+### Snowflake ML Ops
 
-### Snowflake MLOps
+Snowflake ML Python contains a suite of MLOps tools. It complements
+the Snowflake Modeling API, and provides end to end development to deployment within Snowflake.
+The Snowflake ML Ops suite consists of:
 
-Snowflake MLOps contains suit of tools and objects to make ML development cycle. It complements
-the Snowpark ML Development API, and provides end to end development to deployment within Snowflake.
-Currently, the API consists of:
-
-1. [Registry](https://docs.snowflake.com/en/developer-guide/snowpark-ml/index#snowflake-model-registry): A python API
+1. [Registry](https://docs.snowflake.com/developer-guide/snowflake-ml/overview#snowflake-model-registry): A python API
   allows secure deployment and management of models in Snowflake, supporting models trained both inside and outside of
   Snowflake.
-2. [Feature Store](https://docs.snowflake.com/en/developer-guide/snowpark-ml/index#snowflake-feature-store): A fully
+2. [Feature Store](https://docs.snowflake.com/developer-guide/snowflake-ml/overview#snowflake-feature-store): A fully
   integrated solution for defining, managing, storing and discovering ML features derived from your data. The
   Snowflake Feature Store supports automated, incremental refresh from batch and streaming data sources, so that
   feature pipelines need be defined only once to be continuously updated with new data.
@@ -348,11 +355,18 @@ Currently, the API consists of:
 
 ## Getting started
 
+Learn about all Snowflake ML feature offerings in the [Developer Guide](https://docs.snowflake.com/developer-guide/snowflake-ml/overview).
+
 ### Have your Snowflake account ready
 
 If you don't have a Snowflake account yet, you can [sign up for a 30-day free trial account](https://signup.snowflake.com/).
 
 ### Installation
+
+Snowflake ML Python is pre-installed in Container Runtime notebook environments.
+[Learn more](https://docs.snowflake.com/en/developer-guide/snowflake-ml/notebooks-on-spcs).
+
+In Snowflake Warehouse notebook environments, snowflake-ml-python can be installed using the "Packages" drop-down menu.
 
 Follow the [installation instructions](https://docs.snowflake.com/en/developer-guide/snowpark-ml/index#installing-snowpark-ml)
 in the Snowflake documentation.
@@ -363,8 +377,8 @@ or [virtualenv](https://docs.python.org/3/tutorial/venv.html) to create a virtua
 
 ### Conda channels
 
-The [Snowflake Conda Channel](https://repo.anaconda.com/pkgs/snowflake/) contains the official snowpark ML package releases.
-The recommended approach is to install `snowflake-ml-python` this conda channel:
+The [Snowflake Anaconda Channel](https://repo.anaconda.com/pkgs/snowflake/) contains the official snowflake-ml-python package
+releases. To install `snowflake-ml-python` from this conda channel:
 
 ```sh
 conda install \
@@ -373,24 +387,17 @@ conda install \
   snowflake-ml-python
 ```
 
-See [the developer guide](https://docs.snowflake.com/en/developer-guide/snowpark-ml/index) for installation instructions.
+See [the developer guide](https://docs.snowflake.com/en/developer-guide/snowpark-ml/index) for detailed installation instructions.
 
-The latest version of the `snowpark-ml-python` package is also published in a conda channel in this repository. Package versions
-in this channel may not yet be present in the official Snowflake conda channel.
+The snowflake-ml-python package is also published in [conda-forge](https://anaconda.org/conda-forge/snowflake-ml-python).
+To install `snowflake-ml-python` from conda forge:
 
-Install `snowflake-ml-python` from this channel with the following (being sure to replace `<version_specifier>` with the
-desired version, e.g. `1.0.10`):
-
-```bash
+```sh
 conda install \
-  -c https://raw.githubusercontent.com/snowflakedb/snowflake-ml-python/conda/releases/  \
-  -c https://repo.anaconda.com/pkgs/snowflake \
+  -c https://conda.anaconda.org/conda-forge/ \
   --override-channels \
-  snowflake-ml-python==<version_specifier>
+  snowflake-ml-python
 ```
-
-Note that until a `snowflake-ml-python` package version is available in the official Snowflake conda channel, there may
-be compatibility issues. Server-side functionality that `snowflake-ml-python` depends on may not yet be released.
 
 ### Verifying the package
 
@@ -410,7 +417,332 @@ NOTE: Version 1.7.0 is used as example here. Please choose the the latest versio
 
 # Release History
 
-## 1.14.0
+## 1.24.0
+
+### New Features
+
+* Feature Store: Added tile-based aggregation support with a new `Feature` API for efficient and
+  point-in-time correct time-series feature computation using pre-computed tiles stored in Dynamic Tables.
+
+* Registry: Added auto-signature inference for SentenceTransformer models. When logging a SentenceTransformer
+  model, `sample_input_data` is now optional. If not provided, the signature is automatically inferred from
+  the model's embedding dimension. Supported methods: `encode`, `encode_query`, `encode_document`,
+  `encode_queries`, `encode_documents`.
+
+```python
+import sentence_transformers
+from snowflake.ml.registry import Registry
+
+# Create model
+model = sentence_transformers.SentenceTransformer("all-MiniLM-L6-v2")
+
+# Log model without sample_input_data - signature is auto-inferred
+registry = Registry(session)
+mv = registry.log_model(
+    model=model,
+    model_name="my_sentence_transformer",
+    version_name="v1",
+)
+
+# Run inference with auto-inferred signature (input: "text", output: "output")
+import pandas as pd
+result = mv.run(pd.DataFrame({"text": ["Hello world"]}))
+```
+
+### Bug Fixes
+
+### Behavior Changes
+
+### Deprecations
+
+## 1.23.0
+
+### New Features
+
+* ML Jobs: Enabled support for Python 3.11 and Python 3.12 by default. Jobs will automatically select a
+  runtime environment matching the client Python version.
+
+### Bug Fixes
+
+* Registry: Fix failures on empty output in HuggingFace's Token Classification (aka Named Entity Recognition) models.
+* Model serving: don't parse instance or container statuses to fix bug with missing container status.
+
+### Behavior Changes
+
+### Deprecations
+
+## 1.22.0
+
+### New Features
+
+* Registry: Introducing remotely logging a transformer pipeline model using SPCS job.
+
+```python
+# create reference of the model
+model = huggingface.TransformersPipeline(
+    model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    task="text-generation",
+)
+
+# Remotely log the model, a SPCS job will run async and log the model
+mv = registry.log_model(
+    model=model,
+    model_name="tinyllama_remote_log",
+    target_platforms=["SNOWPARK_CONTAINER_SERVICES"],
+    signatures=openai_signatures.OPENAI_CHAT_SIGNATURE,
+)
+```
+
+* Registry: Added support for `image-text-to-text` task type in `huggingface.TransformersPipeline`.
+  Note: Requires vLLM inference engine while creating the service.
+
+### Bug Fixes
+
+### Behavior Changes
+
+* Registry: The `openai_signatures.OPENAI_CHAT_SIGNATURE` signature now handles content parts and
+  requires input data to be passed in list of dictionary. To use string content (previous behavior),
+  use `openai_signatures.OPENAI_CHAT_SIGNATURE_WITH_CONTENT_FORMAT_STRING`.
+
+```python
+from snowflake.ml.model import openai_signatures
+import pandas as pd
+
+mv = snowflake_registry.log_model(
+    model=generator,
+    model_name=...,
+    ...,
+    signatures=openai_signatures.OPENAI_CHAT_SIGNATURE,
+)
+
+# create a pd.DataFrame with openai.client.chat.completions arguments like below:
+x_df = pd.DataFrame.from_records(
+    [
+        {
+            "messages": [
+                {"role": "system", "content": "Complete the sentence."},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "A descendant of the Lost City of Atlantis, who swam to Earth while saying, ",
+                        }
+                    ],
+                },
+            ],
+            "max_completion_tokens": 250,
+            "temperature": 0.9,
+            "stop": None,
+            "n": 3,
+            "stream": False,
+            "top_p": 1.0,
+            "frequency_penalty": 0.1,
+            "presence_penalty": 0.2,
+        }
+    ],
+)
+
+# OpenAI Chat Completion compatible output
+output_df = mv.run(X=x_df)
+```
+
+### Deprecations
+
+## 1.21.0
+
+### New Features
+
+* Inference Autocapture (Preview): The `create_service` API will now accept `autocapture` as a new argument to indicate
+  whether inference data will be captured.
+* DataConnector: Added `to_huggingface_dataset()` method for converting Snowflake data to HuggingFace datasets.
+  Supports both in-memory `Dataset` (streaming=False) and streaming `IterableDataset` (streaming=True) modes.
+* Introducing `snowflake.ml.model.models.huggingface.TransformersPipeline` model which will replace object
+`snowflake.ml.model.models.huggingface_pipeline.HuggingfacePipelineModel`. This is a wrapper class to
+  `transformers.Pipeline` model. Currently, following tasks
+  are supported to log without manually specifying model signatures:
+  * "fill-mask"
+  * "question-answering"
+  * "summarization"
+  * "table-question-answering"
+  * "text2text-generation"
+  * "text-classification" (alias "sentiment-analysis" available)
+  * "text-generation"
+  * "token-classification" (alias "ner" available)
+  * "translation"
+  * "translation_xx_to_yy"
+  * "zero-shot-classification"
+  which provides utility to log the model without loading the model in memory.
+
+### Bug Fixes
+
+* Experiment Tracking (PuPr): Reaching the run metadata size limit in `log_metrics` or `log_params` will warn the user
+  instead of raising an exception.
+* Registry: `ModelVersion.run()` will now raise a `ValueError` if the model does not support running on warehouse
+  (e.g. SPCS-only models) and `service_name` is not provided.
+
+### Behavior Changes
+
+* ML Job: The `additional_payloads` (Preview API) behavior is changing.
+  Use the `imports` argument to declare additional dependencies, such as zip files and Python modules.
+  Local directories and Python files are automatically compressed, and their internal layout is determined by the
+  specified import path. The import path applies only to local directories, Python files and staged python files;
+  it has no effect on other import types. When referencing files in a stage, only individual files
+  are supported—not directories.
+* Online Inference (PuPr): `list_services()` now shows internal endpoint that does not need EAI to call from another
+  SPCS node or Notebook.
+* Inference Autocapture (Preview): `list_services()` now shows if model service has autocapture enabled.
+* Experiment Tracking (PuPr): `ExperimentTracking` is now a singleton class.
+
+### Deprecations
+
+* Deprecating `snowflake.ml.model.models.huggingface_pipeline.HuggingfacePipelineModel` and will be removed in later
+ version with a notice.
+
+## 1.20.0
+
+### Bug Fixes
+
+* Experiment Tracking (PuPr): Reaching the run metadata size limit in `log_metrics` or `log_params` will warn the user
+  instead of raising an exception.
+
+### New Features
+
+* Registry (PrPr): Introducing vLLM as a backend inference engine. The `create_service` API will now
+ accept `inference_engine_options` as an argument.
+
+```python
+from snowflake.ml.model.inference_engine import InferenceEngine
+
+mv = snowflake_registry.log_model(
+    model=generator,
+    model_name=...,
+    ...,
+    # Specifying OPENAI_CHAT_SIGNATURE is necessary to use vLLM inference engine
+    signatures=openai_signatures.OPENAI_CHAT_SIGNATURE,
+)
+
+mv.create_service(
+    service_name=my_serv,
+    service_compute_pool=...,
+    ...,
+    inference_engine_options={
+        "engine": InferenceEngine.VLLM,
+        "engine_args_override": [
+            "--max-model-len=2048",
+            "--gpu-memory-utilization=0.9"
+        ]
+    }
+)
+```
+
+## 1.19.0 (11-13-2025)
+
+### Bug Fixes
+
+* Experiment Tracking (PuPr): No longer throw an exception in `list_artifacts` when run does not have artifacts.
+* Registry: Fix `get_version_by_alias`: now requires an exact match of snowflake identifier.
+
+### Behavior Changes
+
+### New Features
+
+* Online feature serving in Feature Store is in public preview.
+* Experiment Tracking (`snowflake.ml.experiment`) is in public preview.
+
+### Deprecations
+
+## 1.18.0
+
+### Bug Fixes
+
+* Registry: The create_service API now validates that a model has a GPU runtime configuration and will throw a
+  descriptive error if the configuration is missing.
+
+### Behavior Changes
+
+### New Features
+
+* Registry (PrPr): Introducing `ModelVersion.run_batch` for batch inference in Snowpark Container Services.
+* Experiment Tracking (PrPr): Added `version_name` argument to the autologging callbacks
+  to specify the version name for the autologged model.
+
+### Deprecations
+
+* `Python 3.9` is deprecated.
+
+## 1.17.0
+
+### Bug Fixes
+
+* ML Job: Added support for retrieving details of deleted jobs, including status, compute pool, and target instances.
+
+### Behavior Changes
+
+### New Features
+
+* Support xgboost 3.x.
+* ML Job: Overhauled the `MLJob.result()` API with broader cross-version
+  compatibility and support for additional data types, namely:
+  * Pandas DataFrames
+  * PyArrow Tables
+  * NumPy arrays
+  * NOTE: Requires `snowflake-ml-python>=1.17.0` to be installed inside remote container environment.
+* ML Job: Enabled job submission v2 by default
+  * Jobs submitted using v2 will automatically use the latest Container Runtime image
+  * v1 behavior can be restored by setting environment variable `MLRS_USE_SUBMIT_JOB_V2` to `false`
+
+### Deprecations
+
+## 1.16.0
+
+### Bug Fixes
+
+* Registry: Remove redundant pip dependency warnings when `artifact_repository_map` is provided for warehouse model deployments.
+
+### Behavior Changes
+
+### New Features
+
+* Support scikit-learn < 1.8.
+* ML Job: Added support for configuring the runtime image via `runtime_environment`
+  (image tag or full image URL) at submission time.
+  Examples:
+  * @remote(compute_pool, stage_name = 'payload_stage', runtime_environment = '1.8.0')
+  * submit_file('/path/to/repo/test.py', compute_pool, stage_name = 'payload_stage', runtime_environment = '/mydb/myschema/myrepo/myimage:latest')
+* Registry: Ability to mark model methods as `Volatility.VOLATILE` or `Volatility.IMMUTABLE`.
+
+```python
+from snowflake.ml.model.volatility import Volatility
+
+options = {
+    "embed_local_ml_library": True,
+    "relax_version": True,
+    "save_location": "/path/to/my/directory",
+    "function_type": "TABLE_FUNCTION",
+    "volatility": Volatility.IMMUTABLE,
+    "method_options": {
+        "predict": {
+            "case_sensitive": False,
+            "max_batch_size": 100,
+            "function_type": "TABLE_FUNCTION",
+            "volatility": Volatility.VOLATILE,
+        },
+    },
+}
+
+```
+
+## 1.15.0 (09-29-2025)
+
+### Bug Fixes
+
+### Behavior Changes
+
+* Registry: Dropping support for deprecated `conversational` task type for Huggingface models.
+  To read more <https://github.com/huggingface/transformers/pull/31165>
+
+## 1.14.0 (09-18-2025)
 
 ### Bug Fixes
 

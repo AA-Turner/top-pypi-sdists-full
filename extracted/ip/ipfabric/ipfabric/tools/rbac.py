@@ -42,7 +42,7 @@ class ManagedRBAC(BaseModel):
         }
 
     def _apply_policy(self) -> dict[str, Policy]:
-        policies = dict()
+        policies = {}
         if not self._current_policies:
             logger.warning("No Managed RBAC Policies found, pushing new policies.")
             policies = self.ipf.settings.policies.create_policies(
@@ -90,7 +90,7 @@ class ManagedRBAC(BaseModel):
         return policies
 
     def _apply_role(self, policies) -> dict[str, Role]:
-        roles = dict()
+        roles = {}
         if not self._roles:
             logger.warning("No Managed RBAC Roles found, pushing new roles.")
             roles = self.ipf.settings.roles.create_roles(

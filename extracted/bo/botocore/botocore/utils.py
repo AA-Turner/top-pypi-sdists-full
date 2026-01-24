@@ -22,6 +22,7 @@ import os
 import random
 import re
 import socket
+import tempfile
 import time
 import warnings
 import weakref
@@ -143,7 +144,6 @@ EVENT_ALIASES = {
     "elasticfilesystem": "efs",
     "elasticloadbalancing": "elastic-load-balancing",
     "elasticmapreduce": "emr",
-    "elastictranscoder": "elastic-transcoder",
     "elb": "elastic-load-balancing",
     "elbv2": "elastic-load-balancing-v2",
     "email": "ses",
@@ -3101,6 +3101,9 @@ class ContainerMetadataFetcher:
 
     def _validate_allowed_url(self, full_url):
         parsed = botocore.compat.urlparse(full_url)
+
+        if parsed.scheme == 'https':
+            return
         if self._is_loopback_address(parsed.hostname):
             return
         is_whitelisted_host = self._check_if_whitelisted_host(parsed.hostname)
@@ -3577,11 +3580,16 @@ class JSONFileCache:
             )
         if not os.path.isdir(self._working_dir):
             os.makedirs(self._working_dir, exist_ok=True)
-        with os.fdopen(
-            os.open(full_key, os.O_WRONLY | os.O_CREAT, 0o600), 'w'
-        ) as f:
-            f.truncate()
+
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=self._working_dir, suffix='.tmp'
+        )
+        with os.fdopen(temp_fd, 'w') as f:
             f.write(file_content)
+            f.flush()
+            os.fsync(f.fileno())
+
+        os.replace(temp_path, full_key)
 
     def _convert_cache_key(self, cache_key):
         full_path = os.path.join(self._working_dir, cache_key + '.json')
@@ -3593,6 +3601,10 @@ class JSONFileCache:
                 return value.isoformat()
             return value.strftime('%Y-%m-%dT%H:%M:%S%Z')
         return value
+
+
+def generate_login_cache_key(sign_in_session_name):
+    return hashlib.sha256(sign_in_session_name.encode('utf-8')).hexdigest()
 
 
 def is_s3express_bucket(bucket):
@@ -3651,7 +3663,6 @@ CLIENT_NAME_TO_HYPHENIZED_SERVICE_ID_OVERRIDES = {
     'ds-data': 'directory-service-data',
     'dynamodbstreams': 'dynamodb-streams',
     'elasticbeanstalk': 'elastic-beanstalk',
-    'elastictranscoder': 'elastic-transcoder',
     'elb': 'elastic-load-balancing',
     'elbv2': 'elastic-load-balancing-v2',
     'es': 'elasticsearch-service',
@@ -3688,3 +3699,32 @@ CLIENT_NAME_TO_HYPHENIZED_SERVICE_ID_OVERRIDES = {
     'stepfunctions': 'sfn',
     'storagegateway': 'storage-gateway',
 }
+
+
+def get_login_token_cache_directory():
+    """Returns which directory contains the login_session token files"""
+    if 'AWS_LOGIN_CACHE_DIRECTORY' in os.environ:
+        path = os.path.expandvars(os.environ['AWS_LOGIN_CACHE_DIRECTORY'])
+        path = os.path.expanduser(path)
+        return path
+    else:
+        return os.path.expanduser(os.path.join('~', '.aws', 'login', 'cache'))
+
+
+class LoginTokenLoader:
+    """Loads and saves login access tokens to disk"""
+
+    def __init__(self, cache=None):
+        if cache is None:
+            cache = {}
+        self._cache = cache
+
+    def save_token(self, session_name, token):
+        cache_key = generate_login_cache_key(session_name)
+        self._cache[cache_key] = token
+
+    def load_token(self, session_name):
+        cache_key = generate_login_cache_key(session_name)
+        if cache_key not in self._cache:
+            return None
+        return self._cache[cache_key]

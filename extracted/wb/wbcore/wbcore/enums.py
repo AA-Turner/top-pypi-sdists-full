@@ -39,7 +39,8 @@ class Unit(Enum):
         return (float(_value), self.value)
 
     def unit(self, _value: Union[float, str, int]):
-        assert isinstance(_value, (float, str, int)), "_value needs to be one of str, float or int"
+        if not isinstance(_value, (float, str, int)):
+            raise AssertionError("_value needs to be one of str, float or int")
 
         return f"{float(_value)}{self.value}"
 

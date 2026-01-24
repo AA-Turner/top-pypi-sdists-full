@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.690938                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.852326                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from .cli_components.utils import LazyGroup as LazyGroup
 from .cli_components.utils import LazyPluginCommandCollection as LazyPluginCommandCollection
 from .exception import CommandException as CommandException
 from .exception import MetaflowException as MetaflowException
+from .flowspec import FlowStateItems as FlowStateItems
 from .metaflow_current import current as current
 from .packaging_sys import MetaflowCodeContent as MetaflowCodeContent
 from .pylint_wrapper import PyLint as PyLint

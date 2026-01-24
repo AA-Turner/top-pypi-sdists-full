@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -33,12 +34,6 @@ from .literals import (
     NetworkTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -239,7 +234,7 @@ class DefinitionTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -659,19 +654,19 @@ class GetSignedBluinsightsUrlResponseTypeDef(TypedDict):
 
 
 class ListApplicationVersionsResponseTypeDef(TypedDict):
-    applicationVersions: List[ApplicationVersionSummaryTypeDef]
+    applicationVersions: list[ApplicationVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    applications: List[ApplicationSummaryTypeDef]
+    applications: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -726,25 +721,25 @@ class GetDataSetImportTaskResponseTypeDef(TypedDict):
 
 
 class ListDataSetsResponseTypeDef(TypedDict):
-    dataSets: List[DataSetSummaryTypeDef]
+    dataSets: list[DataSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListDeploymentsResponseTypeDef(TypedDict):
-    deployments: List[DeploymentSummaryTypeDef]
+    deployments: list[DeploymentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListEngineVersionsResponseTypeDef(TypedDict):
-    engineVersions: List[EngineVersionsSummaryTypeDef]
+    engineVersions: list[EngineVersionsSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListEnvironmentsResponseTypeDef(TypedDict):
-    environments: List[EnvironmentSummaryTypeDef]
+    environments: list[EnvironmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -765,16 +760,16 @@ class GetApplicationResponseTypeDef(TypedDict):
     kmsKeyId: str
     lastStartTime: datetime
     latestVersion: ApplicationVersionSummaryTypeDef
-    listenerArns: List[str]
-    listenerPorts: List[int]
+    listenerArns: list[str]
+    listenerPorts: list[int]
     loadBalancerDnsName: str
-    logGroups: List[LogGroupSummaryTypeDef]
+    logGroups: list[LogGroupSummaryTypeDef]
     name: str
     roleArn: str
     status: ApplicationLifecycleType
     statusReason: str
-    tags: Dict[str, str]
-    targetGroupArns: List[str]
+    tags: dict[str, str]
+    targetGroupArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -790,7 +785,7 @@ class S3BatchJobIdentifierTypeDef(TypedDict):
 
 
 class ListBatchJobRestartPointsResponseTypeDef(TypedDict):
-    batchJobSteps: List[JobStepTypeDef]
+    batchJobSteps: list[JobStepTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -883,7 +878,7 @@ VsamAttributesTypeDef = TypedDict(
 
 
 class VsamDetailAttributesTypeDef(TypedDict):
-    alternateKeys: NotRequired[List[AlternateKeyTypeDef]]
+    alternateKeys: NotRequired[list[AlternateKeyTypeDef]]
     cacheAtStartup: NotRequired[bool]
     compressed: NotRequired[bool]
     encoding: NotRequired[str]
@@ -892,7 +887,7 @@ class VsamDetailAttributesTypeDef(TypedDict):
 
 
 class ListBatchJobDefinitionsResponseTypeDef(TypedDict):
-    batchJobDefinitions: List[BatchJobDefinitionTypeDef]
+    batchJobDefinitions: list[BatchJobDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -903,13 +898,13 @@ class DataSetExportConfigTypeDef(TypedDict):
 
 
 class ListDataSetExportHistoryResponseTypeDef(TypedDict):
-    dataSetExportTasks: List[DataSetExportTaskTypeDef]
+    dataSetExportTasks: list[DataSetExportTaskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListDataSetImportHistoryResponseTypeDef(TypedDict):
-    dataSetImportTasks: List[DataSetImportTaskTypeDef]
+    dataSetImportTasks: list[DataSetImportTaskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -956,12 +951,12 @@ class GetEnvironmentResponseTypeDef(TypedDict):
     pendingMaintenance: PendingMaintenanceTypeDef
     preferredMaintenanceWindow: str
     publiclyAccessible: bool
-    securityGroupIds: List[str]
+    securityGroupIds: list[str]
     status: EnvironmentLifecycleType
     statusReason: str
-    storageConfigurations: List[StorageConfigurationTypeDef]
-    subnetIds: List[str]
-    tags: Dict[str, str]
+    storageConfigurations: list[StorageConfigurationTypeDef]
+    subnetIds: list[str]
+    tags: dict[str, str]
     vpcId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1046,7 +1041,7 @@ class GetDataSetDetailsResponseTypeDef(TypedDict):
 
 
 class ListBatchJobExecutionsResponseTypeDef(TypedDict):
-    batchJobExecutions: List[BatchJobExecutionSummaryTypeDef]
+    batchJobExecutions: list[BatchJobExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

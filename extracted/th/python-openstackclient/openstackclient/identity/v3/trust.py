@@ -18,10 +18,10 @@ import itertools
 import logging
 
 from openstack import exceptions as sdk_exceptions
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common
 
@@ -179,7 +179,9 @@ class CreateTrust(command.ShowOne):
         roles = []
         for role in parsed_args.roles:
             try:
-                role_id = identity_client.find_role(role).id
+                role_id = identity_client.find_role(
+                    role, ignore_missing=False
+                ).id
             except sdk_exceptions.ForbiddenException:
                 role_id = role
             roles.append({"id": role_id})

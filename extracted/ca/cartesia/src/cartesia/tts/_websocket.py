@@ -14,7 +14,7 @@ except ImportError:
 
 from iterators import TimeoutIterator  # type: ignore
 
-from cartesia.tts.requests import TtsRequestVoiceSpecifierParams
+from cartesia.tts.requests import GenerationConfigParams, TtsRequestVoiceSpecifierParams
 from cartesia.tts.requests.output_format import OutputFormatParams
 from cartesia.tts.types import (
     WebSocketResponse,
@@ -60,6 +60,7 @@ class _TTSContext:
         model_id: str,
         transcript: typing.Generator[str, None, None],
         output_format: OutputFormatParams,
+        generation_config: Optional[GenerationConfigParams] = None,
         voice: TtsRequestVoiceSpecifierParams,
         context_id: Optional[str] = None,
         max_buffer_delay_ms: Optional[int] = None,
@@ -69,6 +70,7 @@ class _TTSContext:
         add_timestamps: bool = False,
         add_phoneme_timestamps: bool = False,
         use_original_timestamps: bool = False,
+        pronunciation_dict_id: Optional[str] = None
     ) -> Generator[bytes, None, None]:
         """Send audio generation requests to the WebSocket and yield responses.
 
@@ -110,7 +112,14 @@ class _TTSContext:
             request_body["use_original_timestamps"] = use_original_timestamps
         if max_buffer_delay_ms:
             request_body["max_buffer_delay_ms"] = max_buffer_delay_ms
+        if pronunciation_dict_id:
+            request_body["pronunciation_dict_id"] = pronunciation_dict_id
 
+        if generation_config is not None:
+            if isinstance(generation_config, dict):
+                request_body["generation_config"] = generation_config
+            else:
+                request_body["generation_config"] = generation_config.dict()
         if (
             "context_id" in request_body
             and request_body["context_id"] is not None
@@ -293,10 +302,10 @@ class TtsWebsocket:
                 # Extract status code if available
                 status_code = None
                 error_message = str(e)
-                
+
                 if hasattr(e, 'status') and e.status is not None:
                     status_code = e.status
-                
+
                     # Create a meaningful error message based on status code
                     if status_code == 402:
                         error_message = "Payment required. Your API key may have insufficient credits or permissions."
@@ -306,7 +315,7 @@ class TtsWebsocket:
                         error_message = "Forbidden. You don't have permission to access this resource."
                     elif status_code == 404:
                         error_message = "Not found. The requested resource doesn't exist."
-                    
+
                     raise RuntimeError(f"Failed to connect to WebSocket.\nStatus: {status_code}. Error message: {error_message}")
                 else:
                     raise RuntimeError(f"Failed to connect to WebSocket. {e}")
@@ -356,6 +365,7 @@ class TtsWebsocket:
         transcript: str,
         output_format: OutputFormatParams,
         voice: TtsRequestVoiceSpecifierParams,
+        generation_config: Optional[GenerationConfigParams] = None,
         context_id: Optional[str] = None,
         duration: Optional[int] = None,
         language: Optional[str] = None,
@@ -363,6 +373,7 @@ class TtsWebsocket:
         add_timestamps: bool = False,
         add_phoneme_timestamps: bool = False,
         use_original_timestamps: bool = False,
+        pronunciation_dict_id: Optional[str] = None,
     ):
         """Send a request to the WebSocket to generate audio.
 
@@ -388,12 +399,14 @@ class TtsWebsocket:
             "output_format": output_format,
             "voice": voice,
             "context_id": context_id,
+            "generation_config": generation_config,
             "duration": duration,
             "language": language,
             "stream": stream,
             "add_timestamps": add_timestamps,
             "add_phoneme_timestamps": add_phoneme_timestamps,
             "use_original_timestamps": use_original_timestamps,
+            "pronunciation_dict_id": pronunciation_dict_id,
         }
         generator = self._websocket_generator(request_body)
 

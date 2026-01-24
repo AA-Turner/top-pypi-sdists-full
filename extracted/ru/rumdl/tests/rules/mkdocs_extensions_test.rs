@@ -1,7 +1,10 @@
 use rumdl_lib::config::MarkdownFlavor;
 use rumdl_lib::lint_context::LintContext;
 use rumdl_lib::rule::Rule;
-use rumdl_lib::rules::{MD031BlanksAroundFences, MD042NoEmptyLinks, MD052ReferenceLinkImages};
+use rumdl_lib::rules::{
+    MD005ListIndent, MD007ULIndent, MD013LineLength, MD031BlanksAroundFences, MD042NoEmptyLinks, MD046CodeBlockStyle,
+    MD052ReferenceLinkImages,
+};
 
 #[test]
 fn test_mkdocs_footnotes_integration() {
@@ -23,7 +26,7 @@ Regular text after footnotes."#;
 
     // Test with MD031 (blanks around fences/blocks)
     let rule_031 = MD031BlanksAroundFences::default();
-    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs);
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
     let warnings = rule_031.check(&ctx).unwrap();
 
     // Footnote definitions should not trigger MD031
@@ -77,7 +80,7 @@ More content after tabs."#;
 
     // Test with MD031 (blanks around fences)
     let rule_031 = MD031BlanksAroundFences::default();
-    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs);
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
     let warnings = rule_031.check(&ctx).unwrap();
 
     // Tab markers themselves might need blank lines around them,
@@ -116,7 +119,7 @@ You can also use [custom text][mymodule.utils.helper]."#;
 
     // Test with MD052 (reference links) - crossrefs are special
     let rule_052 = MD052ReferenceLinkImages::default();
-    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs);
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
     let warnings = rule_052.check(&ctx).unwrap();
 
     // Cross-references should not be flagged as undefined references
@@ -160,7 +163,7 @@ Some text with a footnote[^2] and a cross-reference to [MyClass][].
 ??? tip "Collapsible Tip"
     This collapsible section has content."#;
 
-    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs);
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
 
     // Test with MD031
     let rule_031 = MD031BlanksAroundFences::default();
@@ -187,7 +190,7 @@ fn test_standard_flavor_no_mkdocs_features() {
 !!! note
     This looks like an admonition but isn't."#;
 
-    let ctx = LintContext::new(content, MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
 
     // In standard flavor, these should be treated as regular text
     // and may trigger various rules
@@ -217,7 +220,7 @@ Text with reference[^complex].
 
 Regular text."#;
 
-    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs);
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
 
     // Complex footnote content should be properly handled
     let rule_031 = MD031BlanksAroundFences::default();
@@ -247,7 +250,7 @@ fn test_nested_tabs() {
 
     Different content."#;
 
-    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs);
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
 
     // Nested tabs should be recognized
     let rule_031 = MD031BlanksAroundFences::default();
@@ -255,4 +258,96 @@ fn test_nested_tabs() {
 
     // The behavior with nested tabs depends on implementation
     assert!(warnings.len() <= 8, "Nested tabs should be handled");
+}
+#[test]
+fn test_mkdocstrings_with_yaml_options() {
+    // Test that mkdocstrings blocks with YAML options don't trigger false positives
+    // This addresses issue #94
+    let content = r#"# API Documentation
+
+::: toga.ScrollContainer
+    options:
+        members:
+            - window
+            - app
+            - content
+        show_source: true
+        show_root_heading: true
+
+Regular text continues here."#;
+
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+
+    // MD005 - Should not flag YAML lists as markdown list indentation issues
+    let rule_005 = MD005ListIndent::default();
+    let warnings = rule_005.check(&ctx).unwrap();
+    assert_eq!(
+        warnings.len(),
+        0,
+        "MD005 should not flag YAML lists in mkdocstrings options"
+    );
+
+    // MD007 - Should not flag YAML lists
+    let rule_007 = MD007ULIndent::new(2);
+    let warnings = rule_007.check(&ctx).unwrap();
+    assert_eq!(
+        warnings.len(),
+        0,
+        "MD007 should not flag YAML lists in mkdocstrings options"
+    );
+
+    // MD013 - Should not flag long lines in mkdocstrings blocks
+    let rule_013 = MD013LineLength::new(80, false, false, false, false);
+    let warnings = rule_013.check(&ctx).unwrap();
+    assert_eq!(warnings.len(), 0, "MD013 should not flag mkdocstrings blocks");
+
+    // MD046 - Should not flag YAML options as indented code blocks
+    let rule_046 = MD046CodeBlockStyle::new(rumdl_lib::rules::code_block_utils::CodeBlockStyle::Fenced);
+    let warnings = rule_046.check(&ctx).unwrap();
+    assert_eq!(
+        warnings.len(),
+        0,
+        "MD046 should not flag YAML options as indented code blocks"
+    );
+}
+
+#[test]
+fn test_mkdocstrings_deeply_nested_yaml() {
+    // Test mkdocstrings with complex nested YAML structure
+    let content = r#"# API Documentation
+
+::: mypackage.module.Class
+    handler: python
+    options:
+        show_source: true
+        show_root_heading: true
+        members:
+            - method1
+            - method2
+            - property1
+        filters:
+            - "!^_"
+            - "!^test_"
+        group_by_category: true
+        categories:
+            properties:
+                - property1
+                - property2
+            methods:
+                - method1
+                - method2
+
+Regular documentation continues."#;
+
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+
+    // All rules should ignore the mkdocstrings block
+    let rule_005 = MD005ListIndent::default();
+    assert_eq!(rule_005.check(&ctx).unwrap().len(), 0);
+
+    let rule_007 = MD007ULIndent::new(2);
+    assert_eq!(rule_007.check(&ctx).unwrap().len(), 0);
+
+    let rule_046 = MD046CodeBlockStyle::new(rumdl_lib::rules::code_block_utils::CodeBlockStyle::Fenced);
+    assert_eq!(rule_046.check(&ctx).unwrap().len(), 0);
 }

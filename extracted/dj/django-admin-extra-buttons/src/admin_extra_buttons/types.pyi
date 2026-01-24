@@ -1,4 +1,4 @@
-from typing import Any, Protocol, TypeAlias, overload
+from typing import Any, Callable, Protocol, TypeAlias
 
 from django.db.models import Model
 from django.http import HttpRequest, HttpResponse
@@ -23,17 +23,35 @@ class WidgetProtocol(Protocol):
     def get_button_params(self, context: RequestContext, **extra: Any) -> dict[str, Any]: ...
     def get_button(self, context: RequestContext) -> ButtonWidget: ...
 
-class HandlerFunction:
-    extra_buttons_handler: BaseExtraHandler
+class BaseHandlerFunction(Protocol):
     __name__: str
+    extra_buttons_handler: BaseExtraHandler
 
-    @overload
-    def __call__(self, model_admin: ExtraButtonsMixin, request: HttpRequest, pk: str) -> HttpResponse: ...
-    @overload
-    def __call__(self, model_admin: ExtraButtonsMixin, request: HttpRequest) -> HttpResponse: ...
-    @overload
-    def __call__(self, model_admin: ExtraButtonsMixin, button: VisibleButton) -> None: ...
+"""
+# xxx1 = Callable[[ExtraButtonsMixin, HttpRequest], HttpResponse | None]
+# xxx2 = Callable[[ExtraButtonsMixin, HttpRequest, str], HttpResponse | None]
+#
+# aaa = xxx1 | xxx2
+#
+# bbb = Callable[[ExtraButtonsMixin, VisibleButton], HttpResponse | None]
+#
+# zzz = aaa | bbb
+#
+# ViewHandlerFunction = aaa
+# ButtonHandlerFunction = aaa
+# ChoiceHandlerFunction = bbb
+# LinkHandlerFunction = bbb
+"""
 
-LinkHandlerFunction: TypeAlias = HandlerFunction
+Callback1: TypeAlias = Callable[[ExtraButtonsMixin, HttpRequest], HttpResponse | None]
+Callback2: TypeAlias = Callable[[ExtraButtonsMixin, HttpRequest, str], HttpResponse | None]
+
+ViewHandlerFunction: TypeAlias = Callback1 | Callback2
+ButtonHandlerFunction = ViewHandlerFunction
+
+ChoiceHandlerFunction: TypeAlias = Callable[[ExtraButtonsMixin, VisibleButton], HttpResponse | None]
+LinkHandlerFunction: TypeAlias = Callable[[ExtraButtonsMixin, VisibleButton], HttpResponse | None]
+
+GenericHandler: TypeAlias = ButtonHandlerFunction | ViewHandlerFunction | ChoiceHandlerFunction | LinkHandlerFunction
 
 HandlerWithButton: TypeAlias = ButtonHandler | LinkHandler | ChoiceHandler

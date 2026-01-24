@@ -67,241 +67,13 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emrcontainers.CfnVirtualClusterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "container_provider": "containerProvider",
-        "name": "name",
-        "security_configuration_id": "securityConfigurationId",
-        "tags": "tags",
-    },
+from ..interfaces.aws_emrcontainers import (
+    IVirtualClusterRef as _IVirtualClusterRef_14fb6023,
+    VirtualClusterReference as _VirtualClusterReference_ded7b2ce,
 )
-class CfnVirtualClusterProps:
-    def __init__(
-        self,
-        *,
-        container_provider: typing.Union[_IResolvable_da3f097b, typing.Union["CfnVirtualCluster.ContainerProviderProperty", typing.Dict[builtins.str, typing.Any]]],
-        name: builtins.str,
-        security_configuration_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVirtualCluster``.
-
-        :param container_provider: The container provider of the virtual cluster.
-        :param name: The name of the virtual cluster.
-        :param security_configuration_id: The ID of the security configuration.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-virtualcluster.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_emrcontainers as emrcontainers
-            
-            cfn_virtual_cluster_props = emrcontainers.CfnVirtualClusterProps(
-                container_provider=emrcontainers.CfnVirtualCluster.ContainerProviderProperty(
-                    id="id",
-                    info=emrcontainers.CfnVirtualCluster.ContainerInfoProperty(
-                        eks_info=emrcontainers.CfnVirtualCluster.EksInfoProperty(
-                            namespace="namespace"
-                        )
-                    ),
-                    type="type"
-                ),
-                name="name",
-            
-                # the properties below are optional
-                security_configuration_id="securityConfigurationId",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79f93ead2a436b8c5a2fc364fff5d9da849a851543aa1433cd7ab649d79d55f9)
-            check_type(argname="argument container_provider", value=container_provider, expected_type=type_hints["container_provider"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument security_configuration_id", value=security_configuration_id, expected_type=type_hints["security_configuration_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "container_provider": container_provider,
-            "name": name,
-        }
-        if security_configuration_id is not None:
-            self._values["security_configuration_id"] = security_configuration_id
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def container_provider(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnVirtualCluster.ContainerProviderProperty"]:
-        '''The container provider of the virtual cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-virtualcluster.html#cfn-emrcontainers-virtualcluster-containerprovider
-        '''
-        result = self._values.get("container_provider")
-        assert result is not None, "Required property 'container_provider' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnVirtualCluster.ContainerProviderProperty"], result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the virtual cluster.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-virtualcluster.html#cfn-emrcontainers-virtualcluster-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def security_configuration_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the security configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-virtualcluster.html#cfn-emrcontainers-virtualcluster-securityconfigurationid
-        '''
-        result = self._values.get("security_configuration_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-virtualcluster.html#cfn-emrcontainers-virtualcluster-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVirtualClusterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_emrcontainers.IVirtualClusterRef")
-class IVirtualClusterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a VirtualCluster.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="virtualClusterRef")
-    def virtual_cluster_ref(self) -> "VirtualClusterReference":
-        '''(experimental) A reference to a VirtualCluster resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IVirtualClusterRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a VirtualCluster.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_emrcontainers.IVirtualClusterRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="virtualClusterRef")
-    def virtual_cluster_ref(self) -> "VirtualClusterReference":
-        '''(experimental) A reference to a VirtualCluster resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("VirtualClusterReference", jsii.get(self, "virtualClusterRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IVirtualClusterRef).__jsii_proxy_class__ = lambda : _IVirtualClusterRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_emrcontainers.VirtualClusterReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "virtual_cluster_arn": "virtualClusterArn",
-        "virtual_cluster_id": "virtualClusterId",
-    },
-)
-class VirtualClusterReference:
-    def __init__(
-        self,
-        *,
-        virtual_cluster_arn: builtins.str,
-        virtual_cluster_id: builtins.str,
-    ) -> None:
-        '''A reference to a VirtualCluster resource.
-
-        :param virtual_cluster_arn: The ARN of the VirtualCluster resource.
-        :param virtual_cluster_id: The Id of the VirtualCluster resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_emrcontainers as emrcontainers
-            
-            virtual_cluster_reference = emrcontainers.VirtualClusterReference(
-                virtual_cluster_arn="virtualClusterArn",
-                virtual_cluster_id="virtualClusterId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ccb8c2a9e95ed8a60f165fcb71f6b3469f68e0738c123ae0722cd8d7cf87365)
-            check_type(argname="argument virtual_cluster_arn", value=virtual_cluster_arn, expected_type=type_hints["virtual_cluster_arn"])
-            check_type(argname="argument virtual_cluster_id", value=virtual_cluster_id, expected_type=type_hints["virtual_cluster_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "virtual_cluster_arn": virtual_cluster_arn,
-            "virtual_cluster_id": virtual_cluster_id,
-        }
-
-    @builtins.property
-    def virtual_cluster_arn(self) -> builtins.str:
-        '''The ARN of the VirtualCluster resource.'''
-        result = self._values.get("virtual_cluster_arn")
-        assert result is not None, "Required property 'virtual_cluster_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def virtual_cluster_id(self) -> builtins.str:
-        '''The Id of the VirtualCluster resource.'''
-        result = self._values.get("virtual_cluster_id")
-        assert result is not None, "Required property 'virtual_cluster_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "VirtualClusterReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IVirtualClusterRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IVirtualClusterRef_14fb6023, _ITaggable_36806126)
 class CfnVirtualCluster(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -317,6 +89,7 @@ class CfnVirtualCluster(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_emrcontainers as emrcontainers
@@ -344,15 +117,16 @@ class CfnVirtualCluster(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        container_provider: typing.Union[_IResolvable_da3f097b, typing.Union["CfnVirtualCluster.ContainerProviderProperty", typing.Dict[builtins.str, typing.Any]]],
+        container_provider: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVirtualCluster.ContainerProviderProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         security_configuration_id: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::EMRContainers::VirtualCluster``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param container_provider: The container provider of the virtual cluster.
@@ -373,8 +147,76 @@ class CfnVirtualCluster(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForVirtualCluster")
+    @builtins.classmethod
+    def arn_for_virtual_cluster(
+        cls,
+        resource: "_IVirtualClusterRef_14fb6023",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__516f2f16964e7ef220cab41225b3b7c3e3c0a9ee6b852252c3f1a1871264629c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVirtualCluster", [resource]))
+
+    @jsii.member(jsii_name="fromVirtualClusterArn")
+    @builtins.classmethod
+    def from_virtual_cluster_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IVirtualClusterRef_14fb6023":
+        '''Creates a new IVirtualClusterRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d7111433bac0bf3eef5f3ffc73c4e649ef41bf63a44cfbc891a7f06a1b9be4b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IVirtualClusterRef_14fb6023", jsii.sinvoke(cls, "fromVirtualClusterArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromVirtualClusterId")
+    @builtins.classmethod
+    def from_virtual_cluster_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        virtual_cluster_id: builtins.str,
+    ) -> "_IVirtualClusterRef_14fb6023":
+        '''Creates a new IVirtualClusterRef from a virtualClusterId.
+
+        :param scope: -
+        :param id: -
+        :param virtual_cluster_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fcaea2c30abe44238307f21b3c8a59222637a0fd52fab165c6272df6fa333e6a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument virtual_cluster_id", value=virtual_cluster_id, expected_type=type_hints["virtual_cluster_id"])
+        return typing.cast("_IVirtualClusterRef_14fb6023", jsii.sinvoke(cls, "fromVirtualClusterId", [scope, id, virtual_cluster_id]))
+
+    @jsii.member(jsii_name="isCfnVirtualCluster")
+    @builtins.classmethod
+    def is_cfn_virtual_cluster(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnVirtualCluster.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7c9228b7a5165151302a3840836f9259f95d9a03c7684570914df3c5f40c23a7)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVirtualCluster", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -428,28 +270,28 @@ class CfnVirtualCluster(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="virtualClusterRef")
-    def virtual_cluster_ref(self) -> VirtualClusterReference:
+    def virtual_cluster_ref(self) -> "_VirtualClusterReference_ded7b2ce":
         '''A reference to a VirtualCluster resource.'''
-        return typing.cast(VirtualClusterReference, jsii.get(self, "virtualClusterRef"))
+        return typing.cast("_VirtualClusterReference_ded7b2ce", jsii.get(self, "virtualClusterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="containerProvider")
     def container_provider(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnVirtualCluster.ContainerProviderProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnVirtualCluster.ContainerProviderProperty"]:
         '''The container provider of the virtual cluster.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnVirtualCluster.ContainerProviderProperty"], jsii.get(self, "containerProvider"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVirtualCluster.ContainerProviderProperty"], jsii.get(self, "containerProvider"))
 
     @container_provider.setter
     def container_provider(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnVirtualCluster.ContainerProviderProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnVirtualCluster.ContainerProviderProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__617f2c6bc289034f068a4b514139fc0bee8f6455f589c3e2de7ee7fb7a3a92e3)
@@ -484,12 +326,12 @@ class CfnVirtualCluster(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3436f23ae2ca4313aacb96519980906e71e5bc37e7a466a53353480f948e674)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -504,7 +346,7 @@ class CfnVirtualCluster(
         def __init__(
             self,
             *,
-            eks_info: typing.Union[_IResolvable_da3f097b, typing.Union["CfnVirtualCluster.EksInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            eks_info: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVirtualCluster.EksInfoProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The information about the container used for a job run or a managed endpoint.
 
@@ -535,14 +377,14 @@ class CfnVirtualCluster(
         @builtins.property
         def eks_info(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnVirtualCluster.EksInfoProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnVirtualCluster.EksInfoProperty"]:
             '''The information about the Amazon EKS cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-virtualcluster-containerinfo.html#cfn-emrcontainers-virtualcluster-containerinfo-eksinfo
             '''
             result = self._values.get("eks_info")
             assert result is not None, "Required property 'eks_info' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnVirtualCluster.EksInfoProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVirtualCluster.EksInfoProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -565,7 +407,7 @@ class CfnVirtualCluster(
             self,
             *,
             id: builtins.str,
-            info: typing.Union[_IResolvable_da3f097b, typing.Union["CfnVirtualCluster.ContainerInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            info: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVirtualCluster.ContainerInfoProperty", typing.Dict[builtins.str, typing.Any]]],
             type: builtins.str,
         ) -> None:
             '''The information about the container provider.
@@ -623,14 +465,14 @@ class CfnVirtualCluster(
         @builtins.property
         def info(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnVirtualCluster.ContainerInfoProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnVirtualCluster.ContainerInfoProperty"]:
             '''The information about the container cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emrcontainers-virtualcluster-containerprovider.html#cfn-emrcontainers-virtualcluster-containerprovider-info
             '''
             result = self._values.get("info")
             assert result is not None, "Required property 'info' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnVirtualCluster.ContainerInfoProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVirtualCluster.ContainerInfoProperty"], result)
 
         @builtins.property
         def type(self) -> builtins.str:
@@ -714,32 +556,137 @@ class CfnVirtualCluster(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_emrcontainers.CfnVirtualClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "container_provider": "containerProvider",
+        "name": "name",
+        "security_configuration_id": "securityConfigurationId",
+        "tags": "tags",
+    },
+)
+class CfnVirtualClusterProps:
+    def __init__(
+        self,
+        *,
+        container_provider: typing.Union["_IResolvable_da3f097b", typing.Union["CfnVirtualCluster.ContainerProviderProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        security_configuration_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVirtualCluster``.
+
+        :param container_provider: The container provider of the virtual cluster.
+        :param name: The name of the virtual cluster.
+        :param security_configuration_id: The ID of the security configuration.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-virtualcluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_emrcontainers as emrcontainers
+            
+            cfn_virtual_cluster_props = emrcontainers.CfnVirtualClusterProps(
+                container_provider=emrcontainers.CfnVirtualCluster.ContainerProviderProperty(
+                    id="id",
+                    info=emrcontainers.CfnVirtualCluster.ContainerInfoProperty(
+                        eks_info=emrcontainers.CfnVirtualCluster.EksInfoProperty(
+                            namespace="namespace"
+                        )
+                    ),
+                    type="type"
+                ),
+                name="name",
+            
+                # the properties below are optional
+                security_configuration_id="securityConfigurationId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79f93ead2a436b8c5a2fc364fff5d9da849a851543aa1433cd7ab649d79d55f9)
+            check_type(argname="argument container_provider", value=container_provider, expected_type=type_hints["container_provider"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument security_configuration_id", value=security_configuration_id, expected_type=type_hints["security_configuration_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "container_provider": container_provider,
+            "name": name,
+        }
+        if security_configuration_id is not None:
+            self._values["security_configuration_id"] = security_configuration_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def container_provider(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnVirtualCluster.ContainerProviderProperty"]:
+        '''The container provider of the virtual cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-virtualcluster.html#cfn-emrcontainers-virtualcluster-containerprovider
+        '''
+        result = self._values.get("container_provider")
+        assert result is not None, "Required property 'container_provider' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnVirtualCluster.ContainerProviderProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the virtual cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-virtualcluster.html#cfn-emrcontainers-virtualcluster-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def security_configuration_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the security configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-virtualcluster.html#cfn-emrcontainers-virtualcluster-securityconfigurationid
+        '''
+        result = self._values.get("security_configuration_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emrcontainers-virtualcluster.html#cfn-emrcontainers-virtualcluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVirtualClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnVirtualCluster",
     "CfnVirtualClusterProps",
-    "IVirtualClusterRef",
-    "VirtualClusterReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__79f93ead2a436b8c5a2fc364fff5d9da849a851543aa1433cd7ab649d79d55f9(
-    *,
-    container_provider: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVirtualCluster.ContainerProviderProperty, typing.Dict[builtins.str, typing.Any]]],
-    name: builtins.str,
-    security_configuration_id: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0ccb8c2a9e95ed8a60f165fcb71f6b3469f68e0738c123ae0722cd8d7cf87365(
-    *,
-    virtual_cluster_arn: builtins.str,
-    virtual_cluster_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__a06dc2760ceb0de7a449a23941f15987094157d1a540c30fa67c9e49a3e06101(
     scope: _constructs_77d1e7e8.Construct,
@@ -749,6 +696,34 @@ def _typecheckingstub__a06dc2760ceb0de7a449a23941f15987094157d1a540c30fa67c9e49a
     name: builtins.str,
     security_configuration_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__516f2f16964e7ef220cab41225b3b7c3e3c0a9ee6b852252c3f1a1871264629c(
+    resource: _IVirtualClusterRef_14fb6023,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d7111433bac0bf3eef5f3ffc73c4e649ef41bf63a44cfbc891a7f06a1b9be4b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fcaea2c30abe44238307f21b3c8a59222637a0fd52fab165c6272df6fa333e6a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    virtual_cluster_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c9228b7a5165151302a3840836f9259f95d9a03c7684570914df3c5f40c23a7(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -808,6 +783,16 @@ def _typecheckingstub__19801d68aea5b7c69bfd60c7d9c690e62c4643fe80fcda956e884f367
 def _typecheckingstub__26be72236c14a8878e3d92d7b17397aa49c8a844f85e9e98c958600dd7a08c8f(
     *,
     namespace: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79f93ead2a436b8c5a2fc364fff5d9da849a851543aa1433cd7ab649d79d55f9(
+    *,
+    container_provider: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVirtualCluster.ContainerProviderProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    security_configuration_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

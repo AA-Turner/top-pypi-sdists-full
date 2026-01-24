@@ -5,7 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_graph::index::Idx;
 use pyrefly_python::dunder;
+use pyrefly_types::literal::LitStyle;
 use ruff_python_ast::CmpOp;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBinOp;
@@ -17,12 +19,12 @@ use ruff_python_ast::UnaryOp;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
-use crate::alt::solve::Iterable;
 use crate::alt::unwrap::HintRef;
 use crate::binding::binding::KeyAnnotation;
 use crate::config::error_kind::ErrorKind;
@@ -31,7 +33,6 @@ use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
-use crate::graph::index::Idx;
 use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
@@ -41,16 +42,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         method_type: Type,
         range: TextRange,
-        errors: &ErrorCollector,
+        callee_errors: &ErrorCollector,
+        call_errors: &ErrorCollector,
         context: &dyn Fn() -> ErrorContext,
         opname: &Name,
         call_arg_type: &Type,
     ) -> Type {
+        self.record_resolved_trace(range, method_type.clone());
         let callable = self.as_call_target_or_error(
             method_type,
             CallStyle::Method(opname),
             range,
-            errors,
+            callee_errors,
             Some(context),
         );
         self.call_infer(
@@ -58,7 +61,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &[CallArg::ty(call_arg_type, range)],
             &[],
             range,
-            errors,
+            call_errors,
             Some(context),
             None,
             None,
@@ -81,27 +84,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 Some(&context),
                 "Expr::binop_infer",
+                true,
             );
             let Some(method_type_dunder) = method_type_dunder else {
                 continue;
             };
-            let dunder_errors = self.error_collector();
+            let callee_errors = self.error_collector();
+            let call_errors = self.error_collector();
             let ret = self.callable_dunder_helper(
                 method_type_dunder,
                 range,
-                &dunder_errors,
+                &callee_errors,
+                &call_errors,
                 &context,
                 dunder,
                 arg,
             );
-            if dunder_errors.is_empty() {
+            if call_errors.is_empty() {
+                errors.extend(callee_errors);
                 return ret;
             } else if first_call.is_none() {
-                first_call = Some((dunder_errors, ret));
+                first_call = Some((callee_errors, call_errors, ret));
             }
         }
-        if let Some((dunder_errors, ret)) = first_call {
-            errors.extend(dunder_errors);
+        if let Some((callee_errors, call_errors, ret)) = first_call {
+            errors.extend(callee_errors);
+            errors.extend(call_errors);
             ret
         } else {
             let dunders = calls
@@ -123,34 +131,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (Tuple::Concrete(l), Tuple::Concrete(r)) => {
                 let mut elements = l.clone();
                 elements.extend(r.clone());
-                Type::Tuple(Tuple::Concrete(elements))
+                Type::concrete_tuple(elements)
             }
-            (Tuple::Unbounded(l), Tuple::Unbounded(r)) => Type::Tuple(Tuple::Unbounded(Box::new(
-                self.union((**l).clone(), (**r).clone()),
-            ))),
-            (Tuple::Concrete(l), r @ Tuple::Unbounded(_)) => Type::Tuple(Tuple::Unpacked(
-                Box::new((l.clone(), Type::Tuple(r.clone()), Vec::new())),
-            )),
-            (l @ Tuple::Unbounded(_), Tuple::Concrete(r)) => Type::Tuple(Tuple::Unpacked(
-                Box::new((Vec::new(), Type::Tuple(l.clone()), r.clone())),
-            )),
+            (Tuple::Unbounded(l), Tuple::Unbounded(r)) => {
+                Type::unbounded_tuple(self.union((**l).clone(), (**r).clone()))
+            }
+            (Tuple::Concrete(l), r @ Tuple::Unbounded(_)) => {
+                Type::unpacked_tuple(l.clone(), Type::Tuple(r.clone()), Vec::new())
+            }
+            (l @ Tuple::Unbounded(_), Tuple::Concrete(r)) => {
+                Type::unpacked_tuple(Vec::new(), Type::Tuple(l.clone()), r.clone())
+            }
             (Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)), Tuple::Concrete(r)) => {
                 let mut new_suffix = l_suffix.clone();
                 new_suffix.extend(r.clone());
-                Type::Tuple(Tuple::Unpacked(Box::new((
-                    l_prefix.clone(),
-                    l_middle.clone(),
-                    new_suffix,
-                ))))
+                Type::unpacked_tuple(l_prefix.clone(), l_middle.clone(), new_suffix)
             }
             (Tuple::Concrete(l), Tuple::Unpacked(box (r_prefix, r_middle, r_suffix))) => {
                 let mut new_prefix = l.clone();
                 new_prefix.extend(r_prefix.clone());
-                Type::Tuple(Tuple::Unpacked(Box::new((
-                    new_prefix,
-                    r_middle.clone(),
-                    r_suffix.clone(),
-                ))))
+                Type::unpacked_tuple(new_prefix, r_middle.clone(), r_suffix.clone())
             }
             (Tuple::Unbounded(l), Tuple::Unpacked(box (r_prefix, r_middle, r_suffix))) => {
                 let mut middle = r_prefix.clone();
@@ -159,11 +159,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.unwrap_iterable(r_middle)
                         .unwrap_or(Type::any_implicit()),
                 );
-                Type::Tuple(Tuple::Unpacked(Box::new((
+                Type::unpacked_tuple(
                     Vec::new(),
-                    Type::Tuple(Tuple::unbounded(self.unions(middle))),
+                    Type::unbounded_tuple(self.unions(middle)),
                     r_suffix.clone(),
-                ))))
+                )
             }
             (Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)), Tuple::Unbounded(r)) => {
                 let mut middle = l_suffix.clone();
@@ -172,11 +172,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.unwrap_iterable(l_middle)
                         .unwrap_or(Type::any_implicit()),
                 );
-                Type::Tuple(Tuple::Unpacked(Box::new((
+                Type::unpacked_tuple(
                     l_prefix.clone(),
-                    Type::Tuple(Tuple::unbounded(self.unions(middle))),
+                    Type::unbounded_tuple(self.unions(middle)),
                     Vec::new(),
-                ))))
+                )
             }
             (
                 Tuple::Unpacked(box (l_prefix, l_middle, l_suffix)),
@@ -192,11 +192,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.unwrap_iterable(r_middle)
                         .unwrap_or(Type::any_implicit()),
                 );
-                Type::Tuple(Tuple::Unpacked(Box::new((
+                Type::unpacked_tuple(
                     l_prefix.clone(),
-                    Type::Tuple(Tuple::unbounded(self.unions(middle))),
+                    Type::unbounded_tuple(self.unions(middle)),
                     r_suffix.clone(),
-                ))))
+                )
             }
         }
     }
@@ -243,8 +243,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Optimisation: If we have `Union[a, b] | Union[c, d]`, instead of unioning
         // (a | c) | (a | d) | (b | c) | (b | d), we can just do one union.
         if x.op == Operator::BitOr
-            && let Some(l) = self.untype_opt(lhs.clone(), x.left.range())
-            && let Some(r) = self.untype_opt(rhs.clone(), x.right.range())
+            && let Some(l) = self.untype_opt(lhs.clone(), x.left.range(), errors)
+            && let Some(r) = self.untype_opt(rhs.clone(), x.right.range(), errors)
         {
             return Type::type_form(self.union(l, r));
         }
@@ -260,15 +260,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else if let Type::Any(style) = &lhs {
                     style.propagate()
                 } else if x.op == Operator::BitOr
-                    && let Some(l) = self.untype_opt(lhs.clone(), x.left.range())
-                    && let Some(r) = self.untype_opt(rhs.clone(), x.right.range())
+                    && let Some(l) = self.untype_opt(lhs.clone(), x.left.range(), errors)
+                    && let Some(r) = self.untype_opt(rhs.clone(), x.right.range(), errors)
                 {
                     Type::type_form(self.union(l, r))
                 } else if x.op == Operator::Add
-                    && ((*lhs == Type::LiteralString && rhs.is_literal_string())
-                        || (*rhs == Type::LiteralString && lhs.is_literal_string()))
+                    && ((matches!(lhs, Type::LiteralString(_)) && rhs.is_literal_string())
+                        || (matches!(rhs, Type::LiteralString(_)) && lhs.is_literal_string()))
                 {
-                    Type::LiteralString
+                    Type::LiteralString(LitStyle::Implicit)
                 } else if x.op == Operator::Add
                     && let Type::Tuple(l) = lhs
                     && let Type::Tuple(r) = rhs
@@ -314,7 +314,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     && base.is_literal_string()
                     && rhs.is_literal_string()
                 {
-                    Type::LiteralString
+                    Type::LiteralString(LitStyle::Implicit)
                 } else if x.op == Operator::Add
                     && let Type::Tuple(ref l) = base
                     && let Type::Tuple(r) = rhs
@@ -343,96 +343,98 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn compare_infer(&self, x: &ExprCompare, errors: &ErrorCollector) -> Type {
-        let left = self.expr_infer(&x.left, errors);
-        let comparisons = x.ops.iter().zip(x.comparators.iter());
-        self.unions(
-            comparisons
-                .map(|(op, comparator)| {
-                    let right = self.expr_infer(comparator, errors);
-                    self.distribute_over_union(&left, |left| {
-                        self.distribute_over_union(&right, |right| {
-                            let context = || {
-                                ErrorContext::BinaryOp(
-                                    op.as_str().to_owned(),
-                                    self.for_display(left.clone()),
-                                    self.for_display(right.clone()),
-                                )
-                            };
-                            match op {
-                                CmpOp::Is | CmpOp::IsNot => {
-                                    // These comparisons never error.
-                                    self.stdlib.bool().clone().to_type()
-                                }
-                                CmpOp::In | CmpOp::NotIn => {
-                                    // See https://docs.python.org/3/reference/expressions.html#membership-test-operations.
-                                    // `x in y` first tries `y.__contains__(x)`, then checks if `x` matches an element
-                                    // obtained by iterating over `y`.
-                                    if let Some(ret) = self.call_magic_dunder_method(
-                                        right,
-                                        &dunder::CONTAINS,
-                                        x.range,
-                                        &[CallArg::ty(left, x.left.range())],
-                                        &[],
-                                        errors,
-                                        Some(&context),
-                                    ) {
-                                        // Comparison method called.
-                                        ret
-                                    } else {
-                                        let iteration_errors = self.error_collector();
-                                        let iterables =
-                                            self.iterate(right, x.range, &iteration_errors);
-                                        if !iteration_errors.is_empty()
-                                            || !iterables.iter().any(|iterable| match iterable {
-                                                Iterable::OfType(ty) => self.is_subset_eq(left, ty),
-                                                Iterable::FixedLen(ts) => {
-                                                    ts.iter().any(|t| self.is_subset_eq(left, t))
-                                                }
-                                            })
-                                        {
-                                            // Iterating `y` failed, or `x` does not match any of the produced types.
-                                            self.error(
-                                                errors,
-                                                x.range,
-                                                ErrorInfo::Kind(ErrorKind::UnsupportedOperation),
-                                                context().format(),
-                                            );
-                                        }
-                                        self.stdlib.bool().clone().to_type()
-                                    }
-                                }
-                                _ => {
-                                    // We've handled the other cases above, so we know we have a rich comparison op.
-                                    let calls_to_try = [
-                                        (
-                                            &dunder::rich_comparison_dunder(*op).unwrap(),
-                                            left,
-                                            right,
-                                        ),
-                                        (
-                                            &dunder::rich_comparison_fallback(*op).unwrap(),
-                                            right,
-                                            left,
-                                        ),
-                                    ];
-                                    let ret = self.try_binop_calls(
-                                        &calls_to_try,
+        // For chained comparisons like `a < b < c`, Python evaluates as `(a < b) and (b < c)`.
+        // We need to track the current left operand as we iterate through the chain.
+        let mut current_left = self.expr_infer(&x.left, errors);
+        let mut current_left_range = x.left.range();
+        let mut results = Vec::new();
+        for (op, comparator) in x.ops.iter().zip(x.comparators.iter()) {
+            let right = self.expr_infer(comparator, errors);
+
+            // Check for unnecessary identity comparisons (is/is not) BEFORE distribute_over_union
+            // to avoid false positives with union types.
+            self.check_unnecessary_comparison(
+                &current_left,
+                &right,
+                *op,
+                comparator.range(),
+                errors,
+            );
+
+            let result = self.distribute_over_union(&current_left, |left| {
+                self.distribute_over_union(&right, |right| {
+                    let context = || {
+                        ErrorContext::BinaryOp(
+                            op.as_str().to_owned(),
+                            self.for_display(left.clone()),
+                            self.for_display(right.clone()),
+                        )
+                    };
+                    match op {
+                        CmpOp::Is | CmpOp::IsNot => {
+                            // These comparisons never error.
+                            self.stdlib.bool().clone().to_type()
+                        }
+                        CmpOp::In | CmpOp::NotIn => {
+                            // See https://docs.python.org/3/reference/expressions.html#membership-test-operations.
+                            // `x in y` first tries `y.__contains__(x)`, then checks if `x` matches an element
+                            // obtained by iterating over `y`.
+                            if let Some(ret) = self.call_magic_dunder_method(
+                                right,
+                                &dunder::CONTAINS,
+                                x.range,
+                                &[CallArg::ty(left, current_left_range)],
+                                &[],
+                                errors,
+                                Some(&context),
+                            ) {
+                                ret
+                            } else {
+                                let iteration_errors = self.error_collector();
+                                let iterables =
+                                    self.iterate(right, x.range, &iteration_errors, Some(&context));
+                                if iteration_errors.is_empty() {
+                                    // Make sure `x` matches the produced type.
+                                    self.check_type(
+                                        left,
+                                        &self.get_produced_type(iterables),
                                         x.range,
                                         errors,
-                                        &context,
+                                        &|| TypeCheckContext {
+                                            kind: TypeCheckKind::Container,
+                                            context: Some(context()),
+                                        },
                                     );
-                                    if ret.is_error() {
-                                        self.stdlib.bool().clone().to_type()
-                                    } else {
-                                        ret
-                                    }
+                                } else {
+                                    // Iterating `y` failed.
+                                    errors.extend(iteration_errors);
                                 }
+                                self.stdlib.bool().clone().to_type()
                             }
-                        })
-                    })
+                        }
+                        _ => {
+                            // We've handled the other cases above, so we know we have a rich comparison op.
+                            let calls_to_try = [
+                                (&dunder::rich_comparison_dunder(*op).unwrap(), left, right),
+                                (&dunder::rich_comparison_fallback(*op).unwrap(), right, left),
+                            ];
+                            let ret =
+                                self.try_binop_calls(&calls_to_try, x.range, errors, &context);
+                            if ret.is_error() {
+                                self.stdlib.bool().clone().to_type()
+                            } else {
+                                ret
+                            }
+                        }
+                    }
                 })
-                .collect(),
-        )
+            });
+            results.push(result);
+            // For next comparison, the current right becomes the new left
+            current_left = right;
+            current_left_range = comparator.range();
+        }
+        self.unions(results)
     }
 
     pub fn unop_infer(&self, x: &ExprUnaryOp, errors: &ErrorCollector) -> Type {
@@ -441,19 +443,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let context =
                 || ErrorContext::UnaryOp(x.op.as_str().to_owned(), self.for_display(t.clone()));
             match t {
-                Type::Literal(lit) if let Some(ret) = f(lit) => ret,
-                Type::ClassType(_) | Type::SelfType(_) => {
+                Type::Literal(lit) if let Some(ret) = f(&lit.value) => ret,
+                Type::ClassType(_) | Type::SelfType(_) | Type::Quantified(_) => {
                     self.call_method_or_error(t, method, x.range, &[], &[], errors, Some(&context))
                 }
-                Type::Literal(Lit::Enum(lit_enum)) => self.call_method_or_error(
-                    &lit_enum.class.clone().to_type(),
-                    method,
-                    x.range,
-                    &[],
-                    &[],
-                    errors,
-                    Some(&context),
-                ),
+                Type::Literal(lit) if let Lit::Enum(lit_enum) = &lit.value => self
+                    .call_method_or_error(
+                        &lit_enum.class.clone().to_type(),
+                        method,
+                        x.range,
+                        &[],
+                        &[],
+                        errors,
+                        Some(&context),
+                    ),
                 Type::Any(style) => style.propagate(),
                 _ => self.error(
                     errors,
@@ -472,14 +475,124 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let f = |lit: &Lit| lit.positive();
                 unop(t, &f, &dunder::POS)
             }
-            UnaryOp::Not => match t.as_bool() {
-                None => self.stdlib.bool().clone().to_type(),
-                Some(b) => Type::Literal(Lit::Bool(!b)),
-            },
+            UnaryOp::Not => {
+                self.check_dunder_bool_is_callable(t, x.range, errors);
+                match t.as_bool() {
+                    None => self.stdlib.bool().clone().to_type(),
+                    Some(b) => Lit::Bool(!b).to_implicit_type(),
+                }
+            }
             UnaryOp::Invert => {
                 let f = |lit: &Lit| lit.invert();
                 unop(t, &f, &dunder::INVERT)
             }
         })
+    }
+
+    /// Checks for unnecessary identity comparisons.
+    ///
+    /// Only emits warnings for identity comparisons (`is` or `is not`) between literals
+    /// whose comparison result is statically known.
+    /// Returns early without warnings for other comparison operators.
+    fn check_unnecessary_comparison(
+        &self,
+        left: &Type,
+        right: &Type,
+        op: CmpOp,
+        range: TextRange,
+        errors: &ErrorCollector,
+    ) {
+        // Only check identity comparisons
+        if !matches!(op, CmpOp::Is | CmpOp::IsNot) {
+            return;
+        }
+
+        let is_op = matches!(op, CmpOp::Is);
+        let is_bool_literal = |lit: &Lit| matches!(lit, Lit::Bool(_));
+        let emit_literal_warning = |left_str: &str, right_str: &str, result: &str| {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::UnnecessaryComparison),
+                format!(
+                    "Identity comparison `{} {} {}` is always {}",
+                    left_str,
+                    if is_op { "is" } else { "is not" },
+                    right_str,
+                    result
+                ),
+            );
+        };
+        let emit_instance_is_class_warning = |instance_str: &str, class_str: &str, is_op: bool| {
+            errors.add(
+                range,
+                ErrorInfo::Kind(ErrorKind::UnnecessaryComparison),
+                vec1![
+                    format!(
+                        "Identity comparison between an instance of `{}` and class `{}` is always {}",
+                        instance_str,
+                        class_str,
+                        if is_op { "False" } else { "True" }
+                    ),
+                    format!(
+                        "Did you mean to do `{}isinstance(..., {})`?",
+                        if is_op { "" } else { "not " },
+                        class_str,
+                    )
+                ],
+            );
+        };
+
+        match (left, right) {
+            // If both are literals/None, check for predictable results
+            (Type::Literal(l1), Type::Literal(l2)) => {
+                if l1 != l2 {
+                    emit_literal_warning(
+                        &l1.value.to_string(),
+                        &l2.value.to_string(),
+                        if is_op { "False" } else { "True" },
+                    );
+                } else if is_bool_literal(&l1.value) {
+                    emit_literal_warning(
+                        &l1.value.to_string(),
+                        &l2.value.to_string(),
+                        if is_op { "True" } else { "False" },
+                    );
+                }
+            }
+            (Type::Literal(l), Type::None) => {
+                emit_literal_warning(
+                    &l.value.to_string(),
+                    "None",
+                    if is_op { "False" } else { "True" },
+                );
+            }
+            (Type::None, Type::Literal(l)) => {
+                emit_literal_warning(
+                    "None",
+                    &l.value.to_string(),
+                    if is_op { "False" } else { "True" },
+                );
+            }
+
+            // ClassDef vs ClassType - disjoint unless ClassType is `type`, `object`,
+            // or another metaclass (subclass of type)
+            (Type::ClassDef(cdef), ctype @ Type::ClassType(cls))
+            | (ctype @ Type::ClassType(cls), Type::ClassDef(cdef)) => {
+                // A class object is an instance of `type` (or a metaclass), so it's only
+                // compatible with ClassType if that ClassType is `type`, `object`, or a metaclass
+                let is_metaclass_or_object = cls.is_builtin("object")
+                    || self.has_superclass(
+                        cls.class_object(),
+                        self.stdlib.builtins_type().class_object(),
+                    );
+                if !is_metaclass_or_object {
+                    emit_instance_is_class_warning(&ctype.to_string(), cdef.name().as_str(), is_op);
+                }
+            }
+
+            // All other combinations: no warning
+            _ => {}
+        }
     }
 }

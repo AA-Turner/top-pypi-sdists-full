@@ -12,6 +12,8 @@ from ......schema_classes import DocPropagationFeatureSettingsClass
 from ......schema_classes import GlobalHomePageSettingsClass
 from ......schema_classes import GlobalSettingsInfoClass
 from ......schema_classes import GlobalViewsSettingsClass
+from ......schema_classes import OAuthProviderClass
+from ......schema_classes import OAuthSettingsClass
 from ......schema_classes import OidcSettingsClass
 from ......schema_classes import SsoSettingsClass
 
@@ -21,6 +23,8 @@ DocPropagationFeatureSettings = DocPropagationFeatureSettingsClass
 GlobalHomePageSettings = GlobalHomePageSettingsClass
 GlobalSettingsInfo = GlobalSettingsInfoClass
 GlobalViewsSettings = GlobalViewsSettingsClass
+OAuthProvider = OAuthProviderClass
+OAuthSettings = OAuthSettingsClass
 OidcSettings = OidcSettingsClass
 SsoSettings = SsoSettingsClass
 

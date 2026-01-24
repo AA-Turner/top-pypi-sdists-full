@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 from typing_extensions import Annotated
 
 
@@ -64,9 +64,10 @@ class Usage(BaseModel):
         "cache_write_input_tokens",
     ]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -91,7 +92,7 @@ class Usage(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # set to None if cache_read_input_tokens (nullable) is None
         if self.cache_read_input_tokens is None:
@@ -114,9 +115,9 @@ class Usage(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Usage.parse_obj(obj)
+            return Usage.model_validate(obj)
 
-        _obj = Usage.parse_obj(
+        _obj = Usage.model_validate(
             {
                 "prompt_tokens": obj.get("prompt_tokens"),
                 "completion_tokens": obj.get("completion_tokens"),

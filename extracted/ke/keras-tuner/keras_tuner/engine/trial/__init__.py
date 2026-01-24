@@ -5,5 +5,5 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.engine.trial import Trial
-from keras_tuner.src.engine.trial import TrialStatus
+from keras_tuner.src.engine.trial import Trial as Trial
+from keras_tuner.src.engine.trial import TrialStatus as TrialStatus

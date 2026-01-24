@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,10 +13,11 @@ import (
 	"github.com/wandb/wandb/core/internal/runsync"
 	"github.com/wandb/wandb/core/internal/runwork"
 	"github.com/wandb/wandb/core/internal/runworktest"
-	"github.com/wandb/wandb/core/internal/stream"
 	"github.com/wandb/wandb/core/internal/streamtest"
+	"github.com/wandb/wandb/core/internal/transactionlog"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type testFixtures struct {
@@ -45,6 +47,9 @@ func setup(t *testing.T) testFixtures {
 	return testFixtures{
 		RunReader: factory.New(
 			transactionLog,
+			runsync.ToDisplayPath(transactionLog, ""),
+			nil,
+			false,
 			mockRecordParser,
 			fakeRunWork,
 		),
@@ -63,9 +68,7 @@ func wandbFileWithRecords(
 ) {
 	t.Helper()
 
-	store := stream.NewStore(path)
-
-	err := store.Open(os.O_WRONLY)
+	store, err := transactionlog.OpenWriter(path)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, store.Close()) }()
 
@@ -130,6 +133,50 @@ func isExitRecord(code int32) gomock.Matcher {
 			return val.(*spb.Record).GetExit().ExitCode == code
 		},
 	)
+}
+
+func Test_Extract_FindsRunRecord(t *testing.T) {
+	x := setup(t)
+	startTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	wandbFileWithRecords(t,
+		x.TransactionLog,
+		&spb.Record{RecordType: &spb.Record_Run{
+			Run: &spb.RunRecord{
+				Entity:    "test entity",
+				Project:   "test project",
+				RunId:     "test run ID",
+				StartTime: timestamppb.New(startTime),
+			},
+		}})
+
+	runInfo, err := x.RunReader.ExtractRunInfo()
+	require.NoError(t, err)
+
+	assert.Equal(t, &runsync.RunInfo{
+		Entity:    "test entity",
+		Project:   "test project",
+		RunID:     "test run ID",
+		StartTime: startTime,
+	}, runInfo)
+}
+
+func Test_Extract_ErrorIfNoRunRecord(t *testing.T) {
+	x := setup(t)
+	wandbFileWithRecords(t, x.TransactionLog)
+
+	runInfo, err := x.RunReader.ExtractRunInfo()
+
+	assert.Nil(t, runInfo)
+	assert.ErrorContains(t, err, "didn't find run info")
+}
+
+func Test_Extract_ErrorIfNoFile(t *testing.T) {
+	x := setup(t)
+
+	runInfo, err := x.RunReader.ExtractRunInfo()
+
+	assert.Nil(t, runInfo)
+	assert.ErrorContains(t, err, "failed to open reader")
 }
 
 func Test_TurnsAllRecordsIntoWork(t *testing.T) {
@@ -250,5 +297,5 @@ func Test_CorruptFileError(t *testing.T) {
 
 	err = x.RunReader.ProcessTransactionLog()
 
-	assert.ErrorContains(t, err, "failed to get next record")
+	assert.ErrorContains(t, err, "error getting next record")
 }

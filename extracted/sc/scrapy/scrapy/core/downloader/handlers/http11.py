@@ -14,7 +14,7 @@ from urllib.parse import urldefrag, urlparse
 from twisted.internet import ssl
 from twisted.internet.defer import CancelledError, Deferred, succeed
 from twisted.internet.endpoints import TCP4ClientEndpoint
-from twisted.internet.error import TimeoutError
+from twisted.internet.error import TimeoutError as TxTimeoutError
 from twisted.internet.protocol import Factory, Protocol, connectionDone
 from twisted.python.failure import Failure
 from twisted.web.client import (
@@ -30,11 +30,14 @@ from twisted.web.http_headers import Headers as TxHeaders
 from twisted.web.iweb import UNKNOWN_LENGTH, IBodyProducer, IPolicyForHTTPS, IResponse
 from zope.interface import implementer
 
-from scrapy import Request, Spider, signals
+from scrapy import Request, signals
 from scrapy.core.downloader.contextfactory import load_context_factory_from_settings
+from scrapy.core.downloader.handlers.base import BaseDownloadHandler
 from scrapy.exceptions import StopDownload
 from scrapy.http import Headers, Response
 from scrapy.responsetypes import responsetypes
+from scrapy.utils.defer import maybe_deferred_to_future
+from scrapy.utils.deprecate import warn_on_deprecated_spider_attribute
 from scrapy.utils.httpobj import urlparse_cached
 from scrapy.utils.python import to_bytes, to_unicode
 from scrapy.utils.url import add_http_if_no_scheme
@@ -43,11 +46,10 @@ if TYPE_CHECKING:
     from twisted.internet.base import ReactorBase
     from twisted.internet.interfaces import IConsumer
 
-    # typing.NotRequired and typing.Self require Python 3.11
-    from typing_extensions import NotRequired, Self
+    # typing.NotRequired requires Python 3.11
+    from typing_extensions import NotRequired
 
     from scrapy.crawler import Crawler
-    from scrapy.settings import BaseSettings
 
 
 logger = logging.getLogger(__name__)
@@ -64,45 +66,53 @@ class _ResultT(TypedDict):
     failure: NotRequired[Failure | None]
 
 
-class HTTP11DownloadHandler:
-    lazy = False
-
-    def __init__(self, settings: BaseSettings, crawler: Crawler):
+class HTTP11DownloadHandler(BaseDownloadHandler):
+    def __init__(self, crawler: Crawler):
+        super().__init__(crawler)
         self._crawler = crawler
 
         from twisted.internet import reactor
 
         self._pool: HTTPConnectionPool = HTTPConnectionPool(reactor, persistent=True)
-        self._pool.maxPersistentPerHost = settings.getint(
+        self._pool.maxPersistentPerHost = crawler.settings.getint(
             "CONCURRENT_REQUESTS_PER_DOMAIN"
         )
         self._pool._factory.noisy = False
 
         self._contextFactory: IPolicyForHTTPS = load_context_factory_from_settings(
-            settings, crawler
+            crawler.settings, crawler
         )
-        self._default_maxsize: int = settings.getint("DOWNLOAD_MAXSIZE")
-        self._default_warnsize: int = settings.getint("DOWNLOAD_WARNSIZE")
-        self._fail_on_dataloss: bool = settings.getbool("DOWNLOAD_FAIL_ON_DATALOSS")
+        self._default_maxsize: int = crawler.settings.getint("DOWNLOAD_MAXSIZE")
+        self._default_warnsize: int = crawler.settings.getint("DOWNLOAD_WARNSIZE")
+        self._fail_on_dataloss: bool = crawler.settings.getbool(
+            "DOWNLOAD_FAIL_ON_DATALOSS"
+        )
         self._disconnect_timeout: int = 1
 
-    @classmethod
-    def from_crawler(cls, crawler: Crawler) -> Self:
-        return cls(crawler.settings, crawler)
-
-    def download_request(self, request: Request, spider: Spider) -> Deferred[Response]:
+    async def download_request(self, request: Request) -> Response:
         """Return a deferred for the HTTP download"""
+        if hasattr(self._crawler.spider, "download_maxsize"):  # pragma: no cover
+            warn_on_deprecated_spider_attribute("download_maxsize", "DOWNLOAD_MAXSIZE")
+        if hasattr(self._crawler.spider, "download_warnsize"):  # pragma: no cover
+            warn_on_deprecated_spider_attribute(
+                "download_warnsize", "DOWNLOAD_WARNSIZE"
+            )
+
         agent = ScrapyAgent(
             contextFactory=self._contextFactory,
             pool=self._pool,
-            maxsize=getattr(spider, "download_maxsize", self._default_maxsize),
-            warnsize=getattr(spider, "download_warnsize", self._default_warnsize),
+            maxsize=getattr(
+                self._crawler.spider, "download_maxsize", self._default_maxsize
+            ),
+            warnsize=getattr(
+                self._crawler.spider, "download_warnsize", self._default_warnsize
+            ),
             fail_on_dataloss=self._fail_on_dataloss,
             crawler=self._crawler,
         )
-        return agent.download_request(request)
+        return await maybe_deferred_to_future(agent.download_request(request))
 
-    def close(self) -> Deferred[None]:
+    async def close(self) -> None:
         from twisted.internet import reactor
 
         d: Deferred[None] = self._pool.closeCachedConnections()
@@ -110,19 +120,19 @@ class HTTP11DownloadHandler:
         # we'll manually timeout the deferred.
         #
         # Twisted issue addressing this problem can be found here:
-        # https://twistedmatrix.com/trac/ticket/7738.
+        # https://github.com/twisted/twisted/issues/7738
         #
         # closeCachedConnections doesn't handle external errbacks, so we'll
         # issue a callback after `_disconnect_timeout` seconds.
+        #
+        # See also https://github.com/scrapy/scrapy/issues/2653
         delayed_call = reactor.callLater(self._disconnect_timeout, d.callback, [])
 
-        def cancel_delayed_call(result: _T) -> _T:
+        try:
+            await maybe_deferred_to_future(d)
+        finally:
             if delayed_call.active():
                 delayed_call.cancel()
-            return result
-
-        d.addBoth(cancel_delayed_call)
-        return d
 
 
 class TunnelError(Exception):
@@ -386,6 +396,7 @@ class ScrapyAgent:
             if not proxy_port:
                 proxy_port = 443 if proxy_parsed.scheme == "https" else 80
             if urlparse_cached(request).scheme == "https":
+                assert proxy_host is not None
                 proxyAuth = request.headers.get(b"Proxy-Authorization", None)
                 proxyConf = (proxy_host, proxy_port, proxyAuth)
                 return self._TunnelingAgent(
@@ -430,7 +441,7 @@ class ScrapyAgent:
             method,
             to_bytes(url, encoding="ascii"),
             headers,
-            cast(IBodyProducer, bodyproducer),
+            cast("IBodyProducer", bodyproducer),
         )
         # set download latency
         d.addCallback(self._cb_latency, request, start_time)
@@ -451,7 +462,7 @@ class ScrapyAgent:
         if self._txresponse:
             self._txresponse._transport.stopProducing()
 
-        raise TimeoutError(f"Getting {url} took longer than {timeout} seconds.")
+        raise TxTimeoutError(f"Getting {url} took longer than {timeout} seconds.")
 
     def _cb_latency(self, result: _T, request: Request, start_time: float) -> _T:
         request.meta["download_latency"] = time() - start_time

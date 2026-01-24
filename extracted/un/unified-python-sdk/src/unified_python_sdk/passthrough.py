@@ -130,6 +130,7 @@ class Passthrough(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.request_body, False, True, "json", Optional[Any]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -146,7 +147,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createPassthrough_json",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -279,6 +280,7 @@ class Passthrough(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.request_body, False, True, "json", Optional[Any]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -295,7 +297,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createPassthrough_json",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -432,6 +434,7 @@ class Passthrough(BaseSDK):
                 "raw",
                 Optional[Union[bytes, IO[bytes], io.BufferedReader]],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -448,7 +451,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createPassthrough_raw",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -585,6 +588,7 @@ class Passthrough(BaseSDK):
                 "raw",
                 Optional[Union[bytes, IO[bytes], io.BufferedReader]],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -601,7 +605,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createPassthrough_raw",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -731,6 +735,7 @@ class Passthrough(BaseSDK):
             else "application/json;q=1, text/csv;q=0.8, text/plain;q=0.6, application/xml;q=0.4, */*;q=0",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -747,7 +752,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPassthroughs",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -877,6 +882,7 @@ class Passthrough(BaseSDK):
             else "application/json;q=1, text/csv;q=0.8, text/plain;q=0.6, application/xml;q=0.4, */*;q=0",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -893,7 +899,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPassthroughs",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1026,6 +1032,7 @@ class Passthrough(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.request_body, False, True, "json", Optional[Any]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1042,7 +1049,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchPassthrough_json",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1175,6 +1182,7 @@ class Passthrough(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.request_body, False, True, "json", Optional[Any]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1191,7 +1199,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchPassthrough_json",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1328,6 +1336,7 @@ class Passthrough(BaseSDK):
                 "raw",
                 Optional[Union[bytes, IO[bytes], io.BufferedReader]],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1344,7 +1353,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchPassthrough_raw",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1481,6 +1490,7 @@ class Passthrough(BaseSDK):
                 "raw",
                 Optional[Union[bytes, IO[bytes], io.BufferedReader]],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1497,7 +1507,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchPassthrough_raw",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1627,6 +1637,7 @@ class Passthrough(BaseSDK):
             else "application/json;q=1, text/csv;q=0.8, text/plain;q=0.6, application/xml;q=0.4, */*;q=0",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1643,7 +1654,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removePassthrough",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1773,6 +1784,7 @@ class Passthrough(BaseSDK):
             else "application/json;q=1, text/csv;q=0.8, text/plain;q=0.6, application/xml;q=0.4, */*;q=0",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1789,7 +1801,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removePassthrough",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1922,6 +1934,7 @@ class Passthrough(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.request_body, False, True, "json", Optional[Any]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1938,7 +1951,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updatePassthrough_json",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2071,6 +2084,7 @@ class Passthrough(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.request_body, False, True, "json", Optional[Any]
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2087,7 +2101,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updatePassthrough_json",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2224,6 +2238,7 @@ class Passthrough(BaseSDK):
                 "raw",
                 Optional[Union[bytes, IO[bytes], io.BufferedReader]],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2240,7 +2255,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updatePassthrough_raw",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2377,6 +2392,7 @@ class Passthrough(BaseSDK):
                 "raw",
                 Optional[Union[bytes, IO[bytes], io.BufferedReader]],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2393,7 +2409,7 @@ class Passthrough(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updatePassthrough_raw",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

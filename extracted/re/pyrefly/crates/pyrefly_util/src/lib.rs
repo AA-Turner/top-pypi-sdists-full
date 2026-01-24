@@ -21,11 +21,9 @@
 #![deny(clippy::derive_partial_eq_without_eq)]
 #![deny(clippy::inefficient_to_string)]
 #![deny(clippy::str_to_string)]
-#![deny(clippy::string_to_string)]
 #![deny(clippy::trivially_copy_pass_by_ref)]
 #![feature(const_type_name)]
 #![feature(if_let_guard)]
-#![feature(let_chains)]
 
 //! Utility functions that are not specific to the things Pyre does.
 
@@ -51,8 +49,11 @@ pub mod panic;
 pub mod prelude;
 pub mod recurser;
 pub mod ruff_visitors;
+pub mod small_map1;
 pub mod small_set1;
+pub mod suggest;
 pub mod task_heap;
+pub mod telemetry;
 pub mod test_path;
 pub mod thread_pool;
 pub mod trace;
@@ -60,6 +61,7 @@ pub mod uniques;
 pub mod upgrade_lock;
 pub mod upward_search;
 pub mod visit;
+pub mod watch_pattern;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod watcher;
 pub mod with_hash;

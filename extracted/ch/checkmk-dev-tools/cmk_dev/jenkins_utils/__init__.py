@@ -13,17 +13,23 @@ import json
 import logging
 import os
 from argparse import ArgumentParser
-from collections.abc import AsyncIterable, Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import (
+    AsyncIterable,
+    Iterable,
+    Mapping,
+    MutableMapping,
+    Sequence,
+    Set,
+)
 from configparser import ConfigParser
 from contextlib import suppress
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Union, cast
+from typing import Any, ClassVar, Literal, Union, cast
 
-import jenkins
-from jenkins import Jenkins
-from pydantic import BaseModel, Json, model_validator
-from retry import retry
-from trickkiste.misc import asyncify, compact_dict, date_str, dur_str, split_params
+from jenkins import Jenkins, JenkinsException
+from pydantic import BaseModel, ConfigDict, Json, model_validator
+from trickkiste.misc import async_retry, asyncify, compact_dict, date_str, dur_str, split_params
 
 from cmk_dev.utils import Fatal
 
@@ -39,6 +45,8 @@ BuildId = int
 
 JobResult = Literal["FAILURE", "SUCCESS", "ABORTED", "UNSTABLE", "PROGRESS", "RUNNING"]
 
+MAX_ATTEMPTS = 3
+
 
 def log() -> logging.Logger:
     """Convenience function retrieves 'our' logger"""
@@ -46,35 +54,53 @@ def log() -> logging.Logger:
 
 
 class PedanticBaseModel(BaseModel):
-    """Even more pedandic.."""
+    """Even more pedantic.."""
 
-    class Config:
-        """Mandatory docstring"""
+    # Set to "forbid" in ordert to enforce a stricter pydantic validation which
+    # raises on unknown attributes. Activate it in development only since it will
+    # break runtimes when Jenkins API changes again.
+    model_config = ConfigDict(extra="ignore")
 
-    #     extra = Extra.forbid
+    _ignored_keys: ClassVar[Set[str]] = set()
+    type: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def correct_base(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
+        # Most (not all unfortunately) objects retrieved by the Jenkins API have
+        # a _class element, which is a hierarchical class identifier, e.g.
+        # 'org.jenkinsci.plugins.workflow.job.WorkflowJob'
+        # This string is hard to work with and attributes with a '_' prefix are
+        # neither pythonic nor pydantic, so we extract the interesting part and
+        # rename it to 'type'
+        return {
+            # pass through all keys but "_class" and all keys in `_ignored_keys`
+            **{
+                key: value
+                for key, value in obj.items()
+                if key not in cls._ignored_keys and key != "_class"
+            },
+            # and turn "_class" into "type" if availabe (taking only the last part)
+            **({"type": obj["_class"].rsplit(".", 1)[-1]} if "_class" in obj else {}),
+        }
 
 
 class JobTreeElement(PedanticBaseModel):
     """Models a Jenkins job build"""
 
-    type: str
     name: str | None
-
-    @model_validator(mode="before")
-    @classmethod
-    def correct(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
-        """Refactor init to match our excpectations"""
-        if "_class" in obj:
-            obj["type"] = obj["_class"].rsplit(".", 1)[-1]
-            del obj["_class"]
-        return obj
 
 
 class Folder(JobTreeElement):
     """Dummy folder element"""
 
     type: str = "Folder"
-    # ignore: url, jobs
+
+    _ignored_keys = {
+        "url",
+        "jobs",
+        "fullname",
+    }
 
 
 class SimpleBuild(PedanticBaseModel):
@@ -84,13 +110,39 @@ class SimpleBuild(PedanticBaseModel):
     url: str
     node: None | str = None
 
-    # ignore: name, executor, type
+    # remove `type` (get_running_builds() doesn't get us _class)
+    type: str = "undefined"
+
+    _ignored_keys = {"executor", "name"}
+
+
+class Cause(PedanticBaseModel):
+    """Cause
+    actually type is one of
+        'Cause$UpstreamCause' =>            'Started by upstream project..'
+        'BuildUpstreamCause'  =>            'Started by upstream project..'
+        'TimerTrigger$TimerTriggerCause' => 'Started by timer'
+        'Cause$UserIdCause' =>              'Started by user <user>'
+        'ReplayCause' =>                    'Replayed #<id>'
+        'RebuildCause' =>                   'Rebuilds build <id>'
+        'SCMTrigger$SCMTriggerCause' =>     'Started by an SCM change'
+        'GerritCause' =>                    'Triggered by Gerrit'
+        'GerritUserCause' =>                'Retriggered by user <user>'
+    but we don't need to be pydantic here..
+    """
+
+    type: str
+    shortDescription: str
+    upstreamProject: None | str = None
+    upstreamBuild: None | int = None
+    userId: None | str = None
+
+    _ignored_keys = {"upstreamUrl", "userName"}
 
 
 class Build(SimpleBuild):
     """Models a Jenkins job build"""
 
-    number: int
     timestamp: int  # easier to handle than NaiveDatetime
     duration: int  # easier to handle than timedelta
     result: None | JobResult
@@ -98,43 +150,77 @@ class Build(SimpleBuild):
     artifacts: Sequence[str]
     inProgress: bool
     parameters: Mapping[str, str | bool]
+    causes: Sequence[Cause]
     nextBuild: None | SimpleBuild = None
+    type: str
 
-    # ignore: executor
+    _ignored_keys = {
+        "actions",
+        "building",
+        "changeSets",
+        "culprits",
+        "description",
+        "displayName",
+        "estimatedDuration",
+        "executor",
+        "fullDisplayName",
+        "id",
+        "keepLog",
+        "previousBuild",
+        "queueId",
+    }
 
     @model_validator(mode="before")
     @classmethod
-    def correct(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
-        """Refactor init to match our excpectations"""
+    def correct_build(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
+        """Refactor init to match our expectations"""
 
-        if obj.get("result") not in {None, "FAILURE", "SUCCESS", "ABORTED", "UNSTABLE", "RUNNING", "PROGRESS"}:
+        if obj.get("result") not in {
+            None,
+            "FAILURE",
+            "SUCCESS",
+            "ABORTED",
+            "UNSTABLE",
+            "RUNNING",
+            "PROGRESS",
+        }:
             log().error("Build result has unexpected value %s", obj.get("result"))
 
-        # hack to create Job build with InfluxDB data
-        if "parameters" in obj:
-            this_parameters = obj["parameters"]
-        else:
-            this_parameters = params_from(
-                build_info=obj,
-                action_name="ParametersAction",
-                item_name="parameters"
-            )
-        path_hashes = split_params(cast(str, this_parameters.get("DEPENDENCY_PATH_HASHES", "")))
+        # since some Build attributes get extracted from the 'actions' attribute
+        # for convenience reasons, it must be able to both take them from the constructor
+        # or - if not available fall back to the 'actions' list
+        parameters = (
+            parameters_inj
+            if (parameters_inj := obj.get("parameters")) is not None
+            else params_from(build_info=obj, action_name="ParametersAction", item_name="parameters")
+        )
+
+        causes = (
+            causes_inj
+            if (causes_inj := obj.get("causes")) is not None
+            else [
+                Cause.model_validate(cause)
+                for cause in cast(
+                    Sequence[Mapping[str, str]],
+                    params_from(build_info=obj, action_name="CauseAction", item_name="causes"),
+                )
+            ]
+        )
+        path_hashes = split_params(cast(str, parameters.get("DEPENDENCY_PATH_HASHES", "")))
 
         return {
             **obj,
-            **{
-                "timestamp": obj["timestamp"] // 1000,
-                "duration": obj["duration"] // 1000,
-                "parameters": this_parameters,
-                "path_hashes": path_hashes,
-                "artifacts": [
-                    cast(Mapping[str, str], a)["relativePath"]
-                    for a in cast(GenMapArray, obj["artifacts"])
-                ],
-                # SCM could be retrieved via 'hudson.plugins.git.util.BuildData'
-                # "executor": (executor_value := obj.get("executor")) and executor_value["_class"],
-            },
+            "timestamp": obj["timestamp"] // 1000
+            if obj["timestamp"] > 9_999_999_999  # noqa: PLR2004  - this constant is self explanatory
+            else obj["timestamp"],
+            "duration": obj["duration"] // 1000,
+            "parameters": parameters,
+            "causes": causes,
+            "path_hashes": path_hashes,
+            "artifacts": [
+                cast(Mapping[str, str], a)["relativePath"]
+                for a in cast(GenMapArray, obj["artifacts"])
+            ],
         }
 
     def __repr__(self) -> str:
@@ -142,7 +228,7 @@ class Build(SimpleBuild):
 
     def __str__(self) -> str:
         return (
-            f"Build(nr={self.number}, {'completed' if  self.completed else 'running'}/{self.result}"
+            f"Build(nr={self.number}, {'completed' if self.completed else 'running'}/{self.result}"
             f", started: {date_str(self.timestamp)}"
             f", took {dur_str(self.duration, fixed=True)}"
             f", params={{{compact_dict(self.parameters)}}}"
@@ -163,10 +249,11 @@ class SimpleJob(JobTreeElement):
     color: str
     name: None | str = None
     url: str
+    type: Literal["WorkflowJob", "FreeStyleProject", "MatrixProject"]
 
 
 class Job(SimpleJob):
-    """Models a Jenkins job"""
+    """Models a full Jenkins job"""
 
     path: str
     builds: Sequence[SimpleBuild] = []
@@ -174,16 +261,42 @@ class Job(SimpleJob):
     lastSuccessfulBuild: None | SimpleBuild = None
     lastCompletedBuild: None | SimpleBuild = None
 
-    # ignore: actions: None | Sequence[dict[str, Any]] = None
-    # ignore: description, displayName, displayNameOrNull, fullDisplayName, fullName, buildable
+    _ignored_keys = {
+        "actions",
+        "buildable",
+        "concurrentBuild",
+        "description",
+        "disabled",
+        "displayName",
+        "displayNameOrNull",
+        "downstreamProjects",
+        "firstBuild",
+        "fullDisplayName",
+        "fullName",
+        "healthReport",
+        "inQueue",
+        "keepDependencies",
+        "labelExpression",
+        "lastBuild",
+        "lastFailedBuild",
+        "lastStableBuild",
+        "lastUnstableBuild",
+        "lastUnsuccessfulBuild",
+        "nextBuildNumber",
+        "property",
+        "queueItem",
+        "resumeBlocked",
+        "scm",
+        "upstreamProjects",
+    }
 
     def __str__(self) -> str:
         return f"Job('{self.path}', {len(self.builds or [])} builds)"
 
     @model_validator(mode="before")
     @classmethod
-    def correct(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
-        """Refactor init to match our excpectations"""
+    def correct_job(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
+        """Refactor init to match our expectations"""
         if bool(obj.get("queueItem")) != obj.get("inQueue"):
             log().error(
                 "Inconsistent values for job_info.get('queueItem')=%s and"
@@ -194,7 +307,6 @@ class Job(SimpleJob):
         return {
             **obj,
             "path": obj.get("fullname") or obj.get("fullName"),
-            "type": obj.get("type") or obj.get("_class") and obj["_class"].rsplit(".", 1)[-1],
         }
 
     async def expand(
@@ -205,7 +317,7 @@ class Job(SimpleJob):
         """Fetches elements which are not part of the simple job instance"""
 
         async def resilient_build_info(path: str, number: int) -> Build | None:
-            with suppress(jenkins.JenkinsException):
+            with suppress(JenkinsException):
                 return await jenkins_client.build_info(path, number)
             return None
 
@@ -221,33 +333,37 @@ class BuildNode(PedanticBaseModel):
     """A build node model"""
 
     name: str
-    offline: bool
-
-    actions: None | Sequence[dict[str, Any]] = None
-    assignedLabels: None | Sequence[dict[str, Any]] = None
-    description: None | str = None
-    executors: None | Sequence[dict[str, Any]] = None
-    icon: None | str = None
-    iconClassName: None | str = None
-    idle: None | bool = None
-    jnlpAgent: None | bool = None
-    launchSupported: None | bool = None
-    loadStatistics: None | dict[str, Any] = None
-    manualLaunchAllowed: None | bool = None
-    monitorData: None | dict[str, Any] = None
-    numExecutors: None | int = None
-    offlineCause: None | str = None
-    offlineCauseReason: None | str = None
-    oneOffExecutors: None | Sequence[dict[str, Any]] = None
-    temporarilyOffline: None | bool = None
-    absoluteRemotePath: None | str = None
-
     displayName: str
+
+    # BuildNode instances never have a _class, but we want to derive PedanticBaseModel
+    type: str = "BuildNode"
+
+    _ignored_keys = {
+        "offline",  # : bool
+        "absoluteRemotePath",  # : None | str = None
+        "actions",  # : None | Sequence[dict[str, Any]] = None
+        "assignedLabels",  # : None | Sequence[dict[str, Any]] = None
+        "description",  # : None | str = None
+        "executors",  # : None | Sequence[dict[str, Any]] = None
+        "iconClassName",  # : None | str = None
+        "icon",  # : None | str = None
+        "idle",  # : None | bool = None
+        "jnlpAgent",  # : None | bool = None
+        "launchSupported",  # : None | bool = None
+        "loadStatistics",  # : None | dict[str, Any] = None
+        "manualLaunchAllowed",  # : None | bool = None
+        "monitorData",  # : None | dict[str, Any] = None
+        "numExecutors",  # : None | int = None
+        "offlineCause",  # : None | dict[str, Any] = None
+        "offlineCauseReason",  # : None | str = None
+        "oneOffExecutors",  # : None | Sequence[dict[str, Any]] = None
+        "temporarilyOffline",  # : None | bool = None
+    }
 
     @model_validator(mode="before")
     @classmethod
-    def correct(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
-        """Refactor init to match our excpectations"""
+    def correct_node(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
+        """Refactor init to match our expectations"""
         return {
             **obj,
             "name": obj.get("name") or obj.get("displayName"),
@@ -262,12 +378,17 @@ class StageInfo(PedanticBaseModel):
     begin: int
     duration: int
     execNode: str
+
+    # StageInfo instances not always have a _class, but we want to derive PedanticBaseModel
+    type: str = "StageInfo"
+
+    # not the same as JobResult unfortunately
     status: Literal["FAILED", "IN_PROGRESS", "SUCCESS", "ABORTED", "NOT_EXECUTED", "UNSTABLE"]
 
     @model_validator(mode="before")
     @classmethod
-    def correct(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
-        """Refactor init to match our excpectations"""
+    def correct_stage(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
+        """Refactor init to match our expectations"""
         return {
             "name": obj["name"],
             "begin": obj["startTimeMillis"] // 1000,
@@ -287,12 +408,16 @@ class BuildStages(PedanticBaseModel):
     id: str
     name: str
     status: str
+
+    # StageInfo instances not always have a _class, but we want to derive PedanticBaseModel
+    type: Literal["undefined"] = "undefined"
+
     # ignore: pauseDurationMillis, queueDurationMillis, _links
 
     @model_validator(mode="before")
     @classmethod
-    def correct(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
-        """Refactor init to match our excpectations"""
+    def correct_buildstages(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
+        """Refactor init to match our expectations"""
         return {
             "id": obj["id"],
             "name": obj["name"],
@@ -313,6 +438,7 @@ class Change(PedanticBaseModel):
     author_email: str
     url: str
     affected: Sequence[str] = []
+    type: str = "Change"
 
     def markdown(self) -> str:
         """Returns a nice looking rich.Text representation"""
@@ -320,8 +446,8 @@ class Change(PedanticBaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def correct(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
-        """Refactor init to match our excpectations"""
+    def correct_change(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
+        """Refactor init to match our expectations"""
         return {
             "id": obj["id"],
             "author": obj["author"]["fullName"],
@@ -342,9 +468,109 @@ def params_from(build_info: GenMap, action_name: str, item_name: str) -> GenMap:
                     str(p["name"]): p["value"]
                     for p in map(lambda a: cast(GenMap, a), cast(GenMapArray, action[item_name]))
                 }
-            if action_name == "CustomBuildPropertiesAction":
+            else:
                 return cast(GenMap, action[item_name])
     return {}
+
+
+class Task(PedanticBaseModel):
+    url: None | str = None
+
+    _ignored_keys = {
+        "actions",
+        "buildable",
+        "builds",
+        "color",
+        "concurrentBuild",
+        "description",
+        "disabled",
+        "displayName",
+        "displayNameOrNull",
+        "firstBuild",
+        "fullDisplayName",
+        "fullName",
+        "healthReport",
+        "inQueue",
+        "keepDependencies",
+        "lastBuild",
+        "lastCompletedBuild",
+        "lastFailedBuild",
+        "lastStableBuild",
+        "lastSuccessfulBuild",
+        "lastUnstableBuild",
+        "lastUnsuccessfulBuild",
+        "name",
+        "nextBuildNumber",
+        "property",
+        "queueItem",
+        "resumeBlocked",
+    }
+
+
+class Executable(PedanticBaseModel):
+    """An 'executable' element of a QueueItem"""
+
+    number: int
+    url: str
+
+    _ignored_keys = {
+        "actions",
+        "artifacts",
+        "building",
+        "changeSets",
+        "culprits",
+        "description",
+        "displayName",
+        "duration",
+        "estimatedDuration",
+        "executor",
+        "fullDisplayName",
+        "id",
+        "inProgress",
+        "keepLog",
+        "nextBuild",
+        "previousBuild",
+        "queueId",
+        "result",
+        "timestamp",
+    }
+
+
+class QueueItem(PedanticBaseModel):
+    """An item on the Jenkins build queue
+    https://javadoc.jenkins-ci.org/hudson/model/Queue.Item.html
+    """
+
+    id: int
+    blocked: bool
+    buildable: bool
+    cancelled: None | bool = None
+    executable: None | Executable = None
+    inQueueSince: datetime
+    parameters: Mapping[str, str | bool]
+    pending: None | bool = None
+    stuck: bool
+    task: Task
+    why: None | str = None
+
+    _ignored_keys = {
+        "actions",  # might have parameters
+        "buildableStartMilliseconds",
+        "params",
+        "timestamp",
+        "url",  # queue/item/<id>/
+    }
+
+    @model_validator(mode="before")
+    @classmethod
+    def correct_queueitem(cls, obj: Json[dict[str, Any]]) -> Json[dict[str, Any]]:
+        """Refactor init to match our expectations"""
+        return {
+            **obj,
+            "parameters": params_from(
+                build_info=obj, action_name="ParametersAction", item_name="parameters"
+            ),
+        }
 
 
 def apply_common_jenkins_cli_args(parser: ArgumentParser) -> None:
@@ -367,27 +593,43 @@ def apply_common_jenkins_cli_args(parser: ArgumentParser) -> None:
     )
 
 
-def filter_by_prefix(dictionary: MutableMapping[str, str], unallowed_prefixes: list[str], strip_prefix: str) -> Mapping[str, str]:
+def filter_by_prefix(
+    dictionary: MutableMapping[str, str], unallowed_prefixes: list[str], strip_prefix: str
+) -> Mapping[str, str]:
     """Return a new dictionary containing only keys without their prefix that do not start with any of the given prefixes."""
     return {
-        key.replace(strip_prefix, ""): value for key, value in dictionary.items() if not any(key.startswith(prefix) for prefix in unallowed_prefixes)
+        key.replace(strip_prefix, ""): value
+        for key, value in dictionary.items()
+        if not any(key.startswith(prefix) for prefix in unallowed_prefixes)
     }
 
 
-def extract_credentials(credentials: None | Mapping[str, str] = None, credentials_file: str = "~/.config/jenkins_jobs/jenkins_jobs.ini", config_section: str = "jenkins") -> Mapping[str, str]:
+def extract_credentials(
+    credentials: None | Mapping[str, str] = None,
+    credentials_file: str = "~/.config/jenkins_jobs/jenkins_jobs.ini",
+    config_section: str = "jenkins",
+) -> Mapping[str, str]:
     """Turns the information provided via --credentials into actual values"""
     extracted_creds: MutableMapping[str, str] = {}
     section_settings: Mapping[str, Mapping[str, tuple[str, ...]]] = {
-        "jenkins": {"required_keys": ("url", "username", "password"),},
-        "influxdb": {"required_keys": ("url", "password"),},
-        "influxdb_testing": {"required_keys": ("url", "password"),},
+        "jenkins": {
+            "required_keys": ("url", "username", "password"),
+        },
+        "influxdb": {
+            "required_keys": ("url", "password"),
+        },
+        "influxdb_testing": {
+            "required_keys": ("url", "password"),
+        },
     }
 
     if credentials:
         creds_keys = [key.removesuffix("_env") for key in credentials.keys()]
         try:
             for key in creds_keys:
-                extracted_creds[key] = credentials.get(key) or os.environ[credentials.get(f"{key}_env", "")]
+                extracted_creds[key] = (
+                    credentials.get(key) or os.environ[credentials.get(f"{key}_env", "")]
+                )
         except KeyError as exc:
             raise Fatal(f"Requested environment variable {exc} is not defined") from exc
 
@@ -399,7 +641,11 @@ def extract_credentials(credentials: None | Mapping[str, str] = None, credential
             if config_section != "jenkins":
                 # remove all keys defined for jenkins. This is a fix for not prefixing them initially while this tool was created
                 unallowed_prefixes += list(section_settings["jenkins"]["required_keys"])
-            return filter_by_prefix(dictionary=extracted_creds, unallowed_prefixes=unallowed_prefixes, strip_prefix=f"{config_section}_")
+            return filter_by_prefix(
+                dictionary=extracted_creds,
+                unallowed_prefixes=unallowed_prefixes,
+                strip_prefix=f"{config_section}_",
+            )
         else:
             log().error("Not all required keys have been loaded from env")
 
@@ -416,12 +662,16 @@ def extract_credentials(credentials: None | Mapping[str, str] = None, credential
         "password": loaded_config[config_section]["password"],
         # special handling for a may configured InfluxDB port
         **(
-            {"port": loaded_config[config_section]["port"]} if "port" in loaded_config[config_section] else {}
+            {"port": loaded_config[config_section]["port"]}
+            if "port" in loaded_config[config_section]
+            else {}
         ),
         # very special handling as the Jenkins user is called "user" in the config file, but the AugmentedJenkinsClient expects "username"
         **(
-            {"username": loaded_config[config_section]["user"]} if (config_section == "jenkins" and "user" in loaded_config[config_section]) else {}
-        )
+            {"username": loaded_config[config_section]["user"]}
+            if (config_section == "jenkins" and "user" in loaded_config[config_section])
+            else {}
+        ),
     }
 
     if not all(key in extracted_creds for key in section_settings[config_section]["required_keys"]):
@@ -445,26 +695,17 @@ class AugmentedJenkinsClient:
 
     def __enter__(self) -> "AugmentedJenkinsClient":
         """Checks connection by validating sync_whoami()"""
-        return self._check_connection()
+        return self
 
     def __exit__(self, *args: object) -> None:
         pass
 
     async def __aenter__(self) -> "AugmentedJenkinsClient":
         """Checks connection by validating sync_whoami()"""
-        return self._check_connection()
+        return self
 
     async def __aexit__(self, *args: object) -> None:
         pass
-
-    def _check_connection(self) -> "AugmentedJenkinsClient":
-        whoami = (self.sync_whoami())["id"]
-        username = self.client.auth and self.client.auth.username.decode() or ""
-        if not whoami == username:
-            log().warning(
-                "client.get_whoami()=%s does not match jenkins_config['user']=%s", whoami, username
-            )
-        return self
 
     @asyncify
     def whoami(self) -> Mapping[str, str]:
@@ -549,7 +790,7 @@ class AugmentedJenkinsClient:
             all_change_sets = (
                 await self.raw_build_info(job if isinstance(job, str) else job.path, build_nr)
             )["changeSets"]
-        except jenkins.JenkinsException as exc:
+        except JenkinsException as exc:
             log().error("Could not fetch change sets: %s", exc)
             return []
 
@@ -589,15 +830,13 @@ class AugmentedJenkinsClient:
             last_build.number if last_build else None,
         )
 
-    @asyncify
-    @retry(tries=3, delay=1, logger=log())
-    def raw_jobs(self) -> GenMap:
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def raw_jobs(self) -> GenMap:
         """Async wrapper for get_jobs()"""
         return self.client.get_jobs()
 
-    @asyncify
-    @retry(tries=3, delay=1, logger=log())
-    def raw_job_info(self, job_full_name: str) -> GenMap:
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def raw_job_info(self, job_full_name: str) -> GenMap:
         """Fetches Jenkins job info for @job_full_name"""
         log().debug("fetch job info for %s", job_full_name)
         return self.client.get_job_info(job_full_name)
@@ -610,14 +849,12 @@ class AugmentedJenkinsClient:
             )
         )
 
-    @asyncify
-    @retry(tries=3, delay=1, logger=log())
-    def raw_build_info(self, job_full_name: str, build_number: int) -> GenMap:
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def raw_build_info(self, job_full_name: str, build_number: int) -> GenMap:
         """Returns raw Jenkins job info for @job_full_name"""
-        log().debug("fetch build log for %s:%d", job_full_name, build_number)
+        log().debug("fetch build info for %s:%d", job_full_name, build_number)
         return self.client.get_build_info(job_full_name, build_number)
 
-    @retry(tries=3, delay=1, logger=log())
     async def build_info(self, job_full_name: str | Sequence[str], build_number: int) -> Build:
         """Fetches Jenkins build info for @job_full_name#@build_number"""
         return Build.model_validate(
@@ -627,14 +864,18 @@ class AugmentedJenkinsClient:
             )
         )
 
-    @asyncify
-    @retry(tries=3, delay=1, logger=log())
-    def queue_info(self) -> Sequence[GenMap]:
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def queue_info(self) -> Sequence[QueueItem]:
         """Async wrapper for get_queue_info()"""
-        return self.client.get_queue_info()
+        return list(map(QueueItem.model_validate, self.client.get_queue_info()))
 
-    @asyncify
-    def build_stages(self, job: str | Sequence[str] | Job, build_number: int) -> BuildStages:
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def queue_item(self, number: int, depth: int = 1) -> QueueItem:
+        """Async wrapper for get_queue_item()"""
+        return QueueItem.model_validate(self.client.get_queue_item(number, depth=depth))
+
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def build_stages(self, job: str | Sequence[str] | Job, build_number: int) -> BuildStages:
         """Returns validated build stages info"""
         return BuildStages.model_validate(
             self.client.get_build_stages(
@@ -649,8 +890,24 @@ class AugmentedJenkinsClient:
             )
         )
 
-    @asyncify
-    def fetch_jvm_ressource_stats(self) -> Mapping[str, int]:
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def build_console_output(self, job: str | Sequence[str] | Job, build_number: int) -> str:
+        """Returns the build log for a given build"""
+        return str(
+            self.client.get_build_console_output(
+                (
+                    job
+                    if isinstance(job, str)
+                    else job.path
+                    if isinstance(job, Job)
+                    else "/".join(job)
+                ),
+                build_number,
+            )
+        )
+
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def fetch_jvm_ressource_stats(self) -> Mapping[str, int]:
         """Returns information about available and used memory in JVM"""
         log().debug("fetch JVM ressource stats via script")
         return {
@@ -672,18 +929,18 @@ class AugmentedJenkinsClient:
             ).items()
         }
 
-    @asyncify
-    def running_builds(self) -> Sequence[SimpleBuild]:
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def running_builds(self) -> Sequence[SimpleBuild]:
         """Async validating wrapper for Jenkins.get_running_builds()"""
         return list(map(SimpleBuild.model_validate, self.client.get_running_builds()))
 
-    @asyncify
-    def build_nodes(self) -> Sequence[BuildNode]:
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def build_nodes(self) -> Sequence[BuildNode]:
         """Async validating wrapper for Jenkins.get_nodes()"""
         return list(map(BuildNode.model_validate, self.client.get_nodes()))
 
-    @asyncify
-    def node_info(self, name: str) -> BuildNode:
+    @async_retry(tries=MAX_ATTEMPTS, delay=1, logger=log())
+    async def node_info(self, name: str) -> BuildNode:
         """Async validating wrapper for Jenkins.get_node_info()"""
         return BuildNode.model_validate(self.client.get_node_info(name))
 

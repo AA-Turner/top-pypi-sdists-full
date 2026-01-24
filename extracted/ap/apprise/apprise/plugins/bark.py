@@ -112,7 +112,7 @@ class NotifyBark(NotifyBase):
     secure_protocol = "barks"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_bark"
+    setup_url = "https://appriseit.com/services/bark/"
 
     # Allows the user to specify the NotifyImageSize object; this is supported
     # through the webhook
@@ -209,6 +209,15 @@ class NotifyBark(NotifyBase):
                 "default": True,
                 "map_to": "include_image",
             },
+            "icon": {
+                "name": _("Icon URL"),
+                "type": "string",
+            },
+            "call": {
+                "name": _("Call"),
+                "type": "bool",
+                "default": False,
+            },
         },
     )
 
@@ -223,6 +232,8 @@ class NotifyBark(NotifyBase):
         click=None,
         badge=None,
         volume=None,
+        icon=None,
+        call=None,
         **kwargs,
     ):
         """Initialize Notify Bark Object."""
@@ -301,6 +312,12 @@ class NotifyBark(NotifyBase):
                     volume,
                 )
 
+        # Call
+        self.call = parse_bool(call)
+
+        # Icon URL
+        self.icon = icon if isinstance(icon, str) else None
+
         # Level
         self.level = (
             None
@@ -353,7 +370,10 @@ class NotifyBark(NotifyBase):
             None if not self.include_image else self.image_url(notify_type)
         )
 
-        if image_url:
+        # Use custom icon if provided, otherwise use default image
+        if self.icon:
+            payload["icon"] = self.icon
+        elif image_url:
             payload["icon"] = image_url
 
         if self.sound:
@@ -376,6 +396,9 @@ class NotifyBark(NotifyBase):
 
         if self.volume:
             payload["volume"] = self.volume
+
+        if self.call:
+            payload["call"] = 1
 
         auth = None
         if self.user:
@@ -422,7 +445,8 @@ class NotifyBark(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     # Mark our failure
                     has_error = True
@@ -487,6 +511,12 @@ class NotifyBark(NotifyBase):
 
         if self.group:
             params["group"] = self.group
+
+        if self.icon:
+            params["icon"] = self.icon
+
+        if self.call:
+            params["call"] = "yes"
 
         # Extend our parameters
         params.update(self.url_parameters(privacy=privacy, *args, **kwargs))
@@ -586,6 +616,17 @@ class NotifyBark(NotifyBase):
         # use image= for consistency with the other plugins
         results["include_image"] = parse_bool(
             results["qsd"].get("image", True)
+        )
+
+        # Icon URL
+        if "icon" in results["qsd"] and results["qsd"]["icon"]:
+            results["icon"] = NotifyBark.unquote(
+                results["qsd"]["icon"].strip()
+            )
+
+        # Call
+        results["call"] = parse_bool(
+            results["qsd"].get("call", False)
         )
 
         return results

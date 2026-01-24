@@ -5,14 +5,19 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: docs
     strategy:
       matrix:
-        python-version: ['3.13']
+        python-version: ['3.14']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Filter changed file paths to outputs
         uses: dorny/paths-filter@v3.0.2
         id: changes
@@ -34,7 +39,7 @@ jobs:
         run: echo "PUBLISH=$(echo true)" >> $GITHUB_ENV
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         if: env.PUBLISH == 'true'
         with:
           enable-cache: true
@@ -47,6 +52,10 @@ jobs:
         if: env.PUBLISH == 'true'
         run: uv sync --all-extras --dev
 
+      - name: Install just
+        if: env.PUBLISH == 'true'
+        uses: extractions/setup-just@v3
+
       - name: Print python versions
         if: env.PUBLISH == 'true'
         run: |
@@ -56,19 +65,27 @@ jobs:
       - name: Build documentation
         if: env.PUBLISH == 'true'
         run: |
-          pushd docs; make SPHINXBUILD='uv run sphinx-build' html; popd
+          cd docs && just html
+
+      - name: Configure AWS Credentials
+        if: env.PUBLISH == 'true'
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.TMUXP_DOCS_ROLE_ARN }}
+          aws-region: us-east-1
 
       - name: Push documentation to S3
         if: env.PUBLISH == 'true'
-        uses: jakejarvis/s3-sync-action@master
-        with:
-          args: --acl public-read --follow-symlinks --delete
-        env:
-          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: 'us-west-1' # optional: defaults to us-east-1
-          SOURCE_DIR: 'docs/_build/html' # optional: defaults to entire repository
+        run: |
+          aws s3 sync docs/_build/html "s3://${{ secrets.TMUXP_DOCS_BUCKET }}" \
+            --delete --follow-symlinks
+
+      - name: Invalidate CloudFront
+        if: env.PUBLISH == 'true'
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ secrets.TMUXP_DOCS_DISTRIBUTION }}" \
+            --paths "/index.html" "/history.html" "/objects.inv" "/searchindex.js"
 
       - name: Purge cache on Cloudflare
         if: env.PUBLISH == 'true'

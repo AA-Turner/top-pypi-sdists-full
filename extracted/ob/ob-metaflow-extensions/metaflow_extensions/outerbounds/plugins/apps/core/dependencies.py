@@ -43,7 +43,7 @@ def bake_deployment_image(
     # 1. When the user has specified something like `pypi`/`conda`
     # 2, When the user has specified something like `from_requirements`/ `from_pyproject`
     # TODO: add parsers for the pyproject/requirements stuff.
-    from metaflow.ob_internal import bake_image  # type: ignore
+    from metaflow.ob_internal import internal_bake_image  # type: ignore
     from metaflow.plugins.pypi.parsers import (
         requirements_txt_parser,
         pyproject_toml_parser,
@@ -96,7 +96,7 @@ def bake_deployment_image(
     pypi_packages.update(pinned_conda_libs)
     _reference = app_config.get("name", "default")
     # `image` cannot be None. If by chance it is none, FB will fart.
-    fb_response = bake_image(
+    fb_response = internal_bake_image(
         cache_file_path=cache_file_path,
         pypi_packages=pypi_packages,
         conda_packages=conda_packages,

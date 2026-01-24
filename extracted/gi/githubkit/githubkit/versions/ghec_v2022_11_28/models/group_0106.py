@@ -9,57 +9,26 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
+from .group_0105 import CustomPropertyValue
 
-class RepositoryRuleCreation(GitHubModel):
-    """creation
 
-    Only allow users with bypass permission to create matching refs.
+class CustomPropertiesForOrgsGetEnterprisePropertyValues(GitHubModel):
+    """Enterprise Organization Custom Property Values
+
+    List of custom property values for an organization
     """
 
-    type: Literal["creation"] = Field()
+    organization_id: int = Field()
+    organization_login: str = Field()
+    properties: list[CustomPropertyValue] = Field(
+        description="List of custom property names and associated values"
+    )
 
 
-class RepositoryRuleDeletion(GitHubModel):
-    """deletion
+model_rebuild(CustomPropertiesForOrgsGetEnterprisePropertyValues)
 
-    Only allow users with bypass permissions to delete matching refs.
-    """
-
-    type: Literal["deletion"] = Field()
-
-
-class RepositoryRuleRequiredSignatures(GitHubModel):
-    """required_signatures
-
-    Commits pushed to matching refs must have verified signatures.
-    """
-
-    type: Literal["required_signatures"] = Field()
-
-
-class RepositoryRuleNonFastForward(GitHubModel):
-    """non_fast_forward
-
-    Prevent users with push access from force pushing to refs.
-    """
-
-    type: Literal["non_fast_forward"] = Field()
-
-
-model_rebuild(RepositoryRuleCreation)
-model_rebuild(RepositoryRuleDeletion)
-model_rebuild(RepositoryRuleRequiredSignatures)
-model_rebuild(RepositoryRuleNonFastForward)
-
-__all__ = (
-    "RepositoryRuleCreation",
-    "RepositoryRuleDeletion",
-    "RepositoryRuleNonFastForward",
-    "RepositoryRuleRequiredSignatures",
-)
+__all__ = ("CustomPropertiesForOrgsGetEnterprisePropertyValues",)

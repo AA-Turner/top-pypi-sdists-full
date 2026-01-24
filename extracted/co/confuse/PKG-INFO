@@ -1,25 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: confuse
-Version: 2.0.1
-Summary: Painless YAML configuration.
-Home-page: https://github.com/beetbox/confuse
+Version: 2.1.0
+Summary: Painless YAML config files
+License-Expression: MIT
+License-File: LICENSE
 Author: Adrian Sampson
 Author-email: adrian@radbox.org
-Requires-Python: >=3.6
-Description-Content-Type: text/x-rst
+Requires-Python: >=3.9
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: pyyaml
+Project-URL: Bug Tracker, https://github.com/beetbox/confuse/issues
+Project-URL: Homepage, https://github.com/beetbox/confuse
+Project-URL: Repository, https://github.com/beetbox/confuse
+Description-Content-Type: text/x-rst
 
 Confuse: painless YAML config files
 ===================================
 
-.. image:: https://github.com/beetbox/confuse/workflows/Build/badge.svg?branch=master
+.. image:: https://github.com/beetbox/confuse/actions/workflows/main.yml/badge.svg
     :target: https://github.com/beetbox/confuse/actions
 
 .. image:: http://img.shields.io/pypi/v/confuse.svg

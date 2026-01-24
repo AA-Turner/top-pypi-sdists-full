@@ -27,17 +27,17 @@ class UpdateOrganizationQuota(BaseModel):
     """
     UpdateOrganizationQuota
     """ # noqa: E501
-    total_cpu_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="totalCpuQuota")
-    total_memory_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="totalMemoryQuota")
-    total_disk_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="totalDiskQuota")
-    max_cpu_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxCpuPerSandbox")
-    max_memory_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxMemoryPerSandbox")
-    max_disk_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxDiskPerSandbox")
-    snapshot_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="snapshotQuota")
-    max_snapshot_size: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxSnapshotSize")
-    volume_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="volumeQuota")
+    max_cpu_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="maxCpuPerSandbox")
+    max_memory_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="maxMemoryPerSandbox")
+    max_disk_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="maxDiskPerSandbox")
+    snapshot_quota: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="snapshotQuota")
+    max_snapshot_size: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="maxSnapshotSize")
+    volume_quota: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="volumeQuota")
+    authenticated_rate_limit: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="authenticatedRateLimit")
+    sandbox_create_rate_limit: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="sandboxCreateRateLimit")
+    sandbox_lifecycle_rate_limit: Optional[Union[StrictFloat, StrictInt]] = Field(serialization_alias="sandboxLifecycleRateLimit")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["totalCpuQuota", "totalMemoryQuota", "totalDiskQuota", "maxCpuPerSandbox", "maxMemoryPerSandbox", "maxDiskPerSandbox", "snapshotQuota", "maxSnapshotSize", "volumeQuota"]
+    __properties: ClassVar[List[str]] = ["maxCpuPerSandbox", "maxMemoryPerSandbox", "maxDiskPerSandbox", "snapshotQuota", "maxSnapshotSize", "volumeQuota", "authenticatedRateLimit", "sandboxCreateRateLimit", "sandboxLifecycleRateLimit"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -85,21 +85,6 @@ class UpdateOrganizationQuota(BaseModel):
             for _key, _value in self.additional_properties.items():
                 _dict[_key] = _value
 
-        # set to None if total_cpu_quota (nullable) is None
-        # and model_fields_set contains the field
-        if self.total_cpu_quota is None and "total_cpu_quota" in self.model_fields_set:
-            _dict['totalCpuQuota'] = None
-
-        # set to None if total_memory_quota (nullable) is None
-        # and model_fields_set contains the field
-        if self.total_memory_quota is None and "total_memory_quota" in self.model_fields_set:
-            _dict['totalMemoryQuota'] = None
-
-        # set to None if total_disk_quota (nullable) is None
-        # and model_fields_set contains the field
-        if self.total_disk_quota is None and "total_disk_quota" in self.model_fields_set:
-            _dict['totalDiskQuota'] = None
-
         # set to None if max_cpu_per_sandbox (nullable) is None
         # and model_fields_set contains the field
         if self.max_cpu_per_sandbox is None and "max_cpu_per_sandbox" in self.model_fields_set:
@@ -130,6 +115,21 @@ class UpdateOrganizationQuota(BaseModel):
         if self.volume_quota is None and "volume_quota" in self.model_fields_set:
             _dict['volumeQuota'] = None
 
+        # set to None if authenticated_rate_limit (nullable) is None
+        # and model_fields_set contains the field
+        if self.authenticated_rate_limit is None and "authenticated_rate_limit" in self.model_fields_set:
+            _dict['authenticatedRateLimit'] = None
+
+        # set to None if sandbox_create_rate_limit (nullable) is None
+        # and model_fields_set contains the field
+        if self.sandbox_create_rate_limit is None and "sandbox_create_rate_limit" in self.model_fields_set:
+            _dict['sandboxCreateRateLimit'] = None
+
+        # set to None if sandbox_lifecycle_rate_limit (nullable) is None
+        # and model_fields_set contains the field
+        if self.sandbox_lifecycle_rate_limit is None and "sandbox_lifecycle_rate_limit" in self.model_fields_set:
+            _dict['sandboxLifecycleRateLimit'] = None
+
         return _dict
 
     @classmethod
@@ -142,15 +142,15 @@ class UpdateOrganizationQuota(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "totalCpuQuota": obj.get("totalCpuQuota"),
-            "totalMemoryQuota": obj.get("totalMemoryQuota"),
-            "totalDiskQuota": obj.get("totalDiskQuota"),
-            "maxCpuPerSandbox": obj.get("maxCpuPerSandbox"),
-            "maxMemoryPerSandbox": obj.get("maxMemoryPerSandbox"),
-            "maxDiskPerSandbox": obj.get("maxDiskPerSandbox"),
-            "snapshotQuota": obj.get("snapshotQuota"),
-            "maxSnapshotSize": obj.get("maxSnapshotSize"),
-            "volumeQuota": obj.get("volumeQuota")
+            "max_cpu_per_sandbox": obj.get("maxCpuPerSandbox"),
+            "max_memory_per_sandbox": obj.get("maxMemoryPerSandbox"),
+            "max_disk_per_sandbox": obj.get("maxDiskPerSandbox"),
+            "snapshot_quota": obj.get("snapshotQuota"),
+            "max_snapshot_size": obj.get("maxSnapshotSize"),
+            "volume_quota": obj.get("volumeQuota"),
+            "authenticated_rate_limit": obj.get("authenticatedRateLimit"),
+            "sandbox_create_rate_limit": obj.get("sandboxCreateRateLimit"),
+            "sandbox_lifecycle_rate_limit": obj.get("sandboxLifecycleRateLimit")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

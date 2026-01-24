@@ -26,7 +26,7 @@ except ImportError:
         re.VERBOSE,
     )
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 
 rst_prefix = "RST"
@@ -80,10 +80,17 @@ code_mapping_error = {
     'Unknown target name: "*".': 6,
     # e.g. Error in "code" directive:
     'Error in "*" directive:': 7,
+    # e.g. Duplicate target name, cannot be used as a unique reference: "python".
+    'Duplicate target name, cannot be used as a unique reference: "*".': 8,
+    # This was RST401 prior to docutils v0.22:
+    "Unexpected section title.": 9,
 }
 
 # Level 4 - severe
-code_mapping_severe = {"Unexpected section title.": 1}
+code_mapping_severe = {
+    # See RST308 as of docutils v0.22:
+    "Unexpected section title.": 1,
+}
 
 code_mappings_by_level = {
     1: code_mapping_info,
@@ -166,7 +173,7 @@ class reStructuredTextChecker:
 
     @classmethod
     def parse_options(cls, options):
-        """Adding black-config option."""
+        """Parse options and add black-config option."""
         cls.extra_directives = options.rst_directives
         cls.extra_roles = options.rst_roles
         cls.extra_substitutions = options.rst_substitutions
@@ -225,12 +232,11 @@ class reStructuredTextChecker:
                             - ast.get_docstring(node, clean=False).count("\n")
                             - 1
                         )
-                    assert node.body[0].lineno >= 1 and start >= 0, (
-                        "Bad start line, node line number %i for: %s\n"
-                        % (
-                            node.body[0].lineno,
-                            docstring,
-                        )
+                    assert (
+                        node.body[0].lineno >= 1 and start >= 0
+                    ), "Bad start line, node line number %i for: %s\n" % (
+                        node.body[0].lineno,
+                        docstring,
                     )
                 for rst_error in rst_errors:
                     # TODO - make this a configuration option?

@@ -2,11 +2,10 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from __future__ import (absolute_import, division, print_function)
-__metaclass__ = type
+from __future__ import annotations
 
-from ansible.module_utils.common._collections_compat import Sequence, Mapping
-from ansible.module_utils.six import iteritems, string_types
+from collections.abc import Sequence, Mapping
+
 from ansible.module_utils.common.text.converters import to_native
 from ansible.utils.display import Display
 
@@ -46,23 +45,23 @@ class ActionModule(ActionModuleBase):
         return data
 
     def _evaluate(self, value):
-        if isinstance(value, string_types):
+        if isinstance(value, str):
             # must come *before* Sequence, as strings are also instances of Sequence
             return self._templar.template(_make_safe(value))
         if isinstance(value, Sequence):
             return [self._evaluate(v) for v in value]
         if isinstance(value, Mapping):
-            return dict((k, self._evaluate(v)) for k, v in iteritems(value))
+            return dict((k, self._evaluate(v)) for k, v in value.items())
         return value
 
     def _make_safe(self, value):
-        if isinstance(value, string_types):
+        if isinstance(value, str):
             # must come *before* Sequence, as strings are also instances of Sequence
             return _make_safe(value)
         if isinstance(value, Sequence):
             return [self._make_safe(v) for v in value]
         if isinstance(value, Mapping):
-            return dict((k, self._make_safe(v)) for k, v in iteritems(value))
+            return dict((k, self._make_safe(v)) for k, v in value.items())
         return value
 
     @staticmethod

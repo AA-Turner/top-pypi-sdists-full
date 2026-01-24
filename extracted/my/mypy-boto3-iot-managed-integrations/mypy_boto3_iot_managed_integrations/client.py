@@ -3,7 +3,7 @@ Type annotations for iot-managed-integrations service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -99,6 +100,8 @@ from .type_defs import (
     GetHubConfigurationResponseTypeDef,
     GetManagedThingCapabilitiesRequestTypeDef,
     GetManagedThingCapabilitiesResponseTypeDef,
+    GetManagedThingCertificateRequestTypeDef,
+    GetManagedThingCertificateResponseTypeDef,
     GetManagedThingConnectivityDataRequestTypeDef,
     GetManagedThingConnectivityDataResponseTypeDef,
     GetManagedThingMetaDataRequestTypeDef,
@@ -184,12 +187,6 @@ from .type_defs import (
     UpdateOtaTaskRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -200,19 +197,19 @@ __all__ = ("ManagedintegrationsforIoTDeviceManagementClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
@@ -285,7 +282,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[CreateCredentialLockerRequestTypeDef]
     ) -> CreateCredentialLockerResponseTypeDef:
         """
-        Create a product credential locker.
+        Create a credential locker.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/create_credential_locker.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#create_credential_locker)
@@ -295,7 +292,8 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[CreateDestinationRequestTypeDef]
     ) -> CreateDestinationResponseTypeDef:
         """
-        Create a destination.
+        Create a notification destination such as Kinesis Data Streams that receive
+        events and notifications from Managed integrations.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/create_destination.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#create_destination)
@@ -336,7 +334,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[CreateOtaTaskRequestTypeDef]
     ) -> CreateOtaTaskResponseTypeDef:
         """
-        Create an over-the-air (OTA) task to update a device.
+        Create an over-the-air (OTA) task to target a device.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/create_ota_task.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#create_ota_task)
@@ -367,7 +365,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[DeleteAccountAssociationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Remove a third party account and related devices from an end user.
+        Remove a third-party account association for an end user.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/delete_account_association.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#delete_account_association)
@@ -387,8 +385,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[DeleteConnectorDestinationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Delete a connector destination for connecting a cloud-to-cloud (C2C) connector
-        to the customer's Amazon Web Services account.
+        Delete a connector destination linked to a cloud-to-cloud (C2C) connector.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/delete_connector_destination.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#delete_connector_destination)
@@ -408,7 +405,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[DeleteDestinationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes a customer-managed destination specified by id.
+        Deletes a notification destination specified by name.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/delete_destination.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#delete_destination)
@@ -478,8 +475,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[DeregisterAccountAssociationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deregisters an account association, removing the connection between a managed
-        thing and a third-party account.
+        Deregister an account association from a managed thing.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/deregister_account_association.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#deregister_account_association)
@@ -500,7 +496,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[GetCloudConnectorRequestTypeDef]
     ) -> GetCloudConnectorResponseTypeDef:
         """
-        Gets all the information about a connector for a connector developer.
+        Get configuration details for a cloud connector.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_cloud_connector.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#get_cloud_connector)
@@ -510,8 +506,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[GetConnectorDestinationRequestTypeDef]
     ) -> GetConnectorDestinationResponseTypeDef:
         """
-        Get a connector destination of a cloud-to-cloud (C2C) connector connecting to a
-        customer's Amazon Web Services account.
+        Get connector destination details linked to a cloud-to-cloud (C2C) connector.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_connector_destination.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#get_connector_destination)
@@ -550,7 +545,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[GetDestinationRequestTypeDef]
     ) -> GetDestinationResponseTypeDef:
         """
-        Gets a destination by ID.
+        Gets a destination by name.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_destination.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#get_destination)
@@ -588,7 +583,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[GetManagedThingRequestTypeDef]
     ) -> GetManagedThingResponseTypeDef:
         """
-        Get the attributes and capabilities associated with a managed thing.
+        Get details of a managed thing including its attributes and capabilities.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_managed_thing.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#get_managed_thing)
@@ -602,6 +597,16 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_managed_thing_capabilities.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#get_managed_thing_capabilities)
+        """
+
+    def get_managed_thing_certificate(
+        self, **kwargs: Unpack[GetManagedThingCertificateRequestTypeDef]
+    ) -> GetManagedThingCertificateResponseTypeDef:
+        """
+        Retrieves the certificate PEM for a managed IoT thing.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_managed_thing_certificate.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#get_managed_thing_certificate)
         """
 
     def get_managed_thing_connectivity_data(
@@ -638,7 +643,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[GetNotificationConfigurationRequestTypeDef]
     ) -> GetNotificationConfigurationResponseTypeDef:
         """
-        Get a notification configuration.
+        Get a notification configuration for a specified event type.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_notification_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#get_notification_configuration)
@@ -646,7 +651,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
 
     def get_ota_task(self, **kwargs: Unpack[GetOtaTaskRequestTypeDef]) -> GetOtaTaskResponseTypeDef:
         """
-        Get the over-the-air (OTA) task.
+        Get details of the over-the-air (OTA) task by its task id.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_ota_task.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#get_ota_task)
@@ -676,8 +681,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[GetRuntimeLogConfigurationRequestTypeDef]
     ) -> GetRuntimeLogConfigurationResponseTypeDef:
         """
-        Get the runtime log configuration for a specific managed thing or for all
-        managed things as a group.
+        Get the runtime log configuration for a specific managed thing.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_runtime_log_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#get_runtime_log_configuration)
@@ -708,7 +712,8 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[ListCloudConnectorsRequestTypeDef]
     ) -> ListCloudConnectorsResponseTypeDef:
         """
-        Returns a list of connectors based on permissions.
+        Returns a list of connectors filtered by its Lambda Amazon Resource Name (ARN)
+        and <code>type</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_cloud_connectors.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#list_cloud_connectors)
@@ -738,7 +743,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[ListDestinationsRequestTypeDef]
     ) -> ListDestinationsResponseTypeDef:
         """
-        List all destination names under one Amazon Web Services account.
+        List all notification destinations.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_destinations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#list_destinations)
@@ -898,8 +903,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[PutRuntimeLogConfigurationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Set the runtime log configuration for a specific managed thing or for all
-        managed things as a group.
+        Set the runtime log configuration for a specific managed thing.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/put_runtime_log_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#put_runtime_log_configuration)
@@ -929,8 +933,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[ResetRuntimeLogConfigurationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Reset a runtime log configuration for a specific managed thing or for all
-        managed things as a group.
+        Reset a runtime log configuration for a specific managed thing.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/reset_runtime_log_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#reset_runtime_log_configuration)
@@ -979,7 +982,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#start_device_discovery)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Add tags for the specified resource.
 
@@ -987,7 +990,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove tags for the specified resource.
 
@@ -1029,7 +1032,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(BaseClient):
         self, **kwargs: Unpack[UpdateDestinationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Update a destination specified by id.
+        Update a destination specified by name.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/update_destination.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iot_managed_integrations/client/#update_destination)

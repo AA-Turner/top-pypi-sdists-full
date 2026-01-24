@@ -199,6 +199,7 @@ class TestCatalog(unittest.TestCase):
             type="test_type",
             spark_catalog_name="parent_catalog-test_catalog",
             resource_arn="glue:catalog:1234",
+            federated_catalog={"ConnectionName": "aws:s3tables"},
             domain_id="dzd_1234",
             project_id="abc123",
             glue_api=Mock(),

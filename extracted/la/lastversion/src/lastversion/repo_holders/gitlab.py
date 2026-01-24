@@ -1,4 +1,5 @@
 """GitLab repo session."""
+
 import logging
 import os
 import platform
@@ -7,10 +8,9 @@ from datetime import timedelta
 
 from dateutil import parser
 
+from lastversion.exceptions import BadProjectError
 from lastversion.repo_holders.base import BaseProjectHolder
 from lastversion.utils import asset_does_not_belong_to_machine
-
-from lastversion.exceptions import BadProjectError
 
 log = logging.getLogger(__name__)
 
@@ -131,9 +131,8 @@ class GitLabRepoSession(BaseProjectHolder):
                 ret.update(formal_release)
         return ret or None
 
-    def get_assets(self, release, short_urls, assets_filter=None):
-        """Get assets for a given release."""
-        urls = []
+    def _filter_assets(self, release, assets_filter):
+        """Filter and return assets from release."""
         assets = release.get("assets", {}).get("links", [])
         arch_matched_assets = []
         if not assets_filter and platform.machine() in ["x86_64", "AMD64"]:
@@ -142,6 +141,12 @@ class GitLabRepoSession(BaseProjectHolder):
                     arch_matched_assets.append(asset)
             if arch_matched_assets:
                 assets = arch_matched_assets
+        return assets
+
+    def get_assets(self, release, short_urls, assets_filter=None):
+        """Get assets for a given release."""
+        urls = []
+        assets = self._filter_assets(release, assets_filter)
 
         for asset in assets:
             if assets_filter and not re.search(assets_filter, asset["name"]):
@@ -160,6 +165,36 @@ class GitLabRepoSession(BaseProjectHolder):
                 urls.append(download_url)
         return urls
 
+    def get_assets_with_digests(self, release, short_urls, assets_filter=None):
+        """Get assets with detailed information for GitLab releases.
+
+        GitLab doesn't provide digests via API, but we include url, name, and size.
+        """
+        result = []
+        assets = self._filter_assets(release, assets_filter)
+
+        for asset in assets:
+            if assets_filter and not re.search(assets_filter, asset["name"]):
+                continue
+            if not assets_filter and asset_does_not_belong_to_machine(asset["name"]):
+                log.info(
+                    "Skipping asset %s as it does not belong to this machine.",
+                    asset["name"],
+                )
+                continue
+            asset_info = {
+                "url": asset.get("url") or asset.get("direct_asset_url"),
+                "name": asset.get("name"),
+                "size": None,  # GitLab API doesn't provide file size in release links
+            }
+            result.append(asset_info)
+
+        if not result:
+            download_url = self.release_download_url(release, short_urls)
+            if not assets_filter or re.search(assets_filter, download_url):
+                result.append({"url": download_url, "name": None, "size": None})
+        return result
+
     def release_download_url(self, release, shorter=False):
         """Get release download URL."""
         if shorter:
@@ -168,16 +203,37 @@ class GitLabRepoSession(BaseProjectHolder):
         ext = "zip" if os.name == "nt" else "tar.gz"
         tag = release["tag_name"]
         url_format = "https://{}/{}/-/archive/{}/{}-{}.{}"
-        return url_format.format(
-            self.hostname, self.repo, tag, self.repo.split("/")[1], tag, ext
-        )
+        return url_format.format(self.hostname, self.repo, tag, self.repo.split("/")[1], tag, ext)
 
     def repo_license(self, tag):
         """Get repo license."""
 
-        response = self.get(
-            f"https://{self.hostname}/{self.repo}/-/raw/{tag}/LICENSE?ref_type=tags"
-        )
+        response = self.get(f"https://{self.hostname}/{self.repo}/-/raw/{tag}/LICENSE?ref_type=tags")
         if response.status_code == 200:
             return {"text": response.text}
         return None
+
+    def repo_changelog(self, tag):
+        """Try to fetch a conventional CHANGELOG/CHANGES/NEWS file at a tag."""
+        for path in BaseProjectHolder.CHANGELOG_CANDIDATES:
+            text = self.fetch_text_file_at_tag(tag, path)
+            if text:
+                return text
+        return None
+
+    def fetch_text_file_at_tag(self, tag: str, path: str) -> str:
+        """Fetch text file via GitLab raw endpoint; set Accept for plain text."""
+        response = self.get(
+            f"https://{self.hostname}/{self.repo}/-/raw/{tag}/{path}?ref_type=tags",
+            headers={"Accept": "text/plain, */*"},
+        )
+        if response.status_code == 200 and response.text and response.text.strip():
+            return response.text
+        return None
+
+    def repo_changelog_path(self, tag):
+        for path in BaseProjectHolder.CHANGELOG_CANDIDATES:
+            text = self.fetch_text_file_at_tag(tag, path)
+            if text:
+                return text, path
+        return None, None

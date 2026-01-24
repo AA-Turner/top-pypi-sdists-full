@@ -3,7 +3,7 @@ Type annotations for internetmonitor service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_internetmonitor/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -60,12 +61,6 @@ from .type_defs import (
     UpdateMonitorOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -76,18 +71,18 @@ __all__ = ("CloudWatchInternetMonitorClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class CloudWatchInternetMonitorClient(AioBaseClient):
@@ -135,7 +130,7 @@ class CloudWatchInternetMonitorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_internetmonitor/client/#create_monitor)
         """
 
-    async def delete_monitor(self, **kwargs: Unpack[DeleteMonitorInputTypeDef]) -> Dict[str, Any]:
+    async def delete_monitor(self, **kwargs: Unpack[DeleteMonitorInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a monitor in Amazon CloudWatch Internet Monitor.
 
@@ -251,7 +246,7 @@ class CloudWatchInternetMonitorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_internetmonitor/client/#start_query)
         """
 
-    async def stop_query(self, **kwargs: Unpack[StopQueryInputTypeDef]) -> Dict[str, Any]:
+    async def stop_query(self, **kwargs: Unpack[StopQueryInputTypeDef]) -> dict[str, Any]:
         """
         Stop a query that is progress for a specific monitor.
 
@@ -259,7 +254,7 @@ class CloudWatchInternetMonitorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_internetmonitor/client/#stop_query)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds a tag to a resource.
 
@@ -267,7 +262,7 @@ class CloudWatchInternetMonitorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_internetmonitor/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from a resource.
 
@@ -326,7 +321,7 @@ class CloudWatchInternetMonitorClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

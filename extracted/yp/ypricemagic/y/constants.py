@@ -1,5 +1,5 @@
 # mypy: disable-error-code="dict-item"
-from typing import Dict, Final, Optional
+from typing import Final
 
 from brownie import Contract as _Contract
 from brownie import chain
@@ -8,7 +8,6 @@ from eth_typing import ChecksumAddress
 from y.contracts import Contract
 from y.interfaces.ERC20 import ERC20ABI
 from y.networks import Network
-
 
 CHAINID: Final[int] = chain.id
 """
@@ -27,7 +26,7 @@ The address used to represent the native token (e.g., ETH on Ethereum, AVAX on A
 
 weth: Contract
 
-sushi: Optional[Contract] = None
+sushi: Contract | None = None
 """
 A placeholder for the Sushi token contract, which may be set depending on the network.
 """
@@ -285,10 +284,39 @@ elif CHAINID == Network.Base:
         This is a temporary placeholder and may not represent the actual WBTC contract on Base.
     """
 
+elif CHAINID == Network.Katana:
+
+    weth = Contract("0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62")
+    """Wrapped Ether (WETH) contract on Katana."""
+
+    usdc = Contract("0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36")  # usdbc
+    """USD Coin (USDC) contract on Katana."""
+
+    usdt = Contract("0x2DCa96907fde857dd3D816880A0df407eeB2D2F2")
+    """Tether USD (USDT) contract on Katana."""
+
+    wbtc = Contract("0x0913DA6Da4b42f538B445599b46Bb4622342Cf52")
+    """Wrapped Bitcoin (WBTC) contract on Katana."""
+
+    dai = None
+
+elif CHAINID == Network.Berachain:
+
+    weth = Contract("0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590")
+    """Wrapped Ether (WETH) contract on Berachain."""
+
+    usdc = Contract("0x549943e04f40284185054145c6E4e9568C1D3241")  # usdbc
+    """USD Coin (USDC) contract on Berachain."""
+
+    wbtc = Contract("0x0555E30da8f98308EdB960aa94C0Db47230d2B9c")
+    """Wrapped Bitcoin (WBTC) contract on Berachain."""
+
+    usdt, dai = None, None
+
 else:
     weth, dai, wbtc, usdc, usdt = None, None, None, None, None
 
-_STABLECOINS: Final[Dict[Network, Dict[ChecksumAddress, str]]] = {
+_STABLECOINS: Final[dict[Network, dict[ChecksumAddress, str]]] = {
     Network.Mainnet: {
         "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": "usdc",
         "0x0000000000085d4780B73119b644AE5ecd22b376": "tusd",
@@ -356,9 +384,15 @@ _STABLECOINS: Final[Dict[Network, Dict[ChecksumAddress, str]]] = {
         "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA": "usdbc",
         "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913": "usdc",
     },
+    Network.Katana: {
+        "0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36": "usdc",
+    },
+    Network.Berachain: {
+        "0x549943e04f40284185054145c6E4e9568C1D3241": "usdc",
+    },
 }
 
-STABLECOINS: Final[Dict[ChecksumAddress, str]] = _STABLECOINS.get(CHAINID, {})
+STABLECOINS: Final[dict[ChecksumAddress, str]] = _STABLECOINS.get(CHAINID, {})
 """
 A dictionary mapping network IDs to stablecoin contract addresses and their corresponding symbols.
 
@@ -372,7 +406,7 @@ See Also:
     - :class:`~y.networks.Network` for network ID definitions.
 """
 
-WRAPPED_GAS_COINS: Final[Dict[Network, ChecksumAddress]] = {
+WRAPPED_GAS_COINS: Final[dict[Network, ChecksumAddress]] = {
     Network.Mainnet: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     Network.BinanceSmartChain: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
     Network.Polygon: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
@@ -384,6 +418,8 @@ WRAPPED_GAS_COINS: Final[Dict[Network, ChecksumAddress]] = {
     Network.Cronos: "0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23",
     Network.Optimism: "0x4200000000000000000000000000000000000006",
     Network.Base: "0x4200000000000000000000000000000000000006",
+    Network.Katana: "0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62",
+    Network.Berachain: "0x6969696969696969696969696969696969696969",
 }
 
 WRAPPED_GAS_COIN: Final[ChecksumAddress] = WRAPPED_GAS_COINS[CHAINID]

@@ -1,12 +1,12 @@
 from __future__ import annotations
 import argparse
+from dataclasses import asdict
 import json
 import sys
-from typing import Optional
-from . import InvalidFilenameError, __version__, parse_wheel_filename
+from . import ParseError, WheelFilename, __version__
 
 
-def main(argv: Optional[list[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Parse wheel filename")
     parser.add_argument(
         "-V", "--version", action="version", version=f"%(prog)s {__version__}"
@@ -14,11 +14,13 @@ def main(argv: Optional[list[str]] = None) -> None:
     parser.add_argument("filename")
     args = parser.parse_args(argv)
     try:
-        pwf = parse_wheel_filename(args.filename)
-    except InvalidFilenameError as e:
-        sys.exit(f"wheel-filename: {e}")
-    print(json.dumps(pwf._asdict(), indent=4))
+        pwf = WheelFilename.parse(args.filename)
+    except ParseError as e:
+        print(f"wheel-filename: {e}", file=sys.stderr)
+        return 1
+    print(json.dumps(asdict(pwf), indent=4))
+    return 0
 
 
 if __name__ == "__main__":
-    main()  # pragma: no cover
+    sys.exit(main())  # pragma: no cover

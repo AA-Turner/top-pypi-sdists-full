@@ -3,7 +3,7 @@ Type annotations for iot service literal definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -50,6 +50,8 @@ __all__ = (
     "CertificateStatusType",
     "CommandExecutionStatusType",
     "CommandNamespaceType",
+    "CommandParameterTypeType",
+    "CommandParameterValueComparisonOperatorType",
     "ComparisonOperatorType",
     "ConfidenceLevelType",
     "ConfigNameType",
@@ -148,6 +150,7 @@ __all__ = (
     "ModelStatusType",
     "NamedShadowIndexingModeType",
     "OTAUpdateStatusType",
+    "OutputFormatType",
     "PackageVersionActionType",
     "PackageVersionStatusType",
     "PaginatorName",
@@ -230,6 +233,21 @@ CommandExecutionStatusType = Literal[
     "CREATED", "FAILED", "IN_PROGRESS", "REJECTED", "SUCCEEDED", "TIMED_OUT"
 ]
 CommandNamespaceType = Literal["AWS-IoT", "AWS-IoT-FleetWise"]
+CommandParameterTypeType = Literal[
+    "BINARY", "BOOLEAN", "DOUBLE", "INTEGER", "LONG", "STRING", "UNSIGNEDLONG"
+]
+CommandParameterValueComparisonOperatorType = Literal[
+    "EQUALS",
+    "GREATER_THAN",
+    "GREATER_THAN_EQUALS",
+    "IN_RANGE",
+    "IN_SET",
+    "LESS_THAN",
+    "LESS_THAN_EQUALS",
+    "NOT_EQUALS",
+    "NOT_IN_RANGE",
+    "NOT_IN_SET",
+]
 ComparisonOperatorType = Literal[
     "greater-than",
     "greater-than-equals",
@@ -417,6 +435,7 @@ OTAUpdateStatusType = Literal[
     "DELETE_FAILED",
     "DELETE_IN_PROGRESS",
 ]
+OutputFormatType = Literal["CBOR", "JSON"]
 PackageVersionActionType = Literal["DEPRECATE", "PUBLISH"]
 PackageVersionStatusType = Literal["DEPRECATED", "DRAFT", "PUBLISHED"]
 PolicyTemplateNameType = Literal["BLANK_POLICY"]
@@ -478,7 +497,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -548,6 +566,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -593,7 +612,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -646,7 +664,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -685,8 +702,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -721,6 +736,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -730,18 +746,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -763,8 +781,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -779,15 +795,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -818,8 +835,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -859,6 +876,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -870,16 +888,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "get_behavior_model_training_summaries",

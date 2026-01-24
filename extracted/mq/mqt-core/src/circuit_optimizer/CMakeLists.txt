@@ -1,5 +1,5 @@
-# Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
-# Copyright (c) 2025 Munich Quantum Software Company GmbH
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
 # All rights reserved.
 #
 # SPDX-License-Identifier: MIT
@@ -24,17 +24,7 @@ if(NOT TARGET ${MQT_CORE_TARGET_NAME}-circuit-optimizer)
            ${CIRCUIT_OPTIMIZER_HEADERS})
 
   # add link libraries
-  target_link_libraries(
-    ${MQT_CORE_TARGET_NAME}-circuit-optimizer
-    PUBLIC MQT::CoreIR
-    PRIVATE MQT::ProjectOptions MQT::ProjectWarnings)
-
-  # set versioning information
-  set_target_properties(
-    ${MQT_CORE_TARGET_NAME}-circuit-optimizer
-    PROPERTIES VERSION ${PROJECT_VERSION}
-               SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
-               EXPORT_NAME CoreCircuitOptimizer)
+  target_link_libraries(${MQT_CORE_TARGET_NAME}-circuit-optimizer PUBLIC MQT::CoreIR)
 
   # generate export header
   include(GenerateExportHeader)

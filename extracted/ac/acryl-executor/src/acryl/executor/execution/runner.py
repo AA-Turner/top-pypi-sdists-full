@@ -152,24 +152,17 @@ def pydantic_parse_json(v: Any) -> Any:
     return v
 
 
-# Check Pydantic version for compatibility
-try:
-    _PYDANTIC_VERSION = tuple(map(int, pydantic.__version__.split(".")[:2]))
-    _IS_PYDANTIC_V2 = _PYDANTIC_VERSION >= (2, 0)
-except Exception:
-    _IS_PYDANTIC_V2 = True  # Default to v2 behavior
-
-
-class VenvConfigMixin:
-    """Shared methods for VenvConfig - avoids duplication between Pydantic v1/v2 implementations."""
-
-    # Type annotations for attributes that will be provided by the concrete classes
-    version: str
-    main_plugin: Union[str, None]
-    extra_pip_requirements: list[str]
-    extra_pip_plugins: list[str]
-    extra_env_vars: dict
-    requirements_file: Union[pathlib.Path, None]
+class VenvConfig(pydantic.BaseModel):
+    version: str = VENV_VERSION_LATEST
+    main_plugin: Union[str, None] = None
+    extra_pip_requirements: Annotated[
+        list[str], pydantic.BeforeValidator(pydantic_parse_json)
+    ] = []
+    extra_pip_plugins: Annotated[
+        list[str], pydantic.BeforeValidator(pydantic_parse_json)
+    ] = []
+    extra_env_vars: Annotated[dict, pydantic.BeforeValidator(pydantic_parse_json)] = {}
+    requirements_file: Union[pathlib.Path, None] = None
 
     def set_main_plugin(self, plugin: str) -> None:
         self.main_plugin = plugin
@@ -219,41 +212,6 @@ class VenvConfigMixin:
                 return f"acryl-datahub{plugins} @ {self.version}/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl?ts={now.timestamp()}"
         else:
             return f"acryl-datahub{plugins}=={self.version}"
-
-
-if _IS_PYDANTIC_V2:
-    # Pydantic v2 implementation
-    class VenvConfig(VenvConfigMixin, pydantic.BaseModel):
-        version: str = VENV_VERSION_LATEST
-        main_plugin: Union[str, None] = None
-        extra_pip_requirements: Annotated[
-            list[str], pydantic.BeforeValidator(pydantic_parse_json)
-        ] = []
-        extra_pip_plugins: Annotated[
-            list[str], pydantic.BeforeValidator(pydantic_parse_json)
-        ] = []
-        extra_env_vars: Annotated[
-            dict, pydantic.BeforeValidator(pydantic_parse_json)
-        ] = {}
-        # If a requirements file is specified, then the version and all other extra_* fields are ignored.
-        requirements_file: Union[pathlib.Path, None] = None
-
-else:
-    # Pydantic v1 implementation using @validator
-    class VenvConfig(VenvConfigMixin, pydantic.BaseModel):  # type: ignore[no-redef]
-        version: str = VENV_VERSION_LATEST
-        main_plugin: Union[str, None] = None
-        extra_pip_requirements: list[str] = []
-        extra_pip_plugins: list[str] = []
-        extra_env_vars: dict = {}
-        # If a requirements file is specified, then the version and all other extra_* fields are ignored.
-        requirements_file: Union[pathlib.Path, None] = None
-
-        @pydantic.validator(
-            "extra_pip_requirements", "extra_pip_plugins", "extra_env_vars", pre=True
-        )
-        def parse_json_fields(cls, v):
-            return pydantic_parse_json(v)
 
 
 @dataclasses.dataclass
@@ -319,6 +277,9 @@ class SubprocessRunner:
             stderr=subprocess.STDOUT,
             cwd=cwd,
         )
+        # Track if subprocess failed (will raise after task group exits)
+        error_returncode: Union[int, None] = None
+
         with collapse_excgroups():
             async with self._process, anyio.create_task_group() as tg:
                 tg.start_soon(self._read_logs, name="read_logs")  # type: ignore[arg-type]
@@ -335,17 +296,32 @@ class SubprocessRunner:
                     raise
 
                 else:
-                    # Raise if the process exited with a non-zero return code.
+                    # Store error returncode if process exited with non-zero status.
+                    # We'll raise the exception after the task group exits, when logs are fully captured.
                     if (
                         self._process.returncode is not None
                         and self._process.returncode != 0
                     ):
-                        raise subprocess.CalledProcessError(
-                            returncode=self._process.returncode, cmd=command
-                        )
+                        error_returncode = self._process.returncode
 
                 finally:
                     tg.cancel_scope.cancel()
+
+        # Now that the task group has exited and _read_logs has completed,
+        # we can safely read the captured logs and raise the error with full output.
+        if error_returncode is not None:
+            captured_output = self._logs.get_logs()
+            error = subprocess.CalledProcessError(
+                returncode=error_returncode,
+                cmd=command,
+                output=captured_output,
+            )
+            # Set stderr to the captured output so it's visible in exception handlers
+            if captured_output:
+                error.stderr = (
+                    f"Command failed with captured output:\n{captured_output}"
+                )
+            raise error
 
     async def _read_logs(self) -> None:
         assert self._process is not None
@@ -499,7 +475,13 @@ async def setup_venv(
     runner._logs.append(f"Installing requirements from: {requirements_file}\n")
     await runner.execute(["cat", str(requirements_file)])
     await runner.execute(
-        [_find_uv(), "pip", "install", "-r", str(requirements_file)],
+        [
+            _find_uv(),
+            "pip",
+            "install",
+            "-r",
+            str(requirements_file),
+        ],
         env={
             **venv_config.extra_env_vars,
             "VIRTUAL_ENV": str(venv_loc),

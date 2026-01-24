@@ -33,6 +33,7 @@ class InstanceForDescribeDBInstancesOutput(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'blue_green_role': 'str',
         'capacity': 'CapacityForDescribeDBInstancesOutput',
         'charge_type': 'str',
         'create_time': 'str',
@@ -46,6 +47,7 @@ class InstanceForDescribeDBInstancesOutput(object):
         'multi_az': 'str',
         'node_number': 'int',
         'private_address': 'str',
+        'private_port': 'str',
         'project_name': 'str',
         'region_id': 'str',
         'service_type': 'str',
@@ -61,6 +63,7 @@ class InstanceForDescribeDBInstancesOutput(object):
     }
 
     attribute_map = {
+        'blue_green_role': 'BlueGreenRole',
         'capacity': 'Capacity',
         'charge_type': 'ChargeType',
         'create_time': 'CreateTime',
@@ -74,6 +77,7 @@ class InstanceForDescribeDBInstancesOutput(object):
         'multi_az': 'MultiAZ',
         'node_number': 'NodeNumber',
         'private_address': 'PrivateAddress',
+        'private_port': 'PrivatePort',
         'project_name': 'ProjectName',
         'region_id': 'RegionId',
         'service_type': 'ServiceType',
@@ -88,12 +92,13 @@ class InstanceForDescribeDBInstancesOutput(object):
         'zone_ids': 'ZoneIds'
     }
 
-    def __init__(self, capacity=None, charge_type=None, create_time=None, data_layout=None, deletion_protection=None, engine_version=None, expired_time=None, instance_class=None, instance_id=None, instance_name=None, multi_az=None, node_number=None, private_address=None, project_name=None, region_id=None, service_type=None, shard_capacity=None, shard_number=None, sharded_cluster=None, status=None, tags=None, vip=None, vipv6=None, vpc_id=None, zone_ids=None, _configuration=None):  # noqa: E501
+    def __init__(self, blue_green_role=None, capacity=None, charge_type=None, create_time=None, data_layout=None, deletion_protection=None, engine_version=None, expired_time=None, instance_class=None, instance_id=None, instance_name=None, multi_az=None, node_number=None, private_address=None, private_port=None, project_name=None, region_id=None, service_type=None, shard_capacity=None, shard_number=None, sharded_cluster=None, status=None, tags=None, vip=None, vipv6=None, vpc_id=None, zone_ids=None, _configuration=None):  # noqa: E501
         """InstanceForDescribeDBInstancesOutput - a model defined in Swagger"""  # noqa: E501
         if _configuration is None:
             _configuration = Configuration()
         self._configuration = _configuration
 
+        self._blue_green_role = None
         self._capacity = None
         self._charge_type = None
         self._create_time = None
@@ -107,6 +112,7 @@ class InstanceForDescribeDBInstancesOutput(object):
         self._multi_az = None
         self._node_number = None
         self._private_address = None
+        self._private_port = None
         self._project_name = None
         self._region_id = None
         self._service_type = None
@@ -121,6 +127,8 @@ class InstanceForDescribeDBInstancesOutput(object):
         self._zone_ids = None
         self.discriminator = None
 
+        if blue_green_role is not None:
+            self.blue_green_role = blue_green_role
         if capacity is not None:
             self.capacity = capacity
         if charge_type is not None:
@@ -147,6 +155,8 @@ class InstanceForDescribeDBInstancesOutput(object):
             self.node_number = node_number
         if private_address is not None:
             self.private_address = private_address
+        if private_port is not None:
+            self.private_port = private_port
         if project_name is not None:
             self.project_name = project_name
         if region_id is not None:
@@ -171,6 +181,27 @@ class InstanceForDescribeDBInstancesOutput(object):
             self.vpc_id = vpc_id
         if zone_ids is not None:
             self.zone_ids = zone_ids
+
+    @property
+    def blue_green_role(self):
+        """Gets the blue_green_role of this InstanceForDescribeDBInstancesOutput.  # noqa: E501
+
+
+        :return: The blue_green_role of this InstanceForDescribeDBInstancesOutput.  # noqa: E501
+        :rtype: str
+        """
+        return self._blue_green_role
+
+    @blue_green_role.setter
+    def blue_green_role(self, blue_green_role):
+        """Sets the blue_green_role of this InstanceForDescribeDBInstancesOutput.
+
+
+        :param blue_green_role: The blue_green_role of this InstanceForDescribeDBInstancesOutput.  # noqa: E501
+        :type: str
+        """
+
+        self._blue_green_role = blue_green_role
 
     @property
     def capacity(self):
@@ -444,6 +475,27 @@ class InstanceForDescribeDBInstancesOutput(object):
         """
 
         self._private_address = private_address
+
+    @property
+    def private_port(self):
+        """Gets the private_port of this InstanceForDescribeDBInstancesOutput.  # noqa: E501
+
+
+        :return: The private_port of this InstanceForDescribeDBInstancesOutput.  # noqa: E501
+        :rtype: str
+        """
+        return self._private_port
+
+    @private_port.setter
+    def private_port(self, private_port):
+        """Sets the private_port of this InstanceForDescribeDBInstancesOutput.
+
+
+        :param private_port: The private_port of this InstanceForDescribeDBInstancesOutput.  # noqa: E501
+        :type: str
+        """
+
+        self._private_port = private_port
 
     @property
     def project_name(self):

@@ -5,24 +5,20 @@
 
 use crate::rule::{LintError, LintResult, LintWarning, Rule, Severity};
 use crate::utils::range_utils::calculate_match_range;
-use lazy_static::lazy_static;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+use std::sync::LazyLock;
 
 mod md054_config;
 use md054_config::MD054Config;
 
-lazy_static! {
-    // Updated regex patterns that work with Unicode characters
-    static ref AUTOLINK_RE: Regex = Regex::new(r"<([^<>]+)>").unwrap();
-    static ref INLINE_RE: Regex = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap();
-    static ref URL_INLINE_RE: Regex = Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap();
-    static ref SHORTCUT_RE: Regex = Regex::new(r"\[([^\]]+)\]").unwrap();
-    static ref COLLAPSED_RE: Regex = Regex::new(r"\[([^\]]+)\]\[\]").unwrap();
-    static ref FULL_RE: Regex = Regex::new(r"\[([^\]]+)\]\[([^\]]+)\]").unwrap();
-    static ref CODE_BLOCK_DELIMITER: Regex = Regex::new(r"^(```|~~~)").unwrap();
-    static ref REFERENCE_DEF_RE: Regex = Regex::new(r"^\s*\[([^\]]+)\]:\s+(.+)$").unwrap();
-}
+// Updated regex patterns that work with Unicode characters
+static AUTOLINK_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<([^<>]+)>").unwrap());
+static INLINE_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\(([^)]+)\)").unwrap());
+static SHORTCUT_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[([^\]]+)\]").unwrap());
+static COLLAPSED_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\[\]").unwrap());
+static FULL_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[([^\]]+)\]\[([^\]]+)\]").unwrap());
+static REFERENCE_DEF_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*\[([^\]]+)\]:\s+(.+)$").unwrap());
 
 /// Rule MD054: Link and image style should be consistent
 ///
@@ -68,16 +64,6 @@ lazy_static! {
 /// styles have different advantages (e.g., inline links are self-contained, reference links
 /// keep the content cleaner), but mixing styles can create confusion.
 ///
-#[derive(Debug, Eq, PartialEq, Hash, Serialize, Deserialize, Clone)]
-pub enum LinkImageStyle {
-    Autolink,
-    Inline,
-    UrlInline,
-    Shortcut,
-    Collapsed,
-    Full,
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct MD054LinkImageStyle {
     config: MD054Config,
@@ -149,7 +135,7 @@ impl Rule for MD054LinkImageStyle {
 
         for (line_num, line) in lines.iter().enumerate() {
             // Skip code blocks and reference definitions early
-            if ctx.is_in_code_block(line_num + 1) {
+            if ctx.line_info(line_num + 1).is_some_and(|info| info.in_code_block) {
                 continue;
             }
             if REFERENCE_DEF_RE.is_match(line) {
@@ -164,23 +150,39 @@ impl Rule for MD054LinkImageStyle {
                 continue;
             }
 
-            // Find all matches in the line
-            let mut matches = Vec::new();
+            // Use BTreeSet to efficiently track occupied byte ranges
+            let mut occupied_ranges = BTreeSet::new();
+            let mut filtered_matches = Vec::new();
+
+            // Collect all non-shortcut matches first and track their byte ranges
+            let mut all_matches = Vec::new();
 
             // Find all autolinks
             for cap in AUTOLINK_RE.captures_iter(line) {
                 let m = cap.get(0).unwrap();
-                matches.push(LinkMatch {
-                    style: "autolink",
-                    start: m.start(),
-                    end: m.end(),
-                });
+                let content = cap.get(1).unwrap().as_str();
+
+                // Filter out HTML tags: only match if content starts with a URL scheme
+                // HTML tags like <br> should not be flagged as autolinks
+                let is_url = content.starts_with("http://")
+                    || content.starts_with("https://")
+                    || content.starts_with("ftp://")
+                    || content.starts_with("ftps://")
+                    || content.starts_with("mailto:");
+
+                if is_url {
+                    all_matches.push(LinkMatch {
+                        style: "autolink",
+                        start: m.start(),
+                        end: m.end(),
+                    });
+                }
             }
 
             // Find all full references
             for cap in FULL_RE.captures_iter(line) {
                 let m = cap.get(0).unwrap();
-                matches.push(LinkMatch {
+                all_matches.push(LinkMatch {
                     style: "full",
                     start: m.start(),
                     end: m.end(),
@@ -190,7 +192,7 @@ impl Rule for MD054LinkImageStyle {
             // Find all collapsed references
             for cap in COLLAPSED_RE.captures_iter(line) {
                 let m = cap.get(0).unwrap();
-                matches.push(LinkMatch {
+                all_matches.push(LinkMatch {
                     style: "collapsed",
                     start: m.start(),
                     end: m.end(),
@@ -202,7 +204,7 @@ impl Rule for MD054LinkImageStyle {
                 let m = cap.get(0).unwrap();
                 let text = cap.get(1).unwrap().as_str();
                 let url = cap.get(2).unwrap().as_str();
-                matches.push(LinkMatch {
+                all_matches.push(LinkMatch {
                     style: if text == url { "url_inline" } else { "inline" },
                     start: m.start(),
                     end: m.end(),
@@ -210,33 +212,63 @@ impl Rule for MD054LinkImageStyle {
             }
 
             // Sort matches by start position to ensure we don't double-count
-            matches.sort_by_key(|m| m.start);
+            all_matches.sort_by_key(|m| m.start);
 
-            // Remove overlapping matches (keep the first one)
-            let mut filtered_matches = Vec::new();
+            // Remove overlapping matches (keep the first one) and build occupied ranges set
             let mut last_end = 0;
-            for m in matches {
+            for m in all_matches {
                 if m.start >= last_end {
                     last_end = m.end;
+                    // Add each byte in the range to the set
+                    for byte_pos in m.start..m.end {
+                        occupied_ranges.insert(byte_pos);
+                    }
                     filtered_matches.push(m);
                 }
             }
 
             // Now find shortcut references that don't overlap with other matches
+            // Using BTreeSet for O(log n) lookups instead of O(n) iteration
             for cap in SHORTCUT_RE.captures_iter(line) {
                 let m = cap.get(0).unwrap();
                 let start = m.start();
                 let end = m.end();
+                let link_text = cap.get(1).unwrap().as_str();
 
-                // Check if this overlaps with any existing match
-                let overlaps = filtered_matches.iter().any(|existing| {
-                    (start >= existing.start && start < existing.end) || (end > existing.start && end <= existing.end)
-                });
+                // Filter out task list checkboxes: [ ], [x], or [X]
+                // Task list checkboxes should not be flagged as shortcut links
+                // Task list pattern: list marker (*, -, +) followed by whitespace, then [ ], [x], or [X]
+                if link_text.trim() == "" || link_text == "x" || link_text == "X" {
+                    // Check if this is preceded by a list marker with whitespace
+                    if start > 0 {
+                        let before = &line[..start];
+                        // Trim leading whitespace to handle indentation
+                        let trimmed_before = before.trim_start();
+                        // Check if starts with list marker (*, -, +) followed by whitespace
+                        if let Some(marker_char) = trimmed_before.chars().next()
+                            && (marker_char == '*' || marker_char == '-' || marker_char == '+')
+                            && trimmed_before.len() > 1
+                        {
+                            let after_marker = &trimmed_before[1..];
+                            if after_marker.chars().next().is_some_and(|c| c.is_whitespace()) {
+                                // This is a task list checkbox: marker + whitespace + [ ]
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                // Check if any byte in this range is occupied (O(log n) per byte)
+                let overlaps = (start..end).any(|byte_pos| occupied_ranges.contains(&byte_pos));
 
                 if !overlaps {
                     // Check if followed by '(', '[', '[]', or ']['
                     let after = &line[end..];
                     if !after.starts_with('(') && !after.starts_with('[') {
+                        // Add this range to occupied set
+                        for byte_pos in start..end {
+                            occupied_ranges.insert(byte_pos);
+                        }
                         filtered_matches.push(LinkMatch {
                             style: "shortcut",
                             start,
@@ -253,18 +285,18 @@ impl Rule for MD054LinkImageStyle {
             for m in filtered_matches {
                 let match_start_char = line[..m.start].chars().count();
 
-                if !ctx.is_in_code_span(line_num + 1, match_start_char + 1) && !self.is_style_allowed(m.style) {
+                if !ctx.is_in_code_span(line_num + 1, match_start_char) && !self.is_style_allowed(m.style) {
                     let match_len = line[m.start..m.end].chars().count();
                     let (start_line, start_col, end_line, end_col) =
                         calculate_match_range(line_num + 1, line, match_start_char, match_len);
 
                     warnings.push(LintWarning {
-                        rule_name: Some(self.name()),
+                        rule_name: Some(self.name().to_string()),
                         line: start_line,
                         column: start_col,
                         end_line,
                         end_column: end_col,
-                        message: format!("Link/image style '{}' is not consistent with document", m.style),
+                        message: format!("Link/image style '{}' is not allowed", m.style),
                         severity: Severity::Warning,
                         fix: None,
                     });
@@ -283,6 +315,10 @@ impl Rule for MD054LinkImageStyle {
 
     fn fix_capability(&self) -> crate::rule::FixCapability {
         crate::rule::FixCapability::Unfixable
+    }
+
+    fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
+        ctx.content.is_empty() || !ctx.likely_has_links_or_images()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -315,7 +351,7 @@ mod tests {
     fn test_all_styles_allowed_by_default() {
         let rule = MD054LinkImageStyle::new(true, true, true, true, true, true);
         let content = "[inline](url) [ref][] [ref] <autolink> [full][ref] [url](url)\n\n[ref]: url";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -325,7 +361,7 @@ mod tests {
     fn test_only_inline_allowed() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "[allowed](url) [not][ref] <https://bad.com> [bad][] [shortcut]\n\n[ref]: url\n[shortcut]: url";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 4);
@@ -339,7 +375,7 @@ mod tests {
     fn test_only_autolink_allowed() {
         let rule = MD054LinkImageStyle::new(true, false, false, false, false, false);
         let content = "<https://good.com> [bad](url) [bad][ref]\n\n[ref]: url";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 2);
@@ -351,7 +387,7 @@ mod tests {
     fn test_url_inline_detection() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, true);
         let content = "[https://example.com](https://example.com) [text](https://example.com)";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // First is url_inline (allowed), second is inline (allowed)
@@ -362,7 +398,7 @@ mod tests {
     fn test_url_inline_not_allowed() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "[https://example.com](https://example.com)";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -373,7 +409,7 @@ mod tests {
     fn test_shortcut_vs_full_detection() {
         let rule = MD054LinkImageStyle::new(false, false, true, false, false, false);
         let content = "[shortcut] [full][ref]\n\n[shortcut]: url\n[ref]: url2";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only shortcut should be flagged
@@ -385,7 +421,7 @@ mod tests {
     fn test_collapsed_reference() {
         let rule = MD054LinkImageStyle::new(false, true, false, false, false, false);
         let content = "[collapsed][] [bad][ref]\n\n[collapsed]: url\n[ref]: url2";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -396,7 +432,7 @@ mod tests {
     fn test_code_blocks_ignored() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "```\n[ignored](url) <https://ignored.com>\n```\n\n[checked](url)";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only the link outside code block should be checked
@@ -407,7 +443,7 @@ mod tests {
     fn test_code_spans_ignored() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "`[ignored](url)` and `<https://ignored.com>` but [checked](url)";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only the link outside code spans should be checked
@@ -418,7 +454,7 @@ mod tests {
     fn test_reference_definitions_ignored() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "[ref]: https://example.com\n[ref2]: <https://example2.com>";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Reference definitions should be ignored
@@ -429,7 +465,7 @@ mod tests {
     fn test_html_comments_ignored() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "<!-- [ignored](url) -->\n  <!-- <https://ignored.com> -->";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -439,7 +475,7 @@ mod tests {
     fn test_unicode_support() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "[café ☕](https://café.com) [emoji 😀](url) [한글](url) [עברית](url)";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // All should be detected as inline (allowed)
@@ -450,7 +486,7 @@ mod tests {
     fn test_line_positions() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "Line 1\n\nLine 3 with <https://bad.com> here";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -461,8 +497,8 @@ mod tests {
     #[test]
     fn test_multiple_links_same_line() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
-        let content = "[ok](url) but <bad> and [also][bad]\n\n[bad]: url";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let content = "[ok](url) but <https://good.com> and [also][bad]\n\n[bad]: url";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 2);
@@ -474,7 +510,7 @@ mod tests {
     fn test_empty_content() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -484,7 +520,7 @@ mod tests {
     fn test_no_links() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "Just plain text without any links";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -494,7 +530,7 @@ mod tests {
     fn test_fix_returns_error() {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         let content = "[link](url)";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.fix(&ctx);
 
         assert!(result.is_err());
@@ -508,7 +544,7 @@ mod tests {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         // Test that [text][ref] is detected as full, not shortcut
         let content = "[text][ref] not detected as [shortcut]\n\n[ref]: url\n[shortcut]: url2";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 2);
@@ -521,7 +557,7 @@ mod tests {
         let rule = MD054LinkImageStyle::new(false, false, false, true, true, false);
         // [text][ should not be detected as shortcut
         let content = "[text][ more text\n[text](url) is inline";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Only second line should have inline link
@@ -533,7 +569,7 @@ mod tests {
         let rule = MD054LinkImageStyle::new(false, false, false, true, false, false);
         // Test with zero-width joiners and complex Unicode
         let content = "[👨‍👩‍👧‍👦 family](url) [café☕](https://café.com)";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Both should be detected as inline (allowed)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: jinjanator
-Version: 25.2.0
+Version: 25.3.1
 Summary: Command-line interface to Jinja2 for templating in shell scripts.
 Project-URL: Bug Tracker, https://github.com/kpfleming/jinjanator/issues
 Project-URL: Homepage, https://github.com/kpfleming/jinjanator
@@ -13,16 +13,16 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: attrs
 Requires-Dist: jinja2>=2.7.2
-Requires-Dist: jinjanator-plugins==24.2.*
+Requires-Dist: jinjanator-plugins==25.1.*
 Requires-Dist: python-dotenv>=1
 Requires-Dist: pyyaml
 Requires-Dist: typing-extensions
@@ -298,7 +298,7 @@ JSON data input format.
 
 #### Options
 
-* `array-name`: accepts a single string (e.g. `array-name=foo`), which
+* `array-name`: accepts a single string (e.g. `--format-option array-name=foo`), which
   must be a valid Python identifier and not a Python keyword. If this
   option is specified, and the JSON data provided is an `array`
   (sequence, list), the specified name will be used to make the data
@@ -326,14 +326,14 @@ Usage:
 
 Or:
 
-    $ cat data.json | jinjanate --format=ini config.j2
+    $ cat data.json | jinjanate --format=json config.j2
 
 ### YAML
 YAML data input format.
 
 #### Options
 
-* `sequence-name`: accepts a single string (e.g. `sequence-name=foo`),
+* `sequence-name`: accepts a single string (e.g. `--format-option sequence-name=foo`),
   which must be a valid Python identifier and not a Python keyword. If
   this option is specified, and the YAML data provided is a `sequence`
   (array, list), the specified name will be used to make the data
@@ -561,10 +561,8 @@ def extra_tests():
 ## Release Information
 ### Fixes
 
-- Corrected behavior of '--customize' argument when the customization file
-  doesn't contain every possible type of customization function
-  (contributed by @itamaro).
-  [[#48](https://github.com/kpfleming/jinjanator/issues/48)](https://github.com/kpfleming/jinjanator/issues/48)
+- Improved documentation of format options, and corrected an error in example for JSON data format.
+  [[#61](https://github.com/kpfleming/jinjanator/issues/61)](https://github.com/kpfleming/jinjanator/issues/61)
 
 ---
 [→ Full Changelog](https://github.com/kpfleming/jinjanator/blob/main/CHANGELOG.md)

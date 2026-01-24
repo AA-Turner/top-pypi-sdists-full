@@ -40,7 +40,7 @@ dependencies = [
     "griffe>=1.14",
     "typing-extensions>=4.7",
 ]
-version = "0.2.9"
+version = "0.3.0"
 
 [project.urls]
 Homepage = "https://mkdocstrings.github.io/griffe-typingdoc"

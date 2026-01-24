@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: Willow
-Version: 1.11.0
+Version: 1.12.0
 Summary: A Python image library that sits on top of Pillow, Wand and OpenCV
 Keywords: Imaging
 Author-email: Karl Hobley <karl@kaed.uk>
 Maintainer-email: Wagtail Core team <hello@wagtail.org>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Multimedia :: Graphics
@@ -16,11 +16,11 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: filetype>=1.0.10,!=1.1.0
 Requires-Dist: defusedxml>=0.7,<1.0
@@ -28,9 +28,8 @@ Requires-Dist: Sphinx>=7.0 ; extra == "docs"
 Requires-Dist: sphinx-wagtail-theme>=6.1.1,<7.0 ; extra == "docs"
 Requires-Dist: sphinxcontrib-spelling>=8.0,<9.0 ; extra == "docs"
 Requires-Dist: sphinx_copybutton>=0.5 ; extra == "docs"
-Requires-Dist: pillow-heif>=0.10.0 ; extra == "heif" and ( python_version < '3.12')
-Requires-Dist: pillow-heif>=0.13.0 ; extra == "heif" and ( python_version >= '3.12')
-Requires-Dist: Pillow>=11.3.0,<12.0.0 ; extra == "pillow"
+Requires-Dist: pillow-heif>=1.0.0 ; extra == "heif"
+Requires-Dist: Pillow>=11.3.0 ; extra == "pillow"
 Requires-Dist: willow[pillow, wand, heif] ; extra == "testing"
 Requires-Dist: coverage[toml]>=7.2.7,<8.0 ; extra == "testing"
 Requires-Dist: pre-commit>=3.4.0 ; extra == "testing"
@@ -62,7 +61,7 @@ It converts the image between the libraries when necessary.
 Willow currently has basic resize and crop operations, face and feature detection and animated GIF support.
 New operations and library integrations can also be [easily implemented](https://willow.wagtail.org/latest/guide/extend.html).
 
-The library is written in pure Python and supports versions 3.9, 3.10, 3.11, 3.12, and 3.13.
+The library is written in pure Python and supports versions 3.10, 3.11, 3.12, 3.13 and 3.14.
 
 ## Examples
 

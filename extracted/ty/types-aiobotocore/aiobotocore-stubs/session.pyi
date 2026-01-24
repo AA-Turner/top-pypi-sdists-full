@@ -37,7 +37,6 @@ from types_aiobotocore_appmesh.client import AppMeshClient
 from types_aiobotocore_apprunner.client import AppRunnerClient
 from types_aiobotocore_appstream.client import AppStreamClient
 from types_aiobotocore_appsync.client import AppSyncClient
-from types_aiobotocore_apptest.client import MainframeModernizationApplicationTestingClient
 from types_aiobotocore_arc_region_switch.client import ARCRegionswitchClient
 from types_aiobotocore_arc_zonal_shift.client import ARCZonalShiftClient
 from types_aiobotocore_artifact.client import ArtifactClient
@@ -61,10 +60,8 @@ from types_aiobotocore_bcm_recommended_actions.client import (
 from types_aiobotocore_bedrock.client import BedrockClient
 from types_aiobotocore_bedrock_agent.client import AgentsforBedrockClient
 from types_aiobotocore_bedrock_agent_runtime.client import AgentsforBedrockRuntimeClient
-from types_aiobotocore_bedrock_agentcore.client import BedrockAgentCoreDataPlaneFrontingLayerClient
-from types_aiobotocore_bedrock_agentcore_control.client import (
-    BedrockAgentCoreControlPlaneFrontingLayerClient,
-)
+from types_aiobotocore_bedrock_agentcore.client import BedrockAgentCoreClient
+from types_aiobotocore_bedrock_agentcore_control.client import BedrockAgentCoreControlClient
 from types_aiobotocore_bedrock_data_automation.client import DataAutomationforBedrockClient
 from types_aiobotocore_bedrock_data_automation_runtime.client import (
     RuntimeforBedrockDataAutomationClient,
@@ -115,6 +112,7 @@ from types_aiobotocore_cognito_sync.client import CognitoSyncClient
 from types_aiobotocore_comprehend.client import ComprehendClient
 from types_aiobotocore_comprehendmedical.client import ComprehendMedicalClient
 from types_aiobotocore_compute_optimizer.client import ComputeOptimizerClient
+from types_aiobotocore_compute_optimizer_automation.client import ComputeOptimizerAutomationClient
 from types_aiobotocore_config.client import ConfigServiceClient
 from types_aiobotocore_connect.client import ConnectClient
 from types_aiobotocore_connect_contact_lens.client import ConnectContactLensClient
@@ -160,7 +158,6 @@ from types_aiobotocore_eks.client import EKSClient
 from types_aiobotocore_eks_auth.client import EKSAuthClient
 from types_aiobotocore_elasticache.client import ElastiCacheClient
 from types_aiobotocore_elasticbeanstalk.client import ElasticBeanstalkClient
-from types_aiobotocore_elastictranscoder.client import ElasticTranscoderClient
 from types_aiobotocore_elb.client import ElasticLoadBalancingClient
 from types_aiobotocore_elbv2.client import ElasticLoadBalancingv2Client
 from types_aiobotocore_emr.client import EMRClient
@@ -215,7 +212,6 @@ from types_aiobotocore_iotanalytics.client import IoTAnalyticsClient
 from types_aiobotocore_iotdeviceadvisor.client import IoTDeviceAdvisorClient
 from types_aiobotocore_iotevents.client import IoTEventsClient
 from types_aiobotocore_iotevents_data.client import IoTEventsDataClient
-from types_aiobotocore_iotfleethub.client import IoTFleetHubClient
 from types_aiobotocore_iotfleetwise.client import IoTFleetWiseClient
 from types_aiobotocore_iotsecuretunneling.client import IoTSecureTunnelingClient
 from types_aiobotocore_iotsitewise.client import IoTSiteWiseClient
@@ -258,8 +254,6 @@ from types_aiobotocore_lightsail.client import LightsailClient
 from types_aiobotocore_location.client import LocationServiceClient
 from types_aiobotocore_logs.client import CloudWatchLogsClient
 from types_aiobotocore_lookoutequipment.client import LookoutEquipmentClient
-from types_aiobotocore_lookoutmetrics.client import LookoutMetricsClient
-from types_aiobotocore_lookoutvision.client import LookoutforVisionClient
 from types_aiobotocore_m2.client import MainframeModernizationClient
 from types_aiobotocore_machinelearning.client import MachineLearningClient
 from types_aiobotocore_macie2.client import Macie2Client
@@ -294,6 +288,7 @@ from types_aiobotocore_mpa.client import MultipartyApprovalClient
 from types_aiobotocore_mq.client import MQClient
 from types_aiobotocore_mturk.client import MTurkClient
 from types_aiobotocore_mwaa.client import MWAAClient
+from types_aiobotocore_mwaa_serverless.client import MWAAServerlessClient
 from types_aiobotocore_neptune.client import NeptuneClient
 from types_aiobotocore_neptune_graph.client import NeptuneGraphClient
 from types_aiobotocore_neptunedata.client import NeptuneDataClient
@@ -303,18 +298,20 @@ from types_aiobotocore_networkmanager.client import NetworkManagerClient
 from types_aiobotocore_networkmonitor.client import CloudWatchNetworkMonitorClient
 from types_aiobotocore_notifications.client import UserNotificationsClient
 from types_aiobotocore_notificationscontacts.client import UserNotificationsContactsClient
+from types_aiobotocore_nova_act.client import NovaActServiceClient
 from types_aiobotocore_oam.client import CloudWatchObservabilityAccessManagerClient
 from types_aiobotocore_observabilityadmin.client import CloudWatchObservabilityAdminServiceClient
 from types_aiobotocore_odb.client import OdbClient
 from types_aiobotocore_omics.client import OmicsClient
 from types_aiobotocore_opensearch.client import OpenSearchServiceClient
 from types_aiobotocore_opensearchserverless.client import OpenSearchServiceServerlessClient
-from types_aiobotocore_opsworks.client import OpsWorksClient
-from types_aiobotocore_opsworkscm.client import OpsWorksCMClient
 from types_aiobotocore_organizations.client import OrganizationsClient
 from types_aiobotocore_osis.client import OpenSearchIngestionClient
 from types_aiobotocore_outposts.client import OutpostsClient
 from types_aiobotocore_panorama.client import PanoramaClient
+from types_aiobotocore_partnercentral_account.client import PartnerCentralAccountAPIClient
+from types_aiobotocore_partnercentral_benefits.client import PartnerCentralBenefitsClient
+from types_aiobotocore_partnercentral_channel.client import PartnerCentralChannelAPIClient
 from types_aiobotocore_partnercentral_selling.client import PartnerCentralSellingAPIClient
 from types_aiobotocore_payment_cryptography.client import PaymentCryptographyControlPlaneClient
 from types_aiobotocore_payment_cryptography_data.client import PaymentCryptographyDataPlaneClient
@@ -336,8 +333,6 @@ from types_aiobotocore_proton.client import ProtonClient
 from types_aiobotocore_qapps.client import QAppsClient
 from types_aiobotocore_qbusiness.client import QBusinessClient
 from types_aiobotocore_qconnect.client import QConnectClient
-from types_aiobotocore_qldb.client import QLDBClient
-from types_aiobotocore_qldb_session.client import QLDBSessionClient
 from types_aiobotocore_quicksight.client import QuickSightClient
 from types_aiobotocore_ram.client import RAMClient
 from types_aiobotocore_rbin.client import RecycleBinClient
@@ -352,7 +347,6 @@ from types_aiobotocore_resiliencehub.client import ResilienceHubClient
 from types_aiobotocore_resource_explorer_2.client import ResourceExplorerClient
 from types_aiobotocore_resource_groups.client import ResourceGroupsClient
 from types_aiobotocore_resourcegroupstaggingapi.client import ResourceGroupsTaggingAPIClient
-from types_aiobotocore_robomaker.client import RoboMakerClient
 from types_aiobotocore_rolesanywhere.client import IAMRolesAnywhereClient
 from types_aiobotocore_route53.client import Route53Client
 from types_aiobotocore_route53_recovery_cluster.client import Route53RecoveryClusterClient
@@ -361,8 +355,10 @@ from types_aiobotocore_route53_recovery_control_config.client import (
 )
 from types_aiobotocore_route53_recovery_readiness.client import Route53RecoveryReadinessClient
 from types_aiobotocore_route53domains.client import Route53DomainsClient
+from types_aiobotocore_route53globalresolver.client import Route53GlobalResolverClient
 from types_aiobotocore_route53profiles.client import Route53ProfilesClient
 from types_aiobotocore_route53resolver.client import Route53ResolverClient
+from types_aiobotocore_rtbfabric.client import RTBFabricClient
 from types_aiobotocore_rum.client import CloudWatchRUMClient
 from types_aiobotocore_s3.client import S3Client
 from types_aiobotocore_s3control.client import S3ControlClient
@@ -395,8 +391,8 @@ from types_aiobotocore_ses.client import SESClient
 from types_aiobotocore_sesv2.client import SESV2Client
 from types_aiobotocore_shield.client import ShieldClient
 from types_aiobotocore_signer.client import SignerClient
+from types_aiobotocore_signin.client import SignInServiceClient
 from types_aiobotocore_simspaceweaver.client import SimSpaceWeaverClient
-from types_aiobotocore_sms.client import SMSClient
 from types_aiobotocore_snow_device_management.client import SnowDeviceManagementClient
 from types_aiobotocore_snowball.client import SnowballClient
 from types_aiobotocore_sns.client import SNSClient
@@ -436,6 +432,7 @@ from types_aiobotocore_waf.client import WAFClient
 from types_aiobotocore_waf_regional.client import WAFRegionalClient
 from types_aiobotocore_wafv2.client import WAFV2Client
 from types_aiobotocore_wellarchitected.client import WellArchitectedClient
+from types_aiobotocore_wickr.client import WickrAdminAPIClient
 from types_aiobotocore_wisdom.client import ConnectWisdomServiceClient
 from types_aiobotocore_workdocs.client import WorkDocsClient
 from types_aiobotocore_workmail.client import WorkMailClient
@@ -972,25 +969,6 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
-        service_name: Literal["apptest"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[MainframeModernizationApplicationTestingClient]:
-        """
-        Create client for MainframeModernizationApplicationTesting service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
         service_name: Literal["arc-region-switch"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -1363,9 +1341,9 @@ class AioSession(BotocoreSession):
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
         aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[BedrockAgentCoreDataPlaneFrontingLayerClient]:
+    ) -> ClientCreatorContext[BedrockAgentCoreClient]:
         """
-        Create client for BedrockAgentCoreDataPlaneFrontingLayer service.
+        Create client for BedrockAgentCore service.
         """
 
     @overload  # type: ignore[override]
@@ -1382,9 +1360,9 @@ class AioSession(BotocoreSession):
         aws_session_token: str | None = ...,
         config: AioConfig | None = ...,
         aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[BedrockAgentCoreControlPlaneFrontingLayerClient]:
+    ) -> ClientCreatorContext[BedrockAgentCoreControlClient]:
         """
-        Create client for BedrockAgentCoreControlPlaneFrontingLayer service.
+        Create client for BedrockAgentCoreControl service.
         """
 
     @overload  # type: ignore[override]
@@ -2302,6 +2280,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["compute-optimizer-automation"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[ComputeOptimizerAutomationClient]:
+        """
+        Create client for ComputeOptimizerAutomation service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["config"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -3152,25 +3149,6 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[ElasticBeanstalkClient]:
         """
         Create client for ElasticBeanstalk service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
-        service_name: Literal["elastictranscoder"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[ElasticTranscoderClient]:
-        """
-        Create client for ElasticTranscoder service.
         """
 
     @overload  # type: ignore[override]
@@ -4164,25 +4142,6 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
-        service_name: Literal["iotfleethub"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[IoTFleetHubClient]:
-        """
-        Create client for IoTFleetHub service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
         service_name: Literal["iotfleetwise"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -4905,44 +4864,6 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
-        service_name: Literal["lookoutmetrics"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[LookoutMetricsClient]:
-        """
-        Create client for LookoutMetrics service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
-        service_name: Literal["lookoutvision"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[LookoutforVisionClient]:
-        """
-        Create client for LookoutforVision service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
         service_name: Literal["m2"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -5589,6 +5510,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["mwaa-serverless"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[MWAAServerlessClient]:
+        """
+        Create client for MWAAServerless service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["neptune"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -5760,6 +5700,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["nova-act"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[NovaActServiceClient]:
+        """
+        Create client for NovaActService service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["oam"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -5874,44 +5833,6 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
-        service_name: Literal["opsworks"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[OpsWorksClient]:
-        """
-        Create client for OpsWorks service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
-        service_name: Literal["opsworkscm"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[OpsWorksCMClient]:
-        """
-        Create client for OpsWorksCM service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
         service_name: Literal["organizations"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -5983,6 +5904,63 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[PanoramaClient]:
         """
         Create client for Panorama service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["partnercentral-account"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[PartnerCentralAccountAPIClient]:
+        """
+        Create client for PartnerCentralAccountAPI service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["partnercentral-benefits"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[PartnerCentralBenefitsClient]:
+        """
+        Create client for PartnerCentralBenefits service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["partnercentral-channel"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[PartnerCentralChannelAPIClient]:
+        """
+        Create client for PartnerCentralChannelAPI service.
         """
 
     @overload  # type: ignore[override]
@@ -6387,44 +6365,6 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
-        service_name: Literal["qldb"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[QLDBClient]:
-        """
-        Create client for QLDB service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
-        service_name: Literal["qldb-session"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[QLDBSessionClient]:
-        """
-        Create client for QLDBSession service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
         service_name: Literal["quicksight"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -6691,25 +6631,6 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
-        service_name: Literal["robomaker"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[RoboMakerClient]:
-        """
-        Create client for RoboMaker service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
         service_name: Literal["rolesanywhere"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -6824,6 +6745,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["route53globalresolver"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[Route53GlobalResolverClient]:
+        """
+        Create client for Route53GlobalResolver service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["route53profiles"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -6857,6 +6797,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[Route53ResolverClient]:
         """
         Create client for Route53Resolver service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["rtbfabric"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[RTBFabricClient]:
+        """
+        Create client for RTBFabric service.
         """
 
     @overload  # type: ignore[override]
@@ -7432,6 +7391,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["signin"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[SignInServiceClient]:
+        """
+        Create client for SignInService service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["simspaceweaver"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -7446,25 +7424,6 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[SimSpaceWeaverClient]:
         """
         Create client for SimSpaceWeaver service.
-        """
-
-    @overload  # type: ignore[override]
-    def create_client(  # type: ignore[override]
-        self,
-        service_name: Literal["sms"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: AioConfig | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> ClientCreatorContext[SMSClient]:
-        """
-        Create client for SMS service.
         """
 
     @overload  # type: ignore[override]
@@ -8206,6 +8165,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[WellArchitectedClient]:
         """
         Create client for WellArchitected service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["wickr"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[WickrAdminAPIClient]:
+        """
+        Create client for WickrAdminAPI service.
         """
 
     @overload  # type: ignore[override]

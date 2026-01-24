@@ -6,7 +6,7 @@ dynamic = ["version"]
 
 dependencies = [
   # Database Depenendencies
-  "redis == 4.*",
+  "redis == 7.*",
   "psycopg[binary] == 3.*",
 
   # Generic Python Dependencies
@@ -15,18 +15,19 @@ dependencies = [
   "inscriptis == 1.*",   # TODO: Discuss if really needed
 
   # Django Dependencies
-  "django == 5.0.*",
+  "django == 5.2.*",
+  "django-eventtools == 1.*",
   "django-configurations[database] == 2.5.*",
-  "django-dynamic-preferences == 1.16.*",
-  "django-filter == 24.*",
-  "django-extensions == 3.2.*",
-  "django-cors-headers == 4.6.*",
+  "django-dynamic-preferences == 1.17.*",
+  "django-filter == 25.*",
+  "django-cors-headers == 4.9.*",
+  "django-extensions == 4.1.*",
   "django-storages[boto3] == 1.14.*",
   "django-fsm == 2.*",  # Locked at 2.*, since 3 only adds the deprecation warning for removal
   "django-ordered-model == 3.7.*",
 
   # Django Rest Framework Dependencies
-  "djangorestframework == 3.15.*",
+  "djangorestframework == 3.15.*", # bug in 3.16 regarding uniqueconstraint check, is fixed in the next 3.17 release
   "djangorestframework-simplejwt == 5.*",
   "pyjwt == 2.*",
   "django-rest-fuzzysearch == 0.5.*",
@@ -36,27 +37,23 @@ dependencies = [
   "django-celery-beat == 2.*",
 
   # Model Object Permissions
-  "django-guardian == 2.4.*",
-  "djangorestframework-guardian == 0.3.*",
+  "django-guardian == 3.2.*",
+  "djangorestframework-guardian == 0.4.*",
 
   # Revision System
   "django-reversion == 5.1.*",
   "django-reversion-compare == 0.18.*",
 
   # Visualization
-  "plotly == 5.*",
-
-  # Markdown
-  "markdown >= 3.8",
-  "markdown-blockdiag",
+  "plotly == 6.*", # WARNING please ensure that the version is compatible with the Plotly.js defined in WBCORE_PLOTLY_CDN_URL
 
   # Terminal Formatting and Utils
   "tqdm == 4.*",
-  "prettytable == 0.*",
-  "igraph == 0.*",
+  "prettytable == 3.*",
+  "igraph == 1.*",
   "openpyxl == 3.*",
 
-  "django-colorfield == 0.11.*",
+  "django-colorfield == 0.14.*",
   "django-better-admin-arrayfield == 1.4.*",
   "django-picklefield == 3.*",
 
@@ -68,24 +65,29 @@ dependencies = [
   "python-magic == 0.*",
   "django-import-export == 4.*",
   "django-admin-inline-paginator == 0.4.0",
-  "django-anymail == 12.*",
+  "django-anymail == 13.*",
   "pytest-sftpserver == 1.*",
   "django-mptt == 0.*",
-  "pycountry == 23.*",
-  "phonenumbers == 8.*",
-  "schwifty == 2024.*",  "ics == 0.*",
+  "pycountry == 24.*",
+  "phonenumbers == 9.*",
+  "schwifty == 2025.*",
+  "ics == 0.*",
   "tatsu == 5.*",
-  "boto3 == 1.35.*",
-
-  "faker == 25.*",       # We add exlicitly faker because it's used in production
+  "humanize==4.*",
+  "faker == 38.*",       # We add exlicitly faker because it's used in production
   "graphviz == 0.*",
-  "django-maintenance-mode == 0.21.*",
-  "rstr == 3.2.*", # We add exlicitly faker because it's used in production
-  "langchain >= 0.3",
-  "langchain-openai >= 0.3",
-  "django-modeltrans >= 0.8",
-  "weasyprint == 65.*",
-  "pillow==11.*"
+  "django-maintenance-mode == 0.22.*",
+  "rstr == 3.2.*",
+  "django-modeltrans >= 0.9",
+
+    # Markdown
+  "markdown == 3.10.*",
+
+  "langchain == 1.0.*",
+  "langchain-openai == 1.0.*",
+
+  "weasyprint == 66.*",
+  "reportlab == 4.*",
 ]
 
 [project.optional-dependencies]
@@ -94,9 +96,6 @@ pandas = [
   "numpy == 1.*",
   "pandas == 2.2.*",
 ]
-
-[tool.uv.sources]
-markdown-blockdiag = { git = "https://github.com/gisce/markdown-blockdiag", tag="v0.9.0" }
 
 [tool.uv]
 package = true

@@ -1,5 +1,10 @@
 from typing import TYPE_CHECKING, Optional
-from bittensor.utils import float_to_u64, unlock_key
+
+from bittensor.core.extrinsics.asyncex.mev_shield import submit_encrypted_extrinsic
+from bittensor.core.extrinsics.pallets import SubtensorModule, Sudo
+from bittensor.core.settings import DEFAULT_MEV_PROTECTION
+from bittensor.core.types import ExtrinsicResponse
+from bittensor.utils import float_to_u64
 
 if TYPE_CHECKING:
     from bittensor_wallet import Wallet
@@ -9,33 +14,39 @@ if TYPE_CHECKING:
 async def set_children_extrinsic(
     subtensor: "AsyncSubtensor",
     wallet: "Wallet",
-    hotkey: str,
+    hotkey_ss58: str,
     netuid: int,
     children: list[tuple[float, str]],
-    wait_for_inclusion: bool = True,
-    wait_for_finalization: bool = False,
-    raise_error: bool = False,
+    *,
+    mev_protection: bool = DEFAULT_MEV_PROTECTION,
     period: Optional[int] = None,
-):
+    raise_error: bool = False,
+    wait_for_inclusion: bool = True,
+    wait_for_finalization: bool = True,
+    wait_for_revealed_execution: bool = True,
+) -> ExtrinsicResponse:
     """
     Allows a coldkey to set children-keys.
 
-    Arguments:
-        subtensor: bittensor subtensor.
+    Parameters:
+        subtensor: The Subtensor client instance used for blockchain interaction.
         wallet: bittensor wallet instance.
-        hotkey: The ``SS58`` address of the neuron's hotkey.
+        hotkey_ss58: The ``SS58`` address of the neuron's hotkey.
         netuid: The netuid value.
         children: A list of children with their proportions.
-        wait_for_inclusion: Waits for the transaction to be included in a block.
-        wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
-        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        mev_protection: If True, encrypts and submits the transaction through the MEV Shield pallet to protect
+            against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+            decrypt and execute it. If False, submits the transaction directly without encryption.
         period: The number of blocks during which the transaction will remain valid after it's submitted. If the
             transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
             think of it as an expiration date for the transaction.
+        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        wait_for_inclusion: Waits for the transaction to be included in a block.
+        wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+        wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
 
     Returns:
-        tuple[bool, str]: A tuple where the first element is a boolean indicating success or failure of the operation,
-            and the second element is a message providing additional information.
+        ExtrinsicResponse: The result object of the extrinsic execution.
 
     Raises:
         DuplicateChild: There are duplicates in the list of children.
@@ -44,96 +55,119 @@ async def set_children_extrinsic(
         NotEnoughStakeToSetChildkeys: Parent key doesn't have minimum own stake.
         ProportionOverflow: The sum of the proportions does exceed uint64.
         RegistrationNotPermittedOnRootSubnet: Attempting to register a child on the root network.
-        SubNetworkDoesNotExist: Attempting to register to a non-existent network.
+        SubnetNotExists: Attempting to register to a non-existent network.
         TooManyChildren: Too many children in request.
         TxRateLimitExceeded: Hotkey hit the rate limit.
         bittensor_wallet.errors.KeyFileError: Failed to decode keyfile data.
         bittensor_wallet.errors.PasswordError: Decryption failed or wrong password for decryption provided.
     """
-    unlock = unlock_key(wallet, raise_error=raise_error)
+    try:
+        if not (
+            unlocked := ExtrinsicResponse.unlock_wallet(wallet, raise_error)
+        ).success:
+            return unlocked
 
-    if not unlock.success:
-        return False, unlock.message
-
-    async with subtensor.substrate as substrate:
-        call = await substrate.compose_call(
-            call_module="SubtensorModule",
-            call_function="set_children",
-            call_params={
-                "children": [
-                    (
-                        float_to_u64(proportion),
-                        child_hotkey,
-                    )
-                    for proportion, child_hotkey in children
-                ],
-                "hotkey": hotkey,
-                "netuid": netuid,
-            },
+        call = await SubtensorModule(subtensor).set_children(
+            netuid=netuid,
+            hotkey=hotkey_ss58,
+            children=[
+                (float_to_u64(proportion), child_hotkey)
+                for proportion, child_hotkey in children
+            ],
         )
 
-        success, message = await subtensor.sign_and_send_extrinsic(
-            call=call,
-            wallet=wallet,
-            wait_for_inclusion=wait_for_inclusion,
-            wait_for_finalization=wait_for_finalization,
-            raise_error=raise_error,
-            period=period,
-        )
+        if mev_protection:
+            response = await submit_encrypted_extrinsic(
+                subtensor=subtensor,
+                wallet=wallet,
+                call=call,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                wait_for_revealed_execution=wait_for_revealed_execution,
+            )
+        else:
+            response = await subtensor.sign_and_send_extrinsic(
+                call=call,
+                wallet=wallet,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+            )
+        return response
 
-        if not wait_for_finalization and not wait_for_inclusion:
-            return True, message
-
-        if success:
-            return True, "Success with `set_children_extrinsic` response."
-
-        return True, message
+    except Exception as error:
+        return ExtrinsicResponse.from_exception(raise_error=raise_error, error=error)
 
 
 async def root_set_pending_childkey_cooldown_extrinsic(
     subtensor: "AsyncSubtensor",
     wallet: "Wallet",
     cooldown: int,
-    wait_for_inclusion: bool = True,
-    wait_for_finalization: bool = False,
+    *,
+    mev_protection: bool = DEFAULT_MEV_PROTECTION,
     period: Optional[int] = None,
-) -> tuple[bool, str]:
+    raise_error: bool = False,
+    wait_for_inclusion: bool = True,
+    wait_for_finalization: bool = True,
+    wait_for_revealed_execution: bool = True,
+) -> ExtrinsicResponse:
     """
-    Allows a coldkey to set children-keys.
+    Allows a root coldkey to set children-keys.
+
+    Parameters:
+        subtensor: The Subtensor client instance used for blockchain interaction.
+        wallet: The wallet used to sign the extrinsic (must be unlocked).
+        cooldown: The cooldown period in blocks.
+        mev_protection: If True, encrypts and submits the transaction through the MEV Shield pallet to protect
+            against front-running and MEV attacks. The transaction remains encrypted in the mempool until validators
+            decrypt and execute it. If False, submits the transaction directly without encryption.
+        period: The number of blocks during which the transaction will remain valid after it's submitted. If the
+            transaction is not included in a block within that number of blocks, it will expire and be rejected. You can
+            think of it as an expiration date for the transaction.
+        raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+        wait_for_inclusion: Waits for the transaction to be included in a block.
+        wait_for_finalization: Waits for the transaction to be finalized on the blockchain.
+        wait_for_revealed_execution: Whether to wait for the revealed execution of transaction if mev_protection used.
+
+    Returns:
+        ExtrinsicResponse: The result object of the extrinsic execution.
     """
-    unlock = unlock_key(wallet)
+    try:
+        if not (
+            unlocked := ExtrinsicResponse.unlock_wallet(wallet, raise_error)
+        ).success:
+            return unlocked
 
-    if not unlock.success:
-        return False, unlock.message
-
-    async with subtensor.substrate as substrate:
-        call = await substrate.compose_call(
-            call_module="SubtensorModule",
-            call_function="set_pending_childkey_cooldown",
-            call_params={"cooldown": cooldown},
+        call = await SubtensorModule(subtensor).set_pending_childkey_cooldown(
+            cooldown=cooldown
         )
 
-        sudo_call = await substrate.compose_call(
-            call_module="Sudo",
-            call_function="sudo",
-            call_params={"call": call},
-        )
+        sudo_call = await Sudo(subtensor).sudo(call=call)
 
-        success, message = await subtensor.sign_and_send_extrinsic(
-            call=sudo_call,
-            wallet=wallet,
-            wait_for_inclusion=wait_for_inclusion,
-            wait_for_finalization=wait_for_finalization,
-            period=period,
-        )
-
-        if not wait_for_finalization and not wait_for_inclusion:
-            return True, message
-
-        if success:
-            return (
-                True,
-                "Success with `root_set_pending_childkey_cooldown_extrinsic` response.",
+        if mev_protection:
+            response = await submit_encrypted_extrinsic(
+                subtensor=subtensor,
+                wallet=wallet,
+                call=sudo_call,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+                wait_for_revealed_execution=wait_for_revealed_execution,
             )
+        else:
+            response = await subtensor.sign_and_send_extrinsic(
+                call=sudo_call,
+                wallet=wallet,
+                period=period,
+                raise_error=raise_error,
+                wait_for_inclusion=wait_for_inclusion,
+                wait_for_finalization=wait_for_finalization,
+            )
+        return response
 
-        return True, message
+    except Exception as error:
+        return ExtrinsicResponse.from_exception(raise_error=raise_error, error=error)

@@ -1,19 +1,17 @@
 Metadata-Version: 2.1
 Name: coveralls
-Version: 4.0.1
+Version: 4.0.2
 Summary: Show coverage stats online via coveralls.io
 Home-page: http://github.com/TheKevJames/coveralls-python
 License: MIT
 Author: Kevin James
 Author-email: coveralls-python@thekev.in
-Requires-Python: >=3.8,<3.13
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

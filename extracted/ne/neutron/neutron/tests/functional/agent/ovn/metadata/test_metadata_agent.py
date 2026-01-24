@@ -63,16 +63,12 @@ class MetadataAgentHealthEvent(event.WaitEvent):
             ovn_const.OVN_AGENT_METADATA_SB_CFG_KEY, 0)) >= self.sb_cfg
 
 
-class MetadataPortCreateEvent(event.WaitEvent):
-    event_name = 'MetadataPortCreateEvent'
-
-    def __init__(self, metadata_port, timeout=5):
+class PortBindingUpdateEvent(event.WaitEvent):
+    def __init__(self, lsp, timeout=5):
         table = 'Port_Binding'
-        events = (self.ROW_CREATE,)
-        conditions = (('logical_port', '=', metadata_port),)
-        super().__init__(
-            events, table, conditions, timeout=timeout
-        )
+        events = (self.ROW_UPDATE,)
+        conditions = (('logical_port', '=', lsp),)
+        super().__init__(events, table, conditions, timeout=timeout)
 
 
 class TestMetadataAgent(base.TestOVNFunctionalBase):
@@ -120,6 +116,9 @@ class TestMetadataAgent(base.TestOVNFunctionalBase):
                 check_error=True)
             self.assertEqual(external_ids[ovn_const.OVN_AGENT_OVN_BRIDGE],
                              self.OVN_BRIDGE)
+            self.assertEqual(
+                external_ids[ovn_const.OVN_AGENT_METADATA_SB_CFG_KEY],
+                '0')
 
         # Metadata agent will open connections to OVS and SB databases.
         # Close connections to them when the test ends,
@@ -129,16 +128,6 @@ class TestMetadataAgent(base.TestOVNFunctionalBase):
         return agt
 
     def test_metadata_agent_healthcheck(self):
-        chassis_row = self.sb_api.db_find(
-            AGENT_CHASSIS_TABLE,
-            ('name', '=', self.chassis_name)).execute(
-            check_error=True)[0]
-
-        # Assert that, prior to creating a resource the metadata agent
-        # didn't populate the external_ids from the Chassis
-        self.assertNotIn(ovn_const.OVN_AGENT_METADATA_SB_CFG_KEY,
-                         chassis_row['external_ids'])
-
         # Let's list the agents to force the nb_cfg to be bumped on NB
         # db, which will automatically increment the nb_cfg counter on
         # NB_Global and make ovn-controller copy it over to SB_Global. Upon
@@ -501,9 +490,12 @@ class TestMetadataAgent(base.TestOVNFunctionalBase):
 
         lswitchport_name, lswitch_name = self._create_logical_switch_port()
 
+        pb_event = PortBindingUpdateEvent(lswitchport_name)
+        self.agent.sb_idl.idl.notify_handler.watch_event(pb_event)
         self.sb_api.lsp_bind(
             lswitchport_name, agent_chassis.name).execute(
                 check_error=True, log_errors=True)
+        self.assertTrue(pb_event.wait())
         pb = idlutils.row_by_value(
             self.sb_api, 'Port_Binding', 'logical_port', lswitchport_name)
 
@@ -677,9 +669,12 @@ class TestMetadataAgent(base.TestOVNFunctionalBase):
 
         lswitchport_name, lswitch_name = self._create_logical_switch_port()
 
+        pb_event = PortBindingUpdateEvent(lswitchport_name)
+        self.agent.sb_idl.idl.notify_handler.watch_event(pb_event)
         self.sb_api.lsp_bind(
             lswitchport_name, agent_chassis.name).execute(
                 check_error=True, log_errors=True)
+        self.assertTrue(pb_event.wait())
         pb = idlutils.row_by_value(
             self.sb_api, 'Port_Binding', 'logical_port', lswitchport_name)
 
@@ -696,3 +691,26 @@ class TestMetadataAgent(base.TestOVNFunctionalBase):
                     timeout=1,
                     exception=NoDatapathProvision(
                         "Provisioning wasn't triggered"))
+
+    def test__cleanup_previous_tags(self):
+        external_ids = {
+            ovn_const.OVN_AGENT_NEUTRON_SB_CFG_KEY: '1',
+            ovn_const.OVN_AGENT_NEUTRON_DESC_KEY: 'description',
+            ovn_const.OVN_AGENT_NEUTRON_ID_KEY: uuidutils.generate_uuid()}
+        self.sb_api.db_set(
+            'Chassis_Private', self.chassis_name,
+            ('external_ids', external_ids)).execute(check_error=True)
+
+        self.agent._cleanup_previous_tags()
+        external_ids = self.sb_api.db_get(
+            'Chassis_Private', self.chassis_name,
+            'external_ids').execute(check_error=True)
+        for _key in (ovn_const.OVN_AGENT_NEUTRON_SB_CFG_KEY,
+                     ovn_const.OVN_AGENT_NEUTRON_DESC_KEY,
+                     ovn_const.OVN_AGENT_NEUTRON_ID_KEY):
+            self.assertNotIn(_key, external_ids)
+
+        # Just in case, check that we are NOT deleting the needed tags.
+        for _key in (ovn_const.OVN_AGENT_METADATA_SB_CFG_KEY,
+                     ovn_const.OVN_AGENT_METADATA_ID_KEY):
+            self.assertIn(_key, external_ids)

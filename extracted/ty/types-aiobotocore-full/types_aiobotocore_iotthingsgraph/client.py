@@ -3,7 +3,7 @@ Type annotations for iotthingsgraph service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iotthingsgraph/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -102,12 +103,6 @@ from .type_defs import (
     UploadEntityDefinitionsResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -118,14 +113,14 @@ __all__ = ("IoTThingsGraphClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 
 class IoTThingsGraphClient(AioBaseClient):
@@ -165,7 +160,7 @@ class IoTThingsGraphClient(AioBaseClient):
 
     async def associate_entity_to_thing(
         self, **kwargs: Unpack[AssociateEntityToThingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a device with a concrete thing that is in the user's registry.
 
@@ -205,7 +200,7 @@ class IoTThingsGraphClient(AioBaseClient):
 
     async def delete_flow_template(
         self, **kwargs: Unpack[DeleteFlowTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a workflow.
 
@@ -223,7 +218,7 @@ class IoTThingsGraphClient(AioBaseClient):
 
     async def delete_system_instance(
         self, **kwargs: Unpack[DeleteSystemInstanceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a system instance.
 
@@ -233,7 +228,7 @@ class IoTThingsGraphClient(AioBaseClient):
 
     async def delete_system_template(
         self, **kwargs: Unpack[DeleteSystemTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a system.
 
@@ -253,7 +248,7 @@ class IoTThingsGraphClient(AioBaseClient):
 
     async def deprecate_flow_template(
         self, **kwargs: Unpack[DeprecateFlowTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deprecates the specified workflow.
 
@@ -263,7 +258,7 @@ class IoTThingsGraphClient(AioBaseClient):
 
     async def deprecate_system_template(
         self, **kwargs: Unpack[DeprecateSystemTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deprecates the specified system.
 
@@ -284,7 +279,7 @@ class IoTThingsGraphClient(AioBaseClient):
 
     async def dissociate_entity_from_thing(
         self, **kwargs: Unpack[DissociateEntityFromThingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Dissociates a device entity from a concrete thing.
 
@@ -452,7 +447,7 @@ class IoTThingsGraphClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iotthingsgraph/client/#search_things)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a tag for the specified resource.
 
@@ -470,7 +465,7 @@ class IoTThingsGraphClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iotthingsgraph/client/#undeploy_system_instance)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from the specified resource.
 
@@ -626,7 +621,7 @@ class IoTThingsGraphClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -1,9 +1,10 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import datetime
 import typing
 import warnings
 
+import Common.Util
 import QuantConnect
 import QuantConnect.Algorithm
 import QuantConnect.Algorithm.Framework.Alphas
@@ -51,268 +52,6 @@ QuantConnect_Algorithm__EventContainer_Callable = typing.TypeVar("QuantConnect_A
 QuantConnect_Algorithm__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Algorithm__EventContainer_ReturnType")
 
 
-class UniverseDefinitions(System.Object):
-    """Provides helpers for defining universes in algorithms"""
-
-    @property
-    def dollar_volume(self) -> QuantConnect.Algorithm.DollarVolumeUniverseDefinitions:
-        """Gets a helper that provides methods for creating universes based on daily dollar volumes"""
-        ...
-
-    @dollar_volume.setter
-    def dollar_volume(self, value: QuantConnect.Algorithm.DollarVolumeUniverseDefinitions) -> None:
-        ...
-
-    @property
-    def unchanged(self) -> QuantConnect.Data.UniverseSelection.Universe.UnchangedUniverse:
-        """Specifies that universe selection should not make changes on this iteration"""
-        ...
-
-    @property
-    def qc_500(self) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new fine universe that contains the constituents of QC500 index based onthe company fundamentals
-        The algorithm creates a default tradable and liquid universe containing 500 US equities
-        which are chosen at the first trading day of each month.
-        """
-        ...
-
-    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
-        """
-        Initializes a new instance of the UniverseDefinitions class
-        
-        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param market: Market of the ETF
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided ETF
-        
-        :param symbol: ETF Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param market: Market of the ETF
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param market: Market of the ETF
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param etf_ticker: Ticker of the ETF to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided ETF
-        
-        :param symbol: ETF Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided ETF
-        
-        :param symbol: ETF Symbol to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New ETF constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param market: Market of the index
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_symbol: Index Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param market: Market of the index
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param market: Market of the index
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_ticker: Ticker of the index to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_symbol: Index Symbol to get constituents for
-        :param universe_settings: Universe settings
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    @overload
-    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a universe for the constituents of the provided
-        
-        :param index_symbol: Index Symbol to get constituents for
-        :param universe_filter_func: Function to filter universe results
-        :returns: New index constituents Universe.
-        """
-        ...
-
-    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new coarse universe that contains the top count of stocks
-        by daily dollar volume
-        
-        :param count: The number of stock to select
-        :param universe_settings: The settings for stocks added by this universe. Defaults to QCAlgorithm.UniverseSettings
-        :returns: A new coarse universe for the top count of stocks by dollar volume.
-        """
-        ...
-
-
 class CandlestickPatterns(System.Object):
     """Provides helpers for using candlestick patterns"""
 
@@ -324,7 +63,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def abandoned_baby(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], penetration: float = 0.3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.AbandonedBaby:
+    def abandoned_baby(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], penetration: float = 0.3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.AbandonedBaby:
         """
         Creates a new Indicators.CandlestickPatterns.AbandonedBaby pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -337,7 +76,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def advance_block(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.AdvanceBlock:
+    def advance_block(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.AdvanceBlock:
         """
         Creates a new Indicators.CandlestickPatterns.AdvanceBlock pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -349,7 +88,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def belt_hold(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.BeltHold:
+    def belt_hold(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.BeltHold:
         """
         Creates a new Indicators.CandlestickPatterns.BeltHold pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -361,7 +100,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def breakaway(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Breakaway:
+    def breakaway(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Breakaway:
         """
         Creates a new Indicators.CandlestickPatterns.Breakaway pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -373,7 +112,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def closing_marubozu(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ClosingMarubozu:
+    def closing_marubozu(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ClosingMarubozu:
         """
         Creates a new Indicators.CandlestickPatterns.ClosingMarubozu pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -385,7 +124,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def concealed_baby_swallow(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ConcealedBabySwallow:
+    def concealed_baby_swallow(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ConcealedBabySwallow:
         """
         Creates a new Indicators.CandlestickPatterns.ConcealedBabySwallow pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -397,7 +136,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def counterattack(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Counterattack:
+    def counterattack(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Counterattack:
         """
         Creates a new Indicators.CandlestickPatterns.Counterattack pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -409,7 +148,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def dark_cloud_cover(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], penetration: float = 0.5, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.DarkCloudCover:
+    def dark_cloud_cover(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], penetration: float = 0.5, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.DarkCloudCover:
         """
         Creates a new Indicators.CandlestickPatterns.DarkCloudCover pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -422,7 +161,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def doji(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Doji:
+    def doji(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Doji:
         """
         Creates a new Indicators.CandlestickPatterns.Doji pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -434,7 +173,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def doji_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.DojiStar:
+    def doji_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.DojiStar:
         """
         Creates a new Indicators.CandlestickPatterns.DojiStar pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -446,7 +185,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def dragonfly_doji(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.DragonflyDoji:
+    def dragonfly_doji(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.DragonflyDoji:
         """
         Creates a new Indicators.CandlestickPatterns.DragonflyDoji pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -458,7 +197,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def engulfing(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Engulfing:
+    def engulfing(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Engulfing:
         """
         Creates a new Indicators.CandlestickPatterns.Engulfing pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -470,7 +209,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def evening_doji_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], penetration: float = 0.3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.EveningDojiStar:
+    def evening_doji_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], penetration: float = 0.3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.EveningDojiStar:
         """
         Creates a new Indicators.CandlestickPatterns.EveningDojiStar pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -483,7 +222,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def evening_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], penetration: float = 0.3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.EveningStar:
+    def evening_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], penetration: float = 0.3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.EveningStar:
         """
         Creates a new Indicators.CandlestickPatterns.EveningStar pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -496,7 +235,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def gap_side_by_side_white(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.GapSideBySideWhite:
+    def gap_side_by_side_white(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.GapSideBySideWhite:
         """
         Creates a new Indicators.CandlestickPatterns.GapSideBySideWhite pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -508,7 +247,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def gravestone_doji(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.GravestoneDoji:
+    def gravestone_doji(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.GravestoneDoji:
         """
         Creates a new Indicators.CandlestickPatterns.GravestoneDoji pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -520,7 +259,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def hammer(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Hammer:
+    def hammer(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Hammer:
         """
         Creates a new Indicators.CandlestickPatterns.Hammer pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -532,7 +271,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def hanging_man(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.HangingMan:
+    def hanging_man(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.HangingMan:
         """
         Creates a new Indicators.CandlestickPatterns.HangingMan pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -544,7 +283,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def harami(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Harami:
+    def harami(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Harami:
         """
         Creates a new Indicators.CandlestickPatterns.Harami pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -556,7 +295,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def harami_cross(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.HaramiCross:
+    def harami_cross(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.HaramiCross:
         """
         Creates a new Indicators.CandlestickPatterns.HaramiCross pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -568,7 +307,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def high_wave_candle(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.HighWaveCandle:
+    def high_wave_candle(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.HighWaveCandle:
         """
         Creates a new Indicators.CandlestickPatterns.HighWaveCandle pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -580,7 +319,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def hikkake(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Hikkake:
+    def hikkake(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Hikkake:
         """
         Creates a new Indicators.CandlestickPatterns.Hikkake pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -592,7 +331,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def hikkake_modified(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.HikkakeModified:
+    def hikkake_modified(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.HikkakeModified:
         """
         Creates a new Indicators.CandlestickPatterns.HikkakeModified pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -604,7 +343,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def homing_pigeon(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.HomingPigeon:
+    def homing_pigeon(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.HomingPigeon:
         """
         Creates a new Indicators.CandlestickPatterns.HomingPigeon pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -616,7 +355,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def identical_three_crows(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.IdenticalThreeCrows:
+    def identical_three_crows(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.IdenticalThreeCrows:
         """
         Creates a new Indicators.CandlestickPatterns.IdenticalThreeCrows pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -628,7 +367,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def in_neck(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.InNeck:
+    def in_neck(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.InNeck:
         """
         Creates a new Indicators.CandlestickPatterns.InNeck pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -640,7 +379,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def inverted_hammer(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.InvertedHammer:
+    def inverted_hammer(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.InvertedHammer:
         """
         Creates a new Indicators.CandlestickPatterns.InvertedHammer pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -652,7 +391,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def kicking(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Kicking:
+    def kicking(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Kicking:
         """
         Creates a new Indicators.CandlestickPatterns.Kicking pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -664,7 +403,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def kicking_by_length(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.KickingByLength:
+    def kicking_by_length(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.KickingByLength:
         """
         Creates a new Indicators.CandlestickPatterns.KickingByLength pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -676,7 +415,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def ladder_bottom(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.LadderBottom:
+    def ladder_bottom(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.LadderBottom:
         """
         Creates a new Indicators.CandlestickPatterns.LadderBottom pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -688,7 +427,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def long_legged_doji(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.LongLeggedDoji:
+    def long_legged_doji(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.LongLeggedDoji:
         """
         Creates a new Indicators.CandlestickPatterns.LongLeggedDoji pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -700,7 +439,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def long_line_candle(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.LongLineCandle:
+    def long_line_candle(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.LongLineCandle:
         """
         Creates a new Indicators.CandlestickPatterns.LongLineCandle pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -712,7 +451,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def marubozu(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Marubozu:
+    def marubozu(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Marubozu:
         """
         Creates a new Indicators.CandlestickPatterns.Marubozu pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -724,7 +463,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def matching_low(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.MatchingLow:
+    def matching_low(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.MatchingLow:
         """
         Creates a new Indicators.CandlestickPatterns.MatchingLow pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -736,7 +475,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def mat_hold(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], penetration: float = 0.5, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.MatHold:
+    def mat_hold(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], penetration: float = 0.5, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.MatHold:
         """
         Creates a new Indicators.CandlestickPatterns.MatHold pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -749,7 +488,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def morning_doji_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], penetration: float = 0.3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.MorningDojiStar:
+    def morning_doji_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], penetration: float = 0.3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.MorningDojiStar:
         """
         Creates a new Indicators.CandlestickPatterns.MorningDojiStar pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -762,7 +501,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def morning_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], penetration: float = 0.3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.MorningStar:
+    def morning_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], penetration: float = 0.3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.MorningStar:
         """
         Creates a new Indicators.CandlestickPatterns.MorningStar pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -775,7 +514,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def on_neck(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.OnNeck:
+    def on_neck(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.OnNeck:
         """
         Creates a new Indicators.CandlestickPatterns.OnNeck pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -787,7 +526,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def piercing(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Piercing:
+    def piercing(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Piercing:
         """
         Creates a new Indicators.CandlestickPatterns.Piercing pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -799,7 +538,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def rickshaw_man(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.RickshawMan:
+    def rickshaw_man(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.RickshawMan:
         """
         Creates a new Indicators.CandlestickPatterns.RickshawMan pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -811,7 +550,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def rise_fall_three_methods(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.RiseFallThreeMethods:
+    def rise_fall_three_methods(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.RiseFallThreeMethods:
         """
         Creates a new Indicators.CandlestickPatterns.RiseFallThreeMethods pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -823,7 +562,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def separating_lines(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.SeparatingLines:
+    def separating_lines(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.SeparatingLines:
         """
         Creates a new Indicators.CandlestickPatterns.SeparatingLines pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -835,7 +574,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def shooting_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ShootingStar:
+    def shooting_star(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ShootingStar:
         """
         Creates a new Indicators.CandlestickPatterns.ShootingStar pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -847,7 +586,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def short_line_candle(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ShortLineCandle:
+    def short_line_candle(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ShortLineCandle:
         """
         Creates a new Indicators.CandlestickPatterns.ShortLineCandle pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -859,7 +598,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def spinning_top(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.SpinningTop:
+    def spinning_top(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.SpinningTop:
         """
         Creates a new Indicators.CandlestickPatterns.SpinningTop pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -871,7 +610,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def stalled_pattern(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.StalledPattern:
+    def stalled_pattern(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.StalledPattern:
         """
         Creates a new Indicators.CandlestickPatterns.StalledPattern pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -883,7 +622,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def stick_sandwich(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.StickSandwich:
+    def stick_sandwich(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.StickSandwich:
         """
         Creates a new Indicators.CandlestickPatterns.StickSandwich pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -895,7 +634,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def takuri(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Takuri:
+    def takuri(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Takuri:
         """
         Creates a new Indicators.CandlestickPatterns.Takuri pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -907,7 +646,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def tasuki_gap(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.TasukiGap:
+    def tasuki_gap(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.TasukiGap:
         """
         Creates a new Indicators.CandlestickPatterns.TasukiGap pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -919,7 +658,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def three_black_crows(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeBlackCrows:
+    def three_black_crows(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeBlackCrows:
         """
         Creates a new Indicators.CandlestickPatterns.ThreeBlackCrows pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -931,7 +670,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def three_inside(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeInside:
+    def three_inside(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeInside:
         """
         Creates a new Indicators.CandlestickPatterns.ThreeInside pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -943,7 +682,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def three_line_strike(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeLineStrike:
+    def three_line_strike(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeLineStrike:
         """
         Creates a new Indicators.CandlestickPatterns.ThreeLineStrike pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -955,7 +694,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def three_outside(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeOutside:
+    def three_outside(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeOutside:
         """
         Creates a new Indicators.CandlestickPatterns.ThreeOutside pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -967,7 +706,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def three_stars_in_south(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeStarsInSouth:
+    def three_stars_in_south(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeStarsInSouth:
         """
         Creates a new Indicators.CandlestickPatterns.ThreeStarsInSouth pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -979,7 +718,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def three_white_soldiers(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeWhiteSoldiers:
+    def three_white_soldiers(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.ThreeWhiteSoldiers:
         """
         Creates a new Indicators.CandlestickPatterns.ThreeWhiteSoldiers pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -991,7 +730,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def thrusting(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Thrusting:
+    def thrusting(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Thrusting:
         """
         Creates a new Indicators.CandlestickPatterns.Thrusting pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -1003,7 +742,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def tristar(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Tristar:
+    def tristar(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.Tristar:
         """
         Creates a new Indicators.CandlestickPatterns.Tristar pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -1015,7 +754,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def two_crows(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.TwoCrows:
+    def two_crows(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.TwoCrows:
         """
         Creates a new Indicators.CandlestickPatterns.TwoCrows pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -1027,7 +766,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def unique_three_river(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.UniqueThreeRiver:
+    def unique_three_river(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.UniqueThreeRiver:
         """
         Creates a new Indicators.CandlestickPatterns.UniqueThreeRiver pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -1039,7 +778,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def up_down_gap_three_methods(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.UpDownGapThreeMethods:
+    def up_down_gap_three_methods(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.UpDownGapThreeMethods:
         """
         Creates a new Indicators.CandlestickPatterns.UpDownGapThreeMethods pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -1051,7 +790,7 @@ class CandlestickPatterns(System.Object):
         """
         ...
 
-    def upside_gap_two_crows(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.UpsideGapTwoCrows:
+    def upside_gap_two_crows(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CandlestickPatterns.UpsideGapTwoCrows:
         """
         Creates a new Indicators.CandlestickPatterns.UpsideGapTwoCrows pattern indicator.
         The indicator will be automatically updated on the given resolution.
@@ -1065,11 +804,7 @@ class CandlestickPatterns(System.Object):
 
 
 class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm):
-    """
-    QC Algorithm Base Class - Handle the basic requirements of a trading algorithm,
-    allowing user to focus on event methods. The QCAlgorithm class implements Portfolio,
-    Securities, Transactions and Data Subscription Management.
-    """
+    """This class has no documentation."""
 
     class History:
         """"""
@@ -1079,537 +814,122 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
 
             @overload
             def __call__(self, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
-                """
-                Gets the historical data for all symbols of the requested type over the requested span.
-                The symbol's configured values for resolution and fill forward behavior will be used
-                The symbols must exist in the Securities collection.
-                
-                :param span: The span over which to retrieve recent historical data
-                :param resolution: The resolution to request
-                :param fill_forward: True to fill forward missing data, false otherwise
-                :param extended_market_hours: True to include extended market hours data, false otherwise
-                :param data_mapping_mode: The contract mapping mode to use for the security history request
-                :param data_normalization_mode: The price scaling mode to use for the securities history
-                :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-                :returns: An enumerable of slice containing the requested historical data.
-                """
                 ...
 
             @overload
             def __call__(self, symbols: typing.List[QuantConnect.Symbol], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
-                """
-                Gets the historical data for the specified symbols over the requested span.
-                The symbols must exist in the Securities collection.
-                
-                :param symbols: The symbols to retrieve historical data for
-                :param span: The span over which to retrieve recent historical data
-                :param resolution: The resolution to request
-                :param fill_forward: True to fill forward missing data, false otherwise
-                :param extended_market_hours: True to include extended market hours data, false otherwise
-                :param data_mapping_mode: The contract mapping mode to use for the security history request
-                :param data_normalization_mode: The price scaling mode to use for the securities history
-                :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-                :returns: An enumerable of slice containing the requested historical data.
-                """
                 ...
 
             @overload
             def __call__(self, symbols: typing.List[QuantConnect.Symbol], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
-                """
-                Gets the historical data for the specified symbols. The exact number of bars will be returned for
-                each symbol. This may result in some data start earlier/later than others due to when various
-                exchanges are open. The symbols must exist in the Securities collection.
-                
-                :param symbols: The symbols to retrieve historical data for
-                :param periods: The number of bars to request
-                :param resolution: The resolution to request
-                :param fill_forward: True to fill forward missing data, false otherwise
-                :param extended_market_hours: True to include extended market hours data, false otherwise
-                :param data_mapping_mode: The contract mapping mode to use for the security history request
-                :param data_normalization_mode: The price scaling mode to use for the securities history
-                :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-                :returns: An enumerable of slice containing the requested historical data.
-                """
                 ...
 
             @overload
             def __call__(self, symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[QuantConnect_Algorithm_QCAlgorithm_History_T]]:
-                """
-                Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-                
-                :param symbols: The symbols to retrieve historical data for
-                :param start: The start time in the algorithm's time zone
-                :param end: The end time in the algorithm's time zone
-                :param resolution: The resolution to request
-                :param fill_forward: True to fill forward missing data, false otherwise
-                :param extended_market_hours: True to include extended market hours data, false otherwise
-                :param data_mapping_mode: The contract mapping mode to use for the security history request
-                :param data_normalization_mode: The price scaling mode to use for the securities history
-                :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-                :returns: An enumerable of slice containing the requested historical data.
-                """
                 ...
 
             @overload
-            def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect_Algorithm_QCAlgorithm_History_T]:
-                """
-                Gets the historical data for the specified symbol over the request span. The symbol must exist in the Securities collection.
-                
-                :param symbol: The symbol to retrieve historical data for
-                :param span: The span over which to retrieve recent historical data
-                :param resolution: The resolution to request
-                :param fill_forward: True to fill forward missing data, false otherwise
-                :param extended_market_hours: True to include extended market hours data, false otherwise
-                :param data_mapping_mode: The contract mapping mode to use for the security history request
-                :param data_normalization_mode: The price scaling mode to use for the securities history
-                :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-                :returns: An enumerable of slice containing the requested historical data.
-                """
+            def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect_Algorithm_QCAlgorithm_History_T]:
                 ...
 
             @overload
-            def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect_Algorithm_QCAlgorithm_History_T]:
-                """
-                Gets the historical data for the specified symbol. The exact number of bars will be returned.
-                The symbol must exist in the Securities collection.
-                
-                :param symbol: The symbol to retrieve historical data for
-                :param periods: The number of bars to request
-                :param resolution: The resolution to request
-                :param fill_forward: True to fill forward missing data, false otherwise
-                :param extended_market_hours: True to include extended market hours data, false otherwise
-                :param data_mapping_mode: The contract mapping mode to use for the security history request
-                :param data_normalization_mode: The price scaling mode to use for the securities history
-                :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-                :returns: An enumerable of slice containing the requested historical data.
-                """
+            def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect_Algorithm_QCAlgorithm_History_T]:
                 ...
 
             @overload
-            def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect_Algorithm_QCAlgorithm_History_T]:
-                """
-                Gets the historical data for the specified symbol between the specified dates. The symbol must exist in the Securities collection.
-                
-                :param symbol: The symbol to retrieve historical data for
-                :param start: The start time in the algorithm's time zone
-                :param end: The end time in the algorithm's time zone
-                :param resolution: The resolution to request
-                :param fill_forward: True to fill forward missing data, false otherwise
-                :param extended_market_hours: True to include extended market hours data, false otherwise
-                :param data_mapping_mode: The contract mapping mode to use for the security history request
-                :param data_normalization_mode: The price scaling mode to use for the securities history
-                :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-                :returns: An enumerable of slice containing the requested historical data.
-                """
+            def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect_Algorithm_QCAlgorithm_History_T]:
                 ...
 
         @overload
         def __call__(self, tickers: typing.Any, periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-            """
-            Gets the historical data for the specified symbol. The exact number of bars will be returned.
-            The symbol must exist in the Securities collection.
-            
-            :param tickers: The symbols to retrieve historical data for
-            :param periods: The number of bars to request
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :param flatten: Whether to flatten the resulting data frame. e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame. If flatten is true, the resulting data frame will contain one row per universe constituent, and each property of the constituent will be a column in the data frame.
-            :returns: A python dictionary with pandas DataFrame containing the requested historical data.
-            """
             ...
 
         @overload
         def __call__(self, tickers: typing.Any, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-            """
-            Gets the historical data for the specified symbols over the requested span.
-            The symbols must exist in the Securities collection.
-            
-            :param tickers: The symbols to retrieve historical data for
-            :param span: The span over which to retrieve recent historical data
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :param flatten: Whether to flatten the resulting data frame. e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame. If flatten is true, the resulting data frame will contain one row per universe constituent, and each property of the constituent will be a column in the data frame.
-            :returns: A python dictionary with pandas DataFrame containing the requested historical data.
-            """
             ...
 
         @overload
         def __call__(self, tickers: typing.Any, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-            """
-            Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-            
-            :param tickers: The symbols to retrieve historical data for
-            :param start: The start time in the algorithm's time zone
-            :param end: The end time in the algorithm's time zone
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :param flatten: Whether to flatten the resulting data frame. e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame. If flatten is true, the resulting data frame will contain one row per universe constituent, and each property of the constituent will be a column in the data frame.
-            :returns: A python dictionary with a pandas DataFrame containing the requested historical data.
-            """
             ...
 
         @overload
         def __call__(self, type: typing.Type, tickers: typing.Any, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-            """
-            Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-            
-            :param type: The data type of the symbols
-            :param tickers: The symbols to retrieve historical data for
-            :param start: The start time in the algorithm's time zone
-            :param end: The end time in the algorithm's time zone
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :param flatten: Whether to flatten the resulting data frame. e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame. If flatten is true, the resulting data frame will contain one row per universe constituent, and each property of the constituent will be a column in the data frame.
-            :returns: pandas.DataFrame containing the requested historical data.
-            """
             ...
 
         @overload
         def __call__(self, type: typing.Type, tickers: typing.Any, periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-            """
-            Gets the historical data for the specified symbols. The exact number of bars will be returned for
-            each symbol. This may result in some data start earlier/later than others due to when various
-            exchanges are open. The symbols must exist in the Securities collection.
-            
-            :param type: The data type of the symbols
-            :param tickers: The symbols to retrieve historical data for
-            :param periods: The number of bars to request
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :param flatten: Whether to flatten the resulting data frame. e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame. If flatten is true, the resulting data frame will contain one row per universe constituent, and each property of the constituent will be a column in the data frame.
-            :returns: pandas.DataFrame containing the requested historical data.
-            """
             ...
 
         @overload
         def __call__(self, type: typing.Type, tickers: typing.Any, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-            """
-            Gets the historical data for the specified symbols over the requested span.
-            The symbols must exist in the Securities collection.
-            
-            :param type: The data type of the symbols
-            :param tickers: The symbols to retrieve historical data for
-            :param span: The span over which to retrieve recent historical data
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :param flatten: Whether to flatten the resulting data frame. e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame. If flatten is true, the resulting data frame will contain one row per universe constituent, and each property of the constituent will be a column in the data frame.
-            :returns: pandas.DataFrame containing the requested historical data.
-            """
             ...
 
         @overload
         def __call__(self, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Slice]:
-            """
-            Get the history for all configured securities over the requested span.
-            This will use the resolution and other subscription settings for each security.
-            The symbols must exist in the Securities collection.
-            
-            :param span: The span over which to request data. This is a calendar span, so take into consideration weekends and such
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing data over the most recent span for all configured securities.
-            """
             ...
 
         @overload
         def __call__(self, periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Slice]:
-            """
-            Get the history for all configured securities over the requested span.
-            This will use the resolution and other subscription settings for each security.
-            The symbols must exist in the Securities collection.
-            
-            :param periods: The number of bars to request
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing data over the most recent span for all configured securities.
-            """
             ...
 
         @overload
         def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.UniverseSelection.BaseDataCollection]:
-            """
-            Get the history for all configured securities over the requested span.
-            This will use the resolution and other subscription settings for each security.
-            The symbols must exist in the Securities collection.
-            
-            :param universe: The universe to fetch the data for
-            :param periods: The number of bars to request
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing data over the most recent span for all configured securities.
-            """
             ...
 
         @overload
         def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.UniverseSelection.BaseDataCollection]:
-            """
-            Gets the historical data for all symbols of the requested type over the requested span.
-            The symbol's configured values for resolution and fill forward behavior will be used
-            The symbols must exist in the Securities collection.
-            
-            :param universe: The universe to fetch the data for
-            :param span: The span over which to request data. This is a calendar span, so take into consideration weekends and such
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing the requested historical data.
-            """
             ...
 
         @overload
         def __call__(self, universe: QuantConnect.Data.UniverseSelection.Universe, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.UniverseSelection.BaseDataCollection]:
-            """
-            Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-            
-            :param universe: The universe to fetch the data for
-            :param start: The start time in the algorithm's time zone
-            :param end: The end time in the algorithm's time zone
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing the requested historical data.
-            """
             ...
 
         @overload
-        def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
-            """
-            Gets the historical data for the specified symbol. The exact number of bars will be returned.
-            The symbol must exist in the Securities collection.
-            
-            :param symbol: The symbol to retrieve historical data for
-            :param periods: The number of bars to request
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing the requested historical data.
-            """
+        def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
             ...
 
         @overload
-        def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
-            """
-            Gets the historical data for the specified symbol over the request span. The symbol must exist in the Securities collection.
-            
-            :param symbol: The symbol to retrieve historical data for
-            :param span: The span over which to retrieve recent historical data
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing the requested historical data.
-            """
+        def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
             ...
 
         @overload
-        def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
-            """
-            Gets the historical data for the specified symbol over the request span. The symbol must exist in the Securities collection.
-            
-            :param symbol: The symbol to retrieve historical data for
-            :param start: The start time in the algorithm's time zone
-            :param end: The end time in the algorithm's time zone
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing the requested historical data.
-            """
+        def __call__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
             ...
 
         @overload
         def __call__(self, symbols: typing.List[QuantConnect.Symbol], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Slice]:
-            """
-            Gets the historical data for the specified symbols over the requested span.
-            The symbol's configured values for resolution and fill forward behavior will be used
-            The symbols must exist in the Securities collection.
-            
-            :param symbols: The symbols to retrieve historical data for
-            :param span: The span over which to retrieve recent historical data
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing the requested historical data.
-            """
             ...
 
         @overload
         def __call__(self, symbols: typing.List[QuantConnect.Symbol], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Slice]:
-            """
-            Gets the historical data for the specified symbols. The exact number of bars will be returned for
-            each symbol. This may result in some data start earlier/later than others due to when various
-            exchanges are open. The symbols must exist in the Securities collection.
-            
-            :param symbols: The symbols to retrieve historical data for
-            :param periods: The number of bars to request
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing the requested historical data.
-            """
             ...
 
         @overload
         def __call__(self, symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> typing.Iterable[QuantConnect.Data.Slice]:
-            """
-            Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-            
-            :param symbols: The symbols to retrieve historical data for
-            :param start: The start time in the algorithm's time zone
-            :param end: The end time in the algorithm's time zone
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :returns: An enumerable of slice containing the requested historical data.
-            """
             ...
 
         @overload
         def __call__(self, request: QuantConnect.Data.HistoryRequest) -> typing.Iterable[QuantConnect.Data.Slice]:
-            """
-            Executes the specified history request
-            
-            :param request: the history request to execute
-            :returns: An enumerable of slice satisfying the specified history request.
-            """
             ...
 
         @overload
         def __call__(self, requests: typing.List[QuantConnect.Data.HistoryRequest]) -> typing.Iterable[QuantConnect.Data.Slice]:
-            """
-            Executes the specified history requests
-            
-            :param requests: the history requests to execute
-            :returns: An enumerable of slice satisfying the specified history request.
-            """
             ...
 
         @overload
-        def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-            """
-            Gets the historical data for the specified symbols between the specified dates. The symbols must exist in the Securities collection.
-            
-            :param type: The data type of the symbols
-            :param symbol: The symbol to retrieve historical data for
-            :param start: The start time in the algorithm's time zone
-            :param end: The end time in the algorithm's time zone
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :param flatten: Whether to flatten the resulting data frame. e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame. If flatten is true, the resulting data frame will contain one row per universe constituent, and each property of the constituent will be a column in the data frame.
-            :returns: pandas.DataFrame containing the requested historical data.
-            """
+        def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
             ...
 
         @overload
-        def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-            """
-            Gets the historical data for the specified symbols. The exact number of bars will be returned for
-            each symbol. This may result in some data start earlier/later than others due to when various
-            exchanges are open. The symbols must exist in the Securities collection.
-            
-            :param type: The data type of the symbols
-            :param symbol: The symbol to retrieve historical data for
-            :param periods: The number of bars to request
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :param flatten: Whether to flatten the resulting data frame. e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame. If flatten is true, the resulting data frame will contain one row per universe constituent, and each property of the constituent will be a column in the data frame.
-            :returns: pandas.DataFrame containing the requested historical data.
-            """
+        def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], periods: int, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
             ...
 
         @overload
-        def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
-            """
-            Gets the historical data for the specified symbols over the requested span.
-            The symbols must exist in the Securities collection.
-            
-            :param type: The data type of the symbols
-            :param symbol: The symbol to retrieve historical data for
-            :param span: The span over which to retrieve recent historical data
-            :param resolution: The resolution to request
-            :param fill_forward: True to fill forward missing data, false otherwise
-            :param extended_market_hours: True to include extended market hours data, false otherwise
-            :param data_mapping_mode: The contract mapping mode to use for the security history request
-            :param data_normalization_mode: The price scaling mode to use for the securities history
-            :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-            :param flatten: Whether to flatten the resulting data frame. e.g. for universe requests, the each row represents a day of data, and the data is stored in a list in a cell of the data frame. If flatten is true, the resulting data frame will contain one row per universe constituent, and each property of the constituent will be a column in the data frame.
-            :returns: pandas.DataFrame containing the requested historical data.
-            """
+        def __call__(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None, flatten: bool = False) -> pandas.DataFrame:
             ...
 
         def __getitem__(self, type: typing.Type[QuantConnect_Algorithm_QCAlgorithm_History_T]) -> History[QuantConnect_Algorithm_QCAlgorithm_History_T]:
             ...
-
-    @property
-    def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
-        """Access to the runtime statistics property. User provided statistics."""
-        ...
 
     @property
     def universe_manager(self) -> QuantConnect.Securities.UniverseManager:
@@ -1627,26 +947,81 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
-        """Transaction Manager - Process transaction fills and order management."""
+    def debug_mode(self) -> bool:
+        """
+        Enables additional logging of framework models including:
+        All insights, portfolio targets, order events, and any risk management altered targets
+        """
         ...
 
-    @transactions.setter
-    def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
+    @debug_mode.setter
+    def debug_mode(self, value: bool) -> None:
+        ...
+
+    @property
+    def universe_selection(self) -> QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel:
+        """Gets or sets the universe selection model."""
+        ...
+
+    @universe_selection.setter
+    def universe_selection(self, value: QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel) -> None:
+        ...
+
+    @property
+    def alpha(self) -> QuantConnect.Algorithm.Framework.Alphas.IAlphaModel:
+        """Gets or sets the alpha model"""
+        ...
+
+    @alpha.setter
+    def alpha(self, value: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> None:
+        ...
+
+    @property
+    def insights(self) -> QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager:
+        """Gets the insight manager"""
+        ...
+
+    @property
+    def portfolio_construction(self) -> QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel:
+        """Gets or sets the portfolio construction model"""
+        ...
+
+    @portfolio_construction.setter
+    def portfolio_construction(self, value: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel) -> None:
+        ...
+
+    @property
+    def execution(self) -> QuantConnect.Algorithm.Framework.Execution.IExecutionModel:
+        """Gets or sets the execution model"""
+        ...
+
+    @execution.setter
+    def execution(self, value: QuantConnect.Algorithm.Framework.Execution.IExecutionModel) -> None:
+        ...
+
+    @property
+    def risk_management(self) -> QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel:
+        """Gets or sets the risk management model"""
+        ...
+
+    @risk_management.setter
+    def risk_management(self, value: QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel) -> None:
         ...
 
     MAX_NAME_AND_TAGS_LENGTH: int = 200
     """
     Maximum length of the name or tags of a backtest
     
-    This field is protected.
+    
+    This codeEntityType is protected.
     """
 
     MAX_TAGS_COUNT: int = 100
     """
     Maximum number of tags allowed for a backtest
     
-    This field is protected.
+    
+    This codeEntityType is protected.
     """
 
     @property
@@ -1654,7 +1029,8 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Gets the market hours database in use by this algorithm
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1663,7 +1039,8 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Gets the symbol properties database in use by this algorithm
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1679,7 +1056,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @property
     def securities(self) -> QuantConnect.Securities.SecurityManager:
         """
-        Security collection is an array of the security objects such as Equities and FOREX. Securities data
+        Security collection is an array of the security objects such as Equity and Forex. Securities data
         manages the properties of tradeable assets such as price, open and close time and holdings information.
         """
         ...
@@ -1689,7 +1066,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def active_securities(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security]:
+    def active_securities(self) -> Common.Util.ReadOnlyExtendedDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security]:
         """
         Read-only dictionary containing all active securities. An active security is
         a security that is currently selected by the universe or has holdings or open orders.
@@ -1837,26 +1214,20 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Gets the option chain provider, used to get the list of option contracts for an underlying symbol
         
-        OptionChainProvider property is will soon be deprecated. " +
-                    "The new OptionChain() method should be used to fetch option chains, " +
-                    "which will contain additional data per contract, like daily price data, implied volatility and greeks.
+        
+        OptionChainProvider property is will soon be deprecated. The new OptionChain() method should be used to fetch option chains, which will contain additional data per contract, like daily price data, implied volatility and greeks.
         """
-        warnings.warn("OptionChainProvider property is will soon be deprecated. " +
-                    "The new OptionChain() method should be used to fetch option chains, " +
-                    "which will contain additional data per contract, like daily price data, implied volatility and greeks.", DeprecationWarning)
+        warnings.warn("OptionChainProvider property is will soon be deprecated. The new OptionChain() method should be used to fetch option chains, which will contain additional data per contract, like daily price data, implied volatility and greeks.", DeprecationWarning)
 
     @property
     def future_chain_provider(self) -> QuantConnect.Interfaces.IFutureChainProvider:
         """
         Gets the future chain provider, used to get the list of future contracts for an underlying symbol
         
-        FutureChainProvider property is will soon be deprecated. " +
-                    "The new FuturesChain() method should be used to fetch futures chains, " +
-                    "which will contain additional data per contract, like daily price data.
+        
+        FutureChainProvider property is will soon be deprecated. The new FuturesChain() method should be used to fetch futures chains, which will contain additional data per contract, like daily price data.
         """
-        warnings.warn("FutureChainProvider property is will soon be deprecated. " +
-                    "The new FuturesChain() method should be used to fetch futures chains, " +
-                    "which will contain additional data per contract, like daily price data.", DeprecationWarning)
+        warnings.warn("FutureChainProvider property is will soon be deprecated. The new FuturesChain() method should be used to fetch futures chains, which will contain additional data per contract, like daily price data.", DeprecationWarning)
 
     @property
     def default_order_properties(self) -> QuantConnect.Interfaces.IOrderProperties:
@@ -1908,7 +1279,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
 
     @property
     def time(self) -> datetime.datetime:
-        """Read-only value for current time frontier of the algorithm in terms of the TimeZone"""
+        """Read-only value for current time frontier of the algorithm in terms of the time_zone"""
         ...
 
     @property
@@ -1919,8 +1290,8 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @property
     def time_zone(self) -> typing.Any:
         """
-        Gets the time zone used for the Time property. The default value
-        is TimeZones.NewYork
+        Gets the time zone used for the time property. The default value
+        is TimeZones.NEW_YORK
         """
         ...
 
@@ -2007,69 +1378,26 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
 
     @property
     def benchmark(self) -> QuantConnect.Benchmarks.IBenchmark:
-        """Benchmark"""
+        """The IBenchmark for the algorithm"""
         ...
 
     @property
-    def debug_mode(self) -> bool:
+    def enable_automatic_indicator_warm_up(self) -> bool:
         """
-        Enables additional logging of framework models including:
-        All insights, portfolio targets, order events, and any risk management altered targets
+        Gets whether or not WarmUpIndicator is allowed to warm up indicators
+        
+        
+        Please use Settings.AutomaticIndicatorWarmUp
         """
-        ...
+        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
 
-    @debug_mode.setter
-    def debug_mode(self, value: bool) -> None:
-        ...
-
-    @property
-    def universe_selection(self) -> QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel:
-        """Gets or sets the universe selection model."""
-        ...
-
-    @universe_selection.setter
-    def universe_selection(self, value: QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel) -> None:
-        ...
+    @enable_automatic_indicator_warm_up.setter
+    def enable_automatic_indicator_warm_up(self, value: bool) -> None:
+        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
 
     @property
-    def alpha(self) -> QuantConnect.Algorithm.Framework.Alphas.IAlphaModel:
-        """Gets or sets the alpha model"""
-        ...
-
-    @alpha.setter
-    def alpha(self, value: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> None:
-        ...
-
-    @property
-    def insights(self) -> QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager:
-        """Gets the insight manager"""
-        ...
-
-    @property
-    def portfolio_construction(self) -> QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel:
-        """Gets or sets the portfolio construction model"""
-        ...
-
-    @portfolio_construction.setter
-    def portfolio_construction(self, value: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel) -> None:
-        ...
-
-    @property
-    def execution(self) -> QuantConnect.Algorithm.Framework.Execution.IExecutionModel:
-        """Gets or sets the execution model"""
-        ...
-
-    @execution.setter
-    def execution(self, value: QuantConnect.Algorithm.Framework.Execution.IExecutionModel) -> None:
-        ...
-
-    @property
-    def risk_management(self) -> QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel:
-        """Gets or sets the risk management model"""
-        ...
-
-    @risk_management.setter
-    def risk_management(self, value: QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel) -> None:
+    def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
+        """Access to the runtime statistics property. User provided statistics."""
         ...
 
     @property
@@ -2092,17 +1420,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def enable_automatic_indicator_warm_up(self) -> bool:
-        """
-        Gets whether or not WarmUpIndicator is allowed to warm up indicators
-        
-        Please use Settings.AutomaticIndicatorWarmUp
-        """
-        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
+    def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
+        """Transaction Manager - Process transaction fills and order management."""
+        ...
 
-    @enable_automatic_indicator_warm_up.setter
-    def enable_automatic_indicator_warm_up(self, value: bool) -> None:
-        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
+    @transactions.setter
+    def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
+        ...
 
     @property
     def history(self) -> History:
@@ -2115,7 +1439,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def a(self, target: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], reference: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], alpha_period: int = 1, beta_period: int = 252, resolution: typing.Optional[QuantConnect.Resolution] = None, risk_free_rate: typing.Optional[float] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.Alpha:
+    def a(self, target: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], reference: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], alpha_period: int = 1, beta_period: int = 252, resolution: typing.Optional[QuantConnect.Resolution] = None, risk_free_rate: typing.Optional[float] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.Alpha:
         """
         Creates a Alpha indicator for the given target symbol in relation with the reference used.
         The indicator will be automatically updated on the given resolution.
@@ -2131,7 +1455,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def abands(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, width: float = 4, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.AccelerationBands:
+    def abands(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, width: float = 4, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.AccelerationBands:
         """
         Creates a new Acceleration Bands indicator.
         
@@ -2144,7 +1468,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def ad(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.AccumulationDistribution:
+    def ad(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.AccumulationDistribution:
         """
         Creates a new AccumulationDistribution indicator.
         
@@ -2167,11 +1491,11 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Creates and adds a new Cfd security to the algorithm
         
-        :param ticker: The currency pair
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
-        :param market: The cfd trading market, . Default value is null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
+        :param ticker: The CFD ticker symbol
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
+        :param market: The cfd trading market, Market. Default value is null and looked up using IBrokerageModel.default_markets in AddSecurity{T}
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
+        :param leverage: The requested leverage for this CFD. Default is set by security_initializer
         :returns: The new Cfd security.
         """
         ...
@@ -2193,27 +1517,17 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     def add_crypto(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ...) -> QuantConnect.Securities.Crypto.Crypto:
-        """
-        Creates and adds a new Crypto security to the algorithm
-        
-        :param ticker: The currency pair
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
-        :param market: The cfd trading market, . Default value is null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
-        :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
-        :returns: The new Crypto security.
-        """
         ...
 
     def add_crypto_future(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ...) -> QuantConnect.Securities.CryptoFuture.CryptoFuture:
         """
         Creates and adds a new CryptoFuture security to the algorithm
         
-        :param ticker: The currency pair
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
-        :param market: The cfd trading market, . Default value is null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
+        :param ticker: The crypto future ticker symbol
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
+        :param market: The The crypto future trading market, Market. Default value is null and looked up using IBrokerageModel.default_markets in AddSecurity{T}
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
+        :param leverage: The requested leverage for this crypto future. Default is set by security_initializer
         :returns: The new CryptoFuture security.
         """
         ...
@@ -2236,7 +1550,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_data(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+    def add_data(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], time_zone: typing.Any, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
         """
         AddData a new user defined data source, requiring only the minimum config options.
         This adds a Symbol to the `Underlying` property in the custom data Symbol object.
@@ -2272,7 +1586,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_data(self, data_type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, time_zone: typing.Any = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
+    def add_data(self, data_type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, time_zone: typing.Any = None, fill_forward: bool = False, leverage: float = 1.0) -> QuantConnect.Securities.Security:
         """
         AddData a new user defined data source, requiring only the minimum config options.
         This adds a Symbol to the `Underlying` property in the custom data Symbol object.
@@ -2281,6 +1595,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Symbol associated with the custom data.
         
         :param data_type: Data source type
+        :param underlying: 
         :param resolution: Resolution of the Data Required
         :param time_zone: Specifies the time zone of the raw data
         :param fill_forward: When no data available on a tradebar, return the last data that was generated
@@ -2305,7 +1620,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_data(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
+    def add_data(self, type: typing.Type, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Securities.Security:
         """
         AddData a new user defined data source, requiring only the minimum config options.
         The data is added with a default time zone of NewYork (Eastern Daylight Savings Time).
@@ -2344,10 +1659,10 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Creates and adds a new Equity security to the algorithm
         
         :param ticker: The equity ticker symbol
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
-        :param market: The equity's market, . Default value is null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
+        :param market: The equity's market, Market. Default value is null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
+        :param leverage: The requested leverage for this equity. Default is set by security_initializer
         :param extended_market_hours: True to send data during pre and post market sessions. Default is false
         :param data_normalization_mode: The price scaling mode to use for the equity
         :returns: The new Equity security.
@@ -2359,55 +1674,41 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Creates and adds a new Forex security to the algorithm
         
         :param ticker: The currency pair
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
-        :param market: The foreign exchange trading market, . Default value is null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
+        :param market: The foreign exchange trading market, Market. Default value is null and looked up using IBrokerageModel.default_markets in AddSecurity{T}
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
+        :param leverage: The requested leverage for this forex security. Default is set by security_initializer
         :returns: The new Forex security.
         """
         ...
 
     def add_future(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: int = 0) -> QuantConnect.Securities.Future.Future:
-        """
-        Creates and adds a new Future security to the algorithm
-        
-        :param ticker: The future ticker
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
-        :param market: The futures market, . Default is value null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
-        :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
-        :param extended_market_hours: Use extended market hours data
-        :param data_mapping_mode: The contract mapping mode to use for the continuous future contract
-        :param data_normalization_mode: The price scaling mode to use for the continuous future contract
-        :param contract_depth_offset: The continuous future contract desired offset from the current front month. For example, 0 (default) will use the front month, 1 will use the back month contract
-        :returns: The new Future security.
-        """
         ...
 
-    def add_future_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False) -> QuantConnect.Securities.Future.Future:
+    def add_future_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False) -> QuantConnect.Securities.Future.Future:
         """
         Creates and adds a new single Future contract to the algorithm
         
         :param symbol: The futures contract symbol
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
+        :param leverage: The requested leverage for this future. Default is set by security_initializer
         :param extended_market_hours: Use extended market hours data
         :returns: The new Future security.
         """
         ...
 
-    def add_future_option(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], option_filter: typing.Callable[[QuantConnect.Securities.OptionFilterUniverse], QuantConnect.Securities.OptionFilterUniverse] = None) -> None:
+    def add_future_option(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], option_filter: typing.Callable[[QuantConnect.Securities.OptionFilterUniverse], QuantConnect.Securities.OptionFilterUniverse] = None) -> None:
         """
         Creates and adds a new Future Option contract to the algorithm.
         
-        :param symbol: The Future canonical symbol (i.e. Symbol returned from AddFuture)
+        :param symbol: The Future canonical symbol (i.e. Symbol returned from add_future)
         :param option_filter: Filter to apply to option contracts loaded as part of the universe
         :returns: The new Option security, containing a Future as its underlying.
         """
         ...
 
-    def add_future_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False) -> QuantConnect.Securities.Option.Option:
+    def add_future_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False) -> QuantConnect.Securities.Option.Option:
         """
         Adds a future option contract to the algorithm.
         
@@ -2432,15 +1733,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     def add_index(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True) -> QuantConnect.Securities.Index.Index:
-        """
-        Creates and adds a new Index security to the algorithm
-        
-        :param ticker: The currency pair
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
-        :param market: The index trading market, . Default value is null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
-        :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :returns: The new Index security.
-        """
         ...
 
     @overload
@@ -2448,20 +1740,20 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Creates and adds index options to the algorithm.
         
-        :param underlying: The underlying ticker of the Index Option
+        :param underlying: The underlying ticker of the IndexOption
         :param resolution: Resolution of the index option contracts, i.e. the granularity of the data
-        :param market: The foreign exchange trading market, . Default value is null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
+        :param market: The foreign exchange trading market, Market. Default value is null and looked up using IBrokerageModel.default_markets in AddSecurity{T}
         :param fill_forward: If true, this will fill in missing data points with the previous data point
         :returns: Canonical Option security.
         """
         ...
 
     @overload
-    def add_index_option(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True) -> QuantConnect.Securities.IndexOption.IndexOption:
+    def add_index_option(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True) -> QuantConnect.Securities.IndexOption.IndexOption:
         """
         Creates and adds index options to the algorithm.
         
-        :param symbol: The Symbol of the Security returned from AddIndex
+        :param symbol: The Symbol of the Security returned from add_index
         :param resolution: Resolution of the index option contracts, i.e. the granularity of the data
         :param fill_forward: If true, this will fill in missing data points with the previous data point
         :returns: Canonical Option security.
@@ -2469,11 +1761,11 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_index_option(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], target_option: str, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True) -> QuantConnect.Securities.IndexOption.IndexOption:
+    def add_index_option(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], target_option: str, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True) -> QuantConnect.Securities.IndexOption.IndexOption:
         """
         Creates and adds index options to the algorithm.
         
-        :param symbol: The Symbol of the Security returned from AddIndex
+        :param symbol: The Symbol of the Security returned from add_index
         :param target_option: The target option ticker. This is useful when the option ticker does not match the underlying, e.g. SPX index and the SPXW weekly option. If null is provided will use underlying
         :param resolution: Resolution of the index option contracts, i.e. the granularity of the data
         :param fill_forward: If true, this will fill in missing data points with the previous data point
@@ -2483,19 +1775,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
 
     @overload
     def add_index_option(self, underlying: str, target_option: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True) -> QuantConnect.Securities.IndexOption.IndexOption:
-        """
-        Creates and adds index options to the algorithm.
-        
-        :param underlying: The underlying ticker of the Index Option
-        :param target_option: The target option ticker. This is useful when the option ticker does not match the underlying, e.g. SPX index and the SPXW weekly option. If null is provided will use underlying
-        :param resolution: Resolution of the index option contracts, i.e. the granularity of the data
-        :param market: The foreign exchange trading market, . Default value is null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
-        :param fill_forward: If true, this will fill in missing data points with the previous data point
-        :returns: Canonical Option security.
-        """
         ...
 
-    def add_index_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True) -> QuantConnect.Securities.IndexOption.IndexOption:
+    def add_index_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True) -> QuantConnect.Securities.IndexOption.IndexOption:
         """
         Adds an index option contract to the algorithm.
         
@@ -2512,24 +1794,24 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Creates and adds a new equity Option security to the algorithm
         
         :param underlying: The underlying equity ticker
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
-        :param market: The equity's market, . Default is value null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
+        :param market: The equity's market, Market. Default is value null and looked up using BrokerageModel.DefaultMarkets in AddSecurity{T}
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
+        :param leverage: The requested leverage for this equity. Default is set by security_initializer
         :returns: The new Option security.
         """
         ...
 
     @overload
-    def add_option(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ...) -> QuantConnect.Securities.Option.Option:
+    def add_option(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ...) -> QuantConnect.Securities.Option.Option:
         """
         Creates and adds a new Option security to the algorithm.
         This method can be used to add options with non-equity asset classes
         to the algorithm (e.g. Future Options).
         
         :param underlying: Underlying asset Symbol to use as the option's underlying
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
-        :param market: The option's market, . Default value is null, but will be resolved using BrokerageModel.DefaultMarkets in AddSecurity{T}
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
+        :param market: The option's market, Market. Default value is null, but will be resolved using IBrokerageModel.default_markets in AddSecurity{T}
         :param fill_forward: If true, data will be provided to the algorithm every Second, Minute, Hour, or Day, while the asset is open and depending on the Resolution this option was configured to use.
         :param leverage: The requested leverage for the
         :returns: The new option security instance.
@@ -2537,7 +1819,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_option(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], target_option: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ...) -> QuantConnect.Securities.Option.Option:
+    def add_option(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], target_option: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ...) -> QuantConnect.Securities.Option.Option:
         """
         Creates and adds a new Option security to the algorithm.
         This method can be used to add options with non-equity asset classes
@@ -2545,22 +1827,22 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         
         :param underlying: Underlying asset Symbol to use as the option's underlying
         :param target_option: The target option ticker. This is useful when the option ticker does not match the underlying, e.g. SPX index and the SPXW weekly option. If null is provided will use underlying
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
-        :param market: The option's market, . Default value is null, but will be resolved using BrokerageModel.DefaultMarkets in AddSecurity{T}
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
+        :param market: The option's market, Market. Default value is null, but will be resolved using IBrokerageModel.default_markets in AddSecurity{T}
         :param fill_forward: If true, data will be provided to the algorithm every Second, Minute, Hour, or Day, while the asset is open and depending on the Resolution this option was configured to use.
         :param leverage: The requested leverage for the
         :returns: The new option security instance.
         """
         ...
 
-    def add_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False) -> QuantConnect.Securities.Option.Option:
+    def add_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False) -> QuantConnect.Securities.Option.Option:
         """
         Creates and adds a new single Option contract to the algorithm
         
         :param symbol: The option contract symbol
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
+        :param leverage: The requested leverage for this option. Default is set by security_initializer
         :param extended_market_hours: Use extended market hours data
         :returns: The new Option security.
         """
@@ -2623,7 +1905,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: int = 0) -> QuantConnect.Securities.Security:
+    def add_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: int = 0) -> QuantConnect.Securities.Security:
         """
         Set a required SecurityType-symbol and resolution for algorithm
         
@@ -2634,8 +1916,29 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param extended_market_hours: Use extended market hours data
         :param data_mapping_mode: The contract mapping mode to use for the security
         :param data_normalization_mode: The price scaling mode to use for the security
-        :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 (default) will use the front month, 1 will use the back month contract
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 (default) will use the front month, 1 will use the back month contract
         :returns: The new Security that was added to the algorithm.
+        """
+        ...
+
+    @overload
+    def add_security_initializer(self, security_initializer: QuantConnect.Securities.ISecurityInitializer) -> None:
+        """
+        Adds a security initializer, used to initialize/configure securities after creation.
+        The initializer will appended to the default initializer and others that might have been
+        added using this method, and will be applied to all universes and manually added securities.
+        
+        :param security_initializer: The security initializer
+        """
+        ...
+
+    @overload
+    def add_security_initializer(self, security_initializer: typing.Callable[[QuantConnect.Securities.Security], typing.Any]) -> None:
+        """
+        Adds a security initializer, used to initialize/configure securities after creation.
+        
+        :param security_initializer: The security initializer
         """
         ...
 
@@ -2663,11 +1966,11 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def add_universe(self, t: typing.Type, name: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
         """
-        Creates a new universe and adds it to the algorithm. this will use the default universe settings
-        specified via the UniverseSettings property. this universe will use the defaults
-        of Securitytype.Equity, Resolution.Daily, Market.USA, and UniverseSettings
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the universe_settings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, Market.USA, and UniverseSettings
         
-        :param t: the data type
+        :param t: The data type
         :param name: A unique name for this universe
         :param selector: Function delegate that performs selection on the universe data
         """
@@ -2676,13 +1979,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def add_universe(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
         """
-        Creates a new universe and adds it to the algorithm. this will use the default universe settings
-        specified via the UniverseSettings property. this universe will use the defaults
-        of Securitytype.Equity, Market.USA and UniverseSettings
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the universe_settings property. This universe will use the defaults
+        of SecurityType.Equity, Market.USA and UniverseSettings
         
-        :param t: the data type
+        :param t: The data type
         :param name: A unique name for this universe
-        :param resolution: the expected resolution of the universe data
+        :param resolution: The expected resolution of the universe data
         :param selector: Function delegate that performs selection on the universe data
         """
         ...
@@ -2690,14 +1993,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def add_universe(self, t: typing.Type, name: str, resolution: QuantConnect.Resolution, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
         """
-        Creates a new universe and adds it to the algorithm. this will use the default universe settings
-        specified via the UniverseSettings property. this universe will use the defaults
-        of Securitytype.Equity, and Market.USA
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the universe_settings property. This universe will use the defaults
+        of SecurityType.Equity, and Market.USA
         
-        :param t: the data type
+        :param t: The data type
         :param name: A unique name for this universe
-        :param resolution: the expected resolution of the universe data
-        :param universe_settings: the settings used for securities added by this universe
+        :param resolution: The expected resolution of the universe data
+        :param universe_settings: The settings used for securities added by this universe
         :param selector: Function delegate that performs selection on the universe data
         """
         ...
@@ -2705,13 +2008,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def add_universe(self, t: typing.Type, name: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
         """
-        Creates a new universe and adds it to the algorithm. this will use the default universe settings
-        specified via the UniverseSettings property. this universe will use the defaults
-        of Securitytype.Equity, Resolution.Daily, and Market.USA
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the universe_settings property. This universe will use the defaults
+        of SecurityType.Equity, Resolution.Daily, and Market.USA
         
-        :param t: the data type
+        :param t: The data type
         :param name: A unique name for this universe
-        :param universe_settings: the settings used for securities added by this universe
+        :param universe_settings: The settings used for securities added by this universe
         :param selector: Function delegate that performs selection on the universe data
         """
         ...
@@ -2719,14 +2022,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def add_universe(self, t: typing.Type, security_type: QuantConnect.SecurityType, name: str, resolution: QuantConnect.Resolution, market: str, selector: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
         """
-        Creates a new universe and adds it to the algorithm. this will use the default universe settings
-        specified via the UniverseSettings property.
+        Creates a new universe and adds it to the algorithm. This will use the default universe settings
+        specified via the universe_settings property.
         
-        :param t: the data type
-        :param securitytype: the security type the universe produces
+        :param t: The data type
+        :param security_type: The security type the universe produces
         :param name: A unique name for this universe
-        :param resolution: the expected resolution of the universe data
-        :param market: the market for selected symbols
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
         :param selector: Function delegate that performs selection on the universe data
         """
         ...
@@ -2736,12 +2039,12 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Creates a new universe and adds it to the algorithm
         
-        :param t: the data type
-        :param securitytype: the security type the universe produces
+        :param t: The data type
+        :param security_type: The security type the universe produces
         :param name: A unique name for this universe
-        :param resolution: the expected resolution of the universe data
-        :param market: the market for selected symbols
-        :param universe_settings: the subscription settings to use for newly created subscriptions
+        :param resolution: The expected resolution of the universe data
+        :param market: The market for selected symbols
+        :param universe_settings: The subscription settings to use for newly created subscriptions
         :param selector: Function delegate that performs selection on the universe data
         """
         ...
@@ -2773,32 +2076,21 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def add_universe(self, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
         """
-        Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NewYork)
+        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
         
-        :param selector: Defines an initial coarse selection
+        :param selector: Defines an initial fundamental selection
         """
         ...
 
     @overload
     def add_universe(self, date_rule: QuantConnect.Scheduling.IDateRule, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
         """
-        Creates a new universe and adds it to the algorithm. This is for coarse fundamental US Equity data and
-        will be executed based on the provided IDateRule in the NewYork time zone (TimeZones.NewYork)
+        Creates a new universe and adds it to the algorithm. This is for fundamental US Equity data and
+        will be executed based on the provided IDateRule in the NewYork time zone (TimeZones.NEW_YORK)
         
         :param date_rule: Date rule that will be used to set the Data.UniverseSelection.UniverseSettings.Schedule
-        :param selector: Defines an initial coarse selection
-        """
-        ...
-
-    @overload
-    def add_universe(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NewYork)
-        
-        :param coarse_selector: Defines an initial coarse selection
-        :param fine_selector: Defines a more detailed selection with access to more data
+        :param selector: Defines an initial fundamental selection
         """
         ...
 
@@ -2806,7 +2098,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     def add_universe(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
         """
         Creates a new universe and adds it to the algorithm. This is for fine fundamental US Equity data and
-        will be executed on day changes in the NewYork time zone (TimeZones.NewYork)
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
         
         :param universe: The universe to be filtered with fine fundamental selection
         :param fine_selector: Defines a more detailed selection with access to more data
@@ -2851,7 +2143,21 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_universe_options(self, underlying_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], option_filter: typing.Callable[[QuantConnect.Securities.OptionFilterUniverse], QuantConnect.Securities.OptionFilterUniverse]) -> None:
+    def add_universe(self, coarse_selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]], fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe and adds it to the algorithm. This is for coarse and fine fundamental US Equity data and
+        will be executed on day changes in the NewYork time zone (TimeZones.NEW_YORK)
+        
+        
+        This method is obsolete, please use AddUniverse(Func<IEnumerable<Fundamental>, IEnumerable<Symbol>> selector) instead
+        
+        :param coarse_selector: Defines an initial coarse selection
+        :param fine_selector: Defines a more detailed selection with access to more data
+        """
+        ...
+
+    @overload
+    def add_universe_options(self, underlying_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], option_filter: typing.Callable[[QuantConnect.Securities.OptionFilterUniverse], QuantConnect.Securities.OptionFilterUniverse]) -> None:
         """
         Adds a new universe that creates options of the security by monitoring any changes in the Universe the provided security is in.
         Additionally, a filter can be applied to the options generated when the universe of the security changes.
@@ -2865,7 +2171,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     def add_universe_options(self, universe: QuantConnect.Data.UniverseSelection.Universe, option_filter: typing.Callable[[QuantConnect.Securities.OptionFilterUniverse], QuantConnect.Securities.OptionFilterUniverse]) -> None:
         """
         Creates a new universe selection model and adds it to the algorithm. This universe selection model will chain to the security
-        changes of a given Universe selection output and create a new OptionChainUniverse for each of them
+        changes of a given universe selection output and create a new OptionChainUniverse for each of them
         
         :param universe: The universe we want to chain an option universe selection model too
         :param option_filter: The option filter universe to use
@@ -2880,7 +2186,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def adosc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], fast_period: int, slow_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.AccumulationDistributionOscillator:
+    def adosc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fast_period: int, slow_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.AccumulationDistributionOscillator:
         """
         Creates a new AccumulationDistributionOscillator indicator.
         
@@ -2915,20 +2221,20 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def adx(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AverageDirectionalIndex:
+    def adx(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AverageDirectionalIndex:
         """
         Creates a new Average Directional Index indicator.
         The indicator will be automatically updated on the given resolution.
         
         :param symbol: The symbol whose Average Directional Index we seek
-        :param period: The period over which to compute the Average Directional Index
         :param resolution: The resolution.
+        :param period: The period over which to compute the Average Directional Index
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
         :returns: The Average Directional Index indicator for the requested symbol.
         """
         ...
 
-    def adxr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AverageDirectionalMovementIndexRating:
+    def adxr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AverageDirectionalMovementIndexRating:
         """
         Creates a new AverageDirectionalMovementIndexRating indicator.
         
@@ -2940,34 +2246,35 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def alma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, sigma: int = 6, offset: float = 0.85, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ArnaudLegouxMovingAverage:
+    def alma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, sigma: int = 6, offset: float = 0.85, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ArnaudLegouxMovingAverage:
         """
         Creates a new ArnaudLegouxMovingAverage indicator.
         
         :param symbol: The symbol whose ALMA we want
         :param period: int - the number of periods to calculate the ALMA
         :param sigma: int - this parameter is responsible for the shape of the curve coefficients.
-        :param offset: decimal - This parameter allows regulating the smoothness and high sensitivity of the Moving Average. The range for this parameter is [0, 1].
+        :param offset: decimal - This parameter allows regulating the smoothness and high sensitivity of the
+        Moving Average. The range for this parameter is <0, 1>.
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
         :returns: The ArnaudLegouxMovingAverage indicator for the requested symbol over the specified period.
         """
         ...
 
-    def ao(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], fast_period: int, slow_period: int, type: QuantConnect.Indicators.MovingAverageType, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AwesomeOscillator:
+    def ao(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fast_period: int, slow_period: int, type: QuantConnect.Indicators.MovingAverageType, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AwesomeOscillator:
         """
         Creates a new Awesome Oscillator from the specified periods.
         
         :param symbol: The symbol whose Awesome Oscillator we seek
+        :param resolution: The resolution.
         :param fast_period: The period of the fast moving average associated with the AO
         :param slow_period: The period of the slow moving average associated with the AO
         :param type: The type of moving average used when computing the fast and slow term. Defaults to simple moving average.
-        :param resolution: The resolution.
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
         """
         ...
 
-    def apo(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], fast_period: int, slow_period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.AbsolutePriceOscillator:
+    def apo(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fast_period: int, slow_period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.AbsolutePriceOscillator:
         """
         Creates a new AbsolutePriceOscillator indicator.
         
@@ -2981,7 +2288,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def aps(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int = 3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.AugenPriceSpike:
+    def aps(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int = 3, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.AugenPriceSpike:
         """
         Creates an AugenPriceSpike indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -2994,7 +2301,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def ar(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AverageRange:
+    def ar(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AverageRange:
         """
         Creates a new Average Range (AR) indicator.
         
@@ -3007,7 +2314,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def arima(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], ar_order: int, diff_order: int, ma_order: int, period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.AutoRegressiveIntegratedMovingAverage:
+    def arima(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], ar_order: int, diff_order: int, ma_order: int, period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.AutoRegressiveIntegratedMovingAverage:
         """
         Creates a new ARIMA indicator.
         
@@ -3023,7 +2330,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def arima(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], ar_order: int, diff_order: int, ma_order: int, period: int, intercept: bool, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.AutoRegressiveIntegratedMovingAverage:
+    def arima(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], ar_order: int, diff_order: int, ma_order: int, period: int, intercept: bool, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.AutoRegressiveIntegratedMovingAverage:
         """
         Creates a new ARIMA indicator.
         
@@ -3040,7 +2347,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def aroon(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AroonOscillator:
+    def aroon(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AroonOscillator:
         """
         Creates a new AroonOscillator indicator which will compute the AroonUp and AroonDown (as well as the delta)
         
@@ -3053,7 +2360,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def aroon(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], up_period: int, down_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AroonOscillator:
+    def aroon(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], up_period: int, down_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AroonOscillator:
         """
         Creates a new AroonOscillator indicator which will compute the AroonUp and AroonDown (as well as the delta)
         
@@ -3066,7 +2373,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def asi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], limit_move: float, resolution: typing.Optional[QuantConnect.Resolution] = ..., selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.WilderAccumulativeSwingIndex:
+    def asi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], limit_move: float, resolution: typing.Optional[QuantConnect.Resolution] = ..., selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.WilderAccumulativeSwingIndex:
         """
         Creates a Wilder Accumulative Swing Index (ASI) indicator for the symbol.
         The indicator will be automatically updated on the given resolution.
@@ -3079,7 +2386,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def atr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AverageTrueRange:
+    def atr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.AverageTrueRange:
         """
         Creates a new AverageTrueRange indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -3093,7 +2400,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def b(self, target: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], reference: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.Beta:
+    def b(self, target: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], reference: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.Beta:
         """
         Creates a Beta indicator for the given target symbol in relation with the reference used.
         The indicator will be automatically updated on the given resolution.
@@ -3107,7 +2414,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def bb(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, k: float, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.BollingerBands:
+    def bb(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, k: float, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.BollingerBands:
         """
         Creates a new BollingerBands indicator which will compute the MiddleBand, UpperBand, LowerBand, and StandardDeviation
         
@@ -3121,7 +2428,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def bop(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.BalanceOfPower:
+    def bop(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.BalanceOfPower:
         """
         Creates a new Balance Of Power indicator.
         The indicator will be automatically updated on the given resolution.
@@ -3143,7 +2450,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def buy(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int) -> QuantConnect.Orders.OrderTicket:
+    def buy(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int) -> QuantConnect.Orders.OrderTicket:
         """
         Buy Stock (Alias of Order)
         
@@ -3154,7 +2461,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def buy(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float) -> QuantConnect.Orders.OrderTicket:
+    def buy(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float) -> QuantConnect.Orders.OrderTicket:
         """
         Buy Stock (Alias of Order)
         
@@ -3173,12 +2480,12 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity of the strategy to trade
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it fills
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: Sequence of order tickets.
         """
         ...
 
-    def c(self, target: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], reference: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, correlation_type: QuantConnect.Indicators.CorrelationType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.Correlation:
+    def c(self, target: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], reference: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, correlation_type: QuantConnect.Indicators.CorrelationType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.Correlation:
         """
         Creates a Correlation indicator for the given target symbol in relation with the reference used.
         The indicator will be automatically updated on the given resolution.
@@ -3193,7 +2500,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def calculate_order_quantity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], target: float) -> float:
+    def calculate_order_quantity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], target: float) -> float:
         """
         Calculate the order quantity to achieve target-percent holdings.
         
@@ -3203,7 +2510,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def cc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], short_roc_period: int = 11, long_roc_period: int = 14, lwma_period: int = 10, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.CoppockCurve:
+    def cc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], short_roc_period: int = 11, long_roc_period: int = 14, lwma_period: int = 10, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.CoppockCurve:
         """
         Initializes a new instance of the CoppockCurve indicator
         
@@ -3217,7 +2524,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def cci(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CommodityChannelIndex:
+    def cci(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.CommodityChannelIndex:
         """
         Creates a new CommodityChannelIndex indicator. The indicator will be automatically
         updated on the given resolution.
@@ -3231,7 +2538,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def chop(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ChoppinessIndex:
+    def chop(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ChoppinessIndex:
         """
         Creates a new ChoppinessIndex indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -3247,25 +2554,26 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def cik(self, cik: int, trading_date: typing.Optional[datetime.datetime] = None) -> typing.List[QuantConnect.Symbol]:
         """
-        Converts a CIK identifier into Symbol array
+        Converts a CIK identifier into symbol array
         
         :param cik: The CIK identifier of an asset
-        :param trading_date: The date that the stock being looked up is/was traded at. The date is used to create a Symbol with the ticker set to the ticker the asset traded under on the trading date.
+        :param trading_date: The date that the stock being looked up is/was traded at.
+        The date is used to create a Symbol with the ticker set to the ticker the asset traded under on the trading date.
         :returns: Symbols corresponding to the CIK. If no Symbol with a matching CIK was found, returns empty array.
         """
         ...
 
     @overload
-    def cik(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.Optional[int]:
+    def cik(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Optional[int]:
         """
-        Converts a Symbol into a CIK identifier
+        Converts a symbol into a CIK identifier
         
-        :param symbol: The Symbol
+        :param symbol: The symbol
         :returns: CIK corresponding to the Symbol. If no matching CIK is found, returns null.
         """
         ...
 
-    def cks(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], atr_period: int, atr_mult: float, period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ChandeKrollStop:
+    def cks(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], atr_period: int, atr_mult: float, period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ChandeKrollStop:
         """
         Creates a new Chande Kroll Stop indicator which will compute the short and lower stop.
         The indicator will be automatically updated on the given resolution.
@@ -3274,14 +2582,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param atr_period: The period over which to compute the average true range.
         :param atr_mult: The ATR multiplier to be used to compute stops distance.
         :param period: The period over which to compute the max of high stop and min of low stop.
-        :param moving_average_type: The type of smoothing used to smooth the true range values
         :param resolution: The resolution.
+        :param moving_average_type: The type of smoothing used to smooth the true range values
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
         :returns: The Chande Kroll Stop indicator for the requested symbol.
         """
         ...
 
-    def cmf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.ChaikinMoneyFlow:
+    def cmf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.ChaikinMoneyFlow:
         """
         Creates a new ChaikinMoneyFlow indicator.
         
@@ -3293,7 +2601,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def cmo(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ChandeMomentumOscillator:
+    def cmo(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ChandeMomentumOscillator:
         """
         Creates a new ChandeMomentumOscillator indicator.
         
@@ -3305,7 +2613,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def co(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], fast_period: int, slow_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.ChaikinOscillator:
+    def co(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fast_period: int, slow_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.ChaikinOscillator:
         """
         Creates a new Chaikin Oscillator indicator.
         
@@ -3326,7 +2634,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: The total quantity for the order
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: Sequence of order tickets, one for each leg.
         """
         ...
@@ -3341,7 +2649,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param limit_price: The compound limit price to use for a ComboLimit order. This limit price will compared to the sum of the assets price in order to fill the order.
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: Sequence of order tickets, one for each leg.
         """
         ...
@@ -3354,7 +2662,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: The total quantity for the order
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it fills
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: Sequence of order tickets, one for each leg.
         """
         ...
@@ -3362,26 +2670,27 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def composite_figi(self, composite_figi: str, trading_date: typing.Optional[datetime.datetime] = None) -> QuantConnect.Symbol:
         """
-        Converts a composite FIGI identifier into a Symbol
+        Converts a composite FIGI identifier into a symbol
         
         :param composite_figi: The composite Financial Instrument Global Identifier (FIGI) of an asset
-        :param trading_date: The date that the stock being looked up is/was traded at. The date is used to create a Symbol with the ticker set to the ticker the asset traded under on the trading date.
+        :param trading_date: The date that the stock being looked up is/was traded at.
+        The date is used to create a Symbol with the ticker set to the ticker the asset traded under on the trading date.
         :returns: Symbol corresponding to the composite FIGI. If no Symbol with a matching composite FIGI was found, returns null.
         """
         ...
 
     @overload
-    def composite_figi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> str:
+    def composite_figi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
         """
-        Converts a Symbol into a composite FIGI identifier
+        Converts a symbol into a composite FIGI identifier
         
-        :param symbol: The Symbol
+        :param symbol: The symbol
         :returns: Composite FIGI corresponding to the Symbol. If no matching composite FIGI is found, returns null.
         """
         ...
 
     @overload
-    def consolidate(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], size: float, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], size: float, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
         Creates and registers a consolidator for the following bar types: RenkoBar, VolumeRenkoBar, or RangeBar
         for the specified symbol and threshold. The specified handler will be invoked with each new consolidated bar.
@@ -3396,9 +2705,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
-        Registers the  to receive consolidated data for the specified symbol
+        Registers the handler to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param period: The consolidation period
@@ -3408,34 +2717,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
-        Registers the  to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: datetime.timedelta, handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the  to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: datetime.timedelta, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the  to receive consolidated data for the specified symbol
+        Registers the handler to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param period: The consolidation period
@@ -3446,9 +2730,34 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
-        Registers the  to receive consolidated data for the specified symbol
+        Registers the handler to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the handler to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param calendar: The consolidation calendar
@@ -3458,9 +2767,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
-        Registers the  to receive consolidated data for the specified symbol
+        Registers the handler to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param calendar: The consolidation calendar
@@ -3471,9 +2780,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
-        Registers the  to receive consolidated data for the specified symbol
+        Registers the handler to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param period: The consolidation period
@@ -3483,9 +2792,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: datetime.timedelta, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
-        Registers the  to receive consolidated data for the specified symbol
+        Registers the handler to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param period: The consolidation period
@@ -3495,9 +2804,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
-        Registers the  to receive consolidated data for the specified symbol
+        Registers the handler to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param period: The consolidation period
@@ -3507,9 +2816,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: datetime.timedelta, handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: datetime.timedelta, handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
-        Registers the  to receive consolidated data for the specified symbol
+        Registers the handler to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param period: The consolidation period
@@ -3519,9 +2828,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
-        Registers the  to receive consolidated data for the specified symbol
+        Registers the handler to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param calendar: The consolidation calendar
@@ -3531,14 +2840,28 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
-        Registers the  to receive consolidated data for the specified symbol
+        Registers the handler to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param calendar: The consolidation calendar
         :param handler: Data handler receives new consolidated data when generated
         :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    def cov(self, target: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], reference: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.Covariance:
+        """
+        Creates a Covariance indicator for the given target symbol in relation with the reference used.
+        The indicator will be automatically updated on the given resolution.
+        
+        :param target: The target symbol whose Covariance value we want
+        :param reference: The reference symbol to compare with the target symbol
+        :param period: The period of the Covariance indicator
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
+        :returns: The Covariance indicator for the given parameters.
         """
         ...
 
@@ -3559,7 +2882,8 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Helper method to create history requests from a date range
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -3568,12 +2892,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Helper method to create history requests from a date range with custom data type
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
     @overload
-    def create_indicator_name(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], type: System.FormattableString, resolution: typing.Optional[QuantConnect.Resolution]) -> str:
+    def create_indicator_name(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], type: System.FormattableString, resolution: typing.Optional[QuantConnect.Resolution]) -> str:
         """
         Creates a new name for an indicator created with the convenience functions (SMA, EMA, ect...)
         
@@ -3585,7 +2910,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def create_indicator_name(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], type: str, resolution: typing.Optional[QuantConnect.Resolution]) -> str:
+    def create_indicator_name(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], type: str, resolution: typing.Optional[QuantConnect.Resolution]) -> str:
         """
         Creates a new name for an indicator created with the convenience functions (SMA, EMA, ect...)
         
@@ -3596,7 +2921,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def crsi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], rsi_period: int, rsi_period_streak: int, look_back_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ConnorsRelativeStrengthIndex:
+    def crsi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], rsi_period: int, rsi_period_streak: int, look_back_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ConnorsRelativeStrengthIndex:
         """
         Creates a new Connors Relative Strength Index (CRSI) indicator, which combines the traditional Relative Strength Index (RSI),
         Streak RSI (SRSI), and Percent Rank to provide a more robust measure of market strength.
@@ -3604,7 +2929,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         
         :param symbol: The symbol whose CRSI is to be calculated.
         :param rsi_period: The period for the traditional RSI calculation.
-        :param rsi_periodStreak: The period for the Streak RSI calculation (SRSI).
+        :param rsi_period_streak: The period for the Streak RSI calculation (SRSI).
         :param look_back_period: The look-back period for calculating the Percent Rank.
         :param resolution: The resolution of the data (optional).
         :param selector: Function to select a value from the BaseData to input into the indicator. Defaults to using the 'Value' property of BaseData if null.
@@ -3615,25 +2940,26 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def cusip(self, cusip: str, trading_date: typing.Optional[datetime.datetime] = None) -> QuantConnect.Symbol:
         """
-        Converts a CUSIP identifier into a Symbol
+        Converts a CUSIP identifier into a symbol
         
         :param cusip: The CUSIP number of an asset
-        :param trading_date: The date that the stock being looked up is/was traded at. The date is used to create a Symbol with the ticker set to the ticker the asset traded under on the trading date.
+        :param trading_date: The date that the stock being looked up is/was traded at.
+        The date is used to create a Symbol with the ticker set to the ticker the asset traded under on the trading date.
         :returns: Symbol corresponding to the CUSIP. If no Symbol with a matching CUSIP was found, returns null.
         """
         ...
 
     @overload
-    def cusip(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> str:
+    def cusip(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
         """
-        Converts a Symbol into a CUSIP identifier
+        Converts a symbol into a CUSIP identifier
         
-        :param symbol: The Symbol
+        :param symbol: The symbol
         :returns: CUSIP corresponding to the Symbol. If no matching CUSIP is found, returns null.
         """
         ...
 
-    def d(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Delta:
+    def d(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Delta:
         """
         Creates a new Delta indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -3650,7 +2976,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def dch(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], upper_period: int, lower_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.DonchianChannel:
+    def dch(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], upper_period: int, lower_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.DonchianChannel:
         """
         Creates a new Donchian Channel indicator which will compute the Upper Band and Lower Band.
         The indicator will be automatically updated on the given resolution.
@@ -3665,7 +2991,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def dch(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.DonchianChannel:
+    def dch(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.DonchianChannel:
         """
         Overload shorthand to create a new symmetric Donchian Channel indicator which
         has the upper and lower channels set to the same period length.
@@ -3714,7 +3040,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def dem(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, type: QuantConnect.Indicators.MovingAverageType, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.DeMarkerIndicator:
+    def dem(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, type: QuantConnect.Indicators.MovingAverageType, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.DeMarkerIndicator:
         """
         Creates a new DeMarker Indicator (DEM), an oscillator-type indicator measuring changes in terms of an asset's
         High and Low tradebar values.
@@ -3728,7 +3054,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def dema(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.DoubleExponentialMovingAverage:
+    def dema(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.DoubleExponentialMovingAverage:
         """
         Creates a new DoubleExponentialMovingAverage indicator.
         
@@ -3748,7 +3074,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def do(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], rsi_period: int, smoothing_rsi_period: int, double_smoothing_rsi_period: int, signal_line_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.DerivativeOscillator:
+    def do(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], rsi_period: int, smoothing_rsi_period: int, double_smoothing_rsi_period: int, signal_line_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.DerivativeOscillator:
         """
         Creates a new DerivativeOscillator indicator.
         
@@ -3800,7 +3126,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def dpo(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.DetrendedPriceOscillator:
+    def dpo(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.DetrendedPriceOscillator:
         """
         Creates a new DetrendedPriceOscillator indicator.
         
@@ -3813,7 +3139,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def ema(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ExponentialMovingAverage:
+    def ema(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ExponentialMovingAverage:
         """
         Creates an ExponentialMovingAverage indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -3827,7 +3153,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def ema(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, smoothing_factor: float, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ExponentialMovingAverage:
+    def ema(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, smoothing_factor: float, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ExponentialMovingAverage:
         """
         Creates an ExponentialMovingAverage indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -3863,7 +3189,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def emv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int = 1, scale: int = 10000, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.EaseOfMovementValue:
+    def emv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int = 1, scale: int = 10000, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.EaseOfMovementValue:
         """
         Creates an EaseOfMovementValue indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -3922,7 +3248,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def exercise_option(self, option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def exercise_option(self, option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send an exercise order to the transaction handler
         
@@ -3930,12 +3256,12 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity of options contracts
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it fills
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
-    def fi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.ForceIndex:
+    def fi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.ForceIndex:
         """
         Creates a new ForceIndex indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -3950,7 +3276,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def filtered_identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None, filter: typing.Callable[[QuantConnect.Data.IBaseData], bool] = None, field_name: str = None) -> QuantConnect.Indicators.FilteredIdentity:
+    def filtered_identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None, filter: typing.Callable[[QuantConnect.Data.IBaseData], bool] = None, field_name: str = None) -> QuantConnect.Indicators.FilteredIdentity:
         """
         Creates a new FilteredIdentity indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -3964,7 +3290,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def filtered_identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: QuantConnect.Resolution, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None, filter: typing.Callable[[QuantConnect.Data.IBaseData], bool] = None, field_name: str = None) -> QuantConnect.Indicators.FilteredIdentity:
+    def filtered_identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: QuantConnect.Resolution, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None, filter: typing.Callable[[QuantConnect.Data.IBaseData], bool] = None, field_name: str = None) -> QuantConnect.Indicators.FilteredIdentity:
         """
         Creates a new FilteredIdentity indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -3979,7 +3305,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def filtered_identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None, filter: typing.Callable[[QuantConnect.Data.IBaseData], bool] = None, field_name: str = None) -> QuantConnect.Indicators.FilteredIdentity:
+    def filtered_identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None, filter: typing.Callable[[QuantConnect.Data.IBaseData], bool] = None, field_name: str = None) -> QuantConnect.Indicators.FilteredIdentity:
         """
         Creates a new FilteredIdentity indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -3993,7 +3319,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def fish(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.FisherTransform:
+    def fish(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.FisherTransform:
         """
         Creates an FisherTransform indicator for the symbol.
         The indicator will be automatically updated on the given resolution.
@@ -4006,7 +3332,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def frama(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, long_period: int = 198, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.FractalAdaptiveMovingAverage:
+    def frama(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, long_period: int = 198, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.FractalAdaptiveMovingAverage:
         """
         Creates an FractalAdaptiveMovingAverage (FRAMA) indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -4022,17 +3348,17 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
 
     def framework_post_initialize(self) -> None:
         """
-        Called by setup handlers after Initialize and allows the algorithm a chance to organize
-        the data gather in the Initialize method
+        Called by setup handlers after initialize and allows the algorithm a chance to organize
+        the data gather in the initialize method
         """
         ...
 
     @overload
-    def fundamentals(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Fundamental.Fundamental:
+    def fundamentals(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Fundamental.Fundamental:
         """
         Get the fundamental data for the requested symbol at the current time
         
-        :param symbol: The Symbol
+        :param symbol: The symbol
         :returns: The fundamental data for the Symbol.
         """
         ...
@@ -4042,52 +3368,60 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Get the fundamental data for the requested symbols at the current time
         
-        :param symbols: The Symbol
+        :param symbols: The symbol
         :returns: The fundamental data for the symbols.
         """
         ...
 
-    def future_chain(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], flatten: bool = False) -> QuantConnect.Data.Market.FuturesChain:
+    def future_chain(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], flatten: bool = False) -> QuantConnect.Data.Market.FuturesChain:
         """
-        Get the futures chain for the specified symbol at the current time (Time)
+        Get the futures chain for the specified symbol at the current time (time)
         
-        :param symbol: The symbol for which the futures chain is asked for. It can be either the canonical future, a contract or an option symbol.
-        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing FuturesChain.DataFrame. See History(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
+        :param symbol: The symbol for which the futures chain is asked for.
+        It can be either the canonical future, a contract or an option symbol.
+        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing FuturesChain.DataFrame.
+        See history(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
         :returns: The futures chain.
         """
         ...
 
     def future_chains(self, symbols: typing.List[QuantConnect.Symbol], flatten: bool = False) -> QuantConnect.Data.Market.FuturesChains:
         """
-        Get the futures chains for the specified symbols at the current time (Time)
+        Get the futures chains for the specified symbols at the current time (time)
         
-        :param symbols: The symbols for which the futures chains are asked for. It can be either the canonical future, a contract or an option symbol.
-        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing FuturesChains.DataFrame. See History(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
+        :param symbols: The symbols for which the futures chains are asked for.
+        It can be either the canonical future, a contract or an option symbol.
+        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing FuturesChains.DataFrame.
+        See history(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
         :returns: The futures chains.
         """
         ...
 
-    def futures_chain(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], flatten: bool = False) -> QuantConnect.Data.Market.FuturesChain:
+    def futures_chain(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], flatten: bool = False) -> QuantConnect.Data.Market.FuturesChain:
         """
-        Get the futures chain for the specified symbol at the current time (Time)
+        Get the futures chain for the specified symbol at the current time (time)
         
-        :param symbol: The symbol for which the futures chain is asked for. It can be either the canonical future, a contract or an option symbol.
-        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing FuturesChain.DataFrame. See History(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
+        :param symbol: The symbol for which the futures chain is asked for.
+        It can be either the canonical future, a contract or an option symbol.
+        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing FuturesChain.DataFrame.
+        See history(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
         :returns: The futures chain.
         """
         ...
 
     def futures_chains(self, symbols: typing.List[QuantConnect.Symbol], flatten: bool = False) -> QuantConnect.Data.Market.FuturesChains:
         """
-        Get the futures chains for the specified symbols at the current time (Time)
+        Get the futures chains for the specified symbols at the current time (time)
         
-        :param symbols: The symbols for which the futures chains are asked for. It can be either the canonical future, a contract or an option symbol.
-        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing FuturesChains.DataFrame. See History(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
+        :param symbols: The symbols for which the futures chains are asked for.
+        It can be either the canonical future, a contract or an option symbol.
+        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing FuturesChains.DataFrame.
+        See history(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
         :returns: The futures chains.
         """
         ...
 
-    def g(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Gamma:
+    def g(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Gamma:
         """
         Creates a new Gamma indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -4107,23 +3441,38 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Get the chart updates by fetch the recent points added and return for dynamic Charting.
         
+        :param clear_chart_data: 
         :returns: List of chart updates since the last request.
         """
         ...
 
+    @overload
     def get_last_known_price(self, security: QuantConnect.Securities.Security) -> QuantConnect.Data.BaseData:
         """
         Get the last known price using the history provider.
         Useful for seeding securities with the correct price
         
-        This method is obsolete please use 'GetLastKnownPrices' which will return the last data point" +
-                    " for each type associated with the requested security
+        
+        This method is obsolete please use 'GetLastKnownPrices' which will return the last data point for each type associated with the requested security
         
         :param security: Security object for which to retrieve historical data
         :returns: A single BaseData object with the last known price.
         """
-        warnings.warn("This method is obsolete please use 'GetLastKnownPrices' which will return the last data point" +
-                    " for each type associated with the requested security", DeprecationWarning)
+        ...
+
+    @overload
+    def get_last_known_price(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.BaseData:
+        """
+        Get the last known price using the history provider.
+        Useful for seeding securities with the correct price
+        
+        
+        This method is obsolete please use 'GetLastKnownPrices' which will return the last data point for each type associated with the requested security
+        
+        :param symbol: Symbol for which to retrieve historical data
+        :returns: A single BaseData object with the last known price.
+        """
+        ...
 
     @overload
     def get_last_known_prices(self, security: QuantConnect.Securities.Security) -> typing.Iterable[QuantConnect.Data.BaseData]:
@@ -4136,11 +3485,31 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def get_last_known_prices(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.Iterable[QuantConnect.Data.BaseData]:
+    def get_last_known_prices(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Iterable[QuantConnect.Data.BaseData]:
         """
-        Yields data to warmup a security for all it's subscribed data types
+        Yields data to warm up a security for all its subscribed data types
         
         :param symbol: The symbol we want to get seed data for
+        :returns: Securities historical data.
+        """
+        ...
+
+    @overload
+    def get_last_known_prices(self, securities: typing.List[QuantConnect.Securities.Security]) -> QuantConnect.Data.Market.DataDictionary[typing.Iterable[QuantConnect.Data.BaseData]]:
+        """
+        Yields data to warm up multiple securities for all their subscribed data types
+        
+        :param securities: The securities we want to get seed data for
+        :returns: Securities historical data.
+        """
+        ...
+
+    @overload
+    def get_last_known_prices(self, symbols: typing.List[QuantConnect.Symbol]) -> QuantConnect.Data.Market.DataDictionary[typing.Iterable[QuantConnect.Data.BaseData]]:
+        """
+        Yields data to warm up multiple securities for all their subscribed data types
+        
+        :param symbols: The symbols we want to get seed data for
         :returns: Securities historical data.
         """
         ...
@@ -4185,11 +3554,11 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def get_parameters(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_parameters(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
         """Gets a read-only dictionary with all current parameters"""
         ...
 
-    def he(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, max_lag: int = 20, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.HurstExponent:
+    def he(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, max_lag: int = 20, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.HurstExponent:
         """
         Creates a new Hurst Exponent indicator for the specified symbol.
         The Hurst Exponent measures the long-term memory or self-similarity in a time series.
@@ -4204,7 +3573,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def heikin_ashi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.HeikinAshi:
+    def heikin_ashi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.HeikinAshi:
         """
         Creates a new Heikin-Ashi indicator.
         
@@ -4215,7 +3584,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def hma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.HullMovingAverage:
+    def hma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.HullMovingAverage:
         """
         Creates a new HullMovingAverage indicator. The Hull moving average is a series of nested weighted moving averages, is fast and smooth.
         
@@ -4226,20 +3595,25 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def ht(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], length: int, in_phase_multiplication_factor: float, quadrature_multiplication_factor: float, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.HilbertTransform:
+    def ht(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], length: int, in_phase_multiplication_factor: float, quadrature_multiplication_factor: float, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.HilbertTransform:
         """
         Creates a new Hilbert Transform indicator
         
         :param symbol: The symbol whose Hilbert transform we want
-        :param length: The length of the FIR filter used in the calculation of the Hilbert Transform. This parameter determines the number of filter coefficients in the FIR filter.
-        :param in_phase_multiplication_factor: The multiplication factor used in the calculation of the in-phase component of the Hilbert Transform. This parameter adjusts the sensitivity and responsiveness of the transform to changes in the input signal.
-        :param quadrature_multiplication_factor: The multiplication factor used in the calculation of the quadrature component of the Hilbert Transform. This parameter also adjusts the sensitivity and responsiveness of the transform to changes in the input signal.
+        :param length: The length of the FIR filter used in the calculation of the Hilbert Transform.
+        This parameter determines the number of filter coefficients in the FIR filter.
+        :param in_phase_multiplication_factor: The multiplication factor used in the calculation of the in-phase component
+        of the Hilbert Transform. This parameter adjusts the sensitivity and responsiveness of
+        the transform to changes in the input signal.
+        :param quadrature_multiplication_factor: The multiplication factor used in the calculation of the quadrature component of
+        the Hilbert Transform. This parameter also adjusts the sensitivity and responsiveness of the
+        transform to changes in the input signal.
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
         """
         ...
 
-    def ibs(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.InternalBarStrength:
+    def ibs(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.InternalBarStrength:
         """
         Creates a new InternalBarStrength indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -4251,7 +3625,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def ichimoku(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], tenkan_period: int, kijun_period: int, senkou_a_period: int, senkou_b_period: int, senkou_a_delay_period: int, senkou_b_delay_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.IchimokuKinkoHyo:
+    def ichimoku(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], tenkan_period: int, kijun_period: int, senkou_a_period: int, senkou_b_period: int, senkou_a_delay_period: int, senkou_b_delay_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.IchimokuKinkoHyo:
         """
         Creates a new IchimokuKinkoHyo indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -4270,7 +3644,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, field_name: str = None) -> QuantConnect.Indicators.Identity:
+    def identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, field_name: str = None) -> QuantConnect.Indicators.Identity:
         """
         Creates a new Identity indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -4283,21 +3657,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: QuantConnect.Resolution, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, field_name: str = None) -> QuantConnect.Indicators.Identity:
-        """
-        Creates a new Identity indicator for the symbol The indicator will be automatically
-        updated on the symbol's subscription resolution
-        
-        :param symbol: The symbol whose values we want as an indicator
-        :param resolution: The desired resolution of the data
-        :param selector: Selects a value from the BaseData, if null defaults to the .Value property (x => x.Value)
-        :param field_name: The name of the field being selected
-        :returns: A new Identity indicator for the specified symbol and selector.
-        """
-        ...
-
-    @overload
-    def identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, field_name: str = None) -> QuantConnect.Indicators.Identity:
+    def identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: QuantConnect.Resolution, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, field_name: str = None) -> QuantConnect.Indicators.Identity:
         """
         Creates a new Identity indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -4311,7 +3671,21 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def indicator_history(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+    def identity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, field_name: str = None) -> QuantConnect.Indicators.Identity:
+        """
+        Creates a new Identity indicator for the symbol The indicator will be automatically
+        updated on the symbol's subscription resolution
+        
+        :param symbol: The symbol whose values we want as an indicator
+        :param resolution: The desired resolution of the data
+        :param selector: Selects a value from the BaseData, if null defaults to the .Value property (x => x.Value)
+        :param field_name: The name of the field being selected
+        :returns: A new Identity indicator for the specified symbol and selector.
+        """
+        ...
+
+    @overload
+    def indicator_history(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
         """
         Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
         The symbol must exist in the Securities collection.
@@ -4341,7 +3715,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def indicator_history(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+    def indicator_history(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], span: datetime.timedelta, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
         """
         Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
         The symbol must exist in the Securities collection.
@@ -4387,7 +3761,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def indicator_history(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
+    def indicator_history(self, indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> pandas.DataFrame:
         """
         Gets the historical data of an indicator for the specified symbol. The exact number of bars will be returned.
         The symbol must exist in the Securities collection.
@@ -4410,7 +3784,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param indicator: The target indicator
         :param history: Historical data used to calculate the indicator
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
-        :returns: pandas.DataFrame containing the historical data of.
+        :returns: pandas.DataFrame containing the historical data of indicator.
         """
         ...
 
@@ -4421,25 +3795,26 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def isin(self, isin: str, trading_date: typing.Optional[datetime.datetime] = None) -> QuantConnect.Symbol:
         """
-        Converts an ISIN identifier into a Symbol
+        Converts an ISIN identifier into a symbol
         
         :param isin: The International Securities Identification Number (ISIN) of an asset
-        :param trading_date: The date that the stock being looked up is/was traded at. The date is used to create a Symbol with the ticker set to the ticker the asset traded under on the trading date.
+        :param trading_date: The date that the stock being looked up is/was traded at.
+        The date is used to create a Symbol with the ticker set to the ticker the asset traded under on the trading date.
         :returns: Symbol corresponding to the ISIN. If no Symbol with a matching ISIN was found, returns null.
         """
         ...
 
     @overload
-    def isin(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> str:
+    def isin(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
         """
-        Converts a Symbol into an ISIN identifier
+        Converts a symbol into an ISIN identifier
         
-        :param symbol: The Symbol
+        :param symbol: The symbol
         :returns: ISIN corresponding to the Symbol. If no matching ISIN is found, returns null.
         """
         ...
 
-    def is_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+    def is_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """
         Determines if the exchange for the specified symbol is open at the current time.
         
@@ -4448,7 +3823,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def iv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.ImpliedVolatility:
+    def iv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.ImpliedVolatility:
         """
         Creates a new ImpliedVolatility indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -4464,7 +3839,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def kama(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.KaufmanAdaptiveMovingAverage:
+    def kama(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.KaufmanAdaptiveMovingAverage:
         """
         Creates a new KaufmanAdaptiveMovingAverage indicator.
         
@@ -4477,7 +3852,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def kama(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, fast_ema_period: int, slow_ema_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.KaufmanAdaptiveMovingAverage:
+    def kama(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, fast_ema_period: int, slow_ema_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.KaufmanAdaptiveMovingAverage:
         """
         Creates a new KaufmanAdaptiveMovingAverage indicator.
         
@@ -4491,7 +3866,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def kch(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, k: float, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.KeltnerChannels:
+    def kch(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, k: float, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.KeltnerChannels:
         """
         Creates a new Keltner Channels indicator.
         The indicator will be automatically updated on the given resolution.
@@ -4506,7 +3881,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def ker(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int = 2, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.KaufmanEfficiencyRatio:
+    def ker(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int = 2, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.KaufmanEfficiencyRatio:
         """
         Creates an KaufmanEfficiencyRatio indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -4519,7 +3894,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def kst(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], roc_1_period: int = 10, roc_1_ma_period: int = 10, roc_2_period: int = 15, roc_2_ma_period: int = 10, roc_3_period: int = 20, roc_3_ma_period: int = 10, roc_4_period: int = 30, roc_4_ma_period: int = 15, signal_period: int = 9, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.KnowSureThing:
+    def kst(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], roc_1_period: int = 10, roc_1_ma_period: int = 10, roc_2_period: int = 15, roc_2_ma_period: int = 10, roc_3_period: int = 20, roc_3_ma_period: int = 10, roc_4_period: int = 30, roc_4_ma_period: int = 15, signal_period: int = 9, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.KnowSureThing:
         """
         Creates a new KnowSureThing indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -4541,7 +3916,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def kvo(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], fast_period: int, slow_period: int, signal_period: int = 13, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.KlingerVolumeOscillator:
+    def kvo(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fast_period: int, slow_period: int, signal_period: int = 13, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.KlingerVolumeOscillator:
         """
         Creates a new Klinger Volume Oscillator (KVO) indicator
         
@@ -4556,7 +3931,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def limit_if_touched_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, trigger_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def limit_if_touched_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, trigger_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a limit if touched order to the transaction handler:
         
@@ -4566,13 +3941,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param limit_price: Limit price to fill this order
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def limit_if_touched_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, trigger_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def limit_if_touched_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, trigger_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a limit if touched order to the transaction handler:
         
@@ -4582,13 +3957,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param limit_price: Limit price to fill this order
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a limit order to the transaction handler:
         
@@ -4597,13 +3972,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param limit_price: Limit price to fill this order
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a limit order to the transaction handler:
         
@@ -4612,7 +3987,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param limit_price: Limit price to fill this order
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
@@ -4627,7 +4002,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def liquidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, asynchronous: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
+    def liquidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, asynchronous: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Liquidate your portfolio holdings
         
@@ -4651,11 +4026,12 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def liquidate(self, symbol_to_liquidate: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], tag: str) -> typing.List[QuantConnect.Orders.OrderTicket]:
+    def liquidate(self, symbol_to_liquidate: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], tag: str) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Liquidate all holdings and cancel open orders. Called at the end of day for tick-strategies.
         
-        $"This method is obsolete, please use Liquidate(symbol: symbol_to_liquidate, tag: tag) method
+        
+        This method is obsolete, please use Liquidate(symbol: symbol_to_liquidate, tag: tag) method
         
         :param symbol_to_liquidate: Symbol we wish to liquidate
         :param tag: Custom tag to know who is calling this.
@@ -4699,7 +4075,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def logr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.LogReturn:
+    def logr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.LogReturn:
         """
         Creates a new LogReturn indicator.
         
@@ -4711,7 +4087,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def lsma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.LeastSquaresMovingAverage:
+    def lsma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.LeastSquaresMovingAverage:
         """
         Creates and registers a new Least Squares Moving Average instance.
         
@@ -4723,7 +4099,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def lwma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.LinearWeightedMovingAverage:
+    def lwma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.LinearWeightedMovingAverage:
         """
         Creates a new LinearWeightedMovingAverage indicator.  This indicator will linearly distribute
         the weights across the periods.
@@ -4735,7 +4111,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def macd(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], fast_period: int, slow_period: int, signal_period: int, type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.MovingAverageConvergenceDivergence:
+    def macd(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fast_period: int, slow_period: int, signal_period: int, type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.MovingAverageConvergenceDivergence:
         """
         Creates a MACD indicator for the symbol. The indicator will be automatically updated on the given resolution.
         
@@ -4750,7 +4126,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def mad(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.MeanAbsoluteDeviation:
+    def mad(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.MeanAbsoluteDeviation:
         """
         Creates a new MeanAbsoluteDeviation indicator.
         
@@ -4762,7 +4138,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def mama(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], fast_limit: float = 0.5, slow_limit: float = 0.05, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.MesaAdaptiveMovingAverage:
+    def mama(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fast_limit: float = 0.5, slow_limit: float = 0.05, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.MesaAdaptiveMovingAverage:
         """
         Creates a new Mesa Adaptive Moving Average (MAMA) indicator.
         The MAMA adjusts its smoothing factor based on the market's volatility, making it more adaptive than a simple moving average.
@@ -4777,11 +4153,11 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def market_on_close_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def market_on_close_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         ...
 
     @overload
-    def market_on_close_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def market_on_close_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Market on close order implementation: Send a market order when the exchange closes
         
@@ -4789,13 +4165,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: The number of shares to required
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Place a custom order property or tag (e.g. indicator data).
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def market_on_open_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def market_on_open_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Market on open order implementation: Send a market order when the exchange opens
         
@@ -4803,13 +4179,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: The number of shares to required
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Place a custom order property or tag (e.g. indicator data).
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def market_on_open_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def market_on_open_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Market on open order implementation: Send a market order when the exchange opens
         
@@ -4817,13 +4193,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: The number of shares to required
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Place a custom order property or tag (e.g. indicator data).
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Market order implementation: Send a market order and wait for it to be filled.
         
@@ -4831,13 +4207,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Number of shares to request.
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it fills
         :param tag: Place a custom order property or tag (e.g. indicator data).
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Market order implementation: Send a market order and wait for it to be filled.
         
@@ -4845,26 +4221,12 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Number of shares to request.
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it fills
         :param tag: Place a custom order property or tag (e.g. indicator data).
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
-    @overload
-    def market_order(self, security: QuantConnect.Securities.Security, quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
-        """
-        Market order implementation: Send a market order and wait for it to be filled.
-        
-        :param security: Symbol of the MarketType Required.
-        :param quantity: Number of shares to request.
-        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it fills
-        :param tag: Place a custom order property or tag (e.g. indicator data).
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
-        :returns: The order ticket instance.
-        """
-        ...
-
-    def mass(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], ema_period: int = 9, sum_period: int = 25, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.MassIndex:
+    def mass(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], ema_period: int = 9, sum_period: int = 25, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.MassIndex:
         """
         Creates a new Mass Index indicator. The indicator will be automatically
         updated on the given resolution.
@@ -4878,19 +4240,20 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def max(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Maximum:
+    def max(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Maximum:
         """
         Creates a new Maximum indicator to compute the maximum value
         
         :param symbol: The symbol whose max we want
         :param period: The look back period over which to compute the max value
         :param resolution: The resolution
-        :param selector: Selects a value from the BaseData to send into the indicator, if null and the symbol is of type TradeBar defaults to the High property, otherwise it defaults to Value property of BaseData (x => x.Value)
+        :param selector: Selects a value from the BaseData to send into the indicator, if null and the symbol is of type TradeBar defaults to the High property,
+        otherwise it defaults to Value property of BaseData (x => x.Value)
         :returns: A Maximum indicator that compute the max value and the periods since the max value.
         """
         ...
 
-    def mfi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.MoneyFlowIndex:
+    def mfi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.MoneyFlowIndex:
         """
         Creates a new MoneyFlowIndex indicator. The indicator will be automatically
         updated on the given resolution.
@@ -4903,7 +4266,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def mgd(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.McGinleyDynamic:
+    def mgd(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.McGinleyDynamic:
         """
         Creates a new McGinley Dynamic indicator
         
@@ -4915,7 +4278,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def midpoint(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.MidPoint:
+    def midpoint(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.MidPoint:
         """
         Creates a new MidPoint indicator.
         
@@ -4927,7 +4290,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def midprice(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.MidPrice:
+    def midprice(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.MidPrice:
         """
         Creates a new MidPrice indicator.
         
@@ -4939,19 +4302,20 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def min(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Minimum:
+    def min(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Minimum:
         """
         Creates a new Minimum indicator to compute the minimum value
         
         :param symbol: The symbol whose min we want
         :param period: The look back period over which to compute the min value
         :param resolution: The resolution
-        :param selector: Selects a value from the BaseData to send into the indicator, if null and the symbol is of type TradeBar defaults to the Low property, otherwise it defaults to Value property of BaseData (x => x.Value)
+        :param selector: Selects a value from the BaseData to send into the indicator, if null and the symbol is of type TradeBar defaults to the Low property,
+        otherwise it defaults to Value property of BaseData (x => x.Value)
         :returns: A Minimum indicator that compute the in value and the periods since the min value.
         """
         ...
 
-    def mom(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Momentum:
+    def mom(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Momentum:
         """
         Creates a new Momentum indicator. This will compute the absolute n-period change in the security.
         The indicator will be automatically updated on the given resolution.
@@ -4964,7 +4328,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def momersion(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], min_period: typing.Optional[int], full_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Momersion:
+    def momersion(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], min_period: typing.Optional[int], full_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Momersion:
         """
         Creates a new Momersion indicator.
         
@@ -4977,7 +4341,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def momp(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.MomentumPercent:
+    def momp(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.MomentumPercent:
         """
         Creates a new MomentumPercent indicator. This will compute the n-period percent change in the security.
         The indicator will be automatically updated on the given resolution.
@@ -5016,7 +4380,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def natr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.NormalizedAverageTrueRange:
+    def natr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.NormalizedAverageTrueRange:
         """
         Creates a new NormalizedAverageTrueRange indicator.
         
@@ -5028,7 +4392,31 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def obv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.OnBalanceVolume:
+    def nhnl(self, symbols: typing.List[QuantConnect.Symbol], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.NewHighsNewLows:
+        """
+        Creates a new New Highs - New Lows indicator
+        
+        :param symbols: The symbols whose NHNL we want
+        :param period: The period over which to compute the NHNL
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a IBaseDataBar
+        :returns: The NewHighsNewLows indicator for the requested symbols over the specified period.
+        """
+        ...
+
+    def nhnlv(self, symbols: typing.List[QuantConnect.Symbol], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.NewHighsNewLowsVolume:
+        """
+        Creates a new New Highs - New Lows Volume indicator
+        
+        :param symbols: The symbols whose NHNLV we want
+        :param period: The period over which to compute the NHNLV
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
+        :returns: The NewHighsNewLowsVolume indicator for the requested symbols over the specified period.
+        """
+        ...
+
+    def obv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.OnBalanceVolume:
         """
         Creates a new On Balance Volume indicator. This will compute the cumulative total volume
         based on whether the close price being higher or lower than the previous period.
@@ -5054,7 +4442,11 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     def on_brokerage_message(self, message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> None:
-        """Brokerage message event handler. This method is called for all types of brokerage messages."""
+        """
+        Brokerage message event handler. This method is called for all types of brokerage messages.
+        
+        :param message_event: The brokerage message event instance containing the message details.
+        """
         ...
 
     def on_brokerage_reconnect(self) -> None:
@@ -5117,7 +4509,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Used to send data updates to algorithm framework models
         
-        :param slice: The current data slice
+        :param slice: The current data Slice
         """
         ...
 
@@ -5177,28 +4569,32 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """Called when the algorithm has completed initialization and warm up."""
         ...
 
-    def option_chain(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], flatten: bool = False) -> QuantConnect.Data.Market.OptionChain:
+    def option_chain(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], flatten: bool = False) -> QuantConnect.Data.Market.OptionChain:
         """
-        Get the option chain for the specified symbol at the current time (Time)
+        Get the option chain for the specified symbol at the current time (time)
         
-        :param symbol: The symbol for which the option chain is asked for. It can be either the canonical option or the underlying symbol.
-        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing OptionChain.DataFrame. See History(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
+        :param symbol: The symbol for which the option chain is asked for.
+        It can be either the canonical option or the underlying symbol.
+        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing OptionChain.DataFrame.
+        See history(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
         :returns: The option chain.
         """
         ...
 
     def option_chains(self, symbols: typing.List[QuantConnect.Symbol], flatten: bool = False) -> QuantConnect.Data.Market.OptionChains:
         """
-        Get the option chains for the specified symbols at the current time (Time)
+        Get the option chains for the specified symbols at the current time (time)
         
-        :param symbols: The symbols for which the option chain is asked for. It can be either the canonical options or the underlying symbols.
-        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing OptionChain.DataFrame. See History(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
+        :param symbols: The symbols for which the option chain is asked for.
+        It can be either the canonical options or the underlying symbols.
+        :param flatten: Whether to flatten the resulting data frame. Used from Python when accessing OptionChain.DataFrame.
+        See history(PyObject, int, Resolution?, bool?, bool?, DataMappingMode?, DataNormalizationMode?, int?, bool)
         :returns: The option chains.
         """
         ...
 
     @overload
-    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float) -> QuantConnect.Orders.OrderTicket:
+    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float) -> QuantConnect.Orders.OrderTicket:
         """
         Issue an order/trade for asset: Alias wrapper for Order(string, int);
         
@@ -5209,7 +4605,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int) -> QuantConnect.Orders.OrderTicket:
+    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int) -> QuantConnect.Orders.OrderTicket:
         """
         Issue an order/trade for asset
         
@@ -5220,7 +4616,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Wrapper for market order method: submit a new order for quantity of symbol using type order.
         
@@ -5228,7 +4624,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Number of shares to request.
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it fills
         :param tag: Place a custom order property or tag (e.g. indicator data).
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
@@ -5242,16 +4638,17 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity of the strategy to trade
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it fills
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: Sequence of order tickets.
         """
         ...
 
     @overload
-    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, type: QuantConnect.Orders.OrderType, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, type: QuantConnect.Orders.OrderType, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Obsolete implementation of Order method accepting a OrderType. This was deprecated since it
         was impossible to generate other orders via this method. Any calls to this method will always default to a Market Order.
+        
         
         This Order method has been made obsolete, use Order(string, int, bool, string) method instead. Calls to the obsolete method will only generate market orders.
         
@@ -5260,15 +4657,16 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param type: Order Type
         :param asynchronous: Don't wait for the response, just submit order and move on.
         :param tag: Custom data for this order
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, type: QuantConnect.Orders.OrderType) -> QuantConnect.Orders.OrderTicket:
+    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, type: QuantConnect.Orders.OrderType) -> QuantConnect.Orders.OrderTicket:
         """
         Obsolete method for placing orders.
+        
         
         This Order method has been made obsolete, use the specialized Order helper methods instead. Calls to the obsolete method will only generate market orders.
         
@@ -5280,9 +4678,10 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, type: QuantConnect.Orders.OrderType) -> QuantConnect.Orders.OrderTicket:
+    def order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, type: QuantConnect.Orders.OrderType) -> QuantConnect.Orders.OrderTicket:
         """
         Obsolete method for placing orders.
+        
         
         This Order method has been made obsolete, use the specialized Order helper methods instead. Calls to the obsolete method will only generate market orders.
         
@@ -5420,9 +4819,10 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def pphl(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], length_high: int, length_low: int, last_stored_values: int = 100, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.PivotPointsHighLow:
+    @overload
+    def pphl(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], length_high: int, length_low: int, last_stored_values: int, resolution: typing.Optional[QuantConnect.Resolution], selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.PivotPointsHighLow:
         """
-        Creates a new PivotPointsHighLow indicator
+        Creates a new PivotPointsHighLow indicator which will compute the high and low pivot points based on the configurable surrounding bars count.
         
         :param symbol: The symbol whose PPHL we seek
         :param length_high: The number of surrounding bars whose high values should be less than the current bar's for the bar high to be marked as high pivot point
@@ -5434,7 +4834,23 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def ppo(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], fast_period: int, slow_period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.PercentagePriceOscillator:
+    @overload
+    def pphl(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], length_high: int, length_low: int, last_stored_values: int = 100, strict: bool = True, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.PivotPointsHighLow:
+        """
+        Creates a new PivotPointsHighLow indicator which will compute the high and low pivot points based on the configurable surrounding bars count.
+        
+        :param symbol: The symbol whose PPHL we seek
+        :param length_high: The number of surrounding bars whose high values should be less than the current bar's for the bar high to be marked as high pivot point
+        :param length_low: The number of surrounding bars whose low values should be more than the current bar's for the bar low to be marked as low pivot point
+        :param last_stored_values: The number of last stored indicator values
+        :param strict: When true (default), uses strict inequalities (greater than and less than). When false, uses relaxed inequalities (greater than or equal and less than or equal) allowing equal values to be detected as pivot points.
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
+        :returns: The PivotPointsHighLow indicator for the requested symbol.
+        """
+        ...
+
+    def ppo(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fast_period: int, slow_period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.PercentagePriceOscillator:
         """
         Creates a new PercentagePriceOscillator indicator.
         
@@ -5448,7 +4864,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def psar(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], af_start: float = 0.02, af_increment: float = 0.02, af_max: float = 0.2, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ParabolicStopAndReverse:
+    def psar(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], af_start: float = 0.02, af_increment: float = 0.02, af_max: float = 0.2, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ParabolicStopAndReverse:
         """
         Creates a new Parabolic SAR indicator
         
@@ -5462,7 +4878,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def pso(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, ema_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.PremierStochasticOscillator:
+    def pso(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, ema_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.PremierStochasticOscillator:
         """
         Creates a new instance of the Premier Stochastic Oscillator for the specified symbol.
         
@@ -5493,7 +4909,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def r(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Rho:
+    def r(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Rho:
         """
         Creates a new Rho indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -5509,7 +4925,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def rc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, k: float, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RegressionChannel:
+    def rc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, k: float, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RegressionChannel:
         """
         Creates a new RegressionChannel indicator which will compute the LinearRegression, UpperChannel and LowerChannel lines, the intercept and slope
         
@@ -5522,7 +4938,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def rdv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int = 2, resolution: QuantConnect.Resolution = ..., selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.RelativeDailyVolume:
+    def rdv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int = 2, resolution: QuantConnect.Resolution = ..., selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.RelativeDailyVolume:
         """
         Creates an RelativeDailyVolume indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -5546,7 +4962,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
+    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
         """
         Creates and registers a new consolidator to receive automatic updates at the specified resolution as well as configures
         the indicator to receive updates from the consolidator.
@@ -5559,7 +4975,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], resolution: typing.Optional[datetime.timedelta] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
+    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], resolution: typing.Optional[datetime.timedelta] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
         """
         Creates and registers a new consolidator to receive automatic updates at the specified resolution as well as configures
         the indicator to receive updates from the consolidator.
@@ -5572,7 +4988,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
+    def register_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
         """
         Registers the consolidator to receive automatic updates as well as configures the indicator to receive updates
         from the consolidator.
@@ -5584,7 +5000,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def remove_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], tag: str = None) -> bool:
+    def remove_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], tag: str = None) -> bool:
         """
         Removes the security with the specified symbol. This will cancel all
         open orders and then liquidate any existing holdings
@@ -5594,7 +5010,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def remove_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], tag: str = None) -> bool:
+    def remove_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], tag: str = None) -> bool:
         """
         Removes the security with the specified symbol. This will cancel all
         open orders and then liquidate any existing holdings
@@ -5605,7 +5021,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def resolve_consolidator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution], data_type: typing.Type = None) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def resolve_consolidator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution], data_type: typing.Type = None) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
         Gets the default consolidator for the specified symbol and resolution
         
@@ -5617,7 +5033,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def resolve_consolidator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time_span: typing.Optional[datetime.timedelta], data_type: typing.Type = None) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def resolve_consolidator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], time_span: typing.Optional[datetime.timedelta], data_type: typing.Type = None) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
         Gets the default consolidator for the specified symbol and resolution
         
@@ -5628,7 +5044,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def rma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RelativeMovingAverage:
+    def rma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RelativeMovingAverage:
         """
         Creates a new Relative Moving Average indicator for the symbol. The indicator will be automatically updated on the given resolution.
         
@@ -5640,7 +5056,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def roc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RateOfChange:
+    def roc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RateOfChange:
         """
         Creates a new RateOfChange indicator. This will compute the n-period rate of change in the security.
         The indicator will be automatically updated on the given resolution.
@@ -5653,7 +5069,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def rocp(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RateOfChangePercent:
+    def rocp(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RateOfChangePercent:
         """
         Creates a new RateOfChangePercent indicator. This will compute the n-period percentage rate of change in the security.
         The indicator will be automatically updated on the given resolution.
@@ -5666,7 +5082,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def rocr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RateOfChangeRatio:
+    def rocr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RateOfChangeRatio:
         """
         Creates a new RateOfChangeRatio indicator.
         
@@ -5678,7 +5094,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def rsi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RelativeStrengthIndex:
+    def rsi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.RelativeStrengthIndex:
         """
         Creates a new RelativeStrengthIndex indicator. This will produce an oscillator that ranges from 0 to 100 based
         on the ratio of average gains to average losses over the specified period.
@@ -5692,7 +5108,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def rsv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.RogersSatchellVolatility:
+    def rsv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.RogersSatchellVolatility:
         """
         Creates a new RogersSatchellVolatility indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -5714,7 +5130,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def rvi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.RelativeVigorIndex:
+    def rvi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.RelativeVigorIndex:
         """
         Creates a new RelativeVigorIndex indicator.
         
@@ -5727,7 +5143,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def sarext(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], sar_start: float = 0.0, offset_on_reverse: float = 0.0, af_start_short: float = 0.02, af_increment_short: float = 0.02, af_max_short: float = 0.2, af_start_long: float = 0.02, af_increment_long: float = 0.02, af_max_long: float = 0.2, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ParabolicStopAndReverseExtended:
+    def sarext(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], sar_start: float = 0.0, offset_on_reverse: float = 0.0, af_start_short: float = 0.02, af_increment_short: float = 0.02, af_max_short: float = 0.2, af_start_long: float = 0.02, af_increment_long: float = 0.02, af_max_long: float = 0.2, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ParabolicStopAndReverseExtended:
         """
         Creates a new Parabolic SAR Extended indicator
         
@@ -5749,26 +5165,27 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def sedol(self, sedol: str, trading_date: typing.Optional[datetime.datetime] = None) -> QuantConnect.Symbol:
         """
-        Converts a SEDOL identifier into a Symbol
+        Converts a SEDOL identifier into a symbol
         
         :param sedol: The SEDOL identifier of an asset
-        :param trading_date: The date that the stock being looked up is/was traded at. The date is used to create a Symbol with the ticker set to the ticker the asset traded under on the trading date.
+        :param trading_date: The date that the stock being looked up is/was traded at.
+        The date is used to create a Symbol with the ticker set to the ticker the asset traded under on the trading date.
         :returns: Symbol corresponding to the SEDOL. If no Symbol with a matching SEDOL was found, returns null.
         """
         ...
 
     @overload
-    def sedol(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> str:
+    def sedol(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
         """
-        Converts a Symbol into a SEDOL identifier
+        Converts a symbol into a SEDOL identifier
         
-        :param symbol: The Symbol
+        :param symbol: The symbol
         :returns: SEDOL corresponding to the Symbol. If no matching SEDOL is found, returns null.
         """
         ...
 
     @overload
-    def sell(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int) -> QuantConnect.Orders.OrderTicket:
+    def sell(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int) -> QuantConnect.Orders.OrderTicket:
         """
         Sell stock (alias of Order)
         
@@ -5779,7 +5196,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def sell(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float) -> QuantConnect.Orders.OrderTicket:
+    def sell(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float) -> QuantConnect.Orders.OrderTicket:
         """
         Sell stock (alias of Order)
         
@@ -5798,7 +5215,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity of the strategy to trade
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it fills
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: Sequence of order tickets.
         """
         ...
@@ -5858,15 +5275,15 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Sets the benchmark used for computing statistics of the algorithm to the specified symbol
         
-        :param security_type: Is the symbol an equity, forex, base, etc. Default SecurityType.Equity
         :param symbol: symbol to use as the benchmark
+        :param security_type: Is the symbol an equity, forex, base, etc. Default SecurityType.EQUITY
         """
         ...
 
     @overload
     def set_benchmark(self, ticker: str) -> None:
         """
-        Sets the benchmark used for computing statistics of the algorithm to the specified ticker, defaulting to SecurityType.Equity
+        Sets the benchmark used for computing statistics of the algorithm to the specified ticker, defaulting to SecurityType.EQUITY
         if the ticker doesn't exist in the algorithm
         
         :param ticker: Ticker to use as the benchmark
@@ -5874,7 +5291,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def set_benchmark(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+    def set_benchmark(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
         """
         Sets the benchmark used for computing statistics of the algorithm to the specified symbol
         
@@ -5897,7 +5314,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Sets the implementation used to handle messages from the brokerage.
         The default implementation will forward messages to debug or error
-        and when a BrokerageMessageType.Error occurs, the algorithm
+        and when a BrokerageMessageType.ERROR occurs, the algorithm
         is stopped.
         
         :param handler: The message handler to use
@@ -5909,7 +5326,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Sets the implementation used to handle messages from the brokerage.
         The default implementation will forward messages to debug or error
-        and when a BrokerageMessageType.Error occurs, the algorithm
+        and when a BrokerageMessageType.ERROR occurs, the algorithm
         is stopped.
         
         :param handler: The message handler to use
@@ -5997,9 +5414,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Set the end date for a backtest run
         
-        :param year: Int year end date
-        :param month: Int month end date
         :param day: Int end date 1-30
+        :param month: Int month end date
+        :param year: Int year end date
         """
         ...
 
@@ -6021,7 +5438,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     def set_finished_warming_up(self) -> None:
-        """Sets IAlgorithm.IsWarmingUp to false to indicate this algorithm has finished its warm up"""
+        """Sets IAlgorithm.is_warming_up to false to indicate this algorithm has finished its warm up"""
         ...
 
     def set_future_chain_provider(self, future_chain_provider: QuantConnect.Interfaces.IFutureChainProvider) -> None:
@@ -6051,13 +5468,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param liquidate_existing_holdings: True will liquidate existing holdings
         :param asynchronous: Send the orders asynchronously (false). Otherwise we'll block until it is fully submitted (or filled for market orders)
         :param tag: Tag the order with a short string.
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: A list of order tickets.
         """
         ...
 
     @overload
-    def set_holdings(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], percentage: float, liquidate_existing_holdings: bool = False, asynchronous: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
+    def set_holdings(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], percentage: float, liquidate_existing_holdings: bool = False, asynchronous: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Alias for SetHoldings to avoid the M-decimal errors.
         
@@ -6066,13 +5483,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param liquidate_existing_holdings: liquidate existing holdings if necessary to hold this stock
         :param asynchronous: Send the orders asynchronously (false). Otherwise we'll block until it is fully submitted (or filled for market orders)
         :param tag: Tag the order with a short string.
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: A list of order tickets.
         """
         ...
 
     @overload
-    def set_holdings(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], percentage: int, liquidate_existing_holdings: bool = False, asynchronous: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
+    def set_holdings(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], percentage: int, liquidate_existing_holdings: bool = False, asynchronous: bool = False, tag: str = None, order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Alias for SetHoldings to avoid the M-decimal errors.
         
@@ -6081,7 +5498,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param liquidate_existing_holdings: bool liquidate existing holdings if necessary to hold this stock
         :param asynchronous: Send the orders asynchronously (false). Otherwise we'll block until it is fully submitted (or filled for market orders)
         :param tag: Tag the order with a short string.
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: A list of order tickets.
         """
         ...
@@ -6095,7 +5512,11 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     def set_maximum_orders(self, max: int) -> None:
-        """Maximum number of orders for the algorithm"""
+        """
+        Maximum number of orders for the algorithm
+        
+        :param max: 
+        """
         ...
 
     def set_name(self, name: str) -> None:
@@ -6226,6 +5647,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         Sets the security initializer function, used to initialize/configure securities after creation.
         The initializer will be applied to all universes and manually added securities.
         
+        
         This method is deprecated. Please use this overload: SetSecurityInitializer(Action<Security> security_initializer)
         
         :param security_initializer: The security initializer function
@@ -6237,9 +5659,9 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Set the start date for backtest.
         
-        :param year: Int year starting date
-        :param month: Int month starting date
         :param day: Int starting date 1-30
+        :param month: Int month starting date
+        :param year: Int year starting date
         """
         ...
 
@@ -6248,7 +5670,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Set the start date for the backtest
         
-        :param start: Datetime Start date for backtest
+        :param start: The start date for the backtest
         """
         ...
 
@@ -6309,7 +5731,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def set_time_zone(self, time_zone: typing.Any) -> None:
         """
-        Sets the time zone of the Time property in the algorithm
+        Sets the time zone of the time property in the algorithm
         
         :param time_zone: The desired time zone
         """
@@ -6318,7 +5740,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def set_time_zone(self, time_zone: str) -> None:
         """
-        Sets the time zone of the Time property in the algorithm
+        Sets the time zone of the time property in the algorithm
         
         :param time_zone: The desired time zone
         """
@@ -6421,7 +5843,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def shortable(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+    def shortable(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """
         Determines if the Symbol is shortable at the brokerage
         
@@ -6431,26 +5853,29 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def shortable(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], short_quantity: float, update_order_id: typing.Optional[int] = None) -> bool:
+    def shortable(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], short_quantity: float, update_order_id: typing.Optional[int] = None) -> bool:
         """
         Determines if the Symbol is shortable at the brokerage
         
         :param symbol: Symbol to check if shortable
         :param short_quantity: Order's quantity to check if it is currently shortable, taking into account current holdings and open orders
-        :param update_order_id: Optionally the id of the order being updated. When updating an order we want to ignore it's submitted short quantity and use the new provided quantity to determine if we can perform the update
+        :param update_order_id: Optionally the id of the order being updated. When updating an order
+        we want to ignore it's submitted short quantity and use the new provided quantity to determine if we
+        can perform the update
         :returns: True if the symbol can be shorted by the requested quantity.
         """
         ...
 
-    def shortable_quantity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> int:
+    def shortable_quantity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> int:
         """
         Gets the quantity shortable for the given asset
         
-        :returns: Quantity shortable for the given asset. Zero if not shortable, or a number greater than zero if shortable.
+        :returns: Quantity shortable for the given asset. Zero if not
+        shortable, or a number greater than zero if shortable.
         """
         ...
 
-    def si(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], limit_move: float, resolution: typing.Optional[QuantConnect.Resolution] = ..., selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.WilderSwingIndex:
+    def si(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], limit_move: float, resolution: typing.Optional[QuantConnect.Resolution] = ..., selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.WilderSwingIndex:
         """
         Creates a Wilder Swing Index (SI) indicator for the symbol.
         The indicator will be automatically updated on the given resolution.
@@ -6463,7 +5888,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def sm(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], bollinger_period: int = 20, bollinger_multiplier: float = 2, keltner_period: int = 20, keltner_multiplier: float = 1.5, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.SqueezeMomentum:
+    def sm(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], bollinger_period: int = 20, bollinger_multiplier: float = 2, keltner_period: int = 20, keltner_multiplier: float = 1.5, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.SqueezeMomentum:
         """
         Creates a Squeeze Momentum indicator to identify market squeezes and potential breakouts.
         Compares Bollinger Bands and Keltner Channels to signal low or high volatility periods.
@@ -6479,7 +5904,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def sma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.SimpleMovingAverage:
+    def sma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.SimpleMovingAverage:
         """
         Creates an SimpleMovingAverage indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -6492,7 +5917,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def sobv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.SmoothedOnBalanceVolume:
+    def sobv(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.SmoothedOnBalanceVolume:
         """
         Creates a new SmoothedOnBalanceVolume indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -6506,7 +5931,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def sortino(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], sortino_period: int, minimum_acceptable_return: float = 0.0, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.SortinoRatio:
+    def sortino(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], sortino_period: int, minimum_acceptable_return: float = 0.0, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.SortinoRatio:
         """
         Creates a new Sortino indicator.
         
@@ -6519,20 +5944,20 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def sr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], sharpe_period: int, risk_free_rate: typing.Optional[float] = None, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.SharpeRatio:
+    def sr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], sharpe_period: int, risk_free_rate: typing.Optional[float] = None, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.SharpeRatio:
         """
         Creates a new SharpeRatio indicator.
         
         :param symbol: The symbol whose RSR we want
         :param sharpe_period: Period of historical observation for sharpe ratio calculation
-        :param risk_free_rate: Risk-free rate for sharpe ratio calculation. If not specified, it will use the algorithms' RiskFreeInterestRateModel
+        :param risk_free_rate: Risk-free rate for sharpe ratio calculation. If not specified, it will use the algorithms' risk_free_interest_rate_model
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
         :returns: The SharpeRatio indicator for the requested symbol over the specified period.
         """
         ...
 
-    def srsi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], rsi_period: int, stoch_period: int, k_smoothing_period: int, d_smoothing_period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.StochasticRelativeStrengthIndex:
+    def srsi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], rsi_period: int, stoch_period: int, k_smoothing_period: int, d_smoothing_period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.StochasticRelativeStrengthIndex:
         """
         Creates a new Stochastic RSI indicator which will compute the %K and %D
         
@@ -6548,14 +5973,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def stc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], cycle_period: int, fast_period: int, slow_period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.SchaffTrendCycle:
+    def stc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], cycle_period: int, fast_period: int, slow_period: int, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.SchaffTrendCycle:
         """
         Creates a new Schaff Trend Cycle indicator
         
         :param symbol: The symbol for the indicator to track
-        :param cycle_period: The signal period
         :param fast_period: The fast moving average period
         :param slow_period: The slow moving average period
+        :param cycle_period: The signal period
         :param moving_average_type: The type of moving average to use
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
@@ -6563,7 +5988,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def std(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.StandardDeviation:
+    def std(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.StandardDeviation:
         """
         Creates a new StandardDeviation indicator. This will return the population standard deviation of samples over the specified period.
         
@@ -6576,7 +6001,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def sto(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, k_period: int, d_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.Stochastic:
+    def sto(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, k_period: int, d_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.Stochastic:
         """
         Creates a new Stochastic indicator.
         
@@ -6591,20 +6016,20 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def sto(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.Stochastic:
+    def sto(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.Stochastic:
         """
         Overload short hand to create a new Stochastic indicator; defaulting to the 3 period for dStoch
         
         :param symbol: The symbol whose stochastic we seek
-        :param period: The period of the stochastic. Normally 14
         :param resolution: The resolution.
+        :param period: The period of the stochastic. Normally 14
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
         :returns: Stochastic indicator for the requested symbol.
         """
         ...
 
     @overload
-    def stop_limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, stop_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def stop_limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, stop_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a stop limit order to the transaction handler:
         
@@ -6614,13 +6039,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param limit_price: Limit price to fill this order
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def stop_limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def stop_limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Send a stop limit order to the transaction handler:
         
@@ -6630,13 +6055,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param limit_price: Limit price to fill this order
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: String tag for the order (optional)
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def stop_market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, stop_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def stop_market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, stop_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a stop market order and return the newly created order id; or negative if the order is invalid
         
@@ -6645,13 +6070,13 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param stop_price: Price to fill the stop order
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def stop_market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def stop_market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a stop market order and return the newly created order id; or negative if the order is invalid
         
@@ -6660,12 +6085,12 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param stop_price: Price to fill the stop order
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
-    def str(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, multiplier: float, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.SuperTrend:
+    def str(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, multiplier: float, moving_average_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.SuperTrend:
         """
         Creates a new SuperTrend indicator.
         
@@ -6687,7 +6112,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def sum(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Sum:
+    def sum(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Sum:
         """
         Creates a new Sum indicator.
         
@@ -6699,7 +6124,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def swiss(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, delta: float, tool: QuantConnect.Indicators.SwissArmyKnifeTool, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.SwissArmyKnife:
+    def swiss(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, delta: float, tool: QuantConnect.Indicators.SwissArmyKnifeTool, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.SwissArmyKnife:
         """
         Creates Swiss Army Knife transformation for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -6716,15 +6141,16 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
 
     def symbol(self, ticker: str) -> QuantConnect.Symbol:
         """
-        Converts the string 'ticker' symbol into a full Symbol object
+        Converts the string 'ticker' symbol into a full symbol object
         This requires that the string 'ticker' has been added to the algorithm
         
-        :param ticker: The ticker symbol. This should be the ticker symbol as it was added to the algorithm
+        :param ticker: The ticker symbol. This should be the ticker symbol
+        as it was added to the algorithm
         :returns: The symbol object mapped to the specified ticker.
         """
         ...
 
-    def t(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Theta:
+    def t(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Theta:
         """
         Creates a new Theta indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -6740,34 +6166,34 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def t_3(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, volume_factor: float = 0.7, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.T3MovingAverage:
+    def t_3(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, volume_factor: float = 0.7, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.T3MovingAverage:
         """
         Creates a new T3MovingAverage indicator.
         
         :param symbol: The symbol whose T3 we want
         :param period: The period over which to compute the T3
-        :param volume_factor: The volume factor to be used for the T3 (value must be in the [0,1] range, defaults to 0.7)
+        :param volume_factor: The volume factor to be used for the T3 (value must be in the <0,1> range, defaults to 0.7)
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
         :returns: The T3MovingAverage indicator for the requested symbol over the specified period.
         """
         ...
 
-    def tdd(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, minimum_acceptable_return: float = 0, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.TargetDownsideDeviation:
+    def tdd(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, minimum_acceptable_return: float = 0, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.TargetDownsideDeviation:
         """
         Creates a new TargetDownsideDeviation indicator. The target downside deviation is defined as the root-mean-square, or RMS, of the deviations of the
         realized return’s underperformance from the target return where all returns above the target return are treated as underperformance of 0.
         
         :param symbol: The symbol whose TDD we want
         :param period: The period over which to compute the TDD
-        :param minimum_acceptable_return: Minimum acceptable return (MAR) for the target downside deviation calculation
         :param resolution: The resolution
+        :param minimum_acceptable_return: Minimum acceptable return (MAR) for the target downside deviation calculation
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to the Value property of BaseData (x => x.Value)
         :returns: The TargetDownsideDeviation indicator for the requested symbol over the specified period.
         """
         ...
 
-    def tds(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.TomDemarkSequential:
+    def tds(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.TomDemarkSequential:
         """
         Creates a new TomDemark Sequential candlestick indicator for the symbol. The indicator will be automatically
         updated on the symbol's subscription resolution.
@@ -6779,7 +6205,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def tema(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.TripleExponentialMovingAverage:
+    def tema(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.TripleExponentialMovingAverage:
         """
         Creates a new TripleExponentialMovingAverage indicator.
         
@@ -6791,7 +6217,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def ticker(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> str:
+    def ticker(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
         """
         For the given symbol will resolve the ticker it used at the current algorithm date
         
@@ -6800,7 +6226,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def tp(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int = 2, value_area_volume_percentage: float = 0.70, price_range_round_off: float = 0.05, resolution: QuantConnect.Resolution = ..., selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.TimeProfile:
+    def tp(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int = 2, value_area_volume_percentage: float = 0.70, price_range_round_off: float = 0.05, resolution: QuantConnect.Resolution = ..., selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.TimeProfile:
         """
         Creates an Market Profile indicator for the symbol with Time Price Opportunity (TPO) mode. The indicator will be automatically
         updated on the given resolution.
@@ -6815,7 +6241,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def tr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.TrueRange:
+    def tr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.TrueRange:
         """
         Creates a new TrueRange indicator.
         
@@ -6827,7 +6253,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a trailing stop order and return the newly created order id; or negative if the order is invalid.
         It will calculate the stop price using the trailing amount and the current market price.
@@ -6835,16 +6261,16 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param symbol: Trading asset symbol
         :param quantity: Quantity to be traded
         :param trailing_amount: The trailing amount to be used to update the stop price
-        :param trailing_as_percentage: Whether the  is a percentage or an absolute currency value
+        :param trailing_as_percentage: Whether the trailing_amount is a percentage or an absolute currency value
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a trailing stop order and return the newly created order id; or negative if the order is invalid.
         It will calculate the stop price using the trailing amount and the current market price.
@@ -6852,16 +6278,16 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param symbol: Trading asset symbol
         :param quantity: Quantity to be traded
         :param trailing_amount: The trailing amount to be used to update the stop price
-        :param trailing_as_percentage: Whether the  is a percentage or an absolute currency value
+        :param trailing_as_percentage: Whether the trailing_amount is a percentage or an absolute currency value
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, stop_price: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, stop_price: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a trailing stop order and return the newly created order id; or negative if the order is invalid
         
@@ -6869,16 +6295,16 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity to be traded
         :param stop_price: Initial stop price at which the order should be triggered
         :param trailing_amount: The trailing amount to be used to update the stop price
-        :param trailing_as_percentage: Whether the  is a percentage or an absolute currency value
+        :param trailing_as_percentage: Whether the trailing_amount is a percentage or an absolute currency value
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
 
     @overload
-    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
+    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.OrderTicket:
         """
         Create a trailing stop order and return the newly created order id; or negative if the order is invalid
         
@@ -6886,10 +6312,10 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param quantity: Quantity to be traded
         :param stop_price: Initial stop price at which the order should be triggered
         :param trailing_amount: The trailing amount to be used to update the stop price
-        :param trailing_as_percentage: Whether the  is a percentage or an absolute currency value
+        :param trailing_as_percentage: Whether the trailing_amount is a percentage or an absolute currency value
         :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until it is fully submitted
         :param tag: Optional string data tag for the order
-        :param order_properties: The order properties to use. Defaults to DefaultOrderProperties
+        :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
         """
         ...
@@ -6914,7 +6340,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def trima(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.TriangularMovingAverage:
+    def trima(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.TriangularMovingAverage:
         """
         Creates a new TriangularMovingAverage indicator.
         
@@ -6937,7 +6363,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def trix(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Trix:
+    def trix(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Trix:
         """
         Creates a new Trix indicator.
         
@@ -6949,7 +6375,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def tsf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.TimeSeriesForecast:
+    def tsf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.TimeSeriesForecast:
         """
         Creates a new Time Series Forecast indicator
         
@@ -6961,14 +6387,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def tsi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], long_term_period: int = 25, short_term_period: int = 13, signal_period: int = 7, signal_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.TrueStrengthIndex:
+    def tsi(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], long_term_period: int = 25, short_term_period: int = 13, signal_period: int = 7, signal_type: QuantConnect.Indicators.MovingAverageType = ..., resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.TrueStrengthIndex:
         """
         Creates a TrueStrengthIndex indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
         
         :param symbol: The symbol whose TSI we want
-        :param long_term_period: Period used for the second (double) price change smoothing
         :param short_term_period: Period used for the first price change smoothing
+        :param long_term_period: Period used for the second (double) price change smoothing
         :param signal_period: The signal period
         :param signal_type: The type of moving average to use for the signal
         :param resolution: The resolution
@@ -6977,7 +6403,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def ultosc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period_1: int, period_2: int, period_3: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.UltimateOscillator:
+    def ultosc(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period_1: int, period_2: int, period_3: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.UltimateOscillator:
         """
         Creates a new UltimateOscillator indicator.
         
@@ -7000,7 +6426,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def v(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Vega:
+    def v(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Vega:
         """
         Creates a new Vega indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -7017,7 +6443,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def v(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Variance:
+    def v(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Variance:
         """
         Creates a new Variance indicator. This will return the population variance of samples over the specified period.
         
@@ -7030,7 +6456,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def var(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, confidence_level: float, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ValueAtRisk:
+    def var(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, confidence_level: float, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ValueAtRisk:
         """
         Creates a new ValueAtRisk indicator.
         
@@ -7044,9 +6470,10 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def var(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Variance:
+    def var(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Variance:
         """
         Creates a new Variance indicator. This will return the population variance of samples over the specified period.
+        
         
         'VAR' is obsolete please use 'V' instead
         
@@ -7058,7 +6485,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def vidya(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.VariableIndexDynamicAverage:
+    def vidya(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.VariableIndexDynamicAverage:
         """
         Creates a new Chande's Variable Index Dynamic Average indicator.
         
@@ -7070,7 +6497,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def vp(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int = 2, value_area_volume_percentage: float = 0.70, price_range_round_off: float = 0.05, resolution: QuantConnect.Resolution = ..., selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.VolumeProfile:
+    def vp(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int = 2, value_area_volume_percentage: float = 0.70, price_range_round_off: float = 0.05, resolution: QuantConnect.Resolution = ..., selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.VolumeProfile:
         """
         Creates an Market Profile indicator for the symbol with Volume Profile (VOL) mode. The indicator will be automatically
         updated on the given resolution.
@@ -7085,7 +6512,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def vtx(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.Vortex:
+    def vtx(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.Vortex:
         """
         Creates a new Vortex indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -7099,7 +6526,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def vwap(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.VolumeWeightedAveragePriceIndicator:
+    def vwap(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.VolumeWeightedAveragePriceIndicator:
         """
         Creates an VolumeWeightedAveragePrice (VWAP) indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -7113,7 +6540,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def vwap(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Indicators.IntradayVwap:
+    def vwap(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Indicators.IntradayVwap:
         """
         Creates the canonical VWAP indicator that resets each day. The indicator will be automatically
         updated on the security's configured resolution.
@@ -7123,7 +6550,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def vwma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.VolumeWeightedMovingAverage:
+    def vwma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.TradeBar] = None) -> QuantConnect.Indicators.VolumeWeightedMovingAverage:
         """
         Creates a new VolumeWeightedMovingAverage indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -7137,7 +6564,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def warm_up_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
+    def warm_up_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
         """
         Warms up a given indicator with historical data
         
@@ -7161,7 +6588,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def warm_up_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], period: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
+    def warm_up_indicator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], indicator: QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], period: datetime.timedelta, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
         """
         Warms up a given indicator with historical data
         
@@ -7184,7 +6611,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def wilr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.WilliamsPercentR:
+    def wilr(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.WilliamsPercentR:
         """
         Creates a new Williams %R indicator. This will compute the percentage change of
         the current closing price in relation to the high and low of the past N periods.
@@ -7198,7 +6625,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def wwma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.WilderMovingAverage:
+    def wwma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.WilderMovingAverage:
         """
         Creates a WilderMovingAverage indicator for the symbol.
         The indicator will be automatically updated on the given resolution.
@@ -7211,7 +6638,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def zlema(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ZeroLagExponentialMovingAverage:
+    def zlema(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.ZeroLagExponentialMovingAverage:
         """
         Creates a ZeroLagExponentialMovingAverage indicator for the symbol. The indicator will be automatically
         updated on the given resolution.
@@ -7224,7 +6651,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def zz(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], sensitivity: float = 0.05, min_trend_length: int = 1, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ZigZag:
+    def zz(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], sensitivity: float = 0.05, min_trend_length: int = 1, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.ZigZag:
         """
         Creates a ZigZag indicator for the specified symbol, with adjustable sensitivity and minimum trend length.
         
@@ -7237,7 +6664,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def γ(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: QuantConnect.Indicators.OptionPricingModelType = ..., iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Gamma:
+    def γ(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: QuantConnect.Indicators.OptionPricingModelType = ..., iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Gamma:
         """
         Creates a new Gamma indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -7253,7 +6680,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def δ(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: QuantConnect.Indicators.OptionPricingModelType = ..., iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Delta:
+    def δ(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: QuantConnect.Indicators.OptionPricingModelType = ..., iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Delta:
         """
         Creates a new Delta indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -7269,7 +6696,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def θ(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: QuantConnect.Indicators.OptionPricingModelType = ..., iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Theta:
+    def θ(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: QuantConnect.Indicators.OptionPricingModelType = ..., iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Theta:
         """
         Creates a new Theta indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -7285,7 +6712,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def ρ(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: QuantConnect.Indicators.OptionPricingModelType = ..., iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Rho:
+    def ρ(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], mirror_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, risk_free_rate: typing.Optional[float] = None, dividend_yield: typing.Optional[float] = None, option_model: QuantConnect.Indicators.OptionPricingModelType = ..., iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, resolution: typing.Optional[QuantConnect.Resolution] = None) -> QuantConnect.Indicators.Rho:
         """
         Creates a new Rho indicator for the symbol The indicator will be automatically
         updated on the symbol's subscription resolution
@@ -7315,16 +6742,281 @@ class DollarVolumeUniverseDefinitions(System.Object):
 
     def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
         """
+        Creates a new coarse Universe that contains the top count of stocks
+        by daily dollar volume
+        
+        
+        This method is deprecated. Use method `Universe.Top(...)` instead
+        
+        :param count: The number of stock to select
+        :param universe_settings: The settings for stocks added by this universe.
+        Defaults to QCAlgorithm.universe_settings
+        :returns: A new coarse universe for the top count of stocks by dollar volume.
+        """
+        warnings.warn("This method is deprecated. Use method `Universe.Top(...)` instead", DeprecationWarning)
+
+
+class UniverseDefinitions(System.Object):
+    """Provides helpers for defining universes in algorithms"""
+
+    @property
+    def dollar_volume(self) -> QuantConnect.Algorithm.DollarVolumeUniverseDefinitions:
+        """Gets a helper that provides methods for creating universes based on daily dollar volumes"""
+        ...
+
+    @dollar_volume.setter
+    def dollar_volume(self, value: QuantConnect.Algorithm.DollarVolumeUniverseDefinitions) -> None:
+        ...
+
+    @property
+    def unchanged(self) -> QuantConnect.Data.UniverseSelection.Universe.UnchangedUniverse:
+        """Specifies that universe selection should not make changes on this iteration"""
+        ...
+
+    @property
+    def qc_500(self) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new fine universe that contains the constituents of QC500 index based onthe company fundamentals
+        The algorithm creates a default tradable and liquid universe containing 500 US equities
+        which are chosen at the first trading day of each month.
+        """
+        ...
+
+    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
+        """
+        Initializes a new instance of the UniverseDefinitions class
+        
+        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param market: Market of the ETF
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided ETF symbol
+        
+        :param symbol: ETF Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param market: Market of the ETF
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param market: Market of the ETF
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, etf_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided etf_ticker
+        
+        :param etf_ticker: Ticker of the ETF to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided ETF symbol
+        
+        :param symbol: ETF Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def etf(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided ETF symbol
+        
+        :param symbol: ETF Symbol to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New ETF constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, market: str = None, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param market: Market of the index
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Any) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None, universe_filter_func: typing.Any = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_symbol
+        
+        :param index_symbol: Index Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param market: Market of the index
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, market: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param market: Market of the index
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_ticker: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_ticker
+        
+        :param index_ticker: Ticker of the index to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_symbol
+        
+        :param index_symbol: Index Symbol to get constituents for
+        :param universe_settings: Universe settings
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    @overload
+    def index(self, index_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], universe_filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ETFConstituentUniverse]], typing.List[QuantConnect.Symbol]]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a universe for the constituents of the provided index_symbol
+        
+        :param index_symbol: Index Symbol to get constituents for
+        :param universe_filter_func: Function to filter universe results
+        :returns: New index constituents Universe.
+        """
+        ...
+
+    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
         Creates a new coarse universe that contains the top count of stocks
         by daily dollar volume
         
-        This method is deprecated. Use method `Universe.DollarVolume.Top(...)` instead
-        
         :param count: The number of stock to select
-        :param universe_settings: The settings for stocks added by this universe. Defaults to QCAlgorithm.UniverseSettings
+        :param universe_settings: The settings for stocks added by this universe.
+        Defaults to QCAlgorithm.universe_settings
         :returns: A new coarse universe for the top count of stocks by dollar volume.
         """
-        warnings.warn("This method is deprecated. Use method `Universe.DollarVolume.Top(...)` instead", DeprecationWarning)
+        ...
 
 
 class ConstituentUniverseDefinitions(System.Object):

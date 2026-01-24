@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: python-iso639
-Version: 2025.2.18
+Version: 2025.11.16
 Summary: ISO 639 language codes, names, and other associated information
 Author-email: "Jackson L. Lee" <jacksonlunlee@gmail.com>
 License: Apache 2.0
@@ -15,26 +15,27 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Text Processing :: General
 Classifier: Topic :: Text Processing :: Indexing
 Classifier: Topic :: Text Processing :: Linguistic
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: dev
-Requires-Dist: black==25.1.0; extra == "dev"
-Requires-Dist: build==1.2.2; extra == "dev"
-Requires-Dist: flake8==7.1.1; extra == "dev"
-Requires-Dist: mypy==1.15.0; extra == "dev"
-Requires-Dist: pytest==8.3.4; extra == "dev"
-Requires-Dist: requests==2.32.3; extra == "dev"
-Requires-Dist: twine==6.1.0; extra == "dev"
+Requires-Dist: black==25.11.0; extra == "dev"
+Requires-Dist: build==1.3.0; extra == "dev"
+Requires-Dist: flake8==7.3.0; extra == "dev"
+Requires-Dist: mypy==1.18.2; extra == "dev"
+Requires-Dist: pytest==9.0.0; extra == "dev"
+Requires-Dist: requests==2.32.5; extra == "dev"
+Requires-Dist: twine==6.2.0; extra == "dev"
+Dynamic: license-file
 
 # python-iso639
 
@@ -154,21 +155,25 @@ Use the `match` classmethod:
 True
 ```
 
-By default, the classmethod `match` supports case-insensitive matching
-and ignores leading/trailing whitespace.
-To enforce exact matching instead, pass in `exact=True`:
+By default, the classmethod `match` is case-sensitive.
+To ignore case instead, pass in `strict_case=False`:
 
 ```python
->>> lang5 = iso639.Language.match('FRA')
->>> lang6 = iso639.Language.match('fra ')
->>> lang7 = iso639.Language.match('french')
->>> lang4 == lang5 == lang6 == lang7
+>>> lang5 = iso639.Language.match('FRA', strict_case=False)
+>>> lang6 = iso639.Language.match('french', strict_case=False)
+>>> lang4 == lang5 == lang6
 True
->>> iso639.Language.match("french", exact=True)
+>>> iso639.Language.match("french")
 Traceback (most recent call last):
   File "<stdin>", line 1, in <module>
 LanguageNotFoundError: 'french' isn't an ISO language code or name
 ```
+
+> [!NOTE]  
+> Depending on your use case, ignoring case could potentially lead to matching issues,
+  where a language code might match an unintended language name (or vice versa),
+  e.g., conflating "igo" and "Igo", while there exist the ISO 639-3 code `ahl` for Igo and
+  the ISO 639-3 code `igo` for Isebe. 
 
 The classmethod `match` is particularly useful for consistently
 accessing a specific attribute from unknown inputs, e.g., the ISO 639-3 code.
@@ -302,7 +307,7 @@ e.g., [`dataclasses.asdict`](https://docs.python.org/3/library/dataclasses.html#
     ```python
     >>> import iso639
     >>> iso639.DATA_LAST_UPDATED
-    datetime.date(2025, 1, 15)
+    datetime.date(2025, 10, 15)
     ```
 
 * `ALL_LANGUAGES`: The list of all `Language` objects based on the included language code data
@@ -312,7 +317,7 @@ e.g., [`dataclasses.asdict`](https://docs.python.org/3/library/dataclasses.html#
     >>> type(iso639.ALL_LANGUAGES)
     <class 'set'>
     >>> len(iso639.ALL_LANGUAGES)
-    8307
+    8311
     ```
 
 ## Links

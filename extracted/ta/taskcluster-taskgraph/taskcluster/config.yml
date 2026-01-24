@@ -1,0 +1,45 @@
+---
+trust-domain: taskgraph
+treeherder:
+    group-names:
+        'I': 'Docker Image Builds'
+        'Fetch': 'Fetch tasks'
+        'check': 'Checks and lints'
+        'doc': 'Documentation tasks'
+        'unit': 'Unit test tasks'
+
+index:
+    products:
+        - taskgraph
+
+task-priority: low
+
+taskgraph:
+    register: self_taskgraph:register
+    decision-parameters: 'self_taskgraph.custom_parameters:decision_parameters'
+    repositories:
+        ci:
+            name: Taskgraph
+
+workers:
+    aliases:
+        images:
+            provisioner: 'taskgraph-{level}'
+            implementation: docker-worker
+            os: linux
+            worker-type: images
+        t-linux:
+            provisioner: 'taskgraph-t'
+            implementation: docker-worker
+            os: linux
+            worker-type: linux-docker
+        misc:
+            provisioner: 'taskgraph-t'
+            implementation: docker-worker
+            os: linux
+            worker-type: linux-docker
+        t-windows:
+            provisioner: 'taskgraph-t'
+            implementation: generic-worker
+            os: windows
+            worker-type: win11-64-24h2

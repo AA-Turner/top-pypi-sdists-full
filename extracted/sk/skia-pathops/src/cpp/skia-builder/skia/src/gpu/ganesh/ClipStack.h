@@ -8,26 +8,38 @@
 #ifndef ClipStack_DEFINED
 #define ClipStack_DEFINED
 
-#include "include/core/SkClipOp.h"
 #include "include/core/SkMatrix.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkRefCnt.h"
 #include "include/core/SkShader.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkDebug.h"
 #include "include/private/base/SkTypeTraits.h"
 #include "src/base/SkTBlockList.h"
 #include "src/gpu/ResourceKey.h"
 #include "src/gpu/ganesh/GrClip.h"
-#include "src/gpu/ganesh/GrSurfaceProxyView.h"
+#include "src/gpu/ganesh/GrFragmentProcessor.h"
 #include "src/gpu/ganesh/geometry/GrShape.h"
 
+#include <cstdint>
+#include <memory>
+#include <type_traits>
+
 class GrAppliedClip;
+class GrDrawOp;
 class GrProxyProvider;
 class GrRecordingContext;
+class SkPath;
+class SkRRect;
+enum class GrAA : bool;
+enum class GrAAType : unsigned int;
+enum class SkClipOp;
+
 namespace skgpu {
 namespace ganesh {
 class SurfaceDrawContext;
 }
 }  // namespace skgpu
-class GrSWMaskHelper;
-class SkMatrixProvider;
 
 namespace skgpu::ganesh {
 
@@ -52,8 +64,8 @@ public:
         using sk_is_trivially_relocatable = std::true_type;
     };
 
-    // The SkMatrixProvider must outlive the ClipStack.
-    ClipStack(const SkIRect& deviceBounds, const SkMatrixProvider* matrixProvider, bool forceAA);
+    // The ctm must outlive the ClipStack.
+    ClipStack(const SkIRect& deviceBounds, const SkMatrix* ctm, bool forceAA);
 
     ~ClipStack() override;
 
@@ -95,7 +107,7 @@ public:
     GrClip::PreClipResult preApply(const SkRect& drawBounds, GrAA aa) const override;
     SkIRect getConservativeBounds() const override;
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     UniqueKey testingOnly_getLastSWMaskKey() const {
         return fMasks.empty() ? UniqueKey() : fMasks.back().key();
     }
@@ -103,7 +115,7 @@ public:
 
 private:
     class SaveRecord;
-    class Mask;
+    // class Mask;
 
     // Internally, a lot of clip reasoning is based on an op, outer bounds, and whether a shape
     // contains another (possibly just conservatively based on inner/outer device-space bounds).
@@ -324,7 +336,7 @@ private:
     mutable GrProxyProvider* fProxyProvider;
 
     const SkIRect            fDeviceBounds;
-    const SkMatrixProvider*  fMatrixProvider;
+    const SkMatrix*          fCTM;
 
     // When there's MSAA, clip elements are applied using the stencil buffer. If a backend cannot
     // disable MSAA per draw, then all elements are effectively AA'ed. Tracking them as such makes

@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "django-clearcache"
+version = "1.2.1"
+description = "Allows you to clear Django cache via admin UI or manage.py command"
+authors = ["Tim Kamanin <tim@timonweb.com>"]
+homepage = "https://timonweb.com"
+repository = "https://github.com/timonweb/django-clearcache"
+license = "MIT"
+readme = "README.md"
+keywords = ["django", "cache"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 2.2",
+    "Framework :: Django :: 3.0",
+    "Framework :: Django :: 3.1",
+    "Framework :: Django :: 3.2"
+]
+packages = [
+    { include = "clearcache" }
+]
+
+
+[tool.poetry.dependencies]
+python = ">=3.7"
+django = ">=2.2"
+
+[tool.poetry.dev-dependencies]
+pytest-django = "^3.8.0"
+pytest = "^5.3.4"
+tox = "^3.14.3"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

@@ -1,6 +1,6 @@
 [project]
 name = "snakemake-interface-storage-plugins"
-version = "4.2.3"
+version = "4.3.2"
 description = "This package provides a stable interface for interactions between Snakemake and its storage plugins."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -22,10 +22,9 @@ homepage = "https://github.com/snakemake/snakemake-interface-storage-plugins"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "linux-64"]
-
 
 [tool.pixi.tasks]
 

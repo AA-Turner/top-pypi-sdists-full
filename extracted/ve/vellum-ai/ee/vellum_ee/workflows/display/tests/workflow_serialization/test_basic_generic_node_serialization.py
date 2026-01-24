@@ -32,6 +32,7 @@ def test_serialize_workflow():
                 "default": None,
                 "required": True,
                 "extensions": {"color": None},
+                "schema": {"type": "string"},
             },
         ],
         input_variables,
@@ -51,111 +52,19 @@ def test_serialize_workflow():
 
     # AND its raw data should be what we expect
     workflow_raw_data = serialized_workflow["workflow_raw_data"]
-    assert len(workflow_raw_data["edges"]) == 2
-    assert len(workflow_raw_data["nodes"]) == 3
 
-    # AND each node should be serialized correctly
-    entrypoint_node = workflow_raw_data["nodes"][0]
-    assert entrypoint_node["id"] == "f1e4678f-c470-400b-a40e-c8922cc99a86"
-    assert entrypoint_node["type"] == "ENTRYPOINT"
-    assert entrypoint_node["inputs"] == []
-    assert entrypoint_node["data"] == {
-        "label": "Entrypoint Node",
-        "source_handle_id": "40201804-8beb-43ad-8873-a027759512f1",
-    }
-    assert entrypoint_node["base"] is None
-    assert entrypoint_node["definition"] is None
+    # AND the generic node should be serialized correctly
+    generic_node = next(n for n in workflow_raw_data["nodes"] if (n.get("base") or {}).get("name") == "BaseNode")
+    assert generic_node["id"] == "bf98371c-65d3-43c1-99a2-0f5369397847"
 
-    api_node = workflow_raw_data["nodes"][1]
-    assert api_node["id"] == "c2ed23f7-f6cb-4a56-a91c-2e5f9d8fda7f"
-
-    final_output_node = workflow_raw_data["nodes"][2]
-    assert not DeepDiff(
-        {
-            "id": "50e3b446-afcd-4a5d-8c6f-5f05eaf2200e",
-            "type": "TERMINAL",
-            "data": {
-                "label": "Final Output",
-                "name": "output",
-                "target_handle_id": "8bd9f4f3-9f66-4d95-8e84-529b0002c531",
-                "output_id": "2b6389d0-266a-4be4-843e-4e543dd3d727",
-                "output_type": "STRING",
-                "node_input_id": "545d6001-cfb5-4ccc-bcdf-3b03ccd67d90",
-            },
-            "inputs": [
-                {
-                    "id": "545d6001-cfb5-4ccc-bcdf-3b03ccd67d90",
-                    "key": "node_input",
-                    "value": {
-                        "rules": [
-                            {
-                                "type": "NODE_OUTPUT",
-                                "data": {
-                                    "node_id": "c2ed23f7-f6cb-4a56-a91c-2e5f9d8fda7f",
-                                    "output_id": "0a9c7a80-fc89-4a71-aac0-66489e4ddb85",
-                                },
-                            }
-                        ],
-                        "combinator": "OR",
-                    },
-                }
-            ],
-            "display_data": {"position": {"x": 400.0, "y": -50.0}},
-            "base": {
-                "name": "FinalOutputNode",
-                "module": ["vellum", "workflows", "nodes", "displayable", "final_output_node", "node"],
-            },
-            "definition": None,
-        },
-        final_output_node,
-        ignore_order=True,
-    )
-
-    # AND each edge should be serialized correctly
-    serialized_edges = workflow_raw_data["edges"]
-    assert not DeepDiff(
-        [
-            {
-                "id": "445dd2de-82b2-482b-89f6-5f49d8eb21a9",
-                "source_node_id": "f1e4678f-c470-400b-a40e-c8922cc99a86",
-                "source_handle_id": "40201804-8beb-43ad-8873-a027759512f1",
-                "target_node_id": "c2ed23f7-f6cb-4a56-a91c-2e5f9d8fda7f",
-                "target_handle_id": "b7bfb298-959a-4d2b-8b85-bbd0d2522703",
-                "type": "DEFAULT",
-            },
-            {
-                "id": "b741c861-cf67-4649-b9ef-b43a4add72b1",
-                "source_node_id": "c2ed23f7-f6cb-4a56-a91c-2e5f9d8fda7f",
-                "source_handle_id": "89dccfa5-cc1a-4612-bd87-86cb444f6dd4",
-                "target_node_id": "50e3b446-afcd-4a5d-8c6f-5f05eaf2200e",
-                "target_handle_id": "8bd9f4f3-9f66-4d95-8e84-529b0002c531",
-                "type": "DEFAULT",
-            },
-        ],
-        serialized_edges,
-        ignore_order=True,
-    )
-
-    # AND the display data should be what we expect
-    display_data = workflow_raw_data["display_data"]
-    assert display_data == {
-        "viewport": {
-            "x": 0.0,
-            "y": 0.0,
-            "zoom": 1.0,
-        }
-    }
-
-    # AND the nodes should have been auto-positioned since they all started at (0,0)
+    # AND the nodes should remain at (0,0) since Display.layout is not set to "auto"
     nodes = workflow_raw_data["nodes"]
     positions = [node["display_data"]["position"] for node in nodes]
 
-    nodes_at_zero = sum(1 for pos in positions if pos["x"] == 0.0 and pos["y"] == 0.0)
-    assert nodes_at_zero < len(nodes), "Auto layout should have positioned nodes away from (0,0)"
-
-    x_positions = [pos["x"] for pos in positions]
-    assert all(x >= 0 for x in x_positions), "All x positions should be non-negative"
-    assert len(set(x_positions)) > 1 or len(nodes) == 1, "Nodes should be spread across different x positions"
+    # All nodes should be at (0,0) since autolayout is not applied by default
+    for pos in positions:
+        assert pos["x"] == 0.0, f"Node x position should be 0.0, got {pos['x']}"
+        assert pos["y"] == 0.0, f"Node y position should be 0.0, got {pos['y']}"
 
     # AND the definition should be what we expect
     definition = workflow_raw_data["definition"]

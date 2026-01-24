@@ -62,6 +62,17 @@ class ComputerSettings(BaseSettings):
         validation_alias="OPENAI_COMPUTER_HEIGHT",
     )
 
+    QWEN_COMPUTER_WIDTH: int = Field(
+        default=700,
+        description="Width of the display to use for the Qwen computer tools",
+        validation_alias="QWEN_COMPUTER_WIDTH",
+    )
+    QWEN_COMPUTER_HEIGHT: int = Field(
+        default=448,
+        description="Height of the display to use for the Qwen computer tools",
+        validation_alias="QWEN_COMPUTER_HEIGHT",
+    )
+
     HUD_RESCALE_IMAGES: bool = Field(
         default=False,
         description="Whether to rescale images to the agent width and height",
@@ -76,6 +87,32 @@ class ComputerSettings(BaseSettings):
         default=True,
         description="Whether to rescale images to the agent width and height",
         validation_alias="OPENAI_RESCALE_IMAGES",
+    )
+    QWEN_RESCALE_IMAGES: bool = Field(
+        default=True,
+        description="Whether to rescale images to the agent width and height",
+        validation_alias="QWEN_RESCALE_IMAGES",
+    )
+
+    GEMINI_COMPUTER_WIDTH: int = Field(
+        default=1440,
+        description="Width of the display to use for the Gemini computer tools",
+        validation_alias="GEMINI_COMPUTER_WIDTH",
+    )
+    GEMINI_COMPUTER_HEIGHT: int = Field(
+        default=900,
+        description="Height of the display to use for the Gemini computer tools",
+        validation_alias="GEMINI_COMPUTER_HEIGHT",
+    )
+    GEMINI_RESCALE_IMAGES: bool = Field(
+        default=True,
+        description="Whether to rescale images to the agent width and height",
+        validation_alias="GEMINI_RESCALE_IMAGES",
+    )
+    GEMINI_MAX_RECENT_TURN_WITH_SCREENSHOTS: int = Field(
+        default=3,
+        description="Maximum number of recent turns to keep screenshots for in Gemini agent",
+        validation_alias="GEMINI_MAX_RECENT_TURN_WITH_SCREENSHOTS",
     )
 
 

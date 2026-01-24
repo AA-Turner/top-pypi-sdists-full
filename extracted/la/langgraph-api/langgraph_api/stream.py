@@ -2,7 +2,7 @@ import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import AsyncExitStack, aclosing, asynccontextmanager
 from functools import lru_cache
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import langgraph.version
 import langsmith
@@ -16,7 +16,6 @@ from langchain_core.messages import (
     convert_to_messages,
     message_chunk_to_message,
 )
-from langchain_core.runnables import RunnableConfig
 from langgraph.errors import (
     EmptyChannelError,
     EmptyInputError,
@@ -29,18 +28,30 @@ from pydantic import ValidationError
 from pydantic.v1 import ValidationError as ValidationErrorLegacy
 
 from langgraph_api import __version__
+from langgraph_api import _checkpointer as api_checkpointer
 from langgraph_api import store as api_store
 from langgraph_api.asyncio import ValueEvent, wait_if_not_done
 from langgraph_api.command import map_cmd
-from langgraph_api.feature_flags import USE_DURABILITY, USE_RUNTIME_CONTEXT_API
+from langgraph_api.feature_flags import (
+    FF_USE_CORE_API,
+    UPDATES_NEEDED_FOR_INTERRUPTS,
+    USE_DURABILITY,
+    USE_RUNTIME_CONTEXT_API,
+)
 from langgraph_api.graph import get_graph
+from langgraph_api.grpc.ops import Runs as GrpcRuns
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.metadata import HOST, PLAN, USER_API_URL, incr_nodes
 from langgraph_api.schema import Run, StreamMode
 from langgraph_api.serde import json_dumpb
 from langgraph_api.utils.config import run_in_executor
-from langgraph_runtime.checkpoint import Checkpointer
 from langgraph_runtime.ops import Runs
+
+CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
+
+if TYPE_CHECKING:
+    from langchain_core.runnables import RunnableConfig
+
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -147,7 +158,7 @@ async def astream_state(
     subgraphs = kwargs.get("subgraphs", False)
     temporary = kwargs.pop("temporary", False)
     context = kwargs.pop("context", None)
-    config = cast(RunnableConfig, kwargs.pop("config"))
+    config = cast("RunnableConfig", kwargs.pop("config"))
     configurable = config["configurable"]
     stack = AsyncExitStack()
     graph = await stack.enter_async_context(
@@ -155,7 +166,10 @@ async def astream_state(
             configurable["graph_id"],
             config,
             store=(await api_store.get_store()),
-            checkpointer=None if temporary else Checkpointer(),
+            checkpointer=None
+            if temporary
+            else await api_checkpointer.get_checkpointer(),
+            is_for_execution=True,
         )
     )
 
@@ -180,7 +194,7 @@ async def astream_state(
     if "messages-tuple" in stream_modes_set and not isinstance(graph, BaseRemotePregel):
         stream_modes_set.remove("messages-tuple")
         stream_modes_set.add("messages")
-    if "updates" not in stream_modes_set:
+    if "updates" not in stream_modes_set and UPDATES_NEEDED_FOR_INTERRUPTS:
         stream_modes_set.add("updates")
         only_interrupt_updates = True
     else:
@@ -231,6 +245,8 @@ async def astream_state(
 
     # stream run
     if use_astream_events:
+        if USE_RUNTIME_CONTEXT_API:
+            kwargs["context"] = context
         async with (
             stack,
             aclosing(  # type: ignore[invalid-argument-type]
@@ -248,7 +264,7 @@ async def astream_state(
                 event = await wait_if_not_done(anext(stream, sentinel), done)
                 if event is sentinel:
                     break
-                event = cast(dict, event)
+                event = cast("dict", event)
                 if event.get("tags") and "langsmith:hidden" in event["tags"]:
                     continue
                 if (
@@ -286,7 +302,7 @@ async def astream_state(
                                 yield "messages", chunk
                         else:
                             msg_, meta = cast(
-                                tuple[BaseMessage | dict, dict[str, Any]], chunk
+                                "tuple[BaseMessage | dict, dict[str, Any]]", chunk
                             )
                             is_chunk = False
                             if isinstance(msg_, dict):
@@ -336,11 +352,9 @@ async def astream_state(
                         and len(chunk["__interrupt__"]) > 0
                         and only_interrupt_updates
                     ):
-                        # We always want to return interrupt events by default.
-                        # If updates aren't specified as a stream mode, we return these as values events.
                         # If the interrupt doesn't have any actions (e.g. interrupt before or after a node is specified), we don't return the interrupt at all today.
                         if subgraphs and ns:
-                            yield f"values|{'|'.join(ns)}", chunk
+                            yield "values|{'|'.join(ns)}", chunk
                         else:
                             yield "values", chunk
                     # --- end shared logic with astream ---
@@ -368,9 +382,9 @@ async def astream_state(
                 if event is sentinel:
                     break
                 if subgraphs:
-                    ns, mode, chunk = cast(tuple[str, str, dict[str, Any]], event)
+                    ns, mode, chunk = cast("tuple[str, str, dict[str, Any]]", event)
                 else:
-                    mode, chunk = cast(tuple[str, dict[str, Any]], event)
+                    mode, chunk = cast("tuple[str, dict[str, Any]]", event)
                     ns = None
                 # --- begin shared logic with astream_events ---
                 if mode == "debug":
@@ -388,7 +402,7 @@ async def astream_state(
                             yield "messages", chunk
                     else:
                         msg_, meta = cast(
-                            tuple[BaseMessage | dict, dict[str, Any]], chunk
+                            "tuple[BaseMessage | dict, dict[str, Any]]", chunk
                         )
                         is_chunk = False
                         if isinstance(msg_, dict):
@@ -438,11 +452,9 @@ async def astream_state(
                     and len(chunk["__interrupt__"]) > 0
                     and only_interrupt_updates
                 ):
-                    # We always want to return interrupt events by default.
-                    # If updates aren't specified as a stream mode, we return these as values events.
                     # If the interrupt doesn't have any actions (e.g. interrupt before or after a node is specified), we don't return the interrupt at all today.
                     if subgraphs and ns:
-                        yield "values|{'|'.join(ns)}", chunk
+                        yield f"values|{'|'.join(ns)}", chunk
                     else:
                         yield "values", chunk
                 # --- end shared logic with astream_events ---
@@ -470,7 +482,7 @@ async def consume(
     resumable: bool = False,
     stream_modes: set[StreamMode] | None = None,
     *,
-    thread_id: str | uuid.UUID | None = None,
+    thread_id: str | uuid.UUID,
 ) -> None:
     stream_modes = stream_modes or set()
     if "messages-tuple" in stream_modes:
@@ -480,7 +492,7 @@ async def consume(
     async with aclosing(stream):  # type: ignore[invalid-argument-type]
         try:
             async for mode, payload in stream:
-                await Runs.Stream.publish(
+                await CrudRuns.Stream.publish(
                     run_id,
                     mode,
                     await run_in_executor(None, json_dumpb, payload),
@@ -490,7 +502,7 @@ async def consume(
         except Exception as e:
             if isinstance(e, ExceptionGroup):
                 e = e.exceptions[0]
-            await Runs.Stream.publish(
+            await CrudRuns.Stream.publish(
                 run_id,
                 "error",
                 await run_in_executor(None, json_dumpb, e),

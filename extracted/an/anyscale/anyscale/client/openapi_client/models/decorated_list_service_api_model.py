@@ -52,6 +52,8 @@ class DecoratedListServiceAPIModel(object):
         'base_url': 'str',
         'ended_at': 'datetime',
         'creator': 'MiniUser',
+        'is_multi_version': 'bool',
+        'error_message': 'str',
         'type': 'ServiceType'
     }
 
@@ -75,10 +77,12 @@ class DecoratedListServiceAPIModel(object):
         'base_url': 'base_url',
         'ended_at': 'ended_at',
         'creator': 'creator',
+        'is_multi_version': 'is_multi_version',
+        'error_message': 'error_message',
         'type': 'type'
     }
 
-    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, creator=None, type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, creator=None, is_multi_version=None, error_message=None, type=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedListServiceAPIModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -103,6 +107,8 @@ class DecoratedListServiceAPIModel(object):
         self._base_url = None
         self._ended_at = None
         self._creator = None
+        self._is_multi_version = None
+        self._error_message = None
         self._type = None
         self.discriminator = None
 
@@ -129,6 +135,9 @@ class DecoratedListServiceAPIModel(object):
         if ended_at is not None:
             self.ended_at = ended_at
         self.creator = creator
+        self.is_multi_version = is_multi_version
+        if error_message is not None:
+            self.error_message = error_message
         self.type = type
 
     @property
@@ -597,6 +606,54 @@ class DecoratedListServiceAPIModel(object):
             raise ValueError("Invalid value for `creator`, must not be `None`")  # noqa: E501
 
         self._creator = creator
+
+    @property
+    def is_multi_version(self):
+        """Gets the is_multi_version of this DecoratedListServiceAPIModel.  # noqa: E501
+
+        Whether the service is a multi-version service.  # noqa: E501
+
+        :return: The is_multi_version of this DecoratedListServiceAPIModel.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_multi_version
+
+    @is_multi_version.setter
+    def is_multi_version(self, is_multi_version):
+        """Sets the is_multi_version of this DecoratedListServiceAPIModel.
+
+        Whether the service is a multi-version service.  # noqa: E501
+
+        :param is_multi_version: The is_multi_version of this DecoratedListServiceAPIModel.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and is_multi_version is None:  # noqa: E501
+            raise ValueError("Invalid value for `is_multi_version`, must not be `None`")  # noqa: E501
+
+        self._is_multi_version = is_multi_version
+
+    @property
+    def error_message(self):
+        """Gets the error_message of this DecoratedListServiceAPIModel.  # noqa: E501
+
+        Error message occurred while processing the API request.  # noqa: E501
+
+        :return: The error_message of this DecoratedListServiceAPIModel.  # noqa: E501
+        :rtype: str
+        """
+        return self._error_message
+
+    @error_message.setter
+    def error_message(self, error_message):
+        """Sets the error_message of this DecoratedListServiceAPIModel.
+
+        Error message occurred while processing the API request.  # noqa: E501
+
+        :param error_message: The error_message of this DecoratedListServiceAPIModel.  # noqa: E501
+        :type: str
+        """
+
+        self._error_message = error_message
 
     @property
     def type(self):

@@ -726,11 +726,12 @@ class TestIpLinkCommand(TestIPCmdBase):
         self.link_cmd.delete()
         delete.assert_called_once_with(self.parent.name, self.parent.namespace)
 
-    @mock.patch.object(priv_lib, 'get_link_attributes')
-    def test_settings_property(self, get_link_attributes):
-        self.link_cmd.attributes
+    @mock.patch.object(priv_lib, 'get_link_attributes', return_value='foo')
+    def test_attributes_property(self, get_link_attributes):
+        attrs = self.link_cmd.attributes
         get_link_attributes.assert_called_once_with(
             self.parent.name, self.parent.namespace)
+        self.assertEqual(attrs, 'foo')
 
 
 class TestIpAddrCommand(TestIPCmdBase):
@@ -949,7 +950,7 @@ class TestIpNetnsCommand(TestIPCmdBase):
             self.netns_cmd.execute(['ip', 'link', 'list'], env)
             execute.assert_called_once_with(
                 ['ip', 'netns', 'exec', 'ns', 'env'] +
-                ['{}={}'.format(k, v) for k, v in env.items()] +
+                [f'{k}={v}' for k, v in env.items()] +
                 ['ip', 'link', 'list'],
                 run_as_root=True, check_exit_code=True, extra_ok_codes=None,
                 log_fail_as_error=True, privsep_exec=False)

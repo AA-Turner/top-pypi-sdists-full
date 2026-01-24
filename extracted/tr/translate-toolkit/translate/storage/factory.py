@@ -23,7 +23,6 @@ from functools import lru_cache
 from importlib import import_module
 
 from translate.storage.base import TranslationStore
-from translate.storage.directory import Directory
 
 # TODO: Monolingual formats (with template?)
 
@@ -51,10 +50,11 @@ _classes_str = {
     "tbx": ("tbx", "tbxfile"),
     "tmx": ("tmx", "tmxfile"),
     "ts": ("ts2", "tsfile"),
-    "xliff": ("xliff", "xlifffile"),
-    "xlf": ("xliff", "xlifffile"),
-    "sdlxliff": ("xliff", "xlifffile"),
+    "xliff": ("xliff", "Xliff1File"),
+    "xlf": ("xliff", "Xliff1File"),
+    "sdlxliff": ("xliff", "Xliff1File"),
     "ftl": ("fluent", "FluentFile"),
+    "toml": ("toml", "TOMLFile"),
 }
 ###  XXX:  if you add anything here, you must also add it to translate.storage.
 
@@ -72,9 +72,10 @@ def _examine_txt(storefile):
     try:
         start = storefile.read(600).strip()
     except AttributeError:
-        raise ValueError("Need to read object to determine type")
+        raise ValueError("Need to read object to determine type") from None
     # Some encoding magic for Wordfast
-    from translate.storage import wordfast
+    # pylint: disable-next=import-outside-toplevel
+    from translate.storage import wordfast  # noqa: PLC0415
 
     encoding = "utf-16" if wordfast.TAB_UTF16 in start.split(b"\n")[0] else "iso-8859-1"
     start = start.decode(encoding)
@@ -115,12 +116,12 @@ def _guess_extension(storefile):
     return extension
 
 
-def _get_dummy_name(storefile):
+def _get_dummy_name(storefile) -> str:
     """
     Provides a dummy name for a file object without a name attribute, by
     guessing the file type.
     """
-    return "dummy." + _guess_extension(storefile)
+    return f"dummy.{_guess_extension(storefile)}"
 
 
 def _get_name(storefile):
@@ -190,22 +191,20 @@ def getclass(
         else:
             storeclass = import_class(*classes_str[ext], "translate.storage")
     except KeyError:
-        raise ValueError(f"Unknown filetype ({storefilename})")
+        raise ValueError(f"Unknown filetype ({storefilename})") from None
     return storeclass
 
 
 def getobject(
-    storefile,
-    localfiletype=None,
-    ignore=None,
-    classes=None,
-    classes_str=None,
-    hiddenclasses=None,
-):
+    storefile: str | TranslationStore,
+    localfiletype: str | None = None,
+    ignore: str | None = None,
+    classes: dict | None = None,
+    classes_str: dict | None = None,
+    hiddenclasses: dict | None = None,
+) -> TranslationStore:
     """
     Factory that returns a usable object for the type of file presented.
-
-    :type storefile: file or str or TranslationStore
     :param storefile: File object or file name.
 
     Specify ignore to ignore some part at the back of the name (like .gz).
@@ -216,9 +215,13 @@ def getobject(
         classes_str = _classes_str
     if hiddenclasses is None:
         hiddenclasses = _hiddenclasses
-    if isinstance(storefile, str):
-        if os.path.isdir(storefile) or storefile.endswith(os.path.sep):
-            return Directory(storefile)
+    if isinstance(storefile, str) and (
+        os.path.isdir(storefile) or storefile.endswith(os.path.sep)
+    ):
+        raise ValueError(
+            f'Cannot process directory "{storefile}" as a translation storage object. '
+            "Please specify a path to a supported file instead."
+        )
     storefilename = _get_name(storefile)
     storeclass = getclass(
         storefile,
@@ -274,11 +277,10 @@ supported = [
 ]
 
 
-def supported_files():
+def supported_files() -> list[tuple[str, list[str], list[str]]]:
     """
     Returns data about all supported files.
 
     :return: list of type that include (name, extensions, mimetypes)
-    :rtype: list
     """
     return supported[:]

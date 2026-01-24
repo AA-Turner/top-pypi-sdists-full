@@ -32,8 +32,9 @@ def write_to_logger(caplog, logger, level, message, human):
 
 
 def test_human_logs(caplog):
-    logistro.set_human()
     human = logistro.getLogger("human")
+    for handler in logistro.getLogger().handlers:
+        handler.setFormatter(logistro.human_formatter)
     human.setLevel(logistro.DEBUG2)
     write_to_logger(caplog, human, logistro.DEBUG2, "d2-message", human=True)
 
@@ -46,9 +47,9 @@ def test_human_logs(caplog):
 
 
 def test_structured_logs(caplog):
-    logistro.set_structured()
-    logistro.coerce_logger(logistro.getLogger())
     structured = logistro.getLogger("structured")
+    for handler in logistro.getLogger().handlers:
+        handler.setFormatter(logistro.structured_formatter)
     structured.setLevel(logistro.DEBUG2)
     write_to_logger(caplog, structured, logistro.DEBUG2, "d2-message", human=False)
 

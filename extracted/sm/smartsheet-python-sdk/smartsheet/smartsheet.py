@@ -1,4 +1,4 @@
-# pylint: disable=C0111,R0902,R0913,W0614,C0302,W0401,R0912,W0611,C0301,W0621,W0404,R1720,W0702,W0613
+# pylint: disable=C0103,C0111,R0902,R0913,W0614,C0302,W0401,R0912,W0611,C0301,W0621,W0404,R1720,W0702,W0613
 # Smartsheet Python SDK.
 #
 # Copyright 2016 Smartsheet.com, Inc.
@@ -15,7 +15,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from __future__ import absolute_import
+from __future__ import absolute_import, annotations
 
 import importlib
 import inspect
@@ -37,27 +37,29 @@ from .models import Error, ErrorResult
 from .session import pinned_session
 from .util import is_multipart, serialize
 
-__all__ = ("Smartsheet", "fresh_operation", "AbstractUserCalcBackoff")
+from .attachments import Attachments
+from .contacts import Contacts
+from .discussions import Discussions
+from .events import Events
+from .favorites import Favorites
+from .folders import Folders
+from .groups import Groups
+from .home import Home
+from .images import Images
+from .passthrough import Passthrough
+from .reports import Reports
+from .search import Search
+from .server import Server
+from .sharing import Sharing
+from .sheets import Sheets
+from .sights import Sights
+from .templates import Templates
+from .token import Token
+from .users import Users
+from .webhooks import Webhooks
+from .workspaces import Workspaces
 
-
-def fresh_operation(op_id):
-    """Create a default operation object."""
-    operation = {
-        "path": "",
-        "headers": {},
-        "header_params": {},
-        "path_params": {},
-        "query_params": {},
-        "params": {},
-        "files": None,
-        "form_data": None,
-        "json": None,
-        "id": op_id,
-        "dl_path": None,
-        "auth_settings": "access_token",
-    }
-
-    return operation
+__all__ = ("Smartsheet", "AbstractUserCalcBackoff")
 
 
 def setup_logging():
@@ -115,6 +117,28 @@ class DefaultCalcBackoff(AbstractUserCalcBackoff):
 
 class Smartsheet:
     """Use this to make requests to the Smartsheet API."""
+
+    Attachments: Attachments
+    Contacts: Contacts
+    Discussions: Discussions
+    Events: Events
+    Favorites: Favorites
+    Folders: Folders
+    Groups: Groups
+    Home: Home
+    Images: Images
+    Passthrough: Passthrough
+    Reports: Reports
+    Search: Search
+    Server: Server
+    Sharing: Sharing
+    Sheets: Sheets
+    Sights: Sights
+    Templates: Templates
+    Token: Token
+    Users: Users
+    Webhooks: Webhooks
+    Workspaces: Workspaces
 
     models = models
 
@@ -185,7 +209,10 @@ class Smartsheet:
         self._api_base = api_base
         self._assume_user = None
         self._test_scenario_name = None
+        self._wiremock_test_name = None
+        self._wiremock_request_id = None
         self._change_agent = None
+        self._api_modules_cache = {}
 
     def assume_user(self, email=None):
         """Assume identity of specified user.
@@ -226,6 +253,18 @@ class Smartsheet:
             name (str): The name of the test scenario.
         """
         self._test_scenario_name = name
+
+    def with_wiremock_test_case(self, test_name: str, request_id: str):
+        """
+        Configure client with x-test-name and x-request-id headers.
+        Used for wiremock test cases.
+
+        Args:
+            test_name (str): The name of the wiremock test case.
+            request_id (str): The unique request ID for this test scenario.
+        """
+        self._wiremock_test_name = test_name
+        self._wiremock_request_id = request_id
 
     def with_change_agent(self, change_agent):
         """
@@ -288,7 +327,7 @@ class Smartsheet:
             self._log.debug('{"requestBody": %s}', body_dumps)
         # response
         content_dumps = f'"<< {response.headers.get("Content-Type")} content type suppressed >>"'
-        if response.request.headers.get("Content-Type") is not None and "application/json" in response.headers.get("Content-Type"):
+        if response.headers.get("Content-Type") is not None and "application/json" in response.headers.get("Content-Type"):
             content = response.content.decode("utf8")
             content_dumps = json.dumps(json.loads(content), sort_keys=True)
         if 200 <= response.status_code <= 299:
@@ -437,6 +476,9 @@ class Smartsheet:
                 del prepped_request.headers["Api-Scenario"]
             except KeyError:
                 pass
+        if self._wiremock_test_name is not None and self._wiremock_request_id is not None:
+            prepped_request.headers["X-Test-Name"] = self._wiremock_test_name
+            prepped_request.headers["X-Request-ID"] = self._wiremock_request_id
 
         if self._change_agent is not None:
             prepped_request.headers.update(
@@ -455,17 +497,24 @@ class Smartsheet:
         Handle sub-class instantiation.
 
         Args:
-            name (str): Name of smartsheet to instantiate.
+            name (str): Name of smartsheet resource class to instantiate.
 
         Returns:
             Instance of named class.
         """
+        # Check if module is already cached
+        if name in self._api_modules_cache:
+            return self._api_modules_cache[name]
+
         try:
             # api class first
             class_ = getattr(
                 importlib.import_module(__package__ + "." + name.lower()), name
             )
-            return class_(self)
+            instance = class_(self)
+            # Cache the instance
+            self._api_modules_cache[name] = instance
+            return instance
         except ImportError:
             # model class next:
             try:
@@ -629,8 +678,13 @@ class OperationErrorResult:
             expected (list): Dashed expectations
         """
         # look up name of the error
-        error_payload = self.resp.json()
-        error_code = error_payload["errorCode"]
+        error_payload = {}
+        try:
+            error_payload = self.resp.json()
+        except json.JSONDecodeError:
+            # Do not fail if the response is not JSON
+            pass
+        error_code = error_payload.get("errorCode", 0)
         try:
             error_name = OperationErrorResult.error_lookup[error_code]["name"]
             recommendation = OperationErrorResult.error_lookup[error_code][
@@ -638,6 +692,7 @@ class OperationErrorResult:
             ]
             should_retry = OperationErrorResult.error_lookup[error_code]["should_retry"]
         except:
+            # If error_code is present in the response but not in the lookup, default to ApiError
             error_name = OperationErrorResult.error_lookup[0]["name"]
             recommendation = OperationErrorResult.error_lookup[0]["recommendation"]
             should_retry = OperationErrorResult.error_lookup[0]["should_retry"]
@@ -649,8 +704,8 @@ class OperationErrorResult:
                         "name": error_name,
                         "status_code": self.resp.status_code,
                         "code": error_code,
-                        "message": error_payload["message"],
-                        "ref_id": error_payload["refId"],
+                        "message": error_payload.get("message"),
+                        "ref_id": error_payload.get("refId"),
                         "recommendation": recommendation,
                         "should_retry": should_retry,
                     }

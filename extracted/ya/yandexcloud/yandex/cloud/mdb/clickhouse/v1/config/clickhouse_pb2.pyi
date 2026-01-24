@@ -378,7 +378,7 @@ class ClickhouseConfig(google.protobuf.message.Message):
         def replicated_deduplication_window(self) -> google.protobuf.wrappers_pb2.Int64Value:
             """The number of most recently inserted blocks for which ClickHouse Keeper stores hash sums to check for duplicates.
 
-            Default value: **1000** for versions 23.11 and higher, **100** for versions 23.10 and lower.
+            Default value: **10000** for versions 25.9 and higher, **1000** for versions from 23.11 to 25.8, **100** for versions 23.10 and lower.
 
             For details, see [ClickHouse documentation](https://clickhouse.com/docs/operations/settings/merge-tree-settings#replicated_deduplication_window).
             """
@@ -387,7 +387,7 @@ class ClickhouseConfig(google.protobuf.message.Message):
         def replicated_deduplication_window_seconds(self) -> google.protobuf.wrappers_pb2.Int64Value:
             """The number of seconds after which the hash sums of the inserted blocks are removed from ClickHouse Keeper.
 
-            Default value: **604800** (7 days).
+            Default value: **3600** (1 hour) for versions 25.10 and higher, **604800** (7 days) for versions 25.9 and lower.
 
             For details, see [ClickHouse documentation](https://clickhouse.com/docs/operations/settings/merge-tree-settings#replicated_deduplication_window_seconds).
             """
@@ -1574,6 +1574,8 @@ class ClickhouseConfig(google.protobuf.message.Message):
         SESSION_TIMEOUT_MS_FIELD_NUMBER: builtins.int
         DEBUG_FIELD_NUMBER: builtins.int
         AUTO_OFFSET_RESET_FIELD_NUMBER: builtins.int
+        MESSAGE_MAX_BYTES_FIELD_NUMBER: builtins.int
+        BATCH_SIZE_FIELD_NUMBER: builtins.int
         security_protocol: global___ClickhouseConfig.Kafka.SecurityProtocol.ValueType
         """Protocol used to communicate with brokers.
 
@@ -1620,6 +1622,20 @@ class ClickhouseConfig(google.protobuf.message.Message):
             Default value: **45000** (45 seconds).
             """
 
+        @property
+        def message_max_bytes(self) -> google.protobuf.wrappers_pb2.Int64Value:
+            """Maximum Kafka protocol request message size.
+
+            Default value: **1000000**.
+            """
+
+        @property
+        def batch_size(self) -> google.protobuf.wrappers_pb2.Int64Value:
+            """Maximum size (in bytes) of all messages batched in one MessageSet, including protocol framing overhead.
+
+            Default value: **1000000**.
+            """
+
         def __init__(
             self,
             *,
@@ -1632,9 +1648,11 @@ class ClickhouseConfig(google.protobuf.message.Message):
             session_timeout_ms: google.protobuf.wrappers_pb2.Int64Value | None = ...,
             debug: global___ClickhouseConfig.Kafka.Debug.ValueType = ...,
             auto_offset_reset: global___ClickhouseConfig.Kafka.AutoOffsetReset.ValueType = ...,
+            message_max_bytes: google.protobuf.wrappers_pb2.Int64Value | None = ...,
+            batch_size: google.protobuf.wrappers_pb2.Int64Value | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing.Literal["enable_ssl_certificate_verification", b"enable_ssl_certificate_verification", "max_poll_interval_ms", b"max_poll_interval_ms", "session_timeout_ms", b"session_timeout_ms"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["auto_offset_reset", b"auto_offset_reset", "debug", b"debug", "enable_ssl_certificate_verification", b"enable_ssl_certificate_verification", "max_poll_interval_ms", b"max_poll_interval_ms", "sasl_mechanism", b"sasl_mechanism", "sasl_password", b"sasl_password", "sasl_username", b"sasl_username", "security_protocol", b"security_protocol", "session_timeout_ms", b"session_timeout_ms"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["batch_size", b"batch_size", "enable_ssl_certificate_verification", b"enable_ssl_certificate_verification", "max_poll_interval_ms", b"max_poll_interval_ms", "message_max_bytes", b"message_max_bytes", "session_timeout_ms", b"session_timeout_ms"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["auto_offset_reset", b"auto_offset_reset", "batch_size", b"batch_size", "debug", b"debug", "enable_ssl_certificate_verification", b"enable_ssl_certificate_verification", "max_poll_interval_ms", b"max_poll_interval_ms", "message_max_bytes", b"message_max_bytes", "sasl_mechanism", b"sasl_mechanism", "sasl_password", b"sasl_password", "sasl_username", b"sasl_username", "security_protocol", b"security_protocol", "session_timeout_ms", b"session_timeout_ms"]) -> None: ...
 
     @typing.final
     class KafkaTopic(google.protobuf.message.Message):
@@ -1855,6 +1873,9 @@ class ClickhouseConfig(google.protobuf.message.Message):
     ERROR_LOG_ENABLED_FIELD_NUMBER: builtins.int
     ERROR_LOG_RETENTION_SIZE_FIELD_NUMBER: builtins.int
     ERROR_LOG_RETENTION_TIME_FIELD_NUMBER: builtins.int
+    QUERY_METRIC_LOG_ENABLED_FIELD_NUMBER: builtins.int
+    QUERY_METRIC_LOG_RETENTION_SIZE_FIELD_NUMBER: builtins.int
+    QUERY_METRIC_LOG_RETENTION_TIME_FIELD_NUMBER: builtins.int
     ACCESS_CONTROL_IMPROVEMENTS_FIELD_NUMBER: builtins.int
     MAX_CONNECTIONS_FIELD_NUMBER: builtins.int
     MAX_CONCURRENT_QUERIES_FIELD_NUMBER: builtins.int
@@ -1872,6 +1893,9 @@ class ClickhouseConfig(google.protobuf.message.Message):
     ASYNC_INSERT_THREADS_FIELD_NUMBER: builtins.int
     BACKUP_THREADS_FIELD_NUMBER: builtins.int
     RESTORE_THREADS_FIELD_NUMBER: builtins.int
+    VECTOR_SIMILARITY_INDEX_CACHE_SIZE_FIELD_NUMBER: builtins.int
+    VECTOR_SIMILARITY_INDEX_CACHE_MAX_ENTRIES_FIELD_NUMBER: builtins.int
+    MAX_BUILD_VECTOR_SIMILARITY_INDEX_THREAD_POOL_SIZE_FIELD_NUMBER: builtins.int
     MERGE_TREE_FIELD_NUMBER: builtins.int
     COMPRESSION_FIELD_NUMBER: builtins.int
     DICTIONARIES_FIELD_NUMBER: builtins.int
@@ -2246,7 +2270,7 @@ class ClickhouseConfig(google.protobuf.message.Message):
     def session_log_enabled(self) -> google.protobuf.wrappers_pb2.BoolValue:
         """Enables or disables session_log system table.
 
-        Default value: **true** for versions 25.8 and higher, **false** for versions 25.7 and lower.
+        Default value: **true** for versions 25.3 and higher, **false** for versions 25.2 and lower.
 
         Change of the setting is applied with restart.
 
@@ -2258,7 +2282,7 @@ class ClickhouseConfig(google.protobuf.message.Message):
         """The maximum size that session_log can grow to before old data will be removed. If set to **0**,
         automatic removal of session_log data based on size is disabled.
 
-        Default value: **536870912** (512 MiB) for versions 25.8 and higher, **0** for versions 25.7 and lower.
+        Default value: **536870912** (512 MiB) for versions 25.3 and higher, **0** for versions 25.2 and lower.
         """
 
     @property
@@ -2378,6 +2402,33 @@ class ClickhouseConfig(google.protobuf.message.Message):
         """
 
     @property
+    def query_metric_log_enabled(self) -> google.protobuf.wrappers_pb2.BoolValue:
+        """Enables or disables query_metric_log system table.
+
+        Default value: **false**.
+
+        Change of the setting is applied with restart.
+
+        For details, see [ClickHouse documentation](https://clickhouse.com/docs/operations/system-tables/query_metric_log).
+        """
+
+    @property
+    def query_metric_log_retention_size(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """The maximum size that query_metric_log can grow to before old data will be removed. If set to **0**,
+        automatic removal of query_metric_log data based on size is disabled.
+
+        Default value: **536870912** (512 MiB).
+        """
+
+    @property
+    def query_metric_log_retention_time(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """The maximum time that query_metric_log records will be retained before removal. If set to **0**,
+        automatic removal of query_metric_log data based on time is disabled.
+
+        Default value: **2592000000** (30 days).
+        """
+
+    @property
     def access_control_improvements(self) -> global___ClickhouseConfig.AccessControlImprovements:
         """Access control settings."""
 
@@ -2423,7 +2474,7 @@ class ClickhouseConfig(google.protobuf.message.Message):
     def keep_alive_timeout(self) -> google.protobuf.wrappers_pb2.Int64Value:
         """The number of seconds that ClickHouse waits for incoming requests for HTTP protocol before closing the connection.
 
-        Default value: **30**.
+        Default value: **3** for versions 25.10 and higher, **30** for versions 25.9 and lower.
 
         Change of the setting is applied with restart.
 
@@ -2519,6 +2570,39 @@ class ClickhouseConfig(google.protobuf.message.Message):
         Change of the setting is applied with restart.
 
         For details, see [ClickHouse documentation](https://clickhouse.com/docs/operations/server-configuration-parameters/settings#restore_threads).
+        """
+
+    @property
+    def vector_similarity_index_cache_size(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Size of cache for vector similarity indexes, in bytes. **0** means disabled.
+
+        Default value: **5368709120** (5 GiB).
+
+        Change of the setting is applied with restart.
+
+        For details, see [ClickHouse documentation](https://clickhouse.com/docs/operations/server-configuration-parameters/settings#vector_similarity_index_cache_size).
+        """
+
+    @property
+    def vector_similarity_index_cache_max_entries(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """Size of cache for vector similarity indexes, in entries. **0** means disabled.
+
+        Default value: **10000000**.
+
+        Change of the setting is applied with restart.
+
+        For details, see [ClickHouse documentation](https://clickhouse.com/docs/operations/server-configuration-parameters/settings#vector_similarity_index_cache_max_entries).
+        """
+
+    @property
+    def max_build_vector_similarity_index_thread_pool_size(self) -> google.protobuf.wrappers_pb2.Int64Value:
+        """The maximum number of threads to use for building vector indexes. **0** means unlimited.
+
+        Default value: **16**.
+
+        Change of the setting is applied with restart.
+
+        For details, see [ClickHouse documentation](https://clickhouse.com/docs/operations/server-configuration-parameters/settings#max_build_vector_similarity_index_thread_pool_size).
         """
 
     @property
@@ -2680,6 +2764,9 @@ class ClickhouseConfig(google.protobuf.message.Message):
         error_log_enabled: google.protobuf.wrappers_pb2.BoolValue | None = ...,
         error_log_retention_size: google.protobuf.wrappers_pb2.Int64Value | None = ...,
         error_log_retention_time: google.protobuf.wrappers_pb2.Int64Value | None = ...,
+        query_metric_log_enabled: google.protobuf.wrappers_pb2.BoolValue | None = ...,
+        query_metric_log_retention_size: google.protobuf.wrappers_pb2.Int64Value | None = ...,
+        query_metric_log_retention_time: google.protobuf.wrappers_pb2.Int64Value | None = ...,
         access_control_improvements: global___ClickhouseConfig.AccessControlImprovements | None = ...,
         max_connections: google.protobuf.wrappers_pb2.Int64Value | None = ...,
         max_concurrent_queries: google.protobuf.wrappers_pb2.Int64Value | None = ...,
@@ -2697,6 +2784,9 @@ class ClickhouseConfig(google.protobuf.message.Message):
         async_insert_threads: google.protobuf.wrappers_pb2.Int64Value | None = ...,
         backup_threads: google.protobuf.wrappers_pb2.Int64Value | None = ...,
         restore_threads: google.protobuf.wrappers_pb2.Int64Value | None = ...,
+        vector_similarity_index_cache_size: google.protobuf.wrappers_pb2.Int64Value | None = ...,
+        vector_similarity_index_cache_max_entries: google.protobuf.wrappers_pb2.Int64Value | None = ...,
+        max_build_vector_similarity_index_thread_pool_size: google.protobuf.wrappers_pb2.Int64Value | None = ...,
         merge_tree: global___ClickhouseConfig.MergeTree | None = ...,
         compression: collections.abc.Iterable[global___ClickhouseConfig.Compression] | None = ...,
         dictionaries: collections.abc.Iterable[global___ClickhouseConfig.ExternalDictionary] | None = ...,
@@ -2711,8 +2801,8 @@ class ClickhouseConfig(google.protobuf.message.Message):
         custom_macros: collections.abc.Iterable[global___ClickhouseConfig.Macro] | None = ...,
         builtin_dictionaries_reload_interval: google.protobuf.wrappers_pb2.Int64Value | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["access_control_improvements", b"access_control_improvements", "async_insert_threads", b"async_insert_threads", "asynchronous_insert_log_enabled", b"asynchronous_insert_log_enabled", "asynchronous_insert_log_retention_size", b"asynchronous_insert_log_retention_size", "asynchronous_insert_log_retention_time", b"asynchronous_insert_log_retention_time", "asynchronous_metric_log_enabled", b"asynchronous_metric_log_enabled", "asynchronous_metric_log_retention_size", b"asynchronous_metric_log_retention_size", "asynchronous_metric_log_retention_time", b"asynchronous_metric_log_retention_time", "background_buffer_flush_schedule_pool_size", b"background_buffer_flush_schedule_pool_size", "background_common_pool_size", b"background_common_pool_size", "background_distributed_schedule_pool_size", b"background_distributed_schedule_pool_size", "background_fetches_pool_size", b"background_fetches_pool_size", "background_merges_mutations_concurrency_ratio", b"background_merges_mutations_concurrency_ratio", "background_message_broker_schedule_pool_size", b"background_message_broker_schedule_pool_size", "background_move_pool_size", b"background_move_pool_size", "background_pool_size", b"background_pool_size", "background_schedule_pool_size", b"background_schedule_pool_size", "backup_threads", b"backup_threads", "builtin_dictionaries_reload_interval", b"builtin_dictionaries_reload_interval", "default_database", b"default_database", "dictionaries_lazy_load", b"dictionaries_lazy_load", "error_log_enabled", b"error_log_enabled", "error_log_retention_size", b"error_log_retention_size", "error_log_retention_time", b"error_log_retention_time", "geobase_enabled", b"geobase_enabled", "jdbc_bridge", b"jdbc_bridge", "kafka", b"kafka", "keep_alive_timeout", b"keep_alive_timeout", "mark_cache_size", b"mark_cache_size", "max_concurrent_queries", b"max_concurrent_queries", "max_connections", b"max_connections", "max_partition_size_to_drop", b"max_partition_size_to_drop", "max_table_size_to_drop", b"max_table_size_to_drop", "merge_tree", b"merge_tree", "metric_log_enabled", b"metric_log_enabled", "metric_log_retention_size", b"metric_log_retention_size", "metric_log_retention_time", b"metric_log_retention_time", "mysql_protocol", b"mysql_protocol", "opentelemetry_span_log_enabled", b"opentelemetry_span_log_enabled", "opentelemetry_span_log_retention_size", b"opentelemetry_span_log_retention_size", "opentelemetry_span_log_retention_time", b"opentelemetry_span_log_retention_time", "part_log_retention_size", b"part_log_retention_size", "part_log_retention_time", b"part_log_retention_time", "processors_profile_log_enabled", b"processors_profile_log_enabled", "processors_profile_log_retention_size", b"processors_profile_log_retention_size", "processors_profile_log_retention_time", b"processors_profile_log_retention_time", "query_cache", b"query_cache", "query_log_retention_size", b"query_log_retention_size", "query_log_retention_time", b"query_log_retention_time", "query_thread_log_enabled", b"query_thread_log_enabled", "query_thread_log_retention_size", b"query_thread_log_retention_size", "query_thread_log_retention_time", b"query_thread_log_retention_time", "query_views_log_enabled", b"query_views_log_enabled", "query_views_log_retention_size", b"query_views_log_retention_size", "query_views_log_retention_time", b"query_views_log_retention_time", "rabbitmq", b"rabbitmq", "restore_threads", b"restore_threads", "session_log_enabled", b"session_log_enabled", "session_log_retention_size", b"session_log_retention_size", "session_log_retention_time", b"session_log_retention_time", "text_log_enabled", b"text_log_enabled", "text_log_retention_size", b"text_log_retention_size", "text_log_retention_time", b"text_log_retention_time", "total_memory_profiler_step", b"total_memory_profiler_step", "total_memory_tracker_sample_probability", b"total_memory_tracker_sample_probability", "trace_log_enabled", b"trace_log_enabled", "trace_log_retention_size", b"trace_log_retention_size", "trace_log_retention_time", b"trace_log_retention_time", "uncompressed_cache_size", b"uncompressed_cache_size", "zookeeper_log_enabled", b"zookeeper_log_enabled", "zookeeper_log_retention_size", b"zookeeper_log_retention_size", "zookeeper_log_retention_time", b"zookeeper_log_retention_time"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["access_control_improvements", b"access_control_improvements", "async_insert_threads", b"async_insert_threads", "asynchronous_insert_log_enabled", b"asynchronous_insert_log_enabled", "asynchronous_insert_log_retention_size", b"asynchronous_insert_log_retention_size", "asynchronous_insert_log_retention_time", b"asynchronous_insert_log_retention_time", "asynchronous_metric_log_enabled", b"asynchronous_metric_log_enabled", "asynchronous_metric_log_retention_size", b"asynchronous_metric_log_retention_size", "asynchronous_metric_log_retention_time", b"asynchronous_metric_log_retention_time", "background_buffer_flush_schedule_pool_size", b"background_buffer_flush_schedule_pool_size", "background_common_pool_size", b"background_common_pool_size", "background_distributed_schedule_pool_size", b"background_distributed_schedule_pool_size", "background_fetches_pool_size", b"background_fetches_pool_size", "background_merges_mutations_concurrency_ratio", b"background_merges_mutations_concurrency_ratio", "background_message_broker_schedule_pool_size", b"background_message_broker_schedule_pool_size", "background_move_pool_size", b"background_move_pool_size", "background_pool_size", b"background_pool_size", "background_schedule_pool_size", b"background_schedule_pool_size", "backup_threads", b"backup_threads", "builtin_dictionaries_reload_interval", b"builtin_dictionaries_reload_interval", "compression", b"compression", "custom_macros", b"custom_macros", "default_database", b"default_database", "dictionaries", b"dictionaries", "dictionaries_lazy_load", b"dictionaries_lazy_load", "error_log_enabled", b"error_log_enabled", "error_log_retention_size", b"error_log_retention_size", "error_log_retention_time", b"error_log_retention_time", "geobase_enabled", b"geobase_enabled", "geobase_uri", b"geobase_uri", "graphite_rollup", b"graphite_rollup", "jdbc_bridge", b"jdbc_bridge", "kafka", b"kafka", "kafka_topics", b"kafka_topics", "keep_alive_timeout", b"keep_alive_timeout", "log_level", b"log_level", "mark_cache_size", b"mark_cache_size", "max_concurrent_queries", b"max_concurrent_queries", "max_connections", b"max_connections", "max_partition_size_to_drop", b"max_partition_size_to_drop", "max_table_size_to_drop", b"max_table_size_to_drop", "merge_tree", b"merge_tree", "metric_log_enabled", b"metric_log_enabled", "metric_log_retention_size", b"metric_log_retention_size", "metric_log_retention_time", b"metric_log_retention_time", "mysql_protocol", b"mysql_protocol", "opentelemetry_span_log_enabled", b"opentelemetry_span_log_enabled", "opentelemetry_span_log_retention_size", b"opentelemetry_span_log_retention_size", "opentelemetry_span_log_retention_time", b"opentelemetry_span_log_retention_time", "part_log_retention_size", b"part_log_retention_size", "part_log_retention_time", b"part_log_retention_time", "processors_profile_log_enabled", b"processors_profile_log_enabled", "processors_profile_log_retention_size", b"processors_profile_log_retention_size", "processors_profile_log_retention_time", b"processors_profile_log_retention_time", "query_cache", b"query_cache", "query_log_retention_size", b"query_log_retention_size", "query_log_retention_time", b"query_log_retention_time", "query_masking_rules", b"query_masking_rules", "query_thread_log_enabled", b"query_thread_log_enabled", "query_thread_log_retention_size", b"query_thread_log_retention_size", "query_thread_log_retention_time", b"query_thread_log_retention_time", "query_views_log_enabled", b"query_views_log_enabled", "query_views_log_retention_size", b"query_views_log_retention_size", "query_views_log_retention_time", b"query_views_log_retention_time", "rabbitmq", b"rabbitmq", "restore_threads", b"restore_threads", "session_log_enabled", b"session_log_enabled", "session_log_retention_size", b"session_log_retention_size", "session_log_retention_time", b"session_log_retention_time", "text_log_enabled", b"text_log_enabled", "text_log_level", b"text_log_level", "text_log_retention_size", b"text_log_retention_size", "text_log_retention_time", b"text_log_retention_time", "timezone", b"timezone", "total_memory_profiler_step", b"total_memory_profiler_step", "total_memory_tracker_sample_probability", b"total_memory_tracker_sample_probability", "trace_log_enabled", b"trace_log_enabled", "trace_log_retention_size", b"trace_log_retention_size", "trace_log_retention_time", b"trace_log_retention_time", "uncompressed_cache_size", b"uncompressed_cache_size", "zookeeper_log_enabled", b"zookeeper_log_enabled", "zookeeper_log_retention_size", b"zookeeper_log_retention_size", "zookeeper_log_retention_time", b"zookeeper_log_retention_time"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["access_control_improvements", b"access_control_improvements", "async_insert_threads", b"async_insert_threads", "asynchronous_insert_log_enabled", b"asynchronous_insert_log_enabled", "asynchronous_insert_log_retention_size", b"asynchronous_insert_log_retention_size", "asynchronous_insert_log_retention_time", b"asynchronous_insert_log_retention_time", "asynchronous_metric_log_enabled", b"asynchronous_metric_log_enabled", "asynchronous_metric_log_retention_size", b"asynchronous_metric_log_retention_size", "asynchronous_metric_log_retention_time", b"asynchronous_metric_log_retention_time", "background_buffer_flush_schedule_pool_size", b"background_buffer_flush_schedule_pool_size", "background_common_pool_size", b"background_common_pool_size", "background_distributed_schedule_pool_size", b"background_distributed_schedule_pool_size", "background_fetches_pool_size", b"background_fetches_pool_size", "background_merges_mutations_concurrency_ratio", b"background_merges_mutations_concurrency_ratio", "background_message_broker_schedule_pool_size", b"background_message_broker_schedule_pool_size", "background_move_pool_size", b"background_move_pool_size", "background_pool_size", b"background_pool_size", "background_schedule_pool_size", b"background_schedule_pool_size", "backup_threads", b"backup_threads", "builtin_dictionaries_reload_interval", b"builtin_dictionaries_reload_interval", "default_database", b"default_database", "dictionaries_lazy_load", b"dictionaries_lazy_load", "error_log_enabled", b"error_log_enabled", "error_log_retention_size", b"error_log_retention_size", "error_log_retention_time", b"error_log_retention_time", "geobase_enabled", b"geobase_enabled", "jdbc_bridge", b"jdbc_bridge", "kafka", b"kafka", "keep_alive_timeout", b"keep_alive_timeout", "mark_cache_size", b"mark_cache_size", "max_build_vector_similarity_index_thread_pool_size", b"max_build_vector_similarity_index_thread_pool_size", "max_concurrent_queries", b"max_concurrent_queries", "max_connections", b"max_connections", "max_partition_size_to_drop", b"max_partition_size_to_drop", "max_table_size_to_drop", b"max_table_size_to_drop", "merge_tree", b"merge_tree", "metric_log_enabled", b"metric_log_enabled", "metric_log_retention_size", b"metric_log_retention_size", "metric_log_retention_time", b"metric_log_retention_time", "mysql_protocol", b"mysql_protocol", "opentelemetry_span_log_enabled", b"opentelemetry_span_log_enabled", "opentelemetry_span_log_retention_size", b"opentelemetry_span_log_retention_size", "opentelemetry_span_log_retention_time", b"opentelemetry_span_log_retention_time", "part_log_retention_size", b"part_log_retention_size", "part_log_retention_time", b"part_log_retention_time", "processors_profile_log_enabled", b"processors_profile_log_enabled", "processors_profile_log_retention_size", b"processors_profile_log_retention_size", "processors_profile_log_retention_time", b"processors_profile_log_retention_time", "query_cache", b"query_cache", "query_log_retention_size", b"query_log_retention_size", "query_log_retention_time", b"query_log_retention_time", "query_metric_log_enabled", b"query_metric_log_enabled", "query_metric_log_retention_size", b"query_metric_log_retention_size", "query_metric_log_retention_time", b"query_metric_log_retention_time", "query_thread_log_enabled", b"query_thread_log_enabled", "query_thread_log_retention_size", b"query_thread_log_retention_size", "query_thread_log_retention_time", b"query_thread_log_retention_time", "query_views_log_enabled", b"query_views_log_enabled", "query_views_log_retention_size", b"query_views_log_retention_size", "query_views_log_retention_time", b"query_views_log_retention_time", "rabbitmq", b"rabbitmq", "restore_threads", b"restore_threads", "session_log_enabled", b"session_log_enabled", "session_log_retention_size", b"session_log_retention_size", "session_log_retention_time", b"session_log_retention_time", "text_log_enabled", b"text_log_enabled", "text_log_retention_size", b"text_log_retention_size", "text_log_retention_time", b"text_log_retention_time", "total_memory_profiler_step", b"total_memory_profiler_step", "total_memory_tracker_sample_probability", b"total_memory_tracker_sample_probability", "trace_log_enabled", b"trace_log_enabled", "trace_log_retention_size", b"trace_log_retention_size", "trace_log_retention_time", b"trace_log_retention_time", "uncompressed_cache_size", b"uncompressed_cache_size", "vector_similarity_index_cache_max_entries", b"vector_similarity_index_cache_max_entries", "vector_similarity_index_cache_size", b"vector_similarity_index_cache_size", "zookeeper_log_enabled", b"zookeeper_log_enabled", "zookeeper_log_retention_size", b"zookeeper_log_retention_size", "zookeeper_log_retention_time", b"zookeeper_log_retention_time"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["access_control_improvements", b"access_control_improvements", "async_insert_threads", b"async_insert_threads", "asynchronous_insert_log_enabled", b"asynchronous_insert_log_enabled", "asynchronous_insert_log_retention_size", b"asynchronous_insert_log_retention_size", "asynchronous_insert_log_retention_time", b"asynchronous_insert_log_retention_time", "asynchronous_metric_log_enabled", b"asynchronous_metric_log_enabled", "asynchronous_metric_log_retention_size", b"asynchronous_metric_log_retention_size", "asynchronous_metric_log_retention_time", b"asynchronous_metric_log_retention_time", "background_buffer_flush_schedule_pool_size", b"background_buffer_flush_schedule_pool_size", "background_common_pool_size", b"background_common_pool_size", "background_distributed_schedule_pool_size", b"background_distributed_schedule_pool_size", "background_fetches_pool_size", b"background_fetches_pool_size", "background_merges_mutations_concurrency_ratio", b"background_merges_mutations_concurrency_ratio", "background_message_broker_schedule_pool_size", b"background_message_broker_schedule_pool_size", "background_move_pool_size", b"background_move_pool_size", "background_pool_size", b"background_pool_size", "background_schedule_pool_size", b"background_schedule_pool_size", "backup_threads", b"backup_threads", "builtin_dictionaries_reload_interval", b"builtin_dictionaries_reload_interval", "compression", b"compression", "custom_macros", b"custom_macros", "default_database", b"default_database", "dictionaries", b"dictionaries", "dictionaries_lazy_load", b"dictionaries_lazy_load", "error_log_enabled", b"error_log_enabled", "error_log_retention_size", b"error_log_retention_size", "error_log_retention_time", b"error_log_retention_time", "geobase_enabled", b"geobase_enabled", "geobase_uri", b"geobase_uri", "graphite_rollup", b"graphite_rollup", "jdbc_bridge", b"jdbc_bridge", "kafka", b"kafka", "kafka_topics", b"kafka_topics", "keep_alive_timeout", b"keep_alive_timeout", "log_level", b"log_level", "mark_cache_size", b"mark_cache_size", "max_build_vector_similarity_index_thread_pool_size", b"max_build_vector_similarity_index_thread_pool_size", "max_concurrent_queries", b"max_concurrent_queries", "max_connections", b"max_connections", "max_partition_size_to_drop", b"max_partition_size_to_drop", "max_table_size_to_drop", b"max_table_size_to_drop", "merge_tree", b"merge_tree", "metric_log_enabled", b"metric_log_enabled", "metric_log_retention_size", b"metric_log_retention_size", "metric_log_retention_time", b"metric_log_retention_time", "mysql_protocol", b"mysql_protocol", "opentelemetry_span_log_enabled", b"opentelemetry_span_log_enabled", "opentelemetry_span_log_retention_size", b"opentelemetry_span_log_retention_size", "opentelemetry_span_log_retention_time", b"opentelemetry_span_log_retention_time", "part_log_retention_size", b"part_log_retention_size", "part_log_retention_time", b"part_log_retention_time", "processors_profile_log_enabled", b"processors_profile_log_enabled", "processors_profile_log_retention_size", b"processors_profile_log_retention_size", "processors_profile_log_retention_time", b"processors_profile_log_retention_time", "query_cache", b"query_cache", "query_log_retention_size", b"query_log_retention_size", "query_log_retention_time", b"query_log_retention_time", "query_masking_rules", b"query_masking_rules", "query_metric_log_enabled", b"query_metric_log_enabled", "query_metric_log_retention_size", b"query_metric_log_retention_size", "query_metric_log_retention_time", b"query_metric_log_retention_time", "query_thread_log_enabled", b"query_thread_log_enabled", "query_thread_log_retention_size", b"query_thread_log_retention_size", "query_thread_log_retention_time", b"query_thread_log_retention_time", "query_views_log_enabled", b"query_views_log_enabled", "query_views_log_retention_size", b"query_views_log_retention_size", "query_views_log_retention_time", b"query_views_log_retention_time", "rabbitmq", b"rabbitmq", "restore_threads", b"restore_threads", "session_log_enabled", b"session_log_enabled", "session_log_retention_size", b"session_log_retention_size", "session_log_retention_time", b"session_log_retention_time", "text_log_enabled", b"text_log_enabled", "text_log_level", b"text_log_level", "text_log_retention_size", b"text_log_retention_size", "text_log_retention_time", b"text_log_retention_time", "timezone", b"timezone", "total_memory_profiler_step", b"total_memory_profiler_step", "total_memory_tracker_sample_probability", b"total_memory_tracker_sample_probability", "trace_log_enabled", b"trace_log_enabled", "trace_log_retention_size", b"trace_log_retention_size", "trace_log_retention_time", b"trace_log_retention_time", "uncompressed_cache_size", b"uncompressed_cache_size", "vector_similarity_index_cache_max_entries", b"vector_similarity_index_cache_max_entries", "vector_similarity_index_cache_size", b"vector_similarity_index_cache_size", "zookeeper_log_enabled", b"zookeeper_log_enabled", "zookeeper_log_retention_size", b"zookeeper_log_retention_size", "zookeeper_log_retention_time", b"zookeeper_log_retention_time"]) -> None: ...
 
 global___ClickhouseConfig = ClickhouseConfig
 

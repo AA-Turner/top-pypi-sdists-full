@@ -1,10 +1,10 @@
 # Copyright Modal Labs 2022
 import sys
 
-if sys.version_info[:2] < (3, 9):
-    raise RuntimeError("This version of Modal requires at least Python 3.9")
-if sys.version_info[:2] >= (3, 14):
-    raise RuntimeError("This version of Modal does not support Python 3.14+")
+if sys.version_info[:2] < (3, 10):
+    raise RuntimeError("This version of Modal requires at least Python 3.10")
+if sys.version_info[:2] >= (3, 15):
+    raise RuntimeError("This version of Modal does not support Python 3.15+")
 
 from modal_version import __version__
 
@@ -41,6 +41,7 @@ try:
     from .schedule import Cron, Period
     from .scheduler_placement import SchedulerPlacement
     from .secret import Secret
+    from .server import Server
     from .snapshot import SandboxSnapshot
     from .volume import Volume
 except Exception:
@@ -75,6 +76,7 @@ __all__ = [
     "SandboxSnapshot",
     "SchedulerPlacement",
     "Secret",
+    "Server",
     "Tunnel",
     "Volume",
     "asgi_app",

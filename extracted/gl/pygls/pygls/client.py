@@ -14,61 +14,28 @@
 # See the License for the specific language governing permissions and      #
 # limitations under the License.                                           #
 ############################################################################
+from __future__ import annotations
+
 import asyncio
 import logging
-import re
+import sys
+import typing
 from threading import Event
-from typing import Any
-from typing import Callable
-from typing import List
-from typing import Optional
-from typing import Type
-from typing import Union
 
-from cattrs import Converter
-
-from pygls.exceptions import PyglsError, JsonRpcException
+from pygls.exceptions import JsonRpcException, PyglsError
+from pygls.io_ import run_async, run_websocket
 from pygls.protocol import JsonRPCProtocol, default_converter
 
+if typing.TYPE_CHECKING:
+    from typing import Any
+    from typing import Callable
+    from typing import List
+    from typing import Optional
+    from typing import Type
+
+    from cattrs import Converter
 
 logger = logging.getLogger(__name__)
-
-
-async def aio_readline(stop_event, reader, message_handler):
-    CONTENT_LENGTH_PATTERN = re.compile(rb"^Content-Length: (\d+)\r\n$")
-
-    # Initialize message buffer
-    message = []
-    content_length = 0
-
-    while not stop_event.is_set():
-        # Read a header line
-        header = await reader.readline()
-        if not header:
-            break
-        message.append(header)
-
-        # Extract content length if possible
-        if not content_length:
-            match = CONTENT_LENGTH_PATTERN.fullmatch(header)
-            if match:
-                content_length = int(match.group(1))
-                logger.debug("Content length: %s", content_length)
-
-        # Check if all headers have been read (as indicated by an empty line \r\n)
-        if content_length and not header.strip():
-            # Read body
-            body = await reader.readexactly(content_length)
-            if not body:
-                break
-            message.append(body)
-
-            # Pass message to protocol
-            message_handler(b"".join(message))
-
-            # Reset the buffer
-            message = []
-            content_length = 0
 
 
 class JsonRPCClient:
@@ -79,14 +46,14 @@ class JsonRPCClient:
         protocol_cls: Type[JsonRPCProtocol] = JsonRPCProtocol,
         converter_factory: Callable[[], Converter] = default_converter,
     ):
-        # Strictly speaking `JsonRPCProtocol` wants a `LanguageServer`, not a
-        # `JsonRPCClient`. However there similar enough for our purposes, which is
-        # that this client will mostly be used in testing contexts.
+        # Strictly speaking, `JsonRPCProtocol` wants a `JsonRPCServer`, not a
+        # `JsonRPCClient`. However they're similar enough for our purposes, which
+        # is that this client will mostly be used in testing contexts.
         self.protocol = protocol_cls(self, converter_factory())  # type: ignore
 
         self._server: Optional[asyncio.subprocess.Process] = None
         self._stop_event = Event()
-        self._async_tasks: List[asyncio.Task] = []
+        self._async_tasks: List[asyncio.Task[Any]] = []
 
     @property
     def stopped(self) -> bool:
@@ -128,39 +95,112 @@ class JsonRPCClient:
             **kwargs,
         )
 
-        self.protocol.connection_made(server.stdin)  # type: ignore
+        # Keep mypy happy
+        if server.stdout is None:
+            raise RuntimeError("Server process is missing a stdout stream")
+
+        # Keep mypy happy
+        if server.stdin is None:
+            raise RuntimeError("Server process is missing a stdin stream")
+
+        self.protocol.set_writer(server.stdin)
         connection = asyncio.create_task(
-            aio_readline(self._stop_event, server.stdout, self.protocol.data_received)
+            run_async(
+                stop_event=self._stop_event,
+                reader=server.stdout,
+                protocol=self.protocol,
+                logger=logger,
+                error_handler=self.report_server_error,
+            )
         )
         notify_exit = asyncio.create_task(self._server_exit())
 
         self._server = server
         self._async_tasks.extend([connection, notify_exit])
 
-    async def _server_exit(self):
-        if self._server is not None:
-            await self._server.wait()
-            logger.debug(
-                "Server process %s exited with return code: %s",
-                self._server.pid,
-                self._server.returncode,
+    async def start_tcp(self, host: str, port: int):
+        """Start communicating with a server over TCP."""
+        reader, writer = await asyncio.open_connection(host, port)
+
+        self.protocol.set_writer(writer)
+        connection = asyncio.create_task(
+            run_async(
+                stop_event=self._stop_event,
+                reader=reader,
+                protocol=self.protocol,
+                logger=logger,
+                error_handler=self.report_server_error,
             )
+        )
+
+        self._async_tasks.extend([connection])
+
+    async def start_ws(self, host: str, port: int):
+        """Start communicating with a server over WebSockets."""
+
+        try:
+            from websockets.asyncio.client import connect
+        except ImportError:
+            logger.exception(
+                "Run `pip install pygls[ws]` to install dependencies required for websockets."
+            )
+            sys.exit(1)
+
+        uri = f"ws://{host}:{port}"
+        websocket = await connect(uri)
+        connection = asyncio.create_task(
+            run_websocket(
+                stop_event=self._stop_event,
+                websocket=websocket,
+                protocol=self.protocol,
+                logger=logger,
+                error_handler=self.report_server_error,
+            )
+        )
+        self._async_tasks.extend([connection])
+
+        # Yield control to the event loop, gives the run_websocket task chance to spin up.
+        await asyncio.sleep(0)
+
+    async def _server_exit(self):
+        """Cleanup handler that runs when the server process managed by the client exits"""
+        if self._server is None:
+            return
+
+        await self._server.wait()
+
+        pid = self._server.pid
+        returncode = self._server.returncode
+
+        reason = f"Server process {pid} exited with return code: {returncode}"
+        logger.debug(reason)
+
+        # Cancel any pending requests
+        for id_, fut in self.protocol._request_futures.items():
+            if not fut.done():
+                fut.set_exception(RuntimeError(reason))
+                logger.debug("Cancelled pending request '%s': %s", id_, reason)
+
+        try:
             await self.server_exit(self._server)
-            self._stop_event.set()
+        except Exception:
+            logger.exception("Error in server_exit handler")
+
+        self._stop_event.set()
 
     async def server_exit(self, server: asyncio.subprocess.Process):
         """Called when the server process exits."""
 
     def _report_server_error(
-        self, error: Exception, source: Union[PyglsError, JsonRpcException]
+        self, error: Exception, source: type[PyglsError] | type[JsonRpcException]
     ):
         try:
             self.report_server_error(error, source)
         except Exception:
-            logger.error("Unable to report error", exc_info=True)
+            logger.exception("Unable to report error")
 
     def report_server_error(
-        self, error: Exception, source: Union[PyglsError, JsonRpcException]
+        self, error: Exception, source: type[PyglsError] | type[JsonRpcException]
     ):
         """Called when the server does something unexpected e.g. respond with malformed
         JSON."""
@@ -169,8 +209,7 @@ class JsonRPCClient:
         self._stop_event.set()
 
         if self._server is not None and self._server.returncode is None:
-            logger.debug("Terminating server process: %s", self._server.pid)
-            self._server.terminate()
+            await self._server.wait()
 
         if len(self._async_tasks) > 0:
             await asyncio.gather(*self._async_tasks)

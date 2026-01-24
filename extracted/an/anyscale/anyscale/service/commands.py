@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_command
@@ -32,10 +32,14 @@ anyscale.service.deploy(
 """
 
 _DEPLOY_ARG_DOCSTRINGS = {
-    "config": "The config options defining the service.",
+    "configs": "The config options defining the service.",
     "in_place": "Perform an in-place upgrade without starting a new cluster. This can be used for faster iteration during development but is *not* currently recommended for production deploys. This *cannot* be used to change cluster-level options such as image and compute config (they will be ignored).",
     "canary_percent": "The percentage of traffic to send to the canary version of the service (0-100). This can be used to manually shift traffic toward (or away from) the canary version. If not provided, traffic will be shifted incrementally toward the canary version until it reaches 100. Not supported when using --in-place. This is ignored when restarting a service or creating a new service.",
     "max_surge_percent": "Amount of excess capacity allowed to be used while updating the service (0-100). Defaults to 100. Not supported when using --in-place.",
+    "versions": "Enable multi-version deployment by providing a JSON array of objects or a JSON object in text format. Defines the version name, traffic and capacity percents per version. Capacity defaults to traffic.",
+    "name": "Name of the service. When running in a workspace, this defaults to the workspace name.",
+    "cloud": "The Anyscale Cloud of this workload. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",
+    "project": "Named project to use for the service. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
 }
 
 
@@ -46,11 +50,15 @@ _DEPLOY_ARG_DOCSTRINGS = {
     arg_docstrings=_DEPLOY_ARG_DOCSTRINGS,
 )
 def deploy(
-    config: ServiceConfig,
+    configs: Union[ServiceConfig, List[ServiceConfig]],
     *,
     in_place: bool = False,
     canary_percent: Optional[int] = None,
     max_surge_percent: Optional[int] = None,
+    versions: Optional[str] = None,
+    name: Optional[str] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
     _private_sdk: Optional[PrivateServiceSDK] = None,
 ) -> str:
     """Deploy a service.
@@ -62,10 +70,14 @@ def deploy(
     Returns the id of the deployed service.
     """
     return _private_sdk.deploy(  # type: ignore
-        config,
+        configs=configs,
         in_place=in_place,
         canary_percent=canary_percent,
         max_surge_percent=max_surge_percent,
+        versions=versions,
+        name=name,
+        cloud=cloud,
+        project=project,
     )
 
 
@@ -311,6 +323,111 @@ _CONTROLLER_LOGS_ARG_DOCSTRINGS = {
     "max_lines": "The number of log lines to be fetched. If not provided, 1000 lines will be fetched.",
 }
 
+# SDK docs for Service tag operations
+_TAGS_ADD_EXAMPLE = """
+import anyscale
+
+anyscale.service.add_tags(id="svc_123", tags={"team": "mlops", "env": "prod"})
+"""
+
+_TAGS_ADD_ARG_DOCSTRINGS = {
+    "id": "ID of the service. Provide either id or name.",
+    "name": "Name of the service. Provide either id or name.",
+    "cloud": "Cloud name (used when resolving by name).",
+    "project": "Project name (used when resolving by name).",
+    "tags": "Key/value tags to upsert as a map {key: value}.",
+}
+
+_TAGS_REMOVE_EXAMPLE = """
+import anyscale
+
+anyscale.service.remove_tags(id="svc_123", keys=["team", "env"])
+"""
+
+_TAGS_REMOVE_ARG_DOCSTRINGS = {
+    "id": "ID of the service. Provide either id or name.",
+    "name": "Name of the service. Provide either id or name.",
+    "cloud": "Cloud name (used when resolving by name).",
+    "project": "Project name (used when resolving by name).",
+    "keys": "List of tag keys to remove.",
+}
+
+
+@sdk_command(
+    _SERVICE_SDK_SINGLETON_KEY,
+    PrivateServiceSDK,
+    doc_py_example=_TAGS_ADD_EXAMPLE,
+    arg_docstrings=_TAGS_ADD_ARG_DOCSTRINGS,
+)
+def add_tags(
+    *,
+    id: Optional[str] = None,  # noqa: A002
+    name: Optional[str] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    tags: Dict[str, str],
+    _private_sdk: Optional[PrivateServiceSDK] = None,
+):
+    """Upsert (add/update) tag key/value pairs for a service."""
+    return _private_sdk.add_tags(  # type: ignore
+        id=id, name=name, cloud=cloud, project=project, tags=tags
+    )
+
+
+@sdk_command(
+    _SERVICE_SDK_SINGLETON_KEY,
+    PrivateServiceSDK,
+    doc_py_example=_TAGS_REMOVE_EXAMPLE,
+    arg_docstrings=_TAGS_REMOVE_ARG_DOCSTRINGS,
+)
+def remove_tags(
+    *,
+    id: Optional[str] = None,  # noqa: A002
+    name: Optional[str] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    keys: List[str],
+    _private_sdk: Optional[PrivateServiceSDK] = None,
+):
+    """Remove tags by key from a service."""
+    return _private_sdk.remove_tags(  # type: ignore
+        id=id, name=name, cloud=cloud, project=project, keys=keys
+    )
+
+
+_TAGS_LIST_EXAMPLE = """
+import anyscale
+
+tags: dict[str, str] = anyscale.service.list_tags(name="my-service")
+"""
+
+_TAGS_LIST_ARG_DOCSTRINGS = {
+    "id": "ID of the service. Provide either id or name.",
+    "name": "Name of the service. Provide either id or name.",
+    "cloud": "Cloud name (used when resolving by name).",
+    "project": "Project name (used when resolving by name).",
+}
+
+
+@sdk_command(
+    _SERVICE_SDK_SINGLETON_KEY,
+    PrivateServiceSDK,
+    doc_py_example=_TAGS_LIST_EXAMPLE,
+    arg_docstrings=_TAGS_LIST_ARG_DOCSTRINGS,
+)
+def list_tags(
+    *,
+    id: Optional[str] = None,  # noqa: A002
+    name: Optional[str] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    _private_sdk: Optional[PrivateServiceSDK] = None,
+) -> Dict[str, str]:
+    """List tags for a service as a key/value mapping."""
+    return _private_sdk.list_tags(  # type: ignore
+        id=id, name=name, cloud=cloud, project=project
+    )
+
 
 # This is a private command that is not exposed to the user.
 @sdk_command(
@@ -363,6 +480,7 @@ _LIST_ARG_DOCSTRINGS = {
     "cloud": "Name of the Anyscale Cloud to search in.",
     "project": "Name of the Anyscale Project to search in.",
     "include_archived": "Include archived services (default: False).",
+    "tags_filter": r"Filter services by tags as a dict: \{key: [values...]\}. Values with the same key are ORed; keys are ANDed.",
     # Paging
     "max_items": "Maximum **total** number of items to yield (default: iterate all).",
     "page_size": "Number of items to fetch per API request (default: API default).",
@@ -390,6 +508,7 @@ def list(  # noqa: A001
     cloud: Optional[str] = None,
     project: Optional[str] = None,
     include_archived: bool = False,
+    tags_filter: Optional[Dict[str, List[str]]] = None,
     # Paging
     max_items: Optional[int] = None,
     page_size: Optional[int] = None,
@@ -408,6 +527,7 @@ def list(  # noqa: A001
         cloud=cloud,
         project=project,
         include_archived=include_archived,
+        tags_filter=tags_filter,
         max_items=max_items,
         page_size=page_size,
         sort_field=sort_field,

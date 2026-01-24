@@ -61,7 +61,6 @@ from neutron.db.models import l3 as l3_models
 from neutron.db.models import securitygroup as sg_models
 from neutron.db import models_v2
 from neutron.db import rbac_db_models
-from neutron.exceptions import mtu as mtu_exc
 from neutron.ipam.drivers.neutrondb_ipam import driver as ipam_driver
 from neutron.ipam import exceptions as ipam_exc
 from neutron.objects import network as network_obj
@@ -147,7 +146,7 @@ class NeutronDbPluginV2TestCase(testlib_api.WebTestCase):
                        'DhcpAgentNotifyAPI').start()
         # Update the plugin
         self.setup_coreplugin(plugin, load_plugins=False)
-        if isinstance(service_plugins, (list, tuple)):
+        if isinstance(service_plugins, list | tuple):
             # Sometimes we needs these test service_plugins to be ordered.
             cfg.CONF.set_override('service_plugins', service_plugins)
         else:
@@ -402,7 +401,7 @@ class NeutronDbPluginV2TestCase(testlib_api.WebTestCase):
             "json", 200, subnet['network_id']).json['ports']
         used_ips = set()
         if exclude:
-            if isinstance(exclude, (list, set, tuple)):
+            if isinstance(exclude, list | set | tuple):
                 used_ips = set(exclude)
             else:
                 used_ips.add(exclude)
@@ -437,7 +436,7 @@ class NeutronDbPluginV2TestCase(testlib_api.WebTestCase):
         collection = "%ss" % resource
         for i in range(number):
             obj = copy.deepcopy(data)
-            obj[resource]['name'] = "{}_{}".format(name, i)
+            obj[resource]['name'] = f"{name}_{i}"
             if 'override' in kwargs and i in kwargs['override']:
                 obj[resource].update(kwargs['override'][i])
             objects.append(obj)
@@ -516,7 +515,8 @@ class NeutronDbPluginV2TestCase(testlib_api.WebTestCase):
         if ip_version == constants.IP_VERSION_6:
             base_cidr = "fd%s::/64"
         overrides = dict(zip(range(number),
-            [{'cidr': base_cidr % num} for num in range(number)]))
+                             [{'cidr': base_cidr % num}
+                              for num in range(number)]))
         kwargs.update({'override': overrides})
         return self._create_bulk(fmt, number, 'subnet', base_data, **kwargs)
 
@@ -660,12 +660,12 @@ class NeutronDbPluginV2TestCase(testlib_api.WebTestCase):
                    as_admin=False, **kwargs):
         res = self._create_port(fmt, net_id, expected_res_status,
                                 is_admin=as_admin, **kwargs)
-        self._check_http_response(res)
+        self._check_http_response(res, expected_res_status)
         return self.deserialize(fmt, res)
 
     def _make_security_group(self, fmt, name=None, expected_res_status=None,
                              project_id=None, is_admin=False):
-        name = name or 'sg-{}'.format(uuidutils.generate_uuid())
+        name = name or f'sg-{uuidutils.generate_uuid()}'
         project_id = project_id or self._tenant_id
         data = {'security_group': {'name': name,
                                    'description': name,
@@ -1060,6 +1060,32 @@ class TestBasicGet(NeutronDbPluginV2TestCase):
             ctx = context.get_admin_context()
             n = plugin._get_network(ctx, net_id)
             self.assertEqual(net_id, n.id)
+
+    def test_list_with_context_with_global_access(self):
+        plugin = neutron.db.db_base_plugin_v2.NeutronDbPluginV2()
+        ctx = context.Context(
+            user_id="auditor", project_id="auditor project",
+            is_admin=False, has_global_access=True)
+        with self.network(project_id='some project') as net1, \
+                self.network(project_id='other project') as net2, \
+                self.network(project_id='auditor project') as own_net:
+            networks = plugin.get_networks(ctx)
+            net_ids = [n['id'] for n in networks]
+            self.assertIn(own_net['network']['id'], net_ids)
+            self.assertIn(net1['network']['id'], net_ids)
+            self.assertIn(net2['network']['id'], net_ids)
+
+    def test_single_get_with_context_with_global_access(self):
+        plugin = neutron.db.db_base_plugin_v2.NeutronDbPluginV2()
+        ctx = context.Context(
+            user_id="auditor", project_id="auditor project",
+            is_admin=False, has_global_access=True)
+        with self.network(project_id='some project') as net1, \
+                self.network(project_id='other project') as net2, \
+                self.network(project_id='auditor project') as own_net:
+            for net in [net1, net2, own_net]:
+                network = plugin._get_network(ctx, net['network']['id'])
+                self.assertEqual(net['network']['id'], network['id'])
 
 
 class TestV2HTTPResponse(NeutronDbPluginV2TestCase):
@@ -5462,11 +5488,11 @@ class TestSubnetsV2(NeutronDbPluginV2TestCase):
                                 gateway_ip='10.0.1.1',
                                 cidr='10.0.1.0/24') as v2:
                 subnets = (v1, v2)
-                query_params = ('project_id={0}'.
+                query_params = ('project_id={}'.
                                 format(network['network']['project_id']))
                 self._test_list_resources('subnet', subnets,
                                           query_params=query_params)
-                query_params = ('project_id={0}'.
+                query_params = ('project_id={}'.
                                 format(uuidutils.generate_uuid()))
                 self._test_list_resources('subnet', [],
                                           query_params=query_params)
@@ -6455,6 +6481,28 @@ class TestSubnetPoolsV2(NeutronDbPluginV2TestCase):
             self.assertEqual(subnet.prefixlen,
                              int(sp['subnetpool']['default_prefixlen']))
 
+    def test_allocate_any_subnet_with_default_prefixlen_no_gateway_ip(self):
+        with self.network() as network:
+            sp = self._test_create_subnetpool(['10.10.0.0/16'],
+                                              tenant_id=self._tenant_id,
+                                              name=self._POOL_NAME,
+                                              min_prefixlen='21')
+
+            # Request any subnet allocation using default prefix
+            data = {'subnet': {'network_id': network['network']['id'],
+                               'subnetpool_id': sp['subnetpool']['id'],
+                               'ip_version': constants.IP_VERSION_4,
+                               'tenant_id': network['network']['tenant_id'],
+                               'gateway_ip': None,
+                               }}
+            req = self.new_create_request('subnets', data)
+            res = self.deserialize(self.fmt, req.get_response(self.api))
+
+            subnet = netaddr.IPNetwork(res['subnet']['cidr'])
+            self.assertEqual(subnet.prefixlen,
+                             int(sp['subnetpool']['default_prefixlen']))
+            self.assertIsNone(res['subnet']['gateway_ip'])
+
     def test_allocate_specific_subnet_with_mismatch_prefixlen(self):
         with self.network() as network:
             sp = self._test_create_subnetpool(['10.10.0.0/16'],
@@ -6644,6 +6692,29 @@ class TestSubnetPoolsV2(NeutronDbPluginV2TestCase):
             req = self.new_create_request('subnets', data)
             res = req.get_response(self.api)
             self._check_http_response(res, 400)
+
+    def test_allocate_specific_subnet_no_gateway_ip(self):
+        with self.network() as network:
+            sp = self._test_create_subnetpool(['10.10.0.0/16'],
+                                              tenant_id=self._tenant_id,
+                                              name=self._POOL_NAME,
+                                              min_prefixlen='21')
+
+            # Request a specific subnet allocation
+            data = {'subnet': {'network_id': network['network']['id'],
+                               'subnetpool_id': sp['subnetpool']['id'],
+                               'cidr': '10.10.1.0/24',
+                               'ip_version': constants.IP_VERSION_4,
+                               'tenant_id': network['network']['tenant_id'],
+                               'gateway_ip': None,
+                               }}
+            req = self.new_create_request('subnets', data)
+            res = self.deserialize(self.fmt, req.get_response(self.api))
+
+            # Assert the allocated subnet CIDR is what we expect
+            subnet = netaddr.IPNetwork(res['subnet']['cidr'])
+            self.assertEqual(netaddr.IPNetwork('10.10.1.0/24'), subnet)
+            self.assertIsNone(res['subnet']['gateway_ip'])
 
     def test_delete_subnetpool_existing_allocations(self):
         with self.network() as network:
@@ -7262,7 +7333,7 @@ class NeutronDbPluginV2AsMixinTestCase(NeutronDbPluginV2TestCase,
 
         # This should fail with any subnets present
         self.net_data['network']['mtu'] = constants.IPV4_MIN_MTU - 1
-        with testlib_api.ExpectedException(mtu_exc.NetworkMTUSubnetConflict):
+        with testlib_api.ExpectedException(lib_exc.NetworkMTUSubnetConflict):
             self.plugin.update_network(self.context, net['id'], self.net_data)
 
     def test_update_network_invalid_mtu_ipv4_ipv6(self):
@@ -7283,13 +7354,13 @@ class NeutronDbPluginV2AsMixinTestCase(NeutronDbPluginV2TestCase,
         self.plugin.update_network(self.context, net['id'], self.net_data)
 
         # These should all fail with both subnets present
-        with testlib_api.ExpectedException(mtu_exc.NetworkMTUSubnetConflict):
+        with testlib_api.ExpectedException(lib_exc.NetworkMTUSubnetConflict):
             self.net_data['network']['mtu'] = constants.IPV6_MIN_MTU - 1
             self.plugin.update_network(self.context, net['id'], self.net_data)
-        with testlib_api.ExpectedException(mtu_exc.NetworkMTUSubnetConflict):
+        with testlib_api.ExpectedException(lib_exc.NetworkMTUSubnetConflict):
             self.net_data['network']['mtu'] = constants.IPV4_MIN_MTU
             self.plugin.update_network(self.context, net['id'], self.net_data)
-        with testlib_api.ExpectedException(mtu_exc.NetworkMTUSubnetConflict):
+        with testlib_api.ExpectedException(lib_exc.NetworkMTUSubnetConflict):
             self.net_data['network']['mtu'] = constants.IPV4_MIN_MTU - 1
             self.plugin.update_network(self.context, net['id'], self.net_data)
 
@@ -7405,7 +7476,7 @@ class DbOperationBoundMixin:
         # using filters shouldn't change the count either
         if filters:
             query_params = "&".join(
-                ["{}={}".format(f, obj[f]) for f in filters])
+                [f"{f}={obj[f]}" for f in filters])
             after_queries = self._list_and_record_queries(plural, query_params)
             self.assertEqual(len(before_queries), len(after_queries),
                              self._qry_fail_msg(before_queries, after_queries))

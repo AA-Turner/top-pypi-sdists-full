@@ -1,7 +1,7 @@
 r'''
 # `github_repository_webhook`
 
-Refer to the Terraform Registry for docs: [`github_repository_webhook`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook).
+Refer to the Terraform Registry for docs: [`github_repository_webhook`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryWebhook(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryWebhook.RepositoryWebhook",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook github_repository_webhook}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook github_repository_webhook}.'''
 
     def __init__(
         self,
@@ -55,6 +55,7 @@ class RepositoryWebhook(
         repository: builtins.str,
         active: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         configuration: typing.Optional[typing.Union["RepositoryWebhookConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        etag: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -64,15 +65,16 @@ class RepositoryWebhook(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook github_repository_webhook} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook github_repository_webhook} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param events: A list of events which should trigger the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#events RepositoryWebhook#events}
-        :param repository: The repository of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#repository RepositoryWebhook#repository}
-        :param active: Indicate if the webhook should receive events. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#active RepositoryWebhook#active}
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#configuration RepositoryWebhook#configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#id RepositoryWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param events: A list of events which should trigger the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#events RepositoryWebhook#events}
+        :param repository: The repository name of the webhook, not including the organization, which will be inferred. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#repository RepositoryWebhook#repository}
+        :param active: Indicate if the webhook should receive events. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#active RepositoryWebhook#active}
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#configuration RepositoryWebhook#configuration}
+        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#etag RepositoryWebhook#etag}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#id RepositoryWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -90,6 +92,7 @@ class RepositoryWebhook(
             repository=repository,
             active=active,
             configuration=configuration,
+            etag=etag,
             id=id,
             connection=connection,
             count=count,
@@ -115,7 +118,7 @@ class RepositoryWebhook(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryWebhook to import.
-        :param import_from_id: The id of the existing RepositoryWebhook that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryWebhook that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryWebhook to import is found.
         '''
         if __debug__:
@@ -136,10 +139,10 @@ class RepositoryWebhook(
         secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#url RepositoryWebhook#url}
-        :param content_type: The content type for the payload. Valid values are either 'form' or 'json'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#content_type RepositoryWebhook#content_type}
-        :param insecure_ssl: Insecure SSL boolean toggle. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#insecure_ssl RepositoryWebhook#insecure_ssl}
-        :param secret: The shared secret for the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#secret RepositoryWebhook#secret}
+        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#url RepositoryWebhook#url}
+        :param content_type: The content type for the payload. Valid values are either 'form' or 'json'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#content_type RepositoryWebhook#content_type}
+        :param insecure_ssl: Insecure SSL boolean toggle. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#insecure_ssl RepositoryWebhook#insecure_ssl}
+        :param secret: The shared secret for the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#secret RepositoryWebhook#secret}
         '''
         value = RepositoryWebhookConfiguration(
             url=url,
@@ -157,6 +160,10 @@ class RepositoryWebhook(
     @jsii.member(jsii_name="resetConfiguration")
     def reset_configuration(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetConfiguration", []))
+
+    @jsii.member(jsii_name="resetEtag")
+    def reset_etag(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEtag", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -181,11 +188,6 @@ class RepositoryWebhook(
         return typing.cast("RepositoryWebhookConfigurationOutputReference", jsii.get(self, "configuration"))
 
     @builtins.property
-    @jsii.member(jsii_name="etag")
-    def etag(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "etag"))
-
-    @builtins.property
     @jsii.member(jsii_name="url")
     def url(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "url"))
@@ -201,6 +203,11 @@ class RepositoryWebhook(
     @jsii.member(jsii_name="configurationInput")
     def configuration_input(self) -> typing.Optional["RepositoryWebhookConfiguration"]:
         return typing.cast(typing.Optional["RepositoryWebhookConfiguration"], jsii.get(self, "configurationInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="etagInput")
+    def etag_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "etagInput"))
 
     @builtins.property
     @jsii.member(jsii_name="eventsInput")
@@ -231,6 +238,18 @@ class RepositoryWebhook(
             type_hints = typing.get_type_hints(_typecheckingstub__4646a5f8280c59d7e9a05e18abf0bf979c1e9b585ea37e4d46209339c0e653fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "active", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="etag")
+    def etag(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "etag"))
+
+    @etag.setter
+    def etag(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__397a4d1618ef11eabf5a83501a02849aab324d59a7425844460d9269fce591c4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "etag", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="events")
@@ -284,6 +303,7 @@ class RepositoryWebhook(
         "repository": "repository",
         "active": "active",
         "configuration": "configuration",
+        "etag": "etag",
         "id": "id",
     },
 )
@@ -302,6 +322,7 @@ class RepositoryWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         repository: builtins.str,
         active: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         configuration: typing.Optional[typing.Union["RepositoryWebhookConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        etag: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -312,11 +333,12 @@ class RepositoryWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param events: A list of events which should trigger the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#events RepositoryWebhook#events}
-        :param repository: The repository of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#repository RepositoryWebhook#repository}
-        :param active: Indicate if the webhook should receive events. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#active RepositoryWebhook#active}
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#configuration RepositoryWebhook#configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#id RepositoryWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param events: A list of events which should trigger the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#events RepositoryWebhook#events}
+        :param repository: The repository name of the webhook, not including the organization, which will be inferred. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#repository RepositoryWebhook#repository}
+        :param active: Indicate if the webhook should receive events. Defaults to 'true'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#active RepositoryWebhook#active}
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#configuration RepositoryWebhook#configuration}
+        :param etag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#etag RepositoryWebhook#etag}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#id RepositoryWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -335,6 +357,7 @@ class RepositoryWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument active", value=active, expected_type=type_hints["active"])
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument etag", value=etag, expected_type=type_hints["etag"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "events": events,
@@ -358,6 +381,8 @@ class RepositoryWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["active"] = active
         if configuration is not None:
             self._values["configuration"] = configuration
+        if etag is not None:
+            self._values["etag"] = etag
         if id is not None:
             self._values["id"] = id
 
@@ -429,7 +454,7 @@ class RepositoryWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def events(self) -> typing.List[builtins.str]:
         '''A list of events which should trigger the webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#events RepositoryWebhook#events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#events RepositoryWebhook#events}
         '''
         result = self._values.get("events")
         assert result is not None, "Required property 'events' is missing"
@@ -437,9 +462,9 @@ class RepositoryWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def repository(self) -> builtins.str:
-        '''The repository of the webhook.
+        '''The repository name of the webhook, not including the organization, which will be inferred.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#repository RepositoryWebhook#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#repository RepositoryWebhook#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -451,7 +476,7 @@ class RepositoryWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicate if the webhook should receive events. Defaults to 'true'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#active RepositoryWebhook#active}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#active RepositoryWebhook#active}
         '''
         result = self._values.get("active")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -460,14 +485,20 @@ class RepositoryWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def configuration(self) -> typing.Optional["RepositoryWebhookConfiguration"]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#configuration RepositoryWebhook#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#configuration RepositoryWebhook#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional["RepositoryWebhookConfiguration"], result)
 
     @builtins.property
+    def etag(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#etag RepositoryWebhook#etag}.'''
+        result = self._values.get("etag")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#id RepositoryWebhook#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#id RepositoryWebhook#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -507,10 +538,10 @@ class RepositoryWebhookConfiguration:
         secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#url RepositoryWebhook#url}
-        :param content_type: The content type for the payload. Valid values are either 'form' or 'json'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#content_type RepositoryWebhook#content_type}
-        :param insecure_ssl: Insecure SSL boolean toggle. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#insecure_ssl RepositoryWebhook#insecure_ssl}
-        :param secret: The shared secret for the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#secret RepositoryWebhook#secret}
+        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#url RepositoryWebhook#url}
+        :param content_type: The content type for the payload. Valid values are either 'form' or 'json'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#content_type RepositoryWebhook#content_type}
+        :param insecure_ssl: Insecure SSL boolean toggle. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#insecure_ssl RepositoryWebhook#insecure_ssl}
+        :param secret: The shared secret for the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#secret RepositoryWebhook#secret}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89778464f69f4960f98b8346949fe008bb9671cb2957ad65aa51e1fb1cf74a52)
@@ -532,7 +563,7 @@ class RepositoryWebhookConfiguration:
     def url(self) -> builtins.str:
         '''The URL of the webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#url RepositoryWebhook#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#url RepositoryWebhook#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -542,7 +573,7 @@ class RepositoryWebhookConfiguration:
     def content_type(self) -> typing.Optional[builtins.str]:
         '''The content type for the payload. Valid values are either 'form' or 'json'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#content_type RepositoryWebhook#content_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#content_type RepositoryWebhook#content_type}
         '''
         result = self._values.get("content_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -553,7 +584,7 @@ class RepositoryWebhookConfiguration:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Insecure SSL boolean toggle. Defaults to 'false'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#insecure_ssl RepositoryWebhook#insecure_ssl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#insecure_ssl RepositoryWebhook#insecure_ssl}
         '''
         result = self._values.get("insecure_ssl")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -562,7 +593,7 @@ class RepositoryWebhookConfiguration:
     def secret(self) -> typing.Optional[builtins.str]:
         '''The shared secret for the webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_webhook#secret RepositoryWebhook#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_webhook#secret RepositoryWebhook#secret}
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -717,6 +748,7 @@ def _typecheckingstub__97ac3fed7facacdcee1d35b532e321f92f593d60b4a948f38420b427e
     repository: builtins.str,
     active: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     configuration: typing.Optional[typing.Union[RepositoryWebhookConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    etag: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -740,6 +772,12 @@ def _typecheckingstub__1829138ffe9bbe6eb429e73a775439140d38361078f055dd0aae8740d
 
 def _typecheckingstub__4646a5f8280c59d7e9a05e18abf0bf979c1e9b585ea37e4d46209339c0e653fa(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__397a4d1618ef11eabf5a83501a02849aab324d59a7425844460d9269fce591c4(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -775,6 +813,7 @@ def _typecheckingstub__cad1c83d932263300ce6c1c9199d9cf3fbc1f8b6eb624f673ad083243
     repository: builtins.str,
     active: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     configuration: typing.Optional[typing.Union[RepositoryWebhookConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    etag: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1,0 +1,53 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+---
+ci:
+  autoupdate_commit_msg: "chore: pre-commit autoupdate"
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: template
+      - id: check-added-large-files
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.10
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.9.21
+    hooks:
+      - id: uv-lock
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        exclude: template
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        entry: codespell -I .codespell-ignore-words.txt
+        exclude: >
+            (?x)^(
+                test/test_util_path.py
+            )$
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.3.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+# TODO remove 'fetch-content' and 'run-task' once Gecko no longer needs to use
+# them with Python 3.8:
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1990567#c7
+exclude: |
+  (?x)^(
+    src/taskgraph/run-task/fetch-content |
+    src/taskgraph/run-task/robustcheckout.py |
+    src/taskgraph/run-task/run-task |
+    taskcluster/scripts/external_tools
+  )

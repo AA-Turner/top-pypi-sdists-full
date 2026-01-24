@@ -12,8 +12,7 @@
   parallel:
     matrix:
       - PLATFORM: ["osx-arm64", "osx-64"]
-        PYTHON_VERSION: ["3.9", "3.10", "3.11", '3.12', '3.13']
-        BOOST_VERSION: "1.87.0"
+        PYTHON_VERSION: ["3.10", "3.11", '3.12', '3.13', '3.14']
 
 macos:build-wheel:
   extends: [.matrix-wheel-macos, .build-wheel]
@@ -24,12 +23,13 @@ macos:build-wheel:
     - export MACOSX_DEPLOYMENT_TARGET="12.0"
     - >
       micromamba install -y -n base -c conda-forge
-      -c conda-forge/label/cpptango_rc --platform $PLATFORM
-      cpptango=${CPP_TANGO_VERSION} libboost-python-devel=${BOOST_VERSION} cppzmq cxx-compiler pkg-config
+      -c conda-forge/label/cpptango_rc
+      --platform $PLATFORM
+      cpptango=${CPP_TANGO_VERSION} "pybind11>=3.0.1" cppzmq cxx-compiler pkg-config
       python=${PYTHON_VERSION} pip python-build wheel delocate cmake ninja
     - micromamba activate base
   script:
-    - python -m build --wheel --config-setting=cmake.args="--preset=ci-macOS"
+    - python -m build --wheel --config-setting=cmake.args="--preset=ci-macOS-wheel"
     # Include dependencies in wheel
     - delocate-wheel -v dist/*.whl
 
@@ -65,22 +65,20 @@ macos:build-wheel:
 macos:test-wheel:
   extends: .macos-test-wheel
 
-# Only wait on macos wheel for osx-arm64 python 3.12
-macos:test-wheel:arm64:3.12:
+# Only wait on macos wheel for osx-arm64 python 3.14
+macos:test-wheel:arm64:3.14:
   extends: .macos-test-wheel
   when: manual
   parallel:
     matrix:
       - PLATFORM: "osx-arm64"
-        PYTHON_VERSION: "3.12"
-        BOOST_VERSION: "1.87.0"
+        PYTHON_VERSION: "3.14"
   needs:
     - job: macos:build-wheel
       parallel:
         matrix:
           - PLATFORM: "osx-arm64"
-            PYTHON_VERSION: "3.12"
-            BOOST_VERSION: "1.87.0"
+            PYTHON_VERSION: "3.14"
 
 macos:test-pixi:
   extends: .test-pixi

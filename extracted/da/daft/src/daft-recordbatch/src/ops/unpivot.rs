@@ -31,8 +31,7 @@ impl RecordBatch {
                 .cycle()
                 .take(unpivoted_len)
                 .collect::<Vec<_>>(),
-        ))
-        .into_series();
+        ));
 
         let ids_series = ids_table.take(&ids_idx)?.columns;
         let ids_schema = ids_table.schema;
@@ -40,9 +39,10 @@ impl RecordBatch {
         let variable_column = values_table
             .schema
             .field_names()
-            .flat_map(|n| std::iter::repeat_n(n, self.len()));
-        let variable_arr = Box::new(arrow2::array::Utf8Array::from_iter_values(variable_column));
-        let variable_series = Utf8Array::from((variable_name, variable_arr)).into_series();
+            .flat_map(|n| std::iter::repeat_n(n, self.len()))
+            .collect::<Vec<_>>();
+        let variable_series =
+            Utf8Array::from((variable_name, variable_column.as_ref())).into_series();
 
         let values_cols: Vec<&Series> = values_table.columns.iter().collect();
         let values_casted = cast_series_to_supertype(&values_cols)?;

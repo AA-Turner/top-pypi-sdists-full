@@ -4,11 +4,20 @@ from unittest.mock import patch
 
 from pytest_httpserver import HTTPServer
 
-from influxdb_client_3 import InfluxDBClient3, WritePrecision, DefaultWriteOptions, Point, WriteOptions, WriteType
+from influxdb_client_3 import InfluxDBClient3, WritePrecision, DefaultWriteOptions, Point, WriteOptions, WriteType, \
+    write_client_options
 from influxdb_client_3.exceptions import InfluxDB3ClientQueryError
 from influxdb_client_3.write_client.rest import ApiException
 from tests.util import asyncio_run
 from tests.util.mocks import ConstantFlightServer, ConstantData, ErrorFlightServer
+
+import pandas as pd
+
+try:
+    import polars as pl
+    HAS_POLARS = True
+except ImportError:
+    HAS_POLARS = False
 
 
 def http_server():
@@ -65,6 +74,50 @@ class TestInfluxDBClient3(unittest.TestCase):
             auth_scheme="my_scheme"
         )
         self.assertEqual(client._client.auth_header_value, "my_scheme my_token")
+
+    def test_write_options(self):
+        client = InfluxDBClient3(
+            host="localhost",
+            org="my_org",
+            token="my_token",
+            auth_scheme="my_scheme",
+            write_client_options=write_client_options(
+                success_callback=lambda _: True,
+                error_callback=lambda _: False,
+                extra_arg="ignored",
+                write_options=WriteOptions(write_type=WriteType.synchronous,
+                                           max_retries=0,
+                                           max_retry_time=0,
+                                           max_retry_delay=0,
+                                           timeout=30_000,
+                                           flush_interval=500,))
+        )
+
+        self.assertIsInstance(client._write_client_options["write_options"], WriteOptions)
+        self.assertTrue(client._write_client_options["success_callback"]("an_arg"))
+        self.assertFalse(client._write_client_options["error_callback"]("an_arg"))
+        self.assertEqual("ignored", client._write_client_options["extra_arg"])
+        self.assertEqual(30_000, client._write_client_options["write_options"].timeout)
+        self.assertEqual(0, client._write_client_options["write_options"].max_retries)
+        self.assertEqual(0, client._write_client_options["write_options"].max_retry_time)
+        self.assertEqual(0, client._write_client_options["write_options"].max_retry_delay)
+        self.assertEqual(WriteType.synchronous, client._write_client_options["write_options"].write_type)
+        self.assertEqual(500, client._write_client_options["write_options"].flush_interval)
+
+    def test_default_write_options(self):
+        client = InfluxDBClient3(
+            host="localhost",
+            token="my_token",
+            org="my_org",
+            database="my_db",
+        )
+
+        self.assertEqual(DefaultWriteOptions.write_type.value,
+                         client._write_client_options["write_options"].write_type)
+        self.assertEqual(DefaultWriteOptions.no_sync.value, client._write_client_options["write_options"].no_sync)
+        self.assertEqual(DefaultWriteOptions.write_precision.value,
+                         client._write_client_options["write_options"].write_precision)
+        self.assertEqual(DefaultWriteOptions.timeout.value, client._write_client_options["write_options"].timeout)
 
     @asyncio_run
     async def test_query_async(self):
@@ -142,7 +195,8 @@ class TestInfluxDBClient3(unittest.TestCase):
     @patch.dict('os.environ', {'INFLUX_HOST': 'localhost', 'INFLUX_TOKEN': 'test_token',
                                'INFLUX_DATABASE': 'test_db', 'INFLUX_ORG': 'test_org',
                                'INFLUX_PRECISION': WritePrecision.MS, 'INFLUX_AUTH_SCHEME': 'custom_scheme',
-                               'INFLUX_GZIP_THRESHOLD': '2000', 'INFLUX_WRITE_NO_SYNC': 'true'})
+                               'INFLUX_GZIP_THRESHOLD': '2000', 'INFLUX_WRITE_NO_SYNC': 'true',
+                               'INFLUX_WRITE_TIMEOUT': '1234', 'INFLUX_QUERY_TIMEOUT': '5678'})
     def test_from_env_all_env_vars_set(self):
         client = InfluxDBClient3.from_env()
         self.assertIsInstance(client, InfluxDBClient3)
@@ -156,6 +210,8 @@ class TestInfluxDBClient3(unittest.TestCase):
         write_options = client._write_client_options.get("write_options")
         self.assertEqual(write_options.write_precision, WritePrecision.MS)
         self.assertEqual(write_options.no_sync, True)
+        self.assertEqual(1234, write_options.timeout)
+        self.assertEqual(5.678, client._query_api._default_timeout)
 
         client._write_api._point_settings = {}
 
@@ -226,6 +282,94 @@ class TestInfluxDBClient3(unittest.TestCase):
         write_options = client._write_client_options.get("write_options")
         self.assertEqual(write_options.no_sync, False)
 
+    @patch.dict('os.environ', {'INFLUX_HOST': 'localhost', 'INFLUX_TOKEN': 'test_token',
+                               'INFLUX_DATABASE': 'test_db', 'INFLUX_WRITE_TIMEOUT': '6789'})
+    def test_parse_valid_write_timeout(self):
+        client = InfluxDBClient3.from_env()
+        self.assertIsInstance(client, InfluxDBClient3)
+        write_options = client._write_client_options.get("write_options")
+        self.assertEqual(6789, write_options.timeout)
+
+    @patch.dict('os.environ', {'INFLUX_HOST': 'localhost', 'INFLUX_TOKEN': 'test_token',
+                               'INFLUX_DATABASE': 'test_db', 'INFLUX_WRITE_TIMEOUT': 'foo'})
+    def test_parse_invalid_write_timeout_domain(self):
+        with self.assertRaisesRegex(ValueError, ".*Must be a number.*"):
+            InfluxDBClient3.from_env()
+
+    @patch.dict('os.environ', {'INFLUX_HOST': 'localhost', 'INFLUX_TOKEN': 'test_token',
+                               'INFLUX_DATABASE': 'test_db', 'INFLUX_WRITE_TIMEOUT': '-42'})
+    def test_parse_invalid_write_timeout_range(self):
+        with self.assertRaisesRegex(ValueError, ".*Must be non-negative.*"):
+            InfluxDBClient3.from_env()
+
+    def assertGrpcCompressionDisabled(self, client, disabled):
+        """Assert whether gRPC compression is disabled for the client."""
+        self.assertIsInstance(client, InfluxDBClient3)
+        generic_options = dict(client._query_api._flight_client_options['generic_options'])
+        if disabled:
+            self.assertEqual(generic_options.get('grpc.compression_enabled_algorithms_bitset'), 1)
+        else:
+            self.assertIsNone(generic_options.get('grpc.compression_enabled_algorithms_bitset'))
+
+    @patch.dict('os.environ', {'INFLUX_HOST': 'localhost', 'INFLUX_TOKEN': 'test_token',
+                               'INFLUX_DATABASE': 'test_db', 'INFLUX_DISABLE_GRPC_COMPRESSION': 'true'})
+    def test_from_env_disable_grpc_compression_true(self):
+        client = InfluxDBClient3.from_env()
+        self.assertGrpcCompressionDisabled(client, True)
+
+    @patch.dict('os.environ', {'INFLUX_HOST': 'localhost', 'INFLUX_TOKEN': 'test_token',
+                               'INFLUX_DATABASE': 'test_db', 'INFLUX_DISABLE_GRPC_COMPRESSION': 'TrUe'})
+    def test_from_env_disable_grpc_compression_true_mixed_case(self):
+        client = InfluxDBClient3.from_env()
+        self.assertGrpcCompressionDisabled(client, True)
+
+    @patch.dict('os.environ', {'INFLUX_HOST': 'localhost', 'INFLUX_TOKEN': 'test_token',
+                               'INFLUX_DATABASE': 'test_db', 'INFLUX_DISABLE_GRPC_COMPRESSION': '1'})
+    def test_from_env_disable_grpc_compression_one(self):
+        client = InfluxDBClient3.from_env()
+        self.assertGrpcCompressionDisabled(client, True)
+
+    @patch.dict('os.environ', {'INFLUX_HOST': 'localhost', 'INFLUX_TOKEN': 'test_token',
+                               'INFLUX_DATABASE': 'test_db', 'INFLUX_DISABLE_GRPC_COMPRESSION': 'false'})
+    def test_from_env_disable_grpc_compression_false(self):
+        client = InfluxDBClient3.from_env()
+        self.assertGrpcCompressionDisabled(client, False)
+
+    @patch.dict('os.environ', {'INFLUX_HOST': 'localhost', 'INFLUX_TOKEN': 'test_token',
+                               'INFLUX_DATABASE': 'test_db', 'INFLUX_DISABLE_GRPC_COMPRESSION': 'anything-else'})
+    def test_from_env_disable_grpc_compression_anything_else_is_false(self):
+        client = InfluxDBClient3.from_env()
+        self.assertGrpcCompressionDisabled(client, False)
+
+    def test_disable_grpc_compression_parameter_true(self):
+        client = InfluxDBClient3(
+            host="localhost",
+            org="my_org",
+            database="my_db",
+            token="my_token",
+            disable_grpc_compression=True
+        )
+        self.assertGrpcCompressionDisabled(client, True)
+
+    def test_disable_grpc_compression_parameter_false(self):
+        client = InfluxDBClient3(
+            host="localhost",
+            org="my_org",
+            database="my_db",
+            token="my_token",
+            disable_grpc_compression=False
+        )
+        self.assertGrpcCompressionDisabled(client, False)
+
+    def test_disable_grpc_compression_default_is_false(self):
+        client = InfluxDBClient3(
+            host="localhost",
+            org="my_org",
+            database="my_db",
+            token="my_token",
+        )
+        self.assertGrpcCompressionDisabled(client, False)
+
     def test_query_with_arrow_error(self):
         f = ErrorFlightServer()
         with InfluxDBClient3(f"http://localhost:{f.port}", "my_org", "my_db", "my_token") as c:
@@ -283,6 +427,186 @@ class TestInfluxDBClient3(unittest.TestCase):
             InfluxDBClient3(
                 host=f'http://{server.host}:{server.port}', org="ORG", database="DB", token="TOKEN"
             ).get_server_version()
+
+
+class TestWriteDataFrame(unittest.TestCase):
+    """Tests for the write_dataframe() method."""
+
+    @patch('influxdb_client_3._InfluxDBClient')
+    @patch('influxdb_client_3._WriteApi')
+    @patch('influxdb_client_3._QueryApi')
+    def setUp(self, mock_query_api, mock_write_api, mock_influx_db_client):
+        self.mock_write_api = mock_write_api
+        self.client = InfluxDBClient3(
+            host="localhost",
+            org="my_org",
+            database="my_db",
+            token="my_token"
+        )
+
+    def test_write_dataframe_with_pandas(self):
+        """Test write_dataframe() with a pandas DataFrame."""
+        df = pd.DataFrame({
+            'time': pd.to_datetime(['2024-01-01', '2024-01-02']),
+            'city': ['London', 'Paris'],
+            'temperature': [15.0, 18.0]
+        })
+
+        self.client.write_dataframe(
+            df,
+            measurement='weather',
+            timestamp_column='time',
+            tags=['city']
+        )
+
+        # Verify _write_api.write was called with correct parameters
+        self.client._write_api.write.assert_called_once()
+        call_kwargs = self.client._write_api.write.call_args[1]
+        self.assertEqual(call_kwargs['bucket'], 'my_db')
+        self.assertEqual(call_kwargs['data_frame_measurement_name'], 'weather')
+        self.assertEqual(call_kwargs['data_frame_tag_columns'], ['city'])
+        self.assertEqual(call_kwargs['data_frame_timestamp_column'], 'time')
+
+    def test_write_dataframe_with_custom_database(self):
+        """Test write_dataframe() with a custom database."""
+        df = pd.DataFrame({
+            'time': pd.to_datetime(['2024-01-01']),
+            'value': [42.0]
+        })
+
+        self.client.write_dataframe(
+            df,
+            measurement='test',
+            timestamp_column='time',
+            database='other_db'
+        )
+
+        call_kwargs = self.client._write_api.write.call_args[1]
+        self.assertEqual(call_kwargs['bucket'], 'other_db')
+
+    def test_write_dataframe_with_timezone(self):
+        """Test write_dataframe() with timestamp timezone."""
+        df = pd.DataFrame({
+            'time': pd.to_datetime(['2024-01-01']),
+            'value': [42.0]
+        })
+
+        self.client.write_dataframe(
+            df,
+            measurement='test',
+            timestamp_column='time',
+            timestamp_timezone='UTC'
+        )
+
+        call_kwargs = self.client._write_api.write.call_args[1]
+        self.assertEqual(call_kwargs['data_frame_timestamp_timezone'], 'UTC')
+
+    def test_write_dataframe_raises_type_error_for_invalid_input(self):
+        """Test write_dataframe() raises TypeError for non-DataFrame input."""
+        with self.assertRaises(TypeError) as context:
+            self.client.write_dataframe(
+                [1, 2, 3],  # A list, not a DataFrame
+                measurement='test',
+                timestamp_column='time'
+            )
+        self.assertIn("Expected a pandas or polars DataFrame", str(context.exception))
+        self.assertIn("list", str(context.exception))
+
+    def test_write_dataframe_raises_type_error_for_dict(self):
+        """Test write_dataframe() raises TypeError for dict input."""
+        with self.assertRaises(TypeError) as context:
+            self.client.write_dataframe(
+                {'time': [1, 2], 'value': [10, 20]},
+                measurement='test',
+                timestamp_column='time'
+            )
+        self.assertIn("Expected a pandas or polars DataFrame", str(context.exception))
+
+    @unittest.skipUnless(HAS_POLARS, "Polars not installed")
+    def test_write_dataframe_with_polars(self):
+        """Test write_dataframe() with a polars DataFrame."""
+        df = pl.DataFrame({
+            'time': ['2024-01-01', '2024-01-02'],
+            'city': ['London', 'Paris'],
+            'temperature': [15.0, 18.0]
+        })
+
+        self.client.write_dataframe(
+            df,
+            measurement='weather',
+            timestamp_column='time',
+            tags=['city']
+        )
+
+        # Verify _write_api.write was called with correct parameters
+        self.client._write_api.write.assert_called_once()
+        call_kwargs = self.client._write_api.write.call_args[1]
+        self.assertEqual(call_kwargs['data_frame_measurement_name'], 'weather')
+        self.assertEqual(call_kwargs['data_frame_tag_columns'], ['city'])
+
+
+class TestQueryDataFrame(unittest.TestCase):
+    """Tests for the query_dataframe() method."""
+
+    def test_query_dataframe_returns_pandas_by_default(self):
+        """Test query_dataframe() returns pandas DataFrame by default."""
+        with ConstantFlightServer() as server:
+            client = InfluxDBClient3(
+                host=f"http://localhost:{server.port}",
+                org="my_org",
+                database="my_db",
+                token="my_token",
+            )
+
+            result = client.query_dataframe("SELECT * FROM test")
+
+            # Should return a pandas DataFrame
+            self.assertIsInstance(result, pd.DataFrame)
+
+    def test_query_dataframe_with_sql_language(self):
+        """Test query_dataframe() with explicit SQL language."""
+        with ConstantFlightServer() as server:
+            client = InfluxDBClient3(
+                host=f"http://localhost:{server.port}",
+                org="my_org",
+                database="my_db",
+                token="my_token",
+            )
+
+            result = client.query_dataframe("SELECT * FROM test", language="sql")
+            self.assertIsInstance(result, pd.DataFrame)
+
+    @unittest.skipUnless(HAS_POLARS, "Polars not installed")
+    def test_query_dataframe_returns_polars_when_requested(self):
+        """Test query_dataframe() returns polars DataFrame when frame_type='polars'."""
+        with ConstantFlightServer() as server:
+            client = InfluxDBClient3(
+                host=f"http://localhost:{server.port}",
+                org="my_org",
+                database="my_db",
+                token="my_token",
+            )
+
+            result = client.query_dataframe("SELECT * FROM test", frame_type="polars")
+
+            # Should return a polars DataFrame
+            self.assertIsInstance(result, pl.DataFrame)
+
+    @patch('influxdb_client_3.polars', False)
+    def test_query_dataframe_raises_import_error_for_polars_when_not_installed(self):
+        """Test query_dataframe() raises ImportError when polars is requested but not installed."""
+        with ConstantFlightServer() as server:
+            client = InfluxDBClient3(
+                host=f"http://localhost:{server.port}",
+                org="my_org",
+                database="my_db",
+                token="my_token",
+            )
+
+            with self.assertRaises(ImportError) as context:
+                client.query_dataframe("SELECT * FROM test", frame_type="polars")
+            self.assertIn("Polars is not installed", str(context.exception))
+            self.assertIn("pip install polars", str(context.exception))
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: intbitset
-Version: 4.0.0
+Version: 4.1.0
 Summary: C-based extension implementing fast integer bit sets.
 Home-page: http://github.com/inveniosoftware-contrib/intbitset/
 Author: Invenio collaboration, maintained by Philippe Ombredanne and AboutCode.org
@@ -24,6 +24,17 @@ License-File: CHANGELOG.rst
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: summary
 
 ===========
  intbitset

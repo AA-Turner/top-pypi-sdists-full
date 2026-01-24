@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: port-for
-Version: 0.7.4
+Version: 1.0.0
 Summary: Utility that helps with local TCP ports management. It can find an unused TCP localhost port and remember the association.
 Author-email: Mikhail Korobov <kmike84@gmail.com>
 Maintainer-email: Grzegorz Śliwiński <fizyk+pypi@fizyk.dev>
@@ -24,9 +24,9 @@ License: Copyright (c) 2012 Mikhail Korobov
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
         THE SOFTWARE.
         
-Project-URL: Source, https://github.com/kmike/port-for/
-Project-URL: Bug Tracker, https://github.com/kmike/port-for/issues
-Project-URL: Changelog, https://github.com/kmike/port-for/blob/v0.7.4/CHANGES.rst
+Project-URL: Source, https://github.com/fizyk/port-for/
+Project-URL: Bug Tracker, https://github.com/fizyk/port-for/issues
+Project-URL: Changelog, https://github.com/fizyk/port-for/blob/v1.0.0/CHANGES.rst
 Keywords: port,posix
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -34,19 +34,20 @@ Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: System :: Installation/Setup
 Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Internet :: WWW/HTTP :: Site Management
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Dynamic: license-file
 
 ========
 port-for
@@ -215,9 +216,9 @@ Dig into source code for more.
 Contributing
 ============
 
-Development happens at github: https://github.com/kmike/port-for/
+Development happens at github: https://github.com/fizyk/port-for/
 
-Issue tracker: https://github.com/kmike/port-for/issues/new
+Issue tracker: https://github.com/fizyk/port-for/issues/new
 
 Release
 =======

@@ -1,6 +1,6 @@
 [package]
 name = "typos-vars"
-version = "0.10.0"
+version = "0.10.2"
 description = "Source Code Spelling Correction"
 readme = "README.md"
 categories = ["development-tools", "text-processing"]
@@ -13,10 +13,10 @@ include.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition"]
 
 [dependencies]
-dictgen = { version = "^0.4", path = "../dictgen" }
+dictgen = { version = "^0.5", path = "../dictgen" }
 varcon-core = { version = "^5.0", path = "../varcon-core", features = ["flags"] }
 
 [dev-dependencies]
@@ -25,8 +25,8 @@ varcon-core = { version = "^5.0", path = "../varcon-core", features = ["flags"] 
 typos = { version = "^0.10", path = "../typos" }
 codegenrs = "3.0"
 itertools = "0.14"
-dictgen = { version = "^0.4", path = "../dictgen", features = ["codegen"] }
-snapbox = "0.6.5"
+dictgen = { version = "^0.5", path = "../dictgen", features = ["codegen"] }
+snapbox = "0.6.21"
 
 [lints]
 workspace = true

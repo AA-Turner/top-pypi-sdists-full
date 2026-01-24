@@ -1,7 +1,7 @@
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from inspect import Parameter, Signature
-from typing import Any, Callable, Generic, Optional, cast
+from typing import Any, Generic, cast
 
 from fastapi import Depends, HTTPException, status
 from makefun import with_signature
@@ -65,9 +65,8 @@ class Authenticator(Generic[models.UP, models.ID]):
         active: bool = False,
         verified: bool = False,
         superuser: bool = False,
-        get_enabled_backends: Optional[
-            EnabledBackendsDependency[models.UP, models.ID]
-        ] = None,
+        get_enabled_backends: EnabledBackendsDependency[models.UP, models.ID]
+        | None = None,
     ):
         """
         Return a dependency callable to retrieve currently authenticated user and token.
@@ -78,7 +77,7 @@ class Authenticator(Generic[models.UP, models.ID]):
         Otherwise, an exception is raised. Defaults to `False`.
         :param active: If `True`, throw `401 Unauthorized` if
         the authenticated user is inactive. Defaults to `False`.
-        :param verified: If `True`, throw `401 Unauthorized` if
+        :param verified: If `True`, throw `403 Forbidden` if
         the authenticated user is not verified. Defaults to `False`.
         :param superuser: If `True`, throw `403 Forbidden` if
         the authenticated user is not a superuser. Defaults to `False`.
@@ -111,9 +110,8 @@ class Authenticator(Generic[models.UP, models.ID]):
         active: bool = False,
         verified: bool = False,
         superuser: bool = False,
-        get_enabled_backends: Optional[
-            EnabledBackendsDependency[models.UP, models.ID]
-        ] = None,
+        get_enabled_backends: EnabledBackendsDependency[models.UP, models.ID]
+        | None = None,
     ):
         """
         Return a dependency callable to retrieve currently authenticated user.
@@ -124,7 +122,7 @@ class Authenticator(Generic[models.UP, models.ID]):
         Otherwise, an exception is raised. Defaults to `False`.
         :param active: If `True`, throw `401 Unauthorized` if
         the authenticated user is inactive. Defaults to `False`.
-        :param verified: If `True`, throw `401 Unauthorized` if
+        :param verified: If `True`, throw `403 Forbidden` if
         the authenticated user is not verified. Defaults to `False`.
         :param superuser: If `True`, throw `403 Forbidden` if
         the authenticated user is not a superuser. Defaults to `False`.
@@ -161,9 +159,9 @@ class Authenticator(Generic[models.UP, models.ID]):
         verified: bool = False,
         superuser: bool = False,
         **kwargs,
-    ) -> tuple[Optional[models.UP], Optional[str]]:
-        user: Optional[models.UP] = None
-        token: Optional[str] = None
+    ) -> tuple[models.UP | None, str | None]:
+        user: models.UP | None = None
+        token: str | None = None
         enabled_backends: Sequence[AuthenticationBackend[models.UP, models.ID]] = (
             kwargs.get("enabled_backends", self.backends)
         )
@@ -193,7 +191,7 @@ class Authenticator(Generic[models.UP, models.ID]):
         return user, token
 
     def _get_dependency_signature(
-        self, get_enabled_backends: Optional[EnabledBackendsDependency] = None
+        self, get_enabled_backends: EnabledBackendsDependency | None = None
     ) -> Signature:
         """
         Generate a dynamic signature for the current_user dependency.

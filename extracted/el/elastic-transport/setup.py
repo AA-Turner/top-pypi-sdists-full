@@ -52,8 +52,9 @@ setup(
     install_requires=[
         "urllib3>=1.26.2, <3",
         "certifi",
+        "sniffio",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     extras_require={
         "develop": [
             "pytest",
@@ -70,6 +71,8 @@ setup(
             "opentelemetry-api",
             "opentelemetry-sdk",
             "orjson",
+            "anyio",
+            "trio",
             # Override Read the Docs default (sphinx<2)
             "sphinx>2",
             "furo",
@@ -83,12 +86,11 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],

@@ -21,7 +21,7 @@ class DefaultAlgorithm(checksum.Algorithm):
 
         weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
         total: int = 0
-        for n, c in zip(weights, value):
+        for n, c in zip(weights, value, strict=False):
             total += n * int(c)
 
         check_digit = 11 - (total % 11)

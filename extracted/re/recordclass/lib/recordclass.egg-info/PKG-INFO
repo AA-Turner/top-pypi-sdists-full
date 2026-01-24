@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: recordclass
-Version: 0.23.1
+Version: 0.24
 Summary: Mutable variant of namedtuple -- recordclass, which support assignments, compact dataclasses and other memory saving variants.
 Home-page: https://github.com/intellimath/recordclass
 Download-URL: https://pypi.org/project/recordclass/#files
@@ -45,6 +45,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
@@ -52,6 +53,7 @@ License-File: LICENSE.txt
 Dynamic: author
 Dynamic: download-url
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: platform
 Dynamic: requires-python
 
@@ -961,7 +963,12 @@ There is builtin more fast deallocation method using finalization mechanizm when
 
 For more details see notebook [example_datatypes](https://github.com/intellimath/recordclass/tree/main/examples/example_datatypes.ipynb).
 
-### Changes:
+## Changes:
+
+#### 0.24:
+
+* Fix `__annotations__` for python 3.14
+* Start support of python 3.14
 
 #### 0.23.1:
 

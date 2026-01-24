@@ -4,14 +4,18 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
 #include "src/gpu/ganesh/gl/GrGLTextureRenderTarget.h"
 
-#include "include/core/SkTraceMemoryDump.h"
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/private/base/SkAssert.h"
+#include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
-#include "src/gpu/ganesh/GrTexture.h"
+#include "src/gpu/ganesh/GrGpu.h"
+#include "src/gpu/ganesh/GrSurface.h"
 #include "src/gpu/ganesh/gl/GrGLGpu.h"
+#include "src/gpu/ganesh/gl/GrGLTypesPriv.h"
+
+#include <utility>
 
 GrGLTextureRenderTarget::GrGLTextureRenderTarget(GrGLGpu* gpu,
                                                  skgpu::Budgeted budgeted,
@@ -20,9 +24,10 @@ GrGLTextureRenderTarget::GrGLTextureRenderTarget(GrGLGpu* gpu,
                                                  const GrGLRenderTarget::IDs& rtIDs,
                                                  GrMipmapStatus mipmapStatus,
                                                  std::string_view label)
-        : GrSurface(gpu, texDesc.fSize, GrProtected::kNo, label)
+        : GrSurface(gpu, texDesc.fSize, texDesc.fIsProtected, label)
         , GrGLTexture(gpu, texDesc, nullptr, mipmapStatus, label)
-        , GrGLRenderTarget(gpu, texDesc.fSize, texDesc.fFormat, sampleCount, rtIDs, label) {
+        , GrGLRenderTarget(gpu, texDesc.fSize, texDesc.fFormat, sampleCount, rtIDs,
+                           texDesc.fIsProtected, label) {
     this->registerWithCache(budgeted);
 }
 
@@ -34,9 +39,10 @@ GrGLTextureRenderTarget::GrGLTextureRenderTarget(GrGLGpu* gpu,
                                                  GrWrapCacheable cacheable,
                                                  GrMipmapStatus mipmapStatus,
                                                  std::string_view label)
-        : GrSurface(gpu, texDesc.fSize, GrProtected::kNo, label)
+        : GrSurface(gpu, texDesc.fSize, texDesc.fIsProtected, label)
         , GrGLTexture(gpu, texDesc, std::move(parameters), mipmapStatus, label)
-        , GrGLRenderTarget(gpu, texDesc.fSize, texDesc.fFormat, sampleCount, rtIDs, label) {
+        , GrGLRenderTarget(gpu, texDesc.fSize, texDesc.fFormat, sampleCount, rtIDs,
+                           texDesc.fIsProtected, label) {
     this->registerWithCacheWrapped(cacheable);
 }
 

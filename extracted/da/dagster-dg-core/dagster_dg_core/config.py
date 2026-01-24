@@ -10,7 +10,9 @@ from typing import (
     Any,
     Literal,
     Optional,
+    TypeAlias,
     TypedDict,
+    TypeGuard,
     TypeVar,
     Union,
     cast,
@@ -33,7 +35,7 @@ from dagster_shared.utils.config import (
     does_dg_config_file_exist,
     get_dg_config_path,
 )
-from typing_extensions import Never, NotRequired, Required, Self, TypeAlias, TypeGuard
+from typing_extensions import Never, NotRequired, Required, Self
 
 from dagster_dg_core.error import DgError, DgValidationError
 from dagster_dg_core.utils import (
@@ -421,7 +423,7 @@ class DgRawWorkspaceProjectSpec(TypedDict, total=False):
 
 @dataclass
 class DgWorkspaceScaffoldProjectOptions:
-    use_editable_dagster: Union[str, bool] = False
+    use_editable_dagster: bool = False
 
     @classmethod
     def from_raw(cls, raw: "DgRawWorkspaceNewProjectOptions") -> Self:
@@ -436,18 +438,17 @@ class DgWorkspaceScaffoldProjectOptions:
     @classmethod
     def get_raw_from_cli(
         cls,
-        use_editable_dagster: Optional[str],
+        use_editable_dagster: Optional[bool],
     ) -> "DgRawWorkspaceNewProjectOptions":
         raw_scaffold_project_options: DgRawWorkspaceNewProjectOptions = {}
         if use_editable_dagster:
-            raw_scaffold_project_options["use_editable_dagster"] = (
-                True if use_editable_dagster == "TRUE" else use_editable_dagster
-            )
+            raw_scaffold_project_options["use_editable_dagster"] = use_editable_dagster
+
         return raw_scaffold_project_options
 
 
 class DgRawWorkspaceNewProjectOptions(TypedDict, total=False):
-    use_editable_dagster: Union[str, bool]
+    use_editable_dagster: bool
 
 
 # ########################

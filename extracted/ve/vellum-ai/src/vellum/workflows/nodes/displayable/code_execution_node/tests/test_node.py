@@ -1,24 +1,30 @@
 import pytest
+from datetime import datetime
 import os
 import re
 from typing import Any, List, Union
 
 from pydantic import BaseModel
 
-from vellum import ArrayInput, CodeExecutorResponse, NumberVellumValue, StringInput, StringVellumValue
+from vellum import ArrayInput, CodeExecutorResponse, MlModelRead, NumberVellumValue, StringInput, StringVellumValue
 from vellum.client.errors.bad_request_error import BadRequestError
+from vellum.client.errors.forbidden_error import ForbiddenError
+from vellum.client.errors.internal_server_error import InternalServerError
+from vellum.client.errors.not_found_error import NotFoundError
 from vellum.client.types.chat_message import ChatMessage
 from vellum.client.types.code_execution_package import CodeExecutionPackage
 from vellum.client.types.code_executor_secret_input import CodeExecutorSecretInput
 from vellum.client.types.function_call import FunctionCall
 from vellum.client.types.number_input import NumberInput
 from vellum.client.types.string_chat_message_content import StringChatMessageContent
+from vellum.workflows.constants import undefined
 from vellum.workflows.errors import WorkflowErrorCode
 from vellum.workflows.exceptions import NodeException
 from vellum.workflows.inputs.base import BaseInputs
 from vellum.workflows.nodes.displayable.code_execution_node import CodeExecutionNode
 from vellum.workflows.references.vellum_secret import VellumSecretReference
 from vellum.workflows.state.base import BaseState, StateMeta
+from vellum.workflows.state.context import WorkflowContext
 from vellum.workflows.types.core import Json
 
 
@@ -546,6 +552,51 @@ def main(word: str) -> dict:
     }
 
 
+def test_run_node__run_inline__vellum_client(vellum_client):
+    """Confirm that CodeExecutionNodes can convert a dict to a Pydantic model during inline execution."""
+
+    # GIVEN a node that subclasses CodeExecutionNode that returns a dict matching Any
+    vellum_client.ml_models.retrieve.return_value = MlModelRead(
+        id="test-ml-model-id",
+        name="Test ML Model",
+        description="Test ML Model Description",
+        introduced_on=datetime(2025, 1, 2),
+    )
+
+    class ExampleCodeExecutionNode(CodeExecutionNode[BaseState, Any]):
+        code = """\
+def main(model_id: str) -> dict:
+    ml_model = vellum_client.ml_models.retrieve(model_id)
+    return {
+        "model_name": ml_model.name,
+        "model_id": ml_model.id,
+    }
+    """
+        runtime = "PYTHON_3_11_6"
+
+        code_inputs = {
+            "model_id": "test-ml-model-id",
+        }
+
+    # WHEN we run the node
+    node = ExampleCodeExecutionNode(context=WorkflowContext(vellum_client=vellum_client))
+    outputs = node.run()
+
+    # THEN the node should have produced the outputs we expect
+    assert outputs == {
+        "result": {
+            "model_name": "Test ML Model",
+            "model_id": "test-ml-model-id",
+        },
+        "log": "",
+    }
+
+    # AND
+    vellum_client.ml_models.retrieve.assert_called_once_with(
+        "test-ml-model-id",
+    )
+
+
 def test_run_node__array_input_with_vellum_values(vellum_client):
     """Confirm that CodeExecutionNodes can handle arrays containing VellumValue objects."""
 
@@ -789,6 +840,98 @@ Node.js v21.7.3
 
     # AND the error should contain the execution error details
     assert exc_info.value.message == message
+
+
+def test_run_node__execute_code_api_fails_403__node_execution(vellum_client):
+    """Tests that a 403 error from the code execution API is handled with NODE_EXECUTION error code."""
+
+    # GIVEN a code execution node
+    class ExampleCodeExecutionNode(CodeExecutionNode[BaseState, str]):
+        code = "def main(): return 'test'"
+        runtime = "PYTHON_3_11_6"
+        packages = [CodeExecutionPackage(name="requests", version="2.28.0")]
+
+    # AND the API returns a 403 error
+    vellum_client.execute_code.side_effect = ForbiddenError(
+        body={
+            "detail": "Access denied to this resource",
+        }
+    )
+
+    # WHEN we run the node
+    node = ExampleCodeExecutionNode()
+    with pytest.raises(NodeException) as exc_info:
+        node.run()
+
+    # THEN it should raise NODE_EXECUTION (not PROVIDER_CREDENTIALS_UNAVAILABLE)
+    assert exc_info.value.code == WorkflowErrorCode.NODE_EXECUTION
+    assert exc_info.value.message == "Access denied to this resource"
+
+
+def test_run_node__execute_code_api_fails_404__node_execution(vellum_client):
+    """Tests that a 404 error from the API is handled with NODE_EXECUTION error code."""
+
+    class ExampleCodeExecutionNode(CodeExecutionNode[BaseState, str]):
+        code = "def main(): return 'test'"
+        runtime = "PYTHON_3_11_6"
+        packages = [CodeExecutionPackage(name="requests", version="2.28.0")]
+
+    vellum_client.execute_code.side_effect = NotFoundError(
+        body={
+            "detail": "Resource not found",
+        }
+    )
+
+    node = ExampleCodeExecutionNode()
+    with pytest.raises(NodeException) as exc_info:
+        node.run()
+
+    assert exc_info.value.code == WorkflowErrorCode.NODE_EXECUTION
+    assert "Resource not found" in exc_info.value.message
+
+
+def test_run_node__execute_code_api_fails_500__internal_error(vellum_client):
+    """Tests that a 500 error from the API is handled with INTERNAL_ERROR error code."""
+
+    class ExampleCodeExecutionNode(CodeExecutionNode[BaseState, str]):
+        code = "def main(): return 'test'"
+        runtime = "PYTHON_3_11_6"
+        packages = [CodeExecutionPackage(name="requests", version="2.28.0")]
+
+    vellum_client.execute_code.side_effect = InternalServerError(
+        body={
+            "detail": "Internal server error occurred",
+        }
+    )
+
+    node = ExampleCodeExecutionNode()
+    with pytest.raises(NodeException) as exc_info:
+        node.run()
+
+    assert exc_info.value.code == WorkflowErrorCode.INTERNAL_ERROR
+    assert exc_info.value.message == "Internal server error occurred"
+
+
+def test_run_node__execute_code_api_fails_400__invalid_inputs(vellum_client):
+    """Tests that a 400 error from the API is handled with INVALID_INPUTS error code."""
+
+    class ExampleCodeExecutionNode(CodeExecutionNode[BaseState, str]):
+        code = "def main(): return 'test'"
+        runtime = "PYTHON_3_11_6"
+        packages = [CodeExecutionPackage(name="requests", version="2.28.0")]
+
+    vellum_client.execute_code.side_effect = BadRequestError(
+        body={
+            "detail": "Invalid request parameters",
+        },
+    )
+
+    node = ExampleCodeExecutionNode()
+    with pytest.raises(NodeException) as exc_info:
+        node.run()
+
+    assert exc_info.value.code == WorkflowErrorCode.INVALID_INPUTS
+    assert "Invalid request parameters" in exc_info.value.message
 
 
 def test_run_node__execute_code__list_extends():
@@ -1276,5 +1419,87 @@ def main(secret: str) -> str:
         runtime="PYTHON_3_11_6",
         output_type="STRING",
         packages=[],
+        request_options=None,
+    )
+
+
+def test_run_node__undefined_input_skipped():
+    """
+    Confirm that when an undefined value is passed as an input, it is skipped rather than raising an error.
+    The function should use the default parameter value when undefined input is skipped.
+    """
+
+    # GIVEN a node with both a valid input and an undefined input that runs inline
+    class State(BaseState):
+        pass
+
+    class ExampleCodeExecutionNode(CodeExecutionNode[State, int]):
+        code = """\
+def main(word: str, undefined_input: str = "default") -> int:
+    return len(word) + len(undefined_input)
+"""
+        runtime = "PYTHON_3_11_6"
+        packages = []
+
+        code_inputs = {
+            "word": "hello",
+            "undefined_input": undefined,
+        }
+
+    # WHEN we run the node
+    node = ExampleCodeExecutionNode(state=State())
+    outputs = node.run()
+
+    # THEN the node should run successfully without raising an error
+    assert outputs == {"result": 12, "log": ""}  # len("hello") + len("default") = 5 + 7 = 12
+
+
+def test_run_node__undefined_input_skipped_api_execution(vellum_client):
+    """
+    Confirm that when an undefined value is passed as an input in API execution mode,
+    it is skipped rather than raising an error.
+    """
+
+    # GIVEN a node with both a valid input and an undefined input that forces API execution
+    class State(BaseState):
+        pass
+
+    class ExampleCodeExecutionNode(CodeExecutionNode[State, int]):
+        code = """\
+def main(word: str) -> int:
+    return len(word)
+"""
+        runtime = "PYTHON_3_11_6"
+        packages = [CodeExecutionPackage(name="requests", version="2.0.0")]
+
+        code_inputs = {
+            "word": "hello",
+            "undefined_input": undefined,
+        }
+
+    # AND we know what the Code Execution Node will respond with
+    mock_code_execution = CodeExecutorResponse(
+        log="",
+        output=NumberVellumValue(value=5),
+    )
+    vellum_client.execute_code.return_value = mock_code_execution
+
+    # WHEN we run the node
+    node = ExampleCodeExecutionNode(state=State())
+    outputs = node.run()
+
+    # THEN the node should run successfully without raising an error
+    assert outputs == {"result": 5, "log": ""}
+
+    # AND the API should be called with only the non-undefined input
+    vellum_client.execute_code.assert_called_once_with(
+        input_values=[StringInput(name="word", value="hello")],
+        code="""\
+def main(word: str) -> int:
+    return len(word)
+""",
+        runtime="PYTHON_3_11_6",
+        output_type="NUMBER",
+        packages=[CodeExecutionPackage(name="requests", version="2.0.0")],
         request_options=None,
     )

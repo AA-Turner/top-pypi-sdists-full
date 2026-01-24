@@ -13,11 +13,27 @@ from typing import Literal
 from typing_extensions import TypedDict
 
 
-class ActionsGetDefaultWorkflowPermissionsType(TypedDict):
-    """ActionsGetDefaultWorkflowPermissions"""
+class ActionsForkPrContributorApprovalType(TypedDict):
+    """ActionsForkPrContributorApproval"""
 
-    default_workflow_permissions: Literal["read", "write"]
-    can_approve_pull_request_reviews: bool
+    approval_policy: Literal[
+        "first_time_contributors_new_to_github",
+        "first_time_contributors",
+        "all_external_contributors",
+    ]
 
 
-__all__ = ("ActionsGetDefaultWorkflowPermissionsType",)
+class ActionsForkPrContributorApprovalTypeForResponse(TypedDict):
+    """ActionsForkPrContributorApproval"""
+
+    approval_policy: Literal[
+        "first_time_contributors_new_to_github",
+        "first_time_contributors",
+        "all_external_contributors",
+    ]
+
+
+__all__ = (
+    "ActionsForkPrContributorApprovalType",
+    "ActionsForkPrContributorApprovalTypeForResponse",
+)

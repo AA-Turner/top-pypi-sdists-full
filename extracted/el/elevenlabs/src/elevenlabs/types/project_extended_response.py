@@ -7,16 +7,21 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .caption_style_model import CaptionStyleModel
 from .chapter_response import ChapterResponse
+from .direct_publishing_read_response_model import DirectPublishingReadResponseModel
 from .project_creation_meta_response_model import ProjectCreationMetaResponseModel
 from .project_extended_response_model_access_level import ProjectExtendedResponseModelAccessLevel
 from .project_extended_response_model_apply_text_normalization import ProjectExtendedResponseModelApplyTextNormalization
+from .project_extended_response_model_aspect_ratio import ProjectExtendedResponseModelAspectRatio
+from .project_extended_response_model_assets_item import ProjectExtendedResponseModelAssetsItem
 from .project_extended_response_model_fiction import ProjectExtendedResponseModelFiction
 from .project_extended_response_model_quality_preset import ProjectExtendedResponseModelQualityPreset
 from .project_extended_response_model_source_type import ProjectExtendedResponseModelSourceType
 from .project_extended_response_model_target_audience import ProjectExtendedResponseModelTargetAudience
 from .project_state import ProjectState
+from .project_voice_response_model import ProjectVoiceResponseModel
 from .pronunciation_dictionary_locator_response_model import PronunciationDictionaryLocatorResponseModel
 from .pronunciation_dictionary_version_response_model import PronunciationDictionaryVersionResponseModel
+from .voice import Voice
 
 
 class ProjectExtendedResponse(UncheckedBaseModel):
@@ -33,6 +38,11 @@ class ProjectExtendedResponse(UncheckedBaseModel):
     create_date_unix: int = pydantic.Field()
     """
     The creation date of the project.
+    """
+
+    created_by_user_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The user ID who created the project.
     """
 
     default_title_voice_id: str = pydantic.Field()
@@ -175,6 +185,11 @@ class ProjectExtendedResponse(UncheckedBaseModel):
     The public share ID of the project.
     """
 
+    aspect_ratio: typing.Optional[ProjectExtendedResponseModelAspectRatio] = pydantic.Field(default=None)
+    """
+    The aspect ratio of the project.
+    """
+
     quality_preset: ProjectExtendedResponseModelQualityPreset = pydantic.Field()
     """
     The quality preset level of the project.
@@ -200,9 +215,29 @@ class ProjectExtendedResponse(UncheckedBaseModel):
     Whether text normalization is applied to the project.
     """
 
-    experimental: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
+    experimental: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     Experimental features for the project.
+    """
+
+    assets: typing.List[ProjectExtendedResponseModelAssetsItem] = pydantic.Field()
+    """
+    List of uploaded assets e.g. videos, audios.
+    """
+
+    voices: typing.List[ProjectVoiceResponseModel] = pydantic.Field()
+    """
+    List of configured project voices.
+    """
+
+    base_voices: typing.Optional[typing.List[Voice]] = pydantic.Field(default=None)
+    """
+    List of voices used by the project.
+    """
+
+    publishing_read: typing.Optional[DirectPublishingReadResponseModel] = pydantic.Field(default=None)
+    """
+    The ElevenReader data if the book was published.
     """
 
     if IS_PYDANTIC_V2:

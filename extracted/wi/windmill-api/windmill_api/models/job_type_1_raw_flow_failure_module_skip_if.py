@@ -8,9 +8,10 @@ T = TypeVar("T", bound="JobType1RawFlowFailureModuleSkipIf")
 
 @_attrs_define
 class JobType1RawFlowFailureModuleSkipIf:
-    """
+    """Conditionally skip this step based on previous results or flow inputs
+
     Attributes:
-        expr (str):
+        expr (str): JavaScript expression that returns true to skip. Can use 'flow_input' or 'results.<step_id>'
     """
 
     expr: str

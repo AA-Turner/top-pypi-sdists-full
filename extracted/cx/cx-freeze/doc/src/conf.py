@@ -17,7 +17,7 @@
 # -- General configuration ----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-# needs_sphinx = '7.0'
+needs_sphinx = "8.0"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
@@ -46,7 +46,7 @@ master_doc = "index"
 # General information about the project.
 project = "cx_Freeze"
 copyright = "2025, Marcelo Duarte"  # noqa: A001
-__version__ = "8.4.1"
+__version__ = "8.5.3"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

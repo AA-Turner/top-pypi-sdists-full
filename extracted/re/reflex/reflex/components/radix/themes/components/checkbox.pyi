@@ -20,80 +20,6 @@ class Checkbox(RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
-        size: Breakpoints[str, Literal["1", "2", "3"]]
-        | Literal["1", "2", "3"]
-        | Var[Breakpoints[str, Literal["1", "2", "3"]] | Literal["1", "2", "3"]]
-        | None = None,
-        variant: Literal["classic", "soft", "surface"]
-        | Var[Literal["classic", "soft", "surface"]]
-        | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        high_contrast: Var[bool] | bool | None = None,
-        default_checked: Var[bool] | bool | None = None,
-        checked: Var[bool] | bool | None = None,
-        disabled: Var[bool] | bool | None = None,
-        required: Var[bool] | bool | None = None,
-        name: Var[str] | str | None = None,
-        value: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -130,17 +56,6 @@ class Checkbox(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior.
-            size: Checkbox size "1" - "3"
-            variant: Variant of checkbox: "classic" | "surface" | "soft"
-            color_scheme: Override theme color for checkbox
-            high_contrast: Whether to render the checkbox with higher contrast color against background
-            default_checked: Whether the checkbox is checked by default
-            checked: Whether the checkbox is checked
-            disabled: Whether the checkbox is disabled
-            required: Whether the checkbox is required
-            name: The name of the checkbox control when submitting the form.
-            value: The value of the checkbox control when submitting the form.
             on_change: Fired when the checkbox is checked or unchecked.
             style: The style of the component.
             key: A unique key for the component.
@@ -159,81 +74,6 @@ class HighLevelCheckbox(RadixThemesComponent):
     def create(
         cls,
         *children,
-        text: Var[str] | str | None = None,
-        spacing: Literal["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-        | Var[Literal["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]]
-        | None = None,
-        size: Literal["1", "2", "3"] | Var[Literal["1", "2", "3"]] | None = None,
-        as_child: Var[bool] | bool | None = None,
-        variant: Literal["classic", "soft", "surface"]
-        | Var[Literal["classic", "soft", "surface"]]
-        | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        high_contrast: Var[bool] | bool | None = None,
-        default_checked: Var[bool] | bool | None = None,
-        checked: Var[bool] | bool | None = None,
-        disabled: Var[bool] | bool | None = None,
-        required: Var[bool] | bool | None = None,
-        name: Var[str] | str | None = None,
-        value: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -267,19 +107,6 @@ class HighLevelCheckbox(RadixThemesComponent):
 
         Args:
             text: The text of the label.
-            text: The text label for the checkbox.
-            spacing: The gap between the checkbox and the label.
-            size: The size of the checkbox "1" - "3".
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior.
-            variant: Variant of checkbox: "classic" | "surface" | "soft"
-            color_scheme: Override theme color for checkbox
-            high_contrast: Whether to render the checkbox with higher contrast color against background
-            default_checked: Whether the checkbox is checked by default
-            checked: Whether the checkbox is checked
-            disabled: Whether the checkbox is disabled
-            required: Whether the checkbox is required
-            name: The name of the checkbox control when submitting the form.
-            value: The value of the checkbox control when submitting the form.
             on_change: Fired when the checkbox is checked or unchecked.
             style: The style of the component.
             key: A unique key for the component.
@@ -297,81 +124,6 @@ class CheckboxNamespace(ComponentNamespace):
     @staticmethod
     def __call__(
         *children,
-        text: Var[str] | str | None = None,
-        spacing: Literal["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-        | Var[Literal["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]]
-        | None = None,
-        size: Literal["1", "2", "3"] | Var[Literal["1", "2", "3"]] | None = None,
-        as_child: Var[bool] | bool | None = None,
-        variant: Literal["classic", "soft", "surface"]
-        | Var[Literal["classic", "soft", "surface"]]
-        | None = None,
-        color_scheme: Literal[
-            "amber",
-            "blue",
-            "bronze",
-            "brown",
-            "crimson",
-            "cyan",
-            "gold",
-            "grass",
-            "gray",
-            "green",
-            "indigo",
-            "iris",
-            "jade",
-            "lime",
-            "mint",
-            "orange",
-            "pink",
-            "plum",
-            "purple",
-            "red",
-            "ruby",
-            "sky",
-            "teal",
-            "tomato",
-            "violet",
-            "yellow",
-        ]
-        | Var[
-            Literal[
-                "amber",
-                "blue",
-                "bronze",
-                "brown",
-                "crimson",
-                "cyan",
-                "gold",
-                "grass",
-                "gray",
-                "green",
-                "indigo",
-                "iris",
-                "jade",
-                "lime",
-                "mint",
-                "orange",
-                "pink",
-                "plum",
-                "purple",
-                "red",
-                "ruby",
-                "sky",
-                "teal",
-                "tomato",
-                "violet",
-                "yellow",
-            ]
-        ]
-        | None = None,
-        high_contrast: Var[bool] | bool | None = None,
-        default_checked: Var[bool] | bool | None = None,
-        checked: Var[bool] | bool | None = None,
-        disabled: Var[bool] | bool | None = None,
-        required: Var[bool] | bool | None = None,
-        name: Var[str] | str | None = None,
-        value: Var[str] | str | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -405,19 +157,6 @@ class CheckboxNamespace(ComponentNamespace):
 
         Args:
             text: The text of the label.
-            text: The text label for the checkbox.
-            spacing: The gap between the checkbox and the label.
-            size: The size of the checkbox "1" - "3".
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior.
-            variant: Variant of checkbox: "classic" | "surface" | "soft"
-            color_scheme: Override theme color for checkbox
-            high_contrast: Whether to render the checkbox with higher contrast color against background
-            default_checked: Whether the checkbox is checked by default
-            checked: Whether the checkbox is checked
-            disabled: Whether the checkbox is disabled
-            required: Whether the checkbox is required
-            name: The name of the checkbox control when submitting the form.
-            value: The value of the checkbox control when submitting the form.
             on_change: Fired when the checkbox is checked or unchecked.
             style: The style of the component.
             key: A unique key for the component.

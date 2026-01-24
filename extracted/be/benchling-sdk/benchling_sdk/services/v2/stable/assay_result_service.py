@@ -13,6 +13,7 @@ from benchling_api_client.v2.stable.api.assay_results import (
     list_assay_results,
     unarchive_assay_results,
 )
+from benchling_api_client.v2.stable.types import UNSET, Unset
 from benchling_api_client.v2.types import Response
 
 from benchling_sdk.errors import raise_for_status
@@ -33,6 +34,7 @@ from benchling_sdk.models import (
     AssayResultIdsRequest,
     AssayResultIdsResponse,
     AssayResultsArchive,
+    AssayResultsArchiveReason,
     AssayResultsBulkCreateInTableRequest,
     AssayResultsBulkCreateRequest,
     AssayResultsCreateResponse,
@@ -215,7 +217,11 @@ class AssayResultService(BaseService):
         return self._task_helper_from_response(response, AssayResultsCreateResponse)
 
     @api_method
-    def archive(self, assay_result_ids: Iterable[str]) -> AssayResultIdsResponse:
+    def archive(
+        self,
+        assay_result_ids: Iterable[str],
+        reason: Union[Unset, AssayResultsArchiveReason] = UNSET,
+    ) -> AssayResultIdsResponse:
         """
         Archive assay results.
 
@@ -225,8 +231,10 @@ class AssayResultService(BaseService):
 
         See https://benchling.com/api/reference#/Assay%20Results/archiveAssayResults
         """
-        archive_request = AssayResultsArchive(assay_result_ids=list(assay_result_ids))
-        response = archive_assay_results.sync_detailed(client=self.client, json_body=archive_request)
+        archive_request = AssayResultsArchive(assay_result_ids=list(assay_result_ids), reason=reason)
+        response = archive_assay_results.sync_detailed(
+            client=self.client, json_body=archive_request
+        )
         return model_from_detailed(response)
 
     @api_method

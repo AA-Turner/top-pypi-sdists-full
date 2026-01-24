@@ -16,7 +16,9 @@ from .conversation_history_transcript_common_model_output_source_medium import (
 from .conversation_history_transcript_common_model_output_tool_results_item import (
     ConversationHistoryTranscriptCommonModelOutputToolResultsItem,
 )
-from .conversation_history_transcript_tool_call_common_model import ConversationHistoryTranscriptToolCallCommonModel
+from .conversation_history_transcript_tool_call_common_model_output import (
+    ConversationHistoryTranscriptToolCallCommonModelOutput,
+)
 from .conversation_turn_metrics import ConversationTurnMetrics
 from .llm_usage_output import LlmUsageOutput
 from .rag_retrieval_info import RagRetrievalInfo
@@ -28,7 +30,7 @@ class ConversationHistoryTranscriptCommonModelOutput(UncheckedBaseModel):
     agent_metadata: typing.Optional[AgentMetadata] = None
     message: typing.Optional[str] = None
     multivoice_message: typing.Optional[ConversationHistoryMultivoiceMessageModel] = None
-    tool_calls: typing.Optional[typing.List[ConversationHistoryTranscriptToolCallCommonModel]] = None
+    tool_calls: typing.Optional[typing.List[ConversationHistoryTranscriptToolCallCommonModelOutput]] = None
     tool_results: typing.Optional[typing.List[ConversationHistoryTranscriptCommonModelOutputToolResultsItem]] = None
     feedback: typing.Optional[UserFeedback] = None
     llm_override: typing.Optional[str] = None
@@ -49,11 +51,5 @@ class ConversationHistoryTranscriptCommonModelOutput(UncheckedBaseModel):
             smart_union = True
             extra = pydantic.Extra.allow
 
-
-from .conversation_history_transcript_workflow_tools_result_common_model_output import (
-    ConversationHistoryTranscriptWorkflowToolsResultCommonModelOutput,
-)  # noqa: E402, F401, I001
-from .workflow_tool_nested_tools_step_model_output import WorkflowToolNestedToolsStepModelOutput  # noqa: E402, F401, I001
-from .workflow_tool_response_model_output import WorkflowToolResponseModelOutput  # noqa: E402, F401, I001
 
 update_forward_refs(ConversationHistoryTranscriptCommonModelOutput)

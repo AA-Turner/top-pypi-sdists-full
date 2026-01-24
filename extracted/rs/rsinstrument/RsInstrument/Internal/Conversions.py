@@ -42,7 +42,7 @@ def assert_list_data(value: List) -> None:
 
 def _get_endianness_symbol(swap_endianness: bool) -> str:
 	"""Based on the current endianness returns the symbol used in the 'struct' module."""
-	if swap_endianness is False:
+	if not swap_endianness:
 		return '@'
 	elif swap_endianness is True and sys.byteorder == 'little':
 		return '>'
@@ -180,7 +180,7 @@ def str_to_bool(string: str) -> bool:
 	return False
 
 
-def string_to_pure_bool(string: str) -> bool or None:
+def string_to_pure_bool(string: str) -> bool | None:
 	"""Converts string to boolean value. Compare to str_to_bool(), the values '1' and '0' are not considered boolean.
 	Also, if the method can not convert the string to boolean, it returns None."""
 	assert_string_data(string)
@@ -265,7 +265,7 @@ def str_to_int(string: str) -> int:
 		return int(round(float(string)))
 	except ValueError:
 		result = strip_si_suffix(string)
-		if result[0] is False:
+		if not result[0]:
 			raise
 		try:
 			return int(round(float(result[1]) * result[2]))
@@ -298,7 +298,7 @@ def str_special_values_to_int(string: str) -> int:
 	return None
 
 
-def str_to_int_or_bool(string: str) -> int or bool:
+def str_to_int_or_bool(string: str) -> int | bool:
 	"""Similar to str_to_int, but for special values "ON/OFF" the function returns boolean"""
 	result = string_to_pure_bool(string)
 	if result is not None:
@@ -341,7 +341,7 @@ def str_to_float(string: str) -> float:
 		return float(string)
 	except ValueError:
 		result = strip_si_suffix(string)
-		if result[0] is False:
+		if not result[0]:
 			raise
 		try:
 			return float(result[1]) * result[2]
@@ -349,7 +349,7 @@ def str_to_float(string: str) -> float:
 			raise ValueError(f"could not convert string to float: '{string}'")
 
 
-def str_to_float_or_bool(string: str) -> float or bool:
+def str_to_float_or_bool(string: str) -> float | bool:
 	"""Similar to str_to_float, but for special values "ON/OFF" the function returns boolean"""
 	result = string_to_pure_bool(string)
 	if result is not None:
@@ -426,7 +426,7 @@ def list_to_csv_quoted_str(value: List) -> str:
 	return ','.join(result)
 
 
-def decimal_value_to_str(x: int or float) -> str:
+def decimal_value_to_str(x: int | float) -> str:
 	"""Converts scalar decimal value to string.
 	Supported element types:
 	- int
@@ -439,7 +439,7 @@ def decimal_value_to_str(x: int or float) -> str:
 		raise RsInstrException(f"decimal_value_to_str: unsupported variable type '{type(x)}', value '{x}'. Only integer and float types are supported.")
 
 
-def decimal_or_bool_value_to_str(x: int or float or bool) -> str:
+def decimal_or_bool_value_to_str(x: int | float | bool) -> str:
 	"""Converts scalar decimal value to string.
 	Supported element types:
 	- int
@@ -455,7 +455,7 @@ def decimal_or_bool_value_to_str(x: int or float or bool) -> str:
 		raise RsInstrException(f"decimal_or_bool_value_to_str: unsupported variable type '{type(x)}', value '{x}'. Only integer, float and boolean types are supported.")
 
 
-def value_to_str(x: int or bool or float or str or Enum) -> str:
+def value_to_str(x: int | bool | float | str | Enum) -> str:
 	"""Converts scalar value to string.
 	Supported element types:
 	- int
@@ -491,7 +491,7 @@ def enum_value_to_scpi_string(enum_value: str) -> str:
 	return enum_value
 
 
-def value_to_quoted_str(x: int or bool or float or str or Enum) -> str:
+def value_to_quoted_str(x: int | bool | float | str | Enum) -> str:
 	"""Converts scalar value to string enclosed by single quotes.
 	Supported element types:
 	- int
@@ -502,7 +502,7 @@ def value_to_quoted_str(x: int or bool or float or str or Enum) -> str:
 	return Properties.scpi_quotes + value_to_str(x) + Properties.scpi_quotes
 
 
-def str_to_str_or_int(x: str) -> str or int:
+def str_to_str_or_int(x: str) -> str | int:
 	"""Converts the string to string or integer.
 	If the 'x' value is enclosed by quotes, the value is returned as string without quotes.
 	If the 'x' value is a pure integer number, it is returned as integer. If the conversion to integer fails, the value is returned as string."""
@@ -531,7 +531,7 @@ def str_to_float_list(string: str) -> List[float]:
 	return result
 
 
-def str_to_float_or_bool_list(string: str) -> List[float or bool]:
+def str_to_float_or_bool_list(string: str) -> List[float | bool]:
 	"""Converts string with comma-separated values to list of float or boolean values.
 	Empty or blank string is converted to empty list."""
 	assert_string_data(string)
@@ -555,7 +555,7 @@ def str_to_int_list(string: str) -> List[int]:
 	return result
 
 
-def str_to_int_or_bool_list(string: str) -> List[int or bool]:
+def str_to_int_or_bool_list(string: str) -> List[int | bool]:
 	"""Converts string with comma-separated values to list of integer or boolean values.
 	Empty or blank string is converted to empty list."""
 	assert_string_data(string)
@@ -567,7 +567,7 @@ def str_to_int_or_bool_list(string: str) -> List[int or bool]:
 	return result
 
 
-def str_to_str_or_int_list(string: str) -> List[str or int]:
+def str_to_str_or_int_list(string: str) -> List[str | int]:
 	"""Converts string with comma-separated values to list of string or integer values using Conv.str_to_str_or_int.
 	Empty or blank string is converted to empty list."""
 	assert_string_data(string)
@@ -617,7 +617,7 @@ def str_to_scalar_enum_helper(string: str, scpi_enum: ScpiEnum, array_search: bo
 	enum_value = scpi_enum.find_in_enum_members(value, False)
 	if enum_value is not None:
 		return enum_value
-	if array_search is False:
+	if not array_search:
 		# If the result is still -1 (not found), try to force removing the comma in the string.
 		enum_value = scpi_enum.find_in_enum_members(value, True)
 		if enum_value is not None:
@@ -633,7 +633,7 @@ def str_to_scalar_enum_helper(string: str, scpi_enum: ScpiEnum, array_search: bo
 	return Utilities.trim_str_response(string)
 
 
-def str_to_simple_scalar_enum(string: str, enum_type, case_sensitive: bool = True, ignore_underscores: bool = False) -> Enum or None:
+def str_to_simple_scalar_enum(string: str, enum_type, case_sensitive: bool = True, ignore_underscores: bool = False) -> Enum | None:
 	"""Converts string to one enum element.
 	Does not handle special value or non-mandatory parts.
 	The function is used in core only for standard enum conversions, not for SCPI enum conversions."""
@@ -718,21 +718,21 @@ def str_to_list_enum_ext(string: str, enum_type) -> List[Enum]:
 	return str_to_list_enum_helper(string, ScpiEnum(enum_type), exc_if_not_found=False)
 
 
-def convert_ts_to_datetime(timestamp: datetime or float) -> datetime:
+def convert_ts_to_datetime(timestamp: datetime | float) -> datetime:
 	"""Converts timestamp as float to datetime. For datetime tuple it just passes the value."""
 	if isinstance(timestamp, float) or isinstance(timestamp, int):
 		return datetime.fromtimestamp(timestamp)
 	return timestamp
 
 
-def get_timestamp_string(timestamp: datetime or float) -> str:
+def get_timestamp_string(timestamp: datetime | float) -> str:
 	"""Returns the timestamp as string. The timestamp can be a datetime tuple or float seconds coming from the time.time()."""
 	timestamp = convert_ts_to_datetime(timestamp)
 	cur_time = timestamp.strftime('%H:%M:%S.%f')[:-3]
 	return cur_time
 
 
-def get_timedelta_fixed_string(time_start: datetime or float, time_end: datetime or float) -> str:
+def get_timedelta_fixed_string(time_start: datetime | float, time_end: datetime | float) -> str:
 	"""Returns the time span as string - fixed in the format of '%H:%M:%S.%f'."""
 	time_a = convert_ts_to_datetime(time_start)
 	time_b = convert_ts_to_datetime(time_end)
@@ -749,7 +749,7 @@ def get_timedelta_fixed_string(time_start: datetime or float, time_end: datetime
 	return res
 
 
-def get_timedelta_string(time_a: datetime or float, time_b: datetime or float) -> str:
+def get_timedelta_string(time_a: datetime | float, time_b: datetime | float) -> str:
 	"""Returns the time span as string - dynamic based on the difference."""
 	time_a = convert_ts_to_datetime(time_a)
 	time_b = convert_ts_to_datetime(time_b)

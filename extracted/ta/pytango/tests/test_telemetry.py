@@ -3,6 +3,7 @@
 
 import contextlib
 import inspect
+import os
 import typing
 from collections import defaultdict
 
@@ -26,6 +27,7 @@ except ImportError:
 import pytest
 
 from tango import DevState, DeviceProxy, GreenMode, constants
+from tango.asyncio import DeviceProxy as AsyncioDeviceProxy
 from tango.server import Device, attribute, command
 from tango.utils import (
     _telemetry_active,
@@ -103,6 +105,9 @@ class CapturedTelemetry:
 
     def shutdown_done(self):
         self._stage_done("shutdown")
+
+    def ignore_recent_spans(self):
+        self._stage_done("ignore")
 
     def _stage_done(self, stage):
         client = self._exporters.get("pytango.client")
@@ -299,10 +304,12 @@ def test_static_command(exporters, simple_device):
 
 
 @pytest.mark.skipif(not _telemetry_active, reason="Telemetry not active")
-def test_static_attribute(exporters, simple_device):
+def test_static_attribute(exporters, simple_device, green_mode_device_proxy):
     telemetry = CapturedTelemetry(exporters)
     with span_recording_device_test_context(telemetry, simple_device) as proxy:
-        device_lineno = proxy.lineno_attribute
+        gm_proxy = green_mode_device_proxy(proxy.dev_name())  # emits some spans
+        telemetry.ignore_recent_spans()
+        device_lineno = gm_proxy.read_attribute("lineno_attribute", wait=True).value
         client_lineno = inspect.currentframe().f_lineno - 1
 
     assert_single_client_and_device_running_span_and_share_trace_id(telemetry)
@@ -326,7 +333,38 @@ def assert_single_client_and_device_running_span_and_share_trace_id(telemetry):
 
 
 @pytest.mark.skipif(not _telemetry_active, reason="Telemetry not active")
-def test_user_span_traceid_propagates_to_tango(exporters, simple_device):
+@pytest.mark.asyncio
+async def test_static_attribute_asyncio(exporters, simple_device):
+    telemetry = CapturedTelemetry(exporters)
+    with span_recording_device_test_context(telemetry, simple_device) as proxy:
+        aproxy = await AsyncioDeviceProxy(proxy.dev_name())  # emits some spans
+        telemetry.ignore_recent_spans()
+        _ = await aproxy.lineno_attribute
+        client_lineno = inspect.currentframe().f_lineno - 1
+
+    assert_single_client_and_device_running_span_and_share_trace_id(telemetry)
+
+    client_span = telemetry.client_running_spans[0]
+    assert client_span.name == "test_static_attribute_asyncio"
+    assert client_span.attributes["code.lineno"] == client_lineno
+
+
+@pytest.mark.skipif(not _telemetry_active, reason="Telemetry not active")
+def test_client_ident_included_for_device(exporters, simple_device):
+    telemetry = CapturedTelemetry(exporters)
+    with span_recording_device_test_context(telemetry, simple_device) as proxy:
+        proxy.State()
+
+    device_span = telemetry.device_running_spans[0]
+    assert "collocated" in device_span.attributes["tango.client_ident.location"]
+    assert device_span.attributes["tango.client_ident.pid"] == os.getpid()
+    assert device_span.attributes["tango.client_ident.lang"].startswith("CPP")
+
+
+@pytest.mark.skipif(not _telemetry_active, reason="Telemetry not active")
+def test_user_span_traceid_propagates_to_tango(
+    exporters, simple_device, green_mode_device_proxy
+):
     factory = get_telemetry_tracer_provider_factory()
     user_provider = factory("user")
     user_tracer = trace_api.get_tracer("user.tracer", tracer_provider=user_provider)
@@ -334,7 +372,9 @@ def test_user_span_traceid_propagates_to_tango(exporters, simple_device):
     telemetry = CapturedTelemetry(exporters)
     with user_tracer.start_as_current_span("user.span"):
         with span_recording_device_test_context(telemetry, simple_device) as proxy:
-            proxy.State()
+            gm_proxy = green_mode_device_proxy(proxy.dev_name())  # emits some spans
+            telemetry.ignore_recent_spans()
+            _ = gm_proxy.command_inout("State", wait=True)
 
     user_spans = exporters["user"].get_finished_spans()
     assert len(user_spans) == 1

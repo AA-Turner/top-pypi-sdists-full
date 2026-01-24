@@ -19,13 +19,19 @@ class GithubInstallationsItem:
         installation_id (float):
         account_id (str):
         repositories (List['GithubInstallationsItemRepositoriesItem']):
+        total_count (float): Total number of repositories available for this installation
+        per_page (float): Number of repositories loaded per page
         workspace_id (Union[Unset, str]):
+        error (Union[Unset, str]): Error message if token retrieval failed
     """
 
     installation_id: float
     account_id: str
     repositories: List["GithubInstallationsItemRepositoriesItem"]
+    total_count: float
+    per_page: float
     workspace_id: Union[Unset, str] = UNSET
+    error: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -37,7 +43,10 @@ class GithubInstallationsItem:
 
             repositories.append(repositories_item)
 
+        total_count = self.total_count
+        per_page = self.per_page
         workspace_id = self.workspace_id
+        error = self.error
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -46,10 +55,14 @@ class GithubInstallationsItem:
                 "installation_id": installation_id,
                 "account_id": account_id,
                 "repositories": repositories,
+                "total_count": total_count,
+                "per_page": per_page,
             }
         )
         if workspace_id is not UNSET:
             field_dict["workspace_id"] = workspace_id
+        if error is not UNSET:
+            field_dict["error"] = error
 
         return field_dict
 
@@ -69,13 +82,22 @@ class GithubInstallationsItem:
 
             repositories.append(repositories_item)
 
+        total_count = d.pop("total_count")
+
+        per_page = d.pop("per_page")
+
         workspace_id = d.pop("workspace_id", UNSET)
+
+        error = d.pop("error", UNSET)
 
         github_installations_item = cls(
             installation_id=installation_id,
             account_id=account_id,
             repositories=repositories,
+            total_count=total_count,
+            per_page=per_page,
             workspace_id=workspace_id,
+            error=error,
         )
 
         github_installations_item.additional_properties = d

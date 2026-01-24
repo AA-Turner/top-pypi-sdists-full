@@ -41,12 +41,16 @@ class Externalv1CloudSpaceInstanceStatus(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'alerts': 'list[V1ServerAlert]',
         'app_url': 'str',
+        'bytes_to_sync': 'str',
         'cloud_space_id': 'str',
         'cloud_space_instance_id': 'str',
+        'cluster_id': 'str',
         'compute_config': 'V1UserRequestedComputeConfig',
         'creation_timestamp': 'datetime',
         'data_connection_mounts': 'list[V1DataConnectionMount]',
+        'files_to_sync': 'str',
         'free': 'bool',
         'ide': 'str',
         'instance_id': 'str',
@@ -54,6 +58,9 @@ class Externalv1CloudSpaceInstanceStatus(object):
         'instance_url': 'str',
         'jupyterlab_url': 'str',
         'phase': 'V1CloudSpaceInstanceState',
+        'price': 'float',
+        'private_ip_address': 'str',
+        'public_ip_address': 'str',
         'ssh_host': 'str',
         'ssh_port': 'int',
         'ssh_username': 'str',
@@ -63,19 +70,24 @@ class Externalv1CloudSpaceInstanceStatus(object):
         'startup_phase': 'str',
         'startup_status': 'V1CloudSpaceInstanceStartupStatus',
         'status_message': 'str',
-        'sync_eta_seconds': 'str',
-        'sync_in_progress': 'bool',
-        'sync_percentage': 'str',
+        'switched_at': 'datetime',
+        'sync_last_updated': 'datetime',
+        'termination_time': 'datetime',
+        'transfer_metadata': 'V1CloudSpaceTransferMetadata',
         'vscode_url': 'str'
     }
 
     attribute_map = {
+        'alerts': 'alerts',
         'app_url': 'appUrl',
+        'bytes_to_sync': 'bytesToSync',
         'cloud_space_id': 'cloudSpaceId',
         'cloud_space_instance_id': 'cloudSpaceInstanceId',
+        'cluster_id': 'clusterId',
         'compute_config': 'computeConfig',
         'creation_timestamp': 'creationTimestamp',
         'data_connection_mounts': 'dataConnectionMounts',
+        'files_to_sync': 'filesToSync',
         'free': 'free',
         'ide': 'ide',
         'instance_id': 'instanceId',
@@ -83,6 +95,9 @@ class Externalv1CloudSpaceInstanceStatus(object):
         'instance_url': 'instanceUrl',
         'jupyterlab_url': 'jupyterlabUrl',
         'phase': 'phase',
+        'price': 'price',
+        'private_ip_address': 'privateIpAddress',
+        'public_ip_address': 'publicIpAddress',
         'ssh_host': 'sshHost',
         'ssh_port': 'sshPort',
         'ssh_username': 'sshUsername',
@@ -92,20 +107,25 @@ class Externalv1CloudSpaceInstanceStatus(object):
         'startup_phase': 'startupPhase',
         'startup_status': 'startupStatus',
         'status_message': 'statusMessage',
-        'sync_eta_seconds': 'syncEtaSeconds',
-        'sync_in_progress': 'syncInProgress',
-        'sync_percentage': 'syncPercentage',
+        'switched_at': 'switchedAt',
+        'sync_last_updated': 'syncLastUpdated',
+        'termination_time': 'terminationTime',
+        'transfer_metadata': 'transferMetadata',
         'vscode_url': 'vscodeUrl'
     }
 
-    def __init__(self, app_url: 'str' =None, cloud_space_id: 'str' =None, cloud_space_instance_id: 'str' =None, compute_config: 'V1UserRequestedComputeConfig' =None, creation_timestamp: 'datetime' =None, data_connection_mounts: 'list[V1DataConnectionMount]' =None, free: 'bool' =None, ide: 'str' =None, instance_id: 'str' =None, instance_region: 'str' =None, instance_url: 'str' =None, jupyterlab_url: 'str' =None, phase: 'V1CloudSpaceInstanceState' =None, ssh_host: 'str' =None, ssh_port: 'int' =None, ssh_username: 'str' =None, start_timestamp: 'datetime' =None, startup_eta_seconds: 'str' =None, startup_percentage: 'str' =None, startup_phase: 'str' =None, startup_status: 'V1CloudSpaceInstanceStartupStatus' =None, status_message: 'str' =None, sync_eta_seconds: 'str' =None, sync_in_progress: 'bool' =None, sync_percentage: 'str' =None, vscode_url: 'str' =None):  # noqa: E501
+    def __init__(self, alerts: 'list[V1ServerAlert]' =None, app_url: 'str' =None, bytes_to_sync: 'str' =None, cloud_space_id: 'str' =None, cloud_space_instance_id: 'str' =None, cluster_id: 'str' =None, compute_config: 'V1UserRequestedComputeConfig' =None, creation_timestamp: 'datetime' =None, data_connection_mounts: 'list[V1DataConnectionMount]' =None, files_to_sync: 'str' =None, free: 'bool' =None, ide: 'str' =None, instance_id: 'str' =None, instance_region: 'str' =None, instance_url: 'str' =None, jupyterlab_url: 'str' =None, phase: 'V1CloudSpaceInstanceState' =None, price: 'float' =None, private_ip_address: 'str' =None, public_ip_address: 'str' =None, ssh_host: 'str' =None, ssh_port: 'int' =None, ssh_username: 'str' =None, start_timestamp: 'datetime' =None, startup_eta_seconds: 'str' =None, startup_percentage: 'str' =None, startup_phase: 'str' =None, startup_status: 'V1CloudSpaceInstanceStartupStatus' =None, status_message: 'str' =None, switched_at: 'datetime' =None, sync_last_updated: 'datetime' =None, termination_time: 'datetime' =None, transfer_metadata: 'V1CloudSpaceTransferMetadata' =None, vscode_url: 'str' =None):  # noqa: E501
         """Externalv1CloudSpaceInstanceStatus - a model defined in Swagger"""  # noqa: E501
+        self._alerts = None
         self._app_url = None
+        self._bytes_to_sync = None
         self._cloud_space_id = None
         self._cloud_space_instance_id = None
+        self._cluster_id = None
         self._compute_config = None
         self._creation_timestamp = None
         self._data_connection_mounts = None
+        self._files_to_sync = None
         self._free = None
         self._ide = None
         self._instance_id = None
@@ -113,6 +133,9 @@ class Externalv1CloudSpaceInstanceStatus(object):
         self._instance_url = None
         self._jupyterlab_url = None
         self._phase = None
+        self._price = None
+        self._private_ip_address = None
+        self._public_ip_address = None
         self._ssh_host = None
         self._ssh_port = None
         self._ssh_username = None
@@ -122,23 +145,32 @@ class Externalv1CloudSpaceInstanceStatus(object):
         self._startup_phase = None
         self._startup_status = None
         self._status_message = None
-        self._sync_eta_seconds = None
-        self._sync_in_progress = None
-        self._sync_percentage = None
+        self._switched_at = None
+        self._sync_last_updated = None
+        self._termination_time = None
+        self._transfer_metadata = None
         self._vscode_url = None
         self.discriminator = None
+        if alerts is not None:
+            self.alerts = alerts
         if app_url is not None:
             self.app_url = app_url
+        if bytes_to_sync is not None:
+            self.bytes_to_sync = bytes_to_sync
         if cloud_space_id is not None:
             self.cloud_space_id = cloud_space_id
         if cloud_space_instance_id is not None:
             self.cloud_space_instance_id = cloud_space_instance_id
+        if cluster_id is not None:
+            self.cluster_id = cluster_id
         if compute_config is not None:
             self.compute_config = compute_config
         if creation_timestamp is not None:
             self.creation_timestamp = creation_timestamp
         if data_connection_mounts is not None:
             self.data_connection_mounts = data_connection_mounts
+        if files_to_sync is not None:
+            self.files_to_sync = files_to_sync
         if free is not None:
             self.free = free
         if ide is not None:
@@ -153,6 +185,12 @@ class Externalv1CloudSpaceInstanceStatus(object):
             self.jupyterlab_url = jupyterlab_url
         if phase is not None:
             self.phase = phase
+        if price is not None:
+            self.price = price
+        if private_ip_address is not None:
+            self.private_ip_address = private_ip_address
+        if public_ip_address is not None:
+            self.public_ip_address = public_ip_address
         if ssh_host is not None:
             self.ssh_host = ssh_host
         if ssh_port is not None:
@@ -171,14 +209,37 @@ class Externalv1CloudSpaceInstanceStatus(object):
             self.startup_status = startup_status
         if status_message is not None:
             self.status_message = status_message
-        if sync_eta_seconds is not None:
-            self.sync_eta_seconds = sync_eta_seconds
-        if sync_in_progress is not None:
-            self.sync_in_progress = sync_in_progress
-        if sync_percentage is not None:
-            self.sync_percentage = sync_percentage
+        if switched_at is not None:
+            self.switched_at = switched_at
+        if sync_last_updated is not None:
+            self.sync_last_updated = sync_last_updated
+        if termination_time is not None:
+            self.termination_time = termination_time
+        if transfer_metadata is not None:
+            self.transfer_metadata = transfer_metadata
         if vscode_url is not None:
             self.vscode_url = vscode_url
+
+    @property
+    def alerts(self) -> 'list[V1ServerAlert]':
+        """Gets the alerts of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+
+
+        :return: The alerts of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: list[V1ServerAlert]
+        """
+        return self._alerts
+
+    @alerts.setter
+    def alerts(self, alerts: 'list[V1ServerAlert]'):
+        """Sets the alerts of this Externalv1CloudSpaceInstanceStatus.
+
+
+        :param alerts: The alerts of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: list[V1ServerAlert]
+        """
+
+        self._alerts = alerts
 
     @property
     def app_url(self) -> 'str':
@@ -200,6 +261,27 @@ class Externalv1CloudSpaceInstanceStatus(object):
         """
 
         self._app_url = app_url
+
+    @property
+    def bytes_to_sync(self) -> 'str':
+        """Gets the bytes_to_sync of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+
+
+        :return: The bytes_to_sync of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: str
+        """
+        return self._bytes_to_sync
+
+    @bytes_to_sync.setter
+    def bytes_to_sync(self, bytes_to_sync: 'str'):
+        """Sets the bytes_to_sync of this Externalv1CloudSpaceInstanceStatus.
+
+
+        :param bytes_to_sync: The bytes_to_sync of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: str
+        """
+
+        self._bytes_to_sync = bytes_to_sync
 
     @property
     def cloud_space_id(self) -> 'str':
@@ -242,6 +324,27 @@ class Externalv1CloudSpaceInstanceStatus(object):
         """
 
         self._cloud_space_instance_id = cloud_space_instance_id
+
+    @property
+    def cluster_id(self) -> 'str':
+        """Gets the cluster_id of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+
+
+        :return: The cluster_id of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: str
+        """
+        return self._cluster_id
+
+    @cluster_id.setter
+    def cluster_id(self, cluster_id: 'str'):
+        """Sets the cluster_id of this Externalv1CloudSpaceInstanceStatus.
+
+
+        :param cluster_id: The cluster_id of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: str
+        """
+
+        self._cluster_id = cluster_id
 
     @property
     def compute_config(self) -> 'V1UserRequestedComputeConfig':
@@ -305,6 +408,27 @@ class Externalv1CloudSpaceInstanceStatus(object):
         """
 
         self._data_connection_mounts = data_connection_mounts
+
+    @property
+    def files_to_sync(self) -> 'str':
+        """Gets the files_to_sync of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+
+
+        :return: The files_to_sync of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: str
+        """
+        return self._files_to_sync
+
+    @files_to_sync.setter
+    def files_to_sync(self, files_to_sync: 'str'):
+        """Sets the files_to_sync of this Externalv1CloudSpaceInstanceStatus.
+
+
+        :param files_to_sync: The files_to_sync of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: str
+        """
+
+        self._files_to_sync = files_to_sync
 
     @property
     def free(self) -> 'bool':
@@ -452,6 +576,69 @@ class Externalv1CloudSpaceInstanceStatus(object):
         """
 
         self._phase = phase
+
+    @property
+    def price(self) -> 'float':
+        """Gets the price of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+
+
+        :return: The price of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: float
+        """
+        return self._price
+
+    @price.setter
+    def price(self, price: 'float'):
+        """Sets the price of this Externalv1CloudSpaceInstanceStatus.
+
+
+        :param price: The price of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: float
+        """
+
+        self._price = price
+
+    @property
+    def private_ip_address(self) -> 'str':
+        """Gets the private_ip_address of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+
+
+        :return: The private_ip_address of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: str
+        """
+        return self._private_ip_address
+
+    @private_ip_address.setter
+    def private_ip_address(self, private_ip_address: 'str'):
+        """Sets the private_ip_address of this Externalv1CloudSpaceInstanceStatus.
+
+
+        :param private_ip_address: The private_ip_address of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: str
+        """
+
+        self._private_ip_address = private_ip_address
+
+    @property
+    def public_ip_address(self) -> 'str':
+        """Gets the public_ip_address of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+
+
+        :return: The public_ip_address of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: str
+        """
+        return self._public_ip_address
+
+    @public_ip_address.setter
+    def public_ip_address(self, public_ip_address: 'str'):
+        """Sets the public_ip_address of this Externalv1CloudSpaceInstanceStatus.
+
+
+        :param public_ip_address: The public_ip_address of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: str
+        """
+
+        self._public_ip_address = public_ip_address
 
     @property
     def ssh_host(self) -> 'str':
@@ -643,67 +830,90 @@ class Externalv1CloudSpaceInstanceStatus(object):
         self._status_message = status_message
 
     @property
-    def sync_eta_seconds(self) -> 'str':
-        """Gets the sync_eta_seconds of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+    def switched_at(self) -> 'datetime':
+        """Gets the switched_at of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
 
+        Timestamp when this CloudSpaceInstance became InUse after a switch. If this CloudSpaceInstance was not switched to then this value will be empty.  # noqa: E501
 
-        :return: The sync_eta_seconds of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
-        :rtype: str
+        :return: The switched_at of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: datetime
         """
-        return self._sync_eta_seconds
+        return self._switched_at
 
-    @sync_eta_seconds.setter
-    def sync_eta_seconds(self, sync_eta_seconds: 'str'):
-        """Sets the sync_eta_seconds of this Externalv1CloudSpaceInstanceStatus.
+    @switched_at.setter
+    def switched_at(self, switched_at: 'datetime'):
+        """Sets the switched_at of this Externalv1CloudSpaceInstanceStatus.
 
+        Timestamp when this CloudSpaceInstance became InUse after a switch. If this CloudSpaceInstance was not switched to then this value will be empty.  # noqa: E501
 
-        :param sync_eta_seconds: The sync_eta_seconds of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
-        :type: str
+        :param switched_at: The switched_at of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: datetime
         """
 
-        self._sync_eta_seconds = sync_eta_seconds
+        self._switched_at = switched_at
 
     @property
-    def sync_in_progress(self) -> 'bool':
-        """Gets the sync_in_progress of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+    def sync_last_updated(self) -> 'datetime':
+        """Gets the sync_last_updated of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
 
 
-        :return: The sync_in_progress of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
-        :rtype: bool
+        :return: The sync_last_updated of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: datetime
         """
-        return self._sync_in_progress
+        return self._sync_last_updated
 
-    @sync_in_progress.setter
-    def sync_in_progress(self, sync_in_progress: 'bool'):
-        """Sets the sync_in_progress of this Externalv1CloudSpaceInstanceStatus.
+    @sync_last_updated.setter
+    def sync_last_updated(self, sync_last_updated: 'datetime'):
+        """Sets the sync_last_updated of this Externalv1CloudSpaceInstanceStatus.
 
 
-        :param sync_in_progress: The sync_in_progress of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
-        :type: bool
+        :param sync_last_updated: The sync_last_updated of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: datetime
         """
 
-        self._sync_in_progress = sync_in_progress
+        self._sync_last_updated = sync_last_updated
 
     @property
-    def sync_percentage(self) -> 'str':
-        """Gets the sync_percentage of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+    def termination_time(self) -> 'datetime':
+        """Gets the termination_time of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
 
 
-        :return: The sync_percentage of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
-        :rtype: str
+        :return: The termination_time of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: datetime
         """
-        return self._sync_percentage
+        return self._termination_time
 
-    @sync_percentage.setter
-    def sync_percentage(self, sync_percentage: 'str'):
-        """Sets the sync_percentage of this Externalv1CloudSpaceInstanceStatus.
+    @termination_time.setter
+    def termination_time(self, termination_time: 'datetime'):
+        """Sets the termination_time of this Externalv1CloudSpaceInstanceStatus.
 
 
-        :param sync_percentage: The sync_percentage of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
-        :type: str
+        :param termination_time: The termination_time of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: datetime
         """
 
-        self._sync_percentage = sync_percentage
+        self._termination_time = termination_time
+
+    @property
+    def transfer_metadata(self) -> 'V1CloudSpaceTransferMetadata':
+        """Gets the transfer_metadata of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+
+
+        :return: The transfer_metadata of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :rtype: V1CloudSpaceTransferMetadata
+        """
+        return self._transfer_metadata
+
+    @transfer_metadata.setter
+    def transfer_metadata(self, transfer_metadata: 'V1CloudSpaceTransferMetadata'):
+        """Sets the transfer_metadata of this Externalv1CloudSpaceInstanceStatus.
+
+
+        :param transfer_metadata: The transfer_metadata of this Externalv1CloudSpaceInstanceStatus.  # noqa: E501
+        :type: V1CloudSpaceTransferMetadata
+        """
+
+        self._transfer_metadata = transfer_metadata
 
     @property
     def vscode_url(self) -> 'str':

@@ -37,6 +37,7 @@ from orbax.checkpoint._src.metadata import pytree_metadata_options as pytree_met
 from orbax.checkpoint._src.metadata import tree_rich_types
 from orbax.checkpoint._src.metadata import value as value_metadata
 from orbax.checkpoint._src.metadata import value_metadata_entry
+from orbax.checkpoint._src.path import format_utils
 from orbax.checkpoint._src.serialization import tensorstore_utils as ts_utils
 from orbax.checkpoint._src.serialization import types
 from orbax.checkpoint._src.tree import structure_utils
@@ -59,6 +60,7 @@ _KEY_TYPE = 'key_type'
 _TREE_METADATA_KEY = 'tree_metadata'
 _KEY_METADATA_KEY = 'key_metadata'
 _VALUE_METADATA_KEY = 'value_metadata'
+_USE_OCDBT = 'use_ocdbt'
 _USE_ZARR3 = 'use_zarr3'
 _STORE_ARRAY_DATA_EQUAL_TO_FILL_VALUE = 'store_array_data_equal_to_fill_value'
 _VALUE_METADATA_TREE = 'value_metadata_tree'
@@ -218,6 +220,7 @@ class InternalTreeMetadata:
   """
 
   tree_metadata_entries: List[InternalTreeMetadataEntry]
+  use_ocdbt: bool | None
   use_zarr3: bool
   custom_metadata: tree_types.JsonType | None
   store_array_data_equal_to_fill_value: bool
@@ -248,6 +251,7 @@ class InternalTreeMetadata:
       param_infos: PyTree,
       *,
       save_args: Optional[PyTree] = None,
+      use_ocdbt: bool | None = None,
       use_zarr3: bool = False,
       custom_metadata: tree_types.JsonType | None = None,
       pytree_metadata_options: PyTreeMetadataOptions = (
@@ -289,6 +293,7 @@ class InternalTreeMetadata:
       )
     return InternalTreeMetadata(
         tree_metadata_entries=tree_metadata_entries,
+        use_ocdbt=use_ocdbt,
         use_zarr3=use_zarr3,
         custom_metadata=custom_metadata,
         store_array_data_equal_to_fill_value=ts_utils.STORE_ARRAY_DATA_EQUAL_TO_FILL_VALUE,
@@ -317,6 +322,7 @@ class InternalTreeMetadata:
             }
             ...
           },
+          _USE_OCDBT: True/False,
           _USE_ZARR3: True/False,
           _STORE_ARRAY_DATA_EQUAL_TO_FILL_VALUE: True,
           _CUSTOM_METADATA: ...,
@@ -374,6 +380,7 @@ class InternalTreeMetadata:
             [entry.to_json() for entry in self.tree_metadata_entries],
             {},
         ),
+        _USE_OCDBT: self.use_ocdbt,
         _USE_ZARR3: self.use_zarr3,
         _STORE_ARRAY_DATA_EQUAL_TO_FILL_VALUE: (
             self.store_array_data_equal_to_fill_value
@@ -404,6 +411,7 @@ class InternalTreeMetadata:
       ),
   ) -> InternalTreeMetadata:
     """Returns an InternalTreeMetadata instance from its JSON representation."""
+    use_ocdbt = json_dict.get(_USE_OCDBT, None)
     use_zarr3 = json_dict.get(_USE_ZARR3, False)
     custom_metadata = json_dict.get(_CUSTOM_METADATA, None)
     store_array_data_equal_to_fill_value = json_dict.get(
@@ -431,6 +439,7 @@ class InternalTreeMetadata:
       )
     return InternalTreeMetadata(
         tree_metadata_entries=tree_metadata_entries,
+        use_ocdbt=use_ocdbt,
         use_zarr3=use_zarr3,
         custom_metadata=custom_metadata,
         pytree_metadata_options=pytree_metadata_options,
@@ -459,8 +468,6 @@ class InternalTreeMetadata:
       self,
       directory: epath.Path,
       type_handler_registry: types.TypeHandlerRegistry,
-      *,
-      use_ocdbt: bool = True,
   ) -> PyTree:
     """Returns a user-facing PyTree with leaves of `ValueMetadataEntry`.
 
@@ -473,11 +480,32 @@ class InternalTreeMetadata:
       type_handler_registry: `TypeHandlerRegistry` whose registered
         TypeHandlers' metadata are used to build the `ValueMetadataEntry`
         leaves. See `TypeHandler.metadata()`.
-      use_ocdbt: Whether to use OCDBT for reading the metadata from tensorstore.
     """
+    use_ocdbt = (
+        self.use_ocdbt
+        if self.use_ocdbt is not None
+        else format_utils.is_ocdbt_checkpoint(directory)
+    )
     flat_param_infos = {}
     flat_restore_types = {}
     reference_metadata_tree = self.as_nested_tree()
+
+    try:
+      next(
+          iter(tree_utils.to_flat_dict(reference_metadata_tree).values())
+      ).skip_deserialize
+    except AttributeError as e:
+      if "'int' object has no attribute 'skip_deserialize'" in str(e):
+        logging.warning(
+            'Encountered b/469067182 while reading PyTree metadata. Attempting'
+            ' to load metadata again without the `value_metadata_tree`, which'
+            ' may be corrupted.'
+        )
+        self.value_metadata_tree = None
+        reference_metadata_tree = self.as_nested_tree()
+      else:
+        raise
+
     ts_context = ts_utils.get_ts_context(use_ocdbt=use_ocdbt)
     for keypath, value_meta in tree_utils.to_flat_dict(
         reference_metadata_tree
@@ -485,7 +513,6 @@ class InternalTreeMetadata:
       param_name = '.'.join(keypath)
       flat_param_infos[keypath] = types.ParamInfo(
           name=param_name,
-          path=directory / param_name,
           parent_dir=directory,
           skip_deserialize=value_meta.skip_deserialize,
           is_ocdbt_checkpoint=use_ocdbt,
@@ -552,6 +579,9 @@ class InternalTreeMetadata:
     if self.use_zarr3 != other.use_zarr3:
       raise ValueError('Trees must use the same zarr format.')
     use_zarr3 = self.use_zarr3
+    if self.use_ocdbt != other.use_ocdbt:
+      raise ValueError('Trees must use the same ocdbt format.')
+    use_ocdbt = self.use_ocdbt
 
     if self.pytree_metadata_options != other.pytree_metadata_options:
       raise ValueError(
@@ -619,6 +649,7 @@ class InternalTreeMetadata:
     return InternalTreeMetadata(
         tree_metadata_entries=tree_metadata_entries,
         use_zarr3=use_zarr3,
+        use_ocdbt=use_ocdbt,
         custom_metadata=custom_metadata,
         pytree_metadata_options=pytree_metadata_options,
         value_metadata_tree=value_metadata_tree,
@@ -767,6 +798,10 @@ class TreeMetadata(Protocol):
   def custom_metadata(self) -> PyTree | None:
     ...
 
+  @property
+  def use_zarr3(self) -> bool:
+    ...
+
 
   def tree_flatten(self):
     ...
@@ -830,6 +865,7 @@ class TreeMetadata(Protocol):
       tree: PyTree,
       *,
       custom_metadata: PyTree | None = None,
+      use_zarr3: bool = False,
   ) -> TreeMetadata:
     """Builds the TreeMetadata."""
     ...
@@ -847,9 +883,11 @@ class _TreeMetadataImpl(TreeMetadata):
       *,
       tree: PyTree,
       custom_metadata: PyTree | None = None,
+      use_zarr3: bool = False,
   ):
     self._tree = tree
     self._custom_metadata = custom_metadata
+    self._use_zarr3 = use_zarr3
     self._validate_tree_type(tree)
 
   def _validate_tree_type(self, tree: PyTree):
@@ -870,6 +908,10 @@ class _TreeMetadataImpl(TreeMetadata):
   @property
   def custom_metadata(self) -> PyTree | None:
     return self._custom_metadata
+
+  @property
+  def use_zarr3(self) -> bool:
+    return self._use_zarr3
 
 
   def tree_flatten(self):
@@ -995,11 +1037,13 @@ class _TreeMetadataImpl(TreeMetadata):
       tree: PyTree,
       *,
       custom_metadata: PyTree | None = None,
+      use_zarr3: bool = False,
   ) -> TreeMetadata:
     """Builds the TreeMetadata."""
     return cls(
         tree=tree,
         custom_metadata=custom_metadata,
+        use_zarr3=use_zarr3,
     )
 
 
@@ -1007,9 +1051,11 @@ def build_default_tree_metadata(
     tree: PyTree,
     *,
     custom_metadata: PyTree | None = None,
+    use_zarr3: bool = False,
 ) -> TreeMetadata:
   """Builds the TreeMetadata using a default implementation."""
   return _TreeMetadataImpl.build(
       tree,
       custom_metadata=custom_metadata,
+      use_zarr3=use_zarr3,
   )

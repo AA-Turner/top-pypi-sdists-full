@@ -17,7 +17,9 @@ if TYPE_CHECKING:
     from ...........models.access_package_resource import AccessPackageResource
     from ...........models.o_data_errors.o_data_error import ODataError
     from .access_package_resource_environment.access_package_resource_environment_request_builder import AccessPackageResourceEnvironmentRequestBuilder
+    from .external_origin_resource_connector.external_origin_resource_connector_request_builder import ExternalOriginResourceConnectorRequestBuilder
     from .refresh.refresh_request_builder import RefreshRequestBuilder
+    from .upload_sessions.upload_sessions_request_builder import UploadSessionsRequestBuilder
 
 class AccessPackageResourceRequestBuilder(BaseRequestBuilder):
     """
@@ -150,6 +152,15 @@ class AccessPackageResourceRequestBuilder(BaseRequestBuilder):
         return AccessPackageResourceEnvironmentRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
+    def external_origin_resource_connector(self) -> ExternalOriginResourceConnectorRequestBuilder:
+        """
+        Provides operations to manage the externalOriginResourceConnector property of the microsoft.graph.accessPackageResource entity.
+        """
+        from .external_origin_resource_connector.external_origin_resource_connector_request_builder import ExternalOriginResourceConnectorRequestBuilder
+
+        return ExternalOriginResourceConnectorRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
     def refresh(self) -> RefreshRequestBuilder:
         """
         Provides operations to call the refresh method.
@@ -157,6 +168,15 @@ class AccessPackageResourceRequestBuilder(BaseRequestBuilder):
         from .refresh.refresh_request_builder import RefreshRequestBuilder
 
         return RefreshRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def upload_sessions(self) -> UploadSessionsRequestBuilder:
+        """
+        Provides operations to manage the uploadSessions property of the microsoft.graph.accessPackageResource entity.
+        """
+        from .upload_sessions.upload_sessions_request_builder import UploadSessionsRequestBuilder
+
+        return UploadSessionsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
     class AccessPackageResourceRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):

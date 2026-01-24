@@ -3,7 +3,7 @@ Type annotations for config service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -54,12 +55,6 @@ from .literals import (
     SortOrderType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -417,9 +412,9 @@ __all__ = (
 
 
 class AccountAggregationSourceOutputTypeDef(TypedDict):
-    AccountIds: List[str]
+    AccountIds: list[str]
     AllAwsRegions: NotRequired[bool]
-    AwsRegions: NotRequired[List[str]]
+    AwsRegions: NotRequired[list[str]]
 
 
 class AccountAggregationSourceTypeDef(TypedDict):
@@ -481,7 +476,7 @@ AggregatorFilterResourceTypeOutputTypeDef = TypedDict(
     "AggregatorFilterResourceTypeOutputTypeDef",
     {
         "Type": NotRequired[Literal["INCLUDE"]],
-        "Value": NotRequired[List[str]],
+        "Value": NotRequired[list[str]],
     },
 )
 AggregatorFilterResourceTypeTypeDef = TypedDict(
@@ -495,7 +490,7 @@ AggregatorFilterServicePrincipalOutputTypeDef = TypedDict(
     "AggregatorFilterServicePrincipalOutputTypeDef",
     {
         "Type": NotRequired[Literal["INCLUDE"]],
-        "Value": NotRequired[List[str]],
+        "Value": NotRequired[list[str]],
     },
 )
 AggregatorFilterServicePrincipalTypeDef = TypedDict(
@@ -515,7 +510,7 @@ class AssociateResourceTypesRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -534,7 +529,7 @@ class BaseConfigurationItemTypeDef(TypedDict):
     availabilityZone: NotRequired[str]
     resourceCreationTime: NotRequired[datetime]
     configuration: NotRequired[str]
-    supplementaryConfiguration: NotRequired[Dict[str, str]]
+    supplementaryConfiguration: NotRequired[dict[str, str]]
     recordingFrequency: NotRequired[RecordingFrequencyType]
     configurationItemDeliveryTime: NotRequired[datetime]
 
@@ -593,7 +588,7 @@ class EvaluationModeConfigurationTypeDef(TypedDict):
 
 
 class ScopeOutputTypeDef(TypedDict):
-    ComplianceResourceTypes: NotRequired[List[str]]
+    ComplianceResourceTypes: NotRequired[list[str]]
     TagKey: NotRequired[str]
     TagValue: NotRequired[str]
     ComplianceResourceId: NotRequired[str]
@@ -619,7 +614,7 @@ class ConfigStreamDeliveryInfoTypeDef(TypedDict):
 
 class OrganizationAggregationSourceOutputTypeDef(TypedDict):
     RoleArn: str
-    AwsRegions: NotRequired[List[str]]
+    AwsRegions: NotRequired[list[str]]
     AllAwsRegions: NotRequired[bool]
 
 
@@ -695,7 +690,7 @@ class ConformancePackEvaluationFiltersTypeDef(TypedDict):
 class ConformancePackRuleComplianceTypeDef(TypedDict):
     ConfigRuleName: NotRequired[str]
     ComplianceType: NotRequired[ConformancePackComplianceTypeType]
-    Controls: NotRequired[List[str]]
+    Controls: NotRequired[list[str]]
 
 
 class ConformancePackStatusDetailTypeDef(TypedDict):
@@ -973,7 +968,7 @@ TimestampTypeDef = Union[datetime, str]
 
 
 class ExclusionByResourceTypesOutputTypeDef(TypedDict):
-    resourceTypes: NotRequired[List[ResourceTypeType]]
+    resourceTypes: NotRequired[list[ResourceTypeType]]
 
 
 class ExclusionByResourceTypesTypeDef(TypedDict):
@@ -1165,24 +1160,24 @@ class OrganizationAggregationSourceTypeDef(TypedDict):
 
 class OrganizationCustomPolicyRuleMetadataNoPolicyTypeDef(TypedDict):
     Description: NotRequired[str]
-    OrganizationConfigRuleTriggerTypes: NotRequired[List[OrganizationConfigRuleTriggerTypeNoSNType]]
+    OrganizationConfigRuleTriggerTypes: NotRequired[list[OrganizationConfigRuleTriggerTypeNoSNType]]
     InputParameters: NotRequired[str]
     MaximumExecutionFrequency: NotRequired[MaximumExecutionFrequencyType]
-    ResourceTypesScope: NotRequired[List[str]]
+    ResourceTypesScope: NotRequired[list[str]]
     ResourceIdScope: NotRequired[str]
     TagKeyScope: NotRequired[str]
     TagValueScope: NotRequired[str]
     PolicyRuntime: NotRequired[str]
-    DebugLogDeliveryAccounts: NotRequired[List[str]]
+    DebugLogDeliveryAccounts: NotRequired[list[str]]
 
 
 class OrganizationCustomRuleMetadataOutputTypeDef(TypedDict):
     LambdaFunctionArn: str
-    OrganizationConfigRuleTriggerTypes: List[OrganizationConfigRuleTriggerTypeType]
+    OrganizationConfigRuleTriggerTypes: list[OrganizationConfigRuleTriggerTypeType]
     Description: NotRequired[str]
     InputParameters: NotRequired[str]
     MaximumExecutionFrequency: NotRequired[MaximumExecutionFrequencyType]
-    ResourceTypesScope: NotRequired[List[str]]
+    ResourceTypesScope: NotRequired[list[str]]
     ResourceIdScope: NotRequired[str]
     TagKeyScope: NotRequired[str]
     TagValueScope: NotRequired[str]
@@ -1193,7 +1188,7 @@ class OrganizationManagedRuleMetadataOutputTypeDef(TypedDict):
     Description: NotRequired[str]
     InputParameters: NotRequired[str]
     MaximumExecutionFrequency: NotRequired[MaximumExecutionFrequencyType]
-    ResourceTypesScope: NotRequired[List[str]]
+    ResourceTypesScope: NotRequired[list[str]]
     ResourceIdScope: NotRequired[str]
     TagKeyScope: NotRequired[str]
     TagValueScope: NotRequired[str]
@@ -1256,7 +1251,7 @@ class RecordingStrategyTypeDef(TypedDict):
 
 
 class RecordingModeOverrideOutputTypeDef(TypedDict):
-    resourceTypes: List[ResourceTypeType]
+    resourceTypes: list[ResourceTypeType]
     recordingFrequency: RecordingFrequencyType
     description: NotRequired[str]
 
@@ -1280,7 +1275,7 @@ class ResourceValueTypeDef(TypedDict):
 
 
 class StaticValueOutputTypeDef(TypedDict):
-    Values: List[str]
+    Values: list[str]
 
 
 class SelectAggregateResourceConfigRequestTypeDef(TypedDict):
@@ -1388,13 +1383,13 @@ class DeliverConfigSnapshotResponseTypeDef(TypedDict):
 
 
 class DescribeAggregationAuthorizationsResponseTypeDef(TypedDict):
-    AggregationAuthorizations: List[AggregationAuthorizationTypeDef]
+    AggregationAuthorizations: list[AggregationAuthorizationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeConfigurationAggregatorSourcesStatusResponseTypeDef(TypedDict):
-    AggregatedSourceStatusList: List[AggregatedSourceStatusTypeDef]
+    AggregatedSourceStatusList: list[AggregatedSourceStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1414,7 +1409,7 @@ class GetOrganizationCustomRulePolicyResponseTypeDef(TypedDict):
 
 
 class ListAggregateDiscoveredResourcesResponseTypeDef(TypedDict):
-    ResourceIdentifiers: List[AggregateResourceIdentifierTypeDef]
+    ResourceIdentifiers: list[AggregateResourceIdentifierTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1456,8 +1451,8 @@ class StartResourceEvaluationResponseTypeDef(TypedDict):
 
 
 class BatchGetAggregateResourceConfigResponseTypeDef(TypedDict):
-    BaseConfigurationItems: List[BaseConfigurationItemTypeDef]
-    UnprocessedResourceIdentifiers: List[AggregateResourceIdentifierTypeDef]
+    BaseConfigurationItems: list[BaseConfigurationItemTypeDef]
+    UnprocessedResourceIdentifiers: list[AggregateResourceIdentifierTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1466,8 +1461,8 @@ class BatchGetResourceConfigRequestTypeDef(TypedDict):
 
 
 class BatchGetResourceConfigResponseTypeDef(TypedDict):
-    baseConfigurationItems: List[BaseConfigurationItemTypeDef]
-    unprocessedResourceKeys: List[ResourceKeyTypeDef]
+    baseConfigurationItems: list[BaseConfigurationItemTypeDef]
+    unprocessedResourceKeys: list[ResourceKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1485,7 +1480,7 @@ class StartRemediationExecutionRequestTypeDef(TypedDict):
 
 class StartRemediationExecutionResponseTypeDef(TypedDict):
     FailureMessage: str
-    FailedItems: List[ResourceKeyTypeDef]
+    FailedItems: list[ResourceKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1516,7 +1511,7 @@ class GetAggregateConfigRuleComplianceSummaryRequestTypeDef(TypedDict):
 
 
 class DescribeConfigRuleEvaluationStatusResponseTypeDef(TypedDict):
-    ConfigRulesEvaluationStatus: List[ConfigRuleEvaluationStatusTypeDef]
+    ConfigRulesEvaluationStatus: list[ConfigRuleEvaluationStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1551,11 +1546,11 @@ class ConfigurationItemTypeDef(TypedDict):
     awsRegion: NotRequired[str]
     availabilityZone: NotRequired[str]
     resourceCreationTime: NotRequired[datetime]
-    tags: NotRequired[Dict[str, str]]
-    relatedEvents: NotRequired[List[str]]
-    relationships: NotRequired[List[RelationshipTypeDef]]
+    tags: NotRequired[dict[str, str]]
+    relatedEvents: NotRequired[list[str]]
+    relationships: NotRequired[list[RelationshipTypeDef]]
     configuration: NotRequired[str]
-    supplementaryConfiguration: NotRequired[Dict[str, str]]
+    supplementaryConfiguration: NotRequired[dict[str, str]]
     recordingFrequency: NotRequired[RecordingFrequencyType]
     configurationItemDeliveryTime: NotRequired[datetime]
 
@@ -1567,12 +1562,12 @@ class ListConfigurationRecordersRequestTypeDef(TypedDict):
 
 
 class DescribeConfigurationRecorderStatusResponseTypeDef(TypedDict):
-    ConfigurationRecordersStatus: List[ConfigurationRecorderStatusTypeDef]
+    ConfigurationRecordersStatus: list[ConfigurationRecorderStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListConfigurationRecordersResponseTypeDef(TypedDict):
-    ConfigurationRecorderSummaries: List[ConfigurationRecorderSummaryTypeDef]
+    ConfigurationRecorderSummaries: list[ConfigurationRecorderSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1585,7 +1580,7 @@ class DescribeConformancePackComplianceRequestTypeDef(TypedDict):
 
 
 class ListConformancePackComplianceScoresResponseTypeDef(TypedDict):
-    ConformancePackComplianceScores: List[ConformancePackComplianceScoreTypeDef]
+    ConformancePackComplianceScores: list[ConformancePackComplianceScoreTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1599,7 +1594,7 @@ class ListConformancePackComplianceScoresRequestTypeDef(TypedDict):
 
 
 class GetConformancePackComplianceSummaryResponseTypeDef(TypedDict):
-    ConformancePackComplianceSummaryList: List[ConformancePackComplianceSummaryTypeDef]
+    ConformancePackComplianceSummaryList: list[ConformancePackComplianceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1610,8 +1605,8 @@ class OrganizationConformancePackTypeDef(TypedDict):
     LastUpdateTime: datetime
     DeliveryS3Bucket: NotRequired[str]
     DeliveryS3KeyPrefix: NotRequired[str]
-    ConformancePackInputParameters: NotRequired[List[ConformancePackInputParameterTypeDef]]
-    ExcludedAccounts: NotRequired[List[str]]
+    ConformancePackInputParameters: NotRequired[list[ConformancePackInputParameterTypeDef]]
+    ExcludedAccounts: NotRequired[list[str]]
 
 
 class PutOrganizationConformancePackRequestTypeDef(TypedDict):
@@ -1630,19 +1625,9 @@ class ConformancePackDetailTypeDef(TypedDict):
     ConformancePackId: str
     DeliveryS3Bucket: NotRequired[str]
     DeliveryS3KeyPrefix: NotRequired[str]
-    ConformancePackInputParameters: NotRequired[List[ConformancePackInputParameterTypeDef]]
+    ConformancePackInputParameters: NotRequired[list[ConformancePackInputParameterTypeDef]]
     LastUpdateRequestedTime: NotRequired[datetime]
     CreatedBy: NotRequired[str]
-    TemplateSSMDocumentDetails: NotRequired[TemplateSSMDocumentDetailsTypeDef]
-
-
-class PutConformancePackRequestTypeDef(TypedDict):
-    ConformancePackName: str
-    TemplateS3Uri: NotRequired[str]
-    TemplateBody: NotRequired[str]
-    DeliveryS3Bucket: NotRequired[str]
-    DeliveryS3KeyPrefix: NotRequired[str]
-    ConformancePackInputParameters: NotRequired[Sequence[ConformancePackInputParameterTypeDef]]
     TemplateSSMDocumentDetails: NotRequired[TemplateSSMDocumentDetailsTypeDef]
 
 
@@ -1655,13 +1640,13 @@ class GetConformancePackComplianceDetailsRequestTypeDef(TypedDict):
 
 class DescribeConformancePackComplianceResponseTypeDef(TypedDict):
     ConformancePackName: str
-    ConformancePackRuleComplianceList: List[ConformancePackRuleComplianceTypeDef]
+    ConformancePackRuleComplianceList: list[ConformancePackRuleComplianceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeConformancePackStatusResponseTypeDef(TypedDict):
-    ConformancePackStatusDetails: List[ConformancePackStatusDetailTypeDef]
+    ConformancePackStatusDetails: list[ConformancePackStatusDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1680,7 +1665,7 @@ class DescribeRemediationExceptionsRequestTypeDef(TypedDict):
 
 class FailedDeleteRemediationExceptionsBatchTypeDef(TypedDict):
     FailureMessage: NotRequired[str]
-    FailedItems: NotRequired[List[RemediationExceptionResourceKeyTypeDef]]
+    FailedItems: NotRequired[list[RemediationExceptionResourceKeyTypeDef]]
 
 
 class DescribeAggregateComplianceByConfigRulesRequestPaginateTypeDef(TypedDict):
@@ -1844,36 +1829,36 @@ class DescribeConfigRulesRequestTypeDef(TypedDict):
 
 
 class DescribeOrganizationConfigRuleStatusesResponseTypeDef(TypedDict):
-    OrganizationConfigRuleStatuses: List[OrganizationConfigRuleStatusTypeDef]
+    OrganizationConfigRuleStatuses: list[OrganizationConfigRuleStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeOrganizationConformancePackStatusesResponseTypeDef(TypedDict):
-    OrganizationConformancePackStatuses: List[OrganizationConformancePackStatusTypeDef]
+    OrganizationConformancePackStatuses: list[OrganizationConformancePackStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribePendingAggregationRequestsResponseTypeDef(TypedDict):
-    PendingAggregationRequests: List[PendingAggregationRequestTypeDef]
+    PendingAggregationRequests: list[PendingAggregationRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeRemediationExceptionsResponseTypeDef(TypedDict):
-    RemediationExceptions: List[RemediationExceptionTypeDef]
+    RemediationExceptions: list[RemediationExceptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class FailedRemediationExceptionBatchTypeDef(TypedDict):
     FailureMessage: NotRequired[str]
-    FailedItems: NotRequired[List[RemediationExceptionTypeDef]]
+    FailedItems: NotRequired[list[RemediationExceptionTypeDef]]
 
 
 class DescribeRetentionConfigurationsResponseTypeDef(TypedDict):
-    RetentionConfigurations: List[RetentionConfigurationTypeDef]
+    RetentionConfigurations: list[RetentionConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1884,7 +1869,7 @@ class PutRetentionConfigurationResponseTypeDef(TypedDict):
 
 
 class PutEvaluationsResponseTypeDef(TypedDict):
-    FailedEvaluations: List[EvaluationOutputTypeDef]
+    FailedEvaluations: list[EvaluationOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1946,7 +1931,7 @@ class ExecutionControlsTypeDef(TypedDict):
 
 
 class QueryInfoTypeDef(TypedDict):
-    SelectFields: NotRequired[List[FieldInfoTypeDef]]
+    SelectFields: NotRequired[list[FieldInfoTypeDef]]
 
 
 class GetAggregateDiscoveredResourceCountsRequestTypeDef(TypedDict):
@@ -1960,14 +1945,14 @@ class GetAggregateDiscoveredResourceCountsRequestTypeDef(TypedDict):
 class GetAggregateDiscoveredResourceCountsResponseTypeDef(TypedDict):
     TotalDiscoveredResources: int
     GroupByKey: str
-    GroupedResourceCounts: List[GroupedResourceCountTypeDef]
+    GroupedResourceCounts: list[GroupedResourceCountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetDiscoveredResourceCountsResponseTypeDef(TypedDict):
     totalDiscoveredResources: int
-    resourceCounts: List[ResourceCountTypeDef]
+    resourceCounts: list[ResourceCountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1986,7 +1971,7 @@ class GetOrganizationConfigRuleDetailedStatusRequestTypeDef(TypedDict):
 
 
 class GetOrganizationConfigRuleDetailedStatusResponseTypeDef(TypedDict):
-    OrganizationConfigRuleDetailedStatus: List[MemberAccountStatusTypeDef]
+    OrganizationConfigRuleDetailedStatus: list[MemberAccountStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2005,7 +1990,7 @@ class GetOrganizationConformancePackDetailedStatusRequestTypeDef(TypedDict):
 
 
 class GetOrganizationConformancePackDetailedStatusResponseTypeDef(TypedDict):
-    OrganizationConformancePackDetailedStatuses: List[
+    OrganizationConformancePackDetailedStatuses: list[
         OrganizationConformancePackDetailedStatusTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2052,25 +2037,25 @@ class ListAggregateDiscoveredResourcesRequestTypeDef(TypedDict):
 
 
 class ListDiscoveredResourcesResponseTypeDef(TypedDict):
-    resourceIdentifiers: List[ResourceIdentifierTypeDef]
+    resourceIdentifiers: list[ResourceIdentifierTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListResourceEvaluationsResponseTypeDef(TypedDict):
-    ResourceEvaluations: List[ResourceEvaluationTypeDef]
+    ResourceEvaluations: list[ResourceEvaluationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListStoredQueriesResponseTypeDef(TypedDict):
-    StoredQueryMetadata: List[StoredQueryMetadataTypeDef]
+    StoredQueryMetadata: list[StoredQueryMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2078,6 +2063,17 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 class PutAggregationAuthorizationRequestTypeDef(TypedDict):
     AuthorizedAccountId: str
     AuthorizedAwsRegion: str
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class PutConformancePackRequestTypeDef(TypedDict):
+    ConformancePackName: str
+    TemplateS3Uri: NotRequired[str]
+    TemplateBody: NotRequired[str]
+    DeliveryS3Bucket: NotRequired[str]
+    DeliveryS3KeyPrefix: NotRequired[str]
+    ConformancePackInputParameters: NotRequired[Sequence[ConformancePackInputParameterTypeDef]]
+    TemplateSSMDocumentDetails: NotRequired[TemplateSSMDocumentDetailsTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -2106,7 +2102,7 @@ class OrganizationConfigRuleTypeDef(TypedDict):
     OrganizationConfigRuleArn: str
     OrganizationManagedRuleMetadata: NotRequired[OrganizationManagedRuleMetadataOutputTypeDef]
     OrganizationCustomRuleMetadata: NotRequired[OrganizationCustomRuleMetadataOutputTypeDef]
-    ExcludedAccounts: NotRequired[List[str]]
+    ExcludedAccounts: NotRequired[list[str]]
     LastUpdateTime: NotRequired[datetime]
     OrganizationCustomPolicyRuleMetadata: NotRequired[
         OrganizationCustomPolicyRuleMetadataNoPolicyTypeDef
@@ -2124,7 +2120,7 @@ OrganizationManagedRuleMetadataUnionTypeDef = Union[
 class RecordingGroupOutputTypeDef(TypedDict):
     allSupported: NotRequired[bool]
     includeGlobalResourceTypes: NotRequired[bool]
-    resourceTypes: NotRequired[List[ResourceTypeType]]
+    resourceTypes: NotRequired[list[ResourceTypeType]]
     exclusionByResourceTypes: NotRequired[ExclusionByResourceTypesOutputTypeDef]
     recordingStrategy: NotRequired[RecordingStrategyTypeDef]
 
@@ -2139,7 +2135,7 @@ class RecordingGroupTypeDef(TypedDict):
 
 class RecordingModeOutputTypeDef(TypedDict):
     recordingFrequency: RecordingFrequencyType
-    recordingModeOverrides: NotRequired[List[RecordingModeOverrideOutputTypeDef]]
+    recordingModeOverrides: NotRequired[list[RecordingModeOverrideOutputTypeDef]]
 
 
 class RecordingModeTypeDef(TypedDict):
@@ -2150,7 +2146,7 @@ class RecordingModeTypeDef(TypedDict):
 class RemediationExecutionStatusTypeDef(TypedDict):
     ResourceKey: NotRequired[ResourceKeyTypeDef]
     State: NotRequired[RemediationExecutionStateType]
-    StepDetails: NotRequired[List[RemediationExecutionStepTypeDef]]
+    StepDetails: NotRequired[list[RemediationExecutionStepTypeDef]]
     InvocationTime: NotRequired[datetime]
     LastUpdatedTime: NotRequired[datetime]
 
@@ -2163,7 +2159,7 @@ class RemediationParameterValueOutputTypeDef(TypedDict):
 class SourceOutputTypeDef(TypedDict):
     Owner: OwnerType
     SourceIdentifier: NotRequired[str]
-    SourceDetails: NotRequired[List[SourceDetailTypeDef]]
+    SourceDetails: NotRequired[list[SourceDetailTypeDef]]
     CustomPolicyDetails: NotRequired[CustomPolicyDetailsTypeDef]
 
 
@@ -2178,13 +2174,13 @@ StaticValueUnionTypeDef = Union[StaticValueTypeDef, StaticValueOutputTypeDef]
 
 
 class DescribeAggregateComplianceByConformancePacksResponseTypeDef(TypedDict):
-    AggregateComplianceByConformancePacks: List[AggregateComplianceByConformancePackTypeDef]
+    AggregateComplianceByConformancePacks: list[AggregateComplianceByConformancePackTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetAggregateConformancePackComplianceSummaryResponseTypeDef(TypedDict):
-    AggregateConformancePackComplianceSummaries: List[
+    AggregateConformancePackComplianceSummaries: list[
         AggregateConformancePackComplianceSummaryTypeDef
     ]
     GroupByKey: str
@@ -2195,7 +2191,7 @@ class GetAggregateConformancePackComplianceSummaryResponseTypeDef(TypedDict):
 class ConfigurationAggregatorTypeDef(TypedDict):
     ConfigurationAggregatorName: NotRequired[str]
     ConfigurationAggregatorArn: NotRequired[str]
-    AccountAggregationSources: NotRequired[List[AccountAggregationSourceOutputTypeDef]]
+    AccountAggregationSources: NotRequired[list[AccountAggregationSourceOutputTypeDef]]
     OrganizationAggregationSource: NotRequired[OrganizationAggregationSourceOutputTypeDef]
     CreationTime: NotRequired[datetime]
     LastUpdatedTime: NotRequired[datetime]
@@ -2240,7 +2236,7 @@ class ComplianceByResourceTypeDef(TypedDict):
 
 
 class DescribeDeliveryChannelsResponseTypeDef(TypedDict):
-    DeliveryChannels: List[DeliveryChannelTypeDef]
+    DeliveryChannels: list[DeliveryChannelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2249,7 +2245,7 @@ class PutDeliveryChannelRequestTypeDef(TypedDict):
 
 
 class DescribeDeliveryChannelStatusResponseTypeDef(TypedDict):
-    DeliveryChannelsStatus: List[DeliveryChannelStatusTypeDef]
+    DeliveryChannelsStatus: list[DeliveryChannelStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2259,30 +2255,30 @@ class GetAggregateResourceConfigResponseTypeDef(TypedDict):
 
 
 class GetResourceConfigHistoryResponseTypeDef(TypedDict):
-    configurationItems: List[ConfigurationItemTypeDef]
+    configurationItems: list[ConfigurationItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DescribeOrganizationConformancePacksResponseTypeDef(TypedDict):
-    OrganizationConformancePacks: List[OrganizationConformancePackTypeDef]
+    OrganizationConformancePacks: list[OrganizationConformancePackTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeConformancePacksResponseTypeDef(TypedDict):
-    ConformancePackDetails: List[ConformancePackDetailTypeDef]
+    ConformancePackDetails: list[ConformancePackDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DeleteRemediationExceptionsResponseTypeDef(TypedDict):
-    FailedBatches: List[FailedDeleteRemediationExceptionsBatchTypeDef]
+    FailedBatches: list[FailedDeleteRemediationExceptionsBatchTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PutRemediationExceptionsResponseTypeDef(TypedDict):
-    FailedBatches: List[FailedRemediationExceptionBatchTypeDef]
+    FailedBatches: list[FailedRemediationExceptionBatchTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2328,21 +2324,21 @@ class ResourceEvaluationFiltersTypeDef(TypedDict):
 
 
 class SelectAggregateResourceConfigResponseTypeDef(TypedDict):
-    Results: List[str]
+    Results: list[str]
     QueryInfo: QueryInfoTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class SelectResourceConfigResponseTypeDef(TypedDict):
-    Results: List[str]
+    Results: list[str]
     QueryInfo: QueryInfoTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeOrganizationConfigRulesResponseTypeDef(TypedDict):
-    OrganizationConfigRules: List[OrganizationConfigRuleTypeDef]
+    OrganizationConfigRules: list[OrganizationConfigRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2376,7 +2372,7 @@ class ConfigurationRecorderTypeDef(TypedDict):
 
 
 class DescribeRemediationExecutionStatusResponseTypeDef(TypedDict):
-    RemediationExecutionStatuses: List[RemediationExecutionStatusTypeDef]
+    RemediationExecutionStatuses: list[RemediationExecutionStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2386,7 +2382,7 @@ class RemediationConfigurationOutputTypeDef(TypedDict):
     TargetType: Literal["SSM_DOCUMENT"]
     TargetId: str
     TargetVersion: NotRequired[str]
-    Parameters: NotRequired[Dict[str, RemediationParameterValueOutputTypeDef]]
+    Parameters: NotRequired[dict[str, RemediationParameterValueOutputTypeDef]]
     ResourceType: NotRequired[str]
     Automatic: NotRequired[bool]
     ExecutionControls: NotRequired[ExecutionControlsTypeDef]
@@ -2407,7 +2403,7 @@ class ConfigRuleOutputTypeDef(TypedDict):
     MaximumExecutionFrequency: NotRequired[MaximumExecutionFrequencyType]
     ConfigRuleState: NotRequired[ConfigRuleStateType]
     CreatedBy: NotRequired[str]
-    EvaluationModes: NotRequired[List[EvaluationModeConfigurationTypeDef]]
+    EvaluationModes: NotRequired[list[EvaluationModeConfigurationTypeDef]]
 
 
 class ConfigRuleTypeDef(TypedDict):
@@ -2430,7 +2426,7 @@ class RemediationParameterValueTypeDef(TypedDict):
 
 
 class DescribeConfigurationAggregatorsResponseTypeDef(TypedDict):
-    ConfigurationAggregators: List[ConfigurationAggregatorTypeDef]
+    ConfigurationAggregators: list[ConfigurationAggregatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2450,55 +2446,55 @@ class PutConfigurationAggregatorRequestTypeDef(TypedDict):
 
 class GetAggregateConfigRuleComplianceSummaryResponseTypeDef(TypedDict):
     GroupByKey: str
-    AggregateComplianceCounts: List[AggregateComplianceCountTypeDef]
+    AggregateComplianceCounts: list[AggregateComplianceCountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetComplianceSummaryByResourceTypeResponseTypeDef(TypedDict):
-    ComplianceSummariesByResourceType: List[ComplianceSummaryByResourceTypeTypeDef]
+    ComplianceSummariesByResourceType: list[ComplianceSummaryByResourceTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeAggregateComplianceByConfigRulesResponseTypeDef(TypedDict):
-    AggregateComplianceByConfigRules: List[AggregateComplianceByConfigRuleTypeDef]
+    AggregateComplianceByConfigRules: list[AggregateComplianceByConfigRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeComplianceByConfigRuleResponseTypeDef(TypedDict):
-    ComplianceByConfigRules: List[ComplianceByConfigRuleTypeDef]
+    ComplianceByConfigRules: list[ComplianceByConfigRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeComplianceByResourceResponseTypeDef(TypedDict):
-    ComplianceByResources: List[ComplianceByResourceTypeDef]
+    ComplianceByResources: list[ComplianceByResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetAggregateComplianceDetailsByConfigRuleResponseTypeDef(TypedDict):
-    AggregateEvaluationResults: List[AggregateEvaluationResultTypeDef]
+    AggregateEvaluationResults: list[AggregateEvaluationResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetConformancePackComplianceDetailsResponseTypeDef(TypedDict):
     ConformancePackName: str
-    ConformancePackRuleEvaluationResults: List[ConformancePackEvaluationResultTypeDef]
+    ConformancePackRuleEvaluationResults: list[ConformancePackEvaluationResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetComplianceDetailsByConfigRuleResponseTypeDef(TypedDict):
-    EvaluationResults: List[EvaluationResultTypeDef]
+    EvaluationResults: list[EvaluationResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetComplianceDetailsByResourceResponseTypeDef(TypedDict):
-    EvaluationResults: List[EvaluationResultTypeDef]
+    EvaluationResults: list[EvaluationResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2526,7 +2522,7 @@ class AssociateResourceTypesResponseTypeDef(TypedDict):
 
 
 class DescribeConfigurationRecordersResponseTypeDef(TypedDict):
-    ConfigurationRecorders: List[ConfigurationRecorderOutputTypeDef]
+    ConfigurationRecorders: list[ConfigurationRecorderOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2541,17 +2537,17 @@ ConfigurationRecorderUnionTypeDef = Union[
 
 
 class DescribeRemediationConfigurationsResponseTypeDef(TypedDict):
-    RemediationConfigurations: List[RemediationConfigurationOutputTypeDef]
+    RemediationConfigurations: list[RemediationConfigurationOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class FailedRemediationBatchTypeDef(TypedDict):
     FailureMessage: NotRequired[str]
-    FailedItems: NotRequired[List[RemediationConfigurationOutputTypeDef]]
+    FailedItems: NotRequired[list[RemediationConfigurationOutputTypeDef]]
 
 
 class DescribeConfigRulesResponseTypeDef(TypedDict):
-    ConfigRules: List[ConfigRuleOutputTypeDef]
+    ConfigRules: list[ConfigRuleOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2568,7 +2564,7 @@ class PutConfigurationRecorderRequestTypeDef(TypedDict):
 
 
 class PutRemediationConfigurationsResponseTypeDef(TypedDict):
-    FailedBatches: List[FailedRemediationBatchTypeDef]
+    FailedBatches: list[FailedRemediationBatchTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

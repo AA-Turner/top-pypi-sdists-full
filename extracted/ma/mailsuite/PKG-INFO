@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: mailsuite
+Version: 1.11.2
+Summary: A Python package for retrieving, parsing, and sending emails
+Project-URL: Homepage, https://github.com/seanthegeek/mailsuite/
+Project-URL: Documentation, https://seanthegeek.github.io/mailsuite/
+Project-URL: Issues, https://github.com/seanthegeek/mailsuite/issues
+Project-URL: Changelog, https://github.com/seanthegeek/mailsuite/blob/master/CHANGELOG.md
+Author-email: Sean Whalen <whalenster@gmail.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: IMAP,SMTP,email
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Requires-Dist: dnspython>=2.0.0
+Requires-Dist: expiringdict==1.2.2
+Requires-Dist: html2text>=2020.1.16
+Requires-Dist: imapclient>=3.1.0
+Requires-Dist: mail-parser>=4.1.2
+Requires-Dist: publicsuffix2>=2.20190812
+Description-Content-Type: text/markdown
+
+# mailsuite
+
+[![PyPI](https://img.shields.io/pypi/v/mailsuite)](https://pypi.org/project/mailsuite/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/mailsuite?color=blue)](https://pypistats.org/packages/mailsuite)
+
+A Python package for retrieving, parsing, and sending emails.
+
+## Features
+
+- Simplified IMAP client
+  - Retrieve email from any folder
+  - Create new folders
+  - Move messages to other folders
+  - Delete messages
+  - Monitor folders for new messages using the IMAP ``IDLE`` command
+  - Always use ``/`` as the folder hierarchy separator, and convert to the
+    server's hierarchy separator in the background
+  - Always remove folder name characters that conflict with the server's
+    hierarchy separators
+  - Prepend the namespace to the folder path when required
+  - Automatically reconnect when needed
+  - Work around quirks in Gmail, Microsoft 365, Exchange, Dovecot, and
+    DavMail
+- Consistent email parsing
+  - SHA256 hashes of attachments
+  - Parsed ``Authentication-Results`` and ``DKIM-Signature`` headers
+  - Parse Microsoft Outlook ``.msg`` files using `msgconvert`
+- Simplified email creation and sending
+  - Easily add attachments, plain text, and HTML
+  - Uses opportunistic encryption (``STARTTLS``) with SMTP by default

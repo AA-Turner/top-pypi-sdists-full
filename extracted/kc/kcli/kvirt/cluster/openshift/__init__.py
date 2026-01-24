@@ -11,6 +11,7 @@ from kvirt.common import ssh, scp, _ssh_credentials, get_ssh_pub_key
 from kvirt.common import start_baremetal_hosts_with_iso, update_baremetal_hosts, get_new_vip, process_postscripts
 from kvirt.defaults import LOCAL_OPENSHIFT_APPS, OPENSHIFT_TAG
 import os
+import platform
 import re
 from random import choice
 from shutil import copy2, move, rmtree, which
@@ -336,16 +337,18 @@ def get_downstream_installer(version='stable', macosx=False, tag=None, debug=Fal
 
 
 def get_okd_installer(tag, version='stable', debug=False):
-    if version == 'stable' and str(tag).count('.') == 1:
-        tag = f'quay.io/okd/scos-release:{tag}.0-okd-scos.1'
-    elif 'quay.io' not in str(tag) and 'registry.ci.openshift.org' not in str(tag):
-        if version == 'candidate':
-            url = "https://amd64.origin.releases.ci.openshift.org/api/v1/releasestream/4-scos-next/latest"
-        elif version in ['ci', 'nightly']:
-            url = f"https://amd64.origin.releases.ci.openshift.org/api/v1/releasestream/{tag}.0-0.okd-scos/latest"
-        else:
-            url = "https://amd64.origin.releases.ci.openshift.org/api/v1/releasestream/4-scos-stable/latest"
+    if version == 'candidate':
+        url = "https://amd64.origin.releases.ci.openshift.org/api/v1/releasestream/4-scos-next/latest"
         tag = json.loads(urlopen(url).read())['pullSpec']
+    elif version in ['ci', 'nightly']:
+        url = f"https://amd64.origin.releases.ci.openshift.org/api/v1/releasestream/{tag}.0-0.okd-scos/latest"
+        tag = json.loads(urlopen(url).read())['pullSpec']
+    else:
+        url = 'https://quay.io/api/v1/repository/okd/scos-release/tag'
+        for t in json.loads(urlopen(url).read())["tags"]:
+            if tag in t["name"] and ".ec." not in t["name"]:
+                tag = f'quay.io/okd/scos-release:{t["name"]}'
+                break
     cmd = f"oc adm release extract --command=openshift-install --to . {tag}"
     cmd += "; chmod 700 openshift-install"
     pprint(f'Downloading openshift-install {tag} in current directory')
@@ -656,6 +659,7 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
     ctlplanes = data['ctlplanes']
     if ctlplanes <= 0:
         return {'result': 'failure', 'reason': f"Invalid number of ctlplanes {ctlplanes}"}
+    ctlplane_schedulable = data['ctlplane_schedulable']
     workers = data['workers']
     if workers < 0:
         return {'result': 'failure', 'reason': f"Invalid number of workers {workers}"}
@@ -710,8 +714,11 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
     data['sno'] = sno
     sno_wait = overrides.get('sno_wait') or baremetal_sno or data['api_ip'] is not None or sno_vm
     sno_disk = data['sno_disk']
+    if sno_disk is not None and not sno_disk.startswith('/dev/'):
+        sno_disk = f'/dev/{sno_disk}'
     sno_ctlplanes = data['sno_ctlplanes'] or baremetal_ctlplane
     sno_workers = data['sno_workers']
+    sno_telco = data['sno_telco']
     ignore_hosts = data['ignore_hosts'] or sslip
     if sno:
         if sno_disk is None:
@@ -756,7 +763,13 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
     if not data['coredns']:
         warning("You will need to provide DNS records for api and ingress on your own")
     keepalived = data['keepalived']
-    if not keepalived:
+    bgp = data['bgp']
+    if bgp:
+        data['keepalived'] = False
+        keepalived = False
+        if not data['bgp_peers']:
+            return {'result': 'failure', 'reason': 'bgp_peers needs to be set'}
+    elif not keepalived:
         warning("You will need to provide LB for api and ingress on your own")
     mdns = data['mdns']
     localhost_fix = data['localhost_fix']
@@ -777,7 +790,7 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
     if os.path.exists('coreos-installer'):
         pprint("Removing old coreos-installer")
         os.remove('coreos-installer')
-    if version not in ['ci', 'candidate', 'nightly', 'stable']:
+    if version not in ['ci', 'candidate', 'latest', 'nightly', 'stable']:
         return {'result': 'failure', 'reason': f"Incorrect version {version}"}
     else:
         pprint(f"Using {version} version")
@@ -785,7 +798,7 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
     image = data['image']
     api_ip = data['api_ip']
     cidr = None
-    if provider in virt_providers and keepalived and not sno and api_ip is None:
+    if provider in virt_providers and (keepalived or bgp) and not sno and api_ip is None:
         network = data['network']
         networkinfo = k.info_network(network)
         if not networkinfo:
@@ -929,13 +942,19 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
                 tag = f'registry.ci.openshift.org/{basetag}/release:{tag}'
     which_openshift = which('openshift-install')
     openshift_dir = os.path.dirname(which_openshift) if which_openshift is not None else '.'
-    if which_openshift is not None and not has_internet():
-        pprint("Using existing openshift-install found in your PATH")
-        warning("Not checking version")
-    elif okd:
-        run = get_okd_installer(tag, version=version)
-    elif not same_release_images(version=version, tag=tag, pull_secret=pull_secret, path=openshift_dir):
-        if version in ['ci', 'nightly'] or '/' in str(tag):
+    if which_openshift is None:
+        download = True
+    elif not has_internet:
+        pprint("Using existing openshift-install found in your PATH and skipping version check")
+        download = False
+    else:
+        download = not same_release_images(version=version, tag=tag, pull_secret=pull_secret, path=openshift_dir)
+        if download:
+            pprint("Redownloading openshift-install as found version doesn't match requirements")
+    if download:
+        if okd:
+            run = get_okd_installer(tag, version=version)
+        elif version in ['ci', 'nightly'] or '/' in str(tag):
             nightly = version == 'nightly'
             run = get_ci_installer(pull_secret, tag=tag, nightly=nightly)
         elif version in ['candidate', 'stable', 'latest']:
@@ -945,10 +964,6 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
         if run != 0:
             return {'result': 'failure', 'reason': "Couldn't download openshift-install"}
         pprint("Move downloaded openshift-install somewhere in your PATH if you want to reuse it")
-    elif which_openshift is not None:
-        pprint("Using existing openshift-install found in your PATH")
-    else:
-        pprint("Reusing matching openshift-install")
     os.environ["PATH"] = f'{os.getcwd()}:{os.environ["PATH"]}'
     INSTALLER_VERSION = get_installer_version()
     pprint(f"Using installer version {INSTALLER_VERSION}")
@@ -971,6 +986,10 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
             cacmd = f"openssl s_client -showcerts -connect {disconnected_url} </dev/null 2>/dev/null|"
             cacmd += "openssl x509 -outform PEM"
             data['ca'] = os.popen(cacmd).read()
+        kcli_images = ["curl:multi", "origin-coredns:multi", "haproxy:multi", "origin-keepalived-ipfailover:multi",
+                       "mdns-publisher:multi", "kubectl:multi"]
+        kcli_images = '\n'.join([f'quay.io/karmab/{image}' for image in kcli_images])
+        warning(f"Make sure to push the following images in your registry: {kcli_images}")
     if sno:
         pass
     elif image is None:
@@ -1011,6 +1030,10 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
         if not images:
             msg = f"Missing {image}. Indicate correct image in your parameters file..."
             return {'result': 'failure', 'reason': msg}
+    if provider in virt_providers and platform.machine() != arch:
+        pprint(f"Forcing release image to {arch}")
+        base_url = 'quay.io/okd/scos-release' if okd else 'quay.io/openshift-release-dev'
+        os.environ['OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE'] = f'{base_url}:{INSTALLER_VERSION}-{arch}'
     overrides['image'] = image
     static_networking_ctlplane, static_networking_worker = False, False
     macentries = []
@@ -1095,6 +1118,7 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
     if disconnected_url is not None:
         if disconnected_update and disconnected_url != 'quay.io':
             data['release_tag'] = f'v4.{get_installer_minor(INSTALLER_VERSION)}'
+            data['openshift_version'] = INSTALLER_VERSION
             update_registry(config, plandir, cluster, data)
         key = f"{disconnected_user}:{disconnected_password}"
         key = str(b64encode(key.encode('utf-8')), 'utf-8')
@@ -1153,21 +1177,31 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
                                             overrides={'role': role, 'node_ip_hint': node_ip_hint})
             with open(f"{clusterdir}/manifests/99-chrony-{role}.yaml", 'w') as f:
                 f.write(hint)
-    manifestsdir = data.get('manifests')
-    manifestsdir = pwd_path(manifestsdir)
-    if os.path.exists(manifestsdir) and os.path.isdir(manifestsdir):
-        for f in glob(f"{manifestsdir}/*.y*ml"):
-            pprint(f"Injecting manifest {f}")
-            copy2(f, f"{clusterdir}/openshift")
-    elif isinstance(manifestsdir, list):
+    if sno_telco:
+        manifestsdir = safe_load(open(f"{plandir}/telco_manifests.yml"))
+    else:
+        manifestsdir = data.get('manifests')
+        manifestsdir = pwd_path(manifestsdir)
+    if isinstance(manifestsdir, list):
         for manifest in manifestsdir:
             f, content = list(manifest.keys())[0], list(manifest.values())[0]
             if not f.endswith('.yml') and not f.endswith('.yaml'):
                 warning(f"Skipping manifest {f}")
                 continue
+            if f == '99-openshift-disconnected-catalog.yaml':
+                if disconnected_url is not None:
+                    content = content.replace('REGISTRY', disconnected_url).replace('TAG', OPENSHIFT_TAG)
+                else:
+                    continue
+            if f == '98-var-lib-containers-partitioned.yaml':
+                content = content.replace('SNO_DISK', sno_disk or '/dev/sda')
             pprint(f"Injecting manifest {f}")
             with open(f'{clusterdir}/openshift/{f}', 'w') as f:
                 f.write(content)
+    elif os.path.exists(manifestsdir) and os.path.isdir(manifestsdir):
+        for f in glob(f"{manifestsdir}/*.y*ml"):
+            pprint(f"Injecting manifest {f}")
+            copy2(f, f"{clusterdir}/openshift")
     for manifest in glob(f"{clusterdir}/*.yaml"):
         if os.stat(manifest).st_size == 0:
             warning(f"Skipping empty manifest {manifest}")
@@ -1204,7 +1238,7 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
                                                        'mtu': mtu, 'mode': ipsec_mode})
         with open(f"{clusterdir}/openshift/99-ovn.yaml", 'w') as f:
             f.write(ovn_data)
-    if workers == 0 or not mdns or kubevirt_api_service:
+    if ctlplane_schedulable or workers == 0 or not mdns or kubevirt_api_service:
         copy2(f'{plandir}/cluster-scheduler-02-config.yml', f"{clusterdir}/manifests")
     if 'sslip' in domain:
         ingress_sslip_data = config.process_inputfile(cluster, f"{plandir}/cluster-ingress-02-config.yml",
@@ -1247,10 +1281,11 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
                 _f.write(crondata)
             continue
         if '99-monitoring.yaml' in f:
-            monitoring_retention = data['monitoring_retention']
-            monitoringfile = config.process_inputfile(cluster, f, overrides={'retention': monitoring_retention})
-            with open(f"{clusterdir}/openshift/99-monitoring.yaml", 'w') as _f:
-                _f.write(monitoringfile)
+            if not sno_telco:
+                monitoring_retention = data['monitoring_retention']
+                monitoringfile = config.process_inputfile(cluster, f, overrides={'retention': monitoring_retention})
+                with open(f"{clusterdir}/openshift/99-monitoring.yaml", 'w') as _f:
+                    _f.write(monitoringfile)
             continue
         copy2(f, f"{clusterdir}/openshift")
     if virtualization_nightly:

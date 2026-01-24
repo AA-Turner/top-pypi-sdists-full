@@ -45,12 +45,16 @@
       jobs:
         - aodhclient-dsvm-functional:
             irrelevant-files: &ac-irrelevant-files
+              - ^\.gitignore$
               - ^\.gitreview$
+              - ^\.pre-commit-config\.yaml$
+              - ^aodhclient/tests/.*$
               - ^(test-|)requirements.txt$
               - ^setup.cfg$
               - ^doc/.*$
               - ^.*\.rst$
               - ^releasenotes/.*$
+              - ^aodhclient/tests/unit/.*$
     gate:
       jobs:
         - aodhclient-dsvm-functional:

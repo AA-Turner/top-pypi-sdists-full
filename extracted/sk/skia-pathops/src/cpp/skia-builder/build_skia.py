@@ -21,6 +21,7 @@ SKIA_BUILD_ARGS = [
     "is_debug=false",
     "skia_enable_pdf=false",
     "skia_enable_discrete_gpu=false",
+    "skia_enable_ganesh=false",
     "skia_enable_skottie=false",
     "skia_enable_skshaper=false",
     "skia_use_dng_sdk=false",
@@ -28,6 +29,7 @@ SKIA_BUILD_ARGS = [
     "skia_use_freetype=false",
     "skia_use_fontconfig=false",
     "skia_use_fonthost_mac=false",
+    "skia_use_gl=false",
     "skia_use_harfbuzz=false",
     "skia_use_icu=false",
     "skia_use_libjpeg_turbo_encode=false",
@@ -37,23 +39,18 @@ SKIA_BUILD_ARGS = [
     "skia_use_libwebp_encode=false",
     "skia_use_libwebp_decode=false",
     "skia_use_piex=false",
-    "skia_use_sfntly=false",
     "skia_use_xps=false",
     "skia_use_zlib=false",
     "skia_enable_spirv_validation=false",
-    "skia_use_libheif=false",
     "skia_use_lua=false",
     "skia_use_wuffs=false",
+    'extra_cflags=["-DSK_DISABLE_LEGACY_PNG_WRITEBUFFER"]',
 ]
 if sys.platform != "win32":
     # On Linux, I need this flag otherwise I get undefined symbol upon importing;
     # on Windows, defining this flag creates other linker issues (SkFontMgr being
     # redefined by SkFontMgr_win_dw_factory.obj)...
     SKIA_BUILD_ARGS.append("skia_enable_fontmgr_empty=true")
-    # We don't need GPU or GL support, but disabling this on Windows creates lots
-    # of undefined symbols upon linking the skia.dll, so I keep them for Windows...
-    SKIA_BUILD_ARGS.append("skia_enable_gpu=false")
-    SKIA_BUILD_ARGS.append("skia_use_gl=false")
 
 
 def make_virtualenv(venv_dir):
@@ -208,7 +205,7 @@ if __name__ == "__main__":
 
     # https://github.com/fonttools/skia-pathops/issues/41
     if sys.platform == "darwin":
-        env["MACOSX_DEPLOYMENT_TARGET"] = "10.9"
+        env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
 
     if args.sync_deps:
         subprocess.check_call(

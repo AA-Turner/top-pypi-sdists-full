@@ -9,39 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0158 import RepositoryRuleWorkflowsPropParameters
 
 
-class SecretScanningLocationDiscussionBody(GitHubModel):
-    """SecretScanningLocationDiscussionBody
+class RepositoryRuleWorkflows(GitHubModel):
+    """workflows
 
-    Represents a 'discussion_body' secret scanning location type. This location type
-    shows that a secret was detected in the body of a discussion.
+    Require all changes made to a targeted branch to pass the specified workflows
+    before they can be merged.
     """
 
-    discussion_body_url: str = Field(
-        description="The URL to the discussion where the secret was detected."
-    )
+    type: Literal["workflows"] = Field()
+    parameters: Missing[RepositoryRuleWorkflowsPropParameters] = Field(default=UNSET)
 
 
-class SecretScanningLocationPullRequestComment(GitHubModel):
-    """SecretScanningLocationPullRequestComment
+model_rebuild(RepositoryRuleWorkflows)
 
-    Represents a 'pull_request_comment' secret scanning location type. This location
-    type shows that a secret was detected in a comment on a pull request.
-    """
-
-    pull_request_comment_url: str = Field(
-        description="The API URL to get the pull request comment where the secret was detected."
-    )
-
-
-model_rebuild(SecretScanningLocationDiscussionBody)
-model_rebuild(SecretScanningLocationPullRequestComment)
-
-__all__ = (
-    "SecretScanningLocationDiscussionBody",
-    "SecretScanningLocationPullRequestComment",
-)
+__all__ = ("RepositoryRuleWorkflows",)

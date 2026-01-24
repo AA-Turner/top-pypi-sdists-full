@@ -20,14 +20,12 @@ async def run_memory_chat():
     # Load environment variables for API keys
     load_dotenv()
 
-    # Config file path - change this to your config file
-    config_file = "examples/browser_mcp.json"
-
-    print("Initializing chat...")
-
-    # Create MCP client and agent with memory enabled
-    client = MCPClient.from_config_file(config_file)
-    llm = ChatOpenAI(model="gpt-4o-mini")
+    config = {
+        "mcpServers": {"playwright": {"command": "npx", "args": ["@playwright/mcp@latest"], "env": {"DISPLAY": ":1"}}}
+    }
+    # Create MCPClient from config file
+    client = MCPClient(config=config)
+    llm = ChatOpenAI(model="gpt-5")
 
     # Create agent with memory_enabled=True
     agent = MCPAgent(
@@ -35,6 +33,7 @@ async def run_memory_chat():
         client=client,
         max_steps=15,
         memory_enabled=True,  # Enable built-in conversation memory
+        pretty_print=True,
     )
 
     print("\n===== Interactive MCP Chat =====")

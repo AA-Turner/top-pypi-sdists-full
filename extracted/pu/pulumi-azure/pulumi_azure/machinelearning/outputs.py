@@ -61,8 +61,8 @@ class ComputeClusterIdentity(dict):
                  principal_id: Optional[_builtins.str] = None,
                  tenant_id: Optional[_builtins.str] = None):
         """
-        :param _builtins.str type: Specifies the type of Managed Service Identity that should be configured on this Machine Learning Compute Cluster. Possible values are `SystemAssigned`, `UserAssigned`, `SystemAssigned, UserAssigned` (to enable both). Changing this forces a new resource to be created.
-        :param Sequence[_builtins.str] identity_ids: Specifies a list of User Assigned Managed Identity IDs to be assigned to this Machine Learning Compute Cluster. Changing this forces a new resource to be created.
+        :param _builtins.str type: Specifies the type of Managed Service Identity that should be configured on this Machine Learning Compute Cluster. Possible values are `SystemAssigned`, `UserAssigned`, `SystemAssigned, UserAssigned` (to enable both).
+        :param Sequence[_builtins.str] identity_ids: Specifies a list of User Assigned Managed Identity IDs to be assigned to this Machine Learning Compute Cluster.
                
                > **Note:** This is required when `type` is set to `UserAssigned` or `SystemAssigned, UserAssigned`.
         :param _builtins.str principal_id: The Principal ID for the Service Principal associated with the Managed Service Identity of this Machine Learning Compute Cluster.
@@ -80,7 +80,7 @@ class ComputeClusterIdentity(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        Specifies the type of Managed Service Identity that should be configured on this Machine Learning Compute Cluster. Possible values are `SystemAssigned`, `UserAssigned`, `SystemAssigned, UserAssigned` (to enable both). Changing this forces a new resource to be created.
+        Specifies the type of Managed Service Identity that should be configured on this Machine Learning Compute Cluster. Possible values are `SystemAssigned`, `UserAssigned`, `SystemAssigned, UserAssigned` (to enable both).
         """
         return pulumi.get(self, "type")
 
@@ -88,7 +88,7 @@ class ComputeClusterIdentity(dict):
     @pulumi.getter(name="identityIds")
     def identity_ids(self) -> Optional[Sequence[_builtins.str]]:
         """
-        Specifies a list of User Assigned Managed Identity IDs to be assigned to this Machine Learning Compute Cluster. Changing this forces a new resource to be created.
+        Specifies a list of User Assigned Managed Identity IDs to be assigned to this Machine Learning Compute Cluster.
 
         > **Note:** This is required when `type` is set to `UserAssigned` or `SystemAssigned, UserAssigned`.
         """
@@ -538,7 +538,7 @@ class InferenceClusterSsl(dict):
         :param _builtins.str cname: The cname of the SSL configuration.Conflicts with `ssl[0].leaf_domain_label`,`ssl[0].overwrite_existing_domain`. Changing this forces a new Machine Learning Inference Cluster to be created. Defaults to `""`.
         :param _builtins.str key: The key content for the SSL configuration.Conflicts with `ssl[0].leaf_domain_label`,`ssl[0].overwrite_existing_domain`. Changing this forces a new Machine Learning Inference Cluster to be created. Defaults to `""`.
         :param _builtins.str leaf_domain_label: The leaf domain label for the SSL configuration. Conflicts with `ssl[0].cert`,`ssl[0].key`,`ssl[0].cname`. Changing this forces a new Machine Learning Inference Cluster to be created. Defaults to `""`.
-        :param _builtins.bool overwrite_existing_domain: Whether or not to overwrite existing leaf domain. Conflicts with `ssl[0].cert`,`ssl[0].key`,`ssl[0].cname` Changing this forces a new Machine Learning Inference Cluster to be created. Defaults to `""`.
+        :param _builtins.bool overwrite_existing_domain: Whether or not to overwrite existing leaf domain. Conflicts with `ssl[0].cert`,`ssl[0].key`,`ssl[0].cname` Changing this forces a new Machine Learning Inference Cluster to be created.
         """
         if cert is not None:
             pulumi.set(__self__, "cert", cert)
@@ -587,7 +587,7 @@ class InferenceClusterSsl(dict):
     @pulumi.getter(name="overwriteExistingDomain")
     def overwrite_existing_domain(self) -> Optional[_builtins.bool]:
         """
-        Whether or not to overwrite existing leaf domain. Conflicts with `ssl[0].cert`,`ssl[0].key`,`ssl[0].cname` Changing this forces a new Machine Learning Inference Cluster to be created. Defaults to `""`.
+        Whether or not to overwrite existing leaf domain. Conflicts with `ssl[0].cert`,`ssl[0].key`,`ssl[0].cname` Changing this forces a new Machine Learning Inference Cluster to be created.
         """
         return pulumi.get(self, "overwrite_existing_domain")
 
@@ -891,6 +891,8 @@ class WorkspaceManagedNetwork(dict):
         suggest = None
         if key == "isolationMode":
             suggest = "isolation_mode"
+        elif key == "provisionOnCreationEnabled":
+            suggest = "provision_on_creation_enabled"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in WorkspaceManagedNetwork. Access the value via the '{suggest}' property getter instead.")
@@ -904,20 +906,32 @@ class WorkspaceManagedNetwork(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 isolation_mode: Optional[_builtins.str] = None):
+                 isolation_mode: Optional[_builtins.str] = None,
+                 provision_on_creation_enabled: Optional[_builtins.bool] = None):
         """
-        :param _builtins.str isolation_mode: The isolation mode of the Machine Learning Workspace. Possible values are `Disabled`, `AllowOnlyApprovedOutbound`, and `AllowInternetOutbound`
+        :param _builtins.str isolation_mode: The isolation mode of the Machine Learning Workspace. Possible values are `Disabled`, `AllowOnlyApprovedOutbound`, and `AllowInternetOutbound`.
+        :param _builtins.bool provision_on_creation_enabled: Set to trigger the provisioning of the managed VNet with the default options when creating a Machine Learning Workspace with the managed VNet enabled. Defaults to `false`. Changing this forces a new resource to be created.
         """
         if isolation_mode is not None:
             pulumi.set(__self__, "isolation_mode", isolation_mode)
+        if provision_on_creation_enabled is not None:
+            pulumi.set(__self__, "provision_on_creation_enabled", provision_on_creation_enabled)
 
     @_builtins.property
     @pulumi.getter(name="isolationMode")
     def isolation_mode(self) -> Optional[_builtins.str]:
         """
-        The isolation mode of the Machine Learning Workspace. Possible values are `Disabled`, `AllowOnlyApprovedOutbound`, and `AllowInternetOutbound`
+        The isolation mode of the Machine Learning Workspace. Possible values are `Disabled`, `AllowOnlyApprovedOutbound`, and `AllowInternetOutbound`.
         """
         return pulumi.get(self, "isolation_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="provisionOnCreationEnabled")
+    def provision_on_creation_enabled(self) -> Optional[_builtins.bool]:
+        """
+        Set to trigger the provisioning of the managed VNet with the default options when creating a Machine Learning Workspace with the managed VNet enabled. Defaults to `false`. Changing this forces a new resource to be created.
+        """
+        return pulumi.get(self, "provision_on_creation_enabled")
 
 
 @pulumi.output_type

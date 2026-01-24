@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from cx_Freeze._compat import IS_CONDA, IS_MACOS, IS_MINGW, IS_WINDOWS
+from cx_Freeze.hooks.global_names import CONCURRENT_FUTURES_GLOBAL_NAMES
 from cx_Freeze.hooks.qthooks import get_qt_plugins_paths  # noqa: F401
 
 if TYPE_CHECKING:
@@ -125,8 +126,6 @@ def load_collections(finder: ModuleFinder, module: Module) -> None:
 
 def load_concurrent_futures(finder: ModuleFinder, module: Module) -> None:
     """Ignore names that should not be confused with modules to be imported."""
-    from cx_Freeze.hooks.global_names import CONCURRENT_FUTURES_GLOBAL_NAMES
-
     module.global_names.update(CONCURRENT_FUTURES_GLOBAL_NAMES)
 
 
@@ -151,7 +150,10 @@ def load_cryptography(finder: ModuleFinder, module: Module) -> None:
 def load_ctypes_util(finder: ModuleFinder, module: Module) -> None:
     """The ctypes.util module should filter import names."""
     if not IS_MACOS:
+        finder.exclude_module("ctypes.macholib")
         module.ignore_names.add("ctypes.macholib.dyld")
+    if not sys.platform.startswith("aix"):
+        module.exclude_names.add("ctypes._aix")
 
 
 def load__ctypes(finder: ModuleFinder, module: Module) -> None:
@@ -167,6 +169,9 @@ def load__ctypes(finder: ModuleFinder, module: Module) -> None:
                     target = f"lib/{source.name}"
                     finder.lib_files[source] = target
                     finder.include_files(source, target)
+    # Python 3.14+
+    with suppress(ImportError):
+        finder.include_module("ctypes._layout")
 
 
 def load_cx_Oracle(finder: ModuleFinder, module: Module) -> None:
@@ -179,8 +184,6 @@ def load_cx_Oracle(finder: ModuleFinder, module: Module) -> None:
 
 def load_datetime(finder: ModuleFinder, module: Module) -> None:
     """Optimize datetime module."""
-    if not hasattr(sys, "stdlib_module_names"):  # py 3.9
-        return
     if "_pydatetime" in sys.stdlib_module_names:  # py 3.12+
         try:
             finder.include_module("_datetime")

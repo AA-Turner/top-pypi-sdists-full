@@ -9,36 +9,60 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Any
-from typing_extensions import NotRequired, TypeAlias, TypedDict
+import datetime as _dt
+from typing import Union
+from typing_extensions import NotRequired, TypedDict
 
-from .group_0353 import MetadataType
-
-
-class ManifestType(TypedDict):
-    """Manifest"""
-
-    name: str
-    file: NotRequired[ManifestPropFileType]
-    metadata: NotRequired[MetadataType]
-    resolved: NotRequired[ManifestPropResolvedType]
+from .group_0010 import IntegrationType, IntegrationTypeForResponse
 
 
-class ManifestPropFileType(TypedDict):
-    """ManifestPropFile"""
+class DeploymentSimpleType(TypedDict):
+    """Deployment
 
-    source_location: NotRequired[str]
+    A deployment created as the result of an Actions check run from a workflow that
+    references an environment
+    """
+
+    url: str
+    id: int
+    node_id: str
+    task: str
+    original_environment: NotRequired[str]
+    environment: str
+    description: Union[str, None]
+    created_at: _dt.datetime
+    updated_at: _dt.datetime
+    statuses_url: str
+    repository_url: str
+    transient_environment: NotRequired[bool]
+    production_environment: NotRequired[bool]
+    performed_via_github_app: NotRequired[Union[None, IntegrationType, None]]
 
 
-ManifestPropResolvedType: TypeAlias = dict[str, Any]
-"""ManifestPropResolved
+class DeploymentSimpleTypeForResponse(TypedDict):
+    """Deployment
 
-A collection of resolved package dependencies.
-"""
+    A deployment created as the result of an Actions check run from a workflow that
+    references an environment
+    """
+
+    url: str
+    id: int
+    node_id: str
+    task: str
+    original_environment: NotRequired[str]
+    environment: str
+    description: Union[str, None]
+    created_at: str
+    updated_at: str
+    statuses_url: str
+    repository_url: str
+    transient_environment: NotRequired[bool]
+    production_environment: NotRequired[bool]
+    performed_via_github_app: NotRequired[Union[None, IntegrationTypeForResponse, None]]
 
 
 __all__ = (
-    "ManifestPropFileType",
-    "ManifestPropResolvedType",
-    "ManifestType",
+    "DeploymentSimpleType",
+    "DeploymentSimpleTypeForResponse",
 )

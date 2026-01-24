@@ -43,7 +43,7 @@ class SecretServiceApi(object):
             api_client = ApiClient()
         self.api_client = api_client
 
-    def secret_service_create_secret(self, body: 'ProjectIdSecretsBody', project_id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
+    def secret_service_create_secret(self, body: 'SecretServiceCreateSecretBody', project_id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
         """secret_service_create_secret  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -52,7 +52,7 @@ class SecretServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param ProjectIdSecretsBody body: (required)
+        :param SecretServiceCreateSecretBody body: (required)
         :param str project_id: (required)
         :return: V1Secret
                  If the method is called asynchronously,
@@ -65,7 +65,7 @@ class SecretServiceApi(object):
             (data) = self.secret_service_create_secret_with_http_info(body, project_id, **kwargs)  # noqa: E501
             return data
 
-    def secret_service_create_secret_with_http_info(self, body: 'ProjectIdSecretsBody', project_id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
+    def secret_service_create_secret_with_http_info(self, body: 'SecretServiceCreateSecretBody', project_id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
         """secret_service_create_secret  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -74,7 +74,7 @@ class SecretServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param ProjectIdSecretsBody body: (required)
+        :param SecretServiceCreateSecretBody body: (required)
         :param str project_id: (required)
         :return: V1Secret
                  If the method is called asynchronously,
@@ -643,6 +643,7 @@ class SecretServiceApi(object):
 
         :param async_req bool
         :param str project_id: (required)
+        :param str type:
         :return: V1ListSecretsResponse
                  If the method is called asynchronously,
                  returns the request thread.
@@ -664,12 +665,13 @@ class SecretServiceApi(object):
 
         :param async_req bool
         :param str project_id: (required)
+        :param str type:
         :return: V1ListSecretsResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
 
-        all_params = ['project_id']  # noqa: E501
+        all_params = ['project_id', 'type']  # noqa: E501
         all_params.append('async_req')
         all_params.append('_return_http_data_only')
         all_params.append('_preload_content')
@@ -696,6 +698,8 @@ class SecretServiceApi(object):
             path_params['projectId'] = params['project_id']  # noqa: E501
 
         query_params = []
+        if 'type' in params:
+            query_params.append(('type', params['type']))  # noqa: E501
 
         header_params = {}
 
@@ -811,7 +815,7 @@ class SecretServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def secret_service_update_secret(self, body: 'SecretsIdBody', project_id: 'str', id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
+    def secret_service_update_secret(self, body: 'SecretServiceUpdateSecretBody', project_id: 'str', id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
         """secret_service_update_secret  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -820,7 +824,7 @@ class SecretServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param SecretsIdBody body: (required)
+        :param SecretServiceUpdateSecretBody body: (required)
         :param str project_id: (required)
         :param str id: (required)
         :return: V1Secret
@@ -834,7 +838,7 @@ class SecretServiceApi(object):
             (data) = self.secret_service_update_secret_with_http_info(body, project_id, id, **kwargs)  # noqa: E501
             return data
 
-    def secret_service_update_secret_with_http_info(self, body: 'SecretsIdBody', project_id: 'str', id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
+    def secret_service_update_secret_with_http_info(self, body: 'SecretServiceUpdateSecretBody', project_id: 'str', id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
         """secret_service_update_secret  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -843,7 +847,7 @@ class SecretServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param SecretsIdBody body: (required)
+        :param SecretServiceUpdateSecretBody body: (required)
         :param str project_id: (required)
         :param str id: (required)
         :return: V1Secret
@@ -924,7 +928,7 @@ class SecretServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def secret_service_update_user_secret(self, body: 'SecretsIdBody1', id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
+    def secret_service_update_user_secret(self, body: 'SecretServiceUpdateUserSecretBody', id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
         """secret_service_update_user_secret  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -933,7 +937,7 @@ class SecretServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param SecretsIdBody1 body: (required)
+        :param SecretServiceUpdateUserSecretBody body: (required)
         :param str id: (required)
         :return: V1Secret
                  If the method is called asynchronously,
@@ -946,7 +950,7 @@ class SecretServiceApi(object):
             (data) = self.secret_service_update_user_secret_with_http_info(body, id, **kwargs)  # noqa: E501
             return data
 
-    def secret_service_update_user_secret_with_http_info(self, body: 'SecretsIdBody1', id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
+    def secret_service_update_user_secret_with_http_info(self, body: 'SecretServiceUpdateUserSecretBody', id: 'str', **kwargs) -> 'V1Secret':  # noqa: E501
         """secret_service_update_user_secret  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -955,7 +959,7 @@ class SecretServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param SecretsIdBody1 body: (required)
+        :param SecretServiceUpdateUserSecretBody body: (required)
         :param str id: (required)
         :return: V1Secret
                  If the method is called asynchronously,

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""StringLeafHandler that implements the types.LeafHandler Protocol.
+""":py:class:`.StringLeafHandler` that implements the :py:class:`~.v1.serialization.LeafHandler` Protocol.
 
 The primary purpose of this handler is to provide serialization and
 deserialization for strings.
@@ -27,10 +27,11 @@ from orbax.checkpoint._src.serialization import type_handlers as type_handlers_v
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.serialization import types
 
-
-AbstractString = Type[str]
+AbstractString = types.AbstractString
 StringSerializationParam = types.SerializationParam[str]
-StringDeserializationParam = types.DeserializationParam[AbstractString]
+StringDeserializationParam = types.DeserializationParam[
+    AbstractString
+]
 
 
 def _create_v0_saving_paraminfo(
@@ -44,7 +45,6 @@ def _create_v0_saving_paraminfo(
 
   return type_handlers_v0.ParamInfo(
       name=param.name,
-      path=serialization_context.parent_dir.path / param.name,
       parent_dir=serialization_context.parent_dir.path,
       byte_limiter=serialization_context.byte_limiter,
       is_ocdbt_checkpoint=saving_options.use_ocdbt,
@@ -56,17 +56,18 @@ def _create_v0_saving_paraminfo(
 
 
 def _create_v0_restore_paraminfo(
-    param: types.DeserializationParam[None | AbstractString],
+    param: types.DeserializationParam[
+        AbstractString | Type[AbstractString] | None
+    ],
     context: context_lib.Context,
     deserialization_context: types.DeserializationContext,
 ) -> type_handlers_v0.ParamInfo:
   """Creates a V0 ParamInfo from V1 params and contexts for loading."""
 
-  loading_options = context.array_options.Loading
+  loading_options = context.array_options.loading
 
   return type_handlers_v0.ParamInfo(
       name=param.name,
-      path=deserialization_context.parent_dir / param.name,
       parent_dir=deserialization_context.parent_dir,
       skip_deserialize=False,
       byte_limiter=deserialization_context.byte_limiter,
@@ -82,7 +83,7 @@ async def _async_futures(commit_futures: Sequence[future.Future]):
 
 
 class StringLeafHandler(types.LeafHandler[str, AbstractString]):
-  """StringLeafHandler that implements the types.LeafHandler Protocol."""
+  """:py:class:`.StringLeafHandler` that implements the :py:class:`~.v1.serialization.LeafHandler` Protocol."""
 
   def __init__(
       self,
@@ -131,7 +132,7 @@ class StringLeafHandler(types.LeafHandler[str, AbstractString]):
 
   async def deserialize(
       self,
-      params: Sequence[types.DeserializationParam[AbstractString]],
+      params: Sequence[StringDeserializationParam],
       deserialization_context: types.DeserializationContext,
   ) -> Awaitable[Sequence[str]]:
     """Returns sequence of String values from a stored checkpointable location.
@@ -181,6 +182,6 @@ class StringLeafHandler(types.LeafHandler[str, AbstractString]):
 
     async def _get_metadata() -> Sequence[AbstractString]:
       v0_metadatas = await self._handler_impl.metadata(paraminfos)
-      return [str] * len(v0_metadatas)
+      return ["string"] * len(v0_metadatas)
 
     return await _get_metadata()

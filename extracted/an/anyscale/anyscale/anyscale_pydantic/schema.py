@@ -1,3 +1,4 @@
+import inspect
 import re
 import warnings
 from collections import defaultdict
@@ -5,6 +6,7 @@ from dataclasses import is_dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
+from inspect import getdoc, signature
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path
 from typing import (
@@ -83,8 +85,8 @@ from .typing import (
 from .utils import ROOT_KEY, get_model, lenient_issubclass
 
 if TYPE_CHECKING:
-    from .dataclasses import Dataclass
-    from .main import BaseModel
+    from .dataclasses import Dataclass # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .main import BaseModel # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
 default_prefix = '#/definitions/'
 default_ref_template = '#/definitions/{model}'
@@ -96,8 +98,6 @@ TypeModelSet = Set[TypeModelOrEnum]
 def _apply_modify_schema(
     modify_schema: Callable[..., None], field: Optional[ModelField], field_schema: Dict[str, Any]
 ) -> None:
-    from inspect import signature
-
     sig = signature(modify_schema)
     args = set(sig.parameters.keys())
     if 'field' in args or 'kwargs' in args:
@@ -379,7 +379,7 @@ def get_flat_models_from_field(field: ModelField, known_models: TypeModelSet) ->
     :param known_models: used to solve circular references
     :return: a set with the model used in the declaration for this field, if any, and all its sub-models
     """
-    from .main import BaseModel
+    from .main import BaseModel # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     flat_models: TypeModelSet = set()
 
@@ -446,7 +446,7 @@ def field_type_schema(
     Take a single ``field`` and generate the schema for its type only, not including additional
     information as title, etc. Also return additional schema definitions, from sub-models.
     """
-    from .main import BaseModel  # noqa: F811
+    from .main import BaseModel  # noqa: F811, PLC0415 - codex_reason("gpt5.2", "avoid circular import in pydantic compatibility layer")
 
     definitions = {}
     nested_models: Set[str] = set()
@@ -566,8 +566,6 @@ def model_process_schema(
     sub-models of the returned schema will be referenced, but their definitions will not be included in the schema. All
     the definitions are returned as the second value.
     """
-    from inspect import getdoc, signature
-
     known_models = known_models or set()
     if lenient_issubclass(model, Enum):
         model = cast(Type[Enum], model)
@@ -659,8 +657,6 @@ def enum_process_schema(enum: Type[Enum], *, field: Optional[ModelField] = None)
 
     This is similar to the `model_process_schema` function, but applies to ``Enum`` objects.
     """
-    import inspect
-
     schema_: Dict[str, Any] = {
         'title': enum.__name__,
         # Python assigns all enums a default docstring value of 'An enumeration', so
@@ -839,7 +835,7 @@ def field_singleton_schema(  # noqa: C901 (ignore complexity)
 
     Take a single Pydantic ``ModelField``, and return its schema and any additional definitions from sub-models.
     """
-    from .main import BaseModel
+    from .main import BaseModel # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     definitions: Dict[str, Any] = {}
     nested_models: Set[str] = set()
@@ -975,7 +971,7 @@ def multitypes_literal_field_for_schema(values: Tuple[Any, ...], field: ModelFie
 
 
 def encode_default(dft: Any) -> Any:
-    from .main import BaseModel
+    from .main import BaseModel # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     if isinstance(dft, BaseModel) or is_dataclass(dft):
         dft = cast('dict[str, Any]', pydantic_encoder(dft))

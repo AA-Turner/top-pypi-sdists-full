@@ -175,8 +175,9 @@ def is_instantiable_type(t: TypeForm) -> typing.TypeGuard[InstantiableType]:
 
 
 def is_union_type(t: TypeForm) -> bool:
+    # This has gotten a little messy with Python 3.14
     origin = getattr(t, "__origin__", t)
-    return origin is typing.Union or isinstance(t, types.UnionType)
+    return origin is typing.Union or isinstance(t, types.UnionType) or t is types.UnionType
 
 
 def is_typed_dict(t: TypeForm) -> bool:
@@ -324,6 +325,18 @@ def _simplistic_try_cast(inst_str: str, typ: TypeForm):
             return None
         return inst_str
 
+    if isinstance(origin, typing.TypeVar):
+        if origin.__constraints__:
+            for constraint in origin.__constraints__:
+                try:
+                    return _simplistic_try_cast(inst_str, constraint)
+                except CastError:
+                    pass
+            raise CastError(f"Could not cast {repr(inst_str)} to {type_repr(typ)}")
+        if origin.__bound__:
+            return _simplistic_try_cast(inst_str, origin.__bound__)
+        return _simplistic_try_cast(inst_str, object)
+
     if origin is typing.Literal or origin is typing_extensions.Literal:
         values_by_type = {}
         for arg in getattr(typ, "__args__", ()):
@@ -455,6 +468,15 @@ def _simplistic_try_cast(inst_str: str, typ: TypeForm):
                 return value
             raise CastError(f"Could not cast {repr(inst_str)} to {type_repr(typ)}")
 
+    if "datetime" in sys.modules:
+        import datetime
+
+        if origin is datetime.datetime:
+            try:
+                return datetime.datetime.fromisoformat(inst_str)
+            except ValueError:
+                raise CastError(f"Could not cast {repr(inst_str)} to {type_repr(typ)}") from None
+
     if "enum" in sys.modules:
         import enum
 
@@ -560,6 +582,29 @@ def is_subtype(left: TypeForm, right: TypeForm) -> bool:
 
     if left_origin is typing.Literal or left_origin is typing_extensions.Literal:
         return all(is_subtype_instance(left_arg, right) for left_arg in left_args)
+
+    if isinstance(left_origin, typing.TypeVar):
+        if left_origin == right_origin:
+            return True
+        bound = left_origin.__bound__
+        if bound is None:
+            bound = object
+        if is_subtype(bound, right_origin):
+            return True
+        if left_origin.__constraints__:
+            return any(
+                is_subtype(left_arg, right_origin) for left_arg in left_origin.__constraints__
+            )
+        return False
+
+    if isinstance(right_origin, typing.TypeVar):
+        if right_origin.__constraints__:
+            return any(
+                is_subtype(left_origin, constraint) for constraint in right_origin.__constraints__
+            )
+        if right_origin.__bound__:
+            return is_subtype(left_origin, right_origin.__bound__)
+        return True
 
     if typing_extensions.is_protocol(left) and typing_extensions.is_protocol(right):
         left_attrs = typing_extensions.get_protocol_members(left)
@@ -685,7 +730,23 @@ def is_subtype(left: TypeForm, right: TypeForm) -> bool:
             for left_param, right_param in zip(left_params, right_params)
         )
 
+    if is_typed_dict(left_origin) and is_typed_dict(right_origin):
+        if not right_origin.__required_keys__.issubset(left_origin.__required_keys__):
+            return False
+        left_hints = typing_extensions.get_type_hints(left_origin)
+        right_hints = typing_extensions.get_type_hints(right_origin)
+        for k, v in right_hints.items():
+            if k not in left_hints:
+                return False
+            if not is_subtype(left_hints[k], v):
+                # Technically this should be invariant due to mutability
+                return False
+        return True
+
     # TODO: handle other special forms
+
+    if left_origin is right_origin and left_args == right_args:
+        return True
 
     try:
         if not issubclass(left_origin, right_origin):
@@ -956,7 +1017,7 @@ def simplified_union(types):
     union_types = []
     for typ in types:
         if getattr(typ, "__args__", None) is None and any(
-            issubclass(typ, member) for member in union_types
+            is_subtype(typ, member) for member in union_types
         ):
             continue
         union_types.append(typ)
@@ -965,7 +1026,7 @@ def simplified_union(types):
     union_types = []
     for typ in reversed(types):
         if getattr(typ, "__args__", None) is None and any(
-            issubclass(typ, member) for member in union_types
+            is_subtype(typ, member) for member in union_types
         ):
             continue
         union_types.append(typ)

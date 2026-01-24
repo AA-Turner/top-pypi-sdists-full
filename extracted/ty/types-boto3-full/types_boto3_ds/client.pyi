@@ -3,7 +3,7 @@ Type annotations for ds service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -173,12 +174,6 @@ from .type_defs import (
 )
 from .waiter import HybridADUpdatedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -187,47 +182,47 @@ else:
 __all__ = ("DirectoryServiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    ADAssessmentLimitExceededException: Type[BotocoreClientError]
-    AccessDeniedException: Type[BotocoreClientError]
-    AuthenticationFailedException: Type[BotocoreClientError]
-    CertificateAlreadyExistsException: Type[BotocoreClientError]
-    CertificateDoesNotExistException: Type[BotocoreClientError]
-    CertificateInUseException: Type[BotocoreClientError]
-    CertificateLimitExceededException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ClientException: Type[BotocoreClientError]
-    DirectoryAlreadyInRegionException: Type[BotocoreClientError]
-    DirectoryAlreadySharedException: Type[BotocoreClientError]
-    DirectoryDoesNotExistException: Type[BotocoreClientError]
-    DirectoryInDesiredStateException: Type[BotocoreClientError]
-    DirectoryLimitExceededException: Type[BotocoreClientError]
-    DirectoryNotSharedException: Type[BotocoreClientError]
-    DirectoryUnavailableException: Type[BotocoreClientError]
-    DisableAlreadyInProgressException: Type[BotocoreClientError]
-    DomainControllerLimitExceededException: Type[BotocoreClientError]
-    EnableAlreadyInProgressException: Type[BotocoreClientError]
-    EntityAlreadyExistsException: Type[BotocoreClientError]
-    EntityDoesNotExistException: Type[BotocoreClientError]
-    IncompatibleSettingsException: Type[BotocoreClientError]
-    InsufficientPermissionsException: Type[BotocoreClientError]
-    InvalidCertificateException: Type[BotocoreClientError]
-    InvalidClientAuthStatusException: Type[BotocoreClientError]
-    InvalidLDAPSStatusException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidPasswordException: Type[BotocoreClientError]
-    InvalidTargetException: Type[BotocoreClientError]
-    IpRouteLimitExceededException: Type[BotocoreClientError]
-    NoAvailableCertificateException: Type[BotocoreClientError]
-    OrganizationsException: Type[BotocoreClientError]
-    RegionLimitExceededException: Type[BotocoreClientError]
-    ServiceException: Type[BotocoreClientError]
-    ShareLimitExceededException: Type[BotocoreClientError]
-    SnapshotLimitExceededException: Type[BotocoreClientError]
-    TagLimitExceededException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
-    UnsupportedSettingsException: Type[BotocoreClientError]
-    UserDoesNotExistException: Type[BotocoreClientError]
+    ADAssessmentLimitExceededException: type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AuthenticationFailedException: type[BotocoreClientError]
+    CertificateAlreadyExistsException: type[BotocoreClientError]
+    CertificateDoesNotExistException: type[BotocoreClientError]
+    CertificateInUseException: type[BotocoreClientError]
+    CertificateLimitExceededException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientException: type[BotocoreClientError]
+    DirectoryAlreadyInRegionException: type[BotocoreClientError]
+    DirectoryAlreadySharedException: type[BotocoreClientError]
+    DirectoryDoesNotExistException: type[BotocoreClientError]
+    DirectoryInDesiredStateException: type[BotocoreClientError]
+    DirectoryLimitExceededException: type[BotocoreClientError]
+    DirectoryNotSharedException: type[BotocoreClientError]
+    DirectoryUnavailableException: type[BotocoreClientError]
+    DisableAlreadyInProgressException: type[BotocoreClientError]
+    DomainControllerLimitExceededException: type[BotocoreClientError]
+    EnableAlreadyInProgressException: type[BotocoreClientError]
+    EntityAlreadyExistsException: type[BotocoreClientError]
+    EntityDoesNotExistException: type[BotocoreClientError]
+    IncompatibleSettingsException: type[BotocoreClientError]
+    InsufficientPermissionsException: type[BotocoreClientError]
+    InvalidCertificateException: type[BotocoreClientError]
+    InvalidClientAuthStatusException: type[BotocoreClientError]
+    InvalidLDAPSStatusException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidPasswordException: type[BotocoreClientError]
+    InvalidTargetException: type[BotocoreClientError]
+    IpRouteLimitExceededException: type[BotocoreClientError]
+    NoAvailableCertificateException: type[BotocoreClientError]
+    OrganizationsException: type[BotocoreClientError]
+    RegionLimitExceededException: type[BotocoreClientError]
+    ServiceException: type[BotocoreClientError]
+    ShareLimitExceededException: type[BotocoreClientError]
+    SnapshotLimitExceededException: type[BotocoreClientError]
+    TagLimitExceededException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
+    UnsupportedSettingsException: type[BotocoreClientError]
+    UserDoesNotExistException: type[BotocoreClientError]
 
 class DirectoryServiceClient(BaseClient):
     """
@@ -275,7 +270,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#accept_shared_directory)
         """
 
-    def add_ip_routes(self, **kwargs: Unpack[AddIpRoutesRequestTypeDef]) -> Dict[str, Any]:
+    def add_ip_routes(self, **kwargs: Unpack[AddIpRoutesRequestTypeDef]) -> dict[str, Any]:
         """
         If the DNS server for your self-managed domain uses a publicly addressable IP
         address, you must add a CIDR address block to correctly route traffic to and
@@ -285,7 +280,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#add_ip_routes)
         """
 
-    def add_region(self, **kwargs: Unpack[AddRegionRequestTypeDef]) -> Dict[str, Any]:
+    def add_region(self, **kwargs: Unpack[AddRegionRequestTypeDef]) -> dict[str, Any]:
         """
         Adds two domain controllers in the specified Region for the specified directory.
 
@@ -295,7 +290,7 @@ class DirectoryServiceClient(BaseClient):
 
     def add_tags_to_resource(
         self, **kwargs: Unpack[AddTagsToResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds or overwrites one or more tags for the specified directory.
 
@@ -305,7 +300,7 @@ class DirectoryServiceClient(BaseClient):
 
     def cancel_schema_extension(
         self, **kwargs: Unpack[CancelSchemaExtensionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels an in-progress schema extension to a Microsoft AD directory.
 
@@ -343,7 +338,7 @@ class DirectoryServiceClient(BaseClient):
 
     def create_conditional_forwarder(
         self, **kwargs: Unpack[CreateConditionalForwarderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a conditional forwarder associated with your Amazon Web Services
         directory.
@@ -375,7 +370,7 @@ class DirectoryServiceClient(BaseClient):
 
     def create_log_subscription(
         self, **kwargs: Unpack[CreateLogSubscriptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a subscription to forward real-time Directory Service domain controller
         security logs to the specified Amazon CloudWatch log group in your Amazon Web
@@ -427,7 +422,7 @@ class DirectoryServiceClient(BaseClient):
 
     def delete_conditional_forwarder(
         self, **kwargs: Unpack[DeleteConditionalForwarderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a conditional forwarder that has been set up for your Amazon Web
         Services directory.
@@ -448,7 +443,7 @@ class DirectoryServiceClient(BaseClient):
 
     def delete_log_subscription(
         self, **kwargs: Unpack[DeleteLogSubscriptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified log subscription.
 
@@ -477,7 +472,7 @@ class DirectoryServiceClient(BaseClient):
 
     def deregister_certificate(
         self, **kwargs: Unpack[DeregisterCertificateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes from the system the certificate that was registered for secure LDAP or
         client certificate authentication.
@@ -488,7 +483,7 @@ class DirectoryServiceClient(BaseClient):
 
     def deregister_event_topic(
         self, **kwargs: Unpack[DeregisterEventTopicRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified directory as a publisher to the specified Amazon SNS
         topic.
@@ -677,7 +672,7 @@ class DirectoryServiceClient(BaseClient):
 
     def disable_ca_enrollment_policy(
         self, **kwargs: Unpack[DisableCAEnrollmentPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables the certificate authority (CA) enrollment policy for the specified
         directory.
@@ -688,7 +683,7 @@ class DirectoryServiceClient(BaseClient):
 
     def disable_client_authentication(
         self, **kwargs: Unpack[DisableClientAuthenticationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables alternative client authentication methods for the specified directory.
 
@@ -698,7 +693,7 @@ class DirectoryServiceClient(BaseClient):
 
     def disable_directory_data_access(
         self, **kwargs: Unpack[DisableDirectoryDataAccessRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deactivates access to directory data via the Directory Service Data API for the
         specified directory.
@@ -707,7 +702,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#disable_directory_data_access)
         """
 
-    def disable_ldaps(self, **kwargs: Unpack[DisableLDAPSRequestTypeDef]) -> Dict[str, Any]:
+    def disable_ldaps(self, **kwargs: Unpack[DisableLDAPSRequestTypeDef]) -> dict[str, Any]:
         """
         Deactivates LDAP secure calls for the specified directory.
 
@@ -715,7 +710,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#disable_ldaps)
         """
 
-    def disable_radius(self, **kwargs: Unpack[DisableRadiusRequestTypeDef]) -> Dict[str, Any]:
+    def disable_radius(self, **kwargs: Unpack[DisableRadiusRequestTypeDef]) -> dict[str, Any]:
         """
         Disables multi-factor authentication (MFA) with the Remote Authentication Dial
         In User Service (RADIUS) server for an AD Connector or Microsoft AD directory.
@@ -724,7 +719,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#disable_radius)
         """
 
-    def disable_sso(self, **kwargs: Unpack[DisableSsoRequestTypeDef]) -> Dict[str, Any]:
+    def disable_sso(self, **kwargs: Unpack[DisableSsoRequestTypeDef]) -> dict[str, Any]:
         """
         Disables single-sign on for a directory.
 
@@ -734,7 +729,7 @@ class DirectoryServiceClient(BaseClient):
 
     def enable_ca_enrollment_policy(
         self, **kwargs: Unpack[EnableCAEnrollmentPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables certificate authority (CA) enrollment policy for the specified
         directory.
@@ -745,7 +740,7 @@ class DirectoryServiceClient(BaseClient):
 
     def enable_client_authentication(
         self, **kwargs: Unpack[EnableClientAuthenticationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables alternative client authentication methods for the specified directory.
 
@@ -755,7 +750,7 @@ class DirectoryServiceClient(BaseClient):
 
     def enable_directory_data_access(
         self, **kwargs: Unpack[EnableDirectoryDataAccessRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables access to directory data via the Directory Service Data API for the
         specified directory.
@@ -764,7 +759,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#enable_directory_data_access)
         """
 
-    def enable_ldaps(self, **kwargs: Unpack[EnableLDAPSRequestTypeDef]) -> Dict[str, Any]:
+    def enable_ldaps(self, **kwargs: Unpack[EnableLDAPSRequestTypeDef]) -> dict[str, Any]:
         """
         Activates the switch for the specific directory to always use LDAP secure calls.
 
@@ -772,7 +767,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#enable_ldaps)
         """
 
-    def enable_radius(self, **kwargs: Unpack[EnableRadiusRequestTypeDef]) -> Dict[str, Any]:
+    def enable_radius(self, **kwargs: Unpack[EnableRadiusRequestTypeDef]) -> dict[str, Any]:
         """
         Enables multi-factor authentication (MFA) with the Remote Authentication Dial
         In User Service (RADIUS) server for an AD Connector or Microsoft AD directory.
@@ -781,7 +776,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#enable_radius)
         """
 
-    def enable_sso(self, **kwargs: Unpack[EnableSsoRequestTypeDef]) -> Dict[str, Any]:
+    def enable_sso(self, **kwargs: Unpack[EnableSsoRequestTypeDef]) -> dict[str, Any]:
         """
         Enables single sign-on for a directory.
 
@@ -881,7 +876,7 @@ class DirectoryServiceClient(BaseClient):
 
     def register_event_topic(
         self, **kwargs: Unpack[RegisterEventTopicRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a directory with an Amazon SNS topic.
 
@@ -900,7 +895,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#reject_shared_directory)
         """
 
-    def remove_ip_routes(self, **kwargs: Unpack[RemoveIpRoutesRequestTypeDef]) -> Dict[str, Any]:
+    def remove_ip_routes(self, **kwargs: Unpack[RemoveIpRoutesRequestTypeDef]) -> dict[str, Any]:
         """
         Removes IP address blocks from a directory.
 
@@ -908,7 +903,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#remove_ip_routes)
         """
 
-    def remove_region(self, **kwargs: Unpack[RemoveRegionRequestTypeDef]) -> Dict[str, Any]:
+    def remove_region(self, **kwargs: Unpack[RemoveRegionRequestTypeDef]) -> dict[str, Any]:
         """
         Stops all replication and removes the domain controllers from the specified
         Region.
@@ -919,7 +914,7 @@ class DirectoryServiceClient(BaseClient):
 
     def remove_tags_from_resource(
         self, **kwargs: Unpack[RemoveTagsFromResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes tags from a directory.
 
@@ -929,7 +924,7 @@ class DirectoryServiceClient(BaseClient):
 
     def reset_user_password(
         self, **kwargs: Unpack[ResetUserPasswordRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Resets the password for any user in your Managed Microsoft AD or Simple AD
         directory.
@@ -940,7 +935,7 @@ class DirectoryServiceClient(BaseClient):
 
     def restore_from_snapshot(
         self, **kwargs: Unpack[RestoreFromSnapshotRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Restores a directory using an existing directory snapshot.
 
@@ -993,7 +988,7 @@ class DirectoryServiceClient(BaseClient):
 
     def update_conditional_forwarder(
         self, **kwargs: Unpack[UpdateConditionalForwarderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a conditional forwarder that has been set up for your Amazon Web
         Services directory.
@@ -1004,9 +999,9 @@ class DirectoryServiceClient(BaseClient):
 
     def update_directory_setup(
         self, **kwargs: Unpack[UpdateDirectorySetupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Updates the directory for a particular update type.
+        Updates directory configuration for the specified update type.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ds/client/update_directory_setup.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#update_directory_setup)
@@ -1024,7 +1019,7 @@ class DirectoryServiceClient(BaseClient):
 
     def update_number_of_domain_controllers(
         self, **kwargs: Unpack[UpdateNumberOfDomainControllersRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds or removes domain controllers to or from the directory.
 
@@ -1032,7 +1027,7 @@ class DirectoryServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ds/client/#update_number_of_domain_controllers)
         """
 
-    def update_radius(self, **kwargs: Unpack[UpdateRadiusRequestTypeDef]) -> Dict[str, Any]:
+    def update_radius(self, **kwargs: Unpack[UpdateRadiusRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the Remote Authentication Dial In User Service (RADIUS) server
         information for an AD Connector or Microsoft AD directory.

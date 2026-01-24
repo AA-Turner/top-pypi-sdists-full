@@ -89,12 +89,17 @@ class AccountCapability(BaseModel):
 
     updated_at: datetime
 
-    __pydantic_extra__: Dict[str, builtins.object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
+        # Some versions of Pydantic <2.8.0 have a bug and don’t allow assigning a
+        # value to this field, so for compatibility we avoid doing it at runtime.
+        __pydantic_extra__: Dict[str, builtins.object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
+
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
         # `getattr(obj, '$type')`
         def __getattr__(self, attr: str) -> builtins.object: ...
+    else:
+        __pydantic_extra__: Dict[str, builtins.object]
 
 
 AccountCapabilities = AccountCapability
@@ -137,6 +142,12 @@ class InternalAccount(BaseModel):
 
     connection: Connection
     """Specifies which financial institution the accounts belong to."""
+
+    contra_ledger_account_id: Optional[str] = None
+    """
+    If the internal account links to a contra ledger account in Modern Treasury, the
+    id of the contra ledger account will be populated here.
+    """
 
     counterparty_id: Optional[str] = None
     """The Counterparty associated to this account."""
@@ -186,6 +197,9 @@ class InternalAccount(BaseModel):
 
     routing_details: List[RoutingDetail]
     """An array of routing detail objects."""
+
+    status: Optional[Literal["active", "closed", "pending_activation", "pending_closure", "suspended"]] = None
+    """The internal account status."""
 
     updated_at: datetime
 

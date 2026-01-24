@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: djangorestframework-jsonapi
-Version: 8.0.0
+Version: 8.1.0
 Summary: A Django REST framework API adapter for the JSON:API spec.
 Home-page: https://github.com/django-json-api/django-rest-framework-json-api
 Author: Jerel Unruh
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -131,7 +132,7 @@ As a Django REST framework JSON:API (short DJA) we are trying to address followi
 Requirements
 ------------
 
-1. Python (3.9, 3.10, 3.11, 3.12, 3.13)
+1. Python (3.9, 3.10, 3.11, 3.12, 3.13, 3.14)
 2. Django (4.2, 5.1, 5.2)
 3. Django REST framework (3.15, 3.16)
 

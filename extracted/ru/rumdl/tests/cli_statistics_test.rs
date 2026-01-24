@@ -1,4 +1,4 @@
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use std::fs;
 use tempfile::tempdir;
@@ -21,7 +21,7 @@ This line has trailing spaces
 
     fs::write(&test_file, content).unwrap();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--statistics").arg(&test_file);
 
     cmd.assert()
@@ -55,7 +55,7 @@ More content.
 
     fs::write(&test_file, content).unwrap();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--statistics").arg(&test_file);
 
     cmd.assert()
@@ -78,7 +78,7 @@ fn test_statistics_multiple_files() {
     let file3 = temp_dir.path().join("file3.md");
     fs::write(&file3, "Trailing spaces  \nMore content").unwrap();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--statistics").arg(temp_dir.path());
 
     cmd.assert()
@@ -95,11 +95,11 @@ fn test_statistics_with_quiet_mode() {
     let test_file = temp_dir.path().join("test.md");
     fs::write(&test_file, "# Heading\nNo space").unwrap();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
-    cmd.arg("check").arg("--statistics").arg("--quiet").arg(&test_file);
+    let mut cmd = cargo_bin_cmd!("rumdl");
+    cmd.arg("check").arg("--statistics").arg("--silent").arg(&test_file);
 
     cmd.assert()
         .failure()
-        // Statistics should not be shown in quiet mode
+        // Statistics should not be shown in silent mode
         .stdout(predicate::str::is_empty());
 }

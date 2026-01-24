@@ -88,12 +88,32 @@ class ProjectionPushdownStrategy(OptimizationStrategy):
                 LogicalColumn(
                     node_type=NodeType.IDENTIFIER,
                     source_column=col.name,
-                    source=col.origin[0],
+                    source=(col.origin[0] if col.origin else None),
                     schema_column=col,
                 )
                 for col in node.schema.columns
                 if col.identity in context.collected_identities
             ]
+            # Update the node with the pushed columns
+            node.columns = node_columns
+
+        if node.node_type == LogicalPlanStepType.Join:
+            node_columns = []
+
+            for schema in node.schemas.values():
+                node_columns.extend(
+                    [
+                        LogicalColumn(
+                            node_type=NodeType.IDENTIFIER,
+                            source_column=col.name,
+                            source=(col.origin[0] if col.origin else None),
+                            schema_column=col,
+                        )
+                        for col in schema.columns
+                        if col.identity in node.pre_update_columns
+                    ]
+                )
+
             # Update the node with the pushed columns
             node.columns = node_columns
 

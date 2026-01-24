@@ -34,7 +34,7 @@ def setup_logging(name: str) -> None:
     log_dir = Path("release-logs")
     log_dir.mkdir(exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # noqa: DTZ005
     log_file = log_dir / f"{name}_{timestamp}.log"
 
     # Configure logging
@@ -325,7 +325,9 @@ def tag_exists(tag_name: str) -> bool:
     return bool(result.stdout.strip()) if result else False
 
 
-def get_confirmation(tag_name: str, dry_run: bool = False, no_publish: bool = False) -> bool:
+def get_confirmation(
+    tag_name: str, dry_run: bool = False, no_publish: bool = False
+) -> bool:
     """Get user confirmation before proceeding."""
     print("\n✅ All pre-flight checks passed!")
     print("\nYou are about to:")
@@ -513,7 +515,9 @@ def release_command(args):
     logging.info("-" * 40)
 
     # Get confirmation unless skipped
-    if not args.skip_confirmation and not get_confirmation(tag_name, dry_run, no_publish):
+    if not args.skip_confirmation and not get_confirmation(
+        tag_name, dry_run, no_publish
+    ):
         logging.info("Operation cancelled by user")
         sys.exit(0)
 

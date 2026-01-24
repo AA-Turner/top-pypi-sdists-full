@@ -2,17 +2,20 @@ from dataclasses import MISSING
 from typing import Any,Union,Tuple,List,Iterable
 from fastcore.utils import *
 from apswutils.db import Database,Table,DEFAULT,ForeignKeysType,Default,Queryable,NotFoundError
-from apsw import SQLError
+from apsw import SQLError, Connection
 from enum import Enum
+
+__all__ = ['MissingPrimaryKey', 'opt_bool', 'database', 'SQLError', 'Connection', 'Database', 'Table', 'DEFAULT', 'Default', 'Queryable', 'NotFoundError', 'MISSING']
 
 class MissingPrimaryKey(Exception): pass
 
 opt_bool = Union[bool, Default, None]
 
-def database(path, wal=True)->Any:
+def database(path, wal=True, flags=None)->Any:
     path = Path(path)
     path.parent.mkdir(exist_ok=True)
-    db = Database(path)
+    conn_or_path = Connection(str(path), flags=flags) if flags else path
+    db = Database(conn_or_path)
     if wal: db.enable_wal()
     return db
 
@@ -32,6 +35,10 @@ def get_last(self:Table,
         assert row, f"Couldn't find {self.last_rowid}"
     else:
         row = self.result[-1] if len(self.result) else {}
+    if not row:
+        self.last_pk = None
+        self.last_rowid = None
+        return {}
     vals = [row[pk] for pk in self.pks]
     self.last_pk = vals[0] if len(vals)==1 else vals
     if as_cls and hasattr(self,'cls'): row = self.cls(**row)
@@ -249,4 +256,3 @@ def lookup(
         lookup_values=lookup_values, extra_values=extra_values, pk=pk, foreign_keys=foreign_keys,
         column_order=column_order, not_null=not_null, defaults=defaults, extracts=extracts,
         conversions=conversions, columns=columns, strict=strict)
-

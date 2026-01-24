@@ -27,24 +27,22 @@ def concatenate_along_batch(arrays: list[np.ndarray] | tuple[np.ndarray, ...]) -
     Returns:
         The concatenated arrays along the batch axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import concatenate_along_batch
+        >>> arrays = [
+        ...     np.array([[0, 1, 2], [4, 5, 6]]),
+        ...     np.array([[10, 11, 12], [13, 14, 15]]),
+        ... ]
+        >>> out = concatenate_along_batch(arrays)
+        >>> out
+        array([[ 0,  1,  2],
+               [ 4,  5,  6],
+               [10, 11, 12],
+               [13, 14, 15]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import concatenate_along_batch
-    >>> arrays = [
-    ...     np.array([[0, 1, 2], [4, 5, 6]]),
-    ...     np.array([[10, 11, 12], [13, 14, 15]]),
-    ... ]
-    >>> out = concatenate_along_batch(arrays)
-    >>> out
-    array([[ 0,  1,  2],
-           [ 4,  5,  6],
-           [10, 11, 12],
-           [13, 14, 15]])
-
-    ```
+        ```
     """
     return cmpt.concatenate(arrays, axis=BATCH_AXIS)
 
@@ -65,22 +63,20 @@ def concatenate_along_seq(arrays: list[np.ndarray] | tuple[np.ndarray, ...]) -> 
     Returns:
         The concatenated arrays along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import concatenate_along_seq
+        >>> arrays = [
+        ...     np.array([[0, 1, 2], [4, 5, 6]]),
+        ...     np.array([[10, 11], [12, 13]]),
+        ... ]
+        >>> out = concatenate_along_seq(arrays)
+        >>> out
+        array([[ 0,  1,  2, 10, 11],
+               [ 4,  5,  6, 12, 13]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import concatenate_along_seq
-    >>> arrays = [
-    ...     np.array([[0, 1, 2], [4, 5, 6]]),
-    ...     np.array([[10, 11], [12, 13]]),
-    ... ]
-    >>> out = concatenate_along_seq(arrays)
-    >>> out
-    array([[ 0,  1,  2, 10, 11],
-           [ 4,  5,  6, 12, 13]])
-
-    ```
+        ```
     """
     return cmpt.concatenate(arrays, axis=SEQ_AXIS)
 
@@ -102,18 +98,17 @@ def tile_along_seq(array: np.ndarray, reps: int) -> np.ndarray:
         A new array with the data repeated along the sequence
             axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import tile_along_seq
+        >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
+        >>> out = tile_along_seq(array, 2)
+        >>> out
+        array([[0, 1, 2, 3, 4, 0, 1, 2, 3, 4],
+               [5, 6, 7, 8, 9, 5, 6, 7, 8, 9]])
 
-    ```pycon
-    >>> import numpy as np
-    >>> from batcharray.array import tile_along_seq
-    >>> array = np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
-    >>> out = tile_along_seq(array, 2)
-    >>> out
-    array([[0, 1, 2, 3, 4, 0, 1, 2, 3, 4],
-           [5, 6, 7, 8, 9, 5, 6, 7, 8, 9]])
-
-    ```
+        ```
     """
     repeats = [1] * array.ndim
     repeats[1] = reps

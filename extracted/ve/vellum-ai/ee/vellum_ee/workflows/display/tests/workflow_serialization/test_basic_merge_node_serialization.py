@@ -36,8 +36,6 @@ def test_serialize_workflow__await_all():
 
     # AND its raw data should be what we expect
     workflow_raw_data = serialized_workflow["workflow_raw_data"]
-    assert len(workflow_raw_data["edges"]) == 6
-    assert len(workflow_raw_data["nodes"]) == 6
 
     # AND each node should be serialized correctly
     entrypoint_node = next(node for node in workflow_raw_data["nodes"] if node["type"] == "ENTRYPOINT")
@@ -52,7 +50,7 @@ def test_serialize_workflow__await_all():
             "source_handle_id": "017d40f5-8326-4e42-a409-b08995defaa8",
         },
         "display_data": {
-            "position": {"x": 0.0, "y": -50.0},
+            "position": {"x": 0.0, "y": 0.0},
         },
     }
 
@@ -62,19 +60,19 @@ def test_serialize_workflow__await_all():
     merge_node = next(node for node in workflow_raw_data["nodes"] if node["type"] == "MERGE")
     assert not DeepDiff(
         {
-            "id": "37c10e8a-771b-432b-a767-31f5007851f0",
+            "id": "f07c263c-65a3-4b58-83c1-f4a29123f167",
             "type": "MERGE",
             "inputs": [],
             "data": {
                 "label": "Await All Merge Node",
                 "merge_strategy": "AWAIT_ALL",
                 "target_handles": [
-                    {"id": "f40ff7fb-de1b-4aa4-ba3c-7630f7357cbf"},
-                    {"id": "42eeb66c-9792-4609-8c71-3a56f668f4dc"},
+                    {"id": "4441c835-7d16-4c43-8599-e948b57eaab1"},
+                    {"id": "6da3e50a-8c6d-4de1-8ee9-da26f7c9552f"},
                 ],
-                "source_handle_id": "3bbc469f-0fb0-4b3d-a28b-746fefec2818",
+                "source_handle_id": "da1bdfe9-8e99-4d06-842f-a76af95a713a",
             },
-            "display_data": {"position": {"x": 400.0, "y": -50.0}},
+            "display_data": {"position": {"x": 0.0, "y": 0.0}},
             "base": {
                 "module": ["vellum", "workflows", "nodes", "displayable", "merge_node", "node"],
                 "name": "MergeNode",
@@ -84,114 +82,37 @@ def test_serialize_workflow__await_all():
                 "name": "AwaitAllMergeNode",
             },
             "trigger": {
-                "id": "0efd256f-f5f6-45fe-9adb-651780f5e63d",
+                "id": "1c68b622-cc93-4678-a0c4-89f06b6cad1f",
                 "merge_behavior": "AWAIT_ALL",
             },
-            "ports": [{"id": "3bbc469f-0fb0-4b3d-a28b-746fefec2818", "name": "default", "type": "DEFAULT"}],
+            "ports": [{"id": "da1bdfe9-8e99-4d06-842f-a76af95a713a", "name": "default", "type": "DEFAULT"}],
         },
         merge_node,
         ignore_order_func=lambda x: x.path() == "root['data']['target_handles']",
     )
 
-    final_output_node = next(node for node in workflow_raw_data["nodes"] if node["type"] == "TERMINAL")
-    assert final_output_node == {
-        "id": "8187ce10-62b7-4a2c-8c0f-297387915467",
-        "type": "TERMINAL",
-        "data": {
-            "label": "Final Output",
-            "name": "value",
-            "target_handle_id": "ff55701c-16d3-4348-a633-6a298e71377d",
-            "output_id": "959ba00d-d30b-402e-8676-76efc4c3d2ae",
-            "output_type": "STRING",
-            "node_input_id": "fed9d343-6504-460c-968b-d3f9658193d0",
-        },
-        "base": {
-            "module": [
-                "vellum",
-                "workflows",
-                "nodes",
-                "displayable",
-                "final_output_node",
-                "node",
-            ],
-            "name": "FinalOutputNode",
-        },
-        "definition": None,
-        "inputs": [
-            {
-                "id": "fed9d343-6504-460c-968b-d3f9658193d0",
-                "key": "node_input",
-                "value": {
-                    "rules": [
-                        {
-                            "type": "NODE_OUTPUT",
-                            "data": {
-                                "node_id": "634f0202-9ea9-4c62-b152-1a58c595cffb",
-                                "output_id": "d4266640-9718-4a74-b24b-500448d87871",
-                            },
-                        }
-                    ],
-                    "combinator": "OR",
-                },
-            }
-        ],
-        "display_data": {"position": {"x": 800.0, "y": -50.0}},
-    }
-
-    # AND each edge should be serialized correctly
-    serialized_edges = workflow_raw_data["edges"]
+    # AND each edge feeding into the merge node should be serialized correctly
+    merge_target_edges = [edge for edge in workflow_raw_data["edges"] if edge["target_node_id"] == merge_node["id"]]
     assert not DeepDiff(
         [
             {
-                "id": "9a65dd52-c3eb-496e-9d34-46b39534a261",
-                "source_node_id": "dc8aecd0-49ba-4464-a45f-29d3bfd686e4",
-                "source_handle_id": "017d40f5-8326-4e42-a409-b08995defaa8",
-                "target_node_id": "59243c65-053f-4ea6-9157-3f3edb1477bf",
-                "target_handle_id": "e622fe61-3bca-4aff-86e1-25dad7bdf9d4",
+                "id": "3870f290-8da7-43a8-b875-60510c060380",
+                "source_node_id": "0306d2a2-8e2a-49d1-bc4d-4026fbd98c4c",
+                "source_handle_id": "4e76416e-4edf-4a4a-9202-bf3ee35fd911",
+                "target_node_id": "f07c263c-65a3-4b58-83c1-f4a29123f167",
+                "target_handle_id": "4441c835-7d16-4c43-8599-e948b57eaab1",
                 "type": "DEFAULT",
             },
             {
-                "id": "e5598f3c-fb00-4f25-a0a6-9fb6af9d69a8",
-                "source_node_id": "dc8aecd0-49ba-4464-a45f-29d3bfd686e4",
-                "source_handle_id": "017d40f5-8326-4e42-a409-b08995defaa8",
-                "target_node_id": "127ef456-91bc-43c6-bd8b-1772db5e3cb5",
-                "target_handle_id": "e5cc41cb-71db-43ec-b3f0-c78706af3351",
-                "type": "DEFAULT",
-            },
-            {
-                "id": "8ff20817-974e-4a3a-bb65-f0ad73557649",
-                "source_node_id": "59243c65-053f-4ea6-9157-3f3edb1477bf",
-                "source_handle_id": "b9c5f52b-b714-46e8-a09c-38b4e770dd36",
-                "target_node_id": "37c10e8a-771b-432b-a767-31f5007851f0",
-                "target_handle_id": "42eeb66c-9792-4609-8c71-3a56f668f4dc",
-                "type": "DEFAULT",
-            },
-            {
-                "id": "0d8c801c-d76a-437a-831a-530885b75f96",
-                "source_node_id": "127ef456-91bc-43c6-bd8b-1772db5e3cb5",
-                "source_handle_id": "b0bd17f3-4ce6-4232-9666-ec8afa161bf2",
-                "target_node_id": "37c10e8a-771b-432b-a767-31f5007851f0",
-                "target_handle_id": "f40ff7fb-de1b-4aa4-ba3c-7630f7357cbf",
-                "type": "DEFAULT",
-            },
-            {
-                "id": "70c1005d-339a-41bc-b6c2-10bc30a0281c",
-                "source_node_id": "37c10e8a-771b-432b-a767-31f5007851f0",
-                "source_handle_id": "3bbc469f-0fb0-4b3d-a28b-746fefec2818",
-                "target_node_id": "634f0202-9ea9-4c62-b152-1a58c595cffb",
-                "target_handle_id": "acd48f48-54fb-4b2b-ab37-96d336f6dfb3",
-                "type": "DEFAULT",
-            },
-            {
-                "id": "3d031c93-09b1-4937-9f98-c30a7ba6823d",
-                "source_node_id": "634f0202-9ea9-4c62-b152-1a58c595cffb",
-                "source_handle_id": "de32167b-cf53-4df5-a344-1b9be852e9ff",
-                "target_node_id": "8187ce10-62b7-4a2c-8c0f-297387915467",
-                "target_handle_id": "ff55701c-16d3-4348-a633-6a298e71377d",
+                "id": "e89010d4-1f5a-4db9-8b67-1fa68960b142",
+                "source_node_id": "0871708d-8f05-4bc8-b3fb-a8624dae51de",
+                "source_handle_id": "c11fe2da-9ccd-4434-9330-5e3760abe849",
+                "target_node_id": "f07c263c-65a3-4b58-83c1-f4a29123f167",
+                "target_handle_id": "6da3e50a-8c6d-4de1-8ee9-da26f7c9552f",
                 "type": "DEFAULT",
             },
         ],
-        serialized_edges,
+        merge_target_edges,
         ignore_order=True,
     )
 

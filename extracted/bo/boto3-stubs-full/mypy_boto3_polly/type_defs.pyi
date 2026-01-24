@@ -3,7 +3,7 @@ Type annotations for polly service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_polly/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from botocore.response import StreamingBody
@@ -32,12 +33,6 @@ from .literals import (
     VoiceIdType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -89,7 +84,7 @@ class DescribeVoicesInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -99,8 +94,8 @@ class VoiceTypeDef(TypedDict):
     LanguageCode: NotRequired[LanguageCodeType]
     LanguageName: NotRequired[str]
     Name: NotRequired[str]
-    AdditionalLanguageCodes: NotRequired[List[LanguageCodeType]]
-    SupportedEngines: NotRequired[List[EngineType]]
+    AdditionalLanguageCodes: NotRequired[list[LanguageCodeType]]
+    SupportedEngines: NotRequired[list[EngineType]]
 
 class GetLexiconInputTypeDef(TypedDict):
     Name: str
@@ -129,10 +124,10 @@ class SynthesisTaskTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     RequestCharacters: NotRequired[int]
     SnsTopicArn: NotRequired[str]
-    LexiconNames: NotRequired[List[str]]
+    LexiconNames: NotRequired[list[str]]
     OutputFormat: NotRequired[OutputFormatType]
     SampleRate: NotRequired[str]
-    SpeechMarkTypes: NotRequired[List[SpeechMarkTypeType]]
+    SpeechMarkTypes: NotRequired[list[SpeechMarkTypeType]]
     TextType: NotRequired[TextTypeType]
     VoiceId: NotRequired[VoiceIdType]
     LanguageCode: NotRequired[LanguageCodeType]
@@ -201,7 +196,7 @@ class SynthesizeSpeechOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeVoicesOutputTypeDef(TypedDict):
-    Voices: List[VoiceTypeDef]
+    Voices: list[VoiceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -219,7 +214,7 @@ class GetSpeechSynthesisTaskOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListSpeechSynthesisTasksOutputTypeDef(TypedDict):
-    SynthesisTasks: List[SynthesisTaskTypeDef]
+    SynthesisTasks: list[SynthesisTaskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -228,6 +223,6 @@ class StartSpeechSynthesisTaskOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListLexiconsOutputTypeDef(TypedDict):
-    Lexicons: List[LexiconDescriptionTypeDef]
+    Lexicons: list[LexiconDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

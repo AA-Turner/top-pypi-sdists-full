@@ -430,11 +430,12 @@ class InferenceData(Mapping[str, xr.Dataset]):
                         if re.search(key, group):
                             group_kws = kws
                 group_kws.setdefault("engine", engine)
-                with xr.open_dataset(filename, group=f"{base_group}/{group}", **group_kws) as data:
-                    if rcParams["data.load"] == "eager":
+                data = xr.open_dataset(filename, group=f"{base_group}/{group}", **group_kws)
+                if rcParams["data.load"] == "eager":
+                    with data:
                         groups[group] = data.load()
-                    else:
-                        groups[group] = data
+                else:
+                    groups[group] = data
 
             with xr.open_dataset(filename, engine=engine, group=base_group) as data:
                 attrs.update(data.load().attrs)
@@ -540,7 +541,9 @@ class InferenceData(Mapping[str, xr.Dataset]):
                 "xarray must be have DataTree in order to use InferenceData.to_datatree. "
                 "Update to xarray>=2024.11.0"
             ) from err
-        return DataTree.from_dict({group: ds for group, ds in self.items()})
+        dt = DataTree.from_dict({group: ds for group, ds in self.items()})
+        dt.attrs = self.attrs
+        return dt
 
     @staticmethod
     def from_datatree(datatree):
@@ -551,7 +554,8 @@ class InferenceData(Mapping[str, xr.Dataset]):
         datatree : DataTree
         """
         return InferenceData(
-            **{group: child.to_dataset() for group, child in datatree.children.items()}
+            attrs=datatree.attrs,
+            **{group: child.to_dataset() for group, child in datatree.children.items()},
         )
 
     def to_dict(self, groups=None, filter_groups=None):
@@ -811,7 +815,7 @@ class InferenceData(Mapping[str, xr.Dataset]):
         if version.parse(zarr.__version__) >= version.parse("3.0.0.dev0"):
             raise ImportError(
                 "Found zarr>=3, which is not supported by ArviZ. Instead, you can use "
-                "'dt = InfereceData.to_datatree' followed by 'dt.to_zarr()' "
+                "'dt = InferenceData.to_datatree' followed by 'dt.to_zarr()' "
                 "(needs xarray>=2024.11.0)"
             )
 

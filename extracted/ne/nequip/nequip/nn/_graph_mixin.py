@@ -107,6 +107,19 @@ class GraphModuleMixin:
         self.irreps_in.update(irreps_in)
         self.irreps_out.update(irreps_out)
 
+    @torch.jit.unused
+    def _get_metadata_contributions(self) -> Dict[str, str]:
+        """Override to provide dynamic metadata at compilation time.
+
+        Modules can override this to contribute metadata based on their current state (e.g., learned parameters).
+        Called by GraphModel during compilation.
+        All values must be strings.
+
+        Returns:
+            Dict[str, str]: Metadata key-value pairs. Can override static config values (e.g., per_edge_type_cutoff) or add new keys.
+        """
+        return {}
+
     def _make_tracing_inputs(self, n):
         # We impliment this to be able to trace graph modules
         out = []

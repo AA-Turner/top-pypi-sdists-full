@@ -16,9 +16,11 @@ use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
 use pyrefly_derive::VisitMut;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::name::Name;
 
 use crate::annotation::Qualifier;
+use crate::literal::LitStyle;
 use crate::types::NeverStyle;
 use crate::types::Type;
 
@@ -54,7 +56,18 @@ pub enum SpecialForm {
 
 impl SpecialForm {
     pub fn new(name: &Name, annotation: &Expr) -> Option<Self> {
-        if !matches!(annotation, Expr::Name(x) if x.id == "_SpecialForm") {
+        if name.as_str() == "Generic" {
+            if let Expr::Subscript(ExprSubscript {
+                value: box Expr::Name(x),
+                slice: box Expr::Name(y),
+                ..
+            }) = annotation
+                && x.id == "type"
+                && y.id == "_Generic"
+            {
+                return Some(SpecialForm::Generic);
+            }
+        } else if !matches!(annotation, Expr::Name(x) if x.id == "_SpecialForm") {
             return None;
         }
         SpecialForm::from_str(name.as_str()).ok()
@@ -62,7 +75,7 @@ impl SpecialForm {
 
     pub fn to_type(self) -> Type {
         match self {
-            SpecialForm::LiteralString => Type::type_form(Type::LiteralString),
+            SpecialForm::LiteralString => Type::type_form(Type::LiteralString(LitStyle::Explicit)),
             SpecialForm::Never => Type::type_form(Type::Never(NeverStyle::Never)),
             SpecialForm::NoReturn => Type::type_form(Type::Never(NeverStyle::NoReturn)),
             _ => Type::type_form(Type::SpecialForm(self)),
@@ -92,6 +105,18 @@ impl SpecialForm {
             Self::Required => Some(Qualifier::Required),
             Self::TypeAlias => Some(Qualifier::TypeAlias),
             _ => None,
+        }
+    }
+
+    pub fn isinstance_safe(self) -> bool {
+        match self {
+            Self::Callable
+            | Self::Generic
+            | Self::Protocol
+            | Self::Tuple
+            | Self::Type
+            | Self::Union => true,
+            _ => false,
         }
     }
 }

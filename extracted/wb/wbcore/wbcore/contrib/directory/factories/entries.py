@@ -52,6 +52,7 @@ class EntryContactBaseFactory(factory.django.DjangoModelFactory):
 class EntryFactory(EntryBaseFactory):
     class Meta:
         model = Entry
+        skip_postgeneration_save = True
 
     # entry_type
     signature = factory.django.ImageField(filename="signature.jpeg")
@@ -158,7 +159,7 @@ class ClientFactory(PersonFactory):
                 self.clients.add(person)
 
 
-class Random_ClientFactory(ClientFactory):
+class RandomClientFactory(ClientFactory):
     @factory.post_generation
     def clients(self, create, extracted, **kwargs):
         self.clients.add(PersonFactory())

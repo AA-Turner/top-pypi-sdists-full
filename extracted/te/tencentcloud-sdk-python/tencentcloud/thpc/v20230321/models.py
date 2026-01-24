@@ -106,54 +106,47 @@ class AddNodesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Placement: 集群中实例所在的位置。
+        :param _Placement: <p>集群中实例所在的位置。</p>
         :type Placement: :class:`tencentcloud.thpc.v20230321.models.Placement`
-        :param _ClusterId: 集群ID。
+        :param _ClusterId: <p>集群ID。</p>
         :type ClusterId: str
-        :param _VirtualPrivateCloud: 私有网络相关信息配置。
+        :param _VirtualPrivateCloud: <p>私有网络相关信息配置。</p>
         :type VirtualPrivateCloud: :class:`tencentcloud.thpc.v20230321.models.VirtualPrivateCloud`
-        :param _Count: 添加节点数量。
+        :param _Count: <p>添加节点数量。</p>
         :type Count: int
-        :param _ImageId: 指定有效的[镜像](https://cloud.tencent.com/document/product/213/4940)ID，格式形如`img-xxx`。目前支持部分公有镜像和自定义镜像。公共镜像请参考[镜像限制](https://cloud.tencent.com/document/product/1527/64818#.E9.95.9C.E5.83.8F)
+        :param _ImageId: <p>指定有效的<a href="https://cloud.tencent.com/document/product/213/4940">镜像</a>ID，格式形如<code>img-xxx</code>。目前支持部分公有镜像和自定义镜像。公共镜像请参考<a href="https://cloud.tencent.com/document/product/1527/64818#.E9.95.9C.E5.83.8F">镜像限制</a></p>
         :type ImageId: str
-        :param _InstanceChargeType: 节点[计费类型](https://cloud.tencent.com/document/product/213/2180)。<br><li>PREPAID：预付费，即包年包月</li><li>POSTPAID_BY_HOUR：按小时后付费</li><li>SPOTPAID：竞价付费</li>默认值：POSTPAID_BY_HOUR。
+        :param _InstanceChargeType: <p>节点<a href="https://cloud.tencent.com/document/product/213/2180">计费类型</a>。<br><li>PREPAID：预付费，即包年包月</li><li>POSTPAID_BY_HOUR：按小时后付费</li><li>SPOTPAID：竞价付费</li>默认值：POSTPAID_BY_HOUR。</p>
         :type InstanceChargeType: str
-        :param _InstanceChargePrepaid: 预付费模式，即包年包月相关参数设置。通过该参数可以指定包年包月节点的购买时长、是否设置自动续费等属性。若指定节点的付费模式为预付费则该参数必传。
+        :param _InstanceChargePrepaid: <p>预付费模式，即包年包月相关参数设置。通过该参数可以指定包年包月节点的购买时长、是否设置自动续费等属性。若指定节点的付费模式为预付费则该参数必传。</p>
         :type InstanceChargePrepaid: :class:`tencentcloud.thpc.v20230321.models.InstanceChargePrepaid`
-        :param _InstanceType: 节点机型。不同实例机型指定了不同的资源规格。<br><li>具体取值可通过调用接口[DescribeInstanceTypeConfigs](https://cloud.tencent.com/document/api/213/15749)来获得最新的规格表或参见[实例规格](https://cloud.tencent.com/document/product/213/11518)描述。</li>
+        :param _InstanceType: <p>节点机型。不同实例机型指定了不同的资源规格。<br><li>具体取值可通过调用接口<a href="https://cloud.tencent.com/document/api/213/15749">DescribeInstanceTypeConfigs</a>来获得最新的规格表或参见<a href="https://cloud.tencent.com/document/product/213/11518">实例规格</a>描述。</li></p>
         :type InstanceType: str
-        :param _SystemDisk: 节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。
+        :param _SystemDisk: <p>节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。</p>
         :type SystemDisk: :class:`tencentcloud.thpc.v20230321.models.SystemDisk`
-        :param _DataDisks: 节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。
+        :param _DataDisks: <p>节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。</p>
         :type DataDisks: list of DataDisk
-        :param _InternetAccessible: 公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。
+        :param _InternetAccessible: <p>公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。</p>
         :type InternetAccessible: :class:`tencentcloud.thpc.v20230321.models.InternetAccessible`
-        :param _InstanceName: 节点显示名称。
-不指定节点显示名称则默认显示‘未命名’。
-最多支持60个字符。
+        :param _InstanceName: <p>节点显示名称。<br>不指定节点显示名称则默认显示‘未命名’。<br>最多支持60个字符。</p>
         :type InstanceName: str
-        :param _LoginSettings: 集群登录设置。
+        :param _LoginSettings: <p>集群登录设置。</p>
         :type LoginSettings: :class:`tencentcloud.thpc.v20230321.models.LoginSettings`
-        :param _SecurityGroupIds: 集群中实例所属安全组。该参数可以通过调用 [DescribeSecurityGroups](https://cloud.tencent.com/document/api/215/15808) 的返回值中的sgId字段来获取。若不指定该参数，则绑定默认安全组。
+        :param _SecurityGroupIds: <p>集群中实例所属安全组。该参数可以通过调用 <a href="https://cloud.tencent.com/document/api/215/15808">DescribeSecurityGroups</a> 的返回值中的sgId字段来获取。若不指定该参数，则绑定默认安全组。</p>
         :type SecurityGroupIds: list of str
-        :param _ClientToken: 用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。
+        :param _ClientToken: <p>用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。</p>
         :type ClientToken: str
-        :param _QueueName: 队列名称。不指定则为默认队列。<li>SLURM默认队列为：compute。</li>
-
+        :param _QueueName: <p>队列名称。不指定则为默认队列。<li>SLURM默认队列为：compute。</li></p>
         :type QueueName: str
-        :param _NodeRole: 添加节点角色。默认值：Compute<br><li>Compute：计算节点。</li><li>Login：登录节点。</li>
+        :param _NodeRole: <p>添加节点角色。默认值：Compute<br><li>Compute：计算节点。</li><li>Login：登录节点。</li></p>
         :type NodeRole: str
-        :param _DryRun: 是否只预检此次请求。
-true：发送检查请求，不会创建实例。检查项包括是否填写了必需参数，请求格式，业务限制和云服务器库存。
-如果检查不通过，则返回对应错误码；
-如果检查通过，则返回RequestId.
-false（默认）：发送正常请求，通过检查后直接创建实例
+        :param _DryRun: <p>是否只预检此次请求。<br>true：发送检查请求，不会创建实例。检查项包括是否填写了必需参数，请求格式，业务限制和云服务器库存。<br>如果检查不通过，则返回对应错误码；<br>如果检查通过，则返回RequestId.<br>false（默认）：发送正常请求，通过检查后直接创建实例</p>
         :type DryRun: bool
-        :param _NodeType: 添加节点类型。默认取值：STATIC。<li>STATIC：静态节点，不会参与弹性伸缩流程。</li><li>DYNAMIC：弹性节点，会被弹性缩容的节点。管控节点和登录节点不支持此参数。</li>
+        :param _NodeType: <p>添加节点类型。默认取值：STATIC。<li>STATIC：静态节点，不会参与弹性伸缩流程。</li><li>DYNAMIC：弹性节点，会被弹性缩容的节点。管控节点和登录节点不支持此参数。</li></p>
         :type NodeType: str
-        :param _ProjectId: 实例所属项目ID。该参数可以通过调用 [DescribeProject](https://cloud.tencent.com/document/api/651/78725) 的返回值中的 projectId 字段来获取。不填为默认项目。
+        :param _ProjectId: <p>实例所属项目ID。该参数可以通过调用 <a href="https://cloud.tencent.com/document/api/651/78725">DescribeProject</a> 的返回值中的 projectId 字段来获取。不填为默认项目。</p>
         :type ProjectId: int
-        :param _ResourceType: 要新增节点的资源类型。<li>CVM：CVM实例类型资源</li><li>WORKSPACE：工作空间类型实例资源</li>默认值：CVM。
+        :param _ResourceType: <p>要新增节点的资源类型。<li>CVM：CVM实例类型资源</li><li>WORKSPACE：工作空间类型实例资源</li>默认值：CVM。</p>
         :type ResourceType: str
         """
         self._Placement = None
@@ -180,7 +173,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def Placement(self):
-        r"""集群中实例所在的位置。
+        r"""<p>集群中实例所在的位置。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.Placement`
         """
         return self._Placement
@@ -191,7 +184,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ClusterId(self):
-        r"""集群ID。
+        r"""<p>集群ID。</p>
         :rtype: str
         """
         return self._ClusterId
@@ -202,7 +195,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def VirtualPrivateCloud(self):
-        r"""私有网络相关信息配置。
+        r"""<p>私有网络相关信息配置。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.VirtualPrivateCloud`
         """
         return self._VirtualPrivateCloud
@@ -213,7 +206,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def Count(self):
-        r"""添加节点数量。
+        r"""<p>添加节点数量。</p>
         :rtype: int
         """
         return self._Count
@@ -224,7 +217,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ImageId(self):
-        r"""指定有效的[镜像](https://cloud.tencent.com/document/product/213/4940)ID，格式形如`img-xxx`。目前支持部分公有镜像和自定义镜像。公共镜像请参考[镜像限制](https://cloud.tencent.com/document/product/1527/64818#.E9.95.9C.E5.83.8F)
+        r"""<p>指定有效的<a href="https://cloud.tencent.com/document/product/213/4940">镜像</a>ID，格式形如<code>img-xxx</code>。目前支持部分公有镜像和自定义镜像。公共镜像请参考<a href="https://cloud.tencent.com/document/product/1527/64818#.E9.95.9C.E5.83.8F">镜像限制</a></p>
         :rtype: str
         """
         return self._ImageId
@@ -235,7 +228,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def InstanceChargeType(self):
-        r"""节点[计费类型](https://cloud.tencent.com/document/product/213/2180)。<br><li>PREPAID：预付费，即包年包月</li><li>POSTPAID_BY_HOUR：按小时后付费</li><li>SPOTPAID：竞价付费</li>默认值：POSTPAID_BY_HOUR。
+        r"""<p>节点<a href="https://cloud.tencent.com/document/product/213/2180">计费类型</a>。<br><li>PREPAID：预付费，即包年包月</li><li>POSTPAID_BY_HOUR：按小时后付费</li><li>SPOTPAID：竞价付费</li>默认值：POSTPAID_BY_HOUR。</p>
         :rtype: str
         """
         return self._InstanceChargeType
@@ -246,7 +239,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def InstanceChargePrepaid(self):
-        r"""预付费模式，即包年包月相关参数设置。通过该参数可以指定包年包月节点的购买时长、是否设置自动续费等属性。若指定节点的付费模式为预付费则该参数必传。
+        r"""<p>预付费模式，即包年包月相关参数设置。通过该参数可以指定包年包月节点的购买时长、是否设置自动续费等属性。若指定节点的付费模式为预付费则该参数必传。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.InstanceChargePrepaid`
         """
         return self._InstanceChargePrepaid
@@ -257,7 +250,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def InstanceType(self):
-        r"""节点机型。不同实例机型指定了不同的资源规格。<br><li>具体取值可通过调用接口[DescribeInstanceTypeConfigs](https://cloud.tencent.com/document/api/213/15749)来获得最新的规格表或参见[实例规格](https://cloud.tencent.com/document/product/213/11518)描述。</li>
+        r"""<p>节点机型。不同实例机型指定了不同的资源规格。<br><li>具体取值可通过调用接口<a href="https://cloud.tencent.com/document/api/213/15749">DescribeInstanceTypeConfigs</a>来获得最新的规格表或参见<a href="https://cloud.tencent.com/document/product/213/11518">实例规格</a>描述。</li></p>
         :rtype: str
         """
         return self._InstanceType
@@ -268,7 +261,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def SystemDisk(self):
-        r"""节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。
+        r"""<p>节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.SystemDisk`
         """
         return self._SystemDisk
@@ -279,7 +272,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def DataDisks(self):
-        r"""节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。
+        r"""<p>节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。</p>
         :rtype: list of DataDisk
         """
         return self._DataDisks
@@ -290,7 +283,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def InternetAccessible(self):
-        r"""公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。
+        r"""<p>公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.InternetAccessible`
         """
         return self._InternetAccessible
@@ -301,9 +294,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def InstanceName(self):
-        r"""节点显示名称。
-不指定节点显示名称则默认显示‘未命名’。
-最多支持60个字符。
+        r"""<p>节点显示名称。<br>不指定节点显示名称则默认显示‘未命名’。<br>最多支持60个字符。</p>
         :rtype: str
         """
         return self._InstanceName
@@ -314,7 +305,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def LoginSettings(self):
-        r"""集群登录设置。
+        r"""<p>集群登录设置。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.LoginSettings`
         """
         return self._LoginSettings
@@ -325,7 +316,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def SecurityGroupIds(self):
-        r"""集群中实例所属安全组。该参数可以通过调用 [DescribeSecurityGroups](https://cloud.tencent.com/document/api/215/15808) 的返回值中的sgId字段来获取。若不指定该参数，则绑定默认安全组。
+        r"""<p>集群中实例所属安全组。该参数可以通过调用 <a href="https://cloud.tencent.com/document/api/215/15808">DescribeSecurityGroups</a> 的返回值中的sgId字段来获取。若不指定该参数，则绑定默认安全组。</p>
         :rtype: list of str
         """
         return self._SecurityGroupIds
@@ -336,7 +327,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ClientToken(self):
-        r"""用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。
+        r"""<p>用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。</p>
         :rtype: str
         """
         return self._ClientToken
@@ -347,8 +338,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def QueueName(self):
-        r"""队列名称。不指定则为默认队列。<li>SLURM默认队列为：compute。</li>
-
+        r"""<p>队列名称。不指定则为默认队列。<li>SLURM默认队列为：compute。</li></p>
         :rtype: str
         """
         return self._QueueName
@@ -359,7 +349,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def NodeRole(self):
-        r"""添加节点角色。默认值：Compute<br><li>Compute：计算节点。</li><li>Login：登录节点。</li>
+        r"""<p>添加节点角色。默认值：Compute<br><li>Compute：计算节点。</li><li>Login：登录节点。</li></p>
         :rtype: str
         """
         return self._NodeRole
@@ -370,11 +360,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def DryRun(self):
-        r"""是否只预检此次请求。
-true：发送检查请求，不会创建实例。检查项包括是否填写了必需参数，请求格式，业务限制和云服务器库存。
-如果检查不通过，则返回对应错误码；
-如果检查通过，则返回RequestId.
-false（默认）：发送正常请求，通过检查后直接创建实例
+        r"""<p>是否只预检此次请求。<br>true：发送检查请求，不会创建实例。检查项包括是否填写了必需参数，请求格式，业务限制和云服务器库存。<br>如果检查不通过，则返回对应错误码；<br>如果检查通过，则返回RequestId.<br>false（默认）：发送正常请求，通过检查后直接创建实例</p>
         :rtype: bool
         """
         return self._DryRun
@@ -385,7 +371,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def NodeType(self):
-        r"""添加节点类型。默认取值：STATIC。<li>STATIC：静态节点，不会参与弹性伸缩流程。</li><li>DYNAMIC：弹性节点，会被弹性缩容的节点。管控节点和登录节点不支持此参数。</li>
+        r"""<p>添加节点类型。默认取值：STATIC。<li>STATIC：静态节点，不会参与弹性伸缩流程。</li><li>DYNAMIC：弹性节点，会被弹性缩容的节点。管控节点和登录节点不支持此参数。</li></p>
         :rtype: str
         """
         return self._NodeType
@@ -396,7 +382,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ProjectId(self):
-        r"""实例所属项目ID。该参数可以通过调用 [DescribeProject](https://cloud.tencent.com/document/api/651/78725) 的返回值中的 projectId 字段来获取。不填为默认项目。
+        r"""<p>实例所属项目ID。该参数可以通过调用 <a href="https://cloud.tencent.com/document/api/651/78725">DescribeProject</a> 的返回值中的 projectId 字段来获取。不填为默认项目。</p>
         :rtype: int
         """
         return self._ProjectId
@@ -407,7 +393,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ResourceType(self):
-        r"""要新增节点的资源类型。<li>CVM：CVM实例类型资源</li><li>WORKSPACE：工作空间类型实例资源</li>默认值：CVM。
+        r"""<p>要新增节点的资源类型。<li>CVM：CVM实例类型资源</li><li>WORKSPACE：工作空间类型实例资源</li>默认值：CVM。</p>
         :rtype: str
         """
         return self._ResourceType
@@ -597,6 +583,13 @@ class Application(AbstractModel):
 
 默认参数为：Custom
         :type JobType: str
+        :param _TaskType: 表示所选训练框架，支持可选参数
+ 
+- PyTorch：表示提交PyTorch训练作业
+- Custom：表示用户自定义作业
+
+默认参数为：Custom
+        :type TaskType: str
         """
         self._Commands = None
         self._StorageMounts = None
@@ -604,6 +597,7 @@ class Application(AbstractModel):
         self._Docker = None
         self._OutputRedirect = None
         self._JobType = None
+        self._TaskType = None
 
     @property
     def Commands(self):
@@ -662,6 +656,8 @@ class Application(AbstractModel):
 
     @property
     def JobType(self):
+        warnings.warn("parameter `JobType` is deprecated", DeprecationWarning) 
+
         r"""表示所选训练框架，支持可选参数
  
 - PyTorch：表示提交PyTorch训练作业
@@ -674,7 +670,25 @@ class Application(AbstractModel):
 
     @JobType.setter
     def JobType(self, JobType):
+        warnings.warn("parameter `JobType` is deprecated", DeprecationWarning) 
+
         self._JobType = JobType
+
+    @property
+    def TaskType(self):
+        r"""表示所选训练框架，支持可选参数
+ 
+- PyTorch：表示提交PyTorch训练作业
+- Custom：表示用户自定义作业
+
+默认参数为：Custom
+        :rtype: str
+        """
+        return self._TaskType
+
+    @TaskType.setter
+    def TaskType(self, TaskType):
+        self._TaskType = TaskType
 
 
     def _deserialize(self, params):
@@ -703,6 +717,7 @@ class Application(AbstractModel):
             self._OutputRedirect = OutputRedirect()
             self._OutputRedirect._deserialize(params.get("OutputRedirect"))
         self._JobType = params.get("JobType")
+        self._TaskType = params.get("TaskType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -732,12 +747,15 @@ SLURM默认队列为：compute。
         :type ImageId: str
         :param _ResourceType: 要新增节点的资源类型。<li>CVM：CVM实例类型资源</li><li>WORKSPACE：工作空间类型实例资源</li>默认值：CVM。
         :type ResourceType: str
+        :param _UserData: 提供给实例使用的用户数据，需要以 base64 方式编码，支持的最大数据大小为 16KB。关于获取此参数的详细介绍，请参阅[Windows](https://cloud.tencent.com/document/product/213/17526)和[Linux](https://cloud.tencent.com/document/product/213/17525)启动时运行命令。
+        :type UserData: str
         """
         self._ClusterId = None
         self._ResourceSet = None
         self._QueueName = None
         self._ImageId = None
         self._ResourceType = None
+        self._UserData = None
 
     @property
     def ClusterId(self):
@@ -796,6 +814,17 @@ SLURM默认队列为：compute。
     def ResourceType(self, ResourceType):
         self._ResourceType = ResourceType
 
+    @property
+    def UserData(self):
+        r"""提供给实例使用的用户数据，需要以 base64 方式编码，支持的最大数据大小为 16KB。关于获取此参数的详细介绍，请参阅[Windows](https://cloud.tencent.com/document/product/213/17526)和[Linux](https://cloud.tencent.com/document/product/213/17525)启动时运行命令。
+        :rtype: str
+        """
+        return self._UserData
+
+    @UserData.setter
+    def UserData(self, UserData):
+        self._UserData = UserData
+
 
     def _deserialize(self, params):
         self._ClusterId = params.get("ClusterId")
@@ -803,6 +832,7 @@ SLURM默认队列为：compute。
         self._QueueName = params.get("QueueName")
         self._ImageId = params.get("ImageId")
         self._ResourceType = params.get("ResourceType")
+        self._UserData = params.get("UserData")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1298,6 +1328,11 @@ class ClusterOverview(AbstractModel):
         :type VpcId: str
         :param _ClusterType: 集群类型
         :type ClusterType: str
+        :param _DeletionProtection: 集群销毁保护开关状态，当前支持参数：
+
+- ON: 集群销毁保护打开
+- OFF: 集群销毁保护关闭
+        :type DeletionProtection: str
         """
         self._ClusterId = None
         self._ClusterStatus = None
@@ -1315,6 +1350,7 @@ class ClusterOverview(AbstractModel):
         self._AutoScalingType = None
         self._VpcId = None
         self._ClusterType = None
+        self._DeletionProtection = None
 
     @property
     def ClusterId(self):
@@ -1492,6 +1528,20 @@ class ClusterOverview(AbstractModel):
     def ClusterType(self, ClusterType):
         self._ClusterType = ClusterType
 
+    @property
+    def DeletionProtection(self):
+        r"""集群销毁保护开关状态，当前支持参数：
+
+- ON: 集群销毁保护打开
+- OFF: 集群销毁保护关闭
+        :rtype: str
+        """
+        return self._DeletionProtection
+
+    @DeletionProtection.setter
+    def DeletionProtection(self, DeletionProtection):
+        self._DeletionProtection = DeletionProtection
+
 
     def _deserialize(self, params):
         self._ClusterId = params.get("ClusterId")
@@ -1527,6 +1577,7 @@ class ClusterOverview(AbstractModel):
         self._AutoScalingType = params.get("AutoScalingType")
         self._VpcId = params.get("VpcId")
         self._ClusterType = params.get("ClusterType")
+        self._DeletionProtection = params.get("DeletionProtection")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1785,56 +1836,49 @@ class CreateClusterRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Placement: 集群中实例所在的位置。
+        :param _Placement: <p>集群中实例所在的位置。</p>
         :type Placement: :class:`tencentcloud.thpc.v20230321.models.Placement`
-        :param _ManagerNode: 指定管理节点。
+        :param _ManagerNode: <p>指定管理节点。</p>
         :type ManagerNode: :class:`tencentcloud.thpc.v20230321.models.ManagerNode`
-        :param _ManagerNodeCount: 指定管理节点的数量。默认取值：1。取值范围：1～2。
+        :param _ManagerNodeCount: <p>指定管理节点的数量。默认取值：1。取值范围：1～2。</p>
         :type ManagerNodeCount: int
-        :param _ComputeNode: 指定计算节点。
+        :param _ComputeNode: <p>指定计算节点。</p>
         :type ComputeNode: :class:`tencentcloud.thpc.v20230321.models.ComputeNode`
-        :param _ComputeNodeCount: 指定计算节点的数量。默认取值：0。
+        :param _ComputeNodeCount: <p>指定计算节点的数量。默认取值：0。</p>
         :type ComputeNodeCount: int
-        :param _SchedulerType: 调度器类型。默认取值：SLURM。<li>SLURM：SLURM调度器。</li>
+        :param _SchedulerType: <p>调度器类型。默认取值：SLURM。<li>SLURM：SLURM调度器。</li></p>
         :type SchedulerType: str
-        :param _SchedulerVersion: 创建调度器的版本号，可填写版本号为“latest” 和 各调度器支持的版本号；如果是"latest", 则代表创建的是平台当前支持的该类型调度器最新版本。如果不填写，默认创建的是“latest”版本调度器
-各调度器支持的集群版本：
-<li>SLURM：21.08.8、23.11.7</li>
+        :param _SchedulerVersion: <p>创建调度器的版本号，可填写版本号为“latest” 和 各调度器支持的版本号；如果是&quot;latest&quot;, 则代表创建的是平台当前支持的该类型调度器最新版本。如果不填写，默认创建的是“latest”版本调度器<br>各调度器支持的集群版本：</p><li>SLURM：21.08.8、23.11.7</li>
         :type SchedulerVersion: str
-        :param _ImageId: 指定有效的[镜像](https://cloud.tencent.com/document/product/213/4940)ID，格式形如`img-xxx`。目前支持部分公有镜像和自定义镜像。公共镜像请参考[镜像限制](https://cloud.tencent.com/document/product/1527/64818#.E9.95.9C.E5.83.8F)
+        :param _ImageId: <p>指定有效的<a href="https://cloud.tencent.com/document/product/213/4940">镜像</a>ID，格式形如<code>img-xxx</code>。目前支持部分公有镜像和自定义镜像。公共镜像请参考<a href="https://cloud.tencent.com/document/product/1527/64818#.E9.95.9C.E5.83.8F">镜像限制</a></p>
         :type ImageId: str
-        :param _VirtualPrivateCloud: 私有网络相关信息配置。
+        :param _VirtualPrivateCloud: <p>私有网络相关信息配置。</p>
         :type VirtualPrivateCloud: :class:`tencentcloud.thpc.v20230321.models.VirtualPrivateCloud`
-        :param _LoginSettings: 集群登录设置。
+        :param _LoginSettings: <p>集群登录设置。</p>
         :type LoginSettings: :class:`tencentcloud.thpc.v20230321.models.LoginSettings`
-        :param _SecurityGroupIds: 集群中实例所属安全组。该参数可以通过调用 [DescribeSecurityGroups](https://cloud.tencent.com/document/api/215/15808) 的返回值中的sgId字段来获取。若不指定该参数，则绑定默认安全组。
+        :param _SecurityGroupIds: <p>集群中实例所属安全组。该参数可以通过调用 <a href="https://cloud.tencent.com/document/api/215/15808">DescribeSecurityGroups</a> 的返回值中的sgId字段来获取。若不指定该参数，则绑定默认安全组。</p>
         :type SecurityGroupIds: list of str
-        :param _ClientToken: 用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。
+        :param _ClientToken: <p>用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。</p>
         :type ClientToken: str
-        :param _DryRun: 是否只预检此次请求。
-true：发送检查请求，不会创建实例。检查项包括是否填写了必需参数，请求格式，业务限制和云服务器库存。
-如果检查不通过，则返回对应错误码；
-如果检查通过，则返回RequestId.
-false（默认）：发送正常请求，通过检查后直接创建实例
+        :param _DryRun: <p>是否只预检此次请求。<br>true：发送检查请求，不会创建实例。检查项包括是否填写了必需参数，请求格式，业务限制和云服务器库存。<br>如果检查不通过，则返回对应错误码；<br>如果检查通过，则返回RequestId.<br>false（默认）：发送正常请求，通过检查后直接创建实例</p>
         :type DryRun: bool
-        :param _AccountType: 域名字服务类型。默认取值：NIS。
-<li>NIS：NIS域名字服务。</li>
+        :param _AccountType: <p>域名字服务类型。默认取值：NIS。</p><li>NIS：NIS域名字服务。</li>
         :type AccountType: str
-        :param _ClusterName: 集群显示名称。
+        :param _ClusterName: <p>集群显示名称。</p>
         :type ClusterName: str
-        :param _StorageOption: 集群存储选项
+        :param _StorageOption: <p>集群存储选项</p>
         :type StorageOption: :class:`tencentcloud.thpc.v20230321.models.StorageOption`
-        :param _LoginNode: 指定登录节点。
+        :param _LoginNode: <p>指定登录节点。</p>
         :type LoginNode: :class:`tencentcloud.thpc.v20230321.models.LoginNode`
-        :param _LoginNodeCount: 指定登录节点的数量。默认取值：0。取值范围：0～10。
+        :param _LoginNodeCount: <p>指定登录节点的数量。默认取值：0。取值范围：0～10。</p>
         :type LoginNodeCount: int
-        :param _Tags: 创建集群时同时绑定的标签对说明。
+        :param _Tags: <p>创建集群时同时绑定的标签对说明。</p>
         :type Tags: list of Tag
-        :param _AutoScalingType: 弹性伸缩类型。默认值：THPC_AS
+        :param _AutoScalingType: <p>弹性伸缩类型。默认值：THPC_AS</p>
         :type AutoScalingType: str
-        :param _InitNodeScripts: 节点初始化脚本信息列表。
+        :param _InitNodeScripts: <p>节点初始化脚本信息列表。</p>
         :type InitNodeScripts: list of NodeScript
-        :param _HpcClusterId: 高性能计算集群ID。若创建的实例为高性能计算实例，需指定实例放置的集群，否则不可指定。
+        :param _HpcClusterId: <p>高性能计算集群ID。若创建的实例为高性能计算实例，需指定实例放置的集群，否则不可指定。</p>
         :type HpcClusterId: str
         """
         self._Placement = None
@@ -1862,7 +1906,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def Placement(self):
-        r"""集群中实例所在的位置。
+        r"""<p>集群中实例所在的位置。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.Placement`
         """
         return self._Placement
@@ -1873,7 +1917,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ManagerNode(self):
-        r"""指定管理节点。
+        r"""<p>指定管理节点。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.ManagerNode`
         """
         return self._ManagerNode
@@ -1884,7 +1928,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ManagerNodeCount(self):
-        r"""指定管理节点的数量。默认取值：1。取值范围：1～2。
+        r"""<p>指定管理节点的数量。默认取值：1。取值范围：1～2。</p>
         :rtype: int
         """
         return self._ManagerNodeCount
@@ -1895,7 +1939,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ComputeNode(self):
-        r"""指定计算节点。
+        r"""<p>指定计算节点。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.ComputeNode`
         """
         return self._ComputeNode
@@ -1906,7 +1950,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ComputeNodeCount(self):
-        r"""指定计算节点的数量。默认取值：0。
+        r"""<p>指定计算节点的数量。默认取值：0。</p>
         :rtype: int
         """
         return self._ComputeNodeCount
@@ -1917,7 +1961,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def SchedulerType(self):
-        r"""调度器类型。默认取值：SLURM。<li>SLURM：SLURM调度器。</li>
+        r"""<p>调度器类型。默认取值：SLURM。<li>SLURM：SLURM调度器。</li></p>
         :rtype: str
         """
         return self._SchedulerType
@@ -1928,9 +1972,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def SchedulerVersion(self):
-        r"""创建调度器的版本号，可填写版本号为“latest” 和 各调度器支持的版本号；如果是"latest", 则代表创建的是平台当前支持的该类型调度器最新版本。如果不填写，默认创建的是“latest”版本调度器
-各调度器支持的集群版本：
-<li>SLURM：21.08.8、23.11.7</li>
+        r"""<p>创建调度器的版本号，可填写版本号为“latest” 和 各调度器支持的版本号；如果是&quot;latest&quot;, 则代表创建的是平台当前支持的该类型调度器最新版本。如果不填写，默认创建的是“latest”版本调度器<br>各调度器支持的集群版本：</p><li>SLURM：21.08.8、23.11.7</li>
         :rtype: str
         """
         return self._SchedulerVersion
@@ -1941,7 +1983,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ImageId(self):
-        r"""指定有效的[镜像](https://cloud.tencent.com/document/product/213/4940)ID，格式形如`img-xxx`。目前支持部分公有镜像和自定义镜像。公共镜像请参考[镜像限制](https://cloud.tencent.com/document/product/1527/64818#.E9.95.9C.E5.83.8F)
+        r"""<p>指定有效的<a href="https://cloud.tencent.com/document/product/213/4940">镜像</a>ID，格式形如<code>img-xxx</code>。目前支持部分公有镜像和自定义镜像。公共镜像请参考<a href="https://cloud.tencent.com/document/product/1527/64818#.E9.95.9C.E5.83.8F">镜像限制</a></p>
         :rtype: str
         """
         return self._ImageId
@@ -1952,7 +1994,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def VirtualPrivateCloud(self):
-        r"""私有网络相关信息配置。
+        r"""<p>私有网络相关信息配置。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.VirtualPrivateCloud`
         """
         return self._VirtualPrivateCloud
@@ -1963,7 +2005,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def LoginSettings(self):
-        r"""集群登录设置。
+        r"""<p>集群登录设置。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.LoginSettings`
         """
         return self._LoginSettings
@@ -1974,7 +2016,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def SecurityGroupIds(self):
-        r"""集群中实例所属安全组。该参数可以通过调用 [DescribeSecurityGroups](https://cloud.tencent.com/document/api/215/15808) 的返回值中的sgId字段来获取。若不指定该参数，则绑定默认安全组。
+        r"""<p>集群中实例所属安全组。该参数可以通过调用 <a href="https://cloud.tencent.com/document/api/215/15808">DescribeSecurityGroups</a> 的返回值中的sgId字段来获取。若不指定该参数，则绑定默认安全组。</p>
         :rtype: list of str
         """
         return self._SecurityGroupIds
@@ -1985,7 +2027,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ClientToken(self):
-        r"""用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。
+        r"""<p>用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。</p>
         :rtype: str
         """
         return self._ClientToken
@@ -1996,11 +2038,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def DryRun(self):
-        r"""是否只预检此次请求。
-true：发送检查请求，不会创建实例。检查项包括是否填写了必需参数，请求格式，业务限制和云服务器库存。
-如果检查不通过，则返回对应错误码；
-如果检查通过，则返回RequestId.
-false（默认）：发送正常请求，通过检查后直接创建实例
+        r"""<p>是否只预检此次请求。<br>true：发送检查请求，不会创建实例。检查项包括是否填写了必需参数，请求格式，业务限制和云服务器库存。<br>如果检查不通过，则返回对应错误码；<br>如果检查通过，则返回RequestId.<br>false（默认）：发送正常请求，通过检查后直接创建实例</p>
         :rtype: bool
         """
         return self._DryRun
@@ -2011,8 +2049,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def AccountType(self):
-        r"""域名字服务类型。默认取值：NIS。
-<li>NIS：NIS域名字服务。</li>
+        r"""<p>域名字服务类型。默认取值：NIS。</p><li>NIS：NIS域名字服务。</li>
         :rtype: str
         """
         return self._AccountType
@@ -2023,7 +2060,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def ClusterName(self):
-        r"""集群显示名称。
+        r"""<p>集群显示名称。</p>
         :rtype: str
         """
         return self._ClusterName
@@ -2034,7 +2071,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def StorageOption(self):
-        r"""集群存储选项
+        r"""<p>集群存储选项</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.StorageOption`
         """
         return self._StorageOption
@@ -2045,7 +2082,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def LoginNode(self):
-        r"""指定登录节点。
+        r"""<p>指定登录节点。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.LoginNode`
         """
         return self._LoginNode
@@ -2056,7 +2093,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def LoginNodeCount(self):
-        r"""指定登录节点的数量。默认取值：0。取值范围：0～10。
+        r"""<p>指定登录节点的数量。默认取值：0。取值范围：0～10。</p>
         :rtype: int
         """
         return self._LoginNodeCount
@@ -2067,7 +2104,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def Tags(self):
-        r"""创建集群时同时绑定的标签对说明。
+        r"""<p>创建集群时同时绑定的标签对说明。</p>
         :rtype: list of Tag
         """
         return self._Tags
@@ -2078,7 +2115,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def AutoScalingType(self):
-        r"""弹性伸缩类型。默认值：THPC_AS
+        r"""<p>弹性伸缩类型。默认值：THPC_AS</p>
         :rtype: str
         """
         return self._AutoScalingType
@@ -2089,7 +2126,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def InitNodeScripts(self):
-        r"""节点初始化脚本信息列表。
+        r"""<p>节点初始化脚本信息列表。</p>
         :rtype: list of NodeScript
         """
         return self._InitNodeScripts
@@ -2100,7 +2137,7 @@ false（默认）：发送正常请求，通过检查后直接创建实例
 
     @property
     def HpcClusterId(self):
-        r"""高性能计算集群ID。若创建的实例为高性能计算实例，需指定实例放置的集群，否则不可指定。
+        r"""<p>高性能计算集群ID。若创建的实例为高性能计算实例，需指定实例放置的集群，否则不可指定。</p>
         :rtype: str
         """
         return self._HpcClusterId
@@ -2174,7 +2211,7 @@ class CreateClusterResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID。
+        :param _ClusterId: <p>集群ID。</p>
         :type ClusterId: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -2184,7 +2221,7 @@ class CreateClusterResponse(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID。
+        r"""<p>集群ID。</p>
         :rtype: str
         """
         return self._ClusterId
@@ -2241,7 +2278,7 @@ class CreateWorkspacesRequest(AbstractModel):
         :type SpaceCount: int
         :param _SpaceName: 工作空间显示名称
         :type SpaceName: str
-        :param _LoginSettings: 工作空间登陆设置
+        :param _LoginSettings: 工作空间登录设置
         :type LoginSettings: :class:`tencentcloud.thpc.v20230321.models.LoginSettings`
         :param _SecurityGroupIds: 工作空间所属安全组
         :type SecurityGroupIds: list of str
@@ -2419,7 +2456,7 @@ class CreateWorkspacesRequest(AbstractModel):
 
     @property
     def LoginSettings(self):
-        r"""工作空间登陆设置
+        r"""工作空间登录设置
         :rtype: :class:`tencentcloud.thpc.v20230321.models.LoginSettings`
         """
         return self._LoginSettings
@@ -3184,11 +3221,11 @@ class DescribeClusterActivitiesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID。通过该参数指定需要查询活动历史记录的集群。
+        :param _ClusterId: <p>集群ID。通过该参数指定需要查询活动历史记录的集群。</p>
         :type ClusterId: str
-        :param _Offset: 偏移量，默认为0。关于`Offset`的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
+        :param _Offset: <p>偏移量，默认为0。关于<code>Offset</code>的更进一步介绍请参考 API <a href="https://cloud.tencent.com/document/api/213/15688">简介</a>中的相关小节。</p>
         :type Offset: int
-        :param _Limit: 返回数量，默认为20，最大值为100。关于`Limit`的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
+        :param _Limit: <p>返回数量，默认为20，最大值为100。关于<code>Limit</code>的更进一步介绍请参考 API <a href="https://cloud.tencent.com/document/api/213/15688">简介</a>中的相关小节。</p>
         :type Limit: int
         """
         self._ClusterId = None
@@ -3197,7 +3234,7 @@ class DescribeClusterActivitiesRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID。通过该参数指定需要查询活动历史记录的集群。
+        r"""<p>集群ID。通过该参数指定需要查询活动历史记录的集群。</p>
         :rtype: str
         """
         return self._ClusterId
@@ -3208,7 +3245,7 @@ class DescribeClusterActivitiesRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""偏移量，默认为0。关于`Offset`的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
+        r"""<p>偏移量，默认为0。关于<code>Offset</code>的更进一步介绍请参考 API <a href="https://cloud.tencent.com/document/api/213/15688">简介</a>中的相关小节。</p>
         :rtype: int
         """
         return self._Offset
@@ -3219,7 +3256,7 @@ class DescribeClusterActivitiesRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""返回数量，默认为20，最大值为100。关于`Limit`的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
+        r"""<p>返回数量，默认为20，最大值为100。关于<code>Limit</code>的更进一步介绍请参考 API <a href="https://cloud.tencent.com/document/api/213/15688">简介</a>中的相关小节。</p>
         :rtype: int
         """
         return self._Limit
@@ -3250,9 +3287,9 @@ class DescribeClusterActivitiesResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterActivitySet: 集群活动历史记录列表。
+        :param _ClusterActivitySet: <p>集群活动历史记录列表。</p>
         :type ClusterActivitySet: list of ClusterActivity
-        :param _TotalCount: 集群活动历史记录数量。
+        :param _TotalCount: <p>集群活动历史记录数量。</p>
         :type TotalCount: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -3263,7 +3300,7 @@ class DescribeClusterActivitiesResponse(AbstractModel):
 
     @property
     def ClusterActivitySet(self):
-        r"""集群活动历史记录列表。
+        r"""<p>集群活动历史记录列表。</p>
         :rtype: list of ClusterActivity
         """
         return self._ClusterActivitySet
@@ -3274,7 +3311,7 @@ class DescribeClusterActivitiesResponse(AbstractModel):
 
     @property
     def TotalCount(self):
-        r"""集群活动历史记录数量。
+        r"""<p>集群活动历史记录数量。</p>
         :rtype: int
         """
         return self._TotalCount
@@ -3750,6 +3787,36 @@ class DescribeJobsOverviewRequest(AbstractModel):
 
     """
 
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群ID
+        :type ClusterId: str
+        """
+        self._ClusterId = None
+
+    @property
+    def ClusterId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
 
 class DescribeJobsOverviewResponse(AbstractModel):
     r"""DescribeJobsOverview返回参数结构体
@@ -3758,10 +3825,52 @@ class DescribeJobsOverviewResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _JobTotal: 作业任务数量
+        :type JobTotal: int
+        :param _QueuingJobTotal: 排队中的作业任务数量
+        :type QueuingJobTotal: int
+        :param _RunningJobTotal: 运行中的作业数量
+        :type RunningJobTotal: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._JobTotal = None
+        self._QueuingJobTotal = None
+        self._RunningJobTotal = None
         self._RequestId = None
+
+    @property
+    def JobTotal(self):
+        r"""作业任务数量
+        :rtype: int
+        """
+        return self._JobTotal
+
+    @JobTotal.setter
+    def JobTotal(self, JobTotal):
+        self._JobTotal = JobTotal
+
+    @property
+    def QueuingJobTotal(self):
+        r"""排队中的作业任务数量
+        :rtype: int
+        """
+        return self._QueuingJobTotal
+
+    @QueuingJobTotal.setter
+    def QueuingJobTotal(self, QueuingJobTotal):
+        self._QueuingJobTotal = QueuingJobTotal
+
+    @property
+    def RunningJobTotal(self):
+        r"""运行中的作业数量
+        :rtype: int
+        """
+        return self._RunningJobTotal
+
+    @RunningJobTotal.setter
+    def RunningJobTotal(self, RunningJobTotal):
+        self._RunningJobTotal = RunningJobTotal
 
     @property
     def RequestId(self):
@@ -3776,6 +3885,9 @@ class DescribeJobsOverviewResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._JobTotal = params.get("JobTotal")
+        self._QueuingJobTotal = params.get("QueuingJobTotal")
+        self._RunningJobTotal = params.get("RunningJobTotal")
         self._RequestId = params.get("RequestId")
 
 
@@ -3937,24 +4049,7 @@ class DescribeNodesRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID。
         :type ClusterId: str
-        :param _Filters: <ul>
-    <li><strong>queue-name</strong>
-        <p style="padding-left: 30px;">按照【<strong>队列名称</strong>】进行过滤。队列名称形如：compute。</p>
-        <p style="padding-left: 30px;">类型：String</p>
-        <p style="padding-left: 30px;">必选：否</p>
-    </li>
-    <li><strong>node-role</strong>
-        <p style="padding-left: 30px;">按照【<strong>节点角色</strong>】进行过滤。节点角色形如：Manager。（Manager：管控节点。Compute：计算节点。Login：登录节点。ManagerBackup：备用管控节点。）</p>
-        <p style="padding-left: 30px;">类型：String</p>
-        <p style="padding-left: 30px;">必选：否</p>
-    </li>
-    <li><strong>node-type</strong>
-        <p style="padding-left: 30px;">按照【<strong>节点类型</strong>】进行过滤。节点类型形如：STATIC。(STATIC：静态节点。DYNAMIC：弹性节点。)</p>
-        <p style="padding-left: 30px;">类型：String</p>
-        <p style="padding-left: 30px;">必选：否</p>
-    </li>
-</ul>
-<p style="padding-left: 30px;">每次请求的`Filters`的上限为10，`Filter.Values`的上限为5。</p>
+        :param _Filters: <ul>    <li><strong>queue-name</strong>        <p style="padding-left: 30px;">按照【<strong>队列名称</strong>】进行过滤。队列名称形如：compute。</p>        <p style="padding-left: 30px;">类型：String</p>        <p style="padding-left: 30px;">必选：否</p>    </li>    <li><strong>node-role</strong>        <p style="padding-left: 30px;">按照【<strong>节点角色</strong>】进行过滤。节点角色形如：Manager。（Manager：管控节点。Compute：计算节点。Login：登录节点。ManagerBackup：备用管控节点。）</p>        <p style="padding-left: 30px;">类型：String</p>        <p style="padding-left: 30px;">必选：否</p>    </li>    <li><strong>node-type</strong>        <p style="padding-left: 30px;">按照【<strong>节点类型</strong>】进行过滤。节点类型形如：STATIC。(STATIC：静态节点。DYNAMIC：弹性节点。)</p>        <p style="padding-left: 30px;">类型：String</p>        <p style="padding-left: 30px;">必选：否</p>    </li>  <li><strong>instance-id</strong>        <p style="padding-left: 30px;">按照【<strong>CVM实例资源ID</strong>】进行过滤。资源ID名称形如：ins-xxx。</p>        <p style="padding-left: 30px;">类型：String</p>        <p style="padding-left: 30px;">必选：否</p>    </li> </ul><p style="padding-left: 30px;">每次请求的`Filters`的上限为10，`Filter.Values`的上限为100。</p>
         :type Filters: list of Filter
         :param _Offset: 偏移量，默认为0。关于`Offset`的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
         :type Offset: int
@@ -3979,24 +4074,7 @@ class DescribeNodesRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""<ul>
-    <li><strong>queue-name</strong>
-        <p style="padding-left: 30px;">按照【<strong>队列名称</strong>】进行过滤。队列名称形如：compute。</p>
-        <p style="padding-left: 30px;">类型：String</p>
-        <p style="padding-left: 30px;">必选：否</p>
-    </li>
-    <li><strong>node-role</strong>
-        <p style="padding-left: 30px;">按照【<strong>节点角色</strong>】进行过滤。节点角色形如：Manager。（Manager：管控节点。Compute：计算节点。Login：登录节点。ManagerBackup：备用管控节点。）</p>
-        <p style="padding-left: 30px;">类型：String</p>
-        <p style="padding-left: 30px;">必选：否</p>
-    </li>
-    <li><strong>node-type</strong>
-        <p style="padding-left: 30px;">按照【<strong>节点类型</strong>】进行过滤。节点类型形如：STATIC。(STATIC：静态节点。DYNAMIC：弹性节点。)</p>
-        <p style="padding-left: 30px;">类型：String</p>
-        <p style="padding-left: 30px;">必选：否</p>
-    </li>
-</ul>
-<p style="padding-left: 30px;">每次请求的`Filters`的上限为10，`Filter.Values`的上限为5。</p>
+        r"""<ul>    <li><strong>queue-name</strong>        <p style="padding-left: 30px;">按照【<strong>队列名称</strong>】进行过滤。队列名称形如：compute。</p>        <p style="padding-left: 30px;">类型：String</p>        <p style="padding-left: 30px;">必选：否</p>    </li>    <li><strong>node-role</strong>        <p style="padding-left: 30px;">按照【<strong>节点角色</strong>】进行过滤。节点角色形如：Manager。（Manager：管控节点。Compute：计算节点。Login：登录节点。ManagerBackup：备用管控节点。）</p>        <p style="padding-left: 30px;">类型：String</p>        <p style="padding-left: 30px;">必选：否</p>    </li>    <li><strong>node-type</strong>        <p style="padding-left: 30px;">按照【<strong>节点类型</strong>】进行过滤。节点类型形如：STATIC。(STATIC：静态节点。DYNAMIC：弹性节点。)</p>        <p style="padding-left: 30px;">类型：String</p>        <p style="padding-left: 30px;">必选：否</p>    </li>  <li><strong>instance-id</strong>        <p style="padding-left: 30px;">按照【<strong>CVM实例资源ID</strong>】进行过滤。资源ID名称形如：ins-xxx。</p>        <p style="padding-left: 30px;">类型：String</p>        <p style="padding-left: 30px;">必选：否</p>    </li> </ul><p style="padding-left: 30px;">每次请求的`Filters`的上限为10，`Filter.Values`的上限为100。</p>
         :rtype: list of Filter
         """
         return self._Filters
@@ -4247,13 +4325,13 @@ class DescribeWorkspacesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SpaceIds: 集群ID列表。通过该参数可以指定需要查询信息的集群列表。<br>如果您不指定该参数，则返回Limit数量以内的集群信息。
+        :param _SpaceIds: <p>集群ID列表。通过该参数可以指定需要查询信息的集群列表。<br>如果您不指定该参数，则返回Limit数量以内的集群信息。</p>
         :type SpaceIds: list of str
-        :param _Offset: 偏移量，默认为0。关于`Offset`的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
+        :param _Offset: <p>偏移量，默认为0。关于<code>Offset</code>的更进一步介绍请参考 API <a href="https://cloud.tencent.com/document/api/213/15688">简介</a>中的相关小节。</p>
         :type Offset: int
-        :param _Limit: 返回数量，默认为20，最大值为100。关于`Limit`的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
+        :param _Limit: <p>返回数量，默认为20，最大值为100。关于<code>Limit</code>的更进一步介绍请参考 API <a href="https://cloud.tencent.com/document/api/213/15688">简介</a>中的相关小节。</p>
         :type Limit: int
-        :param _Filters: <ul>   <li>     <strong>zone</strong>     <p style="padding-left: 30px;">按照【<strong>可用区</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-id</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间实例ID</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>cvm-instance-id</strong>     <p style="padding-left: 30px;">按照【<strong>CVM实例ID</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-state</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间状态</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-name</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间别名</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-charge-type</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间实例付费模式</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>tag-key</strong>     <p style="padding-left: 30px;">按照【<strong>标签键</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>tag-value</strong>     <p style="padding-left: 30px;">按照【<strong>标签值</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li> </ul> <p style="padding-left: 30px;">每次请求的`Filters`的上限为10，`Filter.Values`的上限为5。</p>
+        :param _Filters: <ul>   <li>     <strong>zone</strong>     <p style="padding-left: 30px;">按照【<strong>可用区</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-id</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间实例ID</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>cvm-instance-id</strong>     <p style="padding-left: 30px;">按照【<strong>CVM实例ID</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-state</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间状态</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-name</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间别名</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-charge-type</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间实例付费模式</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>tag-key</strong>     <p style="padding-left: 30px;">按照【<strong>标签键</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>tag-value</strong>     <p style="padding-left: 30px;">按照【<strong>标签值</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li> </ul> <p style="padding-left: 30px;">每次请求的<code>Filters</code>的上限为10，<code>Filter.Values</code>的上限为5。</p>
         :type Filters: list of Filter
         """
         self._SpaceIds = None
@@ -4263,7 +4341,7 @@ class DescribeWorkspacesRequest(AbstractModel):
 
     @property
     def SpaceIds(self):
-        r"""集群ID列表。通过该参数可以指定需要查询信息的集群列表。<br>如果您不指定该参数，则返回Limit数量以内的集群信息。
+        r"""<p>集群ID列表。通过该参数可以指定需要查询信息的集群列表。<br>如果您不指定该参数，则返回Limit数量以内的集群信息。</p>
         :rtype: list of str
         """
         return self._SpaceIds
@@ -4274,7 +4352,7 @@ class DescribeWorkspacesRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""偏移量，默认为0。关于`Offset`的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
+        r"""<p>偏移量，默认为0。关于<code>Offset</code>的更进一步介绍请参考 API <a href="https://cloud.tencent.com/document/api/213/15688">简介</a>中的相关小节。</p>
         :rtype: int
         """
         return self._Offset
@@ -4285,7 +4363,7 @@ class DescribeWorkspacesRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""返回数量，默认为20，最大值为100。关于`Limit`的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
+        r"""<p>返回数量，默认为20，最大值为100。关于<code>Limit</code>的更进一步介绍请参考 API <a href="https://cloud.tencent.com/document/api/213/15688">简介</a>中的相关小节。</p>
         :rtype: int
         """
         return self._Limit
@@ -4296,7 +4374,7 @@ class DescribeWorkspacesRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""<ul>   <li>     <strong>zone</strong>     <p style="padding-left: 30px;">按照【<strong>可用区</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-id</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间实例ID</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>cvm-instance-id</strong>     <p style="padding-left: 30px;">按照【<strong>CVM实例ID</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-state</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间状态</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-name</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间别名</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-charge-type</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间实例付费模式</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>tag-key</strong>     <p style="padding-left: 30px;">按照【<strong>标签键</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>tag-value</strong>     <p style="padding-left: 30px;">按照【<strong>标签值</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li> </ul> <p style="padding-left: 30px;">每次请求的`Filters`的上限为10，`Filter.Values`的上限为5。</p>
+        r"""<ul>   <li>     <strong>zone</strong>     <p style="padding-left: 30px;">按照【<strong>可用区</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-id</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间实例ID</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>cvm-instance-id</strong>     <p style="padding-left: 30px;">按照【<strong>CVM实例ID</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-state</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间状态</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-name</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间别名</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>space-charge-type</strong>     <p style="padding-left: 30px;">按照【<strong>工作空间实例付费模式</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>tag-key</strong>     <p style="padding-left: 30px;">按照【<strong>标签键</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li>     <li>     <strong>tag-value</strong>     <p style="padding-left: 30px;">按照【<strong>标签值</strong>】进行过滤</p>     <p style="padding-left: 30px;">类型：String</p>     <p style="padding-left: 30px;">必选：否</p></li> </ul> <p style="padding-left: 30px;">每次请求的<code>Filters</code>的上限为10，<code>Filter.Values</code>的上限为5。</p>
         :rtype: list of Filter
         """
         return self._Filters
@@ -4333,9 +4411,9 @@ class DescribeWorkspacesResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _SpaceSet: 集群概览信息列表
+        :param _SpaceSet: <p>集群概览信息列表</p>
         :type SpaceSet: list of SpaceInfo
-        :param _TotalCount: 集群数量
+        :param _TotalCount: <p>集群数量</p>
         :type TotalCount: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -4346,7 +4424,7 @@ class DescribeWorkspacesResponse(AbstractModel):
 
     @property
     def SpaceSet(self):
-        r"""集群概览信息列表
+        r"""<p>集群概览信息列表</p>
         :rtype: list of SpaceInfo
         """
         return self._SpaceSet
@@ -4357,7 +4435,7 @@ class DescribeWorkspacesResponse(AbstractModel):
 
     @property
     def TotalCount(self):
-        r"""集群数量
+        r"""<p>集群数量</p>
         :rtype: int
         """
         return self._TotalCount
@@ -5146,9 +5224,12 @@ class GooseFSxOption(AbstractModel):
         :type Masters: list of str
         :param _LocalPath: 文件系统的本地挂载路径。GooseFSx目前只支持挂载在/goosefsx/{文件系统ID}_proxy/目录下。
         :type LocalPath: str
+        :param _FileSystemId: GooseFSx文件系统ID 文件系统ID通过调用接口[DescribeFileSystems](https://cloud.tencent.com/document/api/1424/95789)获取。
+        :type FileSystemId: str
         """
         self._Masters = None
         self._LocalPath = None
+        self._FileSystemId = None
 
     @property
     def Masters(self):
@@ -5172,10 +5253,22 @@ class GooseFSxOption(AbstractModel):
     def LocalPath(self, LocalPath):
         self._LocalPath = LocalPath
 
+    @property
+    def FileSystemId(self):
+        r"""GooseFSx文件系统ID 文件系统ID通过调用接口[DescribeFileSystems](https://cloud.tencent.com/document/api/1424/95789)获取。
+        :rtype: str
+        """
+        return self._FileSystemId
+
+    @FileSystemId.setter
+    def FileSystemId(self, FileSystemId):
+        self._FileSystemId = FileSystemId
+
 
     def _deserialize(self, params):
         self._Masters = params.get("Masters")
         self._LocalPath = params.get("LocalPath")
+        self._FileSystemId = params.get("FileSystemId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5900,23 +5993,23 @@ class ManagerNode(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceChargeType: 节点[计费类型](https://cloud.tencent.com/document/product/213/2180)。<br><li>PREPAID：预付费，即包年包月</li><br><li>POSTPAID_BY_HOUR：按小时后付费</li><br><li>SPOTPAID：竞价付费<br>默认值：POSTPAID_BY_HOUR。</li>	
+        :param _InstanceChargeType: <p>节点<a href="https://cloud.tencent.com/document/product/213/2180">计费类型</a>。</p>枚举值：<ul><li> PREPAID： 预付费，即包年包月</li><li> POSTPAID_BY_HOUR： 按小时后付费</li></ul>
         :type InstanceChargeType: str
-        :param _InstanceChargePrepaid: 预付费模式，即包年包月相关参数设置。通过该参数可以指定包年包月节点的购买时长、是否设置自动续费等属性。若指定节点的付费模式为预付费则该参数必传。
+        :param _InstanceChargePrepaid: <p>预付费模式，即包年包月相关参数设置。通过该参数可以指定包年包月节点的购买时长、是否设置自动续费等属性。若指定节点的付费模式为预付费则该参数必传。</p>
         :type InstanceChargePrepaid: :class:`tencentcloud.thpc.v20230321.models.InstanceChargePrepaid`
-        :param _InstanceType: 节点机型。不同实例机型指定了不同的资源规格。 <br><li>具体取值可通过调用接口[DescribeInstanceTypeConfigs](https://cloud.tencent.com/document/api/213/15749)来获得最新的规格表或参见[实例规格](https://cloud.tencent.com/document/product/213/11518)描述。</li>	
+        :param _InstanceType: <p>节点机型。不同实例机型指定了不同的资源规格。 <br><li>具体取值可通过调用接口<a href="https://cloud.tencent.com/document/api/213/15749">DescribeInstanceTypeConfigs</a>来获得最新的规格表或参见<a href="https://cloud.tencent.com/document/product/213/11518">实例规格</a>描述。</li>   </p>
         :type InstanceType: str
-        :param _SystemDisk: 节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。
+        :param _SystemDisk: <p>节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。</p>
         :type SystemDisk: :class:`tencentcloud.thpc.v20230321.models.SystemDisk`
-        :param _DataDisks: 节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。
+        :param _DataDisks: <p>节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。</p>
         :type DataDisks: list of DataDisk
-        :param _InternetAccessible: 公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。
+        :param _InternetAccessible: <p>公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。</p>
         :type InternetAccessible: :class:`tencentcloud.thpc.v20230321.models.InternetAccessible`
-        :param _InstanceName: 节点显示名称。<br><li> 不指定节点显示名称则默认显示‘未命名’。 </li><li>购买多个节点，如果指定模式串`{R:x}`，表示生成数字[`[x, x+n-1]`，其中`n`表示购买节点的数量，例如`server_{R:3}`，购买1个时，节点显示名称为`server_3`；购买2个时，节点显示名称分别为`server_3`，`server_4`。支持指定多个模式串`{R:x}`。 购买多个节点，如果不指定模式串，则在节点显示名称添加后缀`1、2...n`，其中`n`表示购买节点的数量，例如`server_`，购买2个时，节点显示名称分别为`server_1`，`server_2`。</li><li> 最多支持60个字符（包含模式串）。</li>
+        :param _InstanceName: <p>节点显示名称。<br><li> 不指定节点显示名称则默认显示‘未命名’。 </li><li>购买多个节点，如果指定模式串<code>{R:x}</code>，表示生成数字[<code>[x, x+n-1]</code>，其中<code>n</code>表示购买节点的数量，例如<code>server_{R:3}</code>，购买1个时，节点显示名称为<code>server_3</code>；购买2个时，节点显示名称分别为<code>server_3</code>，<code>server_4</code>。支持指定多个模式串<code>{R:x}</code>。 购买多个节点，如果不指定模式串，则在节点显示名称添加后缀<code>1、2...n</code>，其中<code>n</code>表示购买节点的数量，例如<code>server_</code>，购买2个时，节点显示名称分别为<code>server_1</code>，<code>server_2</code>。</li><li> 最多支持60个字符（包含模式串）。</li></p>
         :type InstanceName: str
-        :param _ProjectId: 实例所属项目ID。该参数可以通过调用 [DescribeProject](https://cloud.tencent.com/document/api/651/78725) 的返回值中的 projectId 字段来获取。不填为默认项目。
+        :param _ProjectId: <p>实例所属项目ID。该参数可以通过调用 <a href="https://cloud.tencent.com/document/api/651/78725">DescribeProject</a> 的返回值中的 projectId 字段来获取。不填为默认项目。</p>
         :type ProjectId: int
-        :param _EnhancedService: 增强服务。通过该参数可以指定是否开启云安全、腾讯云可观测平台等服务。若不指定该参数，则默认开启腾讯云可观测平台、云安全服务、自动化助手服务。
+        :param _EnhancedService: <p>增强服务。通过该参数可以指定是否开启云安全、腾讯云可观测平台等服务。若不指定该参数，则默认开启腾讯云可观测平台、云安全服务、自动化助手服务。</p>
         :type EnhancedService: :class:`tencentcloud.thpc.v20230321.models.EnhancedService`
         """
         self._InstanceChargeType = None
@@ -5931,7 +6024,7 @@ class ManagerNode(AbstractModel):
 
     @property
     def InstanceChargeType(self):
-        r"""节点[计费类型](https://cloud.tencent.com/document/product/213/2180)。<br><li>PREPAID：预付费，即包年包月</li><br><li>POSTPAID_BY_HOUR：按小时后付费</li><br><li>SPOTPAID：竞价付费<br>默认值：POSTPAID_BY_HOUR。</li>	
+        r"""<p>节点<a href="https://cloud.tencent.com/document/product/213/2180">计费类型</a>。</p>枚举值：<ul><li> PREPAID： 预付费，即包年包月</li><li> POSTPAID_BY_HOUR： 按小时后付费</li></ul>
         :rtype: str
         """
         return self._InstanceChargeType
@@ -5942,7 +6035,7 @@ class ManagerNode(AbstractModel):
 
     @property
     def InstanceChargePrepaid(self):
-        r"""预付费模式，即包年包月相关参数设置。通过该参数可以指定包年包月节点的购买时长、是否设置自动续费等属性。若指定节点的付费模式为预付费则该参数必传。
+        r"""<p>预付费模式，即包年包月相关参数设置。通过该参数可以指定包年包月节点的购买时长、是否设置自动续费等属性。若指定节点的付费模式为预付费则该参数必传。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.InstanceChargePrepaid`
         """
         return self._InstanceChargePrepaid
@@ -5953,7 +6046,7 @@ class ManagerNode(AbstractModel):
 
     @property
     def InstanceType(self):
-        r"""节点机型。不同实例机型指定了不同的资源规格。 <br><li>具体取值可通过调用接口[DescribeInstanceTypeConfigs](https://cloud.tencent.com/document/api/213/15749)来获得最新的规格表或参见[实例规格](https://cloud.tencent.com/document/product/213/11518)描述。</li>	
+        r"""<p>节点机型。不同实例机型指定了不同的资源规格。 <br><li>具体取值可通过调用接口<a href="https://cloud.tencent.com/document/api/213/15749">DescribeInstanceTypeConfigs</a>来获得最新的规格表或参见<a href="https://cloud.tencent.com/document/product/213/11518">实例规格</a>描述。</li>   </p>
         :rtype: str
         """
         return self._InstanceType
@@ -5964,7 +6057,7 @@ class ManagerNode(AbstractModel):
 
     @property
     def SystemDisk(self):
-        r"""节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。
+        r"""<p>节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.SystemDisk`
         """
         return self._SystemDisk
@@ -5975,7 +6068,7 @@ class ManagerNode(AbstractModel):
 
     @property
     def DataDisks(self):
-        r"""节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。
+        r"""<p>节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。</p>
         :rtype: list of DataDisk
         """
         return self._DataDisks
@@ -5986,7 +6079,7 @@ class ManagerNode(AbstractModel):
 
     @property
     def InternetAccessible(self):
-        r"""公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。
+        r"""<p>公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.InternetAccessible`
         """
         return self._InternetAccessible
@@ -5997,7 +6090,7 @@ class ManagerNode(AbstractModel):
 
     @property
     def InstanceName(self):
-        r"""节点显示名称。<br><li> 不指定节点显示名称则默认显示‘未命名’。 </li><li>购买多个节点，如果指定模式串`{R:x}`，表示生成数字[`[x, x+n-1]`，其中`n`表示购买节点的数量，例如`server_{R:3}`，购买1个时，节点显示名称为`server_3`；购买2个时，节点显示名称分别为`server_3`，`server_4`。支持指定多个模式串`{R:x}`。 购买多个节点，如果不指定模式串，则在节点显示名称添加后缀`1、2...n`，其中`n`表示购买节点的数量，例如`server_`，购买2个时，节点显示名称分别为`server_1`，`server_2`。</li><li> 最多支持60个字符（包含模式串）。</li>
+        r"""<p>节点显示名称。<br><li> 不指定节点显示名称则默认显示‘未命名’。 </li><li>购买多个节点，如果指定模式串<code>{R:x}</code>，表示生成数字[<code>[x, x+n-1]</code>，其中<code>n</code>表示购买节点的数量，例如<code>server_{R:3}</code>，购买1个时，节点显示名称为<code>server_3</code>；购买2个时，节点显示名称分别为<code>server_3</code>，<code>server_4</code>。支持指定多个模式串<code>{R:x}</code>。 购买多个节点，如果不指定模式串，则在节点显示名称添加后缀<code>1、2...n</code>，其中<code>n</code>表示购买节点的数量，例如<code>server_</code>，购买2个时，节点显示名称分别为<code>server_1</code>，<code>server_2</code>。</li><li> 最多支持60个字符（包含模式串）。</li></p>
         :rtype: str
         """
         return self._InstanceName
@@ -6008,7 +6101,7 @@ class ManagerNode(AbstractModel):
 
     @property
     def ProjectId(self):
-        r"""实例所属项目ID。该参数可以通过调用 [DescribeProject](https://cloud.tencent.com/document/api/651/78725) 的返回值中的 projectId 字段来获取。不填为默认项目。
+        r"""<p>实例所属项目ID。该参数可以通过调用 <a href="https://cloud.tencent.com/document/api/651/78725">DescribeProject</a> 的返回值中的 projectId 字段来获取。不填为默认项目。</p>
         :rtype: int
         """
         return self._ProjectId
@@ -6019,7 +6112,7 @@ class ManagerNode(AbstractModel):
 
     @property
     def EnhancedService(self):
-        r"""增强服务。通过该参数可以指定是否开启云安全、腾讯云可观测平台等服务。若不指定该参数，则默认开启腾讯云可观测平台、云安全服务、自动化助手服务。
+        r"""<p>增强服务。通过该参数可以指定是否开启云安全、腾讯云可观测平台等服务。若不指定该参数，则默认开启腾讯云可观测平台、云安全服务、自动化助手服务。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.EnhancedService`
         """
         return self._EnhancedService
@@ -6098,6 +6191,87 @@ class ManagerNodeOverview(AbstractModel):
         
 
 
+class ModifyClusterDeletionProtectionRequest(AbstractModel):
+    r"""ModifyClusterDeletionProtection请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群ID。
+        :type ClusterId: str
+        :param _DeletionProtection: 集群删除保护开关。 
+可选值：<li>OFF：关闭集群删除保护。</li><li>ON：打开集群删除保护。</li>
+        :type DeletionProtection: str
+        """
+        self._ClusterId = None
+        self._DeletionProtection = None
+
+    @property
+    def ClusterId(self):
+        r"""集群ID。
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def DeletionProtection(self):
+        r"""集群删除保护开关。 
+可选值：<li>OFF：关闭集群删除保护。</li><li>ON：打开集群删除保护。</li>
+        :rtype: str
+        """
+        return self._DeletionProtection
+
+    @DeletionProtection.setter
+    def DeletionProtection(self, DeletionProtection):
+        self._DeletionProtection = DeletionProtection
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._DeletionProtection = params.get("DeletionProtection")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyClusterDeletionProtectionResponse(AbstractModel):
+    r"""ModifyClusterDeletionProtection返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyInitNodeScriptsRequest(AbstractModel):
     r"""ModifyInitNodeScripts请求参数结构体
 
@@ -6156,6 +6330,115 @@ class ModifyInitNodeScriptsRequest(AbstractModel):
 
 class ModifyInitNodeScriptsResponse(AbstractModel):
     r"""ModifyInitNodeScripts返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyNodeAttributeRequest(AbstractModel):
+    r"""ModifyNodeAttribute请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _NodeId: <p>节点ID，节点ID通过调用接口 <a href="https://cloud.tencent.com/document/api/1527/89569">DescribeNodes</a>获取。</p>
+        :type NodeId: str
+        :param _NodeName: <p>节点别名</p>
+        :type NodeName: str
+        :param _NodeAllocateState: <p>资源的分配状态:  - IDLE: 资源空闲 - ISOLATE: 资源隔离</p>
+        :type NodeAllocateState: str
+        :param _QueueName: <p>目标队列名</p>
+        :type QueueName: str
+        """
+        self._NodeId = None
+        self._NodeName = None
+        self._NodeAllocateState = None
+        self._QueueName = None
+
+    @property
+    def NodeId(self):
+        r"""<p>节点ID，节点ID通过调用接口 <a href="https://cloud.tencent.com/document/api/1527/89569">DescribeNodes</a>获取。</p>
+        :rtype: str
+        """
+        return self._NodeId
+
+    @NodeId.setter
+    def NodeId(self, NodeId):
+        self._NodeId = NodeId
+
+    @property
+    def NodeName(self):
+        r"""<p>节点别名</p>
+        :rtype: str
+        """
+        return self._NodeName
+
+    @NodeName.setter
+    def NodeName(self, NodeName):
+        self._NodeName = NodeName
+
+    @property
+    def NodeAllocateState(self):
+        r"""<p>资源的分配状态:  - IDLE: 资源空闲 - ISOLATE: 资源隔离</p>
+        :rtype: str
+        """
+        return self._NodeAllocateState
+
+    @NodeAllocateState.setter
+    def NodeAllocateState(self, NodeAllocateState):
+        self._NodeAllocateState = NodeAllocateState
+
+    @property
+    def QueueName(self):
+        r"""<p>目标队列名</p>
+        :rtype: str
+        """
+        return self._QueueName
+
+    @QueueName.setter
+    def QueueName(self, QueueName):
+        self._QueueName = QueueName
+
+
+    def _deserialize(self, params):
+        self._NodeId = params.get("NodeId")
+        self._NodeName = params.get("NodeName")
+        self._NodeAllocateState = params.get("NodeAllocateState")
+        self._QueueName = params.get("QueueName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyNodeAttributeResponse(AbstractModel):
+    r"""ModifyNodeAttribute返回参数结构体
 
     """
 
@@ -6793,47 +7076,42 @@ class QueueConfig(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _QueueName: 队列名称。
+        :param _QueueName: <p>队列名称。</p>
         :type QueueName: str
-        :param _MinSize: 队列中弹性节点数量最小值。默认值：0。取值范围：0～200。
+        :param _MinSize: <p>队列中弹性节点数量最小值。默认值：0。取值范围：0～200。</p>
         :type MinSize: int
-        :param _MaxSize: 队列中弹性节点数量最大值。默认值：10。取值范围：0～200。
+        :param _MaxSize: <p>队列中弹性节点数量最大值。默认值：10。取值范围：0～200。</p>
         :type MaxSize: int
-        :param _EnableAutoExpansion: 是否开启自动扩容。
+        :param _EnableAutoExpansion: <p>是否开启自动扩容。</p>
         :type EnableAutoExpansion: bool
-        :param _EnableAutoShrink: 是否开启自动缩容。
+        :param _EnableAutoShrink: <p>是否开启自动缩容。</p>
         :type EnableAutoShrink: bool
-        :param _ImageId: 指定有效的[镜像](https://cloud.tencent.com/document/product/213/4940)ID，格式形如`img-xxx`。目前仅支持公有镜和特定自定义镜像。
+        :param _ImageId: <p>指定有效的<a href="https://cloud.tencent.com/document/product/213/4940">镜像</a>ID，格式形如<code>img-xxx</code>。目前仅支持公有镜和特定自定义镜像。</p>
         :type ImageId: str
-        :param _SystemDisk: 节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。
+        :param _SystemDisk: <p>节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。</p>
         :type SystemDisk: :class:`tencentcloud.thpc.v20230321.models.SystemDisk`
-        :param _DataDisks: 节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。
+        :param _DataDisks: <p>节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。</p>
         :type DataDisks: list of DataDisk
-        :param _InternetAccessible: 公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。
+        :param _InternetAccessible: <p>公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。</p>
         :type InternetAccessible: :class:`tencentcloud.thpc.v20230321.models.InternetAccessible`
-        :param _ExpansionNodeConfigs: 扩容节点配置信息。
+        :param _ExpansionNodeConfigs: <p>扩容节点配置信息。</p>
         :type ExpansionNodeConfigs: list of ExpansionNodeConfig
-        :param _DesiredIdleNodeCapacity: 队列中期望的空闲节点数量（包含弹性节点和静态节点）。默认值：0。队列中，处于空闲状态的节点小于此值，集群会扩容弹性节点；处于空闲状态的节点大于此值，集群会缩容弹性节点。
+        :param _DesiredIdleNodeCapacity: <p>队列中期望的空闲节点数量（包含弹性节点和静态节点）。默认值：0。队列中，处于空闲状态的节点小于此值，集群会扩容弹性节点；处于空闲状态的节点大于此值，集群会缩容弹性节点。</p>
         :type DesiredIdleNodeCapacity: int
-        :param _DesiredNodeCount: 队列中期望的总节点数。
+        :param _DesiredNodeCount: <p>队列中期望的总节点数。</p>
         :type DesiredNodeCount: int
-        :param _ScaleOutRatio: 扩容比例。默认值：100。取值范围：1～100。
-如果扩容比例为50，那么每轮只会扩容当前作业负载所需的50%数量的节点。
+        :param _ScaleOutRatio: <p>扩容比例。默认值：100。取值范围：1～100。<br>如果扩容比例为50，那么每轮只会扩容当前作业负载所需的50%数量的节点。</p>
         :type ScaleOutRatio: int
-        :param _ScaleOutNodeThreshold: 比例扩容阈值。默认值：0。取值范围：0～200。
-当作业负载需要扩容节点数量大于此值，当前扩容轮次按照ScaleOutRatio配置的比例进行扩容。当作业负载需要扩容节点数量小于此值，当前扩容轮次扩容当前作业负载所需数量的节点。
-此参数配合ScaleOutRatio参数进行使用，用于比例扩容场景下，在作业负载所需节点数量较小时，加快收敛速度。
+        :param _ScaleOutNodeThreshold: <p>比例扩容阈值。默认值：0。取值范围：0～200。<br>当作业负载需要扩容节点数量大于此值，当前扩容轮次按照ScaleOutRatio配置的比例进行扩容。当作业负载需要扩容节点数量小于此值，当前扩容轮次扩容当前作业负载所需数量的节点。<br>此参数配合ScaleOutRatio参数进行使用，用于比例扩容场景下，在作业负载所需节点数量较小时，加快收敛速度。</p>
         :type ScaleOutNodeThreshold: int
-        :param _MaxNodesPerCycle: 每轮扩容最大节点个数。默认值：100。取值范围：1～100。
+        :param _MaxNodesPerCycle: <p>每轮扩容最大节点个数。默认值：100。取值范围：1～100。</p>
         :type MaxNodesPerCycle: int
-        :param _ScaleUpMemRatio: 扩容过程中，作业的内存在匹配实例机型时增大比例（不会影响作业提交的内存大小，只影响匹配计算过程）。<br/>
-针对场景：由于实例机型的总内存会大于实例内部的可用内存，16GB内存规格的实例，实例操作系统内的可用内存只有约14.9GB内存。假设此时提交一个需要15GB内存的作业，
-
-- 当ScaleUpMemRatio=0时，会匹配到16GB内存规格的实例,但是由于操作系统内的可用内存为14.9GB小于作业所需的15GB，扩容出来的实例作业无法运行起来。
-- 当ScaleUpMemRatio=10时，匹配实例规格会按照15*(1+10%)=16.5GB来进行实例规格匹配，则不会匹配到16GB的实例，而是更大内存规格的实例来保证作业能够被运行起来。
+        :param _ScaleUpMemRatio: <p>扩容过程中，作业的内存在匹配实例机型时增大比例（不会影响作业提交的内存大小，只影响匹配计算过程）。<br><br>针对场景：由于实例机型的总内存会大于实例内部的可用内存，16GB内存规格的实例，实例操作系统内的可用内存只有约14.9GB内存。假设此时提交一个需要15GB内存的作业，</p><ul><li>当ScaleUpMemRatio=0时，会匹配到16GB内存规格的实例,但是由于操作系统内的可用内存为14.9GB小于作业所需的15GB，扩容出来的实例作业无法运行起来。</li><li>当ScaleUpMemRatio=10时，匹配实例规格会按照15*(1+10%)=16.5GB来进行实例规格匹配，则不会匹配到16GB的实例，而是更大内存规格的实例来保证作业能够被运行起来。</li></ul>
         :type ScaleUpMemRatio: int
-        :param _EnhancedService: 增强服务。通过该参数可以指定是否开启云安全、腾讯云可观测平台等服务。若不指定该参数，则默认开启腾讯云可观测平台、云安全服务、自动化助手服务。
+        :param _EnhancedService: <p>增强服务。通过该参数可以指定是否开启云安全、腾讯云可观测平台等服务。若不指定该参数，则默认开启腾讯云可观测平台、云安全服务、自动化助手服务。</p>
         :type EnhancedService: :class:`tencentcloud.thpc.v20230321.models.EnhancedService`
+        :param _LaunchTemplateIds: <p>扩容实例模板，可以在cvm侧进行设置</p>
+        :type LaunchTemplateIds: list of str
         """
         self._QueueName = None
         self._MinSize = None
@@ -6852,10 +7130,11 @@ class QueueConfig(AbstractModel):
         self._MaxNodesPerCycle = None
         self._ScaleUpMemRatio = None
         self._EnhancedService = None
+        self._LaunchTemplateIds = None
 
     @property
     def QueueName(self):
-        r"""队列名称。
+        r"""<p>队列名称。</p>
         :rtype: str
         """
         return self._QueueName
@@ -6866,7 +7145,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def MinSize(self):
-        r"""队列中弹性节点数量最小值。默认值：0。取值范围：0～200。
+        r"""<p>队列中弹性节点数量最小值。默认值：0。取值范围：0～200。</p>
         :rtype: int
         """
         return self._MinSize
@@ -6877,7 +7156,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def MaxSize(self):
-        r"""队列中弹性节点数量最大值。默认值：10。取值范围：0～200。
+        r"""<p>队列中弹性节点数量最大值。默认值：10。取值范围：0～200。</p>
         :rtype: int
         """
         return self._MaxSize
@@ -6888,7 +7167,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def EnableAutoExpansion(self):
-        r"""是否开启自动扩容。
+        r"""<p>是否开启自动扩容。</p>
         :rtype: bool
         """
         return self._EnableAutoExpansion
@@ -6899,7 +7178,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def EnableAutoShrink(self):
-        r"""是否开启自动缩容。
+        r"""<p>是否开启自动缩容。</p>
         :rtype: bool
         """
         return self._EnableAutoShrink
@@ -6910,7 +7189,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def ImageId(self):
-        r"""指定有效的[镜像](https://cloud.tencent.com/document/product/213/4940)ID，格式形如`img-xxx`。目前仅支持公有镜和特定自定义镜像。
+        r"""<p>指定有效的<a href="https://cloud.tencent.com/document/product/213/4940">镜像</a>ID，格式形如<code>img-xxx</code>。目前仅支持公有镜和特定自定义镜像。</p>
         :rtype: str
         """
         return self._ImageId
@@ -6921,7 +7200,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def SystemDisk(self):
-        r"""节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。
+        r"""<p>节点系统盘配置信息。若不指定该参数，则按照系统默认值进行分配。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.SystemDisk`
         """
         return self._SystemDisk
@@ -6932,7 +7211,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def DataDisks(self):
-        r"""节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。
+        r"""<p>节点数据盘配置信息。若不指定该参数，则默认不购买数据盘。支持购买的时候指定21块数据盘，其中最多包含1块LOCAL_BASIC数据盘或者LOCAL_SSD数据盘，最多包含20块CLOUD_BASIC数据盘、CLOUD_PREMIUM数据盘或者CLOUD_SSD数据盘。</p>
         :rtype: list of DataDisk
         """
         return self._DataDisks
@@ -6943,7 +7222,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def InternetAccessible(self):
-        r"""公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。
+        r"""<p>公网带宽相关信息设置。若不指定该参数，则默认公网带宽为0Mbps。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.InternetAccessible`
         """
         return self._InternetAccessible
@@ -6954,7 +7233,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def ExpansionNodeConfigs(self):
-        r"""扩容节点配置信息。
+        r"""<p>扩容节点配置信息。</p>
         :rtype: list of ExpansionNodeConfig
         """
         return self._ExpansionNodeConfigs
@@ -6965,7 +7244,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def DesiredIdleNodeCapacity(self):
-        r"""队列中期望的空闲节点数量（包含弹性节点和静态节点）。默认值：0。队列中，处于空闲状态的节点小于此值，集群会扩容弹性节点；处于空闲状态的节点大于此值，集群会缩容弹性节点。
+        r"""<p>队列中期望的空闲节点数量（包含弹性节点和静态节点）。默认值：0。队列中，处于空闲状态的节点小于此值，集群会扩容弹性节点；处于空闲状态的节点大于此值，集群会缩容弹性节点。</p>
         :rtype: int
         """
         return self._DesiredIdleNodeCapacity
@@ -6976,7 +7255,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def DesiredNodeCount(self):
-        r"""队列中期望的总节点数。
+        r"""<p>队列中期望的总节点数。</p>
         :rtype: int
         """
         return self._DesiredNodeCount
@@ -6987,8 +7266,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def ScaleOutRatio(self):
-        r"""扩容比例。默认值：100。取值范围：1～100。
-如果扩容比例为50，那么每轮只会扩容当前作业负载所需的50%数量的节点。
+        r"""<p>扩容比例。默认值：100。取值范围：1～100。<br>如果扩容比例为50，那么每轮只会扩容当前作业负载所需的50%数量的节点。</p>
         :rtype: int
         """
         return self._ScaleOutRatio
@@ -6999,9 +7277,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def ScaleOutNodeThreshold(self):
-        r"""比例扩容阈值。默认值：0。取值范围：0～200。
-当作业负载需要扩容节点数量大于此值，当前扩容轮次按照ScaleOutRatio配置的比例进行扩容。当作业负载需要扩容节点数量小于此值，当前扩容轮次扩容当前作业负载所需数量的节点。
-此参数配合ScaleOutRatio参数进行使用，用于比例扩容场景下，在作业负载所需节点数量较小时，加快收敛速度。
+        r"""<p>比例扩容阈值。默认值：0。取值范围：0～200。<br>当作业负载需要扩容节点数量大于此值，当前扩容轮次按照ScaleOutRatio配置的比例进行扩容。当作业负载需要扩容节点数量小于此值，当前扩容轮次扩容当前作业负载所需数量的节点。<br>此参数配合ScaleOutRatio参数进行使用，用于比例扩容场景下，在作业负载所需节点数量较小时，加快收敛速度。</p>
         :rtype: int
         """
         return self._ScaleOutNodeThreshold
@@ -7012,7 +7288,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def MaxNodesPerCycle(self):
-        r"""每轮扩容最大节点个数。默认值：100。取值范围：1～100。
+        r"""<p>每轮扩容最大节点个数。默认值：100。取值范围：1～100。</p>
         :rtype: int
         """
         return self._MaxNodesPerCycle
@@ -7023,11 +7299,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def ScaleUpMemRatio(self):
-        r"""扩容过程中，作业的内存在匹配实例机型时增大比例（不会影响作业提交的内存大小，只影响匹配计算过程）。<br/>
-针对场景：由于实例机型的总内存会大于实例内部的可用内存，16GB内存规格的实例，实例操作系统内的可用内存只有约14.9GB内存。假设此时提交一个需要15GB内存的作业，
-
-- 当ScaleUpMemRatio=0时，会匹配到16GB内存规格的实例,但是由于操作系统内的可用内存为14.9GB小于作业所需的15GB，扩容出来的实例作业无法运行起来。
-- 当ScaleUpMemRatio=10时，匹配实例规格会按照15*(1+10%)=16.5GB来进行实例规格匹配，则不会匹配到16GB的实例，而是更大内存规格的实例来保证作业能够被运行起来。
+        r"""<p>扩容过程中，作业的内存在匹配实例机型时增大比例（不会影响作业提交的内存大小，只影响匹配计算过程）。<br><br>针对场景：由于实例机型的总内存会大于实例内部的可用内存，16GB内存规格的实例，实例操作系统内的可用内存只有约14.9GB内存。假设此时提交一个需要15GB内存的作业，</p><ul><li>当ScaleUpMemRatio=0时，会匹配到16GB内存规格的实例,但是由于操作系统内的可用内存为14.9GB小于作业所需的15GB，扩容出来的实例作业无法运行起来。</li><li>当ScaleUpMemRatio=10时，匹配实例规格会按照15*(1+10%)=16.5GB来进行实例规格匹配，则不会匹配到16GB的实例，而是更大内存规格的实例来保证作业能够被运行起来。</li></ul>
         :rtype: int
         """
         return self._ScaleUpMemRatio
@@ -7038,7 +7310,7 @@ class QueueConfig(AbstractModel):
 
     @property
     def EnhancedService(self):
-        r"""增强服务。通过该参数可以指定是否开启云安全、腾讯云可观测平台等服务。若不指定该参数，则默认开启腾讯云可观测平台、云安全服务、自动化助手服务。
+        r"""<p>增强服务。通过该参数可以指定是否开启云安全、腾讯云可观测平台等服务。若不指定该参数，则默认开启腾讯云可观测平台、云安全服务、自动化助手服务。</p>
         :rtype: :class:`tencentcloud.thpc.v20230321.models.EnhancedService`
         """
         return self._EnhancedService
@@ -7046,6 +7318,17 @@ class QueueConfig(AbstractModel):
     @EnhancedService.setter
     def EnhancedService(self, EnhancedService):
         self._EnhancedService = EnhancedService
+
+    @property
+    def LaunchTemplateIds(self):
+        r"""<p>扩容实例模板，可以在cvm侧进行设置</p>
+        :rtype: list of str
+        """
+        return self._LaunchTemplateIds
+
+    @LaunchTemplateIds.setter
+    def LaunchTemplateIds(self, LaunchTemplateIds):
+        self._LaunchTemplateIds = LaunchTemplateIds
 
 
     def _deserialize(self, params):
@@ -7082,6 +7365,7 @@ class QueueConfig(AbstractModel):
         if params.get("EnhancedService") is not None:
             self._EnhancedService = EnhancedService()
             self._EnhancedService._deserialize(params.get("EnhancedService"))
+        self._LaunchTemplateIds = params.get("LaunchTemplateIds")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7463,19 +7747,15 @@ class SetAutoScalingConfigurationRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID。
+        :param _ClusterId: <p>集群ID。</p>
         :type ClusterId: str
-        :param _ExpansionBusyTime: 任务连续等待时间，队列的任务处于连续等待的时间。单位秒。默认值120。
+        :param _ExpansionBusyTime: <p>任务连续等待时间，队列的任务处于连续等待的时间。单位秒。默认值120。</p>
         :type ExpansionBusyTime: int
-        :param _ShrinkIdleTime: 节点连续空闲（未运行作业）时间，一个节点连续处于空闲状态时间。单位秒。默认值300。
+        :param _ShrinkIdleTime: <p>节点连续空闲（未运行作业）时间，一个节点连续处于空闲状态时间。单位秒。默认值300。</p>
         :type ShrinkIdleTime: int
-        :param _QueueConfigs: 扩容队列配置列表。
+        :param _QueueConfigs: <p>扩容队列配置列表。</p>
         :type QueueConfigs: list of QueueConfig
-        :param _DryRun: 是否只预检此次请求。
-true：发送检查请求，不会绑定弹性伸缩组。检查项包括是否填写了必需参数，请求格式，业务限制。
-如果检查不通过，则返回对应错误码；
-如果检查通过，则返回RequestId。
-false（默认）：发送正常请求，通过检查后直接绑定弹性伸缩组。
+        :param _DryRun: <p>是否只预检此次请求。<br>true：发送检查请求，不会绑定弹性伸缩组。检查项包括是否填写了必需参数，请求格式，业务限制。<br>如果检查不通过，则返回对应错误码；<br>如果检查通过，则返回RequestId。<br>false（默认）：发送正常请求，通过检查后直接绑定弹性伸缩组。</p>
         :type DryRun: bool
         """
         self._ClusterId = None
@@ -7486,7 +7766,7 @@ false（默认）：发送正常请求，通过检查后直接绑定弹性伸缩
 
     @property
     def ClusterId(self):
-        r"""集群ID。
+        r"""<p>集群ID。</p>
         :rtype: str
         """
         return self._ClusterId
@@ -7497,7 +7777,7 @@ false（默认）：发送正常请求，通过检查后直接绑定弹性伸缩
 
     @property
     def ExpansionBusyTime(self):
-        r"""任务连续等待时间，队列的任务处于连续等待的时间。单位秒。默认值120。
+        r"""<p>任务连续等待时间，队列的任务处于连续等待的时间。单位秒。默认值120。</p>
         :rtype: int
         """
         return self._ExpansionBusyTime
@@ -7508,7 +7788,7 @@ false（默认）：发送正常请求，通过检查后直接绑定弹性伸缩
 
     @property
     def ShrinkIdleTime(self):
-        r"""节点连续空闲（未运行作业）时间，一个节点连续处于空闲状态时间。单位秒。默认值300。
+        r"""<p>节点连续空闲（未运行作业）时间，一个节点连续处于空闲状态时间。单位秒。默认值300。</p>
         :rtype: int
         """
         return self._ShrinkIdleTime
@@ -7519,7 +7799,7 @@ false（默认）：发送正常请求，通过检查后直接绑定弹性伸缩
 
     @property
     def QueueConfigs(self):
-        r"""扩容队列配置列表。
+        r"""<p>扩容队列配置列表。</p>
         :rtype: list of QueueConfig
         """
         return self._QueueConfigs
@@ -7530,11 +7810,7 @@ false（默认）：发送正常请求，通过检查后直接绑定弹性伸缩
 
     @property
     def DryRun(self):
-        r"""是否只预检此次请求。
-true：发送检查请求，不会绑定弹性伸缩组。检查项包括是否填写了必需参数，请求格式，业务限制。
-如果检查不通过，则返回对应错误码；
-如果检查通过，则返回RequestId。
-false（默认）：发送正常请求，通过检查后直接绑定弹性伸缩组。
+        r"""<p>是否只预检此次请求。<br>true：发送检查请求，不会绑定弹性伸缩组。检查项包括是否填写了必需参数，请求格式，业务限制。<br>如果检查不通过，则返回对应错误码；<br>如果检查通过，则返回RequestId。<br>false（默认）：发送正常请求，通过检查后直接绑定弹性伸缩组。</p>
         :rtype: bool
         """
         return self._DryRun
@@ -8694,6 +8970,72 @@ class SubmitJobRequest(AbstractModel):
 
     """
 
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群id
+        :type ClusterId: str
+        :param _Job: 作业任务参数配置
+        :type Job: :class:`tencentcloud.thpc.v20230321.models.Job`
+        :param _QueueName: 队列名称。不指定则为默认队列：
+SLURM默认队列为：compute。 
+SGE默认队列为：all.q。
+        :type QueueName: str
+        """
+        self._ClusterId = None
+        self._Job = None
+        self._QueueName = None
+
+    @property
+    def ClusterId(self):
+        r"""集群id
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def Job(self):
+        r"""作业任务参数配置
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.Job`
+        """
+        return self._Job
+
+    @Job.setter
+    def Job(self, Job):
+        self._Job = Job
+
+    @property
+    def QueueName(self):
+        r"""队列名称。不指定则为默认队列：
+SLURM默认队列为：compute。 
+SGE默认队列为：all.q。
+        :rtype: str
+        """
+        return self._QueueName
+
+    @QueueName.setter
+    def QueueName(self, QueueName):
+        self._QueueName = QueueName
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        if params.get("Job") is not None:
+            self._Job = Job()
+            self._Job._deserialize(params.get("Job"))
+        self._QueueName = params.get("QueueName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
 
 class SubmitJobResponse(AbstractModel):
     r"""SubmitJob返回参数结构体
@@ -8702,10 +9044,24 @@ class SubmitJobResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _JobId: 作业任务ID
+        :type JobId: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._JobId = None
         self._RequestId = None
+
+    @property
+    def JobId(self):
+        r"""作业任务ID
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
 
     @property
     def RequestId(self):
@@ -8720,6 +9076,7 @@ class SubmitJobResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._JobId = params.get("JobId")
         self._RequestId = params.get("RequestId")
 
 

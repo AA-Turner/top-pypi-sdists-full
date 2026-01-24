@@ -4,8 +4,9 @@
 # See "LICENSE" for further details.
 
 '''
-Project-wide **pathname utilities** (i.e., callables inspecting all categories
-of pathnames, including basenames, dirnames, filenames, and filetypes).
+Test-specific **pathname utilities** (i.e., low-level callables inspecting all
+categories of pathnames, including basenames, dirnames, filenames, and
+filetypes).
 '''
 
 # ....................{ IMPORTS                            }....................
@@ -30,13 +31,13 @@ def die_unless_basename(pathname: str) -> None:
         Pathname to be validated.
 
     Raises
-    ----------
+    ------
     beartype_test._util.pytroar.BeartypeTestPathException
         If this pathname is *not* a pure basename.
 
     See Also
-    ----------
-    :func:`is_basename`
+    --------
+    :func:`.is_basename`
         Further details.
     '''
 
@@ -55,8 +56,8 @@ def die_unless_basename(pathname: str) -> None:
 #FIXME: Unit test us up, please.
 def is_basename(pathname: str) -> bool:
     '''
-    ``True`` only if the passed pathname is a **pure basename** (i.e., contains
-    no directory separators and hence no directory components).
+    :data:`True` only if the passed pathname is a **pure basename** (i.e.,
+    contains no directory separators and hence no directory components).
 
     Parameters
     ----------
@@ -64,9 +65,9 @@ def is_basename(pathname: str) -> bool:
         Pathname to be tested.
 
     Returns
-    ----------
+    -------
     bool
-        ``True`` only if this pathname is a pure basename.
+        :data:`True` only if this pathname is a pure basename.
     '''
     assert isinstance(pathname, str), f'{repr(pathname)} not string.'
 

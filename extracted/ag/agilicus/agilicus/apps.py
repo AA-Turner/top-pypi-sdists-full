@@ -2,6 +2,7 @@ import os
 import json
 import urllib.parse
 import agilicus
+import re
 import requests
 
 from . import context, response
@@ -14,6 +15,7 @@ from .input_helpers import (
     update_org_from_input_or_ctx,
     update_if_not_none,
 )
+from .pagination import normalize_page_args
 
 from .output.table import (
     spec_column,
@@ -24,8 +26,13 @@ from .output.table import (
     subtable,
 )
 
+from .resource_helpers import standard_page_fields
+
 
 CONNECTION_MAPPING_OPTS = ("default", "one-to-one")
+
+application_service_page_fields = standard_page_fields
+page_fields = standard_page_fields
 
 
 def _prepare_for_put(application):
@@ -66,7 +73,7 @@ def query(
     params.update(kwargs)
 
     params["show_status"] = True
-
+    params = normalize_page_args(params)
     query_results = apiclient.application_api.list_applications(**params)
     return query_results.applications
 
@@ -526,7 +533,7 @@ def update_application_auth_config(
         auth["redirect_subpath"] = auth_redirect_subpath
 
 
-def update_application_configs(
+def update_application_configs(  # noqa
     config,
     additional_include_user_context_headers=None,
     security_http_cors_allow_resource_origins=None,
@@ -552,6 +559,23 @@ def update_application_configs(
     oidc_config_rewrite_set_cookie=None,
     oidc_config_rewrite_cookie=None,
     client_injection_enabled=None,
+    client_injection_login_type=None,
+    client_injection_login_inject_key_name=None,
+    client_injection_login_fetch_path=None,
+    client_injection_login_detect_login_type=None,
+    client_injection_login_detect_login_fetch_path=None,
+    client_injection_login_form_inject_credentials=None,
+    client_injection_login_form_username_field=None,
+    client_injection_login_form_password_field=None,
+    client_injection_debug=None,
+    client_injection_login_form_username_credential=None,
+    client_injection_login_form_password_credential=None,
+    client_injection_login_form_username_query_selector=None,
+    client_injection_login_form_password_query_selector=None,
+    client_injection_login_form_username_next_selector=None,
+    client_injection_login_form_password_next_selector=None,
+    client_injection_login_form_login_selector=None,
+    client_injection_login_form_submit_selector=None,
     **kwargs,
 ):
     additional_context = config.setdefault("additional_context", {})
@@ -635,6 +659,114 @@ def update_application_configs(
     if client_injection_enabled is not None:
         client_injection = config.setdefault("client_injection", {})
         client_injection["enabled"] = client_injection_enabled
+
+    def _get_login_config():
+        client_injection = config.setdefault("client_injection", {})
+        return client_injection.setdefault("login_config", {})
+
+    if client_injection_debug is not None:
+        client_injection = config.setdefault("client_injection", {})
+        client_injection["debug"] = client_injection_debug
+
+    if client_injection_login_type:
+        login_config = _get_login_config()
+        login_config["type"] = str(client_injection_login_type)
+
+    if client_injection_login_inject_key_name:
+        login_config = _get_login_config()
+        login_config["inject_key_name"] = client_injection_login_inject_key_name
+
+    if client_injection_login_fetch_path:
+        login_config = _get_login_config()
+        fetch_config = login_config.setdefault("fetch_config", {})
+        fetch_config["paths"] = list(client_injection_login_fetch_path)
+
+    if client_injection_login_detect_login_type:
+        login_config = _get_login_config()
+        logged_in_config = login_config.setdefault("logged_in_config", {})
+        logged_in_config["type"] = str(client_injection_login_detect_login_type)
+
+    if client_injection_login_detect_login_fetch_path:
+        login_config = _get_login_config()
+        logged_in_config = login_config.setdefault("logged_in_config", {})
+        logged_in_config["fetch_path"] = str(
+            client_injection_login_detect_login_fetch_path
+        )
+
+    if client_injection_login_form_inject_credentials is not None:
+        login_config = _get_login_config()
+        form_config = login_config.setdefault("form_config", {})
+        form_config["inject_credentials"] = (
+            client_injection_login_form_inject_credentials
+        )
+
+    if client_injection_login_form_username_field is not None:
+        login_config = _get_login_config()
+        form_config = login_config.setdefault("form_config", {})
+        form_config["username_field"] = client_injection_login_form_username_field
+
+    if client_injection_login_form_password_field is not None:
+        login_config = _get_login_config()
+        form_config = login_config.setdefault("form_config", {})
+        form_config["password_field"] = client_injection_login_form_password_field
+
+    if client_injection_login_form_username_credential is not None:
+        login_config = _get_login_config()
+        form_config = login_config.setdefault("form_config", {})
+        form_config["username_credential"] = (
+            client_injection_login_form_username_credential
+        )
+
+    if client_injection_login_form_password_credential is not None:
+        login_config = _get_login_config()
+        form_config = login_config.setdefault("form_config", {})
+        form_config["password_credential"] = (
+            client_injection_login_form_password_credential
+        )
+
+    if client_injection_login_form_username_query_selector is not None:
+        login_config = _get_login_config()
+        inject_form_config = login_config.setdefault("form_config", {})
+        form_config = inject_form_config.setdefault("config", {})
+        form_config["username_query_selector"] = (
+            client_injection_login_form_username_query_selector
+        )
+
+    if client_injection_login_form_password_query_selector is not None:
+        login_config = _get_login_config()
+        inject_form_config = login_config.setdefault("form_config", {})
+        form_config = inject_form_config.setdefault("config", {})
+        form_config["password_query_selector"] = (
+            client_injection_login_form_password_query_selector
+        )
+
+    if client_injection_login_form_username_next_selector is not None:
+        login_config = _get_login_config()
+        inject_form_config = login_config.setdefault("form_config", {})
+        form_config = inject_form_config.setdefault("config", {})
+        form_config["username_next_selector"] = (
+            client_injection_login_form_username_next_selector
+        )
+
+    if client_injection_login_form_password_next_selector is not None:
+        login_config = _get_login_config()
+        inject_form_config = login_config.setdefault("form_config", {})
+        form_config = inject_form_config.setdefault("config", {})
+        form_config["password_next_selector"] = (
+            client_injection_login_form_password_next_selector
+        )
+
+    if client_injection_login_form_login_selector is not None:
+        login_config = _get_login_config()
+        inject_form_config = login_config.setdefault("form_config", {})
+        form_config = inject_form_config.setdefault("config", {})
+        form_config["login_selector"] = client_injection_login_form_login_selector
+
+    if client_injection_login_form_submit_selector is not None:
+        login_config = _get_login_config()
+        inject_form_config = login_config.setdefault("form_config", {})
+        form_config = inject_form_config.setdefault("config", {})
+        form_config["submit_selector"] = client_injection_login_form_submit_selector
 
 
 def update_oidc_standard_headers(
@@ -904,6 +1036,7 @@ def get_application_services(ctx, org_id=None, **kwargs):
     apiclient = context.get_apiclient(ctx, token)
     params = {}
     update_if_not_none(params, kwargs)
+    params = normalize_page_args(params)
     return apiclient.app_services_api.list_application_services(
         **params,
     ).application_services
@@ -1028,9 +1161,9 @@ def update_application_service(  # noqa: C901
             service.protocol_config.expose_config = agilicus.ServiceExposeConfig()
         service.protocol_config.expose_config.expose_as_hostname = expose_as_hostname
 
-    service.config = _configure_port(service.config, port_range)
+    service.config = configure_port(service.config, port_range)
     if source_port_override is not None:
-        service.config.source_port_override = source_port_override
+        service.config.source_port_override = parse_ports(source_port_override)
     if source_address_override is not None:
         service.config.source_address_override = source_address_override
     if dynamic_source_port_override is not None:
@@ -1047,26 +1180,41 @@ def update_application_service(  # noqa: C901
     ).to_dict()
 
 
-def _configure_port(config, port_range):
+def configure_port(config, port_range):
     if port_range is None:
         return config
 
     if not config:
         config = agilicus.NetworkServiceConfig()
 
-    config.ports = _parse_ports(port_range)
+    config.ports = parse_ports(port_range)
     return config
 
 
-def _parse_ports(ports):
+def parse_ports(ports):
+    port_regex = re.compile(r"^(?P<proto>[tu])?(?P<range>[\d]+(?:-[\d]+)?)$")
     port_ranges = ports.split(",")
 
     result = []
     for port_range in port_ranges:
-        parts = port_range.split("-")
-        if len(parts) > 2:
-            raise ValueError("each port range must be a or a-b")
-        result.append(agilicus.NetworkPortRange(port=agilicus.NetworkPort(port_range)))
+        match = port_regex.match(port_range)
+        if not match:
+            raise ValueError(
+                "each port range must be a or a-b and optionally start with t (tcp) or u"
+                " (udp)"
+            )
+
+        protocol = "tcp"
+        if match.group("proto") == "u":
+            protocol = "udp"
+        range = match.group("range")
+
+        result.append(
+            agilicus.NetworkPortRange(
+                port=agilicus.NetworkPort(range),
+                protocol=protocol,
+            )
+        )
 
     return result
 
@@ -1710,6 +1858,7 @@ def add_js_injection(
     service_id,
     org_id=None,
     inject_script=None,
+    script_name=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -1733,6 +1882,8 @@ def add_js_injection(
     if inject_script:
         js_inject.inject_script = open(inject_script, "r").read()
         js_inject.script_name = os.path.basename(inject_script)
+    elif script_name:
+        js_inject.script_name = script_name
 
     config.http_config.js_injections.append(js_inject)
 

@@ -6,16 +6,16 @@ from ursina.ursinastuff import invoke
 from ursina.sequence import Sequence
 
 
-def destroy(entity, delay=0, unscaled=True, ignore_paused=False):
+def destroy(entity, delay=0, unscaled=True, ignore_paused=False, force_destroy=False):
     if application.development_mode:
         # get the calling function and the file it's from, so we can give a better error message if we try to use it after destroy
         entity.destroy_source = f'caller: {sys._getframe(1).f_code.co_name} file: {sys._getframe(1).f_code.co_filename}'
 
     if delay == 0:
-        _destroy(entity)
+        _destroy(entity, force_destroy=force_destroy)
         return True
 
-    return invoke(_destroy, entity, delay=delay, unscaled=unscaled, ignore_paused=ignore_paused)
+    return invoke(_destroy, entity, delay=delay, unscaled=unscaled, ignore_paused=ignore_paused, force_destroy=force_destroy)
     # return Sequence(Wait(delay), Func(_destroy, entity), auto_destroy=True, started=True)
 
 
@@ -33,12 +33,16 @@ def _destroy(entity, force_destroy=False):
 
     if hasattr(entity, 'animations'):
         for anim in entity.animations:
-            anim.kill()
+            if anim:
+                anim.kill()
 
-    for child in entity.children:
-        _destroy(child)
+    # for child in entity.children:
+    #     try:
+    #         _destroy(child)
+    #     except:
+    #         pass
 
-    if entity.collider:
+    if entity.collider and hasattr(entity.collider, 'remove'):
         entity.collider.remove()
 
     if hasattr(entity, 'clip') and hasattr(entity, 'stop'): # stop audio
@@ -79,7 +83,7 @@ def _destroy(entity, force_destroy=False):
     # if hasattr(entity, 'texture') and entity.texture != None:
     #     entity.texture.releaseAll()
 
-    del entity
+    # del entity
 
 
 
@@ -91,6 +95,7 @@ if __name__ == '__main__':
             super().__init__()
             self.num_frames = 0
             self.name = name
+            # destroy(self)
 
         def update(self):
             self.num_frames += 1
@@ -106,10 +111,10 @@ if __name__ == '__main__':
     e3 = E("e3")
 
 
-    def update():
-        print()
-        if e1.num_frames > 4:
-            exit()
+    # def update():
+    #     print()
+    #     if e1.num_frames > 4:
+    #         exit()
 
 
     app.run()

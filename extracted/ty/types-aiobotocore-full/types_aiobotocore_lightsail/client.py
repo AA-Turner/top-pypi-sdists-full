@@ -3,7 +3,7 @@ Type annotations for lightsail service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_lightsail/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -365,12 +366,6 @@ from .type_defs import (
     UpdateRelationalDatabaseResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -381,15 +376,15 @@ __all__ = ("LightsailClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AccountSetupInProgressException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    OperationFailureException: Type[BotocoreClientError]
-    RegionSetupInProgressException: Type[BotocoreClientError]
-    ServiceException: Type[BotocoreClientError]
-    UnauthenticatedException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AccountSetupInProgressException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    OperationFailureException: type[BotocoreClientError]
+    RegionSetupInProgressException: type[BotocoreClientError]
+    ServiceException: type[BotocoreClientError]
+    UnauthenticatedException: type[BotocoreClientError]
 
 
 class LightsailClient(AioBaseClient):
@@ -822,7 +817,7 @@ class LightsailClient(AioBaseClient):
 
     async def delete_container_image(
         self, **kwargs: Unpack[DeleteContainerImageRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a container image that is registered to your Amazon Lightsail container
         service.
@@ -833,7 +828,7 @@ class LightsailClient(AioBaseClient):
 
     async def delete_container_service(
         self, **kwargs: Unpack[DeleteContainerServiceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes your Amazon Lightsail container service.
 
@@ -2298,7 +2293,7 @@ class LightsailClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

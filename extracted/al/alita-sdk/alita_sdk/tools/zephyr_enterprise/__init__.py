@@ -5,9 +5,10 @@ from typing import List, Literal, Optional
 from .api_wrapper import ZephyrApiWrapper
 from ..base.tool import BaseAction
 from ..elitea_base import filter_missconfigured_index_tools
-from ..utils import clean_string, get_max_toolkit_length, TOOLKIT_SPLITTER
+from ..utils import clean_string, get_max_toolkit_length
 from ...configurations.pgvector import PgVectorConfiguration
 from ...configurations.zephyr_enterprise import ZephyrEnterpriseConfiguration
+from ...runtime.utils.constants import TOOLKIT_NAME_META, TOOL_NAME_META, TOOLKIT_TYPE_META
 
 name = "zephyr_enterprise"
 
@@ -28,13 +29,11 @@ def get_tools(tool):
 
 class ZephyrEnterpriseToolkit(BaseToolkit):
     tools: List[BaseTool] = []
-    toolkit_max_length: int = 0
 
     @staticmethod
     def toolkit_config_schema() -> BaseModel:
         selected_tools = {x['name']: x['args_schema'].schema() for x in
                           ZephyrApiWrapper.model_construct().get_available_tools()}
-        ZephyrEnterpriseToolkit.toolkit_max_length = get_max_toolkit_length(selected_tools)
         return create_model(
             name,
             zephyr_configuration=(ZephyrEnterpriseConfiguration, Field(description="Zephyr Configuration", json_schema_extra={'configuration_types': ['zephyr_enterprise']})),
@@ -67,17 +66,22 @@ class ZephyrEnterpriseToolkit(BaseToolkit):
             **(kwargs.get('embedding_configuration') or {}),
         }
         zephyr_api_wrapper = ZephyrApiWrapper(**wrapper_payload)
-        prefix = clean_string(toolkit_name, cls.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''
         available_tools = zephyr_api_wrapper.get_available_tools()
         tools = []
         for tool in available_tools:
             if selected_tools and tool["name"] not in selected_tools:
                 continue
+            description = tool["description"]
+            if toolkit_name:
+                description = f"Toolkit: {toolkit_name}\n{description}"
+            description = description + "\nZephyr Enterprise instance: " + zephyr_api_wrapper.base_url
+            description = description[:1000]
             tools.append(BaseAction(
                 api_wrapper=zephyr_api_wrapper,
-                name=prefix + tool["name"],
-                description=tool["description"] + "\nZephyr Enterprise instance: " + zephyr_api_wrapper.base_url,
-                args_schema=tool["args_schema"]
+                name=tool["name"],
+                description=description,
+                args_schema=tool["args_schema"],
+                metadata={TOOLKIT_NAME_META: toolkit_name, TOOLKIT_TYPE_META: name, TOOL_NAME_META: tool["name"]} if toolkit_name else {TOOL_NAME_META: tool["name"]}
             ))
         return cls(tools=tools)
 

@@ -12,6 +12,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 from .go_high_level_contact_create_tool_with_tool_call_messages_item import (
     GoHighLevelContactCreateToolWithToolCallMessagesItem,
 )
+from .go_high_level_contact_create_tool_with_tool_call_type import GoHighLevelContactCreateToolWithToolCallType
 from .tool_call import ToolCall
 from .tool_rejection_plan import ToolRejectionPlan
 
@@ -26,7 +27,7 @@ class GoHighLevelContactCreateToolWithToolCall(UncheckedBaseModel):
     For some tools, this is auto-filled based on special fields like `tool.destinations`. For others like the function tool, these can be custom configured.
     """
 
-    type: typing.Literal["gohighlevel.contact.create"] = pydantic.Field(default="gohighlevel.contact.create")
+    type: GoHighLevelContactCreateToolWithToolCallType = pydantic.Field()
     """
     The type of tool. "gohighlevel.contact.create" for GoHighLevel Contact Create tool.
     """
@@ -43,7 +44,7 @@ class GoHighLevelContactCreateToolWithToolCall(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '(?i)\\b(bye|goodbye|farewell|see you later|take care)\\b',
+        regex: '(?i)\\\\b(bye|goodbye|farewell|see you later|take care)\\\\b',
         target: { position: -1, role: 'user' },
         negate: true  // Reject if pattern does NOT match
       }]
@@ -55,7 +56,7 @@ class GoHighLevelContactCreateToolWithToolCall(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '\\?',
+        regex: '\\\\?',
         target: { position: -1, role: 'user' }
       }]
     }

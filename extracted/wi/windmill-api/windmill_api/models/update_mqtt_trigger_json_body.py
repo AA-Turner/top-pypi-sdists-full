@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.update_mqtt_trigger_json_body_client_version import UpdateMqttTriggerJsonBodyClientVersion
+from ..models.update_mqtt_trigger_json_body_mode import UpdateMqttTriggerJsonBodyMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -28,15 +29,15 @@ class UpdateMqttTriggerJsonBody:
         path (str):
         script_path (str):
         is_flow (bool):
-        enabled (bool):
         client_id (Union[Unset, str]):
         v3_config (Union[Unset, UpdateMqttTriggerJsonBodyV3Config]):
         v5_config (Union[Unset, UpdateMqttTriggerJsonBodyV5Config]):
         client_version (Union[Unset, UpdateMqttTriggerJsonBodyClientVersion]):
+        mode (Union[Unset, UpdateMqttTriggerJsonBodyMode]): job trigger mode
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, UpdateMqttTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, UpdateMqttTriggerJsonBodyRetry]):
+        retry (Union[Unset, UpdateMqttTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     mqtt_resource_path: str
@@ -44,11 +45,11 @@ class UpdateMqttTriggerJsonBody:
     path: str
     script_path: str
     is_flow: bool
-    enabled: bool
     client_id: Union[Unset, str] = UNSET
     v3_config: Union[Unset, "UpdateMqttTriggerJsonBodyV3Config"] = UNSET
     v5_config: Union[Unset, "UpdateMqttTriggerJsonBodyV5Config"] = UNSET
     client_version: Union[Unset, UpdateMqttTriggerJsonBodyClientVersion] = UNSET
+    mode: Union[Unset, UpdateMqttTriggerJsonBodyMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "UpdateMqttTriggerJsonBodyErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "UpdateMqttTriggerJsonBodyRetry"] = UNSET
@@ -65,7 +66,6 @@ class UpdateMqttTriggerJsonBody:
         path = self.path
         script_path = self.script_path
         is_flow = self.is_flow
-        enabled = self.enabled
         client_id = self.client_id
         v3_config: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.v3_config, Unset):
@@ -78,6 +78,10 @@ class UpdateMqttTriggerJsonBody:
         client_version: Union[Unset, str] = UNSET
         if not isinstance(self.client_version, Unset):
             client_version = self.client_version.value
+
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
 
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
@@ -97,7 +101,6 @@ class UpdateMqttTriggerJsonBody:
                 "path": path,
                 "script_path": script_path,
                 "is_flow": is_flow,
-                "enabled": enabled,
             }
         )
         if client_id is not UNSET:
@@ -108,6 +111,8 @@ class UpdateMqttTriggerJsonBody:
             field_dict["v5_config"] = v5_config
         if client_version is not UNSET:
             field_dict["client_version"] = client_version
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -143,8 +148,6 @@ class UpdateMqttTriggerJsonBody:
 
         is_flow = d.pop("is_flow")
 
-        enabled = d.pop("enabled")
-
         client_id = d.pop("client_id", UNSET)
 
         _v3_config = d.pop("v3_config", UNSET)
@@ -168,6 +171,13 @@ class UpdateMqttTriggerJsonBody:
         else:
             client_version = UpdateMqttTriggerJsonBodyClientVersion(_client_version)
 
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, UpdateMqttTriggerJsonBodyMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = UpdateMqttTriggerJsonBodyMode(_mode)
+
         error_handler_path = d.pop("error_handler_path", UNSET)
 
         _error_handler_args = d.pop("error_handler_args", UNSET)
@@ -190,11 +200,11 @@ class UpdateMqttTriggerJsonBody:
             path=path,
             script_path=script_path,
             is_flow=is_flow,
-            enabled=enabled,
             client_id=client_id,
             v3_config=v3_config,
             v5_config=v5_config,
             client_version=client_version,
+            mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

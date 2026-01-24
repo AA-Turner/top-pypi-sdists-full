@@ -1,0 +1,8 @@
+import os
+from pathlib import Path
+
+# THIS NEEDS TO BE KEPT IN SYNC WITH THE EXECUTORS CODE
+TCLOUD_PATH = Path(os.environ.get("TCLOUD_HOME", Path.home() / ".tcloud"))
+EXTRAS_PATH = TCLOUD_PATH / ".extras.yaml"
+DEFAULT_PYTHON_VERSION = "3.12"
+TCLOUD_PYTHON_PATH_ENV_VAR = "TCLOUD_PYTHON_PATH"

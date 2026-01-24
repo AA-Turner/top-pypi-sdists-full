@@ -1,26 +1,26 @@
 import numpy as np
 from numba.core import types
 from numba.core.extending import overload
+from numba.core.types import Float
 from numba.np.linalg import ensure_lapack
 from scipy import linalg
 
 from pytensor.link.numba.dispatch.linalg._LAPACK import (
     _LAPACK,
-    _get_underlying_float,
     int_ptr_to_val,
     val_to_int_ptr,
 )
 from pytensor.link.numba.dispatch.linalg.solve.utils import _solve_check_input_shapes
 from pytensor.link.numba.dispatch.linalg.utils import (
-    _check_scipy_linalg_matrix,
+    _check_dtypes_match,
+    _check_linalg_matrix,
     _copy_to_fortran_order_even_if_1d,
-    _solve_check,
     _trans_char_to_int,
 )
 
 
 def _solve_triangular(
-    A, B, trans=0, lower=False, unit_diagonal=False, b_ndim=1, overwrite_b=False
+    A, B, trans=0, lower=False, unit_diagonal=False, overwrite_b=False
 ):
     """
     Thin wrapper around scipy.linalg.solve_triangular.
@@ -38,17 +38,18 @@ def _solve_triangular(
         lower=lower,
         unit_diagonal=unit_diagonal,
         overwrite_b=overwrite_b,
+        check_finite=False,
     )
 
 
 @overload(_solve_triangular)
-def solve_triangular_impl(A, B, trans, lower, unit_diagonal, b_ndim, overwrite_b):
+def solve_triangular_impl(A, B, trans, lower, unit_diagonal, overwrite_b):
     ensure_lapack()
 
-    _check_scipy_linalg_matrix(A, "solve_triangular")
-    _check_scipy_linalg_matrix(B, "solve_triangular")
+    _check_linalg_matrix(A, ndim=2, dtype=Float, func_name="solve_triangular")
+    _check_linalg_matrix(B, ndim=(1, 2), dtype=Float, func_name="solve_triangular")
+    _check_dtypes_match((A, B), func_name="solve_triangular")
     dtype = A.dtype
-    w_type = _get_underlying_float(dtype)
     numba_trtrs = _LAPACK().numba_xtrtrs(dtype)
     if isinstance(dtype, types.Complex):
         # If you want to make this work with complex numbers make sure you handle the c_contiguous trick correctly
@@ -56,12 +57,10 @@ def solve_triangular_impl(A, B, trans, lower, unit_diagonal, b_ndim, overwrite_b
             "This function is not expected to work with complex numbers yet"
         )
 
-    def impl(A, B, trans, lower, unit_diagonal, b_ndim, overwrite_b):
+    def impl(A, B, trans, lower, unit_diagonal, overwrite_b):
         _N = np.int32(A.shape[-1])
         _solve_check_input_shapes(A, B)
 
-        # Seems weird to not use the b_ndim input directly, but when I did that Numba complained that the output type
-        # could potentially be 3d (it didn't understand b_ndim was always equal to B.ndim)
         B_is_1d = B.ndim == 1
 
         if A.flags.f_contiguous or (A.flags.c_contiguous and trans in (0, 1)):
@@ -99,14 +98,14 @@ def solve_triangular_impl(A, B, trans, lower, unit_diagonal, b_ndim, overwrite_b
             DIAG,
             N,
             NRHS,
-            A_f.view(w_type).ctypes,
+            A_f.ctypes,
             LDA,
-            B_copy.view(w_type).ctypes,
+            B_copy.ctypes,
             LDB,
             INFO,
         )
-
-        _solve_check(int_ptr_to_val(LDA), int_ptr_to_val(INFO))
+        if int_ptr_to_val(INFO) != 0:
+            B_copy = np.full_like(B_copy, np.nan)
 
         if B_is_1d:
             return B_copy[..., 0]

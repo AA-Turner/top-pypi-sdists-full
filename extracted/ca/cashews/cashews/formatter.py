@@ -3,10 +3,12 @@ from __future__ import annotations
 import base64
 import json
 import re
+from collections.abc import Iterable
 from contextlib import contextmanager
 from hashlib import md5, sha1, sha256
+from re import Pattern
 from string import Formatter
-from typing import Any, Callable, Iterable, Pattern
+from typing import Any, Callable
 
 from . import key_context
 from ._typing import KeyOrTemplate, KeyTemplate
@@ -35,7 +37,7 @@ def _get_decode_array(format_value):
 
 def _get_decoded_dict(format_value):
     def _decode_dict(value: dict) -> TemplateValue:
-        _kv = (k + ":" + format_value(v) for k, v in sorted(value.items()))
+        _kv = (format_value(k) + ":" + format_value(v) for k, v in sorted(value.items()))
         return ":".join(_kv)
 
     return _decode_dict
@@ -188,11 +190,14 @@ def _upper(value: TemplateValue) -> TemplateValue:
 
 def default_format(template: KeyTemplate, **values) -> KeyOrTemplate:
     _template_context, rewrite = key_context.get()
-    values["@"] = _template_context
-    if rewrite:
-        _template_context = {**values, **_template_context}
+    if _template_context:
+        values["@"] = _template_context
+        if rewrite:
+            _template_context = {**values, **_template_context}
+        else:
+            _template_context = {**_template_context, **values}
     else:
-        _template_context = {**_template_context, **values}
+        _template_context = values
     return default_formatter.format(template, **_template_context)
 
 

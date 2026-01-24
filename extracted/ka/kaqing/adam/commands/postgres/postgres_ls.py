@@ -1,10 +1,9 @@
 from adam.commands.command import Command
-from adam.commands.ls import Ls
+from adam.commands.fs.ls import Ls
 from adam.repl_state import ReplState, RequiredState
 
 class PostgresLs(Command):
     COMMAND = 'pg ls'
-    reaper_login = None
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):
@@ -25,15 +24,12 @@ class PostgresLs(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
+        with self.validate(args, state) as (args, state):
+            state.device = ReplState.P
+
+            Ls().run('ls', state)
+
             return state
-
-        state.device = ReplState.P
-
-        Ls().run('ls', state)
-
-        return state
 
     def completion(self, state: ReplState):
         if state.sts:
@@ -41,5 +37,5 @@ class PostgresLs(Command):
 
         return {}
 
-    def help(self, _: ReplState):
-        return f'{PostgresLs.COMMAND}\t list postgres hosts, databases or tables'
+    def help(self, state: ReplState):
+        return super().help(state, 'list postgres hosts, databases or tables')

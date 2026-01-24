@@ -1,0 +1,378 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from datetime import datetime
+from itertools import chain
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Generic,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    TypeVar,
+    Union,
+    overload,
+)
+
+from encord.common.time_parser import format_datetime_to_long_string
+from encord.exceptions import LabelRowError
+from encord.objects.spaces.annotation.base_annotation import (
+    _AnnotationData,
+    _AnnotationMetadata,
+    _ClassificationAnnotation,
+    _ObjectAnnotation,
+)
+from encord.objects.spaces.annotation.global_annotation import _GlobalClassificationAnnotation
+from encord.objects.spaces.types import (
+    ChildInfo,
+    DataGroupMetadata,
+    FileInSceneInfo,
+    SceneMetadata,
+    SpaceInfo,
+    SpaceMetadata,
+)
+from encord.objects.types import (
+    AttributeDict,
+    ClassificationAnswer,
+    ObjectAnswer,
+    ObjectAnswerForGeometric,
+    ObjectAnswerForNonGeometric,
+    SpaceRange,
+)
+from encord.utilities.type_utilities import exhaustive_guard
+
+if TYPE_CHECKING:
+    from encord.objects import ClassificationInstance, ObjectInstance
+    from encord.objects.ontology_labels_impl import LabelRowV2
+
+SpaceT = TypeVar("SpaceT", bound="Space")
+
+# Type variables for generic annotation types
+ObjectAnnotationT = TypeVar("ObjectAnnotationT", bound="_ObjectAnnotation")
+ClassificationAnnotationT = TypeVar("ClassificationAnnotationT", bound="_ClassificationAnnotation")
+ClassificationOverlapStrategyT = TypeVar("ClassificationOverlapStrategyT", bound="str")
+
+GlobalClassificationOverlapStrategy = Union[Literal["error"], Literal["replace"]]
+
+
+class Space(ABC, Generic[ObjectAnnotationT, ClassificationAnnotationT, ClassificationOverlapStrategyT]):
+    """
+    Manages the objects on a space within LabelRowV2.
+    Users should not instantiate this class directly, but must obtain these instances via LabelRow.list_spaces().
+    """
+
+    space_id: str
+    metadata: SpaceMetadata
+    _label_row: LabelRowV2
+    _objects_map: dict[str, ObjectInstance]
+    _classifications_map: dict[str, ClassificationInstance]
+    _global_classification_hash_to_annotation_data: dict[str, _AnnotationData]
+
+    # Used to keep track of global classifications that already exist.
+    _global_classification_feature_hash_to_classification_hash: dict[str, str]
+
+    def __init__(self, space_id: str, label_row: LabelRowV2, space_info: SpaceInfo):
+        self.space_id = space_id
+        self.metadata = self._extract_metadata_from_space_info(space_info)
+        self._label_row = label_row
+        self._objects_map: dict[str, ObjectInstance] = dict()
+        self._classifications_map: dict[str, ClassificationInstance] = dict()
+        self._global_classification_hash_to_annotation_data = {}
+        self._global_classification_feature_hash_to_classification_hash = dict()
+
+    def get_object_instances(self) -> list[ObjectInstance]:
+        """Get all object instances in the space.
+
+        Returns:
+            list[ObjectInstance]: List of all object instances present in the space.
+        """
+        self._label_row._check_labelling_is_initalised()
+        return list(self._objects_map.values())
+
+    def get_classification_instances(self) -> list[ClassificationInstance]:
+        """Get all classification instances in the space.
+
+        Returns:
+            list[ClassificationInstance]: List of all classification instances present in the space.
+        """
+        self._label_row._check_labelling_is_initalised()
+        return list(self._classifications_map.values())
+
+    def remove_object_instance(self, object_hash: str) -> Optional[ObjectInstance]:
+        pass
+
+    def remove_classification_instance(self, classification_hash: str) -> Optional[ClassificationInstance]:
+        pass
+
+    @overload
+    def get_annotations(
+        self,
+        type_: Literal["object"],
+        filter_instance_hashes: Optional[list[str]] = None,
+    ) -> Iterator[ObjectAnnotationT]:
+        pass
+
+    @overload
+    def get_annotations(
+        self,
+        type_: Literal["classification"],
+        filter_instance_hashes: Optional[list[str]] = None,
+    ) -> Iterator[Union[ClassificationAnnotationT, _GlobalClassificationAnnotation]]:
+        pass
+
+    def get_annotations(
+        self,
+        type_: Literal["object", "classification"],
+        filter_instance_hashes: Optional[list[str]] = None,
+    ) -> Iterator[Union[ObjectAnnotationT, ClassificationAnnotationT, _GlobalClassificationAnnotation]]:
+        """Get annotations in the space by type.
+
+        This method retrieves all annotations of a specified type (object or classification)
+        within the space. Annotations are returned as an iterator and created lazily as the
+        iterator is consumed.
+
+        Args:
+            type_: The type of annotations to retrieve. Must be either:
+                - "object": Returns object annotations
+                - "classification": Returns classification annotations (including global classifications)
+            filter_instance_hashes: Optional list of instance hashes to filter by.
+                If provided, only annotations matching these hashes will be returned.
+                For objects, these should be object hashes; for classifications, classification hashes.
+
+        Returns:
+            When type_ is "object":
+                Iterator[ObjectAnnotationT]: Iterator over object annotations in the space.
+                The concrete annotation type depends on the Space subclass.
+
+            When type_ is "classification":
+                Iterator[Union[ClassificationAnnotationT, _GlobalClassificationAnnotation]]:
+                Iterator over classification annotations, including global classifications.
+        """
+        self._label_row._check_labelling_is_initalised()
+        if type_ == "object":
+            return self._get_object_annotations(filter_object_instances=filter_instance_hashes)
+        elif type_ == "classification":
+            return self._get_classification_annotations(filter_classification_instances=filter_instance_hashes)
+        else:
+            exhaustive_guard(type_, message=f"Invalid type_: {type_}")
+
+    def _get_object_annotations(
+        self, filter_object_instances: Optional[list[str]] = None
+    ) -> Iterator[ObjectAnnotationT]:
+        self._label_row._check_labelling_is_initalised()
+        filter_set = set(filter_object_instances) if filter_object_instances is not None else None
+
+        return (
+            self._create_object_annotation(obj_hash)
+            for obj_hash in self._objects_map
+            if filter_set is None or obj_hash in filter_set
+        )
+
+    def _get_classification_annotations(
+        self, filter_classification_instances: Optional[list[str]] = None
+    ) -> Iterator[Union[ClassificationAnnotationT, _GlobalClassificationAnnotation]]:
+        self._label_row._check_labelling_is_initalised()
+        filter_set = set(filter_classification_instances) if filter_classification_instances is not None else None
+
+        # All classifications on every space except for video is simply a global classification
+        return (
+            _GlobalClassificationAnnotation(
+                space=self,
+                classification_instance=self._classifications_map[classification_hash],
+            )
+            for classification_hash in self._global_classification_hash_to_annotation_data
+            if filter_set is None or classification_hash in filter_set
+        )
+
+    def _put_global_classification_instance(
+        self,
+        classification_instance: ClassificationInstance,
+        *,
+        on_overlap: Optional[GlobalClassificationOverlapStrategy],
+        created_at: Optional[datetime],
+        created_by: Optional[str],
+        last_edited_at: Optional[datetime],
+        last_edited_by: Optional[str],
+        confidence: Optional[float],
+        manual_annotation: Optional[bool],
+    ) -> None:
+        is_present = (
+            classification_instance.feature_hash in self._global_classification_feature_hash_to_classification_hash
+        )
+
+        if is_present:
+            if on_overlap == "error":
+                raise LabelRowError(
+                    f"The classification with feature hash '{classification_instance.feature_hash}' already exists globally. "
+                    f"Set 'on_overlap' parameter to 'replace' to overwrite."
+                )
+            elif on_overlap == "replace":
+                # If overwriting, remove conflicting classification entries from other classification instances
+                self._remove_conflicting_global_classification_instance(classification_instance=classification_instance)
+
+        self._classifications_map[classification_instance.classification_hash] = classification_instance
+        new_classification_annotation_data = _AnnotationData(
+            annotation_metadata=_AnnotationMetadata(),
+        )
+        new_classification_annotation_data.annotation_metadata.update_from_optional_fields(
+            created_at=created_at,
+            created_by=created_by,
+            last_edited_at=last_edited_at,
+            last_edited_by=last_edited_by,
+            confidence=confidence,
+            manual_annotation=manual_annotation,
+        )
+
+        self._global_classification_hash_to_annotation_data[classification_instance.classification_hash] = (
+            new_classification_annotation_data
+        )
+        self._global_classification_feature_hash_to_classification_hash[classification_instance.feature_hash] = (
+            classification_instance.classification_hash
+        )
+        classification_instance._add_to_space(self)
+
+    def _remove_conflicting_global_classification_instance(
+        self, classification_instance: ClassificationInstance
+    ) -> None:
+        existing_classification_hash = self._global_classification_feature_hash_to_classification_hash[
+            classification_instance.feature_hash
+        ]
+        existing_classification_instance = self._classifications_map[existing_classification_hash]
+
+        self._remove_global_classification_instance(classification=existing_classification_instance)
+
+    def _remove_global_classification_instance(
+        self,
+        classification: ClassificationInstance,
+    ) -> ClassificationInstance:
+        classification._remove_from_space(self.space_id)
+        self._global_classification_feature_hash_to_classification_hash.pop(classification.feature_hash)
+        self._global_classification_hash_to_annotation_data.pop(classification.classification_hash)
+        self._classifications_map.pop(classification.classification_hash)
+
+        return classification
+
+    @abstractmethod
+    def put_classification_instance(
+        self,
+        classification_instance: ClassificationInstance,
+        *,
+        on_overlap: Optional[ClassificationOverlapStrategyT] = None,
+        created_at: Optional[datetime] = None,
+        created_by: Optional[str] = None,
+        last_edited_at: Optional[datetime] = None,
+        last_edited_by: Optional[str] = None,
+        confidence: Optional[float] = None,
+        manual_annotation: Optional[bool] = None,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def _create_object_annotation(self, obj_hash: str) -> ObjectAnnotationT:
+        """Factory method to create the appropriate object annotation type for this space.
+
+        Args:
+            obj_hash: The hash of the object instance.
+
+        Returns:
+            ObjectAnnotationT: The concrete annotation type for this space.
+        """
+        pass
+
+    @abstractmethod
+    def _parse_space_dict(
+        self,
+        space_info: SpaceInfo,
+        object_answers: dict[str, Union[ObjectAnswerForGeometric, ObjectAnswerForNonGeometric]],
+        classification_answers: dict[str, ClassificationAnswer],
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def _to_space_dict(self) -> SpaceInfo:
+        pass
+
+    @abstractmethod
+    def _to_object_answers(self, existing_object_answers: Dict[str, ObjectAnswer]) -> Dict[str, ObjectAnswer]:
+        pass
+
+    @abstractmethod
+    def _to_classification_answers(
+        self, existing_classification_answers: Dict[str, ClassificationAnswer]
+    ) -> Dict[str, ClassificationAnswer]:
+        pass
+
+    def _to_global_classification_answer(
+        self,
+        classification_instance: ClassificationInstance,
+        classifications: List[AttributeDict],
+        space_range: SpaceRange,
+    ) -> ClassificationAnswer:
+        annotation_data = self._global_classification_hash_to_annotation_data[
+            classification_instance.classification_hash
+        ]
+        annotation_metadata = annotation_data.annotation_metadata
+
+        classification_index_element: ClassificationAnswer = {
+            "classifications": classifications,
+            "classificationHash": classification_instance.classification_hash,
+            "featureHash": classification_instance.feature_hash,
+            "spaces": {self.space_id: space_range},
+            "createdBy": annotation_metadata.created_by,
+            "createdAt": format_datetime_to_long_string(annotation_metadata.created_at),
+            "lastEditedBy": annotation_metadata.last_edited_by,
+            "lastEditedAt": format_datetime_to_long_string(annotation_metadata.last_edited_at),
+            "confidence": annotation_metadata.confidence,
+            "manualAnnotation": annotation_metadata.manual_annotation,
+            "range": [],
+        }
+
+        return classification_index_element
+
+    @staticmethod
+    def _method_not_supported_for_object_instance_with_frames(object_instance: ObjectInstance):
+        if len(object_instance._frames_to_instance_data) > 0:
+            raise LabelRowError(
+                "Object instance contains frames data. "
+                "Ensure ObjectInstance.set_for_frames was not used before calling this method. "
+            )
+
+    @staticmethod
+    def _method_not_supported_for_object_instance_with_dynamic_attributes(object_instance: ObjectInstance):
+        if len(object_instance._get_all_dynamic_answers()) > 0:
+            raise LabelRowError(
+                "Object instance contains dynamic attributes. "
+                "Please ensure no dynamic attributes were set on this ObjectInstance. "
+            )
+
+    @staticmethod
+    def _method_not_supported_for_classification_instance_with_frames(classification_instance: ClassificationInstance):
+        if len(classification_instance._frames_to_data) > 0:
+            raise LabelRowError(
+                "Classification instance contains frames data. "
+                "Ensure ClassificationInstance.set_for_frames was not used before calling this method. "
+            )
+
+    @staticmethod
+    def _extract_metadata_from_space_info(space_info: SpaceInfo) -> SpaceMetadata:
+        child_info: Optional[ChildInfo] = space_info.get("child_info")  # type: ignore[assignment]
+        if child_info is not None:
+            return DataGroupMetadata(
+                layout_key=child_info["layout_key"],
+                file_name=child_info["file_name"],
+            )
+
+        scene_info: Optional[FileInSceneInfo] = space_info.get("scene_info")  # type: ignore[assignment]
+        if scene_info is not None:
+            file_name = scene_info["uri"].split("/")[-1]
+            return SceneMetadata(
+                stream_id=scene_info["stream_id"],
+                event_index=scene_info["event_index"],
+                uri=scene_info["uri"],
+                layout_key=None,
+                file_name=file_name,
+            )
+
+        raise LabelRowError("SpaceInfo must contain either 'child_info' or 'scene_info' to extract metadata.")

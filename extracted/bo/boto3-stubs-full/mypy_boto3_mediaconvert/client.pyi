@@ -3,7 +3,7 @@ Type annotations for mediaconvert service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -54,6 +55,8 @@ from .type_defs import (
     DisassociateCertificateRequestTypeDef,
     GetJobRequestTypeDef,
     GetJobResponseTypeDef,
+    GetJobsQueryResultsRequestTypeDef,
+    GetJobsQueryResultsResponseTypeDef,
     GetJobTemplateRequestTypeDef,
     GetJobTemplateResponseTypeDef,
     GetPolicyResponseTypeDef,
@@ -79,6 +82,8 @@ from .type_defs import (
     PutPolicyResponseTypeDef,
     SearchJobsRequestTypeDef,
     SearchJobsResponseTypeDef,
+    StartJobsQueryRequestTypeDef,
+    StartJobsQueryResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateJobTemplateRequestTypeDef,
@@ -89,12 +94,6 @@ from .type_defs import (
     UpdateQueueResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -103,13 +102,14 @@ else:
 __all__ = ("MediaConvertClient",)
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 class MediaConvertClient(BaseClient):
     """
@@ -148,7 +148,7 @@ class MediaConvertClient(BaseClient):
 
     def associate_certificate(
         self, **kwargs: Unpack[AssociateCertificateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an AWS Certificate Manager (ACM) Amazon Resource Name (ARN) with AWS
         Elemental MediaConvert.
@@ -157,7 +157,7 @@ class MediaConvertClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/client/#associate_certificate)
         """
 
-    def cancel_job(self, **kwargs: Unpack[CancelJobRequestTypeDef]) -> Dict[str, Any]:
+    def cancel_job(self, **kwargs: Unpack[CancelJobRequestTypeDef]) -> dict[str, Any]:
         """
         Permanently cancel a job.
 
@@ -205,7 +205,7 @@ class MediaConvertClient(BaseClient):
 
     def create_resource_share(
         self, **kwargs: Unpack[CreateResourceShareRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a new resource share request for MediaConvert resources with AWS Support.
 
@@ -215,7 +215,7 @@ class MediaConvertClient(BaseClient):
 
     def delete_job_template(
         self, **kwargs: Unpack[DeleteJobTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Permanently delete a job template you have created.
 
@@ -223,7 +223,7 @@ class MediaConvertClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/client/#delete_job_template)
         """
 
-    def delete_policy(self) -> Dict[str, Any]:
+    def delete_policy(self) -> dict[str, Any]:
         """
         Permanently delete a policy that you created.
 
@@ -231,7 +231,7 @@ class MediaConvertClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/client/#delete_policy)
         """
 
-    def delete_preset(self, **kwargs: Unpack[DeletePresetRequestTypeDef]) -> Dict[str, Any]:
+    def delete_preset(self, **kwargs: Unpack[DeletePresetRequestTypeDef]) -> dict[str, Any]:
         """
         Permanently delete a preset you have created.
 
@@ -239,7 +239,7 @@ class MediaConvertClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/client/#delete_preset)
         """
 
-    def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> Dict[str, Any]:
+    def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> dict[str, Any]:
         """
         Permanently delete a queue you have created.
 
@@ -260,7 +260,7 @@ class MediaConvertClient(BaseClient):
 
     def disassociate_certificate(
         self, **kwargs: Unpack[DisassociateCertificateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes an association between the Amazon Resource Name (ARN) of an AWS
         Certificate Manager (ACM) certificate and an AWS Elemental MediaConvert
@@ -286,6 +286,17 @@ class MediaConvertClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconvert/client/get_job_template.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/client/#get_job_template)
+        """
+
+    def get_jobs_query_results(
+        self, **kwargs: Unpack[GetJobsQueryResultsRequestTypeDef]
+    ) -> GetJobsQueryResultsResponseTypeDef:
+        """
+        Retrieve a JSON array of up to twenty of your most recent jobs matched by a
+        jobs query.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconvert/client/get_jobs_query_results.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/client/#get_jobs_query_results)
         """
 
     def get_policy(self) -> GetPolicyResponseTypeDef:
@@ -394,7 +405,17 @@ class MediaConvertClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/client/#search_jobs)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def start_jobs_query(
+        self, **kwargs: Unpack[StartJobsQueryRequestTypeDef]
+    ) -> StartJobsQueryResponseTypeDef:
+        """
+        Start an asynchronous jobs query using the provided filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconvert/client/start_jobs_query.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/client/#start_jobs_query)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Add tags to a MediaConvert queue, preset, or job template.
 
@@ -402,7 +423,7 @@ class MediaConvertClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconvert/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove tags from a MediaConvert queue, preset, or job template.
 

@@ -144,11 +144,12 @@ class Client:
             "metric": metric
         })
 
-    def financials(self, symbol, statement, freq):
+    def financials(self, symbol, statement, freq, preliminary=''):
         return self._get("/stock/financials", params={
             "symbol": symbol,
             "statement": statement,
-            "freq": freq
+            "freq": freq,
+            "preliminary": preliminary
         })
 
     def financials_reported(self, **params):
@@ -524,6 +525,9 @@ class Client:
 
     def stock_revenue_breakdown2(self, symbol):
         return self._get("/stock/revenue-breakdown2", params={"symbol": symbol})
+
+    def newsroom(self, symbol, _from=None, to=None):
+        return self._get("/stock/newsroom", params={"symbol": symbol, "from": _from, "to": to})
 
     def bank_branch(self, symbol):
         return self._get("/bank-branch", params={"symbol": symbol})

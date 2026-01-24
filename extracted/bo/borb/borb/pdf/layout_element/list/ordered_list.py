@@ -39,7 +39,7 @@ class OrderedList(List):
         self,
         background_color: typing.Optional[Color] = None,
         border_color: typing.Optional[Color] = None,
-        border_dash_pattern: typing.List[int] = [],
+        border_dash_pattern: typing.Optional[typing.List[int]] = None,
         border_dash_phase: int = 0,
         border_width_bottom: int = 0,
         border_width_left: int = 0,
@@ -172,8 +172,11 @@ class OrderedList(List):
         w0: int = max([w for w, _ in index_sizes])
 
         # figure out the width of the widest item
+        margin_between_bullet_and_item: int = 5
         element_sizes: typing.List[typing.Tuple[int, int]] = [
-            e.get_size(available_space=(avail_w - w0, avail_h))
+            e.get_size(
+                available_space=(avail_w - w0 - margin_between_bullet_and_item, avail_h)
+            )
             for e in self._List__list_items  # type: ignore[attr-defined]
         ]
         w1: int = max([w for w, _ in element_sizes])
@@ -185,7 +188,11 @@ class OrderedList(List):
 
         # return
         return (
-            w0 + 5 + w1 + self.get_padding_left() + self.get_padding_right(),
+            w0
+            + margin_between_bullet_and_item
+            + w1
+            + self.get_padding_left()
+            + self.get_padding_right(),
             total_height + self.get_padding_top() + self.get_padding_bottom(),
         )
 
@@ -197,7 +204,7 @@ class OrderedList(List):
 
         This function renders the layout element within the given available space on the specified page.
 
-        :param available_space: A tuple representing the available space (left, top, right, bottom).
+        :param available_space: A tuple representing the available space (x, y, width, height).
         :param page:            The Page object on which to render the LayoutElement.
         :return:                None.
         """
@@ -213,7 +220,14 @@ class OrderedList(List):
         )
 
         # figure out the width reserved for content items
-        w1: int = w - 5 - self.get_padding_left() - self.get_padding_right() - w0
+        margin_between_bullet_and_item: int = 5
+        w1: int = (
+            w
+            - margin_between_bullet_and_item
+            - self.get_padding_left()
+            - self.get_padding_right()
+            - w0
+        )
 
         # calculate where the background/borders need to be painted
         # fmt: off
@@ -272,7 +286,10 @@ class OrderedList(List):
             # paint item element
             el.paint(
                 available_space=(
-                    background_x + self.get_padding_left() + w0 + 5,
+                    background_x
+                    + self.get_padding_left()
+                    + w0
+                    + margin_between_bullet_and_item,
                     bottom_y,
                     w1,
                     max(elem_h, index_h),

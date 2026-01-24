@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm-watson
-Version: 10.0.0
+Version: 11.1.0
 Summary: Client library to use the IBM Watson Services
 Home-page: https://github.com/watson-developer-cloud/python-sdk
 Author: IBM Watson

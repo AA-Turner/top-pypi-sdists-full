@@ -1,5 +1,7 @@
 ﻿#include <cassert>
+#include <fstream>
 #include <kiwi/Utils.h>
+#include <kiwi/Mmap.h>
 #include "StrUtils.h"
 
 namespace kiwi
@@ -55,6 +57,11 @@ namespace kiwi
 	std::string utf16To8(const std::u16string & str)
 	{
 		return utf16To8(toStringView(str));
+	}
+
+	KString normalizeHangul(const std::u16string& hangul)
+	{
+		return normalizeHangul(hangul.begin(), hangul.end());
 	}
 
 	/**
@@ -526,5 +533,136 @@ namespace kiwi
 		case ModelType::congGlobalFp32: return "cong-global-fp32";
 		}
 		return "unknown";
+	}
+
+	Dialect toDialect(std::string_view str)
+	{
+		if (str == u8"standard") return Dialect::standard;
+		if (str == u8"std") return Dialect::standard;
+		if (str == u8"표준") return Dialect::standard;
+		if (str == u8"gyeonggi") return Dialect::gyeonggi;
+		if (str == u8"gg") return Dialect::gyeonggi;
+		if (str == u8"경기") return Dialect::gyeonggi;
+		if (str == u8"chungcheong") return Dialect::chungcheong;
+		if (str == u8"cc") return Dialect::chungcheong;
+		if (str == u8"충청") return Dialect::chungcheong;
+		if (str == u8"gangwon") return Dialect::gangwon;
+		if (str == u8"gw") return Dialect::gangwon;
+		if (str == u8"강원") return Dialect::gangwon;
+		if (str == u8"gyeongsang") return Dialect::gyeongsang;
+		if (str == u8"gs") return Dialect::gyeongsang;
+		if (str == u8"경상") return Dialect::gyeongsang;
+		if (str == u8"jeolla") return Dialect::jeolla;
+		if (str == u8"jl") return Dialect::jeolla;
+		if (str == u8"전라") return Dialect::jeolla;
+		if (str == u8"jeju") return Dialect::jeju;
+		if (str == u8"jj") return Dialect::jeju;
+		if (str == u8"제주") return Dialect::jeju;
+		if (str == u8"hwanghae") return Dialect::hwanghae;
+		if (str == u8"hh") return Dialect::hwanghae;
+		if (str == u8"황해") return Dialect::hwanghae;
+		if (str == u8"hamgyeong") return Dialect::hamgyeong;
+		if (str == u8"hg") return Dialect::hamgyeong;
+		if (str == u8"함경") return Dialect::hamgyeong;
+		if (str == u8"pyeongan") return Dialect::pyeongan;
+		if (str == u8"pa") return Dialect::pyeongan;
+		if (str == u8"평안") return Dialect::pyeongan;
+		if (str == u8"archaic") return Dialect::archaic;
+		if (str == u8"옛말") return Dialect::archaic;
+
+		throw std::invalid_argument{ "Unknown dialect: " + std::string{ str } };
+	}
+
+	const char* dialectToStr(Dialect dialect)
+	{
+		switch (dialect)
+		{
+		case Dialect::standard: return "standard";
+		case Dialect::gyeonggi: return "gyeonggi";
+		case Dialect::chungcheong: return "chungcheong";
+		case Dialect::gangwon: return "gangwon";
+		case Dialect::gyeongsang: return "gyeongsang";
+		case Dialect::jeolla: return "jeolla";
+		case Dialect::jeju: return "jeju";
+		case Dialect::hwanghae: return "hwanghae";
+		case Dialect::hamgyeong: return "hamgyeong";
+		case Dialect::pyeongan: return "pyeongan";
+		case Dialect::archaic: return "archaic";
+		}
+		return "unknown";
+	}
+
+	Dialect parseDialects(std::string_view str)
+	{
+		Dialect ret = Dialect::standard;
+		if (str == "all") return Dialect::all;
+		for (auto& item : split(str, ','))
+		{
+			ret |= toDialect(item);
+		}
+		return ret;
+	}
+
+	namespace utils
+	{
+		std::function<std::unique_ptr<std::istream>(const std::string&)> makeFilesystemProvider(const std::string& modelPath)
+		{
+			return [modelPath](const std::string& filename) -> std::unique_ptr<std::istream> {
+				std::string fullPath = modelPath + "/" + filename;
+				auto stream = std::make_unique<std::ifstream>(fullPath, std::ios::binary);
+				if (!stream->is_open()) {
+					return nullptr;
+				}
+				return std::move(stream);
+			};
+		}
+
+		std::function<std::unique_ptr<std::istream>(const std::string&)> makeMemoryProvider(const std::unordered_map<std::string, std::vector<char>>& fileData)
+		{
+			// Copy the fileData to ensure it stays alive for the lifetime of the provider
+			auto sharedData = std::make_shared<std::unordered_map<std::string, std::vector<char>>>(fileData);
+			
+			return [sharedData](const std::string& filename) -> std::unique_ptr<std::istream> {
+				auto it = sharedData->find(filename);
+				if (it == sharedData->end()) {
+					return nullptr;
+				}
+				
+				const auto& data = it->second;
+				return std::make_unique<utils::imstream>(data.data(), data.size());
+			};
+		}
+
+		utils::MemoryObject createMemoryObjectFromStream(std::istream& stream)
+		{
+			stream.seekg(0, std::ios::end);
+			if (stream) // seekable stream
+			{
+				size_t size = stream.tellg();
+				stream.seekg(0, std::ios::beg);
+				
+				auto memoryOwner = std::make_shared<utils::MemoryOwner>(size);
+				stream.read(static_cast<char*>(memoryOwner->get()), size);
+				
+				return utils::MemoryObject(std::move(*memoryOwner));
+			}
+			else // non-seekable stream
+			{
+				stream.clear();
+				std::vector<char> buffer;
+				static constexpr size_t chunkSize = 4096;
+				char chunk[chunkSize];
+				while (stream)
+				{
+					stream.read(chunk, chunkSize);
+					buffer.insert(buffer.end(), chunk, chunk + stream.gcount());
+				}
+				
+				auto memoryOwner = std::make_shared<utils::MemoryOwner>(buffer.size());
+				std::memcpy(memoryOwner->get(), buffer.data(), buffer.size());
+				
+				return utils::MemoryObject(std::move(*memoryOwner));
+			}
+		}
 	}
 }

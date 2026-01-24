@@ -59,9 +59,12 @@ def get_action_data(service: str, action_name: str) -> dict[str, list[dict[str, 
     Returns:
         List: A dictionary containing metadata about an IAM Action.
     """
-    action_data_results = {}
+    action_data_results: dict[str, list[dict[str, Any]]] = {}
     try:
         service_prefix_data = get_service_prefix_data(service)
+        if not service_prefix_data:
+            return action_data_results
+
         if action_name.endswith("*"):
             stripped_action_name = action_name.removesuffix("*")
             results = []
@@ -77,17 +80,17 @@ def get_action_data(service: str, action_name: str) -> dict[str, list[dict[str, 
                     results.extend(entries)
             action_data_results[service] = results
             return action_data_results
-        else:
-            this_action_name = service_prefix_data["privileges_lower_name"].get(action_name.lower())
-            if this_action_name:
-                this_action_data = service_prefix_data["privileges"][this_action_name]
-                entries = create_action_data_entries(
-                    service_prefix_data=service_prefix_data,
-                    action_name=this_action_name,
-                    action_data=this_action_data,
-                )
-                action_data_results[service] = entries
-                return action_data_results
+
+        this_action_name = service_prefix_data["privileges_lower_name"].get(action_name.lower())
+        if this_action_name:
+            this_action_data = service_prefix_data["privileges"][this_action_name]
+            entries = create_action_data_entries(
+                service_prefix_data=service_prefix_data,
+                action_name=this_action_name,
+                action_data=this_action_data,
+            )
+            action_data_results[service] = entries
+            return action_data_results
     except TypeError as t_e:
         logger.debug(t_e)
 
@@ -239,6 +242,8 @@ def get_actions_with_arn_type_and_access_level(
                 results.extend(actions)
     else:
         service_prefix_data = get_service_prefix_data(service_prefix)
+        # mainly needed for the use case of `catalog` -> `servicecatalog` mapping
+        service_prefix = service_prefix_data["prefix"]
         for action_name, action_data in service_prefix_data["privileges"].items():
             if (
                 action_data["access_level"] == access_level

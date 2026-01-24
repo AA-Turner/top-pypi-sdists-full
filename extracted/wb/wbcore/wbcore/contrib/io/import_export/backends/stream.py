@@ -35,7 +35,7 @@ class DataBackend(AbstractDataBackend):
         self.url = url
 
     @classmethod
-    def _check_content_type(self, output: BytesIO, filename: str) -> bool:
+    def _check_content_type(cls, output: BytesIO, filename: str) -> bool:
         """
         Check if given bytes stream matches the corresponding filename extension
 
@@ -80,7 +80,7 @@ class DataBackend(AbstractDataBackend):
         """
         with suppress(requests.ConnectionError):
             headers = kwargs.get("headers", {})
-            r = requests.get(self.url, headers=headers)
+            r = requests.get(self.url, headers=headers, timeout=10)
             if r.ok and (content := r.content):
                 content_file = BytesIO()
                 content_file.write(content)

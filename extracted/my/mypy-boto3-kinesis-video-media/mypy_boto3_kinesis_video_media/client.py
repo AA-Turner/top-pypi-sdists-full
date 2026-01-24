@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -27,11 +28,6 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .type_defs import GetMediaInputTypeDef, GetMediaOutputTypeDef
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -42,13 +38,13 @@ __all__ = ("KinesisVideoMediaClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ClientLimitExceededException: Type[BotocoreClientError]
-    ConnectionLimitExceededException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    InvalidEndpointException: Type[BotocoreClientError]
-    NotAuthorizedException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientLimitExceededException: type[BotocoreClientError]
+    ConnectionLimitExceededException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    InvalidEndpointException: type[BotocoreClientError]
+    NotAuthorizedException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 
 class KinesisVideoMediaClient(BaseClient):

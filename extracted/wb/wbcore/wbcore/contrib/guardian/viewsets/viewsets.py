@@ -3,6 +3,7 @@ from django.db.models import Count, Exists, F, Model, OuterRef, Q, QuerySet
 from django.utils.functional import cached_property
 from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework.exceptions import ValidationError
+
 from wbcore import serializers, viewsets
 from wbcore.contrib.authentication.models.users import Permission, User
 from wbcore.contrib.authentication.serializers import UserRepresentationSerializer

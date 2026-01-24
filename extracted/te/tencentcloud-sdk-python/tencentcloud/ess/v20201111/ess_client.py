@@ -93,10 +93,18 @@ class EssClient(AbstractClient):
         注:
         1. 如果合同流程中的参与方均已签署完毕，则无法通过该接口撤销合同，签署完毕的合同需要双方走解除流程将合同作废，可以参考<a href="https://qian.tencent.com/developers/companyApis/operateFlows/CreateReleaseFlow" target="_blank">发起解除合同流程</a>接口。
 
-        2. 有对应合同撤销权限的人:  <font color='red'>合同的发起人（并已经授予撤销权限）或者发起人所在企业的超管、法人</font>
-        ![image](https://qcloudimg.tencent-cloud.cn/raw/1f9f07fea6a70766cd286e0d58682ee2.png)
+        2. 有对应合同撤销权限的人:
+        ![image](https://qcloudimg.tencent-cloud.cn/raw/5967e502c56c267b693c90a5da110b6c.png)
 
-        3. <font color='red'>只有撤销没有参与方签署过或只有自动签署签署过的合同，才会返还合同额度。</font>
+
+        - 发起人所在企业的**超管、法人**
+        - 合同的**发起人**<font color='red'>（并已经授予撤销我发起的合同权限）</font>
+        - 其它员工<font color='red'>（并已经授予撤销我发起的合同后）</font>：
+            - 撤销人与发起人<font color='red'>**不在**</font>同一个部门：<font color='red'>（确保已授予查询合同 - 企业全部合同权限）</font>
+            - 撤销人与发起人<font color='red'>**在**</font>用一个部门：<font color='red'>（确保授予查询合同 - 本部门全部合同权限 或 企业全部合同权限）</font>
+
+
+        3. <font color='red'>**只有撤销没有参与方签署过或只有自动签署签署过的合同，才会返还合同额度。**</font>
 
         4.  撤销后可以看合同PDF内容的人员： 发起方的超管， 发起方自己，发起方撤销合同的操作人员，已经签署合同、已经填写合同、邀请填写已经补充信息的参与人员， 其他参与人员看不到合同的内容。
 
@@ -172,6 +180,67 @@ class EssClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateBatchAdminChangeInvitations(self, request):
+        r"""本接口（CreateBatchAdminChangeInvitations）用于批量创建企业超管信息变更。
+        该接口为提交任务接口,如果需要获得链接， 需要使用接口创建超管变更链接(CreateBatchAdminChangeInvitationsUrl)。
+
+        批量创建链接有以下限制：
+
+        1. 单次最多创建10个企业的超管变更。
+        2. 同一批创建的企业不能重复,唯一值为企业 Id。
+
+        注意：
+        此接口创建的超管变更企业，必须是以下两种企业。
+        1. 集团子企业，调用方必须是主企业。
+        2. 代认证企业，此企业是由[创建企业认证链接](https://qian.tencent.com/developers/companyApis/organizations/CreateOrganizationAuthUrl)创建的
+
+        :param request: Request instance for CreateBatchAdminChangeInvitations.
+        :type request: :class:`tencentcloud.ess.v20201111.models.CreateBatchAdminChangeInvitationsRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.CreateBatchAdminChangeInvitationsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateBatchAdminChangeInvitations", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateBatchAdminChangeInvitationsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateBatchAdminChangeInvitationsUrl(self, request):
+        r"""此接口用于获取企业批量变更超管链接，包含多条超管变更任务。
+        一次性最多获取 500 条任务。
+
+        前提条件：已调用 [CreateBatchAdminChangeInvitations生成批量变更超管任务接口](https://qian.tencent.com/developers/companyApis/organizations/CreateBatchAdminChangeInvitations) 确保任务提交。
+        此链接包含多条超管变更流程，使用该链接可以批量的对企业进行超管变更。
+
+        :param request: Request instance for CreateBatchAdminChangeInvitationsUrl.
+        :type request: :class:`tencentcloud.ess.v20201111.models.CreateBatchAdminChangeInvitationsUrlRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.CreateBatchAdminChangeInvitationsUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateBatchAdminChangeInvitationsUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateBatchAdminChangeInvitationsUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateBatchCancelFlowUrl(self, request):
         r"""指定需要批量撤回的签署流程Id，以获取批量撤销链接。
         客户需指定要撤回的签署流程Id，最多可指定100个，超过100则不处理。
@@ -186,10 +255,18 @@ class EssClient(AbstractClient):
         注：
         1. 如果合同流程中的参与方均已签署完毕，则无法通过该接口撤销合同，签署完毕的合同需要双方走解除流程将合同作废，可以参考<a href="https://qian.tencent.com/developers/companyApis/operateFlows/CreateReleaseFlow" target="_blank">发起解除合同流程</a>接口。
 
-        2. 有对应合同撤销权限的人:  <font color='red'>合同的发起人（并已经授予撤销权限）或者发起人所在企业的超管、法人</font>
-        ![image](https://qcloudimg.tencent-cloud.cn/raw/1f9f07fea6a70766cd286e0d58682ee2.png)
+        2. 有对应合同撤销权限的人:
+        ![image](https://qcloudimg.tencent-cloud.cn/raw/5967e502c56c267b693c90a5da110b6c.png)
 
-        3. <font color='red'>只有撤销没有参与方签署过或只有自动签署签署过的合同，才会返还合同额度。</font>
+
+        - 发起人所在企业的**超管、法人**
+        - 合同的**发起人**<font color='red'>（并已经授予撤销我发起的合同权限）</font>
+        - 其它员工<font color='red'>（并已经授予撤销我发起的合同后）</font>：
+            - 撤销人与发起人<font color='red'>**不在**</font>同一个部门：<font color='red'>（确保已授予查询合同 - 企业全部合同权限）</font>
+            - 撤销人与发起人<font color='red'>**在**</font>用一个部门：<font color='red'>（确保授予查询合同 - 本部门全部合同权限 或 企业全部合同权限）</font>
+
+
+        3. <font color='red'>**只有撤销没有参与方签署过或只有自动签署签署过的合同，才会返还合同额度。**</font>
 
         4. 撤销后可以看合同PDF内容的人员： 发起方的超管， 发起方自己，发起方撤销合同的操作人员，已经签署合同、已经填写合同、邀请填写已经补充信息的参与人员， 其他参与人员看不到合同的内容。
 
@@ -408,10 +485,10 @@ class EssClient(AbstractClient):
         r"""通过此接口，可以创建小程序批量签署链接，个人/企业员工可通过此链接跳转至小程序进行批量签署。请确保生成链接时的身份信息与签署合同参与方的信息保持一致。
 
         注意事项：
-        - 使用此接口生成链接，需要贵企业先开通 <font color="red">个人签署方仅校验手机号 </font>功能。您可以在 <b>【腾讯电子签网页端】->【企业设置】->【拓展服务】</b>中找到该功能。
+        - 使用此接口生成链接，需要贵企业先开通 <font color="red">个人签署方仅校验手机号 </font>功能。您可以在 <b>【腾讯电子签网页端控制台】->【更多】->【高级签署能力】</b>中找到该功能。
         - 生成批量签署链接时，<font color="red">合同目标参与方的状态必须为<b>待签署</b>状态</font>。签署人点击链接后需要输入短信验证码才能查看合同内容。
-        - 企业员工批量签署链接：需要传入签署方所在企业名称，用户名字和手机号（或者身份证件信息）参数来生成签署链接。<font color="red">该签署方企业必须已完成腾讯电子签企业认证</font>
-        - 个人批量签署链接：需要传入签署方用户名字和手机号（或者身份证件信息）参数来生成签署链接。个人批量签署进行的合同的签名区， 全部变成<font color="red">手写签名</font>（不管合同里边设置的签名限制）来进行。
+        - 企业员工批量签署链接：需要传入签署方所在企业名称，用户名字和手机号（或者身份证件信息）参数来生成签署链接。
+        - 个人批量签署链接：需要传入签署方用户名字和手机号（或者身份证件信息）参数来生成签署链接。
         - 不支持签署方含有签批控件，或设置了签署方在签署时自行添加签署控件功能的合同进行批量签署。
         - 进行小程序批量签署必须指定待签署的流程id，<font color="red">接口中FlowIds参数必传。</font>
 
@@ -435,9 +512,36 @@ class EssClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateContractComparisonTask(self, request):
+        r"""此接口（CreateContractComparisonTask）用于创建合同对比任务。
+        适用场景：对比两份合同中字段（如：金额、日期、甲方名称等）的内容差异。
+
+        :param request: Request instance for CreateContractComparisonTask.
+        :type request: :class:`tencentcloud.ess.v20201111.models.CreateContractComparisonTaskRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.CreateContractComparisonTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateContractComparisonTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateContractComparisonTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateContractDiffTaskWebUrl(self, request):
         r"""接口（CreateContractDiffTaskWebUrl）用于创建合同对比的可嵌入web页面链接（此web页面可以通过iframe方式嵌入到贵方系统的网页中）。
-        注：本接口生成的web页面暂不支持<a href="https://qian.tencent.com/developers/companyApis/embedPages/CreateWebThemeConfig" target="_blank">设置本企业嵌入式页面主题配置</a>
+        注：
+
+        1. 对比仅支持pdf、word格式，限制大小为60M以下
+        2. 本接口生成的web页面暂不支持<a href="https://qian.tencent.com/developers/companyApis/embedPages/CreateWebThemeConfig" target="_blank">设置本企业嵌入式页面主题配置</a>
 
         未跳过上传确认的嵌入页面长相如下：
         ![image](https://qcloudimg.tencent-cloud.cn/raw/32f3526ad7152757202a7e4e760356db.jpg)
@@ -455,6 +559,33 @@ class EssClient(AbstractClient):
             body = self.call("CreateContractDiffTaskWebUrl", params, headers=headers)
             response = json.loads(body)
             model = models.CreateContractDiffTaskWebUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateContractReviewChecklistWebUrl(self, request):
+        r"""此接口（CreateContractReviewChecklistWebUrl）用来创建新建审查要点清单web页面链接（此web页面可以通过iframe方式嵌入到贵方系统的网页中）。
+
+        适用场景：根据合同内容识别出合同的风险信息。审查结果由AI生成，仅供参考。请结合相关法律法规和公司制度要求综合判断。
+
+        注意:  `如果文件资源为word类型生成的链接不能进行iframe嵌入，需要在单独窗口打开`
+
+        :param request: Request instance for CreateContractReviewChecklistWebUrl.
+        :type request: :class:`tencentcloud.ess.v20201111.models.CreateContractReviewChecklistWebUrlRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.CreateContractReviewChecklistWebUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateContractReviewChecklistWebUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateContractReviewChecklistWebUrlResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1298,6 +1429,33 @@ class EssClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateInformationExtractionWebUrl(self, request):
+        r"""此接口（CreateInformationExtractionWebUrl）用来创建合同信息提取web页面链接（此web页面可以通过iframe方式嵌入到贵方系统的网页中）。
+
+        注:
+        1. pdf、word格式限制大小为10M以下
+        2. pdg、jpeg、jpg格式限制大小为5M以下
+
+        :param request: Request instance for CreateInformationExtractionWebUrl.
+        :type request: :class:`tencentcloud.ess.v20201111.models.CreateInformationExtractionWebUrlRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.CreateInformationExtractionWebUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateInformationExtractionWebUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateInformationExtractionWebUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateIntegrationDepartment(self, request):
         r"""此接口（CreateIntegrationDepartment）用于创建企业的部门信息，支持绑定客户系统部门ID。
 
@@ -2052,6 +2210,36 @@ class EssClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateSingleSignOnEmployees(self, request):
+        r"""此接口（CreateSingleSignOnEmployees）用于创建单点登录企业员工。
+        创建好的员工，可以通过腾讯电子签提供的链接， 如下图位置，进行登录。
+        此操作的功能：
+        1. 可以绑定已经实名的员工，然后 sso 登录实名绑定。
+        2. 可以提前导入员工，在 sso 登录的时候进行实名。
+        3. 如果已经绑定过，可以直接通过 sso 链接登录腾讯电子签。
+
+        ![image](https://qcloudimg.tencent-cloud.cn/raw/0cd98ca2cc49ea1472a2397cea9a3ef6.png)
+
+        :param request: Request instance for CreateSingleSignOnEmployees.
+        :type request: :class:`tencentcloud.ess.v20201111.models.CreateSingleSignOnEmployeesRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.CreateSingleSignOnEmployeesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateSingleSignOnEmployees", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateSingleSignOnEmployeesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateUserAutoSignEnableUrl(self, request):
         r"""获取个人用户自动签的开通链接。
 
@@ -2368,6 +2556,33 @@ class EssClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteSingleSignOnEmployees(self, request):
+        r"""此接口（DeleteSingleSignOnEmployees）用于删除单点登录企业员工。
+        注意：
+        此接口只能删除未跟腾讯电子签绑定的单点登录企业员工，
+        如果企业员工的单点登录信息已经和腾讯电子签里面的企业员工绑定，需要企业的超级管理员或者组织管理员在腾讯电子签控制台对当前企业员工进行离职操作，如下图操作。
+        ![image](https://qcloudimg.tencent-cloud.cn/raw/5e69f6e11859972d466900040f68c105.png)
+
+        :param request: Request instance for DeleteSingleSignOnEmployees.
+        :type request: :class:`tencentcloud.ess.v20201111.models.DeleteSingleSignOnEmployeesRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.DeleteSingleSignOnEmployeesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteSingleSignOnEmployees", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteSingleSignOnEmployeesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeBatchOrganizationRegistrationTasks(self, request):
         r"""本接口（DescribeBatchOrganizationRegistrationTasks）用于查询企业批量认证任务状态。
 
@@ -2487,6 +2702,29 @@ class EssClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeContractComparisonTask(self, request):
+        r"""本接口（DescribeContractComparisonTask）用于查询合同对比任务结果详情。
+
+        :param request: Request instance for DescribeContractComparisonTask.
+        :type request: :class:`tencentcloud.ess.v20201111.models.DescribeContractComparisonTaskRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.DescribeContractComparisonTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeContractComparisonTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeContractComparisonTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeContractDiffTaskWebUrl(self, request):
         r"""接口（DescribeContractDiffTaskWebUrl）用于获取合同对比结果可嵌入的web页面链接（此web页面可以通过iframe方式嵌入到贵方系统的网页中）。
         注：本接口生成的web页面暂不支持<a href="https://qian.tencent.com/developers/companyApis/embedPages/CreateWebThemeConfig" target="_blank">设置本企业嵌入式页面主题配置</a>
@@ -2505,6 +2743,60 @@ class EssClient(AbstractClient):
             body = self.call("DescribeContractDiffTaskWebUrl", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeContractDiffTaskWebUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeContractReviewChecklistWebUrl(self, request):
+        r"""此接口（DescribeContractReviewChecklistWebUrl）用来创建查看审查要点清单web页面链接（此web页面可以通过iframe方式嵌入到贵方系统的网页中）。
+
+        适用场景：根据合同内容识别出合同的风险信息。审查结果由AI生成，仅供参考。请结合相关法律法规和公司制度要求综合判断。
+
+        注意:  `如果文件资源为word类型生成的链接不能进行iframe嵌入，需要在单独窗口打开`
+
+        :param request: Request instance for DescribeContractReviewChecklistWebUrl.
+        :type request: :class:`tencentcloud.ess.v20201111.models.DescribeContractReviewChecklistWebUrlRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.DescribeContractReviewChecklistWebUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeContractReviewChecklistWebUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeContractReviewChecklistWebUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeContractReviewChecklistsWebUrl(self, request):
+        r"""此接口（DescribeContractReviewChecklistsWebUrl）用来创建审查要点清单列表web页面链接（此web页面可以通过iframe方式嵌入到贵方系统的网页中）。
+
+        适用场景：根据合同内容识别出合同的风险信息。审查结果由AI生成，仅供参考。请结合相关法律法规和公司制度要求综合判断。
+
+        注意:  `如果文件资源为word类型生成的链接不能进行iframe嵌入，需要在单独窗口打开`
+
+        :param request: Request instance for DescribeContractReviewChecklistsWebUrl.
+        :type request: :class:`tencentcloud.ess.v20201111.models.DescribeContractReviewChecklistsWebUrlRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.DescribeContractReviewChecklistsWebUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeContractReviewChecklistsWebUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeContractReviewChecklistsWebUrlResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2537,6 +2829,33 @@ class EssClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeContractReviewTaskListWebUrl(self, request):
+        r"""此接口（DescribeContractReviewTaskListWebUrl）用来创建合同审查记录列表web页面链接（此web页面可以通过iframe方式嵌入到贵方系统的网页中）。
+
+        适用场景：根据合同内容识别出合同的风险信息。审查结果由AI生成，仅供参考。请结合相关法律法规和公司制度要求综合判断。
+
+        注意:  `如果文件资源为word类型生成的链接不能进行iframe嵌入，需要在单独窗口打开`
+
+        :param request: Request instance for DescribeContractReviewTaskListWebUrl.
+        :type request: :class:`tencentcloud.ess.v20201111.models.DescribeContractReviewTaskListWebUrlRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.DescribeContractReviewTaskListWebUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeContractReviewTaskListWebUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeContractReviewTaskListWebUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeContractReviewWebUrl(self, request):
         r"""此接口（DescribeContractReviewWebUrl）用来创建合同审查web页面链接（此web页面可以通过iframe方式嵌入到贵方系统的网页中）。
 
@@ -2555,6 +2874,29 @@ class EssClient(AbstractClient):
             body = self.call("DescribeContractReviewWebUrl", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeContractReviewWebUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeEnterpriseContractReviewChecklists(self, request):
+        r"""本接口（DescribeEnterpriseContractReviewChecklists）用于获取企业全部审查要点清单。
+
+        :param request: Request instance for DescribeEnterpriseContractReviewChecklists.
+        :type request: :class:`tencentcloud.ess.v20201111.models.DescribeEnterpriseContractReviewChecklistsRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.DescribeEnterpriseContractReviewChecklistsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeEnterpriseContractReviewChecklists", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeEnterpriseContractReviewChecklistsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2610,9 +2952,9 @@ class EssClient(AbstractClient):
         13. **限制企业员工网页端登录**
 
 
-        对应能力开通页面在Web控制台-更多-企业设置-拓展服务，如下图所示:
+        对应能力开通页面在【Web控制台】-> 【更多】->【高级签署能力】，如下图所示:
 
-        ![image](https://qcloudimg.tencent-cloud.cn/raw/7d79746ecca1c5fe878a2ec36ed69c23.jpg)
+        ![image](https://qcloudimg.tencent-cloud.cn/raw/bc1414ed8c257cbc408201579cff72cd/a1111.png)
 
         注: <font color='red'>所在企业的超管、法人才有权限调用此接口</font>(Operator.UserId需要传递超管或者法人的UserId)
 
@@ -2888,6 +3230,29 @@ class EssClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeInformationExtractionWebUrl(self, request):
+        r"""此接口（DescribeInformationExtractionWebUrl）用来获取合同信息提取web页面链接（此web页面可以通过iframe方式嵌入到贵方系统的网页中）。
+
+        :param request: Request instance for DescribeInformationExtractionWebUrl.
+        :type request: :class:`tencentcloud.ess.v20201111.models.DescribeInformationExtractionWebUrlRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.DescribeInformationExtractionWebUrlResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeInformationExtractionWebUrl", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeInformationExtractionWebUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeIntegrationDepartments(self, request):
         r"""此接口（DescribeIntegrationDepartments）用于查询企业的部门信息列表，支持查询单个部门节点或单个部门节点及一级子节点部门列表。
 
@@ -3120,6 +3485,29 @@ class EssClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeSingleSignOnEmployees(self, request):
+        r"""此接口（DescribeSingleSignOnEmployees）用于查询单点登录企业员工。
+
+        :param request: Request instance for DescribeSingleSignOnEmployees.
+        :type request: :class:`tencentcloud.ess.v20201111.models.DescribeSingleSignOnEmployeesRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.DescribeSingleSignOnEmployeesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeSingleSignOnEmployees", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeSingleSignOnEmployeesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeThirdPartyAuthCode(self, request):
         r"""通过AuthCode查询个人用户是否实名
 
@@ -3262,6 +3650,52 @@ class EssClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ExportContractComparisonTask(self, request):
+        r"""本接口（ExportContractComparisonTask）用于导出指定的合同对比任务的结果文件。任务完成后，用户可根据不同的使用场景，选择导出可视化对比报告（PDF）或结构化差异明细（EXCEL）。
+
+        :param request: Request instance for ExportContractComparisonTask.
+        :type request: :class:`tencentcloud.ess.v20201111.models.ExportContractComparisonTaskRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.ExportContractComparisonTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ExportContractComparisonTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.ExportContractComparisonTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ExportContractReviewResult(self, request):
+        r"""本接口（ExportContractReviewResult）用于导出和同审查结果。支持选择 1 “带风险批注文件”、 2 “审查结果＆摘要（.xIsx）”
+
+        :param request: Request instance for ExportContractReviewResult.
+        :type request: :class:`tencentcloud.ess.v20201111.models.ExportContractReviewResultRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.ExportContractReviewResultResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ExportContractReviewResult", params, headers=headers)
+            response = json.loads(body)
+            model = models.ExportContractReviewResultResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def GetTaskResultApi(self, request):
         r"""此接口（GetTaskResultApi）用来查询转换任务的状态。如需发起转换任务，请使用<a href="https://qian.tencent.com/developers/companyApis/templatesAndFiles/CreateConvertTaskApi" target="_blank">创建文件转换任务接口</a>进行资源文件的转换操作<br />
         前提条件：已调用 <a href="https://qian.tencent.com/developers/companyApis/templatesAndFiles/CreateConvertTaskApi" target="_blank">创建文件转换任务接口</a>进行文件转换，并得到了返回的转换任务Id。<br />
@@ -3320,16 +3754,18 @@ class EssClient(AbstractClient):
     def ModifyExtendedService(self, request):
         r"""管理企业扩展服务
 
-        - **直接开通的情形：** 若在操作过程中接口没有返回跳转链接，这表明无需进行任何跳转操作。此时，相应的企业拓展服务将会直接被开通或关闭。
+        - **直接开通的情形：** 若在操作过程中接口没有返回跳转链接，这表明无需进行任何跳转操作。此时，相应的企业高级签署能力将会直接被开通或关闭。
 
-        - **需要法人或者超管签署开通协议的情形：** 当需要开通以下企业拓展服务时， 系统将返回一个操作链接。贵方需要主动联系并通知企业的超级管理员（超管）或法人。由他们点击该链接，完成服务的开通操作。
+        - **需要法人或者超管签署开通协议的情形：** 当需要开通以下企业高级签署能力时， 系统将返回一个操作链接。贵方需要主动联系并通知企业的超级管理员（超管）或法人。由他们点击该链接，完成服务的开通操作。
           - **OPEN_SERVER_SIGN（企业自动签）**
 
         注意： `在调用此接口以管理企业扩展服务时，操作者（入参中的Operator）必须是企业的超级管理员（超管）或法人`
 
 
-        对应的扩展服务能力可以在控制台的【扩展服务】中找到
-        ![image](https://qcloudimg.tencent-cloud.cn/raw/7eb35d2473d6c29784f3b35617bca9a9.png)
+        对应的扩展服务能力可以在控制台的【高级签署能力】中找到
+
+        ![image](https://qcloudimg.tencent-cloud.cn/raw/70750ae61500bb9ef6c6be6ecd18cd0e/a2222.png)
+        ![image](https://qcloudimg.tencent-cloud.cn/raw/8cb6c8707a3b8c86b55e47fd8d23b30a/a3333.png)
 
         :param request: Request instance for ModifyExtendedService.
         :type request: :class:`tencentcloud.ess.v20201111.models.ModifyExtendedServiceRequest`
@@ -3465,6 +3901,30 @@ class EssClient(AbstractClient):
             body = self.call("ModifyPartnerAutoSignAuthUrl", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyPartnerAutoSignAuthUrlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifySingleSignOnEmployees(self, request):
+        r"""此接口（ModifySingleSignOnEmployees）用于修改单点登录企业员工。
+         注意： 此接口只能修改未跟腾讯电子签绑定的单点登录企业员工， 如果企业员工的单点登录信息已经和腾讯电子签里面的企业员工绑定，需要在腾讯电子签小程序进行个人信息变更操作。
+
+        :param request: Request instance for ModifySingleSignOnEmployees.
+        :type request: :class:`tencentcloud.ess.v20201111.models.ModifySingleSignOnEmployeesRequest`
+        :rtype: :class:`tencentcloud.ess.v20201111.models.ModifySingleSignOnEmployeesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifySingleSignOnEmployees", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifySingleSignOnEmployeesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

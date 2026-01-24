@@ -1,17 +1,7 @@
+from collections.abc import Callable, Iterable
 from functools import wraps
 from logging import DEBUG, Logger, getLogger
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-    TypeVar,
-    overload,
-)
+from typing import Literal, TypeVar, overload
 
 import a_sync
 import dank_mids
@@ -59,23 +49,23 @@ cache_logger = getLogger(f"{__name__}.cache")
 @overload
 async def get_price(
     token_address: AnyAddressType,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     *,
     fail_to_None: Literal[True],
     skip_cache: bool = ENVS.SKIP_CACHE,
-    ignore_pools: Tuple[Pool, ...] = (),
+    ignore_pools: tuple[Pool, ...] = (),
     silent: bool = False,
-) -> Optional[UsdPrice]: ...
+) -> UsdPrice | None: ...
 
 
 @overload
 async def get_price(
     token_address: AnyAddressType,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     *,
     fail_to_None: bool = False,
     skip_cache: bool = ENVS.SKIP_CACHE,
-    ignore_pools: Tuple[Pool, ...] = (),
+    ignore_pools: tuple[Pool, ...] = (),
     silent: bool = False,
 ) -> UsdPrice: ...
 
@@ -83,13 +73,13 @@ async def get_price(
 @a_sync.a_sync(default="sync")
 async def get_price(
     token_address: AnyAddressType,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     *,
     fail_to_None: bool = False,
     skip_cache: bool = ENVS.SKIP_CACHE,
-    ignore_pools: Tuple[Pool, ...] = (),
+    ignore_pools: tuple[Pool, ...] = (),
     silent: bool = False,
-) -> Optional[UsdPrice]:
+) -> UsdPrice | None:
     """
     Get the price of a token in USD.
 
@@ -141,34 +131,34 @@ async def get_price(
 @overload
 async def get_prices(
     token_addresses: Iterable[AnyAddressType],
-    block: Optional[Block] = None,
+    block: Block | None = None,
     *,
     fail_to_None: Literal[True],
     skip_cache: bool = ENVS.SKIP_CACHE,
     silent: bool = False,
-) -> List[Optional[UsdPrice]]: ...
+) -> list[UsdPrice | None]: ...
 
 
 @overload
 async def get_prices(
     token_addresses: Iterable[AnyAddressType],
-    block: Optional[Block] = None,
+    block: Block | None = None,
     *,
     fail_to_None: bool = False,
     skip_cache: bool = ENVS.SKIP_CACHE,
     silent: bool = False,
-) -> List[UsdPrice]: ...
+) -> list[UsdPrice]: ...
 
 
 @a_sync.a_sync(default="sync")
 async def get_prices(
     token_addresses: Iterable[AnyAddressType],
-    block: Optional[Block] = None,
+    block: Block | None = None,
     *,
     fail_to_None: bool = False,
     skip_cache: bool = ENVS.SKIP_CACHE,
     silent: bool = False,
-) -> List[Optional[UsdPrice]]:
+) -> list[UsdPrice | None]:
     """
     Get prices for multiple tokens in USD.
 
@@ -210,7 +200,7 @@ def map_prices(
     fail_to_None: Literal[True],
     skip_cache: bool = ENVS.SKIP_CACHE,
     silent: bool = False,
-) -> a_sync.TaskMapping[_TAddress, Optional[UsdPrice]]: ...
+) -> a_sync.TaskMapping[_TAddress, UsdPrice | None]: ...
 
 
 @overload
@@ -231,7 +221,7 @@ def map_prices(
     fail_to_None: bool = False,
     skip_cache: bool = ENVS.SKIP_CACHE,
     silent: bool = False,
-) -> a_sync.TaskMapping[_TAddress, Optional[UsdPrice]]:
+) -> a_sync.TaskMapping[_TAddress, UsdPrice | None]:
     """
     Map token addresses to their prices asynchronously.
 
@@ -283,9 +273,9 @@ def __cache(get_price: Callable[_P, _T]) -> Callable[_P, _T]:
         *,
         fail_to_None: bool = False,
         skip_cache: bool = ENVS.SKIP_CACHE,
-        ignore_pools: Tuple[Pool, ...] = (),
+        ignore_pools: tuple[Pool, ...] = (),
         silent: bool = False,
-    ) -> Optional[UsdPrice]:
+    ) -> UsdPrice | None:
         from y._db.utils import price as db
 
         if not skip_cache and (price := await db.get_price(token, block)):
@@ -314,9 +304,9 @@ async def _get_price(
     *,
     fail_to_None: bool = False,
     skip_cache: bool = ENVS.SKIP_CACHE,
-    ignore_pools: Tuple[Pool, ...] = (),
+    ignore_pools: tuple[Pool, ...] = (),
     silent: bool = False,
-) -> Optional[UsdPrice]:  # sourcery skip: remove-redundant-if
+) -> UsdPrice | None:  # sourcery skip: remove-redundant-if
     """
     Internal function to get the price of a token.
 
@@ -334,7 +324,10 @@ async def _get_price(
         The price of the token in USD, or None if the price couldn't be determined and fail_to_None is True.
     """
     if token == ZERO_ADDRESS:
-        _fail_appropriately(logger, symbol, fail_to_None, silent)
+        logger = get_price_logger(
+            token, block, symbol="[ZERO_ADDRESS]", extra="magic", start_task=True
+        )
+        _fail_appropriately(logger, "[ZERO_ADDRESS]", fail_to_None, silent)
         return None
 
     try:
@@ -374,8 +367,8 @@ async def _exit_early_for_known_tokens(
     block: BlockNumber,
     logger: Logger,
     skip_cache: bool = ENVS.SKIP_CACHE,
-    ignore_pools: Tuple[Pool, ...] = (),
-) -> Optional[UsdPrice]:  # sourcery skip: low-code-quality
+    ignore_pools: tuple[Pool, ...] = (),
+) -> UsdPrice | None:  # sourcery skip: low-code-quality
     """
     Attempt to get the price for known token types without having to fully load everything.
 
@@ -603,8 +596,8 @@ async def _get_price_from_dexes(
     liquidity = await igather(
         dex.check_liquidity(token, block, ignore_pools=ignore_pools, sync=False) for dex in dexes
     )
-    depth_to_dex: Dict[int, object] = dict(zip(liquidity, dexes))
-    dexes_by_depth: Dict[int, object] = {
+    depth_to_dex: dict[int, object] = dict(zip(liquidity, dexes))
+    dexes_by_depth: dict[int, object] = {
         depth: depth_to_dex[depth] for depth in sorted(depth_to_dex, reverse=True) if depth
     }
     if debug_logs_enabled := logger.isEnabledFor(DEBUG):
@@ -635,7 +628,7 @@ async def _get_price_from_dexes(
 
     # If price is 0, we can at least try to see if balancer gives us a price. If not, its probably a shitcoin.
     if price := await balancer_multiplexer.get_price(
-        token, block=block, skip_cache=skip_cache, sync=False
+        token, block=block, skip_cache=skip_cache, ignore_pools=ignore_pools, sync=False
     ):
         if debug_logs_enabled:
             log_debug("balancer -> %s", price)

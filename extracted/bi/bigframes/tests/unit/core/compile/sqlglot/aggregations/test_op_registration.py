@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from bigframes_vendored.sqlglot import expressions as sge
 import pytest
-from sqlglot import expressions as sge
 
 from bigframes.core.compile.sqlglot.aggregations import op_registration
 from bigframes.operations import aggregations as agg_ops
@@ -29,7 +29,6 @@ def test_register_then_get():
         return input
 
     assert reg[agg_ops.SizeOp()](op, input) == test_func(op, input)
-    assert reg[agg_ops.SizeOp.name](op, input) == test_func(op, input)
 
 
 def test_register_function_first_argument_is_not_agg_op_raise_error():

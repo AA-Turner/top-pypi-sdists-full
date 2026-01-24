@@ -1,47 +1,82 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: jsonpath-python
-Version: 1.0.6
-Summary: A more powerful JSONPath implementation in modern python
-Home-page: https://github.com/zhangxianbing/jsonpath-python
-Author: zhangxianbing
-License: UNKNOWN
-Platform: UNKNOWN
-Classifier: Development Status :: 3 - Alpha
+Version: 1.1.4
+Summary: A lightweight and powerful JSONPath implementation for Python
+Project-URL: Homepage, https://github.com/sean2077/jsonpath-python
+Project-URL: Repository, https://github.com/sean2077/jsonpath-python
+Project-URL: Issues, https://github.com/sean2077/jsonpath-python/issues
+Author-email: sean2077 <sean2077@users.noreply.github.com>
+License: MIT License
+        
+        Copyright (c) 2020 sean2077
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: extractor,json,jsonpath,parser,path
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.6
-Requires-Python: >=3.6
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Markup
+Requires-Python: >=3.8
+Provides-Extra: dev
+Requires-Dist: poethepoet; extra == 'dev'
+Requires-Dist: pytest-benchmark[histogram]>=4.0; extra == 'dev'
+Requires-Dist: pytest-cov>=5.0; extra == 'dev'
+Requires-Dist: pytest>=8.0; extra == 'dev'
+Requires-Dist: ruff>=0.3; extra == 'dev'
 Description-Content-Type: text/markdown
-License-File: LICENSE
-
-- [jsonpath-python](#jsonpath-python)
-  - [Features](#features)
-  - [JSONPath Syntax](#jsonpath-syntax)
-    - [Operators](#operators)
-    - [Examples](#examples)
-      - [Select Fields](#select-fields)
-      - [Recursive Descent](#recursive-descent)
-      - [Slice](#slice)
-      - [Filter Expression](#filter-expression)
-      - [Sorter Expression](#sorter-expression)
-      - [Field-Extractor Expression](#field-extractor-expression)
-    - [Appendix: Example JSON data:](#appendix-example-json-data)
-  - [Todo List](#todo-list)
 
 # jsonpath-python
 
-A more powerful JSONPath implementation in modern python.
+[![CI](https://github.com/sean2077/jsonpath-python/workflows/CI/badge.svg)](https://github.com/sean2077/jsonpath-python/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/sean2077/jsonpath-python/branch/main/graph/badge.svg)](https://codecov.io/gh/sean2077/jsonpath-python)
+[![PyPI version](https://badge.fury.io/py/jsonpath-python.svg)](https://badge.fury.io/py/jsonpath-python)
+[![Python versions](https://img.shields.io/pypi/pyversions/jsonpath-python.svg)](https://pypi.org/project/jsonpath-python/)
+[![License](https://img.shields.io/github/license/sean2077/jsonpath-python.svg)](https://github.com/sean2077/jsonpath-python/blob/main/LICENSE)
+
+A lightweight and powerful JSONPath implementation for Python.
+
+## Why jsonpath-python?
+
+There are already several JSONPath libraries in Python, so why choose this one?
+
+1.  **Lightweight & Zero Dependency**: Unlike `jsonpath-ng` which relies on complex AST parsing frameworks like `ply`, `jsonpath-python` is implemented with pure Python string parsing. It has **zero third-party dependencies**, making it incredibly easy to integrate into any environment.
+2.  **Simple & Pythonic**: The implementation is straightforward and linear. If you encounter a bug or need to extend it, the code is easy to read and modify. You can even copy the core file directly into your project as a utility.
+3.  **Powerful Features**: It supports advanced features like **sorting**, **filtering**, and **updating** JSON data. If you require strict adherence to the JSONPath standard (RFC 9535), other libraries might be more suitable, but for practical data manipulation, this library offers more power.
 
 ## Features
 
 - [x] **Light. (No need to install third-party dependencies.)**
 - [x] **Support filter operator, including multi-selection, inverse-selection filtering.**
 - [x] **Support sorter operator, including sorting by multiple fields, ascending and descending order.**
+- [x] **Support updating JSON data using JSONPath expressions.**
 - [x] Support basic semantics of JSONPath.
 - [x] Support output modes: VALUE, PATH.
-- [ ] Support embedded syntax.
-- [ ] Support user-defined function.
-- [ ] Support parent operator.
+- [x] Support regex filter (`=~`).
 
 ## Installation
 
@@ -70,6 +105,8 @@ The JSONPath syntax in this project borrows from [JSONPath - XPath for JSON](htt
 | `?()`            | applies a filter expression                                                  |
 | `/()`            | applies a sorter expression                                                  |
 | `()`             | applies a field-extractor expression                                         |
+| `=~`             | regex match operator (used in filter expressions)                            |
+| `in`             | membership test operator (used in filter expressions)                        |
 
 ### Examples
 
@@ -157,9 +194,25 @@ Support all python comparison operators (`==`, `!=`, `<`, `>`, `>=`, `<=`), pyth
 ['Moby Dick']
 >>> JSONPath('$.book[?(@.author=="Herman Melville" or @.author=="Evelyn Waugh")].author').parse(data)
 ['Evelyn Waugh', 'Herman Melville']
+>>> JSONPath('$.book[?(@.title =~ /.*Century/)]').parse(data)
+[{'category': 'reference', 'author': 'Nigel Rees', 'title': 'Sayings of the Century', 'price': 8.95, 'brand': {'version': 'v1.0.0'}}]
 ```
 
-`Note`: You must use double quote(`""`) instead of single quote(`''`) to wrap the compared string, because single quote(`''`) has another usage in this JSONPath syntax .
+The `in` operator can be used to check membership in lists or substrings in strings:
+
+```python
+# Check if a value exists in a list
+>>> data = {"items": [{"tags": ["fruit", "red"]}, {"tags": ["vegetable"]}]}
+>>> JSONPath("$.items[?('fruit' in @.tags)]").parse(data)
+[{'tags': ['fruit', 'red']}]
+
+# Check if a substring exists in a string
+>>> data = {"items": [{"name": "apple"}, {"name": "banana"}]}
+>>> JSONPath("$.items[?('app' in @.name)].name").parse(data)
+['apple']
+```
+
+`Note`: You must use double quote(`""`) instead of single quote(`''`) to wrap the compared string, because single quote(`''`) has another usage in this JSONPath syntax.
 
 #### Sorter Expression
 
@@ -188,6 +241,46 @@ Using `(field1,field2,…,filedn)` after a dict object to extract its fields.
 >>> JSONPath("$.book[/(category,price)].(title,price)").parse(data)
 [{'title': 'Moby Dick', 'price': 8.99}, {'title': 'Sword of Honour', 'price': 12.99}, {'title': 'The Lord of the Rings', 'price': 22.99}, {'title': 'Sayings of the Century', 'price': 8.95}]
 ```
+
+#### Update Data
+
+Update values in the JSON object using the `update` method.
+
+```python
+# Update with a static value
+>>> JSONPath("$.book[*].price").update(data, 100)
+# Result: All book prices are set to 100
+
+# Update with a function (e.g., apply a discount)
+>>> JSONPath("$.book[*].price").update(data, lambda x: x * 0.9)
+# Result: All book prices are multiplied by 0.9
+```
+
+## API Reference
+
+### Functions
+
+- **`search(expr, data)`**: Search JSON data using a JSONPath expression. This function uses LRU caching internally for better performance when the same expression is used multiple times.
+
+```python
+>>> from jsonpath import search
+>>> search("$..price", data)
+[8.95, 12.99, 8.99, 22.99, 19.95]
+```
+
+- **`compile(expr)`**: Pre-compile a JSONPath expression for reuse. Equivalent to `JSONPath(expr)`.
+
+```python
+>>> from jsonpath import compile
+>>> jp = compile("$.book[*].title")
+>>> jp.parse(data)
+['Sayings of the Century', 'Sword of Honour', 'Moby Dick', 'The Lord of the Rings']
+```
+
+### Exceptions
+
+- **`ExprSyntaxError`**: Raised when a JSONPath expression has invalid syntax (e.g., using sorter on non-collection types).
+- **`JSONPathTypeError`**: Raised when type-related errors occur (e.g., comparing incompatible types during sorting).
 
 ### Appendix: Example JSON data:
 
@@ -262,11 +355,3 @@ data = {
     }
 }
 ```
-
-## Todo List
-
-- Syntax and character set (refer to k8s)
-
-> The name segment is required and must be 63 characters or less, beginning and ending with an alphanumeric character (`[a-z0-9A-Z]`) with dashes (`-`), underscores (`_`), dots (`.`), and alphanumerics between.
-
-

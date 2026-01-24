@@ -1,6 +1,8 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
 
+import json
+
 from sql import Null
 from sql.conditionals import NullIf
 
@@ -10,6 +12,7 @@ from trytond.model import ChatMixin, Check, ModelSQL, Unique, fields
 from trytond.model.exceptions import ValidationError
 from trytond.pool import Pool
 from trytond.rpc import RPC
+from trytond.tools import firstline
 from trytond.tools.email_ import (
     EmailNotValidError, normalize_email, validate_email)
 from trytond.transaction import Transaction
@@ -41,6 +44,7 @@ class Channel(ModelSQL):
             unsubscribe=RPC(readonly=False),
             subscribe_email=RPC(readonly=False),
             unsubscribe_email=RPC(readonly=False),
+            get_followers=RPC(),
             post=RPC(readonly=False, result=int),
             get_models=RPC(),
             get=RPC(),
@@ -58,7 +62,7 @@ class Channel(ModelSQL):
     def check_access(cls, resource):
         pool = Pool()
         ModelAccess = pool.get('ir.model.access')
-        model, id_ = resource.split(',')
+        model, id_ = str(resource).split(',')
         ModelAccess.check(model, mode='read')
         # TODO check record rule
 
@@ -70,19 +74,24 @@ class Channel(ModelSQL):
                 ])
         if channels:
             channel, = channels
-        else:
+        elif not Transaction().readonly:
             channel = cls(resource=str(resource))
             channel.save()
+        else:
+            return
         return channel
 
     @classmethod
-    def subscribe(cls, resource, username):
+    def subscribe(cls, resource, username=None):
         pool = Pool()
         Follower = pool.get('ir.chat.follower')
         User = pool.get('res.user')
-        user, = User.search([
-                ('login', '=', username),
-                ])
+        if username is not None:
+            user, = User.search([
+                    ('login', '=', username),
+                    ])
+        else:
+            user = User(Transaction().user)
         channel = cls._get_channel(resource)
         Follower.add_user(channel, user)
 
@@ -110,11 +119,33 @@ class Channel(ModelSQL):
         Follower.remove_email(channel, email)
 
     @classmethod
+    def get_followers(cls, resource):
+        pool = Pool()
+        Follower = pool.get('ir.chat.follower')
+        users, emails = [], []
+        channel = cls._get_channel(resource)
+        if channel:
+            followers = Follower.search([
+                    ('channel', '=', channel),
+                    ])
+            for follower in followers:
+                if follower.user:
+                    users.append(follower.user.login)
+                elif follower.email:
+                    emails.append(follower.email)
+        return {
+            'users': users,
+            'emails': emails,
+            }
+
+    @classmethod
     def post(cls, resource, content, audience='internal'):
         pool = Pool()
         Message = pool.get('ir.chat.message')
         User = pool.get('res.user')
-        user = User(Transaction().user)
+        transaction = Transaction()
+        user = User(transaction.user)
+        ctx_user = User(transaction.context.get('user', user))
         channel = cls._get_channel(resource)
         message = Message(
             channel=channel,
@@ -129,7 +160,8 @@ class Channel(ModelSQL):
                 'message': message.as_dict(),
                 })
         for follower in channel.followers:
-            follower.notify(message)
+            if follower.user != ctx_user:
+                follower.notify(message)
 
         return message
 
@@ -190,6 +222,8 @@ class AuthorMixin:
     @fields.depends('user', 'email')
     def on_change_with_author(self, name=None):
         if self.user:
+            if not self.user.id:
+                return
             return self.user.name
         elif self.email:
             return self.email
@@ -253,7 +287,18 @@ class Follower(AuthorMixin, ModelSQL):
                     ]))
 
     def notify(self, message):
-        pass
+        pool = Pool()
+        Notification = pool.get('res.notification')
+
+        if self.user:
+            Notification(
+                user=self.user,
+                label=message.author,
+                description=firstline(message.content),
+                icon='tryton-chat',
+                model=message.channel.resource.__name__,
+                records=json.dumps([message.channel.resource.id])
+                ).save()
 
 
 class Message(AuthorMixin, ModelSQL):

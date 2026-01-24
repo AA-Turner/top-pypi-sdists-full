@@ -1,11 +1,12 @@
 import re
-import sys
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
+from io import TextIOBase
 from pathlib import Path
 from re import Pattern
-from typing import Any, Callable, Optional, TextIO
+from typing import Any
 
 from xsdata import __version__
 from xsdata.codegen.exceptions import CodegenError, CodegenWarning
@@ -145,8 +146,7 @@ class OutputFormat:
         order: Generate __lt__, __le__, __gt__, and __ge__ methods
         unsafe_hash: Generate __hash__ method
         frozen: Enable read only properties
-        slots: Enable __slots__, python>=3.10 Only
-        kw_only: Enable keyword only arguments, python>=3.10 Only
+        slots: Enable __slots__
     """
 
     value: str = text_node(default="dataclasses", cli="output")
@@ -156,7 +156,6 @@ class OutputFormat:
     unsafe_hash: bool = attribute(default=False)
     frozen: bool = attribute(default=False)
     slots: bool = attribute(default=False)
-    kw_only: bool = attribute(default=False)
 
     def __post_init__(self):
         """Post initialization method."""
@@ -170,21 +169,6 @@ class OutputFormat:
                 "Enabling eq because order is true",
                 CodegenWarning,
             )
-
-        if self.value == "dataclasses" and sys.version_info < (3, 10):
-            if self.slots:
-                self.slots = False
-                warnings.warn(
-                    "slots requires python >= 3.10, reverting...",
-                    CodegenWarning,
-                )
-
-            if self.kw_only:
-                self.kw_only = False
-                warnings.warn(
-                    "kw_only requires python >= 3.10, reverting...",
-                    CodegenWarning,
-                )
 
 
 @dataclass
@@ -225,8 +209,6 @@ class GeneratorOutput:
         wrapper_fields: Generate wrapper fields
         max_line_length: Adjust the maximum line length
         generic_collections: Use generic collections (Iterable, Mapping)
-        union_type: Use PEP-604 union type, python>=3.10 Only
-        postponed_annotations: Use 563 postponed evaluation of  annotations
         unnest_classes: Move inner classes to upper level
         ignore_patterns: Ignore pattern restrictions
         include_header: Include a header with codegen information in the output
@@ -243,8 +225,6 @@ class GeneratorOutput:
     wrapper_fields: bool = element(default=False)
     max_line_length: int = attribute(default=79)
     generic_collections: bool = attribute(default=False)
-    union_type: bool = attribute(default=False)
-    postponed_annotations: bool = element(default=False)
     unnest_classes: bool = element(default=False)
     ignore_patterns: bool = element(default=False)
     include_header: bool = element(default=False)
@@ -255,20 +235,6 @@ class GeneratorOutput:
 
     def validate(self) -> None:
         """Reset configuration conflicts."""
-        if self.union_type and sys.version_info < (3, 10):
-            self.union_type = False
-            warnings.warn(
-                "UnionType PEP 604 requires python >= 3.10, reverting...",
-                CodegenWarning,
-            )
-
-        if self.union_type and not self.postponed_annotations:
-            self.postponed_annotations = True
-            warnings.warn(
-                "Enabling postponed annotations, because `union_type==True`",
-                CodegenWarning,
-            )
-
         if self.generic_collections and self.format.frozen:
             self.generic_collections = False
             warnings.warn(
@@ -426,7 +392,7 @@ class GeneratorExtension:
     )
 
     parent_path: str = attribute(required=False, name="module")
-    parent_pattern: Optional[Pattern] = field(
+    parent_pattern: Pattern | None = field(
         init=False,
         metadata={"type": "Ignore"},
     )
@@ -565,8 +531,8 @@ class GeneratorConfig:
         return cfg
 
     @classmethod
-    def write(cls, output: TextIO, obj: "GeneratorConfig"):
-        """Write the configuration to the output stream as xml."""
+    def write(cls, output: TextIOBase, obj: "GeneratorConfig"):
+        """Write the configuration to the output stream as XML."""
         ctx = XmlContext(
             element_name_generator=text.pascal_case,
             attribute_name_generator=text.camel_case,

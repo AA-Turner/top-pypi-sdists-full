@@ -9,18 +9,60 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
+import datetime as _dt
+from typing import Literal, Union
 from typing_extensions import TypedDict
 
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
-class CodeScanningAnalysisDeletionType(TypedDict):
-    """Analysis deletion
 
-    Successful deletion of a code scanning analysis
+class ActivityType(TypedDict):
+    """Activity
+
+    Activity
     """
 
-    next_analysis_url: Union[str, None]
-    confirm_delete_url: Union[str, None]
+    id: int
+    node_id: str
+    before: str
+    after: str
+    ref: str
+    timestamp: _dt.datetime
+    activity_type: Literal[
+        "push",
+        "force_push",
+        "branch_deletion",
+        "branch_creation",
+        "pr_merge",
+        "merge_queue_merge",
+    ]
+    actor: Union[None, SimpleUserType]
 
 
-__all__ = ("CodeScanningAnalysisDeletionType",)
+class ActivityTypeForResponse(TypedDict):
+    """Activity
+
+    Activity
+    """
+
+    id: int
+    node_id: str
+    before: str
+    after: str
+    ref: str
+    timestamp: str
+    activity_type: Literal[
+        "push",
+        "force_push",
+        "branch_deletion",
+        "branch_creation",
+        "pr_merge",
+        "merge_queue_merge",
+    ]
+    actor: Union[None, SimpleUserTypeForResponse]
+
+
+__all__ = (
+    "ActivityType",
+    "ActivityTypeForResponse",
+)

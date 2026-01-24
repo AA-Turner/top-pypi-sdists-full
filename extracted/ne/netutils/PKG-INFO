@@ -1,18 +1,16 @@
 Metadata-Version: 2.3
 Name: netutils
-Version: 1.15.0
+Version: 1.16.0
 Summary: Common helper functions useful in network automation.
 License: Apache-2.0
 Keywords: netutils,network utils,network utilities,net-utils
 Author: Network to Code, LLC
 Author-email: opensource@networktocode.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.10,<3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

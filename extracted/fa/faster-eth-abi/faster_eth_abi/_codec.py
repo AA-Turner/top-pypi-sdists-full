@@ -1,3 +1,9 @@
+"""Internal codec helpers for encoding and decoding sequences of values using the head-tail mechanism.
+
+Provides encode_c and decode_c functions for binary serialization and deserialization of values
+according to ABI type specifications.
+"""
+
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -39,13 +45,11 @@ def encode_c(
     :returns: The head-tail encoded binary representation of the python
         values in ``args`` as values of the ABI types in ``types``.
     """
-    # validate encode types and args
-    validate_list_like_param(types, "types")
     validate_list_like_param(args, "args")
 
     encoder = self._registry.get_tuple_encoder(*types)
 
-    return encoder(args)
+    return encoder.encode(args)
 
 
 def decode_c(
@@ -71,8 +75,6 @@ def decode_c(
     :returns: A tuple of equivalent python values for the ABI values
         represented in ``data``.
     """
-    # validate decode types and data
-    validate_list_like_param(types, "types")
     validate_bytes_param(data, "data")
 
     decoder = self._registry.get_tuple_decoder(*types, strict=strict)

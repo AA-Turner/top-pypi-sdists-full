@@ -8,15 +8,16 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_location.type_defs import ApiKeyFilterTypeDef
+    from mypy_boto3_location.type_defs import AndroidAppTypeDef
 
-    data: ApiKeyFilterTypeDef = ...
+    data: AndroidAppTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -38,22 +39,18 @@ from .literals import (
     VehicleWeightUnitType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
     from typing_extensions import NotRequired, TypedDict
 
 __all__ = (
+    "AndroidAppTypeDef",
     "ApiKeyFilterTypeDef",
     "ApiKeyRestrictionsOutputTypeDef",
     "ApiKeyRestrictionsTypeDef",
     "ApiKeyRestrictionsUnionTypeDef",
+    "AppleAppTypeDef",
     "AssociateTrackerConsumerRequestTypeDef",
     "BatchDeleteDevicePositionHistoryErrorTypeDef",
     "BatchDeleteDevicePositionHistoryRequestTypeDef",
@@ -242,18 +239,15 @@ __all__ = (
     "WiFiAccessPointTypeDef",
 )
 
+class AndroidAppTypeDef(TypedDict):
+    Package: str
+    CertificateFingerprint: str
+
 class ApiKeyFilterTypeDef(TypedDict):
     KeyStatus: NotRequired[StatusType]
 
-class ApiKeyRestrictionsOutputTypeDef(TypedDict):
-    AllowActions: List[str]
-    AllowResources: List[str]
-    AllowReferers: NotRequired[List[str]]
-
-class ApiKeyRestrictionsTypeDef(TypedDict):
-    AllowActions: Sequence[str]
-    AllowResources: Sequence[str]
-    AllowReferers: NotRequired[Sequence[str]]
+class AppleAppTypeDef(TypedDict):
+    BundleId: str
 
 class AssociateTrackerConsumerRequestTypeDef(TypedDict):
     TrackerName: str
@@ -270,7 +264,7 @@ class BatchDeleteDevicePositionHistoryRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -302,7 +296,7 @@ class CalculateRouteMatrixSummaryTypeDef(TypedDict):
     DistanceUnit: DistanceUnitType
 
 class CalculateRouteSummaryTypeDef(TypedDict):
-    RouteBBox: List[float]
+    RouteBBox: list[float]
     DataSource: str
     Distance: float
     DurationSeconds: float
@@ -319,7 +313,7 @@ class TruckWeightTypeDef(TypedDict):
     Unit: NotRequired[VehicleWeightUnitType]
 
 class CircleOutputTypeDef(TypedDict):
-    Center: List[float]
+    Center: list[float]
     Radius: float
 
 class CircleTypeDef(TypedDict):
@@ -386,7 +380,7 @@ class DescribeMapRequestTypeDef(TypedDict):
 class MapConfigurationOutputTypeDef(TypedDict):
     Style: str
     PoliticalView: NotRequired[str]
-    CustomLayers: NotRequired[List[str]]
+    CustomLayers: NotRequired[list[str]]
 
 class DescribePlaceIndexRequestTypeDef(TypedDict):
     IndexName: str
@@ -424,7 +418,7 @@ class ForecastedEventTypeDef(TypedDict):
     NearestDistance: float
     EventType: ForecastedGeofenceEventTypeType
     ForecastedBreachTime: NotRequired[datetime]
-    GeofenceProperties: NotRequired[Dict[str, str]]
+    GeofenceProperties: NotRequired[dict[str, str]]
 
 class GetDevicePositionRequestTypeDef(TypedDict):
     TrackerName: str
@@ -463,11 +457,11 @@ class GetPlaceRequestTypeDef(TypedDict):
     Key: NotRequired[str]
 
 class LegGeometryTypeDef(TypedDict):
-    LineString: NotRequired[List[List[float]]]
+    LineString: NotRequired[list[list[float]]]
 
 class StepTypeDef(TypedDict):
-    StartPosition: List[float]
-    EndPosition: List[float]
+    StartPosition: list[float]
+    EndPosition: list[float]
     Distance: float
     DurationSeconds: float
     GeometryOffset: NotRequired[int]
@@ -569,7 +563,7 @@ class MapConfigurationUpdateTypeDef(TypedDict):
     CustomLayers: NotRequired[Sequence[str]]
 
 class PlaceGeometryTypeDef(TypedDict):
-    Point: NotRequired[List[float]]
+    Point: NotRequired[list[float]]
 
 class TimeZoneTypeDef(TypedDict):
     Name: str
@@ -584,8 +578,8 @@ SearchForSuggestionsResultTypeDef = TypedDict(
     {
         "Text": str,
         "PlaceId": NotRequired[str],
-        "Categories": NotRequired[List[str]],
-        "SupplementalCategories": NotRequired[List[str]],
+        "Categories": NotRequired[list[str]],
+        "SupplementalCategories": NotRequired[list[str]],
     },
 )
 
@@ -597,7 +591,7 @@ class SearchPlaceIndexForPositionRequestTypeDef(TypedDict):
     Key: NotRequired[str]
 
 class SearchPlaceIndexForPositionSummaryTypeDef(TypedDict):
-    Position: List[float]
+    Position: list[float]
     DataSource: str
     MaxResults: NotRequired[int]
     Language: NotRequired[str]
@@ -621,12 +615,12 @@ SearchPlaceIndexForSuggestionsSummaryTypeDef = TypedDict(
     {
         "Text": str,
         "DataSource": str,
-        "BiasPosition": NotRequired[List[float]],
-        "FilterBBox": NotRequired[List[float]],
-        "FilterCountries": NotRequired[List[str]],
+        "BiasPosition": NotRequired[list[float]],
+        "FilterBBox": NotRequired[list[float]],
+        "FilterCountries": NotRequired[list[str]],
         "MaxResults": NotRequired[int],
         "Language": NotRequired[str],
-        "FilterCategories": NotRequired[List[str]],
+        "FilterCategories": NotRequired[list[str]],
     },
 )
 SearchPlaceIndexForTextRequestTypeDef = TypedDict(
@@ -648,13 +642,13 @@ SearchPlaceIndexForTextSummaryTypeDef = TypedDict(
     {
         "Text": str,
         "DataSource": str,
-        "BiasPosition": NotRequired[List[float]],
-        "FilterBBox": NotRequired[List[float]],
-        "FilterCountries": NotRequired[List[str]],
+        "BiasPosition": NotRequired[list[float]],
+        "FilterBBox": NotRequired[list[float]],
+        "FilterCountries": NotRequired[list[str]],
         "MaxResults": NotRequired[int],
-        "ResultBBox": NotRequired[List[float]],
+        "ResultBBox": NotRequired[list[float]],
         "Language": NotRequired[str],
-        "FilterCategories": NotRequired[List[str]],
+        "FilterCategories": NotRequired[list[str]],
     },
 )
 
@@ -691,15 +685,19 @@ class ListKeysRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     Filter: NotRequired[ApiKeyFilterTypeDef]
 
-class ListKeysResponseEntryTypeDef(TypedDict):
-    KeyName: str
-    ExpireTime: datetime
-    Restrictions: ApiKeyRestrictionsOutputTypeDef
-    CreateTime: datetime
-    UpdateTime: datetime
-    Description: NotRequired[str]
+class ApiKeyRestrictionsOutputTypeDef(TypedDict):
+    AllowActions: list[str]
+    AllowResources: list[str]
+    AllowReferers: NotRequired[list[str]]
+    AllowAndroidApps: NotRequired[list[AndroidAppTypeDef]]
+    AllowAppleApps: NotRequired[list[AppleAppTypeDef]]
 
-ApiKeyRestrictionsUnionTypeDef = Union[ApiKeyRestrictionsTypeDef, ApiKeyRestrictionsOutputTypeDef]
+class ApiKeyRestrictionsTypeDef(TypedDict):
+    AllowActions: Sequence[str]
+    AllowResources: Sequence[str]
+    AllowReferers: NotRequired[Sequence[str]]
+    AllowAndroidApps: NotRequired[Sequence[AndroidAppTypeDef]]
+    AllowAppleApps: NotRequired[Sequence[AppleAppTypeDef]]
 
 class BatchDeleteDevicePositionHistoryErrorTypeDef(TypedDict):
     DeviceId: str
@@ -771,22 +769,10 @@ class DescribeGeofenceCollectionResponseTypeDef(TypedDict):
     PricingPlan: PricingPlanType
     PricingPlanDataSource: str
     KmsKeyId: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     CreateTime: datetime
     UpdateTime: datetime
     GeofenceCount: int
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeKeyResponseTypeDef(TypedDict):
-    Key: str
-    KeyArn: str
-    KeyName: str
-    Restrictions: ApiKeyRestrictionsOutputTypeDef
-    CreateTime: datetime
-    ExpireTime: datetime
-    UpdateTime: datetime
-    Description: str
-    Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeRouteCalculatorResponseTypeDef(TypedDict):
@@ -797,7 +783,7 @@ class DescribeRouteCalculatorResponseTypeDef(TypedDict):
     CreateTime: datetime
     UpdateTime: datetime
     DataSource: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTrackerResponseTypeDef(TypedDict):
@@ -806,7 +792,7 @@ class DescribeTrackerResponseTypeDef(TypedDict):
     Description: str
     PricingPlan: PricingPlanType
     PricingPlanDataSource: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     CreateTime: datetime
     UpdateTime: datetime
     KmsKeyId: str
@@ -840,11 +826,11 @@ class GetMapTileResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTrackerConsumersResponseTypeDef(TypedDict):
-    ConsumerArns: List[str]
+    ConsumerArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -905,10 +891,10 @@ class CalculateRouteTruckModeOptionsTypeDef(TypedDict):
     Weight: NotRequired[TruckWeightTypeDef]
 
 class GeofenceGeometryOutputTypeDef(TypedDict):
-    Polygon: NotRequired[List[List[List[float]]]]
+    Polygon: NotRequired[list[list[list[float]]]]
     Circle: NotRequired[CircleOutputTypeDef]
     Geobuf: NotRequired[bytes]
-    MultiPolygon: NotRequired[List[List[List[List[float]]]]]
+    MultiPolygon: NotRequired[list[list[list[list[float]]]]]
 
 CircleUnionTypeDef = Union[CircleTypeDef, CircleOutputTypeDef]
 
@@ -929,7 +915,7 @@ class DescribePlaceIndexResponseTypeDef(TypedDict):
     UpdateTime: datetime
     DataSource: str
     DataSourceConfiguration: DataSourceConfigurationTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdatePlaceIndexRequestTypeDef(TypedDict):
@@ -945,7 +931,7 @@ class DescribeMapResponseTypeDef(TypedDict):
     DataSource: str
     Configuration: MapConfigurationOutputTypeDef
     Description: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     CreateTime: datetime
     UpdateTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -953,10 +939,10 @@ class DescribeMapResponseTypeDef(TypedDict):
 class DevicePositionTypeDef(TypedDict):
     SampleTime: datetime
     ReceivedTime: datetime
-    Position: List[float]
+    Position: list[float]
     DeviceId: NotRequired[str]
     Accuracy: NotRequired[PositionalAccuracyTypeDef]
-    PositionProperties: NotRequired[Dict[str, str]]
+    PositionProperties: NotRequired[dict[str, str]]
 
 class DevicePositionUpdateTypeDef(TypedDict):
     DeviceId: str
@@ -969,23 +955,23 @@ class GetDevicePositionResponseTypeDef(TypedDict):
     DeviceId: str
     SampleTime: datetime
     ReceivedTime: datetime
-    Position: List[float]
+    Position: list[float]
     Accuracy: PositionalAccuracyTypeDef
-    PositionProperties: Dict[str, str]
+    PositionProperties: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class InferredStateTypeDef(TypedDict):
     ProxyDetected: bool
-    Position: NotRequired[List[float]]
+    Position: NotRequired[list[float]]
     Accuracy: NotRequired[PositionalAccuracyTypeDef]
     DeviationDistance: NotRequired[float]
 
 class ListDevicePositionsResponseEntryTypeDef(TypedDict):
     DeviceId: str
     SampleTime: datetime
-    Position: List[float]
+    Position: list[float]
     Accuracy: NotRequired[PositionalAccuracyTypeDef]
-    PositionProperties: NotRequired[Dict[str, str]]
+    PositionProperties: NotRequired[dict[str, str]]
 
 class ForecastGeofenceEventsRequestTypeDef(TypedDict):
     CollectionName: str
@@ -1039,18 +1025,18 @@ class ListTrackersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ForecastGeofenceEventsResponseTypeDef(TypedDict):
-    ForecastedEvents: List[ForecastedEventTypeDef]
+    ForecastedEvents: list[ForecastedEventTypeDef]
     DistanceUnit: DistanceUnitType
     SpeedUnit: SpeedUnitType
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class LegTypeDef(TypedDict):
-    StartPosition: List[float]
-    EndPosition: List[float]
+    StartPosition: list[float]
+    EndPosition: list[float]
     Distance: float
     DurationSeconds: float
-    Steps: List[StepTypeDef]
+    Steps: list[StepTypeDef]
     Geometry: NotRequired[LegGeometryTypeDef]
 
 class ListDevicePositionsRequestPaginateTypeDef(TypedDict):
@@ -1065,27 +1051,27 @@ class ListDevicePositionsRequestTypeDef(TypedDict):
     FilterGeometry: NotRequired[TrackingFilterGeometryTypeDef]
 
 class ListGeofenceCollectionsResponseTypeDef(TypedDict):
-    Entries: List[ListGeofenceCollectionsResponseEntryTypeDef]
+    Entries: list[ListGeofenceCollectionsResponseEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMapsResponseTypeDef(TypedDict):
-    Entries: List[ListMapsResponseEntryTypeDef]
+    Entries: list[ListMapsResponseEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListPlaceIndexesResponseTypeDef(TypedDict):
-    Entries: List[ListPlaceIndexesResponseEntryTypeDef]
+    Entries: list[ListPlaceIndexesResponseEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRouteCalculatorsResponseTypeDef(TypedDict):
-    Entries: List[ListRouteCalculatorsResponseEntryTypeDef]
+    Entries: list[ListRouteCalculatorsResponseEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTrackersResponseTypeDef(TypedDict):
-    Entries: List[ListTrackersResponseEntryTypeDef]
+    Entries: list[ListTrackersResponseEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1124,8 +1110,8 @@ class PlaceTypeDef(TypedDict):
     TimeZone: NotRequired[TimeZoneTypeDef]
     UnitType: NotRequired[str]
     UnitNumber: NotRequired[str]
-    Categories: NotRequired[List[str]]
-    SupplementalCategories: NotRequired[List[str]]
+    Categories: NotRequired[list[str]]
+    SupplementalCategories: NotRequired[list[str]]
     SubMunicipality: NotRequired[str]
 
 class RouteMatrixEntryTypeDef(TypedDict):
@@ -1135,49 +1121,50 @@ class RouteMatrixEntryTypeDef(TypedDict):
 
 class SearchPlaceIndexForSuggestionsResponseTypeDef(TypedDict):
     Summary: SearchPlaceIndexForSuggestionsSummaryTypeDef
-    Results: List[SearchForSuggestionsResultTypeDef]
+    Results: list[SearchForSuggestionsResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ListKeysResponseTypeDef(TypedDict):
-    Entries: List[ListKeysResponseEntryTypeDef]
+class DescribeKeyResponseTypeDef(TypedDict):
+    Key: str
+    KeyArn: str
+    KeyName: str
+    Restrictions: ApiKeyRestrictionsOutputTypeDef
+    CreateTime: datetime
+    ExpireTime: datetime
+    UpdateTime: datetime
+    Description: str
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
 
-class CreateKeyRequestTypeDef(TypedDict):
+class ListKeysResponseEntryTypeDef(TypedDict):
     KeyName: str
-    Restrictions: ApiKeyRestrictionsUnionTypeDef
+    ExpireTime: datetime
+    Restrictions: ApiKeyRestrictionsOutputTypeDef
+    CreateTime: datetime
+    UpdateTime: datetime
     Description: NotRequired[str]
-    ExpireTime: NotRequired[TimestampTypeDef]
-    NoExpiry: NotRequired[bool]
-    Tags: NotRequired[Mapping[str, str]]
 
-class UpdateKeyRequestTypeDef(TypedDict):
-    KeyName: str
-    Description: NotRequired[str]
-    ExpireTime: NotRequired[TimestampTypeDef]
-    NoExpiry: NotRequired[bool]
-    ForceUpdate: NotRequired[bool]
-    Restrictions: NotRequired[ApiKeyRestrictionsUnionTypeDef]
+ApiKeyRestrictionsUnionTypeDef = Union[ApiKeyRestrictionsTypeDef, ApiKeyRestrictionsOutputTypeDef]
 
 class BatchDeleteDevicePositionHistoryResponseTypeDef(TypedDict):
-    Errors: List[BatchDeleteDevicePositionHistoryErrorTypeDef]
+    Errors: list[BatchDeleteDevicePositionHistoryErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchDeleteGeofenceResponseTypeDef(TypedDict):
-    Errors: List[BatchDeleteGeofenceErrorTypeDef]
+    Errors: list[BatchDeleteGeofenceErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchEvaluateGeofencesResponseTypeDef(TypedDict):
-    Errors: List[BatchEvaluateGeofencesErrorTypeDef]
+    Errors: list[BatchEvaluateGeofencesErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchPutGeofenceResponseTypeDef(TypedDict):
-    Successes: List[BatchPutGeofenceSuccessTypeDef]
-    Errors: List[BatchPutGeofenceErrorTypeDef]
+    Successes: list[BatchPutGeofenceSuccessTypeDef]
+    Errors: list[BatchPutGeofenceErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchUpdateDevicePositionResponseTypeDef(TypedDict):
-    Errors: List[BatchUpdateDevicePositionErrorTypeDef]
+    Errors: list[BatchUpdateDevicePositionErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CalculateRouteMatrixRequestTypeDef(TypedDict):
@@ -1214,7 +1201,7 @@ class GetGeofenceResponseTypeDef(TypedDict):
     Status: str
     CreateTime: datetime
     UpdateTime: datetime
-    GeofenceProperties: Dict[str, str]
+    GeofenceProperties: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListGeofenceResponseEntryTypeDef(TypedDict):
@@ -1223,7 +1210,7 @@ class ListGeofenceResponseEntryTypeDef(TypedDict):
     Status: str
     CreateTime: datetime
     UpdateTime: datetime
-    GeofenceProperties: NotRequired[Dict[str, str]]
+    GeofenceProperties: NotRequired[dict[str, str]]
 
 class GeofenceGeometryTypeDef(TypedDict):
     Polygon: NotRequired[Sequence[Sequence[Sequence[float]]]]
@@ -1232,12 +1219,12 @@ class GeofenceGeometryTypeDef(TypedDict):
     MultiPolygon: NotRequired[Sequence[Sequence[Sequence[Sequence[float]]]]]
 
 class BatchGetDevicePositionResponseTypeDef(TypedDict):
-    Errors: List[BatchGetDevicePositionErrorTypeDef]
-    DevicePositions: List[DevicePositionTypeDef]
+    Errors: list[BatchGetDevicePositionErrorTypeDef]
+    DevicePositions: list[DevicePositionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetDevicePositionHistoryResponseTypeDef(TypedDict):
-    DevicePositions: List[DevicePositionTypeDef]
+    DevicePositions: list[DevicePositionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1258,12 +1245,12 @@ class VerifyDevicePositionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDevicePositionsResponseTypeDef(TypedDict):
-    Entries: List[ListDevicePositionsResponseEntryTypeDef]
+    Entries: list[ListDevicePositionsResponseEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class CalculateRouteResponseTypeDef(TypedDict):
-    Legs: List[LegTypeDef]
+    Legs: list[LegTypeDef]
     Summary: CalculateRouteSummaryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1293,14 +1280,35 @@ class SearchForTextResultTypeDef(TypedDict):
     PlaceId: NotRequired[str]
 
 class CalculateRouteMatrixResponseTypeDef(TypedDict):
-    RouteMatrix: List[List[RouteMatrixEntryTypeDef]]
-    SnappedDeparturePositions: List[List[float]]
-    SnappedDestinationPositions: List[List[float]]
+    RouteMatrix: list[list[RouteMatrixEntryTypeDef]]
+    SnappedDeparturePositions: list[list[float]]
+    SnappedDestinationPositions: list[list[float]]
     Summary: CalculateRouteMatrixSummaryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListKeysResponseTypeDef(TypedDict):
+    Entries: list[ListKeysResponseEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class CreateKeyRequestTypeDef(TypedDict):
+    KeyName: str
+    Restrictions: ApiKeyRestrictionsUnionTypeDef
+    Description: NotRequired[str]
+    ExpireTime: NotRequired[TimestampTypeDef]
+    NoExpiry: NotRequired[bool]
+    Tags: NotRequired[Mapping[str, str]]
+
+class UpdateKeyRequestTypeDef(TypedDict):
+    KeyName: str
+    Description: NotRequired[str]
+    ExpireTime: NotRequired[TimestampTypeDef]
+    NoExpiry: NotRequired[bool]
+    ForceUpdate: NotRequired[bool]
+    Restrictions: NotRequired[ApiKeyRestrictionsUnionTypeDef]
+
 class ListGeofencesResponseTypeDef(TypedDict):
-    Entries: List[ListGeofenceResponseEntryTypeDef]
+    Entries: list[ListGeofenceResponseEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1317,12 +1325,12 @@ class DeviceStateTypeDef(TypedDict):
 
 class SearchPlaceIndexForPositionResponseTypeDef(TypedDict):
     Summary: SearchPlaceIndexForPositionSummaryTypeDef
-    Results: List[SearchForPositionResultTypeDef]
+    Results: list[SearchForPositionResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchPlaceIndexForTextResponseTypeDef(TypedDict):
     Summary: SearchPlaceIndexForTextSummaryTypeDef
-    Results: List[SearchForTextResultTypeDef]
+    Results: list[SearchForTextResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchPutGeofenceRequestEntryTypeDef(TypedDict):

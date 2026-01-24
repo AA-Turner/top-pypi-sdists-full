@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -18,12 +18,11 @@
 # ****************************************************************************
 
 import csv
-from typing import Optional
 
+from ...data_model.container import CoverageContainer
+from ...data_model.stats import CoverageStat
 from ...options import Options
-
-from ...utils import presentable_filename, open_text_for_writing
-from ...coverage import CoverageContainer, CoverageStat
+from ...utils import open_text_for_writing
 
 
 def write_report(
@@ -57,7 +56,7 @@ def write_report(
             )
         )
         for key in sorted_keys:
-            filename = presentable_filename(covdata[key].filename, options.root_filter)
+            filename = covdata[key].presentable_filename(options.root_filter)
             stats = covdata[key].stats
             writer.writerow(
                 [
@@ -69,7 +68,7 @@ def write_report(
             )
 
 
-def _stat_tuple(stat: CoverageStat) -> tuple[int, int, Optional[float]]:
+def _stat_tuple(stat: CoverageStat) -> tuple[int, int, float | None]:
     """creates tuple (total, covered, ratio) with ratio in range 0..1 incl"""
     percent = stat.percent
     if percent is not None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Iterable
 from typing_extensions import Literal
 
 import httpx
@@ -231,6 +232,7 @@ class CallsResource(SyncAPIResource):
         caller_id: str | Omit = omit,
         cancel_playback_on_detect_message_end: bool | Omit = omit,
         cancel_playback_on_machine_detection: bool | Omit = omit,
+        custom_headers: Iterable[call_calls_params.CustomHeader] | Omit = omit,
         detection_mode: Literal["Premium", "Regular"] | Omit = omit,
         fallback_url: str | Omit = omit,
         machine_detection: Literal["Enable", "Disable", "DetectMessageEnd"] | Omit = omit,
@@ -249,9 +251,12 @@ class CallsResource(SyncAPIResource):
         send_recording_url: bool | Omit = omit,
         sip_auth_password: str | Omit = omit,
         sip_auth_username: str | Omit = omit,
+        sip_region: Literal["US", "Europe", "Canada", "Australia", "Middle East"] | Omit = omit,
         status_callback: str | Omit = omit,
         status_callback_event: Literal["initiated", "ringing", "answered", "completed"] | Omit = omit,
         status_callback_method: Literal["GET", "POST"] | Omit = omit,
+        supervise_call_sid: str | Omit = omit,
+        supervising_role: Literal["barge", "whisper", "monitor"] | Omit = omit,
         trim: Literal["trim-silence", "do-not-trim"] | Omit = omit,
         url: str | Omit = omit,
         url_method: Literal["GET", "POST"] | Omit = omit,
@@ -293,6 +298,9 @@ class CallsResource(SyncAPIResource):
               `true`.
 
           cancel_playback_on_machine_detection: Whether to cancel ongoing playback on `machine` detection. Defaults to `true`.
+
+          custom_headers: Custom HTTP headers to be sent with the call. Each header should be an object
+              with 'name' and 'value' properties.
 
           detection_mode: Allows you to chose between Premium and Standard detections.
 
@@ -339,12 +347,22 @@ class CallsResource(SyncAPIResource):
 
           sip_auth_username: The username to use for SIP authentication.
 
+          sip_region: Defines the SIP region to be used for the call.
+
           status_callback: URL destination for Telnyx to send status callback events to for the call.
 
           status_callback_event: The call events for which Telnyx should send a webhook. Multiple events can be
               defined when separated by a space.
 
           status_callback_method: HTTP request type used for `StatusCallback`.
+
+          supervise_call_sid: The call control ID of the existing call to supervise. When provided, the
+              created leg will be added to the specified call in supervising mode. Status
+              callbacks and action callbacks will NOT be sent for the supervising leg.
+
+          supervising_role: The supervising role for the new leg. Determines the audio behavior: barge (hear
+              both sides), whisper (only hear supervisor), monitor (hear both sides but
+              supervisor muted). Default: barge
 
           trim: Whether to trim any leading and trailing silence from the recording. Defaults to
               `trim-silence`.
@@ -377,6 +395,7 @@ class CallsResource(SyncAPIResource):
                     "caller_id": caller_id,
                     "cancel_playback_on_detect_message_end": cancel_playback_on_detect_message_end,
                     "cancel_playback_on_machine_detection": cancel_playback_on_machine_detection,
+                    "custom_headers": custom_headers,
                     "detection_mode": detection_mode,
                     "fallback_url": fallback_url,
                     "machine_detection": machine_detection,
@@ -395,9 +414,12 @@ class CallsResource(SyncAPIResource):
                     "send_recording_url": send_recording_url,
                     "sip_auth_password": sip_auth_password,
                     "sip_auth_username": sip_auth_username,
+                    "sip_region": sip_region,
                     "status_callback": status_callback,
                     "status_callback_event": status_callback_event,
                     "status_callback_method": status_callback_method,
+                    "supervise_call_sid": supervise_call_sid,
+                    "supervising_role": supervising_role,
                     "trim": trim,
                     "url": url,
                     "url_method": url_method,
@@ -824,6 +846,7 @@ class AsyncCallsResource(AsyncAPIResource):
         caller_id: str | Omit = omit,
         cancel_playback_on_detect_message_end: bool | Omit = omit,
         cancel_playback_on_machine_detection: bool | Omit = omit,
+        custom_headers: Iterable[call_calls_params.CustomHeader] | Omit = omit,
         detection_mode: Literal["Premium", "Regular"] | Omit = omit,
         fallback_url: str | Omit = omit,
         machine_detection: Literal["Enable", "Disable", "DetectMessageEnd"] | Omit = omit,
@@ -842,9 +865,12 @@ class AsyncCallsResource(AsyncAPIResource):
         send_recording_url: bool | Omit = omit,
         sip_auth_password: str | Omit = omit,
         sip_auth_username: str | Omit = omit,
+        sip_region: Literal["US", "Europe", "Canada", "Australia", "Middle East"] | Omit = omit,
         status_callback: str | Omit = omit,
         status_callback_event: Literal["initiated", "ringing", "answered", "completed"] | Omit = omit,
         status_callback_method: Literal["GET", "POST"] | Omit = omit,
+        supervise_call_sid: str | Omit = omit,
+        supervising_role: Literal["barge", "whisper", "monitor"] | Omit = omit,
         trim: Literal["trim-silence", "do-not-trim"] | Omit = omit,
         url: str | Omit = omit,
         url_method: Literal["GET", "POST"] | Omit = omit,
@@ -886,6 +912,9 @@ class AsyncCallsResource(AsyncAPIResource):
               `true`.
 
           cancel_playback_on_machine_detection: Whether to cancel ongoing playback on `machine` detection. Defaults to `true`.
+
+          custom_headers: Custom HTTP headers to be sent with the call. Each header should be an object
+              with 'name' and 'value' properties.
 
           detection_mode: Allows you to chose between Premium and Standard detections.
 
@@ -932,12 +961,22 @@ class AsyncCallsResource(AsyncAPIResource):
 
           sip_auth_username: The username to use for SIP authentication.
 
+          sip_region: Defines the SIP region to be used for the call.
+
           status_callback: URL destination for Telnyx to send status callback events to for the call.
 
           status_callback_event: The call events for which Telnyx should send a webhook. Multiple events can be
               defined when separated by a space.
 
           status_callback_method: HTTP request type used for `StatusCallback`.
+
+          supervise_call_sid: The call control ID of the existing call to supervise. When provided, the
+              created leg will be added to the specified call in supervising mode. Status
+              callbacks and action callbacks will NOT be sent for the supervising leg.
+
+          supervising_role: The supervising role for the new leg. Determines the audio behavior: barge (hear
+              both sides), whisper (only hear supervisor), monitor (hear both sides but
+              supervisor muted). Default: barge
 
           trim: Whether to trim any leading and trailing silence from the recording. Defaults to
               `trim-silence`.
@@ -970,6 +1009,7 @@ class AsyncCallsResource(AsyncAPIResource):
                     "caller_id": caller_id,
                     "cancel_playback_on_detect_message_end": cancel_playback_on_detect_message_end,
                     "cancel_playback_on_machine_detection": cancel_playback_on_machine_detection,
+                    "custom_headers": custom_headers,
                     "detection_mode": detection_mode,
                     "fallback_url": fallback_url,
                     "machine_detection": machine_detection,
@@ -988,9 +1028,12 @@ class AsyncCallsResource(AsyncAPIResource):
                     "send_recording_url": send_recording_url,
                     "sip_auth_password": sip_auth_password,
                     "sip_auth_username": sip_auth_username,
+                    "sip_region": sip_region,
                     "status_callback": status_callback,
                     "status_callback_event": status_callback_event,
                     "status_callback_method": status_callback_method,
+                    "supervise_call_sid": supervise_call_sid,
+                    "supervising_role": supervising_role,
                     "trim": trim,
                     "url": url,
                     "url_method": url_method,

@@ -2,13 +2,14 @@ use hashbrown::HashMap;
 use pyo3::ffi;
 use pyo3::intern;
 use pyo3::prelude::*;
-use pyo3::sync::GILProtected;
+use pyo3::sync::MutexExt;
 use pyo3::types::PyBytes;
 use pyo3::types::PyDict;
 use pyo3::types::PyFrame;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::os::raw::c_int;
+use std::sync::Mutex;
 use thread_local::ThreadLocal;
 
 use super::config;
@@ -29,16 +30,16 @@ pub struct KoloProfiler {
     /// Whether a trace should be saved every time a Python test exits.
     one_trace_per_test: bool,
     /// An identifier for the current trace. Can change if `one_trace_per_test` is `true`.
-    trace_id: GILProtected<RefCell<String>>,
+    trace_id: Mutex<String>,
     trace_name: Option<String>,
-    frames_by_thread: GILProtected<RefCell<HashMap<String, Vec<SerializedFrame>>>>,
-    threads: GILProtected<RefCell<HashMap<String, PyObject>>>,
+    frames_by_thread: Mutex<HashMap<String, Vec<SerializedFrame>>>,
+    threads: Mutex<HashMap<String, Py<PyAny>>>,
     /// A list of `Finder`s to check a filepath fragment for inclusion in the trace.
     include_frames: filters::Finders,
     /// A list of `Finder`s to check a filepath fragment for exclusion from the trace.
     ignore_frames: filters::Finders,
     /// A dictionary mapping `co_name` to a list of associated `PluginProcessor` instances.
-    default_include_frames: GILProtected<RefCell<HashMap<String, Vec<PluginProcessor>>>>,
+    default_include_frames: Mutex<HashMap<String, Vec<PluginProcessor>>>,
     /// A list of `PyFrame` objects (as the opaque `PyObject` type) and their associated `frame_id`.
     call_frames: ThreadLocal<RefCell<utils::CallFrames>>,
     /// The time tracing started.
@@ -65,22 +66,22 @@ impl KoloProfiler {
     /// This is called from Python code to trigger saving the trace. Used by
     /// `KoloProfiler.save`.
     fn save(&self) -> Result<(), PyErr> {
-        Python::with_gil(|py| self.save_in_db(py))
+        Python::attach(|py| self.save_in_db(py))
     }
 
     /// This is called from Python code to build the trace. Used by
     /// `KoloProfiler.upload_trace_in_thread`.
     fn build_trace(&self) -> Result<Py<PyBytes>, PyErr> {
-        Python::with_gil(|py| self.build_trace_inner(py))
+        Python::attach(|py| self.build_trace_inner(py))
     }
 
     /// Register the profiler on the current thread. Called by `threading.setprofile`. See
     /// `register_profiler` in `lib.rs`.
     fn register_threading_profiler(
         slf: PyRef<'_, Self>,
-        _frame: PyObject,
-        _event: PyObject,
-        _arg: PyObject,
+        _frame: Py<PyAny>,
+        _event: Py<PyAny>,
+        _arg: Py<PyAny>,
     ) -> Result<(), PyErr> {
         // Safety:
         //
@@ -110,7 +111,7 @@ impl KoloProfiler {
     /// Converts the Python objects into their corresponding Rust types.
     pub fn new_from_python(py: Python, py_profiler: &Bound<'_, PyAny>) -> Result<Self, PyErr> {
         let config_dict = py_profiler.getattr(intern!(py, "config"))?;
-        let config_dict = config_dict.downcast::<PyDict>()?;
+        let config_dict = config_dict.cast::<PyDict>()?;
 
         // TODO: Let's refactor this to use Config instead of config_dict eventually.
 
@@ -127,11 +128,10 @@ impl KoloProfiler {
             one_trace_per_test: py_profiler
                 .getattr(intern!(py, "one_trace_per_test"))?
                 .extract()?,
-            trace_id: GILProtected::new(
+            trace_id: Mutex::new(
                 py_profiler
                     .getattr(intern!(py, "trace_id"))?
-                    .extract::<String>()?
-                    .into(),
+                    .extract::<String>()?,
             ),
             trace_name: py_profiler
                 .getattr(intern!(py, "trace_name"))?
@@ -139,11 +139,11 @@ impl KoloProfiler {
             source: py_profiler
                 .getattr(intern!(py, "source"))?
                 .extract::<String>()?,
-            frames_by_thread: GILProtected::new(HashMap::new().into()),
-            threads: GILProtected::new(HashMap::new().into()),
+            frames_by_thread: Mutex::new(HashMap::new()),
+            threads: Mutex::new(HashMap::new()),
             include_frames: filters::load_filters(&filters, "include_frames")?,
             ignore_frames: filters::load_filters(&filters, "ignore_frames")?,
-            default_include_frames: GILProtected::new(load_plugins(py, config_dict)?.into()),
+            default_include_frames: Mutex::new(load_plugins(py, config_dict)?),
             call_frames: ThreadLocal::new(),
             timestamp: utils::timestamp(),
             _frame_ids: ThreadLocal::new(),
@@ -163,9 +163,9 @@ impl KoloProfiler {
 
     /// Build the trace as msgpack ready to save to sqlite or upload to the dashboard.
     fn build_trace_inner(&self, py: Python) -> Result<Py<PyBytes>, PyErr> {
-        let frames_by_thread = self.frames_by_thread.get(py).take();
-        let threads = self.threads.get(py).take();
-        let trace_id = self.trace_id.get(py).borrow().clone();
+        let frames_by_thread = std::mem::take(&mut *self.frames_by_thread.lock_py_attached(py).expect("mutex poisoned"));
+        let threads = std::mem::take(&mut *self.threads.lock_py_attached(py).expect("mutex poisoned"));
+        let trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone();
         
         // Extract trace name if one wasn't explicitly set
         let trace_name = if self.trace_name.is_none() {
@@ -184,6 +184,7 @@ impl KoloProfiler {
             self.current_thread_id.clone(),
             self.timestamp,
             &self.config,
+            false, // use_monitoring
         )
     }
 
@@ -193,14 +194,14 @@ impl KoloProfiler {
     /// the filesystem, so there's unlikely to be much of a performance win to justify a Rust
     /// implementation.
     fn save_in_db(&self, py: Python) -> Result<(), PyErr> {
-        let kwargs = PyDict::new_bound(py);
+        let kwargs = PyDict::new(py);
         kwargs.set_item("timeout", self.timeout).unwrap();
 
         let data = self.build_trace_inner(py)?;
         kwargs.set_item("msgpack", data).unwrap();
 
-        let trace_id = self.trace_id.get(py).borrow().clone();
-        let db = PyModule::import_bound(py, "kolo.db")?;
+        let trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone();
+        let db = PyModule::import(py, "kolo.db")?;
         let save = db.getattr(intern!(py, "save_trace_in_sqlite"))?;
         save.call((&self.db_path, &trace_id), Some(&kwargs))?;
         Ok(())
@@ -213,7 +214,7 @@ impl KoloProfiler {
         &self,
         pyframe: &Bound<'_, PyFrame>,
         event: Event,
-        arg: PyObject,
+        arg: Py<PyAny>,
         name: &str,
         frame_types: &mut Vec<String>,
         frames: &mut Vec<SerializedFrame>,
@@ -271,29 +272,29 @@ impl KoloProfiler {
             frame_types.reverse();
         }
     
-        let threading = PyModule::import_bound(py, "threading")?;
+        let threading = PyModule::import(py, "threading")?;
         let current_thread = threading.call_method0("current_thread")?;
         let thread_id = utils::get_thread_id(current_thread.as_ref(), py)?;
-        
-        self.threads.get(py).borrow_mut().insert(thread_id.clone(), current_thread.unbind());
+
+        self.threads.lock_py_attached(py).expect("mutex poisoned").insert(thread_id.clone(), current_thread.unbind());
 
         if self.one_trace_per_test {
             for (index, frame_type) in frame_types.iter().enumerate() {
                 match frame_type.as_str() {
                     "start_test" => {
                         frames.drain(..index);
-                        self.start_test(py)
+                        self.start_test(py)?
                     }
                     "end_test" => {
                         let mut before: Vec<SerializedFrame> = frames.drain(..index + 1).collect();
-                        self.push_frame_data(py, thread_id.clone(), &mut before);
+                        self.push_frame_data(py, thread_id.clone(), &mut before)?;
                         self.save_in_db(py)?;
                     }
                     _ => {}
                 }
             }
         }
-        self.push_frame_data(py, thread_id, frames);
+        self.push_frame_data(py, thread_id, frames)?;
         Ok(())
     }
 
@@ -302,25 +303,26 @@ impl KoloProfiler {
         py: Python,
         thread_id: String,
         frames: &mut Vec<SerializedFrame>,
-    ) {
+    ) -> PyResult<()> {
         self.frames_by_thread
-            .get(py)
-            .borrow_mut()
+            .lock_py_attached(py).expect("mutex poisoned")
             .entry(thread_id)
             .or_default()
             .append(frames);
+        Ok(())
     }
 
     /// Start a new trace because a new test has started.
-    fn start_test(&self, py: Python) {
+    fn start_test(&self, py: Python) -> PyResult<()> {
         // Set a new `self.trace_id`.
         let trace_id = utils::trace_id();
-        let mut self_trace_id = self.trace_id.get(py).borrow_mut();
+        let mut self_trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned");
         *self_trace_id = trace_id;
 
         // Clear frames by thread
-        let mut frames = self.frames_by_thread.get(py).borrow_mut();
+        let mut frames = self.frames_by_thread.lock_py_attached(py).expect("mutex poisoned");
         *frames = HashMap::new();
+        Ok(())
     }
 
     /// Check if we should exclude the current frame from the trace using Kolo's builtin filters.
@@ -356,7 +358,7 @@ impl KoloProfiler {
         processor: &PluginProcessor,
         pyframe: &Bound<'_, PyFrame>,
         event: Event,
-        arg: &PyObject,
+        arg: &Py<PyAny>,
         filename: &str,
     ) -> Result<Option<(String, SerializedFrame)>, PyErr> {
         if !processor.matches_frame(py, pyframe, event, arg, filename)? {
@@ -369,10 +371,10 @@ impl KoloProfiler {
     /// Run the Kolo profiling logic.
     ///
     /// Analagous to `KoloProfiler.__call__`.
-    fn profile(&self, frame: &PyObject, arg: PyObject, event: Event, py: Python) {
+    fn profile(&self, frame: &Py<PyAny>, arg: Py<PyAny>, event: Event, py: Python) {
         let pyframe = frame.bind(py);
         let pyframe = pyframe
-            .downcast::<PyFrame>()
+            .cast::<PyFrame>()
             .expect("Python gives us a PyFrame");
         let f_code = pyframe
             .getattr(intern!(py, "f_code"))
@@ -392,7 +394,7 @@ impl KoloProfiler {
 
         let mut frames = vec![];
         let mut frame_types = vec![];
-        let default_include_frames = self.default_include_frames.get(py).borrow();
+        let default_include_frames = self.default_include_frames.lock_py_attached(py).expect("default_include_frames mutex poisoned");
         if let Some(processors) = default_include_frames.get(&name.to_string()) {
             for processor in processors.iter() {
                 match self.run_frame_processor(py, processor, pyframe, event, &arg, &filename) {
@@ -425,11 +427,15 @@ impl KoloProfiler {
         co_filename: &Bound<'_, PyAny>,
         co_name: &Bound<'_, PyAny>,
     ) {
-        let logging = PyModule::import_bound(py, "logging").unwrap();
+        let logging = PyModule::import(py, "logging").unwrap();
         let logger = logging.call_method1("getLogger", ("kolo",)).unwrap();
-        let locals = pyframe.getattr(intern!(py, "f_locals")).unwrap();
 
-        let kwargs = PyDict::new_bound(py);
+        // Convert f_locals to dict for Python 3.13+ FrameLocalsProxy compatibility
+        let locals_proxy = pyframe.getattr(intern!(py, "f_locals")).unwrap();
+        let dict_type = py.get_type::<PyDict>();
+        let locals = dict_type.call1((&locals_proxy,)).unwrap();
+
+        let kwargs = PyDict::new(py);
         kwargs.set_item("exc_info", err).unwrap();
 
         let event: &str = event.into();
@@ -478,26 +484,26 @@ pub extern "C" fn profile_callback(
         _ => return 0,
     };
     let _frame = _frame as *mut ffi::PyObject;
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         // Safety:
         //
-        // `from_borrowed_ptr_or_err` must be called in an unsafe block.
+        // `from_borrowed_ptr` must be called in an unsafe block.
         //
         // `_obj` is a reference to our `KoloProfiler` wrapped up in a Python object, so
-        // we can safely convert it from an `ffi::PyObject` to a `PyObject`.
+        // we can safely convert it from an `ffi::PyObject` to a `Bound<PyAny>`.
         //
         // We borrow the object so we don't break reference counting.
         //
-        // https://docs.rs/pyo3/latest/pyo3/struct.Py.html#method.from_borrowed_ptr_or_err
+        // https://docs.rs/pyo3/latest/pyo3/struct.Bound.html#method.from_borrowed_ptr
         // https://docs.python.org/3/c-api/init.html#c.Py_tracefunc
-        let obj = match unsafe { PyObject::from_borrowed_ptr_or_err(py, _obj) } {
+        let obj = match unsafe { Bound::from_borrowed_ptr_or_err(py, _obj) } {
             Ok(obj) => obj,
             Err(err) => {
                 err.restore(py);
                 return -1;
             }
         };
-        let profiler = match obj.extract::<PyRef<KoloProfiler>>(py) {
+        let profiler = match obj.extract::<PyRef<KoloProfiler>>() {
             Ok(profiler) => profiler,
             Err(err) => {
                 err.restore(py);
@@ -507,17 +513,17 @@ pub extern "C" fn profile_callback(
 
         // Safety:
         //
-        // `from_borrowed_ptr_or_err` must be called in an unsafe block.
+        // `from_borrowed_ptr` must be called in an unsafe block.
         //
         // `_frame` is an `ffi::PyFrameObject` which can be converted safely
-        // to a `PyObject`. We can later convert it into a `pyo3::types::PyFrame`.
+        // to a `Bound<PyAny>`. We can later convert it into a `pyo3::types::PyFrame`.
         //
         // We borrow the object so we don't break reference counting.
         //
-        // https://docs.rs/pyo3/latest/pyo3/struct.Py.html#method.from_borrowed_ptr_or_err
+        // https://docs.rs/pyo3/latest/pyo3/struct.Bound.html#method.from_borrowed_ptr
         // https://docs.python.org/3/c-api/init.html#c.Py_tracefunc
-        let frame = match unsafe { PyObject::from_borrowed_ptr_or_err(py, _frame) } {
-            Ok(frame) => frame,
+        let frame = match unsafe { Bound::from_borrowed_ptr_or_err(py, _frame) } {
+            Ok(frame) => frame.unbind(),
             Err(err) => {
                 err.restore(py);
                 return -1;
@@ -529,15 +535,15 @@ pub extern "C" fn profile_callback(
         // `from_borrowed_ptr_or_opt` must be called in an unsafe block.
         //
         // `_arg` is either a `Py_None` (PyTrace_CALL) or any PyObject (PyTrace_RETURN) or
-        // NULL (PyTrace_RETURN). The first two can be unwrapped as a PyObject. `NULL` we
+        // NULL (PyTrace_RETURN). The first two can be unwrapped as a Bound<PyAny>. `NULL` we
         // convert to a `py.None()`.
         //
         // We borrow the object so we don't break reference counting.
         //
-        // https://docs.rs/pyo3/latest/pyo3/struct.Py.html#method.from_borrowed_ptr_or_opt
+        // https://docs.rs/pyo3/latest/pyo3/struct.Bound.html#method.from_borrowed_ptr_or_opt
         // https://docs.python.org/3/c-api/init.html#c.Py_tracefunc
-        let arg = match unsafe { PyObject::from_borrowed_ptr_or_opt(py, _arg) } {
-            Some(arg) => arg,
+        let arg = match unsafe { Bound::from_borrowed_ptr_or_opt(py, _arg) } {
+            Some(arg) => arg.unbind(),
             // TODO: Perhaps better exception handling here?
             None => py.None(),
         };

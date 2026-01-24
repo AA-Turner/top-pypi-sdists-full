@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import Dict, List, Union, Optional
@@ -5,46 +11,85 @@ from typing_extensions import Literal
 
 from .._models import BaseModel
 
-__all__ = ["VectorStoreSearchResponse", "Data", "DataContent"]
+__all__ = ["VectorStoreSearchResponse", "Data", "DataContent", "DataContentChunkMetadata"]
+
+
+class DataContentChunkMetadata(BaseModel):
+    """
+    `ChunkMetadata` is backend metadata for a `Chunk` that is used to store additional information about the chunk that
+        will not be used in the context during inference, but is required for backend functionality. The `ChunkMetadata`
+        is set during chunk creation in `MemoryToolRuntimeImpl().insert()`and is not expected to change after.
+        Use `Chunk.metadata` for metadata that will be used in the context during inference.
+    """
+
+    chunk_embedding_dimension: Optional[int] = None
+
+    chunk_embedding_model: Optional[str] = None
+
+    chunk_id: Optional[str] = None
+
+    chunk_tokenizer: Optional[str] = None
+
+    chunk_window: Optional[str] = None
+
+    content_token_count: Optional[int] = None
+
+    created_timestamp: Optional[int] = None
+
+    document_id: Optional[str] = None
+
+    metadata_token_count: Optional[int] = None
+
+    source: Optional[str] = None
+
+    updated_timestamp: Optional[int] = None
 
 
 class DataContent(BaseModel):
+    """Content item from a vector store file or search result."""
+
     text: str
-    """The actual text content"""
 
     type: Literal["text"]
-    """Content type, currently only "text" is supported"""
+
+    chunk_metadata: Optional[DataContentChunkMetadata] = None
+    """
+    `ChunkMetadata` is backend metadata for a `Chunk` that is used to store
+    additional information about the chunk that will not be used in the context
+    during inference, but is required for backend functionality. The `ChunkMetadata`
+    is set during chunk creation in `MemoryToolRuntimeImpl().insert()`and is not
+    expected to change after. Use `Chunk.metadata` for metadata that will be used in
+    the context during inference.
+    """
+
+    embedding: Optional[List[float]] = None
+
+    metadata: Optional[Dict[str, object]] = None
 
 
 class Data(BaseModel):
+    """Response from searching a vector store."""
+
     content: List[DataContent]
-    """List of content items matching the search query"""
 
     file_id: str
-    """Unique identifier of the file containing the result"""
 
     filename: str
-    """Name of the file containing the result"""
 
     score: float
-    """Relevance score for this search result"""
 
     attributes: Optional[Dict[str, Union[str, float, bool]]] = None
-    """(Optional) Key-value attributes associated with the file"""
 
 
 class VectorStoreSearchResponse(BaseModel):
+    """Paginated response from searching a vector store."""
+
     data: List[Data]
-    """List of search result objects"""
 
-    has_more: bool
-    """Whether there are more results available beyond this page"""
+    search_query: List[str]
 
-    object: str
-    """Object type identifier for the search results page"""
-
-    search_query: str
-    """The original search query that was executed"""
+    has_more: Optional[bool] = None
 
     next_page: Optional[str] = None
-    """(Optional) Token for retrieving the next page of results"""
+
+    object: Optional[str] = None

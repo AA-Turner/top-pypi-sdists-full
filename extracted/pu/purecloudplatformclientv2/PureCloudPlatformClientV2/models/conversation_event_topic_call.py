@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from . import ConversationEventTopicAddress
     from . import ConversationEventTopicAfterCallWork
     from . import ConversationEventTopicDisconnectReason
+    from . import ConversationEventTopicDisposition
     from . import ConversationEventTopicErrorDetails
     from . import ConversationEventTopicFaxStatus
     from . import ConversationEventTopicQueueMediaSettings
@@ -86,7 +87,9 @@ class ConversationEventTopicCall(object):
             'after_call_work': 'ConversationEventTopicAfterCallWork',
             'after_call_work_required': 'bool',
             'agent_assistant_id': 'str',
-            'queue_media_settings': 'ConversationEventTopicQueueMediaSettings'
+            'queue_media_settings': 'ConversationEventTopicQueueMediaSettings',
+            'disposition': 'ConversationEventTopicDisposition',
+            'transfer_source': 'str'
         }
 
         self.attribute_map = {
@@ -120,7 +123,9 @@ class ConversationEventTopicCall(object):
             'after_call_work': 'afterCallWork',
             'after_call_work_required': 'afterCallWorkRequired',
             'agent_assistant_id': 'agentAssistantId',
-            'queue_media_settings': 'queueMediaSettings'
+            'queue_media_settings': 'queueMediaSettings',
+            'disposition': 'disposition',
+            'transfer_source': 'transferSource'
         }
 
         self._id = None
@@ -154,6 +159,8 @@ class ConversationEventTopicCall(object):
         self._after_call_work_required = None
         self._agent_assistant_id = None
         self._queue_media_settings = None
+        self._disposition = None
+        self._transfer_source = None
 
     @property
     def id(self) -> str:
@@ -923,6 +930,54 @@ class ConversationEventTopicCall(object):
         
 
         self._queue_media_settings = queue_media_settings
+
+    @property
+    def disposition(self) -> 'ConversationEventTopicDisposition':
+        """
+        Gets the disposition of this ConversationEventTopicCall.
+
+
+        :return: The disposition of this ConversationEventTopicCall.
+        :rtype: ConversationEventTopicDisposition
+        """
+        return self._disposition
+
+    @disposition.setter
+    def disposition(self, disposition: 'ConversationEventTopicDisposition') -> None:
+        """
+        Sets the disposition of this ConversationEventTopicCall.
+
+
+        :param disposition: The disposition of this ConversationEventTopicCall.
+        :type: ConversationEventTopicDisposition
+        """
+        
+
+        self._disposition = disposition
+
+    @property
+    def transfer_source(self) -> str:
+        """
+        Gets the transfer_source of this ConversationEventTopicCall.
+        Indicates how call reaches the agent.
+
+        :return: The transfer_source of this ConversationEventTopicCall.
+        :rtype: str
+        """
+        return self._transfer_source
+
+    @transfer_source.setter
+    def transfer_source(self, transfer_source: str) -> None:
+        """
+        Sets the transfer_source of this ConversationEventTopicCall.
+        Indicates how call reaches the agent.
+
+        :param transfer_source: The transfer_source of this ConversationEventTopicCall.
+        :type: str
+        """
+        
+
+        self._transfer_source = transfer_source
 
     def to_dict(self):
         """

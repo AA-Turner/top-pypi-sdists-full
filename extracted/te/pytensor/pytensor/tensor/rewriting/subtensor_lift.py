@@ -2,12 +2,12 @@ from collections.abc import Iterable, Sequence
 from typing import cast
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_index, normalize_axis_tuple
 
 from pytensor import Variable
 from pytensor.compile import optdb
 from pytensor.graph import Constant, FunctionGraph, node_rewriter, vectorize_graph
 from pytensor.graph.rewriting.basic import NodeRewriter, copy_stack_trace
-from pytensor.npy_2_compat import normalize_axis_index, normalize_axis_tuple
 from pytensor.scalar import basic as ps
 from pytensor.tensor.basic import (
     Alloc,
@@ -488,7 +488,11 @@ def local_subtensor_of_squeeze(fgraph, node):
 
     # Apply indices directly on x
     # Add empty slices on the axis that squeeze would have removed
-    new_idxs = np.insert(np.array(idxs, dtype=object), dropped_dims, slice(None))
+    new_idxs = list(idxs)
+    for d in sorted(dropped_dims):
+        new_idxs.insert(d, slice(None))
+    new_idxs = np.array(new_idxs, dtype=object)
+
     x_indexed = x_before_squeeze[tuple(new_idxs)]
 
     # Reapply squeeze

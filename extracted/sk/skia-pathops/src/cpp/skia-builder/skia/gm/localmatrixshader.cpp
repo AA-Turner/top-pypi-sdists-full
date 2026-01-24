@@ -21,6 +21,8 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkTypes.h"
 #include "include/effects/SkGradientShader.h"
+#include "tools/DecodeUtils.h"
+#include "tools/GpuToolUtils.h"
 #include "tools/Resources.h"
 #include "tools/ToolUtils.h"
 #include "tools/timer/TimeUtils.h"
@@ -28,7 +30,7 @@
 static sk_sp<SkImage> make_image(SkCanvas* rootCanvas) {
     static constexpr SkScalar kSize = 50;
     SkImageInfo info = SkImageInfo::MakeN32Premul(kSize, kSize);
-    auto surface(SkSurface::MakeRaster(info));
+    auto surface(SkSurfaces::Raster(info));
 
     SkPaint p;
     p.setAntiAlias(true);
@@ -119,7 +121,7 @@ DEF_SIMPLE_GM(localmatrixshader_nested, canvas, 450, 1200) {
 }
 
 DEF_SIMPLE_GM(localmatrixshader_persp, canvas, 542, 266) {
-    auto image = GetResourceAsImage("images/yellow_rose.png");
+    auto image = ToolUtils::GetResourceAsImage("images/yellow_rose.png");
 
     SkBitmap downsized;
     downsized.allocPixels(image->imageInfo().makeWH(128, 128));
@@ -131,14 +133,13 @@ DEF_SIMPLE_GM(localmatrixshader_persp, canvas, 542, 266) {
     SkMatrix scale = SkMatrix::Scale(1.f / 5.f, 1.f / 5.f);
 
     // perspective matrix
-    SkPoint src[4];
-    imgRect.toQuad(src);
+    const std::array<SkPoint, 4> src = imgRect.toQuad();
     SkPoint dst[4] = {{0, 10.f},
                       {image->width() + 28.f, -100.f},
                       {image->width() - 28.f, image->height() + 100.f},
                       {0.f, image->height() - 10.f}};
     SkMatrix persp;
-    SkAssertResult(persp.setPolyToPoly(src, dst, 4));
+    SkAssertResult(persp.setPolyToPoly(src, dst));
 
     // combined persp * scale
     SkMatrix perspScale = SkMatrix::Concat(persp, scale);
@@ -222,25 +223,23 @@ public:
     LocalMatrixOrder() {}
 
 protected:
-    SkString onShortName() override {
-        return SkString("localmatrix_order");
-    }
+    SkString getName() const override { return SkString("localmatrix_order"); }
 
-    SkISize onISize() override { return SkISize::Make(500, 500); }
+    SkISize getISize() override { return SkISize::Make(500, 500); }
 
     void onOnceBeforeDraw() override {
-        auto mandrill = GetResourceAsImage("images/mandrill_256.png");  // 256x256
-        auto example5 = GetResourceAsImage("images/example_5.png");     // 128x128
+        auto mandrill = ToolUtils::GetResourceAsImage("images/mandrill_256.png");  // 256x256
+        auto example5 = ToolUtils::GetResourceAsImage("images/example_5.png");     // 128x128
 
         auto mshader = mandrill->makeShader(
                 SkTileMode::kRepeat,
                 SkTileMode::kRepeat,
-                SkSamplingOptions{},
+                SkFilterMode::kNearest,
                 SkMatrix::RotateDeg(45, {128, 128})); // rotate about center
         auto eshader = example5->makeShader(
                 SkTileMode::kRepeat,
                 SkTileMode::kRepeat,
-                SkSamplingOptions{},
+                SkFilterMode::kNearest,
                 SkMatrix::Scale(2, 2)); // make same size as mandrill and...
         // ... rotate about center
         eshader = eshader->makeWithLocalMatrix(SkMatrix::RotateDeg(45, {128, 128}));

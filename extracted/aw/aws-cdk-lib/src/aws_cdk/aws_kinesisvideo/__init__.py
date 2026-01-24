@@ -62,10 +62,213 @@ from .. import (
     CfnResource as _CfnResource_9df397a6,
     CfnTag as _CfnTag_f6864754,
     IInspectable as _IInspectable_c2943556,
+    IResolvable as _IResolvable_da3f097b,
     ITaggable as _ITaggable_36806126,
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
+from ..interfaces.aws_kinesisvideo import (
+    ISignalingChannelRef as _ISignalingChannelRef_cbe8a964,
+    IStreamRef as _IStreamRef_ff0d232b,
+    SignalingChannelReference as _SignalingChannelReference_d0bc575a,
+    StreamReference as _StreamReference_d8523c8e,
+)
+
+
+@jsii.implements(_IInspectable_c2943556, _ISignalingChannelRef_cbe8a964, _ITaggable_36806126)
+class CfnSignalingChannel(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesisvideo.CfnSignalingChannel",
+):
+    '''Specifies a signaling channel.
+
+    ``CreateSignalingChannel`` is an asynchronous operation.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-signalingchannel.html
+    :cloudformationResource: AWS::KinesisVideo::SignalingChannel
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kinesisvideo as kinesisvideo
+        
+        cfn_signaling_channel = kinesisvideo.CfnSignalingChannel(self, "MyCfnSignalingChannel",
+            message_ttl_seconds=123,
+            name="name",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            type="type"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        message_ttl_seconds: typing.Optional[jsii.Number] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::KinesisVideo::SignalingChannel``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param message_ttl_seconds: The period of time (in seconds) a signaling channel retains undelivered messages before they are discarded. Use ``API_UpdateSignalingChannel`` to update this value.
+        :param name: A name for the signaling channel that you are creating. It must be unique for each AWS account and AWS Region .
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+        :param type: A type of the signaling channel that you are creating. Currently, ``SINGLE_MASTER`` is the only supported channel type.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58eea5563d65f986204277ab06c42f79f4e2ffc4cdc5b476a7662b9247883cd5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSignalingChannelProps(
+            message_ttl_seconds=message_ttl_seconds, name=name, tags=tags, type=type
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSignalingChannel")
+    @builtins.classmethod
+    def arn_for_signaling_channel(
+        cls,
+        resource: "_ISignalingChannelRef_cbe8a964",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f943a12cf61d205b3e198fcb6b11456495270986d52e4c7b0e3cc5ff66520815)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSignalingChannel", [resource]))
+
+    @jsii.member(jsii_name="isCfnSignalingChannel")
+    @builtins.classmethod
+    def is_cfn_signaling_channel(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSignalingChannel.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__619de6b6f20e948ac88e1396eaed694621afc258b72203a155b49e47da202c92)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSignalingChannel", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14c02801acfed3f47e58cd286b44774b56dac9699b2b4f0efbfa7cb846e9a8f0)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04d8fc8613cab4f404eaa5a411eb316a217c578efe3f1042ff7e9c7ae1a20d54)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the signaling channel.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="signalingChannelRef")
+    def signaling_channel_ref(self) -> "_SignalingChannelReference_d0bc575a":
+        '''A reference to a SignalingChannel resource.'''
+        return typing.cast("_SignalingChannelReference_d0bc575a", jsii.get(self, "signalingChannelRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="messageTtlSeconds")
+    def message_ttl_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The period of time (in seconds) a signaling channel retains undelivered messages before they are discarded.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "messageTtlSeconds"))
+
+    @message_ttl_seconds.setter
+    def message_ttl_seconds(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c723690059f227147456e4325e85267353954b76fb6f1f3ebaf081cc4db573a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "messageTtlSeconds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A name for the signaling channel that you are creating.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f3c37814ef5cdb9a7768ca5c31dd1391998e936ab96884cc6e1d2b76020d74c6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e54f13767d9e88cdb8458933a141b77459f96d266266c2d15f01e595f8a4f364)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> typing.Optional[builtins.str]:
+        '''A type of the signaling channel that you are creating.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65142c82be8394948ea812bc9b8f7602a7ce5c477c87477a319ed039a4c2fdd4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -84,7 +287,7 @@ class CfnSignalingChannelProps:
         *,
         message_ttl_seconds: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnSignalingChannel``.
@@ -99,6 +302,7 @@ class CfnSignalingChannelProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_kinesisvideo as kinesisvideo
@@ -152,7 +356,7 @@ class CfnSignalingChannelProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.
 
         For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -160,7 +364,7 @@ class CfnSignalingChannelProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-signalingchannel.html#cfn-kinesisvideo-signalingchannel-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
@@ -185,526 +389,7 @@ class CfnSignalingChannelProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kinesisvideo.CfnStreamProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_retention_in_hours": "dataRetentionInHours",
-        "device_name": "deviceName",
-        "kms_key_id": "kmsKeyId",
-        "media_type": "mediaType",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnStreamProps:
-    def __init__(
-        self,
-        *,
-        data_retention_in_hours: typing.Optional[jsii.Number] = None,
-        device_name: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        media_type: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnStream``.
-
-        :param data_retention_in_hours: How long the stream retains data, in hours.
-        :param device_name: The name of the device that is associated with the stream.
-        :param kms_key_id: The ID of the AWS Key Management Service ( AWS KMS ) key that Kinesis Video Streams uses to encrypt data on the stream.
-        :param media_type: The ``MediaType`` of the stream.
-        :param name: The name of the stream.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kinesisvideo as kinesisvideo
-            
-            cfn_stream_props = kinesisvideo.CfnStreamProps(
-                data_retention_in_hours=123,
-                device_name="deviceName",
-                kms_key_id="kmsKeyId",
-                media_type="mediaType",
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99fe3ebad84d54122e4e37ffa968edc213c9518bca26ea24531a78c1fa0e2c8d)
-            check_type(argname="argument data_retention_in_hours", value=data_retention_in_hours, expected_type=type_hints["data_retention_in_hours"])
-            check_type(argname="argument device_name", value=device_name, expected_type=type_hints["device_name"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument media_type", value=media_type, expected_type=type_hints["media_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if data_retention_in_hours is not None:
-            self._values["data_retention_in_hours"] = data_retention_in_hours
-        if device_name is not None:
-            self._values["device_name"] = device_name
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if media_type is not None:
-            self._values["media_type"] = media_type
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def data_retention_in_hours(self) -> typing.Optional[jsii.Number]:
-        '''How long the stream retains data, in hours.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-dataretentioninhours
-        '''
-        result = self._values.get("data_retention_in_hours")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def device_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the device that is associated with the stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-devicename
-        '''
-        result = self._values.get("device_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the AWS Key Management Service ( AWS KMS ) key that Kinesis Video Streams uses to encrypt data on the stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def media_type(self) -> typing.Optional[builtins.str]:
-        '''The ``MediaType`` of the stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-mediatype
-        '''
-        result = self._values.get("media_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnStreamProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_kinesisvideo.ISignalingChannelRef")
-class ISignalingChannelRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a SignalingChannel.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="signalingChannelRef")
-    def signaling_channel_ref(self) -> "SignalingChannelReference":
-        '''(experimental) A reference to a SignalingChannel resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISignalingChannelRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a SignalingChannel.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisvideo.ISignalingChannelRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="signalingChannelRef")
-    def signaling_channel_ref(self) -> "SignalingChannelReference":
-        '''(experimental) A reference to a SignalingChannel resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SignalingChannelReference", jsii.get(self, "signalingChannelRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISignalingChannelRef).__jsii_proxy_class__ = lambda : _ISignalingChannelRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_kinesisvideo.IStreamRef")
-class IStreamRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Stream.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="streamRef")
-    def stream_ref(self) -> "StreamReference":
-        '''(experimental) A reference to a Stream resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IStreamRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Stream.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisvideo.IStreamRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="streamRef")
-    def stream_ref(self) -> "StreamReference":
-        '''(experimental) A reference to a Stream resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("StreamReference", jsii.get(self, "streamRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IStreamRef).__jsii_proxy_class__ = lambda : _IStreamRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kinesisvideo.SignalingChannelReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "signaling_channel_arn": "signalingChannelArn",
-        "signaling_channel_name": "signalingChannelName",
-    },
-)
-class SignalingChannelReference:
-    def __init__(
-        self,
-        *,
-        signaling_channel_arn: builtins.str,
-        signaling_channel_name: builtins.str,
-    ) -> None:
-        '''A reference to a SignalingChannel resource.
-
-        :param signaling_channel_arn: The ARN of the SignalingChannel resource.
-        :param signaling_channel_name: The Name of the SignalingChannel resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kinesisvideo as kinesisvideo
-            
-            signaling_channel_reference = kinesisvideo.SignalingChannelReference(
-                signaling_channel_arn="signalingChannelArn",
-                signaling_channel_name="signalingChannelName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__019a816fc1c7fea9c43c8e3c572794562640ea2b934e5bccc178ae24b27162d8)
-            check_type(argname="argument signaling_channel_arn", value=signaling_channel_arn, expected_type=type_hints["signaling_channel_arn"])
-            check_type(argname="argument signaling_channel_name", value=signaling_channel_name, expected_type=type_hints["signaling_channel_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "signaling_channel_arn": signaling_channel_arn,
-            "signaling_channel_name": signaling_channel_name,
-        }
-
-    @builtins.property
-    def signaling_channel_arn(self) -> builtins.str:
-        '''The ARN of the SignalingChannel resource.'''
-        result = self._values.get("signaling_channel_arn")
-        assert result is not None, "Required property 'signaling_channel_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def signaling_channel_name(self) -> builtins.str:
-        '''The Name of the SignalingChannel resource.'''
-        result = self._values.get("signaling_channel_name")
-        assert result is not None, "Required property 'signaling_channel_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SignalingChannelReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_kinesisvideo.StreamReference",
-    jsii_struct_bases=[],
-    name_mapping={"stream_arn": "streamArn", "stream_name": "streamName"},
-)
-class StreamReference:
-    def __init__(self, *, stream_arn: builtins.str, stream_name: builtins.str) -> None:
-        '''A reference to a Stream resource.
-
-        :param stream_arn: The ARN of the Stream resource.
-        :param stream_name: The Name of the Stream resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_kinesisvideo as kinesisvideo
-            
-            stream_reference = kinesisvideo.StreamReference(
-                stream_arn="streamArn",
-                stream_name="streamName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf4a67e60d8cb0a4a635c2fd9670aceb6cbc2c2e60919223f164054ff7b1d900)
-            check_type(argname="argument stream_arn", value=stream_arn, expected_type=type_hints["stream_arn"])
-            check_type(argname="argument stream_name", value=stream_name, expected_type=type_hints["stream_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "stream_arn": stream_arn,
-            "stream_name": stream_name,
-        }
-
-    @builtins.property
-    def stream_arn(self) -> builtins.str:
-        '''The ARN of the Stream resource.'''
-        result = self._values.get("stream_arn")
-        assert result is not None, "Required property 'stream_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def stream_name(self) -> builtins.str:
-        '''The Name of the Stream resource.'''
-        result = self._values.get("stream_name")
-        assert result is not None, "Required property 'stream_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "StreamReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, ISignalingChannelRef, _ITaggable_36806126)
-class CfnSignalingChannel(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_kinesisvideo.CfnSignalingChannel",
-):
-    '''Specifies a signaling channel.
-
-    ``CreateSignalingChannel`` is an asynchronous operation.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-signalingchannel.html
-    :cloudformationResource: AWS::KinesisVideo::SignalingChannel
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_kinesisvideo as kinesisvideo
-        
-        cfn_signaling_channel = kinesisvideo.CfnSignalingChannel(self, "MyCfnSignalingChannel",
-            message_ttl_seconds=123,
-            name="name",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            type="type"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        message_ttl_seconds: typing.Optional[jsii.Number] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param message_ttl_seconds: The period of time (in seconds) a signaling channel retains undelivered messages before they are discarded. Use ``API_UpdateSignalingChannel`` to update this value.
-        :param name: A name for the signaling channel that you are creating. It must be unique for each AWS account and AWS Region .
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
-        :param type: A type of the signaling channel that you are creating. Currently, ``SINGLE_MASTER`` is the only supported channel type.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58eea5563d65f986204277ab06c42f79f4e2ffc4cdc5b476a7662b9247883cd5)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnSignalingChannelProps(
-            message_ttl_seconds=message_ttl_seconds, name=name, tags=tags, type=type
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__14c02801acfed3f47e58cd286b44774b56dac9699b2b4f0efbfa7cb846e9a8f0)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04d8fc8613cab4f404eaa5a411eb316a217c578efe3f1042ff7e9c7ae1a20d54)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the signaling channel.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="signalingChannelRef")
-    def signaling_channel_ref(self) -> SignalingChannelReference:
-        '''A reference to a SignalingChannel resource.'''
-        return typing.cast(SignalingChannelReference, jsii.get(self, "signalingChannelRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="messageTtlSeconds")
-    def message_ttl_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The period of time (in seconds) a signaling channel retains undelivered messages before they are discarded.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "messageTtlSeconds"))
-
-    @message_ttl_seconds.setter
-    def message_ttl_seconds(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c723690059f227147456e4325e85267353954b76fb6f1f3ebaf081cc4db573a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "messageTtlSeconds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''A name for the signaling channel that you are creating.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3c37814ef5cdb9a7768ca5c31dd1391998e936ab96884cc6e1d2b76020d74c6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e54f13767d9e88cdb8458933a141b77459f96d266266c2d15f01e595f8a4f364)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="type")
-    def type(self) -> typing.Optional[builtins.str]:
-        '''A type of the signaling channel that you are creating.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "type"))
-
-    @type.setter
-    def type(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65142c82be8394948ea812bc9b8f7602a7ce5c477c87477a319ed039a4c2fdd4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IStreamRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IStreamRef_ff0d232b, _ITaggable_36806126)
 class CfnStream(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -726,6 +411,7 @@ class CfnStream(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_kinesisvideo as kinesisvideo
@@ -736,6 +422,9 @@ class CfnStream(
             kms_key_id="kmsKeyId",
             media_type="mediaType",
             name="name",
+            stream_storage_configuration=kinesisvideo.CfnStream.StreamStorageConfigurationProperty(
+                default_storage_tier="defaultStorageTier"
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -745,7 +434,7 @@ class CfnStream(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         data_retention_in_hours: typing.Optional[jsii.Number] = None,
@@ -753,16 +442,19 @@ class CfnStream(
         kms_key_id: typing.Optional[builtins.str] = None,
         media_type: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        stream_storage_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStream.StreamStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::KinesisVideo::Stream``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param data_retention_in_hours: How long the stream retains data, in hours.
         :param device_name: The name of the device that is associated with the stream.
-        :param kms_key_id: The ID of the AWS Key Management Service ( AWS KMS ) key that Kinesis Video Streams uses to encrypt data on the stream.
+        :param kms_key_id: The ID of the AWS Key Management Service ( AWS ) key that Kinesis Video Streams uses to encrypt data on the stream.
         :param media_type: The ``MediaType`` of the stream.
         :param name: The name of the stream.
+        :param stream_storage_configuration: The configuration for stream storage, including the default storage tier for stream data. This configuration determines how stream data is stored and accessed, with different tiers offering varying levels of performance and cost optimization.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
         if __debug__:
@@ -775,13 +467,37 @@ class CfnStream(
             kms_key_id=kms_key_id,
             media_type=media_type,
             name=name,
+            stream_storage_configuration=stream_storage_configuration,
             tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForStream")
+    @builtins.classmethod
+    def arn_for_stream(cls, resource: "_IStreamRef_ff0d232b") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d38301bab4e9a780a923b10ea8c1ff4821d9241fed12ad8d638b9bf035dbb82e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStream", [resource]))
+
+    @jsii.member(jsii_name="isCfnStream")
+    @builtins.classmethod
+    def is_cfn_stream(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnStream.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9f778dacdea02c1501883a5f1b0b7fc6733f60cad294d68e73bbfee8c08bf72)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnStream", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -826,15 +542,15 @@ class CfnStream(
 
     @builtins.property
     @jsii.member(jsii_name="streamRef")
-    def stream_ref(self) -> StreamReference:
+    def stream_ref(self) -> "_StreamReference_d8523c8e":
         '''A reference to a Stream resource.'''
-        return typing.cast(StreamReference, jsii.get(self, "streamRef"))
+        return typing.cast("_StreamReference_d8523c8e", jsii.get(self, "streamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="dataRetentionInHours")
@@ -865,7 +581,7 @@ class CfnStream(
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the AWS Key Management Service ( AWS KMS ) key that Kinesis Video Streams uses to encrypt data on the stream.'''
+        '''The ID of the AWS Key Management Service ( AWS  ) key that Kinesis Video Streams uses to encrypt data on the stream.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
 
     @kms_key_id.setter
@@ -902,17 +618,267 @@ class CfnStream(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="streamStorageConfiguration")
+    def stream_storage_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamStorageConfigurationProperty"]]:
+        '''The configuration for stream storage, including the default storage tier for stream data.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamStorageConfigurationProperty"]], jsii.get(self, "streamStorageConfiguration"))
+
+    @stream_storage_configuration.setter
+    def stream_storage_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamStorageConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__353e31ad55994ee34db35f925ed1ba94ca68ffb3ce97ad064feb40830721c5c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamStorageConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__916b61187a1fea0754be9981eeeb345ba75e61b6417bbde10d8246657f4cff69)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_kinesisvideo.CfnStream.StreamStorageConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"default_storage_tier": "defaultStorageTier"},
+    )
+    class StreamStorageConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            default_storage_tier: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The configuration for stream storage, including the default storage tier for stream data.
+
+            This configuration determines how stream data is stored and accessed, with different tiers offering varying levels of performance and cost optimization.
+
+            :param default_storage_tier: The default storage tier for the stream data. This setting determines the storage class used for stream data, affecting both performance characteristics and storage costs. Available storage tiers: - ``HOT`` - Optimized for frequent access with the lowest latency and highest performance. Ideal for real-time applications and frequently accessed data. - ``WARM`` - Balanced performance and cost for moderately accessed data. Suitable for data that is accessed regularly but not continuously. Default: - "HOT"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisvideo-stream-streamstorageconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_kinesisvideo as kinesisvideo
+                
+                stream_storage_configuration_property = kinesisvideo.CfnStream.StreamStorageConfigurationProperty(
+                    default_storage_tier="defaultStorageTier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a0b7b767c6dc68700d380e90c6d53c4b73ae75797443dc5990f82cd0fd0ed319)
+                check_type(argname="argument default_storage_tier", value=default_storage_tier, expected_type=type_hints["default_storage_tier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if default_storage_tier is not None:
+                self._values["default_storage_tier"] = default_storage_tier
+
+        @builtins.property
+        def default_storage_tier(self) -> typing.Optional[builtins.str]:
+            '''The default storage tier for the stream data.
+
+            This setting determines the storage class used for stream data, affecting both performance characteristics and storage costs.
+
+            Available storage tiers:
+
+            - ``HOT`` - Optimized for frequent access with the lowest latency and highest performance. Ideal for real-time applications and frequently accessed data.
+            - ``WARM`` - Balanced performance and cost for moderately accessed data. Suitable for data that is accessed regularly but not continuously.
+
+            :default: - "HOT"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisvideo-stream-streamstorageconfiguration.html#cfn-kinesisvideo-stream-streamstorageconfiguration-defaultstoragetier
+            '''
+            result = self._values.get("default_storage_tier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamStorageConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisvideo.CfnStreamProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_retention_in_hours": "dataRetentionInHours",
+        "device_name": "deviceName",
+        "kms_key_id": "kmsKeyId",
+        "media_type": "mediaType",
+        "name": "name",
+        "stream_storage_configuration": "streamStorageConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnStreamProps:
+    def __init__(
+        self,
+        *,
+        data_retention_in_hours: typing.Optional[jsii.Number] = None,
+        device_name: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        media_type: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        stream_storage_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStream.StreamStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnStream``.
+
+        :param data_retention_in_hours: How long the stream retains data, in hours.
+        :param device_name: The name of the device that is associated with the stream.
+        :param kms_key_id: The ID of the AWS Key Management Service ( AWS ) key that Kinesis Video Streams uses to encrypt data on the stream.
+        :param media_type: The ``MediaType`` of the stream.
+        :param name: The name of the stream.
+        :param stream_storage_configuration: The configuration for stream storage, including the default storage tier for stream data. This configuration determines how stream data is stored and accessed, with different tiers offering varying levels of performance and cost optimization.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisvideo as kinesisvideo
+            
+            cfn_stream_props = kinesisvideo.CfnStreamProps(
+                data_retention_in_hours=123,
+                device_name="deviceName",
+                kms_key_id="kmsKeyId",
+                media_type="mediaType",
+                name="name",
+                stream_storage_configuration=kinesisvideo.CfnStream.StreamStorageConfigurationProperty(
+                    default_storage_tier="defaultStorageTier"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__99fe3ebad84d54122e4e37ffa968edc213c9518bca26ea24531a78c1fa0e2c8d)
+            check_type(argname="argument data_retention_in_hours", value=data_retention_in_hours, expected_type=type_hints["data_retention_in_hours"])
+            check_type(argname="argument device_name", value=device_name, expected_type=type_hints["device_name"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument media_type", value=media_type, expected_type=type_hints["media_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument stream_storage_configuration", value=stream_storage_configuration, expected_type=type_hints["stream_storage_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if data_retention_in_hours is not None:
+            self._values["data_retention_in_hours"] = data_retention_in_hours
+        if device_name is not None:
+            self._values["device_name"] = device_name
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if media_type is not None:
+            self._values["media_type"] = media_type
+        if name is not None:
+            self._values["name"] = name
+        if stream_storage_configuration is not None:
+            self._values["stream_storage_configuration"] = stream_storage_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def data_retention_in_hours(self) -> typing.Optional[jsii.Number]:
+        '''How long the stream retains data, in hours.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-dataretentioninhours
+        '''
+        result = self._values.get("data_retention_in_hours")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def device_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the device that is associated with the stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-devicename
+        '''
+        result = self._values.get("device_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the AWS Key Management Service ( AWS  ) key that Kinesis Video Streams uses to encrypt data on the stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def media_type(self) -> typing.Optional[builtins.str]:
+        '''The ``MediaType`` of the stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-mediatype
+        '''
+        result = self._values.get("media_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def stream_storage_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamStorageConfigurationProperty"]]:
+        '''The configuration for stream storage, including the default storage tier for stream data.
+
+        This configuration determines how stream data is stored and accessed, with different tiers offering varying levels of performance and cost optimization.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-streamstorageconfiguration
+        '''
+        result = self._values.get("stream_storage_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStream.StreamStorageConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisvideo-stream.html#cfn-kinesisvideo-stream-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnStreamProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 __all__ = [
@@ -920,51 +886,9 @@ __all__ = [
     "CfnSignalingChannelProps",
     "CfnStream",
     "CfnStreamProps",
-    "ISignalingChannelRef",
-    "IStreamRef",
-    "SignalingChannelReference",
-    "StreamReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__b54efbb13d30ecdaf3fde9f6d6c355925b3f6647db068f9a07e7f409326d7e74(
-    *,
-    message_ttl_seconds: typing.Optional[jsii.Number] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__99fe3ebad84d54122e4e37ffa968edc213c9518bca26ea24531a78c1fa0e2c8d(
-    *,
-    data_retention_in_hours: typing.Optional[jsii.Number] = None,
-    device_name: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    media_type: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__019a816fc1c7fea9c43c8e3c572794562640ea2b934e5bccc178ae24b27162d8(
-    *,
-    signaling_channel_arn: builtins.str,
-    signaling_channel_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf4a67e60d8cb0a4a635c2fd9670aceb6cbc2c2e60919223f164054ff7b1d900(
-    *,
-    stream_arn: builtins.str,
-    stream_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__58eea5563d65f986204277ab06c42f79f4e2ffc4cdc5b476a7662b9247883cd5(
     scope: _constructs_77d1e7e8.Construct,
@@ -974,6 +898,18 @@ def _typecheckingstub__58eea5563d65f986204277ab06c42f79f4e2ffc4cdc5b476a7662b924
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f943a12cf61d205b3e198fcb6b11456495270986d52e4c7b0e3cc5ff66520815(
+    resource: _ISignalingChannelRef_cbe8a964,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__619de6b6f20e948ac88e1396eaed694621afc258b72203a155b49e47da202c92(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1014,6 +950,16 @@ def _typecheckingstub__65142c82be8394948ea812bc9b8f7602a7ce5c477c87477a319ed039a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b54efbb13d30ecdaf3fde9f6d6c355925b3f6647db068f9a07e7f409326d7e74(
+    *,
+    message_ttl_seconds: typing.Optional[jsii.Number] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9ec46ef966c55301f1d7f90935a5a7340c3d7ee98963234b59d16d191c12645f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1023,7 +969,20 @@ def _typecheckingstub__9ec46ef966c55301f1d7f90935a5a7340c3d7ee98963234b59d16d191
     kms_key_id: typing.Optional[builtins.str] = None,
     media_type: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    stream_storage_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d38301bab4e9a780a923b10ea8c1ff4821d9241fed12ad8d638b9bf035dbb82e(
+    resource: _IStreamRef_ff0d232b,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9f778dacdea02c1501883a5f1b0b7fc6733f60cad294d68e73bbfee8c08bf72(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1070,8 +1029,34 @@ def _typecheckingstub__42f11c245ea7a28ba3c7727c31351ffc7b0f10775943c038ec944523d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__353e31ad55994ee34db35f925ed1ba94ca68ffb3ce97ad064feb40830721c5c9(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStream.StreamStorageConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__916b61187a1fea0754be9981eeeb345ba75e61b6417bbde10d8246657f4cff69(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0b7b767c6dc68700d380e90c6d53c4b73ae75797443dc5990f82cd0fd0ed319(
+    *,
+    default_storage_tier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__99fe3ebad84d54122e4e37ffa968edc213c9518bca26ea24531a78c1fa0e2c8d(
+    *,
+    data_retention_in_hours: typing.Optional[jsii.Number] = None,
+    device_name: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    media_type: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    stream_storage_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStream.StreamStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

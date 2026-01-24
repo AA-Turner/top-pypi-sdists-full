@@ -198,20 +198,34 @@ __all__ = [
     "AutomationInputGenerator",
     "AutomationInputGeneratorCompletedV2BetaEvent",
     "AutomationInputGeneratorCompletedV2BetaEventEventType",
+    "AutomationInputGeneratorCompletedV2Event",
+    "AutomationInputGeneratorCompletedV2EventEventType",
     "AutomationInputGeneratorUpdate",
     "AutomationOutputProcessor",
     "AutomationOutputProcessorArchivalChange",
     "AutomationOutputProcessorCompletedV2BetaEvent",
     "AutomationOutputProcessorCompletedV2BetaEventEventType",
+    "AutomationOutputProcessorCompletedV2Event",
+    "AutomationOutputProcessorCompletedV2EventEventType",
     "AutomationOutputProcessorCreate",
     "AutomationOutputProcessorUpdate",
     "AutomationOutputProcessorUploadedV2BetaEvent",
     "AutomationOutputProcessorUploadedV2BetaEventEventType",
+    "AutomationOutputProcessorUploadedV2Event",
+    "AutomationOutputProcessorUploadedV2EventEventType",
     "AutomationOutputProcessorsArchive",
     "AutomationOutputProcessorsArchiveReason",
     "AutomationOutputProcessorsPaginatedList",
     "AutomationOutputProcessorsUnarchive",
     "AutomationProgressStats",
+    "AutomationTransformStatusFailedEventV2Event",
+    "AutomationTransformStatusFailedEventV2EventEventType",
+    "AutomationTransformStatusPendingEventV2Event",
+    "AutomationTransformStatusPendingEventV2EventEventType",
+    "AutomationTransformStatusRunningEventV2Event",
+    "AutomationTransformStatusRunningEventV2EventEventType",
+    "AutomationTransformStatusSucceededEventV2Event",
+    "AutomationTransformStatusSucceededEventV2EventEventType",
     "BackTranslate",
     "BackTranslateGcContent",
     "BackTranslateHairpinParameters",
@@ -323,6 +337,7 @@ __all__ = [
     "ChipUiBlockCreate",
     "ChipUiBlockType",
     "ChipUiBlockUpdate",
+    "ClustaloOptions",
     "CodonUsageTable",
     "CodonUsageTablesPaginatedList",
     "ConflictError",
@@ -462,6 +477,7 @@ __all__ = [
     "DnaSequenceRequestRegistryFields",
     "DnaSequenceSummary",
     "DnaSequenceSummaryEntityType",
+    "DnaSequenceTranscription",
     "DnaSequenceUpdate",
     "DnaSequenceUpsertRequest",
     "DnaSequenceWithEntityType",
@@ -548,6 +564,8 @@ __all__ = [
     "EntryTemplateUpdate",
     "EntryTemplatesPaginatedList",
     "EntryUpdate",
+    "EntryUpdatedAssignedReviewersEvent",
+    "EntryUpdatedAssignedReviewersEventEventType",
     "EntryUpdatedFieldsEvent",
     "EntryUpdatedFieldsEventEventType",
     "EntryUpdatedReviewRecordEvent",
@@ -737,6 +755,9 @@ __all__ = [
     "LocationsUnarchive",
     "LookupTableNotePart",
     "LookupTableNotePartType",
+    "MafftOptions",
+    "MafftOptionsAdjustDirection",
+    "MafftOptionsStrategy",
     "MarkdownUiBlock",
     "MarkdownUiBlockCreate",
     "MarkdownUiBlockType",
@@ -1014,6 +1035,8 @@ __all__ = [
     "StageEntryCreatedEvent",
     "StageEntryCreatedEventEventType",
     "StageEntryReviewRecord",
+    "StageEntryUpdatedAssignedReviewersEvent",
+    "StageEntryUpdatedAssignedReviewersEventEventType",
     "StageEntryUpdatedFieldsEvent",
     "StageEntryUpdatedFieldsEventEventType",
     "StageEntryUpdatedReviewRecordEvent",
@@ -1377,20 +1400,34 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.automation_input_generator
     import benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_beta_event
     import benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_beta_event_event_type
+    import benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_event
+    import benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_event_event_type
     import benchling_api_client.v2.stable.models.automation_input_generator_update
     import benchling_api_client.v2.stable.models.automation_output_processor
     import benchling_api_client.v2.stable.models.automation_output_processor_archival_change
     import benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_beta_event
     import benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_beta_event_event_type
+    import benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_event
+    import benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_event_event_type
     import benchling_api_client.v2.stable.models.automation_output_processor_create
     import benchling_api_client.v2.stable.models.automation_output_processor_update
     import benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_beta_event
     import benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_beta_event_event_type
+    import benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_event
+    import benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_event_event_type
     import benchling_api_client.v2.stable.models.automation_output_processors_archive
     import benchling_api_client.v2.stable.models.automation_output_processors_archive_reason
     import benchling_api_client.v2.stable.models.automation_output_processors_paginated_list
     import benchling_api_client.v2.stable.models.automation_output_processors_unarchive
     import benchling_api_client.v2.stable.models.automation_progress_stats
+    import benchling_api_client.v2.stable.models.automation_transform_status_failed_event_v2_event
+    import benchling_api_client.v2.stable.models.automation_transform_status_failed_event_v2_event_event_type
+    import benchling_api_client.v2.stable.models.automation_transform_status_pending_event_v2_event
+    import benchling_api_client.v2.stable.models.automation_transform_status_pending_event_v2_event_event_type
+    import benchling_api_client.v2.stable.models.automation_transform_status_running_event_v2_event
+    import benchling_api_client.v2.stable.models.automation_transform_status_running_event_v2_event_event_type
+    import benchling_api_client.v2.stable.models.automation_transform_status_succeeded_event_v2_event
+    import benchling_api_client.v2.stable.models.automation_transform_status_succeeded_event_v2_event_event_type
     import benchling_api_client.v2.stable.models.back_translate
     import benchling_api_client.v2.stable.models.back_translate_gc_content
     import benchling_api_client.v2.stable.models.back_translate_hairpin_parameters
@@ -1502,6 +1539,7 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.chip_ui_block_create
     import benchling_api_client.v2.stable.models.chip_ui_block_type
     import benchling_api_client.v2.stable.models.chip_ui_block_update
+    import benchling_api_client.v2.stable.models.clustalo_options
     import benchling_api_client.v2.stable.models.codon_usage_table
     import benchling_api_client.v2.stable.models.codon_usage_tables_paginated_list
     import benchling_api_client.v2.stable.models.conflict_error
@@ -1641,6 +1679,7 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.dna_sequence_request_registry_fields
     import benchling_api_client.v2.stable.models.dna_sequence_summary
     import benchling_api_client.v2.stable.models.dna_sequence_summary_entity_type
+    import benchling_api_client.v2.stable.models.dna_sequence_transcription
     import benchling_api_client.v2.stable.models.dna_sequence_update
     import benchling_api_client.v2.stable.models.dna_sequence_upsert_request
     import benchling_api_client.v2.stable.models.dna_sequence_with_entity_type
@@ -1727,6 +1766,8 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.entry_template_update
     import benchling_api_client.v2.stable.models.entry_templates_paginated_list
     import benchling_api_client.v2.stable.models.entry_update
+    import benchling_api_client.v2.stable.models.entry_updated_assigned_reviewers_event
+    import benchling_api_client.v2.stable.models.entry_updated_assigned_reviewers_event_event_type
     import benchling_api_client.v2.stable.models.entry_updated_fields_event
     import benchling_api_client.v2.stable.models.entry_updated_fields_event_event_type
     import benchling_api_client.v2.stable.models.entry_updated_review_record_event
@@ -1916,6 +1957,9 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.locations_unarchive
     import benchling_api_client.v2.stable.models.lookup_table_note_part
     import benchling_api_client.v2.stable.models.lookup_table_note_part_type
+    import benchling_api_client.v2.stable.models.mafft_options
+    import benchling_api_client.v2.stable.models.mafft_options_adjust_direction
+    import benchling_api_client.v2.stable.models.mafft_options_strategy
     import benchling_api_client.v2.stable.models.markdown_ui_block
     import benchling_api_client.v2.stable.models.markdown_ui_block_create
     import benchling_api_client.v2.stable.models.markdown_ui_block_type
@@ -2193,6 +2237,8 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.stage_entry_created_event
     import benchling_api_client.v2.stable.models.stage_entry_created_event_event_type
     import benchling_api_client.v2.stable.models.stage_entry_review_record
+    import benchling_api_client.v2.stable.models.stage_entry_updated_assigned_reviewers_event
+    import benchling_api_client.v2.stable.models.stage_entry_updated_assigned_reviewers_event_event_type
     import benchling_api_client.v2.stable.models.stage_entry_updated_fields_event
     import benchling_api_client.v2.stable.models.stage_entry_updated_fields_event_event_type
     import benchling_api_client.v2.stable.models.stage_entry_updated_review_record_event
@@ -2904,6 +2950,12 @@ if TYPE_CHECKING:
     AutomationInputGeneratorCompletedV2BetaEventEventType = (
         benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_beta_event_event_type.AutomationInputGeneratorCompletedV2BetaEventEventType
     )
+    AutomationInputGeneratorCompletedV2Event = (
+        benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_event.AutomationInputGeneratorCompletedV2Event
+    )
+    AutomationInputGeneratorCompletedV2EventEventType = (
+        benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_event_event_type.AutomationInputGeneratorCompletedV2EventEventType
+    )
     AutomationInputGeneratorUpdate = (
         benchling_api_client.v2.stable.models.automation_input_generator_update.AutomationInputGeneratorUpdate
     )
@@ -2919,6 +2971,12 @@ if TYPE_CHECKING:
     AutomationOutputProcessorCompletedV2BetaEventEventType = (
         benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_beta_event_event_type.AutomationOutputProcessorCompletedV2BetaEventEventType
     )
+    AutomationOutputProcessorCompletedV2Event = (
+        benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_event.AutomationOutputProcessorCompletedV2Event
+    )
+    AutomationOutputProcessorCompletedV2EventEventType = (
+        benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_event_event_type.AutomationOutputProcessorCompletedV2EventEventType
+    )
     AutomationOutputProcessorCreate = (
         benchling_api_client.v2.stable.models.automation_output_processor_create.AutomationOutputProcessorCreate
     )
@@ -2930,6 +2988,12 @@ if TYPE_CHECKING:
     )
     AutomationOutputProcessorUploadedV2BetaEventEventType = (
         benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_beta_event_event_type.AutomationOutputProcessorUploadedV2BetaEventEventType
+    )
+    AutomationOutputProcessorUploadedV2Event = (
+        benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_event.AutomationOutputProcessorUploadedV2Event
+    )
+    AutomationOutputProcessorUploadedV2EventEventType = (
+        benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_event_event_type.AutomationOutputProcessorUploadedV2EventEventType
     )
     AutomationOutputProcessorsArchive = (
         benchling_api_client.v2.stable.models.automation_output_processors_archive.AutomationOutputProcessorsArchive
@@ -2945,6 +3009,30 @@ if TYPE_CHECKING:
     )
     AutomationProgressStats = (
         benchling_api_client.v2.stable.models.automation_progress_stats.AutomationProgressStats
+    )
+    AutomationTransformStatusFailedEventV2Event = (
+        benchling_api_client.v2.stable.models.automation_transform_status_failed_event_v2_event.AutomationTransformStatusFailedEventV2Event
+    )
+    AutomationTransformStatusFailedEventV2EventEventType = (
+        benchling_api_client.v2.stable.models.automation_transform_status_failed_event_v2_event_event_type.AutomationTransformStatusFailedEventV2EventEventType
+    )
+    AutomationTransformStatusPendingEventV2Event = (
+        benchling_api_client.v2.stable.models.automation_transform_status_pending_event_v2_event.AutomationTransformStatusPendingEventV2Event
+    )
+    AutomationTransformStatusPendingEventV2EventEventType = (
+        benchling_api_client.v2.stable.models.automation_transform_status_pending_event_v2_event_event_type.AutomationTransformStatusPendingEventV2EventEventType
+    )
+    AutomationTransformStatusRunningEventV2Event = (
+        benchling_api_client.v2.stable.models.automation_transform_status_running_event_v2_event.AutomationTransformStatusRunningEventV2Event
+    )
+    AutomationTransformStatusRunningEventV2EventEventType = (
+        benchling_api_client.v2.stable.models.automation_transform_status_running_event_v2_event_event_type.AutomationTransformStatusRunningEventV2EventEventType
+    )
+    AutomationTransformStatusSucceededEventV2Event = (
+        benchling_api_client.v2.stable.models.automation_transform_status_succeeded_event_v2_event.AutomationTransformStatusSucceededEventV2Event
+    )
+    AutomationTransformStatusSucceededEventV2EventEventType = (
+        benchling_api_client.v2.stable.models.automation_transform_status_succeeded_event_v2_event_event_type.AutomationTransformStatusSucceededEventV2EventEventType
     )
     BackTranslate = benchling_api_client.v2.stable.models.back_translate.BackTranslate
     BackTranslateGcContent = (
@@ -3230,6 +3318,9 @@ if TYPE_CHECKING:
     )
     ChipUiBlockUpdate = (
         benchling_api_client.v2.stable.models.chip_ui_block_update.ChipUiBlockUpdate
+    )
+    ClustaloOptions = (
+        benchling_api_client.v2.stable.models.clustalo_options.ClustaloOptions
     )
     CodonUsageTable = (
         benchling_api_client.v2.stable.models.codon_usage_table.CodonUsageTable
@@ -3618,6 +3709,9 @@ if TYPE_CHECKING:
     DnaSequenceSummaryEntityType = (
         benchling_api_client.v2.stable.models.dna_sequence_summary_entity_type.DnaSequenceSummaryEntityType
     )
+    DnaSequenceTranscription = (
+        benchling_api_client.v2.stable.models.dna_sequence_transcription.DnaSequenceTranscription
+    )
     DnaSequenceUpdate = (
         benchling_api_client.v2.stable.models.dna_sequence_update.DnaSequenceUpdate
     )
@@ -3840,6 +3934,12 @@ if TYPE_CHECKING:
         benchling_api_client.v2.stable.models.entry_templates_paginated_list.EntryTemplatesPaginatedList
     )
     EntryUpdate = benchling_api_client.v2.stable.models.entry_update.EntryUpdate
+    EntryUpdatedAssignedReviewersEvent = (
+        benchling_api_client.v2.stable.models.entry_updated_assigned_reviewers_event.EntryUpdatedAssignedReviewersEvent
+    )
+    EntryUpdatedAssignedReviewersEventEventType = (
+        benchling_api_client.v2.stable.models.entry_updated_assigned_reviewers_event_event_type.EntryUpdatedAssignedReviewersEventEventType
+    )
     EntryUpdatedFieldsEvent = (
         benchling_api_client.v2.stable.models.entry_updated_fields_event.EntryUpdatedFieldsEvent
     )
@@ -4348,6 +4448,13 @@ if TYPE_CHECKING:
     )
     LookupTableNotePartType = (
         benchling_api_client.v2.stable.models.lookup_table_note_part_type.LookupTableNotePartType
+    )
+    MafftOptions = benchling_api_client.v2.stable.models.mafft_options.MafftOptions
+    MafftOptionsAdjustDirection = (
+        benchling_api_client.v2.stable.models.mafft_options_adjust_direction.MafftOptionsAdjustDirection
+    )
+    MafftOptionsStrategy = (
+        benchling_api_client.v2.stable.models.mafft_options_strategy.MafftOptionsStrategy
     )
     MarkdownUiBlock = (
         benchling_api_client.v2.stable.models.markdown_ui_block.MarkdownUiBlock
@@ -5086,6 +5193,12 @@ if TYPE_CHECKING:
     StageEntryReviewRecord = (
         benchling_api_client.v2.stable.models.stage_entry_review_record.StageEntryReviewRecord
     )
+    StageEntryUpdatedAssignedReviewersEvent = (
+        benchling_api_client.v2.stable.models.stage_entry_updated_assigned_reviewers_event.StageEntryUpdatedAssignedReviewersEvent
+    )
+    StageEntryUpdatedAssignedReviewersEventEventType = (
+        benchling_api_client.v2.stable.models.stage_entry_updated_assigned_reviewers_event_event_type.StageEntryUpdatedAssignedReviewersEventEventType
+    )
     StageEntryUpdatedFieldsEvent = (
         benchling_api_client.v2.stable.models.stage_entry_updated_fields_event.StageEntryUpdatedFieldsEvent
     )
@@ -5749,20 +5862,34 @@ else:
         "AutomationInputGenerator": "benchling_api_client.v2.stable.models.automation_input_generator",
         "AutomationInputGeneratorCompletedV2BetaEvent": "benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_beta_event",
         "AutomationInputGeneratorCompletedV2BetaEventEventType": "benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_beta_event_event_type",
+        "AutomationInputGeneratorCompletedV2Event": "benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_event",
+        "AutomationInputGeneratorCompletedV2EventEventType": "benchling_api_client.v2.stable.models.automation_input_generator_completed_v2_event_event_type",
         "AutomationInputGeneratorUpdate": "benchling_api_client.v2.stable.models.automation_input_generator_update",
         "AutomationOutputProcessor": "benchling_api_client.v2.stable.models.automation_output_processor",
         "AutomationOutputProcessorArchivalChange": "benchling_api_client.v2.stable.models.automation_output_processor_archival_change",
         "AutomationOutputProcessorCompletedV2BetaEvent": "benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_beta_event",
         "AutomationOutputProcessorCompletedV2BetaEventEventType": "benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_beta_event_event_type",
+        "AutomationOutputProcessorCompletedV2Event": "benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_event",
+        "AutomationOutputProcessorCompletedV2EventEventType": "benchling_api_client.v2.stable.models.automation_output_processor_completed_v2_event_event_type",
         "AutomationOutputProcessorCreate": "benchling_api_client.v2.stable.models.automation_output_processor_create",
         "AutomationOutputProcessorUpdate": "benchling_api_client.v2.stable.models.automation_output_processor_update",
         "AutomationOutputProcessorUploadedV2BetaEvent": "benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_beta_event",
         "AutomationOutputProcessorUploadedV2BetaEventEventType": "benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_beta_event_event_type",
+        "AutomationOutputProcessorUploadedV2Event": "benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_event",
+        "AutomationOutputProcessorUploadedV2EventEventType": "benchling_api_client.v2.stable.models.automation_output_processor_uploaded_v2_event_event_type",
         "AutomationOutputProcessorsArchive": "benchling_api_client.v2.stable.models.automation_output_processors_archive",
         "AutomationOutputProcessorsArchiveReason": "benchling_api_client.v2.stable.models.automation_output_processors_archive_reason",
         "AutomationOutputProcessorsPaginatedList": "benchling_api_client.v2.stable.models.automation_output_processors_paginated_list",
         "AutomationOutputProcessorsUnarchive": "benchling_api_client.v2.stable.models.automation_output_processors_unarchive",
         "AutomationProgressStats": "benchling_api_client.v2.stable.models.automation_progress_stats",
+        "AutomationTransformStatusFailedEventV2Event": "benchling_api_client.v2.stable.models.automation_transform_status_failed_event_v2_event",
+        "AutomationTransformStatusFailedEventV2EventEventType": "benchling_api_client.v2.stable.models.automation_transform_status_failed_event_v2_event_event_type",
+        "AutomationTransformStatusPendingEventV2Event": "benchling_api_client.v2.stable.models.automation_transform_status_pending_event_v2_event",
+        "AutomationTransformStatusPendingEventV2EventEventType": "benchling_api_client.v2.stable.models.automation_transform_status_pending_event_v2_event_event_type",
+        "AutomationTransformStatusRunningEventV2Event": "benchling_api_client.v2.stable.models.automation_transform_status_running_event_v2_event",
+        "AutomationTransformStatusRunningEventV2EventEventType": "benchling_api_client.v2.stable.models.automation_transform_status_running_event_v2_event_event_type",
+        "AutomationTransformStatusSucceededEventV2Event": "benchling_api_client.v2.stable.models.automation_transform_status_succeeded_event_v2_event",
+        "AutomationTransformStatusSucceededEventV2EventEventType": "benchling_api_client.v2.stable.models.automation_transform_status_succeeded_event_v2_event_event_type",
         "BackTranslate": "benchling_api_client.v2.stable.models.back_translate",
         "BackTranslateGcContent": "benchling_api_client.v2.stable.models.back_translate_gc_content",
         "BackTranslateHairpinParameters": "benchling_api_client.v2.stable.models.back_translate_hairpin_parameters",
@@ -5874,6 +6001,7 @@ else:
         "ChipUiBlockCreate": "benchling_api_client.v2.stable.models.chip_ui_block_create",
         "ChipUiBlockType": "benchling_api_client.v2.stable.models.chip_ui_block_type",
         "ChipUiBlockUpdate": "benchling_api_client.v2.stable.models.chip_ui_block_update",
+        "ClustaloOptions": "benchling_api_client.v2.stable.models.clustalo_options",
         "CodonUsageTable": "benchling_api_client.v2.stable.models.codon_usage_table",
         "CodonUsageTablesPaginatedList": "benchling_api_client.v2.stable.models.codon_usage_tables_paginated_list",
         "ConflictError": "benchling_api_client.v2.stable.models.conflict_error",
@@ -6013,6 +6141,7 @@ else:
         "DnaSequenceRequestRegistryFields": "benchling_api_client.v2.stable.models.dna_sequence_request_registry_fields",
         "DnaSequenceSummary": "benchling_api_client.v2.stable.models.dna_sequence_summary",
         "DnaSequenceSummaryEntityType": "benchling_api_client.v2.stable.models.dna_sequence_summary_entity_type",
+        "DnaSequenceTranscription": "benchling_api_client.v2.stable.models.dna_sequence_transcription",
         "DnaSequenceUpdate": "benchling_api_client.v2.stable.models.dna_sequence_update",
         "DnaSequenceUpsertRequest": "benchling_api_client.v2.stable.models.dna_sequence_upsert_request",
         "DnaSequenceWithEntityType": "benchling_api_client.v2.stable.models.dna_sequence_with_entity_type",
@@ -6099,6 +6228,8 @@ else:
         "EntryTemplateUpdate": "benchling_api_client.v2.stable.models.entry_template_update",
         "EntryTemplatesPaginatedList": "benchling_api_client.v2.stable.models.entry_templates_paginated_list",
         "EntryUpdate": "benchling_api_client.v2.stable.models.entry_update",
+        "EntryUpdatedAssignedReviewersEvent": "benchling_api_client.v2.stable.models.entry_updated_assigned_reviewers_event",
+        "EntryUpdatedAssignedReviewersEventEventType": "benchling_api_client.v2.stable.models.entry_updated_assigned_reviewers_event_event_type",
         "EntryUpdatedFieldsEvent": "benchling_api_client.v2.stable.models.entry_updated_fields_event",
         "EntryUpdatedFieldsEventEventType": "benchling_api_client.v2.stable.models.entry_updated_fields_event_event_type",
         "EntryUpdatedReviewRecordEvent": "benchling_api_client.v2.stable.models.entry_updated_review_record_event",
@@ -6288,6 +6419,9 @@ else:
         "LocationsUnarchive": "benchling_api_client.v2.stable.models.locations_unarchive",
         "LookupTableNotePart": "benchling_api_client.v2.stable.models.lookup_table_note_part",
         "LookupTableNotePartType": "benchling_api_client.v2.stable.models.lookup_table_note_part_type",
+        "MafftOptions": "benchling_api_client.v2.stable.models.mafft_options",
+        "MafftOptionsAdjustDirection": "benchling_api_client.v2.stable.models.mafft_options_adjust_direction",
+        "MafftOptionsStrategy": "benchling_api_client.v2.stable.models.mafft_options_strategy",
         "MarkdownUiBlock": "benchling_api_client.v2.stable.models.markdown_ui_block",
         "MarkdownUiBlockCreate": "benchling_api_client.v2.stable.models.markdown_ui_block_create",
         "MarkdownUiBlockType": "benchling_api_client.v2.stable.models.markdown_ui_block_type",
@@ -6565,6 +6699,8 @@ else:
         "StageEntryCreatedEvent": "benchling_api_client.v2.stable.models.stage_entry_created_event",
         "StageEntryCreatedEventEventType": "benchling_api_client.v2.stable.models.stage_entry_created_event_event_type",
         "StageEntryReviewRecord": "benchling_api_client.v2.stable.models.stage_entry_review_record",
+        "StageEntryUpdatedAssignedReviewersEvent": "benchling_api_client.v2.stable.models.stage_entry_updated_assigned_reviewers_event",
+        "StageEntryUpdatedAssignedReviewersEventEventType": "benchling_api_client.v2.stable.models.stage_entry_updated_assigned_reviewers_event_event_type",
         "StageEntryUpdatedFieldsEvent": "benchling_api_client.v2.stable.models.stage_entry_updated_fields_event",
         "StageEntryUpdatedFieldsEventEventType": "benchling_api_client.v2.stable.models.stage_entry_updated_fields_event_event_type",
         "StageEntryUpdatedReviewRecordEvent": "benchling_api_client.v2.stable.models.stage_entry_updated_review_record_event",

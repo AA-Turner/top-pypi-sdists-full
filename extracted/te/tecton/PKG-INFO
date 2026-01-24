@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tecton
-Version: 1.2.6
+Version: 1.2.13
 Summary: Tecton Python SDK
 Author-email: "Tecton, Inc." <support@tecton.ai>
 License: Tecton Proprietary
@@ -14,7 +14,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: attrs>=21.3.0
 Requires-Dist: boto3
 Requires-Dist: cryptography>=45.0
-Requires-Dist: deltalake==0.18.2; python_version > "3.7"
+Requires-Dist: deltalake>=0.18.2; python_version > "3.7"
 Requires-Dist: jinja2~=3.0
 Requires-Dist: numpy~=1.16
 Requires-Dist: pathspec
@@ -84,6 +84,7 @@ Requires-Dist: google-cloud-bigquery-storage~=2.25; extra == "rift-materializati
 Requires-Dist: google-cloud-storage~=2.8; extra == "rift-materialization"
 Requires-Dist: redshift-connector~=2.1; extra == "rift-materialization"
 Requires-Dist: boto3>=1.12.6; extra == "rift-materialization"
+Requires-Dist: deltalake<1.0; extra == "rift-materialization"
 Requires-Dist: psycopg[binary]~=3.2; extra == "rift-materialization"
 Requires-Dist: tecton-rift-extensions==1.2.0; extra == "rift-materialization"
 Provides-Extra: snowflake

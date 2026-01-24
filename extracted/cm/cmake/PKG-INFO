@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cmake
-Version: 4.1.0
+Version: 4.2.1
 Summary: CMake is an open-source, cross-platform family of tools designed to build, test and package software
 Keywords: CMake,build,c++,fortran,cross-platform,cross-compilation
 Author-Email: Jean-Christophe Fillion-Robin <jchris.fillionr@kitware.com>
@@ -37,7 +37,7 @@ The suite of CMake tools were created by Kitware in response to the need
 for a powerful, cross-platform build environment for open-source projects
 such as ITK and VTK.
 
-The CMake python wheels provide `CMake 4.1.0 <https://cmake.org/cmake/help/v4.1/index.html>`_.
+The CMake python wheels provide `CMake 4.2.1 <https://cmake.org/cmake/help/v4.2/index.html>`_.
 
 Latest Release
 --------------
@@ -94,7 +94,7 @@ The following platforms are supported with binary wheels:
   | Linux IBM Z   | | manylinux2014+  s390x   |
   |               | | musllinux_1_2+  s390x   |
   +---------------+---------------------------+
-  | Linux RISC-V  | | manylinux_2_35+ riscv64 |
+  | Linux RISC-V  | | manylinux_2_31+ riscv64 |
   |               | | musllinux_1_2+  riscv64 |
   +---------------+---------------------------+
   | macOS 10.10+  | Intel                     |

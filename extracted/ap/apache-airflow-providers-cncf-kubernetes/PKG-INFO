@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-cncf-kubernetes
-Version: 10.8.1
+Version: 10.12.2
 Summary: Provider package apache-airflow-providers-cncf-kubernetes for Apache Airflow
 Keywords: airflow-provider,cncf.kubernetes,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
@@ -14,21 +15,24 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
+License-File: LICENSE
+License-File: NOTICE
 Requires-Dist: aiofiles>=23.2.0
-Requires-Dist: apache-airflow>=2.10.0
+Requires-Dist: apache-airflow>=2.11.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.10.1
 Requires-Dist: asgiref>=3.5.2
-Requires-Dist: cryptography>=41.0.0
-Requires-Dist: kubernetes>=32.0.0,<33.0.0
-Requires-Dist: kubernetes_asyncio>=32.0.0,<33.0.0
+Requires-Dist: cryptography>=41.0.0,<46.0.0
+Requires-Dist: kubernetes>=35.0.0,<36.0.0
+Requires-Dist: urllib3>=2.1.0,!=2.6.0
+Requires-Dist: kubernetes_asyncio>=32.0.0,<35.0.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/10.8.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/10.8.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/10.12.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/10.12.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -59,7 +63,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-cncf-kubernetes``
 
-Release: ``10.8.1``
+Release: ``10.12.2``
 
 
 `Kubernetes <https://kubernetes.io/>`__
@@ -72,7 +76,7 @@ This is a provider package for ``cncf.kubernetes`` provider. All classes for thi
 are in ``airflow.providers.cncf.kubernetes`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/10.8.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/10.12.2/>`_.
 
 Installation
 ------------
@@ -86,17 +90,38 @@ The package supports the following python versions: 3.10,3.11,3.12,3.13
 Requirements
 ------------
 
-======================  ====================
-PIP package             Version required
-======================  ====================
-``aiofiles``            ``>=23.2.0``
-``apache-airflow``      ``>=2.10.0``
-``asgiref``             ``>=3.5.2``
-``cryptography``        ``>=41.0.0``
-``kubernetes``          ``>=32.0.0,<33.0.0``
-``kubernetes_asyncio``  ``>=32.0.0,<33.0.0``
-======================  ====================
+==========================================  ====================
+PIP package                                 Version required
+==========================================  ====================
+``aiofiles``                                ``>=23.2.0``
+``apache-airflow``                          ``>=2.11.0``
+``apache-airflow-providers-common-compat``  ``>=1.10.1``
+``asgiref``                                 ``>=3.5.2``
+``cryptography``                            ``>=41.0.0,<46.0.0``
+``kubernetes``                              ``>=32.0.0,<35.0.0``
+``urllib3``                                 ``>=2.1.0,!=2.6.0``
+``kubernetes_asyncio``                      ``>=32.0.0,<35.0.0``
+==========================================  ====================
+
+Cross provider package dependencies
+-----------------------------------
+
+Those are dependencies that might be needed in order to use all the features of the package.
+You need to install the specified providers in order to use them.
+
+You can install such cross-provider dependencies when installing from PyPI. For example:
+
+.. code-block:: bash
+
+    pip install apache-airflow-providers-cncf-kubernetes[common.compat]
+
+
+==================================================================================================================  =================
+Dependent package                                                                                                   Extra
+==================================================================================================================  =================
+`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_  ``common.compat``
+==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/10.8.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/10.12.2/changelog.html>`_.
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pm4py
-Version: 2.7.17
+Version: 2.7.19.6
 Summary: Process mining for Python
 Home-page: https://processintelligence.solutions/
 Author: Process Intelligence Solutions (PIS)
@@ -12,18 +12,15 @@ Project-URL: Tracker, https://github.com/process-intelligence-solutions/pm4py/is
 License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: pandas
-Requires-Dist: deprecation
 Requires-Dist: networkx
 Requires-Dist: graphviz
-Requires-Dist: wheel
-Requires-Dist: setuptools
-Requires-Dist: intervaltree
+Requires-Dist: scipy
 Requires-Dist: lxml
 Requires-Dist: matplotlib
-Requires-Dist: pydotplus
 Requires-Dist: pytz
-Requires-Dist: scipy
 Requires-Dist: tqdm
+Requires-Dist: wheel
+Requires-Dist: setuptools
 Requires-Dist: cvxopt; python_version < "3.14"
 Dynamic: author
 Dynamic: author-email
@@ -68,7 +65,7 @@ if __name__ == "__main__":
     pm4py.view_petri_net(net, initial_marking, final_marking, format="svg")
 
 ## Installation
-PM4Py can be installed on Python 3.9.x / 3.10.x / 3.11.x / 3.12.x / 3.13.x by invoking:
+PM4Py can be installed on Python 3.9.x / 3.10.x / 3.11.x / 3.12.x / 3.13.x / 3.14.x by invoking:
 
 pip install -U pm4py
 
@@ -108,7 +105,6 @@ If you are using PM4Py in your scientific work, please cite PM4Py as follows:
 
 BiBTeX:
 
-bibtex
 @article{pm4py,  
 title = {PM4Py: A process mining library for Python},  
 journal = {Software Impacts},  
@@ -120,7 +116,6 @@ doi = {https://doi.org/10.1016/j.simpa.2023.100556},
 url = {https://www.sciencedirect.com/science/article/pii/S2665963823000933},  
 author = {Alessandro Berti and Sebastiaan van Zelst and Daniel Schuster},  
 }
-
 
 ## Legal Notice
 

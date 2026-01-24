@@ -1,4 +1,11 @@
-"""Dataclasses that contain parsed output from ``juju status --format=json``."""
+"""Dataclasses that contain parsed output from ``juju status --format=json``.
+
+These dataclasses were originally `generated from <https://github.com/juju/juju/compare/main...benhoyt:juju:status-dataclasses>`_
+the Go structs in the Juju codebase, to ensure they are correct. Class names
+come from the Go struct name, whereas attribute names come from the JSON field
+names. The one exception is that "Application" has been renamed to "App"
+throughout, for brevity (and "application" to "app").
+"""
 
 from __future__ import annotations
 
@@ -51,6 +58,8 @@ class FormattedBase:
 
 @dataclasses.dataclass(frozen=True)
 class StatusInfo:
+    """The main status class used for application, unit, and machine status."""
+
     current: str = ''
     message: str = ''
     reason: str = ''
@@ -89,6 +98,8 @@ class AppStatusRelation:
 
 @dataclasses.dataclass(frozen=True)
 class UnitStatus:
+    """Status of a single unit."""
+
     workload_status: StatusInfo = dataclasses.field(default_factory=StatusInfo)
     juju_status: StatusInfo = dataclasses.field(default_factory=StatusInfo)
     leader: bool = False
@@ -123,11 +134,9 @@ class UnitStatus:
             public_address=d.get('public-address') or '',
             address=d.get('address') or '',
             provider_id=d.get('provider-id') or '',
-            subordinates=(
-                {k: UnitStatus._from_dict(v) for k, v in d['subordinates'].items()}
-                if 'subordinates' in d
-                else {}
-            ),
+            subordinates={
+                k: UnitStatus._from_dict(v) for k, v in d.get('subordinates', {}).items()
+            },
         )
 
     @property
@@ -158,6 +167,8 @@ class UnitStatus:
 
 @dataclasses.dataclass(frozen=True)
 class AppStatus:
+    """Status of a single application."""
+
     charm: str
     charm_origin: str
     charm_name: str
@@ -211,20 +222,12 @@ class AppStatus:
                 if 'application-status' in d
                 else StatusInfo()
             ),
-            relations=(
-                {
-                    k: [AppStatusRelation._from_dict(x) for x in v]
-                    for k, v in d['relations'].items()
-                }
-                if 'relations' in d
-                else {}
-            ),
+            relations={
+                k: [AppStatusRelation._from_dict(x) for x in v]
+                for k, v in d.get('relations', {}).items()
+            },
             subordinate_to=d.get('subordinate-to') or [],
-            units=(
-                {k: UnitStatus._from_dict(v) for k, v in d['units'].items()}
-                if 'units' in d
-                else {}
-            ),
+            units={k: UnitStatus._from_dict(v) for k, v in d.get('units', {}).items()},
             version=d.get('version') or '',
             endpoint_bindings=d.get('endpoint-bindings') or {},
         )
@@ -257,6 +260,8 @@ class AppStatus:
 
 @dataclasses.dataclass(frozen=True)
 class EntityStatus:
+    """Status class used for storage status. See :class:`StatusInfo` for the main status class."""
+
     current: str = ''
     message: str = ''
     since: str = ''
@@ -343,21 +348,13 @@ class FilesystemAttachments:
     @classmethod
     def _from_dict(cls, d: dict[str, Any]) -> FilesystemAttachments:
         return cls(
-            machines=(
-                {k: FilesystemAttachment._from_dict(v) for k, v in d['machines'].items()}
-                if 'machines' in d
-                else {}
-            ),
-            containers=(
-                {k: FilesystemAttachment._from_dict(v) for k, v in d['containers'].items()}
-                if 'containers' in d
-                else {}
-            ),
-            units=(
-                {k: UnitStorageAttachment._from_dict(v) for k, v in d['units'].items()}
-                if 'units' in d
-                else {}
-            ),
+            machines={
+                k: FilesystemAttachment._from_dict(v) for k, v in d.get('machines', {}).items()
+            },
+            containers={
+                k: FilesystemAttachment._from_dict(v) for k, v in d.get('containers', {}).items()
+            },
+            units={k: UnitStorageAttachment._from_dict(v) for k, v in d.get('units', {}).items()},
         )
 
 
@@ -420,21 +417,11 @@ class VolumeAttachments:
     @classmethod
     def _from_dict(cls, d: dict[str, Any]) -> VolumeAttachments:
         return cls(
-            machines=(
-                {k: VolumeAttachment._from_dict(v) for k, v in d['machines'].items()}
-                if 'machines' in d
-                else {}
-            ),
-            containers=(
-                {k: VolumeAttachment._from_dict(v) for k, v in d['containers'].items()}
-                if 'containers' in d
-                else {}
-            ),
-            units=(
-                {k: UnitStorageAttachment._from_dict(v) for k, v in d['units'].items()}
-                if 'units' in d
-                else {}
-            ),
+            machines={k: VolumeAttachment._from_dict(v) for k, v in d.get('machines', {}).items()},
+            containers={
+                k: VolumeAttachment._from_dict(v) for k, v in d.get('containers', {}).items()
+            },
+            units={k: UnitStorageAttachment._from_dict(v) for k, v in d.get('units', {}).items()},
         )
 
 
@@ -474,6 +461,8 @@ class VolumeInfo:
 
 @dataclasses.dataclass(frozen=True)
 class CombinedStorage:
+    """Storage information."""
+
     storage: dict[str, StorageInfo] = dataclasses.field(default_factory=dict)  # type: ignore
     filesystems: dict[str, FilesystemInfo] = dataclasses.field(default_factory=dict)  # type: ignore
     volumes: dict[str, VolumeInfo] = dataclasses.field(default_factory=dict)  # type: ignore
@@ -481,26 +470,18 @@ class CombinedStorage:
     @classmethod
     def _from_dict(cls, d: dict[str, Any]) -> CombinedStorage:
         return cls(
-            storage=(
-                {k: StorageInfo._from_dict(v) for k, v in d['storage'].items()}
-                if 'storage' in d
-                else {}
-            ),
-            filesystems=(
-                {k: FilesystemInfo._from_dict(v) for k, v in d['filesystems'].items()}
-                if 'filesystems' in d
-                else {}
-            ),
-            volumes=(
-                {k: VolumeInfo._from_dict(v) for k, v in d['volumes'].items()}
-                if 'volumes' in d
-                else {}
-            ),
+            storage={k: StorageInfo._from_dict(v) for k, v in d.get('storage', {}).items()},
+            filesystems={
+                k: FilesystemInfo._from_dict(v) for k, v in d.get('filesystems', {}).items()
+            },
+            volumes={k: VolumeInfo._from_dict(v) for k, v in d.get('volumes', {}).items()},
         )
 
 
 @dataclasses.dataclass(frozen=True)
 class ControllerStatus:
+    """Basic controller information."""
+
     timestamp: str = ''
 
     @classmethod
@@ -549,6 +530,8 @@ class NetworkInterface:
 
 @dataclasses.dataclass(frozen=True)
 class MachineStatus:
+    """Status of a single machine."""
+
     juju_status: StatusInfo = dataclasses.field(default_factory=StatusInfo)
     hostname: str = ''
     dns_name: str = ''
@@ -593,39 +576,50 @@ class MachineStatus:
                 else StatusInfo()
             ),
             base=FormattedBase._from_dict(d['base']) if 'base' in d else None,
-            network_interfaces=(
-                {k: NetworkInterface._from_dict(v) for k, v in d['network-interfaces'].items()}
-                if 'network-interfaces' in d
-                else {}
-            ),
-            containers=(
-                {k: MachineStatus._from_dict(v) for k, v in d['containers'].items()}
-                if 'containers' in d
-                else {}
-            ),
+            network_interfaces={
+                k: NetworkInterface._from_dict(v)
+                for k, v in d.get('network-interfaces', {}).items()
+            },
+            containers={
+                k: MachineStatus._from_dict(v) for k, v in d.get('containers', {}).items()
+            },
             constraints=d.get('constraints') or '',
             hardware=d.get('hardware') or '',
             controller_member_status=d.get('controller-member-status') or '',
             ha_primary=d.get('ha-primary') or False,
-            lxd_profiles=(
-                {k: LxdProfileContents._from_dict(v) for k, v in d['lxd-profiles'].items()}
-                if 'lxd-profiles' in d
-                else {}
-            ),
+            lxd_profiles={
+                k: LxdProfileContents._from_dict(v) for k, v in d.get('lxd-profiles', {}).items()
+            },
         )
 
 
 @dataclasses.dataclass(frozen=True)
 class ModelStatus:
+    """Status and basic information about the model."""
+
     name: str
+    """Name of model."""
+
     type: str
+    """Type of model, for example, ``caas`` for a Kubernetes model."""
+
     controller: str
+    """Name of controller."""
+
     cloud: str
+    """Name of cloud, for example ``aws`` or ``microk8s``."""
+
     version: str
+    """Juju agent version."""
 
     region: str = ''
+    """Cloud region."""
+
     upgrade_available: str = ''
+    """Version number if a new Juju agent is available."""
+
     model_status: StatusInfo = dataclasses.field(default_factory=StatusInfo)
+    """Status of the model. Normally the *current* field is ``available``."""
 
     @classmethod
     def _from_dict(cls, d: dict[str, Any]) -> ModelStatus:
@@ -696,11 +690,7 @@ class RemoteAppStatus:
             )
         return cls(
             url=d['url'],
-            endpoints=(
-                {k: RemoteEndpoint._from_dict(v) for k, v in d['endpoints'].items()}
-                if 'endpoints' in d
-                else {}
-            ),
+            endpoints={k: RemoteEndpoint._from_dict(v) for k, v in d.get('endpoints', {}).items()},
             life=d.get('life') or '',
             app_status=(
                 StatusInfo._from_dict(d['application-status'])
@@ -716,13 +706,25 @@ class Status:
     """Parsed version of the status object returned by ``juju status --format=json``."""
 
     model: ModelStatus
+    """Model information."""
+
     machines: dict[str, MachineStatus]
+    """Mapping of machine ID string (for example, ``"0"``) to machine information."""
+
     apps: dict[str, AppStatus]
+    """Mapping of application name to application information."""
 
     app_endpoints: dict[str, RemoteAppStatus] = dataclasses.field(default_factory=dict)  # type: ignore
+    """Mapping of offer name to remote application information."""
+
     offers: dict[str, OfferStatus] = dataclasses.field(default_factory=dict)  # type: ignore
+    """Mapping of offer name to offer information."""
+
     storage: CombinedStorage = dataclasses.field(default_factory=CombinedStorage)
+    """Storage information."""
+
     controller: ControllerStatus = dataclasses.field(default_factory=ControllerStatus)
+    """Controller information."""
 
     @classmethod
     def _from_dict(cls, d: dict[str, Any]) -> Status:
@@ -730,16 +732,11 @@ class Status:
             model=ModelStatus._from_dict(d['model']),
             machines={k: MachineStatus._from_dict(v) for k, v in d['machines'].items()},
             apps={k: AppStatus._from_dict(v) for k, v in d['applications'].items()},
-            app_endpoints=(
-                {k: RemoteAppStatus._from_dict(v) for k, v in d['application-endpoints'].items()}
-                if 'application-endpoints' in d
-                else {}
-            ),
-            offers=(
-                {k: OfferStatus._from_dict(v) for k, v in d['offers'].items()}
-                if 'offers' in d
-                else {}
-            ),
+            app_endpoints={
+                k: RemoteAppStatus._from_dict(v)
+                for k, v in d.get('application-endpoints', {}).items()
+            },
+            offers={k: OfferStatus._from_dict(v) for k, v in d.get('offers', {}).items()},
             storage=(
                 CombinedStorage._from_dict(d['storage']) if 'storage' in d else CombinedStorage()
             ),

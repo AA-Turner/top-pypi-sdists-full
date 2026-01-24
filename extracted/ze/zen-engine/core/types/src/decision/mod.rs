@@ -6,7 +6,7 @@ use std::sync::Arc;
 /// JDM Decision model
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DecisionContent {
+pub struct BaseDecisionContent {
     pub nodes: Vec<Arc<DecisionNode>>,
     pub edges: Vec<Arc<DecisionEdge>>,
 }
@@ -94,8 +94,6 @@ pub enum FunctionNodeContent {
 #[serde(rename_all = "camelCase")]
 pub struct FunctionContent {
     pub source: Arc<str>,
-    #[serde(default)]
-    pub omit_nodes: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]

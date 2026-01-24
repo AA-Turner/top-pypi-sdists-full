@@ -8,15 +8,20 @@
 #ifndef skgpu_graphite_geom_Shape_DEFINED
 #define skgpu_graphite_geom_Shape_DEFINED
 
+#include "include/core/SkArc.h"
 #include "include/core/SkM44.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathTypes.h"
+#include "include/core/SkPoint.h"
 #include "include/core/SkRRect.h"
-#include "include/core/SkRect.h"
-
+#include "include/private/base/SkAssert.h"
 #include "src/base/SkVx.h"
 #include "src/gpu/graphite/geom/Rect.h"
 
-#include <array>
+#include <cstdint>
+#include <new>
+
+struct SkRect;
 
 namespace skgpu::graphite {
 
@@ -28,9 +33,15 @@ namespace skgpu::graphite {
 class Shape {
 public:
     enum class Type : uint8_t {
-        kEmpty, kLine, kRect, kRRect, kPath
+        kEmpty, kLine, kRect, kRRect, kArc, kPath
     };
     inline static constexpr int kTypeCount = static_cast<int>(Type::kPath) + 1;
+
+    // The default tolerance to use for fuzzy geometric comparisons that are already transformed
+    // into device-space. Distances, containment checks, or equality tests closer than
+    // kDefaultPixelTolerance (< ~0.004) can be considered perceptibly equivalent. This can be
+    // tested in a different coordinate space by scaling this constant with Transform::localAARadius
+    static constexpr float kDefaultPixelTolerance = 0.0039f; // (1.f - 0.001f) / 255.f;
 
     Shape() {}
     Shape(const Shape& shape)               { *this = shape; }
@@ -42,6 +53,7 @@ public:
     explicit Shape(const Rect& rect)        { this->setRect(rect);   }
     explicit Shape(const SkRect& rect)      { this->setRect(rect);   }
     explicit Shape(const SkRRect& rrect)    { this->setRRect(rrect); }
+    explicit Shape(const SkArc& arc)        { this->setArc(arc);     }
     explicit Shape(const SkPath& path)      { this->setPath(path);   }
 
     ~Shape() { this->reset(); }
@@ -60,7 +72,14 @@ public:
     bool isLine()  const { return fType == Type::kLine;  }
     bool isRect()  const { return fType == Type::kRect;  }
     bool isRRect() const { return fType == Type::kRRect; }
+    bool isArc()   const { return fType == Type::kArc;   }
     bool isPath()  const { return fType == Type::kPath;  }
+
+    bool isFloodFill() const { return this->isEmpty() && this->inverted(); }
+
+    bool isVolatilePath() const {
+        return fType == Type::kPath && this->path().isVolatile();
+    }
 
     bool inverted() const {
         SkASSERT(fType != Type::kPath || fInverted == fPath.isInverseFillType());
@@ -101,9 +120,17 @@ public:
     // based on what was last set.
     skvx::float2   p0()    const { SkASSERT(this->isLine());  return fRect.topLeft();  }
     skvx::float2   p1()    const { SkASSERT(this->isLine());  return fRect.botRight(); }
+    skvx::float4   line()  const { SkASSERT(this->isLine());  return fRect.ltrb();     }
     const Rect&    rect()  const { SkASSERT(this->isRect());  return fRect;            }
     const SkRRect& rrect() const { SkASSERT(this->isRRect()); return fRRect;           }
+    const SkArc&   arc()   const { SkASSERT(this->isArc());   return fArc;             }
     const SkPath&  path()  const { SkASSERT(this->isPath());  return fPath;            }
+
+    // Non-const access to the more complex types
+    Rect&    rect()  { SkASSERT(this->isRect());  return fRect;  }
+    SkRRect& rrect() { SkASSERT(this->isRRect()); return fRRect; }
+    SkArc&   arc()   { SkASSERT(this->isArc());   return fArc;   }
+    SkPath&  path()  { SkASSERT(this->isPath());  return fPath;  }
 
     // Update the geometry stored in the Shape and update its associated type to match. This
     // performs no simplification, so calling setRRect() with a round rect that has isRect() return
@@ -132,6 +159,11 @@ public:
         fRRect = rrect;
         fInverted = false;
     }
+    void setArc(const SkArc& arc) {
+        this->setType(Type::kArc);
+        fArc = arc;
+        fInverted = false;
+    }
     void setPath(const SkPath& path) {
         if (fType == Type::kPath) {
             // Assign directly
@@ -149,6 +181,18 @@ public:
         fInverted = false;
     }
 
+    /**
+     * Gets the size of the key for the shape represented by this Shape.
+     */
+    int keySize() const;
+
+    /**
+     * Writes keySize() bytes into the provided pointer. Assumes that there is enough
+     * space allocated for the key. If includeInverted is false, non-inverted state will
+     * be written into the key regardless of the Shape's state.
+     */
+    void writeKey(uint32_t* key, bool includeInverted) const;
+
 private:
     void setType(Type type) {
         if (this->isPath() && type != Type::kPath) {
@@ -157,9 +201,18 @@ private:
         fType = type;
     }
 
+    /**
+     * Key for the state data in the shape. This includes path fill type,
+     * and any tracked inversion, as well as the class of geometry.
+     * If includeInverted is false, non-inverted state will be written into
+     * the key regardless of the Shape's state.
+     */
+    uint32_t stateKey(bool includeInverted) const;
+
     union {
         Rect    fRect; // p0 = top-left, p1 = bot-right if type is kLine (may be unsorted)
         SkRRect fRRect;
+        SkArc   fArc;
         SkPath  fPath;
     };
 

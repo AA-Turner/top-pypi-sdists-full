@@ -9,14 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 
-class ActionsWorkflowAccessToRepositoryType(TypedDict):
-    """ActionsWorkflowAccessToRepository"""
+class RulesetVersionPropActorType(TypedDict):
+    """RulesetVersionPropActor
 
-    access_level: Literal["none", "user", "organization"]
+    The actor who updated the ruleset
+    """
+
+    id: NotRequired[int]
+    type: NotRequired[str]
 
 
-__all__ = ("ActionsWorkflowAccessToRepositoryType",)
+class RulesetVersionPropActorTypeForResponse(TypedDict):
+    """RulesetVersionPropActor
+
+    The actor who updated the ruleset
+    """
+
+    id: NotRequired[int]
+    type: NotRequired[str]
+
+
+__all__ = (
+    "RulesetVersionPropActorType",
+    "RulesetVersionPropActorTypeForResponse",
+)

@@ -3,7 +3,7 @@ Type annotations for rum service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rum/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,10 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import (
+    AppMonitorPlatformType,
     CustomEventsStatusType,
     DeobfuscationStatusType,
     MetricDestinationType,
@@ -28,12 +30,6 @@ from .literals import (
     TelemetryType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -106,45 +102,46 @@ __all__ = (
 
 
 class AppMonitorConfigurationOutputTypeDef(TypedDict):
-    AllowCookies: NotRequired[bool]
-    EnableXRay: NotRequired[bool]
-    ExcludedPages: NotRequired[List[str]]
-    FavoritePages: NotRequired[List[str]]
-    GuestRoleArn: NotRequired[str]
     IdentityPoolId: NotRequired[str]
-    IncludedPages: NotRequired[List[str]]
+    ExcludedPages: NotRequired[list[str]]
+    IncludedPages: NotRequired[list[str]]
+    FavoritePages: NotRequired[list[str]]
     SessionSampleRate: NotRequired[float]
-    Telemetries: NotRequired[List[TelemetryType]]
+    GuestRoleArn: NotRequired[str]
+    AllowCookies: NotRequired[bool]
+    Telemetries: NotRequired[list[TelemetryType]]
+    EnableXRay: NotRequired[bool]
 
 
 class AppMonitorConfigurationTypeDef(TypedDict):
-    AllowCookies: NotRequired[bool]
-    EnableXRay: NotRequired[bool]
-    ExcludedPages: NotRequired[Sequence[str]]
-    FavoritePages: NotRequired[Sequence[str]]
-    GuestRoleArn: NotRequired[str]
     IdentityPoolId: NotRequired[str]
+    ExcludedPages: NotRequired[Sequence[str]]
     IncludedPages: NotRequired[Sequence[str]]
+    FavoritePages: NotRequired[Sequence[str]]
     SessionSampleRate: NotRequired[float]
+    GuestRoleArn: NotRequired[str]
+    AllowCookies: NotRequired[bool]
     Telemetries: NotRequired[Sequence[TelemetryType]]
+    EnableXRay: NotRequired[bool]
 
 
 AppMonitorDetailsTypeDef = TypedDict(
     "AppMonitorDetailsTypeDef",
     {
-        "id": NotRequired[str],
         "name": NotRequired[str],
+        "id": NotRequired[str],
         "version": NotRequired[str],
     },
 )
 
 
 class AppMonitorSummaryTypeDef(TypedDict):
-    Created: NotRequired[str]
-    Id: NotRequired[str]
-    LastModified: NotRequired[str]
     Name: NotRequired[str]
+    Id: NotRequired[str]
+    Created: NotRequired[str]
+    LastModified: NotRequired[str]
     State: NotRequired[StateEnumType]
+    Platform: NotRequired[AppMonitorPlatformType]
 
 
 class CustomEventsTypeDef(TypedDict):
@@ -153,35 +150,35 @@ class CustomEventsTypeDef(TypedDict):
 
 class MetricDefinitionRequestOutputTypeDef(TypedDict):
     Name: str
-    DimensionKeys: NotRequired[Dict[str, str]]
+    ValueKey: NotRequired[str]
+    UnitLabel: NotRequired[str]
+    DimensionKeys: NotRequired[dict[str, str]]
     EventPattern: NotRequired[str]
     Namespace: NotRequired[str]
-    UnitLabel: NotRequired[str]
-    ValueKey: NotRequired[str]
 
 
 class MetricDefinitionTypeDef(TypedDict):
     MetricDefinitionId: str
     Name: str
-    DimensionKeys: NotRequired[Dict[str, str]]
+    ValueKey: NotRequired[str]
+    UnitLabel: NotRequired[str]
+    DimensionKeys: NotRequired[dict[str, str]]
     EventPattern: NotRequired[str]
     Namespace: NotRequired[str]
-    UnitLabel: NotRequired[str]
-    ValueKey: NotRequired[str]
 
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
 class BatchDeleteRumMetricDefinitionsErrorTypeDef(TypedDict):
+    MetricDefinitionId: str
     ErrorCode: str
     ErrorMessage: str
-    MetricDefinitionId: str
 
 
 class BatchDeleteRumMetricDefinitionsRequestTypeDef(TypedDict):
@@ -271,11 +268,11 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 class MetricDefinitionRequestTypeDef(TypedDict):
     Name: str
+    ValueKey: NotRequired[str]
+    UnitLabel: NotRequired[str]
     DimensionKeys: NotRequired[Mapping[str, str]]
     EventPattern: NotRequired[str]
     Namespace: NotRequired[str]
-    UnitLabel: NotRequired[str]
-    ValueKey: NotRequired[str]
 
 
 class PutResourcePolicyRequestTypeDef(TypedDict):
@@ -285,8 +282,8 @@ class PutResourcePolicyRequestTypeDef(TypedDict):
 
 
 class UserDetailsTypeDef(TypedDict):
-    sessionId: NotRequired[str]
     userId: NotRequired[str]
+    sessionId: NotRequired[str]
 
 
 class PutRumMetricsDestinationRequestTypeDef(TypedDict):
@@ -315,13 +312,13 @@ AppMonitorConfigurationUnionTypeDef = Union[
 
 
 class BatchCreateRumMetricDefinitionsErrorTypeDef(TypedDict):
+    MetricDefinition: MetricDefinitionRequestOutputTypeDef
     ErrorCode: str
     ErrorMessage: str
-    MetricDefinition: MetricDefinitionRequestOutputTypeDef
 
 
 class BatchGetRumMetricDefinitionsResponseTypeDef(TypedDict):
-    MetricDefinitions: List[MetricDefinitionTypeDef]
+    MetricDefinitions: list[MetricDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -337,7 +334,7 @@ class DeleteResourcePolicyResponseTypeDef(TypedDict):
 
 
 class GetAppMonitorDataResponseTypeDef(TypedDict):
-    Events: List[str]
+    Events: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -349,14 +346,14 @@ class GetResourcePolicyResponseTypeDef(TypedDict):
 
 
 class ListAppMonitorsResponseTypeDef(TypedDict):
-    AppMonitorSummaries: List[AppMonitorSummaryTypeDef]
+    AppMonitorSummaries: list[AppMonitorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
     ResourceArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -367,8 +364,8 @@ class PutResourcePolicyResponseTypeDef(TypedDict):
 
 
 class BatchDeleteRumMetricDefinitionsResponseTypeDef(TypedDict):
-    Errors: List[BatchDeleteRumMetricDefinitionsErrorTypeDef]
-    MetricDefinitionIds: List[str]
+    Errors: list[BatchDeleteRumMetricDefinitionsErrorTypeDef]
+    MetricDefinitionIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -412,7 +409,7 @@ class GetAppMonitorDataRequestTypeDef(TypedDict):
 
 
 class ListRumMetricsDestinationsResponseTypeDef(TypedDict):
-    Destinations: List[MetricDestinationSummaryTypeDef]
+    Destinations: list[MetricDestinationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -423,55 +420,57 @@ MetricDefinitionRequestUnionTypeDef = Union[
 RumEventTypeDef = TypedDict(
     "RumEventTypeDef",
     {
-        "details": str,
         "id": str,
         "timestamp": TimestampTypeDef,
         "type": str,
+        "details": str,
         "metadata": NotRequired[str],
     },
 )
 
 
 class BatchCreateRumMetricDefinitionsResponseTypeDef(TypedDict):
-    Errors: List[BatchCreateRumMetricDefinitionsErrorTypeDef]
-    MetricDefinitions: List[MetricDefinitionTypeDef]
+    Errors: list[BatchCreateRumMetricDefinitionsErrorTypeDef]
+    MetricDefinitions: list[MetricDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AppMonitorTypeDef(TypedDict):
-    AppMonitorConfiguration: NotRequired[AppMonitorConfigurationOutputTypeDef]
-    Created: NotRequired[str]
-    CustomEvents: NotRequired[CustomEventsTypeDef]
-    DataStorage: NotRequired[DataStorageTypeDef]
-    DeobfuscationConfiguration: NotRequired[DeobfuscationConfigurationTypeDef]
-    Domain: NotRequired[str]
-    DomainList: NotRequired[List[str]]
-    Id: NotRequired[str]
-    LastModified: NotRequired[str]
     Name: NotRequired[str]
+    Domain: NotRequired[str]
+    DomainList: NotRequired[list[str]]
+    Id: NotRequired[str]
+    Created: NotRequired[str]
+    LastModified: NotRequired[str]
+    Tags: NotRequired[dict[str, str]]
     State: NotRequired[StateEnumType]
-    Tags: NotRequired[Dict[str, str]]
+    AppMonitorConfiguration: NotRequired[AppMonitorConfigurationOutputTypeDef]
+    DataStorage: NotRequired[DataStorageTypeDef]
+    CustomEvents: NotRequired[CustomEventsTypeDef]
+    DeobfuscationConfiguration: NotRequired[DeobfuscationConfigurationTypeDef]
+    Platform: NotRequired[AppMonitorPlatformType]
 
 
 class CreateAppMonitorRequestTypeDef(TypedDict):
     Name: str
-    AppMonitorConfiguration: NotRequired[AppMonitorConfigurationUnionTypeDef]
-    CustomEvents: NotRequired[CustomEventsTypeDef]
-    CwLogEnabled: NotRequired[bool]
-    DeobfuscationConfiguration: NotRequired[DeobfuscationConfigurationTypeDef]
     Domain: NotRequired[str]
     DomainList: NotRequired[Sequence[str]]
     Tags: NotRequired[Mapping[str, str]]
+    AppMonitorConfiguration: NotRequired[AppMonitorConfigurationUnionTypeDef]
+    CwLogEnabled: NotRequired[bool]
+    CustomEvents: NotRequired[CustomEventsTypeDef]
+    DeobfuscationConfiguration: NotRequired[DeobfuscationConfigurationTypeDef]
+    Platform: NotRequired[AppMonitorPlatformType]
 
 
 class UpdateAppMonitorRequestTypeDef(TypedDict):
     Name: str
-    AppMonitorConfiguration: NotRequired[AppMonitorConfigurationUnionTypeDef]
-    CustomEvents: NotRequired[CustomEventsTypeDef]
-    CwLogEnabled: NotRequired[bool]
-    DeobfuscationConfiguration: NotRequired[DeobfuscationConfigurationTypeDef]
     Domain: NotRequired[str]
     DomainList: NotRequired[Sequence[str]]
+    AppMonitorConfiguration: NotRequired[AppMonitorConfigurationUnionTypeDef]
+    CwLogEnabled: NotRequired[bool]
+    CustomEvents: NotRequired[CustomEventsTypeDef]
+    DeobfuscationConfiguration: NotRequired[DeobfuscationConfigurationTypeDef]
 
 
 class BatchCreateRumMetricDefinitionsRequestTypeDef(TypedDict):
@@ -490,11 +489,11 @@ class UpdateRumMetricDefinitionRequestTypeDef(TypedDict):
 
 
 class PutRumEventsRequestTypeDef(TypedDict):
-    AppMonitorDetails: AppMonitorDetailsTypeDef
-    BatchId: str
     Id: str
-    RumEvents: Sequence[RumEventTypeDef]
+    BatchId: str
+    AppMonitorDetails: AppMonitorDetailsTypeDef
     UserDetails: UserDetailsTypeDef
+    RumEvents: Sequence[RumEventTypeDef]
     Alias: NotRequired[str]
 
 

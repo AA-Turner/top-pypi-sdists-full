@@ -1,18 +1,11 @@
-# Copyright 2025 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import re
-import sys
-from typing import Any, Callable
+from typing import Any, Callable, TypeAlias
 
 import yaml
 from yaml.representer import SafeRepresenter, ScalarNode
-
-if sys.version_info < (3, 10):
-    from typing_extensions import TypeAlias
-else:
-    from typing import TypeAlias
-
 
 # Regex captures loose yaml for frontmatter
 # Should match the following:

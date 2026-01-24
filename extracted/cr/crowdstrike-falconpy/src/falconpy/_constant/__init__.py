@@ -57,7 +57,8 @@ PREFER_IDS_IN_BODY: List[str] = [
     "setContentUpdatePoliciesPrecedence", "setDeviceControlPoliciesPrecedence",
     "setFirewallPoliciesPrecedence", "setPreventionPoliciesPrecedence", "signalChangesExternal",
     "setRTResponsePoliciesPrecedence", "setSensorUpdatePoliciesPrecedence", "GetDeviceDetails",
-    "CreateSavedSearchesDeployV1", "cancel-scans", "get-rules-get"
+    "CreateSavedSearchesDeployV1", "cancel-scans", "get-rules-get", "WorkflowDefinitionsStatus",
+    "WorkflowDefinitionsAction"
 ]
 MOCK_OPERATIONS: List[str] = [
     "GetImageAssessmentReport", "DeleteImageDetails", "ImageMatchesPolicy"
@@ -74,3 +75,5 @@ GLOBAL_API_MAX_RETURN: int = 5000
 MAX_TOKEN_RENEW_WINDOW: int = 1200
 # Minimum available token renew window (in seconds).
 MIN_TOKEN_RENEW_WINDOW: int = 120
+# Maximum length for strings generated with the random_string function (in seconds).
+MAX_RANDOM_STRING_LENGTH: int = 4096

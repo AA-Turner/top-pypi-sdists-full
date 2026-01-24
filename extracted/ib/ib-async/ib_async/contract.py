@@ -2,7 +2,7 @@
 
 import datetime as dt
 from dataclasses import dataclass, field
-from typing import List, NamedTuple, Optional
+from typing import NamedTuple, Optional
 
 import ib_async.util as util
 
@@ -100,7 +100,7 @@ class Contract:
     description: str = ""
     issuerId: str = ""
     comboLegsDescrip: str = ""
-    comboLegs: List["ComboLeg"] = field(default_factory=list)
+    comboLegs: list["ComboLeg"] = field(default_factory=list)
     deltaNeutralContract: Optional["DeltaNeutralContract"] = None
 
     @staticmethod
@@ -550,7 +550,7 @@ class TradingSession(NamedTuple):
 
 @dataclass
 class ContractDetails:
-    contract: Optional[Contract] = None
+    contract: Contract | None = None
     marketName: str = ""
     minTick: float = 0.0
     orderTypes: str = ""
@@ -572,7 +572,7 @@ class ContractDetails:
     underSymbol: str = ""
     underSecType: str = ""
     marketRuleIds: str = ""
-    secIdList: List[TagValue] = field(default_factory=list)
+    secIdList: list[TagValue] = field(default_factory=list)
     realExpirationDate: str = ""
     lastTradeTime: str = ""
     stockType: str = ""
@@ -596,13 +596,13 @@ class ContractDetails:
     nextOptionPartial: bool = False
     notes: str = ""
 
-    def tradingSessions(self) -> List[TradingSession]:
+    def tradingSessions(self) -> list[TradingSession]:
         return self._parseSessions(self.tradingHours)
 
-    def liquidSessions(self) -> List[TradingSession]:
+    def liquidSessions(self) -> list[TradingSession]:
         return self._parseSessions(self.liquidHours)
 
-    def _parseSessions(self, s: str) -> List[TradingSession]:
+    def _parseSessions(self, s: str) -> list[TradingSession]:
         """Parse the IBKR session date range text format into native Python objects.
 
         Note: The IBKR date range format looks like:
@@ -637,8 +637,8 @@ class ContractDetails:
 
 @dataclass
 class ContractDescription:
-    contract: Optional[Contract] = None
-    derivativeSecTypes: List[str] = field(default_factory=list)
+    contract: Contract | None = None
+    derivativeSecTypes: list[str] = field(default_factory=list)
 
 
 @dataclass

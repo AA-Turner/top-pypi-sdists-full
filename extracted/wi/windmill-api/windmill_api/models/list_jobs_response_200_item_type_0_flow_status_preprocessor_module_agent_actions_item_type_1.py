@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -6,6 +6,13 @@ from attrs import field as _attrs_field
 from ..models.list_jobs_response_200_item_type_0_flow_status_preprocessor_module_agent_actions_item_type_1_type import (
     ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1Type,
 )
+from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.list_jobs_response_200_item_type_0_flow_status_preprocessor_module_agent_actions_item_type_1_arguments import (
+        ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1Arguments,
+    )
+
 
 T = TypeVar("T", bound="ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1")
 
@@ -14,32 +21,80 @@ T = TypeVar("T", bound="ListJobsResponse200ItemType0FlowStatusPreprocessorModule
 class ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1:
     """
     Attributes:
+        call_id (str):
+        function_name (str):
+        resource_path (str):
         type (ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1Type):
+        arguments (Union[Unset,
+            ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1Arguments]):
     """
 
+    call_id: str
+    function_name: str
+    resource_path: str
     type: ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1Type
+    arguments: Union[
+        Unset, "ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1Arguments"
+    ] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        call_id = self.call_id
+        function_name = self.function_name
+        resource_path = self.resource_path
         type = self.type.value
+
+        arguments: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.arguments, Unset):
+            arguments = self.arguments.to_dict()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "call_id": call_id,
+                "function_name": function_name,
+                "resource_path": resource_path,
                 "type": type,
             }
         )
+        if arguments is not UNSET:
+            field_dict["arguments"] = arguments
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.list_jobs_response_200_item_type_0_flow_status_preprocessor_module_agent_actions_item_type_1_arguments import (
+            ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1Arguments,
+        )
+
         d = src_dict.copy()
+        call_id = d.pop("call_id")
+
+        function_name = d.pop("function_name")
+
+        resource_path = d.pop("resource_path")
+
         type = ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1Type(d.pop("type"))
 
+        _arguments = d.pop("arguments", UNSET)
+        arguments: Union[Unset, ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1Arguments]
+        if isinstance(_arguments, Unset):
+            arguments = UNSET
+        else:
+            arguments = (
+                ListJobsResponse200ItemType0FlowStatusPreprocessorModuleAgentActionsItemType1Arguments.from_dict(
+                    _arguments
+                )
+            )
+
         list_jobs_response_200_item_type_0_flow_status_preprocessor_module_agent_actions_item_type_1 = cls(
+            call_id=call_id,
+            function_name=function_name,
+            resource_path=resource_path,
             type=type,
+            arguments=arguments,
         )
 
         list_jobs_response_200_item_type_0_flow_status_preprocessor_module_agent_actions_item_type_1.additional_properties = (

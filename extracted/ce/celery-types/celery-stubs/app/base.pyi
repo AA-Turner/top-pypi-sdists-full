@@ -1,15 +1,18 @@
 import datetime
 from collections import defaultdict
 from collections.abc import Callable, Sequence
+from types import TracebackType
 from typing import (
     Any,
+    Concatenate,
+    Generic,
     Literal,
     NoReturn,
-    TypeVar,
     overload,
 )
 
-import celery
+import celery.app
+import celery.result
 import kombu
 from celery.app.amqp import AMQP
 from celery.app.beat import Beat as CeleryBeat
@@ -30,13 +33,18 @@ from celery.utils.dispatch import Signal
 from celery.utils.objects import FallbackContext
 from celery.utils.threads import _LocalStack
 from celery.worker import WorkController as CeleryWorkController
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import ParamSpec, Self, TypeVar
 
 _T = TypeVar("_T", bound=CeleryTask[Any, Any])
+_T_Global = TypeVar(
+    "_T_Global",
+    bound=CeleryTask[Any, Any],
+    default=CeleryTask[Any, Any],
+)
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
 
-class Celery:
+class Celery(Generic[_T_Global]):
     steps: defaultdict[str, set[Any]]
 
     on_configure: Signal
@@ -55,11 +63,12 @@ class Celery:
         set_as_current: bool = ...,
         tasks: str | type[TaskRegistry] | None = ...,
         broker: str | None = ...,
-        include: list[str] | None = ...,
+        imports: list[str] | tuple[str, ...] | None = ...,
+        include: list[str] | tuple[str, ...] | None = ...,
         changes: dict[str, Any] | None = ...,
         config_source: str | object | None = ...,
         fixups: list[str] | None = ...,
-        task_cls: str | type[CeleryTask[Any, Any]] | None = ...,
+        task_cls: str | type[_T_Global] | None = ...,
         autofinalize: bool = ...,
         namespace: str | None = ...,
         strict_typing: bool = ...,
@@ -69,7 +78,7 @@ class Celery:
         broker_login_method: str = ...,
         broker_transport_options: dict[str, Any] = ...,
         broker_connection_retry_on_startup: bool = ...,
-        broker_connection_timeout: int | float = ...,
+        broker_connection_timeout: float = ...,
         result_backend_transport_options: dict[str, Any] | None = ...,
         result_extended: bool = ...,
         result_expires: datetime.timedelta = ...,
@@ -103,11 +112,11 @@ class Celery:
         self,
         fun: Callable[_P, _R],
         name: str | None = ...,
-        base: type[CeleryTask[Any, Any]] | None = ...,
+        base: type[_T_Global] | None = ...,
         bind: bool = ...,
         # options
-        autoretry_for: tuple[type[BaseException], ...] = ...,
-        dont_autoretry_for: tuple[type[BaseException], ...] = ...,
+        autoretry_for: Sequence[type[BaseException]] = ...,
+        dont_autoretry_for: Sequence[type[BaseException]] = ...,
         retry_kwargs: dict[str, Any] = ...,
         retry_backoff: bool | int = ...,
         retry_backoff_max: int = ...,
@@ -137,7 +146,7 @@ class Celery:
         abstract: bool = ...,
         after_return: Callable[..., Any] = ...,
         on_retry: Callable[..., Any] = ...,
-    ) -> CeleryTask[_P, _R]: ...
+    ) -> _T_Global: ...
     def on_init(self) -> None: ...
     def set_current(self) -> None: ...
     def set_default(self) -> None: ...
@@ -145,7 +154,7 @@ class Celery:
     def start(self, argv: list[str] | None = ...) -> NoReturn: ...
     def worker_main(self, argv: list[str] | None = ...) -> NoReturn: ...
     @overload
-    def task(self, fun: Callable[_P, _R]) -> CeleryTask[_P, _R]: ...  # type: ignore [misc]
+    def task(self, fun: Callable[_P, _R]) -> _T_Global: ...
     @overload
     def task(
         self,
@@ -153,8 +162,8 @@ class Celery:
         name: str = ...,
         serializer: str = ...,
         bind: bool = ...,
-        autoretry_for: tuple[type[BaseException], ...] = ...,
-        dont_autoretry_for: tuple[type[BaseException], ...] = ...,
+        autoretry_for: Sequence[type[BaseException]] = ...,
+        dont_autoretry_for: Sequence[type[BaseException]] = ...,
         max_retries: int | None = ...,
         default_retry_delay: int = ...,
         acks_late: bool = ...,
@@ -193,8 +202,8 @@ class Celery:
         name: str = ...,
         serializer: str = ...,
         bind: Literal[False] = ...,
-        autoretry_for: tuple[type[BaseException], ...] = ...,
-        dont_autoretry_for: tuple[type[BaseException], ...] = ...,
+        autoretry_for: Sequence[type[BaseException]] = ...,
+        dont_autoretry_for: Sequence[type[BaseException]] = ...,
         max_retries: int | None = ...,
         default_retry_delay: int = ...,
         acks_late: bool = ...,
@@ -225,7 +234,7 @@ class Celery:
         after_return: Callable[..., Any] = ...,
         on_retry: Callable[..., Any] = ...,
         **options: Any,
-    ) -> Callable[[Callable[_P, _R]], CeleryTask[_P, _R]]: ...
+    ) -> Callable[[Callable[_P, _R]], _T_Global]: ...
     @overload
     def task(
         self,
@@ -233,9 +242,9 @@ class Celery:
         name: str = ...,
         serializer: str = ...,
         bind: Literal[True],
-        autoretry_for: tuple[type[BaseException], ...] = ...,
-        dont_autoretry_for: tuple[type[BaseException], ...] = ...,
-        max_retries: int = ...,
+        autoretry_for: Sequence[type[BaseException]] = ...,
+        dont_autoretry_for: Sequence[type[BaseException]] = ...,
+        max_retries: int | None = ...,
         default_retry_delay: int = ...,
         acks_late: bool = ...,
         ignore_result: bool = ...,
@@ -265,9 +274,7 @@ class Celery:
         after_return: Callable[..., Any] = ...,
         on_retry: Callable[..., Any] = ...,
         **options: Any,
-    ) -> Callable[
-        [Callable[Concatenate[CeleryTask[_P, _R], _P], _R]], CeleryTask[_P, _R]
-    ]: ...
+    ) -> Callable[[Callable[Concatenate[_T_Global, _P], _R]], _T_Global]: ...
     def register_task(self, task: _T | type[_T], **options: Any) -> _T: ...
     def gen_task_name(self, name: str, module: str) -> str: ...
     def finalize(self, auto: bool = ...) -> None: ...
@@ -356,12 +363,12 @@ class Celery:
     broker_connection = connection
     def connection_or_acquire(
         self, connection: kombu.Connection | None = ..., pool: bool = ...
-    ) -> FallbackContext: ...
+    ) -> FallbackContext[Any, Any]: ...
     default_connection = connection_or_acquire
     def producer_or_acquire(
         self, producer: kombu.Producer | None = ...
-    ) -> FallbackContext: ...
-    default_producer = producer_or_acquire  # XXX compat
+    ) -> FallbackContext[Any, Any]: ...
+    default_producer = producer_or_acquire
     def prepare_config(self, c: Settings) -> Settings: ...
     def now(self) -> datetime.datetime: ...
     def select_queues(self, queues: Sequence[str] | None = ...) -> None: ...
@@ -377,8 +384,13 @@ class Celery:
         name: str | None = ...,
         **opts: Any,
     ) -> str: ...
-    def __enter__(self) -> Celery: ...
-    def __exit__(self, *exc_info: Any) -> None: ...
+    def __enter__(self) -> Self: ...
+    def __exit__(
+        self,
+        typ: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None: ...
     @property
     def Worker(self) -> type[CeleryWorker]: ...
     @property
@@ -386,7 +398,7 @@ class Celery:
     @property
     def Beat(self) -> type[CeleryBeat]: ...
     @property
-    def Task(self) -> type[CeleryTask[Any, Any]]: ...
+    def Task(self) -> type[_T_Global]: ...
     @property
     def annotations(self) -> list[dict[str, Any]]: ...
     @property
@@ -398,9 +410,9 @@ class Celery:
     @property
     def pool(self) -> kombu.pools.ProducerPool: ...
     @property
-    def current_task(self) -> CeleryTask[Any, Any] | None: ...
+    def current_task(self) -> _T_Global | None: ...
     @property
-    def current_worker_task(self) -> CeleryTask[Any, Any] | None: ...
+    def current_worker_task(self) -> _T_Global | None: ...
     @property
     def oid(self) -> str: ...
     @property

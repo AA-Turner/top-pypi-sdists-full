@@ -3,12 +3,11 @@
 # @Time    : 2022/9/2 15:35
 from enum import Enum
 from functools import wraps
-from typing import Optional
 
 import pytest
 from pydantic import BaseModel, Field
 
-from flask_openapi3 import OpenAPI, FileStorage, RawModel
+from flask_openapi3 import FileStorage, OpenAPI, RawModel
 
 app = OpenAPI(__name__)
 app.config["TESTING"] = True
@@ -35,7 +34,12 @@ class BookForm(BaseModel):
 
 class BookQuery(BaseModel):
     age: list[int]
-    book_type: Optional[TypeEnum] = None
+    book_type: TypeEnum | None = None
+
+
+class BookQueryFilter(BaseModel):
+    age: list[int]
+    fields: list[str] | None = None
 
 
 class BookBody(BaseModel):
@@ -43,8 +47,8 @@ class BookBody(BaseModel):
 
 
 class BookCookie(BaseModel):
-    token: Optional[str] = None
-    token_type: Optional[TypeEnum] = None
+    token: str | None = None
+    token_type: TypeEnum | None = None
 
 
 class BookHeader(BaseModel):
@@ -52,8 +56,8 @@ class BookHeader(BaseModel):
     # required
     hello2: str = Field(..., max_length=12, description="sds")
     api_key: str = Field(..., description="API Key")
-    api_type: Optional[TypeEnum] = None
-    x_hello: str = Field(..., max_length=12, description='Header with alias to support dash', alias="x-hello")
+    api_type: TypeEnum | None = None
+    x_hello: str = Field(..., max_length=12, description="Header with alias to support dash", alias="x-hello")
 
 
 def decorator(func):
@@ -69,6 +73,13 @@ def decorator(func):
 def api_query(query: BookQuery):
     print(query)
     return {"code": 0, "message": "ok"}
+
+
+@app.get("/filter-query")
+@decorator
+def api_filter_query(query: BookQueryFilter):
+    print(query)
+    return {"fields": query.fields, "message": "ok"}
 
 
 @app.post("/form")
@@ -111,13 +122,35 @@ def test_query(client):
     assert r.status_code == 200
 
 
+def test_query_list(client):
+    r = client.get("/filter-query?age=1&fields=name&fields=age")
+    print(r.json)
+    assert r.status_code == 200
+    assert r.json["fields"] == ["name", "age"]
+
+
+def test_query_list_no_fields(client):
+    r = client.get("/filter-query?age=1")
+    print(r.json)
+    assert r.status_code == 200
+    assert r.json["fields"] is None
+
+
+def test_query_list_single_field(client):
+    r = client.get("/filter-query?age=1&fields=age")
+    print(r.json)
+    assert r.status_code == 200
+    assert r.json["fields"] == ["age"]
+
+
 def test_form(client):
     from io import BytesIO
+
     data = {
         "file": (BytesIO(b"post-data"), "filename"),
         "files": [(BytesIO(b"post-data"), "filename"), (BytesIO(b"post-data"), "filename")],
         "string": "a",
-        "string_list": ["a", "b", "c"]
+        "string_list": ["a", "b", "c"],
     }
     r = client.post("/form", data=data, content_type="multipart/form-data")
     assert r.status_code == 200

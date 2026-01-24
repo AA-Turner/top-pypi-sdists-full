@@ -59,14 +59,14 @@ def weighted_random(process_step: ProcessStep, **kwargs) -> User | None:
             # We redistribute each occurrence number between all of the other list items to increase their probability
             redistributed_list: list[int] = [0 for i in range(group_user_count)]
             for index, elem in enumerate(number_of_past_assignee_occurrences):
-                for index2, elem2 in enumerate(redistributed_list):
+                for index2 in range(len(redistributed_list)):
                     if not index2 == index:
                         redistributed_list[index2] += elem / (group_user_count - 1) if elem else 0
             # Transform the list of absolute values into percentages
             new_weights: list[float] = [x / sum(redistributed_list) for x in redistributed_list]
-            new_assignee: User = choices(group_member_list, weights=new_weights)[0]
+            new_assignee: User = choices(group_member_list, weights=new_weights)[0]  # noqa
         else:
-            new_assignee: User = choices(group_member_list)[0]
+            new_assignee: User = choices(group_member_list)[0]  # noqa
         return new_assignee
 
     process_step.step.get_casted_step().set_failed(
@@ -79,7 +79,7 @@ def weighted_random(process_step: ProcessStep, **kwargs) -> User | None:
 @register_assignee("Random Group Member")
 def random_group_member(process_step: ProcessStep, **kwargs) -> User | None:
     if (group := process_step.group) and group.user_set.exists():
-        return group.user_set.all()[randint(0, group.user_set.count() - 1)]
+        return group.user_set.all()[randint(0, group.user_set.count() - 1)]  # noqa
 
     process_step.step.get_casted_step().set_failed(
         process_step,

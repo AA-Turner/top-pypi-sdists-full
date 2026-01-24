@@ -15,14 +15,13 @@ __all__ = [
 ]
 
 import inspect
-from collections.abc import AsyncIterator, Iterator, Sequence
+from collections.abc import AsyncIterator, Callable, Iterator, Sequence
 from contextlib import AbstractContextManager, ExitStack, asynccontextmanager, contextmanager, suppress
 from contextvars import ContextVar
+from copy import copy
 from typing import (
     Any,
-    Callable,
     Literal,
-    Optional,
     TypeVar,
     cast,
     overload,
@@ -36,12 +35,21 @@ from fastapi.dependencies.utils import (
 )
 from fastapi.routing import APIRoute, APIRouter
 from pydantic import BaseModel
-from starlette.routing import request_response
 
-from .bases import AbstractPage, AbstractParams
+from .pydantic.consts import IS_PYDANTIC_V2_12_5_OR_HIGHER
+from .pydantic.v2 import FieldV2, UndefinedV2
+from .typing_utils import create_annotated_tp
+
+try:
+    from fastapi.routing import request_response
+except ImportError:  # pragma: no cover
+    from starlette.routing import request_response
+
+from .bases import AbstractPage, AbstractParams, BaseAbstractPage
 from .errors import UninitializedConfigurationError
+from .pydantic import IS_PYDANTIC_V2
 from .types import AsyncItemsTransformer, ItemsTransformer, SyncItemsTransformer
-from .utils import IS_PYDANTIC_V2, is_async_callable, unwrap_annotated
+from .utils import is_async_callable, unwrap_annotated
 
 T = TypeVar("T")
 TAbstractParams_co = TypeVar("TAbstractParams_co", covariant=True, bound=AbstractParams)
@@ -53,10 +61,10 @@ _rsp_val: ContextVar[Response] = ContextVar("_rsp_val")
 _req_val: ContextVar[Request] = ContextVar("_req_val")
 
 _items_val: ContextVar[Sequence[Any]] = ContextVar("_items_val")
-_items_transformer_val: ContextVar[Optional[ItemsTransformer]] = ContextVar("_items_transformer_val", default=None)
+_items_transformer_val: ContextVar[ItemsTransformer | None] = ContextVar("_items_transformer_val", default=None)
 
 
-def resolve_params(params: Optional[TAbstractParams_co] = None) -> TAbstractParams_co:
+def resolve_params(params: TAbstractParams_co | None = None) -> TAbstractParams_co:
     if params is None:
         try:
             return cast(TAbstractParams_co, _params_val.get())
@@ -66,7 +74,7 @@ def resolve_params(params: Optional[TAbstractParams_co] = None) -> TAbstractPara
     return params
 
 
-def resolve_items_transformer(transformer: Optional[ItemsTransformer] = None) -> Optional[ItemsTransformer]:
+def resolve_items_transformer(transformer: ItemsTransformer | None = None) -> ItemsTransformer | None:
     if transformer is None:
         return _items_transformer_val.get()
 
@@ -83,8 +91,8 @@ def pagination_items() -> Sequence[Any]:
 def create_page(
     items: Sequence[T],
     /,
-    total: Optional[int] = None,
-    params: Optional[AbstractParams] = None,
+    total: int | None = None,
+    params: AbstractParams | None = None,
     **kwargs: Any,
 ) -> AbstractPage[T]:
     """
@@ -137,7 +145,7 @@ def set_page(page: type[AbstractPage[Any]]) -> AbstractContextManager[None]:
     return _ctx_var_with_reset(_page_val, page)
 
 
-def resolve_page(params: Optional[AbstractParams] = None, /) -> type[AbstractPage[Any]]:
+def resolve_page(params: AbstractParams | None = None, /) -> type[AbstractPage[Any]]:
     try:
         return _page_val.get()
     except LookupError:
@@ -162,7 +170,7 @@ async def async_wrapped(obj: T) -> T:
 def apply_items_transformer(
     items: Sequence[Any],
     /,
-    transformer: Optional[SyncItemsTransformer] = None,
+    transformer: SyncItemsTransformer | None = None,
     *,
     async_: Literal[False] = False,
 ) -> Sequence[Any]:
@@ -173,7 +181,7 @@ def apply_items_transformer(
 async def apply_items_transformer(
     items: Sequence[Any],
     /,
-    transformer: Optional[AsyncItemsTransformer] = None,
+    transformer: AsyncItemsTransformer | None = None,
     *,
     async_: Literal[True],
 ) -> Sequence[Any]:
@@ -183,7 +191,7 @@ async def apply_items_transformer(
 def apply_items_transformer(
     items: Sequence[Any],
     /,
-    transformer: Optional[ItemsTransformer] = None,
+    transformer: ItemsTransformer | None = None,
     *,
     async_: bool = False,
 ) -> Any:
@@ -216,17 +224,37 @@ def _create_params_dependency(
 
     if IS_PYDANTIC_V2:
         with suppress(ValueError, TypeError):
-            if issubclass(params, BaseModel):
-                sign_params = [
-                    inspect.Parameter(
+            if IS_PYDANTIC_V2_12_5_OR_HIGHER:
+
+                def _get_param(name: str, field: FieldV2) -> inspect.Parameter:
+                    field = copy(field)
+
+                    param_default: Any
+                    if field.default is not UndefinedV2:
+                        # for pydantic v2.12.5+ we need to move default value to be as parameter default
+                        param_default = field.default
+                        field.default = UndefinedV2
+                    else:
+                        param_default = inspect.Parameter.empty
+
+                    return inspect.Parameter(
+                        name=name,
+                        kind=inspect.Parameter.KEYWORD_ONLY,
+                        annotation=create_annotated_tp(field.annotation, field),
+                        default=param_default,
+                    )
+            else:
+
+                def _get_param(name: str, field: FieldV2) -> inspect.Parameter:
+                    return inspect.Parameter(
                         name=name,
                         kind=inspect.Parameter.KEYWORD_ONLY,
                         annotation=field.annotation,
                         default=field,
                     )
-                    for name, field in params.model_fields.items()
-                ]
 
+            if issubclass(params, BaseModel):
+                sign_params = [_get_param(name, field) for name, field in params.model_fields.items()]
                 sign = sign.replace(parameters=sign_params)
 
     _pagination_params.__signature__ = sign  # type: ignore[attr-defined]
@@ -239,9 +267,9 @@ async def _noop_dep() -> None:
 
 
 def pagination_ctx(
-    page: Optional[type[AbstractPage[Any]]] = None,
-    params: Optional[type[AbstractParams]] = None,
-    transformer: Optional[ItemsTransformer] = None,
+    page: type[AbstractPage[Any]] | None = None,
+    params: type[AbstractParams] | None = None,
+    transformer: ItemsTransformer | None = None,
     __page_ctx_dep__: bool = False,
 ) -> Callable[..., AsyncIterator[AbstractParams]]:
     if page is not None and params is None:
@@ -271,7 +299,7 @@ def pagination_ctx(
     return _page_ctx_dependency
 
 
-def _bet_body_field(route: APIRoute) -> Optional[Any]:
+def _bet_body_field(route: APIRoute) -> Any | None:
     try:
         # starting from fastapi 0.113.0 get_body_field changed its signature
         return get_body_field(
@@ -280,7 +308,7 @@ def _bet_body_field(route: APIRoute) -> Optional[Any]:
             embed_body_fields=route._embed_body_fields,
         )
     except (TypeError, AttributeError):
-        return get_body_field(
+        return get_body_field(  # type: ignore[missing-argument]
             dependant=route.dependant,  # type: ignore[call-arg]
             name=route.unique_id,
         )
@@ -295,7 +323,7 @@ def _update_route(route: APIRoute) -> None:
 
     page_cls = unwrap_annotated(route.response_model)
 
-    if not lenient_issubclass(page_cls, AbstractPage):
+    if not lenient_issubclass(page_cls, BaseAbstractPage):
         return
 
     cls = cast(type[AbstractPage[Any]], page_cls)
@@ -321,7 +349,7 @@ def _patch_openapi(dst: dict[str, Any], src: dict[str, Any]) -> None:
         dst["components"]["schemas"].update(src["components"]["schemas"])
 
 
-def _add_pagination(parent: ParentT) -> None:
+def _add_pagination(parent: FastAPI | APIRouter, /) -> None:
     for route in parent.routes:
         # Avoid starlette routes (autogenerated for documentation)
         if isinstance(route, APIRoute):

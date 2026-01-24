@@ -44,6 +44,30 @@ class DbtMetric(Dbt):
     """
     Filters applied to the dbt metric.
     """
+    DBT_METRIC_FILTER: ClassVar[KeywordField] = KeywordField(
+        "dbtMetricFilter", "dbtMetricFilter"
+    )
+    """
+    Top-level filter applied to the entire metric query.
+    """
+    DBT_METRIC_WINDOW: ClassVar[KeywordField] = KeywordField(
+        "dbtMetricWindow", "dbtMetricWindow"
+    )
+    """
+    Time window for cumulative/conversion metrics.
+    """
+    DBT_METRIC_CUMULATIVE_PERIOD_AGG: ClassVar[KeywordField] = KeywordField(
+        "dbtMetricCumulativePeriodAgg", "dbtMetricCumulativePeriodAgg"
+    )
+    """
+    Aggregation function for cumulative metrics within each period.
+    """
+    DBT_METRIC_CONVERSION_CALCULATION: ClassVar[KeywordField] = KeywordField(
+        "dbtMetricConversionCalculation", "dbtMetricConversionCalculation"
+    )
+    """
+    Calculation type for conversion metrics.
+    """
     DBT_ALIAS: ClassVar[KeywordTextField] = KeywordTextField(
         "dbtAlias", "dbtAlias.keyword", "dbtAlias"
     )
@@ -212,6 +236,10 @@ class DbtMetric(Dbt):
 
     _convenience_properties: ClassVar[List[str]] = [
         "dbt_metric_filters",
+        "dbt_metric_filter",
+        "dbt_metric_window",
+        "dbt_metric_cumulative_period_agg",
+        "dbt_metric_conversion_calculation",
         "dbt_alias",
         "dbt_meta",
         "dbt_unique_id",
@@ -252,6 +280,62 @@ class DbtMetric(Dbt):
         if self.attributes is None:
             self.attributes = self.Attributes()
         self.attributes.dbt_metric_filters = dbt_metric_filters
+
+    @property
+    def dbt_metric_filter(self) -> Optional[str]:
+        return None if self.attributes is None else self.attributes.dbt_metric_filter
+
+    @dbt_metric_filter.setter
+    def dbt_metric_filter(self, dbt_metric_filter: Optional[str]):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.dbt_metric_filter = dbt_metric_filter
+
+    @property
+    def dbt_metric_window(self) -> Optional[str]:
+        return None if self.attributes is None else self.attributes.dbt_metric_window
+
+    @dbt_metric_window.setter
+    def dbt_metric_window(self, dbt_metric_window: Optional[str]):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.dbt_metric_window = dbt_metric_window
+
+    @property
+    def dbt_metric_cumulative_period_agg(self) -> Optional[str]:
+        return (
+            None
+            if self.attributes is None
+            else self.attributes.dbt_metric_cumulative_period_agg
+        )
+
+    @dbt_metric_cumulative_period_agg.setter
+    def dbt_metric_cumulative_period_agg(
+        self, dbt_metric_cumulative_period_agg: Optional[str]
+    ):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.dbt_metric_cumulative_period_agg = (
+            dbt_metric_cumulative_period_agg
+        )
+
+    @property
+    def dbt_metric_conversion_calculation(self) -> Optional[str]:
+        return (
+            None
+            if self.attributes is None
+            else self.attributes.dbt_metric_conversion_calculation
+        )
+
+    @dbt_metric_conversion_calculation.setter
+    def dbt_metric_conversion_calculation(
+        self, dbt_metric_conversion_calculation: Optional[str]
+    ):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.dbt_metric_conversion_calculation = (
+            dbt_metric_conversion_calculation
+        )
 
     @property
     def dbt_alias(self) -> Optional[str]:
@@ -583,6 +667,14 @@ class DbtMetric(Dbt):
 
     class Attributes(Dbt.Attributes):
         dbt_metric_filters: Optional[List[DbtMetricFilter]] = Field(
+            default=None, description=""
+        )
+        dbt_metric_filter: Optional[str] = Field(default=None, description="")
+        dbt_metric_window: Optional[str] = Field(default=None, description="")
+        dbt_metric_cumulative_period_agg: Optional[str] = Field(
+            default=None, description=""
+        )
+        dbt_metric_conversion_calculation: Optional[str] = Field(
             default=None, description=""
         )
         dbt_alias: Optional[str] = Field(default=None, description="")

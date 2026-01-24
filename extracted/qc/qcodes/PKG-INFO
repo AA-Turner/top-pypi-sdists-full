@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qcodes
-Version: 0.53.0
+Version: 0.54.4
 Summary: Python-based data acquisition framework developed by the Copenhagen / Delft / Sydney / Microsoft quantum computing consortium
 Maintainer-email: QCoDeS Core Developers <qcodes-support@microsoft.com>
 License-Expression: MIT
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
@@ -26,6 +27,7 @@ Requires-Dist: ipywidgets<9.0.0,>=8.0.0
 Requires-Dist: ipykernel>=6.12.0
 Requires-Dist: jsonschema>=4.9.0
 Requires-Dist: matplotlib>=3.6.0
+Requires-Dist: networkx>=3.1
 Requires-Dist: numpy>=1.22.4
 Requires-Dist: packaging>=20.0
 Requires-Dist: pandas>=1.5.0
@@ -38,22 +40,18 @@ Requires-Dist: tqdm>=4.59.0
 Requires-Dist: uncertainties>=3.2.0
 Requires-Dist: versioningit>=2.2.1
 Requires-Dist: websockets>=11.0
-Requires-Dist: wrapt>=1.15.0; python_version < "3.12"
-Requires-Dist: wrapt>=1.16.0; python_version >= "3.12"
-Requires-Dist: xarray>=2022.06.0
+Requires-Dist: xarray>=2023.08.0
 Requires-Dist: cf_xarray>=0.8.4
 Requires-Dist: opentelemetry-api>=1.17.0
 Requires-Dist: pillow>=9.2.0
 Requires-Dist: dask>=2022.1.0
-Requires-Dist: tornado>=6.3.3
-Requires-Dist: ipython>=8.10.0
 Provides-Extra: zurichinstruments
 Requires-Dist: zhinst-qcodes>=0.3; extra == "zurichinstruments"
 Provides-Extra: loop
 Requires-Dist: qcodes_loop>=0.1.2; extra == "loop"
 Provides-Extra: test
-Requires-Dist: coverage[toml]>=6.3.0; extra == "test"
-Requires-Dist: deepdiff>=5.0.2; extra == "test"
+Requires-Dist: coverage[toml]>=7.10.5; extra == "test"
+Requires-Dist: deepdiff>=8.6.1; extra == "test"
 Requires-Dist: hypothesis>=6.130.0; extra == "test"
 Requires-Dist: lxml>=4.9.4; extra == "test"
 Requires-Dist: lxml-stubs>=0.4.0; extra == "test"
@@ -61,13 +59,14 @@ Requires-Dist: mypy>=1.16.0; extra == "test"
 Requires-Dist: pandas-stubs>=1.2.0.1; extra == "test"
 Requires-Dist: pytest>=8.2.0; extra == "test"
 Requires-Dist: pytest-asyncio>=0.24.0; extra == "test"
-Requires-Dist: pytest-cov>=4.1.0; extra == "test"
-Requires-Dist: pytest-mock>=3.12.0; extra == "test"
-Requires-Dist: pytest-rerunfailures>=10.3; extra == "test"
-Requires-Dist: pytest-xdist>=3.1.0; extra == "test"
+Requires-Dist: pytest-cov>=5.0.0; extra == "test"
+Requires-Dist: pytest-mock>=3.13.0; extra == "test"
+Requires-Dist: pytest-rerunfailures>=14.0; extra == "test"
+Requires-Dist: pytest-xdist>=3.6.1; extra == "test"
 Requires-Dist: PyVisa-sim>=0.6.0; extra == "test"
 Requires-Dist: sphinx>=4.5.0; extra == "test"
 Requires-Dist: types-jsonschema>=4.16.0; extra == "test"
+Requires-Dist: types-networkx>=3.1; extra == "test"
 Requires-Dist: types_requests>=0.1.8; extra == "test"
 Requires-Dist: types-tabulate>=0.1.0; extra == "test"
 Requires-Dist: types-tqdm>=4.64.6; extra == "test"
@@ -75,7 +74,6 @@ Requires-Dist: types_pywin32>=305.0.0.7; extra == "test"
 Requires-Dist: qcodes_loop>=0.1.1; extra == "test"
 Requires-Dist: zhinst.qcodes>=0.5; extra == "test"
 Requires-Dist: libcst>=1.2.0; extra == "test"
-Requires-Dist: jinja2>=3.1.3; extra == "test"
 Provides-Extra: docs
 Requires-Dist: autodocsumm>=0.2.9; extra == "docs"
 Requires-Dist: nbsphinx>=0.8.9; extra == "docs"
@@ -86,10 +84,9 @@ Requires-Dist: sphinx-issues>=3.0.1; extra == "docs"
 Requires-Dist: sphinx-jsonschema>=1.19.1; extra == "docs"
 Requires-Dist: furo>=2024.8.6; extra == "docs"
 Requires-Dist: sphinxcontrib-towncrier>=0.5.0a0; extra == "docs"
-Requires-Dist: towncrier<25.0.0,>=24.8.0; extra == "docs"
+Requires-Dist: towncrier<26.0.0,>=24.8.0; extra == "docs"
 Requires-Dist: scipy>=1.10.0; extra == "docs"
 Requires-Dist: qcodes_loop>=0.1.1; extra == "docs"
-Requires-Dist: jinja2>=3.1.3; extra == "docs"
 Provides-Extra: refactor
 Requires-Dist: libcst>=1.2.0; extra == "refactor"
 Dynamic: license-file

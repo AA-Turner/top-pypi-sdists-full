@@ -2,8 +2,6 @@
 Extension with Exasol-specific helper functions
 """
 
-from typing import Optional
-
 from .exceptions import ExaRuntimeError
 
 
@@ -73,7 +71,9 @@ class ExaExtension:
             Compared to ``.import_from_iterable``, this method offers better performance for small data sets of 10,000 rows or fewer.
 
             * Use ``.import_from_iterable`` for larger data sets and better memory efficiency
-            * Use ``.import_from_pandas`` or ``.import_from_polars`` to import from data frame regardless of its size
+            * Use ``.import_from_pandas`` to import from :class:`pandas.DataFrame` regardless of its size
+            * Use ``.import_from_parquet`` to import from parquet files
+            * Use ``.import_from_polars`` to import from :class:`polars.DataFrame` regardless of its size
 
             You may use "columns" argument to specify custom order of columns for insertion
             If some columns are not included in this list, ``NULL`` or ``DEFAULT`` value will be used instead
@@ -219,7 +219,7 @@ class ExaExtension:
 
         return res
 
-    def get_sys_views(self, schema: Optional[str] = None, view_name_prefix: str = ""):
+    def get_sys_views(self, schema: str | None = None, view_name_prefix: str = ""):
         """
         Get information about views in selected schema (SYS format)
 

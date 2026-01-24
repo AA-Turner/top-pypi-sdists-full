@@ -9,8 +9,6 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
@@ -18,16 +16,18 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class Verification(GitHubModel):
-    """Verification"""
+class ActionsCacheRetentionLimitForRepository(GitHubModel):
+    """Actions cache retention limit for a repository
 
-    verified: bool = Field()
-    reason: str = Field()
-    payload: Union[str, None] = Field()
-    signature: Union[str, None] = Field()
-    verified_at: Missing[Union[str, None]] = Field(default=UNSET)
+    GitHub Actions cache retention policy for a repository.
+    """
+
+    max_cache_retention_days: Missing[int] = Field(
+        default=UNSET,
+        description="The maximum number of days to keep caches in this repository.",
+    )
 
 
-model_rebuild(Verification)
+model_rebuild(ActionsCacheRetentionLimitForRepository)
 
-__all__ = ("Verification",)
+__all__ = ("ActionsCacheRetentionLimitForRepository",)

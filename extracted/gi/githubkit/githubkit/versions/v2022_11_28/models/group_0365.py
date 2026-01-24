@@ -9,40 +9,44 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Literal, Union
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
 from .group_0003 import SimpleUser
-from .group_0020 import Repository
+from .group_0010 import Integration
 
 
-class PullRequestPropHead(GitHubModel):
-    """PullRequestPropHead"""
+class DemilestonedIssueEvent(GitHubModel):
+    """Demilestoned Issue Event
 
-    label: Union[str, None] = Field()
-    ref: str = Field()
-    repo: Union[None, Repository] = Field()
-    sha: str = Field()
-    user: Union[None, SimpleUser] = Field()
+    Demilestoned Issue Event
+    """
 
-
-class PullRequestPropBase(GitHubModel):
-    """PullRequestPropBase"""
-
-    label: str = Field()
-    ref: str = Field()
-    repo: Repository = Field(title="Repository", description="A repository on GitHub.")
-    sha: str = Field()
-    user: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    id: int = Field()
+    node_id: str = Field()
+    url: str = Field()
+    actor: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    event: Literal["demilestoned"] = Field()
+    commit_id: Union[str, None] = Field()
+    commit_url: Union[str, None] = Field()
+    created_at: str = Field()
+    performed_via_github_app: Union[None, Integration, None] = Field()
+    milestone: DemilestonedIssueEventPropMilestone = Field()
 
 
-model_rebuild(PullRequestPropHead)
-model_rebuild(PullRequestPropBase)
+class DemilestonedIssueEventPropMilestone(GitHubModel):
+    """DemilestonedIssueEventPropMilestone"""
+
+    title: str = Field()
+
+
+model_rebuild(DemilestonedIssueEvent)
+model_rebuild(DemilestonedIssueEventPropMilestone)
 
 __all__ = (
-    "PullRequestPropBase",
-    "PullRequestPropHead",
+    "DemilestonedIssueEvent",
+    "DemilestonedIssueEventPropMilestone",
 )

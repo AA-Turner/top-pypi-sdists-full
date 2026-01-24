@@ -75,7 +75,7 @@ class XIDXExchangeCalendar(ExchangeCalendar):
                     day=1,
                     start_date="2014-05-01",
                 ),
-                # XXX: The Indonesia Stock Exchange was open on Ascension
+                # NOTE: The Indonesia Stock Exchange was open on Ascension
                 # Day 2003, but closed the next day. We are not sure why.
                 # (The 2003-05-30 closure is listed in adhoc_holidays.)
                 ascension_day(end_date="2003"),
@@ -102,8 +102,7 @@ class XIDXExchangeCalendar(ExchangeCalendar):
     chinese_new_year = chinese_lunar_new_year_dates[
         # The Indonesia Stock Exchange did not close for Chinese New
         # Year in 1998, 1999, or 2001. (It fell on a Saturday in 2000.)
-        chinese_lunar_new_year_dates.year
-        >= 2002
+        chinese_lunar_new_year_dates.year >= 2002
     ]
 
     common_leave = pd.to_datetime(

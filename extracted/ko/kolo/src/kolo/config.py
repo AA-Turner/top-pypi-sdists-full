@@ -138,6 +138,7 @@ def create_kolo_directory() -> Path:
             gitignore.write("db.sqlite3\n")
             gitignore.write("db.sqlite3-shm\n")
             gitignore.write("db.sqlite3-wal\n")
+            gitignore.write("latest.txt\n")
             gitignore.write(".gitignore\n")
     except Exception as e:
         message = f"Could not write to {gitignore_path}."

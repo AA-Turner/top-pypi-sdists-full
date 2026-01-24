@@ -11,6 +11,7 @@ from dbt_common.record import Record, Recorder
 if TYPE_CHECKING:
     from agate import Table
     from dbt.adapters.base.relation import BaseRelation
+    from dbt.adapters.base.column import Column as BaseColumn
 
 
 @dataclasses.dataclass
@@ -47,6 +48,38 @@ class AdapterExecuteRecord(Record):
 
     params_cls = AdapterExecuteParams
     result_cls = AdapterExecuteResult
+    group = "Available"
+
+
+@dataclasses.dataclass
+class SubmitPythonJobParams:
+    thread_id: str
+    parsed_model: dict
+    compiled_code: str
+
+    def _to_dict(self):
+        return {
+            "thread_id": self.thread_id,
+            "unique_id": self.parsed_model.get("unique_id"),
+            "config": self.parsed_model.get("config"),
+            "compiled_code": self.compiled_code,
+        }
+
+
+@dataclasses.dataclass
+class SubmitPythonJobResult:
+    return_val: AdapterResponse
+
+    def _to_dict(self):
+        return {"return_val": self.return_val.to_dict()}
+
+
+@Recorder.register_record_type
+class SubmitPythonJobRecord(Record):
+    """Implements record/replay support for BaseAdapter.submit_python_job()."""
+
+    params_cls = SubmitPythonJobParams
+    result_cls = SubmitPythonJobResult
     group = "Available"
 
 
@@ -243,4 +276,48 @@ class AdapterListRelationsWithoutCachingRecord(Record):
 
     params_cls = AdapterListRelationsWithoutCachingParams
     result_cls = AdapterListRelationsWithoutCachingResult
+    group = "Available"
+
+
+@dataclasses.dataclass
+class AdapterGetColumnsInRelationParams:
+    thread_id: str
+    relation: "BaseRelation"
+
+    def _to_dict(self):
+        from dbt.adapters.record.serialization import serialize_base_relation
+
+        return {
+            "thread_id": self.thread_id,
+            "relation": serialize_base_relation(self.relation),
+        }
+
+    def _from_dict(self, data: Dict[str, Any]):
+        from dbt.adapters.record.serialization import deserialize_base_relation
+
+        self.thread_id = data["thread_id"]
+        self.relation = deserialize_base_relation(data["relation"])
+
+
+@dataclasses.dataclass
+class AdapterGetColumnsInRelationResult:
+    return_val: List["BaseColumn"]
+
+    def _to_dict(self):
+        from dbt.adapters.record.serialization import serialize_base_column_list
+
+        return {"return_val": serialize_base_column_list(self.return_val)}
+
+    def _from_dict(self, data: Dict[str, Any]):
+        from dbt.adapters.record.serialization import deserialize_base_column_list
+
+        self.return_val = deserialize_base_column_list(data["return_val"])
+
+
+@Recorder.register_record_type
+class AdapterGetColumnsInRelationRecord(Record):
+    """Implements record/replay support for the BaseAdapter.get_columns_in_relation() method."""
+
+    params_cls = AdapterGetColumnsInRelationParams
+    result_cls = AdapterGetColumnsInRelationResult
     group = "Available"

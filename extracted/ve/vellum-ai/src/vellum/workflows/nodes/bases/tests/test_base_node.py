@@ -1,11 +1,13 @@
 import pytest
 from uuid import UUID
-from typing import Optional, Set
+from typing import Any, Dict, Optional, Set
 
 from vellum.client.core.pydantic_utilities import UniversalBaseModel
 from vellum.client.types.string_vellum_value_request import StringVellumValueRequest
+from vellum.workflows import BaseWorkflow
 from vellum.workflows.constants import undefined
 from vellum.workflows.descriptors.tests.test_utils import FixtureState
+from vellum.workflows.errors.types import WorkflowErrorCode
 from vellum.workflows.inputs.base import BaseInputs
 from vellum.workflows.nodes import FinalOutputNode
 from vellum.workflows.nodes.bases.base import BaseNode
@@ -15,6 +17,7 @@ from vellum.workflows.references.constant import ConstantValueReference
 from vellum.workflows.references.node import NodeReference
 from vellum.workflows.references.output import OutputReference
 from vellum.workflows.state.base import BaseState, StateMeta
+from vellum.workflows.workflows.event_filters import all_workflow_event_filter
 
 
 def test_base_node__node_resolution__unset_pydantic_fields():
@@ -144,7 +147,7 @@ def test_base_node__default_id():
     my_id = MyNode.__id__
 
     # THEN it should equal the hash of `test_base_node__default_id.<locals>.MyNode`
-    assert my_id == UUID("8e71bea7-ce68-492f-9abe-477c788e6273")
+    assert my_id == UUID("3207dd3d-b26f-4476-969f-37697683f850")
 
 
 def test_base_node__node_resolution__descriptor_in_fern_pydantic():
@@ -379,3 +382,103 @@ def test_base_node__ports_inheritance__cumulative_ports():
     # Potentially in the future, we support inheriting ports from multiple parents.
     # For now, we take only the declared ports, so that not all nodes have the default port.
     assert ports == ["bar"]
+
+
+def test_base_node__trigger_should_initiate__invalid_merge_behavior():
+    """
+    Tests that an invalid merge behavior raises a NodeException with the invalid value in the error message.
+    """
+
+    # GIVEN a node with an invalid merge behavior
+    class InvalidMergeBehaviorNode(BaseNode):
+        class Trigger(BaseNode.Trigger):
+            merge_behavior = "INVALID_MERGE_BEHAVIOR"  # type: ignore[assignment]
+
+    # AND a workflow that uses the node
+    class InvalidMergeBehaviorWorkflow(BaseWorkflow):
+        graph = InvalidMergeBehaviorNode
+
+    # WHEN we stream the workflow
+    workflow = InvalidMergeBehaviorWorkflow()
+    events = list(workflow.stream(event_filter=all_workflow_event_filter))
+
+    # THEN the workflow should reject
+    workflow_rejected_event = events[-1]
+    assert workflow_rejected_event.name == "workflow.execution.rejected"
+
+    # AND the error should have the correct code
+    assert workflow_rejected_event.error.code == WorkflowErrorCode.INVALID_INPUTS
+
+    # AND the error message should contain the invalid merge behavior
+    assert "INVALID_MERGE_BEHAVIOR" in workflow_rejected_event.error.message
+
+
+def test_base_node__int_input_preserves_type_when_float_passed():
+    """
+    Tests that an int workflow input is correctly coerced to int when a float value is passed.
+    """
+
+    # GIVEN an Inputs class with an int field
+    class Inputs(BaseInputs):
+        total_requests: int
+
+    # AND a custom node that references the int input
+    class CustomNode(BaseNode):
+        total_requests = Inputs.total_requests
+
+        class Outputs(BaseOutputs):
+            result: int
+
+        def run(self) -> BaseOutputs:
+            # This should work without error - range() requires an int, not a float
+            result = len(range(self.total_requests))
+            return self.Outputs(result=result)
+
+    # AND a workflow that uses the custom node
+    class IntInputWorkflow(BaseWorkflow[Inputs, BaseState]):
+        graph = CustomNode
+
+        class Outputs(BaseWorkflow.Outputs):
+            result = CustomNode.Outputs.result
+
+    # WHEN we run the workflow with a float value for an int input
+    # This simulates what happens when the API returns a NUMBER value as a float
+    workflow = IntInputWorkflow()
+    raw_inputs: Dict[str, Any] = {"total_requests": 5.0}
+    inputs = Inputs(**raw_inputs)
+
+    # THEN the input should be coerced to an integer at construction time
+    assert inputs.total_requests == 5
+    assert type(inputs.total_requests) is int
+
+    # AND the workflow should complete successfully
+    final_event = workflow.run(inputs=inputs)
+    assert final_event.name == "workflow.execution.fulfilled"
+
+    # AND the result should be correct
+    assert final_event.outputs.result == 5
+
+
+def test_base_node__bytes_output_raises_serialization_error():
+    """Test that returning bytes in node outputs rejects the workflow execution."""
+
+    class BytesOutputNode(BaseNode):
+        class Outputs(BaseNode.Outputs):
+            result: str
+
+        def run(self) -> "BytesOutputNode.Outputs":
+            b = b"hello"
+            return self.Outputs(result=b)  # type: ignore[arg-type]
+
+    class BytesWorkflow(BaseWorkflow):
+        graph = BytesOutputNode
+
+    workflow = BytesWorkflow()
+
+    # WHEN we run the workflow
+    result = workflow.run()
+
+    # THEN the execution is rejected with a helpful error
+    assert result.name == "workflow.execution.rejected"
+    assert result.error.code == WorkflowErrorCode.INVALID_OUTPUTS
+    assert "bytes" in result.error.message.lower()

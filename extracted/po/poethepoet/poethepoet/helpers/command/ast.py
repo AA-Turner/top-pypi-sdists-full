@@ -1,4 +1,4 @@
-# ruff: noqa: N806, UP007
+# ruff: noqa: N806
 r"""
 This module implements a hierarchical parser and AST for a subset of bash syntax
 including:
@@ -12,8 +12,7 @@ including:
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Literal, Optional, Union, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from .ast_core import (
     AnnotatedContentNode,
@@ -23,6 +22,10 @@ from .ast_core import (
     ParseError,
     SyntaxNode,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
 
 PARAM_INIT_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
 PARAM_CHARS = PARAM_INIT_CHARS + "0123456789"
@@ -209,7 +212,7 @@ class ParamExpansion(AnnotatedContentNode["ParamOperation"]):
         return self._content
 
     @property
-    def operation(self) -> Optional[ParamOperation]:
+    def operation(self) -> ParamOperation | None:
         return self._annotation
 
     def _parse(self, chars: ParseCursor):
@@ -296,7 +299,7 @@ class Comment(ContentNode):
 
 
 class Segment(SyntaxNode[ContentNode]):
-    _quote_char: Optional[Literal['"', "'"]]
+    _quote_char: Literal['"', "'"] | None
 
     @property
     def is_quoted(self) -> bool:
@@ -501,14 +504,14 @@ class Word(SyntaxNode[Segment]):
             self._children.append(SegmentCls(chars, self.config))
 
 
-class Line(SyntaxNode[Union[Word, Comment]]):
+class Line(SyntaxNode[Word | Comment]):
     _terminator: str
 
     @property
     def words(self) -> tuple[Word, ...]:
         if self._children and isinstance(self._children[-1], Comment):
-            return tuple(cast(Iterable[Word], self._children[:-1]))
-        return tuple(cast(Iterable[Word], self._children))
+            return tuple(cast("Iterable[Word]", self._children[:-1]))
+        return tuple(cast("Iterable[Word]", self._children))
 
     @property
     def comment(self) -> str:
@@ -548,7 +551,7 @@ class Line(SyntaxNode[Union[Word, Comment]]):
 
 
 class Script(SyntaxNode[Line]):
-    def __init__(self, chars: ParseCursor, config: Union[ParseConfig, None] = None):
+    def __init__(self, chars: ParseCursor, config: ParseConfig | None = None):
         config = config or ParseConfig()
         if not config.line_separators:
             config.line_separators = LINE_SEP_CHARS

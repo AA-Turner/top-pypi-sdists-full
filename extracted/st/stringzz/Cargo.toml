@@ -1,0 +1,62 @@
+[package]
+edition = '2024'
+name = "stringzz"
+description = "A library and tool for strings and opcodes extraction from various file formats"
+
+readme = "README.md"
+version = "0.4.5"
+keywords = ["strings", "malware", "yara", "maturin", "yara-generator"]  
+repository = "https://github.com/ogre2007/stringzz"
+authors = ["ogre2007 <oogre@vk.com>"]
+homepage = "https://github.com/ogre2007/stringzz"
+license = "GPL-3.0-only"
+
+[lib]
+name = "stringzz"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+goblin = "0.10.0"
+dex = "0.5.0"
+sha2 = "0.10.9"
+anyhow = "1.0.100"
+hex = "0.4.3"
+pyo3 = { version = "0.27.2", features = ["extension-module"] }
+regex = "1.0"
+md5 = "0.8.0"
+log = "0.4.28"
+env_logger = "0.11.8"
+lazy_static = "1.4"
+base64 = "0.22.1"
+
+walkdir = "2.5.0"
+
+thiserror = "2.0.17"
+derive_builder = "0.20.2"
+rayon = "1.11.0"
+pyo3-stub-gen-derive = "0.17.2"
+pyo3-stub-gen = { version = "0.17.2", optional = true }
+pyo3-ffi = "0.27.2"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3.23.0"
+
+[[bench]]
+name = "benchmark"
+harness = false
+
+[build-dependencies]
+pyo3-build-config = "0.27.2"
+pyo3 = { version = "0.27.2", features = ["extension-module"] }
+
+[profile.bench]
+debug = true
+
+
+[[bin]]
+name = "stub_gen"
+required-features = ["stub-gen"]
+
+[features]
+stub-gen = ["pyo3-stub-gen"]

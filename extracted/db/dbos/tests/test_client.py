@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 import uuid
-from typing import Optional, TypedDict
+from typing import Any, Optional, TypedDict
 
 import pytest
 import sqlalchemy as sa
@@ -14,8 +14,6 @@ from sqlalchemy.exc import DBAPIError
 
 from dbos import DBOS, DBOSClient, DBOSConfig, EnqueueOptions, SetWorkflowID
 from dbos._dbos import WorkflowHandle, WorkflowHandleAsync
-from dbos._sys_db import SystemDatabase
-from dbos._utils import GlobalParams
 from tests import client_collateral
 from tests.client_collateral import event_test, retrieve_test, send_test
 
@@ -125,7 +123,7 @@ def test_client_enqueue_appver_not_set(dbos: DBOS, client: DBOSClient) -> None:
     assert wf_status is not None
     assert wf_status.status == "SUCCESS"
     assert wf_status.name == "enqueue_test"
-    assert wf_status.app_version == GlobalParams.app_version
+    assert wf_status.app_version == DBOS.application_version
 
 
 def test_client_enqueue_appver_set(dbos: DBOS, client: DBOSClient) -> None:
@@ -138,7 +136,7 @@ def test_client_enqueue_appver_set(dbos: DBOS, client: DBOSClient) -> None:
         "queue_name": "test_queue",
         "workflow_name": "enqueue_test",
         "workflow_id": wfid,
-        "app_version": GlobalParams.app_version,
+        "app_version": DBOS.application_version,
     }
 
     client.enqueue(options, 42, "test", johnDoe)
@@ -151,7 +149,7 @@ def test_client_enqueue_appver_set(dbos: DBOS, client: DBOSClient) -> None:
     assert wf_status is not None
     assert wf_status.status == "SUCCESS"
     assert wf_status.name == "enqueue_test"
-    assert wf_status.app_version == GlobalParams.app_version
+    assert wf_status.app_version == DBOS.application_version
 
 
 def test_client_enqueue_wrong_appver(dbos: DBOS, client: DBOSClient) -> None:
@@ -205,7 +203,7 @@ def test_client_enqueue_idempotent(config: DBOSConfig, client: DBOSClient) -> No
     assert wf_status is not None
     assert wf_status.status == "SUCCESS"
     assert wf_status.name == "enqueue_test"
-    assert wf_status.app_version == GlobalParams.app_version
+    assert wf_status.app_version == DBOS.application_version
 
     DBOS.destroy(destroy_registry=True)
 
@@ -272,7 +270,7 @@ def test_client_send_idempotent(
     idempotency_key = f"test-idempotency-{now}"
     sendWFID = f"{wfid}-{idempotency_key}"
 
-    run_send_worker(wfid, topic, GlobalParams.app_version)
+    run_send_worker(wfid, topic, DBOS.application_version)
 
     client.send(wfid, message, topic, idempotency_key)
     client.send(wfid, message, topic, idempotency_key)
@@ -303,6 +301,11 @@ def test_client_send_idempotent(
     assert result2 == message
 
 
+def reexecute_workflow_by_id(dbos: DBOS, wfid: str) -> "WorkflowHandle[Any]":
+    dbos._sys_db.update_workflow_outcome(wfid, "PENDING")
+    return dbos._execute_workflow_id(wfid)
+
+
 def test_client_send_failure(
     dbos: DBOS, client: DBOSClient, skip_with_sqlite: None
 ) -> None:
@@ -315,7 +318,7 @@ def test_client_send_failure(
     idempotency_key = f"test-idempotency-{now}"
     sendWFID = f"{wfid}-{idempotency_key}"
 
-    run_send_worker(wfid, topic, GlobalParams.app_version)
+    run_send_worker(wfid, topic, DBOS.application_version)
 
     client.send(wfid, message, topic, idempotency_key)
 
@@ -341,7 +344,7 @@ def test_client_send_failure(
         assert len(sresult) == 1
         assert sresult[0][0] == 1
 
-    client.send(wfid, message, topic, idempotency_key)
+    reexecute_workflow_by_id(dbos, sendWFID)
 
     with dbos._sys_db.engine.connect() as conn:
         s2result = conn.execute(
@@ -595,3 +598,35 @@ def test_enqueue_with_priority(dbos: DBOS, client: DBOSClient) -> None:
 def test_client_bad_url() -> None:
     with pytest.raises(DBAPIError) as exc_info:
         DBOSClient("postgresql://postgres:fakepassword@localhost:5433/fake_database")
+
+
+def test_client_auth(dbos: DBOS, client: DBOSClient) -> None:
+    run_client_collateral()
+
+    johnDoe: Person = {"first": "John", "last": "Doe", "age": 30}
+    wfid = str(uuid.uuid4())
+
+    user = "testuser"
+    roles = ["role1", "role2"]
+
+    options: EnqueueOptions = {
+        "queue_name": "test_queue",
+        "workflow_name": "enqueue_test",
+        "workflow_id": wfid,
+        "authenticated_user": user,
+        "authenticated_roles": roles,
+    }
+
+    handle: WorkflowHandle[str] = client.enqueue(options, 42, "test", johnDoe)
+    result = handle.get_result()
+    assert result == '42-test-{"first": "John", "last": "Doe", "age": 30}'
+
+    list_results = client.list_workflows()
+    assert len(list_results) == 1
+    assert list_results[0].workflow_id == wfid
+    assert list_results[0].status == "SUCCESS"
+    assert list_results[0].output == result
+    assert list_results[0].input is not None
+    assert list_results[0].authenticated_user == user
+    assert list_results[0].authenticated_roles == roles
+    assert list_results[0].assumed_role is None

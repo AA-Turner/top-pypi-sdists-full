@@ -13,15 +13,23 @@
 namespace Cantera
 {
 
-void Transport::checkSpeciesIndex(size_t k) const
+shared_ptr<Transport> Transport::clone(shared_ptr<ThermoPhase> thermo) const
 {
-    if (k >= m_nsp) {
-        throw IndexError("Transport::checkSpeciesIndex", "species", k, m_nsp-1);
+    return newTransport(thermo, transportModel());
+}
+
+size_t Transport::checkSpeciesIndex(size_t k) const
+{
+    if (k < m_nsp) {
+        return k;
     }
+    throw IndexError("Transport::checkSpeciesIndex", "species", k, m_nsp);
 }
 
 void Transport::checkSpeciesArraySize(size_t kk) const
 {
+    warn_deprecated("Transport::checkSpeciesArraySize",
+        "To be removed after Cantera 3.2. Only used by legacy CLib.");
     if (m_nsp > kk) {
         throw ArraySizeError("Transport::checkSpeciesArraySize", kk, m_nsp);
     }

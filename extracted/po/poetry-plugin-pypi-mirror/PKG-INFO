@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry-plugin-pypi-mirror
-Version: 0.6.2
+Version: 0.6.3
 Summary: Poetry plugin that adds support for pypi.org mirrors and pull-through caches
 License: BSD-3-Clause
 License-File: LICENSE
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: poetry (>=2.1,<2.3)
+Requires-Dist: poetry (>=2.1,<2.4)
 Project-URL: Homepage, https://github.com/arcesium/poetry-plugin-pypi-mirror
 Project-URL: Repository, https://github.com/arcesium/poetry-plugin-pypi-mirror
 Description-Content-Type: text/markdown

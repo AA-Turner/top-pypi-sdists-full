@@ -17,10 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictInt, conlist, constr 
-from finbourne_horizon.models.audit_complete_status import AuditCompleteStatus
 from finbourne_horizon.models.audit_file_details import AuditFileDetails
 
 class AuditCompleteRequest(BaseModel):
@@ -30,15 +31,15 @@ class AuditCompleteRequest(BaseModel):
     id:  StrictStr = Field(...,alias="id", description="A unique ID identifiying the source of the event") 
     user_id:  StrictStr = Field(...,alias="userId", description="A unique ID identifiying who owns the schedule") 
     scheduler_run_id:  StrictStr = Field(...,alias="schedulerRunId", description="The GUID of the schedule run") 
-    start_time: datetime = Field(..., alias="startTime", description="When the run was started in UTC")
-    end_time: datetime = Field(..., alias="endTime", description="When the run finished in UTC")
+    start_time: datetime = Field(description="When the run was started in UTC", alias="startTime")
+    end_time: datetime = Field(description="When the run finished in UTC", alias="endTime")
     message:  StrictStr = Field(...,alias="message", description="A descriptive message to accompany the status") 
-    status: AuditCompleteStatus = Field(...)
-    rows_total: StrictInt = Field(..., alias="rowsTotal", description="The number of data rows operated on")
-    rows_succeeded: StrictInt = Field(..., alias="rowsSucceeded", description="The number of data rows successfully operated on")
-    rows_failed: StrictInt = Field(..., alias="rowsFailed", description="The number of data rows that failed to be operated on")
-    rows_ignored: StrictInt = Field(..., alias="rowsIgnored", description="The number of data rows that had no actions taken")
-    audit_files: conlist(AuditFileDetails) = Field(..., alias="auditFiles", description="A list of file details for attaching to the event")
+    status:  StrictStr = Field(...,alias="status", description="The final status of the run") 
+    rows_total: StrictInt = Field(description="The number of data rows operated on", alias="rowsTotal")
+    rows_succeeded: StrictInt = Field(description="The number of data rows successfully operated on", alias="rowsSucceeded")
+    rows_failed: StrictInt = Field(description="The number of data rows that failed to be operated on", alias="rowsFailed")
+    rows_ignored: StrictInt = Field(description="The number of data rows that had no actions taken", alias="rowsIgnored")
+    audit_files: List[AuditFileDetails] = Field(description="A list of file details for attaching to the event", alias="auditFiles")
     process_name_override:  Optional[StrictStr] = Field(None,alias="processNameOverride", description="Optional Name for how the process appears in Data Feed Monitoring") 
     __properties = ["id", "userId", "schedulerRunId", "startTime", "endTime", "message", "status", "rowsTotal", "rowsSucceeded", "rowsFailed", "rowsIgnored", "auditFiles", "processNameOverride"]
 
@@ -113,3 +114,5 @@ class AuditCompleteRequest(BaseModel):
             "process_name_override": obj.get("processNameOverride")
         })
         return _obj
+
+AuditCompleteRequest.update_forward_refs()

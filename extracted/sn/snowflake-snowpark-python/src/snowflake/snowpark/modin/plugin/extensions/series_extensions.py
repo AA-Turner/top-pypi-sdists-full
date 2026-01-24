@@ -23,6 +23,7 @@ from snowflake.snowpark.async_job import AsyncJob
 from snowflake.snowpark.dataframe import DataFrame as SnowparkDataFrame
 from snowflake.snowpark.modin.plugin.extensions.utils import (
     add_cache_result_docstring,
+    pandas_to_snowflake,
     register_non_snowflake_accessors,
 )
 from snowflake.snowpark.modin.plugin.utils.warning_message import (
@@ -66,7 +67,7 @@ def _set_axis_name(
         return renamed
 
 
-@register_series_accessor("to_snowflake")
+@register_series_accessor("to_snowflake", backend="Snowflake")
 def to_snowflake(
     self,
     name: Union[str, Iterable[str]],
@@ -102,6 +103,9 @@ def to_snowflake(
         - :func:`read_snowflake <modin.pandas.read_snowflake>`
     """
     self._query_compiler.to_snowflake(name, if_exists, index, index_label, table_type)
+
+
+register_series_accessor("to_snowflake", backend="Pandas")(pandas_to_snowflake)
 
 
 @register_series_accessor("to_snowpark")
@@ -540,12 +544,20 @@ def to_iceberg(
             it represents the fully-qualified object identifier (database name, schema name, and table name).
         iceberg_config: A dictionary that can contain the following iceberg configuration values:
 
+            * partition_by: specifies one or more partition expressions for the Iceberg table.
+                Can be a single Column, column name, SQL expression string, or a list of these.
+                Supports identity partitioning (column names) as well as partition transform functions
+                like bucket(), truncate(), year(), month(), day(), hour().
+
             * external_volume: specifies the identifier for the external volume where
                 the Iceberg table stores its metadata files and data in Parquet format
 
             * catalog: specifies either Snowflake or a catalog integration to use for this table
 
             * base_location: the base directory that snowflake can write iceberg metadata and files to
+
+            * target_file_size: specifies a target Parquet file size for the table.
+                Valid values: 'AUTO' (default), '16MB', '32MB', '64MB', '128MB'
 
             * catalog_sync: optionally sets the catalog integration configured for Polaris Catalog
 

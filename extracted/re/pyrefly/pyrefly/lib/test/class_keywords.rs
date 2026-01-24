@@ -43,7 +43,7 @@ fn get_class_keywords(
 
 fn get_metaclass(class_name: &str, handle: &Handle, state: &State) -> Option<ClassType> {
     get_class_metadata(class_name, handle, state)
-        .metaclass()
+        .custom_metaclass()
         .cloned()
 }
 
@@ -56,7 +56,7 @@ class A(foo=True): pass
     );
     assert_eq!(
         get_class_keywords("A", "foo", &handle, &state),
-        vec![Type::Literal(Lit::Bool(true))],
+        vec![Lit::Bool(true).to_implicit_type()],
     );
     assert_eq!(get_class_keywords("A", "bar", &handle, &state), vec![]);
 }

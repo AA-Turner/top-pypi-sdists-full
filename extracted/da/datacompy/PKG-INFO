@@ -1,83 +1,83 @@
 Metadata-Version: 2.4
 Name: datacompy
-Version: 0.18.0
+Version: 0.19.2
 Summary: Dataframe comparison in Python
 Author-email: Faisal Dosani <faisal.dosani@capitalone.com>, Raymond Haffar <raymond.haffar@capitalone.com>, Jacob Dawang <jacob.dawang@capitalone.com>
 Maintainer-email: Faisal Dosani <faisal.dosani@capitalone.com>, Jacob Dawang <jacob.dawang@capitalone.com>, Raymond Haffar <raymond.haffar@capitalone.com>
 License: Apache Software License
-Project-URL: Homepage, https://github.com/capitalone/datacompy
-Project-URL: Documentation, https://capitalone.github.io/datacompy/
-Project-URL: Repository, https://github.com/capitalone/datacompy.git
 Project-URL: Bug Tracker, https://github.com/capitalone/datacompy/issues
+Project-URL: Documentation, https://capitalone.github.io/datacompy/
+Project-URL: Homepage, https://github.com/capitalone/datacompy
+Project-URL: Repository, https://github.com/capitalone/datacompy.git
 Project-URL: Source Code, https://github.com/capitalone/datacompy
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pandas<=2.3.1,>=0.25.0
-Requires-Dist: numpy<=2.2.6,>=1.22.0; python_version == "3.10"
-Requires-Dist: numpy<=2.3.2,>=1.22.0; python_version >= "3.11"
-Requires-Dist: ordered-set<=4.1.0,>=4.0.2
-Requires-Dist: polars[pandas]<=1.32.3,>=0.20.4
-Requires-Dist: Jinja2>=3.0.0
-Provides-Extra: fugue
-Requires-Dist: fugue[dask,duckdb,ray]<=0.9.1,>=0.8.7; extra == "fugue"
-Provides-Extra: spark
-Requires-Dist: pyspark[connect]<=3.5.6,>=3.4.0; extra == "spark"
-Provides-Extra: snowflake
-Requires-Dist: snowflake-connector-python; extra == "snowflake"
-Requires-Dist: snowflake-snowpark-python; extra == "snowflake"
-Provides-Extra: docs
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: furo; extra == "docs"
-Requires-Dist: myst-parser; extra == "docs"
-Provides-Extra: tests
-Requires-Dist: pytest; extra == "tests"
-Requires-Dist: pytest-cov; extra == "tests"
-Provides-Extra: tests-spark
-Requires-Dist: pytest; extra == "tests-spark"
-Requires-Dist: pytest-cov; extra == "tests-spark"
-Requires-Dist: pytest-spark; extra == "tests-spark"
-Provides-Extra: tests-snowflake
-Requires-Dist: snowflake-snowpark-python[localtest]; extra == "tests-snowflake"
-Provides-Extra: qa
-Requires-Dist: pre-commit; extra == "qa"
-Requires-Dist: ruff==0.5.7; extra == "qa"
-Requires-Dist: mypy; extra == "qa"
-Requires-Dist: pandas-stubs; extra == "qa"
+Requires-Dist: jinja2>=3
+Requires-Dist: numpy<=2.3.5,>=1.26
+Requires-Dist: ordered-set<=4.1,>=4.0.2
+Requires-Dist: pandas<=2.3.3,>=2.2
+Requires-Dist: polars[pandas]<=1.36.1,>=0.20.4
 Provides-Extra: build
 Requires-Dist: build; extra == "build"
 Requires-Dist: twine; extra == "build"
 Requires-Dist: wheel; extra == "build"
+Provides-Extra: dev
+Requires-Dist: datacompy[build]; extra == "dev"
+Requires-Dist: datacompy[docs]; extra == "dev"
+Requires-Dist: datacompy[fugue]; extra == "dev"
+Requires-Dist: datacompy[qa]; extra == "dev"
+Requires-Dist: datacompy[snowflake]; extra == "dev"
+Requires-Dist: datacompy[spark]; extra == "dev"
+Requires-Dist: datacompy[tests-snowflake]; extra == "dev"
+Requires-Dist: datacompy[tests-spark]; extra == "dev"
+Requires-Dist: datacompy[tests]; extra == "dev"
+Provides-Extra: dev-no-snowflake
+Requires-Dist: datacompy[build]; extra == "dev-no-snowflake"
+Requires-Dist: datacompy[docs]; extra == "dev-no-snowflake"
+Requires-Dist: datacompy[fugue]; extra == "dev-no-snowflake"
+Requires-Dist: datacompy[qa]; extra == "dev-no-snowflake"
+Requires-Dist: datacompy[spark]; extra == "dev-no-snowflake"
+Requires-Dist: datacompy[tests-spark]; extra == "dev-no-snowflake"
+Requires-Dist: datacompy[tests]; extra == "dev-no-snowflake"
+Provides-Extra: docs
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: myst-parser; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
 Provides-Extra: edgetest
 Requires-Dist: edgetest; extra == "edgetest"
 Requires-Dist: edgetest-conda; extra == "edgetest"
-Provides-Extra: dev-no-snowflake
-Requires-Dist: datacompy[fugue]; extra == "dev-no-snowflake"
-Requires-Dist: datacompy[spark]; extra == "dev-no-snowflake"
-Requires-Dist: datacompy[docs]; extra == "dev-no-snowflake"
-Requires-Dist: datacompy[tests]; extra == "dev-no-snowflake"
-Requires-Dist: datacompy[tests-spark]; extra == "dev-no-snowflake"
-Requires-Dist: datacompy[qa]; extra == "dev-no-snowflake"
-Requires-Dist: datacompy[build]; extra == "dev-no-snowflake"
-Provides-Extra: dev
-Requires-Dist: datacompy[fugue]; extra == "dev"
-Requires-Dist: datacompy[spark]; extra == "dev"
-Requires-Dist: datacompy[snowflake]; extra == "dev"
-Requires-Dist: datacompy[docs]; extra == "dev"
-Requires-Dist: datacompy[tests]; extra == "dev"
-Requires-Dist: datacompy[tests-spark]; extra == "dev"
-Requires-Dist: datacompy[tests-snowflake]; extra == "dev"
-Requires-Dist: datacompy[qa]; extra == "dev"
-Requires-Dist: datacompy[build]; extra == "dev"
+Provides-Extra: fugue
+Requires-Dist: duckdb<1.4; extra == "fugue"
+Requires-Dist: fugue[dask,duckdb,ray]<=0.9.1,>=0.8.7; extra == "fugue"
+Provides-Extra: qa
+Requires-Dist: mypy; extra == "qa"
+Requires-Dist: pandas-stubs; extra == "qa"
+Requires-Dist: pre-commit; extra == "qa"
+Requires-Dist: ruff==0.5.7; extra == "qa"
+Provides-Extra: snowflake
+Requires-Dist: snowflake-connector-python; extra == "snowflake"
+Requires-Dist: snowflake-snowpark-python; extra == "snowflake"
+Provides-Extra: spark
+Requires-Dist: pyspark[connect]<=3.5.6,>=3.4; extra == "spark"
+Provides-Extra: tests
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Provides-Extra: tests-snowflake
+Requires-Dist: snowflake-snowpark-python[localtest]; extra == "tests-snowflake"
+Provides-Extra: tests-spark
+Requires-Dist: pytest; extra == "tests-spark"
+Requires-Dist: pytest-cov; extra == "tests-spark"
+Requires-Dist: pytest-spark; extra == "tests-spark"
 Dynamic: license-file
 
 # DataComPy
@@ -101,6 +101,11 @@ and lets you tweak how accurate matches have to be). Supported types include:
 - Snowflake (via snowpark)
 - Dask (via Fugue)
 - DuckDB (via Fugue)
+
+> [!IMPORTANT]
+> datacompy is progressing towards a `v1` release. During this transition, a `support/0.19.x` branch will be maintained solely for `v0.19.x` users.
+> This branch will only receive dependency updates and critical bug fixes; no new features will be added.
+> All new feature development should target the `v1` branches (`develop` and eventually `main`).
 
 
 ## Quick Installation

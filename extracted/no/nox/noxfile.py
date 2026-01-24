@@ -1,3 +1,5 @@
+#!/usr/bin/env -S uv run --script
+
 # Copyright 2016 Alethea Katherine Flowers
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,6 +13,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# /// script
+# dependencies = ["nox>=2025.02.09"]
+# ///
 
 
 from __future__ import annotations
@@ -26,16 +32,11 @@ import nox
 
 ON_WINDOWS_CI = "CI" in os.environ and sys.platform.startswith("win32")
 
-nox.needs_version = ">=2024.4.15"
+nox.needs_version = ">=2025.02.09"
 nox.options.default_venv_backend = "uv|virtualenv"
 
 PYPROJECT = nox.project.load_toml("pyproject.toml")
-
-ALL_PYTHONS = [
-    c.split()[-1]
-    for c in PYPROJECT["project"]["classifiers"]
-    if c.startswith("Programming Language :: Python :: 3.")
-]
+ALL_PYTHONS = nox.project.python_versions(PYPROJECT)
 
 
 @nox.session(python=ALL_PYTHONS)
@@ -46,7 +47,7 @@ def tests(session: nox.Session) -> None:
 
     session.create_tmp()  # Fixes permission errors on Windows
     session.install(*PYPROJECT["dependency-groups"]["test"], "uv")
-    session.install("-e.[tox_to_nox]")
+    session.install("-e.[tox_to_nox,pbs]")
     extra_env = {"PYTHONWARNDEFAULTENCODING": "1"}
     session.run(
         "pytest",
@@ -67,7 +68,17 @@ def tests(session: nox.Session) -> None:
             con.execute("DELETE FROM file WHERE SUBSTR(path, 2, 1) == ':'")
 
 
-@nox.session(venv_backend="conda", default=shutil.which("conda"))
+@nox.session(venv_backend="uv", default=False)
+def minimums(session: nox.Session) -> None:
+    """Run test suite with the lowest supported versions of everything. Requires uv."""
+    session.create_tmp()
+
+    session.install("-e.", "--group=test", "--resolution=lowest-direct")
+    session.run("uv", "pip", "list")
+    session.run("pytest", *session.posargs)
+
+
+@nox.session(venv_backend="conda", default=bool(shutil.which("conda")))
 def conda_tests(session: nox.Session) -> None:
     """Run test suite set up with conda."""
     session.conda_install(
@@ -179,7 +190,7 @@ def _check_python_version(session: nox.Session) -> None:
 @nox.session(
     python=[
         *ALL_PYTHONS,
-        "pypy-3.10",
+        "pypy-3.11",
     ],
     default=False,
 )
@@ -195,9 +206,14 @@ def github_actions_default_tests(session: nox.Session) -> None:
         "pypy3.8",
         "pypy3.9",
         "pypy3.10",
+        "pypy3.11",
     ],
     default=False,
 )
 def github_actions_all_tests(session: nox.Session) -> None:
     """Check all versions installed by the nox GHA Action"""
     _check_python_version(session)
+
+
+if __name__ == "__main__":
+    nox.main()

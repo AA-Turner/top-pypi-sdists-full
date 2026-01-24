@@ -42,6 +42,7 @@ from localstack.aws.api.apigateway import (
     DomainName,
     DomainNames,
     DomainNameStatus,
+    EndpointAccessMode,
     EndpointConfiguration,
     EndpointType,
     ExportResponse,
@@ -117,7 +118,11 @@ from localstack.services.apigateway.helpers import (
 from localstack.services.apigateway.legacy.helpers import multi_value_dict_for_list
 from localstack.services.apigateway.legacy.invocations import invoke_rest_api_from_request
 from localstack.services.apigateway.legacy.router_asf import ApigatewayRouter, to_invocation_context
-from localstack.services.apigateway.models import ApiGatewayStore, RestApiContainer
+from localstack.services.apigateway.models import (
+    ApiGatewayStore,
+    RestApiContainer,
+    apigateway_stores,
+)
 from localstack.services.apigateway.next_gen.execute_api.router import (
     ApiGatewayRouter as ApiGatewayRouterNextGen,
 )
@@ -125,6 +130,7 @@ from localstack.services.apigateway.patches import apply_patches
 from localstack.services.edge import ROUTER
 from localstack.services.moto import call_moto, call_moto_with_request
 from localstack.services.plugins import ServiceLifecycleHook
+from localstack.state import StateVisitor
 from localstack.utils.aws.arns import InvalidArnException, get_partition, parse_arn
 from localstack.utils.collections import (
     DelSafeDict,
@@ -190,6 +196,12 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
     def on_after_init(self):
         apply_patches()
         self.router.register_routes()
+
+    def accept_state_visitor(self, visitor: StateVisitor):
+        from moto.apigateway import apigateway_backends
+
+        visitor.visit(apigateway_backends)
+        visitor.visit(apigateway_stores)
 
     @handler("TestInvokeMethod", expand=False)
     def test_invoke_method(
@@ -323,8 +335,18 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         tags: MapOfStringToString = None,
         **kwargs,
     ) -> ApiKey:
+        if name and len(name) > 1024:
+            raise BadRequestException("Invalid API Key name, can be at most 1024 characters.")
+        if value:
+            if len(value) > 128:
+                raise BadRequestException("API Key value exceeds maximum size of 128 characters")
+            elif len(value) < 20:
+                raise BadRequestException("API Key value should be at least 20 characters")
+        if description and len(description) > 125000:
+            raise BadRequestException("Invalid API Key description specified.")
         api_key = call_moto(context)
-
+        if name == "":
+            api_key.pop("name", None)
         #  transform array of stage keys [{'restApiId': '0iscapk09u', 'stageName': 'dev'}] into
         #  array of strings ['0iscapk09u/dev']
         stage_keys = api_key.get("stageKeys", [])
@@ -466,11 +488,19 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
 
     @handler("PutRestApi", expand=False)
     def put_rest_api(self, context: RequestContext, request: PutRestApiRequest) -> RestApi:
+        body_data = request["body"].read()
+        try:
+            openapi_spec = parse_json_or_yaml(to_str(body_data))
+        except Exception:
+            raise BadRequestException("Invalid OpenAPI input.")
         # TODO: take into account the mode: overwrite or merge
         # the default is now `merge`, but we are removing everything
         rest_api = get_moto_rest_api(context, request["restApiId"])
         rest_api, warnings = import_api_from_openapi_spec(
-            rest_api, context=context, request=request
+            rest_api,
+            context=context,
+            open_api_spec=openapi_spec,
+            mode=request.get("mode") or PutMode.merge,
         )
 
         rest_api.root_resource_id = get_moto_rest_api_root_resource(rest_api)
@@ -493,20 +523,21 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         self,
         context: RequestContext,
         domain_name: String,
-        certificate_name: String = None,
-        certificate_body: String = None,
-        certificate_private_key: String = None,
-        certificate_chain: String = None,
-        certificate_arn: String = None,
-        regional_certificate_name: String = None,
-        regional_certificate_arn: String = None,
-        endpoint_configuration: EndpointConfiguration = None,
-        tags: MapOfStringToString = None,
-        security_policy: SecurityPolicy = None,
-        mutual_tls_authentication: MutualTlsAuthenticationInput = None,
-        ownership_verification_certificate_arn: String = None,
-        policy: String = None,
-        routing_mode: RoutingMode = None,
+        certificate_name: String | None = None,
+        certificate_body: String | None = None,
+        certificate_private_key: String | None = None,
+        certificate_chain: String | None = None,
+        certificate_arn: String | None = None,
+        regional_certificate_name: String | None = None,
+        regional_certificate_arn: String | None = None,
+        endpoint_configuration: EndpointConfiguration | None = None,
+        tags: MapOfStringToString | None = None,
+        security_policy: SecurityPolicy | None = None,
+        endpoint_access_mode: EndpointAccessMode | None = None,
+        mutual_tls_authentication: MutualTlsAuthenticationInput | None = None,
+        ownership_verification_certificate_arn: String | None = None,
+        policy: String | None = None,
+        routing_mode: RoutingMode | None = None,
         **kwargs,
     ) -> DomainName:
         if not domain_name:
@@ -1502,7 +1533,10 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         **kwargs,
     ) -> DocumentationPartIds:
         body_data = body.read()
-        openapi_spec = parse_json_or_yaml(to_str(body_data))
+        try:
+            openapi_spec = parse_json_or_yaml(to_str(body_data))
+        except Exception:
+            raise BadRequestException("Unable to build importer with provided input.")
 
         rest_api_container = get_rest_api_container(context, rest_api_id=rest_api_id)
 
@@ -2002,7 +2036,11 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         body_data = body.read()
 
         # create rest api
-        openapi_spec = parse_json_or_yaml(to_str(body_data))
+        try:
+            openapi_spec = parse_json_or_yaml(to_str(body_data))
+        except Exception:
+            raise BadRequestException("Invalid OpenAPI input.")
+
         create_api_request = CreateRestApiRequest(name=openapi_spec.get("info").get("title"))
         create_api_context = create_custom_context(
             context,
@@ -2043,16 +2081,38 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         **kwargs,
     ) -> Integration:
         try:
-            response: Integration = call_moto(context)
-        except CommonServiceException as e:
-            # the Exception raised by moto does not have the right message not status code
-            if e.code == "NotFoundException":
-                raise NotFoundException("Invalid Integration identifier specified")
-            raise
+            moto_rest_api = get_moto_rest_api(context, rest_api_id)
+        except NotFoundException:
+            raise NotFoundException("Invalid Resource identifier specified")
+
+        if not (moto_resource := moto_rest_api.resources.get(resource_id)):
+            raise NotFoundException("Invalid Resource identifier specified")
+
+        if not (moto_method := moto_resource.resource_methods.get(http_method)):
+            raise NotFoundException("Invalid Method identifier specified")
+
+        if not moto_method.method_integration:
+            raise NotFoundException("Invalid Integration identifier specified")
+
+        response: Integration = call_moto(context)
 
         if integration_responses := response.get("integrationResponses"):
             for integration_response in integration_responses.values():
                 remove_empty_attributes_from_integration_response(integration_response)
+
+        if response.get("connectionType") == "VPC_LINK":
+            # FIXME: this is hacky to workaround moto not saving the VPC Link `connectionId`
+            # only do this internal check of Moto if the integration is of VPC_LINK type
+            moto_rest_api = get_moto_rest_api(context=context, rest_api_id=rest_api_id)
+            try:
+                method = moto_rest_api.resources[resource_id].resource_methods[http_method]
+                integration = method.method_integration
+                if connection_id := getattr(integration, "connection_id", None):
+                    response["connectionId"] = connection_id
+
+            except (AttributeError, KeyError):
+                # this error should have been caught by `call_moto`
+                pass
 
         return response
 
@@ -2108,12 +2168,20 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         moto_request.setdefault("timeoutInMillis", 29000)
         if integration_type in (IntegrationType.HTTP, IntegrationType.HTTP_PROXY):
             moto_request.setdefault("connectionType", ConnectionType.INTERNET)
+
         response = call_moto_with_request(context, moto_request)
         remove_empty_attributes_from_integration(integration=response)
 
         # TODO: should fix fundamentally once we move away from moto
         if integration_type == "MOCK":
             response.pop("uri", None)
+
+        # TODO: moto does not save the connection_id
+        elif moto_request.get("connectionType") == "VPC_LINK":
+            connection_id = moto_request.get("connectionId", "")
+            # attach the connection id to the moto object
+            method.method_integration.connection_id = connection_id
+            response["connectionId"] = connection_id
 
         return response
 
@@ -2136,6 +2204,7 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
             raise NotFoundException("Invalid Integration identifier specified")
 
         integration = method.method_integration
+        # TODO: validate the patch operations
         patch_api_gateway_entity(integration, patch_operations)
 
         # fix data types
@@ -2144,8 +2213,12 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         if skip_verification := (integration.tls_config or {}).get("insecureSkipVerification"):
             integration.tls_config["insecureSkipVerification"] = str_to_bool(skip_verification)
 
-        integration_dict: Integration = integration.to_json()
-        return integration_dict
+        response: Integration = integration.to_json()
+
+        if connection_id := getattr(integration, "connection_id", None):
+            response["connectionId"] = connection_id
+
+        return response
 
     def delete_integration(
         self,
@@ -2393,6 +2466,10 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
             for api_key in api_keys:
                 api_key.pop("value")
 
+        if limit is not None:
+            if limit < 1 or limit > 500:
+                limit = None
+
         item_list = PaginatedList(api_keys)
 
         def token_generator(item):
@@ -2417,6 +2494,14 @@ class ApigatewayProvider(ApigatewayApi, ServiceLifecycleHook):
         patch_operations: ListOfPatchOperation = None,
         **kwargs,
     ) -> ApiKey:
+        for patch_op in patch_operations:
+            if patch_op["path"] not in ("/description", "/enabled", "/name", "/customerId"):
+                raise BadRequestException(
+                    f"Invalid patch path  '{patch_op['path']}' specified for op '{patch_op['op']}'. Must be one of: [/description, /enabled, /name, /customerId]"
+                )
+
+            if patch_op["path"] == "/description" and len(patch_op["value"]) > 125000:
+                raise BadRequestException("Invalid API Key description specified.")
         response: ApiKey = call_moto(context)
         if "value" in response:
             response.pop("value", None)
@@ -2977,6 +3062,7 @@ def create_custom_context(
     ctx = create_aws_request_context(
         service_name=context.service.service_name,
         action=action,
+        protocol=context.service.protocol,
         parameters=parameters,
         region=context.region,
     )

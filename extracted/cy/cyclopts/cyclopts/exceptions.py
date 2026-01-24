@@ -1,11 +1,14 @@
 import inspect
+import json
+from collections.abc import Callable, Sequence
 from itertools import chain
-from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, Optional, get_args, get_origin
 
 from attrs import define, field
 
 import cyclopts.utils
 from cyclopts.annotations import get_hint_name
+from cyclopts.command_spec import CommandSpec
 from cyclopts.group import Group
 from cyclopts.token import Token
 from cyclopts.utils import is_option_like, json_decode_error_verbosifier
@@ -22,7 +25,7 @@ __all__ = [
     "CommandCollisionError",
     "CycloptsError",
     "DocstringError",
-    "InvalidCommandError",
+    "UnknownCommandError",
     "MissingArgumentError",
     "MixedArgumentError",
     "RepeatArgumentError",
@@ -55,7 +58,7 @@ class CycloptsError(Exception):
     As CycloptsErrors bubble up the Cyclopts call-stack, more information is added to it.
     """
 
-    msg: Optional[str] = None
+    msg: str | None = None
     """
     If set, override automatic message generation.
     """
@@ -66,17 +69,17 @@ class CycloptsError(Exception):
     Defaults to ``False``.
     """
 
-    root_input_tokens: Optional[list[str]] = None
+    root_input_tokens: list[str] | None = None
     """
     The parsed CLI tokens that were initially fed into the :class:`App`.
     """
 
-    unused_tokens: Optional[list[str]] = None
+    unused_tokens: list[str] | None = None
     """
     Leftover tokens after parsing is complete.
     """
 
-    target: Optional[Callable] = None
+    target: Callable | None = None
     """
     The python function associated with the command being parsed.
     """
@@ -86,7 +89,7 @@ class CycloptsError(Exception):
     :class:`Argument` that was matched.
     """
 
-    command_chain: Optional[Sequence[str]] = None
+    command_chain: Sequence[str] | None = None
     """
     List of command that lead to ``target``.
     """
@@ -97,9 +100,7 @@ class CycloptsError(Exception):
     """
 
     console: Optional["Console"] = field(default=None, kw_only=True)
-    """
-    Rich console to display runtime errors.
-    """
+    """:class:`~rich.console.Console` to display runtime errors."""
 
     def __str__(self):
         if self.msg is not None:
@@ -135,7 +136,7 @@ class ValidationError(CycloptsError):
     exception_message: str = ""
     """Parenting Assertion/Value/Type Error message."""
 
-    group: Optional[Group] = None
+    group: Group | None = None
     """If a group validator caused the exception."""
 
     value: Any = cyclopts.utils.UNSET
@@ -194,7 +195,7 @@ class UnknownOptionError(CycloptsError):
         if keyword := self.token.keyword or self.token.value:
             import difflib
 
-            candidates = list(chain.from_iterable(x.names for x in self.argument_collection))
+            candidates = list(chain.from_iterable(x.names for x in self.argument_collection if x.parse))
 
             close_matches = difflib.get_close_matches(keyword, candidates, n=1, cutoff=0.6)
             if close_matches:
@@ -212,7 +213,7 @@ class CoercionError(CycloptsError):
     Input token that couldn't be coerced.
     """
 
-    target_type: Optional[type] = None
+    target_type: type | None = None
     """
     Intended type to coerce into.
     """
@@ -224,8 +225,6 @@ class CoercionError(CycloptsError):
             else:
                 return f"Invalid value for {self.token.keyword}: {self.msg}"
         else:
-            import json
-
             # If a JsonDecodeError, try and verbosify it.
             if isinstance(self.__cause__, json.JSONDecodeError):
                 msg = json_decode_error_verbosifier(self.__cause__)  # pyright: ignore[reportArgumentType]
@@ -262,7 +261,7 @@ class CoercionError(CycloptsError):
         return msg
 
 
-class InvalidCommandError(CycloptsError):
+class UnknownCommandError(CycloptsError):
     """CLI token combination did not yield a valid command."""
 
     def __str__(self):
@@ -273,9 +272,24 @@ class InvalidCommandError(CycloptsError):
         if self.app and self.app._commands:
             import difflib
 
+            # Resolve CommandSpec and filter visible commands
+            visible_commands = []
+            for name, app_or_spec in self.app._commands.items():
+                if name in self.app._help_flags or name in self.app._version_flags:
+                    continue
+
+                # Resolve CommandSpec to App
+                subapp = app_or_spec.resolve(self.app) if isinstance(app_or_spec, CommandSpec) else app_or_spec
+
+                if not isinstance(subapp, type(self.app)):
+                    continue
+
+                if subapp.show:
+                    visible_commands.append(name)
+
             close_matches = difflib.get_close_matches(
                 token,
-                (name for name, command_app in self.app._commands.items() if command_app.show),
+                visible_commands,
                 n=1,
                 cutoff=0.6,
             )
@@ -285,11 +299,7 @@ class InvalidCommandError(CycloptsError):
             # The following is a heuristic to be "maximally helpful" to someone who may have
             # forgotten a command in their CLI call.
             max_commands = 8
-            available_commands = [
-                name
-                for name, command_app in self.app._commands.items()
-                if not name.startswith("-") and command_app.show
-            ]
+            available_commands = [name for name in visible_commands if not name.startswith("-")]
             if available_commands:
                 if len(available_commands) > max_commands:
                     response += f" Available commands: {', '.join(available_commands[:max_commands])}, ..."
@@ -314,6 +324,9 @@ class MissingArgumentError(CycloptsError):
 
     tokens_so_far: list[str] = field(factory=list)
     """If the matched parameter requires multiple tokens, these are the ones we have parsed so far."""
+
+    keyword: str | None = None
+    """The keyword that was used when the error was raised (e.g., '-o' instead of '--option')."""
 
     def __str__(self):
         assert self.argument is not None
@@ -340,12 +353,21 @@ class MissingArgumentError(CycloptsError):
             if close_matches and close_matches[0] not in self.argument.names:
                 close_match_string = f'Did you mean "{self.argument.name}" instead of "{close_matches[0]}"?'
 
+        param_name = self.argument.name
+        if self.keyword is not None:
+            param_name = self.keyword
+        elif self.argument.tokens:
+            for token in reversed(self.argument.tokens):
+                if token.keyword is not None:
+                    param_name = token.keyword
+                    break
+
         if self.command_chain:
             strings.append(
-                f'Command "{" ".join(self.command_chain)}" parameter "{self.argument.name}" {required_string}.{only_got_string}'
+                f'Command "{" ".join(self.command_chain)}" parameter "{param_name}" {required_string}.{only_got_string}'
             )
         else:
-            strings.append(f'Parameter "{self.argument.name}" {required_string}.{only_got_string}')
+            strings.append(f'Parameter "{param_name}" {required_string}.{only_got_string}')
 
         if close_match_string:
             strings.append(close_match_string)

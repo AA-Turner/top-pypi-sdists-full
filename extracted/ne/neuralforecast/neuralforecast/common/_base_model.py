@@ -757,8 +757,6 @@ class BaseModel(pl.LightningModule):
                     insample_condition >= min_insample_points
                 )
 
-            windows = windows[final_condition]
-
             # Parse Static data to match windows
             static = batch.get("static", None)
             static_cols = batch.get("static_cols", None)
@@ -768,13 +766,14 @@ class BaseModel(pl.LightningModule):
                 static = torch.repeat_interleave(
                     static, repeats=windows_per_serie, dim=0
                 )
-                static = static[final_condition]
 
             # Protection of empty windows
             if final_condition.sum() == 0:
                 raise Exception("No windows available for training")
 
-            return windows, static, static_cols
+            final_condition = torch.nonzero(final_condition).squeeze(-1)
+
+            return windows, static, static_cols, final_condition
 
         elif step in ["predict", "val"]:
 
@@ -837,7 +836,9 @@ class BaseModel(pl.LightningModule):
                         static, repeats=windows_per_serie, dim=0
                     )
 
-            return windows, static, static_cols
+            final_condition = torch.arange(windows.shape[0], device=windows.device)
+
+            return windows, static, static_cols, final_condition
         else:
             raise ValueError(f"Unknown step {step}")
 
@@ -885,21 +886,13 @@ class BaseModel(pl.LightningModule):
         return y_hat
 
     def _sample_windows(
-        self, windows_temporal, static, static_cols, temporal_cols, step, w_idxs=None
+        self, windows_temporal, static, static_cols, temporal_cols, w_idxs, final_condition,  
     ):
-        if step == "train" and self.windows_batch_size is not None:
-            n_windows = windows_temporal.shape[0]
-            w_idxs = np.random.choice(
-                n_windows,
-                size=self.windows_batch_size,
-                replace=(n_windows < self.windows_batch_size),
-            )
-        windows_sample = windows_temporal
-        if w_idxs is not None:
-            windows_sample = windows_temporal[w_idxs]
+        w_idxs_final = final_condition[w_idxs]
+        windows_sample = windows_temporal[w_idxs_final]
 
-            if static is not None and not self.MULTIVARIATE:
-                static = static[w_idxs]
+        if static is not None and not self.MULTIVARIATE:
+            static = static[w_idxs_final]
 
         windows_batch = dict(
             temporal=windows_sample,
@@ -998,6 +991,8 @@ class BaseModel(pl.LightningModule):
     def _compute_valid_loss(
         self, insample_y, outsample_y, output, outsample_mask, y_idx
     ):
+        output_from_scaled_distribution = False
+        
         if self.loss.is_distribution_output:
             y_loc, y_scale = self._get_loc_scale(y_idx)
             distr_args = self.loss.scale_decouple(
@@ -1008,17 +1003,20 @@ class BaseModel(pl.LightningModule):
             ):
                 _, _, quants = self.loss.sample(distr_args=distr_args)
                 output = quants
+                output_from_scaled_distribution = True
             elif isinstance(self.valid_loss, losses.BasePointLoss):
                 distr = self.loss.get_distribution(distr_args=distr_args)
                 output = distr.mean
+                output_from_scaled_distribution = True
 
-        # Validation Loss evaluation
+        # Validation loss evaluation
         if self.valid_loss.is_distribution_output:
             valid_loss = self.valid_loss(
                 y=outsample_y, distr_args=distr_args, mask=outsample_mask
             )
         else:
-            output = self._inv_normalization(y_hat=output, y_idx=y_idx)
+            if not output_from_scaled_distribution:
+                output = self._inv_normalization(y_hat=output, y_idx=y_idx)
             valid_loss = self.valid_loss(
                 y=outsample_y, y_hat=output, y_insample=insample_y, mask=outsample_mask
             )
@@ -1293,10 +1291,10 @@ class BaseModel(pl.LightningModule):
     def _predict_step_recurrent(self, batch, batch_idx):
         self.input_size = self.inference_input_size
         temporal_cols = batch["temporal_cols"]
-        windows_temporal, static, static_cols = self._create_windows(
+        windows_temporal, static, static_cols, final_condition = self._create_windows(
             batch, step="predict"
         )
-        n_windows = len(windows_temporal)
+        n_windows = len(final_condition)
         y_idx = batch["y_idx"]
 
         # Number of windows in batch
@@ -1306,7 +1304,8 @@ class BaseModel(pl.LightningModule):
         n_batches = int(np.ceil(n_windows / windows_batch_size))
         y_hats = []
 
-        if hasattr(self, "explain") and self.explain:
+        explain_state = hasattr(self, "explain") and self.explain
+        if explain_state:
             insample_explanations = []
             futr_exog_explanations = []
             hist_exog_explanations = []
@@ -1315,16 +1314,16 @@ class BaseModel(pl.LightningModule):
 
         for i in range(n_batches):
             # Create and normalize windows [Ws, L+H, C]
-            w_idxs = np.arange(
-                i * windows_batch_size, min((i + 1) * windows_batch_size, n_windows)
+            w_idxs = torch.arange(
+                i * windows_batch_size, min((i + 1) * windows_batch_size, n_windows), device=windows_temporal.device
             )
             windows = self._sample_windows(
-                windows_temporal,
-                static,
-                static_cols,
-                temporal_cols,
-                step="predict",
+                windows_temporal=windows_temporal,
+                static=static,
+                static_cols=static_cols,
+                temporal_cols=temporal_cols,
                 w_idxs=w_idxs,
+                final_condition=final_condition,
             )
             windows = self._normalization(windows=windows, y_idx=y_idx)
 
@@ -1342,7 +1341,7 @@ class BaseModel(pl.LightningModule):
                 y_idx=y_idx,
             )
 
-            if hasattr(self, "explain") and self.explain:
+            if explain_state:
                 (
                     insample_explanation,
                     futr_exog_explanation,
@@ -1371,7 +1370,7 @@ class BaseModel(pl.LightningModule):
         y_hat = torch.cat(y_hats, dim=0)
         self.input_size = self.input_size_backup
 
-        if hasattr(self, "explain") and self.explain:
+        if explain_state:
             insample_explanations = torch.cat(insample_explanations, dim=0)
             if futr_exog_explanations:
                 futr_exog_explanations = torch.cat(futr_exog_explanations, dim=0)
@@ -1393,41 +1392,153 @@ class BaseModel(pl.LightningModule):
             )        
         else:
             return y_hat
-
-    def _predict_step_direct(
-        self, batch, batch_idx, recursive=False, trim_window_size=0
+        
+    def _compute_explanations_for_step(
+        self,
+        batch,
+        temporal_cols,
+        y_idx,
+        recursive_step=0,
+        y_hat_shape=None,
     ):
+        """Compute explanations for a single prediction step."""
+        # Create windows and normalize for explanations
+        windows_temporal, static, static_cols, final_condition = self._create_windows(
+            batch, step="predict"
+        )
+        n_windows = len(final_condition)
+
+        # Process windows in batches
+        windows_batch_size = self.inference_windows_batch_size
+        if windows_batch_size < 0:
+            windows_batch_size = n_windows
+        n_batches = int(np.ceil(n_windows / windows_batch_size))
+
+        step_insample_explanations = []
+        step_futr_exog_explanations = []
+        step_hist_exog_explanations = []
+        step_stat_exog_explanations = []
+        step_baseline_predictions = []
+
+        for j in range(n_batches):
+            w_idxs = torch.arange(
+                j * windows_batch_size, min((j + 1) * windows_batch_size, n_windows), device=windows_temporal.device
+            )
+            windows = self._sample_windows(
+                windows_temporal=windows_temporal,
+                static=static,
+                static_cols=static_cols,
+                temporal_cols=temporal_cols,
+                w_idxs=w_idxs,
+                final_condition=final_condition,
+            )
+            windows = self._normalization(windows=windows, y_idx=y_idx)
+
+            # Parse windows
+            insample_y, insample_mask, _, _, hist_exog, futr_exog, stat_exog = (
+                self._parse_windows(batch, windows)
+            )
+
+            # Compute explanations
+            (
+                insample_explanation,
+                futr_exog_explanation,
+                hist_exog_explanation,
+                stat_exog_explanation,
+                baseline_prediction,
+            ) = self._explain_batch(
+                insample_y=insample_y,
+                insample_mask=insample_mask,
+                futr_exog=futr_exog,
+                hist_exog=hist_exog,
+                stat_exog=stat_exog,
+                y_idx=y_idx,
+                y_hat_shape=y_hat_shape,
+                recursive_step=recursive_step,
+            )
+
+            if insample_explanation is not None:
+                step_insample_explanations.append(insample_explanation)
+                if futr_exog_explanation is not None:
+                    step_futr_exog_explanations.append(futr_exog_explanation)
+                if hist_exog_explanation is not None:
+                    step_hist_exog_explanations.append(hist_exog_explanation)
+                if stat_exog_explanation is not None:
+                    step_stat_exog_explanations.append(stat_exog_explanation)
+                if baseline_prediction is not None:
+                    step_baseline_predictions.append(baseline_prediction)
+
+        # Concatenate window batches
+        insample = torch.cat(step_insample_explanations, dim=0) if step_insample_explanations else None
+        futr_exog = torch.cat(step_futr_exog_explanations, dim=0) if step_futr_exog_explanations else None
+        hist_exog = torch.cat(step_hist_exog_explanations, dim=0) if step_hist_exog_explanations else None
+        stat_exog = torch.cat(step_stat_exog_explanations, dim=0) if step_stat_exog_explanations else None
+        baseline = torch.cat(step_baseline_predictions, dim=0) if step_baseline_predictions else None
+
+        return insample, futr_exog, hist_exog, stat_exog, baseline, y_hat_shape
+
+    def _predict_step_direct(self, batch, batch_idx, recursive=False):
         temporal_cols = batch["temporal_cols"]
+        explain_state = hasattr(self, "explain") and self.explain
         if recursive:
             # We need to predict recursively, so we use the median quantile if it exists to feed back as insample_y
             median_idx = self._maybe_get_quantile_idx(quantile=0.5)
             y_idx = batch["y_idx"]
             y_hats = []
             total_test_size = self.test_size
-            remainder = self.test_size % self.h
-
-            cutoff = -total_test_size + self.h
-            futr_temporal = batch["temporal"][:, :, cutoff:]
-            if remainder > 0:
-                # to handle edge case: our original design assumes that prediction is based on fitted horizon (h)
-                # if predict's h argument is not multiple of fitted horizon, the change in array will introduce
-                # side-effect. This ensures that future_temporal has forecast zone to be multiple of h.
-                padded_zeroes = torch.zeros(
-                    [futr_temporal.shape[0], futr_temporal.shape[1], remainder], device=futr_temporal.device
-                )
-                futr_temporal = torch.cat([futr_temporal, padded_zeroes], dim=-1)
-
-            batch["temporal"] = batch["temporal"][:, :, :cutoff]
-            # _create_windows() in next iteration with recursive=False depends on self.test_size
+            futr_temporal = batch["temporal"][:, :, -total_test_size + self.h :]
+            batch["temporal"] = batch["temporal"][:, :, : -total_test_size + self.h]
             self.test_size = self.h
+            
+            # Initialize explanation storage if explaining
+            if explain_state:
+                all_insample_explanations = []
+                all_futr_exog_explanations = []
+                all_hist_exog_explanations = []
+                all_stat_exog_explanations = []
+                all_baseline_predictions = []
+            
             for i in range(self.n_predicts):
+                # Temporarily disable explanations for the recursive call
+                if explain_state:
+                    self.explain = False
+                
+                # Make predictions for this step
                 y_hat = self._predict_step_direct(batch, batch_idx, recursive=False)
-
+                
+                # Restore explanation state
+                if explain_state:
+                    self.explain = True
+                
                 y_hats.append(y_hat)
-                y_hat_median = y_hat
-                if median_idx is not None:
-                    y_hat_median = y_hat[..., median_idx]
+                
+                # Generate explanations
+                if explain_state:
+                    (insample, futr_exog, hist_exog, stat_exog, baseline, _) = \
+                        self._compute_explanations_for_step(
+                            batch=batch,
+                            temporal_cols=temporal_cols,
+                            y_idx=y_idx,
+                            recursive_step=i,
+                            y_hat_shape=y_hat.shape,
+                        )
+                    if insample is not None:
+                        all_insample_explanations.append(insample)
+                        if futr_exog is not None:
+                            all_futr_exog_explanations.append(futr_exog)
+                        if hist_exog is not None:
+                            all_hist_exog_explanations.append(hist_exog)
+                        if stat_exog is not None:
+                            all_stat_exog_explanations.append(stat_exog)
+                        if baseline is not None:
+                            all_baseline_predictions.append(baseline)
+                
+                # Update temporal with predictions for next iteration
                 if i < self.n_predicts - 1:
+                    y_hat_median = y_hat
+                    if median_idx is not None:
+                        y_hat_median = y_hat[..., median_idx]
+                    
                     # Update temporal of the batch with predictions
                     temporal = batch["temporal"]
                     if self.MULTIVARIATE:
@@ -1449,12 +1560,33 @@ class BaseModel(pl.LightningModule):
 
             y_hat = torch.cat(y_hats, dim=1)
             self.test_size = total_test_size
+            
+            # Return with concatenated explanations if explaining
+            if explain_state:
+                # Concatenate explanations across all recursive steps
+                insample_explanations = torch.cat(all_insample_explanations, dim=1) if all_insample_explanations else None
+                futr_exog_explanations = torch.cat(all_futr_exog_explanations, dim=1) if all_futr_exog_explanations else None
+                hist_exog_explanations = torch.cat(all_hist_exog_explanations, dim=1) if all_hist_exog_explanations else None
+                stat_exog_explanations = torch.cat(all_stat_exog_explanations, dim=1) if all_stat_exog_explanations else None
+                baseline_predictions = torch.cat(all_baseline_predictions, dim=1) if all_baseline_predictions else None
+                return (
+                    y_hat,
+                    insample_explanations,
+                    futr_exog_explanations,
+                    hist_exog_explanations,
+                    stat_exog_explanations,
+                    baseline_predictions,
+                )
+            else:
+                return y_hat
+        
         else:
-            windows_temporal, static, static_cols = self._create_windows(
+            # Non-recursive case remains unchanged
+            windows_temporal, static, static_cols, final_condition = self._create_windows(
                 batch,
                 step="predict",
             )
-            n_windows = len(windows_temporal)
+            n_windows = len(final_condition)
             y_idx = batch["y_idx"]
 
             # Number of windows in batch
@@ -1464,8 +1596,7 @@ class BaseModel(pl.LightningModule):
             n_batches = int(np.ceil(n_windows / windows_batch_size))
             y_hats = []
 
-
-            if hasattr(self, "explain") and self.explain:
+            if explain_state:
                 insample_explanations = []
                 futr_exog_explanations = []
                 hist_exog_explanations = []
@@ -1474,16 +1605,16 @@ class BaseModel(pl.LightningModule):
 
             for i in range(n_batches):
                 # Create and normalize windows [Ws, L+H, C]
-                w_idxs = np.arange(
-                    i * windows_batch_size, min((i + 1) * windows_batch_size, n_windows)
+                w_idxs = torch.arange(
+                    i * windows_batch_size, min((i + 1) * windows_batch_size, n_windows), device=windows_temporal.device
                 )
                 windows = self._sample_windows(
-                    windows_temporal,
-                    static,
-                    static_cols,
-                    temporal_cols,
-                    step="predict",
+                    windows_temporal=windows_temporal,
+                    static=static,
+                    static_cols=static_cols,
+                    temporal_cols=temporal_cols,
                     w_idxs=w_idxs,
+                    final_condition=final_condition,
                 )
                 windows = self._normalization(windows=windows, y_idx=y_idx)
 
@@ -1501,7 +1632,7 @@ class BaseModel(pl.LightningModule):
                     y_idx=y_idx,
                 )
 
-                if hasattr(self, "explain") and self.explain:
+                if explain_state:
                     (
                         insample_explanation,
                         futr_exog_explanation,
@@ -1516,6 +1647,7 @@ class BaseModel(pl.LightningModule):
                         stat_exog=stat_exog,
                         y_idx=y_idx,
                         y_hat_shape=y_hat.shape,
+                        recursive_step=0,  # Non-recursive is always step 0
                     )
                     insample_explanations.append(insample_explanation)
                     if futr_exog_explanation is not None:
@@ -1529,7 +1661,8 @@ class BaseModel(pl.LightningModule):
                 y_hats.append(y_hat)
 
             y_hat = torch.cat(y_hats, dim=0)
-            if hasattr(self, "explain") and self.explain:
+            
+            if explain_state:
                 insample_explanations = torch.cat(insample_explanations, dim=0)
                 if futr_exog_explanations:
                     futr_exog_explanations = torch.cat(futr_exog_explanations, dim=0)
@@ -1571,11 +1704,26 @@ class BaseModel(pl.LightningModule):
         y_idx = batch["y_idx"]
 
         temporal_cols = batch["temporal_cols"]
-        windows_temporal, static, static_cols = self._create_windows(
+        windows_temporal, static, static_cols, final_condition = self._create_windows(
             batch, step="train"
         )
+        n_windows = len(final_condition)
+        if self.windows_batch_size is not None:
+            if n_windows < self.windows_batch_size:
+                w_idxs = torch.randint(
+                    0,
+                    n_windows,
+                    size=(self.windows_batch_size,),
+                    device=windows_temporal.device,
+                )
+            else:
+                w_idxs = torch.randperm(n_windows, device=windows_temporal.device)[
+                    : self.windows_batch_size
+                ]        
+        else:
+            w_idxs = torch.arange(n_windows, device=windows_temporal.device)
         windows = self._sample_windows(
-            windows_temporal, static, static_cols, temporal_cols, step="train"
+            windows_temporal=windows_temporal, static=static, static_cols=static_cols, temporal_cols=temporal_cols, w_idxs=w_idxs, final_condition=final_condition
         )
         original_outsample_y = torch.clone(
             windows["temporal"][:, self.input_size :, y_idx]
@@ -1642,8 +1790,8 @@ class BaseModel(pl.LightningModule):
             return np.nan
 
         temporal_cols = batch["temporal_cols"]
-        windows_temporal, static, static_cols = self._create_windows(batch, step="val")
-        n_windows = len(windows_temporal)
+        windows_temporal, static, static_cols, final_condition = self._create_windows(batch, step="val")
+        n_windows = len(final_condition)
         y_idx = batch["y_idx"]
 
         # Number of windows in batch
@@ -1656,16 +1804,16 @@ class BaseModel(pl.LightningModule):
         batch_sizes = []
         for i in range(n_batches):
             # Create and normalize windows [Ws, L + h, C, n_series]
-            w_idxs = np.arange(
-                i * windows_batch_size, min((i + 1) * windows_batch_size, n_windows)
+            w_idxs = torch.arange(
+                i * windows_batch_size, min((i + 1) * windows_batch_size, n_windows), device=windows_temporal.device
             )
             windows = self._sample_windows(
                 windows_temporal,
                 static,
                 static_cols,
                 temporal_cols,
-                step="val",
                 w_idxs=w_idxs,
+                final_condition=final_condition,
             )
             original_outsample_y = torch.clone(
                 windows["temporal"][:, self.input_size :, y_idx]
@@ -1739,9 +1887,7 @@ class BaseModel(pl.LightningModule):
         if self.RECURRENT:
             return self._predict_step_recurrent(batch, batch_idx)
         else:
-            return self._predict_step_direct(
-                batch, batch_idx, recursive=self.n_predicts > 1
-            )
+            return self._predict_step_direct(batch, batch_idx, recursive=self.n_predicts > 1)
 
     def fit(
         self,
@@ -1813,9 +1959,6 @@ class BaseModel(pl.LightningModule):
         Returns:
             None
         """
-        if h is not None and h > self.horizon_backup and explainer_config is not None:
-            # TODO remove this if the constraint is no longer applicable.
-            raise ValueError("Prediction explanation is not supported for prediction horizon larger than the horizon of the fitted models")
 
         self._check_exog(dataset)
         self._restart_seed(random_seed)
@@ -2026,10 +2169,91 @@ class BaseModel(pl.LightningModule):
         stat_exog,
         y_idx,
         y_hat_shape,
+        recursive_step=0,
     ):
-
+        add_dim = False
+        if len(y_hat_shape) == 3:
+            y_hat_shape = y_hat_shape + (1,)
+            add_dim = True
+        
+        # Determine which horizons to explain in this recursive step
+        step_start = recursive_step * self.h
+        step_end = min((recursive_step + 1) * self.h, self.predict_horizon)
+        
+        # Get the horizons to explain
+        all_horizons = self.explainer_config.get("horizons", list(range(self.predict_horizon)))
+        
+        # Filter to only horizons in this recursive step
+        horizons_to_explain = [h for h in all_horizons if step_start <= h < step_end]
+        
+        # Convert to local horizon indices
+        local_horizons = [h - step_start for h in horizons_to_explain]
+        
+        if not local_horizons:
+            empty_shape = list(y_hat_shape)
+            empty_shape[1] = 0  # No horizons
+            empty_shape[3] = len(self.explainer_config.get("output_index", list(range(y_hat_shape[-1]))))
+            
+            # Insample explanations
+            insample_explanations = torch.empty(
+                size=(*empty_shape, insample_y.shape[1], 2),
+                device=insample_y.device,
+                dtype=insample_y.dtype,
+            )
+            
+            # Future exogenous explanations
+            futr_exog_explanations = None
+            if futr_exog is not None:
+                if futr_exog.ndim == 3:
+                    futr_exog_explanations = torch.empty(
+                        size=(*empty_shape, futr_exog.shape[1], futr_exog.shape[2]),
+                        device=futr_exog.device,
+                        dtype=futr_exog.dtype,
+                    )
+                else:
+                    futr_exog_explanations = torch.empty(
+                        size=(*empty_shape, futr_exog.shape[2], futr_exog.shape[1]),
+                        device=futr_exog.device,
+                        dtype=futr_exog.dtype,
+                    )
+            
+            # Historical exogenous explanations
+            hist_exog_explanations = None
+            if hist_exog is not None:
+                if hist_exog.ndim == 3:
+                    hist_exog_explanations = torch.empty(
+                        size=(*empty_shape, hist_exog.shape[1], hist_exog.shape[2]),
+                        device=hist_exog.device,
+                        dtype=hist_exog.dtype,
+                    )
+                else:
+                    hist_exog_explanations = torch.empty(
+                        size=(*empty_shape, hist_exog.shape[2], hist_exog.shape[1]),
+                        device=hist_exog.device,
+                        dtype=hist_exog.dtype,
+                    )
+            
+            # Static exogenous explanations
+            stat_exog_explanations = None
+            if stat_exog is not None:
+                stat_exog_explanations = torch.empty(
+                    size=(*empty_shape, stat_exog.shape[1]),
+                    device=stat_exog.device,
+                    dtype=stat_exog.dtype,
+                )
+            
+            # Baseline predictions
+            baseline_predictions = None
+            
+            return (
+                insample_explanations,
+                futr_exog_explanations,
+                hist_exog_explanations,
+                stat_exog_explanations,
+                baseline_predictions
+            )
+        
         # Attribute the input
-        horizons = self.explainer_config.get("horizons", list(range(self.h)))
         series = list(range(self.n_series))
         output_index = self.explainer_config.get(
             "output_index", list(range(y_hat_shape[-1]))
@@ -2040,12 +2264,9 @@ class BaseModel(pl.LightningModule):
         insample_mask.requires_grad_()
         input_batch = (insample_y, insample_mask)
         param_positions = {"insample_y": 0, "insample_mask": 1}
-        add_dim = False
-        if len(y_hat_shape) == 3:
-            y_hat_shape = y_hat_shape + (1,)
-            add_dim = True
+        
         shape = list(y_hat_shape)
-        shape[1] = len(horizons)
+        shape[1] = len(local_horizons)
         shape[3] = len(output_index)            
         insample_explanations = torch.empty(
             size=(*shape, insample_y.shape[1], 2),
@@ -2108,7 +2329,7 @@ class BaseModel(pl.LightningModule):
             )
 
         # Loop over horizons, series and output_indices
-        for i, horizon in enumerate(horizons):
+        for i, local_horizon in enumerate(local_horizons):
             for j, series_idx in enumerate(series):
                 for k, output_idx in enumerate(output_index):
                     forward_fn = lambda *args: self._predict_step_wrapper(
@@ -2130,14 +2351,12 @@ class BaseModel(pl.LightningModule):
                             else None
                         ),
                         y_idx=y_idx,
-                        output_horizon=horizon,
+                        output_horizon=local_horizon,
                         output_series=series_idx,
                         output_index=output_idx,
                     )
                     attributor = self.explainer_config["explainer"](forward_fn)
-                    attributions = attributor.attribute(
-                        input_batch,
-                    )
+                    attributions = attributor.attribute(input_batch)
 
                     insample_attr = attributions[0].squeeze(-1)
                     insample_explanations[:, i, j, k, :, 0] = insample_attr
@@ -2156,7 +2375,6 @@ class BaseModel(pl.LightningModule):
                     if "stat_exog" in param_positions:
                         stat_exog_attr = attributions[param_positions["stat_exog"]]
                         stat_exog_explanations[:, i, j, k] = stat_exog_attr
-                     
 
         explainer_class = self.explainer_config["explainer"]
         explainer_name = explainer_class.__name__ if hasattr(explainer_class, '__name__') else str(explainer_class)
@@ -2183,7 +2401,8 @@ class BaseModel(pl.LightningModule):
                 )
             if add_dim:
                 baseline_predictions = baseline_predictions.unsqueeze(-1)
-            baseline_predictions = baseline_predictions.index_select(1, torch.tensor(horizons, device=baseline_predictions.device))
+            
+            baseline_predictions = baseline_predictions.index_select(1, torch.tensor(local_horizons, device=baseline_predictions.device))
             baseline_predictions = baseline_predictions.index_select(2, torch.tensor(series, device=baseline_predictions.device))
             baseline_predictions = baseline_predictions.index_select(3, torch.tensor(output_index, device=baseline_predictions.device))
         else:

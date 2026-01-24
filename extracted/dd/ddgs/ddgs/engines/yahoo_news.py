@@ -1,16 +1,14 @@
 """Yahoo! News search engine."""
 
-from __future__ import annotations
-
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from typing import Any, ClassVar
 from urllib.parse import unquote_plus
 
-from ..base import BaseSearchEngine
-from ..results import NewsResult
+from ddgs.base import BaseSearchEngine
+from ddgs.results import NewsResult
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +65,7 @@ class YahooNews(BaseSearchEngine[NewsResult]):
     search_method = "GET"
 
     items_xpath = "//div[@id='web']//li[a]"
-    elements_xpath: Mapping[str, str] = {
+    elements_xpath: ClassVar[Mapping[str, str]] = {
         "date": ".//span[contains(@class, 'time')]//text()",
         "title": ".//h4//text()",
         "body": ".//p//text()",
@@ -77,7 +75,13 @@ class YahooNews(BaseSearchEngine[NewsResult]):
     }
 
     def build_payload(
-        self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
+        self,
+        query: str,
+        region: str,  # noqa: ARG002
+        safesearch: str,  # noqa: ARG002
+        timelimit: str | None,
+        page: int = 1,
+        **kwargs: str,  # noqa: ARG002
     ) -> dict[str, Any]:
         """Build a payload for the search request."""
         payload = {"p": query}
@@ -95,6 +99,6 @@ class YahooNews(BaseSearchEngine[NewsResult]):
                 result.url = extract_url(result.url)
                 result.image = extract_image(result.image)
                 result.source = extract_source(result.source)
-        except Exception as ex:
+        except Exception as ex:  # noqa: BLE001
             logger.warning("Error post-processing results: %r", ex)
         return results

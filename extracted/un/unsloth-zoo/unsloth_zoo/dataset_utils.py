@@ -328,8 +328,16 @@ def train_on_responses_only(
     if return_function:
         return _train_on_responses_only
 
-    from multiprocessing import cpu_count
-    if num_proc is None or type(num_proc) is not int: num_proc = cpu_count()
+    if num_proc is None or type(num_proc) is not int:
+        import psutil
+        num_proc = min(max((psutil.cpu_count() or 1)+4, 2), 64)
+        # Check memory left so we can reduce multiprocessing to converse memory
+        memory_gb_left = psutil.virtual_memory().available / (1024**3)
+        if memory_gb_left <= 2:
+            num_proc = 1 # Too risky, so set to 1
+        else:
+            # Set it to int(memory_gb_left) so 16Gb = 16
+            num_proc = min(num_proc, int(memory_gb_left))
 
     if hasattr(trainer, "train_dataset") and trainer.train_dataset is not None:
         if not hasattr(trainer.train_dataset, "map"):
@@ -362,8 +370,12 @@ def train_on_responses_only(
 
     # Edit data collator as well if not DataCollatorForSeq2Seq
     from transformers import DataCollatorForSeq2Seq
-    if hasattr(trainer, "data_collator") and \
-        not isinstance(trainer.data_collator, DataCollatorForSeq2Seq):
+    packing_enabled = getattr(trainer.args, "packing", False)
+    if (
+        hasattr(trainer, "data_collator")
+        and not isinstance(trainer.data_collator, DataCollatorForSeq2Seq)
+        and not packing_enabled
+    ):
         trainer.data_collator = DataCollatorForSeq2Seq(tokenizer = tokenizer)
 
     # Check if all labels randomnly got masked to nothing - maybe wrong chat template?
@@ -601,8 +613,18 @@ def sft_prepare_dataset(
         if not isinstance(dataset, IterableDataset):
             dataset_num_proc = getattr(args, "dataset_num_proc", None)
             if dataset_num_proc is None:
-                from multiprocessing import cpu_count
-                dataset_num_proc = max(cpu_count()+4, 2)
+                import psutil
+                dataset_num_proc = max((psutil.cpu_count() or 1)+4, 2)
+                # Check memory left so we can reduce multiprocessing to converse memory
+                memory_gb_left = psutil.virtual_memory().available / (1024**3)
+                if memory_gb_left <= 4:
+                    dataset_num_proc = 1 # Too risky, so set to 1
+                elif memory_gb_left <= 6:
+                    dataset_num_proc = min(2, dataset_num_proc)
+                elif memory_gb_left <= 8:
+                    dataset_num_proc = min(4, dataset_num_proc)
+                elif memory_gb_left <= 12:
+                    dataset_num_proc = min(6, dataset_num_proc)
             map_kwargs["num_proc"] = dataset_num_proc
         else:
             map_kwargs["batch_size"] = dataset._ex_iterable.batch_size

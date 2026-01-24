@@ -1,10 +1,11 @@
 use crate::{
     compiler,
     error::ValidationError,
+    evaluation::{Annotations, ErrorDescription},
     keywords::CompilationResult,
     node::SchemaNode,
-    paths::LazyLocation,
-    validator::{PartialApplication, Validate},
+    paths::{LazyLocation, RefTracker},
+    validator::{EvaluationResult, Validate, ValidationContext},
     Draft,
 };
 use serde_json::{Map, Value};
@@ -26,9 +27,9 @@ impl ContainsValidator {
 }
 
 impl Validate for ContainsValidator {
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Array(items) = instance {
-            items.iter().any(|i| self.node.is_valid(i))
+            items.iter().any(|i| self.node.is_valid(i, ctx))
         } else {
             true
         }
@@ -38,13 +39,17 @@ impl Validate for ContainsValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Array(items) = instance {
-            if items.iter().any(|i| self.node.is_valid(i)) {
+            if items.iter().any(|i| self.node.is_valid(i, ctx)) {
                 return Ok(());
             }
+            let loc = self.node.location();
             Err(ValidationError::contains(
-                self.node.location().clone(),
+                loc.clone(),
+                crate::paths::capture_evaluation_path(tracker, loc),
                 location.into(),
                 instance,
             ))
@@ -53,35 +58,48 @@ impl Validate for ContainsValidator {
         }
     }
 
-    fn apply<'a>(&'a self, instance: &Value, location: &LazyLocation) -> PartialApplication<'a> {
+    fn evaluate(
+        &self,
+        instance: &Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
         if let Value::Array(items) = instance {
             let mut results = Vec::with_capacity(items.len());
-            let mut indices = Vec::new();
+            let mut indices = Vec::with_capacity(items.len());
             for (idx, item) in items.iter().enumerate() {
                 let path = location.push(idx);
-                let result = self.node.apply_rooted(item, &path);
-                if result.is_valid() {
+                let result = self.node.evaluate_instance(item, &path, tracker, ctx);
+                if result.valid {
                     indices.push(idx);
                     results.push(result);
                 }
             }
-            let mut result: PartialApplication = results.into_iter().collect();
             if indices.is_empty() {
-                result.mark_errored(
-                    ValidationError::contains(
-                        self.node.location().clone(),
-                        location.into(),
-                        instance,
-                    )
-                    .into(),
-                );
+                let loc = self.node.location();
+                let eval_path = crate::paths::capture_evaluation_path(tracker, loc);
+                EvaluationResult::Invalid {
+                    errors: vec![ErrorDescription::from_validation_error(
+                        &ValidationError::contains(
+                            loc.clone(),
+                            eval_path,
+                            location.into(),
+                            instance,
+                        ),
+                    )],
+                    children: Vec::new(),
+                    annotations: None,
+                }
             } else {
-                result.annotate(Value::from(indices).into());
+                EvaluationResult::Valid {
+                    annotations: Some(Annotations::new(Value::from(indices))),
+                    children: results,
+                }
             }
-            result
         } else {
-            let mut result = PartialApplication::valid_empty();
-            result.annotate(Value::Array(Vec::new()).into());
+            let mut result = EvaluationResult::valid_empty();
+            result.annotate(Annotations::new(Value::Array(Vec::new())));
             result
         }
     }
@@ -111,47 +129,14 @@ impl MinContainsValidator {
 }
 
 impl Validate for MinContainsValidator {
-    fn validate<'i>(
-        &self,
-        instance: &'i Value,
-        location: &LazyLocation,
-    ) -> Result<(), ValidationError<'i>> {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Array(items) = instance {
             let mut matches = 0;
             for item in items {
                 if self
                     .node
                     .validators()
-                    .all(|validator| validator.is_valid(item))
-                {
-                    matches += 1;
-                    if matches >= self.min_contains {
-                        return Ok(());
-                    }
-                }
-            }
-            if self.min_contains > 0 {
-                Err(ValidationError::contains(
-                    self.node.location().clone(),
-                    location.into(),
-                    instance,
-                ))
-            } else {
-                Ok(())
-            }
-        } else {
-            Ok(())
-        }
-    }
-
-    fn is_valid(&self, instance: &Value) -> bool {
-        if let Value::Array(items) = instance {
-            let mut matches = 0;
-            for item in items {
-                if self
-                    .node
-                    .validators()
-                    .all(|validator| validator.is_valid(item))
+                    .all(|validator| validator.is_valid(item, ctx))
                 {
                     matches += 1;
                     if matches >= self.min_contains {
@@ -162,6 +147,43 @@ impl Validate for MinContainsValidator {
             self.min_contains == 0
         } else {
             true
+        }
+    }
+
+    fn validate<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> Result<(), ValidationError<'i>> {
+        if let Value::Array(items) = instance {
+            let mut matches = 0;
+            for item in items {
+                if self
+                    .node
+                    .validators()
+                    .all(|validator| validator.is_valid(item, ctx))
+                {
+                    matches += 1;
+                    if matches >= self.min_contains {
+                        return Ok(());
+                    }
+                }
+            }
+            if self.min_contains > 0 {
+                let loc = self.node.location();
+                Err(ValidationError::contains(
+                    loc.clone(),
+                    crate::paths::capture_evaluation_path(tracker, loc),
+                    location.into(),
+                    instance,
+                ))
+            } else {
+                Ok(())
+            }
+        } else {
+            Ok(())
         }
     }
 }
@@ -190,51 +212,14 @@ impl MaxContainsValidator {
 }
 
 impl Validate for MaxContainsValidator {
-    fn validate<'i>(
-        &self,
-        instance: &'i Value,
-        location: &LazyLocation,
-    ) -> Result<(), ValidationError<'i>> {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Array(items) = instance {
             let mut matches = 0;
             for item in items {
                 if self
                     .node
                     .validators()
-                    .all(|validator| validator.is_valid(item))
-                {
-                    matches += 1;
-                    if matches > self.max_contains {
-                        return Err(ValidationError::contains(
-                            self.node.location().clone(),
-                            location.into(),
-                            instance,
-                        ));
-                    }
-                }
-            }
-            if matches > 0 {
-                Ok(())
-            } else {
-                Err(ValidationError::contains(
-                    self.node.location().clone(),
-                    location.into(),
-                    instance,
-                ))
-            }
-        } else {
-            Ok(())
-        }
-    }
-
-    fn is_valid(&self, instance: &Value) -> bool {
-        if let Value::Array(items) = instance {
-            let mut matches = 0;
-            for item in items {
-                if self
-                    .node
-                    .validators()
-                    .all(|validator| validator.is_valid(item))
+                    .all(|validator| validator.is_valid(item, ctx))
                 {
                     matches += 1;
                     if matches > self.max_contains {
@@ -245,6 +230,48 @@ impl Validate for MaxContainsValidator {
             matches != 0
         } else {
             true
+        }
+    }
+
+    fn validate<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> Result<(), ValidationError<'i>> {
+        if let Value::Array(items) = instance {
+            let loc = self.node.location();
+            let mut matches = 0;
+            for item in items {
+                if self
+                    .node
+                    .validators()
+                    .all(|validator| validator.is_valid(item, ctx))
+                {
+                    matches += 1;
+                    if matches > self.max_contains {
+                        return Err(ValidationError::contains(
+                            loc.clone(),
+                            crate::paths::capture_evaluation_path(tracker, loc),
+                            location.into(),
+                            instance,
+                        ));
+                    }
+                }
+            }
+            if matches > 0 {
+                Ok(())
+            } else {
+                Err(ValidationError::contains(
+                    loc.clone(),
+                    crate::paths::capture_evaluation_path(tracker, loc),
+                    location.into(),
+                    instance,
+                ))
+            }
+        } else {
+            Ok(())
         }
     }
 }
@@ -277,50 +304,14 @@ impl MinMaxContainsValidator {
 }
 
 impl Validate for MinMaxContainsValidator {
-    fn validate<'i>(
-        &self,
-        instance: &'i Value,
-        location: &LazyLocation,
-    ) -> Result<(), ValidationError<'i>> {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Array(items) = instance {
             let mut matches = 0;
             for item in items {
                 if self
                     .node
                     .validators()
-                    .all(|validator| validator.is_valid(item))
-                {
-                    matches += 1;
-                    if matches > self.max_contains {
-                        return Err(ValidationError::contains(
-                            self.node.location().join("maxContains"),
-                            location.into(),
-                            instance,
-                        ));
-                    }
-                }
-            }
-            if matches < self.min_contains {
-                Err(ValidationError::contains(
-                    self.node.location().join("minContains"),
-                    location.into(),
-                    instance,
-                ))
-            } else {
-                Ok(())
-            }
-        } else {
-            Ok(())
-        }
-    }
-    fn is_valid(&self, instance: &Value) -> bool {
-        if let Value::Array(items) = instance {
-            let mut matches = 0;
-            for item in items {
-                if self
-                    .node
-                    .validators()
-                    .all(|validator| validator.is_valid(item))
+                    .all(|validator| validator.is_valid(item, ctx))
                 {
                     matches += 1;
                     if matches > self.max_contains {
@@ -331,6 +322,52 @@ impl Validate for MinMaxContainsValidator {
             matches <= self.max_contains && matches >= self.min_contains
         } else {
             true
+        }
+    }
+
+    fn validate<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> Result<(), ValidationError<'i>> {
+        if let Value::Array(items) = instance {
+            let mut matches = 0;
+            for item in items {
+                if self
+                    .node
+                    .validators()
+                    .all(|validator| validator.is_valid(item, ctx))
+                {
+                    matches += 1;
+                    if matches > self.max_contains {
+                        let max_location = self.node.location().join("maxContains");
+                        let eval_path =
+                            crate::paths::capture_evaluation_path(tracker, &max_location);
+                        return Err(ValidationError::contains(
+                            max_location,
+                            eval_path,
+                            location.into(),
+                            instance,
+                        ));
+                    }
+                }
+            }
+            if matches < self.min_contains {
+                let min_location = self.node.location().join("minContains");
+                let eval_path = crate::paths::capture_evaluation_path(tracker, &min_location);
+                Err(ValidationError::contains(
+                    min_location,
+                    eval_path,
+                    location.into(),
+                    instance,
+                ))
+            } else {
+                Ok(())
+            }
+        } else {
+            Ok(())
         }
     }
 }

@@ -2,5 +2,7 @@ __all__ = [
     'client',
     'factories',
     'types',
-    'logger'
+    'logger',
+    'http',
+    'security'
 ]

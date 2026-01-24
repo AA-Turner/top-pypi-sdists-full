@@ -1,0 +1,37 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+authors = [{ name = "James Prior", email = "jamesgr.prior@gmail.com" }]
+name = "iregexp-check"
+requires-python = ">=3.8"
+readme = "README.md"
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+
+]
+
+dynamic = ["version"]
+
+[project.urls]
+"Change Log" = "https://github.com/jg-rp/rust-iregexp/blob/main/CHANGES.md"
+Homepage = "https://github.com/jg-rp/rust-iregexp/tree/main/crates/python"
+"Issue Tracker" = "https://github.com/jg-rp/rust-iregexp/issues"
+"Source Code" = "https://github.com/jg-rp/rust-iregexp/tree/main/crates/python"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+manifest-path = "crates/python/Cargo.toml"

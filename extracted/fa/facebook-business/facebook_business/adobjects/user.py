@@ -29,7 +29,6 @@ class User(
     class Field(AbstractObject.Field):
         about = 'about'
         age_range = 'age_range'
-        avatar_2d_profile_picture = 'avatar_2d_profile_picture'
         birthday = 'birthday'
         client_business_id = 'client_business_id'
         community = 'community'
@@ -43,7 +42,6 @@ class User(
         gender = 'gender'
         hometown = 'hometown'
         id = 'id'
-        id_for_avatars = 'id_for_avatars'
         inspirational_people = 'inspirational_people'
         install_type = 'install_type'
         installed = 'installed'
@@ -744,37 +742,6 @@ class User(
             target_class=WhatsAppBusinessAccount,
             api_type='EDGE',
             response_parser=ObjectParser(target_class=WhatsAppBusinessAccount, api=self._api),
-        )
-        request.add_params(params)
-        request.add_fields(fields)
-
-        if batch is not None:
-            request.add_to_batch(batch, success=success, failure=failure)
-            return request
-        elif pending:
-            return request
-        else:
-            self.assure_call()
-            return request.execute()
-
-    def get_avatars(self, fields=None, params=None, batch=None, success=None, failure=None, pending=False):
-        from facebook_business.utils import api_utils
-        if batch is None and (success is not None or failure is not None):
-          api_utils.warning('`success` and `failure` callback only work for batch call.')
-        from facebook_business.adobjects.avatar import Avatar
-        param_types = {
-        }
-        enums = {
-        }
-        request = FacebookRequest(
-            node_id=self['id'],
-            method='GET',
-            endpoint='/avatars',
-            api=self._api,
-            param_checker=TypeChecker(param_types, enums),
-            target_class=Avatar,
-            api_type='EDGE',
-            response_parser=ObjectParser(target_class=Avatar, api=self._api),
         )
         request.add_params(params)
         request.add_fields(fields)
@@ -2230,7 +2197,6 @@ class User(
     _field_types = {
         'about': 'string',
         'age_range': 'AgeRange',
-        'avatar_2d_profile_picture': 'AvatarProfilePicture',
         'birthday': 'string',
         'client_business_id': 'string',
         'community': 'Group',
@@ -2244,7 +2210,6 @@ class User(
         'gender': 'string',
         'hometown': 'Page',
         'id': 'string',
-        'id_for_avatars': 'string',
         'inspirational_people': 'list<Experience>',
         'install_type': 'string',
         'installed': 'bool',

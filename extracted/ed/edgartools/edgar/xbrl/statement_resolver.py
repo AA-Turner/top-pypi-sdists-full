@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
+from edgar.config import VERBOSE_EXCEPTIONS
 from edgar.core import log
 from edgar.xbrl.exceptions import StatementNotFound
 from edgar.xbrl.statements import statement_to_concepts
@@ -122,7 +123,10 @@ statement_registry = {
         primary_concepts=["us-gaap_IncomeStatementAbstract"],
         alternative_concepts=[
             "us-gaap_StatementOfIncomeAbstract",
-            "ifrs-full_IncomeStatementAbstract"  # IFRS equivalent
+            "ifrs-full_IncomeStatementAbstract",  # IFRS equivalent
+            # IFRS often combines income + comprehensive income into one statement
+            "ifrs-full_StatementOfComprehensiveIncomeAbstract",
+            "ifrs-full_StatementOfProfitOrLossAbstract"
         ],
         concept_patterns=[
             r".*_IncomeStatementAbstract$",
@@ -135,9 +139,12 @@ statement_registry = {
             "ifrs-full_Revenue", "ifrs-full_ProfitLoss"  # IFRS equivalents
         ],
         role_patterns=[
-            r".*[Ii]ncome[Ss]tatement.*",
-            r".*[Ss]tatement[Oo]f[Ii]ncome.*",
-            r".*[Oo]perations.*",
+            r".*[Ii]ncome[Ss]tatements?.*",
+            # Issue #581: Match both singular and plural (Statement/Statements)
+            r".*[Ss]tatements?[Oo]f[Ii]ncome.*",
+            # Issue #581: Make Operations pattern more specific to avoid matching tax disclosures
+            # Match "StatementOfOperations" or "StatementsOfOperations" but NOT "ContinuingOperationsDetails"
+            r".*[Ss]tatements?[Oo]f[Oo]perations.*",
             r".*StatementConsolidatedStatementsOfIncome.*"
         ],
         title="Consolidated Statement of Income",
@@ -177,15 +184,25 @@ statement_registry = {
         primary_concepts=["us-gaap_StatementOfStockholdersEquityAbstract"],
         alternative_concepts=[
             "us-gaap_StatementOfShareholdersEquityAbstract",
-            "us-gaap_StatementOfPartnersCapitalAbstract"
+            "us-gaap_StatementOfPartnersCapitalAbstract",
+            # Issue edgartools-8ad8: ORCL uses roll-forward concept for main equity statement
+            "us-gaap_IncreaseDecreaseInStockholdersEquityRollForward",
+            # IFRS equivalents
+            "ifrs-full_StatementOfChangesInEquityAbstract"
         ],
         concept_patterns=[
             r".*_StatementOfStockholdersEquityAbstract$",
             r".*_StatementOfShareholdersEquityAbstract$",
             r".*_StatementOfChangesInEquityAbstract$",
-            r".*_ConsolidatedStatementsOfShareholdersEquityAbstract$"
+            r".*_ConsolidatedStatementsOfShareholdersEquityAbstract$",
+            # Issue edgartools-8ad8: Match roll-forward patterns for equity statements
+            r".*_IncreaseDecreaseInStockholdersEquityRollForward$"
         ],
-        key_concepts=["us-gaap_StockholdersEquity", "us-gaap_CommonStock", "us-gaap_RetainedEarnings"],
+        key_concepts=[
+            "us-gaap_StockholdersEquity", "us-gaap_CommonStock", "us-gaap_RetainedEarnings",
+            # IFRS equivalents
+            "ifrs-full_Equity", "ifrs-full_IssuedCapital", "ifrs-full_RetainedEarnings"
+        ],
         role_patterns=[
             r".*[Ee]quity.*",
             r".*[Ss]tockholders.*",
@@ -194,20 +211,30 @@ statement_registry = {
             r".*StatementConsolidatedStatementsOfStockholdersEquity.*"
         ],
         title="Consolidated Statement of Equity",
-        supports_parenthetical=False
+        supports_parenthetical=True  # Issue edgartools-8ad8: Enable parenthetical filtering
     ),
 
     "ComprehensiveIncome": StatementType(
         name="ComprehensiveIncome",
         category=StatementCategory.FINANCIAL_STATEMENT,
         primary_concepts=["us-gaap_StatementOfIncomeAndComprehensiveIncomeAbstract"],
-        alternative_concepts=["us-gaap_StatementOfComprehensiveIncomeAbstract"],
+        alternative_concepts=[
+            "us-gaap_StatementOfComprehensiveIncomeAbstract",
+            # IFRS equivalents
+            "ifrs-full_StatementOfComprehensiveIncomeAbstract",
+            "ifrs-full_StatementOfProfitOrLossAndOtherComprehensiveIncomeAbstract"
+        ],
         concept_patterns=[
             r".*_ComprehensiveIncomeAbstract$",
             r".*_StatementOfComprehensiveIncomeAbstract$",
             r".*_ConsolidatedStatementsOfComprehensiveIncomeAbstract$"
         ],
-        key_concepts=["us-gaap_ComprehensiveIncomeNetOfTax"],
+        key_concepts=[
+            "us-gaap_ComprehensiveIncomeNetOfTax",
+            # IFRS equivalents
+            "ifrs-full_ComprehensiveIncome",
+            "ifrs-full_OtherComprehensiveIncome"
+        ],
         role_patterns=[
             r".*[Cc]omprehensive[Ii]ncome.*",
             r".*[Oo]ther[Cc]omprehensive.*",
@@ -291,7 +318,7 @@ statement_registry = {
     ),
 
     "CoverPage": StatementType(
-        name="CoverPage", 
+        name="CoverPage",
         category=StatementCategory.DOCUMENT,
         primary_concepts=["dei_CoverAbstract"],
         concept_patterns=[r".*_CoverAbstract$"],
@@ -299,8 +326,121 @@ statement_registry = {
         role_patterns=[r".*[Cc]over.*"],
         title="Cover Page",
         supports_parenthetical=False
+    ),
+
+    # Fund-specific statements (for BDCs, closed-end funds, investment companies)
+    "ScheduleOfInvestments": StatementType(
+        name="ScheduleOfInvestments",
+        category=StatementCategory.FINANCIAL_STATEMENT,
+        primary_concepts=["us-gaap_ScheduleOfInvestmentsAbstract"],
+        alternative_concepts=[
+            "us-gaap_InvestmentsDebtAndEquitySecuritiesAbstract",
+            "us-gaap_InvestmentHoldingsAbstract"
+        ],
+        concept_patterns=[
+            r".*_ScheduleOfInvestmentsAbstract$",
+            r".*_ConsolidatedScheduleofInvestmentsAbstract$",
+            r".*_InvestmentHoldingsAbstract$"
+        ],
+        key_concepts=[
+            "us-gaap_InvestmentOwnedAtFairValue",
+            "us-gaap_InvestmentOwnedAtCost",
+            "us-gaap_InvestmentOwnedBalancePrincipalAmount",
+            "us-gaap_InvestmentOwnedBalanceShares",
+            "us-gaap_InvestmentOwnedPercentOfNetAssets",
+            "us-gaap_ScheduleOfInvestmentsLineItems"
+        ],
+        role_patterns=[
+            r".*[Ss]chedule[Oo]f[Ii]nvestments.*",
+            r".*[Cc]onsolidated[Ss]chedule[Oo]f[Ii]nvestments.*",
+            r".*[Ii]nvestment[Hh]oldings.*",
+            r".*[Pp]ortfolio[Ii]nvestments.*"
+        ],
+        title="Consolidated Schedule of Investments",
+        supports_parenthetical=True
+    ),
+
+    "FinancialHighlights": StatementType(
+        name="FinancialHighlights",
+        category=StatementCategory.FINANCIAL_STATEMENT,
+        primary_concepts=["us-gaap_InvestmentCompanyFinancialHighlightsAbstract"],
+        alternative_concepts=[
+            "us-gaap_InvestmentCompanyAbstract"
+        ],
+        concept_patterns=[
+            r".*_FinancialHighlightsAbstract$",
+            r".*_InvestmentCompanyFinancialHighlightsAbstract$"
+        ],
+        key_concepts=[
+            "us-gaap_NetAssetValuePerShare",
+            "us-gaap_InvestmentCompanyNetAssets",
+            "us-gaap_InvestmentCompanyTotalReturn",
+            "us-gaap_InvestmentCompanyExpenseRatio"
+        ],
+        role_patterns=[
+            r".*[Ff]inancial[Hh]ighlights.*",
+            r".*[Ii]nvestment[Cc]ompany[Ff]inancial[Hh]ighlights.*"
+        ],
+        title="Financial Highlights",
+        supports_parenthetical=False
     )
 }
+
+
+# Essential concepts that should be present in each statement type for validation
+# These are used to verify that the resolved statement is actually the correct type
+# At least one concept from each group should be present for a valid statement
+ESSENTIAL_CONCEPTS = {
+    "IncomeStatement": {
+        "revenue": [
+            "us-gaap_Revenues", "us-gaap_RevenueFromContractWithCustomerExcludingAssessedTax",
+            "us-gaap_SalesRevenueNet", "us-gaap_NetSales", "us-gaap_TotalRevenuesAndOtherIncome",
+            "ifrs-full_Revenue"
+        ],
+        "net_income": [
+            "us-gaap_NetIncomeLoss", "us-gaap_ProfitLoss", "us-gaap_NetIncomeLossAvailableToCommonStockholdersBasic",
+            "ifrs-full_ProfitLoss", "ifrs-full_ProfitLossAttributableToOwnersOfParent"
+        ]
+    },
+    "BalanceSheet": {
+        "assets": [
+            "us-gaap_Assets", "us-gaap_AssetsCurrent", "us-gaap_AssetsNoncurrent",
+            "ifrs-full_Assets", "ifrs-full_CurrentAssets", "ifrs-full_NoncurrentAssets"
+        ],
+        "liabilities_or_equity": [
+            "us-gaap_Liabilities", "us-gaap_StockholdersEquity", "us-gaap_LiabilitiesAndStockholdersEquity",
+            "ifrs-full_Liabilities", "ifrs-full_Equity", "ifrs-full_EquityAndLiabilities"
+        ]
+    },
+    "CashFlowStatement": {
+        "operating": [
+            "us-gaap_NetCashProvidedByUsedInOperatingActivities",
+            "us-gaap_NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+            "ifrs-full_CashFlowsFromUsedInOperatingActivities"
+        ],
+        "cash_change": [
+            "us-gaap_CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect",
+            "us-gaap_CashAndCashEquivalentsPeriodIncreaseDecrease",
+            "ifrs-full_IncreaseDecreaseInCashAndCashEquivalents"
+        ]
+    },
+    "ComprehensiveIncome": {
+        "comprehensive_income": [
+            "us-gaap_ComprehensiveIncomeNetOfTax",
+            "us-gaap_ComprehensiveIncomeNetOfTaxIncludingPortionAttributableToNoncontrollingInterest",
+            "ifrs-full_ComprehensiveIncome"
+        ]
+    },
+    "StatementOfEquity": {
+        "equity": [
+            "us-gaap_StockholdersEquity", "us-gaap_StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+            "ifrs-full_Equity"
+        ]
+    }
+}
+
+# Minimum threshold for validation - at least this percentage of concept groups must be satisfied
+VALIDATION_THRESHOLD = 0.5
 
 
 class StatementResolver:
@@ -392,6 +532,75 @@ class StatementResolver:
                     self._statement_by_role_def[def_key] = []
                 self._statement_by_role_def[def_key].append(stmt)
 
+    def _validate_statement(self, stmt: Dict[str, Any], statement_type: str) -> Tuple[bool, float, str]:
+        """
+        Validate that a resolved statement contains expected essential concepts.
+
+        This helps catch misclassifications where a statement is incorrectly identified
+        (e.g., a tax disclosure being selected as an income statement).
+
+        Args:
+            stmt: Statement dictionary with role information
+            statement_type: The type of statement being validated
+
+        Returns:
+            Tuple of (is_valid, confidence_score, reason)
+            - is_valid: True if statement passes validation
+            - confidence_score: 0.0 to 1.0 based on concept coverage
+            - reason: Human-readable explanation of validation result
+        """
+        # Get essential concepts for this statement type
+        if statement_type not in ESSENTIAL_CONCEPTS:
+            # No validation defined for this type - assume valid
+            return True, 1.0, "No validation rules defined"
+
+        essential_groups = ESSENTIAL_CONCEPTS[statement_type]
+        role = stmt.get('role', '')
+
+        # Check if role exists in presentation trees
+        if role not in self.xbrl.presentation_trees:
+            return False, 0.0, f"Role {role} not found in presentation trees"
+
+        # Get all concept nodes for this role
+        tree = self.xbrl.presentation_trees[role]
+        all_nodes = set(tree.all_nodes.keys())
+
+        # Check each group of essential concepts
+        groups_satisfied = 0
+        total_groups = len(essential_groups)
+        missing_groups = []
+
+        for group_name, concepts in essential_groups.items():
+            # Check if any concept from this group is present
+            group_found = False
+            for concept in concepts:
+                # Normalize concept name (handle : vs _ separator)
+                normalized = concept.replace(':', '_')
+                if concept in all_nodes or normalized in all_nodes:
+                    group_found = True
+                    break
+
+            if group_found:
+                groups_satisfied += 1
+            else:
+                missing_groups.append(group_name)
+
+        # Calculate confidence score
+        confidence = groups_satisfied / total_groups if total_groups > 0 else 1.0
+
+        # Determine validity based on threshold
+        is_valid = confidence >= VALIDATION_THRESHOLD
+
+        if is_valid:
+            if confidence == 1.0:
+                reason = "All essential concept groups present"
+            else:
+                reason = f"Validation passed ({groups_satisfied}/{total_groups} groups): missing {missing_groups}"
+        else:
+            reason = f"Validation failed ({groups_satisfied}/{total_groups} groups): missing {missing_groups}"
+
+        return is_valid, confidence, reason
+
     def _match_by_primary_concept(self, statement_type: str, is_parenthetical: bool = False) -> Tuple[List[Dict[str, Any]], Optional[str], float]:
         """
         Match statements using primary concept names.
@@ -433,8 +642,10 @@ class StatementResolver:
 
                     matched_statements.append(stmt)
 
-        # If we found matching statements, return with high confidence
+        # If we found matching statements, sort by quality and return with high confidence
         if matched_statements:
+            # Issue #506: Sort by statement quality to prefer correct statement type
+            matched_statements.sort(key=lambda s: self._score_statement_quality(s, statement_type), reverse=True)
             return matched_statements, matched_statements[0]['role'], 0.9
 
         return [], None, 0.0
@@ -494,11 +705,117 @@ class StatementResolver:
                     matched_statements.append(stmt)
                     break  # Found a match, no need to check other patterns
 
-        # If we found matching statements, return with high confidence
+        # If we found matching statements, sort by quality and return with high confidence
         if matched_statements:
+            # Issue #506: Sort by statement quality to prefer correct statement type
+            matched_statements.sort(key=lambda s: self._score_statement_quality(s, statement_type), reverse=True)
             return matched_statements, matched_statements[0]['role'], 0.85
 
         return [], None, 0.0
+
+    def _score_statement_quality(self, stmt: Dict[str, Any], statement_type: str = "") -> int:
+        """
+        Score a statement to prefer complete financial statements over fragments/details.
+
+        Higher scores = more likely to be a complete statement.
+        Lower scores = more likely to be a fragment/detail/disclosure.
+
+        Args:
+            stmt: Statement dictionary with role, definition, etc.
+            statement_type: The type of statement being searched for (e.g., "IncomeStatement")
+
+        Returns:
+            Quality score (higher is better)
+        """
+        score = 100  # Start with base score
+
+        role_def = stmt.get('definition', '').lower()
+        role_uri = stmt.get('role', '').lower()
+
+        # Fragment indicators (decrease score significantly)
+        fragment_keywords = [
+            'details', 'detail', 'tables', 'table', 'schedule', 'schedules',
+            'textual', 'narrative', 'policy', 'policies', 'disclosure',
+            'supplemental', 'additional', 'breakdown', 'summary'
+        ]
+
+        for keyword in fragment_keywords:
+            if keyword in role_def or keyword in role_uri:
+                score -= 50
+                break  # One hit is enough
+
+        # Issue #506/#584: When looking for IncomeStatement, deprioritize PURE ComprehensiveIncome
+        # But allow combined "Statement of Operations and Comprehensive Income" which is valid
+        if statement_type == "IncomeStatement":
+            clean_def = role_def.replace(' ', '').replace('-', '').replace('_', '')
+            clean_uri = role_uri.replace(' ', '').replace('-', '').replace('_', '')
+
+            # Check if this is a combined Operations + Comprehensive Income statement
+            # These are VALID income statements and should NOT be penalized
+            operations_indicators = ['operations', 'statementsofincome', 'statementsofearnings',
+                                     'incomestatement', 'operationsand']
+            is_combined_statement = any(ind in clean_def or ind in clean_uri for ind in operations_indicators)
+
+            # Only penalize PURE comprehensive income statements (not combined ones)
+            # Issue #584: REGN uses "CONSOLIDATEDSTATEMENTSOFOPERATIONSANDCOMPREHENSIVEINCOME"
+            # which is a valid income statement that should not be penalized
+            if not is_combined_statement:
+                comprehensive_indicators = ['comprehensiveincome', 'othercomprehensive']
+                for indicator in comprehensive_indicators:
+                    if indicator in clean_def or indicator in clean_uri:
+                        score -= 100  # Strong penalty only for pure comprehensive income
+                        break
+
+            # Issue #581: Penalize tax-related disclosures that may accidentally match
+            # e.g., IncomeTaxBenefitProvisionFromContinuingOperationsDetails
+            tax_indicators = ['incometax', 'taxbenefit', 'taxprovision', 'taxexpense', 'deferredtax']
+            for indicator in tax_indicators:
+                if indicator in clean_def or indicator in clean_uri:
+                    score -= 100  # Strong penalty to avoid selecting tax disclosure
+                    break
+
+        # Issue edgartools-8ad8: Penalize parenthetical statements to prefer main statements
+        # Parenthetical statements contain supplementary details (e.g., share counts)
+        # and should not be selected when the main statement is available
+        if 'parenthetical' in role_def or 'parenthetical' in role_uri:
+            score -= 80  # Strong penalty to avoid selecting parenthetical over main statement
+
+        # Prefer "Consolidated" statements (primary statements)
+        if 'consolidated' in role_def or 'consolidated' in role_uri:
+            score += 30
+
+        # Prefer "Condensed" statements (legitimate abbreviated statements)
+        if 'condensed' in role_def or 'condensed' in role_uri:
+            score += 20
+
+        # Exact matches for primary statement names get highest priority
+        primary_names = [
+            'consolidatedbalancesheets',
+            'consolidatedstatementsofoperations',
+            'consolidatedstatementsofincome',
+            'consolidatedstatementsofcashflows',
+            'consolidatedstatementsofequity',
+            'consolidatedstatementsofstockholdersequity'
+        ]
+
+        clean_def = role_def.replace(' ', '').replace('-', '').replace('_', '')
+        if clean_def in primary_names:
+            score += 50
+
+        # Post-resolution validation: boost/penalize based on essential concept presence
+        # This helps catch misclassifications (e.g., tax disclosure selected as income statement)
+        if statement_type in ESSENTIAL_CONCEPTS:
+            is_valid, validation_conf, reason = self._validate_statement(stmt, statement_type)
+            if is_valid:
+                # Boost score based on validation confidence
+                score += int(validation_conf * 30)  # Up to +30 for fully validated
+            else:
+                # Penalize statements that fail validation
+                score -= 50
+                if VERBOSE_EXCEPTIONS:
+                    log.debug(f"Statement validation failed for {statement_type}: {reason}")
+
+        return score
 
     def _match_by_role_pattern(self, statement_type: str, is_parenthetical: bool = False) -> Tuple[List[Dict[str, Any]], Optional[str], float]:
         """
@@ -539,7 +856,7 @@ class StatementResolver:
 
             # Check if role matches any pattern
             for pattern in role_patterns:
-                if (re.search(pattern, role, re.IGNORECASE) or 
+                if (re.search(pattern, role, re.IGNORECASE) or
                    (role_name and re.search(pattern, role_name, re.IGNORECASE))):
                     # For parenthetical statements, check the role definition
                     if registry_entry.supports_parenthetical:
@@ -553,8 +870,11 @@ class StatementResolver:
                     matched_statements.append(stmt)
                     break  # Found a match, no need to check other patterns
 
-        # If we found matching statements, return with good confidence
+        # If we found matching statements, sort by quality and return the best
         if matched_statements:
+            # Issue #503: Sort by statement quality to prefer complete statements over fragments
+            # Issue #506: Pass statement_type to deprioritize ComprehensiveIncome for IncomeStatement
+            matched_statements.sort(key=lambda s: self._score_statement_quality(s, statement_type), reverse=True)
             return matched_statements, matched_statements[0]['role'], 0.75
 
         return [], None, 0.0
@@ -623,7 +943,10 @@ class StatementResolver:
 
                 # Apply weighting if available
                 if total_weight > 0:
-                    confidence = min(total_weight / sum(registry_entry.weight_map.values()), 1.0)
+                    weight_sum = sum(registry_entry.weight_map.values())
+                    if weight_sum > 0:
+                        confidence = min(total_weight / weight_sum, 1.0)
+                    # If weight_sum is 0, keep the base confidence (matches / len(key_concepts))
             else:
                 confidence = 0.0
 
@@ -636,6 +959,14 @@ class StatementResolver:
         # Return best match if above threshold
         if statement_scores and statement_scores[0][1] >= 0.4:
             best_match, confidence = statement_scores[0]
+
+            # Issue #518: Verify the statement type matches (don't return CashFlow for Income)
+            matched_type = best_match.get('type', '')
+            if matched_type and matched_type != statement_type:
+                # Statement type mismatch - the concepts overlap but it's the wrong statement
+                log.debug(f"Content match found {matched_type} when looking for {statement_type}, rejecting due to type mismatch")
+                return [], None, 0.0
+
             return [best_match], best_match['role'], min(confidence + 0.2, 0.85)  # Boost confidence but cap at 0.85
 
         return [], None, 0.0
@@ -654,6 +985,8 @@ class StatementResolver:
         if statement_type in self._statement_by_type:
             statements = self._statement_by_type[statement_type]
             if statements:
+                # Issue #506: Sort by statement quality to prefer correct statement type
+                statements = sorted(statements, key=lambda s: self._score_statement_quality(s, statement_type), reverse=True)
                 return statements, statements[0]['role'], 0.95
 
         return [], None, 0.0
@@ -704,17 +1037,22 @@ class StatementResolver:
             if clean_type in role_name or role_name in clean_type:
                 return statements, statements[0]['role'], 0.4
 
-        # If we have statements of any type, return the first one with very low confidence
+        # Issue #518: Don't return completely wrong statement types
+        # If looking for a specific financial statement type and it's not found,
+        # return empty rather than returning a different statement type
+        financial_statement_types = ['BalanceSheet', 'IncomeStatement', 'CashFlowStatement',
+                                     'ComprehensiveIncome', 'StatementOfEquity']
+
+        if statement_type in financial_statement_types:
+            # For financial statements, don't guess - return empty if not found
+            # This prevents returning CashFlowStatement when IncomeStatement is requested
+            log.debug(f"Financial statement '{statement_type}' not found, returning empty (no fallback to wrong type)")
+            return [], None, 0.0
+
+        # For non-financial statement types (notes, disclosures, etc.), we can be more lenient
         all_statements = self.xbrl.get_all_statements()
         if all_statements:
-            # Try to find a primary financial statement
-            for stmt_type in ['BalanceSheet', 'IncomeStatement', 'CashFlowStatement']:
-                if stmt_type in self._statement_by_type:
-                    statements = self._statement_by_type[stmt_type]
-                    if statements:
-                        return statements, statements[0]['role'], 0.2
-
-            # Last resort: return first statement
+            # Return first statement with very low confidence
             return [all_statements[0]], all_statements[0]['role'], 0.1
 
         return [], None, 0.0
@@ -829,6 +1167,50 @@ class StatementResolver:
             self._cache[cache_key] = result
             return result
 
+        # Issue #518: Special fallback for IncomeStatement -> ComprehensiveIncome
+        # Many filings have ComprehensiveIncome instead of separate IncomeStatement
+        # Issue #608: Must validate that ComprehensiveIncome contains actual P&L data (Revenue)
+        # Some filings have two roles: one with P&L, one with pure OCI items
+        if statement_type == 'IncomeStatement':
+            # Try to find ComprehensiveIncome as a valid substitute
+            comp_match = self._match_by_standard_name('ComprehensiveIncome')
+            if not comp_match[0] or comp_match[2] < 0.9:
+                comp_match = self._match_by_primary_concept('ComprehensiveIncome', is_parenthetical)
+            if not comp_match[0] or comp_match[2] < 0.8:
+                comp_match = self._match_by_concept_pattern('ComprehensiveIncome', is_parenthetical)
+            if not comp_match[0] or comp_match[2] < 0.8:
+                comp_match = self._match_by_role_pattern('ComprehensiveIncome', is_parenthetical)
+
+            if comp_match[0] and comp_match[2] > 0.6:
+                statements, role, conf = comp_match
+
+                # Issue #608: Re-sort candidates by IncomeStatement criteria to prefer
+                # statements with P&L data (Revenue, Operating Income) over pure OCI statements
+                # This is critical when a filing has multiple ComprehensiveIncome roles
+                if len(statements) > 1:
+                    statements = sorted(
+                        statements,
+                        key=lambda s: self._score_statement_quality(s, 'IncomeStatement'),
+                        reverse=True
+                    )
+                    role = statements[0]['role']
+
+                # Issue #608: Validate the selected statement has P&L data before using as fallback
+                is_valid, validation_conf, reason = self._validate_statement(statements[0], 'IncomeStatement')
+                if not is_valid:
+                    # This ComprehensiveIncome statement doesn't have P&L data (e.g., pure OCI)
+                    # Continue to error handling - don't use it as a substitute
+                    if VERBOSE_EXCEPTIONS:
+                        log.debug(f"ComprehensiveIncome fallback rejected: {reason}")
+                else:
+                    # Issue #518: Return actual type (ComprehensiveIncome) for transparency and accuracy
+                    # Users can check if they received a fallback by comparing requested vs actual type
+                    if VERBOSE_EXCEPTIONS:
+                        log.info(f"IncomeStatement not found, using ComprehensiveIncome as fallback (confidence: {conf:.2f})")
+                    result = (statements, role, 'ComprehensiveIncome', conf)
+                    self._cache[cache_key] = result
+                    return result
+
         # No good match found, return best guess with low confidence
         statements, role, conf = self._get_best_guess(statement_type)
         if conf < 0.4:
@@ -859,8 +1241,9 @@ class StatementResolver:
                     reason="Confidence threshold not met"
                 )
             else:
-                log.warn(
-                    f"No good match found for statement type '{statement_type}'. The best guess has low confidence: {conf:.2f}")
+                if VERBOSE_EXCEPTIONS:
+                    log.warn(
+                        f"No good match found for statement type '{statement_type}'. The best guess has low confidence: {conf:.2f}")
         if statements:
             # For canonical types, preserve the original statement_type
             canonical_type = statement_type if is_canonical_type else statements[0].get('type', statement_type)

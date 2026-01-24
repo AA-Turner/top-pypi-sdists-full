@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name        = "unicode-rbnf"
-version     = "2.3.0"
+version     = "2.4.0"
 license     = {text = "MIT"}
 description = "Rule-based number formatting using Unicode CLDR data"
 readme      = "README.md"
@@ -28,6 +28,16 @@ requires-python = ">=3.8.0"
 
 [project.urls]
 "Source Code" = "https://github.com/rhasspy/unicode-rbnf"
+
+[project.optional-dependencies]
+dev = [
+    "black==24.8.0",
+    "flake8==7.1.1",
+    "mypy==1.14.0",
+    "pylint==3.2.7",
+    "pytest==8.3.4",
+    "build==1.2.2",
+]
 
 [tool.setuptools]
 platforms = ["any"]

@@ -1,4 +1,4 @@
-# $Id: __init__.py 10196 2025-08-07 06:35:37Z milde $
+# $Id: __init__.py 10270 2025-12-03 11:38:54Z milde $
 # :Author: Günter Milde <milde@users.sf.net>
 #          Based on the html4css1 writer by David Goodger.
 # :Maintainer: docutils-develop@lists.sourceforge.net
@@ -73,7 +73,7 @@ class Writer(_html_base.Writer):
             'Specify the initial header level. Does not affect document '
             'title & subtitle (see --no-doc-title). (default: 2 for "<h2>")',
             ['--initial-header-level'],
-            {'choices': '1 2 3 4 5 6'.split(), 'default': '2',
+            {'choices': '1 2 3 4 5 6 auto'.split(), 'default': '2',
              'metavar': '<level>'}),
         no_xml_declaration=(
             'Omit the XML declaration (default).',
@@ -388,6 +388,8 @@ class HTMLTranslator(_html_base.HTMLTranslator):
     def section_title_tags(self, node):
         start_tag, close_tag = super().section_title_tags(node)
         ids = node.parent['ids']
+        # TODO: use ``ids[-1]``
+        # (IDs from explicit targets are appended to the implicit ID)
         if (ids and getattr(self.settings, 'section_self_link', None)
             and not isinstance(node.parent, nodes.document)):
             self_link = ('<a class="self-link" title="link to this section"'

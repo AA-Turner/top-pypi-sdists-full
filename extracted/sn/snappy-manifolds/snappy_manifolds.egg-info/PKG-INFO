@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: snappy_manifolds
-Version: 1.3
+Version: 1.4
 Summary: Database of snappy manifolds
-Author: Malik Obeidin
+Author: Malik Obeidin, Shana Yunsheng Li
 Author-email: Marc Culler <snappy-help@computop.org>, "Nathan M. Dunfield" <snappy-help@computop.org>, Matthias Goerner <snappy-help@computop.org>
 License: GPLv2+
 Project-URL: Homepage, https://github.com/3-manifolds/snappy_manifolds

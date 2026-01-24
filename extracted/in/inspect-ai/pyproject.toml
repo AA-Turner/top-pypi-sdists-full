@@ -40,6 +40,7 @@ select = [
   "SIM101", # duplicate isinstance
   # "RET", # flake8-return
   # "RUF", # ruff rules
+  "DTZ",
 ]
 ignore = [
   "E203",
@@ -84,6 +85,7 @@ exclude = [
   "build",
   "(?:^|/)_resources/",
   "examples/bridge",
+  "examples/hooks",
   "src/inspect_tool_support",
   "src/inspect_sandbox_tools",
 ]
@@ -149,13 +151,16 @@ inspect = "inspect_ai._cli.main:main"
 
 [project.optional-dependencies]
 dev = [
-  "anthropic>=0.52.0",
-  "aioboto3",
+  "adlfs>=2025.8.0",
+  "anthropic>=0.62.0",
   "azure-identity",
   "azure-ai-inference",
+  "fastapi",
   "google-genai",
   "griffe",
   "groq",
+  "huggingface_hub>=1.0.0",
+  "inspect_scout",
   "ipython",
   "jsonpath-ng",
   "markdown",
@@ -181,10 +186,10 @@ dev = [
   "ruff==0.9.6",           # match version specified in .pre-commit-config.yaml
   "together",
   "textual-dev>=0.86.2",
-  "transformer-lens",
   "trio",
   "pandas-stubs",
   "pyarrow-stubs",
+  "types-grpcio",
   "types-Markdown",
   "types-PyYAML",
   "types-beautifulsoup4",
@@ -196,9 +201,18 @@ dev = [
   "types-protobuf",
   "types-psutil",
   "types-python-dateutil",
+  "xai_sdk",
+  "uvicorn",
 ]
 dev-mcp-tests = ["mcp-server-fetch", "mcp_server_git"]
-doc = ["quarto-cli==1.7.32", "jupyter", "panflute", "markdown", "griffe"]
+doc = [
+  "quarto-cli==1.7.32",
+  "jupyter",
+  "panflute",
+  "markdown",
+  "griffe",
+  "click>=8.2.0",
+]
 dist = ["twine", "build"]
 
 [tool.typos.default.extend-words]

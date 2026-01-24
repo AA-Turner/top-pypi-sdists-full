@@ -163,6 +163,15 @@ util_curl_unsetopt(CurlObject *self, int option)
     /* FIXME: what about data->set.httpreq ?? */
     CLEAR_OBJECT(CURLOPT_HTTPPOST, self->httppost);
 
+    CLEAR_CALLBACK(CURLOPT_WRITEFUNCTION, CURLOPT_WRITEDATA, self->w_cb);
+    CLEAR_CALLBACK(CURLOPT_HEADERFUNCTION, CURLOPT_WRITEHEADER, self->h_cb);
+    CLEAR_CALLBACK(CURLOPT_READFUNCTION, CURLOPT_READDATA, self->r_cb);
+    CLEAR_CALLBACK(CURLOPT_PROGRESSFUNCTION, CURLOPT_PROGRESSDATA, self->pro_cb);
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 32, 0)
+    CLEAR_CALLBACK(CURLOPT_XFERINFOFUNCTION, CURLOPT_XFERINFODATA, self->xferinfo_cb);
+#endif
+    CLEAR_CALLBACK(CURLOPT_DEBUGFUNCTION, CURLOPT_DEBUGDATA, self->debug_cb);
+    CLEAR_CALLBACK(CURLOPT_IOCTLFUNCTION, CURLOPT_IOCTLDATA, self->ioctl_cb);
     CLEAR_CALLBACK(CURLOPT_OPENSOCKETFUNCTION, CURLOPT_OPENSOCKETDATA, self->opensocket_cb);
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 21, 7)
     CLEAR_CALLBACK(CURLOPT_CLOSESOCKETFUNCTION, CURLOPT_CLOSESOCKETDATA, self->closesocket_cb);
@@ -170,6 +179,10 @@ util_curl_unsetopt(CurlObject *self, int option)
     CLEAR_CALLBACK(CURLOPT_SOCKOPTFUNCTION, CURLOPT_SOCKOPTDATA, self->sockopt_cb);
 #ifdef HAVE_CURL_7_19_6_OPTS
     CLEAR_CALLBACK(CURLOPT_SSH_KEYFUNCTION, CURLOPT_SSH_KEYDATA, self->ssh_key_cb);
+#endif
+    CLEAR_CALLBACK(CURLOPT_SEEKFUNCTION, CURLOPT_SEEKDATA, self->seek_cb);
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
+    CLEAR_CALLBACK(CURLOPT_PREREQFUNCTION, CURLOPT_PREREQDATA, self->prereq_cb);
 #endif
 
     /* info: we explicitly list unsupported options here */
@@ -364,6 +377,9 @@ do_curl_setopt_string_impl(CurlObject *self, int option, PyObject *obj)
 #endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 2, 0)
     case CURLOPT_HAPROXY_CLIENT_IP:
+#endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(8, 8, 0)
+    case CURLOPT_ECH:
 #endif
     case CURLOPT_KRBLEVEL:
         str = PyText_AsString_NoNUL(obj, &encoded_obj);
@@ -893,6 +909,9 @@ do_curl_setopt_callable(CurlObject *self, int option, PyObject *obj)
     const curl_closesocket_callback closesocket_cb = closesocket_callback;
 #endif
     const curl_seek_callback seek_cb = seek_callback;
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
+    const curl_prereq_callback prereq_cb = prereq_callback;
+#endif
 
     switch(option) {
     case CURLOPT_WRITEFUNCTION:
@@ -988,6 +1007,15 @@ do_curl_setopt_callable(CurlObject *self, int option, PyObject *obj)
         curl_easy_setopt(self->handle, CURLOPT_SEEKFUNCTION, seek_cb);
         curl_easy_setopt(self->handle, CURLOPT_SEEKDATA, self);
         break;
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
+    case CURLOPT_PREREQFUNCTION:
+        Py_INCREF(obj);
+        Py_CLEAR(self->prereq_cb);
+        self->prereq_cb = obj;
+        curl_easy_setopt(self->handle, CURLOPT_PREREQFUNCTION, prereq_cb);
+        curl_easy_setopt(self->handle, CURLOPT_PREREQDATA, self);
+        break;
+#endif
 
     default:
         /* None of the function options were recognized, raise exception */

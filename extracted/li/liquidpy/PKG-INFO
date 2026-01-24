@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: liquidpy
-Version: 0.8.4
+Version: 0.8.6
 Summary: A port of liquid template engine for python
 License: MIT
+License-File: LICENSE
 Author: pwwang
 Author-email: pwwang@pwwang.com
 Requires-Python: >=3.7,<4.0
@@ -15,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: extra
 Requires-Dist: jinja2 (>=3,<4)
 Requires-Dist: markdown (>=3.4,<4.0) ; (python_version < "3.8") and (extra == "extra")
@@ -30,7 +32,7 @@ Project-URL: Repository, https://github.com/pwwang/liquidpy
 Description-Content-Type: text/markdown
 
 # liquidpy
-A port of [liquid][19] template engine for python, on the shoulder of [jinja2][17]
+A port of [liquid][19] template engine for python, on the shoulders of [jinja2][17]
 
 [![Pypi][2]][9] [![Github][3]][10] [![PythonVers][4]][9] [![Docs building][13]][11] [![Travis building][5]][11] [![Codacy][6]][12] [![Codacy coverage][7]][12]
 

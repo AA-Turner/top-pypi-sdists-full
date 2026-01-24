@@ -4,6 +4,10 @@
 # Required
 version: 2
 
+submodules:
+  include: all
+  recursive: true
+
 # Override the build process to use pixi
 # https://docs.readthedocs.io/en/stable/build-customization.html#override-the-build-process
 build:

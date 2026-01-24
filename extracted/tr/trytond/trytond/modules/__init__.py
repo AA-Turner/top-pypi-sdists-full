@@ -5,16 +5,15 @@ import itertools
 import logging
 import os
 import pkgutil
+import warnings
 from collections import defaultdict
+from functools import cache
 from glob import iglob
 
 from sql import Table
 from sql.functions import CurrentTimestamp
 
-import trytond.convert as convert
-import trytond.tools as tools
-from trytond import __series__
-from trytond.config import config
+from trytond import __series__, config, convert, tools
 from trytond.const import MODULES_GROUP
 from trytond.exceptions import MissingDependenciesException
 from trytond.transaction import Transaction
@@ -30,18 +29,54 @@ MODULES_PATH = os.path.abspath(os.path.dirname(__file__))
 MODULES = []
 
 
+@cache
+def parse_module_config(name):
+    "Return a ConfigParser instance and directory of the module"
+    config = configparser.ConfigParser()
+    config.optionxform = lambda option: option
+    with tools.file_open(os.path.join(name, 'tryton.cfg')) as fp:
+        config.read_file(fp)
+        directory = os.path.dirname(fp.name)
+    return config, directory
+
+
 def get_module_info(name):
     "Return the content of the tryton.cfg"
-    module_config = configparser.ConfigParser()
-    with tools.file_open(os.path.join(name, 'tryton.cfg')) as fp:
-        module_config.read_file(fp)
-        directory = os.path.dirname(fp.name)
+    module_config, directory = parse_module_config(name)
     info = dict(module_config.items('tryton'))
     info['directory'] = directory
     for key in ('depends', 'extras_depend', 'xml'):
         if key in info:
             info[key] = info[key].strip().splitlines()
     return info
+
+
+def get_module_register(name):
+    "Return classes to register from tryton.cfg"
+    module_config, _ = parse_module_config(name)
+    for section in module_config.sections():
+        if section == 'register' or section.startswith('register '):
+            depends = section[len('register'):].strip().split()
+            for type_ in ['model', 'report', 'wizard']:
+                if not module_config.has_option(section, type_):
+                    continue
+                classes = module_config.get(
+                    section, type_).strip().splitlines()
+                yield classes, {
+                    'module': name,
+                    'type_': type_,
+                    'depends': depends,
+                    }
+
+
+def get_module_register_mixin(name):
+    "Return classes to register_mixin from tryton.cfg"
+    module_config, _ = parse_module_config(name)
+    if module_config.has_section('register_mixin'):
+        for mixin, classinfo in module_config.items('register_mixin'):
+            yield [mixin, classinfo], {
+                'module': name,
+                }
 
 
 class Graph(dict):
@@ -146,6 +181,7 @@ def load_module_graph(graph, pool, update=None, lang=None, indexes=None):
     modules_todo = []
     models_to_update_history = set()
     models_with_indexes = set()
+    models_to_refresh = set()
 
     # Load also parent languages
     lang = set(lang)
@@ -222,6 +258,9 @@ def load_module_graph(graph, pool, update=None, lang=None, indexes=None):
                 for model in classes['model']:
                     if hasattr(model, '_history'):
                         models_to_update_history.add(model.__name__)
+                    if (hasattr(model, '_table_query_materialized')
+                            and model._table_query_materialized()):
+                        models_to_refresh.add(model.__name__)
                     if hasattr(model, '_update_sql_indexes'):
                         models_with_indexes.add(model.__name__)
 
@@ -292,6 +331,10 @@ def load_module_graph(graph, pool, update=None, lang=None, indexes=None):
         if update:
             cursor.execute(*ir_configuration.update(
                     [ir_configuration.series], [__series__]))
+            for model_name in models_to_refresh:
+                model = pool.get(model_name)
+                logger.info('refresh %s', model.__name__)
+                model._table_query_refresh(concurrently=False, force=True)
             if indexes or indexes is None:
                 create_indexes(concurrently=False)
             else:
@@ -335,24 +378,38 @@ def register_classes(with_test=False):
     Import modules to register the classes in the Pool
     '''
     import trytond.ir
-    trytond.ir.register()
     import trytond.res
-    trytond.res.register()
+    from trytond.pool import Pool
+
+    base_modules = ['ir', 'res']
+    for module_name in base_modules:
+        logger.info("%s register", module_name)
+        for args, kwargs in get_module_register(module_name):
+            Pool.register(*args, **kwargs)
+        for args, kwargs in get_module_register_mixin(module_name):
+            Pool.register_mixin(*args, **kwargs)
     if with_test:
+        base_modules.append('tests')
         import trytond.tests
+        logger.info("tests register")
         trytond.tests.register()
 
     for node in create_graph(get_modules(with_test=with_test)):
         module_name = node.name
-        logger.info('%s import', module_name)
-
-        if module_name in ('ir', 'res', 'tests'):
+        if module_name in base_modules:
             MODULES.append(module_name)
             continue
-
+        logger.info("%s register", module_name)
+        for args, kwargs in get_module_register(module_name):
+            Pool.register(*args, **kwargs)
+        for args, kwargs in get_module_register_mixin(module_name):
+            Pool.register_mixin(*args, **kwargs)
         module = tools.import_module(module_name)
-        # Some modules register nothing in the Pool
         if hasattr(module, 'register'):
+            warnings.warn(
+                "register method is deprecated, "
+                f"use register in tryton.cfg of {module_name}",
+                DeprecationWarning)
             module.register()
         MODULES.append(module_name)
 

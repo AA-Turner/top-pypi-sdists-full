@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: pyromark
-Version: 0.9.3
+Version: 0.9.8
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -17,12 +16,12 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Rust
 Classifier: Typing :: Typed
-Requires-Dist: typing-extensions>=3.7.4.2
+Requires-Dist: typing-extensions>=3.7.4
 License-File: LICENSE
 Summary: Blazingly fast Markdown parser
 Keywords: converter,html
 Author-email: monosans <hsyqixco@protonmail.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: documentation, https://pyromark.readthedocs.io
 Project-URL: repository, https://github.com/monosans/pyromark

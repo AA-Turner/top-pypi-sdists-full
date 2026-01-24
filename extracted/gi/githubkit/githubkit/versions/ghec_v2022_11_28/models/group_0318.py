@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as _dt
 from typing import Union
 
 from pydantic import Field
@@ -18,36 +18,44 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
 
+class Artifact(GitHubModel):
+    """Artifact
 
-class CodeScanningCodeqlDatabase(GitHubModel):
-    """CodeQL Database
-
-    A CodeQL database.
+    An artifact
     """
 
-    id: int = Field(description="The ID of the CodeQL database.")
-    name: str = Field(description="The name of the CodeQL database.")
-    language: str = Field(description="The language of the CodeQL database.")
-    uploader: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-    content_type: str = Field(description="The MIME type of the CodeQL database file.")
-    size: int = Field(description="The size of the CodeQL database file in bytes.")
-    created_at: datetime = Field(
-        description="The date and time at which the CodeQL database was created, in ISO 8601 format':' YYYY-MM-DDTHH:MM:SSZ."
-    )
-    updated_at: datetime = Field(
-        description="The date and time at which the CodeQL database was last updated, in ISO 8601 format':' YYYY-MM-DDTHH:MM:SSZ."
-    )
-    url: str = Field(
-        description="The URL at which to download the CodeQL database. The `Accept` header must be set to the value of the `content_type` property."
-    )
-    commit_oid: Missing[Union[str, None]] = Field(
+    id: int = Field()
+    node_id: str = Field()
+    name: str = Field(description="The name of the artifact.")
+    size_in_bytes: int = Field(description="The size in bytes of the artifact.")
+    url: str = Field()
+    archive_download_url: str = Field()
+    expired: bool = Field(description="Whether or not the artifact has expired.")
+    created_at: Union[_dt.datetime, None] = Field()
+    expires_at: Union[_dt.datetime, None] = Field()
+    updated_at: Union[_dt.datetime, None] = Field()
+    digest: Missing[Union[str, None]] = Field(
         default=UNSET,
-        description="The commit SHA of the repository at the time the CodeQL database was created.",
+        description="The SHA256 digest of the artifact. This field will only be populated on artifacts uploaded with upload-artifact v4 or newer. For older versions, this field will be null.",
     )
+    workflow_run: Missing[Union[ArtifactPropWorkflowRun, None]] = Field(default=UNSET)
 
 
-model_rebuild(CodeScanningCodeqlDatabase)
+class ArtifactPropWorkflowRun(GitHubModel):
+    """ArtifactPropWorkflowRun"""
 
-__all__ = ("CodeScanningCodeqlDatabase",)
+    id: Missing[int] = Field(default=UNSET)
+    repository_id: Missing[int] = Field(default=UNSET)
+    head_repository_id: Missing[int] = Field(default=UNSET)
+    head_branch: Missing[str] = Field(default=UNSET)
+    head_sha: Missing[str] = Field(default=UNSET)
+
+
+model_rebuild(Artifact)
+model_rebuild(ArtifactPropWorkflowRun)
+
+__all__ = (
+    "Artifact",
+    "ArtifactPropWorkflowRun",
+)

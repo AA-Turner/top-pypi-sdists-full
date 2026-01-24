@@ -9,14 +9,53 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Union
 from typing_extensions import TypedDict
 
 
-class ActionsArtifactAndLogRetentionResponseType(TypedDict):
-    """ActionsArtifactAndLogRetentionResponse"""
+class LicenseType(TypedDict):
+    """License
 
-    days: int
-    maximum_allowed_days: int
+    License
+    """
+
+    key: str
+    name: str
+    spdx_id: Union[str, None]
+    url: Union[str, None]
+    node_id: str
+    html_url: str
+    description: str
+    implementation: str
+    permissions: list[str]
+    conditions: list[str]
+    limitations: list[str]
+    body: str
+    featured: bool
 
 
-__all__ = ("ActionsArtifactAndLogRetentionResponseType",)
+class LicenseTypeForResponse(TypedDict):
+    """License
+
+    License
+    """
+
+    key: str
+    name: str
+    spdx_id: Union[str, None]
+    url: Union[str, None]
+    node_id: str
+    html_url: str
+    description: str
+    implementation: str
+    permissions: list[str]
+    conditions: list[str]
+    limitations: list[str]
+    body: str
+    featured: bool
+
+
+__all__ = (
+    "LicenseType",
+    "LicenseTypeForResponse",
+)

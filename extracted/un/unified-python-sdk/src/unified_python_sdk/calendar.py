@@ -60,6 +60,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_calendar, False, False, "json", shared.CalendarCalendar
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -76,7 +77,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCalendarCalendar",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -152,6 +153,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_calendar, False, False, "json", shared.CalendarCalendar
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +170,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCalendarCalendar",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -244,6 +246,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_event, False, False, "json", shared.CalendarEvent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -260,7 +263,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCalendarEvent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -336,6 +339,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_event, False, False, "json", shared.CalendarEvent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -352,7 +356,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCalendarEvent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -428,6 +432,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_link, False, False, "json", shared.CalendarLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -444,7 +449,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCalendarLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -520,6 +525,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_link, False, False, "json", shared.CalendarLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -536,7 +542,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCalendarLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -609,6 +615,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -625,7 +632,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCalendarCalendar",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -698,6 +705,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -714,7 +722,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCalendarCalendar",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -787,6 +795,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -803,7 +812,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCalendarEvent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -876,6 +885,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -892,7 +902,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCalendarEvent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -965,6 +975,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -981,7 +992,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCalendarLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1054,6 +1065,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1070,7 +1082,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCalendarLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1143,6 +1155,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1159,7 +1172,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCalendarRecording",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1232,6 +1245,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1248,7 +1262,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCalendarRecording",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1321,6 +1335,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1337,7 +1352,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCalendarBusies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1410,6 +1425,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1426,7 +1442,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCalendarBusies",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1499,6 +1515,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1515,7 +1532,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCalendarCalendars",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1588,6 +1605,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1604,7 +1622,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCalendarCalendars",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1677,6 +1695,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1693,7 +1712,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCalendarEvents",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1766,6 +1785,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1782,7 +1802,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCalendarEvents",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1855,6 +1875,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1871,7 +1892,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCalendarLinks",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1944,6 +1965,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1960,7 +1982,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCalendarLinks",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2033,6 +2055,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2049,7 +2072,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCalendarRecordings",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2122,6 +2145,7 @@ class Calendar(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2138,7 +2162,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCalendarRecordings",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2214,6 +2238,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_calendar, False, False, "json", shared.CalendarCalendar
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2230,7 +2255,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCalendarCalendar",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2306,6 +2331,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_calendar, False, False, "json", shared.CalendarCalendar
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2322,7 +2348,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCalendarCalendar",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2398,6 +2424,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_event, False, False, "json", shared.CalendarEvent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2414,7 +2441,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCalendarEvent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2490,6 +2517,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_event, False, False, "json", shared.CalendarEvent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2506,7 +2534,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCalendarEvent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2582,6 +2610,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_link, False, False, "json", shared.CalendarLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2598,7 +2627,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCalendarLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2674,6 +2703,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_link, False, False, "json", shared.CalendarLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2690,7 +2720,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCalendarLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2763,6 +2793,7 @@ class Calendar(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2779,7 +2810,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCalendarCalendar",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2857,6 +2888,7 @@ class Calendar(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2873,7 +2905,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCalendarCalendar",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2951,6 +2983,7 @@ class Calendar(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2967,7 +3000,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCalendarEvent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3045,6 +3078,7 @@ class Calendar(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3061,7 +3095,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCalendarEvent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3139,6 +3173,7 @@ class Calendar(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3155,7 +3190,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCalendarLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3233,6 +3268,7 @@ class Calendar(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3249,7 +3285,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCalendarLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3330,6 +3366,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_calendar, False, False, "json", shared.CalendarCalendar
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3346,7 +3383,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCalendarCalendar",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3422,6 +3459,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_calendar, False, False, "json", shared.CalendarCalendar
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3438,7 +3476,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCalendarCalendar",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3514,6 +3552,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_event, False, False, "json", shared.CalendarEvent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3530,7 +3569,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCalendarEvent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3606,6 +3645,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_event, False, False, "json", shared.CalendarEvent
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3622,7 +3662,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCalendarEvent",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3698,6 +3738,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_link, False, False, "json", shared.CalendarLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3714,7 +3755,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCalendarLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3790,6 +3831,7 @@ class Calendar(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.calendar_link, False, False, "json", shared.CalendarLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3806,7 +3848,7 @@ class Calendar(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCalendarLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

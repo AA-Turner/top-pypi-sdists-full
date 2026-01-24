@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Text;
 
 namespace Razorvine.Serpent
@@ -9,7 +10,7 @@ namespace Razorvine.Serpent
 	[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 	public class DebugVisitor: Ast.INodeVisitor
 	{
-		private readonly StringBuilder _result = new StringBuilder();
+		private readonly StringBuilder _result = new();
 		private int _indent;
 		
 		/// <summary>
@@ -35,9 +36,8 @@ namespace Razorvine.Serpent
 		{
 			_result.AppendLine("(dict");
 			_indent++;
-			foreach(var node in dict.Elements)
+			foreach (var kv in dict.Elements.Cast<Ast.KeyValueNode>())
 			{
-				var kv = (Ast.KeyValueNode) node;
 				Indent();
 				kv.Key.Accept(this);
 				_result.Append(" = ");
@@ -53,7 +53,7 @@ namespace Razorvine.Serpent
 		{
 			_result.AppendLine("(list");
 			_indent++;
-			foreach(Ast.INode node in list.Elements)
+			foreach(var node in list.Elements)
 			{
 				Indent();
 				node.Accept(this);
@@ -108,7 +108,7 @@ namespace Razorvine.Serpent
 		{
 			_result.AppendLine("(set");
 			_indent++;
-			foreach(Ast.INode node in setnode.Elements)
+			foreach(var node in setnode.Elements)
 			{
 				Indent();
 				node.Accept(this);
@@ -123,7 +123,7 @@ namespace Razorvine.Serpent
 		{
 			_result.AppendLine("(tuple");
 			_indent++;
-			foreach(Ast.INode node in tuple.Elements)
+			foreach(var node in tuple.Elements)
 			{
 				Indent();
 				node.Accept(this);

@@ -7,39 +7,10 @@ from typing import List
 from typing import Union
 
 import numpy
+import pyarrow
 from pyarrow import compute
 
 from opteryx.exceptions import InvalidFunctionParameterError
-
-
-def string_slicer_left(arr, length):
-    """
-    Slice a list of strings from the left
-    """
-    if len(arr) == 0:
-        return [[]]
-    if not hasattr(length, "__iter__"):
-        length = [length] * len(arr)
-    if hasattr(arr, "to_numpy"):
-        arr = arr.to_numpy(zero_copy_only=False)
-    if hasattr(length, "to_numpy"):
-        length = length.to_numpy(zero_copy_only=False)
-    return [None if s is None else s[: int(length[i])] for i, s in enumerate(arr)]
-
-
-def string_slicer_right(arr, length):
-    """
-    Slice a list of strings from the right
-    """
-    if len(arr) == 0:
-        return [[]]
-    if not hasattr(length, "__iter__"):
-        length = [length] * len(arr)
-    if hasattr(arr, "to_numpy"):
-        arr = arr.to_numpy(zero_copy_only=False)
-    if hasattr(length, "to_numpy"):
-        length = length.to_numpy(zero_copy_only=False)
-    return [None if s is None else s[-int(length[i]) :] for i, s in enumerate(arr)]
 
 
 def split(arr, delimiter=",", limit=None):
@@ -59,40 +30,6 @@ def split(arr, delimiter=",", limit=None):
     )
 
 
-def soundex(arr):
-    from opteryx.third_party.fuzzy import soundex
-
-    interim = ["0000"] * arr.size
-
-    for index, string in enumerate(arr):
-        if string:
-            interim[index] = soundex(string)
-        else:
-            interim[index] = None
-
-    return numpy.array(interim, dtype=numpy.str_)
-
-
-def get_md5(item):
-    """calculate MD5 hash of a value"""
-    import hashlib  # delay the import - it's rarely needed
-
-    if item is None:
-        return None
-
-    return hashlib.md5(str(item).encode()).hexdigest()  # nosec - meant to be MD5
-
-
-def get_sha1(item):
-    """calculate SHA1 hash of a value"""
-    import hashlib  # delay the import - it's rarely needed
-
-    if item is None:
-        return None
-
-    return hashlib.sha1(str(item).encode()).hexdigest()
-
-
 def get_sha224(item):
     """calculate SHA256 hash of a value"""
     import hashlib  # delay the import - it's rarely needed
@@ -103,16 +40,6 @@ def get_sha224(item):
     return hashlib.sha224(str(item).encode()).hexdigest()
 
 
-def get_sha256(item):
-    """calculate SHA256 hash of a value"""
-    import hashlib  # delay the import - it's rarely needed
-
-    if item is None:
-        return None
-
-    return hashlib.sha256(str(item).encode()).hexdigest()
-
-
 def get_sha384(item):
     """calculate SHA256 hash of a value"""
     import hashlib  # delay the import - it's rarely needed
@@ -121,16 +48,6 @@ def get_sha384(item):
         return None
 
     return hashlib.sha384(str(item).encode()).hexdigest()
-
-
-def get_sha512(item):
-    """calculate SHA512 hash of a value"""
-    import hashlib  # delay the import - it's rarely needed
-
-    if item is None:
-        return None
-
-    return hashlib.sha512(str(item).encode()).hexdigest()
 
 
 def base64_encode(arr):
@@ -302,14 +219,26 @@ def rtrim(*args):
 
 
 def levenshtein(a, b):
-    from opteryx.compiled.functions.levenstein import levenshtein as lev
+    from opteryx.compiled.list_ops import list_levenshtein
 
-    # Convert numpy arrays to lists
-    a_list = a.tolist()
-    b_list = b.tolist()
+    # Convert to numpy arrays with object dtype if needed
+    if hasattr(a, "to_numpy"):
+        a = a.to_numpy(zero_copy_only=False)
+    if hasattr(b, "to_numpy"):
+        b = b.to_numpy(zero_copy_only=False)
 
-    # Use zip to iterate over pairs of elements from a and b
-    return [lev(value_a, value_b) for value_a, value_b in zip(a_list, b_list)]
+    # Ensure arrays are numpy arrays with object dtype
+    if not isinstance(a, numpy.ndarray):
+        a = numpy.array(a, dtype=object)
+    elif a.dtype.kind in ["U", "S"]:  # Unicode or byte string dtypes
+        a = a.astype(object)
+
+    if not isinstance(b, numpy.ndarray):
+        b = numpy.array(b, dtype=object)
+    elif b.dtype.kind in ["U", "S"]:  # Unicode or byte string dtypes
+        b = b.astype(object)
+
+    return list_levenshtein(a, b)
 
 
 def to_char(arr) -> List[str]:
@@ -361,4 +290,53 @@ def match_against(arr, val):
 
 
 def regex_replace(array, _pattern, _replacement):
-    return compute.replace_substring_regex(array, _pattern[0], _replacement[0])
+    """
+    Regex replacement using the vendored RE2 engine exposed via list_ops.
+
+    This implementation avoids PyArrow's regex facilities so that pattern
+    compilation and matching are backed by Google RE2 while keeping the
+    vectorised execution model used elsewhere in list_ops.
+    """
+    from opteryx.compiled import list_ops as compiled_list_ops
+    from opteryx.draken import Vector
+
+    list_regex_replace = getattr(compiled_list_ops, "list_regex_replace")
+
+    def _as_arrow(value, label):
+        if isinstance(value, pyarrow.Array):
+            return value
+        if hasattr(value, "to_arrow"):
+            return value.to_arrow()
+        if isinstance(value, numpy.ndarray):
+            if value.ndim != 1:
+                raise InvalidFunctionParameterError(f"{label} must be one-dimensional.")
+            return pyarrow.array(value)
+        if isinstance(value, (list, tuple)):
+            return pyarrow.array(value)
+        return None
+
+    def as_bytes(value):
+        # Handle numpy scalars
+        if hasattr(value, "item"):
+            value = value.item()
+        # Handle pyarrow scalars
+        elif hasattr(value, "as_py"):
+            value = value.as_py()
+        # Convert to bytes
+        if isinstance(value, bytes):
+            return value
+        if isinstance(value, str):
+            return value.encode("utf-8")
+        # Fallback: convert to string then bytes
+        return str(value).encode("utf-8")
+
+    array_arrow = _as_arrow(array, "Input")
+    data_vector = Vector.from_arrow(array_arrow)
+
+    pattern = as_bytes(_pattern[0])
+    replacement = as_bytes(_replacement[0])
+
+    try:
+        return list_regex_replace(data_vector, pattern, replacement)
+    except ValueError as exc:
+        raise InvalidFunctionParameterError(str(exc)) from exc

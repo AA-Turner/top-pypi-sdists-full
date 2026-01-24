@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinxemoji
-Version: 0.3.1
+Version: 0.3.2
 Summary: An extension to use emoji codes in your Sphinx documentation
 Author-email: Miguel Sánchez de León Peque <peque@neosit.es>
 Project-URL: Homepage, https://sphinxemojicodes.readthedocs.io
@@ -19,3 +19,4 @@ Classifier: Framework :: Sphinx :: Extension
 Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: sphinx>=5.0
+Dynamic: license-file

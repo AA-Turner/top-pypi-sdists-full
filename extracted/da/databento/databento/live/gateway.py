@@ -17,8 +17,6 @@ from databento.common.system import USER_AGENT
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T", bound="GatewayControl")
-
 
 @dataclasses.dataclass
 class GatewayControl(SupportsBytes):
@@ -26,10 +24,12 @@ class GatewayControl(SupportsBytes):
     Base class for gateway control messages.
     """
 
+    GC = TypeVar("GC", bound="GatewayControl")
+
     @classmethod
-    def parse(cls: type[T], line: str | bytes) -> T:
+    def parse(cls: type[GC], line: str | bytes) -> GC:
         """
-        Parse a message of type `T` from a string.
+        Parse a `GatewayControl` message from a string.
 
         Parameters
         ----------

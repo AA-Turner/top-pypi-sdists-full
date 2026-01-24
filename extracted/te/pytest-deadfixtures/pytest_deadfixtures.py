@@ -1,7 +1,8 @@
 """
 Some functions are basically copy n' paste version of code already in pytest.
-Precisely the get_fixtures, get_used_fixturesdefs and write_docstring funtions.
+Precisely the get_fixtures, get_used_fixturesdefs and write_docstring functions.
 """
+
 from collections import namedtuple
 from itertools import combinations
 from textwrap import dedent
@@ -12,9 +13,12 @@ from _pytest.compat import getlocation
 
 DUPLICATE_FIXTURES_HEADLINE = "\n\nYou may have some duplicate fixtures:"
 UNUSED_FIXTURES_FOUND_HEADLINE = (
-    "Hey there, I believe the following fixture(s) are not being used:"
+    "Hey there, I believe the following {count} fixture(s) are not being used:"
 )
 UNUSED_FIXTURES_NOT_FOUND_HEADLINE = "Cool, every declared fixture is being used."
+
+IGNORED_FIXTURES_HEADLINE = "Ignored fixture(s) {count}:"
+IGNORED_FIXTURES_ATTR = "_deadfixtures_ignore"
 
 EXIT_CODE_ERROR = 11
 EXIT_CODE_SUCCESS = 0
@@ -40,6 +44,12 @@ def pytest_addoption(parser):
         default=False,
         help="Show duplicated fixtures",
     )
+    group.addoption(
+        "--show-ignored-fixtures",
+        action="store_true",
+        default=False,
+        help="Show fixtures ignored with `deadfixtures_ignore` mark",
+    )
 
 
 def pytest_cmdline_main(config):
@@ -62,13 +72,24 @@ def get_best_relpath(func, curdir):
     return curdir.bestrelpath(loc)
 
 
+def deadfixtures_ignore(func):
+    """Decorator to mark fixtures that should be ignored by the plugin."""
+    setattr(func, IGNORED_FIXTURES_ATTR, True)
+    return func
+
+
+def is_ignored_fixture(fixturedef):
+    """Check if a fixture is marked as ignored."""
+    return getattr(fixturedef.func, IGNORED_FIXTURES_ATTR, False)
+
+
 def get_fixtures(session):
     available = []
     seen = set()
     fm = session._fixturemanager
     curdir = py.path.local()
 
-    for argname, fixturedefs in fm._arg2fixturedefs.items():
+    for fixturedefs in fm._arg2fixturedefs.values():
         assert fixturedefs is not None
         if not fixturedefs:
             continue
@@ -84,9 +105,9 @@ def get_fixtures(session):
             if (
                 not module.startswith("_pytest.")
                 and not module.startswith("pytest_")
-                and not ("site-packages" in loc)
-                and not ("dist-packages" in loc)
-                and not ("<string>" in loc)
+                and "site-packages" not in loc
+                and "dist-packages" not in loc
+                and "<string>" not in loc
             ):
                 available.append(
                     AvailableFixture(
@@ -115,6 +136,22 @@ def get_used_fixturesdefs(session):
                 continue
             fixturesdefs.append(fixturedefs[-1])
     return fixturesdefs
+
+
+def get_parametrized_fixtures(session, available_fixtures):
+    params_values = []
+    for test_function in session.items:
+        try:
+            for v in test_function.callspec.params.values():
+                params_values.append(v)
+        except AttributeError:
+            continue
+    return [
+        available.fixturedef
+        for available in filter(
+            lambda x: x.fixturedef.argname in params_values, available_fixtures
+        )
+    ]
 
 
 def write_docstring(tw, doc):
@@ -197,20 +234,40 @@ def show_dead_fixtures(config, session):
     session.perform_collect()
     tw = _pytest.config.create_terminal_writer(config)
     show_fixture_doc = config.getvalue("show_fixture_doc")
+    show_ignored = config.getvalue("show_ignored_fixtures")
 
     used_fixtures = get_used_fixturesdefs(session)
     available_fixtures = get_fixtures(session)
+    param_fixtures = get_parametrized_fixtures(session, available_fixtures)
+
+    # Separate ignored and unused fixtures
+    ignored_fixtures = [
+        fixture
+        for fixture in available_fixtures
+        if is_ignored_fixture(fixture.fixturedef)
+    ]
 
     unused_fixtures = [
         fixture
         for fixture in available_fixtures
         if fixture.fixturedef not in used_fixtures
+        and fixture.fixturedef not in param_fixtures
+        and not is_ignored_fixture(fixture.fixturedef)
     ]
 
     tw.line()
     if unused_fixtures:
-        tw.line(UNUSED_FIXTURES_FOUND_HEADLINE, red=True)
+        tw.line(
+            UNUSED_FIXTURES_FOUND_HEADLINE.format(count=len(unused_fixtures)), red=True
+        )
         write_fixtures(tw, unused_fixtures, show_fixture_doc)
     else:
         tw.line(UNUSED_FIXTURES_NOT_FOUND_HEADLINE, green=True)
+
+    # Show ignored fixtures if requested
+    if show_ignored and ignored_fixtures:
+        tw.line()
+        tw.line(IGNORED_FIXTURES_HEADLINE.format(count=len(ignored_fixtures)), yellow=True)
+        write_fixtures(tw, ignored_fixtures, show_fixture_doc)
+
     return unused_fixtures

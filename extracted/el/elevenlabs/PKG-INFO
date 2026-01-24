@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: elevenlabs
-Version: 2.16.0
+Version: 2.31.0
 Summary: 
 License: MIT
 Requires-Python: >=3.8,<4.0
@@ -28,6 +28,7 @@ Requires-Dist: pydantic-core (>=2.18.2)
 Requires-Dist: requests (>=2.20)
 Requires-Dist: typing_extensions (>=4.0.0)
 Requires-Dist: websockets (>=11.0)
+Project-URL: Repository, https://github.com/elevenlabs/elevenlabs-python
 Description-Content-Type: text/markdown
 
 # ElevenLabs Python Library

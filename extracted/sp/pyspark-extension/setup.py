@@ -22,7 +22,7 @@ from setuptools import setup
 from setuptools.command.sdist import sdist
 
 
-jar_version = '2.14.2-4.0'
+jar_version = '2.15.0-4.0'
 scala_version = '2.13.16'
 scala_compat_version = '.'.join(scala_version.split('.')[:2])
 spark_compat_version = jar_version.split('-')[1]

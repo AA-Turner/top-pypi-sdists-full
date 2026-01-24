@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import signal
+import threading
 from collections.abc import AsyncGenerator, Sequence
 from typing import Any
 
@@ -32,7 +33,7 @@ def get_logger(name: str, pid: int) -> logging.Logger:
 
 
 def router_main(
-    loop: asyncio.AbstractEventLoop,
+    intr_event: threading.Event | None,
     pidx: int,
     args: Sequence[Any],
 ) -> None:
@@ -71,7 +72,7 @@ async def worker_main(
     router = zctx.socket(zmq.PULL)
     router.connect("ipc://example-events")
 
-    async def process_incoming(router):
+    async def process_incoming(router: zmq.asyncio.Socket) -> None:
         while True:
             data = await router.recv()
             if not data:

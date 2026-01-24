@@ -63,6 +63,7 @@ from .migration import MigrationClient
 from .ml import MlClient
 from .monitoring import MonitoringClient
 from .nodes import NodesClient
+from .project import ProjectClient
 from .query_rules import QueryRulesClient
 from .rollup import RollupClient
 from .search_application import SearchApplicationClient
@@ -74,6 +75,7 @@ from .slm import SlmClient
 from .snapshot import SnapshotClient
 from .sql import SqlClient
 from .ssl import SslClient
+from .streams import StreamsClient
 from .synonyms import SynonymsClient
 from .tasks import TasksClient
 from .text_structure import TextStructureClient
@@ -83,9 +85,9 @@ from .utils import (
     CLIENT_META_SERVICE,
     SKIP_IN_PATH,
     Stability,
+    _availability_warning,
     _quote,
     _rewrite_parameters,
-    _stability_warning,
     client_node_configs,
     is_requests_http_auth,
     is_requests_node_class,
@@ -368,6 +370,7 @@ class AsyncElasticsearch(BaseClient):
         self.migration = MigrationClient(self)
         self.ml = MlClient(self)
         self.monitoring = MonitoringClient(self)
+        self.project = ProjectClient(self)
         self.query_rules = QueryRulesClient(self)
         self.rollup = RollupClient(self)
         self.search_application = SearchApplicationClient(self)
@@ -378,6 +381,7 @@ class AsyncElasticsearch(BaseClient):
         self.shutdown = ShutdownClient(self)
         self.sql = SqlClient(self)
         self.ssl = SslClient(self)
+        self.streams = StreamsClient(self)
         self.synonyms = SynonymsClient(self)
         self.text_structure = TextStructureClient(self)
         self.transform = TransformClient(self)
@@ -500,6 +504,7 @@ class AsyncElasticsearch(BaseClient):
         """
         __path = "/"
         __query: t.Dict[str, t.Any] = {}
+        __path_parts: t.Dict[str, str] = {}
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -511,7 +516,12 @@ class AsyncElasticsearch(BaseClient):
         __headers = {"accept": "application/json"}
         try:
             await self.perform_request(
-                "HEAD", __path, params=__query, headers=__headers
+                "HEAD",
+                __path,
+                params=__query,
+                headers=__headers,
+                endpoint_id="ping",
+                path_parts=__path_parts,
             )
             return True
         except (ApiError, TransportError):
@@ -557,8 +567,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Bulk index or delete documents.
-          Perform multiple <code>index</code>, <code>create</code>, <code>delete</code>, and <code>update</code> actions in a single request.
+          <p>Bulk index or delete documents.</p>
+          <p>Perform multiple <code>index</code>, <code>create</code>, <code>delete</code>, and <code>update</code> actions in a single request.
           This reduces overhead and can greatly increase indexing speed.</p>
           <p>If the Elasticsearch security features are enabled, you must have the following index privileges for the target data stream, index, or index alias:</p>
           <ul>
@@ -606,6 +616,7 @@ class AsyncElasticsearch(BaseClient):
           <li>Perl: Check out <code>Search::Elasticsearch::Client::5_0::Bulk</code> and <code>Search::Elasticsearch::Client::5_0::Scroll</code></li>
           <li>Python: Check out <code>elasticsearch.helpers.*</code></li>
           <li>JavaScript: Check out <code>client.helpers.*</code></li>
+          <li>Java: Check out <code>co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester</code></li>
           <li>.NET: Check out <code>BulkAllObservable</code></li>
           <li>PHP: Check out bulk indexing.</li>
           <li>Ruby: Check out <code>Elasticsearch::Helpers::BulkHelper</code></li>
@@ -763,8 +774,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Clear a scrolling search.
-          Clear the search context and results for a scrolling search.</p>
+          <p>Clear a scrolling search.</p>
+          <p>Clear the search context and results for a scrolling search.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-clear-scroll>`_
@@ -817,8 +828,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Close a point in time.
-          A point in time must be opened explicitly before being used in search requests.
+          <p>Close a point in time.</p>
+          <p>A point in time must be opened explicitly before being used in search requests.
           The <code>keep_alive</code> parameter tells Elasticsearch how long it should persist.
           A point in time is automatically closed when the <code>keep_alive</code> period has elapsed.
           However, keeping points in time has a cost; close them as soon as they are no longer required for search requests.</p>
@@ -845,11 +856,7 @@ class AsyncElasticsearch(BaseClient):
         if not __body:
             if id is not None:
                 __body["id"] = id
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "DELETE",
             __path,
@@ -889,6 +896,7 @@ class AsyncElasticsearch(BaseClient):
         min_score: t.Optional[float] = None,
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         q: t.Optional[str] = None,
         query: t.Optional[t.Mapping[str, t.Any]] = None,
         routing: t.Optional[str] = None,
@@ -898,8 +906,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Count search results.
-          Get the number of documents matching a query.</p>
+          <p>Count search results.</p>
+          <p>Get the number of documents matching a query.</p>
           <p>The query can be provided either by using a simple query string as a parameter, or by defining Query DSL within the request body.
           The query is optional. When no query is provided, the API uses <code>match_all</code> to count all the documents.</p>
           <p>The count API supports multi-target syntax. You can run a single count API search across multiple data streams and indices.</p>
@@ -922,8 +930,8 @@ class AsyncElasticsearch(BaseClient):
             This parameter can be used only when the `q` query string parameter is specified.
         :param analyzer: The analyzer to use for the query string. This parameter can
             be used only when the `q` query string parameter is specified.
-        :param default_operator: The default operator for query string query: `AND` or
-            `OR`. This parameter can be used only when the `q` query string parameter
+        :param default_operator: The default operator for query string query: `and` or
+            `or`. This parameter can be used only when the `q` query string parameter
             is specified.
         :param df: The field to use as a default when no field prefix is given in the
             query string. This parameter can be used only when the `q` query string parameter
@@ -943,6 +951,10 @@ class AsyncElasticsearch(BaseClient):
             in the result.
         :param preference: The node or shard the operation should be performed on. By
             default, it is random.
+        :param project_routing: Specifies a subset of projects to target for the search
+            using project metadata tags in a subset of Lucene query syntax. Allowed Lucene
+            queries: the _alias tag and a single value (possibly wildcarded). Examples:
+            _alias:my-project _alias:_origin _alias:*pr* Supported in serverless only.
         :param q: The query in Lucene query string syntax. This parameter cannot be used
             with a request body.
         :param query: Defines the search query using Query DSL. A request body query
@@ -995,6 +1007,8 @@ class AsyncElasticsearch(BaseClient):
             __query["preference"] = preference
         if pretty is not None:
             __query["pretty"] = pretty
+        if project_routing is not None:
+            __query["project_routing"] = project_routing
         if q is not None:
             __query["q"] = q
         if routing is not None:
@@ -1044,7 +1058,7 @@ class AsyncElasticsearch(BaseClient):
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
         wait_for_active_shards: t.Optional[
             t.Union[int, t.Union[str, t.Literal["all", "index-setting"]]]
@@ -1223,7 +1237,7 @@ class AsyncElasticsearch(BaseClient):
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
         wait_for_active_shards: t.Optional[
             t.Union[int, t.Union[str, t.Literal["all", "index-setting"]]]
@@ -1468,8 +1482,8 @@ class AsyncElasticsearch(BaseClient):
             used only when the `q` query string parameter is specified.
         :param conflicts: What to do if delete by query hits version conflicts: `abort`
             or `proceed`.
-        :param default_operator: The default operator for query string query: `AND` or
-            `OR`. This parameter can be used only when the `q` query string parameter
+        :param default_operator: The default operator for query string query: `and` or
+            `or`. This parameter can be used only when the `q` query string parameter
             is specified.
         :param df: The field to use as default where no field prefix is given in the
             query string. This parameter can be used only when the `q` query string parameter
@@ -1635,11 +1649,11 @@ class AsyncElasticsearch(BaseClient):
         self,
         *,
         task_id: str,
+        requests_per_second: float,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
-        requests_per_second: t.Optional[float] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -1657,9 +1671,13 @@ class AsyncElasticsearch(BaseClient):
         """
         if task_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'task_id'")
+        if requests_per_second is None:
+            raise ValueError("Empty value passed for parameter 'requests_per_second'")
         __path_parts: t.Dict[str, str] = {"task_id": _quote(task_id)}
         __path = f'/_delete_by_query/{__path_parts["task_id"]}/_rethrottle'
         __query: t.Dict[str, t.Any] = {}
+        if requests_per_second is not None:
+            __query["requests_per_second"] = requests_per_second
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -1668,8 +1686,6 @@ class AsyncElasticsearch(BaseClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
-        if requests_per_second is not None:
-            __query["requests_per_second"] = requests_per_second
         __headers = {"accept": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
@@ -1695,8 +1711,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Delete a script or search template.
-          Deletes a stored script or search template.</p>
+          <p>Delete a script or search template.</p>
+          <p>Deletes a stored script or search template.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-delete-script>`_
@@ -1763,7 +1779,7 @@ class AsyncElasticsearch(BaseClient):
         stored_fields: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
     ) -> HeadApiResponse:
         """
@@ -1892,7 +1908,7 @@ class AsyncElasticsearch(BaseClient):
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
     ) -> HeadApiResponse:
         """
@@ -2007,8 +2023,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Explain a document match result.
-          Get information about why a specific document matches, or doesn't match, a query.
+          <p>Explain a document match result.</p>
+          <p>Get information about why a specific document matches, or doesn't match, a query.
           It computes a score explanation for a query and a specific document.</p>
 
 
@@ -2021,8 +2037,8 @@ class AsyncElasticsearch(BaseClient):
             This parameter can be used only when the `q` query string parameter is specified.
         :param analyzer: The analyzer to use for the query string. This parameter can
             be used only when the `q` query string parameter is specified.
-        :param default_operator: The default operator for query string query: `AND` or
-            `OR`. This parameter can be used only when the `q` query string parameter
+        :param default_operator: The default operator for query string query: `and` or
+            `or`. This parameter can be used only when the `q` query string parameter
             is specified.
         :param df: The field to use as default where no field prefix is given in the
             query string. This parameter can be used only when the `q` query string parameter
@@ -2133,6 +2149,7 @@ class AsyncElasticsearch(BaseClient):
         include_unmapped: t.Optional[bool] = None,
         index_filter: t.Optional[t.Mapping[str, t.Any]] = None,
         pretty: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         runtime_mappings: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
         types: t.Optional[t.Sequence[str]] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
@@ -2176,6 +2193,11 @@ class AsyncElasticsearch(BaseClient):
             deleted documents) are outside of the provided range. However, not all queries
             can rewrite to `match_none` so this API may return an index even if the provided
             filter matches no document.
+        :param project_routing: Specifies a subset of projects to target for the field-caps
+            query using project metadata tags in a subset of Lucene query syntax. Allowed
+            Lucene queries: the _alias tag and a single value (possibly wildcarded).
+            Examples: _alias:my-project _alias:_origin _alias:*pr* Supported in serverless
+            only.
         :param runtime_mappings: Define ad-hoc runtime fields in the request similar
             to the way it is done in search requests. These fields exist only as part
             of the query and take precedence over fields defined with the same name in
@@ -2213,6 +2235,8 @@ class AsyncElasticsearch(BaseClient):
             __query["include_unmapped"] = include_unmapped
         if pretty is not None:
             __query["pretty"] = pretty
+        if project_routing is not None:
+            __query["project_routing"] = project_routing
         if types is not None:
             __query["types"] = types
         if not __body:
@@ -2240,6 +2264,7 @@ class AsyncElasticsearch(BaseClient):
     @_rewrite_parameters(
         parameter_aliases={
             "_source": "source",
+            "_source_exclude_vectors": "source_exclude_vectors",
             "_source_excludes": "source_excludes",
             "_source_includes": "source_includes",
         },
@@ -2259,12 +2284,13 @@ class AsyncElasticsearch(BaseClient):
         refresh: t.Optional[bool] = None,
         routing: t.Optional[str] = None,
         source: t.Optional[t.Union[bool, t.Union[str, t.Sequence[str]]]] = None,
+        source_exclude_vectors: t.Optional[bool] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         stored_fields: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -2332,6 +2358,7 @@ class AsyncElasticsearch(BaseClient):
         :param routing: A custom value used to route operations to a specific shard.
         :param source: Indicates whether to return the `_source` field (`true` or `false`)
             or lists the fields to return.
+        :param source_exclude_vectors: Whether vectors should be excluded from _source
         :param source_excludes: A comma-separated list of source fields to exclude from
             the response. You can also use this parameter to exclude fields from the
             subset specified in `_source_includes` query parameter. If the `_source`
@@ -2377,6 +2404,8 @@ class AsyncElasticsearch(BaseClient):
             __query["routing"] = routing
         if source is not None:
             __query["_source"] = source
+        if source_exclude_vectors is not None:
+            __query["_source_exclude_vectors"] = source_exclude_vectors
         if source_excludes is not None:
             __query["_source_excludes"] = source_excludes
         if source_includes is not None:
@@ -2411,8 +2440,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Get a script or search template.
-          Retrieves a stored script or search template.</p>
+          <p>Get a script or search template.</p>
+          <p>Retrieves a stored script or search template.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-get-script>`_
@@ -2551,7 +2580,7 @@ class AsyncElasticsearch(BaseClient):
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
@@ -2648,8 +2677,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Get the cluster health.
-          Get a report with the health status of an Elasticsearch cluster.
+          <p>Get the cluster health.</p>
+          <p>Get a report with the health status of an Elasticsearch cluster.
           The report contains a list of indicators that compose Elasticsearch functionality.</p>
           <p>Each indicator has a health status of: green, unknown, yellow or red.
           The indicator will provide an explanation and metadata describing the reason for its current health status.</p>
@@ -2731,7 +2760,7 @@ class AsyncElasticsearch(BaseClient):
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
         wait_for_active_shards: t.Optional[
             t.Union[int, t.Union[str, t.Literal["all", "index-setting"]]]
@@ -2820,13 +2849,11 @@ class AsyncElasticsearch(BaseClient):
               &quot;id&quot;: &quot;elkbee&quot;
             }
           }
-
-          In this example, the operation will succeed since the supplied version of 2 is higher than the current document version of 1.
-          If the document was already updated and its version was set to 2 or higher, the indexing command will fail and result in a conflict (409 HTTP status code).
-
-          A nice side effect is that there is no need to maintain strict ordering of async indexing operations run as a result of changes to a source database, as long as version numbers from the source database are used.
-          Even the simple case of updating the Elasticsearch index using data from a database is simplified if external versioning is used, as only the latest version will be used if the index operations arrive out of order.
           </code></pre>
+          <p>In this example, the operation will succeed since the supplied version of 2 is higher than the current document version of 1.
+          If the document was already updated and its version was set to 2 or higher, the indexing command will fail and result in a conflict (409 HTTP status code).</p>
+          <p>A nice side effect is that there is no need to maintain strict ordering of async indexing operations run as a result of changes to a source database, as long as version numbers from the source database are used.
+          Even the simple case of updating the Elasticsearch index using data from a database is simplified if external versioning is used, as only the latest version will be used if the index operations arrive out of order.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-create>`_
@@ -2961,8 +2988,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Get cluster info.
-          Get basic build, version, and cluster information.
+          <p>Get cluster info.</p>
+          <p>Get basic build, version, and cluster information.
           ::: In Serverless, this API is retained for backward compatibility only. Some response fields, such as the version number, should be ignored.</p>
 
 
@@ -3146,6 +3173,7 @@ class AsyncElasticsearch(BaseClient):
         max_concurrent_shard_requests: t.Optional[int] = None,
         pre_filter_shard_size: t.Optional[int] = None,
         pretty: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         rest_total_hits_as_int: t.Optional[bool] = None,
         routing: t.Optional[str] = None,
         search_type: t.Optional[
@@ -3207,6 +3235,10 @@ class AsyncElasticsearch(BaseClient):
             roundtrip can limit the number of shards significantly if for instance a
             shard can not match any documents based on its rewrite method i.e., if date
             filters are mandatory to match but the shard bounds and the query are disjoint.
+        :param project_routing: Specifies a subset of projects to target for a search
+            using project metadata tags in a subset Lucene syntax. Allowed Lucene queries:
+            the _alias tag and a single value (possible wildcarded). Examples: _alias:my-project
+            _alias:_origin _alias:*pr* Supported in serverless only.
         :param rest_total_hits_as_int: If true, hits.total are returned as an integer
             in the response. Defaults to false, which returns an object.
         :param routing: Custom routing value used to route search operations to a specific
@@ -3256,6 +3288,8 @@ class AsyncElasticsearch(BaseClient):
             __query["pre_filter_shard_size"] = pre_filter_shard_size
         if pretty is not None:
             __query["pretty"] = pretty
+        if project_routing is not None:
+            __query["project_routing"] = project_routing
         if rest_total_hits_as_int is not None:
             __query["rest_total_hits_as_int"] = rest_total_hits_as_int
         if routing is not None:
@@ -3294,6 +3328,7 @@ class AsyncElasticsearch(BaseClient):
         human: t.Optional[bool] = None,
         max_concurrent_searches: t.Optional[int] = None,
         pretty: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         rest_total_hits_as_int: t.Optional[bool] = None,
         search_type: t.Optional[
             t.Union[str, t.Literal["dfs_query_then_fetch", "query_then_fetch"]]
@@ -3327,6 +3362,10 @@ class AsyncElasticsearch(BaseClient):
             for cross-cluster search requests.
         :param max_concurrent_searches: The maximum number of concurrent searches the
             API can run.
+        :param project_routing: Specifies a subset of projects to target for the search
+            using project metadata tags in a subset of Lucene query syntax. Allowed Lucene
+            queries: the _alias tag and a single value (possibly wildcarded). Examples:
+            _alias:my-project _alias:_origin _alias:*pr* Supported in serverless only.
         :param rest_total_hits_as_int: If `true`, the response returns `hits.total` as
             an integer. If `false`, it returns `hits.total` as an object.
         :param search_type: The type of the search operation.
@@ -3359,6 +3398,8 @@ class AsyncElasticsearch(BaseClient):
             __query["max_concurrent_searches"] = max_concurrent_searches
         if pretty is not None:
             __query["pretty"] = pretty
+        if project_routing is not None:
+            __query["project_routing"] = project_routing
         if rest_total_hits_as_int is not None:
             __query["rest_total_hits_as_int"] = rest_total_hits_as_int
         if search_type is not None:
@@ -3404,7 +3445,7 @@ class AsyncElasticsearch(BaseClient):
         term_statistics: t.Optional[bool] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -3529,6 +3570,7 @@ class AsyncElasticsearch(BaseClient):
         max_concurrent_shard_requests: t.Optional[int] = None,
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         routing: t.Optional[str] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -3585,6 +3627,11 @@ class AsyncElasticsearch(BaseClient):
             that each sub-search request executes per node.
         :param preference: The node or shard the operation should be performed on. By
             default, it is random.
+        :param project_routing: Specifies a subset of projects to target for the PIT
+            request using project metadata tags in a subset of Lucene query syntax. Allowed
+            Lucene queries: the _alias tag and a single value (possibly wildcarded).
+            Examples: _alias:my-project _alias:_origin _alias:*pr* Supported in serverless
+            only.
         :param routing: A custom value that is used to route operations to a specific
             shard.
         """
@@ -3616,6 +3663,8 @@ class AsyncElasticsearch(BaseClient):
             __query["preference"] = preference
         if pretty is not None:
             __query["pretty"] = pretty
+        if project_routing is not None:
+            __query["project_routing"] = project_routing
         if routing is not None:
             __query["routing"] = routing
         if not __body:
@@ -3656,8 +3705,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Create or update a script or search template.
-          Creates or updates a stored script or search template.</p>
+          <p>Create or update a script or search template.</p>
+          <p>Creates or updates a stored script or search template.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-put-script>`_
@@ -3814,7 +3863,7 @@ class AsyncElasticsearch(BaseClient):
         )
 
     @_rewrite_parameters(
-        body_fields=("dest", "source", "conflicts", "max_docs", "script", "size"),
+        body_fields=("dest", "source", "conflicts", "max_docs", "script"),
     )
     async def reindex(
         self,
@@ -3832,7 +3881,6 @@ class AsyncElasticsearch(BaseClient):
         require_alias: t.Optional[bool] = None,
         script: t.Optional[t.Mapping[str, t.Any]] = None,
         scroll: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
-        size: t.Optional[int] = None,
         slices: t.Optional[t.Union[int, t.Union[str, t.Literal["auto"]]]] = None,
         timeout: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         wait_for_active_shards: t.Optional[
@@ -3908,7 +3956,6 @@ class AsyncElasticsearch(BaseClient):
             reindexing.
         :param scroll: The period of time that a consistent view of the index should
             be maintained for scrolled search.
-        :param size:
         :param slices: The number of slices this task should be divided into. It defaults
             to one slice, which means the task isn't sliced into subtasks. Reindex supports
             sliced scroll to parallelize the reindexing process. This parallelization
@@ -3973,8 +4020,6 @@ class AsyncElasticsearch(BaseClient):
                 __body["max_docs"] = max_docs
             if script is not None:
                 __body["script"] = script
-            if size is not None:
-                __body["size"] = size
         __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
@@ -3991,11 +4036,11 @@ class AsyncElasticsearch(BaseClient):
         self,
         *,
         task_id: str,
+        requests_per_second: float,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
-        requests_per_second: t.Optional[float] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -4019,9 +4064,13 @@ class AsyncElasticsearch(BaseClient):
         """
         if task_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'task_id'")
+        if requests_per_second is None:
+            raise ValueError("Empty value passed for parameter 'requests_per_second'")
         __path_parts: t.Dict[str, str] = {"task_id": _quote(task_id)}
         __path = f'/_reindex/{__path_parts["task_id"]}/_rethrottle'
         __query: t.Dict[str, t.Any] = {}
+        if requests_per_second is not None:
+            __query["requests_per_second"] = requests_per_second
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -4030,8 +4079,6 @@ class AsyncElasticsearch(BaseClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
-        if requests_per_second is not None:
-            __query["requests_per_second"] = requests_per_second
         __headers = {"accept": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
@@ -4101,11 +4148,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["params"] = params
             if source is not None:
                 __body["source"] = source
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -4119,7 +4162,7 @@ class AsyncElasticsearch(BaseClient):
     @_rewrite_parameters(
         body_fields=("context", "context_setup", "script"),
     )
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     async def scripts_painless_execute(
         self,
         *,
@@ -4188,11 +4231,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["context_setup"] = context_setup
             if script is not None:
                 __body["script"] = script
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -4317,6 +4356,7 @@ class AsyncElasticsearch(BaseClient):
         ),
         parameter_aliases={
             "_source": "source",
+            "_source_exclude_vectors": "source_exclude_vectors",
             "_source_excludes": "source_excludes",
             "_source_includes": "source_includes",
             "from": "from_",
@@ -4371,6 +4411,7 @@ class AsyncElasticsearch(BaseClient):
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
         profile: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         q: t.Optional[str] = None,
         query: t.Optional[t.Mapping[str, t.Any]] = None,
         rank: t.Optional[t.Mapping[str, t.Any]] = None,
@@ -4400,6 +4441,7 @@ class AsyncElasticsearch(BaseClient):
             ]
         ] = None,
         source: t.Optional[t.Union[bool, t.Mapping[str, t.Any]]] = None,
+        source_exclude_vectors: t.Optional[bool] = None,
         source_excludes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         source_includes: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         stats: t.Optional[t.Sequence[str]] = None,
@@ -4467,8 +4509,8 @@ class AsyncElasticsearch(BaseClient):
             node and the remote clusters are minimized when running cross-cluster search
             (CCS) requests.
         :param collapse: Collapses search results the values of the specified field.
-        :param default_operator: The default operator for the query string query: `AND`
-            or `OR`. This parameter can be used only when the `q` query string parameter
+        :param default_operator: The default operator for the query string query: `and`
+            or `or`. This parameter can be used only when the `q` query string parameter
             is specified.
         :param df: The field to use as a default when no field prefix is given in the
             query string. This parameter can be used only when the `q` query string parameter
@@ -4553,6 +4595,10 @@ class AsyncElasticsearch(BaseClient):
         :param profile: Set to `true` to return detailed timing information about the
             execution of individual components in a search request. NOTE: This is a debugging
             tool and adds significant overhead to search execution.
+        :param project_routing: Specifies a subset of projects to target for the search
+            using project metadata tags in a subset of Lucene query syntax. Allowed Lucene
+            queries: the _alias tag and a single value (possibly wildcarded). Examples:
+            _alias:my-project _alias:_origin _alias:*pr* Supported in serverless only.
         :param q: A query in the Lucene query string syntax. Query parameter searches
             do not support the full Elasticsearch Query DSL but are handy for testing.
             IMPORTANT: This parameter overrides the query parameter in the request body.
@@ -4594,6 +4640,7 @@ class AsyncElasticsearch(BaseClient):
             fields are returned in the `hits._source` property of the search response.
             If the `stored_fields` property is specified, the `_source` property defaults
             to `false`. Otherwise, it defaults to `true`.
+        :param source_exclude_vectors: Whether vectors should be excluded from _source
         :param source_excludes: A comma-separated list of source fields to exclude from
             the response. You can also use this parameter to exclude fields from the
             subset specified in `_source_includes` query parameter. If the `_source`
@@ -4706,6 +4753,8 @@ class AsyncElasticsearch(BaseClient):
             __query["preference"] = preference
         if pretty is not None:
             __query["pretty"] = pretty
+        if project_routing is not None:
+            __query["project_routing"] = project_routing
         if q is not None:
             __query["q"] = q
         if request_cache is not None:
@@ -4718,6 +4767,8 @@ class AsyncElasticsearch(BaseClient):
             __query["scroll"] = scroll
         if search_type is not None:
             __query["search_type"] = search_type
+        if source_exclude_vectors is not None:
+            __query["_source_exclude_vectors"] = source_exclude_vectors
         if source_excludes is not None:
             __query["_source_excludes"] = source_excludes
         if source_includes is not None:
@@ -4858,6 +4909,7 @@ class AsyncElasticsearch(BaseClient):
         ] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         query: t.Optional[t.Mapping[str, t.Any]] = None,
         runtime_mappings: t.Optional[t.Mapping[str, t.Mapping[str, t.Any]]] = None,
         size: t.Optional[int] = None,
@@ -5144,11 +5196,19 @@ class AsyncElasticsearch(BaseClient):
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search-mvt>`_
 
-        :param index: Comma-separated list of data streams, indices, or aliases to search
-        :param field: Field containing geospatial data to return
-        :param zoom: Zoom level for the vector tile to search
-        :param x: X coordinate for the vector tile to search
-        :param y: Y coordinate for the vector tile to search
+        :param index: A list of indices, data streams, or aliases to search. It supports
+            wildcards (`*`). To search all data streams and indices, omit this parameter
+            or use `*` or `_all`. To search a remote cluster, use the `<cluster>:<target>`
+            syntax.
+        :param field: A field that contains the geospatial data to return. It must be
+            a `geo_point` or `geo_shape` field. The field must have doc values enabled.
+            It cannot be a nested field. NOTE: Vector tiles do not natively support geometry
+            collections. For `geometrycollection` values in a `geo_shape` field, the
+            API returns a hits layer feature for each element of the collection. This
+            behavior may change in a future release.
+        :param zoom: The zoom level of the vector tile to search. It accepts `0` to `29`.
+        :param x: The X coordinate for the vector tile to search.
+        :param y: The Y coordinate for the vector tile to search.
         :param aggs: Sub-aggregations for the geotile_grid. It supports the following
             aggregation types: - `avg` - `boxplot` - `cardinality` - `extended stats`
             - `max` - `median absolute deviation` - `min` - `percentile` - `percentile-rank`
@@ -5175,6 +5235,10 @@ class AsyncElasticsearch(BaseClient):
             In the aggs layer, each feature represents a `geotile_grid` cell. If `grid,
             each feature is a polygon of the cells bounding box. If `point`, each feature
             is a Point that is the centroid of the cell.
+        :param project_routing: Specifies a subset of projects to target for the search
+            using project metadata tags in a subset of Lucene query syntax. Allowed Lucene
+            queries: the _alias tag and a single value (possibly wildcarded). Examples:
+            _alias:my-project _alias:_origin _alias:*pr* Supported in serverless only.
         :param query: The query DSL used to filter documents for the search.
         :param runtime_mappings: Defines one or more runtime fields in the search request.
             These fields take precedence over mapped fields with the same name.
@@ -5238,6 +5302,8 @@ class AsyncElasticsearch(BaseClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
+        if project_routing is not None:
+            __query["project_routing"] = project_routing
         if not __body:
             if aggs is not None:
                 __body["aggs"] = aggs
@@ -5411,6 +5477,7 @@ class AsyncElasticsearch(BaseClient):
         preference: t.Optional[str] = None,
         pretty: t.Optional[bool] = None,
         profile: t.Optional[bool] = None,
+        project_routing: t.Optional[str] = None,
         rest_total_hits_as_int: t.Optional[bool] = None,
         routing: t.Optional[str] = None,
         scroll: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
@@ -5456,6 +5523,10 @@ class AsyncElasticsearch(BaseClient):
         :param preference: The node or shard the operation should be performed on. It
             is random by default.
         :param profile: If `true`, the query execution is profiled.
+        :param project_routing: Specifies a subset of projects to target for the search
+            using project metadata tags in a subset of Lucene query syntax. Allowed Lucene
+            queries: the _alias tag and a single value (possibly wildcarded). Examples:
+            _alias:my-project _alias:_origin _alias:*pr* Supported in serverless only.
         :param rest_total_hits_as_int: If `true`, `hits.total` is rendered as an integer
             in the response. If `false`, it is rendered as an object.
         :param routing: A custom value used to route operations to a specific shard.
@@ -5497,6 +5568,8 @@ class AsyncElasticsearch(BaseClient):
             __query["preference"] = preference
         if pretty is not None:
             __query["pretty"] = pretty
+        if project_routing is not None:
+            __query["project_routing"] = project_routing
         if rest_total_hits_as_int is not None:
             __query["rest_total_hits_as_int"] = rest_total_hits_as_int
         if routing is not None:
@@ -5623,11 +5696,7 @@ class AsyncElasticsearch(BaseClient):
                 __body["string"] = string
             if timeout is not None:
                 __body["timeout"] = timeout
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,
@@ -5677,7 +5746,7 @@ class AsyncElasticsearch(BaseClient):
         term_statistics: t.Optional[bool] = None,
         version: t.Optional[int] = None,
         version_type: t.Optional[
-            t.Union[str, t.Literal["external", "external_gte", "force", "internal"]]
+            t.Union[str, t.Literal["external", "external_gte", "internal"]]
         ] = None,
         body: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> ObjectApiResponse[t.Any]:
@@ -6062,8 +6131,8 @@ class AsyncElasticsearch(BaseClient):
         """
         .. raw:: html
 
-          <p>Update documents.
-          Updates documents that match the specified query.
+          <p>Update documents.</p>
+          <p>Updates documents that match the specified query.
           If no query is specified, performs an update on every document in the data stream or index without modifying the source, which is useful for picking up mapping changes.</p>
           <p>If the Elasticsearch security features are enabled, you must have the following index privileges for the target data stream, index, or alias:</p>
           <ul>
@@ -6153,8 +6222,8 @@ class AsyncElasticsearch(BaseClient):
             be used only when the `q` query string parameter is specified.
         :param conflicts: The preferred behavior when update by query hits version conflicts:
             `abort` or `proceed`.
-        :param default_operator: The default operator for query string query: `AND` or
-            `OR`. This parameter can be used only when the `q` query string parameter
+        :param default_operator: The default operator for query string query: `and` or
+            `or`. This parameter can be used only when the `q` query string parameter
             is specified.
         :param df: The field to use as default where no field prefix is given in the
             query string. This parameter can be used only when the `q` query string parameter
@@ -6342,11 +6411,11 @@ class AsyncElasticsearch(BaseClient):
         self,
         *,
         task_id: str,
+        requests_per_second: float,
         error_trace: t.Optional[bool] = None,
         filter_path: t.Optional[t.Union[str, t.Sequence[str]]] = None,
         human: t.Optional[bool] = None,
         pretty: t.Optional[bool] = None,
-        requests_per_second: t.Optional[float] = None,
     ) -> ObjectApiResponse[t.Any]:
         """
         .. raw:: html
@@ -6364,9 +6433,13 @@ class AsyncElasticsearch(BaseClient):
         """
         if task_id in SKIP_IN_PATH:
             raise ValueError("Empty value passed for parameter 'task_id'")
+        if requests_per_second is None:
+            raise ValueError("Empty value passed for parameter 'requests_per_second'")
         __path_parts: t.Dict[str, str] = {"task_id": _quote(task_id)}
         __path = f'/_update_by_query/{__path_parts["task_id"]}/_rethrottle'
         __query: t.Dict[str, t.Any] = {}
+        if requests_per_second is not None:
+            __query["requests_per_second"] = requests_per_second
         if error_trace is not None:
             __query["error_trace"] = error_trace
         if filter_path is not None:
@@ -6375,8 +6448,6 @@ class AsyncElasticsearch(BaseClient):
             __query["human"] = human
         if pretty is not None:
             __query["pretty"] = pretty
-        if requests_per_second is not None:
-            __query["requests_per_second"] = requests_per_second
         __headers = {"accept": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",

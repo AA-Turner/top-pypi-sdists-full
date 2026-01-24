@@ -5,8 +5,10 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .allowlist_item import AllowlistItem
 from .embed_variant import EmbedVariant
 from .widget_config_output_avatar import WidgetConfigOutputAvatar
+from .widget_end_feedback_config import WidgetEndFeedbackConfig
 from .widget_expandable import WidgetExpandable
 from .widget_feedback_mode import WidgetFeedbackMode
 from .widget_language_preset import WidgetLanguagePreset
@@ -39,6 +41,11 @@ class WidgetConfig(UncheckedBaseModel):
     feedback_mode: typing.Optional[WidgetFeedbackMode] = pydantic.Field(default=None)
     """
     The feedback mode of the widget
+    """
+
+    end_feedback: typing.Optional[WidgetEndFeedbackConfig] = pydantic.Field(default=None)
+    """
+    Configuration for feedback collected at the end of the conversation
     """
 
     bg_color: typing.Optional[str] = pydantic.Field(default=None)
@@ -151,6 +158,21 @@ class WidgetConfig(UncheckedBaseModel):
     The override link for the widget
     """
 
+    markdown_link_allowed_hosts: typing.Optional[typing.List[AllowlistItem]] = pydantic.Field(default=None)
+    """
+    List of allowed hostnames for clickable markdown links. Use { hostname: '*' } to allow any domain. Empty means no links are allowed.
+    """
+
+    markdown_link_include_www: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether to automatically include www. variants of allowed hosts
+    """
+
+    markdown_link_allow_http: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether to allow http:// in addition to https:// for allowed hosts
+    """
+
     mic_muting_enabled: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Whether to enable mic muting
@@ -164,6 +186,11 @@ class WidgetConfig(UncheckedBaseModel):
     text_input_enabled: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Whether the user should be able to send text messages
+    """
+
+    conversation_mode_toggle_enabled: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether to enable the conversation mode toggle in the widget
     """
 
     default_expanded: typing.Optional[bool] = pydantic.Field(default=None)

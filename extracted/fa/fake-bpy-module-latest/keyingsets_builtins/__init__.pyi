@@ -17,14 +17,12 @@ class BUILTIN_KSI_Available(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def poll(self, context) -> None:
@@ -34,7 +32,7 @@ class BUILTIN_KSI_Available(_bpy_types.KeyingSetInfo):
         """
 
 class BUILTIN_KSI_BendyBones(_bpy_types.KeyingSetInfo):
-    """Insert a keyframe for each of the BBone shape properties"""
+    """Insert a keyframe for each of the B-Bone shape properties"""
 
     bl_label: typing.Any
     bl_rna: typing.Any
@@ -44,14 +42,12 @@ class BUILTIN_KSI_BendyBones(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class BUILTIN_KSI_DeltaLocation(_bpy_types.KeyingSetInfo):
@@ -65,14 +61,12 @@ class BUILTIN_KSI_DeltaLocation(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, _context, ks, data) -> None:
@@ -94,14 +88,12 @@ class BUILTIN_KSI_DeltaRotation(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, _context, ks, data) -> None:
@@ -123,14 +115,12 @@ class BUILTIN_KSI_DeltaScale(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, _context, ks, data) -> None:
@@ -152,14 +142,12 @@ class BUILTIN_KSI_LocRot(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, context, ks, data) -> None:
@@ -182,14 +170,12 @@ class BUILTIN_KSI_LocRotScale(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, context, ks, data) -> None:
@@ -212,14 +198,12 @@ class BUILTIN_KSI_LocRotScaleCProp(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, context, ks, data) -> None:
@@ -241,14 +225,12 @@ class BUILTIN_KSI_LocScale(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, context, ks, data) -> None:
@@ -271,14 +253,12 @@ class BUILTIN_KSI_Location(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class BUILTIN_KSI_RotScale(_bpy_types.KeyingSetInfo):
@@ -292,14 +272,12 @@ class BUILTIN_KSI_RotScale(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, context, ks, data) -> None:
@@ -322,14 +300,12 @@ class BUILTIN_KSI_Rotation(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class BUILTIN_KSI_Scaling(_bpy_types.KeyingSetInfo):
@@ -344,14 +320,12 @@ class BUILTIN_KSI_Scaling(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class BUILTIN_KSI_VisualLoc(_bpy_types.KeyingSetInfo):
@@ -366,14 +340,12 @@ class BUILTIN_KSI_VisualLoc(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class BUILTIN_KSI_VisualLocRot(_bpy_types.KeyingSetInfo):
@@ -388,14 +360,12 @@ class BUILTIN_KSI_VisualLocRot(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, context, ks, data) -> None:
@@ -418,14 +388,12 @@ class BUILTIN_KSI_VisualLocRotScale(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, context, ks, data) -> None:
@@ -448,14 +416,12 @@ class BUILTIN_KSI_VisualLocScale(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, context, ks, data) -> None:
@@ -478,14 +444,12 @@ class BUILTIN_KSI_VisualRot(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class BUILTIN_KSI_VisualRotScale(_bpy_types.KeyingSetInfo):
@@ -500,14 +464,12 @@ class BUILTIN_KSI_VisualRotScale(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def generate(self, context, ks, data) -> None:
@@ -530,14 +492,12 @@ class BUILTIN_KSI_VisualScaling(_bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class BUILTIN_KSI_WholeCharacter(WholeCharacterMixin, _bpy_types.KeyingSetInfo):
@@ -553,14 +513,12 @@ class BUILTIN_KSI_WholeCharacter(WholeCharacterMixin, _bpy_types.KeyingSetInfo):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class BUILTIN_KSI_WholeCharacterSelected(WholeCharacterMixin, _bpy_types.KeyingSetInfo):
@@ -576,14 +534,12 @@ class BUILTIN_KSI_WholeCharacterSelected(WholeCharacterMixin, _bpy_types.KeyingS
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def iterator(self, context, ks) -> None:

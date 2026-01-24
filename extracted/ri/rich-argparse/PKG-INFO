@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rich-argparse
-Version: 1.7.1
+Version: 1.7.2
 Summary: Rich help formatters for argparse and optparse
 Project-URL: Homepage, https://github.com/hamdanal/rich-argparse
 Project-URL: Documentation, https://github.com/hamdanal/rich-argparse#rich-argparse

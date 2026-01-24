@@ -1,7 +1,8 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
+import QuantConnect
 import QuantConnect.Interfaces
 import QuantConnect.Packets
 import QuantConnect.Storage
@@ -15,6 +16,16 @@ QuantConnect_Storage__EventContainer_ReturnType = typing.TypeVar("QuantConnect_S
 
 class ObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typing.Iterable[System.Collections.Generic.KeyValuePair[str, typing.List[int]]]):
     """Helper class for easier access to IObjectStore methods"""
+
+    @property
+    def max_size(self) -> int:
+        """Gets the maximum storage limit in bytes"""
+        ...
+
+    @property
+    def max_files(self) -> int:
+        """Gets the maximum number of files allowed"""
+        ...
 
     @property
     def error_raised(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.ObjectStoreErrorRaisedEventArgs], typing.Any], typing.Any]:
@@ -84,7 +95,7 @@ class ObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typing.It
         """
         ...
 
-    def initialize(self, user_id: int, project_id: int, user_token: str, controls: QuantConnect.Packets.Controls) -> None:
+    def initialize(self, user_id: int, project_id: int, user_token: str, controls: QuantConnect.Packets.Controls, algorithm_mode: QuantConnect.AlgorithmMode) -> None:
         """
         Initializes the object store
         
@@ -92,6 +103,7 @@ class ObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typing.It
         :param project_id: The project id
         :param user_token: The user token
         :param controls: The job controls instance
+        :param algorithm_mode: The algorithm mode
         """
         ...
 

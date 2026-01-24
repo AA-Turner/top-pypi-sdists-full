@@ -30,10 +30,10 @@ from openstack import utils as sdk_utils
 from osc_lib.api import utils as api_utils
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.common import pagination
 from openstackclient.common import progressbar
 from openstackclient.i18n import _
@@ -551,7 +551,7 @@ class CreateImage(command.ShowOne):
             sign_cert_id = parsed_args.sign_cert_id
             signer = image_signer.ImageSigner()
             try:
-                pw = utils.get_password(
+                pw: str | None = utils.get_password(
                     self.app.stdin,
                     prompt=(
                         "Please enter private key password, leave "
@@ -562,12 +562,11 @@ class CreateImage(command.ShowOne):
 
                 if not pw or len(pw) < 1:
                     pw = None
-                else:
-                    # load_private_key() requires the password to be
-                    # passed as bytes
-                    pw = pw.encode()
 
-                signer.load_private_key(sign_key_path, password=pw)
+                signer.load_private_key(
+                    sign_key_path,
+                    password=pw.encode() if pw else None,
+                )
             except Exception:
                 msg = _(
                     "Error during sign operation: private key "
@@ -933,18 +932,19 @@ class ListImage(command.Lister):
         if 'limit' in kwargs:
             # Disable automatic pagination in SDK
             kwargs['paginated'] = False
-        data = list(image_client.images(**kwargs))
+
+        images = list(image_client.images(**kwargs))
 
         if parsed_args.property:
             for attr, value in parsed_args.property.items():
                 api_utils.simple_filter(
-                    data,
+                    images,
                     attr=attr,
                     value=value,
                     property_field='properties',
                 )
 
-        data = utils.sort_items(data, parsed_args.sort, str)
+        data = utils.sort_items(images, parsed_args.sort, str)
 
         return (
             column_headers,
@@ -1393,7 +1393,10 @@ class SetImage(command.Command):
         if parsed_args.visibility is not None:
             kwargs['visibility'] = parsed_args.visibility
 
-        if parsed_args.project:
+        # Only set owner_id if --project is used WITHOUT membership flags
+        # When --project is used with --accept/--reject/--pending, it should
+        # only identify which member's status to update, not change ownership
+        if parsed_args.project and not parsed_args.membership:
             # We already did the project lookup above
             kwargs['owner_id'] = project_id
 

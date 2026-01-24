@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-# $Id: test_sidebars.py 9425 2023-06-30 14:56:47Z milde $
+# $Id: test_sidebars.py 10256 2025-11-02 17:51:21Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -23,6 +23,8 @@ from docutils.utils import new_document
 
 
 class ParserTestCase(unittest.TestCase):
+    maxDiff = None
+
     def test_parser(self):
         parser = Parser()
         settings = get_default_settings(Parser)

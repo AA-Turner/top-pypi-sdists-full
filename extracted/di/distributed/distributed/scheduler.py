@@ -146,11 +146,10 @@ from distributed.utils_comm import (
 from distributed.variable import VariableExtension
 
 if TYPE_CHECKING:
-    # TODO import from typing (requires Python >=3.10)
-    # TODO import from typing (requires Python >=3.11)
-    from typing import TypeVar
+    from typing import TypeAlias, TypeVar
 
-    from typing_extensions import Self, TypeAlias
+    # TODO import from typing (requires Python >=3.11)
+    from typing_extensions import Self
 
     from dask._expr import Expr
 
@@ -1074,7 +1073,7 @@ class TaskPrefix(TaskCollection):
                 del self._types[typename]
 
     @property
-    @_deprecated(use_instead="groups")  # type: ignore[misc]
+    @_deprecated(use_instead="groups")  # type: ignore[untyped-decorator]
     def active(self) -> Set[TaskGroup]:
         return self.groups
 
@@ -1084,7 +1083,7 @@ class TaskPrefix(TaskCollection):
         return self._groups.keys()
 
     @property
-    @_deprecated(use_instead="states")  # type: ignore[misc]
+    @_deprecated(use_instead="states")  # type: ignore[untyped-decorator]
     def active_states(self) -> dict[TaskStateState, int]:
         return self.states
 
@@ -3822,7 +3821,7 @@ class Scheduler(SchedulerState, ServerNode):
             preload_argv = dask.config.get("distributed.scheduler.preload-argv")
         self.preloads = preloading.process_preloads(
             self,
-            preload,  # type: ignore
+            preload,
             preload_argv,
         )
 
@@ -4286,7 +4285,7 @@ class Scheduler(SchedulerState, ServerNode):
                 try:
                     link = format_dashboard_link(addr, server.port)
                 # formatting dashboard link can fail if distributed.dashboard.link
-                # refers to non-existant env vars.
+                # refers to non-existent env vars.
                 except KeyError as e:
                     logger.warning(
                         f"Failed to format dashboard link, unknown value: {e}"
@@ -8552,44 +8551,37 @@ class Scheduler(SchedulerState, ServerNode):
         import distributed
 
         # HTML
-        html = """
+        duration = format_time(stop - start)
+        nworkers = len(self.workers)
+        threads = sum(ws.nthreads for ws in self.workers.values())
+        memory = format_bytes(sum(ws.memory_limit for ws in self.workers.values()))
+        html = f"""
         <h1> Dask Performance Report </h1>
 
         <i> Select different tabs on the top for additional information </i>
 
-        <h2> Duration: {time} </h2>
+        <h2> Duration: {duration} </h2>
         <h2> Tasks Information </h2>
         <ul>
-         <li> number of tasks: {ntasks} </li>
+         <li> number of tasks: {total_tasks} </li>
          {tasks_timings}
         </ul>
 
         <h2> Scheduler Information </h2>
         <ul>
-          <li> Address: {address} </li>
+          <li> Address: {self.address} </li>
           <li> Workers: {nworkers} </li>
           <li> Threads: {threads} </li>
           <li> Memory: {memory} </li>
-          <li> Dask Version: {dask_version} </li>
-          <li> Dask.Distributed Version: {distributed_version} </li>
+          <li> Dask Version: {dask.__version__} </li>
+          <li> Dask.Distributed Version: {distributed.__version__} </li>
         </ul>
 
         <h2> Calling Code </h2>
         <pre>
 {code}
         </pre>
-        """.format(
-            time=format_time(stop - start),
-            ntasks=total_tasks,
-            tasks_timings=tasks_timings,
-            address=self.address,
-            nworkers=len(self.workers),
-            threads=sum(ws.nthreads for ws in self.workers.values()),
-            memory=format_bytes(sum(ws.memory_limit for ws in self.workers.values())),
-            code=code,
-            dask_version=dask.__version__,
-            distributed_version=distributed.__version__,
-        )
+        """
         html = Div(text=html, styles=_STYLES)
 
         html = TabPanel(child=html, title="Summary")

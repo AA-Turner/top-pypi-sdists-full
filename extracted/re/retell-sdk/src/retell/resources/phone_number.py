@@ -8,7 +8,7 @@ from typing_extensions import Literal
 import httpx
 
 from ..types import phone_number_create_params, phone_number_import_params, phone_number_update_params
-from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
+from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -52,13 +52,16 @@ class PhoneNumberResource(SyncAPIResource):
         country_code: Literal["US", "CA"] | Omit = omit,
         inbound_agent_id: Optional[str] | Omit = omit,
         inbound_agent_version: Optional[int] | Omit = omit,
+        inbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
         inbound_webhook_url: Optional[str] | Omit = omit,
         nickname: str | Omit = omit,
         number_provider: Literal["twilio", "telnyx"] | Omit = omit,
         outbound_agent_id: Optional[str] | Omit = omit,
         outbound_agent_version: Optional[int] | Omit = omit,
+        outbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
         phone_number: str | Omit = omit,
         toll_free: bool | Omit = omit,
+        transport: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -83,6 +86,9 @@ class PhoneNumberResource(SyncAPIResource):
           inbound_agent_version: Version of the inbound agent to bind to the number. If not provided, will
               default to latest version.
 
+          inbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes from which inbound calls are allowed.
+              If not set or empty, calls from all countries are allowed.
+
           inbound_webhook_url: If set, will send a webhook for inbound calls, where you can to override agent
               id, set dynamic variables and other fields specific to that call.
 
@@ -97,10 +103,16 @@ class PhoneNumberResource(SyncAPIResource):
           outbound_agent_version: Version of the outbound agent to bind to the number. If not provided, will
               default to latest version.
 
+          outbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes to which outbound calls are allowed. If
+              not set or empty, calls to all countries are allowed.
+
           phone_number: The number you are trying to purchase in E.164 format of the number (+country
               code then number with no space and no special characters).
 
           toll_free: Whether to purchase a toll-free number. Toll-free numbers incur higher costs.
+
+          transport: Outbound transport protocol to use for the phone number. Valid values are "TLS",
+              "TCP" and "UDP". Default is "TCP".
 
           extra_headers: Send extra headers
 
@@ -118,13 +130,16 @@ class PhoneNumberResource(SyncAPIResource):
                     "country_code": country_code,
                     "inbound_agent_id": inbound_agent_id,
                     "inbound_agent_version": inbound_agent_version,
+                    "inbound_allowed_countries": inbound_allowed_countries,
                     "inbound_webhook_url": inbound_webhook_url,
                     "nickname": nickname,
                     "number_provider": number_provider,
                     "outbound_agent_id": outbound_agent_id,
                     "outbound_agent_version": outbound_agent_version,
+                    "outbound_allowed_countries": outbound_allowed_countries,
                     "phone_number": phone_number,
                     "toll_free": toll_free,
+                    "transport": transport,
                 },
                 phone_number_create_params.PhoneNumberCreateParams,
             ),
@@ -171,12 +186,18 @@ class PhoneNumberResource(SyncAPIResource):
         self,
         phone_number: str,
         *,
+        auth_password: str | Omit = omit,
+        auth_username: str | Omit = omit,
         inbound_agent_id: Optional[str] | Omit = omit,
         inbound_agent_version: Optional[int] | Omit = omit,
+        inbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
         inbound_webhook_url: Optional[str] | Omit = omit,
         nickname: Optional[str] | Omit = omit,
         outbound_agent_id: Optional[str] | Omit = omit,
         outbound_agent_version: Optional[int] | Omit = omit,
+        outbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
+        termination_uri: str | Omit = omit,
+        transport: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -188,12 +209,21 @@ class PhoneNumberResource(SyncAPIResource):
         Update agent bound to a purchased phone number
 
         Args:
+          auth_password: The password used for authentication for the SIP trunk to update for the phone
+              number.
+
+          auth_username: The username used for authentication for the SIP trunk to update for the phone
+              number.
+
           inbound_agent_id: Unique id of agent to bind to the number. The number will automatically use the
               agent when receiving inbound calls. If set to null, this number would not accept
               inbound call.
 
           inbound_agent_version: Version of the inbound agent to bind to the number. If not provided, will
               default to latest version.
+
+          inbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes from which inbound calls are allowed.
+              If not set or empty, calls from all countries are allowed.
 
           inbound_webhook_url: If set, will send a webhook for inbound calls, where you can to override agent
               id, set dynamic variables and other fields specific to that call.
@@ -206,6 +236,15 @@ class PhoneNumberResource(SyncAPIResource):
 
           outbound_agent_version: Version of the outbound agent to bind to the number. If not provided, will
               default to latest version.
+
+          outbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes to which outbound calls are allowed. If
+              not set or empty, calls to all countries are allowed.
+
+          termination_uri: The termination uri to update for the phone number. This is used for outbound
+              calls.
+
+          transport: Outbound transport protocol to update for the phone number. Valid values are
+              "TLS", "TCP" and "UDP". Default is "TCP".
 
           extra_headers: Send extra headers
 
@@ -221,12 +260,18 @@ class PhoneNumberResource(SyncAPIResource):
             f"/update-phone-number/{phone_number}",
             body=maybe_transform(
                 {
+                    "auth_password": auth_password,
+                    "auth_username": auth_username,
                     "inbound_agent_id": inbound_agent_id,
                     "inbound_agent_version": inbound_agent_version,
+                    "inbound_allowed_countries": inbound_allowed_countries,
                     "inbound_webhook_url": inbound_webhook_url,
                     "nickname": nickname,
                     "outbound_agent_id": outbound_agent_id,
                     "outbound_agent_version": outbound_agent_version,
+                    "outbound_allowed_countries": outbound_allowed_countries,
+                    "termination_uri": termination_uri,
+                    "transport": transport,
                 },
                 phone_number_update_params.PhoneNumberUpdateParams,
             ),
@@ -296,12 +341,15 @@ class PhoneNumberResource(SyncAPIResource):
         termination_uri: str,
         inbound_agent_id: Optional[str] | Omit = omit,
         inbound_agent_version: Optional[int] | Omit = omit,
+        inbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
         inbound_webhook_url: Optional[str] | Omit = omit,
         nickname: str | Omit = omit,
-        outbound_agent_id: str | Omit = omit,
+        outbound_agent_id: Optional[str] | Omit = omit,
         outbound_agent_version: Optional[int] | Omit = omit,
+        outbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
         sip_trunk_auth_password: str | Omit = omit,
         sip_trunk_auth_username: str | Omit = omit,
+        transport: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -328,6 +376,9 @@ class PhoneNumberResource(SyncAPIResource):
           inbound_agent_version: Version of the inbound agent to bind to the number. If not provided, will
               default to latest version.
 
+          inbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes from which inbound calls are allowed.
+              If not set or empty, calls from all countries are allowed.
+
           inbound_webhook_url: If set, will send a webhook for inbound calls, where you can to override agent
               id, set dynamic variables and other fields specific to that call.
 
@@ -340,9 +391,15 @@ class PhoneNumberResource(SyncAPIResource):
           outbound_agent_version: Version of the outbound agent to bind to the number. If not provided, will
               default to latest version.
 
+          outbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes to which outbound calls are allowed. If
+              not set or empty, calls to all countries are allowed.
+
           sip_trunk_auth_password: The password used for authentication for the SIP trunk.
 
           sip_trunk_auth_username: The username used for authentication for the SIP trunk.
+
+          transport: Outbound transport protocol to update for the phone number. Valid values are
+              "TLS", "TCP" and "UDP". Default is "TCP".
 
           extra_headers: Send extra headers
 
@@ -360,12 +417,15 @@ class PhoneNumberResource(SyncAPIResource):
                     "termination_uri": termination_uri,
                     "inbound_agent_id": inbound_agent_id,
                     "inbound_agent_version": inbound_agent_version,
+                    "inbound_allowed_countries": inbound_allowed_countries,
                     "inbound_webhook_url": inbound_webhook_url,
                     "nickname": nickname,
                     "outbound_agent_id": outbound_agent_id,
                     "outbound_agent_version": outbound_agent_version,
+                    "outbound_allowed_countries": outbound_allowed_countries,
                     "sip_trunk_auth_password": sip_trunk_auth_password,
                     "sip_trunk_auth_username": sip_trunk_auth_username,
+                    "transport": transport,
                 },
                 phone_number_import_params.PhoneNumberImportParams,
             ),
@@ -403,13 +463,16 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
         country_code: Literal["US", "CA"] | Omit = omit,
         inbound_agent_id: Optional[str] | Omit = omit,
         inbound_agent_version: Optional[int] | Omit = omit,
+        inbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
         inbound_webhook_url: Optional[str] | Omit = omit,
         nickname: str | Omit = omit,
         number_provider: Literal["twilio", "telnyx"] | Omit = omit,
         outbound_agent_id: Optional[str] | Omit = omit,
         outbound_agent_version: Optional[int] | Omit = omit,
+        outbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
         phone_number: str | Omit = omit,
         toll_free: bool | Omit = omit,
+        transport: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -434,6 +497,9 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
           inbound_agent_version: Version of the inbound agent to bind to the number. If not provided, will
               default to latest version.
 
+          inbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes from which inbound calls are allowed.
+              If not set or empty, calls from all countries are allowed.
+
           inbound_webhook_url: If set, will send a webhook for inbound calls, where you can to override agent
               id, set dynamic variables and other fields specific to that call.
 
@@ -448,10 +514,16 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
           outbound_agent_version: Version of the outbound agent to bind to the number. If not provided, will
               default to latest version.
 
+          outbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes to which outbound calls are allowed. If
+              not set or empty, calls to all countries are allowed.
+
           phone_number: The number you are trying to purchase in E.164 format of the number (+country
               code then number with no space and no special characters).
 
           toll_free: Whether to purchase a toll-free number. Toll-free numbers incur higher costs.
+
+          transport: Outbound transport protocol to use for the phone number. Valid values are "TLS",
+              "TCP" and "UDP". Default is "TCP".
 
           extra_headers: Send extra headers
 
@@ -469,13 +541,16 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
                     "country_code": country_code,
                     "inbound_agent_id": inbound_agent_id,
                     "inbound_agent_version": inbound_agent_version,
+                    "inbound_allowed_countries": inbound_allowed_countries,
                     "inbound_webhook_url": inbound_webhook_url,
                     "nickname": nickname,
                     "number_provider": number_provider,
                     "outbound_agent_id": outbound_agent_id,
                     "outbound_agent_version": outbound_agent_version,
+                    "outbound_allowed_countries": outbound_allowed_countries,
                     "phone_number": phone_number,
                     "toll_free": toll_free,
+                    "transport": transport,
                 },
                 phone_number_create_params.PhoneNumberCreateParams,
             ),
@@ -522,12 +597,18 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
         self,
         phone_number: str,
         *,
+        auth_password: str | Omit = omit,
+        auth_username: str | Omit = omit,
         inbound_agent_id: Optional[str] | Omit = omit,
         inbound_agent_version: Optional[int] | Omit = omit,
+        inbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
         inbound_webhook_url: Optional[str] | Omit = omit,
         nickname: Optional[str] | Omit = omit,
         outbound_agent_id: Optional[str] | Omit = omit,
         outbound_agent_version: Optional[int] | Omit = omit,
+        outbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
+        termination_uri: str | Omit = omit,
+        transport: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -539,12 +620,21 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
         Update agent bound to a purchased phone number
 
         Args:
+          auth_password: The password used for authentication for the SIP trunk to update for the phone
+              number.
+
+          auth_username: The username used for authentication for the SIP trunk to update for the phone
+              number.
+
           inbound_agent_id: Unique id of agent to bind to the number. The number will automatically use the
               agent when receiving inbound calls. If set to null, this number would not accept
               inbound call.
 
           inbound_agent_version: Version of the inbound agent to bind to the number. If not provided, will
               default to latest version.
+
+          inbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes from which inbound calls are allowed.
+              If not set or empty, calls from all countries are allowed.
 
           inbound_webhook_url: If set, will send a webhook for inbound calls, where you can to override agent
               id, set dynamic variables and other fields specific to that call.
@@ -557,6 +647,15 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
 
           outbound_agent_version: Version of the outbound agent to bind to the number. If not provided, will
               default to latest version.
+
+          outbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes to which outbound calls are allowed. If
+              not set or empty, calls to all countries are allowed.
+
+          termination_uri: The termination uri to update for the phone number. This is used for outbound
+              calls.
+
+          transport: Outbound transport protocol to update for the phone number. Valid values are
+              "TLS", "TCP" and "UDP". Default is "TCP".
 
           extra_headers: Send extra headers
 
@@ -572,12 +671,18 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
             f"/update-phone-number/{phone_number}",
             body=await async_maybe_transform(
                 {
+                    "auth_password": auth_password,
+                    "auth_username": auth_username,
                     "inbound_agent_id": inbound_agent_id,
                     "inbound_agent_version": inbound_agent_version,
+                    "inbound_allowed_countries": inbound_allowed_countries,
                     "inbound_webhook_url": inbound_webhook_url,
                     "nickname": nickname,
                     "outbound_agent_id": outbound_agent_id,
                     "outbound_agent_version": outbound_agent_version,
+                    "outbound_allowed_countries": outbound_allowed_countries,
+                    "termination_uri": termination_uri,
+                    "transport": transport,
                 },
                 phone_number_update_params.PhoneNumberUpdateParams,
             ),
@@ -647,12 +752,15 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
         termination_uri: str,
         inbound_agent_id: Optional[str] | Omit = omit,
         inbound_agent_version: Optional[int] | Omit = omit,
+        inbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
         inbound_webhook_url: Optional[str] | Omit = omit,
         nickname: str | Omit = omit,
-        outbound_agent_id: str | Omit = omit,
+        outbound_agent_id: Optional[str] | Omit = omit,
         outbound_agent_version: Optional[int] | Omit = omit,
+        outbound_allowed_countries: Optional[SequenceNotStr[str]] | Omit = omit,
         sip_trunk_auth_password: str | Omit = omit,
         sip_trunk_auth_username: str | Omit = omit,
+        transport: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -679,6 +787,9 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
           inbound_agent_version: Version of the inbound agent to bind to the number. If not provided, will
               default to latest version.
 
+          inbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes from which inbound calls are allowed.
+              If not set or empty, calls from all countries are allowed.
+
           inbound_webhook_url: If set, will send a webhook for inbound calls, where you can to override agent
               id, set dynamic variables and other fields specific to that call.
 
@@ -691,9 +802,15 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
           outbound_agent_version: Version of the outbound agent to bind to the number. If not provided, will
               default to latest version.
 
+          outbound_allowed_countries: List of ISO 3166-1 alpha-2 country codes to which outbound calls are allowed. If
+              not set or empty, calls to all countries are allowed.
+
           sip_trunk_auth_password: The password used for authentication for the SIP trunk.
 
           sip_trunk_auth_username: The username used for authentication for the SIP trunk.
+
+          transport: Outbound transport protocol to update for the phone number. Valid values are
+              "TLS", "TCP" and "UDP". Default is "TCP".
 
           extra_headers: Send extra headers
 
@@ -711,12 +828,15 @@ class AsyncPhoneNumberResource(AsyncAPIResource):
                     "termination_uri": termination_uri,
                     "inbound_agent_id": inbound_agent_id,
                     "inbound_agent_version": inbound_agent_version,
+                    "inbound_allowed_countries": inbound_allowed_countries,
                     "inbound_webhook_url": inbound_webhook_url,
                     "nickname": nickname,
                     "outbound_agent_id": outbound_agent_id,
                     "outbound_agent_version": outbound_agent_version,
+                    "outbound_allowed_countries": outbound_allowed_countries,
                     "sip_trunk_auth_password": sip_trunk_auth_password,
                     "sip_trunk_auth_username": sip_trunk_auth_username,
+                    "transport": transport,
                 },
                 phone_number_import_params.PhoneNumberImportParams,
             ),

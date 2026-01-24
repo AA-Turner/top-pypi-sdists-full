@@ -9,6 +9,7 @@ from snowflake.ml._internal.exceptions import (
     error_codes,
     exceptions as snowml_exceptions,
 )
+from snowflake.ml.model import openai_signatures
 from snowflake.ml.model._signatures import core
 
 
@@ -20,15 +21,21 @@ def convert_list_to_ndarray(data: list[Any]) -> npt.NDArray[Any]:
 
     Raises:
         SnowflakeMLException: ValueError: Raised when ragged nested list or list containing non-basic type confronted.
-        SnowflakeMLException: ValueError: Raised when ragged nested list or list containing non-basic type confronted.
 
     Returns:
         The converted numpy array.
     """
-    warnings.filterwarnings("error", category=np.VisibleDeprecationWarning)
+    # VisibleDeprecationWarning was removed in numpy>2
+    visible_deprecation_warning = getattr(np, "VisibleDeprecationWarning", None)
+    exception_types = (ValueError,)
+
+    if visible_deprecation_warning is not None:
+        warnings.filterwarnings("error", category=visible_deprecation_warning)
+        exception_types = (visible_deprecation_warning, ValueError)  # type: ignore[assignment]
+
     try:
         arr = np.array(data)
-    except (np.VisibleDeprecationWarning, ValueError):
+    except exception_types:
         # In recent version of numpy, this warning should be raised when bad list provided.
         raise snowml_exceptions.SnowflakeMLException(
             error_code=error_codes.INVALID_DATA,
@@ -36,7 +43,10 @@ def convert_list_to_ndarray(data: list[Any]) -> npt.NDArray[Any]:
                 f"Unable to construct signature: Ragged nested or Unsupported list-like data {data} confronted."
             ),
         )
-    warnings.filterwarnings("default", category=np.VisibleDeprecationWarning)
+    finally:
+        if visible_deprecation_warning is not None:
+            warnings.filterwarnings("default", category=visible_deprecation_warning)
+
     if arr.dtype == object:
         # If not raised, then a array of object would be created.
         raise snowml_exceptions.SnowflakeMLException(
@@ -109,27 +119,6 @@ def huggingface_pipeline_signature_auto_infer(
     params: dict[str, Any],
 ) -> Optional[core.ModelSignature]:
     # Text
-
-    # https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ConversationalPipeline
-    # Needs to convert to conversation object.
-    if task == "conversational":
-        warnings.warn(
-            (
-                "Conversational pipeline is removed from transformers since 4.42.0. "
-                "Support will be removed from snowflake-ml-python soon."
-            ),
-            category=DeprecationWarning,
-            stacklevel=1,
-        )
-        return core.ModelSignature(
-            inputs=[
-                core.FeatureSpec(name="user_inputs", dtype=core.DataType.STRING, shape=(-1,)),
-                core.FeatureSpec(name="generated_responses", dtype=core.DataType.STRING, shape=(-1,)),
-            ],
-            outputs=[
-                core.FeatureSpec(name="generated_responses", dtype=core.DataType.STRING, shape=(-1,)),
-            ],
-        )
 
     # https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TokenClassificationPipeline
     if task == "fill-mask":
@@ -271,6 +260,66 @@ def huggingface_pipeline_signature_auto_infer(
             ],
         )
 
+    # https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageClassificationPipeline
+    if task == "image-classification":
+        return core.ModelSignature(
+            inputs=[
+                core.FeatureSpec(name="images", dtype=core.DataType.BYTES),
+            ],
+            outputs=[
+                core.FeatureGroupSpec(
+                    name="labels",
+                    specs=[
+                        core.FeatureSpec(name="label", dtype=core.DataType.STRING),
+                        core.FeatureSpec(name="score", dtype=core.DataType.DOUBLE),
+                    ],
+                    shape=(-1,),
+                ),
+            ],
+        )
+
+    # https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.AutomaticSpeechRecognitionPipeline
+    if task == "automatic-speech-recognition":
+        return core.ModelSignature(
+            inputs=[
+                core.FeatureSpec(name="audio", dtype=core.DataType.BYTES),
+            ],
+            outputs=[
+                core.FeatureGroupSpec(
+                    name="outputs",
+                    specs=[
+                        core.FeatureSpec(name="text", dtype=core.DataType.STRING),
+                        core.FeatureGroupSpec(
+                            name="chunks",
+                            specs=[
+                                core.FeatureSpec(name="timestamp", dtype=core.DataType.DOUBLE, shape=(2,)),
+                                core.FeatureSpec(name="text", dtype=core.DataType.STRING),
+                            ],
+                            shape=(-1,),  # Variable length list of chunks
+                        ),
+                    ],
+                )
+            ],
+        )
+
+    # https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.VideoClassificationPipeline
+    if task == "video-classification":
+        return core.ModelSignature(
+            inputs=[
+                core.FeatureSpec(name="video", dtype=core.DataType.BYTES),
+            ],
+            outputs=[
+                core.FeatureGroupSpec(
+                    name="labels",
+                    specs=[
+                        core.FeatureSpec(name="label", dtype=core.DataType.STRING),
+                        core.FeatureSpec(name="score", dtype=core.DataType.DOUBLE),
+                    ],
+                    shape=(-1,),
+                ),
+            ],
+        )
+
     # https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.TextGenerationPipeline
     if task == "text-generation":
         if params.get("return_tensors", False):
@@ -300,6 +349,22 @@ def huggingface_pipeline_signature_auto_infer(
                 )
             ],
         )
+
+    # https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.ImageTextToTextPipeline
+    if task in [
+        "image-text-to-text",
+        "video-text-to-text",
+        "audio-text-to-text",
+    ]:
+        if params.get("return_tensors", False):
+            raise NotImplementedError(
+                f"Auto deployment for HuggingFace pipeline {task} "
+                "when `return_tensors` set to `True` has not been supported yet."
+            )
+        # Always generate a dict per input
+        # defaulting to OPENAI_CHAT_SIGNATURE_SPEC for image-text-to-text pipeline
+        return openai_signatures._OPENAI_CHAT_SIGNATURE_SPEC
+
     # https://huggingface.co/docs/transformers/en/main_classes/pipelines#transformers.Text2TextGenerationPipeline
     if task == "text2text-generation":
         if params.get("return_tensors", False):
@@ -418,3 +483,56 @@ def infer_dict(name: str, data: dict[str, Any]) -> core.FeatureGroupSpec:
 
 def check_if_series_is_empty(series: Optional[pd.Series]) -> bool:
     return series is None or series.empty
+
+
+def sentence_transformers_signature_auto_infer(
+    target_method: str,
+    embedding_dim: int,
+) -> Optional[core.ModelSignature]:
+    """Auto-infer signature for SentenceTransformer models.
+
+    SentenceTransformer models have a simple signature: they take a string input
+    and return an embedding vector (array of floats).
+
+    Args:
+        target_method: The target method name. Supported methods:
+            - "encode": General encoding method
+            - "encode_query" / "encode_queries": Query encoding for asymmetric search
+            - "encode_document" / "encode_documents": Document encoding for asymmetric search
+        embedding_dim: The dimension of the embedding vector output by the model.
+
+    Returns:
+        A ModelSignature for the target method, or None if the method is not supported.
+
+    Note:
+        sentence-transformers >= 3.0 uses singular names (encode_query, encode_document)
+        while older versions may use plural names (encode_queries, encode_documents).
+        Both naming conventions are supported for backward compatibility.
+    """
+    # Support both singular (new) and plural (old) naming conventions
+    supported_methods = [
+        "encode",
+        "encode_query",
+        "encode_document",
+        "encode_queries",
+        "encode_documents",
+    ]
+
+    if target_method not in supported_methods:
+        return None
+
+    # All SentenceTransformer encode methods have the same signature pattern:
+    # - Input: a single string column
+    # - Output: a single column containing embedding vectors (array of floats)
+    return core.ModelSignature(
+        inputs=[
+            core.FeatureSpec(name="text", dtype=core.DataType.STRING),
+        ],
+        outputs=[
+            core.FeatureSpec(
+                name="output",
+                dtype=core.DataType.DOUBLE,
+                shape=(embedding_dim,),
+            ),
+        ],
+    )

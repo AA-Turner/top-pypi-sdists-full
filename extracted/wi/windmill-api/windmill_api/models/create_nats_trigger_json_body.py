@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.create_nats_trigger_json_body_mode import CreateNatsTriggerJsonBodyMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -25,11 +26,11 @@ class CreateNatsTriggerJsonBody:
         subjects (List[str]):
         stream_name (Union[Unset, str]):
         consumer_name (Union[Unset, str]):
-        enabled (Union[Unset, bool]):
+        mode (Union[Unset, CreateNatsTriggerJsonBodyMode]): job trigger mode
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, CreateNatsTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, CreateNatsTriggerJsonBodyRetry]):
+        retry (Union[Unset, CreateNatsTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     path: str
@@ -40,7 +41,7 @@ class CreateNatsTriggerJsonBody:
     subjects: List[str]
     stream_name: Union[Unset, str] = UNSET
     consumer_name: Union[Unset, str] = UNSET
-    enabled: Union[Unset, bool] = UNSET
+    mode: Union[Unset, CreateNatsTriggerJsonBodyMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "CreateNatsTriggerJsonBodyErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "CreateNatsTriggerJsonBodyRetry"] = UNSET
@@ -56,7 +57,10 @@ class CreateNatsTriggerJsonBody:
 
         stream_name = self.stream_name
         consumer_name = self.consumer_name
-        enabled = self.enabled
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -82,8 +86,8 @@ class CreateNatsTriggerJsonBody:
             field_dict["stream_name"] = stream_name
         if consumer_name is not UNSET:
             field_dict["consumer_name"] = consumer_name
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -115,7 +119,12 @@ class CreateNatsTriggerJsonBody:
 
         consumer_name = d.pop("consumer_name", UNSET)
 
-        enabled = d.pop("enabled", UNSET)
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, CreateNatsTriggerJsonBodyMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = CreateNatsTriggerJsonBodyMode(_mode)
 
         error_handler_path = d.pop("error_handler_path", UNSET)
 
@@ -142,7 +151,7 @@ class CreateNatsTriggerJsonBody:
             subjects=subjects,
             stream_name=stream_name,
             consumer_name=consumer_name,
-            enabled=enabled,
+            mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

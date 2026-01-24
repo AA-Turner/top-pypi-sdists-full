@@ -28,6 +28,7 @@ macro_rules! table {
             $($vis)* expectations: $t<$crate::binding::binding::KeyExpect>,
             $($vis)* consistent_override_checks: $t<$crate::binding::binding::KeyConsistentOverrideCheck>,
             $($vis)* exports: $t<$crate::binding::binding::KeyExport>,
+            $($vis)* decorators: $t<$crate::binding::binding::KeyDecorator>,
             $($vis)* decorated_functions: $t<$crate::binding::binding::KeyDecoratedFunction>,
             $($vis)* undecorated_functions: $t<$crate::binding::binding::KeyUndecoratedFunction>,
             $($vis)* classes: $t<$crate::binding::binding::KeyClass>,
@@ -39,6 +40,7 @@ macro_rules! table {
             $($vis)* annotations: $t<$crate::binding::binding::KeyAnnotation>,
             $($vis)* class_metadata: $t<$crate::binding::binding::KeyClassMetadata>,
             $($vis)* class_mros: $t<$crate::binding::binding::KeyClassMro>,
+            $($vis)* abstract_class_check: $t<$crate::binding::binding::KeyAbstractClassCheck>,
             $($vis)* legacy_tparams: $t<$crate::binding::binding::KeyLegacyTypeParam>,
             $($vis)* yields: $t<$crate::binding::binding::KeyYield>,
             $($vis)* yield_froms: $t<$crate::binding::binding::KeyYieldFrom>,
@@ -66,6 +68,12 @@ macro_rules! table {
             type Value = $t<$crate::binding::binding::KeyExport>;
             fn get(&self) -> &Self::Value { &self.exports }
             fn get_mut(&mut self) -> &mut Self::Value { &mut self.exports }
+        }
+
+        impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyDecorator> for $name {
+            type Value = $t<$crate::binding::binding::KeyDecorator>;
+            fn get(&self) -> &Self::Value { &self.decorators }
+            fn get_mut(&mut self) -> &mut Self::Value { &mut self.decorators }
         }
 
         impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyDecoratedFunction> for $name {
@@ -134,6 +142,12 @@ macro_rules! table {
             fn get_mut(&mut self) -> &mut Self::Value { &mut self.class_mros }
         }
 
+        impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyAbstractClassCheck> for $name {
+            type Value = $t<$crate::binding::binding::KeyAbstractClassCheck>;
+            fn get(&self) -> &Self::Value { &self.abstract_class_check }
+            fn get_mut(&mut self) -> &mut Self::Value { &mut self.abstract_class_check }
+        }
+
         impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyLegacyTypeParam> for $name {
             type Value = $t<$crate::binding::binding::KeyLegacyTypeParam>;
             fn get(&self) -> &Self::Value { &self.legacy_tparams }
@@ -179,6 +193,7 @@ macro_rules! table_for_each(
         $f(&($e).expectations);
         $f(&($e).consistent_override_checks);
         $f(&($e).exports);
+        $f(&($e).decorators);
         $f(&($e).decorated_functions);
         $f(&($e).undecorated_functions);
         $f(&($e).classes);
@@ -190,6 +205,7 @@ macro_rules! table_for_each(
         $f(&($e).annotations);
         $f(&($e).class_metadata);
         $f(&($e).class_mros);
+        $f(&($e).abstract_class_check);
         $f(&($e).legacy_tparams);
         $f(&($e).yields);
         $f(&($e).yield_froms);
@@ -203,6 +219,7 @@ macro_rules! table_mut_for_each(
         $f(&mut ($e).expectations);
         $f(&mut ($e).consistent_override_checks);
         $f(&mut ($e).exports);
+        $f(&mut ($e).decorators);
         $f(&mut ($e).decorated_functions);
         $f(&mut ($e).undecorated_functions);
         $f(&mut ($e).classes);
@@ -214,6 +231,7 @@ macro_rules! table_mut_for_each(
         $f(&mut ($e).annotations);
         $f(&mut ($e).class_metadata);
         $f(&mut ($e).class_mros);
+        $f(&mut ($e).abstract_class_check);
         $f(&mut ($e).legacy_tparams);
         $f(&mut ($e).yields);
         $f(&mut ($e).yield_froms);
@@ -227,6 +245,7 @@ macro_rules! table_try_for_each(
         $f(&($e).expectations)?;
         $f(&($e).consistent_override_checks)?;
         $f(&($e).exports)?;
+        $f(&($e).decorators)?;
         $f(&($e).decorated_functions)?;
         $f(&($e).undecorated_functions)?;
         $f(&($e).classes)?;
@@ -238,6 +257,7 @@ macro_rules! table_try_for_each(
         $f(&($e).annotations)?;
         $f(&($e).class_metadata)?;
         $f(&($e).class_mros)?;
+        $f(&($e).abstract_class_check)?;
         $f(&($e).legacy_tparams)?;
         $f(&($e).yields)?;
         $f(&($e).yield_froms)?;

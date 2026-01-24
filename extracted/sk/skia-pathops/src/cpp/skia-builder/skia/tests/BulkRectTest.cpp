@@ -17,13 +17,12 @@
 #include "include/core/SkSurfaceProps.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
-#include "include/gpu/GrTypes.h"
-#include "include/private/SkColorData.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
-#include "src/core/SkBlendModePriv.h"
+#include "src/core/SkColorData.h"
 #include "src/gpu/SkBackingFit.h"
 #include "src/gpu/Swizzle.h"
 #include "src/gpu/ganesh/GrCaps.h"
@@ -37,6 +36,7 @@
 #include "src/gpu/ganesh/GrSamplerState.h"
 #include "src/gpu/ganesh/GrSurfaceProxy.h"
 #include "src/gpu/ganesh/GrSurfaceProxyView.h"
+#include "src/gpu/ganesh/GrXferProcessor.h"
 #include "src/gpu/ganesh/SurfaceDrawContext.h"
 #include "src/gpu/ganesh/geometry/GrQuad.h"
 #include "src/gpu/ganesh/ops/FillRectOp.h"
@@ -66,7 +66,11 @@ static std::unique_ptr<skgpu::ganesh::SurfaceDrawContext> new_SDC(GrRecordingCon
 }
 
 static sk_sp<GrSurfaceProxy> create_proxy(GrRecordingContext* rContext) {
+    using namespace skgpu;
+
     static constexpr SkISize kDimensions = {128, 128};
+
+    Protected isProtected = Protected(rContext->priv().caps()->supportsProtectedContent());
 
     const GrBackendFormat format = rContext->priv().caps()->getDefaultBackendFormat(
                                                                            GrColorType::kRGBA_8888,
@@ -75,10 +79,10 @@ static sk_sp<GrSurfaceProxy> create_proxy(GrRecordingContext* rContext) {
                                                          kDimensions,
                                                          GrRenderable::kYes,
                                                          1,
-                                                         GrMipmapped::kNo,
+                                                         Mipmapped::kNo,
                                                          SkBackingFit::kExact,
-                                                         skgpu::Budgeted::kNo,
-                                                         GrProtected::kNo,
+                                                         Budgeted::kNo,
+                                                         isProtected,
                                                          /*label=*/"CreateSurfaceProxy",
                                                          GrInternalSurfaceFlags::kNone);
 }
@@ -118,7 +122,7 @@ static void fillrectop_creation_test(skiatest::Reporter* reporter, GrDirectConte
     }
 
     GrPaint paint;
-    paint.setXPFactory(SkBlendMode_AsXPFactory(blendMode));
+    paint.setXPFactory(GrXPFactory::FromBlendMode(blendMode));
 
     skgpu::ganesh::FillRectOp::AddFillRectOps(sdc.get(),
                                               nullptr,
@@ -138,7 +142,7 @@ static void fillrectop_creation_test(skiatest::Reporter* reporter, GrDirectConte
         const GrOp* tmp = opsTask->getChain(i);
         REPORTER_ASSERT(reporter, tmp->classID() == skgpu::ganesh::FillRectOp::ClassID());
         REPORTER_ASSERT(reporter, tmp->isChainTail());
-        actualTotNumQuads += ((GrDrawOp*) tmp)->numQuads();
+        actualTotNumQuads += ((const GrDrawOp*) tmp)->numQuads();
     }
 
     REPORTER_ASSERT(reporter, expectedNumOps == actualNumOps);
@@ -253,7 +257,7 @@ static void textureop_creation_test(skiatest::Reporter* reporter, GrDirectContex
         REPORTER_ASSERT(reporter, allUniqueProxies || tmp->isChainTail());
         while (tmp) {
             REPORTER_ASSERT(reporter, tmp->classID() == expectedOpID);
-            actualTotNumQuads += ((GrDrawOp*) tmp)->numQuads();
+            actualTotNumQuads += ((const GrDrawOp*) tmp)->numQuads();
             tmp = tmp->nextInChain();
         }
     }

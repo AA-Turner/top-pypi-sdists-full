@@ -26,6 +26,7 @@ class Site:
         "allowed_countries": None,  # string - Comma separated list of allowed Country codes
         "allowed_ips": None,  # string - List of allowed IP addresses
         "always_mkdir_parents": None,  # boolean - Create parent directories if they do not exist during uploads?  This is primarily used to work around broken upload clients that assume servers will perform this step.
+        "as2_message_retention_days": None,  # int64 - Number of days to retain AS2 messages (incoming and outgoing).
         "ask_about_overwrites": None,  # boolean - If false, rename conflicting files instead of asking for overwrite confirmation.  Only applies to web interface.
         "bundle_activity_notifications": None,  # string - Do Bundle owners receive activity notifications?
         "bundle_expiration": None,  # int64 - Site-wide Bundle expiration in days
@@ -109,6 +110,7 @@ class Site:
         "logo": None,  # Image - Branded logo
         "login_page_background_image": None,  # Image - Branded login page background
         "max_prior_passwords": None,  # int64 - Number of prior passwords to disallow
+        "managed_site_settings": None,  # object - List of site settings managed by the parent site
         "motd_text": None,  # string - A message to show users when they connect via FTP or SFTP.
         "motd_use_for_ftp": None,  # boolean - Show message to users connecting via FTP
         "motd_use_for_sftp": None,  # boolean - Show message to users connecting via SFTP
@@ -155,7 +157,6 @@ class Site:
         "smtp_from": None,  # string - From address to use when mailing through custom SMTP
         "smtp_port": None,  # int64 - SMTP server port
         "smtp_username": None,  # string - SMTP server username
-        "session_expiry": None,  # double - Session expiry in hours
         "session_expiry_minutes": None,  # int64 - Session expiry in minutes
         "snapshot_sharing_enabled": None,  # boolean - Allow snapshot share links creation
         "ssl_required": None,  # boolean - Is SSL required?  Disabling this is insecure.
@@ -175,13 +176,13 @@ class Site:
         "users_can_create_api_keys": None,  # boolean - Allow users to create their own API keys?
         "users_can_create_ssh_keys": None,  # boolean - Allow users to create their own SSH keys?
         "welcome_custom_text": None,  # string - Custom text send in user welcome email
+        "email_footer_custom_text": None,  # string - Custom footer text for system-generated emails. Supports standard strftime date/time patterns like %Y (4-digit year), %m (month), %d (day).
         "welcome_email_cc": None,  # email - Include this email in welcome emails if enabled
         "welcome_email_subject": None,  # string - Include this email subject in welcome emails if enabled
         "welcome_email_enabled": None,  # boolean - Will the welcome email be sent to new users?
         "welcome_screen": None,  # string - Does the welcome screen appear?
         "windows_mode_ftp": None,  # boolean - Does FTP user Windows emulation mode?
         "group_admins_can_set_user_password": None,  # boolean - Allow group admins set password authentication method
-        "managed_site_settings": None,  # array(string) - List of site settings managed by the parent site
     }
 
     def __init__(self, attributes=None, options=None):
@@ -266,7 +267,8 @@ def get_usage(params=None, options=None):
 #   calculate_file_checksums_sha256 - boolean - Calculate SHA256 checksums for files?
 #   legacy_checksums_mode - boolean - Use legacy checksums mode?
 #   migrate_remote_server_sync_to_sync - boolean - If true, we will migrate all remote server syncs to the new Sync model.
-#   session_expiry - double - Session expiry in hours
+#   as2_message_retention_days - int64 - Number of days to retain AS2 messages (incoming and outgoing).
+#   session_expiry_minutes - int64 - Session expiry in minutes
 #   ssl_required - boolean - Is SSL required?  Disabling this is insecure.
 #   sftp_insecure_ciphers - boolean - If true, we will allow weak and known insecure ciphers to be used for SFTP connections.  Enabling this setting severely weakens the security of your site and it is not recommend, except as a last resort for compatibility.
 #   sftp_insecure_diffie_hellman - boolean - If true, we will allow weak Diffie Hellman parameters to be used within ciphers for SFTP that are otherwise on our secure list.  This has the effect of making the cipher weaker than our normal threshold for security, but is required to support certain legacy or broken SSH and MFT clients.  Enabling this weakens security, but not nearly as much as enabling the full `sftp_insecure_ciphers` option.
@@ -347,6 +349,7 @@ def get_usage(params=None, options=None):
 #   site_public_footer - string - Custom site footer text for public pages
 #   login_help_text - string - Login help text
 #   use_dedicated_ips_for_smtp - boolean - If using custom SMTP, should we use dedicated IPs to deliver emails?
+#   email_footer_custom_text - string - Custom footer text for system-generated emails. Supports standard strftime date/time patterns like %Y (4-digit year), %m (month), %d (day).
 #   smtp_address - string - SMTP server hostname or IP
 #   smtp_authentication - string - SMTP server authentication type
 #   smtp_from - string - From address to use when mailing through custom SMTP
@@ -387,7 +390,6 @@ def get_usage(params=None, options=None):
 #   ldap_password_change - string - New LDAP password.
 #   ldap_password_change_confirmation - string - Confirm new LDAP password.
 #   smtp_password - string - Password for SMTP server.
-#   session_expiry_minutes - int64 - Session expiry in minutes
 def update(params=None, options=None):
     if not isinstance(params, dict):
         params = {}
@@ -623,11 +625,17 @@ def update(params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: migrate_remote_server_sync_to_sync must be an bool"
         )
-    if "session_expiry" in params and not isinstance(
-        params["session_expiry"], float
+    if "as2_message_retention_days" in params and not isinstance(
+        params["as2_message_retention_days"], int
     ):
         raise InvalidParameterError(
-            "Bad parameter: session_expiry must be an float"
+            "Bad parameter: as2_message_retention_days must be an int"
+        )
+    if "session_expiry_minutes" in params and not isinstance(
+        params["session_expiry_minutes"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: session_expiry_minutes must be an int"
         )
     if "ssl_required" in params and not isinstance(
         params["ssl_required"], bool
@@ -1099,6 +1107,12 @@ def update(params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: use_dedicated_ips_for_smtp must be an bool"
         )
+    if "email_footer_custom_text" in params and not isinstance(
+        params["email_footer_custom_text"], str
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: email_footer_custom_text must be an str"
+        )
     if "smtp_address" in params and not isinstance(
         params["smtp_address"], str
     ):
@@ -1266,12 +1280,6 @@ def update(params=None, options=None):
     ):
         raise InvalidParameterError(
             "Bad parameter: smtp_password must be an str"
-        )
-    if "session_expiry_minutes" in params and not isinstance(
-        params["session_expiry_minutes"], int
-    ):
-        raise InvalidParameterError(
-            "Bad parameter: session_expiry_minutes must be an int"
         )
     response, options = Api.send_request("PATCH", "/site", params, options)
     return Site(response.data, options)

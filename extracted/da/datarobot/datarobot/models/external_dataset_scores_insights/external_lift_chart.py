@@ -57,9 +57,7 @@ class ExternalLiftChart(APIObject):
 
     _path = "projects/{project_id}/models/{model_id}/datasetLiftCharts/"
 
-    _converter = (
-        t.Dict({t.Key("dataset_id"): String()}).merge(LiftChartBinsTrafaret).ignore_extra("*")
-    )
+    _converter = t.Dict({t.Key("dataset_id"): String()}).merge(LiftChartBinsTrafaret).ignore_extra("*")
 
     def __init__(self, dataset_id: str, bins: List[Bin]) -> None:
         self.dataset_id = dataset_id

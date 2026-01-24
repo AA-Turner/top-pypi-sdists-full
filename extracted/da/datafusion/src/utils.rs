@@ -15,18 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::{
-    common::data_type::PyScalarValue,
-    errors::{PyDataFusionError, PyDataFusionResult},
-    TokioRuntime,
-};
-use datafusion::{
-    common::ScalarValue, execution::context::SessionContext, logical_expr::Volatility,
-};
+use std::future::Future;
+use std::sync::{Arc, OnceLock};
+use std::time::Duration;
+
+use datafusion::common::ScalarValue;
+use datafusion::datasource::TableProvider;
+use datafusion::execution::context::SessionContext;
+use datafusion::logical_expr::Volatility;
+use datafusion_ffi::table_provider::{FFI_TableProvider, ForeignTableProvider};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::{exceptions::PyValueError, types::PyCapsule};
-use std::{future::Future, sync::OnceLock, time::Duration};
-use tokio::{runtime::Runtime, time::sleep};
+use pyo3::types::PyCapsule;
+use tokio::runtime::Runtime;
+use tokio::task::JoinHandle;
+use tokio::time::sleep;
+
+use crate::common::data_type::PyScalarValue;
+use crate::errors::{py_datafusion_err, to_datafusion_err, PyDataFusionError, PyDataFusionResult};
+use crate::TokioRuntime;
+
 /// Utility to get the Tokio Runtime from Python
 #[inline]
 pub(crate) fn get_tokio_runtime() -> &'static TokioRuntime {
@@ -69,19 +77,57 @@ where
     let runtime: &Runtime = &get_tokio_runtime().0;
     const INTERVAL_CHECK_SIGNALS: Duration = Duration::from_millis(1_000);
 
-    py.allow_threads(|| {
+    py.detach(|| {
         runtime.block_on(async {
             tokio::pin!(fut);
             loop {
                 tokio::select! {
                     res = &mut fut => break Ok(res),
                     _ = sleep(INTERVAL_CHECK_SIGNALS) => {
-                        Python::with_gil(|py| py.check_signals())?;
+                        Python::attach(|py| {
+                                // Execute a no-op Python statement to trigger signal processing.
+                                // This is necessary because py.check_signals() alone doesn't
+                                // actually check for signals - it only raises an exception if
+                                // a signal was already set during a previous Python API call.
+                                // Running even trivial Python code forces the interpreter to
+                                // process any pending signals (like KeyboardInterrupt).
+                                py.run(cr"pass", None, None)?;
+                                py.check_signals()
+                        })?;
                     }
                 }
             }
         })
     })
+}
+
+/// Spawn a [`Future`] on the Tokio runtime and wait for completion
+/// while respecting Python signal handling.
+pub(crate) fn spawn_future<F, T>(py: Python, fut: F) -> PyDataFusionResult<T>
+where
+    F: Future<Output = datafusion::common::Result<T>> + Send + 'static,
+    T: Send + 'static,
+{
+    let rt = &get_tokio_runtime().0;
+    let handle: JoinHandle<datafusion::common::Result<T>> = rt.spawn(fut);
+    // Wait for the join handle while respecting Python signal handling.
+    // We handle errors in two steps so `?` maps the error types correctly:
+    // 1) convert any Python-related error from `wait_for_future` into `PyDataFusionError`
+    // 2) convert any DataFusion error (inner result) into `PyDataFusionError`
+    let inner_result = wait_for_future(py, async {
+        // handle.await yields `Result<datafusion::common::Result<T>, JoinError>`
+        // map JoinError into a DataFusion error so the async block returns
+        // `datafusion::common::Result<T>` (i.e. Result<T, DataFusionError>)
+        match handle.await {
+            Ok(inner) => inner,
+            Err(join_err) => Err(to_datafusion_err(join_err)),
+        }
+    })?; // converts PyErr -> PyDataFusionError
+
+    // `inner_result` is `datafusion::common::Result<T>`; use `?` to convert
+    // the inner DataFusion error into `PyDataFusionError` via `From` and
+    // return the inner `T` on success.
+    Ok(inner_result?)
 }
 
 pub(crate) fn parse_volatility(value: &str) -> PyDataFusionResult<Volatility> {
@@ -91,7 +137,7 @@ pub(crate) fn parse_volatility(value: &str) -> PyDataFusionResult<Volatility> {
         "volatile" => Volatility::Volatile,
         value => {
             return Err(PyDataFusionError::Common(format!(
-                "Unsupportad volatility type: `{value}`, supported \
+                "Unsupported volatility type: `{value}`, supported \
                  values are: immutable, stable and volatile."
             )))
         }
@@ -101,9 +147,9 @@ pub(crate) fn parse_volatility(value: &str) -> PyDataFusionResult<Volatility> {
 pub(crate) fn validate_pycapsule(capsule: &Bound<PyCapsule>, name: &str) -> PyResult<()> {
     let capsule_name = capsule.name()?;
     if capsule_name.is_none() {
-        return Err(PyValueError::new_err(
-            "Expected schema PyCapsule to have name set.",
-        ));
+        return Err(PyValueError::new_err(format!(
+            "Expected {name} PyCapsule to have name set."
+        )));
     }
 
     let capsule_name = capsule_name.unwrap().to_str()?;
@@ -116,7 +162,24 @@ pub(crate) fn validate_pycapsule(capsule: &Bound<PyCapsule>, name: &str) -> PyRe
     Ok(())
 }
 
-pub(crate) fn py_obj_to_scalar_value(py: Python, obj: PyObject) -> PyResult<ScalarValue> {
+pub(crate) fn table_provider_from_pycapsule(
+    obj: &Bound<PyAny>,
+) -> PyResult<Option<Arc<dyn TableProvider>>> {
+    if obj.hasattr("__datafusion_table_provider__")? {
+        let capsule = obj.getattr("__datafusion_table_provider__")?.call0()?;
+        let capsule = capsule.downcast::<PyCapsule>().map_err(py_datafusion_err)?;
+        validate_pycapsule(capsule, "datafusion_table_provider")?;
+
+        let provider = unsafe { capsule.reference::<FFI_TableProvider>() };
+        let provider: ForeignTableProvider = provider.into();
+
+        Ok(Some(Arc::new(provider)))
+    } else {
+        Ok(None)
+    }
+}
+
+pub(crate) fn py_obj_to_scalar_value(py: Python, obj: Py<PyAny>) -> PyResult<ScalarValue> {
     // convert Python object to PyScalarValue to ScalarValue
 
     let pa = py.import("pyarrow")?;

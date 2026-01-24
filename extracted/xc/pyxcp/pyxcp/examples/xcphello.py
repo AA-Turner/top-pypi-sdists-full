@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Very basic hello-world example."""
+
 from pprint import pprint
 
 from pyxcp.cmdline import ArgumentParser
@@ -9,21 +10,7 @@ from pyxcp.utils import decode_bytes
 daq_info = False
 
 
-def callout(master, args):
-    global daq_info
-    if args.daq_info:
-        daq_info = True
-
-
-ap = ArgumentParser(description="pyXCP hello world.", callout=callout)
-ap.parser.add_argument(
-    "-d",
-    "--daq-info",
-    dest="daq_info",
-    help="Display DAQ-info",
-    default=False,
-    action="store_true",
-)
+ap = ArgumentParser(description="pyXCP hello world.")
 
 with ap.run() as x:
     x.connect()

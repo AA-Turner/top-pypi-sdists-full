@@ -80,9 +80,26 @@ def save_file(file, content, append=False, permissions=None):
         f.flush()
 
 
-def load_file(file_path: str, default=None, mode=None):
+def load_file(
+    file_path: str | os.PathLike,
+    default: str | bytes | None = None,
+    mode: str | None = None,
+    strict: bool = False,
+) -> str | bytes | None:
+    """
+    Return file contents
+
+    :param file_path: path of the file
+    :param default: if strict=False then return this value if the file does not exist
+    :param mode: mode to open the file with (e.g. `r`, `rw`)
+    :param strict: raise an error if the file path is not a file
+    :return: the file contents
+    """
     if not os.path.isfile(file_path):
-        return default
+        if strict:
+            raise FileNotFoundError(file_path)
+        else:
+            return default
     if not mode:
         mode = "r"
     with open(file_path, mode) as f:
@@ -288,7 +305,7 @@ def cleanup_tmp_files():
     del TMP_FILES[:]
 
 
-def new_tmp_file(suffix: str = None, dir: str = None) -> str:
+def new_tmp_file(suffix: str | None = None, dir: str | None = None) -> str:
     """Return a path to a new temporary file."""
     tmp_file, tmp_path = tempfile.mkstemp(suffix=suffix, dir=dir)
     os.close(tmp_file)
@@ -296,8 +313,15 @@ def new_tmp_file(suffix: str = None, dir: str = None) -> str:
     return tmp_path
 
 
-def new_tmp_dir(dir: str = None):
-    folder = new_tmp_file(dir=dir)
-    rm_rf(folder)
-    mkdir(folder)
+def new_tmp_dir(dir: str | None = None, mode: int = 0o777) -> str:
+    """
+    Create a new temporary directory with the specified permissions. The directory is added to the tracked temporary
+    files.
+    :param dir: parent directory for the temporary directory to be created. Systems's default otherwise.
+    :param mode: file permission for the directory (default: 0o777)
+    :return: the absolute path of the created directory
+    """
+    folder = tempfile.mkdtemp(dir=dir)
+    TMP_FILES.append(folder)
+    idempotent_chmod(folder, mode=mode)
     return folder

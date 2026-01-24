@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: iso4217
-Version: 1.14.20250512
+Version: 1.15.20260101
 Summary: ISO 4217 currency data package for Python
 Home-page: https://github.com/dahlia/iso4217
 Author: Hong Minhee

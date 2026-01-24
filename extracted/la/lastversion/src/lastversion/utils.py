@@ -21,6 +21,9 @@ import tqdm
 
 from lastversion.exceptions import TarPathTraversalException
 
+# Global quiet mode flag - when True, suppresses progress bars and non-error output
+QUIET_MODE = False
+
 PY7ZR_AVAILABLE = False
 try:
     # noinspection PyUnresolvedReferences
@@ -42,9 +45,7 @@ except ImportError:
 DOWNLOAD_TIMEOUT = 30
 
 log = logging.getLogger(__name__)
-content_disposition_regex = re.compile(
-    r"filename(?P<priority>\*)?=((?P<encoding>\S+)'')?(?P<filename>[^;]*)"
-)
+content_disposition_regex = re.compile(r"filename(?P<priority>\*)?=((?P<encoding>\S+)'')?(?P<filename>[^;]*)")
 
 # matches os.name to known extensions that are meant *mostly* to run on it,
 # and not other os.name-s
@@ -89,6 +90,14 @@ non_amd64_markers = [
     "armv7hl",
 ]
 
+# Markers indicating x86_64/amd64 architecture
+x86_64_markers = [
+    "x86_64",
+    "x86-64",
+    "amd64",
+    "x64",
+]
+
 
 def is_file_ext_not_compatible_with_os(file_ext):
     """
@@ -96,9 +105,7 @@ def is_file_ext_not_compatible_with_os(file_ext):
     Returns:
 
     """
-    return any(
-        os.name != os_name and file_ext == ext for os_name, ext in os_extensions.items()
-    )
+    return any(os.name != os_name and file_ext == ext for os_name, ext in os_extensions.items())
 
 
 def is_asset_name_compatible_with_platform(asset_name):
@@ -128,16 +135,31 @@ def is_not_compatible_to_distro(asset_ext):
 
 
 def is_not_compatible_bitness(asset_name):
-    """Check if an asset has words that show it's not meant for 64-bit OS"""
-    if platform.machine() not in ["x86_64", "AMD64"]:
-        return False
-    for non_amd64_word in non_amd64_markers:
-        regex = re.compile(rf"\b{non_amd64_word}\b", flags=re.IGNORECASE)
-        if regex.search(asset_name):
-            return True
-        regex = re.compile(r"\barm\d+\b", flags=re.IGNORECASE)
-        if regex.search(asset_name):
-            return True
+    """Check if an asset has words that show it's not meant for this machine's arch.
+
+    On x86_64/AMD64: filters out arm/aarch64/32-bit assets
+    On aarch64/arm64: filters out x86_64/amd64 assets
+    """
+    machine = platform.machine()
+
+    # On x86_64, filter out non-x86_64 assets
+    if machine in ["x86_64", "AMD64"]:
+        for non_amd64_word in non_amd64_markers:
+            regex = re.compile(rf"\b{non_amd64_word}\b", flags=re.IGNORECASE)
+            if regex.search(asset_name):
+                return True
+            # Also check for armNN patterns
+            regex = re.compile(r"\barm\d+\b", flags=re.IGNORECASE)
+            if regex.search(asset_name):
+                return True
+
+    # On aarch64/arm64, filter out x86_64 assets
+    elif machine in ["aarch64", "arm64"]:
+        for x86_word in x86_64_markers:
+            regex = re.compile(rf"\b{x86_word}\b", flags=re.IGNORECASE)
+            if regex.search(asset_name):
+                return True
+
     return False
 
 
@@ -239,9 +261,7 @@ def extract_appimage_desktop_file(appimage_path):
         if xdg_desktop_menu_path:
             subprocess.call([xdg_desktop_menu_path, "install", desktop_file])
         else:
-            log.warning(
-                "xdg-desktop-menu is not available, can't install the .desktop file"
-            )
+            log.warning("xdg-desktop-menu is not available, can't install the .desktop file")
 
     # Remove the temporary directory
     shutil.rmtree(temp_dir)
@@ -303,7 +323,7 @@ def download_file(url, local_filename=None):
 
             # noinspection PyTypeChecker
             pbar = tqdm.tqdm(
-                disable=None,  # disable on non-TTY
+                disable=QUIET_MODE or None,  # disable on non-TTY or in quiet mode
                 total=num_bars,
                 unit="KB",
                 desc=f"Downloading {local_filename}",
@@ -347,7 +367,7 @@ def extract_tar(buffer: io.BytesIO, to_dir):
         if not check_if_tar_safe(archive_file):
             raise TarPathTraversalException("Attempted Path Traversal in Tar File")
 
-        contents: list[tarfile.TarInfo] = archive_file.getmembers()
+        contents = archive_file.getmembers()
         assert contents, "Empty TAR archive"
         top_dir = Path(contents[0].name).resolve()
         only_one_top_dir = True
@@ -368,7 +388,7 @@ def extract_tar(buffer: io.BytesIO, to_dir):
                 item.path = str(Path(item.name).resolve().relative_to(top_dir))
                 archive_file.extract(item, to_dir)
         else:
-            archive_file.extractall(path=to_dir)
+            archive_file.extractall(path=to_dir)  # nosec B202 - trusted sources
 
 
 def extract_zip(buffer: io.BytesIO, to_dir):
@@ -401,7 +421,39 @@ def extract_zip(buffer: io.BytesIO, to_dir):
                 item.filename = new_path
                 archive_file.extract(item, to_dir)
         else:
-            archive_file.extractall(path=to_dir)
+            archive_file.extractall(path=to_dir)  # nosec B202 - trusted sources
+
+
+def detect_archive_type(buffer: io.BytesIO, url: str) -> str:
+    """Detect archive type by magic bytes or file extension.
+
+    Args:
+        buffer: File buffer to read magic bytes from.
+        url: URL to fall back on extension detection.
+
+    Returns:
+        Archive type: '7z', 'zip', or 'tar' (for any tar variant).
+    """
+    # Read magic bytes
+    magic = buffer.read(8)
+    buffer.seek(0)
+
+    # 7z magic: 37 7A BC AF 27 1C
+    if magic[:6] == b"7z\xbc\xaf'\x1c":
+        return "7z"
+    # ZIP magic: 50 4B (PK)
+    if magic[:2] == b"PK":
+        return "zip"
+
+    # Fall back to URL extension
+    url_lower = url.lower()
+    if url_lower.endswith(".7z"):
+        return "7z"
+    if url_lower.endswith(".zip"):
+        return "zip"
+
+    # Default to tar (handles .tar, .tar.gz, .tgz, .tar.bz2, .tar.xz, etc.)
+    return "tar"
 
 
 def extract_7z(buffer: io.BytesIO, to_dir):
@@ -413,7 +465,7 @@ def extract_7z(buffer: io.BytesIO, to_dir):
         log.critical("pip install py7zr to support .7z archives")
         return
     with py7zr.SevenZipFile(buffer) as file:
-        file.extractall(path=to_dir)
+        file.extractall(path=to_dir)  # nosec B202 - trusted sources
 
 
 def extract_file(url: str, to_dir="."):
@@ -438,7 +490,7 @@ def extract_file(url: str, to_dir="."):
             buffer = io.BytesIO()
             # noinspection PyTypeChecker
             with tqdm.tqdm(
-                disable=None,  # disable on non-TTY
+                disable=QUIET_MODE or None,  # disable on non-TTY or in quiet mode
                 total=num_bars,
                 unit="KB",
                 desc=url.split("/")[-1],
@@ -450,11 +502,13 @@ def extract_file(url: str, to_dir="."):
 
             # Process the file in memory (e.g., extract its contents)
             buffer.seek(0)
-            # Process the buffer (e.g., extract its contents)
+            # Detect archive type by magic bytes or extension
+            archive_type = detect_archive_type(buffer, url)
+            buffer.seek(0)
 
-            if url.endswith(".7z"):
+            if archive_type == "7z":
                 extract_7z(buffer, to_dir=to_dir)
-            elif url.endswith(".zip"):
+            elif archive_type == "zip":
                 extract_zip(buffer, to_dir=to_dir)
             else:
                 extract_tar(buffer, to_dir=to_dir)

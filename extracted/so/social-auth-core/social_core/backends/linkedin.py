@@ -3,13 +3,21 @@ LinkedIn OAuth1 and OAuth2 backend, docs at:
     https://python-social-auth.readthedocs.io/en/latest/backends/linkedin.html
 """
 
+from __future__ import annotations
+
 import datetime
 from calendar import timegm
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from social_core.backends.open_id_connect import OpenIdConnectAuth
 from social_core.exceptions import AuthCanceled, AuthTokenError
 
 from .oauth import BaseOAuth2
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from requests.auth import AuthBase
 
 
 class LinkedinOpenIdConnect(OpenIdConnectAuth):
@@ -57,7 +65,7 @@ class LinkedinOAuth2(BaseOAuth2):
     DEFAULT_SCOPE = ["r_liteprofile"]
     EXTRA_DATA = [
         ("id", "id"),
-        ("expires_in", "expires"),
+        ("expires_in", "expires_in"),
         ("firstName", "first_name"),
         ("lastName", "last_name"),
         ("refresh_token", "refresh_token"),
@@ -77,7 +85,7 @@ class LinkedinOAuth2(BaseOAuth2):
     def user_emails_url(self):
         return self.USER_EMAILS_URL
 
-    def user_data(self, access_token, *args, **kwargs):
+    def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         response = self.get_json(
             self.user_details_url(), headers=self.user_data_headers(access_token)
         )
@@ -144,11 +152,20 @@ class LinkedinOAuth2(BaseOAuth2):
         headers["Authorization"] = f"Bearer {access_token}"
         return headers
 
-    def request_access_token(self, *args, **kwargs):
+    def request_access_token(
+        self,
+        url: str,
+        method: Literal["GET", "POST", "DELETE"] = "GET",
+        headers: Mapping[str, str | bytes] | None = None,
+        data: dict | bytes | str | None = None,
+        auth: tuple[str, str] | AuthBase | None = None,
+        params: dict | None = None,
+    ) -> dict[Any, Any]:
         # LinkedIn expects a POST request with querystring parameters, despite
         # the spec http://tools.ietf.org/html/rfc6749#section-4.1.3
-        kwargs["params"] = kwargs.pop("data")
-        return super().request_access_token(*args, **kwargs)
+        return super().request_access_token(
+            url, method, headers, data, auth, cast("dict", data)
+        )
 
     def process_error(self, data) -> None:
         super().process_error(data)

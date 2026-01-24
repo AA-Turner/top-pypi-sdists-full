@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests for plugins."""
 
@@ -10,7 +10,8 @@ import io
 import math
 import os.path
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 from xml.etree import ElementTree
 
 import pytest
@@ -840,7 +841,7 @@ class BadFileTracerTest(FileTracerTest):
 
     def test_file_tracer_fails_eventually(self) -> None:
         # Django coverage plugin can report on a few files and then fail.
-        # https://github.com/nedbat/coveragepy/issues/1011
+        # https://github.com/coveragepy/coveragepy/issues/1011
         self.make_file(
             "bad_plugin.py",
             """\

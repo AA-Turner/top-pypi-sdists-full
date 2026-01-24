@@ -14,7 +14,6 @@
 #include "slang/text/CharInfo.h"
 #include "slang/util/OS.h"
 #include "slang/util/SmallVector.h"
-#include "slang/util/String.h"
 
 namespace fs = std::filesystem;
 
@@ -669,7 +668,9 @@ bool CommandLine::Option::expectsValue() const {
 std::string CommandLine::Option::set(std::string_view name, std::string_view value,
                                      bool ignoreDup) {
     std::string pathMem;
-    if (flags.has(CommandLineFlags::FilePath) && !value.empty() && value != "-") {
+    if (flags.has(CommandLineFlags::FilePath) && !value.empty() && value != "-" &&
+        !value.starts_with("..."sv)) {
+
         std::error_code ec;
         fs::path path = fs::weakly_canonical(value, ec);
         if (!ec) {
@@ -904,6 +905,17 @@ std::string CommandLine::addRenameCommand(std::string_view value) {
     value = value.substr(0, firstCommaIndex);
     cmdRename[std::string(value)] = slangName;
     return {};
+}
+
+std::string CommandLine::toKebabCase(std::string_view str) {
+    std::string result;
+    for (size_t i = 0; i < str.size(); ++i) {
+        char c = str[i];
+        if (i > 0 && std::isupper(c))
+            result += '-';
+        result += charToLower(c);
+    }
+    return result;
 }
 
 } // namespace slang

@@ -67,6 +67,13 @@ def get_project_info(headers: dict, project_id: Optional[str] = None):
     return r.json()
 
 
+def get_feature_flags(headers: dict):
+    url = f"{CLOUD_API_CLI_URL}/project/feature-flags"
+    r = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+
 class TunnelRequest(BaseModel):
     method: str
     path: str
@@ -89,7 +96,7 @@ class SessionPathMessage(BaseModel):
     sessionPath: str
 
 
-def connect_tunnel():
+def connect_tunnel(verbose: bool = False):
     url = f"{CLOUD_API_ENDPOINT}/tunnel/connect?format=dict".replace(
         "https://", "wss://"
     ).replace("http://", "ws://")
@@ -109,7 +116,8 @@ def connect_tunnel():
                     ping_timeout=10,
                     close_timeout=10,
                 ) as ws:
-                    print("WebSocket connection established")
+                    if verbose:
+                        print("WebSocket connection established")
                     while True:
                         try:
                             message = await asyncio.wait_for(ws.recv(), timeout=30.0)
@@ -181,27 +189,35 @@ def connect_tunnel():
                                 await ws.ping()
                                 continue
                             except Exception:
-                                print("WebSocket ping failed, connection lost")
+                                if verbose:
+                                    print("WebSocket ping failed, connection lost")
                                 break
                         except websockets.exceptions.ConnectionClosedOK:
-                            print("WebSocket connection closed OK")
+                            if verbose:
+                                print("WebSocket connection closed OK")
                             await asyncio.sleep(5)
                             break
                         except websockets.exceptions.ConnectionClosedError as e:
-                            print(f"WebSocket connection closed with error: {e}")
+                            if verbose:
+                                print(f"WebSocket connection closed with error: {e}")
                             await asyncio.sleep(5)
                             break
             except socket.gaierror:
-                print("Network error: Unable to resolve host. Retrying in 5 seconds...")
+                if verbose:
+                    print(
+                        "Network error: Unable to resolve host. Retrying in 5 seconds..."
+                    )
                 await asyncio.sleep(5)
                 continue
             except ConnectionRefusedError:
-                print("Network error: Connection refused. Retrying in 5 seconds...")
+                if verbose:
+                    print("Network error: Connection refused. Retrying in 5 seconds...")
                 await asyncio.sleep(5)
                 continue
             except Exception as e:
                 AbstraLogger.capture_exception(e)
-                print(f"Unexpected error: {e}. Retrying in 5 seconds...")
+                if verbose:
+                    print(f"Unexpected error: {e}. Retrying in 5 seconds...")
                 await asyncio.sleep(5)
                 continue
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-structlog
-Version: 9.1.1
+Version: 10.0.0
 Summary: Structured Logging for Django
 Author-email: Jules Robichaud-Gagnon <j.robichaudg+pypi@gmail.com>
 License: MIT
@@ -17,16 +17,16 @@ Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Logging
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
 Requires-Dist: django>=4.2
@@ -415,6 +415,16 @@ Json file (\ ``logs/json.log``\ )
 
 Upgrade Guide
 =============
+
+.. _upgrade_10.0:
+
+Upgrading to 10.0+
+^^^^^^^^^^^^^^^^^^
+
+Minimum requirements
+~~~~~~~~~~~~~~~~~~~~
+- requires python 3.10+
+
 
 .. _upgrade_9.0:
 

@@ -28,14 +28,19 @@ from __future__ import annotations
 import copy
 import logging
 import re
-import textwrap
+from functools import lru_cache
 from itertools import chain
+from string import punctuation
+from typing import TYPE_CHECKING
 
-from cwcwidth import wcswidth, wcwidth
+from unicode_segmentation_rs import gettext_wrap
 
 from translate.misc import quote
 from translate.misc.multistring import multistring
 from translate.storage import pocommon, poparser
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
@@ -56,32 +61,54 @@ po_unescape_re = re.compile(r"\\.")
 po_escape_map = {value: key for (key, value) in po_unescape_map.items()}
 po_escape_re = re.compile("|".join(re.escape(key) for key in po_escape_map))
 
+po_line_break_chars = {"/", "}", ")", ">", "-"}
+po_mergeable_chars = po_line_break_chars | {" ", "\t"}
+po_open_parenthesis_chars = {"{", "("}
+po_punctuation = set(punctuation)
 
-def splitlines(text):
-    """
+
+def splitlines(text: bytes) -> tuple[list[bytes], str]:
+    r"""
     Split lines based on first newline char.
 
-    Can not use univerzal newlines as they match any newline like
+    Can not use universal newlines as they match any newline like
     character inside text and that breaks on files with unix newlines
     and LF chars inside comments.
 
     The code looks for first msgid and looks for newline used after it. This
     should safely cover weird newlines used in comments or filenames, while
     properly parsing po files with any newlines.
+
+    Supported line ending patterns:
+    - LF (\n): Unix/Linux
+    - CR (\r): Old Mac
+    - CRLF (\r\n): Windows
+    - Multiple CR + LF (\r\r\n, etc.): Unusual but found in real files
     """
     # Strip UTF-8 BOM if present. This file would not be accepted
     # by gettext, but some editors might create it, so better handle it.
     if text[:3] == b"\xef\xbb\xbf":
         text = text[3:]
-    # Find first newline
+    # Find first newline after first msgid
     newline = b"\n"
     msgid_pos = max(0, text.find(b"\rmsgid ") + 1, text.find(b"\nmsgid ") + 1)
     for i, ch in enumerate(text[msgid_pos:]):
         # Iteration over bytes yields numbers in Python 3
-        if ch == 10:
+        if ch == 10:  # LF
             break
-        if ch == 13:
-            newline = b"\r\n" if text[msgid_pos + i + 1] == 10 else b"\r"
+        if ch == 13:  # CR
+            # Check for CR, CRLF, or unusual patterns like \r\r\n
+            j = msgid_pos + i + 1
+            # Count consecutive CRs to handle patterns like \r\r\n
+            while j < len(text) and text[j] == 13:  # CR
+                j += 1
+            # Check if followed by LF
+            if j < len(text) and text[j] == 10:  # LF
+                # Use the entire pattern (CR(s) + LF) as the line ending
+                newline = text[msgid_pos + i : j + 1]
+            else:
+                # Just CR without LF
+                newline = b"\r"
             break
 
     return [x + newline for x in text.split(newline)], newline.decode()
@@ -100,112 +127,35 @@ def escapeforpo(line: str) -> str:
     return po_escape_re.sub(escapehandler, line)
 
 
-def cjkslices(text: str, index: int) -> tuple[str, str]:
-    """Return the two slices of a text cut to the index."""
-    text_width = wcswidth(text)
-    if text_width == len(text) or text_width <= index:
-        return text, ""
-    length = 0
-    i = 0
-    for i in range(len(text)):
-        length += wcwidth(text[i])
-        if length > index:
-            break
-    return text[:i], text[i:]
+class PoWrapper:
+    r"""
+    Gettext-compatible text wrapper for PO files.
 
-
-class PoWrapper(textwrap.TextWrapper):
+    This implementation follows gettext's wrapping behavior:
+    - Never breaks escape sequences (\\n, \\", etc.)
+    - Prefers breaking after spaces
+    - Handles CJK characters with proper width calculation
+    - Breaks long words only when necessary
     """
-    Customized TextWrapper.
-
-    - custom word separator regexp
-    - full width chars accounting, based on https://bugs.python.org/issue24665
-    - dropped support for unused features (for example max_lines or drop_whitespace)
-    """
-
-    wordsep_re = re.compile(
-        r"""
-            (
-            \[[^\]]{1,73}\]|                      # [] braces
-            \\"[^"]{1,73}\\"|                     # quoted string
-            \s+|                                  # any whitespace
-            [a-z0-9A-Z_#\[\].-]+/|                # nicely split long URLs
-            \w*\\.\w*|                            # any escape should not be split
-            [\w\!\'\&\.\,\?=<>%]+\s+|             # space should go with a word
-            [^\s\w]*\w+[a-zA-Z]-(?=\w+[a-zA-Z])|  # hyphenated words
-            (?<=[\w\!\"\'\&\.\,\?])-{2,}(?=\w)    # em-dash
-            )
-        """,
-        re.VERBOSE,
-    )
 
     def __init__(self, width: int = 77) -> None:
-        super().__init__(
-            width=width,
-            replace_whitespace=False,
-            expand_tabs=False,
-            drop_whitespace=False,
-            break_long_words=True,
-        )
+        self.width = width
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, PoWrapper):
             return False
         return self.width == other.width
 
-    def _handle_long_word(
-        self, reversed_chunks: list[str], cur_line: list[str], cur_len: int, width: int
-    ) -> None:
+    def wrap(self, text: str) -> list[str]:
         """
-        Handle a chunk of text (most likely a word, not whitespace) that
-        is too long to fit in any line.
+        Wrap text to fit within the specified width.
+
+        Returns a list of lines, each no longer than self.width characters
+        (accounting for character display width for CJK characters).
         """
-        # We're allowed to break long words, then do so: put as much
-        # of the next chunk onto the current line as will fit.
-        chunk_start, chunk_end = cjkslices(reversed_chunks[-1], width - cur_len)
-        cur_line.append(chunk_start)
-        reversed_chunks[-1] = chunk_end
-
-    def _wrap_chunks(self, chunks: list[str]) -> list[str]:
-        lines = []
-        width = self.width
-        if width <= 1:
-            raise ValueError(f"invalid width {self.width!r} (must be > 1)")
-        if self.subsequent_indent or self.initial_indent:
-            raise ValueError("PoWrapper does not support indent")
-
-        # Arrange in reverse order so items can be efficiently popped
-        # from a stack of chucks.
-        chunks.reverse()
-
-        while chunks:
-            # Start the list of chunks that will make up the current line.
-            # cur_len is just the length of all the chunks in cur_line.
-            cur_line = []
-            cur_len = 0
-
-            while chunks:
-                l = wcswidth(chunks[-1])
-
-                # Can at least squeeze this chunk onto the current line.
-                if cur_len + l <= width:
-                    cur_line.append(chunks.pop())
-                    cur_len += l
-
-                # Nope, this line is full.
-                else:
-                    break
-
-            # The current line is full, and the next chunk is too big to
-            # fit on *any* line (not just this one).
-            if not cur_line and chunks and wcswidth(chunks[-1]) > width:
-                self._handle_long_word(chunks, cur_line, cur_len, width)
-
-            if cur_line:
-                # Convert current line back to a string and store it in
-                # list of all lines (return value).
-                lines.append("".join(cur_line))
-        return lines
+        if not text or self.width <= 0:
+            return [text] if text else []
+        return gettext_wrap(text, self.width)
 
 
 def quoteforpo(text: str | None, wrapper_obj: PoWrapper | None = None) -> list[str]:
@@ -217,21 +167,13 @@ def quoteforpo(text: str | None, wrapper_obj: PoWrapper | None = None) -> list[s
     text = escapeforpo(text)
     if wrapper_obj.width == -1:
         return [f'"{text}"']
-    lines = text.split("\\n")
-    for i, l in enumerate(lines[:-1]):
-        lines[i] = l + "\\n"
+
+    lines = wrapper_obj.wrap(text)
 
     polines = []
-    len_lines = len(lines)
-    if (
-        len_lines > 2
-        or (len_lines == 2 and lines[1])
-        or len(lines[0]) > wrapper_obj.width - 6
-    ):
+    if len(lines) >= 2 or (lines and len(lines[0]) > wrapper_obj.width - 6):
         polines.append('""')
-    for line in lines:
-        lns = wrapper_obj.wrap(line)
-        polines.extend(f'"{ln}"' for ln in lns)
+    polines.extend(f'"{line}"' for line in lines)
     return polines
 
 
@@ -252,8 +194,13 @@ def unescape(line: str) -> str:
     return po_unescape_re.sub(unescapehandler, line)
 
 
-def unquotefrompo(postr: str) -> str:
+@lru_cache(maxsize=2048)
+def _unquotefrompo(postr: tuple[str]) -> str:
     return "".join(unescape(line[1:-1]) for line in postr)
+
+
+def unquotefrompo(postr: list[str]) -> str:
+    return _unquotefrompo(tuple(postr))
 
 
 def is_null(lst: list[str]) -> bool:
@@ -266,7 +213,7 @@ def extractstr(string: str) -> str:
     right = string.rfind('"')
     if right > -1:
         return string[left : right + 1]
-    return string[left:] + '"'
+    return f'{string[left:]}"'
 
 
 class pounit(pocommon.pounit):
@@ -286,18 +233,20 @@ class pounit(pocommon.pounit):
     # fashion
     __shallow__ = ["_store", "wrapper"]
 
-    def __init__(self, source=None, wrapper=None, **kwargs):
-        self.wrapper = wrapper
-        self.obsolete = False
+    def __init__(self, source=None, wrapper: PoWrapper | None = None, **kwargs) -> None:
+        self.wrapper: PoWrapper | None = wrapper
+        self.obsolete: bool = False
         self._initallcomments(blankall=True)
-        self.prev_msgctxt = []
-        self.prev_msgid = []
-        self.prev_msgid_plural = []
-        self.msgctxt = []
-        self.msgid = []
-        self.msgid_pluralcomments = []
-        self.msgid_plural = []
-        self.msgstr = []
+        self.prev_msgctxt: list[str] = []
+        self.prev_msgid: list[str] = []
+        self.prev_msgid_plural: list[str] = []
+        self.msgctxt: list[str] = []
+        self.msgid: list[str] = []
+        self.msgid_pluralcomments: list[str] = []
+        self.msgid_plural: list[str] = []
+        self.msgstr: list[str] | dict[int, list[str]] = []
+        self._msgstrlen_cache: int | None = None
+        self._typecomments_cache: list[str] | None = None
         super().__init__(source)
 
     @property
@@ -306,13 +255,14 @@ class pounit(pocommon.pounit):
             return self._store.newline
         return "\n"
 
-    def _initallcomments(self, blankall=False):
+    def _initallcomments(self, blankall=False) -> None:
         """Initialises allcomments."""
         if blankall:
             self.othercomments = []
             self.automaticcomments = []
             self.sourcecomments = []
             self.typecomments = []
+            self._typecomments_cache = []
             self.msgidcomments = []
 
     def _get_all_comments(self):
@@ -333,21 +283,19 @@ class pounit(pocommon.pounit):
             return multistring([singular, pluralform])
         return singular
 
-    def quote(self, text):
+    def quote(self, text: str) -> list[str]:
         return quoteforpo(text, self.wrapper)
 
-    def _set_source_vars(self, source):
-        msgid = None
-        msgid_plural = None
+    def _set_source_vars(
+        self, source: str | list[str] | multistring
+    ) -> tuple[list[str], list[str]]:
         if isinstance(source, multistring):
             source = source.strings
         if isinstance(source, list):
-            msgid = self.quote(source[0])
-            msgid_plural = self.quote(source[1]) if len(source) > 1 else []
-        else:
-            msgid = self.quote(source)
-            msgid_plural = []
-        return msgid, msgid_plural
+            return self.quote(source[0]), self.quote(source[1]) if len(
+                source
+            ) > 1 else []
+        return self.quote(source), []
 
     @property
     def source(self):
@@ -355,7 +303,7 @@ class pounit(pocommon.pounit):
         return self._get_source_vars(self.msgid, self.msgid_plural)
 
     @source.setter
-    def source(self, source):
+    def source(self, source: str | list[str] | multistring) -> None:
         """
         Sets the msgid to the given (unescaped) value.
 
@@ -368,7 +316,7 @@ class pounit(pocommon.pounit):
         """Returns the unescaped msgid."""
         return self._get_source_vars(self.prev_msgid, self.prev_msgid_plural)
 
-    def _set_prev_source(self, source):
+    def _set_prev_source(self, source) -> None:
         """
         Sets the msgid to the given (unescaped) value.
 
@@ -382,12 +330,13 @@ class pounit(pocommon.pounit):
     def target(self):
         """Returns the unescaped msgstr."""
         if isinstance(self.msgstr, dict):
-            return multistring(list(map(unquotefrompo, self.msgstr.values())))
+            return multistring([unquotefrompo(value) for value in self.msgstr.values()])
         return unquotefrompo(self.msgstr)
 
     @target.setter
-    def target(self, target):
+    def target(self, target) -> None:
         """Sets the msgstr to the given (unescaped) value."""
+        self._msgstrlen_cache = None
         self._rich_target = None
         if self.hasplural():
             if isinstance(target, multistring):
@@ -399,8 +348,7 @@ class pounit(pocommon.pounit):
                 target = target[0]
             else:
                 raise ValueError(
-                    "po msgid element has no plural but msgstr has %d elements (%s)"
-                    % (len(target), target)
+                    f"po msgid element has no plural but msgstr has {len(target)} elements ({target})"
                 )
         templates = self.msgstr
         if isinstance(templates, list):
@@ -425,10 +373,6 @@ class pounit(pocommon.pounit):
         if prev_source and self.isfuzzy():
             unit = type(self)(prev_source)
             unit.target = self.target
-            # Already released versions of Virtaal (0.6.x) only supported XLIFF
-            # alternatives, and expect .xmlelement.get().
-            # This can be removed soon:
-            unit.xmlelement = {}
             return [unit]
         return []
 
@@ -450,7 +394,9 @@ class pounit(pocommon.pounit):
         # Let's drop the last newline
         return comments[: -len(newline)]
 
-    def addnote(self, text: str, origin: str | None = None, position: str = "append"):
+    def addnote(
+        self, text: str, origin: str | None = None, position: str = "append"
+    ) -> None:
         """
         This is modeled on the XLIFF method.
 
@@ -467,7 +413,7 @@ class pounit(pocommon.pounit):
             commentlist = self.automaticcomments
             linestart = "#."
         newcomments = [
-            "".join((linestart, " " if line else "", line, self.newline))
+            f"{linestart}{' ' if line else ''}{line}{self.newline}"
             for line in text.split(self.newline)
         ]
         if position == "append":
@@ -480,7 +426,7 @@ class pounit(pocommon.pounit):
         else:
             self.othercomments = newcomments
 
-    def removenotes(self, origin=None):
+    def removenotes(self, origin=None) -> None:
         """Remove all the translator's notes (other comments)."""
         self.othercomments = []
 
@@ -514,19 +460,26 @@ class pounit(pocommon.pounit):
         return len(unquotefrompo(self.msgid))
 
     def _msgstrlen(self):
-        if isinstance(self.msgstr, dict):
-            return sum(len(unquotefrompo(msgstr)) for msgstr in self.msgstr.values())
-        return len(unquotefrompo(self.msgstr))
+        if self._msgstrlen_cache is None:
+            if isinstance(self.msgstr, dict):
+                self._msgstrlen_cache = sum(
+                    len(unquotefrompo(msgstr)) for msgstr in self.msgstr.values()
+                )
+            else:
+                self._msgstrlen_cache = len(unquotefrompo(self.msgstr))
+        return self._msgstrlen_cache
 
-    def merge(self, otherpo, overwrite=False, comments=True, authoritative=False):
+    def merge(
+        self, otherunit, overwrite=False, comments=True, authoritative=False
+    ) -> None:
         """
-        Merges the otherpo (with the same msgid) into this one.
+        Merges the otherunit (with the same msgid) into this one.
 
         Overwrite non-blank self.msgstr only if overwrite is True
         merge comments only if comments is True
         """
 
-        def mergelists(list1, list2, split=False):
+        def mergelists(list1, list2, split=False) -> None:
             # Determine the newline style of list1
             lineend = ""
             if list1 and list1[0]:
@@ -565,37 +518,38 @@ class pounit(pocommon.pounit):
                     if item not in list1 or len(item) < 5:
                         list1.append(item)
 
-        if not isinstance(otherpo, pounit):
-            super().merge(otherpo, overwrite, comments)
+        if not isinstance(otherunit, pounit):
+            super().merge(otherunit, overwrite, comments)
             return
         if comments:
-            mergelists(self.othercomments, otherpo.othercomments)
-            mergelists(self.typecomments, otherpo.typecomments)
+            mergelists(self.othercomments, otherunit.othercomments)
+            mergelists(self.typecomments, otherunit.typecomments)
+            self._typecomments_cache = None
             if not authoritative:
-                # We don't bring across otherpo.automaticcomments as we
+                # We don't bring across otherunit.automaticcomments as we
                 # consider ourself to be the the authority.  Same applies
-                # to otherpo.msgidcomments
-                mergelists(self.automaticcomments, otherpo.automaticcomments)
-                mergelists(self.msgidcomments, otherpo.msgidcomments)
-                mergelists(self.sourcecomments, otherpo.sourcecomments, split=True)
+                # to otherunit.msgidcomments
+                mergelists(self.automaticcomments, otherunit.automaticcomments)
+                mergelists(self.msgidcomments, otherunit.msgidcomments)
+                mergelists(self.sourcecomments, otherunit.sourcecomments, split=True)
         if not self.istranslated() or overwrite:
             # Remove kde-style comments from the translation (if any).
-            if self._extract_msgidcomments(otherpo.target):
-                otherpo.target = otherpo.target.replace(
-                    "_: " + otherpo._extract_msgidcomments() + self.newline, ""
+            if self._extract_msgidcomments(otherunit.target):
+                otherunit.target = otherunit.target.replace(
+                    f"_: {otherunit._extract_msgidcomments()}{self.newline}", ""
                 )
-            self.target = otherpo.target
+            self.target = otherunit.target
             if (
-                self.source != otherpo.source
-                or self.getcontext() != otherpo.getcontext()
+                self.source != otherunit.source
+                or self.getcontext() != otherunit.getcontext()
             ):
                 self.markfuzzy()
             else:
-                self.markfuzzy(otherpo.isfuzzy())
-        elif not otherpo.istranslated():
-            if self.source != otherpo.source:
+                self.markfuzzy(otherunit.isfuzzy())
+        elif not otherunit.istranslated():
+            if self.source != otherunit.source:
                 self.markfuzzy()
-        elif self.target != otherpo.target:
+        elif self.target != otherunit.target:
             self.markfuzzy()
 
     def isheader(self):
@@ -603,7 +557,7 @@ class pounit(pocommon.pounit):
         # rewritten here for performance:
         return (
             is_null(self.msgid)
-            and not is_null(self.msgstr)
+            and not is_null(self.msgstr)  # ty:ignore[invalid-argument-type]
             and len(self.msgidcomments) == 0
             and is_null(self.msgctxt)
         )
@@ -620,7 +574,7 @@ class pounit(pocommon.pounit):
         # Before, the equivalent of the following was the final return statement:
         # return len(self.source.strip()) == 0
 
-    def _extracttypecomment(self):
+    def _extracttypecomment(self) -> Generator[str]:
         for tc in self.typecomments:
             for flag in tc.split(","):
                 value = flag.strip()
@@ -628,15 +582,18 @@ class pounit(pocommon.pounit):
                     continue
                 yield value
 
-    def hastypecomment(self, typecomment, parsed=None):
+    def _ensure_typecomments_cache(self) -> None:
+        if self._typecomments_cache is None:
+            self._typecomments_cache = list(self._extracttypecomment())
+
+    def hastypecomment(self, typecomment: str) -> bool:
         """Check whether the given type comment is present."""
         if not self.typecomments:
             return False
-        if not parsed:
-            parsed = self._extracttypecomment()
-        return typecomment in parsed
+        self._ensure_typecomments_cache()
+        return typecomment in self._typecomments_cache  # ty:ignore[unsupported-operator]
 
-    def hasmarkedcomment(self, commentmarker):
+    def hasmarkedcomment(self, commentmarker) -> bool:
         """
         Check whether the given comment marker is present.
 
@@ -650,17 +607,18 @@ class pounit(pocommon.pounit):
                 return True
         return False
 
-    def settypecomment(self, typecomment, present=True):
+    def settypecomment(self, typecomment: str, present: bool = True) -> None:
         """Alters whether a given typecomment is present."""
-        typecomments = list(self._extracttypecomment())
-        if self.hastypecomment(typecomment, typecomments) != present:
+        if self.hastypecomment(typecomment) != present:
+            # The typecomments cache might be still missing if typecomments are not present
+            self._ensure_typecomments_cache()
             if present:
-                typecomments.append(typecomment)
+                self._typecomments_cache.append(typecomment)  # ty:ignore[possibly-missing-attribute]
             else:
-                typecomments.remove(typecomment)
-            if typecomments:
-                typecomments.sort()
-                comments_str = ", ".join(typecomments)
+                self._typecomments_cache.remove(typecomment)  # ty:ignore[possibly-missing-attribute]
+            if self._typecomments_cache:
+                self._typecomments_cache.sort()
+                comments_str = ", ".join(self._typecomments_cache)
                 self.typecomments = [f"#, {comments_str}{self.newline}"]
             else:
                 self.typecomments = []
@@ -668,19 +626,19 @@ class pounit(pocommon.pounit):
     def isfuzzy(self):
         return self.hastypecomment("fuzzy")
 
-    def markfuzzy(self, present=True):
+    def markfuzzy(self, present=True) -> None:  # ty:ignore[invalid-method-override]
         if present:
             self.set_state_n(self.STATE[self.S_FUZZY][0])
-        elif (self.hasplural() and not self._msgstrlen()) or is_null(self.msgstr):
+        elif (self.hasplural() and not self._msgstrlen()) or is_null(self.msgstr):  # ty:ignore[invalid-argument-type]
             self.set_state_n(self.STATE[self.S_UNTRANSLATED][0])
         else:
             self.set_state_n(self.STATE[self.S_TRANSLATED][0])
         self._domarkfuzzy(present)
 
-    def _domarkfuzzy(self, present=True):
+    def _domarkfuzzy(self, present=True) -> None:
         self.settypecomment("fuzzy", present)
 
-    def infer_state(self):
+    def infer_state(self) -> None:
         if self.obsolete:
             self.makeobsolete()
         else:
@@ -689,14 +647,14 @@ class pounit(pocommon.pounit):
     def isobsolete(self):
         return self.obsolete
 
-    def makeobsolete(self):
+    def makeobsolete(self) -> None:
         """Makes this unit obsolete."""
         super().makeobsolete()
         self.obsolete = True
         self.sourcecomments = []
         self.automaticcomments = []
 
-    def resurrect(self):
+    def resurrect(self) -> None:
         """Makes an obsolete unit normal."""
         super().resurrect()
         self.obsolete = False
@@ -710,7 +668,7 @@ class pounit(pocommon.pounit):
             partkeys = sorted(partlines.keys())
             return "".join(
                 self._getmsgpartstr(
-                    "%s[%d]" % (partname, partkey), partlines[partkey], partcomments
+                    f"{partname}[{partkey}]", partlines[partkey], partcomments
                 )
                 for partkey in partkeys
             )
@@ -738,7 +696,7 @@ class pounit(pocommon.pounit):
                     comment = comment.removesuffix("\\n")
                     # Before we used to strip. Necessary in some cases?
                     combinedcomment.append(comment)
-                partcomments = self.quote("_:{}".format("".join(combinedcomment)))
+                partcomments = self.quote(f"_:{''.join(combinedcomment)}")
                 # Strip heading empty line for multiline string, it was already added above
                 if partcomments[0] == '""':
                     partcomments = partcomments[1:]
@@ -757,19 +715,19 @@ class pounit(pocommon.pounit):
             partstr.extend((partline, self.newline))
         return "".join(partstr)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Convert to a string."""
         return self._getoutput()
 
     def _getoutput(self):
         """Return this po element as a string."""
 
-        def add_prev_msgid_lines(lines, prefix, header, var):
+        def add_prev_msgid_lines(lines, prefix, header, var) -> None:
             if var:
                 lines.append(f"{prefix} {header} {var[0]}\n")
                 lines.extend(f"{prefix} {line}\n" for line in var[1:])
 
-        def add_prev_msgid_info(lines, prefix):
+        def add_prev_msgid_info(lines, prefix) -> None:
             add_prev_msgid_lines(lines, prefix, "msgctxt", self.prev_msgctxt)
             add_prev_msgid_lines(lines, prefix, "msgid", self.prev_msgid)
             add_prev_msgid_lines(lines, prefix, "msgid_plural", self.prev_msgid_plural)
@@ -835,22 +793,20 @@ class pounit(pocommon.pounit):
             locations[i] = pocommon.unquote_plus(loc)
         return locations
 
-    def addlocation(self, location):
+    def addlocation(self, location: str) -> None:
         """
         Add a location to sourcecomments in the PO unit.
 
         :param location: Text location e.g. 'file.c:23' does not include #:
-        :type location: String
 
         """
         location = pocommon.quote_plus(location)
         self.sourcecomments.append(f"#: {location}{self.newline}")
 
-    def _extract_msgidcomments(self, text=None):
+    def _extract_msgidcomments(self, text: str | None = None) -> str:
         """
         Extract KDE style msgid comments from the unit.
 
-        :rtype: String
         :return: Returns the extracted msgidcomments found in this
                  unit's msgid.
         """
@@ -858,7 +814,7 @@ class pounit(pocommon.pounit):
             text = unquotefrompo(self.msgidcomments)
         return text.split(self.newline)[0].replace("_: ", "", 1)
 
-    def setmsgidcomment(self, msgidcomment):
+    def setmsgidcomment(self, msgidcomment) -> None:
         if msgidcomment:
             self.msgidcomments = [f'"_: {msgidcomment}\\n"']
         else:
@@ -870,7 +826,7 @@ class pounit(pocommon.pounit):
         """Get the message context."""
         return unquotefrompo(self.msgctxt) + self._extract_msgidcomments()
 
-    def setcontext(self, context):
+    def setcontext(self, context) -> None:
         self.msgctxt = self.quote(context)
 
     def getid(self):
@@ -889,12 +845,12 @@ class pounit(pocommon.pounit):
         return id
 
 
-class pofile(pocommon.pofile):
+class pofile(pocommon.pofile[pounit]):
     """A .po file containing various units."""
 
     UnitClass = pounit
 
-    def __init__(self, inputfile=None, width=None, **kwargs):
+    def __init__(self, inputfile=None, width=None, **kwargs) -> None:
         wrapargs = {}
         if width is not None:
             wrapargs = {"width": width}
@@ -905,7 +861,7 @@ class pofile(pocommon.pofile):
     def create_unit(self):
         return self.UnitClass(wrapper=self.wrapper)
 
-    def parse(self, input):
+    def parse(self, input) -> None:  # ty:ignore[invalid-method-override]
         """Parses the given file or file source string."""
         if hasattr(input, "name"):
             self.filename = input.name
@@ -916,9 +872,9 @@ class pofile(pocommon.pofile):
         lines, self.newline = splitlines(input)
         # clear units to get rid of automatically generated headers before parsing
         self.units = []
-        poparser.parse_units(poparser.ParseState(iter(lines), self.create_unit), self)
+        poparser.parse_units(poparser.PoParseState(lines, self.create_unit), self)
 
-    def removeduplicates(self, duplicatestyle="merge"):
+    def removeduplicates(self, duplicatestyle="merge") -> None:
         """
         Make sure each msgid is unique ; merge comments etc from
         duplicates into original.
@@ -931,10 +887,8 @@ class pofile(pocommon.pofile):
         # probably not used frequently enough to worry about it, though.
         markedpos = []
 
-        def addcomment(thepo):
-            thepo.msgidcomments.append(
-                '"_: {}\\n"'.format(" ".join(thepo.getlocations()))
-            )
+        def addcomment(thepo) -> None:
+            thepo.msgidcomments.append(f'"_: {" ".join(thepo.getlocations())}\\n"')
             markedpos.append(thepo)
 
         for thepo in self.units:
@@ -953,11 +907,11 @@ class pofile(pocommon.pofile):
                     origpo = id_dict[id]
                     if origpo not in markedpos and not origpo.msgctxt:
                         origpo.msgctxt.append(
-                            '"{}"'.format(escapeforpo(" ".join(origpo.getlocations())))
+                            f'"{escapeforpo(" ".join(origpo.getlocations()))}"'
                         )
                         markedpos.append(thepo)
                     thepo.msgctxt.append(
-                        '"{}"'.format(escapeforpo(" ".join(thepo.getlocations())))
+                        f'"{escapeforpo(" ".join(thepo.getlocations()))}"'
                     )
                     if thepo.msgctxt != id_dict[id].msgctxt:
                         uniqueunits.append(thepo)
@@ -973,13 +927,13 @@ class pofile(pocommon.pofile):
                         addcomment(thepo)
                     else:
                         thepo.msgctxt.append(
-                            '"{}"'.format(escapeforpo(" ".join(thepo.getlocations())))
+                            f'"{escapeforpo(" ".join(thepo.getlocations()))}"'
                         )
                 id_dict[id] = thepo
                 uniqueunits.append(thepo)
         self.units = uniqueunits
 
-    def serialize(self, out):
+    def serialize(self, out) -> None:
         """Write to file."""
         at_start = True
         try:
@@ -1002,7 +956,7 @@ class pofile(pocommon.pofile):
             if not (unit.isheader() or unit.isobsolete()):
                 yield unit
 
-    def addunit(self, unit):
+    def addunit(self, unit) -> None:
         needs_update = unit.wrapper != self.wrapper
         unit.wrapper = self.wrapper
         super().addunit(unit)

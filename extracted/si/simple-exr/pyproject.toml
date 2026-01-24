@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simple_exr"
+version = "0.0.0"
+description = "A simple library for reading and writing EXR files"
+readme = "README.md"
+authors = [
+    { name = "NCJ", email = "me@ncj.wiki" },
+]
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS"
+]
+requires-python = ">=3.8"
+dependencies = [
+    "OpenEXR>=3",
+    "numpy"
+]
+
+[project.urls]
+homepage = "https://github.com/iamNCJ/simple-exr"

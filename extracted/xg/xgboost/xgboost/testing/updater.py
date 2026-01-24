@@ -2,39 +2,52 @@
 
 import json
 from functools import partial, update_wrapper
-from typing import Any, Dict, List, Union, overload
+from string import ascii_lowercase
+from typing import Any, Dict, List, Optional, Union, overload
 
 import numpy as np
 import pytest
 
 import xgboost as xgb
 import xgboost.testing as tm
+from xgboost.core import _parse_version
 from xgboost.data import is_pd_cat_dtype
 
 from ..core import DataIter
 from .data_iter import CatIter
+from .utils import Device
 
 
 @overload
-def get_basescore(model: xgb.XGBModel) -> float: ...
+def get_basescore(model: xgb.XGBModel) -> List[float]: ...
 
 
 @overload
-def get_basescore(model: xgb.Booster) -> float: ...
+def get_basescore(model: xgb.Booster) -> List[float]: ...
 
 
-def get_basescore(model: Union[xgb.XGBModel, xgb.Booster]) -> float:
+@overload
+def get_basescore(model: Dict[str, Any]) -> List[float]: ...
+
+
+def get_basescore(
+    model: Union[xgb.XGBModel, xgb.Booster, Dict],
+) -> List[float]:
     """Get base score from an XGBoost sklearn estimator."""
     if isinstance(model, xgb.XGBModel):
         model = model.get_booster()
 
-    base_score = float(
-        json.loads(model.save_config())["learner"]["learner_model_param"]["base_score"]
-    )
-    return base_score
+    if isinstance(model, dict):
+        jintercept = model["learner"]["learner_model_param"]["base_score"]
+    else:
+        jintercept = json.loads(model.save_config())["learner"]["learner_model_param"][
+            "base_score"
+        ]
+    return json.loads(jintercept)
 
 
-def check_init_estimation(tree_method: str) -> None:
+# pylint: disable=too-many-statements
+def check_init_estimation(tree_method: str, device: Device) -> None:
     """Test for init estimation."""
     from sklearn.datasets import (
         make_classification,
@@ -43,18 +56,26 @@ def check_init_estimation(tree_method: str) -> None:
     )
 
     def run_reg(X: np.ndarray, y: np.ndarray) -> None:  # pylint: disable=invalid-name
-        reg = xgb.XGBRegressor(tree_method=tree_method, max_depth=1, n_estimators=1)
+        reg = xgb.XGBRegressor(
+            tree_method=tree_method, max_depth=1, n_estimators=1, device=device
+        )
         reg.fit(X, y, eval_set=[(X, y)])
         base_score_0 = get_basescore(reg)
         score_0 = reg.evals_result()["validation_0"]["rmse"][0]
 
+        n_targets = 1 if y.ndim == 1 else y.shape[1]
+        intercept = np.full(shape=(n_targets,), fill_value=0.5, dtype=np.float32)
         reg = xgb.XGBRegressor(
-            tree_method=tree_method, max_depth=1, n_estimators=1, boost_from_average=0
+            tree_method=tree_method,
+            device=device,
+            max_depth=1,
+            n_estimators=1,
+            base_score=intercept,
         )
         reg.fit(X, y, eval_set=[(X, y)])
         base_score_1 = get_basescore(reg)
         score_1 = reg.evals_result()["validation_0"]["rmse"][0]
-        assert not np.isclose(base_score_0, base_score_1)
+        assert not np.isclose(base_score_0, base_score_1).any()
         assert score_0 < score_1  # should be better
 
     # pylint: disable=unbalanced-tuple-unpacking
@@ -64,20 +85,49 @@ def check_init_estimation(tree_method: str) -> None:
     X, y = make_regression(n_samples=4096, n_targets=3, random_state=17)
     run_reg(X, y)
 
-    def run_clf(X: np.ndarray, y: np.ndarray) -> None:  # pylint: disable=invalid-name
-        clf = xgb.XGBClassifier(tree_method=tree_method, max_depth=1, n_estimators=1)
-        clf.fit(X, y, eval_set=[(X, y)])
-        base_score_0 = get_basescore(clf)
-        score_0 = clf.evals_result()["validation_0"]["logloss"][0]
-
+    # pylint: disable=invalid-name
+    def run_clf(
+        X: np.ndarray, y: np.ndarray, w: Optional[np.ndarray] = None
+    ) -> List[float]:
         clf = xgb.XGBClassifier(
-            tree_method=tree_method, max_depth=1, n_estimators=1, boost_from_average=0
+            tree_method=tree_method, max_depth=1, n_estimators=1, device=device
         )
-        clf.fit(X, y, eval_set=[(X, y)])
+        if w is not None:
+            clf.fit(
+                X, y, sample_weight=w, eval_set=[(X, y)], sample_weight_eval_set=[w]
+            )
+        else:
+            clf.fit(X, y, eval_set=[(X, y)])
+        base_score_0 = get_basescore(clf)
+        if clf.n_classes_ == 2:
+            score_0 = clf.evals_result()["validation_0"]["logloss"][0]
+        else:
+            score_0 = clf.evals_result()["validation_0"]["mlogloss"][0]
+
+        n_targets = 1 if y.ndim == 1 else y.shape[1]
+        intercept = np.full(shape=(n_targets,), fill_value=0.5, dtype=np.float32)
+        clf = xgb.XGBClassifier(
+            tree_method=tree_method,
+            max_depth=1,
+            n_estimators=1,
+            device=device,
+            base_score=intercept,
+        )
+        if w is not None:
+            clf.fit(
+                X, y, sample_weight=w, eval_set=[(X, y)], sample_weight_eval_set=[w]
+            )
+        else:
+            clf.fit(X, y, eval_set=[(X, y)])
         base_score_1 = get_basescore(clf)
-        score_1 = clf.evals_result()["validation_0"]["logloss"][0]
-        assert not np.isclose(base_score_0, base_score_1)
-        assert score_0 < score_1  # should be better
+        if clf.n_classes_ == 2:
+            score_1 = clf.evals_result()["validation_0"]["logloss"][0]
+        else:
+            score_1 = clf.evals_result()["validation_0"]["mlogloss"][0]
+        assert not np.isclose(base_score_0, base_score_1).any()
+        assert score_0 < score_1 + 1e-4  # should be better
+
+        return base_score_0
 
     # pylint: disable=unbalanced-tuple-unpacking
     X, y = make_classification(n_samples=4096, random_state=17)
@@ -87,9 +137,29 @@ def check_init_estimation(tree_method: str) -> None:
     )
     run_clf(X, y)
 
+    X, y = make_classification(
+        n_samples=4096, random_state=17, n_classes=5, n_informative=20, n_redundant=0
+    )
+    intercept = run_clf(X, y)
+    np.testing.assert_allclose(np.sum(intercept), 1.0)
+    assert np.all(np.array(intercept) > 0)
+    np_int = (
+        np.histogram(
+            y, bins=np.concatenate([np.unique(y), np.array([np.finfo(np.float32).max])])
+        )[0]
+        / y.shape[0]
+    )
+    np.testing.assert_allclose(intercept, np_int)
+
+    rng = np.random.default_rng(1994)
+    w = rng.uniform(low=0, high=1, size=(y.shape[0],))
+    intercept = run_clf(X, y, w)
+    np.testing.assert_allclose(np.sum(intercept), 1.0)
+    assert np.all(np.array(intercept) > 0)
+
 
 # pylint: disable=too-many-locals
-def check_quantile_loss(tree_method: str, weighted: bool) -> None:
+def check_quantile_loss(tree_method: str, weighted: bool, device: Device) -> None:
     """Test for quantile loss."""
     from sklearn.datasets import make_regression
     from sklearn.metrics import mean_pinball_loss
@@ -99,9 +169,7 @@ def check_quantile_loss(tree_method: str, weighted: bool) -> None:
     n_samples = 4096
     n_features = 8
     n_estimators = 8
-    # non-zero base score can cause floating point difference with GPU predictor.
-    # multi-class has small difference than single target in the prediction kernel
-    base_score = 0.0
+
     rng = np.random.RandomState(1994)
     # pylint: disable=unbalanced-tuple-unpacking
     X, y = make_regression(
@@ -117,11 +185,15 @@ def check_quantile_loss(tree_method: str, weighted: bool) -> None:
     Xy = xgb.QuantileDMatrix(X, y, weight=weight)
 
     alpha = np.array([0.1, 0.5])
+    # non-zero base score can cause floating point difference with GPU predictor.
+    # multi-class has small difference than single target in the prediction kernel
+    base_score = np.zeros(shape=alpha.shape, dtype=np.float32)
     evals_result: Dict[str, Dict] = {}
     booster_multi = xgb.train(
         {
             "objective": "reg:quantileerror",
             "tree_method": tree_method,
+            "device": device,
             "quantile_alpha": alpha,
             "base_score": base_score,
         },
@@ -153,8 +225,9 @@ def check_quantile_loss(tree_method: str, weighted: bool) -> None:
             {
                 "objective": "reg:quantileerror",
                 "tree_method": tree_method,
+                "device": device,
                 "quantile_alpha": a,
-                "base_score": base_score,
+                "base_score": base_score[i],
             },
             Xy,
             num_boost_round=n_estimators,
@@ -572,6 +645,155 @@ def check_categorical_missing(  # pylint: disable=too-many-arguments
 
     # Test with partition-based split
     run(USE_PART)
+
+
+def run_max_cat(tree_method: str, device: Device) -> None:
+    """Test data with size smaller than number of categories."""
+    import pandas as pd
+
+    rng = np.random.default_rng(0)
+    n_cat = 100
+    n = 5
+
+    X = pd.Series(
+        ["".join(rng.choice(list(ascii_lowercase), size=3)) for i in range(n_cat)],
+        dtype="category",
+    )[:n].to_frame()
+
+    reg = xgb.XGBRegressor(
+        enable_categorical=True,
+        tree_method=tree_method,
+        device=device,
+        n_estimators=10,
+    )
+    y = pd.Series(range(n))
+    reg.fit(X=X, y=y, eval_set=[(X, y)])
+    assert tm.non_increasing(reg.evals_result()["validation_0"]["rmse"])
+
+
+def run_invalid_category(tree_method: str, device: Device) -> None:
+    """Test with invalid categorical inputs."""
+    rng = np.random.default_rng()
+    # too large
+    X = rng.integers(low=0, high=4, size=1000).reshape(100, 10)
+    y = rng.normal(loc=0, scale=1, size=100)
+    X[13, 7] = np.iinfo(np.int32).max + 1
+
+    # Check is performed during sketching.
+    Xy = xgb.DMatrix(X, y, feature_types=["c"] * 10)
+    with pytest.raises(ValueError):
+        xgb.train({"tree_method": tree_method, "device": device}, Xy)
+
+    X[13, 7] = 16777216
+    Xy = xgb.DMatrix(X, y, feature_types=["c"] * 10)
+    with pytest.raises(ValueError):
+        xgb.train({"tree_method": tree_method, "device": device}, Xy)
+
+    # mixed positive and negative values
+    X = rng.normal(loc=0, scale=1, size=1000).reshape(100, 10)  # type: ignore
+    y = rng.normal(loc=0, scale=1, size=100)
+
+    Xy = xgb.DMatrix(X, y, feature_types=["c"] * 10)
+    with pytest.raises(ValueError):
+        xgb.train({"tree_method": tree_method, "device": device}, Xy)
+
+    if device == "cuda":
+        import cupy as cp
+
+        X, y = cp.array(X), cp.array(y)
+        with pytest.raises(ValueError):
+            Xy = xgb.QuantileDMatrix(X, y, feature_types=["c"] * 10)
+
+
+def run_adaptive(tree_method: str, weighted: bool, device: Device) -> None:
+    """Test for adaptive trees."""
+    rng = np.random.RandomState(1994)
+    from sklearn import __version__ as sklearn_version
+    from sklearn.datasets import make_regression
+    from sklearn.utils import stats
+
+    n_samples = 256
+    X, y = make_regression(  # pylint: disable=unbalanced-tuple-unpacking
+        n_samples, 16, random_state=rng
+    )
+    if weighted:
+        w = rng.normal(size=n_samples)
+        w -= w.min()
+        Xy = xgb.DMatrix(X, y, weight=w)
+
+        (sk_major, sk_minor, _), _ = _parse_version(sklearn_version)
+        if sk_major > 1 or sk_minor >= 7:
+            kwargs = {"percentile_rank": 50}
+        else:
+            kwargs = {"percentile": 50}
+        base_score = stats._weighted_percentile(  # pylint: disable=protected-access
+            y, w, **kwargs
+        )
+    else:
+        Xy = xgb.DMatrix(X, y)
+        base_score = np.median(y)
+
+    booster_0 = xgb.train(
+        {
+            "tree_method": tree_method,
+            "base_score": base_score,
+            "objective": "reg:absoluteerror",
+            "device": device,
+        },
+        Xy,
+        num_boost_round=1,
+    )
+    booster_1 = xgb.train(
+        {
+            "tree_method": tree_method,
+            "objective": "reg:absoluteerror",
+            "device": device,
+        },
+        Xy,
+        num_boost_round=1,
+    )
+    config_0 = json.loads(booster_0.save_config())
+    config_1 = json.loads(booster_1.save_config())
+
+    assert get_basescore(config_0) == get_basescore(config_1)
+
+    raw_booster = booster_1.save_raw(raw_format="ubj")
+    booster_2 = xgb.Booster(model_file=raw_booster)
+    config_2 = json.loads(booster_2.save_config())
+    assert get_basescore(config_1) == get_basescore(config_2)
+
+    booster_0 = xgb.train(
+        {
+            "tree_method": tree_method,
+            "base_score": base_score + 1.0,
+            "objective": "reg:absoluteerror",
+            "device": device,
+        },
+        Xy,
+        num_boost_round=1,
+    )
+    config_0 = json.loads(booster_0.save_config())
+    np.testing.assert_allclose(
+        get_basescore(config_0), np.asarray(get_basescore(config_1)) + 1
+    )
+
+    evals_result: Dict[str, Dict[str, list]] = {}
+    xgb.train(
+        {
+            "tree_method": tree_method,
+            "device": device,
+            "objective": "reg:absoluteerror",
+            "subsample": 0.8,
+            "eta": 1.0,
+        },
+        Xy,
+        num_boost_round=10,
+        evals=[(Xy, "Train")],
+        evals_result=evals_result,
+    )
+    mae = evals_result["Train"]["mae"]
+    assert mae[-1] < 20.0
+    assert tm.non_increasing(mae)
 
 
 def train_result(

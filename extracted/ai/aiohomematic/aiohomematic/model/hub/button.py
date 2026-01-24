@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """Module for hub data points implemented using the button category."""
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from aiohomematic.property_decorators import state_property
 
 
 class ProgramDpButton(GenericProgramDataPoint):
-    """Class for a HomeMatic program button."""
+    """Class for a Homematic program button."""
 
     __slots__ = ()
 
@@ -20,9 +20,9 @@ class ProgramDpButton(GenericProgramDataPoint):
     @state_property
     def available(self) -> bool:
         """Return the availability of the device."""
-        return self._is_active and self._central.available
+        return self._is_active and self._central_info.available
 
     @inspector
     async def press(self) -> None:
         """Handle the button press."""
-        await self.central.execute_program(pid=self.pid)
+        await self._hub_data_fetcher.execute_program(pid=self.pid)

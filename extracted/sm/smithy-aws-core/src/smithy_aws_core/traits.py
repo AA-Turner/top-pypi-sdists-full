@@ -10,8 +10,9 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
+from smithy_core.documents import DocumentValue
 from smithy_core.shapes import ShapeID
-from smithy_core.traits import DocumentValue, DynamicTrait, Trait
+from smithy_core.traits import DynamicTrait, Trait
 
 
 @dataclass(init=False, frozen=True)
@@ -25,14 +26,15 @@ class RestJson1Trait(Trait, id=ShapeID("aws.protocols#restJson1")):
 
     def __init__(self, value: DocumentValue | DynamicTrait = None):
         super().__init__(value)
-        assert isinstance(self.document_value, Mapping)
+        document_value = value or {}
+        assert isinstance(document_value, Mapping)
 
-        http_versions = self.document_value["http"]
+        http_versions = document_value.get("http", ["http/1.1"])
         assert isinstance(http_versions, Sequence)
         for val in http_versions:
             assert isinstance(val, str)
         object.__setattr__(self, "http", tuple(http_versions))
-        event_stream_http_versions = self.document_value.get("eventStreamHttp")
+        event_stream_http_versions = document_value.get("eventStreamHttp")
         if not event_stream_http_versions:
             object.__setattr__(self, "event_stream_http", self.http)
         else:
@@ -42,3 +44,14 @@ class RestJson1Trait(Trait, id=ShapeID("aws.protocols#restJson1")):
             object.__setattr__(
                 self, "event_stream_http", tuple(event_stream_http_versions)
             )
+
+
+@dataclass(init=False, frozen=True)
+class SigV4Trait(Trait, id=ShapeID("aws.auth#sigv4")):
+    def __post_init__(self):
+        assert isinstance(self.document_value, Mapping)
+        assert isinstance(self.document_value["name"], str)
+
+    @property
+    def name(self) -> str:
+        return self.document_value["name"]  # type: ignore

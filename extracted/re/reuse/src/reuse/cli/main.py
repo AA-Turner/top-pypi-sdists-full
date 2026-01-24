@@ -14,7 +14,6 @@ import logging
 import os
 import warnings
 from pathlib import Path
-from typing import Optional
 
 import click
 from click.formatting import wrap_text
@@ -24,7 +23,7 @@ from .._util import setup_logging
 from ..i18n import _
 from .common import ClickObj
 
-_PACKAGE_PATH = os.path.dirname(__file__)
+_PACKAGE_PATH = os.path.dirname(os.path.dirname(__file__))
 _LOCALE_DIR = os.path.join(_PACKAGE_PATH, "locale")
 if gettext.find("reuse", localedir=_LOCALE_DIR):
     gettext.bindtextdomain("reuse", _LOCALE_DIR)
@@ -130,7 +129,7 @@ def main(
     include_submodules: bool,
     include_meson_subprojects: bool,
     no_multiprocessing: bool,
-    root: Optional[Path],
+    root: Path | None,
 ) -> None:
     # pylint: disable=missing-function-docstring,too-many-arguments
     setup_logging(level=logging.DEBUG if debug else logging.WARNING)

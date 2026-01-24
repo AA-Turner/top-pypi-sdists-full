@@ -23,6 +23,7 @@ ANYSCALE_ALLOW_MULTIPLE_CLIENTS=0 in the environment.
 
 import copy
 from datetime import datetime, timezone
+import importlib
 import inspect
 import os
 from pathlib import Path
@@ -203,11 +204,11 @@ class ClientBuilder:
         self._anyscale_api_client = anyscale_api_client
         if not _ray:
             try:
-                import ray
+                import ray  # noqa: PLC0415 - codex_reason("gpt5.2", "lazy import to avoid hard dependency during CLI startup")
 
-                # Workaround for older versions of with ray that don't have the
+                # Workaround for older versions of ray that don't have the
                 # fix for: https://github.com/ray-project/ray/issues/19840
-                from ray.autoscaler import sdk  # noqa
+                importlib.import_module("ray.autoscaler.sdk")
             except ModuleNotFoundError:
                 raise RuntimeError(
                     "Ray is not installed. Please install with: \n"
@@ -769,7 +770,9 @@ class ClientBuilder:
         # users to pass the URL for Serve deployments with `DeploymentClass.url`
         # TODO(nikita): Update documentation once Ray 1.7 is released
         try:
-            from ray.serve.constants import SERVE_ROOT_URL_ENV_KEY
+            from ray.serve.constants import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional Ray Serve dependency")
+                SERVE_ROOT_URL_ENV_KEY,
+            )
         except ImportError:
             SERVE_ROOT_URL_ENV_KEY = "RAY_SERVE_ROOT_URL"
 

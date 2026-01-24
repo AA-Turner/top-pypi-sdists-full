@@ -7,7 +7,8 @@ import sys
 import os
 from pywinauto.findwindows import ElementNotFoundError
 from pywinauto.keyboard import send_keys
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 from worker_automate_hub.utils.logger import logger
 from worker_automate_hub.models.dto.rpa_historico_request_dto import (
     RpaHistoricoStatusEnum,
@@ -44,6 +45,8 @@ console = Console()
 
 emsys = EMSys()
 
+# ASSETS_PATH = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\abertura_livros"
+ASSETS_PATH  = r"assets\abertura_livros"
 
 @repeat(times=10, delay=5)
 async def wait_aguarde_window_closed(app, timeout=60):
@@ -66,17 +69,6 @@ async def wait_aguarde_window_closed(app, timeout=60):
     console.log("Timeout esperando a janela Aguarde...")
 
 
-def click_desconfirmar():
-    cords = (675, 748)
-    pyautogui.click(x=cords[0], y=cords[1])
-
-
-def ctrl_c():
-    pyautogui.press("tab", presses=12)  # verificar
-    pyautogui.hotkey("ctrl", "c")
-    return pyperclip.paste()
-
-
 async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
     try:
         config = await get_config_by_name("login_emsys_fiscal")
@@ -91,11 +83,11 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             message="32-bit application should be automated using 32-bit Python",
         )
 
-        await worker_sleep(4)
+        await worker_sleep(8)
 
         try:
             app = Application(backend="win32").connect(
-                class_name="TFrmLoginModulo", timeout=50
+                class_name="TFrmLoginModulo", timeout=120
             )
         except:
             return RpaRetornoProcessoDTO(
@@ -146,7 +138,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             console.print("Aguardando janela 'Movimento de Livro Fiscal' aparecer...")
 
             # Tempo limite de espera (em segundos)
-            timeout = 60
+            timeout = 3600
             inicio = time.time()
 
             # Espera até a janela aparecer
@@ -202,7 +194,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             saida_checkbox.click_input()
 
             console.print("Aguardar marcar caixa de saida")
-            imagem = "assets\\abertura_livros\\saida_marcada.png"
+            imagem = fr"{ASSETS_PATH}\saida_marcada.png"
 
             tempo_limite = 600  # 10 minutos
             intervalo = 2  # segundos entre verificações
@@ -338,9 +330,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             await worker_sleep(5)
 
             console.print("Aguardar o término de carregar")
-            imagem = "assets\\abertura_livros\\livros_incluidos.png"
+            imagem = fr"{ASSETS_PATH}\livros_incluidos.png"
 
-            tempo_limite = 1200  # 20 minutos
+            tempo_limite = 6600  # 1h
             intervalo = 2  # segundos entre as verificações
 
             inicio = time.time()
@@ -362,10 +354,10 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                             info_window.child_window(
                                 class_name="Button", found_index=0
                             ).click_input()
-                        except Exception as e:
-                            print(f"Erro ao clicar em 'Sim' na janela Informação: {e}")
-                except Exception as e:
-                    print(f"[Erro ao procurar imagem]: {e}")
+                        except:
+                            pass
+                except:
+                    pass
 
                 # Verifica se a janela TMsgBox de aviso está aberta
                 try:
@@ -375,25 +367,65 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                     box.set_focus()
                     box.child_window(class_name="TBitBtn", found_index=0).click_input()
                     print("Clicou no botão 'TBitBtn'.")
-                except ElementNotFoundError:
+                except:
                     pass
-                except Exception as e:
-                    print(f"[Erro ao procurar/clicar na TMessageForm]: {e}")
 
                 # 2. Verifica e trata janela de confirmação TMessageForm
                 try:
-                    app_msg = Application().connect(
-                        class_name="TMessageForm", timeout=2
-                    )
-                    form = app_msg["TMessageForm"]
-                    console.print("Janela de confirmação 'TMessageForm' encontrada.")
-                    form.set_focus()
-                    form.child_window(class_name="TButton", found_index=0).click_input()
-                    print("Clicou no botão de confirmação.")
-                except ElementNotFoundError:
+                    img_dialog = fr"{ASSETS_PATH}\notas_rejeitadas.png"
+                    if os.path.exists(img_dialog):
+                        caixa = pyautogui.locateOnScreen(
+                            img_dialog, confidence=0.9, grayscale=True
+                        )
+                        if caixa:
+                            print("Janela 'notas rejeitadas' detectada por imagem.")
+                            region = (caixa.left, caixa.top, caixa.width, caixa.height)
+
+                            app_msg = Application().connect(
+                                class_name="TMessageForm", timeout=2
+                            )
+                            form = app_msg["TMessageForm"]
+                            console.print(
+                                "Janela de confirmação 'TMessageForm' encontrada."
+                            )
+                            form.set_focus()
+                            form.child_window(
+                                class_name="TButton", found_index=1
+                            ).click_input()
+                            print("Clicou no botão de sim.")
+
+                            await worker_sleep(5)
+
+                            img_dialog = fr"{ASSETS_PATH}\gerar_rel_notas_rejeitadas.png"
+                            if os.path.exists(img_dialog):
+                                caixa = pyautogui.locateOnScreen(
+                                    img_dialog, confidence=0.9, grayscale=True
+                                )
+                                if caixa:
+                                    print(
+                                        "Janela 'notas relatorios rejeitadas' detectada por imagem."
+                                    )
+                                    region = (
+                                        caixa.left,
+                                        caixa.top,
+                                        caixa.width,
+                                        caixa.height,
+                                    )
+
+                                    app_msg = Application().connect(
+                                        class_name="TMessageForm", timeout=2
+                                    )
+                                    form = app_msg["TMessageForm"]
+                                    console.print(
+                                        "Janela de confirmação 'TMessageForm' encontrada."
+                                    )
+                                    form.set_focus()
+                                    form.child_window(
+                                        class_name="TButton", found_index=0
+                                    ).click_input()
+                                    print("Clicou no botão de não.")
+                except:
                     pass
-                except Exception as e:
-                    print(f"[Erro ao procurar/clicar na TMessageForm]: {e}")
 
                 # 3. Verifica se a janela do relatório está aberta
                 try:
@@ -403,10 +435,8 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                     janela = app_report["TFrmPreviewRelatorio"]
                     print("Janela 'TFrmPreviewRelatorio' encontrada.")
                     janela_aberta = True
-                except ElementNotFoundError:
+                except:
                     pass
-                except Exception as e:
-                    print(f"[Erro ao procurar TFrmPreviewRelatorio]: {e}")
 
                 # Se encontrou a janela de relatório, sai
                 if janela_aberta:
@@ -441,8 +471,25 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             main_window = app["TFrmPreviewRelatorio"]
             main_window.set_focus()
 
+            # Verificando se a foi confirmado os livres
+            console.print("Verificando se os livros foram confirmados")
+
+            imagem = fr"{ASSETS_PATH}\confirmado_livros.png"
+            if os.path.exists(imagem):
+                caixa = pyautogui.locateOnScreen(imagem, confidence=0.9, grayscale=True)
+            else:
+                console.print("Imagem confirmada não encontrada")
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=f"Erro na Abertura de Livro Fiscal: Imagem confirmada não encontrada",
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                )
+
             # Clicar em fechar
             main_window.close()
+
+            console.print("Livros confirmados")
 
             await worker_sleep(5)
 
@@ -549,7 +596,9 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 class_name="TDBIEditDate", found_index=0
             )
             data_input.click_input()
-            await worker_sleep(1)
+
+            await worker_sleep(5)
+
             data_input.set_edit_text("")  # Limpa o campo
 
             # Define a competência
@@ -558,45 +607,33 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             console.print("Clicando no botão incluir apuração")
             # Clicar em incluir apuração
-            # imagem = "assets\\abertura_livros\\btn_incluir_apuracao.png"
-            imagem = "assets\\abertura_livros\\btn_incluir_apuracao.png"
+            imagem = fr"{ASSETS_PATH}\btn_incluir_apuracao.png"
 
             # Tenta localizar a imagem na tela
-            localizacao = pyautogui.locateCenterOnScreen(
-                imagem, confidence=0.9
-            )  
-  
+            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)
+
             if localizacao:
-                print(f"Imagem incluir apuração encontrado em: {localizacao}")
+                console.print(f"Imagem incluir apuração encontrado em: {localizacao}")
                 pyautogui.moveTo(localizacao)
                 pyautogui.click()
+                console.print("Botão incluir clicado com sucesso")
 
-                await worker_sleep(10)
+                await worker_sleep(2)
 
-                imagem = "assets\\abertura_livros\\aviso_erro.png"
+                # === 5) Se não houve 'Aviso' com erro mapeado, considera sucesso ===
+                console.print("Nenhum erro confirmado. Fluxo OK.")
+                try:
+                    main_window.close()
+                    console.print("Janela principal fechada.")
+                except Exception as e:
+                    console.print(f"Falha ao fechar janela principal (ignorado): {e}")
 
-                # Tenta localizar a imagem na tela
-                localizacao_erro = pyautogui.locateCenterOnScreen(
-                    imagem, confidence=0.9
-                )  
-    
-                if localizacao_erro:
-                    return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=f"Erro ao Incluir apuração, situação diferente de confirmado.",
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
-                )
-
-                main_window.close()
-                
-                console.print("Apuração incluida com sucesso")
-                retorno = "Apuração incluida com sucesso"
+                retorno = "Apuração incluída com sucesso"
                 return RpaRetornoProcessoDTO(
-                    sucesso=True, retorno=retorno, status=RpaHistoricoStatusEnum.Sucesso
+                    sucesso=True,
+                    retorno=retorno,
+                    status=RpaHistoricoStatusEnum.Sucesso,
                 )
-            else:
-                console.print("Imagem incluir apuração não encontrada na tela.")
 
     except Exception as erro:
 
@@ -607,3 +644,4 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
         )
+

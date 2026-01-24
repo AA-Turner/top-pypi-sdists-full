@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coqui-tts-trainer
-Version: 0.3.1
+Version: 0.3.3
 Summary: General purpose model trainer for PyTorch that is more flexible than it should be, by 🐸Coqui.
 Project-URL: Homepage, https://github.com/idiap/coqui-ai-Trainer
 Project-URL: Repository, https://github.com/idiap/coqui-ai-Trainer
@@ -22,22 +22,30 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.14,>=3.10
-Requires-Dist: coqpit-config<0.3.0,>=0.2.0
+Requires-Python: <3.15,>=3.10
+Requires-Dist: coqpit-config<0.3.0,>=0.2.2
 Requires-Dist: fsspec>=2023.6.0
-Requires-Dist: numpy>=1.25.2; python_version < '3.12'
-Requires-Dist: numpy>=1.26.0; python_version == '3.12'
-Requires-Dist: numpy>=2.1.0; python_version >= '3.13'
 Requires-Dist: packaging>=21.0
 Requires-Dist: psutil>=5
-Requires-Dist: soundfile>=0.12.0
-Requires-Dist: tensorboard>=2.17.0
-Requires-Dist: torch>=2.1; python_version < '3.12'
-Requires-Dist: torch>=2.3; python_version == '3.12'
-Requires-Dist: torch>=2.6; python_version >= '3.13'
+Requires-Dist: tensorboard>=2.17.1
+Provides-Extra: aim
+Requires-Dist: aim>=3.21; (python_version < '3.13') and extra == 'aim'
+Provides-Extra: clearml
+Requires-Dist: clearml>=2; extra == 'clearml'
+Requires-Dist: soundfile>=0.12.0; extra == 'clearml'
+Provides-Extra: cpu
+Requires-Dist: torch>=2.2; extra == 'cpu'
+Provides-Extra: cuda
+Requires-Dist: torch>=2.2; extra == 'cuda'
+Provides-Extra: mlflow
+Requires-Dist: mlflow>=3.7; extra == 'mlflow'
+Requires-Dist: soundfile>=0.12.0; extra == 'mlflow'
+Provides-Extra: wandb
+Requires-Dist: wandb>=0.19; extra == 'wandb'
 Description-Content-Type: text/markdown
 
 <p align="center"><img src="https://user-images.githubusercontent.com/1402048/151947958-0bcadf38-3a82-4b4e-96b4-a38d3721d737.png" align="right" height="255px" /></p>

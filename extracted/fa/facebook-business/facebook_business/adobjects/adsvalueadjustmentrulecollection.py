@@ -29,6 +29,7 @@ class AdsValueAdjustmentRuleCollection(
     class Field(AbstractObject.Field):
         id = 'id'
         is_default_setting = 'is_default_setting'
+        last_attach_time = 'last_attach_time'
         name = 'name'
         product_type = 'product_type'
         status = 'status'
@@ -179,6 +180,7 @@ class AdsValueAdjustmentRuleCollection(
     _field_types = {
         'id': 'string',
         'is_default_setting': 'bool',
+        'last_attach_time': 'datetime',
         'name': 'string',
         'product_type': 'string',
         'status': 'string',

@@ -10,8 +10,8 @@
 
 #import <Metal/Metal.h>
 
-#include "include/gpu/GrTypes.h"
-#include "src/core/SkOpts.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "src/core/SkChecksum.h"
 #include "src/gpu/ganesh/GrManagedResource.h"
 #include <atomic>
 
@@ -51,7 +51,7 @@ public:
 
     static const Key& GetKey(const GrMtlDepthStencil& depthStencil) { return depthStencil.fKey; }
     static uint32_t Hash(const Key& key) {
-        return SkOpts::hash(reinterpret_cast<const uint32_t*>(&key), sizeof(Key));
+        return SkChecksum::Hash32(&key, sizeof(Key));
     }
 
 #ifdef SK_TRACE_MANAGED_RESOURCES

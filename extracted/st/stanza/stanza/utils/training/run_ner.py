@@ -56,7 +56,7 @@ def build_pretrain_args(language, dataset, charlm="default", command_args=None, 
     charlm_args = build_charlm_args(language, charlm, model_dir=model_dir)
 
     wordvec_args = []
-    if extra_args is None or '--wordvec_pretrain_file' not in extra_args:
+    if '--wordvec_pretrain_file' not in extra_args and '--no_pretrain' not in extra_args:
         # will throw an error if the pretrain can't be found
         wordvec_pretrain = find_wordvec_pretrain(language, default_pretrains, ner_pretrains, dataset, model_dir=model_dir)
         wordvec_args = ['--wordvec_pretrain_file', wordvec_pretrain]
@@ -93,8 +93,7 @@ def build_model_filename(paths, short_name, command_args, extra_args):
 # However, to keep the naming consistent, we leave the
 # method which does the training as run_treebank
 # TODO: rename treebank -> dataset everywhere
-def run_treebank(mode, paths, treebank, short_name,
-                 temp_output_file, command_args, extra_args):
+def run_treebank(mode, paths, treebank, short_name, command_args, extra_args):
     ner_dir = paths["NER_DATA_DIR"]
     language, dataset = short_name.split("_")
 

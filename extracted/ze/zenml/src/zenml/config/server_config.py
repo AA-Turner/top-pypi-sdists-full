@@ -41,7 +41,7 @@ from zenml.constants import (
     DEFAULT_ZENML_SERVER_GENERIC_API_TOKEN_MAX_LIFETIME,
     DEFAULT_ZENML_SERVER_LOGIN_RATE_LIMIT_DAY,
     DEFAULT_ZENML_SERVER_LOGIN_RATE_LIMIT_MINUTE,
-    DEFAULT_ZENML_SERVER_MAX_CONCURRENT_TEMPLATE_RUNS,
+    DEFAULT_ZENML_SERVER_MAX_CONCURRENT_SNAPSHOT_RUNS,
     DEFAULT_ZENML_SERVER_MAX_DEVICE_AUTH_ATTEMPTS,
     DEFAULT_ZENML_SERVER_MAX_REQUEST_BODY_SIZE_IN_BYTES,
     DEFAULT_ZENML_SERVER_NAME,
@@ -55,7 +55,6 @@ from zenml.constants import (
     DEFAULT_ZENML_SERVER_SECURE_HEADERS_PERMISSIONS,
     DEFAULT_ZENML_SERVER_SECURE_HEADERS_REFERRER,
     DEFAULT_ZENML_SERVER_SECURE_HEADERS_XFO,
-    DEFAULT_ZENML_SERVER_SECURE_HEADERS_XXP,
     DEFAULT_ZENML_SERVER_THREAD_POOL_SIZE,
     ENV_ZENML_SERVER_PREFIX,
     ENV_ZENML_SERVER_PRO_PREFIX,
@@ -157,7 +156,7 @@ class ServerConfiguration(BaseModel):
             server.
         workload_manager_implementation_source: Source pointing to a class
             implementing the workload management interface.
-        max_concurrent_template_runs: The maximum number of concurrent template
+        max_concurrent_snapshot_runs: The maximum number of concurrent snapshot
             runs that can be executed on the server.
         pipeline_run_auth_window: The default time window in minutes for which
             a pipeline run action is allowed to authenticate with the ZenML
@@ -186,15 +185,6 @@ class ServerConfiguration(BaseModel):
             one of the reserved values `disabled`, `no`, `none`, `false`, `off`
             or to an empty string, the `X-Frame-Options` header will not be
             included in responses.
-        secure_headers_xxp: The server header value to be set in the HTTP
-            header `X-XSS-Protection`. If not specified, or if set to one of the
-            reserved values `enabled`, `yes`, `true`, `on`, the `X-XSS-Protection`
-            header will be set to the default value (`0`). If set to one of the
-            reserved values `disabled`, `no`, `none`, `false`, `off` or
-            to an empty string, the `X-XSS-Protection` header will not be
-            included in responses. NOTE: this header is deprecated and should
-            always be set to `0`. The `Content-Security-Policy` header should be
-            used instead.
         secure_headers_content: The server header value to be set in the HTTP
             header `X-Content-Type-Options`. If not specified, or if set to one
             of the reserved values `enabled`, `yes`, `true`, `on`, the
@@ -302,8 +292,8 @@ class ServerConfiguration(BaseModel):
     feature_gate_implementation_source: Optional[str] = None
     reportable_resources: List[str] = []
     workload_manager_implementation_source: Optional[str] = None
-    max_concurrent_template_runs: int = (
-        DEFAULT_ZENML_SERVER_MAX_CONCURRENT_TEMPLATE_RUNS
+    max_concurrent_snapshot_runs: int = (
+        DEFAULT_ZENML_SERVER_MAX_CONCURRENT_SNAPSHOT_RUNS
     )
     pipeline_run_auth_window: int = (
         DEFAULT_ZENML_SERVER_PIPELINE_RUN_AUTH_WINDOW
@@ -323,10 +313,6 @@ class ServerConfiguration(BaseModel):
     )
     secure_headers_xfo: Union[bool, str] = Field(
         default=DEFAULT_ZENML_SERVER_SECURE_HEADERS_XFO,
-        union_mode="left_to_right",
-    )
-    secure_headers_xxp: Union[bool, str] = Field(
-        default=DEFAULT_ZENML_SERVER_SECURE_HEADERS_XXP,
         union_mode="left_to_right",
     )
     secure_headers_content: Union[bool, str] = Field(
@@ -455,6 +441,18 @@ class ServerConfiguration(BaseModel):
                     f"{key} {value}" for key, value in merged_csp_dict.items()
                 )
                 data["secure_headers_csp"] = merged_csp_str
+
+        if max_concurrent_template_runs := data.get(
+            "max_concurrent_template_runs"
+        ):
+            logger.warning(
+                "The `ZENML_SERVER_MAX_CONCURRENT_TEMPLATE_RUNS` environment "
+                "variable is deprecated. Use "
+                "`ZENML_SERVER_MAX_CONCURRENT_SNAPSHOT_RUNS` instead."
+            )
+            data.setdefault(
+                "max_concurrent_snapshot_runs", max_concurrent_template_runs
+            )
 
         return data
 

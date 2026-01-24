@@ -2,79 +2,28 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import _bpy_types
+import bl_ui.node_add_menu
 import bpy.types
 
-class NODE_MT_category_compositor_color(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_all_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
+    bl_translation_context: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_category_compositor_color_adjust(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_category_compositor_color_mix(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -83,50 +32,24 @@ class NODE_MT_category_compositor_color_mix(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_filter(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_color_adjust_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_category_compositor_filter_blur(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -135,8 +58,9 @@ class NODE_MT_category_compositor_filter_blur(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_group(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_color_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -145,14 +69,12 @@ class NODE_MT_category_compositor_group(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -161,24 +83,24 @@ class NODE_MT_category_compositor_group(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_input(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_color_mix_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -187,8 +109,9 @@ class NODE_MT_category_compositor_input(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_input_constant(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_creative_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -197,14 +120,12 @@ class NODE_MT_category_compositor_input_constant(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -213,8 +134,9 @@ class NODE_MT_category_compositor_input_constant(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_input_scene(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_filter_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -223,14 +145,12 @@ class NODE_MT_category_compositor_input_scene(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -239,24 +159,24 @@ class NODE_MT_category_compositor_input_scene(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_keying(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_filter_blur_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -265,8 +185,9 @@ class NODE_MT_category_compositor_keying(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_mask(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_input_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -275,40 +196,12 @@ class NODE_MT_category_compositor_mask(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_category_compositor_output(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -317,24 +210,24 @@ class NODE_MT_category_compositor_output(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_texture(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_input_constant_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -343,8 +236,161 @@ class NODE_MT_category_compositor_texture(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_tracking(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_input_scene_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_compositor_node_keying_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_compositor_node_mask_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_compositor_node_math_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_compositor_node_output_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_compositor_node_texture_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_compositor_node_tracking_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     bl_translation_context: typing.Any
@@ -354,14 +400,12 @@ class NODE_MT_category_compositor_tracking(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -370,8 +414,9 @@ class NODE_MT_category_compositor_tracking(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_transform(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_transform_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -380,14 +425,12 @@ class NODE_MT_category_compositor_transform(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -396,8 +439,9 @@ class NODE_MT_category_compositor_transform(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_compositor_utilities(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_utilities_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -406,14 +450,12 @@ class NODE_MT_category_compositor_utilities(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -422,50 +464,24 @@ class NODE_MT_category_compositor_utilities(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_compositor_vector(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_compositor_node_vector_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_compositor_node_add_all(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:

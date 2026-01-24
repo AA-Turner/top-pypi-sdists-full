@@ -17,7 +17,6 @@
 #include "include/core/SkPixmap.h"
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkSize.h"
-#include "include/core/SkStream.h"
 #include "include/core/SkString.h"
 #include "include/core/SkTypes.h"
 #include "include/encode/SkJpegEncoder.h"
@@ -67,22 +66,24 @@ static sk_sp<SkData> encode_data(const SkBitmap& bitmap, SkEncodedImageFormat fo
     if (!bitmap.peekPixels(&src)) {
         return nullptr;
     }
-    SkDynamicMemoryWStream buf;
+    sk_sp<SkData> data;
 
     switch (format) {
         case SkEncodedImageFormat::kPNG:
-            SkAssertResult(SkPngEncoder::Encode(&buf, src, SkPngEncoder::Options()));
+            data = SkPngEncoder::Encode(src, SkPngEncoder::Options());
             break;
         case SkEncodedImageFormat::kWEBP:
-            SkAssertResult(SkWebpEncoder::Encode(&buf, src, SkWebpEncoder::Options()));
+            data = SkWebpEncoder::Encode(src, SkWebpEncoder::Options());
             break;
         case SkEncodedImageFormat::kJPEG:
-            SkAssertResult(SkJpegEncoder::Encode(&buf, src, SkJpegEncoder::Options()));
+            data = SkJpegEncoder::Encode(src, SkJpegEncoder::Options());
             break;
         default:
+            SK_ABORT("Unsupported format %d", (int)format);
             break;
     }
-    return buf.detachAsData();
+    SkAssertResult(data);
+    return data;
 }
 
 class EncodeSRGBGM : public GM {
@@ -92,7 +93,7 @@ public:
     {}
 
 protected:
-    SkString onShortName() override {
+    SkString getName() const override {
         const char* format = nullptr;
         switch (fEncodedFormat) {
             case SkEncodedImageFormat::kPNG:
@@ -110,13 +111,17 @@ protected:
         return SkStringPrintf("encode-srgb-%s", format);
     }
 
-    SkISize onISize() override {
-        return SkISize::Make(imageWidth * 2, imageHeight * 15);
-    }
+    SkISize getISize() override { return SkISize::Make(imageWidth * 2, imageHeight * 15); }
 
     void onDraw(SkCanvas* canvas) override {
         const SkColorType colorTypes[] = {
-            kN32_SkColorType, kRGBA_F16_SkColorType, kGray_8_SkColorType, kRGB_565_SkColorType,
+            kN32_SkColorType, kRGBA_F16_SkColorType,
+#if !defined(SK_ENABLE_NDK_IMAGES)
+            // These fail with the NDK encoders because there is a mismatch between
+            // Gray_8 and Alpha_8
+            kGray_8_SkColorType,
+#endif
+            kRGB_565_SkColorType,
         };
         const SkAlphaType alphaTypes[] = {
             kUnpremul_SkAlphaType, kPremul_SkAlphaType, kOpaque_SkAlphaType,
@@ -131,7 +136,8 @@ protected:
                 canvas->save();
                 for (const sk_sp<SkColorSpace>& colorSpace : colorSpaces) {
                     make(&bitmap, colorType, alphaType, colorSpace);
-                    auto image = SkImage::MakeFromEncoded(encode_data(bitmap, fEncodedFormat));
+                    auto data = encode_data(bitmap, fEncodedFormat);
+                    auto image = SkImages::DeferredFromEncodedData(data);
                     canvas->drawImage(image.get(), 0.0f, 0.0f);
                     canvas->translate((float) imageWidth, 0.0f);
                 }

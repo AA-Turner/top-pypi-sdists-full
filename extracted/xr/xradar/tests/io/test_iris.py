@@ -8,9 +8,9 @@ Ported from wradlib.
 """
 
 import numpy as np
-from xarray import DataTree
+from xarray import DataTree, open_dataset, open_mfdataset
 
-from xradar.io.backends import iris
+from xradar.io.backends import iris, open_iris_datatree
 from xradar.util import _get_data_file
 
 
@@ -90,19 +90,24 @@ def test_decode_velc():
 
 def test_decode_kdp():
     np.testing.assert_array_almost_equal(
-        iris.decode_kdp(np.arange(-5, 5, dtype="int8"), wavelength=10.0),
-        [
-            12.243229,
-            12.880858,
-            13.551695,
-            14.257469,
-            15.0,
-            -0.0,
-            -15.0,
-            -14.257469,
-            -13.551695,
-            -12.880858,
-        ],
+        iris.decode_kdp(
+            np.array(
+                [
+                    0,
+                    1,
+                    2,
+                    127,
+                    -128,  # 128 uint8
+                    -127,  # 129 uint8
+                    -126,  # 130 uint8
+                    -2,  # 254 uint8
+                    -1,  # 255 uint8
+                ],
+                dtype="int8",
+            ),
+            wavelength=10.0,
+        ),
+        [np.nan, -15.0, -14.257469, -0.025, 0.0, 0.025, 0.026302, 14.257469, np.nan],
     )
 
 
@@ -292,7 +297,23 @@ def test_array_from_file(iris0_file, file_or_filelike):
         assert isinstance(array_data, np.ndarray)
 
 
-from xradar.io.backends.iris import open_iris_datatree
+def test_iris_open_mfdataset_context_manager(iris0_file):
+    with open_mfdataset(
+        [iris0_file],
+        engine="iris",
+        concat_dim="volume_time",
+        combine="nested",
+        group="sweep_0",
+    ) as ds:
+        assert ds is not None
+        # closer must exist while inside context
+        assert callable(getattr(ds, "_close", None))
+
+
+def test_iris_dataset_has_close(iris0_file):
+    ds = open_dataset(iris0_file, engine="iris", group="sweep_0")
+    assert callable(getattr(ds, "_close", None))
+    ds.close()
 
 
 def test_open_iris_datatree(iris0_file):

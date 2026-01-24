@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+
+# (C) Copyright 2020 ECMWF.
+#
+# This software is licensed under the terms of the Apache Licence Version 2.0
+# which can be obtained at http://www.apache.org/licenses/LICENSE-2.0.
+# In applying this licence, ECMWF does not waive the privileges and immunities
+# granted to it by virtue of its status as an intergovernmental organisation
+# nor does it submit to any jurisdiction.
+#
+
+import sys
+
+import pytest
+
+from earthkit.data import from_source
+from earthkit.data.testing import NO_POLYTOPE
+
+
+def test_no_polytope_client(monkeypatch):
+    "Check that a useful message is given in the absence of the polytope-client library"
+    monkeypatch.setitem(sys.modules, "polytope", None)
+    with pytest.raises(ImportError) as excinfo:
+        from_source("polytope", None, None)
+        assert "pip install polytope-client" in str(excinfo.value)
+
+
+@pytest.mark.skip("Data not available?")
+@pytest.mark.long_test
+@pytest.mark.download
+@pytest.mark.skipif(NO_POLYTOPE, reason="No access to Polytope Web API")
+def test_polytope_odb():
+    request = {
+        "database": "fdbdev",
+        "class": "rd",
+        "type": "oai",
+        "stream": "lwda",
+        "expver": "xxxx",
+        "obsgroup": "CONV",
+        "reportype": 16001,
+        "obstype": 15,
+        "date": [20150601, 20150602],
+        "time": "0/to/23/by/1",
+        "filter": "'select * where stationid=\"Ams01\"'",
+        "domain": "off",
+    }
+
+    src = from_source("polytope", "ichange", request, stream=False)
+    df = src.to_pandas()
+    assert len(df) == 52
+
+
+# @pytest.mark.skip("Data not available?")
+@pytest.mark.long_test
+@pytest.mark.download
+@pytest.mark.skipif(NO_POLYTOPE, reason="No access to Polytope Web API")
+@pytest.mark.parametrize("kwargs", [{"stream": False}, {"stream": True, "read_all": True}])
+def test_polytope_grib_all_single(kwargs):
+    request = {
+        "stream": "oper",
+        "levtype": "pl",
+        "levellist": "500",
+        "param": "129.128",
+        "step": "0/12",
+        "time": "00",
+        "date": "20200915",
+        "type": "fc",
+        "class": "rd",
+        "expver": "hsvs",
+        "domain": "g",
+    }
+
+    ds = from_source("polytope", "ecmwf-mars", request, **kwargs)
+
+    assert len(ds) == 2
+    assert ds.metadata("level") == [500, 500]
+    assert ds.metadata("param") == ["z", "z"]
+
+
+@pytest.mark.skip("Does not work in polytope-client")
+@pytest.mark.long_test
+@pytest.mark.download
+@pytest.mark.skipif(NO_POLYTOPE, reason="No access to Polytope Web API")
+@pytest.mark.parametrize("kwargs", [{"stream": False}, {"stream": True, "read_all": True}])
+def test_polytope_grib_all_multi(kwargs):
+    request = [
+        {
+            "stream": "oper",
+            "levtype": "pl",
+            "levellist": "500",
+            "param": "129.128",
+            "step": "0/12",
+            "time": "00",
+            "date": "20200915",
+            "type": "fc",
+            "class": "rd",
+            "expver": "hsvs",
+            "domain": "g",
+        },
+        {
+            "stream": "oper",
+            "levtype": "pl",
+            "levellist": "500",
+            "param": "130.128",
+            "step": "0/12",
+            "time": "00",
+            "date": "20200915",
+            "type": "fc",
+            "class": "rd",
+            "expver": "hsvs",
+            "domain": "g",
+        },
+    ]
+
+    ds = from_source("polytope", "ecmwf-mars", request, **kwargs)
+
+    assert len(ds) == 4
+    assert ds.metadata("level") == [500, 500, 500, 500]
+    assert ds.metadata("param") == ["z", "z", "t", "t"]
+
+
+@pytest.mark.long_test
+@pytest.mark.download
+@pytest.mark.skipif(NO_POLYTOPE, reason="No access to Polytope Web API")
+def test_polytope_grib_stream():
+    request = {
+        "stream": "oper",
+        "levtype": "pl",
+        "levellist": "500",
+        "param": "129.128",
+        "step": "0/12",
+        "time": "00",
+        "date": "20200915",
+        "type": "fc",
+        "class": "rd",
+        "expver": "hsvs",
+        "domain": "g",
+    }
+
+    ds = from_source("polytope", "ecmwf-mars", request, stream=True)
+
+    # no fieldlist methods are available
+    with pytest.raises((TypeError, NotImplementedError)):
+        len(ds)
+
+    ref = [
+        ("z", 500),
+        ("z", 500),
+    ]
+    cnt = 0
+    for i, f in enumerate(ds):
+        assert f.metadata(("param", "level")) == ref[i], i
+        cnt += 1
+
+    assert cnt == len(ref)
+
+    # stream consumed, no data is available
+    assert sum([1 for _ in ds]) == 0

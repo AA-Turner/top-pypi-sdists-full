@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from toml_fmt_common import ArgumentGroup, FmtNamespace, TOMLFormatter, _build_cli, run  # noqa: PLC2701
 
-from ._lib import Settings, format_toml
+from pyproject_fmt._lib import Settings, format_toml
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -18,6 +18,7 @@ class PyProjectFmtNamespace(FmtNamespace):
 
     keep_full_version: bool
     max_supported_python: tuple[int, int]
+    generate_python_version_classifiers: bool
 
 
 class PyProjectFormatter(TOMLFormatter[PyProjectFmtNamespace]):
@@ -45,24 +46,31 @@ class PyProjectFormatter(TOMLFormatter[PyProjectFmtNamespace]):
         """
         msg = "keep full dependency versions - do not remove redundant .0 from versions"
         parser.add_argument("--keep-full-version", action="store_true", help=msg)
+        msg = "do not generate Python version classifiers based on requires-python"
+        parser.add_argument(
+            "--no-generate-python-version-classifiers",
+            action="store_false",
+            dest="generate_python_version_classifiers",
+            help=msg,
+        )
 
         def _version_argument(got: str) -> tuple[int, int]:
             parts = got.split(".")
             if len(parts) != 2:  # noqa: PLR2004
-                err = f"invalid version: {got}, must be e.g. 3.13"
+                err = f"invalid version: {got}, must be e.g. 3.14"
                 raise ArgumentTypeError(err)
             try:
                 return int(parts[0]), int(parts[1])
             except ValueError as exc:
-                err = f"invalid version: {got} due {exc!r}, must be e.g. 3.13"
+                err = f"invalid version: {got} due {exc!r}, must be e.g. 3.14"
                 raise ArgumentTypeError(err) from exc
 
         parser.add_argument(
             "--max-supported-python",
             metavar="minor.major",
             type=_version_argument,
-            default=(3, 13),
-            help="latest Python version the project supports (e.g. 3.13)",
+            default=(3, 14),
+            help="latest Python version the project supports (e.g. 3.14)",
         )
 
     @property
@@ -83,7 +91,8 @@ class PyProjectFormatter(TOMLFormatter[PyProjectFmtNamespace]):
             indent=opt.indent,
             keep_full_version=opt.keep_full_version,
             max_supported_python=opt.max_supported_python,
-            min_supported_python=(3, 9),  # default for when the user didn't specify via requires-python
+            min_supported_python=(3, 10),  # default for when the user didn't specify via requires-python
+            generate_python_version_classifiers=opt.generate_python_version_classifiers,
         )
         return format_toml(text, settings)
 

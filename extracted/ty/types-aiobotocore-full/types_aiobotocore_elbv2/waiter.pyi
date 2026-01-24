@@ -3,7 +3,7 @@ Type annotations for elbv2 service client waiters.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elbv2/waiters/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

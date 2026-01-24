@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import json
-from typing import Union
+from os import PathLike
+from typing import TYPE_CHECKING, Any, Union
 
 import pydantic.v1 as pd
+from rich.panel import Panel
+from rich.table import Table
 
 from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.material.multi_physics import MultiPhysicsMedium
 from tidy3d.components.material.tcad.charge import SemiconductorMedium
 from tidy3d.components.medium import AnisotropicMedium, Medium2D, PoleResidue, Sellmeier
+from tidy3d.components.tcad.bandgap_energy import ConstantEnergyBandGap
 from tidy3d.components.tcad.types import (
     AugerRecombination,
     CaugheyThomasMobility,
+    ConstantEffectiveDOS,
     RadiativeRecombination,
     ShockleyReedHallRecombination,
     SlotboomBandGapNarrowing,
@@ -34,10 +39,12 @@ from .util import (
     summarize_variant_item_rich,
 )
 
+if TYPE_CHECKING:
+    from IPython.lib.pretty import RepresentationPrinter
 
-def export_matlib_to_file(fname: str = "matlib.json") -> None:
+
+def export_matlib_to_file(fname: PathLike = "matlib.json") -> None:
     """Write the material library to a .json file."""
-
     mat_lib_dict = {
         f'{mat.name} ("{mat_name}")': {
             var_name: json.loads(var.medium._json_string) for var_name, var in mat.variants.items()
@@ -85,13 +92,13 @@ class AbstractVariantItem(Tidy3dBaseModel):
     def summarize_mediums(self) -> dict[str, Union[PoleResidue, Medium2D, MultiPhysicsMedium]]:
         return {}
 
-    def __str__(self):
+    def __str__(self) -> str:
         return summarize_variant_item(self)
 
-    def __rich__(self):
+    def __rich__(self) -> Panel:
         return summarize_variant_item_rich(self)
 
-    def _repr_pretty_(self, p, cycle):
+    def _repr_pretty_(self, p: RepresentationPrinter, cycle: bool) -> None:
         return repr_pretty_with_rich(self, p, cycle)
 
 
@@ -124,7 +131,7 @@ class MaterialItem(Tidy3dBaseModel):
     )
 
     @pd.validator("default", always=True)
-    def _default_in_variants(cls, val, values):
+    def _default_in_variants(cls, val: str, values: dict[str, Any]) -> Any:
         """Make sure the default variant is already included in the ``variants``."""
         if val not in values["variants"]:
             raise SetupError(
@@ -133,12 +140,12 @@ class MaterialItem(Tidy3dBaseModel):
             )
         return val
 
-    def __getitem__(self, variant_name):
+    def __getitem__(self, variant_name: str) -> Union[PoleResidue, MultiPhysicsMedium]:
         """Helper function to easily access the medium of a variant"""
         return self.variants[variant_name].medium
 
     @property
-    def medium(self):
+    def medium(self) -> Union[PoleResidue, MultiPhysicsMedium]:
         """The default medium."""
         if self.name == "Silicon Dioxide":
             log.warning(
@@ -147,13 +154,13 @@ class MaterialItem(Tidy3dBaseModel):
             )
         return self.variants[self.default].medium
 
-    def __str__(self):
+    def __str__(self) -> str:
         return summarize_material_item(self)
 
-    def __rich__(self):
+    def __rich__(self) -> Panel:
         return summarize_material_item_rich(self)
 
-    def _repr_pretty_(self, p, cycle):
+    def _repr_pretty_(self, p: RepresentationPrinter, cycle: bool) -> None:
         return repr_pretty_with_rich(self, p, cycle)
 
 
@@ -234,7 +241,7 @@ class MaterialItemUniaxial(MaterialItem):
         "that maps from a key to the variant model.",
     )
 
-    def medium(self, optical_axis: Axis):
+    def medium(self, optical_axis: Axis) -> AnisotropicMedium:
         """The default medium."""
         return self.variants[self.default].medium(optical_axis)
 
@@ -2063,9 +2070,9 @@ cSi_MultiPhysics = VariantItem(
         optical=cSi_Green2008.medium,
         charge=SemiconductorMedium(
             permittivity=11.7,
-            N_c=2.86e19,
-            N_v=3.1e19,
-            E_g=1.11,
+            N_c=ConstantEffectiveDOS(N=2.86e19),
+            N_v=ConstantEffectiveDOS(N=3.1e19),
+            E_g=ConstantEnergyBandGap(eg=1.11),
             mobility_n=CaugheyThomasMobility(
                 mu_min=52.2,
                 mu=1471.0,
@@ -2097,8 +2104,6 @@ cSi_MultiPhysics = VariantItem(
                 c2=0.5,
                 min_N=1e15,
             ),
-            N_a=0,
-            N_d=0,
         ),
     ),
     reference=[material_refs["Green2008"]],
@@ -2108,13 +2113,13 @@ cSi_MultiPhysics = VariantItem(
 
 
 class MaterialLibrary(dict):
-    def __str__(self):
+    def __str__(self) -> str:
         return summarize_material_library(self)
 
-    def __rich__(self):
+    def __rich__(self) -> Table:
         return summarize_material_library_rich(self)
 
-    def _repr_pretty_(self, p, cycle):
+    def _repr_pretty_(self, p: RepresentationPrinter, cycle: bool) -> None:
         return repr_pretty_with_rich(self, p, cycle)
 
 

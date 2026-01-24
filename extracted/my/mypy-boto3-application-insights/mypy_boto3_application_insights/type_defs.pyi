@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -36,12 +37,6 @@ from .literals import (
     VisibilityType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -126,7 +121,7 @@ class WorkloadConfigurationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -137,7 +132,7 @@ class ApplicationComponentTypeDef(TypedDict):
     OsType: NotRequired[OsTypeType]
     Tier: NotRequired[TierType]
     Monitor: NotRequired[bool]
-    DetectedWorkload: NotRequired[Dict[TierType, Dict[str, str]]]
+    DetectedWorkload: NotRequired[dict[TierType, dict[str, str]]]
 
 class ApplicationInfoTypeDef(TypedDict):
     AccountId: NotRequired[str]
@@ -301,7 +296,7 @@ class ProblemTypeDef(TypedDict):
     SeverityLevel: NotRequired[SeverityLevelType]
     AccountId: NotRequired[str]
     ResourceGroupName: NotRequired[str]
-    Feedback: NotRequired[Dict[Literal["INSIGHTS_FEEDBACK"], FeedbackValueType]]
+    Feedback: NotRequired[dict[Literal["INSIGHTS_FEEDBACK"], FeedbackValueType]]
     RecurringCount: NotRequired[int]
     LastRecurrenceTime: NotRequired[datetime]
     Visibility: NotRequired[VisibilityType]
@@ -441,7 +436,7 @@ class DescribeWorkloadResponseTypeDef(TypedDict):
 class ListLogPatternSetsResponseTypeDef(TypedDict):
     ResourceGroupName: str
     AccountId: str
-    LogPatternSets: List[str]
+    LogPatternSets: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -452,11 +447,11 @@ class UpdateWorkloadResponseTypeDef(TypedDict):
 
 class DescribeComponentResponseTypeDef(TypedDict):
     ApplicationComponent: ApplicationComponentTypeDef
-    ResourceList: List[str]
+    ResourceList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListComponentsResponseTypeDef(TypedDict):
-    ApplicationComponentList: List[ApplicationComponentTypeDef]
+    ApplicationComponentList: list[ApplicationComponentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -469,7 +464,7 @@ class DescribeApplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    ApplicationInfoList: List[ApplicationInfoTypeDef]
+    ApplicationInfoList: list[ApplicationInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -478,7 +473,7 @@ class UpdateApplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListConfigurationHistoryResponseTypeDef(TypedDict):
-    EventList: List[ConfigurationEventTypeDef]
+    EventList: list[ConfigurationEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -495,7 +490,7 @@ class CreateApplicationRequestTypeDef(TypedDict):
     AttachMissingPermission: NotRequired[bool]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -516,7 +511,7 @@ class DescribeLogPatternResponseTypeDef(TypedDict):
 class ListLogPatternsResponseTypeDef(TypedDict):
     ResourceGroupName: str
     AccountId: str
-    LogPatterns: List[LogPatternTypeDef]
+    LogPatterns: list[LogPatternTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -530,7 +525,7 @@ class DescribeObservationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RelatedObservationsTypeDef(TypedDict):
-    ObservationList: NotRequired[List[ObservationTypeDef]]
+    ObservationList: NotRequired[list[ObservationTypeDef]]
 
 class DescribeProblemResponseTypeDef(TypedDict):
     Problem: ProblemTypeDef
@@ -538,7 +533,7 @@ class DescribeProblemResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListProblemsResponseTypeDef(TypedDict):
-    ProblemList: List[ProblemTypeDef]
+    ProblemList: list[ProblemTypeDef]
     ResourceGroupName: str
     AccountId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -564,7 +559,7 @@ class ListProblemsRequestTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
 
 class ListWorkloadsResponseTypeDef(TypedDict):
-    WorkloadList: List[WorkloadTypeDef]
+    WorkloadList: list[WorkloadTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

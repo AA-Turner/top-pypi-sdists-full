@@ -12,7 +12,7 @@ import win32clipboard
 from PIL import Image, ImageEnhance
 from pywinauto.application import Application
 from pywinauto.keyboard import send_keys
-from pywinauto.timings import wait_until
+from pywinauto.timings import TimeoutError as PywTimeout, wait_until
 from pywinauto_recorder.player import set_combobox
 from rich.console import Console
 import sys
@@ -61,6 +61,223 @@ pyautogui.PAUSE = 0.5
 pyautogui.FAILSAFE = False
 console = Console()
 
+
+ASSETS_PATH = "assets"
+
+async def rateio_despesa_centro_custo(centro_custo : str) -> RpaRetornoProcessoDTO:
+    console.print(
+        f"Conectando a tela de Rateio da Despesa para encerramento do processo...\n"
+    )
+    console.print(f"Código filial {centro_custo }...\n")
+    try:
+
+        console.print(f"Tentando clicar em Selecionar todos...\n")
+        try:
+            selecionar_todos = pyautogui.locateOnScreen(
+                ASSETS_PATH + "\\entrada_notas\\SelecionarTodos.png", confidence=0.5
+            )
+            if selecionar_todos:
+                console.print(f"Campo selecionar todos encontrado, interagindo...\n")
+                pyautogui.click(selecionar_todos)
+
+        except Exception as e:
+            console.print(f"Error ao interagir com o campo de selecionar todos : {e}")
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Error ao interagir com o campo de selecionar todos : {e}",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+            )
+
+        await worker_sleep(5)
+
+        try:
+            app = Application().connect(class_name="TFrmDadosRateioDespesa")
+            main_window = app["TFrmDadosRateioDespesa"]
+            console.print(f"Conectado com pela classe do emsys...\n")
+        except:
+            app = Application().connect(title="Rateio da Despesa")
+            main_window = app["Rateio da Despesa"]
+            console.print(f"Conectado pelo title...\n")
+
+        main_window.set_focus()
+
+        console.print(
+            f"Conectado com sucesso, acessando o atributo filho 'Centro'...\n"
+        )
+        panel_centro = main_window.child_window(class_name="TPanel", found_index=1)
+
+        console.print(
+            f"Conectado com sucesso, inserindo o valor do tipo de despesa...\n"
+        )
+
+        edit = panel_centro.child_window(class_name="TDBIEditCode", found_index=1)
+
+        try:
+            value_centro = int(centro_custo)
+        except ValueError:
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Unidade code não é um número válido.",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+            )
+
+        value_centro_str = str(value_centro)
+        console.print(f"Valor final a ser inserido no Centro {value_centro_str}...\n")
+
+        if edit.exists():
+            edit.set_edit_text(value_centro_str)
+            edit.type_keys("{TAB}")
+        else:
+            console.print(f"Campo tipo de despesas - Não foi encontrado...\n")
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Campo tipo de despesas - Não foi encontrado",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+            )
+
+        console.print(f"Conectado com sucesso, inserindo o valor do rateio...\n")
+        edit = panel_centro.child_window(class_name="TDBIEditNumber", found_index=0)
+
+        if edit.exists():
+            edit.set_edit_text("100")
+            edit.click()
+            edit.type_keys("{TAB}")
+        else:
+            console.print(f"Campo valor do rateio - Não foi encontrado...\n")
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Campo valor do rateio - Não foi encontrado",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+            )
+
+        await worker_sleep(3)
+
+        console.print(
+            f"Selecionando a opção 'Aplicar Rateio aos Itens Selecionados'...\n"
+        )
+        try:
+            checkbox = panel_centro.child_window(
+                title="Aplicar Rateio aos Itens Selecionados",
+                class_name="TDBICheckBox",
+            )
+            checkbox.click()
+            console.print(
+                "A opção 'Aplicar Rateio aos Itens Selecionados' selecionado com sucesso... \n"
+            )
+        except:
+            try:
+                aplicar_rateio = pyautogui.locateOnScreen(
+                    ASSETS_PATH + "\\entrada_notas\\aplicar_rateio_itens.png",
+                    confidence=0.5,
+                )
+                if aplicar_rateio:
+                    console.print(
+                        f"Campo aplicar rateio itens encontrado, clicando...\n"
+                    )
+                    center_x, center_y = pyautogui.center(aplicar_rateio)
+                    try:
+                        pyautogui.click(center_x, center_y)
+                    except:
+                        pyautogui.click(aplicar_rateio)
+            except:
+                try:
+                    app = Application().connect(title="Busca Centro de Custo")
+                    main_window = app["Busca Centro de Custo"]
+                    return RpaRetornoProcessoDTO(
+                        sucesso=False,
+                        retorno=f"Centro de custo não localizado na tela de rateio, por favor, verificar",
+                        status=RpaHistoricoStatusEnum.Falha,
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+                    )
+                except Exception as e:
+                    return RpaRetornoProcessoDTO(
+                        sucesso=False,
+                        retorno=f"Campo aplicar rateio - Não foi encontrado, erro: {e}",
+                        status=RpaHistoricoStatusEnum.Falha,
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                    )
+
+        console.print(f"Tentando clicar em Incluir Registro...\n")
+        await worker_sleep(2)
+        try:
+            console.print(
+                f"Não foi possivel clicar em Incluir Registro, tentando via hotkeys..\n"
+            )
+            pyautogui.press("tab")
+            pyautogui.press("tab")
+            await worker_sleep(2)
+            pyautogui.press("enter")
+            await worker_sleep(4)
+        except Exception as e:
+            try:
+                incluir_registro_rateio = pyautogui.locateOnScreen(
+                    ASSETS_PATH
+                    + "\\entrada_notas\\importar_registro_rateio_despesas.png",
+                    confidence=0.5,
+                )
+                if incluir_registro_rateio:
+                    console.print(
+                        f"Campo selecionar todos encontrado, interagindo...\n"
+                    )
+                    pyautogui.click(incluir_registro_rateio)
+            except:
+                console.print(
+                    f"Clicando em Incluir registro para vincular ao centro de custo '...\n"
+                )
+                edit = panel_centro.child_window(
+                    class_name="TDBITBitBtn", found_index=3
+                )
+
+                if edit.exists():
+                    edit.click()
+                else:
+                    console.print(f"Campo Incluir registro nao foi encontrado...\n")
+                    return RpaRetornoProcessoDTO(
+                        sucesso=False,
+                        retorno="Campo Incluir registro nao foi encontrado",
+                        status=RpaHistoricoStatusEnum.Falha,
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                    )
+
+
+        await worker_sleep(3)
+
+        console.print(f"Verificando se o item foi rateado com sucesso...\n")
+        panel_centro = main_window.child_window(class_name="TPanel", found_index=0)
+        edit = panel_centro.child_window(class_name="TDBIEditNumber", found_index=0)
+
+        if edit.exists():
+            valor_total_rateado = edit.window_text()
+            if valor_total_rateado != "0,00":
+                console.print(f"Rateio inserido com sucesso., clicando em OK..\n")
+                send_keys("%o")
+                return RpaRetornoProcessoDTO(
+                    sucesso=True,
+                    retorno="Rateio de despesa interagido com sucesso",
+                    status=RpaHistoricoStatusEnum.Sucesso,
+                )
+
+        else:
+            console.print(f"Campo valor do rateio - Não foi encontrado...\n")
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno="Campo valor do rateio - Não foi encontrado",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+            )
+
+    except Exception as e:
+        return RpaRetornoProcessoDTO(
+            sucesso=False,
+            retorno=f"Erro ao processar tela de Informações para importação da Nota Fiscal Eletrônica para inserir o tipo de despesa, erro: {e}",
+            status=RpaHistoricoStatusEnum.Falha,
+            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+        )
+
 async def get_ultimo_item():
     send_keys("^({END})")
     await worker_sleep(2)
@@ -83,7 +300,9 @@ async def get_ultimo_item():
         btn_cancelar.click()
         console.print(f"Erro ao realizar get_ultimo_item: {error}")
     await worker_sleep(1)
-    return index_ultimo_item    
+    return index_ultimo_item   
+
+ 
 
 async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
     """
@@ -104,20 +323,34 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         await kill_all_emsys()
         data_atual = datetime.now().strftime("%d/%m/%Y")
         print(data_atual)       
-        # Buscar número da nota
+       # Buscar número da nota
         numero_nota = nota.get("numeroNota")
         serie_nota = nota.get("serieNota")
         filial_nota = nota.get("descricaoFilial")
         filial_nota = filial_nota.split("-")[0].strip()
+
         centro_custo = nota.get("centroCusto")
         centro_custo = centro_custo.split("-")[0].strip().lstrip("0")
 
+        # >>> AJUSTE IMPORTANTE <<<
+        fornecedor_cnpj = nota.get("fornecedorCnpj")
+
+        if not fornecedor_cnpj:
+            raise ValueError("fornecedorCnpj não informado na entrada do processo")
+
         try:
-            dados_nf = await get_dados_nf_emsys(
-                numero_nota=numero_nota,
-                serie_nota=serie_nota,
-                filial_nota=filial_nota
+            console.print(
+                f"Buscando NF | Numero: {numero_nota} | Serie: {serie_nota} | "
+                f"Filial: {filial_nota} | Fornecedor CNPJ: {fornecedor_cnpj}"
             )
+
+            dados_nf = await get_dados_nf_emsys(
+            numero_nota=numero_nota,
+            serie_nota=serie_nota,
+            filial_nota=filial_nota,
+            fornecedor_cnpj=fornecedor_cnpj
+            )
+
 
             # Se a API retornou erro
             if isinstance(dados_nf, dict) and "erro" in dados_nf:
@@ -135,8 +368,16 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 console.print("Chave da NF:", nf_chave_acesso)
 
         except Exception as e:
+            observacao = f"Erro ao lançar nota, erro: {e}"
             console.print("Erro inesperado ao buscar nota:", str(e))
-            nf_chave_acesso = None
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=observacao,
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+            )
+
+
 
         # Download XML
         console.log("Realizando o download do XML..\n")
@@ -263,25 +504,31 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         combo_box_natureza_operacao.click()
 
         await worker_sleep(3)
+        
+        # =============================
+        # Natureza de Operação (CFOP)
+        # =============================
+
         # Mapeamento CFOP -> (lista, código exibido no combobox)
         cfop_map = {
             "1556": (['5101', '5102', '5103', '5104'], "1.556"),
             "1407": (['5401', '5403', '5404', '5405'], "1.407"),
-            "2407": (['6104', '6401', '6403', '6405'], "2.407")
+            "2407": (['6403'], "2.407")
         }
 
-        cfop_str = str(cfop)
+        cfop_str = str(cfop).strip()
+
+        alvo_key = None
+        alvo_codigo = None
+
         for key, (lista, codigo_combo) in cfop_map.items():
             if cfop_str in lista:
-                for opc in combo_box_natureza_operacao.item_texts():
-                    if (f"{key}-COMPRA DE MERCADORIAS SEM ESTOQUE" in opc 
-                        and str(codigo_combo) in opc):
-                        combo_box_natureza_operacao.select(opc)
-                        send_keys("{ENTER}")
-                        break
+                alvo_key = key
+                alvo_codigo = str(codigo_combo)
                 break
 
-        else:
+        # Se não mapeou, retorna erro (mesma mensagem sua)
+        if not alvo_key:
             console.print(
                 "Erro mapeado, CFOP diferente de início com 540 ou 510, necessário ação manual ou ajuste no robô...\n"
             )
@@ -291,8 +538,100 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 status=RpaHistoricoStatusEnum.Falha,
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
             )
-        
+
+        # Critérios de validação do texto selecionado
+        must1 = f"{alvo_key}-COMPRA DE MERCADORIAS SEM ESTOQUE"
+        must2 = str(alvo_codigo)
+
+        selecionou = False
+        opcao_alvo = None
+
+        # 1) localizar opção certa
+        for opc in combo_box_natureza_operacao.item_texts():
+            if (must1 in opc) and (must2 in opc):
+                opcao_alvo = opc
+                break
+
+        if not opcao_alvo:
+            console.print(
+                f"Não encontrei no combobox uma opção contendo: '{must1}' e '{must2}'.\n",
+            )
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Natureza de operação não encontrada no combobox para CFOP {cfop_str}.",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+            )
+
+        # 2) selecionar
+        combo_box_natureza_operacao.select(opcao_alvo)
+        await worker_sleep(2)
+        send_keys("{ENTER}")
+        await worker_sleep(2)
+
+        # 3) validar se realmente ficou selecionado (SEM falso positivo)
+        #    - NÃO usar " ".join(texts()) porque alguns combos retornam a lista inteira
+        #    - usa window_text() e, se vier vazio, texts()[0]
+        ultimo_texto = ""
+        selecionou = False
+
+        for _ in range(15):  # mais tentativas por causa de delay do EMSys
+            atual = ""
+
+            # 1) texto visível do combo
+            try:
+                atual = (combo_box_natureza_operacao.window_text() or "").strip()
+            except Exception:
+                atual = ""
+
+            # 2) fallback: primeiro texts() costuma ser o selecionado
+            if not atual:
+                try:
+                    textos = combo_box_natureza_operacao.texts() or []
+                    if textos:
+                        atual = (textos[0] or "").strip()
+                except Exception:
+                    atual = ""
+
+            ultimo_texto = atual
+
+            if atual and (must1.lower() in atual.lower()) and (must2.lower() in atual.lower()):
+                selecionou = True
+                break
+
+            time.sleep(0.2)
+
+        # 4) (opcional) validação por índice, se suportado
+        if not selecionou:
+            try:
+                idx_sel = combo_box_natureza_operacao.selected_index()
+                itens = combo_box_natureza_operacao.item_texts()
+                idx_alvo = itens.index(opcao_alvo) if opcao_alvo in itens else None
+
+                if idx_alvo is not None and idx_sel == idx_alvo:
+                    selecionou = True
+            except Exception:
+                pass
+
+        if not selecionou:
+            console.print(
+                f"Falha ao validar seleção da Natureza Operação.\n"
+                f"Esperado conter: '{must1}' e '{must2}'\n"
+                f"Texto visível no combo: '{ultimo_texto}'\n",
+            )
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno="Falha ao validar seleção da Natureza de Operação no EMSys (texto visível não confere).",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+            )
+
+        console.print(
+            f"Natureza de operação selecionada e validada: {ultimo_texto}",
+        )
+
         await worker_sleep(3)
+
 
         # INTERAGINDO COM O CAMPO ALMOXARIFADO
         fornecedor = dados_nf[0]["fornecedorNome"]
@@ -470,18 +809,24 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         await worker_sleep(10)
                 
         # Clicar em itens da nota
-        imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\worker_automate_hub\assets\entrada_notas\intens_nota.png"
-
+        imagem = "assets\\entrada_notas\\itens_nota.png"
+        # imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\entrada_notas\itens_nota.png"
+        pyautogui.click(623, 311)
+        await worker_sleep(1)
+        send_keys("{DOWN " + ("1") + "}")
         # Tenta localizar a imagem na tela
-        while True:
-            local = pyautogui.locateCenterOnScreen(imagem, confidence=0.8)  # 0.8 = 80% de precisão
-            if local:
-                pyautogui.click(local)   # Clica no centro da imagem
-                print("Imagem encontrada e clicada!")
-                break
-            else:
-                print("Imagem não encontrada, tentando novamente...")
-                time.sleep(1)
+        # while True:
+        #     try:
+        #         local = pyautogui.locateCenterOnScreen(imagem, confidence=0.8)  # 0.8 = 80% de precisão
+        #         if local:
+        #             pyautogui.click(local)   # Clica no centro da imagem
+        #             print("Imagem encontrada e clicada!")
+        #             break
+        #         else:
+        #             print("Imagem não encontrada, tentando novamente...")
+        #             time.sleep(1)
+        #     except Exception as e:
+        #         console.print(f"Erro ao localizar imagem de itens da nota: {e}")
 
         await worker_sleep(3)
         # Clicar em itens da nota
@@ -520,7 +865,7 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 await worker_sleep(1)
                 # Listas
                 lista_icms_090 = ["5101", "5102", "5103", "5104"]
-                lista_icms_060 = ["5401", "5403", "5404", "5405", "6104", "6401", "6403", "6404", "6405"]
+                lista_icms_060 = ["5401", "5403", "5404", "5405", "6403"]
 
                 # Conecta à janela
                 app = Application().connect(class_name="TFrmAlteraItemNFE")
@@ -538,24 +883,53 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 elif cfop in lista_icms_060:
                     opcao_desejada = "060 - ICMS - SUBSTITUICAO TRIBUTARIA 060"
                 else:
-                    opcao_desejada = None
+                    return RpaRetornoProcessoDTO(
+                        sucesso=False,
+                        retorno=f"CFOP não encontrado na lista",
+                        status=RpaHistoricoStatusEnum.Falha,
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+                    )
 
                 # Seleciona no combobox
                 if opcao_desejada:
                     try:
                         tipo_icms.select(opcao_desejada)
+                        await worker_sleep(2)
                         send_keys("{ENTER}")
+                        await worker_sleep(2)
                     except Exception as e:
                         print(f"Erro ao selecionar opção: {e}")
+                    # Localize o combobox pelo class_name
+                    combo = main_window.child_window(class_name="TDBIComboBox", found_index=4)
+                    
+                    # Seleciona diretamente o texto
+                    combo.select("IPI 0%")
+                    await worker_sleep(2)
+                    send_keys("{ENTER}")
+                    await worker_sleep(2)
                             
                     # Clicar em alterar
                     main_window.child_window(class_name="TDBIBitBtn", found_index=3).click()
-                await worker_sleep(5)
+
+                    await worker_sleep(5)
+
+                    # Tentar clicar em Sim janela tributacao diferente do item
+                    try:                       
+                        app_conf = Application().connect(class_name="TMessageForm")
+                        main_window_conf = app_conf["TMessageForm"]
+                        clicar_ok = main_window_conf.child_window(class_name="TButton", found_index=1).click_input() 
+                    except:
+                        pass
+
+
         except Exception as e:
-            return {
-                "sucesso": False,
-                "retorno": f"Erro aotrabalhar nas alterações dos itens: {e}",
-            }
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Erro ao trabalhar nas alterações dos itens: {e}",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+            )
+
        
         await worker_sleep(10)
         
@@ -564,18 +938,21 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         main_window = app["TFrmNotaFiscalEntrada"]
 
         # Clicar em pagamentos
-        imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\worker_automate_hub\assets\entrada_notas\pagamentos.png"
-
-        # Tenta localizar a imagem na tela
-        while True:
-            local = pyautogui.locateCenterOnScreen(imagem, confidence=0.8)  # 0.8 = 80% de precisão
-            if local:
-                pyautogui.click(local)   # Clica no centro da imagem
-                print("Imagem encontrada e clicada!")
-                break
-            else:
-                print("Imagem não encontrada, tentando novamente...")
-                time.sleep(1)
+        # imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\worker_automate_hub\assets\entrada_notas\pagamentos.png"
+        imagem = "assets\\entrada_notas\\pagamentos.png"
+        pyautogui.click(623, 311)
+        await worker_sleep(1)
+        send_keys("{DOWN " + ("3") + "}")
+        # # Tenta localizar a imagem na tela
+        # while True:
+        #     local = pyautogui.locateCenterOnScreen(imagem, confidence=0.8)  # 0.8 = 80% de precisão
+        #     if local:
+        #         pyautogui.click(local)   # Clica no centro da imagem
+        #         print("Imagem encontrada e clicada!")
+        #         break
+        #     else:
+        #         print("Imagem não encontrada, tentando novamente...")
+        #         time.sleep(1)
 
         await worker_sleep(3)
 
@@ -584,41 +961,125 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
 
         panel_TabPagamento = panel_TTabSheet.child_window(title="Pagamento")
 
-        tipo_cobranca = panel_TTabSheet.child_window(
-            class_name="TDBIComboBox", found_index=0
-        )
-        tipo_cobranca.click()
-        # Lista de opções em ordem de prioridade
+        # Combo alvo (ajuste found_index se precisar)
+        tipo_cobranca = panel_TTabSheet.child_window(class_name="TDBIComboBox", found_index=0)
+
+        # Ordem de preferência
         opcoes = [
             "BANCO DO BRASIL BOLETO FIDC",
             "BANCO DO BRASIL BOLETO",
-            "BOLETO"
+            "BOLETO",
         ]
 
-        # Vamos percorrer o combo com setas
-        max_tentativas = 20  # evita loop infinito
-        for _ in range(max_tentativas):
-            texto_atual = tipo_cobranca.window_text().strip()
-            if any(opcao.lower() == texto_atual.lower() for opcao in opcoes):
-                send_keys("{ENTER}")
-                break
-            send_keys("{DOWN}")
-                
-        await worker_sleep(3)
-        
+        # 1) Tenta .select() direto (não digita nada)
+        selecionado = None
+        for alvo in opcoes:
+            try:
+                tipo_cobranca.select(alvo)
+                if tipo_cobranca.window_text().strip().lower() == alvo.lower():
+                    selecionado = alvo
+                    break
+            except Exception:
+                pass
+
+        # 2) Abre a LISTA e seleciona o item exato (sem digitar)
+        if not selecionado:
+            tipo_cobranca.set_focus()
+            tipo_cobranca.click_input()
+            send_keys('%{DOWN}')  # ALT+DOWN para abrir o dropdown
+            # tenta achar a janela da lista (Delphi/Win32)
+            lista = None
+            app = tipo_cobranca.app
+            for crit in (dict(title="||List"), dict(class_name="ComboLBox"), dict(class_name_re=".*(List|Combo).*")):
+                try:
+                    cand = app.window(**crit)
+                    if cand.exists(timeout=0.5):
+                        lista = cand
+                        break
+                except Exception:
+                    pass
+
+            if lista:
+                # tenta selecionar por índice (texto exato)
+                try:
+                    itens = [t.strip() for t in lista.texts() if str(t).strip()]
+                except Exception:
+                    itens = []
+
+                idx_alvo = -1
+                alvo_escolhido = None
+                for alvo in opcoes:
+                    for i, t in enumerate(itens):
+                        if t.lower() == alvo.lower():
+                            idx_alvo = i
+                            alvo_escolhido = alvo
+                            break
+                    if idx_alvo >= 0:
+                        break
+
+                if idx_alvo >= 0:
+                    try:
+                        lista.select(idx_alvo)
+                    except Exception:
+                        # fallback por teclas sem digitar texto do item
+                        send_keys('{HOME}')
+                        for _ in range(idx_alvo):
+                            send_keys('{DOWN}')
+                    send_keys('{ENTER}')
+                    try:
+                        wait_until(2, 0.2, lambda: tipo_cobranca.window_text().strip() != "")
+                    except PywTimeout:
+                        pass
+                    if tipo_cobranca.window_text().strip().lower() == alvo_escolhido.lower():
+                        selecionado = alvo_escolhido
+                else:
+                    # fallback só com setas (sem digitar): vai ao topo e desce checando
+                    send_keys('{HOME}')
+                    vistos = set()
+                    for _ in range(60):
+                        atual = tipo_cobranca.window_text().strip()
+                        if atual.lower() in (o.lower() for o in opcoes):
+                            send_keys('{ENTER}')
+                            selecionado = atual
+                            break
+                        if atual.lower() in vistos:
+                            # deu a volta
+                            send_keys('{ESC}')
+                            break
+                        vistos.add(atual.lower())
+                        send_keys('{DOWN}')
+
+        # (opcional) validação dura
+        if not selecionado or selecionado.lower() not in (o.lower() for o in opcoes):
+            raise RuntimeError(f"Não consegui selecionar uma opção válida. Ficou: '{tipo_cobranca.window_text().strip()}'")
+
+        print("Selecionado:", selecionado)
         dt_vencimento_nota = nota.get("dataVencimento")  # vem como '2025-09-26'
         data_atual = datetime.now().date()
 
         # Converte para date (formato yyyy-mm-dd → ISO)
         data_vencimento = datetime.strptime(dt_vencimento_nota, "%Y-%m-%d").date()
-
+        parcela_apagada = False
+        dt_alterada = False
         # Se o vencimento for hoje ou já passou, joga para próximo dia útil
         if data_vencimento <= data_atual:
             data_vencimento = data_atual + timedelta(days=1)
+            dt_alterada = True
 
             # Ajusta para cair só em dias úteis
             while data_vencimento.weekday() >= 5:  # 5 = sábado, 6 = domingo
                 data_vencimento += timedelta(days=1)
+        
+            try:
+                apagar_parcela =  main_window.child_window(class_name="TDBIBitBtn", found_index=0).click_input()
+
+                app_conf = Application().connect(class_name="TMessageForm")
+                main_window_conf = app_conf["TMessageForm"]
+                clicar_ok = main_window_conf.child_window(class_name="TButton", found_index=1).click_input() 
+                parcela_apagada = True
+            except:
+                pass
+
 
         # Converter para string (formato brasileiro dd/mm/yyyy)
         data_vencimento_str = data_vencimento.strftime("%d/%m/%Y")
@@ -630,13 +1091,42 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         )
 
         data_venc.set_edit_text(data_vencimento_str)
-                    
+        if not parcela_apagada and not dt_alterada:
+            pass
+        else:
+            # Pegar valor 
+            valor_ctrl = panel_TTabSheet.child_window(
+                class_name="TDBIEditNumber",
+                found_index=7
+            )
+
+            valor = valor_ctrl.window_text()
+            console.print(valor)
+
+            # Inserir valor 
+            campo_destino = panel_TTabSheet.child_window(
+                class_name="TDBIEditNumber",
+                found_index=3
+            )
+
+            campo_destino.set_focus()
+            campo_destino.select()                  # seleciona tudo
+            campo_destino.type_keys("^a{BACKSPACE}") # limpa o campo
+            campo_destino.type_keys(valor, with_spaces=True)
+
+            # Clicar no + para incluir
+            inserir_parcela = panel_TTabSheet.child_window(
+                class_name="TDBIBitBtn",
+                found_index=1
+            ).click_input()
+        
+        await worker_sleep(2)
+               
+                         
         console.print(f"Incluindo registro...\n")
         try:
-            ASSETS_PATH = "assets"
-            inserir_registro = pyautogui.locateOnScreen(
-                r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\entrada_notas\IncluirRegistro.png", confidence=0.8
-            )
+            inserir_registro = pyautogui.locateOnScreen("assets\\entrada_notas\\IncluirRegistro.png", confidence=0.8)
+            # inserir_registro = pyautogui.locateOnScreen(r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\entrada_notas\IncluirRegistro.png", confidence=0.8)
             pyautogui.click(inserir_registro)
         except Exception as e:
             console.print(
@@ -663,6 +1153,8 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         )
         app = Application().connect(class_name="TFrmNotaFiscalEntrada")
         main_window = app["TFrmNotaFiscalEntrada"]
+
+        await worker_sleep(5)
 
         try:
             warning_pop_up_pagamentos = main_window.child_window(
@@ -716,7 +1208,8 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
 
-        despesa_rateio_work = await rateio_despesa(empresaCodigo)
+        
+        despesa_rateio_work = await rateio_despesa_centro_custo(centro_custo)
         if despesa_rateio_work.sucesso == True:
             console.log(despesa_rateio_work.retorno, style="bold green")
         else:
@@ -828,5 +1321,3 @@ async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
     finally:
         # Deleta o xml
         await delete_xml(numero_nota)
-
-

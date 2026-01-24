@@ -29,7 +29,8 @@ import hashlib
 import re
 import copy
 import functools
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+from typing_extensions import dataclass_transform
 
 import luigi
 
@@ -145,6 +146,7 @@ class BulkCompleteNotImplementedError(NotImplementedError):
     pass
 
 
+@dataclass_transform(eq_default=False, order_default=False, kw_only_default=True, field_specifiers=(Parameter,))
 class Task(metaclass=Register):
     """
     This is the base class of all Luigi Tasks, the base unit of work in Luigi.
@@ -186,7 +188,7 @@ class Task(metaclass=Register):
     #: Number of seconds after which to time out the run function.
     #: No timeout if set to 0.
     #: Defaults to 0 or worker-timeout value in config
-    worker_timeout = None
+    worker_timeout: Optional[int] = None
 
     #: Maximum number of tasks to run together as a batch. Infinite by default
     max_batch_size = float('inf')

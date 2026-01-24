@@ -506,6 +506,9 @@ Ready? """
     prompt_init_git_release_force = prompt_message(
         "You are going to manually update workspace commit reference manually, this is just for special occasions. Do you want to update current commit reference '{current_commit}' to '{new_commit}'?"
     )
+    prompt_init_git_release_new = prompt_message(
+        "This workspace does not have any release yet. Do you want to create one with commit '{commit}'? This will enable 'tb deploy' to work."
+    )
 
     warning_exchange = warning_message(
         "Warning: Do you want to exchange Data Source {datasource_a} by Data Source {datasource_b}?"

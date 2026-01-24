@@ -80,7 +80,7 @@ class ObjectClient:
         )
         client.catalog.object.upsert(
             idempotency_key="af3d1afc-7212-4300-b463-0bfc5314a5ae",
-            object={"type": "IMAGE", "id": "#Cocoa"},
+            object={"id": "id", "type": "ITEM"},
         )
         """
         _response = self._raw_client.upsert(
@@ -156,6 +156,9 @@ class ObjectClient:
         )
         client.catalog.object.get(
             object_id="object_id",
+            include_related_objects=True,
+            catalog_version=1000000,
+            include_category_path_to_root=True,
         )
         """
         _response = self._raw_client.get(
@@ -283,7 +286,7 @@ class AsyncObjectClient:
         async def main() -> None:
             await client.catalog.object.upsert(
                 idempotency_key="af3d1afc-7212-4300-b463-0bfc5314a5ae",
-                object={"type": "IMAGE", "id": "#Cocoa"},
+                object={"id": "id", "type": "ITEM"},
             )
 
 
@@ -367,6 +370,9 @@ class AsyncObjectClient:
         async def main() -> None:
             await client.catalog.object.get(
                 object_id="object_id",
+                include_related_objects=True,
+                catalog_version=1000000,
+                include_category_path_to_root=True,
             )
 
 

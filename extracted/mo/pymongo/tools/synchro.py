@@ -131,6 +131,7 @@ replacements = {
     "async_create_barrier": "create_barrier",
     "async_barrier_wait": "barrier_wait",
     "async_joinall": "joinall",
+    "async_simple_test_client": "simple_test_client",
     "_async_create_connection": "_create_connection",
     "pymongo.asynchronous.srv_resolver._SrvResolver.get_hosts": "pymongo.synchronous.srv_resolver._SrvResolver.get_hosts",
     "dns.asyncresolver.resolve": "dns.resolver.resolve",
@@ -230,7 +231,6 @@ converted_tests = [
     "test_cursor.py",
     "test_custom_types.py",
     "test_database.py",
-    "test_data_lake.py",
     "test_discovery_and_monitoring.py",
     "test_dns.py",
     "test_encryption.py",
@@ -321,6 +321,14 @@ def translate_coroutine_types(lines: list[str]) -> list[str]:
             old = res[0]
             index = lines.index(type)
             new = type.replace(old, res.group(3))
+            lines[index] = new
+    coroutine_types = [line for line in lines if "Awaitable[" in line]
+    for type in coroutine_types:
+        res = re.search(r"Awaitable\[([A-z]+)\]", type)
+        if res:
+            old = res[0]
+            index = lines.index(type)
+            new = type.replace(old, res.group(1))
             lines[index] = new
     return lines
 

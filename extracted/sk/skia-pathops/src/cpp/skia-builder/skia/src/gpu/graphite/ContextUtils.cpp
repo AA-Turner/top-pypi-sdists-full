@@ -7,379 +7,229 @@
 
 #include "src/gpu/graphite/ContextUtils.h"
 
-#include <string>
-#include "include/private/SkSLString.h"
-#include "src/core/SkBlenderBase.h"
+#include "include/core/SkBlendMode.h"
+#include "include/core/SkM44.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkString.h"
+#include "include/gpu/GpuTypes.h"
+#include "include/gpu/graphite/Recorder.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkDebug.h"
+#include "include/private/base/SkSpan_impl.h"
+#include "src/base/SkEnumBitMask.h"
+#include "src/gpu/BlendFormula.h"
 #include "src/gpu/graphite/Caps.h"
-#include "src/gpu/graphite/GraphicsPipelineDesc.h"
+#include "src/gpu/graphite/ComputeTypes.h"
 #include "src/gpu/graphite/KeyContext.h"
 #include "src/gpu/graphite/PaintParams.h"
+#include "src/gpu/graphite/PaintParamsKey.h"
 #include "src/gpu/graphite/PipelineData.h"
 #include "src/gpu/graphite/RecorderPriv.h"
+#include "src/gpu/graphite/RenderPassDesc.h"
 #include "src/gpu/graphite/Renderer.h"
-#include "src/gpu/graphite/ResourceProvider.h"
+#include "src/gpu/graphite/ResourceTypes.h"
 #include "src/gpu/graphite/ShaderCodeDictionary.h"
+#include "src/gpu/graphite/TextureFormat.h"
 #include "src/gpu/graphite/UniformManager.h"
 #include "src/gpu/graphite/UniquePaintParamsID.h"
+#include "src/gpu/graphite/compute/ComputeStep.h"
+#include "src/gpu/graphite/geom/Geometry.h"
+#include "src/sksl/SkSLString.h"
+#include "src/sksl/SkSLUtil.h"
+
+#include <string>
 
 namespace skgpu::graphite {
 
-std::tuple<UniquePaintParamsID, const UniformDataBlock*, const TextureDataBlock*>
-ExtractPaintData(Recorder* recorder,
-                 PipelineDataGatherer* gatherer,
-                 PaintParamsKeyBuilder* builder,
-                 const Layout layout,
-                 const SkM44& local2Dev,
-                 const PaintParams& p,
-                 const SkColorInfo& targetColorInfo) {
-    SkDEBUGCODE(builder->checkReset());
+bool CanUseHardwareBlending(const Caps* caps,
+                            TextureFormat targetFormat,
+                            SkBlendMode bm,
+                            Coverage coverage) {
+    // Check for special cases that would prevent the usage of direct hardware blending and
+    // require us to fall back to using shader-based blending.
+    const bool hasCoverage = coverage != Coverage::kNone;
+    const bool dstIsFast = caps->getDstReadStrategy() != DstReadStrategy::kTextureCopy;
+    if (// Using LCD coverage (which must be applied after the blend equation) with any blend mode
+        // besides SkBlendMode::kSrcOver
+        // TODO(b/414597217): Add support to use dual-source blending with LCD coverage.
+        (coverage == Coverage::kLCD && bm != SkBlendMode::kSrcOver) ||
 
-    gatherer->resetWithNewLayout(layout);
+        // SkBlendMode::kPlus clamps its output to [0,1], e.g. clamp(D+S,0,1), which is then
+        // combined with coverage (f) for a final written value of:
+        //   (1-f)*D + f*clamp(D+S,0,1)
+        //
+        // This can be rewritten to min(D+f*S, D+f*(1-D)), which is not representable with *any*
+        // hardware blend configuration. However, when the target format clamps to [0,1], we can
+        // approximate the output as min(D+f*S, 1) with a slight degradation in AA quality.
+        //
+        // If access to D doesn't require a texture copy, prefer shader blending for the quality.
+        (bm == SkBlendMode::kPlus && (dstIsFast || !TextureFormatAutoClamps(targetFormat))) ||
 
-    KeyContext keyContext(recorder, local2Dev, targetColorInfo, p.color());
-    p.toKey(keyContext, builder, gatherer);
+        // Using an advanced blend mode but the hardware does not support them
+        (bm > SkBlendMode::kLastCoeffMode && !caps->supportsHardwareAdvancedBlending()) ||
 
-    auto entry = recorder->priv().shaderCodeDictionary()->findOrCreate(builder);
-    if (!entry) {
-        return { UniquePaintParamsID::InvalidID(), nullptr, nullptr };
+        // The blend formula requires dual-source blending, but it is not supported by hardware
+        (bm <= SkBlendMode::kLastCoeffMode &&
+         (coverage == Coverage::kLCD ? skgpu::GetLCDBlendFormula(bm).hasSecondaryOutput()
+                                     : skgpu::GetBlendFormula(/*isOpaque=*/false,
+                                                              hasCoverage,
+                                                              bm).hasSecondaryOutput()) &&
+         !caps->shaderCaps()->fDualSourceBlendingSupport)) {
+        return false;
     }
 
-    UniformDataCache* uniformDataCache = recorder->priv().uniformDataCache();
-    TextureDataCache* textureDataCache = recorder->priv().textureDataCache();
-    const UniformDataBlock* uniforms =
-            gatherer->hasUniforms() ? uniformDataCache->insert(gatherer->finishUniformDataBlock())
-                                    : nullptr;
-    const TextureDataBlock* textures =
-            gatherer->hasTextures() ? textureDataCache->insert(gatherer->textureDataBlock())
-                                    : nullptr;
-
-    return { entry->uniqueID(), uniforms, textures };
+    // In all other cases (which are more commonly encountered; e.g. using a simple blend mode),
+    // we can use direct HW blending.
+    return true;
 }
 
-std::tuple<const UniformDataBlock*, const TextureDataBlock*> ExtractRenderStepData(
-        UniformDataCache* uniformDataCache,
-        TextureDataCache* textureDataCache,
-        PipelineDataGatherer* gatherer,
-        const Layout layout,
-        const RenderStep* step,
-        const DrawParams& params) {
-    gatherer->resetWithNewLayout(layout);
-    step->writeUniformsAndTextures(params, gatherer);
+void CollectIntrinsicUniforms(const Caps* caps,
+                              SkIRect viewport,
+                              SkIRect dstReadBounds,
+                              UniformManager* uniforms) {
+    SkDEBUGCODE(uniforms->setExpectedUniforms(kIntrinsicUniforms, /*isSubstruct=*/false);)
 
-    const UniformDataBlock* uniforms =
-            gatherer->hasUniforms() ? uniformDataCache->insert(gatherer->finishUniformDataBlock())
-                                    : nullptr;
-    const TextureDataBlock* textures =
-            gatherer->hasTextures() ? textureDataCache->insert(gatherer->textureDataBlock())
-                                    : nullptr;
+    // viewport
+    {
+        // The vertex shader needs to divide by the dimension and then multiply by 2, so do this
+        // once on the CPU. This is because viewport normalization wants to range from -1 to 1, and
+        // not 0 to 1. If any other user of the viewport uniform requires the true reciprocal or
+        // original dimensions, this can be adjusted.
+        SkASSERT(!viewport.isEmpty());
+        float invTwoW = 2.f / viewport.width();
+        float invTwoH = 2.f / viewport.height();
 
-    return { uniforms, textures };
-}
-
-namespace {
-std::string get_uniform_header(int bufferID, const char* name) {
-    std::string result;
-
-    SkSL::String::appendf(&result, "layout (binding=%d) uniform %sUniforms {\n", bufferID, name);
-
-    return result;
-}
-
-std::string get_uniforms(Layout layout,
-                         SkSpan<const Uniform> uniforms,
-                         int* offset,
-                         int manglingSuffix) {
-    std::string result;
-    UniformOffsetCalculator offsetter(layout, *offset);
-
-    for (const Uniform& u : uniforms) {
-        SkSL::String::appendf(&result,
-                              "    layout(offset=%zu) %s %s",
-                              offsetter.advanceOffset(u.type(), u.count()),
-                              SkSLTypeString(u.type()),
-                              u.name());
-        if (manglingSuffix >= 0) {
-            result.append("_");
-            result.append(std::to_string(manglingSuffix));
+        // If the NDC Y axis points up (opposite normal skia convention and the underlying view
+        // convention), upload the inverse height as a negative value. See ShaderInfo::Make
+        // for how this is used.
+        if (!caps->ndcYAxisPointsDown()) {
+            invTwoH *= -1.f;
         }
-        if (u.count()) {
-            result.append("[");
-            result.append(std::to_string(u.count()));
-            result.append("]");
-        }
-        result.append(";\n");
+        uniforms->write(SkV4{(float) viewport.left(), (float) viewport.top(), invTwoW, invTwoH});
     }
 
-    *offset = offsetter.size();
-    return result;
-}
-}  // anonymous namespace
-
-std::string EmitPaintParamsUniforms(int bufferID,
-                                    const char* name,
-                                    const Layout layout,
-                                    const std::vector<PaintParamsKey::BlockReader>& readers) {
-    int offset = 0;
-
-    std::string result = get_uniform_header(bufferID, name);
-    for (int i = 0; i < (int) readers.size(); ++i) {
-        SkSpan<const Uniform> uniforms = readers[i].entry()->fUniforms;
-
-        if (!uniforms.empty()) {
-            SkSL::String::appendf(&result, "// %s uniforms\n", readers[i].entry()->fName);
-            result += get_uniforms(layout, uniforms, &offset, i);
-        }
-    }
-    result.append("};\n\n");
-
-    return result;
-}
-
-std::string EmitRenderStepUniforms(int bufferID,
-                                   const char* name,
-                                   const Layout layout,
-                                   SkSpan<const Uniform> uniforms) {
-    int offset = 0;
-
-    std::string result = get_uniform_header(bufferID, name);
-    result += get_uniforms(layout, uniforms, &offset, -1);
-    result.append("};\n\n");
-
-    return result;
-}
-
-std::string EmitPaintParamsStorageBuffer(
-        int bufferID,
-        const char* bufferTypePrefix,
-        const char* bufferNamePrefix,
-        const std::vector<PaintParamsKey::BlockReader>& readers) {
-
-    std::string result;
-    SkSL::String::appendf(&result, "struct %sUniformData {\n", bufferTypePrefix);
-    for (int i = 0; i < (int)readers.size(); ++i) {
-        SkSpan<const Uniform> uniforms = readers[i].entry()->fUniforms;
-        if (uniforms.empty()) {
-            continue;
-        }
-        SkSL::String::appendf(&result, "// %s uniforms\n", readers[i].entry()->fName);
-        int manglingSuffix = i;
-        for (const Uniform& u : uniforms) {
-            SkSL::String::appendf(
-                    &result, "    %s %s_%d", SkSLTypeString(u.type()), u.name(), manglingSuffix);
-            if (u.count()) {
-                SkSL::String::appendf(&result, "[%u]", u.count());
-            }
-            result.append(";\n");
-        }
-    }
-    result.append("};\n\n");
-
-    SkSL::String::appendf(&result,
-                          "layout (binding=%d) buffer %sUniforms {\n"
-                          "    %sUniformData %sUniformData[];\n"
-                          "};\n",
-                          bufferID,
-                          bufferTypePrefix,
-                          bufferTypePrefix,
-                          bufferNamePrefix);
-    return result;
-}
-
-std::string EmitStorageBufferAccess(const char* bufferNamePrefix,
-                                    const char* ssboIndex,
-                                    const char* uniformName) {
-    return SkSL::String::printf("%sUniformData[%s].%s", bufferNamePrefix, ssboIndex, uniformName);
-}
-
-std::string EmitTexturesAndSamplers(const ResourceBindingRequirements& bindingReqs,
-                                    const std::vector<PaintParamsKey::BlockReader>& readers,
-                                    int* binding) {
-    std::string result;
-    for (int i = 0; i < (int) readers.size(); ++i) {
-        SkSpan<const TextureAndSampler> samplers = readers[i].entry()->fTexturesAndSamplers;
-
-        if (!samplers.empty()) {
-            SkSL::String::appendf(&result, "// %s samplers\n", readers[i].entry()->fName);
-
-            for (const TextureAndSampler& t : samplers) {
-                result += EmitSamplerLayout(bindingReqs, binding);
-                SkSL::String::appendf(&result, " uniform sampler2D %s_%d;\n", t.name(), i);
-            }
-        }
+    // dstReadBounds
+    {
+        // Unlike viewport, dstReadBounds can be empty so check for 0 dimensions and set the
+        // reciprocal to 0. It is also not doubled since its purpose is to normalize texture coords
+        // to 0 to 1, and not -1 to 1.
+        int width = dstReadBounds.width();
+        int height = dstReadBounds.height();
+        uniforms->write(SkV4{(float) dstReadBounds.left(), (float) dstReadBounds.top(),
+                             width ? 1.f / width : 0.f, height ? 1.f / height : 0.f});
     }
 
-    return result;
+    SkDEBUGCODE(uniforms->doneWithExpectedUniforms());
 }
 
 std::string EmitSamplerLayout(const ResourceBindingRequirements& bindingReqs, int* binding) {
     std::string result;
 
-    // If fDistinctIndexRanges is false, then texture and sampler indices may clash with other
-    // resource indices. Graphite assumes that they will be placed in descriptor set (Vulkan) and
-    // bind group (Dawn) index 1.
     if (bindingReqs.fSeparateTextureAndSamplerBinding) {
         int samplerIndex = (*binding)++;
         int textureIndex = (*binding)++;
-        SkSL::String::appendf(&result,
-                              "layout(wgsl, %ssampler=%d, texture=%d)",
-                              bindingReqs.fDistinctIndexRanges ? "" : "set=1, ",
-                              samplerIndex,
-                              textureIndex);
+        result = SkSL::String::printf("layout(webgpu, set=%d, sampler=%d, texture=%d)",
+                                      bindingReqs.fTextureSamplerSetIdx,
+                                      samplerIndex,
+                                      textureIndex);
     } else {
-        SkSL::String::appendf(&result,
-                              "layout(%sbinding=%d)",
-                              bindingReqs.fDistinctIndexRanges ? "" : "set=1, ",
-                              *binding);
-        (*binding)++;
+        int samplerIndex = (*binding)++;
+        result = SkSL::String::printf("layout(set=%d, binding=%d)",
+                                      bindingReqs.fTextureSamplerSetIdx,
+                                      samplerIndex);
     }
     return result;
 }
 
-namespace {
-std::string emit_attributes(SkSpan<const Attribute> vertexAttrs,
-                            SkSpan<const Attribute> instanceAttrs) {
-    std::string result;
-
-    int attr = 0;
-    auto add_attrs = [&](SkSpan<const Attribute> attrs) {
-        for (auto a : attrs) {
-            SkSL::String::appendf(&result, "    layout(location=%d) in ", attr++);
-            result.append(SkSLTypeString(a.gpuType()));
-            SkSL::String::appendf(&result, " %s;\n", a.name());
-        }
-    };
-
-    if (!vertexAttrs.empty()) {
-        result.append("// vertex attrs\n");
-        add_attrs(vertexAttrs);
-    }
-    if (!instanceAttrs.empty()) {
-        result.append("// instance attrs\n");
-        add_attrs(instanceAttrs);
-    }
-
-    return result;
-}
-}  // anonymous namespace
-
-std::string EmitVaryings(const RenderStep* step,
-                         const char* direction,
-                         bool emitShadingSsboIndexVarying,
-                         bool emitLocalCoordsVarying) {
-    std::string result;
-    int location = 0;
-
-    if (emitShadingSsboIndexVarying) {
-        SkSL::String::appendf(&result,
-                              "    layout(location=%d) %s int shadingSsboIndexVar;\n",
-                              location++,
-                              direction);
-    }
-
-    if (emitLocalCoordsVarying) {
-        SkSL::String::appendf(&result, "    layout(location=%d) %s ", location++, direction);
-        result.append(SkSLTypeString(SkSLType::kFloat2));
-        SkSL::String::appendf(&result, " localCoordsVar;\n");
-    }
-
-    for (auto v : step->varyings()) {
-        SkSL::String::appendf(&result, "    layout(location=%d) %s ", location++, direction);
-        result.append(SkSLTypeString(v.fType));
-        SkSL::String::appendf(&result, " %s;\n", v.fName);
-    }
-
-    return result;
+std::string GetPipelineLabel(const ShaderCodeDictionary* dict,
+                             const RenderPassDesc& renderPassDesc,
+                             const RenderStep* renderStep,
+                             UniquePaintParamsID paintID) {
+    std::string label = renderPassDesc.toPipelineLabel().c_str(); // includes the write swizzle
+    label += " + ";
+    label += renderStep->name();
+    label += " + ";
+    // the shader portion will be "(empty)" for depth-only draws
+    label += dict->idToString(paintID).c_str();
+    return label;
 }
 
-std::string GetSkSLVS(const ResourceBindingRequirements& bindingReqs,
-                      const RenderStep* step,
-                      bool defineShadingSsboIndexVarying,
-                      bool defineLocalCoordsVarying) {
-    // TODO: To more completely support end-to-end rendering, this will need to be updated so that
-    // the RenderStep shader snippet can produce a device coord, a local coord, and depth.
-    // If the paint combination doesn't need the local coord it can be ignored, otherwise we need
-    // a varying for it. The fragment function's output will need to be updated to have a color and
-    // the depth, or when there's no combination, just the depth. Lastly, we also should add the
-    // static/intrinsic uniform binding point so that we can handle normalizing the device position
-    // produced by the RenderStep automatically.
-
-    // Fixed program header
+std::string BuildComputeSkSL(const Caps* caps, const ComputeStep* step, BackendApi backend) {
     std::string sksl =
-        "layout (binding=0) uniform intrinsicUniforms {\n"
-        "    layout(offset=0) float4 rtAdjust;\n"
-        "};\n"
-        "\n";
+            SkSL::String::printf("layout(local_size_x=%u, local_size_y=%u, local_size_z=%u) in;\n",
+                                 step->localDispatchSize().fWidth,
+                                 step->localDispatchSize().fHeight,
+                                 step->localDispatchSize().fDepth);
 
-    if (step->numVertexAttributes() > 0 || step->numInstanceAttributes() > 0) {
-        sksl += emit_attributes(step->vertexAttributes(), step->instanceAttributes());
+    const auto& bindingReqs = caps->resourceBindingRequirements();
+    const bool texturesUseDistinctIdxRanges = bindingReqs.fComputeUsesDistinctIdxRangesForTextures;
+    int index = 0;
+    // NOTE: SkSL Metal codegen always assigns the same binding index to a texture and its sampler.
+    // TODO: This could cause sampler indices to not be tightly packed if the sampler2D declaration
+    // comes after 1 or more storage texture declarations (which don't have samplers). An optional
+    // "layout(msl, sampler=T, texture=T)" syntax to count them separately (like we do for WGSL)
+    // could come in handy here but it's not supported in MSL codegen yet.
+    int texIdx = 0;
+    for (const ComputeStep::ResourceDesc& r : step->resources()) {
+        using Type = ComputeStep::ResourceType;
+        switch (r.fType) {
+            case Type::kUniformBuffer:
+                SkSL::String::appendf(&sksl, "layout(binding=%d) uniform ", index++);
+                sksl += r.fSkSL;
+                break;
+            case Type::kStorageBuffer:
+            case Type::kIndirectBuffer:
+                SkSL::String::appendf(&sksl, "layout(binding=%d) buffer ", index++);
+                sksl += r.fSkSL;
+                break;
+            case Type::kReadOnlyStorageBuffer:
+                SkSL::String::appendf(&sksl, "layout(binding=%d) readonly buffer ", index++);
+                sksl += r.fSkSL;
+                break;
+            case Type::kWriteOnlyStorageTexture:
+                SkSL::String::appendf(&sksl, "layout(binding=%d, rgba8) writeonly texture2D ",
+                                      texturesUseDistinctIdxRanges ? texIdx++ : index++);
+                sksl += r.fSkSL;
+                break;
+            case Type::kReadOnlyTexture:
+                SkSL::String::appendf(&sksl, "layout(binding=%d, rgba8) readonly texture2D ",
+                                      texturesUseDistinctIdxRanges ? texIdx++ : index++);
+                sksl += r.fSkSL;
+                break;
+            case Type::kSampledTexture:
+                // The following SkSL expects specific backends to have certain resource binding
+                // requirements. Before appending the SkSL, assert that these assumptions hold true.
+                // TODO(b/396420770): Have this method be more backend-agnostic.
+                if (backend == BackendApi::kMetal) {
+                     // Metal is expected to use combined texture/samplers.
+                    SkASSERT(!bindingReqs.fSeparateTextureAndSamplerBinding);
+                    SkSL::String::appendf(&sksl,
+                                          "layout(metal, binding=%d) ",
+                                          texturesUseDistinctIdxRanges ? texIdx++ : index++);
+                } else if (backend == BackendApi::kDawn) {
+                    // Dawn is expected to use separate texture/samplers and not use distinct
+                    // index ranges for texture resources.
+                    SkASSERT(bindingReqs.fSeparateTextureAndSamplerBinding &&
+                             !texturesUseDistinctIdxRanges);
+                    SkSL::String::appendf(
+                        &sksl, "layout(webgpu, sampler=%d, texture=%d) ", index, index + 1);
+                    index += 2;
+                } else {
+                    // This SkSL depends upon the assumption that we are using combined texture/
+                    // samplers and that we are not using separate resource indices for textures.
+                    SkASSERT(!bindingReqs.fSeparateTextureAndSamplerBinding &&
+                             !texturesUseDistinctIdxRanges);
+                    SkSL::String::appendf(&sksl, "layout(binding=%d) ", index++);
+                }
+                sksl += "sampler2D ";
+                sksl += r.fSkSL;
+                break;
+        }
+        sksl += ";\n";
     }
 
-    // Uniforms needed by RenderStep
-    // The uniforms are mangled by having their index in 'fEntries' as a suffix (i.e., "_%d")
-    // TODO: replace hard-coded bufferID with the backend's renderstep uniform-buffer index.
-    if (step->numUniforms() > 0) {
-        sksl += EmitRenderStepUniforms(
-                1, "Step", bindingReqs.fUniformBufferLayout, step->uniforms());
-    }
-
-    // Varyings needed by RenderStep
-    sksl += EmitVaryings(step, "out", defineShadingSsboIndexVarying, defineLocalCoordsVarying);
-
-    // Vertex shader function declaration
-    sksl += "void main() {";
-    // Create stepLocalCoords which render steps can write to.
-    sksl += "float2 stepLocalCoords = float2(0);";
-    // Vertex shader body
-    sksl += step->vertexSkSL();
-    sksl += "sk_Position = float4(devPosition.xy * rtAdjust.xy + devPosition.ww * rtAdjust.zw,"
-            "devPosition.zw);";
-
-    if (defineShadingSsboIndexVarying) {
-        // Assign SSBO index value to the SSBO index varying
-        SkSL::String::appendf(&sksl, "shadingSsboIndexVar = %s;", step->ssboIndex());
-    }
-
-    if (defineLocalCoordsVarying) {
-        // Assign Render Step's stepLocalCoords to the localCoordsVar varying.
-        sksl += "localCoordsVar = stepLocalCoords;";
-    }
-    sksl += "}";
-
+    sksl += step->computeSkSL();
     return sksl;
-}
-
-FragSkSLInfo GetSkSLFS(const ResourceBindingRequirements& bindingReqs,
-                       const ShaderCodeDictionary* dict,
-                       const RuntimeEffectDictionary* rteDict,
-                       const RenderStep* step,
-                       UniquePaintParamsID paintID,
-                       bool useStorageBuffers,
-                       skgpu::Swizzle writeSwizzle) {
-    if (!paintID.isValid()) {
-        // TODO: we should return the error shader code here
-        return {};
-    }
-
-    FragSkSLInfo result;
-
-    const char* shadingSsboIndexVar = useStorageBuffers ? "shadingSsboIndexVar" : nullptr;
-    ShaderInfo shaderInfo(rteDict, shadingSsboIndexVar);
-
-    dict->getShaderInfo(paintID, &shaderInfo);
-    result.fBlendInfo = shaderInfo.blendInfo();
-    result.fRequiresLocalCoords = shaderInfo.needsLocalCoords();
-
-    // Extra RenderStep uniforms are always backed by a UBO. Uniforms for the PaintParams are either
-    // UBO or SSBO backed based on `useStorageBuffers`.
-    result.fSkSL =
-            shaderInfo.toSkSL(bindingReqs,
-                              step,
-                              useStorageBuffers,
-                              /*defineLocalCoordsVarying=*/result.fRequiresLocalCoords,
-                              /*numTexturesAndSamplersUsed=*/&result.fNumTexturesAndSamplers,
-                              writeSwizzle);
-
-    return result;
 }
 
 } // namespace skgpu::graphite

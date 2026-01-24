@@ -9,7 +9,6 @@ from typing import Any, Union
 
 from formulaic.utils.context import capture_context
 import numpy as np
-import pandas
 from pandas import DataFrame, Series, concat
 from scipy import stats
 from statsmodels.iolib.summary import SimpleTable, fmt_2cols, fmt_params
@@ -22,10 +21,10 @@ from linearmodels.shared.utility import AttrDict
 import linearmodels.typing.data
 
 __all__ = [
-    "PanelResults",
-    "PanelEffectsResults",
-    "RandomEffectsResults",
     "FamaMacBethResults",
+    "PanelEffectsResults",
+    "PanelResults",
+    "RandomEffectsResults",
     "compare",
 ]
 
@@ -333,7 +332,7 @@ class PanelResults(_SummaryStr):
         -----
         Uses a t(df_resid) if ``debiased`` is True, else normal.
         """
-        ci_quantiles = [(1 - level) / 2, 1 - (1 - level) / 2]
+        ci_quantiles = np.array([(1 - level) / 2, 1 - (1 - level) / 2])
         if self._debiased:
             q = stats.t.ppf(ci_quantiles, self.df_resid)
         else:
@@ -437,11 +436,11 @@ class PanelResults(_SummaryStr):
         smry.tables.append(table)
 
         param_data = np.c_[
-            self.params.values[:, None],
-            self.std_errors.values[:, None],
-            self.tstats.values[:, None],
-            self.pvalues.values[:, None],
-            self.conf_int(),
+            self.params.to_numpy()[:, None],
+            self.std_errors.to_numpy()[:, None],
+            self.tstats.to_numpy()[:, None],
+            self.pvalues.to_numpy()[:, None],
+            self.conf_int().to_numpy(),
         ]
         data = []
         for row in param_data:
@@ -477,7 +476,7 @@ class PanelResults(_SummaryStr):
     def _out_of_sample(
         self,
         exog: linearmodels.typing.data.ArrayLike | None,
-        data: pandas.DataFrame | None,
+        data: DataFrame | None,
         missing: bool,
         context: Mapping[str, Any] | None = None,
     ) -> DataFrame:
@@ -496,7 +495,7 @@ class PanelResults(_SummaryStr):
         self,
         exog: linearmodels.typing.data.ArrayLike | None = None,
         *,
-        data: pandas.DataFrame | None = None,
+        data: DataFrame | None = None,
         fitted: bool = True,
         effects: bool = False,
         idiosyncratic: bool = False,
@@ -552,7 +551,7 @@ class PanelResults(_SummaryStr):
             out.append(self.idiosyncratic)
         if len(out) == 0:
             raise ValueError("At least one output must be selected")
-        out_df: pandas.DataFrame = concat(out, axis=1)
+        out_df: DataFrame = concat(out, axis=1)
         if missing:
             index = self._original_index
             out_df = out_df.reindex(index)
@@ -626,7 +625,7 @@ class PanelResults(_SummaryStr):
         number of restrictions and inference is made using an :math:`F_{k,df}`
         distribution where df is the residual degree of freedom from the model.
         """
-        from linearmodels.panel.model import _deferred_f
+        from linearmodels.panel.model import _deferred_f  # noqa: PLC0415
 
         return _deferred_f(
             self.params, self.cov, self._debiased, self.df_resid, self._f_info
@@ -667,10 +666,8 @@ class PanelResults(_SummaryStr):
 
     def wald_test(
         self,
-        restriction: (
-            linearmodels.typing.data.Float64Array | pandas.DataFrame | None
-        ) = None,
-        value: linearmodels.typing.data.Float64Array | pandas.Series | None = None,
+        restriction: linearmodels.typing.data.Float64Array | DataFrame | None = None,
+        value: linearmodels.typing.data.Float64Array | Series | None = None,
         *,
         formula: str | list[str] | None = None,
     ) -> WaldTestStatistic:
@@ -809,12 +806,11 @@ class PanelEffectsResults(PanelResults):
                 effects.append("Time")
             if other_effect:
                 oe = self.model._other_effect_cats.dataframe
-                for c in oe:
-                    effects.append("Other Effect (" + str(c) + ")")
+                effects.extend(["Other Effect (" + str(c) + ")" for c in oe])
         return effects
 
     @property
-    def other_info(self) -> pandas.DataFrame | None:
+    def other_info(self) -> DataFrame | None:
         """Statistics on observations per group for other effects"""
         return self._other_info
 
@@ -1068,7 +1064,7 @@ class PanelModelComparison(_ModelComparison):
             ],
             axis=1,
         )
-        vals_lst = [[i for i in v] for v in vals.T.values]
+        vals_lst = [list(v) for v in vals.T.values]
         vals_lst[2] = [str(v) for v in vals_lst[2]]
         for i in range(4, len(vals_lst)):
             f = _str
@@ -1083,7 +1079,7 @@ class PanelModelComparison(_ModelComparison):
         params_stub: list[str] = []
         for i in range(len(params)):
             formatted_and_starred = []
-            for v, pv in zip(params.values[i], pvalues[i]):
+            for v, pv in zip(params.values[i], pvalues[i], strict=False):
                 formatted_and_starred.append(add_star(_str(v), pv, self._stars))
             params_fmt.append(formatted_and_starred)
 

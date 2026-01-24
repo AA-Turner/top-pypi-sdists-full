@@ -5,13 +5,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ipfabric import IPFClient
 
-import httpx
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from time import sleep
 from typing import Optional, Union, Literal, Any
 from pathlib import Path
-from ipfabric.models import Device, Job, Jobs
+from ipfabric.models import Device, Job
 from ipfabric.tools.shared import validate_ip_network_str, VALID_IP, raise_for_status
 from ipfabric.settings.attributes import Attributes
 from ipfabric.models.discovery import Networks, Community, SeedList, ManualLink
@@ -20,7 +19,7 @@ from ipfabric.settings.discovery import Discovery
 from ipfabric.settings.vendor_api import VendorAPI
 from ipfabric.settings.authentication import Authentication
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger("ipfabric")
 
@@ -52,6 +51,7 @@ VALID_SNAPSHOT_SETTINGS = {
     "vendorApi",
 }
 DISABLED_ASSURANCE = {"graphCache", "historicalData", "intentVerification"}
+SNAPSHOT_TABLE = "tables/management/snapshots"
 
 
 def loaded_status(func):
@@ -90,7 +90,7 @@ class ScheduledSnapshot(BaseModel):
         self.error = True
         self.message = message
 
-    def add_params(self, params: dict):  # noqa: C901 NOSONAR
+    def add_params(self, params: dict):  # noqa: C901, S3776
         for k, v in params.items():
             if k not in VALID_SNAPSHOT_SETTINGS:
                 raise SyntaxError(f"Invalid Snapshot creation setting parameter '{k}'.")
@@ -134,38 +134,14 @@ class ScheduledSnapshot(BaseModel):
         return self.job.scheduledAt if self.job else None
 
 
-def _parse_snapshot_creation(ipf, resp: dict, snapshot: ScheduledSnapshot, dt_now: int) -> ScheduledSnapshot:
+def _parse_snapshot_creation(ipf, resp: dict, snapshot: ScheduledSnapshot) -> ScheduledSnapshot:
     if not resp["success"]:
         snapshot.add_error("Unknown error creating snapshot.")
         return snapshot
     snapshot.success = True
     sleep(2)
 
-    jobs = (
-        ipf.jobs.all_jobs.all(
-            filters={
-                "name": ["eq", "discoveryNew"],
-                "status": ["eq", "scheduled"],
-                "scheduledAt": ["gt", dt_now],
-                "username": ["eq", ipf.user.username],
-            }
-        )
-        if ipf.running_snapshot
-        else ipf.jobs.all_jobs.all(
-            filters={
-                "name": ["eq", "discoveryNew"],
-                "status": ["eq", "running"],
-                "scheduledAt": ["gt", dt_now],
-                "username": ["eq", ipf.user.username],
-            }
-        )
-    )
-    if not jobs:
-        snapshot.add_error("Snapshot job ID not found.")
-        return snapshot
-    elif len(jobs) > 1:
-        snapshot.add_error("Multiple snapshot job IDs found.")
-    snapshot.job = Job(**jobs[0])
+    snapshot.job = ipf.jobs.get_job_by_id(resp["jobId"])
     if snapshot.snapshot_id:
         ipf.update()
     else:
@@ -211,9 +187,8 @@ def create_snapshot(
         snapshot.add_error("A snapshot is already running.")
         return snapshot
 
-    started = round((datetime.now(timezone.utc) - timedelta(seconds=10)).timestamp() * 1000)
-    resp = raise_for_status(ipf.post("snapshots", json=snapshot.params))  # TODO: IPF-1515/IPF-810
-    return _parse_snapshot_creation(ipf, resp.json(), snapshot, started)
+    resp = raise_for_status(ipf.post("snapshots", json=snapshot.params))
+    return _parse_snapshot_creation(ipf, resp.json(), snapshot)
 
 
 class Error(BaseModel):
@@ -236,31 +211,43 @@ class Snapshot(BaseModel):
     device_added_count: int = Field(0, alias="deviceAddedCount")
     device_removed_count: int = Field(0, alias="deviceRemovedCount")
     status: str
-    finish_status: Optional[str] = Field(None, alias="finishStatus")  # TODO: NIM-19075
+    finish_status: str = Field(alias="finishStatus")
     loading: bool
     locked: bool
-    from_archive: Optional[bool] = Field(None, alias="fromArchive")  # TODO: NIM-19075
+    from_archive: bool = Field(None, alias="fromArchive")
     start: datetime = Field(None, alias="tsStart")
     end: Optional[datetime] = Field(None, alias="tsEnd")
     change: Optional[datetime] = Field(None, alias="tsChange")
     version: Optional[str] = None  # TODO: NIM-20526
     initial_version: Optional[str] = Field(None, alias="initialVersion")
-    sites: list[Union[str, None]]  # TODO: NIM-19075
+    sites: list[str] = Field(default_factory=list)
     errors: Optional[list[Error]] = None
     loaded_size: int = Field(None, alias="loadedSize")
     unloaded_size: int = Field(None, alias="unloadedSize")
     disabled_graph_cache: Optional[bool] = None
     disabled_historical_data: Optional[bool] = None
     disabled_intent_verification: Optional[bool] = None
-    __jobs: Jobs = PrivateAttr()
     _local_attributes: Optional[Union[Attributes, bool]] = None
     _connectivity_report: Optional[list[dict]] = None
 
-    @property
-    def _jobs(self):
-        if not getattr(self, "__jobs", None):
-            self.__jobs = Jobs(client=self.client)
-        return self.__jobs
+    def update(self) -> Optional[Snapshot]:
+        result = self.client.fetch(SNAPSHOT_TABLE, filters={"id": ["eq", self.snapshot_id]}, snapshot=False, limit=1)
+        if not result:
+            logger.error(f"Snapshot {self.snapshot_id} not found.")
+            return None
+        get_result = self.client.get(f"snapshots/{self.snapshot_id}").json()
+        snap_update = {
+            "licensedDevCount": get_result.get("licensedDevCount", None),
+            "errors": get_result.get("errors", None),
+            "version": get_result.get("version", None),
+            "initialVersion": get_result.get("initialVersion", None),
+            **result[0],
+        }
+        update = self.model_copy(update=snap_update)
+        for attr in self.model_fields_set:
+            if getattr(update, attr) != getattr(self, attr):
+                setattr(self, attr, getattr(update, attr))
+        return self
 
     def snapshot_settings(self) -> Discovery:
         """Returns the snapshot settings for the current snapshot."""
@@ -272,6 +259,7 @@ class Snapshot(BaseModel):
             authentication=Authentication(
                 client=self.client,
                 settings={"credentials": settings.pop("credentials"), "privileges": settings.pop("privileges")},
+                snapshot_id=self.snapshot_id,
             ),
             **settings,
         )
@@ -353,26 +341,30 @@ class Snapshot(BaseModel):
         return not self.loading and self.status in ["run", "ready", "finishing"]
 
     def unload(self, wait_for_unload: bool = False, timeout: int = 60, retry: int = 5) -> bool:
-        if not self.running:
+        if not self.loaded and not self.running:
             logger.warning(f"Snapshot {self.snapshot_id} is already unloaded.")
             return True
+        elif not self.loaded and self.running:
+            logger.warning(f"Snapshot {self.snapshot_id} is running, cannot unload.")
+            return False
         resp = raise_for_status(
-            self.client.post(
-                "snapshots/unload", json=[dict(jobDetail=int(datetime.now().timestamp() * 1000), id=self.snapshot_id)]
-            )
+            self.client.post("snapshots/unload", json=[{"jobDetail": self.name, "id": self.snapshot_id}])
         )
-        started = (datetime.strptime(resp.headers["date"], DATE_FORMAT) - timedelta(seconds=5)).timestamp() * 1000
-        if wait_for_unload and not self._jobs.check_snapshot_job(self.snapshot_id, started, "unload", retry, timeout):
+        job_id = next(iter([_["jobId"] for _ in resp.json() if _["snapshotId"] == self.snapshot_id]))
+        if not job_id:
+            logger.error("Could not find unload job for snapshot.")
+            return False
+        if wait_for_unload and not self.client.jobs.return_job_when_done(job_id, retry, timeout):
             logger.error("Snapshot Unload did not finish.")
             return False
-        self._refresh_status()
+        self.update()
         return True
 
     def delete(self):
         resp = raise_for_status(
-            self.client.request("DELETE", "snapshots", json=[{"id": self.snapshot_id, "jobDetail": self.name}])
+            self.client.delete("snapshots", json=[{"id": self.snapshot_id, "jobDetail": self.name}])
         )
-        return True if resp.status_code == httpx.codes.OK else False
+        return resp.ok
 
     def load(
         self,
@@ -385,31 +377,33 @@ class Snapshot(BaseModel):
             logger.warning(f"Snapshot {self.snapshot_id} is already loaded.")
             return True
         resp = raise_for_status(
-            self.client.post(
-                "snapshots/load", json=[dict(jobDetail=int(datetime.now().timestamp() * 1000), id=self.snapshot_id)]
-            )
+            self.client.post("snapshots/load", json=[{"jobDetail": self.name, "id": self.snapshot_id}])
         )
-        started = (datetime.strptime(resp.headers["date"], DATE_FORMAT) - timedelta(seconds=5)).timestamp() * 1000
-        if (wait_for_load or wait_for_assurance) and not self._check_load_status(
-            started, wait_for_assurance, timeout, retry
+        job_id = next(iter([_["jobId"] for _ in resp.json() if _["snapshotId"] == self.snapshot_id]))
+        if not job_id:
+            logger.error("Could not find load job for snapshot.")
+            return False
+        if (wait_for_load or wait_for_assurance) and not self._check_load_status_by_id(
+            job_id, wait_for_assurance, timeout, retry
         ):
             logger.error("Snapshot Load did not finish.")
             return False
-        self._refresh_status()
+        self.update()
         return True
 
-    def _refresh_status(self):
-        results = self.client.fetch(
-            "tables/management/snapshots",
-            columns=["status", "finishStatus", "loading"],
-            filters={"id": ["eq", self.snapshot_id]},
-            snapshot=False,
-        )[0]
-        self.status, self.finish_status, self.loading = (
-            results["status"],
-            results["finishStatus"],
-            results["loading"],
-        )
+    def _check_load_status_by_id(
+        self,
+        job_id: str,
+        wait_for_assurance: bool = True,
+        timeout: int = 60,
+        retry: int = 5,
+    ):
+        if not self.client.jobs.return_job_when_done(job_id, timeout=timeout, retry=retry):
+            logger.error("Snapshot Load did not complete.")
+            return False
+        if wait_for_assurance:
+            return self._check_assurance_status(job_id, timeout, retry)
+        return True
 
     def _check_load_status(
         self,
@@ -419,15 +413,13 @@ class Snapshot(BaseModel):
         retry: int = 5,
         action: str = "load",
     ):
-        load_job = self._jobs.check_snapshot_job(
+        load_job = self.client.jobs.check_snapshot_job(
             self.snapshot_id, started=ts, action=action, timeout=timeout, retry=retry
         )
         if not load_job:
-            logger.error("Snapshot Load did not complete.")
+            logger.error("Could not find load job for snapshot.")
             return False
-        if wait_for_assurance:
-            return self._check_assurance_status(load_job.startedAt, timeout, retry)
-        return True
+        return self._check_load_status_by_id(load_job.id, wait_for_assurance, timeout, retry)
 
     def _check_assurance_status(
         self,
@@ -438,7 +430,7 @@ class Snapshot(BaseModel):
         ae_settings = self.get_assurance_engine_settings()
         ae_status = False
         if ae_settings:
-            ae_status = self._jobs.check_snapshot_assurance_jobs(
+            ae_status = self.client.jobs.check_snapshot_assurance_jobs(
                 self.snapshot_id, ae_settings, started=ts, timeout=timeout, retry=retry
             )
             if not ae_status:
@@ -446,9 +438,9 @@ class Snapshot(BaseModel):
         elif not ae_settings:
             logger.error("Could not get Assurance Engine tasks please check permissions.")
         if not ae_settings or not ae_status:
-            self._change_snapshot()
+            self.client.update()
             return False
-        self.client.update()
+        self.update()
         return True
 
     @loaded_status
@@ -462,22 +454,20 @@ class Snapshot(BaseModel):
             self._local_attributes = Attributes(client=self.client, snapshot_id=self.snapshot_id)
         return self._local_attributes
 
-    def download(self, path: str = None, timeout: int = 60, retry: int = 5):
-        path = Path(path or f"{self.snapshot_id}.tar").resolve().with_suffix(".tar").absolute()
+    def download(self, path: str = None, timeout: int = 60, retry: int = 5):  # TODO
+        job_id = raise_for_status(self.client.get(f"/snapshots/{self.snapshot_id}/download")).json()["jobId"]
 
-        ts = int(datetime.now().timestamp() * 1000)
-        raise_for_status(self.client.get(f"/snapshots/{self.snapshot_id}/download"))
-
-        # waiting for download job to process
-        job = self._jobs.check_snapshot_job(
-            self.snapshot_id, started=ts, action="download", retry=retry, timeout=timeout
-        )
-        if not job:
+        if not self.client.jobs.return_job_when_done(job_id, retry, timeout):
             logger.error(f"Download job did not finish within {retry * timeout} seconds, could not get file.")
             return None
-        filename = self.client.get(f"jobs/{job.id}/download")
+        file = self.client.get(f"jobs/{job_id}/download")
+        try:
+            filename = file.headers["Content-Disposition"].split("filename=")[-1].strip('"').replace(":", "_")
+        except:  # noqa: E722
+            filename = f"{self.snapshot_id}.tar"
+        path = Path(path or filename).resolve().with_suffix(".tar").absolute()
         with open(path, "wb") as fp:
-            fp.write(filename.read())
+            fp.write(file.content)
         return path
 
     @loaded_status
@@ -507,15 +497,15 @@ class Snapshot(BaseModel):
         if settings is None:
             logger.debug(f"Could not get Snapshot {self.snapshot_id} Settings to verify Assurance Engine tasks.")
             return False
-        disabled = settings.get("disabledPostDiscoveryActions", list())
+        disabled = settings.get("disabledPostDiscoveryActions", [])
         self.disabled_graph_cache = True if "graphCache" in disabled else False
         self.disabled_historical_data = True if "historicalData" in disabled else False
         self.disabled_intent_verification = True if "intentVerification" in disabled else False
-        return dict(
-            disabled_graph_cache=self.disabled_graph_cache,
-            disabled_historical_data=self.disabled_historical_data,
-            disabled_intent_verification=self.disabled_intent_verification,
-        )
+        return {
+            "disabled_graph_cache": self.disabled_graph_cache,
+            "disabled_historical_data": self.disabled_historical_data,
+            "disabled_intent_verification": self.disabled_intent_verification,
+        }
 
     @loaded_status
     def update_assurance_engine_settings(
@@ -533,7 +523,7 @@ class Snapshot(BaseModel):
                 f"Could not get Snapshot {self.snapshot_id} Settings and cannot update Assurance Engine tasks."
             )
             return False
-        current = set(settings.get("disabledPostDiscoveryActions", list()))
+        current = set(settings.get("disabledPostDiscoveryActions", []))
         disabled, ae_settings = self._calculate_new_ae_settings(
             current, disabled_graph_cache, disabled_historical_data, disabled_intent_verification
         )
@@ -543,11 +533,11 @@ class Snapshot(BaseModel):
         ts = int(datetime.now().timestamp() * 1000)
         raise_for_status(
             self.client.patch(
-                f"/snapshots/{self.snapshot_id}/settings", json=dict(disabledPostDiscoveryActions=list(disabled))
+                f"/snapshots/{self.snapshot_id}/settings", json={"disabledPostDiscoveryActions": list(disabled)}
             )
         )
         if wait_for_assurance and current - disabled:
-            ae_status = self._jobs.check_snapshot_assurance_jobs(
+            ae_status = self.client.jobs.check_snapshot_assurance_jobs(
                 self.snapshot_id, ae_settings, started=ts, timeout=timeout, retry=retry
             )
             if not ae_status:
@@ -571,11 +561,11 @@ class Snapshot(BaseModel):
             disabled.add("intentVerification")
         enabled = current - disabled
 
-        ae_settings = dict(
-            disabled_graph_cache=False if "graphCache" in enabled else True,
-            disabled_historical_data=False if "historicalData" in enabled else True,
-            disabled_intent_verification=False if "intentVerification" in enabled else True,
-        )
+        ae_settings = {
+            "disabled_graph_cache": False if "graphCache" in enabled else True,
+            "disabled_historical_data": False if "historicalData" in enabled else True,
+            "disabled_intent_verification": False if "intentVerification" in enabled else True,
+        }
 
         return disabled, ae_settings
 
@@ -603,13 +593,13 @@ class Snapshot(BaseModel):
         Returns: bool
         """
         sn = self._dev_to_sn(devices)
-        payload = {
-            "columns": ["id", "isApiTask", "sn", "settingsStates", "vendor"],
-            "filters": {"isSelected": ["eq", True]},
-            "bindVariables": {"selected": list(sn), "isDelete": False},
-            "snapshot": self.snapshot_id,
-        }
-        snap_devs = list(self.client._ipf_pager("tables/snapshot-devices", payload))
+        snap_devs = self.client.fetch_all(
+            "tables/snapshot-devices",
+            columns=["id", "isApiTask", "sn", "settingsStates", "vendor"],
+            filters={"isSelected": ["eq", True]},
+            bind_variables={"selected": list(sn), "isDelete": False},
+            snapshot_id=self.snapshot_id,
+        )
         disabled = {dev["sn"] for dev in snap_devs if "noApiSettings" in dev["settingsStates"] and dev["isApiTask"]}
         valid = {dev["sn"] for dev in snap_devs if "ok" in dev["settingsStates"]}
         invalid = sn - valid - disabled
@@ -708,22 +698,22 @@ class Snapshot(BaseModel):
         if not sn:
             return False
 
-        ts = int(datetime.now().timestamp() * 1000)
         if action == "delete":
             resp = self.client.request("DELETE", f"snapshots/{self.snapshot_id}/devices", json=sn)
         else:
             resp = self.client.post(
-                f"snapshots/{self.snapshot_id}/devices", json=dict(snList=sn, vendorSettingsMap=dict())
+                f"snapshots/{self.snapshot_id}/devices", json={"snList": sn, "vendorSettingsMap": {}}
             )
         raise_for_status(resp)
+        resp = resp.json()
         if not wait_for_discovery:
-            self._change_snapshot()
-            return resp.json()["success"]
+            self.client.update()
+            return True
 
-        return self._check_modification_status(wait_for_assurance, ts, timeout, retry, action)
+        return self._check_modification_status(wait_for_assurance, resp["jobId"], timeout, retry)
 
     def _vendor_apis(self):
-        vendors = list()
+        vendors = []
         for vendor in self.client.get(f"snapshots/{self.snapshot_id}/available-vendor-settings").json():
             vendor.pop("details", None)
             if vendor["type"] not in ["juniper-mist", "ruckus-vsz"]:
@@ -774,26 +764,19 @@ class Snapshot(BaseModel):
             ips.append(i)
 
         payload = {"ipList": ips, "retryTimedOut": retry_timed_out, "vendorApi": vendors}
+        resp = raise_for_status(self.client.post(f"snapshots/{self.snapshot_id}/devices", json=payload)).json()
 
-        ts = int(datetime.now().timestamp() * 1000)
-        resp = self.client.post(f"snapshots/{self.snapshot_id}/devices", json=payload)
-        raise_for_status(resp)
         if not wait_for_discovery:
-            self._change_snapshot()
-            return resp.json()["success"]
-        return self._check_modification_status(wait_for_assurance, ts, timeout, retry, "add")
+            self.client.update()
+            return resp["success"]
+        return self._check_modification_status(wait_for_assurance, resp["jobId"], timeout, retry)
 
-    def _change_snapshot(self):
-        logger.warning(f"Snapshot {self.snapshot_id} is discovering switching to $last.")
-        sleep(2)
-        self.client.update()
-
-    def _check_modification_status(self, wait_for_assurance, ts, timeout, retry, action):
-        job = self._jobs.check_snapshot_job(self.snapshot_id, started=ts, action=action, timeout=timeout, retry=retry)
+    def _check_modification_status(self, wait_for_assurance, job_id, timeout, retry):
+        job = self.client.jobs.return_job_when_done(job_id, timeout=timeout, retry=retry)
         if job and wait_for_assurance:
             return self._check_assurance_status(job.startedAt, timeout, retry)
         elif not job:
-            logger.error(f"Snapshot Discovery {action.capitalize()} did not complete.")
+            logger.error("Snapshot Modification Discovery did not complete.")
         self.client.update()
         return True if job else False
 

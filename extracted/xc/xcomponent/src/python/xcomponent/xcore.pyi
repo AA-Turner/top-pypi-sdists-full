@@ -1,8 +1,8 @@
 """Typing for the rust code."""
 
+from collections.abc import Callable, Mapping
 from enum import Enum
 from typing import Any
-from collections.abc import Mapping, Callable
 
 class NodeType(Enum):
     Element = "Element"
@@ -27,6 +27,18 @@ class XElement:
 
     def __init__(
         self, name: str, attrs: dict[str, XNode], children: list[XNode]
+    ) -> None: ...
+
+class XNSElement:
+    namespace: str
+    name: str
+    attrs: dict[str, XNode]
+    children: list[XNode]
+
+    __match_args__ = ("namespace", "name", "attrs", "children")
+
+    def __init__(
+        self, namespace: str, name: str, attrs: dict[str, XNode], children: list[XNode]
     ) -> None: ...
 
 class XScriptElement:
@@ -61,6 +73,7 @@ class XExpression:
 
 class XNode:
     """Represent a node in the markup."""
+
     @staticmethod
     def Fragment(fragment: XFragment, /) -> XNode: ...
     @staticmethod
@@ -77,7 +90,24 @@ class XNode:
     def kind(self) -> NodeType: ...
     def __repr__(self) -> str: ...
     def __eq__(self, other: object) -> bool: ...
-    def unwrap(self) -> XFragment | XElement | XComment | XText | XExpression: ...
+    def unwrap(
+        self,
+    ) -> XFragment | XElement | XNSElement | XComment | XText | XExpression: ...
+
+def parse_markup(raw: str) -> XNode:
+    """
+    Parse the given markup and return the root XNode.
+
+    If the raw template is not valid, then a ValueError exception is raised,
+    with an invalid markup hint message.
+    """
+
+def extract_expr_i18n_messages(
+    raw: str,
+) -> list[Any]:
+    """
+    Used for i18n extraction message purpose.
+    """
 
 class XTemplate:
     node: XNode
@@ -86,6 +116,7 @@ class XTemplate:
 
 class XCatalog:
     """Catalog of templates en functions."""
+
     def __init__(self) -> None: ...
     def add_component(
         self,
@@ -93,6 +124,7 @@ class XCatalog:
         template: str,
         params: Mapping[str, type | Any],
         defaults: Mapping[str, Any],
+        namespaces: "Mapping[str, XCatalog]",
     ) -> None: ...
     def add_function(self, name: str, fn: Callable[..., Any]) -> None: ...
     def get(self, name: str) -> XTemplate: ...

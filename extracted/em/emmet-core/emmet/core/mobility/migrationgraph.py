@@ -2,29 +2,27 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from datetime import datetime
-from enum import Enum
-from typing import TYPE_CHECKING, Literal
-
-from pydantic import BaseModel, Field
-import numpy as np
 import copy
 import logging
-from emmet.core.base import EmmetBaseModel
-from emmet.core.neb import NebPathwayResult
-from emmet.core.utils import utcnow
+from typing import TYPE_CHECKING, Literal
 
-from pymatgen.core import Element, Structure
+import numpy as np
+from pydantic import BaseModel, Field
 from pymatgen.analysis.structure_matcher import StructureMatcher
+from pymatgen.core import Element, Structure
 from pymatgen.entries.computed_entries import ComputedEntry, ComputedStructureEntry
 
+from emmet.core.base import EmmetBaseModel
+from emmet.core.neb import NebPathwayResult
+from emmet.core.types.enums import ValueEnum
+from emmet.core.utils import arrow_incompatible
+from emmet.core.types.typing import DateTimeType
 
 try:
+    from pymatgen.analysis.diffusion.neb.full_path_mapper import MigrationGraph
     from pymatgen.analysis.diffusion.utils.edge_data_from_sc import (
         add_edge_data_from_sc,
     )
-    from pymatgen.analysis.diffusion.neb.full_path_mapper import MigrationGraph
     from pymatgen.analysis.diffusion.utils.supercells import (
         get_sc_fromstruct,
         get_start_end_structures,
@@ -36,10 +34,11 @@ except ImportError:
 
 if TYPE_CHECKING:
     from typing import Any
+
     from typing_extensions import Self
 
 
-class HopState(Enum):
+class HopState(ValueEnum):
     SUCCESS = "successful"
     FAILED = "failed"
     ERROR = "error"
@@ -66,6 +65,7 @@ class HopSummary(BaseModel):
     )
 
 
+@arrow_incompatible
 class MigrationGraphDoc(EmmetBaseModel):
     """
     MigrationGraph Doc.
@@ -80,12 +80,11 @@ class MigrationGraphDoc(EmmetBaseModel):
         None, description="The battery id for this MigrationGraphDoc"
     )
 
-    last_updated: datetime = Field(
-        default_factory=utcnow,
+    last_updated: DateTimeType = Field(
         description="Timestamp for the most recent calculation for this MigrationGraph document.",
     )
 
-    warnings: Sequence[str] = Field(
+    warnings: list[str] = Field(
         [], description="Any warnings related to this property."
     )
 

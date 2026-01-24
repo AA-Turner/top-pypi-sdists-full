@@ -9,160 +9,169 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
+from .group_0343 import BranchRestrictionPolicy
+from .group_0353 import ProtectedBranchPropRequiredPullRequestReviews
 
-class DependencyGraphSpdxSbom(GitHubModel):
-    """Dependency Graph SPDX SBOM
 
-    A schema for the SPDX JSON format returned by the Dependency Graph.
+class ProtectedBranch(GitHubModel):
+    """Protected Branch
+
+    Branch protections protect branches
     """
 
-    sbom: DependencyGraphSpdxSbomPropSbom = Field()
-
-
-class DependencyGraphSpdxSbomPropSbom(GitHubModel):
-    """DependencyGraphSpdxSbomPropSbom"""
-
-    spdxid: str = Field(
-        alias="SPDXID", description="The SPDX identifier for the SPDX document."
+    url: str = Field()
+    required_status_checks: Missing[StatusCheckPolicy] = Field(
+        default=UNSET, title="Status Check Policy", description="Status Check Policy"
     )
-    spdx_version: str = Field(
-        alias="spdxVersion",
-        description="The version of the SPDX specification that this document conforms to.",
-    )
-    comment: Missing[str] = Field(
-        default=UNSET, description="An optional comment about the SPDX document."
-    )
-    creation_info: DependencyGraphSpdxSbomPropSbomPropCreationInfo = Field(
-        alias="creationInfo"
-    )
-    name: str = Field(description="The name of the SPDX document.")
-    data_license: str = Field(
-        alias="dataLicense",
-        description="The license under which the SPDX document is licensed.",
-    )
-    document_namespace: str = Field(
-        alias="documentNamespace", description="The namespace for the SPDX document."
-    )
-    packages: list[DependencyGraphSpdxSbomPropSbomPropPackagesItems] = Field()
-    relationships: Missing[
-        list[DependencyGraphSpdxSbomPropSbomPropRelationshipsItems]
+    required_pull_request_reviews: Missing[
+        ProtectedBranchPropRequiredPullRequestReviews
     ] = Field(default=UNSET)
-
-
-class DependencyGraphSpdxSbomPropSbomPropCreationInfo(GitHubModel):
-    """DependencyGraphSpdxSbomPropSbomPropCreationInfo"""
-
-    created: str = Field(description="The date and time the SPDX document was created.")
-    creators: list[str] = Field(
-        description="The tools that were used to generate the SPDX document."
+    required_signatures: Missing[ProtectedBranchPropRequiredSignatures] = Field(
+        default=UNSET
     )
-
-
-class DependencyGraphSpdxSbomPropSbomPropRelationshipsItems(GitHubModel):
-    """DependencyGraphSpdxSbomPropSbomPropRelationshipsItems"""
-
-    relationship_type: Missing[str] = Field(
+    enforce_admins: Missing[ProtectedBranchPropEnforceAdmins] = Field(default=UNSET)
+    required_linear_history: Missing[ProtectedBranchPropRequiredLinearHistory] = Field(
+        default=UNSET
+    )
+    allow_force_pushes: Missing[ProtectedBranchPropAllowForcePushes] = Field(
+        default=UNSET
+    )
+    allow_deletions: Missing[ProtectedBranchPropAllowDeletions] = Field(default=UNSET)
+    restrictions: Missing[BranchRestrictionPolicy] = Field(
         default=UNSET,
-        alias="relationshipType",
-        description="The type of relationship between the two SPDX elements.",
+        title="Branch Restriction Policy",
+        description="Branch Restriction Policy",
     )
-    spdx_element_id: Missing[str] = Field(
+    required_conversation_resolution: Missing[
+        ProtectedBranchPropRequiredConversationResolution
+    ] = Field(default=UNSET)
+    block_creations: Missing[ProtectedBranchPropBlockCreations] = Field(default=UNSET)
+    lock_branch: Missing[ProtectedBranchPropLockBranch] = Field(
         default=UNSET,
-        alias="spdxElementId",
-        description="The SPDX identifier of the package that is the source of the relationship.",
+        description="Whether to set the branch as read-only. If this is true, users will not be able to push to the branch.",
     )
-    related_spdx_element: Missing[str] = Field(
+    allow_fork_syncing: Missing[ProtectedBranchPropAllowForkSyncing] = Field(
         default=UNSET,
-        alias="relatedSpdxElement",
-        description="The SPDX identifier of the package that is the target of the relationship.",
+        description="Whether users can pull changes from upstream when the branch is locked. Set to `true` to allow fork syncing. Set to `false` to prevent fork syncing.",
     )
 
 
-class DependencyGraphSpdxSbomPropSbomPropPackagesItems(GitHubModel):
-    """DependencyGraphSpdxSbomPropSbomPropPackagesItems"""
+class ProtectedBranchPropRequiredSignatures(GitHubModel):
+    """ProtectedBranchPropRequiredSignatures"""
 
-    spdxid: Missing[str] = Field(
-        default=UNSET,
-        alias="SPDXID",
-        description="A unique SPDX identifier for the package.",
-    )
-    name: Missing[str] = Field(default=UNSET, description="The name of the package.")
-    version_info: Missing[str] = Field(
-        default=UNSET,
-        alias="versionInfo",
-        description="The version of the package. If the package does not have an exact version specified,\na version range is given.",
-    )
-    download_location: Missing[str] = Field(
-        default=UNSET,
-        alias="downloadLocation",
-        description="The location where the package can be downloaded,\nor NOASSERTION if this has not been determined.",
-    )
-    files_analyzed: Missing[bool] = Field(
-        default=UNSET,
-        alias="filesAnalyzed",
-        description="Whether the package's file content has been subjected to\nanalysis during the creation of the SPDX document.",
-    )
-    license_concluded: Missing[str] = Field(
-        default=UNSET,
-        alias="licenseConcluded",
-        description="The license of the package as determined while creating the SPDX document.",
-    )
-    license_declared: Missing[str] = Field(
-        default=UNSET,
-        alias="licenseDeclared",
-        description="The license of the package as declared by its author, or NOASSERTION if this information\nwas not available when the SPDX document was created.",
-    )
-    supplier: Missing[str] = Field(
-        default=UNSET,
-        description="The distribution source of this package, or NOASSERTION if this was not determined.",
-    )
-    copyright_text: Missing[str] = Field(
-        default=UNSET,
-        alias="copyrightText",
-        description="The copyright holders of the package, and any dates present with those notices, if available.",
-    )
-    external_refs: Missing[
-        list[DependencyGraphSpdxSbomPropSbomPropPackagesItemsPropExternalRefsItems]
-    ] = Field(default=UNSET, alias="externalRefs")
+    url: str = Field()
+    enabled: bool = Field()
 
 
-class DependencyGraphSpdxSbomPropSbomPropPackagesItemsPropExternalRefsItems(
-    GitHubModel
-):
-    """DependencyGraphSpdxSbomPropSbomPropPackagesItemsPropExternalRefsItems"""
+class ProtectedBranchPropEnforceAdmins(GitHubModel):
+    """ProtectedBranchPropEnforceAdmins"""
 
-    reference_category: str = Field(
-        alias="referenceCategory",
-        description="The category of reference to an external resource this reference refers to.",
-    )
-    reference_locator: str = Field(
-        alias="referenceLocator",
-        description="A locator for the particular external resource this reference refers to.",
-    )
-    reference_type: str = Field(
-        alias="referenceType",
-        description="The category of reference to an external resource this reference refers to.",
-    )
+    url: str = Field()
+    enabled: bool = Field()
 
 
-model_rebuild(DependencyGraphSpdxSbom)
-model_rebuild(DependencyGraphSpdxSbomPropSbom)
-model_rebuild(DependencyGraphSpdxSbomPropSbomPropCreationInfo)
-model_rebuild(DependencyGraphSpdxSbomPropSbomPropRelationshipsItems)
-model_rebuild(DependencyGraphSpdxSbomPropSbomPropPackagesItems)
-model_rebuild(DependencyGraphSpdxSbomPropSbomPropPackagesItemsPropExternalRefsItems)
+class ProtectedBranchPropRequiredLinearHistory(GitHubModel):
+    """ProtectedBranchPropRequiredLinearHistory"""
+
+    enabled: bool = Field()
+
+
+class ProtectedBranchPropAllowForcePushes(GitHubModel):
+    """ProtectedBranchPropAllowForcePushes"""
+
+    enabled: bool = Field()
+
+
+class ProtectedBranchPropAllowDeletions(GitHubModel):
+    """ProtectedBranchPropAllowDeletions"""
+
+    enabled: bool = Field()
+
+
+class ProtectedBranchPropRequiredConversationResolution(GitHubModel):
+    """ProtectedBranchPropRequiredConversationResolution"""
+
+    enabled: Missing[bool] = Field(default=UNSET)
+
+
+class ProtectedBranchPropBlockCreations(GitHubModel):
+    """ProtectedBranchPropBlockCreations"""
+
+    enabled: bool = Field()
+
+
+class ProtectedBranchPropLockBranch(GitHubModel):
+    """ProtectedBranchPropLockBranch
+
+    Whether to set the branch as read-only. If this is true, users will not be able
+    to push to the branch.
+    """
+
+    enabled: Missing[bool] = Field(default=UNSET)
+
+
+class ProtectedBranchPropAllowForkSyncing(GitHubModel):
+    """ProtectedBranchPropAllowForkSyncing
+
+    Whether users can pull changes from upstream when the branch is locked. Set to
+    `true` to allow fork syncing. Set to `false` to prevent fork syncing.
+    """
+
+    enabled: Missing[bool] = Field(default=UNSET)
+
+
+class StatusCheckPolicy(GitHubModel):
+    """Status Check Policy
+
+    Status Check Policy
+    """
+
+    url: str = Field()
+    strict: bool = Field()
+    contexts: list[str] = Field()
+    checks: list[StatusCheckPolicyPropChecksItems] = Field()
+    contexts_url: str = Field()
+
+
+class StatusCheckPolicyPropChecksItems(GitHubModel):
+    """StatusCheckPolicyPropChecksItems"""
+
+    context: str = Field()
+    app_id: Union[int, None] = Field()
+
+
+model_rebuild(ProtectedBranch)
+model_rebuild(ProtectedBranchPropRequiredSignatures)
+model_rebuild(ProtectedBranchPropEnforceAdmins)
+model_rebuild(ProtectedBranchPropRequiredLinearHistory)
+model_rebuild(ProtectedBranchPropAllowForcePushes)
+model_rebuild(ProtectedBranchPropAllowDeletions)
+model_rebuild(ProtectedBranchPropRequiredConversationResolution)
+model_rebuild(ProtectedBranchPropBlockCreations)
+model_rebuild(ProtectedBranchPropLockBranch)
+model_rebuild(ProtectedBranchPropAllowForkSyncing)
+model_rebuild(StatusCheckPolicy)
+model_rebuild(StatusCheckPolicyPropChecksItems)
 
 __all__ = (
-    "DependencyGraphSpdxSbom",
-    "DependencyGraphSpdxSbomPropSbom",
-    "DependencyGraphSpdxSbomPropSbomPropCreationInfo",
-    "DependencyGraphSpdxSbomPropSbomPropPackagesItems",
-    "DependencyGraphSpdxSbomPropSbomPropPackagesItemsPropExternalRefsItems",
-    "DependencyGraphSpdxSbomPropSbomPropRelationshipsItems",
+    "ProtectedBranch",
+    "ProtectedBranchPropAllowDeletions",
+    "ProtectedBranchPropAllowForcePushes",
+    "ProtectedBranchPropAllowForkSyncing",
+    "ProtectedBranchPropBlockCreations",
+    "ProtectedBranchPropEnforceAdmins",
+    "ProtectedBranchPropLockBranch",
+    "ProtectedBranchPropRequiredConversationResolution",
+    "ProtectedBranchPropRequiredLinearHistory",
+    "ProtectedBranchPropRequiredSignatures",
+    "StatusCheckPolicy",
+    "StatusCheckPolicyPropChecksItems",
 )

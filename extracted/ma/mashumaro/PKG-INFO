@@ -1,25 +1,24 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mashumaro
-Version: 3.16
+Version: 3.17
 Summary: Fast and well tested serialization library
-Home-page: https://github.com/Fatal1ty/mashumaro
-Author: Alexander Tikhonov
-Author-email: random.gauss@gmail.com
-License: Apache License, Version 2.0
-Platform: all
-Classifier: License :: OSI Approved :: Apache Software License
+Author-email: Alexander Tikhonov <random.gauss@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/Fatal1ty/mashumaro
 Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: typing_extensions>=4.1.0
+Requires-Dist: typing_extensions>=4.14.0
 Provides-Extra: orjson
 Requires-Dist: orjson; extra == "orjson"
 Provides-Extra: msgpack
@@ -29,6 +28,7 @@ Requires-Dist: pyyaml>=3.13; extra == "yaml"
 Provides-Extra: toml
 Requires-Dist: tomli-w>=1.0; extra == "toml"
 Requires-Dist: tomli>=1.1.0; python_version < "3.11" and extra == "toml"
+Dynamic: license-file
 
 <div align="center">
 

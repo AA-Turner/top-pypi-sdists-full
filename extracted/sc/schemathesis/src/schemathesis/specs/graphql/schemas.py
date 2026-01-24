@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import time
+from collections.abc import Callable, Generator, Iterator, Mapping
 from dataclasses import dataclass
 from difflib import get_close_matches
 from enum import unique
@@ -9,31 +10,24 @@ from types import SimpleNamespace
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Generator,
-    Iterator,
-    Mapping,
     NoReturn,
-    Union,
     cast,
 )
 from urllib.parse import urlsplit
 
-import graphql
 from hypothesis import strategies as st
-from hypothesis_graphql import strategies as gql_st
 from requests.structures import CaseInsensitiveDict
 
 from schemathesis import auths
 from schemathesis.core import NOT_SET, NotSet, Specification
 from schemathesis.core.errors import InvalidSchema, OperationNotFound
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Ok, Result
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import (
     CaseMetadata,
     ComponentInfo,
-    ComponentKind,
     ExamplesPhaseData,
     FuzzingPhaseData,
     GenerationInfo,
@@ -48,14 +42,15 @@ from schemathesis.schemas import (
     BaseSchema,
     OperationDefinition,
 )
-from schemathesis.specs.openapi.constants import LOCATION_TO_CONTAINER
 
 from .scalars import CUSTOM_SCALARS, get_extra_scalar_strategies
 
 if TYPE_CHECKING:
+    import graphql
     from hypothesis.strategies import SearchStrategy
 
-    from schemathesis.auths import AuthStorage
+    from schemathesis.auths import AuthContext, AuthStorage
+    from schemathesis.resources import ExtraDataSource
 
 
 @unique
@@ -70,7 +65,7 @@ class GraphQLOperationDefinition(OperationDefinition):
     type_: graphql.GraphQLType
     root_type: RootType
 
-    __slots__ = ("raw", "resolved", "scope", "field_name", "type_", "root_type")
+    __slots__ = ("raw", "field_name", "type_", "root_type")
 
     def _repr_pretty_(self, *args: Any, **kwargs: Any) -> None: ...
 
@@ -81,6 +76,14 @@ class GraphQLOperationDefinition(OperationDefinition):
     @property
     def is_mutation(self) -> bool:
         return self.root_type == RootType.MUTATION
+
+
+class GraphQLResponses:
+    def find_by_status_code(self, status_code: int) -> None:
+        return None  # pragma: no cover
+
+    def add(self, status_code: str, definition: dict[str, Any]) -> None:
+        return None  # pragma: no cover
 
 
 @dataclass
@@ -134,8 +137,17 @@ class GraphQLSchema(BaseSchema):
     def specification(self) -> Specification:
         return Specification.graphql(version="")
 
+    def apply_auth(self, case: Case, context: AuthContext) -> bool:
+        return False
+
+    def create_extra_data_source(self) -> None:
+        """Extra data sources are not supported for GraphQL schemas."""
+        return None
+
     @property
     def client_schema(self) -> graphql.GraphQLSchema:
+        import graphql
+
         if not hasattr(self, "_client_schema"):
             self._client_schema = graphql.build_client_schema(self.raw_schema)
         return self._client_schema
@@ -158,7 +170,9 @@ class GraphQLSchema(BaseSchema):
             label="",
             method="POST",
             schema=self,
-            definition=None,  # type: ignore
+            responses=GraphQLResponses(),
+            security=None,
+            definition=None,  # type: ignore[arg-type, var-annotated]
         )
 
         for type_name in ("queryType", "mutationType"):
@@ -210,11 +224,11 @@ class GraphQLSchema(BaseSchema):
             method="POST",
             app=self.app,
             schema=self,
+            responses=GraphQLResponses(),
+            security=None,
             # Parameters are not yet supported
             definition=GraphQLOperationDefinition(
                 raw=field,
-                resolved=field,
-                scope="",
                 type_=operation_type,
                 field_name=field_name,
                 root_type=root_type,
@@ -252,6 +266,7 @@ class GraphQLSchema(BaseSchema):
         query: dict[str, Any] | None = None,
         body: list | dict[str, Any] | str | int | float | bool | bytes | NotSet = NOT_SET,
         media_type: str | None = None,
+        multipart_content_types: dict[str, str] | None = None,
         meta: CaseMetadata | None = None,
     ) -> Case:
         return Case(
@@ -264,6 +279,7 @@ class GraphQLSchema(BaseSchema):
             query=query or {},
             body=body,
             media_type=media_type or "application/json",
+            multipart_content_types=multipart_content_types,
             meta=meta,
         )
 
@@ -311,7 +327,7 @@ class FieldMap(Mapping):
             raise KeyError(message) from exc
 
 
-@st.composite  # type: ignore
+@st.composite  # type: ignore[untyped-decorator]
 def graphql_cases(
     draw: Callable,
     *,
@@ -326,7 +342,12 @@ def graphql_cases(
     body: Any = NOT_SET,
     media_type: str | None = None,
     phase: TestPhase = TestPhase.FUZZING,
+    # Not supported for GraphQL, passed here to unify interfaces
+    extra_data_source: ExtraDataSource | None = None,
 ) -> Any:
+    import graphql
+    from hypothesis_graphql import strategies as gql_st
+
     start = time.monotonic()
     definition = cast(GraphQLOperationDefinition, operation.definition)
     strategy_factory = {
@@ -340,7 +361,7 @@ def graphql_cases(
         operation.schema.client_schema,  # type: ignore[attr-defined]
         fields=[definition.field_name],
         custom_scalars=custom_scalars,
-        print_ast=_noop,  # type: ignore
+        print_ast=_noop,
         allow_x00=generation.allow_x00,
         allow_null=generation.graphql_allow_null,
         codec=generation.codec,
@@ -348,16 +369,28 @@ def graphql_cases(
     strategy = apply_to_all_dispatchers(operation, hook_context, hooks, strategy, "body").map(graphql.print_ast)
     body = draw(strategy)
 
-    path_parameters_ = _generate_parameter("path", path_parameters, draw, operation, hook_context, hooks)
-    headers_ = _generate_parameter("header", headers, draw, operation, hook_context, hooks)
-    cookies_ = _generate_parameter("cookie", cookies, draw, operation, hook_context, hooks)
-    query_ = _generate_parameter("query", query, draw, operation, hook_context, hooks)
+    path_parameters_ = _generate_parameter(
+        ParameterLocation.PATH, path_parameters, draw, operation, hook_context, hooks
+    )
+    headers_ = _generate_parameter(ParameterLocation.HEADER, headers, draw, operation, hook_context, hooks)
+    cookies_ = _generate_parameter(ParameterLocation.COOKIE, cookies, draw, operation, hook_context, hooks)
+    query_ = _generate_parameter(ParameterLocation.QUERY, query, draw, operation, hook_context, hooks)
 
     _phase_data = {
-        TestPhase.EXAMPLES: ExamplesPhaseData(),
-        TestPhase.FUZZING: FuzzingPhaseData(),
+        TestPhase.EXAMPLES: ExamplesPhaseData(
+            description="Positive test case",
+            parameter=None,
+            parameter_location=None,
+            location=None,
+        ),
+        TestPhase.FUZZING: FuzzingPhaseData(
+            description="Positive test case",
+            parameter=None,
+            parameter_location=None,
+            location=None,
+        ),
     }[phase]
-    phase_data = cast(Union[ExamplesPhaseData, FuzzingPhaseData], _phase_data)
+    phase_data = cast(ExamplesPhaseData | FuzzingPhaseData, _phase_data)
     instance = operation.Case(
         path_parameters=path_parameters_,
         headers=headers_,
@@ -373,17 +406,17 @@ def graphql_cases(
             components={
                 kind: ComponentInfo(mode=generation_mode)
                 for kind, value in [
-                    (ComponentKind.QUERY, query_),
-                    (ComponentKind.PATH_PARAMETERS, path_parameters_),
-                    (ComponentKind.HEADERS, headers_),
-                    (ComponentKind.COOKIES, cookies_),
-                    (ComponentKind.BODY, body),
+                    (ParameterLocation.QUERY, query_),
+                    (ParameterLocation.PATH, path_parameters_),
+                    (ParameterLocation.HEADER, headers_),
+                    (ParameterLocation.COOKIE, cookies_),
+                    (ParameterLocation.BODY, body),
                 ]
                 if value is not NOT_SET
             },
         ),
         media_type=media_type or "application/json",
-    )  # type: ignore
+    )
     context = auths.AuthContext(
         operation=operation,
         app=operation.app,
@@ -393,7 +426,7 @@ def graphql_cases(
 
 
 def _generate_parameter(
-    location: str,
+    location: ParameterLocation,
     explicit: NotSet | dict[str, Any],
     draw: Callable,
     operation: APIOperation,
@@ -401,7 +434,7 @@ def _generate_parameter(
     hooks: HookDispatcher | None,
 ) -> Any:
     # Schemathesis does not generate anything but `body` for GraphQL, hence use `None`
-    container = LOCATION_TO_CONTAINER[location]
+    container = location.container_name
     if isinstance(explicit, NotSet):
         strategy = apply_to_all_dispatchers(operation, context, hooks, st.none(), container)
     else:

@@ -6,19 +6,15 @@ import bz2
 import io
 import lzma
 import sqlite3
+import typing
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import contextmanager
 from functools import lru_cache
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Literal,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, Literal, overload
 
-from .constants import JSON, BytesOpener, Provider
+from .constants import JSON, Provider
 from .impl import Module, VersionHint
 
 if TYPE_CHECKING:
@@ -60,6 +56,7 @@ __all__ = [
     "ensure_tar_xml",
     "ensure_untar",
     "ensure_xml",
+    "ensure_yaml",
     "ensure_zip_df",
     "ensure_zip_np",
     "join",
@@ -70,6 +67,7 @@ __all__ = [
     "load_pickle_gz",
     "load_rdf",
     "load_xml",
+    "load_yaml",
     "module",
     "open",
     "open_gz",
@@ -317,22 +315,26 @@ def ensure_soup(
 
     :param key: The name of the module. No funny characters. The envvar <key>_HOME where
         key is uppercased is checked first before using the default home directory.
-    :param subkeys: A sequence of additional strings to join. If none are given,
-        returns the directory for this module.
+    :param subkeys: A sequence of additional strings to join. If none are given, returns
+        the directory for this module.
     :param url: The URL to download.
-    :param name: Overrides the name of the file at the end of the URL, if given.
-        Also useful for URLs that don't have proper filenames with extensions.
-    :param force: Should the download be done again, even if the path already
-        exists? Defaults to false.
+    :param name: Overrides the name of the file at the end of the URL, if given. Also
+        useful for URLs that don't have proper filenames with extensions.
+    :param force: Should the download be done again, even if the path already exists?
+        Defaults to false.
     :param download_kwargs: Keyword arguments to pass through to
         :func:`pystow.utils.download`.
     :param mode: The read mode, passed to :func:`open`
     :param open_kwargs: Additional keyword arguments passed to :func:`open`
-    :param beautiful_soup_kwargs: Additional keyword arguments passed to :class:`BeautifulSoup`
+    :param beautiful_soup_kwargs: Additional keyword arguments passed to
+        :class:`BeautifulSoup`
 
     :returns: An BeautifulSoup object
 
-    .. note:: If you don't need to cache, consider using :func:`pystow.utils.get_soup` instead.
+    .. note::
+
+        If you don't need to cache, consider using :func:`pystow.utils.get_soup`
+        instead.
     """
     _module = Module.from_key(key, ensure_exists=True)
     return _module.ensure_soup(
@@ -527,6 +529,40 @@ def ensure_open(
         yield yv
 
 
+# docstr-coverage:excused `overload`
+@overload
+@contextmanager
+def ensure_open_zip(
+    key: str,
+    *subkeys: str,
+    url: str,
+    inner_path: str,
+    name: str | None = ...,
+    force: bool = ...,
+    download_kwargs: Mapping[str, Any] | None = ...,
+    mode: Literal["r", "w", "rb", "wb"] = ...,
+    zipfile_kwargs: Mapping[str, Any] | None = ...,
+    open_kwargs: Mapping[str, Any] | None = ...,
+) -> Generator[typing.BinaryIO, None, None]: ...
+
+
+# docstr-coverage:excused `overload`
+@overload
+@contextmanager
+def ensure_open_zip(
+    key: str,
+    *subkeys: str,
+    url: str,
+    inner_path: str,
+    name: str | None = ...,
+    force: bool = ...,
+    download_kwargs: Mapping[str, Any] | None = ...,
+    mode: Literal["rt", "wt"] = ...,
+    zipfile_kwargs: Mapping[str, Any] | None = ...,
+    open_kwargs: Mapping[str, Any] | None = ...,
+) -> Generator[typing.TextIO, None, None]: ...
+
+
 @contextmanager
 def ensure_open_zip(
     key: str,
@@ -536,9 +572,10 @@ def ensure_open_zip(
     name: str | None = None,
     force: bool = False,
     download_kwargs: Mapping[str, Any] | None = None,
-    mode: str = "r",
+    mode: Literal["r", "w", "rb", "wb"] | Literal["rt", "wt"] = "r",
+    zipfile_kwargs: Mapping[str, Any] | None = None,
     open_kwargs: Mapping[str, Any] | None = None,
-) -> BytesOpener:
+) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
     """Ensure a file is downloaded then open it with :mod:`zipfile`.
 
     :param key: The name of the module. No funny characters. The envvar `<key>_HOME`
@@ -555,12 +592,17 @@ def ensure_open_zip(
     :param download_kwargs: Keyword arguments to pass through to
         :func:`pystow.utils.download`.
     :param mode: The read mode, passed to :func:`zipfile.open`
+    :param zipfile_kwargs: Additional keyword arguments passed to :class:`zipfile.ZipFile`
     :param open_kwargs: Additional keyword arguments passed to :func:`zipfile.open`
 
     :yields: An open file object
     """
     _module = Module.from_key(key, ensure_exists=True)
-    with _module.ensure_open_zip(
+    # ignore the call overload because mypy doesn't understand
+    # when multiple overloads cascade (i.e., this function's
+    # overloads correspond to the _module.ensure_open_zip's
+    # overloads
+    with _module.ensure_open_zip(  # type:ignore[misc,call-overload]
         *subkeys,
         url=url,
         inner_path=inner_path,
@@ -568,6 +610,7 @@ def ensure_open_zip(
         force=force,
         download_kwargs=download_kwargs,
         mode=mode,
+        zipfile_kwargs=zipfile_kwargs,
         open_kwargs=open_kwargs,
     ) as yv:
         yield yv
@@ -646,6 +689,38 @@ def ensure_open_lzma(
         yield yv
 
 
+# docstr-coverage:excused `overload`
+@overload
+@contextmanager
+def ensure_open_tarfile(
+    key: str,
+    *subkeys: str,
+    url: str,
+    inner_path: str,
+    name: str | None = ...,
+    force: bool = False,
+    download_kwargs: Mapping[str, Any] | None = ...,
+    mode: Literal["rt"] = ...,
+    open_kwargs: Mapping[str, Any] | None = ...,
+) -> Generator[typing.TextIO, None, None]: ...
+
+
+# docstr-coverage:excused `overload`
+@overload
+@contextmanager
+def ensure_open_tarfile(
+    key: str,
+    *subkeys: str,
+    url: str,
+    inner_path: str,
+    name: str | None = ...,
+    force: bool = False,
+    download_kwargs: Mapping[str, Any] | None = ...,
+    mode: Literal["r", "rb"] = ...,
+    open_kwargs: Mapping[str, Any] | None = ...,
+) -> Generator[typing.IO[bytes], None, None]: ...
+
+
 @contextmanager
 def ensure_open_tarfile(
     key: str,
@@ -655,9 +730,9 @@ def ensure_open_tarfile(
     name: str | None = None,
     force: bool = False,
     download_kwargs: Mapping[str, Any] | None = None,
-    mode: str = "r",
+    mode: Literal["r", "rb", "rt"] = "r",
     open_kwargs: Mapping[str, Any] | None = None,
-) -> BytesOpener:
+) -> Generator[typing.TextIO, None, None] | Generator[typing.IO[bytes], None, None]:
     """Ensure a tar file is downloaded and open a file inside it.
 
     :param key: The name of the module. No funny characters. The envvar `<key>_HOME`
@@ -900,6 +975,45 @@ def load_df(
     )
 
 
+def ensure_yaml(
+    key: str,
+    *subkeys: str,
+    url: str,
+    name: str | None = None,
+    force: bool = False,
+    download_kwargs: Mapping[str, Any] | None = None,
+    open_kwargs: Mapping[str, Any] | None = None,
+    yaml_load_kwargs: Mapping[str, Any] | None = None,
+) -> JSON:
+    """Download YAML and open with :mod:`yaml`.
+
+    :param key: The module name
+    :param subkeys: A sequence of additional strings to join. If none are given, returns
+        the directory for this module.
+    :param url: The URL to download.
+    :param name: Overrides the name of the file at the end of the URL, if given. Also
+        useful for URLs that don't have proper filenames with extensions.
+    :param force: Should the download be done again, even if the path already exists?
+        Defaults to false.
+    :param download_kwargs: Keyword arguments to pass through to
+        :func:`pystow.utils.download`.
+    :param open_kwargs: Additional keyword arguments passed to :func:`open`
+    :param yaml_load_kwargs: Keyword arguments to pass through to :func:`yaml.safe_load`.
+
+    :returns: A JSON object (list, dict, etc.)
+    """
+    _module = Module.from_key(key, ensure_exists=True)
+    return _module.ensure_yaml(
+        *subkeys,
+        url=url,
+        name=name,
+        force=force,
+        download_kwargs=download_kwargs,
+        open_kwargs=open_kwargs,
+        yaml_load_kwargs=yaml_load_kwargs,
+    )
+
+
 def dump_df(
     key: str,
     *subkeys: str,
@@ -1025,6 +1139,26 @@ def ensure_json_bz2(
         open_kwargs=open_kwargs,
         json_load_kwargs=json_load_kwargs,
     )
+
+
+def load_yaml(
+    key: str,
+    *subkeys: str,
+    name: str,
+    yaml_load_kwargs: Mapping[str, Any] | None = None,
+) -> JSON:
+    """Open a JSON file :mod:`json`.
+
+    :param key: The module name
+    :param subkeys: A sequence of additional strings to join. If none are given, returns
+        the directory for this module.
+    :param name: The name of the file to open
+    :param yaml_load_kwargs: Keyword arguments to pass through to :func:`yaml.safe_load`.
+
+    :returns: A JSON object (list, dict, etc.)
+    """
+    _module = Module.from_key(key, ensure_exists=True)
+    return _module.load_yaml(*subkeys, name=name, yaml_load_kwargs=yaml_load_kwargs)
 
 
 def load_json(
@@ -1850,12 +1984,13 @@ def ensure_nltk(resource: str = "stopwords") -> tuple[Path, bool]:
     """Ensure NLTK data is downloaded in a standard way.
 
     :param resource: Name of the resource to download, e.g., ``stopwords``
-    :returns:
-        A pair of the NLTK cache directory and a boolean that says if download was successful
+
+    :returns: A pair of the NLTK cache directory and a boolean that says if download was
+        successful
 
     This function also appends the standard PyStow location for NLTK data to the
-    :data:`nltk.data.path` list so any downstream users of NLTK will know how to
-    find it automatically.
+    :data:`nltk.data.path` list so any downstream users of NLTK will know how to find it
+    automatically.
     """
     import nltk.data
 

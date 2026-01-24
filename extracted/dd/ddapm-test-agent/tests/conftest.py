@@ -22,6 +22,7 @@ from aiohttp.client_exceptions import ClientOSError
 from aiohttp.web import Response
 from ddsketch import LogCollapsingLowestDenseDDSketch
 from ddsketch.pb.proto import DDSketchProto
+from ddtrace import config
 import grpc.aio as grpc_aio
 import msgpack
 from opentelemetry.proto.collector.logs.v1.logs_service_pb2_grpc import LogsServiceStub
@@ -41,6 +42,9 @@ from ddapm_test_agent.trace import Span
 from ddapm_test_agent.trace import Trace
 from ddapm_test_agent.trace_snapshot import DEFAULT_SNAPSHOT_IGNORES
 
+
+# Fix the service name to make tests consistently pass local and in CI.
+config.service = ""
 
 pytest_plugins = "aiohttp.pytest_plugin"
 
@@ -106,13 +110,30 @@ def snapshot_regex_placeholders() -> Generator[Dict[str, str], None, None]:
 
 
 @pytest.fixture
-def snapshot_server_cassettes_directory() -> Generator[str, None, None]:
-    yield "/snapshot-server-cassettes"
+def vcr_cassettes_directory() -> Generator[str, None, None]:
+    import shutil
+    import tempfile
+
+    vcr_dir = tempfile.mkdtemp(prefix="vcr-cassettes-")
+    try:
+        yield vcr_dir
+    finally:
+        shutil.rmtree(vcr_dir, ignore_errors=True)
 
 
 @pytest.fixture
 def vcr_ci_mode() -> Generator[bool, None, None]:
     yield False
+
+
+@pytest.fixture
+def vcr_provider_map() -> Generator[str, None, None]:
+    yield ""
+
+
+@pytest.fixture
+def vcr_ignore_headers() -> Generator[str, None, None]:
+    yield ""
 
 
 @pytest.fixture
@@ -130,25 +151,29 @@ async def agent_app(
     disable_error_responses,
     snapshot_removed_attrs,
     snapshot_regex_placeholders,
-    snapshot_server_cassettes_directory,
+    vcr_cassettes_directory,
     vcr_ci_mode,
+    vcr_provider_map,
+    vcr_ignore_headers,
 ):
     app = await aiohttp_server(
         make_app(
-            agent_enabled_checks,
-            log_span_fmt,
-            str(snapshot_dir),
-            snapshot_ci_mode,
-            snapshot_ignored_attrs,
-            agent_url,
-            trace_request_delay,
-            suppress_trace_parse_errors,
-            pool_trace_check_failures,
-            disable_error_responses,
-            snapshot_removed_attrs,
-            snapshot_regex_placeholders,
-            snapshot_server_cassettes_directory,
-            vcr_ci_mode,
+            enabled_checks=agent_enabled_checks,
+            log_span_fmt=log_span_fmt,
+            snapshot_dir=str(snapshot_dir),
+            snapshot_ci_mode=snapshot_ci_mode,
+            snapshot_ignored_attrs=snapshot_ignored_attrs,
+            agent_url=agent_url,
+            trace_request_delay=trace_request_delay,
+            suppress_trace_parse_errors=suppress_trace_parse_errors,
+            pool_trace_check_failures=pool_trace_check_failures,
+            disable_error_responses=disable_error_responses,
+            snapshot_removed_attrs=snapshot_removed_attrs,
+            snapshot_regex_placeholders=snapshot_regex_placeholders,
+            vcr_cassettes_directory=vcr_cassettes_directory,
+            vcr_ci_mode=vcr_ci_mode,
+            vcr_provider_map=vcr_provider_map,
+            vcr_ignore_headers=vcr_ignore_headers,
         )
     )
     yield app

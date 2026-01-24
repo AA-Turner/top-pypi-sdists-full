@@ -295,7 +295,7 @@ Keyword arguments:
 
 - wrapperProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Props passed down to the root element."""
-    _children_props = ['icon', 'indeterminateIcon']
+    _children_props: typing.List[str] = ['icon', 'indeterminateIcon']
     _base_nodes = ['icon', 'indeterminateIcon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'CheckboxIndicator'

@@ -1,9 +1,11 @@
+use bytemuck::{cast_slice, cast_vec};
 use bytes::Bytes;
+use float8::F8E4M3;
 use std::collections::HashMap;
 
 use crate::proto::data::v1::{
-    data_ext::IntoListValues, list, sparse_vector, value, vector, List, Null, SparseVector, Struct,
-    Value,
+    data_ext::{IntoListValues, IntoMatrixValues},
+    list, matrix, sparse_vector, value, vector, List, Matrix, Null, SparseVector, Struct, Value,
 };
 
 impl Value {
@@ -199,6 +201,16 @@ impl Value {
         }
     }
 
+    pub fn as_i8_list(&self) -> Option<&[i8]> {
+        match &self.value {
+            Some(value::Value::List(list)) => match &list.values {
+                Some(list::Values::I8(v)) => Some(&v.as_ref()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     pub fn as_f32_list(&self) -> Option<&[f32]> {
         match &self.value {
             Some(value::Value::List(list)) => match &list.values {
@@ -213,6 +225,46 @@ impl Value {
         match &self.value {
             Some(value::Value::List(list)) => match &list.values {
                 Some(list::Values::String(v)) => Some(&v.values),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Constructs a matrix [`Value`] from values stored in row-major order.
+    /// # Panics
+    /// - Panics if len(values) >= 2^32-1
+    /// - Panics if len(values) is not divisible by num_cols.
+    pub fn matrix<T: IntoMatrixValues>(num_cols: u32, values: T) -> Self {
+        Matrix::new(num_cols, values).into()
+    }
+
+    pub fn as_f32_matrix(&self) -> Option<(u32, u32, &[f32])> {
+        match &self.value {
+            Some(value::Value::Matrix(matrix)) => match &matrix.values {
+                Some(matrix::Values::F32(v)) => Some((matrix.num_rows, matrix.num_cols, &v.values)),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_u8_matrix(&self) -> Option<(u32, u32, &[u8])> {
+        match &self.value {
+            Some(value::Value::Matrix(matrix)) => match &matrix.values {
+                Some(matrix::Values::U8(v)) => Some((matrix.num_rows, matrix.num_cols, &v.values)),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_i8_matrix(&self) -> Option<(u32, u32, &[i8])> {
+        match &self.value {
+            Some(value::Value::Matrix(matrix)) => match &matrix.values {
+                Some(matrix::Values::I8(v)) => {
+                    Some((matrix.num_rows, matrix.num_cols, cast_slice(&v.values)))
+                }
                 _ => None,
             },
             _ => None,
@@ -253,9 +305,24 @@ impl value::Value {
                 Some(list::Values::F32(_)) => "list<f32>".to_string(),
                 Some(list::Values::F64(_)) => "list<f64>".to_string(),
                 Some(list::Values::String(_)) => "list<string>".to_string(),
-                _ => "null_list".to_string(),
+                Some(list::Values::U8(_)) => "list<u8>".to_string(),
+                Some(list::Values::I8(_)) => "list<i8>".to_string(),
+                None => "null_list".to_string(),
             },
             value::Value::Struct(_) => "struct<string, Value>".to_string(),
+            value::Value::Matrix(v) => match &v.values {
+                Some(values) => {
+                    let dt = match values {
+                        matrix::Values::F32(_) => "f32",
+                        matrix::Values::F16(_) => "f16",
+                        matrix::Values::F8(_) => "f8",
+                        matrix::Values::U8(_) => "u8",
+                        matrix::Values::I8(_) => "i8",
+                    };
+                    format!("matrix<{}, [{}, {}]>", dt, v.num_rows, v.num_cols)
+                }
+                None => "null_matrix".to_string(),
+            },
             value::Value::Null(_) => "null".to_string(),
         }
     }
@@ -345,6 +412,12 @@ impl From<Vec<u8>> for Value {
     }
 }
 
+impl From<Vec<i8>> for Value {
+    fn from(value: Vec<i8>) -> Self {
+        Value::list(value)
+    }
+}
+
 impl From<Vec<&str>> for Value {
     fn from(value: Vec<&str>) -> Self {
         Value::list(
@@ -385,6 +458,18 @@ impl<T: Into<Value>> From<Option<T>> for Value {
     }
 }
 
+impl From<list::I8> for Vec<i8> {
+    fn from(v: list::I8) -> Self {
+        cast_vec(v.values)
+    }
+}
+
+impl AsRef<[i8]> for list::I8 {
+    fn as_ref(&self) -> &[i8] {
+        cast_slice(&self.values)
+    }
+}
+
 impl Struct {
     pub fn depth(&self) -> usize {
         let mut depth = 1;
@@ -394,5 +479,155 @@ impl Struct {
             }
         }
         depth
+    }
+}
+
+impl Matrix {
+    /// Constructs a [`Matrix`] proto from values stored in row-major order.
+    /// # Panics
+    /// - Panics if len(values) >= 2^32-1
+    /// - Panics if len(values) is not divisible by num_cols.
+    pub fn new<T: IntoMatrixValues>(num_cols: u32, values: T) -> Self {
+        let values = values.into_matrix_values();
+        assert_eq!(
+            values.len() % (num_cols as usize),
+            0,
+            "len(values) must be divisible by num_cols"
+        );
+        assert!(
+            values.len() < u32::MAX as usize,
+            "len(values) must be less than u32::MAX"
+        );
+        Matrix {
+            num_rows: (values.len() as u32) / num_cols,
+            num_cols,
+            values: Some(values),
+        }
+    }
+}
+
+impl From<Matrix> for Value {
+    fn from(value: Matrix) -> Self {
+        Value {
+            value: Some(value::Value::Matrix(value)),
+        }
+    }
+}
+
+impl matrix::Values {
+    #[inline]
+    pub fn len(&self) -> usize {
+        match self {
+            matrix::Values::F32(v) => v.values.len(),
+            matrix::Values::F16(v) => v.len as usize,
+            matrix::Values::F8(v) => v.values.len(),
+            matrix::Values::U8(v) => v.values.len(),
+            matrix::Values::I8(v) => v.values.len(),
+        }
+    }
+}
+
+impl AsRef<[f32]> for matrix::F32 {
+    fn as_ref(&self) -> &[f32] {
+        &self.values
+    }
+}
+
+impl From<matrix::F32> for Vec<f32> {
+    fn from(value: matrix::F32) -> Self {
+        value.values
+    }
+}
+
+impl AsRef<[half::f16]> for matrix::F16 {
+    fn as_ref(&self) -> &[half::f16] {
+        let values = cast_slice::<_, half::f16>(&self.values);
+        &values[..self.len as usize]
+    }
+}
+
+impl From<matrix::F16> for Vec<half::f16> {
+    fn from(value: matrix::F16) -> Self {
+        assert!((value.len as usize) <= 2 * value.values.len());
+        let mut vals = value.values;
+        let cap = vals.capacity();
+        let ptr = vals.as_mut_ptr();
+        std::mem::forget(vals);
+        unsafe {
+            // SAFETY
+            // Casting len(vals) u32s into 2 * len(vals) f16s.
+            Vec::from_raw_parts(ptr as *mut half::f16, value.len as usize, cap * 2)
+        }
+    }
+}
+
+impl AsRef<[F8E4M3]> for matrix::F8 {
+    fn as_ref(&self) -> &[F8E4M3] {
+        cast_slice(&self.values)
+    }
+}
+
+impl From<matrix::F8> for Vec<F8E4M3> {
+    fn from(value: matrix::F8) -> Self {
+        cast_vec::<u8, F8E4M3>(value.values)
+    }
+}
+
+impl AsRef<[i8]> for matrix::I8 {
+    fn as_ref(&self) -> &[i8] {
+        cast_slice(&self.values)
+    }
+}
+
+impl From<matrix::I8> for Vec<i8> {
+    fn from(value: matrix::I8) -> Self {
+        cast_vec::<u8, i8>(value.values)
+    }
+}
+
+impl AsRef<[u8]> for matrix::U8 {
+    fn as_ref(&self) -> &[u8] {
+        &self.values
+    }
+}
+
+impl From<matrix::U8> for Vec<u8> {
+    fn from(value: matrix::U8) -> Self {
+        value.values
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use prost::Message;
+    use rand::Rng;
+
+    use super::*;
+
+    #[test]
+    fn fuzz_f16_proto_roundtrip() {
+        let mut rng = rand::thread_rng();
+        for _ in 0..100 {
+            let n = rng.gen_range(0..512);
+            let values: Vec<_> = (0..n)
+                .map(|_| half::f16::from_f32(rng.r#gen::<f32>()))
+                .collect();
+
+            let matrix = Matrix {
+                num_rows: 1,
+                num_cols: values.len() as u32,
+                values: Some(values.clone().into_matrix_values()),
+            };
+            let data = matrix.encode_to_vec();
+            let matrix = Matrix::decode(data.as_slice()).unwrap();
+
+            match matrix.values.unwrap() {
+                matrix::Values::F16(v) => {
+                    assert_eq!(v.as_ref(), &values);
+                    assert_eq!(Vec::from(v), values);
+                }
+                _ => panic!("Expected F16 values"),
+            }
+        }
     }
 }

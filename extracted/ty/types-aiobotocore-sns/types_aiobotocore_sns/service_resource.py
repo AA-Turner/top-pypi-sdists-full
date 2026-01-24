@@ -3,7 +3,7 @@ Type annotations for sns service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sns/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -27,6 +27,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator, Awaitable, Sequence
 from typing import NoReturn
 
 from aioboto3.resources.base import AIOBoto3ServiceResource
@@ -54,12 +55,6 @@ try:
     from boto3.resources.base import ResourceMeta
 except ImportError:
     from builtins import object as ResourceMeta  # type: ignore[assignment]
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import AsyncIterator, Awaitable, Sequence
-else:
-    from typing import AsyncIterator, Awaitable, Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -125,7 +120,7 @@ class ServiceResourcePlatformApplicationsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[PlatformApplication]]:
+    ) -> AsyncIterator[list[PlatformApplication]]:
         """
         A generator which yields pages of PlatformApplications.
 
@@ -195,7 +190,7 @@ class ServiceResourceSubscriptionsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Subscription]]:
+    ) -> AsyncIterator[list[Subscription]]:
         """
         A generator which yields pages of Subscriptions.
 
@@ -265,7 +260,7 @@ class ServiceResourceTopicsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Topic]]:
+    ) -> AsyncIterator[list[Topic]]:
         """
         A generator which yields pages of Topics.
 
@@ -335,7 +330,7 @@ class PlatformApplicationEndpointsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[PlatformEndpoint]]:
+    ) -> AsyncIterator[list[PlatformEndpoint]]:
         """
         A generator which yields pages of PlatformEndpoints.
 
@@ -405,7 +400,7 @@ class TopicSubscriptionsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Subscription]]:
+    ) -> AsyncIterator[list[Subscription]]:
         """
         A generator which yields pages of Subscriptions.
 
@@ -438,7 +433,7 @@ class PlatformApplication(AIOBoto3ServiceResource):
 
     arn: str
     endpoints: PlatformApplicationEndpointsCollection
-    attributes: Awaitable[Dict[str, str]]
+    attributes: Awaitable[dict[str, str]]
     meta: SNSResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -509,7 +504,7 @@ class PlatformEndpoint(AIOBoto3ServiceResource):
     """
 
     arn: str
-    attributes: Awaitable[Dict[str, str]]
+    attributes: Awaitable[dict[str, str]]
     meta: SNSResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -574,7 +569,7 @@ class Subscription(AIOBoto3ServiceResource):
     """
 
     arn: str
-    attributes: Awaitable[Dict[str, str]]
+    attributes: Awaitable[dict[str, str]]
     meta: SNSResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -628,7 +623,7 @@ class Topic(AIOBoto3ServiceResource):
 
     arn: str
     subscriptions: TopicSubscriptionsCollection
-    attributes: Awaitable[Dict[str, str]]
+    attributes: Awaitable[dict[str, str]]
     meta: SNSResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

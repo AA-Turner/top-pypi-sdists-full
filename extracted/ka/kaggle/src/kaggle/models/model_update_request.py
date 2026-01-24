@@ -30,27 +30,37 @@ class ModelUpdateRequest(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
+
     project_types = {
-        'title': 'str',
-        'subtitle': 'str',
-        'is_private': 'bool',
-        'description': 'str',
-        'publish_time': 'date',
-        'provenance_sources': 'str',
-        'update_mask': 'str'
+        "title": "str",
+        "subtitle": "str",
+        "is_private": "bool",
+        "description": "str",
+        "publish_time": "date",
+        "provenance_sources": "str",
+        "update_mask": "str",
     }
 
     attribute_map = {
-        'title': 'title',
-        'subtitle': 'subtitle',
-        'is_private': 'isPrivate',
-        'description': 'description',
-        'publish_time': 'publishTime',
-        'provenance_sources': 'provenanceSources',
-        'update_mask': 'updateMask'
+        "title": "title",
+        "subtitle": "subtitle",
+        "is_private": "isPrivate",
+        "description": "description",
+        "publish_time": "publishTime",
+        "provenance_sources": "provenanceSources",
+        "update_mask": "updateMask",
     }
 
-    def __init__(self, title=None, subtitle=None, is_private=True, description='', publish_time=None, provenance_sources='', update_mask=None):  # noqa: E501
+    def __init__(
+        self,
+        title=None,
+        subtitle=None,
+        is_private=True,
+        description="",
+        publish_time=None,
+        provenance_sources="",
+        update_mask=None,
+    ):  # noqa: E501
 
         self._title = None
         self._subtitle = None
@@ -255,18 +265,16 @@ class ModelUpdateRequest(object):
         for attr, _ in six.iteritems(self.project_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value))
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (item[0], item[1].to_dict()) if hasattr(item[1], "to_dict") else item,
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
@@ -290,4 +298,3 @@ class ModelUpdateRequest(object):
     def __ne__(self, other):
         """Returns true if both objects are not equal."""
         return not self == other
-

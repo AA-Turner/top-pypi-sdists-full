@@ -9,8 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Annotated, Literal, Union
+import datetime as _dt
+from typing import Literal, Union
 
 from pydantic import Field
 
@@ -18,96 +18,133 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0066 import CodeScanningAnalysisTool
-from .group_0067 import CodeScanningAlertInstance
+from .group_0082 import TeamSimple
 
 
-class CodeScanningAlert(GitHubModel):
-    """CodeScanningAlert"""
+class TeamFull(GitHubModel):
+    """Full Team
 
-    number: int = Field(description="The security alert number.")
-    created_at: datetime = Field(
-        description="The time that the alert was created in ISO 8601 format: `YYYY-MM-DDTHH:MM:SSZ`."
+    Groups of organization members that gives permissions on specified repositories.
+    """
+
+    id: int = Field(description="Unique identifier of the team")
+    node_id: str = Field()
+    url: str = Field(description="URL for the team")
+    html_url: str = Field()
+    name: str = Field(description="Name of the team")
+    slug: str = Field()
+    description: Union[str, None] = Field()
+    privacy: Missing[Literal["closed", "secret"]] = Field(
+        default=UNSET, description="The level of privacy this team should have"
     )
-    updated_at: Missing[datetime] = Field(
+    notification_setting: Missing[
+        Literal["notifications_enabled", "notifications_disabled"]
+    ] = Field(default=UNSET, description="The notification setting the team has set")
+    permission: str = Field(
+        description="Permission that the team will have for its repositories"
+    )
+    members_url: str = Field()
+    repositories_url: str = Field()
+    parent: Missing[Union[None, TeamSimple]] = Field(default=UNSET)
+    members_count: int = Field()
+    repos_count: int = Field()
+    created_at: _dt.datetime = Field()
+    updated_at: _dt.datetime = Field()
+    organization: TeamOrganization = Field(
+        title="Team Organization", description="Team Organization"
+    )
+    ldap_dn: Missing[str] = Field(
         default=UNSET,
-        description="The time that the alert was last updated in ISO 8601 format: `YYYY-MM-DDTHH:MM:SSZ`.",
+        description="The [distinguished name](https://www.ldap.com/ldap-dns-and-rdns) (DN) of the LDAP entry to map to a team.",
     )
-    url: str = Field(description="The REST API URL of the alert resource.")
-    html_url: str = Field(description="The GitHub URL of the alert resource.")
-    instances_url: str = Field(
-        description="The REST API URL for fetching the list of instances for an alert."
+    type: Literal["enterprise", "organization"] = Field(
+        description="The ownership type of the team"
     )
-    state: Union[None, Literal["open", "dismissed", "fixed"]] = Field(
-        description="State of a code scanning alert."
-    )
-    fixed_at: Missing[Union[datetime, None]] = Field(
+    organization_id: Missing[int] = Field(
         default=UNSET,
-        description="The time that the alert was no longer detected and was considered fixed in ISO 8601 format: `YYYY-MM-DDTHH:MM:SSZ`.",
+        description="Unique identifier of the organization to which this team belongs",
     )
-    dismissed_by: Union[None, SimpleUser] = Field()
-    dismissed_at: Union[datetime, None] = Field(
-        description="The time that the alert was dismissed in ISO 8601 format: `YYYY-MM-DDTHH:MM:SSZ`."
-    )
-    dismissed_reason: Union[
-        None, Literal["false positive", "won't fix", "used in tests"]
-    ] = Field(
-        description="**Required when the state is dismissed.** The reason for dismissing or closing the alert."
-    )
-    dismissed_comment: Missing[Union[Annotated[str, Field(max_length=280)], None]] = (
-        Field(
-            default=UNSET,
-            description="The dismissal comment associated with the dismissal of the alert.",
-        )
-    )
-    rule: CodeScanningAlertRule = Field()
-    tool: CodeScanningAnalysisTool = Field()
-    most_recent_instance: CodeScanningAlertInstance = Field()
-    dismissal_approved_by: Missing[Union[None, SimpleUser]] = Field(default=UNSET)
-
-
-class CodeScanningAlertRule(GitHubModel):
-    """CodeScanningAlertRule"""
-
-    id: Missing[Union[str, None]] = Field(
+    enterprise_id: Missing[int] = Field(
         default=UNSET,
-        description="A unique identifier for the rule used to detect the alert.",
-    )
-    name: Missing[str] = Field(
-        default=UNSET, description="The name of the rule used to detect the alert."
-    )
-    severity: Missing[Union[None, Literal["none", "note", "warning", "error"]]] = Field(
-        default=UNSET, description="The severity of the alert."
-    )
-    security_severity_level: Missing[
-        Union[None, Literal["low", "medium", "high", "critical"]]
-    ] = Field(default=UNSET, description="The security severity of the alert.")
-    description: Missing[str] = Field(
-        default=UNSET,
-        description="A short description of the rule used to detect the alert.",
-    )
-    full_description: Missing[str] = Field(
-        default=UNSET, description="A description of the rule used to detect the alert."
-    )
-    tags: Missing[Union[list[str], None]] = Field(
-        default=UNSET, description="A set of tags applicable for the rule."
-    )
-    help_: Missing[Union[str, None]] = Field(
-        default=UNSET,
-        alias="help",
-        description="Detailed documentation for the rule as GitHub Flavored Markdown.",
-    )
-    help_uri: Missing[Union[str, None]] = Field(
-        default=UNSET,
-        description="A link to the documentation for the rule used to detect the alert.",
+        description="Unique identifier of the enterprise to which this team belongs",
     )
 
 
-model_rebuild(CodeScanningAlert)
-model_rebuild(CodeScanningAlertRule)
+class TeamOrganization(GitHubModel):
+    """Team Organization
+
+    Team Organization
+    """
+
+    login: str = Field()
+    id: int = Field()
+    node_id: str = Field()
+    url: str = Field()
+    repos_url: str = Field()
+    events_url: str = Field()
+    hooks_url: str = Field()
+    issues_url: str = Field()
+    members_url: str = Field()
+    public_members_url: str = Field()
+    avatar_url: str = Field()
+    description: Union[str, None] = Field()
+    name: Missing[Union[str, None]] = Field(default=UNSET)
+    company: Missing[Union[str, None]] = Field(default=UNSET)
+    blog: Missing[Union[str, None]] = Field(default=UNSET)
+    location: Missing[Union[str, None]] = Field(default=UNSET)
+    email: Missing[Union[str, None]] = Field(default=UNSET)
+    twitter_username: Missing[Union[str, None]] = Field(default=UNSET)
+    is_verified: Missing[bool] = Field(default=UNSET)
+    has_organization_projects: bool = Field()
+    has_repository_projects: bool = Field()
+    public_repos: int = Field()
+    public_gists: int = Field()
+    followers: int = Field()
+    following: int = Field()
+    html_url: str = Field()
+    created_at: _dt.datetime = Field()
+    type: str = Field()
+    total_private_repos: Missing[int] = Field(default=UNSET)
+    owned_private_repos: Missing[int] = Field(default=UNSET)
+    private_gists: Missing[Union[int, None]] = Field(default=UNSET)
+    disk_usage: Missing[Union[int, None]] = Field(default=UNSET)
+    collaborators: Missing[Union[int, None]] = Field(default=UNSET)
+    billing_email: Missing[Union[str, None]] = Field(default=UNSET)
+    plan: Missing[TeamOrganizationPropPlan] = Field(default=UNSET)
+    default_repository_permission: Missing[Union[str, None]] = Field(default=UNSET)
+    members_can_create_repositories: Missing[Union[bool, None]] = Field(default=UNSET)
+    two_factor_requirement_enabled: Missing[Union[bool, None]] = Field(default=UNSET)
+    members_allowed_repository_creation_type: Missing[str] = Field(default=UNSET)
+    members_can_create_public_repositories: Missing[bool] = Field(default=UNSET)
+    members_can_create_private_repositories: Missing[bool] = Field(default=UNSET)
+    members_can_create_internal_repositories: Missing[bool] = Field(default=UNSET)
+    members_can_create_pages: Missing[bool] = Field(default=UNSET)
+    members_can_create_public_pages: Missing[bool] = Field(default=UNSET)
+    members_can_create_private_pages: Missing[bool] = Field(default=UNSET)
+    members_can_fork_private_repositories: Missing[Union[bool, None]] = Field(
+        default=UNSET
+    )
+    web_commit_signoff_required: Missing[bool] = Field(default=UNSET)
+    updated_at: _dt.datetime = Field()
+    archived_at: Union[_dt.datetime, None] = Field()
+
+
+class TeamOrganizationPropPlan(GitHubModel):
+    """TeamOrganizationPropPlan"""
+
+    name: str = Field()
+    space: int = Field()
+    private_repos: int = Field()
+    filled_seats: Missing[int] = Field(default=UNSET)
+    seats: Missing[int] = Field(default=UNSET)
+
+
+model_rebuild(TeamFull)
+model_rebuild(TeamOrganization)
+model_rebuild(TeamOrganizationPropPlan)
 
 __all__ = (
-    "CodeScanningAlert",
-    "CodeScanningAlertRule",
+    "TeamFull",
+    "TeamOrganization",
+    "TeamOrganizationPropPlan",
 )

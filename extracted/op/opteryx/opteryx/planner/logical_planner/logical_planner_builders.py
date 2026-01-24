@@ -21,6 +21,10 @@ from orso.types import OrsoTypes
 
 from opteryx import functions
 from opteryx import operators
+from opteryx.datatypes.intervals import MICROSECONDS_PER_DAY
+from opteryx.datatypes.intervals import MICROSECONDS_PER_HOUR
+from opteryx.datatypes.intervals import MICROSECONDS_PER_MINUTE
+from opteryx.datatypes.intervals import MICROSECONDS_PER_SECOND
 from opteryx.exceptions import ArrayWithMixedTypesError
 from opteryx.exceptions import SqlError
 from opteryx.exceptions import UnsupportedSyntaxError
@@ -53,7 +57,7 @@ def all_op(branch, alias: Optional[List[str]] = None, key=None):
 
 def array(branch, alias: Optional[List[str]] = None, key=None):
     value_nodes = [build(elem) for elem in branch["elem"]]
-    value_list = {v.value for v in value_nodes}
+    value_list = [v.value for v in value_nodes]  # Changed from set to list to preserve order and duplicates
     element_type = {v.type for v in value_nodes}
     if len(element_type) > 1:
         raise ArrayWithMixedTypesError("Literal ARRAY has values with mixed types.")
@@ -177,15 +181,45 @@ def case_when(value, alias: Optional[List[str]] = None, key=None):
 
 
 def cast(branch, alias: Optional[List[str]] = None, key=None):
-    # CAST(<var> AS <type>) - convert to the form <type>(var), e.g. BOOLEAN(on)
-
+    """
+    Convert CAST(<expr> AS <type>) to a typed function call <type>(<expr>).
+    Handles literal value casting at compile time when possible.
+    """
     from opteryx.planner import build_literal_node
 
     args = [build(branch["expr"])]
     kind = branch["kind"]
-    data_type = branch["data_type"]
+    raw_data_type = branch["data_type"]
+
+    # Extract the base data type from the AST structure
+    data_type = _extract_data_type(raw_data_type, branch, args, build_literal_node)
+
+    # Validate and normalize the data type
+    normalized_type = _normalize_cast_type(data_type)
+
+    # Apply TRY_CAST or SAFE_CAST prefix if needed
+    if kind in {"TryCast", "SafeCast"}:
+        normalized_type = "TRY_" + normalized_type
+
+    # Handle literal value casting at compile time
+    if args[0].node_type == NodeType.LITERAL:
+        return _cast_literal_value(args[0], normalized_type, kind, alias)
+
+    # For non-literals, return a function node that will be evaluated at runtime
+    return Node(
+        NodeType.FUNCTION,
+        value=normalized_type.upper(),
+        parameters=args,
+        alias=alias,
+    )
+
+
+def _extract_data_type(raw_data_type, branch, args, build_literal_node):
+    """Extract and process the data type from the AST structure."""
+    data_type = raw_data_type
+
+    # Handle dictionary-wrapped types (e.g., Timestamp with timezone info)
     if isinstance(data_type, dict):
-        # timestamps have the timezone as a value
         type_key = next(iter(data_type))
         if type_key == "Timestamp" and data_type[type_key] not in (
             (None, "None"),
@@ -193,71 +227,109 @@ def cast(branch, alias: Optional[List[str]] = None, key=None):
         ):
             raise UnsupportedSyntaxError("TIMESTAMPS do not support `TIME ZONE`")
         data_type = type_key
+
+    # Handle custom types
     if "Custom" in data_type:
         data_type = branch["data_type"]["Custom"][0][0]["Identifier"]["value"].upper()
-    if data_type == "Timestamp":
-        data_type = "TIMESTAMP"
-    elif data_type == "Date":
-        data_type = "DATE"
-    elif "Varchar" in data_type:
-        data_type = "VARCHAR"
-    elif "Decimal" in data_type:
-        data_type = "DECIMAL"
-        if "PrecisionAndScale" in branch["data_type"]["Decimal"]:
-            precision = branch["data_type"]["Decimal"]["PrecisionAndScale"][0]
-            scale = branch["data_type"]["Decimal"]["PrecisionAndScale"][1]
-            args.append(build_literal_node(precision))
-            args.append(build_literal_node(scale))
-    elif "Integer" in data_type:
-        data_type = "INTEGER"
-    elif "Double" in data_type:
-        data_type = "DOUBLE"
-    elif "Boolean" in data_type:
-        data_type = "BOOLEAN"
-    elif "STRUCT" in data_type:
-        data_type = "STRUCT"
-    elif "Blob" in data_type:
-        data_type = "BLOB"
-    elif "Array" in data_type:
+
+    # Handle DECIMAL precision and scale
+    if "decimal" in data_type.lower() and "PrecisionAndScale" in branch["data_type"].get(
+        "Decimal", {}
+    ):
+        precision = branch["data_type"]["Decimal"]["PrecisionAndScale"][0]
+        scale = branch["data_type"]["Decimal"]["PrecisionAndScale"][1]
+        args.append(build_literal_node(precision))
+        args.append(build_literal_node(scale))
+
+    # Handle ARRAY element types
+    if "array" in data_type.lower():
         element_key = branch["data_type"]["Array"].get("AngleBracket", {"Varchar": None})
         if isinstance(element_key, dict):
             element_key = next(iter(element_key))
         if isinstance(element_key, str):
             element_key = build_literal_node(element_key.upper())
             args.append(element_key)
-        data_type = "ARRAY"
+
+    return data_type
+
+
+def _normalize_cast_type(data_type: str) -> str:
+    """Normalize and validate the cast target type."""
+    lower_type = data_type.lower()
+    upper_type = data_type.upper()
+
+    # Map of substring patterns to normalized types
+    type_mappings = {
+        "timestamp": "TIMESTAMP",
+        "date": "DATE",
+        "varchar": "VARCHAR",
+        "decimal": "DECIMAL",
+        "integer": "INTEGER",
+        "double": "DOUBLE",
+        "boolean": "BOOLEAN",
+        "struct": "STRUCT",
+        "blob": "BLOB",
+        "array": "ARRAY",
+    }
+
+    # Check type mappings
+    for pattern, normalized in type_mappings.items():
+        if pattern in lower_type:
+            return normalized
+
+    # Check binary types separately
+    if any(token in lower_type for token in ("varbinary", "binary", "raw")):
+        return "VARBINARY"
+
+    # Handle unsupported type aliases with helpful error messages
+    type_suggestions = {
+        ("STRING", "CHAR", "TEXT", "NVARCHAR"): "VARCHAR",
+        ("FLOAT", "NUMERIC", "REAL"): "DOUBLE",
+        ("INT", "SMALLINT", "TINYINT", "BIGINT", "BYTE"): "INTEGER",
+        ("BOOL", "BIT"): "BOOLEAN",
+    }
+
+    for aliases, suggestion in type_suggestions.items():
+        if upper_type in aliases:
+            raise SqlError(
+                f"Unsupported type for CAST - '{upper_type}'. Did you mean '{suggestion}'?"
+            )
+
+    raise SqlError(f"Unsupported type for CAST - '{data_type}'.")
+
+
+def _cast_literal_value(literal_node, target_type: str, kind: str, alias):
+    """Cast a literal value at compile time."""
+    # NULL values remain NULL regardless of target type
+    if literal_node.type == OrsoTypes.NULL:
+        return Node(NodeType.LITERAL, type=OrsoTypes.NULL, alias=alias)
+
+    # Strip TRY_ prefix for type lookup
+    base_type = target_type.replace("TRY_", "")
+
+    # Special case: VARBINARY maps to BLOB in Orso types
+    if base_type == "VARBINARY":
+        orso_type = OrsoTypes.BLOB
+    # Special case: INTEGER to TIMESTAMP conversion using PyArrow
+    elif base_type == "TIMESTAMP" and literal_node.type == OrsoTypes.INTEGER:
+        import pyarrow
+        import pyarrow.compute as compute
+
+        value = compute.cast([literal_node.value], pyarrow.timestamp("us"))[0].as_py()
+        return Node(NodeType.LITERAL, type=OrsoTypes.TIMESTAMP, value=value, alias=alias)
     else:
-        if data_type in ("String", "Char", "Text", "Nvarchar"):
-            raise SqlError(
-                f"Unsupported type for CAST - '{data_type.upper()}'. Did you mean 'VARCHAR'?"
-            )
-        if data_type in ("Float", "Numeric", "Real"):
-            raise SqlError(
-                f"Unsupported type for CAST - '{data_type.upper()}'. Did you mean 'DOUBLE'?"
-            )
-        if data_type in ("Binary", "Raw", "VarBinary"):
-            raise SqlError(
-                f"Unsupported type for CAST - '{data_type.upper()}'. Did you mean 'BLOB'?"
-            )
-        if data_type in ("Int", "SmallInt", "TinyInt", "BigInt", "BYTE"):
-            raise SqlError(
-                f"Unsupported type for CAST - '{data_type.upper()}'. Did you mean 'INTEGER'?"
-            )
-        if data_type in ("Bool", "Bit"):
-            raise SqlError(
-                f"Unsupported type for CAST - '{data_type.upper()}'. Did you mean 'BOOLEAN'?"
-            )
-        raise SqlError(f"Unsupported type for CAST - '{data_type}'.")
+        orso_type = OrsoTypes.from_name(base_type)[0]
 
-    if kind in {"TryCast", "SafeCast"}:
-        data_type = "TRY_" + data_type
-
-    return Node(
-        NodeType.FUNCTION,
-        value=data_type.upper(),
-        parameters=args,
-        alias=alias,
-    )
+    # Attempt to parse and cast the literal value
+    try:
+        parsed_value = orso_type.parse(literal_node.value)
+        return Node(NodeType.LITERAL, type=orso_type, value=parsed_value, alias=alias)
+    except Exception as e:
+        # For TRY_CAST/SAFE_CAST, return NULL on failure
+        if kind in {"TryCast", "SafeCast"}:
+            return Node(NodeType.LITERAL, type=OrsoTypes.NULL, alias=alias)
+        # For regular CAST, raise an error
+        raise SqlError(f"Error casting value '{literal_node.value}' to type '{base_type}': {e}")
 
 
 def ceiling(value, alias: Optional[List[str]] = None, key=None):
@@ -267,12 +339,21 @@ def ceiling(value, alias: Optional[List[str]] = None, key=None):
 
 
 def compound_identifier(branch, alias: Optional[List[str]] = None, key=None):
-    return LogicalColumn(
+    column = LogicalColumn(
         node_type=NodeType.IDENTIFIER,  # column type
         alias=alias,  # type: ignore
         source_column=branch[-1]["value"],  # the source column
         source=".".join(p["value"] for p in branch[:-1]),  # the source relation
     )
+    alias_name = alias[0] if isinstance(alias, list) and alias else alias
+    if alias_name:
+        column.query_column = alias_name
+    else:
+        qualifier = column.source
+        column.query_column = (
+            f"{qualifier}.{column.source_column}" if qualifier else column.source_column
+        )
+    return column
 
 
 def expression_with_alias(branch, alias: Optional[List[str]] = None, key=None):
@@ -420,11 +501,14 @@ def identifier(branch, alias: Optional[List[str]] = None, key=None):
     """idenitifier doesn't have a qualifier (recorded in source)"""
     if "Identifier" in branch:
         return build(branch["Identifier"], alias=alias)
-    return LogicalColumn(
+    column = LogicalColumn(
         node_type=NodeType.IDENTIFIER,  # column type
         alias=alias,  # type: ignore
         source_column=branch["value"],  # the source column
     )
+    alias_name = alias[0] if isinstance(alias, list) and alias else alias
+    column.query_column = alias_name or column.source_column
+    return column
 
 
 def in_list(branch, alias: Optional[List[str]] = None, key=None):
@@ -452,6 +536,11 @@ def in_list(branch, alias: Optional[List[str]] = None, key=None):
 
 def in_subquery(branch, alias: Optional[List[str]] = None, key=None):
     # if it's a sub-query we create a plan for it
+
+    from opteryx.exceptions import UnsupportedSyntaxError
+
+    raise UnsupportedSyntaxError("IN subqueries are currently not supported in Opteryx")
+
     from opteryx.planner.logical_planner.logical_planner import plan_query
 
     left = build(branch["expr"])
@@ -543,7 +632,7 @@ def literal_interval(branch, alias: Optional[List[str]] = None, key=None):
 
     unit_index = parts.index(leading_unit)
 
-    month, seconds = (0, 0)
+    month, microseconds = (0, 0)
 
     for index, value in enumerate(values):
         value = int(value)
@@ -553,15 +642,15 @@ def literal_interval(branch, alias: Optional[List[str]] = None, key=None):
         if unit == "Month":
             month += value
         if unit == "Day":
-            seconds = value * 24 * 60 * 60
+            microseconds += value * MICROSECONDS_PER_DAY
         if unit == "Hour":
-            seconds += value * 60 * 60
+            microseconds += value * MICROSECONDS_PER_HOUR
         if unit == "Minute":
-            seconds += value * 60
+            microseconds += value * MICROSECONDS_PER_MINUTE
         if unit == "Second":
-            seconds += value
+            microseconds += value * MICROSECONDS_PER_SECOND
 
-    interval = (month, seconds)
+    interval = (month, microseconds)
 
     return Node(NodeType.LITERAL, type=OrsoTypes.INTERVAL, value=interval, alias=alias)
 

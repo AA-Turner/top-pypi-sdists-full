@@ -1,0 +1,71 @@
+Metadata-Version: 2.1
+Name: pyOneNote
+Version: 0.0.2
+Summary: pyOneNote is a lightweight python library to read OneNote files. The main goal of this parser is to allow cybersecurity analyst to extract useful information, such as embedded files, from OneNote files.
+Home-page: https://github.com/DissectMalware/pyOneNote
+Author: Amirreza Niakanlahiji
+Author-email: aniakan+pyonenote@gmail.com
+License: Apache License 2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Security
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.4
+Description-Content-Type: text/markdown
+License-File: license
+
+# pyOneNote
+pyOneNote is a lightweight python library to read OneNote files. The main goal of this parser is to allow cybersecurity analyst to extract useful information from OneNote files.
+
+# Installing the parser
+
+Installing the latest development
+
+```
+pip install -U https://github.com/DissectMalware/pyOneNote/archive/master.zip --force
+```
+# Running the parser
+
+To dump all embedded file in current directory
+```
+pyonenote -f example.one 
+```
+
+To dump all embedded file in example.one into output_dir
+```
+pyonenote -f example.one -o output_dir 
+```
+To dump all embedded file in example.one into output_dir and add .bin to the end of each filename
+```
+pyonenote -f example.one -o output_dir -e bin
+```
+
+# Command Line
+```
+usage: pyonenote [-h] -f FILE [-o OUTPUT_DIR] [-e EXTENSION]
+```
+
+Note: pyOneNote is under active development
+
+# How to Contribute
+If you found a bug or would like to suggest an improvement, please create a new issue on the [issues page](https://github.com/DissectMalware/pyOneNote/issues).
+
+Feel free to contribute to the project forking the project and submitting a pull request.
+
+You can reach [me (@DissectMlaware) on Twitter](https://twitter.com/DissectMalware) via a direct message.

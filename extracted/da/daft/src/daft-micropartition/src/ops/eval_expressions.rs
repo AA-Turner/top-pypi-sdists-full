@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
 use common_error::DaftResult;
-use daft_core::prelude::Schema;
+use daft_core::prelude::{DataType, Field, Schema};
 use daft_dsl::expr::bound_expr::BoundExpr;
-use daft_io::IOStatsContext;
 use daft_stats::{ColumnRangeStatistics, TableStatistics};
 use snafu::ResultExt;
 
@@ -19,14 +18,12 @@ fn infer_schema(exprs: &[BoundExpr], schema: &Schema) -> DaftResult<Schema> {
 }
 
 impl MicroPartition {
+    // TODO(universalmind303): make this async
     pub fn eval_expression_list(&self, exprs: &[BoundExpr]) -> DaftResult<Self> {
-        let io_stats = IOStatsContext::new("MicroPartition::eval_expression_list");
-
         let expected_schema = infer_schema(exprs, &self.schema)?;
 
-        let tables = self.tables_or_read(io_stats)?;
-
-        let evaluated_tables: Vec<_> = tables
+        let evaluated_tables: Vec<_> = self
+            .record_batches()
             .iter()
             .map(|table| table.eval_expression_list(exprs))
             .try_collect()?;
@@ -43,19 +40,38 @@ impl MicroPartition {
             eval_stats,
         ))
     }
+    pub async fn eval_expression_list_async(&self, exprs: Vec<BoundExpr>) -> DaftResult<Self> {
+        let expected_schema = infer_schema(exprs.as_ref(), &self.schema)?;
+
+        let evaluated_table_futs = self
+            .record_batches()
+            .iter()
+            .map(|table| table.eval_expression_list_async(exprs.clone()));
+
+        let evaluated_tables = futures::future::try_join_all(evaluated_table_futs).await?;
+
+        let eval_stats = self
+            .statistics
+            .as_ref()
+            .map(|table_statistics| table_statistics.eval_expression_list(exprs.as_ref()))
+            .transpose()?;
+
+        Ok(Self::new_loaded(
+            expected_schema.into(),
+            Arc::new(evaluated_tables),
+            eval_stats,
+        ))
+    }
 
     pub async fn par_eval_expression_list(
         &self,
         exprs: &[BoundExpr],
         num_parallel_tasks: usize,
     ) -> DaftResult<Self> {
-        let io_stats = IOStatsContext::new("MicroPartition::eval_expression_list");
-
         let expected_schema = infer_schema(exprs, &self.schema)?;
 
-        let tables = self.tables_or_read(io_stats)?;
-
-        let evaluated_table_futs = tables
+        let evaluated_table_futs = self
+            .record_batches()
             .iter()
             .map(|table| table.par_eval_expression_list(exprs, num_parallel_tasks));
 
@@ -74,17 +90,23 @@ impl MicroPartition {
         ))
     }
 
-    pub fn explode(&self, exprs: &[BoundExpr]) -> DaftResult<Self> {
-        let io_stats = IOStatsContext::new("MicroPartition::explode");
-
-        let tables = self.tables_or_read(io_stats)?;
-        let evaluated_tables = tables
+    pub fn explode(&self, exprs: &[BoundExpr], index_column: Option<&str>) -> DaftResult<Self> {
+        let evaluated_tables = self
+            .record_batches()
             .iter()
-            .map(|t| t.explode(exprs))
+            .map(|t| t.explode(exprs, index_column))
             .collect::<DaftResult<Vec<_>>>()?;
         let expected_new_columns = infer_schema(exprs, &self.schema)?;
 
-        let expected_schema = Arc::new(self.schema.non_distinct_union(&expected_new_columns)?);
+        let additional_fields =
+            index_column.map(|idx_col| vec![Field::new(idx_col, DataType::UInt64)]);
+        let expected_schema = {
+            let mut schema = self.schema.non_distinct_union(&expected_new_columns)?;
+            if let Some(fields) = additional_fields {
+                schema = schema.non_distinct_union(&Schema::new(fields))?;
+            }
+            Arc::new(schema)
+        };
 
         let eval_stats = if let Some(stats) = &self.statistics {
             let new_stats = expected_schema

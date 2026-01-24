@@ -36,9 +36,12 @@ class Params(base.ParamsModelBase):
             str,
         ]
     ] = None  #: If specified, only events where the age assurance state matches the given value are returned.
-    collections: t.Optional[t.List[string_formats.Nsid]] = Field(
-        default=None, max_length=20
-    )  #: If specified, only events where the subject belongs to the given collections will be returned. When subjectType is set to 'account', this will be ignored.
+    batch_id: t.Optional[str] = (
+        None  #: If specified, only events where the batchId matches the given value are returned.
+    )
+    collections: te.Annotated[t.Optional[t.List[string_formats.Nsid]], Field(max_length=20)] = (
+        None  #: If specified, only events where the subject belongs to the given collections will be returned. When subjectType is set to 'account', this will be ignored.
+    )
     comment: t.Optional[str] = (
         None  #: If specified, only events with comments containing the keyword are returned. Apply || separator to use multiple keywords and match using OR condition.
     )
@@ -50,7 +53,7 @@ class Params(base.ParamsModelBase):
     include_all_user_records: t.Optional[bool] = (
         False  #: If true, events on all record types (posts, lists, profile etc.) or records from given 'collections' param, owned by the did are returned.
     )
-    limit: t.Optional[int] = Field(default=50, ge=1, le=100)  #: Limit.
+    limit: te.Annotated[t.Optional[int], Field(ge=1, le=100)] = None  #: Limit.
     mod_tool: t.Optional[t.List[str]] = (
         None  #: If specified, only events where the modTool name matches any of the given values are returned.
     )
@@ -74,6 +77,7 @@ class Params(base.ParamsModelBase):
     types: t.Optional[t.List[str]] = (
         None  #: The types of events (fully qualified string in the format of tools.ozone.moderation.defs#modEvent<name>) to filter by. If not specified, all events are returned.
     )
+    with_strike: t.Optional[bool] = None  #: If specified, only events where strikeCount value is set are returned.
 
 
 class ParamsDict(t.TypedDict):
@@ -95,6 +99,9 @@ class ParamsDict(t.TypedDict):
             ]
         ]
     ]  #: If specified, only events where the age assurance state matches the given value are returned.
+    batch_id: te.NotRequired[
+        t.Optional[str]
+    ]  #: If specified, only events where the batchId matches the given value are returned.
     collections: te.NotRequired[
         t.Optional[t.List[string_formats.Nsid]]
     ]  #: If specified, only events where the subject belongs to the given collections will be returned. When subjectType is set to 'account', this will be ignored.
@@ -137,6 +144,9 @@ class ParamsDict(t.TypedDict):
     types: te.NotRequired[
         t.Optional[t.List[str]]
     ]  #: The types of events (fully qualified string in the format of tools.ozone.moderation.defs#modEvent<name>) to filter by. If not specified, all events are returned.
+    with_strike: te.NotRequired[
+        t.Optional[bool]
+    ]  #: If specified, only events where strikeCount value is set are returned.
 
 
 class Response(base.ResponseModelBase):

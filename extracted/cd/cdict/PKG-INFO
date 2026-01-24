@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: cdict
+Version: 2.1.4
+Summary: Combinatorial dictionaries
+Home-page: https://github.com/wuthefwasthat/cdict
+Author: Jeffrey Wu
+Requires-Python: >=3.7
+License-File: LICENSE

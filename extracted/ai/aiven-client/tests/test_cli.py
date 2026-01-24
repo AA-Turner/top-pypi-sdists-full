@@ -9,13 +9,14 @@ from aiven.client.argx import UserError
 from aiven.client.cli import AivenCLI, ClientFactory, convert_str_to_value, EOL_ADVANCE_WARNING_TIME
 from aiven.client.common import UNDEFINED
 from argparse import Namespace
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pytest import CaptureFixture, LogCaptureFixture
 from requests import Session
-from typing import Any, cast, Iterator, Mapping
+from typing import Any, cast
 from unittest import mock
-from unittest.mock import ANY, MagicMock
+from unittest.mock import ANY, MagicMock, patch
 
 import json
 import pytest
@@ -156,7 +157,7 @@ def test_service_user_create() -> None:
             },
         ),
         (
-            ("service topic-create --project project1 --partitions 1 --replication 1 --inkless-enable service1 topic1"),
+            ("service topic-create --project project1 --partitions 1 --replication 1 --diskless-enable service1 topic1"),
             {
                 "topic_name": "topic1",
                 "cleanup_policy": "delete",
@@ -166,7 +167,7 @@ def test_service_user_create() -> None:
                 "retention_bytes": None,
                 "retention_hours": None,
                 "config": {
-                    "inkless_enable": True,
+                    "diskless_enable": True,
                 },
                 "tags": [],
             },
@@ -174,7 +175,7 @@ def test_service_user_create() -> None:
         (
             (
                 "service topic-create --project project1 --partitions 1 --replication 1 "
-                + "--inkless-disable service1 topic1"
+                + "--diskless-disable service1 topic1"
             ),
             {
                 "topic_name": "topic1",
@@ -185,7 +186,45 @@ def test_service_user_create() -> None:
                 "retention_bytes": None,
                 "retention_hours": None,
                 "config": {
-                    "inkless_enable": False,
+                    "diskless_enable": False,
+                },
+                "tags": [],
+            },
+        ),
+        (
+            (
+                "service topic-create --project project1 --partitions 1 --replication 1 "
+                + "--unclean-leader-election-enable service1 topic1"
+            ),
+            {
+                "topic_name": "topic1",
+                "cleanup_policy": "delete",
+                "partitions": 1,
+                "replication": 1,
+                "min_insync_replicas": None,
+                "retention_bytes": None,
+                "retention_hours": None,
+                "config": {
+                    "unclean_leader_election_enable": True,
+                },
+                "tags": [],
+            },
+        ),
+        (
+            (
+                "service topic-create --project project1 --partitions 1 --replication 1 "
+                + "--unclean-leader-election-disable service1 topic1"
+            ),
+            {
+                "topic_name": "topic1",
+                "cleanup_policy": "delete",
+                "partitions": 1,
+                "replication": 1,
+                "min_insync_replicas": None,
+                "retention_bytes": None,
+                "retention_hours": None,
+                "config": {
+                    "unclean_leader_election_enable": False,
                 },
                 "tags": [],
             },
@@ -286,8 +325,8 @@ def test_service_topic_create(command_line: str, expected_post_data: Mapping[str
         ),
         (
             (
-                # Update an existing inkless topic
-                "service topic-update --project project1 --partitions 1 --inkless-enable service1 topic1"
+                # Update an existing diskless topic
+                "service topic-update --project project1 --partitions 1 --diskless-enable service1 topic1"
             ),
             {
                 "partitions": 1,
@@ -296,15 +335,15 @@ def test_service_topic_create(command_line: str, expected_post_data: Mapping[str
                 "retention_bytes": None,
                 "retention_hours": None,
                 "config": {
-                    # inkless is already enable, but it has to be set explicitly since partial update is not supported
-                    "inkless_enable": True,
+                    # diskless is already enable, but it has to be set explicitly since partial update is not supported
+                    "diskless_enable": True,
                 },
             },
         ),
         (
             (
-                # Update an existing non-inkless topic on an inkless service
-                "service topic-update --project project1 --partitions 1 --inkless-disable service1 topic1"
+                # Update an existing non-diskless topic on an diskless service
+                "service topic-update --project project1 --partitions 1 --diskless-disable service1 topic1"
             ),
             {
                 "partitions": 1,
@@ -313,8 +352,34 @@ def test_service_topic_create(command_line: str, expected_post_data: Mapping[str
                 "retention_bytes": None,
                 "retention_hours": None,
                 "config": {
-                    # inkless is already disable, but it has to be set explicitly since partial update is not supported
-                    "inkless_enable": False,
+                    # diskless is already disable, but it has to be set explicitly since partial update is not supported
+                    "diskless_enable": False,
+                },
+            },
+        ),
+        (
+            ("service topic-update --project project1 --partitions 1 --unclean-leader-election-enable service1 topic1"),
+            {
+                "partitions": 1,
+                "replication": None,
+                "min_insync_replicas": None,
+                "retention_bytes": None,
+                "retention_hours": None,
+                "config": {
+                    "unclean_leader_election_enable": True,
+                },
+            },
+        ),
+        (
+            ("service topic-update --project project1 --partitions 1 --unclean-leader-election-disable service1 topic1"),
+            {
+                "partitions": 1,
+                "replication": None,
+                "min_insync_replicas": None,
+                "retention_bytes": None,
+                "retention_hours": None,
+                "config": {
+                    "unclean_leader_election_enable": False,
                 },
             },
         ),
@@ -2883,3 +2948,24 @@ def test_application_user_token_revoke() -> None:
         user_id="app-user-id",
         token_prefix="token-prefix",
     )
+
+
+@pytest.mark.parametrize(
+    "url,command",
+    [
+        ("rediss://default:pwd@myservice-bar.aivencloud.com:12692", "valkey-cli"),
+        ("valkeys://default:pwd@myservice-bar.aivencloud.com:12692", "valkey-cli"),
+        ("redis://default:pwd@myservice-bar.aivencloud.com:12691", "valkey-cli"),
+        ("valkey://default:pwd@myservice-bar.aivencloud.com:12691", "valkey-cli"),
+        ("postgres://aiven:pwd@myservice-bar.aivencloud.com:12692/defaultdb?sslmode=require", "psql"),
+        ("mysql://aiven:pwd@myservice-bar.aivencloud.com:12692/defaultdb?ssl-mode=REQUIRED", "mysql"),
+    ],
+)
+def test_service_cli(url: str, command: str) -> None:
+    aiven_client = mock.Mock(spec=AivenClient)
+    aiven_client.auth_token = "token"
+    aiven_client.get_service.return_value = {"service_uri": url}
+    with patch("os.execvpe") as mock_exec:
+        build_aiven_cli(aiven_client).run(args=["service", "cli", "myservice"])
+        command_called, _, _ = mock_exec.call_args[0]
+        assert command_called == command

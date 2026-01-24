@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: viser
-Version: 1.0.10
+Version: 1.0.21
 Summary: 3D visualization + Python
 Project-URL: GitHub, https://github.com/nerfstudio-project/viser
 License: MIT
@@ -17,22 +17,21 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Requires-Dist: imageio<3.0.0,>=2.0.0
 Requires-Dist: msgspec<1.0.0,>=0.18.6
-Requires-Dist: nodeenv<2.0.0,>=1.8.0
+Requires-Dist: nodeenv<2.0.0,>=1.9.1
 Requires-Dist: numpy<3.0.0,>=1.0.0
-Requires-Dist: psutil<8.0.0,>=5.9.5
 Requires-Dist: requests<3.0.0,>=2.0.0
 Requires-Dist: rich<15.0.0,>=13.3.3
-Requires-Dist: scikit-image<1.0.0,>=0.18.0
-Requires-Dist: scipy<2.0.0,>=1.7.3
 Requires-Dist: tqdm<5.0.0,>=4.0.0
 Requires-Dist: trimesh<5.0.0,>=3.21.7
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: websockets<16.0.0,>=13.1
 Requires-Dist: yourdfpy<1.0.0,>=0.0.53
+Requires-Dist: zstandard<1.0.0,>=0.20.0
 Provides-Extra: dev
 Requires-Dist: hypothesis[numpy]; extra == 'dev'
 Requires-Dist: opencv-python<5.0.0,>=4.0.0.21; extra == 'dev'
 Requires-Dist: pre-commit==3.3.2; extra == 'dev'
+Requires-Dist: psutil<8.0.0,>=5.9.5; extra == 'dev'
 Requires-Dist: pyright>=1.1.308; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: ruff>=0.9.3; extra == 'dev'
@@ -60,6 +59,9 @@ Description-Content-Type: text/markdown
     <img alt="typescript-compile" src="https://github.com/nerfstudio-project/viser/actions/workflows/typescript-compile.yml/badge.svg" />
     <a href="https://pypi.org/project/viser/">
         <img alt="codecov" src="https://img.shields.io/pypi/pyversions/viser" />
+    </a>
+    <a href="https://discord.gg/pnNTkHNUwP">
+        <img alt="Viser Discord"  src="https://img.shields.io/discord/1423204924518432809?logo=discord&label=discord" />
     </a>
 </p>
 
@@ -93,14 +95,11 @@ That's it! To learn more, we recommend looking at the examples in the [documenta
 To cite Viser in your work, you can use the BibTeX for our [technical report](https://arxiv.org/abs/2507.22885):
 
 ```
-@misc{yi2025viser,
-      title={Viser: Imperative, Web-based 3D Visualization in Python},
-      author={Brent Yi and Chung Min Kim and Justin Kerr and Gina Wu and Rebecca Feng and Anthony Zhang and Jonas Kulhanek and Hongsuk Choi and Yi Ma and Matthew Tancik and Angjoo Kanazawa},
-      year={2025},
-      eprint={2507.22885},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2507.22885},
+@article{yi2025viser,
+  title={Viser: Imperative, web-based 3d visualization in python},
+  author={Yi, Brent and Kim, Chung Min and Kerr, Justin and Wu, Gina and Feng, Rebecca and Zhang, Anthony and Kulhanek, Jonas and Choi, Hongsuk and Ma, Yi and Tancik, Matthew and Kanazawa, Angjoo},
+  journal={arXiv preprint arXiv:2507.22885},
+  year={2025}
 }
 ```
 

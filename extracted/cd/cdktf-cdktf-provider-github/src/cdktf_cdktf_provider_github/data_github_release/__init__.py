@@ -1,7 +1,7 @@
 r'''
 # `data_github_release`
 
-Refer to the Terraform Registry for docs: [`data_github_release`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release).
+Refer to the Terraform Registry for docs: [`data_github_release`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGithubRelease(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.dataGithubRelease.DataGithubRelease",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release github_release}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release github_release}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataGithubRelease(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release github_release} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release github_release} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#owner DataGithubRelease#owner}.
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#repository DataGithubRelease#repository}.
-        :param retrieve_by: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#retrieve_by DataGithubRelease#retrieve_by}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#id DataGithubRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param release_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#release_id DataGithubRelease#release_id}.
-        :param release_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#release_tag DataGithubRelease#release_tag}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#owner DataGithubRelease#owner}.
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#repository DataGithubRelease#repository}.
+        :param retrieve_by: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#retrieve_by DataGithubRelease#retrieve_by}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#id DataGithubRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param release_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#release_id DataGithubRelease#release_id}.
+        :param release_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#release_tag DataGithubRelease#release_tag}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataGithubRelease(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGithubRelease to import.
-        :param import_from_id: The id of the existing DataGithubRelease that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGithubRelease that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGithubRelease to import is found.
         '''
         if __debug__:
@@ -560,12 +560,12 @@ class DataGithubReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#owner DataGithubRelease#owner}.
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#repository DataGithubRelease#repository}.
-        :param retrieve_by: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#retrieve_by DataGithubRelease#retrieve_by}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#id DataGithubRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param release_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#release_id DataGithubRelease#release_id}.
-        :param release_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#release_tag DataGithubRelease#release_tag}.
+        :param owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#owner DataGithubRelease#owner}.
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#repository DataGithubRelease#repository}.
+        :param retrieve_by: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#retrieve_by DataGithubRelease#retrieve_by}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#id DataGithubRelease#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param release_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#release_id DataGithubRelease#release_id}.
+        :param release_tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#release_tag DataGithubRelease#release_tag}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -676,28 +676,28 @@ class DataGithubReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def owner(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#owner DataGithubRelease#owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#owner DataGithubRelease#owner}.'''
         result = self._values.get("owner")
         assert result is not None, "Required property 'owner' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def repository(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#repository DataGithubRelease#repository}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#repository DataGithubRelease#repository}.'''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def retrieve_by(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#retrieve_by DataGithubRelease#retrieve_by}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#retrieve_by DataGithubRelease#retrieve_by}.'''
         result = self._values.get("retrieve_by")
         assert result is not None, "Required property 'retrieve_by' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#id DataGithubRelease#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#id DataGithubRelease#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -707,13 +707,13 @@ class DataGithubReleaseConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def release_id(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#release_id DataGithubRelease#release_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#release_id DataGithubRelease#release_id}.'''
         result = self._values.get("release_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def release_tag(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/data-sources/release#release_tag DataGithubRelease#release_tag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/data-sources/release#release_tag DataGithubRelease#release_tag}.'''
         result = self._values.get("release_tag")
         return typing.cast(typing.Optional[builtins.str], result)
 

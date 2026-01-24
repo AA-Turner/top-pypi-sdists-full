@@ -30,6 +30,7 @@ from bentoml._internal.server.http_app import log_exception
 from bentoml._internal.types import LazyType
 from bentoml._internal.utils import is_async_callable
 from bentoml._internal.utils.metrics import exponential_buckets
+from bentoml._internal.utils.uri import join_paths
 from bentoml.exceptions import BentoMLException
 from bentoml.exceptions import ServiceUnavailable
 
@@ -181,6 +182,9 @@ class ServiceAppFactory(BaseAppFactory):
         app = super().__call__()
         app.add_route("/schema.json", self.schema_view, name="schema")
 
+        def build_path(*path_segments: str) -> str:
+            return join_paths(self.service.path_prefix, *path_segments)
+
         if self.service.has_custom_command():
             # This may obscure all the routes behind, but this is expected.
             self.service.mount_asgi_app(create_proxy_app(self.service), name="proxy")
@@ -191,18 +195,22 @@ class ServiceAppFactory(BaseAppFactory):
         if self.is_main:
             if BentoMLContainer.new_index:
                 assets = Path(__file__).parent / "assets"
-                app.mount("/assets", StaticFiles(directory=assets), name="assets")
+                app.mount(
+                    build_path("assets"), StaticFiles(directory=assets), name="assets"
+                )
             else:
                 from bentoml._internal import server
 
                 assets = Path(server.__file__).parent / "static_content"
                 app.mount(
-                    "/static_content",
+                    build_path("static_content"),
                     StaticFiles(directory=assets),
                     name="static_content",
                 )
-                app.add_route("/docs.json", self.openapi_spec_view, name="openapi-spec")
-            app.add_route("/", self.index_page, name="index")
+                app.add_route(
+                    build_path("docs.json"), self.openapi_spec_view, name="openapi-spec"
+                )
+            app.add_route(build_path("/"), self.index_page, name="index")
 
         return app
 
@@ -213,9 +221,15 @@ class ServiceAppFactory(BaseAppFactory):
     @property
     def middlewares(self) -> list[Middleware]:
         from bentoml._internal.container import BentoMLContainer
+        from bentoml._internal.server.http.traffic import MaxConcurrencyMiddleware
 
         middlewares: list[Middleware] = []
-        # TrafficMetrics middleware should be the first middleware
+        access_log_config = BentoMLContainer.api_server_config.logging.access
+
+        skip_paths = [self.service.config.get("endpoints", {}).get("livez", "/health")]
+        if readyz_endpoint := self.service.config.get("endpoints", {}).get("readyz"):
+            skip_paths.append(readyz_endpoint)
+
         if self.enable_metrics:
             from bentoml._internal.server.http.instruments import (
                 RunnerTrafficMetricsMiddleware,
@@ -225,6 +239,7 @@ class ServiceAppFactory(BaseAppFactory):
                 Middleware(
                     RunnerTrafficMetricsMiddleware,
                     namespace=BentoMLContainer.api_server_config.metrics.namespace.get(),
+                    skip_paths=[*access_log_config.skip_paths.get(), *skip_paths],
                 )
             )
 
@@ -248,7 +263,6 @@ class ServiceAppFactory(BaseAppFactory):
             )
         )
         # AccessLog middleware
-        access_log_config = BentoMLContainer.api_server_config.logging.access
         if access_log_config.enabled.get():
             from bentoml._internal.server.http.access import AccessLogMiddleware
 
@@ -259,11 +273,16 @@ class ServiceAppFactory(BaseAppFactory):
                     has_request_content_type=access_log_config.request_content_type.get(),
                     has_response_content_length=access_log_config.response_content_length.get(),
                     has_response_content_type=access_log_config.response_content_type.get(),
-                    skip_paths=access_log_config.skip_paths.get(),
+                    skip_paths=[*access_log_config.skip_paths.get(), *skip_paths],
                 )
             )
         # TimeoutMiddleware and MaxConcurrencyMiddleware
         middlewares.extend(super().middlewares)
+        for middleware in middlewares:
+            if inspect.isclass(middleware.cls) and issubclass(
+                middleware.cls, MaxConcurrencyMiddleware
+            ):
+                middleware.kwargs["skip_paths"] = skip_paths
         for middleware_cls, options in self.service.middlewares:
             middlewares.append(Middleware(middleware_cls, **options))
         # CORS middleware
@@ -290,8 +309,13 @@ class ServiceAppFactory(BaseAppFactory):
         logger.info("Service %s initialized", self.service.name)
 
         # Call on_startup hook with optional ctx or context parameter
-        for name, member in vars(self.service.inner).items():
-            if callable(member) and getattr(member, "__bentoml_startup_hook__", False):
+        for name in dir(self.service.inner):
+            member = getattr(self.service.inner, name)
+            if (
+                not name.startswith("__")
+                and callable(member)
+                and getattr(member, "__bentoml_startup_hook__", False)
+            ):
                 logger.info("Running startup hook: %s", name)
                 result = getattr(
                     self._service_instance, name
@@ -312,6 +336,16 @@ class ServiceAppFactory(BaseAppFactory):
                 app=app,
                 media_type="application/json",
             )
+        await proxy.__aenter__()
+        await asyncio.gather(
+            *(
+                real.__aenter__()
+                for dep_name in self.service.dependencies
+                if isinstance(
+                    (real := getattr(self._service_instance, dep_name)), RemoteProxy
+                )
+            )
+        )
         self._service_instance.__self_proxy__ = proxy  # type: ignore[attr-defined]
         self._service_instance.to_async = proxy.to_async  # type: ignore[attr-defined]
         self._service_instance.to_sync = proxy.to_sync  # type: ignore[attr-defined]
@@ -348,8 +382,13 @@ class ServiceAppFactory(BaseAppFactory):
         from ..client import RemoteProxy
 
         # Call on_shutdown hook with optional ctx or context parameter
-        for name, member in vars(self.service.inner).items():
-            if callable(member) and getattr(member, "__bentoml_shutdown_hook__", False):
+        for name in dir(self.service.inner):
+            member = getattr(self.service.inner, name)
+            if (
+                not name.startswith("__")
+                and callable(member)
+                and getattr(member, "__bentoml_shutdown_hook__", False)
+            ):
                 logger.info("Running cleanup hook: %s", name)
                 result = getattr(
                     self._service_instance, name
@@ -414,10 +453,10 @@ class ServiceAppFactory(BaseAppFactory):
 
         if BentoMLContainer.api_server_config.runner_probe.enabled.get():
             dependency_statuses: list[t.Coroutine[None, None, bool]] = []
-            for dependency in self.service.dependencies.values():
-                real = dependency.get()
+            for dep_name in self.service.dependencies:
+                real = getattr(self._service_instance, dep_name)
                 if isinstance(real, RemoteProxy):
-                    dependency_statuses.append(real.is_ready())
+                    dependency_statuses.append(real.is_ready(5))
             runners_ready = all(await asyncio.gather(*dependency_statuses))
 
             if not runners_ready:
@@ -579,13 +618,11 @@ class ServiceAppFactory(BaseAppFactory):
     def routes(self) -> list[BaseRoute]:
         from starlette.routing import Route
 
-        routes = super().routes
+        routes = self.get_system_routes(self.service.path_prefix)
 
         for name, method in self.service.apis.items():
             api_endpoint = functools.partial(self.api_endpoint_wrapper, name)
-            route_path = method.route
-            if not route_path.startswith("/"):
-                route_path = "/" + route_path
+            route_path = join_paths(self.service.path_prefix, method.route)
             routes.append(Route(route_path, api_endpoint, methods=["POST"], name=name))
             if method.is_task:
                 routes.append(
@@ -716,6 +753,8 @@ class ServiceAppFactory(BaseAppFactory):
         # clean the request resources after the response is consumed.
         ctx.response.background.add_task(request.close)
         resp.background = ctx.response.background
+        # XXX: avoid circular reference, to address memory leak in long context run.
+        del ctx.response.background
         return resp
 
     async def api_endpoint(self, name: str, request: Request) -> Response:

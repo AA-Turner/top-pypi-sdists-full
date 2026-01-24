@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: array-api-compat
-Version: 1.12.0
+Version: 1.13.0
 Summary: A wrapper around NumPy and other array libraries to make them compatible with the Array API standard
 Author: Consortium for Python Data API Standards
 License-Expression: MIT
@@ -42,11 +42,11 @@ Provides-Extra: dev
 Requires-Dist: array-api-strict; extra == "dev"
 Requires-Dist: dask[array]>=2024.9.0; extra == "dev"
 Requires-Dist: jax[cpu]; extra == "dev"
+Requires-Dist: ndonnx; extra == "dev"
 Requires-Dist: numpy>=1.22; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: torch; extra == "dev"
 Requires-Dist: sparse>=0.15.1; extra == "dev"
-Requires-Dist: ndonnx; extra == "dev"
 Dynamic: license-file
 
 # Array API compatibility library

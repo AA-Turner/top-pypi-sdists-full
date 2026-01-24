@@ -44,6 +44,7 @@ from lightning_fabric.utilities.rank_zero import rank_zero_only, rank_zero_warn
 from lightning_fabric.utilities.types import _PATH, Optimizable, ReduceOp
 
 if TYPE_CHECKING:
+    from torch.optim.lr_scheduler import _LRScheduler
     from torch_xla.distributed.parallel_loader import MpDeviceLoader
 
 _POLICY_SET = set[type[Module]]
@@ -196,8 +197,8 @@ class XLAFSDPStrategy(ParallelStrategy, _Sharded):
 
     @override
     def setup_module_and_optimizers(
-        self, module: Module, optimizers: list[Optimizer]
-    ) -> tuple[Module, list[Optimizer]]:
+        self, module: Module, optimizers: list[Optimizer], scheduler: Optional["_LRScheduler"] = None
+    ) -> tuple[Module, list[Optimizer], Optional["_LRScheduler"]]:
         """Returns NotImplementedError since for XLAFSDP optimizer setup must happen after module setup."""
         raise NotImplementedError(
             f"The `{type(self).__name__}` does not support the joint setup of module and optimizer(s)."
@@ -515,6 +516,7 @@ class XLAFSDPStrategy(ParallelStrategy, _Sharded):
         path: _PATH,
         state: Optional[Union[Module, Optimizer, dict[str, Union[Module, Optimizer, Any]]]] = None,
         strict: bool = True,
+        weights_only: Optional[bool] = None,
     ) -> dict[str, Any]:
         """Given a folder, load the contents from a checkpoint and restore the state of the given objects.
 
@@ -607,7 +609,7 @@ class XLAFSDPStrategy(ParallelStrategy, _Sharded):
                 )
             if "model" not in state or not isinstance(model := state["model"], torch.nn.Module):
                 raise NotImplementedError("XLAFSDP only supports a single model instance with 'model' as the key.")
-            full_ckpt = torch.load(path)
+            full_ckpt = torch.load(path, weights_only=weights_only)
             model.load_state_dict(full_ckpt.pop("model"), strict=strict)
             return full_ckpt
 

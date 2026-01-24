@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from django.test import TestCase
 
 from allauth.socialaccount.providers.vk.provider import VKProvider
@@ -10,7 +12,7 @@ class VKTests(OAuth2TestsMixin, TestCase):
 
     def get_mocked_response(self, verified_email=True):
         return MockedResponse(
-            200,
+            HTTPStatus.OK,
             """
 {
     "user": {
@@ -19,7 +21,7 @@ class VKTests(OAuth2TestsMixin, TestCase):
         "last_name": "I.",
         "phone": "79991234567",
         "avatar": "http://avatar.com/12345678",
-        "email": "ivan_i123@vk.com",
+        "email": "ivan_i123@vk.ru",
         "sex": 2,
         "verified": false,
         "birthday": "01.01.2000"
@@ -29,7 +31,7 @@ class VKTests(OAuth2TestsMixin, TestCase):
         )
 
     def get_expected_to_str(self):
-        return "ivan_i123@vk.com"
+        return "ivan_i123@vk.ru"
 
     def get_login_response_json(self, with_refresh_token=True):
         return """

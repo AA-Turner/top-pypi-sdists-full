@@ -8,11 +8,14 @@ import typing
 # Export this package's modules as members:
 from .actions_environment_secret import *
 from .actions_environment_variable import *
+from .actions_hosted_runner import *
 from .actions_organization_oidc_subject_claim_customization_template import *
 from .actions_organization_permissions import *
 from .actions_organization_secret import *
 from .actions_organization_secret_repositories import *
+from .actions_organization_secret_repository import *
 from .actions_organization_variable import *
+from .actions_organization_workflow_permissions import *
 from .actions_repository_access_level import *
 from .actions_repository_oidc_subject_claim_customization_template import *
 from .actions_repository_permissions import *
@@ -35,7 +38,10 @@ from .dependabot_secret import *
 from .emu_group_mapping import *
 from .enterprise_actions_permissions import *
 from .enterprise_actions_runner_group import *
+from .enterprise_actions_workflow_permissions import *
 from .enterprise_organization import *
+from .enterprise_security_analysis_settings import *
+from .get_actions_environment_public_key import *
 from .get_actions_environment_secrets import *
 from .get_actions_environment_variables import *
 from .get_actions_organization_oidc_subject_claim_customization_template import *
@@ -69,9 +75,17 @@ from .get_ip_ranges import *
 from .get_issue_labels import *
 from .get_membership import *
 from .get_organization import *
+from .get_organization_custom_properties import *
 from .get_organization_custom_role import *
 from .get_organization_external_identities import *
 from .get_organization_ip_allow_list import *
+from .get_organization_repository_role import *
+from .get_organization_repository_roles import *
+from .get_organization_role import *
+from .get_organization_role_teams import *
+from .get_organization_role_users import *
+from .get_organization_roles import *
+from .get_organization_security_managers import *
 from .get_organization_team_sync_groups import *
 from .get_organization_teams import *
 from .get_organization_webhooks import *
@@ -84,6 +98,7 @@ from .get_repository_branches import *
 from .get_repository_custom_properties import *
 from .get_repository_deploy_keys import *
 from .get_repository_deployment_branch_policies import *
+from .get_repository_environment_deployment_policies import *
 from .get_repository_environments import *
 from .get_repository_file import *
 from .get_repository_milestone import *
@@ -103,8 +118,14 @@ from .issue_label import *
 from .issue_labels import *
 from .membership import *
 from .organization_block import *
+from .organization_custom_properties import *
 from .organization_custom_role import *
 from .organization_project import *
+from .organization_repository_role import *
+from .organization_role import *
+from .organization_role_team import *
+from .organization_role_team_assignment import *
+from .organization_role_user import *
 from .organization_ruleset import *
 from .organization_security_manager import *
 from .organization_settings import *
@@ -139,6 +160,7 @@ from .team_sync_group_mapping import *
 from .user_gpg_key import *
 from .user_invitation_accepter import *
 from .user_ssh_key import *
+from .workflow_repository_permissions import *
 from ._inputs import *
 from . import outputs
 
@@ -166,6 +188,14 @@ _utilities.register(
   "fqn": "pulumi_github",
   "classes": {
    "github:index/actionsEnvironmentVariable:ActionsEnvironmentVariable": "ActionsEnvironmentVariable"
+  }
+ },
+ {
+  "pkg": "github",
+  "mod": "index/actionsHostedRunner",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/actionsHostedRunner:ActionsHostedRunner": "ActionsHostedRunner"
   }
  },
  {
@@ -202,10 +232,26 @@ _utilities.register(
  },
  {
   "pkg": "github",
+  "mod": "index/actionsOrganizationSecretRepository",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/actionsOrganizationSecretRepository:ActionsOrganizationSecretRepository": "ActionsOrganizationSecretRepository"
+  }
+ },
+ {
+  "pkg": "github",
   "mod": "index/actionsOrganizationVariable",
   "fqn": "pulumi_github",
   "classes": {
    "github:index/actionsOrganizationVariable:ActionsOrganizationVariable": "ActionsOrganizationVariable"
+  }
+ },
+ {
+  "pkg": "github",
+  "mod": "index/actionsOrganizationWorkflowPermissions",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/actionsOrganizationWorkflowPermissions:ActionsOrganizationWorkflowPermissions": "ActionsOrganizationWorkflowPermissions"
   }
  },
  {
@@ -386,10 +432,26 @@ _utilities.register(
  },
  {
   "pkg": "github",
+  "mod": "index/enterpriseActionsWorkflowPermissions",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/enterpriseActionsWorkflowPermissions:EnterpriseActionsWorkflowPermissions": "EnterpriseActionsWorkflowPermissions"
+  }
+ },
+ {
+  "pkg": "github",
   "mod": "index/enterpriseOrganization",
   "fqn": "pulumi_github",
   "classes": {
    "github:index/enterpriseOrganization:EnterpriseOrganization": "EnterpriseOrganization"
+  }
+ },
+ {
+  "pkg": "github",
+  "mod": "index/enterpriseSecurityAnalysisSettings",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/enterpriseSecurityAnalysisSettings:EnterpriseSecurityAnalysisSettings": "EnterpriseSecurityAnalysisSettings"
   }
  },
  {
@@ -434,6 +496,14 @@ _utilities.register(
  },
  {
   "pkg": "github",
+  "mod": "index/organizationCustomProperties",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/organizationCustomProperties:OrganizationCustomProperties": "OrganizationCustomProperties"
+  }
+ },
+ {
+  "pkg": "github",
   "mod": "index/organizationCustomRole",
   "fqn": "pulumi_github",
   "classes": {
@@ -446,6 +516,46 @@ _utilities.register(
   "fqn": "pulumi_github",
   "classes": {
    "github:index/organizationProject:OrganizationProject": "OrganizationProject"
+  }
+ },
+ {
+  "pkg": "github",
+  "mod": "index/organizationRepositoryRole",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/organizationRepositoryRole:OrganizationRepositoryRole": "OrganizationRepositoryRole"
+  }
+ },
+ {
+  "pkg": "github",
+  "mod": "index/organizationRole",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/organizationRole:OrganizationRole": "OrganizationRole"
+  }
+ },
+ {
+  "pkg": "github",
+  "mod": "index/organizationRoleTeam",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/organizationRoleTeam:OrganizationRoleTeam": "OrganizationRoleTeam"
+  }
+ },
+ {
+  "pkg": "github",
+  "mod": "index/organizationRoleTeamAssignment",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/organizationRoleTeamAssignment:OrganizationRoleTeamAssignment": "OrganizationRoleTeamAssignment"
+  }
+ },
+ {
+  "pkg": "github",
+  "mod": "index/organizationRoleUser",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/organizationRoleUser:OrganizationRoleUser": "OrganizationRoleUser"
   }
  },
  {
@@ -710,6 +820,14 @@ _utilities.register(
   "fqn": "pulumi_github",
   "classes": {
    "github:index/userSshKey:UserSshKey": "UserSshKey"
+  }
+ },
+ {
+  "pkg": "github",
+  "mod": "index/workflowRepositoryPermissions",
+  "fqn": "pulumi_github",
+  "classes": {
+   "github:index/workflowRepositoryPermissions:WorkflowRepositoryPermissions": "WorkflowRepositoryPermissions"
   }
  }
 ]

@@ -1,0 +1,191 @@
+package api
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"math"
+	"mime"
+	"mime/multipart"
+	"net/http"
+	"strconv"
+
+	"github.com/dstackai/dstack/runner/internal/api"
+	"github.com/dstackai/dstack/runner/internal/executor"
+	"github.com/dstackai/dstack/runner/internal/log"
+	"github.com/dstackai/dstack/runner/internal/schemas"
+)
+
+// TODO: set some reasonable value; (optional) make configurable
+const maxBodySize = math.MaxInt64
+
+func (s *Server) healthcheckGetHandler(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	return &schemas.HealthcheckResponse{
+		Service: "dstack-runner",
+		Version: s.version,
+	}, nil
+}
+
+func (s *Server) metricsGetHandler(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	if s.metricsCollector == nil {
+		return nil, &api.Error{Status: http.StatusNotFound, Msg: "Metrics collector is not available"}
+	}
+	metrics, err := s.metricsCollector.GetSystemMetrics(r.Context())
+	if err != nil {
+		return nil, &api.Error{Status: http.StatusInternalServerError, Err: err}
+	}
+	return metrics, nil
+}
+
+func (s *Server) submitPostHandler(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	s.executor.Lock()
+	defer s.executor.Unlock()
+	state := s.executor.GetRunnerState()
+	if state != executor.WaitSubmit {
+		log.Warning(r.Context(), "Executor doesn't wait submit", "current_state", state)
+		return nil, &api.Error{Status: http.StatusConflict}
+	}
+
+	var body schemas.SubmitBody
+	if err := api.DecodeJSONBody(w, r, &body, true); err != nil {
+		log.Error(r.Context(), "Failed to decode submit body", "err", err)
+		return nil, err
+	}
+	// todo go-playground/validator
+
+	s.executor.SetJob(body)
+	s.jobBarrierCh <- nil // notify server that job submitted
+
+	return nil, nil
+}
+
+// uploadArchivePostHandler may be called 0 or more times, and must be called after submitPostHandler
+// and before uploadCodePostHandler
+func (s *Server) uploadArchivePostHandler(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	s.executor.Lock()
+	defer s.executor.Unlock()
+	if s.executor.GetRunnerState() != executor.WaitCode {
+		return nil, &api.Error{Status: http.StatusConflict}
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if contentType == "" {
+		return nil, &api.Error{Status: http.StatusBadRequest, Msg: "missing content-type header"}
+	}
+	mediaType, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return nil, fmt.Errorf("parse request content-type: %w", err)
+	}
+	if mediaType != "multipart/form-data" {
+		return nil, &api.Error{Status: http.StatusBadRequest, Msg: fmt.Sprintf("multipart/form-data expected, got %s", mediaType)}
+	}
+	boundary := params["boundary"]
+	if boundary == "" {
+		return nil, &api.Error{Status: http.StatusBadRequest, Msg: "missing boundary"}
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	formReader := multipart.NewReader(r.Body, boundary)
+	part, err := formReader.NextPart()
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil, &api.Error{Status: http.StatusBadRequest, Msg: "empty form"}
+		}
+		if isMaxBytesError(err) {
+			return nil, &api.Error{Status: http.StatusRequestEntityTooLarge}
+		}
+		return nil, fmt.Errorf("read multipart form: %w", err)
+	}
+	defer func() { _ = part.Close() }()
+
+	fieldName := part.FormName()
+	if fieldName == "" {
+		return nil, &api.Error{Status: http.StatusBadRequest, Msg: "missing field name"}
+	}
+	if fieldName != "archive" {
+		return nil, &api.Error{Status: http.StatusBadRequest, Msg: fmt.Sprintf("unexpected field %s", fieldName)}
+	}
+	archiveId := part.FileName()
+	if archiveId == "" {
+		return nil, &api.Error{Status: http.StatusBadRequest, Msg: "missing file name"}
+	}
+	if err := s.executor.WriteFileArchive(archiveId, part); err != nil {
+		if isMaxBytesError(err) {
+			return nil, &api.Error{Status: http.StatusRequestEntityTooLarge}
+		}
+		return nil, fmt.Errorf("write file archive: %w", err)
+	}
+	if _, err := formReader.NextPart(); !errors.Is(err, io.EOF) {
+		return nil, &api.Error{Status: http.StatusBadRequest, Msg: "extra form field(s)"}
+	}
+
+	return nil, nil
+}
+
+func (s *Server) uploadCodePostHandler(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	s.executor.Lock()
+	defer s.executor.Unlock()
+	if s.executor.GetRunnerState() != executor.WaitCode {
+		return nil, &api.Error{Status: http.StatusConflict}
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+
+	if err := s.executor.WriteRepoBlob(r.Body); err != nil {
+		if isMaxBytesError(err) {
+			return nil, &api.Error{Status: http.StatusRequestEntityTooLarge}
+		}
+		return nil, fmt.Errorf("copy request body: %w", err)
+	}
+
+	s.executor.SetRunnerState(executor.WaitRun)
+
+	return nil, nil
+}
+
+func (s *Server) runPostHandler(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	s.executor.Lock()
+	defer s.executor.Unlock()
+	if s.executor.GetRunnerState() != executor.WaitRun {
+		return nil, &api.Error{Status: http.StatusConflict}
+	}
+
+	var runCtx context.Context
+	runCtx, s.cancelRun = context.WithCancel(context.Background())
+	go func() {
+		_ = s.executor.Run(runCtx) // INFO: all errors are handled inside the Run()
+		s.jobBarrierCh <- nil      // notify server that job finished
+	}()
+	s.executor.SetRunnerState(executor.ServeLogs)
+
+	return nil, nil
+}
+
+func (s *Server) pullGetHandler(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	s.executor.RLock()
+	defer s.executor.RUnlock()
+	timestamp := int64(0)
+	if r.URL.Query().Has("timestamp") {
+		var err error
+		timestamp, err = strconv.ParseInt(r.URL.Query().Get("timestamp"), 10, 64)
+		if err != nil {
+			return nil, &api.Error{Status: http.StatusBadRequest}
+		}
+	}
+
+	if s.executor.GetRunnerState() == executor.WaitLogsFinished {
+		defer func() { close(s.pullDoneCh) }()
+	}
+	return s.executor.GetHistory(timestamp), nil
+}
+
+func (s *Server) stopPostHandler(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+	s.stop()
+	return nil, nil
+}
+
+func isMaxBytesError(err error) bool {
+	var maxBytesError *http.MaxBytesError
+	return errors.As(err, &maxBytesError)
+}

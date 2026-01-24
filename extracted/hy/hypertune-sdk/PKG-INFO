@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: hypertune-sdk
+Version: 0.6.5
+Summary: 
+Author: Jordan Webster
+Author-email: jordan@hypertune.com
+Requires-Python: >=3.9,<4.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: cffi (>=1.17.1,<2.0.0)
+Requires-Dist: requests (>=2.31.0,<3.0.0)

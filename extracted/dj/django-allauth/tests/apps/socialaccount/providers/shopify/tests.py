@@ -1,4 +1,5 @@
 import json
+from http import HTTPStatus
 from urllib.parse import parse_qs, urlparse
 
 from django.test import TestCase
@@ -16,13 +17,15 @@ class ShopifyTests(OAuth2TestsMixin, TestCase):
     provider_id = ShopifyProvider.id
 
     def _complete_shopify_login(self, q, resp, resp_mock, with_refresh_token):
-        complete_url = reverse(self.provider.id + "_callback")
+        complete_url = reverse(f"{self.provider.id}_callback")
         self.assertGreater(q["redirect_uri"][0].find(complete_url), 0)
         response_json = self.get_login_response_json(
             with_refresh_token=with_refresh_token
         )
         with mocked_response(
-            MockedResponse(200, response_json, {"content-type": "application/json"}),
+            MockedResponse(
+                HTTPStatus.OK, response_json, {"content-type": "application/json"}
+            ),
             resp_mock,
         ):
             resp = self.client.get(
@@ -37,12 +40,12 @@ class ShopifyTests(OAuth2TestsMixin, TestCase):
 
     def login(self, resp_mock, process="login", with_refresh_token=True):
         url = (
-            reverse(self.provider.id + "_login")
+            reverse(f"{self.provider.id}_login")
             + "?"
             + urlencode({"process": process, "shop": "test"})
         )
         resp = self.client.post(url)
-        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.status_code, HTTPStatus.FOUND)
         p = urlparse(resp["location"])
         q = parse_qs(p.query)
         resp = self._complete_shopify_login(q, resp, resp_mock, with_refresh_token)
@@ -50,7 +53,7 @@ class ShopifyTests(OAuth2TestsMixin, TestCase):
 
     def get_mocked_response(self):
         return MockedResponse(
-            200,
+            HTTPStatus.OK,
             """
         {
             "shop": {
@@ -78,15 +81,15 @@ class ShopifyEmbeddedTests(ShopifyTests):
 
     def login(self, resp_mock, process="login", with_refresh_token=True):
         resp = self.client.post(
-            reverse(self.provider.id + "_login")
+            reverse(f"{self.provider.id}_login")
             + "?"
             + urlencode({"process": process, "shop": "test"}),
         )
-        self.assertEqual(resp.status_code, 200)  # No re-direct, JS must do it
+        self.assertEqual(resp.status_code, HTTPStatus.OK)  # No re-direct, JS must do it
         actual_content = resp.content.decode("utf8")
         self.assertTrue(
             "script" in actual_content,
-            "Content missing script tag. [Actual: {}]".format(actual_content),
+            f"Content missing script tag. [Actual: {actual_content}]",
         )
         self.assertTrue(
             resp.xframe_options_exempt,
@@ -95,7 +98,7 @@ class ShopifyEmbeddedTests(ShopifyTests):
         self.assertTrue(
             "<!DOCTYPE html><html><head>" in actual_content
             and "</head><body></body></html>" in actual_content,
-            "Expected standard HTML skeleton. [Actual: {}]".format(actual_content),
+            f"Expected standard HTML skeleton. [Actual: {actual_content}]",
         )
         p = urlparse(
             actual_content.split(";</script>")[0].split('location.href = "')[1]
@@ -124,16 +127,21 @@ class ShopifyPerUserAccessTests(ShopifyTests):
     def get_login_response_json(self, with_refresh_token=True):
         response_data = {
             "access_token": "testac",
-            "scope": "write_orders,read_customers",
-            "expires_in": 86399,
-            "associated_user_scope": "write_orders",
+            "account_number": None,
             "associated_user": {
-                "id": 902541635,
-                "first_name": "Jon",
-                "last_name": "Smith",
-                "email": "jon@example.com",
                 "account_owner": True,
+                "collaborator": False,
+                "email": "john@example.com",
+                "email_verified": True,
+                "first_name": "John",
+                "id": 902541635,
+                "last_name": "Smith",
+                "locale": "en",
             },
+            "associated_user_scope": "read_products,read_customers,read_inventory,write_merchant_managed_fulfillment_orders,write_third_party_fulfillment_orders,read_orders,write_assigned_fulfillment_orders",
+            "expires_in": 86381,
+            "scope": "read_products,read_customers,read_inventory,write_merchant_managed_fulfillment_orders,write_third_party_fulfillment_orders,read_orders,write_assigned_fulfillment_orders",
+            "session": None,
         }
         if with_refresh_token:
             response_data["refresh_token"] = "testrf"
@@ -157,6 +165,6 @@ class ShopifyPerUserAccessTests(ShopifyTests):
         self.assertIsNotNone(social_account)
         self.assertTrue("associated_user" in social_account.extra_data)
 
-        self.assertEqual(social_account.user.email, "jon@example.com")
-        self.assertEqual(social_account.user.first_name, "Jon")
+        self.assertEqual(social_account.user.email, "john@example.com")
+        self.assertEqual(social_account.user.first_name, "John")
         self.assertEqual(social_account.user.last_name, "Smith")

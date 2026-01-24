@@ -1,18 +1,19 @@
 [project]
 name = "geoip2"
-version = "5.1.0"
+version = "5.2.0"
 description = "MaxMind GeoIP2 API"
 authors = [
     {name = "Gregory Oschwald", email = "goschwald@maxmind.com"},
 ]
 dependencies = [
     "aiohttp>=3.6.2,<4.0.0",
-    "maxminddb>=2.7.0,<3.0.0",
+    "maxminddb>=3.0.0,<4.0.0",
     "requests>=2.24.0,<3.0.0",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.rst"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
@@ -20,11 +21,11 @@ classifiers = [
     "Intended Audience :: System Administrators",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet",
     "Topic :: Internet :: Proxy Servers",
 ]
@@ -33,36 +34,49 @@ classifiers = [
 dev = [
     "pytest>=8.3.5",
     "pytest-httpserver>=1.0.10",
+    "tox-uv>=1.29.0",
     "types-requests>=2.32.0.20250328",
 ]
 lint = [
-    "black>=25.1.0",
     "mypy>=1.15.0",
-    "pylint>=3.3.6",
     "ruff>=0.11.6",
 ]
 
 [build-system]
-requires = [
-    "setuptools>=77.0.3",
-    "setuptools-scm",
+requires = ["uv_build>=0.7.19,<0.8.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+source-include = [
+    "HISTORY.rst",
+    "README.rst",
+    "LICENSE",
+    "docs/html",
+    "examples/*.py",
+    "tests/*.py",
+    "tests/data/test-data/*.mmdb"
 ]
-build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://www.maxmind.com/"
+Documentation = "https://geoip2.readthedocs.org/"
+"Source Code" = "https://github.com/maxmind/GeoIP2-python"
+"Issue Tracker" = "https://github.com/maxmind/GeoIP2-python/issues"
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    # Skip type annotation on **_
-    "ANN003",
+    # Redundant as the formatter handles missing trailing commas.
+    "COM812",
 
     # documenting magic methods
     "D105",
 
-    # Line length. We let black handle this for now.
-    "E501",
+    # Conflicts with D211
+    "D203",
 
-    # Don't bother with future imports for type annotations
-    "FA100",
+    # Conflicts with D212
+    "D213",
 
     # Magic numbers for HTTP status codes seem ok most of the time.
     "PLR2004",
@@ -73,19 +87,47 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"geoip2/{models,records}.py" = [ "D107", "PLR0913" ]
-"tests/*" = ["ANN201", "D"]
+"docs/*" = ["ALL"]
+"src/geoip2/{models,records}.py" = [ "ANN401", "D107", "PLR0913" ]
+# FBT003: We use assertIs with boolean literals to verify values are actual
+# booleans (True/False), not just truthy/falsy values
+"tests/*" = ["ANN201", "D", "FBT003"]
 
-[tool.setuptools.package-data]
-geoip2 = ["py.typed"]
+[tool.tox]
+env_list = [
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+    "lint",
+]
+skip_missing_interpreters = false
 
-[project.urls]
-Homepage = "https://www.maxmind.com/"
-Documentation = "https://geoip2.readthedocs.org/"
-"Source Code" = "https://github.com/maxmind/GeoIP2-python"
-"Issue Tracker" = "https://github.com/maxmind/GeoIP2-python/issues"
+[tool.tox.env_run_base]
+dependency_groups = [
+  "dev",
+]
+commands = [
+    ["pytest", "tests"],
+]
 
-[tool.black]
-# src is showing up in our GitHub linting builds. It seems to
-# contain deps.
-extend-exclude = '^/src/'
+[tool.tox.env.lint]
+description = "Code linting"
+python = "3.14"
+dependency_groups = [
+    "dev",
+    "lint",
+]
+commands = [
+    ["mypy", "src", "tests"],
+    ["ruff", "check"],
+    ["ruff", "format", "--check", "--diff", "."],
+]
+
+[tool.tox.gh.python]
+"3.14" = ["3.14", "lint"]
+"3.13" = ["3.13"]
+"3.12" = ["3.12"]
+"3.11" = ["3.11"]
+"3.10" = ["3.10"]

@@ -11,12 +11,11 @@ from typing import Optional
 class HonoAPIErrorData(BaseModel):
     message: str
     r"""Error message"""
-
     code: Optional[str] = None
     r"""HTTP status code"""
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class HonoAPIError(OrqError):
     data: HonoAPIErrorData = field(hash=False)
 

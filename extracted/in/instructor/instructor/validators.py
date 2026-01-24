@@ -13,18 +13,18 @@ def __getattr__(name: str):
         f"Please update your imports to use the new location:\n"
         "  from instructor.validation import llm_validator, openai_moderation",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
-    
+
     from . import validation
     from .processing import validators as processing_validators
-    
+
     # Try validation module first
     if hasattr(validation, name):
         return getattr(validation, name)
-        
+
     # Then try processing.validators
     if hasattr(processing_validators, name):
         return getattr(processing_validators, name)
-    
+
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

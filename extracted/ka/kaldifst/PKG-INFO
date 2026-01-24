@@ -1,0 +1,29 @@
+Metadata-Version: 2.1
+Name: kaldifst
+Version: 1.7.17
+Home-page: https://github.com/k2-fsa/kaldifst
+Author: Next-gen Kaldi development team
+Author-email: csukuangfj@gmail.com
+License: Apache-2.0
+Classifier: Programming Language :: C++
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+## Introduction
+
+Python wrapper for [OpenFst][openfst] and its extensions from  [Kaldi][kaldi], e.g.,
+`fstdeterminizestar`.
+
+**Note**: It does not depend on Kaldi. You don't need to install
+Kaldi to use this repo.
+
+## Documentation
+
+Please refer to <https://k2-fsa.github.io/kaldifst>
+for installation and usage.
+
+[openfst]: https://www.openfst.org/
+[kaldi]: https://github.com/kaldi-asr/kaldi

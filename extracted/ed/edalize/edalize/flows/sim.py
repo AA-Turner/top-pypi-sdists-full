@@ -58,6 +58,18 @@ class Sim(Generic):
                         '-LDFLAGS "-Wl,-rpath,`cocotb-config --lib-dir` -L`cocotb-config --lib-dir` -lcocotbvpi_verilator"',
                     ],
                 ),
+                "xcelium": (
+                    # Note: xrun may throw a 'No such file or directory' error
+                    # about libpython3.x.so while loading the VPI library if
+                    # the user using a virtualenv or conda environment.
+                    # User can fix this by adding the python library path to
+                    # LD_LIBRARY_PATH environment variable before launching xrun.
+                    "xrun_options",
+                    [
+                        "-access +rwc",
+                        "-loadvpi $$(cocotb-config --lib-name-path vpi xcelium):vlog_startup_routines_bootstrap",
+                    ],
+                ),
             }
             (opt, val) = cocotb_options[tool]
             self.edam["tool_options"][tool][opt] = (
@@ -78,10 +90,23 @@ class Sim(Generic):
 
         # Get run command from simulator
         (cmd, args, cwd) = run_tool.run()
+
         cocotb_module = self.flow_options.get("cocotb_module")
-        env = (
-            {"MODULE": cocotb_module, "COCOTB_TEST_MODULES": cocotb_module}
-            if cocotb_module
-            else {}
-        )
+        if cocotb_module:
+            # Get required cocotb env data
+            prev_verbose = self.verbose
+            self.verbose = False
+            _, libpy, _ = self._run_tool("cocotb-config", ["--libpython"], quiet=True)
+            _, pybin, _ = self._run_tool("cocotb-config", ["--python-bin"], quiet=True)
+            self.verbose = prev_verbose
+
+            env = {
+                "COCOTB_TEST_MODULES": cocotb_module,
+                "MODULE": cocotb_module,  # Keep for compatibility with cocotb < v2.0
+                "LIBPYTHON_LOC": libpy.decode("utf-8").strip(),
+                "PYGPI_PYTHON_BIN": pybin.decode("utf-8").strip(),
+            }
+        else:
+            env = {}
+
         self._run_tool(cmd, args=args, cwd=cwd, env=env)

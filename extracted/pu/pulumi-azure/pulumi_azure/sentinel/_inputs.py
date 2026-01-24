@@ -73,10 +73,14 @@ __all__ = [
     'AlertRuleScheduledSentinelEntityMappingArgsDict',
     'AuthomationRuleActionIncidentArgs',
     'AuthomationRuleActionIncidentArgsDict',
+    'AuthomationRuleActionIncidentTaskArgs',
+    'AuthomationRuleActionIncidentTaskArgsDict',
     'AuthomationRuleActionPlaybookArgs',
     'AuthomationRuleActionPlaybookArgsDict',
     'AutomationRuleActionIncidentArgs',
     'AutomationRuleActionIncidentArgsDict',
+    'AutomationRuleActionIncidentTaskArgs',
+    'AutomationRuleActionIncidentTaskArgsDict',
     'AutomationRuleActionPlaybookArgs',
     'AutomationRuleActionPlaybookArgsDict',
     'MetadataAuthorArgs',
@@ -1231,7 +1235,7 @@ if not MYPY:
     class AlertRuleNrtAlertDetailsOverrideDynamicPropertyArgsDict(TypedDict):
         name: pulumi.Input[_builtins.str]
         """
-        The name of the dynamic property. Possible Values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps` and `Techniques`.
+        The name of the dynamic property. Possible values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps`, `SubTechniques` and `Techniques`.
         """
         value: pulumi.Input[_builtins.str]
         """
@@ -1246,7 +1250,7 @@ class AlertRuleNrtAlertDetailsOverrideDynamicPropertyArgs:
                  name: pulumi.Input[_builtins.str],
                  value: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] name: The name of the dynamic property. Possible Values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps` and `Techniques`.
+        :param pulumi.Input[_builtins.str] name: The name of the dynamic property. Possible values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps`, `SubTechniques` and `Techniques`.
         :param pulumi.Input[_builtins.str] value: The value of the dynamic property. Pssible Values are `Caller`, `dcount_ResourceId` and `EventSubmissionTimestamp`.
         """
         pulumi.set(__self__, "name", name)
@@ -1256,7 +1260,7 @@ class AlertRuleNrtAlertDetailsOverrideDynamicPropertyArgs:
     @pulumi.getter
     def name(self) -> pulumi.Input[_builtins.str]:
         """
-        The name of the dynamic property. Possible Values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps` and `Techniques`.
+        The name of the dynamic property. Possible values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps`, `SubTechniques` and `Techniques`.
         """
         return pulumi.get(self, "name")
 
@@ -1757,7 +1761,7 @@ if not MYPY:
     class AlertRuleScheduledAlertDetailsOverrideDynamicPropertyArgsDict(TypedDict):
         name: pulumi.Input[_builtins.str]
         """
-        The name of the dynamic property. Possible Values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps` and `Techniques`.
+        The name of the dynamic property. Possible values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps`, `SubTechniques` and `Techniques`.
         """
         value: pulumi.Input[_builtins.str]
         """
@@ -1772,7 +1776,7 @@ class AlertRuleScheduledAlertDetailsOverrideDynamicPropertyArgs:
                  name: pulumi.Input[_builtins.str],
                  value: pulumi.Input[_builtins.str]):
         """
-        :param pulumi.Input[_builtins.str] name: The name of the dynamic property. Possible Values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps` and `Techniques`.
+        :param pulumi.Input[_builtins.str] name: The name of the dynamic property. Possible values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps`, `SubTechniques` and `Techniques`.
         :param pulumi.Input[_builtins.str] value: The value of the dynamic property. Pssible Values are `Caller`, `dcount_ResourceId` and `EventSubmissionTimestamp`.
         """
         pulumi.set(__self__, "name", name)
@@ -1782,7 +1786,7 @@ class AlertRuleScheduledAlertDetailsOverrideDynamicPropertyArgs:
     @pulumi.getter
     def name(self) -> pulumi.Input[_builtins.str]:
         """
-        The name of the dynamic property. Possible Values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps` and `Techniques`.
+        The name of the dynamic property. Possible values are `AlertLink`, `ConfidenceLevel`, `ConfidenceScore`, `ExtendedLinks`, `ProductComponentName`, `ProductName`, `ProviderName`, `RemediationSteps`, `SubTechniques` and `Techniques`.
         """
         return pulumi.get(self, "name")
 
@@ -2337,6 +2341,76 @@ class AuthomationRuleActionIncidentArgs:
 
 
 if not MYPY:
+    class AuthomationRuleActionIncidentTaskArgsDict(TypedDict):
+        order: pulumi.Input[_builtins.int]
+        """
+        The execution order of this action.
+        """
+        title: pulumi.Input[_builtins.str]
+        """
+        The title of the incident task.
+        """
+        description: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The description of the incident task.
+        """
+elif False:
+    AuthomationRuleActionIncidentTaskArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AuthomationRuleActionIncidentTaskArgs:
+    def __init__(__self__, *,
+                 order: pulumi.Input[_builtins.int],
+                 title: pulumi.Input[_builtins.str],
+                 description: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.int] order: The execution order of this action.
+        :param pulumi.Input[_builtins.str] title: The title of the incident task.
+        :param pulumi.Input[_builtins.str] description: The description of the incident task.
+        """
+        pulumi.set(__self__, "order", order)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> pulumi.Input[_builtins.int]:
+        """
+        The execution order of this action.
+        """
+        return pulumi.get(self, "order")
+
+    @order.setter
+    def order(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "order", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        """
+        The title of the incident task.
+        """
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The description of the incident task.
+        """
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "description", value)
+
+
+if not MYPY:
     class AuthomationRuleActionPlaybookArgsDict(TypedDict):
         logic_app_id: pulumi.Input[_builtins.str]
         """
@@ -2573,6 +2647,76 @@ class AutomationRuleActionIncidentArgs:
     @status.setter
     def status(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "status", value)
+
+
+if not MYPY:
+    class AutomationRuleActionIncidentTaskArgsDict(TypedDict):
+        order: pulumi.Input[_builtins.int]
+        """
+        The execution order of this action.
+        """
+        title: pulumi.Input[_builtins.str]
+        """
+        The title of the incident task.
+        """
+        description: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The description of the incident task.
+        """
+elif False:
+    AutomationRuleActionIncidentTaskArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AutomationRuleActionIncidentTaskArgs:
+    def __init__(__self__, *,
+                 order: pulumi.Input[_builtins.int],
+                 title: pulumi.Input[_builtins.str],
+                 description: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.int] order: The execution order of this action.
+        :param pulumi.Input[_builtins.str] title: The title of the incident task.
+        :param pulumi.Input[_builtins.str] description: The description of the incident task.
+        """
+        pulumi.set(__self__, "order", order)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def order(self) -> pulumi.Input[_builtins.int]:
+        """
+        The execution order of this action.
+        """
+        return pulumi.get(self, "order")
+
+    @order.setter
+    def order(self, value: pulumi.Input[_builtins.int]):
+        pulumi.set(self, "order", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        """
+        The title of the incident task.
+        """
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The description of the incident task.
+        """
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "description", value)
 
 
 if not MYPY:

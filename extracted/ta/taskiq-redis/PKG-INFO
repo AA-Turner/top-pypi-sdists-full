@@ -1,24 +1,26 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: taskiq-redis
-Version: 1.1.0
+Version: 1.2.1
 Summary: Redis integration for taskiq
-Keywords: taskiq,tasks,distributed,async,redis,result_backend
-Author: taskiq-team
-Author-email: taskiq@norely.com
-Requires-Python: >=3.9,<4.0
+Keywords: async,distributed,redis,result_backend,taskiq,tasks
+Author: Taskiq team
+Author-email: Taskiq team <taskiq@no-reply.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Requires-Dist: redis (>=6,<7)
-Requires-Dist: taskiq (>=0.11.12,<1)
-Project-URL: Homepage, https://github.com/taskiq-python/taskiq-redis
-Project-URL: Repository, https://github.com/taskiq-python/taskiq-redis
+Requires-Dist: redis>=7.0.0,<8
+Requires-Dist: taskiq>=0.12.0
+Maintainer: Taskiq team
+Maintainer-email: Taskiq team <taskiq@no-reply.com>
+Requires-Python: >=3.10
+Project-URL: homepage, https://github.com/taskiq-python/taskiq-redis
+Project-URL: repository, https://github.com/taskiq-python/taskiq-redis
 Description-Content-Type: text/markdown
 
 # TaskIQ-Redis
@@ -213,3 +215,16 @@ scheduler = TaskiqScheduler(broker, [array_source])
 
 During startup the scheduler will try to migrate schedules from an old source to a new one. Please be sure to specify different prefixe just to avoid any kind of collision between these two.
 
+
+## Dynamic queue names
+
+
+Brokers supports dynamic queue names, allowing you to specify different queues when kicking tasks. This is useful for routing tasks to specific queues based on runtime conditions, such as priority levels, tenant isolation, or environment-specific processing.
+
+Simply pass the desired queue name as message's label when kicking a task to override the broker's default queue configuration.
+
+```python
+@broker.task(queue_name="low_priority")
+async def low_priority_task() -> None:
+    print("I don't mind waiting a little longer")
+```

@@ -25,17 +25,14 @@ class UndeployFrontend(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
+        with self.validate(args, state) as (args, state):
+            label_selector = Config().get('pod.label-selector', 'run=ops')
+            undeploy_frontend(state.namespace, label_selector)
+
             return state
-
-        label_selector = Config().get('pod.label-selector', 'run=ops')
-        undeploy_frontend(state.namespace, label_selector)
-
-        return state
 
     def completion(self, state: ReplState):
         return super().completion(state)
 
-    def help(self, _: ReplState):
-        return f'{UndeployFrontend.COMMAND}\t undeploy Web frontend'
+    def help(self, state: ReplState):
+        return super().help(state, 'undeploy Web frontend')

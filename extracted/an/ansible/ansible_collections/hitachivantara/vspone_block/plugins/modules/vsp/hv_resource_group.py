@@ -4,17 +4,16 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
 DOCUMENTATION = """
 ---
 module: hv_resource_group
-short_description: Manages resource groups on Hitachi VSP storage systems.
+short_description: Manages resource groups on VSP block storage systems.
 description:
-  - This module allows the creation and deletion of resource groups on Hitachi
-    VSP storage systems.
+  - This module allows the creation and deletion of resource groups on
+    VSP block storage systems.
   - It also enables adding or removing various types of resources to/from the
     resource group.
   - For examples, go to URL
@@ -29,8 +28,12 @@ attributes:
     description: Determines if the module should run in check mode.
     support: none
 extends_documentation_fragment:
-- hitachivantara.vspone_block.common.gateway_note
-- hitachivantara.vspone_block.common.connection_with_type
+  - hitachivantara.vspone_block.common.gateway_note
+  - hitachivantara.vspone_block.common.connection_with_type
+notes:
+  - If any resource is locked in the target storage system, the operations
+    related to resource groups cannot be performed. In such cases, unlock the
+    resources before running resource group related operations.
 options:
   state:
     description: The desired state of the resource group task.
@@ -40,8 +43,9 @@ options:
       - present
       - absent
     default: present
+
   storage_system_info:
-    description: Information about the storage system. This field is an optional field.
+    description: Information about the storage system. This field is optional.
     type: dict
     required: false
     suboptions:
@@ -49,25 +53,52 @@ options:
         description: The serial number of the storage system.
         type: str
         required: false
+
   spec:
     description: Specification for the resource group.
     type: dict
     required: true
     suboptions:
       name:
-        description: The name of the resource group.
+        description: >
+          The name of the resource group.
+          Required for the following tasks:
+          - Create a Resource Group without any resources
+          - Create a Resource Group with virtual storage serial number of VSM
+          - Create a Resource Group with LDEVs
+          - Create a Resource Group with the following resources: LDEVs, parity groups, ports, host groups, NVM subsystem IDs
+          - Create a Resource Group with storage pool IDs and parity groups
+          - Add the following resources to an existing Resource Group by Name: LDEVs, ports, host groups, iSCSI targets
+          - Remove the following resources from an existing Resource Group by Name: LDEVs, ports, host groups, iSCSI targets
+          - Delete a Resource Group by Name
         type: str
         required: false
+
       id:
-        description: The ID of the resource group.
+        description: >
+          The ID of the resource group.
+          Optional for the following tasks:
+          - Add the following resources to an existing Resource Group by ID: LDEVs, ports, host groups, NVM subsystem IDs
+          - Remove the following resources from an existing Resource Group by ID: LDEVs, ports, host groups, NVM subsystem IDs
+          - Delete a Resource Group by ID
+          - Delete a Resource Group by ID forcefully
+          Required for the following tasks:
+          - Add LDEVs using LDEV range to an existing Resource Group by ID
+          - Remove LDEVs using LDEV range from an existing Resource Group by ID
         type: int
         required: false
+
       virtual_storage_serial:
-        description: Virtual storage serial number associated with the resource group.
+        description: >
+          Virtual storage serial number associated with the resource group.
+          Required for the Create a Resource Group with virtual storage serial number of VSM task.
         type: str
         required: false
+
       virtual_storage_model:
-        description: Virtual storage model name associated with the resource group.
+        description: >
+          Virtual storage model name associated with the resource group.
+          Required for the Create a Resource Group with virtual storage serial number of VSM task.
         type: str
         required: false
         choices:
@@ -109,79 +140,140 @@ options:
           - VSP_G1500
           - VSP_F1500
           - VSP_E1090H
+
       ldevs:
-        description: List of LDEVs to be added or removed from the resource group.
+        description: >
+          List of LDEVs to be added or removed from the resource group.
+          Optional for the Create a Resource Group with LDEVs or with the following resources:
+          LDEVs, parity groups, ports, host groups, NVM subsystem IDs.
+          Also used for add/remove operations by ID or Name.
         type: list
         required: false
-        elements: int
+        elements: str
+
+      start_ldev:
+        description: >
+          First LDEV number. If you specify this attribute, you must also specify end_ldev.
+          If you specify ldevs, you cannot specify this attribute.
+          Required for add/remove LDEVs using LDEV range by ID.
+        type: str
+        required: false
+
+      end_ldev:
+        description: >
+          Last LDEV number. If you specify this attribute, you must also specify start_ldev.
+          If you specify ldevs, you cannot specify this attribute.
+          Required for add/remove LDEVs using LDEV range by ID.
+        type: str
+        required: false
+
       ports:
-        description: List of ports to be added or removed from the resource group.
+        description: >
+          List of ports to be added or removed from the resource group.
+          Optional for Create or Add/Remove operations by ID or Name.
         type: list
         required: false
         elements: str
+
       parity_groups:
-        description: List of parity groups to be added or removed from the resource group.
+        description: >
+          List of parity groups to be added or removed from the resource group.
+          Optional for the Create a Resource Group with LDEVs, parity groups, ports,
+          host groups, NVM subsystem IDs, or with storage pool IDs.
         type: list
         required: false
         elements: str
+
+      external_parity_groups:
+        description: >
+          List of external parity groups to be added or removed from the resource group.
+        type: list
+        required: false
+        elements: str
+
       host_groups:
-        description: List of host groups to be added or removed from the resource group.
+        description: >
+          List of host groups to be added or removed from the resource group.
+          Required for Create, Add, or Remove operations involving host groups.
         type: list
         required: false
         elements: dict
         suboptions:
           name:
-            description: Name of the host group.
+            description: >
+              Name of the host group.
+              Required for create/add/remove operations involving host groups.
             type: str
             required: true
           port:
-            description: Port name associated with the host group.
+            description: >
+              Port name associated with the host group.
+              Required for create/add/remove operations involving host groups.
             type: str
             required: true
+
       iscsi_targets:
-        description: List of iSCSI targets to be added or removed from the resource group.
+        description: >
+          List of iSCSI targets to be added or removed from the resource group.
+          Optional for add/remove operations by Name.
         type: list
         required: false
         elements: dict
         suboptions:
           name:
-            description: Name of the iSCSI target.
+            description: >
+              Name of the iSCSI target.
+              Required for add/remove operations by Name.
             type: str
             required: true
           port:
-            description: Port name associated with the iSCSI target.
+            description: >
+              Port name associated with the iSCSI target.
+              Required for add/remove operations by Name.
             type: str
             required: true
+
       nvm_subsystem_ids:
-        description: List of NVM subsystem IDs to be added or removed from the resource group.
+        description: >
+          List of NVM subsystem IDs to be added or removed from the resource group.
+          Optional for Create or Add/Remove operations by ID.
         type: list
         required: false
         elements: int
+
       storage_pool_ids:
-        description: Pool volumes to be added or removed from the resource group.
+        description: >
+          Pool volumes to be added or removed from the resource group.
+          Optional for Create a Resource Group with storage pool IDs and parity groups.
         type: list
         required: false
         elements: int
+
       state:
-        description:
+        description: >
           - Operation to be performed on the resources in the resource group.
-          - C(add_resource) -  To add resources to the resource group.
-          - C(remove_resource) - To remove resources from the resource group.
+          - add_resource- To add resources to the resource group.
+          - remove_resource - To remove resources from the resource group.
         type: str
         required: false
         choices:
           - add_resource
           - remove_resource
         default: add_resource
+
       force:
-        description: For delete operations, specifies if the operation should be forced.
+        description: >
+          For delete operations, specifies if the operation should be forced.
+          Optional for Delete a Resource Group by ID forcefully.
         type: bool
         required: false
         default: false
-      # add_resource_time_out_in_sec:
-      #   description: Timeout for a operation. The default timeout is 300 secs.
-      #   type: int
-      #   required: false
+
+      add_resource_time_out_in_sec:
+        description: >
+          Timeout for an add resource operation. The default timeout is 300 seconds.
+        type: int
+        required: false
 """
 
 EXAMPLES = """
@@ -325,6 +417,11 @@ resource_groups:
             type: list
             elements: int
             sample: [1, 2, 3]
+        ldevs_hex:
+            description: List of LDEVs in hexadecimal format in the resource group.
+            type: list
+            elements: str
+            sample: ["0x1", "0x2", "0x3"]
         parity_groups:
             description: List of parity groups in the resource group.
             type: list
@@ -335,21 +432,29 @@ resource_groups:
             type: list
             elements: str
             sample: ["CL1-A", "CL1-C"]
+        virtual_storage_id:
+            description: The virtual storage ID associated with the resource group.
+            type: int
+            sample: 200
+        virtual_storage_serial:
+            description: The virtual storage serial number associated with the resource group.
+            type: str
+            sample: "69200"
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.vsp_utils import (
-    VSPResourceGroupArguments,
-    VSPParametersManager,
-)
-from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.hv_log import (
-    Log,
+from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.ansible_common import (
+    validate_ansible_product_registration,
 )
 from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.reconciler.vsp_resource_group import (
     VSPResourceGroupReconciler,
 )
-from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.ansible_common import (
-    validate_ansible_product_registration,
+from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.hv_log import (
+    Log,
+)
+from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.vsp_utils import (
+    VSPResourceGroupArguments,
+    VSPParametersManager,
 )
 
 
@@ -374,7 +479,8 @@ class VSPResourceGroupManager:
                 f"MOD:hv_resource_group:spec= {self.spec} ss = {self.storage_serial_number}"
             )
         except Exception as e:
-            self.logger.writeError(f"An error occurred during initialization: {str(e)}")
+            self.logger.writeError(
+                f"An error occurred during initialization: {str(e)}")
             self.module.fail_json(msg=str(e))
 
     def apply(self):
@@ -409,7 +515,7 @@ class VSPResourceGroupManager:
         self.module.exit_json(**resp)
 
 
-def main(module=None):
+def main():
     obj_store = VSPResourceGroupManager()
     obj_store.apply()
 

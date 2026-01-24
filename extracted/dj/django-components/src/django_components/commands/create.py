@@ -207,11 +207,8 @@ class CreateCommand(ComponentCommand):
                         js_file = "{js_filename}"
                         css_file = "{css_filename}"
 
-                        class Kwargs(NamedTuple):
-                            param: str
-
-                        class Defaults:
-                            param = "sample value"
+                        class Kwargs:
+                            param: str = "sample value"
 
                         def get_template_data(self, args, kwargs: Kwargs, slots, context):
                             return {{

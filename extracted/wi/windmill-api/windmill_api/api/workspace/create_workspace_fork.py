@@ -10,6 +10,7 @@ from ...types import Response
 
 
 def _get_kwargs(
+    workspace: str,
     *,
     json_body: CreateWorkspaceForkJsonBody,
 ) -> Dict[str, Any]:
@@ -19,7 +20,9 @@ def _get_kwargs(
 
     return {
         "method": "post",
-        "url": "/workspaces/create_fork",
+        "url": "/w/{workspace}/workspaces/create_fork".format(
+            workspace=workspace,
+        ),
         "json": json_json_body,
     }
 
@@ -41,6 +44,7 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 
 def sync_detailed(
+    workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: CreateWorkspaceForkJsonBody,
@@ -48,6 +52,7 @@ def sync_detailed(
     """create forked workspace
 
     Args:
+        workspace (str):
         json_body (CreateWorkspaceForkJsonBody):
 
     Raises:
@@ -59,6 +64,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        workspace=workspace,
         json_body=json_body,
     )
 
@@ -70,6 +76,7 @@ def sync_detailed(
 
 
 async def asyncio_detailed(
+    workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: CreateWorkspaceForkJsonBody,
@@ -77,6 +84,7 @@ async def asyncio_detailed(
     """create forked workspace
 
     Args:
+        workspace (str):
         json_body (CreateWorkspaceForkJsonBody):
 
     Raises:
@@ -88,6 +96,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        workspace=workspace,
         json_body=json_body,
     )
 

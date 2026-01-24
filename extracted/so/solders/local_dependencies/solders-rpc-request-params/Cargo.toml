@@ -12,7 +12,7 @@ description = "Solders RPC request params crate."
 bincode = "1.3.3"
 serde = "^1.0.188"
 serde_with = { version = "^1.14.0", features = ["base64"] }
-solana-rpc-client-api = "2.1.0"
+solana-rpc-client-types = "3"
 solders-base64-string = { path = "../solders-base64-string" }
 solders-commitment-config = { path = "../solders-commitment-config" }
 solders-hash = { path = "../solders-hash" }

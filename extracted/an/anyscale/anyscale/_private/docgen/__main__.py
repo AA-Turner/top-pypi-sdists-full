@@ -34,27 +34,32 @@ from anyscale.commands import (
     compute_config_commands,
     image_commands,
     job_commands,
+    job_queue_commands,
     login_commands,
     logs_commands,
     machine_commands,
     machine_pool_commands,
     organization_invitation_commands,
+    policy_commands,
     project_commands,
     resource_quota_commands,
     schedule_commands,
+    scim_commands,
     service_account_commands,
     service_commands,
     user_commands,
-    workspace_commands,
+    user_group_commands,
     workspace_commands_v2,
 )
 from anyscale.compute_config.models import (
     CloudDeployment as CloudDeploymentSelector,
     ComputeConfig,
+    ComputeConfigListResult,
     ComputeConfigVersion,
     HeadNodeConfig,
     MarketType,
     MultiResourceComputeConfig,
+    PhysicalResources,
     WorkerNodeGroupConfig,
 )
 from anyscale.image.models import ImageBuild, ImageBuildStatus
@@ -69,7 +74,24 @@ from anyscale.job.models import (
     JobState,
     JobStatus,
 )
+from anyscale.job_queue.models import (
+    ClusterState,
+    ExecutionMode,
+    JobQueueSortDirective,
+    JobQueueSortField,
+    JobQueueState,
+    JobQueueStatus,
+    SessionState,
+    SortOrder,
+)
 from anyscale.organization_invitation.models import OrganizationInvitation
+from anyscale.policy.models import (
+    Policy,
+    PolicyBinding,
+    PolicyConfig,
+    PolicySyncStatus,
+    ResourcePolicy,
+)
 from anyscale.project.models import (
     CreateProjectCollaborator,
     Project,
@@ -91,8 +113,20 @@ from anyscale.service.models import (
     TracingConfig,
 )
 from anyscale.service_account.models import OrganizationPermissionLevel, ServiceAccount
-from anyscale.user.models import AdminCreatedUser, AdminCreateUser
-from anyscale.workspace.models import WorkspaceConfig
+from anyscale.user.models import (
+    AdminCreatedUser,
+    AdminCreateUser,
+    AdminCreateUsers,
+    User,
+)
+from anyscale.user_group.models import UserGroup
+from anyscale.workspace.models import (
+    Workspace,
+    WorkspaceConfig,
+    WorkspaceSortField,
+    WorkspaceSortOrder,
+    WorkspaceState,
+)
 
 
 # Defines all modules to be documented.
@@ -109,11 +143,20 @@ ALL_MODULES = [
     Module(
         title="User",
         filename="user.md",
-        cli_prefix="user",
-        cli_commands=[user_commands.admin_batch_create],
+        cli_prefix="anyscale user",
+        cli_commands=[
+            user_commands.admin_batch_create,
+            user_commands.list_users,
+            user_commands.get_user,
+            user_commands.list_permissions,
+        ],
         sdk_prefix="anyscale.user",
-        sdk_commands=[anyscale.user.admin_batch_create,],
-        models=[AdminCreateUser, AdminCreatedUser],
+        sdk_commands=[
+            anyscale.user.admin_batch_create,
+            anyscale.user.list,
+            anyscale.user.get,
+        ],
+        models=[AdminCreateUser, AdminCreateUsers, AdminCreatedUser, User],
     ),
     Module(
         title="Project",
@@ -159,6 +202,9 @@ ALL_MODULES = [
             job_commands.logs,
             job_commands.wait,
             job_commands.list,
+            job_commands.add_tags,
+            job_commands.remove_tags,
+            job_commands.list_tags,
         ],
         sdk_prefix="anyscale.job",
         sdk_commands=[
@@ -168,6 +214,9 @@ ALL_MODULES = [
             anyscale.job.archive,
             anyscale.job.get_logs,
             anyscale.job.wait,
+            anyscale.job.add_tags,
+            anyscale.job.remove_tags,
+            anyscale.job.list_tags,
         ],
         models=[
             JobQueueSpec,
@@ -180,6 +229,11 @@ ALL_MODULES = [
             JobRunState,
             JobLogMode,
         ],
+        cli_command_group_prefix={
+            job_commands.add_tags: "tags",
+            job_commands.remove_tags: "tags",
+            job_commands.list_tags: "tags",
+        },
         # The following commands are legacy
         legacy_sdk_commands={
             "create_job": anyscale.job.submit,
@@ -248,8 +302,6 @@ ALL_MODULES = [
             # limited support, no replacement yet
             "list_schedules": None,
         },
-        legacy_cli_prefix="anyscale schedule",
-        legacy_cli_commands=[schedule_commands.create, schedule_commands.update],
     ),
     Module(
         title="Service",
@@ -264,6 +316,9 @@ ALL_MODULES = [
             service_commands.terminate,
             service_commands.archive,
             service_commands.delete,
+            service_commands.add_tags,
+            service_commands.remove_tags,
+            service_commands.list_tags,
         ],
         sdk_prefix="anyscale.service",
         sdk_commands=[
@@ -275,6 +330,9 @@ ALL_MODULES = [
             anyscale.service.terminate,
             anyscale.service.archive,
             anyscale.service.delete,
+            anyscale.service.add_tags,
+            anyscale.service.remove_tags,
+            anyscale.service.list_tags,
         ],
         models=[
             ServiceConfig,
@@ -287,6 +345,11 @@ ALL_MODULES = [
             ServiceSortField,
             ServiceSortOrder,
         ],
+        cli_command_group_prefix={
+            service_commands.add_tags: "tags",
+            service_commands.remove_tags: "tags",
+            service_commands.list_tags: "tags",
+        },
         # The following commands are legacy
         legacy_sdk_commands={
             "get_service": anyscale.service.status,
@@ -317,8 +380,6 @@ ALL_MODULES = [
             "ServicemodelListResponse",
             "ServicemodelResponse",
         ],
-        legacy_cli_prefix="anyscale service",
-        legacy_cli_commands=[service_commands.rollout],
     ),
     Module(
         title="Compute Config",
@@ -328,27 +389,32 @@ ALL_MODULES = [
             compute_config_commands.create_compute_config,
             compute_config_commands.get_compute_config,
             compute_config_commands.archive_compute_config,
+            compute_config_commands.list_compute_configs,
         ],
         sdk_prefix="anyscale.compute_config",
         sdk_commands=[
             anyscale.compute_config.create,
             anyscale.compute_config.get,
+            anyscale.compute_config.get_default,
             anyscale.compute_config.archive,
+            anyscale.compute_config.list,
         ],
         models=[
             ComputeConfig,
+            ComputeConfigListResult,
             MultiResourceComputeConfig,
             HeadNodeConfig,
             WorkerNodeGroupConfig,
             MarketType,
             CloudDeploymentSelector,
             ComputeConfigVersion,
+            PhysicalResources,
         ],
         legacy_sdk_commands={
             "create_cluster_compute": anyscale.compute_config.create,
             "delete_cluster_compute": anyscale.compute_config.archive,
             "get_cluster_compute": anyscale.compute_config.get,
-            "get_default_cluster_compute": anyscale.compute_config.get,
+            "get_default_cluster_compute": anyscale.compute_config.get_default,
             # limited support, no replacement yet
             "search_cluster_computes": None,
         },
@@ -376,7 +442,6 @@ ALL_MODULES = [
             service_account_commands.create_api_key,
             service_account_commands.list_service_accounts,
             service_account_commands.delete,
-            service_account_commands.rotate_api_keys,
         ],
         sdk_prefix="anyscale.service_account",
         sdk_commands=[
@@ -384,7 +449,6 @@ ALL_MODULES = [
             anyscale.service_account.create_api_key,
             anyscale.service_account.list,
             anyscale.service_account.delete,
-            anyscale.service_account.rotate_api_keys,
         ],
         models=[ServiceAccount, OrganizationPermissionLevel],
     ),
@@ -395,15 +459,19 @@ ALL_MODULES = [
         cli_commands=[
             image_commands.build,
             image_commands.get,
+            image_commands.list,
             image_commands.register,
+            image_commands.archive,
         ],
         sdk_prefix="anyscale.image",
         sdk_commands=[
             anyscale.image.build,
             anyscale.image.get,
+            anyscale.image.list,
             anyscale.image.register,
+            anyscale.image.archive,
         ],
-        models=[ImageBuild, ImageBuildStatus],
+        models=[ImageBuildStatus, ImageBuild],
         legacy_title="Cluster environment",
         legacy_cli_prefix="anyscale image",
         legacy_cli_commands=[
@@ -450,7 +518,6 @@ ALL_MODULES = [
         cli_commands=[
             cloud_commands.setup_cloud,
             cloud_commands.register_cloud,
-            cloud_commands.cloud_edit,
             cloud_commands.cloud_update,
             cloud_commands.cloud_delete,
             cloud_commands.cloud_verify,
@@ -468,6 +535,7 @@ ALL_MODULES = [
         sdk_prefix="anyscale.cloud",
         sdk_commands=[
             anyscale.cloud.add_collaborators,
+            anyscale.cloud.list,
             anyscale.cloud.get,
             anyscale.cloud.get_default,
             anyscale.cloud.terminate_system_cluster,
@@ -516,7 +584,12 @@ ALL_MODULES = [
         title="Logs",
         filename="logs.md",
         cli_prefix="anyscale logs",
-        cli_commands=[logs_commands.anyscale_logs_cluster],
+        cli_commands=[
+            logs_commands.anyscale_logs_workspace,
+            logs_commands.anyscale_logs_service,
+            logs_commands.anyscale_logs_job,
+            logs_commands.anyscale_logs_cluster,
+        ],
         sdk_prefix="anyscale.logs",
         sdk_commands=[],
         models=[],
@@ -537,6 +610,10 @@ ALL_MODULES = [
             workspace_commands_v2.push,
             workspace_commands_v2.update,
             workspace_commands_v2.get,
+            workspace_commands_v2.list,
+            workspace_commands_v2.add_tags,
+            workspace_commands_v2.remove_tags,
+            workspace_commands_v2.list_tags,
         ],
         sdk_prefix="anyscale.workspace",
         sdk_commands=[
@@ -547,21 +624,60 @@ ALL_MODULES = [
             anyscale.workspace.wait,
             anyscale.workspace.generate_ssh_config_file,
             anyscale.workspace.run_command,
+            anyscale.workspace.list,
+            anyscale.workspace.add_tags,
+            anyscale.workspace.remove_tags,
+            anyscale.workspace.list_tags,
         ],
-        models=[WorkspaceConfig],
-        legacy_cli_prefix="anyscale workspace",
-        legacy_cli_commands=[
-            workspace_commands.create,
-            workspace_commands.run,
-            workspace_commands.ssh,
-            workspace_commands.start,
-            workspace_commands.terminate,
-            workspace_commands.pull,
-            workspace_commands.push,
-            # limited support, no replacement yet
-            workspace_commands.clone,
-            workspace_commands.copy_command,
+        models=[
+            WorkspaceConfig,
+            WorkspaceState,
+            Workspace,
+            WorkspaceSortField,
+            WorkspaceSortOrder,
         ],
+        cli_command_group_prefix={
+            workspace_commands_v2.add_tags: "tags",
+            workspace_commands_v2.remove_tags: "tags",
+            workspace_commands_v2.list_tags: "tags",
+        },
+    ),
+    Module(
+        title="Job Queue",
+        filename="job-queue.md",
+        cli_prefix="anyscale job-queue",
+        cli_commands=[
+            job_queue_commands.list_job_queues,
+            job_queue_commands.update_job_queue,
+            job_queue_commands.status,
+            job_queue_commands.add_tags,
+            job_queue_commands.remove_tags,
+            job_queue_commands.list_tags,
+        ],
+        sdk_prefix="anyscale.job_queue",
+        sdk_commands=[
+            anyscale.job_queue.list,
+            anyscale.job_queue.status,
+            anyscale.job_queue.update,
+            anyscale.job_queue.add_tags,
+            anyscale.job_queue.remove_tags,
+            anyscale.job_queue.list_tags,
+        ],
+        models=[
+            JobQueueStatus,
+            JobQueueState,
+            ExecutionMode,
+            ClusterState,
+            JobQueueSortField,
+            JobQueueSortDirective,
+            SortOrder,
+            SessionState,
+        ],
+        cli_command_group_prefix={
+            job_queue_commands.add_tags: "tags",
+            job_queue_commands.remove_tags: "tags",
+            job_queue_commands.list_tags: "tags",
+        },
     ),
     Module(
         title="Machine Pool",
@@ -658,6 +774,41 @@ ALL_MODULES = [
         models=[OrganizationInvitation],
     ),
     Module(
+        title="User Group",
+        filename="user-group.md",
+        cli_prefix="anyscale user-group",
+        cli_commands=[
+            user_group_commands.list_user_groups,
+            user_group_commands.get_user_group,
+            user_group_commands.list_memberships,
+        ],
+        sdk_prefix="anyscale.user_group",
+        sdk_commands=[anyscale.user_group.list, anyscale.user_group.get,],
+        models=[UserGroup],
+    ),
+    Module(
+        title="Policy",
+        filename="policy.md",
+        cli_prefix="anyscale policy",
+        cli_commands=[
+            policy_commands.set_policy,
+            policy_commands.get_policy,
+            policy_commands.list_policies,
+        ],
+        sdk_prefix="anyscale.policy",
+        sdk_commands=[anyscale.policy.set, anyscale.policy.get, anyscale.policy.list,],
+        models=[Policy, PolicyBinding, PolicyConfig, PolicySyncStatus, ResourcePolicy],
+    ),
+    Module(
+        title="SCIM",
+        filename="scim.md",
+        cli_prefix="anyscale scim",
+        cli_commands=[scim_commands.enforce_group_permissions,],
+        sdk_prefix="anyscale.scim",
+        sdk_commands=[],
+        models=[],
+    ),
+    Module(
         title="Other",
         filename="other.md",
         cli_prefix="anyscale",
@@ -738,23 +889,42 @@ def generate(
         raise RuntimeError(f"output_dir '{output_dir}' does not exist.")
 
     gen = MarkdownGenerator(ALL_MODULES)
-    gen.generate()
 
     generated_files = set()
     os.makedirs(output_dir, exist_ok=True)
+
+    # Create legacy subdirectory
+    legacy_dir = os.path.join(output_dir, "legacy")
+    os.makedirs(legacy_dir, exist_ok=True)
+
     for filename, content in gen.generate().items():
         generated_files.add(filename)
         full_path = os.path.join(output_dir, filename)
+
+        # Create directory if it doesn't exist (for legacy/ files)
+        dir_path = os.path.dirname(full_path)
+        if dir_path:
+            os.makedirs(dir_path, exist_ok=True)
+
         print(f"Writing output file {full_path}")
         with open(full_path, "w") as f:
             f.write(content)
 
     if remove_existing:
-        to_remove = set(os.listdir(output_dir)) - generated_files
+        # Get all existing files (including in subdirectories)
+        existing_files = set()
+        for root, _dirs, files in os.walk(output_dir):
+            for file in files:
+                rel_path = os.path.relpath(os.path.join(root, file), output_dir)
+                existing_files.add(rel_path)
+
+        # Remove files that weren't generated
+        to_remove = existing_files - generated_files
         for path in to_remove:
             full_path = os.path.join(output_dir, path)
-            print(f"Removing existing file {full_path}")
-            os.unlink(full_path)
+            if os.path.exists(full_path):
+                print(f"Removing existing file {full_path}")
+                os.unlink(full_path)
 
 
 if __name__ == "__main__":

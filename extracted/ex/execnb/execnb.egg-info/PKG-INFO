@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: execnb
-Version: 0.1.14
+Version: 0.1.18
 Summary: A description of your project
 Home-page: https://github.com/AnswerDotAI/execnb/
 Author: Jeremy Howard
@@ -16,7 +16,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: fastcore>=1.5.5
+Requires-Dist: fastcore>=1.10.4
 Requires-Dist: ipython
 Provides-Extra: dev
 Requires-Dist: matplotlib; extra == "dev"
@@ -102,6 +102,7 @@ You can also execute notebooks from the command line with
 
     usage: exec_nb [-h] [--dest DEST] [--exc_stop] [--inject_code INJECT_CODE]
                    [--inject_path INJECT_PATH] [--inject_idx INJECT_IDX]
+                   [--verbose]
                    src
 
     Execute notebook from `src` and save with outputs to `dest`
@@ -116,3 +117,4 @@ You can also execute notebooks from the command line with
       --inject_code INJECT_CODE  Code to inject into a cell
       --inject_path INJECT_PATH  Path to file containing code to inject into a cell
       --inject_idx INJECT_IDX    Cell to replace with `inject_code` (default: 0)
+      --verbose                  Show stdout/stderr during execution (default: False)

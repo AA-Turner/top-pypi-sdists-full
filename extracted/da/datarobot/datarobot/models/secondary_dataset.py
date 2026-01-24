@@ -150,47 +150,37 @@ class SecondaryDatasetConfigurations(APIObject):
     """
 
     _base_url = "projects/{}/secondaryDatasetsConfigurations/"
-    _stored_credentials = t.Dict(
-        {
-            t.Key("credential_id"): String,
-            t.Key("catalog_version_id"): String,
-            t.Key("url", optional=True): t.Or(String, t.Null),
-        }
-    )
-    _secondary_dataset_converter = t.Dict(
-        {
-            t.Key("identifier"): String(min_length=3, max_length=20),
-            t.Key("catalog_version_id"): String,
-            t.Key("catalog_id"): String,
-            t.Key("snapshot_policy", optional=True, default="latest"): t.Enum(
-                "latest", "specified", "dynamic"
-            ),
-        }
-    )
+    _stored_credentials = t.Dict({
+        t.Key("credential_id"): String,
+        t.Key("catalog_version_id"): String,
+        t.Key("url", optional=True): t.Or(String, t.Null),
+    })
+    _secondary_dataset_converter = t.Dict({
+        t.Key("identifier"): String(min_length=3, max_length=20),
+        t.Key("catalog_version_id"): String,
+        t.Key("catalog_id"): String,
+        t.Key("snapshot_policy", optional=True, default="latest"): t.Enum("latest", "specified", "dynamic"),
+    })
 
-    _dataset_configuration_converter = t.Dict(
-        {
-            t.Key("feature_engineering_graph_id"): String(),
-            t.Key("secondary_datasets"): t.List(_secondary_dataset_converter),
-        }
-    ).ignore_extra("*")
+    _dataset_configuration_converter = t.Dict({
+        t.Key("feature_engineering_graph_id"): String(),
+        t.Key("secondary_datasets"): t.List(_secondary_dataset_converter),
+    }).ignore_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("project_id"): String(),
-            t.Key("config", optional=True): t.List(_dataset_configuration_converter),
-            t.Key("secondary_datasets"): t.List(_secondary_dataset_converter),
-            t.Key("name", optional=True): t.Or(String, t.Null),
-            t.Key("creator_full_name", optional=True): String(),
-            t.Key("creator_user_id", optional=True): String(),
-            t.Key("created", optional=True): parse_time,
-            t.Key("featurelist_id", optional=True): t.Or(String, t.Null),
-            t.Key("credential_ids", optional=True): t.List(_stored_credentials),
-            t.Key("is_default", optional=True): t.Bool,
-            t.Key("project_version", optional=True): t.Or(String, t.Null),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("project_id"): String(),
+        t.Key("config", optional=True): t.List(_dataset_configuration_converter),
+        t.Key("secondary_datasets"): t.List(_secondary_dataset_converter),
+        t.Key("name", optional=True): t.Or(String, t.Null),
+        t.Key("creator_full_name", optional=True): String(),
+        t.Key("creator_user_id", optional=True): String(),
+        t.Key("created", optional=True): parse_time,
+        t.Key("featurelist_id", optional=True): t.Or(String, t.Null),
+        t.Key("credential_ids", optional=True): t.List(_stored_credentials),
+        t.Key("is_default", optional=True): t.Bool,
+        t.Key("project_version", optional=True): t.Or(String, t.Null),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -381,9 +371,7 @@ class SecondaryDatasetConfigurations(APIObject):
         if status == 201:
             return cls.from_server_data(response.json())
         else:
-            error_msg = response.json().get(
-                "message", "error in processing secondary dataset configuration"
-            )
+            error_msg = response.json().get("message", "error in processing secondary dataset configuration")
             raise errors.ClientError(
                 error_msg + f" with server returned status {status}",
                 status,

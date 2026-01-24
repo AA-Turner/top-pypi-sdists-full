@@ -8,8 +8,8 @@
 #ifndef GrD3DCommandList_DEFINED
 #define GrD3DCommandList_DEFINED
 
-#include "include/gpu/GrTypes.h"
-#include "include/gpu/d3d/GrD3DTypes.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/ganesh/d3d/GrD3DTypes.h"
 #include "include/private/base/SkTArray.h"
 #include "src/gpu/ganesh/GrManagedResource.h"
 #include "src/gpu/ganesh/GrRingBuffer.h"
@@ -134,9 +134,11 @@ protected:
 
     gr_cp<ID3D12GraphicsCommandList> fCommandList;
 
-    SkSTArray<kInitialTrackedResourcesCount, sk_sp<GrManagedResource>> fTrackedResources;
-    SkSTArray<kInitialTrackedResourcesCount, sk_sp<GrRecycledResource>> fTrackedRecycledResources;
-    SkSTArray<kInitialTrackedResourcesCount, sk_sp<const GrBuffer>> fTrackedGpuBuffers;
+    template<typename T>
+    using TrackedResourceArray = skia_private::STArray<kInitialTrackedResourcesCount, T>;
+    TrackedResourceArray<sk_sp<GrManagedResource>> fTrackedResources;
+    TrackedResourceArray<sk_sp<GrRecycledResource>> fTrackedRecycledResources;
+    TrackedResourceArray<sk_sp<const GrBuffer>> fTrackedGpuBuffers;
 
 
     // When we create a command list it starts in an active recording state
@@ -148,9 +150,9 @@ private:
 
     gr_cp<ID3D12CommandAllocator> fAllocator;
 
-    SkSTArray<4, D3D12_RESOURCE_BARRIER> fResourceBarriers;
+    skia_private::STArray<4, D3D12_RESOURCE_BARRIER> fResourceBarriers;
 
-    SkTArray<sk_sp<skgpu::RefCntedCallback>> fFinishedCallbacks;
+    skia_private::TArray<sk_sp<skgpu::RefCntedCallback>> fFinishedCallbacks;
 };
 
 class GrD3DDirectCommandList : public GrD3DCommandList {

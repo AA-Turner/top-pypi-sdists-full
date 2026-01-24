@@ -1,17 +1,19 @@
 import argparse
 import dataclasses
 import json
+import re
 import sys
 from pathlib import Path
 
-from huggingface_hub import create_repo, upload_folder
+from huggingface_hub import create_repo, upload_folder, create_branch
 
 from kernels.compat import tomllib
 from kernels.lockfile import KernelLock, get_kernel_locks
 from kernels.utils import install_kernel, install_kernel_all_variants
 
 from .doc import generate_readme_for_kernel
-from .wheel import build_variant_to_wheel
+
+BUILD_VARIANT_REGEX = re.compile(r"^(torch\d+\d+|torch-(cpu|cuda|metal|rocm|xpu))")
 
 
 def main():
@@ -19,6 +21,31 @@ def main():
         prog="kernel", description="Manage compute kernels"
     )
     subparsers = parser.add_subparsers(required=True)
+
+    check_parser = subparsers.add_parser("check", help="Check a kernel for compliance")
+    check_parser.add_argument("repo_id", type=str, help="The kernel repo ID")
+    check_parser.add_argument(
+        "--revision",
+        type=str,
+        default="main",
+        help="The kernel revision (branch, tag, or commit SHA, defaults to 'main')",
+    )
+    check_parser.add_argument("--macos", type=str, help="macOS version", default="15.0")
+    check_parser.add_argument(
+        "--manylinux", type=str, help="Manylinux version", default="manylinux_2_28"
+    )
+    check_parser.add_argument(
+        "--python-abi", type=str, help="Python ABI version", default="3.9"
+    )
+    check_parser.set_defaults(
+        func=lambda args: check_kernel(
+            macos=args.macos,
+            manylinux=args.manylinux,
+            python_abi=args.python_abi,
+            repo_id=args.repo_id,
+            revision=args.revision,
+        )
+    )
 
     download_parser = subparsers.add_parser("download", help="Download locked kernels")
     download_parser.add_argument(
@@ -40,9 +67,14 @@ def main():
         help="Directory of the kernel build",
     )
     upload_parser.add_argument(
-        "--repo_id",
+        "--repo-id",
         type=str,
         help="Repository ID to use to upload to the Hugging Face Hub",
+    )
+    upload_parser.add_argument(
+        "--branch",
+        type=None,
+        help="If set, the upload will be made to a particular branch of the provided `repo-id`.",
     )
     upload_parser.add_argument(
         "--private",
@@ -58,25 +90,6 @@ def main():
         help="The project directory",
     )
     lock_parser.set_defaults(func=lock_kernels)
-
-    to_wheel_parser = subparsers.add_parser(
-        "to-wheel", help="Convert a kernel to a wheel file"
-    )
-    to_wheel_parser.add_argument("repo_id", type=str, help="The kernel repo ID")
-    to_wheel_parser.add_argument("version", type=str, help="The kernel version")
-    to_wheel_parser.add_argument(
-        "--python-version",
-        type=str,
-        default="3.9",
-        help="The minimum Python version. Must match the Python version that the kernel was compiled for.",
-    )
-    to_wheel_parser.add_argument(
-        "--manylinux-version",
-        type=str,
-        default="2.28",
-        help="The manylinux version. Must match the manylinux version that the kernel was compiled for.",
-    )
-    to_wheel_parser.set_defaults(func=kernels_to_wheel)
 
     # Add generate-readme subcommand parser
     generate_readme_parser = subparsers.add_parser(
@@ -141,24 +154,6 @@ def download_kernels(args):
         sys.exit(1)
 
 
-def kernels_to_wheel(args):
-    variants_path = install_kernel_all_variants(
-        repo_id=args.repo_id, revision=f"v{args.version}"
-    )
-    for variant_path in variants_path.iterdir():
-        if not variant_path.is_dir():
-            continue
-        wheel_path = build_variant_to_wheel(
-            manylinux_version=args.manylinux_version,
-            python_version=args.python_version,
-            repo_id=args.repo_id,
-            version=args.version,
-            variant_path=variant_path,
-            wheel_dir=Path("."),
-        )
-        print(f"☸️ {wheel_path.name}", file=sys.stderr)
-
-
 def lock_kernels(args):
     with open(args.project_dir / "pyproject.toml", "rb") as f:
         data = tomllib.load(f)
@@ -174,16 +169,30 @@ def lock_kernels(args):
 
 
 def upload_kernels(args):
+    # Resolve `kernel_dir` to be uploaded.
     kernel_dir = Path(args.kernel_dir).resolve()
-    build_dir = kernel_dir / "build"
-    if not kernel_dir.is_dir():
-        raise ValueError(f"{kernel_dir} is not a directory")
-    if not build_dir.is_dir():
-        raise ValueError("Couldn't find `build` directory inside `kernel_dir`")
+
+    build_dir = None
+    for candidate in [kernel_dir / "build", kernel_dir]:
+        variants = [
+            variant_path
+            for variant_path in candidate.glob("torch*")
+            if BUILD_VARIANT_REGEX.match(variant_path.name) is not None
+        ]
+        if variants:
+            build_dir = candidate
+            break
+    if build_dir is None:
+        raise ValueError(
+            f"Couldn't find any build variants in: {kernel_dir.absolute()} or {(kernel_dir / 'build').absolute()}"
+        )
 
     repo_id = create_repo(
         repo_id=args.repo_id, private=args.private, exist_ok=True
     ).repo_id
+
+    if args.branch is not None:
+        create_branch(repo_id=repo_id, branch=args.branch, exist_ok=True)
 
     delete_patterns: set[str] = set()
     for build_variant in build_dir.iterdir():
@@ -193,9 +202,11 @@ def upload_kernels(args):
     upload_folder(
         repo_id=repo_id,
         folder_path=build_dir,
+        revision=args.branch,
         path_in_repo="build",
         delete_patterns=list(delete_patterns),
         commit_message="Build uploaded using `kernels`.",
+        allow_patterns=["torch*"],
     )
     print(f"✅ Kernel upload successful. Find the kernel in https://hf.co/{repo_id}.")
 
@@ -205,3 +216,24 @@ class _JSONEncoder(json.JSONEncoder):
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
         return super().default(o)
+
+
+def check_kernel(
+    *, macos: str, manylinux: str, python_abi: str, repo_id: str, revision: str
+):
+    try:
+        import kernels.check
+    except ImportError:
+        print(
+            "`kernels check` requires the `kernel-abi-check` package: pip install kernel-abi-check",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    kernels.check.check_kernel(
+        macos=macos,
+        manylinux=manylinux,
+        python_abi=python_abi,
+        repo_id=repo_id,
+        revision=revision,
+    )

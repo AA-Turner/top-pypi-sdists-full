@@ -155,7 +155,7 @@ class CvmClient(AbstractClient):
 
 
     def ConvertOperatingSystems(self, request):
-        r"""本接口(ConvertOperatingSystem)用于转换实例的操作系统，仅支持源操作系统为 CentOS 7、CentOS 8 的实例。
+        r"""本接口(ConvertOperatingSystems)用于转换实例的操作系统，仅支持源操作系统为 CentOS 7、CentOS 8 的实例。
 
         :param request: Request instance for ConvertOperatingSystems.
         :type request: :class:`tencentcloud.cvm.v20170312.models.ConvertOperatingSystemsRequest`
@@ -374,7 +374,8 @@ class CvmClient(AbstractClient):
     def DeleteImages(self, request):
         r"""本接口（DeleteImages）用于删除一个或多个镜像。
 
-        * 当[镜像状态](https://cloud.tencent.com/document/product/213/15753#Image)为`创建中`和`使用中`时, 不允许删除。镜像状态可以通过[DescribeImages](https://cloud.tencent.com/document/api/213/9418)获取。
+        * 当[镜像状态](https://cloud.tencent.com/document/product/213/15753#Image) 为`创建中`、`复制中`、`导入中`时, 不允许删除。镜像状态可以通过[DescribeImages](https://cloud.tencent.com/document/api/213/9418)获取。
+        * 被共享的镜像，需要先取消共享关系，才能删除。
         * 每个地域最多只支持创建500个自定义镜像，删除镜像可以释放账户的配额。
         * 当镜像正在被其它账户分享时，不允许删除。
 
@@ -1084,6 +1085,8 @@ class CvmClient(AbstractClient):
 
     def DescribeLaunchTemplateVersions(self, request):
         r"""本接口（DescribeLaunchTemplateVersions）用于查询实例模板版本信息。
+
+        - 不支持参数`LaunchTemplateVersions`与以下参数同时指定，包括 `MaxVersion`、`MinVersion`、`Limit`、`Offset`和`DefaultVersion`。
 
         :param request: Request instance for DescribeLaunchTemplateVersions.
         :type request: :class:`tencentcloud.cvm.v20170312.models.DescribeLaunchTemplateVersionsRequest`
@@ -2314,7 +2317,7 @@ class CvmClient(AbstractClient):
 
         * 目前只支持[系统盘类型](/document/api/213/9452#block_device)是CLOUD_BASIC、CLOUD_PREMIUM、CLOUD_SSD、CLOUD_BSSD类型的实例使用该接口进行机型调整。
         * 目前不支持[CDH](https://cloud.tencent.com/document/product/416)实例使用该接口调整机型。对于包年包月实例，使用该接口会涉及扣费，请确保账户余额充足。可通过[DescribeAccountBalance](https://cloud.tencent.com/document/product/555/20253)接口查询账户余额。
-        * 本接口为异步接口，调整实例配置请求发送成功后会返回一个RequestId，此时操作并未立即完成。实例操作结果可以通过调用 [DescribeInstances](https://cloud.tencent.com/document/api/213/15728#.E7.A4.BA.E4.BE.8B3-.E6.9F.A5.E8.AF.A2.E5.AE.9E.E4.BE.8B.E7.9A.84.E6.9C.80.E6.96.B0.E6.93.8D.E4.BD.9C.E6.83.85.E5.86.B5) 接口查询，如果实例的最新操作状态(LatestOperationState)为“SUCCESS”，则代表调整实例配置操作成功。
+        * 本接口为异步接口，调整实例配置请求发送成功后会返回一个RequestId，此时操作并未立即完成。实例操作结果可以通过调用 [DescribeInstances](https://cloud.tencent.com/document/api/213/15728#.E7.A4.BA.E4.BE.8B3-.E6.9F.A5.E8.AF.A2.E5.AE.9E.E4.BE.8B.E7.9A.84.E6.9C.80.E6.96.B0.E6.93.8D.E4.BD.9C.E6.83.85.E5.86.B5) 接口查询，如果实例的最新操作状态(LatestOperationState)为“SUCCESS”，则代表调整实例配置操作成功。完成实例配置调整后，实例将自动显示为运行中，无需手动进行开机。
 
         :param request: Request instance for ResetInstancesType.
         :type request: :class:`tencentcloud.cvm.v20170312.models.ResetInstancesTypeRequest`

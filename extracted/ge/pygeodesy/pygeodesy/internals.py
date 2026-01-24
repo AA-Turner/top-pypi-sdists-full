@@ -6,8 +6,8 @@ u'''Mostly INTERNAL functions, except L{machine}, L{print_} and L{printf}.
 # from pygeodesy.basics import isiterablen, ubstr  # _MODS
 # from pygeodesy.errors import _AttributeError, _error_init, _ImmutableError, _UnexpectedError, _xError2  # _MODS
 from pygeodesy.interns import _BAR_, _COLON_, _DASH_, _DMAIN_, _DOT_, _ELLIPSIS_, _NL_, NN, \
-                              _pygeodesy_, _PyPy__, _python_, _QUOTE1_, _QUOTE2_, _s_, _sys, \
-                              _SPACE_, _UNDER_
+                              _NLATvar_, _pygeodesy_, _PyPy__, _python_, _QUOTE1_, _QUOTE2_, \
+                              _s_, _sys, _SPACE_, _UNDER_
 from pygeodesy.interns import _COMMA_, _Python_  # PYCHOK used!
 # from pygeodesy.streprs import anstr, pairs, unstr  # _MODS
 
@@ -202,7 +202,7 @@ class _MODS_Base(object):
                      (_macOS_,   p.mac_ver),
                      (_Windows_, p.win32_ver),
                      (_Nix,  _MODS.nix_ver),
-                     ('Java',    p.java_ver),
+# removed Py 3.15    ('Java',    p.java_ver),
                      ('uname',   p.uname)):
             v = v()[0]
             if v and n:
@@ -459,6 +459,13 @@ def _popen2(cmd, stdin=None):  # in .mgrs, .solveBase, .testMgrs
     return _MODS.basics.ub2str(r).strip(), p.returncode
 
 
+def _pregistry(registry):
+    '''(INTERNAL) Print all items of a C{registry}.
+    '''
+    t = [NN] + registry.toRepr(all=True, asorted=True).split(_NL_)
+    printf(_NLATvar_.join(i.strip(_COMMA_) for i in t))
+
+
 def print_(*args, **nl_nt_prec_prefix__end_file_flush_sep__kwds):  # PYCHOK no cover
     '''Python 3+ C{print}-like formatting and printing.
 
@@ -498,7 +505,7 @@ def printf(fmt, *args, **nl_nt_prec_prefix__end_file_flush_sep__kwds):
             t =  fmt
     except Exception as x:
         _Error, s = _MODS.errors._xError2(x)
-        _unstr    = _MODS.strepr.unstr
+        _unstr    = _MODS.streprs.unstr
         t = _unstr(printf, fmt, *args, **nl_nt_prec_prefix__end_file_flush_sep__kwds)
         raise _Error(s, txt=t, cause=x)
     try:
@@ -659,11 +666,10 @@ def _usage_argv(argv0, *args):
     '''(INTERNAL) Return 3-tuple C{(python, '-m', module, *args)}.
     '''
     o = _MODS.os
-    m =  o.path.dirname(argv0)
-    m =  m.replace(o.getcwd(), _ELLIPSIS_) \
-          .replace(o.sep,      _DOT_).strip()
-    b =  o.path.basename(argv0)
-    b, x = o.path.splitext(b)
+    p =  o.path
+    m =  p.dirname(argv0).replace(o.getcwd(), _ELLIPSIS_) \
+                         .replace(o.sep,      _DOT_).strip()
+    b, x = p.splitext(p.basename(argv0))
     if x == '.py' and b != _DMAIN_:
         m = _DOT_(m or _pygeodesy_, b)
     p = NN(_python_, _MODS.sys_version_info2[0])
@@ -710,7 +716,7 @@ def _versions(sep=_SPACE_):
 
 
 __all__ = tuple(map(typename, (machine, print_, printf, typename)))
-__version__ = '25.09.05'
+__version__ = '26.01.13'
 
 if __name__ == _DMAIN_:
 
@@ -727,7 +733,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

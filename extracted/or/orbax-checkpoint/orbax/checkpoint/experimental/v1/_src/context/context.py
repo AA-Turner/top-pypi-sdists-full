@@ -47,9 +47,9 @@ class Context(epy.ContextManager):
     with ocp.Context(...):
       ocp.save_pytree(...)
 
-  Creating a new `Context` within an existing `Context` sets all parameters from
-  scratch; it does not inherit properties from the parent `Context`. To achieve
-  this, use::
+  Creating a new :py:class:`.Context` within an existing :py:class:`.Context`
+  sets all parameters from scratch; it does not inherit properties from the
+  parent :py:class:`.Context`. To achieve this, use::
 
     with Context(**some_properties) as outer_ctx:
       with Context(outer_ctx, **other) as inner_ctx:
@@ -59,7 +59,7 @@ class Context(epy.ContextManager):
   properties modified in the `dataclasses.replace` call.
 
   NOTE: The context is not shared across threads. In other words, the whole
-  context block must be executed in the same thread. Following example will
+  context block must be executed in the same thread. The following example will
   not work as expected::
 
     executor = ThreadPoolExecutor()
@@ -75,6 +75,7 @@ class Context(epy.ContextManager):
     multiprocessing_options: Options for multiprocessing behavior.
     file_options: Options for working with the file system.
     checkpointables_options: Options for controlling checkpointables behavior.
+    pathways_options: Options for Pathways checkpointing.
     checkpoint_layout: The layout of the checkpoint. Defaults to ORBAX.
   """
 
@@ -88,6 +89,7 @@ class Context(epy.ContextManager):
       multiprocessing_options: options_lib.MultiprocessingOptions | None = None,
       file_options: options_lib.FileOptions | None = None,
       checkpointables_options: options_lib.CheckpointablesOptions | None = None,
+      pathways_options: options_lib.PathwaysOptions | None = None,
       checkpoint_layout: options_lib.CheckpointLayout | None = None,
   ):
     self._pytree_options = pytree_options or (
@@ -111,6 +113,9 @@ class Context(epy.ContextManager):
         context.checkpointables_options
         if context
         else options_lib.CheckpointablesOptions()
+    )
+    self._pathways_options = pathways_options or (
+        context.pathways_options if context else options_lib.PathwaysOptions()
     )
     self._checkpoint_layout = checkpoint_layout or (
         context.checkpoint_layout
@@ -143,6 +148,10 @@ class Context(epy.ContextManager):
     return self._checkpointables_options
 
   @property
+  def pathways_options(self) -> options_lib.PathwaysOptions:
+    return self._pathways_options
+
+  @property
   def checkpoint_layout(self) -> options_lib.CheckpointLayout:
     return self._checkpoint_layout
 
@@ -166,6 +175,7 @@ async def synchronize_next_operation_id():
           'next_awaitable_signal_operation_id:sync',
           prefix=context.multiprocessing_options.barrier_sync_key_prefix,
       ),
+      operation_id=context.operation_id(),
       processes=context.multiprocessing_options.active_processes,
   )
   logging.vlog(

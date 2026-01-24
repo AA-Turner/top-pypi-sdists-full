@@ -5,6 +5,7 @@ from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
+    Literal,
     NewType,
     Optional,
     Union,
@@ -21,11 +22,13 @@ from strawberry.types.base import (
     get_object_definition,
 )
 from strawberry.types.info import Info
-from strawberry.types.scalar import scalar
+from strawberry.types.scalar import ScalarDefinition, ScalarWrapper, scalar
 from strawberry.types.union import StrawberryUnion
 from strawberry.utils.inspect import get_func_args
 
 from .schema_directive import StrawberryFederationSchemaDirective
+from .types import FieldSet, LinkImport
+from .versions import format_version, parse_version
 
 if TYPE_CHECKING:
     from graphql import ExecutionContext as GraphQLExecutionContext
@@ -34,33 +37,65 @@ if TYPE_CHECKING:
     from strawberry.federation.schema_directives import ComposeDirective
     from strawberry.schema.config import StrawberryConfig
     from strawberry.schema_directive import StrawberrySchemaDirective
-    from strawberry.types.enum import EnumDefinition
-    from strawberry.types.scalar import ScalarDefinition, ScalarWrapper
+    from strawberry.types.enum import StrawberryEnumDefinition
 
 
-FederationAny = scalar(NewType("_Any", object), name="_Any")  # type: ignore
+FederationAny = NewType("FederationAny", object)
+"""Represents the _Any scalar type used in federation entity resolution."""
 
 
 class Schema(BaseSchema):
     def __init__(
         self,
-        query: Optional[type] = None,
-        mutation: Optional[type] = None,
-        subscription: Optional[type] = None,
+        query: type | None = None,
+        mutation: type | None = None,
+        subscription: type | None = None,
         # TODO: we should update directives' type in the main schema
         directives: Iterable[type] = (),
         types: Iterable[type] = (),
         extensions: Iterable[Union[type["SchemaExtension"], "SchemaExtension"]] = (),
-        execution_context_class: Optional[type["GraphQLExecutionContext"]] = None,
+        execution_context_class: type["GraphQLExecutionContext"] | None = None,
         config: Optional["StrawberryConfig"] = None,
-        scalar_overrides: Optional[
-            dict[object, Union[type, "ScalarWrapper", "ScalarDefinition"]]
-        ] = None,
+        scalar_overrides: dict[object, Union[type, "ScalarWrapper", "ScalarDefinition"]]
+        | None = None,
         schema_directives: Iterable[object] = (),
-        enable_federation_2: bool = False,
+        federation_version: Literal[
+            "2.0",
+            "2.1",
+            "2.2",
+            "2.3",
+            "2.4",
+            "2.5",
+            "2.6",
+            "2.7",
+            "2.8",
+            "2.9",
+            "2.10",
+            "2.11",
+        ] = "2.11",
     ) -> None:
+        # Convert version string (e.g., "2.5") to version tuple (e.g., (2, 5))
+        self.federation_version = parse_version(federation_version)
+
         query = self._get_federation_query_type(query, mutation, subscription, types)
+
+        # Add FederationAny to types so it appears in the schema
         types = [*types, FederationAny]
+
+        # Add federation scalars to scalar_overrides so they can be recognized
+        federation_scalar_overrides: dict[
+            object, type | ScalarDefinition | ScalarWrapper
+        ] = {
+            FederationAny: scalar(
+                name="_Any", serialize=lambda v: v, parse_value=lambda v: v
+            ),
+            FieldSet: scalar(name="_FieldSet", serialize=lambda v: v, parse_value=str),
+            LinkImport: scalar(
+                name="link__Import", serialize=lambda v: v, parse_value=lambda v: v
+            ),
+        }
+        if scalar_overrides:
+            federation_scalar_overrides.update(scalar_overrides)
 
         super().__init__(
             query=query,
@@ -71,23 +106,23 @@ class Schema(BaseSchema):
             extensions=extensions,
             execution_context_class=execution_context_class,
             config=config,
-            scalar_overrides=scalar_overrides,
+            scalar_overrides=federation_scalar_overrides,
             schema_directives=schema_directives,
         )
 
         self.schema_directives = list(schema_directives)
 
-        if enable_federation_2:
-            composed_directives = self._add_compose_directives()
-            self._add_link_directives(composed_directives)  # type: ignore
-        else:
-            self._remove_resolvable_field()
+        # Validate directive compatibility with federation version
+        self._validate_directive_compatibility()
+
+        composed_directives = self._add_compose_directives()
+        self._add_link_directives(composed_directives)  # type: ignore
 
     def _get_federation_query_type(
         self,
-        query: Optional[type[WithStrawberryObjectDefinition]],
-        mutation: Optional[type[WithStrawberryObjectDefinition]],
-        subscription: Optional[type[WithStrawberryObjectDefinition]],
+        query: type[WithStrawberryObjectDefinition] | None,
+        mutation: type[WithStrawberryObjectDefinition] | None,
+        subscription: type[WithStrawberryObjectDefinition] | None,
         additional_types: Iterable[type[WithStrawberryObjectDefinition]],
     ) -> type:
         """Returns a new query type that includes the _service field.
@@ -124,7 +159,7 @@ class Schema(BaseSchema):
 
         if entity_type:
             self.entities_resolver.__annotations__["return"] = list[
-                Optional[entity_type]  # type: ignore
+                entity_type | None  # type: ignore
             ]
 
             entities_field = strawberry.field(
@@ -155,7 +190,7 @@ class Schema(BaseSchema):
         results = []
 
         for representation in representations:
-            type_name = representation.pop("__typename")
+            type_name = representation.pop("__typename")  # type: ignore[attr-defined]
             type_ = self.schema_converter.type_map[type_name]
 
             definition = cast("StrawberryObjectDefinition", type_.definition)
@@ -168,7 +203,7 @@ class Schema(BaseSchema):
 
                 # TODO: use the same logic we use for other resolvers
                 if "info" in func_args:
-                    kwargs["info"] = info
+                    kwargs["info"] = info  # type: ignore[index]
 
                 try:
                     result = resolve_reference(**kwargs)
@@ -193,17 +228,6 @@ class Schema(BaseSchema):
             results.append(result)
 
         return results
-
-    def _remove_resolvable_field(self) -> None:
-        # this might be removed when we remove support for federation 1
-        # or when we improve how we print the directives
-        from strawberry.types.unset import UNSET
-
-        from .schema_directives import Key
-
-        for directive in self.schema_directives_in_use:
-            if isinstance(directive, Key):
-                directive.resolvable = UNSET
 
     @cached_property
     def schema_directives_in_use(self) -> list[object]:
@@ -249,10 +273,25 @@ class Schema(BaseSchema):
 
         directive_by_url[import_url].add(f"@{name}")
 
-    def _add_link_directives(
-        self, additional_directives: Optional[list[object]] = None
+    def _add_link_for_federation_directive(
+        self,
+        directive: object,
+        directive_by_url: Mapping[str, set[str]],
     ) -> None:
-        from .schema_directives import FederationDirective, Link
+        from .schema_directives import FederationDirective
+
+        if not isinstance(directive, FederationDirective):
+            return
+
+        # Use the schema's federation version to construct the URL
+        url = f"https://specs.apollo.dev/federation/{format_version(self.federation_version)}"
+        name = directive.imported_from.name
+        directive_by_url[url].add(f"@{name}")
+
+    def _add_link_directives(
+        self, additional_directives: list[object] | None = None
+    ) -> None:
+        from .schema_directives import Link
 
         directive_by_url: defaultdict[str, set[str]] = defaultdict(set)
 
@@ -262,11 +301,7 @@ class Schema(BaseSchema):
             definition = directive.__strawberry_directive__  # type: ignore
 
             self._add_link_for_composed_directive(definition, directive_by_url)
-
-            if isinstance(directive, FederationDirective):
-                directive_by_url[directive.imported_from.url].add(
-                    f"@{directive.imported_from.name}"
-                )
+            self._add_link_for_federation_directive(directive, directive_by_url)
 
         link_directives: list[object] = [
             Link(
@@ -303,6 +338,23 @@ class Schema(BaseSchema):
 
         return compose_directives
 
+    def _validate_directive_compatibility(self) -> None:
+        """Validate that all federation directives are compatible with the schema's federation version."""
+        from .schema_directives import FederationDirective
+        from .versions import format_version
+
+        for directive in self.schema_directives_in_use:
+            if isinstance(directive, FederationDirective) and hasattr(
+                directive.__class__, "minimum_version"
+            ):
+                min_version = directive.__class__.minimum_version
+                if self.federation_version < min_version:
+                    raise ValueError(
+                        f"Directive @{directive.imported_from.name} requires "
+                        f"federation version {format_version(min_version)} or higher, "
+                        f"but schema uses version {format_version(self.federation_version)}"
+                    )
+
     def _warn_for_federation_directives(self) -> None:
         # this is used in the main schema to raise if there's a directive
         # that's for federation, but in this class we don't want to warn,
@@ -312,11 +364,11 @@ class Schema(BaseSchema):
 
 
 def _get_entity_type(
-    query: Optional[type[WithStrawberryObjectDefinition]],
-    mutation: Optional[type[WithStrawberryObjectDefinition]],
-    subscription: Optional[type[WithStrawberryObjectDefinition]],
+    query: type[WithStrawberryObjectDefinition] | None,
+    mutation: type[WithStrawberryObjectDefinition] | None,
+    subscription: type[WithStrawberryObjectDefinition] | None,
     additional_types: Iterable[type[WithStrawberryObjectDefinition]],
-) -> Optional[StrawberryUnion]:
+) -> StrawberryUnion | None:
     # recursively iterate over the schema to find all types annotated with @key
     # if no types are annotated with @key, then the _Entity union and Query._entities
     # field should not be added to the schema
@@ -373,7 +425,7 @@ def _has_federation_keys(
     definition: Union[
         StrawberryObjectDefinition,
         "ScalarDefinition",
-        "EnumDefinition",
+        "StrawberryEnumDefinition",
         "StrawberryUnion",
     ],
 ) -> bool:

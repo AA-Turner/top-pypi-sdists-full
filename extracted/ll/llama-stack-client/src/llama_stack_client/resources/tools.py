@@ -1,13 +1,20 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Type, cast
+import typing_extensions
+from typing import Type, Optional, cast
 
 import httpx
 
 from ..types import tool_list_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -18,8 +25,8 @@ from .._response import (
     async_to_streamed_response_wrapper,
 )
 from .._wrappers import DataWrapper
-from ..types.tool import Tool
 from .._base_client import make_request_options
+from ..types.tool_def import ToolDef
 from ..types.tool_list_response import ToolListResponse
 
 __all__ = ["ToolsResource", "AsyncToolsResource"]
@@ -45,23 +52,22 @@ class ToolsResource(SyncAPIResource):
         """
         return ToolsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         *,
-        toolgroup_id: str | NotGiven = NOT_GIVEN,
+        toolgroup_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolListResponse:
         """
         List tools with optional tool group.
 
         Args:
-          toolgroup_id: The ID of the tool group to list tools for.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -83,6 +89,7 @@ class ToolsResource(SyncAPIResource):
             cast_to=cast(Type[ToolListResponse], DataWrapper[ToolListResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def get(
         self,
         tool_name: str,
@@ -92,8 +99,8 @@ class ToolsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Tool:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ToolDef:
         """
         Get a tool by its name.
 
@@ -113,7 +120,7 @@ class ToolsResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=Tool,
+            cast_to=ToolDef,
         )
 
 
@@ -137,23 +144,22 @@ class AsyncToolsResource(AsyncAPIResource):
         """
         return AsyncToolsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     async def list(
         self,
         *,
-        toolgroup_id: str | NotGiven = NOT_GIVEN,
+        toolgroup_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolListResponse:
         """
         List tools with optional tool group.
 
         Args:
-          toolgroup_id: The ID of the tool group to list tools for.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -175,6 +181,7 @@ class AsyncToolsResource(AsyncAPIResource):
             cast_to=cast(Type[ToolListResponse], DataWrapper[ToolListResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def get(
         self,
         tool_name: str,
@@ -184,8 +191,8 @@ class AsyncToolsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> Tool:
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ToolDef:
         """
         Get a tool by its name.
 
@@ -205,7 +212,7 @@ class AsyncToolsResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=Tool,
+            cast_to=ToolDef,
         )
 
 
@@ -213,11 +220,15 @@ class ToolsResourceWithRawResponse:
     def __init__(self, tools: ToolsResource) -> None:
         self._tools = tools
 
-        self.list = to_raw_response_wrapper(
-            tools.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                tools.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = to_raw_response_wrapper(
-            tools.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                tools.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -225,11 +236,15 @@ class AsyncToolsResourceWithRawResponse:
     def __init__(self, tools: AsyncToolsResource) -> None:
         self._tools = tools
 
-        self.list = async_to_raw_response_wrapper(
-            tools.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                tools.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = async_to_raw_response_wrapper(
-            tools.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                tools.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -237,11 +252,15 @@ class ToolsResourceWithStreamingResponse:
     def __init__(self, tools: ToolsResource) -> None:
         self._tools = tools
 
-        self.list = to_streamed_response_wrapper(
-            tools.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                tools.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = to_streamed_response_wrapper(
-            tools.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                tools.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -249,9 +268,13 @@ class AsyncToolsResourceWithStreamingResponse:
     def __init__(self, tools: AsyncToolsResource) -> None:
         self._tools = tools
 
-        self.list = async_to_streamed_response_wrapper(
-            tools.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                tools.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = async_to_streamed_response_wrapper(
-            tools.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                tools.get,  # pyright: ignore[reportDeprecated],
+            )
         )

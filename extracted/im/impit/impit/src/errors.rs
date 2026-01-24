@@ -2,12 +2,13 @@ use std::{error::Error, time::Duration};
 
 use thiserror::Error;
 
+#[derive(Default)]
 pub struct ErrorContext {
-    pub timeout: Duration,
-    pub max_redirects: usize,
-    pub method: String,
-    pub protocol: String,
-    pub url: String,
+    pub timeout: Option<Duration>,
+    pub max_redirects: Option<usize>,
+    pub method: Option<String>,
+    pub protocol: Option<String>,
+    pub url: Option<String>,
 }
 
 /// Error types that can be returned by the [`Impit`] struct.
@@ -22,8 +23,8 @@ pub enum ImpitError {
     RequestError,
     #[error("Transport error occurred.")]
     TransportError,
-    #[error("Request timeout ({0} ms) exceeded.")]
-    TimeoutException(u128),
+    #[error("Request timeout ({}) exceeded.", .0.map_or("unknown".to_string(), |ms| format!("{ms} ms"))) ]
+    TimeoutException(Option<u128>),
     #[error("Connection timed out.")]
     ConnectTimeout,
     #[error("Read operation timed out.")]
@@ -54,8 +55,8 @@ pub enum ImpitError {
     UnsupportedProtocol,
     #[error("The response body couldn't be decoded.")]
     DecodingError,
-    #[error("Too many redirects occurred. Maximum allowed: {0}")]
-    TooManyRedirects(usize),
+    #[error("Too many redirects occurred. Maximum allowed: {}.", .0.map_or("unknown".to_string(), |n| n.to_string())) ]
+    TooManyRedirects(Option<usize>),
     #[error("HTTP status error occurred with status code {0}.")]
     HTTPStatusError(u16),
     #[error("The URL is invalid.")]
@@ -72,8 +73,8 @@ pub enum ImpitError {
     RequestNotRead,
     #[error("The stream has been closed.")]
     StreamClosed,
-    #[error("The URL couldn't be parsed.")]
-    UrlParsingError,
+    #[error("The URL ({0}) couldn't be parsed.")]
+    UrlParsingError(String),
     #[error("The URL ({0}) is missing the hostname.")]
     UrlMissingHostnameError(String),
     #[error("The URL uses an unsupported protocol (`{0}`). Currently, only HTTP and HTTPS are supported.")]
@@ -92,14 +93,28 @@ pub enum ImpitError {
     ReqwestError(String),
 }
 
+impl From<reqwest::Error> for ImpitError {
+    fn from(err: reqwest::Error) -> Self {
+        ImpitError::ReqwestError(format!("{err:#?}"))
+    }
+}
+
 impl ImpitError {
-    pub fn from(error: reqwest::Error, context: ErrorContext) -> Self {
+    pub fn from(error: reqwest::Error, context: Option<ErrorContext>) -> Self {
+        let context = context.unwrap_or_default();
         if error.is_timeout() {
-            return ImpitError::TimeoutException(context.timeout.as_millis());
+            if (format!("{:?}", error).to_lowercase()).contains("connection timed out") {
+                return ImpitError::ConnectTimeout;
+            }
+            return ImpitError::TimeoutException(context.timeout.map(|x| x.as_millis()));
         }
 
         if error.is_redirect() {
             return ImpitError::TooManyRedirects(context.max_redirects);
+        }
+
+        if error.is_body() && (format!("{:?}", error).to_lowercase()).contains("unexpectedeof") {
+            return ImpitError::RemoteProtocolError;
         }
 
         if error.is_request() {

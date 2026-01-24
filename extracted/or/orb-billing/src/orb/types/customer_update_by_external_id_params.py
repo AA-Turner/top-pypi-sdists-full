@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Union, Optional
+from typing import Dict, Union, Iterable, Optional
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 from .._types import SequenceNotStr
@@ -15,7 +15,15 @@ from .new_reporting_configuration_param import NewReportingConfigurationParam
 from .new_avalara_tax_configuration_param import NewAvalaraTaxConfigurationParam
 from .new_accounting_sync_configuration_param import NewAccountingSyncConfigurationParam
 
-__all__ = ["CustomerUpdateByExternalIDParams", "TaxConfiguration", "TaxConfigurationNewNumeralConfiguration"]
+__all__ = [
+    "CustomerUpdateByExternalIDParams",
+    "PaymentConfiguration",
+    "PaymentConfigurationPaymentProvider",
+    "TaxConfiguration",
+    "TaxConfigurationNewNumeralConfiguration",
+    "TaxConfigurationNewAnrokConfiguration",
+    "TaxConfigurationNewStripeTaxConfiguration",
+]
 
 
 class CustomerUpdateByExternalIDParams(TypedDict, total=False):
@@ -78,6 +86,12 @@ class CustomerUpdateByExternalIDParams(TypedDict, total=False):
 
     name: Optional[str]
     """The full name of the customer"""
+
+    payment_configuration: Optional[PaymentConfiguration]
+    """
+    Payment configuration for the customer, applicable when using Orb Invoicing with
+    a supported payment provider such as Stripe.
+    """
 
     payment_provider: Optional[Literal["quickbooks", "bill.com", "stripe_charge", "stripe_invoice", "netsuite"]]
     """This is used for creating charges or invoices in an external system via Orb.
@@ -210,6 +224,7 @@ class CustomerUpdateByExternalIDParams(TypedDict, total=False):
     | Peru                   | `pe_ruc`     | Peruvian RUC Number                                                                                     |
     | Philippines            | `ph_tin`     | Philippines Tax Identification Number                                                                   |
     | Poland                 | `eu_vat`     | European VAT Number                                                                                     |
+    | Poland                 | `pl_nip`     | Polish Tax ID Number                                                                                    |
     | Portugal               | `eu_vat`     | European VAT Number                                                                                     |
     | Romania                | `eu_vat`     | European VAT Number                                                                                     |
     | Romania                | `ro_tin`     | Romanian Tax ID Number                                                                                  |
@@ -251,10 +266,66 @@ class CustomerUpdateByExternalIDParams(TypedDict, total=False):
     """
 
 
+class PaymentConfigurationPaymentProvider(TypedDict, total=False):
+    provider_type: Required[Literal["stripe"]]
+    """The payment provider to configure."""
+
+    excluded_payment_method_types: SequenceNotStr[str]
+    """List of Stripe payment method types to exclude for this customer.
+
+    Excluded payment methods will not be available for the customer to select during
+    payment, and will not be used for auto-collection. If a customer's default
+    payment method becomes excluded, Orb will attempt to use the next available
+    compatible payment method for auto-collection.
+    """
+
+
+class PaymentConfiguration(TypedDict, total=False):
+    """
+    Payment configuration for the customer, applicable when using Orb Invoicing with a supported payment provider such as Stripe.
+    """
+
+    payment_providers: Iterable[PaymentConfigurationPaymentProvider]
+    """Provider-specific payment configuration."""
+
+
 class TaxConfigurationNewNumeralConfiguration(TypedDict, total=False):
     tax_exempt: Required[bool]
 
     tax_provider: Required[Literal["numeral"]]
+
+    automatic_tax_enabled: Optional[bool]
+    """Whether to automatically calculate tax for this customer.
+
+    When null, inherits from account-level setting. When true or false, overrides
+    the account setting.
+    """
+
+
+class TaxConfigurationNewAnrokConfiguration(TypedDict, total=False):
+    tax_exempt: Required[bool]
+
+    tax_provider: Required[Literal["anrok"]]
+
+    automatic_tax_enabled: Optional[bool]
+    """Whether to automatically calculate tax for this customer.
+
+    When null, inherits from account-level setting. When true or false, overrides
+    the account setting.
+    """
+
+
+class TaxConfigurationNewStripeTaxConfiguration(TypedDict, total=False):
+    tax_exempt: Required[bool]
+
+    tax_provider: Required[Literal["stripe"]]
+
+    automatic_tax_enabled: Optional[bool]
+    """Whether to automatically calculate tax for this customer.
+
+    When null, inherits from account-level setting. When true or false, overrides
+    the account setting.
+    """
 
 
 TaxConfiguration: TypeAlias = Union[
@@ -262,4 +333,6 @@ TaxConfiguration: TypeAlias = Union[
     NewTaxJarConfigurationParam,
     NewSphereConfigurationParam,
     TaxConfigurationNewNumeralConfiguration,
+    TaxConfigurationNewAnrokConfiguration,
+    TaxConfigurationNewStripeTaxConfiguration,
 ]

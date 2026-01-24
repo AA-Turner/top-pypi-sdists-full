@@ -4,15 +4,18 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 #  For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
 #
+
 from .constants import AUTH_PARAM_GRANT_TYPE
 from .constants import AUTH_PARAM_CDP_GRANT_TYPE
 from .constants import AUTH_PARAM_CDP_SUBJECT_TOKEN_TYPE
 from .constants import AUTH_PARAM_CDP_SUBJECT_TOKEN_TYPE_VALUE
 from .constants import AUTH_PARAM_CDP_SUBJECT_TOKEN
+from .constants import AUTH_PARAM_DATASPACE
 from .constants import AUTH_RESPONSE_ACCESS_TOKEN
 from .constants import AUTH_RESPONSE_EXPIRES_IN
 from .constants import AUTH_RESPONSE_INSTANCE_URL
 from .constants import AUTH_PARAM_JWT_GRANT_TYPE
+from .constants import AUTH_PARAM_CLIENT_CREDENTIALS_GRANT_TYPE
 from .constants import AUTH_PARAM_REFRESH_TOKEN_GRANT_TYPE
 from .constants import AUTH_PARAM_CLIENT_ID
 from .constants import AUTH_PARAM_CLIENT_SECRET
@@ -96,6 +99,9 @@ class AuthenticationHelper:
             elif self.connection.private_key is not None:
                 return self._token_by_jwt_bearer_flow(self.connection.login_url, self.connection.username,
                                                       self.connection.client_id, self.connection.private_key)
+            elif self.connection.client_id is not None and self.connection.client_secret is not None:
+                return self._token_by_client_creds_flow(self.connection.login_url, self.connection.client_id,
+                                                        self.connection.client_secret)
             else:
                 raise Error('Sufficient information is not available for authentication')
         finally:
@@ -116,6 +122,10 @@ class AuthenticationHelper:
         params = {AUTH_PARAM_GRANT_TYPE: AUTH_PARAM_CDP_GRANT_TYPE,
                   AUTH_PARAM_CDP_SUBJECT_TOKEN_TYPE: AUTH_PARAM_CDP_SUBJECT_TOKEN_TYPE_VALUE,
                   AUTH_PARAM_CDP_SUBJECT_TOKEN: core_token}
+        
+        if self.connection.dataspace is not None:
+            params[AUTH_PARAM_DATASPACE] = self.connection.dataspace
+            
         current_time = datetime.now()
         access_code_res = self.session.post(url=login_url + '/services/a360/token', params=params)
         if access_code_res.status_code == 200:
@@ -209,6 +219,28 @@ class AuthenticationHelper:
         params = {AUTH_PARAM_GRANT_TYPE: AUTH_PARAM_JWT_GRANT_TYPE, AUTH_PARAM_ASSERTION: encoded}
         access_code_res = self.session.post(url=login_url + '/services/oauth2/token', params=params)
 
+        if access_code_res.status_code == 200:
+            access_code = access_code_res.json()
+            core_token = access_code[AUTH_RESPONSE_ACCESS_TOKEN]
+            org_url = access_code[AUTH_RESPONSE_INSTANCE_URL]
+            return self._exchange_token(org_url, core_token)
+        else:
+            raise Error('Core token retrieval failed with code %d' % access_code_res.status_code)
+
+    def _token_by_client_creds_flow(self, login_url, client_id, client_secret):
+        """
+        This function fetches the core token using OAuth 2.0 Client Credentials flow
+        :param login_url: The Login URL for the tenant
+        :param client_id: The client id for the connected app
+        :param client_secret: The client secret for the connected app
+        :return: cdp_token, instance_url will be returned
+        """
+        params = {
+            AUTH_PARAM_GRANT_TYPE: AUTH_PARAM_CLIENT_CREDENTIALS_GRANT_TYPE,
+            AUTH_PARAM_CLIENT_ID: client_id,
+            AUTH_PARAM_CLIENT_SECRET: client_secret,
+        }
+        access_code_res = self.session.post(url=login_url + '/services/oauth2/token', params=params)
         if access_code_res.status_code == 200:
             access_code = access_code_res.json()
             core_token = access_code[AUTH_RESPONSE_ACCESS_TOKEN]

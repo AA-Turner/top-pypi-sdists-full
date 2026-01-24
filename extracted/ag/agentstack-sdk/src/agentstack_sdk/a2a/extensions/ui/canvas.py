@@ -1,0 +1,71 @@
+# Copyright 2025 © BeeAI a Series of LF Projects, LLC
+# SPDX-License-Identifier: Apache-2.0
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import pydantic
+from a2a.server.agent_execution.context import RequestContext
+from a2a.types import Artifact, TextPart
+from a2a.types import Message as A2AMessage
+from typing_extensions import override
+
+if TYPE_CHECKING:
+    from agentstack_sdk.server.context import RunContext
+
+from agentstack_sdk.a2a.extensions.base import (
+    BaseExtensionServer,
+    NoParamsBaseExtensionSpec,
+)
+
+
+class CanvasEditRequestMetadata(pydantic.BaseModel):
+    start_index: int
+    end_index: int
+    description: str
+    artifact_id: str
+
+
+class CanvasEditRequest(pydantic.BaseModel):
+    start_index: int
+    end_index: int
+    description: str
+    artifact: Artifact
+
+
+class CanvasExtensionSpec(NoParamsBaseExtensionSpec):
+    URI: str = "https://a2a-extensions.agentstack.beeai.dev/ui/canvas/v1"
+
+
+class CanvasExtensionServer(BaseExtensionServer[CanvasExtensionSpec, CanvasEditRequestMetadata]):
+    @override
+    def handle_incoming_message(self, message: A2AMessage, run_context: RunContext, request_context: RequestContext):
+        if message.metadata and self.spec.URI in message.metadata and message.parts:
+            message.parts = [part for part in message.parts if not isinstance(part.root, TextPart)]
+
+        super().handle_incoming_message(message, run_context, request_context)
+        self.context = run_context
+
+    async def parse_canvas_edit_request(self, *, message: A2AMessage) -> CanvasEditRequest | None:
+        if not message or not message.metadata or not (data := message.metadata.get(self.spec.URI)):
+            return None
+
+        metadata = CanvasEditRequestMetadata.model_validate(data)
+
+        try:
+            artifact = await anext(
+                artifact
+                async for artifact in self.context.load_history()
+                if isinstance(artifact, Artifact) and artifact.parts
+                if artifact.artifact_id == metadata.artifact_id
+            )
+        except StopAsyncIteration as e:
+            raise ValueError(f"Artifact {metadata.artifact_id} not found in history") from e
+
+        return CanvasEditRequest(
+            start_index=metadata.start_index,
+            end_index=metadata.end_index,
+            description=metadata.description,
+            artifact=artifact,
+        )

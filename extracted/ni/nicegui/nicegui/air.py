@@ -5,8 +5,9 @@ import gzip
 import json
 import logging
 import re
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Optional
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import socketio
@@ -41,15 +42,15 @@ class Air:
         self.client = httpx.AsyncClient(transport=httpx.ASGITransport(app=core.app))
         self.streaming_client = httpx.AsyncClient()
         self.connecting = False
-        self.streams: Dict[str, Stream] = {}
-        self.remote_url: Optional[str] = None
+        self.streams: dict[str, Stream] = {}
+        self.remote_url: str | None = None
         self._host_unreachable_warning = f'On Air host "{RELAY_HOST}" is not reachable. Please check your internet connection.'
 
         timer(5, self.connect)  # ensure we stay connected
 
         @self.relay.on('http')
-        async def _handle_http(data: Dict[str, Any]) -> Dict[str, Any]:
-            headers: Dict[str, Any] = data['headers']
+        async def _handle_http(data: dict[str, Any]) -> dict[str, Any]:
+            headers: dict[str, Any] = data['headers']
             headers.update({'Accept-Encoding': 'identity', 'X-Forwarded-Prefix': data['prefix']})
             url = 'http://test' + data['path']
             request = self.client.build_request(
@@ -94,8 +95,8 @@ class Air:
             return result
 
         @self.relay.on('range-request')
-        async def _handle_range_request(data: Dict[str, Any]) -> Dict[str, Any]:
-            headers: Dict[str, Any] = data['headers']
+        async def _handle_range_request(data: dict[str, Any]) -> dict[str, Any]:
+            headers: dict[str, Any] = data['headers']
             url = next(iter(u for u in core.app.urls if self.remote_url != u)) + data['path']
             data['params']['nicegui_chunk_size'] = 1024
             request = self.client.build_request(
@@ -114,7 +115,7 @@ class Air:
             }
 
         @self.relay.on('read-stream')
-        async def _handle_read_stream(stream_id: str) -> Optional[bytes]:
+        async def _handle_read_stream(stream_id: str) -> bytes | None:
             try:
                 return await self.streams[stream_id].data.__anext__()
             except StopAsyncIteration:
@@ -130,37 +131,33 @@ class Air:
             del self.streams[stream_id]
 
         @self.relay.on('ready')
-        def _handle_ready(data: Dict[str, Any]) -> None:
+        def _handle_ready(data: dict[str, Any]) -> None:
             core.app.urls.add(data['device_url'])
             self.remote_url = data['device_url']
             if core.app.config.show_welcome_message:
                 print(f'NiceGUI is on air at {data["device_url"]}', flush=True)
 
         @self.relay.on('error')
-        def _handleerror(data: Dict[str, Any]) -> None:
+        def _handleerror(data: dict[str, Any]) -> None:
             print('Error:', data['message'], flush=True)
 
         @self.relay.on('handshake')
-        def _handle_handshake(data: Dict[str, Any]) -> bool:
-            client_id = data['client_id']
-            if client_id not in Client.instances:
-                return False
-            client = Client.instances[client_id]
-            client.environ = data['environ']
-            if data.get('old_tab_id'):
-                core.app.storage.copy_tab(data['old_tab_id'], data['tab_id'])
-            client.tab_id = data['tab_id']
-            client.on_air = True
-            client.handle_handshake(data['sid'], data['document_id'], data.get('next_message_id'))
-            return True
+        def _handle_handshake(data: dict[str, Any]) -> bool:
+            if client := Client.instances.get(data['client_id']):
+                client.environ = data['environ']
+                if data.get('old_tab_id'):
+                    core.app.storage.copy_tab(data['old_tab_id'], data['tab_id'])
+                client.tab_id = data['tab_id']
+                client.on_air = True
+                client.handle_handshake(data['sid'], data['document_id'], data.get('next_message_id'))
+                return True
+            return False
 
         @self.relay.on('client_disconnect')
-        def _handle_client_disconnect(data: Dict[str, Any]) -> None:
+        def _handle_client_disconnect(data: dict[str, Any]) -> None:
             self.log.debug('client disconnected.')
-            client_id = data['client_id']
-            if client_id not in Client.instances:
-                return
-            Client.instances[client_id].handle_disconnect(data['sid'])
+            if client := Client.instances.get(data['client_id']):
+                client.handle_disconnect(data['sid'])
 
         @self.relay.on('connect')
         async def _handle_connect() -> None:
@@ -182,33 +179,29 @@ class Air:
             await self.relay.disconnect()
 
         @self.relay.on('event')
-        def _handle_event(data: Dict[str, Any]) -> None:
-            client_id = data['client_id']
-            if client_id not in Client.instances:
-                return
-            client = Client.instances[client_id]
-            args = data['msg']['args']
-            if args and isinstance(args[0], str) and args[0].startswith('{"socket_id":'):
-                arg0 = json.loads(args[0])
-                arg0['socket_id'] = client_id  # HACK: translate socket_id of ui.scene's init event
-                args[0] = json.dumps(arg0)
-            client.handle_event(data['msg'])
+        def _handle_event(data: dict[str, Any]) -> None:
+            if client := Client.instances.get(data['client_id']):
+                args = data['msg']['args']
+                if args and isinstance(args[0], str) and args[0].startswith('{"socket_id":'):
+                    arg0 = json.loads(args[0])
+                    arg0['socket_id'] = client.id  # HACK: translate socket_id of ui.scene's init event
+                    args[0] = json.dumps(arg0)
+                client.handle_event(data['msg'])
+
+        @self.relay.on('log')
+        def _handle_log(data: dict[str, Any]) -> None:
+            if client := Client.instances.get(data['client_id']):
+                client.handle_log_message(data['msg'])
 
         @self.relay.on('javascript_response')
-        def _handle_javascript_response(data: Dict[str, Any]) -> None:
-            client_id = data['client_id']
-            if client_id not in Client.instances:
-                return
-            client = Client.instances[client_id]
-            client.handle_javascript_response(data['msg'])
+        def _handle_javascript_response(data: dict[str, Any]) -> None:
+            if client := Client.instances.get(data['client_id']):
+                client.handle_javascript_response(data['msg'])
 
         @self.relay.on('ack')
-        def _handle_ack(data: Dict[str, Any]) -> None:
-            client_id = data['client_id']
-            if client_id not in Client.instances:
-                return
-            client = Client.instances[client_id]
-            client.outbox.prune_history(data['msg']['next_message_id'])
+        def _handle_ack(data: dict[str, Any]) -> None:
+            if client := Client.instances.get(data['client_id']):
+                client.outbox.prune_history(data['msg']['next_message_id'])
 
         @self.relay.on('out_of_time')
         async def _handle_out_of_time() -> None:
@@ -255,7 +248,7 @@ class Air:
         self.streams.clear()
         self.log.debug('Disconnected.')
 
-    async def emit(self, message_type: str, data: Dict[str, Any], room: str) -> None:
+    async def emit(self, message_type: str, data: dict[str, Any], room: str) -> None:
         """Emit a message to the NiceGUI On Air server."""
         if self.relay.connected:
             await self.relay.emit('forward', {'event': message_type, 'data': data, 'room': room})

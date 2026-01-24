@@ -52,7 +52,17 @@ def str_to_bool(val: str) -> bool:
         "1",
     }:
         return True
-    elif val in {"n", "no", "f", "false", "off", "disable", "disabled", "0"}:
+    elif val in {
+        "n",
+        "no",
+        "f",
+        "nope",
+        "false",
+        "off",
+        "disable",
+        "disabled",
+        "0",
+    }:
         return False
     else:
         raise ValueError(f"Invalid truth value {val}")
@@ -84,16 +94,16 @@ setup_kwargs = {
     "packages": find_packages(exclude=("tests", "tests.*")),
     "package_data": {"sanic": ["py.typed", "pages/styles/*"]},
     "platforms": "any",
-    "python_requires": ">=3.8",
+    "python_requires": ">=3.10",
     "classifiers": [
         "Development Status :: 4 - Beta",
         "Environment :: Web Environment",
         "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
     "entry_points": {"console_scripts": ["sanic = sanic.__main__:main"]},
 }
@@ -113,7 +123,7 @@ requirements = [
     "websockets>=10.0",
     "multidict>=5.0,<7.0",
     "html5tagger>=1.2.1",
-    "tracerite>=1.0.0",
+    "tracerite>=2.2.0",
     "typing-extensions>=4.4.0",
     "setuptools>=70.1.0",
 ]
@@ -121,6 +131,8 @@ requirements = [
 tests_require = [
     "sanic-testing>=23.6.0",
     "pytest>=8.2.2",
+    "pytest-xdist>=3.5.0",
+    "pytest-cov>=4.0.0",
     "coverage",
     "beautifulsoup4",
     "pytest-sanic",
@@ -143,8 +155,12 @@ docs_require = [
     "pygments",
     "m2r2",
     "enum-tools[sphinx]",
-    "mistune<2.0.0",
+    "mistune>=2.0.0",
     "autodocsumm>=0.2.11",
+    "msgspec",
+    "python-frontmatter",
+    "docstring-parser",
+    "libsass",
 ]
 
 dev_require = tests_require + [

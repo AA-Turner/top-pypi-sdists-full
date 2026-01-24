@@ -23,6 +23,7 @@ from typing import Any, Protocol, TypeVar
 
 from jax._src import ad_util
 from jax._src import api_util
+from jax._src import config
 from jax._src import core
 from jax._src import literals
 from jax._src import linear_util as lu
@@ -37,7 +38,7 @@ from jax._src.interpreters import partial_eval as pe
 from jax._src.lax import lax
 from jax._src.lax import slicing as lax_slicing
 from jax._src.state import indexing
-from jax._src.state.primitives import addupdate_p, get_p, swap_p
+from jax._src.state.primitives import addupdate_p, get_p, swap_p, pin, unpin
 from jax._src.state.types import (
     AbstractRef, RefBitcaster, RefEffect, RefReshaper, get_ref_aval_from_value,
     uninitialized,)
@@ -55,15 +56,29 @@ PyTreeDef = tree_util.PyTreeDef
 
 ## Discharging state
 
-# Let's say we have a jaxpr that takes in `Ref`s and outputs regular JAX values
-# (`Ref`s should never be outputs from jaxprs). We'd like to convert that jaxpr
-# into a "pure" jaxpr that takes in and outputs values and no longer has the
-# `Read/Write/Accum` effects.
 
-def discharge_state(jaxpr: core.Jaxpr, consts: Sequence[Any], * ,
-                    should_discharge: bool | Sequence[bool] = True,
-                    ) -> tuple[core.Jaxpr, list[Any]]:
-  """Converts a jaxpr that takes in `Ref`s into one that doesn't."""
+def discharge_state(
+    jaxpr: core.Jaxpr,
+    consts: Sequence[Any],
+    *,
+    should_discharge: bool | Sequence[bool] = True,
+) -> tuple[core.Jaxpr, Sequence[Any]]:
+  """Converts a stateful jaxpr into a pure one.
+
+  Discharging replaces ``Ref`` inputs with regular values, threads updates
+  through the computation, and returns updated ``Ref``s as additional outputs.
+
+  Args:
+    jaxpr: A stateful jaxpr with ``Ref`` inputs.
+    consts: Constants for the jaxpr.
+    should_discharge: Whether to discharge each ``Ref`` input. If a single bool,
+      applies to all inputs.
+
+  Returns:
+    A tuple of ``(new_jaxpr, new_consts)`` where ``new_jaxpr`` is a jaxpr with
+    no ``Read``/``Write``/``Accum`` effects. Discharged ``Ref`` inputs become
+    regular value inputs, and their updated values are appended to the outputs.
+  """
   if isinstance(should_discharge, bool):
     should_discharge = [should_discharge] * len(jaxpr.invars)
   in_avals = [v.aval.inner_aval
@@ -104,37 +119,69 @@ class Environment:
   def write(self, v: core.Var, val: Any) -> None:
     self.env[v] = val
 
+
 class DischargeRule(Protocol):
 
-  def __call__(self, in_avals: Sequence[core.AbstractValue],
-      out_avals: Sequence[core.AbstractValue], *args: Any,
-      **params: Any) -> tuple[Sequence[Any | None], Sequence[Any]]:
-    ...
+  def __call__(
+      self,
+      in_avals: Sequence[core.AbstractValue],
+      out_avals: Sequence[core.AbstractValue],
+      *args: Any,
+      **params: Any,
+  ) -> tuple[Sequence[Any | None], Any | Sequence[Any]]:
+    """Discharge rule for a primitive.
+
+    See :func:`discharge_state` for an explanation of what discharge means.
+
+    Args:
+      in_avals: Input abstract values.
+      out_avals: Output abstract values.
+      *args: Input values.
+      **params: Primitive parameters.
+
+    Returns:
+      A tuple of ``(new_invals, new_outvals)`` where:
+
+      * ``new_invals`` contains updated values for discharged ``Ref`` inputs,
+        or ``None`` if the input is not a ``Ref`` or was not updated.
+      * ``new_outvals`` is the primitive's output. A sequence if the primitive
+        has multiple results, otherwise a single value.
+    """
+
 
 _discharge_rules: dict[core.Primitive, DischargeRule] = {}
 
-class PartialDischargeRule(Protocol):
-  """A partial discharge rule.
-
-  Exactly like a discharge rule only it accepts a `should_discharge`
-  argument that indicates which inputs should be discharged and the
-  return value returns a tuple of which the first element is the new
-  inputs or none but only the ones that correspond to `True` entries
-  in `should_charge`.
-  """
-
-  def __call__(self, should_discharge: Sequence[bool],
-      in_avals: Sequence[core.AbstractValue],
-      out_avals: Sequence[core.AbstractValue], *args: Any,
-      **params: Any) -> tuple[Sequence[Any | None], Sequence[Any]]:
-    ...
-
-_partial_discharge_rules: dict[core.Primitive, PartialDischargeRule] = {}
 
 def register_discharge_rule(prim: core.Primitive):
   def register(f: DischargeRule):
     _discharge_rules[prim] = f
+    return f
+
   return register
+
+
+class PartialDischargeRule(Protocol):
+  """Discharge rule that supports selective discharging of ``Ref`` inputs.
+
+  Generalizes :class:`DischargeRule` by accepting a ``should_discharge``
+  argument that specifies which ``Ref`` inputs to discharge. The returned
+  ``new_invals`` must contain a non-``None`` value if and only if the
+  corresponding ``Ref`` was discharged.
+  """
+
+  def __call__(
+      self,
+      should_discharge: Sequence[bool],
+      in_avals: Sequence[core.AbstractValue],
+      out_avals: Sequence[core.AbstractValue],
+      *args: Any,
+      **params: Any,
+  ) -> tuple[Sequence[Any | None], Any | Sequence[Any]]:
+    ...
+
+
+_partial_discharge_rules: dict[core.Primitive, PartialDischargeRule] = {}
+
 
 def register_partial_discharge_rule(prim: core.Primitive):
   def register(f: PartialDischargeRule):
@@ -161,13 +208,17 @@ def _eval_jaxpr_discharge_state(
     with source_info_util.user_context(
         traceback, name_stack=name_stack), eqn.ctx.manager:
       should_discharge = [id(v.aval) in refs_to_discharge for v in eqn.invars]
-      if eqn.primitive is core.mutable_array_p:
+      if eqn.primitive is core.ref_p:
         [invar], [outvar] = eqn.invars, eqn.outvars
         ans = env.read(invar)
+        if config.refs_to_pins.value:
+          ans = pin(ans)
         refs_to_discharge.add(id(outvar.aval))
       elif eqn.primitive is core.freeze_p:
         [invar], [outvar] = eqn.invars, eqn.outvars
         ans = env.read(invar)
+        if config.refs_to_pins.value:
+          ans = unpin(ans)
         refs_to_discharge.remove(id(invar.aval))
       elif any(should_discharge) or core.internal_mutable_array_effect in eqn.effects:
         if eqn.primitive in _partial_discharge_rules:
@@ -359,7 +410,7 @@ def _convert_to_gather_arrays(indexer: indexing.NDIndexer) -> tuple[Array, ...]:
       diff = len(total_shape) - idx_in_shape_after_indexing - 1
       arr = arr.reshape(arr.shape + (1,) * diff)
       arrs.append(arr)
-    elif isinstance(idxer, (np.ndarray, Array, literals.LiteralArray)):
+    elif isinstance(idxer, (np.ndarray, Array, literals.TypedNdArray)):
       diff = n_idxers - 1 - last_int_index_idx
       arr = idxer.reshape(idxer.shape + (1,) * diff)
       arrs.append(arr)
@@ -525,6 +576,8 @@ def _addupdate_discharge_rule(
 
 def _addupdate_discharge(x, val, idx, tree):
   transforms = tree_util.tree_unflatten(tree, idx)
+  if not transforms:
+    return x + val
   if len(transforms) > 1:
     raise NotImplementedError("Only single indexer is supported.")
   indexer = transforms[0]
@@ -577,6 +630,31 @@ def _closed_call_discharge_rule(
   sentinel = object()
   assert next(ref_vals_iter, sentinel) is sentinel
   return new_invals, out_vals
+
+def _call_primitive_discharge_rule(
+    prim: core.Primitive,
+    in_avals: Sequence[core.AbstractValue], _,*args,
+    call_jaxpr: core.Jaxpr, **kwargs):
+  closed_call_jaxpr = core.ClosedJaxpr(call_jaxpr, ())
+  discharged_closed_jaxpr, num_outs, fun = _cached_closed_jaxpr_discharge(
+      closed_call_jaxpr)
+  discharged_call_jaxpr = discharged_closed_jaxpr.jaxpr
+  discharged_consts = discharged_closed_jaxpr.consts
+  discharged_call_jaxpr = pe.convert_constvars_jaxpr(discharged_call_jaxpr)
+  out_and_ref_vals = prim.bind(fun, *discharged_consts, *args,
+                               call_jaxpr=discharged_call_jaxpr,
+                               **kwargs)
+  out_vals, ref_vals = split_list(out_and_ref_vals, [num_outs])
+  ref_vals_iter = iter(ref_vals)
+  new_invals = tuple(next(ref_vals_iter) if isinstance(aval, AbstractRef)
+                     else None for aval in in_avals)
+  sentinel = object()
+  assert next(ref_vals_iter, sentinel) is sentinel
+  return new_invals, out_vals
+register_discharge_rule(core.call_p)(
+    partial(_call_primitive_discharge_rule, core.call_p)
+)
+
 
 # # `run_state`
 

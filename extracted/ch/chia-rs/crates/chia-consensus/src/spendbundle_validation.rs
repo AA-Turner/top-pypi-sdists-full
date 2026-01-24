@@ -1,6 +1,6 @@
 use crate::allocator::make_allocator;
 use crate::consensus_constants::ConsensusConstants;
-use crate::flags::COST_CONDITIONS;
+use crate::flags::{COST_CONDITIONS, SIMPLE_GENERATOR};
 use crate::owned_conditions::OwnedSpendBundleConditions;
 use crate::spendbundle_conditions::run_spendbundle;
 use crate::validation_error::{ErrorCode, ValidationErr};
@@ -8,9 +8,8 @@ use chia_bls::GTElement;
 use chia_bls::{aggregate_verify_gt, hash_to_g2};
 use chia_protocol::SpendBundle;
 use chia_sha2::Sha256;
-use clvmr::chia_dialect::ENABLE_KECCAK_OPS_OUTSIDE_GUARD;
-use clvmr::{NodePtr, LIMIT_HEAP};
-use std::time::{Duration, Instant};
+use clvmr::chia_dialect::{DISABLE_OP, ENABLE_KECCAK_OPS_OUTSIDE_GUARD};
+use clvmr::{LIMIT_HEAP, NodePtr};
 
 // type definition makes clippy happy
 pub type ValidationPair = ([u8; 32], GTElement);
@@ -23,9 +22,7 @@ pub fn validate_clvm_and_signature(
     max_cost: u64,
     constants: &ConsensusConstants,
     flags: u32,
-) -> Result<(OwnedSpendBundleConditions, Vec<ValidationPair>, Duration), ValidationErr> {
-    let start_time = Instant::now();
-
+) -> Result<(OwnedSpendBundleConditions, Vec<ValidationPair>), ValidationErr> {
     let mut a = make_allocator(LIMIT_HEAP);
     let (sbc, pkm_pairs) = run_spendbundle(&mut a, spend_bundle, max_cost, flags, constants)?;
     let conditions = OwnedSpendBundleConditions::from(&a, sbc);
@@ -59,10 +56,17 @@ pub fn validate_clvm_and_signature(
     }
 
     // Collect results
-    Ok((conditions, pairs, start_time.elapsed()))
+    Ok((conditions, pairs))
 }
 
-pub fn get_flags_for_height_and_constants(height: u32, constants: &ConsensusConstants) -> u32 {
+/// The prev_tx_height is the previous transaction block height of the most
+/// recent transaction block prior / to the signage point index of the current
+/// block. (i.e. not necessarily the / transaction block preceeding the current
+/// one).
+pub fn get_flags_for_height_and_constants(
+    prev_tx_height: u32,
+    constants: &ConsensusConstants,
+) -> u32 {
     //  the hard-fork initiated with 2.0. To activate June 2024
     //  * costs are ascribed to some unknown condition codes, to allow for
     // soft-forking in new conditions with cost
@@ -84,8 +88,12 @@ pub fn get_flags_for_height_and_constants(height: u32, constants: &ConsensusCons
 
     // In hard fork 2, we enable the keccak operator outside the softfork guard
     let mut flags: u32 = 0;
-    if height >= constants.hard_fork2_height {
-        flags |= ENABLE_KECCAK_OPS_OUTSIDE_GUARD | COST_CONDITIONS;
+    if prev_tx_height >= constants.hard_fork2_height {
+        flags |= ENABLE_KECCAK_OPS_OUTSIDE_GUARD | COST_CONDITIONS | SIMPLE_GENERATOR;
+    }
+
+    if prev_tx_height >= constants.soft_fork8_height {
+        flags |= DISABLE_OP;
     }
     flags
 }
@@ -98,10 +106,10 @@ mod tests {
     use crate::flags::{COMPUTE_FINGERPRINT, MEMPOOL_MODE};
     use crate::make_aggsig_final_message::u64_to_bytes;
     use crate::opcodes::{
-        ConditionOpcode, AGG_SIG_AMOUNT, AGG_SIG_ME, AGG_SIG_PARENT, AGG_SIG_PARENT_AMOUNT,
-        AGG_SIG_PARENT_PUZZLE, AGG_SIG_PUZZLE, AGG_SIG_PUZZLE_AMOUNT, AGG_SIG_UNSAFE,
+        AGG_SIG_AMOUNT, AGG_SIG_ME, AGG_SIG_PARENT, AGG_SIG_PARENT_AMOUNT, AGG_SIG_PARENT_PUZZLE,
+        AGG_SIG_PUZZLE, AGG_SIG_PUZZLE_AMOUNT, AGG_SIG_UNSAFE, ConditionOpcode,
     };
-    use chia_bls::{sign, G2Element, PublicKey, SecretKey, Signature};
+    use chia_bls::{G2Element, PublicKey, SecretKey, Signature, sign};
     use chia_protocol::{Bytes, Coin, CoinSpend, Program};
     use clvm_utils::tree_hash_atom;
     use hex::FromHex;
@@ -204,9 +212,9 @@ mod tests {
     #[case(0, 0)]
     #[case(TEST_CONSTANTS.hard_fork_height, 0)]
     #[case(5_716_000, 0)]
-    fn test_get_flags(#[case] height: u32, #[case] expected_value: u32) {
+    fn test_get_flags(#[case] prev_tx_height: u32, #[case] expected_value: u32) {
         assert_eq!(
-            get_flags_for_height_and_constants(height, &TEST_CONSTANTS),
+            get_flags_for_height_and_constants(prev_tx_height, &TEST_CONSTANTS),
             expected_value
         );
     }
@@ -287,7 +295,7 @@ ff843B9ACA00\
             coin_spends: vec![spend],
             aggregated_signature: Signature::default(),
         };
-        let (conds, _pks, _timing) = validate_clvm_and_signature(
+        let (conds, _pks) = validate_clvm_and_signature(
             &spend_bundle,
             TEST_CONSTANTS.max_block_cost_clvm,
             &TEST_CONSTANTS,
@@ -316,7 +324,7 @@ ff843B9ACA00\
         };
         let expected_cost = 5_527_116_044;
         let max_cost = expected_cost;
-        let (conds, _, _) =
+        let (conds, _) =
             validate_clvm_and_signature(&spend_bundle, max_cost, &TEST_CONSTANTS, MEMPOOL_MODE)
                 .expect("validate_clvm_and_signature failed");
         assert_eq!(conds.cost, expected_cost);

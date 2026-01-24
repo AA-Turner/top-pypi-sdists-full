@@ -1,9 +1,10 @@
 import inspect
-from typing import Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, InstanceOf, model_validator
+from typing_extensions import Self
 
-from crewai.flow import Flow
+from crewai.flow.flow import Flow
 
 
 class FlowTrackable(BaseModel):
@@ -14,14 +15,14 @@ class FlowTrackable(BaseModel):
     inspecting the call stack.
     """
 
-    parent_flow: Optional[InstanceOf[Flow]] = Field(
+    parent_flow: InstanceOf[Flow[Any]] | None = Field(
         default=None,
         description="The parent flow of the instance, if it was created inside a flow.",
     )
 
     @model_validator(mode="after")
-    def _set_parent_flow(self) -> "FlowTrackable":
-        max_depth = 5
+    def _set_parent_flow(self) -> Self:
+        max_depth = 8
         frame = inspect.currentframe()
 
         try:

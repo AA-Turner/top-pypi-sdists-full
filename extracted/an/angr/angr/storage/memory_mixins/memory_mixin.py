@@ -9,7 +9,6 @@ import claripy
 from angr.errors import SimMemoryError
 from angr.state_plugins.plugin import SimStatePlugin
 
-
 InData = TypeVar("InData")
 OutData = TypeVar("OutData")
 Addr = TypeVar("Addr")
@@ -34,7 +33,8 @@ class MemoryMixin(Generic[InData, OutData, Addr], SimStatePlugin):
         self.id = memory_id
         self.endness = endness
 
-    def copy(self, memo) -> Self:
+    @SimStatePlugin.memo
+    def copy(self, memo):
         o = type(self).__new__(type(self))
         o.id = self.id
         o.endness = self.endness

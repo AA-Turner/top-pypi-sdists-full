@@ -4,21 +4,20 @@ import sys
 import tarfile
 import tempfile
 import time
-import io
 import json
 from dataclasses import asdict
-from glob import glob
-from io import BytesIO
-from pathlib import PurePath
-from typing import BinaryIO, Dict, List, Tuple, Set, Union
+from pathlib import Path, PurePath
+from typing import Dict, List, Tuple, Set, TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from socketsecurity.config import CliConfig
 from socketdev import socketdev
 from socketdev.exceptions import APIFailure
 from socketdev.fullscans import FullScanParams, SocketArtifact
 from socketdev.org import Organization
 from socketdev.repos import RepositoryInfo
-from socketdev.settings import SecurityPolicyRule
 import copy
-from socketsecurity import __version__
+from socketsecurity import __version__, USER_AGENT
 from socketsecurity.core.classes import (
     Alert,
     Diff,
@@ -39,6 +38,7 @@ __all__ = [
     "Core",
     "log",
     "__version__",
+    "USER_AGENT",
 ]
 
 version = __version__
@@ -58,11 +58,13 @@ class Core:
 
     config: SocketConfig
     sdk: socketdev
+    cli_config: Optional['CliConfig']
 
-    def __init__(self, config: SocketConfig, sdk: socketdev) -> None:
+    def __init__(self, config: SocketConfig, sdk: socketdev, cli_config: Optional['CliConfig'] = None) -> None:
         """Initialize Core with configuration and SDK instance."""
         self.config = config
         self.sdk = sdk
+        self.cli_config = cli_config
         self.set_org_vars()
 
     def set_org_vars(self) -> None:
@@ -75,8 +77,6 @@ class Core:
         base_path = f"orgs/{org_slug}"
         self.config.full_scan_path = f"{base_path}/full-scans"
         self.config.repository_path = f"{base_path}/repos"
-
-        self.config.security_policy = self.get_security_policy()
 
     def get_org_id_slug(self) -> Tuple[str, str]:
         """Gets the Org ID and Org Slug for the API Token."""
@@ -106,16 +106,7 @@ class Core:
         """Converts artifacts dictionary to a list."""
         return list(artifacts_dict.values())
 
-    def get_security_policy(self) -> Dict[str, SecurityPolicyRule]:
-        """Gets the organization's security policy."""
-        response = self.sdk.settings.get(self.config.org_slug, use_types=True)
 
-        if not response.success:
-            log.error(f"Failed to get security policy: {response.status}")
-            log.error(response.message)
-            raise Exception(f"Failed to get security policy: {response.status}, message: {response.message}")
-
-        return response.securityPolicyRules
 
     def create_sbom_output(self, diff: Diff) -> dict:
         """Creates CycloneDX output for a given diff."""
@@ -287,12 +278,13 @@ class Core:
         except Exception as e:
             log.error(f"Failed to save manifest tar.gz to {output_path}: {e}")
 
-    def find_files(self, path: str) -> List[str]:
+    def find_files(self, path: str, ecosystems: Optional[List[str]] = None) -> List[str]:
         """
         Finds supported manifest files in the given path.
 
         Args:
             path: Path to search for manifest files.
+            ecosystems: Optional list of ecosystems to include. If None, all ecosystems are included.
 
         Returns:
             List of found manifest file paths.
@@ -305,6 +297,9 @@ class Core:
         patterns = self.get_supported_patterns()
 
         for ecosystem in patterns:
+            # If ecosystems filter is provided, only include specified ecosystems
+            if ecosystems is not None and ecosystem not in ecosystems:
+                continue
             if ecosystem in self.config.excluded_ecosystems:
                 continue
             log.debug(f'Scanning ecosystem: {ecosystem}')
@@ -317,15 +312,18 @@ class Core:
 
                 for pattern in expanded_patterns:
                     case_insensitive_pattern = Core.to_case_insensitive_regex(pattern)
-                    file_path = os.path.join(path, "**", case_insensitive_pattern)
-
-                    log.debug(f"Globbing {file_path}")
+                    
+                    log.debug(f"Searching for pattern: {case_insensitive_pattern}")
                     glob_start = time.time()
-                    glob_files = glob(file_path, recursive=True)
+                    
+                    # Use pathlib.Path.rglob() instead of glob.glob() to properly match dotfiles/dotdirs
+                    base_path = Path(path)
+                    glob_files = base_path.rglob(case_insensitive_pattern)
 
                     for glob_file in glob_files:
-                        if os.path.isfile(glob_file) and not Core.is_excluded(glob_file, self.config.excluded_dirs):
-                            files.add(glob_file.replace("\\", "/"))
+                        glob_file_str = str(glob_file)
+                        if os.path.isfile(glob_file_str) and not Core.is_excluded(glob_file_str, self.config.excluded_dirs):
+                            files.add(glob_file_str.replace("\\", "/"))
 
                     glob_end = time.time()
                     log.debug(f"Globbing took {glob_end - glob_start:.4f} seconds")
@@ -348,6 +346,23 @@ class Core:
             log.debug(f"Could not check file descriptor limit: {ulimit_check.get('error', 'Unknown error')}")
 
         return file_list
+
+    def find_sbom_files(self, path: str) -> List[str]:
+        """
+        Finds only pre-generated SBOM files (CDX and SPDX) in the given path.
+
+        This is used with --reach-use-only-pregenerated-sboms to find only
+        pre-computed CycloneDX and SPDX manifest files.
+
+        Args:
+            path: Path to search for SBOM files.
+
+        Returns:
+            List of found CDX and SPDX file paths.
+        """
+        log.debug("Starting Find SBOM Files (CDX and SPDX only)")
+        sbom_ecosystems = ['cdx', 'spdx']
+        return self.find_files(path, ecosystems=sbom_ecosystems)
 
     def get_supported_patterns(self) -> Dict:
         """
@@ -399,6 +414,11 @@ class Core:
                 # Expand brace patterns for each manifest pattern
                 expanded_patterns = Core.expand_brace_pattern(pattern_str)
                 for exp_pat in expanded_patterns:
+                    # If pattern doesn't contain '/', prepend '**/' to match files in any subdirectory
+                    # This ensures patterns like '*requirements.txt' match '.test/requirements.txt'
+                    if '/' not in exp_pat:
+                        exp_pat = f"**/{exp_pat}"
+                    
                     for file in norm_files:
                         # Use PurePath.match for glob-like matching
                         if PurePath(file).match(exp_pat):
@@ -441,17 +461,72 @@ class Core:
         Returns:
             List containing path to a temporary empty file
         """
-        # Create a temporary empty file
-        temp_fd, temp_path = tempfile.mkstemp(suffix='.empty', prefix='socket_baseline_')
+        # Create a temporary directory and then create our specific filename
+        temp_dir = tempfile.gettempdir()
+        temp_path = os.path.join(temp_dir, '.socket.facts.json')
         
-        # Close the file descriptor since we just need the path
-        # The file is already created and empty
-        os.close(temp_fd)
+        # Create the empty file
+        with open(temp_path, 'w') as f:
+            pass  # Creates an empty file
         
         log.debug(f"Created temporary empty file for baseline scan: {temp_path}")
         return [temp_path]
 
-    def create_full_scan(self, files: List[str], params: FullScanParams, base_paths: List[str] = None) -> FullScan:
+    def finalize_tier1_scan(self, full_scan_id: str, facts_file_path: str) -> bool:
+        """
+        Finalize a tier 1 reachability scan by associating it with a full scan.
+
+        This function reads the tier1ReachabilityScanId from the facts file and
+        calls the SDK to link it with the specified full scan.
+
+        Linking the tier 1 scan to the full scan helps the Socket team debug potential issues.
+
+        Args:
+            full_scan_id: The ID of the full scan to associate with the tier 1 scan
+            facts_file_path: Path to the .socket.facts.json file containing the tier1ReachabilityScanId
+
+        Returns:
+            True if successful, False otherwise
+        """
+        log.debug(f"Finalizing tier 1 scan for full scan {full_scan_id}")
+
+        # Read the tier1ReachabilityScanId from the facts file
+        try:
+            if not os.path.exists(facts_file_path):
+                log.debug(f"Facts file not found: {facts_file_path}")
+                return False
+
+            with open(facts_file_path, 'r') as f:
+                facts = json.load(f)
+
+            tier1_scan_id = facts.get('tier1ReachabilityScanId')
+            if not tier1_scan_id:
+                log.debug(f"No tier1ReachabilityScanId found in {facts_file_path}")
+                return False
+
+            tier1_scan_id = tier1_scan_id.strip()
+            log.debug(f"Found tier1ReachabilityScanId: {tier1_scan_id}")
+
+        except (json.JSONDecodeError, IOError) as e:
+            log.debug(f"Failed to read tier1ReachabilityScanId from {facts_file_path}: {e}")
+            return False
+
+        # Call the SDK to finalize the tier 1 scan
+        try:
+            success = self.sdk.fullscans.finalize_tier1(
+                full_scan_id=full_scan_id,
+                tier1_reachability_scan_id=tier1_scan_id,
+            )
+
+            if success:
+                log.debug(f"Successfully finalized tier 1 scan {tier1_scan_id} for full scan {full_scan_id}")
+            return success
+
+        except Exception as e:
+            log.debug(f"Unable to finalize tier 1 scan: {e}")
+            return False
+
+    def create_full_scan(self, files: List[str], params: FullScanParams, base_paths: Optional[List[str]] = None) -> FullScan:
         """
         Creates a new full scan via the Socket API.
 
@@ -476,6 +551,22 @@ class Core:
         total_time = create_full_end - create_full_start
         log.debug(f"New Full Scan created in {total_time:.2f} seconds")
 
+        # Finalize tier1 scan if reachability analysis was enabled
+        if self.cli_config and self.cli_config.reach:
+            facts_file_path = os.path.join(
+                self.cli_config.target_path or ".", 
+                self.cli_config.reach_output_file
+            )
+            log.debug(f"Reachability analysis enabled, finalizing tier1 scan for full scan {full_scan.id}")
+            try:
+                success = self.finalize_tier1_scan(full_scan.id, facts_file_path)
+                if success:
+                    log.debug(f"Successfully finalized tier1 scan for full scan {full_scan.id}")
+                else:
+                    log.debug(f"Failed to finalize tier1 scan for full scan {full_scan.id}")
+            except Exception as e:
+                log.warning(f"Error finalizing tier1 scan for full scan {full_scan.id}: {e}")
+
         return full_scan
 
     def create_full_scan_with_report_url(
@@ -483,9 +574,10 @@ class Core:
             paths: List[str],
             params: FullScanParams,
             no_change: bool = False,
-            save_files_list_path: str = None,
-            save_manifest_tar_path: str = None,
-            base_paths: List[str] = None
+            save_files_list_path: Optional[str] = None,
+            save_manifest_tar_path: Optional[str] = None,
+            base_paths: Optional[List[str]] = None,
+            explicit_files: Optional[List[str]] = None
     ) -> Diff:
         """Create a new full scan and return with html_report_url.
 
@@ -496,6 +588,7 @@ class Core:
             save_files_list_path: Optional path to save submitted files list for debugging
             save_manifest_tar_path: Optional path to save manifest files tar.gz archive
             base_paths: List of base paths for the scan (optional)
+            explicit_files: Optional list of explicit files to use instead of discovering files
 
         Returns:
             Dict with full scan data including html_report_url
@@ -509,11 +602,15 @@ class Core:
         if no_change:
             return diff
 
-        # Find manifest files from all paths
-        all_files = []
-        for path in paths:
-            files = self.find_files(path)
-            all_files.extend(files)
+        # Use explicit files if provided, otherwise find manifest files from all paths
+        if explicit_files is not None:
+            all_files = explicit_files
+            log.debug(f"Using {len(all_files)} explicit files instead of discovering files")
+        else:
+            all_files = []
+            for path in paths:
+                files = self.find_files(path)
+                all_files.extend(files)
         
         # Save submitted files list if requested
         if save_files_list_path and all_files:
@@ -523,18 +620,42 @@ class Core:
         if save_manifest_tar_path and all_files and paths:
             self.save_manifest_tar(all_files, save_manifest_tar_path, paths[0])
         
+        # If no supported files found, create empty scan
         if not all_files:
-            return diff
-
-        try:
-            # Create new scan
-            new_scan_start = time.time()
-            new_full_scan = self.create_full_scan(all_files, params, base_paths=base_paths)
-            new_scan_end = time.time()
-            log.info(f"Total time to create new full scan: {new_scan_end - new_scan_start:.2f}")
-        except APIFailure as e:
-            log.error(f"Failed to create full scan: {e}")
-            raise
+            log.info("No supported manifest files found - creating empty scan")
+            empty_files = Core.empty_head_scan_file()
+            try:
+                # Create new scan
+                new_scan_start = time.time()
+                new_full_scan = self.create_full_scan(empty_files, params, base_paths=base_paths)
+                new_scan_end = time.time()
+                log.info(f"Total time to create empty full scan: {new_scan_end - new_scan_start:.2f}")
+                
+                # Clean up the temporary empty file
+                for temp_file in empty_files:
+                    try:
+                        os.unlink(temp_file)
+                        log.debug(f"Cleaned up temporary file: {temp_file}")
+                    except OSError as e:
+                        log.warning(f"Failed to clean up temporary file {temp_file}: {e}")
+            except Exception as e:
+                # Clean up temp files even if scan creation fails
+                for temp_file in empty_files:
+                    try:
+                        os.unlink(temp_file)
+                    except OSError:
+                        pass
+                raise e
+        else:
+            try:
+                # Create new scan
+                new_scan_start = time.time()
+                new_full_scan = self.create_full_scan(all_files, params, base_paths=base_paths)
+                new_scan_end = time.time()
+                log.info(f"Total time to create new full scan: {new_scan_end - new_scan_start:.2f}")
+            except APIFailure as e:
+                log.error(f"Failed to create full scan: {e}")
+                raise
 
         # Construct report URL
         base_socket = "https://socket.dev/dashboard/org"
@@ -545,54 +666,6 @@ class Core:
 
         # Return result in the format expected by the user
         return diff
-
-    def check_full_scans_status(self, head_full_scan_id: str, new_full_scan_id: str) -> bool:
-        is_ready = False
-        current_timeout = self.config.timeout
-        self.sdk.set_timeout(0.5)
-        try:
-            self.sdk.fullscans.stream(self.config.org_slug, head_full_scan_id)
-        except Exception:
-            log.debug(f"Queued up full scan for processing ({head_full_scan_id})")
-
-        try:
-            self.sdk.fullscans.stream(self.config.org_slug, new_full_scan_id)
-        except Exception:
-            log.debug(f"Queued up full scan for processing ({new_full_scan_id})")
-        self.sdk.set_timeout(current_timeout)
-        start_check = time.time()
-        head_is_ready = False
-        new_is_ready = False
-        while not is_ready:
-            head_full_scan_metadata = self.sdk.fullscans.metadata(self.config.org_slug, head_full_scan_id)
-            if head_full_scan_metadata:
-                head_state = head_full_scan_metadata.get("scan_state")
-            else:
-                head_state = None
-            new_full_scan_metadata = self.sdk.fullscans.metadata(self.config.org_slug, new_full_scan_id)
-            if new_full_scan_metadata:
-                new_state = new_full_scan_metadata.get("scan_state")
-            else:
-                new_state = None
-            if head_state and head_state == "resolve":
-                head_is_ready = True
-            if new_state and new_state == "resolve":
-                new_is_ready = True
-            if head_is_ready and new_is_ready:
-                is_ready = True
-            current_time = time.time()
-            if current_time - start_check >= self.config.timeout:
-                log.debug(
-                    f"Timeout reached while waiting for full scans to be ready "
-                    f"({head_full_scan_id}, {new_full_scan_id})"
-                )
-                break
-        total_time = time.time() - start_check
-        if is_ready:
-            log.info(f"Full scans are ready in {total_time:.2f} seconds")
-        else:
-            log.warning(f"Full scans are not ready yet ({head_full_scan_id}, {new_full_scan_id})")
-        return is_ready
 
     def get_full_scan(self, full_scan_id: str) -> FullScan:
         """
@@ -733,28 +806,54 @@ class Core:
         pkg.url += f"/{pkg.name}/overview/{pkg.version}"
         return pkg
 
-    def get_license_text_via_purl(self, packages: dict[str, Package]) -> dict:
-        components = []
+    def get_license_text_via_purl(self, packages: dict[str, Package], batch_size: int = 5000) -> dict:
+        """Get license attribution and details via PURL endpoint in batches.
+        
+        Args:
+            packages: Dictionary of packages to get license info for
+            batch_size: Maximum number of packages to process per API call (1-9999)
+            
+        Returns:
+            Updated packages dictionary with licenseAttrib and licenseDetails populated
+        """
+        # Validate batch size
+        batch_size = max(1, min(9999, batch_size))
+        
+        # Build list of all components
+        all_components = []
         for purl in packages:
             full_purl = f"pkg:/{purl}"
-            components.append({"purl": full_purl})
-        results = self.sdk.purl.post(
-            license=True,
-            components=components,
-            licenseattrib=True,
-            licensedetails=True
-        )
-        purl_packages = []
-        for result in results:
-            ecosystem = result["type"]
-            name = result["name"]
-            package_version = result["version"]
-            licenseDetails = result.get("licenseDetails")
-            licenseAttrib = result.get("licenseAttrib")
-            purl = f"{ecosystem}/{name}@{package_version}"
-            if purl not in purl_packages and purl in packages:
-                packages[purl].licenseAttrib = licenseAttrib
-                packages[purl].licenseDetails = licenseDetails
+            all_components.append({"purl": full_purl})
+        
+        # Process in batches
+        total_components = len(all_components)
+        log.debug(f"Processing {total_components} packages in batches of {batch_size}")
+        
+        for i in range(0, total_components, batch_size):
+            batch_components = all_components[i:i + batch_size]
+            batch_num = (i // batch_size) + 1
+            total_batches = (total_components + batch_size - 1) // batch_size
+            log.debug(f"Processing batch {batch_num}/{total_batches} ({len(batch_components)} packages)")
+            
+            results = self.sdk.purl.post(
+                license=True,
+                components=batch_components,
+                licenseattrib=True,
+                licensedetails=True
+            )
+            
+            purl_packages = []
+            for result in results:
+                ecosystem = result["type"]
+                name = result["name"]
+                package_version = result["version"]
+                licenseDetails = result.get("licenseDetails")
+                licenseAttrib = result.get("licenseAttrib")
+                purl = f"{ecosystem}/{name}@{package_version}"
+                if purl not in purl_packages and purl in packages:
+                    packages[purl].licenseAttrib = licenseAttrib
+                    packages[purl].licenseDetails = licenseDetails
+        
         return packages
 
     def get_added_and_removed_packages(
@@ -847,7 +946,14 @@ class Core:
                 log.error(f"Artifact details - name: {artifact.name}, version: {artifact.version}")
                 log.error("No matching packages found in head_full_scan")
 
-        packages = self.get_license_text_via_purl(packages)
+        # Only fetch license details if generate_license is enabled
+        if self.cli_config and self.cli_config.generate_license:
+            log.debug("Fetching license details via PURL endpoint")
+            batch_size = self.cli_config.max_purl_batch_size if self.cli_config else 5000
+            packages = self.get_license_text_via_purl(packages, batch_size=batch_size)
+        else:
+            log.debug("Skipping PURL endpoint call (--generate-license not set)")
+        
         return added_packages, removed_packages, packages
 
     def create_new_diff(
@@ -855,9 +961,10 @@ class Core:
             paths: List[str],
             params: FullScanParams,
             no_change: bool = False,
-            save_files_list_path: str = None,
-            save_manifest_tar_path: str = None,
-            base_paths: List[str] = None
+            save_files_list_path: Optional[str] = None,
+            save_manifest_tar_path: Optional[str] = None,
+            base_paths: Optional[List[str]] = None,
+            explicit_files: Optional[List[str]] = None
     ) -> Diff:
         """Create a new diff using the Socket SDK.
 
@@ -868,16 +975,21 @@ class Core:
             save_files_list_path: Optional path to save submitted files list for debugging
             save_manifest_tar_path: Optional path to save manifest files tar.gz archive
             base_paths: List of base paths for the scan (optional)
+            explicit_files: Optional list of explicit files to use instead of discovering files
         """
         log.debug(f"starting create_new_diff with no_change: {no_change}")
         if no_change:
             return Diff(id="NO_DIFF_RAN", diff_url="", report_url="")
 
-        # Find manifest files from all paths
-        all_files = []
-        for path in paths:
-            files = self.find_files(path)
-            all_files.extend(files)
+        # Use explicit files if provided, otherwise find manifest files from all paths
+        if explicit_files is not None:
+            all_files = explicit_files
+            log.debug(f"Using {len(all_files)} explicit files instead of discovering files")
+        else:
+            all_files = []
+            for path in paths:
+                files = self.find_files(path)
+                all_files.extend(files)
         
         # Save submitted files list if requested
         if save_files_list_path and all_files:
@@ -887,8 +999,11 @@ class Core:
         if save_manifest_tar_path and all_files and paths:
             self.save_manifest_tar(all_files, save_manifest_tar_path, paths[0])
         
+        # If no supported files found, create empty scan for comparison
+        scan_files = all_files
         if not all_files:
-            return Diff(id="NO_DIFF_RAN", diff_url="", report_url="")
+            log.info("No supported manifest files found - creating empty scan for diff comparison")
+            scan_files = Core.empty_head_scan_file()
 
         try:
             # Get head scan ID
@@ -931,31 +1046,58 @@ class Core:
                 raise e
 
         # Create new scan
+        temp_files_to_cleanup = []
+        if not all_files:  # We're using empty scan files
+            temp_files_to_cleanup = scan_files
+            
         try:
             new_scan_start = time.time()
-            new_full_scan = self.create_full_scan(all_files, params, base_paths=base_paths)
+            new_full_scan = self.create_full_scan(scan_files, params, base_paths=base_paths)
             new_scan_end = time.time()
             log.info(f"Total time to create new full scan: {new_scan_end - new_scan_start:.2f}")
         except APIFailure as e:
             log.error(f"API Error: {e}")
+            # Clean up temp files if any
+            for temp_file in temp_files_to_cleanup:
+                try:
+                    os.unlink(temp_file)
+                except OSError:
+                    pass
             sys.exit(1)
         except Exception as e:
             import traceback
             log.error(f"Error creating new full scan: {str(e)}")
             log.error(f"Stack trace:\n{traceback.format_exc()}")
+            # Clean up temp files if any
+            for temp_file in temp_files_to_cleanup:
+                try:
+                    os.unlink(temp_file)
+                except OSError:
+                    pass
             raise
+        finally:
+            # Clean up temporary empty files if they were created
+            for temp_file in temp_files_to_cleanup:
+                try:
+                    os.unlink(temp_file)
+                    log.debug(f"Cleaned up temporary file: {temp_file}")
+                except OSError as e:
+                    log.warning(f"Failed to clean up temporary file {temp_file}: {e}")
 
         # Handle diff generation - now we always have both scans
-        scans_ready = self.check_full_scans_status(head_full_scan_id, new_full_scan.id)
-        if scans_ready is False:
-            log.error(f"Full scans did not complete within {self.config.timeout} seconds")
         (
             added_packages,
             removed_packages,
             packages
         ) = self.get_added_and_removed_packages(head_full_scan_id, new_full_scan.id)
 
-        diff = self.create_diff_report(added_packages, removed_packages)
+        # Separate unchanged packages from added/removed for --strict-blocking support
+        unchanged_packages = {
+            pkg_id: pkg for pkg_id, pkg in packages.items()
+            if pkg_id not in added_packages and pkg_id not in removed_packages
+        }
+
+        diff = self.create_diff_report(added_packages, removed_packages, unchanged_packages)
         diff.packages = packages
 
         base_socket = "https://socket.dev/dashboard/org"
@@ -978,6 +1120,7 @@ class Core:
         self,
         added_packages: Dict[str, Package],
         removed_packages: Dict[str, Package],
+        unchanged_packages: Optional[Dict[str, Package]] = None,
         direct_only: bool = True
     ) -> Diff:
         """
@@ -987,10 +1130,12 @@ class Core:
         1. Records new/removed packages (direct only by default)
         2. Collects alerts from both sets of packages
         3. Determines new capabilities introduced
+        4. Optionally collects alerts from unchanged packages for --strict-blocking
 
         Args:
             added_packages: Dict of packages added in new scan
             removed_packages: Dict of packages removed in new scan
+            unchanged_packages: Dict of packages that didn't change (for --strict-blocking)
             direct_only: If True, only direct dependencies are included in new/removed lists
                         (but alerts are still processed for all packages)
 
@@ -1001,6 +1146,7 @@ class Core:
 
         alerts_in_added_packages: Dict[str, List[Issue]] = {}
         alerts_in_removed_packages: Dict[str, List[Issue]] = {}
+        alerts_in_unchanged_packages: Dict[str, List[Issue]] = {}
 
         seen_new_packages = set()
         seen_removed_packages = set()
@@ -1033,8 +1179,31 @@ class Core:
                 packages=removed_packages
             )
 
+        # Process unchanged packages for --strict-blocking support
+        if unchanged_packages:
+            for package_id, package in unchanged_packages.items():
+                # Skip packages that are in added or removed (they're already processed)
+                if package_id in added_packages or package_id in removed_packages:
+                    continue
+
+                self.add_package_alerts_to_collection(
+                    package=package,
+                    alerts_collection=alerts_in_unchanged_packages,
+                    packages=unchanged_packages
+                )
+
         diff.new_alerts = Core.get_new_alerts(
             alerts_in_added_packages,
+            alerts_in_removed_packages
+        )
+
+        # Get unchanged alerts (for --strict-blocking mode)
+        diff.unchanged_alerts = Core.get_unchanged_alerts(
+            alerts_in_unchanged_packages
+        )
+
+        # Get removed alerts (for completeness)
+        diff.removed_alerts = Core.get_removed_alerts(
             alerts_in_removed_packages
         )
 
@@ -1076,6 +1245,7 @@ class Core:
             scores=package.score
         )
         return purl
+
 
     @staticmethod
     def get_source_data(package: Package, packages: dict) -> list:
@@ -1191,8 +1361,9 @@ class Core:
                 url=package.url
             )
 
-            if alert.type in self.config.security_policy:
-                action = self.config.security_policy[alert.type]['action']
+            # Use action from API (from security policy, label policy, triage, etc.)
+            if 'action' in alert_item and alert_item['action']:
+                action = alert_item['action']
                 setattr(issue_alert, action, True)
 
             if issue_alert.key not in alerts_collection:
@@ -1293,5 +1464,64 @@ class Core:
                         if alert.error or alert.warn:
                             alerts.append(alert)
                             consolidated_alerts.add(alert_str)
+
+        return alerts
+
+    @staticmethod
+    def get_unchanged_alerts(
+        unchanged_package_alerts: Dict[str, List[Issue]]
+    ) -> List[Issue]:
+        """
+        Extract all alerts from unchanged packages that are errors or warnings.
+
+        This is used for --strict-blocking mode to identify existing violations
+        that should cause builds to fail.
+
+        Args:
+            unchanged_package_alerts: Dictionary of alerts from packages that didn't change
+
+        Returns:
+            List of all error/warning alerts from unchanged packages
+        """
+        alerts: List[Issue] = []
+        consolidated_alerts = set()
+
+        for alert_key in unchanged_package_alerts:
+            for alert in unchanged_package_alerts[alert_key]:
+                # Consolidate by package and alert type
+                alert_str = f"{alert.purl},{alert.type}"
+
+                # Only include error or warning alerts
+                if (alert.error or alert.warn) and alert_str not in consolidated_alerts:
+                    alerts.append(alert)
+                    consolidated_alerts.add(alert_str)
+
+        return alerts
+
+    @staticmethod
+    def get_removed_alerts(
+        removed_package_alerts: Dict[str, List[Issue]]
+    ) -> List[Issue]:
+        """
+        Extract all alerts from removed packages.
+
+        This is mainly for informational purposes - to show alerts that were removed.
+
+        Args:
+            removed_package_alerts: Dictionary of alerts from packages that were removed
+
+        Returns:
+            List of all alerts from removed packages
+        """
+        alerts: List[Issue] = []
+        consolidated_alerts = set()
+
+        for alert_key in removed_package_alerts:
+            for alert in removed_package_alerts[alert_key]:
+                alert_str = f"{alert.purl},{alert.type}"
+
+                if alert_str not in consolidated_alerts:
+                    alerts.append(alert)
+                    consolidated_alerts.add(alert_str)
 
         return alerts

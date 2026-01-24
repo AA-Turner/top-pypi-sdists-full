@@ -59,11 +59,6 @@ options:
     - This parameter is supported for version 3.6 and above.
     choices: ['Active', 'Inactive']
     type: str
-  pause:
-    description:
-    - Pause or resume the RCG.
-    - This parameter is deprecated. Use rcg_state instead.
-    type: bool
   rcg_state:
     description:
     - Specify an action for RCG.
@@ -81,11 +76,6 @@ options:
   force:
     description:
     - Force switchover the RCG.
-    type: bool
-  freeze:
-    description:
-    - Freeze or unfreeze the RCG.
-    - This parameter is deprecated. Use rcg_state instead.
     type: bool
   pause_mode:
     description:
@@ -172,6 +162,7 @@ notes:
 - There is a delay in reflection of final state of RCG after few update operations on RCG.
 - In 3.6 and above, the replication consistency group will return back to consistent mode on changing to inconsistent mode
   if consistence barrier arrives. Hence idempotency on setting to inconsistent mode will return changed as true.
+- The pause and freeze parameters are removed in 3.0.0 version. Use 'rcg_state' param instead.
 '''
 
 EXAMPLES = r'''
@@ -478,38 +469,32 @@ replication_consistency_group_details:
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.dellemc.powerflex.plugins.module_utils.storage.dell \
     import utils
+from ansible_collections.dellemc.powerflex.plugins.module_utils.storage.dell.libraries.powerflex_base \
+    import powerflex_compatibility
+from ansible_collections.dellemc.powerflex.plugins.module_utils.storage.dell.libraries.powerflex_base \
+    import PowerFlexBase
 
 LOG = utils.get_logger('replication_consistency_group')
 
 
-class PowerFlexReplicationConsistencyGroup(object):
+@powerflex_compatibility(min_ver='3.6', max_ver='5.0')
+class PowerFlexReplicationConsistencyGroup(PowerFlexBase):
     """Class with replication consistency group operations"""
 
     def __init__(self):
         """ Define all parameters required by this module"""
-        self.module_params = utils.get_powerflex_gateway_host_parameters()
-        self.module_params.update(get_powerflex_replication_consistency_group_parameters())
-
+        argument_spec = get_powerflex_replication_consistency_group_parameters()
         mut_ex_args = [['rcg_name', 'rcg_id'], ['protection_domain_id', 'protection_domain_name']]
-
         required_one_of_args = [['rcg_name', 'rcg_id']]
 
-        # initialize the Ansible module
-        self.module = AnsibleModule(
-            argument_spec=self.module_params,
-            supports_check_mode=True,
-            mutually_exclusive=mut_ex_args,
-            required_one_of=required_one_of_args)
-
-        utils.ensure_required_libs(self.module)
-
-        try:
-            self.powerflex_conn = utils.get_powerflex_gateway_host_connection(
-                self.module.params)
-            LOG.info("Got the PowerFlex system connection object instance")
-        except Exception as e:
-            LOG.error(str(e))
-            self.module.fail_json(msg=str(e))
+        ansible_module_params = {
+            'argument_spec': argument_spec,
+            'supports_check_mode': True,
+            'mutually_exclusive': mut_ex_args,
+            'required_one_of': required_one_of_args
+        }
+        super().__init__(AnsibleModule, ansible_module_params)
+        super().check_module_compatibility()
 
     def get_rcg(self, rcg_name=None, rcg_id=None):
         """Get rcg details
@@ -923,23 +908,9 @@ class PowerFlexReplicationConsistencyGroup(object):
         :rtype: (bool,bool)
         """
         rcg_state = self.module.params['rcg_state']
-        pause = self.module.params['pause']
-        freeze = self.module.params['freeze']
 
-        if pause is not None:
-            self.module.deprecate(
-                msg="Use 'rcg_state' param instead of 'pause'",
-                version="3.0.0",
-                collection_name="dellemc.powerflex"
-            )
-
-        if freeze is not None:
-            self.module.deprecate(
-                msg="Use 'rcg_state' param instead of 'freeze'",
-                version="3.0.0",
-                collection_name="dellemc.powerflex"
-            )
-
+        pause = None
+        freeze = None
         if rcg_state == 'pause':
             pause = True
         if rcg_state == 'resume':
@@ -1012,7 +983,8 @@ class PowerFlexReplicationConsistencyGroup(object):
     def validate_input(self, rcg_params):
         try:
             api_version = self.powerflex_conn.system.get()[0]['mdmCluster']['master']['versionInfo']
-            if rcg_params['activity_mode'] is not None and utils.is_version_less_than_3_6(api_version):
+            if rcg_params['activity_mode'] is not None and utils.is_version_less(
+                    utils.parse_version(api_version), '3.6'):
                 self.module.fail_json(msg='activity_mode is supported only from version 3.6 and above')
             params = ['rcg_name', 'new_rcg_name']
             for param in params:
@@ -1095,8 +1067,6 @@ def get_powerflex_replication_consistency_group_parameters():
         rpo=dict(type='int'), protection_domain_id=dict(),
         protection_domain_name=dict(), new_rcg_name=dict(),
         activity_mode=dict(choices=['Active', 'Inactive']),
-        pause=dict(type='bool', removed_in_version='3.0.0', removed_from_collection='dellemc.powerflex'),
-        freeze=dict(type='bool', removed_in_version='3.0.0', removed_from_collection='dellemc.powerflex'),
         force=dict(type='bool'),
         rcg_state=dict(choices=['failover', 'reverse',
                                 'restore', 'switchover',

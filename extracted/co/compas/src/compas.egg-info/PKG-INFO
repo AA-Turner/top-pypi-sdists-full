@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: compas
-Version: 2.14.1
+Version: 2.15.0
 Summary: The main COMPAS framework library.
 Author-email: tom van mele <tom.v.mele@gmail.com>
 License: MIT License
@@ -55,15 +55,16 @@ Requires-Dist: watchdog; sys_platform != "emscripten"
 Provides-Extra: dev
 Requires-Dist: attrs>=17.4; extra == "dev"
 Requires-Dist: black>=22.12.0; extra == "dev"
+Requires-Dist: build; extra == "dev"
 Requires-Dist: bump-my-version; extra == "dev"
 Requires-Dist: compas_invocations2; extra == "dev"
 Requires-Dist: invoke>=0.14; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pythonnet; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: sphinx_compas2_theme; extra == "dev"
 Requires-Dist: twine; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
-Requires-Dist: pythonnet; extra == "dev"
 Dynamic: license-file
 
 # The COMPAS framework

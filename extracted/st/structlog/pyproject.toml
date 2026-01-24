@@ -41,8 +41,7 @@ Twitter = "https://twitter.com/hynek"
 
 [dependency-groups]
 tests = [
-    "freezegun>=0.2.8",
-    "pretend",
+    "time-machine>=2.14.1",
     "pytest-asyncio>=0.17",
     "pytest>=6.0",
     "simplejson",
@@ -52,9 +51,11 @@ tests = [
 typing = ["mypy>=1.4", "rich", "twisted"]
 docs = [
     "cogapp",
-    "furo",
     "myst-parser",
     "sphinx",
+    "sphinx-design",
+    "sphinx-copybutton",
+    "sphinx-book-theme",
     "sphinx-notfound-page",
     "sphinxcontrib-mermaid",
     "sphinxext-opengraph",
@@ -72,10 +73,14 @@ raw-options = { local_scheme = "no-local-version" }
 
 
 [tool.pytest.ini_options]
-addopts = ["-ra", "--strict-markers", "--strict-config"]
+addopts = ["--strict-markers", "--strict-config", "--import-mode=importlib"]
 testpaths = "tests"
 xfail_strict = true
-filterwarnings = ["once::Warning"]
+filterwarnings = [
+    "once::Warning",
+    # Probably <https://github.com/pytest-dev/pytest-asyncio/issues/724>
+    "ignore:unclosed event loop:ResourceWarning",
+]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
@@ -92,22 +97,6 @@ source = ["src", ".tox/py*/**/site-packages"]
 show_missing = true
 skip_covered = true
 omit = ["src/structlog/_greenlets.py"]
-exclude_lines = [
-    # a more strict default pragma
-    "\\# pragma: no cover\\b",
-
-    # allow defensive code
-    "^\\s*raise AssertionError\\b",
-    "^\\s*raise NotImplementedError\\b",
-    "^\\s*return NotImplemented\\b",
-    "^\\s*raise$",
-
-    # typing-related code
-    "^if (False|TYPE_CHECKING):",
-    ": \\.\\.\\.(\\s*#.*)?$",
-    "^ +\\.\\.\\.$",
-    "-> ['\"]?NoReturn['\"]?:",
-]
 
 
 [tool.interrogate]
@@ -139,8 +128,10 @@ ignore = [
     "N802",    # some names are non-pep8 due to stdlib logging / Twisted
     "N803",    # ditto
     "N806",    # ditto
+    "PLC0415", # sometimes, imports have to live elsewhere
     "PLR0913", # leave complexity to me
     "PLR2004", # numbers are sometimes fine
+    "PLW1641", # unhashable is often fine
     "PLW2901", # overwriting a loop var can be useful
     "RUF001",  # leave my smart characters alone
     "SLF001",  # private members are accessed by friendly functions
@@ -189,6 +180,12 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = "tests.typing.*"
 ignore_errors = false
+
+[tool.ty.src]
+include = ["tests/typing"]
+
+[tool.pyrefly]
+project-includes = ["tests/typing"]
 
 
 [tool.hatch.metadata.hooks.fancy-pypi-readme]
@@ -256,19 +253,9 @@ url = "https://tidelift.com/?utm_source=lifter&utm_medium=referral&utm_campaign=
 img = "Tidelift.svg"
 
 [[tool.sponcon.sponsors]]
-title = "Klaviyo"
-url = "https://klaviyo.com/"
-img = "Klaviyo.svg"
-
-[[tool.sponcon.sponsors]]
 title = "Privacy Solutions"
 url = "https://privacy-solutions.org/"
 img = "Privacy-Solutions.svg"
-
-[[tool.sponcon.sponsors]]
-title = "emsys renewables"
-url = "https://www.emsys-renewables.com/"
-img = "emsys-renewables.svg"
 
 [[tool.sponcon.sponsors]]
 title = "FilePreviews"

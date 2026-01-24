@@ -1,13 +1,14 @@
 import gzip
 import os
 import unittest
+from unittest.mock import MagicMock, patch
 from io import StringIO
+import sys
 
 import numpy as np
 import pytest
 from IPython.display import display
 from ipywidgets import HBox, IntText
-from mock import MagicMock, patch
 from numpy.testing import assert_almost_equal as aa_eq
 from traitlets import TraitError
 
@@ -254,19 +255,25 @@ def test_add_trajectory():
         view.frame = 1000
         view.frame = 0
 
-    p_traj = pt.load(nv.datafiles.TRR, nv.datafiles.PDB)
-    view.add_trajectory(p_traj)
+    # FIXME: remove this workaround.
+    # https://github.com/nglviewer/nglview/pull/1167#issuecomment-3360759056
+    with_pytraj = sys.version_info < (3, 13)
+    offset = 0 if with_pytraj else 1
+
+    if with_pytraj:
+        p_traj = pt.load(nv.datafiles.TRR, nv.datafiles.PDB)
+        view.add_trajectory(p_traj)
     m_traj = md.load(nv.datafiles.XTC, top=nv.datafiles.PDB)
     view.add_trajectory(m_traj)
     # trigger updating coordinates
     update_coords()
-    assert len(view._coordinates_dict.keys()) == 2
+    assert len(view._coordinates_dict.keys()) == 2 - offset
     if has_MDAnalysis:
         from MDAnalysis import Universe
         mda_traj = Universe(nv.datafiles.PDB, nv.datafiles.TRR)
         view.add_trajectory(mda_traj)
         update_coords()
-        assert len(view._coordinates_dict.keys()) == 3
+        assert len(view._coordinates_dict.keys()) == 3 - offset
     if has_HTMD:
         from htmd import Molecule
         htmd_traj = Molecule(nv.datafiles.PDB)
@@ -274,9 +281,9 @@ def test_add_trajectory():
         view.add_trajectory(htmd_traj)
         update_coords()
         if has_MDAnalysis:
-            assert len(view._coordinates_dict.keys()) == 4
+            assert len(view._coordinates_dict.keys()) == 4 - offset
         else:
-            assert len(view._coordinates_dict.keys()) == 3
+            assert len(view._coordinates_dict.keys()) == 3 - offset
 
 
 def test_API_promise_to_have_add_more_backend():
@@ -706,9 +713,8 @@ def test_trajectory_show_hide_sending_cooridnates():
 
 def test_existing_js_files():
     from glob import glob
-    jsfiles = glob(os.path.join(os.path.dirname(nv.__file__), 'static', '*js'))
-    mapfiles = glob(os.path.join(os.path.dirname(nv.__file__), 'static',
-                                 '*map'))
+    jsfiles = glob(os.path.join(os.path.dirname(nv.__file__), 'nbextension', '*js'))
+    mapfiles = glob(os.path.join(os.path.dirname(nv.__file__), 'nbextension', '*map'))
 
     assert len(jsfiles) == 2
     assert len(mapfiles) == 1
@@ -838,7 +844,7 @@ def test_queuing_messages():
     view.add_component(nv.datafiles.PDB)
     view.download_image()
     view
-    assert [f._method_name for f in view._ngl_displayed_callbacks_before_loaded] == \
+    assert [f._method_name for f in view._callbacks_before_loaded] == \
            [
             'loadFile',
             '_downloadImage']

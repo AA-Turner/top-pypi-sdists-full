@@ -10,14 +10,12 @@ the args that were emitted.
 
 from __future__ import annotations
 
-import sys
 import warnings
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ClassVar,
     Literal,
     SupportsIndex,
@@ -30,7 +28,14 @@ from ._mypyc import mypyc_attr
 
 if TYPE_CHECKING:
     import threading
-    from collections.abc import Container, Hashable, Iterable, Iterator, Mapping
+    from collections.abc import (
+        Callable,
+        Container,
+        Hashable,
+        Iterable,
+        Iterator,
+        Mapping,
+    )
     from contextlib import AbstractContextManager
 
     from psygnal._signal import F, ReducerFunc
@@ -39,10 +44,7 @@ if TYPE_CHECKING:
 __all__ = ["EmissionInfo", "SignalGroup"]
 
 
-SLOTS = {"slots": True} if sys.version_info >= (3, 10) else {}
-
-
-@dataclass(**SLOTS, frozen=True)
+@dataclass(slots=True, frozen=True)
 class PathStep:
     """A single step in a path to a nested signal.
 
@@ -86,7 +88,7 @@ class PathStep:
         return f"[{key}]"
 
 
-@dataclass(**SLOTS, frozen=True)
+@dataclass(slots=True, frozen=True)
 class EmissionInfo:
     """Tuple containing information about an emission event.
 
@@ -536,16 +538,6 @@ class SignalGroup:
     def __getitem__(self, item: str) -> SignalInstance:
         """Get a signal instance by name."""
         return self._psygnal_instances[item]
-
-    # this is just here for type checking, particularly on cases
-    # where the SignalGroup comes from the SignalGroupDescriptor
-    # (such as in evented dataclasses).  In those cases, it's hard to indicate
-    # to mypy that all remaining attributes are SignalInstances.
-    def __getattr__(self, __name: str) -> SignalInstance:
-        """Get a signal instance by name."""
-        raise AttributeError(  # pragma: no cover
-            f"{type(self).__name__!r} object has no attribute {__name!r}"
-        )
 
     def __iter__(self) -> Iterator[str]:
         """Yield the names of all signals in the group."""

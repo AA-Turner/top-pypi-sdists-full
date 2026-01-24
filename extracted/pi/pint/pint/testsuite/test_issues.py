@@ -10,6 +10,7 @@ import pytest
 from pint import (
     Context,
     DimensionalityError,
+    UndefinedUnitError,
     UnitRegistry,
     get_application_registry,
 )
@@ -1368,3 +1369,26 @@ def test_issue2172():
 
     mass.ito("m**3", density=958.05 * ureg.kilogram / ureg.meter**3)
     assert mass.m == pytest.approx(1.0437868587234487)  # 100 C
+
+
+def test_issue2199(func_registry):
+    msg = "is not defined in the unit registry"
+    with pytest.raises(UndefinedUnitError, match=msg):
+        func_registry.Quantity.from_tuple((1, (("wrong", 1),)))
+
+
+def test_issue2228(func_registry):
+    func_registry.define("test2228A = nan meter")
+    func_registry.define("test2228B = nan meter")
+    # Behaviour before 2228 was fixed
+    nan_factor, _ = func_registry._get_root_units(
+        UnitsContainer({"test2228A": 1, "test2228B": -1})
+    )
+    assert nan_factor != 1
+    # Expected behaviour - return nan
+    assert math.isnan(nan_factor)
+
+    ok_factor, _ = func_registry._get_root_units(
+        UnitsContainer({"meter": 1, "centimeter": -1})
+    )
+    assert ok_factor == 100.0

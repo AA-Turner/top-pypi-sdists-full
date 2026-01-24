@@ -1,9 +1,9 @@
+use crate::PlatformTag;
 use crate::build_options::TargetTriple;
 use crate::cross_compile::is_cross_compiling;
 use crate::python_interpreter::InterpreterKind;
 use crate::python_interpreter::InterpreterKind::{CPython, GraalPy, PyPy};
-use crate::PlatformTag;
-use anyhow::{anyhow, bail, format_err, Result};
+use anyhow::{Result, anyhow, bail, format_err};
 use platform_info::*;
 use rustc_version::VersionMeta;
 use serde::Deserialize;
@@ -43,6 +43,7 @@ pub enum Os {
     Wasi,
     Aix,
     Hurd,
+    Cygwin,
 }
 
 impl fmt::Display for Os {
@@ -63,6 +64,7 @@ impl fmt::Display for Os {
             Os::Wasi => write!(f, "Wasi"),
             Os::Aix => write!(f, "AIX"),
             Os::Hurd => write!(f, "Hurd"),
+            Os::Cygwin => write!(f, "Cygwin"),
         }
     }
 }
@@ -97,30 +99,36 @@ pub enum Arch {
     LoongArch64,
 }
 
+impl Arch {
+    pub fn as_str(&self) -> &str {
+        match *self {
+            Arch::Aarch64 => "aarch64",
+            Arch::Armv5teL => "armv5tel",
+            Arch::Armv6L => "armv6l",
+            Arch::Armv7L => "armv7l",
+            Arch::Powerpc => "ppc",
+            Arch::Powerpc64Le => "ppc64le",
+            Arch::Powerpc64 => "ppc64",
+            Arch::X86 => "i686",
+            Arch::X86_64 => "x86_64",
+            Arch::S390X => "s390x",
+            Arch::Wasm32 => "wasm32",
+            Arch::Riscv32 => "riscv32",
+            Arch::Riscv64 => "riscv64",
+            Arch::Mips64el => "mips64el",
+            Arch::Mips64 => "mips64",
+            Arch::Mipsel => "mipsel",
+            Arch::Mips => "mips",
+            Arch::Sparc64 => "sparc64",
+            Arch::Sparcv9 => "sparcv9",
+            Arch::LoongArch64 => "loongarch64",
+        }
+    }
+}
+
 impl fmt::Display for Arch {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Arch::Aarch64 => write!(f, "aarch64"),
-            Arch::Armv5teL => write!(f, "armv5tel"),
-            Arch::Armv6L => write!(f, "armv6l"),
-            Arch::Armv7L => write!(f, "armv7l"),
-            Arch::Powerpc => write!(f, "ppc"),
-            Arch::Powerpc64Le => write!(f, "ppc64le"),
-            Arch::Powerpc64 => write!(f, "ppc64"),
-            Arch::X86 => write!(f, "i686"),
-            Arch::X86_64 => write!(f, "x86_64"),
-            Arch::S390X => write!(f, "s390x"),
-            Arch::Wasm32 => write!(f, "wasm32"),
-            Arch::Riscv32 => write!(f, "riscv32"),
-            Arch::Riscv64 => write!(f, "riscv64"),
-            Arch::Mips64el => write!(f, "mips64el"),
-            Arch::Mips64 => write!(f, "mips64"),
-            Arch::Mipsel => write!(f, "mipsel"),
-            Arch::Mips => write!(f, "mips"),
-            Arch::Sparc64 => write!(f, "sparc64"),
-            Arch::Sparcv9 => write!(f, "sparcv9"),
-            Arch::LoongArch64 => write!(f, "loongarch64"),
-        }
+        f.write_str(self.as_str())
     }
 }
 
@@ -209,6 +217,7 @@ fn get_supported_architectures(os: &Os) -> Vec<Arch> {
         Os::Emscripten | Os::Wasi => vec![Arch::Wasm32],
         Os::Aix => vec![Arch::Powerpc64],
         Os::Hurd => vec![Arch::X86, Arch::X86_64],
+        Os::Cygwin => vec![Arch::X86, Arch::X86_64],
     }
 }
 
@@ -283,6 +292,7 @@ impl Target {
             OperatingSystem::Wasi | OperatingSystem::WasiP1 | OperatingSystem::WasiP2 => Os::Wasi,
             OperatingSystem::Aix => Os::Aix,
             OperatingSystem::Hurd => Os::Hurd,
+            OperatingSystem::Cygwin => Os::Cygwin,
             unsupported => bail!("The operating system {:?} is not supported", unsupported),
         };
 
@@ -450,7 +460,7 @@ impl Target {
             Os::Windows => "windows",
             Os::Linux => "linux",
             Os::Macos => "darwin",
-            Os::Ios => "darwin",
+            Os::Ios => "ios",
             Os::FreeBsd => "freebsd",
             Os::NetBsd => "netbsd",
             Os::OpenBsd => "openbsd",
@@ -463,6 +473,7 @@ impl Target {
             Os::Wasi => "wasi",
             Os::Aix => "aix",
             Os::Hurd => "gnu",
+            Os::Cygwin => "cygwin",
         }
     }
 
@@ -558,7 +569,8 @@ impl Target {
             | Os::Emscripten
             | Os::Wasi
             | Os::Aix
-            | Os::Hurd => true,
+            | Os::Hurd
+            | Os::Cygwin => true,
         }
     }
 
@@ -598,6 +610,12 @@ impl Target {
         self.os == Os::Macos
     }
 
+    /// Returns true if the current platform is iOS
+    #[inline]
+    pub fn is_ios(&self) -> bool {
+        self.os == Os::Ios
+    }
+
     /// Returns true if the current platform is windows
     #[inline]
     pub fn is_windows(&self) -> bool {
@@ -608,6 +626,12 @@ impl Target {
     #[inline]
     pub fn is_msvc(&self) -> bool {
         self.env == Environment::Msvc
+    }
+
+    /// Returns true if the current platform is cygwin
+    #[inline]
+    pub fn is_cygwin(&self) -> bool {
+        self.os == Os::Cygwin
     }
 
     /// Returns true if the current platform is illumos
@@ -740,6 +764,27 @@ pub(crate) fn detect_arch_from_python(python: &PathBuf, target: &Target) -> Opti
                 } else if platform.contains("arm64") && target.target_arch() != Arch::Aarch64 {
                     return Some(TargetTriple::Regular("aarch64-apple-darwin".to_string()));
                 }
+            }
+        }
+        _ => eprintln!("⚠️  Warning: Failed to determine python platform"),
+    }
+    None
+}
+
+pub(crate) fn detect_target_from_cross_python(python: &PathBuf) -> Option<TargetTriple> {
+    match Command::new(python)
+        .arg("-c")
+        .arg("import sys, sysconfig; print(sysconfig.get_platform(), end='') if getattr(sys, 'cross_compiling', False) else ''")
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            let platform = String::from_utf8_lossy(&output.stdout);
+            if platform.ends_with("-arm64-iphoneos") {
+                return Some(TargetTriple::Regular("aarch64-apple-ios".to_string()));
+            } else if platform.ends_with("-arm64-iphonesimulator") {
+                return Some(TargetTriple::Regular("aarch64-apple-ios-sim".to_string()));
+            } else if platform.ends_with("-x86_64-iphonesimulator") {
+                return Some(TargetTriple::Regular("x86_64-apple-ios".to_string()));
             }
         }
         _ => eprintln!("⚠️  Warning: Failed to determine python platform"),

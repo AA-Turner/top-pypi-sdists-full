@@ -1,5 +1,5 @@
 #
-# Copyright (c), 2016-2021, SISSA (International School for Advanced Studies).
+# Copyright (c), 2016-2026, SISSA (International School for Advanced Studies).
 # All rights reserved.
 # This file is distributed under the terms of the MIT License.
 # See the file 'LICENSE' in the root directory of the present
@@ -8,7 +8,7 @@
 # @author Davide Brunato <brunato@sissa.it>
 #
 from collections.abc import MutableMapping, MutableSequence
-from typing import TYPE_CHECKING, Any, Optional, Type
+from typing import TYPE_CHECKING, Any
 
 from xmlschema.aliases import NsmapType, BaseXsdType
 from xmlschema.resources import XMLResource
@@ -34,9 +34,9 @@ class ParkerConverter(XMLSchemaConverter):
     """
     __slots__ = ()
 
-    def __init__(self, namespaces: Optional[NsmapType] = None,
-                 dict_class: Optional[Type[dict[str, Any]]] = None,
-                 list_class: Optional[Type[list[Any]]] = None,
+    def __init__(self, namespaces: NsmapType | None = None,
+                 dict_class: type[dict[str, Any]] | None = None,
+                 list_class: type[list[Any]] | None = None,
                  preserve_root: bool = False, **kwargs: Any) -> None:
         kwargs.update(attr_prefix=None, text_key='', cdata_prefix=None)
         super().__init__(
@@ -56,17 +56,17 @@ class ParkerConverter(XMLSchemaConverter):
         return True
 
     def element_decode(self, data: ElementData, xsd_element: 'XsdElement',
-                       xsd_type: Optional[BaseXsdType] = None, level: int = 0) -> Any:
+                       xsd_type: BaseXsdType | None = None, level: int = 0) -> Any:
         xsd_type = xsd_type or xsd_element.type
         preserve_root = self.preserve_root
 
         if xsd_type.model_group is None or not data.content:
             if preserve_root:
-                return self.dict([(self.map_qname(data.tag), data.text)])
+                return self.dict_class(((self.map_qname(data.tag), data.text),))
             else:
                 return data.text
         else:
-            result_dict = self.dict()
+            result_dict = self.dict_class()
             for name, value, xsd_child in self.map_content(data.content):
                 if preserve_root:
                     try:
@@ -79,11 +79,11 @@ class ParkerConverter(XMLSchemaConverter):
                     result_dict[name].append(value)
                 except KeyError:
                     if isinstance(value, MutableSequence):
-                        result_dict[name] = self.list([value])
+                        result_dict[name] = self.list_class((value,))
                     else:
                         result_dict[name] = value
                 except AttributeError:
-                    result_dict[name] = self.list([result_dict[name], value])
+                    result_dict[name] = self.list_class((result_dict[name], value))
 
             for k, v in result_dict.items():
                 if isinstance(v, MutableSequence) and len(v) == 1:
@@ -91,7 +91,7 @@ class ParkerConverter(XMLSchemaConverter):
                     v.extend(value)
 
             if preserve_root:
-                return self.dict([(self.map_qname(data.tag), result_dict)])
+                return self.dict_class(((self.map_qname(data.tag), result_dict),))
             else:
                 return result_dict if result_dict else None
 

@@ -1,6 +1,6 @@
 import inspect
 import typing
-from typing import Callable, List, Optional, Set, Tuple
+from collections.abc import Callable
 
 from rich.padding import Padding
 from rich.text import Text
@@ -31,8 +31,8 @@ class Method:
         implementation: Callable,
         signature: Signature,
         *,
-        function_name: Optional[str] = None,
-        return_type: Optional[TypeHint] = None,
+        function_name: str | None = None,
+        return_type: TypeHint | None = None,
     ):
         """Instantiate a method.
 
@@ -78,11 +78,11 @@ class Method:
             )
         return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         s = (self.function_name, self.implementation, self.signature, self.return_type)
         return hash(s)
 
-    def __str__(self):
+    def __str__(self) -> str:
         function_name = self.function_name
         signature = self.signature
         return_type = self.return_type
@@ -96,7 +96,7 @@ class Method:
 
     def repr_mismatch(
         self,
-        mismatches: Set[int] = frozenset(),
+        mismatches: set[int] = frozenset(),
         varargs_matched: bool = True,
     ) -> str:
         """Version of `__repr__` that can print which arguments are mismatched. This
@@ -120,7 +120,7 @@ class Method:
 
         # Walk through the positional arguments.
         if sig.types:
-            for i, (arg_name, t) in enumerate(zip(arg_names, sig.types)):
+            for i, (arg_name, t) in enumerate(zip(arg_names, sig.types, strict=False)):
                 arg_txt = Text(f"{arg_name}: ")
                 type_txt = repr_type(t)
                 if i in mismatches:
@@ -168,7 +168,7 @@ class MethodList(list):
             yield Padding(sum(method_repr, Text(f"[{i}] ")), (0, 4))
 
 
-def extract_arg_names(f: Callable) -> Tuple[List[str], List[str], Optional[str]]:
+def extract_arg_names(f: Callable, /) -> tuple[list[str], list[str], str | None]:
     """Extract the argument names for a function.
 
     Args:
@@ -200,7 +200,7 @@ def extract_arg_names(f: Callable) -> Tuple[List[str], List[str], Optional[str]]
     return regular_args, kw_only_args, var_kw_name
 
 
-def extract_return_type(f: Callable) -> TypeHint:
+def extract_return_type(f: Callable, /) -> TypeHint:
     """Extract the return type from a function.
 
     Assumes that PEP563-style already have been resolved.

@@ -15,8 +15,10 @@ from typing import (
     Literal,
     Optional,
     Sequence,
+    Tuple,
     TypedDict,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -24,13 +26,13 @@ import sqlalchemy as sa
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.sql import func
 
+from dbos._debug_trigger import DebugTriggers
 from dbos._utils import (
     INTERNAL_QUEUE_NAME,
     retriable_postgres_exception,
     retriable_sqlite_exception,
 )
 
-from . import _serialization
 from ._context import get_local_dbos_context
 from ._error import (
     DBOSAwaitedWorkflowCancelledError,
@@ -44,6 +46,7 @@ from ._error import (
 )
 from ._logger import dbos_logger
 from ._schemas.system_database import SystemSchema
+from ._serialization import Serializer, WorkflowInputs, safe_deserialize
 
 if TYPE_CHECKING:
     from ._queue import Queue
@@ -95,7 +98,7 @@ class WorkflowStatus:
     # All roles which the authenticated user could assume
     authenticated_roles: Optional[list[str]]
     # The deserialized workflow input object
-    input: Optional[_serialization.WorkflowInputs]
+    input: Optional[WorkflowInputs]
     # The workflow's output, if any
     output: Optional[Any] = None
     # The error the workflow threw, if any
@@ -106,7 +109,7 @@ class WorkflowStatus:
     updated_at: Optional[int]
     # If this workflow was enqueued, on which queue
     queue_name: Optional[str]
-    # The executor to most recently executed this workflow
+    # The executor to most recently execute this workflow
     executor_id: Optional[str]
     # The application version on which this workflow was started
     app_version: Optional[str]
@@ -114,6 +117,14 @@ class WorkflowStatus:
     workflow_timeout_ms: Optional[int]
     # The deadline of a workflow, computed by adding its timeout to its start time.
     workflow_deadline_epoch_ms: Optional[int]
+    # Unique ID for deduplication on a queue
+    deduplication_id: Optional[str]
+    # Priority of the workflow on the queue, starting from 1 ~ 2,147,483,647. Default 0 (highest priority).
+    priority: Optional[int]
+    # If this workflow is enqueued on a partitioned queue, its partition key
+    queue_partition_key: Optional[str]
+    # If this workflow was forked from another, that workflow's ID.
+    forked_from: Optional[str]
 
     # INTERNAL FIELDS
 
@@ -141,17 +152,24 @@ class WorkflowStatusInternal(TypedDict):
     app_version: Optional[str]
     app_id: Optional[str]
     recovery_attempts: Optional[int]
-    # The start-to-close timeout of the workflow in ms
     workflow_timeout_ms: Optional[int]
-    # The deadline of a workflow, computed by adding its timeout to its start time.
-    # Deadlines propagate to children. When the deadline is reached, the workflow is cancelled.
     workflow_deadline_epoch_ms: Optional[int]
-    # Unique ID for deduplication on a queue
     deduplication_id: Optional[str]
-    # Priority of the workflow on the queue, starting from 1 ~ 2,147,483,647. Default 0 (highest priority).
     priority: int
-    # Serialized workflow inputs
     inputs: str
+    queue_partition_key: Optional[str]
+    forked_from: Optional[str]
+    owner_xid: Optional[str]
+
+
+class MetricData(TypedDict):
+    """
+    Metrics data for workflows and steps within a time range.
+    """
+
+    metric_type: str  # Type of metric: "workflow" or "step"
+    metric_name: str  # Name of the workflow or step
+    value: int  # Number of times the operation ran in the time interval
 
 
 class EnqueueOptionsInternal(TypedDict):
@@ -161,19 +179,23 @@ class EnqueueOptionsInternal(TypedDict):
     priority: Optional[int]
     # On what version the workflow is enqueued. Current version if not specified.
     app_version: Optional[str]
+    # If the workflow is enqueued on a partitioned queue, its partition key
+    queue_partition_key: Optional[str]
 
 
 class RecordedResult(TypedDict):
-    output: Optional[str]  # JSON (jsonpickle)
-    error: Optional[str]  # JSON (jsonpickle)
+    output: Optional[str]  # Serialized
+    error: Optional[str]  # Serialized
+    child_workflow_id: Optional[str]
 
 
 class OperationResultInternal(TypedDict):
     workflow_uuid: str
     function_id: int
     function_name: str
-    output: Optional[str]  # JSON (jsonpickle)
-    error: Optional[str]  # JSON (jsonpickle)
+    output: Optional[str]  # Serialized
+    error: Optional[str]  # Serialized
+    started_at_epoch_ms: int
 
 
 class GetEventWorkflowContext(TypedDict):
@@ -182,50 +204,12 @@ class GetEventWorkflowContext(TypedDict):
     timeout_function_id: int
 
 
-class GetWorkflowsInput:
-    """
-    Structure for argument to `get_workflows` function.
-
-    This specifies the search criteria for workflow retrieval by `get_workflows`.
-    """
-
-    def __init__(self) -> None:
-        self.workflow_ids: Optional[List[str]] = (
-            None  # Search only in these workflow IDs
-        )
-        self.name: Optional[str] = None  # The name of the workflow function
-        self.authenticated_user: Optional[str] = None  # The user who ran the workflow.
-        self.start_time: Optional[str] = None  # Timestamp in ISO 8601 format
-        self.end_time: Optional[str] = None  # Timestamp in ISO 8601 format
-        self.status: Optional[List[str]] = (
-            None  # Get workflows with one of these statuses
-        )
-        self.application_version: Optional[str] = (
-            None  # The application version that ran this workflow. = None
-        )
-        self.limit: Optional[int] = (
-            None  # Return up to this many workflows IDs. IDs are ordered by workflow creation time.
-        )
-        self.offset: Optional[int] = (
-            None  # Offset into the matching records for pagination
-        )
-        self.sort_desc: bool = (
-            False  # If true, sort by created_at in DESC order. Default false (in ASC order).
-        )
-        self.workflow_id_prefix: Optional[str] = (
-            None  # If set, search for workflow IDs starting with this string
-        )
-
-
-class GetQueuedWorkflowsInput(TypedDict):
-    queue_name: Optional[str]  # Get workflows belonging to this queue
-    status: Optional[list[str]]  # Get workflows with one of these statuses
-    start_time: Optional[str]  # Timestamp in ISO 8601 format
-    end_time: Optional[str]  # Timestamp in ISO 8601 format
-    limit: Optional[int]  # Return up to this many workflows IDs.
-    offset: Optional[int]  # Offset into the matching records for pagination
-    name: Optional[str]  # The name of the workflow function
-    sort_desc: Optional[bool]  # Sort by created_at in DESC or ASC order
+class ExportedWorkflow(TypedDict):
+    workflow_status: dict[str, Any]
+    operation_outputs: list[dict[str, Any]]
+    workflow_events: list[dict[str, Any]]
+    workflow_events_history: list[dict[str, Any]]
+    streams: list[dict[str, Any]]
 
 
 class GetPendingWorkflowsOutput:
@@ -245,6 +229,10 @@ class StepInfo(TypedDict):
     error: Optional[Exception]
     # If the step starts or retrieves the result of a workflow, its ID
     child_workflow_id: Optional[str]
+    # The Unix epoch timestamp at which this step started
+    started_at_epoch_ms: Optional[int]
+    # The Unix epoch timestamp at which this step completed
+    completed_at_epoch_ms: Optional[int]
 
 
 _dbos_null_topic = "__null__topic__"
@@ -341,26 +329,102 @@ def db_retry(
 
 class SystemDatabase(ABC):
 
+    @staticmethod
+    def create(
+        system_database_url: str,
+        engine_kwargs: Dict[str, Any],
+        engine: Optional[sa.Engine],
+        schema: Optional[str],
+        serializer: Serializer,
+        executor_id: Optional[str],
+        use_listen_notify: bool = True,
+    ) -> "SystemDatabase":
+        """Factory method to create the appropriate SystemDatabase implementation based on URL."""
+        if system_database_url.startswith("sqlite"):
+            from ._sys_db_sqlite import SQLiteSystemDatabase
+
+            return SQLiteSystemDatabase(
+                system_database_url=system_database_url,
+                engine_kwargs=engine_kwargs,
+                engine=engine,
+                schema=schema,
+                serializer=serializer,
+                executor_id=executor_id,
+                use_listen_notify=use_listen_notify,
+            )
+        else:
+            from ._sys_db_postgres import PostgresSystemDatabase
+
+            return PostgresSystemDatabase(
+                system_database_url=system_database_url,
+                engine_kwargs=engine_kwargs,
+                engine=engine,
+                schema=schema,
+                serializer=serializer,
+                executor_id=executor_id,
+                use_listen_notify=use_listen_notify,
+            )
+
     def __init__(
         self,
         *,
         system_database_url: str,
         engine_kwargs: Dict[str, Any],
-        debug_mode: bool = False,
+        engine: Optional[sa.Engine],
+        schema: Optional[str],
+        serializer: Serializer,
+        executor_id: Optional[str],
+        use_listen_notify: bool = True,
     ):
         import sqlalchemy.dialects.postgresql as pg
         import sqlalchemy.dialects.sqlite as sq
 
+        # Log system database connection information
+        if engine:
+            dbos_logger.info("Initializing DBOS system database with custom engine")
+        else:
+            printable_sys_db_url = sa.make_url(system_database_url).render_as_string(
+                hide_password=True
+            )
+            dbos_logger.info(
+                f"Initializing DBOS system database with URL: {printable_sys_db_url}"
+            )
+            if system_database_url.startswith("sqlite"):
+                dbos_logger.info(
+                    f"Using SQLite as a system database. The SQLite system database is for development and testing. PostgreSQL is recommended for production use."
+                )
+            else:
+                dbos_logger.info(
+                    f"DBOS system database engine parameters: {engine_kwargs}"
+                )
+
+        # Configure and initialize the system database
         self.dialect = sq if system_database_url.startswith("sqlite") else pg
-        self.engine = self._create_engine(system_database_url, engine_kwargs)
+        self.serializer = serializer
+        self.use_listen_notify = use_listen_notify
+
+        if system_database_url.startswith("sqlite"):
+            self.schema = None
+        else:
+            self.schema = schema if schema else "dbos"
+        SystemSchema.set_schema(self.schema)
+
+        if engine:
+            self.engine = engine
+            self.created_engine = False
+        else:
+            self.engine = self._create_engine(system_database_url, engine_kwargs)
+            self.created_engine = True
         self._engine_kwargs = engine_kwargs
 
         self.notifications_map = ThreadSafeConditionDict()
         self.workflow_events_map = ThreadSafeConditionDict()
+        self.executor_id = executor_id
+
+        self._listener_thread_lock = threading.Lock()
 
         # Now we can run background processes
         self._run_background_processes = True
-        self._debug_mode = debug_mode
 
     @abstractmethod
     def _create_engine(
@@ -391,12 +455,15 @@ class SystemDatabase(ABC):
         conn: sa.Connection,
         *,
         max_recovery_attempts: Optional[int],
-    ) -> tuple[WorkflowStatuses, Optional[int]]:
+        owner_xid: Optional[str],
+        is_recovery_request: Optional[bool],
+        is_dequeued_request: Optional[bool],
+    ) -> tuple[WorkflowStatuses, Optional[int], bool]:
         """Insert or update workflow status using PostgreSQL upsert operations."""
-        if self._debug_mode:
-            raise Exception("called insert_workflow_status in debug mode")
         wf_status: WorkflowStatuses = status["status"]
         workflow_deadline_epoch_ms: Optional[int] = status["workflow_deadline_epoch_ms"]
+        force_execute = is_recovery_request or is_dequeued_request
+        should_execute = True
 
         # Values to update when a row already exists for this workflow
         update_values: dict[str, Any] = {
@@ -404,7 +471,8 @@ class SystemDatabase(ABC):
                 (
                     SystemSchema.workflow_status.c.status
                     != WorkflowStatusString.ENQUEUED.value,
-                    SystemSchema.workflow_status.c.recovery_attempts + 1,
+                    SystemSchema.workflow_status.c.recovery_attempts
+                    + (1 if force_execute else 0),
                 ),
                 else_=SystemSchema.workflow_status.c.recovery_attempts,
             ),
@@ -439,6 +507,8 @@ class SystemDatabase(ABC):
                 deduplication_id=status["deduplication_id"],
                 priority=status["priority"],
                 inputs=status["inputs"],
+                queue_partition_key=status["queue_partition_key"],
+                owner_xid=owner_xid,
             )
             .on_conflict_do_update(
                 index_elements=["workflow_uuid"],
@@ -454,6 +524,7 @@ class SystemDatabase(ABC):
             SystemSchema.workflow_status.c.class_name,
             SystemSchema.workflow_status.c.config_name,
             SystemSchema.workflow_status.c.queue_name,
+            SystemSchema.workflow_status.c.owner_xid,
         )
 
         try:
@@ -470,6 +541,7 @@ class SystemDatabase(ABC):
                 )
             else:
                 raise
+
         row = results.fetchone()
         if row is not None:
             # Check the started workflow matches the expected name, class_name, config_name, and queue_name
@@ -498,6 +570,7 @@ class SystemDatabase(ABC):
                 (wf_status != "SUCCESS" and wf_status != "ERROR")
                 and max_recovery_attempts is not None
                 and recovery_attempts > max_recovery_attempts + 1
+                and owner_xid != row[7]
             ):
                 dlq_cmd = (
                     sa.update(SystemSchema.workflow_status)
@@ -523,7 +596,14 @@ class SystemDatabase(ABC):
                     status["workflow_uuid"], max_recovery_attempts
                 )
 
-        return wf_status, workflow_deadline_epoch_ms
+            if (
+                owner_xid != row[7]
+                and not is_dequeued_request
+                and not is_recovery_request
+            ):
+                should_execute = False
+
+        return wf_status, workflow_deadline_epoch_ms, should_execute
 
     @db_retry()
     def update_workflow_outcome(
@@ -534,8 +614,6 @@ class SystemDatabase(ABC):
         output: Optional[str] = None,
         error: Optional[str] = None,
     ) -> None:
-        if self._debug_mode:
-            raise Exception("called update_workflow_status in debug mode")
         with self.engine.begin() as c:
             c.execute(
                 sa.update(SystemSchema.workflow_status)
@@ -554,8 +632,6 @@ class SystemDatabase(ABC):
         self,
         workflow_id: str,
     ) -> None:
-        if self._debug_mode:
-            raise Exception("called cancel_workflow in debug mode")
         with self.engine.begin() as c:
             # Check the status of the workflow. If it is complete, do nothing.
             row = c.execute(
@@ -582,8 +658,6 @@ class SystemDatabase(ABC):
             )
 
     def resume_workflow(self, workflow_id: str) -> None:
-        if self._debug_mode:
-            raise Exception("called resume_workflow in debug mode")
         with self.engine.begin() as c:
             # Execute with snapshot isolation in case of concurrent calls on the same workflow
             if self.engine.dialect.name == "postgresql":
@@ -616,6 +690,15 @@ class SystemDatabase(ABC):
                 )
             )
 
+    def delete_workflows(self, workflow_ids: list[str]) -> None:
+        """Delete workflows and all associated data from the system database."""
+        with self.engine.begin() as c:
+            c.execute(
+                sa.delete(SystemSchema.workflow_status).where(
+                    SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids)
+                )
+            )
+
     def fork_workflow(
         self,
         original_workflow_id: str,
@@ -639,49 +722,136 @@ class SystemDatabase(ABC):
                     name=status["name"],
                     class_name=status["class_name"],
                     config_name=status["config_name"],
-                    application_version=(
-                        application_version
-                        if application_version is not None
-                        else status["app_version"]
-                    ),
+                    application_version=application_version,
                     application_id=status["app_id"],
                     authenticated_user=status["authenticated_user"],
                     authenticated_roles=status["authenticated_roles"],
                     assumed_role=status["assumed_role"],
                     queue_name=INTERNAL_QUEUE_NAME,
                     inputs=status["inputs"],
+                    forked_from=original_workflow_id,
                 )
             )
 
             if start_step > 1:
+                # Copy the original workflow's step checkpoints
+                c.execute(
+                    sa.insert(SystemSchema.operation_outputs).from_select(
+                        [
+                            "workflow_uuid",
+                            "function_id",
+                            "output",
+                            "error",
+                            "function_name",
+                            "child_workflow_id",
+                            "started_at_epoch_ms",
+                            "completed_at_epoch_ms",
+                        ],
+                        sa.select(
+                            sa.literal(forked_workflow_id).label("workflow_uuid"),
+                            SystemSchema.operation_outputs.c.function_id,
+                            SystemSchema.operation_outputs.c.output,
+                            SystemSchema.operation_outputs.c.error,
+                            SystemSchema.operation_outputs.c.function_name,
+                            SystemSchema.operation_outputs.c.child_workflow_id,
+                            SystemSchema.operation_outputs.c.started_at_epoch_ms,
+                            SystemSchema.operation_outputs.c.completed_at_epoch_ms,
+                        ).where(
+                            (
+                                SystemSchema.operation_outputs.c.workflow_uuid
+                                == original_workflow_id
+                            )
+                            & (
+                                SystemSchema.operation_outputs.c.function_id
+                                < start_step
+                            )
+                        ),
+                    )
+                )
+                # Copy the original workflow's events
+                c.execute(
+                    sa.insert(SystemSchema.workflow_events_history).from_select(
+                        [
+                            "workflow_uuid",
+                            "function_id",
+                            "key",
+                            "value",
+                        ],
+                        sa.select(
+                            sa.literal(forked_workflow_id).label("workflow_uuid"),
+                            SystemSchema.workflow_events_history.c.function_id,
+                            SystemSchema.workflow_events_history.c.key,
+                            SystemSchema.workflow_events_history.c.value,
+                        ).where(
+                            (
+                                SystemSchema.workflow_events_history.c.workflow_uuid
+                                == original_workflow_id
+                            )
+                            & (
+                                SystemSchema.workflow_events_history.c.function_id
+                                < start_step
+                            )
+                        ),
+                    )
+                )
+                # Copy only the latest version of each workflow event from the history table
+                # (the one with the maximum function_id for each key where function_id < start_step)
+                weh1 = SystemSchema.workflow_events_history.alias("weh1")
+                weh2 = SystemSchema.workflow_events_history.alias("weh2")
 
-                # Copy the original workflow's outputs into the forked workflow
-                insert_stmt = sa.insert(SystemSchema.operation_outputs).from_select(
-                    [
-                        "workflow_uuid",
-                        "function_id",
-                        "output",
-                        "error",
-                        "function_name",
-                        "child_workflow_id",
-                    ],
-                    sa.select(
-                        sa.literal(forked_workflow_id).label("workflow_uuid"),
-                        SystemSchema.operation_outputs.c.function_id,
-                        SystemSchema.operation_outputs.c.output,
-                        SystemSchema.operation_outputs.c.error,
-                        SystemSchema.operation_outputs.c.function_name,
-                        SystemSchema.operation_outputs.c.child_workflow_id,
-                    ).where(
-                        (
-                            SystemSchema.operation_outputs.c.workflow_uuid
-                            == original_workflow_id
-                        )
-                        & (SystemSchema.operation_outputs.c.function_id < start_step)
-                    ),
+                max_function_id_subquery = (
+                    sa.select(sa.func.max(weh2.c.function_id))
+                    .where(
+                        (weh2.c.workflow_uuid == original_workflow_id)
+                        & (weh2.c.key == weh1.c.key)
+                        & (weh2.c.function_id < start_step)
+                    )
+                    .scalar_subquery()
                 )
 
-                c.execute(insert_stmt)
+                c.execute(
+                    sa.insert(SystemSchema.workflow_events).from_select(
+                        [
+                            "workflow_uuid",
+                            "key",
+                            "value",
+                        ],
+                        sa.select(
+                            sa.literal(forked_workflow_id).label("workflow_uuid"),
+                            weh1.c.key,
+                            weh1.c.value,
+                        ).where(
+                            (weh1.c.workflow_uuid == original_workflow_id)
+                            & (weh1.c.function_id == max_function_id_subquery)
+                        ),
+                    )
+                )
+                # Copy the original workflow's streams
+                c.execute(
+                    sa.insert(SystemSchema.streams).from_select(
+                        [
+                            "workflow_uuid",
+                            "function_id",
+                            "key",
+                            "value",
+                            "offset",
+                        ],
+                        sa.select(
+                            sa.literal(forked_workflow_id).label("workflow_uuid"),
+                            SystemSchema.streams.c.function_id,
+                            SystemSchema.streams.c.key,
+                            SystemSchema.streams.c.value,
+                            SystemSchema.streams.c.offset,
+                        ).where(
+                            (
+                                SystemSchema.streams.c.workflow_uuid
+                                == original_workflow_id
+                            )
+                            & (SystemSchema.streams.c.function_id < start_step)
+                        ),
+                    )
+                )
+
         return forked_workflow_id
 
     @db_retry()
@@ -710,6 +880,8 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.deduplication_id,
                     SystemSchema.workflow_status.c.priority,
                     SystemSchema.workflow_status.c.inputs,
+                    SystemSchema.workflow_status.c.queue_partition_key,
+                    SystemSchema.workflow_status.c.forked_from,
                 ).where(SystemSchema.workflow_status.c.workflow_uuid == workflow_uuid)
             ).fetchone()
             if row is None:
@@ -737,6 +909,9 @@ class SystemDatabase(ABC):
                 "deduplication_id": row[16],
                 "priority": row[17],
                 "inputs": row[18],
+                "queue_partition_key": row[19],
+                "forked_from": row[20],
+                "owner_xid": None,
             }
             return status
 
@@ -768,7 +943,7 @@ class SystemDatabase(ABC):
             return workflow_id
 
     @db_retry()
-    def await_workflow_result(self, workflow_id: str) -> Any:
+    def await_workflow_result(self, workflow_id: str, polling_interval: float) -> Any:
         while True:
             with self.engine.begin() as c:
                 row = c.execute(
@@ -782,28 +957,49 @@ class SystemDatabase(ABC):
                     status = row[0]
                     if status == WorkflowStatusString.SUCCESS.value:
                         output = row[1]
-                        return _serialization.deserialize(output)
+                        return self.serializer.deserialize(output)
                     elif status == WorkflowStatusString.ERROR.value:
                         error = row[2]
-                        raise _serialization.deserialize_exception(error)
+                        e: Exception = self.serializer.deserialize(error)
+                        raise e
                     elif status == WorkflowStatusString.CANCELLED.value:
                         # Raise AwaitedWorkflowCancelledError here, not the cancellation exception
                         # because the awaiting workflow is not being cancelled.
                         raise DBOSAwaitedWorkflowCancelledError(workflow_id)
                 else:
                     pass  # CB: I guess we're assuming the WF will show up eventually.
-            time.sleep(1)
+            time.sleep(polling_interval)
 
-    def get_workflows(
+    def list_workflows(
         self,
-        input: GetWorkflowsInput,
         *,
+        workflow_ids: Optional[List[str]] = None,
+        status: Optional[Union[str, List[str]]] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        name: Optional[str] = None,
+        app_version: Optional[str] = None,
+        forked_from: Optional[str] = None,
+        user: Optional[str] = None,
+        queue_name: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        sort_desc: bool = False,
+        workflow_id_prefix: Optional[str] = None,
         load_input: bool = True,
         load_output: bool = True,
+        executor_id: Optional[str] = None,
+        queues_only: bool = False,
     ) -> List[WorkflowStatus]:
         """
-        Retrieve a list of workflows result and inputs based on the input criteria. The result is a list of external-facing workflow status objects.
+        Retrieve a list of workflows based on the search criteria.
+        Returns a list of WorkflowStatus objects.
         """
+        # Normalize status to a list
+        status_list: Optional[List[str]] = (
+            status if status is None or isinstance(status, list) else [status]
+        )
+
         load_columns = [
             SystemSchema.workflow_status.c.workflow_uuid,
             SystemSchema.workflow_status.c.status,
@@ -822,6 +1018,10 @@ class SystemDatabase(ABC):
             SystemSchema.workflow_status.c.application_id,
             SystemSchema.workflow_status.c.workflow_deadline_epoch_ms,
             SystemSchema.workflow_status.c.workflow_timeout_ms,
+            SystemSchema.workflow_status.c.deduplication_id,
+            SystemSchema.workflow_status.c.priority,
+            SystemSchema.workflow_status.c.queue_partition_key,
+            SystemSchema.workflow_status.c.forked_from,
         ]
         if load_input:
             load_columns.append(SystemSchema.workflow_status.c.inputs)
@@ -829,49 +1029,66 @@ class SystemDatabase(ABC):
             load_columns.append(SystemSchema.workflow_status.c.output)
             load_columns.append(SystemSchema.workflow_status.c.error)
 
-        query = sa.select(*load_columns)
-        if input.sort_desc:
+        if queues_only:
+            query = sa.select(*load_columns).where(
+                SystemSchema.workflow_status.c.queue_name.isnot(None),
+            )
+            if not status_list:
+                query = query.where(
+                    SystemSchema.workflow_status.c.status.in_(["ENQUEUED", "PENDING"])
+                )
+        else:
+            query = sa.select(*load_columns)
+        if sort_desc:
             query = query.order_by(SystemSchema.workflow_status.c.created_at.desc())
         else:
             query = query.order_by(SystemSchema.workflow_status.c.created_at.asc())
-        if input.name:
-            query = query.where(SystemSchema.workflow_status.c.name == input.name)
-        if input.authenticated_user:
+        if name:
+            query = query.where(SystemSchema.workflow_status.c.name == name)
+        if user:
             query = query.where(
-                SystemSchema.workflow_status.c.authenticated_user
-                == input.authenticated_user
+                SystemSchema.workflow_status.c.authenticated_user == user
             )
-        if input.start_time:
-            query = query.where(
-                SystemSchema.workflow_status.c.created_at
-                >= datetime.datetime.fromisoformat(input.start_time).timestamp() * 1000
-            )
-        if input.end_time:
+        if start_time:
             query = query.where(
                 SystemSchema.workflow_status.c.created_at
-                <= datetime.datetime.fromisoformat(input.end_time).timestamp() * 1000
+                >= datetime.datetime.fromisoformat(start_time).timestamp() * 1000
             )
-        if input.status:
-            query = query.where(SystemSchema.workflow_status.c.status.in_(input.status))
-        if input.application_version:
+        if end_time:
             query = query.where(
-                SystemSchema.workflow_status.c.application_version
-                == input.application_version
+                SystemSchema.workflow_status.c.created_at
+                <= datetime.datetime.fromisoformat(end_time).timestamp() * 1000
             )
-        if input.workflow_ids:
+        if status_list:
+            query = query.where(SystemSchema.workflow_status.c.status.in_(status_list))
+        if app_version:
             query = query.where(
-                SystemSchema.workflow_status.c.workflow_uuid.in_(input.workflow_ids)
+                SystemSchema.workflow_status.c.application_version == app_version
             )
-        if input.workflow_id_prefix:
+        if forked_from:
+            query = query.where(
+                SystemSchema.workflow_status.c.forked_from == forked_from
+            )
+        if workflow_ids:
+            query = query.where(
+                SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids)
+            )
+        if workflow_id_prefix:
             query = query.where(
                 SystemSchema.workflow_status.c.workflow_uuid.startswith(
-                    input.workflow_id_prefix
+                    workflow_id_prefix, autoescape=True
                 )
             )
-        if input.limit:
-            query = query.limit(input.limit)
-        if input.offset:
-            query = query.offset(input.offset)
+        if queue_name:
+            query = query.where(SystemSchema.workflow_status.c.queue_name == queue_name)
+        if executor_id:
+            query = query.where(
+                SystemSchema.workflow_status.c.executor_id == executor_id
+            )
+        if limit:
+            query = query.limit(limit)
+        if offset:
+            query = query.offset(offset)
 
         with self.engine.begin() as c:
             rows = c.execute(query).fetchall()
@@ -898,11 +1115,19 @@ class SystemDatabase(ABC):
             info.app_id = row[14]
             info.workflow_deadline_epoch_ms = row[15]
             info.workflow_timeout_ms = row[16]
+            info.deduplication_id = row[17]
+            info.priority = row[18]
+            info.queue_partition_key = row[19]
+            info.forked_from = row[20]
 
-            raw_input = row[17] if load_input else None
-            raw_output = row[18] if load_output else None
-            raw_error = row[19] if load_output else None
-            inputs, output, exception = _serialization.safe_deserialize(
+            idx = 21
+            raw_input = row[idx] if load_input else None
+            if load_input:
+                idx += 1
+            raw_output = row[idx] if load_output else None
+            raw_error = row[idx + 1] if load_output else None
+            inputs, output, exception = safe_deserialize(
+                self.serializer,
                 info.workflow_id,
                 serialized_input=raw_input,
                 serialized_output=raw_output,
@@ -913,118 +1138,6 @@ class SystemDatabase(ABC):
             info.error = exception
 
             infos.append(info)
-        return infos
-
-    def get_queued_workflows(
-        self,
-        input: GetQueuedWorkflowsInput,
-        *,
-        load_input: bool = True,
-    ) -> List[WorkflowStatus]:
-        """
-        Retrieve a list of queued workflows result and inputs based on the input criteria. The result is a list of external-facing workflow status objects.
-        """
-        load_columns = [
-            SystemSchema.workflow_status.c.workflow_uuid,
-            SystemSchema.workflow_status.c.status,
-            SystemSchema.workflow_status.c.name,
-            SystemSchema.workflow_status.c.recovery_attempts,
-            SystemSchema.workflow_status.c.config_name,
-            SystemSchema.workflow_status.c.class_name,
-            SystemSchema.workflow_status.c.authenticated_user,
-            SystemSchema.workflow_status.c.authenticated_roles,
-            SystemSchema.workflow_status.c.assumed_role,
-            SystemSchema.workflow_status.c.queue_name,
-            SystemSchema.workflow_status.c.executor_id,
-            SystemSchema.workflow_status.c.created_at,
-            SystemSchema.workflow_status.c.updated_at,
-            SystemSchema.workflow_status.c.application_version,
-            SystemSchema.workflow_status.c.application_id,
-            SystemSchema.workflow_status.c.workflow_deadline_epoch_ms,
-            SystemSchema.workflow_status.c.workflow_timeout_ms,
-        ]
-        if load_input:
-            load_columns.append(SystemSchema.workflow_status.c.inputs)
-
-        query = sa.select(*load_columns).where(
-            sa.and_(
-                SystemSchema.workflow_status.c.queue_name.isnot(None),
-                SystemSchema.workflow_status.c.status.in_(["ENQUEUED", "PENDING"]),
-            )
-        )
-        if input["sort_desc"]:
-            query = query.order_by(SystemSchema.workflow_status.c.created_at.desc())
-        else:
-            query = query.order_by(SystemSchema.workflow_status.c.created_at.asc())
-
-        if input.get("name"):
-            query = query.where(SystemSchema.workflow_status.c.name == input["name"])
-
-        if input.get("queue_name"):
-            query = query.where(
-                SystemSchema.workflow_status.c.queue_name == input["queue_name"]
-            )
-
-        status = input.get("status", None)
-        if status:
-            query = query.where(SystemSchema.workflow_status.c.status.in_(status))
-        if "start_time" in input and input["start_time"] is not None:
-            query = query.where(
-                SystemSchema.workflow_status.c.created_at
-                >= datetime.datetime.fromisoformat(input["start_time"]).timestamp()
-                * 1000
-            )
-        if "end_time" in input and input["end_time"] is not None:
-            query = query.where(
-                SystemSchema.workflow_status.c.created_at
-                <= datetime.datetime.fromisoformat(input["end_time"]).timestamp() * 1000
-            )
-        if input.get("limit"):
-            query = query.limit(input["limit"])
-        if input.get("offset"):
-            query = query.offset(input["offset"])
-
-        with self.engine.begin() as c:
-            rows = c.execute(query).fetchall()
-
-        infos: List[WorkflowStatus] = []
-        for row in rows:
-            info = WorkflowStatus()
-            info.workflow_id = row[0]
-            info.status = row[1]
-            info.name = row[2]
-            info.recovery_attempts = row[3]
-            info.config_name = row[4]
-            info.class_name = row[5]
-            info.authenticated_user = row[6]
-            info.authenticated_roles = (
-                json.loads(row[7]) if row[7] is not None else None
-            )
-            info.assumed_role = row[8]
-            info.queue_name = row[9]
-            info.executor_id = row[10]
-            info.created_at = row[11]
-            info.updated_at = row[12]
-            info.app_version = row[13]
-            info.app_id = row[14]
-            info.workflow_deadline_epoch_ms = row[15]
-            info.workflow_timeout_ms = row[16]
-
-            raw_input = row[17] if load_input else None
-
-            # Error and Output are not loaded because they should always be None for queued workflows.
-            inputs, output, exception = _serialization.safe_deserialize(
-                info.workflow_id,
-                serialized_input=raw_input,
-                serialized_output=None,
-                serialized_exception=None,
-            )
-            info.input = inputs
-            info.output = output
-            info.error = exception
-
-            infos.append(info)
-
         return infos
 
     def get_pending_workflows(
@@ -1051,7 +1164,7 @@ class SystemDatabase(ABC):
                 for row in rows
             ]
 
-    def get_workflow_steps(self, workflow_id: str) -> List[StepInfo]:
+    def list_workflow_steps(self, workflow_id: str) -> List[StepInfo]:
         with self.engine.begin() as c:
             rows = c.execute(
                 sa.select(
@@ -1060,53 +1173,110 @@ class SystemDatabase(ABC):
                     SystemSchema.operation_outputs.c.output,
                     SystemSchema.operation_outputs.c.error,
                     SystemSchema.operation_outputs.c.child_workflow_id,
-                ).where(SystemSchema.operation_outputs.c.workflow_uuid == workflow_id)
+                    SystemSchema.operation_outputs.c.started_at_epoch_ms,
+                    SystemSchema.operation_outputs.c.completed_at_epoch_ms,
+                )
+                .where(SystemSchema.operation_outputs.c.workflow_uuid == workflow_id)
+                .order_by(SystemSchema.operation_outputs.c.function_id)
             ).fetchall()
-            return [
-                StepInfo(
+            steps = []
+            for row in rows:
+                _, output, exception = safe_deserialize(
+                    self.serializer,
+                    workflow_id,
+                    serialized_input=None,
+                    serialized_output=row[2],
+                    serialized_exception=row[3],
+                )
+                step = StepInfo(
                     function_id=row[0],
                     function_name=row[1],
-                    output=(
-                        _serialization.deserialize(row[2])
-                        if row[2] is not None
-                        else row[2]
-                    ),
-                    error=(
-                        _serialization.deserialize_exception(row[3])
-                        if row[3] is not None
-                        else row[3]
-                    ),
+                    output=output,
+                    error=exception,
                     child_workflow_id=row[4],
+                    started_at_epoch_ms=row[5],
+                    completed_at_epoch_ms=row[6],
                 )
-                for row in rows
-            ]
+                steps.append(step)
+            return steps
 
     def _record_operation_result_txn(
-        self, result: OperationResultInternal, conn: sa.Connection
+        self,
+        result: OperationResultInternal,
+        completed_at_epoch_ms: int,
+        conn: sa.Connection,
     ) -> None:
-        if self._debug_mode:
-            raise Exception("called record_operation_result in debug mode")
         error = result["error"]
         output = result["output"]
         assert error is None or output is None, "Only one of error or output can be set"
-        sql = sa.insert(SystemSchema.operation_outputs).values(
-            workflow_uuid=result["workflow_uuid"],
-            function_id=result["function_id"],
-            function_name=result["function_name"],
-            output=output,
-            error=error,
-        )
+
+        # Check if the executor ID belong to another process.
+        # Reset it to this process's executor ID if so.
+        wf_executor_id_row = conn.execute(
+            sa.select(
+                SystemSchema.workflow_status.c.executor_id,
+            ).where(
+                SystemSchema.workflow_status.c.workflow_uuid == result["workflow_uuid"]
+            )
+        ).fetchone()
+        assert wf_executor_id_row is not None
+        wf_executor_id = wf_executor_id_row[0]
+        if self.executor_id is not None and wf_executor_id != self.executor_id:
+            dbos_logger.debug(
+                f'Resetting executor_id from {wf_executor_id} to {self.executor_id} for workflow {result["workflow_uuid"]}'
+            )
+            conn.execute(
+                sa.update(SystemSchema.workflow_status)
+                .values(executor_id=self.executor_id)
+                .where(
+                    SystemSchema.workflow_status.c.workflow_uuid
+                    == result["workflow_uuid"]
+                )
+            )
+
+        # Record the outcome, throwing DBOSWorkflowConflictIDError if it is already present
         try:
-            conn.execute(sql)
+            stmt = (
+                self.dialect.insert(SystemSchema.operation_outputs)
+                .values(
+                    workflow_uuid=result["workflow_uuid"],
+                    function_id=result["function_id"],
+                    function_name=result["function_name"],
+                    started_at_epoch_ms=result["started_at_epoch_ms"],
+                    completed_at_epoch_ms=completed_at_epoch_ms,
+                    output=output,
+                    error=error,
+                )
+                .on_conflict_do_nothing(
+                    index_elements=[
+                        SystemSchema.operation_outputs.c.workflow_uuid,
+                        SystemSchema.operation_outputs.c.function_id,
+                    ]
+                )
+                .returning(SystemSchema.operation_outputs.c.completed_at_epoch_ms)
+            )
+
+            res = conn.execute(stmt)
+            rows = res.fetchall()
+            if len(rows) > 0 and int(rows[0][0]) != completed_at_epoch_ms:
+                raise DBOSWorkflowConflictIDError(result["workflow_uuid"])
+
         except DBAPIError as dbapi_error:
             if self._is_unique_constraint_violation(dbapi_error):
                 raise DBOSWorkflowConflictIDError(result["workflow_uuid"])
             raise
 
-    @db_retry()
     def record_operation_result(self, result: OperationResultInternal) -> None:
+        completed_at_epoch_ms = int(time.time() * 1000)
+        self._record_operation_result_retry(result, completed_at_epoch_ms)
+
+    @db_retry()
+    def _record_operation_result_retry(
+        self, result: OperationResultInternal, completed_at_epoch_ms: int
+    ) -> None:
         with self.engine.begin() as c:
-            self._record_operation_result_txn(result, c)
+            self._record_operation_result_txn(result, completed_at_epoch_ms, c)
+        DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_STEP_COMMIT)
 
     @db_retry()
     def record_get_result(
@@ -1142,9 +1312,6 @@ class SystemDatabase(ABC):
         functionID: int,
         functionName: str,
     ) -> None:
-        if self._debug_mode:
-            raise Exception("called record_child_workflow in debug mode")
-
         sql = sa.insert(SystemSchema.operation_outputs).values(
             workflow_uuid=parentUUID,
             function_id=functionID,
@@ -1186,6 +1353,7 @@ class SystemDatabase(ABC):
             SystemSchema.operation_outputs.c.output,
             SystemSchema.operation_outputs.c.error,
             SystemSchema.operation_outputs.c.function_name,
+            SystemSchema.operation_outputs.c.child_workflow_id,
         ).where(
             (SystemSchema.operation_outputs.c.workflow_uuid == workflow_id)
             & (SystemSchema.operation_outputs.c.function_id == function_id)
@@ -1214,10 +1382,11 @@ class SystemDatabase(ABC):
             return None
 
         # Extract operation output data
-        output, error, recorded_function_name = (
+        output, error, recorded_function_name, child_workflow_id = (
             operation_output_rows[0][0],
             operation_output_rows[0][1],
             operation_output_rows[0][2],
+            operation_output_rows[0][3],
         )
 
         # If the provided and recorded function name are different, throw an exception
@@ -1232,6 +1401,7 @@ class SystemDatabase(ABC):
         result: RecordedResult = {
             "output": output,
             "error": error,
+            "child_workflow_id": child_workflow_id,
         }
         return result
 
@@ -1245,30 +1415,6 @@ class SystemDatabase(ABC):
             )
 
     @db_retry()
-    def check_child_workflow(
-        self, workflow_uuid: str, function_id: int
-    ) -> Optional[str]:
-        sql = sa.select(
-            SystemSchema.operation_outputs.c.child_workflow_id,
-            SystemSchema.operation_outputs.c.error,
-        ).where(
-            SystemSchema.operation_outputs.c.workflow_uuid == workflow_uuid,
-            SystemSchema.operation_outputs.c.function_id == function_id,
-        )
-
-        # If in a transaction, use the provided connection
-        row: Any
-        with self.engine.begin() as c:
-            row = c.execute(sql).fetchone()
-
-        if row is None:
-            return None
-        elif row[1]:
-            raise _serialization.deserialize_exception(row[1])
-        else:
-            return str(row[0])
-
-    @db_retry()
     def send(
         self,
         workflow_uuid: str,
@@ -1278,16 +1424,12 @@ class SystemDatabase(ABC):
         topic: Optional[str] = None,
     ) -> None:
         function_name = "DBOS.send"
+        start_time = int(time.time() * 1000)
         topic = topic if topic is not None else _dbos_null_topic
         with self.engine.begin() as c:
             recorded_output = self._check_operation_execution_txn(
                 workflow_uuid, function_id, function_name, conn=c
             )
-            if self._debug_mode and recorded_output is None:
-                raise Exception(
-                    "called send in debug mode without a previous execution"
-                )
-
             if recorded_output is not None:
                 dbos_logger.debug(
                     f"Replaying send, id: {function_id}, destination_uuid: {destination_uuid}, topic: {topic}"
@@ -1303,21 +1445,24 @@ class SystemDatabase(ABC):
                     sa.insert(SystemSchema.notifications).values(
                         destination_uuid=destination_uuid,
                         topic=topic,
-                        message=_serialization.serialize(message),
+                        message=self.serializer.serialize(message),
                     )
                 )
             except DBAPIError as dbapi_error:
                 if self._is_foreign_key_violation(dbapi_error):
-                    raise DBOSNonExistentWorkflowError(destination_uuid)
+                    raise DBOSNonExistentWorkflowError(
+                        "`send` destination", destination_uuid
+                    )
                 raise
             output: OperationResultInternal = {
                 "workflow_uuid": workflow_uuid,
                 "function_id": function_id,
                 "function_name": function_name,
+                "started_at_epoch_ms": start_time,
                 "output": None,
                 "error": None,
             }
-            self._record_operation_result_txn(output, conn=c)
+            self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
 
     @db_retry()
     def recv(
@@ -1329,18 +1474,17 @@ class SystemDatabase(ABC):
         timeout_seconds: float = 60,
     ) -> Any:
         function_name = "DBOS.recv"
+        start_time = int(time.time() * 1000)
         topic = topic if topic is not None else _dbos_null_topic
 
         # First, check for previous executions.
         recorded_output = self.check_operation_execution(
             workflow_uuid, function_id, function_name
         )
-        if self._debug_mode and recorded_output is None:
-            raise Exception("called recv in debug mode without a previous execution")
         if recorded_output is not None:
             dbos_logger.debug(f"Replaying recv, id: {function_id}, topic: {topic}")
             if recorded_output["output"] is not None:
-                return _serialization.deserialize(recorded_output["output"])
+                return self.serializer.deserialize(recorded_output["output"])
             else:
                 raise Exception("No output recorded in the last recv")
         else:
@@ -1407,17 +1551,19 @@ class SystemDatabase(ABC):
             rows = c.execute(delete_stmt).fetchall()
             message: Any = None
             if len(rows) > 0:
-                message = _serialization.deserialize(rows[0][0])
+                message = self.serializer.deserialize(rows[0][0])
             self._record_operation_result_txn(
                 {
                     "workflow_uuid": workflow_uuid,
                     "function_id": function_id,
                     "function_name": function_name,
-                    "output": _serialization.serialize(
+                    "started_at_epoch_ms": start_time,
+                    "output": self.serializer.serialize(
                         message
                     ),  # None will be serialized to 'null'
                     "error": None,
                 },
+                int(time.time() * 1000),
                 conn=c,
             )
         return message
@@ -1426,6 +1572,67 @@ class SystemDatabase(ABC):
     def _notification_listener(self) -> None:
         """Listen for database notifications using database-specific mechanisms."""
         pass
+
+    def _notification_listener_polling(self) -> None:
+        """Poll for notifications and workflow events"""
+
+        def split_payload(payload: str) -> Tuple[str, Optional[str]]:
+            """Split payload into components (first::second format)."""
+            if "::" in payload:
+                parts = payload.split("::", 1)
+                return parts[0], parts[1]
+            return payload, None
+
+        def signal_condition(condition_map: Any, payload: str) -> None:
+            """Signal a condition variable if it exists."""
+            condition = condition_map.get(payload)
+            if condition:
+                condition.acquire()
+                condition.notify_all()
+                condition.release()
+                dbos_logger.debug(f"Signaled condition for {payload}")
+
+        while self._run_background_processes:
+            try:
+                # Poll every second
+                time.sleep(1)
+
+                # Check all payloads in the notifications_map
+                for payload in list(self.notifications_map._dict.keys()):
+                    dest_uuid, topic = split_payload(payload)
+                    with self.engine.begin() as conn:
+                        result = conn.execute(
+                            sa.select(sa.literal(1))
+                            .where(
+                                SystemSchema.notifications.c.destination_uuid
+                                == dest_uuid,
+                                SystemSchema.notifications.c.topic == topic,
+                            )
+                            .limit(1)
+                        )
+                        if result.fetchone():
+                            signal_condition(self.notifications_map, payload)
+
+                # Check all payloads in the workflow_events_map
+                for payload in list(self.workflow_events_map._dict.keys()):
+                    workflow_uuid, key = split_payload(payload)
+                    with self.engine.begin() as conn:
+                        result = conn.execute(
+                            sa.select(sa.literal(1))
+                            .where(
+                                SystemSchema.workflow_events.c.workflow_uuid
+                                == workflow_uuid,
+                                SystemSchema.workflow_events.c.key == key,
+                            )
+                            .limit(1)
+                        )
+                        if result.fetchone():
+                            signal_condition(self.workflow_events_map, payload)
+
+            except Exception as e:
+                if self._run_background_processes:
+                    dbos_logger.warning(f"Notification poller error: {e}")
+                    time.sleep(1)
 
     @staticmethod
     def reset_system_database(database_url: str) -> None:
@@ -1439,30 +1646,6 @@ class SystemDatabase(ABC):
 
             PostgresSystemDatabase._reset_system_database(database_url)
 
-    @staticmethod
-    def create(
-        system_database_url: str,
-        engine_kwargs: Dict[str, Any],
-        debug_mode: bool = False,
-    ) -> "SystemDatabase":
-        """Factory method to create the appropriate SystemDatabase implementation based on URL."""
-        if system_database_url.startswith("sqlite"):
-            from ._sys_db_sqlite import SQLiteSystemDatabase
-
-            return SQLiteSystemDatabase(
-                system_database_url=system_database_url,
-                engine_kwargs=engine_kwargs,
-                debug_mode=debug_mode,
-            )
-        else:
-            from ._sys_db_postgres import PostgresSystemDatabase
-
-            return PostgresSystemDatabase(
-                system_database_url=system_database_url,
-                engine_kwargs=engine_kwargs,
-                debug_mode=debug_mode,
-            )
-
     @db_retry()
     def sleep(
         self,
@@ -1472,17 +1655,15 @@ class SystemDatabase(ABC):
         skip_sleep: bool = False,
     ) -> float:
         function_name = "DBOS.sleep"
+        start_time = int(time.time() * 1000)
         recorded_output = self.check_operation_execution(
             workflow_uuid, function_id, function_name
         )
         end_time: float
-        if self._debug_mode and recorded_output is None:
-            raise Exception("called sleep in debug mode without a previous execution")
-
         if recorded_output is not None:
             dbos_logger.debug(f"Replaying sleep, id: {function_id}, seconds: {seconds}")
             assert recorded_output["output"] is not None, "no recorded end time"
-            end_time = _serialization.deserialize(recorded_output["output"])
+            end_time = self.serializer.deserialize(recorded_output["output"])
         else:
             dbos_logger.debug(f"Running sleep, id: {function_id}, seconds: {seconds}")
             end_time = time.time() + seconds
@@ -1492,7 +1673,8 @@ class SystemDatabase(ABC):
                         "workflow_uuid": workflow_uuid,
                         "function_id": function_id,
                         "function_name": function_name,
-                        "output": _serialization.serialize(end_time),
+                        "started_at_epoch_ms": start_time,
+                        "output": self.serializer.serialize(end_time),
                         "error": None,
                     }
                 )
@@ -1504,7 +1686,7 @@ class SystemDatabase(ABC):
         return duration
 
     @db_retry()
-    def set_event(
+    def set_event_from_workflow(
         self,
         workflow_uuid: str,
         function_id: int,
@@ -1512,14 +1694,11 @@ class SystemDatabase(ABC):
         message: Any,
     ) -> None:
         function_name = "DBOS.setEvent"
+        start_time = int(time.time() * 1000)
         with self.engine.begin() as c:
             recorded_output = self._check_operation_execution_txn(
                 workflow_uuid, function_id, function_name, conn=c
             )
-            if self._debug_mode and recorded_output is None:
-                raise Exception(
-                    "called set_event in debug mode without a previous execution"
-                )
             if recorded_output is not None:
                 dbos_logger.debug(f"Replaying set_event, id: {function_id}, key: {key}")
                 return  # Already sent before
@@ -1530,21 +1709,94 @@ class SystemDatabase(ABC):
                 .values(
                     workflow_uuid=workflow_uuid,
                     key=key,
-                    value=_serialization.serialize(message),
+                    value=self.serializer.serialize(message),
                 )
                 .on_conflict_do_update(
                     index_elements=["workflow_uuid", "key"],
-                    set_={"value": _serialization.serialize(message)},
+                    set_={"value": self.serializer.serialize(message)},
+                )
+            )
+            c.execute(
+                self.dialect.insert(SystemSchema.workflow_events_history)
+                .values(
+                    workflow_uuid=workflow_uuid,
+                    function_id=function_id,
+                    key=key,
+                    value=self.serializer.serialize(message),
+                )
+                .on_conflict_do_update(
+                    index_elements=["workflow_uuid", "key", "function_id"],
+                    set_={"value": self.serializer.serialize(message)},
                 )
             )
             output: OperationResultInternal = {
                 "workflow_uuid": workflow_uuid,
                 "function_id": function_id,
                 "function_name": function_name,
+                "started_at_epoch_ms": start_time,
                 "output": None,
                 "error": None,
             }
-            self._record_operation_result_txn(output, conn=c)
+            self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
+
+    def set_event_from_step(
+        self,
+        workflow_uuid: str,
+        function_id: int,
+        key: str,
+        message: Any,
+    ) -> None:
+        with self.engine.begin() as c:
+            c.execute(
+                self.dialect.insert(SystemSchema.workflow_events)
+                .values(
+                    workflow_uuid=workflow_uuid,
+                    key=key,
+                    value=self.serializer.serialize(message),
+                )
+                .on_conflict_do_update(
+                    index_elements=["workflow_uuid", "key"],
+                    set_={"value": self.serializer.serialize(message)},
+                )
+            )
+            c.execute(
+                self.dialect.insert(SystemSchema.workflow_events_history)
+                .values(
+                    workflow_uuid=workflow_uuid,
+                    function_id=function_id,
+                    key=key,
+                    value=self.serializer.serialize(message),
+                )
+                .on_conflict_do_update(
+                    index_elements=["workflow_uuid", "key", "function_id"],
+                    set_={"value": self.serializer.serialize(message)},
+                )
+            )
+
+    def get_all_events(self, workflow_id: str) -> Dict[str, Any]:
+        """
+        Get all events currently present for a workflow ID.
+
+        Args:
+            workflow_id: The workflow UUID to get events for
+
+        Returns:
+            A dictionary mapping event keys to their deserialized values
+        """
+        with self.engine.begin() as c:
+            rows = c.execute(
+                sa.select(
+                    SystemSchema.workflow_events.c.key,
+                    SystemSchema.workflow_events.c.value,
+                ).where(SystemSchema.workflow_events.c.workflow_uuid == workflow_id)
+            ).fetchall()
+            events: Dict[str, Any] = {}
+            for row in rows:
+                key = row[0]
+                value = self.serializer.deserialize(row[1])
+                events[key] = value
+
+            return events
 
     @db_retry()
     def get_event(
@@ -1555,6 +1807,7 @@ class SystemDatabase(ABC):
         caller_ctx: Optional[GetEventWorkflowContext] = None,
     ) -> Any:
         function_name = "DBOS.getEvent"
+        start_time = int(time.time() * 1000)
         get_sql = sa.select(
             SystemSchema.workflow_events.c.value,
         ).where(
@@ -1566,16 +1819,12 @@ class SystemDatabase(ABC):
             recorded_output = self.check_operation_execution(
                 caller_ctx["workflow_uuid"], caller_ctx["function_id"], function_name
             )
-            if self._debug_mode and recorded_output is None:
-                raise Exception(
-                    "called get_event in debug mode without a previous execution"
-                )
             if recorded_output is not None:
                 dbos_logger.debug(
                     f"Replaying get_event, id: {caller_ctx['function_id']}, key: {key}"
                 )
                 if recorded_output["output"] is not None:
-                    return _serialization.deserialize(recorded_output["output"])
+                    return self.serializer.deserialize(recorded_output["output"])
                 else:
                     raise Exception("No output recorded in the last get_event")
             else:
@@ -1600,7 +1849,7 @@ class SystemDatabase(ABC):
 
         value: Any = None
         if len(init_recv) > 0:
-            value = _serialization.deserialize(init_recv[0][0])
+            value = self.serializer.deserialize(init_recv[0][0])
         else:
             # Wait for the notification
             actual_timeout = timeout_seconds
@@ -1618,7 +1867,7 @@ class SystemDatabase(ABC):
             with self.engine.begin() as c:
                 final_recv = c.execute(get_sql).fetchall()
                 if len(final_recv) > 0:
-                    value = _serialization.deserialize(final_recv[0][0])
+                    value = self.serializer.deserialize(final_recv[0][0])
         condition.release()
         self.workflow_events_map.pop(payload)
 
@@ -1629,7 +1878,8 @@ class SystemDatabase(ABC):
                     "workflow_uuid": caller_ctx["workflow_uuid"],
                     "function_id": caller_ctx["function_id"],
                     "function_name": function_name,
-                    "output": _serialization.serialize(
+                    "started_at_epoch_ms": start_time,
+                    "output": self.serializer.serialize(
                         value
                     ),  # None will be serialized to 'null'
                     "error": None,
@@ -1637,12 +1887,42 @@ class SystemDatabase(ABC):
             )
         return value
 
-    def start_queued_workflows(
-        self, queue: "Queue", executor_id: str, app_version: str
-    ) -> List[str]:
-        if self._debug_mode:
-            return []
+    @db_retry()
+    def get_queue_partitions(self, queue_name: str) -> List[str]:
+        """
+        Get all unique partition names associated with a queue for ENQUEUED workflows.
 
+        Args:
+            queue_name: The name of the queue to get partitions for
+
+        Returns:
+            A list of unique partition names for the queue
+        """
+        with self.engine.begin() as c:
+            query = (
+                sa.select(SystemSchema.workflow_status.c.queue_partition_key)
+                .distinct()
+                .where(SystemSchema.workflow_status.c.queue_name == queue_name)
+                .where(
+                    SystemSchema.workflow_status.c.status.in_(
+                        [
+                            WorkflowStatusString.ENQUEUED.value,
+                        ]
+                    )
+                )
+                .where(SystemSchema.workflow_status.c.queue_partition_key.isnot(None))
+            )
+
+            rows = c.execute(query).fetchall()
+            return [row[0] for row in rows]
+
+    def start_queued_workflows(
+        self,
+        queue: "Queue",
+        executor_id: str,
+        app_version: str,
+        queue_partition_key: Optional[str],
+    ) -> List[str]:
         start_time_ms = int(time.time() * 1000)
         if queue.limiter is not None:
             limiter_period_ms = int(queue.limiter["period"] * 1000)
@@ -1666,6 +1946,11 @@ class SystemDatabase(ABC):
                         > start_time_ms - limiter_period_ms
                     )
                 )
+                if queue_partition_key is not None:
+                    query = query.where(
+                        SystemSchema.workflow_status.c.queue_partition_key
+                        == queue_partition_key
+                    )
                 num_recent_queries = c.execute(query).fetchone()[0]  # type: ignore
                 if num_recent_queries >= queue.limiter["limit"]:
                     return []
@@ -1687,6 +1972,11 @@ class SystemDatabase(ABC):
                     )
                     .group_by(SystemSchema.workflow_status.c.executor_id)
                 )
+                if queue_partition_key is not None:
+                    pending_tasks_query = pending_tasks_query.where(
+                        SystemSchema.workflow_status.c.queue_partition_key
+                        == queue_partition_key
+                    )
                 pending_workflows = c.execute(pending_tasks_query).fetchall()
                 pending_workflows_dict = {row[0]: row[1] for row in pending_workflows}
                 local_pending_workflows = pending_workflows_dict.get(executor_id, 0)
@@ -1738,6 +2028,11 @@ class SystemDatabase(ABC):
                 # to ensure all processes have a consistent view of the table.
                 .with_for_update(skip_locked=skip_locks, nowait=(not skip_locks))
             )
+            if queue_partition_key is not None:
+                query = query.where(
+                    SystemSchema.workflow_status.c.queue_partition_key
+                    == queue_partition_key
+                )
             if queue.priority_enabled:
                 query = query.order_by(
                     SystemSchema.workflow_status.c.priority.asc(),
@@ -1784,7 +2079,10 @@ class SystemDatabase(ABC):
                                         None
                                     ),
                                 ),
-                                sa.func.extract("epoch", sa.func.now()) * 1000
+                                sa.cast(
+                                    sa.func.extract("epoch", sa.func.now()) * 1000,
+                                    sa.BigInteger,
+                                )
                                 + SystemSchema.workflow_status.c.workflow_timeout_ms,
                             ),
                             else_=SystemSchema.workflow_status.c.workflow_deadline_epoch_ms,
@@ -1798,9 +2096,6 @@ class SystemDatabase(ABC):
             return ret_ids
 
     def clear_queue_assignment(self, workflow_id: str) -> bool:
-        if self._debug_mode:
-            raise Exception("called clear_queue_assignment in debug mode")
-
         with self.engine.begin() as c:
             # Reset the status of the task to "ENQUEUED"
             res = c.execute(
@@ -1822,6 +2117,7 @@ class SystemDatabase(ABC):
 
     def call_function_as_step(self, fn: Callable[[], T], function_name: str) -> T:
         ctx = get_local_dbos_context()
+        start_time = int(time.time() * 1000)
         if ctx and ctx.is_transaction():
             raise Exception(f"Invalid call to `{function_name}` inside a transaction")
         if ctx and ctx.is_workflow():
@@ -1831,12 +2127,13 @@ class SystemDatabase(ABC):
             )
             if res is not None:
                 if res["output"] is not None:
-                    resstat: SystemDatabase.T = _serialization.deserialize(
+                    resstat: SystemDatabase.T = self.serializer.deserialize(
                         res["output"]
                     )
                     return resstat
                 elif res["error"] is not None:
-                    raise _serialization.deserialize_exception(res["error"])
+                    e: Exception = self.serializer.deserialize(res["error"])
+                    raise e
                 else:
                     raise Exception(
                         f"Recorded output and error are both None for {function_name}"
@@ -1848,7 +2145,8 @@ class SystemDatabase(ABC):
                     "workflow_uuid": ctx.workflow_id,
                     "function_id": ctx.function_id,
                     "function_name": function_name,
-                    "output": _serialization.serialize(result),
+                    "started_at_epoch_ms": start_time,
+                    "output": self.serializer.serialize(result),
                     "error": None,
                 }
             )
@@ -1860,15 +2158,26 @@ class SystemDatabase(ABC):
         status: WorkflowStatusInternal,
         *,
         max_recovery_attempts: Optional[int],
-    ) -> tuple[WorkflowStatuses, Optional[int]]:
+        owner_xid: Optional[str],
+        is_recovery_request: Optional[bool],
+        is_dequeued_request: Optional[bool],
+    ) -> tuple[WorkflowStatuses, Optional[int], bool]:
         """
         Synchronously record the status and inputs for workflows in a single transaction
         """
         with self.engine.begin() as conn:
-            wf_status, workflow_deadline_epoch_ms = self._insert_workflow_status(
-                status, conn, max_recovery_attempts=max_recovery_attempts
+            wf_status, workflow_deadline_epoch_ms, should_execute = (
+                self._insert_workflow_status(
+                    status,
+                    conn,
+                    max_recovery_attempts=max_recovery_attempts,
+                    owner_xid=owner_xid,
+                    is_recovery_request=is_recovery_request,
+                    is_dequeued_request=is_dequeued_request,
+                )
             )
-        return wf_status, workflow_deadline_epoch_ms
+        DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_INITWF_COMMIT)
+        return wf_status, workflow_deadline_epoch_ms, should_execute
 
     def check_connection(self) -> None:
         try:
@@ -1878,13 +2187,12 @@ class SystemDatabase(ABC):
             dbos_logger.error(f"Error connecting to the DBOS system database: {e}")
             raise
 
-    def write_stream_from_step(self, workflow_uuid: str, key: str, value: Any) -> None:
+    def write_stream_from_step(
+        self, workflow_uuid: str, function_id: int, key: str, value: Any
+    ) -> None:
         """
         Write a key-value pair to the stream at the first unused offset.
         """
-        if self._debug_mode:
-            raise Exception("called write_stream in debug mode")
-
         with self.engine.begin() as c:
             # Find the maximum offset for this workflow_uuid and key combination
             max_offset_result = c.execute(
@@ -1902,12 +2210,13 @@ class SystemDatabase(ABC):
             )
 
             # Serialize the value before storing
-            serialized_value = _serialization.serialize(value)
+            serialized_value = self.serializer.serialize(value)
 
             # Insert the new stream entry
             c.execute(
                 sa.insert(SystemSchema.streams).values(
                     workflow_uuid=workflow_uuid,
+                    function_id=function_id,
                     key=key,
                     value=serialized_value,
                     offset=next_offset,
@@ -1926,16 +2235,13 @@ class SystemDatabase(ABC):
             if value == _dbos_stream_closed_sentinel
             else "DBOS.writeStream"
         )
+        start_time = int(time.time() * 1000)
 
         with self.engine.begin() as c:
 
             recorded_output = self._check_operation_execution_txn(
                 workflow_uuid, function_id, function_name, conn=c
             )
-            if self._debug_mode and recorded_output is None:
-                raise Exception(
-                    "called writeStream in debug mode without a previous execution"
-                )
             if recorded_output is not None:
                 dbos_logger.debug(
                     f"Replaying writeStream, id: {function_id}, key: {key}"
@@ -1957,12 +2263,13 @@ class SystemDatabase(ABC):
             )
 
             # Serialize the value before storing
-            serialized_value = _serialization.serialize(value)
+            serialized_value = self.serializer.serialize(value)
 
             # Insert the new stream entry
             c.execute(
                 sa.insert(SystemSchema.streams).values(
                     workflow_uuid=workflow_uuid,
+                    function_id=function_id,
                     key=key,
                     value=serialized_value,
                     offset=next_offset,
@@ -1972,10 +2279,11 @@ class SystemDatabase(ABC):
                 "workflow_uuid": workflow_uuid,
                 "function_id": function_id,
                 "function_name": function_name,
+                "started_at_epoch_ms": start_time,
                 "output": None,
                 "error": None,
             }
-            self._record_operation_result_txn(output, conn=c)
+            self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
 
     def close_stream(self, workflow_uuid: str, function_id: int, key: str) -> None:
         """Write a sentinel value to the stream at the first unused offset to mark it as closed."""
@@ -2002,7 +2310,7 @@ class SystemDatabase(ABC):
                 )
 
             # Deserialize the value before returning
-            return _serialization.deserialize(result[0])
+            return self.serializer.deserialize(result[0])
 
     def garbage_collect(
         self, cutoff_epoch_timestamp_ms: Optional[int], rows_threshold: Optional[int]
@@ -2059,3 +2367,427 @@ class SystemDatabase(ABC):
             return cutoff_epoch_timestamp_ms, [
                 row[0] for row in pending_enqueued_result
             ]
+
+    def get_metrics(self, start_time: str, end_time: str) -> List[MetricData]:
+        """
+        Retrieve the number of workflows and steps that ran in a time range.
+
+        Args:
+            start_time: ISO 8601 formatted start time
+            end_time: ISO 8601 formatted end time
+        """
+        # Convert ISO 8601 times to epoch milliseconds
+        start_epoch_ms = int(
+            datetime.datetime.fromisoformat(start_time).timestamp() * 1000
+        )
+        end_epoch_ms = int(datetime.datetime.fromisoformat(end_time).timestamp() * 1000)
+
+        metrics: List[MetricData] = []
+
+        with self.engine.begin() as c:
+            # Query workflow metrics
+            workflow_query = (
+                sa.select(
+                    SystemSchema.workflow_status.c.name,
+                    func.count(SystemSchema.workflow_status.c.workflow_uuid).label(
+                        "count"
+                    ),
+                )
+                .where(
+                    sa.and_(
+                        SystemSchema.workflow_status.c.created_at >= start_epoch_ms,
+                        SystemSchema.workflow_status.c.created_at < end_epoch_ms,
+                    )
+                )
+                .group_by(SystemSchema.workflow_status.c.name)
+            )
+
+            workflow_results = c.execute(workflow_query).fetchall()
+            for row in workflow_results:
+                metrics.append(
+                    MetricData(
+                        metric_type="workflow_count",
+                        metric_name=row[0],
+                        value=row[1],
+                    )
+                )
+
+            # Query step metrics
+            step_query = (
+                sa.select(
+                    SystemSchema.operation_outputs.c.function_name,
+                    func.count().label("count"),
+                )
+                .where(
+                    sa.and_(
+                        SystemSchema.operation_outputs.c.completed_at_epoch_ms
+                        >= start_epoch_ms,
+                        SystemSchema.operation_outputs.c.completed_at_epoch_ms
+                        < end_epoch_ms,
+                    )
+                )
+                .group_by(SystemSchema.operation_outputs.c.function_name)
+            )
+
+            step_results = c.execute(step_query).fetchall()
+            for row in step_results:
+                metrics.append(
+                    MetricData(
+                        metric_type="step_count",
+                        metric_name=row[0],
+                        value=row[1],
+                    )
+                )
+
+        return metrics
+
+    @db_retry()
+    def patch(self, *, workflow_id: str, function_id: int, patch_name: str) -> bool:
+        """If there is no checkpoint for this point in history,
+        insert a patch marker and return True.
+        Otherwise, return whether the checkpoint is this patch marker."""
+        with self.engine.begin() as c:
+            checkpoint_name: str | None = c.execute(
+                sa.select(SystemSchema.operation_outputs.c.function_name).where(
+                    (SystemSchema.operation_outputs.c.workflow_uuid == workflow_id)
+                    & (SystemSchema.operation_outputs.c.function_id == function_id)
+                )
+            ).scalar()
+            if checkpoint_name is None:
+                result: OperationResultInternal = {
+                    "workflow_uuid": workflow_id,
+                    "function_id": function_id,
+                    "function_name": patch_name,
+                    "output": None,
+                    "error": None,
+                    "started_at_epoch_ms": int(time.time() * 1000),
+                }
+                self._record_operation_result_txn(result, int(time.time() * 1000), c)
+                return True
+            else:
+                return checkpoint_name == patch_name
+
+    @db_retry()
+    def deprecate_patch(
+        self, *, workflow_id: str, function_id: int, patch_name: str
+    ) -> bool:
+        """Respect patch markers in history, but do not introduce new patch markers"""
+        with self.engine.begin() as c:
+            checkpoint_name: str | None = c.execute(
+                sa.select(SystemSchema.operation_outputs.c.function_name).where(
+                    (SystemSchema.operation_outputs.c.workflow_uuid == workflow_id)
+                    & (SystemSchema.operation_outputs.c.function_id == function_id)
+                )
+            ).scalar()
+            return checkpoint_name == patch_name
+
+    def get_workflow_children(self, workflow_id: str) -> list[str]:
+        """
+        Recursively get all child workflow IDs for a workflow.
+
+        Args:
+            workflow_id: The workflow UUID to get children for
+
+        Returns:
+            A list of all child (and grandchild, etc.) workflow IDs
+        """
+        children: set[str] = set()
+        to_process: list[str] = [workflow_id]
+
+        with self.engine.begin() as c:
+            while to_process:
+                current_id = to_process.pop()
+                # Find all child workflows for the current workflow
+                child_rows = c.execute(
+                    sa.select(SystemSchema.operation_outputs.c.child_workflow_id).where(
+                        (SystemSchema.operation_outputs.c.workflow_uuid == current_id)
+                        & (
+                            SystemSchema.operation_outputs.c.child_workflow_id.isnot(
+                                None
+                            )
+                        )
+                    )
+                ).fetchall()
+
+                for row in child_rows:
+                    child_id = row[0]
+                    if child_id not in children:
+                        children.add(child_id)
+                        to_process.append(child_id)
+
+        return list(children)
+
+    def export_workflow(
+        self, workflow_id: str, *, export_children: bool
+    ) -> list[ExportedWorkflow]:
+        """
+        Export all entries for a workflow in a portable format.
+
+        Args:
+            workflow_id: The workflow UUID to export
+            export_children: If True, also export all child workflows recursively
+
+        Returns:
+            A list of ExportedWorkflow containing all workflow data
+        """
+        workflow_ids = [workflow_id]
+        if export_children:
+            workflow_ids.extend(self.get_workflow_children(workflow_id))
+
+        exported_workflows: list[ExportedWorkflow] = []
+
+        with self.engine.begin() as c:
+            for wf_id in workflow_ids:
+                # Export workflow_status
+                status_row = c.execute(
+                    sa.select(
+                        SystemSchema.workflow_status.c.workflow_uuid,
+                        SystemSchema.workflow_status.c.status,
+                        SystemSchema.workflow_status.c.name,
+                        SystemSchema.workflow_status.c.authenticated_user,
+                        SystemSchema.workflow_status.c.assumed_role,
+                        SystemSchema.workflow_status.c.authenticated_roles,
+                        SystemSchema.workflow_status.c.output,
+                        SystemSchema.workflow_status.c.error,
+                        SystemSchema.workflow_status.c.executor_id,
+                        SystemSchema.workflow_status.c.created_at,
+                        SystemSchema.workflow_status.c.updated_at,
+                        SystemSchema.workflow_status.c.application_version,
+                        SystemSchema.workflow_status.c.application_id,
+                        SystemSchema.workflow_status.c.class_name,
+                        SystemSchema.workflow_status.c.config_name,
+                        SystemSchema.workflow_status.c.recovery_attempts,
+                        SystemSchema.workflow_status.c.queue_name,
+                        SystemSchema.workflow_status.c.workflow_timeout_ms,
+                        SystemSchema.workflow_status.c.workflow_deadline_epoch_ms,
+                        SystemSchema.workflow_status.c.started_at_epoch_ms,
+                        SystemSchema.workflow_status.c.deduplication_id,
+                        SystemSchema.workflow_status.c.inputs,
+                        SystemSchema.workflow_status.c.priority,
+                        SystemSchema.workflow_status.c.queue_partition_key,
+                        SystemSchema.workflow_status.c.forked_from,
+                    ).where(SystemSchema.workflow_status.c.workflow_uuid == wf_id)
+                ).fetchone()
+
+                if status_row is None:
+                    raise DBOSNonExistentWorkflowError("export", wf_id)
+
+                workflow_status: dict[str, Any] = {
+                    "workflow_uuid": status_row[0],
+                    "status": status_row[1],
+                    "name": status_row[2],
+                    "authenticated_user": status_row[3],
+                    "assumed_role": status_row[4],
+                    "authenticated_roles": status_row[5],
+                    "output": status_row[6],
+                    "error": status_row[7],
+                    "executor_id": status_row[8],
+                    "created_at": status_row[9],
+                    "updated_at": status_row[10],
+                    "application_version": status_row[11],
+                    "application_id": status_row[12],
+                    "class_name": status_row[13],
+                    "config_name": status_row[14],
+                    "recovery_attempts": status_row[15],
+                    "queue_name": status_row[16],
+                    "workflow_timeout_ms": status_row[17],
+                    "workflow_deadline_epoch_ms": status_row[18],
+                    "started_at_epoch_ms": status_row[19],
+                    "deduplication_id": status_row[20],
+                    "inputs": status_row[21],
+                    "priority": status_row[22],
+                    "queue_partition_key": status_row[23],
+                    "forked_from": status_row[24],
+                }
+
+                # Export operation_outputs
+                output_rows = c.execute(
+                    sa.select(
+                        SystemSchema.operation_outputs.c.workflow_uuid,
+                        SystemSchema.operation_outputs.c.function_id,
+                        SystemSchema.operation_outputs.c.function_name,
+                        SystemSchema.operation_outputs.c.output,
+                        SystemSchema.operation_outputs.c.error,
+                        SystemSchema.operation_outputs.c.child_workflow_id,
+                        SystemSchema.operation_outputs.c.started_at_epoch_ms,
+                        SystemSchema.operation_outputs.c.completed_at_epoch_ms,
+                    ).where(SystemSchema.operation_outputs.c.workflow_uuid == wf_id)
+                ).fetchall()
+
+                operation_outputs: list[dict[str, Any]] = [
+                    {
+                        "workflow_uuid": row[0],
+                        "function_id": row[1],
+                        "function_name": row[2],
+                        "output": row[3],
+                        "error": row[4],
+                        "child_workflow_id": row[5],
+                        "started_at_epoch_ms": row[6],
+                        "completed_at_epoch_ms": row[7],
+                    }
+                    for row in output_rows
+                ]
+
+                # Export workflow_events
+                event_rows = c.execute(
+                    sa.select(
+                        SystemSchema.workflow_events.c.workflow_uuid,
+                        SystemSchema.workflow_events.c.key,
+                        SystemSchema.workflow_events.c.value,
+                    ).where(SystemSchema.workflow_events.c.workflow_uuid == wf_id)
+                ).fetchall()
+
+                workflow_events: list[dict[str, Any]] = [
+                    {
+                        "workflow_uuid": row[0],
+                        "key": row[1],
+                        "value": row[2],
+                    }
+                    for row in event_rows
+                ]
+
+                # Export workflow_events_history
+                history_rows = c.execute(
+                    sa.select(
+                        SystemSchema.workflow_events_history.c.workflow_uuid,
+                        SystemSchema.workflow_events_history.c.key,
+                        SystemSchema.workflow_events_history.c.value,
+                        SystemSchema.workflow_events_history.c.function_id,
+                    ).where(
+                        SystemSchema.workflow_events_history.c.workflow_uuid == wf_id
+                    )
+                ).fetchall()
+
+                workflow_events_history: list[dict[str, Any]] = [
+                    {
+                        "workflow_uuid": row[0],
+                        "key": row[1],
+                        "value": row[2],
+                        "function_id": row[3],
+                    }
+                    for row in history_rows
+                ]
+
+                # Export streams
+                stream_rows = c.execute(
+                    sa.select(
+                        SystemSchema.streams.c.workflow_uuid,
+                        SystemSchema.streams.c.key,
+                        SystemSchema.streams.c.value,
+                        SystemSchema.streams.c.offset,
+                        SystemSchema.streams.c.function_id,
+                    ).where(SystemSchema.streams.c.workflow_uuid == wf_id)
+                ).fetchall()
+
+                streams: list[dict[str, Any]] = [
+                    {
+                        "workflow_uuid": row[0],
+                        "key": row[1],
+                        "value": row[2],
+                        "offset": row[3],
+                        "function_id": row[4],
+                    }
+                    for row in stream_rows
+                ]
+
+                exported_workflows.append(
+                    ExportedWorkflow(
+                        workflow_status=workflow_status,
+                        operation_outputs=operation_outputs,
+                        workflow_events=workflow_events,
+                        workflow_events_history=workflow_events_history,
+                        streams=streams,
+                    )
+                )
+
+        return exported_workflows
+
+    def import_workflow(self, workflows: list[ExportedWorkflow]) -> None:
+        """
+        Import workflows from an exported format.
+
+        Args:
+            workflows: The list of exported workflow data to import
+        """
+        with self.engine.begin() as c:
+            for workflow in workflows:
+                status = workflow["workflow_status"]
+
+                # Import workflow_status
+                c.execute(
+                    sa.insert(SystemSchema.workflow_status).values(
+                        workflow_uuid=status["workflow_uuid"],
+                        status=status["status"],
+                        name=status["name"],
+                        authenticated_user=status["authenticated_user"],
+                        assumed_role=status["assumed_role"],
+                        authenticated_roles=status["authenticated_roles"],
+                        output=status["output"],
+                        error=status["error"],
+                        executor_id=status["executor_id"],
+                        created_at=status["created_at"],
+                        updated_at=status["updated_at"],
+                        application_version=status["application_version"],
+                        application_id=status["application_id"],
+                        class_name=status["class_name"],
+                        config_name=status["config_name"],
+                        recovery_attempts=status["recovery_attempts"],
+                        queue_name=status["queue_name"],
+                        workflow_timeout_ms=status["workflow_timeout_ms"],
+                        workflow_deadline_epoch_ms=status["workflow_deadline_epoch_ms"],
+                        started_at_epoch_ms=status["started_at_epoch_ms"],
+                        deduplication_id=status["deduplication_id"],
+                        inputs=status["inputs"],
+                        priority=status["priority"],
+                        queue_partition_key=status["queue_partition_key"],
+                        forked_from=status["forked_from"],
+                    )
+                )
+
+                # Import operation_outputs
+                for output in workflow["operation_outputs"]:
+                    c.execute(
+                        sa.insert(SystemSchema.operation_outputs).values(
+                            workflow_uuid=output["workflow_uuid"],
+                            function_id=output["function_id"],
+                            function_name=output["function_name"],
+                            output=output["output"],
+                            error=output["error"],
+                            child_workflow_id=output["child_workflow_id"],
+                            started_at_epoch_ms=output["started_at_epoch_ms"],
+                            completed_at_epoch_ms=output["completed_at_epoch_ms"],
+                        )
+                    )
+
+                # Import workflow_events
+                for event in workflow["workflow_events"]:
+                    c.execute(
+                        sa.insert(SystemSchema.workflow_events).values(
+                            workflow_uuid=event["workflow_uuid"],
+                            key=event["key"],
+                            value=event["value"],
+                        )
+                    )
+
+                # Import workflow_events_history
+                for history in workflow["workflow_events_history"]:
+                    c.execute(
+                        sa.insert(SystemSchema.workflow_events_history).values(
+                            workflow_uuid=history["workflow_uuid"],
+                            key=history["key"],
+                            value=history["value"],
+                            function_id=history["function_id"],
+                        )
+                    )
+
+                # Import streams
+                for stream in workflow["streams"]:
+                    c.execute(
+                        sa.insert(SystemSchema.streams).values(
+                            workflow_uuid=stream["workflow_uuid"],
+                            key=stream["key"],
+                            value=stream["value"],
+                            offset=stream["offset"],
+                            function_id=stream["function_id"],
+                        )
+                    )

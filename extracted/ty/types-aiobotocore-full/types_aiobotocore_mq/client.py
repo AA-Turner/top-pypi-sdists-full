@@ -3,7 +3,7 @@ Type annotations for mq service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mq/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -75,12 +76,6 @@ from .type_defs import (
     UpdateUserRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -91,13 +86,13 @@ __all__ = ("MQClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
 
 
 class MQClient(AioBaseClient):
@@ -165,7 +160,7 @@ class MQClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mq/client/#create_tags)
         """
 
-    async def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> Dict[str, Any]:
+    async def create_user(self, **kwargs: Unpack[CreateUserRequestTypeDef]) -> dict[str, Any]:
         """
         Creates an ActiveMQ user.
 
@@ -203,7 +198,7 @@ class MQClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mq/client/#delete_tags)
         """
 
-    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an ActiveMQ user.
 
@@ -327,7 +322,7 @@ class MQClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mq/client/#promote)
         """
 
-    async def reboot_broker(self, **kwargs: Unpack[RebootBrokerRequestTypeDef]) -> Dict[str, Any]:
+    async def reboot_broker(self, **kwargs: Unpack[RebootBrokerRequestTypeDef]) -> dict[str, Any]:
         """
         Reboots a broker.
 
@@ -355,7 +350,7 @@ class MQClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mq/client/#update_configuration)
         """
 
-    async def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> Dict[str, Any]:
+    async def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the information for an ActiveMQ user.
 
@@ -381,7 +376,7 @@ class MQClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

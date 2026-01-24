@@ -28,6 +28,11 @@ class ListResponse(Response):
 
 
 @dataclass
+class CreateEntitlementResponse:
+    entitlement: EntitlementResponse
+
+
+@dataclass
 class CreateResponse(Response):
     is_idempotency_replayed: bool
-    entitlement: EntitlementResponse
+    list: List[CreateEntitlementResponse]

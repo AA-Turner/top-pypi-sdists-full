@@ -12,6 +12,8 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 from .server import Server
 from .tool_rejection_plan import ToolRejectionPlan
 from .update_computer_tool_dto_messages_item import UpdateComputerToolDtoMessagesItem
+from .update_computer_tool_dto_name import UpdateComputerToolDtoName
+from .update_computer_tool_dto_sub_type import UpdateComputerToolDtoSubType
 
 
 class UpdateComputerToolDto(UncheckedBaseModel):
@@ -23,7 +25,7 @@ class UpdateComputerToolDto(UncheckedBaseModel):
     """
 
     sub_type: typing_extensions.Annotated[
-        typing.Optional[typing.Literal["computer_20241022"]], FieldMetadata(alias="subType")
+        typing.Optional[UpdateComputerToolDtoSubType], FieldMetadata(alias="subType")
     ] = pydantic.Field(default=None)
     """
     The sub type of tool.
@@ -53,7 +55,7 @@ class UpdateComputerToolDto(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '(?i)\\b(bye|goodbye|farewell|see you later|take care)\\b',
+        regex: '(?i)\\\\b(bye|goodbye|farewell|see you later|take care)\\\\b',
         target: { position: -1, role: 'user' },
         negate: true  // Reject if pattern does NOT match
       }]
@@ -65,7 +67,7 @@ class UpdateComputerToolDto(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '\\?',
+        regex: '\\\\?',
         target: { position: -1, role: 'user' }
       }]
     }
@@ -126,7 +128,7 @@ class UpdateComputerToolDto(UncheckedBaseModel):
     ```
     """
 
-    name: typing.Optional[typing.Literal["computer"]] = pydantic.Field(default=None)
+    name: typing.Optional[UpdateComputerToolDtoName] = pydantic.Field(default=None)
     """
     The name of the tool, fixed to 'computer'
     """

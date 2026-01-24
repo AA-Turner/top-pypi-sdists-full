@@ -2,11 +2,12 @@ import sys
 import time
 import warnings
 from typing import Literal
+from typing import cast
 
 import anndata as ad  # type: ignore
 import numpy as np
 import pandas as pd
-from formulaic_contrasts import FormulaicContrasts
+from formulaic_contrasts import FormulaicContrasts  # type: ignore[import-untyped]
 from scipy.optimize import minimize
 from scipy.special import polygamma  # type: ignore
 from scipy.stats import f  # type: ignore
@@ -285,7 +286,7 @@ class DeseqDataSet(ad.AnnData):
             self.design = "~" + " + ".join(design_factors)
 
         if not (
-            isinstance(self.design, (str, pd.DataFrame)) or isinstance(self.design, str)
+            isinstance(self.design, (str | pd.DataFrame)) or isinstance(self.design, str)
         ):
             raise ValueError(
                 "design must be a string representing a formulaic formula,"
@@ -316,8 +317,8 @@ class DeseqDataSet(ad.AnnData):
         self.low_memory = low_memory
         self.size_factors_fit_type = size_factors_fit_type
         self.control_genes = control_genes
-        self.logmeans = None
-        self.filtered_genes = None
+        self.logmeans: np.ndarray | None = None
+        self.filtered_genes: np.ndarray | None = None
 
         if inference:
             if n_cpus:
@@ -374,7 +375,8 @@ class DeseqDataSet(ad.AnnData):
         else:
             self.vst_fit_type = self.fit_type
 
-        print(f"Fit type used for VST : {self.vst_fit_type}")
+        if not self.quiet:
+            print(f"Fit type used for VST : {self.vst_fit_type}")
 
         self.vst_fit(use_design=use_design)
         self.layers["vst_counts"] = self.vst_transform()
@@ -474,8 +476,12 @@ class DeseqDataSet(ad.AnnData):
                     stacklevel=2,
                 )
                 logmeans, filtered_genes = deseq2_norm_fit(counts)
-            else:
+            elif self.filtered_genes is not None:
                 logmeans, filtered_genes = self.logmeans, self.filtered_genes
+            else:
+                raise RuntimeError(
+                    "Logmeans is set but filtered_genes is None. This should not happen."
+                )
 
             normed_counts, _ = deseq2_norm_transform(counts, logmeans, filtered_genes)
 
@@ -526,7 +532,8 @@ class DeseqDataSet(ad.AnnData):
         """
         if fit_type is not None:
             self.fit_type = fit_type
-            print(f"Using {self.fit_type} fit type.")
+            if not self.quiet:
+                print(f"Using {self.fit_type} fit type.")
 
         # Compute DESeq2 normalization factors using the Median-of-ratios method
         self.fit_size_factors(
@@ -650,7 +657,7 @@ class DeseqDataSet(ad.AnnData):
             # Calculate logcounts for x > 0 and take the mean for each gene
             log_counts = np.zeros_like(self.X, dtype=float)
             np.log(self.X, out=log_counts, where=self.X != 0)
-            logmeans = log_counts.mean(0)
+            logmeans = log_counts.mean(axis=0)
 
             # Determine which genes are usable (finite logmeans)
             self.filtered_genes = (~np.isinf(logmeans)) & (logmeans > 0)
@@ -682,17 +689,23 @@ class DeseqDataSet(ad.AnnData):
             )
             self._fit_iterate_size_factors()
 
-        else:
-            self.logmeans, self.filtered_genes = deseq2_norm_fit(self.X)
+        elif self.X is not None:
+            self.logmeans, self.filtered_genes = deseq2_norm_fit(
+                self.X.toarray() if not isinstance(self.X, np.ndarray) else self.X
+            )
             _control_mask &= self.filtered_genes
 
             (
                 self.layers["normed_counts"],
                 self.obs["size_factors"],
-            ) = deseq2_norm_transform(self.X, self.logmeans, _control_mask)
+            ) = deseq2_norm_transform(
+                self.X, cast(np.ndarray, self.logmeans), _control_mask
+            )
+        else:
+            raise ValueError("Counts matrix 'X' is None, cannot fit size factors.")
 
         end = time.time()
-        self.var["_normed_means"] = self.layers["normed_counts"].mean(0)
+        self.var["_normed_means"] = self.layers["normed_counts"].mean(axis=0)
 
         if not self.quiet:
             print(f"... done in {end - start:.2f} seconds.\n", file=sys.stderr)
@@ -780,7 +793,9 @@ class DeseqDataSet(ad.AnnData):
             dispersions_, self.min_disp, self.max_disp
         )
 
-        self.var["_genewise_converged"] = np.full(self.n_vars, np.nan)
+        self.var["_genewise_converged"] = pd.array(
+            [pd.NA] * self.n_vars, dtype="boolean"
+        )
         self.var.loc[self.var["non_zero"], "_genewise_converged"] = l_bfgs_b_converged_
 
     def fit_dispersion_trend(self, vst: bool = False) -> None:
@@ -906,7 +921,7 @@ class DeseqDataSet(ad.AnnData):
             dispersions_, self.min_disp, self.max_disp
         )
 
-        self.var["_MAP_converged"] = np.full(self.n_vars, np.nan)
+        self.var["_MAP_converged"] = pd.array([pd.NA] * self.n_vars, dtype="boolean")
         self.var.loc[self.var["non_zero"], "_MAP_converged"] = l_bfgs_b_converged_
 
         # Filter outlier genes for which we won't apply shrinkage
@@ -967,7 +982,7 @@ class DeseqDataSet(ad.AnnData):
         self.obsm["_mu_LFC"] = mu_
         self.obsm["_hat_diagonals"] = hat_diagonals_
 
-        self.var["_LFC_converged"] = np.full(self.n_vars, np.nan)
+        self.var["_LFC_converged"] = pd.array([pd.NA] * self.n_vars, dtype="boolean")
         self.var.loc[self.var["non_zero"], "_LFC_converged"] = converged_
 
     def calculate_cooks(self) -> None:
@@ -1085,7 +1100,7 @@ class DeseqDataSet(ad.AnnData):
 
         cooks_outlier[cooks_outlier] = (
             self.X[:, cooks_outlier] > self.X[:, cooks_outlier][pos, np.arange(len(pos))]
-        ).sum(0) < 3
+        ).sum(axis=0) < 3
 
         if self.low_memory:
             del self.layers["cooks"]
@@ -1218,8 +1233,8 @@ class DeseqDataSet(ad.AnnData):
                 covariates.drop(labels=[gene], inplace=True)
 
         # Initialize coefficients
-        old_coeffs = pd.Series([0.1, 0.1])
-        coeffs = pd.Series([1.0, 1.0])
+        old_coeffs: np.ndarray | pd.Series = pd.Series([0.1, 0.1])
+        coeffs: np.ndarray | pd.Series = pd.Series([1.0, 1.0])
         while (coeffs > 1e-10).all() and (
             np.log(np.abs(coeffs / old_coeffs)) ** 2
         ).sum() >= 1e-6:
@@ -1227,7 +1242,6 @@ class DeseqDataSet(ad.AnnData):
             coeffs, predictions, converged = self.inference.dispersion_trend_gamma_glm(
                 covariates, targets
             )
-
             if not converged or (coeffs <= 1e-10).any():
                 warnings.warn(
                     "The dispersion trend curve fitting did not converge. "
@@ -1318,10 +1332,13 @@ class DeseqDataSet(ad.AnnData):
             self.counts_to_refit = self[:, self.var["replaced"]].copy()
 
             trim_base_mean = pd.DataFrame(
-                trimmed_mean(
-                    self.counts_to_refit.X / self.obs["size_factors"].values[:, None],
-                    trim=0.2,
-                    axis=0,
+                np.asarray(
+                    trimmed_mean(
+                        self.counts_to_refit.X
+                        / self.obs["size_factors"].values[:, None],
+                        trim=0.2,
+                        axis=0,
+                    )
                 ),
                 index=self.counts_to_refit.var_names,
             )
@@ -1346,9 +1363,9 @@ class DeseqDataSet(ad.AnnData):
         self,
     ) -> None:
         """Re-run the whole DESeq2 pipeline with replaced outliers."""
-        assert (
-            self.refit_cooks
-        ), "Trying to refit Cooks outliers but the 'refit_cooks' flag is set to False"
+        assert self.refit_cooks, (
+            "Trying to refit Cooks outliers but the 'refit_cooks' flag is set to False"
+        )
 
         # Check that _replace_outliers() was previously run.
         if "replaced" not in self.var:
@@ -1389,6 +1406,7 @@ class DeseqDataSet(ad.AnnData):
             min_replicates=self.min_replicates,
             beta_tol=self.beta_tol,
             inference=self.inference,
+            quiet=self.quiet,
         )
 
         # Use the same size factors
@@ -1407,7 +1425,7 @@ class DeseqDataSet(ad.AnnData):
             sub_dds.uns["trend_coeffs"] = self.uns["trend_coeffs"]
         elif sub_dds.uns["disp_function_type"] == "mean":
             sub_dds.uns["mean_disp"] = self.uns["mean_disp"]
-        sub_dds.var["_normed_means"] = sub_dds.layers["normed_counts"].mean(0)
+        sub_dds.var["_normed_means"] = sub_dds.layers["normed_counts"].mean(axis=0)
         # Reshape in case there's a single gene to refit
         sub_dds.var["fitted_dispersions"] = sub_dds.disp_function(
             sub_dds.var["_normed_means"]
@@ -1493,7 +1511,8 @@ class DeseqDataSet(ad.AnnData):
             if len(use_for_mean_genes) == 0:
                 print(
                     "No genes have a dispersion above 10 * min_disp in "
-                    "_fit_iterate_size_factors."
+                    "_fit_iterate_size_factors.",
+                    file=sys.stderr,
                 )
                 break
 

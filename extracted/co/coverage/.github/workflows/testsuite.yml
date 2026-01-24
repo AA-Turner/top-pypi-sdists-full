@@ -1,12 +1,12 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 name: "Tests"
 
 on:
   push:
     branches:
-      - master
+      - main
       - nedbat/*
   pull_request:
   workflow_dispatch:
@@ -17,8 +17,9 @@ defaults:
 
 env:
   PIP_DISABLE_PIP_VERSION_CHECK: 1
-  COVERAGE_IGOR_VERBOSE: 1
+  COVERAGE_IGOR_VERBOSE: 2
   FORCE_COLOR: 1    # Get colored pytest output
+  HYPOTHESIS_PROFILE: ci
 
 permissions:
   contents: read
@@ -37,7 +38,7 @@ jobs:
       run_tests: ${{ steps.filter.outputs.run_tests }}
     steps:
       - name: "Check out the repo"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -47,7 +48,9 @@ jobs:
         with:
           filters: |
             run_tests:
-              - "**.py"
+              - "*.py"
+              - "coverage/**.py"
+              - "tests/**.py"
               - "**.h"
               - "**.c"
               - ".github/workflows/testsuite.yml"
@@ -57,13 +60,15 @@ jobs:
 
   tests:
     name: "${{ matrix.python-version }} on ${{ matrix.os }}"
-    runs-on: "${{ matrix.os }}-${{ matrix.os-version || 'latest' }}"
-    timeout-minutes: 30
+    runs-on: "${{ matrix.os }}-${{ matrix.os-version }}"
+    timeout-minutes: 10
 
     # Don't run tests if the branch name includes "-notests".
     # Only run tests if files that affect tests have changed.
     needs: changed
-    if: ${{ needs.changed.outputs.run_tests == 'true' && !contains(github.ref, '-notests') }}
+    if:
+      needs.changed.outputs.run_tests == 'true'
+      && !contains(github.ref, '-notests')
 
     env:
       TOX_GH_MAJOR_MINOR: "${{ matrix.python-version }}"
@@ -74,13 +79,14 @@ jobs:
           - ubuntu
           - macos
           - windows
+        os-version:
+          - latest
         python-version:
           # When changing this list, be sure to check the [gh] list in
           # tox.ini so that tox will run properly. PYVERSIONS
           # Available versions:
           # https://github.com/actions/python-versions/blob/main/versions-manifest.json
           # https://github.com/actions/setup-python/blob/main/docs/advanced-usage.md#available-versions-of-python-and-pypy
-          - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
@@ -88,7 +94,8 @@ jobs:
           - "3.13t"
           - "3.14"
           - "3.14t"
-          - "pypy-3.9"
+          - "3.15"
+          - "3.15t"
           - "pypy-3.10"
           - "pypy-3.11"
         #
@@ -101,20 +108,20 @@ jobs:
         # If we need to tweak the os version we can do it with an include like
         # this:
         #  include:
-        #    - python-version: "3.8"
+        #    - python-version: "3.12"
         #      os: "macos"
-        #      os-version: "13"
+        #      os-version: "15"
 
       fail-fast: false
 
     steps:
       - name: "Check out the repo"
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
       - name: "Set up Python"
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: "${{ matrix.python-version }}"
           allow-prereleases: true

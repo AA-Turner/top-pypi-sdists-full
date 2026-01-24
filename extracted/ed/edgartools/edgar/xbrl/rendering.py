@@ -15,7 +15,9 @@ from rich.panel import Panel
 from rich.table import Table as RichTable
 from rich.text import Text
 
-from edgar.files.html import Document
+from edgar.documents import HTMLParser, ParserConfig
+from edgar.display import get_statement_styles, SYMBOLS
+from edgar.display.formatting import cik_text
 from edgar.richtools import repr_rich, rich_to_text
 from edgar.xbrl import standardization
 from edgar.xbrl.core import determine_dominant_scale, format_date, format_value, parse_date
@@ -190,6 +192,7 @@ class StatementRow:
     metadata: Dict[str, Any] = field(default_factory=dict)  # Additional info like concept name, type, etc.
     is_abstract: bool = False
     is_dimension: bool = False
+    is_breakdown: bool = False  # True if dimension is breakdown (segment/geo), False if face value
     has_dimension_children: bool = False
 
 
@@ -221,145 +224,154 @@ class RenderedStatement:
     def periods(self):
         return self.header.periods
 
-    def __rich__(self) -> RichTable:
-        """Render as a rich table with professional styling"""
-        # Get professional color scheme
-        styles = get_xbrl_styles()
+    def __rich__(self) -> Panel:
+        """Render as a rich panel with design language styling."""
+        # Use unified design language styles
+        styles = get_statement_styles()
 
-        # Clean up title - remove internal terminology like "(Standardized)"
+        # Get company name and ticker for header
+        company_name = self.metadata.get('company_name', '')
+        ticker = self.metadata.get('ticker', '')
+
+        # Clean up title - remove internal terminology and simplify
         clean_title = self.title.replace("(Standardized)", "").strip()
 
-        # Build title hierarchy with improved visual design
-        title_parts = []
+        # Build period range from columns
+        columns = self.header.columns
+        if len(columns) > 1:
+            period_range = f"{columns[-1]} to {columns[0]}"
+        elif len(columns) == 1:
+            period_range = columns[0]
+        else:
+            period_range = ""
 
-        # Main title (bold, prominent)
-        title_parts.append(f"[{styles['header']['statement_title']}]{clean_title}[/{styles['header']['statement_title']}]")
-
-        # Subtitle: fiscal period indicator (normal weight)
-        if self.fiscal_period_indicator:
-            title_parts.append(f"{self.fiscal_period_indicator}")
-
-        # Units note (dim, subtle)
+        # Build units note
+        import re
+        clean_units = ""
         if self.units_note:
-            title_parts.append(f"[{styles['structure']['separator']}]{self.units_note}[/{styles['structure']['separator']}]")
+            clean_units = re.sub(r'\[/?[^\]]+\]', '', self.units_note)
 
-        # Create the table with clean title hierarchy
-        table = RichTable(title="\n".join(title_parts), 
-                         box=box.SIMPLE, 
-                         border_style=styles['structure']['border'])
+        # Build centered header like actual SEC filings:
+        # Line 1: Company name (ticker) (bold)
+        # Line 2: Statement name (bold)
+        # Line 3: Period range (dim)
+        header_lines = []
+        if company_name:
+            company_line = Text(company_name.upper(), style=styles["header"]["company_name"])
+            if ticker:
+                company_line.append("  ")
+                company_line.append(f" {ticker.upper()} ", style=styles["header"]["ticker_badge"])
+            header_lines.append(company_line)
+        header_lines.append(Text(clean_title.upper(), style=styles["header"]["statement_title"]))
+        if period_range:
+            header_lines.append(Text(period_range, style="dim"))
 
-        # Add columns with right-alignment for numeric columns
+        title = Text("\n").join(header_lines)
+
+        # Create the main table
+        table = RichTable(
+            box=box.SIMPLE,
+            show_header=True,
+            padding=(0, 1),
+        )
+
+        # Add label column
         table.add_column("", justify="left")
-        for column in self.header.columns:
-            # Apply styling to column headers
-            header_style = styles['structure']['total']
-            if header_style:
-                styled_column = Text(column, style=header_style)
-                table.add_column(styled_column)
-            else:
-                table.add_column(column)
 
-        # Add rows with professional styling
+        # Add period columns with bold styling
+        for column in columns:
+            table.add_column(column, justify="right", style="bold")
+
+        # Add rows with semantic styling
         for row in self.rows:
-            # Format the label based on level and properties with professional colors
             indent = "  " * row.level
 
             if row.is_dimension:
-                # Format dimension items with italic style
+                # Dimension items - dim/italic
                 label_text = f"{indent}{row.label}"
-                style = styles['structure']['low_confidence']
-                styled_label = Text(label_text, style=style) if style else Text(label_text)
+                styled_label = Text(label_text, style=styles["row"]["item_dim"])
             elif row.is_abstract:
                 if row.level == 0:
-                    # Top-level header - major sections like ASSETS, LIABILITIES
+                    # Top-level abstract - cyan bold (ASSETS, LIABILITIES)
                     label_text = row.label.upper()
-                    style = styles['header']['top_level']
-                    styled_label = Text(label_text, style=style) if style else Text(label_text)
+                    styled_label = Text(label_text, style=styles["row"]["abstract"])
                 elif row.level == 1:
-                    # Section header - subtotals like Current assets
-                    label_text = row.label
-                    style = styles['header']['section']
-                    styled_label = Text(label_text, style=style) if style else Text(label_text)
+                    # Section header - bold
+                    styled_label = Text(row.label, style=styles["header"]["section"])
                 else:
-                    # Sub-section header - indented, bold
+                    # Sub-section header
                     sub_indent = "  " * (row.level - 1)
-                    label_text = f"{sub_indent}{row.label}"
-                    style = styles['header']['subsection']
-                    styled_label = Text(label_text, style=style) if style else Text(label_text)
+                    styled_label = Text(f"{sub_indent}{row.label}", style=styles["header"]["subsection"])
             else:
-                # Regular line items - indented based on level
+                # Regular line items
                 if row.has_dimension_children and row.cells:
                     # Items with dimension children get bold styling and colon
                     label_text = f"{indent}{row.label}:"
-                    style = styles['structure']['total']
-                    styled_label = Text(label_text, style=style) if style else Text(label_text)
-                else:
-                    # Regular line items
+                    styled_label = Text(label_text, style=styles["row"]["total"])
+                elif "Total" in row.label:
+                    # Total rows - bold
                     label_text = f"{indent}{row.label}"
-                    style = styles['header']['subsection'] if styles['header']['subsection'] else None
-                    styled_label = Text(label_text, style=style) if style else Text(label_text)
+                    styled_label = Text(label_text, style=styles["row"]["total"])
+                else:
+                    # Regular line items - default style
+                    label_text = f"{indent}{row.label}"
+                    styled_label = Text(label_text, style=styles["row"]["item"])
 
-            # Convert cells to their display representation with value-based styling
+            # Convert cells to display values with styling
             cell_values = []
             for cell in row.cells:
                 if cell.value is None or cell.value == "":
-                    # Empty values - create empty Text object
                     cell_values.append(Text("", justify="right"))
                 else:
-                    # Format the cell value first
                     cell_value = cell.formatter(cell.value)
                     cell_str = str(cell_value)
 
-                    # Determine the style to apply based on content
-                    if row.is_abstract or "Total" in row.label:
-                        # Totals get special styling
-                        style = styles['value']['total']
-                    elif cell_str.startswith('(') or cell_str.startswith('-') or cell_str.startswith('$('):
-                        # Negative values
-                        style = styles['value']['negative']
-                    else:
-                        # Positive values
-                        style = styles['value']['positive']
+                    # Determine style based on value and row type
+                    is_total = row.is_abstract or "Total" in row.label
+                    is_negative = cell_str.startswith('(') or cell_str.startswith('-') or cell_str.startswith('$(')
 
-                    # Create Rich Text object with proper styling
-                    if style:
-                        # Apply the style directly to the Text object
-                        text_obj = Text(cell_str, style=style, justify="right")
+                    if is_total and is_negative:
+                        style = f"{styles['value']['total']} {styles['value']['negative']}"
+                    elif is_total:
+                        style = styles["value"]["total"]
+                    elif is_negative:
+                        style = styles["value"]["negative"]
                     else:
-                        text_obj = Text(cell_str, justify="right")
+                        style = styles["value"]["default"]
 
-                    cell_values.append(text_obj)
+                    cell_values.append(Text(cell_str, style=style, justify="right"))
 
             table.add_row(styled_label, *cell_values)
 
-        # Add footer metadata as table caption
-        footer_parts = []
+        # Build footer with source and units note
+        footer_parts = [
+            ("Source: ", styles["metadata"]["source"]),
+            ("SEC XBRL", styles["metadata"]["source_xbrl"]),
+        ]
+        if clean_units:
+            footer_parts.append(("  ", ""))
+            footer_parts.append((SYMBOLS["bullet"], styles["structure"]["separator"]))
+            footer_parts.append(("  ", ""))
+            footer_parts.append((clean_units, styles["metadata"]["units"]))
+        footer = Text.assemble(*footer_parts)
 
-        # Extract metadata if available
-        company_name = self.metadata.get('company_name')
-        form_type = self.metadata.get('form_type')
-        period_end = self.metadata.get('period_end')
-        fiscal_period = self.metadata.get('fiscal_period')
+        # Wrap in Panel with design language styling
+        # Header is centered like actual SEC filings
+        from rich.align import Align
+        content = Group(
+            Align.center(title),
+            table
+        )
 
-        # Build footer with available information
-        if company_name:
-            footer_parts.append(company_name)
-        if form_type:
-            footer_parts.append(f"Form {form_type}")
-        if period_end:
-            footer_parts.append(f"Period ending {period_end}")
-        if fiscal_period:
-            footer_parts.append(f"Fiscal {fiscal_period}")
-
-        # Always add source
-        footer_parts.append("Source: SEC XBRL")
-
-        # Apply dim styling to footer
-        if footer_parts:
-            footer_text = " • ".join(footer_parts)
-            table.caption = f"[{styles['structure']['separator']}]{footer_text}[/{styles['structure']['separator']}]"
-
-        return table
+        return Panel(
+            content,
+            subtitle=footer,
+            subtitle_align="left",
+            border_style=styles["structure"]["border"],
+            box=box.SIMPLE,
+            padding=(0, 1),
+            expand=False,
+        )
 
     def __repr__(self):
         return repr_rich(self.__rich__())
@@ -369,9 +381,19 @@ class RenderedStatement:
         from edgar.richtools import rich_to_text
         return rich_to_text(self.__rich__(), width=150)
 
-    def to_dataframe(self) -> Any:
-        """Convert to a pandas DataFrame"""
+    def to_dataframe(self, include_unit: bool = False, include_point_in_time: bool = False) -> Any:
+        """Convert to a pandas DataFrame
+
+        Args:
+            include_unit: If True, add a 'unit' column with unit information (e.g., 'usd', 'shares', 'usdPerShare')
+            include_point_in_time: If True, add a 'point_in_time' boolean column (True for 'instant', False for 'duration')
+
+        Returns:
+            pd.DataFrame: DataFrame with statement data and optional unit/point-in-time columns
+        """
         try:
+            from edgar.xbrl.core import get_unit_display_name
+            from edgar.xbrl.core import is_point_in_time as get_is_point_in_time
 
             # Create rows for the DataFrame
             df_rows = []
@@ -396,6 +418,32 @@ class RenderedStatement:
                     'label': row.label
                 }
 
+                # Add unit column if requested
+                if include_unit:
+                    # Get units from row metadata
+                    units_dict = row.metadata.get('units', {})
+                    # Get the first non-None unit (all periods should have same unit for a given concept)
+                    unit_ref = None
+                    for period_key in self.header.period_keys:
+                        if period_key in units_dict and units_dict[period_key] is not None:
+                            unit_ref = units_dict[period_key]
+                            break
+                    # Convert to display name
+                    df_row['unit'] = get_unit_display_name(unit_ref)
+
+                # Add point_in_time column if requested
+                if include_point_in_time:
+                    # Get period_types from row metadata
+                    period_types_dict = row.metadata.get('period_types', {})
+                    # Get the first non-None period_type (all periods should have same type structure)
+                    period_type = None
+                    for period_key in self.header.period_keys:
+                        if period_key in period_types_dict and period_types_dict[period_key] is not None:
+                            period_type = period_types_dict[period_key]
+                            break
+                    # Convert to boolean
+                    df_row['point_in_time'] = get_is_point_in_time(period_type)
+
                 # Add cell values using date string column names where available
                 for i, cell in enumerate(row.cells):
                     if i < len(self.header.periods):
@@ -405,6 +453,7 @@ class RenderedStatement:
                 df_row['level'] = row.level
                 df_row['abstract'] = row.is_abstract
                 df_row['dimension'] = row.is_dimension
+                df_row['is_breakdown'] = row.is_breakdown
 
                 df_rows.append(df_row)
 
@@ -508,7 +557,12 @@ eps_concepts = [
     'us-gaap_IncomeLossFromContinuingOperationsPerBasicShare',
     'us-gaap_IncomeLossFromContinuingOperationsPerDilutedShare',
     'us-gaap_IncomeLossFromDiscontinuedOperationsNetOfTaxPerBasicShare',
-    'us-gaap_IncomeLossFromDiscontinuedOperationsNetOfTaxPerDilutedShare'
+    'us-gaap_IncomeLossFromDiscontinuedOperationsNetOfTaxPerDilutedShare',
+    'us-gaap_NetAssetValuePerShare',
+    'us-gaap_BookValuePerShare',
+    'us-gaap_CommonStockDividendsPerShareDeclared',
+    'us-gaap_CommonStockDividendsPerShareCashPaid',
+    'us-gaap_CommonStockParOrStatedValuePerShare',
 ]
 
 
@@ -541,8 +595,9 @@ def html_to_text(html: str) -> str:
     """
     # Wrap in html tag if not present
     html = f"<html>{html}</html>" if not html.startswith("<html>") else html
-    document = Document.parse(html)
-    return rich_to_text(document.__str__(), width=80)
+    parser = HTMLParser(ParserConfig())
+    document = parser.parse(html)
+    return rich_to_text(document, width=80)
 
 
 def _format_period_labels(
@@ -636,7 +691,8 @@ def _format_period_labels(
                         period_types.append("other")
 
             # Generate fiscal period indicator based on detected types
-            unique_types = list(set(period_types))
+            # Issue #601: Sort for deterministic ordering across Python processes
+            unique_types = sorted(set(period_types))
 
             if len(unique_types) == 1:
                 # Single period type
@@ -1029,6 +1085,27 @@ def _format_value_for_display_as_string(
         if decimals_dict:
             fact_decimals = decimals_dict.get(period_key, 0) or 0
 
+    # Apply presentation logic for display (Issue #463)
+    # Matches SEC HTML filing display - uses preferred_sign from presentation linkbase
+    if value_type in (int, float) and period_key:
+        # Get statement context
+        statement_type = item.get('statement_type')
+
+        # Apply preferred_sign from presentation linkbase for display
+        # preferred_sign comes from preferredLabel in presentation linkbase
+        # -1 = negate for display (e.g., expenses, dividends, outflows, contra accounts)
+        # 1 = show as-is
+        # None = no transformation specified
+        #
+        # Originally only applied to Income Statement and Cash Flow Statement (Issue #463)
+        # Extended to Balance Sheet for contra accounts like Treasury Stock (Issue #568)
+        # - APD, JPM, XOM use preferred_sign=-1 for Treasury Stock
+        # - JPM uses preferred_sign=-1 for Allowance for Loan Losses
+        if statement_type in ('IncomeStatement', 'CashFlowStatement', 'BalanceSheet'):
+            preferred_sign = item.get('preferred_signs', {}).get(period_key)
+            if preferred_sign is not None and preferred_sign != 0:
+                value = value * preferred_sign
+
     # Format numeric values efficiently
     if value_type in (int, float):
         # Handle EPS values with decimal precision
@@ -1112,6 +1189,57 @@ def _format_value_for_display(
     return Text(formatted_str, justify="right")
 
 
+def _filter_empty_string_periods(statement_data: List[Dict[str, Any]], periods_to_display: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    """
+    Filter out periods that contain only empty strings in their values.
+
+    This addresses Issue #408 specifically - periods that have facts but only empty string values.
+    This is a lighter filter than the full data availability system, targeting the specific problem.
+
+    Args:
+        statement_data: Statement data with items and values
+        periods_to_display: List of period keys and labels
+
+    Returns:
+        Filtered list of periods that contain meaningful financial data
+    """
+    if not statement_data or not periods_to_display:
+        return periods_to_display
+
+    filtered_periods = []
+
+    for period_key, period_label in periods_to_display:
+        has_meaningful_value = False
+
+        # Check all statement items for this period
+        for item in statement_data:
+            values = item.get('values', {})
+            value = values.get(period_key)
+
+            if value is not None:
+                # Convert to string and check if it's meaningful
+                str_value = str(value).strip()
+                # Check for actual content (not just empty strings)
+                if str_value and str_value.lower() not in ['', 'nan', 'none']:
+                    # Try to parse as numeric - if successful, it's meaningful
+                    try:
+                        numeric_value = pd.to_numeric(str_value, errors='coerce')
+                        if not pd.isna(numeric_value):
+                            has_meaningful_value = True
+                            break
+                    except Exception:
+                        # If not numeric but has content, still count as meaningful
+                        if len(str_value) > 0:
+                            has_meaningful_value = True
+                            break
+
+        # Only include periods that have at least some meaningful values
+        if has_meaningful_value:
+            filtered_periods.append((period_key, period_label))
+
+    return filtered_periods
+
+
 def render_statement(
     statement_data: List[Dict[str, Any]],
     periods_to_display: List[Tuple[str, str]],
@@ -1121,7 +1249,10 @@ def render_statement(
     standard: bool = True,
     show_date_range: bool = False,
     show_comparisons: bool = True,
-    xbrl_instance: Optional[Any] = None
+    xbrl_instance: Optional[Any] = None,
+    include_dimensions: bool = False,
+    role_uri: Optional[str] = None,
+    view: Optional['StatementView'] = None
 ) -> RenderedStatement:
     """
     Render a financial statement as a structured intermediate representation.
@@ -1135,61 +1266,95 @@ def render_statement(
         standard: Whether to use standardized concept labels (default: True)
         show_date_range: Whether to show full date ranges for duration periods (default: False)
         show_comparisons: Whether to show period-to-period comparisons (default: True)
+        include_dimensions: Whether to include dimensional segment data (default: False).
+            When False, only breakdown dimensions (geographic, segment) are filtered out.
+            Classification dimensions (PPE type, equity components) are always shown.
+        role_uri: Role URI for definition linkbase-based dimension filtering (optional)
+        view: StatementView controlling dimensional filtering (STANDARD, DETAILED, SUMMARY).
+            SUMMARY filters ALL dimensions, STANDARD filters breakdowns, DETAILED shows all.
 
     Returns:
         RenderedStatement: A structured representation of the statement that can be rendered
                            in various formats
     """
+    from edgar.xbrl.presentation import StatementView
+    from edgar.xbrl.statements import is_xbrl_structural_element
+
     if entity_info is None:
         entity_info = {}
 
+    # Combined filtering: structural elements + dimension filtering in single pass
+    # 1. Always filter XBRL structural elements (Axis, Domain, Member, Table, LineItems)
+    #    These are metadata, not financial data (e.g., ProductMember, ServiceMember empty rows)
+    # 2. Apply StatementView-based dimension filtering:
+    #    - SUMMARY: Filter ALL dimensional items (non-dimensional totals only)
+    #    - STANDARD: Filter BREAKDOWN dimensions only (keep face-level like Products/Services)
+    #    - DETAILED: Show ALL dimensional data
+    if view == StatementView.SUMMARY:
+        # SUMMARY: Filter structural elements + ALL dimensional items
+        statement_data = [
+            item for item in statement_data
+            if not is_xbrl_structural_element(item) and not item.get('is_dimension')
+        ]
+    elif not include_dimensions:
+        # STANDARD: Filter structural elements + breakdown dimensions only
+        # Issue #569: Keep classification dimensions (PPE type, equity components) on face
+        # Issue #577/cf9o: Pass xbrl and role_uri for definition linkbase-based filtering
+        from edgar.xbrl.dimensions import is_breakdown_dimension
+        statement_data = [
+            item for item in statement_data
+            if not is_xbrl_structural_element(item) and (
+                not item.get('is_dimension') or not is_breakdown_dimension(
+                    item, statement_type=statement_type, xbrl=xbrl_instance, role_uri=role_uri
+                )
+            )
+        ]
+    else:
+        # DETAILED: Filter structural elements only, keep all dimensional data
+        statement_data = [item for item in statement_data if not is_xbrl_structural_element(item)]
+
+    # Filter out periods with only empty strings (Fix for Issue #408)
+    # Apply to all major financial statement types that could have empty periods
+    if statement_type in ['CashFlowStatement', 'IncomeStatement', 'BalanceSheet']:
+        periods_to_display = _filter_empty_string_periods(statement_data, periods_to_display)
+
     # Apply standardization if requested
     if standard:
-        # Create a concept mapper with default mappings
-        mapper = standardization.ConceptMapper(standardization.initialize_default_mappings())
+        # Use XBRL instance's standardization cache if available (disable statement caching
+        # since statement_data varies by view/period parameters)
+        if xbrl_instance is not None and hasattr(xbrl_instance, 'standardization'):
+            statement_data = xbrl_instance.standardization.standardize_statement_data(
+                statement_data, statement_type, use_cache=False
+            )
+        else:
+            # Fall back to module-level singleton mapper
+            mapper = standardization.get_default_mapper()
+            for item in statement_data:
+                item['statement_type'] = statement_type
+            statement_data = standardization.standardize_statement(statement_data, mapper)
 
-        # Add statement type to context for better mapping
-        for item in statement_data:
-            item['statement_type'] = statement_type
-
-        # Standardize the statement data
-        statement_data = standardization.standardize_statement(statement_data, mapper)
-
-        # Update facts with standardized labels if XBRL instance is available
-        entity_xbrl_instance = entity_info.get('xbrl_instance')
-        # Use passed xbrl_instance or fall back to entity info
+        # Add standard_concept metadata to facts if XBRL instance is available
+        entity_xbrl_instance = entity_info.get('xbrl_instance') if entity_info else None
         facts_xbrl_instance = xbrl_instance or entity_xbrl_instance
         if facts_xbrl_instance and hasattr(facts_xbrl_instance, 'facts_view'):
             facts_view = facts_xbrl_instance.facts_view
             facts = facts_view.get_facts()
 
-            # Create a mapping of concept -> standardized label from statement data
-            standardization_map = {}
+            # Create a mapping of concept -> standard_concept from statement data
+            standard_concept_map = {}
             for item in statement_data:
-                if 'concept' in item and 'label' in item and 'original_label' in item:
+                if 'concept' in item and 'standard_concept' in item:
                     if item.get('is_dimension', False):
                         continue
-                    standardization_map[item['concept']] = {
-                        'label': item['label'],
-                        'original_label': item['original_label']
-                    }
+                    standard_concept_map[item['concept']] = item['standard_concept']
 
-            # Update facts with standardized labels
+            # Add standard_concept metadata to facts (don't change labels)
             for fact in facts:
-                if 'concept' in fact and fact['concept'] in standardization_map:
-                    mapping = standardization_map[fact['concept']]
-                    if fact.get('label') == mapping.get('original_label'):
-                        # Store original label if not already set
-                        if 'original_label' not in fact:
-                            fact['original_label'] = fact['label']
-                        # Update with standardized label
-                        fact['label'] = mapping['label']
+                if 'concept' in fact and fact['concept'] in standard_concept_map:
+                    fact['standard_concept'] = standard_concept_map[fact['concept']]
 
             # Clear the cache to ensure it's rebuilt with updated facts
             facts_view.clear_cache()
-
-        # Indicate that standardization is being used in the title
-        statement_title = f"{statement_title} (Standardized)"
 
     # Determine if this is likely a monetary statement
     is_monetary_statement = statement_type in ['BalanceSheet', 'IncomeStatement', 'CashFlowStatement']
@@ -1370,6 +1535,12 @@ def render_statement(
     elif hasattr(xbrl_instance, 'company_name') and xbrl_instance.company_name:
         footer_metadata['company_name'] = xbrl_instance.company_name
 
+    # Extract ticker
+    if hasattr(xbrl_instance, 'entity_info') and xbrl_instance.entity_info:
+        ticker = xbrl_instance.entity_info.get('ticker', '')
+        if ticker:
+            footer_metadata['ticker'] = ticker
+
     # Extract form type and periods
     if hasattr(xbrl_instance, 'form_type') and xbrl_instance.form_type:
         footer_metadata['form_type'] = xbrl_instance.form_type
@@ -1394,6 +1565,19 @@ def render_statement(
         units_note=units_note
     )
 
+    # Issue #450: For Statement of Equity, track concept occurrences to determine beginning vs ending balances
+    concept_occurrence_count = {}
+    if statement_type == 'StatementOfEquity':
+        for item in statement_data:
+            concept = item.get('concept', '')
+            if concept:
+                concept_occurrence_count[concept] = concept_occurrence_count.get(concept, 0) + 1
+
+    concept_current_index = {}
+
+    # Detect if this statement has dimensional display (for Member filtering logic)
+    has_dimensional_display = any(item.get('is_dimension', False) for item in statement_data)
+
     # Process and add rows
     for _index, item in enumerate(statement_data):
         # Skip rows with no values if they're abstract (headers without data)
@@ -1402,13 +1586,47 @@ def render_statement(
         if not item.get('has_values', False) and item.get('is_abstract') and not has_children:
             continue
 
-        # Skip axis/dimension items (they contain brackets in their labels)
+        # Skip axis/dimension items (they contain brackets in their labels OR concept ends with these suffixes)
+        # Issue #450: Also filter based on concept name to catch dimensional members without bracket labels
+        concept = item.get('concept', '')
         if any(bracket in item['label'] for bracket in ['[Axis]', '[Domain]', '[Member]', '[Line Items]', '[Table]', '[Abstract]']):
             continue
+        if any(concept.endswith(suffix) for suffix in ['Axis', 'Domain', 'Member', 'LineItems', 'Table']):
+            # Issue #450: For Statement of Equity, Members are always structural (column headers), never data
+            if statement_type == 'StatementOfEquity':
+                continue
+            # Issue #416: For dimensional displays, keep Members even without values (they're category headers)
+            # For non-dimensional displays, only filter if no values
+            if not has_dimensional_display and not item.get('has_values', False):
+                continue
+
+        # Track which occurrence of this concept we're on
+        if concept:
+            concept_current_index[concept] = concept_current_index.get(concept, 0) + 1
 
         # Remove [Abstract] from label if present
         label = item['label'].replace(' [Abstract]', '')
         level = item['level']
+
+        # Issue #450: For Statement of Equity, add "Beginning balance" / "Ending balance"
+        # to labels when concept appears multiple times (e.g., Total Stockholders' Equity)
+        if statement_type == 'StatementOfEquity' and concept:
+            total_occurrences = concept_occurrence_count.get(concept, 1)
+            current_occurrence = concept_current_index.get(concept, 1)
+
+            if total_occurrences > 1:
+                if current_occurrence == 1:
+                    label = f"{label} - Beginning balance"
+                elif current_occurrence == total_occurrences:
+                    label = f"{label} - Ending balance"
+
+        # Determine if this is a breakdown dimension
+        from edgar.xbrl.dimensions import is_breakdown_dimension
+        is_dim = item.get('is_dimension', False)
+        is_breakdown = is_breakdown_dimension(
+            item, statement_type=statement_type,
+            xbrl=xbrl_instance, role_uri=role_uri
+        ) if is_dim else False
 
         # Create the row with metadata
         row = StatementRow(
@@ -1417,12 +1635,16 @@ def render_statement(
             cells=[],
             metadata={
                 'concept': item.get('concept', ''),
+                'standard_concept': item.get('standard_concept'),  # Standard concept identifier for analysis
                 'has_values': item.get('has_values', False),
                 'children': item.get('children', []),
-                'dimension_metadata': item.get('dimension_metadata', {})
+                'dimension_metadata': item.get('dimension_metadata', {}),
+                'units': item.get('units', {}),  # Pass through unit_ref for each period
+                'period_types': item.get('period_types', {})  # Pass through period_type for each period
             },
             is_abstract=item.get('is_abstract', False),
-            is_dimension=item.get('is_dimension', False),
+            is_dimension=is_dim,
+            is_breakdown=is_breakdown,
             has_dimension_children=item.get('has_dimension_children', False)
         )
 
@@ -1430,6 +1652,29 @@ def render_statement(
         for period in formatted_period_objects:
             period_key = period.key
             value = item['values'].get(period_key, "")
+
+            # Issue #450: For Statement of Equity with duration periods, match instant facts
+            # at the appropriate date based on position in roll-forward structure
+            if value == "" and period.end_date and statement_type == 'StatementOfEquity':
+                # Determine if this is beginning balance (first occurrence) or ending balance (later occurrences)
+                is_first_occurrence = concept_current_index.get(concept, 1) == 1
+
+                if is_first_occurrence and hasattr(period, 'start_date') and period.start_date:
+                    # Beginning balance: Try instant at day before start_date
+                    from datetime import datetime, timedelta
+                    try:
+                        start_dt = datetime.strptime(period.start_date, '%Y-%m-%d')
+                        beginning_date = (start_dt - timedelta(days=1)).strftime('%Y-%m-%d')
+                        instant_key = f"instant_{beginning_date}"
+                        value = item['values'].get(instant_key, "")
+                    except (ValueError, AttributeError):
+                        pass  # Fall through to try end_date
+
+                # If still no value, try instant at end_date (ending balance)
+                if value == "":
+                    instant_key = f"instant_{period.end_date}"
+                    value = item['values'].get(instant_key, "")
+
             # Get comparison info for this item and period if available
             comparison_info = None
             if show_comparisons and item.get('concept') in comparison_data:
@@ -1464,74 +1709,191 @@ def render_statement(
 
 def generate_rich_representation(xbrl) -> Union[str, 'Panel']:
     """
-    Generate a rich representation of the XBRL document.
+    Generate a clean, human-focused representation of the XBRL document.
 
     Args:
         xbrl: XBRL object
 
     Returns:
-        Panel: A formatted panel with XBRL document information
+        Panel: A formatted panel focused on statement availability and usage
     """
     components = []
 
-    # Entity information
+    # Header: Clean, crisp information hierarchy
     if xbrl.entity_info:
-        if RichTable is None or box is None:
-            return "Rich rendering not available - install 'rich' package"
-        entity_table = RichTable(title="Entity Information", box=box.SIMPLE)
-        entity_table.add_column("Property")
-        entity_table.add_column("Value")
+        entity_name = xbrl.entity_info.get('entity_name', 'Unknown Entity')
+        ticker = xbrl.entity_info.get('ticker', '')
+        cik = xbrl.entity_info.get('identifier', '')
+        doc_type = xbrl.entity_info.get('document_type', '')
+        fiscal_year = xbrl.entity_info.get('fiscal_year', '')
+        fiscal_period = xbrl.entity_info.get('fiscal_period', '')
+        period_end = xbrl.entity_info.get('document_period_end_date', '')
 
-        for key, value in xbrl.entity_info.items():
-            entity_table.add_row(key, str(value))
+        # Company name with ticker (bold yellow) and CIK on same line
+        from rich.text import Text as RichText
+        company_line = RichText()
+        company_line.append(entity_name, style="bold cyan")
+        if ticker:
+            company_line.append(" (", style="bold cyan")
+            company_line.append(ticker, style="bold yellow")
+            company_line.append(")", style="bold cyan")
+        if cik:
+            # Format CIK with leading zeros dimmed
+            company_line.append(" • CIK ", style="dim")
+            company_line.append(cik_text(cik))
 
-        components.append(entity_table)
+        components.append(company_line)
+        components.append(Text(""))  # Spacing
 
-    # Statements summary
-    statements = xbrl.get_all_statements()
-    if statements:
-        if RichTable is None or box is None:
-            return "Rich rendering not available - install 'rich' package"
-        statement_table = RichTable(title="Financial Statements", box=box.SIMPLE)
-        statement_table.add_column("Type")
-        statement_table.add_column("Definition")
-        statement_table.add_column("Elements")
+        # Filing information - crisp, key-value style
+        filing_table = RichTable.grid(padding=(0, 2))
+        filing_table.add_column(style="bold", justify="right")
+        filing_table.add_column(style="default")
 
-        for stmt in statements:
-            statement_table.add_row(
-                stmt['type'] or "Other",
-                stmt['definition'],
-                str(stmt['element_count'])
-            )
+        if doc_type:
+            filing_table.add_row("Form:", doc_type)
 
-        components.append(statement_table)
+        # Combine fiscal period and end date on one line (they're related!)
+        if fiscal_period and fiscal_year:
+            period_display = f"Fiscal Year {fiscal_year}" if fiscal_period == 'FY' else f"{fiscal_period} {fiscal_year}"
+            if period_end:
+                # Format date more readably
+                from datetime import datetime
+                try:
+                    date_obj = datetime.strptime(str(period_end), '%Y-%m-%d')
+                    period_display += f" (ended {date_obj.strftime('%b %d, %Y')})"
+                except Exception:
+                    period_display += f" (ended {period_end})"
+            filing_table.add_row("Fiscal Period:", period_display)
 
-    # Facts summary
-    if RichTable is None or box is None:
-        return "Rich rendering not available - install 'rich' package"
-    fact_table = RichTable(title="Facts Summary", box=box.SIMPLE)
-    fact_table.add_column("Category")
-    fact_table.add_column("Count")
+        # Data volume
+        filing_table.add_row("Data:", f"{len(xbrl._facts):,} facts • {len(xbrl.contexts):,} contexts")
 
-    fact_table.add_row("Total Facts", str(len(xbrl._facts)))
-    fact_table.add_row("Contexts", str(len(xbrl.contexts)))
-    fact_table.add_row("Units", str(len(xbrl.units)))
-    fact_table.add_row("Elements", str(len(xbrl.element_catalog)))
+        components.append(filing_table)
 
-    components.append(fact_table)
-
-    # Reporting periods
+    # Period coverage - filtered by document date to show only usable periods
     if xbrl.reporting_periods:
-        period_table = RichTable(title="Reporting Periods", box=box.SIMPLE)
-        period_table.add_column("Type")
-        period_table.add_column("Period")
+        components.append(Text(""))  # Spacing
+        components.append(Text("Periods Available for Statements:", style="bold"))
 
-        for period in xbrl.reporting_periods:
-            if period['type'] == 'instant':
-                period_table.add_row("Instant", period['date'])
+        # Apply document date filtering (same logic used when rendering statements)
+        from edgar.xbrl.period_selector import _filter_by_document_date
+
+        document_end_date = xbrl.period_of_report
+        all_periods_count = len(xbrl.reporting_periods)
+        filtered_periods = _filter_by_document_date(xbrl.reporting_periods, document_end_date)
+        filtered_count = len(filtered_periods)
+
+        # Parse filtered periods into annual and quarterly
+        annual_periods = []
+        quarterly_periods = []
+        other_periods = []
+
+        for period in filtered_periods[:10]:  # Show up to 10 filtered periods
+            label = period.get('label', '')
+            if not label:
+                continue
+
+            # Categorize by label content
+            if 'Annual:' in label or 'FY' in label.upper():
+                # Extract just the fiscal year or simplified label
+                if 'Annual:' in label:
+                    # Extract dates and format as FY YYYY
+                    try:
+                        import re
+                        year_match = re.search(r'to .* (\d{4})', label)
+                        if year_match:
+                            year = year_match.group(1)
+                            annual_periods.append(f"FY {year}")
+                        else:
+                            annual_periods.append(label)
+                    except Exception:
+                        annual_periods.append(label)
+                else:
+                    annual_periods.append(label)
+            elif 'Quarterly:' in label or any(q in label for q in ['Q1', 'Q2', 'Q3', 'Q4']):
+                # Remove "Quarterly:" prefix if present for cleaner display
+                clean_label = label.replace('Quarterly:', '').strip()
+                quarterly_periods.append(clean_label)
             else:
-                period_table.add_row("Duration", f"{period['start_date']} to {period['end_date']}")
+                other_periods.append(label)
 
-        components.append(period_table)
+        # Display periods in organized way
+        if annual_periods:
+            components.append(Text(f"  Annual: {', '.join(annual_periods[:3])}", style="default"))
+        if quarterly_periods:
+            components.append(Text(f"  Quarterly: {', '.join(quarterly_periods[:3])}", style="default"))
 
-    return Panel(Group(*components), title="XBRL Document", border_style="green")
+        # Add explanatory note if periods were filtered out
+        if document_end_date and filtered_count < all_periods_count:
+            excluded_count = all_periods_count - filtered_count
+            components.append(Text(f"  ({excluded_count} future period{'s' if excluded_count > 1 else ''} after {document_end_date} excluded)",
+                                 style="dim italic"))
+
+    statements = xbrl.get_all_statements()
+    statement_types = {stmt['type'] for stmt in statements if stmt['type']}
+
+    # Common Actions section - expanded and instructive
+    components.append(Text(""))  # Spacing
+    components.append(Text("Common Actions", style="bold"))
+    components.append(Text("─" * 60, style="dim"))
+
+    # Build actions list dynamically
+    actions = [
+        ("# List all available statements", ""),
+        ("xbrl.statements", ""),
+        ("", ""),
+        ("# Access statements by name or index", ""),
+        ("stmt = xbrl.statements['CoverPage']", ""),
+        ("stmt = xbrl.statements[6]", ""),
+        ("", ""),
+        ("# View core financial statements", ""),
+    ]
+
+    # Add available core statements dynamically
+    core_statement_methods = {
+        'IncomeStatement': 'income_statement()',
+        'BalanceSheet': 'balance_sheet()',
+        'CashFlowStatement': 'cash_flow_statement()',
+        'StatementOfEquity': 'statement_of_equity()',
+        'ComprehensiveIncome': 'comprehensive_income()'
+    }
+
+    for stmt_type, method in core_statement_methods.items():
+        if stmt_type in statement_types:
+            actions.append((f"stmt = xbrl.statements.{method}", ""))
+
+    # Continue with other actions
+    actions.extend([
+        ("", ""),
+        ("# Get current period only", ""),
+        ("current = xbrl.current_period", ""),
+        ("stmt = current.income_statement()", ""),
+        ("", ""),
+        ("# Convert statement to DataFrame", ""),
+        ("df = stmt.to_dataframe()", ""),
+        ("", ""),
+        ("# Query specific facts", ""),
+        ("revenue = xbrl.facts.query().by_concept('Revenue').to_dataframe()", ""),
+    ])
+
+    for code, comment in actions:
+        if not code and not comment:
+            # Blank line for spacing
+            components.append(Text(""))
+        elif code.startswith("#"):
+            # Comment line - bold
+            components.append(Text(code, style="bold"))
+        else:
+            # Code line
+            action_line = Text()
+            action_line.append(f"  {code}", style="cyan")
+            if comment:
+                action_line.append(f"  {comment}", style="dim")
+            components.append(action_line)
+
+    # Add hint about comprehensive docs
+    components.append(Text(""))
+    components.append(Text("💡 Tip: Use xbrl.docs for comprehensive usage guide", style="dim italic"))
+
+    return Panel(Group(*components), title="XBRL Document", border_style="blue")

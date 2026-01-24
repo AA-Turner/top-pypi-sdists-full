@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llm
-Version: 0.27.1
+Version: 0.28
 Summary: CLI utility and Python library for interacting with Large Language Models from organizations like OpenAI, Anthropic and Gemini plus local models installed on your own machine.
 Author: Simon Willison
 License-Expression: Apache-2.0
@@ -14,15 +14,15 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click
@@ -39,23 +39,6 @@ Requires-Dist: setuptools
 Requires-Dist: pip
 Requires-Dist: pyreadline3; sys_platform == "win32"
 Requires-Dist: puremagic
-Provides-Extra: test
-Requires-Dist: build; extra == "test"
-Requires-Dist: click<8.2.0; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: numpy; extra == "test"
-Requires-Dist: pytest-httpx>=0.33.0; extra == "test"
-Requires-Dist: pytest-asyncio; extra == "test"
-Requires-Dist: cogapp; extra == "test"
-Requires-Dist: mypy>=1.10.0; extra == "test"
-Requires-Dist: black>=25.1.0; extra == "test"
-Requires-Dist: pytest-recording; extra == "test"
-Requires-Dist: ruff; extra == "test"
-Requires-Dist: syrupy; extra == "test"
-Requires-Dist: types-click; extra == "test"
-Requires-Dist: types-PyYAML; extra == "test"
-Requires-Dist: types-setuptools; extra == "test"
-Requires-Dist: llm-echo==0.3a3; extra == "test"
 Dynamic: license-file
 
 <!-- [[[cog

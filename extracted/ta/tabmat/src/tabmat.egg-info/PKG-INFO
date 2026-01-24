@@ -1,19 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tabmat
-Version: 4.1.2
+Version: 4.2.0
 Summary: Efficient matrix representations for working with tabular data.
 Home-page: https://github.com/Quantco/tabmat
 Author: QuantCo, Inc.
 Author-email: noreply@quantco.com
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: formulaic>=1.2
+Requires-Dist: narwhals
+Requires-Dist: numpy
+Requires-Dist: scipy
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Efficient matrix representations for working with tabular data
 

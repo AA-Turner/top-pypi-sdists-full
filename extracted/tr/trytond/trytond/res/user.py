@@ -2,7 +2,6 @@
 # this repository contains the full copyright notices and license terms.
 "User"
 
-import copy
 import datetime
 import hashlib
 import logging
@@ -30,8 +29,8 @@ from sql.aggregate import Count
 from sql.conditionals import Case
 from sql.functions import CurrentTimestamp
 
+import trytond.config as config
 from trytond.cache import Cache
-from trytond.config import config
 from trytond.exceptions import LoginException, RateLimitException, UserError
 from trytond.i18n import gettext, ngettext
 from trytond.model import (
@@ -142,6 +141,10 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
     language_direction = fields.Function(fields.Char('Language Direction'),
             'get_language_direction')
     email = fields.Char('Email')
+    notifications = fields.MultiSelection(
+        'get_notifications', "Notifications",
+        help="Notifications to subscribe to.")
+
     status_bar = fields.Function(fields.Char('Status Bar'), 'get_status_bar')
     avatar_badge_url = fields.Function(
         fields.Char("Avatar Badge URL"), 'get_avatar_badge_url')
@@ -183,6 +186,7 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
             'avatar_badge_url',
             'warnings',
             'applications',
+            'notifications',
         ]
         cls._context_fields = [
             'language',
@@ -327,6 +331,12 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
                         for i, g in groupby(filter(filter_, sessions),
                             attrgetter('create_uid.id'))))
         return result
+
+    @classmethod
+    def get_notifications(cls):
+        pool = Pool()
+        Cron = pool.get('ir.cron')
+        return list(Cron.notifications())
 
     @classmethod
     def preprocess_values(cls, mode, values):
@@ -562,13 +572,12 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
         Action = pool.get('ir.action')
 
         view_id = ModelData.get_id('res', 'user_view_form_preferences')
-        res = cls.fields_view_get(view_id=view_id)
-        res = copy.deepcopy(res)
-        for field in res['fields']:
-            if field not in ('groups', 'language_direction'):
-                res['fields'][field]['readonly'] = False
-            else:
-                res['fields'][field]['readonly'] = True
+        result = dict(cls.fields_view_get(view_id=view_id))
+        result['fields'] = dict(result['fields'])
+        for name, definition in result['fields'].items():
+            definition = dict(definition)
+            result['fields'][name] = definition
+            definition['readonly'] = name in {'groups', 'language_direction'}
 
         def convert2selection(definition, name):
             del definition[name]['relation']
@@ -578,27 +587,27 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
             definition[name]['selection'] = selection
             return selection
 
-        if 'language' in res['fields']:
-            selection = convert2selection(res['fields'], 'language')
+        if 'language' in result['fields']:
+            selection = convert2selection(result['fields'], 'language')
             langs = Lang.search(cls.language.domain)
             lang_ids = [l.id for l in langs]
             with Transaction().set_context(translate_name=True):
                 for lang in Lang.browse(lang_ids):
                     selection.append((lang.code, lang.name))
-        if 'action' in res['fields']:
-            selection = convert2selection(res['fields'], 'action')
+        if 'action' in result['fields']:
+            selection = convert2selection(result['fields'], 'action')
             selection.append((None, ''))
             actions = Action.search([])
             for action in actions:
                 selection.append((action.id, action.rec_name))
-        if 'menu' in res['fields']:
-            selection = convert2selection(res['fields'], 'menu')
+        if 'menu' in result['fields']:
+            selection = convert2selection(result['fields'], 'menu')
             actions = Action.search([
                     ('usage', '=', 'menu'),
                     ])
             for action in actions:
                 selection.append((action.id, action.rec_name))
-        return res
+        return result
 
     @classmethod
     def get_groups(cls):
@@ -607,16 +616,22 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
         '''
         pool = Pool()
         UserGroup = pool.get('res.user-res.group')
+        Group = pool.get('res.group')
+
         transaction = Transaction()
         user = transaction.user
         groups = cls._get_groups_cache.get(user)
         if groups is not None:
             return groups
         cursor = transaction.connection.cursor()
+        group = Group.__table__()
         user_group = UserGroup.user_group_all_table()
-        cursor.execute(*user_group.select(
+        cursor.execute(*user_group
+            .join(group, 'LEFT', user_group.group == group.id)
+            .select(
                 user_group.group,
-                where=user_group.user == user,
+                where=((user_group.user == user)
+                    & (group.active == Literal(True))),
                 order_by=[user_group.group.asc]))
         groups = tuple(g for g, in cursor)
         cls._get_groups_cache.set(user, groups)
@@ -699,10 +714,8 @@ class User(avatar_mixin(100, 'login'), DeactivableMixin, ModelSQL, ModelView):
 
     @classmethod
     def _check_login_options_ip_address(cls, login, parameters):
-        context = Transaction().context
-        if context.get('_request') and context['_request'].get('remote_addr'):
-            ip_address = ipaddress.ip_address(
-                str(context['_request']['remote_addr']))
+        ip_address, _ = Transaction().remote_address()
+        if ip_address:
             network_list = config.get('session', 'authentication_ip_network')
             if network_list:
                 for network in network_list.split(','):
@@ -764,21 +777,6 @@ class LoginAttempt(ModelSQL):
         return (datetime.datetime.now()
             - datetime.timedelta(seconds=config.getint('session', 'timeout')))
 
-    @classmethod
-    def ipaddress(cls):
-        context = Transaction().context
-        ip_address = ''
-        ip_network = ''
-        if context.get('_request') and context['_request'].get('remote_addr'):
-            ip_address = ipaddress.ip_address(
-                str(context['_request']['remote_addr']))
-            prefix = config.getint(
-                'session', 'ip_network_%s' % ip_address.version)
-            ip_network = ipaddress.ip_network(
-                str(context['_request']['remote_addr']))
-            ip_network = ip_network.supernet(new_prefix=prefix)
-        return ip_address, ip_network
-
     def _login_size(func):
         @wraps(func)
         def wrapper(cls, login, *args, **kwargs):
@@ -788,16 +786,17 @@ class LoginAttempt(ModelSQL):
     @classmethod
     @_login_size
     def add(cls, login, device_cookie=None):
-        cursor = Transaction().connection.cursor()
+        transaction = Transaction()
+        cursor = transaction.connection.cursor()
         table = cls.__table__()
         cursor.execute(*table.delete(where=table.create_date < cls.delay()))
 
-        ip_address, ip_network = cls.ipaddress()
+        ip_address, ip_network = transaction.remote_address()
         cls.create([{
                     'login': login,
                     'device_cookie': device_cookie,
-                    'ip_address': str(ip_address),
-                    'ip_network': str(ip_network),
+                    'ip_address': str(ip_address) if ip_address else None,
+                    'ip_network': str(ip_network) if ip_network else None,
                     }])
 
     @classmethod
@@ -823,11 +822,13 @@ class LoginAttempt(ModelSQL):
 
     @classmethod
     def count_ip(cls):
-        cursor = Transaction().connection.cursor()
+        transaction = Transaction()
+        cursor = transaction.connection.cursor()
         table = cls.__table__()
-        _, ip_network = cls.ipaddress()
+        _, ip_network = transaction.remote_address()
+        ip_network = str(ip_network) if ip_network else None
         cursor.execute(*table.select(Count(Literal('*')),
-                where=(table.ip_network == str(ip_network))
+                where=(table.ip_network == ip_network)
                 & (table.create_date >= cls.delay())))
         return cursor.fetchone()[0]
 
@@ -961,7 +962,17 @@ class Warning_(ModelSQL, ModelView):
 
     @classmethod
     def format(cls, name, records):
-        key = '|'.join(map(str, records)).encode('utf-8')
+        create_records = Transaction().create_records
+
+        def str_(record):
+            name = record.__name__
+            try:
+                # start from 1 to avoid 0 == -0
+                i = create_records[name].index(record.id) + 1
+                return '%s,%s' % (name, -i)
+            except ValueError:
+                return str(record)
+        key = '|'.join(map(str_, records)).encode('utf-8')
         return '%s.%s' % (hashlib.md5(key).hexdigest(), name)
 
     @classmethod
@@ -1076,7 +1087,7 @@ class UserApplication(Workflow, ModelSQL, ModelView):
     @classmethod
     def preprocess_values(cls, mode, values):
         values = super().preprocess_values(mode, values)
-        if 'key' not in values:
+        if mode == 'create' and 'key' not in values:
             # Ensure we get a different key for each record
             # default methods are called only once
             values['key'] = cls.default_key()

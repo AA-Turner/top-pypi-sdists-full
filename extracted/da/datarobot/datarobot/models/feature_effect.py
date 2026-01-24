@@ -31,9 +31,7 @@ class FeatureEffectMetadata(APIObject):
 
     """
 
-    _converter = t.Dict({t.Key("status"): String, t.Key("sources"): t.List(String)}).ignore_extra(
-        "*"
-    )
+    _converter = t.Dict({t.Key("status"): String, t.Key("sources"): t.List(String)}).ignore_extra("*")
 
     def __init__(self, status, sources):
         self.status = status
@@ -69,25 +67,18 @@ class FeatureEffectMetadataDatetime(APIObject):
 
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("data"): t.List(
-                t.Dict(
-                    {
-                        t.Key("backtest_index"): String,
-                        t.Key("status"): String,
-                        t.Key("sources"): t.List(String),
-                    }
-                ).ignore_extra("*")
-            )
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("data"): t.List(
+            t.Dict({
+                t.Key("backtest_index"): String,
+                t.Key("status"): String,
+                t.Key("sources"): t.List(String),
+            }).ignore_extra("*")
+        )
+    }).ignore_extra("*")
 
     def __init__(self, data):
-        self.data = [
-            FeatureEffectMetadataDatetimePerBacktest(fe_meta_per_backtest)
-            for fe_meta_per_backtest in data
-        ]
+        self.data = [FeatureEffectMetadataDatetimePerBacktest(fe_meta_per_backtest) for fe_meta_per_backtest in data]
 
     def __repr__(self):
         return f"FeatureEffectDatetimeMetadata({self.data})"
@@ -107,19 +98,16 @@ class FeatureEffectMetadataDatetimePerBacktest:
         self.sources = ff_metadata_datetime_per_backtest["sources"]
 
     def __repr__(self):
-        return (
-            "FeatureEffectMetadataDatetimePerBacktest(backtest_index={},"
-            "status={}, sources={}".format(self.backtest_index, self.status, self.sources)
+        return "FeatureEffectMetadataDatetimePerBacktest(backtest_index={},status={}, sources={}".format(
+            self.backtest_index, self.status, self.sources
         )
 
     def __eq__(self, other):
-        return all(
-            [
-                self.backtest_index == other.backtest_index,
-                self.status == other.status,
-                sorted(self.sources) == sorted(other.sources),
-            ]
-        )
+        return all([
+            self.backtest_index == other.backtest_index,
+            self.status == other.status,
+            sorted(self.sources) == sorted(other.sources),
+        ])
 
     def __lt__(self, other):
         return self.backtest_index < other.backtest_index
@@ -191,59 +179,45 @@ class FeatureEffects(APIObject):
           Type is float if weight or exposure is set for the project.
     """
 
-    _PartialDependence = t.Dict(
-        {
-            t.Key("is_capped"): t.Bool,
-            t.Key("data"): t.List(
-                t.Dict(
-                    {t.Key("label"): t.Or(String, Int), t.Key("dependence"): t.Float}
-                ).ignore_extra("*")
-            ),
-        }
-    ).ignore_extra("*")
+    _PartialDependence = t.Dict({
+        t.Key("is_capped"): t.Bool,
+        t.Key("data"): t.List(
+            t.Dict({t.Key("label"): t.Or(String, Int), t.Key("dependence"): t.Float}).ignore_extra("*")
+        ),
+    }).ignore_extra("*")
 
-    _PredictedVsActual = t.Dict(
-        {
-            t.Key("is_capped"): t.Bool,
-            t.Key("data"): t.List(
-                t.Dict(
-                    {
-                        t.Key("row_count"): t.Or(Int, t.Float),
-                        t.Key("label"): String,
-                        t.Key("bin", optional=True): t.List(String),
-                        t.Key("predicted"): t.Or(t.Float, t.Null),
-                        t.Key("actual"): t.Or(t.Float, t.Null),
-                    }
-                ).ignore_extra("*")
-            ),
-        }
-    ).ignore_extra("*")
+    _PredictedVsActual = t.Dict({
+        t.Key("is_capped"): t.Bool,
+        t.Key("data"): t.List(
+            t.Dict({
+                t.Key("row_count"): t.Or(Int, t.Float),
+                t.Key("label"): String,
+                t.Key("bin", optional=True): t.List(String),
+                t.Key("predicted"): t.Or(t.Float, t.Null),
+                t.Key("actual"): t.Or(t.Float, t.Null),
+            }).ignore_extra("*")
+        ),
+    }).ignore_extra("*")
 
-    _FeatureEffect = t.Dict(
-        {
-            t.Key("feature_name"): String,
-            t.Key("feature_impact_score"): t.Float,
-            t.Key("feature_type"): t.Enum(
-                FEATURE_TYPE.NUMERIC, FEATURE_TYPE.CATEGORICAL, FEATURE_TYPE.DATETIME
-            ),
-            t.Key("partial_dependence"): _PartialDependence,
-            t.Key("predicted_vs_actual", optional=True): _PredictedVsActual,
-            t.Key("weight_label", optional=True): t.Or(String, t.Null),
-            t.Key("is_scalable"): t.Or(t.Bool, t.Null),
-            t.Key("is_binnable"): t.Bool,
-        }
-    ).ignore_extra("*")
+    _FeatureEffect = t.Dict({
+        t.Key("feature_name"): String,
+        t.Key("feature_impact_score"): t.Float,
+        t.Key("feature_type"): t.Enum(FEATURE_TYPE.NUMERIC, FEATURE_TYPE.CATEGORICAL, FEATURE_TYPE.DATETIME),
+        t.Key("partial_dependence"): _PartialDependence,
+        t.Key("predicted_vs_actual", optional=True): _PredictedVsActual,
+        t.Key("weight_label", optional=True): t.Or(String, t.Null),
+        t.Key("is_scalable"): t.Or(t.Bool, t.Null),
+        t.Key("is_binnable"): t.Bool,
+    }).ignore_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("source"): String,
-            t.Key("data_slice_id", optional=True): t.Or(String, t.Null),
-            t.Key("backtest_index", optional=True): String,
-            t.Key("feature_effects"): t.List(_FeatureEffect),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("source"): String,
+        t.Key("data_slice_id", optional=True): t.Or(String, t.Null),
+        t.Key("backtest_index", optional=True): String,
+        t.Key("feature_effects"): t.List(_FeatureEffect),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -262,45 +236,38 @@ class FeatureEffects(APIObject):
         self.feature_effects = feature_effects
 
     def __repr__(self):
-        return (
-            "{}(project_id={},"
-            "model_id={}, source={}, data_slice_id={},backtest_index={}, feature_effects={}".format(
-                self.__class__.__name__,
-                self.project_id,
-                self.model_id,
-                self.source,
-                self.data_slice_id,
-                self.backtest_index,
-                self.feature_effects,
-            )
+        return "{}(project_id={},model_id={}, source={}, data_slice_id={},backtest_index={}, feature_effects={}".format(
+            self.__class__.__name__,
+            self.project_id,
+            self.model_id,
+            self.source,
+            self.data_slice_id,
+            self.backtest_index,
+            self.feature_effects,
         )
 
     def __eq__(self, other):
-        return all(
-            [
-                self.project_id == other.project_id,
-                self.model_id == other.model_id,
-                self.source == other.source,
-                self.data_slice_id == other.data_slice_id,
-                self.backtest_index == other.backtest_index,
-                (
-                    sorted(self.feature_effects, key=lambda k: k["feature_name"])
-                    == sorted(other.feature_effects, key=lambda k: k["feature_name"])
-                ),
-            ]
-        )
+        return all([
+            self.project_id == other.project_id,
+            self.model_id == other.model_id,
+            self.source == other.source,
+            self.data_slice_id == other.data_slice_id,
+            self.backtest_index == other.backtest_index,
+            (
+                sorted(self.feature_effects, key=lambda k: k["feature_name"])
+                == sorted(other.feature_effects, key=lambda k: k["feature_name"])
+            ),
+        ])
 
     def __hash__(self):
-        return hash(
-            (
-                self.__class__.__name__,
-                self.project_id,
-                self.model_id,
-                self.source,
-                self.data_slice_id,
-                self.backtest_index,
-            )
-        )
+        return hash((
+            self.__class__.__name__,
+            self.project_id,
+            self.model_id,
+            self.source,
+            self.data_slice_id,
+            self.backtest_index,
+        ))
 
     def __iter__(self):
         return iter(self.feature_effects)
@@ -379,9 +346,7 @@ class FeatureEffectsMulticlass(APIObject):
 
     _path = "projects/{project_id}/{model_type}/{model_id}/multiclassFeatureEffects/"
     _converter = (
-        t.Dict({t.Key("class", to_name="class_"): String()})
-        .merge(FeatureEffects._FeatureEffect)
-        .ignore_extra("*")
+        t.Dict({t.Key("class", to_name="class_"): String()}).merge(FeatureEffects._FeatureEffect).ignore_extra("*")
     )
 
     def __init__(
@@ -456,9 +421,7 @@ class FeatureEffectsMulticlass(APIObject):
             use `job.get_result` or `job.get_result_when_complete`.
         """
         if not ((features is None) ^ (top_n_features is None)):
-            raise ValueError(
-                "Either 'features' or 'top_n_features' must be provided, but not both."
-            )
+            raise ValueError("Either 'features' or 'top_n_features' must be provided, but not both.")
         payload = {"rowCount": row_count}
         if backtest_index is not None:
             payload["backtestIndex"] = backtest_index
@@ -509,10 +472,7 @@ class FeatureEffectsMulticlass(APIObject):
     @classmethod
     def from_location(cls, path, keep_attrs=None, params=None):
         results = unpaginate(initial_url=path, initial_params=params, client=cls._client)
-        return [
-            cls.from_data(from_api(item, keep_attrs=keep_attrs, keep_null_keys=True))
-            for item in results
-        ]
+        return [cls.from_data(from_api(item, keep_attrs=keep_attrs, keep_null_keys=True)) for item in results]
 
     @classmethod
     def _get_url(cls, project_id, model_id, backtest_index):

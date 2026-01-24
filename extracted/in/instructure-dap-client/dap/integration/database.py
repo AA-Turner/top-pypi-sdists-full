@@ -1,18 +1,23 @@
+import logging
 import os
 from typing import Optional
 
 from pysqlsync.base import (
     BaseConnection,
+    BaseContext,
     BaseEngine,
-    GeneratorOptions, BaseContext,
+    GeneratorOptions,
 )
 from pysqlsync.connection import ConnectionParameters, ConnectionSSLMode
 from pysqlsync.factory import get_dialect, get_parameters
 from pysqlsync.formation.mutation import MutatorOptions
 from pysqlsync.formation.py_to_sql import StructMode
 
-from ..replicator import canvas, meta_schema, canvas_logs, catalog
+from .. import ui
+from ..replicator import canvas, canvas_logs, catalog, meta_schema
 from .database_errors import DatabaseConnectionError
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class DatabaseConnectionConfig(ConnectionParameters):
@@ -101,6 +106,41 @@ class DatabaseConnection:
             ),
         )
 
+    async def check_db_defaults(self, conn_ctx: BaseContext) -> None:
+        """
+        Check if some assumptions about the database are met, if not then log warning or raise error depending on severity.
+        pysqlsync or other cli code will not work properly if these are not true.
+        """
+        utf8_warn_str = None
+        if self.dialect == "mssql":
+            collation = await conn_ctx.query_one(
+                signature=str,
+                statement=f"SELECT DATABASEPROPERTYEX('{self._params.database}', 'Collation')",
+            )
+            if not collation.endswith("_UTF8"):
+                utf8_warn_str = f"The database collation {collation} does not appear to use UTF-8. Text fields may be incorrectly stored. Please consider using a UTF-8 collation, e.g. Latin1_General_100_CI_AS_SC_UTF8."
+        elif self.dialect == "postgresql":
+            collation, ctype = await conn_ctx.query_one(
+                signature=tuple[str, str],
+                statement=f"SELECT datcollate, datctype FROM pg_database WHERE datname = '{self._params.database}'",
+            )
+            if not collation.lower().endswith(".utf8") or not ctype.lower().endswith(
+                ".utf8"
+            ):
+                utf8_warn_str = f"The database collation '{collation}' and ctype '{ctype}' should use UTF-8. Text fields may be incorrectly stored. Please consider using a UTF-8 collation and ctype, e.g. en_US.UTF8."
+        elif self.dialect == "mysql":
+            charset, collation = await conn_ctx.query_one(
+                signature=tuple[str, str],
+                statement=f"SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '{self._params.database}'",
+            )
+            if charset.lower() != "Xutf8mb4" or not collation.lower().startswith(
+                "utf8mb4_"
+            ):
+                utf8_warn_str = f"The database character set '{charset}' should be 'utf8mb4' and collation '{collation}' should start with 'utf8mb4_'. Text fields may be incorrectly stored. Please consider using UTF-8 settings."
+        if utf8_warn_str:
+            ui.warning(f"[bold]{utf8_warn_str}[/bold]")
+            logger.warning(utf8_warn_str)
+
     @staticmethod
     async def get_version(dialect: str, conn_ctx: BaseContext) -> str:
         """
@@ -114,8 +154,6 @@ class DatabaseConnection:
         elif dialect == "mssql":
             version_sql = "SELECT SERVERPROPERTY('productversion')"
         if version_sql:
-            return await conn_ctx.query_one(
-                signature=str, statement=version_sql
-            )
+            return await conn_ctx.query_one(signature=str, statement=version_sql)
         else:
             return "unknown"

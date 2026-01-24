@@ -21,9 +21,17 @@ class TestRuleAcceptance(RuleAcceptance):
     def test_rule_pre_var(self):
         self.check_rule(
             src_files=["test.robot", "unused_section_vars.robot"],
-            expected_file="expected_output_pre_var.txt",
+            expected_file="expected_output_after_rf4.txt",
             issue_format="end_col",
-            test_on_version=">=4;<7",
+            test_on_version=">=5;<7",
+        )
+
+    def test_rule_pre_var_pre_try(self):
+        self.check_rule(
+            src_files=["test.robot", "unused_section_vars.robot"],
+            expected_file="expected_output_rf4.txt",
+            issue_format="end_col",
+            test_on_version="==4.*",
         )
 
     def test_rule_on_loops(self):
@@ -35,7 +43,11 @@ class TestRuleAcceptance(RuleAcceptance):
         )
 
     def test_groups(self):
-        self.check_rule(src_files=["groups.robot"], expected_file="expected_output_groups.txt", test_on_version=">=7.2")
+        self.check_rule(
+            src_files=["groups.robot"],
+            expected_file="expected_output_groups.txt",
+            test_on_version=">=7.2",
+        )
 
     def test_extended_variable_syntax(self):
         self.check_rule(
@@ -48,4 +60,24 @@ class TestRuleAcceptance(RuleAcceptance):
             src_files=["variable_type_conversion.robot"],
             expected_file="variable_type_conversion_expected.txt",
             # test_on_version=">=7.3" FIXME
+        )
+
+    def test_ignore_section_variable(self):
+        """Test that ignore parameter excludes section variables (case-insensitive)."""
+        self.check_rule(
+            configure=["unused-variable.ignore=global_not_used"],
+            src_files=["unused_section_vars.robot"],
+            expected_file=None,
+            issue_format="end_col",
+            test_on_version=">=7",
+        )
+
+    def test_ignore_does_not_affect_local_variables(self):
+        """Test that ignore parameter only applies to section variables, not local ones."""
+        self.check_rule(
+            configure=["unused-variable.ignore=var"],
+            src_files=["test.robot"],
+            expected_file="expected_output_ignore_local.txt",
+            issue_format="end_col",
+            test_on_version=">=7",
         )

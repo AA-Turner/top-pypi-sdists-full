@@ -4,9 +4,10 @@ import asyncio
 import time
 import weakref
 from collections import deque
-from typing import TYPE_CHECKING, Any, Deque, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any
 
 from . import background_tasks, core
+from .dependencies import JsComponent
 
 if TYPE_CHECKING:
     from .client import Client
@@ -17,11 +18,11 @@ ElementId = int
 ClientId = str
 MessageType = str
 Payload = Any
-Message = Tuple[ClientId, MessageType, Payload]
+Message = tuple[ClientId, MessageType, Payload]
 
 MessageId = int
 MessageTime = float
-HistoryEntry = Tuple[MessageId, MessageTime, Message]
+HistoryEntry = tuple[MessageId, MessageTime, Message]
 
 
 class Deleted:
@@ -35,13 +36,14 @@ class Outbox:
 
     def __init__(self, client: Client) -> None:
         self._client = weakref.ref(client)
-        self.updates: weakref.WeakValueDictionary[ElementId, Union[Element, Deleted]] = weakref.WeakValueDictionary()
-        self.messages: Deque[Message] = deque()
-        self.message_history: Deque[HistoryEntry] = deque()
+        self.updates: weakref.WeakValueDictionary[ElementId, Element | Deleted] = weakref.WeakValueDictionary()
+        self.messages: deque[Message] = deque()
+        self.message_history: deque[HistoryEntry] = deque()
         self.next_message_id: int = 0
 
+        self._loaded_components: set[str] = set()
         self._should_stop = False
-        self._enqueue_event: Optional[asyncio.Event] = None
+        self._enqueue_event: asyncio.Event | None = None
 
         if core.app.is_started:
             background_tasks.create(self.loop(), name=f'outbox loop {client.id}')
@@ -105,6 +107,18 @@ class Outbox:
                         element_id: None if element is deleted else element._to_dict()  # type: ignore  # pylint: disable=protected-access
                         for element_id, element in self.updates.items()
                     }
+                    js_components = [
+                        component
+                        for element in self.updates.values()
+                        if not isinstance(element, Deleted)
+                        and isinstance((component := element.component), JsComponent)
+                        and component.name not in self._loaded_components
+                    ]
+                    if js_components:
+                        coros.append(self._emit((client.id, 'load_js_components', {
+                            'components': [{'key': c.key, 'tag': c.tag} for c in js_components],
+                        })))
+                        self._loaded_components.update(c.name for c in js_components)
                     coros.append(self._emit((client.id, 'update', data)))
                     self.updates.clear()
 
@@ -133,7 +147,7 @@ class Outbox:
             await core.air.emit(message_type, data, room=client_id)
 
         client = self.client
-        if client and not client.shared:
+        if client:
             self.message_history.append((self.next_message_id, time.time(), message))
             max_age = core.sio.eio.ping_interval + core.sio.eio.ping_timeout + client.page.resolve_reconnect_timeout()
             while self.message_history and self.message_history[0][1] < time.time() - max_age:
@@ -159,9 +173,7 @@ class Outbox:
                 return
 
         # target message ID not found, reload the page
-        client = self.client
-        if not client.shared:
-            client.run_javascript('window.location.reload()')
+        self.client.run_javascript('window.location.reload()')
 
     def prune_history(self, next_message_id: MessageId) -> None:
         """Prune the message history up to the given message ID."""

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: XBlock
-Version: 5.2.0
+Version: 5.3.0
 Summary: XBlock Core Library
 Home-page: https://github.com/openedx/XBlock
 Author: edX
@@ -17,10 +17,33 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/x-rst
-Provides-Extra: django
 License-File: LICENSE.TXT
 License-File: NOTICE.txt
 License-File: AUTHORS
+Requires-Dist: fs
+Requires-Dist: lxml
+Requires-Dist: mako
+Requires-Dist: markupsafe
+Requires-Dist: python-dateutil
+Requires-Dist: pytz
+Requires-Dist: pyyaml
+Requires-Dist: simplejson
+Requires-Dist: webob
+Requires-Dist: web-fragments
+Provides-Extra: django
+Requires-Dist: openedx-django-pyfs>=1.0.5; extra == "django"
+Requires-Dist: lazy; extra == "django"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 XBlock
 ######
@@ -141,7 +164,7 @@ Getting Help
 Documentation
 =============
 
-The docs for the XBlock API is on Read The Docs: https://xblock.readthedocs.org .
+The docs for the XBlock API is on Read The Docs: https://docs.openedx.org/projects/xblock/en/latest/xblock-tutorial/index.html .
 
 Reading the code
 ----------------

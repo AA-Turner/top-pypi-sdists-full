@@ -1,11 +1,12 @@
-from typing import Optional, Union
+from typing import Generic, Optional, Union
 
 from vellum.workflows.constants import AuthorizationType
 from vellum.workflows.nodes.displayable.bases.api_node import BaseAPINode
 from vellum.workflows.types.core import MergeBehavior, VellumSecret
+from vellum.workflows.types.generics import StateType
 
 
-class APINode(BaseAPINode):
+class APINode(BaseAPINode[StateType], Generic[StateType]):
     """
     Used to execute an API call. This node exists to be backwards compatible with Vellum's API Node, and for most cases,
     you should extend from `BaseAPINode` directly.
@@ -21,6 +22,10 @@ class APINode(BaseAPINode):
     bearer_token_value: Optional[Union[str, VellumSecretReference]] = None - The bearer token value to use
     for the bearer token authorization.
     """
+
+    class Display(BaseAPINode.Display):
+        icon = "vellum:icon:signal-stream"
+        color = "lightBlue"
 
     authorization_type: Optional[AuthorizationType] = None
     api_key_header_key: Optional[str] = None

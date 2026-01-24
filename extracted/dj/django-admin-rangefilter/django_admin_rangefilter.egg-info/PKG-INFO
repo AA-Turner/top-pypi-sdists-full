@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-admin-rangefilter
-Version: 0.13.3
+Version: 0.13.5
 Summary: django-admin-rangefilter app, add the filter by a custom date range on the admin UI.
 Home-page: https://github.com/silentsokolov/django-admin-rangefilter
 Author: Dmitriy Sokolov
@@ -41,8 +41,8 @@ Dynamic: platform
 Dynamic: requires-python
 Dynamic: summary
 
-.. image:: https://github.com/silentsokolov/django-admin-rangefilter/workflows/build/badge.svg?branch=master
-   :target: https://github.com/silentsokolov/django-admin-rangefilter/actions?query=workflow%3Abuild
+.. image:: https://github.com/silentsokolov/django-admin-rangefilter/actions/workflows/build.yml/badge.svg
+   :target: https://github.com/silentsokolov/django-admin-rangefilter/actions/workflows/build.yml
 
 .. image:: https://codecov.io/gh/silentsokolov/django-admin-rangefilter/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/silentsokolov/django-admin-rangefilter

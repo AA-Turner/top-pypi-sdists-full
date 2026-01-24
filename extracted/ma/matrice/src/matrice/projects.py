@@ -6,10 +6,9 @@ from typing import Dict, List, Optional, Tuple
 from matrice.action import Action
 from matrice.annotation import Annotation
 from matrice.dataset import Dataset
-from matrice.deployment import Deployment
 from matrice.exported_model import ExportedModel
 from matrice.models import Model
-from matrice.utils import handle_response
+from matrice_common.utils import handle_response
 from collections import OrderedDict
 from datetime import datetime, timedelta
 
@@ -181,7 +180,7 @@ class Projects:
         >>> else:
         >>>     print(f"Status: {message}")
         """
-        path = f"/v1/accounting/{self.project_id}"
+        path = f"/v1/accounting/{self.project_id}" # TODO: Update with fixed API call
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
@@ -315,7 +314,7 @@ class Projects:
         ... )
         >>> print(f"Dataset created: {dataset}")
         """
-        from matrice.data_processing.create_dataset import create_dataset
+        from matrice_data_processing.data_processing.create_dataset import create_dataset
         return create_dataset(
             self.session,
             self.project_id,
@@ -340,7 +339,6 @@ class Projects:
         file_path,
         dataset_type,
         input_type="image",
-        project_type='detection',
         bucket_alias="",
         compute_alias="",
         source_credential_alias="",
@@ -384,7 +382,6 @@ class Projects:
         return self._create_dataset(
             dataset_name=dataset_name,
             dataset_type=dataset_type,
-            project_type=project_type,
             input_type=input_type,
             dataset_path=file_path,
             bucket_alias=bucket_alias,
@@ -956,7 +953,7 @@ class Projects:
             checkpoint_type = "model_id"
             checkpoint_value = model_id
         if post_processing_config:
-            deployment_params["post_processing_config"] = post_processing_config
+            deployment_params["postProcessingConfig"] = post_processing_config
         body = {
             "deploymentName": deployment_name,
             "_idModel": model_id,
@@ -987,7 +984,7 @@ class Projects:
         if create_deployment_config:
             body.update(create_deployment_config)
         headers = {"Content-Type": "application/json"}
-        path = f"/v1/inference?projectId={self.project_id}"
+        path = f"/v1/deployment?projectId={self.project_id}"
         resp = self.rpc.post(
             path=path,
             headers=headers,
@@ -1001,6 +998,7 @@ class Projects:
         if resp:
             if return_id_only:
                 return resp["data"]["_id"]
+            from matrice_streaming.deployment import Deployment
             service_id, action_id = self._get_service_and_action_ids(resp, error, message)
             return Deployment(self.session, service_id), Action(self.session, action_id)
         else:
@@ -1392,6 +1390,7 @@ class Projects:
                 "No Deployments , create one.",
             )
         items = data.get("items", [])
+        from matrice_streaming.deployment import Deployment
         deployments = {
             item["deploymentName"]: Deployment(
                 self.session,
@@ -1613,6 +1612,7 @@ class Projects:
             )
         items = data.get("items", [])
         deployments = {}
+        from matrice_streaming.deployment import Deployment
         for item in items:
             if "deploymentName" in item and "_id" in item:
                 deployments[item["deploymentName"]] = Deployment(
@@ -1798,6 +1798,7 @@ class Projects:
         >>> deployment = project.get_deployment(deployment_id="deployment123")
         >>> print(deployment)
         """
+        from matrice_streaming.deployment import Deployment
         return Deployment(
             self.session,
             deployment_id,

@@ -12,12 +12,14 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 use pyo3::prelude::*;
+use zenoh::sample::SourceSn;
 
 use crate::{
     bytes::{Encoding, ZBytes},
     key_expr::KeyExpr,
     macros::{enum_mapper, wrapper},
     qos::{CongestionControl, Priority},
+    session::EntityGlobalId,
     time::Timestamp,
     utils::MapInto,
 };
@@ -88,7 +90,32 @@ impl Sample {
         self.0.attachment().cloned().map_into()
     }
 
+    #[getter]
+    fn source_info(&self) -> Option<SourceInfo> {
+        self.0.source_info().cloned().map_into()
+    }
+
     fn __repr__(&self) -> String {
         format!("{:?}", self.0)
+    }
+}
+
+wrapper!(zenoh::sample::SourceInfo: Clone);
+
+#[pymethods]
+impl SourceInfo {
+    #[new]
+    fn new(source_id: EntityGlobalId, source_sn: SourceSn) -> Self {
+        Self(zenoh::sample::SourceInfo::new(source_id.into(), source_sn))
+    }
+
+    #[getter]
+    fn source_id(&self) -> EntityGlobalId {
+        (*self.0.source_id()).into()
+    }
+
+    #[getter]
+    fn source_sn(&self) -> SourceSn {
+        self.0.source_sn()
     }
 }

@@ -511,7 +511,7 @@ class TestLocalMachine:
     def test_run(self):
         from plumbum.cmd import grep, ls
 
-        rc, out, err = (ls | grep["non_exist1N9"]).run(retcode=1)
+        rc, _out, _err = (ls | grep["non_exist1N9"]).run(retcode=1)
         assert rc == 1
 
     def test_timeout(self):
@@ -558,7 +558,7 @@ class TestLocalMachine:
         from plumbum.cmd import bash
 
         cmd = bash["-ce", "for ((i=0;i<100;i++)); do echo $i; done; false"]
-        with pytest.raises(ProcessExecutionError) as e:  # noqa: PT012
+        with pytest.raises(ProcessExecutionError) as e:
             for _ in cmd.popen().iter_lines(timeout=1, buffer_size=5):
                 pass
         assert e.value.stdout == "\n".join(map(str, range(95, 100))) + "\n"

@@ -47,6 +47,7 @@ from helpers import (
     gc_collect,
     parametrize,
     recursionlimit,
+    skipif_android,
     skipif_ios,
     skipif_pypy,
     skipif_wasm,
@@ -58,6 +59,7 @@ from helpers import (
     reason='Only run on x86_64 and AMD64 architectures',
 )
 @skipif_wasm
+@skipif_android
 @skipif_ios
 @skipif_pypy
 @disable_systrace
@@ -526,6 +528,7 @@ class Foo:
 
 
 @skipif_wasm
+@skipif_android
 @skipif_ios
 def test_treespec_pickle_missing_registration():
     if sys.version_info[:2] == (3, 11) and platform.system() == 'Windows' and Py_DEBUG:
@@ -1740,11 +1743,11 @@ def test_treespec_constructor(  # noqa: C901
 def test_treespec_constructor_namespace():
     @optree.register_pytree_node_class(namespace='mylist')
     class MyList(UserList):
-        def tree_flatten(self):
+        def __tree_flatten__(self):
             return self.data, None, None
 
         @classmethod
-        def tree_unflatten(cls, metadata, children):
+        def __tree_unflatten__(cls, metadata, children):
             return cls(children)
 
     with pytest.warns(

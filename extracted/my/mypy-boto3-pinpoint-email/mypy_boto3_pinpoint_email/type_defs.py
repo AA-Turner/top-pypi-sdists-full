@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -35,12 +36,6 @@ from .literals import (
     WarmupStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -205,7 +200,7 @@ class TrackingOptionsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -213,7 +208,7 @@ class ResponseMetadataTypeDef(TypedDict):
 class DkimAttributesTypeDef(TypedDict):
     SigningEnabled: NotRequired[bool]
     Status: NotRequired[DkimStatusType]
-    Tokens: NotRequired[List[str]]
+    Tokens: NotRequired[list[str]]
 
 
 class DomainIspPlacementTypeDef(TypedDict):
@@ -275,7 +270,7 @@ class DomainDeliverabilityCampaignTypeDef(TypedDict):
     ImageUrl: NotRequired[str]
     Subject: NotRequired[str]
     FromAddress: NotRequired[str]
-    SendingIps: NotRequired[List[str]]
+    SendingIps: NotRequired[list[str]]
     FirstSeenDateTime: NotRequired[datetime]
     LastSeenDateTime: NotRequired[datetime]
     InboxCount: NotRequired[int]
@@ -284,12 +279,12 @@ class DomainDeliverabilityCampaignTypeDef(TypedDict):
     DeleteRate: NotRequired[float]
     ReadDeleteRate: NotRequired[float]
     ProjectedVolume: NotRequired[int]
-    Esps: NotRequired[List[str]]
+    Esps: NotRequired[list[str]]
 
 
 class InboxPlacementTrackingOptionOutputTypeDef(TypedDict):
     Global: NotRequired[bool]
-    TrackedIsps: NotRequired[List[str]]
+    TrackedIsps: NotRequired[list[str]]
 
 
 TimestampTypeDef = Union[datetime, str]
@@ -492,7 +487,7 @@ BodyTypeDef = TypedDict(
 
 
 class CloudWatchDestinationOutputTypeDef(TypedDict):
-    DimensionConfigurations: List[CloudWatchDimensionConfigurationTypeDef]
+    DimensionConfigurations: list[CloudWatchDimensionConfigurationTypeDef]
 
 
 class CloudWatchDestinationTypeDef(TypedDict):
@@ -521,24 +516,24 @@ class CreateDeliverabilityTestReportResponseTypeDef(TypedDict):
 
 
 class GetBlacklistReportsResponseTypeDef(TypedDict):
-    BlacklistReport: Dict[str, List[BlacklistEntryTypeDef]]
+    BlacklistReport: dict[str, list[BlacklistEntryTypeDef]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListConfigurationSetsResponseTypeDef(TypedDict):
-    ConfigurationSets: List[str]
+    ConfigurationSets: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDedicatedIpPoolsResponseTypeDef(TypedDict):
-    DedicatedIpPools: List[str]
+    DedicatedIpPools: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -557,13 +552,13 @@ class CreateEmailIdentityResponseTypeDef(TypedDict):
 class DailyVolumeTypeDef(TypedDict):
     StartDate: NotRequired[datetime]
     VolumeStatistics: NotRequired[VolumeStatisticsTypeDef]
-    DomainIspPlacements: NotRequired[List[DomainIspPlacementTypeDef]]
+    DomainIspPlacements: NotRequired[list[DomainIspPlacementTypeDef]]
 
 
 class OverallVolumeTypeDef(TypedDict):
     VolumeStatistics: NotRequired[VolumeStatisticsTypeDef]
     ReadRatePercent: NotRequired[float]
-    DomainIspPlacements: NotRequired[List[DomainIspPlacementTypeDef]]
+    DomainIspPlacements: NotRequired[list[DomainIspPlacementTypeDef]]
 
 
 class GetDedicatedIpResponseTypeDef(TypedDict):
@@ -572,13 +567,13 @@ class GetDedicatedIpResponseTypeDef(TypedDict):
 
 
 class GetDedicatedIpsResponseTypeDef(TypedDict):
-    DedicatedIps: List[DedicatedIpTypeDef]
+    DedicatedIps: list[DedicatedIpTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDeliverabilityTestReportsResponseTypeDef(TypedDict):
-    DeliverabilityTestReports: List[DeliverabilityTestReportTypeDef]
+    DeliverabilityTestReports: list[DeliverabilityTestReportTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -589,7 +584,7 @@ class GetDomainDeliverabilityCampaignResponseTypeDef(TypedDict):
 
 
 class ListDomainDeliverabilityCampaignsResponseTypeDef(TypedDict):
-    DomainDeliverabilityCampaigns: List[DomainDeliverabilityCampaignTypeDef]
+    DomainDeliverabilityCampaigns: list[DomainDeliverabilityCampaignTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -634,7 +629,7 @@ class GetConfigurationSetResponseTypeDef(TypedDict):
     DeliveryOptions: DeliveryOptionsTypeDef
     ReputationOptions: ReputationOptionsOutputTypeDef
     SendingOptions: SendingOptionsTypeDef
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -670,12 +665,12 @@ class GetEmailIdentityResponseTypeDef(TypedDict):
     VerifiedForSendingStatus: bool
     DkimAttributes: DkimAttributesTypeDef
     MailFromAttributes: MailFromAttributesTypeDef
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListEmailIdentitiesResponseTypeDef(TypedDict):
-    EmailIdentities: List[IdentityInfoTypeDef]
+    EmailIdentities: list[IdentityInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -692,7 +687,7 @@ class MessageTypeDef(TypedDict):
 
 class EventDestinationTypeDef(TypedDict):
     Name: str
-    MatchingEventTypes: List[EventTypeType]
+    MatchingEventTypes: list[EventTypeType]
     Enabled: NotRequired[bool]
     KinesisFirehoseDestination: NotRequired[KinesisFirehoseDestinationTypeDef]
     CloudWatchDestination: NotRequired[CloudWatchDestinationOutputTypeDef]
@@ -707,7 +702,7 @@ CloudWatchDestinationUnionTypeDef = Union[
 
 class GetDomainStatisticsReportResponseTypeDef(TypedDict):
     OverallVolume: OverallVolumeTypeDef
-    DailyVolumes: List[DailyVolumeTypeDef]
+    DailyVolumes: list[DailyVolumeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -715,8 +710,8 @@ class GetDeliverabilityDashboardOptionsResponseTypeDef(TypedDict):
     DashboardEnabled: bool
     SubscriptionExpiryDate: datetime
     AccountStatus: DeliverabilityDashboardAccountStatusType
-    ActiveSubscribedDomains: List[DomainDeliverabilityTrackingOptionOutputTypeDef]
-    PendingExpirationSubscribedDomains: List[DomainDeliverabilityTrackingOptionOutputTypeDef]
+    ActiveSubscribedDomains: list[DomainDeliverabilityTrackingOptionOutputTypeDef]
+    PendingExpirationSubscribedDomains: list[DomainDeliverabilityTrackingOptionOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -726,9 +721,9 @@ ReputationOptionsUnionTypeDef = Union[ReputationOptionsTypeDef, ReputationOption
 class GetDeliverabilityTestReportResponseTypeDef(TypedDict):
     DeliverabilityTestReport: DeliverabilityTestReportTypeDef
     OverallPlacement: PlacementStatisticsTypeDef
-    IspPlacements: List[IspPlacementTypeDef]
+    IspPlacements: list[IspPlacementTypeDef]
     Message: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -745,7 +740,7 @@ class EmailContentTypeDef(TypedDict):
 
 
 class GetConfigurationSetEventDestinationsResponseTypeDef(TypedDict):
-    EventDestinations: List[EventDestinationTypeDef]
+    EventDestinations: list[EventDestinationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

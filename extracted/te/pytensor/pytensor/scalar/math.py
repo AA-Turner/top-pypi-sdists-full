@@ -32,8 +32,8 @@ from pytensor.scalar.basic import (
     isinf,
     log,
     log1p,
+    maximum,
     reciprocal,
-    scalar_maximum,
     sqrt,
     switch,
     true_div,
@@ -1259,7 +1259,8 @@ class Softplus(UnaryScalarOp):
     def impl(self, x):
         # If x is an int8 or uint8, numpy.exp will compute the result in
         # half-precision (float16), where we want float32.
-        not_int8 = str(getattr(x, "dtype", "")) not in ("int8", "uint8")
+        x_dtype = getattr(x, "dtype", None)
+        not_int8 = x_dtype is None or x_dtype.itemsize > 1
         if x < -37.0:
             return np.exp(x) if not_int8 else np.exp(x, signature="f")
         elif x < 18.0:
@@ -1267,6 +1268,9 @@ class Softplus(UnaryScalarOp):
                 np.log1p(np.exp(x)) if not_int8 else np.log1p(np.exp(x, signature="f"))
             )
         elif x < 33.3:
+            if x_dtype is not None and x_dtype.kind == "u":
+                # Negate uint will not do what we want
+                x = x.astype("float32" if x_dtype.itemsize <= 2 else "float64")
             return x + np.exp(-x) if not_int8 else x + np.exp(-x, signature="f")
         else:
             return x
@@ -1315,7 +1319,7 @@ class Softplus(UnaryScalarOp):
             return v
 
 
-softplus = Softplus(upgrade_to_float, name="scalar_softplus")
+softplus = Softplus(upgrade_to_float)
 
 
 class Log1mexp(UnaryScalarOp):
@@ -1360,7 +1364,7 @@ class Log1mexp(UnaryScalarOp):
             raise NotImplementedError("only floating point is implemented")
 
 
-log1mexp = Log1mexp(upgrade_to_float, name="scalar_log1mexp")
+log1mexp = Log1mexp(upgrade_to_float)
 
 
 class BetaInc(ScalarOp):
@@ -1585,9 +1589,7 @@ def betainc_grad(p, q, x, wrtp: bool):
             derivative_new = K * (F1 * dK + F2)
 
             errapx = scalar_abs(derivative - derivative_new)
-            d_errapx = errapx / scalar_maximum(
-                err_threshold, scalar_abs(derivative_new)
-            )
+            d_errapx = errapx / maximum(err_threshold, scalar_abs(derivative_new))
 
             min_iters_cond = n > (min_iters - 1)
             derivative = switch(
@@ -1833,7 +1835,7 @@ def _grad_2f1_loop(a, b, c, z, *, skip_loop, wrt, dtype):
         if len(grad_incs) == 1:
             [max_abs_grad_inc] = grad_incs
         else:
-            max_abs_grad_inc = reduce(scalar_maximum, abs_grad_incs)
+            max_abs_grad_inc = reduce(maximum, abs_grad_incs)
 
         return (
             (*grads, *log_gs, *log_gs_signs, log_t, log_t_sign, sign_zk, k),
@@ -1882,7 +1884,7 @@ def hyp2f1_grad(a, b, c, z, wrt: tuple[int, ...]):
     # We have to pass the converges flag to interrupt the loop, as the switch is not lazy
     z_is_zero = eq(z, 0)
     converges = check_2f1_converges(a, b, c, z)
-    *grads, grad_converges = _grad_2f1_loop(
+    *grads, _grad_converges = _grad_2f1_loop(
         a, b, c, z, skip_loop=z_is_zero | (~converges), wrt=wrt, dtype=dtype
     )
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 #
 # Author: Mike McKerns (mmckerns @caltech and @uqfoundation)
-# Copyright (c) 2022-2025 The Uncertainty Quantification Foundation.
+# Copyright (c) 2022-2026 The Uncertainty Quantification Foundation.
 # License: 3-clause BSD.  The full license text is available at:
 #  - https://github.com/uqfoundation/pox/blob/master/LICENSE
 
-__version__ = '0.3.6'#.dev0'
+__version__ = '0.3.7'#.dev0'
 __author__ = 'Mike McKerns'
 __contact__ = 'mmckerns@uqfoundation.org'
 
@@ -68,7 +68,7 @@ def write_info_file(dirpath, modulename, **info):
     header = '''#!/usr/bin/env python
 #
 # Author: Mike McKerns (mmckerns @caltech and @uqfoundation)
-# Copyright (c) 2025 The Uncertainty Quantification Foundation.
+# Copyright (c) 2026 The Uncertainty Quantification Foundation.
 # License: 3-clause BSD.  The full license text is available at:
 #  - https://github.com/uqfoundation/%s/blob/master/LICENSE
 ''' % modulename #XXX: author and email are hardwired in the header

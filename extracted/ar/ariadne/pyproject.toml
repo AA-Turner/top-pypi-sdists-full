@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ariadne"
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 dynamic = ["version"]
 description = "Ariadne is a Python library for implementing GraphQL servers."
-authors = [{ name = "Mirumee Software", email = "hello@mirumee.com" }]
+authors = [{ name = "Mirumee Software", email = "ariadne@mirumee.com" }]
 readme = "README.md"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
@@ -17,15 +17,15 @@ classifiers = [
   "License :: OSI Approved :: BSD License",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-  "graphql-core>=3.2.0,<3.2.6",
+  "graphql-core>=3.2.0",
   "starlette>0.17,<1.0",
   "typing_extensions>=3.6.0",
 ]
@@ -83,6 +83,7 @@ path = "ariadne/__about__.py"
 
 [tool.hatch.envs.default]
 features = ["dev", "types"]
+python = "3.10"
 
 [tool.hatch.envs.default.scripts]
 check = [
@@ -131,7 +132,7 @@ scripts.test = "pytest tests_integrations/starlette"
 
 
 [[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 # Tool configuration
 
@@ -145,7 +146,7 @@ testpaths = ["tests"]
 ## Types configuration
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 files = ["ariadne", "tests_mypy"]
 check_untyped_defs = true
 # disallow_untyped_defs = true
@@ -178,11 +179,18 @@ exclude_also = [
 omit = ["*/__about__.py", "*/__main__.py", "*/cli/__init__.py"]
 fail_under = 90
 
+[tool.hatch.envs.coverage]
+detached = true
+dependencies = ["coverage[toml]"]
+
+[tool.hatch.envs.coverage.scripts]
+xml = "coverage xml --skip-empty"
+
 ## Ruff configuration
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.format]
 docstring-code-format = true

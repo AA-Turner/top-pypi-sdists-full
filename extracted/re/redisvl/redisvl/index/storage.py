@@ -81,7 +81,15 @@ class BaseStorage(BaseModel):
         if not prefix:
             return id
         else:
-            return f"{prefix}{key_separator}{id}"
+            # Normalize prefix by removing trailing separators to avoid doubles
+            normalized_prefix = (
+                prefix.rstrip(key_separator) if key_separator else prefix
+            )
+            if normalized_prefix:
+                return f"{normalized_prefix}{key_separator}{id}"
+            else:
+                # If prefix was only separators, just return the id
+                return id
 
     def _create_key(self, obj: Dict[str, Any], id_field: Optional[str] = None) -> str:
         """Construct a Redis key for a given object, optionally using a
@@ -106,9 +114,13 @@ class BaseStorage(BaseModel):
             except KeyError:
                 raise ValueError(f"Key field {id_field} not found in record {obj}")
 
+        # Normalize prefix: use first prefix if multiple are configured
+        prefix = self.index_schema.index.prefix
+        normalized_prefix = prefix[0] if isinstance(prefix, list) else prefix
+
         return self._key(
             key_value,
-            prefix=self.index_schema.index.prefix,
+            prefix=normalized_prefix,
             key_separator=self.index_schema.index.key_separator,
         )
 
@@ -162,6 +174,20 @@ class BaseStorage(BaseModel):
     ) -> Union[AsyncRedisPipeline, Dict[str, Any]]:
         """Asynchronously get data from Redis using the provided client or pipeline."""
         raise NotImplementedError
+
+    @staticmethod
+    async def _aexpire(client: AsyncRedisClientOrPipeline, key: str, ttl: int) -> None:
+        """Asynchronously set TTL on a key using the provided client or pipeline
+
+        Args:
+            client (AsyncRedisClientOrPipeline): The async Redis client or pipeline instance.
+            key (str): The key for which to set the TTL.
+            ttl (int): Time-to-live in seconds for each key.
+        """
+        if isinstance(client, (AsyncPipeline, AsyncClusterPipeline)):
+            client.expire(key, ttl)
+        else:
+            await client.expire(key, ttl)
 
     def _validate(self, obj: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -478,7 +504,7 @@ class BaseStorage(BaseModel):
 
                 # Set TTL if provided
                 if ttl:
-                    await pipe.expire(key, ttl)
+                    await self._aexpire(pipe, key, ttl)
 
                 added_keys.append(key)
 
@@ -603,7 +629,7 @@ class HashStorage(BaseStorage):
         """Asynchronously set a hash value in Redis for the given key.
 
         Args:
-            client (AsyncClientOrPipeline): The async Redis client or pipeline instance.
+            client (AsyncRedisClientOrPipeline): The async Redis client or pipeline instance.
             key (str): The key under which to store the hash.
             obj (Dict[str, Any]): The hash to store in Redis.
         """
@@ -632,7 +658,7 @@ class HashStorage(BaseStorage):
         """Asynchronously retrieve a hash value from Redis for the given key.
 
         Args:
-            client (AsyncRedisClient): The async Redis client or pipeline instance.
+            client (AsyncRedisClientOrPipeline): The async Redis client or pipeline instance.
             key (str): The key for which to retrieve the hash.
 
         Returns:

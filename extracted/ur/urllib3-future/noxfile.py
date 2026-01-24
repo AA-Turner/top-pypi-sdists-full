@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import sys
 import platform
 import random
 import shutil
@@ -15,6 +16,9 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import nox
+
+
+_IS_GIL_DISABLED = hasattr(sys, "_is_gil_enabled") and sys._is_gil_enabled() is False
 
 
 @contextlib.contextmanager
@@ -193,6 +197,11 @@ def tests_impl(
         session.run("pip", "uninstall", "-y", "urllib3")
 
     with traefik_boot(session, *session.posargs):
+        if "brotli" in extras and _IS_GIL_DISABLED:
+            list_of_extras = extras.split(",")
+            # waiting on https://github.com/python-hyper/brotlicffi/pull/205
+            list_of_extras.remove("brotli")
+            extras = ",".join(list_of_extras)
         session.install(f".[{extras}]", silent=False)
 
         # Show the pip version.
@@ -225,6 +234,7 @@ def tests_impl(
                 "PYTHONWARNINGS": "always::DeprecationWarning",
                 "COVERAGE_CORE": "sysmon",
                 "PYTHONTRACEMALLOC": "25" if tracemalloc_enable else "",
+                "PYTHON_GIL": "0" if _IS_GIL_DISABLED else "",
             },
         )
 
@@ -236,7 +246,19 @@ def tests_impl(
 
 
 @nox.session(
-    python=["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "pypy"]
+    python=[
+        "3.7",
+        "3.8",
+        "3.9",
+        "3.10",
+        "3.11",
+        "3.12",
+        "3.13",
+        "3.13t",
+        "3.14",
+        "3.14t",
+        "pypy",
+    ]
 )
 def test(session: nox.Session) -> None:
     tests_impl(session)
@@ -280,6 +302,44 @@ def test_ssl_large_resources(session: nox.Session) -> None:
             "PYTHONWARNINGS": "always::DeprecationWarning",
             "COVERAGE_CORE": "sysmon",
             "CI": None,
+        },
+    )
+
+
+@nox.session(python=["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"])
+def test_pysocks(session: nox.Session) -> None:
+    # Install deps and the package itself.
+    session.install("-U", "pip", "setuptools", silent=False)
+    session.install("-r", "dev-requirements.txt", silent=False)
+    session.install(".", silent=False)
+    session.run("pip", "uninstall", "-y", "python-socks")
+    session.install("pysocks")
+
+    # Show the pip version.
+    session.run("pip", "--version")
+    # Print the Python version and bytesize.
+    session.run("python", "--version")
+    session.run("python", "-c", "import struct; print(struct.calcsize('P') * 8)")
+    session.run("python", "-c", "import ssl; print(ssl.OPENSSL_VERSION)")
+
+    session.run(
+        "python",
+        "-m",
+        "coverage",
+        "run",
+        "--parallel-mode",
+        "-m",
+        "pytest",
+        "-v",
+        "-ra",
+        f"--color={'yes' if 'GITHUB_ACTIONS' in os.environ else 'auto'}",
+        "--tb=native",
+        "--strict-config",
+        "--strict-markers",
+        "test/contrib/test_socks.py",
+        env={
+            "PYTHONWARNINGS": "always::DeprecationWarning",
+            "COVERAGE_CORE": "sysmon",
         },
     )
 
@@ -420,6 +480,56 @@ def downstream_boto3(session: nox.Session) -> None:
         "python",
         "scripts/ci/run-tests",
     )
+
+
+@nox.session()
+def downstream_clickhouse_connect(session: nox.Session) -> None:
+    root = os.getcwd()
+    tmp_dir = session.create_tmp()
+
+    session.cd(tmp_dir)
+    git_clone(session, "https://github.com/ClickHouse/clickhouse-connect")
+    session.chdir("clickhouse-connect")
+
+    session.run("git", "rev-parse", "HEAD", external=True)
+    session.install("-r", "tests/test_requirements.txt", silent=False)
+    session.run("python", "setup.py", "build_ext", "--inplace")
+    session.run("python", "setup.py", "develop")
+
+    session.cd(root)
+    session.install(".", silent=False)
+    session.cd(f"{tmp_dir}/clickhouse-connect")
+
+    dc_v2_probe = subprocess.Popen(
+        ["docker", "compose", "up", "-d", "clickhouse"],
+        env={"CLICKHOUSE_CONNECT_TEST_CH_VERSION": "latest"},
+    )
+
+    dc_v2_probe.wait()
+
+    assert dc_v2_probe.returncode == 0
+
+    session.run("python", "-c", "import urllib3; print(urllib3.__version__)")
+
+    # the test tests/integration_tests/test_streaming.py::test_stream_failure
+    # is faulty due to chunk_size = 1024 * 1024
+    # and connection closed without full response
+    # the lib expect stream to yield bytes even if not
+    # chunk size respected.
+    session.run("rm", "-f", "tests/integration_tests/test_streaming.py")
+
+    try:
+        session.run(
+            "pytest",
+            "tests/integration_tests",
+        )
+    finally:
+        dc_v2_probe = subprocess.Popen(
+            ["docker", "compose", "stop"],
+            env={"CLICKHOUSE_CONNECT_TEST_CH_VERSION": "latest"},
+        )
+
+        dc_v2_probe.wait()
 
 
 @nox.session()

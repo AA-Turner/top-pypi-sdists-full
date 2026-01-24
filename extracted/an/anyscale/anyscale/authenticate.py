@@ -261,7 +261,11 @@ class AuthenticationBlock:
         return received_token, CREDENTIALS_FILE
 
 
-_auth_api_client: Optional[Union[Exception, AuthenticationBlock]] = None
+class _AuthApiClientCache:
+    value: Optional[Union[Exception, AuthenticationBlock]] = None
+
+
+_auth_api_client_cache = _AuthApiClientCache()
 
 
 def get_auth_api_client(
@@ -279,12 +283,12 @@ def get_auth_api_client(
     of AuthenticationBlock raises an error, that error will be saved and raised on
     subsequent calls to get_auth_api_client.
     """
-    global _auth_api_client
-    if isinstance(_auth_api_client, Exception):
-        raise _auth_api_client
-    if _auth_api_client is None:
+    cached = _auth_api_client_cache.value
+    if isinstance(cached, Exception):
+        raise cached
+    if cached is None:
         try:
-            _auth_api_client = AuthenticationBlock(
+            cached = AuthenticationBlock(
                 cli_token=cli_token,
                 host=host,
                 use_asyncio=use_asyncio,
@@ -293,6 +297,7 @@ def get_auth_api_client(
                 raise_structured_exception=raise_structured_exception,
             )
         except Exception as e:
-            _auth_api_client = e
-            raise e
-    return _auth_api_client
+            _auth_api_client_cache.value = e
+            raise
+        _auth_api_client_cache.value = cached
+    return cached

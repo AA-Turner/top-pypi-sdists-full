@@ -1,10 +1,10 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: dvc-ssh
-Version: 4.2.1
+Version: 4.2.2
 Summary: ssh plugin for dvc
 Author-email: Iterative <support@dvc.org>
 Maintainer-email: Iterative <support@dvc.org>
-License: Apache License 2.0
+License-Expression: Apache-2.0
 Project-URL: Documentation, https://dvc.org/doc
 Project-URL: Source, https://github.com/iterative/dvc-ssh
 Keywords: dvc,ssh
@@ -22,7 +22,7 @@ Requires-Dist: dvc
 Requires-Dist: sshfs[bcrypt]>=2023.4.1
 Provides-Extra: dev
 Requires-Dist: dvc-ssh[tests]; extra == "dev"
-Requires-Dist: mypy==1.14.1; extra == "dev"
+Requires-Dist: mypy==1.18.2; extra == "dev"
 Provides-Extra: gssapi
 Requires-Dist: sshfs[gssapi]>=2021.11.2; extra == "gssapi"
 Provides-Extra: tests
@@ -32,6 +32,7 @@ Requires-Dist: pytest-cov>=4.1.0; extra == "tests"
 Requires-Dist: pytest-xdist>=3.2; extra == "tests"
 Requires-Dist: pytest-mock; extra == "tests"
 Requires-Dist: pytest-docker<4,>=1; extra == "tests"
+Dynamic: license-file
 
 dvc-ssh
 

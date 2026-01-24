@@ -14,6 +14,9 @@ import copy
 import datetime
 import io
 import operator
+import os
+import shutil
+import tempfile
 from contextlib import contextmanager
 from sys import getrefcount
 
@@ -59,6 +62,7 @@ from botocore.utils import (
     InstanceMetadataFetcher,
     InstanceMetadataRegionFetcher,
     InvalidArnException,
+    JSONFileCache,
     S3ArnParamHandler,
     S3EndpointSetter,
     S3RegionRedirectorv2,
@@ -2744,8 +2748,8 @@ class TestContainerMetadataFetcher(unittest.TestCase):
     def test_link_local_http_is_not_allowed(self):
         self.assert_host_is_not_allowed('http://169.254.0.1/foo')
 
-    def test_link_local_https_is_not_allowed(self):
-        self.assert_host_is_not_allowed('https://169.254.0.1/foo')
+    def test_can_use_link_local_https(self):
+        self.assert_can_retrieve_metadata_from('https://169.254.0.1/foo')
 
     def test_non_link_local_nonallowed_url(self):
         self.assert_host_is_not_allowed('http://169.1.2.3/foo')
@@ -2753,8 +2757,8 @@ class TestContainerMetadataFetcher(unittest.TestCase):
     def test_error_raised_on_nonallowed_url(self):
         self.assert_host_is_not_allowed('http://somewhere.com/foo')
 
-    def test_external_host_not_allowed_if_https(self):
-        self.assert_host_is_not_allowed('https://somewhere.com/foo')
+    def test_can_use_external_host_if_https(self):
+        self.assert_can_retrieve_metadata_from('https://somewhere.com/foo')
 
 
 class TestUnsigned(unittest.TestCase):
@@ -3679,3 +3683,35 @@ def test_get_token_from_environment_returns_none(
 ):
     monkeypatch.delenv(env_var, raising=False)
     assert get_token_from_environment(signing_name) is None
+
+
+class TestJSONFileCacheAtomicWrites(unittest.TestCase):
+    """Test atomic write operations in JSONFileCache."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.cache = JSONFileCache(working_dir=self.temp_dir)
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    @mock.patch('os.replace')
+    def test_uses_tempfile_and_replace_for_atomic_write(self, mock_replace):
+        self.cache['test_key'] = {'data': 'test_value'}
+        mock_replace.assert_called_once()
+
+        call_args = mock_replace.call_args[0]
+        temp_path = call_args[0]
+
+        assert '.tmp' in temp_path
+
+    def test_no_temp_files_after_write(self):
+        """Test temporary files cleaned up after writes."""
+        self.cache['test'] = {'data': 'value'}
+
+        temp_files = [
+            f for f in os.listdir(self.temp_dir) if f.endswith('.tmp')
+        ]
+        self.assertEqual(
+            len(temp_files), 0, f'Temp files not cleaned: {temp_files}'
+        )

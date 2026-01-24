@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from io import StringIO
-from readline import parse_and_bind
 
 import numpy as np
 from openmm import unit as u
@@ -10,7 +9,7 @@ from openmm.app.forcefield import ForceField
 from parmed import ParameterSet, Structure
 from parmed.amber import AmberParm
 from parmed.modeller.residue import ResidueTemplateContainer
-from parmed.openmm import OpenMMParameterSet, energy_decomposition_system, load_topology
+from parmed.openmm import OpenMMParameterSet, load_topology
 from xmltodict import parse
 
 from pyocse.utils import dict_to_xmlstr, temporary_directory_change
@@ -370,10 +369,10 @@ class ParmEdStructure(Structure):
                 pbc=[1, 1, 1],
                 cell=box,
             )
-        charges = np.zeros(atoms.get_number_of_atoms())
+        charges = np.zeros(len(atoms))
         charges[0] = charge
         atoms.set_initial_charges(charges)
-        mmos = np.zeros(atoms.get_number_of_atoms())
+        mmos = np.zeros(len(atoms))
         mmos[0] = spin_multiplicity - 1
         atoms.set_initial_magnetic_moments(mmos)
         return atoms

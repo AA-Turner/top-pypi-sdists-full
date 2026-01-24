@@ -21,18 +21,10 @@ from sysconfig import get_config_var
 from packaging.version import Version
 from setuptools import setup, Extension
 
-VERSION = "1.3.19"
+VERSION = "1.4.1"
 
 SUMMARY = "High quality drawing interface for PIL."
-
-DESCRIPTION = """\
-
-The aggdraw module implements the basic WCK 2D Drawing Interface on
-top of the AGG library. This library provides high-quality drawing,
-with anti-aliasing and alpha compositing, while being fully compatible
-with the WCK renderer.
-
-"""
+README = open("README.rst", "r").read()
 
 
 def is_platform_mac():
@@ -115,6 +107,7 @@ sources = [
     "agg2/src/agg_arc.cpp",
     "agg2/src/agg_bezier_arc.cpp",
     "agg2/src/agg_curves.cpp",
+    "agg2/src/agg_rounded_rect.cpp",
     "agg2/src/agg_path_storage.cpp",
     "agg2/src/agg_rasterizer_scanline_aa.cpp",
     "agg2/src/agg_trans_affine.cpp",
@@ -155,11 +148,13 @@ setup(
         "Development Status :: 4 - Beta",
         # "Development Status :: 5 - Production/Stable",
         "Topic :: Multimedia :: Graphics",
+        "Programming Language :: Python :: Free Threading :: 1 - Unstable",
         ],
     description=SUMMARY,
+    long_description=README,
+    long_description_content_type="text/x-rst",
     download_url="http://www.effbot.org/downloads#aggdraw",
     license="Python (MIT style)",
-    long_description=DESCRIPTION.strip(),
     url="https://github.com/pytroll/aggdraw",
     ext_modules=[
         Extension("aggdraw", ["aggdraw.cxx"] + sources,
@@ -168,5 +163,12 @@ setup(
                   library_dirs=library_dirs, libraries=libraries,
                   )
         ],
-    python_requires='>=3.9',
+    extras_require={
+        "tests": ["pytest"],
+        "docs": [
+            "sphinx",
+            "sphinx_rtd_theme",
+        ],
+    },
+    python_requires='>=3.11',
     )

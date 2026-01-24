@@ -1,3 +1,20 @@
+# Copyright Rouven Bauer
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+from __future__ import annotations
+
 import tokenize
 import typing as t
 
@@ -6,16 +23,16 @@ CLOSE_LIST = ["]", "}", ")"]
 
 
 class ParensCords(t.NamedTuple):
-    open_: t.Tuple[int, int]
+    open_: tuple[int, int]
     open_end_col: int
     replacement: str
-    close: t.Tuple[int, int]
-    token_indexes: t.Tuple[int, int]
+    close: tuple[int, int]
+    token_indexes: tuple[int, int]
 
 
 def find_parens_coords(
-    tokens: t.List[tokenize.TokenInfo]
-) -> t.List[ParensCords]:
+    tokens: list[tokenize.TokenInfo]
+) -> list[ParensCords]:
     # return parentheses paris in the form
     # (
     #   (open_line, open_col),
@@ -23,7 +40,7 @@ def find_parens_coords(
     #   replacement,
     #   (close_line, close_col)
     # )
-    opening_stack: t.List[t.Tuple[t.Tuple[int, int], int, str, str, int]] = []
+    opening_stack: list[tuple[tuple[int, int], int, str, str, int]] = []
     parentheses_pairs = []
     last_line = -1
     for i in range(len(tokens)):

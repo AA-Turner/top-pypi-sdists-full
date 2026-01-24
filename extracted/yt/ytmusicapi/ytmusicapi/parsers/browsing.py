@@ -3,6 +3,7 @@ import re
 from ytmusicapi.type_alias import JsonDict, JsonList, ParseFuncDictType
 
 from .albums import parse_album_playlistid_if_exists
+from .artists import parse_artists_runs
 from .podcasts import parse_episode, parse_podcast
 from .songs import *
 
@@ -32,7 +33,7 @@ def parse_mixed_content(
                             content = parse_watch_playlist(data)
                         else:
                             content = parse_song(data)
-                    elif page_type == "MUSIC_PAGE_TYPE_ALBUM":
+                    elif page_type in ["MUSIC_PAGE_TYPE_ALBUM", "MUSIC_PAGE_TYPE_AUDIOBOOK"]:
                         content = parse_album(data)
                     elif page_type in ["MUSIC_PAGE_TYPE_ARTIST", "MUSIC_PAGE_TYPE_USER_CHANNEL"]:
                         content = parse_related_artist(data)
@@ -98,14 +99,18 @@ def parse_song(result: JsonDict) -> JsonDict:
     return song
 
 
-def parse_song_flat(data: JsonDict) -> JsonDict:
+def parse_song_flat(data: JsonDict, with_playlist_id: bool = False) -> JsonDict:
     columns = [get_flex_column_item(data, i) for i in range(0, len(data["flexColumns"]))]
     song = {
         "title": nav(columns[0], TEXT_RUN_TEXT),
         "videoId": nav(columns[0], TEXT_RUN + NAVIGATION_VIDEO_ID, True),
+        "videoType": nav(data, [*PLAY_BUTTON, "playNavigationEndpoint", *NAVIGATION_VIDEO_TYPE], True),
         "thumbnails": nav(data, THUMBNAILS),
         "isExplicit": nav(data, BADGE_LABEL, True) is not None,
     }
+
+    if with_playlist_id:
+        song["playlistId"] = nav(data, [*PLAY_BUTTON, "playNavigationEndpoint", *WATCH_PLAYLIST_ID])
 
     runs = nav(columns[1], TEXT_RUNS)
     song.update(parse_song_runs(runs, skip_type_spec=True))
@@ -132,7 +137,7 @@ def parse_video(result: JsonDict) -> JsonDict:
     return {
         "title": nav(result, TITLE_TEXT),
         "videoId": videoId,
-        "artists": parse_song_artists_runs(runs[:artists_len]),
+        "artists": parse_artists_runs(runs[:artists_len]),
         "playlistId": nav(result, NAVIGATION_PLAYLIST_ID, True),
         "thumbnails": nav(result, THUMBNAIL_RENDERER, True),
         "views": runs[-1]["text"].split(" ")[0],
@@ -154,7 +159,7 @@ def parse_playlist(data: JsonDict) -> JsonDict:
         playlist["description"] = "".join([run["text"] for run in subtitle["runs"]])
         if len(subtitle["runs"]) == 3 and re.search(r"\d+ ", nav(data, SUBTITLE2)):
             playlist["count"] = nav(data, SUBTITLE2).split(" ")[0]
-            playlist["author"] = parse_song_artists_runs(subtitle["runs"][:1])
+            playlist["author"] = parse_artists_runs(subtitle["runs"][:1])
 
     return playlist
 

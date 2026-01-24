@@ -2,12 +2,16 @@
 // SPDX-License-Identifier: MIT
 
 #include "Test.h"
+#include "catch2/catch_test_macros.hpp"
 #include <fmt/core.h>
+#include <fmt/format.h>
 
 #include "slang/analysis/AnalysisManager.h"
 #include "slang/ast/ASTVisitor.h"
 #include "slang/parsing/ParserMetadata.h"
+#include "slang/syntax/SyntaxNode.h"
 #include "slang/syntax/SyntaxPrinter.h"
+#include "slang/syntax/SyntaxTree.h"
 #include "slang/syntax/SyntaxVisitor.h"
 
 class SemanticModel {
@@ -191,6 +195,7 @@ endmodule
 )");
 
     tree = TestRewriter(tree).transform(tree);
+    CHECK(tree->validate());
 
     CHECK(SyntaxPrinter::printFile(*tree) == R"(
 module M;
@@ -218,6 +223,7 @@ endmodule
 )");
 
     tree = TestRewriter(tree).transform(tree);
+    CHECK(tree->validate());
 
     CHECK(SyntaxPrinter::printFile(*tree) == R"(
 `define ENUM_MACRO(asdf) \
@@ -240,10 +246,14 @@ module m #(parameter P = 8)();
     reg tmp;
 endmodule
 )");
+
     struct RemoveWriter : public SyntaxRewriter<RemoveWriter> {
         void handle(const ParameterPortListSyntax& decl) { remove(decl); }
     };
+
     tree = RemoveWriter().transform(tree);
+    CHECK(tree->validate());
+
     CHECK(SyntaxPrinter::printFile(*tree) == R"(
 module m();
     reg tmp;
@@ -263,6 +273,7 @@ TEST_CASE("Remove node from comma-separated list") {
     function void foo3(int a, int b,, int c, int d, int e);
     endfunction
 )");
+
     struct RemoveWriter : public SyntaxRewriter<RemoveWriter> {
         void handle(const FunctionPortBaseSyntax& port) {
             std::string str = port.toString();
@@ -271,7 +282,10 @@ TEST_CASE("Remove node from comma-separated list") {
                 remove(port);
         }
     };
+
     tree = RemoveWriter().transform(tree);
+    CHECK(tree->validate());
+
     CHECK(SyntaxPrinter::printFile(*tree) == R"(
     // normal case
     function void foo1( int b, int d);
@@ -284,6 +298,7 @@ TEST_CASE("Remove node from comma-separated list") {
     endfunction
 )");
 }
+
 TEST_CASE("Advanced rewriting") {
     SECTION("Insert multiple newNodes surrounding oldNodes") {
         class MultipleRewriter : public RewriterBase<MultipleRewriter> {
@@ -338,6 +353,7 @@ endmodule
 )");
 
         tree = MultipleRewriter(tree).transform(tree);
+        CHECK(tree->validate());
 
         CHECK(SyntaxPrinter::printFile(*tree) == R"(
 module M;
@@ -352,6 +368,7 @@ module M;
 endmodule
 )");
     }
+
     SECTION("Combine insert and replace operation on oldNodes") {
         class InterleavedRewriter : public RewriterBase<InterleavedRewriter> {
         public:
@@ -402,6 +419,8 @@ endmodule
 )");
 
         tree = InterleavedRewriter(tree).transform(tree);
+        CHECK(tree->validate());
+
         CHECK(SyntaxPrinter::printFile(*tree) == R"(
 module M;
     localparam int test_t__count1 = 3;
@@ -413,6 +432,7 @@ module M;
 endmodule
 )");
     }
+
     SECTION("Combine insert and remove operation on oldNodes") {
         class InterleavedRewriter : public RewriterBase<InterleavedRewriter> {
         public:
@@ -461,6 +481,8 @@ endmodule
 )");
 
         tree = InterleavedRewriter(tree).transform(tree);
+        CHECK(tree->validate());
+
         CHECK(SyntaxPrinter::printFile(*tree) == R"(
 module M;
     localparam int test_t__count1 = 3;
@@ -484,6 +506,7 @@ endmodule
                 return SyntaxRewriter<FirstTypedefRemover>::transform(tree);
             }
         };
+
         auto tree = SyntaxTree::fromText(R"(
 module M;
     typedef enum int { FOO = 1 } test_t_1;
@@ -495,6 +518,7 @@ endmodule
         FirstTypedefRemover rewriter;
         tree = rewriter.transform(tree);
         tree = rewriter.transform(tree);
+        CHECK(tree->validate());
 
         CHECK(SyntaxPrinter::printFile(*tree) == R"(
 module M;
@@ -589,6 +613,8 @@ endmodule
         };
 
         auto newTree = CloneRewriter().transform(tree);
+        CHECK(tree->validate());
+
         CHECK(SyntaxPrinter::printFile(*newTree) == R"(
 module m;
     reg tmp3;
@@ -616,6 +642,8 @@ endmodule
         };
 
         tree = CloneRewriter().transform(tree);
+        CHECK(tree->validate());
+
         CHECK(SyntaxPrinter::printFile(*tree) == R"(
 module m;
     reg tmp;
@@ -642,6 +670,8 @@ endmodule
         };
         CloneRewriter visitor(tree);
         tree->root().visit(visitor);
+        CHECK(tree->validate());
+
         CHECK(SyntaxPrinter::printFile(*tree) == R"(module m; reg tmp; endmodule)");
     }
 }
@@ -692,6 +722,8 @@ class C; endclass
     };
 
     auto newTree = ModuleChanger().transform(tree);
+    CHECK(tree->validate());
+
     CHECK(SyntaxPrinter::printFile(*newTree) == R"(
 `default_nettype none
 `unconnected_drive pull0
@@ -723,15 +755,116 @@ class C; endclass
 )");
 
     auto& meta = tree->getMetadata();
-    CHECK(meta.nodeMap.size() == 3);
+    CHECK(meta.nodeMeta.size() == 3);
 
-    for (auto& [key, node] : meta.nodeMap) {
-        if (key->as<ModuleDeclarationSyntax>().header->name.valueText() == "FooBar") {
+    for (auto& [key, node] : meta.nodeMeta) {
+        if (key->header->name.valueText() == "FooBar") {
             CHECK(node.timeScale->base.unit == TimeUnit::Nanoseconds);
             CHECK(node.unconnectedDrive == TokenKind::Pull0Keyword);
             CHECK(node.cellDefine == true);
         }
     }
+}
+
+TEST_CASE("Syntax rewriter -- replace preserves trivia") {
+    auto tree = SyntaxTree::fromText(R"(
+module test(
+    input wire clock,
+    input wire reset,
+    output reg [3:0] o_signal
+);
+wire t;
+`ifndef SYNTHESIS
+initial begin
+    $display("hello");
+end
+`endif
+assign t = o_signal[1];
+
+endmodule
+)");
+
+    struct Rewriter : public SyntaxRewriter<Rewriter> {
+        void handle(const ContinuousAssignSyntax& syntax) {
+            replace(syntax, parse("assign t = 2;"), /* preserveTrivia */ true);
+        }
+    };
+
+    auto result = SyntaxPrinter::printFile(*Rewriter().transform(tree));
+    CHECK(result == R"(
+module test(
+    input wire clock,
+    input wire reset,
+    output reg [3:0] o_signal
+);
+wire t;
+`ifndef SYNTHESIS
+initial begin
+    $display("hello");
+end
+`endif
+assign t = 2;
+
+endmodule
+)");
+}
+
+TEST_CASE("SyntaxTree/Compilation Invariant Checking") {
+    // Validates that the parent pointers in the syntax tree are correct,
+    // and provides debug info if not.
+    auto validateParents = [](const syntax::SyntaxTree& tree) {
+        bool valid = true;
+        tree.root().visit(AllSyntaxVisitor([&](const SyntaxNode& node) {
+            if (node.kind == SyntaxKind::SyntaxList || node.kind == SyntaxKind::SeparatedList)
+                return;
+
+            for (size_t i = 0; i < node.getChildCount(); i++) {
+                auto child = node.childNode(i);
+                if (!child)
+                    continue;
+
+                if (child->parent != &node) {
+                    valid = false;
+                    auto parentKind = toString(child->parent->kind);
+                    auto childKind = toString(child->kind);
+                    auto expectedParent = toString(node.kind);
+                    INFO(fmt::format("Parent pointer mismatch with `{}`. {}.parent should be {}, "
+                                     "but is instead {}\n",
+                                     node.toString(), childKind, expectedParent,
+                                     !parentKind.empty() ? parentKind : "<garbage memory>"));
+
+                    if (!parentKind.empty()) {
+                        INFO(fmt::format("Check for `comp.emplace<{}Syntax>` calls, and deep "
+                                         "clone the syntax nodes used to create it.",
+                                         parentKind));
+                    }
+                }
+            }
+        }));
+
+        return valid;
+    };
+
+    fs::path path = findTestDir();
+    path /= "../../regression/all.sv";
+    auto mTree = SyntaxTree::fromFile(path.string());
+    REQUIRE(mTree);
+
+    auto tree = *mTree;
+    REQUIRE(validateParents(*tree));
+
+    std::string originalSyntaxText = SyntaxPrinter::printFile(*tree);
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    auto& _root = compilation.getRoot();
+
+    // Check parent pointers after compilation
+    REQUIRE(validateParents(*tree));
+
+    // Check that the syntax text is the same after compilation
+    std::string syntaxTextAfterCompilation = SyntaxPrinter::printFile(*tree);
+    REQUIRE(originalSyntaxText == syntaxTextAfterCompilation);
 }
 
 TEST_CASE("Visit all file") {
@@ -745,24 +878,28 @@ TEST_CASE("Visit all file") {
     Compilation compilation;
     compilation.addSyntaxTree(*tree);
 
-    flat_hash_set<ast::SymbolKind> symKinds;
-    flat_hash_set<ast::ExpressionKind> exprKinds;
-    flat_hash_set<ast::StatementKind> stmtKinds;
+    flat_hash_set<SymbolKind> symKinds;
+    flat_hash_set<ExpressionKind> exprKinds;
+    flat_hash_set<StatementKind> stmtKinds;
     compilation.getRoot().visit(makeVisitor(
-        [&](auto& v, std::derived_from<ast::Symbol> auto& node) {
+        [&](auto& v, std::derived_from<Symbol> auto& node) {
             symKinds.insert(node.kind);
             v.visitDefault(node);
         },
-        [&](auto& v, std::derived_from<ast::Expression> auto& node) {
+        [&](auto& v, std::derived_from<Expression> auto& node) {
             exprKinds.insert(node.kind);
             v.visitDefault(node);
         },
-        [&](auto& v, std::derived_from<ast::Statement> auto& node) {
+        [&](auto& v, std::derived_from<Statement> auto& node) {
             stmtKinds.insert(node.kind);
             v.visitDefault(node);
         }));
 
-    flat_hash_set<syntax::SyntaxKind> syntaxKinds;
+    compilation.getRoot().visit(makeVisitor([&](auto& v, std::derived_from<Expression> auto& expr) {
+        CHECK(expr.isEquivalentTo(expr));
+    }));
+
+    flat_hash_set<SyntaxKind> syntaxKinds;
     (*tree)->root().visit(makeSyntaxVisitor([&](auto& v, const auto& node) {
         syntaxKinds.insert(node.kind);
         v.visitDefault(node);
@@ -771,21 +908,21 @@ TEST_CASE("Visit all file") {
     auto printMissing = [](const std::string_view name, const auto& kinds, const auto& visited) {
         for (auto kind : kinds) {
             if (!visited.contains(kind)) {
-                fmt::print(stdout, "Did not visit {}: {}\n", name, toString(kind));
+                INFO(fmt::format("Did not visit {}: {}\n", name, toString(kind)));
             }
         }
     };
-    // printMissing("syntax", syntax::SyntaxKind_traits::values, syntaxes.syntaxKinds);
-    // printMissing("symbol", ast::SymbolKind_traits::values, symbols.symKinds);
-    // printMissing("expression", ast::ExpressionKind_traits::values, symbols.exprKinds);
-    // printMissing("statement", ast::StatementKind_traits::values, symbols.stmtKinds);
+    // printMissing("syntax", SyntaxKind_traits::values, syntaxes.syntaxKinds);
+    // printMissing("symbol", SymbolKind_traits::values, symbols.symKinds);
+    // printMissing("expression", ExpressionKind_traits::values, symbols.exprKinds);
+    // printMissing("statement", StatementKind_traits::values, symbols.stmtKinds);
 
     // Ideally this should visit all kinds (be zero)
-    CHECK(218 == syntax::SyntaxKind_traits::values.size() - syntaxKinds.size());
+    CHECK(218 == SyntaxKind_traits::values.size() - syntaxKinds.size());
 
-    CHECK(42 == ast::SymbolKind_traits::values.size() - symKinds.size());
-    CHECK(11 == ast::ExpressionKind_traits::values.size() - exprKinds.size());
-    CHECK(5 == ast::StatementKind_traits::values.size() - stmtKinds.size());
+    CHECK(42 == SymbolKind_traits::values.size() - symKinds.size());
+    CHECK(11 == ExpressionKind_traits::values.size() - exprKinds.size());
+    CHECK(5 == StatementKind_traits::values.size() - stmtKinds.size());
     compilation.getAllDiagnostics();
     compilation.freeze();
 

@@ -295,7 +295,7 @@ class _WebrootMapAction(argparse.Action):
         for domains, webroot_path in json.loads(str(webroot_map)).items():
             webroot_path = _validate_webroot(webroot_path)
             namespace.webroot_map.update(
-                (d, webroot_path) for d in cli.add_domains(namespace, domains))
+                (d.dns_name, webroot_path) for d in cli.add_domains(namespace, domains))
 
 
 class _WebrootPathAction(argparse.Action):
@@ -320,7 +320,7 @@ class _WebrootPathAction(argparse.Action):
             # domains before setting the new webroot path
             prev_webroot = namespace.webroot_path[-1]
             for domain in namespace.domains:
-                namespace.webroot_map.setdefault(domain, prev_webroot)
+                namespace.webroot_map.setdefault(domain.dns_name, prev_webroot)
         elif namespace.domains:
             self._domain_before_webroot = True
 

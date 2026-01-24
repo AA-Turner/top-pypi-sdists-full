@@ -11,6 +11,7 @@ import psutil
 from sky import clouds
 from sky import sky_logging
 from sky.backends import cloud_vm_ray_backend
+from sky.jobs import constants as managed_job_constants
 from sky.jobs import scheduler
 from sky.jobs import state as managed_job_state
 from sky.jobs import utils as managed_job_utils
@@ -21,6 +22,7 @@ from sky.skylet import job_lib
 from sky.usage import usage_lib
 from sky.utils import cluster_utils
 from sky.utils import registry
+from sky.utils import subprocess_utils
 from sky.utils import ux_utils
 from sky.utils import yaml_utils
 
@@ -44,6 +46,9 @@ class SkyletEvent:
             math.ceil(self.EVENT_INTERVAL_SECONDS /
                       EVENT_CHECKING_INTERVAL_SECONDS))
         self._n = 0
+
+    def start(self):
+        pass
 
     def run(self):
         self._n = (self._n + 1) % self._event_interval
@@ -73,7 +78,57 @@ class ManagedJobEvent(SkyletEvent):
     """Skylet event for updating and scheduling managed jobs."""
     EVENT_INTERVAL_SECONDS = 300
 
+    def start(self):
+        cpus_env_var = os.environ.get('SKYPILOT_POD_CPU_CORE_LIMIT')
+        if cpus_env_var is not None:
+            with open(os.path.expanduser(constants.CONTROLLER_K8S_CPU_FILE),
+                      'w',
+                      encoding='utf-8') as f:
+                f.write(cpus_env_var)
+        memory_env_var = os.environ.get('SKYPILOT_POD_MEMORY_GB_LIMIT')
+        if memory_env_var is not None:
+            with open(os.path.expanduser(constants.CONTROLLER_K8S_MEMORY_FILE),
+                      'w',
+                      encoding='utf-8') as f:
+                f.write(memory_env_var)
+
     def _run(self):
+        if not os.path.exists(
+                os.path.expanduser(
+                    managed_job_constants.JOB_CONTROLLER_INDICATOR_FILE)
+        ) and not managed_job_utils.is_consolidation_mode():
+            # Note: since the skylet is started before the user setup (in
+            # jobs-controller.yaml.j2) runs, it's possible that we hit this
+            # before the indicator file is written. However, since we will wait
+            # EVENT_INTERVAL_SECONDS before the first run, this should be very
+            # unlikely.
+            logger.info('No jobs controller indicator file found.')
+            all_job_ids = managed_job_state.get_all_job_ids_by_name(None)
+            if not all_job_ids:
+                logger.info('No jobs running. Stopping controllers.')
+                # TODO(cooperc): Move this to a shared function also called by
+                # sdk.api_stop(). (#7229)
+                try:
+                    records = scheduler.get_controller_process_records()
+                    if records is not None:
+                        for record in records:
+                            if managed_job_utils.controller_process_alive(
+                                    record, quiet=False):
+                                subprocess_utils.kill_children_processes(
+                                    parent_pids=[record.pid], force=True)
+                        os.remove(
+                            os.path.expanduser(
+                                scheduler.JOB_CONTROLLER_PID_PATH))
+                except Exception as e:  # pylint: disable=broad-except
+                    # in case we get perm issues or something is messed up, just
+                    # ignore it and assume the process is dead
+                    logger.error(
+                        f'Error looking at job controller pid file: {e}')
+                    pass
+            logger.info(f'{len(all_job_ids)} jobs running. Assuming the '
+                        'indicator file hasn\'t been written yet.')
+            return
+
         logger.info('=== Updating managed job status ===')
         managed_job_utils.update_managed_jobs_statuses()
         scheduler.maybe_start_controllers()
@@ -165,6 +220,22 @@ class AutostopEvent(SkyletEvent):
                 f'Stopping.')
             self._stop_cluster(autostop_config)
 
+    def _execute_hook_if_present(self, autostop_config) -> None:
+        """Execute autostop hook if present in the config."""
+        hook = autostop_config.hook
+        hook_timeout = autostop_config.hook_timeout
+        if hook:
+            logger.info(f'Executing autostop hook before stopping cluster '
+                        f'(timeout: {hook_timeout}s)...')
+            hook_success = autostop_lib.execute_autostop_hook(
+                hook, hook_timeout)
+            if not hook_success:
+                logger.warning(
+                    'Autostop hook failed, but continuing with cluster stop. '
+                    'Check logs for details.')
+            else:
+                logger.info('Autostop hook completed successfully.')
+
     def _stop_cluster(self, autostop_config):
         if (autostop_config.backend ==
                 cloud_vm_ray_backend.CloudVmRayBackend.NAME):
@@ -181,10 +252,13 @@ class AutostopEvent(SkyletEvent):
                     RAY_PROVISIONER_SKYPILOT_TERMINATOR):
                 logger.info('Using new provisioner to stop the cluster.')
                 self._stop_cluster_with_new_provisioner(autostop_config, config,
-                                                        provider_name)
+                                                        provider_name, cloud)
                 return
             logger.info('Not using new provisioner to stop the cluster. '
                         f'Cloud of this cluster: {provider_name}')
+
+            # Execute autostop hook if provided (for old provisioner path)
+            self._execute_hook_if_present(autostop_config)
 
             is_cluster_multinode = config['max_workers'] > 0
 
@@ -259,21 +333,37 @@ class AutostopEvent(SkyletEvent):
             raise NotImplementedError
 
     def _stop_cluster_with_new_provisioner(self, autostop_config,
-                                           cluster_config, provider_name):
+                                           cluster_config, provider_name,
+                                           cloud):
         # pylint: disable=import-outside-toplevel
         from sky import provision as provision_lib
         autostop_lib.set_autostopping_started()
 
+        # Execute autostop hook if provided
+        self._execute_hook_if_present(autostop_config)
+
         cluster_name_on_cloud = cluster_config['cluster_name']
         is_cluster_multinode = cluster_config['max_workers'] > 0
 
+        # Clear AWS credentials from environment to force boto3 to use IAM
+        # role attached to the instance (lowest priority in credential chain).
+        # This allows the cluster to stop/terminate itself using its IAM role.
         os.environ.pop('AWS_ACCESS_KEY_ID', None)
         os.environ.pop('AWS_SECRET_ACCESS_KEY', None)
+        os.environ.pop('AWS_SESSION_TOKEN', None)
+        # Point boto3 to /dev/null to skip reading credentials from files.
+        os.environ['AWS_SHARED_CREDENTIALS_FILE'] = '/dev/null'
+        os.environ['AWS_CONFIG_FILE'] = '/dev/null'
 
         # Stop the ray autoscaler to avoid scaling up, during
         # stopping/terminating of the cluster.
-        logger.info('Stopping the ray cluster.')
-        subprocess.run(f'{constants.SKY_RAY_CMD} stop', shell=True, check=True)
+        if not cloud.uses_ray():
+            logger.info('Skipping ray stop as cloud does not use Ray.')
+        else:
+            logger.info('Stopping the ray cluster.')
+            subprocess.run(f'{constants.SKY_RAY_CMD} stop',
+                           shell=True,
+                           check=True)
 
         operation_fn = provision_lib.stop_instances
         if autostop_config.down:

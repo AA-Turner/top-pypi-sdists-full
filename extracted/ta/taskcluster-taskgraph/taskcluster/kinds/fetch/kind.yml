@@ -1,0 +1,21 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - taskgraph.transforms.fetch:transforms
+    - taskgraph.transforms.run:transforms
+    - taskgraph.transforms.task:transforms
+
+tasks:
+    codecov-uploader:
+        description: uploader for codecov.io
+        fetch:
+            type: "static-url"
+            url: https://cli.codecov.io/v0.6.0/linux/codecov
+            sha256: 209d13481be406d6a2aa9519fa61c84883e3213308b5628c43a5e94cae75b8e6
+            size: 28918392
+            headers:
+                User-Agent: Mozilla

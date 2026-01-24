@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright © 2019 Taylor C. Richberger
-# This code is released under the license described in the LICENSE file
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+# This code is Copyright 2019 - 2023 Absolute Performance, Inc, and 2024 - 2025
+# ProCern Technology Solutions.
+# It is written and maintained by Taylor C. Richberger <taylor.richberger@procern.com>
 
 import sys
 import os
@@ -10,7 +14,7 @@ import shutil
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from asyncinotify import Event, Inotify, Mask, RecursiveWatcher
+from asyncinotify import Event, Inotify, Mask, RecursiveInotify, RecursiveWatcher
 
 if sys.version_info >= (3, 9):
     from collections.abc import Sequence
@@ -63,7 +67,7 @@ class TestInotify(unittest.TestCase):
         self._dir = TemporaryDirectory()
         self.dir = Path(self._dir.name)
         self.inotify = Inotify()
-        self.watch = self.inotify.add_watch(self.dir, Mask.ACCESS | Mask.MODIFY | Mask.ATTRIB | Mask.CLOSE_WRITE | Mask.CLOSE_NOWRITE | Mask.OPEN | Mask.MOVED_FROM | Mask.MOVED_TO | Mask.CREATE | Mask.DELETE | Mask.DELETE_SELF | Mask.MOVE_SELF)
+        self.watch = self.inotify.add_watch(self.dir, Mask.ALL)
 
     def tearDown(self):
         self._dir.cleanup()
@@ -438,6 +442,60 @@ class TestInotifyRepeat(unittest.TestCase):
 
     def test_events(self):
         run(self._actual_test())
+
+
+class TestRecursiveInotify(unittest.TestCase):
+
+    def setUp(self):
+        self._dir = TemporaryDirectory()
+        self.dir = Path(self._dir.name)
+
+    def tearDown(self):
+        self._dir.cleanup()
+
+    def test_recursive_watch_adds_existing_subdirs(self):
+        with RecursiveInotify() as inotify:
+            subdir = self.dir / "recursive"
+            subdir.mkdir()
+            watches = inotify.add_recursive_watch(path=self.dir)
+            self.assertEqual(watches[0].path, self.dir)
+            self.assertEqual(watches[1].path, subdir)
+
+
+    def test_recursive_watch_adds_new_subdirs(self):
+        with RecursiveInotify() as inotify:
+            inotify.add_recursive_watch(path=self.dir)
+            subdir = self.dir / "recursive"
+            subdir.mkdir()
+            ev = next(inotify)
+            self.assertIsNotNone(ev)
+            # need an explicit assert for static type checking as pyright does
+            # not narrow the scope of ev with `assertIsNotNone`
+            assert ev is not None
+            self.assertIsNotNone(ev.watch)
+            assert ev.watch is not None
+            self.assertEqual(ev.watch.path, subdir.parent)
+            self.assertEqual(ev.name, subdir.relative_to(self.dir))
+            self.assertIn(ev.watch, inotify.watches)
+
+
+    def test_recursive_watch_removes_subdirs(self):
+        with RecursiveInotify() as inotify:
+            subdir = self.dir / "recursive"
+            subdir.mkdir()
+            inotify.add_recursive_watch(path=self.dir)
+            subdir.rmdir()
+            ev = next(inotify)
+            self.assertNotIn(ev.watch, inotify.watches)
+
+
+    def test_normal_watch_does_not_add_subdirs(self):
+        with RecursiveInotify() as inotify:
+            inotify.add_watch(path=self.dir, mask=Mask.ALL)
+            subdir = self.dir / "recursive"
+            subdir.mkdir()
+            self.assertNotIn(subdir, [w.path for w in inotify.watches])
+
 
 
 class TestRecursiveWatcher(unittest.TestCase):

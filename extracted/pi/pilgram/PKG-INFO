@@ -1,52 +1,92 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pilgram
-Version: 1.2.1
+Version: 2.0.0
 Summary: library for instagram filters
-Home-page: https://github.com/akiomik/pilgram
-Author: Akiomi Kamakura
-Author-email: akiomik@gmail.com
-License: Apache License 2.0
-Keywords: pillow,instagram,instagram-filters,css-filters,image-blending,blend-modes,image-processing,data-augmentation
-Platform: any
+Project-URL: Homepage, https://github.com/akiomik/pilgram
+Project-URL: Repository, https://github.com/akiomik/pilgram
+Project-URL: Issues, https://github.com/akiomik/pilgram/issues
+Author-email: Akiomi Kamakura <akiomik@gmail.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: blend-modes,css-filters,data-augmentation,image-blending,image-processing,instagram,instagram-filters,pillow
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: !=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*
+Requires-Python: >=3.10
+Requires-Dist: numpy>=1.21.0
+Requires-Dist: pillow>=10.3.0
+Provides-Extra: dev
+Requires-Dist: mypy>=1.8.0; extra == 'dev'
+Requires-Dist: pytest-benchmark>=4.0.0; extra == 'dev'
+Requires-Dist: pytest-cov>=6.0.0; extra == 'dev'
+Requires-Dist: pytest-mock>=3.10.0; extra == 'dev'
+Requires-Dist: pytest>=8.0.0; extra == 'dev'
+Requires-Dist: ruff>=0.8.0; extra == 'dev'
 Description-Content-Type: text/markdown
-License-File: LICENSE
 
 # pilgram
 
+[![DOI](https://zenodo.org/badge/169348812.svg)](https://zenodo.org/badge/latestdoi/169348812)
 [![PyPI](https://img.shields.io/pypi/v/pilgram.svg)](https://python.org/pypi/pilgram)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pilgram.svg)](https://python.org/pypi/pilgram)
-[![Python CI](https://github.com/akiomik/pilgram/workflows/Python%20CI/badge.svg)](https://github.com/akiomik/pilgram/actions?query=workflow%3A%22Python+CI%22)
+[![Python CI](https://github.com/akiomik/pilgram/actions/workflows/ci.yml/badge.svg)](https://github.com/akiomik/pilgram/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/akiomik/pilgram/branch/master/graph/badge.svg)](https://codecov.io/gh/akiomik/pilgram)
 
 A python library for instagram filters.
 
 ![screenshot](screenshots/screenshot.png)
 
-The filter implementations are inspired by [CSSgram](https://una.im/CSSgram/).
+The filter implementations are inspired by [CSSgram](https://una.github.io/CSSgram/).
 
 ## Requirements
 
-- Python >= 3.4
+- Python >= 3.10
 - [Pillow](https://pillow.readthedocs.io/en/stable/) or [pillow-simd](https://github.com/uploadcare/pillow-simd)
+- [NumPy](https://numpy.org)
+
+## Pillow Compatibility Notes
+
+**Important**: This library requires specific Pillow versions for optimal compatibility:
+
+- **Pillow >= 10.3.0**: Use latest pilgram version for full feature support including `ImageMath.lambda_eval`
+- **Pillow < 10.3.0**: Use `pilgram<2.0.0` which supports older Pillow versions with `ImageMath.eval`
+- **pillow-simd**: Use `pilgram<2.0.0` (pillow-simd lacks `ImageMath.lambda_eval` support)
+
+### Version Selection Guide
+
+```sh
+# For Pillow >= 10.3.0
+pip install pillow>=10.3.0
+pip install pilgram  # Latest version
+
+# For Pillow < 10.3.0 or pillow-simd
+pip install pillow<10.3.0  # or pillow-simd
+pip install "pilgram<2.0.0"
+```
 
 ## Install
 
+### Recommended (Latest Pillow)
+
 ```sh
-pip install pillow>=4.1.0 # or pip install pillow-simd
-pip install pilgram
+pip install pillow>=10.3.0
+pip install numpy
+pip install pilgram  # Latest version with ImageMath.lambda_eval support
+```
+
+### For Older Pillow Versions
+
+```sh
+pip install pillow<10.3.0  # or pillow-simd
+pip install numpy
+pip install "pilgram<2.0.0"  # Last version supporting ImageMath.eval
 ```
 
 ## Usage
@@ -143,12 +183,31 @@ pilgram.css.blending.color(backdrop, source).save('blending.jpg')
 
 ![filter performance comparison](screenshots/filter-performance-comparison.png)
 
-## Test
+## Development
+
+### Setup development environment
 
 ```sh
-pipenv install --dev
-make test     # pytest
-make test-tox # pytest with tox
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone the repository
+git clone https://github.com/akiomik/pilgram.git
+cd pilgram
+
+# Install dependencies (including dev dependencies)
+uv sync --all-extras
+
+# Install Pillow or pillow-simd (choose one)
+uv add pillow>=9.3.0  # or uv add pillow-simd
 ```
 
+### Run commands
 
+```sh
+make check       # Run all checks (lint + format-check + type-check + test)
+make test        # Run tests only
+make lint        # Run ruff linting
+make format      # Format code with ruff
+make test-benchmark  # Run performance benchmarks
+```

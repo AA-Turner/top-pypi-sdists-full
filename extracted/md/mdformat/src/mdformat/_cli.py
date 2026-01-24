@@ -124,7 +124,7 @@ def run(cli_args: Sequence[str], cache_toml: bool = True) -> int:  # noqa: C901
             original_str = path.read_bytes().decode()
         else:
             path_str = "-"
-            original_str = sys.stdin.read()
+            original_str = sys.stdin.buffer.read().decode()
 
         # Lazy import to improve module import time
         from mdformat.renderer import LOGGER as RENDERER_LOGGER
@@ -283,26 +283,22 @@ def make_arg_parser(
         dest="codeformatters",
         help=argparse.SUPPRESS,
     )
-    for plugin in parser_extensions.values():
-        if hasattr(plugin, "add_cli_options"):
-            import warnings
-
-            plugin_file, plugin_line = get_source_file_and_line(plugin)
-            warnings.warn_explicit(
-                "`mdformat.plugins.ParserExtensionInterface.add_cli_options`"
-                " is deprecated."
-                " Please use `add_cli_argument_group`.",
-                DeprecationWarning,
-                filename=plugin_file,
-                lineno=plugin_line,
-            )
-            plugin.add_cli_options(parser)
     for plugin_id, plugin in parser_extensions.items():
         if hasattr(plugin, "add_cli_argument_group"):
             group = parser.add_argument_group(title=f"{plugin_id} plugin")
             plugin.add_cli_argument_group(group)
             for action in group._group_actions:
                 action.dest = f"plugin.{plugin_id}.{action.dest}"
+                if action.default not in {None, argparse.SUPPRESS}:
+                    import warnings
+
+                    plugin_file, plugin_line = get_source_file_and_line(plugin)
+                    warnings.warn_explicit(
+                        f"The `default` ({action.default!r}) for {action.option_strings!r} from the {plugin_id!r} plugin, will always override any value configured in TOML. The only supported CLI defaults are `None` or `argparse.SUPPRESS`. To resolve, consider refactoring to `.add_argument(..., default=None)` ",  # noqa: E501
+                        DeprecationWarning,
+                        filename=plugin_file,
+                        lineno=plugin_line,
+                    )
     return parser
 
 
@@ -379,10 +375,7 @@ def is_excluded(  # pragma: >=3.13 cover
     except ValueError:
         return False
 
-    return any(
-        relative_path.full_match(pattern)  # type: ignore[attr-defined]
-        for pattern in patterns
-    )
+    return any(relative_path.full_match(pattern) for pattern in patterns)
 
 
 def _normalize_path(path: Path) -> Path:
@@ -445,7 +438,7 @@ def wrap_paragraphs(paragraphs: Iterable[str]) -> str:
 @contextlib.contextmanager
 def log_handler_applied(
     logger: logging.Logger, handler: logging.Handler
-) -> Generator[None, None, None]:
+) -> Generator[None]:
     logger.addHandler(handler)
     try:
         yield

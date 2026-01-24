@@ -68,9 +68,21 @@ class RevenueDeduplicator:
         # Identify items to remove
         items_to_remove = set()
 
-        for (_period, _value), items in period_value_groups.items():
+        for (_period, _value, _dim_key), items in period_value_groups.items():
             if len(items) > 1 and cls._are_revenue_duplicates(items):
-                # This is a group of revenue items with the same value
+                # Check if this group contains segment/dimensional data that should NOT be deduplicated
+                if cls._has_segment_labels(items):
+                    # Items have different labels indicating segment data - preserve all
+                    continue
+
+                # Issue #604: Check if group contains parent item with dimensional children
+                # Parent items (has_dimension_children=True) must be preserved alongside
+                # their dimensional children (is_dimension=True) even if they have the
+                # same value and label - they serve different purposes in statement views
+                if cls._has_parent_with_dimensional_children(items):
+                    continue
+
+                # This is a group of revenue items with the same value and dimensions
                 # Keep only the highest precedence item
                 items_to_remove.update(cls._select_duplicates_to_remove(items))
 
@@ -91,18 +103,32 @@ class RevenueDeduplicator:
     @classmethod
     def _group_by_period_value(cls, statement_items: List[Dict[str, Any]]) -> Dict[tuple, List[tuple]]:
         """
-        Group statement items by (period, value) pairs.
+        Group statement items by (period, value, dimension) tuples.
+
+        Issue #513: Include dimensions in grouping to avoid removing valid
+        segment data that happens to have the same value.
+
+        Issue #438: Group by dimensions but NOT label, so that true duplicates
+        (different revenue concepts with same value) can be compared and deduplicated
+        based on precedence rules.
 
         Returns:
-            Dict mapping (period, value) to list of (index, item) tuples
+            Dict mapping (period, value, dimension_key) to list of (index, item) tuples
         """
         groups = defaultdict(list)
 
         for i, item in enumerate(statement_items):
             values = item.get('values', {})
+            # Get dimension info for this item - convert to hashable tuple
+            dimension = item.get('dimension', {})
+            # Create a hashable key from dimensions
+            dim_key = tuple(sorted(dimension.items())) if dimension and isinstance(dimension, dict) else None
+
             for period, value in values.items():
                 if value is not None and value != 0:
-                    groups[(period, value)].append((i, item))
+                    # Group by (period, value, dimensions) to allow deduplication
+                    # within each dimensional slice
+                    groups[(period, value, dim_key)].append((i, item))
 
         return groups
 
@@ -151,6 +177,97 @@ class RevenueDeduplicator:
             return True
 
         return False
+
+    @classmethod
+    def _has_segment_labels(cls, indexed_items: List[tuple]) -> bool:
+        """
+        Check if items have labels indicating segment/dimensional data.
+
+        Issue #513: Items with descriptive segment labels (e.g., "United States",
+        "Reportable Segment") should NOT be deduplicated even if they have the
+        same value as total revenue.
+
+        Args:
+            indexed_items: List of (index, item) tuples
+
+        Returns:
+            True if labels indicate segment/dimensional data
+        """
+        labels = [item.get('label', '').lower() for _, item in indexed_items]
+
+        # Segment indicators - if ANY label contains these, preserve all items
+        segment_indicators = [
+            'segment',
+            'united states',
+            'canada',
+            'europe',
+            'asia',
+            'latin america',
+            'emea',
+            'americas',
+            'apac',
+            'domestic',
+            'international',
+            'geographic',
+            'product',
+            'service',
+            'streaming',
+            'advertising',
+            'subscription'
+        ]
+
+        # Check if any label contains segment indicators
+        for label in labels:
+            if any(indicator in label for indicator in segment_indicators):
+                return True
+
+        # Also check if labels are significantly different (not just revenue synonyms)
+        # If all labels are revenue-related (revenue, revenues, total revenue), they're duplicates
+        # If labels are diverse (revenue vs something else), they're segments
+        revenue_synonyms = ['revenue', 'revenues', 'total revenue', 'total revenues']
+        non_revenue_labels = []
+        for label in labels:
+            is_revenue_synonym = any(syn in label and label.replace(syn, '').strip() == ''
+                                    for syn in revenue_synonyms)
+            if not is_revenue_synonym and label:
+                non_revenue_labels.append(label)
+
+        # If we have labels that aren't pure revenue synonyms, this is segment data
+        return len(non_revenue_labels) > 0
+
+    @classmethod
+    def _has_parent_with_dimensional_children(cls, indexed_items: List[tuple]) -> bool:
+        """
+        Check if items include a parent item with dimensional children.
+
+        Issue #604: When a parent item (has_dimension_children=True) and a dimensional
+        child item (is_dimension=True) have the same value and label, they should NOT
+        be deduplicated. The parent provides the total value for summary views, while
+        the dimensional child provides the face-level dimensional data.
+
+        Example: GOOGL 2022 10-K has:
+        - Parent: Revenues (has_dimension_children=True) - total $282.8B
+        - Child: Revenues (is_dimension=True, IncomeStatementLocationAxis) - $282.8B
+
+        Both are needed: parent for summary view, child for standard/detailed views.
+
+        Args:
+            indexed_items: List of (index, item) tuples
+
+        Returns:
+            True if group contains both parent and dimensional child items
+        """
+        has_parent = False
+        has_dimensional_child = False
+
+        for _, item in indexed_items:
+            if item.get('has_dimension_children'):
+                has_parent = True
+            if item.get('is_dimension'):
+                has_dimensional_child = True
+
+        # If we have both a parent and a dimensional child, don't deduplicate
+        return has_parent and has_dimensional_child
 
     @classmethod
     def _select_duplicates_to_remove(cls, indexed_items: List[tuple]) -> Set[int]:

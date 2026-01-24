@@ -9,6 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal, Union
 
 from pydantic import Field
@@ -17,141 +18,234 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0029 import CodeScanningOptions
-from .group_0030 import CodeScanningDefaultSetupOptions
+from .group_0003 import SimpleUser
+from .group_0473 import EnterpriseWebhooks
+from .group_0474 import SimpleInstallation
+from .group_0475 import OrganizationSimpleWebhooks
+from .group_0476 import RepositoryWebhooks
 
 
-class EnterprisesEnterpriseCodeSecurityConfigurationsPostBody(GitHubModel):
-    """EnterprisesEnterpriseCodeSecurityConfigurationsPostBody"""
+class WebhookStatus(GitHubModel):
+    """status event"""
 
-    name: str = Field(
-        description="The name of the code security configuration. Must be unique within the enterprise."
+    avatar_url: Missing[Union[str, None]] = Field(default=UNSET)
+    branches: list[WebhookStatusPropBranchesItems] = Field(
+        description="An array of branch objects containing the status' SHA. Each branch contains the given SHA, but the SHA may or may not be the head of the branch. The array includes a maximum of 10 branches."
     )
-    description: str = Field(
-        max_length=255, description="A description of the code security configuration"
+    commit: WebhookStatusPropCommit = Field()
+    context: str = Field()
+    created_at: str = Field()
+    description: Union[str, None] = Field(
+        description="The optional human-readable description added to the status."
     )
-    advanced_security: Missing[
-        Literal["enabled", "disabled", "code_security", "secret_protection"]
-    ] = Field(
+    enterprise: Missing[EnterpriseWebhooks] = Field(
         default=UNSET,
-        description="The enablement status of GitHub Advanced Security features. `enabled` will enable both Code Security and Secret Protection features.\n\n> [!WARNING]\n> `code_security` and `secret_protection` are deprecated values for this field. Prefer the individual `code_security` and `secret_protection` fields to set the status of these features.\n",
+        title="Enterprise",
+        description='An enterprise on GitHub. Webhook payloads contain the `enterprise` property when the webhook is configured\non an enterprise account or an organization that\'s part of an enterprise account. For more information,\nsee "[About enterprise accounts](https://docs.github.com/admin/overview/about-enterprise-accounts)."',
     )
-    code_security: Missing[Literal["enabled", "disabled", "not_set"]] = Field(
+    id: int = Field(description="The unique identifier of the status.")
+    installation: Missing[SimpleInstallation] = Field(
         default=UNSET,
-        description="The enablement status of GitHub Code Security features.",
+        title="Simple Installation",
+        description='The GitHub App installation. Webhook payloads contain the `installation` property when the event is configured\nfor and sent to a GitHub App. For more information,\nsee "[Using webhooks with GitHub Apps](https://docs.github.com/apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps)."',
     )
-    dependency_graph: Missing[Literal["enabled", "disabled", "not_set"]] = Field(
-        default=UNSET, description="The enablement status of Dependency Graph"
-    )
-    dependency_graph_autosubmit_action: Missing[
-        Literal["enabled", "disabled", "not_set"]
-    ] = Field(
+    name: str = Field()
+    organization: Missing[OrganizationSimpleWebhooks] = Field(
         default=UNSET,
-        description="The enablement status of Automatic dependency submission",
+        title="Organization Simple",
+        description="A GitHub organization. Webhook payloads contain the `organization` property when the webhook is configured for an\norganization, or when the event occurs from activity in a repository owned by an organization.",
     )
-    dependency_graph_autosubmit_action_options: Missing[
-        EnterprisesEnterpriseCodeSecurityConfigurationsPostBodyPropDependencyGraphAutosubmitActionOptions
-    ] = Field(
-        default=UNSET, description="Feature options for Automatic dependency submission"
+    repository: RepositoryWebhooks = Field(
+        title="Repository",
+        description="The repository on GitHub where the event occurred. Webhook payloads contain the `repository` property\nwhen the event occurs from activity in a repository.",
     )
-    dependabot_alerts: Missing[Literal["enabled", "disabled", "not_set"]] = Field(
-        default=UNSET, description="The enablement status of Dependabot alerts"
+    sender: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    sha: str = Field(description="The Commit SHA.")
+    state: Literal["pending", "success", "failure", "error"] = Field(
+        description="The new state. Can be `pending`, `success`, `failure`, or `error`."
     )
-    dependabot_security_updates: Missing[Literal["enabled", "disabled", "not_set"]] = (
-        Field(
-            default=UNSET,
-            description="The enablement status of Dependabot security updates",
-        )
+    target_url: Union[str, None] = Field(
+        description="The optional link added to the status."
     )
-    code_scanning_options: Missing[Union[CodeScanningOptions, None]] = Field(
-        default=UNSET,
-        description="Security Configuration feature options for code scanning",
-    )
-    code_scanning_default_setup: Missing[Literal["enabled", "disabled", "not_set"]] = (
-        Field(
-            default=UNSET,
-            description="The enablement status of code scanning default setup",
-        )
-    )
-    code_scanning_default_setup_options: Missing[
-        Union[CodeScanningDefaultSetupOptions, None]
-    ] = Field(
-        default=UNSET, description="Feature options for code scanning default setup"
-    )
-    code_scanning_delegated_alert_dismissal: Missing[
-        Literal["enabled", "disabled", "not_set"]
-    ] = Field(
-        default=UNSET,
-        description="The enablement status of code scanning delegated alert dismissal",
-    )
-    secret_protection: Missing[Literal["enabled", "disabled", "not_set"]] = Field(
-        default=UNSET,
-        description="The enablement status of GitHub Secret Protection features.",
-    )
-    secret_scanning: Missing[Literal["enabled", "disabled", "not_set"]] = Field(
-        default=UNSET, description="The enablement status of secret scanning"
-    )
-    secret_scanning_push_protection: Missing[
-        Literal["enabled", "disabled", "not_set"]
-    ] = Field(
-        default=UNSET,
-        description="The enablement status of secret scanning push protection",
-    )
-    secret_scanning_validity_checks: Missing[
-        Literal["enabled", "disabled", "not_set"]
-    ] = Field(
-        default=UNSET,
-        description="The enablement status of secret scanning validity checks",
-    )
-    secret_scanning_non_provider_patterns: Missing[
-        Literal["enabled", "disabled", "not_set"]
-    ] = Field(
-        default=UNSET,
-        description="The enablement status of secret scanning non provider patterns",
-    )
-    secret_scanning_generic_secrets: Missing[
-        Literal["enabled", "disabled", "not_set"]
-    ] = Field(
-        default=UNSET, description="The enablement status of Copilot secret scanning"
-    )
-    secret_scanning_delegated_alert_dismissal: Missing[
-        Literal["enabled", "disabled", "not_set"]
-    ] = Field(
-        default=UNSET,
-        description="The enablement status of secret scanning delegated alert dismissal",
-    )
-    private_vulnerability_reporting: Missing[
-        Literal["enabled", "disabled", "not_set"]
-    ] = Field(
-        default=UNSET,
-        description="The enablement status of private vulnerability reporting",
-    )
-    enforcement: Missing[Literal["enforced", "unenforced"]] = Field(
-        default=UNSET, description="The enforcement status for a security configuration"
-    )
+    updated_at: str = Field()
 
 
-class EnterprisesEnterpriseCodeSecurityConfigurationsPostBodyPropDependencyGraphAutosubmitActionOptions(
-    GitHubModel
-):
-    """EnterprisesEnterpriseCodeSecurityConfigurationsPostBodyPropDependencyGraphAutosu
-    bmitActionOptions
+class WebhookStatusPropBranchesItems(GitHubModel):
+    """WebhookStatusPropBranchesItems"""
 
-    Feature options for Automatic dependency submission
-    """
-
-    labeled_runners: Missing[bool] = Field(
-        default=UNSET,
-        description="Whether to use runners labeled with 'dependency-submission' or standard GitHub runners.",
-    )
+    commit: WebhookStatusPropBranchesItemsPropCommit = Field()
+    name: str = Field()
+    protected: bool = Field()
 
 
-model_rebuild(EnterprisesEnterpriseCodeSecurityConfigurationsPostBody)
-model_rebuild(
-    EnterprisesEnterpriseCodeSecurityConfigurationsPostBodyPropDependencyGraphAutosubmitActionOptions
-)
+class WebhookStatusPropBranchesItemsPropCommit(GitHubModel):
+    """WebhookStatusPropBranchesItemsPropCommit"""
+
+    sha: Union[str, None] = Field()
+    url: Union[str, None] = Field()
+
+
+class WebhookStatusPropCommit(GitHubModel):
+    """WebhookStatusPropCommit"""
+
+    author: Union[WebhookStatusPropCommitPropAuthor, None] = Field(title="User")
+    comments_url: str = Field()
+    commit: WebhookStatusPropCommitPropCommit = Field()
+    committer: Union[WebhookStatusPropCommitPropCommitter, None] = Field(title="User")
+    html_url: str = Field()
+    node_id: str = Field()
+    parents: list[WebhookStatusPropCommitPropParentsItems] = Field()
+    sha: str = Field()
+    url: str = Field()
+
+
+class WebhookStatusPropCommitPropAuthor(GitHubModel):
+    """User"""
+
+    avatar_url: Missing[str] = Field(default=UNSET)
+    deleted: Missing[bool] = Field(default=UNSET)
+    email: Missing[Union[str, None]] = Field(default=UNSET)
+    events_url: Missing[str] = Field(default=UNSET)
+    followers_url: Missing[str] = Field(default=UNSET)
+    following_url: Missing[str] = Field(default=UNSET)
+    gists_url: Missing[str] = Field(default=UNSET)
+    gravatar_id: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+    id: Missing[int] = Field(default=UNSET)
+    login: Missing[str] = Field(default=UNSET)
+    name: Missing[str] = Field(default=UNSET)
+    node_id: Missing[str] = Field(default=UNSET)
+    organizations_url: Missing[str] = Field(default=UNSET)
+    received_events_url: Missing[str] = Field(default=UNSET)
+    repos_url: Missing[str] = Field(default=UNSET)
+    site_admin: Missing[bool] = Field(default=UNSET)
+    starred_url: Missing[str] = Field(default=UNSET)
+    subscriptions_url: Missing[str] = Field(default=UNSET)
+    type: Missing[Literal["Bot", "User", "Organization"]] = Field(default=UNSET)
+    url: Missing[str] = Field(default=UNSET)
+
+
+class WebhookStatusPropCommitPropCommitter(GitHubModel):
+    """User"""
+
+    avatar_url: Missing[str] = Field(default=UNSET)
+    deleted: Missing[bool] = Field(default=UNSET)
+    email: Missing[Union[str, None]] = Field(default=UNSET)
+    events_url: Missing[str] = Field(default=UNSET)
+    followers_url: Missing[str] = Field(default=UNSET)
+    following_url: Missing[str] = Field(default=UNSET)
+    gists_url: Missing[str] = Field(default=UNSET)
+    gravatar_id: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+    id: Missing[int] = Field(default=UNSET)
+    login: Missing[str] = Field(default=UNSET)
+    name: Missing[str] = Field(default=UNSET)
+    node_id: Missing[str] = Field(default=UNSET)
+    organizations_url: Missing[str] = Field(default=UNSET)
+    received_events_url: Missing[str] = Field(default=UNSET)
+    repos_url: Missing[str] = Field(default=UNSET)
+    site_admin: Missing[bool] = Field(default=UNSET)
+    starred_url: Missing[str] = Field(default=UNSET)
+    subscriptions_url: Missing[str] = Field(default=UNSET)
+    type: Missing[Literal["Bot", "User", "Organization"]] = Field(default=UNSET)
+    url: Missing[str] = Field(default=UNSET)
+
+
+class WebhookStatusPropCommitPropParentsItems(GitHubModel):
+    """WebhookStatusPropCommitPropParentsItems"""
+
+    html_url: str = Field()
+    sha: str = Field()
+    url: str = Field()
+
+
+class WebhookStatusPropCommitPropCommit(GitHubModel):
+    """WebhookStatusPropCommitPropCommit"""
+
+    author: WebhookStatusPropCommitPropCommitPropAuthor = Field()
+    comment_count: int = Field()
+    committer: WebhookStatusPropCommitPropCommitPropCommitter = Field()
+    message: str = Field()
+    tree: WebhookStatusPropCommitPropCommitPropTree = Field()
+    url: str = Field()
+    verification: WebhookStatusPropCommitPropCommitPropVerification = Field()
+
+
+class WebhookStatusPropCommitPropCommitPropAuthor(GitHubModel):
+    """WebhookStatusPropCommitPropCommitPropAuthor"""
+
+    date: _dt.datetime = Field()
+    email: str = Field()
+    name: str = Field(description="The git author's name.")
+    username: Missing[str] = Field(default=UNSET)
+
+
+class WebhookStatusPropCommitPropCommitPropCommitter(GitHubModel):
+    """WebhookStatusPropCommitPropCommitPropCommitter"""
+
+    date: _dt.datetime = Field()
+    email: str = Field()
+    name: str = Field(description="The git author's name.")
+    username: Missing[str] = Field(default=UNSET)
+
+
+class WebhookStatusPropCommitPropCommitPropTree(GitHubModel):
+    """WebhookStatusPropCommitPropCommitPropTree"""
+
+    sha: str = Field()
+    url: str = Field()
+
+
+class WebhookStatusPropCommitPropCommitPropVerification(GitHubModel):
+    """WebhookStatusPropCommitPropCommitPropVerification"""
+
+    payload: Union[str, None] = Field()
+    reason: Literal[
+        "expired_key",
+        "not_signing_key",
+        "gpgverify_error",
+        "gpgverify_unavailable",
+        "unsigned",
+        "unknown_signature_type",
+        "no_user",
+        "unverified_email",
+        "bad_email",
+        "unknown_key",
+        "malformed_signature",
+        "invalid",
+        "valid",
+        "bad_cert",
+        "ocsp_pending",
+    ] = Field()
+    signature: Union[str, None] = Field()
+    verified: bool = Field()
+    verified_at: Union[str, None] = Field()
+
+
+model_rebuild(WebhookStatus)
+model_rebuild(WebhookStatusPropBranchesItems)
+model_rebuild(WebhookStatusPropBranchesItemsPropCommit)
+model_rebuild(WebhookStatusPropCommit)
+model_rebuild(WebhookStatusPropCommitPropAuthor)
+model_rebuild(WebhookStatusPropCommitPropCommitter)
+model_rebuild(WebhookStatusPropCommitPropParentsItems)
+model_rebuild(WebhookStatusPropCommitPropCommit)
+model_rebuild(WebhookStatusPropCommitPropCommitPropAuthor)
+model_rebuild(WebhookStatusPropCommitPropCommitPropCommitter)
+model_rebuild(WebhookStatusPropCommitPropCommitPropTree)
+model_rebuild(WebhookStatusPropCommitPropCommitPropVerification)
 
 __all__ = (
-    "EnterprisesEnterpriseCodeSecurityConfigurationsPostBody",
-    "EnterprisesEnterpriseCodeSecurityConfigurationsPostBodyPropDependencyGraphAutosubmitActionOptions",
+    "WebhookStatus",
+    "WebhookStatusPropBranchesItems",
+    "WebhookStatusPropBranchesItemsPropCommit",
+    "WebhookStatusPropCommit",
+    "WebhookStatusPropCommitPropAuthor",
+    "WebhookStatusPropCommitPropCommit",
+    "WebhookStatusPropCommitPropCommitPropAuthor",
+    "WebhookStatusPropCommitPropCommitPropCommitter",
+    "WebhookStatusPropCommitPropCommitPropTree",
+    "WebhookStatusPropCommitPropCommitPropVerification",
+    "WebhookStatusPropCommitPropCommitter",
+    "WebhookStatusPropCommitPropParentsItems",
 )

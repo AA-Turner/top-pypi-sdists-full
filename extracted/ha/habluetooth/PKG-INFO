@@ -1,14 +1,14 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: habluetooth
-Version: 5.6.4
+Version: 5.8.0
 Summary: High availability Bluetooth
-License: Apache-2.0
+License-Expression: Apache-2.0
+License-File: LICENSE
 Author: J. Nick Koston
 Author-email: bluetooth@koston.org
 Requires-Python: >=3.11
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3

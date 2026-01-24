@@ -7,6 +7,7 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.list_queue_response_200_item import ListQueueResponse200Item
+from ...models.list_queue_trigger_kind import ListQueueTriggerKind
 from ...types import UNSET, Response, Unset
 
 
@@ -20,6 +21,8 @@ def _get_kwargs(
     script_path_exact: Union[Unset, None, str] = UNSET,
     script_path_start: Union[Unset, None, str] = UNSET,
     schedule_path: Union[Unset, None, str] = UNSET,
+    trigger_path: Union[Unset, None, str] = UNSET,
+    trigger_kind: Union[Unset, None, ListQueueTriggerKind] = UNSET,
     script_hash: Union[Unset, None, str] = UNSET,
     started_before: Union[Unset, None, datetime.datetime] = UNSET,
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
@@ -53,6 +56,14 @@ def _get_kwargs(
     params["script_path_start"] = script_path_start
 
     params["schedule_path"] = schedule_path
+
+    params["trigger_path"] = trigger_path
+
+    json_trigger_kind: Union[Unset, None, str] = UNSET
+    if not isinstance(trigger_kind, Unset):
+        json_trigger_kind = trigger_kind.value if trigger_kind else None
+
+    params["trigger_kind"] = json_trigger_kind
 
     params["script_hash"] = script_hash
 
@@ -145,6 +156,8 @@ def sync_detailed(
     script_path_exact: Union[Unset, None, str] = UNSET,
     script_path_start: Union[Unset, None, str] = UNSET,
     schedule_path: Union[Unset, None, str] = UNSET,
+    trigger_path: Union[Unset, None, str] = UNSET,
+    trigger_kind: Union[Unset, None, ListQueueTriggerKind] = UNSET,
     script_hash: Union[Unset, None, str] = UNSET,
     started_before: Union[Unset, None, datetime.datetime] = UNSET,
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
@@ -173,6 +186,9 @@ def sync_detailed(
         script_path_exact (Union[Unset, None, str]):
         script_path_start (Union[Unset, None, str]):
         schedule_path (Union[Unset, None, str]):
+        trigger_path (Union[Unset, None, str]):
+        trigger_kind (Union[Unset, None, ListQueueTriggerKind]): job trigger kind (schedule, http,
+            websocket...)
         script_hash (Union[Unset, None, str]):
         started_before (Union[Unset, None, datetime.datetime]):
         started_after (Union[Unset, None, datetime.datetime]):
@@ -207,6 +223,8 @@ def sync_detailed(
         script_path_exact=script_path_exact,
         script_path_start=script_path_start,
         schedule_path=schedule_path,
+        trigger_path=trigger_path,
+        trigger_kind=trigger_kind,
         script_hash=script_hash,
         started_before=started_before,
         started_after=started_after,
@@ -243,6 +261,8 @@ def sync(
     script_path_exact: Union[Unset, None, str] = UNSET,
     script_path_start: Union[Unset, None, str] = UNSET,
     schedule_path: Union[Unset, None, str] = UNSET,
+    trigger_path: Union[Unset, None, str] = UNSET,
+    trigger_kind: Union[Unset, None, ListQueueTriggerKind] = UNSET,
     script_hash: Union[Unset, None, str] = UNSET,
     started_before: Union[Unset, None, datetime.datetime] = UNSET,
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
@@ -271,6 +291,9 @@ def sync(
         script_path_exact (Union[Unset, None, str]):
         script_path_start (Union[Unset, None, str]):
         schedule_path (Union[Unset, None, str]):
+        trigger_path (Union[Unset, None, str]):
+        trigger_kind (Union[Unset, None, ListQueueTriggerKind]): job trigger kind (schedule, http,
+            websocket...)
         script_hash (Union[Unset, None, str]):
         started_before (Union[Unset, None, datetime.datetime]):
         started_after (Union[Unset, None, datetime.datetime]):
@@ -306,6 +329,8 @@ def sync(
         script_path_exact=script_path_exact,
         script_path_start=script_path_start,
         schedule_path=schedule_path,
+        trigger_path=trigger_path,
+        trigger_kind=trigger_kind,
         script_hash=script_hash,
         started_before=started_before,
         started_after=started_after,
@@ -336,6 +361,8 @@ async def asyncio_detailed(
     script_path_exact: Union[Unset, None, str] = UNSET,
     script_path_start: Union[Unset, None, str] = UNSET,
     schedule_path: Union[Unset, None, str] = UNSET,
+    trigger_path: Union[Unset, None, str] = UNSET,
+    trigger_kind: Union[Unset, None, ListQueueTriggerKind] = UNSET,
     script_hash: Union[Unset, None, str] = UNSET,
     started_before: Union[Unset, None, datetime.datetime] = UNSET,
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
@@ -364,6 +391,9 @@ async def asyncio_detailed(
         script_path_exact (Union[Unset, None, str]):
         script_path_start (Union[Unset, None, str]):
         schedule_path (Union[Unset, None, str]):
+        trigger_path (Union[Unset, None, str]):
+        trigger_kind (Union[Unset, None, ListQueueTriggerKind]): job trigger kind (schedule, http,
+            websocket...)
         script_hash (Union[Unset, None, str]):
         started_before (Union[Unset, None, datetime.datetime]):
         started_after (Union[Unset, None, datetime.datetime]):
@@ -398,6 +428,8 @@ async def asyncio_detailed(
         script_path_exact=script_path_exact,
         script_path_start=script_path_start,
         schedule_path=schedule_path,
+        trigger_path=trigger_path,
+        trigger_kind=trigger_kind,
         script_hash=script_hash,
         started_before=started_before,
         started_after=started_after,
@@ -432,6 +464,8 @@ async def asyncio(
     script_path_exact: Union[Unset, None, str] = UNSET,
     script_path_start: Union[Unset, None, str] = UNSET,
     schedule_path: Union[Unset, None, str] = UNSET,
+    trigger_path: Union[Unset, None, str] = UNSET,
+    trigger_kind: Union[Unset, None, ListQueueTriggerKind] = UNSET,
     script_hash: Union[Unset, None, str] = UNSET,
     started_before: Union[Unset, None, datetime.datetime] = UNSET,
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
@@ -460,6 +494,9 @@ async def asyncio(
         script_path_exact (Union[Unset, None, str]):
         script_path_start (Union[Unset, None, str]):
         schedule_path (Union[Unset, None, str]):
+        trigger_path (Union[Unset, None, str]):
+        trigger_kind (Union[Unset, None, ListQueueTriggerKind]): job trigger kind (schedule, http,
+            websocket...)
         script_hash (Union[Unset, None, str]):
         started_before (Union[Unset, None, datetime.datetime]):
         started_after (Union[Unset, None, datetime.datetime]):
@@ -496,6 +533,8 @@ async def asyncio(
             script_path_exact=script_path_exact,
             script_path_start=script_path_start,
             schedule_path=schedule_path,
+            trigger_path=trigger_path,
+            trigger_kind=trigger_kind,
             script_hash=script_hash,
             started_before=started_before,
             started_after=started_after,

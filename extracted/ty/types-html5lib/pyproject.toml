@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-html5lib"
-version = "1.1.11.20250917"
+version = "1.1.11.20251117"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for html5lib"
@@ -25,18 +25,18 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.407
 
 It was generated from typeshed commit
-[`29c69fe755c6363b847e9b239a742e2a0db089a9`](https://github.com/python/typeshed/commit/29c69fe755c6363b847e9b239a742e2a0db089a9).
+[`58da238f50afcdceae317864915a7f9a10ff8fd3`](https://github.com/python/typeshed/commit/58da238f50afcdceae317864915a7f9a10ff8fd3).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
 requires-python = ">=3.9"
-dependencies = []
+dependencies = ['types-webencodings']
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"

@@ -22,6 +22,8 @@ from botocore.credentials import (
     DeferredRefreshableCredentials,
     EnvProvider,
     InstanceMetadataProvider,
+    LoginCredentialFetcher,
+    LoginProvider,
     OriginalEC2Provider,
     ProcessProvider,
     ProfileProviderBuilder,
@@ -168,7 +170,7 @@ def test_protocol_parsers():
         (
             ClientArgsCreator.get_client_args,
             {
-                'd651b5c3d81738b7f2072b984eef8b5d4cfacd22',
+                '3dfe4ed858d06ca35b5033c0f5dc9531e12090c2',
             },
         ),
         (
@@ -301,6 +303,8 @@ def test_protocol_parsers():
             Config,
             {
                 'da2d8b797568604449695cdcf803e344bdf887eb',
+                'a3abd6cb69883934f48403acfaa5ef598c548982',
+                '935dfd04e7bf5c29a6d4044a296c84e95c06e04a',
             },
         ),
         # context.py
@@ -407,13 +411,25 @@ def test_protocol_parsers():
         (
             SSOCredentialFetcher._get_credentials,
             {
-                'd15db30acdb7295a055e89b6c3bc077847e9b37c',
+                '6fdbe9d6045e98be5125fade72fb1711936666b0',
             },
         ),
         (
             SSOProvider.load,
             {
-                '67aba81dd1def437f2035f5e20b0720b328d970a',
+                'ca09b93ac1aea3df424652536d70f0fc52d86937',
+            },
+        ),
+        (
+            LoginCredentialFetcher.refresh_credentials,
+            {
+                '059e31ce9f0ec8b78a9fa813272ee9d241c182ef',
+            },
+        ),
+        (
+            LoginProvider.load,
+            {
+                '282680f216dd21a68c165dd36d16cbcaaae7bf2a',
             },
         ),
         (
@@ -437,7 +453,7 @@ def test_protocol_parsers():
         (
             AssumeRoleCredentialFetcher._get_credentials,
             {
-                '51e265bebde5b193d79a680706f2c7efc7b56622',
+                '7216e35a401c7bd95f8d95d872f55590ade8aaa7',
             },
         ),
         (
@@ -456,7 +472,7 @@ def test_protocol_parsers():
         (
             AssumeRoleWithWebIdentityCredentialFetcher._get_credentials,
             {
-                '23a7efbaf2022dcf713399649936cd9c2116f6c5',
+                '726f644df3f8e71125c8890193f2fa25bd22e331',
             },
         ),
         (
@@ -469,7 +485,7 @@ def test_protocol_parsers():
         (
             EnvProvider.load,
             {
-                '9c6bb8f48ea4cb3dfbe7df925a269a077205d62b',
+                'da0cfb81a7a27ac1159c9b87920908944d1849f2',
             },
         ),
         (
@@ -493,13 +509,13 @@ def test_protocol_parsers():
         (
             ContainerProvider._create_fetcher,
             {
-                'f61e3e60fda55de7dbcf4a66865981f7cb0804b8',
+                'f70e2b62a83099aa9863ed31fae7416b8a4c8df5',
             },
         ),
         (
             InstanceMetadataProvider.load,
             {
-                '15becfc0373ccfbc1bb200bd6a34731e61561d06',
+                '8b32da46500dd7b7177e1e6f781a7ce962dd3b66',
             },
         ),
         (
@@ -533,15 +549,21 @@ def test_protocol_parsers():
             },
         ),
         (
+            ProfileProviderBuilder._create_login_provider,
+            {
+                '4bf3a53db99700f0dee84d02470d2a52a8ad5ca8',
+            },
+        ),
+        (
             ConfigProvider.load,
             {
-                'dab41451970911f4b578015a3083ff550c6b7beb',
+                'af1d9e127b3d40376570cb48e3cbc8d66dff2041',
             },
         ),
         (
             SharedCredentialProvider.load,
             {
-                '833ec38b8361165e1bb285740e99c7ff7af161a5',
+                'fddbf6610526a41358187a529dbd2c2b82e23224',
             },
         ),
         (
@@ -553,7 +575,7 @@ def test_protocol_parsers():
         (
             ProcessProvider.load,
             {
-                '6691e82aeeccc4e07c30ee484ee31ebba5b6e2fb',
+                'dd8c5de56d32dd05f4e664faac84979ea84086cc',
             },
         ),
         (
@@ -577,7 +599,7 @@ def test_protocol_parsers():
         (
             AssumeRoleWithWebIdentityProvider._assume_role_with_web_identity,
             {
-                '32c9d720ab5f12054583758b5cd5d287f652ccd3',
+                '90c6a54d339f439988856f439dbaea9f371202f7',
             },
         ),
         (
@@ -589,19 +611,19 @@ def test_protocol_parsers():
         (
             AssumeRoleProvider._load_creds_via_assume_role,
             {
-                '85116d63561c9a8bfdfffdbf837b8a7e61b47ea3',
+                'bc9c38d6320b5f9712570ec8570f467e5288340d',
             },
         ),
         (
             AssumeRoleProvider._resolve_source_credentials,
             {
-                '105c0c011e23d76a3b8bd3d9b91b6d945c8307a1',
+                '1c2018d648dc72ab165cd1ffe1adc6b65856aa6b',
             },
         ),
         (
             AssumeRoleProvider._resolve_credentials_from_profile,
             {
-                '3e4e6371dabe4deb3445495aeb702eed8a3fba63',
+                'a5a2808e315b45957cb881b31b73624eba44ade6',
             },
         ),
         (
@@ -613,8 +635,7 @@ def test_protocol_parsers():
         (
             AssumeRoleProvider._resolve_credentials_from_source,
             {
-                'de41138b36bfc74d7f8a21f6002b55279d3de017',
-                '2f083f5c046de432194a2925fafc9478a5977586',
+                'b3144366432c11cee4bca286bd5ff10c3449b97b',
             },
         ),
         (
@@ -632,7 +653,7 @@ def test_protocol_parsers():
         (
             BotoProvider.load,
             {
-                'e84ebfe3d6698dc4683f0f6699d4a9907c87bebb',
+                'c85411fa3d3ff75b3edb98f38c36426c0ffed3bb',
             },
         ),
         (
@@ -1027,13 +1048,13 @@ def test_protocol_parsers():
         (
             RequestSigner.get_auth,
             {
-                '10ba1f446244906daf170e68dbd1f13c54ec2d93',
+                '13e90d57d536179621ac012ace97e4c2cbaa096e',
             },
         ),
         (
             RequestSigner.get_auth_instance,
             {
-                '10ba1f446244906daf170e68dbd1f13c54ec2d93',
+                '13e90d57d536179621ac012ace97e4c2cbaa096e',
             },
         ),
         (
@@ -1413,7 +1434,7 @@ def test_protocol_parsers():
         (
             URLLib3Session,
             {
-                '1c418944abceb3a3d76c2c22348b4a39280d27ef',
+                'c65ca250524de59d89a32f213f38c7403666bfef',
             },
         ),
         (

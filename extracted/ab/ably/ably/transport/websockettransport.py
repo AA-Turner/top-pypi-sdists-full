@@ -1,22 +1,30 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+
 import asyncio
-from enum import IntEnum
 import json
 import logging
 import socket
 import urllib.parse
+from enum import IntEnum
+from typing import TYPE_CHECKING
+
+import msgpack
+
 from ably.http.httputils import HttpUtils
 from ably.types.connectiondetails import ConnectionDetails
+from ably.types.operations import PublishResult
 from ably.util.eventemitter import EventEmitter
 from ably.util.exceptions import AblyException
 from ably.util.helper import Timer, unix_time_ms
+
 try:
     # websockets 15+ preferred imports
-    from websockets import ClientConnection as WebSocketClientProtocol, connect as ws_connect
+    from websockets import ClientConnection as WebSocketClientProtocol
+    from websockets import connect as ws_connect
 except ImportError:
     # websockets 14 and earlier fallback
-    from websockets.client import WebSocketClientProtocol, connect as ws_connect
+    from websockets.client import WebSocketClientProtocol
+    from websockets.client import connect as ws_connect
 
 from websockets.exceptions import ConnectionClosedOK, WebSocketException
 
@@ -28,7 +36,11 @@ log = logging.getLogger(__name__)
 
 class ProtocolMessageAction(IntEnum):
     HEARTBEAT = 0
+    ACK = 1
+    NACK = 2
+    CONNECT = 3
     CONNECTED = 4
+    DISCONNECT = 5
     DISCONNECTED = 6
     CLOSE = 7
     CLOSED = 8
@@ -37,8 +49,14 @@ class ProtocolMessageAction(IntEnum):
     ATTACHED = 11
     DETACH = 12
     DETACHED = 13
+    PRESENCE = 14
     MESSAGE = 15
+    SYNC = 16
     AUTH = 17
+    ACTIVATE = 18
+    OBJECT = 19
+    OBJECT_SYNC = 20
+    ANNOTATION = 21
 
 
 class WebSocketTransport(EventEmitter):
@@ -56,6 +74,7 @@ class WebSocketTransport(EventEmitter):
         self.is_disposed = False
         self.host = host
         self.params = params
+        self.format = params.get('format', 'json')
         super().__init__()
 
     def connect(self):
@@ -91,7 +110,7 @@ class WebSocketTransport(EventEmitter):
             exception = AblyException(f'Error opening websocket connection: {e}', 400, 40000)
             log.exception(f'WebSocketTransport.ws_connect(): Error opening websocket connection: {exception}')
             self._emit('failed', exception)
-            raise exception
+            raise exception from e
 
     async def _handle_websocket_connection(self, ws_url, websocket):
         log.info(f'ws_connect(): connection established to {ws_url}')
@@ -124,8 +143,8 @@ class WebSocketTransport(EventEmitter):
                 self.max_idle_interval = max_idle_interval + self.options.realtime_request_timeout
                 self.on_activity()
             self.is_connected = True
-            if self.host != self.options.get_realtime_host():  # RTN17e
-                self.options.fallback_realtime_host = self.host
+            if self.host != self.options.get_host():  # RTN17e
+                self.options.fallback_host = self.host
             self.connection_manager.on_connected(connection_details, connection_id, reason=exception)
         elif action == ProtocolMessageAction.DISCONNECTED:
             error = msg.get('error')
@@ -150,10 +169,27 @@ class WebSocketTransport(EventEmitter):
         elif action == ProtocolMessageAction.HEARTBEAT:
             id = msg.get('id')
             self.connection_manager.on_heartbeat(id)
+        elif action == ProtocolMessageAction.ACK:
+            # Handle acknowledgment of sent messages
+            msg_serial = msg.get('msgSerial', 0)
+            count = msg.get('count', 1)
+            res = msg.get('res')
+            if res is not None:
+                res = [PublishResult.from_dict(result) for result in res]
+            self.connection_manager.on_ack(msg_serial, count, res)
+        elif action == ProtocolMessageAction.NACK:
+            # Handle negative acknowledgment (error sending messages)
+            msg_serial = msg.get('msgSerial', 0)
+            count = msg.get('count', 1)
+            error = msg.get('error')
+            exception = AblyException.from_dict(error) if error else None
+            self.connection_manager.on_nack(msg_serial, count, exception)
         elif action in (
             ProtocolMessageAction.ATTACHED,
             ProtocolMessageAction.DETACHED,
-            ProtocolMessageAction.MESSAGE
+            ProtocolMessageAction.MESSAGE,
+            ProtocolMessageAction.PRESENCE,
+            ProtocolMessageAction.SYNC
         ):
             self.connection_manager.on_channel_message(msg)
 
@@ -162,11 +198,24 @@ class WebSocketTransport(EventEmitter):
             raise AblyException('ws_read_loop started with no websocket', 500, 50000)
         try:
             async for raw in self.websocket:
-                msg = json.loads(raw)
-                task = asyncio.create_task(self.on_protocol_message(msg))
-                task.add_done_callback(self.on_protcol_message_handled)
-        except ConnectionClosedOK:
+                # Decode based on format
+                try:
+                    msg = self.decode_raw_websocket_frame(raw)
+                    task = asyncio.create_task(self.on_protocol_message(msg))
+                    task.add_done_callback(self.on_protcol_message_handled)
+                except Exception as e:
+                    log.exception(
+                        f"WebSocketTransport.decode(): Unexpected exception handling channel message: {e}"
+                    )
+        except (ConnectionClosedOK, GeneratorExit):
+            # ConnectionClosedOK: normal websocket closure
+            # GeneratorExit: coroutine being closed (e.g., during event loop shutdown)
             return
+
+    def decode_raw_websocket_frame(self, raw: str | bytes) -> dict:
+        if self.format == 'msgpack':
+            return msgpack.unpackb(raw, raw=False)
+        return json.loads(raw)
 
     def on_protcol_message_handled(self, task):
         try:
@@ -186,17 +235,37 @@ class WebSocketTransport(EventEmitter):
 
     async def dispose(self):
         self.is_disposed = True
+
+        # Cancel tasks but don't await them yet to avoid deadlock
+        tasks_to_await = []
+
         if self.read_loop:
             self.read_loop.cancel()
+            tasks_to_await.append(self.read_loop)
         if self.ws_connect_task:
             self.ws_connect_task.cancel()
+            tasks_to_await.append(self.ws_connect_task)
         if self.idle_timer:
             self.idle_timer.cancel()
+
+        # Schedule cleanup of cancelled tasks in the background to avoid blocking dispose()
+        # This prevents deadlock when dispose() is called from within these tasks
+        if tasks_to_await:
+            asyncio.create_task(self._cleanup_tasks(tasks_to_await))
+
         if self.websocket:
             try:
                 await self.websocket.close()
             except asyncio.CancelledError:
                 return
+
+    async def _cleanup_tasks(self, tasks):
+        """Wait for cancelled tasks to complete their cleanup."""
+        for task in tasks:
+            try:
+                await task
+            except Exception:
+                pass  # Ignore all exceptions from cancelled/failed tasks
 
     async def close(self):
         await self.send({'action': ProtocolMessageAction.CLOSE})
@@ -204,8 +273,13 @@ class WebSocketTransport(EventEmitter):
     async def send(self, message: dict):
         if self.websocket is None:
             raise Exception()
-        raw_msg = json.dumps(message)
-        log.info(f'WebSocketTransport.send(): sending {raw_msg}')
+        # Encode based on format
+        if self.format == 'msgpack':
+            raw_msg = msgpack.packb(message, use_bin_type=True)
+            log.info(f'WebSocketTransport.send(): sending msgpack message (length: {len(raw_msg)} bytes)')
+        else:
+            raw_msg = json.dumps(message)
+            log.info(f'WebSocketTransport.send(): sending {raw_msg}')
         await self.websocket.send(raw_msg)
 
     def set_idle_timer(self, timeout: float):

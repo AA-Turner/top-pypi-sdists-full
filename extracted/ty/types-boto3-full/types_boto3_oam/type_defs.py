@@ -3,7 +3,7 @@ Type annotations for oam service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_oam/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 
 from .literals import ResourceTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -76,7 +71,7 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -131,7 +126,7 @@ class ListAttachedLinksInputTypeDef(TypedDict):
 class ListAttachedLinksItemTypeDef(TypedDict):
     Label: NotRequired[str]
     LinkArn: NotRequired[str]
-    ResourceTypes: NotRequired[List[str]]
+    ResourceTypes: NotRequired[list[str]]
 
 
 class ListLinksInputTypeDef(TypedDict):
@@ -143,7 +138,7 @@ class ListLinksItemTypeDef(TypedDict):
     Arn: NotRequired[str]
     Id: NotRequired[str]
     Label: NotRequired[str]
-    ResourceTypes: NotRequired[List[str]]
+    ResourceTypes: NotRequired[list[str]]
     SinkArn: NotRequired[str]
 
 
@@ -181,7 +176,7 @@ class CreateSinkOutputTypeDef(TypedDict):
     Arn: str
     Id: str
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -189,7 +184,7 @@ class GetSinkOutputTypeDef(TypedDict):
     Arn: str
     Id: str
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -201,7 +196,7 @@ class GetSinkPolicyOutputTypeDef(TypedDict):
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -231,19 +226,19 @@ class ListSinksInputPaginateTypeDef(TypedDict):
 
 
 class ListAttachedLinksOutputTypeDef(TypedDict):
-    Items: List[ListAttachedLinksItemTypeDef]
+    Items: list[ListAttachedLinksItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListLinksOutputTypeDef(TypedDict):
-    Items: List[ListLinksItemTypeDef]
+    Items: list[ListLinksItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSinksOutputTypeDef(TypedDict):
-    Items: List[ListSinksItemTypeDef]
+    Items: list[ListSinksItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -262,9 +257,9 @@ class CreateLinkOutputTypeDef(TypedDict):
     Label: str
     LabelTemplate: str
     LinkConfiguration: LinkConfigurationTypeDef
-    ResourceTypes: List[str]
+    ResourceTypes: list[str]
     SinkArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -274,9 +269,9 @@ class GetLinkOutputTypeDef(TypedDict):
     Label: str
     LabelTemplate: str
     LinkConfiguration: LinkConfigurationTypeDef
-    ResourceTypes: List[str]
+    ResourceTypes: list[str]
     SinkArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -293,7 +288,7 @@ class UpdateLinkOutputTypeDef(TypedDict):
     Label: str
     LabelTemplate: str
     LinkConfiguration: LinkConfigurationTypeDef
-    ResourceTypes: List[str]
+    ResourceTypes: list[str]
     SinkArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef

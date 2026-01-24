@@ -30,7 +30,7 @@ from jax._src.numpy import linalg as jnp_linalg
 from jax._src.numpy import vectorize as jnp_vectorize
 from jax._src.numpy.util import (
     check_arraylike, promote_dtypes, promote_dtypes_inexact,
-    promote_dtypes_complex)
+    promote_dtypes_complex, promote_args_inexact)
 from jax._src.tpu.linalg import qdwh
 from jax._src.typing import Array, ArrayLike
 
@@ -41,7 +41,7 @@ because compiled JAX code cannot perform checks of array values at runtime.
 """)
 _no_overwrite_and_chkfinite_doc = _no_chkfinite_doc + "\nDoes not support the Scipy argument ``overwrite_*=True``."
 
-@partial(jit, static_argnames=('lower',))
+@jit(static_argnames=('lower',))
 def _cholesky(a: ArrayLike, lower: bool) -> Array:
   a, = promote_dtypes_inexact(jnp.asarray(a))
   l = lax_linalg.cholesky(a if lower else jnp.conj(a.mT), symmetrize_input=False)
@@ -155,7 +155,7 @@ def cho_factor(a: ArrayLike, lower: bool = False, overwrite_a: bool = False,
   del overwrite_a, check_finite  # Unused
   return (cholesky(a, lower=lower), lower)
 
-@partial(jit, static_argnames=('lower',))
+@jit(static_argnames=('lower',))
 def _cho_solve(c: ArrayLike, b: ArrayLike, lower: bool) -> Array:
   c, b = promote_dtypes_inexact(jnp.asarray(c), jnp.asarray(b))
   lax_linalg._check_solve_shapes(c, b)
@@ -221,7 +221,7 @@ def _svd(x: ArrayLike, *, full_matrices: bool, compute_uv: Literal[False]) -> Ar
 @overload
 def _svd(x: ArrayLike, *, full_matrices: bool, compute_uv: bool) -> Array | tuple[Array, Array, Array]: ...
 
-@partial(jit, static_argnames=('full_matrices', 'compute_uv'))
+@jit(static_argnames=('full_matrices', 'compute_uv'))
 def _svd(a: ArrayLike, *, full_matrices: bool, compute_uv: bool) -> Array | tuple[Array, Array, Array]:
   a, = promote_dtypes_inexact(jnp.asarray(a))
   return lax_linalg.svd(a, full_matrices=full_matrices, compute_uv=compute_uv)
@@ -369,7 +369,7 @@ def _eigh(a: ArrayLike, b: ArrayLike | None, lower: bool, eigvals_only: Literal[
 def _eigh(a: ArrayLike, b: ArrayLike | None, lower: bool, eigvals_only: bool,
           eigvals: None, type: int) -> Array | tuple[Array, Array]: ...
 
-@partial(jit, static_argnames=('lower', 'eigvals_only', 'eigvals', 'type'))
+@jit(static_argnames=('lower', 'eigvals_only', 'eigvals', 'type'))
 def _eigh(a: ArrayLike, b: ArrayLike | None, lower: bool, eigvals_only: bool,
           eigvals: None, type: int) -> Array | tuple[Array, Array]:
   if b is not None:
@@ -480,7 +480,7 @@ def eigh(a: ArrayLike, b: ArrayLike | None = None, lower: bool = True,
   del overwrite_a, overwrite_b, turbo, check_finite  # unused
   return _eigh(a, b, lower, eigvals_only, eigvals, type)
 
-@partial(jit, static_argnames=('output',))
+@jit(static_argnames=('output',))
 def _schur(a: Array, output: str) -> tuple[Array, Array]:
   if output == "complex":
     a = a.astype(dtypes.to_complex_dtype(a.dtype))
@@ -610,7 +610,7 @@ def inv(a: ArrayLike, overwrite_a: bool = False, check_finite: bool = True) -> A
   return jnp_linalg.inv(a)
 
 
-@partial(jit, static_argnames=('overwrite_a', 'check_finite'))
+@jit(static_argnames=('overwrite_a', 'check_finite'))
 def lu_factor(a: ArrayLike, overwrite_a: bool = False, check_finite: bool = True) -> tuple[Array, Array]:
   """Factorization for LU-based linear solves
 
@@ -662,7 +662,7 @@ def lu_factor(a: ArrayLike, overwrite_a: bool = False, check_finite: bool = True
   return lu, pivots
 
 
-@partial(jit, static_argnames=('trans', 'overwrite_b', 'check_finite'))
+@jit(static_argnames=('trans', 'overwrite_b', 'check_finite'))
 def lu_solve(lu_and_piv: tuple[Array, ArrayLike], b: ArrayLike, trans: int = 0,
              overwrite_b: bool = False, check_finite: bool = True) -> Array:
   """Solve a linear system using an LU factorization
@@ -727,7 +727,7 @@ def _lu(a: ArrayLike, permute_l: Literal[False]) -> tuple[Array, Array, Array]: 
 @overload
 def _lu(a: ArrayLike, permute_l: bool) -> tuple[Array, Array] | tuple[Array, Array, Array]: ...
 
-@partial(jit, static_argnums=(1,))
+@jit(static_argnums=(1,))
 def _lu(a: ArrayLike, permute_l: bool) -> tuple[Array, Array] | tuple[Array, Array, Array]:
   a, = promote_dtypes_inexact(jnp.asarray(a))
   lu, _, permutation = lax_linalg.lu(a)
@@ -755,7 +755,7 @@ def lu(a: ArrayLike, permute_l: bool = False, overwrite_a: bool = False,
        check_finite: bool = True) -> tuple[Array, Array] | tuple[Array, Array, Array]: ...
 
 
-@partial(jit, static_argnames=('permute_l', 'overwrite_a', 'check_finite'))
+@jit(static_argnames=('permute_l', 'overwrite_a', 'check_finite'))
 def lu(a: ArrayLike, permute_l: bool = False, overwrite_a: bool = False,
        check_finite: bool = True) -> tuple[Array, Array] | tuple[Array, Array, Array]:
   """Compute the LU decomposition
@@ -856,7 +856,7 @@ def _qr(a: ArrayLike, mode: str, pivoting: bool
        ) -> tuple[Array] | tuple[Array, Array] | tuple[Array, Array, Array]: ...
 
 
-@partial(jit, static_argnames=('mode', 'pivoting'))
+@jit(static_argnames=('mode', 'pivoting'))
 def _qr(a: ArrayLike, mode: str, pivoting: bool
        ) -> tuple[Array] | tuple[Array, Array] | tuple[Array, Array, Array]:
   if mode in ("full", "r"):
@@ -997,7 +997,7 @@ def qr(a: ArrayLike, overwrite_a: bool = False, lwork: Any = None, mode: str = "
   return _qr(a, mode, pivoting)
 
 
-@partial(jit, static_argnames=('assume_a', 'lower'))
+@jit(static_argnames=('assume_a', 'lower'))
 def _solve(a: ArrayLike, b: ArrayLike, assume_a: str, lower: bool) -> Array:
   if assume_a != 'pos':
     return jnp_linalg.solve(a, b)
@@ -1084,7 +1084,7 @@ def solve(a: ArrayLike, b: ArrayLike, lower: bool = False,
     raise ValueError(f"Expected assume_a to be one of {valid_assume_a}; got {assume_a!r}")
   return _solve(a, b, assume_a, lower)
 
-@partial(jit, static_argnames=('trans', 'lower', 'unit_diagonal'))
+@jit(static_argnames=('trans', 'lower', 'unit_diagonal'))
 def _solve_triangular(a: ArrayLike, b: ArrayLike, trans: int | str,
                       lower: bool, unit_diagonal: bool) -> Array:
   if trans == 0 or trans == "N":
@@ -1177,7 +1177,7 @@ def solve_triangular(a: ArrayLike, b: ArrayLike, trans: int | str = 0, lower: bo
   return _solve_triangular(a, b, trans, lower, unit_diagonal)
 
 
-@partial(jit, static_argnames=('upper_triangular', 'max_squarings'))
+@jit(static_argnames=('upper_triangular', 'max_squarings'))
 def expm(A: ArrayLike, *, upper_triangular: bool = False, max_squarings: int = 16) -> Array:
   """Compute the matrix exponential
 
@@ -1292,7 +1292,7 @@ def _solve_P_Q(P: ArrayLike, Q: ArrayLike, upper_triangular: bool = False) -> Ar
 def _precise_dot(A: ArrayLike, B: ArrayLike) -> Array:
   return jnp.dot(A, B, precision=lax.Precision.HIGHEST)
 
-@partial(jit, static_argnums=2)
+@jit(static_argnums=2)
 def _squaring(R: Array, n_squarings: Array, max_squarings: int) -> Array:
   # squaring step to undo scaling
   def _squaring_precise(x):
@@ -1377,7 +1377,7 @@ def expm_frechet(A: ArrayLike, E: ArrayLike, *, method: str | None = None,
                  compute_expm: bool = True) -> Array | tuple[Array, Array]: ...
 
 
-@partial(jit, static_argnames=('method', 'compute_expm'))
+@jit(static_argnames=('method', 'compute_expm'))
 def expm_frechet(A: ArrayLike, E: ArrayLike, *, method: str | None = None,
                  compute_expm: bool = True) -> Array | tuple[Array, Array]:
   """Compute the Frechet derivative of the matrix exponential.
@@ -1460,7 +1460,7 @@ def block_diag(*arrs: ArrayLike) -> Array:
            [0., 0., 0., 1., 1., 1.]], dtype=float32)
   """
   if len(arrs) == 0:
-    arrs =  (jnp.zeros((1, 0)),)
+    arrs = (jnp.zeros((1, 0)),)
   arrs = tuple(promote_dtypes(*arrs))
   bad_shapes = [i for i, a in enumerate(arrs) if np.ndim(a) > 2]
   if bad_shapes:
@@ -1468,17 +1468,20 @@ def block_diag(*arrs: ArrayLike) -> Array:
                      "most 2 dimensions, got {} at argument {}."
                      .format(arrs[bad_shapes[0]], bad_shapes[0]))
   converted_arrs = [jnp.atleast_2d(a) for a in arrs]
-  acc = converted_arrs[0]
-  dtype = lax.dtype(acc)
-  for a in converted_arrs[1:]:
-    _, c = a.shape
-    a = lax.pad(a, dtype.type(0), ((0, 0, 0), (acc.shape[-1], 0, 0)))
-    acc = lax.pad(acc, dtype.type(0), ((0, 0, 0), (0, c, 0)))
-    acc = lax.concatenate([acc, a], dimension=0)
-  return acc
+  dtype = lax.dtype(converted_arrs[0])
+  total_cols = sum(a.shape[1] for a in converted_arrs)
+
+  padded_arrs = []
+  current_col = 0
+  for arr in converted_arrs:
+    cols = arr.shape[1]
+    padding_config = ((0, 0, 0), (current_col, total_cols - cols - current_col, 0))
+    padded_arrs.append(lax.pad(arr, dtype.type(0), padding_config))
+    current_col += cols
+  return jnp.concatenate(padded_arrs, axis=0)
 
 
-@partial(jit, static_argnames=("eigvals_only", "select", "select_range"))
+@jit(static_argnames=("eigvals_only", "select", "select_range"))
 def eigh_tridiagonal(d: ArrayLike, e: ArrayLike, *, eigvals_only: bool = False,
                      select: str = 'a', select_range: tuple[float, float] | None = None,
                      tol: float | None = None) -> Array:
@@ -1677,7 +1680,7 @@ def eigh_tridiagonal(d: ArrayLike, e: ArrayLike, *, eigvals_only: bool = False,
   _, _, mid, _ = lax.while_loop(cond, body, (0, lower, mid, upper))
   return mid
 
-@partial(jit, static_argnames=('side', 'method'))
+@jit(static_argnames=('side', 'method'))
 @config.default_matmul_precision("float32")
 def polar(a: ArrayLike, side: str = 'right', *, method: str = 'qdwh', eps: float | None = None,
           max_iterations: int | None = None) -> tuple[Array, Array]:
@@ -1883,7 +1886,7 @@ def sqrtm(A: ArrayLike, blocksize: int = 1) -> Array:
   return _sqrtm(A)
 
 
-@partial(jit, static_argnames=('check_finite',))
+@jit(static_argnames=('check_finite',))
 def rsf2csf(T: ArrayLike, Z: ArrayLike, check_finite: bool = True) -> tuple[Array, Array]:
   """Convert real Schur form to complex Schur form.
 
@@ -2000,7 +2003,7 @@ def hessenberg(a: ArrayLike, *, calc_q: Literal[True], overwrite_a: bool = False
                check_finite: bool = True) -> tuple[Array, Array]: ...
 
 
-@partial(jit, static_argnames=('calc_q', 'check_finite', 'overwrite_a'))
+@jit(static_argnames=('calc_q', 'check_finite', 'overwrite_a'))
 def hessenberg(a: ArrayLike, *, calc_q: bool = False, overwrite_a: bool = False,
                check_finite: bool = True) -> Array | tuple[Array, Array]:
   """Compute the Hessenberg form of the matrix
@@ -2159,7 +2162,7 @@ def _toeplitz(c: Array, r: Array) -> Array:
       precision=lax.Precision.HIGHEST)[0]
   return jnp.flip(patches, axis=0)
 
-@partial(jit, static_argnames=("n",))
+@jit(static_argnames=("n",))
 def hilbert(n: int) -> Array:
   r"""Create a Hilbert matrix of order n.
 
@@ -2191,7 +2194,7 @@ def hilbert(n: int) -> Array:
   a = lax.broadcasted_iota(float, (n, 1), 0)
   return 1/(a + a.T + 1)
 
-@partial(jit, static_argnames=("n", "kind",))
+@jit(static_argnames=("n", "kind",))
 def pascal(n: int, kind: str | None = None) -> Array:
   r"""Create a Pascal matrix approximation of order n.
 
@@ -2251,3 +2254,157 @@ def _binom(n, k):
   b = lax.lgamma(n - k + 1.0)
   c = lax.lgamma(k + 1.0)
   return lax.exp(a - b - c)
+
+
+def _solve_sylvester_triangular_scan(R: Array, S: Array, F: Array) -> Array:
+  """
+  Solves the Sylvester equation using Bartels-Stewart algorithm
+  .. math::
+
+    RY + YS^T = F
+
+  where R and S are upper triangular matrices following a Schur decomposition.
+
+  Args:
+    R: Matrix of shape m x m
+    S: Matrix of shape n x n
+    F: Matrix of shape m x n
+
+  Returns:
+    Y: Matrix of shape m x n
+  """
+  R, S, F = promote_args_inexact("_solve_sylvester_triangular_scan", R, S, F)
+
+  m, n = F.shape
+  total = m * n
+  # scan the matrix from bottom-right to top-left
+  flat_indices = jnp.arange(total - 1, -1, -1)
+  Y0 = jnp.zeros((m * n,), dtype=F.dtype)
+
+  def scan_fn(Y_flat, idx):
+    i = idx // n
+    j = idx % n
+    Y = Y_flat.reshape((m, n))
+    rhs = F[i, j]
+
+    # Row term: gets contributions from R and already filled in Y. mask ensures that we only get non-zero elements from R because it is upper triangular
+    k_row = jnp.arange(m)
+    row_mask = k_row > i
+    r_row = R[i, :]
+    y_col = Y[:, j]
+    row_term = jnp.sum(jnp.where(row_mask, r_row * y_col, 0.0))
+
+    # Col term: same as Row term but now uses S instead of R.
+    k_col = jnp.arange(n)
+    col_mask = k_col > j
+    y_row = Y[i, :]
+    s_col = S[:, j]
+    col_term = jnp.sum(jnp.where(col_mask, y_row * s_col, 0.0))
+
+    # Here we are solving for the current Y[i, j]
+    rhs -= row_term + col_term
+    val = rhs / (R[i, i] + S[j, j])
+
+    Y_flat = Y_flat.at[i * n + j].set(val)
+    return Y_flat, None
+
+  Y_flat_final, _ = lax.scan(scan_fn, Y0, flat_indices)
+  return Y_flat_final.reshape((m, n))
+
+
+@jit(static_argnames=["method", "tol"])
+def solve_sylvester(A: ArrayLike, B: ArrayLike, C: ArrayLike, *, method: str = "schur", tol: float = 1e-8) -> Array:
+  """
+  Solves the Sylvester equation
+  .. math::
+
+    AX + XB = C
+
+  Using one of two methods.
+
+  (1) Bartell-Stewart (schur) algorithm (default) [CPU ONLY]:
+
+  Where A and B are first decomposed using Schur decomposition to construct and alternate sylvester equation:
+  .. math::
+
+    RY + YS^T = F
+
+  Where R and S are in quasitriangular form when A and B are real valued and triangular when A and B are complex.
+
+  (2) The Eigen decomposition algorithm [CPU and GPU]
+
+  Args:
+    A: Matrix of shape m x m
+    B: Matrix of shape n x n
+    C: Matrix of shape m x n
+    method: "schur" is the default and is accurate but slow, and "eigen" is an alternative that is faster but less accurate for ill-conditioned matrices.
+    tol: How close the sum of the eigenvalues from A and B can be to zero before returning matrix of NaNs
+
+  Returns:
+    X: Matrix of shape m x n
+
+  Examples:
+    >>> A = jax.numpy.array([[1, 2], [3, 4]])
+    >>> B = jax.numpy.array([[5, 6], [7, 8]])
+    >>> C = jax.numpy.array([[6, 8], [10, 12]])
+    >>> X = jax.scipy.linalg.solve_sylvester(A, B, C)
+    >>> print(X) # doctest: +SKIP
+    [[1. 0.]
+     [0.  1.]]
+
+  Notes:
+    The Bartel-Stewart algorithm is robust because a Schur decomposition always exists even for defective matrices,
+    and it handles complex and ill-conditioned problems better than the eigen decomposition method.
+    However, there are a couple of drawbacks. First, It is computationally more expensive than
+    the eigen decomposition method because you need to perform a Schur decomposition and then scan the entire solution matrix.
+    Second, it requires more system memory compared to the eigen decomposition method.
+
+    The eigen decomposition method is the fastest method to solve a sylvester equation. However, this speed brings with it a couple of drawbacks.
+    First, A and B must be diagonalizable otherwise the eigenvectors will be linearly dependent and ill-conditioned leading to accuracy issues.
+    Second, when the eigenvectors are not orthogonal roundoff errors are amplified.
+
+    Additionally, for complex types as the size of the matrix increases the accuracy of the results degrades. Float64 types are most robust to degradation.
+
+    The tol argument allows you to specify how ill-conditioned a matrix can be and still estimate a solution.
+    For matrices that are ill-conditioned we recommend using float64 instead of the default float32 dtype. The solver
+    can still return good estimates for ill-conditioned matrices depending on how close to zero the sums of the eigenvalues of A and B
+    are.
+  """
+  A, B, C = promote_args_inexact("solve_sylvester", A, B, C)
+
+  m, n = C.shape
+
+  if A.shape != (m, m) or B.shape != (n, n) or C.shape != (m, n):
+    raise ValueError(f"Incompatible shapes for Sylvester equation:\nA: {A.shape}\nB: {B.shape}\nC: {C.shape}")
+
+  if method == "schur":
+    # Schur decomposition
+    R, U = schur(A, output='complex')
+    S, V = schur(B.conj().T, output='complex')
+
+    # Transform right-hand side
+    F = U.conj().T @ C.astype(R.dtype) @ V
+
+    # Solve triangular Sylvester system
+    Y = _solve_sylvester_triangular_scan(R, S.conj().T, F)
+
+    # Transform back
+    X = U @ Y @ V.conj().T
+  elif method == "eigen":
+    RA, UA = jnp.linalg.eig(A)
+    RB, UB = jnp.linalg.eig(B)
+    F = solve(UA, C.astype(RA.dtype) @ UB)
+    W = RA[:, None] + RB[None, :]
+    Y = F / W
+    X = UA[:m,:m] @ Y[:m,:n] @ inv(UB)[:n,:n]
+  else:
+    raise ValueError(f"Unrecognized method {method}. The two valid methods are either \"schur\" or \"eigen\".")
+
+  if not dtypes.issubdtype(C.dtype, np.complexfloating):
+    X = X.real
+
+  return lax.cond(
+    jnp.any(jnp.abs(jnp.linalg.eigvals(A)[:, None] + jnp.linalg.eigvals(B)[None, :]) < tol),
+    lambda: jnp.zeros_like(X) * np.nan,
+    lambda: X,
+  )

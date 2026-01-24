@@ -1,7 +1,7 @@
+import hashlib
 import string
 
 import pytest
-import base58
 from hypothesis import (
     given,
     strategies as st,
@@ -12,7 +12,7 @@ from multibase.multibase import ENCODINGS
 import multicodec
 import multihash
 
-from cid import CIDv0, CIDv1, from_string, is_cid, make_cid
+from cid import CIDv0, CIDv1, base58, from_string, is_cid, make_cid
 
 ALLOWED_ENCODINGS = [encoding for encoding in ENCODINGS if encoding.code != b"\x00"]
 
@@ -20,7 +20,8 @@ ALLOWED_ENCODINGS = [encoding for encoding in ENCODINGS if encoding.code != b"\x
 @pytest.fixture(scope="session")
 def test_hash():
     data = b"hello world"
-    return multihash.digest(data, "sha2-256").encode()
+    digest = hashlib.sha256(data).digest()
+    return multihash.encode(digest, "sha2-256")
 
 
 class TestCIDv0:

@@ -131,7 +131,7 @@ def load_lexicon(args):
     train_path = f"{tokenize_dir}/{shorthand}.train.gold.conllu"
     external_dict_path = f"{tokenize_dir}/{shorthand}-externaldict.txt"
     if not os.path.exists(external_dict_path):
-        logger.info("External dictionary not found! Checking training data...")
+        logger.info(f"External dictionary not found! Looked in {external_dict_path}  Checking training data...")
         external_dict_path = None
     if not os.path.exists(train_path):
         logger.info(f"Training dataset does not exist, thus cannot create dictionary {shorthand}")
@@ -143,20 +143,25 @@ def load_lexicon(args):
 
 
 def load_mwt_dict(filename):
-    if filename is not None:
-        with open(filename, 'r') as f:
-            mwt_dict0 = json.load(f)
+    """
+    Returns a dict from an MWT to its most common expansion and count.
 
-        mwt_dict = dict()
-        for item in mwt_dict0:
-            (key, expansion), count = item
+    Other less common expansions are discarded.
+    """
+    if filename is None:
+        return None
 
-            if key not in mwt_dict or mwt_dict[key][1] < count:
-                mwt_dict[key] = (expansion, count)
+    with open(filename, 'r') as f:
+        mwt_dict0 = json.load(f)
 
-        return mwt_dict
-    else:
-        return
+    mwt_dict = dict()
+    for item in mwt_dict0:
+        (key, expansion), count = item
+
+        if key not in mwt_dict or mwt_dict[key][1] < count:
+            mwt_dict[key] = (expansion, count)
+
+    return mwt_dict
 
 def process_sentence(sentence, mwt_dict=None):
     sent = []
@@ -258,6 +263,7 @@ def predict(trainer, data_generator, batch_size, max_seqlen, use_regex_tokens, n
     dataloader = TorchDataLoader(sorted_data, batch_size=batch_size, collate_fn=sorted_data.collate, num_workers=num_workers)
     for batch_idx, batch in enumerate(dataloader):
         num_sentences = len(batch[3])
+        # being sorted by descending length, we need to use 0 as the longest sentence
         N = len(batch[3][0])
         for paragraph in batch[3]:
             all_raw.append(list(paragraph))

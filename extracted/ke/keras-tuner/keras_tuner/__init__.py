@@ -5,22 +5,22 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner import applications
-from keras_tuner import engine
-from keras_tuner import errors
-from keras_tuner import oracles
-from keras_tuner import tuners
-from keras_tuner.src.engine.hypermodel import HyperModel
-from keras_tuner.src.engine.hyperparameters.hyperparameters import HyperParameters
-from keras_tuner.src.engine.objective import Objective
-from keras_tuner.src.engine.oracle import Oracle
-from keras_tuner.src.engine.oracle import synchronized
-from keras_tuner.src.engine.tuner import Tuner
-from keras_tuner.src.tuners.bayesian import BayesianOptimization
-from keras_tuner.src.tuners.gridsearch import GridSearch
-from keras_tuner.src.tuners.hyperband import Hyperband
-from keras_tuner.src.tuners.randomsearch import RandomSearch
-from keras_tuner.src.tuners.sklearn_tuner import SklearnTuner
+from keras_tuner import applications as applications
+from keras_tuner import engine as engine
+from keras_tuner import errors as errors
+from keras_tuner import oracles as oracles
+from keras_tuner import tuners as tuners
+from keras_tuner.src.engine.hypermodel import HyperModel as HyperModel
+from keras_tuner.src.engine.hyperparameters.hyperparameters import HyperParameters as HyperParameters
+from keras_tuner.src.engine.objective import Objective as Objective
+from keras_tuner.src.engine.oracle import Oracle as Oracle
+from keras_tuner.src.engine.oracle import synchronized as synchronized
+from keras_tuner.src.engine.tuner import Tuner as Tuner
+from keras_tuner.src.tuners.bayesian import BayesianOptimization as BayesianOptimization
+from keras_tuner.src.tuners.gridsearch import GridSearch as GridSearch
+from keras_tuner.src.tuners.hyperband import Hyperband as Hyperband
+from keras_tuner.src.tuners.randomsearch import RandomSearch as RandomSearch
+from keras_tuner.src.tuners.sklearn_tuner import SklearnTuner as SklearnTuner
 
 
-__version__ = "1.4.7"
+__version__ = "1.4.8"

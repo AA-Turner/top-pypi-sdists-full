@@ -1,0 +1,92 @@
+# -- igwn-ligolw test configuration
+
+include:
+  - component: git.ligo.org/computing/gitlab/components/python/test@2
+    inputs:
+      job_name: .pytest
+      coverage: false
+      python: "python3"
+      install_extra: tests
+      install_target: "*.whl"
+      pytest_options: &pytest_options >-
+        --cov=igwn_ligolw
+        --cov=./test
+        --durations=0
+        --pyargs
+        -ra
+        --verbose
+        igwn_ligolw
+        test/
+      extra_test_commands: &extra_test_commands
+        # run legacy tests (attempting to hack coverage)
+        - PREFIX=$(python3 -c "import sys; print(sys.prefix)")
+        - sed -E -i
+             's|(^\|\s)(igwn_ligolw_[a-zA-Z0-9]+)|\1python3 -m coverage run --append --source=igwn_ligolw '${PREFIX}'/bin/\2|g'
+            test/*.sh
+            test/Makefile
+        - make -C test check
+        # report coverage
+        - python3 -m coverage report -m
+
+.test:
+  extends: .pytest
+  parallel: null
+  interruptible: true
+  before_script:
+    # install requirements for 'make check'
+    - apt-get -yqq update && apt-get -yqq install
+        libxml2-utils
+        make
+    # install lalsuite
+    - python3 -m pip install lalsuite
+
+.system_test:
+  extends: .test
+  variables:
+    PYTEST_ADDOPTS: *pytest_options
+  script:
+    # show information
+    - python3 --version
+    - python3 -m pip list installed
+    - python3 -m pip show igwn-ligolw
+    # run pytest
+    - python3 -m pytest --junit-xml=junit.xml  # uses PYTEST_ADDOPTS
+    # run other tests
+    - *extra_test_commands
+    # collect coverage
+    - python3 -m coverage xml -o coverage.xml --ignore-errors
+
+# -- Python-specific tests
+
+# gitlab CI/CD YAML can't handle variables in needs: or proper job
+# matrices, so we have to copy things out here for each Python version.
+
+python_test_manylinux_x86_64_3.9:
+  extends: .test
+  image: "python:3.9"
+  needs: ["wheel_manylinux_x86_64: [3.9]"]
+
+python_test_manylinux_x86_64_3.10:
+  extends: .test
+  image: "python:3.10"
+  needs: ["wheel_manylinux_x86_64: [3.10]"]
+
+python_test_manylinux_x86_64_3.11:
+  extends: .test
+  image: "python:3.11"
+  needs: ["wheel_manylinux_x86_64: [3.11]"]
+
+python_test_manylinux_x86_64_3.12:
+  extends: .test
+  image: "python:3.12"
+  needs: ["wheel_manylinux_x86_64: [3.12]"]
+
+python_test_manylinux_x86_64_3.13:
+ extends: .test
+ image: "python:3.13"
+ needs: ["wheel_manylinux_x86_64: [3.13]"]
+
+# python_test_manylinux_x86_64_3.14:  <== need LALSuite wheel
+#  extends: .test
+#  image: "python:3.14"
+#  needs: ["wheel_manylinux_x86_64: [3.14]"]

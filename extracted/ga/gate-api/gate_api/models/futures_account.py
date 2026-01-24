@@ -187,7 +187,7 @@ class FuturesAccount(object):
     def total(self):
         """Gets the total of this FuturesAccount.  # noqa: E501
 
-        total is the balance after the user's accumulated deposit, withdraw, profit and loss (including realized profit and loss, fund, fee and referral rebate), excluding unrealized profit and loss.  total = SUM(history_dnw, history_pnl, history_fee, history_refr, history_fund)  # noqa: E501
+        Balance, only applicable to classic contract account.The balance is the sum of all historical fund flows, including historical transfers in and out, closing settlements, and transaction fee expenses, but does not include upl of positions.total = SUM(history_dnw, history_pnl, history_fee, history_refr, history_fund)  # noqa: E501
 
         :return: The total of this FuturesAccount.  # noqa: E501
         :rtype: str
@@ -198,7 +198,7 @@ class FuturesAccount(object):
     def total(self, total):
         """Sets the total of this FuturesAccount.
 
-        total is the balance after the user's accumulated deposit, withdraw, profit and loss (including realized profit and loss, fund, fee and referral rebate), excluding unrealized profit and loss.  total = SUM(history_dnw, history_pnl, history_fee, history_refr, history_fund)  # noqa: E501
+        Balance, only applicable to classic contract account.The balance is the sum of all historical fund flows, including historical transfers in and out, closing settlements, and transaction fee expenses, but does not include upl of positions.total = SUM(history_dnw, history_pnl, history_fee, history_refr, history_fund)  # noqa: E501
 
         :param total: The total of this FuturesAccount.  # noqa: E501
         :type: str
@@ -233,7 +233,7 @@ class FuturesAccount(object):
     def position_margin(self):
         """Gets the position_margin of this FuturesAccount.  # noqa: E501
 
-        Position margin  # noqa: E501
+        Deprecated  # noqa: E501
 
         :return: The position_margin of this FuturesAccount.  # noqa: E501
         :rtype: str
@@ -244,7 +244,7 @@ class FuturesAccount(object):
     def position_margin(self, position_margin):
         """Sets the position_margin of this FuturesAccount.
 
-        Position margin  # noqa: E501
+        Deprecated  # noqa: E501
 
         :param position_margin: The position_margin of this FuturesAccount.  # noqa: E501
         :type: str
@@ -256,7 +256,7 @@ class FuturesAccount(object):
     def order_margin(self):
         """Gets the order_margin of this FuturesAccount.  # noqa: E501
 
-        Order margin of unfinished orders  # noqa: E501
+        initial margin of all open orders  # noqa: E501
 
         :return: The order_margin of this FuturesAccount.  # noqa: E501
         :rtype: str
@@ -267,7 +267,7 @@ class FuturesAccount(object):
     def order_margin(self, order_margin):
         """Sets the order_margin of this FuturesAccount.
 
-        Order margin of unfinished orders  # noqa: E501
+        initial margin of all open orders  # noqa: E501
 
         :param order_margin: The order_margin of this FuturesAccount.  # noqa: E501
         :type: str
@@ -279,7 +279,7 @@ class FuturesAccount(object):
     def available(self):
         """Gets the available of this FuturesAccount.  # noqa: E501
 
-        Available balance for transferring or trading (including bonus. Bonus cannot be withdrawn, so transfer amount needs to deduct bonus)  # noqa: E501
+        Refers to the available withdrawal or trading amount in per-position, specifically the per-position available balance under the unified account that includes the credit line (which incorporates trial funds; since trial funds cannot be withdrawn, the actual withdrawal amount needs to deduct the trial fund portion when processing withdrawals)  # noqa: E501
 
         :return: The available of this FuturesAccount.  # noqa: E501
         :rtype: str
@@ -290,7 +290,7 @@ class FuturesAccount(object):
     def available(self, available):
         """Sets the available of this FuturesAccount.
 
-        Available balance for transferring or trading (including bonus. Bonus cannot be withdrawn, so transfer amount needs to deduct bonus)  # noqa: E501
+        Refers to the available withdrawal or trading amount in per-position, specifically the per-position available balance under the unified account that includes the credit line (which incorporates trial funds; since trial funds cannot be withdrawn, the actual withdrawal amount needs to deduct the trial fund portion when processing withdrawals)  # noqa: E501
 
         :param available: The available of this FuturesAccount.  # noqa: E501
         :type: str
@@ -348,7 +348,7 @@ class FuturesAccount(object):
     def in_dual_mode(self):
         """Gets the in_dual_mode of this FuturesAccount.  # noqa: E501
 
-        Whether dual mode is enabled  # noqa: E501
+        Whether Hedge Mode is enabled  # noqa: E501
 
         :return: The in_dual_mode of this FuturesAccount.  # noqa: E501
         :rtype: bool
@@ -359,7 +359,7 @@ class FuturesAccount(object):
     def in_dual_mode(self, in_dual_mode):
         """Sets the in_dual_mode of this FuturesAccount.
 
-        Whether dual mode is enabled  # noqa: E501
+        Whether Hedge Mode is enabled  # noqa: E501
 
         :param in_dual_mode: The in_dual_mode of this FuturesAccount.  # noqa: E501
         :type: bool
@@ -486,7 +486,7 @@ class FuturesAccount(object):
     def enable_evolved_classic(self):
         """Gets the enable_evolved_classic of this FuturesAccount.  # noqa: E501
 
-        Classic account margin mode, true-new mode, false-old mode  # noqa: E501
+        Deprecated  # noqa: E501
 
         :return: The enable_evolved_classic of this FuturesAccount.  # noqa: E501
         :rtype: bool
@@ -497,7 +497,7 @@ class FuturesAccount(object):
     def enable_evolved_classic(self, enable_evolved_classic):
         """Sets the enable_evolved_classic of this FuturesAccount.
 
-        Classic account margin mode, true-new mode, false-old mode  # noqa: E501
+        Deprecated  # noqa: E501
 
         :param enable_evolved_classic: The enable_evolved_classic of this FuturesAccount.  # noqa: E501
         :type: bool
@@ -716,7 +716,7 @@ class FuturesAccount(object):
     def enable_new_dual_mode(self):
         """Gets the enable_new_dual_mode of this FuturesAccount.  # noqa: E501
 
-        Whether to open a new two-way position mode  # noqa: E501
+        Deprecated  # noqa: E501
 
         :return: The enable_new_dual_mode of this FuturesAccount.  # noqa: E501
         :rtype: bool
@@ -727,7 +727,7 @@ class FuturesAccount(object):
     def enable_new_dual_mode(self, enable_new_dual_mode):
         """Sets the enable_new_dual_mode of this FuturesAccount.
 
-        Whether to open a new two-way position mode  # noqa: E501
+        Deprecated  # noqa: E501
 
         :param enable_new_dual_mode: The enable_new_dual_mode of this FuturesAccount.  # noqa: E501
         :type: bool
@@ -739,7 +739,7 @@ class FuturesAccount(object):
     def margin_mode(self):
         """Gets the margin_mode of this FuturesAccount.  # noqa: E501
 
-        Margin mode, 0-classic margin mode, 1-cross-currency margin mode, 2-combined margin mode  # noqa: E501
+        Margin mode of the account 0: classic future account or Classic Spot Margin Mode of unified account; 1:  Multi-Currency Margin Mode; 2:  Portoforlio Margin Mode; 3:  Single-Currency Margin Mode  # noqa: E501
 
         :return: The margin_mode of this FuturesAccount.  # noqa: E501
         :rtype: int
@@ -750,7 +750,7 @@ class FuturesAccount(object):
     def margin_mode(self, margin_mode):
         """Sets the margin_mode of this FuturesAccount.
 
-        Margin mode, 0-classic margin mode, 1-cross-currency margin mode, 2-combined margin mode  # noqa: E501
+        Margin mode of the account 0: classic future account or Classic Spot Margin Mode of unified account; 1:  Multi-Currency Margin Mode; 2:  Portoforlio Margin Mode; 3:  Single-Currency Margin Mode  # noqa: E501
 
         :param margin_mode: The margin_mode of this FuturesAccount.  # noqa: E501
         :type: int

@@ -1,18 +1,19 @@
-# This file is part of ssh2-python.
-# Copyright (C) 2017-2020 Panos Kittenis
+#  This file is part of ssh2-python.
+#  Copyright (C) 2017-2025 Panos Kittenis.
+#  Copyright (C) 2017-2025 ssh2-python Contributors.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 cdef extern from "libssh2.h" nogil:
     # Error Codes (defined by libssh2)
@@ -77,5 +78,11 @@ cdef extern from "libssh2.h" nogil:
         _LIBSSH2_ERROR_KNOWN_HOSTS "LIBSSH2_ERROR_KNOWN_HOSTS"
         _LIBSSH2_ERROR_CHANNEL_WINDOW_FULL "LIBSSH2_ERROR_CHANNEL_WINDOW_FULL"
         _LIBSSH2_ERROR_KEYFILE_AUTH_FAILED "LIBSSH2_ERROR_KEYFILE_AUTH_FAILED"
+        _LIBSSH2_ERROR_RANDGEN "LIBSSH2_ERROR_RANDGEN"
+        _LIBSSH2_ERROR_MISSING_USERAUTH_BANNER "LIBSSH2_ERROR_MISSING_USERAUTH_BANNER"
+        _LIBSSH2_ERROR_ALGO_UNSUPPORTED "LIBSSH2_ERROR_ALGO_UNSUPPORTED"
+        _LIBSSH2_ERROR_MAC_FAILURE "LIBSSH2_ERROR_MAC_FAILURE"
+        _LIBSSH2_ERROR_HASH_INIT "LIBSSH2_ERROR_HASH_INIT"
+        _LIBSSH2_ERROR_HASH_CALC "LIBSSH2_ERROR_HASH_CALC"
 
         _LIBSSH2CHANNEL_EAGAIN "LIBSSH2_ERROR_EAGAIN"

@@ -4,9 +4,9 @@ This module defines the Pydantic models used for embedding cache entries and
 related data structures.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from redisvl.extensions.constants import EMBEDDING_FIELD_NAME, METADATA_FIELD_NAME
 from redisvl.utils.utils import current_timestamp, deserialize, serialize
@@ -15,10 +15,12 @@ from redisvl.utils.utils import current_timestamp, deserialize, serialize
 class CacheEntry(BaseModel):
     """Embedding cache entry data model"""
 
+    model_config = ConfigDict(protected_namespaces=())
+
     entry_id: str
     """Cache entry identifier"""
-    text: str
-    """The text input that was embedded"""
+    content: Union[bytes, str]
+    """The input that was embedded"""
     model_name: str
     """The name of the embedding model used"""
     embedding: List[float]

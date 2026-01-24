@@ -1,0 +1,10 @@
+empty_not_ok: true
+columns:
+  - name: First Column
+    regex: ^.+$
+  - name: Second Column
+    regex: ^.+$
+  - name: Third Column
+    regex: ^-?[0-9]+$
+    min: -23
+    max: 2000

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-athena-community
-Version: 1.9.5
+Version: 1.10.0
 Summary: The athena adapter plugin for dbt (data build tool)
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-athena
 Project-URL: Documentation, https://docs.getdbt.com
@@ -16,12 +16,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9.0
-Requires-Dist: dbt-athena==1.9.5
+Requires-Python: >=3.10.0
+Requires-Dist: dbt-athena==1.10.0
 Description-Content-Type: text/markdown
 
 <!-- markdownlint-disable-next-line MD041 -->

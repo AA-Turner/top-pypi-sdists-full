@@ -48,6 +48,13 @@ class FilePermissionFormat(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     BINARY = "Binary"
 
 
+class FilePropertySemantics(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """FilePropertySemantics."""
+
+    NEW = "New"
+    RESTORE = "Restore"
+
+
 class FileRangeWriteType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """FileRangeWriteType."""
 
@@ -220,3 +227,4 @@ class StorageErrorCode(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     AUTHORIZATION_SERVICE_MISMATCH = "AuthorizationServiceMismatch"
     AUTHORIZATION_RESOURCE_TYPE_MISMATCH = "AuthorizationResourceTypeMismatch"
     FEATURE_VERSION_MISMATCH = "FeatureVersionMismatch"
+    SHARE_SNAPSHOT_NOT_FOUND = "ShareSnapshotNotFound"

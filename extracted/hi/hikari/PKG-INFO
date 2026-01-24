@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hikari
-Version: 2.4.1
+Version: 2.5.0
 Summary: A sane Discord API for Python 3 built on asyncio and good intentions
 Project-URL: Documentation, https://docs.hikari-py.dev/en/stable
 Project-URL: Source (GitHub), https://github.com/hikari-py/hikari
@@ -18,26 +18,29 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Communications :: Chat
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: <3.14,>=3.9.0
+Requires-Python: <3.15,>=3.10.0
 Requires-Dist: aiohttp~=3.12
 Requires-Dist: attrs~=25.1
 Requires-Dist: colorlog~=6.9
 Requires-Dist: multidict~=6.1
 Provides-Extra: server
-Requires-Dist: pynacl~=1.5; extra == 'server'
+Requires-Dist: pynacl~=1.6; extra == 'server'
 Provides-Extra: speedups
-Requires-Dist: aiohttp[speedups]~=3.11; extra == 'speedups'
+Requires-Dist: aiohttp[speedups]; extra == 'speedups'
+Requires-Dist: backports-zstd; (python_version < '3.14') and extra == 'speedups'
 Requires-Dist: ciso8601~=2.3; extra == 'speedups'
-Requires-Dist: orjson~=3.10; extra == 'speedups'
+Requires-Dist: orjson~=3.11; extra == 'speedups'
+Provides-Extra: zstd
+Requires-Dist: backports-zstd; (python_version < '3.14') and extra == 'zstd'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -63,7 +66,7 @@ Gateway APIs.
 Built on good intentions and the hope that it will be extendable and reusable, rather than an obstacle for future
 development.
 
-Python 3.9, 3.10, 3.11, 3.12 and 3.13 are currently supported.
+Python 3.10, 3.11, 3.12, 3.13, and 3.14 are currently supported.
 
 ## Installation
 
@@ -82,7 +85,7 @@ Hikari is used in the wild to run some large bots! Here are some examples:
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://invite-tracker.com"><img src="https://cdn.invite-tracker.com/logo.png" width="100px;" height="100px;" alt="Invite Tracker"/><br /><sub><b>Invite Tracker</b></sub></a>
+      <td align="center" valign="top" width="14.28%"><a href="https://invite-tracker.com"><img src="https://invite-tracker.com/og/invitetracker_logo.png" width="100px;" height="100px;" alt="Invite Tracker"/><br /><sub><b>Invite Tracker</b></sub></a>
       <td align="center" valign="top" width="14.28%"><a href="https://nmarkov.xyz"><img src="https://nmarkov.xyz/logo.png" width="100px;" alt="nMarkov"/><br /><sub><b>nMarkov</b></sub></a>
     </tr>
   </tbody>

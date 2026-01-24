@@ -3,7 +3,7 @@ Type annotations for datazone service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -77,6 +78,10 @@ from .type_defs import (
     AddPolicyGrantOutputTypeDef,
     AssociateEnvironmentRoleInputTypeDef,
     AssociateGovernedTermsInputTypeDef,
+    BatchGetAttributesMetadataInputTypeDef,
+    BatchGetAttributesMetadataOutputTypeDef,
+    BatchPutAttributesMetadataInputTypeDef,
+    BatchPutAttributesMetadataOutputTypeDef,
     CancelMetadataGenerationRunInputTypeDef,
     CancelSubscriptionInputTypeDef,
     CancelSubscriptionOutputTypeDef,
@@ -104,6 +109,8 @@ from .type_defs import (
     CreateDomainUnitOutputTypeDef,
     CreateEnvironmentActionInputTypeDef,
     CreateEnvironmentActionOutputTypeDef,
+    CreateEnvironmentBlueprintInputTypeDef,
+    CreateEnvironmentBlueprintOutputTypeDef,
     CreateEnvironmentInputTypeDef,
     CreateEnvironmentOutputTypeDef,
     CreateEnvironmentProfileInputTypeDef,
@@ -147,6 +154,7 @@ from .type_defs import (
     DeleteDomainUnitInputTypeDef,
     DeleteEnvironmentActionInputTypeDef,
     DeleteEnvironmentBlueprintConfigurationInputTypeDef,
+    DeleteEnvironmentBlueprintInputTypeDef,
     DeleteEnvironmentInputTypeDef,
     DeleteEnvironmentProfileInputTypeDef,
     DeleteFormTypeInputTypeDef,
@@ -175,6 +183,8 @@ from .type_defs import (
     GetAssetTypeOutputTypeDef,
     GetConnectionInputTypeDef,
     GetConnectionOutputTypeDef,
+    GetDataExportConfigurationInputTypeDef,
+    GetDataExportConfigurationOutputTypeDef,
     GetDataProductInputTypeDef,
     GetDataProductOutputTypeDef,
     GetDataSourceInputTypeDef,
@@ -305,6 +315,7 @@ from .type_defs import (
     PostLineageEventOutputTypeDef,
     PostTimeSeriesDataPointsInputTypeDef,
     PostTimeSeriesDataPointsOutputTypeDef,
+    PutDataExportConfigurationInputTypeDef,
     PutEnvironmentBlueprintConfigurationInputTypeDef,
     PutEnvironmentBlueprintConfigurationOutputTypeDef,
     RejectPredictionsInputTypeDef,
@@ -345,6 +356,8 @@ from .type_defs import (
     UpdateDomainUnitOutputTypeDef,
     UpdateEnvironmentActionInputTypeDef,
     UpdateEnvironmentActionOutputTypeDef,
+    UpdateEnvironmentBlueprintInputTypeDef,
+    UpdateEnvironmentBlueprintOutputTypeDef,
     UpdateEnvironmentInputTypeDef,
     UpdateEnvironmentOutputTypeDef,
     UpdateEnvironmentProfileInputTypeDef,
@@ -359,6 +372,7 @@ from .type_defs import (
     UpdateProjectOutputTypeDef,
     UpdateProjectProfileInputTypeDef,
     UpdateProjectProfileOutputTypeDef,
+    UpdateRootDomainUnitOwnerInputTypeDef,
     UpdateRuleInputTypeDef,
     UpdateRuleOutputTypeDef,
     UpdateSubscriptionGrantStatusInputTypeDef,
@@ -371,12 +385,6 @@ from .type_defs import (
     UpdateUserProfileOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -385,15 +393,15 @@ else:
 __all__ = ("DataZoneClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class DataZoneClient(AioBaseClient):
     """
@@ -453,7 +461,7 @@ class DataZoneClient(AioBaseClient):
 
     async def add_entity_owner(
         self, **kwargs: Unpack[AddEntityOwnerInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds the owner of an entity (a domain unit).
 
@@ -474,7 +482,7 @@ class DataZoneClient(AioBaseClient):
 
     async def associate_environment_role(
         self, **kwargs: Unpack[AssociateEnvironmentRoleInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates the environment role in Amazon DataZone.
 
@@ -484,7 +492,7 @@ class DataZoneClient(AioBaseClient):
 
     async def associate_governed_terms(
         self, **kwargs: Unpack[AssociateGovernedTermsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates governed terms with an asset.
 
@@ -492,9 +500,29 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#associate_governed_terms)
         """
 
+    async def batch_get_attributes_metadata(
+        self, **kwargs: Unpack[BatchGetAttributesMetadataInputTypeDef]
+    ) -> BatchGetAttributesMetadataOutputTypeDef:
+        """
+        Gets the attribute metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/batch_get_attributes_metadata.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#batch_get_attributes_metadata)
+        """
+
+    async def batch_put_attributes_metadata(
+        self, **kwargs: Unpack[BatchPutAttributesMetadataInputTypeDef]
+    ) -> BatchPutAttributesMetadataOutputTypeDef:
+        """
+        Writes the attribute metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/batch_put_attributes_metadata.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#batch_put_attributes_metadata)
+        """
+
     async def cancel_metadata_generation_run(
         self, **kwargs: Unpack[CancelMetadataGenerationRunInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels the metadata generation run.
 
@@ -643,6 +671,16 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#create_environment_action)
         """
 
+    async def create_environment_blueprint(
+        self, **kwargs: Unpack[CreateEnvironmentBlueprintInputTypeDef]
+    ) -> CreateEnvironmentBlueprintOutputTypeDef:
+        """
+        Creates a Amazon DataZone blueprint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/create_environment_blueprint.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#create_environment_blueprint)
+        """
+
     async def create_environment_profile(
         self, **kwargs: Unpack[CreateEnvironmentProfileInputTypeDef]
     ) -> CreateEnvironmentProfileOutputTypeDef:
@@ -716,7 +754,7 @@ class DataZoneClient(AioBaseClient):
 
     async def create_project_membership(
         self, **kwargs: Unpack[CreateProjectMembershipInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a project membership in Amazon DataZone.
 
@@ -786,7 +824,7 @@ class DataZoneClient(AioBaseClient):
 
     async def delete_account_pool(
         self, **kwargs: Unpack[DeleteAccountPoolInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an account pool.
 
@@ -794,7 +832,7 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_account_pool)
         """
 
-    async def delete_asset(self, **kwargs: Unpack[DeleteAssetInputTypeDef]) -> Dict[str, Any]:
+    async def delete_asset(self, **kwargs: Unpack[DeleteAssetInputTypeDef]) -> dict[str, Any]:
         """
         Deletes an asset in Amazon DataZone.
 
@@ -814,7 +852,7 @@ class DataZoneClient(AioBaseClient):
 
     async def delete_asset_type(
         self, **kwargs: Unpack[DeleteAssetTypeInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an asset type in Amazon DataZone.
 
@@ -834,7 +872,7 @@ class DataZoneClient(AioBaseClient):
 
     async def delete_data_product(
         self, **kwargs: Unpack[DeleteDataProductInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a data product in Amazon DataZone.
 
@@ -864,7 +902,7 @@ class DataZoneClient(AioBaseClient):
 
     async def delete_domain_unit(
         self, **kwargs: Unpack[DeleteDomainUnitInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a domain unit.
 
@@ -893,9 +931,19 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_environment_action)
         """
 
+    async def delete_environment_blueprint(
+        self, **kwargs: Unpack[DeleteEnvironmentBlueprintInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a blueprint in Amazon DataZone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_environment_blueprint.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_environment_blueprint)
+        """
+
     async def delete_environment_blueprint_configuration(
         self, **kwargs: Unpack[DeleteEnvironmentBlueprintConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the blueprint configuration in Amazon DataZone.
 
@@ -915,15 +963,15 @@ class DataZoneClient(AioBaseClient):
 
     async def delete_form_type(
         self, **kwargs: Unpack[DeleteFormTypeInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Delets and metadata form type in Amazon DataZone.
+        Deletes and metadata form type in Amazon DataZone.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_form_type.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_form_type)
         """
 
-    async def delete_glossary(self, **kwargs: Unpack[DeleteGlossaryInputTypeDef]) -> Dict[str, Any]:
+    async def delete_glossary(self, **kwargs: Unpack[DeleteGlossaryInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a business glossary in Amazon DataZone.
 
@@ -933,7 +981,7 @@ class DataZoneClient(AioBaseClient):
 
     async def delete_glossary_term(
         self, **kwargs: Unpack[DeleteGlossaryTermInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a business glossary term in Amazon DataZone.
 
@@ -941,7 +989,7 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_glossary_term)
         """
 
-    async def delete_listing(self, **kwargs: Unpack[DeleteListingInputTypeDef]) -> Dict[str, Any]:
+    async def delete_listing(self, **kwargs: Unpack[DeleteListingInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a listing (a record of an asset at a given time).
 
@@ -949,7 +997,7 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_listing)
         """
 
-    async def delete_project(self, **kwargs: Unpack[DeleteProjectInputTypeDef]) -> Dict[str, Any]:
+    async def delete_project(self, **kwargs: Unpack[DeleteProjectInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a project in Amazon DataZone.
 
@@ -959,7 +1007,7 @@ class DataZoneClient(AioBaseClient):
 
     async def delete_project_membership(
         self, **kwargs: Unpack[DeleteProjectMembershipInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes project membership in Amazon DataZone.
 
@@ -969,7 +1017,7 @@ class DataZoneClient(AioBaseClient):
 
     async def delete_project_profile(
         self, **kwargs: Unpack[DeleteProjectProfileInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a project profile.
 
@@ -977,7 +1025,7 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#delete_project_profile)
         """
 
-    async def delete_rule(self, **kwargs: Unpack[DeleteRuleInputTypeDef]) -> Dict[str, Any]:
+    async def delete_rule(self, **kwargs: Unpack[DeleteRuleInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a rule in Amazon DataZone.
 
@@ -1017,7 +1065,7 @@ class DataZoneClient(AioBaseClient):
 
     async def delete_time_series_data_points(
         self, **kwargs: Unpack[DeleteTimeSeriesDataPointsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified time series form for the specified asset.
 
@@ -1027,7 +1075,7 @@ class DataZoneClient(AioBaseClient):
 
     async def disassociate_environment_role(
         self, **kwargs: Unpack[DisassociateEnvironmentRoleInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the environment role in Amazon DataZone.
 
@@ -1037,7 +1085,7 @@ class DataZoneClient(AioBaseClient):
 
     async def disassociate_governed_terms(
         self, **kwargs: Unpack[DisassociateGovernedTermsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates restricted terms from an asset.
 
@@ -1091,6 +1139,16 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_connection.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#get_connection)
+        """
+
+    async def get_data_export_configuration(
+        self, **kwargs: Unpack[GetDataExportConfigurationInputTypeDef]
+    ) -> GetDataExportConfigurationOutputTypeDef:
+        """
+        Gets data export configuration details.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_data_export_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#get_data_export_configuration)
         """
 
     async def get_data_product(
@@ -1735,6 +1793,16 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#post_time_series_data_points)
         """
 
+    async def put_data_export_configuration(
+        self, **kwargs: Unpack[PutDataExportConfigurationInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Creates data export configuration details.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/put_data_export_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#put_data_export_configuration)
+        """
+
     async def put_environment_blueprint_configuration(
         self, **kwargs: Unpack[PutEnvironmentBlueprintConfigurationInputTypeDef]
     ) -> PutEnvironmentBlueprintConfigurationOutputTypeDef:
@@ -1769,7 +1837,7 @@ class DataZoneClient(AioBaseClient):
 
     async def remove_entity_owner(
         self, **kwargs: Unpack[RemoveEntityOwnerInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes an owner from an entity.
 
@@ -1779,7 +1847,7 @@ class DataZoneClient(AioBaseClient):
 
     async def remove_policy_grant(
         self, **kwargs: Unpack[RemovePolicyGrantInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a policy grant.
 
@@ -1819,7 +1887,7 @@ class DataZoneClient(AioBaseClient):
         self, **kwargs: Unpack[SearchListingsInputTypeDef]
     ) -> SearchListingsOutputTypeDef:
         """
-        Searches listings (records of an asset at a given time) in Amazon DataZone.
+        Searches listings in Amazon DataZone.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/search_listings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#search_listings)
@@ -1865,7 +1933,7 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#start_metadata_generation_run)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a resource in Amazon DataZone.
 
@@ -1873,7 +1941,7 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Untags a resource in Amazon DataZone.
 
@@ -1961,6 +2029,16 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#update_environment_action)
         """
 
+    async def update_environment_blueprint(
+        self, **kwargs: Unpack[UpdateEnvironmentBlueprintInputTypeDef]
+    ) -> UpdateEnvironmentBlueprintOutputTypeDef:
+        """
+        Updates an environment blueprint in Amazon DataZone.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_environment_blueprint.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#update_environment_blueprint)
+        """
+
     async def update_environment_profile(
         self, **kwargs: Unpack[UpdateEnvironmentProfileInputTypeDef]
     ) -> UpdateEnvironmentProfileOutputTypeDef:
@@ -2019,6 +2097,16 @@ class DataZoneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_project_profile.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#update_project_profile)
+        """
+
+    async def update_root_domain_unit_owner(
+        self, **kwargs: Unpack[UpdateRootDomainUnitOwnerInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the owner of the root domain unit.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/update_root_domain_unit_owner.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#update_root_domain_unit_owner)
         """
 
     async def update_rule(
@@ -2487,7 +2575,7 @@ class DataZoneClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

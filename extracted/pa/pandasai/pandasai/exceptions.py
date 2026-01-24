@@ -4,7 +4,7 @@ This module contains the implementation of Custom Exceptions.
 
 """
 
-from pandasai.constants import PANDASBI_SETUP_MESSAGE
+from pandasai.constants import PANDABI_SETUP_MESSAGE
 
 
 class InvalidRequestError(Exception):
@@ -85,24 +85,6 @@ class MissingModelError(Exception):
     Args:
     Exception (Exception): MissingModelError
     """
-
-
-class LLMResponseHTTPError(Exception):
-    """
-    Raised when a remote LLM service responses with error HTTP code.
-
-    Args:
-        Exception (Exception): LLMResponseHTTPError
-    """
-
-    def __init__(self, status_code, error_msg=None):
-        self.status_code = status_code
-        self.error_msg = error_msg
-
-        super().__init__(
-            f"The remote server has responded with an error HTTP "
-            f"code: {status_code}; {error_msg or ''}"
-        )
 
 
 class BadImportError(Exception):
@@ -223,13 +205,11 @@ class MissingVectorStoreError(Exception):
 class PandasAIApiKeyError(Exception):
     """
     Raise error if api key is not found for remote vectorstore and llm
-    Args:
-        Exception (Exception): PandasAIApiKeyError
     """
 
-    def __init__(self):
-        message = PANDASBI_SETUP_MESSAGE
-        super().__init__(message)
+    def __init__(self, message=None):
+        default_message = "PandasAI API key not found. Please set your API key using PandasAI.api_key.set() or by setting the PANDASAI_API_KEY environment variable."
+        super().__init__(message or default_message)
 
 
 class PandasAIApiCallError(Exception):
@@ -262,3 +242,51 @@ class InvalidSchemaJson(Exception):
     Args:
         Exception (Exception): Invalid json schema
     """
+
+
+class LazyLoadError(Exception):
+    """Raised when trying to access data that hasn't been loaded in lazy load mode."""
+
+    pass
+
+
+class InvalidDataSourceType(Exception):
+    """Raised error with invalid data source provided"""
+
+    pass
+
+
+class MaliciousCodeGenerated(Exception):
+    """
+    Raise error if malicious code is generated
+    Args:
+        Exception (Exception): MaliciousCodeGenerated
+    """
+
+
+class DatasetNotFound(Exception):
+    """
+    Raise error if dataset not found
+    Args:
+        Exception (Exception): DatasetNotFound
+    """
+
+
+class CodeExecutionError(Exception):
+    """
+    Raise error if code execution fails
+    Args:
+        Exception (Exception): CodeExecutionError
+    """
+
+
+class VirtualizationError(Exception):
+    """Raised when there is an error with DataFrame virtualization."""
+
+    pass
+
+
+class UnsupportedTransformation(Exception):
+    """Raised when a transformation is not supported."""
+
+    pass

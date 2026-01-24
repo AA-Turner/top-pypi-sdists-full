@@ -1,8 +1,6 @@
 """
 Synced with huggingface/pyspaces:spaces/zero/api.py
 """
-from __future__ import annotations
-
 from datetime import timedelta
 from typing import Any
 from typing import Generator
@@ -22,7 +20,7 @@ NvidiaUUID = str
 CGroupPath = str
 TaskId = int
 
-GPUSize = Literal['medium', 'large']
+GPUSize = Literal['large', 'xlarge']
 AuthLevel = Literal['regular', 'pro']
 QueuingReason = Literal['node', 'concurrency']
 
@@ -82,11 +80,8 @@ class APIClient:
     def __init__(self, client: httpx.Client):
         self.client = client
 
-    def startup_report(self, cgroup_path: str, gpu_size: GPUSize) -> httpx.codes:
-        res = self.client.post('/startup-report', params={
-            'cgroupPath': cgroup_path,
-            'gpuSize': gpu_size,
-        })
+    def startup_report(self) -> httpx.codes:
+        res = self.client.post('/startup-report')
         return httpx.codes(res.status_code)
 
     def schedule(
@@ -97,6 +92,7 @@ class APIClient:
         token_version: int = 1,
         duration_seconds: int | None = None,
         enable_queue: bool = True,
+        gpu_size: GPUSize | None = None,
     ):
         params: dict[str, str | int | bool] = {
             'cgroupPath': cgroup_path,
@@ -106,6 +102,8 @@ class APIClient:
         }
         if duration_seconds is not None:
             params['durationSeconds'] = duration_seconds
+        if gpu_size is not None:
+            params['gpuSize'] = gpu_size
         if token is not None:
             params['token'] = token
         res = self.client.send(

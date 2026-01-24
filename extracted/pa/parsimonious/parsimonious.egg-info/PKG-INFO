@@ -1,11 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: parsimonious
-Version: 0.10.0
+Version: 0.11.0
 Summary: (Soon to be) the fastest pure-Python PEG parser I could muster
-Home-page: https://github.com/erikrose/parsimonious
-Author: Erik Rose
-Author-email: erikrose@grinchcentral.com
+Author-email: Erik Rose <erikrose@grinchcentral.com>
 License: MIT
+Project-URL: Homepage, https://github.com/erikrose/parsimonious
 Keywords: parse,parser,parsing,peg,packrat,grammar,language
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
@@ -14,15 +13,21 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Text Processing :: General
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: regex>=2022.3.15
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Dynamic: license-file
 
 ============
 Parsimonious
@@ -117,7 +122,7 @@ Another example would be to implement a parser for ``.ini``-files. Consider the 
         equal       = ws? "=" ws?
         lpar        = "["
         rpar        = "]"
-        ws          = ~"\s*"
+        ws          = ~r"\s*"
         emptyline   = ws+
         """
     )
@@ -252,6 +257,9 @@ serve best:
 
 You can wrap a rule across multiple lines if you like; the syntax is very
 forgiving.
+
+If you want to save your grammar into a separate file, you should name it using
+``.ppeg`` extension.
 
 
 Syntax Reference
@@ -467,8 +475,12 @@ Niceties
 
 Version History
 ===============
-(Next release)
-  * ...
+
+0.11.0
+  * Correctly handle `/` expressions with multiple terms in a row. (lucaswiman)
+  * Start using pyproject.toml. (Kolanich)
+  * Add a ``ParsimoniousError`` exception base class. (Kevin Kirsche)
+  * Fall back to ``re`` when the ``regex`` lib is not available. (Pavel Kirienko)
 
 0.10.0
   * Fix infinite recursion in __eq__ in some cases. (FelisNivalis)

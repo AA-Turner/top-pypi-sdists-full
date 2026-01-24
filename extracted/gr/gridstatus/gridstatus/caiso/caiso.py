@@ -3,6 +3,7 @@ import io
 import re
 import time
 import warnings
+from typing import Literal
 from zipfile import ZipFile
 
 import numpy as np
@@ -2233,7 +2234,12 @@ class CAISO(ISOBase):
             verbose=verbose,
             raw_data=False,
         )
-        return self._handle_lmp_scheduling_point_tie_combination(df)
+        return self._handle_lmp_scheduling_point_tie_combination(
+            df,
+            "Real Time 5 Min",
+            date,
+            end,
+        )
 
     def get_lmp_scheduling_point_tie_real_time_15_min(
         self,
@@ -2253,7 +2259,12 @@ class CAISO(ISOBase):
             verbose=verbose,
             raw_data=False,
         )
-        return self._handle_lmp_scheduling_point_tie_combination(df)
+        return self._handle_lmp_scheduling_point_tie_combination(
+            df,
+            "Real Time 15 Min",
+            date,
+            end,
+        )
 
     def get_lmp_scheduling_point_tie_day_ahead_hourly(
         self,
@@ -2281,12 +2292,29 @@ class CAISO(ISOBase):
             verbose=verbose,
             raw_data=False,
         )
-        return self._handle_lmp_scheduling_point_tie_combination(df)
+
+        return self._handle_lmp_scheduling_point_tie_combination(
+            df,
+            "Day Ahead Hourly",
+            date,
+            end,
+        )
 
     def _handle_lmp_scheduling_point_tie_combination(
         self,
         df: pd.DataFrame,
+        dataset_name: Literal[
+            "Day Ahead Hourly",
+            "Real Time 15 Min",
+            "Real Time 5 Min",
+        ],
+        date: str | pd.Timestamp | None = None,
+        end: str | pd.Timestamp | None = None,
     ) -> pd.DataFrame:
+        if df.empty:
+            raise NoDataFoundException(
+                f"No data found for LMP Scheduling Point Tie Combination {dataset_name} for start date: {date} and end date: {end}",
+            )
         df = df.rename(
             columns={
                 "NODE": "Node",
@@ -2364,6 +2392,11 @@ class CAISO(ISOBase):
             verbose=verbose,
             raw_data=False,
         )
+        if df.empty:
+            raise NoDataFoundException(
+                f"No data found for LMP HASP 15-min for start date: {date} and end date: {end}",
+            )
+
         return self._handle_lmp_hasp_15_min(df)
 
     def _handle_lmp_hasp_15_min(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -2439,10 +2472,25 @@ class CAISO(ISOBase):
             columns={
                 "NOMOGRAM_ID": "Location",
                 "PRC": "Price",
+                "NOMOGRAM_ID_XML": "Nomogram ID XML",
+                "CONSTRAINT_CAUSE": "Constraint Cause",
+                "MARKET_RUN_ID": "Market Run ID",
+                "GROUP": "Group",
             },
         )
 
-        return df[["Interval Start", "Interval End", "Location", "Price"]]
+        return df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Location",
+                "Nomogram ID XML",
+                "Market Run ID",
+                "Constraint Cause",
+                "Price",
+                "Group",
+            ]
+        ]
 
     def get_nomogram_branch_shadow_prices_hasp_hourly(
         self,
@@ -2479,10 +2527,25 @@ class CAISO(ISOBase):
             columns={
                 "NOMOGRAM_ID": "Location",
                 "PRC": "Price",
+                "NOMOGRAM_ID_XML": "Nomogram ID XML",
+                "CONSTRAINT_CAUSE": "Constraint Cause",
+                "MARKET_RUN_ID": "Market Run ID",
+                "GROUP": "Group",
             },
         )
 
-        return df[["Interval Start", "Interval End", "Location", "Price"]]
+        return df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Location",
+                "Nomogram ID XML",
+                "Market Run ID",
+                "Constraint Cause",
+                "Price",
+                "Group",
+            ]
+        ]
 
     def get_nomogram_branch_shadow_price_forecast_15_min(
         self,
@@ -2519,10 +2582,25 @@ class CAISO(ISOBase):
             columns={
                 "NOMOGRAM_ID": "Location",
                 "PRC": "Price",
+                "NOMOGRAM_ID_XML": "Nomogram ID XML",
+                "CONSTRAINT_CAUSE": "Constraint Cause",
+                "MARKET_RUN_ID": "Market Run ID",
+                "GROUP": "Group",
             },
         )
 
-        return df[["Interval Start", "Interval End", "Location", "Price"]]
+        return df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Location",
+                "Nomogram ID XML",
+                "Market Run ID",
+                "Constraint Cause",
+                "Price",
+                "Group",
+            ]
+        ]
 
     def get_interval_nomogram_branch_shadow_prices_real_time_5_min(
         self,
@@ -2558,10 +2636,77 @@ class CAISO(ISOBase):
             columns={
                 "NOMOGRAM_ID": "Location",
                 "PRC": "Price",
+                "MARKET_RUN_ID": "Market Run ID",
+                "CONSTRAINT_CAUSE": "Constraint Cause",
+                "GROUP": "Group",
             },
         )
 
-        return df[["Interval Start", "Interval End", "Location", "Price"]]
+        return df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Location",
+                "Market Run ID",
+                "Constraint Cause",
+                "Price",
+                "Group",
+            ]
+        ]
+
+    def get_intertie_constraint_shadow_prices_real_time_5_min(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get 5-min intertie constraint shadow prices from CAISO.
+
+        Args:
+            date (str | pd.Timestamp): date to return data
+            end (str | pd.Timestamp | None, optional): last date of range to return data.
+                If None, returns only date. Defaults to None.
+            verbose (bool, optional): print out url being fetched.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with the intertie constraint shadow prices
+        """
+        if date == "latest":
+            return self.get_intertie_constraint_shadow_prices_real_time_5_min(
+                pd.Timestamp.now(tz=self.default_timezone),
+            )
+
+        df = self.get_oasis_dataset(
+            dataset="interval_intertie_constraint_shadow_prices",
+            date=date,
+            end=end,
+            verbose=verbose,
+            raw_data=False,
+        )
+
+        df = df.rename(
+            columns={
+                "TI_ID": "TI ID",
+                "TI_DIRECTION": "TI Direction",
+                "MARKET_RUN_ID": "Market Run ID",
+                "CONSTRAINT_CAUSE": "Constraint Cause",
+                "PRC": "Shadow Price",
+                "GROUP": "Group",
+            },
+        )
+
+        return df[
+            [
+                "Interval Start",
+                "Interval End",
+                "TI ID",
+                "TI Direction",
+                "Market Run ID",
+                "Constraint Cause",
+                "Shadow Price",
+                "Group",
+            ]
+        ]
 
     @support_date_range(frequency="DAY_START")
     def get_curtailment(
@@ -2653,10 +2798,16 @@ class CAISO(ISOBase):
         Fetches the CAISO daily renewable report for a given date and extracts data from
         all the charts into wide dataframes.
         """
-        report_url = f"https://www.caiso.com/documents/daily-renewable-report-{date.strftime('%b-%d-%Y').lower()}.html"
-
-        response = requests.get(report_url)
-
+        slug = date.strftime("%b-%d-%Y").lower()
+        primary_url = (
+            f"https://www.caiso.com/documents/daily-renewable-report-{slug}.html"
+        )
+        response = requests.get(primary_url)
+        if response.status_code != 200:
+            corrected_url = f"https://www.caiso.com/documents/daily-renewable-report-{slug}-corrected.html"
+            corrected_response = requests.get(corrected_url)
+            if corrected_response.status_code == 200:
+                response = corrected_response
         if response.status_code != 200:
             raise ValueError(
                 f"Failed to fetch renewables report for {date.strftime('%Y-%m-%d')}: "
@@ -2695,19 +2846,146 @@ class CAISO(ISOBase):
             self.default_timezone,
         )
 
-        # Build all DataFrames using the configuration
         dataframes = {}
         for df_name, timestamps, duration, unit, column_mapping in dataframe_configs:
-            interval_end_timedelta = pd.DateOffset(**{f"{unit}s": duration})
+            if unit == "minute":
+                interval_end_timedelta: pd.Timedelta | pd.DateOffset = pd.Timedelta(
+                    minutes=duration,
+                )
+            elif unit == "hour":
+                interval_end_timedelta = pd.Timedelta(hours=duration)
+            elif unit == "day":
+                interval_end_timedelta = pd.Timedelta(days=duration)
+            else:
+                interval_end_timedelta = pd.DateOffset(**{f"{unit}s": duration})
 
+            target_length = len(timestamps)
             data = {
                 "Interval Start": timestamps,
                 "Interval End": timestamps + interval_end_timedelta,
             }
 
             for col_name, var_name in column_mapping.items():
-                data[col_name] = extract_array(html_content, var_name)
+                values = extract_array(html_content, var_name)
+                if len(values) > target_length:
+                    values = values[-target_length:]
+                elif len(values) < target_length:
+                    raise ValueError(
+                        f"Renewables report column {var_name} returned {len(values)} values for {date.strftime('%Y-%m-%d')}, expected {target_length}",
+                    )
+                data[col_name] = values
 
             dataframes[df_name] = pd.DataFrame(data)
 
         return dataframes
+
+    def get_system_load_and_resource_schedules_day_ahead(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get CAISO System Load and Resource Schedules Day-Ahead data from CAISO."""
+        if date == "latest":
+            # DAM data should be available 1 day in the future after 13:00 PT
+            try:
+                return self.get_system_load_and_resource_schedules_day_ahead(
+                    self.local_now().normalize() + pd.DateOffset(days=1),
+                )
+            except KeyError:
+                # Fallback to today
+                return self.get_system_load_and_resource_schedules_day_ahead(
+                    self.local_now().normalize(),
+                )
+
+        return self._get_system_load_and_resource_schedules_for_market(
+            date,
+            end,
+            verbose,
+            market="day_ahead",
+        )
+
+    def get_system_load_and_resource_schedules_hasp(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get CAISO System Load and Resource Schedules HASP data from CAISO."""
+        if date == "latest":
+            return self.get_system_load_and_resource_schedules_hasp(
+                "today",
+            )
+
+        return self._get_system_load_and_resource_schedules_for_market(
+            date,
+            end,
+            verbose,
+            market="hasp",
+        )
+
+    def get_system_load_and_resource_schedules_real_time_5_min(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get CAISO System Load and Resource Schedules Real Time data from CAISO."""
+        if date == "latest":
+            return self.get_system_load_and_resource_schedules_real_time_5_min(
+                "today",
+            )
+
+        return self._get_system_load_and_resource_schedules_for_market(
+            date,
+            end,
+            verbose,
+            market="real_time_5_min",
+        )
+
+    def get_system_load_and_resource_schedules_ruc(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get CAISO System Load and Resource Schedules RUC data from CAISO."""
+        if date == "latest":
+            return self.get_system_load_and_resource_schedules_ruc(
+                "today",
+            )
+
+        return self._get_system_load_and_resource_schedules_for_market(
+            date,
+            end,
+            verbose,
+            market="ruc",
+        )
+
+    def _get_system_load_and_resource_schedules_for_market(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+        market: Literal["day_ahead", "hasp", "real_time_5_min", "ruc"] = "day_ahead",
+    ):
+        df = self.get_oasis_dataset(
+            dataset=f"system_load_and_resource_schedules_{market}",
+            date=date,
+            end=end,
+            verbose=verbose,
+            raw_data=False,
+        )
+
+        df = df.pivot(
+            columns=["SCHEDULE"],
+            index=["Interval Start", "Interval End", "TAC_ZONE_NAME"],
+            values="MW",
+        )
+
+        # Remove the multi-level columns
+        df.columns = df.columns.get_level_values(0)
+
+        df = df.reset_index().rename(columns={"TAC_ZONE_NAME": "TAC Name"})
+
+        return df.sort_values(["Interval Start", "TAC Name"])

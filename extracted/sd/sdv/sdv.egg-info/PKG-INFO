@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sdv
-Version: 1.27.0
+Version: 1.32.1
 Summary: Generate synthetic data for single table, multi table and sequential data
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License: BSL-1.1
@@ -15,14 +15,13 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: Free for non-commercial use
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.14,>=3.8
+Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: boto3<2.0.0,>=1.28
@@ -39,9 +38,9 @@ Requires-Dist: pandas>=2.1.1; python_version >= "3.12" and python_version < "3.1
 Requires-Dist: pandas>=2.2.3; python_version >= "3.13"
 Requires-Dist: tqdm>=4.29
 Requires-Dist: copulas>=0.12.1
-Requires-Dist: ctgan>=0.11.0
+Requires-Dist: ctgan>=0.11.1
 Requires-Dist: deepecho>=0.7.0
-Requires-Dist: rdt>=1.17.0
+Requires-Dist: rdt>=1.18.2
 Requires-Dist: sdmetrics>=0.21.0
 Requires-Dist: platformdirs>=4.0
 Requires-Dist: pyyaml>=6.0.1

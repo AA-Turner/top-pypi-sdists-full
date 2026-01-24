@@ -67,7 +67,9 @@ def filter_string(
                   Name
         0     JoseChen
         1  Brian.Salvi
-        >>> df.filter_string(column_name="Name", search_string=".", regex=False, complement=True)
+        >>> df.filter_string(
+        ...     column_name="Name", search_string=".", regex=False, complement=True
+        ... )
                Name
         0  JoseChen
 
@@ -142,10 +144,12 @@ def filter_on(
 
         >>> import pandas as pd
         >>> import janitor
-        >>> df = pd.DataFrame({
-        ...     "student_id": ["S1", "S2", "S3"],
-        ...     "score": [40, 60, 85],
-        ... })
+        >>> df = pd.DataFrame(
+        ...     {
+        ...         "student_id": ["S1", "S2", "S3"],
+        ...         "score": [40, 60, 85],
+        ...     }
+        ... )
         >>> df
           student_id  score
         0         S1     40
@@ -209,10 +213,12 @@ def filter_date(
     Examples:
         >>> import pandas as pd
         >>> import janitor
-        >>> df = pd.DataFrame({
-        ...     "a": range(5, 9),
-        ...     "dt": ["2021-11-12", "2021-12-15", "2022-01-03", "2022-01-09"],
-        ... })
+        >>> df = pd.DataFrame(
+        ...     {
+        ...         "a": range(5, 9),
+        ...         "dt": ["2021-11-12", "2021-12-15", "2022-01-03", "2022-01-09"],
+        ...     }
+        ... )
         >>> df
            a          dt
         0  5  2021-11-12
@@ -294,6 +300,12 @@ def filter_date(
 
 
 @pf.register_dataframe_method
+@refactored_function(
+    message=(
+        "This function will be deprecated in a 1.x release. "
+        "Please use `pd.DataFrame.query` or `pd.DataFrame.isin` instead."
+    )
+)
 @deprecated_alias(column="column_name")
 def filter_column_isin(
     df: pd.DataFrame,
@@ -347,10 +359,17 @@ def filter_column_isin(
     Returns:
         A filtered pandas DataFrame.
     """  # noqa: E501
+
+    warnings.warn(
+        "This function will be deprecated in a 1.x release. "
+        "Kindly use `pd.DataFrame.query` or `pd.DataFrame.isin` instead.",
+        DeprecationWarning,
+        stacklevel=find_stack_level(),
+    )
+
     if len(iterable) == 0:
         raise ValueError(
-            "`iterable` kwarg must be given an iterable of length 1 "
-            "or greater."
+            "`iterable` kwarg must be given an iterable of length 1 or greater."
         )
     criteria = df[column_name].isin(iterable)
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import locale
 import logging
+import pathlib
 import posixpath
 import typing as t
 from hashlib import sha1 as sha
@@ -68,12 +69,12 @@ class AafigError(SphinxError):
     category = "aafig error"
 
 
-class AafigDirective(images.Image):  # type:ignore
+class AafigDirective(images.Image):
     """Directive to insert an ASCII art figure to be rendered by aafigure."""
 
     has_content = True
     required_arguments = 0
-    own_option_spec: t.ClassVar = {
+    own_option_spec: t.ClassVar[dict[str, t.Callable[[str], t.Any]]] = {
         "line_width": float,
         "background": str,
         "foreground": str,
@@ -82,7 +83,9 @@ class AafigDirective(images.Image):  # type:ignore
         "textual": flag,
         "proportional": flag,
     }
-    option_spec = images.Image.option_spec.copy()
+    option_spec = (
+        images.Image.option_spec.copy() if images.Image.option_spec is not None else {}
+    )
     option_spec.update(own_option_spec)
 
     def run(self) -> list[nodes.Node]:
@@ -103,7 +106,7 @@ class AafigDirective(images.Image):  # type:ignore
         if isinstance(image_node, nodes.system_message):
             return [image_node]
         text = "\n".join(self.content)
-        image_node.aafig = {"options": aafig_options, "text": text}
+        image_node.aafig = {"options": aafig_options, "text": text}  # type: ignore[attr-defined]
         return [image_node]
 
 
@@ -128,9 +131,11 @@ def render_aafig_images(app: Sphinx, doctree: nodes.Node) -> None:
             options["format"] = format_map[format_]
         else:
             logger.warning(
-                f'unsupported builder format "{format_}", please '
-                "add a custom entry in aafig_format config "
-                "option for this builder",
+                (
+                    'unsupported builder format "%s", please add a custom entry in '
+                    "aafig_format config option for this builder"
+                ),
+                format_,
             )
             img.replace_self(nodes.literal_block(text, text))
             continue
@@ -194,11 +199,9 @@ def render_aafigure(
                 f = None
                 try:
                     try:
-                        with open(
-                            metadata_fname,
+                        extra = pathlib.Path(metadata_fname).read_text(
                             encoding=locale.getpreferredencoding(False),
-                        ) as f:
-                            extra = f.read()
+                        )
                     except Exception as e:
                         raise AafigError from e
                 finally:
@@ -219,12 +222,10 @@ def render_aafigure(
     extra = None
     if options["format"].lower() == "svg":
         extra = visitor.get_size_attrs()
-        with open(
-            metadata_fname,
-            "w",
+        pathlib.Path(metadata_fname).write_text(
+            extra,
             encoding=locale.getpreferredencoding(False),
-        ) as f:
-            f.write(extra)
+        )
 
     return relfn, outfn, None, extra
 

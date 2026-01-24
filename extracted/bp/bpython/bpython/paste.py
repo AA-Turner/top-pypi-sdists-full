@@ -22,7 +22,7 @@
 
 import errno
 import subprocess
-from typing import Optional, Tuple, Protocol
+from typing import Protocol
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -37,7 +37,7 @@ class PasteFailed(Exception):
 
 
 class Paster(Protocol):
-    def paste(self, s: str) -> Tuple[str, Optional[str]]: ...
+    def paste(self, s: str) -> tuple[str, str | None]: ...
 
 
 class PastePinnwand:
@@ -45,7 +45,7 @@ class PastePinnwand:
         self.url = url
         self.expiry = expiry
 
-    def paste(self, s: str) -> Tuple[str, str]:
+    def paste(self, s: str) -> tuple[str, str]:
         """Upload to pastebin via json interface."""
 
         url = urljoin(self.url, "/api/v1/paste")
@@ -72,7 +72,7 @@ class PasteHelper:
     def __init__(self, executable: str) -> None:
         self.executable = executable
 
-    def paste(self, s: str) -> Tuple[str, None]:
+    def paste(self, s: str) -> tuple[str, None]:
         """Call out to helper program for pastebin upload."""
 
         try:

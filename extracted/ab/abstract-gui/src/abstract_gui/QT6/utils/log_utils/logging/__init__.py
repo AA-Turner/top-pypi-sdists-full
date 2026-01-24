@@ -1,1 +1,0 @@
-from .QTextEditLogger import *

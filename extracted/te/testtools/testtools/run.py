@@ -5,18 +5,21 @@
 Run some tests with the testtools extended API.
 
 For instance, to run the testtools test suite.
- $ python -m testtools.run testtools.tests.test_suite
+ $ python -m testtools.run tests.test_suite
 """
 
-from functools import partial
 import os.path
 import sys
 import unittest
+from functools import partial
+from typing import Any
 
 from testtools import TextTestResult
 from testtools.compat import unicode_output_stream
 from testtools.testsuite import filter_by_ids, iterate_tests, sorted_tests
 
+# unittest.TestProgram has these methods but mypy's stubs don't include them
+# We'll just use unittest.TestProgram directly and ignore the type errors
 
 defaultTestLoader = unittest.defaultTestLoader
 defaultTestLoaderCls = unittest.TestLoader
@@ -74,12 +77,14 @@ class TestToolsTestRunner:
     ):
         """Create a TestToolsTestRunner.
 
-        :param verbosity: Ignored.
+        :param verbosity: Verbosity level. 0 for quiet, 1 for normal (dots, default),
+            2 for verbose (test names).
         :param failfast: Stop running tests at the first failure.
         :param buffer: Ignored.
         :param stdout: Stream to use for stdout.
         :param tb_locals: If True include local variables in tracebacks.
         """
+        self.verbosity = verbosity if verbosity is not None else 1
         self.failfast = failfast
         if stdout is None:
             stdout = sys.stdout
@@ -90,19 +95,20 @@ class TestToolsTestRunner:
         """List the tests that would be run if test() was run."""
         test_ids, _ = list_test(test)
         for test_id in test_ids:
-            self.stdout.write("%s\n" % test_id)
+            self.stdout.write(f"{test_id}\n")
         errors = loader.errors
         if errors:
             for test_id in errors:
-                self.stdout.write("%s\n" % test_id)
+                self.stdout.write(f"{test_id}\n")
             sys.exit(2)
 
     def run(self, test):
-        "Run the given test case or test suite."
+        """Run the given test case or test suite."""
         result = TextTestResult(
             unicode_output_stream(self.stdout),
             failfast=self.failfast,
             tb_locals=self.tb_locals,
+            verbosity=self.verbosity,
         )
         result.startTestRun()
         try:
@@ -132,6 +138,7 @@ class TestProgram(unittest.TestProgram):
     verbosity = 1
     failfast = catchbreak = buffer = progName = None
     _discovery_parser = None
+    test: Any  # Set by parent class
 
     def __init__(
         self,
@@ -175,9 +182,9 @@ class TestProgram(unittest.TestProgram):
         self.testRunner = testRunner
         self.testLoader = testLoader
         progName = argv[0]
-        if progName.endswith("%srun.py" % os.path.sep):
+        if progName.endswith(f"{os.path.sep}run.py"):
             elements = progName.split(os.path.sep)
-            progName = "%s.run" % elements[-2]
+            progName = f"{elements[-2]}.run"
         else:
             progName = os.path.basename(argv[0])
         self.progName = progName
@@ -207,11 +214,11 @@ class TestProgram(unittest.TestProgram):
                     runner.list(self.test)
             else:
                 for test in iterate_tests(self.test):
-                    self.stdout.write("%s\n" % test.id())
+                    self.stdout.write(f"{test.id()}\n")
         del self.testLoader.errors[:]
 
     def _getParentArgParser(self):
-        parser = super()._getParentArgParser()
+        parser = super()._getParentArgParser()  # type: ignore[misc]
         # XXX: Local edit (see http://bugs.python.org/issue22860)
         parser.add_argument(
             "-l",
@@ -231,7 +238,7 @@ class TestProgram(unittest.TestProgram):
         return parser
 
     def _do_discovery(self, argv, Loader=None):
-        super()._do_discovery(argv, Loader=Loader)
+        super()._do_discovery(argv, Loader=Loader)  # type: ignore[misc]
         # XXX: Local edit (see http://bugs.python.org/issue22860)
         self.test = sorted_tests(self.test)
 

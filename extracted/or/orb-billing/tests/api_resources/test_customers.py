@@ -62,6 +62,14 @@ class TestCustomers:
                 "parent_customer_id": "parent_customer_id",
             },
             metadata={"foo": "string"},
+            payment_configuration={
+                "payment_providers": [
+                    {
+                        "provider_type": "stripe",
+                        "excluded_payment_method_types": ["string"],
+                    }
+                ]
+            },
             payment_provider="quickbooks",
             payment_provider_id="payment_provider_id",
             reporting_configuration={"exempt": True},
@@ -76,6 +84,7 @@ class TestCustomers:
             tax_configuration={
                 "tax_exempt": True,
                 "tax_provider": "avalara",
+                "automatic_tax_enabled": True,
                 "tax_exemption_code": "tax_exemption_code",
             },
             tax_id={
@@ -154,6 +163,14 @@ class TestCustomers:
             },
             metadata={"foo": "string"},
             name="name",
+            payment_configuration={
+                "payment_providers": [
+                    {
+                        "provider_type": "stripe",
+                        "excluded_payment_method_types": ["string"],
+                    }
+                ]
+            },
             payment_provider="quickbooks",
             payment_provider_id="payment_provider_id",
             reporting_configuration={"exempt": True},
@@ -168,6 +185,7 @@ class TestCustomers:
             tax_configuration={
                 "tax_exempt": True,
                 "tax_provider": "avalara",
+                "automatic_tax_enabled": True,
                 "tax_exemption_code": "tax_exemption_code",
             },
             tax_id={
@@ -477,6 +495,14 @@ class TestCustomers:
             },
             metadata={"foo": "string"},
             name="name",
+            payment_configuration={
+                "payment_providers": [
+                    {
+                        "provider_type": "stripe",
+                        "excluded_payment_method_types": ["string"],
+                    }
+                ]
+            },
             payment_provider="quickbooks",
             payment_provider_id="payment_provider_id",
             reporting_configuration={"exempt": True},
@@ -491,6 +517,7 @@ class TestCustomers:
             tax_configuration={
                 "tax_exempt": True,
                 "tax_provider": "avalara",
+                "automatic_tax_enabled": True,
                 "tax_exemption_code": "tax_exemption_code",
             },
             tax_id={
@@ -579,6 +606,14 @@ class TestAsyncCustomers:
                 "parent_customer_id": "parent_customer_id",
             },
             metadata={"foo": "string"},
+            payment_configuration={
+                "payment_providers": [
+                    {
+                        "provider_type": "stripe",
+                        "excluded_payment_method_types": ["string"],
+                    }
+                ]
+            },
             payment_provider="quickbooks",
             payment_provider_id="payment_provider_id",
             reporting_configuration={"exempt": True},
@@ -593,6 +628,7 @@ class TestAsyncCustomers:
             tax_configuration={
                 "tax_exempt": True,
                 "tax_provider": "avalara",
+                "automatic_tax_enabled": True,
                 "tax_exemption_code": "tax_exemption_code",
             },
             tax_id={
@@ -671,6 +707,14 @@ class TestAsyncCustomers:
             },
             metadata={"foo": "string"},
             name="name",
+            payment_configuration={
+                "payment_providers": [
+                    {
+                        "provider_type": "stripe",
+                        "excluded_payment_method_types": ["string"],
+                    }
+                ]
+            },
             payment_provider="quickbooks",
             payment_provider_id="payment_provider_id",
             reporting_configuration={"exempt": True},
@@ -685,6 +729,7 @@ class TestAsyncCustomers:
             tax_configuration={
                 "tax_exempt": True,
                 "tax_provider": "avalara",
+                "automatic_tax_enabled": True,
                 "tax_exemption_code": "tax_exemption_code",
             },
             tax_id={
@@ -1006,6 +1051,14 @@ class TestAsyncCustomers:
             },
             metadata={"foo": "string"},
             name="name",
+            payment_configuration={
+                "payment_providers": [
+                    {
+                        "provider_type": "stripe",
+                        "excluded_payment_method_types": ["string"],
+                    }
+                ]
+            },
             payment_provider="quickbooks",
             payment_provider_id="payment_provider_id",
             reporting_configuration={"exempt": True},
@@ -1020,6 +1073,7 @@ class TestAsyncCustomers:
             tax_configuration={
                 "tax_exempt": True,
                 "tax_provider": "avalara",
+                "automatic_tax_enabled": True,
                 "tax_exemption_code": "tax_exemption_code",
             },
             tax_id={

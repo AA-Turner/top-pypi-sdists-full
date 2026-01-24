@@ -6,9 +6,9 @@ build-backend = "hatchling.build"
 name = "Mesa"
 description = "Agent-based modeling (ABM) in Python"
 license = { text = "Apache 2.0" }
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [
-  { name = "Project Mesa Team", email = "maintainers@projectmesa.dev" },
+  { name = "Mesa Team", email = "maintainers@projectmesa.dev" },
 ]
 keywords = [
   "agent",
@@ -25,9 +25,9 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Intended Audience :: Science/Research",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
   "Development Status :: 3 - Alpha",
@@ -87,8 +87,26 @@ docs = [
 ]
 
 [project.urls]
-homepage = "https://github.com/projectmesa/mesa"
-repository = "https://github.com/projectmesa/mesa"
+homepage = "https://github.com/mesa/mesa"
+repository = "https://github.com/mesa/mesa"
+
+[tool.codespell]
+ignore-words-list = ["ist", "hart", "nD"]
+
+[tool.coverage.run]
+source = ["."]
+source_pkgs = ["mesa"]
+relative_files = true
+branch = true
+
+[tool.coverage.paths]
+_site-packages-to-flat-layout-mapping = [
+  'mesa',
+  '*/mesa',
+  '*/lib/pypy*/site-packages/mesa',
+  '*/lib/python*/site-packages/mesa',
+  '*/Lib/site-packages/mesa',
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["mesa"]
@@ -98,9 +116,9 @@ path = "mesa/__init__.py"
 
 [tool.ruff]
 # See https://github.com/charliermarsh/ruff#rules for error code definitions.
-# Hardcode to Python 3.11.
+# Hardcode to Python 3.12.
 # Reminder to update mesa-examples if the value below is changed.
-target-version = "py311"
+target-version = "py312"
 extend-exclude = ["build"]
 
 [tool.ruff.lint]
@@ -145,7 +163,6 @@ extend-ignore = [
   "B905",   # `zip()` without an explicit `strict=` parameter
   "N802",   # Function name should be lowercase
   "N999",   # Invalid module name. We should revisit this in the future, TODO
-  "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar` TODO
   "S310",   # Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
   "S603",   # `subprocess` call: check for execution of untrusted input
   "ISC001", # ruff format asks to disable this feature

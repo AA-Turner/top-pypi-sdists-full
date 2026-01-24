@@ -1,3 +1,4 @@
+import platform
 import struct
 
 import mpitestutil as testutil
@@ -94,6 +95,8 @@ datatypes += datatypes_f90
 datatypes += datatypes_mpi
 
 combiner_map = {}
+
+machine = platform.machine()
 
 
 class TestDatatypeNull(unittest.TestCase):
@@ -224,6 +227,8 @@ class TestDatatype(unittest.TestCase):
         for dtype in datatypes:
             dtype.Commit()
 
+    @unittest.skipMPI("mpich(<4.2.3)", machine.startswith("ppc"))
+    @unittest.skipMPI("openmpi(<6.0.0)", machine in {"ppc", "ppc64"})
     def testCodeCharStr(self):
         f90datatypes = []
         try:
@@ -282,6 +287,7 @@ class TestDatatype(unittest.TestCase):
         self.assertEqual(MPI.INT_INT.typechar, "V")
         self.assertEqual(MPI.INT_INT.typestr, f"V{MPI.INT.extent * 2}")
 
+    @unittest.skipMPI("mpich", struct.calcsize("P") == 4)
     def testContiguousBigMPI(self):
         int_max = (1 << (struct.calcsize("i") * 8 - 1)) - 1
         mpitype = MPI.BYTE.Create_contiguous(int_max)
@@ -563,6 +569,8 @@ class BaseTestDatatypeCreateMixin:
         args = (p, r)
         self.check(None, factory, *args)
 
+    @unittest.skipMPI("mpich(<4.2.3)", machine.startswith("ppc"))
+    @unittest.skipMPI("openmpi(<6.0.0)", machine in {"ppc", "ppc64"})
     @unittest.skipMPI("openmpi(<3.0.0)")
     @unittest.skipMPI("msmpi")
     def testF90RealDouble(self):
@@ -579,6 +587,8 @@ class BaseTestDatatypeCreateMixin:
         args = (p, r)
         self.check(None, factory, *args)
 
+    @unittest.skipMPI("mpich(<4.2.3)", machine.startswith("ppc"))
+    @unittest.skipMPI("openmpi(<6.0.0)", machine in {"ppc", "ppc64"})
     @unittest.skipMPI("openmpi(<3.0.0)")
     @unittest.skipMPI("msmpi")
     def testF90ComplexDouble(self):

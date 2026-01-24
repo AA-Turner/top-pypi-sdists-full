@@ -29,6 +29,6 @@ if ssh.is_connected:
     scp.get(remote_file, local_file)
 
     scp = ssh.scp()
-    scp.put(remote_file, local_file)
+    scp.put(local_file, remote_file)
 
 ssh.close()

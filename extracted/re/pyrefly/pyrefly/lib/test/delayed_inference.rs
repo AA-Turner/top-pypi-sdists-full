@@ -20,6 +20,16 @@ def g(a: list[str], b: list[int]) -> None:
 );
 
 testcase!(
+    test_first_use_reads_name_twice_narrowing,
+    r#"
+from typing import assert_type
+def test(x: list[int]) -> tuple[list[int], int]:
+    y = x
+    return (y, 0 if 0 in assert_type(y, list[int]) else 1)
+"#,
+);
+
+testcase!(
     test_empty_list_class,
     r#"
 from typing import assert_type, Any
@@ -126,6 +136,19 @@ class Box[T]:
 b = Box()
 b.x = 1
 assert_type(b, Box[int])
+    "#,
+);
+
+testcase!(
+    test_no_infer_with_first_use_for_user_defined_generic,
+    TestEnv::new_with_infer_with_first_use(false),
+    r#"
+from typing import Any, assert_type
+class Box[T]:
+    x: T | None = None
+b = Box()
+b.x = 1
+assert_type(b, Box[Any])
     "#,
 );
 
@@ -306,5 +329,57 @@ from chained_first_use_with_inconsistent_pins import z
 assert_type(z, None)
 from chained_first_use_with_inconsistent_pins import x
 assert_type(x, list[Any])
+"#,
+);
+
+// Tests for partial type inference in loops.
+// These tests verify that first-use detection works correctly through phi nodes
+// when BoundName bindings are deferred until after AST traversal.
+
+testcase!(
+    test_partial_type_first_use_in_for_loop,
+    r#"
+from typing import assert_type
+x = []
+for i in range(5):
+    x.append(i)
+assert_type(x, list[int])
+"#,
+);
+
+testcase!(
+    test_partial_type_first_use_in_while_loop,
+    r#"
+from typing import assert_type
+x = []
+i = 0
+while i < 5:
+    x.append(i)
+    i += 1
+assert_type(x, list[int])
+"#,
+);
+
+testcase!(
+    test_partial_type_first_use_in_nested_loops,
+    r#"
+from typing import assert_type
+x = []
+for i in range(5):
+    for j in range(3):
+        x.append(i + j)
+assert_type(x, list[int])
+"#,
+);
+
+testcase!(
+    test_partial_type_secondary_read_in_loop,
+    r#"
+from typing import assert_type
+x = []
+for i in range(5):
+    x.append(i)
+    y = len(x)  # secondary read of x, doesn't reassign
+assert_type(x, list[int])
 "#,
 );

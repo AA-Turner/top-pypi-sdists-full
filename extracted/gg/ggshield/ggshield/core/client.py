@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Optional
 
@@ -6,7 +7,9 @@ import urllib3
 from pygitguardian import GGClient, GGClientCallbacks
 from pygitguardian.models import APITokensResponse, Detail, TokenScope
 from requests import Session
+from requests.adapters import HTTPAdapter
 
+from . import ui
 from .config import Config
 from .constants import DEFAULT_INSTANCE_URL
 from .errors import (
@@ -17,6 +20,9 @@ from .errors import (
     UnknownInstanceError,
 )
 from .ui.client_callbacks import ClientCallbacks
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_client_from_config(config: Config) -> GGClient:
@@ -50,7 +56,7 @@ https://docs.gitguardian.com/ggshield-docs/reference/auth/login""",
     return create_client(
         api_key,
         api_url,
-        allow_self_signed=config.user_config.allow_self_signed,
+        allow_self_signed=config.user_config.insecure,
         callbacks=callbacks,
     )
 
@@ -84,8 +90,24 @@ def create_client(
 def create_session(allow_self_signed: bool = False) -> Session:
     session = Session()
     if allow_self_signed:
+        ui.display_warning(
+            "SSL verification is disabled. Your connection to the GitGuardian API is NOT encrypted "
+            "and is vulnerable to man-in-the-middle attacks. Traffic, including API keys and scan results, "
+            "can be intercepted and modified."
+        )
+        ui.display_warning(
+            "To securely use self-signed certificates with Python >= 3.10, disable this option and "
+            "install your certificate in your system's trust store. "
+            "See: https://docs.gitguardian.com/ggshield-docs/configuration#support-for-self-signed-certificates"
+        )
         urllib3.disable_warnings()
         session.verify = False
+    # Mount HTTPAdapter with larger pool sizes for better concurrency
+    adapter = HTTPAdapter(
+        pool_maxsize=100,  # default 10
+    )
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
     return session
 
 
@@ -131,8 +153,14 @@ def check_client_api_key(client: GGClient, required_scopes: set[TokenScope]) -> 
         elif isinstance(response, Detail):
             raise UnexpectedError(response.detail)
 
-        missing_scopes = required_scopes - set(
-            TokenScope(scope) for scope in response.scopes
-        )
+        # Build set of API scopes, ignoring unknown ones for forward compatibility
+        api_scopes = set()
+        for scope_str in response.scopes:
+            try:
+                api_scopes.add(TokenScope(scope_str))
+            except ValueError:
+                logger.debug("Ignoring unknown scope from API: '%s'", scope_str)
+
+        missing_scopes = required_scopes - api_scopes
         if missing_scopes:
             raise MissingScopesError(list(missing_scopes))

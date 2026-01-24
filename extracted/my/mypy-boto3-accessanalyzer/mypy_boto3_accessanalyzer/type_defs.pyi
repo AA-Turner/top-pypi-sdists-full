@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -54,12 +55,6 @@ from .literals import (
     ValidatePolicyResourceTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -288,8 +283,8 @@ AclGranteeTypeDef = TypedDict(
 )
 
 class AnalysisRuleCriteriaOutputTypeDef(TypedDict):
-    accountIds: NotRequired[List[str]]
-    resourceTags: NotRequired[List[Dict[str, str]]]
+    accountIds: NotRequired[list[str]]
+    resourceTags: NotRequired[list[dict[str, str]]]
 
 class AnalysisRuleCriteriaTypeDef(TypedDict):
     accountIds: NotRequired[Sequence[str]]
@@ -308,8 +303,8 @@ class AnalyzedResourceTypeDef(TypedDict):
     updatedAt: datetime
     isPublic: bool
     resourceOwnerAccount: str
-    actions: NotRequired[List[str]]
-    sharedVia: NotRequired[List[str]]
+    actions: NotRequired[list[str]]
+    sharedVia: NotRequired[list[str]]
     status: NotRequired[FindingStatusType]
     error: NotRequired[str]
 
@@ -322,9 +317,9 @@ class ApplyArchiveRuleRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 class CriterionOutputTypeDef(TypedDict):
-    eq: NotRequired[List[str]]
-    neq: NotRequired[List[str]]
-    contains: NotRequired[List[str]]
+    eq: NotRequired[list[str]]
+    neq: NotRequired[list[str]]
+    contains: NotRequired[list[str]]
     exists: NotRequired[bool]
 
 class CancelPolicyGenerationRequestTypeDef(TypedDict):
@@ -338,7 +333,7 @@ class ReasonSummaryTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -360,7 +355,7 @@ class TrailTypeDef(TypedDict):
 
 class TrailPropertiesTypeDef(TypedDict):
     cloudTrailArn: str
-    regions: NotRequired[List[str]]
+    regions: NotRequired[list[str]]
     allRegions: NotRequired[bool]
 
 class DynamodbStreamConfigurationTypeDef(TypedDict):
@@ -370,8 +365,8 @@ class DynamodbTableConfigurationTypeDef(TypedDict):
     tablePolicy: NotRequired[str]
 
 class EbsSnapshotConfigurationOutputTypeDef(TypedDict):
-    userIds: NotRequired[List[str]]
-    groups: NotRequired[List[str]]
+    userIds: NotRequired[list[str]]
+    groups: NotRequired[list[str]]
     kmsKeyId: NotRequired[str]
 
 class EcrRepositoryConfigurationTypeDef(TypedDict):
@@ -416,11 +411,12 @@ class EbsSnapshotConfigurationTypeDef(TypedDict):
 class ResourceTypeDetailsTypeDef(TypedDict):
     totalActivePublic: NotRequired[int]
     totalActiveCrossAccount: NotRequired[int]
+    totalActiveErrors: NotRequired[int]
 
 class FindingAggregationAccountDetailsTypeDef(TypedDict):
     account: NotRequired[str]
     numberOfActiveFindings: NotRequired[int]
-    details: NotRequired[Dict[str, int]]
+    details: NotRequired[dict[str, int]]
 
 class UnusedIamRoleDetailsTypeDef(TypedDict):
     lastAccessed: NotRequired[datetime]
@@ -522,9 +518,9 @@ class GetGeneratedPolicyRequestTypeDef(TypedDict):
     includeServiceLevelTemplate: NotRequired[bool]
 
 class InternalAccessAnalysisRuleCriteriaOutputTypeDef(TypedDict):
-    accountIds: NotRequired[List[str]]
-    resourceTypes: NotRequired[List[ResourceTypeType]]
-    resourceArns: NotRequired[List[str]]
+    accountIds: NotRequired[list[str]]
+    resourceTypes: NotRequired[list[ResourceTypeType]]
+    resourceArns: NotRequired[list[str]]
 
 class InternalAccessAnalysisRuleCriteriaTypeDef(TypedDict):
     accountIds: NotRequired[Sequence[str]]
@@ -541,8 +537,8 @@ class JobErrorTypeDef(TypedDict):
     message: str
 
 class KmsGrantConstraintsOutputTypeDef(TypedDict):
-    encryptionContextEquals: NotRequired[Dict[str, str]]
-    encryptionContextSubset: NotRequired[Dict[str, str]]
+    encryptionContextEquals: NotRequired[dict[str, str]]
+    encryptionContextSubset: NotRequired[dict[str, str]]
 
 class KmsGrantConstraintsTypeDef(TypedDict):
     encryptionContextEquals: NotRequired[Mapping[str, str]]
@@ -608,13 +604,13 @@ class PositionTypeDef(TypedDict):
     offset: int
 
 class RdsDbClusterSnapshotAttributeValueOutputTypeDef(TypedDict):
-    accountIds: NotRequired[List[str]]
+    accountIds: NotRequired[list[str]]
 
 class RdsDbClusterSnapshotAttributeValueTypeDef(TypedDict):
     accountIds: NotRequired[Sequence[str]]
 
 class RdsDbSnapshotAttributeValueOutputTypeDef(TypedDict):
-    accountIds: NotRequired[List[str]]
+    accountIds: NotRequired[list[str]]
 
 class RdsDbSnapshotAttributeValueTypeDef(TypedDict):
     accountIds: NotRequired[Sequence[str]]
@@ -686,7 +682,7 @@ class S3BucketAclGrantConfigurationTypeDef(TypedDict):
     grantee: AclGranteeTypeDef
 
 class AnalysisRuleOutputTypeDef(TypedDict):
-    exclusions: NotRequired[List[AnalysisRuleCriteriaOutputTypeDef]]
+    exclusions: NotRequired[list[AnalysisRuleCriteriaOutputTypeDef]]
 
 class AnalysisRuleTypeDef(TypedDict):
     exclusions: NotRequired[Sequence[AnalysisRuleCriteriaTypeDef]]
@@ -695,7 +691,7 @@ ArchiveRuleSummaryTypeDef = TypedDict(
     "ArchiveRuleSummaryTypeDef",
     {
         "ruleName": str,
-        "filter": Dict[str, CriterionOutputTypeDef],
+        "filter": dict[str, CriterionOutputTypeDef],
         "createdAt": datetime,
         "updatedAt": datetime,
     },
@@ -704,19 +700,19 @@ ArchiveRuleSummaryTypeDef = TypedDict(
 class CheckAccessNotGrantedResponseTypeDef(TypedDict):
     result: CheckAccessNotGrantedResultType
     message: str
-    reasons: List[ReasonSummaryTypeDef]
+    reasons: list[ReasonSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CheckNoNewAccessResponseTypeDef(TypedDict):
     result: CheckNoNewAccessResultType
     message: str
-    reasons: List[ReasonSummaryTypeDef]
+    reasons: list[ReasonSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CheckNoPublicAccessResponseTypeDef(TypedDict):
     result: CheckNoPublicAccessResultType
     message: str
-    reasons: List[ReasonSummaryTypeDef]
+    reasons: list[ReasonSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 CreateAccessPreviewResponseTypeDef = TypedDict(
@@ -739,12 +735,12 @@ class GetAnalyzedResourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAnalyzedResourcesResponseTypeDef(TypedDict):
-    analyzedResources: List[AnalyzedResourceSummaryTypeDef]
+    analyzedResources: list[AnalyzedResourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartPolicyGenerationResponseTypeDef(TypedDict):
@@ -758,7 +754,7 @@ class CloudTrailDetailsTypeDef(TypedDict):
     endTime: NotRequired[TimestampTypeDef]
 
 class CloudTrailPropertiesTypeDef(TypedDict):
-    trailProperties: List[TrailPropertiesTypeDef]
+    trailProperties: list[TrailPropertiesTypeDef]
     startTime: datetime
     endTime: datetime
 
@@ -768,7 +764,7 @@ EbsSnapshotConfigurationUnionTypeDef = Union[
 ]
 
 class ExternalAccessFindingsStatisticsTypeDef(TypedDict):
-    resourceTypeStatistics: NotRequired[Dict[ResourceTypeType, ResourceTypeDetailsTypeDef]]
+    resourceTypeStatistics: NotRequired[dict[ResourceTypeType, ResourceTypeDetailsTypeDef]]
     totalActiveFindings: NotRequired[int]
     totalArchivedFindings: NotRequired[int]
     totalResolvedFindings: NotRequired[int]
@@ -782,7 +778,7 @@ FindingSourceTypeDef = TypedDict(
 )
 
 class ListFindingsV2ResponseTypeDef(TypedDict):
-    findings: List[FindingSummaryV2TypeDef]
+    findings: list[FindingSummaryV2TypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -836,14 +832,14 @@ class ValidatePolicyRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class InternalAccessAnalysisRuleOutputTypeDef(TypedDict):
-    inclusions: NotRequired[List[InternalAccessAnalysisRuleCriteriaOutputTypeDef]]
+    inclusions: NotRequired[list[InternalAccessAnalysisRuleCriteriaOutputTypeDef]]
 
 class InternalAccessAnalysisRuleTypeDef(TypedDict):
     inclusions: NotRequired[Sequence[InternalAccessAnalysisRuleCriteriaTypeDef]]
 
 class InternalAccessFindingsStatisticsTypeDef(TypedDict):
     resourceTypeStatistics: NotRequired[
-        Dict[ResourceTypeType, InternalAccessResourceTypeDetailsTypeDef]
+        dict[ResourceTypeType, InternalAccessResourceTypeDetailsTypeDef]
     ]
     totalActiveFindings: NotRequired[int]
     totalArchivedFindings: NotRequired[int]
@@ -857,7 +853,7 @@ class JobDetailsTypeDef(TypedDict):
     jobError: NotRequired[JobErrorTypeDef]
 
 class KmsGrantConfigurationOutputTypeDef(TypedDict):
-    operations: List[KmsGrantOperationType]
+    operations: list[KmsGrantOperationType]
     granteePrincipal: str
     issuingAccount: str
     retiringPrincipal: NotRequired[str]
@@ -868,13 +864,13 @@ KmsGrantConstraintsUnionTypeDef = Union[
 ]
 
 class ListPolicyGenerationsResponseTypeDef(TypedDict):
-    policyGenerations: List[PolicyGenerationTypeDef]
+    policyGenerations: list[PolicyGenerationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class NetworkOriginConfigurationOutputTypeDef(TypedDict):
     vpcConfiguration: NotRequired[VpcConfigurationTypeDef]
-    internetConfiguration: NotRequired[Dict[str, Any]]
+    internetConfiguration: NotRequired[dict[str, Any]]
 
 class NetworkOriginConfigurationTypeDef(TypedDict):
     vpcConfiguration: NotRequired[VpcConfigurationTypeDef]
@@ -891,7 +887,7 @@ class SpanTypeDef(TypedDict):
     end: PositionTypeDef
 
 class RdsDbClusterSnapshotConfigurationOutputTypeDef(TypedDict):
-    attributes: NotRequired[Dict[str, RdsDbClusterSnapshotAttributeValueOutputTypeDef]]
+    attributes: NotRequired[dict[str, RdsDbClusterSnapshotAttributeValueOutputTypeDef]]
     kmsKeyId: NotRequired[str]
 
 RdsDbClusterSnapshotAttributeValueUnionTypeDef = Union[
@@ -899,7 +895,7 @@ RdsDbClusterSnapshotAttributeValueUnionTypeDef = Union[
 ]
 
 class RdsDbSnapshotConfigurationOutputTypeDef(TypedDict):
-    attributes: NotRequired[Dict[str, RdsDbSnapshotAttributeValueOutputTypeDef]]
+    attributes: NotRequired[dict[str, RdsDbSnapshotAttributeValueOutputTypeDef]]
     kmsKeyId: NotRequired[str]
 
 RdsDbSnapshotAttributeValueUnionTypeDef = Union[
@@ -910,19 +906,19 @@ class RecommendedStepTypeDef(TypedDict):
     unusedPermissionsRecommendedStep: NotRequired[UnusedPermissionsRecommendedStepTypeDef]
 
 class UnusedAccessFindingsStatisticsTypeDef(TypedDict):
-    unusedAccessTypeStatistics: NotRequired[List[UnusedAccessTypeStatisticsTypeDef]]
-    topAccounts: NotRequired[List[FindingAggregationAccountDetailsTypeDef]]
+    unusedAccessTypeStatistics: NotRequired[list[UnusedAccessTypeStatisticsTypeDef]]
+    topAccounts: NotRequired[list[FindingAggregationAccountDetailsTypeDef]]
     totalActiveFindings: NotRequired[int]
     totalArchivedFindings: NotRequired[int]
     totalResolvedFindings: NotRequired[int]
 
 class UnusedPermissionDetailsTypeDef(TypedDict):
     serviceNamespace: str
-    actions: NotRequired[List[UnusedActionTypeDef]]
+    actions: NotRequired[list[UnusedActionTypeDef]]
     lastAccessed: NotRequired[datetime]
 
 class ListAccessPreviewsResponseTypeDef(TypedDict):
-    accessPreviews: List[AccessPreviewSummaryTypeDef]
+    accessPreviews: list[AccessPreviewSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -939,7 +935,7 @@ class GetArchiveRuleResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListArchiveRulesResponseTypeDef(TypedDict):
-    archiveRules: List[ArchiveRuleSummaryTypeDef]
+    archiveRules: list[ArchiveRuleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1046,23 +1042,23 @@ AccessPreviewFindingTypeDef = TypedDict(
         "resourceOwnerAccount": str,
         "existingFindingId": NotRequired[str],
         "existingFindingStatus": NotRequired[FindingStatusType],
-        "principal": NotRequired[Dict[str, str]],
-        "action": NotRequired[List[str]],
-        "condition": NotRequired[Dict[str, str]],
+        "principal": NotRequired[dict[str, str]],
+        "action": NotRequired[list[str]],
+        "condition": NotRequired[dict[str, str]],
         "resource": NotRequired[str],
         "isPublic": NotRequired[bool],
         "error": NotRequired[str],
-        "sources": NotRequired[List[FindingSourceTypeDef]],
+        "sources": NotRequired[list[FindingSourceTypeDef]],
         "resourceControlPolicyRestriction": NotRequired[ResourceControlPolicyRestrictionType],
     },
 )
 
 class ExternalAccessDetailsTypeDef(TypedDict):
-    condition: Dict[str, str]
-    action: NotRequired[List[str]]
+    condition: dict[str, str]
+    action: NotRequired[list[str]]
     isPublic: NotRequired[bool]
-    principal: NotRequired[Dict[str, str]]
-    sources: NotRequired[List[FindingSourceTypeDef]]
+    principal: NotRequired[dict[str, str]]
+    sources: NotRequired[list[FindingSourceTypeDef]]
     resourceControlPolicyRestriction: NotRequired[ResourceControlPolicyRestrictionType]
 
 FindingSummaryTypeDef = TypedDict(
@@ -1070,18 +1066,18 @@ FindingSummaryTypeDef = TypedDict(
     {
         "id": str,
         "resourceType": ResourceTypeType,
-        "condition": Dict[str, str],
+        "condition": dict[str, str],
         "createdAt": datetime,
         "analyzedAt": datetime,
         "updatedAt": datetime,
         "status": FindingStatusType,
         "resourceOwnerAccount": str,
-        "principal": NotRequired[Dict[str, str]],
-        "action": NotRequired[List[str]],
+        "principal": NotRequired[dict[str, str]],
+        "action": NotRequired[list[str]],
         "resource": NotRequired[str],
         "isPublic": NotRequired[bool],
         "error": NotRequired[str],
-        "sources": NotRequired[List[FindingSourceTypeDef]],
+        "sources": NotRequired[list[FindingSourceTypeDef]],
         "resourceControlPolicyRestriction": NotRequired[ResourceControlPolicyRestrictionType],
     },
 )
@@ -1090,30 +1086,30 @@ FindingTypeDef = TypedDict(
     {
         "id": str,
         "resourceType": ResourceTypeType,
-        "condition": Dict[str, str],
+        "condition": dict[str, str],
         "createdAt": datetime,
         "analyzedAt": datetime,
         "updatedAt": datetime,
         "status": FindingStatusType,
         "resourceOwnerAccount": str,
-        "principal": NotRequired[Dict[str, str]],
-        "action": NotRequired[List[str]],
+        "principal": NotRequired[dict[str, str]],
+        "action": NotRequired[list[str]],
         "resource": NotRequired[str],
         "isPublic": NotRequired[bool],
         "error": NotRequired[str],
-        "sources": NotRequired[List[FindingSourceTypeDef]],
+        "sources": NotRequired[list[FindingSourceTypeDef]],
         "resourceControlPolicyRestriction": NotRequired[ResourceControlPolicyRestrictionType],
     },
 )
 
 class InternalAccessDetailsTypeDef(TypedDict):
-    action: NotRequired[List[str]]
-    condition: NotRequired[Dict[str, str]]
-    principal: NotRequired[Dict[str, str]]
+    action: NotRequired[list[str]]
+    condition: NotRequired[dict[str, str]]
+    principal: NotRequired[dict[str, str]]
     principalOwnerAccount: NotRequired[str]
     accessType: NotRequired[InternalAccessTypeType]
     principalType: NotRequired[PrincipalTypeType]
-    sources: NotRequired[List[FindingSourceTypeDef]]
+    sources: NotRequired[list[FindingSourceTypeDef]]
     resourceControlPolicyRestriction: NotRequired[ResourceControlPolicyRestrictionType]
     serviceControlPolicyRestriction: NotRequired[ServiceControlPolicyRestrictionType]
 
@@ -1124,8 +1120,8 @@ class InternalAccessConfigurationTypeDef(TypedDict):
     analysisRule: NotRequired[InternalAccessAnalysisRuleTypeDef]
 
 class KmsKeyConfigurationOutputTypeDef(TypedDict):
-    keyPolicies: NotRequired[Dict[str, str]]
-    grants: NotRequired[List[KmsGrantConfigurationOutputTypeDef]]
+    keyPolicies: NotRequired[dict[str, str]]
+    grants: NotRequired[list[KmsGrantConfigurationOutputTypeDef]]
 
 class KmsGrantConfigurationTypeDef(TypedDict):
     operations: Sequence[KmsGrantOperationType]
@@ -1148,7 +1144,7 @@ NetworkOriginConfigurationUnionTypeDef = Union[
 ]
 
 class LocationTypeDef(TypedDict):
-    path: List[PathElementTypeDef]
+    path: list[PathElementTypeDef]
     span: SpanTypeDef
 
 class RdsDbClusterSnapshotConfigurationTypeDef(TypedDict):
@@ -1164,7 +1160,7 @@ class GetFindingRecommendationResponseTypeDef(TypedDict):
     completedAt: datetime
     error: RecommendationErrorTypeDef
     resourceArn: str
-    recommendedSteps: List[RecommendedStepTypeDef]
+    recommendedSteps: list[RecommendedStepTypeDef]
     recommendationType: Literal["UnusedPermissionRecommendation"]
     status: StatusType
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1177,15 +1173,15 @@ class FindingsStatisticsTypeDef(TypedDict):
 
 class GeneratedPolicyResultTypeDef(TypedDict):
     properties: GeneratedPolicyPropertiesTypeDef
-    generatedPolicies: NotRequired[List[GeneratedPolicyTypeDef]]
+    generatedPolicies: NotRequired[list[GeneratedPolicyTypeDef]]
 
 class ListAccessPreviewFindingsResponseTypeDef(TypedDict):
-    findings: List[AccessPreviewFindingTypeDef]
+    findings: list[AccessPreviewFindingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListFindingsResponseTypeDef(TypedDict):
-    findings: List[FindingSummaryTypeDef]
+    findings: list[FindingSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1215,13 +1211,13 @@ KmsGrantConfigurationUnionTypeDef = Union[
 
 class S3BucketConfigurationOutputTypeDef(TypedDict):
     bucketPolicy: NotRequired[str]
-    bucketAclGrants: NotRequired[List[S3BucketAclGrantConfigurationTypeDef]]
+    bucketAclGrants: NotRequired[list[S3BucketAclGrantConfigurationTypeDef]]
     bucketPublicAccessBlock: NotRequired[S3PublicAccessBlockConfigurationTypeDef]
-    accessPoints: NotRequired[Dict[str, S3AccessPointConfigurationOutputTypeDef]]
+    accessPoints: NotRequired[dict[str, S3AccessPointConfigurationOutputTypeDef]]
 
 class S3ExpressDirectoryBucketConfigurationOutputTypeDef(TypedDict):
     bucketPolicy: NotRequired[str]
-    accessPoints: NotRequired[Dict[str, S3ExpressDirectoryAccessPointConfigurationOutputTypeDef]]
+    accessPoints: NotRequired[dict[str, S3ExpressDirectoryAccessPointConfigurationOutputTypeDef]]
 
 class S3AccessPointConfigurationTypeDef(TypedDict):
     accessPointPolicy: NotRequired[str]
@@ -1237,7 +1233,7 @@ class ValidatePolicyFindingTypeDef(TypedDict):
     findingType: ValidatePolicyFindingTypeType
     issueCode: str
     learnMoreLink: str
-    locations: List[LocationTypeDef]
+    locations: list[LocationTypeDef]
 
 RdsDbClusterSnapshotConfigurationUnionTypeDef = Union[
     RdsDbClusterSnapshotConfigurationTypeDef, RdsDbClusterSnapshotConfigurationOutputTypeDef
@@ -1247,7 +1243,7 @@ RdsDbSnapshotConfigurationUnionTypeDef = Union[
 ]
 
 class GetFindingsStatisticsResponseTypeDef(TypedDict):
-    findingsStatistics: List[FindingsStatisticsTypeDef]
+    findingsStatistics: list[FindingsStatisticsTypeDef]
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1268,7 +1264,7 @@ GetFindingV2ResponseTypeDef = TypedDict(
         "resourceOwnerAccount": str,
         "status": FindingStatusType,
         "updatedAt": datetime,
-        "findingDetails": List[FindingDetailsTypeDef],
+        "findingDetails": list[FindingDetailsTypeDef],
         "findingType": FindingTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
         "nextToken": NotRequired[str],
@@ -1284,7 +1280,7 @@ AnalyzerSummaryTypeDef = TypedDict(
         "status": AnalyzerStatusType,
         "lastResourceAnalyzed": NotRequired[str],
         "lastResourceAnalyzedAt": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "statusReason": NotRequired[StatusReasonTypeDef],
         "configuration": NotRequired[AnalyzerConfigurationOutputTypeDef],
     },
@@ -1327,7 +1323,7 @@ S3ExpressDirectoryAccessPointConfigurationUnionTypeDef = Union[
 ]
 
 class ValidatePolicyResponseTypeDef(TypedDict):
-    findings: List[ValidatePolicyFindingTypeDef]
+    findings: list[ValidatePolicyFindingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1336,7 +1332,7 @@ class GetAnalyzerResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAnalyzersResponseTypeDef(TypedDict):
-    analyzers: List[AnalyzerSummaryTypeDef]
+    analyzers: list[AnalyzerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1364,7 +1360,7 @@ AccessPreviewTypeDef = TypedDict(
     {
         "id": str,
         "analyzerArn": str,
-        "configurations": Dict[str, ConfigurationOutputTypeDef],
+        "configurations": dict[str, ConfigurationOutputTypeDef],
         "createdAt": datetime,
         "status": AccessPreviewStatusType,
         "statusReason": NotRequired[AccessPreviewStatusReasonTypeDef],

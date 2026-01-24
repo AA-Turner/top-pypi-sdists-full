@@ -8,6 +8,14 @@ from .tasks import (
     TasksResourceWithStreamingResponse,
     AsyncTasksResourceWithStreamingResponse,
 )
+from .uploads import (
+    UploadsResource,
+    AsyncUploadsResource,
+    UploadsResourceWithRawResponse,
+    AsyncUploadsResourceWithRawResponse,
+    UploadsResourceWithStreamingResponse,
+    AsyncUploadsResourceWithStreamingResponse,
+)
 from .organization import (
     OrganizationResource,
     AsyncOrganizationResource,
@@ -15,6 +23,14 @@ from .organization import (
     AsyncOrganizationResourceWithRawResponse,
     OrganizationResourceWithStreamingResponse,
     AsyncOrganizationResourceWithStreamingResponse,
+)
+from .sound_effect import (
+    SoundEffectResource,
+    AsyncSoundEffectResource,
+    SoundEffectResourceWithRawResponse,
+    AsyncSoundEffectResourceWithRawResponse,
+    SoundEffectResourceWithStreamingResponse,
+    AsyncSoundEffectResourceWithStreamingResponse,
 )
 from .text_to_image import (
     TextToImageResource,
@@ -32,13 +48,13 @@ from .text_to_video import (
     TextToVideoResourceWithStreamingResponse,
     AsyncTextToVideoResourceWithStreamingResponse,
 )
-from .video_upscale import (
-    VideoUpscaleResource,
-    AsyncVideoUpscaleResource,
-    VideoUpscaleResourceWithRawResponse,
-    AsyncVideoUpscaleResourceWithRawResponse,
-    VideoUpscaleResourceWithStreamingResponse,
-    AsyncVideoUpscaleResourceWithStreamingResponse,
+from .voice_dubbing import (
+    VoiceDubbingResource,
+    AsyncVoiceDubbingResource,
+    VoiceDubbingResourceWithRawResponse,
+    AsyncVoiceDubbingResourceWithRawResponse,
+    VoiceDubbingResourceWithStreamingResponse,
+    AsyncVoiceDubbingResourceWithStreamingResponse,
 )
 from .image_to_video import (
     ImageToVideoResource,
@@ -63,6 +79,22 @@ from .video_to_video import (
     AsyncVideoToVideoResourceWithRawResponse,
     VideoToVideoResourceWithStreamingResponse,
     AsyncVideoToVideoResourceWithStreamingResponse,
+)
+from .voice_isolation import (
+    VoiceIsolationResource,
+    AsyncVoiceIsolationResource,
+    VoiceIsolationResourceWithRawResponse,
+    AsyncVoiceIsolationResourceWithRawResponse,
+    VoiceIsolationResourceWithStreamingResponse,
+    AsyncVoiceIsolationResourceWithStreamingResponse,
+)
+from .speech_to_speech import (
+    SpeechToSpeechResource,
+    AsyncSpeechToSpeechResource,
+    SpeechToSpeechResourceWithRawResponse,
+    AsyncSpeechToSpeechResourceWithRawResponse,
+    SpeechToSpeechResourceWithStreamingResponse,
+    AsyncSpeechToSpeechResourceWithStreamingResponse,
 )
 from .character_performance import (
     CharacterPerformanceResource,
@@ -104,12 +136,6 @@ __all__ = [
     "AsyncTextToImageResourceWithRawResponse",
     "TextToImageResourceWithStreamingResponse",
     "AsyncTextToImageResourceWithStreamingResponse",
-    "VideoUpscaleResource",
-    "AsyncVideoUpscaleResource",
-    "VideoUpscaleResourceWithRawResponse",
-    "AsyncVideoUpscaleResourceWithRawResponse",
-    "VideoUpscaleResourceWithStreamingResponse",
-    "AsyncVideoUpscaleResourceWithStreamingResponse",
     "CharacterPerformanceResource",
     "AsyncCharacterPerformanceResource",
     "CharacterPerformanceResourceWithRawResponse",
@@ -122,10 +148,40 @@ __all__ = [
     "AsyncTextToSpeechResourceWithRawResponse",
     "TextToSpeechResourceWithStreamingResponse",
     "AsyncTextToSpeechResourceWithStreamingResponse",
+    "SoundEffectResource",
+    "AsyncSoundEffectResource",
+    "SoundEffectResourceWithRawResponse",
+    "AsyncSoundEffectResourceWithRawResponse",
+    "SoundEffectResourceWithStreamingResponse",
+    "AsyncSoundEffectResourceWithStreamingResponse",
+    "VoiceIsolationResource",
+    "AsyncVoiceIsolationResource",
+    "VoiceIsolationResourceWithRawResponse",
+    "AsyncVoiceIsolationResourceWithRawResponse",
+    "VoiceIsolationResourceWithStreamingResponse",
+    "AsyncVoiceIsolationResourceWithStreamingResponse",
+    "VoiceDubbingResource",
+    "AsyncVoiceDubbingResource",
+    "VoiceDubbingResourceWithRawResponse",
+    "AsyncVoiceDubbingResourceWithRawResponse",
+    "VoiceDubbingResourceWithStreamingResponse",
+    "AsyncVoiceDubbingResourceWithStreamingResponse",
+    "SpeechToSpeechResource",
+    "AsyncSpeechToSpeechResource",
+    "SpeechToSpeechResourceWithRawResponse",
+    "AsyncSpeechToSpeechResourceWithRawResponse",
+    "SpeechToSpeechResourceWithStreamingResponse",
+    "AsyncSpeechToSpeechResourceWithStreamingResponse",
     "OrganizationResource",
     "AsyncOrganizationResource",
     "OrganizationResourceWithRawResponse",
     "AsyncOrganizationResourceWithRawResponse",
     "OrganizationResourceWithStreamingResponse",
     "AsyncOrganizationResourceWithStreamingResponse",
+    "UploadsResource",
+    "AsyncUploadsResource",
+    "UploadsResourceWithRawResponse",
+    "AsyncUploadsResourceWithRawResponse",
+    "UploadsResourceWithStreamingResponse",
+    "AsyncUploadsResourceWithStreamingResponse",
 ]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-tools-mcp
-Version: 0.4.1
+Version: 0.4.5
 Summary: llama-index tools mcp integration
 Author: Sebastian Kalisz
 Author-email: Chojan Shang <psiace@outlook.com>
@@ -10,7 +10,7 @@ License-File: LICENSE
 Keywords: mcp,tools
 Requires-Python: <4.0,>=3.10
 Requires-Dist: llama-index-core<0.15,>=0.13.0
-Requires-Dist: mcp<2,>=1.9.1
+Requires-Dist: mcp<2,>=1.24.0
 Requires-Dist: pydantic<3,>=2.0.0
 Description-Content-Type: text/markdown
 
@@ -239,6 +239,32 @@ client = BasicMCPClient.with_oauth(
     redirect_handler=lambda url: print(f"Please visit: {url}"),
     callback_handler=lambda: (input("Enter the code: "), None),
     token_storage=FileTokenStorage("tokens.json"),
+)
+```
+
+### Use a custom HTTP Client
+
+The MCP Client can use a custom `httpx.AsyncClient` instance.
+This feature is only available for Streamable HTTP transport.
+
+```python
+httpx_async_client = AsyncClient(
+    # to avoid self-signed certificates failures
+    verify=false
+)
+
+client = BasicMCPClient(
+    url="https://example.com/mcp", http_client=httpx_async_client
+)
+client_with_oauth = BasicMCPClient.with_oauth(
+    "https://api.example.com/mcp",
+    client_name="My App",
+    redirect_uris=["http://localhost:3000/callback"],
+    # Function to handle the redirect URL (e.g., open a browser)
+    redirect_handler=lambda url: print(f"Please visit: {url}"),
+    # Function to get the authorization code from the user
+    callback_handler=lambda: (input("Enter the code: "), None),
+    http_client=httpx_async_client,
 )
 ```
 

@@ -35,17 +35,17 @@ class RetType(_Enum):
         :param returns: Ast node or None.
         :return: Constructed return type.
         """
-        if isinstance(returns, _ast.Const) and returns.value is None:
+        if isinstance(returns, _ast.nodes.Const) and returns.value is None:
             return cls.NONE
 
         if isinstance(
             returns,
             (
-                _ast.Const,
-                _ast.Name,
-                _ast.Attribute,
-                _ast.Subscript,
-                _ast.BinOp,
+                _ast.nodes.Const,
+                _ast.nodes.Name,
+                _ast.nodes.Attribute,
+                _ast.nodes.Subscript,
+                _ast.nodes.BinOp,
             ),
         ):
             return cls.SOME
@@ -77,8 +77,8 @@ class DocType(_Enum):
         return cls.UNKNOWN
 
 
-#: todo: consider a parent object that can be used for returns that do
-#: todo: not include the name attribute
+# todo: consider a parent object that can be used for returns that do
+# todo: not include the name attribute
 class Param:
     """A tuple of param types and their names.
 
@@ -118,7 +118,7 @@ class Param:
 
     @property
     def isprotected(self) -> bool:
-        """Boolean value for whether parameter is protected."""
+        """Boolean value for whether this parameter is protected."""
         return str(self.name).startswith("_")
 
 
@@ -152,7 +152,7 @@ class _Params(_t.List[Param]):
     def get(self, index: int) -> Param:
         """Get a param.
 
-        If the index does not exist return a `Param` with None as
+        If the index does not exist, return a `Param` with None as
         `Param.name`.
 
         :param index: Index of param to get.
@@ -249,6 +249,7 @@ class Signature(_Stub):
         rettype = RetType.from_ast(node.returns)
         returns = rettype == RetType.SOME
         signature = cls(rettype, returns, ignore_args, ignore_kwargs)
+        # noinspection PyUnresolvedReferences
         for i in [
             a if isinstance(a, Param) else Param(name=a.name)
             for a in [
@@ -268,15 +269,15 @@ class Signature(_Stub):
     def rettype(self) -> RetType:
         """Function's return value.
 
-        If a function is typed to return None, return str(None). If no
-        typehint exists then return None (NoneType).
+        If a function is typed to return None, return `str(None)`. If no
+        typehint exists, then return None (NoneType).
         """
         return self._rettype
 
     def overload(self, rettype: RetType) -> None:
-        """Overload signature with a ret type.
+        """Overload signature with a return-type.
 
-        :param rettype: Return type of overloaded signature.
+        :param rettype: Return-type of overloaded signature.
         """
         self._rettype = rettype
         self._returns = rettype != RetType.NONE
@@ -293,7 +294,7 @@ class Docstring(_Stub):
 
     @staticmethod
     def _indent_anomaly(string: str) -> bool:
-        # strip double dot directives from docstring which can be
+        # strip double dot directives from docstring, which can be
         # indented arbitrarily
         string = _re.sub(
             r"^[ \t]*\.\..*\n(?:[ \t]+.*\n)*",
@@ -315,7 +316,7 @@ class Docstring(_Stub):
 
     @staticmethod
     def _normalize_docstring(string: str) -> str:
-        # convert google and numpy style docstrings to parse docstrings
+        # convert Google and numpy style docstrings to parse docstrings
         # as restructured text
         return str(
             _s.NumpyDocstring(
@@ -344,7 +345,7 @@ class Docstring(_Stub):
     def from_ast(cls, node: _ast.Const) -> Docstring:
         """Parse function docstring from ast.
 
-        :param node: Docstring ast node.
+        :param node: Docstring AST node.
         :return: Instantiated docstring object.
         """
         indent_anomaly = cls._indent_anomaly(node.value)
@@ -396,5 +397,5 @@ class Docstring(_Stub):
 
     @property
     def ret_description_missing(self) -> bool:
-        """Is return description missing?"""
+        """Is the return description missing?"""
         return self._ret_description_missing

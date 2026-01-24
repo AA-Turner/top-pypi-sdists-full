@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysmi
-Version: 1.6.2
+Version: 1.6.3
 Summary: A pure-Python implementation of SNMP/SMI MIB parsing and conversion library.
 Author-email: Ilya Etingof <etingof@gmail.com>, "LeXtudio Inc." <support@lextudio.com>
 Requires-Python: >=3.9
@@ -79,6 +79,6 @@ If something does not work as expected,
 [open an issue](https://github.com/lextudio/pysnmp/issues) at GitHub.
 
 Copyright (c) 2015-2020, [Ilya Etingof](mailto:etingof@gmail.com).
-Copyright (c) 2022-2025, [LeXtudio Inc.](mailto:support@lextudio.com).
+Copyright (c) 2022-2026, [LeXtudio Inc.](mailto:support@lextudio.com).
 All rights reserved.
 

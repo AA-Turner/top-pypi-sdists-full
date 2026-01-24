@@ -5,7 +5,6 @@
 
 # Recipe for uploading buildstats results to Perf.
 
-PYTHON_VERSION_COMPATIBILITY = "PY3"
 
 DEPS = [
   'recipe_engine/context',
@@ -23,7 +22,7 @@ def RunSteps(api):
   api.vars.setup()
 
   now = api.time.utcnow()
-  src_path = api.path['start_dir'].join('perf')
+  src_path = api.path.start_dir.joinpath('perf')
   with api.context(cwd=src_path):
     results = api.file.glob_paths(
         'find results',
@@ -55,7 +54,7 @@ def RunSteps(api):
 
 
 def GenTests(api):
-  builder = 'BuildStats-Debian10-EMCC-wasm-Release-PathKit'
+  builder = 'BuildStats-Ubuntu24.04-Clang-x86_64-Release'
   yield (
     api.test('normal_bot') +
     api.properties(buildername=builder,

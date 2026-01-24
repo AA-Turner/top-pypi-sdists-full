@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: codeflash-benchmark
+Version: 0.2.0
+Summary: Pytest benchmarking plugin for codeflash.ai - automatic code performance optimization
+Author-email: "CodeFlash Inc." <contact@codeflash.ai>
+License: BSL-1.1
+Project-URL: Homepage, https://codeflash.ai
+Project-URL: Repository, https://github.com/codeflash-ai/codeflash-benchmark
+Keywords: codeflash,benchmark,pytest,performance,testing
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: pytest!=8.3.4,>=7.0.0

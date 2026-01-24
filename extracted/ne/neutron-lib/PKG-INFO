@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: neutron-lib
-Version: 3.21.1
+Version: 3.23.0
 Summary: Neutron shared routines and utilities
 Home-page: https://docs.openstack.org/neutron-lib/latest/
 Author: OpenStack
@@ -23,7 +23,7 @@ Requires-Dist: SQLAlchemy>=1.2.0
 Requires-Dist: pecan>=1.0.0
 Requires-Dist: keystoneauth1>=3.14.0
 Requires-Dist: netaddr>=0.7.18
-Requires-Dist: stevedore>=1.20.0
+Requires-Dist: stevedore>=5.6.0
 Requires-Dist: os-ken>=0.3.0
 Requires-Dist: oslo.concurrency>=3.26.0
 Requires-Dist: oslo.config>=8.0.0
@@ -42,6 +42,15 @@ Requires-Dist: setproctitle>=1.1.10
 Requires-Dist: WebOb>=1.7.1
 Requires-Dist: os-traits>=0.9.0
 Requires-Dist: debtcollector>=3.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===========
 neutron-lib

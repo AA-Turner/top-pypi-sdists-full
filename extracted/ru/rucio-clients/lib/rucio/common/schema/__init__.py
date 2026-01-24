@@ -24,6 +24,8 @@ from jsonschema import ValidationError, validate
 from rucio.common import config, exception
 from rucio.common.constants import DEFAULT_VO
 from rucio.common.plugins import check_policy_module_version
+from rucio.db.sqla.constants import DatabaseOperationType
+from rucio.db.sqla.session import db_session
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -67,8 +69,18 @@ if not _is_multivo():
         package_module = importlib.import_module(policy)
         check_policy_module_version(package_module)
         policy = policy + ".schema"
-    except (NoOptionError, NoSectionError, ModuleNotFoundError):
+    except (NoOptionError, NoSectionError):
         policy = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+    except ModuleNotFoundError:
+        if config.is_client():
+            # policy package may not be required/installed on client, but client may
+            # share config file with server, so only a warning for this case
+            LOGGER.warning('Unable to find policy package %s' % policy)
+            policy = 'rucio.common.schema.' + GENERIC_FALLBACK.lower()
+        else:
+            raise exception.PolicyPackageNotFound(policy)
+    except ImportError:
+        raise exception.ErrorLoadingPolicyPackage(policy)
 
     try:
         module = importlib.import_module(policy)
@@ -103,8 +115,16 @@ def load_schema_for_vo(vo: str) -> None:
         package_module = importlib.import_module(policy)
         check_policy_module_version(package_module)
         policy = policy + ".schema"
-    except (NoOptionError, NoSectionError, ModuleNotFoundError):
+    except (NoOptionError, NoSectionError):
         policy = 'rucio.common.schema.' + generic_fallback.lower()
+    except ModuleNotFoundError:
+        if config.is_client():
+            LOGGER.warning('Unable to find policy package %s' % policy)
+            policy = 'rucio.common.schema.' + generic_fallback.lower()
+        else:
+            raise exception.PolicyPackageNotFound(policy)
+    except ImportError:
+        raise exception.ErrorLoadingPolicyPackage(policy)
 
     try:
         module = importlib.import_module(policy)
@@ -137,7 +157,7 @@ def validate_schema(name: str, obj: Any, vo: str = DEFAULT_VO) -> None:
             schema = _get_generic_schema_module().SCHEMAS.get(name, {})
         try:
             validate(obj, schema)
-        except ValidationError as error:  # NOQA: F841
+        except ValidationError as error:
             raise exception.InvalidObject(f'Problem validating {name}: {error}')
 
 
@@ -155,7 +175,8 @@ def get_scope_name_regexps() -> list[str]:
     if len(scope_name_regexps) == 0:
         # load schemas for all VOs here and add unique scope_name_regexps to list
         from rucio.core.vo import list_vos
-        vos = list_vos()
+        with db_session(DatabaseOperationType.READ) as session:
+            vos = list_vos(session=session)
         for vo in vos:
             if vo['vo'] not in schema_modules:
                 load_schema_for_vo(vo['vo'])

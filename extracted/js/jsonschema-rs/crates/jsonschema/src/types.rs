@@ -1,3 +1,8 @@
+//! JSON type representations for schema validation.
+//!
+//! Provides [`JsonType`] for individual types and [`JsonTypeSet`] for efficient
+//! bitset-based type checking in validation hot paths.
+
 use core::fmt;
 use std::str::FromStr;
 
@@ -112,6 +117,25 @@ impl JsonTypeSet {
         self.0 |= ty as u8;
         self
     }
+    /// Remove a type from this set and return the modified set.
+    #[inline]
+    #[must_use]
+    pub const fn remove(mut self, ty: JsonType) -> Self {
+        self.0 &= !(ty as u8);
+        self
+    }
+    /// Return the number of types in this set.
+    #[inline]
+    #[must_use]
+    pub const fn len(self) -> usize {
+        self.0.count_ones() as usize
+    }
+    /// Return `true` if the set contains no types.
+    #[inline]
+    #[must_use]
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
     /// Check if this set includes the specified type.
     #[inline]
     #[must_use]
@@ -126,12 +150,52 @@ impl JsonTypeSet {
             Value::Bool(_) => self.contains(JsonType::Boolean),
             Value::Null => self.contains(JsonType::Null),
             Value::Number(n) => {
-                if n.is_i64() || n.is_u64() {
-                    // Integer numbers match either Integer or Number types
-                    self.contains(JsonType::Integer) || self.contains(JsonType::Number)
-                } else {
-                    // Floating-point numbers only match Number type
-                    self.contains(JsonType::Number)
+                #[cfg(feature = "arbitrary-precision")]
+                {
+                    use crate::ext::numeric::bignum;
+                    use num_traits::One;
+
+                    // Check if the number is an integer using the same logic as is_integer()
+                    // Important: Check BigFraction BEFORE as_f64() to avoid precision loss
+                    let is_integer = n.is_i64() || n.is_u64() || {
+                        // Check huge plain integers first
+                        if bignum::try_parse_bigint(n).is_some() {
+                            true
+                        } else if let Some(bigfrac) = bignum::try_parse_bigfraction(n) {
+                            // Check if denominator is 1 (integer value)
+                            bigfrac.denom().is_none_or(One::is_one)
+                        } else if let Some(f) = n.as_f64() {
+                            // For numbers in f64 range
+                            f.fract() == 0.
+                        } else {
+                            // Numbers that overflow to infinity (as_f64() returns None)
+                            false
+                        }
+                    };
+                    if is_integer {
+                        self.contains(JsonType::Integer) || self.contains(JsonType::Number)
+                    } else {
+                        self.contains(JsonType::Number)
+                    }
+                }
+                #[cfg(not(feature = "arbitrary-precision"))]
+                {
+                    let is_integer = if n.is_i64() || n.is_u64() {
+                        true
+                    } else if let Some(f) = n.as_f64() {
+                        f.fract() == 0.
+                    } else {
+                        unreachable!(
+                            "Numbers always fit in u64/i64/f64 without arbitrary-precision"
+                        )
+                    };
+                    if is_integer {
+                        // Integer numbers match either Integer or Number types
+                        self.contains(JsonType::Integer) || self.contains(JsonType::Number)
+                    } else {
+                        // Floating-point numbers only match Number type
+                        self.contains(JsonType::Number)
+                    }
                 }
             }
             Value::Object(_) => self.contains(JsonType::Object),
@@ -143,6 +207,23 @@ impl JsonTypeSet {
     #[must_use]
     pub fn iter(&self) -> JsonTypeSetIterator {
         JsonTypeSetIterator { set: *self }
+    }
+}
+
+impl IntoIterator for &JsonTypeSet {
+    type Item = JsonType;
+    type IntoIter = JsonTypeSetIterator;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl IntoIterator for JsonTypeSet {
+    type Item = JsonType;
+    type IntoIter = JsonTypeSetIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        JsonTypeSetIterator { set: self }
     }
 }
 
@@ -178,7 +259,7 @@ impl Iterator for JsonTypeSetIterator {
             None
         } else {
             // Find the least significant bit that is set
-            let lsb = self.set.0 & -(self.set.0 as i8) as u8;
+            let lsb = self.set.0 & self.set.0.wrapping_neg();
 
             // Clear the least significant bit
             self.set.0 &= self.set.0 - 1;
@@ -193,12 +274,6 @@ impl Iterator for JsonTypeSetIterator {
 }
 
 impl ExactSizeIterator for JsonTypeSetIterator {}
-
-#[deprecated(since = "0.30.0", note = "Use `jsonschema::JsonType` instead.")]
-pub type PrimitiveType = JsonType;
-
-#[deprecated(since = "0.30.0", note = "Use `jsonschema::JsonTypeSet` instead.")]
-pub type PrimitiveTypesBitMap = JsonTypeSet;
 
 #[cfg(test)]
 mod tests {
@@ -264,6 +339,29 @@ mod tests {
     #[test_case(&json!(1.23), JsonTypeSet::empty().insert(JsonType::Integer) => false ; "float doesn't match integer")]
     fn test_contains_value_type(value: &Value, set: JsonTypeSet) -> bool {
         set.contains_value_type(value)
+    }
+
+    #[test]
+    fn test_remove_types() {
+        let set = JsonTypeSet::all().remove(JsonType::Number);
+        assert!(!set.contains(JsonType::Number));
+        assert!(set.contains(JsonType::Integer));
+        assert_eq!(set.len(), 6);
+
+        let empty = JsonTypeSet::empty();
+        assert_eq!(empty.remove(JsonType::Boolean), empty);
+    }
+
+    #[test]
+    fn test_len() {
+        let empty = JsonTypeSet::empty();
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+
+        let with_string = empty.insert(JsonType::String);
+        assert!(!with_string.is_empty());
+        assert_eq!(with_string.len(), 1);
+        assert_eq!(JsonTypeSet::all().len(), 7);
     }
 
     #[test]

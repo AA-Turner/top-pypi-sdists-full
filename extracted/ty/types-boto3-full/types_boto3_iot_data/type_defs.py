@@ -3,7 +3,7 @@ Type annotations for iot-data service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iot_data/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -23,11 +23,6 @@ from botocore.response import StreamingBody
 
 from .literals import PayloadFormatIndicatorType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -74,7 +69,7 @@ class DeleteThingShadowRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -155,7 +150,7 @@ class GetThingShadowResponseTypeDef(TypedDict):
 
 
 class ListNamedShadowsForThingResponseTypeDef(TypedDict):
-    results: List[str]
+    results: list[str]
     timestamp: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -171,6 +166,6 @@ class ListRetainedMessagesRequestPaginateTypeDef(TypedDict):
 
 
 class ListRetainedMessagesResponseTypeDef(TypedDict):
-    retainedTopics: List[RetainedMessageSummaryTypeDef]
+    retainedTopics: list[RetainedMessageSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

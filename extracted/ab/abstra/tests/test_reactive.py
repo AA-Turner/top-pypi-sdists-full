@@ -1,6 +1,6 @@
-from collections import deque
-
-import simplejson
+import time
+from multiprocessing import Pipe
+from uuid import uuid4
 
 from abstra.forms import Page
 from abstra_internals.controllers.execution.execution_client_form import FormClient
@@ -8,22 +8,8 @@ from abstra_internals.controllers.sdk.sdk_context import SDKContext
 from abstra_internals.entities.execution import Execution
 from abstra_internals.entities.execution_context import FormContext, Request
 from abstra_internals.interface.sdk.forms.deprecated.reactive_func import reactive
+from abstra_internals.utils.websockets import MockWS, bind_ws_with_connection
 from tests.fixtures import BaseTest
-
-
-class MockWS:
-    def __init__(self):
-        self.browser_messages = deque([])
-        self.python_messages = deque([])
-
-    def send(self, python_message):
-        self.python_messages.append(simplejson.loads(python_message))
-
-    def receive(self):
-        return simplejson.dumps(self.browser_messages.popleft())
-
-    def add_browser_message(self, message):
-        self.browser_messages.append(message)
 
 
 class TestReactive(BaseTest):
@@ -34,15 +20,16 @@ class TestReactive(BaseTest):
         context = FormContext(
             request=Request(body="", query_params={}, headers={}, method="GET"),
         )
-
+        self.parent_conn, self.child_conn = Pipe()
+        bind_ws_with_connection(self.mock_ws, self.parent_conn, block=False)
         self.form_client = FormClient(
-            context=context,
-            production_mode=False,
-            ws=self.mock_ws,  # type: ignore
+            context=context, production_mode=False, conn=self.child_conn
         )
         execution = Execution.create(
+            id=uuid4().__str__(),
             context=context,
-            stage_id="mock_stage_id",
+            stage_id="mock-stage-id",
+            worker_id="mock-worker-id",
         )
         self.context = SDKContext(
             execution, self.form_client, self.repositories
@@ -50,6 +37,17 @@ class TestReactive(BaseTest):
 
     def tearDown(self) -> None:
         self.context.__exit__(None, None, None)
+        self.mock_ws.close()
+        try:
+            self.parent_conn.close()
+        except Exception:
+            pass
+        try:
+            self.child_conn.close()
+        except Exception:
+            pass
+
+        time.sleep(0.1)
         super().tearDown()
 
     def test_rendering_with_static_part_initial_value(self):
@@ -61,6 +59,13 @@ class TestReactive(BaseTest):
             return Page().read("b", initial_value=partial.get("a"))
 
         ans = Page().read("a", initial_value="x").reactive(render).run()
+
+        # Wait for async message delivery (messages are sent through threads)
+        timeout = 1.0
+        elapsed = 0.0
+        while len(self.mock_ws.python_messages) < 1 and elapsed < timeout:
+            time.sleep(0.01)
+            elapsed += 0.01
 
         # Checking python sent message
         self.assertEqual(len(self.mock_ws.python_messages), 1)

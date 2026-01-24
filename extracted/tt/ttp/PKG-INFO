@@ -1,58 +1,49 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ttp
-Version: 0.9.5
+Version: 0.10.0
 Summary: Template Text Parser
-Home-page: https://github.com/dmulyalin/ttp
 License: MIT
+License-File: LICENSE
 Keywords: Parsing,TTP,regex
 Author: Denis Mulyalin
 Author-email: d.mulyalin@gmail.com
 Maintainer: Denis Mulyalin
 Maintainer-email: d.mulyalin@gmail.com
-Requires-Python: >=2.7,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Utilities
 Provides-Extra: docs
 Provides-Extra: full
-Requires-Dist: Sphinx (==4.3.0) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: cerberus (>=1.3.0,<1.4.0) ; (python_version >= "3.7") and (extra == "full")
-Requires-Dist: deepdiff (>=5.8.0,<5.9.0) ; (python_version >= "3.7") and (extra == "full")
-Requires-Dist: jinja2 (>=3.0.0,<3.1.0) ; (python_version >= "3.7") and (extra == "full")
-Requires-Dist: n2g (>=0.2.0,<0.3.0) ; (python_version >= "3.7") and (extra == "full")
-Requires-Dist: openpyxl (>=3.0.0,<3.1.0) ; (python_version >= "3.7") and (extra == "full")
-Requires-Dist: pyyaml (==6.0) ; (python_version >= "3.7") and (extra == "full")
-Requires-Dist: readthedocs-sphinx-search (==0.1.1) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: sphinx_rtd_theme (==1.0.0) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: sphinxcontrib-applehelp (==1.0.1) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: sphinxcontrib-devhelp (==1.0.1) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: sphinxcontrib-htmlhelp (==2.0.0) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: sphinxcontrib-jsmath (==1.0.1) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: sphinxcontrib-napoleon (==0.7) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: sphinxcontrib-qthelp (==1.0.2) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: sphinxcontrib-serializinghtml (==1.1.5) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: sphinxcontrib-spelling (==7.2.1) ; (python_version >= "3.7") and (extra == "docs")
-Requires-Dist: tabulate (>=0.8.0,<0.9.0) ; (python_version >= "3.7") and (extra == "full")
-Requires-Dist: ttp_templates (<1.0.0) ; (python_version >= "3.7") and (extra == "full")
-Requires-Dist: yangson (>=1.4.0,<1.5.0) ; (python_version >= "3.7") and (extra == "full")
+Requires-Dist: Sphinx (==8.2.*) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: cerberus (==1.3.*) ; (python_version >= "3.9") and (extra == "full")
+Requires-Dist: deepdiff (==8.6.*) ; (python_version >= "3.9") and (extra == "full")
+Requires-Dist: jinja2 (==3.1.*) ; (python_version >= "3.9") and (extra == "full")
+Requires-Dist: n2g (==0.3.*) ; (python_version >= "3.9") and (extra == "full")
+Requires-Dist: openpyxl (==3.0.*) ; (python_version >= "3.9") and (extra == "full")
+Requires-Dist: pyyaml (==6.0.3) ; (python_version >= "3.9") and (extra == "full")
+Requires-Dist: readthedocs-sphinx-search (==0.3.*) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: sphinx_rtd_theme (==3.0.*) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: sphinxcontrib-applehelp (==2.0.*) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: sphinxcontrib-devhelp (==2.0.*) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: sphinxcontrib-htmlhelp (==2.1.*) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: sphinxcontrib-jsmath (==1.0.*) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: sphinxcontrib-napoleon (==0.7) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: sphinxcontrib-qthelp (==2.0.*) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: sphinxcontrib-serializinghtml (==2.0.*) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: sphinxcontrib-spelling (==8.0.*) ; (python_version >= "3.11") and (extra == "docs")
+Requires-Dist: tabulate (==0.9.*) ; (python_version >= "3.9") and (extra == "full")
+Requires-Dist: ttp_templates (==0.*) ; (python_version >= "3.9") and (extra == "full")
+Requires-Dist: yangson (==1.6.*) ; (python_version >= "3.9") and (extra == "full")
 Project-URL: Documentation, https://ttp.readthedocs.io/
+Project-URL: Homepage, https://github.com/dmulyalin/ttp
 Project-URL: Repository, https://github.com/dmulyalin/ttp
 Description-Content-Type: text/markdown
 
@@ -240,12 +231,14 @@ parser.parse()
 </details>
 
 # Contributions
-Feel free to submit an issue, report a bug or ask a question, feature requests are welcomed. Or [buy](https://paypal.me/dmulyalin) Author a coffee
 
-# Additional resources
+Feel free to submit an issue, report a bug or ask a question, feature requests are welcomed.
 
-List of additional resources:
+# Community Contributions
 
-- Sandbox to test TTP templates - http://textfsm.nornir.tech/ by [tbotnz](https://github.com/tbotnz)
-- Videos on TTP - https://pynet.twb-tech.com/videos/ttp/ttp.html by [Kirk Byers](https://github.com/ktbyers)
+List of community resources:
+
+- [Sandbox to test TTP templates](http://textfsm.nornir.tech/) by [tbotnz](https://github.com/tbotnz)
+- [TTP Video Tutorials](https://pynet.twb-tech.com/videos/ttp/ttp.html) by [Kirk Byers](https://github.com/ktbyers)
+- [TTP Standalone editor](https://github.com/roc-ops/TTP-Editor) by [roc-ops](https://github.com/roc-ops), [Online Sandbox to test it](https://roc-ops.github.io/TTP-Editor/)
 

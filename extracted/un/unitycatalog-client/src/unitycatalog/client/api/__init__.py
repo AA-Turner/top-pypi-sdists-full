@@ -3,6 +3,7 @@
 # import apis into api package
 from unitycatalog.client.api.catalogs_api import CatalogsApi
 from unitycatalog.client.api.credentials_api import CredentialsApi
+from unitycatalog.client.api.delta_commits_api import DeltaCommitsApi
 from unitycatalog.client.api.external_locations_api import ExternalLocationsApi
 from unitycatalog.client.api.functions_api import FunctionsApi
 from unitycatalog.client.api.grants_api import GrantsApi

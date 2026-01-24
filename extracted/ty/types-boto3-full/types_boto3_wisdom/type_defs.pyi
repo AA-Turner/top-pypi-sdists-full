@@ -3,7 +3,7 @@ Type annotations for wisdom service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_wisdom/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -35,12 +36,6 @@ from .literals import (
     RelevanceLevelType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -188,7 +183,7 @@ __all__ = (
 
 class AppIntegrationsConfigurationOutputTypeDef(TypedDict):
     appIntegrationArn: str
-    objectFields: NotRequired[List[str]]
+    objectFields: NotRequired[list[str]]
 
 class AppIntegrationsConfigurationTypeDef(TypedDict):
     appIntegrationArn: str
@@ -216,7 +211,7 @@ class ContentDataTypeDef(TypedDict):
     contentType: str
     knowledgeBaseArn: str
     knowledgeBaseId: str
-    metadata: Dict[str, str]
+    metadata: dict[str, str]
     name: str
     revisionId: str
     status: ContentStatusType
@@ -224,7 +219,7 @@ class ContentDataTypeDef(TypedDict):
     url: str
     urlExpiry: datetime
     linkOutUri: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class ContentReferenceTypeDef(TypedDict):
     contentArn: NotRequired[str]
@@ -238,17 +233,17 @@ class ContentSummaryTypeDef(TypedDict):
     contentType: str
     knowledgeBaseArn: str
     knowledgeBaseId: str
-    metadata: Dict[str, str]
+    metadata: dict[str, str]
     name: str
     revisionId: str
     status: ContentStatusType
     title: str
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -348,7 +343,7 @@ class GetSessionRequestTypeDef(TypedDict):
 
 class GroupingConfigurationOutputTypeDef(TypedDict):
     criteria: NotRequired[str]
-    values: NotRequired[List[str]]
+    values: NotRequired[list[str]]
 
 class GroupingConfigurationTypeDef(TypedDict):
     criteria: NotRequired[str]
@@ -397,11 +392,11 @@ class QuickResponseSummaryTypeDef(TypedDict):
     quickResponseArn: str
     quickResponseId: str
     status: QuickResponseStatusType
-    channels: NotRequired[List[str]]
+    channels: NotRequired[list[str]]
     description: NotRequired[str]
     isActive: NotRequired[bool]
     lastModifiedBy: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -518,7 +513,7 @@ AssistantDataTypeDef = TypedDict(
         "description": NotRequired[str],
         "integrationConfiguration": NotRequired[AssistantIntegrationConfigurationTypeDef],
         "serverSideEncryptionConfiguration": NotRequired[ServerSideEncryptionConfigurationTypeDef],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 AssistantSummaryTypeDef = TypedDict(
@@ -532,7 +527,7 @@ AssistantSummaryTypeDef = TypedDict(
         "description": NotRequired[str],
         "integrationConfiguration": NotRequired[AssistantIntegrationConfigurationTypeDef],
         "serverSideEncryptionConfiguration": NotRequired[ServerSideEncryptionConfigurationTypeDef],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 CreateAssistantRequestTypeDef = TypedDict(
@@ -563,21 +558,21 @@ class GetContentSummaryResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListContentsResponseTypeDef(TypedDict):
-    contentSummaries: List[ContentSummaryTypeDef]
+    contentSummaries: list[ContentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchContentResponseTypeDef(TypedDict):
-    contentSummaries: List[ContentSummaryTypeDef]
+    contentSummaries: list[ContentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class StartContentUploadResponseTypeDef(TypedDict):
-    headersToInclude: Dict[str, str]
+    headersToInclude: dict[str, str]
     uploadId: str
     url: str
     urlExpiry: datetime
@@ -588,7 +583,7 @@ class UpdateContentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DocumentTextTypeDef(TypedDict):
-    highlights: NotRequired[List[HighlightTypeDef]]
+    highlights: NotRequired[list[HighlightTypeDef]]
     text: NotRequired[str]
 
 class SearchExpressionTypeDef(TypedDict):
@@ -626,13 +621,13 @@ class QueryAssistantRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListQuickResponsesResponseTypeDef(TypedDict):
-    quickResponseSummaries: List[QuickResponseSummaryTypeDef]
+    quickResponseSummaries: list[QuickResponseSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class NotifyRecommendationsReceivedResponseTypeDef(TypedDict):
-    errors: List[NotifyRecommendationsReceivedErrorTypeDef]
-    recommendationIds: List[str]
+    errors: list[NotifyRecommendationsReceivedErrorTypeDef]
+    recommendationIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RecommendationTriggerDataTypeDef(TypedDict):
@@ -648,7 +643,7 @@ class QuickResponseSearchExpressionTypeDef(TypedDict):
     queries: NotRequired[Sequence[QuickResponseQueryFieldTypeDef]]
 
 class SearchSessionsResponseTypeDef(TypedDict):
-    sessionSummaries: List[SessionSummaryTypeDef]
+    sessionSummaries: list[SessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -658,7 +653,7 @@ class SessionDataTypeDef(TypedDict):
     sessionId: str
     description: NotRequired[str]
     integrationConfiguration: NotRequired[SessionIntegrationConfigurationTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class KnowledgeBaseDataTypeDef(TypedDict):
     knowledgeBaseArn: str
@@ -671,7 +666,7 @@ class KnowledgeBaseDataTypeDef(TypedDict):
     renderingConfiguration: NotRequired[RenderingConfigurationTypeDef]
     serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
     sourceConfiguration: NotRequired[SourceConfigurationOutputTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class KnowledgeBaseSummaryTypeDef(TypedDict):
     knowledgeBaseArn: str
@@ -683,7 +678,7 @@ class KnowledgeBaseSummaryTypeDef(TypedDict):
     renderingConfiguration: NotRequired[RenderingConfigurationTypeDef]
     serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
     sourceConfiguration: NotRequired[SourceConfigurationOutputTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 SourceConfigurationUnionTypeDef = Union[
     SourceConfigurationTypeDef, SourceConfigurationOutputTypeDef
@@ -696,7 +691,7 @@ class AssistantAssociationDataTypeDef(TypedDict):
     assistantId: str
     associationData: AssistantAssociationOutputDataTypeDef
     associationType: Literal["KNOWLEDGE_BASE"]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class AssistantAssociationSummaryTypeDef(TypedDict):
     assistantArn: str
@@ -705,7 +700,7 @@ class AssistantAssociationSummaryTypeDef(TypedDict):
     assistantId: str
     associationData: AssistantAssociationOutputDataTypeDef
     associationType: Literal["KNOWLEDGE_BASE"]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class CreateAssistantResponseTypeDef(TypedDict):
     assistant: AssistantDataTypeDef
@@ -716,7 +711,7 @@ class GetAssistantResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAssistantsResponseTypeDef(TypedDict):
-    assistantSummaries: List[AssistantSummaryTypeDef]
+    assistantSummaries: list[AssistantSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -786,7 +781,7 @@ RecommendationTriggerTypeDef = TypedDict(
     {
         "data": RecommendationTriggerDataTypeDef,
         "id": str,
-        "recommendationIds": List[str],
+        "recommendationIds": list[str],
         "source": RecommendationSourceTypeType,
         "type": Literal["QUERY"],
     },
@@ -802,7 +797,7 @@ class QuickResponseDataTypeDef(TypedDict):
     quickResponseArn: str
     quickResponseId: str
     status: QuickResponseStatusType
-    channels: NotRequired[List[str]]
+    channels: NotRequired[list[str]]
     contents: NotRequired[QuickResponseContentsTypeDef]
     description: NotRequired[str]
     groupingConfiguration: NotRequired[GroupingConfigurationOutputTypeDef]
@@ -810,7 +805,7 @@ class QuickResponseDataTypeDef(TypedDict):
     language: NotRequired[str]
     lastModifiedBy: NotRequired[str]
     shortcutKey: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class QuickResponseSearchResultDataTypeDef(TypedDict):
     contentType: str
@@ -824,15 +819,15 @@ class QuickResponseSearchResultDataTypeDef(TypedDict):
     quickResponseArn: str
     quickResponseId: str
     status: QuickResponseStatusType
-    attributesInterpolated: NotRequired[List[str]]
-    attributesNotInterpolated: NotRequired[List[str]]
-    channels: NotRequired[List[str]]
+    attributesInterpolated: NotRequired[list[str]]
+    attributesNotInterpolated: NotRequired[list[str]]
+    channels: NotRequired[list[str]]
     description: NotRequired[str]
     groupingConfiguration: NotRequired[GroupingConfigurationOutputTypeDef]
     language: NotRequired[str]
     lastModifiedBy: NotRequired[str]
     shortcutKey: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class SearchQuickResponsesRequestPaginateTypeDef(TypedDict):
     knowledgeBaseId: str
@@ -868,7 +863,7 @@ class UpdateKnowledgeBaseTemplateUriResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListKnowledgeBasesResponseTypeDef(TypedDict):
-    knowledgeBaseSummaries: List[KnowledgeBaseSummaryTypeDef]
+    knowledgeBaseSummaries: list[KnowledgeBaseSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -891,7 +886,7 @@ class GetAssistantAssociationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAssistantAssociationsResponseTypeDef(TypedDict):
-    assistantAssociationSummaries: List[AssistantAssociationSummaryTypeDef]
+    assistantAssociationSummaries: list[AssistantAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -908,7 +903,7 @@ class ImportJobDataTypeDef(TypedDict):
     urlExpiry: datetime
     externalSourceConfiguration: NotRequired[ExternalSourceConfigurationTypeDef]
     failedRecordReport: NotRequired[str]
-    metadata: NotRequired[Dict[str, str]]
+    metadata: NotRequired[dict[str, str]]
 
 class ImportJobSummaryTypeDef(TypedDict):
     createdTime: datetime
@@ -920,7 +915,7 @@ class ImportJobSummaryTypeDef(TypedDict):
     status: ImportJobStatusType
     uploadId: str
     externalSourceConfiguration: NotRequired[ExternalSourceConfigurationTypeDef]
-    metadata: NotRequired[Dict[str, str]]
+    metadata: NotRequired[dict[str, str]]
 
 class StartImportJobRequestTypeDef(TypedDict):
     importJobType: Literal["QUICK_RESPONSES"]
@@ -959,7 +954,7 @@ class UpdateQuickResponseResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchQuickResponsesResponseTypeDef(TypedDict):
-    results: List[QuickResponseSearchResultDataTypeDef]
+    results: list[QuickResponseSearchResultDataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -972,16 +967,16 @@ class StartImportJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListImportJobsResponseTypeDef(TypedDict):
-    importJobSummaries: List[ImportJobSummaryTypeDef]
+    importJobSummaries: list[ImportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetRecommendationsResponseTypeDef(TypedDict):
-    recommendations: List[RecommendationDataTypeDef]
-    triggers: List[RecommendationTriggerTypeDef]
+    recommendations: list[RecommendationDataTypeDef]
+    triggers: list[RecommendationTriggerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class QueryAssistantResponseTypeDef(TypedDict):
-    results: List[ResultDataTypeDef]
+    results: list[ResultDataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

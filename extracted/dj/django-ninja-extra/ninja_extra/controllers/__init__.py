@@ -1,6 +1,3 @@
-import typing as t
-import warnings
-
 from .base import ControllerBase, ModelControllerBase, api_controller
 from .model import (
     ModelAsyncEndpointFactory,
@@ -12,7 +9,6 @@ from .model import (
     ModelService,
     ModelServiceBase,
 )
-from .response import Detail, Id, Ok
 from .route import (
     Route,
     RouteInvalidParameterException,
@@ -40,9 +36,6 @@ __all__ = [
     "AsyncRouteFunction",
     "RouteFunction",
     "Route",
-    "Ok",
-    "Id",
-    "Detail",
     "ModelControllerBase",
     "ModelConfig",
     "ModelService",
@@ -53,16 +46,3 @@ __all__ = [
     "ModelEndpointFactory",
     "ModelAsyncEndpointFactory",
 ]
-
-
-def __getattr__(name: str) -> t.Any:
-    if name == "RouteContext":
-        warnings.warn(
-            "RouteContext is deprecated and will be removed in a future version.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from ninja_extra.context import RouteContext
-
-        return RouteContext
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

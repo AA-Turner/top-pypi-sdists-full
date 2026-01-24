@@ -422,6 +422,7 @@ def resources_enumerate_children(
 def resources_get_info(
     path: str, lookup_flags: ResourceLookupFlags
 ) -> typing.Tuple[bool, int, int]: ...
+def resources_has_children(path: str) -> bool: ...
 def resources_lookup_data(
     path: str, lookup_flags: ResourceLookupFlags
 ) -> GLib.Bytes: ...
@@ -455,6 +456,17 @@ def unix_mount_at(
 ) -> typing.Tuple[typing.Optional[UnixMountEntry], int]: ...
 def unix_mount_compare(mount1: UnixMountEntry, mount2: UnixMountEntry) -> int: ...
 def unix_mount_copy(mount_entry: UnixMountEntry) -> UnixMountEntry: ...
+def unix_mount_entries_changed_since(time: int) -> bool: ...
+def unix_mount_entries_get() -> typing.Tuple[list[UnixMountEntry], int]: ...
+def unix_mount_entries_get_from_file(
+    table_path: str,
+) -> typing.Tuple[typing.Optional[list[UnixMountEntry]], int]: ...
+def unix_mount_entry_at(
+    mount_path: str,
+) -> typing.Tuple[typing.Optional[UnixMountEntry], int]: ...
+def unix_mount_entry_for(
+    file_path: str,
+) -> typing.Tuple[typing.Optional[UnixMountEntry], int]: ...
 def unix_mount_for(
     file_path: str,
 ) -> typing.Tuple[typing.Optional[UnixMountEntry], int]: ...
@@ -614,9 +626,9 @@ class ActionInterface(GObject.GPointer):
 
     g_iface: GObject.TypeInterface = ...
     get_name: typing.Callable[[Action], str] = ...
-    get_parameter_type: typing.Callable[[Action], typing.Optional[GLib.VariantType]] = (
-        ...
-    )
+    get_parameter_type: typing.Callable[
+        [Action], typing.Optional[GLib.VariantType]
+    ] = ...
     get_state_type: typing.Callable[[Action], typing.Optional[GLib.VariantType]] = ...
     get_state_hint: typing.Callable[[Action], typing.Optional[GLib.Variant]] = ...
     get_enabled: typing.Callable[[Action], bool] = ...
@@ -881,9 +893,9 @@ class AppLaunchContextClass(GObject.GPointer):
     ] = ...
     launch_failed: typing.Callable[[AppLaunchContext, str], None] = ...
     launched: typing.Callable[[AppLaunchContext, AppInfo, GLib.Variant], None] = ...
-    launch_started: typing.Callable[[AppLaunchContext, AppInfo, GLib.Variant], None] = (
-        ...
-    )
+    launch_started: typing.Callable[
+        [AppLaunchContext, AppInfo, GLib.Variant], None
+    ] = ...
     _g_reserved1: None = ...
     _g_reserved2: None = ...
     _g_reserved3: None = ...
@@ -983,7 +995,10 @@ class Application(GObject.Object, ActionGroup, ActionMap):
     def do_handle_local_options(self, options: GLib.VariantDict) -> int: ...
     def do_local_command_line(self) -> typing.Tuple[bool, list[str], int]: ...
     def do_name_lost(self) -> bool: ...
-    def do_open(self, files: typing.Sequence[File], hint: str) -> None: ...
+    # override
+    def do_open(
+        self, files: typing.Sequence[File], n_files: int, hint: str
+    ) -> None: ...
     def do_quit_mainloop(self) -> None: ...
     def do_run_mainloop(self) -> None: ...
     def do_shutdown(self) -> None: ...
@@ -2000,6 +2015,14 @@ class DBusConnection(GObject.Object, AsyncInitable, Initable):
         ) = None,
         set_property_closure: typing.Callable[..., typing.Any] | None = None,
     ) -> int: ...
+    def register_object_with_closures2(
+        self,
+        object_path: str,
+        interface_info: DBusInterfaceInfo,
+        method_call_closure: typing.Optional[typing.Callable[..., typing.Any]] = None,
+        get_property_closure: typing.Optional[typing.Callable[..., typing.Any]] = None,
+        set_property_closure: typing.Optional[typing.Callable[..., typing.Any]] = None,
+    ) -> int: ...
     def register_subtree(
         self,
         object_path: str,
@@ -2084,9 +2107,9 @@ class DBusInterfaceIface(GObject.GPointer):
     parent_iface: GObject.TypeInterface = ...
     get_info: typing.Callable[[DBusInterface], DBusInterfaceInfo] = ...
     get_object: typing.Callable[[DBusInterface], typing.Optional[DBusObject]] = ...
-    set_object: typing.Callable[[DBusInterface, typing.Optional[DBusObject]], None] = (
-        ...
-    )
+    set_object: typing.Callable[
+        [DBusInterface, typing.Optional[DBusObject]], None
+    ] = ...
     dup_object: typing.Callable[[DBusInterface], typing.Optional[DBusObject]] = ...
 
 class DBusInterfaceInfo(GObject.GBoxed):
@@ -2344,14 +2367,14 @@ class DBusMethodInvocation(GObject.Object):
     """
 
     def get_connection(self) -> DBusConnection: ...
-    def get_interface_name(self) -> str: ...
+    def get_interface_name(self) -> typing.Optional[str]: ...
     def get_message(self) -> DBusMessage: ...
     def get_method_info(self) -> typing.Optional[DBusMethodInfo]: ...
     def get_method_name(self) -> str: ...
     def get_object_path(self) -> str: ...
     def get_parameters(self) -> GLib.Variant: ...
     def get_property_info(self) -> typing.Optional[DBusPropertyInfo]: ...
-    def get_sender(self) -> str: ...
+    def get_sender(self) -> typing.Optional[str]: ...
     def return_dbus_error(self, error_name: str, error_message: str) -> None: ...
     def return_error_literal(self, domain: int, code: int, message: str) -> None: ...
     def return_gerror(self, error: GLib.Error) -> None: ...
@@ -2813,93 +2836,93 @@ class DBusProxy(GObject.Object, AsyncInitable, DBusInterface, Initable):
     """
     Provide comfortable and pythonic method calls.
 
-        This marshalls the method arguments into a GVariant, invokes the
-        call_sync() method on the DBusProxy object, and unmarshalls the result
-        GVariant back into a Python tuple.
+    This marshalls the method arguments into a GVariant, invokes the
+    call_sync() method on the DBusProxy object, and unmarshalls the result
+    GVariant back into a Python tuple.
 
-        The first argument always needs to be the D-Bus signature tuple of the
-        method call. Example:
+    The first argument always needs to be the D-Bus signature tuple of the
+    method call. Example:
 
-          proxy = Gio.DBusProxy.new_sync(...)
-          result = proxy.MyMethod('(is)', 42, 'hello')
+      proxy = Gio.DBusProxy.new_sync(...)
+      result = proxy.MyMethod('(is)', 42, 'hello')
 
-        The exception are methods which take no arguments, like
-        proxy.MyMethod('()'). For these you can omit the signature and just write
-        proxy.MyMethod().
+    The exception are methods which take no arguments, like
+    proxy.MyMethod('()'). For these you can omit the signature and just write
+    proxy.MyMethod().
 
-        Optional keyword arguments:
+    Optional keyword arguments:
 
-        - timeout: timeout for the call in milliseconds (default to D-Bus timeout)
+    - timeout: timeout for the call in milliseconds (default to D-Bus timeout)
 
-        - flags: Combination of Gio.DBusCallFlags.*
+    - flags: Combination of Gio.DBusCallFlags.*
 
-        - result_handler: Do an asynchronous method call and invoke
-             result_handler(proxy_object, result, user_data) when it finishes.
+    - result_handler: Do an asynchronous method call and invoke
+         result_handler(proxy_object, result, user_data) when it finishes.
 
-        - error_handler: If the asynchronous call raises an exception,
-          error_handler(proxy_object, exception, user_data) is called when it
-          finishes. If error_handler is not given, result_handler is called with
-          the exception object as result instead.
+    - error_handler: If the asynchronous call raises an exception,
+      error_handler(proxy_object, exception, user_data) is called when it
+      finishes. If error_handler is not given, result_handler is called with
+      the exception object as result instead.
 
-        - user_data: Optional user data to pass to result_handler for
-          asynchronous calls.
+    - user_data: Optional user data to pass to result_handler for
+      asynchronous calls.
 
-        Example for asynchronous calls:
+    Example for asynchronous calls:
 
-          def mymethod_done(proxy, result, user_data):
-              if isinstance(result, Exception):
-                  # handle error
-              else:
-                  # do something with result
+      def mymethod_done(proxy, result, user_data):
+          if isinstance(result, Exception):
+              # handle error
+          else:
+              # do something with result
 
-          proxy.MyMethod('(is)', 42, 'hello',
-              result_handler=mymethod_done, user_data='data')
+      proxy.MyMethod('(is)', 42, 'hello',
+          result_handler=mymethod_done, user_data='data')
 
     Object GDBusProxy
 
     Provide comfortable and pythonic method calls.
 
-        This marshalls the method arguments into a GVariant, invokes the
-        call_sync() method on the DBusProxy object, and unmarshalls the result
-        GVariant back into a Python tuple.
+    This marshalls the method arguments into a GVariant, invokes the
+    call_sync() method on the DBusProxy object, and unmarshalls the result
+    GVariant back into a Python tuple.
 
-        The first argument always needs to be the D-Bus signature tuple of the
-        method call. Example:
+    The first argument always needs to be the D-Bus signature tuple of the
+    method call. Example:
 
-          proxy = Gio.DBusProxy.new_sync(...)
-          result = proxy.MyMethod('(is)', 42, 'hello')
+      proxy = Gio.DBusProxy.new_sync(...)
+      result = proxy.MyMethod('(is)', 42, 'hello')
 
-        The exception are methods which take no arguments, like
-        proxy.MyMethod('()'). For these you can omit the signature and just write
-        proxy.MyMethod().
+    The exception are methods which take no arguments, like
+    proxy.MyMethod('()'). For these you can omit the signature and just write
+    proxy.MyMethod().
 
-        Optional keyword arguments:
+    Optional keyword arguments:
 
-        - timeout: timeout for the call in milliseconds (default to D-Bus timeout)
+    - timeout: timeout for the call in milliseconds (default to D-Bus timeout)
 
-        - flags: Combination of Gio.DBusCallFlags.*
+    - flags: Combination of Gio.DBusCallFlags.*
 
-        - result_handler: Do an asynchronous method call and invoke
-             result_handler(proxy_object, result, user_data) when it finishes.
+    - result_handler: Do an asynchronous method call and invoke
+         result_handler(proxy_object, result, user_data) when it finishes.
 
-        - error_handler: If the asynchronous call raises an exception,
-          error_handler(proxy_object, exception, user_data) is called when it
-          finishes. If error_handler is not given, result_handler is called with
-          the exception object as result instead.
+    - error_handler: If the asynchronous call raises an exception,
+      error_handler(proxy_object, exception, user_data) is called when it
+      finishes. If error_handler is not given, result_handler is called with
+      the exception object as result instead.
 
-        - user_data: Optional user data to pass to result_handler for
-          asynchronous calls.
+    - user_data: Optional user data to pass to result_handler for
+      asynchronous calls.
 
-        Example for asynchronous calls:
+    Example for asynchronous calls:
 
-          def mymethod_done(proxy, result, user_data):
-              if isinstance(result, Exception):
-                  # handle error
-              else:
-                  # do something with result
+      def mymethod_done(proxy, result, user_data):
+          if isinstance(result, Exception):
+              # handle error
+          else:
+              # do something with result
 
-          proxy.MyMethod('(is)', 42, 'hello',
-              result_handler=mymethod_done, user_data='data')
+      proxy.MyMethod('(is)', 42, 'hello',
+          result_handler=mymethod_done, user_data='data')
 
 
     Signals from GDBusProxy:
@@ -3863,9 +3886,9 @@ class DtlsConnectionInterface(GObject.GPointer):
     accept_certificate: typing.Callable[
         [DtlsConnection, TlsCertificate, TlsCertificateFlags], bool
     ] = ...
-    handshake: typing.Callable[[DtlsConnection, typing.Optional[Cancellable]], bool] = (
-        ...
-    )
+    handshake: typing.Callable[
+        [DtlsConnection, typing.Optional[Cancellable]], bool
+    ] = ...
     handshake_async: typing.Callable[..., None] = ...
     handshake_finish: typing.Callable[[DtlsConnection, AsyncResult], bool] = ...
     shutdown: typing.Callable[
@@ -3876,9 +3899,9 @@ class DtlsConnectionInterface(GObject.GPointer):
     set_advertised_protocols: typing.Callable[
         [DtlsConnection, typing.Optional[typing.Sequence[str]]], None
     ] = ...
-    get_negotiated_protocol: typing.Callable[[DtlsConnection], typing.Optional[str]] = (
-        ...
-    )
+    get_negotiated_protocol: typing.Callable[
+        [DtlsConnection], typing.Optional[str]
+    ] = ...
     get_binding_data: typing.Callable[
         [DtlsConnection, TlsChannelBindingType, typing.Sequence[int]], bool
     ] = ...
@@ -4719,9 +4742,9 @@ class FileEnumeratorClass(GObject.GPointer):
     next_file: typing.Callable[
         [FileEnumerator, typing.Optional[Cancellable]], typing.Optional[FileInfo]
     ] = ...
-    close_fn: typing.Callable[[FileEnumerator, typing.Optional[Cancellable]], bool] = (
-        ...
-    )
+    close_fn: typing.Callable[
+        [FileEnumerator, typing.Optional[Cancellable]], bool
+    ] = ...
     next_files_async: typing.Callable[..., None] = ...
     next_files_finish: typing.Callable[
         [FileEnumerator, AsyncResult], list[FileInfo]
@@ -4896,9 +4919,9 @@ class FileIface(GObject.GPointer):
         [File, str, FileQueryInfoFlags, typing.Optional[Cancellable]], FileEnumerator
     ] = ...
     enumerate_children_async: typing.Callable[..., None] = ...
-    enumerate_children_finish: typing.Callable[[File, AsyncResult], FileEnumerator] = (
-        ...
-    )
+    enumerate_children_finish: typing.Callable[
+        [File, AsyncResult], FileEnumerator
+    ] = ...
     query_info: typing.Callable[
         [File, str, FileQueryInfoFlags, typing.Optional[Cancellable]], FileInfo
     ] = ...
@@ -4947,9 +4970,9 @@ class FileIface(GObject.GPointer):
     set_attributes_finish: typing.Callable[
         [File, AsyncResult], typing.Tuple[bool, FileInfo]
     ] = ...
-    read_fn: typing.Callable[[File, typing.Optional[Cancellable]], FileInputStream] = (
-        ...
-    )
+    read_fn: typing.Callable[
+        [File, typing.Optional[Cancellable]], FileInputStream
+    ] = ...
     read_async: typing.Callable[..., None] = ...
     read_finish: typing.Callable[[File, AsyncResult], FileInputStream] = ...
     append_to: typing.Callable[
@@ -5050,6 +5073,7 @@ class FileIface(GObject.GPointer):
     measure_disk_usage_finish: typing.Callable[
         [File, AsyncResult], typing.Tuple[bool, int, int, int]
     ] = ...
+    query_exists: typing.Callable[[File, typing.Optional[Cancellable]], bool] = ...
 
 class FileInfo(GObject.Object):
     """
@@ -6153,7 +6177,13 @@ class ListStore(GObject.Object, ListModel):
     def __init__(self, item_type: typing.Type[typing.Any] = ...) -> None: ...
     def append(self, item: GObject.Object) -> None: ...
     def find(self, item: GObject.Object) -> typing.Tuple[bool, int]: ...
-    def find_with_equal_func(self, item, equal_func, *user_data): ...  # FIXME Function
+    # override
+    def find_with_equal_func(
+        self,
+        item: typing.Optional[GObject.Object],
+        equal_func: typing.Callable[..., bool],
+        *user_data: typing.Any,
+    ) -> typing.Tuple[bool, int]: ...
     def find_with_equal_func_full(
         self,
         item: typing.Optional[GObject.Object],
@@ -6161,12 +6191,21 @@ class ListStore(GObject.Object, ListModel):
         *user_data: typing.Any,
     ) -> typing.Tuple[bool, int]: ...
     def insert(self, position: int, item: GObject.Object) -> None: ...
-    def insert_sorted(self, item, compare_func, *user_data): ...  # FIXME Function
+    # override
+    def insert_sorted(
+        self,
+        item: GObject.Object,
+        compare_func: typing.Callable[..., int],
+        *user_data: typing.Any,
+    ) -> int: ...
     @classmethod
     def new(cls, item_type: typing.Type[typing.Any]) -> ListStore: ...
     def remove(self, position: int) -> None: ...
     def remove_all(self) -> None: ...
-    def sort(self, compare_func, *user_data): ...  # FIXME Function
+    # override
+    def sort(
+        self, compare_func: typing.Callable[..., int], *user_data: typing.Any
+    ) -> int: ...
     def splice(
         self, position: int, n_removals: int, additions: typing.Sequence[GObject.Object]
     ) -> None: ...
@@ -6610,9 +6649,9 @@ class MenuModelClass(GObject.GPointer):
     parent_class: GObject.ObjectClass = ...
     is_mutable: typing.Callable[[MenuModel], bool] = ...
     get_n_items: typing.Callable[[MenuModel], int] = ...
-    get_item_attributes: typing.Callable[[MenuModel, int], dict[str, GLib.Variant]] = (
-        ...
-    )
+    get_item_attributes: typing.Callable[
+        [MenuModel, int], dict[str, GLib.Variant]
+    ] = ...
     iterate_item_attributes: typing.Callable[[MenuModel, int], MenuAttributeIter] = ...
     get_item_attribute_value: typing.Callable[
         [MenuModel, int, str, typing.Optional[GLib.VariantType]],
@@ -6857,9 +6896,9 @@ class MountOperationClass(GObject.GPointer):
     ask_password: typing.Callable[
         [MountOperation, str, str, str, AskPasswordFlags], None
     ] = ...
-    ask_question: typing.Callable[[MountOperation, str, typing.Sequence[str]], None] = (
-        ...
-    )
+    ask_question: typing.Callable[
+        [MountOperation, str, typing.Sequence[str]], None
+    ] = ...
     reply: typing.Callable[[MountOperation, MountOperationResult], None] = ...
     aborted: typing.Callable[[MountOperation], None] = ...
     show_processes: typing.Callable[
@@ -8121,9 +8160,9 @@ class ResolverClass(GObject.GPointer):
     lookup_by_address_finish: typing.Callable[[Resolver, AsyncResult], str] = ...
     lookup_service: None = ...
     lookup_service_async: typing.Callable[..., None] = ...
-    lookup_service_finish: typing.Callable[[Resolver, AsyncResult], list[SrvTarget]] = (
-        ...
-    )
+    lookup_service_finish: typing.Callable[
+        [Resolver, AsyncResult], list[SrvTarget]
+    ] = ...
     lookup_records: typing.Callable[
         [Resolver, str, ResolverRecordType, typing.Optional[Cancellable]],
         list[GLib.Variant],
@@ -8158,6 +8197,7 @@ class Resource(GObject.GBoxed):
     def get_info(
         self, path: str, lookup_flags: ResourceLookupFlags
     ) -> typing.Tuple[bool, int, int]: ...
+    def has_children(self, path: str) -> bool: ...
     @staticmethod
     def load(filename: str) -> Resource: ...
     def lookup_data(
@@ -10505,17 +10545,17 @@ class TlsConnectionClass(GObject.GPointer):
     accept_certificate: typing.Callable[
         [TlsConnection, TlsCertificate, TlsCertificateFlags], bool
     ] = ...
-    handshake: typing.Callable[[TlsConnection, typing.Optional[Cancellable]], bool] = (
-        ...
-    )
+    handshake: typing.Callable[
+        [TlsConnection, typing.Optional[Cancellable]], bool
+    ] = ...
     handshake_async: typing.Callable[..., None] = ...
     handshake_finish: typing.Callable[[TlsConnection, AsyncResult], bool] = ...
     get_binding_data: typing.Callable[
         [TlsConnection, TlsChannelBindingType, typing.Sequence[int]], bool
     ] = ...
-    get_negotiated_protocol: typing.Callable[[TlsConnection], typing.Optional[str]] = (
-        ...
-    )
+    get_negotiated_protocol: typing.Callable[
+        [TlsConnection], typing.Optional[str]
+    ] = ...
     padding: list[None] = ...
 
 class TlsConnectionPrivate(GObject.GPointer): ...
@@ -11282,7 +11322,27 @@ class UnixInputStreamClass(GObject.GPointer):
     _g_reserved5: None = ...
 
 class UnixInputStreamPrivate(GObject.GPointer): ...
-class UnixMountEntry(GObject.GBoxed): ...
+
+class UnixMountEntry(GObject.GBoxed):
+    @staticmethod
+    def at(mount_path: str) -> typing.Tuple[typing.Optional[UnixMountEntry], int]: ...
+    def compare(self, mount2: UnixMountEntry) -> int: ...
+    def copy(self) -> UnixMountEntry: ...
+    @staticmethod
+    def for_(file_path: str) -> typing.Tuple[typing.Optional[UnixMountEntry], int]: ...
+    def free(self) -> None: ...
+    def get_device_path(self) -> str: ...
+    def get_fs_type(self) -> str: ...
+    def get_mount_path(self) -> str: ...
+    def get_options(self) -> typing.Optional[str]: ...
+    def get_root_path(self) -> typing.Optional[str]: ...
+    def guess_can_eject(self) -> bool: ...
+    def guess_icon(self) -> Icon: ...
+    def guess_name(self) -> str: ...
+    def guess_should_display(self) -> bool: ...
+    def guess_symbolic_icon(self) -> Icon: ...
+    def is_readonly(self) -> bool: ...
+    def is_system_internal(self) -> bool: ...
 
 class UnixMountMonitor(GObject.Object):
     """
@@ -11503,8 +11563,10 @@ class Vfs(GObject.Object):
     def register_uri_scheme(
         self,
         scheme: str,
-        uri_func: typing.Optional[typing.Callable[..., File]] = None,
-        parse_name_func: typing.Optional[typing.Callable[..., File]] = None,
+        uri_func: typing.Optional[typing.Callable[..., typing.Optional[File]]] = None,
+        parse_name_func: typing.Optional[
+            typing.Callable[..., typing.Optional[File]]
+        ] = None,
         *parse_name_data: typing.Any,
     ) -> bool: ...
     def unregister_uri_scheme(self, scheme: str) -> bool: ...

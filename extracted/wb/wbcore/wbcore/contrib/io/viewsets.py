@@ -2,8 +2,8 @@ import json
 
 import tablib
 
-from wbcore.pandas import fields as pf
-from wbcore.pandas.views import PandasAPIViewSet
+from wbcore.contrib.pandas import fields as pf
+from wbcore.contrib.pandas.views import PandasAPIViewSet
 from wbcore.viewsets import ModelViewSet, ReadOnlyModelViewSet, RepresentationViewSet
 
 from .configs.endpoints import (

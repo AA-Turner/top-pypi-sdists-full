@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
 from pydantic import StrictInt, StrictStr
-from typing import Optional
+from typing import List, Optional
 
 from legit_api_client.api_client import ApiClient, RequestSerialized
 from legit_api_client.api_response import ApiResponse
@@ -43,6 +43,7 @@ class SavedQueriesApi:
         saved_query_id: StrictStr,
         take: Optional[StrictInt] = None,
         skip: Optional[StrictInt] = None,
+        product_ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -65,6 +66,8 @@ class SavedQueriesApi:
         :type take: int
         :param skip:
         :type skip: int
+        :param product_ids:
+        :type product_ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -91,6 +94,7 @@ class SavedQueriesApi:
             saved_query_id=saved_query_id,
             take=take,
             skip=skip,
+            product_ids=product_ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -117,6 +121,7 @@ class SavedQueriesApi:
         saved_query_id: StrictStr,
         take: Optional[StrictInt] = None,
         skip: Optional[StrictInt] = None,
+        product_ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -139,6 +144,8 @@ class SavedQueriesApi:
         :type take: int
         :param skip:
         :type skip: int
+        :param product_ids:
+        :type product_ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -165,6 +172,7 @@ class SavedQueriesApi:
             saved_query_id=saved_query_id,
             take=take,
             skip=skip,
+            product_ids=product_ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -191,6 +199,7 @@ class SavedQueriesApi:
         saved_query_id: StrictStr,
         take: Optional[StrictInt] = None,
         skip: Optional[StrictInt] = None,
+        product_ids: Optional[List[StrictStr]] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -213,6 +222,8 @@ class SavedQueriesApi:
         :type take: int
         :param skip:
         :type skip: int
+        :param product_ids:
+        :type product_ids: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -239,6 +250,7 @@ class SavedQueriesApi:
             saved_query_id=saved_query_id,
             take=take,
             skip=skip,
+            product_ids=product_ids,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -260,6 +272,7 @@ class SavedQueriesApi:
         saved_query_id,
         take,
         skip,
+        product_ids,
         _request_auth,
         _content_type,
         _headers,
@@ -269,6 +282,7 @@ class SavedQueriesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'productIds': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -291,6 +305,10 @@ class SavedQueriesApi:
         if skip is not None:
             
             _query_params.append(('skip', skip))
+            
+        if product_ids is not None:
+            
+            _query_params.append(('productIds', product_ids))
             
         # process the header parameters
         # process the form parameters

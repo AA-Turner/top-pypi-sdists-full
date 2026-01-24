@@ -35,6 +35,7 @@ class CreateScriptJsonBody:
         concurrent_limit (Union[Unset, int]):
         concurrency_time_window_s (Union[Unset, int]):
         cache_ttl (Union[Unset, float]):
+        cache_ignore_s3_path (Union[Unset, bool]):
         dedicated_worker (Union[Unset, bool]):
         ws_error_handler_muted (Union[Unset, bool]):
         priority (Union[Unset, int]):
@@ -43,6 +44,11 @@ class CreateScriptJsonBody:
         delete_after_use (Union[Unset, bool]):
         deployment_message (Union[Unset, str]):
         concurrency_key (Union[Unset, str]):
+        debounce_key (Union[Unset, str]):
+        debounce_delay_s (Union[Unset, int]):
+        debounce_args_to_accumulate (Union[Unset, List[str]]):
+        max_total_debouncing_time (Union[Unset, int]):
+        max_total_debounces_amount (Union[Unset, int]):
         visible_to_runner_only (Union[Unset, bool]):
         no_main_func (Union[Unset, bool]):
         codebase (Union[Unset, str]):
@@ -67,6 +73,7 @@ class CreateScriptJsonBody:
     concurrent_limit: Union[Unset, int] = UNSET
     concurrency_time_window_s: Union[Unset, int] = UNSET
     cache_ttl: Union[Unset, float] = UNSET
+    cache_ignore_s3_path: Union[Unset, bool] = UNSET
     dedicated_worker: Union[Unset, bool] = UNSET
     ws_error_handler_muted: Union[Unset, bool] = UNSET
     priority: Union[Unset, int] = UNSET
@@ -75,6 +82,11 @@ class CreateScriptJsonBody:
     delete_after_use: Union[Unset, bool] = UNSET
     deployment_message: Union[Unset, str] = UNSET
     concurrency_key: Union[Unset, str] = UNSET
+    debounce_key: Union[Unset, str] = UNSET
+    debounce_delay_s: Union[Unset, int] = UNSET
+    debounce_args_to_accumulate: Union[Unset, List[str]] = UNSET
+    max_total_debouncing_time: Union[Unset, int] = UNSET
+    max_total_debounces_amount: Union[Unset, int] = UNSET
     visible_to_runner_only: Union[Unset, bool] = UNSET
     no_main_func: Union[Unset, bool] = UNSET
     codebase: Union[Unset, str] = UNSET
@@ -110,6 +122,7 @@ class CreateScriptJsonBody:
         concurrent_limit = self.concurrent_limit
         concurrency_time_window_s = self.concurrency_time_window_s
         cache_ttl = self.cache_ttl
+        cache_ignore_s3_path = self.cache_ignore_s3_path
         dedicated_worker = self.dedicated_worker
         ws_error_handler_muted = self.ws_error_handler_muted
         priority = self.priority
@@ -118,6 +131,14 @@ class CreateScriptJsonBody:
         delete_after_use = self.delete_after_use
         deployment_message = self.deployment_message
         concurrency_key = self.concurrency_key
+        debounce_key = self.debounce_key
+        debounce_delay_s = self.debounce_delay_s
+        debounce_args_to_accumulate: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.debounce_args_to_accumulate, Unset):
+            debounce_args_to_accumulate = self.debounce_args_to_accumulate
+
+        max_total_debouncing_time = self.max_total_debouncing_time
+        max_total_debounces_amount = self.max_total_debounces_amount
         visible_to_runner_only = self.visible_to_runner_only
         no_main_func = self.no_main_func
         codebase = self.codebase
@@ -164,6 +185,8 @@ class CreateScriptJsonBody:
             field_dict["concurrency_time_window_s"] = concurrency_time_window_s
         if cache_ttl is not UNSET:
             field_dict["cache_ttl"] = cache_ttl
+        if cache_ignore_s3_path is not UNSET:
+            field_dict["cache_ignore_s3_path"] = cache_ignore_s3_path
         if dedicated_worker is not UNSET:
             field_dict["dedicated_worker"] = dedicated_worker
         if ws_error_handler_muted is not UNSET:
@@ -180,6 +203,16 @@ class CreateScriptJsonBody:
             field_dict["deployment_message"] = deployment_message
         if concurrency_key is not UNSET:
             field_dict["concurrency_key"] = concurrency_key
+        if debounce_key is not UNSET:
+            field_dict["debounce_key"] = debounce_key
+        if debounce_delay_s is not UNSET:
+            field_dict["debounce_delay_s"] = debounce_delay_s
+        if debounce_args_to_accumulate is not UNSET:
+            field_dict["debounce_args_to_accumulate"] = debounce_args_to_accumulate
+        if max_total_debouncing_time is not UNSET:
+            field_dict["max_total_debouncing_time"] = max_total_debouncing_time
+        if max_total_debounces_amount is not UNSET:
+            field_dict["max_total_debounces_amount"] = max_total_debounces_amount
         if visible_to_runner_only is not UNSET:
             field_dict["visible_to_runner_only"] = visible_to_runner_only
         if no_main_func is not UNSET:
@@ -243,6 +276,8 @@ class CreateScriptJsonBody:
 
         cache_ttl = d.pop("cache_ttl", UNSET)
 
+        cache_ignore_s3_path = d.pop("cache_ignore_s3_path", UNSET)
+
         dedicated_worker = d.pop("dedicated_worker", UNSET)
 
         ws_error_handler_muted = d.pop("ws_error_handler_muted", UNSET)
@@ -258,6 +293,16 @@ class CreateScriptJsonBody:
         deployment_message = d.pop("deployment_message", UNSET)
 
         concurrency_key = d.pop("concurrency_key", UNSET)
+
+        debounce_key = d.pop("debounce_key", UNSET)
+
+        debounce_delay_s = d.pop("debounce_delay_s", UNSET)
+
+        debounce_args_to_accumulate = cast(List[str], d.pop("debounce_args_to_accumulate", UNSET))
+
+        max_total_debouncing_time = d.pop("max_total_debouncing_time", UNSET)
+
+        max_total_debounces_amount = d.pop("max_total_debounces_amount", UNSET)
 
         visible_to_runner_only = d.pop("visible_to_runner_only", UNSET)
 
@@ -293,6 +338,7 @@ class CreateScriptJsonBody:
             concurrent_limit=concurrent_limit,
             concurrency_time_window_s=concurrency_time_window_s,
             cache_ttl=cache_ttl,
+            cache_ignore_s3_path=cache_ignore_s3_path,
             dedicated_worker=dedicated_worker,
             ws_error_handler_muted=ws_error_handler_muted,
             priority=priority,
@@ -301,6 +347,11 @@ class CreateScriptJsonBody:
             delete_after_use=delete_after_use,
             deployment_message=deployment_message,
             concurrency_key=concurrency_key,
+            debounce_key=debounce_key,
+            debounce_delay_s=debounce_delay_s,
+            debounce_args_to_accumulate=debounce_args_to_accumulate,
+            max_total_debouncing_time=max_total_debouncing_time,
+            max_total_debounces_amount=max_total_debounces_amount,
             visible_to_runner_only=visible_to_runner_only,
             no_main_func=no_main_func,
             codebase=codebase,

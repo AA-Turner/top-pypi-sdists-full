@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crds
-Version: 13.0.5
+Version: 13.1.1
 Summary: Calibration Reference Data System,  HST/JWST/Roman reference file management
 Author: STScI CRDS s/w developers
 Project-URL: homepage, https://github.com/spacetelescope/crds
@@ -44,6 +44,7 @@ Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Requires-Dist: docutils; extra == "docs"
 Requires-Dist: sphinx_automodapi; extra == "docs"
 Requires-Dist: sphinx-tabs; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
 Provides-Extra: aws
 Requires-Dist: boto3; extra == "aws"
 Requires-Dist: awscli; extra == "aws"

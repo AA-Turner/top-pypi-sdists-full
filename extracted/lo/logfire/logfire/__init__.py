@@ -37,6 +37,7 @@ instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
 instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
 instrument_litellm = DEFAULT_LOGFIRE_INSTANCE.instrument_litellm
+instrument_dspy = DEFAULT_LOGFIRE_INSTANCE.instrument_dspy
 instrument_print = DEFAULT_LOGFIRE_INSTANCE.instrument_print
 instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
 instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
@@ -54,6 +55,7 @@ instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
 instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
 instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
+instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
 instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
 instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
 suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
@@ -131,6 +133,7 @@ __all__ = (
     'instrument_anthropic',
     'instrument_google_genai',
     'instrument_litellm',
+    'instrument_dspy',
     'instrument_print',
     'instrument_asyncpg',
     'instrument_httpx',
@@ -148,6 +151,7 @@ __all__ = (
     'instrument_redis',
     'instrument_pymongo',
     'instrument_mysql',
+    'instrument_surrealdb',
     'instrument_system_metrics',
     'instrument_mcp',
     'AutoTraceModule',

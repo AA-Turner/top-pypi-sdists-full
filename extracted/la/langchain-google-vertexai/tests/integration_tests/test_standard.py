@@ -1,6 +1,6 @@
-"""Standard LangChain interface tests"""
+"""Standard LangChain interface tests."""
 
-from typing import Type
+import os
 
 import pytest
 from langchain_core.language_models import BaseChatModel
@@ -12,16 +12,24 @@ from langchain_google_vertexai import ChatVertexAI
 rate_limiter = InMemoryRateLimiter(requests_per_second=0.5)
 
 
+def _has_multimodal_secrets() -> bool:
+    """Check if integration test secrets are available.
+
+    Returns `True` if running in an environment with access to secrets.
+    """
+    return bool(os.environ.get("LANGCHAIN_TESTS_USER_AGENT"))
+
+
 @pytest.mark.first
 class TestGemini2AIStandard(ChatModelIntegrationTests):
     @property
-    def chat_model_class(self) -> Type[BaseChatModel]:
+    def chat_model_class(self) -> type[BaseChatModel]:
         return ChatVertexAI
 
     @property
     def chat_model_params(self) -> dict:
         return {
-            "model_name": "gemini-2.0-flash-001",
+            "model_name": "gemini-2.5-flash",
             "rate_limiter": rate_limiter,
             "temperature": 0,
             "api_transport": None,
@@ -52,10 +60,22 @@ class TestGemini2AIStandard(ChatModelIntegrationTests):
     def supports_json_mode(self) -> bool:
         return True
 
+    @pytest.mark.xfail(
+        not _has_multimodal_secrets(),
+        reason=(
+            "Multimodal tests require integration secrets (user agent to fetch "
+            "external resources)"
+        ),
+        run=False,
+    )
+    def test_audio_inputs(self, model: BaseChatModel) -> None:
+        """Skip audio tests in PR context - requires external resource fetching."""
+        super().test_audio_inputs(model)
+
 
 class TestGemini_15_AIStandard(ChatModelIntegrationTests):
     @property
-    def chat_model_class(self) -> Type[BaseChatModel]:
+    def chat_model_class(self) -> type[BaseChatModel]:
         return ChatVertexAI
 
     @property
@@ -91,3 +111,15 @@ class TestGemini_15_AIStandard(ChatModelIntegrationTests):
     @property
     def supports_json_mode(self) -> bool:
         return True
+
+    @pytest.mark.xfail(
+        not _has_multimodal_secrets(),
+        reason=(
+            "Multimodal tests require integration secrets (user agent to fetch "
+            "external resources)"
+        ),
+        run=False,
+    )
+    def test_audio_inputs(self, model: BaseChatModel) -> None:
+        """Skip audio tests in PR context - requires external resource fetching."""
+        super().test_audio_inputs(model)

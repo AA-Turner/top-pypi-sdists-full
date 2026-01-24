@@ -37,27 +37,25 @@ class RocCurve(BaseInsight):
         ```
     """
 
-    ROC_POINTS = t.Dict(
-        {
-            t.Key("accuracy"): t.Float(),
-            t.Key("f1Score"): t.Float(),
-            t.Key("falseNegativeScore"): t.Int(),
-            t.Key("trueNegativeScore"): t.Int(),
-            t.Key("falsePositiveScore"): t.Int(),
-            t.Key("truePositiveScore"): t.Int(),
-            t.Key("trueNegativeRate"): t.Float(),
-            t.Key("falsePositiveRate"): t.Float(),
-            t.Key("truePositiveRate"): t.Float(),
-            t.Key("matthewsCorrelationCoefficient"): t.Float(),
-            t.Key("positivePredictiveValue"): t.Float(),
-            t.Key("negativePredictiveValue"): t.Float(),
-            t.Key("threshold"): t.Float(),
-            t.Key("fractionPredictedAsPositive"): t.Float(),
-            t.Key("fractionPredictedAsNegative"): t.Float(),
-            t.Key("liftPositive"): t.Float(),
-            t.Key("liftNegative"): t.Float(),
-        }
-    ).ignore_extra("*")
+    ROC_POINTS = t.Dict({
+        t.Key("accuracy"): t.Float(),
+        t.Key("f1Score"): t.Float(),
+        t.Key("falseNegativeScore"): t.Int(),
+        t.Key("trueNegativeScore"): t.Int(),
+        t.Key("falsePositiveScore"): t.Int(),
+        t.Key("truePositiveScore"): t.Int(),
+        t.Key("trueNegativeRate"): t.Float(),
+        t.Key("falsePositiveRate"): t.Float(),
+        t.Key("truePositiveRate"): t.Float(),
+        t.Key("matthewsCorrelationCoefficient"): t.Float(),
+        t.Key("positivePredictiveValue"): t.Float(),
+        t.Key("negativePredictiveValue"): t.Float(),
+        t.Key("threshold"): t.Float(),
+        t.Key("fractionPredictedAsPositive"): t.Float(),
+        t.Key("fractionPredictedAsNegative"): t.Float(),
+        t.Key("liftPositive"): t.Float(),
+        t.Key("liftNegative"): t.Float(),
+    }).ignore_extra("*")
 
     INSIGHT_NAME = "rocCurve"
     INSIGHT_DATA = {

@@ -47,15 +47,13 @@ class JobFileItem(APIObject):
         ISO-8601 formatted timestamp of when the version was created.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("file_name"): String(),
-            t.Key("file_path"): String(),
-            t.Key("file_source"): String(),
-            t.Key("created") >> "created_at": String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("file_name"): String(),
+        t.Key("file_path"): String(),
+        t.Key("file_source"): String(),
+        t.Key("created") >> "created_at": String(),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -107,21 +105,17 @@ class Job(APIObject):
 
     _path = "customJobs/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("name"): String(),
-            t.Key("created") >> "created_at": String(),
-            t.Key("items"): t.List(JobFileItem.schema),
-            t.Key("description", optional=True): t.Or(
-                String(max_length=10000, allow_blank=True), t.Null()
-            ),
-            t.Key("environment_id", optional=True): t.Or(String(), t.Null()),
-            t.Key("environment_version_id", optional=True): t.Or(String(), t.Null()),
-            t.Key("entry_point", optional=True): t.Or(String(), t.Null()),
-            t.Key("runtime_parameters", optional=True): t.List(RuntimeParameter.schema),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("name"): String(),
+        t.Key("created") >> "created_at": String(),
+        t.Key("items"): t.List(JobFileItem.schema),
+        t.Key("description", optional=True): t.Or(String(max_length=10000, allow_blank=True), t.Null()),
+        t.Key("environment_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("environment_version_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("entry_point", optional=True): t.Or(String(), t.Null()),
+        t.Key("runtime_parameters", optional=True): t.List(RuntimeParameter.schema),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -237,17 +231,12 @@ class Job(APIObject):
             )
 
         if runtime_parameter_values is not None:
-            upload_data.append(
-                (
-                    "runtimeParameterValues",
-                    json.dumps(
-                        [
-                            {camelize(k): v for k, v in param.to_dict().items()}
-                            for param in runtime_parameter_values
-                        ]
-                    ),
-                )
-            )
+            upload_data.append((
+                "runtimeParameterValues",
+                json.dumps([
+                    {camelize(k): v for k, v in param.to_dict().items()} for param in runtime_parameter_values
+                ]),
+            ))
 
         with cls._process_files_upload(folder_path, files, file_data) as file_upload_data:
             encoder = MultipartEncoder(fields=upload_data + file_upload_data)
@@ -429,17 +418,12 @@ class Job(APIObject):
         if description:
             upload_data.append(("description", description))
         if runtime_parameter_values:
-            upload_data.append(
-                (
-                    "runtimeParameterValues",
-                    json.dumps(
-                        [
-                            {camelize(k): v for k, v in param.to_dict().items()}
-                            for param in runtime_parameter_values
-                        ]
-                    ),
-                )
-            )
+            upload_data.append((
+                "runtimeParameterValues",
+                json.dumps([
+                    {camelize(k): v for k, v in param.to_dict().items()} for param in runtime_parameter_values
+                ]),
+            ))
 
         with self._process_files_upload(folder_path, files, file_data) as file_upload_data:
             encoder = MultipartEncoder(fields=upload_data + file_upload_data)
@@ -519,9 +503,7 @@ class Job(APIObject):
             payload["description"] = description
         if sidecar_deployment_id:
             payload["sidecarDeploymentId"] = sidecar_deployment_id
-        response = cls._client.post(
-            f"{cls._path}fromHostedCustomMetricGalleryTemplate/", data=payload
-        )
+        response = cls._client.post(f"{cls._path}fromHostedCustomMetricGalleryTemplate/", data=payload)
         return cls.from_server_data(response.json())
 
     def list_schedules(self) -> List[JobSchedule]:
@@ -580,52 +562,42 @@ class JobSchedule(APIObject):
 
     """
 
-    _user = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("username"): String(),
-            t.Key("first_name"): t.Or(String(), t.Null()),
-            t.Key("last_name"): t.Or(String(), t.Null()),
-        }
-    ).allow_extra("*")
-    _deployment = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("name"): String(),
-            t.Key("description"): t.Or(String(), t.Null()),
-        }
-    ).allow_extra("*")
+    _user = t.Dict({
+        t.Key("id"): String(),
+        t.Key("username"): String(),
+        t.Key("first_name"): t.Or(String(), t.Null()),
+        t.Key("last_name"): t.Or(String(), t.Null()),
+    }).allow_extra("*")
+    _deployment = t.Dict({
+        t.Key("id"): String(),
+        t.Key("name"): String(),
+        t.Key("description"): t.Or(String(), t.Null()),
+    }).allow_extra("*")
 
-    _parameter_overrides = t.Dict(
-        {
-            t.Key("field_name"): t.String(),
-            t.Key("value", optional=True): t.Or(t.String(), t.Int(), t.Float(), t.Bool(), t.Null()),
-            t.Key("type"): t.String(),
-        }
-    ).allow_extra("*")
+    _parameter_overrides = t.Dict({
+        t.Key("field_name"): t.String(),
+        t.Key("value", optional=True): t.Or(t.String(), t.Int(), t.Float(), t.Bool(), t.Null()),
+        t.Key("type"): t.String(),
+    }).allow_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("custom_job_id"): String(),
-            t.Key("updated_at"): String(),
-            t.Key("updated_by"): _user,
-            t.Key("created_at"): String(),
-            t.Key("created_by"): _user,
-            t.Key("scheduled_job_id"): String(),
-            t.Key("deployment", optional=True): _deployment,
-            t.Key("schedule", optional=True): t.Dict(
-                {
-                    t.Key("hour"): t.List(t.Or(t.String(), t.Int())),
-                    t.Key("minute"): t.List(t.Or(t.String(), t.Int())),
-                    t.Key("day_of_week"): t.List(t.Or(t.String(), t.Int())),
-                    t.Key("day_of_month"): t.List(t.Or(t.String(), t.Int())),
-                    t.Key("month"): t.List(t.Or(t.String(), t.Int())),
-                }
-            ).allow_extra("*"),
-            t.Key("parameter_overrides", optional=True): t.List(RuntimeParameterValue.schema),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("custom_job_id"): String(),
+        t.Key("updated_at"): String(),
+        t.Key("updated_by"): _user,
+        t.Key("created_at"): String(),
+        t.Key("created_by"): _user,
+        t.Key("scheduled_job_id"): String(),
+        t.Key("deployment", optional=True): _deployment,
+        t.Key("schedule", optional=True): t.Dict({
+            t.Key("hour"): t.List(t.Or(t.String(), t.Int())),
+            t.Key("minute"): t.List(t.Or(t.String(), t.Int())),
+            t.Key("day_of_week"): t.List(t.Or(t.String(), t.Int())),
+            t.Key("day_of_month"): t.List(t.Or(t.String(), t.Int())),
+            t.Key("month"): t.List(t.Or(t.String(), t.Int())),
+        }).allow_extra("*"),
+        t.Key("parameter_overrides", optional=True): t.List(RuntimeParameterValue.schema),
+    }).allow_extra("*")
 
     def __init__(
         self,

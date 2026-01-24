@@ -1,15 +1,13 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
-from .library_imports import LibraryChecker
 from ibm_watsonx_ai.libs.repo.base_constants import *
 
-lib_checker = LibraryChecker()
+from .library_imports import LibraryChecker
 
-if lib_checker.installed_libs[PYSPARK]:
-    from pyspark.ml import Pipeline, PipelineModel
+lib_checker = LibraryChecker()
 
 
 class SparkUtil(object):
@@ -18,6 +16,9 @@ class SparkUtil(object):
     @staticmethod
     def get_label_col(spark_artifact):
         lib_checker.check_lib(PYSPARK)
+
+        from pyspark.ml import Pipeline, PipelineModel
+
         if isinstance(spark_artifact, PipelineModel):
             pipeline = Pipeline(stages=spark_artifact.stages)
             return SparkUtil.get_label_col_from__stages(pipeline.getStages())
@@ -40,7 +41,7 @@ class SparkUtil(object):
     def _get_label_col_from_python_stages(stages):
         try:
             label_col = stages[-1].getLabelCol()
-        except Exception as ex:
+        except Exception:
             label_col = SparkUtil.DEFAULT_LABEL_COL
 
         reversed_stages = stages[:]
@@ -50,7 +51,7 @@ class SparkUtil(object):
             try:
                 if stage.getOutputCol() == label_col:
                     label_col = stage.getInputCol()
-            except Exception as ex:
+            except Exception:
                 pass
 
         return label_col
@@ -59,7 +60,7 @@ class SparkUtil(object):
     def _get_label_col_from_java_stages(stages):
         try:
             label_col = stages[-1]._call_java("getLabelCol")
-        except Exception as ex:
+        except Exception:
             label_col = SparkUtil.DEFAULT_LABEL_COL
 
         reversed_stages = stages[:]
@@ -69,7 +70,7 @@ class SparkUtil(object):
             try:
                 if stage._call_java("getOutputCol") == label_col:
                     label_col = stage._call_java("getInputCol")
-            except Exception as ex:
+            except Exception:
                 pass
 
         return label_col

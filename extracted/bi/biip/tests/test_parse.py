@@ -5,10 +5,10 @@ import pytest
 
 from biip import ParseConfig, ParseResult, parse
 from biip.gs1_application_identifiers import GS1ApplicationIdentifier
+from biip.gs1_digital_link_uris import GS1DigitalLinkURI
 from biip.gs1_element_strings import GS1ElementString, GS1ElementStrings
 from biip.gs1_messages import GS1Message
-from biip.gs1_prefixes import GS1CompanyPrefix, GS1Prefix
-from biip.gs1_web_uris import GS1WebURI
+from biip.gs1_prefixes import GS1CompanyPrefix, GS1Prefix, GS18Prefix
 from biip.gtin import Gtin, GtinFormat
 from biip.rcn import Rcn, RcnRegion, RcnUsage
 from biip.sscc import Sscc
@@ -27,8 +27,9 @@ from biip.upc import Upc, UpcFormat
                 gtin=Gtin(
                     value="96385074",
                     format=GtinFormat.GTIN_8,
-                    prefix=GS1Prefix(value="00009", usage="GS1 US"),
-                    company_prefix=GS1CompanyPrefix(value="0000963"),
+                    prefix=GS18Prefix(value="963", usage="Global Office - GTIN-8"),
+                    company_prefix=None,
+                    item_reference="8507",
                     payload="9638507",
                     check_digit=4,
                 ),
@@ -67,8 +68,9 @@ from biip.upc import Upc, UpcFormat
                 gtin=Gtin(
                     value="96385074",
                     format=GtinFormat.GTIN_8,
-                    prefix=GS1Prefix(value="00009", usage="GS1 US"),
-                    company_prefix=GS1CompanyPrefix(value="0000963"),
+                    prefix=GS18Prefix(value="963", usage="Global Office - GTIN-8"),
+                    company_prefix=None,
+                    item_reference="8507",
                     payload="9638507",
                     check_digit=4,
                 ),
@@ -83,8 +85,9 @@ from biip.upc import Upc, UpcFormat
                 gtin=Gtin(
                     value="12345670",
                     format=GtinFormat.GTIN_8,
-                    prefix=GS1Prefix(value="00001", usage="GS1 US"),
-                    company_prefix=GS1CompanyPrefix(value="0000123"),
+                    prefix=GS18Prefix(value="123", usage="GS1 US"),
+                    company_prefix=None,
+                    item_reference="4567",
                     payload="1234567",
                     check_digit=0,
                 ),
@@ -114,6 +117,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_12,
                     prefix=GS1Prefix(value="012", usage="GS1 US"),
                     company_prefix=None,
+                    item_reference=None,
                     payload="12360105707",
                     check_digit=2,
                 ),
@@ -149,6 +153,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_12,
                     prefix=GS1Prefix(value="012", usage="GS1 US"),
                     company_prefix=None,
+                    item_reference=None,
                     payload="12360105707",
                     check_digit=2,
                 ),
@@ -171,6 +176,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_13,
                     prefix=GS1Prefix(value="590", usage="GS1 Poland"),
                     company_prefix=None,
+                    item_reference=None,
                     payload="590123412345",
                     check_digit=7,
                 ),
@@ -203,6 +209,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_13,
                     prefix=GS1Prefix(value="590", usage="GS1 Poland"),
                     company_prefix=None,
+                    item_reference=None,
                     payload="590123412345",
                     check_digit=7,
                 ),
@@ -218,6 +225,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_13,
                     prefix=GS1Prefix(value="590", usage="GS1 Poland"),
                     company_prefix=None,
+                    item_reference=None,
                     payload="590123412345",
                     check_digit=7,
                 ),
@@ -250,6 +258,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_13,
                     prefix=GS1Prefix(value="590", usage="GS1 Poland"),
                     company_prefix=None,
+                    item_reference=None,
                     payload="590123412345",
                     check_digit=7,
                 ),
@@ -266,6 +275,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_12,
                     prefix=GS1Prefix(value="004", usage="GS1 US"),
                     company_prefix=GS1CompanyPrefix(value="0042100"),
+                    item_reference="00526",
                     payload="04210000526",
                     check_digit=4,
                     packaging_level=None,
@@ -414,6 +424,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_12,
                     prefix=GS1Prefix(value="012", usage="GS1 US"),
                     company_prefix=None,
+                    item_reference=None,
                     payload="12360105707",
                     check_digit=2,
                     packaging_level=None,
@@ -442,6 +453,7 @@ from biip.upc import Upc, UpcFormat
                                     format=GtinFormat.GTIN_12,
                                     prefix=GS1Prefix(value="012", usage="GS1 US"),
                                     company_prefix=None,
+                                    item_reference=None,
                                     payload="12360105707",
                                     check_digit=2,
                                     packaging_level=None,
@@ -462,6 +474,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_13,
                     prefix=GS1Prefix(value="590", usage="GS1 Poland"),
                     company_prefix=None,
+                    item_reference=None,
                     payload="590123412345",
                     check_digit=7,
                 ),
@@ -486,6 +499,7 @@ from biip.upc import Upc, UpcFormat
                                     format=GtinFormat.GTIN_13,
                                     prefix=GS1Prefix(value="590", usage="GS1 Poland"),
                                     company_prefix=None,
+                                    item_reference=None,
                                     payload="590123412345",
                                     check_digit=7,
                                 ),
@@ -574,6 +588,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_13,
                     prefix=GS1Prefix(value="590", usage="GS1 Poland"),
                     company_prefix=None,
+                    item_reference=None,
                     payload="590123412345",
                     check_digit=7,
                 ),
@@ -590,6 +605,7 @@ from biip.upc import Upc, UpcFormat
                                     format=GtinFormat.GTIN_13,
                                     prefix=GS1Prefix(value="590", usage="GS1 Poland"),
                                     company_prefix=None,
+                                    item_reference=None,
                                     payload="590123412345",
                                     check_digit=7,
                                 ),
@@ -621,6 +637,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_12,
                     prefix=GS1Prefix(value="012", usage="GS1 US"),
                     company_prefix=None,
+                    item_reference=None,
                     payload="12345678901",
                     check_digit=2,
                 ),
@@ -644,6 +661,7 @@ from biip.upc import Upc, UpcFormat
                                     format=GtinFormat.GTIN_12,
                                     prefix=GS1Prefix(value="012", usage="GS1 US"),
                                     company_prefix=None,
+                                    item_reference=None,
                                     payload="12345678901",
                                     check_digit=2,
                                 ),
@@ -654,15 +672,16 @@ from biip.upc import Upc, UpcFormat
             ),
         ),
         (
-            # GS1 Web URI with GTIN-12, lot number, and expiration date
-            "https://example.com/gtin/614141123452/lot/ABC123?15=250330",
+            # GS1 Digital Link URI with GTIN-14, lot number, and expiration date
+            "https://example.com/01/00614141123452/10/ABC123?15=250330",
             ParseResult(
-                value="https://example.com/gtin/614141123452/lot/ABC123?15=250330",
+                value="https://example.com/01/00614141123452/10/ABC123?15=250330",
                 gtin=Gtin(
                     value="00614141123452",
                     format=GtinFormat.GTIN_12,
                     prefix=GS1Prefix(value="061", usage="GS1 US"),
                     company_prefix=GS1CompanyPrefix(value="0614141"),
+                    item_reference="12345",
                     payload="61414112345",
                     check_digit=2,
                 ),
@@ -673,8 +692,8 @@ from biip.upc import Upc, UpcFormat
                     payload="61414112345",
                     check_digit=2,
                 ),
-                gs1_web_uri=GS1WebURI(
-                    value="https://example.com/gtin/614141123452/lot/ABC123?15=250330",
+                gs1_digital_link_uri=GS1DigitalLinkURI(
+                    value="https://example.com/01/00614141123452/10/ABC123?15=250330",
                     element_strings=GS1ElementStrings(
                         [
                             GS1ElementString(
@@ -686,6 +705,7 @@ from biip.upc import Upc, UpcFormat
                                     format=GtinFormat.GTIN_12,
                                     prefix=GS1Prefix(value="061", usage="GS1 US"),
                                     company_prefix=GS1CompanyPrefix(value="0614141"),
+                                    item_reference="12345",
                                     payload="61414112345",
                                     check_digit=2,
                                 ),
@@ -718,11 +738,11 @@ from biip.upc import Upc, UpcFormat
             ),
         ),
         (
-            # GS1 Web URI with GTIN-12, lot number, and expiration date with GS1
-            # QR Code symbology identifier
-            "]Q3https://example.com/gtin/614141123452/lot/ABC123?15=250330",
+            # GS1 Digital Link URI with GTIN-12, lot number, and expiration date
+            # with GS1 QR Code symbology identifier
+            "]Q3https://example.com/01/614141123452/10/ABC123?15=250330",
             ParseResult(
-                value="]Q3https://example.com/gtin/614141123452/lot/ABC123?15=250330",
+                value="]Q3https://example.com/01/614141123452/10/ABC123?15=250330",
                 symbology_identifier=SymbologyIdentifier(
                     value="]Q3",
                     iso_symbology=ISOSymbology.QR_CODE,
@@ -734,6 +754,7 @@ from biip.upc import Upc, UpcFormat
                     format=GtinFormat.GTIN_12,
                     prefix=GS1Prefix(value="061", usage="GS1 US"),
                     company_prefix=GS1CompanyPrefix(value="0614141"),
+                    item_reference="12345",
                     payload="61414112345",
                     check_digit=2,
                 ),
@@ -746,10 +767,10 @@ from biip.upc import Upc, UpcFormat
                 ),
                 gs1_message_error=(
                     "Failed to get GS1 Application Identifier from "
-                    "'https://example.com/gtin/614141123452/lot/ABC123?15=250330'."
+                    "'https://example.com/01/614141123452/10/ABC123?15=250330'."
                 ),
-                gs1_web_uri=GS1WebURI(
-                    value="https://example.com/gtin/614141123452/lot/ABC123?15=250330",
+                gs1_digital_link_uri=GS1DigitalLinkURI(
+                    value="https://example.com/01/614141123452/10/ABC123?15=250330",
                     element_strings=GS1ElementStrings(
                         [
                             GS1ElementString(
@@ -761,6 +782,7 @@ from biip.upc import Upc, UpcFormat
                                     format=GtinFormat.GTIN_12,
                                     prefix=GS1Prefix(value="061", usage="GS1 US"),
                                     company_prefix=GS1CompanyPrefix(value="0614141"),
+                                    item_reference="12345",
                                     payload="61414112345",
                                     check_digit=2,
                                 ),
@@ -826,6 +848,7 @@ def test_parse_rcn_with_ignored_invalid_check_digit() -> None:
             format=GtinFormat.GTIN_13,
             prefix=GS1Prefix.extract("282"),
             company_prefix=None,
+            item_reference="2404",
             payload="282404000513",
             check_digit=3,
             usage=RcnUsage.GEOGRAPHICAL,
@@ -845,6 +868,7 @@ def test_parse_rcn_with_ignored_invalid_check_digit() -> None:
                             format=GtinFormat.GTIN_13,
                             prefix=GS1Prefix.extract("282"),
                             company_prefix=None,
+                            item_reference="2404",
                             payload="282404000513",
                             check_digit=3,
                             usage=RcnUsage.GEOGRAPHICAL,
@@ -899,8 +923,8 @@ def test_parse_invalid_data() -> None:
         result.gs1_message_error
         == "Failed to get GS1 Application Identifier from 'abc'."
     )
-    assert result.gs1_web_uri is None
-    assert result.gs1_web_uri_error is None
+    assert result.gs1_digital_link_uri is None
+    assert result.gs1_digital_link_uri_error is None
     assert result.sscc is None
     assert (
         result.sscc_error == "Failed to parse 'abc' as SSCC: Expected 18 digits, got 3."
@@ -919,9 +943,9 @@ def test_parse_invalid_http_uri() -> None:
     assert result.gtin_error is None
     assert result.gs1_message is None
     assert result.gs1_message_error is None
-    assert result.gs1_web_uri is None
+    assert result.gs1_digital_link_uri is None
     assert (
-        result.gs1_web_uri_error
+        result.gs1_digital_link_uri_error
         == "Expected a primary identifier in the path, got '/foo/bar'."
     )
     assert result.sscc is None

@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests of behavior common to all reporting."""
 
@@ -139,8 +139,8 @@ class ReportMapsPathsTest(CoverageTest):
         cov = coverage.Coverage()
         cov.load()
         cov.html_report()
-        contains("htmlcov/index.html", os_sep("src/program.py"))
-        doesnt_contain("htmlcov/index.html", os_sep("ver1/program.py"), os_sep("ver2/program.py"))
+        contains("htmlcov/index.html", os_sep("src&#8201;/&#8201;program.py"))
+        doesnt_contain("htmlcov/index.html", "ver1", "ver2")
 
     def test_map_paths_during_xml_report(self) -> None:
         self.make_files(data="line", settings=True)
@@ -148,7 +148,7 @@ class ReportMapsPathsTest(CoverageTest):
         cov.load()
         cov.xml_report()
         contains("coverage.xml", "src/program.py")
-        doesnt_contain("coverage.xml", "ver1/program.py", "ver2/program.py")
+        doesnt_contain("coverage.xml", "ver1", "ver2")
 
     def test_map_paths_during_json_report(self) -> None:
         self.make_files(data="line", settings=True)
@@ -160,7 +160,7 @@ class ReportMapsPathsTest(CoverageTest):
             return os_sep(s).replace("\\", r"\\")
 
         contains("coverage.json", os_sepj("src/program.py"))
-        doesnt_contain("coverage.json", os_sepj("ver1/program.py"), os_sepj("ver2/program.py"))
+        doesnt_contain("coverage.json", "ver1", "ver2")
 
     def test_map_paths_during_lcov_report(self) -> None:
         self.make_files(data="line", settings=True)
@@ -168,7 +168,7 @@ class ReportMapsPathsTest(CoverageTest):
         cov.load()
         cov.lcov_report()
         contains("coverage.lcov", os_sep("src/program.py"))
-        doesnt_contain("coverage.lcov", os_sep("ver1/program.py"), os_sep("ver2/program.py"))
+        doesnt_contain("coverage.lcov", "ver1", "ver2")
 
 
 class ReportWithJinjaTest(CoverageTest):
@@ -187,8 +187,8 @@ class ReportWithJinjaTest(CoverageTest):
     #1553), and that the current (incorrect) behavior remains stable.  Ideally,
     good.j2 wouldn't be listed at all, since we can't report on it accurately.
 
-    See https://github.com/nedbat/coveragepy/issues/1553 for more detail, and
-    https://github.com/nedbat/coveragepy/issues/1623 for an issue about this
+    See https://github.com/coveragepy/coveragepy/issues/1553 for more detail, and
+    https://github.com/coveragepy/coveragepy/issues/1623 for an issue about this
     behavior.
 
     """
@@ -244,11 +244,13 @@ class ReportWithJinjaTest(CoverageTest):
             """\
         <tbody>
             <tr class="region">
-                <td class="name left"><a href="good_j2.html">good.j2</a></td>
+                <td class="name"><a href="good_j2.html">good.j2</a></td>
+                <td class="spacer">&nbsp;</td>
                 <td>3</td>
                 <td>1</td>
                 <td>0</td>
-                <td class="right" data-ratio="2 3">67%</td>
+                <td class="spacer">&nbsp;</td>
+                <td data-ratio="2 3">67%</td>
             </tr>
         </tbody>""",
         )
@@ -276,9 +278,7 @@ class ReportWithJinjaTest(CoverageTest):
         cov.json_report()
         contains(
             "coverage.json",
-            # Notice the .json report claims lines in good.j2 executed that
-            # don't even exist in good.j2...
-            '"files": {"good.j2": {"executed_lines": [1, 3, 5, 7, 9], '
+            '"files": {"good.j2": {"executed_lines": [1, 3], '
             + '"summary": {"covered_lines": 2, "num_statements": 3',
         )
         doesnt_contain("coverage.json", "bad.j2")

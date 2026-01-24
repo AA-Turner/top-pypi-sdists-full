@@ -17,12 +17,11 @@ from typing_extensions import assert_never
 from chalk import DataFrame
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as arrow_pb
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
-from chalk._gen.chalk.graph.v1 import graph_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as pb
-from chalk._gen.chalk.graph.v1.graph_pb2 import CronFilterWithFeatureArgs, SourceFileReference
 from chalk._gen.chalk.graph.v2 import sources_pb2 as sources_pb
 from chalk._gen.chalk.lsp.v1.lsp_pb2 import Location, Position, Range
 from chalk._validation.feature_validation import FeatureValidation
+from chalk.df.LazyFramePlaceholder import LazyFramePlaceholder
 from chalk.features import (
     CacheStrategy,
     Feature,
@@ -82,6 +81,7 @@ from chalk.queries.named_query import NamedQuery
 from chalk.sql._internal.sql_settings import SQLResolverSettings
 from chalk.sql._internal.sql_source import BaseSQLSource
 from chalk.sql.finalized_query import Finalizer, IncrementalSettings
+from chalk.stores.online_store_config import OnlineStoreConfig
 from chalk.streams import StreamSource
 from chalk.streams.types import (
     StreamResolverParam,
@@ -110,11 +110,18 @@ class ToProtoConverter:
     }
     _cache_strategy_to_proto: ClassVar[Mapping[CacheStrategy, "pb.CacheStrategy"]] = {
         CacheStrategy.ALL: pb.CACHE_STRATEGY_ALL,
+        CacheStrategy.ALL_WITH_NULLS_UNSET: pb.CACHE_STRATEGY_ALL,
+        CacheStrategy.ALL_WITH_DEFAULTS_UNSET: pb.CACHE_STRATEGY_ALL,
+        CacheStrategy.ALL_WITH_BOTH_UNSET: pb.CACHE_STRATEGY_ALL,
         CacheStrategy.NO_NULLS: pb.CACHE_STRATEGY_NO_NULLS,
+        CacheStrategy.NO_NULLS_WITH_DEFAULTS_UNSET: pb.CACHE_STRATEGY_NO_NULLS,
         CacheStrategy.NO_DEFAULTS: pb.CACHE_STRATEGY_NO_DEFAULTS,
+        CacheStrategy.NO_DEFAULTS_WITH_NULLS_UNSET: pb.CACHE_STRATEGY_NO_DEFAULTS,
         CacheStrategy.NO_NULLS_OR_DEFAULTS: pb.CACHE_STRATEGY_NO_NULLS_OR_DEFAULTS,
         CacheStrategy.EVICT_NULLS: pb.CACHE_STRATEGY_EVICT_NULLS,
+        CacheStrategy.EVICT_NULLS_WITH_DEFAULTS_UNSET: pb.CACHE_STRATEGY_EVICT_NULLS,
         CacheStrategy.EVICT_DEFAULTS: pb.CACHE_STRATEGY_EVICT_DEFAULTS,
+        CacheStrategy.EVICT_DEFAULTS_WITH_NULLS_UNSET: pb.CACHE_STRATEGY_EVICT_DEFAULTS,
         CacheStrategy.EVICT_NULLS_AND_DEFAULTS: pb.CACHE_STRATEGY_EVICT_NULLS_AND_DEFAULTS,
     }
     _database_source_group_type: ClassVar[str] = "chalk::db_source_group"
@@ -195,7 +202,7 @@ class ToProtoConverter:
                 version=source.version,
                 alias=source.alias,
                 as_of=datetime_to_proto_timestamp(source.as_of_date) if source.as_of_date else None,
-                source_file_reference=SourceFileReference(
+                source_file_reference=pb.SourceFileReference(
                     code=source.code,
                     file_name=source.filename,
                     range=Range(
@@ -206,6 +213,31 @@ class ToProtoConverter:
             )
         except Exception as e:
             raise ValueError(f"Could not convert model {source.name} [{source.identifier}]") from e
+
+    @staticmethod
+    def _convert_online_store_config(source: OnlineStoreConfig) -> pb.OnlineStoreConfig:
+        try:
+            return pb.OnlineStoreConfig(
+                name=source.id,
+                lru_cache=pb.LRUCacheConfig(
+                    ttl=timedelta_to_proto_duration(source.lru_cache.ttl),
+                    max_size=source.lru_cache.max_size,
+                    store_cache_misses=source.lru_cache.store_cache_misses,
+                )
+                if source.lru_cache
+                else None,
+                feature_namespaces=list(source.feature_set_namespaces),
+                source_file_reference=pb.SourceFileReference(
+                    code=source.code,
+                    file_name=source.filename,
+                    range=Range(
+                        start=Position(line=source.source_line_start, character=0),
+                        end=Position(line=source.source_line_end, character=0),
+                    ),
+                ),
+            )
+        except Exception as e:
+            raise ValueError(f"Could not convert online store config '{source.id}'") from e
 
     @staticmethod
     def convert_stream_source(source: StreamSource) -> sources_pb.StreamSource:
@@ -259,7 +291,7 @@ class ToProtoConverter:
             raise ValueError(f"Could not convert SQL source group '{group.name}'") from e
 
     @staticmethod
-    def convert_cron_filter(cron: Union[CronTab, Duration, Cron]) -> Optional[CronFilterWithFeatureArgs]:
+    def convert_cron_filter(cron: Union[CronTab, Duration, Cron]) -> Optional[pb.CronFilterWithFeatureArgs]:
         if isinstance(cron, Cron) and cron.filter is not None:
             sig = inspect.signature(cron.filter)
             features: list[pb.FeatureReference] = []
@@ -271,7 +303,7 @@ class ToProtoConverter:
                 if not feature.is_feature_time and not feature.is_scalar:
                     raise ValueError("Cron filters must be scalars or feature time features")
                 features.append(ToProtoConverter.create_feature_reference(feature))
-            return CronFilterWithFeatureArgs(
+            return pb.CronFilterWithFeatureArgs(
                 filter=ToProtoConverter.create_function_reference(cron.filter),
                 args=features,
             )
@@ -867,7 +899,9 @@ class ToProtoConverter:
                     if mat.backfill_start_time is not None
                     else None,
                     backfill_schedule=mat.backfill_schedule,
-                    approx_top_k_arg_k=aggregation_kwargs.get("k"),
+                    approx_top_k_arg_k=aggregation_kwargs.get("k")
+                    if mat.aggregation in ("approx_top_k", "approx_percentile", "min_by_n", "max_by_n")
+                    else None,
                 ),
                 tags=f.tags,
                 validations=ToProtoConverter.convert_validations(f.all_validations),
@@ -961,7 +995,9 @@ class ToProtoConverter:
                             if wmp.continuous_buffer_duration_seconds is not None
                             else None,
                             continuous_resolver=wmp.continuous_resolver,
-                            approx_top_k_arg_k=aggregation_kwargs.get("k"),
+                            approx_top_k_arg_k=aggregation_kwargs.get("k")
+                            if wmp.aggregation in ("approx_top_k", "approx_percentile", "min_by_n", "max_by_n")
+                            else None,
                         )
                         if wmp is not None
                         else None,
@@ -989,6 +1025,9 @@ class ToProtoConverter:
                 validations=ToProtoConverter.convert_validations(f.all_validations),
                 expression=ToProtoConverter.convert_underscore(f.underscore_expression)
                 if f.underscore_expression is not None
+                else None,
+                offline_expression=ToProtoConverter.convert_underscore(f.offline_underscore_expression)
+                if f.offline_underscore_expression is not None
                 else None,
                 expression_definition_location=ToProtoConverter.convert_expression_definition_location(
                     f.underscore_expression
@@ -1112,9 +1151,13 @@ class ToProtoConverter:
             raise ValueError(f"Unsupported resource hint: {r.resource_hint}")
 
         static_operation = None
+        static_operation_dataframe = None
         if r.static:
             static_operator = static_resolver_to_operator(fqn=r.fqn, fn=r.fn, inputs=r.inputs, output=r.output)
-            static_operation = static_operator._to_proto()  # pyright: ignore[reportPrivateUsage]
+            if isinstance(static_operator, LazyFramePlaceholder):
+                static_operation_dataframe = static_operator._to_proto()  # pyright: ignore[reportPrivateUsage]
+            else:
+                static_operation = static_operator._to_proto()  # pyright: ignore[reportPrivateUsage]
 
         function_reference_proto = ToProtoConverter.create_function_reference(
             r.fn,
@@ -1123,7 +1166,9 @@ class ToProtoConverter:
             filename=r.filename,
             source_line=r.source_line,
         )
-
+        postprocessing_underscore_expr: expr_pb.LogicalExprNode | None = None
+        if isinstance(r.postprocessing, Underscore):
+            postprocessing_underscore_expr = r.postprocessing._to_proto()  # pyright: ignore[reportPrivateUsage]
         return pb.Resolver(
             fqn=r.fqn,
             kind=(
@@ -1151,9 +1196,11 @@ class ToProtoConverter:
             unique_on=tuple(x.root_fqn for x in r.unique_on) if r.unique_on is not None else (),
             partitioned_by=(x.root_fqn for x in r.partitioned_by) if r.partitioned_by is not None else (),
             static_operation=static_operation,
+            static_operation_dataframe=static_operation_dataframe,
             sql_settings=ToProtoConverter.convert_sql_settings(r.sql_settings) if r.sql_settings else None,
             output_row_order=r.output_row_order,
             venv=r.venv,
+            underscore_expr=postprocessing_underscore_expr,
         )
 
     @staticmethod
@@ -1174,7 +1221,7 @@ class ToProtoConverter:
             try:
                 if issubclass(p.typ, google.protobuf.message.Message):
                     message.proto.CopyFrom(
-                        graph_pb2.FunctionGlobalCapturedProto(
+                        pb.FunctionGlobalCapturedProto(
                             name=p.typ.__name__,
                             module=p.typ.__module__,
                             pa_dtype=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(
@@ -1187,7 +1234,7 @@ class ToProtoConverter:
                 elif issubclass(p.typ, BaseModel) or dataclasses.is_dataclass(p.typ):
                     pa_dtype = rich_to_pyarrow(p.typ, p.typ.__name__, False, True)
                     message.struct.CopyFrom(
-                        graph_pb2.FunctionGlobalCapturedStruct(
+                        pb.FunctionGlobalCapturedStruct(
                             name=p.typ.__name__,
                             module=p.typ.__module__,
                             pa_dtype=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(pa_dtype),
@@ -1283,10 +1330,23 @@ class ToProtoConverter:
             if mode is None:
                 raise ValueError(f"Unknown window mode: {r.mode}")
 
-        feature_expressions: dict[str, graph_pb2.FeatureExpression] = {}
+        feature_expressions: dict[str, pb.FeatureExpression] = {}
         for feat, expr in (r.feature_expressions or {}).items():
             expr_proto = cls.convert_underscore(expr)
-            feature_expressions[str(feat)] = graph_pb2.FeatureExpression(underscore_expr=expr_proto)
+            feature_expressions[str(feat)] = pb.FeatureExpression(underscore_expr=expr_proto)
+        message_producer: pb.StreamResolverMessageProducerParsed | None = None
+        if r.message_producer_parsed is not None:
+            message_producer = pb.StreamResolverMessageProducerParsed(
+                send_to=ToProtoConverter.create_stream_source_reference(r.message_producer_parsed.send_to),
+                output_features=r.message_producer_parsed.output_features,
+                transformations={
+                    str(k): pb.FeatureExpression(underscore_expr=cls.convert_underscore(v))
+                    for k, v in r.message_producer_parsed.feature_expressions.items()
+                }
+                if r.message_producer_parsed.feature_expressions is not None
+                else None,
+                format=r.message_producer_parsed.format,
+            )
 
         # convert_proto_message_type_to_pyarrow_type(global_value.DESCRIPTOR)
         explicit_schema_proto: arrow_pb.ArrowType | None = None
@@ -1328,6 +1388,7 @@ class ToProtoConverter:
                 captured_globals=r.function_captured_globals,
             ),
             feature_expressions=feature_expressions,
+            message_producer=message_producer,
         )
 
     @staticmethod
@@ -1396,6 +1457,7 @@ class ToProtoConverter:
         stream_source_registry: Collection[StreamSource],
         named_query_registry: dict[tuple[str, Optional[str]], NamedQuery],
         model_reference_registry: dict[tuple[str, str], ModelReference],
+        online_store_config_registry: dict[str, OnlineStoreConfig],
     ) -> pb.Graph:
         feature_sets = []
         for feature_set in features_registry.values():
@@ -1439,6 +1501,10 @@ class ToProtoConverter:
         for model_reference in model_reference_registry.values():
             model_references.append(ToProtoConverter._convert_model_reference(model_reference))
 
+        online_store_configs: list[pb.OnlineStoreConfig] = []
+        for online_store_config in online_store_config_registry.values():
+            online_store_configs.append(ToProtoConverter._convert_online_store_config(online_store_config))
+
         return pb.Graph(
             feature_sets=feature_sets,
             resolvers=resolvers,
@@ -1449,6 +1515,7 @@ class ToProtoConverter:
             stream_sources_v2=[ToProtoConverter.convert_stream_source(s) for s in stream_source_registry],
             named_queries=named_queries,
             model_references=model_references,
+            online_store_configs=online_store_configs,
         )
 
     @classmethod

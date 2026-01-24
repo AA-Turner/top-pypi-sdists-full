@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import pyarrow as pa
 import somacore
@@ -20,7 +21,6 @@ _UNBATCHED = options.BatchSize()
 
 
 class SpatialDataFrame(SOMAArray):
-
     __slots__ = ()
 
     def keys(self) -> tuple[str, ...]:

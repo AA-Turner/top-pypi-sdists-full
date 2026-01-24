@@ -3,7 +3,7 @@ Type annotations for bedrock service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -18,6 +18,7 @@ Usage::
         ListAutomatedReasoningPolicyTestResultsPaginator,
         ListCustomModelDeploymentsPaginator,
         ListCustomModelsPaginator,
+        ListEnforcedGuardrailsConfigurationPaginator,
         ListEvaluationJobsPaginator,
         ListGuardrailsPaginator,
         ListImportedModelsPaginator,
@@ -41,6 +42,7 @@ Usage::
         list_automated_reasoning_policy_test_results_paginator: ListAutomatedReasoningPolicyTestResultsPaginator = client.get_paginator("list_automated_reasoning_policy_test_results")
         list_custom_model_deployments_paginator: ListCustomModelDeploymentsPaginator = client.get_paginator("list_custom_model_deployments")
         list_custom_models_paginator: ListCustomModelsPaginator = client.get_paginator("list_custom_models")
+        list_enforced_guardrails_configuration_paginator: ListEnforcedGuardrailsConfigurationPaginator = client.get_paginator("list_enforced_guardrails_configuration")
         list_evaluation_jobs_paginator: ListEvaluationJobsPaginator = client.get_paginator("list_evaluation_jobs")
         list_guardrails_paginator: ListGuardrailsPaginator = client.get_paginator("list_guardrails")
         list_imported_models_paginator: ListImportedModelsPaginator = client.get_paginator("list_imported_models")
@@ -75,6 +77,8 @@ from .type_defs import (
     ListCustomModelDeploymentsResponseTypeDef,
     ListCustomModelsRequestPaginateTypeDef,
     ListCustomModelsResponseTypeDef,
+    ListEnforcedGuardrailsConfigurationRequestPaginateTypeDef,
+    ListEnforcedGuardrailsConfigurationResponseTypeDef,
     ListEvaluationJobsRequestPaginateTypeDef,
     ListEvaluationJobsResponseTypeDef,
     ListGuardrailsRequestPaginateTypeDef,
@@ -112,6 +116,7 @@ __all__ = (
     "ListAutomatedReasoningPolicyTestResultsPaginator",
     "ListCustomModelDeploymentsPaginator",
     "ListCustomModelsPaginator",
+    "ListEnforcedGuardrailsConfigurationPaginator",
     "ListEvaluationJobsPaginator",
     "ListGuardrailsPaginator",
     "ListImportedModelsPaginator",
@@ -265,6 +270,31 @@ class ListCustomModelsPaginator(_ListCustomModelsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListCustomModels.html#Bedrock.Paginator.ListCustomModels.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/paginators/#listcustommodelspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListEnforcedGuardrailsConfigurationPaginatorBase = AioPaginator[
+        ListEnforcedGuardrailsConfigurationResponseTypeDef
+    ]
+else:
+    _ListEnforcedGuardrailsConfigurationPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListEnforcedGuardrailsConfigurationPaginator(
+    _ListEnforcedGuardrailsConfigurationPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListEnforcedGuardrailsConfiguration.html#Bedrock.Paginator.ListEnforcedGuardrailsConfiguration)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/paginators/#listenforcedguardrailsconfigurationpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListEnforcedGuardrailsConfigurationRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListEnforcedGuardrailsConfigurationResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListEnforcedGuardrailsConfiguration.html#Bedrock.Paginator.ListEnforcedGuardrailsConfiguration.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/paginators/#listenforcedguardrailsconfigurationpaginator)
         """
 
 

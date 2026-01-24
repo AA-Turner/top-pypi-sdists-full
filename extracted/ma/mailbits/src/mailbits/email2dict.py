@@ -4,22 +4,16 @@ from datetime import datetime
 from email import headerregistry as hr
 from email.message import Message
 import inspect
-import sys
-from typing import Any, Optional
+from typing import Any, TypedDict
 from .misc import message2email, parse_addresses
-
-if sys.version_info[:2] >= (3, 8):
-    from typing import TypedDict
-else:
-    from typing_extensions import TypedDict
 
 
 class MessageDict(TypedDict):
-    unixfrom: Optional[str]
+    unixfrom: str | None
     headers: dict[str, Any]
-    preamble: Optional[str]
+    preamble: str | None
     content: Any
-    epilogue: Optional[str]
+    epilogue: str | None
 
 
 def process_unique_string_header(ush: list[Any]) -> str:
@@ -75,11 +69,12 @@ def process_date_headers(dh: list[Any]) -> list[datetime]:
     data = []
     for h in dh:
         assert isinstance(h, hr.DateHeader)
-        data.append(h.datetime)
+        if (dt := h.datetime) is not None:
+            data.append(dt)
     return data
 
 
-def process_unique_date_header(dh: list[Any]) -> datetime:
+def process_unique_date_header(dh: list[Any]) -> datetime | None:
     assert len(dh) == 1
     assert isinstance(dh[0], hr.UniqueDateHeader)
     return dh[0].datetime
@@ -114,7 +109,7 @@ def process_cte_header(cteh: list[Any]) -> str:
     return cteh[0].cte  # TODO: When is this different from `str(cteh[0])`?
 
 
-def process_mime_version_header(mvh: list[Any]) -> Optional[str]:
+def process_mime_version_header(mvh: list[Any]) -> str | None:
     assert len(mvh) == 1
     assert isinstance(mvh[0], hr.MIMEVersionHeader)
     return mvh[0].version
@@ -190,7 +185,8 @@ def email2dict(msg: Message, include_all: bool = False) -> MessageDict:
             if takes_argument(processor, "include_all"):
                 kwargs["include_all"] = include_all
             v = processor(values, **kwargs)
-        data["headers"][header] = v
+        if v is not None and v != []:
+            data["headers"][header] = v
     data["preamble"] = msg.preamble
     if msg.get_content_maintype() == "message":
         # Some "message/*" subtypes (specifically, as of Python 3.9, rfc822 and

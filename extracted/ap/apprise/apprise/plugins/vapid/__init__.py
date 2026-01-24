@@ -106,7 +106,7 @@ class NotifyVapid(NotifyBase):
     secure_protocol = "vapid"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_vapid"
+    setup_url = "https://appriseit.com/services/vapid/"
 
     # There is no reason we should exceed 5KB when reading in a PEM file.
     # If it is more than this, then it is not accepted.
@@ -446,7 +446,8 @@ class NotifyVapid(NotifyBase):
                         )
                     )
 
-                    self.logger.debug("Response Details:\r\n%s", r.content)
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     has_error = True
 

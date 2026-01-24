@@ -147,6 +147,10 @@ def test_insert_transform():
     assert_allclose(gw.forward_transform(1, 2), m1(1, 2))
     gw.insert_transform(frame="icrs", transform=m2)
     assert_allclose(gw.forward_transform(1, 2), (m1 | m2)(1, 2))
+    with pytest.raises(ValueError, match=r"A transform can not be inserted before"):
+        gw.insert_transform(frame="detector", transform=m2)
+    with pytest.raises(ValueError, match=r"A transform can not be inserted after"):
+        gw.insert_transform(frame="icrs", transform=m2, after=True)
 
 
 def test_insert_frame():
@@ -228,7 +232,7 @@ def test_backward_transform_has_inverse():
     poly.inverse = models.Polynomial1D(
         1, c0=-3
     )  # this is NOT the actual inverse of poly
-    w = wcs.WCS(forward_transform=poly & models.Scale(2), output_frame="sky")
+    w = wcs.WCS(forward_transform=poly & models.Scale(2), output_frame=icrs)
     assert_allclose(w.backward_transform.inverse(1, 2), w(1, 2))
 
 
@@ -472,8 +476,7 @@ def test_wcs_from_points():
     assert_allclose(newra, ra)
     assert_allclose(newdec, dec)
 
-    n = rng.standard_normal(ra.size)
-    n.shape = ra.shape
+    n = rng.standard_normal(size=ra.shape)
     nra = n * 10**-2
     ndec = n * 10**-2
     w = wcs_from_points(
@@ -512,13 +515,23 @@ def test_bounding_box_eval():
     pipeline = [
         (
             cf.CoordinateFrame(
-                naxes=1, axes_type=("PIXEL",), axes_order=(0,), name="detector"
+                naxes=3,
+                axes_type=(
+                    "PIXEL",
+                    "PIXEL",
+                    "PIXEL",
+                ),
+                axes_order=(0, 1, 2),
+                name="detector",
             ),
             trans3,
         ),
         (
             cf.CoordinateFrame(
-                naxes=1, axes_type=("SPATIAL",), axes_order=(0,), name="sky"
+                naxes=3,
+                axes_type=("SPATIAL", "SPATIAL", "SPATIAL"),
+                axes_order=(0, 1, 2),
+                name="sky",
             ),
             None,
         ),
@@ -1682,7 +1695,7 @@ def test_reordered_celestial():
     assert_allclose(obj_pixel, u.Quantity(input_pixel).to_value(u.pix))
 
 
-def test_high_level_objects_in_pipeline_forward(gwcs_with_pipeline_celestial):
+def test_quantities_in_pipeline_forward(gwcs_with_pipeline_celestial):
     """
     This test checks that high level objects still work with a multi-stage
     pipeline when doing forward transforms.
@@ -1693,8 +1706,8 @@ def test_high_level_objects_in_pipeline_forward(gwcs_with_pipeline_celestial):
 
     output_world = iwcs(*input_pixel)
 
-    assert output_world[0].unit == u.deg
-    assert output_world[1].unit == u.deg
+    assert output_world[0].unit == u.arcsec
+    assert output_world[1].unit == u.arcsec
     assert u.allclose(output_world[0], 20 * u.arcsec + 1 * u.deg)
     assert u.allclose(output_world[1], 15 * u.deg + 2 * u.deg)
 
@@ -1710,7 +1723,7 @@ def test_high_level_objects_in_pipeline_forward(gwcs_with_pipeline_celestial):
     assert u.allclose(intermediate_world[1], 15 * u.deg)
 
 
-def test_high_level_objects_in_pipeline_backward(gwcs_with_pipeline_celestial):
+def test_quantities_in_pipeline_backward(gwcs_with_pipeline_celestial):
     """
     This test checks that high level objects still work with a multi-stage
     pipeline when doing backward transforms.
@@ -1721,10 +1734,10 @@ def test_high_level_objects_in_pipeline_backward(gwcs_with_pipeline_celestial):
         20 * u.arcsec + 1 * u.deg,
         15 * u.deg + 2 * u.deg,
     ]
-    pixel = iwcs.invert(*input_world)
-
-    assert all(isinstance(p, u.Quantity) for p in pixel)
-    assert u.allclose(pixel, [1, 1] * u.pix)
+    with pytest.raises(
+        TypeError, match=r"High Level objects are not supported with the native"
+    ):
+        iwcs.invert(*input_world)
 
     intermediate_world = iwcs.transform(
         "output",
@@ -1741,7 +1754,7 @@ def test_error_with_duplicate_frames():
     """
     pipeline = [(detector, m1), (detector, m2), (focal, None)]
 
-    with pytest.raises(ValueError, match="Frame detector is already in the pipeline."):
+    with pytest.raises(ValueError, match=r"Frame detector is already in the pipeline."):
         wcs.WCS(pipeline)
 
 
@@ -1753,7 +1766,7 @@ def test_error_with_not_none_last():
     pipeline = [(detector, m1), (focal, m2)]
 
     with pytest.raises(
-        ValueError, match="The last step in the pipeline must have a None transform."
+        ValueError, match=r"The last step in the pipeline must have a None transform."
     ):
         wcs.WCS(pipeline)
 
@@ -1873,7 +1886,11 @@ def test_parameterless_transform():
     assert gwcs(1 * u.pix, 1 * u.pix) == (1 * u.pix, 1 * u.pix)
 
     assert gwcs.invert(1, 1) == (1, 1)
-    assert gwcs.invert(1 * u.pix, 1 * u.pix) == (1, 1)
+    # Strictly speaking it's correct that this fails Because
+    # for this setup the HLO are Quantities
+    with pytest.raises(TypeError) as e:
+        _ = gwcs.invert(1 * u.pix, 1 * u.pix)
+    assert "High Level objects are not supported with the native" in str(e)
 
 
 def test_fitswcs_imaging(fits_wcs_imaging_simple):

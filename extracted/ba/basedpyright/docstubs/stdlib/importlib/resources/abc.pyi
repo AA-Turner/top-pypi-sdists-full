@@ -1,4 +1,5 @@
 import sys
+from _typeshed import StrPath
 from abc import ABCMeta, abstractmethod
 from collections.abc import Iterator
 from io import BufferedReader
@@ -24,7 +25,7 @@ if sys.version_info >= (3, 11):
         @abstractmethod
         def iterdir(self) -> Iterator[Traversable]: ...
         @abstractmethod
-        def joinpath(self, *descendants: str) -> Traversable: ...
+        def joinpath(self, *descendants: StrPath) -> Traversable: ...
 
         # The documentation and runtime protocol allows *args, **kwargs arguments,
         # but this would mean that all implementers would have to support them,
@@ -40,7 +41,7 @@ if sys.version_info >= (3, 11):
         def name(self) -> str:
             """The base name of this object without any parent references."""
             ...
-        def __truediv__(self, child: str, /) -> Traversable: ...
+        def __truediv__(self, child: StrPath, /) -> Traversable: ...
         @abstractmethod
         def read_bytes(self) -> bytes: ...
         @abstractmethod

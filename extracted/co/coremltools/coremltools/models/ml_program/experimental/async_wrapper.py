@@ -168,7 +168,7 @@ class MLModelAsyncWrapper(ABC):
         This static method constructs an ``MLModelAsyncWrapper`` object based on the provided
         model specification and additional parameters.
 
-        If the device parameter is``None``, the model is loaded on the local system. Otherwise, it
+        If the device parameter is ``None``, the model is loaded on the local system. Otherwise, it
         is loaded on the specified device.
 
         Parameters
@@ -248,7 +248,9 @@ class LocalMLModelAsyncWrapper(MLModelAsyncWrapper):
             raise ValueError("Failed to load model")
 
         self._model = model
-        self.temp_asset_path = self._model.package_path
+        # Perform cleanup only when a model is being created.
+        if isinstance(self.spec_or_path, proto.Model_pb2.Model): 
+            self.temp_asset_path = self._model.package_path
 
     def make_state_if_needed(self) -> Optional["MLState"]:
         if self._model._is_stateful():

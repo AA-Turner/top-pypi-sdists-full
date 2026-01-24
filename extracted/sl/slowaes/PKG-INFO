@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: slowaes
+Version: 0.1a1
+Summary: implementation of AES in Python
+Home-page: http://code.google.com/p/slowaes/
+Author: Josh Davis, Alex Martelli
+Author-email: UNKNOWN
+License: Apache License, Version 2.0
+Description: UNKNOWN
+Platform: UNKNOWN

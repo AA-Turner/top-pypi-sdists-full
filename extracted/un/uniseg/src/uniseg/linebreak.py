@@ -7,16 +7,16 @@
 from collections.abc import Iterator
 from typing import Optional
 
-from uniseg import Unicode_Property
-from uniseg.breaking import (Breakable, Breakables, Run, TailorBreakables, boundaries,
+from uniseg.breaking import (Breakable, Breakables, Run, TailorFunction, boundaries,
                              break_units)
 from uniseg.db import get_handle, get_value
 from uniseg.emoji import extended_pictographic
-from uniseg.unicodedata_ import (EA, GC, East_Asian_Width, General_Category,
-                                 east_asian_width_, general_category_)
+from uniseg.unicodedatawrapper import (EA, GC, Category, EastAsianWidth, category,
+                                       east_asian_width)
+from uniseg.unicodeproperty import EnumProperty, PropertyFunction, character_property
 
 __all__ = [
-    'Line_Break',
+    'LineBreak',
     'LB',
     'line_break',
     'line_break_breakables',
@@ -24,161 +24,207 @@ __all__ = [
     'line_break_units',
 ]
 
-H_LINE_BREAK = get_handle('Line_Break')
+_H_LB = get_handle('Line_Break')
 
 
-class Line_Break(Unicode_Property):
+class LineBreak(EnumProperty):
     """Line_Break property values."""
+
+    __propname__ = 'Line_Break'
+
     BK = 'BK'
     """Line_Break property value BK, Mandatory Break"""
+
     CR = 'CR'
     """Line_Break property value CR, Carriage Return"""
+
     LF = 'LF'
     """Line_Break property value LF, Line Feed"""
+
     CM = 'CM'
     """Line_Break property value CM, Combining Mark"""
+
     NL = 'NL'
     """Line_Break property value NL, Next Line"""
+
     SG = 'SG'
     """Line_Break property value SG, Surrogate"""
+
     WJ = 'WJ'
     """Line_Break property value WJ, Word Joiner"""
+
     ZW = 'ZW'
     """Line_Break property value ZW, Zero Width Space"""
+
     GL = 'GL'
     """Line_Break property value GL, Non-breaking ("Glue")"""
+
     SP = 'SP'
     """Line_Break property value SP, Space"""
+
     ZWJ = 'ZWJ'
     """ZLine_Break property value ZWJ, Zero Width Joiner"""
+
     B2 = 'B2'
     """Line_Break property value B2, Break Opportunity Before and After"""
+
     BA = 'BA'
     """Line_Break property value BA, Break After"""
+
     BB = 'BB'
     """Line_Break property value BB, Break Before"""
+
     HY = 'HY'
     """Line_Break property value HY, Hyphen"""
+
     CB = 'CB'
     """Line_Break property value CB, Contingent Break Opportunity"""
+
     CL = 'CL'
     """Line_Break property value CL, Close Punctuation"""
+
     CP = 'CP'
     """Line_Break property value CP, Close Parenthesis"""
+
     EX = 'EX'
     """Line_Break property value EX, Exclamation/Interrogation"""
+
     IN = 'IN'
     """Line_Break property value IN, Inseparable"""
+
     NS = 'NS'
     """Line_Break property value NS, Nonstarter"""
+
     OP = 'OP'
     """Line_Break property value OP, Open Punctuation"""
+
     QU = 'QU'
     """Line_Break property value QU, Quotation"""
+
     IS = 'IS'
     """Line_Break property value IS, Infix Numeric Separator"""
+
     NU = 'NU'
     """Line_Break property value NU, Numeric"""
+
     PO = 'PO'
     """Line_Break property value PO, Postfix Numeric"""
+
     PR = 'PR'
     """Line_Break property value PR, Prefix Numeric"""
+
     SY = 'SY'
     """Line_Break property value SY, Symbols Allowing Break After"""
+
     AI = 'AI'
     """Line_Break property value AI, Ambiguous (Alphabetic or Ideographic)"""
+
     AK = 'AK'
     """Line_Break property value AK, Aksara"""
+
     AL = 'AL'
     """Line_Break property value AL, Alphabetic"""
+
     AP = 'AP'
     """Line_Break property value AP, Aksara Pre-Base"""
+
     AS = 'AS'
     """Line_Break property value AS, Aksara Start"""
+
     CJ = 'CJ'
     """Line_Break property value CJ, Conditional Japanese Starter"""
+
     EB = 'EB'
     """Line_Break property value EB, Emoji Base"""
+
     EM = 'EM'
     """Line_Break property value EM, Emoji Modifier"""
+
     H2 = 'H2'
     """Line_Break property value H2, Hangul LV Syllable"""
+
     H3 = 'H3'
     """Line_Break property value H3, Hangul LVT Syllable"""
+
     HL = 'HL'
     """Line_Break property value HL, Hebrew Letter"""
+
     ID = 'ID'
     """Line_Break property value ID, Ideographic"""
+
     JL = 'JL'
     """Line_Break property value JL, Hangul L Jamo"""
+
     JV = 'JV'
     """Line_Break property value JV, Hangul V Jamo"""
+
     JT = 'JT'
     """Line_Break property value JT, Hangul T Jamo"""
+
     RI = 'RI'
     """Line_Break property value RI, Regional Indicator"""
+
     SA = 'SA'
     """Line_Break property value SA, Complex Context Dependent (South East Asian)"""
+
     VF = 'VF'
     """Line_Break property value VF, Virama Final"""
+
     VI = 'VI'
     """Line_Break property value VI, Virama"""
+
     XX = 'XX'
     """Line_Break property value XX, Unknown"""
 
 
 # type alias for `LineBreak`
-LB = Line_Break
+LB = LineBreak
 
 
-EastAsianTuple = (EA.F, EA.W, EA.H)
-
-
-def line_break(c: str, /) -> Line_Break:
-    R"""Return the Line_Break property for `c`.
+@character_property
+def line_break(c: str, /) -> LineBreak:
+    R"""Return the Line_Break value assigned to the code point `c`.
 
     `c` must be a single Unicode code point string.
 
     >>> line_break('\r')
-    Line_Break.CR
+    LineBreak.CR
     >>> line_break(' ')
-    Line_Break.SP
+    LineBreak.SP
     >>> line_break('1')
-    Line_Break.NU
+    LineBreak.NU
     >>> line_break('᭄') # (== '\u1b44')
-    Line_Break.VI
+    LineBreak.VI
+    >>> line_break('𐀀') # U+10000, LINEAR B SYLLABLE B008 A
+    LineBreak.AL
     """
-    return Line_Break[get_value(H_LINE_BREAK, ord(c)) or 'XX']
+    return LineBreak(get_value(_H_LB, ord(c)) or 'XX')
 
 
-def _ea(c: Optional[str], /) -> Optional[East_Asian_Width]:
-    return None if c is None else east_asian_width_(c)
+def _cat(c: Optional[str], /) -> Optional[Category]:
+    """(internal) Same as `category` but also accepts `None` as an
+    argument, which returns `None` in that case."""
+    return None if c is None else category(c)
 
 
-def _cat(c: Optional[str], /) -> Optional[General_Category]:
-    return None if c is None else general_category_(c)
+def _eaw(c: Optional[str], /) -> Optional[EastAsianWidth]:
+    """(internal) Same as `east_asian_width` but also accepts `None` as an
+    argument, which returns `None` in that case."""
+    return None if c is None else east_asian_width(c)
 
 
-def _extpict(c: Optional[str], /) -> Optional[bool]:
+def _ep(c: Optional[str], /) -> Optional[bool]:
+    """(internal) Same as `extended_pictographic` but also accepts `None` as an
+    argument, which returns `None` in that case."""
     return False if c is None else extended_pictographic(c)
 
 
-def resolve_lb1_linebreak(c: str, /) -> Line_Break:
-    lb = line_break(c)
-    cat = general_category_(c)
-    if lb in (LB.AI, LB.SG, LB.XX):
-        lb = LB.AL
-    elif lb == LB.SA:
-        if cat in (GC.Mn, GC.Mc):
-            lb = LB.CM
-        else:
-            lb = LB.AL
-    elif lb == LB.CJ:
-        lb = LB.NS
-    return lb
+_EAST_ASIAN = (EA.F, EA.W, EA.H)
 
 
-def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
+def line_break_breakables(
+    s: str, /, *, property: PropertyFunction[LineBreak] = line_break,
+) -> Breakables:
     """Iterate line breaking opportunities for every position of `s`
 
     1 means "break" and 0 means "do not break" BEFORE the postion.
@@ -194,16 +240,23 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
     if not s:
         return iter([])
 
+    run = Run(s, property)
+
     # LB1
-    run = Run(s, resolve_lb1_linebreak)
-    if legacy:
-        while 1:
-            if _ea(run.cc) == EA.A:
-                run.set_attr(LB.ID)
-            if not run.walk():
-                break
-        run.head()
+    while True:
+        lb = run.curr
+        if lb in (LB.AI, LB.SG, LB.XX):
+            run.set_attr(LB.AL)
+        elif lb == LB.SA and run.cc:
+            run.set_attr(
+                LB.CM if category(run.cc) in (GC.MN, GC.MC) else LB.AL
+            )
+        elif lb == LB.CJ:
+            run.set_attr(LB.NS)
+        if not run.walk():
+            break
     # LB2
+    run.head()
     run.do_not_break_here()
     while run.walk():
         # LB4
@@ -232,7 +285,8 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
     while run.walk():
         if (
             run.is_following((LB.CM, LB.ZWJ), greedy=True).prev not in (
-                LB.BK, LB.CR, LB.LF, LB.NL, LB.SP, LB.ZW)
+                LB.BK, LB.CR, LB.LF, LB.NL, LB.SP, LB.ZW
+            )
             and run.curr in (LB.CM, LB.ZWJ)
 
         ):
@@ -269,24 +323,24 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
         # LB15a
         elif (
             (run0 := run.is_following(LB.SP, greedy=True))
-            and _cat(run0.pc) == GC.Pi
+            and _cat(run0.pc) == GC.PI
             and (
-                (run1 := run0.is_following(LB.QU))
-                .prev in (LB.BK, LB.CR, LB.LF, LB.NL, LB.OP,
-                          LB.QU, LB.GL, LB.SP, LB.ZW)
+                (run1 := run0.is_following(LB.QU)).prev in (
+                    LB.BK, LB.CR, LB.LF, LB.NL, LB.OP, LB.QU, LB.GL, LB.SP, LB.ZW
+                )
                 or run1.is_sot()
             )
         ):
             run.do_not_break_here()
         # LB15b
         elif (
-            _cat(run.cc) == GC.Pf
+            _cat(run.cc) == GC.PF
             and run.curr == LB.QU
             and (
-                run.is_leading((
-                    LB.SP, LB.GL, LB.WJ, LB.CL, LB.QU, LB.CP, LB.EX,
-                    LB.IS, LB.SY, LB.BK, LB.CR, LB.LF, LB.NL, LB.ZW
-                ))
+                run.is_leading(
+                    (LB.SP, LB.GL, LB.WJ, LB.CL, LB.QU, LB.CP, LB.EX,
+                     LB.IS, LB.SY, LB.BK, LB.CR, LB.LF, LB.NL, LB.ZW)
+                )
                 or run.is_eot()
             )
         ):
@@ -305,8 +359,7 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
             run.do_not_break_here()
         # LB17
         elif (
-            run.is_following(LB.SP, greedy=True).prev == LB.B2
-            and run.curr == LB.B2
+            run.is_following(LB.SP, greedy=True).prev == LB.B2 and run.curr == LB.B2
         ):
             run.do_not_break_here()
         # LB18
@@ -314,26 +367,18 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
             run.break_here()
         # LB19
         elif (
-            (run.curr == LB.QU and _cat(run.cc) != GC.Pi)
-            or (run.prev == LB.QU and _cat(run.pc) != GC.Pf)
+            (run.curr == LB.QU and _cat(run.cc) != GC.PI)
+            or (run.prev == LB.QU and _cat(run.pc) != GC.PF)
         ):
             run.do_not_break_here()
         # LB19a
         elif (
-            (
-                _ea(run.pc) not in EastAsianTuple and run.curr == LB.QU
-            )
-            or (
-                run.curr == LB.QU
-                and (_ea(run.nc) not in EastAsianTuple or run.is_eot())
-            )
-            or (
-                run.prev == LB.QU
-                and _ea(run.cc) not in EastAsianTuple
-            )
+            (_eaw(run.pc) not in _EAST_ASIAN and run.curr == LB.QU)
+            or (run.curr == LB.QU and (_eaw(run.nc) not in _EAST_ASIAN or run.is_eot()))
+            or (run.prev == LB.QU and _eaw(run.cc) not in _EAST_ASIAN)
             or (
                 (run0 := run.is_following(LB.QU))
-                and (_ea(run0.pc) not in EastAsianTuple or run0.is_sot())
+                and (_eaw(run0.pc) not in _EAST_ASIAN or run0.is_sot())
             )
         ):
             run.do_not_break_here()
@@ -344,8 +389,7 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
         elif (
             (run0 := run.is_following((LB.HY, LB.BA)))
             and (
-                run0.prev in (LB.BK, LB.CR, LB.LF, LB.NL,
-                              LB.SP, LB.ZW, LB.CB, LB.GL)
+                run0.prev in (LB.BK, LB.CR, LB.LF, LB.NL, LB.SP, LB.ZW, LB.CB, LB.GL)
                 or run0.is_sot()
             )
             and run.curr == LB.AL
@@ -392,9 +436,7 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
                 and run.curr in (LB.PO, LB.PR)
             )
             or (
-                run.prev in (LB.PO, LB.PR)
-                and run.curr == LB.OP
-                and run.next == LB.NU
+                run.prev in (LB.PO, LB.PR) and run.curr == LB.OP and run.next == LB.NU
             )
             or (
                 run.prev in (LB.PO, LB.PR)
@@ -419,14 +461,8 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
             run.do_not_break_here()
         # LB27
         elif (
-            (
-                run.prev in (LB.JL, LB.JV, LB.JT, LB.H2, LB.H3)
-                and run.curr == LB.PO
-            )
-            or (
-                run.prev == LB.PR
-                and run.curr in (LB.JL, LB.JV, LB.JT, LB.H2, LB.H3)
-            )
+            (run.prev in (LB.JL, LB.JV, LB.JT, LB.H2, LB.H3) and run.curr == LB.PO)
+            or (run.prev == LB.PR and run.curr in (LB.JL, LB.JV, LB.JT, LB.H2, LB.H3))
         ):
             run.do_not_break_here()
         # LB28
@@ -434,10 +470,7 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
             run.do_not_break_here()
         # LB28a
         elif (
-            (
-                run.prev == LB.AP
-                and (run.curr in (LB.AK, LB.AS) or run.cc == '\u25cc')
-            )
+            (run.prev == LB.AP and (run.curr in (LB.AK, LB.AS) or run.cc == '\u25cc'))
             or (
                 (run.prev in (LB.AK, LB.AS) or run.pc == '\u25cc')
                 and run.curr in (LB.VF, LB.VI)
@@ -462,18 +495,18 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
             (
                 run.prev in (LB.AL, LB.HL, LB.NU)
                 and run.curr == LB.OP
-                and _ea(run.cc) not in EastAsianTuple
+                and _eaw(run.cc) not in _EAST_ASIAN
             )
             or (
                 run.prev == LB.CP
-                and _ea(run.pc) not in EastAsianTuple
+                and _eaw(run.pc) not in _EAST_ASIAN
                 and run.curr in (LB.AL, LB.HL, LB.NU)
             )
         ):
             run.do_not_break_here()
     # LB30a
     run.head()
-    while 1:
+    while True:
         while run.curr != LB.RI:
             if not run.walk():
                 break
@@ -490,7 +523,7 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
     while run.walk():
         if (
             (run.prev == LB.EB and run.curr == LB.EM)
-            or (_cat(run.pc) == GC.Cn and _extpict(run.pc) and run.curr == LB.EM)
+            or (_cat(run.pc) == GC.CN and _ep(run.pc) and run.curr == LB.EM)
         ):
             run.do_not_break_here()
     # LB31
@@ -499,7 +532,11 @@ def line_break_breakables(s: str, /, legacy: bool = False) -> Breakables:
 
 
 def line_break_boundaries(
-    s: str, /, legacy: bool = False, tailor: Optional[TailorBreakables] = None
+    s: str,
+    /,
+    *,
+    property: PropertyFunction = line_break,
+    tailor: Optional[TailorFunction] = None,
 ) -> Iterator[int]:
     R"""Iterate indices of the line breaking boundaries for `s`.
 
@@ -518,15 +555,18 @@ def line_break_boundaries(
     The length of the returned list means the count of the line break units for
     the string.
     """
-
-    breakables = line_break_breakables(s, legacy)
+    breakables = line_break_breakables(s, property=property)
     if tailor is not None:
         breakables = tailor(s, breakables)
     return boundaries(breakables)
 
 
 def line_break_units(
-    s: str, /, legacy: bool = False, tailor: Optional[TailorBreakables] = None
+    s: str,
+    /,
+    *,
+    property: PropertyFunction[LineBreak] = line_break,
+    tailor: Optional[TailorFunction] = None,
 ) -> Iterator[str]:
     R"""Iterate every line breaking token of `s`
 
@@ -536,12 +576,15 @@ def line_break_units(
     >>> list(line_break_units(''))
     []
 
-    >>> list(line_break_units('αα'))
-    ['αα']
-    >>> list(line_break_units('αα', True))
-    ['α', 'α']
+    >>> list(line_break_units('①①'))
+    ['①①']
+    >>> def line_break_legacy(c: str, /) -> LineBreak:
+    ...    return LB.ID if (lb := line_break(c)) == LB.AI else lb
+    ...
+    >>> list(line_break_units('①①', property=line_break_legacy))
+    ['①', '①']
     """
-    breakables = line_break_breakables(s, legacy)
+    breakables = line_break_breakables(s, property=property)
     if tailor is not None:
         breakables = tailor(s, breakables)
     return break_units(s, breakables)

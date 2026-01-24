@@ -23,7 +23,6 @@ class BackboneStretcherShader:
         """Builds a BackboneStretcherShader object.
 
         :param amount: The stretching amount value.
-        :type amount: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -31,7 +30,6 @@ class BackboneStretcherShader:
         respective directions: v(1)v(0) and v(n-1)v(n).
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class BezierCurveShader:
@@ -43,7 +41,6 @@ class BezierCurveShader:
                 :param error: The error were allowing for the approximation. This
         error is the max distance allowed between the new curve and the
         original geometry.
-                :type error: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -51,7 +48,6 @@ class BezierCurveShader:
         Bezier Curve approximation of the original backbone geometry.
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class BlenderTextureShader:
@@ -63,7 +59,6 @@ class BlenderTextureShader:
         """Builds a BlenderTextureShader object.
 
         :param texture: A line style texture slot or a shader node tree to define a set of textures.
-        :type texture: bpy.types.LineStyleTextureSlot | bpy.types.ShaderNodeTree
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -71,7 +66,6 @@ class BlenderTextureShader:
         simulate marks.
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class CalligraphicShader:
@@ -88,16 +82,12 @@ class CalligraphicShader:
 
                 :param thickness_min: The minimum thickness in the direction
         perpendicular to the main direction.
-                :type thickness_min: float
                 :param thickness_max: The maximum thickness in the main direction.
-                :type thickness_max: float
                 :param orientation: The 2D vector giving the main direction.
-                :type orientation: collections.abc.Sequence[float] | mathutils.Vector
                 :param clamp: If true, the strokes are drawn in black when the stroke
         direction is between -90 and 90 degrees with respect to the main
         direction and drawn in white otherwise. If false, the strokes
         are always drawn in black.
-                :type clamp: bool
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -107,7 +97,6 @@ class CalligraphicShader:
         perpendicular to this one, and an interpolation in between.
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class ColorNoiseShader:
@@ -117,16 +106,13 @@ class ColorNoiseShader:
         """Builds a ColorNoiseShader object.
 
         :param amplitude: The amplitude of the noise signal.
-        :type amplitude: float
         :param period: The period of the noise signal.
-        :type period: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
         """Shader to add noise to the stroke colors.
 
         :param stroke: A Stroke object.
-        :type stroke: freestyle.types.Stroke
         """
 
 class ConstantColorShader:
@@ -138,20 +124,15 @@ class ConstantColorShader:
         """Builds a ConstantColorShader object.
 
         :param red: The red component.
-        :type red: float
         :param green: The green component.
-        :type green: float
         :param blue: The blue component.
-        :type blue: float
         :param alpha: The alpha value.
-        :type alpha: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
         """Assigns a constant color to every vertex of the Stroke.
 
         :param stroke: A Stroke object.
-        :type stroke: freestyle.types.Stroke
         """
 
 class ConstantThicknessShader:
@@ -161,14 +142,12 @@ class ConstantThicknessShader:
         """Builds a ConstantThicknessShader object.
 
         :param thickness: The thickness that must be assigned to the stroke.
-        :type thickness: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
         """Assigns an absolute constant thickness to every vertex of the Stroke.
 
         :param stroke: A Stroke object.
-        :type stroke: freestyle.types.Stroke
         """
 
 class ConstrainedIncreasingThicknessShader:
@@ -180,11 +159,8 @@ class ConstrainedIncreasingThicknessShader:
         """Builds a ConstrainedIncreasingThicknessShader object.
 
         :param thickness_min: The minimum thickness.
-        :type thickness_min: float
         :param thickness_max: The maximum thickness.
-        :type thickness_max: float
         :param ratio: The thickness/length ratio that we dont want to exceed.
-        :type ratio: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -193,7 +169,6 @@ class ConstrainedIncreasingThicknessShader:
         fat short lines.
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class GuidingLinesShader:
@@ -206,7 +181,6 @@ class GuidingLinesShader:
         middle of the initial stroke bounding box. offset is the value
         of the displacement which is applied to this line along its
         normal.
-                :type offset: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -218,7 +192,6 @@ class GuidingLinesShader:
         approximation is.
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class IncreasingColorShader:
@@ -238,21 +211,13 @@ class IncreasingColorShader:
         """Builds an IncreasingColorShader object.
 
         :param red_min: The first color red component.
-        :type red_min: float
         :param green_min: The first color green component.
-        :type green_min: float
         :param blue_min: The first color blue component.
-        :type blue_min: float
         :param alpha_min: The first color alpha value.
-        :type alpha_min: float
         :param red_max: The second color red component.
-        :type red_max: float
         :param green_max: The second color green component.
-        :type green_max: float
         :param blue_max: The second color blue component.
-        :type blue_max: float
         :param alpha_max: The second color alpha value.
-        :type alpha_max: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -261,7 +226,6 @@ class IncreasingColorShader:
         between the first and the last vertex.
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class IncreasingThicknessShader:
@@ -271,9 +235,7 @@ class IncreasingThicknessShader:
         """Builds an IncreasingThicknessShader object.
 
         :param thickness_A: The first thickness value.
-        :type thickness_A: float
         :param thickness_B: The second thickness value.
-        :type thickness_B: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -284,7 +246,6 @@ class IncreasingThicknessShader:
         linearly interpolated from A to B.
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class PolygonalizationShader:
@@ -297,7 +258,6 @@ class PolygonalizationShader:
         with respect to the original geometry. The smaller, the closer
         the new stroke is to the original one. This error corresponds to
         the maximum distance between the new stroke and the old one.
-                :type error: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -308,7 +268,6 @@ class PolygonalizationShader:
         error is reached.
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class RoundCapShader:
@@ -331,14 +290,12 @@ class SamplingShader:
         """Builds a SamplingShader object.
 
         :param sampling: The sampling to use for the stroke resampling.
-        :type sampling: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
         """Resamples the stroke.
 
         :param stroke: A Stroke object.
-        :type stroke: freestyle.types.Stroke
         """
 
 class SmoothingShader:
@@ -358,21 +315,13 @@ class SmoothingShader:
         """Builds a SmoothingShader object.
 
         :param num_iterations: The number of iterations.
-        :type num_iterations: int
         :param factor_point: 0.1
-        :type factor_point: float
         :param factor_curvature: 0.0
-        :type factor_curvature: float
         :param factor_curvature_difference: 0.2
-        :type factor_curvature_difference: float
         :param aniso_point: 0.0
-        :type aniso_point: float
         :param aniso_normal: 0.0
-        :type aniso_normal: float
         :param aniso_curvature: 0.0
-        :type aniso_curvature: float
         :param carricature_factor: 1.0
-        :type carricature_factor: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -382,7 +331,6 @@ class SmoothingShader:
         prevent the diffusion across corners.
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class SpatialNoiseShader:
@@ -399,15 +347,10 @@ class SpatialNoiseShader:
         """Builds a SpatialNoiseShader object.
 
         :param amount: The amplitude of the noise.
-        :type amount: float
         :param scale: The noise frequency.
-        :type scale: float
         :param num_octaves: The number of octaves
-        :type num_octaves: int
         :param smooth: True if you want the noise to be smooth.
-        :type smooth: bool
         :param pure_random: True if you dont want any coherence.
-        :type pure_random: bool
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
@@ -415,7 +358,6 @@ class SpatialNoiseShader:
         more noisy.
 
                 :param stroke: A Stroke object.
-                :type stroke: freestyle.types.Stroke
         """
 
 class SquareCapShader:
@@ -432,14 +374,12 @@ class StrokeTextureStepShader:
         """Builds a StrokeTextureStepShader object.
 
         :param step: The spacing along the stroke.
-        :type step: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
         """Assigns a spacing factor to the texture coordinates of the Stroke.
 
         :param stroke: A Stroke object.
-        :type stroke: freestyle.types.Stroke
         """
 
 class ThicknessNoiseShader:
@@ -449,16 +389,13 @@ class ThicknessNoiseShader:
         """Builds a ThicknessNoiseShader object.
 
         :param amplitude: The amplitude of the noise signal.
-        :type amplitude: float
         :param period: The period of the noise signal.
-        :type period: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
         """Adds some noise to the stroke thickness.
 
         :param stroke: A Stroke object.
-        :type stroke: freestyle.types.Stroke
         """
 
 class TipRemoverShader:
@@ -469,14 +406,12 @@ class TipRemoverShader:
 
                 :param tip_length: The length of the piece of stroke we want to remove
         at each extremity.
-                :type tip_length: float
         """
 
     def shade(self, stroke: freestyle.types.Stroke) -> None:
         """Removes the strokes extremities.
 
         :param stroke: A Stroke object.
-        :type stroke: freestyle.types.Stroke
         """
 
 class py2DCurvatureColorShader:

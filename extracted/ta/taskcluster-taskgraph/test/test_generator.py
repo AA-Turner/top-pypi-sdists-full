@@ -1,0 +1,388 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+
+import platform
+from concurrent.futures import ProcessPoolExecutor
+
+import pytest
+from pytest_taskgraph import WithFakeKind, fake_load_graph_config
+
+from taskgraph import generator, graph
+from taskgraph.generator import Kind, load_tasks_for_kind, load_tasks_for_kinds
+from taskgraph.loader.default import loader as default_loader
+
+linuxonly = pytest.mark.skipif(
+    platform.system() != "Linux",
+    reason="requires Linux and 'fork' multiprocessing support",
+)
+
+
+class FakePPE(ProcessPoolExecutor):
+    loaded_kinds = []
+
+    def submit(self, kind_load_tasks, *args):
+        self.loaded_kinds.append(kind_load_tasks.__self__.name)
+        return super().submit(kind_load_tasks, *args)
+
+
+@linuxonly
+def test_kind_ordering(mocker, maketgg):
+    "When task kinds depend on each other, they are loaded in postorder"
+    mocked_ppe = mocker.patch.object(generator, "ProcessPoolExecutor", new=FakePPE)
+    tgg = maketgg(
+        kinds=[
+            ("_fake3", {"kind-dependencies": ["_fake2", "_fake1"]}),
+            ("_fake2", {"kind-dependencies": ["_fake1"]}),
+            ("_fake1", {"kind-dependencies": []}),
+        ]
+    )
+    tgg._run_until("full_task_set")
+    assert mocked_ppe.loaded_kinds == ["_fake1", "_fake2", "_fake3"]
+
+
+def test_full_task_set(maketgg):
+    "The full_task_set property has all tasks"
+    tgg = maketgg()
+    assert tgg.full_task_set.graph == graph.Graph(
+        {"_fake-t-0", "_fake-t-1", "_fake-t-2"}, set()
+    )
+    assert sorted(tgg.full_task_set.tasks.keys()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_fake-t-2"]
+    )
+
+
+def test_full_task_graph(maketgg):
+    "The full_task_graph property has all tasks, and links"
+    tgg = maketgg()
+    assert tgg.full_task_graph.graph == graph.Graph(
+        {"_fake-t-0", "_fake-t-1", "_fake-t-2"},
+        {
+            ("_fake-t-1", "_fake-t-0", "prev"),
+            ("_fake-t-2", "_fake-t-1", "prev"),
+        },
+    )
+    assert sorted(tgg.full_task_graph.tasks.keys()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_fake-t-2"]
+    )
+
+
+def test_target_task_set(maketgg):
+    "The target_task_set property has the targeted tasks"
+    tgg = maketgg(["_fake-t-1"])
+    assert tgg.target_task_set.graph == graph.Graph({"_fake-t-1"}, set())
+    assert set(tgg.target_task_set.tasks.keys()) == {"_fake-t-1"}
+
+
+def test_target_task_graph(maketgg):
+    "The target_task_graph property has the targeted tasks and deps"
+    tgg = maketgg(["_fake-t-1"])
+    assert tgg.target_task_graph.graph == graph.Graph(
+        {"_fake-t-0", "_fake-t-1"}, {("_fake-t-1", "_fake-t-0", "prev")}
+    )
+    assert sorted(tgg.target_task_graph.tasks.keys()) == sorted(
+        ["_fake-t-0", "_fake-t-1"]
+    )
+
+
+def test_always_target_tasks(maketgg):
+    "The target_task_graph includes tasks with 'always_target'"
+    tgg_args = {
+        "target_tasks": ["_fake-t-0", "_fake-t-1", "_ignore-t-0", "_ignore-t-1"],
+        "kinds": [
+            ("_fake", {"task-defaults": {"optimization": {"odd": None}}}),
+            (
+                "_ignore",
+                {
+                    "task-defaults": {
+                        "attributes": {"always_target": True},
+                        "optimization": {"even": None},
+                    }
+                },
+            ),
+        ],
+        "params": {"optimize_target_tasks": False},
+    }
+    tgg = maketgg(**tgg_args)
+    assert sorted(tgg.target_task_set.tasks.keys()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_ignore-t-0", "_ignore-t-1"]
+    )
+    assert sorted(tgg.target_task_graph.tasks.keys()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_ignore-t-0", "_ignore-t-1", "_ignore-t-2"]
+    )
+    assert sorted(t.label for t in tgg.optimized_task_graph.tasks.values()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_ignore-t-0", "_ignore-t-1"]
+    )
+
+    # Test `enable_always_target: False`
+    tgg_args["params"]["enable_always_target"] = False
+    tgg = maketgg(**tgg_args)
+    assert sorted(tgg.target_task_set.tasks.keys()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_ignore-t-0", "_ignore-t-1"]
+    )
+    assert sorted(tgg.target_task_graph.tasks.keys()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_ignore-t-0", "_ignore-t-1"]
+    )
+    assert sorted(t.label for t in tgg.optimized_task_graph.tasks.values()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_ignore-t-0", "_ignore-t-1"]
+    )
+
+    # Test `enable_always_target: ["_fake"]`
+    tgg_args = {
+        "target_tasks": ["_fake-t-0", "_fake-t-1", "_ignore-t-0", "_ignore-t-1"],
+        "kinds": [
+            (
+                "_fake",
+                {
+                    "task-defaults": {
+                        "attributes": {"always_target": True},
+                        "optimization": {"odd": None},
+                    }
+                },
+            ),
+            (
+                "_ignore",
+                {
+                    "task-defaults": {
+                        "attributes": {"always_target": True},
+                        "optimization": {"even": None},
+                    }
+                },
+            ),
+        ],
+        "params": {"enable_always_target": ["_fake"], "optimize_target_tasks": False},
+    }
+    tgg = maketgg(**tgg_args)
+    assert sorted(tgg.target_task_set.tasks.keys()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_ignore-t-0", "_ignore-t-1"]
+    )
+    assert sorted(tgg.target_task_graph.tasks.keys()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_fake-t-2", "_ignore-t-0", "_ignore-t-1"]
+    )
+    assert sorted(t.label for t in tgg.optimized_task_graph.tasks.values()) == sorted(
+        ["_fake-t-0", "_fake-t-1", "_fake-t-2", "_ignore-t-0", "_ignore-t-1"]
+    )
+
+
+def test_optimized_task_graph(maketgg):
+    "The optimized task graph contains task ids"
+    tgg = maketgg(["_fake-t-2"])
+    tid = tgg.label_to_taskid
+    assert tgg.optimized_task_graph.graph == graph.Graph(
+        {tid["_fake-t-0"], tid["_fake-t-1"], tid["_fake-t-2"]},
+        {
+            (tid["_fake-t-1"], tid["_fake-t-0"], "prev"),
+            (tid["_fake-t-2"], tid["_fake-t-1"], "prev"),
+        },
+    )
+
+
+def test_verifications(mocker, maketgg):
+    m = mocker.patch.object(generator, "verifications")
+    tgg = maketgg(["_fake-t-2"], enable_verifications=True)
+    tgg.morphed_task_graph
+    assert m.call_count == 10
+
+    m = mocker.patch.object(generator, "verifications")
+    tgg = maketgg(["_fake-t-2"], enable_verifications=False)
+    tgg.morphed_task_graph
+    m.assert_not_called()
+
+
+def test_load_tasks_for_kind(monkeypatch):
+    """
+    `load_tasks_for_kinds` will load the tasks for the provided kind
+    """
+    monkeypatch.setattr(generator, "TaskGraphGenerator", WithFakeKind)
+    monkeypatch.setattr(generator, "load_graph_config", fake_load_graph_config)
+
+    tasks = load_tasks_for_kind(
+        {"_kinds": [("_example-kind", []), ("docker-image", [])]},
+        "_example-kind",
+        "/root/taskcluster",
+    )
+    assert "docker-image-t-1" not in tasks
+    assert (
+        "_example-kind-t-1" in tasks
+        and tasks["_example-kind-t-1"].label == "_example-kind-t-1"
+    )
+
+    tasks = load_tasks_for_kinds(
+        {"_kinds": [("_example-kind", []), ("docker-image", [])]},
+        ["_example-kind", "docker-image"],
+        "/root/taskcluster",
+    )
+    assert (
+        "docker-image-t-1" in tasks
+        and tasks["docker-image-t-0"].label == "docker-image-t-0"
+    )
+    assert (
+        "_example-kind-t-1" in tasks
+        and tasks["_example-kind-t-1"].label == "_example-kind-t-1"
+    )
+
+    # Test that **kwargs are forwarded to TaskGraphGenerator
+    tasks_with_kwargs = load_tasks_for_kind(
+        {"_kinds": [("_example-kind", []), ("docker-image", [])]},
+        "_example-kind",
+        "/root/taskcluster",
+        write_artifacts=True,  # This should be forwarded to TaskGraphGenerator
+    )
+    assert isinstance(tasks_with_kwargs, dict)
+    assert "_example-kind-t-1" in tasks_with_kwargs
+
+    # Test graph_attr parameter
+    tasks_with_graph_attr = load_tasks_for_kinds(
+        {"_kinds": [("_example-kind", []), ("docker-image", [])]},
+        ["_example-kind"],
+        "/root/taskcluster",
+        graph_attr="full_task_set",
+    )
+    assert isinstance(tasks_with_graph_attr, dict)
+    assert "_example-kind-t-1" in tasks_with_graph_attr
+
+
+def test_loader_backwards_compat_interface(graph_config):
+    """Ensure loaders can be called even if they don't support a
+    `write_artifacts` argument."""
+
+    class OldLoaderKind(Kind):
+        def _get_loader(self):
+            return lambda kind, path, config, params, tasks: []
+
+    kind = OldLoaderKind("", "", {"transforms": []}, graph_config)
+    kind.load_tasks({}, {}, False)
+
+
+@pytest.mark.parametrize(
+    "config,expected_transforms",
+    (
+        pytest.param(
+            {},
+            [
+                "taskgraph.transforms.run:transforms",
+                "taskgraph.transforms.task:transforms",
+            ],
+            id="no_transforms",
+        ),
+        pytest.param(
+            {"transforms": ["taskgraph.transforms.notify:transforms"]},
+            [
+                "taskgraph.transforms.notify:transforms",
+                "taskgraph.transforms.run:transforms",
+                "taskgraph.transforms.task:transforms",
+            ],
+            id="additional_transform_specified",
+        ),
+    ),
+)
+def test_default_loader(config, expected_transforms):
+    loader = Kind("", "", config, {})._get_loader()
+    assert loader is default_loader, (
+        "Default Kind loader should be taskgraph.loader.default.loader"
+    )
+    loader("", "", config, {}, [], False)
+
+    assert config["transforms"] == expected_transforms
+
+
+@pytest.mark.parametrize(
+    "config",
+    (
+        pytest.param(
+            {
+                "transforms": [
+                    "taskgraph.transforms.run:transforms",
+                    "taskgraph.transforms.task:transforms",
+                ]
+            },
+            id="run_and_task_transforms_specified",
+        ),
+        pytest.param(
+            {"transforms": ["taskgraph.transforms.run:transforms"]},
+            id="only_run_transform_specified",
+        ),
+        pytest.param(
+            {"transforms": ["taskgraph.transforms.task:transforms"]},
+            id="only_task_transform_specified",
+        ),
+    ),
+)
+def test_default_loader_errors(config):
+    loader = Kind("", "", config, {})._get_loader()
+    try:
+        loader("", "", config, {}, [], False)
+    except KeyError:
+        return
+
+    assert False, "Should've raised a KeyError"
+
+
+@pytest.mark.parametrize(
+    "kind_config",
+    (
+        pytest.param(
+            {
+                "loader": "taskgraph.loader.transform:loader",
+                "transforms": ["test_taskgraph.transforms.foo:transforms"],
+            },
+            id="load transform",
+        ),
+        pytest.param(
+            {
+                "loader": "taskgraph.loader.transform:loader",
+                "transforms": ["test_taskgraph.transforms.foo"],
+            },
+            id="load transform no object",
+        ),
+    ),
+)
+def test_kind_load_tasks(monkeypatch, graph_config, parameters, datadir, kind_config):
+    monkeypatch.syspath_prepend(datadir / "taskcluster")
+    kind = Kind(
+        name="fake", path="foo/bar", config=kind_config, graph_config=graph_config
+    )
+    tasks = kind.load_tasks(parameters, {}, False)
+    assert tasks
+
+
+def test_kind_graph(maketgg):
+    "The kind_graph property has all kinds and their dependencies"
+    tgg = maketgg(
+        kinds=[
+            ("_fake3", {"kind-dependencies": ["_fake2", "_fake1"]}),
+            ("_fake2", {"kind-dependencies": ["_fake1"]}),
+            ("_fake1", {"kind-dependencies": []}),
+        ]
+    )
+    kind_graph = tgg.kind_graph
+    assert isinstance(kind_graph, graph.Graph)
+    assert kind_graph.nodes == {"_fake1", "_fake2", "_fake3"}
+    assert kind_graph.edges == {
+        ("_fake3", "_fake2", "kind-dependency"),
+        ("_fake3", "_fake1", "kind-dependency"),
+        ("_fake2", "_fake1", "kind-dependency"),
+    }
+
+
+def test_kind_graph_with_target_kinds(maketgg):
+    "The kind_graph property respects target_kinds parameter"
+    tgg = maketgg(
+        kinds=[
+            ("_fake3", {"kind-dependencies": ["_fake2"]}),
+            ("_fake2", {"kind-dependencies": ["_fake1"]}),
+            ("_fake1", {"kind-dependencies": []}),
+            ("_other", {"kind-dependencies": []}),
+            ("docker-image", {"kind-dependencies": []}),  # Add docker-image
+        ],
+        params={"target-kinds": ["_fake2"]},
+    )
+    kind_graph = tgg.kind_graph
+    # Should only include _fake2, _fake1, and docker-image (implicit dependency)
+    assert "_fake2" in kind_graph.nodes
+    assert "_fake1" in kind_graph.nodes
+    assert "docker-image" in kind_graph.nodes
+    # _fake3 and _other should not be included
+    assert "_fake3" not in kind_graph.nodes
+    assert "_other" not in kind_graph.nodes

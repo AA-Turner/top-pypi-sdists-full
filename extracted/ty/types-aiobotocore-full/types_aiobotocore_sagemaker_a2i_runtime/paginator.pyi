@@ -3,7 +3,7 @@ Type annotations for sagemaker-a2i-runtime service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_a2i_runtime/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

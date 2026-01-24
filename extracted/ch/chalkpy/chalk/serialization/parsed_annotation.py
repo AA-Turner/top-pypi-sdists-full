@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from google.protobuf.message import Message as ProtobufMessage
 
     from chalk import Document, Windowed
-    from chalk.features import DataFrame, Feature, Features, Vector
+    from chalk.features import DataFrame, Feature, Features, Tensor, Vector
     from chalk.streams import Windowed
 
 _logger = get_logger(__name__)
@@ -52,6 +52,7 @@ class ParsedAnnotation:
         "_as_features_cls",
         "_as_dataframe",
         "_as_vector",
+        "_as_tensor",
         "_as_feature",
     )
 
@@ -90,6 +91,7 @@ class ParsedAnnotation:
         self._as_features_cls: Optional[Type[Features]] = None
         self._as_dataframe: Optional[Type[DataFrame]] = None
         self._as_vector: Optional[Type[Vector]] = None
+        self._as_tensor: Optional[Type[Tensor]] = None
         self._as_feature: Optional[Feature] = None
 
     @property
@@ -109,7 +111,7 @@ class ParsedAnnotation:
             typ = self._features_cls.__annotations__[self._attribute_name]
         else:
             typ = self._parsed_annotation or self._underlying or self._unparsed_underlying
-        if sys.version_info >= (3, 9) and get_origin(typ) == typing.Annotated:
+        if get_origin(typ) == typing.Annotated:
             typ = typ.__origin__  # pyright: ignore
         if isinstance(typ, type):
             typ = typ.__name__
@@ -279,6 +281,7 @@ class ParsedAnnotation:
         raise TypeError(message)
 
     def _parse_type(self, annotation: Union[type, Windowed, Annotated]):
+        from chalk.features._tensor import Tensor
         from chalk.features._vector import Vector
         from chalk.features.dataframe import DataFrame
         from chalk.features.feature_field import Feature
@@ -347,6 +350,7 @@ class ParsedAnnotation:
             if "__chalk_document__" in args:
                 self._is_document = True
             origin = get_origin(annotation)
+            self._parsed_annotation = cast(type, annotation)
 
         # The only allowed collections here are Set, List, or DataFrame
         if origin in (set, Set):
@@ -369,17 +373,6 @@ class ParsedAnnotation:
             annotation = args[0]
         if origin in (tuple, Tuple):
             args = get_args(annotation)
-            if len(args) != 2 or args[1] is not ... or args[0] is ...:
-                self._type_error(
-                    (
-                        "Tuple should be given exactly two type parameters. "
-                        "The first should be the type of the elements, and the second should be '...', "
-                        "which indicates that the tuple is of variable length. "
-                        "For example, 'Tuple[int, ...]' is a tuple of ints of variable length."
-                    ),
-                    code="74",
-                    label="invalid tuple",
-                )
             annotation = args[0]
         if origin in (list, List):
             args = get_args(annotation)
@@ -496,6 +489,9 @@ class ParsedAnnotation:
             elif issubclass(self._underlying, Vector):
                 self._as_vector = self._underlying
 
+            elif issubclass(self._underlying, Tensor):
+                self._as_tensor = self._underlying
+
             elif issubclass(self._underlying, timedelta):
                 self._type_error(
                     (f"Invalid type annotation for feature '{error_ctx}': timedelta feature types are not supported."),
@@ -542,6 +538,11 @@ class ParsedAnnotation:
             self._parse_annotation()
         return self._as_vector
 
+    def as_tensor(self) -> Optional[Type[Tensor]]:
+        if self._parsed_annotation is None:
+            self._parse_annotation()
+        return self._as_tensor
+
     def as_feature(self) -> Optional[Feature]:
         if self._parsed_annotation is None:
             self._parse_annotation()
@@ -556,3 +557,26 @@ class ParsedAnnotation:
         if self._parsed_annotation is None:
             self._parse_annotation()
         return self._is_feature_time
+
+    def is_dataframe_annotation(self) -> bool:
+        """
+        Check if the annotation represents a DataFrame type, even if validation failed.
+        This checks the raw parsed annotation without triggering full validation,
+        useful for preventing false positive errors when DataFrame validation fails.
+        """
+        from typing import get_args
+
+        from chalk.features.dataframe import DataFrameMeta
+
+        if self._parsed_annotation is None:
+            self._parse_annotation()
+
+        # Check if directly a DataFrame
+        if isinstance(self.parsed_annotation, DataFrameMeta):
+            return True
+
+        # Check if wrapped in Optional, Union, etc.
+        if any(isinstance(x, DataFrameMeta) for x in get_args(self.parsed_annotation)):
+            return True
+
+        return False

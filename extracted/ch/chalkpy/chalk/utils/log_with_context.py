@@ -157,7 +157,7 @@ IS_LAST_OPERATION_CTX = {_OPERATION_IS_LAST: True}
 @functools.lru_cache(None)
 def get_json_logging_formatter() -> logging.Formatter:
     try:
-        from pythonjsonlogger import jsonlogger
+        from pythonjsonlogger import json
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
@@ -166,7 +166,7 @@ def get_json_logging_formatter() -> logging.Formatter:
     else:
         ddtrace = None
 
-    class ChalkJsonFormatter(jsonlogger.JsonFormatter):
+    class ChalkJsonFormatter(json.JsonFormatter):
         def __init__(self):
             super().__init__(
                 reserved_attrs=[

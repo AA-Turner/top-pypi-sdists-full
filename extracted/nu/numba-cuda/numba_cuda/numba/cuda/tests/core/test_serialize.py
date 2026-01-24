@@ -10,13 +10,20 @@ import sys
 import unittest
 from multiprocessing import get_context
 
+from numba.cuda import HAS_NUMBA
 import numba
-from numba.core.errors import TypingError
-from numba.tests.support import TestCase
-from numba.core.target_extension import resolve_dispatcher_from_str
-from numba.cloudpickle import dumps, loads
+
+if HAS_NUMBA:
+    from numba.core.errors import TypingError
+    from numba.core.target_extension import resolve_dispatcher_from_str
+else:
+    from numba.cuda.core.errors import TypingError
+from numba.cuda.tests.support import TestCase
+from numba.cuda.cloudpickle import dumps, loads
+from numba.cuda.testing import skip_on_standalone_numba_cuda
 
 
+@skip_on_standalone_numba_cuda
 class TestDispatcherPickling(TestCase):
     def run_with_protocols(self, meth, *args, **kwargs):
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
@@ -230,7 +237,7 @@ class TestDispatcherPickling(TestCase):
 class TestSerializationMisc(TestCase):
     def test_numba_unpickle(self):
         # Test that _numba_unpickle is memorizing its output
-        from numba.core.serialize import _numba_unpickle
+        from numba.cuda.serialize import _numba_unpickle
 
         random_obj = object()
         bytebuf = pickle.dumps(random_obj)
@@ -297,6 +304,8 @@ class TestCloudPickleIssues(TestCase):
         self.assertEqual(proc.exitcode, 0)
 
     def test_dynamic_class_issue_7356(self):
+        import numba
+
         cfunc = numba.njit(issue_7356)
         self.assertEqual(cfunc(), (100, 100))
 
@@ -318,7 +327,7 @@ def issue_7356():
 def check_main_class_reset_on_unpickle():
     # Load module and get its global dictionary
     glbs = runpy.run_module(
-        "numba.tests.cloudpickle_main_class",
+        "numba.cuda.tests.cloudpickle_main_class",
         run_name="__main__",
     )
     # Get the Klass and check it is from __main__

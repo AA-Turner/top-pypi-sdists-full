@@ -19,16 +19,17 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypeGuard,
     cast,
 )
-
-from typing_extensions import TypeGuard
 
 from chalk._lsp._class_finder import get_class_ast
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
 from chalk.utils import notebook
 from chalk.utils.collections import ensure_tuple, get_unique_item
 from chalk.utils.source_parsing import should_skip_source_code_parsing
+
+from chalk.features.feature_cache_strategy import CacheStrategy
 
 if TYPE_CHECKING:
     from chalk._lsp.error_builder import FeatureClassErrorBuilder
@@ -178,6 +179,7 @@ class FeaturesImpl(metaclass=FeaturesMeta):
     __chalk_is_singleton__: ClassVar[bool]
     __chalk_etl_offline_to_online__: ClassVar[bool]
     __chalk_max_staleness__: ClassVar[timedelta]
+    __chalk_cache_strategy__: ClassVar[CacheStrategy]
     __chalk_namespace__: ClassVar[str]
     __chalk_primary__: ClassVar[Feature | None] = None  # The primary key feature
     __chalk_owner__: ClassVar[Optional[str]]

@@ -119,6 +119,52 @@ class MpsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateAigcImageTask(self, request):
+        r"""This API is used to create an AIGC image generation task.
+
+        :param request: Request instance for CreateAigcImageTask.
+        :type request: :class:`tencentcloud.mps.v20190612.models.CreateAigcImageTaskRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.CreateAigcImageTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateAigcImageTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateAigcImageTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateAigcVideoTask(self, request):
+        r"""This API is used to create an AIGC video generation task.
+
+        :param request: Request instance for CreateAigcVideoTask.
+        :type request: :class:`tencentcloud.mps.v20190612.models.CreateAigcVideoTaskRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.CreateAigcVideoTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateAigcVideoTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateAigcVideoTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateAnimatedGraphicsTemplate(self, request):
         r"""This API is used to create a custom animated image generating template. Up to 16 templates can be created.
 
@@ -156,6 +202,29 @@ class MpsClient(AbstractClient):
             body = self.call("CreateAsrHotwords", params, headers=headers)
             response = json.loads(body)
             model = models.CreateAsrHotwordsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateBlindWatermarkTemplate(self, request):
+        r"""This API is used to create a user-defined digital watermark template.
+
+        :param request: Request instance for CreateBlindWatermarkTemplate.
+        :type request: :class:`tencentcloud.mps.v20190612.models.CreateBlindWatermarkTemplateRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.CreateBlindWatermarkTemplateResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateBlindWatermarkTemplate", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateBlindWatermarkTemplateResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -257,6 +326,29 @@ class MpsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateProcessImageTemplate(self, request):
+        r"""This API is used to create an image processing template.
+
+        :param request: Request instance for CreateProcessImageTemplate.
+        :type request: :class:`tencentcloud.mps.v20190612.models.CreateProcessImageTemplateRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.CreateProcessImageTemplateResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateProcessImageTemplate", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateProcessImageTemplateResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateQualityControlTemplate(self, request):
         r"""This API is used to create a media quality inspection template. Up to 50 templates can be created.
 
@@ -333,6 +425,29 @@ class MpsClient(AbstractClient):
             body = self.call("CreateSchedule", params, headers=headers)
             response = json.loads(body)
             model = models.CreateScheduleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateSmartEraseTemplate(self, request):
+        r"""This API is used to create a custom smart erasing template.
+
+        :param request: Request instance for CreateSmartEraseTemplate.
+        :type request: :class:`tencentcloud.mps.v20190612.models.CreateSmartEraseTemplateRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.CreateSmartEraseTemplateResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateSmartEraseTemplate", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateSmartEraseTemplateResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -608,6 +723,29 @@ class MpsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteBlindWatermarkTemplate(self, request):
+        r"""This API is used to delete a user-defined digital watermark template.
+
+        :param request: Request instance for DeleteBlindWatermarkTemplate.
+        :type request: :class:`tencentcloud.mps.v20190612.models.DeleteBlindWatermarkTemplateRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.DeleteBlindWatermarkTemplateResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteBlindWatermarkTemplate", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteBlindWatermarkTemplateResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DeleteContentReviewTemplate(self, request):
         r"""This API is used to delete a custom content moderation template.
 
@@ -700,6 +838,29 @@ class MpsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteProcessImageTemplate(self, request):
+        r"""This API is used to delete an image processing template.
+
+        :param request: Request instance for DeleteProcessImageTemplate.
+        :type request: :class:`tencentcloud.mps.v20190612.models.DeleteProcessImageTemplateRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.DeleteProcessImageTemplateResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteProcessImageTemplate", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteProcessImageTemplateResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DeleteQualityControlTemplate(self, request):
         r"""This API is used to delete a media quality inspection template.
 
@@ -760,6 +921,29 @@ class MpsClient(AbstractClient):
             body = self.call("DeleteSchedule", params, headers=headers)
             response = json.loads(body)
             model = models.DeleteScheduleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteSmartEraseTemplate(self, request):
+        r"""This API is used to delete a user-defined smart erasing template.
+
+        :param request: Request instance for DeleteSmartEraseTemplate.
+        :type request: :class:`tencentcloud.mps.v20190612.models.DeleteSmartEraseTemplateRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.DeleteSmartEraseTemplateResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteSmartEraseTemplate", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteSmartEraseTemplateResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -976,6 +1160,52 @@ class MpsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeAigcImageTask(self, request):
+        r"""This API is used to query the details of the AIGC image task execution status and results by task ID (tasks submitted within the last 7 days can be queried).
+
+        :param request: Request instance for DescribeAigcImageTask.
+        :type request: :class:`tencentcloud.mps.v20190612.models.DescribeAigcImageTaskRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.DescribeAigcImageTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeAigcImageTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeAigcImageTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeAigcVideoTask(self, request):
+        r"""This API is used to query the details of the AIGC video task execution status and results by task ID (tasks submitted within the last 7 days can be queried).
+
+        :param request: Request instance for DescribeAigcVideoTask.
+        :type request: :class:`tencentcloud.mps.v20190612.models.DescribeAigcVideoTaskRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.DescribeAigcVideoTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeAigcVideoTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeAigcVideoTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeAnimatedGraphicsTemplates(self, request):
         r"""This API is used to query the list of animated image generating templates and supports paged queries by filters.
 
@@ -1059,6 +1289,29 @@ class MpsClient(AbstractClient):
             body = self.call("DescribeBatchTaskDetail", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeBatchTaskDetailResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeBlindWatermarkTemplates(self, request):
+        r"""This API is used to query a user-defined digital watermark template, and the pagination query is supported based on conditions.
+
+        :param request: Request instance for DescribeBlindWatermarkTemplates.
+        :type request: :class:`tencentcloud.mps.v20190612.models.DescribeBlindWatermarkTemplatesRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.DescribeBlindWatermarkTemplatesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeBlindWatermarkTemplates", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeBlindWatermarkTemplatesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1206,6 +1459,29 @@ class MpsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeProcessImageTemplates(self, request):
+        r"""This API is used to query the list of image processing templates.
+
+        :param request: Request instance for DescribeProcessImageTemplates.
+        :type request: :class:`tencentcloud.mps.v20190612.models.DescribeProcessImageTemplatesRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.DescribeProcessImageTemplatesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeProcessImageTemplates", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeProcessImageTemplatesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeQualityControlTemplates(self, request):
         r"""This API is used to query custom media quality inspection templates, supporting paged queries by conditions.
 
@@ -1266,6 +1542,29 @@ class MpsClient(AbstractClient):
             body = self.call("DescribeSchedules", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeSchedulesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeSmartEraseTemplates(self, request):
+        r"""This API is used to obtain the list of smart erasing template details based on the unique identifier of the template. The returned result includes all matching user-defined smart erasing templates and system preset smart erasing templates.
+
+        :param request: Request instance for DescribeSmartEraseTemplates.
+        :type request: :class:`tencentcloud.mps.v20190612.models.DescribeSmartEraseTemplatesRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.DescribeSmartEraseTemplatesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeSmartEraseTemplates", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeSmartEraseTemplatesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1406,6 +1705,31 @@ class MpsClient(AbstractClient):
             body = self.call("DescribeTranscodeTemplates", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeTranscodeTemplatesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeUsageData(self, request):
+        r"""This API is used to return the daily Media Processing Service (MPS) usage information within the specified query time range.
+           1. MPS statistical data from the last 365 days can be queried.
+           2. The query time span should not exceed 90 days.
+
+        :param request: Request instance for DescribeUsageData.
+        :type request: :class:`tencentcloud.mps.v20190612.models.DescribeUsageDataRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.DescribeUsageDataResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeUsageData", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeUsageDataResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1634,6 +1958,29 @@ class MpsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ExtractBlindWatermark(self, request):
+        r"""This API is used to initiate a digital watermark extraction task for a video. The extraction result can be queried through DescribeTaskDetail.
+
+        :param request: Request instance for ExtractBlindWatermark.
+        :type request: :class:`tencentcloud.mps.v20190612.models.ExtractBlindWatermarkRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.ExtractBlindWatermarkResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ExtractBlindWatermark", params, headers=headers)
+            response = json.loads(body)
+            model = models.ExtractBlindWatermarkResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ManageTask(self, request):
         r"""This API is used to manage initiated tasks.
 
@@ -1774,6 +2121,29 @@ class MpsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyBlindWatermarkTemplate(self, request):
+        r"""This API is used to modify a user-defined digital watermark template. The digital watermark type cannot be modified.
+
+        :param request: Request instance for ModifyBlindWatermarkTemplate.
+        :type request: :class:`tencentcloud.mps.v20190612.models.ModifyBlindWatermarkTemplateRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.ModifyBlindWatermarkTemplateResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyBlindWatermarkTemplate", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyBlindWatermarkTemplateResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyContentReviewTemplate(self, request):
         r"""This API is used to modify a custom content moderation template.
 
@@ -1866,6 +2236,29 @@ class MpsClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyProcessImageTemplate(self, request):
+        r"""This API is used to modify an image processing template.
+
+        :param request: Request instance for ModifyProcessImageTemplate.
+        :type request: :class:`tencentcloud.mps.v20190612.models.ModifyProcessImageTemplateRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.ModifyProcessImageTemplateResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyProcessImageTemplate", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyProcessImageTemplateResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyQualityControlTemplate(self, request):
         r"""This API is used to modify a media quality inspection template.
 
@@ -1926,6 +2319,29 @@ class MpsClient(AbstractClient):
             body = self.call("ModifySchedule", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyScheduleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifySmartEraseTemplate(self, request):
+        r"""This API is used to modify a user-defined smart erasing template.
+
+        :param request: Request instance for ModifySmartEraseTemplate.
+        :type request: :class:`tencentcloud.mps.v20190612.models.ModifySmartEraseTemplateRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.ModifySmartEraseTemplateResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifySmartEraseTemplate", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifySmartEraseTemplateResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2156,20 +2572,19 @@ class MpsClient(AbstractClient):
 
 
     def ProcessMedia(self, request):
-        r"""This API is used to initiate a processing task for URL video links or media files in COS. Features include:.
-        This API is used to perform video transcoding, including standard transcoding, TSC transcoding, and audio/video enhancement.
-        This API is used to generate animated images.
-        This API is used to take screenshots at specified time points.
-        This API is used to take sampled screenshots from videos.
-        This API is used to take sprite screenshots of videos.
-        This API is used to transcode to adaptive bitrate streaming.
-        This API is used to perform intelligent content moderation, such as pornography detection and sensitive information detection.
-        This API is used to perform intelligent content analysis such as tag, category, cover, frame tag, video splitting, highlight, opening and ending clips, and game tracking.
-        This API is used to perform intelligent content recognition such as human face, full text, text keyword, full speech, speech keyword, speech translation, and object recognition.
-        This API is used to perform media quality inspection, such as media format diagnosis, audio and video content detection (jitter, blur, low light, overexposure, screen glitch, noise, mosaic, QR code, and other issues), and no-reference scoring.
-        11. Smart subtitle (such as ASR, hotword, and speech translation).
-
-        This API is used to perform intelligent erasure (watermark removal, subtitle removal, privacy protection).
+        r"""This API is used to initiate a processing task for video URLs or media files in Cloud Object Storage (COS). Features include:
+        - Audio/Video transcoding (such as standard transcoding, top speed codec (TSC) transcoding, audio/video enhancement, visible watermark addition, and digital watermark addition).
+        - Adaptive bitrate streaming conversion for audios/videos.
+        - Video-to-GIF conversion.
+        - Time point screenshot of videos.
+        - Sampled screenshot of videos.
+        - Image sprite of video screenshots.
+        - Media quality inspection (such as media format diagnosis, audio/video content detection, and scoring without reference, where audio/video content detection mainly covers jitter, blur, low light, overexposure, screen glitches, noise, mosaic, QR code, and other issues).
+        - Smart subtitle (such as subtitle generation and translation).
+        - Smart erasing (such as watermark removal, subtitle removal, and privacy protection).
+        - Smart content moderation (such as pornography detection and sensitive information detection).
+        - Smart content analysis (such as tags, classifications, covers, frame tags, video splitting, highlights, opening and ending clips, and marking points for games).
+        - Smart content recognition (such as human faces, full texts, text keywords, full speech, speech keywords, speech translation, and object recognition).
 
         :param request: Request instance for ProcessMedia.
         :type request: :class:`tencentcloud.mps.v20190612.models.ProcessMediaRequest`
@@ -2205,6 +2620,29 @@ class MpsClient(AbstractClient):
             body = self.call("ResetWorkflow", params, headers=headers)
             response = json.loads(body)
             model = models.ResetWorkflowResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def TextTranslation(self, request):
+        r"""This API is used to translate text.
+
+        :param request: Request instance for TextTranslation.
+        :type request: :class:`tencentcloud.mps.v20190612.models.TextTranslationRequest`
+        :rtype: :class:`tencentcloud.mps.v20190612.models.TextTranslationResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("TextTranslation", params, headers=headers)
+            response = json.loads(body)
+            model = models.TextTranslationResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

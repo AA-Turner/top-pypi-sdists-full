@@ -16,7 +16,6 @@ short_description: Configure Web filter profiles.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -550,6 +552,14 @@ options:
                             value:
                                 type: int
                                 description: Traffic quota value.
+                            reset_frequency:
+                                aliases: ['reset-frequency']
+                                type: str
+                                description: Quota reset frequency
+                                choices:
+                                    - 'daily'
+                                    - 'weekly'
+                                    - 'monthly'
                     rate_crl_urls:
                         aliases: ['rate-crl-urls']
                         type: str
@@ -828,6 +838,14 @@ options:
                         aliases: ['vimeo-restrict']
                         type: str
                         description: Set Vimeo-restrict
+                    qwant_restrict:
+                        aliases: ['qwant-restrict']
+                        type: str
+                        description: Qwant restrict.
+                        choices:
+                            - 'strict'
+                            - 'none'
+                            - 'moderate'
             file_filter:
                 aliases: ['file-filter']
                 type: dict
@@ -907,6 +925,13 @@ options:
                 choices:
                     - 'utf-8'
                     - 'punycode'
+            ia_categorization:
+                aliases: ['ia-categorization']
+                type: str
+                description: Ia categorization.
+                choices:
+                    - 'disable'
+                    - 'enable'
 '''
 
 EXAMPLES = '''
@@ -922,8 +947,8 @@ EXAMPLES = '''
     - name: Configure Web filter profiles.
       fortinet.fortimanager.fmgr_webfilter_profile:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -1036,6 +1061,7 @@ EXAMPLES = '''
           #       type: <value in [time, traffic]>
           #       unit: <value in [B, KB, MB, ...]>
           #       value: <integer>
+          #       reset_frequency: <value in [daily, weekly, monthly]>
           #   rate_crl_urls: <value in [disable, enable]>
           #   rate_css_urls: <value in [disable, enable]>
           #   rate_image_urls: <value in [disable, enable]>
@@ -1092,6 +1118,7 @@ EXAMPLES = '''
           #     - "extended-log-others"
           #   blocklist: <value in [disable, enable]>
           #   vimeo_restrict: <string>
+          #   qwant_restrict: <value in [strict, none, moderate]>
           # file_filter:
           #   entries:
           #     - action: <value in [log, block]>
@@ -1108,6 +1135,7 @@ EXAMPLES = '''
           #   scan_archive_contents: <value in [disable, enable]>
           #   status: <value in [disable, enable]>
           # web_flow_log_encoding: <value in [utf-8, punycode]>
+          # ia_categorization: <value in [disable, enable]>
 '''
 
 RETURN = '''
@@ -1164,6 +1192,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'webfilter_profile': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -1305,7 +1334,8 @@ def main():
                                 'override-replacemsg': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '']], 'type': 'str'},
                                 'type': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '']], 'choices': ['time', 'traffic'], 'type': 'str'},
                                 'unit': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '']], 'choices': ['B', 'KB', 'MB', 'GB'], 'type': 'str'},
-                                'value': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '']], 'type': 'int'}
+                                'value': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '']], 'type': 'int'},
+                                'reset-frequency': {'v_range': [['7.4.8', '7.4.8']], 'choices': ['daily', 'weekly', 'monthly'], 'type': 'str'}
                             },
                             'elements': 'dict'
                         },
@@ -1315,13 +1345,13 @@ def main():
                         'rate-javascript-urls': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'category-override': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '6.4.15']], 'type': 'str'},
                         'risk': {
-                            'v_range': [['7.6.2', '']],
+                            'v_range': [['7.4.8', '7.4.8'], ['7.6.2', '']],
                             'type': 'list',
                             'options': {
-                                'action': {'v_range': [['7.6.2', '']], 'choices': ['block', 'monitor'], 'type': 'str'},
-                                'id': {'v_range': [['7.6.2', '']], 'type': 'int'},
-                                'log': {'v_range': [['7.6.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                                'risk-level': {'v_range': [['7.6.2', '']], 'type': 'raw'}
+                                'action': {'v_range': [['7.4.8', '7.4.8'], ['7.6.2', '']], 'choices': ['block', 'monitor'], 'type': 'str'},
+                                'id': {'v_range': [['7.4.8', '7.4.8'], ['7.6.2', '']], 'type': 'int'},
+                                'log': {'v_range': [['7.4.8', '7.4.8'], ['7.6.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                                'risk-level': {'v_range': [['7.4.8', '7.4.8'], ['7.6.2', '']], 'type': 'raw'}
                             },
                             'elements': 'dict'
                         }
@@ -1405,7 +1435,8 @@ def main():
                             'elements': 'str'
                         },
                         'blocklist': {'v_range': [['7.0.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'vimeo-restrict': {'v_range': [['7.0.1', '']], 'type': 'str'}
+                        'vimeo-restrict': {'v_range': [['7.0.1', '']], 'type': 'str'},
+                        'qwant-restrict': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'choices': ['strict', 'none', 'moderate'], 'type': 'str'}
                     }
                 },
                 'file-filter': {
@@ -1441,7 +1472,8 @@ def main():
                         'status': {'v_range': [['6.2.8', '6.2.13'], ['6.4.5', '7.6.2']], 'choices': ['disable', 'enable'], 'type': 'str'}
                     }
                 },
-                'web-flow-log-encoding': {'v_range': [['7.4.2', '']], 'choices': ['utf-8', 'punycode'], 'type': 'str'}
+                'web-flow-log-encoding': {'v_range': [['7.4.2', '']], 'choices': ['utf-8', 'punycode'], 'type': 'str'},
+                'ia-categorization': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
             }
         }
     }

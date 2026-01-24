@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 import random
 from random import choice
-from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from ase import Atoms
 from ase.data import chemical_symbols
@@ -130,7 +130,7 @@ class SingleTrialMoveGenerator(TrialMoveGenerator, ABC):
         """
         return self.CHANGE_NAME == change.name
 
-    def made_changes(self, changes: Sequence[SystemChange]) -> List[SystemChange]:
+    def made_changes(self, changes: Sequence[SystemChange]) -> list[SystemChange]:
         """
         Extract the subset system changes made by an instance of itself.
         This method can be overrided in sublcasses, but the default behavior is
@@ -151,9 +151,7 @@ class RandomFlip(SingleTrialMoveGenerator):
 
     CHANGE_NAME = "flip_move"
 
-    def __init__(
-        self, symbols: Set[str], atoms: Atoms, indices: Optional[List[int]] = None, **kwargs
-    ):
+    def __init__(self, symbols: set[str], atoms: Atoms, indices: list[int] | None = None, **kwargs):
         super().__init__(**kwargs)
         self.symbols = symbols
         self.atoms = atoms
@@ -171,14 +169,14 @@ class RandomFlip(SingleTrialMoveGenerator):
         # these maps for each trial move.
         self.flip_map = self._make_possible_flips()
 
-    def _make_possible_flips(self) -> Dict[str, List[str]]:
+    def _make_possible_flips(self) -> dict[str, list[str]]:
         """Compute a map of possible flips, given a site has a particular symbol."""
         possible = {}
         for sym in self.symbols:
             possible[sym] = [s for s in self.symbols if s != sym]
         return possible
 
-    def get_single_trial_move(self) -> List[SystemChange]:
+    def get_single_trial_move(self) -> list[SystemChange]:
         """Get a random flip of an included site into a different element."""
         pos = choice(self.indices)
         # Access to the numbers array of the atoms object is the
@@ -201,7 +199,7 @@ class RandomSwap(SingleTrialMoveGenerator):
 
     CHANGE_NAME = "swap_move"
 
-    def __init__(self, atoms: Atoms, indices: Optional[List[int]] = None, **kwargs):
+    def __init__(self, atoms: Atoms, indices: list[int] | None = None, **kwargs):
         super().__init__(**kwargs)
         self.indices = indices
 
@@ -209,11 +207,10 @@ class RandomSwap(SingleTrialMoveGenerator):
 
         if self.tracker.num_symbols < 2:
             raise TooFewElementsError(
-                "After filtering there are less than two symbol type left. "
-                "Must have at least two."
+                "After filtering there are less than two symbol type left. Must have at least two."
             )
 
-    def get_single_trial_move(self) -> List[SystemChange]:
+    def get_single_trial_move(self) -> list[SystemChange]:
         """
         Create a swap move
         """
@@ -269,11 +266,11 @@ class MixedSwapFlip(TrialMoveGenerator):
         self.initialize(atoms)
 
     @property
-    def generators(self) -> Tuple[SingleTrialMoveGenerator]:
+    def generators(self) -> tuple[SingleTrialMoveGenerator]:
         return (self.flipper, self.swapper)
 
     @property
-    def weights(self) -> Tuple[float]:
+    def weights(self) -> tuple[float]:
         """The probability weights for each generator"""
         return (self.flip_prob, 1.0 - self.flip_prob)
 
@@ -341,7 +338,7 @@ class RandomFlipWithinBasis(SingleTrialMoveGenerator):
         self,
         symbols: Sequence[Sequence[str]],
         atoms: Atoms,
-        indices: Optional[Sequence[Sequence[int]]] = None,
+        indices: Sequence[Sequence[int]] | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)

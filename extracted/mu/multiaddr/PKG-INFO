@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: multiaddr
-Version: 0.0.11
+Version: 0.1.1
 Summary: Python implementation of jbenet's multiaddr
 Author-email: Steven Buss <steven.buss@gmail.com>
 Maintainer: acul71
 Maintainer-email: pacrob <pacrob@protonmail.com>, Manu Sheel Gupta <manu@seeta.in>
 License: MIT License
 Project-URL: Homepage, https://github.com/multiformats/py-multiaddr
-Project-URL: Download, https://github.com/multiformats/py-multiaddr/tarball/0.0.11
+Project-URL: Download, https://github.com/multiformats/py-multiaddr/tarball/0.1.1
 Keywords: multiaddr
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
@@ -30,6 +30,8 @@ Requires-Dist: netaddr
 Requires-Dist: psutil
 Requires-Dist: py-cid>=0.3.1
 Requires-Dist: py-multicodec>=0.2.0
+Requires-Dist: py-multibase
+Requires-Dist: py-multihash
 Requires-Dist: trio-typing>=0.0.4
 Requires-Dist: trio>=0.26.0
 Requires-Dist: varint

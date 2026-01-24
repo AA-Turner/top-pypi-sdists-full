@@ -12,16 +12,25 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0177 import RepositoryRulesetConditionsPropRefName
+from .group_0181 import RepositoryRulesetConditionsRepositoryIdTargetPropRepositoryId
 
 
-class RepositoryRuleFileExtensionRestrictionPropParameters(GitHubModel):
-    """RepositoryRuleFileExtensionRestrictionPropParameters"""
+class OrgRulesetConditionsOneof1(GitHubModel):
+    """repository_id_and_ref_name
 
-    restricted_file_extensions: list[str] = Field(
-        description="The file extensions that are restricted from being pushed to the commit graph."
+    Conditions to target repositories by id and refs by name
+    """
+
+    ref_name: Missing[RepositoryRulesetConditionsPropRefName] = Field(default=UNSET)
+    repository_id: RepositoryRulesetConditionsRepositoryIdTargetPropRepositoryId = (
+        Field()
     )
 
 
-model_rebuild(RepositoryRuleFileExtensionRestrictionPropParameters)
+model_rebuild(OrgRulesetConditionsOneof1)
 
-__all__ = ("RepositoryRuleFileExtensionRestrictionPropParameters",)
+__all__ = ("OrgRulesetConditionsOneof1",)

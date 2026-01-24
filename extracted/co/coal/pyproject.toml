@@ -1,26 +1,30 @@
 [build-system]
 build-backend = "cmeel"
 requires = [
-  "cmeel-assimp >= 5.3.1, < 6",
-  "cmeel-boost ~= 1.87.0",
+  "cmeel-assimp >= 6.0.2, < 7",
+  "cmeel-boost ~= 1.89.0",
   "cmeel-octomap >= 1.9.8.2, < 2",
   "cmeel-qhull >= 8.0.2.1, < 8.0.3",
   "cmeel[build]",
-  "eigenpy[build] >= 3.10, < 4"
+  "cmeel-eigen",
+  "eigenpy[build] >= 3.12, < 4",
+  "jrl-cmakemodules",
+  "libcoal == 3.0.2",
 ]
 
 [project]
 dependencies = [
-  "cmeel-assimp >= 5.3.1, < 6",
-  "cmeel-boost ~= 1.87.0",
+  "cmeel-assimp >= 6.0.2, < 7",
+  "cmeel-boost ~= 1.89.0",
   "cmeel-octomap >= 1.9.8.2, < 2",
   "cmeel-qhull >= 8.0.2.1, < 8.0.3",
-  "eigenpy >= 3.10, < 4"
+  "eigenpy >= 3.12, < 4",
+  "libcoal == 3.0.2",
 ]
 description = "An extension of the Flexible Collision Library"
 license = "BSD-3-Clause"
 name = "coal"
-version = "3.0.1"
+version = "3.0.2"
 
 [project.urls]
 changelog = "https://github.com/coal-library/coal/blob/master/CHANGELOG.md"
@@ -29,7 +33,12 @@ upstream = "https://github.com/coal-library/coal"
 
 [tool.cmeel]
 build-number = 1
-configure-args = ["-DCOAL_HAS_QHULL=ON", "-DCOAL_BACKWARD_COMPATIBILITY_WITH_HPP_FCL=ON"]
+configure-args = [
+  "-DCOAL_HAS_QHULL=ON",
+  "-DCOAL_BACKWARD_COMPATIBILITY_WITH_HPP_FCL=ON",
+  "-DBUILD_PYTHON_INTERFACE=ON",
+  "-DBUILD_STANDALONE_PYTHON_INTERFACE=ON",
+]
 
 [tool.tomlsort]
 all = true

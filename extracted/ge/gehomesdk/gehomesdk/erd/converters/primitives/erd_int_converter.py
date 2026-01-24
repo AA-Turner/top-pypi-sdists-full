@@ -1,8 +1,7 @@
-import logging
 import struct
-
-from gehomesdk.erd.converters.abstract import ErdReadWriteConverter, ErdReadOnlyConverter
-from gehomesdk.erd.erd_codes import ErdCodeType
+from typing import Any
+from ..abstract import ErdReadWriteConverter, ErdReadOnlyConverter
+from ...erd_codes import ErdCodeType
 
 def erd_decode_int(value: str, multibyte_endian: bool = False) -> int:
     """Decode an integer value sent as a hex encoded string."""
@@ -18,10 +17,10 @@ def erd_decode_int(value: str, multibyte_endian: bool = False) -> int:
     else:
         return -1
 
-def erd_encode_int(value: any, length: int = 2) -> str:
+def erd_encode_int(value: Any, length: int = 2) -> str:
     """Encode an integer value as a hex string."""
-    value = int(value)
-    return value.to_bytes(length, 'big').hex()
+    iv = int(value)
+    return iv.to_bytes(length, 'big').hex()
 
 class ErdIntConverter(ErdReadWriteConverter[int]):
     def __init__(self, erd_code: ErdCodeType = "Unknown", length: int = 2):

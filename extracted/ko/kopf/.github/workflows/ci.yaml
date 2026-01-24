@@ -13,13 +13,13 @@ jobs:
   linters:
     name: Linting and static analysis
     runs-on: ubuntu-24.04
-    timeout-minutes: 5  # usually 1-2, rarely 3 mins (because of installations)
+    timeout-minutes: 7  # usually 5 mins with coverage
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
-      - run: pip install -r requirements.txt
+          python-version: "3.14"
+      - run: pip install --group lint -e .
       - run: pre-commit run --all-files
       - run: mypy kopf --strict
       - run: |
@@ -38,39 +38,39 @@ jobs:
       fail-fast: false
       matrix:
         install-extras: [ "", "full-auth" ]
-        python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
         include:
           - install-extras: "uvloop"
-            python-version: "3.13"
+            python-version: "3.14"
     name: Python ${{ matrix.python-version }}${{ matrix.install-extras && ' ' || '' }}${{ matrix.install-extras }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5  # usually 2-3 mins
+    timeout-minutes: 7  # usually 5 mins with coverage
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
-      - run: pip install -r requirements.txt
+      - run: pip install --group test -e .
       - run: pip install -e .[${{ matrix.install-extras }}]
         if: ${{ matrix.install-extras }}
-      - run: pytest --color=yes --timeout=2 --cov=kopf --cov-branch
+      - run: coverage run --branch --source=kopf -m pytest --color=yes --timeout=2
 
       - name: Publish coverage to Coveralls.io
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel: true
+          flag-name: ${{ matrix.python-version }}${{ matrix.install-extras && ' ' || '' }}${{ matrix.install-extras }}
         if: success()
-        run: coveralls --service=github
-        env:
-          GITHUB_TOKEN: ${{ secrets.github_token }}
-        continue-on-error: true
       - name: Publish coverage to CodeCov.io
-        uses: codecov/codecov-action@v3
-        if: success()
+        uses: codecov/codecov-action@v5
         env:
           PYTHON: ${{ matrix.python-version }}
         with:
           flags: unit
           env_vars: PYTHON
-        continue-on-error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+        if: success()
 
   # Only the core functionality is tested: no e2e or functional tests (for simplicity).
   # No coverage: PyPy performs extremely poorly with tracing/coverage (13 mins vs. 3 mins).
@@ -81,20 +81,20 @@ jobs:
       fail-fast: false
       matrix:
         install-extras: [ "", "full-auth" ]
-        python-version: [ "pypy-3.9", "pypy-3.10" ]
+        python-version: [ "pypy-3.10", "pypy-3.11" ]
     name: Python ${{ matrix.python-version }}${{ matrix.install-extras && ' ' || '' }}${{ matrix.install-extras }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
       - run: sudo apt-get update && sudo apt-get install libxml2-dev libxslt-dev
       - run: pip install --upgrade pip wheel setuptools
 
-      - run: pip install -r requirements.txt
+      - run: pip install --group test -e .
       - run: pip install -e .[${{ matrix.install-extras }}]
         if: ${{ matrix.install-extras }}
       - run: pytest --color=yes --timeout=2 --no-cov
@@ -103,20 +103,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k3s: [latest, v1.31, v1.30, v1.29]
+        k3s: [latest, v1.33, v1.32, v1.31]
     name: K3s ${{matrix.k3s}}
     runs-on: ubuntu-24.04
     timeout-minutes: 10  # usually 4-5 mins
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - uses: nolar/setup-k3d-k3s@v1
         with:
           version: ${{ matrix.k3s }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - run: pip install -r requirements.txt -r examples/requirements.txt
+      - run: pip install --group test -e . -r examples/requirements.txt
       - run: pytest --color=yes --timeout=30 --only-e2e
 
   coveralls-finish:
@@ -124,9 +124,7 @@ jobs:
     needs: [unit-tests, pypy-tests, functional]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/setup-python@v5
-      - run: pip install coveralls
-      - run: coveralls --service=github --finish
-        env:
-          GITHUB_TOKEN: ${{ secrets.github_token }}
-        continue-on-error: true
+      - name: Finish coverage at Coveralls.io
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true

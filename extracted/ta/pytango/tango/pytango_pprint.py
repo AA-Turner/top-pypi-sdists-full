@@ -9,13 +9,15 @@ __all__ = ("pytango_pprint_init",)
 
 __docformat__ = "restructuredtext"
 
-from tango._tango import (
+import json
+import textwrap
+
+from tango import (
     StdStringVector,
     StdLongVector,
     CommandInfoList,
     AttributeInfoList,
     AttributeInfoListEx,
-    PipeInfoList,
     DeviceDataHistoryList,
     GroupReplyList,
     GroupAttrReplyList,
@@ -29,7 +31,6 @@ from tango._tango import (
     DevCommandInfo,
     AttributeDimension,
     CommandInfo,
-    PipeInfo,
     DeviceInfo,
     DeviceAttributeConfig,
     AttributeInfo,
@@ -43,7 +44,6 @@ from tango._tango import (
     DeviceAttributeHistory,
     DeviceData,
     DeviceDataHistory,
-    DevicePipe,
     DbDatum,
     DbDevInfo,
     DbDevImportInfo,
@@ -59,13 +59,80 @@ from tango._tango import (
     TimeVal,
     DevFailed,
     CmdArgType,
+    MultiAttrProp,
+    ClientAddr,
 )
 
-from tango.device_server import AttributeAlarm, EventProperties
-from tango.device_server import ChangeEventProp, PeriodicEventProp, ArchiveEventProp
-from tango.device_server import AttributeConfig, AttributeConfig_2
-from tango.device_server import AttributeConfig_3, AttributeConfig_5
+from tango._tango import (
+    AttributeConfig,
+    AttributeConfig_2,
+    AttributeConfig_3,
+    AttributeConfig_5,
+    AttributeAlarm,
+    EventProperties,
+    ChangeEventProp,
+    PeriodicEventProp,
+    ArchiveEventProp,
+)
 import collections.abc
+
+
+_INDENT_LEVEL = 4
+_INDENT = " " * _INDENT_LEVEL
+_STRUCT_TYPES = (
+    LockerInfo,
+    DevCommandInfo,
+    AttributeDimension,
+    CommandInfo,
+    DeviceInfo,
+    DeviceAttributeConfig,
+    AttributeInfo,
+    AttributeAlarmInfo,
+    ChangeEventInfo,
+    PeriodicEventInfo,
+    ArchiveEventInfo,
+    AttributeEventInfo,
+    AttributeInfoEx,
+    DeviceAttribute,
+    DeviceAttributeHistory,
+    DeviceData,
+    DeviceDataHistory,
+    DbDatum,
+    DbDevInfo,
+    DbDevImportInfo,
+    DbDevExportInfo,
+    DbServerInfo,
+    DevError,
+    EventData,
+    AttrConfEventData,
+    DataReadyEventData,
+    AttributeConfig,
+    AttributeConfig_2,
+    AttributeConfig_3,
+    AttributeConfig_5,
+    ChangeEventProp,
+    PeriodicEventProp,
+    ArchiveEventProp,
+    AttributeAlarm,
+    EventProperties,
+    MultiAttrProp,
+)
+_SEQUENCE_TYPES = (
+    StdStringVector,
+    StdLongVector,
+    CommandInfoList,
+    AttributeInfoList,
+    AttributeInfoListEx,
+    DeviceDataHistoryList,
+    GroupReplyList,
+    GroupAttrReplyList,
+    GroupCmdReplyList,
+    DbData,
+    DbDevInfos,
+    DbDevExportInfos,
+    DbDevImportInfos,
+    DbHistoryList,
+)
 
 
 def __inc_param(obj, name):
@@ -73,6 +140,20 @@ def __inc_param(obj, name):
     ret &= name not in ("except_flags",)
     ret &= not isinstance(getattr(obj, name), collections.abc.Callable)
     return ret
+
+
+def __nested_json_like_repr(value) -> str:
+    if isinstance(value, str):
+        return f'"{value}"'
+    elif type(value) in _STRUCT_TYPES:
+        return str(value)
+    elif isinstance(value, dict):
+        try:
+            return json.dumps(value, indent=_INDENT_LEVEL, sort_keys=True)
+        except TypeError:
+            return repr(value)
+    else:
+        return repr(value)
 
 
 def __single_param(obj, param_name, f=repr, fmt="%s = %s"):
@@ -105,19 +186,13 @@ def __repr__Struct(self):
     return f"{self.__class__.__name__}({__struct_params_repr(self)})"
 
 
-def __str__Struct_Helper(self, f=repr):
-    """str method for struct"""
-    attrs = [n for n in dir(self) if __inc_param(self, n)]
-    fmt = attrs and "%%%ds = %%s" % max(map(len, attrs)) or "%s = %s"
-    return f"{self.__class__.__name__}[\n{__struct_params_str(self, fmt, f)}]\n"
-
-
 def __str__Struct(self):
-    return __str__Struct_Helper(self, f=repr)
-
-
-def __str__Struct_extra(self):
-    return __str__Struct_Helper(self, f=str)
+    """str method for struct"""
+    fmt = "%s = %s"
+    details = __struct_params_str(self, fmt, __nested_json_like_repr)
+    details = __indented(details, strip_outer=False)
+    result = f"{self.__class__.__name__}[\n{details}\n]"
+    return result
 
 
 def __registerSeqStr():
@@ -125,34 +200,22 @@ def __registerSeqStr():
     _SeqStr = lambda self: (self and f"[{', '.join(map(repr, self))}]") or "[]"
     _SeqRepr = lambda self: (self and f"[{', '.join(map(repr, self))}]") or "[]"
 
-    seqs = (
-        StdStringVector,
-        StdLongVector,
-        CommandInfoList,
-        AttributeInfoList,
-        AttributeInfoListEx,
-        PipeInfoList,
-        DeviceDataHistoryList,
-        GroupReplyList,
-        GroupAttrReplyList,
-        GroupCmdReplyList,
-        DbData,
-        DbDevInfos,
-        DbDevExportInfos,
-        DbDevImportInfos,
-        DbHistoryList,
-    )
-
-    for seq in seqs:
+    for seq in _SEQUENCE_TYPES:
         seq.__str__ = _SeqStr
         seq.__repr__ = _SeqRepr
 
 
 def __str__DevFailed(self):
     if isinstance(self.args, collections.abc.Sequence):
-        seq_str = "\n".join(map(str, self.args))
-        return f"DevFailed[\n{seq_str}]"
+        seq_str = __str_error_stack_helper(self.args)
+        return f"DevFailed[\n{seq_str}\n]"
     return f"DevFailed[{self.args}]"
+
+
+def __str_error_stack_helper(errors):
+    err_str = ",\n".join(str(err).strip() for err in errors)
+    err_str = __indented(err_str, strip_outer=False)
+    return err_str
 
 
 def __repr__DevFailed(self):
@@ -160,67 +223,38 @@ def __repr__DevFailed(self):
 
 
 def __str__DevError(self):
-    desc = self.desc.replace("\n", "\n           ")
-    s = f"""DevError[
-    desc = {desc}
-  origin = {self.origin}
-  reason = {self.reason}
-severity = {self.severity}]
-"""
+    details = (
+        f"desc = {__indented(self.desc)}\n"
+        f"origin = {__indented(self.origin)}\n"
+        f"reason = {self.reason}\n"
+        f"severity = {self.severity}\n"
+    )
+    details = __indented(details, strip_outer=False)
+    s = f"DevError[\n{details}\n]"
     return s
+
+
+def __indented(text, strip_outer=True):
+    indented = textwrap.indent(text.strip(), _INDENT)
+    if strip_outer:
+        return indented.strip()
+    else:
+        return indented
 
 
 def __registerStructStr():
     """helper method to register str and repr methods for structures"""
-    structs = (
-        LockerInfo,
-        DevCommandInfo,
-        AttributeDimension,
-        CommandInfo,
-        DeviceInfo,
-        DeviceAttributeConfig,
-        AttributeInfo,
-        AttributeAlarmInfo,
-        ChangeEventInfo,
-        PeriodicEventInfo,
-        ArchiveEventInfo,
-        AttributeEventInfo,
-        AttributeInfoEx,
-        PipeInfo,
-        DeviceAttribute,
-        DeviceAttributeHistory,
-        DeviceData,
-        DeviceDataHistory,
-        DevicePipe,
-        DbDatum,
-        DbDevInfo,
-        DbDevImportInfo,
-        DbDevExportInfo,
-        DbServerInfo,
-        GroupReply,
-        GroupAttrReply,
-        GroupCmdReply,
-        DevError,
-        EventData,
-        AttrConfEventData,
-        DataReadyEventData,
-        AttributeConfig,
-        AttributeConfig_2,
-        AttributeConfig_3,
-        AttributeConfig_5,
-        ChangeEventProp,
-        PeriodicEventProp,
-        ArchiveEventProp,
-        AttributeAlarm,
-        EventProperties,
-    )
 
-    for struct in structs:
+    for struct in _STRUCT_TYPES:
         struct.__str__ = __str__Struct
         struct.__repr__ = __repr__Struct
 
-    # special case for TimeVal: it already has a str representation itself
+    # special case for structs that already have a str representation
     TimeVal.__repr__ = __repr__Struct
+    GroupReply.__repr__ = __repr__Struct
+    GroupAttrReply.__repr__ = __repr__Struct
+    GroupCmdReply.__repr__ = __repr__Struct
+    ClientAddr.__repr__ = __repr__Struct
 
     # special case for DevFailed: we want a better pretty print
     # also, because it is an Exception it has the message attribute which
@@ -231,6 +265,6 @@ def __registerStructStr():
     DevError.__str__ = __str__DevError
 
 
-def pytango_pprint_init(doc=True):
+def pytango_pprint_init():
     __registerSeqStr()
     __registerStructStr()

@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, ClassVar, Dict, Optional, Union
 
-from pydantic import BaseModel, StrictBool
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 import snowflake.core.user_defined_function._generated.models
 
@@ -50,9 +50,10 @@ class FunctionLanguage(BaseModel):
 
     __properties = ["language", "called_on_null_input", "is_volatile"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     # JSON field name that stores the object type
     __discriminator_property_name: ClassVar[str] = "language"
@@ -114,7 +115,7 @@ class FunctionLanguage(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 

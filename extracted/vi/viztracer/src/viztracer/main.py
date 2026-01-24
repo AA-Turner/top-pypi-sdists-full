@@ -19,7 +19,7 @@ import time
 import types
 import re
 from types import CodeType
-from typing import Any, Optional, Union
+from typing import Any
 
 from . import __version__
 from .code_monkey import CodeMonkey
@@ -31,12 +31,12 @@ from .viztracer import VizTracer
 # For all the procedures in VizUI, return a tuple as the result
 # The first element bool indicates whether the procedure succeeds
 # The second element is the error message if it fails.
-VizProcedureResult = tuple[bool, Optional[str]]
+VizProcedureResult = tuple[bool, str | None]
 
 
 class VizUI:
     def __init__(self) -> None:
-        self.tracer: Optional[VizTracer] = None
+        self.tracer: VizTracer | None = None
         self.parser: argparse.ArgumentParser = self.create_parser()
         self.verbose: int = 1
         self.ofile: str = "result.json"
@@ -199,7 +199,7 @@ class VizUI:
     def parse(self, argv: list[str]) -> VizProcedureResult:
         # If -- or --run exists, all the commands after --/--run are the commands we need to run
         # We need to filter those out, they might conflict with our arguments
-        idx: Optional[int] = None
+        idx: int | None = None
         if "--" in argv[1:]:
             idx = argv.index("--")
         elif "--run" in argv[1:]:
@@ -228,6 +228,8 @@ class VizUI:
                 exec_name = command[0]
             self.ofile = unique_file_name(exec_name)
         if options.output_file:
+            if not options.compress and not options.output_file.endswith((".json", ".html", ".gz")):
+                return False, "Only html, json and gz are supported"
             self.ofile = options.output_file
         elif options.pid_suffix:
             self.ofile = "result.json"
@@ -295,7 +297,7 @@ class VizUI:
 
         return True, None
 
-    def search_file(self, file_name: str) -> Optional[str]:
+    def search_file(self, file_name: str) -> str | None:
         if os.path.isfile(file_name):
             return file_name
 
@@ -326,7 +328,7 @@ class VizUI:
             return self.uninstall()
         elif self.options.cmd_string is not None:
             return self.run_string()
-        elif self.options.module:
+        elif self.options.module is not None:
             return self.run_module()
         elif self.command:
             return self.run_command()
@@ -342,7 +344,7 @@ class VizUI:
             self.parser.print_help()
             return True, None
 
-    def run_code(self, code: Union[CodeType, str], global_dict: dict[str, Any]) -> VizProcedureResult:
+    def run_code(self, code: CodeType | str, global_dict: dict[str, Any]) -> VizProcedureResult:
         options = self.options
         self.parent_pid = os.getpid()
 
@@ -386,16 +388,12 @@ class VizUI:
         if not options.log_exit:
             tracer.stop(stop_option="flush_as_finish")
 
-            # Clear to global_dict to release all references.
-            # This is helpful for some deadlock issues.
-            global_dict.clear()
-
         # issue141 - concurrent.future requires a proper release by executing
         # threading._threading_atexits or it will deadlock if not explicitly
         # release the resource in the code
         # Python 3.9+ has this issue
         if threading._threading_atexits:  # type: ignore
-            for atexit_call in threading._threading_atexits:  # type: ignore
+            for atexit_call in reversed(threading._threading_atexits):  # type: ignore
                 atexit_call()
             threading._threading_atexits = []  # type: ignore
 
@@ -526,7 +524,7 @@ class VizUI:
         print(__version__)
         return True, None
 
-    def _check_attach_availability(self) -> tuple[bool, Optional[str]]:
+    def _check_attach_availability(self) -> tuple[bool, str | None]:
         if sys.platform == "win32":
             return False, "VizTracer does not support this feature on Windows"
 

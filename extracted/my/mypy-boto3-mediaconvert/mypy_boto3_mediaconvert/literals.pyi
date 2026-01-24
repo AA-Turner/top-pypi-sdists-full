@@ -113,6 +113,7 @@ __all__ = (
     "CmafWriteSegmentTimelineInRepresentationType",
     "CmfcAudioDurationType",
     "CmfcAudioTrackTypeType",
+    "CmfcC2paManifestType",
     "CmfcDescriptiveVideoServiceFlagType",
     "CmfcIFrameOnlyManifestType",
     "CmfcKlvMetadataType",
@@ -197,6 +198,7 @@ __all__ = (
     "FileSourceTimeDeltaUnitsType",
     "FontScriptType",
     "FormatType",
+    "FrameControlType",
     "FrameMetricTypeType",
     "GifFramerateControlType",
     "GifFramerateConversionAlgorithmType",
@@ -240,6 +242,8 @@ __all__ = (
     "H265GopBReferenceType",
     "H265GopSizeUnitsType",
     "H265InterlaceModeType",
+    "H265MvOverPictureBoundariesType",
+    "H265MvTemporalPredictorType",
     "H265ParControlType",
     "H265QualityTuningLevelType",
     "H265RateControlModeType",
@@ -251,7 +255,9 @@ __all__ = (
     "H265TelecineType",
     "H265TemporalAdaptiveQuantizationType",
     "H265TemporalIdsType",
+    "H265TilePaddingType",
     "H265TilesType",
+    "H265TreeBlockSizeType",
     "H265UnregisteredSeiTimecodeType",
     "H265WriteMp4PackagingTypeType",
     "HDRToSDRToneMapperType",
@@ -296,6 +302,8 @@ __all__ = (
     "JobPhaseType",
     "JobStatusType",
     "JobTemplateListByType",
+    "JobsQueryFilterKeyType",
+    "JobsQueryStatusType",
     "LanguageCodeType",
     "ListJobTemplatesPaginatorName",
     "ListJobsPaginatorName",
@@ -340,6 +348,7 @@ __all__ = (
     "Mp4MoovPlacementType",
     "MpdAccessibilityCaptionHintsType",
     "MpdAudioDurationType",
+    "MpdC2paManifestType",
     "MpdCaptionContainerTypeType",
     "MpdKlvMetadataType",
     "MpdManifestMetadataSignalingType",
@@ -416,6 +425,7 @@ __all__ = (
     "ServiceName",
     "ShareStatusType",
     "SimulateReservedQueueType",
+    "SlowPalPitchCorrectionType",
     "SrtStylePassthroughType",
     "StatusUpdateIntervalType",
     "TamsGapHandlingType",
@@ -447,6 +457,7 @@ __all__ = (
     "VideoCodecType",
     "VideoOverlayPlayBackModeType",
     "VideoOverlayUnitType",
+    "VideoSelectorModeType",
     "VideoSelectorTypeType",
     "VideoTimecodeInsertionType",
     "Vp8FramerateControlType",
@@ -580,7 +591,9 @@ AudioNormalizationAlgorithmType = Literal[
 ]
 AudioNormalizationLoudnessLoggingType = Literal["DONT_LOG", "LOG"]
 AudioNormalizationPeakCalculationType = Literal["NONE", "TRUE_PEAK"]
-AudioSelectorTypeType = Literal["ALL_PCM", "HLS_RENDITION_GROUP", "LANGUAGE_CODE", "PID", "TRACK"]
+AudioSelectorTypeType = Literal[
+    "ALL_PCM", "HLS_RENDITION_GROUP", "LANGUAGE_CODE", "PID", "STREAM", "TRACK"
+]
 AudioTypeControlType = Literal["FOLLOW_INPUT", "USE_CONFIGURED"]
 Av1AdaptiveQuantizationType = Literal["HIGH", "HIGHER", "LOW", "MAX", "MEDIUM", "OFF"]
 Av1BitDepthType = Literal["BIT_10", "BIT_8"]
@@ -653,6 +666,7 @@ CaptionSourceTypeType = Literal[
     "STL",
     "TELETEXT",
     "TTML",
+    "TT_3GPP",
     "WEBVTT",
 ]
 CaptionSourceUpconvertSTLToTeletextType = Literal["DISABLED", "UPCONVERT"]
@@ -684,6 +698,7 @@ CmfcAudioTrackTypeType = Literal[
     "ALTERNATE_AUDIO_NOT_AUTO_SELECT",
     "AUDIO_ONLY_VARIANT_STREAM",
 ]
+CmfcC2paManifestType = Literal["EXCLUDE", "INCLUDE"]
 CmfcDescriptiveVideoServiceFlagType = Literal["DONT_FLAG", "FLAG"]
 CmfcIFrameOnlyManifestType = Literal["EXCLUDE", "INCLUDE"]
 CmfcKlvMetadataType = Literal["NONE", "PASSTHROUGH"]
@@ -706,12 +721,15 @@ CodecType = Literal[
     "MJPEG",
     "MP3",
     "MP4V",
+    "MPEG1",
     "MPEG2",
     "OPUS",
     "PCM",
     "PRORES",
+    "QTRLE",
     "THEORA",
     "UNKNOWN",
+    "VFW",
     "VORBIS",
     "VP8",
     "VP9",
@@ -782,7 +800,7 @@ DashIsoSegmentControlType = Literal["SEGMENTED_FILES", "SINGLE_FILE"]
 DashIsoSegmentLengthControlType = Literal["EXACT", "GOP_MULTIPLE", "MATCH"]
 DashIsoVideoCompositionOffsetsType = Literal["SIGNED", "UNSIGNED"]
 DashIsoWriteSegmentTimelineInRepresentationType = Literal["DISABLED", "ENABLED"]
-DashManifestStyleType = Literal["BASIC", "COMPACT", "DISTINCT"]
+DashManifestStyleType = Literal["BASIC", "COMPACT", "DISTINCT", "FULL"]
 DecryptionModeType = Literal["AES_CBC", "AES_CTR", "AES_GCM"]
 DeinterlaceAlgorithmType = Literal[
     "BLEND", "BLEND_TICKER", "INTERPOLATE", "INTERPOLATE_TICKER", "LINEAR_INTERPOLATION"
@@ -861,7 +879,8 @@ FileSourceConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 FileSourceTimeDeltaUnitsType = Literal["MILLISECONDS", "SECONDS"]
 FontScriptType = Literal["AUTOMATIC", "HANS", "HANT"]
 FormatType = Literal["matroska", "mp4", "mxf", "quicktime", "webm"]
-FrameMetricTypeType = Literal["MS_SSIM", "PSNR", "PSNR_HVS", "QVBR", "SSIM", "VMAF"]
+FrameControlType = Literal["NEAREST_IDRFRAME", "NEAREST_IFRAME"]
+FrameMetricTypeType = Literal["MS_SSIM", "PSNR", "PSNR_HVS", "QVBR", "SHOT_CHANGE", "SSIM", "VMAF"]
 GifFramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
 GifFramerateConversionAlgorithmType = Literal["DUPLICATE_DROP", "INTERPOLATE"]
 H264AdaptiveQuantizationType = Literal["AUTO", "HIGH", "HIGHER", "LOW", "MAX", "MEDIUM", "OFF"]
@@ -956,6 +975,8 @@ H265GopSizeUnitsType = Literal["AUTO", "FRAMES", "SECONDS"]
 H265InterlaceModeType = Literal[
     "BOTTOM_FIELD", "FOLLOW_BOTTOM_FIELD", "FOLLOW_TOP_FIELD", "PROGRESSIVE", "TOP_FIELD"
 ]
+H265MvOverPictureBoundariesType = Literal["DISABLED", "ENABLED"]
+H265MvTemporalPredictorType = Literal["DISABLED", "ENABLED"]
 H265ParControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
 H265QualityTuningLevelType = Literal["MULTI_PASS_HQ", "SINGLE_PASS", "SINGLE_PASS_HQ"]
 H265RateControlModeType = Literal["CBR", "QVBR", "VBR"]
@@ -967,7 +988,9 @@ H265SpatialAdaptiveQuantizationType = Literal["DISABLED", "ENABLED"]
 H265TelecineType = Literal["HARD", "NONE", "SOFT"]
 H265TemporalAdaptiveQuantizationType = Literal["DISABLED", "ENABLED"]
 H265TemporalIdsType = Literal["DISABLED", "ENABLED"]
+H265TilePaddingType = Literal["NONE", "PADDED"]
 H265TilesType = Literal["DISABLED", "ENABLED"]
+H265TreeBlockSizeType = Literal["AUTO", "TREE_SIZE_32X32"]
 H265UnregisteredSeiTimecodeType = Literal["DISABLED", "ENABLED"]
 H265WriteMp4PackagingTypeType = Literal["HEV1", "HVC1"]
 HDRToSDRToneMapperType = Literal["PRESERVE_DETAILS", "VIBRANT"]
@@ -1017,6 +1040,16 @@ InputTimecodeSourceType = Literal["EMBEDDED", "SPECIFIEDSTART", "ZEROBASED"]
 JobPhaseType = Literal["PROBING", "TRANSCODING", "UPLOADING"]
 JobStatusType = Literal["CANCELED", "COMPLETE", "ERROR", "PROGRESSING", "SUBMITTED"]
 JobTemplateListByType = Literal["CREATION_DATE", "NAME", "SYSTEM"]
+JobsQueryFilterKeyType = Literal[
+    "audioCodec",
+    "fileInput",
+    "jobEngineVersionRequested",
+    "jobEngineVersionUsed",
+    "queue",
+    "status",
+    "videoCodec",
+]
+JobsQueryStatusType = Literal["COMPLETE", "ERROR", "PROGRESSING", "SUBMITTED"]
 LanguageCodeType = Literal[
     "AAR",
     "ABK",
@@ -1274,6 +1307,7 @@ Mp4FreeSpaceBoxType = Literal["EXCLUDE", "INCLUDE"]
 Mp4MoovPlacementType = Literal["NORMAL", "PROGRESSIVE_DOWNLOAD"]
 MpdAccessibilityCaptionHintsType = Literal["EXCLUDE", "INCLUDE"]
 MpdAudioDurationType = Literal["DEFAULT_CODEC_DURATION", "MATCH_VIDEO_DURATION"]
+MpdC2paManifestType = Literal["EXCLUDE", "INCLUDE"]
 MpdCaptionContainerTypeType = Literal["FRAGMENTED_MP4", "RAW"]
 MpdKlvMetadataType = Literal["NONE", "PASSTHROUGH"]
 MpdManifestMetadataSignalingType = Literal["DISABLED", "ENABLED"]
@@ -1411,6 +1445,7 @@ SccDestinationFramerateType = Literal[
 SearchJobsPaginatorName = Literal["search_jobs"]
 ShareStatusType = Literal["INITIATED", "NOT_SHARED", "SHARED"]
 SimulateReservedQueueType = Literal["DISABLED", "ENABLED"]
+SlowPalPitchCorrectionType = Literal["DISABLED", "ENABLED"]
 SrtStylePassthroughType = Literal["DISABLED", "ENABLED"]
 StatusUpdateIntervalType = Literal[
     "SECONDS_10",
@@ -1513,6 +1548,7 @@ VideoCodecType = Literal[
 ]
 VideoOverlayPlayBackModeType = Literal["ONCE", "REPEAT"]
 VideoOverlayUnitType = Literal["PERCENTAGE", "PIXELS"]
+VideoSelectorModeType = Literal["AUTO", "REMUX_ALL"]
 VideoSelectorTypeType = Literal["AUTO", "STREAM"]
 VideoTimecodeInsertionType = Literal["DISABLED", "PIC_TIMING_SEI"]
 Vp8FramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
@@ -1588,7 +1624,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -1658,6 +1693,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -1756,7 +1792,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1795,8 +1830,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -1831,6 +1864,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -1840,18 +1874,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1873,8 +1909,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -1889,15 +1923,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -1928,8 +1963,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1980,16 +2015,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "describe_endpoints",

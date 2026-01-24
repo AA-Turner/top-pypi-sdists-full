@@ -1,52 +1,29 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django-click
-Version: 2.4.1
+Version: 2.5.0
 Summary: Build Django management commands using the click CLI package.
-Home-page: https://github.com/GaretJax/django-click
-Author: Jonathan Stoppani
-Author-email: jonathan@stoppani.name
-License: MIT
+Author-email: Jonathan Stoppani <jonathan@stoppani.name>
+Maintainer: Jonathan Stoppani, Timothy Allen
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/django-commons/django-click
 Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: click>=7.1
-Provides-Extra: work-django-click-django-click-requirements-dev
-Requires-Dist: Fabric; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: livereload; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: wheel; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: check-manifest; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: flake8; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: mccabe; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: pep8; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: pep8-naming; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: pyflakes; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: Sphinx; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: sphinx-autobuild; extra == "work-django-click-django-click-requirements-dev"
-Requires-Dist: sphinx_rtd_theme; extra == "work-django-click-django-click-requirements-dev"
-Provides-Extra: work-django-click-django-click-requirements-test
-Requires-Dist: pytest; extra == "work-django-click-django-click-requirements-test"
-Requires-Dist: coverage<5; extra == "work-django-click-django-click-requirements-test"
-Requires-Dist: pytest-django; extra == "work-django-click-django-click-requirements-test"
-Requires-Dist: pytest-cov; extra == "work-django-click-django-click-requirements-test"
-Requires-Dist: pytest-flake8; extra == "work-django-click-django-click-requirements-test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
+Dynamic: license-file
 
 ============
 Django Click
@@ -66,6 +43,14 @@ Project information:
 .. image:: https://img.shields.io/pypi/l/django-click.svg
    :target: https://github.com/GaretJax/django-click/blob/master/LICENSE
 
+.. |python-support| image:: https://img.shields.io/pypi/pyversions/django-click
+   :target: https://pypi.python.org/pypi/django-click
+   :alt: Supported Python versions
+
+.. |django-support| image:: https://img.shields.io/pypi/djversions/django-click
+   :target: https://pypi.python.org/pypi/django-click
+   :alt: Supported Django versions
+
 Automated code metrics:
 
 .. image:: https://img.shields.io/coveralls/GaretJax/django-click/master.svg
@@ -75,8 +60,11 @@ Automated code metrics:
 ``click`` command line library.
 
 * Free software: MIT license
-* Documentation for the Click command line library: https://click.palletsprojects.com/en/8.0.x/
-* Compatible with Django 4.2 and 5.0 running on Python 3.8, 3.9, 3.10, 3.11, and 3.12 (note: 3.10+ required for Django 5.0).
+* Documentation for the Click command line library: https://click.palletsprojects.com/en/stable/
+* Compatible with Django 4.2, 5.2 and 6.0 running on Python 3.10, 3.11, 3.12, 3.13 and 3.14
+
+  * 3.10+ required for Django 5.2 and above
+  * 3.12+ required for Django 6.0 and above
 
 
 Installation
@@ -101,7 +89,7 @@ class, just put a ``djclick`` command into
    @click.command()
    @click.argument('name')
    def command(name):
-       click.secho('Hello, {}'.format(name), fg='red')
+       click.secho(f'Hello, {name}', fg='red')
 
 And then call the command with::
 

@@ -1,0 +1,46 @@
+flows:
+- name: login
+  description: Auto-login flow for Outline - wait for environment and verify access
+  steps:
+  - description: Let app bootstrap
+    duration: 3000
+    type: wait
+  - description: Wait for Continue with Email button
+    selector: form[action="/auth/email"] button, button:has-text("Continue with Email")
+    timeout: 15000
+    type: wait_for_selector
+  - description: Click Continue with Email
+    selector: form[action="/auth/email"] button, button:has-text("Continue with Email")
+    timeout: 5000
+    type: click
+  - description: Wait for email form
+    duration: 1500
+    type: wait
+  - description: Wait for email input
+    selector: 'input[type="email"], input[name="email"], #email'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill email
+    selector: 'input[type="email"], input[name="email"], #email'
+    timeout: 5000
+    type: fill
+    value: admin@example.com
+  - description: Wait for submit button
+    selector: button[type="submit"], button:has-text("Continue"), button:has-text("Send"),
+      form button
+    timeout: 10000
+    type: wait_for_selector
+  - description: Submit email form
+    selector: button[type="submit"], button:has-text("Continue"), button:has-text("Send"),
+      form button
+    timeout: 5000
+    type: click
+  - description: Wait for response / redirect
+    duration: 5000
+    type: wait
+  - description: Verify Outline workspace interface is accessible
+    selector: 'body, main, .app, #root, [data-testid], .outline-app, nav, .sidebar,
+      .main-content, .document-list, .collection-list, .app-content, .workspace, .dashboard,
+      [data-testid="sidebar"], [data-testid="document-list"], .outline-sidebar, .outline-content'
+    type: verify
+    verify_type: element_exists

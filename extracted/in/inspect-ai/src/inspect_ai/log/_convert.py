@@ -3,9 +3,10 @@ from typing import Literal
 
 import anyio
 
-from inspect_ai._util._async import configured_async_backend
+from inspect_ai._util._async import run_coroutine
 from inspect_ai._util.error import PrerequisiteError
 from inspect_ai._util.file import exists, filesystem
+from inspect_ai.log import resolve_sample_attachments
 from inspect_ai.log._file import (
     log_files_from_ls,
     read_eval_log,
@@ -21,7 +22,7 @@ def convert_eval_logs(
     to: Literal["eval", "json"],
     output_dir: str,
     overwrite: bool = False,
-    resolve_attachments: bool = False,
+    resolve_attachments: bool | Literal["full", "core"] = False,
     stream: int | bool = False,
 ) -> None:
     """Convert between log file formats.
@@ -83,14 +84,14 @@ def convert_eval_logs(
 
         # do a full read/write (normalized deprecated constructs and adds sample summaries)
         if stream:
-            anyio.run(
-                _stream_convert_file,
-                input_file,
-                output_file,
-                output_dir,
-                resolve_attachments,
-                stream,
-                backend=configured_async_backend(),
+            run_coroutine(
+                _stream_convert_file(
+                    input_file,
+                    output_file,
+                    output_dir,
+                    resolve_attachments,
+                    stream,
+                )
             )
         else:
             write_eval_log(
@@ -117,21 +118,33 @@ async def _stream_convert_file(
     input_file: str,
     output_file: str,
     output_dir: str,
-    resolve_attachments: bool,
-    stream: int | bool,
+    resolve_attachments: bool | Literal["full", "core"],
+    stream: int | Literal[True],
 ) -> None:
     input_recorder = recorder_type_for_location(input_file)
     output_recorder = create_recorder_for_location(output_file, output_dir)
 
     sample_map = await input_recorder.read_log_sample_ids(input_file)
-    semaphore = anyio.Semaphore(len(sample_map) if stream is True else stream)
+
+    concurrent_limit = len(sample_map) if stream is True else stream
+    semaphore = anyio.Semaphore(concurrent_limit)
+    samples_processed = 0
 
     async def _convert_sample(sample_id: str | int, epoch: int) -> None:
         async with semaphore:
+            sample = await input_recorder.read_log_sample(input_file, sample_id, epoch)
+            if resolve_attachments:
+                sample = resolve_sample_attachments(sample, resolve_attachments)
             await output_recorder.log_sample(
                 log_header.eval,
-                await input_recorder.read_log_sample(input_file, sample_id, epoch),
+                sample,
             )
+
+            nonlocal samples_processed
+            samples_processed += 1
+            # Flush periodically to avoid too much buffering
+            if samples_processed % concurrent_limit == 0:
+                await output_recorder.flush(log_header.eval)
 
     log_header = await read_eval_log_async(
         input_file, header_only=True, resolve_attachments=resolve_attachments
@@ -149,4 +162,5 @@ async def _stream_convert_file(
         log_header.stats,
         log_header.results,
         log_header.reductions,
+        invalidated=log_header.invalidated,
     )

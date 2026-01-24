@@ -99,10 +99,12 @@ from chalk.client.models import (
     GetRegisteredModelResponse,
     GetRegisteredModelVersionResponse,
     IngestDatasetRequest,
+    ManualTriggerScheduledQueryResponse,
     MultiUploadFeaturesRequest,
     MultiUploadFeaturesResponse,
     OfflineQueryContext,
     OfflineQueryInput,
+    OfflineQueryInputSql,
     OfflineQueryInputUri,
     OfflineQueryParquetUploadURLResponse,
     OnlineQuery,
@@ -124,6 +126,7 @@ from chalk.client.models import (
     ResolverReplayResponse,
     ResolverRunResponse,
     ResourceRequests,
+    ScheduledQueryRun,
     SetDatasetRevisionMetadataRequest,
     SetDatasetRevisionMetadataResponse,
     SetIncrementalProgressRequest,
@@ -157,7 +160,8 @@ from chalk.features.pseudofeatures import CHALK_TS_FEATURE
 from chalk.features.resolver import Resolver, StreamResolver
 from chalk.features.tag import BranchId, DeploymentId, EnvironmentId
 from chalk.importer import CHALK_IMPORT_FLAG
-from chalk.ml import ModelEncoding, ModelType
+from chalk.ml import ModelEncoding, ModelRunCriterion, ModelType
+from chalk.ml.model_file_transfer import SourceConfig
 from chalk.parsed._proto.utils import encode_proto_to_b64
 from chalk.parsed.branch_state import BranchGraphSummary
 from chalk.parsed.to_proto import ToProtoConverter
@@ -170,7 +174,9 @@ from chalk.utils.duration import parse_chalk_duration, timedelta_to_duration
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.notebook import parse_notebook_into_script
 from chalk.utils.string import s
+from chalk.utils.tracing import add_trace_headers, safe_trace
 
 if TYPE_CHECKING:
     import ssl
@@ -236,13 +242,15 @@ def _do_query_errors_match(
 def _do_resultsets_match(
     actual: Sequence[Any],
     expected: Sequence[Any],
+    float_rel_tolerance: float = 1e-6,
+    float_abs_tolerance: float = 1e-12,
 ) -> bool:
     if len(actual) != len(expected):
         return False
     for a in actual:
         matched = False
         for i, e in enumerate(expected):
-            if _does_result_match(a, e):
+            if _does_result_match(a, e, float_rel_tolerance, float_abs_tolerance):
                 matched = True
                 expected = [x for j, x in enumerate(expected) if j != i]
                 break
@@ -413,6 +421,37 @@ def _get_column_names(query_input: QueryInput) -> List[str]:
     else:
         input_table = pl.from_pandas(pd.DataFrame(query_input)).to_arrow()
     return input_table.column_names
+
+
+def _offline_query_inputs_should_be_uploaded(
+    inputs: Union[QueryInput, Tuple[QueryInput, ...], List[QueryInput]], row_limit: int = 100
+) -> bool:
+    try:
+        import pandas as pd
+        import polars as pl
+    except ImportError:
+        raise missing_dependency_exception("chalkpy[runtime]")
+    if isinstance(inputs, (list, tuple)):
+        if len(inputs) > row_limit:
+            return True
+        inputs_as_list: List[QueryInput] = list(inputs)
+    else:
+        inputs_as_list: List[QueryInput] = [inputs]
+
+    for single_input in inputs_as_list:
+        if isinstance(single_input, collections.abc.Mapping):
+            num_rows = max(len(v) if hasattr(v, "__len__") else 1 for v in single_input.values())
+        elif isinstance(single_input, pl.DataFrame):
+            num_rows = single_input.height
+        elif isinstance(single_input, pd.DataFrame):
+            num_rows = single_input.shape[0]
+        else:
+            num_rows = single_input.shape[0]
+
+        if num_rows > row_limit:
+            return True
+
+    return False
 
 
 def _offline_query_inputs_to_parquet(
@@ -708,6 +747,8 @@ class OnlineQueryResponseImpl(OnlineQueryResult):
         self.errors = errors
         self.warnings = warnings
         self.meta = meta
+
+        print(self.data)
 
         for d in self.data:
             if d.value is not None:
@@ -1835,78 +1876,85 @@ https://docs.chalk.ai/cli/apply
         connect_timeout: float | ellipsis | None = ...,
         headers: Mapping[str, str] | None = None,
         query_context: Mapping[str, JsonValue] | str | None = None,
+        trace: bool = False,
         value_metrics_tag_by_features: Sequence[FeatureReference] = (),
     ) -> OnlineQueryResponseImpl:
-        encoded_inputs, all_warnings = recursive_encode_inputs(input)
-        encoded_outputs = encode_outputs(output)
-        outputs = encoded_outputs.string_outputs
-        encoded_value_metrics_tag_by_features = encode_outputs(value_metrics_tag_by_features).string_outputs
-        if branch is ...:
-            branch = self._branch
-        now_str = None
-        if now is not None:
-            if now.tzinfo is None:
-                now = now.astimezone(tz=timezone.utc)
-            now_str = now.isoformat()
+        with safe_trace("query"):
+            if branch is ...:
+                branch = self._branch
+            extra_headers = {"X-Chalk-Deployment-Type": "branch" if branch else "engine"}
+            if query_name is not None:
+                extra_headers["X-Chalk-Query-Name"] = query_name
+            if trace:
+                extra_headers = add_trace_headers(extra_headers)
+            if headers:
+                extra_headers.update(headers)
 
-        staleness_encoded = {}
-        if staleness is not None:
-            for k, v in staleness.items():
-                if isinstance(k, str):
-                    # It's a feature set
-                    staleness_encoded[k] = v
-                elif is_feature_set_class(k):
-                    staleness_encoded[k.namespace] = v
-                else:
-                    staleness_encoded[ensure_feature(k).root_fqn] = v
+            encoded_inputs, all_warnings = recursive_encode_inputs(input)
+            encoded_outputs = encode_outputs(output)
+            outputs = encoded_outputs.string_outputs
+            encoded_value_metrics_tag_by_features = encode_outputs(value_metrics_tag_by_features).string_outputs
 
-        request = OnlineQueryRequest(
-            inputs=encoded_inputs,
-            outputs=outputs,
-            expression_outputs=encoded_outputs.feature_expressions_base64,
-            now=now_str,
-            staleness=staleness_encoded,
-            context=OnlineQueryContext(
-                environment=environment,
-                tags=tags,
-                required_resolver_tags=required_resolver_tags,
-            ),
-            deployment_id=preview_deployment_id,
-            branch_id=branch,
-            correlation_id=correlation_id,
-            query_name=query_name,
-            query_name_version=query_name_version,
-            meta=meta,
-            explain=explain,
-            include_meta=bool(include_meta or explain),
-            store_plan_stages=store_plan_stages,
-            encoding_options=encoding_options or FeatureEncodingOptions(),
-            planner_options=planner_options,
-            value_metrics_tag_by_features=tuple(encoded_value_metrics_tag_by_features),
-            query_context=_validate_context_dict(query_context),
-            overlay_graph=_get_overlay_graph_b64(),
-        )
+            now_str = None
+            if now is not None:
+                if now.tzinfo is None:
+                    now = now.astimezone(tz=timezone.utc)
+                now_str = now.isoformat()
 
-        extra_headers = {}
-        if query_name is not None:
-            extra_headers["X-Chalk-Query-Name"] = query_name
-        if headers:
-            extra_headers.update(headers)
+            staleness_encoded = {}
+            if staleness is not None:
+                for k, v in staleness.items():
+                    if isinstance(k, str):
+                        # It's a feature set
+                        staleness_encoded[k] = v
+                    elif is_feature_set_class(k):
+                        staleness_encoded[k.namespace] = v
+                    else:
+                        staleness_encoded[ensure_feature(k).root_fqn] = v
 
-        resp = self._request(
-            method="POST",
-            uri="/v1/query/online",
-            json=request,
-            response=OnlineQueryResponse,
-            environment_override=environment,
-            preview_deployment_id=preview_deployment_id,
-            branch=branch,
-            metadata_request=False,
-            extra_headers=extra_headers,
-            timeout=request_timeout,
-            connect_timeout=connect_timeout,
-        )
-        return OnlineQueryResponseImpl(data=resp.data, errors=resp.errors or [], warnings=all_warnings, meta=resp.meta)
+            request = OnlineQueryRequest(
+                inputs=encoded_inputs,
+                outputs=outputs,
+                expression_outputs=encoded_outputs.feature_expressions_base64,
+                now=now_str,
+                staleness=staleness_encoded,
+                context=OnlineQueryContext(
+                    environment=environment,
+                    tags=tags,
+                    required_resolver_tags=required_resolver_tags,
+                ),
+                deployment_id=preview_deployment_id,
+                branch_id=branch,
+                correlation_id=correlation_id,
+                query_name=query_name,
+                query_name_version=query_name_version,
+                meta=meta,
+                explain=explain,
+                include_meta=bool(include_meta or explain),
+                store_plan_stages=store_plan_stages,
+                encoding_options=encoding_options or FeatureEncodingOptions(),
+                planner_options=planner_options,
+                value_metrics_tag_by_features=tuple(encoded_value_metrics_tag_by_features),
+                query_context=_validate_context_dict(query_context),
+                overlay_graph=_get_overlay_graph_b64(),
+            )
+
+            resp = self._request(
+                method="POST",
+                uri="/v1/query/online",
+                json=request,
+                response=OnlineQueryResponse,
+                environment_override=environment,
+                preview_deployment_id=preview_deployment_id,
+                branch=branch,
+                metadata_request=False,
+                extra_headers=extra_headers,
+                timeout=request_timeout,
+                connect_timeout=connect_timeout,
+            )
+            return OnlineQueryResponseImpl(
+                data=resp.data, errors=resp.errors or [], warnings=all_warnings, meta=resp.meta
+            )
 
     def multi_query(
         self,
@@ -1922,13 +1970,15 @@ https://docs.chalk.ai/cli/apply
         use_feather: Optional[bool] = True,  # deprecated
         compression: Optional[str] = "uncompressed",
     ) -> BulkOnlineQueryResponse:
-        extra_headers = {}
-        if query_name is not None:
-            extra_headers["X-Chalk-Query-Name"] = query_name
-        buffer = BytesIO()
-        buffer.write(MULTI_QUERY_MAGIC_STR)
         if branch is ...:
             branch = self._branch
+        extra_headers = {"X-Chalk-Deployment-Type": "branch" if branch else "engine"}
+        if query_name is not None:
+            extra_headers["X-Chalk-Query-Name"] = query_name
+
+        buffer = BytesIO()
+        buffer.write(MULTI_QUERY_MAGIC_STR)
+
         for query in queries:
             tags = query.tags
             encoded_inputs = {str(k): v for k, v in query.input.items()}
@@ -2031,13 +2081,13 @@ https://docs.chalk.ai/cli/apply
         headers: Mapping[str, str] | None = None,
         value_metrics_tag_by_features: Sequence[FeatureReference] = (),
     ) -> BulkOnlineQueryResponse:
-        extra_headers = {}
+        if branch is ...:
+            branch = self._branch
+        extra_headers = {"X-Chalk-Deployment-Type": "branch" if branch else "engine"}
         if query_name is not None:
             extra_headers["X-Chalk-Query-Name"] = query_name
         if headers:
             extra_headers.update(headers)
-        if branch is ...:
-            branch = self._branch
 
         now_str = None
         if now is not None:
@@ -2193,6 +2243,8 @@ https://docs.chalk.ai/cli/apply
         override_target_image_tag: Optional[str] = None,
         feature_for_lower_upper_bound: Optional[FeatureReference] = None,
         use_job_queue: bool = False,
+        *,
+        input_sql: str | None = None,
     ) -> DatasetImpl:
         run_asynchronously = (
             use_multiple_computers
@@ -2235,45 +2287,70 @@ https://docs.chalk.ai/cli/apply
 
         context = OfflineQueryContext(environment=environment)
 
-        if input is None:
-            query_input = None
-        elif isinstance(input, OfflineQueryInputUri):
-            query_input = input
-        elif isinstance(input, str):
-            query_input = OfflineQueryInputUri(
-                parquet_uri=input,
-                start_row=None,
-                end_row=None,
-            )
-        else:
-            if isinstance(input, (list, tuple)):
-                input_times_tuple: Sequence[QueryInputTime] = (
-                    [None] * len(input)
-                    if input_times is None
-                    else [input_times for _ in input]
-                    if isinstance(input_times, datetime)
-                    else input_times
+        _check_exclusive_options(
+            {
+                "input": input,
+                "input_sql": input_sql,
+                "max_samples": max_samples,
+            }
+        )
+        if input_sql is not None:
+            if input_times is not None:
+                raise ValueError(
+                    f"Cannot specify `input_sql` and `input_times` together. Instead, the ChalkSQL query may output a `{TS_COL_NAME}` column"
                 )
-                run_asynchronously = True
-                multi_input = list(zip(input, input_times_tuple))
-            else:
-                multi_input = [(input, cast(None, input_times))]
+            if num_shards is not None:
+                raise ValueError("Cannot specify `input_sql` and `num_shards` together.")
+            if num_workers is not None:
+                raise ValueError("Cannot specify `input_sql` and `num_workers` together.")
 
-            # defaulting to uploading input as table if inputs are large
-            if upload_input_as_table or (len(multi_input) > 0 and len(multi_input[0][0]) > 100) or num_shards:
-                with ThreadPoolExecutor(thread_name_prefix="offline_query_upload_input") as upload_input_executor:
-                    query_input = self._upload_offline_query_input(
-                        multi_input,
-                        context=context,
-                        branch=branch,
-                        executor=upload_input_executor,
-                        num_shards=num_shards,
-                    )
-            elif run_asynchronously:
-                query_input = tuple(_to_offline_query_input(x, t) for x, t in multi_input)
+        # Set query_input
+        if input is not None:
+            # Set query_input from input
+            if isinstance(input, OfflineQueryInputUri):
+                query_input = input
+            elif isinstance(input, str):
+                query_input = OfflineQueryInputUri(
+                    parquet_uri=input,
+                    start_row=None,
+                    end_row=None,
+                )
             else:
-                assert len(multi_input) == 1, "We should default to running asynchronously if inputs is partitioned"
-                query_input = _to_offline_query_input(*multi_input[0])
+                # by this point, should be
+                # Union[QueryInput, List[QueryInput], Tuple[QueryInput, ...]]
+                if isinstance(input, (list, tuple)):
+                    input_times_tuple: Sequence[QueryInputTime] = (
+                        [None] * len(input)
+                        if input_times is None
+                        else [input_times for _ in input]
+                        if isinstance(input_times, datetime)
+                        else input_times
+                    )
+                    run_asynchronously = True
+                    multi_input = list(zip(input, input_times_tuple))
+                else:
+                    # Just a QueryInput
+                    multi_input = [(input, cast(None, input_times))]
+
+                # defaulting to uploading input as table if inputs are large
+                if upload_input_as_table or _offline_query_inputs_should_be_uploaded(input) or num_shards:
+                    with ThreadPoolExecutor(thread_name_prefix="offline_query_upload_input") as upload_input_executor:
+                        query_input = self._upload_offline_query_input(
+                            multi_input,
+                            context=context,
+                            branch=branch,
+                            executor=upload_input_executor,
+                            num_shards=num_shards,
+                        )
+                elif run_asynchronously:
+                    query_input = tuple(_to_offline_query_input(x, t) for x, t in multi_input)
+                else:
+                    assert len(multi_input) == 1, "We should default to running asynchronously if inputs is partitioned"
+                    query_input = _to_offline_query_input(*multi_input[0])
+        elif input_sql is not None:
+            query_input = OfflineQueryInputSql(input_sql=input_sql)
+        else:
+            query_input = None
 
         response = self._create_dataset_job(
             optional_output=optional_output_root_fqns,
@@ -2304,9 +2381,9 @@ https://docs.chalk.ai/cli/apply
             override_target_image_tag=override_target_image_tag,
             num_shards=num_shards,
             num_workers=num_workers,
-            feature_for_lower_upper_bound=str(feature_for_lower_upper_bound)
-            if feature_for_lower_upper_bound is not None
-            else None,
+            feature_for_lower_upper_bound=(
+                str(feature_for_lower_upper_bound) if feature_for_lower_upper_bound is not None else None
+            ),
             completion_deadline=completion_deadline,
             max_retries=max_retries,
             optional_output_expressions=optional_output_expressions,
@@ -2335,6 +2412,111 @@ https://docs.chalk.ai/cli/apply
         )
         initialized_dataset.is_finished = True
         return initialized_dataset
+
+    def run_scheduled_query(
+        self,
+        name: str,
+        planner_options: Optional[Mapping[str, Any]] = None,
+        incremental_resolvers: Optional[Sequence[str]] = None,
+        max_samples: Optional[int] = None,
+        env_overrides: Optional[Mapping[str, str]] = None,
+    ) -> ManualTriggerScheduledQueryResponse:
+        """
+        Manually trigger a scheduled query request.
+
+        Parameters
+        ----------
+        name
+            The name of the scheduled query to be triggered.
+        incremental_resolvers
+            If set to None, Chalk will incrementalize resolvers in the query's root namespaces.
+            If set to a list of resolvers, this set will be used for incrementalization.
+            Incremental resolvers must return a feature time in its output, and must return a `DataFrame`.
+            Most commonly, this will be the name of a SQL file resolver. Chalk will ingest all new data
+            from these resolvers and propagate changes to values in the root namespace.
+        max_samples
+            The maximum number of samples to compute.
+        env_overrides:
+            A dictionary of environment values to override during this specific triggered query.
+
+        Other Parameters
+        ----------------
+        planner_options
+            A dictionary of options to pass to the planner.
+            These are typically provided by Chalk Support for specific use cases.
+
+        Returns
+        -------
+        ManualTriggerScheduledQueryResponse
+            A response message containing metadata around the triggered run.
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> ChalkGRPCClient().run_scheduled_query(
+        ...     name="my_scheduled_query",
+        ... )
+        """
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        resp = client_grpc.run_scheduled_query(
+            name=name,
+            planner_options=planner_options,
+            incremental_resolvers=incremental_resolvers,
+            max_samples=max_samples,
+            env_overrides=env_overrides,
+        )
+
+        return resp
+
+    def get_scheduled_query_run_history(
+        self,
+        name: str,
+        limit: int = 10,
+    ) -> List[ScheduledQueryRun]:
+        """
+        Get the run history for a scheduled query.
+
+        Parameters
+        ----------
+        name
+            The name of the scheduled query.
+        limit
+            The maximum number of runs to return. Defaults to 10.
+
+        Returns
+        -------
+        list[ScheduledQueryRun]
+            A response message containing the list of scheduled query runs.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().get_scheduled_query_run_history(
+        ...     name="my_scheduled_query",
+        ...     limit=20,
+        ... )
+        """
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        return client_grpc.get_scheduled_query_run_history(
+            name=name,
+            limit=limit,
+        )
 
     def prompt_evaluation(
         self,
@@ -3397,6 +3579,7 @@ https://docs.chalk.ai/cli/apply
             Optional[OfflineQueryInput],
             UploadedParquetShardedOfflineQueryInput,
             OfflineQueryInputUri,
+            OfflineQueryInputSql,
         ],
         max_samples: Optional[int],
         dataset_name: Optional[str],
@@ -4310,6 +4493,187 @@ https://docs.chalk.ai/cli/apply
         )
         return resp
 
+    def _run_serialized_query(
+        self,
+        serialized_plan_bytes: bytes,
+        input: Union[Mapping[FeatureReference, Sequence[Any]], pa.Table],
+        output: Sequence[FeatureReference] = (),
+        staleness: Optional[Mapping[FeatureReference, str]] = None,
+        context: Optional[OnlineQueryContext] = None,
+        query_name: Optional[str] = None,
+        query_name_version: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        include_meta: bool = False,
+        explain: bool = False,
+        store_plan_stages: bool = False,
+        meta: Optional[Mapping[str, str]] = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> BulkOnlineQueryResult:
+        """Run a query using a pre-serialized plan.
+
+        This is a protected method for internal use and testing.
+
+        Parameters
+        ----------
+        serialized_plan_bytes
+            The serialized BatchPlan protobuf bytes
+        input
+            The input data, either as a mapping of features to values or as a PyArrow table
+        output
+            The output features to compute
+        staleness
+            Maximum staleness overrides for features
+        context
+            Query context including environment and tags
+        query_name
+            The name of the query
+        query_name_version
+            The version of the query
+        correlation_id
+            Correlation ID for logging
+        include_meta
+            Whether to include metadata in the response
+        explain
+            Whether to include explain output
+        store_plan_stages
+            Whether to store plan stages
+        meta
+            Customer metadata tags
+        headers
+            Additional headers to provide with the request
+
+        Returns
+        -------
+        OnlineQueryResult
+            The query result
+        """
+        try:
+            import pyarrow as pa
+            import pyarrow.feather as feather
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[runtime]")
+
+        # Convert input to PyArrow table if needed
+        if isinstance(input, Mapping):
+            # Convert mapping to PyArrow table
+            table_dict = {}
+            for feat_ref, values in input.items():
+                feat_name = str(feat_ref)
+                # Ensure values is a list
+                if not isinstance(values, list):
+                    values = [values]
+                table_dict[feat_name] = values
+            input_table = pa.Table.from_pydict(table_dict)
+        else:
+            input_table = input
+
+        # Encode outputs
+        outputs_encoded = encode_outputs(output).string_outputs if output else []
+
+        # Encode staleness
+        staleness_encoded = {}
+        if staleness is not None:
+            for k, v in staleness.items():
+                if is_feature_set_class(k):
+                    for f in k.features:
+                        staleness_encoded[f.root_fqn] = v
+                else:
+                    staleness_encoded[ensure_feature(k).root_fqn] = v
+
+        # Create FeatherRequestHeader
+        from chalk.client.models import OnlineQueryContext as OQC
+
+        header_dict = {
+            "outputs": outputs_encoded,
+            "expression_outputs": [],
+            "staleness": staleness_encoded if staleness_encoded else None,
+            "context": (context or OQC()).dict(),
+            "include_meta": include_meta,
+            "explain": explain,
+            "correlation_id": correlation_id,
+            "query_name": query_name,
+            "query_name_version": query_name_version,
+            "meta": meta,
+            "store_plan_stages": store_plan_stages,
+        }
+        header_json = json.dumps(header_dict).encode("utf-8")
+
+        # Serialize the input table to feather format
+        feather_buffer = BytesIO()
+        feather.write_feather(input_table, feather_buffer)
+        feather_bytes = feather_buffer.getvalue()
+
+        # Build the request body:
+        # 1. First 8 bytes: int64 (big-endian) - length of serialized plan
+        # 2. Next N bytes: serialized BatchPlan protobuf
+        # 3. Next 8 bytes: int64 (big-endian) - length of header JSON
+        # 4. Next M bytes: UTF-8 encoded JSON header (FeatherRequestHeader)
+        # 5. Next 8 bytes: int64 (big-endian) - length of feather data
+        # 6. Remaining bytes: feather-encoded input data
+        request_body = BytesIO()
+        request_body.write(len(serialized_plan_bytes).to_bytes(8, byteorder="big"))
+        request_body.write(serialized_plan_bytes)
+        request_body.write(len(header_json).to_bytes(8, byteorder="big"))
+        request_body.write(header_json)
+        request_body.write(len(feather_bytes).to_bytes(8, byteorder="big"))
+        request_body.write(feather_bytes)
+
+        # Make the HTTP request
+        response = self._request(
+            method="POST",
+            uri="/v1/query/run",
+            response=None,  # We'll handle the response manually
+            json=None,
+            data=request_body.getvalue(),
+            environment_override=None,
+            preview_deployment_id=None,
+            branch=None,
+            metadata_request=False,
+            extra_headers=headers,
+        )
+
+        if not isinstance(response, requests.Response):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise TypeError("Expected requests.Response")
+
+        if response.status_code != 200:
+            raise RuntimeError(f"Request failed with status {response.status_code}: {response.text}")
+
+        # Deserialize the response
+        result = OnlineQueryResultFeather.deserialize(response.content)
+
+        # Convert feather bytes back to a dataframe
+        scalars_df = None
+        if result.scalar_data:
+            scalars_table = feather.read_table(BytesIO(result.scalar_data))
+            scalars_df = pa_table_to_pl_df(scalars_table)
+
+        # Parse errors from JSON strings back to ChalkError objects
+        errors = []
+        if result.errors:
+            for error_json in result.errors:
+                try:
+                    error_dict = json.loads(error_json)
+                    errors.append(ChalkError(**error_dict))
+                except Exception:
+                    # If parsing fails, create a generic error
+                    errors.append(ChalkError.create(code=ErrorCode.PARSE_FAILED, message=str(error_json)))
+
+        # Parse meta if present
+        query_meta = None
+        if result.meta:
+            try:
+                query_meta = QueryMeta(**json.loads(result.meta))
+            except Exception:
+                pass
+
+        # Return as BulkOnlineQueryResult
+        return BulkOnlineQueryResult(
+            scalars_df=scalars_df,
+            groups_dfs=None,
+            errors=errors if errors else None,
+            meta=query_meta,
+        )
+
     def _to_value(self, x: FeatureResult):
         f: Feature = Feature.from_root_fqn(x.field)
 
@@ -4516,20 +4880,49 @@ https://docs.chalk.ai/cli/apply
                 # This shouldn't happen, but satisfies type checker
                 raise RuntimeError("All retries exhausted but no exception recorded")
 
-        def _canonicalize_error(x: ChalkError):
-            return x.copy(
-                update={
-                    "exception": (
-                        None
-                        if x.exception is None
-                        else x.exception.copy(update={"stacktrace": "", "internal_stacktrace": None})
-                    ),
-                    "feature": None,
-                }
-            )
+        def _canonicalize_error(x: ChalkError, expected: Optional[ChalkError] = None):
+            """
+            Canonicalize error for comparison. If expected is provided, only compare
+            fields that are non-None in the expected error.
+            """
+            update = {}
 
-        query_errors = FrozenOrderedSet(_canonicalize_error(x) for x in (query_errors or []))
-        actual_errors = FrozenOrderedSet(_canonicalize_error(x) for x in (resp_errors or []))
+            # Always normalize exception stacktraces if exception exists
+            if x.exception is not None:
+                update["exception"] = x.exception.copy(update={"stacktrace": "", "internal_stacktrace": None})
+
+            # If expected is provided, clear fields that are None in expected (meaning we don't care about them)
+            if expected is not None:
+                if expected.feature is None:
+                    update["feature"] = None
+                if expected.resolver is None:
+                    update["resolver"] = None
+                if expected.display_primary_key is None:
+                    update["display_primary_key"] = None
+                if expected.display_primary_key_fqn is None:
+                    update["display_primary_key_fqn"] = None
+                if expected.exception is None:
+                    update["exception"] = None
+
+            return x.copy(update=update) if update else x
+
+        # Canonicalize expected errors first (without reference)
+        query_errors_list = [_canonicalize_error(x) for x in (query_errors or [])]
+
+        # Canonicalize actual errors with reference to expected ones
+        # For each actual error, find matching expected error and canonicalize accordingly
+        actual_errors_list = []
+        for actual in resp_errors or []:
+            # Find the best matching expected error (by code and message)
+            matching_expected = None
+            for query_error in query_errors_list:
+                if actual.code == query_error.code and actual.message == query_error.message:
+                    matching_expected = query_error
+                    break
+            actual_errors_list.append(_canonicalize_error(actual, matching_expected))
+
+        query_errors = FrozenOrderedSet(query_errors_list)
+        actual_errors = FrozenOrderedSet(actual_errors_list)
 
         if not _do_query_errors_match(actual_errors, query_errors):
             errors_expected = len(query_errors) > 0
@@ -4606,6 +4999,9 @@ https://docs.chalk.ai/cli/apply
             _fail_test("errors differed -- see output table above")
 
         if resp_data is not None:
+            # set of features that were asserted on
+            expected_features = {e.fqn for e in expected}
+
             actuals = [
                 Result(
                     x.field,
@@ -4614,9 +5010,10 @@ https://docs.chalk.ai/cli/apply
                     x.error,
                 )
                 for x in resp_data
+                if x.field in expected_features  # Filter to only asserted features
             ]
 
-            feature_mismatch = not _do_resultsets_match(actuals, expected)
+            feature_mismatch = not _do_resultsets_match(actuals, expected, float_rel_tolerance, float_abs_tolerance)
             if feature_mismatch or show_table:
                 no_expectations = len(expected) == 0
 
@@ -4627,7 +5024,7 @@ https://docs.chalk.ai/cli/apply
                 safe = []
 
                 for x in actuals:
-                    if any(_does_result_match(x, e) for e in expected):
+                    if any(_does_result_match(x, e, float_rel_tolerance, float_abs_tolerance) for e in expected):
                         safe.append(x.fqn)  # use fqns, since __eq__ might behave weirdly for feature values
 
                 include_errors = any(k.error for k in expected) or any(k.error for k in actuals)
@@ -4791,11 +5188,11 @@ https://docs.chalk.ai/cli/apply
 
         return resp
 
-    def register_model(
+    def register_model_namespace(
         self,
         name: str,
         description: str,
-        metadata: Mapping[str, Any],
+        metadata: Optional[Mapping[str, Any]] = None,
     ) -> RegisterModelResponse:
         from chalk.client.client_grpc import ChalkGRPCClient
 
@@ -4806,7 +5203,7 @@ https://docs.chalk.ai/cli/apply
             api_server=self._api_server,
         )
 
-        resp = client_grpc.register_model(
+        resp = client_grpc.register_model_namespace(
             name=name,
             description=description,
             metadata=metadata,
@@ -4817,17 +5214,19 @@ https://docs.chalk.ai/cli/apply
     def register_model_version(
         self,
         name: str,
-        model_type: ModelType,
+        model_type: Optional[ModelType] = None,
         model_encoding: Optional[ModelEncoding] = None,
         aliases: Optional[List[str]] = None,
         model: Optional[Any] = None,
+        additional_files: Optional[List[str]] = None,
         model_paths: Optional[List[str]] = None,
-        additional_files: Optional[Mapping[str, str]] = None,
         input_schema: Optional[Any] = None,
         output_schema: Optional[Any] = None,
         metadata: Optional[Mapping[str, Any]] = None,
         input_features: Optional[list[str]] = None,
         output_features: Optional[list[str]] = None,
+        source_config: Optional[SourceConfig] = None,
+        dependencies: Optional[List[str]] = None,
     ) -> RegisterModelVersionResponse:
         from chalk.client.client_grpc import ChalkGRPCClient
 
@@ -4851,18 +5250,21 @@ https://docs.chalk.ai/cli/apply
             metadata=metadata,
             input_features=input_features,
             output_features=output_features,
+            source_config=source_config,
+            dependencies=dependencies,
         )
 
         return resp
 
-    def train_model(
+    def promote_model_artifact(
         self,
-        train_fn: Callable[[Optional[Mapping[str, Any]]], bool],
-        model_name: str,
-        dataset_name: str,
-        config: Optional[Mapping[str, Any]] = None,
-        resources: Optional[ResourceRequests] = None,
-    ) -> CreateModelTrainingJobResponse:
+        name: str,
+        model_artifact_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        run_name: Optional[str] = None,
+        criterion: Optional[ModelRunCriterion] = None,
+        aliases: Optional[List[str]] = None,
+    ) -> RegisterModelVersionResponse:
         from chalk.client.client_grpc import ChalkGRPCClient
 
         client_grpc = ChalkGRPCClient(
@@ -4872,8 +5274,79 @@ https://docs.chalk.ai/cli/apply
             api_server=self._api_server,
         )
 
-        client_grpc.create_model_training_job(
-            train_fn=train_fn, model_name=model_name, dataset_name=dataset_name, config=config, resources=resources
+        resp = client_grpc.promote_model_artifact(
+            name=name,
+            model_artifact_id=model_artifact_id,
+            run_id=run_id,
+            run_name=run_name,
+            criterion=criterion,
+            aliases=aliases,
         )
 
+        return resp
+
+    def train_model(
+        self,
+        experiment_name: str,
+        train_fn: Callable[[], None],
+        config: Optional[Mapping[str, Any]] = None,
+        branch: Optional[Union[BranchId, ellipsis]] = ...,
+        resources: Optional[ResourceRequests] = None,
+        env_overrides: Optional[Mapping[str, str]] = None,
+        enable_profiling: bool = False,
+        max_retries: int = 0,
+    ) -> CreateModelTrainingJobResponse:
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        if branch is ...:
+            branch = self._branch
+
+        if not callable(train_fn):
+            raise ValueError("train_fn must be a callable function.")
+
+        nargs = len(inspect.signature(train_fn).parameters)
+
+        if nargs == 0:
+            if config is not None:
+                raise ValueError("train_fn must accept a 'config' parameter to use the provided config.")
+            config_str = None
+
+        if nargs == 1:
+            if config is None:
+                raise ValueError("train_fn must not accept a 'config' parameter when no config is provided.")
+            try:
+                config_str = json.dumps({"kwargs": {"config": config}})
+            except TypeError as e:
+                raise ValueError("config must be JSON serializable.") from e
+
+        script = parse_notebook_into_script(train_fn, config is not None)
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=self._primary_environment,
+            api_server=self._api_server,
+        )
+
+        task_response = client_grpc.create_model_training_job(
+            script=script,
+            function_name=train_fn.__name__,
+            experiment_name=experiment_name,
+            config=config_str,
+            branch=branch,
+            resources=resources,
+            env_overrides=env_overrides,
+            enable_profiling=enable_profiling,
+        )
+
+        client_grpc.follow_model_training_job(operation_id=task_response.task_id)
+
         return CreateModelTrainingJobResponse(success=True)
+
+
+def _check_exclusive_options(options: dict[str, Any | None]):
+    filled_options = {k: v for k, v in options.items() if v is not None}
+    if len(filled_options) > 1:
+        raise ValueError(
+            f"Only one of the options: {', '.join(filled_options.keys())} can be specified (they are mutually exclusive options)."
+        )

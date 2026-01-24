@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "flagsmith"
-version = "4.0.1"
+version = "5.1.1"
 description = "Flagsmith Python SDK"
 authors = ["Flagsmith <support@flagsmith.com>"]
 license = "BSD3"
@@ -10,11 +10,13 @@ documentation = "https://docs.flagsmith.com"
 packages = [{ include = "flagsmith" }]
 
 [tool.poetry.dependencies]
+flagsmith-flag-engine = "^10.0.3"
+iso8601 = { version = "^2.1.0", python = "<3.11" }
 python = ">=3.9,<4"
 requests = "^2.32.3"
 requests-futures = "^1.0.1"
-flagsmith-flag-engine = "^7.0.0"
 sseclient-py = "^1.8.0"
+typing-extensions = "^4.15.0"
 
 [tool.poetry.group.dev]
 optional = true

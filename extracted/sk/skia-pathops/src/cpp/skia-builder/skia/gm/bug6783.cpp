@@ -17,7 +17,7 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkTileMode.h"
 
-// This GM reproduces skia:6783, which demonstrated a bug in repeat and mirror
+// This GM reproduces skbug.com/40037998, which demonstrated a bug in repeat and mirror
 // image sampling tiling modes as implemented in software.  We want to tile to
 // [0,limit), and the old incorrect logic was:
 //
@@ -33,7 +33,7 @@
 // the bug were still present.  All stripes should now look roughly the same.
 
 DEF_SIMPLE_GM(bug6783, canvas, 500, 500) {
-    sk_sp<SkSurface> surface = SkSurface::MakeRasterN32Premul(100, 100);
+    sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(100, 100));
 
     SkPaint p;
     p.setColor(SK_ColorYELLOW);

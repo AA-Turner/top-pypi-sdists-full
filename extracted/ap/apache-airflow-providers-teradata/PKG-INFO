@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-teradata
-Version: 3.2.1
+Version: 3.4.1
 Summary: Provider package apache-airflow-providers-teradata for Apache Airflow
 Keywords: airflow-provider,teradata,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
@@ -14,28 +15,32 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
-Requires-Dist: apache-airflow>=2.10.0
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: apache-airflow>=2.11.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: apache-airflow-providers-common-sql>=1.20.0
 Requires-Dist: teradatasqlalchemy>=17.20.0.0
 Requires-Dist: teradatasql>=17.20.0.28
 Requires-Dist: apache-airflow-providers-amazon ; extra == "amazon"
 Requires-Dist: apache-airflow-providers-microsoft-azure ; extra == "microsoft-azure"
+Requires-Dist: sqlalchemy>=1.4.49 ; extra == "sqlalchemy"
 Requires-Dist: apache-airflow-providers-ssh ; extra == "ssh"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.2.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.2.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.4.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.4.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 Provides-Extra: amazon
 Provides-Extra: microsoft-azure
+Provides-Extra: sqlalchemy
 Provides-Extra: ssh
 
 
@@ -63,9 +68,8 @@ Provides-Extra: ssh
 
 Package ``apache-airflow-providers-teradata``
 
-Release: ``3.2.1``
+Release: ``3.4.1``
 
-Release Date: ``|PypiReleaseDate|``
 
 `Teradata <https://www.teradata.com/>`__
 
@@ -77,12 +81,12 @@ This is a provider package for ``teradata`` provider. All classes for this provi
 are in ``airflow.providers.teradata`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.2.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.4.1/>`_.
 
 Installation
 ------------
 
-You can install this package on top of an existing Airflow 2 installation (see ``Requirements`` below
+You can install this package on top of an existing Airflow installation (see ``Requirements`` below
 for the minimum Airflow version supported) via
 ``pip install apache-airflow-providers-teradata``
 
@@ -91,14 +95,15 @@ The package supports the following python versions: 3.10,3.11,3.12,3.13
 Requirements
 ------------
 
-=======================================  ==================
-PIP package                              Version required
-=======================================  ==================
-``apache-airflow``                       ``>=2.10.0``
-``apache-airflow-providers-common-sql``  ``>=1.20.0``
-``teradatasqlalchemy``                   ``>=17.20.0.0``
-``teradatasql``                          ``>=17.20.0.28``
-=======================================  ==================
+==========================================  ==================
+PIP package                                 Version required
+==========================================  ==================
+``apache-airflow``                          ``>=2.11.0``
+``apache-airflow-providers-common-compat``  ``>=1.10.1``
+``apache-airflow-providers-common-sql``     ``>=1.20.0``
+``teradatasqlalchemy``                      ``>=17.20.0.0``
+``teradatasql``                             ``>=17.20.0.28``
+==========================================  ==================
 
 Cross provider package dependencies
 -----------------------------------
@@ -117,11 +122,24 @@ You can install such cross-provider dependencies when installing from PyPI. For 
 Dependent package                                                                                                       Extra
 ======================================================================================================================  ===================
 `apache-airflow-providers-amazon <https://airflow.apache.org/docs/apache-airflow-providers-amazon>`_                    ``amazon``
+`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_      ``common.compat``
 `apache-airflow-providers-common-sql <https://airflow.apache.org/docs/apache-airflow-providers-common-sql>`_            ``common.sql``
 `apache-airflow-providers-microsoft-azure <https://airflow.apache.org/docs/apache-airflow-providers-microsoft-azure>`_  ``microsoft.azure``
 `apache-airflow-providers-ssh <https://airflow.apache.org/docs/apache-airflow-providers-ssh>`_                          ``ssh``
 ======================================================================================================================  ===================
 
+Optional dependencies
+----------------------
+
+===================  ============================================
+Extra                Dependencies
+===================  ============================================
+``microsoft.azure``  ``apache-airflow-providers-microsoft-azure``
+``amazon``           ``apache-airflow-providers-amazon``
+``ssh``              ``apache-airflow-providers-ssh``
+``sqlalchemy``       ``sqlalchemy>=1.4.49``
+===================  ============================================
+
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.2.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-teradata/3.4.1/changelog.html>`_.
 

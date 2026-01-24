@@ -41,6 +41,12 @@ except:
     pass
 from pyspark.sql import *
 
+try:
+    from pyspark.sql.connect.session import SparkSession as ConnectSparkSession
+    SPARK_SESSION_TYPES = (SparkSession, ConnectSparkSession)
+except ImportError:
+    SPARK_SESSION_TYPES = (SparkSession,)
+
 from prophecy.utils.monitoring_utils import (
     capture_streams,
     monkey_patch_print,
@@ -86,7 +92,7 @@ if not logger.hasHandlers():
 
 
 is_serverless = is_serverless_env()
-logger.info(f"is_serverless is {is_serverless}")
+logger.debug(f"is_serverless is {is_serverless}")
 
 
 class TaskState:
@@ -2225,7 +2231,7 @@ def instrument(function):
             else:
                 spark = args[1]
         else:
-            if isinstance(args[0], SparkSession):
+            if isinstance(args[0], SPARK_SESSION_TYPES):
                 spark = args[0]
             else:
                 spark = args[1]

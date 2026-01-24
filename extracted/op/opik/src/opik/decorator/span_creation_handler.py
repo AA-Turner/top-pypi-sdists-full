@@ -1,6 +1,6 @@
 from typing import (
     Optional,
-    Tuple,
+    NamedTuple,
 )
 
 import opik.context_storage as context_storage
@@ -11,11 +11,33 @@ from opik.types import DistributedTraceHeadersDict
 from . import arguments_helpers
 
 
+class SpanCreationResult(NamedTuple):
+    """
+    Represents the result of a span creation process.
+
+    This class encapsulates the data resulting from the creation of a new
+    span, including trace information and span-specific details.
+
+    Attributes:
+        trace_data: Trace-related data associated
+            with the span if a new trace was created. Can be None if no new trace was created.
+        span_data : Data specific to the created span, containing
+            information such as span identifiers and timestamps.
+        should_process_span_data: A boolean indicating whether created span data should be further processed
+            after it was created (saved, logged, etc.).
+    """
+
+    trace_data: Optional[trace.TraceData]
+    span_data: span.SpanData
+    should_process_span_data: bool
+
+
 def create_span_respecting_context(
     start_span_arguments: arguments_helpers.StartSpanParameters,
     distributed_trace_headers: Optional[DistributedTraceHeadersDict],
     opik_context_storage: Optional[context_storage.OpikContextStorage] = None,
-) -> Tuple[Optional[trace.TraceData], span.SpanData]:
+    should_create_duplicate_root_span: bool = True,
+) -> SpanCreationResult:
     """
     Handles different span creation flows.
     """
@@ -30,7 +52,7 @@ def create_span_respecting_context(
             trace_id=distributed_trace_headers["opik_trace_id"],
         )
 
-        return None, span_data
+        return SpanCreationResult(None, span_data, should_process_span_data=True)
 
     current_span_data = opik_context_storage.top_span_data()
     current_trace_data = opik_context_storage.get_trace_data()
@@ -60,7 +82,7 @@ def create_span_respecting_context(
             trace_id=current_span_data.trace_id,
         )
 
-        return None, span_data
+        return SpanCreationResult(None, span_data, should_process_span_data=True)
 
     if current_trace_data is not None and current_span_data is None:
         # By default, we expect trace to be created with a span.
@@ -82,7 +104,7 @@ def create_span_respecting_context(
             trace_id=current_trace_data.id,
         )
 
-        return None, span_data
+        return SpanCreationResult(None, span_data, should_process_span_data=True)
 
     if current_span_data is None and current_trace_data is None:
         # Create a trace and root span because it is
@@ -95,6 +117,7 @@ def create_span_respecting_context(
             metadata=start_span_arguments.metadata,
             tags=start_span_arguments.tags,
             project_name=start_span_arguments.project_name,
+            thread_id=start_span_arguments.thread_id,
         )
 
         current_span_data = arguments_helpers.create_span_data(
@@ -103,4 +126,8 @@ def create_span_respecting_context(
             trace_id=current_trace_data.id,
         )
 
-    return current_trace_data, current_span_data
+    return SpanCreationResult(
+        current_trace_data,
+        current_span_data,
+        should_process_span_data=should_create_duplicate_root_span,
+    )

@@ -463,9 +463,7 @@ async def test(client, integration_config, integration_http_config, test_spans):
 
 if __name__ == "__main__":
     sys.exit(pytest.main(["-x", __file__]))
-    """.format(
-        expected_service_name
-    )
+    """.format(expected_service_name)
 
     env = os.environ.copy()
     if schema_version is not None:
@@ -515,9 +513,7 @@ async def test(client, integration_config, integration_http_config, test_spans):
 
 if __name__ == "__main__":
     sys.exit(pytest.main(["-x", __file__]))
-    """.format(
-        expected_operation_name
-    )
+    """.format(expected_operation_name)
 
     env = os.environ.copy()
     if schema_version is not None:
@@ -592,7 +588,7 @@ async def test_inferred_spans_api_gateway_default(
                 api_gateway_resource="GET /",
                 method="GET",
                 status_code=test["status_code"],
-                url="local/",
+                url="https://local/",
                 start=1736973768,
                 is_distributed=test_headers["type"] == "distributed",
                 distributed_trace_id=1,

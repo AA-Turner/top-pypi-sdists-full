@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 from snowflake.core.cortex.analyst_service._generated.models.sql_inputs import SqlInputs, SqlInputsModel
 from snowflake.core.cortex.analyst_service._generated.models.tableau_input import TableauInput, TableauInputModel
@@ -56,9 +56,10 @@ class PreSelectionRequest(BaseModel):
 
     __properties = ["tds_source", "sql_source", "warehouse", "tableau_input", "experimental"]
 
-    class Config:  # noqa: D106
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -83,7 +84,7 @@ class PreSelectionRequest(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in tds_source (list)
         _items = []
@@ -114,9 +115,9 @@ class PreSelectionRequest(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return PreSelectionRequest.parse_obj(obj)
+            return PreSelectionRequest.model_validate(obj)
 
-        _obj = PreSelectionRequest.parse_obj(
+        _obj = PreSelectionRequest.model_validate(
             {
                 "tds_source": [TdsInput.from_dict(_item) for _item in obj.get("tds_source")]
                 if obj.get("tds_source") is not None

@@ -1,29 +1,26 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: deepl
-Version: 1.22.0
+Version: 1.27.0
 Summary: Python library for the DeepL API.
-Home-page: https://github.com/DeepLcom/deepl-python
 License: MIT
 Author: DeepL SE
 Author-email: python-api@deepl.com
-Requires-Python: >=3.6.2,<4
+Requires-Python: >=3.9,<4
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: keyring
-Requires-Dist: keyring (>=23.4.1,<24.0.0) ; (python_version >= "3.6" and python_version < "4") and (extra == "keyring")
-Requires-Dist: requests (>=2,<3)
+Requires-Dist: keyring (>=23.4.1,<24.0.0) ; extra == "keyring"
+Requires-Dist: requests (>=2.32.4)
 Project-URL: Bug Tracker, https://github.com/DeepLcom/deepl-python/issues
 Project-URL: Documentation, https://www.deepl.com/docs-api/
 Project-URL: Repository, https://github.com/DeepLcom/deepl-python
@@ -72,15 +69,14 @@ explained in this [bug report][bug-report-ubuntu-2204].
 
 ### Requirements
 
-The library is tested with Python versions 3.6 to 3.11.
+The library is tested with Python versions 3.9 to 3.13.
 
 The `requests` module is used to perform HTTP requests; the minimum is version
-2.0.
+2.32.4.
 
-Starting in 2024, we will drop support for older Python versions that have
+We periodically drop support for older Python versions that have
 reached official end-of-life. You can find the Python versions and support
 timelines [here][python-version-list].
-To continue using this library, you should update to Python 3.8+.
 
 ## Usage
 
@@ -193,7 +189,7 @@ arguments are:
   `get_glossary()`.
 - `context`: specifies additional context to influence translations, that is not
   translated itself. Characters in the `context` parameter are not counted toward billing.
-  See the [API documentation][api-docs-context-param] for more information and 
+  See the [API documentation][api-docs-context-param] for more information and
   example usage.
 - `model_type`: specifies the type of translation model to use, options are:
   - `'quality_optimized'` (`ModelType.QUALITY_OPTIMIZED`): use a translation
@@ -205,6 +201,21 @@ arguments are:
     model that minimizes response time, at the cost of translation quality.
 - `tag_handling`: type of tags to parse before translation, options are `'html'`
   and `'xml'`.
+- `tag_handling_version`: specifies which version of the tag handling algorithm to
+  use, options are `'v1'` and `'v2'`.
+- `style_rule`: specifies a style rule to use with translation, either as a string
+  containing the ID of the style rule, or a `StyleRuleInfo` object.
+- `custom_instructions`: an array of instructions to customize the text 
+  translation behavior. Up to 10 custom instructions can be specified, each with 
+  a maximum of 300 characters.
+  Important: The target language must be `de`, `en`, `es`, `fr`, `it`, `ja`, 
+  `ko`, `zh` or any variants of these languages.
+  Note: Any request with the `custom_instructions` parameter enabled will use
+  the `quality_optimized` model type as the default. Requests combining
+  `custom_instructions` and `model_type: latency_optimized` will be rejected.
+- `extra_body_parameters`: Dictionary of extra parameters to pass in the body of
+  the HTTP request. Mostly used by DeepL employees to test functionality, or for
+  beta programs.
 
 The following options are only used if `tag_handling` is `'xml'`:
 
@@ -366,7 +377,7 @@ endpoints, please continue to use the existing endpoints in the `translator.py`
 
 To migrate to use the new multilingual glossary methods from the current 
 monolingual glossary methods, please refer to 
-[this migration guide](upgrade_to_multilingual_glossaries.md).
+[this migration guide](upgrading_to_multilingual_glossaries.md).
 
 The following sections describe how to interact with multilingual glossaries 
 using the new functionality:
@@ -655,6 +666,46 @@ You can also find the list of supported glossary language pairs in the
 Note that glossaries work for all target regional-variants: a glossary for the
 target language English (`"EN"`) supports translations to both American English
 (`"EN-US"`) and British English (`"EN-GB"`).
+
+
+### Style Rules
+
+Style rules allow you to customize your translations using a managed, shared list
+of rules for style, formatting, and more. Multiple style rules can be stored with 
+your account, each with a user-specified name and a uniquely-assigned ID.
+
+#### Creating and managing style rules
+
+Currently style rules must be created and managed in the DeepL UI via
+https://www.deepl.com/en/custom-rules. Full CRUD functionality via the APIs will
+come shortly.
+
+#### Listing all style rules
+
+`get_all_style_rules()` returns a list of `StyleRuleInfo` objects
+corresponding to all of your stored style rules. The method accepts optional
+parameters: `page` (page number for pagination, 0-indexed), `page_size` (number
+of items per page), and `detailed` (whether to include detailed configuration
+rules in the `configured_rules` property).
+
+```python
+# Get all style rules
+style_rules = deepl_client.get_all_style_rules()
+for rule in style_rules:
+    print(f"{rule.name} ({rule.style_id})")
+
+# Get style rules with detailed configuration
+style_rules = deepl_client.get_all_style_rules(detailed=True)
+for rule in style_rules:
+    if rule.configured_rules:
+        print(f"  Number formatting: {rule.configured_rules.numbers}")
+```
+
+Style rules can also be used with the command line interface for text translation:
+
+```bash
+python3 -m deepl --auth-key=YOUR_AUTH_KEY text --to=DE --style-id=YOUR_STYLE_ID "Text to translate"
+``` 
 
 ### Writing a Plugin
 

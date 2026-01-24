@@ -2,14 +2,14 @@ from django.utils.translation import gettext as _
 from rest_framework.reverse import reverse
 
 from wbcore import serializers as wb_serializers
-from wbcore.content_type.serializers import (
-    ContentTypeRepresentationSerializer,
-    DynamicObjectIDRepresentationSerializer,
-)
 from wbcore.contrib.authentication.serializers import (
     GroupRepresentationSerializer,
     PermissionRepresentationSerializer,
     UserRepresentationSerializer,
+)
+from wbcore.contrib.content_type.serializers import (
+    ContentTypeRepresentationSerializer,
+    DynamicObjectIDRepresentationSerializer,
 )
 from wbcore.contrib.workflow.models import Process, ProcessStep, Step
 from wbcore.contrib.workflow.serializers.step import StepRepresentationSerializer

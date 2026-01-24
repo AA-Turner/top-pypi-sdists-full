@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import time
@@ -16,7 +16,8 @@ from typing import (
 
 import marimo._runtime.output._output as output
 from marimo._messaging.mimetypes import KnownMimeType
-from marimo._messaging.ops import Alert
+from marimo._messaging.notification import AlertNotification
+from marimo._messaging.notification_utils import broadcast_notification
 from marimo._output.hypertext import Html
 from marimo._output.rich_help import mddoc
 from marimo._plugins.core.web_component import build_stateless_plugin
@@ -135,7 +136,9 @@ class _Progress(Html):
         if diff == 0:
             return None
         rate = self.current / diff
-        return round(rate, 2)
+        # If rate is less than 1, return as is (e.g., 0.5)
+        # As the UI will format it as "2s per iter"
+        return round(rate, 2) if rate >= 1 else rate
 
     def _get_rate(self) -> Optional[float]:
         if self.show_rate:
@@ -309,7 +312,7 @@ class progress_bar(Generic[S]):
         completion_title (str, optional): Optional title to show during completion.
         completion_subtitle (str, optional): Optional subtitle to show during completion.
         total (int, optional): Optional total number of items to iterate over.
-        show_rate (bool, optional): If True, show the rate of progress (items per second).
+        show_rate (bool, optional): If True, show the rate of progress (items per second or duration per iteration).
         show_eta (bool, optional): If True, show the estimated time of completion.
         remove_on_exit (bool, optional): If True, remove the progress bar from output on exit.
         disabled (bool, optional): If True, disable the progress bar.
@@ -498,4 +501,6 @@ def toast(
         kind (Literal["danger"], optional): Optional kind, use "danger" for error toasts.
             Defaults to None.
     """
-    Alert(title=title, description=description, variant=kind).broadcast()
+    broadcast_notification(
+        AlertNotification(title=title, description=description, variant=kind),
+    )

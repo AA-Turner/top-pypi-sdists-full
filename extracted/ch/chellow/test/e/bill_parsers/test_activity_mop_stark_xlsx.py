@@ -3,7 +3,27 @@ from io import BytesIO
 
 from openpyxl import Workbook
 
-from chellow.e.bill_parsers.activity_mop_stark_xlsx import Parser
+from chellow.e.bill_parsers.activity_mop_stark_xlsx import Parser, get_ct_date
+
+
+def test_get_ct_date():
+    wb = Workbook()
+    sheet = wb.create_sheet("NHH")
+    sheet.insert_rows(0, 14)
+    sheet.insert_cols(0, 10)
+
+    sheet["C6"].value = "01/03/2022"
+    get_ct_date(sheet, "C", 6)
+
+
+def test_get_ct_date_with_time():
+    wb = Workbook()
+    sheet = wb.create_sheet("NHH")
+    sheet.insert_rows(0, 14)
+    sheet.insert_cols(0, 10)
+
+    sheet["C6"].value = "01/03/2022 11:04:00"
+    get_ct_date(sheet, "C", 6)
 
 
 def test_blank():
@@ -22,10 +42,13 @@ def test_no_bills(sess):
     wb = Workbook()
     wb.create_sheet("NHH")
     sheet = wb.worksheets[1]
-    sheet.insert_rows(0, 10)
+    sheet.insert_rows(0, 14)
     sheet.insert_cols(0, 10)
-    sheet["B11"].value = "MPAN"
+
     sheet["C6"].value = Datetime(2022, 3, 1)
+    sheet["B11"].value = "MPAN"
+    sheet["A12"].value = ""
+
     wb.save(f)
     f.seek(0)
     p = Parser(f)

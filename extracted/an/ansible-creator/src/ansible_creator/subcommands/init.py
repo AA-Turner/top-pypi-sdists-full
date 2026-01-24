@@ -31,6 +31,7 @@ class Init:
         "common.devfile",
         "common.gitignore",
         "common.vscode",
+        "common.ai",
     )
 
     def __init__(
@@ -67,7 +68,7 @@ class Init:
 
     def _construct_init_path(self) -> None:
         """Construct the init path based on project type."""
-        if self._project in ("playbook", "execution_env"):
+        if self._project in {"playbook", "execution_env"}:
             return
 
         if (
@@ -167,7 +168,7 @@ class Init:
             self.output.note(f"{self._project} project created at {self._init_path}")
             return
 
-        if not self._overwrite:
+        if not self._overwrite:  # pragma: no cover
             question = (
                 "Files in the destination directory will be overwritten. Do you want to proceed?"
             )

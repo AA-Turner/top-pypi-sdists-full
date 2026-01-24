@@ -56,8 +56,8 @@ class ZeroTrustDlpCustomProfileArgs:
         if description is not None:
             pulumi.set(__self__, "description", description)
         if entries is not None:
-            warnings.warn("""This attribute is deprecated.""", DeprecationWarning)
-            pulumi.log.warn("""entries is deprecated: This attribute is deprecated.""")
+            warnings.warn("""This attribute will be sunset on 01/01/2026""", DeprecationWarning)
+            pulumi.log.warn("""entries is deprecated: This attribute will be sunset on 01/01/2026""")
         if entries is not None:
             pulumi.set(__self__, "entries", entries)
         if ocr_enabled is not None:
@@ -140,7 +140,7 @@ class ZeroTrustDlpCustomProfileArgs:
 
     @_builtins.property
     @pulumi.getter
-    @_utilities.deprecated("""This attribute is deprecated.""")
+    @_utilities.deprecated("""This attribute will be sunset on 01/01/2026""")
     def entries(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ZeroTrustDlpCustomProfileEntryArgs']]]]:
         """
         Custom entries from this profile.
@@ -222,8 +222,8 @@ class _ZeroTrustDlpCustomProfileState:
         if description is not None:
             pulumi.set(__self__, "description", description)
         if entries is not None:
-            warnings.warn("""This attribute is deprecated.""", DeprecationWarning)
-            pulumi.log.warn("""entries is deprecated: This attribute is deprecated.""")
+            warnings.warn("""This attribute will be sunset on 01/01/2026""", DeprecationWarning)
+            pulumi.log.warn("""entries is deprecated: This attribute will be sunset on 01/01/2026""")
         if entries is not None:
             pulumi.set(__self__, "entries", entries)
         if name is not None:
@@ -317,7 +317,7 @@ class _ZeroTrustDlpCustomProfileState:
 
     @_builtins.property
     @pulumi.getter
-    @_utilities.deprecated("""This attribute is deprecated.""")
+    @_utilities.deprecated("""This attribute will be sunset on 01/01/2026""")
     def entries(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ZeroTrustDlpCustomProfileEntryArgs']]]]:
         """
         Custom entries from this profile.
@@ -416,6 +416,30 @@ class ZeroTrustDlpCustomProfile(pulumi.CustomResource):
         """
         ## Example Usage
 
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_zero_trust_dlp_custom_profile = cloudflare.ZeroTrustDlpCustomProfile("example_zero_trust_dlp_custom_profile",
+            name="name",
+            account_id="account_id",
+            description="Custom profile with entries",
+            shared_entries=[{
+                "entry_id": "56a8c060-01bb-4f89-ba1e-3ad42770a342",
+                "entry_type": "predefined",
+                "enabled": True,
+            }])
+        # Custom entry that is a part of this new profile
+        example_custom_entry = cloudflare.ZeroTrustDlpCustomEntry("example_custom_entry",
+            name="custom",
+            account_id="account_id",
+            profile_id=example_zero_trust_dlp_custom_profile.id,
+            pattern={
+                "regex": "customentryregex",
+            },
+            enabled=True)
+        ```
+
         ## Import
 
         ```sh
@@ -439,6 +463,30 @@ class ZeroTrustDlpCustomProfile(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_zero_trust_dlp_custom_profile = cloudflare.ZeroTrustDlpCustomProfile("example_zero_trust_dlp_custom_profile",
+            name="name",
+            account_id="account_id",
+            description="Custom profile with entries",
+            shared_entries=[{
+                "entry_id": "56a8c060-01bb-4f89-ba1e-3ad42770a342",
+                "entry_type": "predefined",
+                "enabled": True,
+            }])
+        # Custom entry that is a part of this new profile
+        example_custom_entry = cloudflare.ZeroTrustDlpCustomEntry("example_custom_entry",
+            name="custom",
+            account_id="account_id",
+            profile_id=example_zero_trust_dlp_custom_profile.id,
+            pattern={
+                "regex": "customentryregex",
+            },
+            enabled=True)
+        ```
 
         ## Import
 
@@ -612,7 +660,7 @@ class ZeroTrustDlpCustomProfile(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    @_utilities.deprecated("""This attribute is deprecated.""")
+    @_utilities.deprecated("""This attribute will be sunset on 01/01/2026""")
     def entries(self) -> pulumi.Output[Optional[Sequence['outputs.ZeroTrustDlpCustomProfileEntry']]]:
         """
         Custom entries from this profile.

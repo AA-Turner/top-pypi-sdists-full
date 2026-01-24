@@ -32,6 +32,14 @@ from .agent import (
     AgentResourceWithStreamingResponse,
     AsyncAgentResourceWithStreamingResponse,
 )
+from .tests import (
+    TestsResource,
+    AsyncTestsResource,
+    TestsResourceWithRawResponse,
+    AsyncTestsResourceWithRawResponse,
+    TestsResourceWithStreamingResponse,
+    AsyncTestsResourceWithStreamingResponse,
+)
 from .voice import (
     VoiceResource,
     AsyncVoiceResource,
@@ -40,6 +48,14 @@ from .voice import (
     VoiceResourceWithStreamingResponse,
     AsyncVoiceResourceWithStreamingResponse,
 )
+from .mcp_tool import (
+    McpToolResource,
+    AsyncMcpToolResource,
+    McpToolResourceWithRawResponse,
+    AsyncMcpToolResourceWithRawResponse,
+    McpToolResourceWithStreamingResponse,
+    AsyncMcpToolResourceWithStreamingResponse,
+)
 from .batch_call import (
     BatchCallResource,
     AsyncBatchCallResource,
@@ -47,6 +63,14 @@ from .batch_call import (
     AsyncBatchCallResourceWithRawResponse,
     BatchCallResourceWithStreamingResponse,
     AsyncBatchCallResourceWithStreamingResponse,
+)
+from .chat_agent import (
+    ChatAgentResource,
+    AsyncChatAgentResource,
+    ChatAgentResourceWithRawResponse,
+    AsyncChatAgentResourceWithRawResponse,
+    ChatAgentResourceWithStreamingResponse,
+    AsyncChatAgentResourceWithStreamingResponse,
 )
 from .concurrency import (
     ConcurrencyResource,
@@ -80,6 +104,14 @@ from .conversation_flow import (
     ConversationFlowResourceWithStreamingResponse,
     AsyncConversationFlowResourceWithStreamingResponse,
 )
+from .conversation_flow_component import (
+    ConversationFlowComponentResource,
+    AsyncConversationFlowComponentResource,
+    ConversationFlowComponentResourceWithRawResponse,
+    AsyncConversationFlowComponentResourceWithRawResponse,
+    ConversationFlowComponentResourceWithStreamingResponse,
+    AsyncConversationFlowComponentResourceWithStreamingResponse,
+)
 
 __all__ = [
     "CallResource",
@@ -106,6 +138,12 @@ __all__ = [
     "AsyncAgentResourceWithRawResponse",
     "AgentResourceWithStreamingResponse",
     "AsyncAgentResourceWithStreamingResponse",
+    "ChatAgentResource",
+    "AsyncChatAgentResource",
+    "ChatAgentResourceWithRawResponse",
+    "AsyncChatAgentResourceWithRawResponse",
+    "ChatAgentResourceWithStreamingResponse",
+    "AsyncChatAgentResourceWithStreamingResponse",
     "LlmResource",
     "AsyncLlmResource",
     "LlmResourceWithRawResponse",
@@ -118,6 +156,12 @@ __all__ = [
     "AsyncConversationFlowResourceWithRawResponse",
     "ConversationFlowResourceWithStreamingResponse",
     "AsyncConversationFlowResourceWithStreamingResponse",
+    "ConversationFlowComponentResource",
+    "AsyncConversationFlowComponentResource",
+    "ConversationFlowComponentResourceWithRawResponse",
+    "AsyncConversationFlowComponentResourceWithRawResponse",
+    "ConversationFlowComponentResourceWithStreamingResponse",
+    "AsyncConversationFlowComponentResourceWithStreamingResponse",
     "KnowledgeBaseResource",
     "AsyncKnowledgeBaseResource",
     "KnowledgeBaseResourceWithRawResponse",
@@ -142,4 +186,16 @@ __all__ = [
     "AsyncBatchCallResourceWithRawResponse",
     "BatchCallResourceWithStreamingResponse",
     "AsyncBatchCallResourceWithStreamingResponse",
+    "TestsResource",
+    "AsyncTestsResource",
+    "TestsResourceWithRawResponse",
+    "AsyncTestsResourceWithRawResponse",
+    "TestsResourceWithStreamingResponse",
+    "AsyncTestsResourceWithStreamingResponse",
+    "McpToolResource",
+    "AsyncMcpToolResource",
+    "McpToolResourceWithRawResponse",
+    "AsyncMcpToolResourceWithRawResponse",
+    "McpToolResourceWithStreamingResponse",
+    "AsyncMcpToolResourceWithStreamingResponse",
 ]

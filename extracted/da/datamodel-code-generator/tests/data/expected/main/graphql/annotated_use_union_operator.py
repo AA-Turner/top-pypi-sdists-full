@@ -4,17 +4,18 @@
 
 from __future__ import annotations
 
-from typing import Annotated, List, Literal, TypeAlias
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
+from typing_extensions import TypeAliasType
 
-Boolean: TypeAlias = bool
+Boolean = TypeAliasType("Boolean", bool)
 """
 The `Boolean` scalar type represents `true` or `false`.
 """
 
 
-String: TypeAlias = str
+String = TypeAliasType("String", str)
 """
 The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text.
 """
@@ -22,10 +23,10 @@ The `String` scalar type represents textual data, represented as UTF-8 character
 
 class A(BaseModel):
     field: String
-    listField: List[String]
-    listListField: List[List[String]]
-    listOptionalField: List[String | None]
+    listField: list[String]
+    listListField: list[list[String]]
+    listOptionalField: list[String | None]
     optionalField: String | None = None
-    optionalListField: List[String] | None = None
-    optionalListOptionalField: List[String | None] | None = None
+    optionalListField: list[String] | None = None
+    optionalListOptionalField: list[String | None] | None = None
     typename__: Annotated[Literal['A'] | None, Field(alias='__typename')] = 'A'

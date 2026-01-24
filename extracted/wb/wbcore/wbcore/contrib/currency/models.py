@@ -4,13 +4,30 @@ from datetime import date as date_lib
 from decimal import Decimal
 
 from django.db import models
-from django.db.models import Expression, ExpressionWrapper, Subquery
+from django.db.models import Case, CharField, Expression, ExpressionWrapper, F, Q, Subquery, Value, When
+from django.db.models.functions import Concat
+from persisting_theory import QuerySet
 
 from wbcore.contrib.io.mixins import ImportMixin
 from wbcore.models import WBModel
 from wbcore.utils.models import LabelKeyMixin
 
 from .import_export.handlers import CurrencyFXRatesImportHandler, CurrencyImportHandler
+
+
+class CurrencyDefaultManager(models.Manager):
+    def get_queryset(self) -> QuerySet:
+        return (
+            super()
+            .get_queryset()
+            .annotate(
+                name_repr=Case(
+                    When(Q(symbol="") | Q(symbol__isnull=True), then=F("title")),
+                    default=Concat(F("title"), Value(" ("), F("symbol"), Value(")")),
+                    output_field=CharField(),
+                )
+            )
+        )
 
 
 class Currency(ImportMixin, LabelKeyMixin, WBModel):
@@ -21,18 +38,19 @@ class Currency(ImportMixin, LabelKeyMixin, WBModel):
         verbose_name_plural = "Currencies"
         ordering = ("title",)
 
-    def __str__(self):
-        symbol = f"({self.symbol})" if self.symbol else ""
-        return f"{self.key} {symbol}"
+    def __str__(self) -> str:
+        if self.symbol:
+            return f"{self.title} ({self.symbol})"
+        return self.title
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.key
 
     title = models.CharField(max_length=255)
     symbol = models.CharField(max_length=10, blank=True, null=True)
     key = models.CharField(max_length=3, unique=True)
 
-    objects = models.Manager()
+    objects = CurrencyDefaultManager()
 
     LABEL_KEY = "{{key}} ({{symbol}})"
 
@@ -67,7 +85,7 @@ class Currency(ImportMixin, LabelKeyMixin, WBModel):
         except CurrencyFXRates.DoesNotExist:
             if exact_lookup:
                 return self.convert(valuation_date, other_currency, exact_lookup=False)
-            raise CurrencyFXRates.DoesNotExist
+            raise CurrencyFXRates.DoesNotExist from None
 
     @classmethod
     def get_endpoint_basename(cls) -> str:
@@ -83,7 +101,7 @@ class Currency(ImportMixin, LabelKeyMixin, WBModel):
 
     @classmethod
     def get_representation_label_key(cls) -> str:
-        return "{{key}} ({{symbol}})"
+        return "{{name_repr}}"
 
 
 class CurrencyFXRates(ImportMixin, models.Model):
@@ -96,7 +114,7 @@ class CurrencyFXRates(ImportMixin, models.Model):
     class Meta:
         verbose_name = "FX Rate"
         verbose_name_plural = "FX Rates"
-        unique_together = ("date", "currency")
+        constraints = (models.UniqueConstraint(name="unique_currency", fields=("date", "currency")),)
         indexes = [
             models.Index(
                 name="currency_fx_rate_idx",

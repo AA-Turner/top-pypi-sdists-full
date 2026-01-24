@@ -15,8 +15,19 @@
 # pylint: disable=protected-access,bad-continuation,missing-function-docstring
 
 import os
+import re
+import sys
 
 from tests.unit.vertexai.genai.replays import pytest_helper
+from vertexai._genai import types
+
+_TEST_CLASS_METHODS = [
+    {"name": "query", "api_mode": ""},
+]
+
+_AGENT_IDENTITY_REGEX = re.compile(
+    "agents.global.org-[0-9]+.system.id.goog/resources/aiplatform/projects/[0-9]+/locations/us-central1/reasoningEngines/[0-9a-zA-Z]+"
+)
 
 
 def test_create_config_lightweight(client):
@@ -54,6 +65,30 @@ def test_create_with_context_spec(client):
     parent = f"projects/{project}/locations/{location}"
     generation_model = f"{parent}/publishers/google/models/gemini-2.0-flash-001"
     embedding_model = f"{parent}/publishers/google/models/text-embedding-005"
+    customization_config = {
+        "memory_topics": [
+            {"managed_memory_topic": {"managed_topic_enum": "USER_PREFERENCES"}}
+        ],
+        "generate_memories_examples": [
+            {
+                "conversation_source": {
+                    "events": [
+                        {"content": {"role": "user", "parts": [{"text": "Hello"}]}}
+                    ]
+                },
+                "generatedMemories": [
+                    {
+                        "fact": "I like to say hello.",
+                        "topics": [{"managed_memory_topic": "USER_PREFERENCES"}],
+                    }
+                ],
+            }
+        ],
+        "enable_third_person_memories": True,
+    }
+    memory_bank_customization_config = types.MemoryBankCustomizationConfig(
+        **customization_config
+    )
 
     agent_engine = client.agent_engines.create(
         config={
@@ -64,6 +99,7 @@ def test_create_with_context_spec(client):
                         "embedding_model": embedding_model,
                     },
                     "ttl_config": {"default_ttl": "120s"},
+                    "customization_configs": [memory_bank_customization_config],
                 },
             },
             "http_options": {"api_version": "v1beta1"},
@@ -76,6 +112,85 @@ def test_create_with_context_spec(client):
         memory_bank_config.similarity_search_config.embedding_model == embedding_model
     )
     assert memory_bank_config.ttl_config.default_ttl == "120s"
+    assert memory_bank_config.customization_configs == [
+        memory_bank_customization_config
+    ]
+    # Clean up resources.
+    client.agent_engines.delete(name=agent_engine.api_resource.name, force=True)
+
+
+def test_create_with_source_packages(
+    client,
+    mock_agent_engine_create_base64_encoded_tarball,
+    mock_agent_engine_create_path_exists,
+):
+    """Tests creating an agent engine with source packages."""
+    if sys.version_info >= (3, 13):
+        try:
+            client._api_client._initialize_replay_session_if_not_loaded()
+            if client._api_client.replay_session:
+                target_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+                for interaction in client._api_client.replay_session.interactions:
+
+                    def _update_ver(obj):
+                        if isinstance(obj, dict):
+                            if "python_spec" in obj and isinstance(
+                                obj["python_spec"], dict
+                            ):
+                                if "version" in obj["python_spec"]:
+                                    obj["python_spec"]["version"] = target_ver
+                            for v in obj.values():
+                                _update_ver(v)
+                        elif isinstance(obj, list):
+                            for item in obj:
+                                _update_ver(item)
+
+                    if hasattr(interaction.request, "body_segments"):
+                        _update_ver(interaction.request.body_segments)
+                    if hasattr(interaction.request, "body"):
+                        _update_ver(interaction.request.body)
+        except Exception:
+            pass
+    with (
+        mock_agent_engine_create_base64_encoded_tarball,
+        mock_agent_engine_create_path_exists,
+    ):
+        agent_engine = client.agent_engines.create(
+            config={
+                "display_name": "test-agent-engine-source-packages",
+                "source_packages": [
+                    "test_module.py",
+                    "requirements.txt",
+                ],
+                "entrypoint_module": "test_module",
+                "entrypoint_object": "test_object",
+                "class_methods": _TEST_CLASS_METHODS,
+                "http_options": {
+                    "base_url": "https://us-west1-aiplatform.googleapis.com",
+                    "api_version": "v1beta1",
+                },
+            },
+        )
+    assert agent_engine.api_resource.display_name == "test-agent-engine-source-packages"
+    # Clean up resources.
+    client.agent_engines.delete(name=agent_engine.api_resource.name, force=True)
+
+
+def test_create_with_identity_type(client):
+    """Tests creating an agent engine with identity type."""
+    agent_engine = client.agent_engines.create(
+        config={
+            "identity_type": types.IdentityType.AGENT_IDENTITY,
+            "http_options": {"api_version": "v1beta1"},
+        },
+    )
+    assert (
+        agent_engine.api_resource.spec.identity_type
+        == types.IdentityType.AGENT_IDENTITY
+    )
+    assert _AGENT_IDENTITY_REGEX.match(
+        agent_engine.api_resource.spec.effective_identity
+    )
     # Clean up resources.
     client.agent_engines.delete(name=agent_engine.api_resource.name, force=True)
 

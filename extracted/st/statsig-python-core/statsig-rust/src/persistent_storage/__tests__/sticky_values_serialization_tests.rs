@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    event_logging::exposable_string::ExposableString, interned_string::InternedString,
-    SecondaryExposure, StickyValues,
+    interned_string::InternedString, specs_response::explicit_params::ExplicitParameters,
+    DynamicReturnable, SecondaryExposure, StickyValues,
 };
 
 use serde_json::{json, Value};
@@ -77,17 +77,17 @@ fn test_sticky_values_deserialization_from_str() {
 fn test_sticky_values_serialization_to_value() {
     let sticky = StickyValues {
         value: true,
-        json_value: Some(HashMap::new()),
-        rule_id: Some(ExposableString::from_str_ref("3ZCniK9rvnQyXDQlQ1tGD9")),
-        group_name: Some("test_group".to_string()),
+        json_value: Some(DynamicReturnable::from_map(HashMap::new())),
+        rule_id: Some(InternedString::from_str_ref("3ZCniK9rvnQyXDQlQ1tGD9")),
+        group_name: Some(InternedString::from_str_ref("test_group")),
         secondary_exposures: vec![SecondaryExposure {
             gate: InternedString::from_str_ref("test_holdout"),
             gate_value: InternedString::from_str_ref("true"),
-            rule_id: ExposableString::from_str_ref("default"),
+            rule_id: InternedString::default_rule_id(),
         }],
         undelegated_secondary_exposures: None,
-        config_delegate: Some("test_delegate".to_string()),
-        explicit_parameters: Some(vec!["test_param".to_string()]),
+        config_delegate: Some(InternedString::from_str_ref("test_delegate")),
+        explicit_parameters: Some(ExplicitParameters::from_vec(vec!["test_param".to_string()])),
         time: Some(1757974789243_u64),
         config_version: Some(1),
     };
@@ -106,17 +106,17 @@ fn test_sticky_values_serialization_to_value() {
 fn test_sticky_values_serialization_to_str() {
     let sticky = StickyValues {
         value: true,
-        json_value: Some(HashMap::new()),
-        rule_id: Some(ExposableString::from_str_ref("3ZCniK9rvnQyXDQlQ1tGD9")),
-        group_name: Some("test_group".to_string()),
+        json_value: Some(DynamicReturnable::from_map(HashMap::new())),
+        rule_id: Some(InternedString::from_str_ref("3ZCniK9rvnQyXDQlQ1tGD9")),
+        group_name: Some(InternedString::from_str_ref("test_group")),
         secondary_exposures: vec![SecondaryExposure {
             gate: InternedString::from_str_ref("test_holdout"),
             gate_value: InternedString::from_str_ref("true"),
-            rule_id: ExposableString::from_str_ref("default"),
+            rule_id: InternedString::default_rule_id(),
         }],
         undelegated_secondary_exposures: None,
-        config_delegate: Some("test_delegate".to_string()),
-        explicit_parameters: Some(vec!["test_param".to_string()]),
+        config_delegate: Some(InternedString::from_str_ref("test_delegate")),
+        explicit_parameters: Some(ExplicitParameters::from_vec(vec!["test_param".to_string()])),
         time: Some(1757974789243_u64),
         config_version: Some(1),
     };

@@ -1,11 +1,14 @@
 """Store client for supervisor."""
 
+from typing import Any
+
 from .client import _SupervisorComponentClient
 from .const import ResponseType
 from .models.addons import (
     Repository,
     StoreAddon,
     StoreAddonComplete,
+    StoreAddonInstall,
     StoreAddonsList,
     StoreAddonUpdate,
     StoreAddRepository,
@@ -45,18 +48,60 @@ class StoreClient(_SupervisorComponentClient):
         )
         return result.data
 
-    async def install_addon(self, addon: str) -> None:
-        """Install an addon."""
-        await self._client.post(f"store/addons/{addon}/install", timeout=None)
+    async def addon_availability(self, addon: str) -> None:
+        """Determine if latest version of addon can be installed on this system.
+
+        No return means it can be. If not, raises one of the following errors:
+        - AddonUnavailableHomeAssistantVersionError
+        - AddonUnavailableArchitectureError
+        - AddonUnavailableMachineTypeError
+
+        If Supervisor adds a new reason an add-on can be restricted from being
+        installed on some systems in the future, older versions of this client
+        will raise the generic SupervisorBadRequestError for that reason.
+        """
+        await self._client.get(
+            f"store/addons/{addon}/availability", response_type=ResponseType.NONE
+        )
+
+    async def install_addon(
+        self, addon: str, options: StoreAddonInstall | None = None
+    ) -> None:
+        """Install an addon.
+
+        Supervisor does an availability check before install. If the addon
+        cannot be installed on this system it will raise one of those errors
+        shown in the `addon_availability` method.
+        """
+        # Must disable timeout if API call waits for install to complete
+        kwargs: dict[str, Any] = {}
+        if not options or not options.background:
+            kwargs["timeout"] = None
+
+        await self._client.post(
+            f"store/addons/{addon}/install",
+            json=options.to_dict() if options else None,
+            **kwargs,
+        )
 
     async def update_addon(
         self, addon: str, options: StoreAddonUpdate | None = None
     ) -> None:
-        """Update an addon to latest version."""
+        """Update an addon to latest version.
+
+        Supervisor does an availability check before update. If the new version
+        cannot be installed on this system it will raise one of those errors
+        shown in the `addon_availability` method.
+        """
+        # Must disable timeout if API call waits for update to complete
+        kwargs: dict[str, Any] = {}
+        if not options or not options.background:
+            kwargs["timeout"] = None
+
         await self._client.post(
             f"store/addons/{addon}/update",
             json=options.to_dict() if options else None,
-            timeout=None,
+            **kwargs,
         )
 
     async def reload(self) -> None:

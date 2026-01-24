@@ -1,23 +1,21 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-quicksight
-Version: 1.40.29
-Summary: Type annotations for boto3 QuickSight 1.40.29 service generated with mypy-boto3-builder 8.11.0
-Home-page: https://github.com/youtype/mypy_boto3_builder
-Author: Vlad Emelianov
-Author-email: vlad.emelianov.nz@gmail.com
-License: MIT License
+Version: 1.42.32
+Summary: Type annotations for boto3 QuickSight 1.42.32 service generated with mypy-boto3-builder 8.12.0
+Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Documentation, https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/
 Project-URL: Source, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Tracker, https://github.com/youtype/mypy_boto3_builder/issues
-Keywords: boto3 quicksight boto3-stubs type-annotations mypy typeshed autocomplete
+Keywords: boto3,quicksight,boto3-stubs,type-annotations,mypy,typeshed,autocomplete
+Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,23 +25,11 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions; python_version < "3.12"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <a id="mypy-boto3-quicksight"></a>
 
@@ -57,7 +43,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 QuickSight 1.40.29](https://pypi.org/project/boto3/) compatible with
+[boto3 QuickSight 1.42.32](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -66,7 +52,7 @@ Type annotations for
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.12.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [boto3-stubs](https://pypi.org/project/boto3-stubs/) page and in
@@ -119,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.29' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.32' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `QuickSight` service.
 4. Use provided commands to install generated packages.
@@ -355,6 +341,7 @@ from mypy_boto3_quicksight import QuickSightClient
 from mypy_boto3_quicksight.paginator import (
     DescribeFolderPermissionsPaginator,
     DescribeFolderResolvedPermissionsPaginator,
+    ListActionConnectorsPaginator,
     ListAnalysesPaginator,
     ListAssetBundleExportJobsPaginator,
     ListAssetBundleImportJobsPaginator,
@@ -364,6 +351,7 @@ from mypy_boto3_quicksight.paginator import (
     ListDashboardsPaginator,
     ListDataSetsPaginator,
     ListDataSourcesPaginator,
+    ListFlowsPaginator,
     ListFolderMembersPaginator,
     ListFoldersForResourcePaginator,
     ListFoldersPaginator,
@@ -381,10 +369,12 @@ from mypy_boto3_quicksight.paginator import (
     ListThemesPaginator,
     ListUserGroupsPaginator,
     ListUsersPaginator,
+    SearchActionConnectorsPaginator,
     SearchAnalysesPaginator,
     SearchDashboardsPaginator,
     SearchDataSetsPaginator,
     SearchDataSourcesPaginator,
+    SearchFlowsPaginator,
     SearchFoldersPaginator,
     SearchGroupsPaginator,
     SearchTopicsPaginator,
@@ -399,6 +389,9 @@ describe_folder_permissions_paginator: DescribeFolderPermissionsPaginator = clie
 )
 describe_folder_resolved_permissions_paginator: DescribeFolderResolvedPermissionsPaginator = (
     client.get_paginator("describe_folder_resolved_permissions")
+)
+list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator(
+    "list_action_connectors"
 )
 list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
 list_asset_bundle_export_jobs_paginator: ListAssetBundleExportJobsPaginator = client.get_paginator(
@@ -417,6 +410,7 @@ list_dashboard_versions_paginator: ListDashboardVersionsPaginator = client.get_p
 list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
 list_data_sets_paginator: ListDataSetsPaginator = client.get_paginator("list_data_sets")
 list_data_sources_paginator: ListDataSourcesPaginator = client.get_paginator("list_data_sources")
+list_flows_paginator: ListFlowsPaginator = client.get_paginator("list_flows")
 list_folder_members_paginator: ListFolderMembersPaginator = client.get_paginator(
     "list_folder_members"
 )
@@ -452,12 +446,16 @@ list_theme_versions_paginator: ListThemeVersionsPaginator = client.get_paginator
 list_themes_paginator: ListThemesPaginator = client.get_paginator("list_themes")
 list_user_groups_paginator: ListUserGroupsPaginator = client.get_paginator("list_user_groups")
 list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
+search_action_connectors_paginator: SearchActionConnectorsPaginator = client.get_paginator(
+    "search_action_connectors"
+)
 search_analyses_paginator: SearchAnalysesPaginator = client.get_paginator("search_analyses")
 search_dashboards_paginator: SearchDashboardsPaginator = client.get_paginator("search_dashboards")
 search_data_sets_paginator: SearchDataSetsPaginator = client.get_paginator("search_data_sets")
 search_data_sources_paginator: SearchDataSourcesPaginator = client.get_paginator(
     "search_data_sources"
 )
+search_flows_paginator: SearchFlowsPaginator = client.get_paginator("search_flows")
 search_folders_paginator: SearchFoldersPaginator = client.get_paginator("search_folders")
 search_groups_paginator: SearchGroupsPaginator = client.get_paginator("search_groups")
 search_topics_paginator: SearchTopicsPaginator = client.get_paginator("search_topics")
@@ -474,10 +472,10 @@ Full list of `QuickSight` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/literals/).
 
 ```python
-from mypy_boto3_quicksight.literals import AggTypeType
+from mypy_boto3_quicksight.literals import ActionConnectorErrorTypeType
 
 
-def check_value(value: AggTypeType) -> bool: ...
+def check_value(value: ActionConnectorErrorTypeType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>
@@ -492,12 +490,12 @@ Full list of `QuickSight` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from mypy_boto3_quicksight.type_defs import AccountCustomizationTypeDef
+from mypy_boto3_quicksight.type_defs import APIKeyConnectionMetadataTypeDef
 
 
-def get_value() -> AccountCustomizationTypeDef:
+def get_value() -> APIKeyConnectionMetadataTypeDef:
     return {
-        "DefaultTheme": ...,
+        "BaseEndpoint": ...,
     }
 ```
 

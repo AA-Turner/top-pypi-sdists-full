@@ -15,7 +15,8 @@ pub fn start() {
 #[wasm_bindgen]
 pub fn code_complexity(code: &str) -> Result<JsValue, JsValue> {
     match get_code_complexity(code) {
-        Ok(result) => Ok(serde_wasm_bindgen::to_value(&result).unwrap()),
+        Ok(result) => serde_wasm_bindgen::to_value(&result)
+            .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e))),
         Err(e) => Err(JsValue::from_str(&format!("Analysis error: {}", e))),
     }
 }
@@ -26,7 +27,7 @@ fn get_code_complexity(code: &str) -> Result<CodeComplexity, String> {
         Err(e) => return Err(format!("Parse error: {}", e)),
     };
 
-    let (functions, complexity) = function_level_cognitive_complexity_shared(&parsed.suite(), code);
+    let (functions, complexity) = function_level_cognitive_complexity_shared(parsed.suite(), code);
 
     Ok(CodeComplexity {
         complexity,

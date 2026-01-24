@@ -1,14 +1,17 @@
 Metadata-Version: 2.1
 Name: sshfs
-Version: 2025.2.0
+Version: 2025.11.0
 Summary: SSH Filesystem -- Async SSH/SFTP backend for fsspec
 License: Apache License 2.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fsspec>=2021.8.1

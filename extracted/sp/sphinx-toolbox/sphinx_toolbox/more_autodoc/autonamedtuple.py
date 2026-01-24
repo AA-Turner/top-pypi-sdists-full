@@ -162,7 +162,7 @@ from sphinx_toolbox.utils import (
 __all__ = ("NamedTupleDocumenter", "setup")
 
 
-class NamedTupleDocumenter(ClassDocumenter):
+class NamedTupleDocumenter(ClassDocumenter):  # noqa: PRM002
 	r"""
 	Sphinx autodoc :class:`~sphinx.ext.autodoc.Documenter`
 	for documenting :class:`typing.NamedTuple`\s.
@@ -298,7 +298,7 @@ class NamedTupleDocumenter(ClassDocumenter):
 		new_hints = get_type_hints(
 				self.object.__new__,
 				globalns=sys.modules[self.object.__module__].__dict__,
-				localns=self.object.__dict__,  # type: ignore[arg-type]
+				localns=self.object.__dict__,
 				)
 
 		# Stock NamedTuples don't have these, but customised collections.namedtuple or hand-rolled classes may
@@ -352,8 +352,10 @@ class NamedTupleDocumenter(ClassDocumenter):
 			member_docstrings = {
 					k[1]: v
 					for k,
-					v in ModuleAnalyzer.for_string(namedtuple_source, self.object.__module__
-													).find_attr_docs().items()
+					v in ModuleAnalyzer.for_string(
+							namedtuple_source,
+							self.object.__module__,
+							).find_attr_docs().items()
 					}
 
 		except (TypeError, OSError):
@@ -477,13 +479,13 @@ class _PyNamedTupleField(PyAttribute):
 				pair = [  # pylint: disable=W8301
 					_("%s (namedtuple in %s)") % (classname, modname),
 					_("%s (namedtuple field)") % name,
-					]
+				]
 				self.indexnode["entries"].append(("pair", "; ".join(pair), node_id, '', key))
 
 		return [self.indexnode, node]
 
 
-def _patch_reorder_transform():
+def _patch_reorder_transform() -> None:
 	# Patch ReorderConsecutiveTargetAndIndexNodes on Sphinx 7.2+
 
 	# 3rd party

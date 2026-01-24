@@ -1,12 +1,10 @@
-import random
 import sqlite3
-import string
+import uuid
 from pathlib import Path
 from tempfile import gettempdir
 from typing import List
 
-from .abstracts import Rate
-from .abstracts import RateItem
+from .abstracts.rate import Rate, RateItem
 
 
 def binary_search(items: List[RateItem], value: int) -> int:
@@ -65,10 +63,9 @@ def validate_rate_list(rates: List[Rate]) -> bool:
 
 
 def id_generator(
-    size=6,
-    chars=string.ascii_uppercase + string.digits + string.ascii_lowercase,
+    size=10,
 ) -> str:
-    return "".join(random.choice(chars) for _ in range(size))
+    return uuid.uuid4().hex[:size]
 
 
 def dedicated_sqlite_clock_connection():

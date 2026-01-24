@@ -31,6 +31,26 @@
 
 #include "hwy/base.h"
 
+#if HWY_OS_APPLE
+#include <AvailabilityMacros.h>
+// __ulock* were added in OS X 10.12 (Sierra, 2016).
+#if MAC_OS_X_VERSION_MAX_ALLOWED < 101200 && !defined(HWY_DISABLE_FUTEX)
+#define HWY_DISABLE_FUTEX
+#endif
+#endif  // HWY_OS_APPLE
+
+#if HWY_OS_WIN
+// Need to include <windows.h> on Windows, even if HWY_DISABLE_FUTEX is defined,
+// since hwy::NanoSleep uses Windows API's that are defined in windows.h.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif  // NOMINMAX
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif  // WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #if HWY_ARCH_WASM
 #include <emscripten/threading.h>
 #include <math.h>  // INFINITY
@@ -67,13 +87,6 @@ int __ulock_wake(uint32_t op, void* address, uint64_t zero);
 
 #elif HWY_OS_WIN && !defined(HWY_DISABLE_FUTEX)
 // WakeByAddressAll requires Windows 8, so add an opt-out.
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif  // NOMINMAX
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif  // WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #if HWY_COMPILER_MSVC || HWY_COMPILER_CLANGCL
 #pragma comment(lib, "synchronization.lib")
 #endif

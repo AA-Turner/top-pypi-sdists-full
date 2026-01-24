@@ -15,12 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use arrow::datatypes::Field;
+use arrow::pyarrow::PyArrowType;
 use datafusion::logical_expr::expr::Placeholder;
 use pyo3::prelude::*;
 
 use crate::common::data_type::PyDataType;
 
-#[pyclass(name = "Placeholder", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "Placeholder", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyPlaceholder {
     placeholder: Placeholder,
@@ -40,8 +42,15 @@ impl PyPlaceholder {
 
     fn data_type(&self) -> Option<PyDataType> {
         self.placeholder
-            .data_type
+            .field
             .as_ref()
-            .map(|e| e.clone().into())
+            .map(|f| f.data_type().clone().into())
+    }
+
+    fn field(&self) -> Option<PyArrowType<Field>> {
+        self.placeholder
+            .field
+            .as_ref()
+            .map(|f| f.as_ref().clone().into())
     }
 }

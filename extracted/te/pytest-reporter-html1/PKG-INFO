@@ -1,40 +1,27 @@
 Metadata-Version: 2.4
 Name: pytest-reporter-html1
-Version: 0.9.3
+Version: 0.9.5
 Summary: A basic HTML report template for Pytest
-Home-page: https://github.com/christiansandberg/pytest-reporter-html1
-Author: Christian Sandberg
-Author-email: christiansandberg@me.com
-Maintainer: Christian Sandberg
-Maintainer-email: christiansandberg@me.com
-License: MIT
+Author-email: Christian Sandberg <christiansandberg@me.com>
+License-Expression: MIT
+Project-URL: Repository, https://github.com/christiansandberg/pytest-reporter-html1.git
+Project-URL: Issues, https://github.com/christiansandberg/pytest-reporter-html1/issues
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Text Processing :: Markup :: HTML
-Classifier: Programming Language :: Python
 Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.5
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pytest-reporter>=0.4.0
 Requires-Dist: Jinja2
 Requires-Dist: ansi2html>=1.3.0
 Requires-Dist: htmlmin2
-Requires-Dist: docutils
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: docutils>=0.22
 Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 =====================
 pytest-reporter-html1

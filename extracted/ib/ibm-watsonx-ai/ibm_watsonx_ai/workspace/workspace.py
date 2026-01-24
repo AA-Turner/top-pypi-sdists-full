@@ -1,8 +1,10 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from copy import copy
+from pathlib import Path
+from typing import Any, cast
 from warnings import warn
 
 from ibm_watsonx_ai import APIClient
@@ -19,11 +21,11 @@ class WorkSpace:
 
     def __init__(
         self,
-        credentials: Credentials = None,
-        project_id: str = None,
-        space_id: str = None,
-        verify=None,
-        **kwargs,
+        credentials: Credentials | None = None,
+        project_id: str | None = None,
+        space_id: str | None = None,
+        verify: str | Path | bool | None = None,
+        **kwargs: Any,
     ) -> None:
         """
         :param credentials: credentials to Service instance
@@ -63,13 +65,13 @@ class WorkSpace:
         if wml_credentials is None and credentials is None:
             raise WMLClientError("No `credentials` provided")
         # --- end note
-        self.credentials = copy(credentials)
+        self.credentials = cast(Credentials, copy(credentials))
         self.project_id = project_id
         self.space_id = space_id
 
         self.api_client = APIClient(credentials=self.credentials, verify=verify)
 
-        if credentials.instance_id is None:
+        if self.credentials.instance_id is None:
             if self.space_id is not None:
                 self.api_client.set.default_space(self.space_id)
 
@@ -82,7 +84,7 @@ class WorkSpace:
                     reason="project_id and space_id cannot be None at the same time.",
                 )
 
-        elif credentials.instance_id and credentials.instance_id.lower() in (
+        elif self.credentials.instance_id and self.credentials.instance_id.lower() in (
             "icp",
             "openshift",
         ):
@@ -107,14 +109,14 @@ class WorkSpace:
                         f"cannot be found in current environment.",
                     )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"credentials: {self.credentials} project_id: {self.project_id} space_id = {self.space_id}"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()
 
     @property
-    def wml_credentials(self):
+    def wml_credentials(self) -> dict:
         wml_credentials_deprecated_warning = (
             "`wml_credentials` is deprecated and will be removed in future. "
             "Instead, please use `credentials`."
@@ -123,7 +125,7 @@ class WorkSpace:
         return self.credentials.to_dict()
 
     @wml_credentials.setter
-    def wml_credentials(self, var):
+    def wml_credentials(self, var: dict) -> None:
         wml_credentials_deprecated_warning = (
             "`wml_credentials` is deprecated and will be removed in future. "
             "Instead, please use `credentials`."
@@ -132,7 +134,7 @@ class WorkSpace:
         self.credentials = Credentials.from_dict(var)
 
     @property
-    def wml_client(self):
+    def wml_client(self) -> APIClient:
         wml_client_deprecated_warning = (
             "`wml_client` is deprecated and will be removed in future. "
             "Instead, please use `api_client`."
@@ -141,7 +143,7 @@ class WorkSpace:
         return self.api_client
 
     @wml_client.setter
-    def wml_client(self, var):
+    def wml_client(self, var: APIClient) -> None:
         wml_client_deprecated_warning = (
             "`wml_client` is deprecated and will be removed in future. "
             "Instead, please use `api_client`."
@@ -149,14 +151,14 @@ class WorkSpace:
         warn(wml_client_deprecated_warning, category=DeprecationWarning)
         self.api_client = var
 
-    def restrict_pod_size(self, t_shirt_size: "TShirtSize") -> "TShirtSize":
+    def restrict_pod_size(self, t_shirt_size: TShirtSize) -> TShirtSize | str:
         """Check t_shirt_size for AutoAI POD. Restrict sizes per environment.
 
         :param t_shirt_size: TShirt size to be validated and restricted
         :type t_shirt_size: TShirtSize
 
         :return: validated and restricted TShirt size
-        :rtype: TShirtSize
+        :rtype: TShirtSize | str
         """
         # note: for testing purposes
         if self.credentials.__dict__.get("development", False):

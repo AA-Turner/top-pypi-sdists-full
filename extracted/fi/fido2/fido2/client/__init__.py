@@ -325,7 +325,7 @@ class DefaultClientDataCollector(ClientDataCollector):
         try:
             if self._verify(rp_id, origin):
                 return
-        except Exception:  # nosec
+        except Exception:  # noqa: S110
             pass  # Fall through to ClientError
         raise ClientError.ERR.BAD_REQUEST()
 
@@ -463,7 +463,7 @@ class _Ctap1ClientBackend(_ClientBackend):
             ),
         )
         credential = att_obj.auth_data.credential_data
-        assert credential is not None  # nosec
+        assert credential is not None  # noqa: S101
 
         return RegistrationResponse(
             raw_id=credential.credential_id,
@@ -573,11 +573,6 @@ class _Ctap2ClientBackend(_ClientBackend):
         if max_len:
             cred_list = [c for c in cred_list if len(c.id) <= max_len]
 
-        max_creds = info.max_creds_in_list or 1
-        chunks = [
-            cred_list[i : i + max_creds] for i in range(0, len(cred_list), max_creds)
-        ]
-
         client_data_hash = b"\0" * 32
         if pin_token:
             pin_auth = pin_protocol.authenticate(pin_token, client_data_hash)
@@ -586,7 +581,9 @@ class _Ctap2ClientBackend(_ClientBackend):
             pin_auth = None
             version = None
 
-        for chunk in chunks:
+        max_creds = info.max_creds_in_list or 1
+        while cred_list:
+            chunk = cred_list[:max_creds]
             try:
                 assertions = self.ctap2.get_assertions(
                     rp_id,
@@ -605,10 +602,15 @@ class _Ctap2ClientBackend(_ClientBackend):
                 else:
                     return PublicKeyCredentialDescriptor(**assertions[0].credential)
             except CtapError as e:
-                if e.code == CtapError.ERR.NO_CREDENTIALS:
-                    # All creds in chunk are discarded
-                    continue
-                raise
+                match e.code:
+                    case CtapError.ERR.REQUEST_TOO_LARGE if max_creds > 1:
+                        # Message is too large, try smaller chunks
+                        max_creds -= 1
+                    case CtapError.ERR.NO_CREDENTIALS:
+                        # All creds in chunk are discarded
+                        cred_list = cred_list[max_creds:]
+                    case _:
+                        raise
 
         # No matches found
         return None
@@ -674,9 +676,10 @@ class _Ctap2ClientBackend(_ClientBackend):
         event,
         on_keepalive,
         allow_internal_uv,
+        allow_uv,
     ):
         # Prefer UV
-        if info.options.get("uv"):
+        if allow_uv and info.options.get("uv"):
             if ClientPin.is_token_supported(info):
                 if self.user_interaction.request_uv(permissions, rp_id):
                     return client_pin.get_uv_token(
@@ -699,7 +702,14 @@ class _Ctap2ClientBackend(_ClientBackend):
         )
 
     def _get_auth_params(
-        self, pin_protocol, rp_id, user_verification, permissions, event, on_keepalive
+        self,
+        pin_protocol,
+        rp_id,
+        user_verification,
+        permissions,
+        allow_uv,
+        event,
+        on_keepalive,
     ):
         info = self.ctap2.get_info()
 
@@ -723,6 +733,7 @@ class _Ctap2ClientBackend(_ClientBackend):
                 event,
                 on_keepalive,
                 allow_internal_uv,
+                allow_uv,
             )
             if not pin_token:
                 internal_uv = True
@@ -766,6 +777,7 @@ class _Ctap2ClientBackend(_ClientBackend):
             pin_protocol = None
 
         used_extensions: list[RegistrationExtensionProcessor] = []
+        allow_uv = True
 
         def _do_make():
             # Gather UV permissions
@@ -784,7 +796,13 @@ class _Ctap2ClientBackend(_ClientBackend):
 
             # Handle auth
             pin_token, internal_uv = self._get_auth_params(
-                pin_protocol, rp_id, user_verification, permissions, event, on_keepalive
+                pin_protocol,
+                rp_id,
+                user_verification,
+                permissions,
+                allow_uv,
+                event,
+                on_keepalive,
             )
 
             if exclude_list:
@@ -867,6 +885,10 @@ class _Ctap2ClientBackend(_ClientBackend):
                 ):
                     user_verification = UserVerificationRequirement.REQUIRED
                     continue
+                # UV may be blocked, try again (once) with PIN
+                if e.code == CtapError.ERR.UV_BLOCKED and allow_uv:
+                    allow_uv = False
+                    continue
                 # NFC may require reconnect
                 connect = getattr(dev, "connect", None)
                 if (
@@ -895,7 +917,7 @@ class _Ctap2ClientBackend(_ClientBackend):
         )
 
         credential = att_obj.auth_data.credential_data
-        assert credential is not None  # nosec
+        assert credential is not None  # noqa: S101
 
         return RegistrationResponse(
             raw_id=credential.credential_id,
@@ -930,6 +952,8 @@ class _Ctap2ClientBackend(_ClientBackend):
         else:
             pin_protocol = None
 
+        allow_uv = True
+
         def _do_auth():
             # Gather UV permissions
             permissions = ClientPin.PERMISSION.GET_ASSERTION
@@ -944,7 +968,13 @@ class _Ctap2ClientBackend(_ClientBackend):
 
             # Handle auth
             pin_token, internal_uv = self._get_auth_params(
-                pin_protocol, rp_id, user_verification, permissions, event, on_keepalive
+                pin_protocol,
+                rp_id,
+                user_verification,
+                permissions,
+                allow_uv,
+                event,
+                on_keepalive,
             )
 
             if allow_list:
@@ -1014,6 +1044,10 @@ class _Ctap2ClientBackend(_ClientBackend):
                     and user_verification == UserVerificationRequirement.DISCOURAGED
                 ):
                     user_verification = UserVerificationRequirement.REQUIRED
+                    continue
+                # UV may be blocked, try again (once) with PIN
+                if e.code == CtapError.ERR.UV_BLOCKED and allow_uv:
+                    allow_uv = False
                     continue
                 # NFC may require reconnect
                 connect = getattr(dev, "connect", None)

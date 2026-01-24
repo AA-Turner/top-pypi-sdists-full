@@ -9,12 +9,11 @@ import typing as t
 
 import pytest
 
-from libtmux._internal.types import StrPath
-from libtmux.common import has_gte_version, has_lt_version, has_lte_version
 from libtmux.constants import PaneDirection, ResizeAdjustmentDirection
 from libtmux.test.retry import retry_until
 
 if t.TYPE_CHECKING:
+    from libtmux._internal.types import StrPath
     from libtmux.session import Session
 
 logger = logging.getLogger(__name__)
@@ -158,10 +157,6 @@ def test_capture_pane_end(session: Session) -> None:
     assert pane_contents == '$ printf "%s"\n$'
 
 
-@pytest.mark.skipif(
-    has_lte_version("3.1"),
-    reason="3.2 has the -Z flag on split-window",
-)
 def test_pane_split_window_zoom(
     session: Session,
 ) -> None:
@@ -188,14 +183,10 @@ def test_pane_split_window_zoom(
     assert pane_with_zoom.height == pane_with_zoom.window_height
 
 
-@pytest.mark.skipif(
-    has_lt_version("2.9"),
-    reason="resize-window only exists in tmux 2.9+",
-)
-def test_resize_pane(
+def test_resize(
     session: Session,
 ) -> None:
-    """Verify resizing window."""
+    """Verify resizing pane."""
     session.cmd("detach-client", "-s")
 
     window = session.active_window
@@ -217,33 +208,32 @@ def test_resize_pane(
 
     # Manual: Height
     pane_height_before = int(pane.pane_height)
-    pane.resize_pane(
+    pane.resize(
         height="50",
     )
     assert int(pane.pane_height) == 50
 
     # Manual: Width
     window.select_layout("main-horizontal")
-    pane.resize_pane(
+    pane.resize(
         width="75",
     )
     assert int(pane.pane_width) == 75
 
-    if has_gte_version("3.1"):
-        # Manual: Height percentage
-        window.select_layout("main-vertical")
-        pane_height_before = int(pane.pane_height)
-        pane.resize_pane(
-            height="15%",
-        )
-        assert int(pane.pane_height) == 75
+    # Manual: Height percentage
+    window.select_layout("main-vertical")
+    pane_height_before = int(pane.pane_height)
+    pane.resize(
+        height="15%",
+    )
+    assert int(pane.pane_height) == 75
 
-        # Manual: Width percentage
-        window.select_layout("main-horizontal")
-        pane.resize_pane(
-            width="15%",
-        )
-        assert int(pane.pane_width) == 75
+    # Manual: Width percentage
+    window.select_layout("main-horizontal")
+    pane.resize(
+        width="15%",
+    )
+    assert int(pane.pane_width) == 75
 
     #
     # Adjustments
@@ -251,7 +241,7 @@ def test_resize_pane(
 
     # Adjustment: Down
     pane_height_before = int(pane.pane_height)
-    pane.resize_pane(
+    pane.resize(
         adjustment_direction=ResizeAdjustmentDirection.Down,
         adjustment=pane_height_adjustment * 2,
     )
@@ -259,7 +249,7 @@ def test_resize_pane(
 
     # Adjustment: Up
     pane_height_before = int(pane.pane_height)
-    pane.resize_pane(
+    pane.resize(
         adjustment_direction=ResizeAdjustmentDirection.Up,
         adjustment=pane_height_adjustment,
     )
@@ -268,12 +258,12 @@ def test_resize_pane(
     #
     # Zoom
     #
-    pane.resize_pane(height=50)
+    pane.resize(height=50)
 
     # Zoom
-    pane.resize_pane(height=2)
+    pane.resize(height=2)
     pane_height_before = int(pane.pane_height)
-    pane.resize_pane(
+    pane.resize(
         zoom=True,
     )
     pane_height_expanded = int(pane.pane_height)
@@ -287,43 +277,30 @@ def test_split_pane_size(session: Session) -> None:
     pane = window.active_pane
     assert pane is not None
 
-    if has_gte_version("3.1"):
-        short_pane = pane.split(size=10)
-        assert short_pane.pane_height == "10"
+    short_pane = pane.split(size=10)
+    assert short_pane.pane_height == "10"
 
-        assert short_pane.at_left
-        assert short_pane.at_right
-        assert not short_pane.at_top
-        assert short_pane.at_bottom
+    assert short_pane.at_left
+    assert short_pane.at_right
+    assert not short_pane.at_top
+    assert short_pane.at_bottom
 
-        narrow_pane = pane.split(direction=PaneDirection.Right, size=10)
-        assert narrow_pane.pane_width == "10"
+    narrow_pane = pane.split(direction=PaneDirection.Right, size=10)
+    assert narrow_pane.pane_width == "10"
 
-        assert not narrow_pane.at_left
-        assert narrow_pane.at_right
-        assert narrow_pane.at_top
-        assert not narrow_pane.at_bottom
+    assert not narrow_pane.at_left
+    assert narrow_pane.at_right
+    assert narrow_pane.at_top
+    assert not narrow_pane.at_bottom
 
-        new_pane = pane.split(size="10%")
-        assert new_pane.pane_height == "8"
+    new_pane = pane.split(size="10%")
+    assert new_pane.pane_height == "8"
 
-        new_pane = short_pane.split(direction=PaneDirection.Right, size="10%")
-        assert new_pane.pane_width == "10"
+    new_pane = short_pane.split(direction=PaneDirection.Right, size="10%")
+    assert new_pane.pane_width == "10"
 
-        assert not new_pane.at_left
-        assert new_pane.at_right
-    else:
-        window_height_before = (
-            int(window.window_height) if isinstance(window.window_height, str) else 0
-        )
-        window_width_before = (
-            int(window.window_width) if isinstance(window.window_width, str) else 0
-        )
-        new_pane = pane.split(size="10%")
-        assert new_pane.pane_height == str(int(window_height_before * 0.1))
-
-        new_pane = new_pane.split(direction=PaneDirection.Right, size="10%")
-        assert new_pane.pane_width == str(int(window_width_before * 0.1))
+    assert not new_pane.at_left
+    assert new_pane.at_right
 
 
 def test_pane_context_manager(session: Session) -> None:
@@ -397,8 +374,8 @@ def test_split_start_directory(
     actual_start_directory = start_directory
     expected_path = None
 
-    if start_directory and str(start_directory) not in ["", "None"]:
-        if "{user_path}" in str(start_directory):
+    if start_directory and str(start_directory) not in {"", "None"}:
+        if f"{user_path}" in str(start_directory):
             # Replace placeholder with actual user_path
             actual_start_directory = str(start_directory).format(user_path=user_path)
             expected_path = str(user_path)
@@ -424,7 +401,8 @@ def test_split_start_directory(
 
 
 def test_split_start_directory_pathlib(
-    session: Session, user_path: pathlib.Path
+    session: Session,
+    user_path: pathlib.Path,
 ) -> None:
     """Test Pane.split accepts pathlib.Path for start_directory."""
     window = session.new_window(window_name="test_split_pathlib")

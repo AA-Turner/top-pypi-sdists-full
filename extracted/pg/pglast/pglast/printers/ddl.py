@@ -577,7 +577,10 @@ class AlterTableTypePrinter(IntEnumPrinter):
         elif node.num:
             output.write(str(node.num))
         output.write(' SET STATISTICS ')
-        output.print_node(node.def_)
+        if node.def_:
+            output.print_node(node.def_)
+        else:
+            output.write('DEFAULT')
 
     def AT_SetStorage(self, node, output):
         output.write('ALTER COLUMN ')
@@ -3280,10 +3283,11 @@ def trigger_transition(node, output):
 @node_printer(ast.VacuumStmt)
 def vacuum_stmt(node, output):
     if node.is_vacuumcmd:
-        output.write('VACUUM ')
+        output.write('VACUUM')
     else:
-        output.write('ANALYZE ')
+        output.write('ANALYZE')
     if node.options:
+        output.space()
         with output.expression(True):
             output.print_list(node.options, ',')
     if node.rels:

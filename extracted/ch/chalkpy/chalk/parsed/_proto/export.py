@@ -27,6 +27,7 @@ from chalk.parsed._proto.utils import (
     convert_failed_import_to_gql,
     convert_failed_import_to_proto,
     datetime_to_proto_timestamp,
+    timedelta_to_proto_duration,
 )
 from chalk.parsed._proto.validation import validate_artifacts
 from chalk.parsed.to_proto import ToProtoConverter
@@ -35,6 +36,7 @@ from chalk.queries.named_query import NAMED_QUERY_REGISTRY
 from chalk.queries.scheduled_query import CRON_QUERY_REGISTRY
 from chalk.sql._internal.sql_source import BaseSQLSource, TableIngestMixIn
 from chalk.sql._internal.sql_source_group import SQLSourceGroup
+from chalk.stores.online_store_config import ONLINE_STORE_CONFIG_REGISTRY
 from chalk.streams import StreamSource
 from chalk.utils.duration import timedelta_to_duration
 
@@ -144,6 +146,24 @@ def export_from_registry() -> export_pb.Export:
     """
     failed_protos: List[export_pb.FailedImport] = []
 
+    # Validate registries BEFORE conversion to catch errors early
+    # This ensures parity with GQL validation path
+    from chalk.parsed.validation_from_registries import validate_all_from_registries
+
+    try:
+        validate_all_from_registries(
+            features_registry=FeatureSetBase.registry,
+            resolver_registry=RESOLVER_REGISTRY,
+        )
+    except Exception as e:
+        # If validation fails, add to failed_protos but continue
+        # to allow other validation to complete
+        from chalk._lsp.error_builder import LSPErrorBuilder
+
+        if not LSPErrorBuilder.promote_exception(e):
+            # Not an LSP error, so log it as a failed import
+            failed_protos.append(build_failed_import(e, "validation"))
+
     graph_res = ToProtoConverter.convert_graph(
         features_registry=FeatureSetBase.registry,
         resolver_registry=RESOLVER_REGISTRY.get_all_resolvers(),
@@ -152,6 +172,7 @@ def export_from_registry() -> export_pb.Export:
         stream_source_registry=StreamSource.registry,
         named_query_registry=NAMED_QUERY_REGISTRY,
         model_reference_registry=MODEL_REFERENCE_REGISTRY,
+        online_store_config_registry=ONLINE_STORE_CONFIG_REGISTRY,
     )
 
     crons: List[CronQuery] = []
@@ -191,6 +212,9 @@ def export_from_registry() -> export_pb.Export:
                 file_name=cron.filename,
                 resource_group=cron.resource_group,
                 planner_options=cron.planner_options,
+                completion_deadline=timedelta_to_proto_duration(cron.completion_deadline)
+                if cron.completion_deadline is not None
+                else cron.completion_deadline,
             )
         )
 

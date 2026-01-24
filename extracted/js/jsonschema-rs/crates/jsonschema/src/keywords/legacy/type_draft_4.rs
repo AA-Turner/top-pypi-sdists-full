@@ -2,9 +2,9 @@ use crate::{
     compiler,
     error::ValidationError,
     keywords::{type_, CompilationResult},
-    paths::{LazyLocation, Location},
+    paths::{LazyLocation, Location, RefTracker},
     types::{JsonType, JsonTypeSet},
-    validator::Validate,
+    validator::{Validate, ValidationContext},
 };
 use serde_json::{json, Map, Number, Value};
 use std::str::FromStr;
@@ -25,8 +25,9 @@ impl MultipleTypesValidator {
                         types = types.insert(ty);
                     } else {
                         return Err(ValidationError::enumeration(
-                            Location::new(),
+                            location.clone(),
                             location,
+                            Location::new(),
                             item,
                             &json!([
                                 "array", "boolean", "integer", "null", "number", "object", "string"
@@ -36,8 +37,9 @@ impl MultipleTypesValidator {
                 }
                 _ => {
                     return Err(ValidationError::single_type_error(
-                        Location::new(),
+                        location.clone(),
                         location,
+                        Location::new(),
                         item,
                         JsonType::String,
                     ))
@@ -49,19 +51,22 @@ impl MultipleTypesValidator {
 }
 
 impl Validate for MultipleTypesValidator {
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         self.types.contains_value_type(instance)
     }
     fn validate<'i>(
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance) {
+        if self.is_valid(instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::multiple_type_error(
                 self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
                 instance,
                 self.types,
@@ -82,7 +87,7 @@ impl IntegerTypeValidator {
 }
 
 impl Validate for IntegerTypeValidator {
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::Number(num) = instance {
             is_integer(num)
         } else {
@@ -93,12 +98,15 @@ impl Validate for IntegerTypeValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if self.is_valid(instance) {
+        if self.is_valid(instance, ctx) {
             Ok(())
         } else {
             Err(ValidationError::single_type_error(
                 self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
                 instance,
                 JsonType::Integer,
@@ -107,6 +115,7 @@ impl Validate for IntegerTypeValidator {
     }
 }
 
+#[inline]
 fn is_integer(num: &Number) -> bool {
     num.is_u64() || num.is_i64()
 }
@@ -127,8 +136,9 @@ pub(crate) fn compile<'a>(
                     Some(compile_single_type(ty.as_str(), location, item))
                 } else {
                     Some(Err(ValidationError::single_type_error(
-                        Location::new(),
+                        location.clone(),
                         location,
+                        Location::new(),
                         item,
                         JsonType::String,
                     )))
@@ -137,14 +147,18 @@ pub(crate) fn compile<'a>(
                 Some(MultipleTypesValidator::compile(items, location))
             }
         }
-        _ => Some(Err(ValidationError::multiple_type_error(
-            Location::new(),
-            ctx.location().clone(),
-            schema,
-            JsonTypeSet::empty()
-                .insert(JsonType::String)
-                .insert(JsonType::Array),
-        ))),
+        _ => {
+            let location = ctx.location().join("type");
+            Some(Err(ValidationError::multiple_type_error(
+                location.clone(),
+                location,
+                Location::new(),
+                schema,
+                JsonTypeSet::empty()
+                    .insert(JsonType::String)
+                    .insert(JsonType::Array),
+            )))
+        }
     }
 }
 
@@ -161,9 +175,10 @@ fn compile_single_type<'a>(
         Ok(JsonType::Number) => type_::NumberTypeValidator::compile(location),
         Ok(JsonType::Object) => type_::ObjectTypeValidator::compile(location),
         Ok(JsonType::String) => type_::StringTypeValidator::compile(location),
-        Err(()) => Err(ValidationError::custom(
-            Location::new(),
+        Err(()) => Err(ValidationError::compile_error(
+            location.clone(),
             location,
+            Location::new(),
             instance,
             "Unexpected type",
         )),

@@ -1,0 +1,63 @@
+[project]
+name = "pytest-mergify"
+dynamic = ["version"]
+description = "Pytest plugin for Mergify"
+authors = [{ name = "Julien Danjou", email = "jd@mergify.com" }]
+license = "GPL-3.0-only"
+readme = "README.md"
+
+requires-python = ">=3.8"
+dependencies = [
+    "opentelemetry-exporter-otlp-proto-http>=1.29",
+    "opentelemetry-sdk>=1.29",
+    "requests>=2",
+    "pytest>=6.0.0",
+    "pytest-timeout>=2.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.9",
+    "mypy>=1.13.0",
+    "poethepoet>=0.30.0",
+    "codespell==2.4.1",
+    "yamllint>=1.35.1",
+    "anys>=0.3.1",
+    "responses>=0.25.8",
+    # https://github.com/pytest-dev/pytest-asyncio/issues/706#issuecomment-2082788963
+    "pytest-asyncio>=0.24.0",
+    "freezegun>=1.5.5",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+
+[project.entry-points.pytest11]
+pytest_mergify = "pytest_mergify"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0"
+
+
+[tool.poe]
+include = ["poe.toml"]
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+files = ["pytest_mergify", "tests"]
+show_error_codes = true
+
+[tool.ruff]
+target-version = "py38"
+
+[[tool.mypy.overrides]]
+module = [
+  "pytest_opentelemetry.*",
+  "pytest_timeout.*",
+  "requests"
+]
+ignore_missing_imports = true

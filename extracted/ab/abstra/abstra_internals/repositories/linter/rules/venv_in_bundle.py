@@ -2,12 +2,13 @@ import sys
 from pathlib import Path
 from typing import List
 
-from abstra_internals.consts.filepaths import ABSTRA_IGNORE_FILEPATH
+from abstra_internals.consts.filepaths import GITIGNORE_FILEPATH
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
     LinterRule,
 )
+from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
 
 
@@ -30,55 +31,53 @@ def running_under_virtualenv() -> bool:
     return False
 
 
-class AddVenvToAbstraIgnore(LinterFix):
-    label = "Add virtual env to abstra ignore"
+def virtualenv_inside_project() -> bool:
+    root_path, prefix_path = get_root_and_prefix_path()
+    return prefix_path.startswith(root_path)
+
+
+def virtualenv_ignored() -> bool:
+    root_path, prefix_path = get_root_and_prefix_path()
+    venv_folder = prefix_path.replace(root_path, "").lstrip("/")
+    # Use absolute path to ensure git check-ignore works correctly
+    absolute_venv_path = Settings.root_path / venv_folder
+    return FileSystemService.is_ignored(absolute_venv_path)
+
+
+class UntrackVenv(LinterFix):
+    label = "Add virtual env to git ignore"
 
     def fix(self):
         root_path, prefix_path = get_root_and_prefix_path()
         venv_folder = prefix_path.replace(root_path, "").lstrip("/")
 
-        abstraignore_file = Settings.root_path / ABSTRA_IGNORE_FILEPATH
-        with abstraignore_file.open("a") as file:
-            file.write("\n")
-            file.write(venv_folder)
+        if virtualenv_inside_project() and not virtualenv_ignored():
+            gitignore_file = Settings.root_path / GITIGNORE_FILEPATH
+            with gitignore_file.open("a") as file:
+                file.write("\n")
+                file.write(venv_folder)
+
+        FileSystemService.untrack_path_from_git(Path(venv_folder))
 
 
 class VenvInBundleFound(LinterIssue):
     def __init__(self) -> None:
         self.label = "You have not ignored the virtualenv folder"
-        self.fixes = [AddVenvToAbstraIgnore()]
+        self.fixes = [UntrackVenv()]
 
 
 class VenvInBundle(LinterRule):
     label = "You can't add virtual env to the bundle"
     type = "bug"
 
-    def virtualenv_inside_project(self) -> bool:
-        root_path, prefix_path = get_root_and_prefix_path()
-        return prefix_path.startswith(root_path)
-
-    def virtualenv_in_abstraignore(self) -> bool:
-        abstraignore_file = Settings.root_path / ABSTRA_IGNORE_FILEPATH
-        if not abstraignore_file.exists():
-            return False
-
-        root_path, prefix_path = get_root_and_prefix_path()
-        venv_folder = prefix_path.replace(root_path, "").lstrip("/")
-
-        for line in abstraignore_file.read_text(encoding="utf-8").split("\n"):
-            if line == venv_folder:
-                return True
-
-        return False
-
     def find_issues(self) -> List[LinterIssue]:
         if not running_under_virtualenv():
             return []
 
-        if not self.virtualenv_inside_project():
+        if not virtualenv_inside_project():
             return []
 
-        if self.virtualenv_in_abstraignore():
+        if virtualenv_ignored():
             return []
 
         return [VenvInBundleFound()]

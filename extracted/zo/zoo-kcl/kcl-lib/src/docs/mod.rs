@@ -197,6 +197,16 @@ mod tests {
     }
 
     #[test]
+    fn get_autocomplete_snippet_subtract2d() {
+        let data = kcl_doc::walk_prelude();
+        let DocData::Fn(data) = data.find_by_name("subtract2d").unwrap() else {
+            panic!();
+        };
+        let snippet = data.to_autocomplete_snippet();
+        assert_eq!(snippet, r#"subtract2d(tool = ${0:profileToSubtract})"#);
+    }
+
+    #[test]
     fn get_autocomplete_snippet_intersect() {
         let data = kcl_doc::walk_prelude();
         let DocData::Fn(data) = data.find_by_name("intersect").unwrap() else {
@@ -233,7 +243,7 @@ mod tests {
             panic!();
         };
         let snippet = data.to_autocomplete_snippet();
-        assert_eq!(snippet, r#"translate(x = ${0:10}, y = ${1:10}, z = ${2:10})"#);
+        assert_eq!(snippet, r#"translate(x = ${0:0}, y = ${1:0}, z = ${2:0})"#);
     }
 
     #[test]
@@ -288,6 +298,7 @@ mod tests {
   twistAngleStep?: number(Angle),
   twistCenter?: Point2d,
   method?: string,
+  bodyType?: string,
 ): [Solid; 1+]"#
         );
     }

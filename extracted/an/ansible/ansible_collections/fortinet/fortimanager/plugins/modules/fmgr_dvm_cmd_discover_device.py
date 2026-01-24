@@ -16,7 +16,6 @@ short_description: Probe a remote device and retrieve its device information and
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -123,7 +122,7 @@ EXAMPLES = '''
             name: "{{ probed_device.meta.response_data.device.name }}"
             sn: "{{ probed_device.meta.response_data.device.sn }}"
       register: installing_task
-    - name: Poll the task
+    - name: Poll the task of adding device
       fortinet.fortimanager.fmgr_fact:
         facts:
           selector: "task_task"

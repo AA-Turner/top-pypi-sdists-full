@@ -9,25 +9,21 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
 
-class SimpleInstallation(GitHubModel):
-    """Simple Installation
+class Traffic(GitHubModel):
+    """Traffic"""
 
-    The GitHub App installation. Webhook payloads contain the `installation`
-    property when the event is configured
-    for and sent to a GitHub App. For more information,
-    see "[Using webhooks with GitHub Apps](https://docs.github.com/apps/creating-
-    github-apps/registering-a-github-app/using-webhooks-with-github-apps)."
-    """
-
-    id: int = Field(description="The ID of the installation.")
-    node_id: str = Field(description="The global node ID of the installation.")
+    timestamp: _dt.datetime = Field()
+    uniques: int = Field()
+    count: int = Field()
 
 
-model_rebuild(SimpleInstallation)
+model_rebuild(Traffic)
 
-__all__ = ("SimpleInstallation",)
+__all__ = ("Traffic",)

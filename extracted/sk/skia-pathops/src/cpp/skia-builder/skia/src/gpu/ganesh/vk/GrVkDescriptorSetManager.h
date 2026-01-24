@@ -8,24 +8,26 @@
 #ifndef GrVkDescriptorSetManager_DEFINED
 #define GrVkDescriptorSetManager_DEFINED
 
-#include "include/core/SkRefCnt.h"
-#include "include/gpu/vk/GrVkTypes.h"
+#include "include/private/base/SkAssert.h"
 #include "include/private/base/SkTArray.h"
+#include "include/private/gpu/vk/SkiaVulkan.h"
 #include "src/gpu/ganesh/GrResourceHandle.h"
-#include "src/gpu/ganesh/vk/GrVkDescriptorPool.h"
-#include "src/gpu/ganesh/vk/GrVkSampler.h"
 
+#include <cstddef>
+#include <cstdint>
+
+class GrVkDescriptorPool;
 class GrVkDescriptorSet;
 class GrVkGpu;
+class GrVkSampler;
 class GrVkUniformHandler;
-
 /**
  * This class handles the allocation of descriptor sets for a given VkDescriptorSetLayout. It will
  * try to reuse previously allocated descriptor sets if they are no longer in use by other objects.
  */
 class GrVkDescriptorSetManager {
 public:
-    GR_DEFINE_RESOURCE_HANDLE_CLASS(Handle);
+    GR_DEFINE_RESOURCE_HANDLE_CLASS(Handle)
 
     static GrVkDescriptorSetManager* CreateUniformManager(GrVkGpu* gpu);
     static GrVkDescriptorSetManager* CreateSamplerManager(GrVkGpu* gpu, VkDescriptorType type,
@@ -71,29 +73,29 @@ private:
         GrVkDescriptorPool*    fPool;
 
     private:
-        enum {
-            kMaxDescriptors = 1024,
-            kStartNumDescriptors = 16, // must be less than kMaxUniformDescriptors
-        };
+        static constexpr size_t kMaxDescriptors = 1024;
+        static constexpr size_t kStartNumDescriptors = 16;
+        // kStartNumDescriptors must be less than kMaxUniformDescriptors
+        static_assert(kStartNumDescriptors < kMaxDescriptors);
 
         bool getNewPool(GrVkGpu* gpu);
     };
 
     static GrVkDescriptorSetManager* Create(GrVkGpu* gpu,
                                             VkDescriptorType,
-                                            const SkTArray<uint32_t>& visibilities,
-                                            const SkTArray<const GrVkSampler*>& immutableSamplers);
+                                            const skia_private::TArray<uint32_t>& visibilities,
+                                            const skia_private::TArray<const GrVkSampler*>& immutableSamplers);
 
     GrVkDescriptorSetManager(GrVkGpu* gpu,
                              VkDescriptorType, VkDescriptorSetLayout, uint32_t descCountPerSet,
-                             const SkTArray<uint32_t>& visibilities,
-                             const SkTArray<const GrVkSampler*>& immutableSamplers);
+                             const skia_private::TArray<uint32_t>& visibilities,
+                             const skia_private::TArray<const GrVkSampler*>& immutableSamplers);
 
 
-    DescriptorPoolManager                    fPoolManager;
-    SkTArray<const GrVkDescriptorSet*, true> fFreeSets;
-    SkSTArray<4, uint32_t>                   fBindingVisibilities;
-    SkSTArray<4, const GrVkSampler*>         fImmutableSamplers;
+    DescriptorPoolManager                                fPoolManager;
+    skia_private::TArray<const GrVkDescriptorSet*, true> fFreeSets;
+    skia_private::STArray<4, uint32_t>                   fBindingVisibilities;
+    skia_private::STArray<4, const GrVkSampler*>         fImmutableSamplers;
 };
 
 #endif

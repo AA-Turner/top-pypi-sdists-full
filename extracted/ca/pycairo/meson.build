@@ -1,6 +1,6 @@
 project(
   'pycairo', 'c',
-  version: '1.28.0',
+  version: '1.29.0',
   meson_version: '>= 0.64.0',
   license: 'LGPL-2.1-only OR MPL-1.1',
   default_options: [
@@ -10,7 +10,7 @@ project(
 )
 
 cair_version_req = '>=1.15.10'
-python_version_req = '>=3.9'
+python_version_req = '>=3.10'
 
 pymod = import('python')
 python = pymod.find_installation(get_option('python'), pure: false)
@@ -75,7 +75,6 @@ else
     '-Wformat-security',
     '-Wimplicit-function-declaration',
     '-Winit-self',
-    '-Winline',
     '-Wmissing-format-attribute',
     '-Wmissing-noreturn',
     '-Wnested-externs',
@@ -115,6 +114,10 @@ pyext_c_args = [
   '-DPYCAIRO_VERSION_MINOR=@0@'.format(pycairo_version_minor),
   '-DPYCAIRO_VERSION_MICRO=@0@'.format(pycairo_version_micro),
 ]
+
+if get_option('no-x11')
+  pyext_c_args += ['-DPYCAIRO_NO_X11']
+endif
 
 if not for_wheel
   pkginfo_conf = configuration_data()

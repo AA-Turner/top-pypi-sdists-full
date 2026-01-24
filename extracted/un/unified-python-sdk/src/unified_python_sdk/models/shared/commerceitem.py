@@ -4,15 +4,20 @@ from __future__ import annotations
 from .commerceitemmedia import CommerceItemMedia, CommerceItemMediaTypedDict
 from .commerceitemvariant import CommerceItemVariant, CommerceItemVariantTypedDict
 from .commercemetadata import CommerceMetadata, CommerceMetadataTypedDict
+from .commercereference import CommerceReference, CommerceReferenceTypedDict
 from datetime import datetime
+from pydantic import model_serializer
 from typing import Any, Dict, List, Optional
 from typing_extensions import NotRequired, TypedDict
-from unified_python_sdk.types import BaseModel
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class CommerceItemTypedDict(TypedDict):
     account_id: NotRequired[str]
     collection_ids: NotRequired[List[str]]
+    r"""@deprecated; use collections instead"""
+    collections: NotRequired[List[CommerceReferenceTypedDict]]
+    r"""points to Collection with id, name, and type fields"""
     created_at: NotRequired[datetime]
     description: NotRequired[str]
     global_code: NotRequired[str]
@@ -27,6 +32,7 @@ class CommerceItemTypedDict(TypedDict):
     raw: NotRequired[Dict[str, Any]]
     slug: NotRequired[str]
     tags: NotRequired[List[str]]
+    taxrate_id: NotRequired[str]
     type: NotRequired[str]
     updated_at: NotRequired[datetime]
     variants: NotRequired[List[CommerceItemVariantTypedDict]]
@@ -38,6 +44,10 @@ class CommerceItem(BaseModel):
     account_id: Optional[str] = None
 
     collection_ids: Optional[List[str]] = None
+    r"""@deprecated; use collections instead"""
+
+    collections: Optional[List[CommerceReference]] = None
+    r"""points to Collection with id, name, and type fields"""
 
     created_at: Optional[datetime] = None
 
@@ -67,6 +77,8 @@ class CommerceItem(BaseModel):
 
     tags: Optional[List[str]] = None
 
+    taxrate_id: Optional[str] = None
+
     type: Optional[str] = None
 
     updated_at: Optional[datetime] = None
@@ -75,3 +87,44 @@ class CommerceItem(BaseModel):
     r"""first variant is the default variant"""
 
     vendor_name: Optional[str] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "account_id",
+                "collection_ids",
+                "collections",
+                "created_at",
+                "description",
+                "global_code",
+                "id",
+                "is_active",
+                "is_taxable",
+                "media",
+                "metadata",
+                "name",
+                "public_description",
+                "public_name",
+                "raw",
+                "slug",
+                "tags",
+                "taxrate_id",
+                "type",
+                "updated_at",
+                "variants",
+                "vendor_name",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

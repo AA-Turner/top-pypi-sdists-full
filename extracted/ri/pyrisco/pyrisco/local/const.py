@@ -1,6 +1,0 @@
-PANEL_TYPE = "panel_type"
-PANEL_MODEL = "panel_mode"
-PANEL_FW = "panel_firmware"
-MAX_ZONES = "max_zones"
-MAX_PARTS = "max_partitions"
-MAX_OUTPUTS = "max_outputs"

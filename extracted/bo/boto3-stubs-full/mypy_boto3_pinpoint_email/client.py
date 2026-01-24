@@ -3,7 +3,7 @@ Type annotations for pinpoint-email service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_email/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -95,12 +96,6 @@ from .type_defs import (
     UpdateConfigurationSetEventDestinationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -111,17 +106,17 @@ __all__ = ("PinpointEmailClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccountSuspendedException: Type[BotocoreClientError]
-    AlreadyExistsException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MailFromDomainNotVerifiedException: Type[BotocoreClientError]
-    MessageRejected: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    SendingPausedException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    AccountSuspendedException: type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MailFromDomainNotVerifiedException: type[BotocoreClientError]
+    MessageRejected: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    SendingPausedException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 
 class PinpointEmailClient(BaseClient):
@@ -161,7 +156,7 @@ class PinpointEmailClient(BaseClient):
 
     def create_configuration_set(
         self, **kwargs: Unpack[CreateConfigurationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a configuration set.
 
@@ -171,7 +166,7 @@ class PinpointEmailClient(BaseClient):
 
     def create_configuration_set_event_destination(
         self, **kwargs: Unpack[CreateConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create an event destination.
 
@@ -181,7 +176,7 @@ class PinpointEmailClient(BaseClient):
 
     def create_dedicated_ip_pool(
         self, **kwargs: Unpack[CreateDedicatedIpPoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a new pool of dedicated IP addresses.
 
@@ -211,7 +206,7 @@ class PinpointEmailClient(BaseClient):
 
     def delete_configuration_set(
         self, **kwargs: Unpack[DeleteConfigurationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an existing configuration set.
 
@@ -221,7 +216,7 @@ class PinpointEmailClient(BaseClient):
 
     def delete_configuration_set_event_destination(
         self, **kwargs: Unpack[DeleteConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an event destination.
 
@@ -231,7 +226,7 @@ class PinpointEmailClient(BaseClient):
 
     def delete_dedicated_ip_pool(
         self, **kwargs: Unpack[DeleteDedicatedIpPoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a dedicated IP pool.
 
@@ -241,7 +236,7 @@ class PinpointEmailClient(BaseClient):
 
     def delete_email_identity(
         self, **kwargs: Unpack[DeleteEmailIdentityRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an email identity that you previously verified for use with Amazon
         Pinpoint.
@@ -437,7 +432,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_account_dedicated_ip_warmup_attributes(
         self, **kwargs: Unpack[PutAccountDedicatedIpWarmupAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable or disable the automatic warm-up feature for dedicated IP addresses.
 
@@ -447,7 +442,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_account_sending_attributes(
         self, **kwargs: Unpack[PutAccountSendingAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable or disable the ability of your account to send email.
 
@@ -457,7 +452,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_configuration_set_delivery_options(
         self, **kwargs: Unpack[PutConfigurationSetDeliveryOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associate a configuration set with a dedicated IP pool.
 
@@ -467,7 +462,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_configuration_set_reputation_options(
         self, **kwargs: Unpack[PutConfigurationSetReputationOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable or disable collection of reputation metrics for emails that you send
         using a particular configuration set in a specific AWS Region.
@@ -478,7 +473,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_configuration_set_sending_options(
         self, **kwargs: Unpack[PutConfigurationSetSendingOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable or disable email sending for messages that use a particular
         configuration set in a specific AWS Region.
@@ -489,7 +484,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_configuration_set_tracking_options(
         self, **kwargs: Unpack[PutConfigurationSetTrackingOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Specify a custom domain to use for open and click tracking elements in email
         that you send using Amazon Pinpoint.
@@ -500,7 +495,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_dedicated_ip_in_pool(
         self, **kwargs: Unpack[PutDedicatedIpInPoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Move a dedicated IP address to an existing dedicated IP pool.
 
@@ -510,7 +505,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_dedicated_ip_warmup_attributes(
         self, **kwargs: Unpack[PutDedicatedIpWarmupAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         <p/>.
 
@@ -520,7 +515,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_deliverability_dashboard_option(
         self, **kwargs: Unpack[PutDeliverabilityDashboardOptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable or disable the Deliverability dashboard for your Amazon Pinpoint account.
 
@@ -530,7 +525,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_email_identity_dkim_attributes(
         self, **kwargs: Unpack[PutEmailIdentityDkimAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used to enable or disable DKIM authentication for an email identity.
 
@@ -540,7 +535,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_email_identity_feedback_attributes(
         self, **kwargs: Unpack[PutEmailIdentityFeedbackAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used to enable or disable feedback forwarding for an identity.
 
@@ -550,7 +545,7 @@ class PinpointEmailClient(BaseClient):
 
     def put_email_identity_mail_from_attributes(
         self, **kwargs: Unpack[PutEmailIdentityMailFromAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used to enable or disable the custom Mail-From domain configuration for an
         email identity.
@@ -567,7 +562,7 @@ class PinpointEmailClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_email/client/#send_email)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Add one or more tags (keys and values) to a specified resource.
 
@@ -575,7 +570,7 @@ class PinpointEmailClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pinpoint_email/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove one or more tags (keys and values) from a specified resource.
 
@@ -585,7 +580,7 @@ class PinpointEmailClient(BaseClient):
 
     def update_configuration_set_event_destination(
         self, **kwargs: Unpack[UpdateConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update the configuration of an event destination for a configuration set.
 

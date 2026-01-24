@@ -1,6 +1,6 @@
 import binascii
 from decimal import Decimal
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..muxed_account import MuxedAccount
@@ -19,7 +19,7 @@ class LiquidityPoolDeposit(Operation):
 
     Threshold: Medium
 
-    See `Liquidity Pool Deposit <https://developers.stellar.org/docs/start/list-of-operations/#liquidity-pool-deposit>`_ for more information.
+    See `Liquidity Pool Deposit <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#liquidity-pool-deposit>`_ for more information.
 
     :param liquidity_pool_id: The liquidity pool ID.
     :param max_amount_a: Maximum amount of first asset to deposit.
@@ -37,11 +37,11 @@ class LiquidityPoolDeposit(Operation):
     def __init__(
         self,
         liquidity_pool_id: str,
-        max_amount_a: Union[str, Decimal],
-        max_amount_b: Union[str, Decimal],
-        min_price: Union[str, Decimal, Price],
-        max_price: Union[str, Decimal, Price],
-        source: Optional[Union[MuxedAccount, str]] = None,
+        max_amount_a: str | Decimal,
+        max_amount_b: str | Decimal,
+        min_price: str | Decimal | Price,
+        max_price: str | Decimal | Price,
+        source: MuxedAccount | str | None = None,
     ):
         super().__init__(source)
         self.liquidity_pool_id: str = liquidity_pool_id

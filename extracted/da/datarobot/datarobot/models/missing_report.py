@@ -61,31 +61,23 @@ class MissingValuesReport(APIObject):
 
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("missing_values_report"): t.List(
-                t.Dict(
-                    {
-                        "feature": String,
-                        "type": String,
-                        "missing_count": Int,
-                        "missing_percentage": t.Float(),
-                        "tasks": t.Mapping(
-                            String,
-                            t.Dict({"name": String, "descriptions": t.List(String)}).ignore_extra(
-                                "*"
-                            ),
-                        ),
-                    }
-                ).ignore_extra("*")
-            )
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("missing_values_report"): t.List(
+            t.Dict({
+                "feature": String,
+                "type": String,
+                "missing_count": Int,
+                "missing_percentage": t.Float(),
+                "tasks": t.Mapping(
+                    String,
+                    t.Dict({"name": String, "descriptions": t.List(String)}).ignore_extra("*"),
+                ),
+            }).ignore_extra("*")
+        )
+    }).ignore_extra("*")
 
     def __init__(self, missing_values_report: List[MissingReportPerFeatureDict]) -> None:
-        self._reports_per_feature = [
-            MissingReportPerFeature(data) for data in missing_values_report
-        ]
+        self._reports_per_feature = [MissingReportPerFeature(data) for data in missing_values_report]
 
     def __iter__(self) -> Iterator[MissingReportPerFeature]:
         return iter(self._reports_per_feature)
@@ -121,14 +113,10 @@ class TaskMissingReportInfo:
         self.descriptions = info["descriptions"]
 
     def __repr__(self) -> str:
-        return "TaskMissingReportInfo(id={}, name={}, descriptions={})".format(
-            self.id, self.name, self.descriptions
-        )
+        return "TaskMissingReportInfo(id={}, name={}, descriptions={})".format(self.id, self.name, self.descriptions)
 
     def __eq__(self, other: Any) -> bool:
-        return all(
-            [self.id == other.id, self.name == other.name, self.descriptions == other.descriptions]
-        )
+        return all([self.id == other.id, self.name == other.name, self.descriptions == other.descriptions])
 
 
 class MissingReportPerFeature:
@@ -142,23 +130,19 @@ class MissingReportPerFeature:
         self.missing_count = report_per_feature_dict["missing_count"]
         self.missing_percentage = report_per_feature_dict["missing_percentage"] * 100
         self.tasks = [
-            TaskMissingReportInfo(task_id, task_info)
-            for task_id, task_info in report_per_feature_dict["tasks"].items()
+            TaskMissingReportInfo(task_id, task_info) for task_id, task_info in report_per_feature_dict["tasks"].items()
         ]
 
     def __repr__(self) -> str:
-        return (
-            "MissingReportPerFeature(feature={},"
-            "type={}, miss_count={}, miss_percentage={}, tasks={}"
-        ).format(self.feature, self.type, self.missing_count, self.missing_percentage, self.tasks)
+        return ("MissingReportPerFeature(feature={},type={}, miss_count={}, miss_percentage={}, tasks={}").format(
+            self.feature, self.type, self.missing_count, self.missing_percentage, self.tasks
+        )
 
     def __eq__(self, other: Any) -> bool:
-        return all(
-            [
-                self.feature == other.feature,
-                self.type == other.type,
-                self.missing_count == other.missing_count,
-                self.missing_percentage == other.missing_percentage,
-                self.tasks == other.tasks,
-            ]
-        )
+        return all([
+            self.feature == other.feature,
+            self.type == other.type,
+            self.missing_count == other.missing_count,
+            self.missing_percentage == other.missing_percentage,
+            self.tasks == other.tasks,
+        ])

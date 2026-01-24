@@ -8,6 +8,7 @@ repos:
         types: [python]
         pass_filenames: true
         args: [format]
+        exclude: ^(pycarlo/lib/schema\.py|tests/data/schema_original\.py)$
   - repo: local
     hooks:
       - id: ruff-check
@@ -17,6 +18,7 @@ repos:
         types: [python]
         pass_filenames: true
         args: [check, --fix, --exit-non-zero-on-fix]
+        exclude: ^(pycarlo/lib/schema\.py|tests/data/schema_original\.py)$
   - repo: local
     hooks:
       - id: pyright
@@ -26,3 +28,4 @@ repos:
         types: [python]
         pass_filenames: true
         args: [--level, error]
+        exclude: ^(pycarlo/lib/schema\.py|tests/data/schema_original\.py)$

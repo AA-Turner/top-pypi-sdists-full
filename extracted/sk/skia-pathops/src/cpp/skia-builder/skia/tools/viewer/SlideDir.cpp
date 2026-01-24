@@ -8,10 +8,17 @@
 #include "tools/viewer/SlideDir.h"
 
 #include "include/core/SkCanvas.h"
+#include "include/core/SkColor.h"
 #include "include/core/SkCubicMap.h"
+#include "include/core/SkFont.h"
+#include "include/core/SkMatrix.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkString.h"
 #include "include/core/SkTypeface.h"
 #include "include/private/base/SkTPin.h"
+#include "include/utils/SkTextUtils.h"
 #include "modules/sksg/include/SkSGDraw.h"
+#include "modules/sksg/include/SkSGGeometryNode.h"
 #include "modules/sksg/include/SkSGGroup.h"
 #include "modules/sksg/include/SkSGPaint.h"
 #include "modules/sksg/include/SkSGPlane.h"
@@ -20,10 +27,15 @@
 #include "modules/sksg/include/SkSGScene.h"
 #include "modules/sksg/include/SkSGText.h"
 #include "modules/sksg/include/SkSGTransform.h"
+#include "src/base/SkBitmaskEnum.h"
+#include "tools/skui/InputState.h"
+#include "tools/skui/ModifierKey.h"
 #include "tools/timer/TimeUtils.h"
 
 #include <cmath>
 #include <utility>
+
+namespace sksg { class InvalidationController; }
 
 using namespace skia_private;
 
@@ -98,7 +110,7 @@ protected:
     const RenderNode* onNodeAt(const SkPoint&) const override { return nullptr; }
 
 private:
-    void tick(SkMSec t) {
+    void tick(TimeUtils::MSec t) {
         fSlide->animate(t * 1e6);
         this->invalidate();
     }
@@ -108,8 +120,8 @@ private:
 
 SkMatrix SlideMatrix(const sk_sp<Slide>& slide, const SkRect& dst) {
     const auto slideSize = slide->getDimensions();
-    return SkMatrix::RectToRect(SkRect::MakeIWH(slideSize.width(), slideSize.height()), dst,
-                                SkMatrix::kCenter_ScaleToFit);
+    return SkMatrix::RectToRectOrIdentity(SkRect::MakeIWH(slideSize.width(), slideSize.height()),
+                                          dst, SkMatrix::kCenter_ScaleToFit);
 }
 
 } // namespace
@@ -179,9 +191,9 @@ public:
         }
 
         // Map coords to slide space.
-        const auto xform = SkMatrix::RectToRect(fRect, SkRect::MakeSize(fDir->fWinSize),
-                                                SkMatrix::kCenter_ScaleToFit);
-        const auto pt = xform.mapXY(x, y);
+        const auto xform = SkMatrix::RectToRectOrIdentity(fRect, SkRect::MakeSize(fDir->fWinSize),
+                                                          SkMatrix::kCenter_ScaleToFit);
+        const auto pt = xform.mapPoint({x, y});
 
         return fTarget->fSlide->onMouse(pt.x(), pt.y(), state, modifiers);
     }
@@ -358,11 +370,12 @@ SkISize SlideDir::getDimensions() const {
 }
 
 void SlideDir::draw(SkCanvas* canvas) {
+    fScene->revalidate();
     fScene->render(canvas);
 }
 
 bool SlideDir::animate(double nanos) {
-    SkMSec msec = TimeUtils::NanosToMSec(nanos);
+    TimeUtils::MSec msec = TimeUtils::NanosToMSec(nanos);
     if (fTimeBase == 0) {
         // Reset the animation time.
         fTimeBase = msec;

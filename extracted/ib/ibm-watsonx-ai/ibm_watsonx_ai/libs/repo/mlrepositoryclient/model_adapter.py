@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -25,6 +25,7 @@ import ast,json
 
 from ibm_watsonx_ai.libs.repo.util.library_imports import LibraryChecker
 from ibm_watsonx_ai.libs.repo.base_constants import *
+from ibm_watsonx_ai.utils.utils import get_from_json
 
 lib_checker = LibraryChecker()
 
@@ -148,11 +149,13 @@ class ModelAdapter(object):
         href_tmp = getattr(self.model_metadata, 'href', 'None')
 
         if self.model_metadata.id is not None and href_tmp is None:
-            if pipeline_id := self.model_entity.get('pipeline', {}).get('id'):
+            if pipeline_id := get_from_json(self.model_entity, ["pipeline", "id"]):
                 prop_map[MetaNames.PIPELINE_UID] = pipeline_id
 
-            if model_definition_id := self.model_entity.get('model_definition', {}).get('id'):
-                prop_map[MetaNames.model_definition] = model_definition_id
+            if model_definition_id := get_from_json(
+                self.model_entity, ["model_definition", "id"]
+            ):
+                prop_map[MetaNames.MODEL_DEFINITON] = model_definition_id
 
             if self.model_metadata.space_id:
                 prop_map[MetaNames.SPACE_ID] = self.model_metadata.space_id
@@ -163,13 +166,15 @@ class ModelAdapter(object):
             if hyper_parameters := self.model_entity.get('hyper_parameters'):
                 prop_map[MetaNames.HYPER_PARAMETERS] =  hyper_parameters
 
-            if software_spec := self.model_entity.get('software_spec', {}).get('id'):
+            if software_spec := get_from_json(
+                self.model_entity, ["software_spec", "id"]
+            ):
                 prop_map[MetaNames.SOFTWARE_SPEC] = software_spec
 
-            if input_schema := self.model_entity.get('schemas', {}).get('input'):
+            if input_schema := get_from_json(self.model_entity, ["schemas", "input"]):
                 prop_map[MetaNames.INPUT_DATA_SCHEMA] = input_schema
 
-            if output_schema := self.model_entity.get('schemas', {}).get('output'):
+            if output_schema := get_from_json(self.model_entity, ["schemas", "output"]):
                 prop_map[MetaNames.OUTPUT_DATA_SCHEMA] = output_schema
 
             if metrics := self.model_entity.get('metrics') is not None:

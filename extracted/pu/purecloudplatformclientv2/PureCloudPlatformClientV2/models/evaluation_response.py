@@ -62,6 +62,7 @@ class EvaluationResponse(object):
             'evaluation_form': 'EvaluationFormResponse',
             'evaluator': 'User',
             'agent': 'User',
+            'calibration': 'AddressableEntityRef',
             'status': 'str',
             'answers': 'EvaluationScoringSet',
             'agent_has_read': 'bool',
@@ -69,10 +70,13 @@ class EvaluationResponse(object):
             'assignee_applicable': 'bool',
             'release_date': 'datetime',
             'assigned_date': 'datetime',
+            'created_date': 'datetime',
             'changed_date': 'datetime',
+            'submitted_date': 'datetime',
             'revision_created_date': 'datetime',
             'queue': 'Queue',
             'media_type': 'list[str]',
+            'division_ids': 'list[str]',
             'rescore': 'bool',
             'conversation_date': 'datetime',
             'conversation_end_date': 'datetime',
@@ -87,8 +91,7 @@ class EvaluationResponse(object):
             'has_assistance_failed': 'bool',
             'evaluation_source': 'EvaluationSource',
             'ai_scoring': 'AiScoring',
-            'self_uri': 'str',
-            'calibration': 'AddressableEntityRef'
+            'self_uri': 'str'
         }
 
         self.attribute_map = {
@@ -98,6 +101,7 @@ class EvaluationResponse(object):
             'evaluation_form': 'evaluationForm',
             'evaluator': 'evaluator',
             'agent': 'agent',
+            'calibration': 'calibration',
             'status': 'status',
             'answers': 'answers',
             'agent_has_read': 'agentHasRead',
@@ -105,10 +109,13 @@ class EvaluationResponse(object):
             'assignee_applicable': 'assigneeApplicable',
             'release_date': 'releaseDate',
             'assigned_date': 'assignedDate',
+            'created_date': 'createdDate',
             'changed_date': 'changedDate',
+            'submitted_date': 'submittedDate',
             'revision_created_date': 'revisionCreatedDate',
             'queue': 'queue',
             'media_type': 'mediaType',
+            'division_ids': 'divisionIds',
             'rescore': 'rescore',
             'conversation_date': 'conversationDate',
             'conversation_end_date': 'conversationEndDate',
@@ -123,8 +130,7 @@ class EvaluationResponse(object):
             'has_assistance_failed': 'hasAssistanceFailed',
             'evaluation_source': 'evaluationSource',
             'ai_scoring': 'aiScoring',
-            'self_uri': 'selfUri',
-            'calibration': 'calibration'
+            'self_uri': 'selfUri'
         }
 
         self._id = None
@@ -133,6 +139,7 @@ class EvaluationResponse(object):
         self._evaluation_form = None
         self._evaluator = None
         self._agent = None
+        self._calibration = None
         self._status = None
         self._answers = None
         self._agent_has_read = None
@@ -140,10 +147,13 @@ class EvaluationResponse(object):
         self._assignee_applicable = None
         self._release_date = None
         self._assigned_date = None
+        self._created_date = None
         self._changed_date = None
+        self._submitted_date = None
         self._revision_created_date = None
         self._queue = None
         self._media_type = None
+        self._division_ids = None
         self._rescore = None
         self._conversation_date = None
         self._conversation_end_date = None
@@ -159,7 +169,6 @@ class EvaluationResponse(object):
         self._evaluation_source = None
         self._ai_scoring = None
         self._self_uri = None
-        self._calibration = None
 
     @property
     def id(self) -> str:
@@ -304,6 +313,30 @@ class EvaluationResponse(object):
         
 
         self._agent = agent
+
+    @property
+    def calibration(self) -> 'AddressableEntityRef':
+        """
+        Gets the calibration of this EvaluationResponse.
+
+
+        :return: The calibration of this EvaluationResponse.
+        :rtype: AddressableEntityRef
+        """
+        return self._calibration
+
+    @calibration.setter
+    def calibration(self, calibration: 'AddressableEntityRef') -> None:
+        """
+        Sets the calibration of this EvaluationResponse.
+
+
+        :param calibration: The calibration of this EvaluationResponse.
+        :type: AddressableEntityRef
+        """
+        
+
+        self._calibration = calibration
 
     @property
     def status(self) -> str:
@@ -479,6 +512,30 @@ class EvaluationResponse(object):
         self._assigned_date = assigned_date
 
     @property
+    def created_date(self) -> datetime:
+        """
+        Gets the created_date of this EvaluationResponse.
+        Date the first version of this evaluation was created. Date time is represented as an ISO-8601 string. For example: yyyy-MM-ddTHH:mm:ss[.mmm]Z
+
+        :return: The created_date of this EvaluationResponse.
+        :rtype: datetime
+        """
+        return self._created_date
+
+    @created_date.setter
+    def created_date(self, created_date: datetime) -> None:
+        """
+        Sets the created_date of this EvaluationResponse.
+        Date the first version of this evaluation was created. Date time is represented as an ISO-8601 string. For example: yyyy-MM-ddTHH:mm:ss[.mmm]Z
+
+        :param created_date: The created_date of this EvaluationResponse.
+        :type: datetime
+        """
+        
+
+        self._created_date = created_date
+
+    @property
     def changed_date(self) -> datetime:
         """
         Gets the changed_date of this EvaluationResponse.
@@ -501,6 +558,30 @@ class EvaluationResponse(object):
         
 
         self._changed_date = changed_date
+
+    @property
+    def submitted_date(self) -> datetime:
+        """
+        Gets the submitted_date of this EvaluationResponse.
+        Date the evaluation was last submitted. Date time is represented as an ISO-8601 string. For example: yyyy-MM-ddTHH:mm:ss[.mmm]Z
+
+        :return: The submitted_date of this EvaluationResponse.
+        :rtype: datetime
+        """
+        return self._submitted_date
+
+    @submitted_date.setter
+    def submitted_date(self, submitted_date: datetime) -> None:
+        """
+        Sets the submitted_date of this EvaluationResponse.
+        Date the evaluation was last submitted. Date time is represented as an ISO-8601 string. For example: yyyy-MM-ddTHH:mm:ss[.mmm]Z
+
+        :param submitted_date: The submitted_date of this EvaluationResponse.
+        :type: datetime
+        """
+        
+
+        self._submitted_date = submitted_date
 
     @property
     def revision_created_date(self) -> datetime:
@@ -573,6 +654,30 @@ class EvaluationResponse(object):
         
 
         self._media_type = media_type
+
+    @property
+    def division_ids(self) -> List[str]:
+        """
+        Gets the division_ids of this EvaluationResponse.
+        Evaluation is assigned in the following division(s).
+
+        :return: The division_ids of this EvaluationResponse.
+        :rtype: list[str]
+        """
+        return self._division_ids
+
+    @division_ids.setter
+    def division_ids(self, division_ids: List[str]) -> None:
+        """
+        Sets the division_ids of this EvaluationResponse.
+        Evaluation is assigned in the following division(s).
+
+        :param division_ids: The division_ids of this EvaluationResponse.
+        :type: list[str]
+        """
+        
+
+        self._division_ids = division_ids
 
     @property
     def rescore(self) -> bool:
@@ -938,30 +1043,6 @@ class EvaluationResponse(object):
         
 
         self._self_uri = self_uri
-
-    @property
-    def calibration(self) -> 'AddressableEntityRef':
-        """
-        Gets the calibration of this EvaluationResponse.
-
-
-        :return: The calibration of this EvaluationResponse.
-        :rtype: AddressableEntityRef
-        """
-        return self._calibration
-
-    @calibration.setter
-    def calibration(self, calibration: 'AddressableEntityRef') -> None:
-        """
-        Sets the calibration of this EvaluationResponse.
-
-
-        :param calibration: The calibration of this EvaluationResponse.
-        :type: AddressableEntityRef
-        """
-        
-
-        self._calibration = calibration
 
     def to_dict(self):
         """

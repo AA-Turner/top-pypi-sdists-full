@@ -25,6 +25,7 @@ from attrs import field
 
 from semgrep import __VERSION__
 from semgrep import tracing
+from semgrep.util import is_semgrep_url
 
 
 @define
@@ -196,14 +197,20 @@ class AppSession(requests.Session):
         from semgrep.state import get_state  # avoid circular imports
 
         state = get_state()
+        method, url = args
 
         kwargs["headers"].setdefault("User-Agent", str(self.user_agent))
         kwargs["headers"].setdefault("X-Semgrep-Scan-ID", str(state.local_scan_id))
-        if self.token:
+
+        # saf-2051: attach semgrep token if we are able to deterimine URL
+        # is 1st party
+        #
+        # TODO: this logic is copied from `config_resolver.py`, we should
+        # refactor such that the logic is shared
+        if self.token and is_semgrep_url(url, state.env.semgrep_url):
             kwargs["headers"].setdefault("Authorization", f"Bearer {self.token}")
 
         error_handler = state.error_handler
-        method, url = args
         error_handler.push_request(method, url, **kwargs)
         try:
             response = super().request(*args, **kwargs)

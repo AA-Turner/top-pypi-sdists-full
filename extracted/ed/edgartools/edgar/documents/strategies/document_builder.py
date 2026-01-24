@@ -28,7 +28,7 @@ from edgar.documents.types import ParseContext, SemanticType, Style
 class DocumentBuilder:
     """
     Builds Document node tree from parsed HTML.
-
+    
     Handles the conversion of HTML elements into structured nodes
     with proper hierarchy and metadata.
     """
@@ -46,16 +46,22 @@ class DocumentBuilder:
         'span', 'a', 'em', 'strong', 'b', 'i', 'u', 's',
         'small', 'mark', 'del', 'ins', 'sub', 'sup',
         'code', 'kbd', 'var', 'samp', 'abbr', 'cite',
-        'q', 'time', 'font'
+        'q', 'time', 'font',
+        # IXBRL inline elements for simple values - should not break text flow  
+        'ix:nonfraction', 'ix:footnote', 'ix:fraction'
     }
 
     # Elements to skip
-    SKIP_ELEMENTS = {'script', 'style', 'meta', 'link', 'noscript'}
+    SKIP_ELEMENTS = {
+        'script', 'style', 'meta', 'link', 'noscript',
+        # IXBRL exclude elements - content that should not appear in final document
+        'ix:exclude'
+    }
 
     def __init__(self, config: ParserConfig, strategies: Dict[str, Any]):
         """
         Initialize document builder.
-
+        
         Args:
             config: Parser configuration
             strategies: Dictionary of parsing strategies
@@ -72,10 +78,10 @@ class DocumentBuilder:
     def build(self, tree: HtmlElement) -> DocumentNode:
         """
         Build document from HTML tree.
-
+        
         Args:
             tree: Parsed HTML tree
-
+            
         Returns:
             Document root node
         """
@@ -100,16 +106,38 @@ class DocumentBuilder:
     def _process_element(self, element: HtmlElement, parent: Node) -> Optional[Node]:
         """
         Process HTML element into node.
-
+        
         Args:
             element: HTML element to process
             parent: Parent node
-
+            
         Returns:
             Created node or None if skipped
         """
-        # Skip certain elements
+
+        # Skip certain elements but preserve their tail text
         if element.tag in self.SKIP_ELEMENTS:
+            # Process tail text even when skipping element
+            if element.tail:
+                if self.config.preserve_whitespace:
+                    text_node = TextNode(content=element.tail)
+                    parent.add_child(text_node)
+                else:
+                    if element.tail.strip():
+                        text_node = TextNode(content=element.tail.strip())
+                        parent.add_child(text_node)
+            return None
+
+        # Skip page number containers
+        if self._is_page_number_container(element):
+            return None
+
+        # Skip page break elements
+        if self._is_page_break_element(element):
+            return None
+
+        # Skip navigation containers that follow page breaks
+        if self._is_page_navigation_container(element):
             return None
 
         # Track parsing depth
@@ -160,6 +188,11 @@ class DocumentBuilder:
                             if element.tail.strip():
                                 text_node = TextNode(content=element.tail.strip())
                                 parent.add_child(text_node)
+                            elif element.tail.isspace():
+                                # Even if tail is just whitespace, preserve the spacing info
+                                # This helps with inline element spacing decisions
+                                if hasattr(node, 'set_metadata'):
+                                    node.set_metadata('has_tail_whitespace', True)
                 else:
                     # Node created but children not processed - still need to handle tail
                     if element.tail:
@@ -170,6 +203,10 @@ class DocumentBuilder:
                             if element.tail.strip():
                                 text_node = TextNode(content=element.tail.strip())
                                 parent.add_child(text_node)
+                            elif element.tail.isspace():
+                                # Even if tail is just whitespace, preserve the spacing info
+                                if hasattr(node, 'set_metadata'):
+                                    node.set_metadata('has_tail_whitespace', True)
             else:
                 # No node created, process children with same parent
                 for child in element:
@@ -198,6 +235,7 @@ class DocumentBuilder:
         """Create appropriate node for HTML element."""
         tag = element.tag.lower() if not element.tag.startswith('{') else element.tag
 
+
         # Check for heading
         if tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
             level = int(tag[1])
@@ -214,7 +252,13 @@ class DocumentBuilder:
 
         # Check if element might be a heading based on style/content
         # Skip header detection for certain tags that should never be headers
-        skip_header_detection_tags = {'li', 'td', 'th', 'option', 'a', 'button', 'label'}
+        skip_header_detection_tags = {
+            'li', 'td', 'th', 'option', 'a', 'button', 'label',
+            # IXBRL inline elements - should not be treated as headers
+            'ix:nonfraction', 'ix:footnote', 'ix:fraction',
+            # IXBRL elements that can contain tables and complex content
+            'ix:nonNumeric', 'ix:continuation'
+        }
         if tag not in skip_header_detection_tags and self.strategies.get('header_detection'):
             header_info = self.strategies['header_detection'].detect(element, self.context)
             if header_info and header_info.confidence > self.config.header_detection_threshold:
@@ -269,11 +313,24 @@ class DocumentBuilder:
             return SectionNode(style=style)
 
         elif tag == 'div' or tag in self.BLOCK_ELEMENTS:
-            # Check if this is just a text container
-            if self._is_text_only_container(element):
+            # Check if CSS display property makes this inline
+            if style.display in ['inline', 'inline-block']:
+                # Treat as inline element despite being a div
                 text = self._get_element_text(element)
                 if text:
-                    return ParagraphNode(style=style)
+                    text_node = TextNode(content=text, style=style)
+                    text_node.set_metadata('original_tag', tag)
+                    text_node.set_metadata('inline_via_css', True)
+                    return text_node
+                # If no text but inline, still process children inline
+                return ContainerNode(tag_name=tag, style=style)
+
+            # Normal block behavior
+            # Check if this is just a text container with only inline elements
+            if self._is_text_only_container(element):
+                # Create ParagraphNode for divs containing only inline elements
+                # This ensures proper text concatenation for spans, etc.
+                return ParagraphNode(style=style)
             else:
                 return ContainerNode(tag_name=tag, style=style)
 
@@ -286,8 +343,185 @@ class DocumentBuilder:
                 text_node.set_metadata('original_tag', tag)
                 return text_node
 
+        elif tag in ['ix:nonNumeric', 'ix:continuation']:
+            # IXBRL elements that can contain complex content including tables
+            # Process as container to allow proper table parsing
+            return ContainerNode(tag_name=tag, style=style)
+
         # Default: create container for unknown elements
         return ContainerNode(tag_name=tag, style=style)
+
+    def _is_page_number_container(self, element: HtmlElement) -> bool:
+        """Detect and filter page number containers across various SEC filing patterns."""
+
+        # Get text content first - all page numbers should be short
+        text_content = element.text_content().strip()
+
+        # Must be short content (1-8 chars to handle "Page X" format) 
+        if len(text_content) > 8 or len(text_content) == 0:
+            return False
+
+        # Must be numeric, roman numerals, or "Page X" format
+        if not self._is_page_number_content(text_content):
+            return False
+
+        # Check various patterns based on element type and styling
+        tag = element.tag.lower()
+
+        # Pattern 1: Oracle-style flexbox containers (highest confidence)
+        if tag == 'div' and self._is_flexbox_page_number(element):
+            return True
+
+        # Pattern 2: Center/right aligned paragraphs (common pattern)
+        if tag == 'p' and self._is_aligned_page_number(element):
+            return True
+
+        # Pattern 3: Footer-style divs with centered page numbers
+        if tag == 'div' and self._is_footer_page_number(element):
+            return True
+
+        # Pattern 4: Simple divs with page break context
+        if tag == 'div' and self._is_page_break_context(element):
+            return True
+
+        return False
+
+    def _is_page_number_content(self, text: str) -> bool:
+        """Check if text content looks like a page number."""
+        import re
+
+        # Simple numeric (most common)
+        if text.isdigit():
+            return True
+
+        # Roman numerals
+        if re.match(r'^[ivxlcdm]+$', text.lower()):
+            return True
+
+        # "Page X" or "Page X of Y" format
+        if re.match(r'^page\s+\d+(\s+of\s+\d+)?$', text.lower()):
+            return True
+
+        return False
+
+    def _is_flexbox_page_number(self, element: HtmlElement) -> bool:
+        """Detect Oracle-style flexbox page number containers."""
+        import re
+
+        style_attr = element.get('style', '')
+        if not style_attr:
+            return False
+
+        # Must have: display:flex, justify-content:flex-end, min-height:1in
+        required_patterns = [
+            r'display:\s*flex',
+            r'justify-content:\s*flex-end',
+            r'min-height:\s*1in'
+        ]
+
+        return all(re.search(pattern, style_attr) for pattern in required_patterns)
+
+    def _is_aligned_page_number(self, element: HtmlElement) -> bool:
+        """Detect center or right-aligned page number paragraphs."""
+        import re
+
+        style_attr = element.get('style', '')
+
+        # Check for center or right alignment
+        alignment_pattern = r'text-align:\s*(center|right)'
+        if not re.search(alignment_pattern, style_attr):
+            return False
+
+        # Optional: check for smaller font size (common in page numbers)
+        font_size_pattern = r'font-size:\s*([0-9]+)pt'
+        font_match = re.search(font_size_pattern, style_attr)
+        if font_match:
+            font_size = int(font_match.group(1))
+            # Page numbers often use smaller fonts (8-12pt)
+            if font_size <= 12:
+                return True
+
+        return True  # Any center/right aligned short content
+
+    def _is_footer_page_number(self, element: HtmlElement) -> bool:
+        """Detect footer-style page number containers."""
+        import re
+
+        style_attr = element.get('style', '')
+
+        # Look for bottom positioning or footer-like styling
+        footer_patterns = [
+            r'bottom:\s*[0-9]',
+            r'position:\s*absolute',
+            r'margin-bottom:\s*0',
+            r'text-align:\s*center'
+        ]
+
+        # Need at least 2 footer indicators
+        matches = sum(1 for pattern in footer_patterns if re.search(pattern, style_attr))
+        return matches >= 2
+
+    def _is_page_break_context(self, element: HtmlElement) -> bool:
+        """Check if element is near page breaks (common page number context)."""
+
+        # Check next sibling for page break HR
+        next_elem = element.getnext()
+        if next_elem is not None and next_elem.tag == 'hr':
+            hr_style = next_elem.get('style', '')
+            if 'page-break' in hr_style:
+                return True
+
+        # Check if element has page-break styling itself
+        style_attr = element.get('style', '')
+        if 'page-break' in style_attr:
+            return True
+
+        return False
+
+    def _is_page_break_element(self, element: HtmlElement) -> bool:
+        """Detect page break HR elements."""
+        if element.tag.lower() != 'hr':
+            return False
+
+        style_attr = element.get('style', '')
+
+        # Check for page-break-after:always or similar page break styles
+        return 'page-break' in style_attr
+
+    def _is_page_navigation_container(self, element: HtmlElement) -> bool:
+        """Detect navigation containers that appear after page breaks."""
+        if element.tag.lower() != 'div':
+            return False
+
+        style_attr = element.get('style', '')
+
+        # Check for navigation container patterns
+        # Often have: padding-top, min-height:1in, box-sizing:border-box
+        nav_indicators = [
+            r'padding-top:\s*0\.5in',
+            r'min-height:\s*1in',
+            r'box-sizing:\s*border-box'
+        ]
+
+        import re
+        matches = sum(1 for pattern in nav_indicators if re.search(pattern, style_attr))
+
+        # Need at least 2 indicators
+        if matches < 2:
+            return False
+
+        # Check if it contains typical navigation content
+        text_content = element.text_content().strip().lower()
+
+        # Common navigation phrases
+        nav_phrases = [
+            'table of contents',
+            'index to financial statements',
+            'table of content',
+            'index to financial statement'
+        ]
+
+        return any(phrase in text_content for phrase in nav_phrases)
 
     def _extract_style(self, element: HtmlElement) -> Style:
         """Extract style from element."""
@@ -316,7 +550,11 @@ class DocumentBuilder:
 
         # Get element's direct text
         if element.text:
-            text_parts.append(element.text.strip())
+            # For inline elements, preserve leading/trailing whitespace
+            if element.tag.lower() in self.INLINE_ELEMENTS:
+                text_parts.append(element.text)
+            else:
+                text_parts.append(element.text.strip())
 
         # For simple elements, get all text content
         if element.tag.lower() in self.INLINE_ELEMENTS or \
@@ -326,9 +564,18 @@ class DocumentBuilder:
                 if child.tag.lower() not in self.SKIP_ELEMENTS:
                     child_text = child.text_content()
                     if child_text:
-                        text_parts.append(child_text.strip())
+                        # For inline elements, preserve whitespace in child content too
+                        if element.tag.lower() in self.INLINE_ELEMENTS:
+                            text_parts.append(child_text)
+                        else:
+                            text_parts.append(child_text.strip())
 
-        return ' '.join(text_parts)
+        # For inline elements with preserved whitespace, concatenate directly
+        # For others, join with spaces
+        if element.tag.lower() in self.INLINE_ELEMENTS and len(text_parts) == 1:
+            return text_parts[0] if text_parts else ''
+        else:
+            return ' '.join(text_parts)
 
     def _is_text_only_container(self, element: HtmlElement) -> bool:
         """Check if element contains only text and inline elements."""
@@ -354,6 +601,9 @@ class DocumentBuilder:
     def _process_table_basic(self, element: HtmlElement, style: Style) -> TableNode:
         """Basic table processing without advanced strategy."""
         table = TableNode(style=style)
+
+        # Set config for rendering decisions
+        table._config = self.config
 
         # Extract caption
         caption_elem = element.find('.//caption')

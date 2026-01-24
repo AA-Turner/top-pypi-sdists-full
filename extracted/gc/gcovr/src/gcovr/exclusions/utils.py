@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -19,29 +19,30 @@
 
 """Utils for exclusion of lines and branches"""
 
-import logging
-from typing import Callable, Iterable, Optional
+from typing import Callable, Iterable
 
-from ..coverage import FileCoverage, FunctionCoverage
+from ..data_model.coverage import FileCoverage, FunctionCoverage
+from ..logging import LOGGER
 
-LOGGER = logging.getLogger("gcovr")
 
 ExclusionPredicate = Callable[[int], bool]
 FunctionListByLine = dict[int, list[FunctionCoverage]]
 
 
 def function_exclude_not_supported(
-    filename: Optional[str] = None,
-    lineno: Optional[int] = None,
-    columnno: Optional[int] = None,
+    filename: str | None = None,
+    lineno: int | None = None,
+    columnno: int | None = None,
 ) -> None:
     """warn that a function exclude isn't supported"""
     if filename is None:
         LOGGER.warning("Function exclusion not supported for this compiler.")
     else:
         LOGGER.warning(
-            f"Function exclude marker found on line {lineno}:{columnno} but not supported for this compiler, "
-            f"when processing {filename}."
+            "Function exclude marker found on line %s:%s but not supported for this compiler, when processing %s.",
+            lineno,
+            columnno,
+            filename,
         )
 
 
@@ -50,8 +51,10 @@ def function_exclude_not_at_function_line(
 ) -> None:
     """warn that a function exclude is found at a line where no function is defined"""
     LOGGER.warning(
-        f"Function exclude marker found on line {lineno}:{columnno} but no function definition found, "
-        f"when processing {filename}."
+        "Function exclude marker found on line %s:%s but no function definition found, when processing %s.",
+        lineno,
+        columnno,
+        filename,
     )
 
 
@@ -59,7 +62,7 @@ def get_functions_by_line(filecov: FileCoverage) -> FunctionListByLine:
     """Get dict with the linenumber as key and the function defined in the line as value."""
     functions_by_line: FunctionListByLine = {}
     if filecov is not None:
-        for functioncov in filecov.functions.values():
+        for functioncov in filecov.functioncov():
             if functioncov.start is not None:
                 for lineno, _ in functioncov.start.items():
                     if lineno not in functions_by_line:
@@ -126,6 +129,7 @@ def apply_exclusion_ranges(
     *,
     line_is_excluded: ExclusionPredicate,
     branch_is_excluded: ExclusionPredicate,
+    warn_excluded_lines_with_hits: bool,
 ) -> None:
     """
     Remove any coverage information that is excluded by explicit markers such as
@@ -135,29 +139,27 @@ def apply_exclusion_ranges(
 
     Arguments:
         filecov: the coverage to filter
-        lines: the source code lines (not raw gcov lines)
-        exclude_lines_by_pattern: string with regex syntax to exclude
-            individual lines
-        exclude_branches_by_pattern: string with regex syntax to exclude
-            individual branches
-        exclude_pattern_prefix: string with prefix for _LINE/_START/_STOP markers.
+        line_is_excluded: the function to check if a line is excluded
+        branch_is_excluded: the function to check if the branches are excluded
     """
 
-    for linecov in filecov.lines.values():
-        # always erase decision coverage since exclusions can change analysis
-        linecov.decision = None
+    for linecov_collection in filecov.lines():
+        if line_is_excluded(linecov_collection.lineno):
+            if warn_excluded_lines_with_hits and linecov_collection.count:
+                LOGGER.warning(
+                    "%s: Line with %d hit(s) excluded.",
+                    linecov_collection.location,
+                    linecov_collection.count,
+                )
+            linecov_collection.exclude()
 
-        if line_is_excluded(linecov.lineno):
-            linecov.exclude()
+        elif branch_is_excluded(linecov_collection.lineno):
+            linecov_collection.exclude_branches()
 
-        elif branch_is_excluded(linecov.lineno):
-            linecov.branches = {}
-
-    for functioncov in filecov.functions.values():
-        for lineno in functioncov.excluded.keys():
+    for functioncov in filecov.functioncov():
+        for lineno in functioncov.reportable_linenos:
             if line_is_excluded(lineno):
-                functioncov.count[lineno] = 0
-                functioncov.excluded[lineno] = True
+                functioncov.exclude(lineno)
 
 
 def make_is_in_any_range_inclusive(

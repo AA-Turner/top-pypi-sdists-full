@@ -16,15 +16,15 @@ This private submodule is *not* intended for importation by downstream callers.
 from beartype.roar import BeartypeDecorHintPep484585Exception
 from beartype.typing import Tuple
 from beartype._data.func.datafuncarg import ARG_NAME_RETURN
-from beartype._data.hint.datahintpep import (
+from beartype._data.typing.datatypingport import (
     DictStrToHint,
     Hint,
 )
-from beartype._data.hint.datahinttyping import (
+from beartype._data.typing.datatyping import (
     TypeException,
 )
-from beartype._data.hint.pep.sign.datapepsigns import HintSignCoroutine
-from beartype._data.hint.pep.sign.datapepsignset import (
+from beartype._data.hint.sign.datahintsigns import HintSignCoroutine
+from beartype._data.hint.sign.datahintsignset import (
     HINT_SIGNS_RETURN_GENERATOR_ASYNC,
     HINT_SIGNS_RETURN_GENERATOR_SYNC,
 )
@@ -34,6 +34,8 @@ from beartype._util.func.utilfunctest import (
     is_func_async_generator,
     is_func_sync_generator,
 )
+from beartype._util.hint.pep.proposal.pep649 import (
+    get_pep649_hintable_annotations)
 from beartype._util.text.utiltextprefix import prefix_callable_return
 from collections.abc import (
     AsyncGenerator,
@@ -44,7 +46,7 @@ from collections.abc import (
 # ....................{ REDUCERS ~ return                  }....................
 def reduce_hint_pep484585_func_return(
     func: Callable,
-    func_arg_name_to_hint: DictStrToHint,
+    func_annotations: DictStrToHint,
     exception_prefix: str,
 ) -> Hint:
     '''
@@ -56,7 +58,7 @@ def reduce_hint_pep484585_func_return(
     ----------
     func : Callable
         Callable to be type-checked.
-    func_arg_name_to_hint : dict[str, Hint]
+    func_annotations : dict[str, Hint]
         Dictionary mapping from the name of each annotated parameter
         semantically (but possibly *not* physically in the edge case in which
         the passed callable to be type-checked differs from the callable
@@ -81,8 +83,8 @@ def reduce_hint_pep484585_func_return(
         * An asynchronous generator *not* annotated by a type hint identified
           by a sign in the :data:`HINT_SIGNS_RETURN_GENERATOR_ASYNC` set.
     '''
-    assert isinstance(func_arg_name_to_hint, dict), (
-        f'{repr(func_arg_name_to_hint)} not dictionary.')
+    assert isinstance(func_annotations, dict), (
+        f'{repr(func_annotations)} not dictionary.')
 
     # Avoid circular import dependencies.
     from beartype._util.hint.pep.proposal.pep484585.pep484585 import (
@@ -91,7 +93,7 @@ def reduce_hint_pep484585_func_return(
 
     # Type hint annotating this callable's return, which the caller has already
     # explicitly guaranteed to exist.
-    hint = func_arg_name_to_hint[ARG_NAME_RETURN]
+    hint = func_annotations[ARG_NAME_RETURN]
 
     # Sign uniquely identifying this hint if any *OR* "None" otherwise (e.g.,
     # if this hint is an isinstanceable class).
@@ -128,35 +130,6 @@ def reduce_hint_pep484585_func_return(
         # "Coroutine[None, None, {hint}]".
     # Else, the decorated callable is *NOT* a coroutine.
     #
-    # If the decorated callable is an asynchronous generator...
-    elif is_func_async_generator(func):
-        # If this hint is neither...
-        if not (
-            # A PEP-compliant type hint acceptable as the return annotation of
-            # an synchronous generator *NOR*...
-            hint_sign in HINT_SIGNS_RETURN_GENERATOR_ASYNC or
-            # The "collections.abc.AsyncGenerator" abstract base class (ABC) or
-            # a subclass of that ABC...
-            is_type_subclass(hint, AsyncGenerator)
-        # Then this hint is semantically invalid as the return annotation of
-        # this callable. In this case, raise an exception.
-        ):
-            _die_of_hint_return_invalid(
-                func=func,
-                exception_suffix=(
-                    ' (i.e., expected either '
-                    'collections.abc.AsyncGenerator[YieldType, SendType], '
-                    'collections.abc.AsyncIterable[YieldType], '
-                    'collections.abc.AsyncIterator[YieldType], '
-                    'typing.AsyncGenerator[YieldType, SendType], '
-                    'typing.AsyncIterable[YieldType], or '
-                    'typing.AsyncIterator[YieldType] '
-                    'type hint).'
-                ),
-            )
-        # Else, this hint is valid as the return annotation of this callable.
-    # Else, the decorated callable is *NOT* an asynchronous generator.
-    #
     # If the decorated callable is a synchronous generator...
     elif is_func_sync_generator(func):
         # If this hint is neither...
@@ -166,7 +139,9 @@ def reduce_hint_pep484585_func_return(
             hint_sign in HINT_SIGNS_RETURN_GENERATOR_SYNC or
             # The "collections.abc.Generator" abstract base class (ABC) or a
             # subclass of that ABC...
-            is_type_subclass(hint, Generator)
+            is_type_subclass(hint, Generator) or
+            # The ignorable "object" superclass...
+            hint is object
         # Then this hint is semantically invalid as the return annotation of
         # this callable. In this case, raise an exception.
         ):
@@ -178,9 +153,40 @@ def reduce_hint_pep484585_func_return(
                     'collections.abc.Iterable[YieldType], '
                     'collections.abc.Iterator[YieldType], '
                     'typing.Generator[YieldType, SendType, ReturnType], '
-                    'typing.Iterable[YieldType], or '
-                    'typing.Iterator[YieldType] '
-                    'type hint).'
+                    'typing.Iterable[YieldType], '
+                    'typing.Iterator[YieldType], or '
+                    'typing.Any type hint).'
+                ),
+            )
+        # Else, this hint is valid as the return annotation of this callable.
+    # Else, the decorated callable is *NOT* a synchronous generator.
+    #
+    # If the decorated callable is an asynchronous generator...
+    elif is_func_async_generator(func):
+        # If this hint is neither...
+        if not (
+            # A PEP-compliant type hint acceptable as the return annotation of
+            # an synchronous generator *NOR*...
+            hint_sign in HINT_SIGNS_RETURN_GENERATOR_ASYNC or
+            # The "collections.abc.AsyncGenerator" abstract base class (ABC) or
+            # a subclass of that ABC *NOR*...
+            is_type_subclass(hint, AsyncGenerator) or
+            # The ignorable "object" superclass...
+            hint is object
+        # Then this hint is semantically invalid as the return annotation of
+        # this callable. In this case, raise an exception.
+        ):
+            _die_of_hint_return_invalid(
+                func=func,
+                exception_suffix=(
+                    ' (i.e., expected either '
+                    'collections.abc.AsyncGenerator[YieldType, SendType], '
+                    'collections.abc.AsyncIterable[YieldType], '
+                    'collections.abc.AsyncIterator[YieldType], '
+                    'typing.AsyncGenerator[YieldType, SendType], '
+                    'typing.AsyncIterable[YieldType], '
+                    'typing.AsyncIterator[YieldType], or '
+                    'typing.Any type hint).'
                 ),
             )
         # Else, this hint is valid as the return annotation of this callable.
@@ -223,12 +229,15 @@ def _die_of_hint_return_invalid(
     assert isinstance(exception_suffix, str), (
         f'{repr(exception_suffix)} not string.')
 
+    # "__annotations__" dunder dictionary providing this callable's type hints.
+    func_annotations = get_pep649_hintable_annotations(func)
+
     # Type hint annotating this callable's return, which the caller has already
     # explicitly guaranteed to exist.
-    hint = func.__annotations__[ARG_NAME_RETURN]
+    hint_return = func_annotations[ARG_NAME_RETURN]
 
     # Raise an exception of this type with a message suffixed by this suffix.
     raise exception_cls(
-        f'{prefix_callable_return(func)}type hint '
-        f'{repr(hint)} contextually invalid{exception_suffix}'
+        f'{prefix_callable_return(func)}type hint {repr(hint_return)} '
+        f'contextually invalid{exception_suffix}'
     )

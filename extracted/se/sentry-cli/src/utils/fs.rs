@@ -2,9 +2,10 @@ use std::env;
 use std::fs;
 use std::io;
 use std::io::{Read, Seek};
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use flate2::read::GzDecoder;
 use log::error;
 use sha1_smol::{Digest, Sha1};
@@ -94,11 +95,7 @@ impl Drop for TempFile {
     fn drop(&mut self) {
         let result = fs::remove_file(&self.path);
         if let Err(e) = result {
-            error!(
-                "Failed to delete TempFile {}: {:?}",
-                &self.path.display(),
-                e
-            );
+            error!("Failed to delete TempFile {}: {e:?}", &self.path.display());
         }
     }
 
@@ -115,9 +112,8 @@ impl Drop for TempFile {
 
         if let Err(e) = result {
             error!(
-                "Failed to open {} to flag for delete: {:?}",
-                &self.path.display(),
-                e
+                "Failed to open {} to flag for delete: {e:?}",
+                &self.path.display()
             );
         }
     }
@@ -147,39 +143,20 @@ pub fn set_executable_mode<P: AsRef<Path>>(path: P) -> Result<()> {
     Ok(())
 }
 
-/// Returns the SHA1 hash of the given input.
-pub fn get_sha1_checksum<R: Read>(rdr: R) -> Result<Digest> {
-    let mut sha = Sha1::new();
-    let mut buf = [0u8; 16384];
-    let mut rdr = io::BufReader::new(rdr);
-    loop {
-        let read = rdr.read(&mut buf)?;
-        if read == 0 {
-            break;
-        }
-        sha.update(&buf[..read]);
-    }
-    Ok(sha.digest())
-}
-
 /// Returns the SHA1 hash for the entire input, as well as each chunk of it. The
 /// `chunk_size` must be non-zero.
-pub fn get_sha1_checksums(data: &[u8], chunk_size: usize) -> Result<(Digest, Vec<Digest>)> {
-    if chunk_size == 0 {
-        bail!("Chunk size may not be zero.");
-    }
-
+pub fn get_sha1_checksums(data: &[u8], chunk_size: NonZeroUsize) -> (Digest, Vec<Digest>) {
     let mut total_sha = Sha1::new();
     let mut chunks = Vec::new();
 
-    for chunk in data.chunks(chunk_size) {
+    for chunk in data.chunks(chunk_size.into()) {
         let mut chunk_sha = Sha1::new();
         chunk_sha.update(chunk);
         total_sha.update(chunk);
         chunks.push(chunk_sha.digest());
     }
 
-    Ok((total_sha.digest(), chunks))
+    (total_sha.digest(), chunks)
 }
 
 /// Checks if provided slice contains gzipped data.
@@ -250,9 +227,10 @@ mod tests {
 
     #[test]
     fn sha1_checksums_power_of_two() {
+        const NONZERO_16: NonZeroUsize = NonZeroUsize::new(16).unwrap();
+
         let data = b"this is some binary data for the test";
-        let (total_sha, chunks) =
-            get_sha1_checksums(data, 16).expect("Method should not fail because 16 is not zero");
+        let (total_sha, chunks) = get_sha1_checksums(data, NONZERO_16);
 
         assert_eq!(
             total_sha.to_string(),
@@ -273,10 +251,11 @@ mod tests {
 
     #[test]
     fn sha1_checksums_not_power_of_two() {
+        const NONZERO_17: NonZeroUsize = NonZeroUsize::new(17).unwrap();
+
         let data = b"this is some binary data for the test";
 
-        let (total_sha, chunks) =
-            get_sha1_checksums(data, 17).expect("Method should not fail because 17 is not zero");
+        let (total_sha, chunks) = get_sha1_checksums(data, NONZERO_17);
 
         assert_eq!(
             total_sha.to_string(),
@@ -293,11 +272,5 @@ mod tests {
                 "665de1f2775ca0b64d3ceda7c1b4bd15e32a73ed"
             ]
         );
-    }
-
-    #[test]
-    fn sha1_checksums_zero() {
-        let data = b"this is some binary data for the test";
-        get_sha1_checksums(data, 0).expect_err("Method should fail because 0 is zero");
     }
 }

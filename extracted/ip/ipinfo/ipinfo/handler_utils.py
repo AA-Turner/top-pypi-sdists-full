@@ -15,6 +15,15 @@ API_URL = "https://ipinfo.io"
 # Base URL for the IPinfo Lite API
 LITE_API_URL = "https://api.ipinfo.io/lite"
 
+# Base URL for the IPinfo Core API
+CORE_API_URL = "https://api.ipinfo.io/lookup"
+
+# Base URL for the IPinfo Plus API (same as Core)
+PLUS_API_URL = "https://api.ipinfo.io/lookup"
+
+# Base URL for the IPinfo Residential Proxy API
+RESPROXY_API_URL = "https://ipinfo.io/resproxy"
+
 # Base URL to get country flag image link.
 # "PK" -> "https://cdn.ipinfo.io/static/images/countries-flags/PK.svg"
 COUNTRY_FLAGS_URL = "https://cdn.ipinfo.io/static/images/countries-flags/"

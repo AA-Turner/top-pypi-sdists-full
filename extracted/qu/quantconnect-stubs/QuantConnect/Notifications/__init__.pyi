@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
@@ -7,48 +7,6 @@ import QuantConnect.Notifications
 import System
 import System.Collections.Concurrent
 import System.Collections.Generic
-
-JsonConverter = typing.Any
-
-
-class NotificationJsonConverter(JsonConverter):
-    """Defines a JsonConverter to be used when deserializing to the Notification class."""
-
-    @property
-    def can_write(self) -> bool:
-        """Use default implementation to write the json"""
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
 
 
 class Notification(System.Object, metaclass=abc.ABCMeta):
@@ -122,7 +80,12 @@ class NotificationSms(QuantConnect.Notifications.Notification):
         ...
 
     def __init__(self, number: str, message: str) -> None:
-        """Constructor for sending a notification SMS to a specified phone number"""
+        """
+        Constructor for sending a notification SMS to a specified phone number
+        
+        :param number: 
+        :param message: 
+        """
         ...
 
 
@@ -178,7 +141,8 @@ class NotificationEmail(QuantConnect.Notifications.Notification):
         """
         Default constructor for sending an email notification
         
-        :param address: Address to send to, if null will default to users email. Will throw ArgumentException if invalid Validate.EmailAddress
+        :param address: Address to send to, if null will default to users email. Will throw ArgumentException if invalid
+        Validate.EmailAddress
         :param subject: Subject of the email. Will set to string.Empty if null
         :param message: Message body of the email. Will set to string.Empty if null
         :param data: Data to attach to the email. Will set to string.Empty if null
@@ -228,7 +192,8 @@ class NotificationTelegram(QuantConnect.Notifications.Notification):
         
         :param id: User Id or Group Id to send the message too
         :param message: Message to send
-        :param token: Bot token to use, if null defaults to "telegram-token" in config on send
+        :param token: Bot token to use, if null defaults to "telegram-token"
+        in config on send
         """
         ...
 
@@ -304,7 +269,8 @@ class NotificationFtp(QuantConnect.Notifications.Notification):
         :param hostname: FTP server hostname
         :param username: The FTP server username
         :param private_key: The private SSH key to use for authentication
-        :param private_keyPassphrase: The optional passphrase to decrypt the private key. This can be empty or null if the private key is not encrypted
+        :param private_key_passphrase: The optional passphrase to decrypt the private key.
+        This can be empty or null if the private key is not encrypted
         :param file_path: The path to file on the FTP server
         :param file_content: The contents of the file
         :param port: The FTP server port. Defaults to 21
@@ -334,7 +300,8 @@ class NotificationFtp(QuantConnect.Notifications.Notification):
         :param hostname: FTP server hostname
         :param username: The FTP server username
         :param private_key: The private SSH key to use for authentication
-        :param private_keyPassphrase: The optional passphrase to decrypt the private key. This can be empty or null if the private key is not encrypted
+        :param private_key_passphrase: The optional passphrase to decrypt the private key.
+        This can be empty or null if the private key is not encrypted
         :param file_path: The path to file on the FTP server
         :param file_content: The contents of the file
         :param port: The FTP server port. Defaults to 21
@@ -348,10 +315,50 @@ class NotificationExtensions(System.Object):
     @staticmethod
     def can_send(notification: QuantConnect.Notifications.Notification) -> bool:
         """
-        Check if the notification can be sent (implements the Notification.Send method)
+        Check if the notification can be sent (implements the Notification.send method)
         
         :param notification: The notification
         :returns: Whether the notification can be sent.
+        """
+        ...
+
+
+class NotificationJsonConverter:
+    """Defines a JsonConverter to be used when deserializing to the Notification class."""
+
+    @property
+    def can_write(self) -> bool:
+        """Use default implementation to write the json"""
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
         """
         ...
 
@@ -377,10 +384,10 @@ class NotificationManager(System.Object):
         """
         Send an email to the address specified for live trading notifications.
         
-        :param address: Email address to send to, if null will default to users email
         :param subject: Subject of the email
         :param message: Message body, up to 10kb
         :param data: Data attachment (optional)
+        :param address: Email address to send to, if null will default to users email
         :param headers: Optional email headers to use
         """
         ...
@@ -390,10 +397,10 @@ class NotificationManager(System.Object):
         """
         Send an email to the address specified for live trading notifications.
         
-        :param address: Email address to send to, if null will default to users email
         :param subject: Subject of the email
         :param message: Message body, up to 10kb
         :param data: Data attachment (optional)
+        :param address: Email address to send to, if null will default to users email
         :param headers: Optional email headers to use
         """
         ...
@@ -462,7 +469,8 @@ class NotificationManager(System.Object):
         :param hostname: FTP server hostname
         :param username: The FTP server username
         :param private_key: The private SSH key to use for authentication
-        :param private_keyPassphrase: The optional passphrase to decrypt the private key. This can be empty or null if the private key is not encrypted
+        :param private_key_passphrase: The optional passphrase to decrypt the private key.
+        This can be empty or null if the private key is not encrypted
         :param file_path: The path to file on the FTP server
         :param file_content: The contents of the file
         :param port: The FTP server port. Defaults to 21
@@ -477,7 +485,8 @@ class NotificationManager(System.Object):
         :param hostname: FTP server hostname
         :param username: The FTP server username
         :param private_key: The private SSH key to use for authentication
-        :param private_keyPassphrase: The optional passphrase to decrypt the private key. This can be empty or null if the private key is not encrypted
+        :param private_key_passphrase: The optional passphrase to decrypt the private key.
+        This can be empty or null if the private key is not encrypted
         :param file_path: The path to file on the FTP server
         :param file_content: The string contents of the file
         :param port: The FTP server port. Defaults to 21

@@ -182,12 +182,6 @@ options:
         using this in combination with wildcard characters in O(name) may result in an unexpected results.
     type: bool
     default: "no"
-  install_repoquery:
-    description:
-      - This is effectively a no-op in DNF as it is not needed with DNF.
-      - This option is deprecated and will be removed in ansible-core 2.20.
-    type: bool
-    default: "yes"
   download_only:
     description:
       - Only download the packages, do not install them.
@@ -601,6 +595,10 @@ class Dnf5Module(YumDnf):
         conf.localpkg_gpgcheck = not self.disable_gpg_check
         conf.sslverify = self.sslverify
         conf.clean_requirements_on_remove = self.autoremove
+
+        if not os.path.isdir(self.installroot):
+            self.module.fail_json(msg=f"Installroot {self.installroot} must be a directory")
+
         conf.installroot = self.installroot
         conf.use_host_config = True  # needed for installroot
         conf.cacheonly = "all" if self.cacheonly else "none"

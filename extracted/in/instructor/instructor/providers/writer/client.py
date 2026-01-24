@@ -27,7 +27,7 @@ def from_writer(
     client: Writer | AsyncWriter,
     mode: instructor.Mode = instructor.Mode.WRITER_TOOLS,
     **kwargs: Any,
-) -> instructor.client.Instructor | instructor.client.AsyncInstructor:
+) -> instructor.Instructor | instructor.AsyncInstructor:
     valid_modes = {instructor.Mode.WRITER_TOOLS, instructor.Mode.WRITER_JSON}
 
     if mode not in valid_modes:

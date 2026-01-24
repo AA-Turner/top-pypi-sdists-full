@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 6.4.3
+Version: 6.6.2
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -16,8 +16,64 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or l
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
-Provides-Extra: braze
 License-File: LICENSE
+Requires-Dist: bleach
+Requires-Dist: celery
+Requires-Dist: code-annotations
+Requires-Dist: cryptography
+Requires-Dist: django-cache-memoize
+Requires-Dist: django-config-models
+Requires-Dist: django-countries
+Requires-Dist: django-crum
+Requires-Dist: django-fernet-fields-v2
+Requires-Dist: django-filter
+Requires-Dist: django-ipware
+Requires-Dist: django-model-utils
+Requires-Dist: django-multi-email-field
+Requires-Dist: django-object-actions
+Requires-Dist: django-simple-history
+Requires-Dist: django-waffle
+Requires-Dist: django
+Requires-Dist: djangorestframework-xml
+Requires-Dist: djangorestframework
+Requires-Dist: edx-django-utils>=3.12.0
+Requires-Dist: edx-drf-extensions
+Requires-Dist: edx-opaque-keys[django]
+Requires-Dist: edx-rest-api-client
+Requires-Dist: edx-rbac
+Requires-Dist: tincan
+Requires-Dist: edx-toggles
+Requires-Dist: jsondiff
+Requires-Dist: jsonfield
+Requires-Dist: openedx-atlas
+Requires-Dist: openedx-events
+Requires-Dist: paramiko
+Requires-Dist: path.py
+Requires-Dist: pillow
+Requires-Dist: python-dateutil
+Requires-Dist: pytz
+Requires-Dist: requests
+Requires-Dist: rules
+Requires-Dist: slumber
+Requires-Dist: snowflake-connector-python
+Requires-Dist: stevedore
+Requires-Dist: testfixtures
+Requires-Dist: unicodecsv
+Requires-Dist: PGPy
+Requires-Dist: django-oauth-toolkit
+Provides-Extra: braze
+Requires-Dist: edx-braze-client; extra == "braze"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 enterprise
 ==========
@@ -108,6 +164,59 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[6.6.2] - 2026-01-15
+---------------------
+* feat: add a waffle flag for invite admins
+
+[6.6.1] - 2026-01-09
+---------------------
+* fix: issue regarding the gettext package in atlas translations flow
+
+[6.6.0] - 2026-01-08
+---------------------
+* feat: added atlas translations flow in enterprise app
+
+[6.5.7] - 2025-11-28
+---------------------
+* feat: fetch SAP user id by remote_id_field_name
+
+[6.5.6] - 2025-11-26
+---------------------
+* chore: upgrade python requirements
+
+[6.5.5] - 2025-11-24
+---------------------
+* feat: Add ability to load integrations from new channel integrations app
+
+[6.5.4] - 2025-11-13
+---------------------
+* fix: pin `pip<25.3` to resolve make upgrade build failure
+* See issue https://github.com/openedx/public-engineering/issues/440 for details.
+
+[6.5.3]
+-------
+* chore: upgrade python requirements
+
+[6.5.2]
+-------
+* chore: upgrades python requirements
+
+[6.5.1]
+--------
+* chore: Added a toggle to disable legacy integrated channels endpoints in Enterprise.
+
+[6.5.0]
+--------
+* feat: add endpoint to provision a customer admin
+
+[6.4.5]
+--------
+* chore: upgrades python requirements
+
+[6.4.4]
+--------
+* chore: upgrades python requirements
 
 [6.4.3]
 --------

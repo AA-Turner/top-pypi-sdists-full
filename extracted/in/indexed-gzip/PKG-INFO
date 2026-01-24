@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: indexed_gzip
-Version: 1.10.1
+Version: 1.10.3
 Summary: Fast random access of gzip files in Python
 Maintainer-email: Paul McCarthy <pauldmccarthy@gmail.com>
 License: Zlib
@@ -21,7 +21,6 @@ Requires-Dist: numpy; extra == "test"
 Requires-Dist: nibabel; extra == "test"
 Requires-Dist: coverage; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: cython-coverage; extra == "test"
 Dynamic: license-file
 
 # indexed_gzip

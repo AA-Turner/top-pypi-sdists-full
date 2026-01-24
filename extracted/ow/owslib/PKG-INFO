@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: OWSLib
-Version: 0.34.1
+Version: 0.35.0
 Summary: OGC Web Service utility library
 Home-page: https://owslib.readthedocs.io
 Author: Sean Gillies
@@ -12,7 +12,6 @@ Keywords: gis ogc ogcapi ows opensearch iso 19115 fgdc dif ows wfs wms sos csw w
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -87,7 +86,7 @@ source bin/activate
 # clone codebase and install
 git clone https://github.com/geopython/OWSLib.git
 cd OWSLib
-python3 setup.py install
+pip3 install .
 ```
 
 ## Running

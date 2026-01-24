@@ -1,5 +1,3 @@
-import typing
-
 import pytest
 
 from pwdlib import PasswordHash, exceptions
@@ -42,7 +40,7 @@ def test_hash(password_hash: PasswordHash) -> None:
     ],
 )
 def test_verify(
-    hash: typing.Union[str, bytes],
+    hash: str | bytes,
     password: str,
     result: bool,
     password_hash: PasswordHash,
@@ -65,7 +63,7 @@ def test_verify_unknown_hash(password_hash: PasswordHash) -> None:
     ],
 )
 def test_verify_and_update(
-    hash: typing.Union[str, bytes],
+    hash: str | bytes,
     password: str,
     result: bool,
     has_updated_hash: bool,
@@ -81,3 +79,25 @@ def test_verify_and_update(
 def test_verify_and_update_unknown_hash(password_hash: PasswordHash) -> None:
     with pytest.raises(exceptions.UnknownHashError):
         password_hash.verify_and_update(_PASSWORD, "INVALID_HASH")
+
+
+@pytest.mark.parametrize(
+    "invalid_value",
+    [
+        pytest.param(123, id="int"),
+        pytest.param(None, id="None"),
+        pytest.param([], id="list"),
+        pytest.param({}, id="dict"),
+    ],
+)
+def test_invalid_type(invalid_value: object, password_hash: PasswordHash) -> None:
+    with pytest.raises(TypeError, match="password must be str or bytes"):
+        password_hash.hash(invalid_value)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="password must be str or bytes"):
+        password_hash.verify(invalid_value, _ARGON2_HASH_STR)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="hash must be str or bytes"):
+        password_hash.verify(_PASSWORD, invalid_value)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="password must be str or bytes"):
+        password_hash.verify_and_update(invalid_value, _ARGON2_HASH_STR)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="hash must be str or bytes"):
+        password_hash.verify_and_update(_PASSWORD, invalid_value)  # type: ignore[arg-type]

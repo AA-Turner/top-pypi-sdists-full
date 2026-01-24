@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
 
     steps:
       - name: Checkout repository
@@ -31,7 +31,7 @@ jobs:
         run: bash .github/actions/codecov/generate_coverage.sh
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: ${{ github.event_name != 'pull_request' }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

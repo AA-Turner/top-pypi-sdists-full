@@ -24,6 +24,7 @@ from neutron_lib.tests import tools
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from neutron._i18n import _
 from neutron.agent.linux import ip_lib
 from neutron.common import utils as common_utils
 from neutron.conf.agent import common as config
@@ -93,7 +94,7 @@ class BaseFullStackTestCase(testlib_api.MySQLTestCaseMixin,
 
     def get_name(self):
         class_name, test_name = self.id().split(".")[-2:]
-        return "{}.{}".format(class_name, test_name)
+        return f"{class_name}.{test_name}"
 
     def _wait_until_agent_up(self, agent_id):
         def _agent_up():

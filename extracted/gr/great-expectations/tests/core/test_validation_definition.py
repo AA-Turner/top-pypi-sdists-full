@@ -14,7 +14,6 @@ import great_expectations as gx
 import great_expectations.expectations as gxe
 from great_expectations import RunIdentifier
 from great_expectations import __version__ as GX_VERSION
-from great_expectations.core.batch_definition import BatchDefinition
 from great_expectations.core.expectation_suite import ExpectationSuite
 from great_expectations.core.expectation_validation_result import (
     ExpectationSuiteValidationResult,
@@ -23,15 +22,9 @@ from great_expectations.core.expectation_validation_result import (
 from great_expectations.core.result_format import ResultFormat
 from great_expectations.core.validation_definition import ValidationDefinition
 from great_expectations.data_context.data_context.abstract_data_context import AbstractDataContext
-from great_expectations.data_context.data_context.cloud_data_context import (
-    CloudDataContext,
-)
 from great_expectations.data_context.data_context.context_factory import (
     ProjectManager,
     set_context,
-)
-from great_expectations.data_context.data_context.ephemeral_data_context import (
-    EphemeralDataContext,
 )
 from great_expectations.data_context.store.validation_results_store import ValidationResultsStore
 from great_expectations.data_context.types.refs import GXCloudResourceRef
@@ -58,9 +51,6 @@ from great_expectations.exceptions.exceptions import (
 )
 from great_expectations.exceptions.resource_freshness import ResourceFreshnessAggregateError
 from great_expectations.execution_engine.execution_engine import ExecutionEngine
-from great_expectations.expectations.expectation_configuration import (
-    ExpectationConfiguration,
-)
 from great_expectations.validator.v1_validator import (
     OldValidator,
 )
@@ -69,6 +59,14 @@ if TYPE_CHECKING:
     from unittest.mock import MagicMock  # noqa: TID251 # FIXME CoP
 
     from pytest_mock import MockerFixture
+
+    from great_expectations.core.batch_definition import BatchDefinition
+    from great_expectations.data_context.data_context.cloud_data_context import (
+        CloudDataContext,
+    )
+    from great_expectations.data_context.data_context.ephemeral_data_context import (
+        EphemeralDataContext,
+    )
 
 BATCH_ID = "my_batch_id"
 DATA_SOURCE_NAME = "my_datasource"
@@ -223,15 +221,19 @@ class TestValidationRun:
 
         validation_definition.run()
 
-        mock_validator.graph_validate.assert_called_with(
-            configurations=[
-                ExpectationConfiguration(
-                    type="expect_column_max_to_be_between",
-                    kwargs={"column": "foo", "max_value": 1.0},
-                )
-            ],
-            runtime_configuration={"result_format": "SUMMARY"},
+        mock_validator.graph_validate.assert_called_once()
+        assert len(mock_validator.graph_validate.call_args[1]["configurations"]) == 1
+        assert (
+            mock_validator.graph_validate.call_args[1]["configurations"][0]["type"]
+            == "expect_column_max_to_be_between"
         )
+        assert mock_validator.graph_validate.call_args[1]["configurations"][0]["kwargs"] == {
+            "column": "foo",
+            "max_value": 1.0,
+        }
+        assert mock_validator.graph_validate.call_args[1]["runtime_configuration"] == {
+            "result_format": "SUMMARY"
+        }
 
     @mock.patch.object(_PandasDataAsset, "build_batch_request", autospec=True)
     @pytest.mark.unit
@@ -252,15 +254,19 @@ class TestValidationRun:
             result_format=ResultFormat.COMPLETE,
         )
 
-        mock_validator.graph_validate.assert_called_with(
-            configurations=[
-                ExpectationConfiguration(
-                    type="expect_column_max_to_be_between",
-                    kwargs={"column": "foo", "max_value": 9000},
-                )
-            ],
-            runtime_configuration={"result_format": "COMPLETE"},
+        mock_validator.graph_validate.assert_called_once()
+        assert len(mock_validator.graph_validate.call_args[1]["configurations"]) == 1
+        assert (
+            mock_validator.graph_validate.call_args[1]["configurations"][0]["type"]
+            == "expect_column_max_to_be_between"
         )
+        assert mock_validator.graph_validate.call_args[1]["configurations"][0]["kwargs"] == {
+            "column": "foo",
+            "max_value": 9000,
+        }
+        assert mock_validator.graph_validate.call_args[1]["runtime_configuration"] == {
+            "result_format": "COMPLETE"
+        }
 
     @pytest.mark.unit
     def test_returns_expected_data(
@@ -392,15 +398,19 @@ class TestValidationRun:
 
         validation_definition.run()
 
-        mock_validator.graph_validate.assert_called_with(
-            configurations=[
-                ExpectationConfiguration(
-                    type="expect_column_max_to_be_between",
-                    kwargs={"column": "foo", "max_value": 1.0},
-                )
-            ],
-            runtime_configuration={"result_format": "SUMMARY"},
+        mock_validator.graph_validate.assert_called_once()
+        assert len(mock_validator.graph_validate.call_args[1]["configurations"]) == 1
+        assert (
+            mock_validator.graph_validate.call_args[1]["configurations"][0]["type"]
+            == "expect_column_max_to_be_between"
         )
+        assert mock_validator.graph_validate.call_args[1]["configurations"][0]["kwargs"] == {
+            "column": "foo",
+            "max_value": 1.0,
+        }
+        assert mock_validator.graph_validate.call_args[1]["runtime_configuration"] == {
+            "result_format": "SUMMARY"
+        }
 
         # validate we are calling set on the store with data that's roughly the right shape
         [(_, kwargs)] = mock_validation_results_store_set.call_args_list
@@ -692,7 +702,7 @@ class TestValidationDefinitionSerialization:
         ],
     )
     def test_validation_definition_deserialization_bad_format(
-        self, serialized_config: dict, error_substring: str
+        self, context: EphemeralDataContext, serialized_config: dict, error_substring: str
     ):
         with pytest.raises(ValueError, match=f"{error_substring}*."):
             ValidationDefinition.parse_obj(serialized_config)

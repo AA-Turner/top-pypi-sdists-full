@@ -35,13 +35,24 @@ from . import pytreelib as object
 from .pytreelib import Pytree as Pytree
 from .pytreelib import Object as Object
 from .pytreelib import Data as Data
+from .pytreelib import Static as Static
+from .pytreelib import dataclass as dataclass
 from .pytreelib import data as data
+from .pytreelib import static as static
 from .pytreelib import register_data_type as register_data_type
-from .pytreelib import is_data_type as is_data_type
+from .pytreelib import is_data as is_data
+from .pytreelib import check_pytree as check_pytree
+from .helpers import Dict as Dict
+from .helpers import List as List
 from .helpers import Sequential as Sequential
 from .helpers import TrainState as TrainState
 from .module import M as M
 from .module import Module as Module
+from .module import set_mode as set_mode
+from .module import set_mode_info as set_mode_info
+from .module import train_mode as train_mode
+from .module import eval_mode as eval_mode
+from .module import iter_children as iter_children, iter_modules as iter_modules
 from .graph import merge as merge
 from .graph import UpdateContext as UpdateContext
 from .graph import update_context as update_context
@@ -53,17 +64,25 @@ from .graph import pop as pop
 from .graph import state as state
 from .graph import graphdef as graphdef
 from .graph import iter_graph as iter_graph
+from .graph import recursive_map as recursive_map
 from .graph import find_duplicates as find_duplicates
 from .graph import call as call
+from .graph import set_metadata as set_metadata
 from .graph import SplitContext as SplitContext
 from .graph import split_context as split_context
 from .graph import MergeContext as MergeContext
 from .graph import merge_context as merge_context
 from .graph import variables as variables
-from .graph import to_arrays as to_arrays
-from .graph import to_refs as to_refs
+from .graph import as_ref_vars as as_ref_vars
+from .graph import as_array_vars as as_array_vars
+from .graph import as_hijax_vars as as_hijax_vars
+from .graph import as_pytree_vars as as_pytree_vars
+from .graph import as_immutable_vars as as_immutable_vars
+from .graph import as_mutable_vars as as_mutable_vars
 from .graph import pure as pure
 from .graph import cached_partial as cached_partial
+from .graph import flatten as flatten
+from .graph import unflatten as unflatten
 from .nn import initializers as initializers
 from .nn.activations import celu as celu
 from .nn.activations import elu as elu
@@ -90,6 +109,7 @@ from .nn.activations import softplus as softplus
 from .nn.activations import standardize as standardize
 from .nn.activations import swish as swish
 from .nn.activations import tanh as tanh
+from .nn.activations import PReLU as PReLU
 from .nn.attention import MultiHeadAttention as MultiHeadAttention
 from .nn.attention import combine_masks as combine_masks
 from .nn.attention import dot_product_attention as dot_product_attention
@@ -115,6 +135,9 @@ from .nn.normalization import BatchNorm as BatchNorm
 from .nn.normalization import LayerNorm as LayerNorm
 from .nn.normalization import RMSNorm as RMSNorm
 from .nn.normalization import GroupNorm as GroupNorm
+from .nn.normalization import InstanceNorm as InstanceNorm
+from .nn.normalization import SpectralNorm as SpectralNorm
+from .nn.normalization import WeightNorm as WeightNorm
 from .nn.stochastic import Dropout as Dropout
 from .rnglib import Rngs as Rngs
 from .rnglib import RngStream as RngStream
@@ -130,11 +153,13 @@ from .spmd import get_partition_spec as get_partition_spec
 from .spmd import get_named_sharding as get_named_sharding
 from .spmd import with_partitioning as with_partitioning
 from .spmd import get_abstract_model as get_abstract_model
+from .statelib import FlatState as FlatState
 from .statelib import State as State
 from .statelib import to_flat_state as to_flat_state
 from .statelib import from_flat_state as from_flat_state
 from .statelib import to_pure_dict as to_pure_dict
 from .statelib import replace_by_pure_dict as replace_by_pure_dict
+from .statelib import restore_int_paths as restore_int_paths
 from .statelib import filter_state as filter_state
 from .statelib import merge_state as merge_state
 from .statelib import split_state as split_state
@@ -181,11 +206,10 @@ from .variablelib import with_metadata as with_metadata
 from .variablelib import variable_type_from_name as variable_type_from_name
 from .variablelib import variable_name_from_type as variable_name_from_type
 from .variablelib import register_variable_name as register_variable_name
-from .variablelib import array_ref as array_ref
-from .variablelib import ArrayRef as ArrayRef
-from .variablelib import is_array_ref as is_array_ref
-from .variablelib import use_refs as use_refs
-from .variablelib import using_refs as using_refs
+from .variablelib import use_eager_sharding as use_eager_sharding
+from .variablelib import using_eager_sharding as using_eager_sharding
+from .variablelib import use_hijax as use_hijax
+from .variablelib import using_hijax as using_hijax
 from .visualization import display as display
 from .extract import to_tree as to_tree
 from .extract import from_tree as from_tree
@@ -193,12 +217,12 @@ from .extract import NodeStates as NodeStates
 from .summary import tabulate as tabulate
 from . import traversals as traversals
 
-# alias VariableState
-VariableState = Variable
 
 import typing as _tp
 
-if not _tp.TYPE_CHECKING:
+if _tp.TYPE_CHECKING:
+  VariableState = Variable
+else:
   def __getattr__(name):
     if name == "VariableState":
       import warnings
@@ -208,4 +232,5 @@ if not _tp.TYPE_CHECKING:
           DeprecationWarning,
           stacklevel=2,
       )
+      return Variable
     raise AttributeError(f"Module {__name__} has no attribute '{name}'")

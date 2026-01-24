@@ -16,6 +16,11 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class RepeatStepBehavior(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    REPEAT_STEP_BEHAVIOR_UNSPECIFIED: _ClassVar[RepeatStepBehavior]
+    REPEAT_STEP_BEHAVIOR_ISOLATED: _ClassVar[RepeatStepBehavior]
+
 class SearchProcedureExecutionsSortField(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     SEARCH_PROCEDURE_EXECUTIONS_SORT_FIELD_UNSPECIFIED: _ClassVar[SearchProcedureExecutionsSortField]
@@ -35,6 +40,8 @@ class ProcedureExecutionsServiceError(int, metaclass=_enum_type_wrapper.EnumType
     PROCEDURE_EXECUTIONS_SERVICE_ERROR_INVALID_STEP_TRANSITION: _ClassVar[ProcedureExecutionsServiceError]
     PROCEDURE_EXECUTIONS_SERVICE_ERROR_INVALID_SEARCH_TOKEN: _ClassVar[ProcedureExecutionsServiceError]
     PROCEDURE_EXECUTIONS_SERVICE_ERROR_INVALID_STEP_UPDATE: _ClassVar[ProcedureExecutionsServiceError]
+REPEAT_STEP_BEHAVIOR_UNSPECIFIED: RepeatStepBehavior
+REPEAT_STEP_BEHAVIOR_ISOLATED: RepeatStepBehavior
 SEARCH_PROCEDURE_EXECUTIONS_SORT_FIELD_UNSPECIFIED: SearchProcedureExecutionsSortField
 SEARCH_PROCEDURE_EXECUTIONS_SORT_FIELD_CREATED_AT: SearchProcedureExecutionsSortField
 SEARCH_PROCEDURE_EXECUTIONS_SORT_FIELD_STARTED_AT: SearchProcedureExecutionsSortField
@@ -237,8 +244,28 @@ class TargetStepStateRequest(_message.Message):
     errored: StepErroredRequest
     def __init__(self, in_progress: _Optional[_Union[StepInProgressRequest, _Mapping]] = ..., submitted: _Optional[_Union[StepSubmittedRequest, _Mapping]] = ..., skipped: _Optional[_Union[StepSkippedRequest, _Mapping]] = ..., errored: _Optional[_Union[StepErroredRequest, _Mapping]] = ...) -> None: ...
 
+class ProcedureAsyncTask(_message.Message):
+    __slots__ = ("condition_observation",)
+    CONDITION_OBSERVATION_FIELD_NUMBER: _ClassVar[int]
+    condition_observation: ConditionObservation
+    def __init__(self, condition_observation: _Optional[_Union[ConditionObservation, _Mapping]] = ...) -> None: ...
+
+class ConditionObservation(_message.Message):
+    __slots__ = ("user_rid", "org_rid", "procedure_execution_rid", "step_id", "success_condition")
+    USER_RID_FIELD_NUMBER: _ClassVar[int]
+    ORG_RID_FIELD_NUMBER: _ClassVar[int]
+    PROCEDURE_EXECUTION_RID_FIELD_NUMBER: _ClassVar[int]
+    STEP_ID_FIELD_NUMBER: _ClassVar[int]
+    SUCCESS_CONDITION_FIELD_NUMBER: _ClassVar[int]
+    user_rid: str
+    org_rid: str
+    procedure_execution_rid: str
+    step_id: str
+    success_condition: _procedures_pb2.SuccessCondition
+    def __init__(self, user_rid: _Optional[str] = ..., org_rid: _Optional[str] = ..., procedure_execution_rid: _Optional[str] = ..., step_id: _Optional[str] = ..., success_condition: _Optional[_Union[_procedures_pb2.SuccessCondition, _Mapping]] = ...) -> None: ...
+
 class SuccessConditionStatus(_message.Message):
-    __slots__ = ("timer", "ingest_job", "in_progress", "satisfied", "failed", "canceled")
+    __slots__ = ("timer", "ingest_job", "in_progress", "satisfied", "failed", "canceled", "submitted")
     AND_FIELD_NUMBER: _ClassVar[int]
     TIMER_FIELD_NUMBER: _ClassVar[int]
     INGEST_JOB_FIELD_NUMBER: _ClassVar[int]
@@ -246,19 +273,27 @@ class SuccessConditionStatus(_message.Message):
     SATISFIED_FIELD_NUMBER: _ClassVar[int]
     FAILED_FIELD_NUMBER: _ClassVar[int]
     CANCELED_FIELD_NUMBER: _ClassVar[int]
+    SUBMITTED_FIELD_NUMBER: _ClassVar[int]
     timer: _procedures_pb2.TimerSuccessCondition
     ingest_job: _procedures_pb2.IngestJobSuccessCondition
     in_progress: SuccessConditionInProgress
     satisfied: SuccessConditionSatisfied
     failed: SuccessConditionFailed
     canceled: SuccessConditionCanceled
-    def __init__(self, timer: _Optional[_Union[_procedures_pb2.TimerSuccessCondition, _Mapping]] = ..., ingest_job: _Optional[_Union[_procedures_pb2.IngestJobSuccessCondition, _Mapping]] = ..., in_progress: _Optional[_Union[SuccessConditionInProgress, _Mapping]] = ..., satisfied: _Optional[_Union[SuccessConditionSatisfied, _Mapping]] = ..., failed: _Optional[_Union[SuccessConditionFailed, _Mapping]] = ..., canceled: _Optional[_Union[SuccessConditionCanceled, _Mapping]] = ..., **kwargs) -> None: ...
+    submitted: SuccessConditionSubmitted
+    def __init__(self, timer: _Optional[_Union[_procedures_pb2.TimerSuccessCondition, _Mapping]] = ..., ingest_job: _Optional[_Union[_procedures_pb2.IngestJobSuccessCondition, _Mapping]] = ..., in_progress: _Optional[_Union[SuccessConditionInProgress, _Mapping]] = ..., satisfied: _Optional[_Union[SuccessConditionSatisfied, _Mapping]] = ..., failed: _Optional[_Union[SuccessConditionFailed, _Mapping]] = ..., canceled: _Optional[_Union[SuccessConditionCanceled, _Mapping]] = ..., submitted: _Optional[_Union[SuccessConditionSubmitted, _Mapping]] = ..., **kwargs) -> None: ...
 
 class AndSuccessCondition(_message.Message):
     __slots__ = ("conditions",)
     CONDITIONS_FIELD_NUMBER: _ClassVar[int]
     conditions: _containers.RepeatedCompositeFieldContainer[SuccessConditionStatus]
     def __init__(self, conditions: _Optional[_Iterable[_Union[SuccessConditionStatus, _Mapping]]] = ...) -> None: ...
+
+class SuccessConditionSubmitted(_message.Message):
+    __slots__ = ("submitted_at",)
+    SUBMITTED_AT_FIELD_NUMBER: _ClassVar[int]
+    submitted_at: _timestamp_pb2.Timestamp
+    def __init__(self, submitted_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class SuccessConditionInProgress(_message.Message):
     __slots__ = ("started_at",)
@@ -375,7 +410,7 @@ class SelectOrCreateAssetStepValue(_message.Message):
     def __init__(self, asset_reference: _Optional[_Union[_procedures_pb2.AssetReference, _Mapping]] = ...) -> None: ...
 
 class FormFieldValue(_message.Message):
-    __slots__ = ("asset", "checkbox", "text", "int", "double", "single_enum", "multi_enum")
+    __slots__ = ("asset", "checkbox", "text", "int", "double", "single_enum", "multi_enum", "file_upload", "multi_file_upload")
     ASSET_FIELD_NUMBER: _ClassVar[int]
     CHECKBOX_FIELD_NUMBER: _ClassVar[int]
     TEXT_FIELD_NUMBER: _ClassVar[int]
@@ -383,6 +418,8 @@ class FormFieldValue(_message.Message):
     DOUBLE_FIELD_NUMBER: _ClassVar[int]
     SINGLE_ENUM_FIELD_NUMBER: _ClassVar[int]
     MULTI_ENUM_FIELD_NUMBER: _ClassVar[int]
+    FILE_UPLOAD_FIELD_NUMBER: _ClassVar[int]
+    MULTI_FILE_UPLOAD_FIELD_NUMBER: _ClassVar[int]
     asset: AssetFieldValue
     checkbox: CheckboxFieldValue
     text: TextFieldValue
@@ -390,7 +427,9 @@ class FormFieldValue(_message.Message):
     double: DoubleFieldValue
     single_enum: SingleEnumFieldValue
     multi_enum: MultiEnumFieldValue
-    def __init__(self, asset: _Optional[_Union[AssetFieldValue, _Mapping]] = ..., checkbox: _Optional[_Union[CheckboxFieldValue, _Mapping]] = ..., text: _Optional[_Union[TextFieldValue, _Mapping]] = ..., int: _Optional[_Union[IntFieldValue, _Mapping]] = ..., double: _Optional[_Union[DoubleFieldValue, _Mapping]] = ..., single_enum: _Optional[_Union[SingleEnumFieldValue, _Mapping]] = ..., multi_enum: _Optional[_Union[MultiEnumFieldValue, _Mapping]] = ...) -> None: ...
+    file_upload: FileUploadFieldValue
+    multi_file_upload: MultiFileUploadFieldValue
+    def __init__(self, asset: _Optional[_Union[AssetFieldValue, _Mapping]] = ..., checkbox: _Optional[_Union[CheckboxFieldValue, _Mapping]] = ..., text: _Optional[_Union[TextFieldValue, _Mapping]] = ..., int: _Optional[_Union[IntFieldValue, _Mapping]] = ..., double: _Optional[_Union[DoubleFieldValue, _Mapping]] = ..., single_enum: _Optional[_Union[SingleEnumFieldValue, _Mapping]] = ..., multi_enum: _Optional[_Union[MultiEnumFieldValue, _Mapping]] = ..., file_upload: _Optional[_Union[FileUploadFieldValue, _Mapping]] = ..., multi_file_upload: _Optional[_Union[MultiFileUploadFieldValue, _Mapping]] = ...) -> None: ...
 
 class AssetFieldValue(_message.Message):
     __slots__ = ("asset_reference",)
@@ -433,6 +472,28 @@ class MultiEnumFieldValue(_message.Message):
     VALUE_FIELD_NUMBER: _ClassVar[int]
     value: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, value: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class FileUploadFieldValue(_message.Message):
+    __slots__ = ("s3_upload",)
+    S3_UPLOAD_FIELD_NUMBER: _ClassVar[int]
+    s3_upload: S3UploadFileValue
+    def __init__(self, s3_upload: _Optional[_Union[S3UploadFileValue, _Mapping]] = ...) -> None: ...
+
+class S3UploadFileValue(_message.Message):
+    __slots__ = ("s3_path", "file_name", "file_type")
+    S3_PATH_FIELD_NUMBER: _ClassVar[int]
+    FILE_NAME_FIELD_NUMBER: _ClassVar[int]
+    FILE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    s3_path: str
+    file_name: str
+    file_type: str
+    def __init__(self, s3_path: _Optional[str] = ..., file_name: _Optional[str] = ..., file_type: _Optional[str] = ...) -> None: ...
+
+class MultiFileUploadFieldValue(_message.Message):
+    __slots__ = ("uploads",)
+    UPLOADS_FIELD_NUMBER: _ClassVar[int]
+    uploads: _containers.RepeatedCompositeFieldContainer[FileUploadFieldValue]
+    def __init__(self, uploads: _Optional[_Iterable[_Union[FileUploadFieldValue, _Mapping]]] = ...) -> None: ...
 
 class ProcedureExecution(_message.Message):
     __slots__ = ("rid", "metadata", "state")
@@ -542,32 +603,42 @@ class Strings(_message.Message):
     def __init__(self, values: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class FieldOutput(_message.Message):
-    __slots__ = ("asset_rid", "string_value", "double_value", "boolean_value", "int_value", "strings_value")
+    __slots__ = ("asset_rid", "string_value", "double_value", "boolean_value", "int_value", "strings_value", "ingest_job_rid", "run_rid", "file_upload_value", "multi_file_upload_value")
     ASSET_RID_FIELD_NUMBER: _ClassVar[int]
     STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
     DOUBLE_VALUE_FIELD_NUMBER: _ClassVar[int]
     BOOLEAN_VALUE_FIELD_NUMBER: _ClassVar[int]
     INT_VALUE_FIELD_NUMBER: _ClassVar[int]
     STRINGS_VALUE_FIELD_NUMBER: _ClassVar[int]
+    INGEST_JOB_RID_FIELD_NUMBER: _ClassVar[int]
+    RUN_RID_FIELD_NUMBER: _ClassVar[int]
+    FILE_UPLOAD_VALUE_FIELD_NUMBER: _ClassVar[int]
+    MULTI_FILE_UPLOAD_VALUE_FIELD_NUMBER: _ClassVar[int]
     asset_rid: str
     string_value: str
     double_value: float
     boolean_value: bool
     int_value: int
     strings_value: Strings
-    def __init__(self, asset_rid: _Optional[str] = ..., string_value: _Optional[str] = ..., double_value: _Optional[float] = ..., boolean_value: bool = ..., int_value: _Optional[int] = ..., strings_value: _Optional[_Union[Strings, _Mapping]] = ...) -> None: ...
+    ingest_job_rid: str
+    run_rid: str
+    file_upload_value: FileUploadFieldValue
+    multi_file_upload_value: MultiFileUploadFieldValue
+    def __init__(self, asset_rid: _Optional[str] = ..., string_value: _Optional[str] = ..., double_value: _Optional[float] = ..., boolean_value: bool = ..., int_value: _Optional[int] = ..., strings_value: _Optional[_Union[Strings, _Mapping]] = ..., ingest_job_rid: _Optional[str] = ..., run_rid: _Optional[str] = ..., file_upload_value: _Optional[_Union[FileUploadFieldValue, _Mapping]] = ..., multi_file_upload_value: _Optional[_Union[MultiFileUploadFieldValue, _Mapping]] = ...) -> None: ...
 
 class CreateProcedureExecutionRequest(_message.Message):
-    __slots__ = ("procedure_rid", "procedure_commit_id", "title", "description")
+    __slots__ = ("procedure_rid", "procedure_commit_id", "title", "description", "start_immediately")
     PROCEDURE_RID_FIELD_NUMBER: _ClassVar[int]
     PROCEDURE_COMMIT_ID_FIELD_NUMBER: _ClassVar[int]
     TITLE_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    START_IMMEDIATELY_FIELD_NUMBER: _ClassVar[int]
     procedure_rid: str
     procedure_commit_id: str
     title: str
     description: str
-    def __init__(self, procedure_rid: _Optional[str] = ..., procedure_commit_id: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
+    start_immediately: bool
+    def __init__(self, procedure_rid: _Optional[str] = ..., procedure_commit_id: _Optional[str] = ..., title: _Optional[str] = ..., description: _Optional[str] = ..., start_immediately: bool = ...) -> None: ...
 
 class CreateProcedureExecutionResponse(_message.Message):
     __slots__ = ("procedure_execution",)
@@ -674,6 +745,28 @@ class UpdateStepSuccessConditionStatusRequest(_message.Message):
     def __init__(self, procedure_execution_rid: _Optional[str] = ..., step_id: _Optional[str] = ..., success_condition_status: _Optional[_Union[SuccessConditionStatus, _Mapping]] = ...) -> None: ...
 
 class UpdateStepSuccessConditionStatusResponse(_message.Message):
+    __slots__ = ("procedure_execution",)
+    PROCEDURE_EXECUTION_FIELD_NUMBER: _ClassVar[int]
+    procedure_execution: ProcedureExecution
+    def __init__(self, procedure_execution: _Optional[_Union[ProcedureExecution, _Mapping]] = ...) -> None: ...
+
+class RepeatStepRequest(_message.Message):
+    __slots__ = ("procedure_execution_rid", "step_id", "behavior", "value", "auto_proceed_config", "target_state")
+    PROCEDURE_EXECUTION_RID_FIELD_NUMBER: _ClassVar[int]
+    STEP_ID_FIELD_NUMBER: _ClassVar[int]
+    BEHAVIOR_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    AUTO_PROCEED_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    TARGET_STATE_FIELD_NUMBER: _ClassVar[int]
+    procedure_execution_rid: str
+    step_id: str
+    behavior: RepeatStepBehavior
+    value: StepContentValue
+    auto_proceed_config: _procedures_pb2.AutoProceedConfig
+    target_state: TargetStepStateRequest
+    def __init__(self, procedure_execution_rid: _Optional[str] = ..., step_id: _Optional[str] = ..., behavior: _Optional[_Union[RepeatStepBehavior, str]] = ..., value: _Optional[_Union[StepContentValue, _Mapping]] = ..., auto_proceed_config: _Optional[_Union[_procedures_pb2.AutoProceedConfig, _Mapping]] = ..., target_state: _Optional[_Union[TargetStepStateRequest, _Mapping]] = ...) -> None: ...
+
+class RepeatStepResponse(_message.Message):
     __slots__ = ("procedure_execution",)
     PROCEDURE_EXECUTION_FIELD_NUMBER: _ClassVar[int]
     procedure_execution: ProcedureExecution

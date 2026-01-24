@@ -3,7 +3,7 @@ Type annotations for ssm-contacts service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_contacts/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -31,12 +32,6 @@ from .literals import (
     ShiftTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -191,7 +186,7 @@ class HandOffTimeTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -313,7 +308,7 @@ class ListPagesByEngagementRequestTypeDef(TypedDict):
 
 class RotationOverrideTypeDef(TypedDict):
     RotationOverrideId: str
-    NewContactIds: List[str]
+    NewContactIds: list[str]
     StartTime: datetime
     EndTime: datetime
     CreateTime: datetime
@@ -331,7 +326,7 @@ class PutContactPolicyRequestTypeDef(TypedDict):
     Policy: str
 
 class ShiftDetailsTypeDef(TypedDict):
-    OverriddenContactIds: List[str]
+    OverriddenContactIds: list[str]
 
 class SendActivationCodeRequestTypeDef(TypedDict):
     ContactChannelId: str
@@ -463,14 +458,14 @@ class GetContactPolicyResultTypeDef(TypedDict):
 class GetRotationOverrideResultTypeDef(TypedDict):
     RotationOverrideId: str
     RotationArn: str
-    NewContactIds: List[str]
+    NewContactIds: list[str]
     StartTime: datetime
     EndTime: datetime
     CreateTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListContactsResultTypeDef(TypedDict):
-    Contacts: List[ContactTypeDef]
+    Contacts: list[ContactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -479,7 +474,7 @@ class StartEngagementResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResultTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -517,7 +512,7 @@ class TimeRangeTypeDef(TypedDict):
     EndTime: NotRequired[TimestampTypeDef]
 
 class ListEngagementsResultTypeDef(TypedDict):
-    Engagements: List[EngagementTypeDef]
+    Engagements: list[EngagementTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -567,27 +562,27 @@ class ListRotationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPageReceiptsResultTypeDef(TypedDict):
-    Receipts: List[ReceiptTypeDef]
+    Receipts: list[ReceiptTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListPageResolutionsResultTypeDef(TypedDict):
-    PageResolutions: List[ResolutionContactTypeDef]
+    PageResolutions: list[ResolutionContactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListPagesByContactResultTypeDef(TypedDict):
-    Pages: List[PageTypeDef]
+    Pages: list[PageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListPagesByEngagementResultTypeDef(TypedDict):
-    Pages: List[PageTypeDef]
+    Pages: list[PageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRotationOverridesResultTypeDef(TypedDict):
-    RotationOverrides: List[RotationOverrideTypeDef]
+    RotationOverrides: list[RotationOverrideTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -596,20 +591,20 @@ RotationShiftTypeDef = TypedDict(
     {
         "StartTime": datetime,
         "EndTime": datetime,
-        "ContactIds": NotRequired[List[str]],
+        "ContactIds": NotRequired[list[str]],
         "Type": NotRequired[ShiftTypeType],
         "ShiftDetails": NotRequired[ShiftDetailsTypeDef],
     },
 )
 
 class ListContactChannelsResultTypeDef(TypedDict):
-    ContactChannels: List[ContactChannelTypeDef]
+    ContactChannels: list[ContactChannelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class StageOutputTypeDef(TypedDict):
     DurationInMinutes: int
-    Targets: List[TargetTypeDef]
+    Targets: list[TargetTypeDef]
 
 class StageTypeDef(TypedDict):
     DurationInMinutes: int
@@ -618,10 +613,10 @@ class StageTypeDef(TypedDict):
 class RecurrenceSettingsOutputTypeDef(TypedDict):
     NumberOfOnCalls: int
     RecurrenceMultiplier: int
-    MonthlySettings: NotRequired[List[MonthlySettingTypeDef]]
-    WeeklySettings: NotRequired[List[WeeklySettingTypeDef]]
-    DailySettings: NotRequired[List[HandOffTimeTypeDef]]
-    ShiftCoverages: NotRequired[Dict[DayOfWeekType, List[CoverageTimeTypeDef]]]
+    MonthlySettings: NotRequired[list[MonthlySettingTypeDef]]
+    WeeklySettings: NotRequired[list[WeeklySettingTypeDef]]
+    DailySettings: NotRequired[list[HandOffTimeTypeDef]]
+    ShiftCoverages: NotRequired[dict[DayOfWeekType, list[CoverageTimeTypeDef]]]
 
 class RecurrenceSettingsTypeDef(TypedDict):
     NumberOfOnCalls: int
@@ -643,18 +638,18 @@ class ListEngagementsRequestTypeDef(TypedDict):
     TimeRangeValue: NotRequired[TimeRangeTypeDef]
 
 class ListPreviewRotationShiftsResultTypeDef(TypedDict):
-    RotationShifts: List[RotationShiftTypeDef]
+    RotationShifts: list[RotationShiftTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRotationShiftsResultTypeDef(TypedDict):
-    RotationShifts: List[RotationShiftTypeDef]
+    RotationShifts: list[RotationShiftTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class PlanOutputTypeDef(TypedDict):
-    Stages: NotRequired[List[StageOutputTypeDef]]
-    RotationIds: NotRequired[List[str]]
+    Stages: NotRequired[list[StageOutputTypeDef]]
+    RotationIds: NotRequired[list[str]]
 
 class PlanTypeDef(TypedDict):
     Stages: NotRequired[Sequence[StageTypeDef]]
@@ -663,7 +658,7 @@ class PlanTypeDef(TypedDict):
 class GetRotationResultTypeDef(TypedDict):
     RotationArn: str
     Name: str
-    ContactIds: List[str]
+    ContactIds: list[str]
     StartTime: datetime
     TimeZoneId: str
     Recurrence: RecurrenceSettingsOutputTypeDef
@@ -672,7 +667,7 @@ class GetRotationResultTypeDef(TypedDict):
 class RotationTypeDef(TypedDict):
     RotationArn: str
     Name: str
-    ContactIds: NotRequired[List[str]]
+    ContactIds: NotRequired[list[str]]
     StartTime: NotRequired[datetime]
     TimeZoneId: NotRequired[str]
     Recurrence: NotRequired[RecurrenceSettingsOutputTypeDef]
@@ -692,7 +687,7 @@ GetContactResultTypeDef = TypedDict(
 PlanUnionTypeDef = Union[PlanTypeDef, PlanOutputTypeDef]
 
 class ListRotationsResultTypeDef(TypedDict):
-    Rotations: List[RotationTypeDef]
+    Rotations: list[RotationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

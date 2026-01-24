@@ -2,6 +2,7 @@
 
 from tempfile import TemporaryDirectory
 from pathlib import Path
+import pytest
 
 from emmet.core.vasp.utils import (
     recursive_discover_vasp_files,
@@ -11,8 +12,7 @@ from emmet.core.vasp.utils import (
 
 
 def test_file_meta(tmp_dir):
-    import hashlib
-    from monty.io import zopen
+    import blake3
 
     incar_bytes = """
 ALGO = Normal
@@ -21,12 +21,13 @@ EDIFF = 0.0001
 IBRION = -1
 """.encode()
 
-    with zopen(file_name := "INCAR.bz2", "wb") as f:
+    with open(file_name := "INCAR.bz2", "wb") as f:
         f.write(incar_bytes)
 
     file_meta = FileMetadata(name="INCAR.bz2", path=file_name)
+    file_meta.compute_hash()
     assert Path(file_meta.path).exists()
-    assert file_meta.md5 == hashlib.md5(incar_bytes).hexdigest()
+    assert file_meta.hash == blake3.blake3(incar_bytes).hexdigest()
 
 
 def test_file_discovery():
@@ -67,6 +68,7 @@ def test_file_discovery():
                 f"POTCAR.orig.relax{idx}",
             ]
         )
+
     with TemporaryDirectory() as _tmp_dir:
         tmp_dir = Path(_tmp_dir).resolve()
         for calc_dir, files in directory_structure.items():
@@ -81,36 +83,44 @@ def test_file_discovery():
         assert len(recursive_discover_vasp_files(tmp_dir, max_depth=2)) == 4
         assert len(recursive_discover_vasp_files(tmp_dir, max_depth=1)) == 1
 
-        sorted_files = discover_and_sort_vasp_files(
+        files_by_calc_suffix = discover_and_sort_vasp_files(
             tmp_dir / "block_2025_02_30/launcher_2025_02_31/launcher_2025_02_31_0001"
         )
 
-    assert set([b.name for b in sorted_files["contcar_file"]]) == {"CONTCAR.relax1"}
-    assert set([b.name for b in sorted_files["vasprun_file"]]) == {"vasprun.xml.relax1"}
-    assert set([b.name for b in sorted_files["outcar_file"]]) == {"OUTCAR.relax1"}
-    assert set([b.name for b in sorted_files["volumetric_files"]]) == {
+        for max_depth in (-1, 1.5):
+            with pytest.raises(ValueError, match="non-negative integer"):
+                _ = recursive_discover_vasp_files(tmp_dir, max_depth=max_depth)
+
+    assert files_by_calc_suffix["relax1"]["contcar_file"].name == "CONTCAR.relax1"
+    assert files_by_calc_suffix["relax1"]["vasprun_file"].name == "vasprun.xml.relax1"
+    assert files_by_calc_suffix["relax1"]["outcar_file"].name == "OUTCAR.relax1"
+    assert {b.name for b in files_by_calc_suffix["standard"]["volumetric_files"]} == {
         "AECCAR0.bz2",
         "LOCPOT.gz",
     }
-    assert set([b.name for b in sorted_files["elph_poscars"]]) == {
+    assert {b.name for b in files_by_calc_suffix["standard"]["elph_poscars"]} == {
         "POSCAR.T=300.gz",
         "POSCAR.T=1000.gz",
     }
 
-    assert len(vasp_files) == len(
-        directory_structure
-    )  # should find all of the defined calculation directories
-    for calc_dir, files in directory_structure.items():
-        assert (base_path := tmp_dir / calc_dir) in vasp_files
-        assert all(f in [b.name for b in vasp_files[base_path]] for f in files)
+    # should find all of the defined calculation directories + suffixes within those
+    assert len(vasp_files) == 7
 
-    # Should only find two valid calculation directories
+    found_files = set()
+    ref_files = set()
+    for calc_dir, files in directory_structure.items():
+        ref_files.update({tmp_dir / calc_dir / file for file in files})
+    for file_metas in vasp_files.values():
+        found_files.update({file_meta.path for file_meta in file_metas})
+
+    assert found_files == ref_files
+
+    # Should only find two valid calculation directory / suffix pairs
     valid_calc_dirs = (
-        "./neb_calc/01/",
+        "neb_calc/01/",
         "block_2025_02_30/launcher_2025_02_31/launcher_2025_02_31_0001",
     )
-    assert all(
-        f in [b.name for b in valid_vasp_files[tmp_dir / p]]
-        for p in valid_calc_dirs
-        for f in directory_structure[p]
-    )
+
+    assert len(valid_vasp_files) == 2
+    found_valid_dirs = {calc_loc.path for calc_loc in valid_vasp_files}
+    assert {tmp_dir / valid_dir for valid_dir in valid_calc_dirs} == found_valid_dirs

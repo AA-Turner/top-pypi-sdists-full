@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: googleapis-common-protos
-Version: 1.70.0
+Version: 1.72.0
 Summary: Common protobufs used in Google APIs
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache 2.0
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Requires-Python: >=3.7
@@ -25,6 +26,7 @@ License-File: LICENSE
 Requires-Dist: protobuf!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5,<7.0.0,>=3.20.2
 Provides-Extra: grpc
 Requires-Dist: grpcio<2.0.0,>=1.44.0; extra == "grpc"
+Dynamic: license-file
 
 Python Client for Google APIs Common Protos
 ===========================================
@@ -89,7 +91,7 @@ Supported Python Versions
 Our client libraries are compatible with all current `active`_ and `maintenance`_ versions of
 Python.
 
-Python >= 3.7
+Python >= 3.7, including 3.14
 
 .. _active: https://devguide.python.org/devcycle/#in-development-main-branch
 .. _maintenance: https://devguide.python.org/devcycle/#maintenance-branches
@@ -190,7 +192,7 @@ Code-Based Examples
 
     import logging
     
-    from google.cloud.translate_v3 import translate
+    from google.cloud import library_v1
     
     base_logger = logging.getLogger("google")
     base_logger.addHandler(logging.StreamHandler())
@@ -202,7 +204,7 @@ Code-Based Examples
 
     import logging
     
-    from google.cloud.translate_v3 import translate
+    from google.cloud import library_v1
     
     base_logger = logging.getLogger("google.cloud.library_v1")
     base_logger.addHandler(logging.StreamHandler())

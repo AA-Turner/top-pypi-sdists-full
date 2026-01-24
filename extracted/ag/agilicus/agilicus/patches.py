@@ -5,6 +5,8 @@ import certifi
 from .agilicus_api.api_client import ApiClient
 from .agilicus_api.configuration import Configuration
 
+from agilicus.pagination.auto_iterator import get_page_on, patch_endpoint
+
 
 class _ApiClientWrapper(ApiClient):
     def __init__(self, configuration: Configuration = None, **kwargs):
@@ -43,3 +45,18 @@ def patched_api_client():
 class _Response:
     def __init__(self, data):
         self.data = data
+
+
+def patch_endpoint_class(endpoint_class):
+    """
+    patches the Endpoint class to inject the AutoIterator into itself if needed.
+    """
+    original_init = endpoint_class.__init__
+
+    def init_wrapper(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        if not get_page_on(self):
+            return
+        patch_endpoint(self)
+
+    endpoint_class.__init__ = init_wrapper

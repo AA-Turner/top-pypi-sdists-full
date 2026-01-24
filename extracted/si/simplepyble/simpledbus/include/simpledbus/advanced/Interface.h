@@ -10,10 +10,11 @@
 
 namespace SimpleDBus {
 
+class Proxy;
+
 class Interface {
   public:
-    Interface(std::shared_ptr<Connection> conn, const std::string& bus_name, const std::string& path,
-              const std::string& interface_name);
+    Interface(std::shared_ptr<Connection> conn, std::shared_ptr<Proxy> proxy, const std::string& interface_name);
 
     virtual ~Interface() = default;
 
@@ -28,15 +29,8 @@ class Interface {
     // ----- PROPERTIES -----
     virtual void property_changed(std::string option_name);
 
-    // ! These functions are used by the Properties interface. We need better nomenclature!
-    Holder property_collect();
-    Holder property_collect_single(const std::string& property_name);
-    void property_modify(const std::string& property_name, const Holder& value);
 
     // ! TODO: We need to figure out a good architecture to let any generic interface access the Properties object of its Proxy.
-    Holder property_get_all();
-    Holder property_get(const std::string& property_name);
-    void property_set(const std::string& property_name, const Holder& value);
     void property_refresh(const std::string& property_name);
 
     // ----- SIGNALS -----
@@ -45,6 +39,11 @@ class Interface {
     // ----- MESSAGES -----
     virtual void message_handle(Message& msg);
 
+    // ! The following properties are set as public to allow access to the Properties interface.
+    std::recursive_mutex _property_update_mutex;
+    std::map<std::string, bool> _property_valid_map;
+    std::map<std::string, Holder> _properties;
+
   protected:
     std::atomic_bool _loaded{true};
 
@@ -52,16 +51,9 @@ class Interface {
     std::string _bus_name;
     std::string _interface_name;
     std::shared_ptr<Connection> _conn;
+    std::weak_ptr<Proxy> _proxy;
 
-    std::recursive_mutex _property_update_mutex;
-    std::map<std::string, bool> _property_valid_map;
-
-    /**
-     * @brief Dictionary containing all properties.
-     *
-     * @note: When accessing this object, the _property_update_mutex must be locked.
-     */
-    std::map<std::string, Holder> _properties;
+    std::shared_ptr<Proxy> proxy() const;
 };
 
 }  // namespace SimpleDBus

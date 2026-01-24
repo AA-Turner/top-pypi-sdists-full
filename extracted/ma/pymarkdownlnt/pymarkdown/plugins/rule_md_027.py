@@ -29,6 +29,10 @@ from pymarkdown.tokens.new_list_item_markdown_token import NewListItemMarkdownTo
 from pymarkdown.tokens.paragraph_markdown_token import ParagraphMarkdownToken
 from pymarkdown.tokens.raw_html_markdown_token import RawHtmlMarkdownToken
 from pymarkdown.tokens.setext_heading_markdown_token import SetextHeadingMarkdownToken
+from pymarkdown.tokens.table_markdown_tokens import (
+    TableMarkdownHeaderToken,
+    TableMarkdownRowToken,
+)
 from pymarkdown.tokens.text_markdown_token import TextMarkdownToken
 
 
@@ -55,6 +59,8 @@ class RuleMd027(RulePlugin):
         # self.__debug_on = False
         self.__list_tracker = ListTracker()
         self.__leading_space_index_tracker = LeadingSpaceIndexTracker()
+        self.__previous_tokens: List[MarkdownToken] = []
+        self.__table_header_hash: str = ""
 
         self.__delayed_bleading_fixes: Dict[
             MarkdownToken, List[Tuple[int, str, bool, BlankLineMarkdownToken]]
@@ -69,7 +75,7 @@ class RuleMd027(RulePlugin):
             plugin_id="MD027",
             plugin_enabled_by_default=True,
             plugin_description="Multiple spaces after blockquote symbol",
-            plugin_version="0.5.1",
+            plugin_version="0.5.2",
             plugin_url="https://pymarkdown.readthedocs.io/en/latest/plugins/rule_md027.md",
             plugin_supports_fix=True,
             plugin_fix_level=5,
@@ -92,6 +98,46 @@ class RuleMd027(RulePlugin):
         self.__last_token = None
         self.__list_tracker.starting_new_file()
         self.__leading_space_index_tracker.clear()
+        self.__previous_tokens.clear()
+        self.__table_header_hash = ""
+
+    def __fix_issue(
+        self,
+        context: PluginScanContext,
+        token: MarkdownToken,
+        alternate_token: Optional[MarkdownToken],
+    ) -> bool:
+        keep_going = True
+        if alternate_token:
+            keep_going = self.__fix_issue_alternate_token(context, alternate_token)
+        elif (
+            self.__last_leaf_token
+            and self.__last_leaf_token.is_setext_heading
+            and token.is_text
+        ):
+            self.__fix_issue_setext_text(context, token)
+        elif (
+            token.is_setext_heading
+            or token.is_thematic_break
+            or token.is_fenced_code_block
+            or token.is_atx_heading
+            or token.is_blank_line
+        ):
+            self.register_fix_token_request(
+                context, token, "next_token", "extracted_whitespace", ""
+            )
+        elif token.is_new_list_item:
+            self.__fix_issue_new_list_item(context, token)
+        elif token.is_list_start:
+            self.__fix_issue_list_start(context, token)
+        elif token.is_table_header:
+            self.__fix_issue_table_header(context, token)
+        elif token.is_table_row:
+            self.__fix_issue_table_row(context, token)
+        else:
+            assert token.is_link_reference_definition, "Unexpected token fix request."
+            self.__fix_issue_link_reference(context, token)
+        return keep_going
 
     # pylint: disable=too-many-arguments
     def __report_issue(
@@ -102,46 +148,42 @@ class RuleMd027(RulePlugin):
         column_number_delta: int = 0,
         alternate_token: Optional[MarkdownToken] = None,
     ) -> bool:
-        keep_going = True
         if context.in_fix_mode:
-            if alternate_token:
-                keep_going = self.__report_issue_alternate_token(
-                    context, alternate_token
-                )
-            elif (
-                self.__last_leaf_token
-                and self.__last_leaf_token.is_setext_heading
-                and token.is_text
-            ):
-                self.__report_issue_setext_text(context, token)
-            elif (
-                token.is_setext_heading
-                or token.is_thematic_break
-                or token.is_fenced_code_block
-                or token.is_atx_heading
-                or token.is_blank_line
-            ):
-                self.register_fix_token_request(
-                    context, token, "next_token", "extracted_whitespace", ""
-                )
-            elif token.is_new_list_item:
-                self.__report_issue_new_list_item(context, token)
-            elif token.is_list_start:
-                self.__report_issue_list_start(context, token)
-            else:
-                self.__report_issue_link_reference(context, token)
+            return self.__fix_issue(context, token, alternate_token)
+
+        if token.is_setext_heading:
+            current_line_number = cast(
+                SetextHeadingMarkdownToken, token
+            ).original_line_number
         else:
-            self.report_next_token_error(
-                context,
-                token,
-                line_number_delta=line_number_delta,
-                column_number_delta=column_number_delta,
+            current_line_number = token.line_number
+
+        token_index = len(self.__previous_tokens) - 1
+        if self.__previous_tokens[token_index].is_table:
+            token_index -= 1
+        while token_index >= 0 and self.__previous_tokens[token_index].is_container:
+            token_index -= 1
+        override_is_error_token_prefaced_by_blank_line = bool(
+            (
+                token_index >= 0
+                and self.__previous_tokens[token_index].line_number
+                == (current_line_number - 1)
+                and self.__previous_tokens[token_index].is_blank_line
             )
-        return keep_going
+        )
+        self.report_next_token_error(
+            context,
+            token,
+            line_number_delta=line_number_delta
+            + context.calc_pragma_offset(token, line_number_delta),
+            column_number_delta=column_number_delta,
+            override_is_error_token_prefaced_by_blank_line=override_is_error_token_prefaced_by_blank_line,
+        )
+        return True
 
     # pylint: enable=too-many-arguments
 
-    def __report_issue_alternate_token(
+    def __fix_issue_alternate_token(
         self,
         context: PluginScanContext,
         alternate_token: MarkdownToken,
@@ -168,45 +210,7 @@ class RuleMd027(RulePlugin):
         )
         return True
 
-    def __report_issue_setext_text(
-        self, context: PluginScanContext, token: MarkdownToken
-    ) -> None:
-        text_token = cast(TextMarkdownToken, token)
-        whitespace_parts = []
-        assert text_token.end_whitespace is not None
-        for next_line in text_token.end_whitespace.split("\n"):
-            split_character_index = next_line.find(
-                ParserHelper.whitespace_split_character
-            )
-            if split_character_index == -1:
-                whitespace_parts.append(next_line)
-            else:
-                whitespace_parts.append(next_line[split_character_index + 1 :])
-        recombined_whitespace = "\n".join(whitespace_parts)
-        assert recombined_whitespace != text_token.end_whitespace
-        self.register_fix_token_request(
-            context, token, "next_token", "end_whitespace", recombined_whitespace
-        )
-
-    def __report_issue_new_list_item(
-        self, context: PluginScanContext, token: MarkdownToken
-    ) -> None:
-        list_start_token = cast(NewListItemMarkdownToken, token)
-        adjust_amount = len(list_start_token.extracted_whitespace)
-        self.register_fix_token_request(
-            context, token, "next_token", "extracted_whitespace", ""
-        )
-        self.register_fix_token_request(
-            context,
-            token,
-            "next_token",
-            "indent_level",
-            list_start_token.indent_level - adjust_amount,
-        )
-        # self.register_fix_token_request(context, token, "next_token", "column_number", list_start_token.column_number - adjust_amount)
-        self.__list_tracker.register(token, adjust_amount)
-
-    def __report_issue_list_start(
+    def __fix_issue_list_start(
         self, context: PluginScanContext, token: MarkdownToken
     ) -> None:
         list_start_token = cast(ListStartMarkdownToken, token)
@@ -230,7 +234,7 @@ class RuleMd027(RulePlugin):
         )
         self.__list_tracker.register(token, adjust_amount)
 
-    def __report_issue_link_reference(
+    def __fix_issue_link_reference(
         self, context: PluginScanContext, token: MarkdownToken
     ) -> None:
         assert token.is_link_reference_definition
@@ -275,14 +279,21 @@ class RuleMd027(RulePlugin):
             #     print(f"delay-para-end-->token->{ParserHelper.make_value_visible(token)}")
             #     print(f"delay-para-end-->index->{self.__bq_line_index[num_container_tokens]}")
 
+            ff = False
             assert (
                 token.is_blank_line
-                or token.is_fenced_code_block
                 or token.is_thematic_break
-                or token.is_html_block
-                or token.is_list_start
                 or token.is_atx_heading
+                # setext
+                # icb
+                or token.is_fenced_code_block
+                or token.is_html_block
+                # lrd
+                # para
+                # tables
+                or token.is_list_start
                 or token.is_block_quote_end
+                or ff
             )
             self.__bq_line_index[num_container_tokens] += 1
             self.__have_incremented_for_this_line = True
@@ -331,8 +342,16 @@ class RuleMd027(RulePlugin):
         self, context: PluginScanContext, token: MarkdownToken
     ) -> None:
         _ = context
+        did_reduce_containers = False
         while self.__leading_space_index_tracker.have_any_registered_container_ends():
             self.__leading_space_index_tracker.process_container_end(token)
+            did_reduce_containers = True
+
+        if (
+            did_reduce_containers
+            and not self.__leading_space_index_tracker.in_at_least_one_container()
+        ):
+            self.__previous_tokens.clear()
 
     def next_token(self, context: PluginScanContext, token: MarkdownToken) -> None:
         """
@@ -385,6 +404,7 @@ class RuleMd027(RulePlugin):
         self.__leading_space_index_tracker.track_since_last_non_end_token(token)
 
         self.__last_token = token
+        self.__previous_tokens.append(token)
 
     def __handle_block_quote_start(self, token: MarkdownToken) -> None:
         self.__container_tokens.append(token)
@@ -591,6 +611,24 @@ class RuleMd027(RulePlugin):
         self.__check_list_starts(context, token, num_container_tokens, False)
         self.__container_tokens.append(token)
 
+    def __fix_issue_new_list_item(
+        self, context: PluginScanContext, token: MarkdownToken
+    ) -> None:
+        list_start_token = cast(NewListItemMarkdownToken, token)
+        adjust_amount = len(list_start_token.extracted_whitespace)
+        self.register_fix_token_request(
+            context, token, "next_token", "extracted_whitespace", ""
+        )
+        self.register_fix_token_request(
+            context,
+            token,
+            "next_token",
+            "indent_level",
+            list_start_token.indent_level - adjust_amount,
+        )
+        # self.register_fix_token_request(context, token, "next_token", "column_number", list_start_token.column_number - adjust_amount)
+        self.__list_tracker.register(token, adjust_amount)
+
     def __handle_new_list_item(
         self,
         context: PluginScanContext,
@@ -756,6 +794,26 @@ class RuleMd027(RulePlugin):
     ) -> None:
         self.__handle_common_element(
             context, token, num_container_tokens, is_directly_within_block_quote
+        )
+
+    def __fix_issue_setext_text(
+        self, context: PluginScanContext, token: MarkdownToken
+    ) -> None:
+        text_token = cast(TextMarkdownToken, token)
+        whitespace_parts: List[str] = []
+        assert text_token.end_whitespace is not None
+        for next_line in text_token.end_whitespace.split("\n"):
+            split_character_index = next_line.find(
+                ParserHelper.whitespace_split_character
+            )
+            if split_character_index == -1:
+                whitespace_parts.append(next_line)
+            else:
+                whitespace_parts.append(next_line[split_character_index + 1 :])
+        recombined_whitespace = "\n".join(whitespace_parts)
+        assert recombined_whitespace != text_token.end_whitespace
+        self.register_fix_token_request(
+            context, token, "next_token", "end_whitespace", recombined_whitespace
         )
 
     def __handle_setext_heading(
@@ -980,7 +1038,7 @@ class RuleMd027(RulePlugin):
         self, context: PluginScanContext, token: MarkdownToken
     ) -> None:
         raw_html_token = cast(RawHtmlMarkdownToken, token)
-        recombine_list = []
+        recombine_list: List[str] = []
         for next_tag_line in raw_html_token.raw_tag.split("\n"):
             if next_tag_line.startswith("\a"):
                 after_space_index, _ = ParserHelper.collect_while_spaces_verified(
@@ -1279,13 +1337,118 @@ class RuleMd027(RulePlugin):
         num_container_tokens: int,
         is_directly_within_block_quote: bool,
     ) -> None:
-        if token.is_inline_raw_html and context.in_fix_mode:
+        # add table support: https://github.com/jackdewinter/pymarkdown/issues/1515
+
+        if token.is_table:
+            self.__last_leaf_token = token
+        elif token.is_table_header:
+            self.__handle_table_header(context, token, is_directly_within_block_quote)
+        elif token.is_table_row:
+            self.__handle_table_row(context, token)
+        elif token.is_table_end:
+            self.__last_leaf_token = None
+        elif token.is_inline_raw_html and context.in_fix_mode:
             self.__handle_raw_html(context, token)
         elif token.is_inline_code_span and context.in_fix_mode:
             self.__handle_code_span(context, token)
         else:
             self.__handle_within_block_quotes_blocks(
                 token, context, num_container_tokens, is_directly_within_block_quote
+            )
+
+    def __fix_issue_table_header(
+        self, context: PluginScanContext, token: MarkdownToken
+    ) -> None:
+        assert token.is_table_header
+        table_header_token = cast(TableMarkdownHeaderToken, token)
+
+        # This is one of the few cases where we fix 2 things on one token, so it is more
+        # convenient to check for this here instead of in the main code.  As there can be
+        # two issues with the single header token and we cannot distinguish between the
+        # two of them at fix time, we do it here by checking to see if we have already
+        # fixed this token.
+        new_hash = (
+            f"{table_header_token.line_number}:{table_header_token.column_number}"
+        )
+        if new_hash == self.__table_header_hash:
+            return
+
+        if table_header_token.header_row_leading_whitespace:
+            self.register_fix_token_request(
+                context, token, "next_token", "header_row_leading_whitespace", ""
+            )
+        found_whitespace_characters, _ = ParserHelper.extract_spaces(
+            table_header_token.separator_line, 0
+        )
+        if found_whitespace_characters:
+            self.register_fix_token_request(
+                context,
+                token,
+                "next_token",
+                "separator_line",
+                table_header_token.separator_line[found_whitespace_characters:],
+            )
+        self.__table_header_hash = new_hash
+
+    def __handle_table_header(
+        self,
+        context: PluginScanContext,
+        token: MarkdownToken,
+        is_directly_within_block_quote: bool,
+    ) -> None:
+        assert is_directly_within_block_quote
+
+        table_header_token = cast(TableMarkdownHeaderToken, token)
+        if table_header_token.header_row_leading_whitespace:
+            column_number_delta = -(
+                table_header_token.column_number
+                - len(table_header_token.header_row_leading_whitespace)
+            )
+            self.__report_issue(
+                context,
+                token,
+                column_number_delta=column_number_delta,
+            )
+        found_whitespace_characters, _ = ParserHelper.extract_spaces(
+            table_header_token.separator_line, 0
+        )
+        if found_whitespace_characters:
+            column_number_delta = -(
+                table_header_token.column_number
+                - len(table_header_token.header_row_leading_whitespace)
+            )
+            assert self.__last_leaf_token and self.__last_leaf_token.is_table
+            self.__report_issue(
+                context,
+                token,
+                line_number_delta=1,
+                column_number_delta=column_number_delta,
+            )
+
+    def __fix_issue_table_row(
+        self, context: PluginScanContext, token: MarkdownToken
+    ) -> None:
+        assert token.is_table_row
+        table_row_token = cast(TableMarkdownRowToken, token)
+        assert table_row_token.leading_whitespace
+        self.register_fix_token_request(
+            context, token, "next_token", "leading_whitespace", ""
+        )
+
+    def __handle_table_row(
+        self,
+        context: PluginScanContext,
+        token: MarkdownToken,
+    ) -> None:
+        table_row_token = cast(TableMarkdownRowToken, token)
+        if table_row_token.leading_whitespace:
+            column_number_delta = -(
+                table_row_token.column_number - len(table_row_token.leading_whitespace)
+            )
+            self.__report_issue(
+                context,
+                token,
+                column_number_delta=column_number_delta,
             )
 
     def __handle_within_block_quotes_blocks(

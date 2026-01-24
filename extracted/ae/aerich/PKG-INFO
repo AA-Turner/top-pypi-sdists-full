@@ -1,38 +1,29 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: aerich
-Version: 0.9.1
+Version: 0.9.2
 Summary: A database migrations tool for Tortoise ORM.
-License: Apache-2.0
 Keywords: migrate,Tortoise-ORM,mysql
-Author: long2ice
-Author-email: long2ice@gmail.com>
+Author-Email: long2ice <long2ice@gmail.com>>
+License-Expression: Apache-2.0
+Project-URL: homepage, https://github.com/tortoise/aerich
+Project-URL: repository, https://github.com/tortoise/aerich.git
+Project-URL: documentation, https://github.com/tortoise/aerich
 Requires-Python: >=3.9
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Provides-Extra: asyncmy
-Provides-Extra: asyncpg
-Provides-Extra: mysql
-Provides-Extra: psycopg
+Requires-Dist: tortoise-orm<1.0.0,>=0.21.0
+Requires-Dist: dictdiffer<1.0.0,>=0.9.0
+Requires-Dist: asyncclick<9.0.0,>=8.1.7
+Requires-Dist: anyio<5.0.0,>=3.6.2
 Provides-Extra: toml
-Requires-Dist: aiomysql (>=0.2.0) ; extra == "mysql"
-Requires-Dist: asyncclick (>=8.1.7,<9.0.0)
-Requires-Dist: asyncmy (>=0.2.9) ; (python_version < "4.0") and (extra == "asyncmy")
-Requires-Dist: asyncpg ; extra == "asyncpg"
-Requires-Dist: dictdiffer (>=0.9.0,<1.0.0)
-Requires-Dist: eval-type-backport (>=0.2.2,<1.0.0) ; python_version < "3.10"
-Requires-Dist: psycopg[binary,pool] (>=3.0.12,<4.0.0) ; extra == "psycopg"
-Requires-Dist: pydantic (>=2.0.2,!=2.1.0,!=2.7.0,<3.0.0)
-Requires-Dist: tomli-w (>=1.1.0,<2.0.0) ; (python_version >= "3.11") and (extra == "toml")
-Requires-Dist: tomlkit (>=0.11.4,<1.0.0) ; (python_version < "3.11") and (extra == "toml")
-Requires-Dist: tortoise-orm (>=0.24.0,<1.0.0)
-Project-URL: Documentation, https://github.com/tortoise/aerich
-Project-URL: Homepage, https://github.com/tortoise/aerich
-Project-URL: Repository, https://github.com/tortoise/aerich.git
+Requires-Dist: tomli-w<2.0.0,>=1.1.0; python_version >= "3.11" and extra == "toml"
+Requires-Dist: tomlkit<1.0.0,>=0.11.4; python_version < "3.11" and extra == "toml"
+Provides-Extra: asyncpg
+Requires-Dist: asyncpg; extra == "asyncpg"
+Provides-Extra: psycopg
+Requires-Dist: psycopg[binary,pool]<4.0.0,>=3.0.12; extra == "psycopg"
+Provides-Extra: asyncmy
+Requires-Dist: asyncmy>=0.2.9; extra == "asyncmy"
+Provides-Extra: mysql
+Requires-Dist: aiomysql>=0.2.0; extra == "mysql"
 Description-Content-Type: text/markdown
 
 # Aerich
@@ -312,10 +303,12 @@ You can use `aerich` out of cli by use `Command` class.
 
 ```python
 from aerich import Command
+from aerich.utils import load_tortoise_config
 
-async with Command(tortoise_config=config, app='models') as command:
+async with Command(tortoise_config=load_tortoise_config(), app='models') as command:
     await command.migrate('test')
     await command.upgrade()
+    print(await command.history())
 ```
 
 ## Upgrade/Downgrade with `--fake` option
@@ -349,4 +342,3 @@ class MyModel(Model):
 
 This project is licensed under the
 [Apache-2.0](https://github.com/long2ice/aerich/blob/master/LICENSE) License.
-

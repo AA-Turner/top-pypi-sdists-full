@@ -68,12 +68,10 @@ TEST_CASE("LightningGPUSimulator::unit_tests", "[unit tests]") {
         LGPUsim->AllocateQubits(2);
         REQUIRE(LGPUsim->GetNumQubits() == 4);
         LGPUsim->ReleaseQubit(0);
-        REQUIRE(
-            LGPUsim->GetNumQubits() ==
-            4); // releasing only one qubit does not change the total number.
-        LGPUsim->ReleaseAllQubits();
-        REQUIRE(LGPUsim->GetNumQubits() ==
-                0); // releasing all qubits resets the simulator.
+        REQUIRE(LGPUsim->GetNumQubits() == 3);
+        Qs.insert(Qs.end(), {1, 2, 3});
+        LGPUsim->ReleaseQubits(Qs);
+        REQUIRE(LGPUsim->GetNumQubits() == 0);
     }
     SECTION("Tape recording") {
         std::unique_ptr<LGPUSimulator> LGPUsim =
@@ -763,6 +761,46 @@ TEST_CASE("LightningGPUSimulator::GateSet", "[GateSet]") {
         REQUIRE_THROWS_WITH(
             LGPUsim->MatrixOperation(matrix, {Qs[0]}, false, {Qs[1]}, {}),
             Catch::Contains("Controlled wires/values size mismatch"));
+    }
+
+    SECTION("Controlled GlobalPhase (multi-qubit)") {
+        std::unique_ptr<LGPUSimulator> LGPUsim =
+            std::make_unique<LGPUSimulator>();
+
+        constexpr std::size_t n_qubits = 4;
+        std::vector<intptr_t> Qs;
+        Qs.reserve(n_qubits);
+
+        for (std::size_t i = 0; i < n_qubits; i++) {
+            Qs[i] = LGPUsim->AllocateQubit();
+        }
+
+        LGPUsim->NamedOperation("GlobalPhase", {M_PI}, {}, false);
+        LGPUsim->NamedOperation("GlobalPhase", {M_PI_2}, {}, true);
+        LGPUsim->NamedOperation("GlobalPhase", {M_PI_2}, {}, false, {Qs[3]},
+                                {true});
+        LGPUsim->NamedOperation("GlobalPhase", {M_PI_4}, {}, false,
+                                {Qs[1], Qs[0]}, {true, false});
+
+        ObsIdType pz = LGPUsim->Observable(ObsId::PauliZ, {}, {Qs[0]});
+        CHECK(LGPUsim->Expval(pz) == Approx(1.0).margin(1e-5));
+    }
+
+    SECTION("Controlled GlobalPhase (1-qubit)") {
+        std::unique_ptr<LGPUSimulator> LGPUsim =
+            std::make_unique<LGPUSimulator>();
+
+        std::vector<intptr_t> Qs{LGPUsim->AllocateQubit()};
+
+        LGPUsim->NamedOperation("GlobalPhase", {M_PI}, {}, false);
+        LGPUsim->NamedOperation("GlobalPhase", {M_PI_2}, {}, true);
+        LGPUsim->NamedOperation("GlobalPhase", {M_PI_2}, {}, false, {Qs[0]},
+                                {true});
+        LGPUsim->NamedOperation("GlobalPhase", {M_PI_2}, {}, false, {Qs[0]},
+                                {false});
+
+        ObsIdType pz = LGPUsim->Observable(ObsId::PauliZ, {}, {Qs[0]});
+        CHECK(LGPUsim->Expval(pz) == Approx(1.0).margin(1e-5));
     }
 
     SECTION("Test setStateVector") {

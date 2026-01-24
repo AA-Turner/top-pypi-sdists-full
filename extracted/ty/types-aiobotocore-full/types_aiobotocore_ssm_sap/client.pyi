@@ -3,7 +3,7 @@ Type annotations for ssm-sap service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -31,9 +32,13 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListApplicationsPaginator,
     ListComponentsPaginator,
+    ListConfigurationCheckDefinitionsPaginator,
+    ListConfigurationCheckOperationsPaginator,
     ListDatabasesPaginator,
     ListOperationEventsPaginator,
     ListOperationsPaginator,
+    ListSubCheckResultsPaginator,
+    ListSubCheckRuleResultsPaginator,
 )
 from .type_defs import (
     DeleteResourcePermissionInputTypeDef,
@@ -43,6 +48,8 @@ from .type_defs import (
     GetApplicationOutputTypeDef,
     GetComponentInputTypeDef,
     GetComponentOutputTypeDef,
+    GetConfigurationCheckOperationInputTypeDef,
+    GetConfigurationCheckOperationOutputTypeDef,
     GetDatabaseInputTypeDef,
     GetDatabaseOutputTypeDef,
     GetOperationInputTypeDef,
@@ -53,12 +60,20 @@ from .type_defs import (
     ListApplicationsOutputTypeDef,
     ListComponentsInputTypeDef,
     ListComponentsOutputTypeDef,
+    ListConfigurationCheckDefinitionsInputTypeDef,
+    ListConfigurationCheckDefinitionsOutputTypeDef,
+    ListConfigurationCheckOperationsInputTypeDef,
+    ListConfigurationCheckOperationsOutputTypeDef,
     ListDatabasesInputTypeDef,
     ListDatabasesOutputTypeDef,
     ListOperationEventsInputTypeDef,
     ListOperationEventsOutputTypeDef,
     ListOperationsInputTypeDef,
     ListOperationsOutputTypeDef,
+    ListSubCheckResultsInputTypeDef,
+    ListSubCheckResultsOutputTypeDef,
+    ListSubCheckRuleResultsInputTypeDef,
+    ListSubCheckRuleResultsOutputTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutResourcePermissionInputTypeDef,
@@ -69,6 +84,8 @@ from .type_defs import (
     StartApplicationOutputTypeDef,
     StartApplicationRefreshInputTypeDef,
     StartApplicationRefreshOutputTypeDef,
+    StartConfigurationChecksInputTypeDef,
+    StartConfigurationChecksOutputTypeDef,
     StopApplicationInputTypeDef,
     StopApplicationOutputTypeDef,
     TagResourceRequestTypeDef,
@@ -77,12 +94,6 @@ from .type_defs import (
     UpdateApplicationSettingsOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -91,12 +102,12 @@ else:
 __all__ = ("SsmSapClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class SsmSapClient(AioBaseClient):
     """
@@ -145,7 +156,7 @@ class SsmSapClient(AioBaseClient):
 
     async def deregister_application(
         self, **kwargs: Unpack[DeregisterApplicationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deregister an SAP application with AWS Systems Manager for SAP.
 
@@ -172,6 +183,17 @@ class SsmSapClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/get_component.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#get_component)
+        """
+
+    async def get_configuration_check_operation(
+        self, **kwargs: Unpack[GetConfigurationCheckOperationInputTypeDef]
+    ) -> GetConfigurationCheckOperationOutputTypeDef:
+        """
+        Gets the details of a configuration check operation by specifying the operation
+        ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/get_configuration_check_operation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#get_configuration_check_operation)
         """
 
     async def get_database(
@@ -225,6 +247,27 @@ class SsmSapClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#list_components)
         """
 
+    async def list_configuration_check_definitions(
+        self, **kwargs: Unpack[ListConfigurationCheckDefinitionsInputTypeDef]
+    ) -> ListConfigurationCheckDefinitionsOutputTypeDef:
+        """
+        Lists all configuration check types supported by AWS Systems Manager for SAP.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/list_configuration_check_definitions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#list_configuration_check_definitions)
+        """
+
+    async def list_configuration_check_operations(
+        self, **kwargs: Unpack[ListConfigurationCheckOperationsInputTypeDef]
+    ) -> ListConfigurationCheckOperationsOutputTypeDef:
+        """
+        Lists the configuration check operations performed by AWS Systems Manager for
+        SAP.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/list_configuration_check_operations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#list_configuration_check_operations)
+        """
+
     async def list_databases(
         self, **kwargs: Unpack[ListDatabasesInputTypeDef]
     ) -> ListDatabasesOutputTypeDef:
@@ -254,6 +297,27 @@ class SsmSapClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/list_operations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#list_operations)
+        """
+
+    async def list_sub_check_results(
+        self, **kwargs: Unpack[ListSubCheckResultsInputTypeDef]
+    ) -> ListSubCheckResultsOutputTypeDef:
+        """
+        Lists the sub-check results of a specified configuration check operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/list_sub_check_results.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#list_sub_check_results)
+        """
+
+    async def list_sub_check_rule_results(
+        self, **kwargs: Unpack[ListSubCheckRuleResultsInputTypeDef]
+    ) -> ListSubCheckRuleResultsOutputTypeDef:
+        """
+        Lists the rules of a specified sub-check belonging to a configuration check
+        operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/list_sub_check_rule_results.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#list_sub_check_rule_results)
         """
 
     async def list_tags_for_resource(
@@ -307,6 +371,16 @@ class SsmSapClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#start_application_refresh)
         """
 
+    async def start_configuration_checks(
+        self, **kwargs: Unpack[StartConfigurationChecksInputTypeDef]
+    ) -> StartConfigurationChecksOutputTypeDef:
+        """
+        Initiates configuration check operations against a specified application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/start_configuration_checks.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#start_configuration_checks)
+        """
+
     async def stop_application(
         self, **kwargs: Unpack[StopApplicationInputTypeDef]
     ) -> StopApplicationOutputTypeDef:
@@ -317,7 +391,7 @@ class SsmSapClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#stop_application)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Creates tag for a resource by specifying the ARN.
 
@@ -325,7 +399,7 @@ class SsmSapClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Delete the tags for a resource.
 
@@ -368,6 +442,28 @@ class SsmSapClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_configuration_check_definitions"]
+    ) -> ListConfigurationCheckDefinitionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_configuration_check_operations"]
+    ) -> ListConfigurationCheckOperationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_databases"]
     ) -> ListDatabasesPaginator:
         """
@@ -399,6 +495,28 @@ class SsmSapClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#get_paginator)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_sub_check_results"]
+    ) -> ListSubCheckResultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_sub_check_rule_results"]
+    ) -> ListSubCheckRuleResultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/client/#get_paginator)
+        """
+
     async def __aenter__(self) -> Self:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap.html#SsmSap.Client)
@@ -407,7 +525,7 @@ class SsmSapClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

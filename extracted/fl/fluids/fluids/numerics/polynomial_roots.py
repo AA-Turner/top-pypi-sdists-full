@@ -23,8 +23,13 @@ SOFTWARE.
 from cmath import sqrt as csqrt
 from math import acos, cos, sin, sqrt
 
-__all__ = ['roots_quadratic', 'roots_quartic', 'roots_cubic_a1', 'roots_cubic_a2',
-'roots_cubic']
+__all__ = [
+    "roots_cubic",
+    "roots_cubic_a1",
+    "roots_cubic_a2",
+    "roots_quadratic",
+    "roots_quartic",
+]
 third = 1.0/3.0
 sixth = 1.0/6.0
 ninth = 1.0/9.0
@@ -139,7 +144,7 @@ def roots_cubic_a2(a, b, c, d):
     return (root1, root2, root3)
 
 def roots_cubic(a, b, c, d):
-    r'''Cubic equation solver based on a variety of sources, algorithms, and
+    r"""Cubic equation solver based on a variety of sources, algorithms, and
     numerical tools. It seems evident after some work that no analytical
     solution using floating points will ever have high-precision results
     for all cases of inputs. Some other solvers, such as NumPy's roots
@@ -190,7 +195,7 @@ def roots_cubic(a, b, c, d):
     .. [1] "Solving Cubic Equations." Accessed January 5, 2019.
        http://www.1728.org/cubic2.htm.
 
-    '''
+    """
     """
     Notes
     -----

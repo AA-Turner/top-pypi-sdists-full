@@ -1,5 +1,5 @@
-# Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
-# Copyright (c) 2025 Munich Quantum Software Company GmbH
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
 # All rights reserved.
 #
 # SPDX-License-Identifier: MIT
@@ -34,4 +34,20 @@ function(add_mqt_core_library name)
     kebab_to_camel(ARG_ALIAS_NAME ${ALIAS_NAME_ARG})
   endif()
   add_library(MQT::Core${ARG_ALIAS_NAME} ALIAS ${name})
+
+  # Set c++ standard
+  target_compile_features(${name} PUBLIC cxx_std_20)
+
+  # Add link libraries for warnings and options
+  target_link_libraries(${name} PRIVATE MQT::ProjectWarnings MQT::ProjectOptions)
+
+  # Set versioning information
+  set_target_properties(
+    ${name}
+    PROPERTIES VERSION ${PROJECT_VERSION}
+               SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+               EXPORT_NAME Core${ARG_ALIAS_NAME})
+
+  # Make version available
+  target_compile_definitions(${name} PRIVATE MQT_CORE_VERSION="${MQT_CORE_VERSION}")
 endfunction()

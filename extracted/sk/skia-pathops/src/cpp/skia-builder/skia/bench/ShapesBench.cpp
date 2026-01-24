@@ -132,7 +132,7 @@ private:
 
         return fName.c_str();
     }
-    SkIPoint onGetSize() override { return SkIPoint::Make(kBenchWidth, kBenchHeight); }
+    SkISize onGetSize() override { return SkISize::Make(kBenchWidth, kBenchHeight); }
 
     void onDelayedSetup() override {
         SkScalar w = SkIntToScalar(fShapesSize.width());
@@ -222,10 +222,8 @@ private:
         }
     }
 
-    enum {
-        kBenchWidth = 1000,
-        kBenchHeight = 1000
-    };
+    static constexpr int kBenchWidth = 1000;
+    static constexpr int kBenchHeight = 1000;
 
     struct ShapeInfo {
         SkMatrix   fMatrix;

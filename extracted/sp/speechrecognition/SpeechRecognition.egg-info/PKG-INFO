@@ -1,10 +1,12 @@
 Metadata-Version: 2.4
 Name: SpeechRecognition
-Version: 3.14.3
+Version: 3.14.5
 Summary: Library for performing speech recognition, with support for several engines and APIs, online and offline.
 Home-page: https://github.com/Uberi/speech_recognition#readme
 Author: Anthony Zhang (Uberi)
 Author-email: azhang9@gmail.com
+Maintainer: nikkie
+Maintainer-email: takuyafjp+develop@gmail.com
 License: BSD
 Keywords: speech recognition voice sphinx google wit bing api houndify ibm snowboy
 Classifier: Development Status :: 5 - Production/Stable
@@ -35,6 +37,8 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-randomly; extra == "dev"
 Requires-Dist: respx; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
 Provides-Extra: audio
 Requires-Dist: PyAudio>=0.2.11; extra == "audio"
 Provides-Extra: pocketsphinx
@@ -46,6 +50,7 @@ Requires-Dist: openai-whisper; extra == "whisper-local"
 Requires-Dist: soundfile; extra == "whisper-local"
 Provides-Extra: faster-whisper
 Requires-Dist: faster-whisper; extra == "faster-whisper"
+Requires-Dist: soundfile; extra == "faster-whisper"
 Provides-Extra: openai
 Requires-Dist: openai; extra == "openai"
 Requires-Dist: httpx<0.28; extra == "openai"
@@ -54,6 +59,8 @@ Requires-Dist: groq; extra == "groq"
 Requires-Dist: httpx<0.28; extra == "groq"
 Provides-Extra: assemblyai
 Requires-Dist: requests; extra == "assemblyai"
+Provides-Extra: vosk
+Requires-Dist: vosk; extra == "vosk"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -63,6 +70,8 @@ Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
@@ -92,7 +101,13 @@ SpeechRecognition
 
 Library for performing speech recognition, with support for several engines and APIs, online and offline.
 
-**UPDATE 2022-02-09**: Hey everyone! This project started as a tech demo, but these days it needs more time than I have to keep up with all the PRs and issues. Therefore, I'd like to put out an **open invite for collaborators** - just reach out at me@anthonyz.ca if you're interested!
+Recall.ai - Meeting Transcription API
+-------------------------------------
+
+If you’re working with speech detection or transcription for meetings, consider checking out `Recall.ai <https://www.recall.ai/product/meeting-transcription-api?utm_source=github&utm_medium=sponsorship&utm_campaign=uberi-speech_recognition>`__, an API that works with Zoom, Google Meet, Microsoft Teams, and more. Recall.ai diarizes by pulling the speaker data and separate audio streams from the meeting platforms, which means 100% accurate speaker diarization with actual speaker names and speaker emails.
+
+Getting Started
+---------------
 
 Speech recognition engine/API support:
 
@@ -109,7 +124,7 @@ Speech recognition engine/API support:
 * `Vosk API <https://github.com/alphacep/vosk-api/>`__ (works offline)
 * `OpenAI whisper <https://github.com/openai/whisper>`__ (works offline)
 * `OpenAI Whisper API <https://platform.openai.com/docs/guides/speech-to-text>`__
-* `Groq Whisper API <https://console.groq.com/docs/speech-text>`__
+* `Groq Whisper API <https://console.groq.com/docs/speech-to-text>`__
 
 **Quickstart:** ``pip install SpeechRecognition``. See the "Installing" section for more details.
 
@@ -127,8 +142,6 @@ Library Reference
 The `library reference <https://github.com/Uberi/speech_recognition/blob/master/reference/library-reference.rst>`__ documents every publicly accessible object in the library. This document is also included under ``reference/library-reference.rst``.
 
 See `Notes on using PocketSphinx <https://github.com/Uberi/speech_recognition/blob/master/reference/pocketsphinx.rst>`__ for information about installing languages, compiling PocketSphinx, and building language packs from online resources. This document is also included under ``reference/pocketsphinx.rst``.
-
-You have to install Vosk models for using Vosk. `Here <https://alphacephei.com/vosk/models>`__ are models avaiable. You have to place them in models folder of your project, like "your-project-folder/models/your-vosk-model"
 
 Examples
 --------
@@ -211,11 +224,12 @@ Vosk (for Vosk users)
 ~~~~~~~~~~~~~~~~~~~~~
 Vosk API is **required if and only if you want to use Vosk recognizer** (``recognizer_instance.recognize_vosk``).
 
-You can install it with ``python3 -m pip install vosk``.
+You can install it with ``python3 -m pip install SpeechRecognition[vosk]``.
 
 You also have to install Vosk Models:
 
-`Here <https://alphacephei.com/vosk/models>`__ are models avaiable for download. You have to place them in models folder of your project, like "your-project-folder/models/your-vosk-model"
+`Here <https://alphacephei.com/vosk/models>`__ are models available for download. You have to place them in the ``model`` directory of your project, like "your-project-folder/model".
+You can also run ``sprc download vosk`` to download the default model.
 
 Google Cloud Speech Library for Python (for Google Cloud Speech-to-Text API users)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -474,3 +488,5 @@ For convenience, all the official distributions of SpeechRecognition already inc
 SpeechRecognition distributes language files from `CMU Sphinx <http://cmusphinx.sourceforge.net/>`__. These files are BSD-licensed and redistributable as long as copyright notices are correctly retained. See ``speech_recognition/pocketsphinx-data/*/LICENSE*.txt`` for license details for individual parts.
 
 SpeechRecognition distributes binaries from `FLAC <https://xiph.org/flac/>`__ - ``speech_recognition/flac-win32.exe``, ``speech_recognition/flac-linux-x86``, and ``speech_recognition/flac-mac``. These files are GPLv2-licensed and redistributable, as long as the terms of the GPL are satisfied. The FLAC binaries are an `aggregate <https://www.gnu.org/licenses/gpl-faq.html#MereAggregation>`__ of `separate programs <https://www.gnu.org/licenses/gpl-faq.html#NFUseGPLPlugins>`__, so these GPL restrictions do not apply to the library or your programs that use the library, only to FLAC itself. See ``LICENSE-FLAC.txt`` for license details.
+
+

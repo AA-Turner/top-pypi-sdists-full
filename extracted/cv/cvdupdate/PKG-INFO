@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cvdupdate
-Version: 1.1.3
+Version: 1.2.0
 Summary: ClamAV Private Database Mirror Updater Tool
 Home-page: https://github.com/Cisco-Talos/cvdupdate
 Author: The ClamAV Team
@@ -11,12 +11,11 @@ Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click>=7.0
-Requires-Dist: coloredlogs>=10.0
+Requires-Dist: colorlog>=6.7
 Requires-Dist: colorama
 Requires-Dist: requests
 Requires-Dist: dnspython>=2.1.0
 Requires-Dist: rangehttpserver
-Requires-Dist: setuptools
 Requires-Dist: packaging
 Dynamic: author
 Dynamic: author-email
@@ -30,7 +29,7 @@ Dynamic: summary
 
 <p align="center">A tool to download and update clamav databases and database patch files
 for the purposes of hosting your own database mirror.
-<p align="center"><em>Copyright (C) 2021-2022 Cisco Systems, Inc. and/or its affiliates. All rights reserved.</em></p>
+<p align="center"><em>Copyright (C) 2021-2025 Cisco Systems, Inc. and/or its affiliates. All rights reserved.</em></p>
 
 <p align="center">
 <a href="https://pypi.org/project/cvdupdate/">
@@ -55,7 +54,7 @@ Run this tool as often as you like, but it will only download new content if the
 - An internet connection with DNS enabled.
 - The following Python packages.  These will be installed automatically if you use `pip`, but may need to be installed manually otherwise:
   - `click` v7.0 or newer
-  - `coloredlogs` v10.0 or newer
+  - `colorlog` v6.7 or newer
   - `colorama`
   - `requests`
   - `dnspython` v2.1.0 or newer

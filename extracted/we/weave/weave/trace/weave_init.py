@@ -6,20 +6,28 @@ from json import JSONDecodeError
 
 from weave.compat import wandb
 from weave.telemetry import trace_sentry
-from weave.trace import (
-    env,
-    init_message,
-    weave_client,
-)
+from weave.trace import env, init_message, weave_client
 from weave.trace.context import weave_client_context as weave_client_context
-from weave.trace.settings import should_redact_pii, use_server_cache
-from weave.trace_server.trace_server_interface import TraceServerInterface
-from weave.trace_server_bindings import remote_http_trace_server
+from weave.trace.settings import (
+    should_redact_pii,
+    should_use_stainless_server,
+    use_server_cache,
+)
+from weave.trace.wandb_run_context import (
+    check_wandb_run_matches,
+    get_global_wb_run_context,
+)
 from weave.trace_server_bindings.caching_middleware_trace_server import (
     CachingMiddlewareTraceServer,
 )
+from weave.trace_server_bindings.client_interface import TraceServerClientInterface
+from weave.trace_server_bindings.remote_http_trace_server import RemoteHTTPTraceServer
+from weave.trace_server_version import MIN_TRACE_SERVER_VERSION
 
 logger = logging.getLogger(__name__)
+
+
+class WeaveWandbAuthenticationException(Exception): ...
 
 
 def get_username() -> str | None:
@@ -28,9 +36,6 @@ def get_username() -> str | None:
         return api.username()
     except AttributeError:
         return None
-
-
-class WeaveWandbAuthenticationException(Exception): ...
 
 
 def get_entity_project_from_project_name(project_name: str) -> tuple[str, str]:
@@ -74,7 +79,7 @@ Args:
 """
 
 
-def _weave_is_available(server: remote_http_trace_server.RemoteHTTPTraceServer) -> bool:
+def _weave_is_available(server: TraceServerClientInterface) -> bool:
     try:
         server.server_info()
     except JSONDecodeError:
@@ -125,8 +130,10 @@ def init_weave(
 
     # Resolve entity name after authentication is ensured
     entity_name, project_name = get_entity_project_from_project_name(project_name)
-    wandb_run_id = weave_client.safe_current_wb_run_id()
-    weave_client.check_wandb_run_matches(wandb_run_id, entity_name, project_name)
+    wb_run_context = get_global_wb_run_context()
+    if wb_run_context:
+        wandb_run_id = f"{entity_name}/{project_name}/{wb_run_context.run_id}"
+        check_wandb_run_matches(wandb_run_id, entity_name, project_name)
 
     api_key = None
     if wandb_context is not None and wandb_context.api_key is not None:
@@ -137,7 +144,7 @@ def init_weave(
         raise RuntimeError(
             "Weave is not available on the server.  Please contact support."
         )
-    server: TraceServerInterface = remote_server
+    server: TraceServerClientInterface = remote_server
     if use_server_cache():
         server = CachingMiddlewareTraceServer.from_env(server)
 
@@ -167,16 +174,25 @@ def init_weave(
         track_pii_redaction_enabled(username or "unknown", entity_name, project_name)
 
     try:
-        min_required_version = (
-            remote_server.server_info().min_required_weave_python_version
-        )
+        server_info = remote_server.server_info()
+        min_required_version = server_info.min_required_weave_python_version
+        trace_server_version = server_info.trace_server_version
     # TODO: Tighten this exception to only catch the specific exception
     # that is thrown by the server_info call.
     except Exception:
         # Set to a minimum version that will always pass the check
         # In the future, we may want to throw here.
         min_required_version = "0.0.0"
-    init_message.assert_min_weave_version(min_required_version)
+        trace_server_version = None
+    trace_server_url = env.weave_trace_server_url()
+    if not init_message.check_min_weave_version(min_required_version, trace_server_url):
+        return init_weave_disabled()
+    if not init_message.check_min_trace_server_version(
+        trace_server_version,
+        MIN_TRACE_SERVER_VERSION,
+        trace_server_url,
+    ):
+        return init_weave_disabled()
     init_message.print_init_message(
         username, entity_name, project_name, read_only=not ensure_project_exists
     )
@@ -222,21 +238,19 @@ def init_weave_disabled() -> weave_client.WeaveClient:
 def init_weave_get_server(
     api_key: str | None = None,
     should_batch: bool = True,
-) -> remote_http_trace_server.RemoteHTTPTraceServer:
-    res = remote_http_trace_server.RemoteHTTPTraceServer.from_env(should_batch)
+) -> TraceServerClientInterface:
+    res: TraceServerClientInterface
+    if should_use_stainless_server():
+        from weave.trace_server_bindings.stainless_remote_http_trace_server import (
+            StainlessRemoteHTTPTraceServer,
+        )
+
+        res = StainlessRemoteHTTPTraceServer.from_env(should_batch)
+    else:
+        res = RemoteHTTPTraceServer.from_env(should_batch)
     if api_key is not None:
         res.set_auth(("api", api_key))
     return res
-
-
-def init_local() -> weave_client.WeaveClient:
-    from weave.trace_server import sqlite_trace_server
-
-    server = sqlite_trace_server.SqliteTraceServer("weave.db")
-    server.setup_tables()
-    client = weave_client.WeaveClient("none", "none", server)
-    weave_client_context.set_weave_client_global(client)
-    return client
 
 
 def finish() -> None:

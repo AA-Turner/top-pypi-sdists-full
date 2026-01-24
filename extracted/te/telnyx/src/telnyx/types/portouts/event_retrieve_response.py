@@ -9,14 +9,18 @@ from ..._models import BaseModel
 __all__ = [
     "EventRetrieveResponse",
     "Data",
-    "DataPayload",
-    "DataPayloadWebhookPortoutStatusChangedPayload",
-    "DataPayloadWebhookPortoutNewCommentPayload",
-    "DataPayloadWebhookPortoutFocDateChangedPayload",
+    "DataWebhookPortoutStatusChanged",
+    "DataWebhookPortoutStatusChangedPayload",
+    "DataWebhookPortoutNewComment",
+    "DataWebhookPortoutNewCommentPayload",
+    "DataWebhookPortoutFocDateChanged",
+    "DataWebhookPortoutFocDateChangedPayload",
 ]
 
 
-class DataPayloadWebhookPortoutStatusChangedPayload(BaseModel):
+class DataWebhookPortoutStatusChangedPayload(BaseModel):
+    """The webhook payload for the portout.status_changed event"""
+
     id: Optional[str] = None
     """Identifies the port out that was moved."""
 
@@ -48,39 +52,7 @@ class DataPayloadWebhookPortoutStatusChangedPayload(BaseModel):
     """Identifies the user that the port-out order belongs to."""
 
 
-class DataPayloadWebhookPortoutNewCommentPayload(BaseModel):
-    id: Optional[str] = None
-    """Identifies the comment that was added to the port-out order."""
-
-    comment: Optional[str] = None
-    """The body of the comment."""
-
-    portout_id: Optional[str] = None
-    """Identifies the port-out order that the comment was added to."""
-
-    user_id: Optional[str] = None
-    """Identifies the user that added the comment."""
-
-
-class DataPayloadWebhookPortoutFocDateChangedPayload(BaseModel):
-    id: Optional[str] = None
-    """Identifies the port-out order that have the FOC date changed."""
-
-    foc_date: Optional[datetime] = None
-    """ISO 8601 formatted date indicating the new FOC date."""
-
-    user_id: Optional[str] = None
-    """Identifies the organization that port-out order belongs to."""
-
-
-DataPayload: TypeAlias = Union[
-    DataPayloadWebhookPortoutStatusChangedPayload,
-    DataPayloadWebhookPortoutNewCommentPayload,
-    DataPayloadWebhookPortoutFocDateChangedPayload,
-]
-
-
-class Data(BaseModel):
+class DataWebhookPortoutStatusChanged(BaseModel):
     id: Optional[str] = None
     """Uniquely identifies the event."""
 
@@ -93,7 +65,7 @@ class Data(BaseModel):
     event_type: Optional[Literal["portout.status_changed", "portout.foc_date_changed", "portout.new_comment"]] = None
     """Identifies the event type"""
 
-    payload: Optional[DataPayload] = None
+    payload: Optional[DataWebhookPortoutStatusChangedPayload] = None
     """The webhook payload for the portout.status_changed event"""
 
     payload_status: Optional[Literal["created", "completed"]] = None
@@ -107,6 +79,96 @@ class Data(BaseModel):
 
     updated_at: Optional[datetime] = None
     """ISO 8601 formatted date indicating when the resource was updated."""
+
+
+class DataWebhookPortoutNewCommentPayload(BaseModel):
+    """The webhook payload for the portout.new_comment event"""
+
+    id: Optional[str] = None
+    """Identifies the comment that was added to the port-out order."""
+
+    comment: Optional[str] = None
+    """The body of the comment."""
+
+    portout_id: Optional[str] = None
+    """Identifies the port-out order that the comment was added to."""
+
+    user_id: Optional[str] = None
+    """Identifies the user that added the comment."""
+
+
+class DataWebhookPortoutNewComment(BaseModel):
+    id: Optional[str] = None
+    """Uniquely identifies the event."""
+
+    available_notification_methods: Optional[List[Literal["email", "webhook"]]] = None
+    """Indicates the notification methods used."""
+
+    created_at: Optional[datetime] = None
+    """ISO 8601 formatted date indicating when the resource was created."""
+
+    event_type: Optional[Literal["portout.status_changed", "portout.foc_date_changed", "portout.new_comment"]] = None
+    """Identifies the event type"""
+
+    payload: Optional[DataWebhookPortoutNewCommentPayload] = None
+    """The webhook payload for the portout.new_comment event"""
+
+    payload_status: Optional[Literal["created", "completed"]] = None
+    """The status of the payload generation."""
+
+    portout_id: Optional[str] = None
+    """Identifies the port-out order associated with the event."""
+
+    record_type: Optional[str] = None
+    """Identifies the type of the resource."""
+
+    updated_at: Optional[datetime] = None
+    """ISO 8601 formatted date indicating when the resource was updated."""
+
+
+class DataWebhookPortoutFocDateChangedPayload(BaseModel):
+    """The webhook payload for the portout.foc_date_changed event"""
+
+    id: Optional[str] = None
+    """Identifies the port-out order that have the FOC date changed."""
+
+    foc_date: Optional[datetime] = None
+    """ISO 8601 formatted date indicating the new FOC date."""
+
+    user_id: Optional[str] = None
+    """Identifies the organization that port-out order belongs to."""
+
+
+class DataWebhookPortoutFocDateChanged(BaseModel):
+    id: Optional[str] = None
+    """Uniquely identifies the event."""
+
+    available_notification_methods: Optional[List[Literal["email", "webhook"]]] = None
+    """Indicates the notification methods used."""
+
+    created_at: Optional[datetime] = None
+    """ISO 8601 formatted date indicating when the resource was created."""
+
+    event_type: Optional[Literal["portout.status_changed", "portout.foc_date_changed", "portout.new_comment"]] = None
+    """Identifies the event type"""
+
+    payload: Optional[DataWebhookPortoutFocDateChangedPayload] = None
+    """The webhook payload for the portout.foc_date_changed event"""
+
+    payload_status: Optional[Literal["created", "completed"]] = None
+    """The status of the payload generation."""
+
+    portout_id: Optional[str] = None
+    """Identifies the port-out order associated with the event."""
+
+    record_type: Optional[str] = None
+    """Identifies the type of the resource."""
+
+    updated_at: Optional[datetime] = None
+    """ISO 8601 formatted date indicating when the resource was updated."""
+
+
+Data: TypeAlias = Union[DataWebhookPortoutStatusChanged, DataWebhookPortoutNewComment, DataWebhookPortoutFocDateChanged]
 
 
 class EventRetrieveResponse(BaseModel):

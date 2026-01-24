@@ -3,7 +3,7 @@ Type annotations for rekognition service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -68,12 +69,6 @@ from .literals import (
     VideoJobStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -412,7 +407,7 @@ class AssociatedFaceTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -420,7 +415,7 @@ class UnsuccessfulFaceAssociationTypeDef(TypedDict):
     FaceId: NotRequired[str]
     UserId: NotRequired[str]
     Confidence: NotRequired[float]
-    Reasons: NotRequired[List[UnsuccessfulFaceAssociationReasonType]]
+    Reasons: NotRequired[list[UnsuccessfulFaceAssociationReasonType]]
 
 class AudioMetadataTypeDef(TypedDict):
     Codec: NotRequired[str]
@@ -501,7 +496,7 @@ class ConnectedHomeSettingsForUpdateTypeDef(TypedDict):
     MinConfidence: NotRequired[float]
 
 class ConnectedHomeSettingsOutputTypeDef(TypedDict):
-    Labels: List[str]
+    Labels: list[str]
     MinConfidence: NotRequired[float]
 
 class ConnectedHomeSettingsTypeDef(TypedDict):
@@ -585,7 +580,7 @@ class DeleteFacesRequestTypeDef(TypedDict):
 class UnsuccessfulFaceDeletionTypeDef(TypedDict):
     FaceId: NotRequired[str]
     UserId: NotRequired[str]
-    Reasons: NotRequired[List[UnsuccessfulFaceDeletionReasonType]]
+    Reasons: NotRequired[list[UnsuccessfulFaceDeletionReasonType]]
 
 class DeleteProjectPolicyRequestTypeDef(TypedDict):
     ProjectArn: str
@@ -661,7 +656,7 @@ class GeneralLabelsSettingsTypeDef(TypedDict):
 
 class HumanLoopActivationOutputTypeDef(TypedDict):
     HumanLoopArn: NotRequired[str]
-    HumanLoopActivationReasons: NotRequired[List[str]]
+    HumanLoopActivationReasons: NotRequired[list[str]]
     HumanLoopActivationConditionsEvaluationResults: NotRequired[str]
 
 class ProtectiveEquipmentSummarizationAttributesTypeDef(TypedDict):
@@ -669,9 +664,9 @@ class ProtectiveEquipmentSummarizationAttributesTypeDef(TypedDict):
     RequiredEquipmentTypes: Sequence[ProtectiveEquipmentTypeType]
 
 class ProtectiveEquipmentSummaryTypeDef(TypedDict):
-    PersonsWithRequiredEquipment: NotRequired[List[int]]
-    PersonsWithoutRequiredEquipment: NotRequired[List[int]]
-    PersonsIndeterminate: NotRequired[List[int]]
+    PersonsWithRequiredEquipment: NotRequired[list[int]]
+    PersonsWithoutRequiredEquipment: NotRequired[list[int]]
+    PersonsIndeterminate: NotRequired[list[int]]
 
 class DetectionFilterTypeDef(TypedDict):
     MinConfidence: NotRequired[float]
@@ -690,7 +685,7 @@ class DisassociatedFaceTypeDef(TypedDict):
 class UnsuccessfulFaceDisassociationTypeDef(TypedDict):
     FaceId: NotRequired[str]
     UserId: NotRequired[str]
-    Reasons: NotRequired[List[UnsuccessfulFaceDisassociationReasonType]]
+    Reasons: NotRequired[list[UnsuccessfulFaceDisassociationReasonType]]
 
 class DistributeDatasetTypeDef(TypedDict):
     Arn: str
@@ -1041,18 +1036,18 @@ class DescribeCollectionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCollectionsResponseTypeDef(TypedDict):
-    CollectionIds: List[str]
-    FaceModelVersions: List[str]
+    CollectionIds: list[str]
+    FaceModelVersions: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListDatasetEntriesResponseTypeDef(TypedDict):
-    DatasetEntries: List[str]
+    DatasetEntries: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutProjectPolicyResponseTypeDef(TypedDict):
@@ -1108,8 +1103,8 @@ class StopProjectVersionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssociateFacesResponseTypeDef(TypedDict):
-    AssociatedFaces: List[AssociatedFaceTypeDef]
-    UnsuccessfulFaceAssociations: List[UnsuccessfulFaceAssociationTypeDef]
+    AssociatedFaces: list[AssociatedFaceTypeDef]
+    UnsuccessfulFaceAssociations: list[UnsuccessfulFaceAssociationTypeDef]
     UserStatus: UserStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1158,7 +1153,7 @@ class ImageTypeDef(TypedDict):
     S3Object: NotRequired[S3ObjectTypeDef]
 
 class GetCelebrityInfoResponseTypeDef(TypedDict):
-    Urls: List[str]
+    Urls: list[str]
     Name: str
     KnownGender: KnownGenderTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1174,10 +1169,10 @@ ChallengePreferenceTypeDef = TypedDict(
 class ComparedFaceTypeDef(TypedDict):
     BoundingBox: NotRequired[BoundingBoxTypeDef]
     Confidence: NotRequired[float]
-    Landmarks: NotRequired[List[LandmarkTypeDef]]
+    Landmarks: NotRequired[list[LandmarkTypeDef]]
     Pose: NotRequired[PoseTypeDef]
     Quality: NotRequired[ImageQualityTypeDef]
-    Emotions: NotRequired[List[EmotionTypeDef]]
+    Emotions: NotRequired[list[EmotionTypeDef]]
     Smile: NotRequired[SmileTypeDef]
 
 class StreamProcessorSettingsForUpdateTypeDef(TypedDict):
@@ -1189,7 +1184,7 @@ class ContentModerationDetectionTypeDef(TypedDict):
     StartTimestampMillis: NotRequired[int]
     EndTimestampMillis: NotRequired[int]
     DurationMillis: NotRequired[int]
-    ContentTypes: NotRequired[List[ContentTypeTypeDef]]
+    ContentTypes: NotRequired[list[ContentTypeTypeDef]]
 
 class CopyProjectVersionRequestTypeDef(TypedDict):
     SourceProjectArn: str
@@ -1229,13 +1224,13 @@ class ProjectDescriptionTypeDef(TypedDict):
     ProjectArn: NotRequired[str]
     CreationTimestamp: NotRequired[datetime]
     Status: NotRequired[ProjectStatusType]
-    Datasets: NotRequired[List[DatasetMetadataTypeDef]]
+    Datasets: NotRequired[list[DatasetMetadataTypeDef]]
     Feature: NotRequired[CustomizationFeatureType]
     AutoUpdate: NotRequired[ProjectAutoUpdateType]
 
 class DeleteFacesResponseTypeDef(TypedDict):
-    DeletedFaces: List[str]
-    UnsuccessfulFaceDeletions: List[UnsuccessfulFaceDeletionTypeDef]
+    DeletedFaces: list[str]
+    UnsuccessfulFaceDeletions: list[UnsuccessfulFaceDeletionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeProjectVersionsRequestPaginateTypeDef(TypedDict):
@@ -1296,16 +1291,16 @@ class DescribeProjectVersionsRequestWaitTypeDef(TypedDict):
 
 class DetectLabelsImageBackgroundTypeDef(TypedDict):
     Quality: NotRequired[DetectLabelsImageQualityTypeDef]
-    DominantColors: NotRequired[List[DominantColorTypeDef]]
+    DominantColors: NotRequired[list[DominantColorTypeDef]]
 
 class DetectLabelsImageForegroundTypeDef(TypedDict):
     Quality: NotRequired[DetectLabelsImageQualityTypeDef]
-    DominantColors: NotRequired[List[DominantColorTypeDef]]
+    DominantColors: NotRequired[list[DominantColorTypeDef]]
 
 class InstanceTypeDef(TypedDict):
     BoundingBox: NotRequired[BoundingBoxTypeDef]
     Confidence: NotRequired[float]
-    DominantColors: NotRequired[List[DominantColorTypeDef]]
+    DominantColors: NotRequired[list[DominantColorTypeDef]]
 
 class DetectLabelsSettingsTypeDef(TypedDict):
     GeneralLabels: NotRequired[GeneralLabelsSettingsTypeDef]
@@ -1315,16 +1310,16 @@ class LabelDetectionSettingsTypeDef(TypedDict):
     GeneralLabels: NotRequired[GeneralLabelsSettingsTypeDef]
 
 class DetectModerationLabelsResponseTypeDef(TypedDict):
-    ModerationLabels: List[ModerationLabelTypeDef]
+    ModerationLabels: list[ModerationLabelTypeDef]
     ModerationModelVersion: str
     HumanLoopActivationOutput: HumanLoopActivationOutputTypeDef
     ProjectVersion: str
-    ContentTypes: List[ContentTypeTypeDef]
+    ContentTypes: list[ContentTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DisassociateFacesResponseTypeDef(TypedDict):
-    DisassociatedFaces: List[DisassociatedFaceTypeDef]
-    UnsuccessfulFaceDisassociations: List[UnsuccessfulFaceDisassociationTypeDef]
+    DisassociatedFaces: list[DisassociatedFaceTypeDef]
+    UnsuccessfulFaceDisassociations: list[UnsuccessfulFaceDisassociationTypeDef]
     UserStatus: UserStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1342,8 +1337,8 @@ class FaceDetailTypeDef(TypedDict):
     Mustache: NotRequired[MustacheTypeDef]
     EyesOpen: NotRequired[EyeOpenTypeDef]
     MouthOpen: NotRequired[MouthOpenTypeDef]
-    Emotions: NotRequired[List[EmotionTypeDef]]
-    Landmarks: NotRequired[List[LandmarkTypeDef]]
+    Emotions: NotRequired[list[EmotionTypeDef]]
+    Landmarks: NotRequired[list[LandmarkTypeDef]]
     Pose: NotRequired[PoseTypeDef]
     Quality: NotRequired[ImageQualityTypeDef]
     Confidence: NotRequired[float]
@@ -1360,11 +1355,11 @@ class StreamProcessorSettingsTypeDef(TypedDict):
 
 class GeometryTypeDef(TypedDict):
     BoundingBox: NotRequired[BoundingBoxTypeDef]
-    Polygon: NotRequired[List[PointTypeDef]]
+    Polygon: NotRequired[list[PointTypeDef]]
 
 class RegionOfInterestOutputTypeDef(TypedDict):
     BoundingBox: NotRequired[BoundingBoxTypeDef]
-    Polygon: NotRequired[List[PointTypeDef]]
+    Polygon: NotRequired[list[PointTypeDef]]
 
 class RegionOfInterestTypeDef(TypedDict):
     BoundingBox: NotRequired[BoundingBoxTypeDef]
@@ -1382,17 +1377,17 @@ class StreamProcessorInputTypeDef(TypedDict):
     KinesisVideoStream: NotRequired[KinesisVideoStreamTypeDef]
 
 class ListProjectPoliciesResponseTypeDef(TypedDict):
-    ProjectPolicies: List[ProjectPolicyTypeDef]
+    ProjectPolicies: list[ProjectPolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListStreamProcessorsResponseTypeDef(TypedDict):
-    StreamProcessors: List[StreamProcessorTypeDef]
+    StreamProcessors: list[StreamProcessorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListUsersResponseTypeDef(TypedDict):
-    Users: List[UserTypeDef]
+    Users: list[UserTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1434,7 +1429,7 @@ class FaceMatchTypeDef(TypedDict):
     Face: NotRequired[FaceTypeDef]
 
 class ListFacesResponseTypeDef(TypedDict):
-    Faces: List[FaceTypeDef]
+    Faces: list[FaceTypeDef]
     FaceModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -1444,7 +1439,7 @@ class GetFaceLivenessSessionResultsResponseTypeDef(TypedDict):
     Status: LivenessSessionStatusType
     Confidence: float
     ReferenceImage: AuditImageTypeDef
-    AuditImages: List[AuditImageTypeDef]
+    AuditImages: list[AuditImageTypeDef]
     Challenge: ChallengeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1552,7 +1547,7 @@ class CreateFaceLivenessSessionRequestSettingsTypeDef(TypedDict):
     ChallengePreferences: NotRequired[Sequence[ChallengePreferenceTypeDef]]
 
 class CelebrityTypeDef(TypedDict):
-    Urls: NotRequired[List[str]]
+    Urls: NotRequired[list[str]]
     Name: NotRequired[str]
     Id: NotRequired[str]
     Face: NotRequired[ComparedFaceTypeDef]
@@ -1567,7 +1562,7 @@ class GetContentModerationResponseTypeDef(TypedDict):
     JobStatus: VideoJobStatusType
     StatusMessage: str
     VideoMetadata: VideoMetadataTypeDef
-    ModerationLabels: List[ContentModerationDetectionTypeDef]
+    ModerationLabels: list[ContentModerationDetectionTypeDef]
     ModerationModelVersion: str
     JobId: str
     Video: VideoTypeDef
@@ -1579,35 +1574,35 @@ class GetContentModerationResponseTypeDef(TypedDict):
 class ProtectiveEquipmentBodyPartTypeDef(TypedDict):
     Name: NotRequired[BodyPartType]
     Confidence: NotRequired[float]
-    EquipmentDetections: NotRequired[List[EquipmentDetectionTypeDef]]
+    EquipmentDetections: NotRequired[list[EquipmentDetectionTypeDef]]
 
 class DescribeDatasetResponseTypeDef(TypedDict):
     DatasetDescription: DatasetDescriptionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDatasetLabelsResponseTypeDef(TypedDict):
-    DatasetLabelDescriptions: List[DatasetLabelDescriptionTypeDef]
+    DatasetLabelDescriptions: list[DatasetLabelDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeProjectsResponseTypeDef(TypedDict):
-    ProjectDescriptions: List[ProjectDescriptionTypeDef]
+    ProjectDescriptions: list[ProjectDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DetectLabelsImagePropertiesTypeDef(TypedDict):
     Quality: NotRequired[DetectLabelsImageQualityTypeDef]
-    DominantColors: NotRequired[List[DominantColorTypeDef]]
+    DominantColors: NotRequired[list[DominantColorTypeDef]]
     Foreground: NotRequired[DetectLabelsImageForegroundTypeDef]
     Background: NotRequired[DetectLabelsImageBackgroundTypeDef]
 
 class LabelTypeDef(TypedDict):
     Name: NotRequired[str]
     Confidence: NotRequired[float]
-    Instances: NotRequired[List[InstanceTypeDef]]
-    Parents: NotRequired[List[ParentTypeDef]]
-    Aliases: NotRequired[List[LabelAliasTypeDef]]
-    Categories: NotRequired[List[LabelCategoryTypeDef]]
+    Instances: NotRequired[list[InstanceTypeDef]]
+    Parents: NotRequired[list[ParentTypeDef]]
+    Aliases: NotRequired[list[LabelAliasTypeDef]]
+    Categories: NotRequired[list[LabelCategoryTypeDef]]
 
 class DetectLabelsRequestTypeDef(TypedDict):
     Image: ImageTypeDef
@@ -1626,7 +1621,7 @@ class StartLabelDetectionRequestTypeDef(TypedDict):
     Settings: NotRequired[LabelDetectionSettingsTypeDef]
 
 class CelebrityDetailTypeDef(TypedDict):
-    Urls: NotRequired[List[str]]
+    Urls: NotRequired[list[str]]
     Name: NotRequired[str]
     Id: NotRequired[str]
     Confidence: NotRequired[float]
@@ -1635,7 +1630,7 @@ class CelebrityDetailTypeDef(TypedDict):
     KnownGender: NotRequired[KnownGenderTypeDef]
 
 class DetectFacesResponseTypeDef(TypedDict):
-    FaceDetails: List[FaceDetailTypeDef]
+    FaceDetails: list[FaceDetailTypeDef]
     OrientationCorrection: OrientationCorrectionType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1656,12 +1651,12 @@ class SearchedFaceDetailsTypeDef(TypedDict):
     FaceDetail: NotRequired[FaceDetailTypeDef]
 
 class UnindexedFaceTypeDef(TypedDict):
-    Reasons: NotRequired[List[ReasonType]]
+    Reasons: NotRequired[list[ReasonType]]
     FaceDetail: NotRequired[FaceDetailTypeDef]
 
 class UnsearchedFaceTypeDef(TypedDict):
     FaceDetails: NotRequired[FaceDetailTypeDef]
-    Reasons: NotRequired[List[UnsearchedFaceReasonType]]
+    Reasons: NotRequired[list[UnsearchedFaceReasonType]]
 
 StreamProcessorSettingsUnionTypeDef = Union[
     StreamProcessorSettingsTypeDef, StreamProcessorSettingsOutputTypeDef
@@ -1697,7 +1692,7 @@ class StartStreamProcessorRequestTypeDef(TypedDict):
     StopSelector: NotRequired[StreamProcessingStopSelectorTypeDef]
 
 class SearchUsersResponseTypeDef(TypedDict):
-    UserMatches: List[UserMatchTypeDef]
+    UserMatches: list[UserMatchTypeDef]
     FaceModelVersion: str
     SearchedFace: SearchedFaceTypeDef
     SearchedUser: SearchedUserTypeDef
@@ -1753,17 +1748,17 @@ class DescribeStreamProcessorResponseTypeDef(TypedDict):
     Settings: StreamProcessorSettingsOutputTypeDef
     NotificationChannel: StreamProcessorNotificationChannelTypeDef
     KmsKeyId: str
-    RegionsOfInterest: List[RegionOfInterestOutputTypeDef]
+    RegionsOfInterest: list[RegionOfInterestOutputTypeDef]
     DataSharingPreference: StreamProcessorDataSharingPreferenceTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSegmentDetectionResponseTypeDef(TypedDict):
     JobStatus: VideoJobStatusType
     StatusMessage: str
-    VideoMetadata: List[VideoMetadataTypeDef]
-    AudioMetadata: List[AudioMetadataTypeDef]
-    Segments: List[SegmentDetectionTypeDef]
-    SelectedSegmentTypes: List[SegmentTypeInfoTypeDef]
+    VideoMetadata: list[VideoMetadataTypeDef]
+    AudioMetadata: list[AudioMetadataTypeDef]
+    Segments: list[SegmentDetectionTypeDef]
+    SelectedSegmentTypes: list[SegmentTypeInfoTypeDef]
     JobId: str
     Video: VideoTypeDef
     JobTag: str
@@ -1773,18 +1768,18 @@ class GetSegmentDetectionResponseTypeDef(TypedDict):
 class SearchFacesByImageResponseTypeDef(TypedDict):
     SearchedFaceBoundingBox: BoundingBoxTypeDef
     SearchedFaceConfidence: float
-    FaceMatches: List[FaceMatchTypeDef]
+    FaceMatches: list[FaceMatchTypeDef]
     FaceModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchFacesResponseTypeDef(TypedDict):
     SearchedFaceId: str
-    FaceMatches: List[FaceMatchTypeDef]
+    FaceMatches: list[FaceMatchTypeDef]
     FaceModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TestingDataOutputTypeDef(TypedDict):
-    Assets: NotRequired[List[AssetTypeDef]]
+    Assets: NotRequired[list[AssetTypeDef]]
     AutoCreate: NotRequired[bool]
 
 class TestingDataTypeDef(TypedDict):
@@ -1792,13 +1787,13 @@ class TestingDataTypeDef(TypedDict):
     AutoCreate: NotRequired[bool]
 
 class TrainingDataOutputTypeDef(TypedDict):
-    Assets: NotRequired[List[AssetTypeDef]]
+    Assets: NotRequired[list[AssetTypeDef]]
 
 class TrainingDataTypeDef(TypedDict):
     Assets: NotRequired[Sequence[AssetTypeDef]]
 
 class ValidationDataTypeDef(TypedDict):
-    Assets: NotRequired[List[AssetTypeDef]]
+    Assets: NotRequired[list[AssetTypeDef]]
 
 class CreateDatasetRequestTypeDef(TypedDict):
     DatasetType: DatasetTypeType
@@ -1820,27 +1815,27 @@ class CreateFaceLivenessSessionRequestTypeDef(TypedDict):
     ClientRequestToken: NotRequired[str]
 
 class RecognizeCelebritiesResponseTypeDef(TypedDict):
-    CelebrityFaces: List[CelebrityTypeDef]
-    UnrecognizedFaces: List[ComparedFaceTypeDef]
+    CelebrityFaces: list[CelebrityTypeDef]
+    UnrecognizedFaces: list[ComparedFaceTypeDef]
     OrientationCorrection: OrientationCorrectionType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CompareFacesResponseTypeDef(TypedDict):
     SourceImageFace: ComparedSourceImageFaceTypeDef
-    FaceMatches: List[CompareFacesMatchTypeDef]
-    UnmatchedFaces: List[ComparedFaceTypeDef]
+    FaceMatches: list[CompareFacesMatchTypeDef]
+    UnmatchedFaces: list[ComparedFaceTypeDef]
     SourceImageOrientationCorrection: OrientationCorrectionType
     TargetImageOrientationCorrection: OrientationCorrectionType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ProtectiveEquipmentPersonTypeDef(TypedDict):
-    BodyParts: NotRequired[List[ProtectiveEquipmentBodyPartTypeDef]]
+    BodyParts: NotRequired[list[ProtectiveEquipmentBodyPartTypeDef]]
     BoundingBox: NotRequired[BoundingBoxTypeDef]
     Confidence: NotRequired[float]
     Id: NotRequired[int]
 
 class DetectLabelsResponseTypeDef(TypedDict):
-    Labels: List[LabelTypeDef]
+    Labels: list[LabelTypeDef]
     OrientationCorrection: OrientationCorrectionType
     LabelModelVersion: str
     ImageProperties: DetectLabelsImagePropertiesTypeDef
@@ -1861,7 +1856,7 @@ class GetFaceDetectionResponseTypeDef(TypedDict):
     JobStatus: VideoJobStatusType
     StatusMessage: str
     VideoMetadata: VideoMetadataTypeDef
-    Faces: List[FaceDetectionTypeDef]
+    Faces: list[FaceDetectionTypeDef]
     JobId: str
     Video: VideoTypeDef
     JobTag: str
@@ -1875,28 +1870,28 @@ class PersonDetectionTypeDef(TypedDict):
 class PersonMatchTypeDef(TypedDict):
     Timestamp: NotRequired[int]
     Person: NotRequired[PersonDetailTypeDef]
-    FaceMatches: NotRequired[List[FaceMatchTypeDef]]
+    FaceMatches: NotRequired[list[FaceMatchTypeDef]]
 
 class IndexFacesResponseTypeDef(TypedDict):
-    FaceRecords: List[FaceRecordTypeDef]
+    FaceRecords: list[FaceRecordTypeDef]
     OrientationCorrection: OrientationCorrectionType
     FaceModelVersion: str
-    UnindexedFaces: List[UnindexedFaceTypeDef]
+    UnindexedFaces: list[UnindexedFaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchUsersByImageResponseTypeDef(TypedDict):
-    UserMatches: List[UserMatchTypeDef]
+    UserMatches: list[UserMatchTypeDef]
     FaceModelVersion: str
     SearchedFace: SearchedFaceDetailsTypeDef
-    UnsearchedFaces: List[UnsearchedFaceTypeDef]
+    UnsearchedFaces: list[UnsearchedFaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DetectCustomLabelsResponseTypeDef(TypedDict):
-    CustomLabels: List[CustomLabelTypeDef]
+    CustomLabels: list[CustomLabelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DetectTextResponseTypeDef(TypedDict):
-    TextDetections: List[TextDetectionTypeDef]
+    TextDetections: list[TextDetectionTypeDef]
     TextModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1932,7 +1927,7 @@ class UpdateStreamProcessorRequestTypeDef(TypedDict):
     ParametersToDelete: NotRequired[Sequence[StreamProcessorParameterToDeleteType]]
 
 class ListMediaAnalysisJobsResponseTypeDef(TypedDict):
-    MediaAnalysisJobs: List[MediaAnalysisJobDescriptionTypeDef]
+    MediaAnalysisJobs: list[MediaAnalysisJobDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1951,7 +1946,7 @@ class TrainingDataResultTypeDef(TypedDict):
 
 class DetectProtectiveEquipmentResponseTypeDef(TypedDict):
     ProtectiveEquipmentModelVersion: str
-    Persons: List[ProtectiveEquipmentPersonTypeDef]
+    Persons: list[ProtectiveEquipmentPersonTypeDef]
     Summary: ProtectiveEquipmentSummaryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1959,7 +1954,7 @@ class GetLabelDetectionResponseTypeDef(TypedDict):
     JobStatus: VideoJobStatusType
     StatusMessage: str
     VideoMetadata: VideoMetadataTypeDef
-    Labels: List[LabelDetectionTypeDef]
+    Labels: list[LabelDetectionTypeDef]
     LabelModelVersion: str
     JobId: str
     Video: VideoTypeDef
@@ -1972,7 +1967,7 @@ class GetCelebrityRecognitionResponseTypeDef(TypedDict):
     JobStatus: VideoJobStatusType
     StatusMessage: str
     VideoMetadata: VideoMetadataTypeDef
-    Celebrities: List[CelebrityRecognitionTypeDef]
+    Celebrities: list[CelebrityRecognitionTypeDef]
     JobId: str
     Video: VideoTypeDef
     JobTag: str
@@ -1983,7 +1978,7 @@ class GetPersonTrackingResponseTypeDef(TypedDict):
     JobStatus: VideoJobStatusType
     StatusMessage: str
     VideoMetadata: VideoMetadataTypeDef
-    Persons: List[PersonDetectionTypeDef]
+    Persons: list[PersonDetectionTypeDef]
     JobId: str
     Video: VideoTypeDef
     JobTag: str
@@ -1994,7 +1989,7 @@ class GetFaceSearchResponseTypeDef(TypedDict):
     JobStatus: VideoJobStatusType
     StatusMessage: str
     VideoMetadata: VideoMetadataTypeDef
-    Persons: List[PersonMatchTypeDef]
+    Persons: list[PersonMatchTypeDef]
     JobId: str
     Video: VideoTypeDef
     JobTag: str
@@ -2005,7 +2000,7 @@ class GetTextDetectionResponseTypeDef(TypedDict):
     JobStatus: VideoJobStatusType
     StatusMessage: str
     VideoMetadata: VideoMetadataTypeDef
-    TextDetections: List[TextDetectionResultTypeDef]
+    TextDetections: list[TextDetectionResultTypeDef]
     TextModelVersion: str
     JobId: str
     Video: VideoTypeDef
@@ -2057,6 +2052,6 @@ class ProjectVersionDescriptionTypeDef(TypedDict):
     FeatureConfig: NotRequired[CustomizationFeatureConfigTypeDef]
 
 class DescribeProjectVersionsResponseTypeDef(TypedDict):
-    ProjectVersionDescriptions: List[ProjectVersionDescriptionTypeDef]
+    ProjectVersionDescriptions: list[ProjectVersionDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

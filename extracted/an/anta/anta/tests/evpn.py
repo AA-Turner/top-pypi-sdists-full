@@ -3,7 +3,8 @@
 # that can be found in the LICENSE file.
 """Module related to EVPN tests."""
 
-# mypy: disable-error-code=attr-defined
+# Pyright does not understand AntaTest.Input typing
+# pyright: reportAttributeAccessIssue=false
 from __future__ import annotations
 
 from typing import Any, ClassVar
@@ -127,7 +128,7 @@ class VerifyEVPNType5Routes(AntaTest):
         """Main test function for VerifyEVPNType5Routes."""
         self.result.is_success()
 
-        for command, prefix_input in zip(self.instance_commands, self.inputs.prefixes):
+        for command, prefix_input in zip(self.instance_commands, self.inputs.prefixes, strict=False):
             # Verify that the prefix is in the BGP EVPN table
             evpn_routes_data = command.json_output.get("evpnRoutes")
             if not evpn_routes_data:

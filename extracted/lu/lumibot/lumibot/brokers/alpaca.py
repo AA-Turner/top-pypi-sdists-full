@@ -8,7 +8,7 @@ from decimal import Decimal
 
 import pandas_market_calendars as mcal
 from alpaca.trading.client import TradingClient
-from alpaca.trading.enums import QueryOrderStatus
+from alpaca.trading.enums import QueryOrderStatus, PositionSide
 from alpaca.trading.requests import GetOrdersRequest, ReplaceOrderRequest
 from alpaca.trading.stream import TradingStream
 from dateutil import tz
@@ -389,7 +389,7 @@ class Alpaca(Broker):
                 symbol=position.symbol.replace("USD", ""),
                 asset_type=Asset.AssetType.CRYPTO,
             )
-        elif position.asset_class == "option":
+        elif position.asset_class == "option" or position.asset_class == "us_option":
             asset = Asset.symbol2asset(position.symbol)
         else:
             asset = Asset(
@@ -397,7 +397,20 @@ class Alpaca(Broker):
             )
 
         quantity = position.qty
-        position = Position(strategy, asset, quantity, orders=orders)
+
+        try:
+            avg_fill_price = float(position.avg_entry_price) if position.avg_entry_price else None
+        except (ValueError, TypeError):
+            avg_fill_price = None
+
+        position = Position(strategy, asset, quantity, orders=orders, avg_fill_price=avg_fill_price)
+
+        position.pnl = float(broker_position.unrealized_pl) if broker_position.unrealized_pl else None
+        position.current_price = float(broker_position.current_price) if broker_position.current_price else None
+        position.side = Position.PositionSide.LONG if broker_position.side == PositionSide.LONG else Position.PositionSide.SHORT
+        position.market_value = float(broker_position.market_value) if broker_position.market_value else None
+        
+
         return position
 
     def _pull_broker_position(self, asset):
@@ -549,7 +562,11 @@ class Alpaca(Broker):
 
         # Handle None quantity - skip invalid orders
         if qty_value is None:
-            logger.warning(f"Skipping order {identifier_value} - quantity is None (invalid order data from Alpaca)")
+            logger.warning(
+                f"Skipping order {identifier_value} - quantity is None (invalid order data from Alpaca). "
+                f"Order details: symbol={symbol}, side={side_value}, status={status_value}, "
+                f"order_type={order_type_value}, raw_data={resp_raw}"
+            )
             return None
 
         # Construct Order object
@@ -637,8 +654,10 @@ class Alpaca(Broker):
         - The sign of the limit price (positive/negative) is not used by Alpaca to distinguish credit/debit.
         - Alpaca requires that the leg ratio quantities are relatively prime (GCD == 1).
         """
+        requested_multileg_type = order_type if order_type in ("credit", "debit", "even") else None
+
         # Convert Tradier-specific order types to Alpaca-supported types
-        if order_type in ("credit", "debit", "even"):
+        if requested_multileg_type is not None:
             order_type = "limit"
         # All legs must have the same underlying symbol
         symbol = orders[0].asset.symbol
@@ -654,30 +673,33 @@ class Alpaca(Broker):
                 option_symbol = f"{order.asset.symbol}{date}{order.asset.right[0]}{strike_formatted}"
             else:
                 option_symbol = order.asset.symbol
-            # Determine position_intent (buy_to_open, sell_to_open, etc.)
+            # Determine leg side + position intent for Alpaca's mleg payload.
+            # - leg.side must be "buy" or "sell"
+            # - leg.position_intent must be one of: buy_to_open, buy_to_close, sell_to_open, sell_to_close
             position_intent = getattr(order, "position_intent", None)
-            if not position_intent:
-                # Check if we have an open position in this option
-                pos = self.get_tracked_position(order.strategy, order.asset)
-                if pos is not None and pos.quantity != 0:
-                    # Closing position
-                    if order.side == "buy":
-                        position_intent = "buy_to_close"
-                    elif order.side == "sell":
-                        position_intent = "sell_to_close"
-                else:
-                    # Opening position
-                    if order.side == "buy":
-                        position_intent = "buy_to_open"
-                    elif order.side == "sell":
-                        position_intent = "sell_to_open"
+            raw_side = order.side
+            if raw_side in ("buy_to_open", "buy_to_close"):
+                leg_side = "buy"
+                position_intent = position_intent or raw_side
+            elif raw_side in ("sell_to_open", "sell_to_close"):
+                leg_side = "sell"
+                position_intent = position_intent or raw_side
+            else:
+                leg_side = "buy" if order.is_buy_order() else "sell"
+                if not position_intent:
+                    # Fall back to position-based intent inference when the side doesn't encode open/close.
+                    pos = self.get_tracked_position(order.strategy, order.asset)
+                    if pos is not None and pos.quantity != 0:
+                        position_intent = "buy_to_close" if leg_side == "buy" else "sell_to_close"
+                    else:
+                        position_intent = "buy_to_open" if leg_side == "buy" else "sell_to_open"
             # Collect leg quantities for GCD check
             leg_qty = int(abs(order.quantity))
             leg_quantities.append(leg_qty)
             legs.append({
                 "symbol": option_symbol,
                 "ratio_qty": str(order.quantity),
-                "side": order.side,
+                "side": leg_side,
                 "position_intent": position_intent
             })
         # Ensure leg ratio quantities are relatively prime (GCD == 1)
@@ -695,20 +717,29 @@ class Alpaca(Broker):
         # For multi-leg orders, we need to set the primary asset info from the first leg
         first_order = orders[0]
         
-        # Map extended side values to simple buy/sell for Alpaca API
-        side = first_order.side
-        if side in ("buy_to_open", "buy_to_close"):
+        # Determine top-level side for Alpaca.
+        # Alpaca mleg orders require a primary side; for debit/credit packages, this should
+        # reflect the net debit/credit rather than the first leg ordering.
+        if requested_multileg_type == "debit":
             side = "buy"
-        elif side in ("sell_to_open", "sell_to_close"):
+        elif requested_multileg_type == "credit":
             side = "sell"
+        else:
+            side = first_order.side
+            if side in ("buy_to_open", "buy_to_close"):
+                side = "buy"
+            elif side in ("sell_to_open", "sell_to_close"):
+                side = "sell"
         
+        # multileg is not a valid order_class for Alpaca. It is mleg now, and cannot be combined with a symbol.
+
         # Compose order payload
         kwargs = {
-            "symbol": symbol,  # Required: Primary symbol
+            # "symbol": symbol,  # Required: Primary symbol.   Not allowed for mleg order
             "qty": qty,        # Required: Total quantity
             "side": side,      # Required: Primary side (buy/sell)
             "type": order_type or "limit",  # Required: Order type
-            "order_class": "multileg",      # Required: Must be "multileg" for multi-leg orders
+            "order_class": "mleg",      # Required: Must be "mleg" for multi-leg orders
             "time_in_force": duration,      # Required: Duration
             "legs": legs,      # Required: Individual legs
         }
@@ -1019,10 +1050,24 @@ class Alpaca(Broker):
 
             # Try to replace the order on Alpaca, handle APIError for accepted status
             try:
-                self.api.replace_order_by_id(
+                replaced = self.api.replace_order_by_id(
                     order_id=order.identifier,
                     order_data=replace_req,
                 )
+                # Alpaca can return a *new* order id when replacing. Keep LumiBot's order object
+                # aligned so SMART_LIMIT can continue repricing/canceling reliably.
+                new_id = getattr(replaced, "id", None)
+                if new_id:
+                    order.identifier = new_id
+                    try:
+                        for child in getattr(order, "child_orders", []) or []:
+                            child.parent_identifier = new_id
+                    except Exception:
+                        pass
+                    try:
+                        order.update_raw(replaced)
+                    except Exception:
+                        pass
             except Exception as e:
                 # If error is "cannot replace order in accepted status", just log and skip
                 if hasattr(e, "args") and e.args and "cannot replace order in accepted status" in str(e.args[0]):
@@ -1162,6 +1207,11 @@ class Alpaca(Broker):
                 strategy_name = strategy.name if strategy else "default"
                 order = self._parse_broker_order(alpaca_order, strategy_name=strategy_name)
 
+                # Skip if parsing returned None (invalid order data)
+                if order is None:
+                    logger.warning(f"OAuth Polling: Skipping invalid order from Alpaca - _parse_broker_order returned None")
+                    continue
+
                 logger.debug(f"OAuth Polling: Processing Alpaca order {order.identifier} with status {order.status}")
 
                 # Check if this order exists in our stored orders
@@ -1270,7 +1320,18 @@ class Alpaca(Broker):
                 logger.error(error_msg)
                 raise ValueError(error_msg)
             else:
-                logger.error(f"OAuth Polling error: {e}")
+                is_rate_limited = (
+                    "rate limit" in error_message
+                    or "too many requests" in error_message
+                    or "42910000" in error_message
+                    or "status code: 429" in error_message
+                )
+                if is_rate_limited:
+                    logger.warning(f"OAuth Polling error (rate-limited): {e}")
+                    logger.debug(f"Full traceback: {traceback.format_exc()}")
+                else:
+                    logger.error(f"OAuth Polling error: {e}")
+                    logger.error(f"Full traceback: {traceback.format_exc()}")
         # No need to schedule next poll - PollingStream handles this automatically via timeout
 
     def _run_stream(self):

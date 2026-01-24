@@ -76,82 +76,68 @@ class CustomModelGuardDict(TypedDict):
     stage: Optional[str]
 
 
-guard_conditions = t.Dict(
-    {
-        t.Key("comparator"): t.Enum(*enum_to_list(GuardConditionComparator)),
-        t.Key("comparand"): t.Or(t.String, t.Float, t.Bool, t.List(t.String)),
-    }
-).ignore_extra("*")
+guard_conditions = t.Dict({
+    t.Key("comparator"): t.Enum(*enum_to_list(GuardConditionComparator)),
+    t.Key("comparand"): t.Or(t.String, t.Float, t.Bool, t.List(t.String)),
+}).ignore_extra("*")
 
-sidecar_model_metric_metadata = t.Dict(
-    {
-        t.Key("prompt_column_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("response_column_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("target_column_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("expected_response_column_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("guard_type", optional=True): t.Or(t.Enum(*enum_to_list(GuardType)), t.Null),
-    }
-).ignore_extra("*")
+sidecar_model_metric_metadata = t.Dict({
+    t.Key("prompt_column_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("response_column_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("target_column_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("expected_response_column_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("guard_type", optional=True): t.Or(t.Enum(*enum_to_list(GuardType)), t.Null),
+}).ignore_extra("*")
 
-custom_model_guard_trafaret = t.Dict(
-    {
-        t.Key("name"): t.String,
-        t.Key("type"): t.String,
-        t.Key("ootb_type", optional=True): t.Or(t.String, t.Null),
-        t.Key("stage", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+custom_model_guard_trafaret = t.Dict({
+    t.Key("name"): t.String,
+    t.Key("type"): t.String,
+    t.Key("ootb_type", optional=True): t.Or(t.String, t.Null),
+    t.Key("stage", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
-insight_configuration_trafaret = t.Dict(
-    {
-        t.Key("insight_name"): t.String,
-        t.Key("insight_type", optional=True): t.Or(t.Enum(*enum_to_list(InsightTypes)), t.Null),
-        t.Key("deployment_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("model_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("sidecar_model_metric_validation_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("custom_metric_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("cost_configuration_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("result_unit", optional=True): t.Or(t.String, t.Null),
-        t.Key("ootb_metric_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("ootb_metric_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("guard_conditions", optional=True): t.Or(t.List(guard_conditions), t.Null),
-        t.Key("moderation_configuration", optional=True): t.Or(
-            moderation_configuration_with_id, moderation_configuration_without_id, t.Null
-        ),
-        t.Key("execution_status", optional=True): t.Or(t.String, t.Null),
-        t.Key("error_message", optional=True): t.Or(t.String, t.Null),
-        t.Key("error_resolution", optional=True): t.Or(t.String, t.Null),
-        t.Key("nemo_metric_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("llm_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("custom_model_llm_validation_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("stage", optional=True): t.Or(t.String, t.Null),
-        # additional data
-        t.Key("aggregation_types", optional=True): t.Or(
-            t.List(t.Enum(*enum_to_list(AggregationType))), t.Null
-        ),
-        t.Key("sidecar_model_metric_metadata", optional=True): t.Or(
-            sidecar_model_metric_metadata, t.Null
-        ),
-        t.Key("guard_template_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("guard_configuration_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("model_package_registered_model_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("custom_model_guard", optional=True): t.Or(custom_model_guard_trafaret, t.Null),
-        t.Key("extra_metric_settings", optional=True): t.Or(ExtraMetricSettings._converter, t.Null),
-    }
-).ignore_extra("*")
+insight_configuration_trafaret = t.Dict({
+    t.Key("insight_name"): t.String,
+    t.Key("insight_type", optional=True): t.Or(t.Enum(*enum_to_list(InsightTypes)), t.Null),
+    t.Key("deployment_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("model_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("sidecar_model_metric_validation_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("custom_metric_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("cost_configuration_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("result_unit", optional=True): t.Or(t.String, t.Null),
+    t.Key("ootb_metric_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("ootb_metric_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("guard_conditions", optional=True): t.Or(t.List(guard_conditions), t.Null),
+    t.Key("moderation_configuration", optional=True): t.Or(
+        moderation_configuration_with_id, moderation_configuration_without_id, t.Null
+    ),
+    t.Key("execution_status", optional=True): t.Or(t.String, t.Null),
+    t.Key("error_message", optional=True): t.Or(t.String, t.Null),
+    t.Key("error_resolution", optional=True): t.Or(t.String, t.Null),
+    t.Key("nemo_metric_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("llm_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("custom_model_llm_validation_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("stage", optional=True): t.Or(t.String, t.Null),
+    # additional data
+    t.Key("aggregation_types", optional=True): t.Or(t.List(t.Enum(*enum_to_list(AggregationType))), t.Null),
+    t.Key("sidecar_model_metric_metadata", optional=True): t.Or(sidecar_model_metric_metadata, t.Null),
+    t.Key("guard_template_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("guard_configuration_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("model_package_registered_model_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("custom_model_guard", optional=True): t.Or(custom_model_guard_trafaret, t.Null),
+    t.Key("extra_metric_settings", optional=True): t.Or(ExtraMetricSettings._converter, t.Null),
+}).ignore_extra("*")
 
-insights_trafaret = t.Dict(
-    {
-        t.Key("playground_id"): t.String,
-        t.Key("insights_configuration"): t.List(insight_configuration_trafaret),
-        t.Key("creation_date"): t.String,
-        t.Key("creation_user_id"): t.String,
-        t.Key("last_update_date"): t.String,
-        t.Key("last_update_user_id"): t.String,
-        t.Key("tenant_id"): t.String,
-    }
-).ignore_extra("*")
+insights_trafaret = t.Dict({
+    t.Key("playground_id"): t.String,
+    t.Key("insights_configuration"): t.List(insight_configuration_trafaret),
+    t.Key("creation_date"): t.String,
+    t.Key("creation_user_id"): t.String,
+    t.Key("last_update_date"): t.String,
+    t.Key("last_update_user_id"): t.String,
+    t.Key("tenant_id"): t.String,
+}).ignore_extra("*")
 
 
 class InsightsConfiguration(APIObject):
@@ -323,12 +309,8 @@ class InsightsConfiguration(APIObject):
             guard_template_id=self.guard_template_id,
             guard_configuration_id=self.guard_configuration_id,
             model_package_registered_model_id=self.model_package_registered_model_id,
-            custom_model_guard=(
-                self.custom_model_guard.to_dict() if self.custom_model_guard else None
-            ),
-            extra_metric_settings=(
-                self.extra_metric_settings.to_dict() if self.extra_metric_settings else None
-            ),
+            custom_model_guard=(self.custom_model_guard.to_dict() if self.custom_model_guard else None),
+            extra_metric_settings=(self.extra_metric_settings.to_dict() if self.extra_metric_settings else None),
         )
 
 

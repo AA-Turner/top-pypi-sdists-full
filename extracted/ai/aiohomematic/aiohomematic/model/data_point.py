@@ -1,20 +1,20 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """
 Core data point model for AioHomematic.
 
 This module defines the abstract base classes and concrete building blocks for
-representing HomeMatic parameters as data points, handling their lifecycle,
+representing Homematic parameters as data points, handling their lifecycle,
 I/O, and event propagation.
 
 Highlights:
-- CallbackDataPoint: Base for objects that expose callbacks and timestamps
-  (modified/refreshed) and manage registration of update and removal listeners.
+- CallbackDataPoint: Base for objects that expose subscriptions and timestamps
+  (modified/refreshed) and manage subscription to update and removal events.
 - BaseDataPoint/ BaseParameterDataPoint: Concrete foundations for channel-bound
   data points, including type/flag handling, unit and multiplier normalization,
   value conversion, temporary write buffering, and path/name metadata.
 - CallParameterCollector: Helper to batch multiple set/put operations and wait
-  for callbacks, optimizing command dispatch.
+  for events, optimizing command dispatch.
 - bind_collector: Decorator to bind a collector to service methods conveniently.
 
 The classes here are used by generic, custom, calculated, and hub data point
@@ -25,56 +25,85 @@ parameter values across all supported devices.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import asyncio
 from collections.abc import Callable, Mapping
 from contextvars import Token
 from datetime import datetime, timedelta
-from functools import partial, wraps
+from functools import wraps
 from inspect import getfullargspec
 import logging
-from typing import Any, Final, cast
+from typing import Any, Final, TypeAlias, TypeVar, cast, overload
 
-import voluptuous as vol
-
-from aiohomematic import central as hmcu, client as hmcl, support as hms, validator as val
+from aiohomematic import i18n, support as hms
 from aiohomematic.async_support import loop_check
+from aiohomematic.central.events import DataPointStateChangedEvent, DeviceRemovedEvent
 from aiohomematic.const import (
-    CALLBACK_TYPE,
-    DEFAULT_CUSTOM_ID,
     DEFAULT_MULTIPLIER,
     DP_KEY_VALUE,
     INIT_DATETIME,
     KEY_CHANNEL_OPERATION_MODE_VISIBILITY,
-    KWARGS_ARG_DATA_POINT,
     NO_CACHE_ENTRY,
     WAIT_FOR_CALLBACK,
     CallSource,
     DataPointCategory,
     DataPointKey,
     DataPointUsage,
-    EventKey,
+    EventData,
     Flag,
+    InternalCustomID,
     Operations,
     Parameter,
     ParameterData,
+    ParameterStatus,
     ParameterType,
     ParamsetKey,
     ProductGroup,
+    ServiceScope,
     check_ignore_parameter_on_initial_load,
 )
-from aiohomematic.context import IN_SERVICE_VAR
-from aiohomematic.decorators import get_service_calls
+from aiohomematic.context import RequestContext, is_in_service, reset_request_context, set_request_context
+from aiohomematic.decorators import get_service_calls, inspector
 from aiohomematic.exceptions import AioHomematicException, BaseHomematicException
-from aiohomematic.model import device as hmd
+from aiohomematic.interfaces import (
+    BaseDataPointProtocol,
+    BaseParameterDataPointProtocol,
+    CallbackDataPointProtocol,
+    CentralInfoProtocol,
+    ChannelProtocol,
+    ClientProtocol,
+    DeviceProtocol,
+    EventBusProviderProtocol,
+    EventPublisherProtocol,
+    ParameterVisibilityProviderProtocol,
+    ParamsetDescriptionProviderProtocol,
+    TaskSchedulerProtocol,
+)
+from aiohomematic.interfaces.client import ValueAndParamsetOperationsProtocol
 from aiohomematic.model.support import (
     DataPointNameData,
     DataPointPathData,
-    GenericParameterType,
     PathData,
     convert_value,
+    generate_translation_key,
     generate_unique_id,
 )
-from aiohomematic.property_decorators import cached_property, config_property, hm_property, state_property
-from aiohomematic.support import LogContextMixin, PayloadMixin, extract_exc_args, log_boundary_error
+from aiohomematic.property_decorators import (
+    DelegatedProperty,
+    Kind,
+    _GenericProperty,
+    config_property,
+    hm_property,
+    state_property,
+)
+from aiohomematic.support import LogContextMixin, PayloadMixin, log_boundary_error
+from aiohomematic.type_aliases import (
+    CallableAny,
+    DataPointUpdatedHandler,
+    DeviceRemovedHandler,
+    ParamType,
+    ServiceMethodMap,
+    UnsubscribeCallback,
+)
 
 __all__ = [
     "BaseDataPoint",
@@ -83,6 +112,10 @@ __all__ = [
     "CallbackDataPoint",
     "bind_collector",
 ]
+
+
+# Type variable used for decorator typing
+CallableT = TypeVar("CallableT", bound=CallableAny)
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -119,34 +152,34 @@ _MULTIPLIER_UNIT: Final[Mapping[str, float]] = {
     "100%": 100.0,
 }
 
-EVENT_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(str(EventKey.ADDRESS)): val.device_address,
-        vol.Required(str(EventKey.CHANNEL_NO)): val.channel_no,
-        vol.Required(str(EventKey.MODEL)): str,
-        vol.Required(str(EventKey.INTERFACE_ID)): str,
-        vol.Required(str(EventKey.PARAMETER)): str,
-        vol.Optional(str(EventKey.VALUE)): vol.Any(bool, int),
-    }
-)
 
+class CallbackDataPoint(ABC, CallbackDataPointProtocol, LogContextMixin):
+    """
+    Base class for data points supporting subscriptions.
 
-class CallbackDataPoint(ABC, LogContextMixin):
-    """Base class for callback data point."""
+    Provides event handling, subscription management, and timestamp tracking
+    for data point updates and refreshes.
+    """
 
     __slots__ = (
+        "__weakref__",
         "_cached_enabled_default",
-        "_cached_service_methods",
         "_cached_service_method_names",
-        "_central",
+        "_cached_service_methods",
+        "_central_info",
         "_custom_id",
-        "_data_point_updated_callbacks",
-        "_device_removed_callbacks",
-        "_fired_at",
+        "_published_event_at",
+        "_event_bus_provider",
+        "_event_publisher",
         "_modified_at",
+        "_parameter_visibility_provider",
+        "_paramset_description_provider",
         "_path_data",
         "_refreshed_at",
+        "_registered_custom_ids",
         "_signature",
+        "_subscription_counts",
+        "_task_scheduler",
         "_temporary_modified_at",
         "_temporary_refreshed_at",
         "_unique_id",
@@ -154,30 +187,55 @@ class CallbackDataPoint(ABC, LogContextMixin):
 
     _category = DataPointCategory.UNDEFINED
 
-    def __init__(self, central: hmcu.CentralUnit, unique_id: str) -> None:
-        """Init the callback data_point."""
-        self._central: Final = central
+    def __init__(
+        self,
+        *,
+        unique_id: str,
+        central_info: CentralInfoProtocol,
+        event_bus_provider: EventBusProviderProtocol,
+        event_publisher: EventPublisherProtocol,
+        task_scheduler: TaskSchedulerProtocol,
+        paramset_description_provider: ParamsetDescriptionProviderProtocol,
+        parameter_visibility_provider: ParameterVisibilityProviderProtocol,
+    ) -> None:
+        """Initialize the callback data point."""
+        self._central_info: Final = central_info
+        self._event_bus_provider: Final = event_bus_provider
+        self._event_publisher: Final = event_publisher
+        self._task_scheduler: Final = task_scheduler
+        self._paramset_description_provider: Final = paramset_description_provider
+        self._parameter_visibility_provider: Final = parameter_visibility_provider
         self._unique_id: Final = unique_id
-        self._data_point_updated_callbacks: dict[Callable, str] = {}
-        self._device_removed_callbacks: list[Callable] = []
+        self._registered_custom_ids: set[str] = set()
+        self._subscription_counts: dict[str, int] = {}
         self._custom_id: str | None = None
         self._path_data = self._get_path_data()
-        self._fired_at: datetime = INIT_DATETIME
+        self._published_event_at: datetime = INIT_DATETIME
         self._modified_at: datetime = INIT_DATETIME
         self._refreshed_at: datetime = INIT_DATETIME
         self._signature: Final = self._get_signature()
         self._temporary_modified_at: datetime = INIT_DATETIME
         self._temporary_refreshed_at: datetime = INIT_DATETIME
 
-    @state_property
-    def additional_information(self) -> dict[str, Any]:
-        """Return additional information about the entity."""
-        return {}
+    def __str__(self) -> str:
+        """Provide some useful information."""
+        return f"path: {self.state_path}, name: {self.full_name}"
 
-    @state_property
-    @abstractmethod
-    def available(self) -> bool:
-        """Return the availability of the device."""
+    @classmethod
+    def default_category(cls) -> DataPointCategory:
+        """Return, the default category of the data_point."""
+        return cls._category
+
+    custom_id: Final = DelegatedProperty[str | None](path="_custom_id")
+    published_event_at: Final = DelegatedProperty[datetime](path="_published_event_at")
+    set_path: Final = DelegatedProperty[str](path="_path_data.set_path")
+    signature: Final = DelegatedProperty[str](path="_signature")
+    state_path: Final = DelegatedProperty[str](path="_path_data.state_path")
+
+    @property
+    def _should_publish_data_point_updated_callback(self) -> bool:
+        """Check if a data point has been updated or refreshed."""
+        return True
 
     @property
     def category(self) -> DataPointCategory:
@@ -185,41 +243,54 @@ class CallbackDataPoint(ABC, LogContextMixin):
         return self._category
 
     @property
-    def custom_id(self) -> str | None:
-        """Return the custom id."""
-        return self._custom_id
-
-    @property
-    def fired_at(self) -> datetime:
-        """Return the data point updated fired at."""
-        return self._fired_at
-
-    @state_property
-    def fired_recently(self) -> bool:
-        """Return the data point fired within 500 milliseconds."""
-        if self._fired_at == INIT_DATETIME:
-            return False
-        return (datetime.now() - self._fired_at).total_seconds() < 0.5
-
-    @classmethod
-    def default_category(cls) -> DataPointCategory:
-        """Return, the default category of the data_point."""
-        return cls._category
-
-    @property
-    def central(self) -> hmcu.CentralUnit:
-        """Return the central unit."""
-        return self._central
-
-    @property
     @abstractmethod
     def full_name(self) -> str:
         """Return the full name of the data_point."""
 
     @property
-    def is_valid(self) -> bool:
-        """Return, if the value of the data_point is valid based on the refreshed at datetime."""
+    def is_refreshed(self) -> bool:
+        """Return if the data_point has been refreshed (received a value)."""
         return self._refreshed_at > INIT_DATETIME
+
+    @property
+    def is_registered(self) -> bool:
+        """Return if data_point is registered externally."""
+        return self._custom_id is not None
+
+    @property
+    def is_status_valid(self) -> bool:
+        """Return if the status indicates a valid value."""
+        return True
+
+    @property
+    def is_valid(self) -> bool:
+        """Return if the value is valid (refreshed and status is OK)."""
+        return self.is_refreshed and self.is_status_valid
+
+    @property
+    def usage(self) -> DataPointUsage:
+        """Return the data_point usage."""
+        return DataPointUsage.DATA_POINT
+
+    @config_property
+    @abstractmethod
+    def name(self) -> str:
+        """Return the name of the data_point."""
+
+    @config_property
+    def unique_id(self) -> str:
+        """Return the unique_id."""
+        return self._unique_id
+
+    @state_property
+    def additional_information(self) -> dict[str, Any]:
+        """Return additional information about the data point."""
+        return {}
+
+    @state_property
+    @abstractmethod
+    def available(self) -> bool:
+        """Return the availability of the device."""
 
     @state_property
     def modified_at(self) -> datetime:
@@ -236,6 +307,13 @@ class CallbackDataPoint(ABC, LogContextMixin):
         return (datetime.now() - self._modified_at).total_seconds() < 0.5
 
     @state_property
+    def published_event_recently(self) -> bool:
+        """Return the data point published an event within 500 milliseconds."""
+        if self._published_event_at == INIT_DATETIME:
+            return False
+        return (datetime.now() - self._published_event_at).total_seconds() < 0.5
+
+    @state_property
     def refreshed_at(self) -> datetime:
         """Return the last refresh datetime value."""
         if self._temporary_refreshed_at > self._refreshed_at:
@@ -249,27 +327,7 @@ class CallbackDataPoint(ABC, LogContextMixin):
             return False
         return (datetime.now() - self._refreshed_at).total_seconds() < 0.5
 
-    @config_property
-    @abstractmethod
-    def name(self) -> str:
-        """Return the name of the data_point."""
-
-    @property
-    def signature(self) -> str:
-        """Return the data_point signature."""
-        return self._signature
-
-    @config_property
-    def unique_id(self) -> str:
-        """Return the unique_id."""
-        return self._unique_id
-
-    @property
-    def usage(self) -> DataPointUsage:
-        """Return the data_point usage."""
-        return DataPointUsage.DATA_POINT
-
-    @cached_property
+    @hm_property(cached=True)
     def enabled_default(self) -> bool:
         """Return, if data_point should be enabled based on usage attribute."""
         return self.usage in (
@@ -279,54 +337,195 @@ class CallbackDataPoint(ABC, LogContextMixin):
             DataPointUsage.EVENT,
         )
 
-    @property
-    def is_registered(self) -> bool:
-        """Return if data_point is registered externally."""
-        return self._custom_id is not None
-
-    @property
-    def set_path(self) -> str:
-        """Return the base set path of the data_point."""
-        return self._path_data.set_path
-
-    @property
-    def state_path(self) -> str:
-        """Return the base state path of the data_point."""
-        return self._path_data.state_path
-
-    # @property
-    @cached_property
-    def service_methods(self) -> Mapping[str, Callable]:
-        """Return all service methods."""
-        return get_service_calls(obj=self)
-
-    @cached_property
+    @hm_property(cached=True)
     def service_method_names(self) -> tuple[str, ...]:
         """Return all service methods."""
         return tuple(self.service_methods.keys())
 
-    def register_internal_data_point_updated_callback(self, cb: Callable) -> CALLBACK_TYPE:
-        """Register internal data_point updated callback."""
-        return self.register_data_point_updated_callback(cb=cb, custom_id=DEFAULT_CUSTOM_ID)
+    @hm_property(cached=True)
+    def service_methods(self) -> ServiceMethodMap:
+        """Return all service methods."""
+        return get_service_calls(obj=self)
 
-    def register_data_point_updated_callback(self, cb: Callable, custom_id: str) -> CALLBACK_TYPE:
-        """Register data_point updated callback."""
-        if custom_id != DEFAULT_CUSTOM_ID:
+    def cleanup_subscriptions(self) -> None:
+        """
+        Clean up all EventBus subscriptions for this data point.
+
+        This should be called when the data point is being removed to prevent
+        memory leaks from orphaned handlers. It clears all subscriptions
+        registered with this data point's unique_id as the event_key.
+        """
+        self._event_bus_provider.event_bus.clear_subscriptions_by_key(event_key=self._unique_id)
+        self._registered_custom_ids.clear()
+        self._subscription_counts.clear()
+
+    async def finalize_init(self) -> None:
+        """Finalize the data point init action after model setup."""
+
+    @loop_check
+    def publish_data_point_updated_event(
+        self,
+        *,
+        data_point: CallbackDataPointProtocol | None = None,
+        custom_id: str | None = None,
+        old_value: Any = None,
+        new_value: Any = None,
+    ) -> None:
+        """Do what is needed when the value of the data_point has been updated/refreshed."""
+        if not self._should_publish_data_point_updated_callback:
+            return
+        self._published_event_at = datetime.now()
+
+        # Early exit if no subscribers - avoid creating unnecessary tasks
+        if not self._registered_custom_ids:
+            return
+
+        # Capture current custom_ids as tuple to prevent issues if set is modified
+        # during async iteration (e.g., if a handler unsubscribes during callback)
+        custom_ids = tuple(self._registered_custom_ids)
+        # Capture values for closure
+        _old_value = old_value
+        _new_value = new_value
+
+        async def _publish_all_events() -> None:
+            """
+            Publish events to all registered custom_ids in a single task.
+
+            Performance optimization: Instead of creating one task per subscriber,
+            we create a single task that uses asyncio.gather() to publish all events
+            concurrently. This reduces task creation overhead when there are many
+            subscribers (common in Home Assistant with multiple data points).
+
+            The return_exceptions=True ensures one failing handler doesn't prevent
+            other handlers from receiving the event.
+            """
+            publish_tasks = [
+                self._event_bus_provider.event_bus.publish(
+                    event=DataPointStateChangedEvent(
+                        timestamp=datetime.now(),
+                        unique_id=self._unique_id,
+                        custom_id=cid,
+                        old_value=_old_value,
+                        new_value=_new_value,
+                    )
+                )
+                for cid in custom_ids
+            ]
+            await asyncio.gather(*publish_tasks, return_exceptions=True)
+
+        # Single task for all events instead of one task per custom_id.
+        # This batching approach significantly reduces scheduler overhead.
+        self._task_scheduler.create_task(
+            target=_publish_all_events,
+            name=f"publish-dp-updated-events-{self._unique_id}",
+        )
+
+    @loop_check
+    def publish_device_removed_event(self) -> None:
+        """Do what is needed when the data_point has been removed."""
+
+        # Publish to EventBus asynchronously, then cleanup subscriptions
+        async def _publish_device_removed_and_cleanup() -> None:
+            await self._event_bus_provider.event_bus.publish(
+                event=DeviceRemovedEvent(
+                    timestamp=datetime.now(),
+                    unique_id=self._unique_id,
+                )
+            )
+            # Clean up subscriptions after event is published to prevent memory leaks
+            self.cleanup_subscriptions()
+
+        self._task_scheduler.create_task(
+            target=_publish_device_removed_and_cleanup,
+            name=f"publish-device-removed-{self._unique_id}",
+        )
+
+    def subscribe_to_data_point_updated(
+        self, *, handler: DataPointUpdatedHandler, custom_id: str
+    ) -> UnsubscribeCallback:
+        """
+        Subscribe to data_point updated event.
+
+        Subscription pattern with reference counting:
+            Multiple handlers can subscribe with the same custom_id (e.g., Home Assistant
+            data point and its device tracker). We track subscription counts per custom_id
+            so that the custom_id is only removed from _registered_custom_ids when ALL
+            subscriptions for that custom_id have been unsubscribed.
+
+        The wrapped_unsubscribe function handles the reference counting cleanup.
+        """
+        # Validate custom_id ownership - external custom_ids can only be registered once
+        # Internal custom_ids (system use) bypass this check
+        if custom_id not in InternalCustomID:
             if self._custom_id is not None and self._custom_id != custom_id:
                 raise AioHomematicException(
-                    f"REGISTER_data_point_updated_CALLBACK failed: hm_data_point: {self.full_name} is already registered by {self._custom_id}"
+                    i18n.tr(
+                        key="exception.model.data_point.subscribe_handler.already_registered",
+                        full_name=self.full_name,
+                        custom_id=self._custom_id,
+                    )
                 )
             self._custom_id = custom_id
 
-        if callable(cb) and cb not in self._data_point_updated_callbacks:
-            self._data_point_updated_callbacks[cb] = custom_id
-            return partial(self._unregister_data_point_updated_callback, cb=cb, custom_id=custom_id)
-        return None
+        # Track registration for publish method - this set drives event publishing
+        self._registered_custom_ids.add(custom_id)
 
-    def _reset_temporary_timestamps(self) -> None:
-        """Reset the temporary timestamps."""
-        self._set_temporary_modified_at(modified_at=INIT_DATETIME)
-        self._set_temporary_refreshed_at(refreshed_at=INIT_DATETIME)
+        # Create adapter that filters for this data point's events with matching custom_id.
+        # The EventBus receives events for ALL data points, so we filter by unique_id
+        # and custom_id to ensure only the correct handler receives each event.
+        def event_handler(*, event: DataPointStateChangedEvent) -> None:
+            if event.unique_id == self._unique_id and event.custom_id == custom_id:
+                handler(data_point=self, custom_id=custom_id)
+
+        unsubscribe = self._event_bus_provider.event_bus.subscribe(
+            event_type=DataPointStateChangedEvent,
+            event_key=self._unique_id,
+            handler=event_handler,
+        )
+
+        # Reference counting: Track how many subscriptions exist for each custom_id.
+        # This enables multiple handlers per custom_id while ensuring proper cleanup.
+        current_count = self._subscription_counts.get(custom_id, 0)
+        self._subscription_counts[custom_id] = current_count + 1
+
+        def wrapped_unsubscribe() -> None:
+            """
+            Unsubscribe and manage reference count.
+
+            Only removes custom_id from _registered_custom_ids when count reaches 0,
+            ensuring publish_data_point_updated_event still notifies other handlers
+            that share the same custom_id.
+            """
+            unsubscribe()
+            # Decrement subscription count
+            count = self._subscription_counts.get(custom_id, 1)
+            count -= 1
+            if count <= 0:
+                # Last subscription for this custom_id - safe to remove from tracking
+                self._registered_custom_ids.discard(custom_id)
+                self._subscription_counts.pop(custom_id, None)
+            else:
+                self._subscription_counts[custom_id] = count
+
+        return wrapped_unsubscribe
+
+    def subscribe_to_device_removed(self, *, handler: DeviceRemovedHandler) -> UnsubscribeCallback:
+        """Subscribe to the device removed event."""
+
+        # Create adapter that filters for this data point's events
+        def event_handler(*, event: DeviceRemovedEvent) -> None:
+            if event.unique_id == self._unique_id:
+                handler()
+
+        return self._event_bus_provider.event_bus.subscribe(
+            event_type=DeviceRemovedEvent,
+            event_key=self._unique_id,
+            handler=event_handler,
+        )
+
+    def subscribe_to_internal_data_point_updated(self, *, handler: DataPointUpdatedHandler) -> UnsubscribeCallback:
+        """Subscribe to internal data_point updated event."""
+        return self.subscribe_to_data_point_updated(handler=handler, custom_id=InternalCustomID.DEFAULT)
 
     @abstractmethod
     def _get_path_data(self) -> PathData:
@@ -336,81 +535,41 @@ class CallbackDataPoint(ABC, LogContextMixin):
     def _get_signature(self) -> str:
         """Return the signature of the data_point."""
 
-    def _unregister_data_point_updated_callback(self, cb: Callable, custom_id: str) -> None:
-        """Unregister data_point updated callback."""
-        if cb in self._data_point_updated_callbacks:
-            del self._data_point_updated_callbacks[cb]
-        if self.custom_id == custom_id:
-            self._custom_id = None
+    def _reset_temporary_timestamps(self) -> None:
+        """Reset the temporary timestamps."""
+        self._set_temporary_modified_at(modified_at=INIT_DATETIME)
+        self._set_temporary_refreshed_at(refreshed_at=INIT_DATETIME)
 
-    def register_device_removed_callback(self, cb: Callable) -> CALLBACK_TYPE:
-        """Register the device removed callback."""
-        if callable(cb) and cb not in self._device_removed_callbacks:
-            self._device_removed_callbacks.append(cb)
-            return partial(self._unregister_device_removed_callback, cb=cb)
-        return None
-
-    def _unregister_device_removed_callback(self, cb: Callable) -> None:
-        """Unregister the device removed callback."""
-        if cb in self._device_removed_callbacks:
-            self._device_removed_callbacks.remove(cb)
-
-    @loop_check
-    def fire_data_point_updated_callback(self, *args: Any, **kwargs: Any) -> None:
-        """Do what is needed when the value of the data_point has been updated/refreshed."""
-        if not self._should_fire_data_point_updated_callback:
-            return
-        self._fired_at = datetime.now()
-        # Add the data_point reference once to kwargs to avoid per-callback writes.
-        kwargs[KWARGS_ARG_DATA_POINT] = self
-        for callback_handler in self._data_point_updated_callbacks:
-            try:
-                callback_handler(*args, **kwargs)
-            except Exception as exc:
-                _LOGGER.warning("FIRE_DATA_POINT_UPDATED_EVENT failed: %s", extract_exc_args(exc=exc))
-
-    @loop_check
-    def fire_device_removed_callback(self, *args: Any) -> None:
-        """Do what is needed when the data_point has been removed."""
-        for callback_handler in self._device_removed_callbacks:
-            try:
-                callback_handler(*args)
-            except Exception as exc:
-                _LOGGER.warning("FIRE_DEVICE_REMOVED_EVENT failed: %s", extract_exc_args(exc=exc))
-
-    @property
-    def _should_fire_data_point_updated_callback(self) -> bool:
-        """Check if a data point has been updated or refreshed."""
-        return True
-
-    def _set_modified_at(self, modified_at: datetime) -> None:
+    def _set_modified_at(self, *, modified_at: datetime) -> None:
         """Set modified_at to current datetime."""
         self._modified_at = modified_at
         self._set_refreshed_at(refreshed_at=modified_at)
 
-    def _set_refreshed_at(self, refreshed_at: datetime) -> None:
+    def _set_refreshed_at(self, *, refreshed_at: datetime) -> None:
         """Set refreshed_at to current datetime."""
         self._refreshed_at = refreshed_at
 
-    def _set_temporary_modified_at(self, modified_at: datetime) -> None:
+    def _set_temporary_modified_at(self, *, modified_at: datetime) -> None:
         """Set temporary_modified_at to current datetime."""
         self._temporary_modified_at = modified_at
         self._set_temporary_refreshed_at(refreshed_at=modified_at)
 
-    def _set_temporary_refreshed_at(self, refreshed_at: datetime) -> None:
+    def _set_temporary_refreshed_at(self, *, refreshed_at: datetime) -> None:
         """Set temporary_refreshed_at to current datetime."""
         self._temporary_refreshed_at = refreshed_at
 
-    def __str__(self) -> str:
-        """Provide some useful information."""
-        return f"path: {self.state_path}, name: {self.full_name}"
 
+class BaseDataPoint(CallbackDataPoint, BaseDataPointProtocol, PayloadMixin):
+    """
+    Base class for channel-bound data points.
 
-class BaseDataPoint(CallbackDataPoint, PayloadMixin):
-    """Base class for regular data point."""
+    Extends CallbackDataPoint with channel/device associations and provides
+    the foundation for generic, custom, and calculated data point implementations.
+    """
 
     __slots__ = (
         "_cached_dpk",
+        "_cached_name",
         "_cached_requires_polling",
         "_channel",
         "_client",
@@ -426,76 +585,42 @@ class BaseDataPoint(CallbackDataPoint, PayloadMixin):
 
     def __init__(
         self,
-        channel: hmd.Channel,
+        *,
+        channel: ChannelProtocol,
         unique_id: str,
         is_in_multiple_channels: bool,
     ) -> None:
         """Initialize the data_point."""
         PayloadMixin.__init__(self)
-        self._channel: Final[hmd.Channel] = channel
-        self._device: Final[hmd.Device] = channel.device
-        super().__init__(central=channel.central, unique_id=unique_id)
+        self._channel: Final[ChannelProtocol] = channel
+        self._device: Final[DeviceProtocol] = channel.device
+        super().__init__(
+            unique_id=unique_id,
+            central_info=channel.device.central_info,
+            event_bus_provider=channel.device.event_bus_provider,
+            event_publisher=channel.device.event_publisher,
+            task_scheduler=channel.device.task_scheduler,
+            paramset_description_provider=channel.device.paramset_description_provider,
+            parameter_visibility_provider=channel.device.parameter_visibility_provider,
+        )
         self._is_in_multiple_channels: Final = is_in_multiple_channels
-        self._client: Final[hmcl.Client] = channel.device.client
+        self._client: Final[ClientProtocol] = channel.device.client
         self._forced_usage: DataPointUsage | None = None
         self._data_point_name_data: Final = self._get_data_point_name()
         self._timer_on_time: float | None = None
         self._timer_on_time_end: datetime = INIT_DATETIME
 
-    @state_property
-    def available(self) -> bool:
-        """Return the availability of the device."""
-        return self._device.available
-
-    @hm_property(log_context=True)
-    def channel(self) -> hmd.Channel:
-        """Return the channel the data_point."""
-        return self._channel
-
-    @property
-    def device(self) -> hmd.Device:
-        """Return the device of the data_point."""
-        return self._device
-
-    @property
-    def full_name(self) -> str:
-        """Return the full name of the data_point."""
-        return self._data_point_name_data.full_name
-
-    @property
-    def function(self) -> str | None:
-        """Return the function."""
-        return self._channel.function
-
-    @property
-    def is_in_multiple_channels(self) -> bool:
-        """Return the parameter/CE is also in multiple channels."""
-        return self._is_in_multiple_channels
-
-    @config_property
-    def name(self) -> str:
-        """Return the name of the data_point."""
-        return self._data_point_name_data.name
-
-    @property
-    def name_data(self) -> DataPointNameData:
-        """Return the data_point name data of the data_point."""
-        return self._data_point_name_data
-
-    @property
-    def room(self) -> str | None:
-        """Return the room, if only one exists."""
-        return self._channel.room
-
-    @property
-    def rooms(self) -> set[str]:
-        """Return the rooms assigned to a data_point."""
-        return self._channel.rooms
-
-    @property
-    def timer_on_time(self) -> float | None:
-        """Return the on_time."""
-        return self._timer_on_time
+    available: Final = DelegatedProperty[bool](path="_device.available", kind=Kind.STATE)
+    channel: Final = DelegatedProperty[ChannelProtocol](path="_channel", log_context=True)
+    device: Final = DelegatedProperty[DeviceProtocol](path="_device")
+    full_name: Final = DelegatedProperty[str](path="_data_point_name_data.full_name")
+    function: Final = DelegatedProperty[str | None](path="_channel.function")
+    is_in_multiple_channels: Final = DelegatedProperty[bool](path="_is_in_multiple_channels")
+    name: Final = DelegatedProperty[str](path="_data_point_name_data.name", kind=Kind.CONFIG, cached=True)
+    name_data: Final = DelegatedProperty[DataPointNameData](path="_data_point_name_data")
+    room: Final = DelegatedProperty[str | None](path="_channel.room")
+    rooms: Final = DelegatedProperty[set[str]](path="_channel.rooms")
+    timer_on_time = DelegatedProperty[float | None](path="_timer_on_time")
 
     @property
     def timer_on_time_running(self) -> bool:
@@ -507,7 +632,7 @@ class BaseDataPoint(CallbackDataPoint, PayloadMixin):
         """Return the data_point usage."""
         return self._get_data_point_usage()
 
-    def force_usage(self, forced_usage: DataPointUsage) -> None:
+    def force_usage(self, *, forced_usage: DataPointUsage) -> None:
         """Set the data_point usage."""
         self._forced_usage = forced_usage
 
@@ -525,8 +650,22 @@ class BaseDataPoint(CallbackDataPoint, PayloadMixin):
         return on_time
 
     @abstractmethod
-    async def load_data_point_value(self, call_source: CallSource, direct_call: bool = False) -> None:
-        """Init the data_point data."""
+    @inspector(re_raise=False)
+    async def load_data_point_value(self, *, call_source: CallSource, direct_call: bool = False) -> None:
+        """Initialize the data_point data."""
+
+    async def on_config_changed(self) -> None:
+        """Do what is needed on device config change."""
+
+    def reset_timer_on_time(self) -> None:
+        """Set the on_time."""
+        self._timer_on_time = None
+        self._timer_on_time_end = INIT_DATETIME
+
+    def set_timer_on_time(self, *, on_time: float) -> None:
+        """Set the on_time."""
+        self._timer_on_time = on_time
+        self._timer_on_time_end = INIT_DATETIME
 
     @abstractmethod
     def _get_data_point_name(self) -> DataPointNameData:
@@ -536,27 +675,23 @@ class BaseDataPoint(CallbackDataPoint, PayloadMixin):
     def _get_data_point_usage(self) -> DataPointUsage:
         """Generate the usage for the data_point."""
 
-    def set_timer_on_time(self, on_time: float) -> None:
-        """Set the on_time."""
-        self._timer_on_time = on_time
-        self._timer_on_time_end = INIT_DATETIME
-
-    def reset_timer_on_time(self) -> None:
-        """Set the on_time."""
-        self._timer_on_time = None
-        self._timer_on_time_end = INIT_DATETIME
-
 
 class BaseParameterDataPoint[
-    ParameterT: GenericParameterType,
-    InputParameterT: GenericParameterType,
-](BaseDataPoint):
-    """Base class for stateless data point."""
+    ParameterT: ParamType,
+    InputParameterT: ParamType,
+](BaseDataPoint, BaseParameterDataPointProtocol[ParameterT | None]):
+    """
+    Base class for parameter-backed data points with typed values.
+
+    Provides value handling, unit conversion, validation, and RPC communication
+    for data points mapped to Homematic device parameters.
+    """
 
     __slots__ = (
         "_cached__enabled_by_channel_operation_mode",
         "_current_value",
         "_default",
+        "_enum_value_is_index",
         "_ignore_on_initial_load",
         "_is_forced_sensor",
         "_is_un_ignored",
@@ -566,12 +701,17 @@ class BaseParameterDataPoint[
         "_operations",
         "_parameter",
         "_paramset_key",
-        "_previous_value",
+        "_last_non_default_value",
         "_raw_unit",
         "_service",
         "_special",
         "_state_uncertain",
+        "_status_dpk",
+        "_status_parameter",
+        "_status_value",
+        "_status_value_list",
         "_temporary_value",
+        "_translation_key",
         "_type",
         "_unit",
         "_values",
@@ -580,7 +720,8 @@ class BaseParameterDataPoint[
 
     def __init__(
         self,
-        channel: hmd.Channel,
+        *,
+        channel: ChannelProtocol,
         paramset_key: ParamsetKey,
         parameter: str,
         parameter_data: ParameterData,
@@ -590,150 +731,82 @@ class BaseParameterDataPoint[
         self._paramset_key: Final = paramset_key
         # required for name in BaseDataPoint
         self._parameter: Final[str] = parameter
+        self._translation_key: Final[str] = generate_translation_key(name=parameter)
         self._ignore_on_initial_load: Final[bool] = check_ignore_parameter_on_initial_load(parameter=parameter)
 
         super().__init__(
             channel=channel,
             unique_id=generate_unique_id(
-                central=channel.central,
+                config_provider=channel.device.config_provider,
                 address=channel.address,
                 parameter=parameter,
                 prefix=unique_id_prefix,
             ),
-            is_in_multiple_channels=channel.device.central.paramset_descriptions.is_in_multiple_channels(
+            is_in_multiple_channels=channel.device.paramset_description_provider.is_in_multiple_channels(
                 channel_address=channel.address, parameter=parameter
             ),
         )
-        self._is_un_ignored: Final[bool] = self._central.parameter_visibility.parameter_is_un_ignored(
+        self._is_un_ignored: Final[bool] = self._parameter_visibility_provider.parameter_is_un_ignored(
             channel=channel,
             paramset_key=self._paramset_key,
             parameter=self._parameter,
             custom_only=True,
         )
-        self._current_value: ParameterT = None  # type: ignore[assignment]
-        self._previous_value: ParameterT = None  # type: ignore[assignment]
-        self._temporary_value: ParameterT = None  # type: ignore[assignment]
+        self._current_value: ParameterT | None = None
+        self._last_non_default_value: ParameterT | None = None
+        self._temporary_value: ParameterT | None = None
 
         self._state_uncertain: bool = True
         self._is_forced_sensor: bool = False
         self._assign_parameter_data(parameter_data=parameter_data)
 
-    def _assign_parameter_data(self, parameter_data: ParameterData) -> None:
-        """Assign parameter data to instance variables."""
-        self._type: ParameterType = ParameterType(parameter_data["TYPE"])
-        self._values = tuple(parameter_data["VALUE_LIST"]) if parameter_data.get("VALUE_LIST") else None
-        self._max: ParameterT = self._convert_value(parameter_data["MAX"])
-        self._min: ParameterT = self._convert_value(parameter_data["MIN"])
-        self._default: ParameterT = self._convert_value(parameter_data.get("DEFAULT")) or self._min
-        flags: int = parameter_data["FLAGS"]
-        self._visible: bool = flags & Flag.VISIBLE == Flag.VISIBLE
-        self._service: bool = flags & Flag.SERVICE == Flag.SERVICE
-        self._operations: int = parameter_data["OPERATIONS"]
-        self._special: Mapping[str, Any] | None = parameter_data.get("SPECIAL")
-        self._raw_unit: str | None = parameter_data.get("UNIT")
-        self._unit: str | None = self._cleanup_unit(raw_unit=self._raw_unit)
-        self._multiplier: float = self._get_multiplier(raw_unit=self._raw_unit)
+        # Initialize STATUS parameter support
+        self._status_parameter: str | None = self._detect_status_parameter()
+        self._status_value: ParameterStatus | None = None
+        self._status_dpk: DataPointKey | None = None
+        self._status_value_list: tuple[str, ...] | None = None
+        if self._status_parameter:
+            self._status_dpk = DataPointKey(
+                interface_id=self._device.interface_id,
+                channel_address=self._channel.address,
+                paramset_key=self._paramset_key,
+                parameter=self._status_parameter,
+            )
+            # Cache the VALUE_LIST for the status parameter
+            status_param_data = self._paramset_description_provider.get_parameter_data(
+                interface_id=self._device.interface_id,
+                channel_address=self._channel.address,
+                paramset_key=self._paramset_key,
+                parameter=self._status_parameter,
+            )
+            if status_param_data and (value_list := status_param_data.get("VALUE_LIST")):
+                self._status_value_list = tuple(value_list)
+
+    default: Final = DelegatedProperty[ParameterT](path="_default")
+    hmtype: Final = DelegatedProperty[ParameterType](path="_type")
+    ignore_on_initial_load: Final = DelegatedProperty[bool](path="_ignore_on_initial_load")
+    is_forced_sensor: Final = DelegatedProperty[bool](path="_is_forced_sensor")
+    is_un_ignored: Final = DelegatedProperty[bool](path="_is_un_ignored")
+    last_non_default_value: Final = DelegatedProperty[ParameterT | None](path="_last_non_default_value")
+    max: Final = DelegatedProperty[ParameterT](path="_max", kind=Kind.CONFIG)
+    min: Final = DelegatedProperty[ParameterT](path="_min", kind=Kind.CONFIG)
+    multiplier: Final = DelegatedProperty[float](path="_multiplier")
+    parameter: Final = DelegatedProperty[str](path="_parameter", log_context=True)
+    paramset_key: Final = DelegatedProperty[ParamsetKey](path="_paramset_key")
+    raw_unit: Final = DelegatedProperty[str | None](path="_raw_unit")
+    service: Final = DelegatedProperty[bool](path="_service")
+    status: Final = DelegatedProperty[ParameterStatus | None](path="_status_value")
+    status_dpk: Final = DelegatedProperty[DataPointKey | None](path="_status_dpk")
+    status_parameter: Final = DelegatedProperty[str | None](path="_status_parameter")
+    translation_key: Final = DelegatedProperty[str](path="_translation_key")
+    unit: Final = DelegatedProperty[str | None](path="_unit", kind=Kind.CONFIG)
+    values: Final = DelegatedProperty[tuple[str, ...] | None](path="_values", kind=Kind.CONFIG)
+    visible: Final = DelegatedProperty[bool](path="_visible")
 
     @property
-    def default(self) -> ParameterT:
-        """Return default value."""
-        return self._default
-
-    @property
-    def hmtype(self) -> ParameterType:
-        """Return the HomeMatic type."""
-        return self._type
-
-    @property
-    def ignore_on_initial_load(self) -> bool:
-        """Return if parameter should be ignored on initial load."""
-        return self._ignore_on_initial_load
-
-    @property
-    def is_unit_fixed(self) -> bool:
-        """Return if the unit is fixed."""
-        return self._raw_unit != self._unit
-
-    @property
-    def is_un_ignored(self) -> bool:
-        """Return if the parameter is un ignored."""
-        return self._is_un_ignored
-
-    @cached_property
-    def dpk(self) -> DataPointKey:
-        """Return data_point key value."""
-        return DataPointKey(
-            interface_id=self._device.interface_id,
-            channel_address=self._channel.address,
-            paramset_key=self._paramset_key,
-            parameter=self._parameter,
-        )
-
-    @config_property
-    def max(self) -> ParameterT:
-        """Return max value."""
-        return self._max
-
-    @config_property
-    def min(self) -> ParameterT:
-        """Return min value."""
-        return self._min
-
-    @property
-    def multiplier(self) -> float:
-        """Return multiplier value."""
-        return self._multiplier
-
-    @hm_property(log_context=True)
-    def parameter(self) -> str:
-        """Return parameter name."""
-        return self._parameter
-
-    @property
-    def paramset_key(self) -> ParamsetKey:
-        """Return paramset_key name."""
-        return self._paramset_key
-
-    @property
-    def raw_unit(self) -> str | None:
-        """Return raw unit value."""
-        return self._raw_unit
-
-    @cached_property
-    def requires_polling(self) -> bool:
-        """Return whether the data_point requires polling."""
-        return not self._channel.device.client.supports_push_updates or (
-            self._channel.device.product_group in (ProductGroup.HM, ProductGroup.HMW)
-            and self._paramset_key == ParamsetKey.MASTER
-        )
-
-    @property
-    def is_forced_sensor(self) -> bool:
-        """Return, if data_point is forced to read only."""
-        return self._is_forced_sensor
-
-    @property
-    def is_readable(self) -> bool:
-        """Return, if data_point is readable."""
-        return bool(self._operations & Operations.READ)
-
-    @property
-    def is_writeable(self) -> bool:
-        """Return, if data_point is writeable."""
-        return False if self._is_forced_sensor else bool(self._operations & Operations.WRITE)
-
-    @property
-    def unconfirmed_last_value_send(self) -> ParameterT:
-        """Return the unconfirmed value send for the data_point."""
-        return cast(
-            ParameterT,
-            self._client.last_value_send_cache.get_last_value_send(dpk=self.dpk),
-        )
-
-    @property
-    def previous_value(self) -> ParameterT:
-        """Return the previous value of the data_point."""
-        return self._previous_value
+    def _value(self) -> ParameterT | None:
+        """Return the value of the data_point."""
+        return self._temporary_value if self._temporary_refreshed_at > self._refreshed_at else self._current_value
 
     @property
     def category(self) -> DataPointCategory:
@@ -741,51 +814,57 @@ class BaseParameterDataPoint[
         return DataPointCategory.SENSOR if self._is_forced_sensor else self._category
 
     @property
+    def has_events(self) -> bool:
+        """Return, if data_point is supports events."""
+        return bool(self._operations & Operations.EVENT)
+
+    @property
+    def has_status_parameter(self) -> bool:
+        """Return if this parameter has a paired STATUS parameter."""
+        return self._status_parameter is not None
+
+    @property
+    def is_readable(self) -> bool:
+        """Return, if data_point is readable."""
+        return bool(self._operations & Operations.READ)
+
+    @property
+    def is_status_valid(self) -> bool:
+        """Return if the status indicates a valid value (NORMAL, UNKNOWN, or no STATUS parameter)."""
+        if self._status_value is None:
+            return True
+        # UNKNOWN means "not yet known" (e.g., during startup) - treat as valid for is_valid check
+        return self._status_value in (ParameterStatus.NORMAL, ParameterStatus.UNKNOWN)
+
+    @property
+    def is_unit_fixed(self) -> bool:
+        """Return if the unit is fixed."""
+        return self._raw_unit != self._unit
+
+    @property
+    def is_writable(self) -> bool:
+        """Return, if data_point is writable."""
+        return False if self._is_forced_sensor else bool(self._operations & Operations.WRITE)
+
+    @property
     def state_uncertain(self) -> bool:
-        """Return, if the state is uncertain."""
+        """Return the state uncertain status."""
         return self._state_uncertain
 
     @property
-    def _value(self) -> ParameterT:
-        """Return the value of the data_point."""
-        return self._temporary_value if self._temporary_refreshed_at > self._refreshed_at else self._current_value
-
-    @state_property
-    def value(self) -> ParameterT:
-        """Return the value of the data_point."""
-        return self._value
-
-    @property
-    def service(self) -> bool:
-        """Return the if data_point is visible in ccu."""
-        return self._service
-
-    @property
-    def supports_events(self) -> bool:
-        """Return, if data_point is supports events."""
-        return bool(self._operations & Operations.EVENT)
+    def unconfirmed_last_value_send(self) -> ParameterT:
+        """Return the unconfirmed value send for the data_point."""
+        return cast(
+            ParameterT,
+            self._client.last_value_send_tracker.get_last_value_send(dpk=self.dpk),
+        )
 
     @config_property
     def unique_id(self) -> str:
         """Return the unique_id."""
         return f"{self._unique_id}_{DataPointCategory.SENSOR}" if self._is_forced_sensor else self._unique_id
 
-    @config_property
-    def unit(self) -> str | None:
-        """Return unit value."""
-        return self._unit
-
-    @config_property
-    def values(self) -> tuple[str, ...] | None:
-        """Return the values."""
-        return self._values
-
-    @property
-    def visible(self) -> bool:
-        """Return the if data_point is visible in ccu."""
-        return self._visible
-
-    @cached_property
+    @hm_property(cached=True)
     def _enabled_by_channel_operation_mode(self) -> bool | None:
         """Return, if the data_point/event must be enabled."""
         if self._channel.type_name not in _CONFIGURABLE_CHANNEL:
@@ -796,14 +875,27 @@ class BaseParameterDataPoint[
             return None
         return cop in KEY_CHANNEL_OPERATION_MODE_VISIBILITY[self._parameter]
 
-    def _get_path_data(self) -> PathData:
-        """Return the path data of the data_point."""
-        return DataPointPathData(
-            interface=self._device.client.interface,
-            address=self._device.address,
-            channel_no=self._channel.no,
-            kind=self._parameter,
+    @hm_property(cached=True)
+    def dpk(self) -> DataPointKey:
+        """Return data_point key value."""
+        return DataPointKey(
+            interface_id=self._device.interface_id,
+            channel_address=self._channel.address,
+            paramset_key=self._paramset_key,
+            parameter=self._parameter,
         )
+
+    @hm_property(cached=True)
+    def requires_polling(self) -> bool:
+        """Return whether the data_point requires polling."""
+        return not self._channel.device.client.capabilities.push_updates or (
+            self._channel.device.product_group in (ProductGroup.HM, ProductGroup.HMW)
+            and self._paramset_key == ParamsetKey.MASTER
+        )
+
+    @abstractmethod
+    async def event(self, *, value: Any, received_at: datetime) -> None:
+        """Handle event for which this handler has subscribed."""
 
     def force_to_sensor(self) -> None:
         """Change the category of the data_point."""
@@ -832,39 +924,39 @@ class BaseParameterDataPoint[
         )
         self._is_forced_sensor = True
 
-    def _cleanup_unit(self, raw_unit: str | None) -> str | None:
-        """Replace given unit."""
-        if new_unit := _FIX_UNIT_BY_PARAM.get(self._parameter):
-            return new_unit
-        if not raw_unit:
-            return None
-        for check, fix in _FIX_UNIT_REPLACE.items():
-            if check in raw_unit:
-                return fix
-        return raw_unit
+    def get_event_data(self, *, value: Any = None) -> EventData:
+        """Get the event_data."""
+        return EventData(
+            interface_id=self._device.interface_id,
+            model=self._device.model,
+            device_address=self._device.address,
+            channel_no=self._channel.no,
+            parameter=self._parameter,
+            value=value,
+        )
 
-    def _get_multiplier(self, raw_unit: str | None) -> float:
-        """Replace given unit."""
-        if not raw_unit:
-            return DEFAULT_MULTIPLIER
-        if multiplier := _MULTIPLIER_UNIT.get(raw_unit):
-            return multiplier
-        return DEFAULT_MULTIPLIER
-
-    def _get_signature(self) -> str:
-        """Return the signature of the data_point."""
-        return f"{self._category}/{self._channel.device.model}/{self._parameter}"
-
-    @abstractmethod
-    async def event(self, value: Any, received_at: datetime) -> None:
-        """Handle event for which this handler has subscribed."""
-
-    async def load_data_point_value(self, call_source: CallSource, direct_call: bool = False) -> None:
-        """Init the data_point data."""
+    @inspector(re_raise=False)
+    async def load_data_point_value(self, *, call_source: CallSource, direct_call: bool = False) -> None:
+        """Initialize the data_point data."""
         if (self._ignore_on_initial_load or self._channel.device.ignore_on_initial_load) and call_source in (
             CallSource.HM_INIT,
             CallSource.HA_INIT,
         ):
+            # For ignored parameters, only try to load from cache (no RPC call).
+            # This allows calculated data points to get their values on restart
+            # without waking up battery-powered devices.
+            if (
+                self._paramset_key == ParamsetKey.VALUES
+                and (
+                    cached_value := self._device.data_cache_provider.get_data(
+                        interface=self._device.interface,
+                        channel_address=self._channel.address,
+                        parameter=self._parameter,
+                    )
+                )
+                != NO_CACHE_ENTRY
+            ):
+                self.write_value(value=cached_value, write_at=datetime.now())
             return
 
         if direct_call is False and hms.changed_within_seconds(last_change=self._refreshed_at):
@@ -883,44 +975,23 @@ class BaseParameterDataPoint[
             write_at=datetime.now(),
         )
 
-    def write_value(self, value: Any, write_at: datetime) -> tuple[ParameterT, ParameterT]:
-        """Update value of the data_point."""
-        self._reset_temporary_value()
+    async def on_config_changed(self) -> None:
+        """Do what is needed on device config change."""
+        await super().on_config_changed()
 
-        old_value = self._current_value
-        if value == NO_CACHE_ENTRY:
-            if self.refreshed_at != INIT_DATETIME:
-                self._state_uncertain = True
-                self.fire_data_point_updated_callback()
-            return (old_value, None)  # type: ignore[return-value]
+        # update parameter_data
+        self.update_parameter_data()
+        # reload master data
+        if self.is_readable and self._paramset_key == ParamsetKey.MASTER:
+            await self.load_data_point_value(call_source=CallSource.MANUAL_OR_SCHEDULED, direct_call=True)
 
-        new_value = self._convert_value(value)
-        if old_value == new_value:
-            self._set_refreshed_at(refreshed_at=write_at)
-        else:
-            self._set_modified_at(modified_at=write_at)
-            self._previous_value = old_value
-            self._current_value = new_value
-        self._state_uncertain = False
-        self.fire_data_point_updated_callback()
-        return (old_value, new_value)
-
-    def write_temporary_value(self, value: Any, write_at: datetime) -> None:
-        """Update the temporary value of the data_point."""
-        self._reset_temporary_value()
-
-        temp_value = self._convert_value(value)
-        if self._value == temp_value:
-            self._set_temporary_refreshed_at(refreshed_at=write_at)
-        else:
-            self._set_temporary_modified_at(modified_at=write_at)
-            self._temporary_value = temp_value
-            self._state_uncertain = True
-        self.fire_data_point_updated_callback()
+    def set_last_non_default_value(self, *, value: ParameterT | None) -> None:
+        """Set the last non default value."""
+        self._last_non_default_value = value
 
     def update_parameter_data(self) -> None:
         """Update parameter data."""
-        if parameter_data := self._central.paramset_descriptions.get_parameter_data(
+        if parameter_data := self._paramset_description_provider.get_parameter_data(
             interface_id=self._device.interface_id,
             channel_address=self._channel.address,
             paramset_key=self._paramset_key,
@@ -928,9 +999,113 @@ class BaseParameterDataPoint[
         ):
             self._assign_parameter_data(parameter_data=parameter_data)
 
-    def _convert_value(self, value: Any) -> ParameterT:
+    def update_status(self, *, status_value: int | str) -> None:
+        """Update the status from a STATUS parameter event only if changed."""
+        new_status: ParameterStatus | None = None
+        # Backend may send integer indices - convert using cached VALUE_LIST
+        if (
+            isinstance(status_value, int)
+            and self._status_value_list
+            and 0 <= status_value < len(self._status_value_list)
+        ):
+            status_value = self._status_value_list[status_value]
+        if isinstance(status_value, str) and status_value in ParameterStatus.__members__:
+            new_status = ParameterStatus(status_value)
+
+        if new_status is None:
+            _LOGGER.warning(  # i18n-log: ignore
+                "UPDATE_STATUS: Invalid status value %s for %s, ignoring",
+                status_value,
+                self.full_name,
+            )
+            return
+
+        # Only update and notify if status actually changed
+        if self._status_value == new_status:
+            return
+
+        self._status_value = new_status
+        self.publish_data_point_updated_event()
+
+    def write_temporary_value(self, *, value: Any, write_at: datetime) -> None:
+        """Update the temporary value of the data_point."""
+        self._reset_temporary_value()
+
+        old_value = self._value
+        temp_value = self._convert_value(value=value)
+        if old_value == temp_value:
+            self._set_temporary_refreshed_at(refreshed_at=write_at)
+        else:
+            self._set_temporary_modified_at(modified_at=write_at)
+            self._temporary_value = temp_value
+            self._state_uncertain = True
+        self.publish_data_point_updated_event(old_value=old_value, new_value=temp_value)
+
+    def write_value(self, *, value: Any, write_at: datetime) -> tuple[ParameterT | None, ParameterT | None]:
+        """Update value of the data_point."""
+        self._reset_temporary_value()
+
+        old_value = self._current_value
+        if value == NO_CACHE_ENTRY:
+            if self.refreshed_at != INIT_DATETIME:
+                self._state_uncertain = True
+                self.publish_data_point_updated_event(old_value=old_value, new_value=None)
+            return (old_value, None)
+
+        new_value = self._convert_value(value=value)
+        if old_value == new_value:
+            self._set_refreshed_at(refreshed_at=write_at)
+        else:
+            self._set_modified_at(modified_at=write_at)
+            self._current_value = new_value
+            # Track last user value: store new value only if it differs from default
+            # This is used for "restore last value" scenarios (e.g., dimmer brightness)
+            if new_value != self._default:
+                self._last_non_default_value = new_value
+        self._state_uncertain = False
+        self.publish_data_point_updated_event(old_value=old_value, new_value=new_value)
+        return (old_value, new_value)
+
+    def _assign_parameter_data(self, *, parameter_data: ParameterData) -> None:
+        """Assign parameter data to instance variables."""
+        self._type: ParameterType = ParameterType(parameter_data["TYPE"])
+        self._values = tuple(parameter_data["VALUE_LIST"]) if parameter_data.get("VALUE_LIST") else None
+        # Determine if ENUM values should be sent as index (int) or string.
+        # HM devices use integer MIN/MAX/DEFAULT → send as index.
+        # HmIP devices use string MIN/MAX/DEFAULT → send as string.
+        raw_min = parameter_data["MIN"]
+        self._enum_value_is_index: bool = (
+            self._type == ParameterType.ENUM and self._values is not None and isinstance(raw_min, int)
+        )
+        self._max: ParameterT = self._convert_value(value=parameter_data["MAX"])
+        self._min: ParameterT = self._convert_value(value=raw_min)
+        self._default: ParameterT = self._convert_value(value=parameter_data.get("DEFAULT")) or self._min
+        flags: int = parameter_data["FLAGS"]
+        self._visible: bool = flags & Flag.VISIBLE == Flag.VISIBLE
+        self._service: bool = flags & Flag.SERVICE == Flag.SERVICE
+        self._operations: int = parameter_data["OPERATIONS"]
+        self._special: Mapping[str, Any] | None = parameter_data.get("SPECIAL")
+        self._raw_unit: str | None = parameter_data.get("UNIT")
+        self._unit: str | None = self._cleanup_unit(raw_unit=self._raw_unit)
+        self._multiplier: float = self._get_multiplier(raw_unit=self._raw_unit)
+
+    def _cleanup_unit(self, *, raw_unit: str | None) -> str | None:
+        """Replace given unit."""
+        if new_unit := _FIX_UNIT_BY_PARAM.get(self._parameter):
+            return new_unit
+        if not raw_unit:
+            return None
+        for check, fix in _FIX_UNIT_REPLACE.items():
+            if check in raw_unit:
+                return fix
+        return raw_unit
+
+    def _convert_value(self, *, value: Any) -> ParameterT:
         """Convert to value to ParameterT."""
         if value is None:
+            return None  # type: ignore[return-value]
+        # Handle empty strings from CCU for numeric types (e.g., "" for LEVEL_2 when no slats)
+        if value == "" and self._type in (ParameterType.FLOAT, ParameterType.INTEGER):
             return None  # type: ignore[return-value]
         try:
             if (
@@ -958,44 +1133,104 @@ class BaseParameterDataPoint[
             )
             return None  # type: ignore[return-value]
 
+    def _detect_status_parameter(self) -> str | None:
+        """
+        Detect the paired STATUS parameter name if it exists.
+
+        Return the STATUS parameter name (e.g., "LEVEL_STATUS" for "LEVEL")
+        if it exists in the paramset description, None otherwise.
+        """
+        status_param = f"{self._parameter}_STATUS"
+        try:
+            if self._paramset_description_provider.has_parameter(
+                interface_id=self._device.interface_id,
+                channel_address=self._channel.address,
+                paramset_key=self._paramset_key,
+                parameter=status_param,
+            ):
+                return status_param
+        except (AttributeError, KeyError):
+            # has_parameter not available or lookup failed
+            pass
+        return None
+
+    def _get_multiplier(self, *, raw_unit: str | None) -> float:
+        """Replace given unit."""
+        if not raw_unit:
+            return DEFAULT_MULTIPLIER
+        if multiplier := _MULTIPLIER_UNIT.get(raw_unit):
+            return multiplier
+        return DEFAULT_MULTIPLIER
+
+    def _get_path_data(self) -> PathData:
+        """Return the path data of the data_point."""
+        return DataPointPathData(
+            interface=self._device.client.interface,
+            address=self._device.address,
+            channel_no=self._channel.no,
+            kind=self._parameter,
+        )
+
+    def _get_signature(self) -> str:
+        """Return the signature of the data_point."""
+        return f"{self._category}/{self._channel.device.model}/{self._parameter}"
+
+    def _get_value(self) -> ParameterT | None:
+        """
+        Return the value for readings. Override in subclasses for custom value processing.
+
+        Subclasses like DpSelect, DpSensor, DpBinarySensor override this to:
+        - Convert integer indices to string values from VALUE_LIST
+        - Apply value converters (e.g., RSSI negation)
+        - Return defaults when value is None
+        """
+        return self._value
+
     def _reset_temporary_value(self) -> None:
         """Reset the temp storage."""
-        self._temporary_value = None  # type: ignore[assignment]
+        self._temporary_value = None
         self._reset_temporary_timestamps()
 
-    def get_event_data(self, value: Any = None) -> dict[EventKey, Any]:
-        """Get the event_data."""
-        event_data = {
-            EventKey.ADDRESS: self._device.address,
-            EventKey.CHANNEL_NO: self._channel.no,
-            EventKey.MODEL: self._device.model,
-            EventKey.INTERFACE_ID: self._device.interface_id,
-            EventKey.PARAMETER: self._parameter,
-        }
-        if value is not None:
-            event_data[EventKey.VALUE] = value
-        return cast(dict[EventKey, Any], EVENT_DATA_SCHEMA(event_data))
+    def _set_value(self, value: ParameterT) -> None:  # kwonly: disable
+        """Set the local value."""
+        self.write_value(value=value, write_at=datetime.now())
+
+    def __get_value_proxy(self) -> ParameterT | None:
+        """
+        Proxy method for the value property getter.
+
+        This indirection is necessary because _GenericProperty(fget=method) binds the
+        method at class definition time, bypassing MRO. By calling self._get_value()
+        here, we ensure subclass overrides of _get_value() are properly invoked.
+        """
+        return self._get_value()
+
+    value: _GenericProperty[ParameterT | None, ParameterT] = _GenericProperty(
+        fget=__get_value_proxy, fset=_set_value, kind=Kind.STATE
+    )
+
+
+BaseParameterDataPointAny: TypeAlias = BaseParameterDataPoint[Any, Any]
 
 
 class CallParameterCollector:
     """Create a Paramset based on given generic data point."""
 
     __slots__ = (
-        "_central",
         "_client",
         "_paramsets",
     )
 
-    def __init__(self, client: hmcl.Client) -> None:
-        """Init the generator."""
-        self._client: Final = client
-        self._central: Final = client.central
+    def __init__(self, *, client: ValueAndParamsetOperationsProtocol) -> None:
+        """Initialize the generator."""
+        self._client: Final[ValueAndParamsetOperationsProtocol] = client
         # {"VALUES": {50: {"00021BE9957782:3": {"STATE3": True}}}}
         self._paramsets: Final[dict[ParamsetKey, dict[int, dict[str, dict[str, Any]]]]] = {}
 
     def add_data_point(
         self,
-        data_point: BaseParameterDataPoint,
+        *,
+        data_point: BaseParameterDataPointAny,
         value: Any,
         collector_order: int,
     ) -> None:
@@ -1010,8 +1245,8 @@ class CallParameterCollector:
             value
         )
 
-    async def send_data(self, wait_for_callback: int | None) -> set[DP_KEY_VALUE]:
-        """Send data to backend."""
+    async def send_data(self, *, wait_for_callback: int | None) -> set[DP_KEY_VALUE]:
+        """Send data to the backend."""
         dpk_values: set[DP_KEY_VALUE] = set()
         for paramset_key, paramsets in self._paramsets.items():
             for _, paramset_no in sorted(paramsets.items()):
@@ -1039,52 +1274,128 @@ class CallParameterCollector:
         return dpk_values
 
 
-def bind_collector(
+@overload
+def bind_collector[CallableBC: CallableAny](  # kwonly: disable
+    func: CallableBC,
+    *,
     wait_for_callback: int | None = WAIT_FOR_CALLBACK,
     enabled: bool = True,
     log_level: int = logging.ERROR,
-) -> Callable:
+    scope: ServiceScope = ...,
+) -> CallableBC: ...
+
+
+@overload
+def bind_collector[CallableBC: CallableAny](  # kwonly: disable
+    *,
+    wait_for_callback: int | None = WAIT_FOR_CALLBACK,
+    enabled: bool = True,
+    log_level: int = logging.ERROR,
+    scope: ServiceScope = ...,
+) -> Callable[[CallableBC], CallableBC]: ...
+
+
+def bind_collector[CallableBC: CallableAny](  # kwonly: disable
+    func: CallableBC | None = None,
+    *,
+    wait_for_callback: int | None = WAIT_FOR_CALLBACK,
+    enabled: bool = True,
+    log_level: int = logging.ERROR,
+    scope: ServiceScope = ServiceScope.EXTERNAL,
+) -> Callable[[CallableBC], CallableBC] | CallableBC:
     """
     Decorate function to automatically add collector if not set.
 
+    Usage:
+    - With parentheses: `@bind_collector()`
+    - Without parentheses: `@bind_collector`
+
     Additionally, thrown exceptions are logged.
+
+    Args:
+        func: Function to decorate (when used without parameters).
+        wait_for_callback: Time to wait for callback after sending data.
+        enabled: Whether the collector binding is enabled.
+        log_level: Logging level for exceptions.
+        scope: The scope of this service method (see ServiceScope enum).
+            EXTERNAL: Methods for external consumers (HA) - user-invokable commands.
+                Appears in service_method_names.
+            INTERNAL: Infrastructure methods for library operation.
+                Does NOT appear in service_method_names.
+
     """
 
-    def bind_decorator[CallableT: Callable[..., Any]](func: CallableT) -> CallableT:
+    def bind_decorator(func: CallableBC) -> CallableBC:
         """Decorate function to automatically add collector if not set."""
-        argument_index = getfullargspec(func).args.index(_COLLECTOR_ARGUMENT_NAME)
+        # Inspect the function signature to find where 'collector' parameter is located.
+        # It can be either a positional argument (in spec.args) or keyword-only.
+        spec = getfullargspec(func)
+        if _COLLECTOR_ARGUMENT_NAME in spec.args:
+            argument_index: int | None = spec.args.index(_COLLECTOR_ARGUMENT_NAME)
+        else:
+            # collector is keyword-only or doesn't exist
+            argument_index = None
 
         @wraps(func)
         async def bind_wrapper(*args: Any, **kwargs: Any) -> Any:
-            """Wrap method to add collector."""
-            token: Token | None = None
-            if not IN_SERVICE_VAR.get():
-                token = IN_SERVICE_VAR.set(True)
+            """
+            Wrap method to add collector.
+
+            Context variable pattern for nested service calls:
+                RequestContext tracks whether we're already inside a service call.
+                This prevents nested calls from creating duplicate collectors and
+                ensures errors are only logged at the outermost boundary.
+
+            Algorithm:
+                1. Set RequestContext if not already in service (track via token)
+                2. Check if collector already exists in args or kwargs
+                3. If no collector exists, create one and inject into kwargs
+                4. Execute the wrapped function
+                5. If we created the collector, send batched data
+                6. Reset context variable on exit (success or exception)
+            """
+            # Context variable management: Track if this is the outermost service call.
+            # The token allows us to reset exactly to the previous state on exit.
+            token: Token[RequestContext | None] | None = None
+            if not is_in_service():
+                ctx = RequestContext(operation=f"service:{func.__name__}")
+                token = set_request_context(ctx=ctx)
             try:
+                # Short-circuit if collector binding is disabled
                 if not enabled:
                     return_value = await func(*args, **kwargs)
                     if token:
-                        IN_SERVICE_VAR.reset(token)
+                        reset_request_context(token=token)
                     return return_value
+
+                # Detect if a collector was already provided by the caller.
+                # Check both positional args (by index) and keyword args.
                 try:
-                    collector_exists = args[argument_index] is not None
-                except IndexError:
+                    collector_exists = (
+                        argument_index is not None and len(args) > argument_index and args[argument_index] is not None
+                    ) or kwargs.get(_COLLECTOR_ARGUMENT_NAME) is not None
+                except Exception:
+                    # Fallback: only check kwargs if positional check fails
                     collector_exists = kwargs.get(_COLLECTOR_ARGUMENT_NAME) is not None
 
                 if collector_exists:
+                    # Collector provided by caller - they handle send_data()
                     return_value = await func(*args, **kwargs)
                     if token:
-                        IN_SERVICE_VAR.reset(token)
+                        reset_request_context(token=token)
                     return return_value
+
+                # No collector provided - create one automatically.
+                # args[0] is 'self' (the data point), which has channel.device.client
                 collector = CallParameterCollector(client=args[0].channel.device.client)
                 kwargs[_COLLECTOR_ARGUMENT_NAME] = collector
                 return_value = await func(*args, **kwargs)
+                # Send batched commands after function completes successfully
                 await collector.send_data(wait_for_callback=wait_for_callback)
             except BaseHomematicException as bhexc:
                 if token:
-                    IN_SERVICE_VAR.reset(token)
-                in_service = IN_SERVICE_VAR.get()
-                if not in_service and log_level > logging.NOTSET:
+                    reset_request_context(token=token)
+                if not is_in_service() and log_level > logging.NOTSET:
                     context_obj = args[0]
                     logger = logging.getLogger(context_obj.__module__)
                     log_context = context_obj.log_context if isinstance(context_obj, LogContextMixin) else None
@@ -1101,34 +1412,15 @@ def bind_collector(
                 raise
             else:
                 if token:
-                    IN_SERVICE_VAR.reset(token)
+                    reset_request_context(token=token)
                 return return_value
 
-        setattr(bind_wrapper, "ha_service", True)
-        return bind_wrapper  # type: ignore[return-value]
+        if scope == ServiceScope.EXTERNAL:
+            setattr(bind_wrapper, "lib_service", True)
+        return cast(CallableBC, bind_wrapper)
 
+    # If used without parentheses: @bind_collector
+    if func is not None:
+        return bind_decorator(func)
+    # If used with parentheses: @bind_collector(...)
     return bind_decorator
-
-
-class NoneTypeDataPoint:
-    """DataPoint to return an empty value."""
-
-    default: Any = None
-    hmtype: Any = None
-    is_valid: bool = False
-    max: Any = None
-    min: Any = None
-    unit: Any = None
-    value: Any = None
-    values: tuple[Any, ...] = ()
-    visible: Any = None
-    channel_operation_mode: str | None = None
-    is_hmtype = False
-
-    async def send_value(
-        self,
-        value: Any,
-        collector: CallParameterCollector | None = None,
-        do_validate: bool = True,
-    ) -> None:
-        """Send value dummy method."""

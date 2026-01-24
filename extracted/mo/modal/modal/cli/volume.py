@@ -6,7 +6,6 @@ from typing import Optional
 
 import typer
 from click import UsageError
-from grpclib import GRPCError, Status
 from rich.syntax import Syntax
 from typer import Argument, Option, Typer
 
@@ -96,7 +95,13 @@ async def get(
     console = make_console()
     progress_handler = ProgressHandler(type="download", console=console)
     with progress_handler.live:
-        await _volume_download(volume, remote_path, destination, force, progress_cb=progress_handler.progress)
+        await _volume_download(
+            volume=volume,
+            remote_path=remote_path,
+            local_destination=destination,
+            overwrite=force,
+            progress_cb=progress_handler.progress,
+        )
     console.print(OutputManager.step_completed("Finished downloading files to local!"))
 
 
@@ -131,18 +136,12 @@ async def ls(
 ):
     ensure_env(env)
     vol = _Volume.from_name(volume_name, environment_name=env)
-
-    try:
-        entries = await vol.listdir(path)
-    except GRPCError as exc:
-        if exc.status in (Status.INVALID_ARGUMENT, Status.NOT_FOUND):
-            raise UsageError(exc.message)
-        raise
+    entries = await vol.listdir(path)
 
     if not json and not sys.stdout.isatty():
         # Legacy behavior -- I am not sure why exactly we did this originally but I don't want to break it
         for entry in entries:
-            print(entry.path)
+            print(entry.path)  # noqa: T201
     else:
         rows = []
         for entry in entries:
@@ -241,14 +240,9 @@ async def rm(
 ):
     ensure_env(env)
     volume = _Volume.from_name(volume_name, environment_name=env)
+    await volume.remove_file(remote_path, recursive=recursive)
     console = make_console()
-    try:
-        await volume.remove_file(remote_path, recursive=recursive)
-        console.print(OutputManager.step_completed(f"{remote_path} was deleted successfully!"))
-    except GRPCError as exc:
-        if exc.status in (Status.NOT_FOUND, Status.INVALID_ARGUMENT):
-            raise UsageError(exc.message)
-        raise
+    console.print(OutputManager.step_completed(f"{remote_path} was deleted successfully!"))
 
 
 @volume_cli.command(

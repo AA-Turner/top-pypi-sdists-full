@@ -3,11 +3,10 @@ Helpers for and additions to :mod:`attrs`.
 """
 
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Optional,
     overload,
 )
@@ -50,18 +49,19 @@ def option(
     default: None = ...,
     validator: None = ...,
     repr: "_ReprArgType" = ...,
-    hash: Optional[bool] = ...,
+    hash: bool | None = ...,
     init: bool = ...,
-    metadata: Optional[dict[Any, Any]] = ...,
+    metadata: dict[Any, Any] | None = ...,
     converter: None = ...,
     factory: None = ...,
     kw_only: bool = ...,
-    eq: Optional[bool] = ...,
-    order: Optional[bool] = ...,
+    eq: bool | None = ...,
+    order: bool | None = ...,
     on_setattr: Optional["_OnSetAttrArgType"] = ...,
-    help: Optional[str] = ...,
-    click: Optional[dict[str, Any]] = ...,
-    argparse: Optional[dict[str, Any]] = ...,
+    alias: str | None = ...,
+    help: str | None = ...,
+    click: dict[str, Any] | None = ...,
+    argparse: dict[str, Any] | None = ...,
 ) -> Any: ...
 
 
@@ -71,20 +71,21 @@ def option(
 def option(
     *,
     default: None = ...,
-    validator: "Optional[_ValidatorArgType[_T]]" = ...,
+    validator: "_ValidatorArgType[_T] | None" = ...,
     repr: "_ReprArgType" = ...,
-    hash: Optional[bool] = ...,
+    hash: bool | None = ...,
     init: bool = ...,
-    metadata: Optional[dict[Any, Any]] = ...,
+    metadata: dict[Any, Any] | None = ...,
     converter: Optional["_ConverterType"] = ...,
-    factory: "Optional[Callable[[], _T]]" = ...,
+    factory: "Callable[[], _T] | None" = ...,
     kw_only: bool = ...,
-    eq: Optional[bool] = ...,
-    order: Optional[bool] = ...,
-    on_setattr: "Optional[_OnSetAttrArgType]" = ...,
-    help: Optional[str] = ...,
-    click: Optional[dict[str, Any]] = ...,
-    argparse: Optional[dict[str, Any]] = ...,
+    eq: bool | None = ...,
+    order: bool | None = ...,
+    on_setattr: "_OnSetAttrArgType | None" = ...,
+    alias: str | None = ...,
+    help: str | None = ...,
+    click: dict[str, Any] | None = ...,
+    argparse: dict[str, Any] | None = ...,
 ) -> "_T": ...
 
 
@@ -93,20 +94,21 @@ def option(
 def option(
     *,
     default: "_T",
-    validator: "Optional[_ValidatorArgType[_T]]" = ...,
+    validator: "_ValidatorArgType[_T] | None" = ...,
     repr: "_ReprArgType" = ...,
-    hash: Optional[bool] = ...,
+    hash: bool | None = ...,
     init: bool = ...,
-    metadata: Optional[dict[Any, Any]] = ...,
-    converter: "Optional[_ConverterType]" = ...,
-    factory: "Optional[Callable[[], _T]]" = ...,
+    metadata: dict[Any, Any] | None = ...,
+    converter: "_ConverterType | None" = ...,
+    factory: "Callable[[], _T] | None" = ...,
     kw_only: bool = ...,
-    eq: Optional[bool] = ...,
-    order: Optional[bool] = ...,
-    on_setattr: "Optional[_OnSetAttrArgType]" = ...,
-    help: Optional[str] = ...,
-    click: Optional[dict[str, Any]] = ...,
-    argparse: Optional[dict[str, Any]] = ...,
+    eq: bool | None = ...,
+    order: bool | None = ...,
+    on_setattr: "_OnSetAttrArgType | None" = ...,
+    alias: str | None = ...,
+    help: str | None = ...,
+    click: dict[str, Any] | None = ...,
+    argparse: dict[str, Any] | None = ...,
 ) -> "_T": ...
 
 
@@ -115,20 +117,21 @@ def option(
 def option(
     *,
     default: Optional["_T"] = ...,
-    validator: "Optional[_ValidatorArgType[_T]]" = ...,
+    validator: "_ValidatorArgType[_T] | None" = ...,
     repr: "_ReprArgType" = ...,
-    hash: Optional[bool] = ...,
+    hash: bool | None = ...,
     init: bool = ...,
-    metadata: Optional[dict[Any, Any]] = ...,
-    converter: "Optional[_ConverterType]" = ...,
-    factory: "Optional[Callable[[], _T]]" = ...,
+    metadata: dict[Any, Any] | None = ...,
+    converter: "_ConverterType | None" = ...,
+    factory: "Callable[[], _T] | None" = ...,
     kw_only: bool = ...,
-    eq: Optional[bool] = ...,
-    order: Optional[bool] = ...,
-    on_setattr: "Optional[_OnSetAttrArgType]" = ...,
-    help: Optional[str] = ...,
-    click: Optional[dict[str, Any]] = ...,
-    argparse: Optional[dict[str, Any]] = ...,
+    eq: bool | None = ...,
+    order: bool | None = ...,
+    on_setattr: "_OnSetAttrArgType | None" = ...,
+    alias: str | None = ...,
+    help: str | None = ...,
+    click: dict[str, Any] | None = ...,
+    argparse: dict[str, Any] | None = ...,
 ) -> Any: ...
 
 
@@ -146,6 +149,7 @@ def option(  # type: ignore[no-untyped-def]
     eq=None,
     order=None,
     on_setattr=None,
+    alias=None,
     help=None,
     click=None,
     argparse=None,
@@ -168,6 +172,7 @@ def option(  # type: ignore[no-untyped-def]
         eq=eq,
         order=order,
         on_setattr=on_setattr,
+        alias=alias,
     )
 
 
@@ -177,18 +182,19 @@ def secret(
     default: None = ...,
     validator: None = ...,
     repr: types.SecretRepr = ...,
-    hash: Optional[bool] = ...,
+    hash: bool | None = ...,
     init: bool = ...,
-    metadata: Optional[dict[Any, Any]] = ...,
+    metadata: dict[Any, Any] | None = ...,
     converter: None = ...,
     factory: None = ...,
     kw_only: bool = ...,
-    eq: Optional[bool] = ...,
-    order: Optional[bool] = ...,
-    on_setattr: "Optional[_OnSetAttrArgType]" = ...,
-    help: Optional[str] = ...,
-    click: Optional[dict[str, Any]] = ...,
-    argparse: Optional[dict[str, Any]] = ...,
+    eq: bool | None = ...,
+    order: bool | None = ...,
+    on_setattr: "_OnSetAttrArgType | None" = ...,
+    alias: str | None = ...,
+    help: str | None = ...,
+    click: dict[str, Any] | None = ...,
+    argparse: dict[str, Any] | None = ...,
 ) -> Any: ...
 
 
@@ -198,20 +204,21 @@ def secret(
 def secret(
     *,
     default: None = ...,
-    validator: "Optional[_ValidatorArgType[_T]]" = ...,
+    validator: "_ValidatorArgType[_T] | None" = ...,
     repr: types.SecretRepr = ...,
-    hash: Optional[bool] = ...,
+    hash: bool | None = ...,
     init: bool = ...,
-    metadata: Optional[dict[Any, Any]] = ...,
-    converter: "Optional[_ConverterType]" = ...,
-    factory: "Optional[Callable[[], _T]]" = ...,
+    metadata: dict[Any, Any] | None = ...,
+    converter: "_ConverterType | None" = ...,
+    factory: "Callable[[], _T] | None" = ...,
     kw_only: bool = ...,
-    eq: Optional[bool] = ...,
-    order: Optional[bool] = ...,
-    on_setattr: "Optional[_OnSetAttrArgType]" = ...,
-    help: Optional[str] = ...,
-    click: Optional[dict[str, Any]] = ...,
-    argparse: Optional[dict[str, Any]] = ...,
+    eq: bool | None = ...,
+    order: bool | None = ...,
+    on_setattr: "_OnSetAttrArgType | None" = ...,
+    alias: str | None = ...,
+    help: str | None = ...,
+    click: dict[str, Any] | None = ...,
+    argparse: dict[str, Any] | None = ...,
 ) -> "_T": ...
 
 
@@ -220,20 +227,21 @@ def secret(
 def secret(
     *,
     default: "_T",
-    validator: "Optional[_ValidatorArgType[_T]]" = ...,
+    validator: "_ValidatorArgType[_T] | None" = ...,
     repr: types.SecretRepr = ...,
-    hash: Optional[bool] = ...,
+    hash: bool | None = ...,
     init: bool = ...,
-    metadata: Optional[dict[Any, Any]] = ...,
-    converter: "Optional[_ConverterType]" = ...,
-    factory: "Optional[Callable[[], _T]]" = ...,
+    metadata: dict[Any, Any] | None = ...,
+    converter: "_ConverterType | None" = ...,
+    factory: "Callable[[], _T] | None" = ...,
     kw_only: bool = ...,
-    eq: Optional[bool] = ...,
-    order: Optional[bool] = ...,
-    on_setattr: "Optional[_OnSetAttrArgType]" = ...,
-    help: Optional[str] = ...,
-    click: Optional[dict[str, Any]] = ...,
-    argparse: Optional[dict[str, Any]] = ...,
+    eq: bool | None = ...,
+    order: bool | None = ...,
+    on_setattr: "_OnSetAttrArgType | None" = ...,
+    alias: str | None = ...,
+    help: str | None = ...,
+    click: dict[str, Any] | None = ...,
+    argparse: dict[str, Any] | None = ...,
 ) -> "_T": ...
 
 
@@ -241,21 +249,22 @@ def secret(
 @overload
 def secret(
     *,
-    default: "Optional[_T]" = ...,
-    validator: "Optional[_ValidatorArgType[_T]]" = ...,
+    default: "_T | None" = ...,
+    validator: "_ValidatorArgType[_T] | None" = ...,
     repr: types.SecretRepr = ...,
-    hash: Optional[bool] = ...,
+    hash: bool | None = ...,
     init: bool = ...,
-    metadata: Optional[dict[Any, Any]] = ...,
-    converter: "Optional[_ConverterType]" = ...,
-    factory: "Optional[Callable[[], _T]]" = ...,
+    metadata: dict[Any, Any] | None = ...,
+    converter: "_ConverterType | None" = ...,
+    factory: "Callable[[], _T] | None" = ...,
     kw_only: bool = ...,
-    eq: Optional[bool] = ...,
-    order: Optional[bool] = ...,
-    on_setattr: "Optional[_OnSetAttrArgType]" = ...,
-    help: Optional[str] = ...,
-    click: Optional[dict[str, Any]] = ...,
-    argparse: Optional[dict[str, Any]] = ...,
+    eq: bool | None = ...,
+    order: bool | None = ...,
+    on_setattr: "_OnSetAttrArgType | None" = ...,
+    alias: str | None = ...,
+    help: str | None = ...,
+    click: dict[str, Any] | None = ...,
+    argparse: dict[str, Any] | None = ...,
 ) -> Any: ...
 
 
@@ -273,6 +282,7 @@ def secret(  # type: ignore[no-untyped-def]
     eq=None,
     order=None,
     on_setattr=None,
+    alias=None,
     help=None,
     click=None,
     argparse=None,
@@ -315,14 +325,15 @@ def secret(  # type: ignore[no-untyped-def]
         eq=eq,
         order=order,
         on_setattr=on_setattr,
+        alias=alias,
     )
 
 
 def _get_metadata(
-    metadata: Optional[dict[str, Any]],
-    help: Optional[str],
-    click: Optional[dict[str, Any]],
-    argparse: Optional[dict[str, Any]],
+    metadata: dict[str, Any] | None,
+    help: str | None,
+    click: dict[str, Any] | None,
+    argparse: dict[str, Any] | None,
 ) -> dict[str, Any]:
     click_config = {"help": help}
     if click:
@@ -372,7 +383,7 @@ def evolve(inst: attrs.AttrsInstance, **changes: Any) -> attrs.AttrsInstance:
         if not a.init:
             continue
         attr_name = a.name  # To deal with private attributes.
-        init_name = attr_name if attr_name[0] != "_" else attr_name[1:]
+        init_name = a.alias
         old_value = getattr(inst, attr_name)
         if init_name not in changes:
             # Add original value to changes
@@ -463,6 +474,7 @@ def combine(
             eq=a.eq,
             order=a.order,
             on_setattr=a.on_setattr,
+            alias=a.alias,
         )
         for a in attr.fields(base_cls)  # type: ignore[misc]
     }

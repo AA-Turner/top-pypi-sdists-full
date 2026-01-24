@@ -1,8 +1,10 @@
 from uuid import UUID
-from typing import Generic, Optional, TypeVar, cast
+from typing import Generic, Optional, Type, TypeVar, cast
 
 from vellum.workflows.nodes import MapNode
+from vellum.workflows.state.base import BaseState
 from vellum.workflows.types.core import JsonObject
+from vellum.workflows.types.generics import is_workflow_class
 from vellum.workflows.workflows.base import BaseWorkflow
 from vellum_ee.workflows.display.nodes.utils import raise_if_descriptor
 from vellum_ee.workflows.display.nodes.vellum.base_adornment_node import BaseAdornmentNodeDisplay
@@ -15,6 +17,7 @@ _MapNodeType = TypeVar("_MapNodeType", bound=MapNode)
 
 class BaseMapNodeDisplay(BaseAdornmentNodeDisplay[_MapNodeType], Generic[_MapNodeType]):
     __serializable_inputs__ = {MapNode.items}  # type: ignore[misc]
+    __unserializable_attributes__ = {MapNode.subworkflow, MapNode.max_concurrency}  # type: ignore[misc]
 
     def serialize(
         self, display_context: WorkflowDisplayContext, error_output_id: Optional[UUID] = None, **_kwargs
@@ -22,16 +25,14 @@ class BaseMapNodeDisplay(BaseAdornmentNodeDisplay[_MapNodeType], Generic[_MapNod
         node = self._node
         node_id = self.node_id
 
-        subworkflow = cast(type[BaseWorkflow], raise_if_descriptor(node.subworkflow))
-
-        items_node_input = create_node_input(
-            node_id=node_id,
-            input_name="items",
-            value=node.items,
-            display_context=display_context,
-            input_id=self.node_input_ids_by_name.get("items"),
+        subworkflow_value = raise_if_descriptor(node.subworkflow)
+        subworkflow = (
+            cast(type[BaseWorkflow], subworkflow_value)
+            if subworkflow_value is not None and is_workflow_class(subworkflow_value)
+            else self._default_workflow_class()
         )
-        node_inputs = [items_node_input]
+
+        items = raise_if_descriptor(node.items)
 
         subworkflow_display = get_workflow_display(
             base_display_class=display_context.workflow_display_class,
@@ -50,6 +51,16 @@ class BaseMapNodeDisplay(BaseAdornmentNodeDisplay[_MapNodeType], Generic[_MapNod
             for input_variable in input_variables
             if isinstance(input_variable, dict) and input_variable["key"] == "items"
         )
+
+        # Use the same ID for the map node's items input as the subworkflow's items input
+        items_node_input = create_node_input(
+            node_id=node_id,
+            input_name="items",
+            value=items or [],
+            display_context=display_context,
+            input_id=str(items_workflow_input_id),
+        )
+        node_inputs = [items_node_input]
         item_workflow_input_id = next(
             input_variable["id"]
             for input_variable in input_variables
@@ -79,5 +90,12 @@ class BaseMapNodeDisplay(BaseAdornmentNodeDisplay[_MapNodeType], Generic[_MapNod
                 "item_input_id": item_workflow_input_id,
                 "index_input_id": index_workflow_input_id,
             },
-            **self.serialize_generic_fields(display_context),
+            "attributes": self._serialize_attributes(display_context),
+            **self.serialize_generic_fields(display_context, exclude=["outputs"]),
         }
+
+    def _default_workflow_class(self) -> Type[BaseWorkflow]:
+        class MapNodeSubworkflow(BaseWorkflow[MapNode.SubworkflowInputs, BaseState]):
+            pass
+
+        return MapNodeSubworkflow

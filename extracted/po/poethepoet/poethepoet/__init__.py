@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from .__version__ import __version__
 
@@ -78,7 +77,7 @@ def _run_builtin_task(
     return False
 
 
-def _list_tasks(target_path: Optional[str] = None):
+def _list_tasks(target_path: str | None = None):
     """
     A special task accessible via `poe _list_tasks` for use in shell completion
 
@@ -89,7 +88,7 @@ def _list_tasks(target_path: Optional[str] = None):
         from .config import PoeConfig
 
         config = PoeConfig()
-        config.load(target_path, strict=False)
+        config.load_sync(target_path, strict=False)
         task_names = (task for task in config.task_names if task and task[0] != "_")
         print(" ".join(task_names))
     except Exception:

@@ -19,11 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
-          fetch-depth: 0 # To ensure tags are retrieved to enabe setuptools_scm to work
+          fetch-depth: 0 # To ensure tags are retrieved to enable setuptools_scm to work
       - name: Install Python 3.x
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.x
       - name: Build sdist
@@ -45,17 +45,17 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macos-13 # x86
+          - macos-15-intel # x86
           - macos-latest # arm
           - windows-latest
-        cibw_build: [cp39-*, cp310-*, cp311-*, cp312-*, cp313-*]
+        cibw_build: [cp39-*, cp310-*, cp311-*, cp312-*, cp313-*, cp313t-*, cp314-*]
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
-          fetch-depth: 0 # To ensure tags are retrieved to enabe setuptools_scm to work
+          fetch-depth: 0 # To ensure tags are retrieved to enable setuptools_scm to work
       - name: Install Python 3.x
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.x
       - name: Set up QEMU # Needed to build aarch64 wheels
@@ -63,17 +63,30 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
+
+      - name: Setup free-threading variables
+        if: ${{ endsWith(matrix.cibw_build, 't-*') }}
+        shell: bash -l {0}
+        run: |
+          echo "CIBW_BEFORE_TEST=pip install pytest pytest-run-parallel" >> "$GITHUB_ENV"
+          echo "CIBW_ENVIRONMENT=PYLZ4_USE_SYSTEM_LZ4=False PYTEST_ADDOPTS=--parallel-threads=4" >> "$GITHUB_ENV"
+          echo "CIBW_TEST_COMMAND=tox -x testenv.deps+=pytest-run-parallel -x testenv.pass_env+=PYTEST_ADDOPTS -c {project}" >> "$GITHUB_ENV"
+      - name: Setup environment
+        if: ${{ !endsWith(matrix.cibw_build, 't-*') }}
+        shell: bash -l {0}
+        run: |
+          echo "CIBW_ENVIRONMENT=PYLZ4_USE_SYSTEM_LZ4=False" >> "$GITHUB_ENV"
+          echo "CIBW_TEST_COMMAND=tox -c {project}" >> "$GITHUB_ENV"
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21
+        uses: pypa/cibuildwheel@v3.2.1
         env:
-          CIBW_ENVIRONMENT: PYLZ4_USE_SYSTEM_LZ4="False"
           # CIBW_ARCHS_LINUX: "x86_64 i686 aarch64"
           CIBW_ARCHS_LINUX: "x86_64 i686"
           CIBW_ARCHS_MACOS: "auto64" # since we have both runner arches
           CIBW_ARCHS_WINDOWS: "AMD64 x86 ARM64"
+          CIBW_ENABLE: cpython-freethreading
           CIBW_BUILD: ${{ matrix.cibw_build }}
           CIBW_SKIP: "cp*-musllinux*"
-          CIBW_TEST_COMMAND: "tox -c {project}"
           CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64 *-*linux_{ppc64le,s390x} *-win_arm64"
           CIBW_BEFORE_BUILD: "python -m pip install -U pip && python -m pip install tox"
       - name: Save wheels
@@ -93,24 +106,38 @@ jobs:
       matrix:
         os:
           - ubuntu-24.04-arm
-        cibw_build: [cp39-*, cp310-*, cp311-*, cp312-*, cp313-*]
+        cibw_build: [cp39-*, cp310-*, cp311-*, cp312-*, cp313-*, cp313t-*, cp314-*]
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
-          fetch-depth: 0 # To ensure tags are retrieved to enabe setuptools_scm to work
+          fetch-depth: 0 # To ensure tags are retrieved to enable setuptools_scm to work
       - name: Install Python 3.x
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.x
+      - name: Setup free-threading variables
+        if: ${{ endsWith(matrix.cibw_build, 't-*') }}
+        shell: bash -l {0}
+        run: |
+          # Variables are set in order to be passed down to both cibuildwheel and the
+          # Docker image spawned by that action
+          echo "CIBW_BEFORE_TEST=pip install pytest pytest-run-parallel" >> "$GITHUB_ENV"
+          echo "CIBW_ENVIRONMENT=PYLZ4_USE_SYSTEM_LZ4=False PYTEST_ADDOPTS=--parallel-threads=1" >> "$GITHUB_ENV"
+          echo "CIBW_TEST_COMMAND=tox -x testenv.deps+=pytest-run-parallel -x testenv.pass_env+=PYTEST_ADDOPTS -c {project}" >> "$GITHUB_ENV"
+      - name: Setup environment
+        if: ${{ !endsWith(matrix.cibw_build, 't-*') }}
+        shell: bash -l {0}
+        run: |
+          echo "CIBW_ENVIRONMENT=PYLZ4_USE_SYSTEM_LZ4=False" >> "$GITHUB_ENV"
+          echo "CIBW_TEST_COMMAND=tox -c {project}" >> "$GITHUB_ENV"
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21
+        uses: pypa/cibuildwheel@v3.2.1
         env:
-          CIBW_ENVIRONMENT: PYLZ4_USE_SYSTEM_LZ4="False"
-          CIBW_ARCHS_LINUX: "aarch64 armv7l"
+          CIBW_ARCHS_LINUX: "aarch64"
           CIBW_BUILD: ${{ matrix.cibw_build }}
           CIBW_SKIP: "cp*-musllinux*"
-          CIBW_TEST_COMMAND: "tox -c {project}"
+          CIBW_ENABLE: cpython-freethreading
           CIBW_BEFORE_BUILD: "python -m pip install -U pip && python -m pip install tox"
       - name: Save wheels
         uses: actions/upload-artifact@v4
@@ -124,7 +151,7 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: cibw-*
           path: dist

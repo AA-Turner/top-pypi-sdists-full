@@ -20,6 +20,7 @@ class LineageNode(BaseModel):
     id: int
     name: str
     node_entity_id: int
+    parent_node_id: int = 0
 
     def __hash__(self):
         return hash(self.id)
@@ -122,8 +123,7 @@ class ContainmentNode(LineageNode, abc.ABC):
             parent_node_id = next((e.upstream_id for e in nav_node.upstream_edges
                                    if e.relationship_type == RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT), 0)
             if parent_node_id:
-                entity_id = graph.nodes.get(parent_node_id).lineage_node.node_entity_id
-                self.parent_entity_id = entity_id
+                self.parent_node_id = parent_node_id
             self.downstream_objects.update(lineage_object_ids)
         else:
             for edge in nav_node.downstream_edges:
@@ -199,7 +199,6 @@ class IntegrationNode(ContainmentNode):
     partner_type: IntegrationPartner
     partner_name: str
     is_bi_tool: bool = False
-    parent_entity_id: int = 0
 
     def is_origin(self) -> bool:
         return len(self.upstream_objects) == 0 if not self.is_bi_tool else False

@@ -1,7 +1,7 @@
 r'''
 # `github_team_settings`
 
-Refer to the Terraform Registry for docs: [`github_team_settings`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings).
+Refer to the Terraform Registry for docs: [`github_team_settings`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TeamSettings(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.teamSettings.TeamSettings",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings github_team_settings}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings github_team_settings}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class TeamSettings(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings github_team_settings} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings github_team_settings} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param team_id: The GitHub team id or the GitHub team slug. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#team_id TeamSettings#team_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#id TeamSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param review_request_delegation: review_request_delegation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#review_request_delegation TeamSettings#review_request_delegation}
+        :param team_id: The GitHub team id or the GitHub team slug. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#team_id TeamSettings#team_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#id TeamSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param review_request_delegation: review_request_delegation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#review_request_delegation TeamSettings#review_request_delegation}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class TeamSettings(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TeamSettings to import.
-        :param import_from_id: The id of the existing TeamSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TeamSettings that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TeamSettings to import is found.
         '''
         if __debug__:
@@ -129,9 +129,9 @@ class TeamSettings(
         notify: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param algorithm: The algorithm to use when assigning pull requests to team members. Supported values are 'ROUND_ROBIN' and 'LOAD_BALANCE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#algorithm TeamSettings#algorithm}
-        :param member_count: The number of team members to assign to a pull request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#member_count TeamSettings#member_count}
-        :param notify: whether to notify the entire team when at least one member is also assigned to the pull request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#notify TeamSettings#notify}
+        :param algorithm: The algorithm to use when assigning pull requests to team members. Supported values are 'ROUND_ROBIN' and 'LOAD_BALANCE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#algorithm TeamSettings#algorithm}
+        :param member_count: The number of team members to assign to a pull request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#member_count TeamSettings#member_count}
+        :param notify: whether to notify the entire team when at least one member is also assigned to the pull request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#notify TeamSettings#notify}
         '''
         value = TeamSettingsReviewRequestDelegation(
             algorithm=algorithm, member_count=member_count, notify=notify
@@ -258,9 +258,9 @@ class TeamSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param team_id: The GitHub team id or the GitHub team slug. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#team_id TeamSettings#team_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#id TeamSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param review_request_delegation: review_request_delegation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#review_request_delegation TeamSettings#review_request_delegation}
+        :param team_id: The GitHub team id or the GitHub team slug. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#team_id TeamSettings#team_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#id TeamSettings#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param review_request_delegation: review_request_delegation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#review_request_delegation TeamSettings#review_request_delegation}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -368,7 +368,7 @@ class TeamSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def team_id(self) -> builtins.str:
         '''The GitHub team id or the GitHub team slug.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#team_id TeamSettings#team_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#team_id TeamSettings#team_id}
         '''
         result = self._values.get("team_id")
         assert result is not None, "Required property 'team_id' is missing"
@@ -376,7 +376,7 @@ class TeamSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#id TeamSettings#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#id TeamSettings#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -390,7 +390,7 @@ class TeamSettingsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["TeamSettingsReviewRequestDelegation"]:
         '''review_request_delegation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#review_request_delegation TeamSettings#review_request_delegation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#review_request_delegation TeamSettings#review_request_delegation}
         '''
         result = self._values.get("review_request_delegation")
         return typing.cast(typing.Optional["TeamSettingsReviewRequestDelegation"], result)
@@ -425,9 +425,9 @@ class TeamSettingsReviewRequestDelegation:
         notify: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param algorithm: The algorithm to use when assigning pull requests to team members. Supported values are 'ROUND_ROBIN' and 'LOAD_BALANCE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#algorithm TeamSettings#algorithm}
-        :param member_count: The number of team members to assign to a pull request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#member_count TeamSettings#member_count}
-        :param notify: whether to notify the entire team when at least one member is also assigned to the pull request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#notify TeamSettings#notify}
+        :param algorithm: The algorithm to use when assigning pull requests to team members. Supported values are 'ROUND_ROBIN' and 'LOAD_BALANCE'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#algorithm TeamSettings#algorithm}
+        :param member_count: The number of team members to assign to a pull request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#member_count TeamSettings#member_count}
+        :param notify: whether to notify the entire team when at least one member is also assigned to the pull request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#notify TeamSettings#notify}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9bd045b83f36723c634587c17f985408f19f99bdc1c5c47e7bfead79d23b6efe)
@@ -446,7 +446,7 @@ class TeamSettingsReviewRequestDelegation:
     def algorithm(self) -> typing.Optional[builtins.str]:
         '''The algorithm to use when assigning pull requests to team members. Supported values are 'ROUND_ROBIN' and 'LOAD_BALANCE'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#algorithm TeamSettings#algorithm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#algorithm TeamSettings#algorithm}
         '''
         result = self._values.get("algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -455,7 +455,7 @@ class TeamSettingsReviewRequestDelegation:
     def member_count(self) -> typing.Optional[jsii.Number]:
         '''The number of team members to assign to a pull request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#member_count TeamSettings#member_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#member_count TeamSettings#member_count}
         '''
         result = self._values.get("member_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -466,7 +466,7 @@ class TeamSettingsReviewRequestDelegation:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''whether to notify the entire team when at least one member is also assigned to the pull request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/team_settings#notify TeamSettings#notify}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/team_settings#notify TeamSettings#notify}
         '''
         result = self._values.get("notify")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

@@ -214,7 +214,7 @@ class W:
         if (not self.silence_warnings) and (self.n_components > 1):
             message = (
                 "The weights matrix is not fully connected: "
-                "\n There are %d disconnected components." % self.n_components
+                f"\n There are {self.n_components} disconnected components."
             )
             ni = len(self.islands)
             if ni == 1:
@@ -222,10 +222,8 @@ class W:
                     message + f"\n There is 1 island with id: {str(self.islands[0])}."
                 )
             elif ni > 1:
-                message = message + "\n There are %d islands with ids: %s." % (
-                    ni,
-                    ", ".join(str(island) for island in self.islands),
-                )
+                iids = ", ".join(str(island) for island in self.islands)
+                message = message + f"\n There are {ni} islands with ids: {iids}."
             warnings.warn(message, stacklevel=2)
 
     def _reset(self):
@@ -721,7 +719,7 @@ class W:
         trcW2
         """
         if "diagw2" not in self._cache:
-            self._diagW2 = (self.sparse * self.sparse).diagonal()
+            self._diagW2 = (self.sparse @ self.sparse).diagonal()
             self._cache["diagW2"] = self._diagW2
         return self._diagW2
 
@@ -734,7 +732,7 @@ class W:
         trcWtW
         """
         if "diagWtW" not in self._cache:
-            self._diagWtW = (self.sparse.transpose() * self.sparse).diagonal()
+            self._diagWtW = (self.sparse.transpose() @ self.sparse).diagonal()
             self._cache["diagWtW"] = self._diagWtW
         return self._diagWtW
 
@@ -757,7 +755,7 @@ class W:
         if "diagWtW_WW" not in self._cache:
             wt = self.sparse.transpose()
             w = self.sparse
-            self._diagWtW_WW = (wt * w + w * w).diagonal()
+            self._diagWtW_WW = (wt @ w + w @ w).diagonal()
             self._cache["diagWtW_WW"] = self._diagWtW_WW
         return self._diagWtW_WW
 
@@ -1603,7 +1601,7 @@ class WSP:
         if "diagWtW_WW" not in self._cache:
             wt = self.sparse.transpose()
             w = self.sparse
-            self._diagWtW_WW = (wt * w + w * w).diagonal()
+            self._diagWtW_WW = (wt @ w + w @ w).diagonal()
             self._cache["diagWtW_WW"] = self._diagWtW_WW
         return self._diagWtW_WW
 

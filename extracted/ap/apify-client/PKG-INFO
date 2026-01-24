@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify_client
-Version: 2.1.0
+Version: 2.4.0
 Summary: Apify API client for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Homepage, https://docs.apify.com/api/client/python/
@@ -222,29 +222,23 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
 Requires-Dist: apify-shared<3.0.0,>=2.1.0
 Requires-Dist: colorama>=0.4.0
-Requires-Dist: impit>=0.5.3
+Requires-Dist: impit>=0.9.2
 Requires-Dist: more-itertools>=10.0.0
 Description-Content-Type: text/markdown
 
 <h1 align=center>Apify API client for Python</h1>
 
-<p align=center>
-    <a href="https://badge.fury.io/py/apify-client" rel="nofollow">
-        <img src="https://badge.fury.io/py/apify-client.svg" alt="PyPI - Version" style="max-width: 100%;">
-    </a>
-    <a href="https://pypi.org/project/apify-client/" rel="nofollow">
-        <img src="https://img.shields.io/pypi/dm/apify-client" alt="PyPI - Downloads" style="max-width: 100%;">
-    </a>
-    <a href="https://pypi.org/project/apify-client/" rel="nofollow">
-        <img src="https://img.shields.io/pypi/pyversions/apify-client" alt="PyPI - Python version" style="max-width: 100%;">
-    </a>
-    <a href="https://discord.gg/jyEM2PRvMU" rel="nofollow">
-        <img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on discord" style="max-width: 100%;">
-    </a>
+<p align="center">
+  <a href="https://badge.fury.io/py/apify-client" rel="nofollow"><img src="https://badge.fury.io/py/apify-client.svg" alt="PyPI package version"></a>
+  <a href="https://pypi.org/project/apify-client/" rel="nofollow"><img src="https://img.shields.io/pypi/dm/apify-client" alt="PyPI package downloads"></a>
+  <a href="https://codecov.io/gh/apify/apify-client-python"><img src="https://codecov.io/gh/apify/apify-client-python/graph/badge.svg?token=TYQQWYYZ7A" alt="Codecov report"></a>
+  <a href="https://pypi.org/project/apify-client/" rel="nofollow"><img src="https://img.shields.io/pypi/pyversions/apify-client" alt="PyPI Python version"></a>
+  <a href="https://discord.gg/jyEM2PRvMU" rel="nofollow"><img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on Discord"></a>
 </p>
 
 The Apify API Client for Python is the official library to access the [Apify API](https://docs.apify.com/api/v2) from your Python applications. It provides useful features like automatic retries and convenience functions to improve your experience with the Apify API.

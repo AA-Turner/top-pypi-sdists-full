@@ -381,10 +381,6 @@ class TaskRecord(pulumi.CustomResource):
                  freeform_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
-        This resource provides the Task Record resource in Oracle Cloud Infrastructure Fleet Apps Management service.
-
-        Creates a new task record.
-
         ## Example Usage
 
         ```python
@@ -415,6 +411,7 @@ class TaskRecord(pulumi.CustomResource):
                     "is_executable_content": task_record_details_execution_details_is_executable_content,
                     "is_locked": task_record_details_execution_details_is_locked,
                     "is_read_output_variable_enabled": task_record_details_execution_details_is_read_output_variable_enabled,
+                    "system_variables": task_record_details_execution_details_system_variables,
                     "target_compartment_id": test_compartment["id"],
                     "variables": {
                         "input_variables": [{
@@ -474,10 +471,6 @@ class TaskRecord(pulumi.CustomResource):
                  args: TaskRecordArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Task Record resource in Oracle Cloud Infrastructure Fleet Apps Management service.
-
-        Creates a new task record.
-
         ## Example Usage
 
         ```python
@@ -508,6 +501,7 @@ class TaskRecord(pulumi.CustomResource):
                     "is_executable_content": task_record_details_execution_details_is_executable_content,
                     "is_locked": task_record_details_execution_details_is_locked,
                     "is_read_output_variable_enabled": task_record_details_execution_details_is_read_output_variable_enabled,
+                    "system_variables": task_record_details_execution_details_system_variables,
                     "target_compartment_id": test_compartment["id"],
                     "variables": {
                         "input_variables": [{

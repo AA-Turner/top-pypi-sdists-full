@@ -53,6 +53,7 @@ async def create_store_historico(
             or task.configEntrada.get("chaveCte")
             or task.configEntrada.get("empresa")
             or task.configEntrada.get("uuidSimplifica")
+            or task.configEntrada.get("identificador")
             or ""
         )
 

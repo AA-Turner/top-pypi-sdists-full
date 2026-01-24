@@ -21,6 +21,8 @@ logger = getLogger(__name__)
 PTT_OCAML_PARSER_SUBPROJECT_KINDS: List[SubprojectKind] = [
     (out.ManifestKind(out.PackageJson()), out.LockfileKind(out.NpmPackageLockJson())),
     (out.ManifestKind(out.Csproj()), out.LockfileKind(out.NugetPackagesLockJson())),
+    (out.ManifestKind(out.BuildGradle()), out.LockfileKind(out.GradleLockfile())),
+    (out.ManifestKind(out.BuildGradleKts()), out.LockfileKind(out.GradleLockfile())),
     # TODO: (out.ManifestKind(out.PackageJson()), out.LockfileKind(out.YarnLock())),
 ]
 
@@ -29,19 +31,19 @@ PTT_OCAML_PARSER_SUBPROJECT_KINDS: List[SubprojectKind] = [
 ALWAYS_DYNAMIC_RESOLUTION_SUBPROJECT_KINDS: List[SubprojectKind] = [
     (out.ManifestKind(out.PomXml()), None),
     (out.ManifestKind(out.BuildGradle()), None),
+    (out.ManifestKind(out.BuildGradleKts()), None),
     (out.ManifestKind(out.SettingsGradle()), None),
     (
         out.ManifestKind(out.SetupPy()),
         None,
     ),
     (out.ManifestKind(out.Csproj()), None),
+    (out.ManifestKind(out.BuildSbt()), None),
 ]
 
 # Subproject kinds that we use ocaml parsers for only when dependency paths are
 # enabled.
 PTT_DYNAMIC_RESOLUTION_SUBPROJECT_KINDS: List[SubprojectKind] = [
-    (out.ManifestKind(out.BuildGradle()), out.LockfileKind(out.GradleLockfile())),
-    (out.ManifestKind(out.BuildGradleKts()), out.LockfileKind(out.GradleLockfile())),
     (
         out.ManifestKind(out.RequirementsIn()),
         out.LockfileKind(out.PipRequirementsTxt()),

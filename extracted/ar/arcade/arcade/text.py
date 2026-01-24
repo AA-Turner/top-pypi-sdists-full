@@ -13,6 +13,7 @@ from arcade.exceptions import PerformanceWarning, warning
 from arcade.resources import resolve
 from arcade.texture_atlas import TextureAtlasBase
 from arcade.types import Color, Point, RGBOrA255
+from arcade.types.rect import LRBT, Rect
 
 __all__ = ["load_font", "Text", "create_text_sprite", "draw_text"]
 
@@ -577,6 +578,18 @@ class Text:
     def bottom(self) -> float:
         """Pixel location of the bottom content border."""
         return self.label.bottom
+
+    @property
+    def rect(self) -> Rect:
+        """Rect representing the bounds of the text.
+
+        .. tip:: Don't worry about `width` being `None`.
+
+            Although a label can be created with a `width=None`:
+            * The underlying :py:mod:`pyglet` label will have bounding dimensions
+            * This rect is for on-screen click and layout purposes, not maximum possible width
+        """
+        return LRBT(self.left, self.right, self.bottom, self.top)
 
     @property
     def content_size(self) -> tuple[int, int]:

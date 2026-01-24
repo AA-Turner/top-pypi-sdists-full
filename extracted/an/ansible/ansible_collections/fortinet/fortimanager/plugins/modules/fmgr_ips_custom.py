@@ -16,7 +16,6 @@ short_description: Configure IPS custom signature.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -165,7 +167,7 @@ EXAMPLES = '''
         adom: ansible
         state: present
         ips_custom:
-          rule-id: 1 # Required, no less than 1000;
+          rule_id: 1 # Required, no less than 1000;
           signature: "F-SBID(--name: [string]; --service: [string]; --flow: [string])" # Required; Need follow signature syntax,
           # check 'https://docs.fortinet.com/document/ipsengine/3.6.0/custom-ips-and-application-control-signature-syntax-guide/
           # 274110/creating-ips-and-application-control-signatures' for more information;
@@ -243,6 +245,7 @@ def main():
     module_primary_key = 'tag'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'ips_custom': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

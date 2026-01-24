@@ -1,0 +1,31 @@
+[project]
+name = "fluidattacks_etl_utils"
+authors = [{ name = "Product Team", email = "development@fluidattacks.com" }]
+classifiers = ["License :: OSI Approved :: MIT License"]
+requires-python = ">=3.11"
+dependencies = [
+    "fa-purity >=2.5.2, <3.0.0",
+    "gitpython >=3.1.44, <4.0.0",
+    "requests >=2.32.4, <3.0.0",
+    "pathos >=0.3.1, <0.4.0",
+    "python-dateutil >=2.9.0, <3.0.0",
+    "redshift-client >=8.0.1, <9.0.0",
+]
+description = "Common etl utils"
+dynamic = ["version"]
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[dependency-groups]
+dev = [
+    "arch-lint >=5.0.0, <6.0.0",
+    "mypy >=1.18.2, <2.0.0",
+    "pytest >=8.4.2, <9.0.0",
+    "pytest-cov >=7.0.0, <8.0.0",
+    "ruff >=0.14.1, <1.0.0",
+    "types-python-dateutil >=2.9.0.20251008, <3.0.0",
+    "types-requests >=2.32.4.20250611, <3.0.0",
+    "types-deprecated >=1.2.15.20250304, <2.0.0",
+]

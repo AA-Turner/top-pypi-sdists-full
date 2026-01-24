@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: myskoda
-Version: 2.4.1
+Version: 2.5.1
 Summary: Library for interaction with the MySkoda APIs.
 Author-email: Frederick Gnodtke <frederick@gnodtke.net>, WebSpider <bacardicoke@gmail.com>, Fabrice Devaux <fabrice.devaux@gmail.com>
 License-File: LICENSE
@@ -83,6 +83,26 @@ async def main():
     async with ClientSession() as session:
         myskoda = MySkoda(session)
         await myskoda.connect(USERNAME, PASSWORD)
+        for vin in await myskoda.list_vehicle_vins():
+            print(vin)
+        await myskoda.disconnect()
+
+asyncio.run(main())
+```
+
+or if you have an oidc2.0 refresh token available:
+
+```python
+import asyncio
+from aiohttp import ClientSession
+from myskoda import MySkoda
+
+TOKEN = "ey..."
+
+async def main():
+    async with ClientSession() as session:
+        myskoda = MySkoda(session)
+        await myskoda.connect_with_refresh_token(TOKEN)
         for vin in await myskoda.list_vehicle_vins():
             print(vin)
         await myskoda.disconnect()

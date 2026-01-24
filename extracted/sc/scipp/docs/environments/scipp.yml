@@ -1,0 +1,15 @@
+name: scipp
+
+channels:
+  - conda-forge
+
+dependencies:
+  - h5py
+  - ipympl
+  - ipython
+  - ipywidgets
+  - jupyterlab
+  - python-graphviz
+  - scipp::plopp
+  - scipp::scipp
+  - scipy

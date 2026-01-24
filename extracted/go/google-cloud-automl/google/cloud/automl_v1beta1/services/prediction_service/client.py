@@ -161,6 +161,34 @@ class PredictionServiceClient(metaclass=PredictionServiceClientMeta):
     _DEFAULT_ENDPOINT_TEMPLATE = "automl.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -348,12 +376,8 @@ class PredictionServiceClient(metaclass=PredictionServiceClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = PredictionServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -361,7 +385,7 @@ class PredictionServiceClient(metaclass=PredictionServiceClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -393,20 +417,14 @@ class PredictionServiceClient(metaclass=PredictionServiceClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = PredictionServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -742,23 +760,23 @@ class PredictionServiceClient(metaclass=PredictionServiceClientMeta):
         directly returned in the response. Available for following ML
         problems, and their expected request payloads:
 
-        -  Image Classification - Image in .JPEG, .GIF or .PNG format,
-           image_bytes up to 30MB.
-        -  Image Object Detection - Image in .JPEG, .GIF or .PNG format,
-           image_bytes up to 30MB.
-        -  Text Classification - TextSnippet, content up to 60,000
-           characters, UTF-8 encoded.
-        -  Text Extraction - TextSnippet, content up to 30,000
-           characters, UTF-8 NFC encoded.
-        -  Translation - TextSnippet, content up to 25,000 characters,
-           UTF-8 encoded.
-        -  Tables - Row, with column values matching the columns of the
-           model, up to 5MB. Not available for FORECASTING
+        - Image Classification - Image in .JPEG, .GIF or .PNG format,
+          image_bytes up to 30MB.
+        - Image Object Detection - Image in .JPEG, .GIF or .PNG format,
+          image_bytes up to 30MB.
+        - Text Classification - TextSnippet, content up to 60,000
+          characters, UTF-8 encoded.
+        - Text Extraction - TextSnippet, content up to 30,000
+          characters, UTF-8 NFC encoded.
+        - Translation - TextSnippet, content up to 25,000 characters,
+          UTF-8 encoded.
+        - Tables - Row, with column values matching the columns of the
+          model, up to 5MB. Not available for FORECASTING
 
         [prediction_type][google.cloud.automl.v1beta1.TablesModelMetadata.prediction_type].
 
-        -  Text Sentiment - TextSnippet, content up 500 characters,
-           UTF-8 encoded.
+        - Text Sentiment - TextSnippet, content up 500 characters, UTF-8
+          encoded.
 
         .. code-block:: python
 
@@ -814,25 +832,25 @@ class PredictionServiceClient(metaclass=PredictionServiceClientMeta):
                 Additional domain-specific parameters, any string must
                 be up to 25000 characters long.
 
-                -  For Image Classification:
+                - For Image Classification:
 
-                   ``score_threshold`` - (float) A value from 0.0 to
-                   1.0. When the model makes predictions for an image,
-                   it will only produce results that have at least this
-                   confidence score. The default is 0.5.
+                  ``score_threshold`` - (float) A value from 0.0 to 1.0.
+                  When the model makes predictions for an image, it will
+                  only produce results that have at least this
+                  confidence score. The default is 0.5.
 
-                -  For Image Object Detection: ``score_threshold`` -
-                   (float) When Model detects objects on the image, it
-                   will only produce bounding boxes which have at least
-                   this confidence score. Value in 0 to 1 range, default
-                   is 0.5. ``max_bounding_box_count`` - (int64) No more
-                   than this number of bounding boxes will be returned
-                   in the response. Default is 100, the requested value
-                   may be limited by server.
+                - For Image Object Detection: ``score_threshold`` -
+                  (float) When Model detects objects on the image, it
+                  will only produce bounding boxes which have at least
+                  this confidence score. Value in 0 to 1 range, default
+                  is 0.5. ``max_bounding_box_count`` - (int64) No more
+                  than this number of bounding boxes will be returned in
+                  the response. Default is 100, the requested value may
+                  be limited by server.
 
-                -  For Tables: feature_importance - (boolean) Whether
-                   feature importance should be populated in the
-                   returned TablesAnnotation. The default is false.
+                - For Tables: feature_importance - (boolean) Whether
+                  feature importance should be populated in the returned
+                  TablesAnnotation. The default is false.
 
                 This corresponds to the ``params`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -925,11 +943,11 @@ class PredictionServiceClient(metaclass=PredictionServiceClientMeta):
         [response][google.longrunning.Operation.response] field.
         Available for following ML problems:
 
-        -  Image Classification
-        -  Image Object Detection
-        -  Video Classification
-        -  Video Object Tracking \* Text Extraction
-        -  Tables
+        - Image Classification
+        - Image Object Detection
+        - Video Classification
+        - Video Object Tracking \* Text Extraction
+        - Tables
 
         .. code-block:: python
 
@@ -992,85 +1010,84 @@ class PredictionServiceClient(metaclass=PredictionServiceClientMeta):
                 predictions, any string must be up to 25000 characters
                 long.
 
-                -  For Text Classification:
+                - For Text Classification:
 
-                   ``score_threshold`` - (float) A value from 0.0 to
-                   1.0. When the model makes predictions for a text
-                   snippet, it will only produce results that have at
-                   least this confidence score. The default is 0.5.
+                  ``score_threshold`` - (float) A value from 0.0 to 1.0.
+                  When the model makes predictions for a text snippet,
+                  it will only produce results that have at least this
+                  confidence score. The default is 0.5.
 
-                -  For Image Classification:
+                - For Image Classification:
 
-                   ``score_threshold`` - (float) A value from 0.0 to
-                   1.0. When the model makes predictions for an image,
-                   it will only produce results that have at least this
-                   confidence score. The default is 0.5.
+                  ``score_threshold`` - (float) A value from 0.0 to 1.0.
+                  When the model makes predictions for an image, it will
+                  only produce results that have at least this
+                  confidence score. The default is 0.5.
 
-                -  For Image Object Detection:
+                - For Image Object Detection:
 
-                   ``score_threshold`` - (float) When Model detects
-                   objects on the image, it will only produce bounding
-                   boxes which have at least this confidence score.
-                   Value in 0 to 1 range, default is 0.5.
-                   ``max_bounding_box_count`` - (int64) No more than
-                   this number of bounding boxes will be produced per
-                   image. Default is 100, the requested value may be
-                   limited by server.
+                  ``score_threshold`` - (float) When Model detects
+                  objects on the image, it will only produce bounding
+                  boxes which have at least this confidence score. Value
+                  in 0 to 1 range, default is 0.5.
+                  ``max_bounding_box_count`` - (int64) No more than this
+                  number of bounding boxes will be produced per image.
+                  Default is 100, the requested value may be limited by
+                  server.
 
-                -  For Video Classification :
+                - For Video Classification :
 
-                   ``score_threshold`` - (float) A value from 0.0 to
-                   1.0. When the model makes predictions for a video, it
-                   will only produce results that have at least this
-                   confidence score. The default is 0.5.
-                   ``segment_classification`` - (boolean) Set to true to
-                   request segment-level classification. AutoML Video
-                   Intelligence returns labels and their confidence
-                   scores for the entire segment of the video that user
-                   specified in the request configuration. The default
-                   is "true". ``shot_classification`` - (boolean) Set to
-                   true to request shot-level classification. AutoML
-                   Video Intelligence determines the boundaries for each
-                   camera shot in the entire segment of the video that
-                   user specified in the request configuration. AutoML
-                   Video Intelligence then returns labels and their
-                   confidence scores for each detected shot, along with
-                   the start and end time of the shot. WARNING: Model
-                   evaluation is not done for this classification type,
-                   the quality of it depends on training data, but there
-                   are no metrics provided to describe that quality. The
-                   default is "false". ``1s_interval_classification`` -
-                   (boolean) Set to true to request classification for a
-                   video at one-second intervals. AutoML Video
-                   Intelligence returns labels and their confidence
-                   scores for each second of the entire segment of the
-                   video that user specified in the request
-                   configuration. WARNING: Model evaluation is not done
-                   for this classification type, the quality of it
-                   depends on training data, but there are no metrics
-                   provided to describe that quality. The default is
-                   "false".
+                  ``score_threshold`` - (float) A value from 0.0 to 1.0.
+                  When the model makes predictions for a video, it will
+                  only produce results that have at least this
+                  confidence score. The default is 0.5.
+                  ``segment_classification`` - (boolean) Set to true to
+                  request segment-level classification. AutoML Video
+                  Intelligence returns labels and their confidence
+                  scores for the entire segment of the video that user
+                  specified in the request configuration. The default is
+                  "true". ``shot_classification`` - (boolean) Set to
+                  true to request shot-level classification. AutoML
+                  Video Intelligence determines the boundaries for each
+                  camera shot in the entire segment of the video that
+                  user specified in the request configuration. AutoML
+                  Video Intelligence then returns labels and their
+                  confidence scores for each detected shot, along with
+                  the start and end time of the shot. WARNING: Model
+                  evaluation is not done for this classification type,
+                  the quality of it depends on training data, but there
+                  are no metrics provided to describe that quality. The
+                  default is "false". ``1s_interval_classification`` -
+                  (boolean) Set to true to request classification for a
+                  video at one-second intervals. AutoML Video
+                  Intelligence returns labels and their confidence
+                  scores for each second of the entire segment of the
+                  video that user specified in the request
+                  configuration. WARNING: Model evaluation is not done
+                  for this classification type, the quality of it
+                  depends on training data, but there are no metrics
+                  provided to describe that quality. The default is
+                  "false".
 
-                -  For Tables:
+                - For Tables:
 
-                   feature_importance - (boolean) Whether feature
-                   importance should be populated in the returned
-                   TablesAnnotations. The default is false.
+                  feature_importance - (boolean) Whether feature
+                  importance should be populated in the returned
+                  TablesAnnotations. The default is false.
 
-                -  For Video Object Tracking:
+                - For Video Object Tracking:
 
-                   ``score_threshold`` - (float) When Model detects
-                   objects on video frames, it will only produce
-                   bounding boxes which have at least this confidence
-                   score. Value in 0 to 1 range, default is 0.5.
-                   ``max_bounding_box_count`` - (int64) No more than
-                   this number of bounding boxes will be returned per
-                   frame. Default is 100, the requested value may be
-                   limited by server. ``min_bounding_box_size`` -
-                   (float) Only bounding boxes with shortest edge at
-                   least that long as a relative value of video frame
-                   size will be returned. Value in 0 to 1 range. Default
-                   is 0.
+                  ``score_threshold`` - (float) When Model detects
+                  objects on video frames, it will only produce bounding
+                  boxes which have at least this confidence score. Value
+                  in 0 to 1 range, default is 0.5.
+                  ``max_bounding_box_count`` - (int64) No more than this
+                  number of bounding boxes will be returned per frame.
+                  Default is 100, the requested value may be limited by
+                  server. ``min_bounding_box_size`` - (float) Only
+                  bounding boxes with shortest edge at least that long
+                  as a relative value of video frame size will be
+                  returned. Value in 0 to 1 range. Default is 0.
 
                 This corresponds to the ``params`` field
                 on the ``request`` instance; if ``request`` is provided, this

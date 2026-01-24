@@ -1,23 +1,21 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-securityhub
-Version: 2.24.2
-Summary: Type annotations for aiobotocore SecurityHub 2.24.2 service generated with mypy-boto3-builder 8.11.0
-Home-page: https://github.com/youtype/mypy_boto3_builder
-Author: Vlad Emelianov
-Author-email: vlad.emelianov.nz@gmail.com
-License: MIT License
+Version: 3.1.1
+Summary: Type annotations for aiobotocore SecurityHub 3.1.1 service generated with mypy-boto3-builder 8.12.0
+Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Documentation, https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/
 Project-URL: Source, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Tracker, https://github.com/youtype/mypy_boto3_builder/issues
-Keywords: aiobotocore securityhub aiobotocore-stubs type-annotations mypy typeshed autocomplete
+Keywords: aiobotocore,securityhub,aiobotocore-stubs,type-annotations,mypy,typeshed,autocomplete
+Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,23 +25,11 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions; python_version < "3.12"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <a id="types-aiobotocore-securityhub"></a>
 
@@ -57,7 +43,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore SecurityHub 2.24.2](https://pypi.org/project/aiobotocore/)
+[aiobotocore SecurityHub 3.1.1](https://pypi.org/project/aiobotocore/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -66,7 +52,7 @@ compatible with [VSCode](https://code.visualstudio.com/),
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.12.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [types-aiobotocore](https://pypi.org/project/types-aiobotocore/) page and in
@@ -118,7 +104,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==2.24.2' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==3.1.1' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `SecurityHub` service.
 4. Use provided commands to install generated packages.
@@ -355,8 +341,10 @@ from types_aiobotocore_securityhub.paginator import (
     GetEnabledStandardsPaginator,
     GetFindingHistoryPaginator,
     GetFindingsPaginator,
+    GetFindingsTrendsV2Paginator,
     GetFindingsV2Paginator,
     GetInsightsPaginator,
+    GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
     ListAggregatorsV2Paginator,
     ListConfigurationPoliciesPaginator,
@@ -398,8 +386,14 @@ async with session.create_client("securityhub") as client:
         "get_finding_history"
     )
     get_findings_paginator: GetFindingsPaginator = client.get_paginator("get_findings")
+    get_findings_trends_v2_paginator: GetFindingsTrendsV2Paginator = client.get_paginator(
+        "get_findings_trends_v2"
+    )
     get_findings_v2_paginator: GetFindingsV2Paginator = client.get_paginator("get_findings_v2")
     get_insights_paginator: GetInsightsPaginator = client.get_paginator("get_insights")
+    get_resources_trends_v2_paginator: GetResourcesTrendsV2Paginator = client.get_paginator(
+        "get_resources_trends_v2"
+    )
     get_resources_v2_paginator: GetResourcesV2Paginator = client.get_paginator("get_resources_v2")
     list_aggregators_v2_paginator: ListAggregatorsV2Paginator = client.get_paginator(
         "list_aggregators_v2"

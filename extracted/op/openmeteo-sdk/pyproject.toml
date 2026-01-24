@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name =  "openmeteo_sdk"
-version = "1.20.1"
+version = "1.25.0"
 authors = [
     {name = "Patrick Zippenfenig", email = "info@open-meteo.com"},
 ]
@@ -22,7 +22,7 @@ classifiers = [
 ]
 requires-python = ">=3.8.1"
 dependencies = [
-  "flatbuffers==25.2.10",
+  "flatbuffers==25.9.23",
 ]
 
 [project.urls]

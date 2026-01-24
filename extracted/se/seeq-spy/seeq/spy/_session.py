@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import textwrap
@@ -14,7 +15,7 @@ from dateutil.tz import tz
 from seeq import spy, sdk
 from seeq.sdk import *
 from seeq.sdk.configuration import ClientConfiguration
-from seeq.spy import _url, _common, _datalab, _errors, _login
+from seeq.spy import _url, _common, _datalab, _errors, _version
 from seeq.spy._datalab import is_datalab_functions_project
 from seeq.spy._errors import *
 
@@ -412,12 +413,73 @@ class Session:
 
         return self._user_folders.get(user_id)
 
+    def get_user_timezone(self, default_tz='UTC'):
+        """
+        Returns the preferred timezone of the user currently logged in, or default_tz if there is no user currently
+        logged in.
+
+        :param: session: The login session (necessary to fulfill this call).
+        :param: default_tz: The default timezone to return if no user is logged in.
+        :return: The user's preferred timezone, in IANA Time Zone Database format (e.g., 'America/New York')
+        :rtype: str
+        """
+        _common.validate_timezone_arg(default_tz)
+        try:
+            workbench_dict = json.loads(self.user.workbench)
+            return workbench_dict['state']['stores']['sqWorkbenchStore']['userTimeZone']
+        except (AttributeError, KeyError, TypeError):
+            # This can happen if the user has never logged in interactively (e.g., agent_api_key)
+            return default_tz
+
+    def get_session_timezone(self):
+        """
+        Gets the timezone to interpret a datetime as if none is specified. This is the
+        spy.options.default_timezone timezone if it exists, else the user's preferred timezone.
+        :return: The session timezone, in IANA Time Zone Database format (e.g., 'America/New York')
+        :rtype: str
+        """
+        return self.options.default_timezone if self.options.default_timezone else self.get_user_timezone()
+
+    # The list of units that come back from system_api.get_supported_units() is a curated set of compound units that are
+    # meant to be human-friendly in Formula tool help. But it's the only thing available in the API to figure out what
+    # base units are supported, so we have to split the compound unit string into its components. I.e., S/cm³ gets split
+    # into S and cm so that we can add those two "base" units to the set we use to determine validity.
+    UNITS_SPLIT_REGEX = r'[/*²³·]'
+
+    def is_valid_unit(self, unit):
+        """
+        Returns True if the supplied unit will be recognized by the Seeq calculation engine. This can be an important
+        function to use if you are attempting to supply a "Value Unit Of Measure" property on a Signal or a "Unit Of
+        Measure" property on a Scalar.
+
+        :param: session: The login session (necessary to execute this call)
+        :param: unit: The unit of measure for which to assess validity
+        :return: True if unit is valid, False if not
+        """
+        if not self.supported_units:
+            system_api = SystemApi(self.client)
+            support_units_output = system_api.get_supported_units()  # type: SupportedUnitsOutputV1
+
+            self.supported_units = set()
+            for supported_unit_family in support_units_output.units.values():
+                for supported_unit in supported_unit_family:
+                    unit_parts = re.split(self.UNITS_SPLIT_REGEX, supported_unit)
+                    self.supported_units.update([u for u in unit_parts if len(u) > 0])
+
+        unit_parts = re.split(self.UNITS_SPLIT_REGEX, unit)
+        for unit_part in [u for u in unit_parts if len(u) > 0]:
+            if unit_part not in self.supported_units:
+                return False
+
+        return True
+
 
 class Options:
-    _DEFAULT_SEARCH_PAGE_SIZE = 1000
-    _DEFAULT_PULL_PAGE_SIZE = 1000000
-    _DEFAULT_PUSH_PAGE_SIZE = 100000
-    _DEFAULT_METADATA_PUSH_BATCH_SIZE = 1000
+    _DEFAULT_SEARCH_PAGE_SIZE = 1_000
+    _DEFAULT_PULL_PAGE_SIZE = 1_000_000
+    _DEFAULT_TABLE_PULL_PAGE_SIZE = 10_000
+    _DEFAULT_PUSH_PAGE_SIZE = 100_000
+    _DEFAULT_METADATA_PUSH_BATCH_SIZE = 1_000
     _DEFAULT_MAX_CONCURRENT_REQUESTS = 8
     _DEFAULT_CLEAR_CONTENT_CACHE_BEFORE_RENDER = False
     _DEFAULT_FORCE_CALCULATED_SCALARS = True
@@ -433,6 +495,7 @@ class Options:
         self.client_configuration = client_configuration
         self.search_page_size = self._DEFAULT_SEARCH_PAGE_SIZE
         self.pull_page_size = self._DEFAULT_PULL_PAGE_SIZE
+        self.table_pull_page_size = self._DEFAULT_TABLE_PULL_PAGE_SIZE
         self.push_page_size = self._DEFAULT_PUSH_PAGE_SIZE
         self.metadata_push_batch_size = self._DEFAULT_METADATA_PUSH_BATCH_SIZE
         self.max_concurrent_requests = self._DEFAULT_MAX_CONCURRENT_REQUESTS
@@ -464,7 +527,7 @@ class Options:
             # Users may try to provide a point fix compatibility, but our compatibility flag is on Major only.
             # Drop the decimal values here. Floats don't work like version numbers anyway (190.1 vs 190.10).
             value = int(value)
-        max_compatibility, _ = _login.get_spy_module_version_tuple()
+        max_compatibility, _ = _version.get_spy_module_version_tuple()
         if value < self._DEFAULT_MIN_COMPATIBILITY:
             warnings.warn(f"Compatibility value {value} is below the minimum value {self._DEFAULT_MIN_COMPATIBILITY}. "
                           f"Defaulting to the minimum value.")
@@ -489,18 +552,25 @@ class Options:
                 self.max_concurrent_requests,
                 self.clear_content_cache_before_render,
                 self.force_calculated_scalars,
-                self.allow_version_mismatch)
+                self.allow_version_mismatch,
+                self.table_pull_page_size)
 
     def __setstate__(self, state):
-        (self.compatibility,
-         self.search_page_size,
-         self.pull_page_size,
-         self.push_page_size,
-         self.metadata_push_batch_size,
-         self.max_concurrent_requests,
-         self.clear_content_cache_before_render,
-         self.force_calculated_scalars,
-         self.allow_version_mismatch) = state
+        def get(i, default=None):
+            return state[i] if i < len(state) else default
+
+        # Accessing by index with a default allows us to maintain compatibility with previously-pickled Status
+        # DataFrames
+        self.compatibility = get(0, self._DEFAULT_COMPATIBILITY)
+        self.search_page_size = get(1, self._DEFAULT_SEARCH_PAGE_SIZE)
+        self.pull_page_size = get(2, self._DEFAULT_PULL_PAGE_SIZE)
+        self.push_page_size = get(3, self._DEFAULT_PUSH_PAGE_SIZE)
+        self.metadata_push_batch_size = get(4, self._DEFAULT_METADATA_PUSH_BATCH_SIZE)
+        self.max_concurrent_requests = get(5, self._DEFAULT_MAX_CONCURRENT_REQUESTS)
+        self.clear_content_cache_before_render = get(6, self._DEFAULT_CLEAR_CONTENT_CACHE_BEFORE_RENDER)
+        self.force_calculated_scalars = get(7, self._DEFAULT_FORCE_CALCULATED_SCALARS)
+        self.allow_version_mismatch = get(8, self._DEFAULT_ALLOW_VERSION_MISMATCH)
+        self.table_pull_page_size = get(9, self._DEFAULT_TABLE_PULL_PAGE_SIZE)
 
     @property
     def friendly_exceptions(self):
@@ -612,6 +682,13 @@ class Options:
                 Server during a spy.pull() call. If you have a slow system or slow
                 connection, you may wish to make this lower. It is not recommended to
                 exceed 1000000.
+
+            spy.options.table_pull_page_size (default: {self._DEFAULT_TABLE_PULL_PAGE_SIZE})
+
+                The number of rows retrieved on each round-trip to the Seeq Server
+                during a spy.pull() call where a Vantage Room is being pulled. If
+                you have a slow system or slow connection, you may wish to make this
+                lower. It is not recommended to exceed 10_000.
 
             spy.options.push_page_size (default: {self._DEFAULT_PUSH_PAGE_SIZE})
 

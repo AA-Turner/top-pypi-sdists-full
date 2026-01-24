@@ -5,7 +5,6 @@ from io import StringIO
 
 import pandas as pd
 import pytz
-from meteomatics.deprecated import deprecated
 
 from . import rounding
 from ._constants_ import VERSION, NA_VALUES
@@ -200,28 +199,21 @@ def convert_polygon_response_to_df(csv):
 
 def datenum_to_date(date_num):
     """Transform date_num to datetime object.
+    Note
+    ----
+    Python date objects in the datetime library are based on the proleptic Gregorian calendar starting with day 1 being
+    the date January 1 of year 1 (i.e. 01.01.0001). The Meteomatics serial datenumber also uses the proleptic Gregorian
+    calendar with reference to ISO8601 which has a year zero ("0000"). Here day 1 represents the date January 1 of
+    year 0 (or 1 BCE, or 01.01.0000).
 
     Returns pd.NaT on invalid input"""
     try:
-        total_seconds = round(dt.timedelta(days=date_num - 366).total_seconds())
-        return dt.datetime(1, 1, 1) + dt.timedelta(seconds=total_seconds) - dt.timedelta(days=1)
+        days_in_year_zero = 366 # Year 0000 is a leap year
+        seconds_since_year_one = round(dt.timedelta(days=date_num - days_in_year_zero).total_seconds())
+        # We subtract 1 day because we would otherwise count 01.01.0001 twice.
+        return dt.datetime(1, 1, 1) + dt.timedelta(seconds=seconds_since_year_one) - dt.timedelta(days=1)
     except (OverflowError, ValueError):
         return pd.NaT
-
-
-@deprecated("This function will be removed/renamed because it only provides info about the licensing options "
-            "and not real user statistics. "
-            "In addition, do not programmatically rely on user features since the returned keys can change "
-            "over time due to internal changes.")
-def extract_user_statistics(response):
-    """Extract user statistics from HTTP response"""
-    data = response.json()
-    limits_of_interest = ['historic request option', 'model select option', 'area request option']
-    try:
-        return {key: data['user statistics'][key] for key in limits_of_interest}
-    except TypeError:
-        user_data = next(d for d in data['user statistics'] if d['username'] == username)
-        return {key: user_data[key] for key in limits_of_interest}
 
 
 def extract_user_limits(response):
@@ -232,13 +224,8 @@ def extract_user_limits(response):
     data = response.json()
     limits_of_interest = ['requests total', 'requests since last UTC midnight', 'requests since HH:00:00',
                           'requests in the last 60 seconds', 'requests in parallel']
-    try:
-        return {key: (data['user statistics'][key]['used'], data['user statistics'][key]['hard limit'])
-                for key in limits_of_interest if data['user statistics'][key]['hard limit'] != 0}
-    except TypeError:
-        user_data = next(d for d in data['user statistics'] if d['username'] == username)
-        return {key: (user_data[key]['used'], user_data[key]['hard limit'])
-                for key in limits_of_interest if user_data['user statistics'][key]['hard limit'] != 0}
+    return {key: (data['user statistics'][key]['used'], data['user statistics'][key]['hard limit'])
+            for key in limits_of_interest if data['user statistics'][key]['hard limit'] != 0}
 
 
 def filter_none_from_dict(d):

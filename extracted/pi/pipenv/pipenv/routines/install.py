@@ -229,10 +229,11 @@ def handle_missing_lockfile(project, system, allow_global, pre, pypi_mirror):
             "See also: --deploy flag.",
         )
     else:
-        err.print(
-            "Pipfile.lock not found, creating...",
-            style="bold",
-        )
+        if not project.s.is_quiet():
+            err.print(
+                "Pipfile.lock not found, creating...",
+                style="bold",
+            )
         do_lock(
             project,
             system=system,
@@ -308,13 +309,14 @@ def do_install(
         package_args,
         system=system,
         allow_global=system,
+        ignore_pipfile=ignore_pipfile,
         deploy=deploy,
         pypi_mirror=pypi_mirror,
         skip_lock=skip_lock,
         categories=pipfile_categories,
     )
 
-    if not (deploy or system):
+    if not deploy:
         new_packages, _ = handle_new_packages(
             project,
             packages,
@@ -382,9 +384,6 @@ def do_install_validations(
         raise exceptions.PipenvUsageError(
             message="Cannot install to category `develop`-- did you mean `dev-packages`?"
         )
-    # Warn and exit if --system is used without a pipfile.
-    if (system and package_args) and not project.s.PIPENV_VIRTUALENV:
-        raise exceptions.SystemUsageError
     # Automatically use an activated virtualenv.
     if project.s.PIPENV_USE_SYSTEM:
         system = True
@@ -476,17 +475,22 @@ def do_install_dependencies(
         pipfile = None
         if skip_lock:
             ignore_hashes = True
-            if not bare:
+            if not bare and not project.s.is_quiet():
                 console.print("Installing dependencies from Pipfile...", style="bold")
             pipfile = project.get_pipfile_section(pipfile_category)
         else:
             lockfile = project.get_or_create_lockfile(categories=categories)
-            if not bare:
+            if not bare and not project.s.is_quiet():
                 lockfile_category = get_lockfile_section_using_pipfile_category(
                     pipfile_category
                 )
+                lockfile_type = (
+                    "pylock.toml"
+                    if project.use_pylock and project.pylock_location
+                    else "Pipfile.lock"
+                )
                 console.print(
-                    f"Installing dependencies from Pipfile.lock [{lockfile_category}]"
+                    f"Installing dependencies from {lockfile_type} [{lockfile_category}]"
                     f"({lockfile['_meta'].get('hash', {}).get('sha256')[-6:]})...",
                     style="bold",
                 )
@@ -712,7 +716,12 @@ def do_init(
         categories=categories,
     )
 
-    if not allow_global and not deploy and "PIPENV_ACTIVE" not in os.environ:
+    if (
+        not allow_global
+        and not deploy
+        and "PIPENV_ACTIVE" not in os.environ
+        and not project.s.is_quiet()
+    ):
         console.print(
             "To activate this project's virtualenv, run [yellow]pipenv shell[/yellow].\n"
             "Alternatively, run a command inside the virtualenv with [yellow]pipenv run[/yellow]."

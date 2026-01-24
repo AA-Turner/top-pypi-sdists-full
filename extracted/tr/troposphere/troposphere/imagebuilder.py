@@ -119,7 +119,7 @@ class ContainerRecipe(AWSObject):
     resource_type = "AWS::ImageBuilder::ContainerRecipe"
 
     props: PropsDictType = {
-        "Components": ([ContainerComponentConfiguration], True),
+        "Components": ([ContainerComponentConfiguration], False),
         "ContainerType": (str, True),
         "Description": (str, False),
         "DockerfileTemplateData": (str, False),
@@ -271,6 +271,37 @@ class DistributionConfiguration(AWSObject):
     }
 
 
+class DeletionSettings(AWSProperty):
+    """
+    `DeletionSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-image-deletionsettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "ExecutionRole": (str, True),
+    }
+
+
+class ImageLoggingConfiguration(AWSProperty):
+    """
+    `ImageLoggingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-image-imageloggingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogGroupName": (str, False),
+    }
+
+
+class ImagePipelineExecutionSettings(AWSProperty):
+    """
+    `ImagePipelineExecutionSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-image-imagepipelineexecutionsettings.html>`__
+    """
+
+    props: PropsDictType = {
+        "DeploymentId": (str, False),
+        "OnUpdate": (boolean, False),
+    }
+
+
 class EcrConfiguration(AWSProperty):
     """
     `EcrConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagepipeline-ecrconfiguration.html>`__
@@ -337,15 +368,39 @@ class Image(AWSObject):
 
     props: PropsDictType = {
         "ContainerRecipeArn": (str, False),
+        "DeletionSettings": (DeletionSettings, False),
         "DistributionConfigurationArn": (str, False),
         "EnhancedImageMetadataEnabled": (boolean, False),
         "ExecutionRole": (str, False),
+        "ImagePipelineExecutionSettings": (ImagePipelineExecutionSettings, False),
         "ImageRecipeArn": (str, False),
         "ImageScanningConfiguration": (ImageScanningConfiguration, False),
         "ImageTestsConfiguration": (ImageTestsConfiguration, False),
         "InfrastructureConfigurationArn": (str, False),
+        "LoggingConfiguration": (ImageLoggingConfiguration, False),
         "Tags": (dict, False),
         "Workflows": ([WorkflowConfiguration], False),
+    }
+
+
+class PipelineLoggingConfiguration(AWSProperty):
+    """
+    `PipelineLoggingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagepipeline-pipelineloggingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ImageLogGroupName": (str, False),
+        "PipelineLogGroupName": (str, False),
+    }
+
+
+class AutoDisablePolicy(AWSProperty):
+    """
+    `AutoDisablePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagepipeline-autodisablepolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "FailureCount": (integer, True),
     }
 
 
@@ -355,6 +410,7 @@ class Schedule(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AutoDisablePolicy": (AutoDisablePolicy, False),
         "PipelineExecutionStartCondition": (
             schedule_pipelineexecutionstartcondition,
             False,
@@ -380,6 +436,7 @@ class ImagePipeline(AWSObject):
         "ImageScanningConfiguration": (ImageScanningConfiguration, False),
         "ImageTestsConfiguration": (ImageTestsConfiguration, False),
         "InfrastructureConfigurationArn": (str, True),
+        "LoggingConfiguration": (PipelineLoggingConfiguration, False),
         "Name": (str, True),
         "Schedule": (Schedule, False),
         "Status": (imagepipeline_status, False),
@@ -429,8 +486,9 @@ class ImageRecipe(AWSObject):
 
     props: PropsDictType = {
         "AdditionalInstanceConfiguration": (AdditionalInstanceConfiguration, False),
+        "AmiTags": (dict, False),
         "BlockDeviceMappings": ([InstanceBlockDeviceMapping], False),
-        "Components": ([ComponentConfiguration], True),
+        "Components": ([ComponentConfiguration], False),
         "Description": (str, False),
         "Name": (str, True),
         "ParentImage": (str, True),
@@ -652,4 +710,17 @@ class Workflow(AWSObject):
         "Type": (str, True),
         "Uri": (str, False),
         "Version": (str, True),
+    }
+
+
+class LatestVersion(AWSProperty):
+    """
+    `LatestVersion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-workflow-latestversion.html>`__
+    """
+
+    props: PropsDictType = {
+        "Arn": (str, False),
+        "Major": (str, False),
+        "Minor": (str, False),
+        "Patch": (str, False),
     }

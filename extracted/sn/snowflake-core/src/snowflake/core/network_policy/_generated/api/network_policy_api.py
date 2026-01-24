@@ -380,7 +380,7 @@ class NetworkPolicyApi:
         # process the body parameter
         _body_params = None
 
-        if _params["network_policy"]:
+        if _params["network_policy"] is not None:
             _body_params = _params["network_policy"]
 
         # set the HTTP header `Accept`

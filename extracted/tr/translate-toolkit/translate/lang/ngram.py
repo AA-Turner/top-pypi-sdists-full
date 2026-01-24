@@ -35,7 +35,7 @@ white_space_re = re.compile(r"\s+")
 
 
 class _NGram:
-    def __init__(self, arg=None):
+    def __init__(self, arg=None) -> None:
         if isinstance(arg, str):
             self.addText(arg)
             self.normalise()
@@ -73,7 +73,7 @@ class _NGram:
 
     def normalise(self):
         ngrams = {}
-        for count, (v, k) in enumerate(self.sorted_by_score()):
+        for count, (_v, k) in enumerate(self.sorted_by_score()):
             ngrams[k] = count
 
         self.ngrams = ngrams
@@ -95,9 +95,9 @@ class _NGram:
 
 
 class NGram:
-    def __init__(self, folder, ext=".lm"):
+    def __init__(self, folder, ext=".lm") -> None:
         self.ngrams = {}
-        folder = path.join(folder, "*" + ext)
+        folder = path.join(folder, f"*{ext}")
         size = len(ext)
 
         for fname in glob.glob(path.normcase(folder)):
@@ -123,8 +123,8 @@ class NGram:
 
         min = sys.maxsize
 
-        for lang in self.ngrams:
-            d = self.ngrams[lang].compare(ngram)
+        for lang, value in self.ngrams.items():
+            d = value.compare(ngram)
             if d < min:
                 min = d
                 r = lang
@@ -135,9 +135,9 @@ class NGram:
 
 
 class Generate:
-    def __init__(self, folder, ext=".txt"):
+    def __init__(self, folder, ext=".txt") -> None:
         self.ngrams = {}
-        folder = path.join(folder, "*" + ext)
+        folder = path.join(folder, f"*{ext}")
         size = len(ext)
 
         for fname in glob.glob(path.normcase(folder)):
@@ -151,13 +151,11 @@ class Generate:
             n.normalise()
             self.ngrams[lang] = n
 
-    def save(self, folder, ext=".lm"):
-        for lang in self.ngrams:
+    def save(self, folder, ext=".lm") -> None:
+        for lang, value in self.ngrams.items():
             fname = path.join(folder, lang + ext)
             with open(fname, mode="w", encoding="utf-8") as fp:
-                fp.writelines(
-                    "%s\t %d\n" % (k, v) for v, k in self.ngrams[lang].sorted_by_score()
-                )
+                fp.writelines(f"{k}\t {v}\n" for v, k in value.sorted_by_score())
 
 
 if __name__ == "__main__":

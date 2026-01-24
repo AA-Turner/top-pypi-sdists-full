@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: TikTokApi
-Version: 7.1.0
+Version: 7.2.1
 Summary: The Unofficial TikTok API Wrapper in Python 3.
 Home-page: https://github.com/davidteather/tiktok-api
 Download-URL: https://github.com/davidteather/TikTok-Api/tarball/main
@@ -21,9 +21,10 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE.txt
-Requires-Dist: requests
-Requires-Dist: playwright
-Requires-Dist: httpx
+Requires-Dist: requests<3.0,>=2.31.0
+Requires-Dist: playwright<2.0,>=1.36.0
+Requires-Dist: httpx<1.0,>=0.27.0
+Requires-Dist: proxyproviders<0.3.0,>=0.2.1
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -66,16 +67,16 @@ These sponsors have paid to be placed here or are my own affiliate links which I
         </div>
     </a>
     <br>
-    <a href="https://www.sadcaptcha.com?ref=davidteather" target="_blank">
-        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/tiktok_captcha_solver.png" width="100" alt="TikTok Captcha Solver">
+    <a href="https://tikhub.io/?utm_source=github&utm_medium=readme&utm_campaign=tiktok_api&ref=github_davidteather_tiktokapi" target="_blank">
+        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/tikhub.png" width="100" alt="TikHub API">
         <b></b>
         <div>
-         <b>TikTok Captcha Solver: </b> Bypass any TikTok captcha in just two lines of code.<br> Scale your TikTok automation and get unblocked with SadCaptcha.
+         <b>TikHub API</b> offers 700+ endpoints for fetching and analyzing data from 14+ social media platforms<br>including videos, users, comments, shops, products, and trends — all in one place.
         </div>
     </a>
     <br>
     <a href="https://www.webshare.io/?referral_code=3x5812idzzzp" target="_blank">
-        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/webshare.png" width="100" alt="TikTok Captcha Solver">
+        <img src="https://raw.githubusercontent.com/davidteather/TikTok-Api/main/imgs/webshare.png" width="100" alt="Webshare Proxies">
         <b></b>
         <div>
          <b>Cheap, Reliable Proxies: </b> Supercharge your web scraping with fast, reliable proxies. Try 10 free datacenter proxies today!
@@ -92,8 +93,6 @@ These sponsors have paid to be placed here or are my own affiliate links which I
   - [Common Issues](#common-issues)
 - [Quick Start Guide](#quick-start-guide)
   - [Examples](https://github.com/davidteather/TikTok-Api/tree/main/examples)
-
-[**Upgrading from V5 to V6**](#upgrading-from-v5-to-v6)
 
 ## Documentation
 
@@ -180,3 +179,4 @@ python -m examples.trending_example
 
 You can access the full data dictionary the object was created from with `.as_dict`. On a video this may look like
 [this](https://gist.github.com/davidteather/7c30780bbc30772ba11ec9e0b909e99d). TikTok changes their structure from time to time so it's worth investigating the structure of the dictionary when you use this package.
+

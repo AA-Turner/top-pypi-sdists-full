@@ -888,9 +888,9 @@ class assloy(Variable):
         2005-2016
         '''
         f4bf = foyer_fiscal('f4bf', period)
-        P = parameters(period).impot_revenu.credits_impots.assloy
+        assloy = parameters(period).impot_revenu.credits_impots.assloy
 
-        return P.taux * f4bf
+        return assloy * f4bf
 
 
 class autent(Variable):
@@ -1591,9 +1591,9 @@ class drbail(Variable):
         2002-2017
         '''
         f4tq = foyer_fiscal('f4tq', period)
-        P = parameters(period).impot_revenu.credits_impots.drbail
+        drbail = parameters(period).impot_revenu.credits_impots.drbail
 
-        return P.taux * f4tq
+        return drbail * f4tq
 
 
 class inthab(Variable):
@@ -2970,13 +2970,15 @@ class ci_saldom(Variable):
 
         # détérminer le plafond
 
-        if invalide.any():
-            plaf = P.plafond_invalides
-        else:
-            if annee1.any():
-                plaf = min_(P.plafond_maximum_1ere_annee, P.plafond_1ere_annee + P.increment_plafond * (nb_pac_majoration_plafond + f7dl))
-            else:
-                plaf = min_(P.plafond_maximum, P.plafond + P.increment_plafond * (nb_pac_majoration_plafond + f7dl))
+        plaf = where(
+            invalide,
+            P.plafond_invalides,
+            where(
+                annee1,
+                min_(P.plafond_maximum_1ere_annee, P.plafond_1ere_annee + P.increment_plafond * (nb_pac_majoration_plafond + f7dl)),
+                min_(P.plafond_maximum, P.plafond + P.increment_plafond * (nb_pac_majoration_plafond + f7dl))
+                )
+            )
 
         # calcul du CI
         ci = min_(plaf, f7db) * P.taux
@@ -3000,13 +3002,15 @@ class ci_saldom(Variable):
         P = parameters(period).impot_revenu.credits_impots.emploi_salarie_domicile
 
         # détérminer le plafond
-        if invalide.any():
-            plaf = P.plafond_invalides
-        else:
-            if annee1.any():
-                plaf = min_(P.plafond_maximum_1ere_annee, P.plafond_1ere_annee + P.increment_plafond * (nb_pac_majoration_plafond + f7dl))
-            else:
-                plaf = min_(P.plafond_maximum, P.plafond + P.increment_plafond * (nb_pac_majoration_plafond + f7dl))
+        plaf = where(
+            invalide,
+            P.plafond_invalides,
+            where(
+                annee1,
+                min_(P.plafond_maximum_1ere_annee, P.plafond_1ere_annee + P.increment_plafond * (nb_pac_majoration_plafond + f7dl)),
+                min_(P.plafond_maximum, P.plafond + P.increment_plafond * (nb_pac_majoration_plafond + f7dl))
+                )
+            )
 
         # calcul du CI
         ci = min_(plaf, max_(0, f7db - f7dr)) * P.taux

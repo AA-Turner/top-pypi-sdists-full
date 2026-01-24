@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
-Name: tensorflow-recommenders
-Version: 0.7.3
+Name: tensorflow_recommenders
+Version: 0.7.7
 Summary: Tensorflow Recommenders, a TensorFlow library for recommender systems.
 Home-page: https://github.com/tensorflow/recommenders
 Author: Google Inc.

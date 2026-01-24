@@ -2,12 +2,14 @@
 Use cases handle application logic.
 """
 
-from typing import Dict, Sequence, Set, Type, Union, cast, Iterable
+from typing import cast
+import itertools
+from collections.abc import Sequence, Iterable
 
 from .scanning import scan_imports
 from ..application.ports import caching
-from ..application.ports.filesystem import AbstractFileSystem
-from ..application.ports.graph import ImportGraph
+from ..application.ports.filesystem import AbstractFileSystem, BasicFileSystem
+from ..application.graph import ImportGraph
 from ..application.ports.modulefinder import AbstractModuleFinder, FoundPackage, ModuleFile
 from ..application.ports.packagefinder import AbstractPackageFinder
 from ..domain.valueobjects import DirectImport, Module
@@ -23,14 +25,14 @@ def build_graph(
     *additional_package_names,
     include_external_packages: bool = False,
     exclude_type_checking_imports: bool = False,
-    cache_dir: Union[str, Type[NotSupplied], None] = NotSupplied,
+    cache_dir: str | type[NotSupplied] | None = NotSupplied,
 ) -> ImportGraph:
     """
     Build and return an import graph for the supplied package name(s).
 
     Args:
         - package_name: the name of the top level package for which to build the graph.
-        - additional_package_names: tuple of the
+        - additional_package_names: tuple of additional packages to build the graph from.
         - include_external_packages: whether to include any external packages in the graph.
         - exclude_type_checking_imports: whether to exclude imports made in type checking guards.
         - cache_dir: The directory to use for caching the graph.
@@ -56,7 +58,7 @@ def build_graph(
 
     imports_by_module = _scan_packages(
         found_packages=found_packages,
-        file_system=file_system,
+        file_system=file_system.convert_to_basic(),
         include_external_packages=include_external_packages,
         exclude_type_checking_imports=exclude_type_checking_imports,
         cache_dir=cache_dir,
@@ -69,24 +71,26 @@ def build_graph(
 
 def _find_packages(
     file_system: AbstractFileSystem, package_names: Sequence[object]
-) -> Set[FoundPackage]:
+) -> set[FoundPackage]:
     package_names = _validate_package_names_are_strings(package_names)
 
     module_finder: AbstractModuleFinder = settings.MODULE_FINDER
     package_finder: AbstractPackageFinder = settings.PACKAGE_FINDER
 
-    found_packages: Set[FoundPackage] = set()
+    found_packages: set[FoundPackage] = set()
 
     for package_name in package_names:
-        package_directory = package_finder.determine_package_directory(
+        package_directories = package_finder.determine_package_directories(
             package_name=package_name, file_system=file_system
         )
-        found_package = module_finder.find_package(
-            package_name=package_name,
-            package_directory=package_directory,
-            file_system=file_system,
-        )
-        found_packages.add(found_package)
+        for package_directory in package_directories:
+            found_package = module_finder.find_package(
+                package_name=package_name,
+                package_directory=package_directory,
+                file_system=file_system,
+            )
+            found_packages.add(found_package)
+
     return found_packages
 
 
@@ -100,12 +104,12 @@ def _validate_package_names_are_strings(
 
 
 def _scan_packages(
-    found_packages: Set[FoundPackage],
-    file_system: AbstractFileSystem,
+    found_packages: set[FoundPackage],
+    file_system: BasicFileSystem,
     include_external_packages: bool,
     exclude_type_checking_imports: bool,
-    cache_dir: Union[str, Type[NotSupplied], None],
-) -> Dict[Module, Set[DirectImport]]:
+    cache_dir: str | type[NotSupplied] | None,
+) -> dict[Module, set[DirectImport]]:
     if cache_dir is not None:
         cache_dir_if_supplied = cache_dir if cache_dir != NotSupplied else None
         cache: caching.Cache = settings.CACHE_CLASS.setup(
@@ -122,7 +126,7 @@ def _scan_packages(
         for module_file in found_package.module_files
     }
 
-    imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
+    imports_by_module_file: dict[ModuleFile, set[DirectImport]] = {}
 
     if cache_dir is not None:
         imports_by_module_file.update(_read_imports_from_cache(module_files_to_scan, cache=cache))
@@ -138,7 +142,7 @@ def _scan_packages(
             )
         )
 
-    imports_by_module: Dict[Module, Set[DirectImport]] = {
+    imports_by_module: dict[Module, set[DirectImport]] = {
         k.module: v for k, v in imports_by_module_file.items()
     }
 
@@ -149,10 +153,15 @@ def _scan_packages(
 
 
 def _assemble_graph(
-    found_packages: Set[FoundPackage],
-    imports_by_module: Dict[Module, Set[DirectImport]],
+    found_packages: set[FoundPackage],
+    imports_by_module: dict[Module, set[DirectImport]],
 ) -> ImportGraph:
     graph: ImportGraph = settings.IMPORT_GRAPH_CLASS()
+
+    for namespace_package in itertools.chain.from_iterable(
+        found_package.namespace_packages for found_package in found_packages
+    ):
+        graph.add_module(namespace_package)
 
     package_modules = {Module(found_package.name) for found_package in found_packages}
 
@@ -175,7 +184,7 @@ def _assemble_graph(
     return graph
 
 
-def _is_external(module: Module, package_modules: Set[Module]) -> bool:
+def _is_external(module: Module, package_modules: set[Module]) -> bool:
     return not any(
         module.is_descendant_of(package_module) or module == package_module
         for package_module in package_modules
@@ -184,8 +193,8 @@ def _is_external(module: Module, package_modules: Set[Module]) -> bool:
 
 def _read_imports_from_cache(
     module_files: Iterable[ModuleFile], *, cache: caching.Cache
-) -> Dict[ModuleFile, Set[DirectImport]]:
-    imports_by_module_file: Dict[ModuleFile, Set[DirectImport]] = {}
+) -> dict[ModuleFile, set[DirectImport]]:
+    imports_by_module_file: dict[ModuleFile, set[DirectImport]] = {}
     for module_file in module_files:
         try:
             direct_imports = cache.read_imports(module_file)

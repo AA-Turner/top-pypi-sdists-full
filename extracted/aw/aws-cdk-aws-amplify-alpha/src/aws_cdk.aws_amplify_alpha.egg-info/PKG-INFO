@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-amplify-alpha
-Version: 2.216.0a0
+Version: 2.236.0a0
 Summary: The CDK Construct Library for AWS::Amplify
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,11 +22,11 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.216.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.236.0
 Requires-Dist: constructs<11.0.0,>=10.0.0
-Requires-Dist: jsii<2.0.0,>=1.113.0
+Requires-Dist: jsii<2.0.0,>=1.125.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard<4.3.0,>=2.13.3
+Requires-Dist: typeguard==2.13.3
 
 # AWS Amplify Construct Library
 
@@ -380,6 +380,18 @@ For more information, see [Managing the cache configuration for an app](https://
 ```python
 amplify_app = amplify.App(self, "MyApp",
     cache_config_type=amplify.CacheConfigType.AMPLIFY_MANAGED_NO_COOKIES
+)
+```
+
+## Build Compute Type
+
+You can specify the build compute type by setting the `buildComputeType` property.
+
+For more information, see [Configuring the build instance for an Amplify application](https://docs.aws.amazon.com/amplify/latest/userguide/custom-build-instance.html).
+
+```python
+amplify_app = amplify.App(self, "MyApp",
+    build_compute_type=amplify.BuildComputeType.LARGE_16GB
 )
 ```
 

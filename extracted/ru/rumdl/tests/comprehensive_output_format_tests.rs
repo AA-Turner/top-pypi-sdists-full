@@ -1,4 +1,4 @@
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use std::fs;
 use tempfile::tempdir;
@@ -24,7 +24,7 @@ More content
 fn test_text_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("text").arg(&test_file);
 
     cmd.assert()
@@ -38,7 +38,7 @@ fn test_text_output_format() {
 fn test_full_output_format_alias() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("full").arg(&test_file);
 
     cmd.assert()
@@ -51,7 +51,7 @@ fn test_full_output_format_alias() {
 fn test_concise_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("concise").arg(&test_file);
 
     cmd.assert()
@@ -64,7 +64,7 @@ fn test_concise_output_format() {
 fn test_grouped_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("grouped").arg(&test_file);
 
     cmd.assert()
@@ -81,7 +81,7 @@ fn test_grouped_output_format() {
 fn test_json_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("json").arg(&test_file);
 
     cmd.assert()
@@ -96,7 +96,7 @@ fn test_json_output_format() {
 fn test_json_lines_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check")
         .arg("--output-format")
         .arg("json-lines")
@@ -120,7 +120,7 @@ fn test_json_lines_output_format() {
 fn test_github_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("github").arg(&test_file);
 
     cmd.assert()
@@ -139,7 +139,7 @@ fn test_github_output_format() {
 fn test_gitlab_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("gitlab").arg(&test_file);
 
     let output = cmd.assert().failure().get_output().stdout.clone();
@@ -155,7 +155,7 @@ fn test_gitlab_output_format() {
 fn test_pylint_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("pylint").arg(&test_file);
 
     cmd.assert()
@@ -168,7 +168,7 @@ fn test_pylint_output_format() {
 fn test_azure_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("azure").arg(&test_file);
 
     cmd.assert()
@@ -182,7 +182,7 @@ fn test_azure_output_format() {
 fn test_sarif_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("sarif").arg(&test_file);
 
     let output = cmd.assert().failure().get_output().stdout.clone();
@@ -200,7 +200,7 @@ fn test_sarif_output_format() {
 fn test_junit_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check").arg("--output-format").arg("junit").arg(&test_file);
 
     let output = cmd.assert().failure().get_output().stdout.clone();
@@ -217,7 +217,7 @@ fn test_junit_output_format() {
 fn test_invalid_output_format() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check")
         .arg("--output-format")
         .arg("invalid_format")
@@ -238,15 +238,15 @@ fn test_output_format_with_fix_mode() {
 
     fs::write(&test_file, content).unwrap();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check")
         .arg("--fix")
         .arg("--output-format")
         .arg("text")
         .arg(&test_file);
 
-    // In fix mode, rumdl exits with code 1 even if all issues were fixed
-    cmd.assert().failure().stdout(predicate::str::contains("Fixed:"));
+    // In fix mode, rumdl exits with code 0 if all issues were fixed
+    cmd.assert().success().stdout(predicate::str::contains("Fixed:"));
 
     // Verify the file was actually fixed
     let fixed_content = fs::read_to_string(&test_file).unwrap();
@@ -263,7 +263,7 @@ fn test_output_format_with_fix_mode() {
 fn test_output_format_with_silent_mode() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check")
         .arg("--silent")
         .arg("--output-format")
@@ -277,9 +277,9 @@ fn test_output_format_with_silent_mode() {
 fn test_output_format_with_quiet_mode() {
     let (_temp_dir, test_file) = create_test_file();
 
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     cmd.arg("check")
-        .arg("--quiet")
+        .arg("--silent")
         .arg("--output-format")
         .arg("text")
         .arg(&test_file);
@@ -287,6 +287,6 @@ fn test_output_format_with_quiet_mode() {
     let output = cmd.assert().failure().get_output().stdout.clone();
     let stdout = String::from_utf8_lossy(&output);
 
-    // In quiet mode, rumdl shows no output
+    // In silent mode, rumdl shows no output
     assert!(stdout.is_empty() || stdout == "Error\n");
 }

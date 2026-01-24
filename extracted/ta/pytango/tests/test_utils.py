@@ -32,6 +32,7 @@ from tango.utils import (
     _get_device_fqtrl_if_necessary,
     _get_test_context_tango_host_fqtrl,
     _set_test_context_tango_host_fqtrl,
+    _traced_coverage_run_active,
     InvalidTangoHostTrlError,
     StdStringVector_2_seq,
     StdDoubleVector_2_seq,
@@ -334,3 +335,12 @@ def test_sequence_to_devicedatahistorylist_vector_and_back():
         ddh,
         equal_op=equal_op,
     )
+
+
+def test_report_coverage_tracing_enabled():
+    # The point of this test is to have something in the test
+    # output that shows if coverage tracing is active or not.
+    # If it isn't active, we skip the test.
+    if not _traced_coverage_run_active:
+        pytest.skip("Coverage tracing is disabled")
+    assert _traced_coverage_run_active

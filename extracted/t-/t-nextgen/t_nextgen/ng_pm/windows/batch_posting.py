@@ -32,13 +32,13 @@ class BatchPostingWindow(NextGenWindow):
     """Batch Posting Class with methods to interact with batch posting window."""
 
     @property
-    def window(self):
+    def window(self) -> WindowSpecification:
         """Return the AMBatches window element."""
         self.desktop_app.dialog.child_window(auto_id="NGEPMBatchLookup", control_type="Window").wait("visible", 5)
         return self.desktop_app.dialog.child_window(auto_id="NGEPMBatchLookup", control_type="Window")
 
     @property
-    def batch_posting_window(self):
+    def batch_posting_window(self) -> WindowSpecification:
         """Return the BatchPosting window element."""
         return self.desktop_app.dialog.child_window(title="BatchPosting", control_type="Window")
 
@@ -57,7 +57,7 @@ class BatchPostingWindow(NextGenWindow):
                 raise RuntimeError("Unhandled Exception popup appeared")
             raise BatchFromBarNotFound("Element with auto_id: cmdToolPosting, not found")
 
-    def post_batch(self, row: ListItemWrapper, post_the_batch: bool = True) -> bool:
+    def post_batch(self, post_the_batch: bool = True) -> bool:
         """Function for Posts the batch.
 
         Post a batch by right-clicking the given row and selecting the 'Post' option
@@ -71,16 +71,25 @@ class BatchPostingWindow(NextGenWindow):
         if not post_the_batch:
             self.logger.warning("Post the batch is set to False, not clicking the button. Returning fake True.")
             return True
-        self.maximize_batch_window()
-        row.click_input(button="right")
-        button = self.desktop_app.dialog.child_window(title_re="Post", control_type="MenuItem")
-        if button.is_enabled():
-            button.click_input()
-            self.desktop_app.close_modal(buttons_to_try=["OK"])
-            return True
-        else:
-            self.logger.warning("Button disabled unable to post the batch.")
+        self.click_menu_icon("p")
+        try:
+            self.desktop_app.dialog.child_window(title="NextGen", control_type="Window").wait("visible", 30)
+        except TimeoutError:
+            self.logger.warning("Post confirmation window did not appear - post may be disabled")
             return False
+
+        self.desktop_app.close_modal(buttons_to_try=["OK"])
+
+        try:
+            self.desktop_app.dialog.child_window(
+                title="Batch Listing - Enhanced Report Mode", control_type="Window"
+            ).wait("visible", 240)
+        except TimeoutError:
+            self.logger.error("Batch posting did not complete within 240 seconds")
+            return False
+
+        self.desktop_app.close_modal(buttons_to_try=["OK"])
+        return True
 
     def click_batch_from_window_menu_if_exist(self) -> bool:
         """This method clicks on the batch from the window menu.
@@ -327,7 +336,7 @@ class BatchPostingWindow(NextGenWindow):
             self.desktop_app.untoggle_checkbox(checkbox)
 
     @retry(tries=3, delay=3)
-    def set_focus_in_batch_window(self):
+    def set_focus_in_batch_window(self) -> None:
         """This method sets the focus in the batch window."""
         self.logger.debug("Setting focus in the batch window")
         window = self.desktop_app.dialog.child_window(title="BatchPosting", control_type="Window")
@@ -369,7 +378,7 @@ class BatchPostingWindow(NextGenWindow):
                 self.logger.debug("Maximizing the batch window")
                 self.batch_posting_window.maximize()
                 time.sleep(1)
-        except Exception as e:
+        except (_ctypes.COMError, RuntimeError, AttributeError) as e:
             self.logger.warning(f"Could not maximize the batch window: {str(e)}")
 
     def get_batch_row(self, trn: str, amount: str) -> None | BatchPostingRow:

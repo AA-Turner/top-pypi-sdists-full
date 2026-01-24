@@ -1,0 +1,19 @@
+pipeline: profiles
+description: Function data extracted from profiles for Snuba
+services:
+  producers:
+    - getsentry/vroom
+  consumers:
+    - getsentry/snuba
+    - getsentry/super-big-consumers
+schemas:
+  - version: 1
+    compatibility_mode: none
+    type: json
+    resource: profile-functions.v1.schema.json
+    examples:
+      - profile-functions/1/
+topic_creation_config:
+  compression.type: lz4
+  retention.ms: "86400000"
+  max.message.bytes: "50000000"

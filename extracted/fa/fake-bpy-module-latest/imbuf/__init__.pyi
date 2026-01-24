@@ -23,9 +23,7 @@ def load(filepath: bytes | str) -> imbuf.types.ImBuf:
     """Load an image from a file.
 
     :param filepath: the filepath of the image.
-    :type filepath: bytes | str
     :return: the newly loaded image.
-    :rtype: imbuf.types.ImBuf
     """
 
 def load_from_buffer(buffer) -> imbuf.types.ImBuf:
@@ -33,16 +31,13 @@ def load_from_buffer(buffer) -> imbuf.types.ImBuf:
 
     :param buffer: A buffer containing the image data.
     :return: the newly loaded image.
-    :rtype: imbuf.types.ImBuf
     """
 
 def new(size: tuple[int, int]) -> imbuf.types.ImBuf:
-    """Load a new image.
+    """Create a new image.
 
     :param size: The size of the image in pixels.
-    :type size: tuple[int, int]
-    :return: the newly loaded image.
-    :rtype: imbuf.types.ImBuf
+    :return: the newly created image.
     """
 
 def write(
@@ -51,7 +46,5 @@ def write(
     """Write an image.
 
     :param image: the image to write.
-    :type image: imbuf.types.ImBuf
     :param filepath: Optional filepath of the image (fallback to the images file path).
-    :type filepath: None | bytes | str
     """

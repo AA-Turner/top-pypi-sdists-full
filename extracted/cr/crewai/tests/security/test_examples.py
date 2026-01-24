@@ -1,7 +1,5 @@
 """Test for the examples in the fingerprinting documentation."""
 
-import pytest
-
 from crewai import Agent, Crew, Task
 from crewai.security import Fingerprint, SecurityConfig
 
@@ -74,9 +72,9 @@ def test_accessing_fingerprints_example():
         crew_fingerprint.uuid_str,
         task_fingerprint.uuid_str,
     ]
-    assert len(fingerprints) == len(
-        set(fingerprints)
-    ), "All fingerprints should be unique"
+    assert len(fingerprints) == len(set(fingerprints)), (
+        "All fingerprints should be unique"
+    )
 
 
 def test_fingerprint_metadata_example():
@@ -169,9 +167,9 @@ def test_complete_workflow_example():
         writing_task.fingerprint.uuid_str,
         content_crew.fingerprint.uuid_str,
     ]
-    assert len(fingerprints) == len(
-        set(fingerprints)
-    ), "All fingerprints should be unique"
+    assert len(fingerprints) == len(set(fingerprints)), (
+        "All fingerprints should be unique"
+    )
 
 
 def test_security_preservation_during_copy():

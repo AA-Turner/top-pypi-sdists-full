@@ -16,11 +16,13 @@ T = TypeVar("T", bound="CreateSqsTriggerJsonBodyRetry")
 
 @_attrs_define
 class CreateSqsTriggerJsonBodyRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, CreateSqsTriggerJsonBodyRetryConstant]):
-        exponential (Union[Unset, CreateSqsTriggerJsonBodyRetryExponential]):
-        retry_if (Union[Unset, CreateSqsTriggerJsonBodyRetryRetryIf]):
+        constant (Union[Unset, CreateSqsTriggerJsonBodyRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, CreateSqsTriggerJsonBodyRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, CreateSqsTriggerJsonBodyRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "CreateSqsTriggerJsonBodyRetryConstant"] = UNSET

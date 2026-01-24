@@ -27,6 +27,9 @@ class Connector(google.protobuf.message.Message):
     TPCDS_FIELD_NUMBER: builtins.int
     ORACLE_FIELD_NUMBER: builtins.int
     SQLSERVER_FIELD_NUMBER: builtins.int
+    HUDI_FIELD_NUMBER: builtins.int
+    MYSQL_FIELD_NUMBER: builtins.int
+    GREENPLUM_FIELD_NUMBER: builtins.int
     @property
     def hive(self) -> global___HiveConnector:
         """Hive connector configuration."""
@@ -63,6 +66,18 @@ class Connector(google.protobuf.message.Message):
     def sqlserver(self) -> global___SQLServerConnector:
         """SQLServer connector configuration for connecting to SQLServer Database instances."""
 
+    @property
+    def hudi(self) -> global___HudiConnector:
+        """Hudi connector configuration."""
+
+    @property
+    def mysql(self) -> global___MysqlConnector:
+        """MySQL connector configuration for connecting to MySQL Database instances."""
+
+    @property
+    def greenplum(self) -> global___GreenplumConnector:
+        """Greenplum connector configuration for connecting to Greenplum or Cloudberry Database instances."""
+
     def __init__(
         self,
         *,
@@ -75,10 +90,13 @@ class Connector(google.protobuf.message.Message):
         tpcds: global___TPCDSConnector | None = ...,
         oracle: global___OracleConnector | None = ...,
         sqlserver: global___SQLServerConnector | None = ...,
+        hudi: global___HudiConnector | None = ...,
+        mysql: global___MysqlConnector | None = ...,
+        greenplum: global___GreenplumConnector | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["clickhouse", b"clickhouse", "delta_lake", b"delta_lake", "hive", b"hive", "iceberg", b"iceberg", "oracle", b"oracle", "postgresql", b"postgresql", "sqlserver", b"sqlserver", "tpcds", b"tpcds", "tpch", b"tpch", "type", b"type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["clickhouse", b"clickhouse", "delta_lake", b"delta_lake", "hive", b"hive", "iceberg", b"iceberg", "oracle", b"oracle", "postgresql", b"postgresql", "sqlserver", b"sqlserver", "tpcds", b"tpcds", "tpch", b"tpch", "type", b"type"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["type", b"type"]) -> typing.Literal["hive", "iceberg", "delta_lake", "postgresql", "clickhouse", "tpch", "tpcds", "oracle", "sqlserver"] | None: ...
+    def HasField(self, field_name: typing.Literal["clickhouse", b"clickhouse", "delta_lake", b"delta_lake", "greenplum", b"greenplum", "hive", b"hive", "hudi", b"hudi", "iceberg", b"iceberg", "mysql", b"mysql", "oracle", b"oracle", "postgresql", b"postgresql", "sqlserver", b"sqlserver", "tpcds", b"tpcds", "tpch", b"tpch", "type", b"type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["clickhouse", b"clickhouse", "delta_lake", b"delta_lake", "greenplum", b"greenplum", "hive", b"hive", "hudi", b"hudi", "iceberg", b"iceberg", "mysql", b"mysql", "oracle", b"oracle", "postgresql", b"postgresql", "sqlserver", b"sqlserver", "tpcds", b"tpcds", "tpch", b"tpch", "type", b"type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["type", b"type"]) -> typing.Literal["hive", "iceberg", "delta_lake", "postgresql", "clickhouse", "tpch", "tpcds", "oracle", "sqlserver", "hudi", "mysql", "greenplum"] | None: ...
 
 global___Connector = Connector
 
@@ -271,7 +289,9 @@ class Metastore(google.protobuf.message.Message):
 
     HIVE_FIELD_NUMBER: builtins.int
     @property
-    def hive(self) -> global___Metastore.HiveMetastore: ...
+    def hive(self) -> global___Metastore.HiveMetastore:
+        """Apache Hive Metastore."""
+
     def __init__(
         self,
         *,
@@ -312,9 +332,13 @@ class FileSystem(google.protobuf.message.Message):
         AWS_ENDPOINT_FIELD_NUMBER: builtins.int
         AWS_REGION_FIELD_NUMBER: builtins.int
         aws_access_key: builtins.str
+        """AWS access key."""
         aws_secret_key: builtins.str
+        """AWS secret key."""
         aws_endpoint: builtins.str
+        """AWS endpoint."""
         aws_region: builtins.str
+        """AWS region."""
         def __init__(
             self,
             *,
@@ -328,9 +352,13 @@ class FileSystem(google.protobuf.message.Message):
     S3_FIELD_NUMBER: builtins.int
     EXTERNAL_S3_FIELD_NUMBER: builtins.int
     @property
-    def s3(self) -> global___FileSystem.S3FileSystem: ...
+    def s3(self) -> global___FileSystem.S3FileSystem:
+        """Yandex Cloud S3 filesystem."""
+
     @property
-    def external_s3(self) -> global___FileSystem.ExternalS3FileSystem: ...
+    def external_s3(self) -> global___FileSystem.ExternalS3FileSystem:
+        """External S3 filesystem."""
+
     def __init__(
         self,
         *,
@@ -485,6 +513,53 @@ class DeltaLakeConnector(google.protobuf.message.Message):
 global___DeltaLakeConnector = DeltaLakeConnector
 
 @typing.final
+class HudiConnector(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    @typing.final
+    class AdditionalPropertiesEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    METASTORE_FIELD_NUMBER: builtins.int
+    FILESYSTEM_FIELD_NUMBER: builtins.int
+    ADDITIONAL_PROPERTIES_FIELD_NUMBER: builtins.int
+    @property
+    def metastore(self) -> global___Metastore:
+        """Metastore configuration."""
+
+    @property
+    def filesystem(self) -> global___FileSystem:
+        """File system configuration."""
+
+    @property
+    def additional_properties(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+        """Additional properties."""
+
+    def __init__(
+        self,
+        *,
+        metastore: global___Metastore | None = ...,
+        filesystem: global___FileSystem | None = ...,
+        additional_properties: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["filesystem", b"filesystem", "metastore", b"metastore"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["additional_properties", b"additional_properties", "filesystem", b"filesystem", "metastore", b"metastore"]) -> None: ...
+
+global___HudiConnector = HudiConnector
+
+@typing.final
 class PostgresqlConnection(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -553,9 +628,13 @@ class PostgresqlConnection(google.protobuf.message.Message):
     ON_PREMISE_FIELD_NUMBER: builtins.int
     CONNECTION_MANAGER_FIELD_NUMBER: builtins.int
     @property
-    def on_premise(self) -> global___PostgresqlConnection.OnPremise: ...
+    def on_premise(self) -> global___PostgresqlConnection.OnPremise:
+        """Connection configured manually."""
+
     @property
-    def connection_manager(self) -> global___PostgresqlConnection.ConnectionManager: ...
+    def connection_manager(self) -> global___PostgresqlConnection.ConnectionManager:
+        """Connection configured using Yandex Cloud Connection Manager."""
+
     def __init__(
         self,
         *,
@@ -678,9 +757,13 @@ class ClickhouseConnection(google.protobuf.message.Message):
     ON_PREMISE_FIELD_NUMBER: builtins.int
     CONNECTION_MANAGER_FIELD_NUMBER: builtins.int
     @property
-    def on_premise(self) -> global___ClickhouseConnection.OnPremise: ...
+    def on_premise(self) -> global___ClickhouseConnection.OnPremise:
+        """Connection configured manually."""
+
     @property
-    def connection_manager(self) -> global___ClickhouseConnection.ConnectionManager: ...
+    def connection_manager(self) -> global___ClickhouseConnection.ConnectionManager:
+        """Connection configured using Yandex Cloud Connection Manager."""
+
     def __init__(
         self,
         *,
@@ -830,7 +913,9 @@ class OracleConnection(google.protobuf.message.Message):
 
     ON_PREMISE_FIELD_NUMBER: builtins.int
     @property
-    def on_premise(self) -> global___OracleConnection.OnPremise: ...
+    def on_premise(self) -> global___OracleConnection.OnPremise:
+        """Connection configured manually."""
+
     def __init__(
         self,
         *,
@@ -911,7 +996,9 @@ class SQLServerConnection(google.protobuf.message.Message):
 
     ON_PREMISE_FIELD_NUMBER: builtins.int
     @property
-    def on_premise(self) -> global___SQLServerConnection.OnPremise: ...
+    def on_premise(self) -> global___SQLServerConnection.OnPremise:
+        """Connection configured manually."""
+
     def __init__(
         self,
         *,
@@ -963,3 +1050,257 @@ class SQLServerConnector(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["additional_properties", b"additional_properties", "connection", b"connection"]) -> None: ...
 
 global___SQLServerConnector = SQLServerConnector
+
+@typing.final
+class MysqlConnection(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    @typing.final
+    class OnPremise(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        CONNECTION_URL_FIELD_NUMBER: builtins.int
+        USER_NAME_FIELD_NUMBER: builtins.int
+        PASSWORD_FIELD_NUMBER: builtins.int
+        connection_url: builtins.str
+        """Connection to the MySQL."""
+        user_name: builtins.str
+        """Name of the MySQL user."""
+        password: builtins.str
+        """Password of the MySQL user."""
+        def __init__(
+            self,
+            *,
+            connection_url: builtins.str = ...,
+            user_name: builtins.str = ...,
+            password: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["connection_url", b"connection_url", "password", b"password", "user_name", b"user_name"]) -> None: ...
+
+    @typing.final
+    class ConnectionManager(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        @typing.final
+        class ConnectionPropertiesEntry(google.protobuf.message.Message):
+            DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+            KEY_FIELD_NUMBER: builtins.int
+            VALUE_FIELD_NUMBER: builtins.int
+            key: builtins.str
+            value: builtins.str
+            def __init__(
+                self,
+                *,
+                key: builtins.str = ...,
+                value: builtins.str = ...,
+            ) -> None: ...
+            def ClearField(self, field_name: typing.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+        CONNECTION_ID_FIELD_NUMBER: builtins.int
+        CONNECTION_PROPERTIES_FIELD_NUMBER: builtins.int
+        connection_id: builtins.str
+        """Connection ID."""
+        @property
+        def connection_properties(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+            """Additional connection properties."""
+
+        def __init__(
+            self,
+            *,
+            connection_id: builtins.str = ...,
+            connection_properties: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["connection_id", b"connection_id", "connection_properties", b"connection_properties"]) -> None: ...
+
+    ON_PREMISE_FIELD_NUMBER: builtins.int
+    CONNECTION_MANAGER_FIELD_NUMBER: builtins.int
+    @property
+    def on_premise(self) -> global___MysqlConnection.OnPremise:
+        """Connection configured manually."""
+
+    @property
+    def connection_manager(self) -> global___MysqlConnection.ConnectionManager:
+        """Connection configured using Yandex Cloud Connection Manager."""
+
+    def __init__(
+        self,
+        *,
+        on_premise: global___MysqlConnection.OnPremise | None = ...,
+        connection_manager: global___MysqlConnection.ConnectionManager | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["connection_manager", b"connection_manager", "on_premise", b"on_premise", "type", b"type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["connection_manager", b"connection_manager", "on_premise", b"on_premise", "type", b"type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["type", b"type"]) -> typing.Literal["on_premise", "connection_manager"] | None: ...
+
+global___MysqlConnection = MysqlConnection
+
+@typing.final
+class MysqlConnector(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    @typing.final
+    class AdditionalPropertiesEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    CONNECTION_FIELD_NUMBER: builtins.int
+    ADDITIONAL_PROPERTIES_FIELD_NUMBER: builtins.int
+    @property
+    def connection(self) -> global___MysqlConnection:
+        """Connection configuration."""
+
+    @property
+    def additional_properties(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+        """Additional properties."""
+
+    def __init__(
+        self,
+        *,
+        connection: global___MysqlConnection | None = ...,
+        additional_properties: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["connection", b"connection"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["additional_properties", b"additional_properties", "connection", b"connection"]) -> None: ...
+
+global___MysqlConnector = MysqlConnector
+
+@typing.final
+class GreenplumConnection(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    @typing.final
+    class OnPremise(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        CONNECTION_URL_FIELD_NUMBER: builtins.int
+        USER_NAME_FIELD_NUMBER: builtins.int
+        PASSWORD_FIELD_NUMBER: builtins.int
+        connection_url: builtins.str
+        """Connection to the Greenplum/Cloudberry."""
+        user_name: builtins.str
+        """Name of the Greenplum/Cloudberry user."""
+        password: builtins.str
+        """Password of the Greenplum/Cloudberry user."""
+        def __init__(
+            self,
+            *,
+            connection_url: builtins.str = ...,
+            user_name: builtins.str = ...,
+            password: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["connection_url", b"connection_url", "password", b"password", "user_name", b"user_name"]) -> None: ...
+
+    @typing.final
+    class ConnectionManager(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        @typing.final
+        class ConnectionPropertiesEntry(google.protobuf.message.Message):
+            DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+            KEY_FIELD_NUMBER: builtins.int
+            VALUE_FIELD_NUMBER: builtins.int
+            key: builtins.str
+            value: builtins.str
+            def __init__(
+                self,
+                *,
+                key: builtins.str = ...,
+                value: builtins.str = ...,
+            ) -> None: ...
+            def ClearField(self, field_name: typing.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+        CONNECTION_ID_FIELD_NUMBER: builtins.int
+        DATABASE_FIELD_NUMBER: builtins.int
+        CONNECTION_PROPERTIES_FIELD_NUMBER: builtins.int
+        connection_id: builtins.str
+        """Connection ID."""
+        database: builtins.str
+        """Database."""
+        @property
+        def connection_properties(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+            """Additional connection properties."""
+
+        def __init__(
+            self,
+            *,
+            connection_id: builtins.str = ...,
+            database: builtins.str = ...,
+            connection_properties: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["connection_id", b"connection_id", "connection_properties", b"connection_properties", "database", b"database"]) -> None: ...
+
+    ON_PREMISE_FIELD_NUMBER: builtins.int
+    CONNECTION_MANAGER_FIELD_NUMBER: builtins.int
+    @property
+    def on_premise(self) -> global___GreenplumConnection.OnPremise:
+        """Connection configured manually."""
+
+    @property
+    def connection_manager(self) -> global___GreenplumConnection.ConnectionManager:
+        """Connection configured using Yandex Cloud Connection Manager."""
+
+    def __init__(
+        self,
+        *,
+        on_premise: global___GreenplumConnection.OnPremise | None = ...,
+        connection_manager: global___GreenplumConnection.ConnectionManager | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["connection_manager", b"connection_manager", "on_premise", b"on_premise", "type", b"type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["connection_manager", b"connection_manager", "on_premise", b"on_premise", "type", b"type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["type", b"type"]) -> typing.Literal["on_premise", "connection_manager"] | None: ...
+
+global___GreenplumConnection = GreenplumConnection
+
+@typing.final
+class GreenplumConnector(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    @typing.final
+    class AdditionalPropertiesEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    CONNECTION_FIELD_NUMBER: builtins.int
+    ADDITIONAL_PROPERTIES_FIELD_NUMBER: builtins.int
+    @property
+    def connection(self) -> global___GreenplumConnection:
+        """Connection configuration"""
+
+    @property
+    def additional_properties(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+        """Additional properties."""
+
+    def __init__(
+        self,
+        *,
+        connection: global___GreenplumConnection | None = ...,
+        additional_properties: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["connection", b"connection"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["additional_properties", b"additional_properties", "connection", b"connection"]) -> None: ...
+
+global___GreenplumConnector = GreenplumConnector

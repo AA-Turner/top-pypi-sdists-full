@@ -9,7 +9,8 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+
+from kagglesdk.kaggle_env import get_access_token_from_env
 
 from kagglehub.env import is_in_colab_notebook
 
@@ -20,7 +21,6 @@ DEFAULT_LOG_LEVEL = logging.INFO
 CREDENTIALS_FILENAME = "kaggle.json"
 
 CACHE_FOLDER_ENV_VAR_NAME = "KAGGLEHUB_CACHE"
-KAGGLE_API_ENDPOINT_ENV_VAR_NAME = "KAGGLE_API_ENDPOINT"
 USERNAME_ENV_VAR_NAME = "KAGGLE_USERNAME"
 KEY_ENV_VAR_NAME = "KAGGLE_KEY"
 CREDENTIALS_FOLDER_ENV_VAR_NAME = "KAGGLE_CONFIG_DIR"
@@ -34,6 +34,7 @@ CREDENTIALS_JSON_KEY = "key"
 
 COLAB_SECRET_USERNAME = "KAGGLE_USERNAME"
 COLAB_SECRET_KEY = "KAGGLE_KEY"
+COLAB_SECRET_API_TOKEN = "KAGGLE_API_TOKEN"
 
 _kaggle_credentials = None
 
@@ -51,8 +52,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class KaggleApiCredentials:
-    username: str
-    key: str
+    username: str | None = None
+    key: str | None = None
+    api_key: str | None = None
 
 
 def get_cache_folder() -> str:
@@ -61,19 +63,17 @@ def get_cache_folder() -> str:
     return DEFAULT_CACHE_FOLDER
 
 
-def get_kaggle_api_endpoint() -> str:
-    if KAGGLE_API_ENDPOINT_ENV_VAR_NAME in os.environ:
-        return os.environ[KAGGLE_API_ENDPOINT_ENV_VAR_NAME]
-    return DEFAULT_KAGGLE_API_ENDPOINT
-
-
-def get_kaggle_credentials() -> Optional[KaggleApiCredentials]:
+def get_kaggle_credentials() -> KaggleApiCredentials | None:
     # Check for credentials in the global variable
     if _kaggle_credentials:
         return _kaggle_credentials
 
-    creds_filepath = _get_kaggle_credentials_file()
+    api_key, _ = get_access_token_from_env()
+    if api_key:
+        return KaggleApiCredentials(api_key=api_key)
 
+    # Legacy credentials support.
+    creds_filepath = _get_kaggle_credentials_file()
     env_var_username = os.getenv(USERNAME_ENV_VAR_NAME)
     env_var_key = os.getenv(KEY_ENV_VAR_NAME)
     if env_var_username and env_var_key:
@@ -98,7 +98,7 @@ def get_kaggle_credentials() -> Optional[KaggleApiCredentials]:
                 username=creds_dict[CREDENTIALS_JSON_USERNAME], key=creds_dict[CREDENTIALS_JSON_KEY]
             )
     if is_in_colab_notebook() and (colab_secret := get_colab_credentials()) is not None:
-        return KaggleApiCredentials(username=colab_secret.username, key=colab_secret.key)
+        return colab_secret
 
     return None
 
@@ -138,15 +138,14 @@ def _is_env_var_truthy(env_var_name: str) -> bool:
     return env_var_name in os.environ and os.environ[env_var_name].lower() in TRUTHY_VALUES
 
 
-def set_kaggle_credentials(username: str, api_key: str) -> None:
-    stripped_username = username.strip()
-    stripped_api_key = api_key.strip()
-    if not stripped_username or not stripped_api_key:
-        error_message = "Both username and API key cannot be empty or whitespace"
+def set_kaggle_api_token(api_token: str) -> None:
+    stripped_token = api_token.strip()
+    if not stripped_token:
+        error_message = "The API token cannot be empty"
         raise ValueError(error_message)
 
     global _kaggle_credentials  # noqa: PLW0603
-    _kaggle_credentials = KaggleApiCredentials(username=username, key=api_key)
+    _kaggle_credentials = KaggleApiCredentials(api_key=api_token)
     logger.info("Kaggle credentials set.")
 
 
@@ -159,7 +158,7 @@ def _normalize_whitespace(s: str) -> str:
     return s.replace("\r", "").replace("\n", "").strip()
 
 
-def get_colab_credentials() -> Optional[KaggleApiCredentials]:
+def get_colab_credentials() -> KaggleApiCredentials | None:
     # userdata access is already thread-safe after b/318732641
     try:
         from google.colab import userdata  # type: ignore[import] # noqa: PLC0415
@@ -167,6 +166,11 @@ def get_colab_credentials() -> Optional[KaggleApiCredentials]:
         return None
 
     try:
+        api_token = _normalize_whitespace(userdata.get(COLAB_SECRET_API_TOKEN))
+        if api_token:
+            return KaggleApiCredentials(api_key=api_token)
+
+        # Legacy credentials support.
         username = _normalize_whitespace(userdata.get(COLAB_SECRET_USERNAME))
         key = _normalize_whitespace(userdata.get(COLAB_SECRET_KEY))
         if username and key:

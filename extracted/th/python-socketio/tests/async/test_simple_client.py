@@ -72,7 +72,7 @@ class TestAsyncAsyncSimpleClient:
 
     async def test_properties(self):
         client = AsyncSimpleClient()
-        client.client = mock.MagicMock(transport='websocket')
+        client.client = mock.MagicMock(transport=lambda: 'websocket')
         client.client.get_sid.return_value = 'sid'
         client.connected_event.set()
         client.connected = True
@@ -141,6 +141,17 @@ class TestAsyncAsyncSimpleClient:
         assert await client.call('foo', 'bar') == 'result'
         client.client.call.assert_awaited_with('foo', 'bar', namespace='/',
                                                timeout=60)
+
+    async def test_call_timeout(self):
+        client = AsyncSimpleClient()
+        client.connected_event.set()
+        client.connected = True
+        client.client = mock.MagicMock()
+        client.client.call = mock.AsyncMock()
+        client.client.call.side_effect = TimeoutError()
+
+        with pytest.raises(TimeoutError):
+            await client.call('foo', 'bar')
 
     async def test_receive_with_input_buffer(self):
         client = AsyncSimpleClient()

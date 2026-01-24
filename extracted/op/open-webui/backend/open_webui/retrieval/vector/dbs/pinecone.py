@@ -31,15 +31,13 @@ from open_webui.config import (
     PINECONE_METRIC,
     PINECONE_CLOUD,
 )
-from open_webui.env import SRC_LOG_LEVELS
-from open_webui.retrieval.vector.utils import stringify_metadata
+from open_webui.retrieval.vector.utils import process_metadata
 
 
 NO_LIMIT = 10000  # Reasonable limit to avoid overwhelming the system
 BATCH_SIZE = 100  # Recommended batch size for Pinecone operations
 
 log = logging.getLogger(__name__)
-log.setLevel(SRC_LOG_LEVELS["RAG"])
 
 
 class PineconeClient(VectorDBBase):
@@ -185,7 +183,7 @@ class PineconeClient(VectorDBBase):
             point = {
                 "id": item["id"],
                 "values": item["vector"],
-                "metadata": stringify_metadata(metadata),
+                "metadata": process_metadata(metadata),
             }
             points.append(point)
         return points
@@ -393,7 +391,11 @@ class PineconeClient(VectorDBBase):
         )
 
     def search(
-        self, collection_name: str, vectors: List[List[Union[float, int]]], limit: int
+        self,
+        collection_name: str,
+        vectors: List[List[Union[float, int]]],
+        filter: Optional[dict] = None,
+        limit: int = 10,
     ) -> Optional[SearchResult]:
         """Search for similar vectors in a collection."""
         if not vectors or not vectors[0]:

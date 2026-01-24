@@ -288,6 +288,7 @@ try:
                 'pyflink.fn_execution.datastream',
                 'pyflink.fn_execution.datastream.embedded',
                 'pyflink.fn_execution.datastream.process',
+                'pyflink.fn_execution.datastream.process.async_function',
                 'pyflink.fn_execution.datastream.window',
                 'pyflink.fn_execution.embedded',
                 'pyflink.fn_execution.formats',
@@ -322,9 +323,9 @@ try:
                         'pytz>=2018.3', 'fastavro>=1.1.0,!=1.8.0', 'requests>=2.26.0',
                         'protobuf>=3.19.0',
                         'numpy>=1.22.4',
-                        'pandas>=1.3.0',
+                        'pandas>=1.3.0,<2.3',  # FLINK-38513: 2.3+ drops cp39 wheels
                         'pyarrow>=5.0.0,<21.0.0',
-                        'pemja>=0.5.0,<0.5.4;platform_system != "Windows"',
+                        'pemja>=0.5.5,<0.5.6;platform_system != "Windows"',
                         'httplib2>=0.19.0',
                         'ruamel.yaml>=0.18.4',
                         apache_flink_libraries_dependency]

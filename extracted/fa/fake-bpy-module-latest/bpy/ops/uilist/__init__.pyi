@@ -13,12 +13,8 @@ def entry_add(
 ) -> None:
     """Add an entry to the list after the current active item
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param list_path: list_path
-    :type list_path: str
     :param active_index_path: active_index_path
-    :type active_index_path: str
     """
 
 def entry_move(
@@ -32,12 +28,8 @@ def entry_move(
 ) -> None:
     """Move an entry in the list up or down
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param list_path: list_path
-        :type list_path: str
         :param active_index_path: active_index_path
-        :type active_index_path: str
         :param direction: Direction
 
     UP
@@ -45,7 +37,6 @@ def entry_move(
 
     DOWN
     DOWN -- DOWN.
-        :type direction: typing.Literal['UP','DOWN'] | None
     """
 
 def entry_remove(
@@ -58,10 +49,6 @@ def entry_remove(
 ) -> None:
     """Remove the selected entry from the list
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param list_path: list_path
-    :type list_path: str
     :param active_index_path: active_index_path
-    :type active_index_path: str
     """

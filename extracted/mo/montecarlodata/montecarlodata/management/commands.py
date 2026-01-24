@@ -1,8 +1,22 @@
+import json
+
 import click
+from pycarlo.features.metadata.asset_filters_container import ASSET_TYPE_ATTRIBUTES
 
 from montecarlodata.common import create_mc_client
 from montecarlodata.management.service import ManagementService
 from montecarlodata.tools import AdvancedOptions, convert_empty_str_callback
+
+
+def _get_asset_types_help_text():
+    """Generate help text listing supported resource types and their asset types."""
+    lines = ["Supported asset types and attributes:"]
+    for resource_type, asset_types in ASSET_TYPE_ATTRIBUTES.items():
+        lines.append(f"  {resource_type}")
+        for asset_type, attributes in asset_types.items():
+            lines.append(f"    - {asset_type}: {', '.join(attributes)}")
+
+    return "\n\n".join(lines)
 
 
 @click.group(help="Manage account settings.")
@@ -117,3 +131,98 @@ def update_collection_block_list(ctx, **kwargs):
         mc_client=create_mc_client(ctx),
         command_name="management update_collection_block_list",
     ).update_collection_block_list(**kwargs)
+
+
+@management.command(
+    help=f"List asset collection preferences on this account. {_get_asset_types_help_text()}"
+)
+@click.option(
+    "--resource-name",
+    required=False,
+    help="Name of a specific resource (warehouse or BI container) to filter by."
+    "Shows all resources by default.",
+)
+@click.option(
+    "--asset-type",
+    required=False,
+    help="Filter by specific asset type. Shows all asset types by default.",
+)
+@click.pass_obj
+def get_asset_collection_preferences(ctx, **kwargs):
+    ManagementService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="management get_asset_collection_preferences",
+    ).get_asset_collection_preferences(**kwargs)
+
+
+@management.command(
+    help="Set asset collection preferences for a specific asset type on a resource."
+    f" {_get_asset_types_help_text()}"
+)
+@click.option(
+    "--resource-name",
+    required=True,
+    help="Name of the resource (warehouse or BI container) to configure.",
+)
+@click.option(
+    "--asset-type",
+    required=True,
+    help="The type of asset to configure collection preferences for."
+    " See command help for supported types.",
+)
+@click.option(
+    "--default-effect",
+    required=False,
+    type=click.Choice(["allow", "block"], case_sensitive=False),
+    help="Default action when no rules match: 'allow' to collect assets, 'block' to exclude them.",
+)
+@click.option(
+    "--rules-json",
+    required=False,
+    help="Optional JSON array of rules to filter which assets are collected. "
+    "Each rule has conditions and an effect. "
+    'Example: [{"conditions": [{"attribute_name": "name", "value": "test_*", '
+    '"comparison_type": "prefix"}], "effect": "block"}]. '
+    "Valid comparison_type values: exact_match (default), prefix, suffix, substring, regexp. "
+    "Valid effect values: allow, block.",
+)
+@click.pass_obj
+def set_asset_collection_preferences(ctx, resource_name, asset_type, default_effect, rules_json):
+    ManagementService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="management set_asset_collection_preferences",
+    ).set_asset_collection_preferences(
+        resource_name=resource_name,
+        asset_type=asset_type,
+        default_effect=default_effect,
+        rules=json.loads(rules_json) if rules_json else None,
+    )
+
+
+@management.command(
+    help="Delete asset collection preferences for a specific asset type on a resource."
+    f" {_get_asset_types_help_text()}"
+)
+@click.option(
+    "--resource-name",
+    required=True,
+    help="Name of the resource (warehouse or BI container) to remove preferences from.",
+)
+@click.option(
+    "--asset-type",
+    required=True,
+    help="The type of asset to remove collection preferences for."
+    " See command help for supported types.",
+)
+@click.pass_obj
+def delete_asset_collection_preferences(ctx, resource_name, asset_type):
+    ManagementService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="management delete_asset_collection_preferences",
+    ).delete_asset_collection_preferences(
+        resource_name=resource_name,
+        asset_type=asset_type,
+    )

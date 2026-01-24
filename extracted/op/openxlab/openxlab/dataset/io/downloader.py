@@ -2,12 +2,18 @@
 import glob
 import hashlib
 import os
+import platform
 import signal
 import sys
 import threading
 import time
 
 import requests
+
+# 检测操作系统
+system_type = platform.system()
+# MAC系统特殊处理标志
+IS_MAC = system_type == 'Darwin'
 
 from openxlab.dataset.constants import BASE_DELAY
 from openxlab.dataset.constants import MAX_DELAY
@@ -400,7 +406,14 @@ class BigFileDownloader:
         self.__main_thread_done.set()
 
     def __whistleblower(self, saying: str):
-        sys.stdout.write(saying)
+        # MAC系统上的特殊处理
+        if IS_MAC and saying.startswith('\r'):
+            # 在MAC上，先清屏再显示新内容
+            sys.stdout.write('\r' + ' ' * 80 + '\r')
+            sys.stdout.write(saying[1:])
+        else:
+            sys.stdout.write(saying)
+        sys.stdout.flush()
 
     def md5(self):
         chunk_size = 1024 * 1024

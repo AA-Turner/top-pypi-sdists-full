@@ -64,24 +64,20 @@ class WordCloud(APIObject):
         List of dicts with schema described as ``WordCloudNgram`` above.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("ngrams"): t.List(
-                t.Dict(
-                    {
-                        t.Key("ngram"): String,
-                        t.Key("coefficient"): t.Float(gte=-1, lte=1),
-                        t.Key("count"): Int,
-                        t.Key("frequency"): t.Float(gt=0, lte=1),
-                        t.Key("is_stopword"): t.Bool,
-                        # Making these optional will allow working with older backends
-                        t.Key("class", optional=True, default=None): t.Or(t.String, t.Null),
-                        t.Key("variable", optional=True, default=None): t.Or(t.String, t.Null),
-                    }
-                ).ignore_extra("*")
-            )
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("ngrams"): t.List(
+            t.Dict({
+                t.Key("ngram"): String,
+                t.Key("coefficient"): t.Float(gte=-1, lte=1),
+                t.Key("count"): Int,
+                t.Key("frequency"): t.Float(gt=0, lte=1),
+                t.Key("is_stopword"): t.Bool,
+                # Making these optional will allow working with older backends
+                t.Key("class", optional=True, default=None): t.Or(t.String, t.Null),
+                t.Key("variable", optional=True, default=None): t.Or(t.String, t.Null),
+            }).ignore_extra("*")
+        )
+    }).ignore_extra("*")
 
     def __init__(self, ngrams: List[WordCloudNgram]) -> None:
         self.ngrams = ngrams
@@ -121,9 +117,7 @@ class WordCloud(APIObject):
             If top_n bigger then total number of ngrams in word cloud - return all sorted by
             absolute coefficient value in descending order.
         """
-        return sorted(self.ngrams, key=lambda ngram: abs(ngram["coefficient"]), reverse=True)[
-            :top_n
-        ]
+        return sorted(self.ngrams, key=lambda ngram: abs(ngram["coefficient"]), reverse=True)[:top_n]
 
     def ngrams_per_class(self) -> Dict[Optional[str], List[WordCloudNgram]]:
         """Split ngrams per target class values. Useful for multiclass models.

@@ -57,13 +57,13 @@ void draw(SkCanvas* canvas) {
     paint.setStrokeWidth(5);
 
     paint.setColor(SkColorSetARGB(255,0,0,255));
-    SkPath quadraticCurve;
+    SkPathBuilder quadraticCurve;
     quadraticCurve.moveTo(a);
     quadraticCurve.quadTo(b, c);
-    canvas->drawPath(quadraticCurve, paint);
+    canvas->drawPath(quadraticCurve.detach(), paint);
 
     SkPaint textPaint;
-    SkFont font(nullptr, 32);
+    SkFont font(fontMgr->matchFamilyStyle(nullptr, {}), 32);
     textPaint.setAntiAlias(true);
     canvas->drawString("a", a.x(),    a.y(),    font, textPaint);
     canvas->drawString("b", b.x()+20, b.y()+20, font, textPaint);

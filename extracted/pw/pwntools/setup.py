@@ -31,14 +31,38 @@ if flag in sys.argv:
 else:
     flag = False
 
+DEPRECATED_SCRIPTS= [
+    'asm',
+    # 'checksec',
+    # 'constgrep',
+    'cyclic',
+    'debug',
+    'disablenx',
+    'disasm',
+    'elfdiff',
+    'elfpatch',
+    'errno',
+    'hex',
+    # 'libcdb',
+    # 'phd',
+    # 'pwnstrip',
+    'scramble',
+    # 'shellcraft',
+    'template',
+    'unhex',
+]
+
 for filename in glob.glob('pwnlib/commandline/*'):
     filename = os.path.basename(filename)
     filename, ext = os.path.splitext(filename)
 
-    if ext != '.py' or '__init__' in filename:
+    if ext != '.py' or filename in ('__init__', 'common', 'main', 'update', 'version'):
         continue
 
-    script = '%s=pwnlib.commandline.common:main' % filename
+    if filename in DEPRECATED_SCRIPTS:
+        script = '%s=pwnlib.commandline.common:deprecated_main' % filename
+    else:
+        script = '%s=pwnlib.commandline.common:main' % filename
     if not flag:
         console_scripts.append(script)
 
@@ -63,7 +87,7 @@ if not os.path.exists(PythonH):
     sys.exit(-1)
 
 setup(
-    version              = '4.14.1',
+    version              = '4.15.0',
     data_files           = [('pwntools-doc',
                              glob.glob('*.md') + glob.glob('*.txt')),
                             ],
@@ -78,6 +102,5 @@ setup(
         ] + templates,
     },
     entry_points = {'console_scripts': console_scripts},
-    scripts              = glob.glob("bin/*"),
     **compat
 )

@@ -16,6 +16,7 @@ can increase execution time.
 YANGSON git repository tools/python/mkylib.py script can be used to generates
 YANG JSON library of YANG modules used for validation.
 """
+
 import logging
 import json
 import os

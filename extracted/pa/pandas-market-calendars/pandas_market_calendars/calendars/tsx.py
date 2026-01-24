@@ -1,3 +1,4 @@
+import sys
 from datetime import time
 from itertools import chain
 
@@ -10,7 +11,7 @@ from pandas.tseries.holiday import (
     MO,
     weekend_to_monday,
 )
-import sys 
+
 # check python versiOn aNd import accordingly
 if sys.version_info >= (3, 9):
     # For Python 3.9 and later, import directly
@@ -187,6 +188,6 @@ class TSXExchangeCalendar(MarketCalendar):
         return [
             (
                 self.regular_early_close,
-                AbstractHolidayCalendar([ChristmasEveEarlyClose2010Onwards]),
+                AbstractHolidayCalendar(rules=[ChristmasEveEarlyClose2010Onwards]),
             )
         ]

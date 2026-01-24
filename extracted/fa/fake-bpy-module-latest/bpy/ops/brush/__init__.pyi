@@ -17,16 +17,10 @@ def asset_activate(
 ) -> None:
     """Activate a brush asset as current sculpt and paint tool
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param asset_library_type: Asset Library Type
-    :type asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems | None
     :param asset_library_identifier: Asset Library Identifier
-    :type asset_library_identifier: str
     :param relative_asset_identifier: Relative Asset Identifier
-    :type relative_asset_identifier: str
     :param use_toggle: Toggle, Switch between the current and assigned brushes on consecutive uses.
-    :type use_toggle: bool | None
     """
 
 def asset_delete(
@@ -34,11 +28,7 @@ def asset_delete(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete the active brush asset
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete the active brush asset"""
 
 def asset_edit_metadata(
     execution_context: int | str | None = None,
@@ -51,14 +41,9 @@ def asset_edit_metadata(
 ) -> None:
     """Edit asset information like the catalog, preview image, tags, or author
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param catalog_path: Catalog, The assets catalog path
-    :type catalog_path: str
     :param author: Author
-    :type author: str
     :param description: Description
-    :type description: str
     """
 
 def asset_load_preview(
@@ -96,52 +81,28 @@ def asset_load_preview(
 ) -> None:
     """Choose a preview image for the brush
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: File Path, Path to file
-        :type filepath: str
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :type hide_props_region: bool | None
         :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :type check_existing: bool | None
         :param filter_blender: Filter .blend files
-        :type filter_blender: bool | None
         :param filter_backup: Filter .blend files
-        :type filter_backup: bool | None
         :param filter_image: Filter image files
-        :type filter_image: bool | None
         :param filter_movie: Filter movie files
-        :type filter_movie: bool | None
         :param filter_python: Filter Python files
-        :type filter_python: bool | None
         :param filter_font: Filter font files
-        :type filter_font: bool | None
         :param filter_sound: Filter sound files
-        :type filter_sound: bool | None
         :param filter_text: Filter text files
-        :type filter_text: bool | None
         :param filter_archive: Filter archive files
-        :type filter_archive: bool | None
         :param filter_btx: Filter btx files
-        :type filter_btx: bool | None
         :param filter_alembic: Filter Alembic files
-        :type filter_alembic: bool | None
         :param filter_usd: Filter USD files
-        :type filter_usd: bool | None
         :param filter_obj: Filter OBJ files
-        :type filter_obj: bool | None
         :param filter_volume: Filter OpenVDB volume files
-        :type filter_volume: bool | None
         :param filter_folder: Filter folders
-        :type filter_folder: bool | None
         :param filter_blenlib: Filter Blender IDs
-        :type filter_blenlib: bool | None
         :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :type filemode: int | None
         :param show_multiview: Enable Multi-View
-        :type show_multiview: bool | None
         :param use_multiview: Use Multi-View
-        :type use_multiview: bool | None
         :param display_type: Display Type
 
     DEFAULT
@@ -155,9 +116,7 @@ def asset_load_preview(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :type display_type: typing.Literal['DEFAULT','LIST_VERTICAL','LIST_HORIZONTAL','THUMBNAIL'] | None
         :param sort_method: File sorting mode
-        :type sort_method: str | None
     """
 
 def asset_revert(
@@ -165,22 +124,14 @@ def asset_revert(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Revert the active brush settings to the default values from the asset library
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Revert the active brush settings to the default values from the asset library"""
 
 def asset_save(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Update the active brush asset in the asset library with current settings
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Update the active brush asset in the asset library with current settings"""
 
 def asset_save_as(
     execution_context: int | str | None = None,
@@ -193,30 +144,9 @@ def asset_save_as(
 ) -> None:
     """Save a copy of the active brush asset into the default asset library, and make it the active brush
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name for the new brush asset
-    :type name: str
     :param asset_library_reference: Library, Asset library used to store the new brush
-    :type asset_library_reference: str | None
     :param catalog_path: Catalog, Catalog to use for the new asset
-    :type catalog_path: str
-    """
-
-def curve_preset(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-    *,
-    shape: typing.Literal["SHARP", "SMOOTH", "MAX", "LINE", "ROUND", "ROOT"]
-    | None = "SMOOTH",
-) -> None:
-    """Set brush shape
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param shape: Mode
-    :type shape: typing.Literal['SHARP','SMOOTH','MAX','LINE','ROUND','ROOT'] | None
     """
 
 def scale_size(
@@ -228,26 +158,7 @@ def scale_size(
 ) -> None:
     """Change brush size by a scalar
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param scalar: Scalar, Factor to scale brush size by
-    :type scalar: float | None
-    """
-
-def sculpt_curves_falloff_preset(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-    *,
-    shape: typing.Literal["SHARP", "SMOOTH", "MAX", "LINE", "ROUND", "ROOT"]
-    | None = "SMOOTH",
-) -> None:
-    """Set Curve Falloff Preset
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    :param shape: Mode
-    :type shape: typing.Literal['SHARP','SMOOTH','MAX','LINE','ROUND','ROOT'] | None
     """
 
 def stencil_control(
@@ -260,12 +171,8 @@ def stencil_control(
 ) -> None:
     """Control the stencil brush
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Tool
-    :type mode: typing.Literal['TRANSLATION','SCALE','ROTATION'] | None
     :param texmode: Tool
-    :type texmode: typing.Literal['PRIMARY','SECONDARY'] | None
     """
 
 def stencil_fit_image_aspect(
@@ -279,14 +186,9 @@ def stencil_fit_image_aspect(
 ) -> None:
     """When using an image texture, adjust the stencil size to fit the image aspect ratio
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_repeat: Use Repeat, Use repeat mapping values
-    :type use_repeat: bool | None
     :param use_scale: Use Scale, Use texture scale values
-    :type use_scale: bool | None
     :param mask: Modify Mask Stencil, Modify either the primary or mask stencil
-    :type mask: bool | None
     """
 
 def stencil_reset_transform(
@@ -298,8 +200,5 @@ def stencil_reset_transform(
 ) -> None:
     """Reset the stencil transformation to the default
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mask: Modify Mask Stencil, Modify either the primary or mask stencil
-    :type mask: bool | None
     """

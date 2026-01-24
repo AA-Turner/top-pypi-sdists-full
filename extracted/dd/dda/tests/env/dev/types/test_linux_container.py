@@ -96,12 +96,13 @@ class TestStatus:
     def test_default(self, dda, helpers, mocker):
         mocker.patch("subprocess.run", return_value=CompletedProcess([], returncode=0, stdout="{}"))
         result = dda("env", "dev", "status")
-
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            State: nonexistent
-            """
+        result.check(
+            exit_code=0,
+            stdout=helpers.dedent(
+                """
+                State: nonexistent
+                """
+            ),
         )
 
     @pytest.mark.parametrize(
@@ -123,12 +124,13 @@ class TestStatus:
             return_value=CompletedProcess([], returncode=0, stdout=json.dumps([{"State": data}])),
         )
         result = dda("env", "dev", "status")
-
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            f"""
-            State: {state}
-            """
+        result.check(
+            exit_code=0,
+            stdout=helpers.dedent(
+                f"""
+                State: {state}
+                """
+            ),
         )
 
 
@@ -143,11 +145,13 @@ class TestStart:
         ):
             result = dda("env", "dev", "start")
 
-        assert result.exit_code == 1, result.output
-        assert result.output == helpers.dedent(
-            """
-            Cannot start developer environment `linux-container` in state `started`, must be one of: nonexistent, stopped
-            """
+        result.check(
+            exit_code=1,
+            output=helpers.dedent(
+                """
+                Cannot start developer environment `linux-container` in state `started`, must be one of: nonexistent, stopped
+                """
+            ),
         )
 
     def test_default(self, dda, helpers, mocker, temp_dir, host_user_args):
@@ -175,13 +179,15 @@ class TestStart:
         ):
             result = dda("env", "dev", "start")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Pulling image: datadog/agent-dev-env-linux
-            Creating and starting container: dda-linux-container-default
-            Waiting for container: dda-linux-container-default
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Pulling image: datadog/agent-dev-env-linux
+                Creating and starting container: dda-linux-container-default
+                Waiting for container: dda-linux-container-default
+                """
+            ),
         )
 
         assert_ssh_config_written(write_server_config, "localhost")
@@ -192,7 +198,7 @@ class TestStart:
         assert calls == [
             (
                 ([helpers.locate("docker"), "pull", "datadog/agent-dev-env-linux"],),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
             (
                 (
@@ -216,6 +222,8 @@ class TestStart:
                         "-e",
                         AppEnvVars.TELEMETRY_API_KEY,
                         "-e",
+                        AppEnvVars.TELEMETRY_USER_MACHINE_ID,
+                        "-e",
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
@@ -228,7 +236,7 @@ class TestStart:
                         "datadog/agent-dev-env-linux",
                     ],
                 ),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
         ]
 
@@ -250,14 +258,16 @@ class TestStart:
         ) as calls:
             result = dda("env", "dev", "start", "--clone")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Pulling image: datadog/agent-dev-env-linux
-            Creating and starting container: dda-linux-container-default
-            Waiting for container: dda-linux-container-default
-            Cloning repository: datadog-agent
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Pulling image: datadog/agent-dev-env-linux
+                Creating and starting container: dda-linux-container-default
+                Waiting for container: dda-linux-container-default
+                Cloning repository: datadog-agent
+                """
+            ),
         )
 
         assert_ssh_config_written(write_server_config, "localhost")
@@ -268,7 +278,7 @@ class TestStart:
         assert calls == [
             (
                 ([helpers.locate("docker"), "pull", "datadog/agent-dev-env-linux"],),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
             (
                 (
@@ -292,6 +302,8 @@ class TestStart:
                         "-e",
                         AppEnvVars.TELEMETRY_API_KEY,
                         "-e",
+                        AppEnvVars.TELEMETRY_USER_MACHINE_ID,
+                        "-e",
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
@@ -302,7 +314,7 @@ class TestStart:
                         "datadog/agent-dev-env-linux",
                     ],
                 ),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
             (
                 (
@@ -318,7 +330,7 @@ class TestStart:
                         "cd /root && git dd-clone datadog-agent",
                     ],
                 ),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE},
             ),
         ]
 
@@ -346,12 +358,14 @@ class TestStart:
         ):
             result = dda("env", "dev", "start", "--no-pull")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Creating and starting container: dda-linux-container-default
-            Waiting for container: dda-linux-container-default
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Creating and starting container: dda-linux-container-default
+                Waiting for container: dda-linux-container-default
+                """
+            ),
         )
 
         assert_ssh_config_written(write_server_config, "localhost")
@@ -382,6 +396,8 @@ class TestStart:
                         "-e",
                         AppEnvVars.TELEMETRY_API_KEY,
                         "-e",
+                        AppEnvVars.TELEMETRY_USER_MACHINE_ID,
+                        "-e",
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         "GIT_AUTHOR_EMAIL",
@@ -394,7 +410,7 @@ class TestStart:
                         "datadog/agent-dev-env-linux",
                     ],
                 ),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
         ]
 
@@ -425,13 +441,15 @@ class TestStart:
         ):
             result = dda("env", "dev", "start", "-r", "datadog-agent", "-r", "integrations-core")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Pulling image: datadog/agent-dev-env-linux
-            Creating and starting container: dda-linux-container-default
-            Waiting for container: dda-linux-container-default
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Pulling image: datadog/agent-dev-env-linux
+                Creating and starting container: dda-linux-container-default
+                Waiting for container: dda-linux-container-default
+                """
+            ),
         )
 
         assert_ssh_config_written(write_server_config, "localhost")
@@ -442,7 +460,7 @@ class TestStart:
         assert calls == [
             (
                 ([helpers.locate("docker"), "pull", "datadog/agent-dev-env-linux"],),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
             (
                 (
@@ -466,6 +484,8 @@ class TestStart:
                         "-e",
                         AppEnvVars.TELEMETRY_API_KEY,
                         "-e",
+                        AppEnvVars.TELEMETRY_USER_MACHINE_ID,
+                        "-e",
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
@@ -480,7 +500,7 @@ class TestStart:
                         "datadog/agent-dev-env-linux",
                     ],
                 ),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
         ]
 
@@ -502,15 +522,17 @@ class TestStart:
         ) as calls:
             result = dda("env", "dev", "start", "-r", "datadog-agent@tag", "-r", "integrations-core", "--clone")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Pulling image: datadog/agent-dev-env-linux
-            Creating and starting container: dda-linux-container-default
-            Waiting for container: dda-linux-container-default
-            Cloning repository: datadog-agent@tag
-            Cloning repository: integrations-core
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Pulling image: datadog/agent-dev-env-linux
+                Creating and starting container: dda-linux-container-default
+                Waiting for container: dda-linux-container-default
+                Cloning repository: datadog-agent@tag
+                Cloning repository: integrations-core
+                """
+            ),
         )
 
         assert_ssh_config_written(write_server_config, "localhost")
@@ -521,7 +543,7 @@ class TestStart:
         assert calls == [
             (
                 ([helpers.locate("docker"), "pull", "datadog/agent-dev-env-linux"],),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
             (
                 (
@@ -545,6 +567,8 @@ class TestStart:
                         "-e",
                         AppEnvVars.TELEMETRY_API_KEY,
                         "-e",
+                        AppEnvVars.TELEMETRY_USER_MACHINE_ID,
+                        "-e",
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
@@ -555,7 +579,7 @@ class TestStart:
                         "datadog/agent-dev-env-linux",
                     ],
                 ),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
             (
                 (
@@ -571,7 +595,7 @@ class TestStart:
                         "cd /root && git dd-clone datadog-agent tag",
                     ],
                 ),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE},
             ),
             (
                 (
@@ -587,7 +611,7 @@ class TestStart:
                         "cd /root && git dd-clone integrations-core",
                     ],
                 ),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE},
             ),
         ]
 
@@ -597,12 +621,13 @@ class TestStop:
         mocker.patch("subprocess.run", return_value=CompletedProcess([], returncode=0, stdout="{}"))
 
         result = dda("env", "dev", "stop")
-
-        assert result.exit_code == 1, result.output
-        assert result.output == helpers.dedent(
-            """
-            Cannot stop developer environment `linux-container` in state `nonexistent`, must be `started`
-            """
+        result.check(
+            exit_code=1,
+            output=helpers.dedent(
+                """
+                Cannot stop developer environment `linux-container` in state `nonexistent`, must be `started`
+                """
+            ),
         )
 
     def test_default(self, dda, helpers, mocker):
@@ -616,17 +641,19 @@ class TestStop:
         ) as calls:
             result = dda("env", "dev", "stop")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Stopping container: dda-linux-container-default
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Stopping container: dda-linux-container-default
+                """
+            ),
         )
 
         assert calls == [
             (
                 ([helpers.locate("docker"), "stop", "-t", "0", "dda-linux-container-default"],),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
         ]
 
@@ -636,12 +663,13 @@ class TestRemove:
         mocker.patch("subprocess.run", return_value=CompletedProcess([], returncode=0, stdout="{}"))
 
         result = dda("env", "dev", "remove")
-
-        assert result.exit_code == 1, result.output
-        assert result.output == helpers.dedent(
-            """
-            Cannot remove developer environment `linux-container` in state `nonexistent`, must be one of: error, stopped
-            """
+        result.check(
+            exit_code=1,
+            output=helpers.dedent(
+                """
+                Cannot remove developer environment `linux-container` in state `nonexistent`, must be one of: error, stopped
+                """
+            ),
         )
 
     def test_default(self, dda, helpers, mocker):
@@ -657,17 +685,19 @@ class TestRemove:
         ) as calls:
             result = dda("env", "dev", "remove")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Removing container: dda-linux-container-default
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Removing container: dda-linux-container-default
+                """
+            ),
         )
 
         assert calls == [
             (
                 ([helpers.locate("docker"), "rm", "-f", "dda-linux-container-default"],),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
         ]
 
@@ -686,8 +716,7 @@ class TestShell:
 
             result = dda("env", "dev", "shell")
 
-        assert result.exit_code == 0, result.output
-        assert not result.output
+        result.check(exit_code=0)
 
         assert_ssh_config_written(write_server_config, "localhost")
         assert calls == [
@@ -715,12 +744,13 @@ class TestRun:
         mocker.patch("subprocess.run", return_value=CompletedProcess([], returncode=0, stdout="{}"))
 
         result = dda("env", "dev", "run", "echo", "foo")
-
-        assert result.exit_code == 1, result.output
-        assert result.output == helpers.dedent(
-            """
-            Developer environment `linux-container` is in state `nonexistent`, must be `started`
-            """
+        result.check(
+            exit_code=1,
+            output=helpers.dedent(
+                """
+                Developer environment `linux-container` is in state `nonexistent`, must be `started`
+                """
+            ),
         )
 
     def test_default(self, dda, helpers, mocker):
@@ -736,8 +766,7 @@ class TestRun:
         ):
             result = dda("env", "dev", "run", "echo", "foo")
 
-        assert result.exit_code == 0, result.output
-        assert not result.output
+        result.check(exit_code=0)
 
         assert_ssh_config_written(write_server_config, "localhost")
         run.assert_called_once_with(
@@ -760,12 +789,13 @@ class TestCode:
         mocker.patch("subprocess.run", return_value=CompletedProcess([], returncode=0, stdout="{}"))
 
         result = dda("env", "dev", "code")
-
-        assert result.exit_code == 1, result.output
-        assert result.output == helpers.dedent(
-            """
-            Developer environment `linux-container` is in state `nonexistent`, must be `started`
-            """
+        result.check(
+            exit_code=1,
+            output=helpers.dedent(
+                """
+                Developer environment `linux-container` is in state `nonexistent`, must be `started`
+                """
+            ),
         )
 
     def test_default(self, dda, helpers, mocker):
@@ -781,12 +811,14 @@ class TestCode:
         ):
             result = dda("env", "dev", "code")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Stopping MCP server
-            Starting MCP server
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Stopping MCP server
+                Starting MCP server
+                """
+            ),
         )
 
         assert_ssh_config_written(write_server_config, "localhost")
@@ -812,12 +844,14 @@ class TestCode:
         ):
             result = dda("env", "dev", "code", "--editor", "cursor")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Stopping MCP server
-            Starting MCP server
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Stopping MCP server
+                Starting MCP server
+                """
+            ),
         )
 
         assert_ssh_config_written(write_server_config, "localhost")
@@ -846,12 +880,14 @@ class TestCode:
         ):
             result = dda("env", "dev", "code")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Stopping MCP server
-            Starting MCP server
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Stopping MCP server
+                Starting MCP server
+                """
+            ),
         )
 
         assert_ssh_config_written(write_server_config, "localhost")
@@ -875,11 +911,13 @@ class TestRemoveCache:
         ):
             result = dda("env", "dev", "cache", "remove")
 
-        assert result.exit_code == 1, result.output
-        assert result.output == helpers.dedent(
-            """
-            Cannot remove cache for developer environment `linux-container` in state `started`, must be one of: nonexistent, stopped
-            """
+        result.check(
+            exit_code=1,
+            output=helpers.dedent(
+                """
+                Cannot remove cache for developer environment `linux-container` in state `started`, must be one of: nonexistent, stopped
+                """
+            ),
         )
 
     def test_default(self, dda, helpers, mocker):
@@ -895,17 +933,19 @@ class TestRemoveCache:
         ) as calls:
             result = dda("env", "dev", "cache", "remove")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Removing cache
-            """
+        result.check(
+            exit_code=0,
+            output=helpers.dedent(
+                """
+                Removing cache
+                """
+            ),
         )
 
         assert calls == [
             (
                 ([helpers.locate("docker"), "volume", "rm", "dda-env-dev-linux-container-go_build_cache"],),
-                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "env": mocker.ANY},
+                {"encoding": "utf-8", "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "env": mocker.ANY},
             ),
         ]
 
@@ -929,12 +969,19 @@ bar 1PB
         ):
             result = dda("env", "dev", "cache", "size")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Calculating cache size
-            1.50 GiB
-            """
+        result.check(
+            exit_code=0,
+            stdout=helpers.dedent(
+                """
+                1.50 GiB
+                """
+            ),
+            output=helpers.dedent(
+                """
+                Calculating cache size
+                1.50 GiB
+                """
+            ),
         )
 
     def test_empty(self, dda, helpers):
@@ -946,12 +993,19 @@ bar 1PB
         ):
             result = dda("env", "dev", "cache", "size")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Calculating cache size
-            Empty
-            """
+        result.check(
+            exit_code=0,
+            stdout=helpers.dedent(
+                """
+                Empty
+                """
+            ),
+            output=helpers.dedent(
+                """
+                Calculating cache size
+                Empty
+                """
+            ),
         )
 
     def test_bytes(self, dda, helpers):
@@ -972,10 +1026,17 @@ bar 1PB
         ):
             result = dda("env", "dev", "cache", "size")
 
-        assert result.exit_code == 0, result.output
-        assert result.output == helpers.dedent(
-            """
-            Calculating cache size
-            1023 B
-            """
+        result.check(
+            exit_code=0,
+            stdout=helpers.dedent(
+                """
+                1023 B
+                """
+            ),
+            output=helpers.dedent(
+                """
+                Calculating cache size
+                1023 B
+                """
+            ),
         )

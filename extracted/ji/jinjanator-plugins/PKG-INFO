@@ -1,12 +1,11 @@
 Metadata-Version: 2.3
 Name: jinjanator-plugins
-Version: 24.2.0
+Version: 25.1.0
 Summary: Package which provides the plugin API for the jinjanator tool
 Project-URL: Bug Tracker, https://github.com/kpfleming/jinjanator-plugins/issues
 Project-URL: Homepage, https://github.com/kpfleming/jinjanator-plugins
 Author-email: "Kevin P. Fleming" <jinjanator@kevin.km6g.us>
 License: Apache-2.0
-License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -14,13 +13,13 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: attrs
 Requires-Dist: pluggy
 Requires-Dist: typing-extensions
@@ -367,7 +366,15 @@ second part of the 'magic' mechanism mentioned above.
 ## Release Information
 ### Backwards-incompatible Changes
 
-- Added support for Python 3.13, and removed support for Python 3.8.
+- Support for Python 3.9 has been removed, and support for Python 3.14
+  has been added. Since the minimum supported version is now 3.10, the
+  code has been updated to use features introduced in that version.
+  
+
+
+### Additions
+
+- Added testing against Python 3.13 (again).
   
 
 ---

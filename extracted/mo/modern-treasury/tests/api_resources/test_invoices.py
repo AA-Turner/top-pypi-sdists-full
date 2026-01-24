@@ -68,7 +68,6 @@ class TestInvoices:
             currency="AED",
             description="description",
             fallback_payment_method="fallback_payment_method",
-            ingest_ledger_entries=True,
             invoice_line_items=[
                 {
                     "name": "name",
@@ -92,7 +91,6 @@ class TestInvoices:
                 "region": "region",
                 "line2": "line2",
             },
-            ledger_account_settlement_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={
                 "key": "value",
                 "foo": "bar",
@@ -221,7 +219,6 @@ class TestInvoices:
             description="description",
             due_date=parse_datetime("2019-12-27T18:11:19.117Z"),
             fallback_payment_method="fallback_payment_method",
-            ingest_ledger_entries=True,
             invoice_line_items=[
                 {
                     "name": "name",
@@ -245,7 +242,6 @@ class TestInvoices:
                 "region": "region",
                 "line2": "line2",
             },
-            ledger_account_settlement_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={
                 "key": "value",
                 "foo": "bar",
@@ -307,6 +303,8 @@ class TestInvoices:
         invoice = client.invoices.list(
             after_cursor="after_cursor",
             counterparty_id="counterparty_id",
+            created_at_end=parse_datetime("2019-12-27T18:11:19.117Z"),
+            created_at_start=parse_datetime("2019-12-27T18:11:19.117Z"),
             due_date_end=parse_date("2019-12-27"),
             due_date_start=parse_date("2019-12-27"),
             expected_payment_id="expected_payment_id",
@@ -440,7 +438,6 @@ class TestAsyncInvoices:
             currency="AED",
             description="description",
             fallback_payment_method="fallback_payment_method",
-            ingest_ledger_entries=True,
             invoice_line_items=[
                 {
                     "name": "name",
@@ -464,7 +461,6 @@ class TestAsyncInvoices:
                 "region": "region",
                 "line2": "line2",
             },
-            ledger_account_settlement_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={
                 "key": "value",
                 "foo": "bar",
@@ -593,7 +589,6 @@ class TestAsyncInvoices:
             description="description",
             due_date=parse_datetime("2019-12-27T18:11:19.117Z"),
             fallback_payment_method="fallback_payment_method",
-            ingest_ledger_entries=True,
             invoice_line_items=[
                 {
                     "name": "name",
@@ -617,7 +612,6 @@ class TestAsyncInvoices:
                 "region": "region",
                 "line2": "line2",
             },
-            ledger_account_settlement_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={
                 "key": "value",
                 "foo": "bar",
@@ -679,6 +673,8 @@ class TestAsyncInvoices:
         invoice = await async_client.invoices.list(
             after_cursor="after_cursor",
             counterparty_id="counterparty_id",
+            created_at_end=parse_datetime("2019-12-27T18:11:19.117Z"),
+            created_at_start=parse_datetime("2019-12-27T18:11:19.117Z"),
             due_date_end=parse_date("2019-12-27"),
             due_date_start=parse_date("2019-12-27"),
             expected_payment_id="expected_payment_id",

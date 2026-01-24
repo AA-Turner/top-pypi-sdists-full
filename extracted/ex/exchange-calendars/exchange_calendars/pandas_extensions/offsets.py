@@ -1,30 +1,28 @@
 # https://github.com/pandas-dev/pandas/blob/master/pandas/tseries/offsets.py
 # https://github.com/pandas-dev/pandas/blob/master/pandas/_libs/tslibs/offsets.pyx
 
-from datetime import datetime, timedelta
+import contextlib
+from datetime import date, datetime, timedelta
 
-import toolz
 import numpy as np
 import pandas as pd
-
-from pandas.tseries.offsets import CustomBusinessDay, BaseOffset
-from pandas._libs.tslibs.offsets import apply_wraps
+import toolz
+from dateutil.easter import EASTER_ORTHODOX, easter
 from pandas._libs.tslibs.conversion import localize_pydatetime
+from pandas._libs.tslibs.offsets import apply_wraps
+from pandas.tseries.offsets import BaseOffset, CustomBusinessDay
 
 
 class CompositeCustomBusinessDay(CustomBusinessDay):
-
     _prefix = "C"
-    _attributes = tuple(
-        [
-            "n",
-            "normalize",
-            "weekmask",
-            "holidays",
-            "calendar",
-            "offset",
-            "business_days",
-        ]
+    _attributes = (
+        "n",
+        "normalize",
+        "weekmask",
+        "holidays",
+        "calendar",
+        "offset",
+        "business_days",
     )
 
     def __init__(
@@ -65,13 +63,13 @@ class CompositeCustomBusinessDay(CustomBusinessDay):
             business_days_intervals = []
             for start_date, end_date, _ in self._business_days:
                 if start_date is None:
-                    start_date = pd.Timestamp.min
+                    start_date = pd.Timestamp.min  # noqa: PLW2901
                 else:
-                    start_date = pd.Timestamp(start_date)
+                    start_date = pd.Timestamp(start_date)  # noqa: PLW2901
                 if end_date is None:
-                    end_date = pd.Timestamp.max
+                    end_date = pd.Timestamp.max  # noqa: PLW2901
                 else:
-                    end_date = pd.Timestamp(end_date)
+                    end_date = pd.Timestamp(end_date)  # noqa: PLW2901
                 interval = pd.Interval(start_date, end_date, closed="both")
                 business_days_intervals.append(interval)
             self._business_days_index = pd.IntervalIndex(
@@ -88,8 +86,9 @@ class CompositeCustomBusinessDay(CustomBusinessDay):
             for left, right in toolz.sliding_window(
                 2, toolz.concatv(self._business_days_index)
             ):
-                if pd.Timestamp((right.left - left.right).days,
-                                unit="D") > pd.Timestamp(1, unit="D"):
+                if pd.Timestamp(
+                    (right.left - left.right).days, unit="D"
+                ) > pd.Timestamp(1, unit="D"):
                     interval = pd.Interval(
                         left.right + pd.Timedelta(1, unit="D"),
                         right.left - pd.Timedelta(1, unit="D"),
@@ -133,8 +132,7 @@ class CompositeCustomBusinessDay(CustomBusinessDay):
             bday = bday.base * n
         if with_interval:
             return bday, interval
-        else:
-            return bday
+        return bday
 
     def _moved(self, from_date, to_date, bday):
         return np.busday_count(
@@ -167,10 +165,9 @@ class CompositeCustomBusinessDay(CustomBusinessDay):
                 bday, interval = self._custom_business_day_for(
                     other, remaining, is_edge=True, with_interval=True
                 )
-                result = bday._apply(other)
+                result = bday._apply(other)  # noqa: SLF001
             return result
-        else:
-            return super().apply(other)
+        return super().apply(other)
 
     # backwards compat
     apply = _apply
@@ -192,7 +189,7 @@ def _is_normalized(dt):
     return True
 
 
-def _to_dt64D(dt):
+def _to_dt64D(dt):  # noqa: N802
     # Currently
     # > np.datetime64(dt.datetime(2013,5,1),dtype='datetime64[D]')
     # numpy.datetime64('2013-05-01T02:00:00.000000+0200')
@@ -231,10 +228,8 @@ def _get_calendar(weekmask, holidays, calendar):
     # Handle non list holidays also (added)
     if isinstance(holidays, pd.DatetimeIndex):
         holidays = holidays.tolist()
-    try:
+    with contextlib.suppress(AttributeError):
         holidays = holidays + calendar.holidays().tolist()
-    except AttributeError:
-        pass
     holidays = [_to_dt64D(dt) for dt in holidays]
     holidays = tuple(sorted(holidays))
 
@@ -247,19 +242,16 @@ def _get_calendar(weekmask, holidays, calendar):
 
 
 class MultipleWeekmaskCustomBusinessDay(CompositeCustomBusinessDay):
-
     _prefix = "C"
-    _attributes = tuple(
-        [
-            "n",
-            "normalize",
-            "weekmask",
-            "holidays",
-            "calendar",
-            "offset",
-            "business_days",
-            "weekmasks",
-        ]
+    _attributes = (
+        "n",
+        "normalize",
+        "weekmask",
+        "holidays",
+        "calendar",
+        "offset",
+        "business_days",
+        "weekmasks",
     )
 
     def __init__(
@@ -288,7 +280,7 @@ class MultipleWeekmaskCustomBusinessDay(CompositeCustomBusinessDay):
                     ),
                 )
                 for (start_date, end_date, weekmask), (calendar, holidays) in zip(
-                    weekmasks, calendars
+                    weekmasks, calendars, strict=False
                 )
             ]
         CompositeCustomBusinessDay.__init__(
@@ -309,8 +301,7 @@ class MultipleWeekmaskCustomBusinessDay(CompositeCustomBusinessDay):
 
 
 class SingleConstructorOffset(BaseOffset):
-    def __reduce__(self):
-        ...
+    def __reduce__(self): ...
 
 
 class OrthodoxEaster(SingleConstructorOffset):
@@ -324,8 +315,6 @@ class OrthodoxEaster(SingleConstructorOffset):
 
     @apply_wraps
     def _apply(self, other: datetime) -> datetime:
-        from dateutil.easter import easter, EASTER_ORTHODOX
-
         current_easter = easter(other.year, method=EASTER_ORTHODOX)
         current_easter = datetime(
             current_easter.year, current_easter.month, current_easter.day
@@ -339,7 +328,7 @@ class OrthodoxEaster(SingleConstructorOffset):
             n += 1
 
         new = easter(other.year + n, method=EASTER_ORTHODOX)
-        new = datetime(
+        return datetime(
             new.year,
             new.month,
             new.day,
@@ -348,13 +337,11 @@ class OrthodoxEaster(SingleConstructorOffset):
             other.second,
             other.microsecond,
         )
-        return new
 
     def is_on_offset(self, dt: datetime) -> bool:
         if self.normalize and not _is_normalized(dt):
             return False
 
-        from dateutil.easter import easter, EASTER_ORTHODOX
-        from datetime import date
-
-        return date(dt.year, dt.month, dt.day) == easter(dt.year, method=EASTER_ORTHODOX)
+        return date(dt.year, dt.month, dt.day) == easter(
+            dt.year, method=EASTER_ORTHODOX
+        )

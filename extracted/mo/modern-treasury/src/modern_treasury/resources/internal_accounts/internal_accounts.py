@@ -14,7 +14,7 @@ from ...types import (
     internal_account_update_params,
     internal_account_update_account_capability_params,
 )
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -68,7 +68,7 @@ class InternalAccounts(SyncAPIResource):
         currency: Literal["USD", "CAD"],
         name: str,
         party_name: str,
-        account_capabilities: Iterable[internal_account_create_params.AccountCapability] | NotGiven = NOT_GIVEN,
+        account_capabilities: Iterable[internal_account_create_params.AccountCapability] | Omit = omit,
         account_type: Literal[
             "base_wallet",
             "cash",
@@ -84,18 +84,18 @@ class InternalAccounts(SyncAPIResource):
             "savings",
             "solana_wallet",
         ]
-        | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        legal_entity_id: str | NotGiven = NOT_GIVEN,
-        parent_account_id: str | NotGiven = NOT_GIVEN,
-        party_address: internal_account_create_params.PartyAddress | NotGiven = NOT_GIVEN,
-        vendor_attributes: Dict[str, str] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        legal_entity_id: str | Omit = omit,
+        parent_account_id: str | Omit = omit,
+        party_address: internal_account_create_params.PartyAddress | Omit = omit,
+        vendor_attributes: Dict[str, str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> InternalAccount:
         """
@@ -175,7 +175,7 @@ class InternalAccounts(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InternalAccount:
         """
         get internal account
@@ -203,23 +203,26 @@ class InternalAccounts(SyncAPIResource):
         self,
         id: str,
         *,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        ledger_account_id: str | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        parent_account_id: str | NotGiven = NOT_GIVEN,
+        contra_ledger_account_id: str | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        ledger_account_id: str | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        name: str | Omit = omit,
+        parent_account_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> InternalAccount:
         """
         update internal account
 
         Args:
+          contra_ledger_account_id: The Contra Ledger Account associated to this account.
+
           counterparty_id: The Counterparty associated to this account.
 
           ledger_account_id: The Ledger Account associated to this account.
@@ -247,6 +250,7 @@ class InternalAccounts(SyncAPIResource):
             f"/api/internal_accounts/{id}",
             body=maybe_transform(
                 {
+                    "contra_ledger_account_id": contra_ledger_account_id,
                     "counterparty_id": counterparty_id,
                     "ledger_account_id": ledger_account_id,
                     "metadata": metadata,
@@ -268,12 +272,12 @@ class InternalAccounts(SyncAPIResource):
     def list(
         self,
         *,
-        after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        currency: Currency | NotGiven = NOT_GIVEN,
-        legal_entity_id: str | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        payment_direction: TransactionDirection | NotGiven = NOT_GIVEN,
+        after_cursor: Optional[str] | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        currency: Currency | Omit = omit,
+        legal_entity_id: str | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        payment_direction: TransactionDirection | Omit = omit,
         payment_type: Literal[
             "ach",
             "au_becs",
@@ -311,14 +315,15 @@ class InternalAccounts(SyncAPIResource):
             "wire",
             "zengin",
         ]
-        | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        per_page: int | Omit = omit,
+        status: Literal["active", "pending_activation", "suspended", "pending_closure", "closed"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncPage[InternalAccount]:
         """
         list internal accounts
@@ -337,6 +342,8 @@ class InternalAccounts(SyncAPIResource):
           payment_direction: Only return internal accounts that can originate payments with this direction.
 
           payment_type: Only return internal accounts that can make this type of payment.
+
+          status: Only return internal accounts with this status.
 
           extra_headers: Send extra headers
 
@@ -364,11 +371,52 @@ class InternalAccounts(SyncAPIResource):
                         "payment_direction": payment_direction,
                         "payment_type": payment_type,
                         "per_page": per_page,
+                        "status": status,
                     },
                     internal_account_list_params.InternalAccountListParams,
                 ),
             ),
             model=InternalAccount,
+        )
+
+    def request_closure(
+        self,
+        id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> InternalAccount:
+        """
+        request closure of internal account
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._post(
+            f"/api/internal_accounts/{id}/request_closure",
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=InternalAccount,
         )
 
     def update_account_capability(
@@ -382,7 +430,7 @@ class InternalAccounts(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> InternalAccountUpdateAccountCapabilityResponse:
         """
@@ -456,7 +504,7 @@ class AsyncInternalAccounts(AsyncAPIResource):
         currency: Literal["USD", "CAD"],
         name: str,
         party_name: str,
-        account_capabilities: Iterable[internal_account_create_params.AccountCapability] | NotGiven = NOT_GIVEN,
+        account_capabilities: Iterable[internal_account_create_params.AccountCapability] | Omit = omit,
         account_type: Literal[
             "base_wallet",
             "cash",
@@ -472,18 +520,18 @@ class AsyncInternalAccounts(AsyncAPIResource):
             "savings",
             "solana_wallet",
         ]
-        | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        legal_entity_id: str | NotGiven = NOT_GIVEN,
-        parent_account_id: str | NotGiven = NOT_GIVEN,
-        party_address: internal_account_create_params.PartyAddress | NotGiven = NOT_GIVEN,
-        vendor_attributes: Dict[str, str] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        legal_entity_id: str | Omit = omit,
+        parent_account_id: str | Omit = omit,
+        party_address: internal_account_create_params.PartyAddress | Omit = omit,
+        vendor_attributes: Dict[str, str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> InternalAccount:
         """
@@ -563,7 +611,7 @@ class AsyncInternalAccounts(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InternalAccount:
         """
         get internal account
@@ -591,23 +639,26 @@ class AsyncInternalAccounts(AsyncAPIResource):
         self,
         id: str,
         *,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        ledger_account_id: str | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        parent_account_id: str | NotGiven = NOT_GIVEN,
+        contra_ledger_account_id: str | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        ledger_account_id: str | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        name: str | Omit = omit,
+        parent_account_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> InternalAccount:
         """
         update internal account
 
         Args:
+          contra_ledger_account_id: The Contra Ledger Account associated to this account.
+
           counterparty_id: The Counterparty associated to this account.
 
           ledger_account_id: The Ledger Account associated to this account.
@@ -635,6 +686,7 @@ class AsyncInternalAccounts(AsyncAPIResource):
             f"/api/internal_accounts/{id}",
             body=await async_maybe_transform(
                 {
+                    "contra_ledger_account_id": contra_ledger_account_id,
                     "counterparty_id": counterparty_id,
                     "ledger_account_id": ledger_account_id,
                     "metadata": metadata,
@@ -656,12 +708,12 @@ class AsyncInternalAccounts(AsyncAPIResource):
     def list(
         self,
         *,
-        after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        currency: Currency | NotGiven = NOT_GIVEN,
-        legal_entity_id: str | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        payment_direction: TransactionDirection | NotGiven = NOT_GIVEN,
+        after_cursor: Optional[str] | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        currency: Currency | Omit = omit,
+        legal_entity_id: str | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        payment_direction: TransactionDirection | Omit = omit,
         payment_type: Literal[
             "ach",
             "au_becs",
@@ -699,14 +751,15 @@ class AsyncInternalAccounts(AsyncAPIResource):
             "wire",
             "zengin",
         ]
-        | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        per_page: int | Omit = omit,
+        status: Literal["active", "pending_activation", "suspended", "pending_closure", "closed"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[InternalAccount, AsyncPage[InternalAccount]]:
         """
         list internal accounts
@@ -725,6 +778,8 @@ class AsyncInternalAccounts(AsyncAPIResource):
           payment_direction: Only return internal accounts that can originate payments with this direction.
 
           payment_type: Only return internal accounts that can make this type of payment.
+
+          status: Only return internal accounts with this status.
 
           extra_headers: Send extra headers
 
@@ -752,11 +807,52 @@ class AsyncInternalAccounts(AsyncAPIResource):
                         "payment_direction": payment_direction,
                         "payment_type": payment_type,
                         "per_page": per_page,
+                        "status": status,
                     },
                     internal_account_list_params.InternalAccountListParams,
                 ),
             ),
             model=InternalAccount,
+        )
+
+    async def request_closure(
+        self,
+        id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> InternalAccount:
+        """
+        request closure of internal account
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._post(
+            f"/api/internal_accounts/{id}/request_closure",
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=InternalAccount,
         )
 
     async def update_account_capability(
@@ -770,7 +866,7 @@ class AsyncInternalAccounts(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> InternalAccountUpdateAccountCapabilityResponse:
         """
@@ -829,6 +925,9 @@ class InternalAccountsWithRawResponse:
         self.list = _legacy_response.to_raw_response_wrapper(
             internal_accounts.list,
         )
+        self.request_closure = _legacy_response.to_raw_response_wrapper(
+            internal_accounts.request_closure,
+        )
         self.update_account_capability = _legacy_response.to_raw_response_wrapper(
             internal_accounts.update_account_capability,
         )
@@ -853,6 +952,9 @@ class AsyncInternalAccountsWithRawResponse:
         )
         self.list = _legacy_response.async_to_raw_response_wrapper(
             internal_accounts.list,
+        )
+        self.request_closure = _legacy_response.async_to_raw_response_wrapper(
+            internal_accounts.request_closure,
         )
         self.update_account_capability = _legacy_response.async_to_raw_response_wrapper(
             internal_accounts.update_account_capability,
@@ -879,6 +981,9 @@ class InternalAccountsWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             internal_accounts.list,
         )
+        self.request_closure = to_streamed_response_wrapper(
+            internal_accounts.request_closure,
+        )
         self.update_account_capability = to_streamed_response_wrapper(
             internal_accounts.update_account_capability,
         )
@@ -903,6 +1008,9 @@ class AsyncInternalAccountsWithStreamingResponse:
         )
         self.list = async_to_streamed_response_wrapper(
             internal_accounts.list,
+        )
+        self.request_closure = async_to_streamed_response_wrapper(
+            internal_accounts.request_closure,
         )
         self.update_account_capability = async_to_streamed_response_wrapper(
             internal_accounts.update_account_capability,

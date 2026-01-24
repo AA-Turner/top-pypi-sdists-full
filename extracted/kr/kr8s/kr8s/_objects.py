@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, Kr8s Developers (See LICENSE for list)
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, Kr8s Developers (See LICENSE for list)
 # SPDX-License-Identifier: BSD 3-Clause License
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import contextlib
 import json
 import pathlib
 import re
+import sys
 import time
 from collections.abc import AsyncGenerator, Generator
 from typing import (
@@ -20,7 +21,11 @@ import httpx
 import jsonpath
 import yaml
 from box import Box
-from typing_extensions import Self
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 import kr8s
 import kr8s.asyncio
@@ -506,6 +511,7 @@ class APIObject:
         stderr: BinaryIO | None = None,
         check: bool = True,
         capture_output: bool = True,
+        timeout: int | None = None,
     ) -> CompletedExec:
         """Execute a command in this object."""
         return await self.async_exec(
@@ -516,6 +522,7 @@ class APIObject:
             stderr=stderr,
             check=check,
             capture_output=capture_output,
+            timeout=timeout,
         )
 
     async def async_exec(
@@ -528,6 +535,7 @@ class APIObject:
         stderr: BinaryIO | None = None,
         check: bool = True,
         capture_output: bool = True,
+        timeout: int | None = None,
     ) -> CompletedExec:
         """Execute a command in this object."""
         if not hasattr(self, "ready_pods"):
@@ -544,6 +552,7 @@ class APIObject:
             stderr=stderr,
             check=check,
             capture_output=capture_output,
+            timeout=timeout,
         )
 
     async def async_watch(self) -> AsyncGenerator[tuple[str, Self]]:
@@ -899,19 +908,21 @@ class APIObject:
         raise NotImplementedError("gen is not implemented for this object")
 
     @classmethod
-    async def async_list(cls, api: Api | None = None, **kwargs) -> AsyncGenerator[Self]:
+    async def async_list(
+        cls, api: Api | None = None, **kwargs
+    ) -> AsyncGenerator[Self | dict]:
         if api is None:
             if cls._asyncio:
                 api = await kr8s.asyncio.api()
             else:
                 api = await kr8s.asyncio.api(_asyncio=False)
         async for resource in api.async_get(kind=cls, **kwargs):
-            if isinstance(resource, cls):
+            if isinstance(resource, dict) or isinstance(resource, cls):
                 yield resource
 
     # Must be the last method defined due to https://github.com/python/mypy/issues/17517
     @classmethod
-    async def list(cls, **kwargs) -> AsyncGenerator[Self]:
+    async def list(cls, **kwargs) -> AsyncGenerator[Self | dict]:
         """List objects in Kubernetes.
 
         Args:
@@ -919,7 +930,7 @@ class APIObject:
             **kwargs: Keyword arguments to pass to :func:`kr8s.get`.
 
         Returns:
-            A list of objects.
+            A list of objects or dictionaries (if raw=True).
         """
         async for resource in cls.async_list(**kwargs):
             yield resource
@@ -1003,7 +1014,7 @@ class APIObjectSyncMixin(APIObject):
         return as_sync_func(self.async_adopt)(child)
 
     @classmethod
-    def list(cls, **kwargs) -> Generator[Self]:  # type: ignore[override]
+    def list(cls, **kwargs) -> Generator[Self | dict]:  # type: ignore[override]
         yield from as_sync_generator(cls.async_list)(**kwargs)
 
 
@@ -1393,6 +1404,7 @@ class Pod(APIObject):
         stderr: BinaryIO | None = None,
         check: bool = True,
         capture_output: bool = True,
+        timeout: int | None = None,
     ) -> CompletedExec:
         while not await self.async_ready():
             await anyio.sleep(0.1)
@@ -1406,6 +1418,7 @@ class Pod(APIObject):
             stdin=stdin,
             check=check,
             capture_output=capture_output,
+            timeout=timeout,
         )
         async with ex.run() as process:
             await process.wait()
@@ -1421,6 +1434,7 @@ class Pod(APIObject):
         stderr: BinaryIO | None = None,
         check: bool = True,
         capture_output: bool = True,
+        timeout: int | None = None,
     ) -> CompletedExec:
         """Run a command in a container and wait until it completes.
 
@@ -1441,6 +1455,8 @@ class Pod(APIObject):
                 If True, raise an exception if the command fails.
             capture_output:
                 If True, store stdout and stderr from the container in an attribute.
+            timeout:
+                If set, timeout for recieving bytes.
 
         Returns:
             A :class:`kr8s._exec.CompletedExec` object.
@@ -1460,6 +1476,7 @@ class Pod(APIObject):
             stderr=stderr,
             check=check,
             capture_output=capture_output,
+            timeout=timeout,
         )
 
     @classmethod

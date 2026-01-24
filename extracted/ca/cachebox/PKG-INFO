@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cachebox
-Version: 5.0.2
+Version: 5.2.1
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: 3
@@ -29,30 +29,22 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/awolverp/cachebox
 
+<div align="center">
 
-<h1 align=center>
-  Cachebox
-</h1>
-<p align="center">
-    <em>The fastest caching Python library written in Rust</em>
-</p>
-<p align="center">
-    <a href="https://github.com/awolverp/cachebox/releases"><b>Releases</b></a> | <a href="https://github.com/awolverp/cachebox-benchmark" target="_blank"><b>Benchmarks</b></a> | <a href="https://github.com/awolverp/cachebox/issues/new"><b>Issues</b></a>
-</p>
-<p align="center">
-    <a href="https://github.com/awolverp/cachebox/blob/main/LICENSE">
-        <img src="https://img.shields.io/github/license/awolverp/cachebox.svg?style=flat-square" alt="License">
-    </a>
-    <a href="https://github.com/awolverp/cachebox/releases">
-        <img src="https://img.shields.io/github/v/release/awolverp/cachebox.svg?style=flat-square" alt="Release">
-    </a>
-    <a href="https://pypi.org/project/cachebox/">
-        <img src="https://img.shields.io/pypi/pyversions/cachebox.svg?style=flat-square" alt="Python Versions">
-    </a>
-    <a href="https://pepy.tech/projects/cachebox">
-        <img src="https://img.shields.io/pypi/dm/cachebox?style=flat-square&color=%23314bb5" alt="Downloads">
-    </a>
-</p>    
+# Cachebox
+
+*The fastest caching Python library written in Rust*
+
+[**Releases**](https://github.com/awolverp/cachebox/releases) | 
+[**Benchmarks**](https://github.com/awolverp/cachebox-benchmark) | 
+[**Issues**](https://github.com/awolverp/cachebox/issues/new)
+
+[![License](https://img.shields.io/github/license/awolverp/cachebox.svg?style=flat-square)](https://github.com/awolverp/cachebox/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/awolverp/cachebox.svg?style=flat-square)](https://github.com/awolverp/cachebox/releases)
+[![Python Versions](https://img.shields.io/pypi/pyversions/cachebox.svg?style=flat-square)](https://pypi.org/project/cachebox/)
+[![Downloads](https://img.shields.io/pypi/dm/cachebox?style=flat-square&color=%23314bb5)](https://pepy.tech/projects/cachebox)
+
+</div>
 
 -------
 
@@ -184,7 +176,6 @@ assert cache.get("key") == "value"
 ## Getting started
 There are 3 useful functions:
 - [**cached**](#cached--decorator): a decorator that helps you to cache your functions and calculations with a lot of options.
-- [**cachedmethod**](#cachedmethod--decorator): this is excatly works like `cached()`, but ignores `self` parameters in hashing and key making.
 - [**is_cached**](#is_cached--function): check if a function/method cached by cachebox or not
 
 And 9 classes:
@@ -290,6 +281,23 @@ print(sum_as_string.cache_info())
 sum_as_string.cache_clear()
 ```
 
+method example: *(Added in v5.1.0)*
+```python
+import cachebox
+
+class Example:
+    def __init__(self, num) -> None:
+        self.num = num
+        self._cache = cachebox.TTLCache(20, 10)
+
+    @cachebox.cached(lambda self: self._cache)
+    def method(self, char: str):
+        return char * self.num
+
+ex = Example(10)
+assert ex.method("a") == "a" * 10
+```
+
 callback example: *(Added in v4.2.0)*
 ```python
 import cachebox
@@ -322,26 +330,6 @@ assert func(5, 4) == 9
 
 </details>
 
-
-> [!NOTE]\
-> Recommended use `cached` method for **@staticmethod**s and use [`cachedmethod`](#function-cachedmethod) for **@classmethod**s;
-> And set `copy_level` parameter to `2` on **@classmethod**s.
-> ```python
-> class MyClass:
->   def __init__(self, num: int) -> None:
->       self.num = num
->
->   @classmethod
->   @cachedmethod({}, copy_level=2)
->   def class_func(cls, num: int):
->       return cls(num)
->
->   @staticmethod
->   @cached({})
->   def static_func(num: int):
->       return num * 5
-> ```
-
 > [!TIP]\
 > There's a new feature **since `v4.1.0`** that you can tell to a cached function that don't use cache for a call:
 > ```python
@@ -353,6 +341,9 @@ assert func(5, 4) == 9
 
 ### `cachedmethod` (🎀 decorator)
 this is excatly works like `cached()`, but ignores `self` parameters in hashing and key making.
+
+> [!WARNING]\
+> This function has been deprecated since `v5.1.0`, use `cached` function instead.
 
 <details>
 <summary><b>Example</b></summary>

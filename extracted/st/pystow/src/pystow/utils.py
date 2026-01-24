@@ -22,21 +22,13 @@ from functools import partial
 from io import BytesIO, StringIO
 from pathlib import Path, PurePosixPath
 from subprocess import check_output
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Literal,
-    NamedTuple,
-    TextIO,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TextIO, TypeAlias, cast
 from urllib.parse import urlparse
 from urllib.request import urlretrieve
 from uuid import uuid4
 
 import requests
 from tqdm.auto import tqdm
-from typing_extensions import TypeAlias
 
 from .constants import (
     PYSTOW_HOME_ENVVAR,
@@ -58,11 +50,19 @@ if TYPE_CHECKING:
     import rdflib
 
 __all__ = [
+    "MODE_MAP",
+    "OPERATION_VALUES",
+    "REPRESENTATION_VALUES",
+    "REVERSE_MODE_MAP",
     "DownloadBackend",
     "DownloadError",
     "Hash",
     "HexDigestError",
     "HexDigestMismatch",
+    "InvalidOperationError",
+    "InvalidRepresentationError",
+    "Operation",
+    "Representation",
     "UnexpectedDirectory",
     "UnexpectedDirectoryError",
     "download",
@@ -71,9 +71,11 @@ __all__ = [
     "get_base",
     "get_commit",
     "get_df_io",
+    "get_hash_hexdigest",
     "get_hashes",
     "get_hexdigests_remote",
     "get_home",
+    "get_mode_pair",
     "get_name",
     "get_np_io",
     "get_offending_hexdigests",
@@ -86,8 +88,10 @@ __all__ = [
     "n",
     "name_from_s3_key",
     "name_from_url",
+    "open_tarfile",
     "open_zip_reader",
     "open_zip_writer",
+    "open_zipfile",
     "path_to_sqlite",
     "raise_on_digest_mismatch",
     "read_rdf",
@@ -132,6 +136,56 @@ OPERATION_VALUES: set[str] = set(typing.get_args(Operation))
 #: A human-readable flag for how to open a file.
 Representation: TypeAlias = Literal["text", "binary"]
 REPRESENTATION_VALUES: set[str] = set(typing.get_args(Representation))
+
+#: Characters for "unqualified" modes, which might be interpreted
+#: differently by different functions
+UnqualifiedMode: TypeAlias = Literal["r", "w"]
+
+#: Characters for "qualified" modes, which are absolute (as opposed to
+#: :data:`UnqualifiedMode`, which is context-dependent)
+QualifiedMode: TypeAlias = Literal["rt", "wt", "rb", "wb"]
+
+ModePair: TypeAlias = tuple[Operation, Representation]
+
+#: A mapping between operation/representation pairs and qualified modes
+MODE_MAP: dict[ModePair, QualifiedMode] = {
+    ("read", "text"): "rt",
+    ("read", "binary"): "rb",
+    ("write", "text"): "wt",
+    ("write", "binary"): "wb",
+}
+
+#: A mapping between qualified modes and operation/representation pairs
+REVERSE_MODE_MAP: dict[QualifiedMode, ModePair] = {
+    "rt": ("read", "text"),
+    "rb": ("read", "binary"),
+    "wt": ("write", "text"),
+    "wb": ("write", "binary"),
+}
+
+UNQUALIFIED_TEXT_MAP: dict[UnqualifiedMode, ModePair] = {
+    "r": ("read", "text"),
+    "w": ("write", "text"),
+}
+UNQUALIFIED_BINARY_MAP: dict[UnqualifiedMode, ModePair] = {
+    "r": ("read", "binary"),
+    "w": ("write", "binary"),
+}
+
+
+def get_mode_pair(
+    mode: UnqualifiedMode | QualifiedMode, interpretation: Representation
+) -> ModePair:
+    """Get the mode pair."""
+    match mode:
+        case "rt" | "wt" | "rb" | "wb":
+            return REVERSE_MODE_MAP[mode]
+        case "r" | "w" if interpretation == "text":
+            return UNQUALIFIED_TEXT_MAP[mode]
+        case "r" | "w" if interpretation == "binary":
+            return UNQUALIFIED_BINARY_MAP[mode]
+        case _:
+            raise ValueError(f"invalid mode: {mode}")
 
 
 class HexDigestMismatch(NamedTuple):
@@ -284,6 +338,17 @@ def get_hashes(
                 alg.update(buffer[:this_chunk_size])
 
     return algorithms
+
+
+def get_hash_hexdigest(
+    path: str | Path,
+    name: str,
+    *,
+    chunk_size: int | None = None,
+) -> str:
+    """Get a hash digest for a single hash."""
+    r = get_hashes(path, [name], chunk_size=chunk_size)
+    return r[name].hexdigest()
 
 
 def raise_on_digest_mismatch(
@@ -701,6 +766,8 @@ def open_zipfile(
     *,
     operation: Operation = ...,
     representation: Literal["text"],
+    zipfile_kwargs: Mapping[str, Any] | None = ...,
+    open_kwargs: Mapping[str, Any] | None = ...,
 ) -> Generator[typing.TextIO, None, None]: ...
 
 
@@ -713,6 +780,8 @@ def open_zipfile(
     *,
     operation: Operation = ...,
     representation: Literal["binary"],
+    zipfile_kwargs: Mapping[str, Any] | None = ...,
+    open_kwargs: Mapping[str, Any] | None = ...,
 ) -> Generator[typing.BinaryIO, None, None]: ...
 
 
@@ -723,19 +792,28 @@ def open_zipfile(
     *,
     operation: Operation = "read",
     representation: Representation,
+    zipfile_kwargs: Mapping[str, Any] | None = None,
+    open_kwargs: Mapping[str, Any] | None = None,
 ) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
     """Open a zipfile."""
-    mode: Literal["r", "w"] = "r" if operation == "read" else "w"
+    mode: Literal["r", "w"]
+    if operation == "read":
+        mode = "r"
+    elif operation == "write":
+        mode = "w"
+    else:
+        raise InvalidOperationError(operation)
+
     # there might be a better way to deal with the mode here
-    with zipfile.ZipFile(file=path, mode=mode) as zip_file:
-        with zip_file.open(inner_path, mode=mode) as binary_file:
+    with zipfile.ZipFile(file=path, mode=mode, **(zipfile_kwargs or {})) as zip_file:
+        with zip_file.open(inner_path, mode=mode, **(open_kwargs or {})) as binary_file:
             if representation == "text":
                 with io.TextIOWrapper(binary_file, encoding="utf-8") as text_file:
                     yield text_file
             elif representation == "binary":
                 yield cast(typing.BinaryIO, binary_file)
             else:
-                raise ValueError
+                raise InvalidRepresentationError(representation)
 
 
 @contextlib.contextmanager
@@ -745,13 +823,14 @@ def open_tarfile(
     *,
     operation: Operation = "read",
     representation: Representation = "binary",
+    open_kwargs: Mapping[str, Any] | None = None,
 ) -> Generator[typing.IO[bytes], None, None]:
     """Open a tar file."""
     if representation != "binary":
-        raise NotImplementedError
+        raise NotImplementedError("tarfile must use binary representation")
 
     if operation == "read":
-        with tarfile.open(path, "r") as tar:
+        with tarfile.open(path, "r", **(open_kwargs or {})) as tar:
             member = tar.getmember(inner_path)
             file = tar.extractfile(member)
             if file is None:
@@ -766,7 +845,34 @@ def open_tarfile(
         with tarfile.TarFile(path, mode="w") as tar_file:
             tar_file.addfile(tarinfo, file)
     else:
-        raise ValueError
+        raise InvalidOperationError(operation)
+
+
+class InvalidRepresentationError(ValueError):
+    """Raised when passing an invalid representation."""
+
+    def __init__(self, representation: str) -> None:
+        """Instantiate the exception."""
+        self.representation = representation
+
+    def __str__(self) -> str:
+        """Create a string for the exception."""
+        return (
+            f"Invalid representation: {self.representation}. "
+            f"Should be one of {REPRESENTATION_VALUES}."
+        )
+
+
+class InvalidOperationError(ValueError):
+    """Raised when passing an invalid operation."""
+
+    def __init__(self, operation: str) -> None:
+        """Instantiate the exception."""
+        self.operation = operation
+
+    def __str__(self) -> str:
+        """Create a string for the exception."""
+        return f"Invalid operation: {self.operation}. Should be one of {OPERATION_VALUES}."
 
 
 @contextlib.contextmanager
@@ -1272,14 +1378,6 @@ def gunzip(source: str | Path, target: str | Path) -> None:
         shutil.copyfileobj(in_file, out_file)
 
 
-MODE_MAP: dict[tuple[Operation, Representation], Literal["rt", "wt", "rb", "wb"]] = {
-    ("read", "text"): "rt",
-    ("read", "binary"): "rb",
-    ("write", "text"): "wt",
-    ("write", "binary"): "wb",
-}
-
-
 # docstr-coverage:excused `overload`
 @typing.overload
 @contextlib.contextmanager
@@ -1302,14 +1400,9 @@ def safe_open(
 ) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
     """Safely open a file for reading or writing text."""
     if operation not in OPERATION_VALUES:
-        raise ValueError(
-            f"Invalid operation given: {operation}. Should be one of {OPERATION_VALUES}."
-        )
+        raise InvalidOperationError(operation)
     if representation not in REPRESENTATION_VALUES:
-        raise ValueError(
-            f"Invalid representation given: {representation}. "
-            f"Should be one of {REPRESENTATION_VALUES}."
-        )
+        raise InvalidRepresentationError(representation)
 
     mode = MODE_MAP[operation, representation]
     path = Path(path).expanduser().resolve()
@@ -1412,11 +1505,13 @@ def get_soup(
     """Get a beautiful soup parsed version of the given web page.
 
     :param url: The URL to download and parse with BeautifulSoup
-    :param verify: Should SSL be used? This is almost always true,
-        except for Ensembl, which makes a big pain
-    :param timeout: How many integer seconds to wait for a response?
-        Defaults to 15 if none given.
-    :param user_agent: A custom user-agent to set, e.g., to avoid anti-crawling mechanisms
+    :param verify: Should SSL be used? This is almost always true, except for Ensembl,
+        which makes a big pain
+    :param timeout: How many integer seconds to wait for a response? Defaults to 15 if
+        none given.
+    :param user_agent: A custom user-agent to set, e.g., to avoid anti-crawling
+        mechanisms
+
     :returns: A BeautifulSoup object
     """
     from bs4 import BeautifulSoup

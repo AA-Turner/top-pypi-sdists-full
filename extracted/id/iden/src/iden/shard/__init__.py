@@ -32,7 +32,6 @@ __all__ = [
     "sort_by_uri",
 ]
 
-from iden.shard import comparators  # noqa: F401
 from iden.shard.base import BaseShard
 from iden.shard.cloudpickle import CloudpickleShard, create_cloudpickle_shard
 from iden.shard.dict import ShardDict, create_shard_dict

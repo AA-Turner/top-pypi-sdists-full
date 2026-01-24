@@ -161,13 +161,13 @@ async def _create_tmp_directory(
 def _get_tmp_directory(final_path: epath.Path) -> epath.Path:
   # Path may not be completely unique if a preemption occurs. We rely on the
   # existing tmp directory being deleted elsewhere.
-  return epath.Path(final_path.parent) / (final_path.name + TMP_DIR_SUFFIX)
+  return final_path.parent / (final_path.name + TMP_DIR_SUFFIX)
 
 
 def _get_final_directory(tmp_path: epath.Path) -> epath.Path:
   if (suffix_idx := tmp_path.name.find(TMP_DIR_SUFFIX)) == -1:
     raise ValueError(f'Expected {tmp_path} to end with "{TMP_DIR_SUFFIX}".')
-  return epath.Path(tmp_path.parent) / tmp_path.name[:suffix_idx]
+  return tmp_path.parent / tmp_path.name[:suffix_idx]
 
 
 class TemporaryPathBase(atomicity_types.TemporaryPath):
@@ -675,7 +675,6 @@ def create_all_async(
     *,
     multiprocessing_options: options_lib.MultiprocessingOptions | None = None,
     subdirectories: Sequence[str] | None = None,
-    operation_id: str | None = None,
 ) -> future.Future:
   """Creates all temporary paths in parallel asynchronously.
 
@@ -688,8 +687,6 @@ def create_all_async(
     subdirectories: Sequence of subdirectories to create under `paths`. If not
       provided, no subdirectories will be created. The same set of
       subdirectories will be created under each path in `paths`.
-    operation_id: The operation id to use for the barrier keys. If None, the
-      current operation id is used.
 
   Returns:
     A future that which sends the completion signals when all paths are created.
@@ -720,7 +717,6 @@ def create_all_async(
         ),
         send_signals=completion_signals,
         timeout_secs=multihost.coordination_timeout(),
-        operation_id=operation_id,
     )
     future.AwaitableSignalsContract.add_to_awaitable_signals_contract(
         completion_signals

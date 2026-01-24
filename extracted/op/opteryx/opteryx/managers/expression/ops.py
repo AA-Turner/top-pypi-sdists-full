@@ -148,95 +148,125 @@ def _inner_filter_operations(arr, operator, value):
             value = pyarrow.array(value)
 
     if operator == "Eq":
-        return compute.equal(arr, value).to_numpy(False).astype(dtype=bool)
+        return compute.equal(arr, value).to_numpy(False).astype(dtype=numpy.bool_)
     if operator == "NotEq":
-        return compute.not_equal(arr, value).to_numpy(False).astype(dtype=bool)
+        return compute.not_equal(arr, value).to_numpy(False).astype(dtype=numpy.bool_)
     if operator == "Lt":
-        return compute.less(arr, value).to_numpy(False).astype(dtype=bool)
+        return compute.less(arr, value).to_numpy(False).astype(dtype=numpy.bool_)
     if operator == "Gt":
-        return compute.greater(arr, value).to_numpy(False).astype(dtype=bool)
+        return compute.greater(arr, value).to_numpy(False).astype(dtype=numpy.bool_)
     if operator == "LtEq":
-        return compute.less_equal(arr, value).to_numpy(False).astype(dtype=bool)
+        return compute.less_equal(arr, value).to_numpy(False).astype(dtype=numpy.bool_)
     if operator == "GtEq":
-        return compute.greater_equal(arr, value).to_numpy(False).astype(dtype=bool)
+        return compute.greater_equal(arr, value).to_numpy(False).astype(dtype=numpy.bool_)
     if operator == "InList":
-        with suppress(AttributeError):
-            value = value.to_pylist()
-        with suppress(AttributeError):
-            value = value.to_numpy(zero_copy_only=False)
+        from opteryx.draken.interop.arrow import vector_from_arrow
+
+        to_pylist = getattr(value, "to_pylist", None)
+        if to_pylist is not None:
+            value = to_pylist()
+
+        to_numpy = getattr(value, "to_numpy", None)
+        if to_numpy is not None:
+            value = to_numpy(zero_copy_only=False)
+
         values = set(value)
-        with suppress(AttributeError):
-            arr = arr.to_numpy(zero_copy_only=False)
-        if arr.dtype == numpy.int64:
-            return list_ops.list_in_list.list_in_list_int64(memoryview(arr), values, len(arr))
-        else:
-            return list_ops.list_in_list.list_in_list(arr.astype(object), values)
+
+        if isinstance(arr, numpy.ndarray):
+            arr = pyarrow.array(arr)
+
+        if isinstance(arr, pyarrow.ChunkedArray):
+            arr = arr.combine_chunks()
+
+        if isinstance(arr, pyarrow.Array):
+            arr = vector_from_arrow(arr)
+
+        return list_ops.list_in_list(arr, values)
     if operator == "NotInList":
-        with suppress(AttributeError):
-            value = value.to_pylist()
-        with suppress(AttributeError):
-            value = value.to_numpy(zero_copy_only=False)
+        from opteryx.draken.interop.arrow import vector_from_arrow
+
+        to_pylist = getattr(value, "to_pylist", None)
+        if to_pylist is not None:
+            value = to_pylist()
+
+        to_numpy = getattr(value, "to_numpy", None)
+        if to_numpy is not None:
+            value = to_numpy(zero_copy_only=False)
+
         values = set(value)
-        with suppress(AttributeError):
-            arr = arr.to_numpy(zero_copy_only=False)
-        if arr.dtype == numpy.int64:
-            matches = list_ops.list_in_list.list_in_list_int64(memoryview(arr), values, len(arr))
-        else:
-            matches = list_ops.list_in_list.list_in_list(arr.astype(object), values)
-        return numpy.invert(matches.astype(dtype=bool))
+
+        if isinstance(arr, numpy.ndarray):
+            arr = pyarrow.array(arr)
+
+        if isinstance(arr, pyarrow.ChunkedArray):
+            arr = arr.combine_chunks()
+
+        if isinstance(arr, pyarrow.Array):
+            arr = vector_from_arrow(arr)
+
+        matches = list_ops.list_in_list(arr, values)
+        return numpy.invert(matches.astype(dtype=numpy.bool_))
     if operator == "InStr":
         needle = str(value)
-        arr = pyarrow.array(arr)
-        return numpy.asarray(list_ops.list_in_string.list_in_string(arr, needle), dtype=bool)
+        if not isinstance(arr, (pyarrow.Array, pyarrow.ChunkedArray)):
+            arr = pyarrow.array(arr, type=pyarrow.binary())
+        matches = list_ops.list_in_string(arr, needle)
+        return numpy.frombuffer(matches, dtype=numpy.bool_)
     if operator == "NotInStr":
         needle = str(value)
-        arr = pyarrow.array(arr)
-        matches = numpy.asarray(list_ops.list_in_string.list_in_string(arr, needle), dtype=bool)
+        if not isinstance(arr, (pyarrow.Array, pyarrow.ChunkedArray)):
+            arr = pyarrow.array(arr, type=pyarrow.binary())
+        matches = list_ops.list_in_string(arr, needle)
+        matches = numpy.frombuffer(matches, dtype=numpy.bool_)
         return numpy.invert(matches)
     if operator == "IInStr":
         needle = str(value)
-        arr = pyarrow.array(arr)
-        return numpy.asarray(
-            list_ops.list_in_string.list_in_string_case_insensitive(arr, needle), dtype=bool
-        )
+        if not isinstance(arr, (pyarrow.Array, pyarrow.ChunkedArray)):
+            arr = pyarrow.array(arr, type=pyarrow.binary())
+        matches = list_ops.list_in_string_case_insensitive(arr, needle)
+        return numpy.frombuffer(matches, dtype=numpy.bool_)
     if operator == "NotIInStr":
         needle = str(value)
-        arr = pyarrow.array(arr)
-        matches = numpy.asarray(
-            list_ops.list_in_string.list_in_string_case_insensitive(arr, needle), dtype=bool
-        )
+        if not isinstance(arr, (pyarrow.Array, pyarrow.ChunkedArray)):
+            arr = pyarrow.array(arr, type=pyarrow.binary())
+        matches = list_ops.list_in_string_case_insensitive(arr, needle)
+        matches = numpy.frombuffer(matches, dtype=numpy.bool_)
         return numpy.invert(matches)
     if operator == "Like":
-        return compute.match_like(arr, value).to_numpy(False).astype(dtype=bool)
+        return compute.match_like(arr, value).to_numpy(False).astype(dtype=numpy.bool_)
     if operator == "NotLike":
-        matches = compute.match_like(arr, value).to_numpy(False).astype(dtype=bool)
+        matches = compute.match_like(arr, value).to_numpy(False).astype(dtype=numpy.bool_)
         return numpy.invert(matches)
     if operator == "ILike":
-        return compute.match_like(arr, value, ignore_case=True).to_numpy(False).astype(dtype=bool)
+        return (
+            compute.match_like(arr, value, ignore_case=True)
+            .to_numpy(False)
+            .astype(dtype=numpy.bool_)
+        )
     if operator == "NotILike":
         matches = compute.match_like(arr, value, ignore_case=True)
         return numpy.invert(matches)
     if operator == "RLike":
-        return compute.match_substring_regex(arr, value).to_numpy(False).astype(dtype=bool)
+        return compute.match_substring_regex(arr, value).to_numpy(False).astype(dtype=numpy.bool_)
     if operator == "NotRLike":
         matches = compute.match_substring_regex(arr, value)  # [#325]
         return numpy.invert(matches)
     if operator == "AnyOpEq":
-        return list_ops.list_anyop_eq.list_anyop_eq(literal=arr[0], column=value)
+        return list_ops.list_anyop_eq(literal=arr[0], column=value)
     if operator == "AnyOpNotEq":
-        return list_ops.list_anyop_neq.list_anyop_neq(literal=arr[0], column=value)
+        return list_ops.list_anyop_neq(literal=arr[0], column=value)
     if operator == "AnyOpGt":
-        return list_ops.list_anyop_gt.list_anyop_gt(arr[0], value)
+        return list_ops.list_anyop_gt(arr[0], value)
     if operator == "AnyOpLt":
-        return list_ops.list_anyop_lt.list_anyop_lt(arr[0], value)
+        return list_ops.list_anyop_lt(arr[0], value)
     if operator == "AnyOpGtEq":
-        return list_ops.list_anyop_gte.list_anyop_gte(arr[0], value)
+        return list_ops.list_anyop_gte(arr[0], value)
     if operator == "AnyOpLtEq":
-        return list_ops.list_anyop_lte.list_anyop_lte(arr[0], value)
+        return list_ops.list_anyop_lte(arr[0], value)
     if operator == "AllOpEq":
-        return list_ops.list_allop_eq.list_allop_eq(arr[0], value)
+        return list_ops.list_allop_eq(arr[0], value)
     if operator == "AllOpNotEq":
-        return list_ops.list_allop_neq.list_allop_neq(arr[0], value)
+        return list_ops.list_allop_neq(arr[0], value)
 
     if operator == "AnyOpILike":
         from opteryx.utils.sql import regex_match_any
@@ -261,8 +291,9 @@ def _inner_filter_operations(arr, operator, value):
     if operator == "AtQuestion":
         from opteryx.third_party.tktech import csimdjson as simdjson
 
-        if hasattr(arr, "to_numpy"):
-            arr = arr.to_numpy(zero_copy_only=False)
+        to_numpy = getattr(arr, "to_numpy", None)
+        if to_numpy is not None:
+            arr = to_numpy(zero_copy_only=False)
 
         parser = simdjson.Parser()
 
@@ -301,26 +332,49 @@ def _inner_filter_operations(arr, operator, value):
         )
 
     if operator == "AtArrow":
-        from opteryx.compiled.list_ops.list_contains_any import list_contains_any
+        from opteryx.compiled.list_ops import list_contains_any
 
-        if hasattr(value, "to_pylist"):
-            value = value.to_pylist()
-        if hasattr(arr, "to_numpy"):
-            arr = arr.to_numpy(zero_copy_only=False)
         if len(arr) == 0:
-            return numpy.array([], dtype=bool)
+            return numpy.array([], dtype=numpy.bool_)
+
         if len(arr) == 1:
-            return numpy.array([set(arr[0]).intersection(value)], dtype=bool)
+            # Fixed: Handle None element
+            elem = arr[0]
+            if elem is None:
+                return numpy.array([False], dtype=numpy.bool_)
+
+            value_set = set(value) if value is not None else set()
+            try:
+                elem_set = set(elem)
+            except TypeError:
+                elem_set = {elem}
+
+            result = bool(elem_set.intersection(value_set))
+            return numpy.array([result], dtype=numpy.bool_)
+
+        to_numpy = getattr(arr, "to_numpy", None)
+        if to_numpy is not None:
+            arr = to_numpy(zero_copy_only=False)
+
+        to_pylist = getattr(value, "to_pylist", None)
+        if to_pylist is not None:
+            value = to_pylist()
 
         return list_contains_any(arr, set(value))
 
     if operator == "ArrayContainsAll":
-        from opteryx.compiled.list_ops.list_contains_all import list_contains_all
+        from opteryx.compiled.list_ops import list_contains_all
 
-        if hasattr(value, "to_pylist"):
-            value = value.to_pylist()
-        if hasattr(arr, "to_numpy"):
-            arr = arr.to_numpy(zero_copy_only=False)
+        to_pylist = getattr(value, "to_pylist", None)
+        if to_pylist is not None:
+            value = to_pylist()
+
+        to_numpy = getattr(arr, "to_numpy", None)
+        if to_numpy is not None:
+            arr = to_numpy(zero_copy_only=False)
+
+        if len(arr) == 1 and len(value) != 0:
+            raise ValueError("Unable to execute @>>, check form matches `column @>> (values)`.")
 
         return list_contains_all(arr, set(value))
 

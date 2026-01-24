@@ -16,7 +16,7 @@ from rich.console import Console
 
 from robocop.linter.utils.misc import ROBOT_VERSION
 from robocop.linter.utils.version_matching import VersionSpecifier
-from robocop.run import check_files
+from robocop.run import check_files, check_project
 from tests import working_directory
 
 if TYPE_CHECKING:
@@ -57,6 +57,11 @@ def normalize_result(result, test_data, sort_lines: bool):
 def load_expected_file(test_data, expected_file, sort_lines: bool):
     if expected_file is None:
         return []
+    if expected_file == "not_enabled":
+        return [
+            "No rule selected with the existing configuration from the cli . "
+            "Please check if all rules from --select exist and there is no conflicting filter option."
+        ]
     expected = test_data / expected_file
     with open(expected, encoding="utf-8") as f:
         lines = [
@@ -84,7 +89,7 @@ class RuleAcceptance:
     DEFAULT_ISSUE_FORMAT = "{source}:{line}:{col} [{severity}] {rule_id} {desc}"
     END_COL_ISSUE_FORMAT = "{source}:{line}:{col}:{end_line}:{end_col} [{severity}] {rule_id} {desc}"
 
-    def check_rule(
+    def check_rule(  # noqa: PLR0915
         self,
         expected_file: str | None = None,
         configure: list[str] | None = None,
@@ -99,10 +104,16 @@ class RuleAcceptance:
         exit_code: int | None = None,
         compare_output: bool = True,
         test_dir: Path | None = None,
+        project_check: bool = False,
         **kwargs,
     ) -> str | None:
         if not self.enabled_in_version(test_on_version):
             pytest.skip(f"Test enabled only for RF {test_on_version}")
+        if project_check:
+            test_fn = check_project
+        else:
+            test_fn = check_files
+            kwargs["cache"] = False
         test_data = test_dir or self.test_class_dir
         sort_lines = output_format == "simple"
         issue_format = self.get_issue_format(issue_format)
@@ -118,7 +129,7 @@ class RuleAcceptance:
         with isolated_output() as output, working_directory(test_data):
             try:
                 with pytest.raises(click.exceptions.Exit) as exc_info:
-                    check_files(
+                    test_fn(
                         sources=paths,
                         select=select,
                         configure=configure,

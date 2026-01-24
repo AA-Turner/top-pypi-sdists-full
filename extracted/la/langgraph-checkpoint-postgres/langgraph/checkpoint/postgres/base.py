@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import random
+import warnings
 from collections.abc import Sequence
-from typing import Any, Optional, cast
+from importlib.metadata import version as get_version
+from typing import Any, cast
 
 from langchain_core.runnables import RunnableConfig
-from psycopg.types.json import Jsonb
-
 from langgraph.checkpoint.base import (
     WRITES_IDX_MAP,
     BaseCheckpointSaver,
@@ -14,8 +14,21 @@ from langgraph.checkpoint.base import (
     get_checkpoint_id,
 )
 from langgraph.checkpoint.serde.types import TASKS
+from psycopg.types.json import Jsonb
 
-MetadataInput = Optional[dict[str, Any]]
+MetadataInput = dict[str, Any] | None
+
+try:
+    major, minor = get_version("langgraph").split(".")[:2]
+    if int(major) == 0 and int(minor) < 5:
+        warnings.warn(
+            "You're using incompatible versions of langgraph and checkpoint-postgres. Please upgrade langgraph to avoid unexpected behavior.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+except Exception:
+    # skip version check if running from source
+    pass
 
 """
 To add a new migration, add a new string to the MIGRATIONS list.
@@ -68,7 +81,7 @@ MIGRATIONS = [
     """
     CREATE INDEX CONCURRENTLY IF NOT EXISTS checkpoint_writes_thread_id_idx ON checkpoint_writes(thread_id);
     """,
-    """ALTER TABLE checkpoint_writes ADD COLUMN task_path TEXT NOT NULL DEFAULT '';""",
+    """ALTER TABLE checkpoint_writes ADD COLUMN IF NOT EXISTS task_path TEXT NOT NULL DEFAULT '';""",
 ]
 
 SELECT_SQL = """

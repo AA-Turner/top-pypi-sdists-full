@@ -1,9 +1,7 @@
 use common_error::{DaftError, DaftResult, ensure};
 use daft_core::{
     array::DataArray,
-    prelude::{
-        AsArrow, DaftIntegerType, DaftNumericType, DataType, Field, FullNull, Schema, Utf8Array,
-    },
+    prelude::{DaftIntegerType, DaftNumericType, DataType, Field, FullNull, Schema, Utf8Array},
     series::{IntoSeries, Series},
     with_match_integer_daft_types,
 };
@@ -16,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::{create_broadcasted_str_iter, parse_inputs};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Repeat;
 
 #[typetag::serde]
@@ -102,29 +100,26 @@ where
             let n: usize = NumCast::from(n).ok_or_else(|| {
                 DaftError::ComputeError(format!("Error in repeat: failed to cast rhs as usize {n}"))
             })?;
-            let arrow_result = self_iter
+            self_iter
                 .map(|val| Some(val?.repeat(n)))
-                .collect::<arrow2::array::Utf8Array<i64>>();
-            Utf8Array::from((arr.name(), Box::new(arrow_result)))
+                .collect::<Utf8Array>()
+                .rename(arr.name())
         }
-        _ => {
-            let arrow_result = self_iter
-                .zip(n.as_arrow().iter())
-                .map(|(val, n)| match (val, n) {
-                    (Some(val), Some(n)) => {
-                        let n: usize = NumCast::from(*n).ok_or_else(|| {
-                            DaftError::ComputeError(format!(
-                                "Error in repeat: failed to cast rhs as usize {n}"
-                            ))
-                        })?;
-                        Ok(Some(val.repeat(n)))
-                    }
-                    _ => Ok(None),
-                })
-                .collect::<DaftResult<arrow2::array::Utf8Array<i64>>>()?;
-
-            Utf8Array::from((arr.name(), Box::new(arrow_result)))
-        }
+        _ => self_iter
+            .zip(n.into_iter())
+            .map(|(val, n)| match (val, n) {
+                (Some(val), Some(n)) => {
+                    let n: usize = NumCast::from(*n).ok_or_else(|| {
+                        DaftError::ComputeError(format!(
+                            "Error in repeat: failed to cast rhs as usize {n}"
+                        ))
+                    })?;
+                    Ok(Some(val.repeat(n)))
+                }
+                _ => Ok(None),
+            })
+            .collect::<DaftResult<Utf8Array>>()?
+            .rename(arr.name()),
     };
 
     assert_eq!(result.len(), expected_size);

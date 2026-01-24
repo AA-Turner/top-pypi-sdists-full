@@ -2,8 +2,8 @@
  * @file Kiwi.h
  * @author bab2min (bab2min@gmail.com)
  * @brief Kiwi C++ API를 담고 있는 헤더 파일
- * @version 0.20.0
- * @date 2024-07-01
+ * @version 0.22.1
+ * @date 2025-11-21
  * 
  * 
  */
@@ -11,8 +11,11 @@
 
 #include <iostream>
 #include <future>
+#include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <optional>
 #include "Macro.h"
 #include "Types.h"
 #include "Form.h"
@@ -39,6 +42,16 @@ namespace kiwi
 	struct WordInfo;
 	class HSDataset;
 
+	struct HSDatasetOption
+	{
+		double dropoutProb = 0;
+		double dropoutProbOnHistory = 0;
+		double nounAugmentingProb = 0;
+		double emojiAugmentingProb = 0;
+		double sbAugmentingProb = 0;
+		size_t generateUnlikelihoods = (size_t)-1;
+	};
+
 	namespace cmb
 	{ 
 		class CompiledRule; 
@@ -58,11 +71,46 @@ namespace kiwi
 		Match match = Match::allWithNormalizing;
 		const std::unordered_set<const Morpheme*>* blocklist = nullptr;
 		bool openEnding = false;
+		Dialect allowedDialects = Dialect::standard;
+		float dialectCost = 3.f;
 
 		AnalyzeOption() = default;
-		AnalyzeOption(Match m, const std::unordered_set<const Morpheme*>* bl = nullptr, bool oe = false)
-			: match{ m }, blocklist{ bl }, openEnding{ oe } 
+		AnalyzeOption(Match m, 
+			const std::unordered_set<const Morpheme*>* bl = nullptr, 
+			bool oe = false,
+			Dialect ad = Dialect::standard,
+			float dc = 3.f
+			)
+			: match{ m }, blocklist{ bl }, openEnding{ oe }, allowedDialects{ ad }, dialectCost{ dc }
 		{}
+	};
+
+	struct MorphemeDef
+	{
+		POSTag tag = POSTag::unknown;
+		uint8_t senseId = 0;
+		Dialect dialect = Dialect::standard;
+
+		MorphemeDef() = default;
+		MorphemeDef(POSTag t, uint8_t s = 0, Dialect d = Dialect::standard)
+			: tag{ t }, senseId{ s }, dialect{ d }
+		{}
+	};
+
+	static constexpr uint8_t undefSenseId = (uint8_t)-1;
+
+	struct KiwiConfig
+	{
+		bool integrateAllomorph = true;
+		float cutOffThreshold = 8;
+		float unkFormScoreScale = 5;
+		float unkFormScoreBias = 5;
+		float spacePenalty = 7;
+		float typoCostWeight = 6;
+		uint32_t maxUnkFormSize = 6;
+		uint32_t spaceTolerance = 0;
+
+		void validate() const;
 	};
 
 	/**
@@ -78,18 +126,13 @@ namespace kiwi
 		friend class cmb::AutoJoiner;
 		template<template<ArchType> class LmState> friend struct NewAutoJoinerGetter;
 
-		bool integrateAllomorph = true;
-		float cutOffThreshold = 8;
-		float unkFormScoreScale = 5;
-		float unkFormScoreBias = 5;
-		float spacePenalty = 7;
-		float typoCostWeight = 6;
+		KiwiConfig globalConfig;
+
 		float continualTypoCost = INFINITY;
 		float lengtheningTypoCost = INFINITY;
-		size_t maxUnkFormSize = 6;
-		size_t spaceTolerance = 0;
 
 		TagSequenceScorer tagScorer;
+		Dialect enabledDialects = Dialect::standard;
 
 		Vector<Form> forms;
 		Vector<Morpheme> morphemes;
@@ -106,6 +149,7 @@ namespace kiwi
 		ArchType selectedArch = ArchType::none;
 		void* dfSplitByTrie = nullptr;
 		void* dfFindForm = nullptr;
+		void* dfFindFormWithPrefix = nullptr;
 		void* dfFindBestPath = nullptr;
 		void* dfNewJoiner = nullptr;
 	
@@ -124,10 +168,10 @@ namespace kiwi
 		std::array<size_t, static_cast<size_t>(SpecialMorph::max)> specialMorphIds = { { 0, } };
 
 		template<class Str, class Pretokenized, class ...Rest>
-		auto _asyncAnalyze(Str&& str, Pretokenized&& pt, Rest&&... args) const;
+		auto _asyncAnalyze(Str&& str, Pretokenized&& pt, const std::optional<KiwiConfig>& overrideConfig, Rest&&... args) const;
 
 		template<class Str, class Pretokenized, class ...Rest>
-		auto _asyncAnalyzeEcho(Str&& str, Pretokenized&& pt, Rest&&... args) const;
+		auto _asyncAnalyzeEcho(Str&& str, Pretokenized&& pt, const std::optional<KiwiConfig>& overrideConfig, Rest&&... args) const;
 
 		static std::vector<PretokenizedSpan> mapPretokenizedSpansToU16(const std::vector<PretokenizedSpan>& orig, const std::vector<size_t>& bytePositions);
 
@@ -184,7 +228,8 @@ namespace kiwi
 		 * @return TokenResult 
 		 */
 		TokenResult analyze(const std::u16string& str, AnalyzeOption option,
-			const std::vector<PretokenizedSpan>& pretokenized = {}
+			const std::vector<PretokenizedSpan>& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const
 		{
 			return analyze(str, 1, option, pretokenized)[0];
@@ -198,7 +243,8 @@ namespace kiwi
 		 * @return TokenResult 
 		 */
 		TokenResult analyze(const std::string& str, AnalyzeOption option, 
-			const std::vector<PretokenizedSpan>& pretokenized = {}
+			const std::vector<PretokenizedSpan>& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const
 		{
 			std::vector<size_t> bytePositions;
@@ -215,7 +261,8 @@ namespace kiwi
 		 * @return std::vector<TokenResult> 
 		 */
 		std::vector<TokenResult> analyze(const std::u16string& str, size_t topN, AnalyzeOption option,
-			const std::vector<PretokenizedSpan>& pretokenized = {}
+			const std::vector<PretokenizedSpan>& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 
 		/**
@@ -227,7 +274,9 @@ namespace kiwi
 		 * @return std::vector<TokenResult> 
 		 */
 		std::vector<TokenResult> analyze(const std::string& str, size_t topN, AnalyzeOption option,
-			const std::vector<PretokenizedSpan>& pretokenized = {}) const
+			const std::vector<PretokenizedSpan>& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
+		) const
 		{
 			std::vector<size_t> bytePositions;
 			auto u16str = utf8To16(str, bytePositions);
@@ -243,37 +292,47 @@ namespace kiwi
 		 * @return std::future<std::vector<TokenResult>> 
 		 */
 		std::future<std::vector<TokenResult>> asyncAnalyze(const std::string& str, size_t topN, AnalyzeOption option,
-			const std::vector<PretokenizedSpan>& pretokenized = {}
+			const std::vector<PretokenizedSpan>& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 		std::future<std::vector<TokenResult>> asyncAnalyze(std::string&& str, size_t topN, AnalyzeOption option,
-			std::vector<PretokenizedSpan>&& pretokenized = {}
+			std::vector<PretokenizedSpan>&& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 
 		std::future<TokenResult> asyncAnalyze(const std::string& str, AnalyzeOption option,
-			const std::vector<PretokenizedSpan>& pretokenized = {}
+			const std::vector<PretokenizedSpan>& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 		std::future<TokenResult> asyncAnalyze(std::string&& str, AnalyzeOption option,
-			std::vector<PretokenizedSpan>&& pretokenized = {}
+			std::vector<PretokenizedSpan>&& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 		std::future<std::pair<TokenResult, std::string>> asyncAnalyzeEcho(std::string&& str, AnalyzeOption option,
-			std::vector<PretokenizedSpan>&& pretokenized = {}
+			std::vector<PretokenizedSpan>&& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 
 		std::future<std::vector<TokenResult>> asyncAnalyze(const std::u16string& str, size_t topN, AnalyzeOption option,
-			const std::vector<PretokenizedSpan>& pretokenized = {}
+			const std::vector<PretokenizedSpan>& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 		std::future<std::vector<TokenResult>> asyncAnalyze(std::u16string&& str, size_t topN, AnalyzeOption option,
-			std::vector<PretokenizedSpan>&& pretokenized = {}
+			std::vector<PretokenizedSpan>&& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 
 		std::future<TokenResult> asyncAnalyze(const std::u16string& str, AnalyzeOption option,
-			const std::vector<PretokenizedSpan>& pretokenized = {}
+			const std::vector<PretokenizedSpan>& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 		std::future<TokenResult> asyncAnalyze(std::u16string&& str, AnalyzeOption option,
-			std::vector<PretokenizedSpan>&& pretokenized = {}
+			std::vector<PretokenizedSpan>&& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 		std::future<std::pair<TokenResult, std::u16string>> asyncAnalyzeEcho(std::u16string&& str, AnalyzeOption option,
-			std::vector<PretokenizedSpan>&& pretokenized = {}
+			std::vector<PretokenizedSpan>&& pretokenized = {},
+			const std::optional<KiwiConfig>& overrideConfig = {}
 		) const;
 
 		/**
@@ -288,11 +347,12 @@ namespace kiwi
 		 */
 		template<class ReaderCallback, class ResultCallback>
 		void analyze(size_t topN, ReaderCallback&& reader, ResultCallback&& resultCallback, 
-			AnalyzeOption option
+			AnalyzeOption option, const std::optional<KiwiConfig>& overrideConfig = {}
 		) const
 		{
 			if (pool)
 			{
+				auto config = overrideConfig.value_or(globalConfig);
 				bool stop = false;
 				std::deque<std::future<std::vector<TokenResult>>> futures;
 				for (size_t i = 0; i < pool->size() * 2; ++i)
@@ -303,9 +363,9 @@ namespace kiwi
 						stop = true;
 						break;
 					}
-					futures.emplace_back(pool->enqueue([=, ustr = std::move(ustr)](size_t tid)
+					futures.emplace_back(pool->enqueue([=, ustr = std::move(ustr), &config](size_t tid)
 					{
-						return analyze(ustr, topN, option, {});
+						return analyze(ustr, topN, option, {}, config);
 					}));
 				}
 
@@ -321,9 +381,9 @@ namespace kiwi
 							stop = true;
 							continue;
 						}
-						futures.emplace_back(pool->enqueue([=, ustr = std::move(ustr)](size_t tid)
+						futures.emplace_back(pool->enqueue([=, ustr = std::move(ustr), &config](size_t tid)
 						{
-							return analyze(ustr, topN, option, {});
+							return analyze(ustr, topN, option, {}, config);
 						}));
 					}
 				}
@@ -334,7 +394,7 @@ namespace kiwi
 				{
 					auto ustr = reader();
 					if (ustr.empty()) break;
-					resultCallback(analyze(ustr, topN, option));
+					resultCallback(analyze(ustr, topN, option, {}, overrideConfig));
 				}
 			}
 		}
@@ -427,89 +487,15 @@ namespace kiwi
 			return pool.get();
 		}
 
-		float getCutOffThreshold() const
+		const KiwiConfig& getGlobalConfig() const
 		{
-			return cutOffThreshold;
+			return globalConfig;
 		}
 
-		void setCutOffThreshold(float v)
+		void setGlobalConfig(const KiwiConfig& config)
 		{
-			if (v < 0) throw std::invalid_argument{ "`v` must >= 0" };
-			cutOffThreshold = v;
-		}
-
-		float getUnkScoreBias() const
-		{
-			return unkFormScoreBias;
-		}
-
-		void setUnkScoreBias(float v)
-		{
-			if (v < 0) throw std::invalid_argument{ "`v` must >= 0" };
-			unkFormScoreBias = v;
-		}
-
-		float getUnkScoreScale() const
-		{
-			return unkFormScoreScale;
-		}
-
-		void setUnkScoreScale(float v)
-		{
-			if (v < 0) throw std::invalid_argument{ "`v` must >= 0" };
-			unkFormScoreScale = v;
-		}
-
-		size_t getMaxUnkFormSize() const
-		{
-			return maxUnkFormSize;
-		}
-
-		void setMaxUnkFormSize(size_t v)
-		{
-			maxUnkFormSize = v;
-		}
-
-		size_t getSpaceTolerance() const
-		{
-			return spaceTolerance;
-		}
-
-		void setSpaceTolerance(size_t v)
-		{
-			spaceTolerance = v;
-		}
-
-		float getSpacePenalty() const
-		{
-			return spacePenalty;
-		}
-
-		void setSpacePenalty(float v)
-		{
-			if (v < 0) throw std::invalid_argument{ "`v` must >= 0" };
-			spacePenalty = v;
-		}
-
-		float getTypoCostWeight() const
-		{
-			return typoCostWeight;
-		}
-
-		void setTypoCostWeight(float v)
-		{
-			if (v < 0) throw std::invalid_argument{ "`v` must >= 0" };
-			typoCostWeight = v;
-		}
-
-		bool getIntegrateAllomorph() const
-		{
-			return integrateAllomorph;
-		}
-
-		void setIntegrateAllomorph(bool v)
-		{
-			integrateAllomorph = v;
+			config.validate();
+			globalConfig = config;
 		}
 
 		const lm::ILangModel* getLangModel() const
@@ -517,17 +503,27 @@ namespace kiwi
 			return langMdl.get();
 		}
 
-		const Morpheme* findMorpheme(const std::u16string_view& form, POSTag tag = POSTag::unknown) const;
+		/**
+		* @brief 형태소 사전에서 주어진 형태소를 찾는다.
+		* @param form 형태소의 형태
+		* @param tag 형태소의 품사 태그. POSTag::unknown을 지정하면 품사 태그를 무시하고 검색한다.
+		* @param senseId 형태소의 의미 번호. `undefSenseId`을 지정하면 의미 번호를 무시하고 검색한다.
+		* @return 주어진 형태소를 찾은 경우 해당 형태소의 포인터를 반환하고, 찾지 못한 경우 nullptr를 반환한다.
+		*/
+		const Morpheme* findMorpheme(std::u16string_view form, POSTag tag = POSTag::unknown, uint8_t senseId = undefSenseId) const;
 
-		size_t findMorphemeId(const std::u16string_view& form, POSTag tag = POSTag::unknown) const
+		size_t findMorphemeId(std::u16string_view form, POSTag tag = POSTag::unknown, uint8_t senseId = undefSenseId) const
 		{
-			const Morpheme* morph = findMorpheme(form, tag);
+			const Morpheme* morph = findMorpheme(form, tag, senseId);
 			if (!morph) return -1;
 			return morphToId(morph);
 		}
 
-		void findMorphemes(std::vector<const Morpheme*>& out, const std::u16string_view& s, POSTag tag = POSTag::unknown) const;
-		std::vector<const Morpheme*> findMorphemes(const std::u16string_view& s, POSTag tag = POSTag::unknown) const;
+		void findMorphemes(std::vector<const Morpheme*>& ret, std::u16string_view s, POSTag tag = POSTag::unknown, uint8_t senseId = undefSenseId) const;
+		std::vector<const Morpheme*> findMorphemes(std::u16string_view s, POSTag tag = POSTag::unknown, uint8_t senseId = undefSenseId) const;
+
+		size_t findMorphemesWithPrefix(const Morpheme** out, size_t size, std::u16string_view s, POSTag tag = POSTag::unknown, uint8_t senseId = undefSenseId) const;
+		std::vector<const Morpheme*> findMorphemesWithPrefix(size_t size, std::u16string_view s, POSTag tag = POSTag::unknown, uint8_t senseId = undefSenseId) const;
 	};
 
 	/**
@@ -543,10 +539,12 @@ namespace kiwi
 		std::shared_ptr<lm::ILangModel> langMdl;
 		std::shared_ptr<cmb::CompiledRule> combiningRule;
 		WordDetector detector;
+		Map<int, int> ruleProfilingCnt;
 
 		size_t numThreads = 0;
 		BuildOption options = BuildOption::none;
 		ModelType modelType = ModelType::none;
+		Dialect enabledDialects = Dialect::standard;
 		ArchType archType = ArchType::none;
 
 	public:
@@ -569,6 +567,12 @@ namespace kiwi
 			float dropoutSampling = 0.05f;
 			float dropoutProb = 0.15f;
 		};
+
+		/**
+		 * @brief 모델 파일을 읽기 위한 스트림 제공자 함수 타입.
+		 * 파일명을 입력받아 해당 파일의 내용을 읽을 수 있는 스트림을 반환한다.
+		 */
+		using StreamProvider = std::function<std::unique_ptr<std::istream>(const std::string& filename)>;
 
 	private:
 		using MorphemeMap = UnorderedMap<std::tuple<KString, uint8_t, POSTag>, std::pair<size_t, size_t>>;
@@ -593,39 +597,43 @@ namespace kiwi
 		void _addCorpusTo(RaggedVector<VocabTy>& out, std::istream& is, MorphemeMap& morphMap, 
 			double splitRatio, RaggedVector<VocabTy>* splitOut,
 			UnorderedMap<std::pair<KString, POSTag>, size_t>* oovDict = nullptr,
-			const UnorderedMap<std::pair<KString, POSTag>, std::pair<KString, POSTag>>* transform = nullptr) const;
+			const UnorderedMap<std::pair<KString, POSTag>, Vector<std::pair<KString, POSTag>>>* transform = nullptr) const;
 
 		void addCorpusTo(RaggedVector<uint8_t>& out, std::istream& is, MorphemeMap& morphMap, 
 			double splitRatio = 0, RaggedVector<uint8_t>* splitOut = nullptr,
 			UnorderedMap<std::pair<KString, POSTag>, size_t>* oovDict = nullptr,
-			const UnorderedMap<std::pair<KString, POSTag>, std::pair<KString, POSTag>>* transform = nullptr) const;
+			const UnorderedMap<std::pair<KString, POSTag>, Vector<std::pair<KString, POSTag>>>* transform = nullptr) const;
 		void addCorpusTo(RaggedVector<uint16_t>& out, std::istream& is, MorphemeMap& morphMap, 
 			double splitRatio = 0, RaggedVector<uint16_t>* splitOut = nullptr,
 			UnorderedMap<std::pair<KString, POSTag>, size_t>* oovDict = nullptr,
-			const UnorderedMap<std::pair<KString, POSTag>, std::pair<KString, POSTag>>* transform = nullptr) const;
+			const UnorderedMap<std::pair<KString, POSTag>, Vector<std::pair<KString, POSTag>>>* transform = nullptr) const;
 		void addCorpusTo(RaggedVector<uint32_t>& out, std::istream& is, MorphemeMap& morphMap, 
 			double splitRatio = 0, RaggedVector<uint32_t>* splitOut = nullptr,
 			UnorderedMap<std::pair<KString, POSTag>, size_t>* oovDict = nullptr,
-			const UnorderedMap<std::pair<KString, POSTag>, std::pair<KString, POSTag>>* transform = nullptr) const;
+			const UnorderedMap<std::pair<KString, POSTag>, Vector<std::pair<KString, POSTag>>>* transform = nullptr) const;
 		void addCorpusTo(RaggedVector<int32_t>& out, std::istream& is, MorphemeMap& morphMap,
 			double splitRatio = 0, RaggedVector<int32_t>* splitOut = nullptr,
 			UnorderedMap<std::pair<KString, POSTag>, size_t>* oovDict = nullptr,
-			const UnorderedMap<std::pair<KString, POSTag>, std::pair<KString, POSTag>>* transform = nullptr) const;
+			const UnorderedMap<std::pair<KString, POSTag>, Vector<std::pair<KString, POSTag>>>* transform = nullptr) const;
 		void updateForms();
 		void updateMorphemes(size_t vocabSize = 0);
 
-		size_t findMorpheme(U16StringView form, POSTag tag) const;
+		size_t findMorpheme(U16StringView form, POSTag tag, uint8_t senseId = undefSenseId) const;
 
-		std::pair<uint32_t, bool> addWord(U16StringView newForm, POSTag tag, float score, size_t origMorphemeId, size_t lmMorphemeId);
-		std::pair<uint32_t, bool> addWord(const std::u16string& newForm, POSTag tag, float score, size_t origMorphemeId, size_t lmMorphemeId);
-		std::pair<uint32_t, bool> addWord(U16StringView form, POSTag tag = POSTag::nnp, float score = 0);
-		std::pair<uint32_t, bool> addWord(U16StringView newForm, POSTag tag, float score, U16StringView origForm);
+		std::pair<uint32_t, bool> addWord(U16StringView newForm, MorphemeDef def,
+			float score, size_t origMorphemeId, size_t lmMorphemeId);
+		std::pair<uint32_t, bool> addWord(const std::u16string& newForm, MorphemeDef def,
+			float score, size_t origMorphemeId, size_t lmMorphemeId);
+		std::pair<uint32_t, bool> addWord(U16StringView form, MorphemeDef def = POSTag::nnp,
+			float score = 0);
+		std::pair<uint32_t, bool> addWord(U16StringView newForm, MorphemeDef def,
+			float score, U16StringView origForm, uint8_t origSenseId = undefSenseId);
 
 		template<class U16>
 		bool addPreAnalyzedWord(U16StringView form,
-			const std::vector<std::pair<U16, POSTag>>& analyzed,
+			const std::vector<std::tuple<U16, POSTag, uint8_t>>& analyzed,
 			std::vector<std::pair<size_t, size_t>> positions = {},
-			float score = 0
+			float score = 0, Dialect dialect = Dialect::standard
 		);
 
 		void addCombinedMorpheme(
@@ -635,7 +643,8 @@ namespace kiwi
 			UnorderedMap<size_t, Vector<uint32_t>>& newFormCands,
 			size_t leftId,
 			size_t rightId,
-			const cmb::Result& r
+			const cmb::Result& r,
+			Map<int, int>* ruleProfilingCnt = nullptr
 		) const;
 
 		void addCombinedMorphemes(
@@ -645,14 +654,16 @@ namespace kiwi
 			UnorderedMap<size_t, Vector<uint32_t>>& newFormCands,
 			size_t leftId,
 			size_t rightId,
-			size_t ruleId
+			size_t ruleId,
+			Map<int, int>* ruleProfilingCnt = nullptr
 		) const;
 
 		void buildCombinedMorphemes(
 			Vector<FormRaw>& newForms,
 			UnorderedMap<KString, size_t>& newFormMap,
 			Vector<MorphemeRaw>& newMorphemes,
-			UnorderedMap<size_t, Vector<uint32_t>>& newFormCands
+			UnorderedMap<size_t, Vector<uint32_t>>& newFormCands,
+			Map<int, int>* ruleProfilingCnt = nullptr
 		) const;
 
 		void addAllomorphsToRule();
@@ -664,7 +675,7 @@ namespace kiwi
 		/**
 		 * @brief 주어진 모델 경로로부터 모델의 타입을 추정한다.
 		 */
-		static ModelType getModelType(const std::string& modelPath, bool largest = false);
+		static ModelType getModelType(const StreamProvider& provider, bool largest = false);
 
 		/**
 		 * @brief KiwiBuilder의 기본 생성자
@@ -698,6 +709,24 @@ namespace kiwi
 		KiwiBuilder(const std::string& modelPath, const ModelBuildArgs& args);
 
 		/**
+		 * @brief KiwiBuilder를 스트림 제공자를 통해 모델 파일로부터 생성한다.
+		 *
+		 * @param streamProvider 파일명을 받아 해당 모델 파일의 스트림을 반환하는 함수 객체.
+		 *                       이를 통해 파일 시스템 외에도 바이트 배열, 리소스 등 다양한 소스에서 모델을 읽을 수 있다.
+		 * @param numThreads 모델 및 형태소 분석에 사용할 스레드 개수. 
+		 *                   0일 경우 async를 지원하지 않는 단일 스레드에서 동작하며, 1 이상일 경우 지정한 개수만큼 worker 스레드를 생성하여 async가 지원된다.
+		 *                   기본값은 -1으로 이 경우 시스템의 CPU 코어 개수를 탐지하여 이 값을 numThreads값으로 설정한다.
+		 * @param options 생성 옵션. `kiwi::BuildOption`을 참조
+		 * @param modelType 모델의 타입. ModelType::none으로 지정한 경우 streamProvider를 통해 모델 파일을 읽어 모델의 타입을 추정한다.
+		 * @param enabledDialects 활성화할 방언. 기본값은 Dialect::standard로 표준어만 활성화한다.
+		 */
+		KiwiBuilder(StreamProvider streamProvider, 
+			size_t numThreads = -1, 
+			BuildOption options = BuildOption::default_, 
+			ModelType modelType = ModelType::none,
+			Dialect enabledDialects = Dialect::standard);
+
+		/**
 		 * @brief KiwiBuilder를 모델 파일로부터 생성한다.
 		 *
 		 * @param modelPath 모델이 위치한 경로
@@ -705,8 +734,14 @@ namespace kiwi
 		 *                   0일 경우 async를 지원하지 않는 단일 스레드에서 동작하며, 1 이상일 경우 지정한 개수만큼 worker 스레드를 생성하여 async가 지원된다.
 		 *                   기본값은 -1으로 이 경우 시스템의 CPU 코어 개수를 탐지하여 이 값을 numThreads값으로 설정한다.
 		 * @param options 생성 옵션. `kiwi::BuildOption`을 참조
+		 * @param modelType 모델의 타입. ModelType::none으로 지정한 경우 modelPath로부터 모델의 타입을 추정한다.
+		 * @param enabledDialects 활성화할 방언. 기본값은 Dialect::standard로 표준어만 활성화한다.
 		 */
-		KiwiBuilder(const std::string& modelPath, size_t numThreads = -1, BuildOption options = BuildOption::default_, ModelType modelType = ModelType::none);
+		KiwiBuilder(const std::string& modelPath, 
+			size_t numThreads = -1, 
+			BuildOption options = BuildOption::default_, 
+			ModelType modelType = ModelType::none,
+			Dialect enabledDialects = Dialect::standard);
 
 		/**
 		 * @brief 현재 KiwiBuilder 객체가 유효한 분석 모델을 로딩한 상태인지 알려준다.
@@ -725,7 +760,7 @@ namespace kiwi
 		 * @brief 사전에 새로운 형태소를 추가한다. 이미 동일한 형태소가 있는 경우는 무시된다.
 		 *
 		 * @param form 새로운 형태소의 형태
-		 * @param tag 품사 태그
+		 * @param def 품사 태그, 의미 번호, 방언 등을 포함하는 형태소 정의. 기본값은 `POSTag::nnp`(고유명사)이다.
 		 * @param score 페널티 점수. 이에 대한 자세한 설명은 하단의 note 참조.
 		 * @return 추가된 형태소의 ID와 성공 여부를 pair로 반환한다. `form/tag` 형태소가 이미 존재하는 경우 추가에 실패한다.
 		 * @note 이 방법으로 추가된 형태소는 언어모델 탐색에서 어휘 사전 외 토큰(OOV 토큰)으로 처리된다.
@@ -734,44 +769,49 @@ namespace kiwi
 		 * 만약 이 방법으로 추가된 형태소가 원치 않는 상황에서 과도하게 출력되는 경우라면 `score`를 더 작은 값으로,
 		 * 반대로 원하는 상황에서도 출력되지 않는 경우라면 `score`를 더 큰 값으로 조절하는 게 좋다.
 		 */
-		std::pair<uint32_t, bool> addWord(const std::u16string& form, POSTag tag = POSTag::nnp, float score = 0);
-		std::pair<uint32_t, bool> addWord(const char16_t* form, POSTag tag = POSTag::nnp, float score = 0);
+		std::pair<uint32_t, bool> addWord(const std::u16string& form, MorphemeDef def = POSTag::nnp,
+			float score = 0);
+		std::pair<uint32_t, bool> addWord(const char16_t* form, MorphemeDef def = POSTag::nnp,
+			float score = 0);
 
 		/**
 		 * @brief 사전에 기존 형태소의 변이형을 추가한다. 이미 동일한 형태소가 있는 경우는 무시된다.
 		 *
 		 * @param newForm 새로운 형태
-		 * @param tag 품사 태그
+		 * @param def 품사 태그, 의미 번호, 방언 등을 포함하는 형태소 정의
 		 * @param score 새로운 형태의 페널티 점수. 이에 대한 자세한 설명은 하단의 `addWord`함수의 note 참조.
 		 * @param origForm 기존 형태
 		 * @return 추가된 형태소의 ID와 성공 여부를 pair로 반환한다. `newForm/tag` 형태소가 이미 존재하는 경우 추가에 실패한다.
 		 * @exception kiwi::UnknownMorphemeException `origForm/tag`에 해당하는 형태소가 없을 경우 예외를 발생시킨다.
 		 * @note 이 방법으로 추가된 형태소는 언어모델 탐색 과정에서 `origForm/tag` 토큰으로 처리된다.
 		 */
-		std::pair<uint32_t, bool> addWord(const std::u16string& newForm, POSTag tag, float score, const std::u16string& origForm);
-		std::pair<uint32_t, bool> addWord(const char16_t* newForm, POSTag tag, float score, const char16_t* origForm);
+		std::pair<uint32_t, bool> addWord(const std::u16string& newForm, MorphemeDef def,
+			float score, const std::u16string& origForm);
+		std::pair<uint32_t, bool> addWord(const char16_t* newForm, MorphemeDef def,
+			float score, const char16_t* origForm);
 
 		/**
 		 * @brief 사전에 기분석 형태소열을 추가한다. 이미 동일한 기분석 형태소열이 있는 경우는 무시된다.
 		 *
 		 * @param form 분석될 문자열 형태
-		 * @param analyzed `form` 문자열이 입력되었을 때, 이의 분석결과로 내놓을 형태소의 배열
+		 * @param analyzed `form` 문자열이 입력되었을 때, 이의 분석결과로 내놓을 형태소의 배열(tuple<형태, 품사태그, 의미번호>)
 		 * @param positions `analyzed`의 각 형태소가 `form`내에서 차지하는 위치(시작/끝 지점, char16_t 단위). 생략 가능
 		 * @param score 페널티 점수. 이에 대한 자세한 설명은 하단의 `addWord`함수의 note 참조.
+		 * @param dialect 형태소 방언. 기본값은 표준어(Dialect::standard)이다.
 		 * @exception kiwi::UnknownMorphemeException `analyzed`로 주어진 형태소 중 하나라도 존재하지 않는게 있는 경우 예외를 발생시킨다.
 		 * @return 형태소열을 추가하는데 성공했으면 true, 동일한 형태소열이 존재하여 추가에 실패한 경우 false를 반환한다.
 		 * @note 이 함수는 특정 문자열이 어떻게 분석되어야하는지 직접적으로 지정해줄 수 있다.
 		 * 따라서 `addWord` 함수를 사용해도 오분석이 발생하는 경우, 이 함수를 통해 해당 사례들에 대해 정확한 분석 결과를 추가하면 원하는 분석 결과를 얻을 수 있다.
 		 */
 		bool addPreAnalyzedWord(const std::u16string& form,
-			const std::vector<std::pair<std::u16string, POSTag>>& analyzed,
+			const std::vector<std::tuple<std::u16string, POSTag, uint8_t>>& analyzed,
 			std::vector<std::pair<size_t, size_t>> positions = {},
-			float score = 0
+			float score = 0, Dialect dialect = Dialect::standard
 		);
 		bool addPreAnalyzedWord(const char16_t* form,
-			const std::vector<std::pair<const char16_t*, POSTag>>& analyzed,
+			const std::vector<std::tuple<const char16_t*, POSTag, uint8_t>>& analyzed,
 			std::vector<std::pair<size_t, size_t>> positions = {},
-			float score = 0
+			float score = 0, Dialect dialect = Dialect::standard
 		);
 
 		/**
@@ -821,6 +861,14 @@ namespace kiwi
 		 */
 		size_t loadDictionary(const std::string& dictPath);
 
+		/**
+		 * @brief 스트림에서 사용자 사전을 로딩한다.
+		 *
+		 * @param is 사전 파일 내용을 담은 입력 스트림
+		 * @return 추가된 단어의 개수
+		 */
+		size_t loadDictionaryFromStream(std::istream& is);
+
 		std::vector<WordInfo> extractWords(const U16MultipleReader& reader,
 			size_t minCnt = 10, size_t maxWordLen = 10, float minScore = 0.25, float posThreshold = -3, bool lmFilter = true
 		) const;
@@ -849,17 +897,14 @@ namespace kiwi
 			const std::string& morphemeDefPath = {},
 			size_t morphemeDefMinCnt = 0,
 			bool generateOovDict = false,
-			const std::vector<std::pair<std::pair<std::string, POSTag>, std::pair<std::string, POSTag>>>* transform = nullptr
+			const std::vector<std::pair<std::pair<std::string, POSTag>, std::vector<std::pair<std::string, POSTag>>>>* transform = nullptr
 		) const;
 
 		using TokenFilter = std::function<bool(const std::u16string&, POSTag)>;
 
 		HSDataset makeHSDataset(const std::vector<std::string>& inputPathes,
 			size_t batchSize, size_t causalContextSize, size_t windowSize, size_t numWorkers,
-			double dropoutProb = 0,
-			double dropoutProbOnHistory = 0,
-			double nounAugmentingProb = 0,
-			size_t generateUnlikelihoods = -1,
+			HSDatasetOption option = {},
 			const TokenFilter& tokenFilter = {},
 			const TokenFilter& windowFilter = {},
 			double splitRatio = 0,
@@ -868,12 +913,16 @@ namespace kiwi
 			size_t morphemeDefMinCnt = 0,
 			const std::vector<std::pair<size_t, std::vector<uint32_t>>>& contextualMapper = {},
 			HSDataset* splitDataset = nullptr,
-			const std::vector<std::pair<std::pair<std::string, POSTag>, std::pair<std::string, POSTag>>>* transform = nullptr
+			const std::vector<std::pair<std::pair<std::string, POSTag>, std::vector<std::pair<std::string, POSTag>>>>* transform = nullptr
 		) const;
 
 		BuildOption getOptions() const { return options; }
 		ModelType getModelType() const { return modelType; }
 
-		static void buildMorphData(const std::string& morphemeDefPath, const std::string& outputPath, size_t minCnt = 10);
+		static void buildMorphData(const std::string& morphemeDefPath, const std::string& outputPath, 
+			size_t minCnt = 10,
+			std::vector<size_t>* vocabMapOut = nullptr,
+			const std::string& origMorphemeDefPath = "");
+		void writeMorphemeDef(const std::string& morphemeDefPath) const;
 	};
 }

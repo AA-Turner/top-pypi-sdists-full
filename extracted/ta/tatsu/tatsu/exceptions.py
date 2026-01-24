@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
+
+from .tokenizing import Tokenizer
 
 
 class ParseException(Exception):
@@ -48,7 +51,7 @@ class NoParseInfo(ParseException):
 
 
 class FailedParse(ParseError):
-    def __init__(self, tokenizer, stack, item):
+    def __init__(self, tokenizer: Tokenizer, stack: Iterable[str], item: str):
         stack = list(stack)  # NOTE: can't pass through multiprocessing if generator
         # note: pass all arguments to super() to avoid pickling problems
         #   https://stackoverflow.com/questions/27993567/
@@ -110,20 +113,6 @@ class FailedRef(FailedParse):
     @property
     def message(self):
         return f"could not resolve reference to rule '{self.name}'"
-
-
-class FailedCut(FailedParse):
-    def __init__(self, nested):
-        super().__init__(nested.tokenizer, nested.stack, nested.item)
-        self.pos = nested.pos
-        self.nested = nested
-
-    @property
-    def message(self):
-        return self.nested.message
-
-    def __reduce__(self):
-        return type(self), (self.nested,)
 
 
 class FailedChoice(FailedParse):

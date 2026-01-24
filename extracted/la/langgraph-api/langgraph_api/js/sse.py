@@ -51,7 +51,7 @@ class BytesLineDecoder:
             # Include any existing buffer in the first portion of the
             # splitlines result.
             self.buffer.extend(lines[0])
-            lines = [self.buffer] + lines[1:]
+            lines = [self.buffer, *lines[1:]]
             self.buffer = bytearray()
 
         if not trailing_newline:
@@ -79,7 +79,7 @@ class SSEDecoder:
         self._retry: int | None = None
 
     def decode(self, line: bytes) -> StreamPart | None:
-        # See: https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation  # noqa: E501
+        # See: https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation
 
         if not line:
             if (

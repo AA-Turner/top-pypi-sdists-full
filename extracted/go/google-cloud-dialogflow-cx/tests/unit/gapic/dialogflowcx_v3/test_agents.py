@@ -166,12 +166,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            AgentsClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                AgentsClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert AgentsClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert AgentsClient._read_environment_variables() == (False, "never", None)
@@ -192,6 +199,105 @@ def test__read_environment_variables():
 
     with mock.patch.dict(os.environ, {"GOOGLE_CLOUD_UNIVERSE_DOMAIN": "foo.com"}):
         assert AgentsClient._read_environment_variables() == (False, "auto", "foo.com")
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert AgentsClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert AgentsClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert AgentsClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert AgentsClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                AgentsClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert AgentsClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert AgentsClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -545,17 +651,6 @@ def test_agents_client_client_options(client_class, transport_class, transport_n
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -765,6 +860,119 @@ def test_agents_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        (
+                            api_endpoint,
+                            cert_source,
+                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        (
+                            api_endpoint,
+                            cert_source,
+                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -813,18 +1021,6 @@ def test_agents_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1615,7 +1811,6 @@ def test_get_agent(request_type, transport: str = "grpc"):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -1623,6 +1818,7 @@ def test_get_agent(request_type, transport: str = "grpc"):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
         response = client.get_agent(request)
 
@@ -1641,7 +1837,6 @@ def test_get_agent(request_type, transport: str = "grpc"):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -1779,7 +1974,6 @@ async def test_get_agent_async(
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -1806,7 +2000,6 @@ async def test_get_agent_async(
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -1988,7 +2181,6 @@ def test_create_agent(request_type, transport: str = "grpc"):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -1996,6 +2188,7 @@ def test_create_agent(request_type, transport: str = "grpc"):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
         response = client.create_agent(request)
 
@@ -2014,7 +2207,6 @@ def test_create_agent(request_type, transport: str = "grpc"):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -2154,7 +2346,6 @@ async def test_create_agent_async(
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -2181,7 +2372,6 @@ async def test_create_agent_async(
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -2373,7 +2563,6 @@ def test_update_agent(request_type, transport: str = "grpc"):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -2381,6 +2570,7 @@ def test_update_agent(request_type, transport: str = "grpc"):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
         response = client.update_agent(request)
 
@@ -2399,7 +2589,6 @@ def test_update_agent(request_type, transport: str = "grpc"):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -2535,7 +2724,6 @@ async def test_update_agent_async(
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -2562,7 +2750,6 @@ async def test_update_agent_async(
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -7150,7 +7337,6 @@ async def test_get_agent_empty_call_grpc_asyncio():
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -7191,7 +7377,6 @@ async def test_create_agent_empty_call_grpc_asyncio():
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -7232,7 +7417,6 @@ async def test_update_agent_empty_call_grpc_asyncio():
                 time_zone="time_zone_value",
                 description="description_value",
                 avatar_uri="avatar_uri_value",
-                start_flow="start_flow_value",
                 security_settings="security_settings_value",
                 enable_stackdriver_logging=True,
                 enable_spell_correction=True,
@@ -7619,7 +7803,6 @@ def test_get_agent_rest_call_success(request_type):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -7627,6 +7810,7 @@ def test_get_agent_rest_call_success(request_type):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
 
         # Wrap the value into a proper Response obj
@@ -7650,7 +7834,6 @@ def test_get_agent_rest_call_success(request_type):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -7768,6 +7951,7 @@ def test_create_agent_rest_call_success(request_type):
         "avatar_uri": "avatar_uri_value",
         "speech_to_text_settings": {"enable_speech_adaptation": True},
         "start_flow": "start_flow_value",
+        "start_playbook": "start_playbook_value",
         "security_settings": "security_settings_value",
         "enable_stackdriver_logging": True,
         "enable_spell_correction": True,
@@ -7895,7 +8079,6 @@ def test_create_agent_rest_call_success(request_type):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -7903,6 +8086,7 @@ def test_create_agent_rest_call_success(request_type):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
 
         # Wrap the value into a proper Response obj
@@ -7926,7 +8110,6 @@ def test_create_agent_rest_call_success(request_type):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -8048,6 +8231,7 @@ def test_update_agent_rest_call_success(request_type):
         "avatar_uri": "avatar_uri_value",
         "speech_to_text_settings": {"enable_speech_adaptation": True},
         "start_flow": "start_flow_value",
+        "start_playbook": "start_playbook_value",
         "security_settings": "security_settings_value",
         "enable_stackdriver_logging": True,
         "enable_spell_correction": True,
@@ -8175,7 +8359,6 @@ def test_update_agent_rest_call_success(request_type):
             time_zone="time_zone_value",
             description="description_value",
             avatar_uri="avatar_uri_value",
-            start_flow="start_flow_value",
             security_settings="security_settings_value",
             enable_stackdriver_logging=True,
             enable_spell_correction=True,
@@ -8183,6 +8366,7 @@ def test_update_agent_rest_call_success(request_type):
             locked=True,
             satisfies_pzs=True,
             satisfies_pzi=True,
+            start_flow="start_flow_value",
         )
 
         # Wrap the value into a proper Response obj
@@ -8206,7 +8390,6 @@ def test_update_agent_rest_call_success(request_type):
     assert response.time_zone == "time_zone_value"
     assert response.description == "description_value"
     assert response.avatar_uri == "avatar_uri_value"
-    assert response.start_flow == "start_flow_value"
     assert response.security_settings == "security_settings_value"
     assert response.enable_stackdriver_logging is True
     assert response.enable_spell_correction is True
@@ -9062,9 +9245,13 @@ def test_update_generative_settings_rest_call_success(request_type):
             ],
         },
         "generative_safety_settings": {
+            "default_banned_phrase_match_strategy": 1,
             "banned_phrases": [
                 {"text": "text_value", "language_code": "language_code_value"}
-            ]
+            ],
+            "rai_settings": {"category_filters": [{"category": 1, "filter_level": 1}]},
+            "default_rai_settings": {},
+            "prompt_security_settings": {"enable_prompt_security": True},
         },
         "knowledge_connector_settings": {
             "business": "business_value",
@@ -9075,6 +9262,10 @@ def test_update_generative_settings_rest_call_success(request_type):
             "disable_data_store_fallback": True,
         },
         "language_code": "language_code_value",
+        "llm_model_settings": {
+            "model": "model_value",
+            "prompt_text": "prompt_text_value",
+        },
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -10177,6 +10368,7 @@ def test_agents_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.AgentsGrpcTransport, transports.AgentsGrpcAsyncIOTransport],
@@ -10468,10 +10660,39 @@ def test_parse_flow_validation_result_path():
     assert expected == actual
 
 
-def test_secret_version_path():
+def test_playbook_path():
     project = "cuttlefish"
-    secret = "mussel"
-    version = "winkle"
+    location = "mussel"
+    agent = "winkle"
+    playbook = "nautilus"
+    expected = "projects/{project}/locations/{location}/agents/{agent}/playbooks/{playbook}".format(
+        project=project,
+        location=location,
+        agent=agent,
+        playbook=playbook,
+    )
+    actual = AgentsClient.playbook_path(project, location, agent, playbook)
+    assert expected == actual
+
+
+def test_parse_playbook_path():
+    expected = {
+        "project": "scallop",
+        "location": "abalone",
+        "agent": "squid",
+        "playbook": "clam",
+    }
+    path = AgentsClient.playbook_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = AgentsClient.parse_playbook_path(path)
+    assert expected == actual
+
+
+def test_secret_version_path():
+    project = "whelk"
+    secret = "octopus"
+    version = "oyster"
     expected = "projects/{project}/secrets/{secret}/versions/{version}".format(
         project=project,
         secret=secret,
@@ -10483,9 +10704,9 @@ def test_secret_version_path():
 
 def test_parse_secret_version_path():
     expected = {
-        "project": "nautilus",
-        "secret": "scallop",
-        "version": "abalone",
+        "project": "nudibranch",
+        "secret": "cuttlefish",
+        "version": "mussel",
     }
     path = AgentsClient.secret_version_path(**expected)
 
@@ -10495,9 +10716,9 @@ def test_parse_secret_version_path():
 
 
 def test_security_settings_path():
-    project = "squid"
-    location = "clam"
-    security_settings = "whelk"
+    project = "winkle"
+    location = "nautilus"
+    security_settings = "scallop"
     expected = "projects/{project}/locations/{location}/securitySettings/{security_settings}".format(
         project=project,
         location=location,
@@ -10509,9 +10730,9 @@ def test_security_settings_path():
 
 def test_parse_security_settings_path():
     expected = {
-        "project": "octopus",
-        "location": "oyster",
-        "security_settings": "nudibranch",
+        "project": "abalone",
+        "location": "squid",
+        "security_settings": "clam",
     }
     path = AgentsClient.security_settings_path(**expected)
 
@@ -10521,7 +10742,7 @@ def test_parse_security_settings_path():
 
 
 def test_common_billing_account_path():
-    billing_account = "cuttlefish"
+    billing_account = "whelk"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -10531,7 +10752,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "mussel",
+        "billing_account": "octopus",
     }
     path = AgentsClient.common_billing_account_path(**expected)
 
@@ -10541,7 +10762,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "winkle"
+    folder = "oyster"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -10551,7 +10772,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "nautilus",
+        "folder": "nudibranch",
     }
     path = AgentsClient.common_folder_path(**expected)
 
@@ -10561,7 +10782,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "scallop"
+    organization = "cuttlefish"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -10571,7 +10792,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "abalone",
+        "organization": "mussel",
     }
     path = AgentsClient.common_organization_path(**expected)
 
@@ -10581,7 +10802,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "squid"
+    project = "winkle"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -10591,7 +10812,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "clam",
+        "project": "nautilus",
     }
     path = AgentsClient.common_project_path(**expected)
 
@@ -10601,8 +10822,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "whelk"
-    location = "octopus"
+    project = "scallop"
+    location = "abalone"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -10613,8 +10834,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "oyster",
-        "location": "nudibranch",
+        "project": "squid",
+        "location": "clam",
     }
     path = AgentsClient.common_location_path(**expected)
 

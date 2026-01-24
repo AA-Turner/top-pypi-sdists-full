@@ -6,6 +6,16 @@ UNAME_S := $(shell uname -s)
 UNAME_P := $(shell uname -p)
 QRACK_PRESENT := $(wildcard qrack/.)
 
+ifeq ("$(wildcard /usr/local/bin/cmake)", "/usr/local/bin/cmake")
+CMAKE_L := /usr/local/bin/cmake
+else
+ifeq ("$(wildcard /usr/bin/cmake)", "/usr/bin/cmake")
+CMAKE_L := /usr/bin/cmake
+else
+CMAKE_L := cmake
+endif
+endif
+
 .PHONY: help
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
@@ -20,21 +30,21 @@ build-deps:
 	rm -rf pyqrack/qrack_system/qrack_cl_precompile
 ifneq ($(OS),Windows_NT)
 ifeq ($(QRACK_PRESENT),)
-	git clone https://github.com/unitaryfund/qrack.git; cd qrack; git checkout b6d3ab98d5d89bfff2cc9ad7d6e7a30c231c62a9; cd ..
+	git clone https://github.com/unitaryfund/qrack.git; cd qrack; git checkout 0033dfb996eb198a05cf34bcc2cf513b52298272; cd ..
 endif
 	mkdir -p qrack/build
 ifeq ($(UNAME_S),Linux)
-ifeq ($(UNAME_P),x86_64)
-	cd qrack/build; cmake -DENABLE_RDRAND=OFF -DENABLE_DEVRAND=ON -DQBCAPPOW=11 ..; make qrack_pinvoke qrack_cl_precompile
+ifneq ($(filter $(UNAME_P),x86_64 i386),)
+	cd qrack/build; $(CMAKE_L) -DENABLE_RDRAND=OFF -DENABLE_DEVRAND=ON -DQBCAPPOW=8 ..; make qrack_pinvoke qrack_cl_precompile
 else
-	cd qrack/build; cmake -DENABLE_RDRAND=OFF -DENABLE_DEVRAND=ON -DENABLE_COMPLEX_X2=OFF -DENABLE_SSE3=OFF -DQBCAPPOW=11 ..; make qrack_pinvoke qrack_cl_precompile
+	cd qrack/build; $(CMAKE_L) -DENABLE_RDRAND=OFF -DENABLE_DEVRAND=ON -DENABLE_COMPLEX_X2=OFF -DENABLE_SSE3=OFF -DQBCAPPOW=8 ..; make qrack_pinvoke qrack_cl_precompile
 endif
 endif
 ifeq ($(UNAME_S),Darwin)
-ifeq ($(UNAME_P),x86_64)
-	cd qrack/build; cmake -DQBCAPPOW=11 -DBoost_INCLUDE_DIR=/opt/homebrew/include -DBoost_LIBRARY_DIRS=/opt/homebrew/lib ..; make qrack_pinvoke qrack_cl_precompile
+ifneq ($(filter $(UNAME_P),x86_64 i386),)
+	cd qrack/build; cmake -DENABLE_OPENCL=OFF -DQBCAPPOW=8 -DBoost_INCLUDE_DIR=/opt/homebrew/include -DBoost_LIBRARY_DIRS=/opt/homebrew/lib ..; make qrack_pinvoke qrack_cl_precompile
 else
-	cd qrack/build; cmake -DENABLE_OPENCL=OFF -DENABLE_RDRAND=OFF -DENABLE_COMPLEX_X2=OFF -DENABLE_SSE3=OFF -DQBCAPPOW=11 -DBoost_INCLUDE_DIR=/opt/homebrew/include -DBoost_LIBRARY_DIRS=/opt/homebrew/lib ..; make qrack_pinvoke qrack_cl_precompile
+	cd qrack/build; cmake -DENABLE_OPENCL=OFF -DENABLE_RDRAND=OFF -DENABLE_COMPLEX_X2=OFF -DENABLE_SSE3=OFF -DQBCAPPOW=8 -DBoost_INCLUDE_DIR=/opt/homebrew/include -DBoost_LIBRARY_DIRS=/opt/homebrew/lib ..; make qrack_pinvoke qrack_cl_precompile
 endif
 endif
 endif

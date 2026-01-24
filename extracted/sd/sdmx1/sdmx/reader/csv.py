@@ -3,14 +3,15 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from dataclasses import dataclass, field
+from collections.abc import MutableSequence, Sequence
 from itertools import zip_longest
-from typing import TYPE_CHECKING, Literal, MutableSequence, Optional, Sequence, Union
+from typing import TYPE_CHECKING
 
 import sdmx.message
+from sdmx.convert import Converter
 from sdmx.format import list_media_types
-from sdmx.model import common, v30
-from sdmx.reader import base
+from sdmx.format.csv.v2 import FormatOptions
+from sdmx.model import common, v21, v30
 from sdmx.reader.base import BaseReader
 
 if TYPE_CHECKING:
@@ -18,39 +19,16 @@ if TYPE_CHECKING:
 
     import pandas
 
-    from sdmx.model import v21
-
     class DataSetKwargs(TypedDict):
-        described_by: Optional[common.BaseDataflow]
+        described_by: common.BaseDataflow | None
         structured_by: common.BaseDataStructureDefinition
 
 
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class Options:
-    """SDMX-CSV 2.0.0 format options."""
-
-    #: Types of labels included. Appears in the specification.
-    labels: Literal["both", "id", "name"] = "id"
-
-    #: Whether series, observation, or no keys are expressed in their own columns (in
-    #: addition to dimension columns). Appears in the specification.
-    key: Literal["both", "none", "obs", "series"] = "none"
-
-    #: “Custom columns” detected by :meth:`.Reader.inspect_header`.
-    custom_columns: list[bytes] = field(default_factory=list)
-
-    #: CSV field delimiter.
-    delimiter: str = ","
-
-    #: SDMX-CSV “sub-field” delimiter.
-    delimiter_sub: str = ""
-
-
 class Reader(BaseReader):
-    """Read SDMX-CSV."""
+    """Read SDMX-CSV 2.x."""
 
     # BaseReader attributes
     media_types = list_media_types(base="csv")
@@ -60,12 +38,12 @@ class Reader(BaseReader):
     #: same number of handlers as columns in the `data` passed to :meth:`convert`.
     handlers: Sequence["Handler"]
 
-    _dataflow: Optional["common.BaseDataflow"]
-    _structure: Union["v21.DataStructureDefinition", "v30.DataStructure"]
+    _dataflow: "common.BaseDataflow | None"
+    _structure: v21.DataStructureDefinition | v30.DataStructureDefinition
     _observations: dict[tuple[str, str, str], list["common.BaseObservation"]]
 
     def __init__(self):
-        self.options = Options()
+        self.options = FormatOptions()
         self.handlers = []
         self._dataflow = None
         self._structure = None
@@ -75,7 +53,7 @@ class Reader(BaseReader):
         """Read a message from `data`."""
         self.options.delimiter = delimiter
 
-        if isinstance(structure, common.BaseDataflow):
+        if isinstance(structure, (v21.DataflowDefinition, v30.Dataflow)):
             self._dataflow = structure
             self._structure = structure.structure
         else:
@@ -135,7 +113,7 @@ class Reader(BaseReader):
         ValueError
             if the data contain malformed SDMX-CSV 2.0.0.
         """
-        handlers: MutableSequence[Optional["Handler"]] = [
+        handlers: MutableSequence["Handler" | None] = [
             StoreTarget(allowable={"dataflow", "dataprovision", "datastructure"}),
             StoreTarget(),
         ] + ([None] * (len(header) - 2))
@@ -169,7 +147,7 @@ class Reader(BaseReader):
 
         if i < len(header) and header[i] == "SERIES_KEY":
             self.options.key = "series"
-            handlers[i] = SeriesKey()
+            handlers[i] = SeriesKeyHandler()
             i += 1
 
         if i < len(header) and header[i] == "OBS_KEY":
@@ -212,7 +190,7 @@ class Reader(BaseReader):
         assert len(self.handlers) == len(header)
 
 
-class DataFrameConverter(base.Converter):
+class DataFrameConverter(Converter):
     @classmethod
     def handles(cls, data, kwargs) -> bool:
         import pandas as pd
@@ -255,7 +233,10 @@ class DataFrameConverter(base.Converter):
 
 
 class Handler(ABC):
-    """Base class for :attr:`.Reader.handlers`."""
+    """Base class for :attr:`.Reader.handlers`.
+
+    .. todo:: Unify with :class:`.convert.pandas.Column`.
+    """
 
     @abstractmethod
     def __call__(self, obs: "common.BaseObservation", value: str) -> None:
@@ -291,7 +272,7 @@ class StoreTarget(Handler):
     Used for the STRUCTURE, STRUCTURE_ID, and ACTION columns.
     """
 
-    def __init__(self, allowable: Optional[set[str]] = None):
+    def __init__(self, allowable: set[str] | None = None):
         self.allowable = allowable
 
     def __call__(self, obs, value):
@@ -299,7 +280,7 @@ class StoreTarget(Handler):
         obs.attached_attribute["__TARGET"].value.append(value)
 
 
-class SeriesKey(NotHandled):
+class SeriesKeyHandler(NotHandled):
     """ "SERIES_KEY" columns are currently not handled."""
 
     pass
@@ -324,7 +305,7 @@ class KeyValue(Handler):
 
 
 class ObsValue(Handler):
-    """Handle the :attr:`Observation.value <.BaseObservation.value>.
+    """Handle the :attr:`Observation.value <.BaseObservation.value>`.
 
     In line with :mod:`.model.v30`, multiple values (for data structures with multiple
     measures) are currently not handled.

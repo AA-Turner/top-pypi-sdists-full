@@ -33,7 +33,6 @@ def _setup_env():
 
 
 class Reference(HasTraits):
-
     """
     Base class for message spec specification testing.
 
@@ -238,6 +237,21 @@ class HistoryReply(Reply):
     history = List(List())
 
 
+# Subshell control messages
+
+
+class CreateSubshellReply(Reply):
+    subshell_id = Unicode()
+
+
+class DeleteSubshellReply(Reply):
+    pass
+
+
+class ListSubshellReply(Reply):
+    subshell_id = List(Unicode())
+
+
 references = {
     "execute_reply": ExecuteReply(),
     "inspect_reply": InspectReply(),
@@ -254,6 +268,9 @@ references = {
     "stream": Stream(),
     "display_data": DisplayData(),
     "header": RHeader(),
+    "create_subshell_reply": CreateSubshellReply(),
+    "delete_subshell_reply": DeleteSubshellReply(),
+    "list_subshell_reply": ListSubshellReply(),
 }
 
 # -----------------------------------------------------------------------------
@@ -365,7 +382,6 @@ def test_execute_stop_on_error():
     KC.execute(code='print("Hello")')
     KC.execute(code='print("world")')
     reply = KC.get_shell_msg(timeout=TIMEOUT)
-    print(reply)
     reply = KC.get_shell_msg(timeout=TIMEOUT)
     assert reply["content"]["status"] == "aborted"
     # second message, too
@@ -410,7 +426,7 @@ def test_non_execute_stop_on_error():
 def test_user_expressions():
     flush_channels()
 
-    msg_id, reply = execute(code="x=1", user_expressions=dict(foo="x+1"))
+    _msg_id, reply = execute(code="x=1", user_expressions=dict(foo="x+1"))
     user_expressions = reply["user_expressions"]
     assert user_expressions == {
         "foo": {
@@ -424,7 +440,7 @@ def test_user_expressions():
 def test_user_expressions_fail():
     flush_channels()
 
-    msg_id, reply = execute(code="x=0", user_expressions=dict(foo="nosuchname"))
+    _msg_id, reply = execute(code="x=0", user_expressions=dict(foo="nosuchname"))
     user_expressions = reply["user_expressions"]
     foo = user_expressions["foo"]
     assert foo["status"] == "error"
@@ -498,6 +514,8 @@ def test_kernel_info_request():
     msg_id = KC.kernel_info()
     reply = get_reply(KC, msg_id, TIMEOUT)
     validate_message(reply, "kernel_info_reply", msg_id)
+    assert "supported_features" in reply["content"]
+    assert "kernel subshells" in reply["content"]["supported_features"]
 
 
 def test_connect_request():
@@ -507,6 +525,29 @@ def test_connect_request():
     msg_id = msg["header"]["msg_id"]
     reply = get_reply(KC, msg_id, TIMEOUT)
     validate_message(reply, "connect_reply", msg_id)
+
+
+def test_subshell():
+    flush_channels()
+
+    msg = KC.session.msg("create_subshell_request")
+    KC.control_channel.send(msg)
+    msg_id = msg["header"]["msg_id"]
+    reply = get_reply(KC, msg_id, TIMEOUT, channel="control")
+    validate_message(reply, "create_subshell_reply", msg_id)
+    subshell_id = reply["content"]["subshell_id"]
+
+    msg = KC.session.msg("list_subshell_request")
+    KC.control_channel.send(msg)
+    msg_id = msg["header"]["msg_id"]
+    reply = get_reply(KC, msg_id, TIMEOUT, channel="control")
+    validate_message(reply, "list_subshell_reply", msg_id)
+
+    msg = KC.session.msg("delete_subshell_request", {"subshell_id": subshell_id})
+    KC.control_channel.send(msg)
+    msg_id = msg["header"]["msg_id"]
+    reply = get_reply(KC, msg_id, TIMEOUT, channel="control")
+    validate_message(reply, "delete_subshell_reply", msg_id)
 
 
 @pytest.mark.skipif(
@@ -531,7 +572,7 @@ def test_single_payload():
     transform) should avoid setting multiple set_next_input).
     """
     flush_channels()
-    msg_id, reply = execute(
+    _msg_id, reply = execute(
         code="ip = get_ipython()\nfor i in range(3):\n   ip.set_next_input('Hello There')\n"
     )
     payload = reply["payload"]
@@ -594,7 +635,7 @@ def test_history_search():
 def test_stream():
     flush_channels()
 
-    msg_id, reply = execute("print('hi')")
+    msg_id, _reply = execute("print('hi')")
 
     stdout = KC.get_iopub_msg(timeout=TIMEOUT)
     validate_message(stdout, "stream", msg_id)
@@ -605,7 +646,7 @@ def test_stream():
 def test_display_data():
     flush_channels()
 
-    msg_id, reply = execute("from IPython.display import display; display(1)")
+    msg_id, _reply = execute("from IPython.display import display; display(1)")
 
     display = KC.get_iopub_msg(timeout=TIMEOUT)
     validate_message(display, "display_data", parent=msg_id)

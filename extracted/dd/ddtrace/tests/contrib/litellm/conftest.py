@@ -1,4 +1,3 @@
-from litellm import Router
 import pytest
 
 from ddtrace._trace.pin import Pin
@@ -70,6 +69,12 @@ def mock_tracer(litellm):
 
 
 @pytest.fixture
+def tracer(mock_tracer):
+    """Backwards compatibility fixture for test_spans fixture"""
+    return mock_tracer
+
+
+@pytest.fixture
 def request_vcr():
     return get_request_vcr()
 
@@ -81,4 +86,6 @@ def request_vcr_include_localhost():
 
 @pytest.fixture
 def router():
+    from litellm import Router
+
     yield Router(model_list=model_list)

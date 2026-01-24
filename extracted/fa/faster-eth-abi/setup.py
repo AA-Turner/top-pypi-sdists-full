@@ -1,44 +1,51 @@
 #!/usr/bin/env python
+import sys
+
 from mypyc.build import (
     mypycify,
 )
 from setuptools import (
+    Extension,
     find_packages,
     setup,
 )
 
-HYPOTHESIS_REQUIREMENT = "hypothesis>=6.22.0,<6.108.7"
+install_requires: list[str] = []
 
-extras_require = {
-    "dev": [
-        "build>=0.9.0",
-        "bump_my_version>=0.19.0",
-        "ipython",
-        "mypy==1.10.0",
-        "pre-commit>=3.4.0",
-        "tox>=4.0.0",
-        "twine",
-        "wheel",
-        "pytest-codspeed",
-        "pytest-benchmark",
-    ],
+
+def parse_requirements(filename: str) -> list[str]:
+    lines: list[str] = []
+    with open(filename) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("-r"):
+                lines.extend(
+                    line
+                    for line in parse_requirements(line[2:].strip())
+                    if line not in install_requires
+                )
+            else:
+                lines.append(line.strip())
+    return lines
+
+
+install_requires.extend(parse_requirements("requirements.txt"))
+
+extras_require: dict[str, list[str]] = {
+    "dev": parse_requirements("requirements-dev.txt"),
     "docs": [
         "sphinx>=6.0.0",
         "sphinx-autobuild>=2021.3.14",
         "sphinx_rtd_theme>=1.0.0",
-        "towncrier>=24,<25",
+        "towncrier>=24,<26",
     ],
-    "test": [
-        "pytest>=7.0.0",
-        "pytest-timeout>=2.0.0",
-        "pytest-xdist>=2.4.0",
-        "pytest-pythonpath>=0.7.1",
-        "eth-hash[pycryptodome]",
-        HYPOTHESIS_REQUIREMENT,
-    ],
-    "tools": [
-        HYPOTHESIS_REQUIREMENT,
-    ],
+    "test": parse_requirements("requirements-test.txt"),
+    "tools": parse_requirements("requirements-tools.txt"),
+    "codspeed": parse_requirements("requirements-codspeed.txt"),
+    "benchmark": parse_requirements("requirements-codspeed.txt"),
+    "mypy": parse_requirements("requirements-mypy.txt"),
 }
 
 extras_require["dev"] = (
@@ -50,51 +57,89 @@ with open("./README.md") as readme:
     long_description = readme.read()
 
 
-ext_modules = mypycify(
-    [
-        "faster_eth_abi/_codec.py",
-        "faster_eth_abi/_decoding.py",
-        "faster_eth_abi/_encoding.py",
-        "faster_eth_abi/abi.py",
-        "faster_eth_abi/constants.py",
-        "faster_eth_abi/from_type_str.py",
-        # "faster_eth_abi/io.py",
-        "faster_eth_abi/packed.py",
-        "faster_eth_abi/tools",
-        "faster_eth_abi/utils",
+skip_mypyc = any(
+    cmd in sys.argv
+    for cmd in ("sdist", "egg_info", "--name", "--version", "--help", "--help-commands")
+)
+
+ext_modules: list[Extension] = []
+
+if not skip_mypyc:
+
+    # Compile the interpreted python files to C
+    
+    flags: list[str] = [
         "--pretty",
         "--install-types",
+        # all of these are safe to disable long term
         "--disable-error-code=override",
+        "--disable-error-code=no-any-return",
         "--disable-error-code=unused-ignore",
-    ],
-)
+        "--disable-error-code=redundant-cast",
+    ]
+
+    ext_modules.extend(
+        mypycify(
+            [
+                "faster_eth_abi/_codec.py",
+                "faster_eth_abi/_decoding.py",
+                "faster_eth_abi/_encoding.py",
+                "faster_eth_abi/_grammar.py",
+                "faster_eth_abi/abi.py",
+                "faster_eth_abi/constants.py",
+                "faster_eth_abi/exceptions.py",
+                "faster_eth_abi/from_type_str.py",
+                "faster_eth_abi/io.py",
+                "faster_eth_abi/packed.py",
+                "faster_eth_abi/tools",
+                "faster_eth_abi/utils",
+                *flags,
+            ],
+            group_name="faster_eth_abi",
+            strict_dunder_typing=True,
+        )
+    )
 
 
 setup(
     name="faster_eth_abi",
     # *IMPORTANT*: Don't manually change the version here. See Contributing docs for the release process.
-    version="5.2.9",
-    description="""A faster fork of eth_abi: Python utilities for working with Ethereum ABI definitions, especially encoding and decoding. Implemented in C.""",
+    version="5.2.25",
+    description="""A ~2-6x faster fork of eth_abi: Python utilities for working with Ethereum ABI definitions, especially encoding and decoding. Implemented in C.""",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="The Ethereum Foundation",
     author_email="snakecharmers@ethereum.org",
     url="https://github.com/BobTheBuidler/faster-eth-abi",
+    project_urls={
+        "Documentation": "https://eth-abi.readthedocs.io/en/stable/",
+        "Release Notes": "https://github.com/BobTheBuidler/faster-eth-abi/releases",
+        "Issues": "https://github.com/BobTheBuidler/faster-eth-abi/issues",
+        "Source - Precompiled (.py)": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/faster_eth_utils",
+        "Source - Compiled (.c)": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/build",
+        "Benchmarks": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/benchmarks",
+        "Benchmarks - Results": "https://github.com/BobTheBuidler/faster-eth-utils/tree/master/benchmarks/results",
+        "Original": "https://github.com/ethereum/eth-abi",
+    },
     include_package_data=True,
-    install_requires=[
-        "cchecksum>=0.2.6,<0.4",
-        "faster-eth-utils>=2.0.0",
-        "eth-typing>=3.0.0",
-        "mypy_extensions",
-        "parsimonious>=0.10.0,<0.11.0",
-    ],
-    python_requires=">=3.8, <4",
+    install_requires=install_requires,
+    python_requires=">=3.10, <4",
     extras_require=extras_require,
-    py_modules=["faster_eth_abi"],
     license="MIT",
     zip_safe=False,
     keywords="ethereum",
-    packages=find_packages(exclude=["scripts", "scripts.*", "tests", "tests.*"]),
+    packages=find_packages(
+        exclude=[
+            "benchmarks",
+            "benchmarks.*",
+            "scripts",
+            "scripts.*",
+            "tests",
+            "tests.*",
+            "eth-abi-stubs",
+            "eth-abi-stubs.*",
+        ]
+    ),
     ext_modules=ext_modules,
     package_data={"faster_eth_abi": ["py.typed"]},
     classifiers=[
@@ -103,8 +148,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",

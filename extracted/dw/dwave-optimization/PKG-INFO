@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dwave-optimization
-Version: 0.6.6
+Version: 0.6.11
 Summary: Enables the formulation of nonlinear models for industrial optimization problems.
 Author-Email: "D-Wave Inc." <tools@dwavesys.com>
 License:                                  Apache License
@@ -214,7 +214,6 @@ Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -225,8 +224,11 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Project-URL: Changelog, https://github.com/dwavesystems/dwave-optimization/releases
 Project-URL: Documentation, https://docs.dwavequantum.com
 Project-URL: Source Code, https://github.com/dwavesystems/dwave-optimization
-Requires-Python: >=3.9
-Requires-Dist: numpy>=1.20.0
+Requires-Python: >=3.10
+Requires-Dist: numpy>=1.21.3
+Provides-Extra: all
+Requires-Dist: dimod>=0.12.0; extra == "all"
+Requires-Dist: scikit-learn>=1.6.0; extra == "all"
 Description-Content-Type: text/x-rst
 
 .. image:: https://img.shields.io/pypi/v/dwave-optimization.svg
@@ -303,8 +305,11 @@ for more details.
 
 .. code-block:: bash
 
-    pip install -r requirements.txt
-    pip install --no-build-isolation --config-settings=editable-verbose=true --editable .
+    pip install --group dev --group blas
+    pip install --editable . \
+        --no-build-isolation \
+        --config-settings=editable-verbose=true \
+        --config-settings=setup-args="-Dblas=enabled"
 
 Testing
 =======
@@ -325,8 +330,8 @@ the tests to run.
 
 .. code-block:: bash
 
-    pip install -r requirements.txt
-    meson setup build -Dbuildtype=debug
+    pip install --group dev --group blas
+    meson setup build -Dbuildtype=debug -Dblas=enabled
 
 You can then run the tests using
 `meson's test framework <https://mesonbuild.com/Unit-tests.html>`_.
@@ -334,6 +339,18 @@ You can then run the tests using
 .. code-block:: bash
 
     meson test -Cbuild
+
+To run the doctests, install the docs requirements:
+
+.. code-block:: bash
+
+    pip install --group docs
+
+You can then run them using the `docs/Makefile`.
+
+.. code-block:: bash
+
+    make -C docs doctest
 
 License
 =======

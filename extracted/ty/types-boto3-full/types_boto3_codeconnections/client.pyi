@@ -3,7 +3,7 @@ Type annotations for codeconnections service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codeconnections/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -75,12 +76,6 @@ from .type_defs import (
     UpdateSyncConfigurationOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -89,24 +84,24 @@ else:
 __all__ = ("CodeConnectionsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConditionalCheckFailedException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceUnavailableException: Type[BotocoreClientError]
-    RetryLatestCommitFailedException: Type[BotocoreClientError]
-    SyncBlockerDoesNotExistException: Type[BotocoreClientError]
-    SyncConfigurationStillExistsException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
-    UnsupportedProviderTypeException: Type[BotocoreClientError]
-    UpdateOutOfSyncException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConditionalCheckFailedException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceUnavailableException: type[BotocoreClientError]
+    RetryLatestCommitFailedException: type[BotocoreClientError]
+    SyncBlockerDoesNotExistException: type[BotocoreClientError]
+    SyncConfigurationStillExistsException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
+    UnsupportedProviderTypeException: type[BotocoreClientError]
+    UpdateOutOfSyncException: type[BotocoreClientError]
 
 class CodeConnectionsClient(BaseClient):
     """
@@ -184,7 +179,7 @@ class CodeConnectionsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codeconnections/client/#create_sync_configuration)
         """
 
-    def delete_connection(self, **kwargs: Unpack[DeleteConnectionInputTypeDef]) -> Dict[str, Any]:
+    def delete_connection(self, **kwargs: Unpack[DeleteConnectionInputTypeDef]) -> dict[str, Any]:
         """
         The connection to be deleted.
 
@@ -192,7 +187,7 @@ class CodeConnectionsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codeconnections/client/#delete_connection)
         """
 
-    def delete_host(self, **kwargs: Unpack[DeleteHostInputTypeDef]) -> Dict[str, Any]:
+    def delete_host(self, **kwargs: Unpack[DeleteHostInputTypeDef]) -> dict[str, Any]:
         """
         The host to be deleted.
 
@@ -202,7 +197,7 @@ class CodeConnectionsClient(BaseClient):
 
     def delete_repository_link(
         self, **kwargs: Unpack[DeleteRepositoryLinkInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the association between your connection and a specified external Git
         repository.
@@ -213,7 +208,7 @@ class CodeConnectionsClient(BaseClient):
 
     def delete_sync_configuration(
         self, **kwargs: Unpack[DeleteSyncConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the sync configuration for a specified repository and connection.
 
@@ -350,7 +345,7 @@ class CodeConnectionsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codeconnections/client/#list_tags_for_resource)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds to or modifies the tags of the given resource.
 
@@ -358,7 +353,7 @@ class CodeConnectionsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codeconnections/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes tags from an Amazon Web Services resource.
 
@@ -366,7 +361,7 @@ class CodeConnectionsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codeconnections/client/#untag_resource)
         """
 
-    def update_host(self, **kwargs: Unpack[UpdateHostInputTypeDef]) -> Dict[str, Any]:
+    def update_host(self, **kwargs: Unpack[UpdateHostInputTypeDef]) -> dict[str, Any]:
         """
         Updates a specified host with the provided configurations.
 

@@ -3,7 +3,7 @@ Type annotations for osis service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_osis/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -28,12 +29,6 @@ from .literals import (
     VpcEndpointManagementType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -124,7 +119,7 @@ class CloudWatchLogDestinationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -207,8 +202,8 @@ PipelineDestinationTypeDef = TypedDict(
 )
 
 class PipelineEndpointVpcOptionsOutputTypeDef(TypedDict):
-    SubnetIds: NotRequired[List[str]]
-    SecurityGroupIds: NotRequired[List[str]]
+    SubnetIds: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
 
 class PipelineEndpointVpcOptionsTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
@@ -257,7 +252,7 @@ class ChangeProgressStatusTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     Status: NotRequired[ChangeProgressStatusesType]
     TotalNumberOfStages: NotRequired[int]
-    ChangeProgressStages: NotRequired[List[ChangeProgressStageTypeDef]]
+    ChangeProgressStages: NotRequired[list[ChangeProgressStageTypeDef]]
 
 class LogPublishingOptionsTypeDef(TypedDict):
     IsLoggingEnabled: NotRequired[bool]
@@ -285,7 +280,7 @@ class RevokePipelineEndpointConnectionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -298,7 +293,7 @@ class GetPipelineBlueprintResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPipelineBlueprintsResponseTypeDef(TypedDict):
-    Blueprints: List[PipelineBlueprintSummaryTypeDef]
+    Blueprints: list[PipelineBlueprintSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPipelineEndpointConnectionsRequestPaginateTypeDef(TypedDict):
@@ -308,7 +303,7 @@ class ListPipelineEndpointsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPipelineEndpointConnectionsResponseTypeDef(TypedDict):
-    PipelineEndpointConnections: List[PipelineEndpointConnectionTypeDef]
+    PipelineEndpointConnections: list[PipelineEndpointConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -333,17 +328,17 @@ class PipelineSummaryTypeDef(TypedDict):
     MaxUnits: NotRequired[int]
     CreatedAt: NotRequired[datetime]
     LastUpdatedAt: NotRequired[datetime]
-    Destinations: NotRequired[List[PipelineDestinationTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
+    Destinations: NotRequired[list[PipelineDestinationTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 class ValidatePipelineResponseTypeDef(TypedDict):
     isValid: bool
-    Errors: List[ValidationMessageTypeDef]
+    Errors: list[ValidationMessageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class VpcOptionsOutputTypeDef(TypedDict):
-    SubnetIds: List[str]
-    SecurityGroupIds: NotRequired[List[str]]
+    SubnetIds: list[str]
+    SecurityGroupIds: NotRequired[list[str]]
     VpcAttachmentOptions: NotRequired[VpcAttachmentOptionsTypeDef]
     VpcEndpointManagement: NotRequired[VpcEndpointManagementType]
 
@@ -354,7 +349,7 @@ class VpcOptionsTypeDef(TypedDict):
     VpcEndpointManagement: NotRequired[VpcEndpointManagementType]
 
 class GetPipelineChangeProgressResponseTypeDef(TypedDict):
-    ChangeProgressStatuses: List[ChangeProgressStatusTypeDef]
+    ChangeProgressStatuses: list[ChangeProgressStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdatePipelineRequestTypeDef(TypedDict):
@@ -368,7 +363,7 @@ class UpdatePipelineRequestTypeDef(TypedDict):
     PipelineRoleArn: NotRequired[str]
 
 class ListPipelineEndpointsResponseTypeDef(TypedDict):
-    PipelineEndpoints: List[PipelineEndpointTypeDef]
+    PipelineEndpoints: list[PipelineEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -377,7 +372,7 @@ class CreatePipelineEndpointRequestTypeDef(TypedDict):
     VpcOptions: PipelineEndpointVpcOptionsUnionTypeDef
 
 class ListPipelinesResponseTypeDef(TypedDict):
-    Pipelines: List[PipelineSummaryTypeDef]
+    Pipelines: list[PipelineSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -398,15 +393,15 @@ class PipelineTypeDef(TypedDict):
     PipelineConfigurationBody: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     LastUpdatedAt: NotRequired[datetime]
-    IngestEndpointUrls: NotRequired[List[str]]
+    IngestEndpointUrls: NotRequired[list[str]]
     LogPublishingOptions: NotRequired[LogPublishingOptionsTypeDef]
-    VpcEndpoints: NotRequired[List[VpcEndpointTypeDef]]
+    VpcEndpoints: NotRequired[list[VpcEndpointTypeDef]]
     BufferOptions: NotRequired[BufferOptionsTypeDef]
     EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
     VpcEndpointService: NotRequired[str]
-    ServiceVpcEndpoints: NotRequired[List[ServiceVpcEndpointTypeDef]]
-    Destinations: NotRequired[List[PipelineDestinationTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
+    ServiceVpcEndpoints: NotRequired[list[ServiceVpcEndpointTypeDef]]
+    Destinations: NotRequired[list[PipelineDestinationTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     PipelineRoleArn: NotRequired[str]
 
 class CreatePipelineRequestTypeDef(TypedDict):

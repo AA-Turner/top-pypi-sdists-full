@@ -19,7 +19,6 @@ import numpy.typing as npt
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    import matplotlib
     import matplotlib.axes
     import matplotlib.ticker
     from matplotlib.axes import Axes
@@ -268,13 +267,15 @@ def plot_dataset(
 
         log.debug(f"Plotting data for {parameters}.")
 
+        indices_to_remove = []
         for i, data in enumerate(alldata):
             if len(data) == 2:  # 1D PLOTTING
                 if data[1]["name"] not in parameters:
-                    alldata.pop(i)
+                    indices_to_remove.append(i)
             elif len(data) == 3:  # 2D PLOTTING
                 if data[2]["name"] not in parameters:
-                    alldata.pop(i)
+                    indices_to_remove.append(i)
+        alldata = [d for (i, d) in enumerate(alldata) if i not in indices_to_remove]
 
     for data, ax, colorbar in zip(alldata, axeslist, colorbars):
         if len(data) == 2:  # 1D PLOTTING
@@ -387,7 +388,7 @@ def plot_and_save_image(
     """
     from matplotlib.figure import Figure
 
-    from qcodes import config
+    from qcodes import config  # noqa: PLC0415
 
     dataid = data.captured_run_id
     axes, cbs = plot_dataset(data)

@@ -6,13 +6,13 @@ import pytest
 from bson.errors import InvalidDocument
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
-from pymongo import MongoClient
-from pymongo.errors import OperationFailure
-
 from langgraph.checkpoint.base import (
     CheckpointMetadata,
     empty_checkpoint,
 )
+from pymongo import MongoClient
+from pymongo.errors import OperationFailure
+
 from langgraph.checkpoint.mongodb import MongoDBSaver
 
 MONGODB_URI = os.environ.get(
@@ -154,7 +154,8 @@ def test_nested_filter() -> None:
         assert (
             isinstance(doc["metadata"], dict)
             and isinstance(doc["metadata"]["writes"], dict)
-            and isinstance(doc["metadata"]["writes"]["message"], bytes)
+            and doc["metadata"]["writes"]["message"][0] == "msgpack"
+            and isinstance(doc["metadata"]["writes"]["message"][1], bytes)
         )
 
         # Test values of checkpoint
@@ -208,3 +209,47 @@ def test_ttl(input_data: dict[str, Any]) -> None:
             saver.checkpoint_collection.drop_indexes()
             saver.writes_collection.delete_many({})
             saver.writes_collection.drop_indexes()
+
+
+def test_init_creates_indexes() -> None:
+    client: MongoClient = MongoClient(MONGODB_URI)
+    db = client[DB_NAME]
+    checkpoint_coll = "checkpoints_test"
+    writes_coll = "writes_test"
+
+    db.drop_collection(checkpoint_coll)
+    db.drop_collection(writes_coll)
+
+    ttl = 100
+    with MongoDBSaver.from_conn_string(
+        MONGODB_URI, DB_NAME, checkpoint_coll, writes_coll, ttl=ttl
+    ) as saver:
+        cp_indexes = saver.checkpoint_collection.index_information()
+        wr_indexes = saver.writes_collection.index_information()
+
+        def _has_index(index_info: Any, keys: list[tuple[str, int]]) -> bool:
+            for _, info in index_info.items():
+                if info.get("key") == keys:
+                    return True
+            return False
+
+        expected_cp_keys = [
+            ("thread_id", 1),
+            ("checkpoint_ns", 1),
+            ("checkpoint_id", -1),
+        ]
+        assert _has_index(cp_indexes, expected_cp_keys)
+        assert _has_index(cp_indexes, [("created_at", 1)])
+
+        expected_wr_keys = [
+            ("thread_id", 1),
+            ("checkpoint_ns", 1),
+            ("checkpoint_id", -1),
+            ("task_id", 1),
+            ("idx", 1),
+        ]
+        assert _has_index(wr_indexes, expected_wr_keys)
+        assert _has_index(wr_indexes, [("created_at", 1)])
+
+    db.drop_collection(checkpoint_coll)
+    db.drop_collection(writes_coll)

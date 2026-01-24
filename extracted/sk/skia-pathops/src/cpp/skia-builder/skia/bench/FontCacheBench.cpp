@@ -11,8 +11,9 @@
 #include "include/core/SkPaint.h"
 #include "include/core/SkPath.h"
 #include "include/core/SkString.h"
-#include "include/private/SkChecksum.h"
 #include "include/private/base/SkTemplates.h"
+#include "src/core/SkChecksum.h"
+#include "tools/fonts/FontToolUtils.h"
 
 #include "bench/gUniqueGlyphIDs.h"
 
@@ -36,7 +37,7 @@ protected:
     }
 
     void onDraw(int loops, SkCanvas* canvas) override {
-        SkFont font;
+        SkFont font = ToolUtils::DefaultFont();
         font.setEdging(SkFont::Edging::kAntiAlias);
 
         const uint16_t* array = gUniqueGlyphIDs;
@@ -149,7 +150,7 @@ DEF_BENCH( return new FontCacheBench(); )
 
 class FontPathBench : public Benchmark {
     SkFont fFont;
-    uint16_t fGlyphs[100];
+    SkGlyphID fGlyphs[100];
     SkString fName;
     const bool fOneAtATime;
 
@@ -164,7 +165,7 @@ protected:
     }
 
     bool isSuitableFor(Backend backend) override {
-        return backend == kNonRendering_Backend;
+        return backend == Backend::kNonRendering;
     }
 
     void onDelayedSetup() override {
@@ -175,19 +176,18 @@ protected:
     }
 
     void onDraw(int loops, SkCanvas* canvas) override {
-        SkPath path;
         for (int loop = 0; loop < loops; ++loop) {
             if (fOneAtATime) {
                 for (size_t i = 0; i < std::size(fGlyphs); ++i) {
-                    fFont.getPath(fGlyphs[i], &path);
+                    (void)fFont.getPath(fGlyphs[i]);
                 }
             } else {
-                fFont.getPaths(fGlyphs, std::size(fGlyphs),
-                               [](const SkPath* src, const SkMatrix& mx, void* ctx) {
+                fFont.getPaths(fGlyphs,
+                               [](const SkPath* src, const SkMatrix& mx, void*) {
                                    if (src) {
-                                       src->transform(mx, static_cast<SkPath*>(ctx));
+                                       (void)src->makeTransform(mx);
                                    }
-                               }, &path);
+                               }, nullptr);
             }
         }
     }

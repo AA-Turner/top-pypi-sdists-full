@@ -3,7 +3,7 @@ Type annotations for dlm service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dlm/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -40,12 +41,6 @@ from .type_defs import (
     UpdateLifecyclePolicyRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -56,11 +51,11 @@ __all__ = ("DLMClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 
 class DLMClient(BaseClient):
@@ -110,7 +105,7 @@ class DLMClient(BaseClient):
 
     def delete_lifecycle_policy(
         self, **kwargs: Unpack[DeleteLifecyclePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified lifecycle policy and halts the automated operations that
         the policy specified.
@@ -149,7 +144,7 @@ class DLMClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dlm/client/#list_tags_for_resource)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified resource.
 
@@ -157,7 +152,7 @@ class DLMClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dlm/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the specified resource.
 
@@ -167,7 +162,7 @@ class DLMClient(BaseClient):
 
     def update_lifecycle_policy(
         self, **kwargs: Unpack[UpdateLifecyclePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the specified lifecycle policy.
 

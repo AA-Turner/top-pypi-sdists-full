@@ -20,6 +20,10 @@ __all__ = [
 
 
 class ChatAnalysis(BaseModel):
+    """
+    Post chat analysis that includes information such as sentiment, status, summary, and custom defined data to extract. Available after chat ends. Subscribe to `chat_analyzed` webhook event type to receive it once ready.
+    """
+
     chat_successful: Optional[bool] = None
     """
     Whether the agent seems to have a successful chat with the user, where the agent
@@ -46,7 +50,7 @@ class ChatCostProductCost(BaseModel):
     product: str
     """Product name that has a cost associated with it."""
 
-    unit_price: float
+    unit_price: Optional[float] = None
     """Unit price of the product in cents per second."""
 
 
@@ -66,7 +70,7 @@ class MessageWithToolCallMessage(BaseModel):
     """Create timestamp of the message"""
 
     message_id: str
-    """Unique id ot the message"""
+    """Unique id of the message"""
 
     role: Literal["agent", "user"]
     """Documents whether this message is sent by agent or user."""
@@ -77,7 +81,7 @@ class MessageWithToolCallToolCallInvocationMessage(BaseModel):
     """Arguments for this tool call, it's a stringified JSON object."""
 
     message_id: str
-    """Unique id ot the message"""
+    """Unique id of the message"""
 
     name: str
     """Name of the function in this tool call."""
@@ -91,6 +95,13 @@ class MessageWithToolCallToolCallInvocationMessage(BaseModel):
     created_timestamp: Optional[int] = None
     """Create timestamp of the message"""
 
+    thought_signature: Optional[str] = None
+    """Optional thought signature from Google Gemini thinking models.
+
+    This is used internally to maintain reasoning chain in multi-turn function
+    calling.
+    """
+
 
 class MessageWithToolCallToolCallResultMessage(BaseModel):
     content: str
@@ -100,10 +111,10 @@ class MessageWithToolCallToolCallResultMessage(BaseModel):
     """Create timestamp of the message"""
 
     message_id: str
-    """Unique id ot the message"""
+    """Unique id of the message"""
 
     role: Literal["tool_call_result"]
-    """This is result of a tool call."""
+    """This is the result of a tool call."""
 
     tool_call_id: str
     """Tool call id, globally unique."""
@@ -114,10 +125,10 @@ class MessageWithToolCallNodeTransitionMessage(BaseModel):
     """Create timestamp of the message"""
 
     message_id: str
-    """Unique id ot the message"""
+    """Unique id of the message"""
 
     role: Literal["node_transition"]
-    """This is node transition."""
+    """This is a node transition."""
 
     former_node_id: Optional[str] = None
     """Former node id"""
@@ -137,10 +148,10 @@ class MessageWithToolCallStateTransitionMessage(BaseModel):
     """Create timestamp of the message"""
 
     message_id: str
-    """Unique id ot the message"""
+    """Unique id of the message"""
 
     role: Literal["state_transition"]
-    """This is state transition for ."""
+    """This is a state transition."""
 
     former_state_name: Optional[str] = None
     """Former state name"""
@@ -170,9 +181,7 @@ class ChatResponse(BaseModel):
 
     - `ongoing`: Chat session is ongoing, chat agent can receive new message and
       generate response.
-
-    - `ended`: Chat session has ended can not generate new response.
-
+    - `ended`: Chat session has ended, and no longer can generate new response.
     - `error`: Chat encountered error.
     """
 
@@ -185,8 +194,14 @@ class ChatResponse(BaseModel):
 
     chat_cost: Optional[ChatCost] = None
 
+    chat_type: Optional[Literal["api_chat", "sms_chat"]] = None
+    """Type of the chat"""
+
     collected_dynamic_variables: Optional[Dict[str, object]] = None
     """Dynamic variables collected from the chat. Only available after the chat ends."""
+
+    custom_attributes: Optional[Dict[str, Union[str, float, bool]]] = None
+    """Custom attributes for the chat"""
 
     end_timestamp: Optional[int] = None
     """End timestamp (milliseconds since epoch) of the chat.
@@ -220,3 +235,6 @@ class ChatResponse(BaseModel):
 
     transcript: Optional[str] = None
     """Transcription of the chat."""
+
+    version: Optional[int] = None
+    """The version of the agent"""

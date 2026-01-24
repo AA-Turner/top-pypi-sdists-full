@@ -30,7 +30,7 @@ from portkey_ai.api_resources.types.chat_complete_type import (
 from portkey_ai.api_resources.apis.api_resource import APIResource, AsyncAPIResource
 from portkey_ai.api_resources.types.shared_types import Headers, Metadata, Query
 from portkey_ai.api_resources.utils import Body
-from ..._vendor.openai._types import NotGiven, NOT_GIVEN
+from ..._vendor.openai._types import NOT_GIVEN, NotGiven, Omit, omit
 
 __all__ = ["ChatCompletion", "AsyncChatCompletion"]
 
@@ -74,8 +74,12 @@ class Completions(APIResource):
         store,
         **kwargs,
     ) -> Union[ChatCompletions, Iterator[ChatCompletionChunk]]:
-        extra_headers = kwargs.get("extra_headers", {})
-        with self.openai_client.with_streaming_response.chat.completions.create(
+        extra_headers = kwargs.pop("extra_headers", None)
+        extra_query = kwargs.pop("extra_query", None)
+        timeout = kwargs.pop("timeout", None)
+        user_extra_body = kwargs.pop("extra_body", None) or {}
+        merged_extra_body = {**user_extra_body, **kwargs}
+        return self.openai_client.chat.completions.create(
             model=model,
             messages=messages,
             stream=stream,
@@ -90,23 +94,10 @@ class Completions(APIResource):
             reasoning_effort=reasoning_effort,
             store=store,
             extra_headers=extra_headers,
-            extra_body=kwargs,
-        ) as response:
-            for line in response.iter_lines():
-                json_string = line.replace("data: ", "")
-                json_string = json_string.strip().rstrip("\n")
-                if json_string == "":
-                    continue
-                if json_string.startswith(":"):
-                    continue
-                elif json_string == "[DONE]":
-                    break
-                elif json_string != "":
-                    json_data = json.loads(json_string)
-                    json_data = ChatCompletionChunk(**json_data)
-                    yield json_data
-                else:
-                    return ""
+            extra_query=extra_query,
+            extra_body=merged_extra_body,
+            timeout=timeout,
+        )
 
     def normal_create(
         self,
@@ -125,7 +116,11 @@ class Completions(APIResource):
         store,
         **kwargs,
     ) -> ChatCompletions:
-        extra_headers = kwargs.get("extra_headers", {})
+        extra_headers = kwargs.pop("extra_headers", None)
+        extra_query = kwargs.pop("extra_query", None)
+        timeout = kwargs.pop("timeout", None)
+        user_extra_body = kwargs.pop("extra_body", None) or {}
+        merged_extra_body = {**user_extra_body, **kwargs}
         response = self.openai_client.with_raw_response.chat.completions.create(
             model=model,
             messages=messages,
@@ -141,7 +136,9 @@ class Completions(APIResource):
             reasoning_effort=reasoning_effort,
             store=store,
             extra_headers=extra_headers,
-            extra_body=kwargs,
+            extra_query=extra_query,
+            extra_body=merged_extra_body,
+            timeout=timeout,
         )
         data = ChatCompletions(**json.loads(response.text))
         data._headers = response.headers
@@ -152,17 +149,17 @@ class Completions(APIResource):
         *,
         model: Optional[str] = "portkey-default",
         messages: Iterable[Any],
-        stream: Union[bool, NotGiven] = NOT_GIVEN,
-        temperature: Union[float, NotGiven] = NOT_GIVEN,
-        max_tokens: Union[int, NotGiven] = NOT_GIVEN,
-        top_p: Union[float, NotGiven] = NOT_GIVEN,
-        audio: Optional[Any] = NOT_GIVEN,
-        max_completion_tokens: Union[int, NotGiven] = NOT_GIVEN,
-        metadata: Union[Dict[str, str], NotGiven] = NOT_GIVEN,
-        modalities: Union[List[Any], NotGiven] = NOT_GIVEN,
-        prediction: Union[Any, NotGiven] = NOT_GIVEN,
-        reasoning_effort: Union[Any, NotGiven] = NOT_GIVEN,
-        store: Union[Optional[bool], NotGiven] = NOT_GIVEN,
+        stream: Union[bool, Omit] = omit,
+        temperature: Union[float, Omit] = omit,
+        max_tokens: Union[int, Omit] = omit,
+        top_p: Union[float, Omit] = omit,
+        audio: Optional[Any] = omit,
+        max_completion_tokens: Union[int, Omit] = omit,
+        metadata: Union[Dict[str, str], Omit] = omit,
+        modalities: Union[List[Any], Omit] = omit,
+        prediction: Union[Any, Omit] = omit,
+        reasoning_effort: Union[Any, Omit] = omit,
+        store: Union[Optional[bool], Omit] = omit,
         **kwargs,
     ) -> Union[ChatCompletions, Iterator[ChatCompletionChunk]]:
         if stream is True:
@@ -248,11 +245,11 @@ class Completions(APIResource):
     def list(
         self,
         *,
-        after: Union[str, NotGiven] = NOT_GIVEN,
-        limit: Union[int, NotGiven] = NOT_GIVEN,
-        metadata: Union[Metadata, NotGiven] = NOT_GIVEN,
-        model: Union[str, NotGiven] = NOT_GIVEN,
-        order: Union[Literal["asc", "desc"], NotGiven] = NOT_GIVEN,
+        after: Union[str, Omit] = omit,
+        limit: Union[int, Omit] = omit,
+        metadata: Union[Metadata, Omit] = omit,
+        model: Union[str, Omit] = omit,
+        order: Union[Literal["asc", "desc"], Omit] = omit,
         extra_headers: Optional[Headers] = None,
         extra_query: Optional[Query] = None,
         extra_body: Optional[Body] = None,
@@ -305,39 +302,39 @@ class Completions(APIResource):
         *,
         messages: Iterable[Any],
         model: Optional[str] = "portkey-default",
-        audio: Union[Optional[Any], NotGiven] = NOT_GIVEN,
-        response_format: Union[Any, NotGiven] = NOT_GIVEN,
-        frequency_penalty: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        function_call: Union[Any, NotGiven] = NOT_GIVEN,
-        functions: Union[Iterable[Any], NotGiven] = NOT_GIVEN,
-        logit_bias: Union[Optional[Dict[str, int]], NotGiven] = NOT_GIVEN,
-        logprobs: Union[Optional[bool], NotGiven] = NOT_GIVEN,
-        max_completion_tokens: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        max_tokens: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        metadata: Union[Optional[Metadata], NotGiven] = NOT_GIVEN,
-        modalities: Union[Optional[List[Any]], NotGiven] = NOT_GIVEN,
-        n: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        parallel_tool_calls: Union[bool, NotGiven] = NOT_GIVEN,
-        prediction: Union[Any, NotGiven] = NOT_GIVEN,
-        presence_penalty: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        prompt_cache_key: Union[str, NotGiven] = NOT_GIVEN,
-        reasoning_effort: Union[Any, NotGiven] = NOT_GIVEN,
-        safety_identifier: Union[str, NotGiven] = NOT_GIVEN,
-        seed: Union[Optional[int], NotGiven] = NOT_GIVEN,
+        audio: Union[Optional[Any], Omit] = omit,
+        response_format: Union[Any, Omit] = omit,
+        frequency_penalty: Union[Optional[float], Omit] = omit,
+        function_call: Union[Any, Omit] = omit,
+        functions: Union[Iterable[Any], Omit] = omit,
+        logit_bias: Union[Optional[Dict[str, int]], Omit] = omit,
+        logprobs: Union[Optional[bool], Omit] = omit,
+        max_completion_tokens: Union[Optional[int], Omit] = omit,
+        max_tokens: Union[Optional[int], Omit] = omit,
+        metadata: Union[Optional[Metadata], Omit] = omit,
+        modalities: Union[Optional[List[Any]], Omit] = omit,
+        n: Union[Optional[int], Omit] = omit,
+        parallel_tool_calls: Union[bool, Omit] = omit,
+        prediction: Union[Any, Omit] = omit,
+        presence_penalty: Union[Optional[float], Omit] = omit,
+        prompt_cache_key: Union[str, Omit] = omit,
+        reasoning_effort: Union[Any, Omit] = omit,
+        safety_identifier: Union[str, Omit] = omit,
+        seed: Union[Optional[int], Omit] = omit,
         service_tier: Union[
-            Literal["auto", "default", "flex", "scale", "priority"], NotGiven
-        ] = NOT_GIVEN,
-        stop: Union[Optional[str], List[str], None] | NotGiven = NOT_GIVEN,
-        store: Union[Optional[bool], NotGiven] = NOT_GIVEN,
-        stream_options: Union[Any, NotGiven] = NOT_GIVEN,
-        temperature: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        tool_choice: Union[Any, NotGiven] = NOT_GIVEN,
-        tools: Union[Iterable[Any], NotGiven] = NOT_GIVEN,
-        top_logprobs: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        top_p: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        user: Union[str, NotGiven] = NOT_GIVEN,
-        verbosity: Union[Literal["low", "medium", "high"], NotGiven] = NOT_GIVEN,
-        web_search_options: Union[Any, NotGiven] = NOT_GIVEN,
+            Literal["auto", "default", "flex", "scale", "priority"], Omit
+        ] = omit,
+        stop: Union[Optional[str], List[str], None] | Omit = omit,
+        store: Union[Optional[bool], Omit] = omit,
+        stream_options: Union[Any, Omit] = omit,
+        temperature: Union[Optional[float], Omit] = omit,
+        tool_choice: Union[Any, Omit] = omit,
+        tools: Union[Iterable[Any], Omit] = omit,
+        top_logprobs: Union[Optional[int], Omit] = omit,
+        top_p: Union[Optional[float], Omit] = omit,
+        user: Union[str, Omit] = omit,
+        verbosity: Union[Literal["low", "medium", "high"], Omit] = omit,
+        web_search_options: Union[Any, Omit] = omit,
         extra_headers: Optional[Headers] = None,
         extra_query: Optional[Query] = None,
         extra_body: Optional[Body] = None,
@@ -387,39 +384,39 @@ class Completions(APIResource):
         *,
         messages: Iterable[Any],
         model: Optional[str] = "portkey-default",
-        audio: Union[Optional[Any], NotGiven] = NOT_GIVEN,
-        response_format: Union[Any, NotGiven] = NOT_GIVEN,
-        frequency_penalty: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        function_call: Union[Any, NotGiven] = NOT_GIVEN,
-        functions: Union[Iterable[Any], NotGiven] = NOT_GIVEN,
-        logit_bias: Union[Optional[Dict[str, int]], NotGiven] = NOT_GIVEN,
-        logprobs: Union[Optional[bool], NotGiven] = NOT_GIVEN,
-        max_completion_tokens: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        max_tokens: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        metadata: Union[Optional[Metadata], NotGiven] = NOT_GIVEN,
-        modalities: Union[Optional[List[Any]], NotGiven] = NOT_GIVEN,
-        n: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        parallel_tool_calls: Union[bool, NotGiven] = NOT_GIVEN,
-        prediction: Union[Any, NotGiven] = NOT_GIVEN,
-        presence_penalty: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        prompt_cache_key: Union[str, NotGiven] = NOT_GIVEN,
-        reasoning_effort: Union[Any, NotGiven] = NOT_GIVEN,
-        safety_identifier: Union[str, NotGiven] = NOT_GIVEN,
-        seed: Union[Optional[int], NotGiven] = NOT_GIVEN,
+        audio: Union[Optional[Any], Omit] = omit,
+        response_format: Union[Any, Omit] = omit,
+        frequency_penalty: Union[Optional[float], Omit] = omit,
+        function_call: Union[Any, Omit] = omit,
+        functions: Union[Iterable[Any], Omit] = omit,
+        logit_bias: Union[Optional[Dict[str, int]], Omit] = omit,
+        logprobs: Union[Optional[bool], Omit] = omit,
+        max_completion_tokens: Union[Optional[int], Omit] = omit,
+        max_tokens: Union[Optional[int], Omit] = omit,
+        metadata: Union[Optional[Metadata], Omit] = omit,
+        modalities: Union[Optional[List[Any]], Omit] = omit,
+        n: Union[Optional[int], Omit] = omit,
+        parallel_tool_calls: Union[bool, Omit] = omit,
+        prediction: Union[Any, Omit] = omit,
+        presence_penalty: Union[Optional[float], Omit] = omit,
+        prompt_cache_key: Union[str, Omit] = omit,
+        reasoning_effort: Union[Any, Omit] = omit,
+        safety_identifier: Union[str, Omit] = omit,
+        seed: Union[Optional[int], Omit] = omit,
         service_tier: Union[
-            Literal["auto", "default", "flex", "scale", "priority"], NotGiven
-        ] = NOT_GIVEN,
-        stop: Union[Optional[str], List[str], None] | NotGiven = NOT_GIVEN,
-        store: Union[Optional[bool], NotGiven] = NOT_GIVEN,
-        stream_options: Union[Any, NotGiven] = NOT_GIVEN,
-        temperature: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        tool_choice: Union[Any, NotGiven] = NOT_GIVEN,
-        tools: Union[Iterable[Any], NotGiven] = NOT_GIVEN,
-        top_logprobs: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        top_p: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        user: Union[str, NotGiven] = NOT_GIVEN,
-        verbosity: Union[Literal["low", "medium", "high"], NotGiven] = NOT_GIVEN,
-        web_search_options: Union[Any, NotGiven] = NOT_GIVEN,
+            Literal["auto", "default", "flex", "scale", "priority"], Omit
+        ] = omit,
+        stop: Union[Optional[str], List[str], None] | Omit = omit,
+        store: Union[Optional[bool], Omit] = omit,
+        stream_options: Union[Any, Omit] = omit,
+        temperature: Union[Optional[float], Omit] = omit,
+        tool_choice: Union[Any, Omit] = omit,
+        tools: Union[Iterable[Any], Omit] = omit,
+        top_logprobs: Union[Optional[int], Omit] = omit,
+        top_p: Union[Optional[float], Omit] = omit,
+        user: Union[str, Omit] = omit,
+        verbosity: Union[Literal["low", "medium", "high"], Omit] = omit,
+        web_search_options: Union[Any, Omit] = omit,
         extra_headers: Optional[Headers] = None,
         extra_query: Optional[Query] = None,
         extra_body: Optional[Body] = None,
@@ -487,8 +484,12 @@ class AsyncCompletions(AsyncAPIResource):
         store,
         **kwargs,
     ) -> Union[ChatCompletions, AsyncIterator[ChatCompletionChunk]]:
-        extra_headers = kwargs.get("extra_headers", {})
-        async with self.openai_client.with_streaming_response.chat.completions.create(
+        extra_headers = kwargs.pop("extra_headers", None)
+        extra_query = kwargs.pop("extra_query", None)
+        timeout = kwargs.pop("timeout", None)
+        user_extra_body = kwargs.pop("extra_body", None) or {}
+        merged_extra_body = {**user_extra_body, **kwargs}
+        return await self.openai_client.chat.completions.create(
             model=model,
             messages=messages,
             stream=stream,
@@ -503,23 +504,10 @@ class AsyncCompletions(AsyncAPIResource):
             reasoning_effort=reasoning_effort,
             store=store,
             extra_headers=extra_headers,
-            extra_body=kwargs,
-        ) as response:
-            async for line in response.iter_lines():
-                json_string = line.replace("data: ", "")
-                json_string = json_string.strip().rstrip("\n")
-                if json_string == "":
-                    continue
-                if json_string.startswith(":"):
-                    continue
-                elif json_string == "[DONE]":
-                    break
-                elif json_string != "":
-                    json_data = json.loads(json_string)
-                    json_data = ChatCompletionChunk(**json_data)
-                    yield json_data
-                else:
-                    pass
+            extra_query=extra_query,
+            extra_body=merged_extra_body,
+            timeout=timeout,
+        )
 
     async def normal_create(
         self,
@@ -538,7 +526,11 @@ class AsyncCompletions(AsyncAPIResource):
         store,
         **kwargs,
     ) -> ChatCompletions:
-        extra_headers = kwargs.get("extra_headers", {})
+        extra_headers = kwargs.pop("extra_headers", None)
+        extra_query = kwargs.pop("extra_query", None)
+        timeout = kwargs.pop("timeout", None)
+        user_extra_body = kwargs.pop("extra_body", None) or {}
+        merged_extra_body = {**user_extra_body, **kwargs}
         response = await self.openai_client.with_raw_response.chat.completions.create(
             model=model,
             messages=messages,
@@ -554,7 +546,9 @@ class AsyncCompletions(AsyncAPIResource):
             reasoning_effort=reasoning_effort,
             store=store,
             extra_headers=extra_headers,
-            extra_body=kwargs,
+            extra_query=extra_query,
+            extra_body=merged_extra_body,
+            timeout=timeout,
         )
         data = ChatCompletions(**json.loads(response.text))
         data._headers = response.headers
@@ -565,21 +559,21 @@ class AsyncCompletions(AsyncAPIResource):
         *,
         model: Optional[str] = "portkey-default",
         messages: Iterable[Any],
-        stream: Union[bool, NotGiven] = NOT_GIVEN,
-        temperature: Union[float, NotGiven] = NOT_GIVEN,
-        max_tokens: Union[int, NotGiven] = NOT_GIVEN,
-        top_p: Union[float, NotGiven] = NOT_GIVEN,
-        audio: Optional[Any] = NOT_GIVEN,
-        max_completion_tokens: Union[int, NotGiven] = NOT_GIVEN,
-        metadata: Union[Dict[str, str], NotGiven] = NOT_GIVEN,
-        modalities: Union[List[Any], NotGiven] = NOT_GIVEN,
-        prediction: Union[Any, NotGiven] = NOT_GIVEN,
-        reasoning_effort: Union[Any, NotGiven] = NOT_GIVEN,
-        store: Union[Optional[bool], NotGiven] = NOT_GIVEN,
+        stream: Union[bool, Omit] = omit,
+        temperature: Union[float, Omit] = omit,
+        max_tokens: Union[int, Omit] = omit,
+        top_p: Union[float, Omit] = omit,
+        audio: Optional[Any] = omit,
+        max_completion_tokens: Union[int, Omit] = omit,
+        metadata: Union[Dict[str, str], Omit] = omit,
+        modalities: Union[List[Any], Omit] = omit,
+        prediction: Union[Any, Omit] = omit,
+        reasoning_effort: Union[Any, Omit] = omit,
+        store: Union[Optional[bool], Omit] = omit,
         **kwargs,
     ) -> Union[ChatCompletions, AsyncIterator[ChatCompletionChunk]]:
         if stream is True:
-            return self.stream_create(
+            return await self.stream_create(
                 model=model,
                 messages=messages,
                 stream=stream,
@@ -656,11 +650,11 @@ class AsyncCompletions(AsyncAPIResource):
     async def list(
         self,
         *,
-        after: Union[str, NotGiven] = NOT_GIVEN,
-        limit: Union[int, NotGiven] = NOT_GIVEN,
-        metadata: Union[Metadata, NotGiven] = NOT_GIVEN,
-        model: Union[str, NotGiven] = NOT_GIVEN,
-        order: Union[Literal["asc", "desc"], NotGiven] = NOT_GIVEN,
+        after: Union[str, Omit] = omit,
+        limit: Union[int, Omit] = omit,
+        metadata: Union[Metadata, Omit] = omit,
+        model: Union[str, Omit] = omit,
+        order: Union[Literal["asc", "desc"], Omit] = omit,
         extra_headers: Optional[Headers] = None,
         extra_query: Optional[Query] = None,
         extra_body: Optional[Body] = None,
@@ -713,39 +707,39 @@ class AsyncCompletions(AsyncAPIResource):
         *,
         messages: Iterable[Any],
         model: Optional[str] = "portkey-default",
-        audio: Union[Optional[Any], NotGiven] = NOT_GIVEN,
-        response_format: Union[Any, NotGiven] = NOT_GIVEN,
-        frequency_penalty: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        function_call: Union[Any, NotGiven] = NOT_GIVEN,
-        functions: Union[Iterable[Any], NotGiven] = NOT_GIVEN,
-        logit_bias: Union[Optional[Dict[str, int]], NotGiven] = NOT_GIVEN,
-        logprobs: Union[Optional[bool], NotGiven] = NOT_GIVEN,
-        max_completion_tokens: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        max_tokens: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        metadata: Union[Optional[Metadata], NotGiven] = NOT_GIVEN,
-        modalities: Union[Optional[List[Any]], NotGiven] = NOT_GIVEN,
-        n: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        parallel_tool_calls: Union[bool, NotGiven] = NOT_GIVEN,
-        prediction: Union[Any, NotGiven] = NOT_GIVEN,
-        presence_penalty: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        prompt_cache_key: Union[str, NotGiven] = NOT_GIVEN,
-        reasoning_effort: Union[Any, NotGiven] = NOT_GIVEN,
-        safety_identifier: Union[str, NotGiven] = NOT_GIVEN,
-        seed: Union[Optional[int], NotGiven] = NOT_GIVEN,
+        audio: Union[Optional[Any], Omit] = omit,
+        response_format: Union[Any, Omit] = omit,
+        frequency_penalty: Union[Optional[float], Omit] = omit,
+        function_call: Union[Any, Omit] = omit,
+        functions: Union[Iterable[Any], Omit] = omit,
+        logit_bias: Union[Optional[Dict[str, int]], Omit] = omit,
+        logprobs: Union[Optional[bool], Omit] = omit,
+        max_completion_tokens: Union[Optional[int], Omit] = omit,
+        max_tokens: Union[Optional[int], Omit] = omit,
+        metadata: Union[Optional[Metadata], Omit] = omit,
+        modalities: Union[Optional[List[Any]], Omit] = omit,
+        n: Union[Optional[int], Omit] = omit,
+        parallel_tool_calls: Union[bool, Omit] = omit,
+        prediction: Union[Any, Omit] = omit,
+        presence_penalty: Union[Optional[float], Omit] = omit,
+        prompt_cache_key: Union[str, Omit] = omit,
+        reasoning_effort: Union[Any, Omit] = omit,
+        safety_identifier: Union[str, Omit] = omit,
+        seed: Union[Optional[int], Omit] = omit,
         service_tier: Union[
-            Literal["auto", "default", "flex", "scale", "priority"], NotGiven
-        ] = NOT_GIVEN,
-        stop: Union[Optional[str], List[str], None] | NotGiven = NOT_GIVEN,
-        store: Union[Optional[bool], NotGiven] = NOT_GIVEN,
-        stream_options: Union[Any, NotGiven] = NOT_GIVEN,
-        temperature: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        tool_choice: Union[Any, NotGiven] = NOT_GIVEN,
-        tools: Union[Iterable[Any], NotGiven] = NOT_GIVEN,
-        top_logprobs: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        top_p: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        user: Union[str, NotGiven] = NOT_GIVEN,
-        verbosity: Union[Literal["low", "medium", "high"], NotGiven] = NOT_GIVEN,
-        web_search_options: Union[Any, NotGiven] = NOT_GIVEN,
+            Literal["auto", "default", "flex", "scale", "priority"], Omit
+        ] = omit,
+        stop: Union[Optional[str], List[str], None] | Omit = omit,
+        store: Union[Optional[bool], Omit] = omit,
+        stream_options: Union[Any, Omit] = omit,
+        temperature: Union[Optional[float], Omit] = omit,
+        tool_choice: Union[Any, Omit] = omit,
+        tools: Union[Iterable[Any], Omit] = omit,
+        top_logprobs: Union[Optional[int], Omit] = omit,
+        top_p: Union[Optional[float], Omit] = omit,
+        user: Union[str, Omit] = omit,
+        verbosity: Union[Literal["low", "medium", "high"], Omit] = omit,
+        web_search_options: Union[Any, Omit] = omit,
         extra_headers: Optional[Headers] = None,
         extra_query: Optional[Query] = None,
         extra_body: Optional[Body] = None,
@@ -795,39 +789,39 @@ class AsyncCompletions(AsyncAPIResource):
         *,
         messages: Iterable[Any],
         model: Optional[str] = "portkey-default",
-        audio: Union[Optional[Any], NotGiven] = NOT_GIVEN,
-        response_format: Union[Any, NotGiven] = NOT_GIVEN,
-        frequency_penalty: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        function_call: Union[Any, NotGiven] = NOT_GIVEN,
-        functions: Union[Iterable[Any], NotGiven] = NOT_GIVEN,
-        logit_bias: Union[Optional[Dict[str, int]], NotGiven] = NOT_GIVEN,
-        logprobs: Union[Optional[bool], NotGiven] = NOT_GIVEN,
-        max_completion_tokens: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        max_tokens: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        metadata: Union[Optional[Metadata], NotGiven] = NOT_GIVEN,
-        modalities: Union[Optional[List[Any]], NotGiven] = NOT_GIVEN,
-        n: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        parallel_tool_calls: Union[bool, NotGiven] = NOT_GIVEN,
-        prediction: Union[Any, NotGiven] = NOT_GIVEN,
-        presence_penalty: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        prompt_cache_key: Union[str, NotGiven] = NOT_GIVEN,
-        reasoning_effort: Union[Any, NotGiven] = NOT_GIVEN,
-        safety_identifier: Union[str, NotGiven] = NOT_GIVEN,
-        seed: Union[Optional[int], NotGiven] = NOT_GIVEN,
+        audio: Union[Optional[Any], Omit] = omit,
+        response_format: Union[Any, Omit] = omit,
+        frequency_penalty: Union[Optional[float], Omit] = omit,
+        function_call: Union[Any, Omit] = omit,
+        functions: Union[Iterable[Any], Omit] = omit,
+        logit_bias: Union[Optional[Dict[str, int]], Omit] = omit,
+        logprobs: Union[Optional[bool], Omit] = omit,
+        max_completion_tokens: Union[Optional[int], Omit] = omit,
+        max_tokens: Union[Optional[int], Omit] = omit,
+        metadata: Union[Optional[Metadata], Omit] = omit,
+        modalities: Union[Optional[List[Any]], Omit] = omit,
+        n: Union[Optional[int], Omit] = omit,
+        parallel_tool_calls: Union[bool, Omit] = omit,
+        prediction: Union[Any, Omit] = omit,
+        presence_penalty: Union[Optional[float], Omit] = omit,
+        prompt_cache_key: Union[str, Omit] = omit,
+        reasoning_effort: Union[Any, Omit] = omit,
+        safety_identifier: Union[str, Omit] = omit,
+        seed: Union[Optional[int], Omit] = omit,
         service_tier: Union[
-            Literal["auto", "default", "flex", "scale", "priority"], NotGiven
-        ] = NOT_GIVEN,
-        stop: Union[Optional[str], List[str], None] | NotGiven = NOT_GIVEN,
-        store: Union[Optional[bool], NotGiven] = NOT_GIVEN,
-        stream_options: Union[Any, NotGiven] = NOT_GIVEN,
-        temperature: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        tool_choice: Union[Any, NotGiven] = NOT_GIVEN,
-        tools: Union[Iterable[Any], NotGiven] = NOT_GIVEN,
-        top_logprobs: Union[Optional[int], NotGiven] = NOT_GIVEN,
-        top_p: Union[Optional[float], NotGiven] = NOT_GIVEN,
-        user: Union[str, NotGiven] = NOT_GIVEN,
-        verbosity: Union[Literal["low", "medium", "high"], NotGiven] = NOT_GIVEN,
-        web_search_options: Union[Any, NotGiven] = NOT_GIVEN,
+            Literal["auto", "default", "flex", "scale", "priority"], Omit
+        ] = omit,
+        stop: Union[Optional[str], List[str], None] | Omit = omit,
+        store: Union[Optional[bool], Omit] = omit,
+        stream_options: Union[Any, Omit] = omit,
+        temperature: Union[Optional[float], Omit] = omit,
+        tool_choice: Union[Any, Omit] = omit,
+        tools: Union[Iterable[Any], Omit] = omit,
+        top_logprobs: Union[Optional[int], Omit] = omit,
+        top_p: Union[Optional[float], Omit] = omit,
+        user: Union[str, Omit] = omit,
+        verbosity: Union[Literal["low", "medium", "high"], Omit] = omit,
+        web_search_options: Union[Any, Omit] = omit,
         extra_headers: Optional[Headers] = None,
         extra_query: Optional[Query] = None,
         extra_body: Optional[Body] = None,
@@ -884,9 +878,9 @@ class ChatCompletionsMessages(APIResource):
         self,
         completion_id: str,
         *,
-        after: Union[str, NotGiven] = NOT_GIVEN,
-        limit: Union[int, NotGiven] = NOT_GIVEN,
-        order: Union[Literal["asc", "desc"], NotGiven] = NOT_GIVEN,
+        after: Union[str, Omit] = omit,
+        limit: Union[int, Omit] = omit,
+        order: Union[Literal["asc", "desc"], Omit] = omit,
         extra_headers: Optional[Headers] = None,
         extra_query: Optional[Query] = None,
         extra_body: Optional[Body] = None,
@@ -922,9 +916,9 @@ class AsyncChatCompletionsMessages(AsyncAPIResource):
         self,
         completion_id: str,
         *,
-        after: Union[str, NotGiven] = NOT_GIVEN,
-        limit: Union[int, NotGiven] = NOT_GIVEN,
-        order: Union[Literal["asc", "desc"], NotGiven] = NOT_GIVEN,
+        after: Union[str, Omit] = omit,
+        limit: Union[int, Omit] = omit,
+        order: Union[Literal["asc", "desc"], Omit] = omit,
         extra_headers: Optional[Headers] = None,
         extra_query: Optional[Query] = None,
         extra_body: Optional[Body] = None,

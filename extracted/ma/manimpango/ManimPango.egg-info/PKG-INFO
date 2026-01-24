@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ManimPango
-Version: 0.6.0
+Version: 0.6.1
 Summary: Bindings for Pango for using with Manim.
 Home-page: https://manimpango.manim.community/
 Author: Naveen M K
@@ -23,11 +23,24 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Cython
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: platform
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
 
 # ManimPango
 

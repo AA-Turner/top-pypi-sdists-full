@@ -156,7 +156,7 @@ class SegmentTypeDriver(BaseTypeDriver):
         LOG.debug('  - Non allocated segments:')
         for non_allocated_segment in (
                 self.segmentation_obj.get_all_unallocated_segments(context,
-                    **filters)):
+                                                                   **filters)):
             LOG.debug('    - %s', non_allocated_segment)
         if directory.get_plugin(plugin_constants.NETWORK_SEGMENT_RANGE):
             LOG.debug('  - Network segment ranges:')

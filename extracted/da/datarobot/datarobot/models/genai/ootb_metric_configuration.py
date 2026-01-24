@@ -50,13 +50,9 @@ class ToolCallAccuracySettings(APIObject):
         The mode for comparing arguments in tool calls.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("argument_comparison"): t.Or(
-                t.Enum(*enum_to_list(ToolCallAccuracyArgumentComparisonMode))
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("argument_comparison"): t.Or(t.Enum(*enum_to_list(ToolCallAccuracyArgumentComparisonMode))),
+    }).ignore_extra("*")
 
     def __init__(self, argument_comparison: ToolCallAccuracyArgumentComparisonMode):
         self.argument_comparison = argument_comparison
@@ -76,11 +72,9 @@ class ExtraMetricSettings(APIObject):
         The settings for tool call accuracy metrics, if applicable.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("tool_call_accuracy"): t.Or(ToolCallAccuracySettings._converter, t.Null),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("tool_call_accuracy"): t.Or(ToolCallAccuracySettings._converter, t.Null),
+    }).ignore_extra("*")
 
     def __init__(self, tool_call_accuracy: Optional[ToolCallAccuracySettings]):
         self.tool_call_accuracy = tool_call_accuracy
@@ -97,9 +91,7 @@ class ExtraMetricSettings(APIObject):
 
     def to_dict(self) -> ExtraMetricSettingsDict:
         result = ExtraMetricSettingsDict(
-            tool_call_accuracy=(
-                self.tool_call_accuracy.to_dict() if self.tool_call_accuracy is not None else None
-            ),
+            tool_call_accuracy=(self.tool_call_accuracy.to_dict() if self.tool_call_accuracy is not None else None),
         )
         return result
 
@@ -124,20 +116,14 @@ class OOTBMetricConfigurationRequest(APIObject):
         Additional settings for the OOTB metric.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("ootb_metric_name"): t.String,
-            t.Key("custom_ootb_metric_name", optional=True): t.Or(t.String, t.Null),
-            t.Key("llm_id", optional=True): t.Or(t.String, t.Null),
-            t.Key("custom_model_llm_validation_id", optional=True): t.Or(t.String, t.Null),
-            t.Key("moderation_configuration", optional=True): t.Or(
-                moderation_configuration_without_id, t.Null
-            ),
-            t.Key("extra_metric_settings", optional=True): t.Or(
-                ExtraMetricSettings._converter, t.Null
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("ootb_metric_name"): t.String,
+        t.Key("custom_ootb_metric_name", optional=True): t.Or(t.String, t.Null),
+        t.Key("llm_id", optional=True): t.Or(t.String, t.Null),
+        t.Key("custom_model_llm_validation_id", optional=True): t.Or(t.String, t.Null),
+        t.Key("moderation_configuration", optional=True): t.Or(moderation_configuration_without_id, t.Null),
+        t.Key("extra_metric_settings", optional=True): t.Or(ExtraMetricSettings._converter, t.Null),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -148,23 +134,18 @@ class OOTBMetricConfigurationRequest(APIObject):
         moderation_configuration: Optional[Dict[str, Any]] = None,
         extra_metric_settings: Optional[ExtraMetricSettings] = None,
     ):
-
         self.ootb_metric_name = ootb_metric_name
         self.custom_ootb_metric_name = custom_ootb_metric_name
         self.llm_id = llm_id
         self.custom_model_llm_validation_id = custom_model_llm_validation_id
-        self.moderation_configuration = _get_obj(
-            moderation_configuration, ModerationConfigurationWithoutId
-        )
+        self.moderation_configuration = _get_obj(moderation_configuration, ModerationConfigurationWithoutId)
         self.extra_metric_settings = extra_metric_settings
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(ootb_metric_name={self.ootb_metric_name})"
 
     @classmethod
-    def from_data(
-        cls, data: Union[Dict[str, Any], List[Dict[str, Any]]]
-    ) -> OOTBMetricConfigurationRequest:
+    def from_data(cls, data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> OOTBMetricConfigurationRequest:
         """Properly convert composition classes."""
         converted_data = cls._converter.check(from_api(data))
         extra_metric_settings = converted_data.get("extra_metric_settings")
@@ -175,9 +156,7 @@ class OOTBMetricConfigurationRequest(APIObject):
 
     def to_dict(self, uppercase_llm_key: bool = False) -> Dict[str, Any]:
         custom_model_llm_validation_id_key = (
-            "custom_modelLLM_validation_id"
-            if uppercase_llm_key
-            else "custom_model_llm_validation_id"
+            "custom_modelLLM_validation_id" if uppercase_llm_key else "custom_model_llm_validation_id"
         )
         return {
             "ootb_metric_name": self.ootb_metric_name,
@@ -185,14 +164,10 @@ class OOTBMetricConfigurationRequest(APIObject):
             "llm_id": self.llm_id,
             custom_model_llm_validation_id_key: self.custom_model_llm_validation_id,
             "moderation_configuration": (
-                self.moderation_configuration.to_dict()
-                if self.moderation_configuration is not None
-                else None
+                self.moderation_configuration.to_dict() if self.moderation_configuration is not None else None
             ),
             "extra_metric_settings": (
-                self.extra_metric_settings.to_dict()
-                if self.extra_metric_settings is not None
-                else None
+                self.extra_metric_settings.to_dict() if self.extra_metric_settings is not None else None
             ),
         }
 
@@ -225,24 +200,18 @@ class OOTBMetricConfigurationResponse(APIObject):
         Additional settings for the OOTB metric.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("ootb_metric_configuration_id"): t.String,
-            t.Key("ootb_metric_name"): t.String,
-            t.Key("execution_status"): t.String,
-            t.Key("custom_ootb_metric_name", optional=True): t.Or(t.String, t.Null),
-            t.Key("llm_id", optional=True): t.Or(t.String, t.Null),
-            t.Key("custom_model_llm_validation_id", optional=True): t.Or(t.String, t.Null),
-            t.Key("moderation_configuration", optional=True): t.Or(
-                moderation_configuration_without_id, t.Null
-            ),
-            t.Key("error_message", optional=True): t.Or(t.String(), t.Null),
-            t.Key("error_resolution", optional=True): t.Or(t.List(t.String()), t.Null),
-            t.Key("extra_metric_settings", optional=True): t.Or(
-                ExtraMetricSettings._converter, t.Null
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("ootb_metric_configuration_id"): t.String,
+        t.Key("ootb_metric_name"): t.String,
+        t.Key("execution_status"): t.String,
+        t.Key("custom_ootb_metric_name", optional=True): t.Or(t.String, t.Null),
+        t.Key("llm_id", optional=True): t.Or(t.String, t.Null),
+        t.Key("custom_model_llm_validation_id", optional=True): t.Or(t.String, t.Null),
+        t.Key("moderation_configuration", optional=True): t.Or(moderation_configuration_without_id, t.Null),
+        t.Key("error_message", optional=True): t.Or(t.String(), t.Null),
+        t.Key("error_resolution", optional=True): t.Or(t.List(t.String()), t.Null),
+        t.Key("extra_metric_settings", optional=True): t.Or(ExtraMetricSettings._converter, t.Null),
+    }).ignore_extra("*")
     _path = "api/v2/genai/ootbMetricConfigurations"
 
     def __init__(
@@ -264,17 +233,13 @@ class OOTBMetricConfigurationResponse(APIObject):
         self.custom_ootb_metric_name = custom_ootb_metric_name
         self.llm_id = llm_id
         self.custom_model_llm_validation_id = custom_model_llm_validation_id
-        self.moderation_configuration = _get_obj(
-            moderation_configuration, ModerationConfigurationWithoutId
-        )
+        self.moderation_configuration = _get_obj(moderation_configuration, ModerationConfigurationWithoutId)
         self.error_message = error_message
         self.error_resolution = error_resolution
         self.extra_metric_settings = extra_metric_settings
 
     @classmethod
-    def from_data(
-        cls, data: Union[Dict[str, Any], List[Dict[str, Any]]]
-    ) -> OOTBMetricConfigurationResponse:
+    def from_data(cls, data: Union[Dict[str, Any], List[Dict[str, Any]]]) -> OOTBMetricConfigurationResponse:
         """Properly convert composition classes."""
         converted_data = cls._converter.check(from_api(data))
         extra_metric_settings = converted_data.get("extra_metric_settings")
@@ -289,9 +254,7 @@ class OOTBMetricConfigurationResponse(APIObject):
     @classmethod
     def get(cls, ootb_metric_configuration_id: str) -> OOTBMetricConfigurationResponse:
         """Get the OOTB metric configuration."""
-        response_data = cls._client.get(
-            f"{cls._client.domain}/{cls._path}/{ootb_metric_configuration_id}/"
-        )
+        response_data = cls._client.get(f"{cls._client.domain}/{cls._path}/{ootb_metric_configuration_id}/")
         return cls.from_server_data(response_data.json())
 
     def delete(self) -> None:
@@ -308,11 +271,9 @@ class PlaygroundOOTBMetricConfiguration(APIObject):
     ootb_metric_configurations: (List[OOTBMetricConfigurationResponse]): The list of the OOTB metric configurations.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("ootb_metric_configurations"): t.List(OOTBMetricConfigurationResponse._converter),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("ootb_metric_configurations"): t.List(OOTBMetricConfigurationResponse._converter),
+    }).ignore_extra("*")
     path = "api/v2/genai/playgrounds/{playground_id}/ootbMetricConfigurations"
 
     def __init__(
@@ -320,16 +281,13 @@ class PlaygroundOOTBMetricConfiguration(APIObject):
         ootb_metric_configurations: List[Dict[str, Any]],
     ):
         self.ootb_metric_configurations = [
-            OOTBMetricConfigurationResponse.from_server_data(config)
-            for config in ootb_metric_configurations
+            OOTBMetricConfigurationResponse.from_server_data(config) for config in ootb_metric_configurations
         ]
 
     @classmethod
     def get(cls, playground_id: str) -> PlaygroundOOTBMetricConfiguration:
         """Get OOTB metric configurations for the playground."""
-        response_data = cls._client.get(
-            f"{cls._client.domain}/{cls.path.format(playground_id=playground_id)}/"
-        )
+        response_data = cls._client.get(f"{cls._client.domain}/{cls.path.format(playground_id=playground_id)}/")
         return cls.from_server_data(response_data.json())
 
     @classmethod

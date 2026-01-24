@@ -1,8 +1,6 @@
 import flask
 import flask_sock
 
-from abstra_internals.controllers.execution.execution import ExecutionController
-from abstra_internals.controllers.execution.execution_client_form import FormClient
 from abstra_internals.controllers.main import MainController
 from abstra_internals.entities.execution_context import (
     FormContext,
@@ -12,6 +10,7 @@ from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.project.project import FormStage
 from abstra_internals.usage import editor_usage
 from abstra_internals.utils import is_it_true
+from abstra_internals.utils.websockets import bind_ws_with_connection
 
 
 def get_editor_bp(controller: MainController):
@@ -20,6 +19,7 @@ def get_editor_bp(controller: MainController):
 
     @sock.route("/socket")
     def _websocket(ws: flask_sock.Server):
+        connection = None
         try:
             context = FormContext(
                 request=extract_flask_request(flask.request),
@@ -33,18 +33,17 @@ def get_editor_bp(controller: MainController):
             if not form:
                 return
 
-            client = FormClient(ws=ws, context=context, production_mode=False)
+            connection = controller.repositories.producer.enqueue(id, context)
 
-            ExecutionController(
-                repositories=controller.repositories,
-                stage=form,
-                client=client,
-                context=context,
-            ).run()
-
+            bind_ws_with_connection(ws, connection, block=True)
         except Exception as e:
             AbstraLogger.capture_exception(e)
         finally:
+            if connection is not None:
+                try:
+                    connection.close()
+                except Exception as e:
+                    AbstraLogger.capture_exception(e)
             ws.close(message="Done")
 
     @bp.get("/")
@@ -66,7 +65,7 @@ def get_editor_bp(controller: MainController):
         remove_file = flask.request.args.get(
             "remove_file", default=False, type=is_it_true
         )
-        controller.delete_form(id, remove_file)
+        controller.delete_stage(id, remove_file)
         return {"success": True}
 
     @bp.post("/")

@@ -1,14 +1,18 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.3
 Name: draftjs_exporter
-Version: 5.1.0
+Version: 5.2.0
 Summary: Library to convert rich text from Draft.js raw ContentState to HTML
-Home-page: https://github.com/springload/draftjs_exporter
 Author: Springload
-Author-email: hello@springload.co.nz
-License: MIT
-Project-URL: Source, https://github.com/springload/draftjs_exporter
-Project-URL: Tracker, https://github.com/springload/draftjs_exporter/issues
-Project-URL: Changelog, https://github.com/springload/draftjs_exporter/blob/main/CHANGELOG.md
+Author-email: Springload <hello@springload.co.nz>
+License: # The MIT License (MIT)
+         
+         Copyright (c) 2016-current Springload
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+         
+         The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -22,6 +26,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Internet :: WWW/HTTP :: Site Management
@@ -29,23 +34,15 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Editors :: Word Processors
 Classifier: Typing :: Typed
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Provides-Extra: lxml
-Requires-Dist: lxml<6,>=4.2.0; extra == "lxml"
+Requires-Dist: beautifulsoup4>=4.4.1,<5 ; extra == 'html5lib'
+Requires-Dist: html5lib>=0.999,<2 ; extra == 'html5lib'
+Requires-Dist: lxml>=4.2.0,<7 ; extra == 'lxml'
+Project-URL: Changelog, https://github.com/springload/draftjs_exporter/blob/main/CHANGELOG.md
+Project-URL: Source, https://github.com/springload/draftjs_exporter
+Project-URL: Tracker, https://github.com/springload/draftjs_exporter/issues
 Provides-Extra: html5lib
-Requires-Dist: beautifulsoup4<5,>=4.4.1; extra == "html5lib"
-Requires-Dist: html5lib<2,>=0.999; extra == "html5lib"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: summary
+Provides-Extra: lxml
+Description-Content-Type: text/markdown
 
 # [Draft.js exporter](https://pypi.org/project/draftjs_exporter/)
 

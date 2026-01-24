@@ -55,9 +55,8 @@ class BlendMode(object):
 The various Porter-Duff and PDF blend modes. See :meth:`.Image.composite`,
 for example.
 
-The Cairo docs have a nice explanation of all the blend modes:
-
-https://www.cairographics.org/operators
+The Cairo docs have [a nice explanation of all the blend
+modes](https://www.cairographics.org/operators).
 
 The non-separable modes are not implemented.
 
@@ -174,7 +173,7 @@ class Interpretation(object):
     """Interpretation.
 
 How the values in an image should be interpreted. For example, a
-three-band float image of type @VIPS_INTERPRETATION_LAB should have its
+three-band float image of type :class:`.enums.Interpretation.LAB` should have its
 pixels interpreted as coordinates in CIE Lab space.
 
 RGB and sRGB are treated in the same way. Use the colourspace functions if
@@ -197,7 +196,7 @@ Attributes:
 
     CMYK (str): the first four bands are in CMYK space
 
-    LABQ (str): implies @VIPS_CODING_LABQ
+    LABQ (str): implies :class:`.enums.Coding.LABQ`
 
     RGB (str): generic RGB space
 
@@ -223,6 +222,10 @@ Attributes:
 
     HSV (str): pixels are HSV
 
+    OKLAB (str): pixels are in Oklab colourspace
+
+    OKLCH (str): pixels are in Oklch colourspace
+
     """
 
     ERROR = 'error'
@@ -245,75 +248,28 @@ Attributes:
     MATRIX = 'matrix'
     SCRGB = 'scrgb'
     HSV = 'hsv'
-
-
-class DemandStyle(object):
-    """DemandStyle.
-
-See :meth:`.Image.pipelinev`. Operations can hint
-the kind of demand geometry they prefer
-to the VIPS image IO system.
-
-These demand styles are given below in order of increasing
-specialisation.  When demanding output from a pipeline,
-:meth:`.Image.generate`
-will use the most general style requested by the operations
-in the pipeline.
-
-@VIPS_DEMAND_STYLE_SMALLTILE -- This is the most general demand format.
-Output is demanded in small (around 100x100 pel) sections. This style works
-reasonably efficiently, even for bizarre operations like 45 degree rotate.
-
-@VIPS_DEMAND_STYLE_FATSTRIP -- This operation would like to output strips
-the width of the image and as high as possible. This option is suitable
-for area operations which do not violently transform coordinates, such
-as :meth:`.Image.conv`.
-
-@VIPS_DEMAND_STYLE_THINSTRIP -- This operation would like to output strips
-the width of the image and a few pels high. This option is suitable for
-point-to-point operations, such as those in the arithmetic package.
-
-@VIPS_DEMAND_STYLE_ANY -- This image is not being demand-read from a disc
-file (even indirectly) so any demand style is OK. It's used for things like
-:meth:`.Image.black` where the pixels are calculated.
-
-::: seealso
-    :meth:`.Image.pipelinev`.
-
-Attributes:
-
-    SMALLTILE (str): demand in small (typically 128x128 pixel) tiles
-
-    FATSTRIP (str): demand in fat (typically 16 pixel high) strips
-
-    THINSTRIP (str): demand in thin (typically 1 pixel high) strips
-
-    """
-
-    ERROR = 'error'
-    SMALLTILE = 'smalltile'
-    FATSTRIP = 'fatstrip'
-    THINSTRIP = 'thinstrip'
+    OKLAB = 'oklab'
+    OKLCH = 'oklch'
 
 
 class OperationRelational(object):
     """OperationRelational.
 
-See also: vips_relational().
+See also: :meth:`.Image.relational`.
 
 Attributes:
 
-    EQUAL (str): ==
+    EQUAL (str): `==`
 
-    NOTEQ (str): !=
+    NOTEQ (str): `!=`
 
-    LESS (str): <
+    LESS (str): `<`
 
-    LESSEQ (str): <=
+    LESSEQ (str): `<=`
 
-    MORE (str): >
+    MORE (str): `>`
 
-    MOREEQ (str): >=
+    MOREEQ (str): `>=`
 
     """
 
@@ -328,19 +284,19 @@ Attributes:
 class OperationBoolean(object):
     """OperationBoolean.
 
-See also: vips_boolean().
+See also: :meth:`.Image.boolean`.
 
 Attributes:
 
-    AND (str): &
+    AND (str): `&`
 
-    OR (str): |
+    OR (str): `|`
 
-    EOR (str): ^
+    EOR (str): `^`
 
-    LSHIFT (str): >>
+    LSHIFT (str): `>>`
 
-    RSHIFT (str): <<
+    RSHIFT (str): `<<`
 
     """
 
@@ -354,15 +310,15 @@ Attributes:
 class OperationMath2(object):
     """OperationMath2.
 
-See also: vips_math().
+See also: :meth:`.Image.math`.
 
 Attributes:
 
-    POW (str): pow(left, right)
+    POW (str): `pow(left, right)`
 
-    WOP (str): pow(right, left)
+    WOP (str): `pow(right, left)`
 
-    ATAN2 (str): atan2(left, right)
+    ATAN2 (str): `atan2(left, right)`
 
     """
 
@@ -374,7 +330,7 @@ Attributes:
 class OperationComplex2(object):
     """OperationComplex2.
 
-See also: vips_complex2().
+See also: :meth:`.Image.complex2`.
 
 Attributes:
 
@@ -388,21 +344,21 @@ Attributes:
 class OperationMath(object):
     """OperationMath.
 
-See also: vips_math().
+See also: :meth:`.Image.math`.
 
 Attributes:
 
-    SIN (str): sin(), angles in degrees
+    SIN (str): `sin()`, angles in degrees
 
-    COS (str): cos(), angles in degrees
+    COS (str): `cos()`, angles in degrees
 
-    TAN (str): tan(), angles in degrees
+    TAN (str): `tan()`, angles in degrees
 
-    ASIN (str): asin(), angles in degrees
+    ASIN (str): `asin()`, angles in degrees
 
-    ACOS (str): acos(), angles in degrees
+    ACOS (str): `acos()`, angles in degrees
 
-    ATAN (str): atan(), angles in degrees
+    ATAN (str): `atan()`, angles in degrees
 
     LOG (str): log base e
 
@@ -412,17 +368,17 @@ Attributes:
 
     EXP10 (str): 10 to the something
 
-    SINH (str): sinh(), angles in radians
+    SINH (str): `sinh()`, angles in radians
 
-    COSH (str): cosh(), angles in radians
+    COSH (str): `cosh()`, angles in radians
 
-    TANH (str): tanh(), angles in radians
+    TANH (str): `tanh()`, angles in radians
 
-    ASINH (str): asinh(), angles in radians
+    ASINH (str): `asinh()`, angles in radians
 
-    ACOSH (str): acosh(), angles in radians
+    ACOSH (str): `acosh()`, angles in radians
 
-    ATANH (str): atanh(), angles in radians
+    ATANH (str): `atanh()`, angles in radians
 
     """
 
@@ -447,7 +403,7 @@ Attributes:
 class OperationRound(object):
     """OperationRound.
 
-See also: vips_round().
+See also: :meth:`.Image.round`.
 
 Attributes:
 
@@ -467,7 +423,7 @@ Attributes:
 class OperationComplex(object):
     """OperationComplex.
 
-See also: vips_complex().
+See also: :meth:`.Image.complex`.
 
 Attributes:
 
@@ -487,7 +443,7 @@ Attributes:
 class OperationComplexget(object):
     """OperationComplexget.
 
-See also: vips_complexget().
+See also: :meth:`.Image.complexget`.
 
 Attributes:
 
@@ -527,9 +483,9 @@ class Access(object):
 The type of access an operation has to supply. See :meth:`.Image.tilecache`
 and :class:`.Foreign`.
 
-@VIPS_ACCESS_RANDOM means requests can come in any order.
+:class:`.enums.Access.RANDOM` means requests can come in any order.
 
-@VIPS_ACCESS_SEQUENTIAL means requests will be top-to-bottom, but with some
+:class:`.enums.Access.SEQUENTIAL` means requests will be top-to-bottom, but with some
 amount of buffering behind the read point for small non-local accesses.
 
 Attributes:
@@ -537,6 +493,8 @@ Attributes:
     RANDOM (str): can read anywhere
 
     SEQUENTIAL (str): top-to-bottom reading only, but with a small buffer
+
+    SEQUENTIAL_UNBUFFERED (str): deprecated, use :class:`.enums.Access.SEQUENTIAL` instead
 
     """
 
@@ -553,19 +511,19 @@ See :meth:`.Image.embed`, :meth:`.Image.conv`, :meth:`.Image.affine` and so on.
 When the edges of an image are extended, you can specify
 how you want the extension done.
 
-#VIPS_EXTEND_BLACK --- new pixels are black, ie. all bits are zero.
+:class:`.enums.Extend.BLACK` -- new pixels are black, ie. all bits are zero.
 
-#VIPS_EXTEND_COPY --- each new pixel takes the value of the nearest edge
+:class:`.enums.Extend.COPY` -- each new pixel takes the value of the nearest edge
 pixel
 
-#VIPS_EXTEND_REPEAT --- the image is tiled to fill the new area
+:class:`.enums.Extend.REPEAT` -- the image is tiled to fill the new area
 
-#VIPS_EXTEND_MIRROR --- the image is reflected and tiled to reduce hash
+:class:`.enums.Extend.MIRROR` -- the image is reflected and tiled to reduce hash
 edges
 
-#VIPS_EXTEND_WHITE --- new pixels are white, ie. all bits are set
+:class:`.enums.Extend.WHITE` -- new pixels are white, ie. all bits are set
 
-#VIPS_EXTEND_BACKGROUND --- colour set from the @background property
+:class:`.enums.Extend.BACKGROUND` -- colour set from the @background property
 
 We have to specify the exact value of each enum member since we have to
 keep these frozen for back compat with vips7.
@@ -691,8 +649,8 @@ Pick the algorithm vips uses to decide image "interestingness". This is used
 by :meth:`.Image.smartcrop`, for example, to decide what parts of the image to
 keep.
 
-#VIPS_INTERESTING_NONE and #VIPS_INTERESTING_LOW mean the same -- the
-crop is positioned at the top or left. #VIPS_INTERESTING_HIGH positions at
+:class:`.enums.Interesting.NONE` and :class:`.enums.Interesting.LOW` mean the same -- the
+crop is positioned at the top or left. :class:`.enums.Interesting.HIGH` positions at
 the bottom or right.
 
 ::: seealso
@@ -872,8 +830,8 @@ class FailOn(object):
 How sensitive loaders are to errors, from never stop (very insensitive), to
 stop on the smallest warning (very sensitive).
 
-Each one implies the ones before it, so #VIPS_FAIL_ON_ERROR implies
-#VIPS_FAIL_ON_TRUNCATED.
+Each one implies the ones before it, so :class:`.enums.FailOn.ERROR` implies
+:class:`.enums.FailOn.TRUNCATED`.
 
 Attributes:
 
@@ -893,20 +851,50 @@ Attributes:
     WARNING = 'warning'
 
 
+class ForeignPdfPageBox(object):
+    """ForeignPdfPageBox.
+
+Each page of a PDF document can contain multiple page boxes,
+also known as boundary boxes or print marks.
+
+Each page box defines a region of the complete page that
+should be rendered. The default region is the crop box.
+
+Attributes:
+
+    MEDIA (str): media box
+
+    CROP (str): crop box
+
+    TRIM (str): trim box
+
+    BLEED (str): bleed box
+
+    ART (str): art box
+
+    """
+
+    MEDIA = 'media'
+    CROP = 'crop'
+    TRIM = 'trim'
+    BLEED = 'bleed'
+    ART = 'art'
+
+
 class ForeignPpmFormat(object):
     """ForeignPpmFormat.
 
 The netpbm file format to save as.
 
-#VIPS_FOREIGN_PPM_FORMAT_PBM images are single bit.
+:class:`.enums.ForeignPpmFormat.PBM` images are single bit.
 
-#VIPS_FOREIGN_PPM_FORMAT_PGM images are 8, 16, or 32-bits, one band.
+:class:`.enums.ForeignPpmFormat.PGM` images are 8, 16, or 32-bits, one band.
 
-#VIPS_FOREIGN_PPM_FORMAT_PPM images are 8, 16, or 32-bits, three bands.
+:class:`.enums.ForeignPpmFormat.PPM` images are 8, 16, or 32-bits, three bands.
 
-#VIPS_FOREIGN_PPM_FORMAT_PFM images are 32-bit float pixels.
+:class:`.enums.ForeignPpmFormat.PFM` images are 32-bit float pixels.
 
-#VIPS_FOREIGN_PPM_FORMAT_PNM images are anymap images -- the image format
+:class:`.enums.ForeignPpmFormat.PNM` images are anymap images -- the image format
 is used to pick the saver.
 
 Attributes:
@@ -999,7 +987,7 @@ Attributes:
 class ForeignDzContainer(object):
     """ForeignDzContainer.
 
-How many pyramid layers to create.
+What container format to use.
 
 Attributes:
 
@@ -1020,6 +1008,12 @@ class RegionShrink(object):
     """RegionShrink.
 
 How to calculate the output pixels when shrinking a 2x2 region.
+
+Images with alpha (see :meth:`.Image.hasalpha`) always shrink with
+:class:`.enums.RegionShrink.MEAN` and pixels scaled by alpha to avoid fringing.
+
+Set the image interpretation to :class:`.enums.Interpretation.MULTIBAND` to
+treat all bands equally.
 
 Attributes:
 
@@ -1163,7 +1157,7 @@ class ForeignHeifCompression(object):
 
 The compression format to use inside a HEIF container.
 
-This is assumed to use the same numbering as %heif_compression_format.
+This is assumed to use the same numbering as `heif_compression_format`.
 
 Attributes:
 
@@ -1217,7 +1211,8 @@ class Size(object):
 Controls whether an operation should upsize, downsize, both up and
 downsize, or force a size.
 
-See also: vips_thumbnail().
+::: seealso
+    :meth:`.Image.thumbnail`.
 
 Attributes:
 
@@ -1240,8 +1235,8 @@ Attributes:
 class Intent(object):
     """Intent.
 
-The rendering intent. #VIPS_INTENT_ABSOLUTE is best for
-scientific work, #VIPS_INTENT_RELATIVE is usually best for
+The rendering intent. :class:`.enums.Intent.ABSOLUTE` is best for
+scientific work, :class:`.enums.Intent.RELATIVE` is usually best for
 accurate communication with other imaging libraries.
 
 Attributes:
@@ -1268,25 +1263,25 @@ Attributes:
 class Kernel(object):
     """Kernel.
 
-The resampling kernels vips supports. See vips_reduce(), for example.
+The resampling kernels vips supports. See :meth:`.Image.reduce`, for example.
 
 Attributes:
 
-    NEAREST (str): The nearest pixel to the point.
+    NEAREST (str): the nearest pixel to the point
 
-    LINEAR (str): Convolve with a triangle filter.
+    LINEAR (str): convolve with a triangle filter
 
-    CUBIC (str): Convolve with a cubic filter.
+    CUBIC (str): convolve with a cubic filter
 
-    MITCHELL (str): Convolve with a Mitchell kernel.
+    MITCHELL (str): convolve with a Mitchell kernel
 
-    LANCZOS2 (str): Convolve with a two-lobe Lanczos kernel.
+    LANCZOS2 (str): convolve with a two-lobe Lanczos kernel
 
-    LANCZOS3 (str): Convolve with a three-lobe Lanczos kernel.
+    LANCZOS3 (str): convolve with a three-lobe Lanczos kernel
 
-    MKS2013 (str): Convolve with Magic Kernel Sharp 2013.
+    MKS2013 (str): convolve with Magic Kernel Sharp 2013
 
-    MKS2021 (str): Convolve with Magic Kernel Sharp 2021.
+    MKS2021 (str): convolve with Magic Kernel Sharp 2021
 
     """
 
@@ -1324,7 +1319,8 @@ class OperationMorphology(object):
 
 More like hit-miss, really.
 
-See also: vips_morph().
+::: seealso
+    :meth:`.Image.morph`.
 
 Attributes:
 
@@ -1361,35 +1357,6 @@ Attributes:
     ADD = 'add'
 
 
-class Saveable(object):
-    """Saveable.
-
-See also: #VipsForeignSave.
-
-Attributes:
-
-    MONO (str): 1 band (eg. CSV)
-
-    RGB (str): 1 or 3 bands (eg. PPM)
-
-    RGBA (str): 1, 2, 3 or 4 bands (eg. PNG)
-
-    RGBA_ONLY (str): 3 or 4 bands (eg. WEBP)
-
-    RGB_CMYK (str): 1, 3 or 4 bands (eg. JPEG)
-
-    ANY (str): any number of bands (eg. TIFF)
-
-    """
-
-    MONO = 'mono'
-    RGB = 'rgb'
-    RGBA = 'rgba'
-    RGBA_ONLY = 'rgba-only'
-    RGB_CMYK = 'rgb-cmyk'
-    ANY = 'any'
-
-
 class ForeignKeep(object):
     """ForeignKeep.
 
@@ -1407,7 +1374,9 @@ Attributes:
 
     ICC (int): keep ICC metadata
 
-    OTHER (int): keep other metadata (e.g. PNG comments and some TIFF tags)
+    OTHER (int): keep other metadata (e.g. PNG comments)
+
+    GAINMAP (int): keep the gainmap metadata
 
     ALL (int): keep all metadata
 
@@ -1419,7 +1388,8 @@ Attributes:
     IPTC = 4
     ICC = 8
     OTHER = 16
-    ALL = 31
+    GAINMAP = 32
+    ALL = 63
 
 
 class ForeignPngFilter(object):

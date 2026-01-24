@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: llama-index-storage-kvstore-postgres
+Version: 0.4.3
+Summary: llama-index kvstore postgres integration
+Author-email: Your Name <you@example.com>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <4.0,>=3.9
+Requires-Dist: asyncpg
+Requires-Dist: llama-index-core<0.15,>=0.13.0
+Requires-Dist: psycopg2-binary
+Description-Content-Type: text/markdown
+
+# LlamaIndex Kvstore Integration: Postgres

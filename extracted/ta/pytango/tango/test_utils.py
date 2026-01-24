@@ -4,6 +4,9 @@
 """Test utilities"""
 
 import enum
+import time
+from functools import wraps
+
 import numpy as np
 
 try:
@@ -14,10 +17,9 @@ try:
 except (AttributeError, ImportError):
     npt = None
 
-from functools import wraps
-
 # Local imports
 from tango import (
+    DeviceProxy,
     DevState,
     GreenMode,
     AttrDataFormat,
@@ -28,7 +30,11 @@ from tango import (
     SerialModel,
 )
 from tango.server import Device
-from tango.test_context import MultiDeviceTestContext, DeviceTestContext
+from tango.test_context import (
+    MultiDeviceTestContext,
+    DeviceTestContext,
+    get_server_port_via_pid,
+)
 from tango.utils import is_non_str_seq, FROM_TANGO_TO_NUMPY_TYPE
 from tango import DeviceClass, LatestDeviceImpl, DevLong64, SCALAR, READ
 
@@ -55,6 +61,8 @@ __all__ = [
     "general_decorator",
     "general_asyncio_decorator",
     "DEVICE_SERVER_ARGUMENTS",
+    "wait_for_proxy",
+    "wait_for_nodb_proxy_via_pid",
 ]
 
 if npt:
@@ -152,22 +160,24 @@ GENERAL_TYPED_VALUES = {
         np.array([0.1, 0.2]),
         (0.1, 0.2, 0.3),
         [0.9, 0.8, 0.7],
-        [-6.3232e-3],
+        (-6.3232e-3, 1.234e4),
         [0.0, 12.56e12],
     ),
     (str,): (
         np.array(["foo", "bar"]),
-        ["ab", "cd", "ef"],
+        ("ab", "cd", "ef"),
         ["gh", "ij", "kl"],
+        ("ab", "cd"),
+        ["gh", "ij"],
         3 * [bytes_devstring],
         3 * [str_devstring],
     ),
     (bool,): (
         np.array([True, False]),
-        [False, False, True],
+        (False, False, True),
         [True, False, False],
-        [False],
-        [True],
+        (False, True),
+        [True, False],
     ),
 }
 
@@ -179,23 +189,33 @@ COMMAND_TYPED_VALUES = {
 IMAGE_TYPED_VALUES = {
     ((int,),): (
         np.vstack((np.array([1, 2]), np.array([3, 4]))),
+        ((1, 2, 3), (4, 5, 6), (7, 8, 9)),
+        [[-65535, 2224, 23], [-6535, 224, 345], [-655, 24, 54]],
         ((1, 2, 3), (4, 5, 6)),
         [[-65535, 2224], [-65535, 2224]],
     ),
     ((float,),): (
         np.vstack((np.array([0.1, 0.2]), np.array([0.3, 0.4]))),
+        ((0.1, 0.2, 0.3), (0.9, 0.8, 0.7), (0.5, 0.6, 0.7)),
+        [[-6.3232e-3, 0.0], [0.0, 12.56e12], [23.4, 1.56e2]],
         ((0.1, 0.2, 0.3), (0.9, 0.8, 0.7)),
         [[-6.3232e-3, 0.0], [0.0, 12.56e12]],
     ),
     ((str,),): (
         np.vstack((np.array(["hi-hi", "ha-ha"]), np.array(["hu-hu", "yuhuu"]))),
-        [["ab", "cd", "ef"], ["gh", "ij", "kl"]],
+        [["ab", "cd", "ef"], ["gh", "ij", "kl"], ["gh", "ij", "kl"]],
+        (("ab", "cd", "ef"), ("gh", "ij", "kl"), ("gh", "ij", "kl")),
+        [["ab", "cd"], ["ij", "kl"]],
+        (("ab", "ef"), ("gh", "ij")),
         [3 * [bytes_devstring], 3 * [bytes_devstring]],
         [3 * [str_devstring], 3 * [str_devstring]],
     ),
     ((bool,),): (
         np.vstack((np.array([True, False]), np.array([False, True]))),
-        [[False, False, True], [True, False, False]],
+        [[False, False, True], [True, False, False], [True, False, False]],
+        ((False, False, True), (True, False, False), (True, False, False)),
+        [[False, True], [False, False]],
+        ((False, True), (False, False)),
         [[False]],
         [[True]],
     ),
@@ -260,7 +280,7 @@ if npt:
             0,
             [[1, 2], [3, 4]],
             TypeError,
-            "No registered converter",
+            "Expecting a integer type, but it is not",
         ),
     )
 
@@ -382,6 +402,8 @@ def convert_dtype_to_typing_hint(dtype):
             dtype = dtype[0]
             check_y_dim = True
             tuple_hint = tuple[
+                tuple[dtype, dtype, dtype],
+                tuple[dtype, dtype, dtype],
                 tuple[dtype, dtype, dtype],
                 tuple[dtype, dtype, dtype],
             ]
@@ -543,7 +565,7 @@ if pytest:
         else:
             pytest.xfail("Unknown extract_as type")
 
-    @pytest.fixture(params=DevState.values.values())
+    @pytest.fixture(params=list(DevState.values.values()), ids=str)
     def state(request):
         return request.param
 
@@ -639,16 +661,19 @@ if pytest:
     def base_type(request):
         return request.param
 
-    @pytest.fixture(params=GreenMode.values.values())
+    @pytest.fixture(params=list(GreenMode.values.values()), ids=str)
     def green_mode(request):
         return request.param
 
-    @pytest.fixture(params=[GreenMode.Synchronous, GreenMode.Asyncio, GreenMode.Gevent])
+    @pytest.fixture(
+        params=[GreenMode.Synchronous, GreenMode.Asyncio, GreenMode.Gevent], ids=str
+    )
     def server_green_mode(request):
         return request.param
 
     @pytest.fixture(
-        params=[AttrDataFormat.SCALAR, AttrDataFormat.SPECTRUM, AttrDataFormat.IMAGE]
+        params=[AttrDataFormat.SCALAR, AttrDataFormat.SPECTRUM, AttrDataFormat.IMAGE],
+        ids=str,
     )
     def attr_data_format(request):
         return request.param
@@ -659,7 +684,102 @@ if pytest:
             SerialModel.BY_CLASS,
             SerialModel.BY_PROCESS,
             SerialModel.NO_SYNC,
-        ]
+        ],
+        ids=str,
     )
     def server_serial_model(request):
         return request.param
+
+
+def wait_for_proxy(
+    dev_name: str,
+    proxy_class: type[DeviceProxy] = DeviceProxy,
+    retries: int = 600,
+    delay: float = 0.02,
+) -> DeviceProxy:
+    """Create a new DeviceProxy, retrying until it is responding.
+
+    The DeviceProxy will try to ping the device and read the state at least once.
+
+    :param dev_name: device name for DeviceProxy connection string
+    :param proxy_class: Type of DeviceProxy class to instantiate (could be synchronous,
+                        asyncio, or gevent versions of the class).  If using asyncio,
+                        then provide: ``partial(tango.asyncio.DeviceProxy, wait=True)``.
+    :param retries: number of times to retry attempts, optional
+    :param delay: time to wait (seconds) between retries, optional
+
+    :returns: DeviceProxy object created to access the specified device
+
+    :raises RuntimeError: If the device is not responding before the timeout
+
+    .. versionadded:: 10.1.0
+    """
+    proxy = None
+    last_error = ""
+    count = 0
+    while count < retries:
+        try:
+            proxy = proxy_class(dev_name)
+            break
+        except DevFailed as exc:
+            last_error = str(exc)
+            time.sleep(delay)
+        count += 1
+    if proxy is not None:
+        while count < retries:
+            try:
+                proxy.ping()
+                proxy.state()
+                return proxy
+            except DevFailed as exc:
+                last_error = str(exc)
+                time.sleep(delay)
+            count += 1
+    raise RuntimeError(
+        f"Device at {dev_name} did not respond within {count * delay:.1f} sec!\n"
+        f"Last error: {last_error}."
+    )
+
+
+def wait_for_nodb_proxy_via_pid(
+    pid: int,
+    host: str,
+    dev_name: str,
+    proxy_class: type[DeviceProxy],
+    retries: int = 600,
+    delay: float = 0.02,
+) -> DeviceProxy:
+    """Create new DeviceProxy, with retrying until it is ready and responding.
+
+    The PID is used to get the process information and probe it to find the correct
+    TCP port number to connect to.  Creation of the DeviceProxy is retried until
+    the device is responding, or times out.  The DeviceProxy will ping the
+    device and read the state.
+
+    :param pid: operating system process identifier
+    :param host: hostname/IP that device server is listening on.
+    :param dev_name: device name for DeviceProxy connection string
+    :param proxy_class: Type of DeviceProxy class to instantiate (could be synchronous,
+                        asyncio, or gevent versions of the class).  If using asyncio,
+                        then provide: ``partial(tango.asyncio.DeviceProxy, wait=True)``.
+    :param retries: number of times to retry attempts, optional
+    :param delay: time to wait (seconds) between retries, optional
+
+    :returns: DeviceProxy object created to access the specified device
+
+    :raises RuntimeError: If the GIOP port couldn't be identified, or proxy timed out
+
+    .. seealso::
+        :func:`tango.test_context.get_server_port_via_pid`
+
+    .. versionadded:: 10.1.0
+    """
+    t0 = time.time()
+    port = get_server_port_via_pid(pid, host, retries, delay)
+
+    timeout = retries * delay
+    elapsed = time.time() - t0
+    time_left = timeout - elapsed
+    retries_left = max(1, int(time_left / delay))
+    trl = f"tango://{host}:{port}/{dev_name}#dbase=no"
+    return wait_for_proxy(trl, proxy_class, retries_left, delay)

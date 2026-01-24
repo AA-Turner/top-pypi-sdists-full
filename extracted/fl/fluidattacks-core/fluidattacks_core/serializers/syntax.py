@@ -8,6 +8,7 @@ from ctypes import (
 from pathlib import Path
 from typing import cast
 
+import tree_sitter
 from more_itertools import (
     mark_ends,
 )
@@ -15,6 +16,7 @@ from tree_sitter import (
     Language,
     Node,
     Parser,
+    QueryCursor,
     Tree,
 )
 
@@ -247,7 +249,7 @@ TREE_SITTER_REQUIRES_SEQUENCE = {
 }
 
 
-class InvalidFileType(Exception):
+class InvalidFileType(Exception):  # noqa: N818
     """Exception to control file type."""
 
     def __init__(self, detail: str = "") -> None:
@@ -279,7 +281,10 @@ def get_language_from_path(path: str) -> str | None:
 
 def get_language_for_tree(language: str) -> Language:
     try:
-        language_module = importlib.import_module(f"tree_sitter_{language}")
+        parser_name = (
+            f"tree_sitter_{language}" if language != "dart" else "tree_sitter_dart_orchard"
+        )
+        language_module = importlib.import_module(parser_name)
         function_name = {
             "php": "language_php",
             "tsx": "language_tsx",
@@ -288,7 +293,7 @@ def get_language_for_tree(language: str) -> Language:
         }.get(language, "language")
         language_so = Language(getattr(language_module, function_name)())
     except (ImportError, ModuleNotFoundError) as exc:
-        so_library_path: str = os.path.join(TREE_SITTER_PARSERS_PATH or "", f"{language}.so")
+        so_library_path: str = os.path.join(TREE_SITTER_PARSERS_PATH or "", f"{language}.so")  # noqa: PTH118
         if not Path(so_library_path).exists():
             raise InvalidFileType(so_library_path) from exc
 
@@ -321,7 +326,8 @@ def query_nodes_by_language(
     except OSError as exc:
         raise InvalidFileType from exc
     query = "\n".join(f"({item}) @{item}" for item in queries_map.get(language, []))
-    return language_parser.query(query).captures(tree.root_node)
+    query_cursor = QueryCursor(tree_sitter.Query(language_parser, query))
+    return query_cursor.captures(tree.root_node)
 
 
 def query_function_by_name(
@@ -336,7 +342,7 @@ def query_function_by_name(
         name: ({node_identifier_name}) @name
         (#eq? @name "{function_name}")
     ) @{function_node_type}"""
-    result = language_parser.query(query).captures(tree.root_node)
+    result = QueryCursor(tree_sitter.Query(language_parser, query)).captures(tree.root_node)
     return [node for key, nodes in result.items() for node in nodes if key == function_node_type]
 
 
@@ -348,7 +354,7 @@ def find_function_expression_by_query(
     language_parser = get_language_for_tree(language)
     target_nodes: tuple[str, ...] = TREE_SITTER_FUNCTION_DECLARATION_MAP.get(language, ())
     query = "([" + (" ".join(f"({item})" for item in target_nodes)) + "] @target )"
-    result = language_parser.query(query).captures(original_node)
+    result = QueryCursor(tree_sitter.Query(language_parser, query)).captures(original_node)
 
     nodes = [node for _, nodes in result.items() for node in nodes]
     candidates = [
@@ -451,10 +457,10 @@ def _process_hierarchical_candidates(
     language_parser = get_language_for_tree(language)
     target_nodes: tuple[str, ...] = TREE_SITTER_FUNCTION_DECLARATION_MAP.get(language, ())
     query = "([" + (" ".join(f"({item})" for item in target_nodes)) + "] @target )"
-    result = language_parser.query(query).captures(root_node)
+    result = QueryCursor(tree_sitter.Query(language_parser, query)).captures(root_node)
 
     nodes = [node for _, nodes in result.items() for node in nodes]
-    candidates = [
+    return [
         node
         for node in sorted(
             nodes,
@@ -462,7 +468,6 @@ def _process_hierarchical_candidates(
         )
         if node.start_point[0] <= desired_line - 1 <= node.end_point[0]
     ]
-    return candidates
 
 
 def extract_hierarchical_nodes(
@@ -483,13 +488,11 @@ def extract_hierarchical_nodes(
     except OSError:
         return []
 
-    hierarchical_candidates = _process_hierarchical_candidates(
+    return _process_hierarchical_candidates(
         language=language,
         root_node=tree.root_node,
         desired_line=desired_line,
     )
-
-    return hierarchical_candidates
 
 
 def _calculate_positions(lines: list[bytes], desired_line: int) -> tuple[int | None, int | None]:
@@ -534,8 +537,7 @@ def extract_imports(source_code: str, language: str) -> tuple[Node, ...]:
 
     tree = parse_content_tree_sitter(source_code.encode("utf-8"), language)
     result = query_nodes_by_language(language, tree, TREE_SITTER_IMPORTS_DECLARATIONS_MAP)
-    response = tuple(node for nodes in result.values() for node in nodes)
-    return response
+    return tuple(node for nodes in result.values() for node in nodes)
 
 
 def indent_function(file_content_bytes: bytes, new_function: str, function_location: int) -> str:

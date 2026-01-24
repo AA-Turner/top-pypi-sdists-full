@@ -3,7 +3,7 @@ Type annotations for dynamodb service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodb/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -23,6 +23,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator, Sequence
 from datetime import datetime
 
 from boto3.dynamodb.table import BatchWriter
@@ -68,11 +69,6 @@ from .type_defs import (
     UpdateTableInputTableUpdateTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import list as List
-    from collections.abc import Iterator, Sequence
-else:
-    from typing import Iterator, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -122,7 +118,7 @@ class ServiceResourceTablesCollection(ResourceCollection):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodb/service_resource/#serviceresourcetablescollection)
         """
 
-    def pages(self) -> Iterator[List[Table]]:
+    def pages(self) -> Iterator[list[Table]]:
         """
         A generator which yields pages of Tables.
 
@@ -145,9 +141,9 @@ class Table(ServiceResource):
     """
 
     name: str
-    attribute_definitions: List[AttributeDefinitionTypeDef]
+    attribute_definitions: list[AttributeDefinitionTypeDef]
     table_name: str
-    key_schema: List[KeySchemaElementTypeDef]
+    key_schema: list[KeySchemaElementTypeDef]
     table_status: TableStatusType
     creation_date_time: datetime
     provisioned_throughput: ProvisionedThroughputDescriptionTypeDef
@@ -156,14 +152,14 @@ class Table(ServiceResource):
     table_arn: str
     table_id: str
     billing_mode_summary: BillingModeSummaryTypeDef
-    local_secondary_indexes: List[LocalSecondaryIndexDescriptionTypeDef]
-    global_secondary_indexes: List[GlobalSecondaryIndexDescriptionTypeDef]
+    local_secondary_indexes: list[LocalSecondaryIndexDescriptionTypeDef]
+    global_secondary_indexes: list[GlobalSecondaryIndexDescriptionTypeDef]
     stream_specification: StreamSpecificationTypeDef
     latest_stream_label: str
     latest_stream_arn: str
     global_table_version: str
-    replicas: List[ReplicaDescriptionTypeDef]
-    global_table_witnesses: List[GlobalTableWitnessDescriptionTypeDef]
+    replicas: list[ReplicaDescriptionTypeDef]
+    global_table_witnesses: list[GlobalTableWitnessDescriptionTypeDef]
     restore_summary: RestoreSummaryTypeDef
     sse_description: SSEDescriptionTypeDef
     archival_summary: ArchivalSummaryTypeDef
@@ -275,7 +271,7 @@ class Table(ServiceResource):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodb/service_resource/#tablewait_until_not_exists-method)
         """
 
-    def batch_writer(self, overwrite_by_pkeys: List[str] = ...) -> BatchWriter:
+    def batch_writer(self, overwrite_by_pkeys: list[str] = ...) -> BatchWriter:
         """
         Create a batch writer object.
 

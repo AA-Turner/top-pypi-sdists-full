@@ -8,8 +8,6 @@
 # :copyright: (c) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # :license: MIT, see LICENSE for more details
 
-from __future__ import unicode_literals
-
 import stringprep
 from unicodedata import ucd_3_2_0 as unicodedata
 

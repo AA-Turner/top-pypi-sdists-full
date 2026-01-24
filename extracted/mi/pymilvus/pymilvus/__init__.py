@@ -10,6 +10,12 @@
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
 
+# Ensure `pymilvus` is a namespace package other distributions (like `pymilvus.model`) can
+# participate in.
+from pkgutil import extend_path
+
+__path__ = extend_path(__path__, __name__)
+
 from .client import __version__
 from .client.abstract import AnnSearchRequest, RRFRanker, WeightedRanker
 from .client.asynch import SearchFuture
@@ -39,7 +45,14 @@ from .orm.future import MutationFuture
 from .orm.index import Index
 from .orm.partition import Partition
 from .orm.role import Role
-from .orm.schema import CollectionSchema, FieldSchema, Function
+from .orm.schema import (
+    CollectionSchema,
+    FieldSchema,
+    Function,
+    FunctionScore,
+    LexicalHighlighter,
+    StructFieldSchema,
+)
 from .orm.utility import (
     create_resource_group,
     create_user,
@@ -83,12 +96,14 @@ __all__ = [
     "ExceptionsMessage",
     "FieldSchema",
     "Function",
+    "FunctionScore",
     "FunctionType",
     "Group",
     "Hit",
     "Hits",
     "Index",
     "IndexType",
+    "LexicalHighlighter",
     "MilvusClient",
     "MilvusException",
     "MilvusUnavailableException",
@@ -103,6 +118,7 @@ __all__ = [
     "SearchResult",
     "Shard",
     "Status",
+    "StructFieldSchema",
     "WeightedRanker",
     "__version__",
     "connections",

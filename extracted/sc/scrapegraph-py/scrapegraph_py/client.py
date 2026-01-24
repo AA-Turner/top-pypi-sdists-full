@@ -1,4 +1,31 @@
-# Client implementation goes here
+"""
+Synchronous HTTP client for the ScrapeGraphAI API.
+
+This module provides a synchronous client for interacting with all ScrapeGraphAI
+API endpoints including smartscraper, searchscraper, crawl, agentic scraper,
+markdownify, schema generation, scheduled jobs, and utility functions.
+
+The Client class supports:
+- API key authentication
+- SSL verification configuration
+- Request timeout configuration
+- Automatic retry logic with exponential backoff
+- Mock mode for testing
+- Context manager support for proper resource cleanup
+
+Example:
+    Basic usage with environment variables:
+        >>> from scrapegraph_py import Client
+        >>> client = Client.from_env()
+        >>> result = client.smartscraper(
+        ...     website_url="https://example.com",
+        ...     user_prompt="Extract product information"
+        ... )
+
+    Using context manager:
+        >>> with Client(api_key="sgai-...") as client:
+        ...     result = client.scrape(website_url="https://example.com")
+"""
 import uuid as _uuid
 from typing import Any, Callable, Dict, Optional
 from urllib.parse import urlparse
@@ -18,11 +45,17 @@ from scrapegraph_py.models.agenticscraper import (
 from scrapegraph_py.models.crawl import CrawlRequest, GetCrawlRequest
 from scrapegraph_py.models.feedback import FeedbackRequest
 from scrapegraph_py.models.markdownify import GetMarkdownifyRequest, MarkdownifyRequest
+from scrapegraph_py.models.schema import (
+    GenerateSchemaRequest,
+    GetSchemaStatusRequest,
+    SchemaGenerationResponse,
+)
 from scrapegraph_py.models.scrape import GetScrapeRequest, ScrapeRequest
 from scrapegraph_py.models.searchscraper import (
     GetSearchScraperRequest,
     SearchScraperRequest,
 )
+from scrapegraph_py.models.sitemap import SitemapRequest, SitemapResponse
 from scrapegraph_py.models.smartscraper import (
     GetSmartScraperRequest,
     SmartScraperRequest,
@@ -42,9 +75,33 @@ from scrapegraph_py.models.scheduled_jobs import (
     TriggerJobRequest,
 )
 from scrapegraph_py.utils.helpers import handle_sync_response, validate_api_key
+from scrapegraph_py.utils.toon_converter import process_response_with_toon
 
 
 class Client:
+    """
+    Synchronous client for the ScrapeGraphAI API.
+
+    This class provides synchronous methods for all ScrapeGraphAI API endpoints.
+    It handles authentication, request management, error handling, and supports
+    mock mode for testing.
+
+    Attributes:
+        api_key (str): The API key for authentication
+        headers (dict): Default headers including API key
+        timeout (Optional[float]): Request timeout in seconds
+        max_retries (int): Maximum number of retry attempts
+        retry_delay (float): Delay between retries in seconds
+        mock (bool): Whether mock mode is enabled
+        session (requests.Session): HTTP session for connection pooling
+
+    Example:
+        >>> client = Client.from_env()
+        >>> result = client.smartscraper(
+        ...     website_url="https://example.com",
+        ...     user_prompt="Extract all products"
+        ... )
+    """
     @classmethod
     def from_env(
         cls,
@@ -168,7 +225,25 @@ class Client:
         logger.info("✅ Client initialized successfully")
 
     def _make_request(self, method: str, url: str, **kwargs) -> Any:
-        """Make HTTP request with error handling."""
+        """
+        Make HTTP request with error handling and retry logic.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            url: Full URL for the request
+            **kwargs: Additional arguments to pass to requests
+
+        Returns:
+            Parsed JSON response data
+
+        Raises:
+            APIError: If the API returns an error response
+            ConnectionError: If unable to connect to the API
+
+        Note:
+            In mock mode, this method returns deterministic responses without
+            making actual HTTP requests.
+        """
         # Short-circuit when mock mode is enabled
         if getattr(self, "mock", False):
             return self._mock_response(method, url, **kwargs)
@@ -241,6 +316,10 @@ class Client:
         # Credits endpoint
         if path.endswith("/credits") and upper_method == "GET":
             return {"remaining_credits": 1000, "total_credits_used": 0}
+
+        # Health check endpoint
+        if path.endswith("/healthz") and upper_method == "GET":
+            return {"status": "healthy", "message": "Service is operational"}
 
         # Feedback acknowledge
         if path.endswith("/feedback") and upper_method == "POST":
@@ -378,24 +457,46 @@ class Client:
         # Generic fallback
         return {"status": "mock", "url": url, "method": method, "kwargs": kwargs}
 
-    def markdownify(self, website_url: str, headers: Optional[dict[str, str]] = None, mock:bool=False):
-        """Send a markdownify request"""
+    def markdownify(self, website_url: str, headers: Optional[dict[str, str]] = None, mock: bool = False, render_heavy_js: bool = False, stealth: bool = False, return_toon: bool = False):
+        """Send a markdownify request
+        
+        Args:
+            website_url: The URL to convert to markdown
+            headers: Optional HTTP headers
+            mock: Enable mock mode for testing
+            render_heavy_js: Enable heavy JavaScript rendering
+            stealth: Enable stealth mode to avoid bot detection
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
+        """
         logger.info(f"🔍 Starting markdownify request for {website_url}")
         if headers:
             logger.debug("🔧 Using custom headers")
+        if stealth:
+            logger.debug("🥷 Stealth mode enabled")
+        if render_heavy_js:
+            logger.debug("⚡ Heavy JavaScript rendering enabled")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
-        request = MarkdownifyRequest(website_url=website_url, headers=headers, mock=mock)
+        request = MarkdownifyRequest(website_url=website_url, headers=headers, mock=mock, render_heavy_js=render_heavy_js, stealth=stealth)
         logger.debug("✅ Request validation passed")
 
         result = self._make_request(
             "POST", f"{API_BASE_URL}/markdownify", json=request.model_dump()
         )
         logger.info("✨ Markdownify request completed successfully")
-        return result
+        return process_response_with_toon(result, return_toon)
 
-    def get_markdownify(self, request_id: str):
-        """Get the result of a previous markdownify request"""
+    def get_markdownify(self, request_id: str, return_toon: bool = False):
+        """Get the result of a previous markdownify request
+        
+        Args:
+            request_id: The request ID to fetch
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
+        """
         logger.info(f"🔍 Fetching markdownify result for request {request_id}")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
         # Validate input using Pydantic model
         GetMarkdownifyRequest(request_id=request_id)
@@ -403,32 +504,46 @@ class Client:
 
         result = self._make_request("GET", f"{API_BASE_URL}/markdownify/{request_id}")
         logger.info(f"✨ Successfully retrieved result for request {request_id}")
-        return result
+        return process_response_with_toon(result, return_toon)
 
     def scrape(
         self,
         website_url: str,
         render_heavy_js: bool = False,
+        branding: bool = False,
         headers: Optional[dict[str, str]] = None,
         mock:bool=False,
+        stealth:bool=False,
+        return_toon: bool = False,
     ):
         """Send a scrape request to get HTML content from a website
-        
+
         Args:
             website_url: The URL of the website to get HTML from
             render_heavy_js: Whether to render heavy JavaScript (defaults to False)
+            branding: Whether to include branding in the response (defaults to False)
             headers: Optional headers to send with the request
+            mock: Enable mock mode for testing
+            stealth: Enable stealth mode to avoid bot detection
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
         """
         logger.info(f"🔍 Starting scrape request for {website_url}")
         logger.debug(f"🔧 Render heavy JS: {render_heavy_js}")
+        logger.debug(f"🔧 Branding: {branding}")
         if headers:
             logger.debug("🔧 Using custom headers")
+        if stealth:
+            logger.debug("🥷 Stealth mode enabled")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
         request = ScrapeRequest(
             website_url=website_url,
             render_heavy_js=render_heavy_js,
+            branding=branding,
             headers=headers,
-            mock=mock
+            mock=mock,
+            stealth=stealth
         )
         logger.debug("✅ Request validation passed")
 
@@ -436,11 +551,18 @@ class Client:
             "POST", f"{API_BASE_URL}/scrape", json=request.model_dump()
         )
         logger.info("✨ Scrape request completed successfully")
-        return result
+        return process_response_with_toon(result, return_toon)
 
-    def get_scrape(self, request_id: str):
-        """Get the result of a previous scrape request"""
+    def get_scrape(self, request_id: str, return_toon: bool = False):
+        """Get the result of a previous scrape request
+        
+        Args:
+            request_id: The request ID to fetch
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
+        """
         logger.info(f"🔍 Fetching scrape result for request {request_id}")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
         # Validate input using Pydantic model
         GetScrapeRequest(request_id=request_id)
@@ -448,27 +570,106 @@ class Client:
 
         result = self._make_request("GET", f"{API_BASE_URL}/scrape/{request_id}")
         logger.info(f"✨ Successfully retrieved result for request {request_id}")
-        return result
+        return process_response_with_toon(result, return_toon)
+
+    def sitemap(
+        self,
+        website_url: str,
+        mock: bool = False,
+    ) -> SitemapResponse:
+        """Extract all URLs from a website's sitemap.
+
+        Automatically discovers sitemap from robots.txt or common sitemap locations.
+
+        Args:
+            website_url: The URL of the website to extract sitemap from
+            mock: Whether to use mock mode for this request
+
+        Returns:
+            SitemapResponse: Object containing list of URLs extracted from sitemap
+
+        Raises:
+            ValueError: If website_url is invalid
+            APIError: If the API request fails
+
+        Examples:
+            >>> client = Client(api_key="your-api-key")
+            >>> response = client.sitemap("https://example.com")
+            >>> print(f"Found {len(response.urls)} URLs")
+            >>> for url in response.urls[:5]:
+            ...     print(url)
+        """
+        logger.info(f"🗺️  Starting sitemap extraction for {website_url}")
+
+        request = SitemapRequest(
+            website_url=website_url,
+            mock=mock
+        )
+        logger.debug("✅ Request validation passed")
+
+        result = self._make_request(
+            "POST", f"{API_BASE_URL}/sitemap", json=request.model_dump()
+        )
+        logger.info(f"✨ Sitemap extraction completed successfully - found {len(result.get('urls', []))} URLs")
+
+        # Parse response into SitemapResponse model
+        return SitemapResponse(**result)
 
     def smartscraper(
         self,
         user_prompt: str,
         website_url: Optional[str] = None,
         website_html: Optional[str] = None,
+        website_markdown: Optional[str] = None,
         headers: Optional[dict[str, str]] = None,
         cookies: Optional[Dict[str, str]] = None,
         output_schema: Optional[BaseModel] = None,
         number_of_scrolls: Optional[int] = None,
         total_pages: Optional[int] = None,
-        mock:bool=False,
-        plain_text:bool=False
+        mock: bool = False,
+        plain_text: bool = False,
+        render_heavy_js: bool = False,
+        stealth: bool = False,
+        return_toon: bool = False,
     ):
-        """Send a smartscraper request with optional pagination support and cookies"""
+        """
+        Send a smartscraper request with optional pagination support and cookies.
+
+        Supports three types of input (must provide exactly one):
+        - website_url: Scrape from a URL
+        - website_html: Process local HTML content
+        - website_markdown: Process local Markdown content
+
+        Args:
+            user_prompt: Natural language prompt describing what to extract
+            website_url: URL to scrape (optional)
+            website_html: Raw HTML content to process (optional, max 2MB)
+            website_markdown: Markdown content to process (optional, max 2MB)
+            headers: Optional HTTP headers
+            cookies: Optional cookies for authentication
+            output_schema: Optional Pydantic model for structured output
+            number_of_scrolls: Number of times to scroll (0-100)
+            total_pages: Number of pages to scrape (1-10)
+            mock: Enable mock mode for testing
+            plain_text: Return plain text instead of structured data
+            render_heavy_js: Enable heavy JavaScript rendering
+            stealth: Enable stealth mode to avoid bot detection
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
+
+        Returns:
+            Dictionary containing the scraping results, or TOON formatted string if return_toon=True
+
+        Raises:
+            ValueError: If validation fails or invalid parameters provided
+            APIError: If the API request fails
+        """
         logger.info("🔍 Starting smartscraper request")
         if website_url:
             logger.debug(f"🌐 URL: {website_url}")
         if website_html:
             logger.debug("📄 Using provided HTML content")
+        if website_markdown:
+            logger.debug("📝 Using provided Markdown content")
         if headers:
             logger.debug("🔧 Using custom headers")
         if cookies:
@@ -477,11 +678,18 @@ class Client:
             logger.debug(f"🔄 Number of scrolls: {number_of_scrolls}")
         if total_pages is not None:
             logger.debug(f"📄 Total pages to scrape: {total_pages}")
+        if stealth:
+            logger.debug("🥷 Stealth mode enabled")
+        if render_heavy_js:
+            logger.debug("⚡ Heavy JavaScript rendering enabled")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
         logger.debug(f"📝 Prompt: {user_prompt}")
 
         request = SmartScraperRequest(
             website_url=website_url,
             website_html=website_html,
+            website_markdown=website_markdown,
             headers=headers,
             cookies=cookies,
             user_prompt=user_prompt,
@@ -490,6 +698,8 @@ class Client:
             total_pages=total_pages,
             mock=mock,
             plain_text=plain_text,
+            render_heavy_js=render_heavy_js,
+            stealth=stealth,
         )
         logger.debug("✅ Request validation passed")
 
@@ -497,11 +707,18 @@ class Client:
             "POST", f"{API_BASE_URL}/smartscraper", json=request.model_dump()
         )
         logger.info("✨ Smartscraper request completed successfully")
-        return result
+        return process_response_with_toon(result, return_toon)
 
-    def get_smartscraper(self, request_id: str):
-        """Get the result of a previous smartscraper request"""
+    def get_smartscraper(self, request_id: str, return_toon: bool = False):
+        """Get the result of a previous smartscraper request
+        
+        Args:
+            request_id: The request ID to fetch
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
+        """
         logger.info(f"🔍 Fetching smartscraper result for request {request_id}")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
         # Validate input using Pydantic model
         GetSmartScraperRequest(request_id=request_id)
@@ -509,7 +726,7 @@ class Client:
 
         result = self._make_request("GET", f"{API_BASE_URL}/smartscraper/{request_id}")
         logger.info(f"✨ Successfully retrieved result for request {request_id}")
-        return result
+        return process_response_with_toon(result, return_toon)
 
     def submit_feedback(
         self, request_id: str, rating: int, feedback_text: Optional[str] = None
@@ -543,6 +760,29 @@ class Client:
         )
         return result
 
+    def healthz(self):
+        """Check the health status of the service
+        
+        This endpoint is useful for monitoring and ensuring the service is operational.
+        It returns a JSON response indicating the service's health status.
+        
+        Returns:
+            dict: Health status information
+            
+        Example:
+            >>> client = Client.from_env()
+            >>> health = client.healthz()
+            >>> print(health)
+        """
+        logger.info("🏥 Checking service health")
+
+        result = self._make_request(
+            "GET",
+            f"{API_BASE_URL}/healthz",
+        )
+        logger.info("✨ Health check completed successfully")
+        return result
+
     def searchscraper(
         self,
         user_prompt: str,
@@ -550,7 +790,9 @@ class Client:
         headers: Optional[dict[str, str]] = None,
         output_schema: Optional[BaseModel] = None,
         extraction_mode: bool = True,
-        mock: bool=False
+        mock: bool=False,
+        stealth: bool=False,
+        return_toon: bool = False,
     ):
         """Send a searchscraper request
 
@@ -564,6 +806,9 @@ class Client:
             output_schema: Optional schema to structure the output
             extraction_mode: Whether to use AI extraction (True) or markdown conversion (False).
                            AI extraction costs 10 credits per page, markdown conversion costs 2 credits per page.
+            mock: Enable mock mode for testing
+            stealth: Enable stealth mode to avoid bot detection
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
         """
         logger.info("🔍 Starting searchscraper request")
         logger.debug(f"📝 Prompt: {user_prompt}")
@@ -571,6 +816,10 @@ class Client:
         logger.debug(f"🤖 Extraction mode: {'AI extraction' if extraction_mode else 'Markdown conversion'}")
         if headers:
             logger.debug("🔧 Using custom headers")
+        if stealth:
+            logger.debug("🥷 Stealth mode enabled")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
         request = SearchScraperRequest(
             user_prompt=user_prompt,
@@ -578,7 +827,8 @@ class Client:
             headers=headers,
             output_schema=output_schema,
             extraction_mode=extraction_mode,
-            mock=mock
+            mock=mock,
+            stealth=stealth
         )
         logger.debug("✅ Request validation passed")
 
@@ -586,11 +836,18 @@ class Client:
             "POST", f"{API_BASE_URL}/searchscraper", json=request.model_dump()
         )
         logger.info("✨ Searchscraper request completed successfully")
-        return result
+        return process_response_with_toon(result, return_toon)
 
-    def get_searchscraper(self, request_id: str):
-        """Get the result of a previous searchscraper request"""
+    def get_searchscraper(self, request_id: str, return_toon: bool = False):
+        """Get the result of a previous searchscraper request
+        
+        Args:
+            request_id: The request ID to fetch
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
+        """
         logger.info(f"🔍 Fetching searchscraper result for request {request_id}")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
         # Validate input using Pydantic model
         GetSearchScraperRequest(request_id=request_id)
@@ -598,7 +855,7 @@ class Client:
 
         result = self._make_request("GET", f"{API_BASE_URL}/searchscraper/{request_id}")
         logger.info(f"✨ Successfully retrieved result for request {request_id}")
-        return result
+        return process_response_with_toon(result, return_toon)
 
     def crawl(
         self,
@@ -612,9 +869,38 @@ class Client:
         same_domain_only: bool = True,
         batch_size: Optional[int] = None,
         sitemap: bool = False,
+        headers: Optional[dict[str, str]] = None,
+        render_heavy_js: bool = False,
+        stealth: bool = False,
+        include_paths: Optional[list[str]] = None,
+        exclude_paths: Optional[list[str]] = None,
+        webhook_url: Optional[str] = None,
+        return_toon: bool = False,
     ):
         """Send a crawl request with support for both AI extraction and
-        markdown conversion modes"""
+        markdown conversion modes
+
+        Args:
+            url: The starting URL to crawl
+            prompt: AI prompt for data extraction (required for AI extraction mode)
+            data_schema: Schema for structured output
+            extraction_mode: Whether to use AI extraction (True) or markdown (False)
+            cache_website: Whether to cache the website
+            depth: Maximum depth of link traversal
+            max_pages: Maximum number of pages to crawl
+            same_domain_only: Only crawl pages within the same domain
+            batch_size: Number of pages to process in batch
+            sitemap: Use sitemap for crawling
+            headers: Optional HTTP headers
+            render_heavy_js: Enable heavy JavaScript rendering
+            stealth: Enable stealth mode to avoid bot detection
+            include_paths: List of path patterns to include (e.g., ['/products/*', '/blog/**'])
+                          Supports wildcards: * matches any characters, ** matches any path segments
+            exclude_paths: List of path patterns to exclude (e.g., ['/admin/*', '/api/*'])
+                          Supports wildcards and takes precedence over include_paths
+            webhook_url: URL to receive webhook notifications when the crawl completes
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
+        """
         logger.info("🔍 Starting crawl request")
         logger.debug(f"🌐 URL: {url}")
         logger.debug(
@@ -632,8 +918,20 @@ class Client:
         logger.debug(f"📄 Max pages: {max_pages}")
         logger.debug(f"🏠 Same domain only: {same_domain_only}")
         logger.debug(f"🗺️ Use sitemap: {sitemap}")
+        if stealth:
+            logger.debug("🥷 Stealth mode enabled")
+        if render_heavy_js:
+            logger.debug("⚡ Heavy JavaScript rendering enabled")
         if batch_size is not None:
             logger.debug(f"📦 Batch size: {batch_size}")
+        if include_paths:
+            logger.debug(f"✅ Include paths: {include_paths}")
+        if exclude_paths:
+            logger.debug(f"❌ Exclude paths: {exclude_paths}")
+        if webhook_url:
+            logger.debug(f"🔔 Webhook URL: {webhook_url}")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
         # Build request data, excluding None values
         request_data = {
@@ -644,6 +942,8 @@ class Client:
             "max_pages": max_pages,
             "same_domain_only": same_domain_only,
             "sitemap": sitemap,
+            "render_heavy_js": render_heavy_js,
+            "stealth": stealth,
         }
 
         # Add optional parameters only if provided
@@ -653,6 +953,14 @@ class Client:
             request_data["data_schema"] = data_schema
         if batch_size is not None:
             request_data["batch_size"] = batch_size
+        if headers is not None:
+            request_data["headers"] = headers
+        if include_paths is not None:
+            request_data["include_paths"] = include_paths
+        if exclude_paths is not None:
+            request_data["exclude_paths"] = exclude_paths
+        if webhook_url is not None:
+            request_data["webhook_url"] = webhook_url
 
         request = CrawlRequest(**request_data)
         logger.debug("✅ Request validation passed")
@@ -661,11 +969,18 @@ class Client:
         request_json = request.model_dump(exclude_none=True)
         result = self._make_request("POST", f"{API_BASE_URL}/crawl", json=request_json)
         logger.info("✨ Crawl request completed successfully")
-        return result
+        return process_response_with_toon(result, return_toon)
 
-    def get_crawl(self, crawl_id: str):
-        """Get the result of a previous crawl request"""
+    def get_crawl(self, crawl_id: str, return_toon: bool = False):
+        """Get the result of a previous crawl request
+        
+        Args:
+            crawl_id: The crawl ID to fetch
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
+        """
         logger.info(f"🔍 Fetching crawl result for request {crawl_id}")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
         # Validate input using Pydantic model
         GetCrawlRequest(crawl_id=crawl_id)
@@ -673,7 +988,7 @@ class Client:
 
         result = self._make_request("GET", f"{API_BASE_URL}/crawl/{crawl_id}")
         logger.info(f"✨ Successfully retrieved result for request {crawl_id}")
-        return result
+        return process_response_with_toon(result, return_toon)
 
     def agenticscraper(
         self,
@@ -684,9 +999,11 @@ class Client:
         output_schema: Optional[Dict[str, Any]] = None,
         ai_extraction: bool = False,
         mock: bool=False,
+        stealth: bool=False,
+        return_toon: bool = False,
     ):
         """Send an agentic scraper request to perform automated actions on a webpage
-        
+
         Args:
             url: The URL to scrape
             steps: List of steps to perform on the webpage
@@ -694,6 +1011,9 @@ class Client:
             user_prompt: Prompt for AI extraction (required when ai_extraction=True)
             output_schema: Schema for structured data extraction (optional, used with ai_extraction=True)
             ai_extraction: Whether to use AI for data extraction from the scraped content (default: False)
+            mock: Enable mock mode for testing
+            stealth: Enable stealth mode to avoid bot detection
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
         """
         logger.info(f"🤖 Starting agentic scraper request for {url}")
         logger.debug(f"🔧 Use session: {use_session}")
@@ -702,6 +1022,10 @@ class Client:
         if ai_extraction:
             logger.debug(f"💭 User prompt: {user_prompt}")
             logger.debug(f"📋 Output schema provided: {output_schema is not None}")
+        if stealth:
+            logger.debug("🥷 Stealth mode enabled")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
         request = AgenticScraperRequest(
             url=url,
@@ -710,7 +1034,8 @@ class Client:
             user_prompt=user_prompt,
             output_schema=output_schema,
             ai_extraction=ai_extraction,
-            mock=mock
+            mock=mock,
+            stealth=stealth
         )
         logger.debug("✅ Request validation passed")
 
@@ -718,11 +1043,18 @@ class Client:
             "POST", f"{API_BASE_URL}/agentic-scrapper", json=request.model_dump()
         )
         logger.info("✨ Agentic scraper request completed successfully")
-        return result
+        return process_response_with_toon(result, return_toon)
 
-    def get_agenticscraper(self, request_id: str):
-        """Get the result of a previous agentic scraper request"""
+    def get_agenticscraper(self, request_id: str, return_toon: bool = False):
+        """Get the result of a previous agentic scraper request
+        
+        Args:
+            request_id: The request ID to fetch
+            return_toon: If True, return response in TOON format (reduces token usage by 30-60%)
+        """
         logger.info(f"🔍 Fetching agentic scraper result for request {request_id}")
+        if return_toon:
+            logger.debug("🎨 TOON format output enabled")
 
         # Validate input using Pydantic model
         GetAgenticScraperRequest(request_id=request_id)
@@ -730,6 +1062,50 @@ class Client:
 
         result = self._make_request("GET", f"{API_BASE_URL}/agentic-scrapper/{request_id}")
         logger.info(f"✨ Successfully retrieved result for request {request_id}")
+        return process_response_with_toon(result, return_toon)
+
+    def generate_schema(
+        self,
+        user_prompt: str,
+        existing_schema: Optional[Dict[str, Any]] = None,
+    ):
+        """Generate a JSON schema from a user prompt
+        
+        Args:
+            user_prompt: The user's search query to be refined into a schema
+            existing_schema: Optional existing JSON schema to modify/extend
+        """
+        logger.info("🔧 Starting schema generation request")
+        logger.debug(f"💭 User prompt: {user_prompt}")
+        if existing_schema:
+            logger.debug(f"📋 Existing schema provided: {existing_schema is not None}")
+
+        request = GenerateSchemaRequest(
+            user_prompt=user_prompt,
+            existing_schema=existing_schema,
+        )
+        logger.debug("✅ Request validation passed")
+
+        result = self._make_request(
+            "POST", f"{API_BASE_URL}/generate_schema", json=request.model_dump()
+        )
+        logger.info("✨ Schema generation request completed successfully")
+        return result
+
+    def get_schema_status(self, request_id: str):
+        """Get the status of a schema generation request
+        
+        Args:
+            request_id: The request ID returned from generate_schema
+        """
+        logger.info(f"🔍 Fetching schema generation status for request {request_id}")
+
+        # Validate input using Pydantic model
+        GetSchemaStatusRequest(request_id=request_id)
+        logger.debug("✅ Request ID validation passed")
+
+        result = self._make_request("GET", f"{API_BASE_URL}/generate_schema/{request_id}")
+        logger.info(f"✨ Successfully retrieved schema status for request {request_id}")
         return result
 
     def create_scheduled_job(

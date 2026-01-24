@@ -1,44 +1,11 @@
 import functools
 import math
-from typing import Optional
+from typing import Optional, Type, Union
 
 import torch.optim
 
 from . import chainable as C
 from . import utils
-
-
-class SAMWrapper(torch.optim.Optimizer):
-    def __init__(self, params, wrapped_optimizer: utils.StatefulOptimizer, ball: float = 0.1):
-        if not isinstance(wrapped_optimizer, utils.StatefulOptimizer):
-            raise ValueError(f"{wrapped_optimizer.__class__.__name__} is not a HeavyBall optimizer")
-        super().__init__(params, {"ball": ball})
-        self.wrapped_optimizer = wrapped_optimizer
-
-    @torch.no_grad()
-    def step(self, closure=None):
-        if closure is None:
-            raise ValueError("SAM requires closure")
-        with torch.enable_grad():
-            closure()
-        old_params = [utils.sam_step(group["params"], group["ball"]) for group in self.param_groups]
-
-        originaL_handle_closure = self.wrapped_optimizer._handle_closure
-
-        def _handle_closure(closure):
-            originaL_handle_closure(closure)
-            for group, old in zip(self.param_groups, old_params):
-                utils.copy_stochastic_list_(group["params"], old)
-
-        try:
-            self.wrapped_optimizer._handle_closure = _handle_closure
-            loss = self.wrapped_optimizer.step(closure)
-        finally:
-            self.wrapped_optimizer._handle_closure = originaL_handle_closure
-        return loss
-
-    def zero_grad(self, set_to_none: bool = True):
-        self.wrapped_optimizer.zero_grad()
 
 
 class SGD(C.BaseOpt):
@@ -98,6 +65,186 @@ class ForeachAdamW(C.BaseOpt):
             utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
 
         super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, palm, fns=(C.update_by_adam,))
+
+
+class ForeachNAdam(C.BaseOpt):
+    def __init__(
+        self,
+        params,
+        lr=0.002,
+        betas=(0.9, 0.999),
+        eps=1e-8,
+        weight_decay=0,
+        momentum_decay: float = 4e-3,
+        decoupled_weight_decay: bool = False,
+        warmup_steps=0,
+        foreach: bool = True,
+        storage_dtype: str = "float32",
+        mars: bool = False,
+        caution: bool = False,
+        mars_gamma: float = 0.0025,
+        gradient_clipping: C.str_or_fn = C.use_default,
+        update_clipping: C.str_or_fn = C.use_default,
+        palm: bool = C.use_default,
+        beta2_scale: float = 0.8,
+        **kwargs,
+    ):
+        defaults = locals()
+        defaults.pop("self")
+        params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, palm, fns=(C.update_by_nadam,))
+
+
+class ForeachAdEMAMix(C.BaseOpt):
+    def __init__(
+        self,
+        params,
+        lr=0.001,
+        betas=(0.9, 0.999, 0.9999),
+        eps=1e-8,
+        weight_decay=0,
+        alpha: float = 2.0,
+        beta3_warmup: Optional[int] = None,
+        alpha_warmup: Optional[int] = None,
+        warmup_steps=0,
+        foreach: bool = True,
+        storage_dtype: str = "float32",
+        mars: bool = False,
+        caution: bool = False,
+        mars_gamma: float = 0.0025,
+        gradient_clipping: C.str_or_fn = C.use_default,
+        update_clipping: C.str_or_fn = C.use_default,
+        **kwargs,
+    ):
+        if len(betas) != 3:
+            raise ValueError("AdEMAMix expects betas with three coefficients.")
+
+        defaults = locals()
+        defaults.pop("self")
+        params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, fns=(C.update_by_ademamix,))
+
+
+class UnscaledAdamW(C.BaseOpt):
+    def __init__(
+        self,
+        params,
+        lr=0.0025,
+        betas=(0.9, 0.99),
+        eps=1e-8,
+        weight_decay=0,
+        warmup_steps=0,
+        foreach: bool = True,
+        storage_dtype: str = "float32",
+        mars: bool = False,
+        caution: bool = False,
+        mars_gamma: float = 0.0025,
+        gradient_clipping: C.str_or_fn = C.use_default,
+        update_clipping: C.str_or_fn = C.use_default,
+        palm: bool = C.use_default,
+        beta2_scale: float = 0.8,
+        **kwargs,
+    ):
+        defaults = locals()
+        defaults.pop("self")
+        params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        super().__init__(
+            params, defaults, foreach, gradient_clipping, update_clipping, palm, fns=(C.scale_by_unscaled_adam,)
+        )
+
+
+class SUDSAdamW(C.BaseOpt):
+    def __init__(
+        self,
+        params,
+        lr=0.0025,
+        betas=(0.9, 0.99),
+        eps=1e-8,
+        weight_decay=0,
+        warmup_steps=0,
+        foreach: bool = True,
+        storage_dtype: str = "float32",
+        mars: bool = False,
+        caution: bool = False,
+        mars_gamma: float = 0.0025,
+        gradient_clipping: C.str_or_fn = C.use_default,
+        update_clipping: C.str_or_fn = C.use_default,
+        palm: bool = C.use_default,
+        beta2_scale: float = 0.8,
+        precond_lr: float = 1e-2,
+        **kwargs,
+    ):
+        defaults = locals()
+        defaults.pop("self")
+        params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, palm, fns=(C.scale_by_suds,))
+
+
+class Scion(C.BaseOpt):
+    def __init__(
+        self,
+        params,
+        lr: float = 0.0025,
+        betas: tuple[float, float] = (0.9, 0.99),
+        eps: float = 1e-8,
+        weight_decay: float = 0,
+        warmup_steps: int = 0,
+        foreach: bool = True,
+        storage_dtype: str = "float32",
+        mars: bool = False,
+        caution: bool = False,
+        mars_gamma: float = 0.0025,
+        gradient_clipping: C.str_or_fn = C.use_default,
+        update_clipping: C.str_or_fn = C.use_default,
+        scale: float = 1.0,
+        momentum: Optional[float] = None,
+        **kwargs,
+    ):
+        if lr < 0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if len(betas) == 0 and momentum is None:
+            raise ValueError("Scion expects at least one beta or an explicit momentum.")
+
+        beta1 = momentum if momentum is not None else betas[0]
+        if not 0 <= beta1 <= 1:
+            raise ValueError(f"Invalid momentum value: {beta1}")
+        beta2 = betas[1] if len(betas) > 1 else beta1
+
+        defaults = locals()
+        defaults.pop("self")
+        params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        defaults["betas"] = (beta1, beta2)
+        defaults["scale"] = scale
+        defaults.pop("momentum", None)
+
+        super().__init__(
+            params, defaults, foreach, gradient_clipping, update_clipping, fns=(C.exp_avg, C.scion_auto_norm)
+        )
 
 
 class ForeachAdamC(C.BaseOpt):
@@ -320,6 +467,7 @@ class ForeachMuon(C.BaseOpt):
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
         nesterov: bool = True,
+        heavyball_momentum: bool = False,
         **kwargs,
     ):
         defaults = locals()
@@ -330,6 +478,16 @@ class ForeachMuon(C.BaseOpt):
         if kwargs:
             utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
 
+        if heavyball_momentum:
+            if nesterov:
+                ema = C.nesterov_momentum
+            else:
+                ema = C.heavyball_momentum
+        elif nesterov:
+            ema = C.nesterov_ema
+        else:
+            ema = C.exp_avg
+
         super().__init__(
             params,
             defaults,
@@ -337,7 +495,7 @@ class ForeachMuon(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             palm,
-            fns=(C.nesterov_ema if nesterov else C.exp_avg, C.orthogonalize_update),
+            fns=(ema, C.orthogonalize_update),
         )
 
 
@@ -483,6 +641,133 @@ class ForeachSOAP(C.BaseOpt):
         )
 
 
+class ForeachSOAPNAdam(C.BaseOpt):
+    use_precond_schedule: bool = False
+
+    def __init__(
+        self,
+        params,
+        lr: float = 3e-3,
+        betas=(0.9, 0.999),
+        shampoo_beta: float = 0.95,
+        eps: float = 1e-8,
+        weight_decay: float = 0.01,
+        precondition_frequency: int = 2,
+        max_precond_dim: int = 2048,
+        merge_dims: bool = True,
+        precondition_1d: bool = False,
+        normalize_grads: bool = False,
+        correct_bias: bool = True,
+        warmup_steps: int = 0,
+        split: bool = False,
+        foreach: bool = True,
+        mars: bool = False,
+        caution: bool = False,
+        mars_gamma: float = 0.0025,
+        palm: bool = C.use_default,
+        precond_scheduler=(1 / 3, 9),
+        beta2_scale: float = 0.8,
+        use_precond_schedule: bool = C.use_default,
+        gradient_clipping: C.str_or_fn = C.use_default,
+        update_clipping: C.str_or_fn = C.use_default,
+        storage_dtype: str = "float32",
+        stochastic_schedule: bool = False,
+        precond_grad_accum: bool = False,
+        momentum_decay: float = 4e-3,
+        decoupled_weight_decay: bool = False,
+        **kwargs,
+    ):
+        use_precond_schedule = C.default(use_precond_schedule, self.use_precond_schedule)
+
+        defaults = locals()
+        defaults.pop("self")
+        params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        if use_precond_schedule:
+            del defaults["precondition_frequency"]
+            self.precond_schedule = utils.get_soap_precond_schedule(defaults.pop("precond_scheduler"))
+        else:
+            del defaults["precond_scheduler"]
+            self.precond_schedule = 1 / defaults.pop("precondition_frequency")
+        super().__init__(
+            params,
+            defaults,
+            foreach,
+            gradient_clipping,
+            update_clipping,
+            palm,
+            fns=(C.scale_by_soap_nadam,),
+        )
+
+
+class ForeachSOAPAdEMAMix(C.BaseOpt):
+    use_precond_schedule: bool = False
+
+    def __init__(
+        self,
+        params,
+        lr: float = 3e-3,
+        betas=(0.9, 0.95, 0.999),
+        shampoo_beta: float = 0.95,
+        eps: float = 1e-8,
+        weight_decay: float = 0.01,
+        precondition_frequency: int = 2,
+        max_precond_dim: int = 2048,
+        merge_dims: bool = True,
+        precondition_1d: bool = False,
+        normalize_grads: bool = False,
+        correct_bias: bool = True,
+        warmup_steps: int = 0,
+        split: bool = False,
+        foreach: bool = True,
+        mars: bool = False,
+        caution: bool = False,
+        mars_gamma: float = 0.0025,
+        palm: bool = C.use_default,
+        precond_scheduler=(1 / 3, 9),
+        beta2_scale: float = 0.8,
+        use_precond_schedule: bool = C.use_default,
+        gradient_clipping: C.str_or_fn = C.use_default,
+        update_clipping: C.str_or_fn = C.use_default,
+        storage_dtype: str = "float32",
+        stochastic_schedule: bool = False,
+        precond_grad_accum: bool = False,
+        alpha: float = 2.0,
+        beta3_warmup: int | None = None,
+        alpha_warmup: int | None = None,
+        **kwargs,
+    ):
+        use_precond_schedule = C.default(use_precond_schedule, self.use_precond_schedule)
+
+        defaults = locals()
+        defaults.pop("self")
+        params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        if use_precond_schedule:
+            del defaults["precondition_frequency"]
+            self.precond_schedule = utils.get_soap_precond_schedule(defaults.pop("precond_scheduler"))
+        else:
+            del defaults["precond_scheduler"]
+            self.precond_schedule = 1 / defaults.pop("precondition_frequency")
+        super().__init__(
+            params,
+            defaults,
+            foreach,
+            gradient_clipping,
+            update_clipping,
+            palm,
+            fns=(C.scale_by_soap_ademamix,),
+        )
+
+
 class ForeachSignLaProp(C.BaseOpt):
     def __init__(
         self,
@@ -589,7 +874,7 @@ class ForeachSOLP(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             palm,  #
-            fns=(functools.partial(C.scale_by_soap, inner="laprop"),),
+            fns=(C.scale_by_soap_laprop,),
         )
 
 
@@ -702,7 +987,7 @@ class ForeachPSGDKron(C.BaseOpt):
         beta=None,
         betas=(0.9, 0.999),
         weight_decay=0.0,
-        preconditioner_update_probability=None,
+        preconditioner_update_probability=C.use_default,
         max_size_triangular=2048,
         min_ndim_triangular=2,
         memory_save_mode=None,
@@ -743,7 +1028,9 @@ class ForeachPSGDKron(C.BaseOpt):
         update_clipping = C.default(update_clipping, utils.trust_region_clip_)
         inverse_free = C.default(inverse_free, self.quad)
         if inverse_free:
-            raise ValueError("inverse_free (i.e., PSGD-QUAD) is not supported at the moment. Consider using https://github.com/evanatyourservice/quad_torch")
+            raise ValueError(
+                "inverse_free (i.e., PSGD-QUAD) is not supported at the moment. Consider using https://github.com/evanatyourservice/quad_torch"
+            )
 
         defaults = locals()
         defaults.pop("self")
@@ -752,8 +1039,8 @@ class ForeachPSGDKron(C.BaseOpt):
         if kwargs:
             utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
 
-        self.precond_schedule = (
-            defaults.pop("preconditioner_update_probability") or utils.precond_update_prob_schedule()
+        self.precond_schedule = C.default(
+            defaults.pop("preconditioner_update_probability"), utils.precond_update_prob_schedule()
         )
         params = defaults.pop("params")
 
@@ -796,7 +1083,6 @@ class NewtonHybrid2PSGDKron(ForeachCachedNewtonPSGD):
     hvp_interval = 2
 
 
-
 class ForeachPSGDLRA(C.BaseOpt):
     """
     Originally from Evan Walters and Omead Pooladzandi, 2024
@@ -813,7 +1099,7 @@ class ForeachPSGDLRA(C.BaseOpt):
         lr=0.001,
         beta=0.9,
         weight_decay=0.0,
-        preconditioner_update_probability=None,
+        preconditioner_update_probability=C.use_default,
         momentum_into_precond_update=True,
         rank: Optional[int] = None,
         warmup_steps: int = 0,
@@ -847,8 +1133,8 @@ class ForeachPSGDLRA(C.BaseOpt):
         if kwargs:
             utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
 
-        self.precond_schedule = (
-            defaults.pop("preconditioner_update_probability") or utils.precond_update_prob_schedule()
+        self.precond_schedule = C.default(
+            defaults.pop("preconditioner_update_probability"), utils.precond_update_prob_schedule()
         )
         params = defaults.pop("params")
 
@@ -883,10 +1169,107 @@ class NewtonHybrid2PSGDLRA(ForeachNewtonPSGDLRA):
     hvp_interval = 2
 
 
+class SplitOpt(utils.StatefulOptimizer):
+    """
+    Delegates different parameter groups to different underlying optimizers.
+
+        opt = SplitOpt([
+            {'params': matrices, 'optimizer': Muon, 'lr': 0.02},
+            {'params': vectors, 'optimizer': AdamW, 'lr': 0.001},
+        ])
+    """
+
+    def __init__(self, specs):
+        self.optimizers, all_params = [], []
+        for spec in specs:
+            spec = dict(spec)
+            params = list(spec.pop("params"))
+            if params:
+                self.optimizers.append(spec.pop("optimizer")(params, **spec))
+                all_params.extend(params)
+        if not self.optimizers:
+            raise ValueError("No optimizers created")
+        super().__init__(all_params, {}, foreach=True)
+
+    def _step(self, group):
+        pass
+
+    def _handle_closure(self, closure):
+        return self.optimizers[0]._handle_closure(closure)
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        loss = self._handle_closure(closure) if closure else None
+        for opt in self.optimizers:
+            opt.step()
+        return loss
+
+    def zero_grad(self, set_to_none: bool = True):
+        for opt in self.optimizers:
+            opt.zero_grad(set_to_none=set_to_none)
+
+    def state_dict(self):
+        return {"optimizers": [opt.state_dict() for opt in self.optimizers]}
+
+    def load_state_dict(self, state_dict):
+        for opt, s in zip(self.optimizers, state_dict["optimizers"]):
+            opt.load_state_dict(s)
+
+
+class SAMWrapper(torch.optim.Optimizer):
+    def __init__(
+        self,
+        params,
+        wrapped_optimizer: Union[utils.StatefulOptimizer, Type[utils.StatefulOptimizer]] = ForeachAdamW,
+        ball: float = 0.1,
+    ):
+        params = list(params)
+        super().__init__(params, {"ball": ball})
+
+        if isinstance(wrapped_optimizer, type):
+            if not issubclass(wrapped_optimizer, utils.StatefulOptimizer):
+                raise ValueError(f"{wrapped_optimizer.__name__} is not a HeavyBall optimizer")
+            wrapped_optimizer = wrapped_optimizer(params)
+        elif not isinstance(wrapped_optimizer, utils.StatefulOptimizer):
+            raise ValueError(f"{wrapped_optimizer.__class__.__name__} is not a HeavyBall optimizer")
+
+        self.wrapped_optimizer = wrapped_optimizer
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        if closure is None:
+            raise ValueError("SAM requires closure")
+        with torch.enable_grad():
+            closure()
+        old_params = [utils.sam_step(group["params"], group["ball"]) for group in self.param_groups]
+
+        original_handle_closure = self.wrapped_optimizer._handle_closure
+
+        def _handle_closure(closure):
+            try:
+                _loss = original_handle_closure(closure)
+            finally:
+                for group, old in zip(self.param_groups, old_params):
+                    utils.copy_stochastic_list_(group["params"], old)
+            return _loss
+
+        try:
+            self.wrapped_optimizer._handle_closure = _handle_closure
+            loss = self.wrapped_optimizer.step(closure)
+        finally:
+            self.wrapped_optimizer._handle_closure = original_handle_closure
+        return loss
+
+    def zero_grad(self, set_to_none: bool = True):
+        self.wrapped_optimizer.zero_grad(set_to_none=set_to_none)
+
+
 PalmForEachSoap = PaLMForeachSOAP
 PaLMSOAP = PaLMForeachSOAP
 PaLMSFAdamW = PaLMForeachSFAdamW
 SOAP = ForeachSOAP
+SOAPAdEMAMix = ForeachSOAPAdEMAMix
+SOAPNAdam = ForeachSOAPNAdam
 SFAdamW = ForeachSFAdamW
 LaProp = ForeachLaProp
 ADOPT = ForeachADOPT
@@ -895,6 +1278,7 @@ PrecondScheduleSOAP = PrecondScheduleForeachSOAP
 PrecondSchedulePaLMSOAP = PrecondSchedulePaLMForeachSOAP
 PSGDKron = ForeachPSGDKron
 AdamW = ForeachAdamW
+NAdam = ForeachNAdam
 PurePSGD = ForeachPurePSGD
 DelayedPSGD = ForeachDelayedPSGD
 CachedPSGDKron = ForeachCachedPSGDKron
@@ -906,52 +1290,4 @@ PSGDLRA = ForeachPSGDLRA
 NewtonPSGDLRA = ForeachNewtonPSGDLRA
 NewtonPSGDKron = ForeachCachedNewtonPSGD
 
-__all__ = [
-    "Muon",
-    "RMSprop",
-    "PrecondSchedulePaLMSOAP",
-    "PSGDKron",
-    "PurePSGD",
-    "DelayedPSGD",
-    "CachedPSGDKron",
-    "CachedDelayedPSGDKron",
-    "PalmForEachSoap",
-    "PaLMSOAP",
-    "PaLMSFAdamW",
-    "LaProp",
-    "ADOPT",
-    "PrecondScheduleSOAP",
-    "PrecondSchedulePaLMSOAP",
-    "RMSprop",
-    "MuonLaProp",
-    "ForeachSignLaProp",
-    "ForeachDelayedPSGDLRA",
-    "ForeachPSGDLRA",
-    "ForeachPSGDLRA",
-    "ForeachNewtonPSGDLRA",  #
-    "ForeachAdamW",
-    "ForeachSFAdamW",
-    "ForeachLaProp",
-    "ForeachADOPT",
-    "ForeachSOAP",
-    "ForeachPSGDKron",
-    "ForeachPurePSGD",
-    "ForeachDelayedPSGD",
-    "ForeachCachedPSGDKron",
-    "ForeachCachedDelayedPSGDKron",
-    "ForeachRMSprop",
-    "ForeachMuon",
-    "ForeachCachedNewtonPSGD",
-    "OrthoLaProp",
-    "LaPropOrtho",
-    "SignLaProp",
-    "DelayedPSGD",
-    "PSGDLRA",
-    "NewtonPSGDLRA",
-    "NewtonHybrid2PSGDLRA",
-    "NewtonHybrid2PSGDKron",
-    "MSAMLaProp",
-    "NewtonPSGDKron",
-    "ForeachAdamC",
-    "SGD"
-]
+__all__ = [k for k, v in globals().items() if isinstance(v, type) and issubclass(v, torch.optim.Optimizer)]

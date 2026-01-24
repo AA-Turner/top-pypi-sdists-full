@@ -3,7 +3,7 @@ Type annotations for bedrock-agent-runtime service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent_runtime/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -37,10 +37,13 @@ __all__ = (
     "FileSourceTypeType",
     "FileUseCaseType",
     "FlowCompletionReasonType",
+    "FlowControlNodeTypeType",
     "FlowErrorCodeType",
     "FlowExecutionErrorTypeType",
     "FlowExecutionEventTypeType",
     "FlowExecutionStatusType",
+    "FlowNodeIODataTypeType",
+    "FlowNodeInputCategoryType",
     "GeneratedQueryTypeType",
     "GetAgentMemoryPaginatorName",
     "GuadrailActionType",
@@ -56,8 +59,10 @@ __all__ = (
     "GuardrailWordPolicyActionType",
     "ImageFormatType",
     "ImageInputFormatType",
+    "InputImageFormatType",
     "InputQueryTypeType",
     "InvocationTypeType",
+    "KnowledgeBaseQueryTypeType",
     "ListFlowExecutionEventsPaginatorName",
     "ListFlowExecutionsPaginatorName",
     "ListInvocationStepsPaginatorName",
@@ -119,10 +124,13 @@ ExternalSourceTypeType = Literal["BYTE_CONTENT", "S3"]
 FileSourceTypeType = Literal["BYTE_CONTENT", "S3"]
 FileUseCaseType = Literal["CHAT", "CODE_INTERPRETER"]
 FlowCompletionReasonType = Literal["INPUT_REQUIRED", "SUCCESS"]
+FlowControlNodeTypeType = Literal["Iterator", "Loop"]
 FlowErrorCodeType = Literal["INTERNAL_SERVER", "NODE_EXECUTION_FAILED", "VALIDATION"]
 FlowExecutionErrorTypeType = Literal["ExecutionTimedOut"]
 FlowExecutionEventTypeType = Literal["Flow", "Node"]
 FlowExecutionStatusType = Literal["Aborted", "Failed", "Running", "Succeeded", "TimedOut"]
+FlowNodeIODataTypeType = Literal["Array", "Boolean", "Number", "Object", "String"]
+FlowNodeInputCategoryType = Literal["ExitLoop", "LoopCondition", "ReturnValueToLoopStart"]
 GeneratedQueryTypeType = Literal["REDSHIFT_SQL"]
 GetAgentMemoryPaginatorName = Literal["get_agent_memory"]
 GuadrailActionType = Literal["INTERVENED", "NONE"]
@@ -172,6 +180,7 @@ GuardrailTopicTypeType = Literal["DENY"]
 GuardrailWordPolicyActionType = Literal["BLOCKED"]
 ImageFormatType = Literal["gif", "jpeg", "png", "webp"]
 ImageInputFormatType = Literal["gif", "jpeg", "png", "webp"]
+InputImageFormatType = Literal["gif", "jpeg", "png", "webp"]
 InputQueryTypeType = Literal["TEXT"]
 InvocationTypeType = Literal[
     "ACTION_GROUP",
@@ -180,6 +189,7 @@ InvocationTypeType = Literal[
     "FINISH",
     "KNOWLEDGE_BASE",
 ]
+KnowledgeBaseQueryTypeType = Literal["IMAGE", "TEXT"]
 ListFlowExecutionEventsPaginatorName = Literal["list_flow_execution_events"]
 ListFlowExecutionsPaginatorName = Literal["list_flow_executions"]
 ListInvocationStepsPaginatorName = Literal["list_invocation_steps"]
@@ -222,7 +232,7 @@ ResponseStateType = Literal["FAILURE", "REPROMPT"]
 RetrievalResultContentColumnTypeType = Literal[
     "BLOB", "BOOLEAN", "DOUBLE", "LONG", "NULL", "STRING"
 ]
-RetrievalResultContentTypeType = Literal["IMAGE", "ROW", "TEXT"]
+RetrievalResultContentTypeType = Literal["AUDIO", "IMAGE", "ROW", "TEXT", "VIDEO"]
 RetrievalResultLocationTypeType = Literal[
     "CONFLUENCE", "CUSTOM", "KENDRA", "S3", "SALESFORCE", "SHAREPOINT", "SQL", "WEB"
 ]
@@ -263,7 +273,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -333,6 +342,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -378,7 +388,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -431,7 +440,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -470,8 +478,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -506,6 +512,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -515,6 +522,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -525,6 +533,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -546,8 +557,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -562,15 +571,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -601,6 +611,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -641,6 +652,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

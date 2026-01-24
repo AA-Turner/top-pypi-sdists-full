@@ -94,12 +94,16 @@ class SessionsAsyncClient:
     parse_intent_path = staticmethod(SessionsClient.parse_intent_path)
     page_path = staticmethod(SessionsClient.page_path)
     parse_page_path = staticmethod(SessionsClient.parse_page_path)
+    playbook_path = staticmethod(SessionsClient.playbook_path)
+    parse_playbook_path = staticmethod(SessionsClient.parse_playbook_path)
     session_path = staticmethod(SessionsClient.session_path)
     parse_session_path = staticmethod(SessionsClient.parse_session_path)
     session_entity_type_path = staticmethod(SessionsClient.session_entity_type_path)
     parse_session_entity_type_path = staticmethod(
         SessionsClient.parse_session_entity_type_path
     )
+    tool_path = staticmethod(SessionsClient.tool_path)
+    parse_tool_path = staticmethod(SessionsClient.parse_tool_path)
     transition_route_group_path = staticmethod(
         SessionsClient.transition_route_group_path
     )
@@ -595,12 +599,12 @@ class SessionsAsyncClient:
 
                    However, note that:
 
-                   -  Dialogflow will bill you for the audio duration so
-                      far.
-                   -  Dialogflow discards all Speech recognition results
-                      in favor of the input text.
-                   -  Dialogflow will use the language code from the
-                      first message.
+                   - Dialogflow will bill you for the audio duration so
+                     far.
+                   - Dialogflow discards all Speech recognition results
+                     in favor of the input text.
+                   - Dialogflow will use the language code from the
+                     first message.
 
                 After you sent all input, you must half-close or abort
                 the request stream.
@@ -620,21 +624,20 @@ class SessionsAsyncClient:
 
                    Multiple response messages can be returned in order:
 
-                   -  If the
-                      StreamingDetectIntentRequest.query_input.audio
-                      field was set, the first M messages contain
-                      recognition_result. Each recognition_result
-                      represents a more complete transcript of what the
-                      user said. The last recognition_result has
-                      is_final set to true.
-                   -  If the
-                      StreamingDetectIntentRequest.enable_partial_response
-                      field was true, the detect_intent_response field
-                      is populated for each of the following N
-                      responses, where 0 <= N <= 5. These responses set
-                      the
-                      [DetectIntentResponse.response_type][google.cloud.dialogflow.cx.v3.DetectIntentResponse.response_type]
-                      field to PARTIAL.
+                   - If the
+                     StreamingDetectIntentRequest.query_input.audio
+                     field was set, the first M messages contain
+                     recognition_result. Each recognition_result
+                     represents a more complete transcript of what the
+                     user said. The last recognition_result has is_final
+                     set to true.
+                   - If the
+                     StreamingDetectIntentRequest.enable_partial_response
+                     field was true, the detect_intent_response field is
+                     populated for each of the following N responses,
+                     where 0 <= N <= 5. These responses set the
+                     [DetectIntentResponse.response_type][google.cloud.dialogflow.cx.v3.DetectIntentResponse.response_type]
+                     field to PARTIAL.
 
                    For the last response message, the
                    detect_intent_response is fully populated, and

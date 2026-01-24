@@ -3,7 +3,7 @@ Type annotations for ssm service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -352,12 +353,6 @@ from .type_defs import (
 )
 from .waiter import CommandExecutedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -368,145 +363,146 @@ __all__ = ("SSMClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AlreadyExistsException: Type[BotocoreClientError]
-    AssociatedInstances: Type[BotocoreClientError]
-    AssociationAlreadyExists: Type[BotocoreClientError]
-    AssociationDoesNotExist: Type[BotocoreClientError]
-    AssociationExecutionDoesNotExist: Type[BotocoreClientError]
-    AssociationLimitExceeded: Type[BotocoreClientError]
-    AssociationVersionLimitExceeded: Type[BotocoreClientError]
-    AutomationDefinitionNotApprovedException: Type[BotocoreClientError]
-    AutomationDefinitionNotFoundException: Type[BotocoreClientError]
-    AutomationDefinitionVersionNotFoundException: Type[BotocoreClientError]
-    AutomationExecutionLimitExceededException: Type[BotocoreClientError]
-    AutomationExecutionNotFoundException: Type[BotocoreClientError]
-    AutomationStepNotFoundException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ComplianceTypeCountLimitExceededException: Type[BotocoreClientError]
-    CustomSchemaCountLimitExceededException: Type[BotocoreClientError]
-    DocumentAlreadyExists: Type[BotocoreClientError]
-    DocumentLimitExceeded: Type[BotocoreClientError]
-    DocumentPermissionLimit: Type[BotocoreClientError]
-    DocumentVersionLimitExceeded: Type[BotocoreClientError]
-    DoesNotExistException: Type[BotocoreClientError]
-    DuplicateDocumentContent: Type[BotocoreClientError]
-    DuplicateDocumentVersionName: Type[BotocoreClientError]
-    DuplicateInstanceId: Type[BotocoreClientError]
-    FeatureNotAvailableException: Type[BotocoreClientError]
-    HierarchyLevelLimitExceededException: Type[BotocoreClientError]
-    HierarchyTypeMismatchException: Type[BotocoreClientError]
-    IdempotentParameterMismatch: Type[BotocoreClientError]
-    IncompatiblePolicyException: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    InvalidActivation: Type[BotocoreClientError]
-    InvalidActivationId: Type[BotocoreClientError]
-    InvalidAggregatorException: Type[BotocoreClientError]
-    InvalidAllowedPatternException: Type[BotocoreClientError]
-    InvalidAssociation: Type[BotocoreClientError]
-    InvalidAssociationVersion: Type[BotocoreClientError]
-    InvalidAutomationExecutionParametersException: Type[BotocoreClientError]
-    InvalidAutomationSignalException: Type[BotocoreClientError]
-    InvalidAutomationStatusUpdateException: Type[BotocoreClientError]
-    InvalidCommandId: Type[BotocoreClientError]
-    InvalidDeleteInventoryParametersException: Type[BotocoreClientError]
-    InvalidDeletionIdException: Type[BotocoreClientError]
-    InvalidDocument: Type[BotocoreClientError]
-    InvalidDocumentContent: Type[BotocoreClientError]
-    InvalidDocumentOperation: Type[BotocoreClientError]
-    InvalidDocumentSchemaVersion: Type[BotocoreClientError]
-    InvalidDocumentType: Type[BotocoreClientError]
-    InvalidDocumentVersion: Type[BotocoreClientError]
-    InvalidFilter: Type[BotocoreClientError]
-    InvalidFilterKey: Type[BotocoreClientError]
-    InvalidFilterOption: Type[BotocoreClientError]
-    InvalidFilterValue: Type[BotocoreClientError]
-    InvalidInstanceId: Type[BotocoreClientError]
-    InvalidInstanceInformationFilterValue: Type[BotocoreClientError]
-    InvalidInstancePropertyFilterValue: Type[BotocoreClientError]
-    InvalidInventoryGroupException: Type[BotocoreClientError]
-    InvalidInventoryItemContextException: Type[BotocoreClientError]
-    InvalidInventoryRequestException: Type[BotocoreClientError]
-    InvalidItemContentException: Type[BotocoreClientError]
-    InvalidKeyId: Type[BotocoreClientError]
-    InvalidNextToken: Type[BotocoreClientError]
-    InvalidNotificationConfig: Type[BotocoreClientError]
-    InvalidOptionException: Type[BotocoreClientError]
-    InvalidOutputFolder: Type[BotocoreClientError]
-    InvalidOutputLocation: Type[BotocoreClientError]
-    InvalidParameters: Type[BotocoreClientError]
-    InvalidPermissionType: Type[BotocoreClientError]
-    InvalidPluginName: Type[BotocoreClientError]
-    InvalidPolicyAttributeException: Type[BotocoreClientError]
-    InvalidPolicyTypeException: Type[BotocoreClientError]
-    InvalidResourceId: Type[BotocoreClientError]
-    InvalidResourceType: Type[BotocoreClientError]
-    InvalidResultAttributeException: Type[BotocoreClientError]
-    InvalidRole: Type[BotocoreClientError]
-    InvalidSchedule: Type[BotocoreClientError]
-    InvalidTag: Type[BotocoreClientError]
-    InvalidTarget: Type[BotocoreClientError]
-    InvalidTargetMaps: Type[BotocoreClientError]
-    InvalidTypeNameException: Type[BotocoreClientError]
-    InvalidUpdate: Type[BotocoreClientError]
-    InvocationDoesNotExist: Type[BotocoreClientError]
-    ItemContentMismatchException: Type[BotocoreClientError]
-    ItemSizeLimitExceededException: Type[BotocoreClientError]
-    MalformedResourcePolicyDocumentException: Type[BotocoreClientError]
-    MaxDocumentSizeExceeded: Type[BotocoreClientError]
-    OpsItemAccessDeniedException: Type[BotocoreClientError]
-    OpsItemAlreadyExistsException: Type[BotocoreClientError]
-    OpsItemConflictException: Type[BotocoreClientError]
-    OpsItemInvalidParameterException: Type[BotocoreClientError]
-    OpsItemLimitExceededException: Type[BotocoreClientError]
-    OpsItemNotFoundException: Type[BotocoreClientError]
-    OpsItemRelatedItemAlreadyExistsException: Type[BotocoreClientError]
-    OpsItemRelatedItemAssociationNotFoundException: Type[BotocoreClientError]
-    OpsMetadataAlreadyExistsException: Type[BotocoreClientError]
-    OpsMetadataInvalidArgumentException: Type[BotocoreClientError]
-    OpsMetadataKeyLimitExceededException: Type[BotocoreClientError]
-    OpsMetadataLimitExceededException: Type[BotocoreClientError]
-    OpsMetadataNotFoundException: Type[BotocoreClientError]
-    OpsMetadataTooManyUpdatesException: Type[BotocoreClientError]
-    ParameterAlreadyExists: Type[BotocoreClientError]
-    ParameterLimitExceeded: Type[BotocoreClientError]
-    ParameterMaxVersionLimitExceeded: Type[BotocoreClientError]
-    ParameterNotFound: Type[BotocoreClientError]
-    ParameterPatternMismatchException: Type[BotocoreClientError]
-    ParameterVersionLabelLimitExceeded: Type[BotocoreClientError]
-    ParameterVersionNotFound: Type[BotocoreClientError]
-    PoliciesLimitExceededException: Type[BotocoreClientError]
-    ResourceDataSyncAlreadyExistsException: Type[BotocoreClientError]
-    ResourceDataSyncConflictException: Type[BotocoreClientError]
-    ResourceDataSyncCountExceededException: Type[BotocoreClientError]
-    ResourceDataSyncInvalidConfigurationException: Type[BotocoreClientError]
-    ResourceDataSyncNotFoundException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourcePolicyConflictException: Type[BotocoreClientError]
-    ResourcePolicyInvalidParameterException: Type[BotocoreClientError]
-    ResourcePolicyLimitExceededException: Type[BotocoreClientError]
-    ResourcePolicyNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ServiceSettingNotFound: Type[BotocoreClientError]
-    StatusUnchanged: Type[BotocoreClientError]
-    SubTypeCountLimitExceededException: Type[BotocoreClientError]
-    TargetInUseException: Type[BotocoreClientError]
-    TargetNotConnected: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsError: Type[BotocoreClientError]
-    TooManyUpdates: Type[BotocoreClientError]
-    TotalSizeLimitExceededException: Type[BotocoreClientError]
-    UnsupportedCalendarException: Type[BotocoreClientError]
-    UnsupportedFeatureRequiredException: Type[BotocoreClientError]
-    UnsupportedInventoryItemContextException: Type[BotocoreClientError]
-    UnsupportedInventorySchemaVersionException: Type[BotocoreClientError]
-    UnsupportedOperatingSystem: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
-    UnsupportedParameterType: Type[BotocoreClientError]
-    UnsupportedPlatformType: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    AssociatedInstances: type[BotocoreClientError]
+    AssociationAlreadyExists: type[BotocoreClientError]
+    AssociationDoesNotExist: type[BotocoreClientError]
+    AssociationExecutionDoesNotExist: type[BotocoreClientError]
+    AssociationLimitExceeded: type[BotocoreClientError]
+    AssociationVersionLimitExceeded: type[BotocoreClientError]
+    AutomationDefinitionNotApprovedException: type[BotocoreClientError]
+    AutomationDefinitionNotFoundException: type[BotocoreClientError]
+    AutomationDefinitionVersionNotFoundException: type[BotocoreClientError]
+    AutomationExecutionLimitExceededException: type[BotocoreClientError]
+    AutomationExecutionNotFoundException: type[BotocoreClientError]
+    AutomationStepNotFoundException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ComplianceTypeCountLimitExceededException: type[BotocoreClientError]
+    CustomSchemaCountLimitExceededException: type[BotocoreClientError]
+    DocumentAlreadyExists: type[BotocoreClientError]
+    DocumentLimitExceeded: type[BotocoreClientError]
+    DocumentPermissionLimit: type[BotocoreClientError]
+    DocumentVersionLimitExceeded: type[BotocoreClientError]
+    DoesNotExistException: type[BotocoreClientError]
+    DuplicateDocumentContent: type[BotocoreClientError]
+    DuplicateDocumentVersionName: type[BotocoreClientError]
+    DuplicateInstanceId: type[BotocoreClientError]
+    FeatureNotAvailableException: type[BotocoreClientError]
+    HierarchyLevelLimitExceededException: type[BotocoreClientError]
+    HierarchyTypeMismatchException: type[BotocoreClientError]
+    IdempotentParameterMismatch: type[BotocoreClientError]
+    IncompatiblePolicyException: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    InvalidActivation: type[BotocoreClientError]
+    InvalidActivationId: type[BotocoreClientError]
+    InvalidAggregatorException: type[BotocoreClientError]
+    InvalidAllowedPatternException: type[BotocoreClientError]
+    InvalidAssociation: type[BotocoreClientError]
+    InvalidAssociationVersion: type[BotocoreClientError]
+    InvalidAutomationExecutionParametersException: type[BotocoreClientError]
+    InvalidAutomationSignalException: type[BotocoreClientError]
+    InvalidAutomationStatusUpdateException: type[BotocoreClientError]
+    InvalidCommandId: type[BotocoreClientError]
+    InvalidDeleteInventoryParametersException: type[BotocoreClientError]
+    InvalidDeletionIdException: type[BotocoreClientError]
+    InvalidDocument: type[BotocoreClientError]
+    InvalidDocumentContent: type[BotocoreClientError]
+    InvalidDocumentOperation: type[BotocoreClientError]
+    InvalidDocumentSchemaVersion: type[BotocoreClientError]
+    InvalidDocumentType: type[BotocoreClientError]
+    InvalidDocumentVersion: type[BotocoreClientError]
+    InvalidFilter: type[BotocoreClientError]
+    InvalidFilterKey: type[BotocoreClientError]
+    InvalidFilterOption: type[BotocoreClientError]
+    InvalidFilterValue: type[BotocoreClientError]
+    InvalidInstanceId: type[BotocoreClientError]
+    InvalidInstanceInformationFilterValue: type[BotocoreClientError]
+    InvalidInstancePropertyFilterValue: type[BotocoreClientError]
+    InvalidInventoryGroupException: type[BotocoreClientError]
+    InvalidInventoryItemContextException: type[BotocoreClientError]
+    InvalidInventoryRequestException: type[BotocoreClientError]
+    InvalidItemContentException: type[BotocoreClientError]
+    InvalidKeyId: type[BotocoreClientError]
+    InvalidNextToken: type[BotocoreClientError]
+    InvalidNotificationConfig: type[BotocoreClientError]
+    InvalidOptionException: type[BotocoreClientError]
+    InvalidOutputFolder: type[BotocoreClientError]
+    InvalidOutputLocation: type[BotocoreClientError]
+    InvalidParameters: type[BotocoreClientError]
+    InvalidPermissionType: type[BotocoreClientError]
+    InvalidPluginName: type[BotocoreClientError]
+    InvalidPolicyAttributeException: type[BotocoreClientError]
+    InvalidPolicyTypeException: type[BotocoreClientError]
+    InvalidResourceId: type[BotocoreClientError]
+    InvalidResourceType: type[BotocoreClientError]
+    InvalidResultAttributeException: type[BotocoreClientError]
+    InvalidRole: type[BotocoreClientError]
+    InvalidSchedule: type[BotocoreClientError]
+    InvalidTag: type[BotocoreClientError]
+    InvalidTarget: type[BotocoreClientError]
+    InvalidTargetMaps: type[BotocoreClientError]
+    InvalidTypeNameException: type[BotocoreClientError]
+    InvalidUpdate: type[BotocoreClientError]
+    InvocationDoesNotExist: type[BotocoreClientError]
+    ItemContentMismatchException: type[BotocoreClientError]
+    ItemSizeLimitExceededException: type[BotocoreClientError]
+    MalformedResourcePolicyDocumentException: type[BotocoreClientError]
+    MaxDocumentSizeExceeded: type[BotocoreClientError]
+    NoLongerSupportedException: type[BotocoreClientError]
+    OpsItemAccessDeniedException: type[BotocoreClientError]
+    OpsItemAlreadyExistsException: type[BotocoreClientError]
+    OpsItemConflictException: type[BotocoreClientError]
+    OpsItemInvalidParameterException: type[BotocoreClientError]
+    OpsItemLimitExceededException: type[BotocoreClientError]
+    OpsItemNotFoundException: type[BotocoreClientError]
+    OpsItemRelatedItemAlreadyExistsException: type[BotocoreClientError]
+    OpsItemRelatedItemAssociationNotFoundException: type[BotocoreClientError]
+    OpsMetadataAlreadyExistsException: type[BotocoreClientError]
+    OpsMetadataInvalidArgumentException: type[BotocoreClientError]
+    OpsMetadataKeyLimitExceededException: type[BotocoreClientError]
+    OpsMetadataLimitExceededException: type[BotocoreClientError]
+    OpsMetadataNotFoundException: type[BotocoreClientError]
+    OpsMetadataTooManyUpdatesException: type[BotocoreClientError]
+    ParameterAlreadyExists: type[BotocoreClientError]
+    ParameterLimitExceeded: type[BotocoreClientError]
+    ParameterMaxVersionLimitExceeded: type[BotocoreClientError]
+    ParameterNotFound: type[BotocoreClientError]
+    ParameterPatternMismatchException: type[BotocoreClientError]
+    ParameterVersionLabelLimitExceeded: type[BotocoreClientError]
+    ParameterVersionNotFound: type[BotocoreClientError]
+    PoliciesLimitExceededException: type[BotocoreClientError]
+    ResourceDataSyncAlreadyExistsException: type[BotocoreClientError]
+    ResourceDataSyncConflictException: type[BotocoreClientError]
+    ResourceDataSyncCountExceededException: type[BotocoreClientError]
+    ResourceDataSyncInvalidConfigurationException: type[BotocoreClientError]
+    ResourceDataSyncNotFoundException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourcePolicyConflictException: type[BotocoreClientError]
+    ResourcePolicyInvalidParameterException: type[BotocoreClientError]
+    ResourcePolicyLimitExceededException: type[BotocoreClientError]
+    ResourcePolicyNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceSettingNotFound: type[BotocoreClientError]
+    StatusUnchanged: type[BotocoreClientError]
+    SubTypeCountLimitExceededException: type[BotocoreClientError]
+    TargetInUseException: type[BotocoreClientError]
+    TargetNotConnected: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsError: type[BotocoreClientError]
+    TooManyUpdates: type[BotocoreClientError]
+    TotalSizeLimitExceededException: type[BotocoreClientError]
+    UnsupportedCalendarException: type[BotocoreClientError]
+    UnsupportedFeatureRequiredException: type[BotocoreClientError]
+    UnsupportedInventoryItemContextException: type[BotocoreClientError]
+    UnsupportedInventorySchemaVersionException: type[BotocoreClientError]
+    UnsupportedOperatingSystem: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
+    UnsupportedParameterType: type[BotocoreClientError]
+    UnsupportedPlatformType: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class SSMClient(AioBaseClient):
@@ -546,7 +542,7 @@ class SSMClient(AioBaseClient):
 
     async def add_tags_to_resource(
         self, **kwargs: Unpack[AddTagsToResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds or overwrites one or more tags for the specified resource.
 
@@ -564,7 +560,7 @@ class SSMClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#associate_ops_item_related_item)
         """
 
-    async def cancel_command(self, **kwargs: Unpack[CancelCommandRequestTypeDef]) -> Dict[str, Any]:
+    async def cancel_command(self, **kwargs: Unpack[CancelCommandRequestTypeDef]) -> dict[str, Any]:
         """
         Attempts to cancel the command specified by the Command ID.
 
@@ -671,7 +667,7 @@ class SSMClient(AioBaseClient):
 
     async def create_resource_data_sync(
         self, **kwargs: Unpack[CreateResourceDataSyncRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         A resource data sync helps you view data from multiple sources in a single
         location.
@@ -682,7 +678,7 @@ class SSMClient(AioBaseClient):
 
     async def delete_activation(
         self, **kwargs: Unpack[DeleteActivationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an activation.
 
@@ -692,7 +688,7 @@ class SSMClient(AioBaseClient):
 
     async def delete_association(
         self, **kwargs: Unpack[DeleteAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the specified Amazon Web Services Systems Manager document (SSM
         document) from the specified managed node.
@@ -703,7 +699,7 @@ class SSMClient(AioBaseClient):
 
     async def delete_document(
         self, **kwargs: Unpack[DeleteDocumentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the Amazon Web Services Systems Manager document (SSM document) and all
         managed node associations to the document.
@@ -735,7 +731,7 @@ class SSMClient(AioBaseClient):
 
     async def delete_ops_item(
         self, **kwargs: Unpack[DeleteOpsItemRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an OpsItem.
 
@@ -745,7 +741,7 @@ class SSMClient(AioBaseClient):
 
     async def delete_ops_metadata(
         self, **kwargs: Unpack[DeleteOpsMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete OpsMetadata related to an application.
 
@@ -755,7 +751,7 @@ class SSMClient(AioBaseClient):
 
     async def delete_parameter(
         self, **kwargs: Unpack[DeleteParameterRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a parameter from the system.
 
@@ -785,7 +781,7 @@ class SSMClient(AioBaseClient):
 
     async def delete_resource_data_sync(
         self, **kwargs: Unpack[DeleteResourceDataSyncRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a resource data sync configuration.
 
@@ -795,7 +791,7 @@ class SSMClient(AioBaseClient):
 
     async def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Systems Manager resource policy.
 
@@ -805,7 +801,7 @@ class SSMClient(AioBaseClient):
 
     async def deregister_managed_instance(
         self, **kwargs: Unpack[DeregisterManagedInstanceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the server or virtual machine from the list of registered servers.
 
@@ -1195,7 +1191,7 @@ class SSMClient(AioBaseClient):
 
     async def disassociate_ops_item_related_item(
         self, **kwargs: Unpack[DisassociateOpsItemRelatedItemRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the association between an OpsItem and a related item.
 
@@ -1563,8 +1559,8 @@ class SSMClient(AioBaseClient):
         self, **kwargs: Unpack[ListDocumentMetadataHistoryRequestTypeDef]
     ) -> ListDocumentMetadataHistoryResponseTypeDef:
         """
-        Information about approval reviews for a version of a change template in Change
-        Manager.
+        Amazon Web Services Systems Manager Change Manager will no longer be open to
+        new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/list_document_metadata_history.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#list_document_metadata_history)
@@ -1686,7 +1682,7 @@ class SSMClient(AioBaseClient):
 
     async def modify_document_permission(
         self, **kwargs: Unpack[ModifyDocumentPermissionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Shares a Amazon Web Services Systems Manager document (SSM document)publicly or
         privately.
@@ -1697,7 +1693,7 @@ class SSMClient(AioBaseClient):
 
     async def put_compliance_items(
         self, **kwargs: Unpack[PutComplianceItemsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Registers a compliance type and other compliance details on a designated
         resource.
@@ -1778,7 +1774,7 @@ class SSMClient(AioBaseClient):
 
     async def remove_tags_from_resource(
         self, **kwargs: Unpack[RemoveTagsFromResourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes tag keys from the specified resource.
 
@@ -1809,7 +1805,7 @@ class SSMClient(AioBaseClient):
 
     async def send_automation_signal(
         self, **kwargs: Unpack[SendAutomationSignalRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sends a signal to an Automation execution to change the current behavior or
         status of the execution.
@@ -1840,7 +1836,7 @@ class SSMClient(AioBaseClient):
 
     async def start_associations_once(
         self, **kwargs: Unpack[StartAssociationsOnceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Runs an association immediately and only one time.
 
@@ -1862,7 +1858,8 @@ class SSMClient(AioBaseClient):
         self, **kwargs: Unpack[StartChangeRequestExecutionRequestTypeDef]
     ) -> StartChangeRequestExecutionResultTypeDef:
         """
-        Creates a change request for Change Manager.
+        Amazon Web Services Systems Manager Change Manager will no longer be open to
+        new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/start_change_request_execution.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#start_change_request_execution)
@@ -1892,7 +1889,7 @@ class SSMClient(AioBaseClient):
 
     async def stop_automation_execution(
         self, **kwargs: Unpack[StopAutomationExecutionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stop an Automation that is currently running.
 
@@ -1964,10 +1961,10 @@ class SSMClient(AioBaseClient):
 
     async def update_document_metadata(
         self, **kwargs: Unpack[UpdateDocumentMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Updates information related to approval reviews for a specific version of a
-        change template in Change Manager.
+        Amazon Web Services Systems Manager Change Manager will no longer be open to
+        new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/update_document_metadata.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm/client/#update_document_metadata)
@@ -2005,7 +2002,7 @@ class SSMClient(AioBaseClient):
 
     async def update_managed_instance_role(
         self, **kwargs: Unpack[UpdateManagedInstanceRoleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Changes the Identity and Access Management (IAM) role that is assigned to the
         on-premises server, edge device, or virtual machines (VM).
@@ -2016,7 +2013,7 @@ class SSMClient(AioBaseClient):
 
     async def update_ops_item(
         self, **kwargs: Unpack[UpdateOpsItemRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Edit or change an OpsItem.
 
@@ -2047,7 +2044,7 @@ class SSMClient(AioBaseClient):
 
     async def update_resource_data_sync(
         self, **kwargs: Unpack[UpdateResourceDataSyncRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update a resource data sync.
 
@@ -2057,7 +2054,7 @@ class SSMClient(AioBaseClient):
 
     async def update_service_setting(
         self, **kwargs: Unpack[UpdateServiceSettingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         <code>ServiceSetting</code> is an account-level setting for an Amazon Web
         Services service.
@@ -2634,7 +2631,7 @@ class SSMClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

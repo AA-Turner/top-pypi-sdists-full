@@ -4,9 +4,17 @@ import base64
 import datetime
 import logging
 import pathlib
+import re
+import sys
 import urllib.parse
 import warnings
+from contextlib import suppress
+from filelock import FileLock
 from seleniumbase import config as sb_config
+from seleniumbase.fixtures import constants
+from seleniumbase.fixtures import js_utils
+from seleniumbase.fixtures import page_utils
+from seleniumbase.fixtures import shared_utils
 from typing import Dict, List, Union, Optional, Tuple
 from . import browser as cdp_browser
 from . import element
@@ -244,23 +252,7 @@ class Tab(Connection):
          Raise timeout exception when after this many seconds nothing is found.
         :type timeout: float,int
         """
-        loop = asyncio.get_running_loop()
-        start_time = loop.time()
-        selector = selector.strip()
-        item = None
-        try:
-            item = await self.query_selector(selector)
-        except (Exception, TypeError):
-            pass
-        while not item:
-            await self
-            item = await self.query_selector(selector)
-            if loop.time() - start_time > timeout:
-                raise asyncio.TimeoutError(
-                    "Time ran out while waiting for: {%s}" % selector
-                )
-            await self.sleep(0.5)
-        return item
+        return await self.wait_for(selector=selector, timeout=timeout)
 
     async def find_all(
         self,
@@ -358,13 +350,19 @@ class Tab(Connection):
         if new_window and not new_tab:
             new_tab = True
         if new_tab:
-            if hasattr(sb_config, "incognito") and sb_config.incognito:
+            if (
+                getattr(sb_config, "incognito", None)
+                or (
+                    getattr(sb_config, "_cdp_browser", None)
+                    in ["comet", "atlas"]
+                )
+            ):
                 return await self.browser.get(
                     url, new_tab=False, new_window=True, **kwargs
                 )
             else:
                 return await self.browser.get(
-                    url, new_tab, new_window, **kwargs
+                    url, new_tab=True, new_window=False, **kwargs
                 )
         else:
             if not kwargs:
@@ -375,8 +373,11 @@ class Tab(Connection):
                 return self
             else:
                 return await self.browser.get(
-                    url, new_tab, new_window, **kwargs
+                    url, new_tab=False, new_window=False, **kwargs
                 )
+
+    async def open(self, url="about:blank"):
+        return await self.get(url=url)
 
     async def query_selector_all(
         self,
@@ -705,10 +706,12 @@ class Tab(Connection):
             raise ProtocolException(errors)
         if remote_object:
             if return_by_value:
-                if remote_object.value:
+                if remote_object.value is not None:
                     return remote_object.value
             else:
-                return remote_object, errors
+                if remote_object.deep_serialized_value is not None:
+                    return remote_object.deep_serialized_value.value
+        return None
 
     async def js_dumps(
         self, obj_name: str, return_by_value: Optional[bool] = True
@@ -899,7 +902,10 @@ class Tab(Connection):
         """Gets the current page source content (html)"""
         doc: cdp.dom.Node = await self.send(cdp.dom.get_document(-1, True))
         return await self.send(
-            cdp.dom.get_outer_html(backend_node_id=doc.backend_node_id)
+            cdp.dom.get_outer_html(
+                backend_node_id=doc.backend_node_id,
+                include_shadow_dom=True,
+            )
         )
 
     async def maximize(self):
@@ -1075,7 +1081,7 @@ class Tab(Connection):
                     raise asyncio.TimeoutError(
                         "Time ran out while waiting for: {%s}" % selector
                     )
-                await self.sleep(0.5)
+                await self.sleep(0.068)
             return item
         if text:
             item = await self.find_element_by_text(text)
@@ -1085,8 +1091,41 @@ class Tab(Connection):
                     raise asyncio.TimeoutError(
                         "Time ran out while waiting for: {%s}" % text
                     )
-                await self.sleep(0.5)
+                await self.sleep(0.068)
             return item
+
+    async def set_attributes(self, selector, attribute, value):
+        """This method uses JavaScript to set/update a common attribute.
+        All matching selectors from querySelectorAll() are used.
+        Example => (Make all links on a website redirect to Google):
+        self.set_attributes("a", "href", "https://google.com")"""
+        attribute = re.escape(attribute)
+        attribute = js_utils.escape_quotes_if_needed(attribute)
+        value = re.escape(value)
+        value = js_utils.escape_quotes_if_needed(value)
+        if selector.startswith(("/", "./", "(")):
+            with suppress(Exception):
+                selector = js_utils.convert_to_css_selector(selector, "xpath")
+        css_selector = selector
+        css_selector = re.escape(css_selector)  # Add "\\" to special chars
+        css_selector = js_utils.escape_quotes_if_needed(css_selector)
+        js_code = (
+            """var $elements = document.querySelectorAll('%s');
+            var index = 0, length = $elements.length;
+            for(; index < length; index++){
+            $elements[index].setAttribute('%s','%s');}""" % (
+                css_selector,
+                attribute,
+                value,
+            )
+        )
+        with suppress(Exception):
+            await self.evaluate(js_code)
+
+    async def internalize_links(self):
+        """All `target="_blank"` links become `target="_self"`.
+        This prevents those links from opening in a new tab."""
+        await self.set_attributes('[target="_blank"]', "target", "_self")
 
     async def download_file(
         self, url: str, filename: Optional[PathLike] = None
@@ -1287,19 +1326,460 @@ class Tab(Connection):
                         res.append(abs_url)
         return res
 
-    async def verify_cf(self):
-        """(An attempt)"""
-        checkbox = None
-        checkbox_sibling = await self.wait_for(text="verify you are human")
-        if checkbox_sibling:
-            parent = checkbox_sibling.parent
-            while parent:
-                checkbox = await parent.query_selector("input[type=checkbox]")
-                if checkbox:
-                    break
-                parent = parent.parent
-        await checkbox.mouse_move()
-        await checkbox.mouse_click()
+    async def get_html(self):
+        element = await self.find("html", timeout=1)
+        return await element.get_html_async()
+
+    async def get_page_source(self):
+        return await self.get_html()
+
+    async def is_element_present(self, selector):
+        try:
+            await self.select(selector, timeout=0.01)
+            return True
+        except Exception:
+            return False
+
+    async def is_element_visible(self, selector):
+        if ":contains(" not in selector:
+            try:
+                element = await self.select(selector, timeout=0.01)
+            except Exception:
+                return False
+            if not element:
+                return False
+            try:
+                position = await element.get_position_async()
+                return (position.width != 0 or position.height != 0)
+            except Exception:
+                return False
+        else:
+            with suppress(Exception):
+                tag_name = selector.split(":contains(")[0].split(" ")[-1]
+                text = selector.split(":contains(")[1].split(")")[0][1:-1]
+                element = await self.select(tag_name, timeout=0.01)
+                if not element:
+                    raise Exception()
+                element = await self.find_element_by_text(text)
+                if not element:
+                    raise Exception()
+                return True
+            return False
+
+    async def __on_a_cf_turnstile_page(self, source=None):
+        if not source or len(source) < 400:
+            await self.sleep(0.22)
+            source = await self.get_html()
+        if (
+            (
+                'data-callback="onCaptchaSuccess"' in source
+                and 'title="reCAPTCHA"' not in source
+                and 'id="recaptcha-token"' not in source
+            )
+            or "/challenge-platform/h/b/" in source
+            or 'id="challenge-widget-' in source
+            or "challenges.cloudf" in source
+            or "cf-turnstile-" in source
+        ):
+            return True
+        return False
+
+    async def __on_an_incapsula_hcaptcha_page(self, *args, **kwargs):
+        if await self.is_element_visible('iframe[src*="Incapsula_Resource?"]'):
+            return True
+        return False
+
+    async def __on_a_g_recaptcha_page(self, *args, **kwargs):
+        await self.sleep(0.4)  # reCAPTCHA may need a moment to appear
+        source = await self.get_html()
+        if (
+            (
+                'id="recaptcha-token"' in source
+                or 'title="reCAPTCHA"' in source
+            )
+            and await self.is_element_present('iframe[title="reCAPTCHA"]')
+        ):
+            await self.sleep(0.1)
+            return True
+        elif "com/recaptcha/api.js" in source:
+            await self.sleep(1.2)  # Maybe still loading
+            return True
+        return False
+
+    async def __gui_click_recaptcha(self):
+        selector = None
+        if await self.is_element_present('iframe[title="reCAPTCHA"]'):
+            selector = 'iframe[title="reCAPTCHA"]'
+        else:
+            return False
+        await self.sleep(0.5)
+        with suppress(Exception):
+            element_rect = await self.get_element_rect(selector, timeout=0.1)
+            e_x = element_rect["x"]
+            e_y = element_rect["y"]
+            window_rect = await self.get_window_rect()
+            win_width = window_rect["innerWidth"]
+            win_height = window_rect["innerHeight"]
+            if (
+                e_x > 1040
+                and e_y > 640
+                and abs(win_width - e_x) < 110
+                and abs(win_height - e_y) < 110
+            ):
+                # Probably the invisible reCAPTCHA in the bottom right corner
+                return False
+            gui_element_rect = await self.get_gui_element_rect(
+                selector, timeout=1
+            )
+            gui_e_x = gui_element_rect["x"]
+            gui_e_y = gui_element_rect["y"]
+            x_offset = 26
+            y_offset = 35
+            if await asyncio.to_thread(shared_utils.is_windows):
+                x_offset = 29
+            x = gui_e_x + x_offset
+            y = gui_e_y + y_offset
+            sb_config._saved_cf_x_y = (x, y)  # For debugging later
+            await self.sleep(0.11)
+            gui_lock = FileLock(constants.MultiBrowser.PYAUTOGUILOCK)
+            with await asyncio.to_thread(gui_lock.acquire):
+                await self.bring_to_front()
+                await self.sleep(0.05)
+                await self.click_with_offset(
+                    selector, x_offset, y_offset, timeout=1
+                )
+                await self.sleep(0.22)
+            return True
+        return False
+
+    async def __cdp_click_incapsula_hcaptcha(self):
+        selector = None
+        if await self.is_element_visible('iframe[src*="Incapsula_Resource?"]'):
+            outer_selector = 'iframe[src*="Incapsula_Resource?"]'
+            selector = "iframe[data-hcaptcha-widget-id]"
+            outer_element = await self.find_element_by_text(outer_selector)
+            element = await outer_element.query_selector_async(selector)
+            if not element:
+                return False
+        else:
+            return False
+        await self.sleep(0.55)
+        x_offset = 30
+        y_offset = 36
+        was_clicked = False
+        gui_lock = FileLock(constants.MultiBrowser.PYAUTOGUILOCK)
+        with gui_lock:  # Prevent issues with multiple processes
+            await self.bring_to_front()
+            await self.sleep(0.056)
+            if "--debug" in sys.argv:
+                displayed_selector = "`%s`" % selector
+                if '"' not in selector:
+                    displayed_selector = '"%s"' % selector
+                elif "'" not in selector:
+                    displayed_selector = "'%s'" % selector
+                print(
+                    " <DEBUG> click_with_offset(%s, %s, %s)"
+                    % (displayed_selector, x_offset, y_offset)
+                )
+            with suppress(Exception):
+                await element.mouse_click_with_offset_async(
+                    x=x_offset, y=y_offset, center=False
+                )
+                was_clicked = True
+                await self.sleep(0.075)
+        if was_clicked:
+            # Wait a moment for the click to succeed
+            await self.sleep(0.75)
+            if "--debug" in sys.argv:
+                print(" <DEBUG> hCaptcha was clicked!")
+            return True
+        if "--debug" in sys.argv:
+            print(" <DEBUG> hCaptcha was NOT clicked!")
+        return False
+
+    async def get_element_rect(self, selector, timeout=5):
+        element = await self.select(selector, timeout=timeout)
+        coordinates = None
+        if ":contains(" in selector:
+            position = await element.get_position_async()
+            x = position.x
+            y = position.y
+            width = position.width
+            height = position.height
+            coordinates = {"x": x, "y": y, "width": width, "height": height}
+        else:
+            coordinates = await self.js_dumps(
+                """document.querySelector('%s').getBoundingClientRect()"""
+                % js_utils.escape_quotes_if_needed(re.escape(selector))
+            )
+        return coordinates
+
+    async def get_window_rect(self):
+        coordinates = {}
+        innerWidth = await self.evaluate("window.innerWidth")
+        innerHeight = await self.evaluate("window.innerHeight")
+        outerWidth = await self.evaluate("window.outerWidth")
+        outerHeight = await self.evaluate("window.outerHeight")
+        pageXOffset = await self.evaluate("window.pageXOffset")
+        pageYOffset = await self.evaluate("window.pageYOffset")
+        scrollX = await self.evaluate("window.scrollX")
+        scrollY = await self.evaluate("window.scrollY")
+        screenLeft = await self.evaluate("window.screenLeft")
+        screenTop = await self.evaluate("window.screenTop")
+        x = await self.evaluate("window.screenX")
+        y = await self.evaluate("window.screenY")
+        coordinates["innerWidth"] = innerWidth
+        coordinates["innerHeight"] = innerHeight
+        coordinates["outerWidth"] = outerWidth
+        coordinates["outerHeight"] = outerHeight
+        coordinates["width"] = outerWidth
+        coordinates["height"] = outerHeight
+        coordinates["pageXOffset"] = pageXOffset if pageXOffset else 0
+        coordinates["pageYOffset"] = pageYOffset if pageYOffset else 0
+        coordinates["scrollX"] = scrollX if scrollX else 0
+        coordinates["scrollY"] = scrollY if scrollY else 0
+        coordinates["screenLeft"] = screenLeft if screenLeft else 0
+        coordinates["screenTop"] = screenTop if screenTop else 0
+        coordinates["x"] = x if x else 0
+        coordinates["y"] = y if y else 0
+        return coordinates
+
+    async def get_gui_element_rect(self, selector, timeout=5):
+        """(Coordinates are relative to the screen. Not the window.)"""
+        element_rect = await self.get_element_rect(selector, timeout=timeout)
+        e_width = element_rect["width"]
+        e_height = element_rect["height"]
+        window_rect = await self.get_window_rect()
+        w_bottom_y = window_rect["y"] + window_rect["height"]
+        viewport_height = window_rect["innerHeight"]
+        x = window_rect["x"] + element_rect["x"]
+        y = w_bottom_y - viewport_height + element_rect["y"]
+        y_scroll_offset = window_rect["pageYOffset"]
+        if (
+            hasattr(sb_config, "_cdp_browser")
+            and sb_config._cdp_browser == "opera"
+        ):
+            # Handle special case where Opera side panel shifts coordinates
+            x_offset = window_rect["outerWidth"] - window_rect["innerWidth"]
+            if x_offset > 56:
+                x_offset = 56
+            elif x_offset < 22:
+                x_offset = 0
+            x = x + x_offset
+        y = y - y_scroll_offset
+        x = x + window_rect["scrollX"]
+        y = y + window_rect["scrollY"]
+        return ({"height": e_height, "width": e_width, "x": x, "y": y})
+
+    async def get_title(self):
+        return await self.evaluate("document.title")
+
+    async def get_current_url(self):
+        return await self.evaluate("window.location.href")
+
+    async def send_keys(self, selector, text, timeout=5):
+        element = await self.find(selector, timeout=timeout)
+        await element.send_keys_async(text)
+
+    async def type(self, selector, text, timeout=5):
+        await self.send_keys(selector, text, timeout=timeout)
+
+    async def click(self, selector, timeout=5):
+        element = await self.find(selector, timeout=timeout)
+        await element.click_async()
+
+    async def click_if_visible(self, selector, timeout=0):
+        original_selector = selector
+        if (":contains(") in selector:
+            selector, _ = page_utils.recalculate_selector(
+                selector, by="css selector", xp_ok=True
+            )
+        if await self.is_element_visible(original_selector):
+            with suppress(Exception):
+                element = await self.find(selector, timeout=0.01)
+                await element.click_async()
+        elif timeout == 0:
+            return
+        else:
+            with suppress(Exception):
+                await self.find(selector, timeout=timeout)
+                if await self.is_element_visible(selector):
+                    element = await self.find(selector, timeout=0.01)
+                    await element.click_async()
+
+    async def click_with_offset(self, selector, x, y, center=False, timeout=5):
+        element = await self.find(selector, timeout=timeout)
+        await element.scroll_into_view_async()
+        await element.mouse_click_with_offset_async(x=x, y=y, center=center)
+
+    async def solve_captcha(self):
+        await self.sleep(0.11)
+        source = await self.get_html()
+        if await self.__on_a_cf_turnstile_page(source):
+            pass
+        elif await self.__on_a_g_recaptcha_page(source):
+            result = await self.__gui_click_recaptcha()
+            return result
+        elif await self.__on_an_incapsula_hcaptcha_page():
+            result = await self.__cdp_click_incapsula_hcaptcha()
+            return result
+        else:
+            return False
+        selector = None
+        if await self.is_element_present('[class="cf-turnstile"]'):
+            selector = '[class="cf-turnstile"]'
+        elif await self.is_element_present("#challenge-form div > div"):
+            selector = "#challenge-form div > div"
+        elif await self.is_element_present('[style="display: grid;"] div div'):
+            selector = '[style="display: grid;"] div div'
+        elif await self.is_element_present("[class*=spacer] + div div"):
+            selector = '[class*=spacer] + div div'
+        elif await self.is_element_present(".spacer div:not([class])"):
+            selector = ".spacer div:not([class])"
+        elif await self.is_element_present('[data-testid*="challenge-"] div'):
+            selector = '[data-testid*="challenge-"] div'
+        elif await self.is_element_present(
+            "div#turnstile-widget div:not([class])"
+        ):
+            selector = "div#turnstile-widget div:not([class])"
+        elif await self.is_element_present("ngx-turnstile div:not([class])"):
+            selector = "ngx-turnstile div:not([class])"
+        elif await self.is_element_present(
+            'form div:not([class]):has(input[name*="cf-turn"])'
+        ):
+            selector = 'form div:not([class]):has(input[name*="cf-turn"])'
+        elif await self.is_element_present("form div:not(:has(*))"):
+            selector = "form div:not(:has(*))"
+        elif await self.is_element_present(
+            "body > div#check > div:not([class])"
+        ):
+            selector = "body > div#check > div:not([class])"
+        elif await self.is_element_present(".cf-turnstile-wrapper"):
+            selector = ".cf-turnstile-wrapper"
+        elif await self.is_element_present(
+            '[id*="turnstile"] div:not([class])'
+        ):
+            selector = '[id*="turnstile"] div:not([class])'
+        elif await self.is_element_present(
+            '[class*="turnstile"] div:not([class])'
+        ):
+            selector = '[class*="turnstile"] div:not([class])'
+        elif await self.is_element_present(
+            '[data-callback="onCaptchaSuccess"]'
+        ):
+            selector = '[data-callback="onCaptchaSuccess"]'
+        elif await self.is_element_present(
+            "div:not([class]) > div:not([class])"
+        ):
+            selector = "div:not([class]) > div:not([class])"
+        else:
+            return False
+        if not selector:
+            return False
+        if (
+            await self.is_element_present("form")
+            and (
+                await self.is_element_present('form[class*="center"]')
+                or await self.is_element_present('form[class*="right"]')
+                or await self.is_element_present('form div[class*="center"]')
+                or await self.is_element_present('form div[class*="right"]')
+            )
+        ):
+            script = (
+                """var $elements = document.querySelectorAll(
+                'form[class], form div[class]');
+                var index = 0, length = $elements.length;
+                for(; index < length; index++){
+                the_class = $elements[index].getAttribute('class');
+                new_class = the_class.replaceAll('center', 'left');
+                new_class = new_class.replaceAll('right', 'left');
+                $elements[index].setAttribute('class', new_class);}"""
+            )
+            with suppress(Exception):
+                await self.evaluate(script)
+        elif (
+            await self.is_element_present("form")
+            and (
+                await self.is_element_present('form div[style*="center"]')
+                or await self.is_element_present('form div[style*="right"]')
+            )
+        ):
+            script = (
+                """var $elements = document.querySelectorAll(
+                'form[style], form div[style]');
+                var index = 0, length = $elements.length;
+                for(; index < length; index++){
+                the_style = $elements[index].getAttribute('style');
+                new_style = the_style.replaceAll('center', 'left');
+                new_style = new_style.replaceAll('right', 'left');
+                $elements[index].setAttribute('style', new_style);}"""
+            )
+            with suppress(Exception):
+                await self.evaluate(script)
+        elif (
+            await self.is_element_present(
+                'form [id*="turnstile"] div:not([class])'
+            )
+            or await self.is_element_present(
+                'form [class*="turnstile"] div:not([class])'
+            )
+        ):
+            script = (
+                """var $elements = document.querySelectorAll(
+                'form [id*="turnstile"]');
+                var index = 0, length = $elements.length;
+                for(; index < length; index++){
+                $elements[index].setAttribute('align', 'left');}
+                var $elements = document.querySelectorAll(
+                'form [class*="turnstile"]');
+                var index = 0, length = $elements.length;
+                for(; index < length; index++){
+                $elements[index].setAttribute('align', 'left');}"""
+            )
+            with suppress(Exception):
+                await self.evaluate(script)
+        elif (
+            await self.is_element_present(
+                '[style*="text-align: center;"] div:not([class])'
+            )
+        ):
+            script = (
+                """var $elements = document.querySelectorAll(
+                '[style*="text-align: center;"]');
+                var index = 0, length = $elements.length;
+                for(; index < length; index++){
+                the_style = $elements[index].getAttribute('style');
+                new_style = the_style.replaceAll('center', 'left');
+                $elements[index].setAttribute('style', new_style);}"""
+            )
+            with suppress(Exception):
+                await self.evaluate(script)
+        with suppress(Exception):
+            await self.sleep(0.05)
+            element_rect = await self.get_gui_element_rect(selector, timeout=1)
+            e_x = element_rect["x"]
+            e_y = element_rect["y"]
+            x_offset = 32
+            y_offset = 32
+            if await asyncio.to_thread(shared_utils.is_windows):
+                y_offset = 28
+            x = e_x + x_offset
+            y = e_y + y_offset
+            sb_config._saved_cf_x_y = (x, y)  # For debugging later
+            await self.sleep(0.11)
+            gui_lock = FileLock(constants.MultiBrowser.PYAUTOGUILOCK)
+            with await asyncio.to_thread(gui_lock.acquire):
+                await self.bring_to_front()
+                await self.sleep(0.05)
+                await self.click_with_offset(
+                    selector, x_offset, y_offset, timeout=1
+                )
+                await self.sleep(0.22)
+            return True
+        return False
+
+    async def click_captcha(self):
+        await self.solve_captcha()
 
     async def get_document(self):
         return await self.send(cdp.dom.get_document())
@@ -1365,7 +1845,9 @@ class Tab(Connection):
         :param selector: css selector string
         :type selector: str
         """
-        return self.wait_for(text, selector, timeout)
+        return self.wait_for(
+            selector=selector, text=text, timeout=timeout
+        )
 
     def __eq__(self, other: Tab):
         try:

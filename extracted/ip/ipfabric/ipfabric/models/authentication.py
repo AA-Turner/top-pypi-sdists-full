@@ -45,7 +45,7 @@ class BaseCred(BaseModel):
 
     @model_serializer
     def _ser_model(self) -> dict[str, Any]:
-        custom = {"custom": self.custom} if self.custom else dict()
+        custom = {"custom": self.custom} if self.custom else {}
         return dict(
             priority=self.priority,
             username=self.username,
@@ -96,7 +96,7 @@ class Privilege(BaseCred, BaseModel):
 
 def serialize_list(auth):
     if not auth:
-        return list()
+        return []
     priorities = sorted([_.priority for _ in auth])
     if priorities != list(range(1, len(priorities) + 1)):
         raise ValueError("Priorities are not sequential.")

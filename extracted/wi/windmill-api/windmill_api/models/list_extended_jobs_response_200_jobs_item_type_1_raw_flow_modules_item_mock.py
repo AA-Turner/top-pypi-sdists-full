@@ -10,10 +10,11 @@ T = TypeVar("T", bound="ListExtendedJobsResponse200JobsItemType1RawFlowModulesIt
 
 @_attrs_define
 class ListExtendedJobsResponse200JobsItemType1RawFlowModulesItemMock:
-    """
+    """Mock configuration for testing without executing the actual step
+
     Attributes:
-        enabled (Union[Unset, bool]):
-        return_value (Union[Unset, Any]):
+        enabled (Union[Unset, bool]): If true, return mock value instead of executing
+        return_value (Union[Unset, Any]): Value to return when mocked
     """
 
     enabled: Union[Unset, bool] = UNSET

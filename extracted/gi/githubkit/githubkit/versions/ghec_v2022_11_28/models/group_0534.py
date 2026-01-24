@@ -9,28 +9,67 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0280 import SimpleCommit
+from .group_0003 import SimpleUser
+from .group_0236 import MinimalRepository
+from .group_0346 import GitUser
+from .group_0532 import SearchResultTextMatchesItems
+from .group_0535 import CommitSearchResultItemPropCommit
 
 
-class MergeGroup(GitHubModel):
-    """Merge Group
+class CommitSearchResultItem(GitHubModel):
+    """Commit Search Result Item
 
-    A group of pull requests that the merge queue has grouped together to be merged.
+    Commit Search Result Item
     """
 
-    head_sha: str = Field(description="The SHA of the merge group.")
-    head_ref: str = Field(description="The full ref of the merge group.")
-    base_sha: str = Field(description="The SHA of the merge group's parent commit.")
-    base_ref: str = Field(
-        description="The full ref of the branch the merge group will be merged into."
+    url: str = Field()
+    sha: str = Field()
+    html_url: str = Field()
+    comments_url: str = Field()
+    commit: CommitSearchResultItemPropCommit = Field()
+    author: Union[None, SimpleUser] = Field()
+    committer: Union[None, GitUser] = Field()
+    parents: list[CommitSearchResultItemPropParentsItems] = Field()
+    repository: MinimalRepository = Field(
+        title="Minimal Repository", description="Minimal Repository"
     )
-    head_commit: SimpleCommit = Field(title="Simple Commit", description="A commit.")
+    score: float = Field()
+    node_id: str = Field()
+    text_matches: Missing[list[SearchResultTextMatchesItems]] = Field(
+        default=UNSET, title="Search Result Text Matches"
+    )
 
 
-model_rebuild(MergeGroup)
+class CommitSearchResultItemPropParentsItems(GitHubModel):
+    """CommitSearchResultItemPropParentsItems"""
 
-__all__ = ("MergeGroup",)
+    url: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+    sha: Missing[str] = Field(default=UNSET)
+
+
+class SearchCommitsGetResponse200(GitHubModel):
+    """SearchCommitsGetResponse200"""
+
+    total_count: int = Field()
+    incomplete_results: bool = Field()
+    items: list[CommitSearchResultItem] = Field()
+
+
+model_rebuild(CommitSearchResultItem)
+model_rebuild(CommitSearchResultItemPropParentsItems)
+model_rebuild(SearchCommitsGetResponse200)
+
+__all__ = (
+    "CommitSearchResultItem",
+    "CommitSearchResultItemPropParentsItems",
+    "SearchCommitsGetResponse200",
+)

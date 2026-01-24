@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -182,7 +182,7 @@ class StatementTimeoutException(ServiceException):
     code: str = "StatementTimeoutException"
     sender_fault: bool = True
     status_code: int = 400
-    dbConnectionId: Optional[Long]
+    dbConnectionId: Long | None
 
 
 class TransactionNotFoundException(ServiceException):
@@ -209,25 +209,25 @@ class UnsupportedResultException(ServiceException):
     status_code: int = 400
 
 
-ArrayOfArray = List["ArrayValue"]
-StringArray = List[String]
-DoubleArray = List[BoxedDouble]
+ArrayOfArray = list["ArrayValue"]
+StringArray = list[String]
+DoubleArray = list[BoxedDouble]
 BoxedLong = int
-LongArray = List[BoxedLong]
-BooleanArray = List[BoxedBoolean]
+LongArray = list[BoxedLong]
+BooleanArray = list[BoxedBoolean]
 
 
 class ArrayValue(TypedDict, total=False):
     """Contains an array."""
 
-    booleanValues: Optional[BooleanArray]
-    longValues: Optional[LongArray]
-    doubleValues: Optional[DoubleArray]
-    stringValues: Optional[StringArray]
-    arrayValues: Optional[ArrayOfArray]
+    booleanValues: BooleanArray | None
+    longValues: LongArray | None
+    doubleValues: DoubleArray | None
+    stringValues: StringArray | None
+    arrayValues: ArrayOfArray | None
 
 
-ArrayValueList = List["Value"]
+ArrayValueList = list["Value"]
 
 
 class StructValue(TypedDict, total=False):
@@ -238,7 +238,7 @@ class StructValue(TypedDict, total=False):
     operation instead.
     """
 
-    attributes: Optional[ArrayValueList]
+    attributes: ArrayValueList | None
 
 
 Blob = bytes
@@ -252,40 +252,40 @@ class Value(TypedDict, total=False):
     operation instead.
     """
 
-    isNull: Optional[BoxedBoolean]
-    bitValue: Optional[BoxedBoolean]
-    bigIntValue: Optional[BoxedLong]
-    intValue: Optional[BoxedInteger]
-    doubleValue: Optional[BoxedDouble]
-    realValue: Optional[BoxedFloat]
-    stringValue: Optional[String]
-    blobValue: Optional[Blob]
-    arrayValues: Optional[ArrayValueList]
-    structValue: Optional[StructValue]
+    isNull: BoxedBoolean | None
+    bitValue: BoxedBoolean | None
+    bigIntValue: BoxedLong | None
+    intValue: BoxedInteger | None
+    doubleValue: BoxedDouble | None
+    realValue: BoxedFloat | None
+    stringValue: String | None
+    blobValue: Blob | None
+    arrayValues: ArrayValueList | None
+    structValue: StructValue | None
 
 
 class Field(TypedDict, total=False):
     """Contains a value."""
 
-    isNull: Optional[BoxedBoolean]
-    booleanValue: Optional[BoxedBoolean]
-    longValue: Optional[BoxedLong]
-    doubleValue: Optional[BoxedDouble]
-    stringValue: Optional[String]
-    blobValue: Optional[Blob]
-    arrayValue: Optional[ArrayValue]
+    isNull: BoxedBoolean | None
+    booleanValue: BoxedBoolean | None
+    longValue: BoxedLong | None
+    doubleValue: BoxedDouble | None
+    stringValue: String | None
+    blobValue: Blob | None
+    arrayValue: ArrayValue | None
 
 
 class SqlParameter(TypedDict, total=False):
     """A parameter used in a SQL statement."""
 
-    name: Optional[ParameterName]
-    value: Optional[Field]
-    typeHint: Optional[TypeHint]
+    name: ParameterName | None
+    value: Field | None
+    typeHint: TypeHint | None
 
 
-SqlParametersList = List[SqlParameter]
-SqlParameterSets = List[SqlParametersList]
+SqlParametersList = list[SqlParameter]
+SqlParameterSets = list[SqlParametersList]
 
 
 class BatchExecuteStatementRequest(ServiceRequest):
@@ -296,22 +296,22 @@ class BatchExecuteStatementRequest(ServiceRequest):
     resourceArn: Arn
     secretArn: Arn
     sql: SqlStatement
-    database: Optional[DbName]
-    schema: Optional[DbName]
-    parameterSets: Optional[SqlParameterSets]
-    transactionId: Optional[Id]
+    database: DbName | None
+    schema: DbName | None
+    parameterSets: SqlParameterSets | None
+    transactionId: Id | None
 
 
-FieldList = List[Field]
+FieldList = list[Field]
 
 
 class UpdateResult(TypedDict, total=False):
     """The response elements represent the results of an update."""
 
-    generatedFields: Optional[FieldList]
+    generatedFields: FieldList | None
 
 
-UpdateResults = List[UpdateResult]
+UpdateResults = list[UpdateResult]
 
 
 class BatchExecuteStatementResponse(TypedDict, total=False):
@@ -319,7 +319,7 @@ class BatchExecuteStatementResponse(TypedDict, total=False):
     array of data.
     """
 
-    updateResults: Optional[UpdateResults]
+    updateResults: UpdateResults | None
 
 
 class BeginTransactionRequest(ServiceRequest):
@@ -329,8 +329,8 @@ class BeginTransactionRequest(ServiceRequest):
 
     resourceArn: Arn
     secretArn: Arn
-    database: Optional[DbName]
-    schema: Optional[DbName]
+    database: DbName | None
+    schema: DbName | None
 
 
 class BeginTransactionResponse(TypedDict, total=False):
@@ -338,24 +338,24 @@ class BeginTransactionResponse(TypedDict, total=False):
     transaction.
     """
 
-    transactionId: Optional[Id]
+    transactionId: Id | None
 
 
 class ColumnMetadata(TypedDict, total=False):
-    name: Optional[String]
-    type: Optional[Integer]
-    typeName: Optional[String]
-    label: Optional[String]
-    schemaName: Optional[String]
-    tableName: Optional[String]
-    isAutoIncrement: Optional[Boolean]
-    isSigned: Optional[Boolean]
-    isCurrency: Optional[Boolean]
-    isCaseSensitive: Optional[Boolean]
-    nullable: Optional[Integer]
-    precision: Optional[Integer]
-    scale: Optional[Integer]
-    arrayBaseColumnType: Optional[Integer]
+    name: String | None
+    type: Integer | None
+    typeName: String | None
+    label: String | None
+    schemaName: String | None
+    tableName: String | None
+    isAutoIncrement: Boolean | None
+    isSigned: Boolean | None
+    isCurrency: Boolean | None
+    isCaseSensitive: Boolean | None
+    nullable: Integer | None
+    precision: Integer | None
+    scale: Integer | None
+    arrayBaseColumnType: Integer | None
 
 
 class CommitTransactionRequest(ServiceRequest):
@@ -373,7 +373,7 @@ class CommitTransactionResponse(TypedDict, total=False):
     request.
     """
 
-    transactionStatus: Optional[TransactionStatus]
+    transactionStatus: TransactionStatus | None
 
 
 class ExecuteSqlRequest(ServiceRequest):
@@ -384,12 +384,12 @@ class ExecuteSqlRequest(ServiceRequest):
     dbClusterOrInstanceArn: Arn
     awsSecretStoreArn: Arn
     sqlStatements: SqlStatement
-    database: Optional[DbName]
-    schema: Optional[DbName]
+    database: DbName | None
+    schema: DbName | None
 
 
 RecordsUpdated = int
-Row = List[Value]
+Row = list[Value]
 
 
 class Record(TypedDict, total=False):
@@ -400,18 +400,18 @@ class Record(TypedDict, total=False):
     operation instead.
     """
 
-    values: Optional[Row]
+    values: Row | None
 
 
-Records = List[Record]
-Metadata = List[ColumnMetadata]
+Records = list[Record]
+Metadata = list[ColumnMetadata]
 
 
 class ResultSetMetadata(TypedDict, total=False):
     """The metadata of the result set returned by a SQL statement."""
 
-    columnCount: Optional[Long]
-    columnMetadata: Optional[Metadata]
+    columnCount: Long | None
+    columnMetadata: Metadata | None
 
 
 class ResultFrame(TypedDict, total=False):
@@ -422,8 +422,8 @@ class ResultFrame(TypedDict, total=False):
     operation instead.
     """
 
-    resultSetMetadata: Optional[ResultSetMetadata]
-    records: Optional[Records]
+    resultSetMetadata: ResultSetMetadata | None
+    records: Records | None
 
 
 class SqlStatementResult(TypedDict, total=False):
@@ -434,11 +434,11 @@ class SqlStatementResult(TypedDict, total=False):
     operation instead.
     """
 
-    resultFrame: Optional[ResultFrame]
-    numberOfRecordsUpdated: Optional[RecordsUpdated]
+    resultFrame: ResultFrame | None
+    numberOfRecordsUpdated: RecordsUpdated | None
 
 
-SqlStatementResults = List[SqlStatementResult]
+SqlStatementResults = list[SqlStatementResult]
 
 
 class ExecuteSqlResponse(TypedDict, total=False):
@@ -446,14 +446,14 @@ class ExecuteSqlResponse(TypedDict, total=False):
     more SQL statements.
     """
 
-    sqlStatementResults: Optional[SqlStatementResults]
+    sqlStatementResults: SqlStatementResults | None
 
 
 class ResultSetOptions(TypedDict, total=False):
     """Options that control how the result set is returned."""
 
-    decimalReturnType: Optional[DecimalReturnType]
-    longReturnType: Optional[LongReturnType]
+    decimalReturnType: DecimalReturnType | None
+    longReturnType: LongReturnType | None
 
 
 class ExecuteStatementRequest(ServiceRequest):
@@ -464,17 +464,17 @@ class ExecuteStatementRequest(ServiceRequest):
     resourceArn: Arn
     secretArn: Arn
     sql: SqlStatement
-    database: Optional[DbName]
-    schema: Optional[DbName]
-    parameters: Optional[SqlParametersList]
-    transactionId: Optional[Id]
-    includeResultMetadata: Optional[Boolean]
-    continueAfterTimeout: Optional[Boolean]
-    resultSetOptions: Optional[ResultSetOptions]
-    formatRecordsAs: Optional[RecordsFormatType]
+    database: DbName | None
+    schema: DbName | None
+    parameters: SqlParametersList | None
+    transactionId: Id | None
+    includeResultMetadata: Boolean | None
+    continueAfterTimeout: Boolean | None
+    resultSetOptions: ResultSetOptions | None
+    formatRecordsAs: RecordsFormatType | None
 
 
-SqlRecords = List[FieldList]
+SqlRecords = list[FieldList]
 
 
 class ExecuteStatementResponse(TypedDict, total=False):
@@ -482,11 +482,11 @@ class ExecuteStatementResponse(TypedDict, total=False):
     statement against a database.
     """
 
-    records: Optional[SqlRecords]
-    columnMetadata: Optional[Metadata]
-    numberOfRecordsUpdated: Optional[RecordsUpdated]
-    generatedFields: Optional[FieldList]
-    formattedRecords: Optional[FormattedSqlRecords]
+    records: SqlRecords | None
+    columnMetadata: Metadata | None
+    numberOfRecordsUpdated: RecordsUpdated | None
+    generatedFields: FieldList | None
+    formattedRecords: FormattedSqlRecords | None
 
 
 class RollbackTransactionRequest(ServiceRequest):
@@ -504,12 +504,12 @@ class RollbackTransactionResponse(TypedDict, total=False):
     rollback of a transaction.
     """
 
-    transactionStatus: Optional[TransactionStatus]
+    transactionStatus: TransactionStatus | None
 
 
 class RdsDataApi:
-    service = "rds-data"
-    version = "2018-08-01"
+    service: str = "rds-data"
+    version: str = "2018-08-01"
 
     @handler("BatchExecuteStatement")
     def batch_execute_statement(

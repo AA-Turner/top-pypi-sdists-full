@@ -24,7 +24,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitationsWithPublicOrganizationData]:
+    ) -> models.OrganizationInvitationsWithPublicOrganizationData:
         r"""Get a list of organization invitations for the current instance
 
         This request returns the list of organization invitations for the instance.
@@ -34,11 +34,19 @@ class OrganizationInvitationsSDK(BaseSDK):
         You can filter by the invited user email address providing the `query` query parameter.
         The organization invitations are ordered by descending creation date by default.
 
-        :param order_by: Allows to return organization invitations in a particular order. At the moment, you can order the returned organization invitations either by their `created_at` or `email_address`. In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by. For example, if you want organization invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
+        :param order_by: Allows to return organization invitations in a particular order.
+            At the moment, you can order the returned organization invitations either by their `created_at` or `email_address`.
+            In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by.
+            For example, if you want organization invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
         :param status: Filter organization invitations based on their status
         :param query: Filter organization invitations based on their `email_address`
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -75,6 +83,7 @@ class OrganizationInvitationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -95,7 +104,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListInstanceOrganizationInvitations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -106,8 +115,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.OrganizationInvitationsWithPublicOrganizationData],
-                http_res,
+                models.OrganizationInvitationsWithPublicOrganizationData, http_res
             )
         if utils.match_response(http_res, ["400", "404", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
@@ -138,7 +146,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitationsWithPublicOrganizationData]:
+    ) -> models.OrganizationInvitationsWithPublicOrganizationData:
         r"""Get a list of organization invitations for the current instance
 
         This request returns the list of organization invitations for the instance.
@@ -148,11 +156,19 @@ class OrganizationInvitationsSDK(BaseSDK):
         You can filter by the invited user email address providing the `query` query parameter.
         The organization invitations are ordered by descending creation date by default.
 
-        :param order_by: Allows to return organization invitations in a particular order. At the moment, you can order the returned organization invitations either by their `created_at` or `email_address`. In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by. For example, if you want organization invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
+        :param order_by: Allows to return organization invitations in a particular order.
+            At the moment, you can order the returned organization invitations either by their `created_at` or `email_address`.
+            In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by.
+            For example, if you want organization invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
         :param status: Filter organization invitations based on their status
         :param query: Filter organization invitations based on their `email_address`
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -189,6 +205,7 @@ class OrganizationInvitationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -209,7 +226,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListInstanceOrganizationInvitations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -220,8 +237,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.OrganizationInvitationsWithPublicOrganizationData],
-                http_res,
+                models.OrganizationInvitationsWithPublicOrganizationData, http_res
             )
         if utils.match_response(http_res, ["400", "404", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
@@ -253,7 +269,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitation]:
+    ) -> models.OrganizationInvitation:
         r"""Create and send an organization invitation
 
         Creates a new organization invitation and sends an email to the provided `email_address` with a link to accept the invitation and join the organization.
@@ -276,9 +292,12 @@ class OrganizationInvitationsSDK(BaseSDK):
         :param organization_id: The ID of the organization for which to send the invitation
         :param email_address: The email address of the new member that is going to be invited to the organization
         :param role: The role of the new member in the organization
-        :param inviter_user_id: The ID of the user that invites the new member to the organization. Must be an administrator in the organization.
-        :param public_metadata: Metadata saved on the organization invitation, read-only from the Frontend API and fully accessible (read/write) from the Backend API. When the organization invitation is accepted, the metadata will be transferred to the newly created organization membership.
-        :param private_metadata: Metadata saved on the organization invitation, fully accessible (read/write) from the Backend API but not visible from the Frontend API. When the organization invitation is accepted, the metadata will be transferred to the newly created organization membership.
+        :param inviter_user_id: The ID of the user that invites the new member to the organization.
+            Must be an administrator in the organization.
+        :param public_metadata: Metadata saved on the organization invitation, read-only from the Frontend API and fully accessible (read/write) from the Backend API.
+            When the organization invitation is accepted, the metadata will be transferred to the newly created organization membership.
+        :param private_metadata: Metadata saved on the organization invitation, fully accessible (read/write) from the Backend API but not visible from the Frontend API.
+            When the organization invitation is accepted, the metadata will be transferred to the newly created organization membership.
         :param redirect_url: Optional URL that the invitee will be redirected to once they accept the invitation by clicking the join link in the invitation email.
         :param expires_in_days: The number of days the invitation will be valid for. By default, the invitation has a 30 days expire.
         :param retries: Override the default retry configuration for this method
@@ -329,6 +348,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 "json",
                 Optional[models.CreateOrganizationInvitationRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -349,7 +369,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateOrganizationInvitation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -359,9 +379,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitation], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitation, http_res)
         if utils.match_response(
             http_res, ["400", "403", "404", "422"], "application/json"
         ):
@@ -391,7 +409,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitation]:
+    ) -> models.OrganizationInvitation:
         r"""Create and send an organization invitation
 
         Creates a new organization invitation and sends an email to the provided `email_address` with a link to accept the invitation and join the organization.
@@ -414,9 +432,12 @@ class OrganizationInvitationsSDK(BaseSDK):
         :param organization_id: The ID of the organization for which to send the invitation
         :param email_address: The email address of the new member that is going to be invited to the organization
         :param role: The role of the new member in the organization
-        :param inviter_user_id: The ID of the user that invites the new member to the organization. Must be an administrator in the organization.
-        :param public_metadata: Metadata saved on the organization invitation, read-only from the Frontend API and fully accessible (read/write) from the Backend API. When the organization invitation is accepted, the metadata will be transferred to the newly created organization membership.
-        :param private_metadata: Metadata saved on the organization invitation, fully accessible (read/write) from the Backend API but not visible from the Frontend API. When the organization invitation is accepted, the metadata will be transferred to the newly created organization membership.
+        :param inviter_user_id: The ID of the user that invites the new member to the organization.
+            Must be an administrator in the organization.
+        :param public_metadata: Metadata saved on the organization invitation, read-only from the Frontend API and fully accessible (read/write) from the Backend API.
+            When the organization invitation is accepted, the metadata will be transferred to the newly created organization membership.
+        :param private_metadata: Metadata saved on the organization invitation, fully accessible (read/write) from the Backend API but not visible from the Frontend API.
+            When the organization invitation is accepted, the metadata will be transferred to the newly created organization membership.
         :param redirect_url: Optional URL that the invitee will be redirected to once they accept the invitation by clicking the join link in the invitation email.
         :param expires_in_days: The number of days the invitation will be valid for. By default, the invitation has a 30 days expire.
         :param retries: Override the default retry configuration for this method
@@ -467,6 +488,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 "json",
                 Optional[models.CreateOrganizationInvitationRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -487,7 +509,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateOrganizationInvitation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -497,9 +519,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitation], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitation, http_res)
         if utils.match_response(
             http_res, ["400", "403", "404", "422"], "application/json"
         ):
@@ -527,7 +547,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitations]:
+    ) -> models.OrganizationInvitations:
         r"""Get a list of organization invitations
 
         This request returns the list of organization invitations.
@@ -540,9 +560,17 @@ class OrganizationInvitationsSDK(BaseSDK):
         :param organization_id: The organization ID.
         :param status: Filter organization invitations based on their status
         :param email_address: Returns organization invitations inviting the specified email address.
-        :param order_by: Allows to return organization invitations in a particular order. You can order the returned organization invitations either by their `created_at` or `email_address`. In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by. For example, if you want organization invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param order_by: Allows to return organization invitations in a particular order.
+            You can order the returned organization invitations either by their `created_at` or `email_address`.
+            In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by.
+            For example, if you want organization invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -580,6 +608,7 @@ class OrganizationInvitationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -600,7 +629,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListOrganizationInvitations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -610,9 +639,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitations], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitations, http_res)
         if utils.match_response(http_res, ["400", "404", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -638,7 +665,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitations]:
+    ) -> models.OrganizationInvitations:
         r"""Get a list of organization invitations
 
         This request returns the list of organization invitations.
@@ -651,9 +678,17 @@ class OrganizationInvitationsSDK(BaseSDK):
         :param organization_id: The organization ID.
         :param status: Filter organization invitations based on their status
         :param email_address: Returns organization invitations inviting the specified email address.
-        :param order_by: Allows to return organization invitations in a particular order. You can order the returned organization invitations either by their `created_at` or `email_address`. In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by. For example, if you want organization invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param order_by: Allows to return organization invitations in a particular order.
+            You can order the returned organization invitations either by their `created_at` or `email_address`.
+            In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by.
+            For example, if you want organization invitations to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -691,6 +726,7 @@ class OrganizationInvitationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -711,7 +747,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListOrganizationInvitations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -721,9 +757,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitations], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitations, http_res)
         if utils.match_response(http_res, ["400", "404", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -748,10 +782,13 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitations]:
+    ) -> models.OrganizationInvitations:
         r"""Bulk create and send organization invitations
 
         Creates new organization invitations in bulk and sends out emails to the provided email addresses with a link to accept the invitation and join the organization.
+
+        This endpoint is limited to a maximum of 10 invitations per API call. If you need to send more invitations, please make multiple requests.
+
         You can specify a different `role` for each invited organization member.
         New organization invitations get a \"pending\" status until they are revoked by an organization administrator or accepted by the invitee.
         The request body supports passing an optional `redirect_url` parameter for each invitation.
@@ -809,6 +846,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 "json",
                 List[models.CreateOrganizationInvitationBulkRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -829,7 +867,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateOrganizationInvitationBulk",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -839,9 +877,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitations], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitations, http_res)
         if utils.match_response(
             http_res, ["400", "403", "404", "422"], "application/json"
         ):
@@ -868,10 +904,13 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitations]:
+    ) -> models.OrganizationInvitations:
         r"""Bulk create and send organization invitations
 
         Creates new organization invitations in bulk and sends out emails to the provided email addresses with a link to accept the invitation and join the organization.
+
+        This endpoint is limited to a maximum of 10 invitations per API call. If you need to send more invitations, please make multiple requests.
+
         You can specify a different `role` for each invited organization member.
         New organization invitations get a \"pending\" status until they are revoked by an organization administrator or accepted by the invitee.
         The request body supports passing an optional `redirect_url` parameter for each invitation.
@@ -929,6 +968,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 "json",
                 List[models.CreateOrganizationInvitationBulkRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -949,7 +989,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateOrganizationInvitationBulk",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -959,9 +999,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitations], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitations, http_res)
         if utils.match_response(
             http_res, ["400", "403", "404", "422"], "application/json"
         ):
@@ -989,7 +1027,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitations]:
+    ) -> models.OrganizationInvitations:
         r"""Get a list of pending organization invitations
 
         This request returns the list of organization invitations with \"pending\" status.
@@ -1000,8 +1038,11 @@ class OrganizationInvitationsSDK(BaseSDK):
         Any invitations created as a result of an Organization Domain are not included in the results.
 
         :param organization_id: The organization ID.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1036,6 +1077,7 @@ class OrganizationInvitationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1056,7 +1098,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListPendingOrganizationInvitations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1066,9 +1108,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitations], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitations, http_res)
         if utils.match_response(http_res, ["400", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1094,7 +1134,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitations]:
+    ) -> models.OrganizationInvitations:
         r"""Get a list of pending organization invitations
 
         This request returns the list of organization invitations with \"pending\" status.
@@ -1105,8 +1145,11 @@ class OrganizationInvitationsSDK(BaseSDK):
         Any invitations created as a result of an Organization Domain are not included in the results.
 
         :param organization_id: The organization ID.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1141,6 +1184,7 @@ class OrganizationInvitationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1161,7 +1205,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListPendingOrganizationInvitations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1171,9 +1215,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitations], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitations, http_res)
         if utils.match_response(http_res, ["400", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1195,7 +1237,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitation]:
+    ) -> models.OrganizationInvitation:
         r"""Retrieve an organization invitation by ID
 
         Use this request to get an existing organization invitation by ID.
@@ -1235,6 +1277,7 @@ class OrganizationInvitationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1255,7 +1298,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetOrganizationInvitation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1265,9 +1308,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitation], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitation, http_res)
         if utils.match_response(http_res, ["400", "403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1289,7 +1330,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitation]:
+    ) -> models.OrganizationInvitation:
         r"""Retrieve an organization invitation by ID
 
         Use this request to get an existing organization invitation by ID.
@@ -1329,6 +1370,7 @@ class OrganizationInvitationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1349,7 +1391,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetOrganizationInvitation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1359,9 +1401,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitation], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitation, http_res)
         if utils.match_response(http_res, ["400", "403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1384,7 +1424,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitation]:
+    ) -> models.OrganizationInvitation:
         r"""Revoke a pending organization invitation
 
         Use this request to revoke a previously issued organization invitation.
@@ -1395,7 +1435,8 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         :param organization_id: The organization ID.
         :param invitation_id: The organization invitation ID.
-        :param requesting_user_id: The ID of the user that revokes the invitation. Must be an administrator in the organization.
+        :param requesting_user_id: The ID of the user that revokes the invitation.
+            Must be an administrator in the organization.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1439,6 +1480,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 "json",
                 Optional[models.RevokeOrganizationInvitationRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1459,7 +1501,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RevokeOrganizationInvitation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1469,9 +1511,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitation], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitation, http_res)
         if utils.match_response(http_res, ["400", "403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1494,7 +1534,7 @@ class OrganizationInvitationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationInvitation]:
+    ) -> models.OrganizationInvitation:
         r"""Revoke a pending organization invitation
 
         Use this request to revoke a previously issued organization invitation.
@@ -1505,7 +1545,8 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         :param organization_id: The organization ID.
         :param invitation_id: The organization invitation ID.
-        :param requesting_user_id: The ID of the user that revokes the invitation. Must be an administrator in the organization.
+        :param requesting_user_id: The ID of the user that revokes the invitation.
+            Must be an administrator in the organization.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1549,6 +1590,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 "json",
                 Optional[models.RevokeOrganizationInvitationRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1569,7 +1611,7 @@ class OrganizationInvitationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RevokeOrganizationInvitation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1579,9 +1621,7 @@ class OrganizationInvitationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationInvitation], http_res
-            )
+            return unmarshal_json_response(models.OrganizationInvitation, http_res)
         if utils.match_response(http_res, ["400", "403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)

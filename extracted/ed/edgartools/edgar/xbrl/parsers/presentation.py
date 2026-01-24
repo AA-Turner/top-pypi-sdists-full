@@ -10,9 +10,9 @@ from typing import Any, Dict, List, Optional, Union
 
 from lxml import etree as ET
 
-from edgar.core import log
 from edgar.xbrl.core import extract_element_id
 from edgar.xbrl.models import ElementCatalog, PresentationNode, PresentationTree, XBRLProcessingError
+
 from .base import BaseParser
 
 
@@ -161,7 +161,9 @@ class PresentationParser(BaseParser):
             to_map[to_element].append(rel)
 
         # Find root elements (appear as 'from' but not as 'to')
-        root_elements = set(from_map.keys()) - set(to_map.keys())
+        # Issue #601: Sort to ensure deterministic ordering across Python processes
+        # (set iteration order depends on hash randomization which varies per process)
+        root_elements = sorted(set(from_map.keys()) - set(to_map.keys()))
 
         if not root_elements:
             return  # No root elements found
@@ -170,7 +172,7 @@ class PresentationParser(BaseParser):
         tree = PresentationTree(
             role_uri=role,
             definition=self.presentation_roles[role]['definition'],
-            root_element_id=next(iter(root_elements)),
+            root_element_id=root_elements[0],  # Use first sorted element
             all_nodes={}
         )
 
@@ -207,7 +209,17 @@ class PresentationParser(BaseParser):
             elem_info = self.element_catalog[element_id]
             node.element_name = elem_info.name
             node.standard_label = elem_info.labels.get('http://www.xbrl.org/2003/role/label', elem_info.name)
-            node.is_abstract = elem_info.abstract
+
+            # Use enhanced abstract detection (Issue #450 fix)
+            # The element catalog may not have correct abstract info for standard taxonomy concepts
+            from edgar.xbrl.abstract_detection import is_abstract_concept
+            node.is_abstract = is_abstract_concept(
+                concept_name=elem_info.name,
+                schema_abstract=elem_info.abstract,
+                has_children=False,  # Will be updated after children are processed
+                has_values=False     # Will be determined later when facts are loaded
+            )
+
             node.labels = elem_info.labels
 
         # Add to collection

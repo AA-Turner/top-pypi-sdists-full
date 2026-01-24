@@ -1,15 +1,14 @@
 import logging
 from ..abstract import ErdReadOnlyConverter
 from ..primitives import *
-
-from gehomesdk.erd.values.laundry import ErdSmartDispenseAdjustabilityAllowables
+from ...values.laundry import ErdSmartDispenseAdjustabilityAllowables
 
 _LOGGER = logging.getLogger(__name__)
 
 class ErdSmartDispenseAdjustabilityAllowablesConverter(ErdReadOnlyConverter[ErdSmartDispenseAdjustabilityAllowables]):
     def erd_decode(self, value: str) -> ErdSmartDispenseAdjustabilityAllowables:
         if not value:
-            return ErdRemoteCycleSelectionAllowables()
+            return ErdSmartDispenseAdjustabilityAllowables(raw_value = value)
         
         try:
             i = erd_decode_int(value, True)

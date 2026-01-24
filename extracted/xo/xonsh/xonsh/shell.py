@@ -54,19 +54,48 @@ Parameters:
 * ``rtn``: The result of the command executed (``0`` for success)
 * ``out``: If xonsh stores command output, this is the output
 * ``ts``: Timestamps, in the order of ``[starting, ending]``
+
+Example:
+
+.. code-block:: python
+
+    @events.on_postcommand
+    def _prompt_err_command_again(cmd, rtn, out, ts):
+        '''If the result of executing the command is not zero, repeat the command on the next command prompt.'''
+        if rtn != 0:
+            $XONSH_PROMPT_NEXT_CMD = cmd.rstrip()
 """,
 )
 
 events.doc(
     "on_command_not_found",
     """
-on_command_not_found(cmd: list[str]) -> None
+on_command_not_found(cmd: list[str]) -> list[str] | tuple[str, ...] | None
 
 Fires if a command is not found (only in interactive sessions).
 
 Parameters:
 
 * ``cmd``: The command that was attempted
+
+Returns:
+
+* ``list[str]`` or ``tuple[str, ...]``: A replacement command to execute instead.
+  The first valid replacement from any handler will be used.
+* ``None``: To let the error be raised normally
+
+Note: If the replacement command also fails, the original error is shown.
+
+Example:
+
+.. code-block:: python
+
+    @events.on_command_not_found
+    def _vim_to_vi(cmd, **kwargs):
+        '''If vim not found let's try to use vi.'''
+        if cmd[0] == 'vim':
+            return ['vi'] + cmd[1:]
+
 """,
 )
 

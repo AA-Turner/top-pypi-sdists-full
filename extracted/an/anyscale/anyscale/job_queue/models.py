@@ -1,8 +1,50 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import get_type_hints, Literal, Optional, TYPE_CHECKING, Union
+from typing import (
+    ClassVar,
+    Dict,
+    get_type_hints,
+    Literal,
+    Optional,
+    TYPE_CHECKING,
+    Union,
+)
 
 from anyscale._private.models import ModelBase, ModelEnum
+
+
+class SessionState(ModelEnum):
+    """State of a cluster/session."""
+
+    Stopped = "Stopped"
+    Terminated = "Terminated"
+    StartingUp = "StartingUp"
+    StartupErrored = "StartupErrored"
+    Running = "Running"
+    Updating = "Updating"
+    UpdatingErrored = "UpdatingErrored"
+    Stopping = "Stopping"
+    Terminating = "Terminating"
+    AwaitingStartup = "AwaitingStartup"
+    AwaitingFileMounts = "AwaitingFileMounts"
+    TerminatingErrored = "TerminatingErrored"
+    StoppingErrored = "StoppingErrored"
+
+    __docstrings__: ClassVar[Dict[str, str]] = {
+        "Stopped": "The cluster is stopped.",
+        "Terminated": "The cluster is terminated.",
+        "StartingUp": "The cluster is starting up.",
+        "StartupErrored": "The cluster encountered an error during startup.",
+        "Running": "The cluster is running.",
+        "Updating": "The cluster is being updated.",
+        "UpdatingErrored": "The cluster encountered an error during update.",
+        "Stopping": "The cluster is stopping.",
+        "Terminating": "The cluster is terminating.",
+        "AwaitingStartup": "The cluster is awaiting startup.",
+        "AwaitingFileMounts": "The cluster is awaiting file mounts.",
+        "TerminatingErrored": "The cluster encountered an error during termination.",
+        "StoppingErrored": "The cluster encountered an error while stopping.",
+    }
 
 
 class JobQueueState(ModelEnum):
@@ -13,10 +55,22 @@ class JobQueueState(ModelEnum):
     # Add other potential states if necessary based on API reality
     UNKNOWN = "UNKNOWN"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         ACTIVE: "The job queue is active and accepting jobs.",
         SEALED: "The job queue is sealed and not accepting new jobs. It may still be processing existing jobs.",
         UNKNOWN: "The state of the job queue is unknown or could not be determined.",
+    }
+
+
+class SortOrder(ModelEnum):
+    """Sort order for queries."""
+
+    ASC = "ASC"
+    DESC = "DESC"
+
+    __docstrings__: ClassVar[Dict[str, str]] = {
+        ASC: "Ascending order.",
+        DESC: "Descending order.",
     }
 
 
@@ -33,7 +87,7 @@ class JobQueueSortField(ModelEnum):
     QUEUE_STATE = "QUEUE_STATE"
     CLUSTER_STATE = "CLUSTER_STATE"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         ID: "Sort by Job Queue ID.",
         NAME: "Sort by Job Queue name.",
         CREATED_AT: "Sort by creation timestamp.",
@@ -55,7 +109,7 @@ class ExecutionMode(ModelEnum):
     # Add other execution modes as needed
     UNKNOWN = "UNKNOWN"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         FIFO: "FIFO execution mode.",
         LIFO: "LIFO execution mode.",
         PRIORITY: "Priority-based execution mode.",
@@ -72,7 +126,7 @@ class ClusterState(ModelEnum):
     # Add other states as needed
     UNKNOWN = "UNKNOWN"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         RUNNING: "The cluster is running.",
         TERMINATED: "The cluster is terminated.",
         PENDING: "The cluster is pending creation.",
@@ -81,13 +135,54 @@ class ClusterState(ModelEnum):
 
 
 @dataclass(frozen=True)
+class JobQueueSortDirective(ModelBase):
+    """Directive for sorting job queue results."""
+
+    __doc_py_example__ = """
+from anyscale.job_queue.models import JobQueueSortDirective, JobQueueSortField, SortOrder
+
+# Create a sort directive
+sort_directive = JobQueueSortDirective(
+    sort_field=JobQueueSortField.CREATED_AT,
+    sort_order=SortOrder.DESC
+)
+"""
+
+    sort_field: Union[JobQueueSortField, str] = field(
+        metadata={"docstring": "The field to sort by."}
+    )
+    sort_order: Union[SortOrder, str] = field(
+        metadata={"docstring": "The sort order (ASC or DESC)."}
+    )
+
+    def _validate_sort_field(
+        self, sort_field: Union[JobQueueSortField, str]
+    ) -> JobQueueSortField:
+        return JobQueueSortField.validate(sort_field)
+
+    def _validate_sort_order(self, sort_order: Union[SortOrder, str]) -> SortOrder:
+        return SortOrder.validate(sort_order)
+
+
+@dataclass(frozen=True)
 class JobQueueStatus(ModelBase):
     """Represents the status and details of a Job Queue."""
 
+    # Example shown in docs
+    __doc_py_example__ = """\
+from anyscale.job_queue.models import JobQueueStatus
+
+status = JobQueueStatus(
+    id="jq_123",
+    state="ACTIVE",
+    name="my-queue",
+    max_concurrency=5,
+    idle_timeout_s=300,
+)
+"""
+
     id: str = field(metadata={"docstring": "Unique ID of the job queue."})
-    state: Union[JobQueueState, str] = field(
-        metadata={"docstring": "Current state of the job queue."}
-    )
+    state: str = field(metadata={"docstring": "Current state of the job queue."})
     name: Optional[str] = field(
         default=None, metadata={"docstring": "Name of the job queue."}
     )
@@ -117,7 +212,7 @@ class JobQueueStatus(ModelBase):
         default=None,
         metadata={"docstring": "User provided identifier of the job queue."},
     )
-    execution_mode: Optional[Union[ExecutionMode, str]] = field(
+    execution_mode: Optional[str] = field(
         default=None, metadata={"docstring": "The execution mode of the job queue."}
     )
     creator_id: Optional[str] = field(
@@ -152,8 +247,9 @@ class JobQueueStatus(ModelBase):
             raise ValueError("'name' must be a string or None.")
         return name
 
-    def _validate_state(self, state: Union[JobQueueState, str]) -> JobQueueState:
-        return JobQueueState.validate(state)
+    def _validate_state(self, state: str) -> str:
+        validated = JobQueueState.validate(state)
+        return validated.value
 
     def _validate_creator_email(self, creator_email: Optional[str]) -> Optional[str]:
         if creator_email is not None and not isinstance(creator_email, str):
@@ -197,11 +293,10 @@ class JobQueueStatus(ModelBase):
             raise ValueError("'user_provided_id' must be a string or None.")
         return user_provided_id
 
-    def _validate_execution_mode(
-        self, execution_mode: Optional[Union[ExecutionMode, str]]
-    ) -> Optional[ExecutionMode]:
+    def _validate_execution_mode(self, execution_mode: Optional[str]) -> Optional[str]:
         if execution_mode is not None:
-            return ExecutionMode.validate(execution_mode)
+            validated = ExecutionMode.validate(execution_mode)
+            return validated.value
         return None
 
     def _validate_creator_id(self, creator_id: Optional[str]) -> Optional[str]:

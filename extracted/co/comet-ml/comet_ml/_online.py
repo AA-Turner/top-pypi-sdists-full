@@ -340,8 +340,11 @@ class Experiment(CometExperiment):
             )
             return False
 
+        # set initial offset
+        self.rest_api_client.set_initial_offset(initial_offset)
+
         # Initiate the streamer
-        self._initialize_streamer(initial_offset=initial_offset)
+        self._initialize_streamer()
 
         # Initiate the heartbeat thread
         self._heartbeat_thread = HeartbeatThread(
@@ -401,7 +404,7 @@ class Experiment(CometExperiment):
             get_or_create_mode=self._use_get_or_create_mode,
         )
 
-    def _initialize_streamer(self, initial_offset: int) -> None:
+    def _initialize_streamer(self) -> None:
         backend_version = self.rest_api_client.get_api_backend_version()
 
         direct_s3_upload_enabled = self.config.has_direct_s3_file_upload_enabled()
@@ -415,7 +418,6 @@ class Experiment(CometExperiment):
                 None, "comet.internal.streamer_beat_duration"
             ),
             connection=self.connection,
-            initial_offset=initial_offset,
             experiment_key=self.id,
             api_key=self.api_key,
             run_id=self.run_id,
@@ -479,7 +481,6 @@ class Experiment(CometExperiment):
         )
         self.streamer = FallbackStreamer(
             online_streamer=online_streamer,
-            initial_offset=initial_offset,
             server_connection_monitor=connection_monitor,
             rest_server_connection=self.connection,
             enable_fallback_to_offline=self._has_fallback_to_offline_enabled(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastexcel
-Version: 0.16.0
+Version: 0.19.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -8,27 +8,28 @@ Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
 Requires-Dist: typing-extensions>=4.0.0 ; python_full_version < '3.10'
-Requires-Dist: pyarrow>=8.0.0 ; extra == 'pyarrow'
 Requires-Dist: pandas>=1.4.4 ; extra == 'pandas'
 Requires-Dist: pyarrow>=8.0.0 ; extra == 'pandas'
 Requires-Dist: polars>=0.16.14 ; extra == 'polars'
-Provides-Extra: pyarrow
+Requires-Dist: pyarrow>=8.0.0 ; extra == 'pyarrow'
 Provides-Extra: pandas
 Provides-Extra: polars
+Provides-Extra: pyarrow
 License-File: LICENSE
 Summary: A fast excel file reader for Python, written in Rust
 Home-Page: https://github.com/ToucanToco/fastexcel
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Source Code, https://github.com/ToucanToco/fastexcel
 Project-URL: Issues, https://github.com/ToucanToco/fastexcel
+Project-URL: Source Code, https://github.com/ToucanToco/fastexcel
 
 # `fastexcel`
 
@@ -42,6 +43,8 @@ Docs:
 
 The Python library is considered production-ready. The API is mostly stable, and we avoid breaking changes as much as
 possible. v1.0.0 will be released once the [milestone](https://github.com/ToucanToco/fastexcel/milestone/2) is reached.
+
+> ⚠️ The free-threaded build is still considered experimental
 
 The Rust crate is still experimental, and breaking changes are to be expected.
 
@@ -136,7 +139,7 @@ df = pl.DataFrame(table)  # Zero-copy via PyCapsule, no pyarrow needed
 
 You'll need:
 1. **[Rust](https://rustup.rs/)** - Rust stable or nightly
-2. **[uv](https://docs.astral.sh/uv/getting-started/installation/)** - Fast Python package manager (will install Python 3.9+ automatically)
+2. **[uv](https://docs.astral.sh/uv/getting-started/installation/)** - Fast Python package manager (will install Python 3.10+ automatically)
 3. **[git](https://git-scm.com/)** - For version control
 4. **[make](https://www.gnu.org/software/make/)** - For running development commands
 

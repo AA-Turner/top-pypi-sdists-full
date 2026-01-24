@@ -8,7 +8,7 @@ class FSMStatusField(CharField):
     def __init__(self, *args, **kwargs):
         self.choices = kwargs.pop("choices")
         read_only = kwargs.pop("read_only", True)
-        super().__init__(read_only=read_only, *args, **kwargs)
+        super().__init__(*args, read_only=read_only, **kwargs)
 
     def get_representation(self, request, field_name) -> tuple[str, dict]:
         key, representation = super().get_representation(request, field_name)

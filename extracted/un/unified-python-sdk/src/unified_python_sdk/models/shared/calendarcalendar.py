@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 from datetime import datetime
+from pydantic import model_serializer
 from typing import Any, Dict, Optional
 from typing_extensions import NotRequired, TypedDict
-from unified_python_sdk.types import BaseModel
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class CalendarCalendarTypedDict(TypedDict):
@@ -12,7 +13,7 @@ class CalendarCalendarTypedDict(TypedDict):
     created_at: NotRequired[datetime]
     description: NotRequired[str]
     id: NotRequired[str]
-    primary: NotRequired[bool]
+    is_primary: NotRequired[bool]
     raw: NotRequired[Dict[str, Any]]
     timezone: NotRequired[str]
     updated_at: NotRequired[datetime]
@@ -27,10 +28,36 @@ class CalendarCalendar(BaseModel):
 
     id: Optional[str] = None
 
-    primary: Optional[bool] = None
+    is_primary: Optional[bool] = None
 
     raw: Optional[Dict[str, Any]] = None
 
     timezone: Optional[str] = None
 
     updated_at: Optional[datetime] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "created_at",
+                "description",
+                "id",
+                "is_primary",
+                "raw",
+                "timezone",
+                "updated_at",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

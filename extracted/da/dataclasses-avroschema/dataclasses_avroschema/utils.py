@@ -3,12 +3,20 @@ import enum
 import typing
 from datetime import datetime, timezone
 from functools import lru_cache
+from types import UnionType
 
 import typing_extensions
 from typing_extensions import Annotated, get_origin
 
 from .protocol import ModelProtocol  # pragma: no cover
-from .types import FieldInfo, JsonDict, UnionType
+from .types import FieldInfo, JsonDict
+from .version import is_python_314_or_newer
+
+try:
+    # only in python 3.14+
+    import annotationlib  # type: ignore # pragma: no cover
+except ImportError:
+    ...  # pragma: no cover
 
 if typing.TYPE_CHECKING:
     from dataclasses_avroschema import AvroModel  # pragma: no cover
@@ -43,6 +51,12 @@ def _is_typing_name(obj: object, name: str) -> bool:
         if obj is thing:
             return True
     return False
+
+
+def get_klass_annotations(klass: typing.Type[ModelProtocol]) -> typing.Dict[str, typing.Type]:
+    if is_python_314_or_newer():
+        return annotationlib.get_annotations(klass)
+    return klass.__annotations__
 
 
 @lru_cache(maxsize=None)
@@ -98,10 +112,15 @@ def is_self_referenced(a_type: typing.Type, parent: typing.Type) -> bool:
         is_self_referenced(a_type) # True
     """
     return (
-        isinstance(a_type, typing._GenericAlias)  # type: ignore
-        and a_type.__args__
-        and isinstance(a_type.__args__[0], typing.ForwardRef)
-    ) or a_type == parent
+        (
+            isinstance(a_type, typing._GenericAlias)  # type: ignore
+            and a_type.__args__
+            and isinstance(a_type.__args__[0], typing.ForwardRef)
+            and a_type.__args__[0].__forward_arg__ == parent.__name__
+        )
+        or a_type == parent
+        or (isinstance(a_type, typing.ForwardRef) and a_type.__forward_arg__ == parent.__name__)
+    )
 
 
 def is_annotated(a_type: typing.Type) -> bool:
@@ -160,7 +179,7 @@ def standardize_custom_type(
         else:
             asdict = value.asdict()
 
-        annotations = model.__annotations__
+        annotations = get_klass_annotations(model.__class__)
         # This is a hack to get the annotations from the parent class
         # https://github.com/marcosschroh/dataclasses-avroschema/issues/800
         if model.__class__.mro()[1] != base_class:

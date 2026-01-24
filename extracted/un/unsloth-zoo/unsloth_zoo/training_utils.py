@@ -22,10 +22,9 @@ from transformers import get_scheduler as transformers_get_scheduler
 from transformers import Trainer
 from transformers.trainer_utils import seed_worker as trainer_utils_seed_worker
 from tqdm import tqdm as ProgressBar
-from packaging.version import Version
 import time
 from typing import Any, Optional, List, Dict, Tuple
-from .utils import _get_dtype
+from .utils import _get_dtype, Version
 from .hf_utils import dtype_from_config
 import os
 import re
@@ -74,14 +73,16 @@ def fix_zero_training_loss(model, tokenizer, train_dataset):
                 "Unsloth: All labels in your dataset are -100. Training losses will be all 0.\n"\
                 "For example, are you sure you used `train_on_responses_only` correctly?\n"\
                 "Or did you mask our tokens incorrectly? Maybe this is intended?\n"\
-                "Maybe you're using a Llama chat template on a non Llama model for example?"
+                "Maybe you're using a Llama chat template on a non Llama model for example?"\
+                "If you used `train_on_responses_only`, confirm your user and assistant parts are correct!"
             )
         elif seen_bad / (seen_bad + seen_good) >= 0.9:
             print(
                 "Unsloth: Nearly all labels in your dataset are -100. Training losses will be all 0.\n"\
                 "For example, are you sure you used `train_on_responses_only` correctly?\n"\
                 "Or did you mask our tokens incorrectly? Maybe this is intended?\n"\
-                "Maybe you're using a Llama chat template on a non Llama model for example?"
+                "Maybe you're using a Llama chat template on a non Llama model for example?"\
+                "If you used `train_on_responses_only`, confirm your user and assistant parts are correct!"
             )
     pass
 pass
@@ -114,9 +115,18 @@ def prepare_model_for_training(
         # We need to upcast to float32
         mixed_precision_dtype = torch.float32
         os.environ["UNSLOTH_MIXED_PRECISION"] = "float32"
+        # For full finetuning, update config dtype to match actual weight dtype.
+        # The KV cache uses model.config.torch_dtype, but weights are upcast to float32.
+        # Without this, generation fails with dtype mismatch in index_copy_().
+        if full_finetuning:
+            model._unsloth_original_dtype = dtype
+            model.config.torch_dtype = torch.float32
     elif dtype == torch.bfloat16 and float32_mixed_precision:
         mixed_precision_dtype = torch.float32
         os.environ["UNSLOTH_MIXED_PRECISION"] = "float32"
+        if full_finetuning:
+            model._unsloth_original_dtype = dtype
+            model.config.torch_dtype = torch.float32
     elif dtype == torch.bfloat16:
         mixed_precision_dtype = torch.bfloat16
         os.environ["UNSLOTH_MIXED_PRECISION"] = "bfloat16"
@@ -197,7 +207,13 @@ def prepare_model_for_training(
 
     # Also set HF version manually to stop failures
     if hasattr(model, "_set_gradient_checkpointing"):
-        model._set_gradient_checkpointing()
+        if use_gradient_checkpointing in (True, "unsloth"):
+            model._set_gradient_checkpointing()
+        else:
+            # Ensure checkpointing stays disabled if explicitly requested.
+            for module in model.modules():
+                if hasattr(module, "gradient_checkpointing"):
+                    module.gradient_checkpointing = False
 
     # If use_reentrant = True which is the Pytorch default, we just make the input requires_grad.
     if use_reentrant:

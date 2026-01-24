@@ -15,13 +15,14 @@ from typing import cast as type_cast
 
 import numpy as np
 from numpy.exceptions import AxisError
+from numpy.lib.array_utils import normalize_axis_index, normalize_axis_tuple
 
 import pytensor
 import pytensor.scalar.sharedvar
 from pytensor import config, printing
 from pytensor import scalar as ps
 from pytensor.compile.builders import OpFromGraph
-from pytensor.gradient import DisconnectedType, grad_undefined
+from pytensor.gradient import DisconnectedType, disconnected_type, grad_undefined
 from pytensor.graph import RewriteDatabaseQuery
 from pytensor.graph.basic import Apply, Constant, Variable, equal_computations
 from pytensor.graph.fg import FunctionGraph, Output
@@ -31,7 +32,6 @@ from pytensor.graph.rewriting.db import EquilibriumDB
 from pytensor.graph.type import HasShape, Type
 from pytensor.link.c.op import COp
 from pytensor.link.c.params_type import ParamsType
-from pytensor.npy_2_compat import normalize_axis_index, normalize_axis_tuple
 from pytensor.printing import Printer, min_informative_str, pprint, set_precedence
 from pytensor.raise_op import CheckAndRaise
 from pytensor.scalar import int32
@@ -367,7 +367,7 @@ def _get_underlying_scalar_constant_value(
             elif isinstance(op, ps.ScalarOp):
                 if isinstance(v.owner.op, ps.Second):
                     # We don't need both input to be constant for second
-                    shp, val = v.owner.inputs
+                    _shp, val = v.owner.inputs
                     v = val
                     continue
                 if isinstance(v.owner.op, _scalar_constant_value_elemwise_ops):
@@ -384,7 +384,7 @@ def _get_underlying_scalar_constant_value(
             elif isinstance(op, Elemwise):
                 if isinstance(v.owner.op.scalar_op, ps.Second):
                     # We don't need both input to be constant for second
-                    shp, val = v.owner.inputs
+                    _shp, val = v.owner.inputs
                     v = val
                     continue
                 elif elemwise and isinstance(
@@ -664,6 +664,11 @@ class TensorFromScalar(COp):
 tensor_from_scalar = TensorFromScalar()
 
 
+@_vectorize_node.register(TensorFromScalar)
+def vectorize_tensor_from_scalar(op, node, batch_x):
+    return identity(batch_x).owner
+
+
 class ScalarFromTensor(COp):
     __props__ = ()
 
@@ -686,7 +691,7 @@ class ScalarFromTensor(COp):
         return [()]
 
     def grad(self, inp, grads):
-        (s,) = inp
+        (_s,) = inp
         (dt,) = grads
         return [tensor_from_scalar(dt)]
 
@@ -916,7 +921,7 @@ def zeros_like(model, dtype=None, opt=False):
     return fill(_model, ret)
 
 
-def zeros(shape, dtype=None):
+def zeros(shape, dtype=None) -> TensorVariable:
     """Create a `TensorVariable` filled with zeros, closer to NumPy's syntax than ``alloc``."""
     if not (
         isinstance(shape, np.ndarray | Sequence)
@@ -928,7 +933,7 @@ def zeros(shape, dtype=None):
     return alloc(np.array(0, dtype=dtype), *shape)
 
 
-def ones(shape, dtype=None):
+def ones(shape, dtype=None) -> TensorVariable:
     """Create a `TensorVariable` filled with ones, closer to NumPy's syntax than ``alloc``."""
     if not (
         isinstance(shape, np.ndarray | Sequence)
@@ -1083,39 +1088,6 @@ def nonzero_values(a):
     return _a.flatten()[flatnonzero(_a)]
 
 
-class Tri(Op):
-    __props__ = ("dtype",)
-
-    def __init__(self, dtype=None):
-        if dtype is None:
-            dtype = config.floatX
-        else:
-            dtype = np.dtype(dtype).name
-        self.dtype = dtype
-
-    def make_node(self, N, M, k):
-        N = as_tensor_variable(N)
-        M = as_tensor_variable(M)
-        k = as_tensor_variable(k)
-        return Apply(
-            self,
-            [N, M, k],
-            [TensorType(dtype=self.dtype, shape=(None, None))()],
-        )
-
-    def perform(self, node, inp, out_):
-        N, M, k = inp
-        (out,) = out_
-        out[0] = np.tri(N, M, k, dtype=self.dtype)
-
-    def infer_shape(self, fgraph, node, in_shapes):
-        out_shape = [node.inputs[0], node.inputs[1]]
-        return [out_shape]
-
-    def grad(self, inp, grads):
-        return [grad_undefined(self, i, inp[i]) for i in range(3)]
-
-
 def tri(N, M=None, k=0, dtype=None):
     """
     An array with ones at and below the given diagonal and zeros elsewhere.
@@ -1143,10 +1115,12 @@ def tri(N, M=None, k=0, dtype=None):
     """
     if dtype is None:
         dtype = config.floatX
+
     if M is None:
         M = N
-    op = Tri(dtype)
-    return op(N, M, k)
+    # Implementation adapted from https://github.com/numpy/numpy/blob/2f7fe64b8b6d7591dd208942f1cc74473d5db4cb/numpy/lib/_twodim_base_impl.py#L421-L433
+    m = arange(N)[:, None] >= arange(-k, M - k)[None, :]
+    return m.astype(dtype)
 
 
 def tril(m, k=0):
@@ -1448,8 +1422,7 @@ def eye(n, m=None, k=0, dtype=None):
         dtype = config.floatX
     if m is None:
         m = n
-    localop = Eye(dtype)
-    return localop(n, m, k)
+    return Eye(dtype)(n, m, k)
 
 
 def identity_like(x, dtype: str | np.generic | np.dtype | None = None):
@@ -1765,7 +1738,7 @@ class Alloc(COp):
         # the inputs that specify the shape. If you grow the
         # shape by epsilon, the existing elements do not
         # change.
-        return [gx] + [DisconnectedType()() for i in inputs[1:]]
+        return [gx, *(disconnected_type() for _ in range(len(inputs) - 1))]
 
     def R_op(self, inputs, eval_points):
         if eval_points[0] is None:
@@ -2046,6 +2019,7 @@ def register_transfer(fn):
 """Create a duplicate of `a` (with duplicated storage)"""
 tensor_copy = Elemwise(ps.identity)
 pprint.assign(tensor_copy, printing.IgnorePrinter())
+identity = tensor_copy
 
 
 class Default(Op):
@@ -2170,9 +2144,13 @@ def matrix_transpose(x: "TensorLike") -> TensorVariable:
     return swapaxes(x, -1, -2)
 
 
-def split(x, splits_size, n_splits, axis=0):
-    the_split = Split(n_splits)
-    return the_split(x, axis, splits_size)
+def split(x, splits_size, *, n_splits=None, axis=0):
+    if n_splits is None:
+        if isinstance(splits_size, Variable):
+            n_splits = get_vector_length(splits_size)
+        else:
+            n_splits = len(splits_size)
+    return Split(n_splits)(x, axis, splits_size)
 
 
 class Split(COp):
@@ -2208,7 +2186,7 @@ class Split(COp):
         self.view_map = {i: [0] for i in range(self.len_splits)}
 
     def __str__(self):
-        return f"{self.__class__.__name__ }{{{self.len_splits}}}"
+        return f"{self.__class__.__name__}{{{self.len_splits}}}"
 
     def make_node(self, x, axis, splits):
         """WRITEME"""
@@ -2267,7 +2245,7 @@ class Split(COp):
     def infer_shape(self, fgraph, node, in_shapes):
         axis = node.inputs[1]
         splits = node.inputs[2]
-        shp_x, shp_axis, shp_splits = in_shapes
+        shp_x, _shp_axis, _shp_splits = in_shapes
         out_shapes = []
         for i in range(self.len_splits):
             temp = as_tensor_variable(shp_x)
@@ -2276,18 +2254,19 @@ class Split(COp):
             out_shapes.append(temp)
         return out_shapes
 
+    def connection_pattern(self, node):
+        n_out = len(node.outputs)
+        return [
+            [True] * n_out,
+            [True] * n_out,
+            [False] * n_out,
+        ]
+
     def L_op(self, inputs, outputs, g_outputs):
         """Join the gradients along the axis that was used to split x."""
-        x, axis, n = inputs
+        _x, axis, _n = inputs
 
-        # If all the output gradients are disconnected, then so are the inputs
-        if builtins.all(isinstance(g.type, DisconnectedType) for g in g_outputs):
-            return [
-                DisconnectedType()(),
-                grad_undefined(self, 1, axis),
-                grad_undefined(self, 2, n),
-            ]
-        # Else, we have to make them zeros before joining them
+        # We have to convert disconnected outputs to zeros before joining them
         new_g_outputs = []
         for o, g in zip(outputs, g_outputs, strict=True):
             if isinstance(g.type, DisconnectedType):
@@ -2298,7 +2277,7 @@ class Split(COp):
         return [
             join(axis, *new_g_outputs),
             grad_undefined(self, 1, axis),
-            grad_undefined(self, 2, n),
+            disconnected_type(),
         ]
 
     def R_op(self, inputs, eval_points):
@@ -2593,7 +2572,7 @@ class Join(COp):
 
         code = f"""
         int axis = {axis_def}
-        PyArrayObject* arrays[{n}] = {{{','.join(arrays)}}};
+        PyArrayObject* arrays[{n}] = {{{",".join(arrays)}}};
         int out_is_valid = {out} != NULL;
 
         {axis_check}
@@ -3348,7 +3327,7 @@ class ARange(COp):
         return [[True], [False], [True]]
 
     def L_op(self, inputs, outputs, grads):
-        start, stop, step = inputs
+        start, _stop, step = inputs
         (gz,) = grads
         # `start` and `step` affect the output values
         # but the outputs are integers so there's
@@ -3361,14 +3340,14 @@ class ARange(COp):
         if self.dtype in discrete_dtypes:
             return [
                 start.zeros_like(dtype=config.floatX),
-                DisconnectedType()(),
+                disconnected_type(),
                 step.zeros_like(dtype=config.floatX),
             ]
         else:
             num_steps_taken = outputs[0].shape[0]
             return [
                 gz.sum(),
-                DisconnectedType()(),
+                disconnected_type(),
                 (gz * arange(num_steps_taken, dtype=self.dtype)).sum(),
             ]
 
@@ -3868,7 +3847,7 @@ class ExtractDiag(COp):
             PyArrayObject *{out_name}_copy = (PyArrayObject*) PyArray_Copy({out_name});
             Py_DECREF({out_name});
             if (!{out_name}_copy) {{
-                {sub['fail']};  // Error already set by Numpy
+                {sub["fail"]};  // Error already set by Numpy
             }}
             {out_name} = {out_name}_copy;
         }}
@@ -4045,8 +4024,8 @@ def alloc_diag(diag, offset=0, axis1=0, axis2=1):
         # Re-order axes so they correspond to diagonals at axis1, axis2
         axes = list(range(diag.type.ndim - 1))
         last_idx = axes[-1]
-        axes = axes[:axis1] + [last_idx + 1] + axes[axis1:]
-        axes = axes[:axis2] + [last_idx + 2] + axes[axis2:]
+        axes = [*axes[:axis1], last_idx + 1, *axes[axis1:]]
+        axes = [*axes[:axis2], last_idx + 2, *axes[axis2:]]
         result = result.transpose(axes)
 
     return AllocDiag(
@@ -4395,7 +4374,7 @@ class AllocEmpty(COp):
         return [[False] for i in node.inputs]
 
     def grad(self, inputs, grads):
-        return [DisconnectedType()() for i in inputs]
+        return [disconnected_type() for _ in range(len(inputs))]
 
     def R_op(self, inputs, eval_points):
         return [zeros(inputs, self.dtype)]
@@ -4519,7 +4498,7 @@ def _make_along_axis_idx(arr_shape, indices, axis):
         if dim is None:
             fancy_index.append(indices)
         else:
-            ind_shape = shape_ones[:dim] + (-1,) + shape_ones[dim + 1 :]
+            ind_shape = (*shape_ones[:dim], -1, *shape_ones[dim + 1 :])
             fancy_index.append(arange(n).reshape(ind_shape))
 
     return tuple(fancy_index)
@@ -4571,72 +4550,73 @@ def ix_(*args):
 
 
 __all__ = [
-    "take_along_axis",
-    "expand_dims",
-    "atleast_Nd",
+    "alloc",
+    "arange",
+    "as_tensor",
+    "as_tensor_variable",
     "atleast_1d",
     "atleast_2d",
     "atleast_3d",
+    "atleast_Nd",
+    "cast",
     "choose",
-    "swapaxes",
-    "moveaxis",
-    "stacklists",
+    "concatenate",
+    "constant",
+    "default",
     "diag",
     "diagonal",
-    "inverse_permutation",
-    "permute_row_elements",
-    "mgrid",
-    "ogrid",
-    "arange",
-    "tile",
-    "flatten",
-    "is_flat",
-    "vertical_stack",
-    "horizontal_stack",
-    "get_vector_length",
-    "concatenate",
-    "stack",
-    "roll",
-    "join",
-    "split",
-    "transpose",
-    "matrix_transpose",
-    "default",
-    "tensor_copy",
-    "transfer",
-    "alloc",
-    "identity_like",
-    "eye",
-    "triu",
-    "tril",
-    "tri",
-    "nonzero_values",
-    "flatnonzero",
-    "nonzero",
-    "ones",
-    "zeros",
-    "zeros_like",
-    "ones_like",
-    "fill",
-    "second",
-    "where",
-    "switch",
-    "cast",
-    "scalar_from_tensor",
-    "tensor_from_scalar",
-    "get_scalar_constant_value",
-    "get_underlying_scalar_constant_value",
-    "constant",
-    "as_tensor_variable",
-    "as_tensor",
-    "extract_diag",
-    "full",
-    "full_like",
     "empty",
     "empty_like",
+    "expand_dims",
+    "extract_diag",
+    "eye",
+    "fill",
+    "flatnonzero",
+    "flatten",
+    "full",
+    "full_like",
+    "get_scalar_constant_value",
+    "get_underlying_scalar_constant_value",
+    "get_vector_length",
+    "horizontal_stack",
+    "identity",
+    "identity_like",
+    "inverse_permutation",
+    "is_flat",
+    "join",
+    "matrix_transpose",
+    "mgrid",
+    "moveaxis",
+    "nonzero",
+    "nonzero_values",
+    "ogrid",
+    "ones",
+    "ones_like",
+    "permute_row_elements",
+    "roll",
+    "scalar_from_tensor",
+    "second",
+    "split",
+    "stack",
+    "stacklists",
+    "swapaxes",
+    "switch",
+    "take_along_axis",
+    "tensor_copy",
+    "tensor_from_scalar",
+    "tile",
     "trace",
+    "transfer",
+    "transpose",
+    "tri",
+    "tril",
     "tril_indices",
     "tril_indices_from",
+    "triu",
     "triu_indices",
     "triu_indices_from",
+    "vertical_stack",
+    "where",
+    "zeros",
+    "zeros_like",
 ]

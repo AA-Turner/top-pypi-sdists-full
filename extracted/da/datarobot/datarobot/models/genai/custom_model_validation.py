@@ -43,39 +43,33 @@ def get_entity_id(entity: Union[CustomModelValidation, Deployment, Model, Playgr
     return entity if isinstance(entity, str) else entity.id
 
 
-custom_model_validation_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String(allow_blank=True),
-        t.Key("prompt_column_name"): t.String,
-        t.Key("target_column_name"): t.String,
-        t.Key("deployment_id"): t.String,
-        t.Key("validation_status"): t.String,
-        t.Key("model_id"): t.String,
-        t.Key("deployment_access_data", optional=True, default=None): t.Or(
-            t.Null,
-            t.Dict(
-                {
-                    t.Key("prediction_api_url"): t.String,
-                    t.Key("datarobot_key", optional=True, default=None): t.Or(t.Null, t.String),
-                    t.Key("authorization_header"): t.String,
-                    t.Key("input_type"): t.String,
-                    t.Key("model_type"): t.String,
-                }
-            ).ignore_extra("*"),
-        ),
-        t.Key("tenant_id"): t.String,
-        t.Key("user_id"): t.String,
-        t.Key("creation_date"): t.String,
-        t.Key("error_message", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("deployment_name", optional=True, default=None): t.Or(
-            t.Null, t.String(allow_blank=True)
-        ),
-        t.Key("user_name", optional=True, default=None): t.Or(t.Null, t.String(allow_blank=True)),
-        t.Key("use_case_id", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("prediction_timeout"): t.Int,
-    }
-).ignore_extra("*")
+custom_model_validation_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String(allow_blank=True),
+    t.Key("prompt_column_name"): t.String,
+    t.Key("target_column_name"): t.String,
+    t.Key("deployment_id"): t.String,
+    t.Key("validation_status"): t.String,
+    t.Key("model_id"): t.String,
+    t.Key("deployment_access_data", optional=True, default=None): t.Or(
+        t.Null,
+        t.Dict({
+            t.Key("prediction_api_url"): t.String,
+            t.Key("datarobot_key", optional=True, default=None): t.Or(t.Null, t.String),
+            t.Key("authorization_header"): t.String,
+            t.Key("input_type"): t.String,
+            t.Key("model_type"): t.String,
+        }).ignore_extra("*"),
+    ),
+    t.Key("tenant_id"): t.String,
+    t.Key("user_id"): t.String,
+    t.Key("creation_date"): t.String,
+    t.Key("error_message", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("deployment_name", optional=True, default=None): t.Or(t.Null, t.String(allow_blank=True)),
+    t.Key("user_name", optional=True, default=None): t.Or(t.Null, t.String(allow_blank=True)),
+    t.Key("use_case_id", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("prediction_timeout"): t.Int,
+}).ignore_extra("*")
 
 
 class CustomModelValidation(APIObject):
@@ -223,13 +217,10 @@ class CustomModelValidation(APIObject):
 
         if data is None:
             return cls.from_server_data(response_body)
+        elif len(data) == 0:
+            raise ClientError(exc_message="Custom model LLM validation not found", status_code=404)
         else:
-            if len(data) == 0:
-                raise ClientError(
-                    exc_message="Custom model LLM validation not found", status_code=404
-                )
-            else:
-                return cls.from_server_data(data[0])
+            return cls.from_server_data(data[0])
 
     @classmethod
     def list(

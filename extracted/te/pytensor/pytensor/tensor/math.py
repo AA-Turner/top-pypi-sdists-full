@@ -5,6 +5,7 @@ from textwrap import dedent
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_tuple
 
 from pytensor import config, printing
 from pytensor import scalar as ps
@@ -13,11 +14,6 @@ from pytensor.graph.op import Op
 from pytensor.graph.replace import _vectorize_node
 from pytensor.link.c.op import COp
 from pytensor.link.c.params_type import ParamsType
-from pytensor.npy_2_compat import (
-    normalize_axis_tuple,
-    npy_2_compat_header,
-    numpy_axis_is_none_flag,
-)
 from pytensor.printing import pprint
 from pytensor.raise_op import Assert
 from pytensor.scalar.basic import BinaryScalarOp
@@ -165,7 +161,7 @@ class Argmax(COp):
             c_axis = np.int64(self.axis[0])
         else:
             # The value here doesn't matter, it won't be used
-            c_axis = numpy_axis_is_none_flag
+            c_axis = 0
         return self.params_type.get_params(c_axis=c_axis)
 
     def make_node(self, x):
@@ -207,10 +203,6 @@ class Argmax(COp):
         reshaped_x = transposed_x.reshape(new_shape)
 
         max_idx[0] = np.asarray(np.argmax(reshaped_x, axis=-1), dtype="int64")
-
-    def c_support_code_apply(self, node: Apply, name: str) -> str:
-        """Needed to define NPY_RAVEL_AXIS"""
-        return npy_2_compat_header()
 
     def c_code(self, node, name, inp, out, sub):
         (x,) = inp
@@ -258,7 +250,7 @@ class Argmax(COp):
         """
 
     def c_code_cache_version(self):
-        return (2,)
+        return (3,)
 
     def infer_shape(self, fgraph, node, shapes):
         (ishape,) = shapes
@@ -365,7 +357,10 @@ def max_and_argmax(a, axis=None, keepdims=False):
 
 class FixedOpCAReduce(CAReduce):
     def __str__(self):
-        return f"{type(self).__name__}{{{self._axis_str()}}}"
+        if self.dtype != self.acc_dtype:
+            return f"{type(self).__name__}{{{self._axis_str()}, acc={self.acc_dtype}}}"
+        else:
+            return f"{type(self).__name__}{{{self._axis_str()}}}"
 
 
 class NonZeroDimsCAReduce(FixedOpCAReduce):
@@ -407,7 +402,7 @@ class Max(NonZeroDimsCAReduce):
     nfunc_spec = ("max", 1, 1)
 
     def __init__(self, axis):
-        super().__init__(ps.scalar_maximum, axis)
+        super().__init__(ps.maximum, axis)
 
     def clone(self, **kwargs):
         axis = kwargs.get("axis", self.axis)
@@ -465,7 +460,7 @@ class Min(NonZeroDimsCAReduce):
     nfunc_spec = ("min", 1, 1)
 
     def __init__(self, axis):
-        super().__init__(ps.scalar_minimum, axis)
+        super().__init__(ps.minimum, axis)
 
     def clone(self, **kwargs):
         axis = kwargs.get("axis", self.axis)
@@ -2763,7 +2758,7 @@ def median(x: TensorLike, axis=None) -> TensorVariable:
     return ifelse(even_k, even_median, odd_median, name="median")
 
 
-@scalar_elemwise(symbolname="scalar_maximum")
+@scalar_elemwise
 def maximum(x, y):
     """elemwise maximum. See max for the maximum in one tensor
 
@@ -2799,7 +2794,7 @@ def maximum(x, y):
     # see decorator for function body
 
 
-@scalar_elemwise(symbolname="scalar_minimum")
+@scalar_elemwise
 def minimum(x, y):
     """elemwise minimum. See min for the minimum in one tensor
 
@@ -4170,154 +4165,154 @@ equal = eq
 not_equal = neq
 
 __all__ = [
-    "max_and_argmax",
-    "max",
-    "matmul",
-    "vecdot",
-    "matvec",
-    "vecmat",
-    "argmax",
-    "min",
-    "argmin",
-    "smallest",
-    "largest",
-    "lt",
-    "less",
-    "gt",
-    "greater",
-    "le",
-    "less_equal",
-    "ge",
-    "greater_equal",
-    "eq",
-    "equal",
-    "neq",
-    "not_equal",
-    "isnan",
-    "isinf",
-    "isposinf",
-    "isneginf",
-    "allclose",
-    "isclose",
-    "and_",
-    "bitwise_and",
-    "or_",
-    "bitwise_or",
-    "xor",
-    "bitwise_xor",
-    "invert",
-    "bitwise_not",
     "abs",
-    "exp",
-    "exp2",
-    "expm1",
-    "neg",
-    "reciprocal",
-    "log",
-    "log2",
-    "log10",
-    "log1p",
-    "sgn",
-    "sign",
-    "ceil",
-    "floor",
-    "trunc",
-    "iround",
-    "round",
-    "round_half_to_even",
-    "round_half_away_from_zero",
-    "sqr",
-    "square",
-    "cov",
-    "sqrt",
-    "deg2rad",
-    "rad2deg",
-    "cos",
+    "add",
+    "all",
+    "allclose",
+    "and_",
+    "angle",
+    "any",
     "arccos",
-    "sin",
+    "arccosh",
     "arcsin",
-    "tan",
+    "arcsinh",
     "arctan",
     "arctan2",
-    "cosh",
-    "arccosh",
-    "sinh",
-    "arcsinh",
-    "tanh",
     "arctanh",
+    "argmax",
+    "argmin",
+    "betainc",
+    "betaincinv",
+    "bitwise_and",
+    "bitwise_not",
+    "bitwise_or",
+    "bitwise_xor",
+    "ceil",
+    "ceil_intdiv",
+    "chi2sf",
+    "clip",
+    "complex",
+    "complex_from_polar",
+    "conj",
+    "conjugate",
+    "cos",
+    "cosh",
+    "cov",
+    "deg2rad",
+    "dense_dot",
+    "digamma",
+    "divmod",
+    "dot",
+    "eq",
+    "equal",
     "erf",
     "erfc",
+    "erfcinv",
     "erfcx",
     "erfinv",
-    "erfcinv",
-    "owens_t",
+    "exp",
+    "exp2",
+    "expit",
+    "expm1",
+    "floor",
+    "floor_div",
     "gamma",
-    "gammaln",
-    "psi",
-    "digamma",
-    "tri_gamma",
-    "polygamma",
-    "chi2sf",
     "gammainc",
     "gammaincc",
-    "gammau",
-    "gammal",
-    "gammaincinv",
     "gammainccinv",
+    "gammaincinv",
+    "gammal",
+    "gammaln",
+    "gammau",
+    "ge",
+    "greater",
+    "greater_equal",
+    "gt",
+    "hyp2f1",
+    "i0",
+    "i1",
+    "imag",
+    "int_div",
+    "invert",
+    "iround",
+    "isclose",
+    "isinf",
+    "isnan",
+    "isneginf",
+    "isposinf",
+    "iv",
+    "ive",
     "j0",
     "j1",
     "jv",
-    "i0",
-    "i1",
-    "iv",
-    "ive",
     "kn",
     "kv",
     "kve",
-    "sigmoid",
-    "expit",
-    "softplus",
-    "log1pexp",
+    "largest",
+    "le",
+    "less",
+    "less_equal",
+    "log",
     "log1mexp",
-    "betainc",
-    "betaincinv",
-    "real",
-    "imag",
-    "angle",
-    "complex",
-    "conj",
-    "conjugate",
-    "complex_from_polar",
-    "sum",
-    "prod",
-    "mean",
-    "median",
-    "var",
-    "std",
-    "std",
-    "maximum",
-    "minimum",
-    "divmod",
-    "add",
-    "sub",
-    "mul",
-    "true_div",
-    "int_div",
-    "floor_div",
-    "ceil_intdiv",
-    "mod",
-    "pow",
-    "clip",
-    "dot",
-    "dense_dot",
-    "tensordot",
-    "outer",
-    "any",
-    "all",
-    "ptp",
-    "power",
+    "log1p",
+    "log1pexp",
+    "log2",
+    "log10",
     "logaddexp",
     "logsumexp",
-    "hyp2f1",
+    "lt",
+    "matmul",
+    "matvec",
+    "max",
+    "max_and_argmax",
+    "maximum",
+    "mean",
+    "median",
+    "min",
+    "minimum",
+    "mod",
+    "mul",
     "nan_to_num",
+    "neg",
+    "neq",
+    "not_equal",
+    "or_",
+    "outer",
+    "owens_t",
+    "polygamma",
+    "pow",
+    "power",
+    "prod",
+    "psi",
+    "ptp",
+    "rad2deg",
+    "real",
+    "reciprocal",
+    "round",
+    "round_half_away_from_zero",
+    "round_half_to_even",
+    "sgn",
+    "sigmoid",
+    "sign",
+    "sin",
+    "sinh",
+    "smallest",
+    "softplus",
+    "sqr",
+    "sqrt",
+    "square",
+    "std",
+    "std",
+    "sub",
+    "sum",
+    "tan",
+    "tanh",
+    "tensordot",
+    "tri_gamma",
+    "true_div",
+    "trunc",
+    "var",
+    "vecdot",
+    "vecmat",
+    "xor",
 ]

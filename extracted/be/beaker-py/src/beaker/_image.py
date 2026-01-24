@@ -42,6 +42,7 @@ class ImageClient(ServiceClient):
         *,
         workspace: pb2.Workspace | None = None,
         description: str | None = None,
+        budget: str | None = None,
         commit: bool = True,
     ) -> pb2.Image:
         """
@@ -51,7 +52,7 @@ class ImageClient(ServiceClient):
         :param image_tag: The tag of the local image you're uploading.
         :param workspace: The workspace to upload the image to. If not specified, your default workspace is used.
         :param description: Text description of the image.
-        :param quiet: If ``True``, progress won't be displayed.
+        :param budget: Budget to associate with the image. If not specified, uses workspace default if available.
         :param commit: Whether to commit the image after successful upload.
         """
         import docker
@@ -76,6 +77,7 @@ class ImageClient(ServiceClient):
                     "imageId": image.id,
                     "imageTag": image_tag,
                     "description": description,
+                    "budget": self.resolve_budget_id(budget) if budget else None,
                 },
                 query={"name": name},
                 exceptions_for_status={409: BeakerImageConflict(name)},

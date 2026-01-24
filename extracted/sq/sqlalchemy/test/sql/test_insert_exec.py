@@ -53,7 +53,7 @@ class ExpectExpr:
 
 
 class InsertExecTest(fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -479,7 +479,7 @@ class TableInsertTest(fixtures.TablesTest):
     """
 
     run_create_tables = "each"
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -743,7 +743,7 @@ class TableInsertTest(fixtures.TablesTest):
 
 
 class InsertManyValuesTest(fixtures.RemovesEvents, fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
     __requires__ = ("insertmanyvalues",)
 
     @classmethod
@@ -926,7 +926,7 @@ class InsertManyValuesTest(fixtures.RemovesEvents, fixtures.TablesTest):
 
     @testing.requires.provisioned_upsert
     def test_upsert_w_returning(self, connection):
-        """test cases that will execise SQL similar to that of
+        """test cases that will exercise SQL similar to that of
         test/orm/dml/test_bulk_statements.py
 
         """
@@ -1102,7 +1102,7 @@ class InsertManyValuesTest(fixtures.RemovesEvents, fixtures.TablesTest):
         multiple parameter sets, i.e. "INSERT INTO table (anycol) VALUES
         (DEFAULT) (DEFAULT) (DEFAULT) ... RETURNING col"
 
-        if the database doesnt support this (like SQLite, mssql), it
+        if the database doesn't support this (like SQLite, mssql), it
         actually runs the statement that many times on the cursor.
         This is much less efficient, but is still more efficient than
         how it worked previously where we'd run the statement that many
@@ -1201,9 +1201,7 @@ class InsertManyValuesTest(fixtures.RemovesEvents, fixtures.TablesTest):
 
     def test_disabled(self, testing_engine):
         e = testing_engine(
-            options={"use_insertmanyvalues": False},
-            share_pool=True,
-            transfer_staticpool=True,
+            options={"use_insertmanyvalues": False, "sqlite_share_pool": True},
         )
         totalnum = 1275
         data = [{"x": "x%d" % i, "y": "y%d" % i} for i in range(1, totalnum)]
@@ -1221,7 +1219,7 @@ class InsertManyValuesTest(fixtures.RemovesEvents, fixtures.TablesTest):
 
 
 class IMVSentinelTest(fixtures.TestBase):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     __requires__ = ("insert_returning",)
 

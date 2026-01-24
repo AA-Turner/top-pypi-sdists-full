@@ -1,0 +1,18 @@
+[package]
+name = "notify-rs"
+version = "0.6.1"
+edition = "2024"
+description = "Wrapper around notify-rust to show desktop notifications."
+license = "MIT"
+homepage = "https://github.com/domdfcoding/notify-rs"
+repository = "https://github.com/domdfcoding/notify-rs"
+# TODO: documentation
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "notify_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.27.2", features = ["extension-module", "experimental-inspect", ] }
+notify-rust = "4"

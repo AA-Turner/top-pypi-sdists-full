@@ -35,23 +35,23 @@ jobs:
       matrix:
         include:
         - os: ubuntu-latest
-          pybuilds: cp3{9,10,11,12,13}-manylinux_x86_64
+          pybuilds: cp3{10,11,12,13,14}-manylinux_x86_64
           arch: x86_64
           id: linux
-        - os: ubuntu-latest
-          pybuilds: cp3{9,10,11,12,13}-manylinux_aarch64
+        - os: ubuntu-24.04-arm
+          pybuilds: cp3{10,11,12,13,14}-manylinux_aarch64
           arch: aarch64
           id: linux_arm64
         - os: macos-latest
-          pybuilds: cp3{9,10,11,12,13}-macosx_x86_64
+          pybuilds: cp3{10,11,12,13,14}-macosx_x86_64
           arch: x86_64
           id: macos_x86
         - os: macos-latest
-          pybuilds: cp3{9,10,11,12,13}-macosx_arm64
+          pybuilds: cp3{10,11,12,13,14}-macosx_arm64
           arch: arm64
           id: macos_arm64
         - os: windows-latest
-          pybuilds: cp3{9,10,11,12,13}-win_amd64
+          pybuilds: cp3{10,11,12,13,14}-win_amd64
           arch: x86_64
           id: windows
 
@@ -61,13 +61,6 @@ jobs:
           fetch-depth: 0  # Optional, use if you use setuptools_scm
           submodules: true  # Optional, use if you have submodules
         name: Check out repo
-
-
-      - name: Set up QEMU
-        if: matrix.id == 'linux_arm64'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
 
       - id: set-filename
         name: Set compressed Rust lib filename to retrieve based on OS
@@ -86,7 +79,7 @@ jobs:
         shell: bash
 
       - id: get-rust-lib
-        uses: robinraju/release-downloader@v1.11
+        uses: robinraju/release-downloader@v1
         name: Download latest Rust lib release
         with:
           token: ${{ secrets.POLYLINE_RETRIEVAL }}
@@ -102,15 +95,21 @@ jobs:
                git status
         shell: bash
 
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
       - name: Build and Test Wheels
-        uses: pypa/cibuildwheel@v2.21.2
+        uses: pypa/cibuildwheel@v3.2.1
         env:
+          CIBW_BUILD_FRONTEND: build[uv]
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: 'pytest {package}'
           CIBW_BUILD: ${{ matrix.pybuilds }}
           CIBW_ARCHS_MACOS: ${{ matrix.arch }}
-          CIBW_ARCHS_LINUX: "auto aarch64"
-          CIBW_TEST_SKIP: "*:arm64"
+          CIBW_ARCHS_LINUX: ${{ matrix.arch }}
+          CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=10.12
 
       - id: attest
         name: Attest Build Provenance
@@ -188,7 +187,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: PyPI Publish
-      uses: pypa/gh-action-pypi-publish@v1.10.3
+      uses: pypa/gh-action-pypi-publish@v1.13.0
       with:
         packages-dir: ${{ steps.download.outputs.download-path }}
 

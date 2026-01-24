@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "IncludeCPP"
+version = "4.8.4"
+description = "Professional C++ Python bindings with type-generic templates, pystubs and native threading"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Lilias Hatterscheidt", email = "hatterscheidt.lilias@gmail.com"}
+]
+keywords = ["c++", "python", "bindings", "pybind11", "template", "performance", "threading"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: C++",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pybind11>=2.11.0",
+    "click>=8.0.0",
+    "typing-extensions>=4.0.0",
+    "requests>=2.28.0",
+    "colorama>=0.4.0",
+]
+
+[project.urls]
+Repository = "https://github.com/liliassg/IncludeCPP"
+"Bug Tracker" = "https://github.com/liliassg/IncludeCPP/issues"
+
+[project.scripts]
+includecpp = "includecpp.cli.commands:cli"
+
+[tool.setuptools]
+packages = ["includecpp", "includecpp.cli", "includecpp.core", "includecpp.core.cssl", "includecpp.generator", "includecpp.vscode", "includecpp.vscode.cssl"]
+package-dir = {"" = "."}
+include-package-data = true
+
+[tool.setuptools.package-data]
+includecpp = [
+    "templates/*",
+    "generator/*.cpp",
+    "generator/*.h",
+    "inbuilds/*/*.h",
+    "inbuilds/*/*.cpp",
+    "inbuilds/*/*.cp",
+    "py.typed",
+    "*.pyi",
+    "*.md",
+    "core/*.pyi",
+    "core/*.py",
+    "core/cssl/*.py",
+    "core/cssl/*.pyi",
+    "core/cssl/*.md",
+    "core/cssl/cpp/*.cpp",
+    "core/cssl/cpp/*.hpp",
+    "core/cssl/cpp/*.cp",
+    "core/cssl/cpp/build/*.pyd",
+    "core/cssl/cpp/build/*.so",
+    "core/cssl/cpp/build/*.dll",
+    "core/cssl/cpp/build/*.pyi",
+    "core/cssl/bin/*.pyd",
+    "core/cssl/bin/*.so",
+    "core/cssl/bin/*.dll",
+    "cli/*.pyi",
+    "vscode/cssl/*.json",
+    "vscode/cssl/*.js",
+    "vscode/cssl/syntaxes/*.json",
+    "vscode/cssl/snippets/*.json",
+    "vscode/cssl/images/*.png"
+]

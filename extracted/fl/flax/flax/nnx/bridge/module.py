@@ -388,11 +388,10 @@ class Module(nnx_module.Module, ModuleBase, metaclass=ModuleMeta):
       if collection not in _variables:
         _variables[collection] = {}
 
-      if (
-        isinstance(variable, variablelib.Variable)
-        and not variable._var_metadata
-      ):
-        leaf = variable.value
+      if isinstance(
+        variable, variablelib.Variable
+      ) and bridge_variables.is_vanilla_variable(variable):
+        leaf = variable.get_value()
       else:
         leaf = bridge_variables.to_linen_var(variable)
 

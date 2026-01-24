@@ -4,12 +4,13 @@ and constant plus trend scenarios.
 """
 
 import os
-from typing import Optional, cast
+from typing import cast
 
 import numpy as np
 from numpy.random import RandomState
 import pandas as pd
 
+from arch._typing import Float64Array
 from arch.utility.timeseries import add_trend
 
 
@@ -17,7 +18,7 @@ def simulate_kpss(
     nobs: int,
     b: int,
     trend: str = "c",
-    rng: Optional[RandomState] = None,
+    rng: RandomState | None = None,
 ) -> float:
     """
     Simulated the KPSS test statistic for nobs observations,
@@ -30,12 +31,12 @@ def simulate_kpss(
     standard_normal = rng.standard_normal
 
     e = standard_normal((nobs, b))
-    z = np.ones((nobs, 1))
+    z: Float64Array = np.ones((nobs, 1))
     if trend == "ct":
         z = add_trend(z, trend="t")
     zinv = np.linalg.pinv(z)
     trend_coef = zinv.dot(e)
-    resid = e - cast(np.ndarray, z.dot(trend_coef))
+    resid = e - cast("np.ndarray", z.dot(trend_coef))
     s = np.cumsum(resid, axis=0)
     lam = (resid**2.0).mean(axis=0)
     kpss = 1 / (nobs**2.0) * (s**2.0).sum(axis=0) / lam

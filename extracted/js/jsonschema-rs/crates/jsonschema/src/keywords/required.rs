@@ -2,9 +2,9 @@ use crate::{
     compiler,
     error::{no_error, ErrorIterator, ValidationError},
     keywords::CompilationResult,
-    paths::{LazyLocation, Location},
+    paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
-    validator::Validate,
+    validator::{Validate, ValidationContext},
 };
 use serde_json::{Map, Value};
 
@@ -22,8 +22,9 @@ impl RequiredValidator {
                 Value::String(string) => required.push(string.clone()),
                 _ => {
                     return Err(ValidationError::single_type_error(
-                        Location::new(),
+                        location.clone(),
                         location,
+                        Location::new(),
                         item,
                         JsonType::String,
                     ))
@@ -35,8 +36,11 @@ impl RequiredValidator {
 }
 
 impl Validate for RequiredValidator {
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::Object(item) = instance {
+            if item.len() < self.required.len() {
+                return false;
+            }
             self.required
                 .iter()
                 .all(|property_name| item.contains_key(property_name))
@@ -49,15 +53,17 @@ impl Validate for RequiredValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        _ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Object(item) = instance {
             for property_name in &self.required {
                 if !item.contains_key(property_name) {
                     return Err(ValidationError::required(
                         self.location.clone(),
+                        crate::paths::capture_evaluation_path(tracker, &self.location),
                         location.into(),
                         instance,
-                        // Value enum is needed for proper string escaping
                         Value::String(property_name.clone()),
                     ));
                 }
@@ -65,22 +71,29 @@ impl Validate for RequiredValidator {
         }
         Ok(())
     }
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
+    fn iter_errors<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        _ctx: &mut ValidationContext,
+    ) -> ErrorIterator<'i> {
         if let Value::Object(item) = instance {
             let mut errors = vec![];
+            let eval_path = crate::paths::capture_evaluation_path(tracker, &self.location);
             for property_name in &self.required {
                 if !item.contains_key(property_name) {
                     errors.push(ValidationError::required(
                         self.location.clone(),
+                        eval_path.clone(),
                         location.into(),
                         instance,
-                        // Value enum is needed for proper string escaping
                         Value::String(property_name.clone()),
                     ));
                 }
             }
             if !errors.is_empty() {
-                return Box::new(errors.into_iter());
+                return ErrorIterator::from_iterator(errors.into_iter());
             }
         }
         no_error()
@@ -107,21 +120,26 @@ impl Validate for SingleItemRequiredValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if !self.is_valid(instance) {
+        if !self.is_valid(instance, ctx) {
             return Err(ValidationError::required(
                 self.location.clone(),
+                crate::paths::capture_evaluation_path(tracker, &self.location),
                 location.into(),
                 instance,
-                // Value enum is needed for proper string escaping
                 Value::String(self.value.clone()),
             ));
         }
         Ok(())
     }
 
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::Object(item) = instance {
+            if item.is_empty() {
+                return false;
+            }
             item.contains_key(&self.value)
         } else {
             true
@@ -153,8 +171,9 @@ pub(crate) fn compile_with_path(
                     Some(SingleItemRequiredValidator::compile(item, location))
                 } else {
                     Some(Err(ValidationError::single_type_error(
-                        Location::new(),
+                        location.clone(),
                         location,
+                        Location::new(),
                         item,
                         JsonType::String,
                     )))
@@ -164,8 +183,9 @@ pub(crate) fn compile_with_path(
             }
         }
         _ => Some(Err(ValidationError::single_type_error(
-            Location::new(),
+            location.clone(),
             location,
+            Location::new(),
             schema,
             JsonType::Array,
         ))),

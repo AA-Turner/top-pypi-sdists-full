@@ -1,7 +1,7 @@
 r'''
 # `github_repository_file`
 
-Refer to the Terraform Registry for docs: [`github_repository_file`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file).
+Refer to the Terraform Registry for docs: [`github_repository_file`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryFile(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryFile.RepositoryFile",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file github_repository_file}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file github_repository_file}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class RepositoryFile(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file github_repository_file} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file github_repository_file} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param content: The file's content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#content RepositoryFile#content}
-        :param file: The file path to manage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#file RepositoryFile#file}
-        :param repository: The repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#repository RepositoryFile#repository}
-        :param autocreate_branch: Automatically create the branch if it could not be found. Subsequent reads if the branch is deleted will occur from 'autocreate_branch_source_branch' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#autocreate_branch RepositoryFile#autocreate_branch}
-        :param autocreate_branch_source_branch: The branch name to start from, if 'autocreate_branch' is set. Defaults to 'main'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#autocreate_branch_source_branch RepositoryFile#autocreate_branch_source_branch}
-        :param autocreate_branch_source_sha: The commit hash to start from, if 'autocreate_branch' is set. Defaults to the tip of 'autocreate_branch_source_branch'. If provided, 'autocreate_branch_source_branch' is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#autocreate_branch_source_sha RepositoryFile#autocreate_branch_source_sha}
-        :param branch: The branch name, defaults to the repository's default branch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#branch RepositoryFile#branch}
-        :param commit_author: The commit author name, defaults to the authenticated user's name. GitHub app users may omit author and email information so GitHub can verify commits as the GitHub App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#commit_author RepositoryFile#commit_author}
-        :param commit_email: The commit author email address, defaults to the authenticated user's email address. GitHub app users may omit author and email information so GitHub can verify commits as the GitHub App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#commit_email RepositoryFile#commit_email}
-        :param commit_message: The commit message when creating, updating or deleting the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#commit_message RepositoryFile#commit_message}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#id RepositoryFile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param overwrite_on_create: Enable overwriting existing files, defaults to "false". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#overwrite_on_create RepositoryFile#overwrite_on_create}
+        :param content: The file's content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#content RepositoryFile#content}
+        :param file: The file path to manage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#file RepositoryFile#file}
+        :param repository: The repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#repository RepositoryFile#repository}
+        :param autocreate_branch: Automatically create the branch if it could not be found. Subsequent reads if the branch is deleted will occur from 'autocreate_branch_source_branch' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#autocreate_branch RepositoryFile#autocreate_branch}
+        :param autocreate_branch_source_branch: The branch name to start from, if 'autocreate_branch' is set. Defaults to 'main'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#autocreate_branch_source_branch RepositoryFile#autocreate_branch_source_branch}
+        :param autocreate_branch_source_sha: The commit hash to start from, if 'autocreate_branch' is set. Defaults to the tip of 'autocreate_branch_source_branch'. If provided, 'autocreate_branch_source_branch' is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#autocreate_branch_source_sha RepositoryFile#autocreate_branch_source_sha}
+        :param branch: The branch name, defaults to the repository's default branch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#branch RepositoryFile#branch}
+        :param commit_author: The commit author name, defaults to the authenticated user's name. GitHub app users may omit author and email information so GitHub can verify commits as the GitHub App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#commit_author RepositoryFile#commit_author}
+        :param commit_email: The commit author email address, defaults to the authenticated user's email address. GitHub app users may omit author and email information so GitHub can verify commits as the GitHub App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#commit_email RepositoryFile#commit_email}
+        :param commit_message: The commit message when creating, updating or deleting the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#commit_message RepositoryFile#commit_message}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#id RepositoryFile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param overwrite_on_create: Enable overwriting existing files, defaults to "false". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#overwrite_on_create RepositoryFile#overwrite_on_create}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class RepositoryFile(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryFile to import.
-        :param import_from_id: The id of the existing RepositoryFile that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryFile that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryFile to import is found.
         '''
         if __debug__:
@@ -487,18 +487,18 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param content: The file's content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#content RepositoryFile#content}
-        :param file: The file path to manage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#file RepositoryFile#file}
-        :param repository: The repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#repository RepositoryFile#repository}
-        :param autocreate_branch: Automatically create the branch if it could not be found. Subsequent reads if the branch is deleted will occur from 'autocreate_branch_source_branch' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#autocreate_branch RepositoryFile#autocreate_branch}
-        :param autocreate_branch_source_branch: The branch name to start from, if 'autocreate_branch' is set. Defaults to 'main'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#autocreate_branch_source_branch RepositoryFile#autocreate_branch_source_branch}
-        :param autocreate_branch_source_sha: The commit hash to start from, if 'autocreate_branch' is set. Defaults to the tip of 'autocreate_branch_source_branch'. If provided, 'autocreate_branch_source_branch' is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#autocreate_branch_source_sha RepositoryFile#autocreate_branch_source_sha}
-        :param branch: The branch name, defaults to the repository's default branch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#branch RepositoryFile#branch}
-        :param commit_author: The commit author name, defaults to the authenticated user's name. GitHub app users may omit author and email information so GitHub can verify commits as the GitHub App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#commit_author RepositoryFile#commit_author}
-        :param commit_email: The commit author email address, defaults to the authenticated user's email address. GitHub app users may omit author and email information so GitHub can verify commits as the GitHub App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#commit_email RepositoryFile#commit_email}
-        :param commit_message: The commit message when creating, updating or deleting the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#commit_message RepositoryFile#commit_message}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#id RepositoryFile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param overwrite_on_create: Enable overwriting existing files, defaults to "false". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#overwrite_on_create RepositoryFile#overwrite_on_create}
+        :param content: The file's content. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#content RepositoryFile#content}
+        :param file: The file path to manage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#file RepositoryFile#file}
+        :param repository: The repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#repository RepositoryFile#repository}
+        :param autocreate_branch: Automatically create the branch if it could not be found. Subsequent reads if the branch is deleted will occur from 'autocreate_branch_source_branch' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#autocreate_branch RepositoryFile#autocreate_branch}
+        :param autocreate_branch_source_branch: The branch name to start from, if 'autocreate_branch' is set. Defaults to 'main'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#autocreate_branch_source_branch RepositoryFile#autocreate_branch_source_branch}
+        :param autocreate_branch_source_sha: The commit hash to start from, if 'autocreate_branch' is set. Defaults to the tip of 'autocreate_branch_source_branch'. If provided, 'autocreate_branch_source_branch' is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#autocreate_branch_source_sha RepositoryFile#autocreate_branch_source_sha}
+        :param branch: The branch name, defaults to the repository's default branch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#branch RepositoryFile#branch}
+        :param commit_author: The commit author name, defaults to the authenticated user's name. GitHub app users may omit author and email information so GitHub can verify commits as the GitHub App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#commit_author RepositoryFile#commit_author}
+        :param commit_email: The commit author email address, defaults to the authenticated user's email address. GitHub app users may omit author and email information so GitHub can verify commits as the GitHub App. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#commit_email RepositoryFile#commit_email}
+        :param commit_message: The commit message when creating, updating or deleting the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#commit_message RepositoryFile#commit_message}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#id RepositoryFile#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param overwrite_on_create: Enable overwriting existing files, defaults to "false". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#overwrite_on_create RepositoryFile#overwrite_on_create}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -629,7 +629,7 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def content(self) -> builtins.str:
         '''The file's content.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#content RepositoryFile#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#content RepositoryFile#content}
         '''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
@@ -639,7 +639,7 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def file(self) -> builtins.str:
         '''The file path to manage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#file RepositoryFile#file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#file RepositoryFile#file}
         '''
         result = self._values.get("file")
         assert result is not None, "Required property 'file' is missing"
@@ -649,7 +649,7 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''The repository name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#repository RepositoryFile#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#repository RepositoryFile#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -663,7 +663,7 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Subsequent reads if the branch is deleted will occur from 'autocreate_branch_source_branch'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#autocreate_branch RepositoryFile#autocreate_branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#autocreate_branch RepositoryFile#autocreate_branch}
         '''
         result = self._values.get("autocreate_branch")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -672,7 +672,7 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def autocreate_branch_source_branch(self) -> typing.Optional[builtins.str]:
         '''The branch name to start from, if 'autocreate_branch' is set. Defaults to 'main'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#autocreate_branch_source_branch RepositoryFile#autocreate_branch_source_branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#autocreate_branch_source_branch RepositoryFile#autocreate_branch_source_branch}
         '''
         result = self._values.get("autocreate_branch_source_branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -683,7 +683,7 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Defaults to the tip of 'autocreate_branch_source_branch'. If provided, 'autocreate_branch_source_branch' is ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#autocreate_branch_source_sha RepositoryFile#autocreate_branch_source_sha}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#autocreate_branch_source_sha RepositoryFile#autocreate_branch_source_sha}
         '''
         result = self._values.get("autocreate_branch_source_sha")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -692,7 +692,7 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def branch(self) -> typing.Optional[builtins.str]:
         '''The branch name, defaults to the repository's default branch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#branch RepositoryFile#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#branch RepositoryFile#branch}
         '''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -703,7 +703,7 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         GitHub app users may omit author and email information so GitHub can verify commits as the GitHub App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#commit_author RepositoryFile#commit_author}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#commit_author RepositoryFile#commit_author}
         '''
         result = self._values.get("commit_author")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -714,7 +714,7 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         GitHub app users may omit author and email information so GitHub can verify commits as the GitHub App.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#commit_email RepositoryFile#commit_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#commit_email RepositoryFile#commit_email}
         '''
         result = self._values.get("commit_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -723,14 +723,14 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def commit_message(self) -> typing.Optional[builtins.str]:
         '''The commit message when creating, updating or deleting the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#commit_message RepositoryFile#commit_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#commit_message RepositoryFile#commit_message}
         '''
         result = self._values.get("commit_message")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#id RepositoryFile#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#id RepositoryFile#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -744,7 +744,7 @@ class RepositoryFileConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable overwriting existing files, defaults to "false".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_file#overwrite_on_create RepositoryFile#overwrite_on_create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_file#overwrite_on_create RepositoryFile#overwrite_on_create}
         '''
         result = self._values.get("overwrite_on_create")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

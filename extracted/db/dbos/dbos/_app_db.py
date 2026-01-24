@@ -8,8 +8,8 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
 
 from dbos._migration import get_sqlite_timestamp_expr
+from dbos._serialization import Serializer
 
-from . import _serialization
 from ._error import DBOSUnexpectedStepError, DBOSWorkflowConflictIDError
 from ._logger import dbos_logger
 from ._schemas.application_database import ApplicationSchema
@@ -34,17 +34,58 @@ class RecordedResult(TypedDict):
 
 class ApplicationDatabase(ABC):
 
+    @staticmethod
+    def create(
+        database_url: str,
+        engine_kwargs: Dict[str, Any],
+        schema: Optional[str],
+        serializer: Serializer,
+    ) -> "ApplicationDatabase":
+        """Factory method to create the appropriate ApplicationDatabase implementation based on URL."""
+        if database_url.startswith("sqlite"):
+            return SQLiteApplicationDatabase(
+                database_url=database_url,
+                engine_kwargs=engine_kwargs,
+                schema=schema,
+                serializer=serializer,
+            )
+        else:
+            # Default to PostgreSQL for postgresql://, postgres://, or other URLs
+            return PostgresApplicationDatabase(
+                database_url=database_url,
+                engine_kwargs=engine_kwargs,
+                schema=schema,
+                serializer=serializer,
+            )
+
     def __init__(
         self,
         *,
         database_url: str,
         engine_kwargs: Dict[str, Any],
-        debug_mode: bool = False,
+        serializer: Serializer,
+        schema: Optional[str],
     ):
+        # Log application database connection information
+        printable_url = sa.make_url(database_url).render_as_string(hide_password=True)
+        dbos_logger.info(
+            f"Initializing DBOS application database with URL: {printable_url}"
+        )
+        if not database_url.startswith("sqlite"):
+            dbos_logger.info(
+                f"DBOS application database engine parameters: {engine_kwargs}"
+            )
+
+        # Configure and initialize the application database
+        if database_url.startswith("sqlite"):
+            self.schema = None
+        else:
+            self.schema = schema if schema else "dbos"
+        ApplicationSchema.transaction_outputs.schema = schema
         self.engine = self._create_engine(database_url, engine_kwargs)
         self._engine_kwargs = engine_kwargs
         self.sessionmaker = sessionmaker(bind=self.engine)
-        self.debug_mode = debug_mode
+        self.serializer = serializer
 
     @abstractmethod
     def _create_engine(
@@ -85,8 +126,6 @@ class ApplicationDatabase(ABC):
             raise
 
     def record_transaction_error(self, output: TransactionResultInternal) -> None:
-        if self.debug_mode:
-            raise Exception("called record_transaction_error in debug mode")
         try:
             with self.engine.begin() as conn:
                 conn.execute(
@@ -138,77 +177,6 @@ class ApplicationDatabase(ABC):
         }
         return result
 
-    def get_transactions(self, workflow_uuid: str) -> List[StepInfo]:
-        with self.engine.begin() as conn:
-            rows = conn.execute(
-                sa.select(
-                    ApplicationSchema.transaction_outputs.c.function_id,
-                    ApplicationSchema.transaction_outputs.c.function_name,
-                    ApplicationSchema.transaction_outputs.c.output,
-                    ApplicationSchema.transaction_outputs.c.error,
-                ).where(
-                    ApplicationSchema.transaction_outputs.c.workflow_uuid
-                    == workflow_uuid,
-                )
-            ).all()
-        return [
-            StepInfo(
-                function_id=row[0],
-                function_name=row[1],
-                output=(
-                    _serialization.deserialize(row[2]) if row[2] is not None else row[2]
-                ),
-                error=(
-                    _serialization.deserialize_exception(row[3])
-                    if row[3] is not None
-                    else row[3]
-                ),
-                child_workflow_id=None,
-            )
-            for row in rows
-        ]
-
-    def clone_workflow_transactions(
-        self, src_workflow_id: str, forked_workflow_id: str, start_step: int
-    ) -> None:
-        """
-        Copies all steps from dbos.transctions_outputs where function_id < input function_id
-        into a new workflow_uuid. Returns the new workflow_uuid.
-        """
-
-        with self.engine.begin() as conn:
-
-            insert_stmt = sa.insert(ApplicationSchema.transaction_outputs).from_select(
-                [
-                    "workflow_uuid",
-                    "function_id",
-                    "output",
-                    "error",
-                    "txn_id",
-                    "txn_snapshot",
-                    "executor_id",
-                    "function_name",
-                ],
-                sa.select(
-                    sa.literal(forked_workflow_id).label("workflow_uuid"),
-                    ApplicationSchema.transaction_outputs.c.function_id,
-                    ApplicationSchema.transaction_outputs.c.output,
-                    ApplicationSchema.transaction_outputs.c.error,
-                    ApplicationSchema.transaction_outputs.c.txn_id,
-                    ApplicationSchema.transaction_outputs.c.txn_snapshot,
-                    ApplicationSchema.transaction_outputs.c.executor_id,
-                    ApplicationSchema.transaction_outputs.c.function_name,
-                ).where(
-                    (
-                        ApplicationSchema.transaction_outputs.c.workflow_uuid
-                        == src_workflow_id
-                    )
-                    & (ApplicationSchema.transaction_outputs.c.function_id < start_step)
-                ),
-            )
-
-            conn.execute(insert_stmt)
-
     def garbage_collect(
         self, cutoff_epoch_timestamp_ms: int, pending_workflow_ids: list[str]
     ) -> None:
@@ -227,6 +195,17 @@ class ApplicationDatabase(ABC):
 
             c.execute(delete_query)
 
+    def delete_transaction_outputs(self, workflow_ids: list[str]) -> None:
+        """Delete transaction outputs for the specified workflows."""
+        with self.engine.begin() as c:
+            c.execute(
+                sa.delete(ApplicationSchema.transaction_outputs).where(
+                    ApplicationSchema.transaction_outputs.c.workflow_uuid.in_(
+                        workflow_ids
+                    )
+                )
+            )
+
     @abstractmethod
     def _is_unique_constraint_violation(self, dbapi_error: DBAPIError) -> bool:
         """Check if the error is a unique constraint violation."""
@@ -236,27 +215,6 @@ class ApplicationDatabase(ABC):
     def _is_serialization_error(self, dbapi_error: DBAPIError) -> bool:
         """Check if the error is a serialization/concurrency error."""
         pass
-
-    @staticmethod
-    def create(
-        database_url: str,
-        engine_kwargs: Dict[str, Any],
-        debug_mode: bool = False,
-    ) -> "ApplicationDatabase":
-        """Factory method to create the appropriate ApplicationDatabase implementation based on URL."""
-        if database_url.startswith("sqlite"):
-            return SQLiteApplicationDatabase(
-                database_url=database_url,
-                engine_kwargs=engine_kwargs,
-                debug_mode=debug_mode,
-            )
-        else:
-            # Default to PostgreSQL for postgresql://, postgres://, or other URLs
-            return PostgresApplicationDatabase(
-                database_url=database_url,
-                engine_kwargs=engine_kwargs,
-                debug_mode=debug_mode,
-            )
 
 
 class PostgresApplicationDatabase(ApplicationDatabase):
@@ -271,34 +229,32 @@ class PostgresApplicationDatabase(ApplicationDatabase):
         if engine_kwargs is None:
             engine_kwargs = {}
 
-        # TODO: Make the schema dynamic so this isn't needed
-        ApplicationSchema.transaction_outputs.schema = "dbos"
-
         return sa.create_engine(
             app_db_url,
             **engine_kwargs,
         )
 
     def run_migrations(self) -> None:
-        if self.debug_mode:
-            dbos_logger.warning(
-                "Application database migrations are skipped in debug mode."
-            )
-            return
         # Check if the database exists
         app_db_url = self.engine.url
-        postgres_db_engine = sa.create_engine(
-            app_db_url.set(database="postgres"),
-            **self._engine_kwargs,
-        )
-        with postgres_db_engine.connect() as conn:
-            conn.execution_options(isolation_level="AUTOCOMMIT")
-            if not conn.execute(
-                sa.text("SELECT 1 FROM pg_database WHERE datname=:db_name"),
-                parameters={"db_name": app_db_url.database},
-            ).scalar():
-                conn.execute(sa.text(f"CREATE DATABASE {app_db_url.database}"))
-        postgres_db_engine.dispose()
+        try:
+            postgres_db_engine = sa.create_engine(
+                app_db_url.set(database="postgres"),
+                **self._engine_kwargs,
+            )
+            with postgres_db_engine.connect() as conn:
+                conn.execution_options(isolation_level="AUTOCOMMIT")
+                if not conn.execute(
+                    sa.text("SELECT 1 FROM pg_database WHERE datname=:db_name"),
+                    parameters={"db_name": app_db_url.database},
+                ).scalar():
+                    conn.execute(sa.text(f"CREATE DATABASE {app_db_url.database}"))
+        except Exception:
+            dbos_logger.warning(
+                f"Could not connect to postgres database to verify existence of {app_db_url.database}. Continuing..."
+            )
+        finally:
+            postgres_db_engine.dispose()
 
         # Create the dbos schema and transaction_outputs table in the application database
         with self.engine.begin() as conn:
@@ -307,24 +263,18 @@ class PostgresApplicationDatabase(ApplicationDatabase):
                 sa.text(
                     "SELECT 1 FROM information_schema.schemata WHERE schema_name = :schema_name"
                 ),
-                parameters={"schema_name": ApplicationSchema.schema},
+                parameters={"schema_name": self.schema},
             ).scalar()
 
             if not schema_exists:
-                schema_creation_query = sa.text(
-                    f"CREATE SCHEMA {ApplicationSchema.schema}"
-                )
+                schema_creation_query = sa.text(f'CREATE SCHEMA "{self.schema}"')
                 conn.execute(schema_creation_query)
 
         inspector = inspect(self.engine)
-        if not inspector.has_table(
-            "transaction_outputs", schema=ApplicationSchema.schema
-        ):
+        if not inspector.has_table("transaction_outputs", schema=self.schema):
             ApplicationSchema.metadata_obj.create_all(self.engine)
         else:
-            columns = inspector.get_columns(
-                "transaction_outputs", schema=ApplicationSchema.schema
-            )
+            columns = inspector.get_columns("transaction_outputs", schema=self.schema)
             column_names = [col["name"] for col in columns]
 
             if "function_name" not in column_names:
@@ -333,7 +283,7 @@ class PostgresApplicationDatabase(ApplicationDatabase):
                     conn.execute(
                         text(
                             f"""
-                        ALTER TABLE {ApplicationSchema.schema}.transaction_outputs
+                        ALTER TABLE \"{self.schema}\".transaction_outputs
                         ADD COLUMN function_name TEXT NOT NULL DEFAULT '';
                         """
                         )
@@ -365,15 +315,25 @@ class SQLiteApplicationDatabase(ApplicationDatabase):
         """Create a SQLite engine."""
         # TODO: Make the schema dynamic so this isn't needed
         ApplicationSchema.transaction_outputs.schema = None
-        return sa.create_engine(database_url)
+        sqlite_kwargs = engine_kwargs.copy()
+        connect_args = sqlite_kwargs.get("connect_args", {})
+        if connect_args:
+            filtered_keys = [
+                k for k in connect_args if k in ("application_name", "connect_timeout")
+            ]
+            if filtered_keys:
+                dbos_logger.debug(
+                    f"Ignoring PostgreSQL-specific connect_args for SQLite: {filtered_keys}"
+                )
+            sqlite_connect_args = {
+                k: v
+                for k, v in connect_args.items()
+                if k not in ("application_name", "connect_timeout")
+            }
+            sqlite_kwargs["connect_args"] = sqlite_connect_args
+        return sa.create_engine(database_url, **sqlite_kwargs)
 
     def run_migrations(self) -> None:
-        if self.debug_mode:
-            dbos_logger.warning(
-                "Application database migrations are skipped in debug mode."
-            )
-            return
-
         with self.engine.begin() as conn:
             # Check if table exists
             result = conn.execute(

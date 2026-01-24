@@ -100,7 +100,7 @@ class _ViewMixin(_SetItemMixin):
 
     # TODO: This makes `deepcopy(obj)` return `obj._view_args.parent._adata_ref`, fix it
     def __deepcopy__(self, memo):
-        parent, attrname, keys = self._view_args
+        parent, attrname, _keys = self._view_args
         return deepcopy(getattr(parent._adata_ref, attrname))
 
 
@@ -315,6 +315,7 @@ def as_view_df(df, view_args):
     if settings.remove_unused_categories:
         for col in df.columns:
             if isinstance(df[col].dtype, pd.CategoricalDtype):
+                # TODO: this mode is going away
                 with pd.option_context("mode.chained_assignment", None):
                     df[col] = df[col].cat.remove_unused_categories()
     return DataFrameView(df, view_args=view_args)

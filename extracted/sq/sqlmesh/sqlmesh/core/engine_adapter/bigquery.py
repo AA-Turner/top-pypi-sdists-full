@@ -8,8 +8,10 @@ from sqlglot import exp, parse_one
 from sqlglot.transforms import remove_precision_parameterized_types
 
 from sqlmesh.core.dialect import to_schema
+from sqlmesh.core.engine_adapter.base import _get_data_object_cache_key
 from sqlmesh.core.engine_adapter.mixins import (
     ClusteredByMixin,
+    GrantsFromInfoSchemaMixin,
     RowDiffMixin,
     TableAlterClusterByOperation,
 )
@@ -39,7 +41,7 @@ if t.TYPE_CHECKING:
     from google.cloud.bigquery.table import Table as BigQueryTable
 
     from sqlmesh.core._typing import SchemaName, SessionProperties, TableName
-    from sqlmesh.core.engine_adapter._typing import BigframeSession, DF, Query
+    from sqlmesh.core.engine_adapter._typing import BigframeSession, DCL, DF, GrantsConfig, Query
     from sqlmesh.core.engine_adapter.base import QueryOrDF
 
 
@@ -54,7 +56,7 @@ NestedFieldsDict = t.Dict[str, t.List[NestedField]]
 
 
 @set_catalog()
-class BigQueryEngineAdapter(ClusteredByMixin, RowDiffMixin):
+class BigQueryEngineAdapter(ClusteredByMixin, RowDiffMixin, GrantsFromInfoSchemaMixin):
     """
     BigQuery Engine Adapter using the `google-cloud-bigquery` library's DB API.
     """
@@ -64,6 +66,11 @@ class BigQueryEngineAdapter(ClusteredByMixin, RowDiffMixin):
     SUPPORTS_TRANSACTIONS = False
     SUPPORTS_MATERIALIZED_VIEWS = True
     SUPPORTS_CLONING = True
+    SUPPORTS_GRANTS = True
+    CURRENT_USER_OR_ROLE_EXPRESSION: exp.Expression = exp.func("session_user")
+    SUPPORTS_MULTIPLE_GRANT_PRINCIPALS = True
+    USE_CATALOG_IN_GRANTS = True
+    GRANT_INFORMATION_SCHEMA_TABLE_NAME = "OBJECT_PRIVILEGES"
     MAX_TABLE_COMMENT_LENGTH = 1024
     MAX_COLUMN_COMMENT_LENGTH = 1024
     SUPPORTS_QUERY_EXECUTION_TRACKING = True
@@ -169,17 +176,18 @@ class BigQueryEngineAdapter(ClusteredByMixin, RowDiffMixin):
         )
 
         def query_factory() -> Query:
-            if bigframes_pd and isinstance(df, bigframes_pd.DataFrame):
-                df.to_gbq(
+            ordered_df = df[list(source_columns_to_types)]
+            if bigframes_pd and isinstance(ordered_df, bigframes_pd.DataFrame):
+                ordered_df.to_gbq(
                     f"{temp_bq_table.project}.{temp_bq_table.dataset_id}.{temp_bq_table.table_id}",
                     if_exists="replace",
                 )
             elif not self.table_exists(temp_table):
                 # Make mypy happy
-                assert isinstance(df, pd.DataFrame)
+                assert isinstance(ordered_df, pd.DataFrame)
                 self._db_call(self.client.create_table, table=temp_bq_table, exists_ok=False)
                 result = self.__load_pandas_to_table(
-                    temp_bq_table, df, source_columns_to_types, replace=False
+                    temp_bq_table, ordered_df, source_columns_to_types, replace=False
                 )
                 if result.errors:
                     raise SQLMeshError(result.errors)
@@ -743,6 +751,12 @@ class BigQueryEngineAdapter(ClusteredByMixin, RowDiffMixin):
             )
 
     def table_exists(self, table_name: TableName) -> bool:
+        table = exp.to_table(table_name)
+        data_object_cache_key = _get_data_object_cache_key(table.catalog, table.db, table.name)
+        if data_object_cache_key in self._data_object_cache:
+            logger.debug("Table existence cache hit: %s", data_object_cache_key)
+            return self._data_object_cache[data_object_cache_key] is not None
+
         try:
             from google.cloud.exceptions import NotFound
         except ModuleNotFoundError:
@@ -753,6 +767,28 @@ class BigQueryEngineAdapter(ClusteredByMixin, RowDiffMixin):
             return True
         except NotFound:
             return False
+
+    def get_table_last_modified_ts(self, table_names: t.List[TableName]) -> t.List[int]:
+        from sqlmesh.utils.date import to_timestamp
+
+        datasets_to_tables: t.DefaultDict[str, t.List[str]] = defaultdict(list)
+        for table_name in table_names:
+            table = exp.to_table(table_name)
+            datasets_to_tables[table.db].append(table.name)
+
+        results = []
+
+        for dataset, tables in datasets_to_tables.items():
+            query = (
+                f"SELECT TIMESTAMP_MILLIS(last_modified_time) FROM `{dataset}.__TABLES__` WHERE "
+            )
+            for i, table_name in enumerate(tables):
+                query += f"TABLE_ID = '{table_name}'"
+                if i < len(tables) - 1:
+                    query += " OR "
+            results.extend(self.fetchall(query))
+
+        return [to_timestamp(row[0]) for row in results]
 
     def _get_table(self, table_name: TableName) -> BigQueryTable:
         """
@@ -1295,6 +1331,108 @@ class BigQueryEngineAdapter(ClusteredByMixin, RowDiffMixin):
     @_session_id.setter
     def _session_id(self, value: t.Any) -> None:
         self._connection_pool.set_attribute("session_id", value)
+
+    def _get_current_schema(self) -> str:
+        raise NotImplementedError("BigQuery does not support current schema")
+
+    def _get_bq_dataset_location(self, project: str, dataset: str) -> str:
+        return self._db_call(self.client.get_dataset, dataset_ref=f"{project}.{dataset}").location
+
+    def _get_grant_expression(self, table: exp.Table) -> exp.Expression:
+        if not table.db:
+            raise ValueError(
+                f"Table {table.sql(dialect=self.dialect)} does not have a schema (dataset)"
+            )
+        project = table.catalog or self.get_current_catalog()
+        if not project:
+            raise ValueError(
+                f"Table {table.sql(dialect=self.dialect)} does not have a catalog (project)"
+            )
+
+        dataset = table.db
+        table_name = table.name
+        location = self._get_bq_dataset_location(project, dataset)
+
+        # https://cloud.google.com/bigquery/docs/information-schema-object-privileges
+        # OBJECT_PRIVILEGES is a project-level INFORMATION_SCHEMA view with regional qualifier
+        object_privileges_table = exp.to_table(
+            f"`{project}`.`region-{location}`.INFORMATION_SCHEMA.{self.GRANT_INFORMATION_SCHEMA_TABLE_NAME}",
+            dialect=self.dialect,
+        )
+        return (
+            exp.select("privilege_type", "grantee")
+            .from_(object_privileges_table)
+            .where(
+                exp.and_(
+                    exp.column("object_schema").eq(exp.Literal.string(dataset)),
+                    exp.column("object_name").eq(exp.Literal.string(table_name)),
+                    # Filter out current_user
+                    # BigQuery grantees format: "user:email" or "group:name"
+                    exp.func("split", exp.column("grantee"), exp.Literal.string(":"))[
+                        exp.func("OFFSET", exp.Literal.number("1"))
+                    ].neq(self.CURRENT_USER_OR_ROLE_EXPRESSION),
+                )
+            )
+        )
+
+    @staticmethod
+    def _grant_object_kind(table_type: DataObjectType) -> str:
+        if table_type == DataObjectType.VIEW:
+            return "VIEW"
+        if table_type == DataObjectType.MATERIALIZED_VIEW:
+            # We actually need to use "MATERIALIZED VIEW" here even though it's not listed
+            # as a supported resource_type in the BigQuery DCL doc:
+            # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-control-language
+            return "MATERIALIZED VIEW"
+        return "TABLE"
+
+    def _dcl_grants_config_expr(
+        self,
+        dcl_cmd: t.Type[DCL],
+        table: exp.Table,
+        grants_config: GrantsConfig,
+        table_type: DataObjectType = DataObjectType.TABLE,
+    ) -> t.List[exp.Expression]:
+        expressions: t.List[exp.Expression] = []
+        if not grants_config:
+            return expressions
+
+        # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-control-language
+
+        def normalize_principal(p: str) -> str:
+            if ":" not in p:
+                raise ValueError(f"Principal '{p}' missing a prefix label")
+
+            # allUsers and allAuthenticatedUsers special groups that are cas-sensitive and must start with "specialGroup:"
+            if p.endswith("allUsers") or p.endswith("allAuthenticatedUsers"):
+                if not p.startswith("specialGroup:"):
+                    raise ValueError(
+                        f"Special group principal '{p}' must start with 'specialGroup:' prefix label"
+                    )
+                return p
+
+            label, principal = p.split(":", 1)
+            # always lowercase principals
+            return f"{label}:{principal.lower()}"
+
+        object_kind = self._grant_object_kind(table_type)
+        for privilege, principals in grants_config.items():
+            if not principals:
+                continue
+
+            noramlized_principals = [exp.Literal.string(normalize_principal(p)) for p in principals]
+            args: t.Dict[str, t.Any] = {
+                "privileges": [exp.GrantPrivilege(this=exp.to_identifier(privilege, quoted=True))],
+                "securable": table.copy(),
+                "principals": noramlized_principals,
+            }
+
+            if object_kind:
+                args["kind"] = exp.Var(this=object_kind)
+
+            expressions.append(dcl_cmd(**args))  # type: ignore[arg-type]
+
+        return expressions
 
 
 class _ErrorCounter:

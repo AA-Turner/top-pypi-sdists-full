@@ -9,8 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
+from typing import Union
 
 from pydantic import Field
 
@@ -18,45 +17,19 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0048 import Issue
-from .group_0134 import PullRequestSimple
-from .group_0137 import ProjectsV2DraftIssue
+
+class ApiInsightsSubjectStatsItems(GitHubModel):
+    """ApiInsightsSubjectStatsItems"""
+
+    subject_type: Missing[str] = Field(default=UNSET)
+    subject_name: Missing[str] = Field(default=UNSET)
+    subject_id: Missing[int] = Field(default=UNSET)
+    total_request_count: Missing[int] = Field(default=UNSET)
+    rate_limited_request_count: Missing[int] = Field(default=UNSET)
+    last_rate_limited_timestamp: Missing[Union[str, None]] = Field(default=UNSET)
+    last_request_timestamp: Missing[str] = Field(default=UNSET)
 
 
-class ProjectsV2ItemSimple(GitHubModel):
-    """Projects v2 Item
+model_rebuild(ApiInsightsSubjectStatsItems)
 
-    An item belonging to a project
-    """
-
-    id: float = Field(description="The unique identifier of the project item.")
-    node_id: Missing[str] = Field(
-        default=UNSET, description="The node ID of the project item."
-    )
-    content: Missing[Union[Issue, PullRequestSimple, ProjectsV2DraftIssue]] = Field(
-        default=UNSET, description="The content represented by the item."
-    )
-    content_type: Literal["Issue", "PullRequest", "DraftIssue"] = Field(
-        title="Projects v2 Item Content Type",
-        description="The type of content tracked in a project item",
-    )
-    creator: Missing[SimpleUser] = Field(
-        default=UNSET, title="Simple User", description="A GitHub user."
-    )
-    created_at: datetime = Field(description="The time when the item was created.")
-    updated_at: datetime = Field(description="The time when the item was last updated.")
-    archived_at: Union[datetime, None] = Field(
-        description="The time when the item was archived."
-    )
-    project_url: Missing[str] = Field(
-        default=UNSET, description="The URL of the project this item belongs to."
-    )
-    item_url: Missing[str] = Field(
-        default=UNSET, description="The URL of the item in the project."
-    )
-
-
-model_rebuild(ProjectsV2ItemSimple)
-
-__all__ = ("ProjectsV2ItemSimple",)
+__all__ = ("ApiInsightsSubjectStatsItems",)

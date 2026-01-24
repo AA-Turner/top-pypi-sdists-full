@@ -270,15 +270,6 @@ class OnlineQueryConverter:
             context=OnlineQueryConverter._online_query_context_decode(online_query_request.context),
             include_meta=online_query_request.response_options.include_meta,
             explain=online_query_request.response_options.HasField("explain"),
-            skip_online_storage=OnlineQueryConverter._options_bool_field(
-                online_query_request.context, "skip_online_storage"
-            ),
-            skip_offline_storage=OnlineQueryConverter._options_bool_field(
-                online_query_request.context, "skip_offline_storage"
-            ),
-            skip_metrics_storage=OnlineQueryConverter._options_bool_field(
-                online_query_request.context, "skip_metrics_storage"
-            ),
             correlation_id=online_query_request.context.correlation_id,
             query_name=online_query_request.context.query_name,
             query_name_version=online_query_request.context.query_name_version,
@@ -323,9 +314,6 @@ class OnlineQueryConverter:
         if request.now is not None:
             now_proto = datetime_to_proto_timestamp(dt.datetime.fromisoformat(request.now))
         context_options_dict: Dict[str, Any] = {
-            "skip_online_storage": request.skip_online_storage,
-            "skip_offline_storage": request.skip_offline_storage,
-            "skip_metrics_storage": request.skip_metrics_storage,
             "store_plan_stages": request.store_plan_stages,
         }
         context_options_dict.update(**(request.planner_options or {}))
@@ -359,9 +347,6 @@ class OnlineQueryConverter:
         if request.now is not None:
             now_proto = [datetime_to_proto_timestamp(dt.datetime.fromisoformat(n)) for n in request.now]
         context_options_dict = {
-            "skip_online_storage": request.skip_online_storage,
-            "skip_offline_storage": request.skip_offline_storage,
-            "skip_metrics_storage": request.skip_metrics_storage,
             "store_plan_stages": request.store_plan_stages,
             "planner_version": "2",  # TODO remove this
         }

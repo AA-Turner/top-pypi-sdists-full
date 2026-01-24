@@ -23,25 +23,33 @@ class _GeneralHTMLTagElement(nodes.Element, nodes.General):
         attributes.pop("classes")
         attributes.pop("names")
         attributes.pop("dupnames")
-        attributes.pop("backrefs")
+        attributes.pop("backrefs", None)
 
-        text = translator.starttag(node, node.tagname, **attributes)
+        if node._endtag:
+            text = translator.starttag(node, node._tagname, **attributes)
+        else:
+            text = translator.emptytag(node, node._tagname, **attributes)
+
         translator.body.append(text.strip())
 
     @staticmethod
     def depart(translator, node):
-        if node.endtag:
-            translator.body.append(f"</{node.tagname}>")
+        if node._endtag:
+            translator.body.append(f"</{node._tagname}>")
 
 
-class _TabInput(_GeneralHTMLTagElement):
-    tagname = "input"
-    endtag = False
+class TabInput(_GeneralHTMLTagElement):
+    """Represents a radio button for a tab."""
+
+    _tagname = "input"
+    _endtag = False
 
 
-class _TabLabel(_GeneralHTMLTagElement):
-    tagname = "label"
-    endtag = True
+class TabLabel(_GeneralHTMLTagElement):
+    """Represents a label that holds the title for a tab."""
+
+    _tagname = "label"
+    _endtag = True
 
 
 class TabDirective(SphinxDirective):
@@ -162,12 +170,12 @@ class TabHtmlTransform(SphinxPostTransform):
             title, content = node.children
 
             # <input>, for storing state in radio boxes.
-            input_node = _TabInput(
+            input_node = TabInput(
                 type="radio", ids=[tab_id], name=tab_set_name, classes=["tab-input"]
             )
 
             # <label>
-            label_node = _TabLabel(
+            label_node = TabLabel(
                 "", *title.children, **{"for": tab_id}, classes=["tab-label"]
             )
 

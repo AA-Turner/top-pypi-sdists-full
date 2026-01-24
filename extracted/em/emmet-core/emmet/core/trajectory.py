@@ -2,26 +2,21 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
-from collections import defaultdict
-from collections.abc import Iterable
-from enum import Enum
 import logging
-import numpy as np
-from pydantic import BaseModel, Field, model_validator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pymatgen.core import Element, Structure, Molecule
-from pymatgen.core.trajectory import Trajectory as PmgTrajectory
-
+import numpy as np
 from monty.dev import requires
 from monty.serialization import dumpfn
+from pydantic import BaseModel, Field, model_validator
+from pymatgen.core import Element, Molecule, Structure
+from pymatgen.core.trajectory import Trajectory as PmgTrajectory
 
 from emmet.core.math import Vector3D, Matrix3D
-from emmet.core.tasks import TaskDoc
-from emmet.core.vasp.calc_types import RunType, TaskType, run_type, task_type, calc_type
-from emmet.core.vasp.calculation import ElectronicStep
+from emmet.core.types.enums import ValueEnum
+from emmet.core.vasp.models import ElectronicStep
+from emmet.core.vasp.calc_types import RunType, TaskType
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +31,15 @@ except ImportError:
     ArrowTable = None
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from typing import Any
+
     from typing_extensions import Self
 
-    from emmet.core.vasp.calculation import Calculation
-    from emmet.core.vasp.calc_types import CalcType
+    from pymatgen.io.vasp import Vasprun
 
 
-class TrajFormat(Enum):
+class TrajFormat(ValueEnum):
     """Define known trajectory formats."""
 
     PMG = "json"
@@ -51,8 +47,75 @@ class TrajFormat(Enum):
     PARQUET = "parquet"
 
 
-class AtomTrajectory(BaseModel):
-    """Atomistic only, low-memory schema for trajectories that can interface with parquet, pymatgen, and ASE."""
+class _MDMixin(BaseModel):
+    """Mix-in for molecular dynamics runs."""
+
+    magmoms: list[list[float]] | None = Field(
+        None, description="The magnetic moments at each ionic step."
+    )
+
+    temperature: list[float] | None = Field(
+        None, description="The temperature at each ionic step."
+    )
+
+    velocities: list[list[Vector3D]] | None = Field(
+        None, description="The velocities of each atom."
+    )
+
+    time_step: float | None = Field(
+        None, description="The time step used in the calculation."
+    )
+
+    ionic_step_properties: set[str] = Field(
+        {"magmoms", "temperature", "velocities", "time_step"},
+        exclude=True,
+        description="The properties included at each ionic step.",
+    )
+
+    @model_validator(mode="after")
+    def add_props(self) -> Self:
+        self.ionic_step_properties = self.ionic_step_properties.union(
+            {"magmoms", "temperature", "velocities"}
+        )
+        return self
+
+
+def _order_z_list(new_z: list[int], ref_z: list[int]) -> tuple[list[int], bool]:
+    """Order a list of proton numbers (Z) according to a reference list.
+
+    Parameters
+    -----------
+    new_z : list of int
+        List of new proton numbers to order
+    ref_z : list of in
+        List of reference proton numbers
+
+    Returns
+    -----------
+    list of int
+        New site indices with matching order
+    bool
+        Whether the order changed
+    """
+    running_sites = list(range(len(new_z)))
+    if new_z == ref_z:
+        return running_sites, False
+
+    reordered_index = []
+    for z in ref_z:
+        for idx in running_sites:
+            if new_z[idx] == z:
+                reordered_index.append(idx)
+                running_sites.remove(idx)
+                break
+
+    if len(running_sites) > 0:
+        raise ValueError("Cannot order atoms according to reference Z list.")
+    return reordered_index, True
+
+
+class AtomRelaxTrajectory(BaseModel):
+    """Atomistic only, low-memory schema for relaxation trajectories that can interface with parquet, pymatgen, and ASE."""
 
     elements: list[int] = Field(
         description="The proton number Z of the elements in the sites"
@@ -63,13 +126,15 @@ class AtomTrajectory(BaseModel):
     )
     num_ionic_steps: int = Field(description="The number of ionic steps.")
 
-    constant_lattice: Matrix3D | None = Field(
-        None,
-        description="The constant lattice throughout the trajectory. If not populated, it is assumed that the lattice varies.",
-    )
     lattice: list[Matrix3D] | None = Field(
         None,
-        description="The lattice at each ionic step. If not populated, it is assumed the lattice is constant through the trajectory.",
+        description=(
+            "If a list containing only one 3x3 matrix, it is assumed that "
+            "the lattice was held constant through the simulation. "
+            "If a list of (multiple) 3x3 matrices, this should be the lattice "
+            "at each ionic step in the calculation. "
+            "If None, a non-periodic system is assumed."
+        ),
     )
 
     energy: list[float] | None = Field(
@@ -81,20 +146,12 @@ class AtomTrajectory(BaseModel):
     )
     stress: list[Matrix3D] | None = Field(None, description="The 3x3 stress tensor.")
 
-    magmoms: list[list[float]] | None = Field(
-        None, description="The magnetic moments at each ionic step."
-    )
-
-    velocities: list[list[Vector3D]] | None = Field(
-        None, description="The velocities of each atom."
-    )
-
-    temperature: list[float] | None = Field(
-        None, description="The temperature at each ionic step."
-    )
-
-    ionic_step_properties: Iterable[str] = Field(
-        {"energy", "forces", "stress", "magmoms", "velocities", "temperature"},
+    ionic_step_properties: set[str] = Field(
+        {
+            "energy",
+            "forces",
+            "stress",
+        },
         exclude=True,
         description="The properties included at each ionic step.",
     )
@@ -108,6 +165,28 @@ class AtomTrajectory(BaseModel):
         ]
         return config
 
+    @property
+    def ionic_step_properties_used(self) -> set[str]:
+        """Return list of populated fields."""
+        used_fields = {
+            k for k in self.ionic_step_properties if getattr(self, k, None) is not None
+        }
+
+        # Because `self.lattice == 1` can indicate a frozen lattice if `self.num_ionic_steps > 1`
+        # and a static calculation otherwise, check here that the lattice is a property
+        # that varies with frames
+        if isinstance(self.lattice, list) and len(self.lattice) == self.num_ionic_steps:
+            used_fields.add("lattice")
+        return used_fields
+
+    def __repr__(self) -> str:
+        """Print summary data."""
+        return (
+            f"{self.__class__.__module__}.{self.__class__.__name__} "
+            f"({self.num_ionic_steps} ionic steps) with data: "
+            f"{', '.join(sorted(self.ionic_step_properties_used))}."
+        )
+
     def __hash__(self) -> int:
         """Used to verify roundtrip conversion of Trajectory."""
         return hash(self.model_dump_json())
@@ -116,31 +195,31 @@ class AtomTrajectory(BaseModel):
         """Get number of ionic steps."""
         return self.num_ionic_steps
 
-    def __getitem__(self, index: int | slice) -> AtomTrajectory:
+    def __getitem__(self, index: int | slice) -> AtomRelaxTrajectory:
         if isinstance(index, int):
             if index < 0:
                 index = len(self) + index
         _slice: slice = slice(index, index + 1) if isinstance(index, int) else index
 
         config = {}
-        all_ionic_step_props = set(self.ionic_step_properties).union(
+        all_ionic_step_props = self.ionic_step_properties.union(
             {
                 "lattice",
                 "cart_coords",
             }
         )
-        for k in AtomTrajectory.model_fields:
+        for k in self.__class__.model_fields:
             v = getattr(self, k)
             if v and k in all_ionic_step_props:
                 config[k] = v[_slice]
             elif v:
                 config[k] = v
-        return AtomTrajectory(**config)
+        return type(self)(**config)
 
     @staticmethod
     def reorder_sites(
         structure: Structure | Molecule, ref_z: list[int]
-    ) -> tuple[Structure | Molecule, list[int]]:
+    ) -> tuple[Structure | Molecule, list[int], bool]:
         """
         Ensure that the sites in a structure match the order in a set of reference Z values.
 
@@ -157,32 +236,22 @@ class AtomTrajectory(BaseModel):
         -----------
         pymatgen .Structure or .Molecule : structure matching the reference order of sites
         list of int : indices in the original structure which are reordered
+        bool : Whether the order changed
         """
 
-        is_structure = isinstance(structure, Structure)
+        reordered_index, order_changed = _order_z_list(
+            [site.species.elements[0].Z for site in structure], ref_z
+        )
 
-        if [site.species.elements[0].Z for site in structure] == ref_z:
-            return structure, list(range(structure.num_sites))
+        if not order_changed:
+            return structure, reordered_index, order_changed
 
-        running_sites = list(range(len(structure)))
-        ordered_sites = []
-        reordered_index = []
-        for z in ref_z:
-            for idx in running_sites:
-                if structure[idx].species.elements[0].Z == z:
-                    ordered_sites.append(structure[idx])
-                    reordered_index.append(idx)
-                    running_sites.remove(idx)
-                    break
-
-        if len(running_sites) > 0:
-            raise ValueError(
-                f"Cannot order {'structure' if is_structure else 'molecule'} according to reference list."
-            )
-
-        return (Structure if is_structure else Molecule).from_sites(
-            ordered_sites
-        ), reordered_index
+        pmg_cls = Structure if isinstance(structure, Structure) else Molecule
+        return (
+            pmg_cls.from_sites([structure.sites[idx] for idx in reordered_index]),
+            reordered_index,
+            order_changed,
+        )
 
     @classmethod
     def _from_dict(
@@ -239,14 +308,30 @@ class AtomTrajectory(BaseModel):
                 )
             )
         ):
-            props["constant_lattice"] = structures[0].lattice.matrix
+            props["lattice"] = [structures[0].lattice.matrix]
         elif is_structure:
             props["lattice"] = [structure.lattice.matrix for structure in structures]
 
-        props["cart_coords"] = [
-            cls.reorder_sites(structure, props["elements"])[0].cart_coords
-            for structure in structures
+        reordered: list[tuple[Structure | Molecule, list[int], bool]] = [
+            cls.reorder_sites(structure, props["elements"]) for structure in structures
         ]
+
+        # Ensure that coordinates and properties associated with sites have consistent ordering
+        props["cart_coords"] = [entry[0].cart_coords for entry in reordered]
+
+        if any(entry[2] for entry in reordered):
+            for site_prop_key in {"magmoms", "forces"}:
+                if (site_prop_val := props.pop(site_prop_key, None)) or (
+                    site_prop_val := kwargs.pop(site_prop_key, None)
+                ):
+                    props[site_prop_key] = [
+                        (
+                            [site_prop_val[ion_step_idx][idx] for idx in entry[1]]
+                            if entry[2]
+                            else site_prop_key[ion_step_idx]
+                        )
+                        for ion_step_idx, entry in enumerate(reordered)
+                    ]
 
         if len(esteps := props.get("electronic_steps", [])) > 0:
             props["num_electronic_steps"] = [len(estep) for estep in esteps]
@@ -379,12 +464,28 @@ class AtomTrajectory(BaseModel):
             If not None, a list of model fields to populate the frame properties
             of the pymatgen Trajectory with.
             If None, defaults to all available fields.
+            If an empty iterable, no frame properties will be returned.
+        indices : int, slice, iterable of int, or None
+            If None (default), returns all frames
+            If an int, the index of the frame to return
+            If a slice, returns that range of frames
+            If an iterable of int, returns those specific frames
+
+            Frames are always returned in sequential order,
+            even if the user-supplied indices are unsorted.
 
         Returns
         -----------
         pymatgen.core.trajectory.Trajectory
         """
-        frame_prop_keys: set[str] = set(frame_props or self.ionic_step_properties)
+
+        if frame_props is not None:
+            frame_prop_keys: set[str] = set(frame_props).intersection(
+                self.ionic_step_properties
+            )
+        else:
+            frame_prop_keys = self.ionic_step_properties
+
         if "magmoms" in frame_prop_keys:
             frame_prop_keys.discard("magmoms")
 
@@ -392,29 +493,24 @@ class AtomTrajectory(BaseModel):
             if isinstance(indices, slice):
                 indices = set(range(indices.start, indices.stop, indices.step or 1))
             elif isinstance(indices, int):
-                indices = {
-                    indices,
-                }
+                indices = {indices}
         else:
             indices = set(range(len(self)))
-        indices = {i for i in indices if self.cart_coords[i]}
 
         species = [Element.from_Z(z) for z in self.elements]
         structures = []
         frame_properties = []
 
-        is_structure = self.lattice or self.constant_lattice
-
-        for i in indices:
+        for i in sorted({i for i in indices if self.cart_coords[i]}):
             site_properties = {}
-            if self.magmoms:
-                site_properties["magmoms"] = self.magmoms[i]
+            if magmoms := getattr(self, "magmoms", None):
+                site_properties["magmoms"] = magmoms[i]
 
-            if is_structure:
+            if self.lattice:
                 structure: Structure | Molecule = Structure(
                     lattice=(
-                        self.constant_lattice
-                        if self.constant_lattice
+                        self.lattice[0]
+                        if len(self.lattice) == 1
                         else self.lattice[i]  # type: ignore[index]
                     ),
                     species=species,
@@ -431,22 +527,24 @@ class AtomTrajectory(BaseModel):
             structures.append(structure)
 
             props = {}
-            if len(frame_prop_keys) > 0:
-                for k in frame_prop_keys:
-                    if _prop := getattr(self, k, []):
-                        prop = _prop[i]
-                        for cmth in ("model_dump", "tolist"):
-                            if hasattr(prop, cmth):
-                                prop = getattr(prop, cmth)()
-                        props[k] = prop
+            for k in frame_prop_keys:
+                if _prop := getattr(self, k, []):
+                    prop = _prop[i]
+                    for cmth in ("model_dump", "tolist"):
+                        if hasattr(prop, cmth):
+                            prop = getattr(prop, cmth)()
+                    props[k] = prop
 
-                frame_properties.append(props)
+            frame_properties.append(props)
 
-        return getattr(
-            PmgTrajectory, f"from_{'structures' if is_structure else 'molecules'}"
-        )(
-            structures,
-            constant_lattice=self.constant_lattice is not None,
+        if self.lattice:
+            return PmgTrajectory.from_structures(
+                structures,  # type: ignore[arg-type]
+                constant_lattice=len(self.lattice) == 1,
+                frame_properties=frame_properties,
+            )
+        return PmgTrajectory.from_molecules(
+            structures,  # type: ignore[arg-type]
             frame_properties=frame_properties,
         )
 
@@ -470,7 +568,7 @@ class AtomTrajectory(BaseModel):
             Any kwargs supported by Trajectory.to_* methods.
         """
         if file_name and not fmt:
-            for _fmt in TrajFormat:
+            for _fmt in TrajFormat:  # type: ignore[attr-defined]
                 if _fmt.value in str(file_name).lower():
                     fmt = _fmt
                     break
@@ -478,7 +576,7 @@ class AtomTrajectory(BaseModel):
             fmt = TrajFormat.PARQUET
 
         if isinstance(fmt, str) and fmt.upper() in TrajFormat.__members__:
-            fmt = TrajFormat[fmt.upper()]
+            fmt = TrajFormat[fmt.upper()]  # type: ignore[misc]
         else:
             fmt = TrajFormat(fmt)
 
@@ -502,10 +600,14 @@ class AtomTrajectory(BaseModel):
         return traj
 
 
-class Trajectory(AtomTrajectory):
-    """Low memory schema for trajectories that can interface with parquet, pymatgen, and ASE.
+class AtomTrajectory(AtomRelaxTrajectory, _MDMixin):
+    """Atomistic trajectory with extra keys for molecular dynamics runs."""
 
-    This schema is intended primarily for VASP trajectories, but could be adapted to
+
+class RelaxTrajectory(AtomRelaxTrajectory):
+    """Low memory schema for relaxation trajectories that can interface with parquet, pymatgen, and ASE.
+
+    This schema is intended primarily for VASP relaxation trajectories, but could be adapted to
     generic electronic structure trajectories.
 
     Note that for VASP calculations, energies are in eV, forces in eV/Å, and stress tensors in kilobar.
@@ -540,7 +642,7 @@ class Trajectory(AtomTrajectory):
         description="The RunType of the calculation used to generate this trajectory.",
     )
 
-    ionic_step_properties: Iterable[str] = Field(
+    ionic_step_properties: set[str] = Field(
         {
             "energy",
             "forces",
@@ -548,7 +650,6 @@ class Trajectory(AtomTrajectory):
             "e_wo_entrp",
             "e_fr_energy",
             "electronic_steps",
-            "magmoms",
         },
         description="The properties included at each ionic step.",
         exclude=True,
@@ -607,121 +708,47 @@ class Trajectory(AtomTrajectory):
         return conv_data
 
     @classmethod
-    def _calculation_to_props_dict(
-        cls,
-        calc: Calculation,
-    ) -> tuple[dict[str, list[Any]], RunType, TaskType, CalcType]:
-        """Convert a single VASP calculation to Trajectory._from_dict compatible dict.
+    def from_vasprun(
+        cls, vasprun: Vasprun, store_electronic_steps: bool = True, **kwargs
+    ) -> Self:
+        """Create a Trajectory from a VASP vasprun.xml.
 
         Parameters
         -----------
-        calc (emmet.core.vasp.calculation.Calculation)
-
-        Returns
-        -----------
-        dict, RunType, TaskType, CalcType
+        vasprun : pymatgen Vasprun object
+        store_electronic_steps : bool = True (default)
+            Whether to store the electronic step information
+        **kwargs : kwargs to pass to _from_dict / the document model
         """
 
-        ct: CalcType | None = None
-        rt: RunType | None = None
-        tt: TaskType | None = None
+        ionic_step_data = {
+            "structure",
+            "e_fr_energy",
+            "e_wo_entrp",
+            "e_0_energy",
+            "forces",
+            "stress",
+        }
+        remap = {"e_0_energy": "energy"}
+        if store_electronic_steps:
+            ionic_step_data.add("electronic_steps")
 
-        ionic_step_props = set(
-            cls.model_fields["ionic_step_properties"].default
-        ).difference(
+        if (
+            vasprun.parameters.get("IBRION", -1) == 0
+            and "time_step" in cls.model_fields
+            and not kwargs.get("time_step")
+        ):
+            kwargs["time_step"] = vasprun.parameters.get("POTIM")
+
+        return cls._from_dict(
             {
-                "energy",
-                "magmoms",
-            }
+                remap.get(k, k): [
+                    ionic_step.get(k) for ionic_step in vasprun.ionic_steps
+                ]
+                for k in ionic_step_data
+            },
+            **kwargs,
         )
-        # refresh calc, run, and task type if possible
-        if calc.input:
-            vis = calc.input.model_dump()
-            padded_params = {
-                **(calc.input.parameters or {}),
-                **(calc.input.incar or {}),
-            }
-            ct = calc_type(vis, padded_params)
-            rt = run_type(padded_params)
-            tt = task_type(vis)
-
-        props = defaultdict(list)
-
-        for ionic_step in calc.output.ionic_steps:
-            props["structure"].append(ionic_step.structure)
-
-            props["energy"].append(ionic_step.e_0_energy)
-            for k in ionic_step_props:
-                props[k].append(getattr(ionic_step, k))
-
-        return dict(props), rt, tt, ct
-
-    @classmethod
-    def from_task_doc(cls, task_doc: TaskDoc, **kwargs) -> list["Trajectory"]:
-        """
-        Create trajectories from a TaskDoc.
-
-        This class creates a separate trajectory for all non-continuous
-        calculations in `TaskDoc.calcs_reversed`.
-        This is to ensure that each trajectory represents only a single
-        calculation type.
-        In cases where sequential calculations in the reversed `calcs_reversed`
-        have the same calc type, their trajectories are joined.
-
-        Note that if no input is provided in the calculation, the calculation
-        is split off into its own trajectory.
-
-        Parameters
-        -----------
-        task_doc : emmet.core.TaskDoc
-        kwargs
-            Other kwargs to pass to Trajectory
-
-        Returns
-        -----------
-        list of Trajectory
-        """
-
-        trajs: list[Trajectory] = []
-        kwargs.update(
-            identifier=str(task_doc.task_id) if task_doc.task_id else None,
-        )
-
-        props: dict[str, list[Any]] = {}
-        old_meta = {f"{k}_type": None for k in ("run", "task", "calc")}
-        new_meta = deepcopy(old_meta)
-        # un-reverse the calcs_reversed
-        for icr, cr in enumerate(task_doc.calcs_reversed[::-1]):
-            (
-                new_props,
-                new_meta["run_type"],
-                new_meta["task_type"],
-                new_meta["calc_type"],
-            ) = cls._calculation_to_props_dict(cr)
-
-            if (
-                old_meta["calc_type"] != new_meta["calc_type"]
-                or new_meta["calc_type"] is None
-                or icr == 0
-            ):
-                # Either CalcType changed or no calculation input was provided
-                # or this is the first calculation in `calcs_reversed`
-                # Append existing trajectory to list of trajectories, and restart
-                if icr > 0:
-                    trajs.append(cls._from_dict(props, **old_meta, **kwargs))  # type: ignore[arg-type]
-
-                props = deepcopy(new_props)
-            else:
-                for k, new_vals in new_props.items():
-                    props[k].extend(new_vals)
-
-            for k, v in new_meta.items():
-                old_meta[k] = v
-
-        # create final trajectory
-        trajs.append(cls._from_dict(props, **old_meta, **kwargs))  # type: ignore[arg-type]
-
-        return trajs
 
     @requires(
         pa is not None, message="pyarrow must be installed to de-/serialize to parquet"
@@ -776,3 +803,7 @@ class Trajectory(AtomTrajectory):
             pa_pq.write_table(pa_table, file_name, **write_file_kwargs)
 
         return pa_table
+
+
+class Trajectory(RelaxTrajectory, _MDMixin):
+    """Trajectory with flexibility for electronic structure molecular dynamics."""

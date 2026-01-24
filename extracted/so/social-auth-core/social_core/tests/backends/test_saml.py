@@ -119,7 +119,7 @@ class SAMLTest(BaseBackendTest):
         Test that we handle legacy RelayState (i.e. just the IDP name, not a JSON object).
 
         This is the form that RelayState had in prior versions of this library. It should be supported for backwards
-        compatibility.
+        compatibility. It is also sent by some identity providers (like Okta) on IdP-initiated login.
         """
         self.response_fixture = "saml_response_legacy.txt"
 

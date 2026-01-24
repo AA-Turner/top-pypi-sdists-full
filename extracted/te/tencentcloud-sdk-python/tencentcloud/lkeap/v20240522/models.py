@@ -222,6 +222,70 @@ class AttributeLabelReferItem(AbstractModel):
         
 
 
+class CancelTaskRequest(AbstractModel):
+    r"""CancelTask请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 取消任务的任务ID
+        :type TaskId: str
+        """
+        self._TaskId = None
+
+    @property
+    def TaskId(self):
+        r"""取消任务的任务ID
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CancelTaskResponse(AbstractModel):
+    r"""CancelTask返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ChatCompletionsRequest(AbstractModel):
     r"""ChatCompletions请求参数结构体
 
@@ -242,7 +306,9 @@ class ChatCompletionsRequest(AbstractModel):
         :type Stream: bool
         :param _Temperature: 控制生成的随机性，较高的值会产生更多样化的输出。
         :type Temperature: float
-        :param _MaxTokens: 最大生成的token数量，默认为4096，最大可设置为16384
+        :param _MaxTokens: 模型最大输出长度（单位 token），不包含思维链内容。
+默认为4096，取值范围：各个模型不同，参考各个模型最大输出长度（示例：4k，即4096）。
+输出 token 的总长度受模型的上下文长度限制。
         :type MaxTokens: int
         :param _EnableSearch: 是否启用联网搜索
         :type EnableSearch: bool
@@ -308,7 +374,9 @@ class ChatCompletionsRequest(AbstractModel):
 
     @property
     def MaxTokens(self):
-        r"""最大生成的token数量，默认为4096，最大可设置为16384
+        r"""模型最大输出长度（单位 token），不包含思维链内容。
+默认为4096，取值范围：各个模型不同，参考各个模型最大输出长度（示例：4k，即4096）。
+输出 token 的总长度受模型的上下文长度限制。
         :rtype: int
         """
         return self._MaxTokens
@@ -941,8 +1009,10 @@ class CreateReconstructDocumentFlowConfig(AbstractModel):
 1：只返回每一页的OCR原始Json；
 2：只返回每一页的MD，
 3：返回全文MD + 每一页的OCR原始Json；
-4：返回全文MD + 每一页的MD，
+4：返回全文MD + 每一页的MD
+5: 返回全文md，每一页ocr原始json，每一页md
 默认值为0
+
         :type ResultType: str
         :param _IgnoreFailedPage: 是否忽略失败页，返回已成功的页数据。默认为true。
         :type IgnoreFailedPage: bool
@@ -972,8 +1042,10 @@ class CreateReconstructDocumentFlowConfig(AbstractModel):
 1：只返回每一页的OCR原始Json；
 2：只返回每一页的MD，
 3：返回全文MD + 每一页的OCR原始Json；
-4：返回全文MD + 每一页的MD，
+4：返回全文MD + 每一页的MD
+5: 返回全文md，每一页ocr原始json，每一页md
 默认值为0
+
         :rtype: str
         """
         return self._ResultType
@@ -1203,10 +1275,10 @@ class CreateSplitDocumentFlowConfig(AbstractModel):
         :param _ResultType: 智能文档解析返回结果的格式
 0：只返回全文MD；
 1：只返回每一页的OCR原始Json；
-2：只返回每一页的MD，
+2：只返回每一页的MD；
 3：返回全文MD + 每一页的OCR原始Json；
-4：返回全文MD + 每一页的MD，
-默认值为3（返回全文MD + 每一页的OCR原始Json）
+4：返回全文MD + 每一页的MD；
+5：返回全文md，每一页ocr原始json，每一页md。
 
 
         :type ResultType: str
@@ -1216,12 +1288,29 @@ class CreateSplitDocumentFlowConfig(AbstractModel):
         :type MaxChunkSize: int
         :param _IgnoreFailedPage: 是否忽略返回失败页码
         :type IgnoreFailedPage: bool
+        :param _SplitResultType: 智能文档解析返回结果的格式
+0：只返回全文MD；
+1：只返回每一页的OCR原始Json；
+2：只返回每一页的MD；
+3：返回全文MD + 每一页的OCR原始Json；
+4：返回全文MD + 每一页的MD；
+5：返回全文md，每一页ocr原始json，每一页md。
+
+
+        :type SplitResultType: str
+        :param _SplitTableResultType: Markdown文件中表格返回的形式
+0，表格以MD形式返回
+1，表格以HTML形式返回
+默认为
+        :type SplitTableResultType: str
         """
         self._TableResultType = None
         self._ResultType = None
         self._EnableMllm = None
         self._MaxChunkSize = None
         self._IgnoreFailedPage = None
+        self._SplitResultType = None
+        self._SplitTableResultType = None
 
     @property
     def TableResultType(self):
@@ -1248,10 +1337,10 @@ class CreateSplitDocumentFlowConfig(AbstractModel):
         r"""智能文档解析返回结果的格式
 0：只返回全文MD；
 1：只返回每一页的OCR原始Json；
-2：只返回每一页的MD，
+2：只返回每一页的MD；
 3：返回全文MD + 每一页的OCR原始Json；
-4：返回全文MD + 每一页的MD，
-默认值为3（返回全文MD + 每一页的OCR原始Json）
+4：返回全文MD + 每一页的MD；
+5：返回全文md，每一页ocr原始json，每一页md。
 
 
         :rtype: str
@@ -1297,6 +1386,39 @@ class CreateSplitDocumentFlowConfig(AbstractModel):
     def IgnoreFailedPage(self, IgnoreFailedPage):
         self._IgnoreFailedPage = IgnoreFailedPage
 
+    @property
+    def SplitResultType(self):
+        r"""智能文档解析返回结果的格式
+0：只返回全文MD；
+1：只返回每一页的OCR原始Json；
+2：只返回每一页的MD；
+3：返回全文MD + 每一页的OCR原始Json；
+4：返回全文MD + 每一页的MD；
+5：返回全文md，每一页ocr原始json，每一页md。
+
+
+        :rtype: str
+        """
+        return self._SplitResultType
+
+    @SplitResultType.setter
+    def SplitResultType(self, SplitResultType):
+        self._SplitResultType = SplitResultType
+
+    @property
+    def SplitTableResultType(self):
+        r"""Markdown文件中表格返回的形式
+0，表格以MD形式返回
+1，表格以HTML形式返回
+默认为
+        :rtype: str
+        """
+        return self._SplitTableResultType
+
+    @SplitTableResultType.setter
+    def SplitTableResultType(self, SplitTableResultType):
+        self._SplitTableResultType = SplitTableResultType
+
 
     def _deserialize(self, params):
         self._TableResultType = params.get("TableResultType")
@@ -1304,6 +1426,8 @@ class CreateSplitDocumentFlowConfig(AbstractModel):
         self._EnableMllm = params.get("EnableMllm")
         self._MaxChunkSize = params.get("MaxChunkSize")
         self._IgnoreFailedPage = params.get("IgnoreFailedPage")
+        self._SplitResultType = params.get("SplitResultType")
+        self._SplitTableResultType = params.get("SplitTableResultType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2483,15 +2607,14 @@ class GetEmbeddingRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Model: 说明：选择生成向量的模型
-备注：仅一个模型可选
+        :param _Model: 说明：选择生成向量的模型备注：可选[lke-text-embedding-v1,lke-text-embedding-v2,youtu-embedding-llm-v1]
         :type Model: str
         :param _Inputs: 说明：需要 embedding 的文本
 备注：单条query最多2000个字符，总条数最多7条
         :type Inputs: list of str
         :param _TextType: 说明：文本向量化的类型，为使得检索任务有更好的检索效果，建议区分查询文本（query）和文档文本（document）类型, 聚类、分类等对称任务可以不用特殊指定，采用系统默认值document即可。
         :type TextType: str
-        :param _Instruction: 说明：自定义任务指令词，当且仅当TextType=query时，生效
+        :param _Instruction: 说明：自定义任务指令词，当且仅当TextType=query且Model为youtu-embedding-llm-v1时，生效
         :type Instruction: str
         """
         self._Model = None
@@ -2501,8 +2624,7 @@ class GetEmbeddingRequest(AbstractModel):
 
     @property
     def Model(self):
-        r"""说明：选择生成向量的模型
-备注：仅一个模型可选
+        r"""说明：选择生成向量的模型备注：可选[lke-text-embedding-v1,lke-text-embedding-v2,youtu-embedding-llm-v1]
         :rtype: str
         """
         return self._Model
@@ -2536,7 +2658,7 @@ class GetEmbeddingRequest(AbstractModel):
 
     @property
     def Instruction(self):
-        r"""说明：自定义任务指令词，当且仅当TextType=query时，生效
+        r"""说明：自定义任务指令词，当且仅当TextType=query且Model为youtu-embedding-llm-v1时，生效
         :rtype: str
         """
         return self._Instruction
@@ -3614,26 +3736,37 @@ class ModifyAttributeLabelRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _KnowledgeBaseId: 知识库ID
+        :param _KnowledgeBaseId: 说明：知识库ID
+备注：通过创建知识库接口（DeleteKnowledgeBase）得到知识库ID（KnowledgeBaseId）
         :type KnowledgeBaseId: str
-        :param _AttributeId: 属性ID
+        :param _AttributeId: 说明：属性ID
+备注：通过CreateAttributeLabel接口创建属性时会生成AttributeId，通过ListAttributeLabels接口可查询得到AttributeId、AttributeKey、AttributeName以及LabelId、LabelName的对应关系
         :type AttributeId: str
-        :param _AttributeKey: 属性标识，最大40个英文字符，如style
+        :param _AttributeKey: 说明：属性标识，
+备注：仅支持英文字符，不支持数字，支持下划线。最大支持40个英文字符，如style
         :type AttributeKey: str
-        :param _AttributeName: 属性名称，最大80个英文字符，如风格
+        :param _AttributeName: 说明：属性名称
+备注：支持中英文字符。最大支持80个中英文字符，如风格
         :type AttributeName: str
-        :param _Labels: 属性标签
+        :param _Labels: 说明：标签ID（LabelId）以及标签名（LabelName）
+备注：
+- 不填写LabelId，默认在当前AttributeId下新增标签值（LabelName）；
+- 若填写该AttributeId下的LabelId以及LabelName，则为修改该LabelId对应的标签值
         :type Labels: list of AttributeLabelItem
+        :param _DeleteLabelIds: 说明：删除的标签id
+        :type DeleteLabelIds: list of str
         """
         self._KnowledgeBaseId = None
         self._AttributeId = None
         self._AttributeKey = None
         self._AttributeName = None
         self._Labels = None
+        self._DeleteLabelIds = None
 
     @property
     def KnowledgeBaseId(self):
-        r"""知识库ID
+        r"""说明：知识库ID
+备注：通过创建知识库接口（DeleteKnowledgeBase）得到知识库ID（KnowledgeBaseId）
         :rtype: str
         """
         return self._KnowledgeBaseId
@@ -3644,7 +3777,8 @@ class ModifyAttributeLabelRequest(AbstractModel):
 
     @property
     def AttributeId(self):
-        r"""属性ID
+        r"""说明：属性ID
+备注：通过CreateAttributeLabel接口创建属性时会生成AttributeId，通过ListAttributeLabels接口可查询得到AttributeId、AttributeKey、AttributeName以及LabelId、LabelName的对应关系
         :rtype: str
         """
         return self._AttributeId
@@ -3655,7 +3789,8 @@ class ModifyAttributeLabelRequest(AbstractModel):
 
     @property
     def AttributeKey(self):
-        r"""属性标识，最大40个英文字符，如style
+        r"""说明：属性标识，
+备注：仅支持英文字符，不支持数字，支持下划线。最大支持40个英文字符，如style
         :rtype: str
         """
         return self._AttributeKey
@@ -3666,7 +3801,8 @@ class ModifyAttributeLabelRequest(AbstractModel):
 
     @property
     def AttributeName(self):
-        r"""属性名称，最大80个英文字符，如风格
+        r"""说明：属性名称
+备注：支持中英文字符。最大支持80个中英文字符，如风格
         :rtype: str
         """
         return self._AttributeName
@@ -3677,7 +3813,10 @@ class ModifyAttributeLabelRequest(AbstractModel):
 
     @property
     def Labels(self):
-        r"""属性标签
+        r"""说明：标签ID（LabelId）以及标签名（LabelName）
+备注：
+- 不填写LabelId，默认在当前AttributeId下新增标签值（LabelName）；
+- 若填写该AttributeId下的LabelId以及LabelName，则为修改该LabelId对应的标签值
         :rtype: list of AttributeLabelItem
         """
         return self._Labels
@@ -3685,6 +3824,17 @@ class ModifyAttributeLabelRequest(AbstractModel):
     @Labels.setter
     def Labels(self, Labels):
         self._Labels = Labels
+
+    @property
+    def DeleteLabelIds(self):
+        r"""说明：删除的标签id
+        :rtype: list of str
+        """
+        return self._DeleteLabelIds
+
+    @DeleteLabelIds.setter
+    def DeleteLabelIds(self, DeleteLabelIds):
+        self._DeleteLabelIds = DeleteLabelIds
 
 
     def _deserialize(self, params):
@@ -3698,6 +3848,7 @@ class ModifyAttributeLabelRequest(AbstractModel):
                 obj = AttributeLabelItem()
                 obj._deserialize(item)
                 self._Labels.append(obj)
+        self._DeleteLabelIds = params.get("DeleteLabelIds")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4285,9 +4436,7 @@ class ReconstructDocumentSSERequest(AbstractModel):
 备注：当传入文件是PDF、PDF、PPT、PPTX、DOC类型时，用来指定识别的起始页码，识别的页码包含当前值。
 默认值：无
         :type FileStartPageNumber: int
-        :param _FileEndPageNumber: 说明：文档的结束页码。
-备注：当传入文件是PDF、PDF、PPT、PPTX、DOC类型时，用来指定识别的结束页码，识别的页码包含当前值。
-默认值：无
+        :param _FileEndPageNumber: 说明：文档的结束页码。备注：当传入文件是PDF、PDF、PPT、PPTX、DOC类型时，用来指定识别的结束页码，识别的页码包含当前值，文档页码大于100页建议使用异步解析接入。默认值：无
         :type FileEndPageNumber: int
         :param _Config: 说明：文档解析配置信息	
 备注：可设置返回markdown结果的格式
@@ -4357,9 +4506,7 @@ class ReconstructDocumentSSERequest(AbstractModel):
 
     @property
     def FileEndPageNumber(self):
-        r"""说明：文档的结束页码。
-备注：当传入文件是PDF、PDF、PPT、PPTX、DOC类型时，用来指定识别的结束页码，识别的页码包含当前值。
-默认值：无
+        r"""说明：文档的结束页码。备注：当传入文件是PDF、PDF、PPT、PPTX、DOC类型时，用来指定识别的结束页码，识别的页码包含当前值，文档页码大于100页建议使用异步解析接入。默认值：无
         :rtype: int
         """
         return self._FileEndPageNumber

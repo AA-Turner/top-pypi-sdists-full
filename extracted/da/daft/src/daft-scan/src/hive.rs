@@ -1,4 +1,4 @@
-use arrow2::datatypes::DataType;
+use arrow_schema::DataType;
 use common_error::DaftResult;
 use daft_core::series::Series;
 use daft_decoding::{deserialize::deserialize_single_value_to_arrow, inference::infer};
@@ -15,7 +15,8 @@ fn parse_hive_value_to_dtype(
     if value.is_empty() {
         return Ok(Series::full_null(field_name, target_dtype, 1));
     }
-    let arrow_dtype = target_dtype.to_arrow().map_err(|e| {
+    #[allow(deprecated, reason = "arrow2 migration")]
+    let arrow_dtype = target_dtype.to_arrow2().map_err(|e| {
         common_error::DaftError::ValueError(format!("Failed to convert dtype to arrow: {}", e))
     })?;
     let arrow_array = deserialize_single_value_to_arrow(value.as_bytes(), arrow_dtype)?;
@@ -108,7 +109,8 @@ pub fn hive_partitions_to_fields(partitions: &IndexMap<String, String>) -> Vec<F
             } else {
                 inferred_type
             };
-            Field::new(key, DaftDataType::from(&inferred_type))
+            // daft_decoding::inference::infer should always return a valid Daft DataType
+            Field::new(key, DaftDataType::try_from(&inferred_type).unwrap())
         })
         .collect()
 }

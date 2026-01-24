@@ -1,38 +1,91 @@
+"""Tests for YAML input file code generation."""
+
 from __future__ import annotations
 
-from argparse import Namespace
 from typing import TYPE_CHECKING
 
 import pytest
-from freezegun import freeze_time
 
-from datamodel_code_generator.__main__ import Exit, main
-from tests.main.test_main_general import DATA_PATH, EXPECTED_MAIN_PATH
+from datamodel_code_generator.__main__ import Exit
+from tests.conftest import create_assert_file_content
+from tests.main.conftest import (
+    EXPECTED_MAIN_PATH,
+    YAML_DATA_PATH,
+    run_main_and_assert,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-YAML_DATA_PATH: Path = DATA_PATH / "yaml"
-
-
-@pytest.fixture(autouse=True)
-def reset_namespace(monkeypatch: pytest.MonkeyPatch) -> None:
-    namespace_ = Namespace(no_color=False)
-    monkeypatch.setattr("datamodel_code_generator.__main__.namespace", namespace_)
-    monkeypatch.setattr("datamodel_code_generator.arguments.namespace", namespace_)
+assert_file_content = create_assert_file_content(EXPECTED_MAIN_PATH)
 
 
 @pytest.mark.benchmark
-@freeze_time("2019-07-26")
-def test_main_yaml(tmp_path: Path) -> None:
-    output_file: Path = tmp_path / "output.py"
-    return_code: Exit = main([
-        "--input",
-        str(YAML_DATA_PATH / "pet.yaml"),
-        "--output",
-        str(output_file),
-        "--input-file-type",
-        "yaml",
-    ])
-    assert return_code == Exit.OK
-    assert output_file.read_text() == (EXPECTED_MAIN_PATH / "yaml.py").read_text()
+@pytest.mark.cli_doc(
+    options=["--input-file-type"],
+    option_description="""Generate models from raw YAML sample data.
+
+The `--input-file-type yaml` option treats the input file as **raw YAML data**
+and automatically infers a JSON Schema from it.
+
+**Note:** This is NOT for JSON Schema files written in YAML format.
+For schema definition files (JSON Schema or OpenAPI), use `--input-file-type jsonschema`
+or `--input-file-type openapi` instead, regardless of whether the file is in JSON or YAML format.""",
+    input_schema="yaml/pet.yaml",
+    cli_args=["--input-file-type", "yaml"],
+    golden_output="yaml.py",
+)
+def test_main_yaml(output_file: Path) -> None:
+    """Generate models from raw YAML sample data.
+
+    The `--input-file-type yaml` option treats the input file as **raw YAML data**
+    and automatically infers a JSON Schema from it.
+
+    **Note:** This is NOT for JSON Schema files written in YAML format.
+    For schema definition files (JSON Schema or OpenAPI), use `--input-file-type jsonschema`
+    or `--input-file-type openapi` instead, regardless of whether the file is in JSON or YAML format.
+    """
+    run_main_and_assert(
+        input_path=YAML_DATA_PATH / "pet.yaml",
+        output_path=output_file,
+        input_file_type="yaml",
+        assert_func=assert_file_content,
+    )
+
+
+def test_main_yaml_invalid_root_list(output_file: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Test YAML file with list as root element fails with invalid file format error."""
+    run_main_and_assert(
+        input_path=YAML_DATA_PATH / "invalid_root_list.yaml",
+        output_path=output_file,
+        input_file_type="yaml",
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr_contains="Invalid file format",
+    )
+
+
+def test_main_yaml_deprecated_bool(output_file: Path) -> None:
+    """Test YAML file with deprecated bool syntax emits deprecation warning."""
+    with pytest.warns(DeprecationWarning, match=r"YAML bool 'True' is deprecated"):
+        run_main_and_assert(
+            input_path=YAML_DATA_PATH / "deprecated_bool.yaml",
+            output_path=output_file,
+            input_file_type="openapi",
+        )
+
+
+def test_main_yaml_scientific_notation(output_file: Path) -> None:
+    """Test YAML file with scientific notation default values (issue #1955).
+
+    Scientific notation without decimal point (e.g., 1e-5) should be parsed as float,
+    not as string.
+    """
+    run_main_and_assert(
+        input_path=YAML_DATA_PATH / "scientific_notation.yaml",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+        assert_func=assert_file_content,
+        expected_file="yaml/scientific_notation.py",
+    )

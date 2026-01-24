@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Union, Optional, cast
 from typing_extensions import Literal
 
 import httpx
@@ -15,7 +15,7 @@ from ..types import (
     call_register_phone_call_params,
 )
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import is_given, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -24,6 +24,7 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
+from .._constants import DEFAULT_TIMEOUT
 from .._base_client import make_request_options
 from ..types.call_response import CallResponse
 from ..types.web_call_response import WebCallResponse
@@ -93,6 +94,7 @@ class CallResource(SyncAPIResource):
         self,
         call_id: str,
         *,
+        custom_attributes: Dict[str, Union[str, float, bool]] | Omit = omit,
         data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"] | Omit = omit,
         metadata: object | Omit = omit,
         override_dynamic_variables: Optional[Dict[str, str]] | Omit = omit,
@@ -107,6 +109,8 @@ class CallResource(SyncAPIResource):
         Update metadata and sensitive data storage settings for an existing call.
 
         Args:
+          custom_attributes: Custom attributes for the call
+
           data_storage_setting: Data storage setting for this call. Overrides the agent's default setting.
               "everything" stores all data, "everything_except_pii" excludes PII when
               possible, "basic_attributes_only" stores only metadata. Cannot be downgraded
@@ -119,7 +123,8 @@ class CallResource(SyncAPIResource):
           override_dynamic_variables: Override dynamic varaibles represented as key-value pairs of strings. Setting
               this will override or add the dynamic variables set in the agent during the
               call. Only need to set the delta where you want to override, no need to set the
-              entire dynamic variables object.
+              entire dynamic variables object. Setting this to null will remove any existing
+              override.
 
           extra_headers: Send extra headers
 
@@ -137,6 +142,7 @@ class CallResource(SyncAPIResource):
                 f"/v2/update-call/{call_id}",
                 body=maybe_transform(
                     {
+                        "custom_attributes": custom_attributes,
                         "data_storage_setting": data_storage_setting,
                         "metadata": metadata,
                         "override_dynamic_variables": override_dynamic_variables,
@@ -189,6 +195,8 @@ class CallResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        if not is_given(timeout) and self._client.timeout == DEFAULT_TIMEOUT:
+            timeout = 300
         return self._post(
             "/v2/list-calls",
             body=maybe_transform(
@@ -245,7 +253,9 @@ class CallResource(SyncAPIResource):
         *,
         from_number: str,
         to_number: str,
+        agent_override: call_create_phone_call_params.AgentOverride | Omit = omit,
         custom_sip_headers: Dict[str, str] | Omit = omit,
+        ignore_e164_validation: bool | Omit = omit,
         metadata: object | Omit = omit,
         override_agent_id: str | Omit = omit,
         override_agent_version: int | Omit = omit,
@@ -267,7 +277,16 @@ class CallResource(SyncAPIResource):
           to_number: The number you want to call, in E.164 format. If using a number purchased from
               Retell, only US numbers are supported as destination.
 
+          agent_override: For this particular call, override agent configuration with these settings. This
+              allows you to customize agent behavior for individual calls without modifying
+              the base agent.
+
           custom_sip_headers: Add optional custom SIP headers to the call.
+
+          ignore_e164_validation: If true, the e.164 validation will be ignored for the from_number. This can be
+              useful when you want to dial to internal pseudo numbers. This only applies when
+              you are using custom telephony and does not apply when you are using Retell
+              Telephony. If omitted, the default value is false.
 
           metadata: An arbitrary object for storage purpose only. You can put anything here like
               your internal customer id associated with the call. Not used for processing. You
@@ -292,13 +311,17 @@ class CallResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        if not is_given(timeout) and self._client.timeout == DEFAULT_TIMEOUT:
+            timeout = 120
         return self._post(
             "/v2/create-phone-call",
             body=maybe_transform(
                 {
                     "from_number": from_number,
                     "to_number": to_number,
+                    "agent_override": agent_override,
                     "custom_sip_headers": custom_sip_headers,
+                    "ignore_e164_validation": ignore_e164_validation,
                     "metadata": metadata,
                     "override_agent_id": override_agent_id,
                     "override_agent_version": override_agent_version,
@@ -316,6 +339,7 @@ class CallResource(SyncAPIResource):
         self,
         *,
         agent_id: str,
+        agent_override: call_create_web_call_params.AgentOverride | Omit = omit,
         agent_version: int | Omit = omit,
         metadata: object | Omit = omit,
         retell_llm_dynamic_variables: Dict[str, object] | Omit = omit,
@@ -333,6 +357,10 @@ class CallResource(SyncAPIResource):
 
         Your agent would contain the LLM Websocket
               url used for this call.
+
+          agent_override: For this particular call, override agent configuration with these settings. This
+              allows you to customize agent behavior for individual calls without modifying
+              the base agent.
 
           agent_version: The version of the agent to use for the call.
 
@@ -357,6 +385,7 @@ class CallResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "agent_id": agent_id,
+                    "agent_override": agent_override,
                     "agent_version": agent_version,
                     "metadata": metadata,
                     "retell_llm_dynamic_variables": retell_llm_dynamic_variables,
@@ -373,6 +402,7 @@ class CallResource(SyncAPIResource):
         self,
         *,
         agent_id: str,
+        agent_override: call_register_phone_call_params.AgentOverride | Omit = omit,
         agent_version: int | Omit = omit,
         direction: Literal["inbound", "outbound"] | Omit = omit,
         from_number: str | Omit = omit,
@@ -391,6 +421,10 @@ class CallResource(SyncAPIResource):
 
         Args:
           agent_id: The agent to use for the call.
+
+          agent_override: For this particular call, override agent configuration with these settings. This
+              allows you to customize agent behavior for individual calls without modifying
+              the base agent.
 
           agent_version: The version of the agent to use for the call.
 
@@ -421,6 +455,7 @@ class CallResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "agent_id": agent_id,
+                    "agent_override": agent_override,
                     "agent_version": agent_version,
                     "direction": direction,
                     "from_number": from_number,
@@ -497,6 +532,7 @@ class AsyncCallResource(AsyncAPIResource):
         self,
         call_id: str,
         *,
+        custom_attributes: Dict[str, Union[str, float, bool]] | Omit = omit,
         data_storage_setting: Literal["everything", "everything_except_pii", "basic_attributes_only"] | Omit = omit,
         metadata: object | Omit = omit,
         override_dynamic_variables: Optional[Dict[str, str]] | Omit = omit,
@@ -511,6 +547,8 @@ class AsyncCallResource(AsyncAPIResource):
         Update metadata and sensitive data storage settings for an existing call.
 
         Args:
+          custom_attributes: Custom attributes for the call
+
           data_storage_setting: Data storage setting for this call. Overrides the agent's default setting.
               "everything" stores all data, "everything_except_pii" excludes PII when
               possible, "basic_attributes_only" stores only metadata. Cannot be downgraded
@@ -523,7 +561,8 @@ class AsyncCallResource(AsyncAPIResource):
           override_dynamic_variables: Override dynamic varaibles represented as key-value pairs of strings. Setting
               this will override or add the dynamic variables set in the agent during the
               call. Only need to set the delta where you want to override, no need to set the
-              entire dynamic variables object.
+              entire dynamic variables object. Setting this to null will remove any existing
+              override.
 
           extra_headers: Send extra headers
 
@@ -541,6 +580,7 @@ class AsyncCallResource(AsyncAPIResource):
                 f"/v2/update-call/{call_id}",
                 body=await async_maybe_transform(
                     {
+                        "custom_attributes": custom_attributes,
                         "data_storage_setting": data_storage_setting,
                         "metadata": metadata,
                         "override_dynamic_variables": override_dynamic_variables,
@@ -593,6 +633,8 @@ class AsyncCallResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        if not is_given(timeout) and self._client.timeout == DEFAULT_TIMEOUT:
+            timeout = 300
         return await self._post(
             "/v2/list-calls",
             body=await async_maybe_transform(
@@ -649,7 +691,9 @@ class AsyncCallResource(AsyncAPIResource):
         *,
         from_number: str,
         to_number: str,
+        agent_override: call_create_phone_call_params.AgentOverride | Omit = omit,
         custom_sip_headers: Dict[str, str] | Omit = omit,
+        ignore_e164_validation: bool | Omit = omit,
         metadata: object | Omit = omit,
         override_agent_id: str | Omit = omit,
         override_agent_version: int | Omit = omit,
@@ -671,7 +715,16 @@ class AsyncCallResource(AsyncAPIResource):
           to_number: The number you want to call, in E.164 format. If using a number purchased from
               Retell, only US numbers are supported as destination.
 
+          agent_override: For this particular call, override agent configuration with these settings. This
+              allows you to customize agent behavior for individual calls without modifying
+              the base agent.
+
           custom_sip_headers: Add optional custom SIP headers to the call.
+
+          ignore_e164_validation: If true, the e.164 validation will be ignored for the from_number. This can be
+              useful when you want to dial to internal pseudo numbers. This only applies when
+              you are using custom telephony and does not apply when you are using Retell
+              Telephony. If omitted, the default value is false.
 
           metadata: An arbitrary object for storage purpose only. You can put anything here like
               your internal customer id associated with the call. Not used for processing. You
@@ -696,13 +749,17 @@ class AsyncCallResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        if not is_given(timeout) and self._client.timeout == DEFAULT_TIMEOUT:
+            timeout = 120
         return await self._post(
             "/v2/create-phone-call",
             body=await async_maybe_transform(
                 {
                     "from_number": from_number,
                     "to_number": to_number,
+                    "agent_override": agent_override,
                     "custom_sip_headers": custom_sip_headers,
+                    "ignore_e164_validation": ignore_e164_validation,
                     "metadata": metadata,
                     "override_agent_id": override_agent_id,
                     "override_agent_version": override_agent_version,
@@ -720,6 +777,7 @@ class AsyncCallResource(AsyncAPIResource):
         self,
         *,
         agent_id: str,
+        agent_override: call_create_web_call_params.AgentOverride | Omit = omit,
         agent_version: int | Omit = omit,
         metadata: object | Omit = omit,
         retell_llm_dynamic_variables: Dict[str, object] | Omit = omit,
@@ -737,6 +795,10 @@ class AsyncCallResource(AsyncAPIResource):
 
         Your agent would contain the LLM Websocket
               url used for this call.
+
+          agent_override: For this particular call, override agent configuration with these settings. This
+              allows you to customize agent behavior for individual calls without modifying
+              the base agent.
 
           agent_version: The version of the agent to use for the call.
 
@@ -761,6 +823,7 @@ class AsyncCallResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "agent_id": agent_id,
+                    "agent_override": agent_override,
                     "agent_version": agent_version,
                     "metadata": metadata,
                     "retell_llm_dynamic_variables": retell_llm_dynamic_variables,
@@ -777,6 +840,7 @@ class AsyncCallResource(AsyncAPIResource):
         self,
         *,
         agent_id: str,
+        agent_override: call_register_phone_call_params.AgentOverride | Omit = omit,
         agent_version: int | Omit = omit,
         direction: Literal["inbound", "outbound"] | Omit = omit,
         from_number: str | Omit = omit,
@@ -795,6 +859,10 @@ class AsyncCallResource(AsyncAPIResource):
 
         Args:
           agent_id: The agent to use for the call.
+
+          agent_override: For this particular call, override agent configuration with these settings. This
+              allows you to customize agent behavior for individual calls without modifying
+              the base agent.
 
           agent_version: The version of the agent to use for the call.
 
@@ -825,6 +893,7 @@ class AsyncCallResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "agent_id": agent_id,
+                    "agent_override": agent_override,
                     "agent_version": agent_version,
                     "direction": direction,
                     "from_number": from_number,

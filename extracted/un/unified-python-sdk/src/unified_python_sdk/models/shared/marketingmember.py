@@ -3,9 +3,10 @@
 from __future__ import annotations
 from .marketingemail import MarketingEmail, MarketingEmailTypedDict
 from datetime import datetime
+from pydantic import model_serializer
 from typing import Any, Dict, List, Optional
 from typing_extensions import NotRequired, TypedDict
-from unified_python_sdk.types import BaseModel
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class MarketingMemberTypedDict(TypedDict):
@@ -14,12 +15,13 @@ class MarketingMemberTypedDict(TypedDict):
     created_at: NotRequired[datetime]
     emails: NotRequired[List[MarketingEmailTypedDict]]
     r"""An array of email addresses for this member"""
+    first_name: NotRequired[str]
     id: NotRequired[str]
+    last_name: NotRequired[str]
     list_ids: NotRequired[List[str]]
     r"""An array of list IDs associated with this member"""
     name: NotRequired[str]
     raw: NotRequired[Dict[str, Any]]
-    r"""The raw data returned by the integration for this member"""
     tags: NotRequired[List[str]]
     r"""An array of tags associated with this member"""
     updated_at: NotRequired[datetime]
@@ -33,7 +35,11 @@ class MarketingMember(BaseModel):
     emails: Optional[List[MarketingEmail]] = None
     r"""An array of email addresses for this member"""
 
+    first_name: Optional[str] = None
+
     id: Optional[str] = None
+
+    last_name: Optional[str] = None
 
     list_ids: Optional[List[str]] = None
     r"""An array of list IDs associated with this member"""
@@ -41,9 +47,37 @@ class MarketingMember(BaseModel):
     name: Optional[str] = None
 
     raw: Optional[Dict[str, Any]] = None
-    r"""The raw data returned by the integration for this member"""
 
     tags: Optional[List[str]] = None
     r"""An array of tags associated with this member"""
 
     updated_at: Optional[datetime] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "created_at",
+                "emails",
+                "first_name",
+                "id",
+                "last_name",
+                "list_ids",
+                "name",
+                "raw",
+                "tags",
+                "updated_at",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

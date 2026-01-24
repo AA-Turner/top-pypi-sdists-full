@@ -1,13 +1,13 @@
 import math
 from collections import deque
-from typing import Dict, Literal, Optional
+from typing import Dict, Literal, Optional, cast
 
 import torch
 from torch import nn
 
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 
 FILTER_TYPE = Literal['mean', 'sum']
 
@@ -21,26 +21,25 @@ def gradfilter_ma(
     filter_type: FILTER_TYPE = 'mean',
     warmup: bool = True,
 ) -> Dict[str, deque]:
-    r"""Grokfast-MA.
+    """Grokfast-MA.
+
+    Args:
+        model (nn.Module): Model that contains every trainable parameters.
+        grads (Optional[Dict[str, deque]]): Running memory (queue for windowed moving average).
+            Initialize by setting  it to None.
+            Feed the output of the method recursively after one call.
+        window_size (int): The width of the filter window.
+            Additional memory requirements increase linearly with window size.
+        lamb (float): Amplifying factor hyperparameter of the filter.
+        filter_type (FILTER_TYPE): Aggregation method for the running queue.
+        warmup (bool): If true, the filter is not applied until the queue is filled.
 
     Example:
-    -------
-        Here's an example::
+        loss.backwards()  # Calculate the gradients.
 
-            loss.backwards()  # Calculate the gradients.
+        grads = gradfilter_ma(model, grads=grads, window_size=window_size, lamb=lamb)
 
-            grads = gradfilter_ma(model, grads=grads, window_size=window_size, lamb=lamb)
-
-            optimizer.step()  # Call the optimizer.
-
-    :param model: nn.Module. model that contains every trainable parameters.
-    :param grads: Optional[Dict[str, deque]]. running memory (Queue for windowed moving average). initialize by setting
-        it to None. feed the output of the method recursively after on.
-    :param window_size: int. the width of the filter window. additional memory requirements increases linearly with
-        respect to the windows size.
-    :param lamb: float. amplifying factor hyperparameter of the filter.
-    :param filter_type: FILTER_TYPE. aggregation method for the running queue.
-    :param warmup: bool. if true, filter is not applied until the queue is filled.
+        optimizer.step()  # Call the optimizer.
     """
     if grads is None:
         grads = {n: deque(maxlen=window_size) for n, p in model.named_parameters() if p.requires_grad}
@@ -55,7 +54,7 @@ def gradfilter_ma(
                 elif filter_type == 'sum':
                     avg = sum(grads[n])
                 else:
-                    raise ValueError(f'not supported filter_type {filter_type}')
+                    raise NotImplementedError(f'not supported filter_type {filter_type}')
 
                 p.grad.add_(avg, alpha=lamb)
 
@@ -69,29 +68,29 @@ def gradfilter_ema(
     alpha: float = 0.98,
     lamb: float = 2.0,
 ) -> Dict[str, torch.Tensor]:
-    r"""Grokfast.
+    """Grokfast.
+
+    Args:
+        model (nn.Module): Model that contains every trainable parameters.
+        grads (Optional[Dict[str, deque]]): Running memory (EMA). Initialize by setting it to None.
+            Feed the output of the method recursively after one call.
+        alpha (int): Momentum hyperparameter of the EMA.
+        lamb (float): Amplifying factor hyperparameter of the filter.
 
     Example:
-    -------
-        Here's an example::
+        loss.backwards()  # Calculate the gradients.
 
-            loss.backwards()  # Calculate the gradients.
+        grads = gradfilter_ema(model, grads=grads, alpha=alpha, lamb=lamb)
 
-            grads = gradfilter_ema(model, grads=grads, alpha=alpha, lamb=lamb)
-
-            optimizer.step()  # Call the optimizer.
-
-    :param model: nn.Module. model that contains every trainable parameters.
-    :param grads: Optional[Dict[str, deque]]. running memory (EMA). Initialize by setting it to None. Feed the output
-        of the method recursively after on.
-    :param alpha: int. momentum hyperparameter of the EMA.
-    :param lamb: float. amplifying factor hyperparameter of the filter.
+        optimizer.step()  # Call the optimizer.
     """
     if grads is None:
-        grads = {n: p.grad for n, p in model.named_parameters() if p.requires_grad}
+        grads = {n: p.grad for n, p in model.named_parameters() if p.requires_grad and p.grad is not None}
+
+    grads = cast(Dict[str, torch.Tensor], grads)
 
     for n, p in model.named_parameters():
-        if p.requires_grad:
+        if p.requires_grad and p.grad is not None:
             grads[n].mul_(alpha).add_(p.grad, alpha=1.0 - alpha)
             p.grad.add_(grads[n], alpha=lamb)
 
@@ -99,27 +98,28 @@ def gradfilter_ema(
 
 
 class GrokFastAdamW(BaseOptimizer):
-    r"""Accelerated Grokking by Amplifying Slow Gradients with AdamW.
+    """Accelerated Grokking by Amplifying Slow Gradients with AdamW.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param grokfast: bool. whether to use grokfast.
-    :param grokfast_alpha: float. momentum hyperparameter of the EMA.
-    :param grokfast_lamb: float. amplifying factor hyperparameter of the filter.
-    :param grokfast_after_step: int. warmup step for grokfast.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        grokfast (bool): Whether to use grokfast.
+        grokfast_alpha (float): Momentum hyperparameter of the EMA.
+        grokfast_lamb (float): Amplifying factor hyperparameter of the filter.
+        grokfast_after_step (int): Warmup step for grokfast.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): Fix weight decay.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-4,
-        betas: BETAS = (0.9, 0.99),
+        betas: Betas = (0.9, 0.99),
         grokfast: bool = True,
         grokfast_alpha: float = 0.98,
         grokfast_lamb: float = 2.0,
@@ -143,7 +143,7 @@ class GrokFastAdamW(BaseOptimizer):
         if grokfast and normalize_lr:
             lr /= 1.0 + grokfast_lamb
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
@@ -160,7 +160,10 @@ class GrokFastAdamW(BaseOptimizer):
     def __str__(self) -> str:
         return 'GrokFastAdamW'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -178,18 +181,15 @@ class GrokFastAdamW(BaseOptimizer):
                     state['grok_exp_avg'] = grad.clone()
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
 

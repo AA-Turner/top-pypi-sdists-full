@@ -151,9 +151,10 @@ class ApplicationsGrpcTransport(ApplicationsTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -287,9 +288,10 @@ class ApplicationsGrpcTransport(ApplicationsTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -372,10 +374,10 @@ class ApplicationsGrpcTransport(ApplicationsTransport):
         Creates an App Engine application for a Google Cloud Platform
         project. Required fields:
 
-        -  ``id`` - The ID of the target Cloud Platform project.
-        -  *location* - The
-           `region <https://cloud.google.com/appengine/docs/locations>`__
-           where you want the App Engine application located.
+        - ``id`` - The ID of the target Cloud Platform project.
+        - *location* - The
+          `region <https://cloud.google.com/appengine/docs/locations>`__
+          where you want the App Engine application located.
 
         For more information about App Engine applications, see
         `Managing Projects, Applications, and
@@ -408,12 +410,11 @@ class ApplicationsGrpcTransport(ApplicationsTransport):
         Updates the specified Application resource. You can update the
         following fields:
 
-        -  ``auth_domain`` - Google authentication domain for
-           controlling user access to the application.
-        -  ``default_cookie_expiration`` - Cookie expiration policy for
-           the application.
-        -  ``iap`` - Identity-Aware Proxy properties for the
-           application.
+        - ``auth_domain`` - Google authentication domain for controlling
+          user access to the application.
+        - ``default_cookie_expiration`` - Cookie expiration policy for
+          the application.
+        - ``iap`` - Identity-Aware Proxy properties for the application.
 
         Returns:
             Callable[[~.UpdateApplicationRequest],

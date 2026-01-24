@@ -2,10 +2,11 @@ import asyncio
 import re
 import uuid
 
-from tqdm import tqdm
-from typing import Any, Awaitable
+from typing import Any
+from typing_extensions import TypedDict
 
-from lmnr.opentelemetry_lib.decorators import json_dumps
+from tqdm import tqdm
+
 from lmnr.opentelemetry_lib.tracing.instruments import Instruments
 from lmnr.opentelemetry_lib.tracing.attributes import HUMAN_EVALUATOR_OPTIONS, SPAN_TYPE
 
@@ -17,6 +18,7 @@ from lmnr.sdk.laminar import Laminar as L
 from lmnr.sdk.log import get_default_logger
 from lmnr.sdk.types import (
     Datapoint,
+    EvaluationDatapointDatasetLink,
     EvaluationResultDatapoint,
     EvaluatorFunction,
     ExecutorFunction,
@@ -27,24 +29,50 @@ from lmnr.sdk.types import (
     SpanType,
     TraceType,
 )
-from lmnr.sdk.utils import from_env, is_async
+from lmnr.sdk.utils import from_env, is_async, json_dumps, get_frontend_url
 
 DEFAULT_BATCH_SIZE = 5
 MAX_EXPORT_BATCH_SIZE = 64
 
 
-def get_evaluation_url(
-    project_id: str, evaluation_id: str, base_url: str | None = None
-):
-    if not base_url or base_url == "https://api.lmnr.ai":
-        base_url = "https://www.lmnr.ai"
+class EvaluationRunResult(TypedDict):
+    average_scores: dict[str, Numeric]
+    evaluation_id: uuid.UUID
+    project_id: uuid.UUID
+    url: str
+    error_message: str | None
 
-    url = base_url
-    url = re.sub(r"\/$", "", url)
-    if url.endswith("localhost") or url.endswith("127.0.0.1"):
-        # We best effort assume that the frontend is running on port 5667
-        url = url + ":5667"
-    return f"{url}/project/{project_id}/evaluations/{evaluation_id}"
+
+def get_evaluation_url(
+    project_id: str,
+    evaluation_id: str,
+    base_url: str | None = None,
+    frontend_port: int | None = None,
+):
+    """
+    Get the frontend URL for an evaluation.
+
+    Args:
+        project_id: Project ID
+        evaluation_id: Evaluation ID
+        base_url: Base API URL
+        frontend_port: Optional frontend port for localhost (defaults to 5667)
+
+    Returns:
+        Full URL to the evaluation in the frontend
+    """
+
+    # Check environment variable if frontend_port not explicitly provided
+    if frontend_port is None:
+        port_str = from_env("LMNR_FRONTEND_PORT")
+        if port_str:
+            try:
+                frontend_port = int(port_str)
+            except ValueError:
+                pass
+
+    frontend_url = get_frontend_url(base_url, frontend_port)
+    return f"{frontend_url}/project/{project_id}/evaluations/{evaluation_id}"
 
 
 def get_average_scores(results: list[EvaluationResultDatapoint]) -> dict[str, Numeric]:
@@ -67,8 +95,9 @@ def get_average_scores(results: list[EvaluationResultDatapoint]) -> dict[str, Nu
 
 
 class EvaluationReporter:
-    def __init__(self, base_url):
+    def __init__(self, base_url, frontend_port: int | None = None):
         self.base_url = base_url
+        self.frontend_port = frontend_port
 
     def start(self, length: int):
         self.cli_progress = tqdm(
@@ -80,21 +109,21 @@ class EvaluationReporter:
     def update(self, batch_length: int):
         self.cli_progress.update(batch_length)
 
-    def stopWithError(self, error: Exception):
-        self.cli_progress.close()
+    def stop_with_error(self, error: Exception):
+        if hasattr(self, "cli_progress"):
+            self.cli_progress.close()
         raise error
 
     def stop(
         self, average_scores: dict[str, Numeric], project_id: str, evaluation_id: str
     ):
         self.cli_progress.close()
-        print(
-            f"\nCheck the results at {get_evaluation_url(project_id, evaluation_id, self.base_url)}\n"
-        )
         print("Average scores:")
         for name, score in average_scores.items():
             print(f"{name}: {score}")
-        print("\n")
+        print(
+            f"Check the results at {get_evaluation_url(project_id, evaluation_id, self.base_url, self.frontend_port)}\n"
+        )
 
 
 class Evaluation:
@@ -112,6 +141,7 @@ class Evaluation:
         base_http_url: str | None = None,
         http_port: int | None = None,
         grpc_port: int | None = None,
+        frontend_port: int | None = None,
         instruments: (
             set[Instruments] | list[Instruments] | tuple[Instruments] | None
         ) = None,
@@ -172,6 +202,8 @@ class Evaluation:
                 HTTP service. Defaults to 443 if not specified.
             grpc_port (int | None, optional): The port for Laminar API\
                 gRPC service. Defaults to 8443 if not specified.
+            frontend_port (int | None, optional): The port for the Laminar frontend.\
+                Defaults to 5667 if not specified.
             instruments (set[Instruments] | None, optional): Set of modules\
                 to auto-instrument. If None, all available instruments will be\
                 used.
@@ -197,7 +229,7 @@ class Evaluation:
 
         base_url = base_url or from_env("LMNR_BASE_URL") or "https://api.lmnr.ai"
 
-        self.reporter = EvaluationReporter(base_url)
+        self.reporter = EvaluationReporter(base_url, frontend_port)
         if isinstance(data, list):
             self.data = [
                 (Datapoint.model_validate(point) if isinstance(point, dict) else point)
@@ -205,6 +237,8 @@ class Evaluation:
             ]
         else:
             self.data = data
+        if not isinstance(self.data, LaminarDataset) and len(self.data) == 0:
+            raise ValueError("No data provided. Skipping evaluation")
         self.executor = executor
         self.evaluators = evaluators
         self.group_name = group_name
@@ -248,24 +282,42 @@ class Evaluation:
             export_timeout_seconds=trace_export_timeout_seconds,
         )
 
-    async def run(self) -> Awaitable[dict[str, int | float]]:
+    async def run(self) -> EvaluationRunResult:
         return await self._run()
 
-    async def _run(self) -> dict[str, int | float]:
+    async def _run(self) -> EvaluationRunResult:
         if isinstance(self.data, LaminarDataset):
             self.data.set_client(
                 LaminarClient(
-                    self.base_http_url,
-                    self.project_api_key,
+                    base_url=self.base_http_url,
+                    project_api_key=self.project_api_key,
                 )
             )
-        self.reporter.start(len(self.data))
+            if not self.data.id:
+                try:
+                    datasets = await self.client.datasets.get_dataset_by_name(
+                        self.data.name
+                    )
+                    if len(datasets) == 0:
+                        self._logger.warning(f"Dataset {self.data.name} not found")
+                    else:
+                        self.data.id = datasets[0].id
+                except Exception as e:
+                    # Backward compatibility with old Laminar API (self hosted)
+                    self._logger.warning(f"Error getting dataset {self.data.name}: {e}")
+
         try:
             evaluation = await self.client.evals.init(
                 name=self.name, group_name=self.group_name, metadata=self.metadata
             )
-            result_datapoints = await self._evaluate_in_batches(evaluation.id)
+            evaluation_id = evaluation.id
+            project_id = evaluation.projectId
+            url = get_evaluation_url(project_id, evaluation_id, self.reporter.base_url)
 
+            print(f"Check the results at {url}")
+
+            self.reporter.start(len(self.data))
+            result_datapoints = await self._evaluate_in_batches(evaluation.id)
             # Wait for all background upload tasks to complete
             if self.upload_tasks:
                 self._logger.debug(
@@ -274,14 +326,19 @@ class Evaluation:
                 await asyncio.gather(*self.upload_tasks)
                 self._logger.debug("All upload tasks completed")
         except Exception as e:
-            self.reporter.stopWithError(e)
             await self._shutdown()
-            raise
+            self.reporter.stop_with_error(e)
 
         average_scores = get_average_scores(result_datapoints)
         self.reporter.stop(average_scores, evaluation.projectId, evaluation.id)
         await self._shutdown()
-        return average_scores
+        return {
+            "average_scores": average_scores,
+            "evaluation_id": evaluation_id,
+            "project_id": project_id,
+            "url": url,
+            "error_message": None,
+        }
 
     async def _shutdown(self):
         # We use flush() instead of shutdown() because multiple evaluations
@@ -336,6 +393,7 @@ class Evaluation:
                     int=executor_span.get_span_context().span_id
                 )
                 trace_id = uuid.UUID(int=executor_span.get_span_context().trace_id)
+
                 partial_datapoint = PartialEvaluationDatapoint(
                     id=evaluation_id,
                     data=datapoint.data,
@@ -345,6 +403,12 @@ class Evaluation:
                     executor_span_id=executor_span_id,
                     metadata=datapoint.metadata,
                 )
+                if isinstance(self.data, LaminarDataset):
+                    partial_datapoint.dataset_link = EvaluationDatapointDatasetLink(
+                        dataset_id=self.data.id,
+                        datapoint_id=datapoint.id,
+                        created_at=datapoint.created_at,
+                    )
                 # First, create datapoint with trace_id so that we can show the dp in the UI
                 await self.client.evals.save_datapoints(
                     eval_id, [partial_datapoint], self.group_name
@@ -408,7 +472,7 @@ class Evaluation:
 
             trace_id = uuid.UUID(int=evaluation_span.get_span_context().trace_id)
 
-        datapoint = EvaluationResultDatapoint(
+        eval_datapoint = EvaluationResultDatapoint(
             id=evaluation_id,
             data=datapoint.data,
             target=target,
@@ -419,14 +483,22 @@ class Evaluation:
             index=index,
             metadata=datapoint.metadata,
         )
+        if isinstance(self.data, LaminarDataset):
+            eval_datapoint.dataset_link = EvaluationDatapointDatasetLink(
+                dataset_id=self.data.id,
+                datapoint_id=datapoint.id,
+                created_at=datapoint.created_at,
+            )
 
         # Create background upload task without awaiting it
         upload_task = asyncio.create_task(
-            self.client.evals.save_datapoints(eval_id, [datapoint], self.group_name)
+            self.client.evals.save_datapoints(
+                eval_id, [eval_datapoint], self.group_name
+            )
         )
         self.upload_tasks.append(upload_task)
 
-        return datapoint
+        return eval_datapoint
 
 
 def evaluate(
@@ -442,6 +514,7 @@ def evaluate(
     base_http_url: str | None = None,
     http_port: int | None = None,
     grpc_port: int | None = None,
+    frontend_port: int | None = None,
     instruments: (
         set[Instruments] | list[Instruments] | tuple[Instruments] | None
     ) = None,
@@ -450,7 +523,7 @@ def evaluate(
     ) = None,
     max_export_batch_size: int | None = MAX_EXPORT_BATCH_SIZE,
     trace_export_timeout_seconds: int | None = None,
-) -> Awaitable[None] | None:
+) -> EvaluationRunResult | None:
     """
     If added to the file which is called through `lmnr eval` command, then
     registers the evaluation; otherwise, runs the evaluation.
@@ -504,6 +577,8 @@ def evaluate(
         grpc_port (int | None, optional): The port for Laminar API's gRPC\
                         service. 8443 is used if not specified.
                         Defaults to None.
+        frontend_port (int | None, optional): The port for the Laminar frontend.\
+                        Defaults to 5667 if not specified.
         instruments (set[Instruments] | None, optional): Set of modules to\
                         auto-instrument. If None, all available instruments\
                         will be used.
@@ -528,6 +603,7 @@ def evaluate(
         base_http_url=base_http_url,
         http_port=http_port,
         grpc_port=grpc_port,
+        frontend_port=frontend_port,
         instruments=instruments,
         disabled_instruments=disabled_instruments,
         max_export_batch_size=max_export_batch_size,

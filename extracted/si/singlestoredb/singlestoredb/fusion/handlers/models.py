@@ -4,15 +4,18 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
+from .. import result
 from ..handler import SQLHandler
 from ..result import FusionSQLResult
 from .files import ShowFilesHandler
 from .utils import get_file_space
+from .utils import get_inference_api
+from .utils import get_inference_api_manager
 
 
-class ShowModelsHandler(ShowFilesHandler):
+class ShowCustomModelsHandler(ShowFilesHandler):
     """
-    SHOW MODELS
+    SHOW CUSTOM MODELS
         [ at_path ] [ <like> ]
         [ <order-by> ]
         [ <limit> ] [ recursive ] [ extended ];
@@ -53,16 +56,16 @@ class ShowModelsHandler(ShowFilesHandler):
     --------
     The following command lists the models::
 
-        SHOW MODELS;
+        SHOW CUSTOM MODELS;
 
     The following command lists the models with additional information::
 
-        SHOW MODELS EXTENDED;
+        SHOW CUSTOM MODELS EXTENDED;
 
     See Also
     --------
-    * ``UPLOAD MODEL model_name FROM path``
-    * ``DOWNLOAD MODEL model_name``
+    * ``UPLOAD CUSTOM MODEL model_name FROM path``
+    * ``DOWNLOAD CUSTOM MODEL model_name``
 
 
     """  # noqa: E501
@@ -73,12 +76,12 @@ class ShowModelsHandler(ShowFilesHandler):
         return super().run(params)
 
 
-ShowModelsHandler.register(overwrite=True)
+ShowCustomModelsHandler.register(overwrite=True)
 
 
-class UploadModelHandler(SQLHandler):
+class UploadCustomModelHandler(SQLHandler):
     """
-    UPLOAD MODEL model_name
+    UPLOAD CUSTOM MODEL model_name
         FROM local_path [ overwrite ];
 
     # Model Name
@@ -110,12 +113,12 @@ class UploadModelHandler(SQLHandler):
     The following command uploads a file to models space and overwrite any
     existing files at the specified path::
 
-        UPLOAD MODEL model_name
+        UPLOAD CUSTOM MODEL model_name
             FROM 'llama3/' OVERWRITE;
 
     See Also
     --------
-    * ``DOWNLOAD MODEL model_name``
+    * ``DOWNLOAD CUSTOM MODEL model_name``
 
     """  # noqa: E501
 
@@ -143,12 +146,12 @@ class UploadModelHandler(SQLHandler):
         return None
 
 
-UploadModelHandler.register(overwrite=True)
+UploadCustomModelHandler.register(overwrite=True)
 
 
-class DownloadModelHandler(SQLHandler):
+class DownloadCustomModelHandler(SQLHandler):
     """
-    DOWNLOAD MODEL model_name
+    DOWNLOAD CUSTOM MODEL model_name
         [ local_path ]
         [ overwrite ];
 
@@ -182,17 +185,17 @@ class DownloadModelHandler(SQLHandler):
     The following command displays the contents of the file on the
     standard output::
 
-        DOWNLOAD MODEL llama3;
+        DOWNLOAD CUSTOM MODEL llama3;
 
     The following command downloads a model to a specific location and
     overwrites any existing models folder with the name ``local_llama3`` on the local storage::
 
-        DOWNLOAD MODEL llama3
+        DOWNLOAD CUSTOM MODEL llama3
             TO 'local_llama3' OVERWRITE;
 
     See Also
     --------
-    * ``UPLOAD MODEL model_name FROM local_path``
+    * ``UPLOAD CUSTOM MODEL model_name FROM local_path``
 
     """  # noqa: E501
 
@@ -211,12 +214,12 @@ class DownloadModelHandler(SQLHandler):
         return None
 
 
-DownloadModelHandler.register(overwrite=True)
+DownloadCustomModelHandler.register(overwrite=True)
 
 
-class DropModelsHandler(SQLHandler):
+class DropCustomModelHandler(SQLHandler):
     """
-    DROP MODEL model_name;
+    DROP CUSTOM MODEL model_name;
 
     # Model Name
     model_name = '<model-name>'
@@ -233,7 +236,7 @@ class DropModelsHandler(SQLHandler):
     --------
     The following commands deletes a model from a model space::
 
-        DROP MODEL llama3;
+        DROP CUSTOM MODEL llama3;
 
     """  # noqa: E501
 
@@ -247,4 +250,195 @@ class DropModelsHandler(SQLHandler):
         return None
 
 
-DropModelsHandler.register(overwrite=True)
+DropCustomModelHandler.register(overwrite=True)
+
+
+class StartModelHandler(SQLHandler):
+    """
+    START MODEL model_name ;
+
+    # Model Name
+    model_name = '<model-name>'
+
+    Description
+    -----------
+    Starts an inference API model.
+
+    Arguments
+    ---------
+    * ``<model-name>``: Name of the model to start.
+
+    Example
+    --------
+    The following command starts a model::
+
+        START MODEL my_model;
+
+    See Also
+    --------
+    * ``STOP MODEL model_name``
+    * ``SHOW MODELS``
+
+    """  # noqa: E501
+
+    def run(self, params: Dict[str, Any]) -> Optional[FusionSQLResult]:
+        inference_api = get_inference_api(params)
+        operation_result = inference_api.start()
+
+        res = FusionSQLResult()
+        res.add_field('Status', result.STRING)
+        res.add_field('Message', result.STRING)
+        res.set_rows([
+            (
+                operation_result.status,
+                operation_result.get_message(),
+            ),
+        ])
+
+        return res
+
+
+StartModelHandler.register(overwrite=True)
+
+
+class StopModelHandler(SQLHandler):
+    """
+    STOP MODEL model_name ;
+
+    # Model Name
+    model_name = '<model-name>'
+
+    Description
+    -----------
+    Stops an inference API model.
+
+    Arguments
+    ---------
+    * ``<model-name>``: Name of the model to stop.
+
+    Example
+    --------
+    The following command stops a model::
+
+        STOP MODEL my_model;
+
+    See Also
+    --------
+    * ``START MODEL model_name``
+    * ``SHOW MODELS``
+
+    """  # noqa: E501
+
+    def run(self, params: Dict[str, Any]) -> Optional[FusionSQLResult]:
+        inference_api = get_inference_api(params)
+        operation_result = inference_api.stop()
+
+        res = FusionSQLResult()
+        res.add_field('Status', result.STRING)
+        res.add_field('Message', result.STRING)
+        res.set_rows([
+            (
+                operation_result.status,
+                operation_result.get_message(),
+            ),
+        ])
+
+        return res
+
+
+StopModelHandler.register(overwrite=True)
+
+
+class ShowModelsHandler(SQLHandler):
+    """
+    SHOW MODELS ;
+
+    Description
+    -----------
+    Displays the list of inference APIs in the current project.
+
+    Example
+    --------
+    The following command lists all inference APIs::
+
+        SHOW MODELS;
+
+    See Also
+    --------
+    * ``START MODEL model_name``
+    * ``STOP MODEL model_name``
+    * ``DROP MODEL model_name``
+
+    """  # noqa: E501
+
+    def run(self, params: Dict[str, Any]) -> Optional[FusionSQLResult]:
+        inference_api_manager = get_inference_api_manager()
+        models = inference_api_manager.show()
+
+        res = FusionSQLResult()
+        res.add_field('Model Name', result.STRING)
+        res.add_field('Status', result.STRING)
+
+        rows = []
+        for model in models:
+            rows.append((
+                model.name,
+                model.status,
+            ))
+
+        res.set_rows(rows)
+        return res
+
+
+ShowModelsHandler.register(overwrite=True)
+
+
+class DropModelHandler(SQLHandler):
+    """
+    DROP MODEL model_name ;
+
+    # Model Name
+    model_name = '<model-name>'
+
+    Description
+    -----------
+    Drops (deletes) an inference API model.
+
+    Arguments
+    ---------
+    * ``<model-name>``: Name of the model to drop.
+
+    Example
+    --------
+    The following command drops an inference API::
+
+        DROP MODEL my_model;
+
+    See Also
+    --------
+    * ``START MODEL model_name``
+    * ``STOP MODEL model_name``
+    * ``SHOW MODELS``
+
+    """  # noqa: E501
+
+    def run(self, params: Dict[str, Any]) -> Optional[FusionSQLResult]:
+        inference_api = get_inference_api(params)
+        operation_result = inference_api.drop()
+
+        res = FusionSQLResult()
+        res.add_field('Model Name', result.STRING)
+        res.add_field('Status', result.STRING)
+        res.add_field('Message', result.STRING)
+        res.set_rows([
+            (
+                operation_result.name,
+                operation_result.status,
+                operation_result.get_message(),
+            ),
+        ])
+
+        return res
+
+
+DropModelHandler.register(overwrite=True)

@@ -1,10 +1,11 @@
-import yaml
 from lark import Discard
-from lark.visitors import Interpreter, Transformer
+from lark.visitors import Interpreter
+import yaml
 from gersemi.ast_helpers import get_value, is_keyword
 from gersemi.immutable import make_immutable
-from gersemi.keywords import Hint, Keywords
 from gersemi.keyword_kind import KeywordFormatter, KeywordPreprocessor
+from gersemi.keywords import Hint, Keywords
+from gersemi.transformer import Transformer_InPlace
 
 
 class IgnoreThisDefinition:
@@ -18,7 +19,7 @@ IGNORE = "gersemi: ignore"
 
 class UseHint:
     def __init__(self, value):
-        self.value = yaml.safe_load(value) or dict()
+        self.value = yaml.safe_load(value) or {}
 
     def merge(self, other):
         self.value.update(other.value)
@@ -28,22 +29,21 @@ class BlockEnd(str):
     pass
 
 
-class DropIrrelevantElements(Transformer):
+class DropIrrelevantElements(Transformer_InPlace):
     def _discard(self, _):
         return Discard
 
     def non_command_element(self, children):
-        if len(children) == 1:
-            if any(
-                isinstance(children[0], helper_type)
-                for helper_type in [IgnoreThisDefinition, UseHint, BlockEnd]
-            ):
-                return children[0]
+        if (len(children) == 1) and any(
+            isinstance(children[0], helper_type)
+            for helper_type in [IgnoreThisDefinition, UseHint, BlockEnd]
+        ):
+            return children[0]
         return Discard
 
     def line_comment(self, children):
-        if len(children) > 0:
-            comment = children[0].strip()
+        if len(children) > 1:
+            comment = children[1].strip()
             if comment == IGNORE:
                 return IgnoreThisDefinition()
 
@@ -55,7 +55,6 @@ class DropIrrelevantElements(Transformer):
 
         return Discard
 
-    NEWLINE = _discard
     bracket_comment = _discard
 
 
@@ -101,9 +100,6 @@ class CMakeInterpreter(Interpreter):
         return Keywords(options, one_value_keywords, multi_value_keywords)
 
     def start(self, tree):
-        return self.visit(tree.children[0])
-
-    def file(self, tree):
         self.visit_children(tree)
         return self.found_commands
 
@@ -111,8 +107,8 @@ class CMakeInterpreter(Interpreter):
         _, *maybe_body, _ = block.children
         if maybe_body:
             body, *_ = maybe_body
-            return len(body.children) > 0 and isinstance(
-                body.children[0], IgnoreThisDefinition
+            return body.children and any(
+                isinstance(c, IgnoreThisDefinition) for c in body.children
             )
         return False
 
@@ -193,7 +189,7 @@ class CMakeInterpreter(Interpreter):
         ][:1]
 
     def command_invocation(self, tree):
-        identifier, arguments = tree.children
+        identifier, _, arguments, _ = tree.children
         command_interpreters = {
             "cmake_parse_arguments": self._cmake_parse_arguments,
             "function": self._new_command,
@@ -220,7 +216,7 @@ class CMakeInterpreter(Interpreter):
 
 
 def find_custom_command_definitions(tree, filepath="---"):
-    tree = DropIrrelevantElements(visit_tokens=True).transform(tree)
+    tree = DropIrrelevantElements().transform(tree)
     return CMakeInterpreter(filepath).visit(tree)
 
 
@@ -248,7 +244,7 @@ def create_command(canonical_name, positional_arguments, keywords, block_end):
 def get_just_definitions(definitions):
     result = {}
     for name, info in definitions.items():
-        sorted_info = list(sorted(info, key=lambda item: item[1]))
+        sorted_info = sorted(info, key=lambda item: item[1])
         (canonical_name, (positional_arguments, keywords), block_end), _ = sorted_info[
             0
         ]

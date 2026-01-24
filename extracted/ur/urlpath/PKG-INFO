@@ -1,243 +1,192 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: urlpath
-Version: 1.2.0
-Summary: Object-oriented URL from `urllib.parse` and `pathlib`
-Home-page: https://github.com/brandonschabell/urlpath
-Author: brandonschabell@gmail.com
-Author-email: brandonschabell@gmail.com
-License: PSF
-Download-URL: http://pypi.python.org/pypi/urlpath
-Platform: UNKNOWN
+Version: 2.0.0
+Summary: Object-oriented URL from urllib.parse and pathlib
+Project-URL: Homepage, https://github.com/brandonschabell/urlpath
+Project-URL: Repository, https://github.com/brandonschabell/urlpath
+Project-URL: Issues, https://github.com/brandonschabell/urlpath/issues
+Project-URL: Download, https://pypi.org/project/urlpath/
+Author-email: Brandon Schabell <brandonschabell@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: http,pathlib,requests,uri,url,urllib
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Python Software Foundation License
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: ~=3.4
-Provides-Extra: test
+Requires-Python: >=3.9
+Requires-Dist: charset-normalizer<4,>=2
+Requires-Dist: requests
 Provides-Extra: json
+Requires-Dist: jmespath; extra == 'json'
+Description-Content-Type: text/markdown
 
-urlpath provides URL manipulator class that extends `pathlib.PurePath <https://docs.python.org/3/library/pathlib.html#pure-paths>`_.
-====================================================================================================================================
+# URLPath
 
-.. image:: https://img.shields.io/travis/chrono-meter/urlpath.svg
-    :target: https://travis-ci.org/chrono-meter/urlpath
+URLPath provides URL manipulator class that extends [`pathlib.PurePath`](https://docs.python.org/3/library/pathlib.html#pure-paths).
 
-.. image:: https://img.shields.io/pypi/v/urlpath.svg
-    :target: https://pypi.python.org/pypi/urlpath
+[![Tests](https://github.com/brandonschabell/urlpath/actions/workflows/test.yml/badge.svg)](https://github.com/brandonschabell/urlpath/actions/workflows/test.yml)
+[![PyPI version](https://img.shields.io/pypi/v/urlpath.svg)](https://pypi.python.org/pypi/urlpath)
+[![Downloads](https://pepy.tech/badge/urlpath)](https://pepy.tech/project/urlpath)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Versions](https://img.shields.io/pypi/pyversions/urlpath.svg)](https://pypi.org/project/urlpath/)
 
-.. image:: https://img.shields.io/pypi/l/urlpath.svg
-    :target: http://python.org/psf/license
+## Dependencies
 
-Dependencies
-------------
+* Python 3.9–3.14
+* [Requests](http://docs.python-requests.org/)
+* [JMESPath](https://pypi.org/project/jmespath/) (Optional)
+* [WebOb](http://webob.org/) (Optional)
 
-* Python 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10
-* `Requests <http://docs.python-requests.org/>`_
-* `JMESPath <https://pypi.org/project/jmespath/>`_ (Optional)
-* `WebOb <http://webob.org/>`_ (Optional)
+## Install
 
-Install
--------
+```bash
+pip install urlpath
+```
 
-``pip install urlpath``
+## Examples
 
-Examples
---------
+```python
+from urlpath import URL
 
-Import::
+# Create URL object
+url = URL(
+    'https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment')
 
-    >>> from urlpath import URL
+# Representation
+assert str(url) == 'https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment'
+assert url.as_uri() == 'https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment'
+assert url.as_posix() == 'https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment'
 
-Create object::
+# Access pathlib.PurePath compatible properties
+assert url.drive == 'https://username:password@secure.example.com:1234'
+assert url.root == '/'
+assert url.anchor == 'https://username:password@secure.example.com:1234/'
+assert url.path == '/path/to/file.ext'
+assert url.name == 'file.ext'
+assert url.suffix == '.ext'
+assert url.suffixes == ['.ext']
+assert url.stem == 'file'
+assert url.parts == ('https://username:password@secure.example.com:1234/', 'path', 'to', 'file.ext')
+assert str(url.parent) == 'https://username:password@secure.example.com:1234/path/to'
 
-    >>> url = URL(
-    ...     'https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment')
+# Access scheme
+assert url.scheme == 'https'
 
-Representation::
+# Access netloc
+assert url.netloc == 'username:password@secure.example.com:1234'
+assert url.username == 'username'
+assert url.password == 'password'
+assert url.hostname == 'secure.example.com'
+assert url.port == 1234
 
-    >>> url
-    URL('https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment')
-    >>> print(url)
-    https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment
-    >>> url.as_uri()
-    'https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment'
-    >>> url.as_posix()
-    'https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment'
+# Access query
+assert url.query == 'field1=1&field2=2&field1=3'
+assert url.form_fields == (('field1', '1'), ('field2', '2'), ('field1', '3'))
+assert 'field1' in url.form
+assert url.form.get_one('field1') == '1'
+assert url.form.get_one('field3') is None
 
-Access `pathlib.PurePath` compatible properties::
+# Access fragment
+assert url.fragment == 'fragment'
 
-    >>> url.drive
-    'https://username:password@secure.example.com:1234'
-    >>> url.root
-    '/'
-    >>> url.anchor
-    'https://username:password@secure.example.com:1234/'
-    >>> url.path
-    '/path/to/file.ext'
-    >>> url.name
-    'file.ext'
-    >>> url.suffix
-    '.ext'
-    >>> url.suffixes
-    ['.ext']
-    >>> url.stem
-    'file'
-    >>> url.parts
-    ('https://username:password@secure.example.com:1234/', 'path', 'to', 'file.ext')
-    >>> url.parent
-    URL('https://username:password@secure.example.com:1234/path/to')
+# Path operations
+assert str(url / 'suffix') == 'https://username:password@secure.example.com:1234/path/to/file.ext/suffix'
+assert str(url / '../../rel') == 'https://username:password@secure.example.com:1234/path/to/file.ext/../../rel'
+assert str((url / '../../rel').resolve()) == 'https://username:password@secure.example.com:1234/path/rel'
+assert str(url / '/') == 'https://username:password@secure.example.com:1234/'
+assert str(url / 'http://example.com/') == 'http://example.com/'
 
-Access scheme::
+# Replace components
+assert str(url.with_scheme('http')) == 'http://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment'
+assert str(url.with_netloc('www.example.com')) == 'https://www.example.com/path/to/file.ext?field1=1&field2=2&field1=3#fragment'
+assert str(url.with_userinfo('joe', 'pa33')) == 'https://joe:pa33@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment'
+assert str(url.with_hostinfo('example.com', 8080)) == 'https://username:password@example.com:8080/path/to/file.ext?field1=1&field2=2&field1=3#fragment'
+assert str(url.with_fragment('new fragment')) == 'https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#new fragment'
+assert str(url.with_components(username=None, password=None, query='query', fragment='frag')) == 'https://secure.example.com:1234/path/to/file.ext?query#frag'
 
-    >>> url.scheme
-    'https'
+# Replace query
+assert str(url.with_query({'field3': '3', 'field4': [1, 2, 3]})) == 'https://username:password@secure.example.com:1234/path/to/file.ext?field3=3&field4=1&field4=2&field4=3#fragment'
+assert str(url.with_query(field3='3', field4=[1, 2, 3])) == 'https://username:password@secure.example.com:1234/path/to/file.ext?field3=3&field4=1&field4=2&field4=3#fragment'
+assert str(url.with_query('query')) == 'https://username:password@secure.example.com:1234/path/to/file.ext?query#fragment'
+assert str(url.with_query(None)) == 'https://username:password@secure.example.com:1234/path/to/file.ext#fragment'
 
-Access netloc::
+# Amend query
+assert str(url.with_query(field1='1').add_query(field2=2)) == 'https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2#fragment'
+```
 
-    >>> url.netloc
-    'username:password@secure.example.com:1234'
-    >>> url.username
-    'username'
-    >>> url.password
-    'password'
-    >>> url.hostname
-    'secure.example.com'
-    >>> url.port
-    1234
+### HTTP requests
 
-Access query::
+URLPath provides convenient methods for making HTTP requests:
 
-    >>> url.query
-    'field1=1&field2=2&field1=3'
-    >>> url.form_fields
-    (('field1', '1'), ('field2', '2'), ('field1', '3'))
-    >>> url.form
-    <FrozenMultiDict {'field1': ('1', '3'), 'field2': ('2',)}>
-    >>> url.form.get_one('field1')
-    '1'
-    >>> url.form.get_one('field3') is None
-    True
+```python
+from urlpath import URL
 
-Access fragment::
+# GET request
+url = URL('https://httpbin.org/get')
+response = url.get()
+assert response.status_code == 200
 
-    >>> url.fragment
-    'fragment'
+# POST request
+url = URL('https://httpbin.org/post')
+response = url.post(data={'key': 'value'})
+assert response.status_code == 200
 
-Path operation::
+# DELETE request
+url = URL('https://httpbin.org/delete')
+response = url.delete()
+assert response.status_code == 200
 
-    >>> url / 'suffix'
-    URL('https://username:password@secure.example.com:1234/path/to/file.ext/suffix')
-    >>> url / '../../rel'
-    URL('https://username:password@secure.example.com:1234/path/to/file.ext/../../rel')
-    >>> (url / '../../rel').resolve()
-    URL('https://username:password@secure.example.com:1234/path/rel')
-    >>> url / '/'
-    URL('https://username:password@secure.example.com:1234/')
-    >>> url / 'http://example.com/'
-    URL('http://example.com/')
+# PATCH request
+url = URL('https://httpbin.org/patch')
+response = url.patch(data={'key': 'value'})
+assert response.status_code == 200
 
-Replace components::
+# PUT request
+url = URL('https://httpbin.org/put')
+response = url.put(data={'key': 'value'})
+assert response.status_code == 200
+```
 
-    >>> url.with_scheme('http')
-    URL('http://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment')
-    >>> url.with_netloc('www.example.com')
-    URL('https://www.example.com/path/to/file.ext?field1=1&field2=2&field1=3#fragment')
-    >>> url.with_userinfo('joe', 'pa33')
-    URL('https://joe:pa33@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#fragment')
-    >>> url.with_hostinfo('example.com', 8080)
-    URL('https://username:password@example.com:8080/path/to/file.ext?field1=1&field2=2&field1=3#fragment')
-    >>> url.with_fragment('new fragment')
-    URL('https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2&field1=3#new fragment')
-    >>> url.with_components(username=None, password=None, query='query', fragment='frag')
-    URL('https://secure.example.com:1234/path/to/file.ext?query#frag')
+### Jail
 
-Replace query::
+```python
+from urlpath import URL
 
-    >>> url.with_query({'field3': '3', 'field4': [1, 2, 3]})
-    URL('https://username:password@secure.example.com:1234/path/to/file.ext?field3=3&field4=1&field4=2&field4=3#fragment')
-    >>> url.with_query(field3='3', field4=[1, 2, 3])
-    URL('https://username:password@secure.example.com:1234/path/to/file.ext?field3=3&field4=1&field4=2&field4=3#fragment')
-    >>> url.with_query('query')
-    URL('https://username:password@secure.example.com:1234/path/to/file.ext?query#fragment')
-    >>> url.with_query(None)
-    URL('https://username:password@secure.example.com:1234/path/to/file.ext#fragment')
+root = 'http://www.example.com/app/'
+current = 'http://www.example.com/app/path/to/content'
+url = URL(root).jailed / current
+assert str(url / '/root') == 'http://www.example.com/app/root'
+assert str((url / '../../../../../../root').resolve()) == 'http://www.example.com/app/root'
+assert str(url / 'http://localhost/') == 'http://www.example.com/app/'
+assert str(url / 'http://www.example.com/app/file') == 'http://www.example.com/app/file'
+```
 
-Ammend query::
+### Trailing separator will be retained
 
-    >>> url.with_query(field1='1').add_query(field2=2)
-    URL('https://username:password@secure.example.com:1234/path/to/file.ext?field1=1&field2=2#fragment')
- 
-Do HTTP requests::
+```python
+from urlpath import URL
 
-    >>> url = URL('https://httpbin.org/get')
-    >>> url.get()
-    <Response [200]>
+url = URL('http://www.example.com/path/with/trailing/sep/')
+assert str(url).endswith('/')
+assert url.trailing_sep == '/'
+assert url.name == 'sep'
+assert url.path == '/path/with/trailing/sep/'
+assert url.parts[-1] == 'sep'
 
-    >>> url = URL('https://httpbin.org/post')
-    >>> url.post(data={'key': 'value'})
-    <Response [200]>
-
-    >>> url = URL('https://httpbin.org/delete')
-    >>> url.delete()
-    <Response [200]>
-
-    >>> url = URL('https://httpbin.org/patch')
-    >>> url.patch(data={'key': 'value'})
-    <Response [200]>
-
-    >>> url = URL('https://httpbin.org/put')
-    >>> url.put(data={'key': 'value'})
-    <Response [200]>
-
-Jail::
-
-    >>> root = 'http://www.example.com/app/'
-    >>> current = 'http://www.example.com/app/path/to/content'
-    >>> url = URL(root).jailed / current
-    >>> url / '/root'
-    JailedURL('http://www.example.com/app/root')
-    >>> (url / '../../../../../../root').resolve()
-    JailedURL('http://www.example.com/app/root')
-    >>> url / 'http://localhost/'
-    JailedURL('http://www.example.com/app/')
-    >>> url / 'http://www.example.com/app/file'
-    JailedURL('http://www.example.com/app/file')
-
-Trailing separator will be remained::
-
-    >>> url = URL('http://www.example.com/path/with/trailing/sep/')
-    >>> str(url).endswith('/')
-    True
-    >>> url.trailing_sep
-    '/'
-    >>> url.name
-    'sep'
-    >>> url.path
-    '/path/with/trailing/sep/'
-    >>> url.parts[-1]
-    'sep'
-
-    >>> url = URL('http://www.example.com/path/without/trailing/sep')
-    >>> str(url).endswith('/')
-    False
-    >>> url.trailing_sep
-    ''
-    >>> url.name
-    'sep'
-    >>> url.path
-    '/path/without/trailing/sep'
-    >>> url.parts[-1]
-    'sep'
-
-
-
+url = URL('http://www.example.com/path/without/trailing/sep')
+assert not str(url).endswith('/')
+assert url.trailing_sep == ''
+assert url.name == 'sep'
+assert url.path == '/path/without/trailing/sep'
+assert url.parts[-1] == 'sep'
+```

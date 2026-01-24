@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -34,12 +35,6 @@ from .literals import (
     StageValuesType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -114,14 +109,14 @@ class CrossRegionCopyTargetTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
 class ScriptOutputTypeDef(TypedDict):
     ExecutionHandler: str
-    Stages: NotRequired[List[StageValuesType]]
+    Stages: NotRequired[list[StageValuesType]]
     ExecutionHandlerService: NotRequired[Literal["AWS_SYSTEMS_MANAGER"]]
     ExecuteOperationOnScriptFailure: NotRequired[bool]
     ExecutionTimeout: NotRequired[int]
@@ -164,7 +159,7 @@ class DeprecateRuleTypeDef(TypedDict):
 
 class EventParametersOutputTypeDef(TypedDict):
     EventType: Literal["shareSnapshot"]
-    SnapshotOwner: List[str]
+    SnapshotOwner: list[str]
     DescriptionRegex: str
 
 
@@ -180,7 +175,7 @@ class TagTypeDef(TypedDict):
 
 
 class FastRestoreRuleOutputTypeDef(TypedDict):
-    AvailabilityZones: List[str]
+    AvailabilityZones: list[str]
     Count: NotRequired[int]
     Interval: NotRequired[int]
     IntervalUnit: NotRequired[RetentionIntervalUnitValuesType]
@@ -206,7 +201,7 @@ class LifecyclePolicySummaryTypeDef(TypedDict):
     PolicyId: NotRequired[str]
     Description: NotRequired[str]
     State: NotRequired[GettablePolicyStateValuesType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     PolicyType: NotRequired[PolicyTypeValuesType]
     DefaultPolicy: NotRequired[bool]
 
@@ -226,7 +221,7 @@ class RetainRuleTypeDef(TypedDict):
 
 
 class ShareRuleOutputTypeDef(TypedDict):
-    TargetAccounts: List[str]
+    TargetAccounts: list[str]
     UnshareInterval: NotRequired[int]
     UnshareIntervalUnit: NotRequired[RetentionIntervalUnitValuesType]
 
@@ -257,7 +252,7 @@ class CreateLifecyclePolicyResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -265,9 +260,9 @@ class CreateRuleOutputTypeDef(TypedDict):
     Location: NotRequired[LocationValuesType]
     Interval: NotRequired[int]
     IntervalUnit: NotRequired[Literal["HOURS"]]
-    Times: NotRequired[List[str]]
+    Times: NotRequired[list[str]]
     CronExpression: NotRequired[str]
-    Scripts: NotRequired[List[ScriptOutputTypeDef]]
+    Scripts: NotRequired[list[ScriptOutputTypeDef]]
 
 
 class CreateRuleTypeDef(TypedDict):
@@ -313,8 +308,8 @@ EventSourceTypeDef = TypedDict(
 
 class ExclusionsOutputTypeDef(TypedDict):
     ExcludeBootVolumes: NotRequired[bool]
-    ExcludeVolumeTypes: NotRequired[List[str]]
-    ExcludeTags: NotRequired[List[TagTypeDef]]
+    ExcludeVolumeTypes: NotRequired[list[str]]
+    ExcludeTags: NotRequired[list[TagTypeDef]]
 
 
 class ExclusionsTypeDef(TypedDict):
@@ -326,7 +321,7 @@ class ExclusionsTypeDef(TypedDict):
 class ParametersOutputTypeDef(TypedDict):
     ExcludeBootVolume: NotRequired[bool]
     NoReboot: NotRequired[bool]
-    ExcludeDataVolumeTags: NotRequired[List[TagTypeDef]]
+    ExcludeDataVolumeTags: NotRequired[list[TagTypeDef]]
 
 
 class ParametersTypeDef(TypedDict):
@@ -336,7 +331,7 @@ class ParametersTypeDef(TypedDict):
 
 
 class GetLifecyclePoliciesResponseTypeDef(TypedDict):
-    Policies: List[LifecyclePolicySummaryTypeDef]
+    Policies: list[LifecyclePolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -346,7 +341,7 @@ class ArchiveRuleTypeDef(TypedDict):
 
 class ActionOutputTypeDef(TypedDict):
     Name: str
-    CrossRegionCopy: List[CrossRegionCopyActionTypeDef]
+    CrossRegionCopy: list[CrossRegionCopyActionTypeDef]
 
 
 class ActionTypeDef(TypedDict):
@@ -360,13 +355,13 @@ ExclusionsUnionTypeDef = Union[ExclusionsTypeDef, ExclusionsOutputTypeDef]
 class ScheduleOutputTypeDef(TypedDict):
     Name: NotRequired[str]
     CopyTags: NotRequired[bool]
-    TagsToAdd: NotRequired[List[TagTypeDef]]
-    VariableTags: NotRequired[List[TagTypeDef]]
+    TagsToAdd: NotRequired[list[TagTypeDef]]
+    VariableTags: NotRequired[list[TagTypeDef]]
     CreateRule: NotRequired[CreateRuleOutputTypeDef]
     RetainRule: NotRequired[RetainRuleTypeDef]
     FastRestoreRule: NotRequired[FastRestoreRuleOutputTypeDef]
-    CrossRegionCopyRules: NotRequired[List[CrossRegionCopyRuleTypeDef]]
-    ShareRules: NotRequired[List[ShareRuleOutputTypeDef]]
+    CrossRegionCopyRules: NotRequired[list[CrossRegionCopyRuleTypeDef]]
+    ShareRules: NotRequired[list[ShareRuleOutputTypeDef]]
     DeprecateRule: NotRequired[DeprecateRuleTypeDef]
     ArchiveRule: NotRequired[ArchiveRuleTypeDef]
 
@@ -387,19 +382,19 @@ class ScheduleTypeDef(TypedDict):
 
 class PolicyDetailsOutputTypeDef(TypedDict):
     PolicyType: NotRequired[PolicyTypeValuesType]
-    ResourceTypes: NotRequired[List[ResourceTypeValuesType]]
-    ResourceLocations: NotRequired[List[ResourceLocationValuesType]]
-    TargetTags: NotRequired[List[TagTypeDef]]
-    Schedules: NotRequired[List[ScheduleOutputTypeDef]]
+    ResourceTypes: NotRequired[list[ResourceTypeValuesType]]
+    ResourceLocations: NotRequired[list[ResourceLocationValuesType]]
+    TargetTags: NotRequired[list[TagTypeDef]]
+    Schedules: NotRequired[list[ScheduleOutputTypeDef]]
     Parameters: NotRequired[ParametersOutputTypeDef]
     EventSource: NotRequired[EventSourceOutputTypeDef]
-    Actions: NotRequired[List[ActionOutputTypeDef]]
+    Actions: NotRequired[list[ActionOutputTypeDef]]
     PolicyLanguage: NotRequired[PolicyLanguageValuesType]
     ResourceType: NotRequired[ResourceTypeValuesType]
     CreateInterval: NotRequired[int]
     RetainInterval: NotRequired[int]
     CopyTags: NotRequired[bool]
-    CrossRegionCopyTargets: NotRequired[List[CrossRegionCopyTargetTypeDef]]
+    CrossRegionCopyTargets: NotRequired[list[CrossRegionCopyTargetTypeDef]]
     ExtendDeletion: NotRequired[bool]
     Exclusions: NotRequired[ExclusionsOutputTypeDef]
 
@@ -432,7 +427,7 @@ class LifecyclePolicyTypeDef(TypedDict):
     DateCreated: NotRequired[datetime]
     DateModified: NotRequired[datetime]
     PolicyDetails: NotRequired[PolicyDetailsOutputTypeDef]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     PolicyArn: NotRequired[str]
     DefaultPolicy: NotRequired[bool]
 

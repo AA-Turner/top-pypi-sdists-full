@@ -201,7 +201,7 @@ def test_bad_match_mappings(test_class):
     c = skrub.choose_from([skrub.X(), skrub.X() + 10], name="c")
     with pytest.raises(
         TypeError,
-        match=r"To use `match\(\)`, all choice outcomes must be hashable. "
+        match=r"To use `match\(\)`, all choice outcomes must be hashable. .*"
         "unhashable type: 'DataOp'",
     ):
         c.match({1: "one", 11: "eleven"})
@@ -281,3 +281,16 @@ def test_defaults_shown_in_doc_table():
         1.0, 100.0, log=True, n_steps=4
     ).default() == pytest.approx(4.641588833612779)
     assert skrub.choose_int(1, 100, log=True, n_steps=4).default() == 5
+
+
+@pytest.mark.parametrize("func", [skrub.choose_int, skrub.choose_float])
+@pytest.mark.parametrize("log", [False, True])
+def test_choice_bounds(func, log):
+    # non-regression for #1602
+    low, high = 10.0, 100.0
+    c = func(low, high, log=log)
+    sample = c.rvs(size=1_000_000, random_state=0)
+    sample_min, sample_max = sample.min(), sample.max()
+    assert sample_min == pytest.approx(low, abs=0.001)
+    assert sample_max == pytest.approx(high, abs=0.001)
+    assert low <= sample_min <= sample_max <= high

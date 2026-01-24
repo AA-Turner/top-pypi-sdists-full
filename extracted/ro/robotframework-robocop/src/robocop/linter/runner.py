@@ -6,7 +6,8 @@ import typer
 from robot.api import get_init_model, get_model, get_resource_model
 from robot.errors import DataError
 
-from robocop import errors
+from robocop import exceptions
+from robocop.cache import restore_diagnostics
 from robocop.linter import reports
 from robocop.linter.diagnostics import Diagnostics
 from robocop.linter.reports import save_reports_result_to_cache
@@ -40,32 +41,98 @@ class RobocopLinter:
             return get_resource_with_lang(get_resource_model, source, language)
         return get_resource_with_lang(get_model, source, language)
 
+    def get_cached_diagnostics(self, config: Config, source: Path) -> list[Diagnostic] | None:
+        """
+        Return cached diagnostics if available.
+
+        Returns:
+            List of cached diagnostics or None if no cache is available.
+
+        """
+        if not config.cache.enabled:
+            return None
+        cached_entry = self.config_manager.cache.get_linter_entry(source, config.hash())
+
+        if cached_entry is not None:
+            restored = restore_diagnostics(cached_entry, source, config.linter.rules)
+            if restored is not None:
+                return restored
+        return None
+
+    def get_model_diagnostics(self, config: Config, source: Path) -> list[Diagnostic] | None:
+        """
+        Run all selected rules on the model and return list of diagnostics.
+
+        Returns:
+            List of diagnostics or None if file cannot be decoded.
+
+        """
+        try:
+            model = self.get_model_for_file_type(source, config.language)
+            return self.run_check(model, source, config)
+        except DataError as error:
+            if not config.silent:
+                print(f"Failed to decode {source} with an error: {error}. Skipping file")
+            return None
+
     def run(self) -> list[Diagnostic]:
-        issues_no = 0
+        """
+        Run the diagnostic checks on the configured files and returns detected issues.
+
+        This method iterates through the configured file paths and attempts to check
+        each file for diagnostics. It processes files based on their types and uses
+        the configuration provided for each file. The diagnostics for each file are
+        aggregated, and a final report is generated. If configured, the diagnostics
+        are returned; otherwise, the process exits with a suitable code based on the
+        number of issues found.
+
+        Returns:
+            list[Diagnostic]: A list of detected issues in the analyzed files if the
+            linter is configured to return results; otherwise, the function returns
+            with an exit code based on the number of issues detected.
+
+        Raises:
+            DataError: Raised when a file cannot be decoded appropriately based on its
+            configuration language.
+
+        """
+        self.diagnostics: list[Diagnostic] = []
         files = 0
+        cached_files = 0
         for source, config in self.config_manager.paths:
             if config.verbose:
                 print(f"Scanning file: {source}")
-            try:
-                model = self.get_model_for_file_type(source, config.language)
-            except DataError as error:
-                print(f"Failed to decode {source} with an error: {error}. Skipping file")
+            diagnostics = self.get_cached_diagnostics(config, source)
+            if diagnostics is not None:
+                self.diagnostics.extend(diagnostics)
+                files += 1
+                cached_files += 1
                 continue
-            files += 1
-            diagnostics = self.run_check(model, source, config)
-            issues_no += len(diagnostics)
+            diagnostics = self.get_model_diagnostics(config, source)
+            if diagnostics is None:
+                continue
             self.diagnostics.extend(diagnostics)
-        if not files:
+            files += 1
+            self.config_manager.cache.set_linter_entry(source, config.hash(), diagnostics)
+        self.config_manager.cache.save()
+
+        if not files and not self.config_manager.default_config.silent:
             print("No Robot files were found with the existing configuration.")
+        if self.config_manager.default_config.verbose and cached_files > 0:
+            print(f"Used cached results for {cached_files} of {files} files.")
         if "file_stats" in self.reports:
             self.reports["file_stats"].files_count = files
         self.make_reports()
         if self.config_manager.default_config.linter.return_result:
             return self.diagnostics
-        return self.return_with_exit_code(issues_no)
+        return self.return_with_exit_code(len(self.diagnostics))
 
     def run_check(
-        self, model: File, file_path: Path, config: Config, in_memory_content: str | None = None
+        self,
+        model: File,
+        file_path: Path,
+        config: Config,
+        in_memory_content: str | None = None,
     ) -> list[Diagnostic]:
         """
         Run all rules on file model and return list of diagnostics.
@@ -78,8 +145,6 @@ class RobocopLinter:
 
         """
         disablers = DisablersFinder(model)
-        if disablers.file_disabled:
-            return []
         found_diagnostics = []
         templated = is_suite_templated(model)
         for checker in config.linter.checkers:
@@ -88,22 +153,43 @@ class RobocopLinter:
             found_diagnostics += [
                 diagnostic
                 for diagnostic in checker.scan_file(model, file_path, in_memory_content, templated)
-                if not disablers.is_rule_disabled(diagnostic) and not diagnostic.severity < config.linter.threshold
+                if not (diagnostic.severity < config.linter.threshold or disablers.is_rule_disabled(diagnostic))
             ]
+            if disablers.file_disabled and found_diagnostics:  # special case to not report disabler as not used
+                return []
+        for checker in config.linter.after_run_checkers:
+            if checker.disabled:
+                continue
+            found_diagnostics += [
+                diagnostic
+                for diagnostic in checker.scan_file(model, file_path, in_memory_content, disablers=disablers)
+                if not (diagnostic.severity < config.linter.threshold or disablers.is_rule_disabled(diagnostic))
+            ]
+        if found_diagnostics and config.linter.per_file_ignores:
+            for ignored_file, ignored_rules in config.linter.per_file_ignores.items():
+                if file_path.match(ignored_file):
+                    found_diagnostics = [
+                        diagnostic
+                        for diagnostic in found_diagnostics
+                        if diagnostic.rule.rule_id not in ignored_rules and diagnostic.rule.name not in ignored_rules
+                    ]
         return found_diagnostics
 
     def run_project_checks(self) -> list[Diagnostic]:
-        # TODO: use in a separate command
-        found_diagnostics = []
-        for checker in self.config_manager.default_config.linter.project_checkers:
-            found_diagnostics.extend(
-                [
-                    diagnostic
-                    for diagnostic in checker.scan_project()
-                    if not diagnostic.severity < self.config_manager.default_config.linter.threshold
-                ]
+        self.diagnostics: list[Diagnostic] = []
+        config = self.config_manager.default_config
+        if config.linter.project_checkers is None:
+            config.linter.load_configuration()
+        for checker in config.linter.project_checkers:
+            checker.issues = []
+            checker.scan_project(self.config_manager)
+            self.diagnostics.extend(
+                [diagnostic for diagnostic in checker.issues if not (diagnostic.severity < config.linter.threshold)]
             )
-        return found_diagnostics
+        self.make_reports()
+        if config.linter.return_result:
+            return self.diagnostics
+        return self.return_with_exit_code(len(self.diagnostics))
 
     def return_with_exit_code(self, issues_count: int) -> NoReturn:
         """
@@ -132,8 +218,13 @@ class RobocopLinter:
                 name, param_and_value = config.split(".", maxsplit=1)
                 param, value = param_and_value.split("=", maxsplit=1)
             except ValueError:
-                raise errors.InvalidConfigurationFormatError(config) from None
-            if name in self.reports:
+                raise exceptions.InvalidConfigurationFormatError(config) from None
+            if name not in self.reports:
+                continue
+            if param == "enabled":
+                if value.lower() == "false":
+                    del self.reports[name]
+            else:
                 self.reports[name].configure(param, value)
 
     def make_reports(self) -> None:
@@ -145,7 +236,9 @@ class RobocopLinter:
         for report in self.reports.values():
             prev_result = prev_results.get(report.name) if prev_results is not None else None
             report.generate_report(
-                diagnostics=diagnostics, config_manager=self.config_manager, prev_results=prev_result
+                diagnostics=diagnostics,
+                config_manager=self.config_manager,
+                prev_results=prev_result,
             )
             if is_persistent and isinstance(report, reports.ComparableReport):
                 result = report.persist_result()

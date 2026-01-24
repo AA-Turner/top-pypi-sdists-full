@@ -1,7 +1,7 @@
 r'''
 # `github_actions_organization_variable`
 
-Refer to the Terraform Registry for docs: [`github_actions_organization_variable`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable).
+Refer to the Terraform Registry for docs: [`github_actions_organization_variable`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ActionsOrganizationVariable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.actionsOrganizationVariable.ActionsOrganizationVariable",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable github_actions_organization_variable}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable github_actions_organization_variable}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ActionsOrganizationVariable(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable github_actions_organization_variable} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable github_actions_organization_variable} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param value: Value of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#value ActionsOrganizationVariable#value}
-        :param variable_name: Name of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#variable_name ActionsOrganizationVariable#variable_name}
-        :param visibility: Configures the access that repositories have to the organization variable. Must be one of 'all', 'private', or 'selected'. 'selected_repository_ids' is required if set to 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#visibility ActionsOrganizationVariable#visibility}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#id ActionsOrganizationVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param selected_repository_ids: An array of repository ids that can access the organization variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#selected_repository_ids ActionsOrganizationVariable#selected_repository_ids}
+        :param value: Value of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#value ActionsOrganizationVariable#value}
+        :param variable_name: Name of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#variable_name ActionsOrganizationVariable#variable_name}
+        :param visibility: Configures the access that repositories have to the organization variable. Must be one of 'all', 'private', or 'selected'. 'selected_repository_ids' is required if set to 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#visibility ActionsOrganizationVariable#visibility}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#id ActionsOrganizationVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param selected_repository_ids: An array of repository ids that can access the organization variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#selected_repository_ids ActionsOrganizationVariable#selected_repository_ids}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ActionsOrganizationVariable(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ActionsOrganizationVariable to import.
-        :param import_from_id: The id of the existing ActionsOrganizationVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ActionsOrganizationVariable that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ActionsOrganizationVariable to import is found.
         '''
         if __debug__:
@@ -288,11 +288,11 @@ class ActionsOrganizationVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param value: Value of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#value ActionsOrganizationVariable#value}
-        :param variable_name: Name of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#variable_name ActionsOrganizationVariable#variable_name}
-        :param visibility: Configures the access that repositories have to the organization variable. Must be one of 'all', 'private', or 'selected'. 'selected_repository_ids' is required if set to 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#visibility ActionsOrganizationVariable#visibility}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#id ActionsOrganizationVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param selected_repository_ids: An array of repository ids that can access the organization variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#selected_repository_ids ActionsOrganizationVariable#selected_repository_ids}
+        :param value: Value of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#value ActionsOrganizationVariable#value}
+        :param variable_name: Name of the variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#variable_name ActionsOrganizationVariable#variable_name}
+        :param visibility: Configures the access that repositories have to the organization variable. Must be one of 'all', 'private', or 'selected'. 'selected_repository_ids' is required if set to 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#visibility ActionsOrganizationVariable#visibility}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#id ActionsOrganizationVariable#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param selected_repository_ids: An array of repository ids that can access the organization variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#selected_repository_ids ActionsOrganizationVariable#selected_repository_ids}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -402,7 +402,7 @@ class ActionsOrganizationVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def value(self) -> builtins.str:
         '''Value of the variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#value ActionsOrganizationVariable#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#value ActionsOrganizationVariable#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -412,7 +412,7 @@ class ActionsOrganizationVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def variable_name(self) -> builtins.str:
         '''Name of the variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#variable_name ActionsOrganizationVariable#variable_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#variable_name ActionsOrganizationVariable#variable_name}
         '''
         result = self._values.get("variable_name")
         assert result is not None, "Required property 'variable_name' is missing"
@@ -424,7 +424,7 @@ class ActionsOrganizationVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Must be one of 'all', 'private', or 'selected'. 'selected_repository_ids' is required if set to 'selected'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#visibility ActionsOrganizationVariable#visibility}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#visibility ActionsOrganizationVariable#visibility}
         '''
         result = self._values.get("visibility")
         assert result is not None, "Required property 'visibility' is missing"
@@ -432,7 +432,7 @@ class ActionsOrganizationVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#id ActionsOrganizationVariable#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#id ActionsOrganizationVariable#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -444,7 +444,7 @@ class ActionsOrganizationVariableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def selected_repository_ids(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''An array of repository ids that can access the organization variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_variable#selected_repository_ids ActionsOrganizationVariable#selected_repository_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_variable#selected_repository_ids ActionsOrganizationVariable#selected_repository_ids}
         '''
         result = self._values.get("selected_repository_ids")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)

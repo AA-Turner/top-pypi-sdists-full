@@ -1,9 +1,9 @@
 from typing import ClassVar, Generic, TypeVar
 
 import pytest
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, status
 
-from fastapi_pagination import Page, Params
+from fastapi_pagination import Page, Params, add_pagination, paginate
 from fastapi_pagination.bases import AbstractPage, AbstractParams
 from fastapi_pagination.cursor import CursorPage, encode_cursor
 from fastapi_pagination.customization import (
@@ -21,10 +21,14 @@ from fastapi_pagination.customization import (
     UseOptionalParams,
     UseParams,
     UseParamsFields,
+    UsePydanticV1,
     UseQuotedCursor,
+    UseResponseHeaders,
     UseStrCursor,
 )
-from fastapi_pagination.utils import IS_PYDANTIC_V2
+from fastapi_pagination.pydantic import IS_PYDANTIC_V2
+from fastapi_pagination.pydantic.v1 import BaseModelV1
+from tests.utils import IS_FASTAPI_V_0_112_4_OR_NEWER
 
 
 class _NoopCustomizer(PageCustomizer):
@@ -68,7 +72,7 @@ def test_customization_no_args():
 
 
 def test_customization_incorrect_customizer():
-    with pytest.raises(TypeError, match="^Expected PageCustomizer, got .*$"):
+    with pytest.raises(TypeError, match=r"^Expected PageCustomizer or PageTransformer, got .*$"):
         _ = CustomizedPage[Page, object()]
 
 
@@ -117,11 +121,67 @@ def test_customization_use_params_fields():
     assert params.size == 20
 
 
+@pytest.mark.skipif(
+    not (IS_PYDANTIC_V2 and IS_FASTAPI_V_0_112_4_OR_NEWER),
+    reason="default_factory is only supported in Pydantic v2",
+)
+class TestUseParamsFields:
+    @pytest.fixture(scope="session")
+    def app(self):
+        _app = FastAPI()
+        add_pagination(_app)
+
+        CustomPage = CustomizedPage[
+            Page,
+            UseParamsFields(
+                page=Query(default_factory=lambda: 5),
+                size=Query(...),
+            ),
+        ]
+
+        @_app.get("/items", response_model=CustomPage)
+        def items(params: CustomPage.__params_type__ = Query(...)):
+            return paginate([*range(100)], params=params)
+
+        return _app
+
+    @pytest.mark.asyncio
+    async def test_default_factory(self, client):
+        response = await client.get("/items", params={"size": 10})
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json()
+
+        assert data["page"] == 5
+        assert data["size"] == 10
+
+    @pytest.mark.asyncio
+    async def test_missing_required_field(self, client):
+        response = await client.get("/items", params={})
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+        match response.json():
+            case {
+                "detail": [
+                    {
+                        "loc": ["query", "size"],
+                        "msg": "Field required",
+                    },
+                    *_,
+                ]
+            }:
+                pass
+            case _:
+                pytest.fail(f"Unexpected response JSON: {response.json()}")
+
+
 def test_customization_use_unknown_field():
-    with pytest.raises(ValueError, match="^Unknown field unknown_field$"):
+    with pytest.raises(ValueError, match=r"^Unknown field unknown_field$"):
         _ = CustomizedPage[Page, UseParamsFields(unknown_field=10)]
 
-    with pytest.raises(ValueError, match="^Unknown fields a, b$"):
+    with pytest.raises(ValueError, match=r"^Unknown fields a, b$"):
         _ = CustomizedPage[Page, UseParamsFields(a=10, b=1)]
 
 
@@ -154,7 +214,7 @@ def test_customization_use_params_fields_non_pydantic_params():
     class CustomPage(Page[T]):
         __params_type__ = object
 
-    with pytest.raises(TypeError, match="^.* must be subclass of BaseModel$"):
+    with pytest.raises(TypeError, match=r"^.* must be subclass of BaseModel$"):
         _ = CustomizedPage[CustomPage, UseParamsFields(page=10, size=20)]
 
 
@@ -317,3 +377,59 @@ def test_str_cursor(str_cursor):
     ]
 
     assert CustomPage.__params_type__.str_cursor == str_cursor
+
+
+@pytest.mark.skipif(
+    not IS_PYDANTIC_V2,
+    reason="UseResponseHeaders is only supported in Pydantic v2",
+)
+class TestUseResponseHeaders:
+    @pytest.fixture(scope="session")
+    def app(self):
+        _app = FastAPI()
+        add_pagination(_app)
+
+        CustomPage = CustomizedPage[
+            Page,
+            UseResponseHeaders(
+                lambda page: {
+                    "X-Total-Count": str(page.total or 0),
+                    "X-Params": [
+                        f"page={page.page}",
+                        f"size={page.size}",
+                    ],
+                }
+            ),
+        ]
+
+        @_app.get("/items")
+        def _items() -> CustomPage[int]:
+            return paginate([*range(100)])
+
+        return _app
+
+    @pytest.mark.asyncio
+    async def test_response_headers(self, client):
+        response = await client.get("/items", params={"page": 2, "size": 20})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.headers["X-Total-Count"] == "100"
+        assert response.headers.get_list("X-Params") == ["page=2", "size=20"]
+
+
+def test_use_pydantic_v1():
+    CustomPage = CustomizedPage[
+        Page,
+        UsePydanticV1(),
+    ]
+
+    assert issubclass(CustomPage, BaseModelV1)
+
+    page = CustomPage[int].create(
+        items=["1", "2", "3"],
+        params=CustomPage.__params_type__(),
+        total=3,
+    )
+
+    assert page.items == [1, 2, 3]
+    assert page.total == 3

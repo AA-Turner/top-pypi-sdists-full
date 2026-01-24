@@ -8,10 +8,16 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.chart_pb2 import (
+    CreateChartRequest,
+    CreateChartResponse,
+    DeleteChartRequest,
+    DeleteChartResponse,
     GetChartSnapshotRequest,
     GetChartSnapshotResponse,
     ListChartsRequest,
     ListChartsResponse,
+    UpdateMetricConfigRequest,
+    UpdateMetricConfigResponse,
 )
 from grpc import (
     Channel,
@@ -30,6 +36,18 @@ class ChartsServiceStub:
         GetChartSnapshotRequest,
         GetChartSnapshotResponse,
     ]
+    UpdateMetricConfig: UnaryUnaryMultiCallable[
+        UpdateMetricConfigRequest,
+        UpdateMetricConfigResponse,
+    ]
+    CreateChart: UnaryUnaryMultiCallable[
+        CreateChartRequest,
+        CreateChartResponse,
+    ]
+    DeleteChart: UnaryUnaryMultiCallable[
+        DeleteChartRequest,
+        DeleteChartResponse,
+    ]
 
 class ChartsServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -44,5 +62,23 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         request: GetChartSnapshotRequest,
         context: ServicerContext,
     ) -> GetChartSnapshotResponse: ...
+    @abstractmethod
+    def UpdateMetricConfig(
+        self,
+        request: UpdateMetricConfigRequest,
+        context: ServicerContext,
+    ) -> UpdateMetricConfigResponse: ...
+    @abstractmethod
+    def CreateChart(
+        self,
+        request: CreateChartRequest,
+        context: ServicerContext,
+    ) -> CreateChartResponse: ...
+    @abstractmethod
+    def DeleteChart(
+        self,
+        request: DeleteChartRequest,
+        context: ServicerContext,
+    ) -> DeleteChartResponse: ...
 
 def add_ChartsServiceServicer_to_server(servicer: ChartsServiceServicer, server: Server) -> None: ...

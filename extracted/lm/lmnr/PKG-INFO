@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.7.14
+Version: 0.7.35
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: pydantic>=2.0.3,<3.0.0
 Requires-Dist: python-dotenv>=1.0
 Requires-Dist: opentelemetry-api>=1.33.0
@@ -26,7 +27,9 @@ Requires-Dist: grpcio>=1
 Requires-Dist: httpx>=0.24.0
 Requires-Dist: orjson>=3.0.0
 Requires-Dist: packaging>=22.0
+Requires-Dist: opentelemetry-instrumentation-threading>=0.57b0
 Requires-Dist: opentelemetry-instrumentation-alephalpha>=0.47.1 ; extra == 'alephalpha'
+Requires-Dist: lmnr-claude-code-proxy>=0.1.10 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-alephalpha>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-bedrock>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-chromadb>=0.47.1 ; extra == 'all'
@@ -34,7 +37,7 @@ Requires-Dist: opentelemetry-instrumentation-cohere>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-crewai>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-haystack>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-lancedb>=0.47.1 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-langchain>=0.47.1 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-langchain>=0.47.1,<0.48.0 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-llamaindex>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-marqo>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-mcp>=0.47.1 ; extra == 'all'
@@ -52,11 +55,12 @@ Requires-Dist: opentelemetry-instrumentation-watsonx>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-weaviate>=0.47.1 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-bedrock>=0.47.1 ; extra == 'bedrock'
 Requires-Dist: opentelemetry-instrumentation-chromadb>=0.47.1 ; extra == 'chromadb'
+Requires-Dist: lmnr-claude-code-proxy>=0.1.10 ; extra == 'claude-agent-sdk'
 Requires-Dist: opentelemetry-instrumentation-cohere>=0.47.1 ; extra == 'cohere'
 Requires-Dist: opentelemetry-instrumentation-crewai>=0.47.1 ; extra == 'crewai'
 Requires-Dist: opentelemetry-instrumentation-haystack>=0.47.1 ; extra == 'haystack'
 Requires-Dist: opentelemetry-instrumentation-lancedb>=0.47.1 ; extra == 'lancedb'
-Requires-Dist: opentelemetry-instrumentation-langchain>=0.47.1 ; extra == 'langchain'
+Requires-Dist: opentelemetry-instrumentation-langchain>=0.47.1,<0.48.0 ; extra == 'langchain'
 Requires-Dist: opentelemetry-instrumentation-llamaindex>=0.47.1 ; extra == 'llamaindex'
 Requires-Dist: opentelemetry-instrumentation-marqo>=0.47.1 ; extra == 'marqo'
 Requires-Dist: opentelemetry-instrumentation-mcp>=0.47.1 ; extra == 'mcp'
@@ -77,6 +81,7 @@ Provides-Extra: alephalpha
 Provides-Extra: all
 Provides-Extra: bedrock
 Provides-Extra: chromadb
+Provides-Extra: claude-agent-sdk
 Provides-Extra: cohere
 Provides-Extra: crewai
 Provides-Extra: haystack

@@ -144,7 +144,7 @@ class Progressor:
             self.func = obj
         elif SCons.Util.is_List(obj):
             self.func = self.spinner
-        elif obj.find(self.target_string) != -1:
+        elif self.target_string in obj:
             self.func = self.replace_string
         else:
             self.func = self.string
@@ -465,19 +465,28 @@ class TreePrinter:
         self.prune = prune
         self.status = status
         self.sLineDraw = sLineDraw
+
     def get_all_children(self, node):
         return node.all_children()
+
     def get_derived_children(self, node):
         children = node.all_children(None)
         return [x for x in children if x.has_builder()]
+
     def display(self, t) -> None:
         if self.derived:
             func = self.get_derived_children
         else:
             func = self.get_all_children
-        s = self.status and 2 or 0
-        SCons.Util.print_tree(t, func, prune=self.prune, showtags=s, lastChild=True, singleLineDraw=self.sLineDraw)
-
+        s = 2 if self.status else 0
+        SCons.Util.print_tree(
+            t,
+            func,
+            prune=self.prune,
+            showtags=s,
+            lastChild=True,
+            singleLineDraw=self.sLineDraw,
+        )
 
 def python_version_string():
     return sys.version.split()[0]
@@ -519,7 +528,7 @@ def AddOption(*args, **kw) -> SConsOption:
     """Add a local option to the option parser - Public API.
 
     If the SCons-specific *settable* kwarg is true (default ``False``),
-    the option will allow calling :func:``SetOption`.
+    the option will allow calling :func:`SetOption`.
 
     .. versionchanged:: 4.8.0
        The *settable* parameter added to allow including the new option
@@ -635,7 +644,7 @@ def find_deepest_user_frame(tb):
     # of SCons:
     for frame in tb:
         filename = frame[0]
-        if filename.find(os.sep+'SCons'+os.sep) == -1:
+        if f'{os.sep}SCons{os.sep}' not in filename:
             return frame
     return tb[0]
 

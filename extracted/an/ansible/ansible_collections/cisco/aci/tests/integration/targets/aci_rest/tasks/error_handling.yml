@@ -2,17 +2,27 @@
 # Copyright: (c) 2018, Dag Wieers (@dagwieers) <dag@wieers.com>
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+- name: Test that we have an ACI APIC host, ACI username and ACI password
+  ansible.builtin.fail:
+    msg: "Please define the following variables: aci_hostname, aci_username and aci_password."
+  when: aci_hostname is not defined or aci_username is not defined or aci_password is not defined
 
+- name: Set vars
+  ansible.builtin.set_fact:
+    aci_info: &aci_info
+      host: "{{ aci_hostname }}"
+      username: "{{ aci_username }}"
+      password: "{{ aci_password }}"
+      validate_certs: "{{ aci_validate_certs | default(false) }}"
+      use_ssl: "{{ aci_use_ssl | default(true) }}"
+      use_proxy: "{{ aci_use_proxy | default(true) }}"
+      output_level: "{{ aci_output_level | default('info') }}"
 
 # PROVOKE ERRORS
 - name: Error on name resolution
   cisco.aci.aci_rest:
+    <<: *aci_info
     host: foo.bar.cisco.com
-    username: '{{ aci_username }}'
-    password: '{{ aci_password }}'
-    validate_certs: '{{ aci_validate_certs | default(false) }}'
-    use_ssl: '{{ aci_use_ssl | default(true) }}'
-    use_proxy: '{{ aci_use_proxy | default(true) }}'
     output_level: debug
     path: /api/mo/uni.json
     method: post
@@ -35,12 +45,7 @@
 
 - name: Error when required parameter is missing
   cisco.aci.aci_rest:
-    host: '{{ aci_hostname }}'
-    username: '{{ aci_username }}'
-    password: '{{ aci_password }}'
-    validate_certs: '{{ aci_validate_certs | default(false) }}'
-    use_ssl: '{{ aci_use_ssl | default(true) }}'
-    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    <<: *aci_info
     output_level: debug
     method: post
     content:
@@ -62,12 +67,7 @@
 
 - name: Error when attributes are missing
   cisco.aci.aci_rest:
-    host: '{{ aci_hostname }}'
-    username: '{{ aci_username }}'
-    password: '{{ aci_password }}'
-    validate_certs: '{{ aci_validate_certs | default(false) }}'
-    use_ssl: '{{ aci_use_ssl | default(true) }}'
-    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    <<: *aci_info
     output_level: debug
     path: /api/mo/uni/tn-ansible_test.json
     method: post
@@ -92,12 +92,7 @@
 
 - name: Error when input does not validate
   cisco.aci.aci_rest:
-    host: '{{ aci_hostname }}'
-    username: '{{ aci_username }}'
-    password: '{{ aci_password }}'
-    validate_certs: '{{ aci_validate_certs | default(false) }}'
-    use_ssl: '{{ aci_use_ssl | default(true) }}'
-    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    <<: *aci_info
     output_level: debug
     path: /api/mo/uni.json
     method: post
@@ -124,12 +119,7 @@
 
 - name: Error when invalid attributes are used
   cisco.aci.aci_rest:
-    host: '{{ aci_hostname }}'
-    username: '{{ aci_username }}'
-    password: '{{ aci_password }}'
-    validate_certs: '{{ aci_validate_certs | default(false) }}'
-    use_ssl: '{{ aci_use_ssl | default(true) }}'
-    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    <<: *aci_info
     output_level: debug
     path: /api/mo/uni.json
     method: post
@@ -156,12 +146,7 @@
 
 - name: Error on invalid object
   cisco.aci.aci_rest:
-    host: '{{ aci_hostname }}'
-    username: '{{ aci_username }}'
-    password: '{{ aci_password }}'
-    validate_certs: '{{ aci_validate_certs | default(false) }}'
-    use_ssl: '{{ aci_use_ssl | default(true) }}'
-    use_proxy: '{{ aci_use_proxy | default(true) }}'
+    <<: *aci_info
     output_level: debug
     path: /api/mo/uni.json
     method: post
@@ -189,14 +174,8 @@
 # Avoiding error: TypeError: must be str, not bytes
 - name: Add user certificate
   cisco.aci.aci_aaa_user_certificate:
-    host: '{{ aci_hostname }}'
-    username: '{{ aci_username }}'
-    password: '{{ aci_password }}'
-    validate_certs: '{{ aci_validate_certs | default(false) }}'
-    use_ssl: '{{ aci_use_ssl | default(true) }}'
-    use_proxy: '{{ aci_use_proxy | default(true) }}'
-    output_level: '{{ aci_output_level | default("info") }}'
-    aaa_user: '{{ aci_username }}'
+    <<: *aci_info
+    aaa_user: "{{ aci_username }}"
     name: admin
     certificate: "{{ lookup('file', 'pki/admin.crt') }}"
     state: present
@@ -204,14 +183,9 @@
 
 - name: Create tenant
   cisco.aci.aci_rest: &tenant
-    host: '{{ aci_hostname }}'
-    username: '{{ aci_username }}'
+    <<: *aci_info
     certificate_name: admin
     private_key: "{{ lookup('file', 'pki/admin.key') }}"
-    validate_certs: '{{ aci_validate_certs | default(false) }}'
-    use_ssl: '{{ aci_use_ssl | default(true) }}'
-    use_proxy: '{{ aci_use_proxy | default(true) }}'
-    output_level: '{{ aci_output_level | default("info") }}'
     path: /api/mo/uni.xml
     method: post
     content:
@@ -322,3 +296,104 @@
       - err_extension.msg == "Failed to find REST API payload type (neither .xml nor .json)."
       - err_fail_parse_xml.msg.startswith("Failed to parse provided XML payload")
       - err_fail_parse_json.msg.startswith("Failed to parse provided JSON/YAML payload")
+
+- name: Tests for ansible-core version >= 2.19
+  when: "ansible_version.full is version_compare('2.19', '>=')"
+  block:
+    - name: Negative test - add tenant with nested child objects
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: api/mo/uni/tn-ansible_test_json.json
+        method: post
+        content:
+          fvTenant:
+            attributes:
+              annotation: "test:inoption"
+              descr: "Ansible test tenant"
+              dn: "uni/tn-ansible_test_json"
+              name: "ansible_test_json"
+            children:
+              - fvAp:
+                  attributes:
+                    name: "ap1"
+                  children:
+                    - fvAEPg:
+                        attributes:
+                          floodOnEncap: "disabled"
+                          hasMcastSource: "no"
+                          isAttrBasedEPg: "yes"
+                          matchT: "AtleastOne"
+                          name: "usge_epg"
+                          pcEnfPref: "unenforced"
+                          prefGrMemb: "exclude"
+                          prio: "level3"
+                          shutdown: "no"
+                        children:
+                          - fvCrtrn:
+                              attributes:
+                                match: "any"
+                                name: "default"
+                                prec: 100
+                                scope: "scope-bd"
+                          - fvRsBd:
+                              attributes:
+                                tnFvBDName: "default"
+              - ospfIfPol:
+                  attributes:
+                    cost: 11
+                    ctrl: "mtu-ignore"
+                    deadIntvl: 12
+                    helloIntvl: 13
+                    name: "ansible_ospf"
+                    nwT: "bcast"
+                    pfxSuppress: "disable"
+                    prio: 220
+                    rexmitIntvl: 15
+                    xmitDelay: 16
+      register: nt_add_tenant_json
+      ignore_errors: true
+
+    - name: Negative test - add Port Channel interface policy JSON with prio attribute int value
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: api/mo/uni/infra/lacpifp-link_aggregation_control_protocol.json
+        method: post
+        content:
+          { "lacpIfPol": { "attributes": { "annotation": "orchestrator:ansible", "descr": "test", "name": "link_aggregation_control_protocol", "prio": 32768 } } }
+      register: nt_add_link_aggregation_control_protocol_json
+      ignore_errors: true
+
+    - name: Negative test - add Port Channel interface policy XML with prio attribute int value
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: api/mo/uni/infra/lacpifp-link_aggregation_control_protocol.xml
+        method: post
+        content: <lacpIfPol annotation="orchestrator:ansible" descr="test" name="link_aggregation_control_protocol" prio=32768/>
+      ignore_errors: true
+      register: nt_add_link_aggregation_control_protocol_xml
+
+    - name: Negative test - add Port Channel interface policy YML with prio attribute int value
+      cisco.aci.aci_rest:
+        <<: *aci_info
+        path: api/mo/uni/infra/lacpifp-link_aggregation_control_protocol.json
+        method: post
+        content:
+          lacpIfPol:
+            attributes:
+              name: "link_aggregation_control_protocol"
+              prio: 32768
+              descr: "test"
+      register: nt_add_link_aggregation_control_protocol_yml
+      ignore_errors: true
+
+    - name: Assertion checks for posting int value to the APIC
+      ansible.builtin.assert:
+        that:
+        - nt_add_tenant_json is not changed
+        - 'nt_add_tenant_json.msg == "APIC Error 120: unknown property value 00, , name prec, class fvCrtrn [(Dn0)] Dn0=, "'
+        - nt_add_link_aggregation_control_protocol_json is not changed
+        - "nt_add_link_aggregation_control_protocol_json.msg == 'APIC Error 400: JSON parsing failed - incomplete attribute value at line: 1'"
+        - nt_add_link_aggregation_control_protocol_xml is not changed
+        - "nt_add_link_aggregation_control_protocol_xml.msg is match ('Failed to parse provided XML payload: AttValue:')"
+        - nt_add_link_aggregation_control_protocol_yml is not changed
+        - 'nt_add_link_aggregation_control_protocol_yml.msg == "APIC Error 120: unknown property value 2768, , name prio, class lacpIfPol [(Dn0)] Dn0=, "'

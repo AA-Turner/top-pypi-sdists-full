@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dwave-cloud-client
-Version: 0.14.0
+Version: 0.14.4
 Summary: A minimal client for interacting with D-Wave cloud resources.
 Home-page: https://github.com/dwavesystems/dwave-cloud-client
 Author: D-Wave Systems Inc.
@@ -8,27 +8,27 @@ License: Apache 2.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: requests[socks]<3,>=2.25
 Requires-Dist: urllib3<3,>=1.26
 Requires-Dist: pydantic<3,>=2
 Requires-Dist: homebase<2,>=1.0
-Requires-Dist: click<9,>=7.0
+Requires-Dist: click<9,>=8.2
 Requires-Dist: python-dateutil<3,>=2.7
 Requires-Dist: plucky<0.5,>=0.4.3
 Requires-Dist: diskcache<6,>=5.2.1
 Requires-Dist: packaging>=19
-Requires-Dist: werkzeug<4,>=2.2
+Requires-Dist: werkzeug<4,>=3.1.0
 Requires-Dist: typing-extensions<5,>=4.5.0
 Requires-Dist: authlib<2,>=1.2
 Requires-Dist: importlib_metadata>=5.0.0
-Requires-Dist: orjson>=3.10
+Requires-Dist: orjson>=3.11
 Requires-Dist: http-sf>=1.0.4
 Provides-Extra: test
 Requires-Dist: requests_mock; extra == "test"

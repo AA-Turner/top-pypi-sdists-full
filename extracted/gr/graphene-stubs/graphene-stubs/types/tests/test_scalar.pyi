@@ -1,3 +1,0 @@
-from ..scalars import Scalar as Scalar
-
-def test_scalar() -> None: ...

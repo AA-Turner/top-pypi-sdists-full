@@ -5,7 +5,6 @@
 // SPDX-FileCopyrightText: Michael Popoloski
 // SPDX-License-Identifier: MIT
 //------------------------------------------------------------------------------
-#include <fmt/color.h>
 #include <fstream>
 #include <iostream>
 
@@ -15,16 +14,20 @@
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/diagnostics/TextDiagnosticClient.h"
 #include "slang/driver/Driver.h"
+#include "slang/syntax/CSTSerializer.h"
+#include "slang/syntax/SyntaxTree.h"
 #include "slang/text/Json.h"
 #include "slang/util/TimeTrace.h"
 #include "slang/util/VersionInfo.h"
 
 using namespace slang;
 using namespace slang::ast;
+using namespace slang::syntax;
 using namespace slang::driver;
 
-void printJson(Compilation& compilation, const std::string& fileName,
-               const std::vector<std::string>& scopes, bool includeSourceInfo, bool detailedTypes) {
+void printASTJson(Compilation& compilation, const std::string& fileName,
+                  const std::vector<std::string>& scopes, bool includeSourceInfo,
+                  bool detailedTypes) {
     JsonWriter writer;
     writer.setPrettyPrint(true);
 
@@ -51,6 +54,27 @@ void printJson(Compilation& compilation, const std::string& fileName,
                 serializer.serialize(*sym);
         }
     }
+
+    writer.writeNewLine();
+    OS::writeFile(fileName, writer.view());
+}
+
+void printCSTJson(Driver& driver, const std::string& fileName,
+                  CSTJsonMode mode = CSTJsonMode::Full) {
+    JsonWriter writer;
+    writer.setPrettyPrint(true);
+
+    CSTSerializer converter(writer, mode);
+
+    writer.startObject();
+    writer.writeProperty("syntaxTrees");
+    writer.startArray();
+
+    for (auto& tree : driver.syntaxTrees)
+        converter.serialize(*tree);
+
+    writer.endArray();
+    writer.endObject();
 
     writer.writeNewLine();
     OS::writeFile(fileName, writer.view());
@@ -102,6 +126,16 @@ int driverMain(int argc, TArgs argv) {
             "Dump the compiled AST in JSON format to the specified file, or '-' for stdout",
             "<file>", CommandLineFlags::FilePath);
 
+        std::optional<std::string> cstJsonFile;
+        driver.cmdLine.add(
+            "--cst-json", cstJsonFile,
+            "Dump the parsed syntax trees in JSON format to the specified file, or '-' for stdout",
+            "<file>", CommandLineFlags::FilePath);
+
+        std::optional<CSTJsonMode> cstJsonMode;
+        driver.cmdLine.addEnum<CSTJsonMode, CSTJsonMode_traits>("--cst-json-mode", cstJsonMode,
+                                                                "CST JSON output mode", "<mode>");
+
         std::vector<std::string> astJsonScopes;
         driver.cmdLine.add("--ast-json-scope", astJsonScopes,
                            "When dumping AST to JSON, include only the scopes specified by the "
@@ -115,28 +149,6 @@ int driverMain(int argc, TArgs argv) {
         std::optional<bool> serializeDetailedTypes;
         driver.cmdLine.add("--ast-json-detailed-types", serializeDetailedTypes,
                            "When dumping AST to JSON, expand out all type information");
-
-        std::optional<std::string> depfileTarget;
-        driver.cmdLine.add("--depfile-target", depfileTarget,
-                           "Output depfile lists in makefile format, creating the file with "
-                           "`<target>:` as the make target");
-
-        std::optional<std::string> allDepfile;
-        driver.cmdLine.add("--Mall,--all-deps", allDepfile,
-                           "Generate dependency file list of all files used during parsing",
-                           "<file>", CommandLineFlags::FilePath);
-
-        std::optional<std::string> includeDepfile;
-        driver.cmdLine.add(
-            "--Minclude,--include-deps", includeDepfile,
-            "Generate dependency file list of just include files that were used during parsing",
-            "<file>", CommandLineFlags::FilePath);
-
-        std::optional<std::string> moduleDepfile;
-        driver.cmdLine.add(
-            "--Mmodule,--module-deps", moduleDepfile,
-            "Generate dependency file list of source files parsed, excluding include files",
-            "<file>", CommandLineFlags::FilePath);
 
         std::optional<std::string> timeTrace;
         driver.cmdLine.add("--time-trace", timeTrace,
@@ -166,15 +178,16 @@ int driverMain(int argc, TArgs argv) {
         if (onlyParse.has_value() + onlyPreprocess.has_value() + onlyMacros.has_value() +
                 driver.options.lintMode() >
             1) {
-            OS::printE(fg(driver.textDiagClient->errorColor), "error: ");
-            OS::printE("can only specify one of --preprocess, --macros-only, "
-                       "--parse-only, --lint-only");
+            driver.printError("can only specify one of --preprocess, --macros-only, "
+                              "--parse-only, --lint-only");
             return 3;
         }
 
-        if ((onlyPreprocess || onlyMacros) && (includeDepfile || moduleDepfile || allDepfile)) {
-            OS::printE(fg(driver.textDiagClient->errorColor), "error: ");
-            OS::printE("cannot use dependency file options with --preprocess or --macros-only");
+        if ((onlyPreprocess || onlyMacros) &&
+            (driver.options.includeDepfile || driver.options.moduleDepfile ||
+             driver.options.allDepfile)) {
+            driver.printError(
+                "cannot use dependency file options with --preprocess or --macros-only");
             return 3;
         }
 
@@ -198,20 +211,11 @@ int driverMain(int argc, TArgs argv) {
                 ok = driver.parseAllSources();
             }
 
-            if (includeDepfile) {
-                OS::writeFile(*includeDepfile,
-                              driver.serializeDepfiles(driver.getDepfiles(true), depfileTarget));
-            }
+            driver.optionallyWriteDepFiles();
 
-            if (moduleDepfile) {
-                OS::writeFile(*moduleDepfile,
-                              driver.serializeDepfiles(driver.sourceLoader.getFilePaths(),
-                                                       depfileTarget));
-            }
-
-            if (allDepfile) {
-                OS::writeFile(*allDepfile,
-                              driver.serializeDepfiles(driver.getDepfiles(), depfileTarget));
+            if (cstJsonFile) {
+                TimeTraceScope timeScope("cstSerialization"sv, ""sv);
+                printCSTJson(driver, *cstJsonFile, cstJsonMode.value_or(CSTJsonMode::Full));
             }
 
             if (onlyParse == true)
@@ -232,9 +236,9 @@ int driverMain(int argc, TArgs argv) {
             ok &= driver.reportDiagnostics(quiet == true);
 
             if (astJsonFile) {
-                TimeTraceScope timeScope("serialization"sv, ""sv);
-                printJson(*compilation, *astJsonFile, astJsonScopes, includeSourceInfo == true,
-                          serializeDetailedTypes == true);
+                TimeTraceScope timeScope("astSerialization"sv, ""sv);
+                printASTJson(*compilation, *astJsonFile, astJsonScopes, includeSourceInfo == true,
+                             serializeDetailedTypes == true);
             }
             return ok;
         };
@@ -289,7 +293,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
     CompilationOptions options;
     options.maxInstanceDepth = 16;
+    options.maxCheckerInstanceDepth = 16;
     options.maxDefParamSteps = 32;
+    options.maxDefParamBlocks = 1024;
+    options.maxGenerateSteps = 128;
 
     Compilation compilation(options);
     compilation.addSyntaxTree(tree);

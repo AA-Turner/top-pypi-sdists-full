@@ -11,6 +11,10 @@ use moyo::MoyoDataset;
 use moyo::base::{AngleTolerance, Cell, Lattice, Permutation, Rotation, Translation};
 use moyo::data::Setting;
 
+fn assert_dataset_with_default(cell: &Cell, symprec: f64) -> MoyoDataset {
+    assert_dataset(cell, symprec, AngleTolerance::default(), Setting::default())
+}
+
 /// Sanity-check MoyoDataset
 fn assert_dataset(
     cell: &Cell,
@@ -18,7 +22,8 @@ fn assert_dataset(
     angle_tolerance: AngleTolerance,
     setting: Setting,
 ) -> MoyoDataset {
-    let dataset = MoyoDataset::new(cell, symprec, angle_tolerance, setting).unwrap();
+    let rotate_basis = true;
+    let dataset = MoyoDataset::new(cell, symprec, angle_tolerance, setting, rotate_basis).unwrap();
 
     // Check if operations are unique
     let num_operations = dataset.operations.len();
@@ -55,15 +60,31 @@ fn assert_dataset(
     }
 
     // std_cell
-    let std_dataset =
-        MoyoDataset::new(&dataset.std_cell, symprec, angle_tolerance, setting).unwrap();
+    let std_dataset = MoyoDataset::new(
+        &dataset.std_cell,
+        symprec,
+        angle_tolerance,
+        setting,
+        rotate_basis,
+    )
+    .unwrap();
     assert_eq!(std_dataset.number, dataset.number);
     assert_eq!(std_dataset.hall_number, dataset.hall_number);
     assert_eq!(std_dataset.pearson_symbol, dataset.pearson_symbol);
+    // TODO: No transformation or rotation for std_cell input
+    // assert_eq!(std_dataset.std_linear, Matrix3::identity());
+    // assert_relative_eq!(std_dataset.std_origin_shift, Vector3::zeros());
+    // assert_relative_eq!(std_dataset.std_rotation_matrix, Matrix3::identity());
 
     // prim_std_cell
-    let prim_std_dataset =
-        MoyoDataset::new(&dataset.prim_std_cell, symprec, angle_tolerance, setting).unwrap();
+    let prim_std_dataset = MoyoDataset::new(
+        &dataset.prim_std_cell,
+        symprec,
+        angle_tolerance,
+        setting,
+        rotate_basis,
+    )
+    .unwrap();
     assert_eq!(prim_std_dataset.number, dataset.number);
     assert_eq!(prim_std_dataset.hall_number, dataset.hall_number);
     assert_eq!(prim_std_dataset.pearson_symbol, dataset.pearson_symbol);
@@ -96,6 +117,11 @@ fn assert_dataset(
     // TODO: prim_origin_shift
 
     assert_eq!(dataset.mapping_std_prim.len(), cell.num_atoms());
+
+    // Check handedness
+    assert!(dataset.std_linear.determinant() > 0.0);
+    assert!(dataset.prim_std_linear.determinant() > 0.0);
+    assert!(dataset.std_rotation_matrix.determinant() > 0.0);
 
     dataset
 }
@@ -144,12 +170,10 @@ fn test_with_fcc() {
     let cell = Cell::new(lattice, positions, numbers);
 
     let symprec = 1e-4;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Spglib;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 225); // Fm-3m
     assert_eq!(dataset.hall_number, 523);
@@ -181,12 +205,10 @@ fn test_with_rutile() {
     let cell = Cell::new(lattice, positions, numbers);
 
     let symprec = 1e-4;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Spglib;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 136); // P4_2/mnm
     assert_eq!(dataset.hall_number, 419);
@@ -216,12 +238,10 @@ fn test_with_hcp() {
     let cell = Cell::new(lattice, positions, numbers);
 
     let symprec = 1e-4;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 194);
     assert_eq!(dataset.hall_number, 488);
@@ -260,12 +280,10 @@ fn test_with_wurtzite() {
     let cell = Cell::new(lattice, positions, numbers);
 
     let symprec = 1e-4;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 186);
     assert_eq!(dataset.hall_number, 480);
@@ -330,12 +348,10 @@ fn test_with_corundum() {
     let cell = Cell::new(lattice, positions, numbers);
 
     let symprec = 1e-4;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 167);
     assert_eq!(dataset.hall_number, 460); // Hexagonal setting
@@ -383,12 +399,10 @@ fn test_with_hexagonal_Sc() {
     let cell = Cell::new(lattice, positions, numbers);
 
     let symprec = 1e-4;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 178);
     assert_eq!(dataset.hall_number, 472);
@@ -412,12 +426,10 @@ fn test_with_trigonal_Sc() {
     let cell = Cell::new(lattice, positions, numbers);
 
     let symprec = 1e-1; // This structure is distorted
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 166);
     assert_eq!(dataset.hall_number, 458);
@@ -438,12 +450,10 @@ fn test_with_clathrate_Si() {
     let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
     let symprec = 1e-4;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 205);
     assert_eq!(dataset.hall_number, 501);
@@ -457,12 +467,10 @@ fn test_with_mp_1197586() {
     let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
     let symprec = 1e-3; // 1e-4 gives C2/m
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 194); // P6_3/mmc
     assert_eq!(dataset.hall_number, 488);
@@ -476,12 +484,10 @@ fn test_with_mp_1185639() {
     let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
     let symprec = 1e-2;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 187); // P-6m2
     assert_eq!(dataset.hall_number, 481);
@@ -495,12 +501,10 @@ fn test_with_mp_1221598() {
     let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
     let symprec = 1e-1;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 225); // Fm-3m
 }
@@ -511,12 +515,10 @@ fn test_with_mp_569901() {
     let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
     let symprec = 1e-1;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 
     assert_eq!(dataset.number, 118); // P-4n2
 }
@@ -527,12 +529,10 @@ fn test_with_mp_30665() {
     let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
     let symprec = 1e-1;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 }
 
 #[test]
@@ -540,14 +540,11 @@ fn test_monotonic_symmetry_recovery() {
     let path = Path::new("tests/assets/mp-1277787.json");
     let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
-
     let symprec = 5e-2;
-    let dataset1 = MoyoDataset::new(&cell, symprec, angle_tolerance, setting).unwrap();
+    let dataset1 = MoyoDataset::with_default(&cell, symprec).unwrap();
 
     let symprec = 1e-1;
-    let dataset2 = MoyoDataset::new(&cell, symprec, angle_tolerance, setting).unwrap();
+    let dataset2 = MoyoDataset::with_default(&cell, symprec).unwrap();
 
     assert!(dataset1.number <= dataset2.number);
 }
@@ -559,7 +556,7 @@ fn test_with_mp_550745() {
 
     let symprec = 1e-2;
     let angle_tolerance = AngleTolerance::Radian(0.1);
-    let setting = Setting::Standard;
+    let setting = Setting::default();
 
     let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
     assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
@@ -570,8 +567,6 @@ fn test_with_mp_550745() {
 fn test_niggli_reduction_corner_cases() {
     // https://github.com/spglib/moyo/issues/35
     let symprec = 1e-5;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
     for path in vec![
         Path::new("tests/assets/wbm-1-42389.json"),
@@ -579,9 +574,9 @@ fn test_niggli_reduction_corner_cases() {
     ] {
         let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
-        let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-        assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-        assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+        let dataset = assert_dataset_with_default(&cell, symprec);
+        assert_dataset_with_default(&dataset.std_cell, symprec);
+        assert_dataset_with_default(&dataset.prim_std_cell, symprec);
     }
 }
 
@@ -592,12 +587,10 @@ fn test_primitive_symmetry_search_corner_case() {
     let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
     let symprec = 1e-2;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
-    let dataset = assert_dataset(&cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.std_cell, symprec, angle_tolerance, setting);
-    assert_dataset(&dataset.prim_std_cell, symprec, angle_tolerance, setting);
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_dataset_with_default(&dataset.std_cell, symprec);
+    assert_dataset_with_default(&dataset.prim_std_cell, symprec);
 }
 
 #[test]
@@ -614,22 +607,19 @@ fn test_with_high_symprec_and_angle_tolerance() {
 
     let symprec = 0.1;
     let angle_tolerance = AngleTolerance::Radian(1.0);
-    let setting = Setting::Spglib;
 
-    let _ = MoyoDataset::new(&cell, symprec, angle_tolerance, setting).unwrap();
+    let _ = MoyoDataset::new(&cell, symprec, angle_tolerance, Setting::default(), true).unwrap();
 }
 
 #[test]
 fn test_wyckoff_position_assignment() {
     let symprec = 1e-4;
-    let angle_tolerance = AngleTolerance::Default;
-    let setting = Setting::Standard;
 
     {
         // https://github.com/CompRhys/aviary/pull/96#issuecomment-2628703353
         let path = Path::new("tests/assets/AB_mC8_15_e_a.json");
         let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        let dataset = MoyoDataset::new(&cell, symprec, angle_tolerance, setting).unwrap();
+        let dataset = MoyoDataset::with_default(&cell, symprec).unwrap();
         assert_eq!(
             dataset.wyckoffs,
             vec!['e', 'e', 'e', 'e', 'a', 'a', 'a', 'a']
@@ -641,10 +631,52 @@ fn test_wyckoff_position_assignment() {
         let path = Path::new("tests/assets/wyckoff_edge_case.json");
         let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
 
-        let dataset = MoyoDataset::new(&cell, symprec, angle_tolerance, setting).unwrap();
+        let dataset = MoyoDataset::with_default(&cell, symprec).unwrap();
         assert_eq!(
             dataset.wyckoffs,
             vec!['e', 'e', 'e', 'e', 'a', 'a', 'a', 'a']
         );
     }
+}
+
+#[test]
+fn test_handedness() {
+    // P 3_1 (144)
+    let a = 1.0;
+    let c = 2.0;
+    let lattice = Lattice::new(matrix![
+        a, 0.0, 0.0;
+        -a / 2.0, a * 3.0_f64.sqrt() / 2.0, 0.0;
+        0.0, 0.0, -c;  // left-handed
+    ]);
+    let x1_3a = 0.1;
+    let y1_3a = 0.2;
+    let z1_3a = 0.3;
+    let x2_3a = 0.4;
+    let y2_3a = 0.5;
+    let z2_3a = 0.6;
+    let positions = vec![
+        vector![x1_3a, y1_3a, z1_3a],
+        vector![-y1_3a, x1_3a - y1_3a, z1_3a + 1.0 / 3.0],
+        vector![-x1_3a + y1_3a, -x1_3a, z1_3a + 2.0 / 3.0],
+        vector![x2_3a, y2_3a, z2_3a],
+        vector![-y2_3a, x2_3a - y2_3a, z2_3a + 1.0 / 3.0],
+        vector![-x2_3a + y2_3a, -x2_3a, z2_3a + 2.0 / 3.0],
+    ];
+    let numbers = vec![0, 0, 0, 1, 1, 1];
+    let cell = Cell::new(lattice, positions, numbers);
+
+    let symprec = 1e-4;
+    let dataset = assert_dataset_with_default(&cell, symprec);
+    assert_eq!(dataset.number, 144);
+}
+
+#[test]
+fn test_issue206_triclinic_symmetrization() {
+    // https://github.com/spglib/moyo/issues/206
+    let path = Path::new("tests/assets/issue206.json");
+    let cell: Cell = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+
+    let symprec = 1e-8;
+    assert_dataset_with_default(&cell, symprec);
 }

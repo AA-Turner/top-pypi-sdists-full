@@ -87,6 +87,8 @@ def build_argparse():
     parser.add_argument('--second_optim', type=str, default=None, help='once first optimizer converged, tune the model again. with: sgd, adagrad, adam or adamax.')
     parser.add_argument('--second_bert_learning_rate', default=0, type=float, help='Secondary stage transformer finetuning learning rate scale')
 
+    parser.add_argument('--no_pretrain', dest='pretrain', action='store_false', help="Turn off pretrained embeddings.")
+
     parser.add_argument('--sample_train', type=float, default=1.0, help='Subsample training data.')
     parser.add_argument('--optim', type=str, default='sgd', help='sgd, adagrad, adam or adamax.')
     parser.add_argument('--lr', type=float, default=0.1, help='Learning rate.')
@@ -145,6 +147,9 @@ def main(args=None):
 
 def load_pretrain(args):
     # load pretrained vectors
+    if not args['pretrain']:
+        return None
+
     if args['wordvec_pretrain_file']:
         pretrain_file = args['wordvec_pretrain_file']
         pretrain = Pretrain(pretrain_file, None, args['pretrain_max_vocab'], save_to_file=False)
@@ -303,7 +308,7 @@ def train(args):
         # learning rate changes on plateau -- no improvement on model for patience number of epochs
         # change is made as a factor of the learning rate decay
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(trainer.optimizer, mode='max', factor=args['lr_decay'],
-                                                               patience=args['patience'], verbose=True, min_lr=args['min_lr'])
+                                                               patience=args['patience'], min_lr=args['min_lr'])
     else:
         scheduler = None
 
@@ -483,8 +488,8 @@ def load_model(args, model_file):
         if k.endswith('_dir') or k.endswith('_file') or k in ['batch_size', 'ignore_tag_scores', 'log_norms', 'mode', 'scheme', 'shorthand']:
             loaded_args[k] = args[k]
     save_dir, save_name = os.path.split(model_file)
-    args['save_dir'] = save_dir
-    args['save_name'] = save_name
+    loaded_args['save_dir'] = save_dir
+    loaded_args['save_name'] = save_name
     return loaded_args, trainer, vocab
 
 

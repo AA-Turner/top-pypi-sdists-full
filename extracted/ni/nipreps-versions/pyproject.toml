@@ -1,0 +1,122 @@
+[build-system]
+requires = [
+    "pdm-backend",
+    "uv",
+]
+build-backend = "pdm.backend"
+
+[project]
+name = "nipreps_versions"
+description = "Version schemes for nipreps tools"
+authors = [
+    { name = "Chris Markiewicz", email = "markiewicz@stanford.edu" },
+]
+readme = "README.md"
+license = "Apache-2.0"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Version Control",
+    "Topic :: System :: Software Distribution",
+    "Topic :: Utilities",
+]
+dynamic = []
+dependencies = [
+    "setuptools_scm >=7",
+    "packaging>=17",
+]
+requires-python = ">=3.10"
+version = "1.1.0"
+
+[project.urls]
+Home = "https://github.com/nipreps/version-schemes"
+Nipreps = "https://www.nipreps.org"
+
+[project.entry-points."setuptools_scm.version_scheme"]
+nipreps-calver = "nipreps_versions.schemes:nipreps_calver"
+
+[dependency-groups]
+test = [
+    "coverage[toml]>=7.8",
+    "pytest>=8.3",
+]
+style = [
+    "ruff",
+]
+types = [
+    "mypy",
+    "pyright",
+    "ty",
+]
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.build]
+source-includes = [
+    "tests/",
+    "tox.ini",
+    "uv.lock",
+]
+
+[tool.pdm.version]
+source = "scm"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+extra_checks = true
+
+[tool.coverage.run]
+parallel = true
+
+[tool.coverage.report]
+fail_under = 100
+
+[tool.ruff.lint]
+extend-select = [
+    "W",
+    "C90",
+    "I",
+    "N",
+    "UP",
+    "YTT",
+    "ANN",
+    "BLE",
+    "FBT",
+    "B",
+    "A",
+    "C4",
+    "DTZ",
+    "T10",
+    "EM",
+    "EXE",
+    "ISC",
+    "ICN",
+    "PIE",
+    "T20",
+    "PYI",
+    "PT",
+    "Q",
+    "RSE",
+    "RET",
+    "SLF",
+    "SLOT",
+    "TID",
+    "TCH",
+    "ARG",
+    "ERA",
+    "PL",
+    "FLY",
+    "PERF",
+    "RUF",
+]

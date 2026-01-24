@@ -7,56 +7,47 @@ parameters:
   # defaults for any parameters that are not specified
   name: ''
   vmImage: ''
+  BUILD_FLAGS: ''
 
 
 jobs:
 
-- job: ${{ parameters.name }}Test
+- job: ${{ parameters.name }}_Test
   pool:
     vmImage: ${{ parameters.vmImage }}
   strategy:
     matrix:
-      python39_minimums:
-        python.version: '3.9'
+      python310_minimums:
+        python.version: '3.10'
         NUMPY: 1.22.3
         SCIPY: 1.8.0
         PANDAS: 1.3.0
-        STATSMODELS: 0.12.0
+        STATSMODELS: 0.13.1
         XARRAY: 0.21.0
-        FORMULAIC: 0.6.5
-        test.install: true
-      python39_mid:
-        python.version: '3.9'
+        FORMULAIC: 1.2.1
+        PYTEST_PATTERN: "(slow or not slow)"
+      python310_mid_sdist:
+        python.version: '3.10'
         NUMPY: 1.23.0
         SCIPY: 1.9.0
         PANDAS: 1.4.0
-        STATSMODELS: 0.13.0
+        STATSMODELS: 0.13.1
         XARRAY: 2022.6.0
         XXHASH: true
-        FORMULAIC: 0.6.5
-        test.install: true
-      python39_recent:
-        python.version: '3.9'
-        NUMPY: 1.24.0
-        SCIPY: 1.10.0
-        PANDAS: 1.5.0
-        STATSMODELS: 0.13.0
-        XARRAY: 2022.12.0
-        FORMULAIC: 0.6.5
-        test.install: true
-      python310_no_cython:
-        python.version: '3.10'
-        LM_NO_BINARY: 1
-      python310_recent:
+        FORMULAIC: 1.2.1
+        test.sdist: true
+      python310_recent_wheel:
         python.version: '3.10'
         NUMPY: 1.24.0
         SCIPY: 1.12.0
         PANDAS: 2.0.0
         STATSMODELS: 0.14.0
         XARRAY: 2023.4.0
+        FORMULAIC: 1.2.1
+        test.wheel: true
       python310_latest:
         python.version: '3.10'
-        FORMULAIC: 1.0.1
+        FORMULAIC: 1.2.1
         XXHASH: true
         PYARROW: true
       python311_latest:
@@ -67,12 +58,26 @@ jobs:
         python.version: '3.12'
         XXHASH: true
         PYARROW: true
-      python312_copy_on_write:
+      python312_latest_no_binary:
+        python.version: '3.12'
+        XXHASH: true
+        PYARROW: true
+        BUILD_FLAGS: '-Csetup-args=-Dno-binary=true'
+      python312_cython_coverage:
+        python.version: '3.12'
+        BUILD_FLAGS: '-Csetup-args=-Dcython-coverage=true'
+        cython.coverage: true
+      python313_latest:
+        python.version: '3.13'
+        XXHASH: true
+        PYARROW: true
+        PYTEST_PATTERN: "(slow or not slow)"
+      python313_copy_on_write:
         python.version: '3.12'
         XXHASH: true
         LM_TEST_COPY_ON_WRITE: 1
-      python312_pre:
-        python.version: '3.12'
+      python313_pre:
+        python.version: '3.13'
         pip.pre: true
     maxParallel: 10
 
@@ -84,7 +89,7 @@ jobs:
     displayName: 'Use Python $(python.version)'
 
   - script: |
-      python -m pip install --upgrade pip setuptools>=61 wheel
+      python -m pip install --upgrade pip wheel build
       python -m pip install -r requirements.txt
       python -m pip install -r requirements-test.txt
       python -m pip install -r requirements-dev.txt
@@ -92,29 +97,45 @@ jobs:
       jupyter kernelspec list
     displayName: 'Install dependencies'
 
-  - script: |
-      python -m pip list
+  - script: python -m pip list
     displayName: 'List Configuration'
 
   - script: |
      flake8 linearmodels
      black --check linearmodels
      isort --check linearmodels
+     ruff check linearmodels
+     flake8 linearmodels
     displayName: 'Check style and formatting'
 
   - script: |
-      echo "Installing to site packages"
-      python -m pip wheel . --wheel-dir ./dist/ --no-build-isolation
-      WHL=$(ls -t ./dist/linearmodels-*.whl | head -1)
-      pip install ${WHL}
-    displayName: 'Install linearmodels (site-packages)'
-    condition: eq(variables['test.install'], 'true')
+      echo "Installing to site packages (sdist)"
+      python -m build --sdist . -v  
+      SDIST=$(ls -t ./dist/linearmodels-*.tar.gz | head -1)
+      pip install ${SDIST} -v
+    displayName: 'Install linearmodels (site-packages, sdist)'
+    condition: eq(variables['test.sdist'], 'true')
 
   - script: |
-      echo python -m pip install -e . -v --no-build-isolation
-      python -m pip install -e . -v --no-build-isolation
+      echo "Installing to site packages (wheel)"
+      python -m pip wheel . --wheel-dir ./dist/
+      WHL=$(ls -t ./dist/linearmodels-*.whl | head -1)
+      pip install ${WHL} -v
+    displayName: 'Install linearmodels (site-packages, wheel)'
+    condition: eq(variables['test.wheel'], 'true')
+
+  - script: |
+      echo python -m pip install --no-build-isolation -vv -e . ${BUILD_FLAGS}
+      python -m pip install --no-build-isolation -vv -e . ${BUILD_FLAGS}
     displayName: 'Install linearmodels (editable)'
-    condition: ne(variables['test.install'], 'true')
+    condition: and(ne(variables['test.wheel'], 'true'), ne(variables['test.sdist'], 'true'))
+
+  - script: |
+      pushd linearmodels/panel
+      cython --verbose -M --fast-fail -3  -X cpow=True -X boundscheck=False -X wraparound=False -X cdivision=True -X binding=True -X linetrace=True _utility.pyx
+      popd
+    displayName: 'Transpile Cython to C for coverage support'
+    condition: eq(variables['cython.coverage'], 'true')
 
   - script: |
       echo "Testing site packages"
@@ -123,25 +144,21 @@ jobs:
       python -c "import linearmodels; linearmodels.test(['-n', 'auto', '--junitxml=../junit/test-results.xml'])"
       popd
     displayName: 'Run tests (site-packages)'
-    condition: and(eq(variables['test.install'], 'true'), ne(variables['pip.pre'], 'true'))
+    condition: or(eq(variables['test.wheel'], 'true'), eq(variables['test.sdist'], 'true'))
 
   - script: |
       echo "Testing editable install"
-      if [[ ${COVERAGE} == "true" ]]; then
-        export COVERAGE_OPTS="--cov-config .coveragerc --cov=linearmodels --cov-report xml:coverage.xml --cov-report term"
-      fi
-      echo pytest -m "${PYTEST_PATTERN}" --junitxml=junit/test-results.xml -n auto --durations=25 ${COVERAGE_OPTS} linearmodels/tests
+      export COVERAGE_OPTS="--cov-config=.coveragerc --cov=linearmodels --cov-branch --cov-report xml:coverage.xml --cov-report term"
+      echo pytest -m "${PYTEST_PATTERN}" --junitxml=junit/test-results.xml -n auto --durations=25 ${COVERAGE_OPTS} linearmodels/tests 
       pytest -m "${PYTEST_PATTERN}" --junitxml=junit/test-results.xml -n auto --durations=25 ${COVERAGE_OPTS} linearmodels/tests
     displayName: 'Run tests (editable)'
-    condition: and(ne(variables['test.install'], 'true'), ne(variables['pip.pre'], 'true'))
+    condition: and(and(ne(variables['test.wheel'], 'true'), ne(variables['test.sdist'], 'true')), ne(variables['pip.pre'], 'true'))
 
   - script: |
       echo "Testing pip-pre"
-      if [[ ${COVERAGE} == "true" ]]; then
-        export COVERAGE_OPTS="--cov-config .coveragerc --cov=linearmodels --cov-report xml:coverage.xml --cov-report term"
-      fi
+      export COVERAGE_OPTS="--cov-config=.coveragerc --cov=linearmodels --cov-branch --cov-report=xml:coverage.xml --cov-report=term"
       echo pytest -m "${PYTEST_PATTERN}" --junitxml=junit/test-results.xml -n auto --durations=25 ${COVERAGE_OPTS} linearmodels/tests
-      pytest -m "${PYTEST_PATTERN}" --junitxml=junit/test-results.xml -n auto --durations=25 ${COVERAGE_OPTS} linearmodels/tests
+      pytest -m "${PYTEST_PATTERN}" --junitxml=junit/test-results.xml -n auto --durations=25 ${COVERAGE_OPTS}  linearmodels/tests
     displayName: 'Run tests (pip pre)'
     condition: eq(variables['pip.pre'], 'true')
     continueOnError: true
@@ -155,8 +172,11 @@ jobs:
   - task: PublishCodeCoverageResults@2
     inputs:
       summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
-    condition: and(eq(variables['coverage'], 'true'), ne(variables['test.install'], 'true'))
+    condition: and(ne(variables['test.sdist'], 'true'), ne(variables['test.wheel'], 'true'))
 
-  - bash: bash <(curl -s https://codecov.io/bash)
-    displayName: 'CodeCov upload'
-    condition: and(eq(variables['coverage'], 'true'), ne(variables['test.install'], 'true'))
+  - script: |
+      curl -Os https://uploader.codecov.io/latest/linux/codecov
+      chmod +x codecov
+      ./codecov -f coverage.xml -F adder -F subtractor
+    displayName: 'Codecov upload'
+    condition: and(ne(variables['test.sdist'], 'true'), ne(variables['test.wheel'], 'true'))

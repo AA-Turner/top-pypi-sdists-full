@@ -5,7 +5,6 @@ from jsonfield import JSONField as JSONFieldThirdParty
 
 from dirtyfields import DirtyFieldsMixin
 from dirtyfields.compare import timezone_support_compare
-from tests.utils import is_postgresql_env_with_jsonb_field
 
 
 class ModelTest(DirtyFieldsMixin, models.Model):
@@ -125,11 +124,8 @@ class DoubleForeignKeyModelTest(DirtyFieldsMixin, models.Model):
                               on_delete=models.CASCADE)
 
 
-if is_postgresql_env_with_jsonb_field():
-    from django.contrib.postgres.fields import JSONField as JSONBField
-
-    class ModelWithJSONBFieldTest(DirtyFieldsMixin, models.Model):
-        jsonb_field = JSONBField()
+class ModelWithJSONBFieldTest(DirtyFieldsMixin, models.Model):
+    jsonb_field = models.JSONField()
 
 
 class ModelWithJSONFieldThirdPartyTest(DirtyFieldsMixin, models.Model):
@@ -167,3 +163,7 @@ class BinaryModelTest(DirtyFieldsMixin, models.Model):
 
 class FileFieldModel(DirtyFieldsMixin, models.Model):
     file1 = models.FileField(upload_to="file1/")
+
+
+class ImageFieldModel(DirtyFieldsMixin, models.Model):
+    image1 = models.ImageField(upload_to="image1/")

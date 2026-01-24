@@ -41,6 +41,23 @@ class PaymentIntent:
         KLARNA_PAY_NOW = "klarna_pay_now"
         ONLINE_BANKING_POLAND = "online_banking_poland"
         PAYCONIQ_BY_BANCONTACT = "payconiq_by_bancontact"
+        ELECTRONIC_PAYMENT_STANDARD = "electronic_payment_standard"
+        KBC_PAYMENT_BUTTON = "kbc_payment_button"
+        PAY_BY_BANK = "pay_by_bank"
+        TRUSTLY = "trustly"
+        STABLECOIN = "stablecoin"
+
+        def __str__(self):
+            return self.value
+
+    class PaymentAttemptStatus(Enum):
+        INITED = "inited"
+        REQUIRES_IDENTIFICATION = "requires_identification"
+        REQUIRES_CHALLENGE = "requires_challenge"
+        REQUIRES_REDIRECTION = "requires_redirection"
+        AUTHORIZED = "authorized"
+        REFUSED = "refused"
+        PENDING_AUTHORIZATION = "pending_authorization"
 
         def __str__(self):
             return self.value
@@ -64,6 +81,19 @@ class PaymentIntent:
         id_at_gateway: NotRequired[str]
         error_code: NotRequired[str]
         error_text: NotRequired[str]
+        checkout_details: NotRequired[str]
+        created_at: Required[int]
+        modified_at: Required[int]
+        error_detail: NotRequired[gateway_error_detail.GatewayErrorDetailResponse]
+
+    class PaymentAttempt(TypedDict):
+        id: NotRequired[str]
+        status: Required["PaymentIntent.PaymentAttemptStatus"]
+        payment_method_type: NotRequired["PaymentIntent.PaymentMethodType"]
+        id_at_gateway: NotRequired[str]
+        error_code: NotRequired[str]
+        error_text: NotRequired[str]
+        checkout_details: NotRequired[str]
         created_at: Required[int]
         modified_at: Required[int]
         error_detail: NotRequired[gateway_error_detail.GatewayErrorDetailResponse]

@@ -12,7 +12,8 @@ class CheckboxSelectAll(forms.CheckboxSelectMultiple):
     class Media:
         js = (
             'admin/js/vendor/jquery/jquery.js',
-            'csvexport/checkbox_select_all.js')
+            'csvexport/checkbox_select_all.js',
+        )
 
 
 class CSVFieldsForm(forms.Form):
@@ -55,6 +56,7 @@ class CSVFormatForm(forms.Form):
         help_text=_("A one-character string to escape the delimiter and "
                     "the quotechar if doublequote is False."),
         widget=forms.TextInput(attrs={'maxlength': 1}),
+        empty_value=None,
         required=False
     )
     lineterminator = forms.CharField(
@@ -67,6 +69,7 @@ class CSVFormatForm(forms.Form):
         label=_('Quotechar'),
         help_text=_("A one-character string used to quote fields."),
         widget=forms.TextInput(attrs={'maxlength': 1}),
+        empty_value=None,
         required=False
     )
     doublequote = forms.BooleanField(

@@ -95,6 +95,18 @@ def get_cloud_id_and_name(
     return cloud.id, cloud.name
 
 
+def get_cloud_resource_id_by_name(
+    cloud_id: str, cloud_resource_name: str, api_client: Optional[DefaultApi] = None,
+) -> str:
+    if api_client is None:
+        api_client = get_auth_api_client().api_client
+
+    cloud_resource = api_client.find_cloud_resource_by_name_api_v2_clouds_cloud_id_find_cloud_resource_by_name_post(
+        cloud_id=cloud_id, cloud_resource_name=cloud_resource_name,
+    ).result
+    return cloud_resource.cloud_resource_id
+
+
 def get_cloud_resource_by_cloud_id(
     cloud_id: str, cloud_provider: str, anyscale_api_client: Optional[DefaultApi] = None
 ) -> Union[CreateCloudResource, CreateCloudResourceGCP]:

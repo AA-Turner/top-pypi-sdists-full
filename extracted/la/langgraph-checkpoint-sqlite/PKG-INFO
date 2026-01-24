@@ -1,12 +1,16 @@
 Metadata-Version: 2.4
 Name: langgraph-checkpoint-sqlite
-Version: 2.0.11
+Version: 3.0.3
 Summary: Library with a SQLite implementation of LangGraph checkpoint saver.
-Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
+Project-URL: Source, https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint-sqlite
+Project-URL: Twitter, https://x.com/LangChain
+Project-URL: Slack, https://www.langchain.com/join-community
+Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License-Expression: MIT
-Requires-Python: >=3.9
+License-File: LICENSE
+Requires-Python: >=3.10
 Requires-Dist: aiosqlite>=0.20
-Requires-Dist: langgraph-checkpoint<3.0.0,>=2.0.21
+Requires-Dist: langgraph-checkpoint<5.0.0,>=3
 Requires-Dist: sqlite-vec>=0.1.6
 Description-Content-Type: text/markdown
 

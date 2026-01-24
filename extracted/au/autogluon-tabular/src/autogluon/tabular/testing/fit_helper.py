@@ -4,6 +4,9 @@ import copy
 import os
 import pandas as pd
 import shutil
+import sys
+import subprocess
+import textwrap
 import uuid
 from typing import Any, Type
 
@@ -12,6 +15,7 @@ from autogluon.core.constants import BINARY, MULTICLASS, REGRESSION
 from autogluon.core.metrics import METRICS
 from autogluon.core.models import AbstractModel, BaggedEnsembleModel
 from autogluon.core.stacked_overfitting.utils import check_stacked_overfitting_from_leaderboard
+from autogluon.core.testing.global_context_snapshot import GlobalContextSnapshot
 from autogluon.core.utils import download, generate_train_test_split_combined, infer_problem_type, unzip
 
 from autogluon.tabular import TabularDataset, TabularPredictor
@@ -175,6 +179,8 @@ class FitHelper:
         use_test_for_val: bool = False,
         raise_on_model_failure: bool | None = None,
         deepcopy_fit_args: bool = True,
+        verify_model_seed: bool = False,
+        verify_load_wo_cuda: bool = False,
     ) -> TabularPredictor:
         if compiler_configs is None:
             compiler_configs = {}
@@ -218,6 +224,8 @@ class FitHelper:
                 expected_model_count -= 1
             fit_args["fit_weighted_ensemble"] = fit_weighted_ensemble
 
+        ctx_before = GlobalContextSnapshot.capture()
+
         predictor: TabularPredictor = FitHelper.fit_dataset(
             train_data=train_data,
             init_args=init_args,
@@ -226,6 +234,10 @@ class FitHelper:
             scikit_api=scikit_api,
             min_cls_count_train=min_cls_count_train,
         )
+        
+        ctx_after = GlobalContextSnapshot.capture()
+        ctx_before.assert_unchanged(ctx_after)
+
         if compile:
             predictor.compile(models="all", compiler_configs=compiler_configs)
             predictor.persist(models="all")
@@ -269,6 +281,11 @@ class FitHelper:
                 assert not model_info["val_in_fit"], f"val data must not be present in refit model if `can_refit_full=True`. Maybe an exception occurred?"
             else:
                 assert model_info["val_in_fit"], f"val data must be present in refit model if `can_refit_full=False`"
+        if verify_model_seed:
+            model_names = predictor.model_names()
+            for model_name in model_names:
+                model = predictor._trainer.load_model(model_name)
+                _verify_model_seed(model=model)
 
         if predictor_info:
             predictor.info()
@@ -280,6 +297,28 @@ class FitHelper:
 
         predictor_load = predictor.load(path=predictor.path)
         predictor_load.predict(test_data)
+
+        # TODO: This is expensive, only do this sparingly.
+        if verify_load_wo_cuda:
+            import torch
+            if torch.cuda.is_available():
+                # Checks if the model is able to predict w/o CUDA.
+                # This verifies that a model artifact works on a CPU machine.
+                predictor_path = predictor.path
+
+                code = textwrap.dedent(f"""
+                        import os
+                        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+                        from autogluon.tabular import TabularPredictor
+    
+                        import torch
+                        assert torch.cuda.is_available() is False
+                        predictor = TabularPredictor.load(r"{predictor_path}")
+                        X, y = predictor.load_data_internal()
+                        predictor.persist("all")
+                        predictor.predict_multi(X, transform_features=False)
+                    """)
+                subprocess.run([sys.executable, "-c", code], check=True)
 
         assert os.path.realpath(save_path) == os.path.realpath(predictor.path)
         if delete_directory:
@@ -339,6 +378,7 @@ class FitHelper:
         require_known_problem_types: bool = True,
         raise_on_model_failure: bool = True,
         problem_types: list[str] | None = None,
+        verify_model_seed: bool = True,
         **kwargs,
     ):
         """
@@ -355,12 +395,18 @@ class FitHelper:
         problem_types: list[str], optional
             If specified, checks the given problem_types.
             If None, checks `model_cls.supported_problem_types()`
+        verify_model_seed: bool = True
         **kwargs
 
         Returns
         -------
 
         """
+        if verify_model_seed and model_cls.seed_name is not None:
+            # verify that the seed logic works
+            model_hyperparameters = model_hyperparameters.copy()
+            model_hyperparameters[model_cls.seed_name] = 42
+
         fit_args = dict(
             hyperparameters={model_cls: model_hyperparameters},
         )
@@ -429,6 +475,7 @@ class FitHelper:
                     refit_full=refit_full,
                     extra_metrics=_extra_metrics,
                     raise_on_model_failure=raise_on_model_failure,
+                    verify_model_seed=verify_model_seed,
                     **kwargs,
                 )
 
@@ -460,6 +507,7 @@ class FitHelper:
                         refit_full=refit_full,
                         extra_metrics=_extra_metrics,
                         raise_on_model_failure=raise_on_model_failure,
+                        verify_model_seed=verify_model_seed,
                         **kwargs,
                     )
 
@@ -476,3 +524,16 @@ def stacked_overfitting_assert(
     if expected_stacked_overfitting_at_test is not None:
         stacked_overfitting = check_stacked_overfitting_from_leaderboard(lb)
         assert stacked_overfitting == expected_stacked_overfitting_at_test, "Expected stacked overfitting at test mismatch!"
+
+
+def _verify_model_seed(model: AbstractModel):
+    assert model.random_seed is None or isinstance(model.random_seed, int)
+    if model.seed_name is not None:
+        if model.seed_name in model._user_params:
+            assert model.random_seed == model._user_params[model.seed_name]
+        assert model.seed_name in model.params
+        assert model.random_seed == model.params[model.seed_name]
+    if isinstance(model, BaggedEnsembleModel):
+        for child in model.models:
+            child = model.load_child(child)
+            _verify_model_seed(child)

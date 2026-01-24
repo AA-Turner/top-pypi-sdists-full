@@ -25,6 +25,21 @@ using namespace std;
 namespace Cantera
 {
 
+shared_ptr<ThermoPhase> ThermoPhase::clone() const
+{
+    AnyMap phase = parameters();
+    AnyMap root;
+    vector<AnyMap> speciesDefs;
+    speciesDefs.reserve(nSpecies());
+    for (const auto& name : speciesNames()) {
+        speciesDefs.emplace_back(species(name)->parameters(this));
+    }
+    root["species"] = std::move(speciesDefs);
+    phase.applyUnits();
+    root.applyUnits();
+    return newThermo(phase, root);
+}
+
 void ThermoPhase::resetHf298(size_t k) {
     if (k != npos) {
         m_spthermo.resetHf298(k);
@@ -120,26 +135,40 @@ void ThermoPhase::setState_TPY(double t, double p, const string& y)
 
 void ThermoPhase::setState_TP(double t, double p)
 {
-    double tsave = temperature();
-    double dsave = density();
+    vector<double> state(partialStateSize());
+    savePartialState(state.size(), state.data());
     try {
         setTemperature(t);
         setPressure(p);
-    } catch (CanteraError&) {
-        setState_TD(tsave, dsave);
+    } catch (std::exception&) {
+        restorePartialState(state.size(), state.data());
         throw;
     }
 }
 
 void ThermoPhase::setState_HP(double Htarget, double p, double rtol)
 {
-    setState_HPorUV(Htarget, p, rtol, false);
+    vector<double> state(partialStateSize());
+    savePartialState(state.size(), state.data());
+    try {
+        setState_HPorUV(Htarget, p, rtol, false);
+    } catch (std::exception&) {
+        restorePartialState(state.size(), state.data());
+        throw;
+    }
 }
 
 void ThermoPhase::setState_UV(double u, double v, double rtol)
 {
     assertCompressible("setState_UV");
-    setState_HPorUV(u, v, rtol, true);
+    vector<double> state(partialStateSize());
+    savePartialState(state.size(), state.data());
+    try {
+        setState_HPorUV(u, v, rtol, true);
+    } catch (std::exception&) {
+        restorePartialState(state.size(), state.data());
+        throw;
+    }
 }
 
 void ThermoPhase::setState(const AnyMap& input_state)
@@ -452,13 +481,27 @@ void ThermoPhase::setState_HPorUV(double Htarget, double p,
 
 void ThermoPhase::setState_SP(double Starget, double p, double rtol)
 {
-    setState_SPorSV(Starget, p, rtol, false);
+    vector<double> state(partialStateSize());
+    savePartialState(state.size(), state.data());
+    try {
+        setState_SPorSV(Starget, p, rtol, false);
+    } catch (std::exception&) {
+        restorePartialState(state.size(), state.data());
+        throw;
+    }
 }
 
 void ThermoPhase::setState_SV(double Starget, double v, double rtol)
 {
     assertCompressible("setState_SV");
-    setState_SPorSV(Starget, v, rtol, true);
+    vector<double> state(partialStateSize());
+    savePartialState(state.size(), state.data());
+    try {
+        setState_SPorSV(Starget, v, rtol, true);
+    } catch (std::exception&) {
+        restorePartialState(state.size(), state.data());
+        throw;
+    }
 }
 
 void ThermoPhase::setState_SPorSV(double Starget, double p,
@@ -637,9 +680,9 @@ void ThermoPhase::setState_SPorSV(double Starget, double p,
 double ThermoPhase::o2Required(const double* y) const
 {
     // indices of fuel elements
-    size_t iC = elementIndex("C");
-    size_t iS = elementIndex("S");
-    size_t iH = elementIndex("H");
+    size_t iC = elementIndex("C", false);
+    size_t iS = elementIndex("S", false);
+    size_t iH = elementIndex("H", false);
 
     double o2req = 0.0;
     double sum = 0.0;
@@ -665,7 +708,7 @@ double ThermoPhase::o2Required(const double* y) const
 
 double ThermoPhase::o2Present(const double* y) const
 {
-    size_t iO = elementIndex("O");
+    size_t iO = elementIndex("O", true);
     double o2pres = 0.0;
     double sum = 0.0;
     for (size_t k = 0; k != m_kk; ++k) {
@@ -966,7 +1009,7 @@ double ThermoPhase::mixtureFraction(const double* fuelComp, const double* oxComp
             return Z_m;
         };
 
-        size_t m = elementIndex(element);
+        size_t m = elementIndex(element, true);
         double Z_m_fuel = elementalFraction(m, fuelComp)/sum_yf;
         double Z_m_ox   = elementalFraction(m, oxComp)/sum_yo;
         double Z_m_mix  = elementalFraction(m, massFractions());

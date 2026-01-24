@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -17,18 +17,13 @@
 #
 # ****************************************************************************
 
-import logging
-from typing import Union
-
-from ...coverage import CoverageContainer
+from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
 from ...options import (
     GcovrConfigOption,
     GcovrDeprecatedConfigOptionAction,
     OutputOrDefault,
 )
-
-LOGGER = logging.getLogger("gcovr")
 
 
 class UseBranchMetricAction(GcovrDeprecatedConfigOptionAction):
@@ -43,10 +38,10 @@ class TxtHandler(BaseHandler):
     """Class to handle text format."""
 
     @classmethod
-    def get_options(cls) -> list[Union[GcovrConfigOption, str]]:
+    def get_options(cls) -> list[GcovrConfigOption | str]:
         return [
             # Global options needed for report
-            "exclude_calls",
+            "show_calls",
             "show_decision",  # Only for summary report
             # Local options
             GcovrConfigOption(
@@ -54,7 +49,7 @@ class TxtHandler(BaseHandler):
                 ["--txt-metric"],
                 config="txt-metric",
                 group="output_options",
-                help=("The metric type to report."),
+                help=("The metric type to report. Default is '{default!s}'."),
                 choices=("line", "branch", "decision"),
                 default="line",
             ),

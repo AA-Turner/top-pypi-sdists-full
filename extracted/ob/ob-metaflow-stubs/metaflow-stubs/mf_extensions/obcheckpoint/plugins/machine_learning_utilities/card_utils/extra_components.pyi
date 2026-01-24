@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.868140                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.993466                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.plugins.cards.card_modules.components
     import metaflow.plugins.cards.card_modules.card
+    import metaflow.plugins.cards.card_modules.components
 
 from ......plugins.cards.card_modules.components import VegaChart as VegaChart
 from ......plugins.cards.card_modules.card import MetaflowCardComponent as MetaflowCardComponent

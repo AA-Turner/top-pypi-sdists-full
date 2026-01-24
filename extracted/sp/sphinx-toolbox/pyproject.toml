@@ -4,7 +4,7 @@ build-backend = "whey"
 
 [project]
 name = "sphinx-toolbox"
-version = "4.0.0"
+version = "4.1.2"
 description = "Box of handy tools for Sphinx 🧰 📔"
 readme = "README.rst"
 keywords = [ "documentation", "sphinx", "sphinx-extension",]
@@ -19,7 +19,8 @@ dependencies = [
     "domdf-python-tools>=2.9.0",
     "filelock>=3.8.0",
     "html5lib>=1.1",
-    "ruamel.yaml>=0.16.12",
+    "roman>4.0",
+    "ruamel.yaml<=0.18.16,>=0.16.12",
     "sphinx>=3.2.0",
     "sphinx-autodoc-typehints>=1.11.1",
     "sphinx-jinja2-compat>=0.1.0",
@@ -91,7 +92,15 @@ license-key = "MIT"
 package = "sphinx_toolbox"
 
 [tool.dep_checker]
-allowed_unused = [ "html5lib", "sphinx_prompt", "sphinx_tabs", "filelock", "cachecontrol", "sphinx_jinja2_compat",]
+allowed_unused = [
+    "html5lib",
+    "sphinx_prompt",
+    "sphinx_tabs",
+    "filelock",
+    "cachecontrol",
+    "sphinx_jinja2_compat",
+    "roman",
+]
 namespace_packages = [ "ruamel.yaml",]
 
 [tool.dep_checker.name_mapping]
@@ -189,7 +198,7 @@ autodoc_exclude_members = [
 ]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 namespace_packages = true
 check_untyped_defs = true
 warn_unused_ignores = true

@@ -20,8 +20,7 @@ __all__ = [
 from typing import Any
 
 import numpy as np
-
-from batcharray.recursive import recursive_apply
+from coola.recursive import recursive_apply
 
 
 def arccos(data: Any) -> Any:
@@ -34,18 +33,16 @@ def arccos(data: Any) -> Any:
         The inverse cosine of the elements. The output has the same
             structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import arccos
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = arccos(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import arccos
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = arccos(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.arccos)
 
@@ -61,18 +58,16 @@ def arccosh(data: Any) -> Any:
         The inverse hyperbolic cosine of the elements. The output has
             the same structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import arccosh
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = arccosh(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import arccosh
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = arccosh(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.arccosh)
 
@@ -87,18 +82,16 @@ def arcsin(data: Any) -> Any:
         The arcsine of the elements. The output has the same
             structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import arcsin
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = arcsin(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import arcsin
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = arcsin(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.arcsin)
 
@@ -114,18 +107,16 @@ def arcsinh(data: Any) -> Any:
         The inverse hyperbolic sine of the elements. The output has
             the same structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import arcsinh
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = arcsinh(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import arcsinh
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = arcsinh(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.arcsinh)
 
@@ -140,18 +131,16 @@ def arctan(data: Any) -> Any:
         The arctangent of the elements. The output has the same
             structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import arctan
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = arctan(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import arctan
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = arctan(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.arctan)
 
@@ -167,18 +156,16 @@ def arctanh(data: Any) -> Any:
         The inverse hyperbolic tangent of the elements. The output has
             the same structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import arctanh
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = arctanh(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import arctanh
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = arctanh(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.arctanh)
 
@@ -193,18 +180,16 @@ def cos(data: Any) -> Any:
         The cosine of the elements. The output has the same
             structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import cos
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = cos(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import cos
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = cos(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.cos)
 
@@ -216,21 +201,19 @@ def cosh(data: Any) -> Any:
         data: The input data. Each item must be an array .
 
     Returns:
-        The inverse cosine of the elements. The output has
+        The hyperbolic cosine of the elements. The output has
             the same structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import cosh
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = cosh(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import cosh
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = cosh(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.cosh)
 
@@ -245,18 +228,16 @@ def sin(data: Any) -> Any:
         The sine of the elements. The output has the same
             structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import sin
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = sin(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import sin
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = sin(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.sin)
 
@@ -271,18 +252,16 @@ def sinh(data: Any) -> Any:
         The hyperbolic sine of the elements. The output has
             the same structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import sinh
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = sinh(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import sinh
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = sinh(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.sinh)
 
@@ -297,18 +276,16 @@ def tan(data: Any) -> Any:
         The tangent of the elements. The output has the same
             structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import tan
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = tan(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import tan
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = tan(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.tan)
 
@@ -323,17 +300,15 @@ def tanh(data: Any) -> Any:
         The hyperbolic tangent of the elements. The output has
             the same structure as the input.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.nested import tanh
+        >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
+        >>> out = tanh(data)
+        >>> out
+        {'a': array([[...]]), 'b': array([...])}
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.nested import tanh
-    >>> data = {"a": np.ones((2, 3)), "b": np.arange(5)}
-    >>> out = tanh(data)
-    >>> out
-    {'a': array([[...]]), 'b': array([...])}
-
-    ```
+        ```
     """
     return recursive_apply(data, np.tanh)

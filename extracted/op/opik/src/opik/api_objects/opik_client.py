@@ -2,12 +2,32 @@ import atexit
 import datetime
 import functools
 import logging
-from typing import Any, Dict, List, Optional, TypeVar, Union, Literal
+from typing import Any, Dict, List, Optional, TypeVar, Union, Literal, cast
 
 import httpx
-from opik.api_objects import opik_query_language
 
+from . import (
+    constants,
+    dataset,
+    experiment,
+    optimization,
+    helpers,
+    opik_query_language,
+    search_helpers,
+    span,
+    trace,
+)
+from .attachment import Attachment
+from .attachment import client as attachment_client
+from .attachment import converters as attachment_converters
+from .dataset import rest_operations as dataset_rest_operations
+from .experiment import experiments_client
+from .experiment import helpers as experiment_helpers
+from .experiment import rest_operations as experiment_rest_operations
+from . import prompt as prompt_module
+from .prompt import client as prompt_client
 from .threads import threads_client
+from .trace import migration as trace_migration, trace_client
 from .. import (
     config,
     datetime_helpers,
@@ -18,8 +38,13 @@ from .. import (
     rest_client_configurator,
     url_helpers,
 )
-from ..message_processing import messages, streamer_constructors, message_queue
+from ..message_processing import (
+    messages,
+    streamer_constructors,
+    message_queue,
+)
 from ..message_processing.batching import sequence_splitter
+from ..message_processing.processors import message_processors_chain
 from ..rest_api import client as rest_api_client
 from ..rest_api.core.api_error import ApiError
 from ..rest_api.types import (
@@ -30,26 +55,13 @@ from ..rest_api.types import (
     span_filter_public,
     trace_filter_public,
 )
-from ..types import ErrorInfoDict, FeedbackScoreDict, LLMProvider, SpanType
-from . import (
-    constants,
-    dataset,
-    experiment,
-    optimization,
-    helpers,
-    span,
-    trace,
+from ..types import (
+    BatchFeedbackScoreDict,
+    ErrorInfoDict,
+    FeedbackScoreDict,
+    LLMProvider,
+    SpanType,
 )
-from .attachment import converters as attachment_converters
-from .attachment import Attachment
-from .attachment import client as attachment_client
-from . import rest_stream_parser
-from .dataset import rest_operations as dataset_rest_operations
-from .experiment import helpers as experiment_helpers
-from .experiment import rest_operations as experiment_rest_operations
-from .prompt import Prompt, PromptType
-from .prompt.client import PromptClient
-from .trace import migration as trace_migration
 
 LOGGER = logging.getLogger(__name__)
 
@@ -101,13 +113,7 @@ class Opik:
         self._use_batching = _use_batching
 
         self._initialize_streamer(
-            url_override=config_.url_override,
-            workers=config_.background_workers,
-            file_upload_worker_count=config_.file_upload_background_workers,
-            api_key=config_.api_key,
-            check_tls_certificate=config_.check_tls_certificate,
             use_batching=_use_batching,
-            enable_json_request_compression=config_.enable_json_request_compression,
         )
         atexit.register(self.end, timeout=self._flush_timeout)
 
@@ -146,24 +152,17 @@ class Opik:
 
     def _initialize_streamer(
         self,
-        url_override: str,
-        workers: int,
-        file_upload_worker_count: int,
-        api_key: Optional[str],
-        check_tls_certificate: bool,
         use_batching: bool,
-        enable_json_request_compression: bool,
     ) -> None:
-        httpx_client_ = httpx_client.get(
+        self._httpx_client = httpx_client.get(
             workspace=self._workspace,
-            api_key=api_key,
-            check_tls_certificate=check_tls_certificate,
-            compress_json_requests=enable_json_request_compression,
+            api_key=self._config.api_key,
+            check_tls_certificate=self._config.check_tls_certificate,
+            compress_json_requests=self._config.enable_json_request_compression,
         )
-        self._httpx_client = httpx_client_
         self._rest_client = rest_api_client.OpikApi(
-            base_url=url_override,
-            httpx_client=httpx_client_,
+            base_url=self._config.url_override,
+            httpx_client=self._httpx_client,
         )
         self._rest_client._client_wrapper._timeout = (
             httpx.USE_CLIENT_DEFAULT
@@ -175,13 +174,22 @@ class Opik:
             batch_factor=self._config.maximal_queue_size_batch_factor,
         )
 
+        self.__internal_api__message_processor__ = (
+            message_processors_chain.create_message_processors_chain(
+                rest_client=self._rest_client
+            )
+        )
         self._streamer = streamer_constructors.construct_online_streamer(
-            n_consumers=workers,
+            n_consumers=self._config.background_workers,
             rest_client=self._rest_client,
-            httpx_client=httpx_client_,
+            httpx_client=self._httpx_client,
             use_batching=use_batching,
-            file_upload_worker_count=file_upload_worker_count,
+            use_attachment_extraction=self._config.is_attachment_extraction_active,
+            min_base64_embedded_attachment_size=self._config.min_base64_embedded_attachment_size,
+            file_upload_worker_count=self._config.file_upload_background_workers,
             max_queue_size=max_queue_size,
+            message_processor=self.__internal_api__message_processor__,
+            url_override=self._config.url_override,
         )
 
     def _display_trace_url(self, trace_id: str, project_name: str) -> None:
@@ -283,7 +291,9 @@ class Opik:
             for feedback_score in feedback_scores:
                 feedback_score["id"] = id
 
-            self.log_traces_feedback_scores(feedback_scores, project_name)
+            self.log_traces_feedback_scores(
+                cast(List[BatchFeedbackScoreDict], feedback_scores), project_name
+            )
 
         if attachments is not None:
             for attachment_data in attachments:
@@ -458,7 +468,9 @@ class Opik:
             for feedback_score in feedback_scores:
                 feedback_score["id"] = id
 
-            self.log_spans_feedback_scores(feedback_scores, project_name)
+            self.log_spans_feedback_scores(
+                cast(List[BatchFeedbackScoreDict], feedback_scores), project_name
+            )
 
         return span.span_client.create_span(
             trace_id=trace_id,
@@ -564,24 +576,97 @@ class Opik:
             attachments=attachments,
         )
 
+    def update_trace(
+        self,
+        trace_id: str,
+        project_name: str,
+        end_time: Optional[datetime.datetime] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        input: Optional[Dict[str, Any]] = None,
+        output: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[Any]] = None,
+        error_info: Optional[ErrorInfoDict] = None,
+        thread_id: Optional[str] = None,
+    ) -> None:
+        """
+        Update the trace attributes.
+
+        This method should only be used after the trace has been fully created and stored.
+        If called before or immediately after trace creation, the update may silently fail or result in incorrect data.
+
+        This method uses two parameters to identify the trace:
+            - `trace_id`
+            - `project_name`
+
+        These parameters **must match exactly** the values used when the trace was created.
+        If any of them are incorrect, the update may not apply and no error will be raised.
+
+        All other parameters are optional and will update the corresponding fields in the trace.
+        If a parameter is not provided, the existing value will remain unchanged.
+
+        Args:
+            trace_id: The unique identifier for the trace.
+            project_name: The project name to which the trace belongs.
+            end_time: The end time of the trace.
+            metadata: Additional metadata to be associated with the trace.
+            input: The input data for the trace.
+            output: The output data for the trace.
+            tags: A list of tags to be associated with the trace.
+            error_info: The dictionary with error information (typically used when the trace function has failed).
+            thread_id: Used to group multiple traces into a thread.
+                The identifier is user-defined and has to be unique per project.
+
+        Returns:
+            None
+        """
+        if not trace_id or not project_name:
+            raise ValueError(
+                "trace_id and project_name must be provided and can not be None or empty, "
+                f"trace_id: {trace_id}, project_name: {project_name}"
+            )
+
+        trace_client.update_trace(
+            trace_id=trace_id,
+            project_name=project_name,
+            message_streamer=self._streamer,
+            end_time=end_time,
+            metadata=metadata,
+            input=input,
+            output=output,
+            tags=tags,
+            error_info=error_info,
+            thread_id=thread_id,
+        )
+
     def log_spans_feedback_scores(
-        self, scores: List[FeedbackScoreDict], project_name: Optional[str] = None
+        self, scores: List[BatchFeedbackScoreDict], project_name: Optional[str] = None
     ) -> None:
         """
         Log feedback scores for spans.
 
         Args:
-            scores (List[FeedbackScoreDict]): A list of feedback score dictionaries.
+            scores (List[BatchFeedbackScoreDict]): A list of feedback score dictionaries.
                 Specifying a span id via `id` key for each score is mandatory.
             project_name: The name of the project in which the spans are logged. If not set, the project name
                 which was configured when the Opik instance was created will be used.
+                Deprecated: use `project_name` in the feedback score dictionary that's listed in the `scores` parameter.
 
         Returns:
             None
+
+        Example:
+            >>> from opik import Opik
+            >>> client = Opik()
+            >>> # Batch logging across multiple projects
+            >>> scores = [
+            >>>     {"id": span1_id, "name": "accuracy", "value": 0.95, "project_name": "project-A"},
+            >>>     {"id": span2_id, "name": "accuracy", "value": 0.88, "project_name": "project-B"},
+            >>> ]
+            >>> client.log_spans_feedback_scores(scores=scores)
         """
         score_messages = helpers.parse_feedback_score_messages(
             scores=scores,
-            project_name=project_name or self._project_name,
+            project_name=project_name or self.project_name,
             parsed_item_class=messages.FeedbackScoreMessage,
             logger=LOGGER,
         )
@@ -603,23 +688,34 @@ class Opik:
             self._streamer.put(add_span_feedback_scores_batch_message)
 
     def log_traces_feedback_scores(
-        self, scores: List[FeedbackScoreDict], project_name: Optional[str] = None
+        self, scores: List[BatchFeedbackScoreDict], project_name: Optional[str] = None
     ) -> None:
         """
         Log feedback scores for traces.
 
         Args:
-            scores (List[FeedbackScoreDict]): A list of feedback score dictionaries.
+            scores (List[BatchFeedbackScoreDict]): A list of feedback score dictionaries.
                 Specifying a trace id via `id` key for each score is mandatory.
             project_name: The name of the project in which the traces are logged. If not set, the project name
                 which was configured when the Opik instance was created will be used.
+                Deprecated: use `project_name` in the feedback score dictionary that's listed in the `scores` parameter.
 
         Returns:
             None
+
+        Example:
+            >>> from opik import Opik
+            >>> client = Opik()
+            >>> # Batch logging across multiple projects
+            >>> scores = [
+            >>>     {"id": trace1_id, "name": "accuracy", "value": 0.95, "project_name": "project-A"},
+            >>>     {"id": trace2_id, "name": "accuracy", "value": 0.88, "project_name": "project-B"},
+            >>> ]
+            >>> client.log_traces_feedback_scores(scores=scores)
         """
         score_messages = helpers.parse_feedback_score_messages(
             scores=scores,
-            project_name=project_name or self._project_name,
+            project_name=project_name or self.project_name,
             parsed_item_class=messages.FeedbackScoreMessage,
             logger=LOGGER,
         )
@@ -640,6 +736,36 @@ class Opik:
             )
 
             self._streamer.put(add_trace_feedback_scores_batch_message)
+
+    def log_threads_feedback_scores(
+        self, scores: List[BatchFeedbackScoreDict], project_name: Optional[str] = None
+    ) -> None:
+        """
+        Log feedback scores for threads.
+
+        Args:
+            scores (List[BatchFeedbackScoreDict]): A list of feedback score dictionaries.
+                Specifying a thread id via `id` key for each score is mandatory.
+            project_name: The name of the project in which the threads are logged. If not set, the project name
+                which was configured when the Opik instance was created will be used.
+                Deprecated: use `project_name` in the feedback score dictionary that's listed in the `scores` parameter.
+
+        Returns:
+            None
+
+        Example:
+            >>> from opik import Opik
+            >>> client = Opik()
+            >>> # Batch logging across multiple projects
+            >>> scores = [
+            >>>     {"id": "thread_123", "name": "user_satisfaction", "value": 0.85, "project_name": "project-A"},
+            >>>     {"id": "thread_456", "name": "user_satisfaction", "value": 0.92, "project_name": "project-B"},
+            >>> ]
+            >>> client.log_threads_feedback_scores(scores=scores)
+        """
+        self.get_threads_client().log_threads_feedback_scores(
+            scores=scores, project_name=project_name
+        )
 
     def delete_trace_feedback_score(self, trace_id: str, name: str) -> None:
         """
@@ -695,6 +821,7 @@ class Opik:
             name=name,
             description=dataset_fern.description,
             rest_client=self._rest_client,
+            dataset_items_count=dataset_fern.dataset_items_count,
         )
 
         dataset_.__internal_api__sync_hashes__()
@@ -741,8 +868,13 @@ class Opik:
             self._rest_client, dataset_name
         )
 
+        experiments_client = self.get_experiments_client()
         experiments = dataset_rest_operations.get_dataset_experiments(
-            self._rest_client, dataset_id, max_results
+            rest_client=self._rest_client,
+            dataset_id=dataset_id,
+            max_results=max_results,
+            streamer=self._streamer,
+            experiments_client=experiments_client,
         )
 
         return experiments
@@ -775,6 +907,7 @@ class Opik:
             name=name,
             description=description,
             rest_client=self._rest_client,
+            dataset_items_count=0,
         )
 
         self._display_created_dataset_url(dataset_name=name, dataset_id=result.id)
@@ -806,10 +939,11 @@ class Opik:
         dataset_name: str,
         name: Optional[str] = None,
         experiment_config: Optional[Dict[str, Any]] = None,
-        prompt: Optional[Prompt] = None,
-        prompts: Optional[List[Prompt]] = None,
+        prompt: Optional[prompt_module.base_prompt.BasePrompt] = None,
+        prompts: Optional[List[prompt_module.base_prompt.BasePrompt]] = None,
         type: Literal["regular", "trial", "mini-batch"] = "regular",
         optimization_id: Optional[str] = None,
+        tags: Optional[List[str]] = None,
     ) -> experiment.Experiment:
         """
         Creates a new experiment using the given dataset name and optional parameters.
@@ -823,6 +957,7 @@ class Opik:
             type: The type of the experiment. Can be "regular", "trial", or "mini-batch".
                 Defaults to "regular". "trial" and "mini-batch" are only relevant for prompt optimization experiments.
             optimization_id: Optional ID of the optimization associated with the experiment.
+            tags: Optional list of tags to associate with the experiment.
 
         Returns:
             experiment.Experiment: The newly created experiment object.
@@ -847,6 +982,7 @@ class Opik:
             prompt_versions=prompt_versions,
             type=type,
             optimization_id=optimization_id,
+            tags=tags,
         )
 
         experiment_ = experiment.Experiment(
@@ -854,10 +990,49 @@ class Opik:
             name=name,
             dataset_name=dataset_name,
             rest_client=self._rest_client,
+            streamer=self._streamer,
+            experiments_client=self.get_experiments_client(),
             prompts=checked_prompts,
+            tags=tags,
         )
 
         return experiment_
+
+    def update_experiment(
+        self,
+        id: str,
+        name: Optional[str] = None,
+        experiment_config: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Update an experiment's name and/or configuration.
+
+        Args:
+            id: The experiment ID.
+            name: The new name for the experiment. If None, the name will not be updated.
+            experiment_config: The new configuration for the experiment. If None, the configuration will not be updated.
+
+        Raises:
+            ValueError: if id is None or empty, or if both name and experiment_config are None
+        """
+        if not id:
+            raise ValueError(
+                f"id must be provided and can not be None or empty, id: {id}"
+            )
+
+        if name is None and experiment_config is None:
+            raise ValueError(
+                "At least one of 'name' or 'experiment_config' must be provided"
+            )
+
+        # Only include parameters that are provided to avoid clearing fields
+        request_params: Dict[str, Any] = {}
+        if name is not None:
+            request_params["name"] = name
+        if experiment_config is not None:
+            request_params["metadata"] = experiment_config
+
+        self._rest_client.experiments.update_experiment(id, **request_params)
 
     def get_experiment_by_name(self, name: str) -> experiment.Experiment:
         """
@@ -878,18 +1053,21 @@ class Opik:
 
         return experiment.Experiment(
             id=experiment_public.id,
-            name=name,
+            name=experiment_public.name,
             dataset_name=experiment_public.dataset_name,
             rest_client=self._rest_client,
-            # TODO: add prompt if exists
+            streamer=self._streamer,
+            experiments_client=self.get_experiments_client(),
+            tags=experiment_public.tags,
         )
 
     def get_experiments_by_name(self, name: str) -> List[experiment.Experiment]:
         """
-        Returns a list of existing experiments by its name.
+        Returns a list of existing experiments containing the given string in their name.
+        Search is case-insensitive.
 
         Args:
-            name: The name of the experiment(s).
+            name: The string to search for in the experiment names.
 
         Returns:
             List[experiment.Experiment]: List of existing experiments.
@@ -902,9 +1080,12 @@ class Opik:
         for public_experiment in experiments_public:
             experiment_ = experiment.Experiment(
                 id=public_experiment.id,
+                name=public_experiment.name,
                 dataset_name=public_experiment.dataset_name,
-                name=name,
                 rest_client=self._rest_client,
+                streamer=self._streamer,
+                experiments_client=self.get_experiments_client(),
+                tags=public_experiment.tags,
             )
             result.append(experiment_)
 
@@ -936,7 +1117,9 @@ class Opik:
             name=experiment_public.name,
             dataset_name=experiment_public.dataset_name,
             rest_client=self._rest_client,
-            # TODO: add prompt if exists
+            streamer=self._streamer,
+            experiments_client=self.get_experiments_client(),
+            tags=experiment_public.tags,
         )
 
     def end(self, timeout: Optional[int] = None) -> None:
@@ -971,9 +1154,13 @@ class Opik:
         filter_string: Optional[str] = None,
         max_results: int = 1000,
         truncate: bool = True,
+        wait_for_at_least: Optional[int] = None,
+        wait_for_timeout: int = httpx_client.READ_TIMEOUT_SECONDS,
     ) -> List[trace_public.TracePublic]:
         """
-        Search for traces in the given project.
+        Search for traces in the given project. Optionally, you can wait for at least a certain number of traces
+        to be found before returning within the specified timeout. If wait_for_at_least number of traces are not found
+        within the specified timeout, an exception will be raised.
 
         Args:
             project_name: The name of the project to search traces in. If not provided, will search across the project name configured when the Client was created which defaults to the `Default Project`.
@@ -997,7 +1184,7 @@ class Opik:
                 - `start_time`, `end_time`: =, >, <, >=, <=
                 - `input`, `output`: =, contains, not_contains
                 - `metadata`: =, contains, >, <
-                - `feedback_scores`: =, >, <, >=, <=
+                - `feedback_scores`: =, >, <, >=, <=, is_empty, is_not_empty
                 - `tags`: contains (only)
                 - `usage.total_tokens`, `usage.prompt_tokens`, `usage.completion_tokens`, `duration`, `number_of_messages`, `total_estimated_cost`: =, !=, >, <, >=, <=
 
@@ -1007,6 +1194,8 @@ class Opik:
                 - `input contains "question"` - Filter by input content
                 - `usage.total_tokens > 1000` - Filter by token usage
                 - `feedback_scores.accuracy > 0.8` - Filter by feedback score
+                - `feedback_scores.my_metric is_empty` - Filter traces with empty feedback score
+                - `feedback_scores.my_metric is_not_empty` - Filter traces with non-empty feedback score
                 - `tags contains "production"` - Filter by tag
                 - `metadata.model = "gpt-4"` - Filter by metadata field
                 - `thread_id = "thread_123"` - Filter by thread ID
@@ -1014,25 +1203,41 @@ class Opik:
                 If not provided, all traces in the project will be returned up to the limit.
             max_results: The maximum number of traces to return.
             truncate: Whether to truncate image data stored in input, output, or metadata
+            wait_for_at_least: The minimum number of traces to wait for before returning.
+            wait_for_timeout: The timeout for waiting for traces.
+
+        Raises:
+            exceptions.SearchTimeoutError if wait_for_at_least traces are not found within the specified timeout.
         """
         filters_ = helpers.parse_filter_expressions(
             filter_string, parsed_item_class=trace_filter_public.TraceFilterPublic
         )
 
-        traces = rest_stream_parser.read_and_parse_full_stream(
-            read_source=lambda current_batch_size,
-            last_retrieved_id: self._rest_client.traces.search_traces(
-                project_name=project_name or self._project_name,
-                filters=filters_,
-                limit=current_batch_size,
-                truncate=truncate,
-                last_retrieved_id=last_retrieved_id,
-            ),
+        search_functor = functools.partial(
+            search_helpers.search_traces_with_filters,
+            rest_client=self._rest_client,
+            project_name=project_name or self._project_name,
+            filters=filters_,
             max_results=max_results,
-            parsed_item_class=trace_public.TracePublic,
+            truncate=truncate,
         )
 
-        return traces
+        if wait_for_at_least is None:
+            return search_functor()
+
+        # do synchronization with backend if wait_for_at_least is provided until a specific number of traces are found
+        result = search_helpers.search_and_wait_for_done(
+            search_functor=search_functor,
+            wait_for_at_least=wait_for_at_least,
+            wait_for_timeout=wait_for_timeout,
+            sleep_time=5,
+        )
+        if len(result) < wait_for_at_least:
+            raise exceptions.SearchTimeoutError(
+                f"Timeout after {wait_for_timeout} seconds: expected {wait_for_at_least} traces, but only {len(result)} were found."
+            )
+
+        return result
 
     def search_spans(
         self,
@@ -1041,10 +1246,14 @@ class Opik:
         filter_string: Optional[str] = None,
         max_results: int = 1000,
         truncate: bool = True,
+        wait_for_at_least: Optional[int] = None,
+        wait_for_timeout: int = httpx_client.READ_TIMEOUT_SECONDS,
     ) -> List[span_public.SpanPublic]:
         """
         Search for spans in the given trace. This allows you to search spans based on the span input, output,
-        metadata, tags, etc. or based on the trace ID.
+        metadata, tags, etc. or based on the trace ID. Also, you can wait for at least a certain number of spans
+        to be found before returning within the specified timeout. If wait_for_at_least number of spans are not found
+        within the specified timeout, an exception will be raised.
 
         Args:
             project_name: The name of the project to search spans in. If not provided, will search across the project name configured when the Client was created which defaults to the `Default Project`.
@@ -1069,7 +1278,7 @@ class Opik:
                 - `start_time`, `end_time`: =, >, <, >=, <=
                 - `input`, `output`: =, contains, not_contains
                 - `metadata`: =, contains, >, <
-                - `feedback_scores`: =, >, <, >=, <=
+                - `feedback_scores`: =, >, <, >=, <=, is_empty, is_not_empty
                 - `tags`: contains (only)
                 - `usage.total_tokens`, `usage.prompt_tokens`, `usage.completion_tokens`, `duration`, `number_of_messages`, `total_estimated_cost`: =, !=, >, <, >=, <=
 
@@ -1079,6 +1288,8 @@ class Opik:
                 - `input contains "question"` - Filter by input content
                 - `usage.total_tokens > 1000` - Filter by token usage
                 - `feedback_scores.accuracy > 0.8` - Filter by feedback score
+                - `feedback_scores.my_metric is_empty` - Filter spans with empty feedback score
+                - `feedback_scores.my_metric is_not_empty` - Filter spans with non-empty feedback score
                 - `tags contains "production"` - Filter by tag
                 - `metadata.model = "gpt-4"` - Filter by metadata field
                 - `thread_id = "thread_123"` - Filter by thread ID
@@ -1086,26 +1297,42 @@ class Opik:
                 If not provided, all spans in the project/trace will be returned up to the limit.
             max_results: The maximum number of spans to return.
             truncate: Whether to truncate image data stored in input, output, or metadata
+            wait_for_at_least: The minimum number of spans to wait for before returning.
+            wait_for_timeout: The timeout for waiting for spans.
+
+        Raises:
+            exceptions.SearchTimeoutError if wait_for_at_least spans are not found within the specified timeout.
         """
         filters = helpers.parse_filter_expressions(
             filter_string, parsed_item_class=span_filter_public.SpanFilterPublic
         )
 
-        spans = rest_stream_parser.read_and_parse_full_stream(
-            read_source=lambda current_batch_size,
-            last_retrieved_id: self._rest_client.spans.search_spans(
-                trace_id=trace_id,
-                project_name=project_name or self._project_name,
-                filters=filters,
-                limit=current_batch_size,
-                truncate=truncate,
-                last_retrieved_id=last_retrieved_id,
-            ),
+        search_functor = functools.partial(
+            search_helpers.search_spans_with_filters,
+            rest_client=self._rest_client,
+            project_name=project_name or self._project_name,
+            trace_id=trace_id,
+            filters=filters,
             max_results=max_results,
-            parsed_item_class=span_public.SpanPublic,
+            truncate=truncate,
         )
 
-        return spans
+        if wait_for_at_least is None:
+            return search_functor()
+
+        # do synchronization with backend if wait_for_at_least is provided until a specific number of spans are found
+        result = search_helpers.search_and_wait_for_done(
+            search_functor=search_functor,
+            wait_for_at_least=wait_for_at_least,
+            wait_for_timeout=wait_for_timeout,
+            sleep_time=5,
+        )
+        if len(result) < wait_for_at_least:
+            raise exceptions.SearchTimeoutError(
+                f"Timeout after {wait_for_timeout} seconds: expected {wait_for_at_least} spans, but only {len(result)} were found."
+            )
+
+        return result
 
     def get_trace_content(self, id: str) -> trace_public.TracePublic:
         """
@@ -1200,70 +1427,188 @@ class Opik:
         name: str,
         prompt: str,
         metadata: Optional[Dict[str, Any]] = None,
-        type: PromptType = PromptType.MUSTACHE,
-    ) -> Prompt:
+        type: prompt_module.PromptType = prompt_module.PromptType.MUSTACHE,
+    ) -> prompt_module.Prompt:
         """
-        Creates a new prompt with the given name and template.
-        If a prompt with the same name already exists, it will create a new version of the existing prompt if the templates differ.
+        Creates a new text prompt with the given name and template.
+        If a text prompt with the same name already exists, it will create a new version of the existing prompt if the templates differ.
 
         Parameters:
             name: The name of the prompt.
             prompt: The template content of the prompt.
             metadata: Optional metadata to be included in the prompt.
+            type: The template type (MUSTACHE or JINJA2).
 
         Returns:
             A Prompt object containing details of the created or retrieved prompt.
 
         Raises:
-            ApiError: If there is an error during the creation of the prompt and the status code is not 409.
+            PromptTemplateStructureMismatch: If a chat prompt with the same name already exists (template structure is immutable).
+            ApiError: If there is an error during the creation of the prompt.
         """
-        prompt_client = PromptClient(self._rest_client)
-        prompt_version = prompt_client.create_prompt(
+        prompt_client_ = prompt_client.PromptClient(self._rest_client)
+        prompt_version = prompt_client_.create_prompt(
             name=name, prompt=prompt, metadata=metadata, type=type
         )
-        return Prompt.from_fern_prompt_version(name, prompt_version)
+        return prompt_module.Prompt.from_fern_prompt_version(name, prompt_version)
+
+    def create_chat_prompt(
+        self,
+        name: str,
+        messages: List[Dict[str, Any]],
+        metadata: Optional[Dict[str, Any]] = None,
+        type: prompt_module.PromptType = prompt_module.PromptType.MUSTACHE,
+    ) -> prompt_module.ChatPrompt:
+        """
+        Creates a new chat prompt with the given name and message templates.
+        If a chat prompt with the same name already exists, it will create a new version if the messages differ.
+
+        Parameters:
+            name: The name of the chat prompt.
+            messages: List of message dictionaries with 'role' and 'content' fields.
+            metadata: Optional metadata to be included in the prompt.
+            type: The template type (MUSTACHE or JINJA2).
+
+        Returns:
+            A ChatPrompt object containing details of the created or retrieved chat prompt.
+
+        Raises:
+            PromptTemplateStructureMismatch: If a text prompt with the same name already exists (template structure is immutable).
+            ApiError: If there is an error during the creation of the prompt.
+        """
+        return prompt_module.ChatPrompt(
+            name=name, messages=messages, metadata=metadata, type=type
+        )
 
     def get_prompt(
         self,
         name: str,
         commit: Optional[str] = None,
-    ) -> Optional[Prompt]:
+    ) -> Optional[prompt_module.Prompt]:
         """
-        Retrieve the prompt detail for a given prompt name and commit version.
+        Retrieve a text prompt by name and optional commit version.
+
+        This method only returns text prompts.
 
         Parameters:
             name: The name of the prompt.
             commit: An optional commit version of the prompt. If not provided, the latest version is retrieved.
 
         Returns:
-            Prompt: The details of the specified prompt.
+            Prompt: The details of the specified text prompt, or None if not found.
+
+        Raises:
+            PromptTemplateStructureMismatch: If the prompt exists but is a chat prompt (template structure mismatch).
         """
-        prompt_client = PromptClient(self._rest_client)
-        fern_prompt_version = prompt_client.get_prompt(name=name, commit=commit)
+        prompt_client_ = prompt_client.PromptClient(self._rest_client)
+        fern_prompt_version = prompt_client_.get_prompt(
+            name=name, commit=commit, raise_if_not_template_structure="text"
+        )
+
         if fern_prompt_version is None:
             return None
 
-        return Prompt.from_fern_prompt_version(name, fern_prompt_version)
+        return prompt_module.Prompt.from_fern_prompt_version(name, fern_prompt_version)
 
-    def get_prompt_history(self, name: str) -> List[Prompt]:
+    def get_chat_prompt(
+        self,
+        name: str,
+        commit: Optional[str] = None,
+    ) -> Optional[prompt_module.ChatPrompt]:
         """
-        Retrieve all the prompt versions history for a given prompt name.
+        Retrieve a chat prompt by name and optional commit version.
+
+        This method only returns chat prompts.
+
+        Parameters:
+            name: The name of the prompt.
+            commit: An optional commit version of the prompt. If not provided, the latest version is retrieved.
+
+        Returns:
+            ChatPrompt: The details of the specified chat prompt, or None if not found.
+
+        Raises:
+            PromptTemplateStructureMismatch: If the prompt exists but is a text prompt (template structure mismatch).
+        """
+        prompt_client_ = prompt_client.PromptClient(self._rest_client)
+        fern_prompt_version = prompt_client_.get_prompt(
+            name=name, commit=commit, raise_if_not_template_structure="chat"
+        )
+
+        if fern_prompt_version is None:
+            return None
+
+        return prompt_module.ChatPrompt.from_fern_prompt_version(
+            name, fern_prompt_version
+        )
+
+    def get_prompt_history(self, name: str) -> List[prompt_module.Prompt]:
+        """
+        Retrieve all text prompt versions history for a given prompt name.
 
         Parameters:
             name: The name of the prompt.
 
         Returns:
-            List[Prompt]: A list of Prompt instances for the given name.
+            List[Prompt]: A list of text Prompt instances for the given name, or an empty list if not found.
+
+        Raises:
+            PromptTemplateStructureMismatch: If the prompt exists but is a chat prompt (template structure mismatch).
         """
-        prompt_client = PromptClient(self._rest_client)
-        fern_prompt_versions = prompt_client.get_all_prompt_versions(name=name)
+        prompt_client_ = prompt_client.PromptClient(self._rest_client)
+
+        # First, validate that this is a text prompt by trying to get the latest version
+        # Let PromptTemplateStructureMismatch exception propagate - this is a hard error
+        latest_version = prompt_client_.get_prompt(
+            name=name, raise_if_not_template_structure="text"
+        )
+
+        if latest_version is None:
+            return []
+
+        # Now get all versions (we know it's a text prompt)
+        fern_prompt_versions = prompt_client_.get_all_prompt_versions(name=name)
+
         result = [
-            Prompt.from_fern_prompt_version(name, version)
+            prompt_module.Prompt.from_fern_prompt_version(name, version)
             for version in fern_prompt_versions
         ]
         return result
 
-    def get_all_prompts(self, name: str) -> List[Prompt]:
+    def get_chat_prompt_history(self, name: str) -> List[prompt_module.ChatPrompt]:
+        """
+        Retrieve all chat prompt versions history for a given prompt name.
+
+        Parameters:
+            name: The name of the prompt.
+
+        Returns:
+            List[ChatPrompt]: A list of ChatPrompt instances for the given name, or an empty list if not found.
+
+        Raises:
+            PromptTemplateStructureMismatch: If the prompt exists but is a text prompt (template structure mismatch).
+        """
+        prompt_client_ = prompt_client.PromptClient(self._rest_client)
+
+        # First, validate that this is a chat prompt by trying to get the latest version
+        # Let PromptTemplateStructureMismatch exception propagate - this is a hard error
+        latest_version = prompt_client_.get_prompt(
+            name=name, raise_if_not_template_structure="chat"
+        )
+
+        if latest_version is None:
+            return []
+
+        # Now get all versions (we know it's a chat prompt)
+        fern_prompt_versions = prompt_client_.get_all_prompt_versions(name=name)
+
+        result = [
+            prompt_module.ChatPrompt.from_fern_prompt_version(name, version)
+            for version in fern_prompt_versions
+        ]
+        return result
+
+    def get_all_prompts(self, name: str) -> List[prompt_module.Prompt]:
         """
         DEPRECATED: Please use Opik.get_prompt_history() instead.
         Retrieve all the prompt versions history for a given prompt name.
@@ -1272,16 +1617,18 @@ class Opik:
             name: The name of the prompt.
 
         Returns:
-            List[Prompt]: A list of Prompt instances for the given name.
+            List[prompt_module.Prompt]: A list of Prompt instances for the given name.
         """
         LOGGER.warning(
             "Opik.get_all_prompts() is deprecated. Please use Opik.get_prompt_history() instead."
         )
         return self.get_prompt_history(name)
 
-    def search_prompts(self, filter_string: Optional[str] = None) -> List[Prompt]:
+    def search_prompts(
+        self, filter_string: Optional[str] = None
+    ) -> List[Union[prompt_module.Prompt, prompt_module.ChatPrompt]]:
         """
-        Retrieve the latest prompt versions for the given search parameters.
+        Retrieve the latest prompt versions (both string and chat prompts) for the given search parameters.
 
         Parameters:
             filter_string: A filter string to narrow down the search using Opik Query Language (OQL).
@@ -1291,11 +1638,13 @@ class Opik:
                 - `id`, `name`: String fields
                 - `tags`: List field (use "contains" operator only)
                 - `created_by`: String field
+                - `template_structure`: String field ("string" or "chat")
 
                 Supported operators by column:
                 - `id`: =, !=, contains, not_contains, starts_with, ends_with, >, <
                 - `name`: =, !=, contains, not_contains, starts_with, ends_with, >, <
                 - `created_by`: =, !=, contains, not_contains, starts_with, ends_with, >, <
+                - `template_structure`: =, !=
                 - `tags`: contains (only)
 
                 Examples:
@@ -1304,23 +1653,36 @@ class Opik:
                 - `name contains "summary"` - Filter by name substring
                 - `created_by = "user@example.com"` - Filter by creator
                 - `id starts_with "prompt_"` - Filter by ID prefix
+                - `template_structure = "text"` - Only text prompts
+                - `template_structure = "chat"` - Only chat prompts
 
-                If not provided, all prompts matching the name filter will be returned.
+                If not provided, all prompts (both text and chat) will be returned.
 
         Returns:
-            List[Prompt]: A list of Prompt instances found.
+            List[Union[Prompt, ChatPrompt]]: A list of Prompt and/or ChatPrompt instances found.
         """
-        parsed_filters = None
-        if filter_string:
-            oql = opik_query_language.OpikQueryLanguage(filter_string)
-            parsed_filters = oql.get_filter_expressions()
+        oql = opik_query_language.OpikQueryLanguage(filter_string or "")
+        parsed_filters = oql.get_filter_expressions()
 
-        prompt_client = PromptClient(self._rest_client)
-        name_and_versions = prompt_client.search_prompts(parsed_filters=parsed_filters)
-        prompts: List[Prompt] = [
-            Prompt.from_fern_prompt_version(prompt_name, version)
-            for (prompt_name, version) in name_and_versions
-        ]
+        prompt_client_ = prompt_client.PromptClient(self._rest_client)
+        search_results = prompt_client_.search_prompts(parsed_filters=parsed_filters)
+
+        # Convert to Prompt or ChatPrompt objects based on template_structure
+        prompts: List[Union[prompt_module.Prompt, prompt_module.ChatPrompt]] = []
+        for result in search_results:
+            if result.template_structure == "chat":
+                prompts.append(
+                    prompt_module.ChatPrompt.from_fern_prompt_version(
+                        result.name, result.prompt_version_detail
+                    )
+                )
+            else:
+                prompts.append(
+                    prompt_module.Prompt.from_fern_prompt_version(
+                        result.name, result.prompt_version_detail
+                    )
+                )
+
         return prompts
 
     def create_optimization(
@@ -1329,8 +1691,9 @@ class Opik:
         objective_name: str,
         name: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        optimization_id: Optional[str] = None,
     ) -> optimization.Optimization:
-        id = id_helpers.generate_id()
+        id = optimization_id or id_helpers.generate_id()
 
         self._rest_client.optimizations.create_optimization(
             id=id,
@@ -1352,6 +1715,15 @@ class Opik:
     def get_optimization_by_id(self, id: str) -> optimization.Optimization:
         _ = self._rest_client.optimizations.get_optimization_by_id(id)
         return optimization.Optimization(id=id, rest_client=self._rest_client)
+
+    def get_experiments_client(self) -> experiments_client.ExperimentsClient:
+        """
+        Retrieves an instance of `ExperimentsClient`.
+
+        Returns:
+            An instance of the ExperimentsClient initialized with a cached REST client.
+        """
+        return experiments_client.ExperimentsClient(self._rest_client)
 
 
 @functools.lru_cache()

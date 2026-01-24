@@ -5,13 +5,90 @@ from importlib.metadata import version
 import httpx
 from typing_extensions import Any, deprecated
 
-from .client import AsyncTensorZeroGateway, BaseTensorZeroGateway, TensorZeroGateway
+from .client import (
+    AsyncTensorZeroGateway,
+    BaseTensorZeroGateway,
+    TensorZeroGateway,
+)
+
+# Generated dataclasses
+from .generated_types import (
+    AlwaysExtraBody,
+    AlwaysExtraBodyDelete,
+    AlwaysExtraHeader,
+    AlwaysExtraHeaderDelete,
+    ChatCompletionInferenceParams,
+    ContentBlockChatOutput,
+    ContentBlockChatOutputText,
+    ContentBlockChatOutputToolCall,
+    CreateDatapointRequest,
+    CreateDatapointRequestChat,
+    CreateDatapointRequestJson,
+    CreateDatapointsFromInferenceRequestParamsInferenceIds,
+    CreateDatapointsResponse,
+    DatapointMetadataUpdate,
+    DeleteDatapointsResponse,
+    ExtraBody,
+    ExtraHeader,
+    FunctionTool,
+    GetDatapointsResponse,
+    GetInferencesRequest,
+    GetInferencesResponse,
+    InferenceFilter,
+    InferenceFilterAnd,
+    InferenceFilterBooleanMetric,
+    InferenceFilterDemonstrationFeedback,
+    InferenceFilterFloatMetric,
+    InferenceFilterNot,
+    InferenceFilterOr,
+    InferenceFilterTag,
+    InferenceFilterTime,
+    InferenceParams,
+    Input,
+    InputMessage,
+    InputMessageContentTemplate,
+    InputMessageContentText,
+    JsonDatapointOutputUpdate,
+    JsonInferenceOutput,
+    ListDatapointsRequest,
+    ListInferencesRequest,
+    ModelProviderExtraBody,
+    ModelProviderExtraBodyDelete,
+    ModelProviderExtraHeader,
+    ModelProviderExtraHeaderDelete,
+    ProviderExtraBody,  # DEPRECATED
+    ProviderExtraBodyDelete,  # DEPRECATED
+    ProviderExtraHeader,  # DEPRECATED
+    ProviderExtraHeaderDelete,  # DEPRECATED
+    StorageKind,
+    StorageKindDisabled,
+    StorageKindFilesystem,
+    StorageKindS3Compatible,
+    StoragePath,
+    StoredInference,
+    StoredInferenceChat,
+    StoredInferenceJson,
+    StoredInput,
+    StoredInputMessage,
+    StoredInputMessageContentFile,
+    StoredInputMessageContentTemplate,
+    StoredInputMessageContentText,
+    StoredInputMessageContentThought,
+    StoredInputMessageContentToolCall,
+    StoredInputMessageContentToolResult,
+    StoredInputMessageContentUnknown,
+    UpdateDatapointMetadataRequest,
+    UpdateDatapointsResponse,
+    VariantExtraBody,
+    VariantExtraBodyDelete,
+    VariantExtraHeader,
+    VariantExtraHeaderDelete,
+)
 from .tensorzero import (
     BestOfNSamplingConfig,
     ChainOfThoughtConfig,
     ChatCompletionConfig,
     Config,
-    Datapoint,
     DICLConfig,
     DICLOptimizationConfig,
     FireworksSFTConfig,
@@ -19,6 +96,8 @@ from .tensorzero import (
     FunctionConfigJson,
     FunctionsConfig,
     GCPVertexGeminiSFTConfig,
+    GEPAConfig,
+    LegacyDatapoint,
     MixtureOfNConfig,
     OpenAIRFTConfig,
     OpenAISFTConfig,
@@ -28,7 +107,6 @@ from .tensorzero import (
     RenderedSample,
     ResolvedInput,
     ResolvedInputMessage,
-    StoredInference,
     TogetherSFTConfig,
     VariantsConfig,
 )
@@ -36,42 +114,37 @@ from .tensorzero import (
     _start_http_gateway as _start_http_gateway,
 )
 from .types import (
-    AndFilter,
-    AndNode,  # DEPRECATED
+    AndFilter,  # pyright: ignore[reportDeprecated]
+    ApiType,
     BaseTensorZeroError,
-    BooleanMetricFilter,
-    BooleanMetricNode,  # DEPRECATED
+    BooleanMetricFilter,  # pyright: ignore[reportDeprecated]
     ChatDatapointInsert,
-    ChatInferenceDatapointInput,  # DEPRECATED
     ChatInferenceResponse,
     ContentBlock,
-    DynamicEvaluationRunEpisodeResponse,
-    DynamicEvaluationRunResponse,
-    ExtraBody,
+    DynamicEvaluationRunEpisodeResponse,  # DEPRECATED
+    DynamicEvaluationRunResponse,  # DEPRECATED
+    EvaluatorStatsDict,
     FeedbackResponse,
     FileBase64,
     FileUrl,
     FinishReason,
-    FloatMetricFilter,
-    FloatMetricNode,  # DEPRECATED
+    FloatMetricFilter,  # pyright: ignore[reportDeprecated]
     ImageBase64,
     ImageUrl,
     InferenceChunk,
     InferenceInput,
     InferenceResponse,
     JsonDatapointInsert,
-    JsonInferenceDatapointInput,  # DEPRECATED
-    JsonInferenceOutput,
     JsonInferenceResponse,
     Message,
-    NotFilter,
-    NotNode,  # DEPRECATED
+    NotFilter,  # pyright: ignore[reportDeprecated]
     OrderBy,
-    OrFilter,
-    OrNode,  # DEPRECATED
+    OrFilter,  # pyright: ignore[reportDeprecated]
+    RawResponseEntry,
     RawText,
+    RawUsageEntry,
     System,
-    TagFilter,
+    TagFilter,  # pyright: ignore[reportDeprecated]
     Template,
     TensorZeroError,
     TensorZeroInternalError,
@@ -79,7 +152,7 @@ from .types import (
     TextChunk,
     Thought,
     ThoughtChunk,
-    TimeFilter,
+    TimeFilter,  # pyright: ignore[reportDeprecated]
     Tool,
     ToolCall,
     ToolCallChunk,
@@ -88,13 +161,15 @@ from .types import (
     ToolResult,
     UnknownContentBlock,
     Usage,
+    WorkflowEvaluationRunEpisodeResponse,
+    WorkflowEvaluationRunResponse,
 )
 
 # DEPRECATED: use RenderedSample instead
 RenderedStoredInference = RenderedSample
 # Type aliases to preserve backward compatibility with main
-ChatDatapoint = Datapoint.Chat
-JsonDatapoint = Datapoint.Json
+ChatDatapoint = LegacyDatapoint.Chat
+JsonDatapoint = LegacyDatapoint.Json
 
 
 # CAREFUL: deprecated
@@ -115,80 +190,141 @@ DiclConfig = deprecated("Use DICLConfig instead")(DICLConfig)
 OptimizationConfig = t.Union[
     OpenAISFTConfig,
     FireworksSFTConfig,
+    GCPVertexGeminiSFTConfig,
     TogetherSFTConfig,
     DICLOptimizationConfig,
     OpenAIRFTConfig,
+    GEPAConfig,
+    t.Dict[str, Any],
 ]
 ChatInferenceOutput = t.List[ContentBlock]
 
 
 __all__ = [
+    "AlwaysExtraBody",
+    "AlwaysExtraBodyDelete",
+    "AlwaysExtraHeader",
+    "AlwaysExtraHeaderDelete",
     "AndFilter",
-    "AndNode",  # DEPRECATED
+    "ApiType",
     "AsyncTensorZeroGateway",
     "BaseTensorZeroError",
     "BaseTensorZeroGateway",
+    "BestOfNSamplingConfig",
     "BooleanMetricFilter",
-    "BooleanMetricNode",  # DEPRECATED
+    "ChainOfThoughtConfig",
+    "ChatCompletionConfig",
+    "ChatCompletionInferenceParams",
     "ChatDatapoint",
     "ChatDatapointInsert",
-    "ChatInferenceDatapointInput",  # DEPRECATED
     "ChatInferenceResponse",
     "Config",
     "ContentBlock",
-    "Datapoint",
-    "DiclOptimizationConfig",  # DEPRECATED
+    "ContentBlockChatOutput",
+    "ContentBlockChatOutputText",
+    "ContentBlockChatOutputToolCall",
+    "CreateDatapointRequest",
+    "CreateDatapointRequestChat",
+    "CreateDatapointRequestJson",
+    "CreateDatapointsFromInferenceRequestParamsInferenceIds",
+    "CreateDatapointsResponse",
+    "DatapointMetadataUpdate",
+    "DeleteDatapointsResponse",
+    "DICLConfig",
+    "DiclConfig",  # DEPRECATED
     "DICLOptimizationConfig",
-    "DynamicEvaluationRunEpisodeResponse",
-    "DynamicEvaluationRunResponse",
+    "DiclOptimizationConfig",  # DEPRECATED
+    "DynamicEvaluationRunEpisodeResponse",  # DEPRECATED
+    "DynamicEvaluationRunResponse",  # DEPRECATED
+    "EvaluatorStatsDict",
     "ExtraBody",
+    "ExtraHeader",
     "FeedbackResponse",
     "FileBase64",
     "FileUrl",
     "FinishReason",
+    "FireworksSFTConfig",
     "FloatMetricFilter",
-    "FloatMetricNode",  # DEPRECATED
-    "FunctionsConfig",
     "FunctionConfigChat",
     "FunctionConfigJson",
-    "VariantsConfig",
-    "ChatCompletionConfig",
-    "BestOfNSamplingConfig",
-    "DiclConfig",  # DEPRECATED
-    "DICLConfig",
-    "MixtureOfNConfig",
-    "ChainOfThoughtConfig",
+    "FunctionsConfig",
+    "FunctionTool",
+    "GCPVertexGeminiSFTConfig",
+    "GEPAConfig",
+    "GetDatapointsResponse",
+    "GetInferencesRequest",
+    "GetInferencesResponse",
     "ImageBase64",
     "ImageUrl",
     "InferenceChunk",
-    "ResolvedInput",
-    "ResolvedInputMessage",
-    "StoredInference",
+    "InferenceFilter",
+    "InferenceFilterAnd",
+    "InferenceFilterBooleanMetric",
+    "InferenceFilterDemonstrationFeedback",
+    "InferenceFilterFloatMetric",
+    "InferenceFilterNot",
+    "InferenceFilterOr",
+    "InferenceFilterTag",
+    "InferenceFilterTime",
     "InferenceInput",
+    "InferenceParams",
     "InferenceResponse",
+    "Input",
+    "InputMessage",
+    "InputMessageContentTemplate",
+    "InputMessageContentText",
     "JsonDatapoint",
     "JsonDatapointInsert",
-    "JsonInferenceDatapointInput",  # DEPRECATED
+    "JsonDatapointOutputUpdate",
     "JsonInferenceOutput",
     "JsonInferenceResponse",
+    "LegacyDatapoint",
+    "ListDatapointsRequest",
+    "ListInferencesRequest",
     "Message",
+    "MixtureOfNConfig",
+    "ModelProviderExtraBody",
+    "ModelProviderExtraBodyDelete",
+    "ModelProviderExtraHeader",
+    "ModelProviderExtraHeaderDelete",
     "NotFilter",
-    "NotNode",  # DEPRECATED
-    "OrderBy",
-    "OrFilter",
-    "OrNode",  # DEPRECATED
+    "OpenAIRFTConfig",
+    "OpenAISFTConfig",
+    "OptimizationConfig",
     "OptimizationJobHandle",
     "OptimizationJobInfo",
     "OptimizationJobStatus",
-    "FireworksSFTConfig",
-    "GCPVertexGeminiSFTConfig",
-    "OpenAISFTConfig",
-    "OpenAIRFTConfig",
-    "OptimizationConfig",
+    "OrderBy",
+    "OrFilter",
     "patch_openai_client",
+    "ProviderExtraBody",  # DEPRECATED
+    "ProviderExtraBodyDelete",  # DEPRECATED
+    "ProviderExtraHeader",  # DEPRECATED
+    "ProviderExtraHeaderDelete",  # DEPRECATED
+    "RawResponseEntry",
     "RawText",
-    "RenderedStoredInference",  # DEPRECATED
+    "RawUsageEntry",
     "RenderedSample",
+    "RenderedStoredInference",  # DEPRECATED
+    "ResolvedInput",
+    "ResolvedInputMessage",
+    "StorageKind",
+    "StorageKindDisabled",
+    "StorageKindFilesystem",
+    "StorageKindS3Compatible",
+    "StoragePath",
+    "StoredInference",
+    "StoredInferenceChat",
+    "StoredInferenceJson",
+    "StoredInput",
+    "StoredInputMessage",
+    "StoredInputMessageContentFile",
+    "StoredInputMessageContentTemplate",
+    "StoredInputMessageContentText",
+    "StoredInputMessageContentThought",
+    "StoredInputMessageContentToolCall",
+    "StoredInputMessageContentToolResult",
+    "StoredInputMessageContentUnknown",
     "System",
     "TagFilter",
     "Template",
@@ -202,13 +338,22 @@ __all__ = [
     "TimeFilter",
     "TogetherSFTConfig",
     "Tool",
-    "ToolChoice",
-    "ToolParams",
     "ToolCall",
     "ToolCallChunk",
+    "ToolChoice",
+    "ToolParams",
     "ToolResult",
     "UnknownContentBlock",
+    "UpdateDatapointMetadataRequest",
+    "UpdateDatapointsResponse",
     "Usage",
+    "VariantExtraBody",
+    "VariantExtraBodyDelete",
+    "VariantExtraHeader",
+    "VariantExtraHeaderDelete",
+    "VariantsConfig",
+    "WorkflowEvaluationRunEpisodeResponse",
+    "WorkflowEvaluationRunResponse",
 ]
 
 T = t.TypeVar("T", bound=t.Any)
@@ -218,9 +363,7 @@ __version__ = version("tensorzero")
 
 def _attach_fields(client: T, gateway: t.Any) -> T:
     if hasattr(client, "__tensorzero_gateway"):
-        raise RuntimeError(
-            "TensorZero: Already called 'tensorzero.patch_openai_client' on this OpenAI client."
-        )
+        raise RuntimeError("TensorZero: Already called 'tensorzero.patch_openai_client' on this OpenAI client.")
     client.base_url = gateway.base_url
     # Store the gateway so that it doesn't get garbage collected
     client.__tensorzero_gateway = gateway
@@ -285,6 +428,7 @@ def patch_openai_client(
         config_file=config_file,
         clickhouse_url=clickhouse_url,
         postgres_url=None,
+        valkey_url=None,
         async_setup=async_setup,
     )
     if async_setup:

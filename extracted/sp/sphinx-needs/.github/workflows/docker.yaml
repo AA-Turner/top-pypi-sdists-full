@@ -16,7 +16,7 @@ on:
     paths: ['docker/**']
 
 env:
-  NEEDS_VERSION: 5.1.0
+  NEEDS_VERSION: 6.3.0
   DEPLOY_IMAGE: ${{ github.event_name != 'pull_request' }}
 
 jobs:
@@ -27,21 +27,19 @@ jobs:
         base-image: ["sphinxdoc/sphinx:latest", "sphinxdoc/sphinx-latexpdf:latest"]
         image: ["sphinxneeds", "sphinxneeds-latexpdf"]
         exclude:
-        - base-image: "sphinxdoc/sphinx:latest"
-          image: "sphinxneeds-latexpdf"
-        - base-image: "sphinxdoc/sphinx-latexpdf:latest"
-          image: "sphinxneeds"
+          - base-image: "sphinxdoc/sphinx:latest"
+            image: "sphinxneeds-latexpdf"
+          - base-image: "sphinxdoc/sphinx-latexpdf:latest"
+            image: "sphinxneeds"
     name: "Image: ${{ matrix.image }} | Baseimage: ${{ matrix.base-image }}"
     runs-on: ubuntu-latest
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE
       - name: Checkout 🛎️
         uses: actions/checkout@v4
-      -
-        name: Set up Docker Build 🐋
+      - name: Set up Docker Build 🐋
         uses: docker/setup-buildx-action@v3
-      -
-        name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:

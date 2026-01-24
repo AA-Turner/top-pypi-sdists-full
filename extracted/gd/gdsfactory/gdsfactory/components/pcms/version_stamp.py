@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+__all__ = ["pixel", "qrcode", "version_stamp"]
+
 import datetime
 import platform
 
 import gdsfactory as gf
 from gdsfactory.component import Component
-from gdsfactory.components.texts.text import text
 from gdsfactory.typings import LayerSpec
+
+from ..texts.text import text
 
 
 @gf.cell_with_module_name

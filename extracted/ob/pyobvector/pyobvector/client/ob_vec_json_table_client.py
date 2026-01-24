@@ -1,18 +1,16 @@
 import json
 import logging
 import re
-from typing import Dict, List, Optional, Any, Union
+from typing import Optional, Union
 
 from sqlalchemy import Column, Integer, String, JSON, Engine, select, text, func, CursorResult
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlglot import parse_one, exp, Expression, to_identifier
-from sqlglot.expressions import Concat
 
 
 from .ob_vec_client import ObVecClient
 from ..json_table import (
-    OceanBase,
     ChangeColumn,
     JsonTableBool,
     JsonTableTimestamp,
@@ -58,7 +56,7 @@ class ObVecJsonTableClient(ObVecClient):
     class JsonTableMetadata: 
         def __init__(self, user_id: str):
             self.user_id = user_id
-            self.meta_cache: Dict[str, List] = {}
+            self.meta_cache: dict[str, list] = {}
 
         @classmethod
         def _parse_col_type(cls, col_type: str):
@@ -319,7 +317,7 @@ class ObVecJsonTableClient(ObVecClient):
     def _check_table_exists(self, jtable_name: str) -> bool:
         return jtable_name in self.jmetadata.meta_cache
     
-    def _check_col_exists(self, jtable_name: str, col_name: str) -> Optional[Dict]:
+    def _check_col_exists(self, jtable_name: str, col_name: str) -> Optional[dict]:
         if not self._check_table_exists(jtable_name):
             return None
         for col_meta in self.jmetadata.meta_cache[jtable_name]:
@@ -339,7 +337,7 @@ class ObVecJsonTableClient(ObVecClient):
             col_type_str += '(' + ','.join(col_type_params_list) + ')'
         return col_type_str
     
-    def _parse_col_constraints(self, expr: Expression) -> Dict:
+    def _parse_col_constraints(self, expr: Expression) -> dict:
         col_has_default = False
         col_nullable = True
         for cons in expr:
@@ -817,11 +815,12 @@ class ObVecJsonTableClient(ObVecClient):
     ):
         real_user_id = opt_user_id or self.user_id
 
-        table_name = ast.args['from'].this.this.this
+        from_key = 'from_' if 'from_' in ast.args else 'from'
+        table_name = ast.args[from_key].this.this.this
         if not self._check_table_exists(table_name):
             raise ValueError(f"Table {table_name} does not exists")
         
-        ast.args['from'].args['this'].args['this'] = to_identifier(name=JSON_TABLE_DATA_TABLE_NAME, quoted=False)
+        ast.args[from_key].args['this'].args['this'] = to_identifier(name=JSON_TABLE_DATA_TABLE_NAME, quoted=False)
 
         col_meta = self.jmetadata.meta_cache[table_name]
         json_table_meta_str = []
@@ -883,12 +882,19 @@ class ObVecJsonTableClient(ObVecClient):
                 identifier.args['quoted'] = False
                 col.args['table'] = identifier
 
-        join_clause = parse_one(f"from t1, {json_table_str}")
-        join_node = join_clause.args['joins'][0]
-        if 'joins' in ast.args.keys():
-            ast.args['joins'].append(join_node)
-        else:
-            ast.args['joins'] = [join_node]
+        # Manually create the JOIN node for json_table
+        # In some versions of sqlglot, comma-separated tables may not be parsed as
+        # explicit JOINS, so we directly parse the json_table expression and create a JOIN node
+        # explicitly
+        json_table_expr = parse_one(json_table_str, dialect="oceanbase")
+        
+        join_node = exp.Join()
+        join_node.args['this'] = json_table_expr
+        join_node.args['kind'] = None  # CROSS JOIN (implicit join with comma)
+        
+        if 'joins' not in ast.args:
+            ast.args['joins'] = []
+        ast.args['joins'].append(join_node)
 
         if real_user_id:
             extra_filter_str = f"{JSON_TABLE_DATA_TABLE_NAME}.user_id = '{real_user_id}' AND {JSON_TABLE_DATA_TABLE_NAME}.jtable_name = '{table_name}'"

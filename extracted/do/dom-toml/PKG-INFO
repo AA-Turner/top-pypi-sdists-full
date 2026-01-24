@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
-Name: dom_toml
-Version: 2.1.0
+Name: dom-toml
+Version: 2.3.0
 Summary: Dom's tools for Tom's Obvious, Minimal Language.
 Keywords: configuration,serialize,toml
 Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
@@ -26,10 +26,18 @@ Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: domdf-python-tools>=2.8.0
 Requires-Dist: tomli>=1.2.3; python_version < "3.11"
+Requires-Dist: attrs>=23.1.0 ; extra == "all"
+Requires-Dist: tomli-w>=1.0.0 ; extra == "all"
+Requires-Dist: typing-extensions>=4.7.1 ; extra == "all"
+Requires-Dist: attrs>=23.1.0 ; extra == "config"
+Requires-Dist: tomli-w>=1.0.0 ; extra == "config"
+Requires-Dist: typing-extensions>=4.7.1 ; extra == "config"
 Project-URL: Documentation, https://dom-toml.readthedocs.io/en/latest
 Project-URL: Homepage, https://github.com/domdfcoding/dom_toml
 Project-URL: Issue Tracker, https://github.com/domdfcoding/dom_toml/issues
 Project-URL: Source Code, https://github.com/domdfcoding/dom_toml
+Provides-Extra: all
+Provides-Extra: config
 
 #########
 dom_toml
@@ -103,28 +111,28 @@ dom_toml
 	:target: https://www.codefactor.io/repository/github/domdfcoding/dom_toml
 	:alt: CodeFactor Grade
 
-.. |pypi-version| image:: https://img.shields.io/pypi/v/dom_toml
-	:target: https://pypi.org/project/dom_toml/
+.. |pypi-version| image:: https://img.shields.io/pypi/v/dom-toml
+	:target: https://pypi.org/project/dom-toml/
 	:alt: PyPI - Package Version
 
-.. |supported-versions| image:: https://img.shields.io/pypi/pyversions/dom_toml?logo=python&logoColor=white
-	:target: https://pypi.org/project/dom_toml/
+.. |supported-versions| image:: https://img.shields.io/pypi/pyversions/dom-toml?logo=python&logoColor=white
+	:target: https://pypi.org/project/dom-toml/
 	:alt: PyPI - Supported Python Versions
 
-.. |supported-implementations| image:: https://img.shields.io/pypi/implementation/dom_toml
-	:target: https://pypi.org/project/dom_toml/
+.. |supported-implementations| image:: https://img.shields.io/pypi/implementation/dom-toml
+	:target: https://pypi.org/project/dom-toml/
 	:alt: PyPI - Supported Implementations
 
-.. |wheel| image:: https://img.shields.io/pypi/wheel/dom_toml
-	:target: https://pypi.org/project/dom_toml/
+.. |wheel| image:: https://img.shields.io/pypi/wheel/dom-toml
+	:target: https://pypi.org/project/dom-toml/
 	:alt: PyPI - Wheel
 
-.. |conda-version| image:: https://img.shields.io/conda/v/domdfcoding/dom_toml?logo=anaconda
-	:target: https://anaconda.org/domdfcoding/dom_toml
+.. |conda-version| image:: https://img.shields.io/conda/v/conda-forge/dom-toml?logo=anaconda
+	:target: https://anaconda.org/conda-forge/dom-toml
 	:alt: Conda - Package Version
 
-.. |conda-platform| image:: https://img.shields.io/conda/pn/domdfcoding/dom_toml?label=conda%7Cplatform
-	:target: https://anaconda.org/domdfcoding/dom_toml
+.. |conda-platform| image:: https://img.shields.io/conda/pn/conda-forge/dom-toml?label=conda%7Cplatform
+	:target: https://anaconda.org/conda-forge/dom-toml
 	:alt: Conda - Platform
 
 .. |license| image:: https://img.shields.io/github/license/domdfcoding/dom_toml
@@ -134,7 +142,7 @@ dom_toml
 .. |language| image:: https://img.shields.io/github/languages/top/domdfcoding/dom_toml
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/dom_toml/v2.1.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/dom_toml/v2.3.0
 	:target: https://github.com/domdfcoding/dom_toml/pulse
 	:alt: GitHub commits since tagged version
 
@@ -142,11 +150,11 @@ dom_toml
 	:target: https://github.com/domdfcoding/dom_toml/commit/master
 	:alt: GitHub last commit
 
-.. |maintained| image:: https://img.shields.io/maintenance/yes/2025
+.. |maintained| image:: https://img.shields.io/maintenance/yes/2026
 	:alt: Maintenance
 
-.. |pypi-downloads| image:: https://img.shields.io/pypi/dm/dom_toml
-	:target: https://pypi.org/project/dom_toml/
+.. |pypi-downloads| image:: https://img.shields.io/pypi/dm/dom-toml
+	:target: https://pypistats.org/packages/dom-toml
 	:alt: PyPI - Downloads
 
 .. end shields
@@ -162,22 +170,13 @@ To install with ``pip``:
 
 .. code-block:: bash
 
-	$ python -m pip install dom_toml
+	$ python -m pip install dom-toml
 
 To install with ``conda``:
 
-	* First add the required channels
+.. code-block:: bash
 
-	.. code-block:: bash
-
-		$ conda config --add channels https://conda.anaconda.org/conda-forge
-		$ conda config --add channels https://conda.anaconda.org/domdfcoding
-
-	* Then install
-
-	.. code-block:: bash
-
-		$ conda install dom_toml
+	$ conda install -c conda-forge dom-toml
 
 .. end installation
 

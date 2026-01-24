@@ -5,12 +5,79 @@
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
+pub struct PyAsciiStr<'s>(&'s str);
+
+impl<'py> IntoPyObject<'py> for PyAsciiStr<'_> {
+    type Target = pyo3::types::PyString;
+    type Output = Bound<'py, Self::Target>;
+    type Error = std::convert::Infallible;
+
+    #[cfg_attr(not(any(PyPy, GraalPy, Py_LIMITED_API)), expect(unsafe_code))]
+    #[inline]
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        debug_assert!(
+            self.0.is_ascii(),
+            "PyAsciiStr(ing) must be ascii only: {:?}",
+            self.0
+        );
+        #[cfg(not(any(PyPy, GraalPy, Py_LIMITED_API)))]
+        {
+            unsafe { Ok(pystring_ascii_new(py, self.0)) }
+        }
+        #[cfg(any(PyPy, GraalPy, Py_LIMITED_API))]
+        {
+            Ok(pystring_ascii_new(py, self.0))
+        }
+    }
+}
+
+impl<'s> From<&'s str> for PyAsciiStr<'s> {
+    #[inline]
+    fn from(s: &'s str) -> Self {
+        debug_assert!(s.is_ascii(), "PyAsciiStr(ing) must be ascii only: {s:?}");
+        Self(s)
+    }
+}
+
+impl From<String> for PyAsciiString {
+    #[inline]
+    fn from(s: String) -> Self {
+        debug_assert!(s.is_ascii(), "PyAsciiString must be ascii only: {s:?}");
+        Self(s)
+    }
+}
+
+pub struct PyAsciiString(String);
+
+impl<'py> IntoPyObject<'py> for &PyAsciiString {
+    type Target = pyo3::types::PyString;
+    type Output = Bound<'py, Self::Target>;
+    type Error = std::convert::Infallible;
+
+    #[inline]
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        PyAsciiStr(&self.0).into_pyobject(py)
+    }
+}
+
+impl<'py> IntoPyObject<'py> for PyAsciiString {
+    type Target = pyo3::types::PyString;
+    type Output = Bound<'py, Self::Target>;
+    type Error = std::convert::Infallible;
+
+    #[inline]
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        PyAsciiStr(&self.0).into_pyobject(py)
+    }
+}
+
 /// Faster py-string creation as done by jiter + orjson
 ///
 /// # Safety
 ///
 /// Ascii only (as jiter ppl describe)
 #[must_use]
+#[inline]
 pub fn pystring_fast_new<'py>(py: Python<'py>, s: &str, ascii_only: bool) -> Bound<'py, PyString> {
     if ascii_only {
         #[expect(unsafe_code)]
@@ -36,6 +103,7 @@ pub fn pystring_fast_new<'py>(py: Python<'py>, s: &str, ascii_only: bool) -> Bou
 #[cfg(not(any(PyPy, GraalPy, Py_LIMITED_API)))]
 #[expect(unsafe_code, clippy::cast_possible_wrap)]
 #[must_use]
+#[inline]
 pub unsafe fn pystring_ascii_new<'py>(py: Python<'py>, s: &str) -> Bound<'py, PyString> {
     unsafe {
         let ptr = pyo3::ffi::PyUnicode_New(s.len() as isize, 127);
@@ -52,6 +120,8 @@ pub unsafe fn pystring_ascii_new<'py>(py: Python<'py>, s: &str) -> Bound<'py, Py
 }
 
 #[cfg(any(PyPy, GraalPy, Py_LIMITED_API))]
+#[must_use]
+#[inline]
 pub fn pystring_ascii_new<'py>(py: Python<'py>, s: &str) -> Bound<'py, PyString> {
     PyString::new(py, s)
 }

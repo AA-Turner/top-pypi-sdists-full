@@ -61,3 +61,8 @@ class UpdateUserIntTestRequest(betterproto.Message):
 class GetRefreshTokenInfoResponse(betterproto.Message):
     refresh_token: str = betterproto.string_field(1)
     refreshed_at: int = betterproto.int64_field(2)
+
+
+@dataclass
+class GetBytesScannedResponse(betterproto.Message):
+    bytes_scanned: int = betterproto.int64_field(1)

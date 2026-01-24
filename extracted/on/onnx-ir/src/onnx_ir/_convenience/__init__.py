@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Union
 
 import numpy as np
@@ -280,6 +280,7 @@ def convert_attributes(
 def replace_all_uses_with(
     values: _protocols.ValueProtocol | Sequence[_protocols.ValueProtocol],
     replacements: _protocols.ValueProtocol | Sequence[_protocols.ValueProtocol],
+    replace_graph_outputs: bool = False,
 ) -> None:
     """Replace all uses of the given values with the replacements.
 
@@ -314,13 +315,40 @@ def replace_all_uses_with(
     users of the first value is replaced with the first replacement, and so on.
 
     .. note::
-        You still need to update the graph outputs if any of the values being
-        replaced are part of the graph outputs. Be sure to remove the old nodes
-        from the graph using ``graph.remove()`` if they are no longer needed.
+        Be sure to remove the old nodes from the graph using ``graph.remove()``
+        if they are no longer needed, or use :class:`onnx_ir.passes.common.RemoveUnusedNodesPass`
+        to remove all unused nodes in the graph.
+
+    .. tip::
+        **Handling graph outputs**
+
+        To also replace graph outputs that reference the values being replaced, either
+        set ``replace_graph_outputs`` to True, or manually update the graph outputs
+        before calling this function to avoid an error being raised when ``replace_graph_outputs=False``.
+
+        Be careful when a value appears multiple times in the graph outputs -
+        this is invalid. An identity node will need to be added on each duplicated
+        outputs to ensure a valid ONNX graph.
+
+        You may also want to assign the name of this value to the replacement value
+        to maintain the name when it is a graph output.
+
+    .. versionadded:: 0.1.12
+        The ``replace_graph_outputs`` parameter is added.
+
+    .. versionadded:: 0.1.12
+        ValueError is raised when ``replace_graph_outputs`` is False && when the value to
+        replace is a graph output.
 
     Args:
         values: The value or values to be replaced.
         replacements: The new value or values to use as inputs.
+        replace_graph_outputs: If True, graph outputs that reference the values
+            being replaced will also be updated to reference the replacements.
+
+    Raises:
+        ValueError: When ``replace_graph_outputs`` is False && when the value to
+            replace is a graph output.
     """
     if not isinstance(values, Sequence):
         values = (values,)
@@ -329,11 +357,14 @@ def replace_all_uses_with(
     if len(values) != len(replacements):
         raise ValueError("The number of values and replacements must match.")
     for value, replacement in zip(values, replacements):
-        for user_node, index in tuple(value.uses()):
-            user_node.replace_input_with(index, replacement)
+        value.replace_all_uses_with(replacement, replace_graph_outputs=replace_graph_outputs)
 
 
-def create_value_mapping(graph: _core.Graph) -> dict[str, _core.Value]:
+def create_value_mapping(
+    graph: _core.Graph | _core.GraphView | _core.Function,
+    *,
+    include_subgraphs: bool = True,
+) -> dict[str, _core.Value]:
     """Return a dictionary mapping names to values in the graph.
 
     The mapping includes values from subgraphs. Duplicated names are omitted,
@@ -343,14 +374,19 @@ def create_value_mapping(graph: _core.Graph) -> dict[str, _core.Value]:
     .. versionchanged:: 0.1.2
         Values from subgraphs are now included in the mapping.
 
+    .. versionadded:: 0.1.14
+        The ``include_subgraphs`` parameter.
+
     Args:
         graph: The graph to extract the mapping from.
+        include_subgraphs: If True, values from subgraphs are included in the mapping.
 
     Returns:
         A dictionary mapping names to values.
     """
     values: dict[str, _core.Value] = {}
-    values.update(graph.initializers)
+    if not isinstance(graph, _core.Function):
+        values.update(graph.initializers)
     # The names of the values can be None or "", which we need to exclude
     for input in graph.inputs:
         if not input.name:
@@ -358,7 +394,11 @@ def create_value_mapping(graph: _core.Graph) -> dict[str, _core.Value]:
         if input.name in values:
             continue
         values[input.name] = input
-    for node in traversal.RecursiveGraphIterator(graph):
+    if include_subgraphs:
+        iterator: Iterable[_core.Node] = traversal.RecursiveGraphIterator(graph)
+    else:
+        iterator = graph
+    for node in iterator:
         for value in node.inputs:
             if not value:
                 continue
@@ -397,20 +437,18 @@ def replace_nodes_and_values(
     """
     for old_value, new_value in zip(old_values, new_values):
         # Propagate relevant info from old value to new value
-        # TODO(Rama): Perhaps this should be a separate utility function. Also, consider
-        # merging old and new type/shape info.
-        new_value.type = old_value.type
-        new_value.shape = old_value.shape
-        new_value.const_value = old_value.const_value
-        new_value.name = old_value.name
+        # TODO(Rama): Perhaps this should be a separate utility function.
+        new_value.type = old_value.type if old_value.type is not None else new_value.type
+        new_value.shape = old_value.shape if old_value.shape is not None else new_value.shape
+        new_value.const_value = (
+            old_value.const_value
+            if old_value.const_value is not None
+            else new_value.const_value
+        )
+        new_value.name = old_value.name if old_value.name is not None else new_value.name
 
     # Reconnect the users of the deleted values to use the new values
-    replace_all_uses_with(old_values, new_values)
-    # Update graph/function outputs if the node generates output
-    replacement_mapping = dict(zip(old_values, new_values))
-    for idx, graph_or_function_output in enumerate(graph_or_function.outputs):
-        if graph_or_function_output in replacement_mapping:
-            graph_or_function.outputs[idx] = replacement_mapping[graph_or_function_output]
+    replace_all_uses_with(old_values, new_values, replace_graph_outputs=True)
 
     # insert new nodes after the index node
     graph_or_function.insert_after(insertion_point, new_nodes)

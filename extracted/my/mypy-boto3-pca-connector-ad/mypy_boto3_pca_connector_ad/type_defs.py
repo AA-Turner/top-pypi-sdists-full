@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -40,12 +41,6 @@ from .literals import (
     ValidityPeriodTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -176,14 +171,14 @@ class ValidityPeriodTypeDef(TypedDict):
 
 
 class VpcInformationOutputTypeDef(TypedDict):
-    SecurityGroupIds: List[str]
+    SecurityGroupIds: list[str]
     IpAddressType: NotRequired[IpAddressTypeType]
 
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -374,7 +369,7 @@ class ListTemplatesRequestTypeDef(TypedDict):
 class PrivateKeyAttributesV2OutputTypeDef(TypedDict):
     KeySpec: KeySpecType
     MinimalKeyLength: int
-    CryptoProviders: NotRequired[List[str]]
+    CryptoProviders: NotRequired[list[str]]
 
 
 class PrivateKeyAttributesV2TypeDef(TypedDict):
@@ -498,7 +493,7 @@ class UpdateTemplateGroupAccessControlEntryRequestTypeDef(TypedDict):
 
 
 class ApplicationPoliciesOutputTypeDef(TypedDict):
-    Policies: List[ApplicationPolicyTypeDef]
+    Policies: list[ApplicationPolicyTypeDef]
     Critical: NotRequired[bool]
 
 
@@ -556,12 +551,12 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListDirectoryRegistrationsResponseTypeDef(TypedDict):
-    DirectoryRegistrations: List[DirectoryRegistrationSummaryTypeDef]
+    DirectoryRegistrations: list[DirectoryRegistrationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -610,7 +605,7 @@ class ListTemplatesRequestPaginateTypeDef(TypedDict):
 
 
 class ListServicePrincipalNamesResponseTypeDef(TypedDict):
-    ServicePrincipalNames: List[ServicePrincipalNameSummaryTypeDef]
+    ServicePrincipalNames: list[ServicePrincipalNameSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -619,7 +614,7 @@ VpcInformationUnionTypeDef = Union[VpcInformationTypeDef, VpcInformationOutputTy
 
 
 class ListTemplateGroupAccessControlEntriesResponseTypeDef(TypedDict):
-    AccessControlEntries: List[AccessControlEntrySummaryTypeDef]
+    AccessControlEntries: list[AccessControlEntrySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -630,7 +625,7 @@ class GetTemplateGroupAccessControlEntryResponseTypeDef(TypedDict):
 
 
 class ListConnectorsResponseTypeDef(TypedDict):
-    Connectors: List[ConnectorSummaryTypeDef]
+    Connectors: list[ConnectorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -675,7 +670,7 @@ class PrivateKeyAttributesV3OutputTypeDef(TypedDict):
     KeySpec: KeySpecType
     KeyUsageProperty: KeyUsagePropertyTypeDef
     MinimalKeyLength: int
-    CryptoProviders: NotRequired[List[str]]
+    CryptoProviders: NotRequired[list[str]]
 
 
 class PrivateKeyAttributesV3TypeDef(TypedDict):
@@ -690,7 +685,7 @@ class PrivateKeyAttributesV4OutputTypeDef(TypedDict):
     KeySpec: KeySpecType
     MinimalKeyLength: int
     Algorithm: NotRequired[PrivateKeyAlgorithmType]
-    CryptoProviders: NotRequired[List[str]]
+    CryptoProviders: NotRequired[list[str]]
     KeyUsageProperty: NotRequired[KeyUsagePropertyTypeDef]
 
 
@@ -718,7 +713,7 @@ class TemplateV2OutputTypeDef(TypedDict):
     PrivateKeyAttributes: PrivateKeyAttributesV2OutputTypeDef
     PrivateKeyFlags: PrivateKeyFlagsV2TypeDef
     SubjectNameFlags: SubjectNameFlagsV2TypeDef
-    SupersededTemplates: NotRequired[List[str]]
+    SupersededTemplates: NotRequired[list[str]]
 
 
 class TemplateV2TypeDef(TypedDict):
@@ -741,7 +736,7 @@ class TemplateV3OutputTypeDef(TypedDict):
     PrivateKeyAttributes: PrivateKeyAttributesV3OutputTypeDef
     PrivateKeyFlags: PrivateKeyFlagsV3TypeDef
     SubjectNameFlags: SubjectNameFlagsV3TypeDef
-    SupersededTemplates: NotRequired[List[str]]
+    SupersededTemplates: NotRequired[list[str]]
 
 
 class TemplateV3TypeDef(TypedDict):
@@ -765,7 +760,7 @@ class TemplateV4OutputTypeDef(TypedDict):
     PrivateKeyFlags: PrivateKeyFlagsV4TypeDef
     SubjectNameFlags: SubjectNameFlagsV4TypeDef
     HashAlgorithm: NotRequired[HashAlgorithmType]
-    SupersededTemplates: NotRequired[List[str]]
+    SupersededTemplates: NotRequired[list[str]]
 
 
 class TemplateV4TypeDef(TypedDict):
@@ -822,7 +817,7 @@ TemplateDefinitionUnionTypeDef = Union[TemplateDefinitionTypeDef, TemplateDefini
 
 
 class ListTemplatesResponseTypeDef(TypedDict):
-    Templates: List[TemplateSummaryTypeDef]
+    Templates: list[TemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

@@ -4,4 +4,4 @@
 
 from . import reports, stats, utils
 
-__all__ = ["stats", "reports", "utils"]
+__all__ = ["reports", "stats", "utils"]

@@ -147,7 +147,7 @@ def test_map_code_blocks(tmp_path):
         new_markdown_code=None,
     ):
 
-        file.write_text(markdown_code)
+        file.write_bytes(markdown_code.encode("utf-8"))
 
         recorded_blocks = []
 
@@ -383,9 +383,9 @@ uuid.uuid4=f
 
             if flags and "first_block" not in options:
                 assert last_code is not None
-                test_files = {"test_example.py": last_code}
+                test_files = {"tests/test_example.py": last_code}
             else:
-                test_files = {"test_example.py": code}
+                test_files = {"tests/test_example.py": code}
 
             example = Example({**std_files, **test_files})
             if extra_files:
@@ -410,7 +410,7 @@ uuid.uuid4=f
 
             new_code = code
             if flags:
-                new_code = example.read_file("test_example.py")
+                new_code = example.read_file("tests/test_example.py")
             new_code.replace("\n\n", "\n")
 
             if "show_error" in options:

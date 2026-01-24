@@ -7,7 +7,7 @@ from typing import Iterable
 import httpx
 
 from ..types import split_run_params, split_run_job_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -20,11 +20,9 @@ from .._response import (
 from .._base_client import make_request_options
 from ..types.shared.split_response import SplitResponse
 from ..types.split_run_job_response import SplitRunJobResponse
+from ..types.shared_params.parse_options import ParseOptions
 from ..types.shared_params.split_category import SplitCategory
-from ..types.shared_params.webhook_config_new import WebhookConfigNew
-from ..types.shared_params.base_processing_options import BaseProcessingOptions
-from ..types.shared_params.advanced_processing_options import AdvancedProcessingOptions
-from ..types.shared_params.experimental_processing_options import ExperimentalProcessingOptions
+from ..types.shared_params.config_v3_async_config import ConfigV3AsyncConfig
 
 __all__ = ["SplitResource", "AsyncSplitResource"]
 
@@ -52,41 +50,37 @@ class SplitResource(SyncAPIResource):
     def run(
         self,
         *,
-        document_url: split_run_params.DocumentURL,
+        input: split_run_params.Input,
         split_description: Iterable[SplitCategory],
-        advanced_options: AdvancedProcessingOptions | NotGiven = NOT_GIVEN,
-        experimental_options: ExperimentalProcessingOptions | NotGiven = NOT_GIVEN,
-        options: BaseProcessingOptions | NotGiven = NOT_GIVEN,
-        priority: bool | NotGiven = NOT_GIVEN,
-        split_options: split_run_params.SplitOptions | NotGiven = NOT_GIVEN,
-        split_rules: str | NotGiven = NOT_GIVEN,
+        parsing: ParseOptions | Omit = omit,
+        settings: split_run_params.Settings | Omit = omit,
+        split_rules: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SplitResponse:
-        """Split
+        """
+        Split
 
         Args:
-          document_url:
-              The URL of the document to be processed.
+          input: For parse/split/extract pipelines, the URL of the document to be processed. You
+              can provide one of the following: 1. A publicly available URL 2. A presigned S3
+              URL 3. A reducto:// prefixed URL obtained from the /upload endpoint after
+              directly uploading a document 4. A jobid:// prefixed URL obtained from a
+              previous /parse invocation 5. A list of URLs (for multi-document pipelines, V3
+              API only)
 
-        You can provide one of the following:
-
-              1. A publicly available URL
-              2. A presigned S3 URL
-              3. A reducto:// prefixed URL obtained from the /upload endpoint after directly
-                 uploading a document
-              4. A job_id (jobid://) or a list of job_ids (jobid://) obtained from a previous
-                 /parse endpoint
+                          For edit pipelines, this should be a string containing the edit instructions
 
           split_description: The configuration options for processing the document.
 
-          priority: If True, attempts to process the job with priority if the user has priority
-              processing budget available; by default, sync jobs are prioritized above async
-              jobs.
+          parsing: The configuration options for parsing the document. If you are passing in a
+              jobid:// URL for the file, then this configuration will be ignored.
+
+          settings: The settings for split processing.
 
           split_rules: The prompt that describes rules for splitting the document.
 
@@ -102,13 +96,10 @@ class SplitResource(SyncAPIResource):
             "/split",
             body=maybe_transform(
                 {
-                    "document_url": document_url,
+                    "input": input,
                     "split_description": split_description,
-                    "advanced_options": advanced_options,
-                    "experimental_options": experimental_options,
-                    "options": options,
-                    "priority": priority,
-                    "split_options": split_options,
+                    "parsing": parsing,
+                    "settings": settings,
                     "split_rules": split_rules,
                 },
                 split_run_params.SplitRunParams,
@@ -122,41 +113,40 @@ class SplitResource(SyncAPIResource):
     def run_job(
         self,
         *,
-        document_url: split_run_job_params.DocumentURL,
+        input: split_run_job_params.Input,
         split_description: Iterable[SplitCategory],
-        advanced_options: AdvancedProcessingOptions | NotGiven = NOT_GIVEN,
-        experimental_options: ExperimentalProcessingOptions | NotGiven = NOT_GIVEN,
-        options: BaseProcessingOptions | NotGiven = NOT_GIVEN,
-        priority: bool | NotGiven = NOT_GIVEN,
-        split_options: split_run_job_params.SplitOptions | NotGiven = NOT_GIVEN,
-        split_rules: str | NotGiven = NOT_GIVEN,
-        webhook: WebhookConfigNew | NotGiven = NOT_GIVEN,
+        async_: ConfigV3AsyncConfig | Omit = omit,
+        parsing: ParseOptions | Omit = omit,
+        settings: split_run_job_params.Settings | Omit = omit,
+        split_rules: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SplitRunJobResponse:
         """
         Split Async
 
         Args:
-          document_url:
-              The URL of the document to be processed. You can provide one of the following:
+          input: For parse/split/extract pipelines, the URL of the document to be processed. You
+              can provide one of the following: 1. A publicly available URL 2. A presigned S3
+              URL 3. A reducto:// prefixed URL obtained from the /upload endpoint after
+              directly uploading a document 4. A jobid:// prefixed URL obtained from a
+              previous /parse invocation 5. A list of URLs (for multi-document pipelines, V3
+              API only)
 
-              1. A publicly available URL
-              2. A presigned S3 URL
-              3. A reducto:// prefixed URL obtained from the /upload endpoint after directly
-                 uploading a document
-              4. A job_id (jobid://) or a list of job_ids (jobid://) obtained from a previous
-                 /parse endpoint
+                          For edit pipelines, this should be a string containing the edit instructions
 
           split_description: The configuration options for processing the document.
 
-          priority: If True, attempts to process the job with priority if the user has priority
-              processing budget available; by default, sync jobs are prioritized above async
-              jobs.
+          async_: The configuration options for asynchronous processing (default synchronous).
+
+          parsing: The configuration options for parsing the document. If you are passing in a
+              jobid:// URL for the file, then this configuration will be ignored.
+
+          settings: The settings for split processing.
 
           split_rules: The prompt that describes rules for splitting the document.
 
@@ -172,15 +162,12 @@ class SplitResource(SyncAPIResource):
             "/split_async",
             body=maybe_transform(
                 {
-                    "document_url": document_url,
+                    "input": input,
                     "split_description": split_description,
-                    "advanced_options": advanced_options,
-                    "experimental_options": experimental_options,
-                    "options": options,
-                    "priority": priority,
-                    "split_options": split_options,
+                    "async_": async_,
+                    "parsing": parsing,
+                    "settings": settings,
                     "split_rules": split_rules,
-                    "webhook": webhook,
                 },
                 split_run_job_params.SplitRunJobParams,
             ),
@@ -214,41 +201,37 @@ class AsyncSplitResource(AsyncAPIResource):
     async def run(
         self,
         *,
-        document_url: split_run_params.DocumentURL,
+        input: split_run_params.Input,
         split_description: Iterable[SplitCategory],
-        advanced_options: AdvancedProcessingOptions | NotGiven = NOT_GIVEN,
-        experimental_options: ExperimentalProcessingOptions | NotGiven = NOT_GIVEN,
-        options: BaseProcessingOptions | NotGiven = NOT_GIVEN,
-        priority: bool | NotGiven = NOT_GIVEN,
-        split_options: split_run_params.SplitOptions | NotGiven = NOT_GIVEN,
-        split_rules: str | NotGiven = NOT_GIVEN,
+        parsing: ParseOptions | Omit = omit,
+        settings: split_run_params.Settings | Omit = omit,
+        split_rules: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SplitResponse:
-        """Split
+        """
+        Split
 
         Args:
-          document_url:
-              The URL of the document to be processed.
+          input: For parse/split/extract pipelines, the URL of the document to be processed. You
+              can provide one of the following: 1. A publicly available URL 2. A presigned S3
+              URL 3. A reducto:// prefixed URL obtained from the /upload endpoint after
+              directly uploading a document 4. A jobid:// prefixed URL obtained from a
+              previous /parse invocation 5. A list of URLs (for multi-document pipelines, V3
+              API only)
 
-        You can provide one of the following:
-
-              1. A publicly available URL
-              2. A presigned S3 URL
-              3. A reducto:// prefixed URL obtained from the /upload endpoint after directly
-                 uploading a document
-              4. A job_id (jobid://) or a list of job_ids (jobid://) obtained from a previous
-                 /parse endpoint
+                          For edit pipelines, this should be a string containing the edit instructions
 
           split_description: The configuration options for processing the document.
 
-          priority: If True, attempts to process the job with priority if the user has priority
-              processing budget available; by default, sync jobs are prioritized above async
-              jobs.
+          parsing: The configuration options for parsing the document. If you are passing in a
+              jobid:// URL for the file, then this configuration will be ignored.
+
+          settings: The settings for split processing.
 
           split_rules: The prompt that describes rules for splitting the document.
 
@@ -264,13 +247,10 @@ class AsyncSplitResource(AsyncAPIResource):
             "/split",
             body=await async_maybe_transform(
                 {
-                    "document_url": document_url,
+                    "input": input,
                     "split_description": split_description,
-                    "advanced_options": advanced_options,
-                    "experimental_options": experimental_options,
-                    "options": options,
-                    "priority": priority,
-                    "split_options": split_options,
+                    "parsing": parsing,
+                    "settings": settings,
                     "split_rules": split_rules,
                 },
                 split_run_params.SplitRunParams,
@@ -284,41 +264,40 @@ class AsyncSplitResource(AsyncAPIResource):
     async def run_job(
         self,
         *,
-        document_url: split_run_job_params.DocumentURL,
+        input: split_run_job_params.Input,
         split_description: Iterable[SplitCategory],
-        advanced_options: AdvancedProcessingOptions | NotGiven = NOT_GIVEN,
-        experimental_options: ExperimentalProcessingOptions | NotGiven = NOT_GIVEN,
-        options: BaseProcessingOptions | NotGiven = NOT_GIVEN,
-        priority: bool | NotGiven = NOT_GIVEN,
-        split_options: split_run_job_params.SplitOptions | NotGiven = NOT_GIVEN,
-        split_rules: str | NotGiven = NOT_GIVEN,
-        webhook: WebhookConfigNew | NotGiven = NOT_GIVEN,
+        async_: ConfigV3AsyncConfig | Omit = omit,
+        parsing: ParseOptions | Omit = omit,
+        settings: split_run_job_params.Settings | Omit = omit,
+        split_rules: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SplitRunJobResponse:
         """
         Split Async
 
         Args:
-          document_url:
-              The URL of the document to be processed. You can provide one of the following:
+          input: For parse/split/extract pipelines, the URL of the document to be processed. You
+              can provide one of the following: 1. A publicly available URL 2. A presigned S3
+              URL 3. A reducto:// prefixed URL obtained from the /upload endpoint after
+              directly uploading a document 4. A jobid:// prefixed URL obtained from a
+              previous /parse invocation 5. A list of URLs (for multi-document pipelines, V3
+              API only)
 
-              1. A publicly available URL
-              2. A presigned S3 URL
-              3. A reducto:// prefixed URL obtained from the /upload endpoint after directly
-                 uploading a document
-              4. A job_id (jobid://) or a list of job_ids (jobid://) obtained from a previous
-                 /parse endpoint
+                          For edit pipelines, this should be a string containing the edit instructions
 
           split_description: The configuration options for processing the document.
 
-          priority: If True, attempts to process the job with priority if the user has priority
-              processing budget available; by default, sync jobs are prioritized above async
-              jobs.
+          async_: The configuration options for asynchronous processing (default synchronous).
+
+          parsing: The configuration options for parsing the document. If you are passing in a
+              jobid:// URL for the file, then this configuration will be ignored.
+
+          settings: The settings for split processing.
 
           split_rules: The prompt that describes rules for splitting the document.
 
@@ -334,15 +313,12 @@ class AsyncSplitResource(AsyncAPIResource):
             "/split_async",
             body=await async_maybe_transform(
                 {
-                    "document_url": document_url,
+                    "input": input,
                     "split_description": split_description,
-                    "advanced_options": advanced_options,
-                    "experimental_options": experimental_options,
-                    "options": options,
-                    "priority": priority,
-                    "split_options": split_options,
+                    "async_": async_,
+                    "parsing": parsing,
+                    "settings": settings,
                     "split_rules": split_rules,
-                    "webhook": webhook,
                 },
                 split_run_job_params.SplitRunJobParams,
             ),

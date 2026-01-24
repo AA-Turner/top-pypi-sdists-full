@@ -59,9 +59,7 @@ class LLMSettingDefinitionDict(TypedDict):
     type: str
     format: Optional[str]
     is_nullable: bool
-    constraints: Optional[
-        Union[BooleanConstraintsDict, NumericConstraintsDict, StringConstraintsDict]
-    ]
+    constraints: Optional[Union[BooleanConstraintsDict, NumericConstraintsDict, StringConstraintsDict]]
     default_value: Optional[Union[bool, int, float, str]]
 
 
@@ -81,47 +79,39 @@ class LLMDefinitionDict(TypedDict):
     is_active: Optional[bool]
 
 
-llm_setting_constraints_trafaret = t.Dict(
-    {
-        t.Key("type"): t.String,
-        t.Key("min_value", optional=True): t.Or(t.Int, t.Float, t.Null),
-        t.Key("max_value", optional=True): t.Or(t.Int, t.Float, t.Null),
-        t.Key("min_length", optional=True): t.Or(t.Int, t.Null),
-        t.Key("max_length", optional=True): t.Or(t.Int, t.Null),
-        t.Key("allowed_choices", optional=True): t.Or(t.List[t.String], t.Null),
-    }
-).ignore_extra("*")
+llm_setting_constraints_trafaret = t.Dict({
+    t.Key("type"): t.String,
+    t.Key("min_value", optional=True): t.Or(t.Int, t.Float, t.Null),
+    t.Key("max_value", optional=True): t.Or(t.Int, t.Float, t.Null),
+    t.Key("min_length", optional=True): t.Or(t.Int, t.Null),
+    t.Key("max_length", optional=True): t.Or(t.Int, t.Null),
+    t.Key("allowed_choices", optional=True): t.Or(t.List[t.String], t.Null),
+}).ignore_extra("*")
 
-llm_setting_definition_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String,
-        t.Key("description"): t.String,
-        t.Key("type"): t.String,
-        t.Key("format", optional=True): t.Or(t.String, t.Null),
-        t.Key("is_nullable"): t.Bool,
-        t.Key("constraints"): t.Or(llm_setting_constraints_trafaret, t.Null),
-        t.Key("default_value", optional=True): t.Or(
-            t.Null, t.Bool, t.Int, t.Float, t.String(allow_blank=True)
-        ),
-    }
-).ignore_extra("*")
+llm_setting_definition_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String,
+    t.Key("description"): t.String,
+    t.Key("type"): t.String,
+    t.Key("format", optional=True): t.Or(t.String, t.Null),
+    t.Key("is_nullable"): t.Bool,
+    t.Key("constraints"): t.Or(llm_setting_constraints_trafaret, t.Null),
+    t.Key("default_value", optional=True): t.Or(t.Null, t.Bool, t.Int, t.Float, t.String(allow_blank=True)),
+}).ignore_extra("*")
 
-language_model_definition_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String,
-        t.Key("description"): t.String,
-        t.Key("vendor"): t.String,
-        t.Key("license"): t.String,
-        t.Key("supported_languages"): t.String,
-        t.Key("settings"): t.List(llm_setting_definition_trafaret),
-        t.Key("context_size", optional=True): t.Or(t.Int, t.Null),
-        t.Key("is_deprecated", optional=True): t.Bool,
-        t.Key("is_active", optional=True): t.Bool,
-        t.Key("retirement_date", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+language_model_definition_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String,
+    t.Key("description"): t.String,
+    t.Key("vendor"): t.String,
+    t.Key("license"): t.String,
+    t.Key("supported_languages"): t.String,
+    t.Key("settings"): t.List(llm_setting_definition_trafaret),
+    t.Key("context_size", optional=True): t.Or(t.Int, t.Null),
+    t.Key("is_deprecated", optional=True): t.Bool,
+    t.Key("is_active", optional=True): t.Bool,
+    t.Key("retirement_date", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
 
 class LLMSettingConstraint(APIObject):
@@ -202,7 +192,7 @@ class LLMSettingDefinition(APIObject):
     Attributes
     ----------
     id : str
-        The seetting ID.
+        The setting ID.
     name : str
         The setting name.
     description : str
@@ -238,9 +228,7 @@ class LLMSettingDefinition(APIObject):
         self.type = type
         self.format = format
         self.is_nullable = is_nullable
-        self.constraints = (
-            LLMSettingConstraint.from_server_data(constraints) if constraints else None
-        )
+        self.constraints = LLMSettingConstraint.from_server_data(constraints) if constraints else None
         self.default_value = default_value
 
     def __repr__(self) -> str:
@@ -326,7 +314,10 @@ class LLMDefinition(APIObject):
 
     @classmethod
     def list(
-        cls, use_case: Optional[Union[UseCase, str]] = None, as_dict: bool = True
+        cls,
+        use_case: Optional[Union[UseCase, str]] = None,
+        as_dict: bool = True,
+        moderation_supported_only: bool = False,
     ) -> Union[List[LLMDefinition], List[LLMDefinitionDict]]:
         """
         List all large language models (LLMs) available to the user.
@@ -336,7 +327,13 @@ class LLMDefinition(APIObject):
         use_case : Optional[UseCase or str], optional
             The returned LLMs, including external LLMs, available
             for the specified Use Case.
-            Accepts either the entity or the Use CaseID.
+            Accepts either the entity or the Use Case ID.
+
+        as_dict : bool, optional
+            Returns the LLMs as a dictionary when `True` instead of `LLMDefinition` objects.
+
+        moderation_supported_only : bool, optional
+            When `True`, only list LLMs that are available to use in a moderation or metric.
 
         Returns
         -------
@@ -344,7 +341,10 @@ class LLMDefinition(APIObject):
             A list of large language models (LLMs) available to the user.
         """
         url = f"{cls._client.domain}/{cls._path}/"
-        params = {"use_case_id": get_use_case_id(use_case, is_required=False)}
+        params = {
+            "use_case_id": get_use_case_id(use_case, is_required=False),
+            "moderation_supported_only": moderation_supported_only,
+        }
         r_data = unpaginate(url, params, cls._client)
         llms = [cls.from_server_data(data) for data in r_data]
 

@@ -1,66 +1,62 @@
-test:  lint tatsu_test documentation examples
+
+test:  lint documentation examples pytest
 
 
-tatsu_test: clean
-	pytest
+pytest: clean
+	uv run pytest --cov -v
 
 
-documentation: clean sphinx
+documentation: sphinx
 
 
 sphinx:
-	cd docs; make -s html > /dev/null
+	cd docs; uv run make -s html > /dev/null
 
 
 examples: clean g2e_test calc_test
 
 
 g2e_test:
-	cd examples/g2e; make -s clean; make -s test > /dev/null
+	cd examples/g2e; uv run make -s clean test > /dev/null
+	cd examples/g2e; uv run make -s clean > /dev/null
+
 
 calc_test:
-	cd examples/calc; make -s clean; make -s test > /dev/null
+	cd examples/calc; uv run make -s clean test > /dev/null
 
 
-lint: ruff mypy
+lint: ruff ty mypy
 
 
 ruff:
-	-@ pip install -q -U ruff
-	ruff check --preview tatsu test examples
+	uv run ruff check -q --preview --fix tatsu tests examples
 
 
 mypy:
-	-@ pip install -q -U mypy
-	mypy   --ignore-missing-imports . --exclude dist
+	uv run mypy --install-types --exclude dist --exclude parsers .
+
+
+ty:
+	uv run ty check --exclude parsers
 
 
 clean:
-	find . -name "__pycache__" | xargs rm -rf
-	find . -name "*.pyc" | xargs rm -f
-	find . -name "*.pyd" | xargs rm -f
-	find . -name "*.pyo" | xargs rm -f
-	find . -name "*.orig" | xargs rm -f
-	rm -rf tatsu.egg-info
-	rm -rf dist
-	rm -rf build
-	rm -rf .tox
+	find . -name "__pycache__" -delete
+	rm -rf tatsu.egg-info dist build .tox
 
 
-release_check: clean documentation
-	tox
-	@echo version `python -m tatsu --version`
+checks: clean documentation
+	uv run hatch run --force-continue test:checks
+	@echo version `uv run python -m tatsu --version`
 
 
 build: clean
-	pip install -U build
-	python -m build
+	uv run hatch build
 
 
-test_upload: build
-	pip install -U twine
-	twine upload --repository test dist/*
+test_publish: build
+	uv run hatch publish --repo test
 
 
-upload: release_check build
-	twine upload dist/*
+publish: build
+	uv run hatch publish

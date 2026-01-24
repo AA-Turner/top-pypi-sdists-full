@@ -16,7 +16,6 @@ from beartype.roar import BeartypeDecorWrappeeException
 from beartype.typing import (
     TYPE_CHECKING,
     Callable,
-    # Dict,
     FrozenSet,
     Optional,
 )
@@ -24,11 +23,25 @@ from beartype._cave._cavefast import CallableCodeObjectType
 from beartype._cave._cavemap import NoneTypeOr
 from beartype._check.forward.fwdscope import BeartypeForwardScope
 from beartype._conf.confmain import BeartypeConf
-from beartype._data.hint.datahintpep import DictStrToHint
-from beartype._data.hint.datahinttyping import (
+from beartype._data.code.datacodefunc import (
+    CODE_NORMAL_RETURN_CHECKED,
+    CODE_NORMAL_RETURN_UNCHECKED_SYNC,
+    CODE_NORMAL_RETURN_UNCHECKED_ASYNC,
+)
+from beartype._data.code.pep.datacodepep342 import (
+    CODE_PEP342_RETURN_CHECKED,
+    CODE_PEP342_RETURN_UNCHECKED,
+)
+from beartype._data.code.pep.datacodepep525 import (
+    CODE_PEP525_RETURN_CHECKED,
+    CODE_PEP525_RETURN_UNCHECKED,
+)
+from beartype._data.typing.datatyping import (
     LexicalScope,
+    Pep649HintableAnnotations,
     TypeStack,
 )
+from beartype._data.typing.datatypingport import Hint
 from beartype._util.cache.pool.utilcachepoolinstance import (
     acquire_instance,
     release_instance,
@@ -37,12 +50,18 @@ from beartype._util.func.utilfunccodeobj import (
     get_func_codeobj,
     get_func_codeobj_or_none,
 )
-from beartype._util.func.utilfuncget import get_func_annotations
 from beartype._util.func.utilfunctest import (
     is_func_coro,
     is_func_nested,
+    is_func_sync_generator,
+    is_func_async_generator,
 )
 from beartype._util.func.utilfuncwrap import unwrap_func_all_isomorphic
+from beartype._util.hint.pep.proposal.pep649 import (
+    get_pep649_hintable_annotations,
+    set_pep649_hintable_annotations,
+)
+from beartype._util.text.utiltextprefix import prefix_callable_pith
 
 # ....................{ CLASSES                            }....................
 class BeartypeDecorMeta(object):
@@ -67,15 +86,15 @@ class BeartypeDecorMeta(object):
     -------
     **This object cannot be used to communicate state between low-level
     memoized callables** (e.g.,
-    :func:`beartype._check.code.codemake.make_func_pith_code`) **and
+    :func:`beartype._check.code.codemain.make_func_pith_code`) **and
     high-level unmemoized callables** (e.g.,
-    :func:`beartype._decor.wrap.wrapmain.generate_code`). Instead, low-level
-    memoized callables *must* return that state as additional return values up
-    the call stack to those high-level unmemoized callables. By definition,
-    memoized callables are *not* recalled on subsequent calls passed the same
-    parameters. Since only the first call to those callables passed those
-    parameters would set the appropriate state on this object intended to be
-    communicated to unmemoized callables, *all* subsequent calls would subtly
+    :func:`beartype._decor._nontype._wrap.wrapmain.generate_code`). Instead,
+    low-level memoized callables *must* return that state as additional return
+    values up the call stack to those high-level unmemoized callables. By
+    definition, memoized callables are *not* recalled on subsequent calls passed
+    the same parameters. Since only the first call to those callables passed
+    those parameters would set the appropriate state on this object intended to
+    be communicated to unmemoized callables, *all* subsequent calls would subtly
     fail with difficult-to-diagnose issues. See also `<issue #5_>`__, which
     exhibited this very complaint.
 
@@ -92,14 +111,31 @@ class BeartypeDecorMeta(object):
         **Beartype configuration** (i.e., self-caching dataclass encapsulating
         all flags, options, settings, and other metadata configuring the
         current decoration of the decorated callable).
-    func_arg_name_to_hint : dict[str, Hint]
-        **Type hint dictionary** (i.e., mapping from the name of each annotated
-        parameter accepted by the decorated callable to the type hint annotating
-        that parameter).
-    func_arg_name_to_hint_get : Callable[[str, object], object]
-        :meth:`dict.get` method bound to the :attr:`func_arg_name_to_hint`
+    func_annotations : dict[str, Hint]
+        **Type hint dictionary** mapping from the name of each annotated
+        parameter and return accepted by the decorated callable to the type hint
+        annotating that parameter or return.
+
+        Note that this dictionary is *not* directly mutable. When the active
+        Python interpreter targets Python >= 3.14, :pep:`649`-compliant type
+        hint dictionaries are *not* directly mutable. Attempting to do so will
+        superficially appear to succeed but ultimately reduce to a silent noop.
+        This particular dictionary is only indirectly mutable by calling the
+        high-level :meth:`set_func_pith_hint` setter method, which mutates the
+        type hint annotating the name of the passed parameter or return in a
+        portable manner consistent with both :pep:`649` and Python >= 3.14.
+        Although this constraint *could* be enforced by encapsulating this
+        dictionary in a :class:`beartype.FrozenDict` instance, doing so would
+        simply reduce space and time efficiency for little to no actual gain.
+        Simply call :meth:`set_func_pith_hint` instead.
+    func_annotations_get : Callable[[str, object], object]
+        :meth:`dict.get` method bound to the :attr:`func_annotations`
         dictionary, localized as a negligible microoptimization. Blame Guido.
-    func_wrappee : Optional[Callable]
+    _is_func_annotations_dirty : bool
+        :data:`True` only if the type hint dictionary is **dirty** (i.e.,
+        modified from the original type hint dictionary annotating the decorated
+        callable by a prior call to the :meth:`set_func_pith_hint` setter).
+    func_wrappee : Callable
         Possibly wrapping **decorated callable** (i.e., high-level callable
         currently being decorated by the :func:`beartype.beartype` decorator).
         Note the lower-level :attr:`func_wrappee_wrappee` callable should
@@ -153,7 +189,7 @@ class BeartypeDecorMeta(object):
             submodule. In this case, the empty frozen set.
 
         * Else, :data:`None`.
-    func_wrappee_wrappee : Optional[Callable]
+    func_wrappee_wrappee : Callable
         Possibly unwrapped **decorated callable wrappee** (i.e., low-level
         callable wrapped by the high-level :attr:`func_wrappee` callable
         currently being decorated by the :func:`beartype.beartype` decorator).
@@ -167,7 +203,22 @@ class BeartypeDecorMeta(object):
         For efficiency, this code object should *always* be accessed in lieu of
         inefficiently calling the comparatively slower
         :func:`beartype._util.func.utilfunccodeobj.get_func_codeobj` getter.
-    func_wrapper_code_call_prefix : Optional[str]
+    func_wrapper : Callable
+        **Wrapper callable** to be unwrapped in the event that the
+        :attr:`func_wrappee` differs from the callable to be unwrapped.
+        Typically, these two callables are the same. Edge cases in which these
+        two callables differ include:
+
+        * When the wrapper callable is a **pseudo-callable** (i.e., otherwise
+          uncallable object whose type renders that object callable by defining
+          the ``__call__()`` dunder method) *and* the :attr:`func_wrappee` is
+          the ``__call__()`` dunder method. If that pseudo-callable wraps a
+          lower-level callable, then that pseudo-callable (rather than that
+          ``__call__()`` dunder method) defines the ``__wrapped__`` instance
+          variable providing that callable.
+
+        This callable is typically identical to the :attr:`func_wrappee`.
+    func_wrapper_code_call_prefix : str
         Code snippet prefixing all calls to the decorated callable in the body
         of the wrapper function wrapping that callable with type checking. This
         string is guaranteed to be either:
@@ -176,7 +227,16 @@ class BeartypeDecorMeta(object):
           nor asynchronous generator), the empty string.
         * If the decorated callable is asynchronous (i.e., either a coroutine
           nor asynchronous generator), the ``"await "`` keyword.
-    func_wrapper_code_signature_prefix : Optional[str]
+    func_wrapper_code_return_checked : str
+        Code snippet returning the value returned by calling the decorated
+        callable in the body of the wrapper function wrapping that callable with
+        type-checking.
+    func_wrapper_code_return_unchecked : str
+        Code snippet returning the value returned by calling the decorated
+        callable in the body of the wrapper function *without* wrapping that
+        callable with type-checking. This snippet is an optimization for the
+        common case in which the return of that callable is left unannotated.
+    func_wrapper_code_signature_prefix : str
         Code snippet prefixing the signature declaring the wrapper function
         wrapping the decorated callable with type checking. This string is
         guaranteed to be either:
@@ -185,13 +245,13 @@ class BeartypeDecorMeta(object):
           nor asynchronous generator), the empty string.
         * If the decorated callable is asynchronous (i.e., either a coroutine
           or asynchronous generator), the ``"async "`` keyword.
-    func_wrapper_scope : LexicalScope
-        **Local scope** (i.e., dictionary mapping from the name to value of
-        each attribute referenced in the signature) of this wrapper function.
-    func_wrapper_name : Optional[str]
+    func_wrapper_name : str
         Unqualified basename of the type-checking wrapper function to be
         generated and returned by the current invocation of the
         :func:`beartype.beartype` decorator.
+    func_wrapper_scope : LexicalScope
+        **Local scope** (i.e., dictionary mapping from the name to value of
+        each attribute referenced in the signature) of this wrapper function.
     '''
 
     # ..................{ CLASS VARIABLES                    }..................
@@ -202,18 +262,22 @@ class BeartypeDecorMeta(object):
     __slots__ = (
         'cls_stack',
         'conf',
-        'func_arg_name_to_hint',
-        'func_arg_name_to_hint_get',
+        'func_annotations',
+        'func_annotations_get',
+        '_is_func_annotations_dirty',
         'func_wrappee',
         'func_wrappee_is_nested',
         'func_wrappee_scope_forward',
         'func_wrappee_scope_nested_names',
         'func_wrappee_wrappee',
         'func_wrappee_wrappee_codeobj',
+        'func_wrapper',
         'func_wrapper_code_call_prefix',
+        'func_wrapper_code_return_checked',
+        'func_wrapper_code_return_unchecked',
         'func_wrapper_code_signature_prefix',
-        'func_wrapper_scope',
         'func_wrapper_name',
+        'func_wrapper_scope',
     )
 
     # Squelch false negatives from mypy. This is absurd. This is mypy. See:
@@ -221,18 +285,22 @@ class BeartypeDecorMeta(object):
     if TYPE_CHECKING:
         cls_stack: TypeStack
         conf: BeartypeConf
-        func_arg_name_to_hint: DictStrToHint
-        func_arg_name_to_hint_get: Callable[[str, object], object]
+        func_annotations: Pep649HintableAnnotations
+        func_annotations_get: Callable[[str, object], object]
+        _is_func_annotations_dirty: bool
         func_wrappee: Callable
         func_wrappee_is_nested: bool
         func_wrappee_scope_forward: Optional[BeartypeForwardScope]
         func_wrappee_scope_nested_names: Optional[FrozenSet[str]]
         func_wrappee_wrappee: Callable
         func_wrappee_wrappee_codeobj: CallableCodeObjectType
+        func_wrapper: Callable
         func_wrapper_code_call_prefix: str
+        func_wrapper_code_return_checked: str
+        func_wrapper_code_return_unchecked: str
         func_wrapper_code_signature_prefix: str
-        func_wrapper_scope: LexicalScope
         func_wrapper_name: str
+        func_wrapper_scope: LexicalScope
 
     # Coerce instances of this class to be unhashable, preventing spurious
     # issues when accidentally passing these instances to memoized callables by
@@ -283,19 +351,25 @@ class BeartypeDecorMeta(object):
         that callable.
         '''
 
-        # Nullify instance variables for safety.
+        # Restore instance variables to initial defaults.
         self.func_wrapper_scope: LexicalScope = {}
+        self._is_func_annotations_dirty = False
+
+        # Nullify all remaining instance variables for safety.
         self.cls_stack = (  # type: ignore[assignment]
         self.conf) = (  # type: ignore[assignment]
-        self.func_arg_name_to_hint) = (  # type: ignore[assignment]
-        self.func_arg_name_to_hint_get) = (  # type: ignore[assignment]
+        self.func_annotations) = (  # type: ignore[assignment]
+        self.func_annotations_get) = (  # type: ignore[assignment]
         self.func_wrappee) = (  # type: ignore[assignment]
         self.func_wrappee_is_nested) = (  # type: ignore[assignment]
         self.func_wrappee_scope_forward) = (  # type: ignore[assignment]
         self.func_wrappee_scope_nested_names) = (  # type: ignore[assignment]
         self.func_wrappee_wrappee) = (  # type: ignore[assignment]
         self.func_wrappee_wrappee_codeobj) = (  # type: ignore[assignment]
+        self.func_wrapper) = (  # type: ignore[assignment]
         self.func_wrapper_code_call_prefix) = (  # type: ignore[assignment]
+        self.func_wrapper_code_return_checked) = (  # type: ignore[assignment]
+        self.func_wrapper_code_return_unchecked) = (  # type: ignore[assignment]
         self.func_wrapper_code_signature_prefix) = (  # type: ignore[assignment]
         self.func_wrapper_name) = None  # type: ignore[assignment]
 
@@ -333,7 +407,7 @@ class BeartypeDecorMeta(object):
             *or* :data:`None`). See also the parameter of the same name accepted
             by the :func:`beartype._decor.decorcore.beartype_object` function.
         wrapper : Optional[Callable]
-            Wrapper callable to be unwrapped in the event that the callable
+            **Wrapper callable** to be unwrapped in the event that the callable
             currently being decorated by :func:`beartype.beartype` differs from
             the callable to be unwrapped. Typically, these two callables are the
             same. Edge cases in which these two callables differ include:
@@ -342,7 +416,7 @@ class BeartypeDecorMeta(object):
               uncallable object whose type renders that object callable by
               defining the ``__call__()`` dunder method) *and* ``func`` is that
               ``__call__()`` dunder method. If that pseudo-callable wraps a
-              lower-level callable, then that pseudo-callable (rather than
+              lower-level callable, then that pseudo-callable (rather than that
               ``__call__()`` dunder method) defines the ``__wrapped__`` instance
               variable providing that callable.
 
@@ -370,9 +444,10 @@ class BeartypeDecorMeta(object):
         # CAUTION: Note this method intentionally avoids creating and passing an
         # "exception_prefix" substring to callables called below. Why? Because
         # exhaustive profiling has shown that creating that substring consumes a
-        # non-trivial slice of decoration time. In other words, efficiency.
+        # non-trivial slice of decoration time. In other words, raw efficiency.
         #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+        # ..................{ VALIDATE                       }..................
         # If the caller failed to pass a callable to be unwrapped, default that
         # to the callable to be type-checked.
         if wrapper is None:
@@ -393,14 +468,18 @@ class BeartypeDecorMeta(object):
         # If this configuration is *NOT* a configuration, raise an exception.
         elif not isinstance(conf, BeartypeConf):
             raise BeartypeDecorWrappeeException(
-                f'"conf" {repr(conf)} not beartype configuration.')
+                f'BeartypeDecorMeta.reinit() method "conf" parameter '
+                f'{repr(conf)} not beartype configuration.'
+            )
         # Else, this configuration is a configuration.
         #
         # If this class stack is neither a tuple *NOR* "None", raise an
         # exception.
         elif not isinstance(cls_stack, NoneTypeOr[tuple]):
             raise BeartypeDecorWrappeeException(
-                f'"cls_stack" {repr(cls_stack)} neither tuple nor "None".')
+                f'BeartypeDecorMeta.reinit() method "cls_stack" parameter '
+                f'{repr(cls_stack)} neither tuple nor "None".'
+            )
         # Else, this class stack is either a tuple *OR* "None".
 
         # If the caller passed a non-empty class stack...
@@ -410,24 +489,21 @@ class BeartypeDecorMeta(object):
                 # If this item is *NOT* a type, raise an exception.
                 if not isinstance(cls_stack_item, type):
                     raise BeartypeDecorWrappeeException(
-                        f'"cls_stack" item {repr(cls_stack_item)} not type.')
+                        f'BeartypeDecorMeta.reinit() method "cls_stack" item '
+                        f'{repr(cls_stack_item)} not type.'
+                    )
                 # Else, this item is a type.
         # Else, the caller either passed no class stack *OR* an empty class
         # stack. In either case, ignore this parameter.
 
+        # ..................{ VARS                           }..................
         # Classify all passed parameters.
         self.conf = conf
         self.cls_stack = cls_stack
 
+        # ..................{ VARS ~ func : wrappee          }..................
         # Wrappee callable currently being decorated.
         self.func_wrappee = func
-
-        # Possibly unwrapped callable unwrapped from this wrappee callable.
-        self.func_wrappee_wrappee = unwrap_func_all_isomorphic(
-            func=func, wrapper=wrapper)
-        # print(f'func_wrappee: {self.func_wrappee}')
-        # print(f'func_wrappee_wrappee: {self.func_wrappee_wrappee}')
-        # print(f'{dir(self.func_wrappee_wrappee)}')
 
         # True only if this wrappee callable is nested. As a minor efficiency
         # gain, we can avoid the slightly expensive call to is_func_nested() by
@@ -442,22 +518,34 @@ class BeartypeDecorMeta(object):
         self.func_wrappee_scope_forward = None
         self.func_wrappee_scope_nested_names = None
 
-        # Possibly wrapped callable wrappee code object (i.e., code object
-        # underlying the callable currently being type-checked by the
-        # @beartype.beartype decorator) if this wrappee is pure-Python *OR*
-        # "None" otherwise.
+        # Possibly wrapped wrappee code object (i.e., code object underlying the
+        # callable currently being type-checked by the @beartype decorator) if
+        # this wrappee is pure-Python *OR* "None" otherwise.
         #
-        # Note that only the possibly unwrapped callable (i.e.,
-        # "self.func_wrappee_wrappee") need actually be pure-Python. Whereas the
-        # latter is required to have a code object, the "self.func_wrappee" is
-        # permitted to be C-based and thus *NOT* have a code object.
+        # Note that only the possibly unwrapped wrappee wrappee defined below
+        # (i.e., "func_wrappee_wrappee") *MUST* be pure-Python and thus *MUST*
+        # have a code object. This higher-level wrappee is permitted to be
+        # C-based and thus need *NOT* have a code object.
         func_wrappee_codeobj = get_func_codeobj_or_none(func)
+
+        # ..................{ VARS ~ func : wrappee wrappee  }..................
+        # Possibly unwrapped callable unwrapped from this wrappee callable.
+        self.func_wrappee_wrappee = unwrap_func_all_isomorphic(
+            func=func, wrapper=wrapper)
+        # print(f'func_wrappee: {self.func_wrappee}')
+        # print(f'func_wrappee_wrappee: {self.func_wrappee_wrappee}')
+        # print(f'{dir(self.func_wrappee_wrappee)}')
 
         # Possibly unwrapped callable code object.
         self.func_wrappee_wrappee_codeobj = get_func_codeobj(
             func=self.func_wrappee_wrappee,
             exception_cls=BeartypeDecorWrappeeException,
         )
+
+        # ..................{ VARS ~ func : wrapper          }..................
+        # Wrapper callable to be unwrapped in the event that the
+        # decorated callable differs from the callable to be unwrapped.
+        self.func_wrapper = wrapper
 
         # Efficiently reduce this local scope back to the dictionary of all
         # parameters unconditionally required by *ALL* wrapper functions.
@@ -466,173 +554,7 @@ class BeartypeDecorMeta(object):
         # Machine-readable name of the wrapper function to be generated.
         self.func_wrapper_name = func.__name__
 
-        #FIXME: Globally replace all references to "__annotations__" throughout
-        #the "beartype._decor" subpackage with references to this instead.
-        #Since doing so is a negligible optimization, this is fine... for now.
-        #FIXME: *WOOPS.* Due to PEP 649, we absolutely need to get out ahead of
-        #this before Python 3.13 and catastrophe strike. Notably:
-        #* Define a new "beartype._data.hint.datahinttyping.Hintable" type hint
-        #  resembling:
-        #      from beartype._cave._cavefast import (
-        #          FunctionType,
-        #          MethodBoundInstanceOrClassType,
-        #      )
-        #
-        #      Hintable = Union[
-        #          FunctionType,                    # <-- pure-Python function
-        #          MethodBoundInstanceOrClassType,  # <-- pure-Python method
-        #          ModuleType,  # <-- C-based *OR* pure-Python module
-        #          type,        # <-- C-based *OR* pure-Python class
-        #      ]
-        #      '''
-        #      PEP-compliant type hint matching any **hintable** (i.e., ideally
-        #      pure-Python object defining the ``__annotations__`` dunder
-        #      attribute as well as the ``__annotate__`` dunder callable if the
-        #      active Python interpreter targets Python >= 3.13).
-        #      '''
-        #* Define a new "beartype._data.cls.datacls.HintableTypes" tuple union
-        #  resembling:
-        #      from beartype._cave._cavefast import (
-        #          FunctionType,
-        #          MethodBoundInstanceOrClassType,
-        #      )
-        #
-        #      HintableTypes = (
-        #          FunctionType,                    # <-- pure-Python function
-        #          MethodBoundInstanceOrClassType,  # <-- pure-Python method
-        #          ModuleType,  # <-- C-based *OR* pure-Python module
-        #          type,        # <-- C-based *OR* pure-Python class
-        #      )
-        #* Rename "HintAnnotations" to "HintableAnnotations" in that same
-        #  submodule.
-        #* Define a new "beartype._util.hintable" subpackage.
-        #* Define a new "beartype._util.hintable.utilhintableget" submodule.
-        #* Define a new get_hintable_hint_name_to_hint() getter in that
-        #  submodule whose signature resembles:
-        #      from beartype._data.hint.datahinttyping import (
-        #          Hintable,
-        #          HintableAnnotations,
-        #      )
-        #
-        #      def get_hintable_hint_name_to_hint(hintable: Hintable) -> (
-        #          HintableAnnotations):
-        #* Define a new "BeartypePep649Exception" exception type, please.
-        #* Implement this getter conditionally depending on the active Python
-        #  interpreter as follows:
-        #      from beartype._util.py.utilpyversion import IS_PYTHON_AT_LEAST_3_13
-        #
-        #      # If the active Python interpreter targets Python >= 3.13, defer
-        #      # to the PEP 649-compliant __annotate__() dunder callable rather
-        #      # than the PEP 484-compliant __annotations__() dunder attribute.
-        #      # Why? Because the latter simply reduces to calling
-        #      # "self.__annotate__(inspect.VALUE)", which raises a "NameError"
-        #      # exception if the passed hintable is annotated by one or more
-        #      # unquoted forward references. Unacceptable!
-        #      #
-        #      # Note that this getter is memoized *ONLY* under Python >= 3.13.
-        #      # Why? Because __annotate__() *ONLY* memoizes the annotations
-        #      # dictionary it creates and returns when passed "inspect.VALUE".
-        #      # When passed *ANY* other "format" value, __annotate__() avoids
-        #      # avoids caching its return value. Creating this return value is
-        #      # algorithmically non-trivial and computationally expensive. So,
-        #      # we are effectively required to memoize this return value here.
-        #      if IS_PYTHON_AT_LEAST_3_13:
-        #          # Defer version-specific imports.
-        #          from inspect import FORWARDREF
-        #          from beartype.roar import BeartypePep649Exception
-        #          from beartype._data.cls.datacls import HintableTypes
-        #
-        #          @callable_cached
-        #          def get_hintable_hint_name_to_hint(hintable: Hintable) -> (
-        #              HintableAnnotations):
-        #
-        #              if not isinstance(hintable, HintableTypes):
-        #                  raise BeartypePep649(
-        #                      f'Object {repr(hintable)} not hintable '
-        #                      f'(i.e., defines no PEP 649 __annotate__() '
-        #                      f'data descriptor).'
-        #                  )
-        #              # Note that this will probably become a shockingly common
-        #              # occurrence. PEP 649 openly encourages users to destroy
-        #              # the "__annotate__" dunder method by setting that method
-        #              # to "None": e.g.,
-        #              #     Failing that, it’s best to overwrite the object’s
-        #              #     __annotate__ method with None to prevent
-        #              #     inspect.get_annotations from generating stale
-        #              #     results for SOURCE and FORWARDREF formats.
-        #              elif hintable.__annotate__ is None:
-        #                  raise BeartypePep649(
-        #                      f'Object {repr(hintable)} annotations destroyed '
-        #                      f'(i.e., PEP 649 __annotate__() data descriptor '
-        #                      f'externally set to "None").'
-        #                  )
-        #
-        #              # Return the annotations dictionary for this hintable,
-        #              # implicitly replacing all unquoted forward references to
-        #              # undefined attributes in type hints described by this
-        #              # dictionary with "typing.ForwardRef" proxies.
-        #              return hintable.__annotate__(FORWARDREF)
-        #      else:
-        #          def get_hintable_hint_name_to_hint(hintable: Hintable) -> (
-        #              HintableAnnotations):
-        #              return hintable.__annotations__
-        #* Grep the codebase for all references to "__annotations__". All such
-        #  references *MUST* immediately be refactored as calls to
-        #  get_hintable_hint_name_to_hint().
-        #FIXME: *SUPERB.* However, note that even the following might not
-        #suffice for Python >= 3.13. Why? Because, to quote PEP 649:
-        #    Initially, inspect.get_annotations will call the object’s
-        #    __annotate__ method requesting the desired format. If that raises
-        #    NotImplementedError, inspect.get_annotations will construct a “fake
-        #    globals” environment, then call the object’s __annotate__ method.
-        #    inspect.get_annotations produces FORWARDREF format by creating a
-        #    new empty “fake globals” dict, pre-populating it with the current
-        #    contents of the __annotate__ method’s globals dict, binding the
-        #    “fake globals” dict to the object’s __annotate__ method, calling
-        #    that requesting VALUE format, and returning the result.
-        #
-        #...heh. So, our get_hintable_hint_name_to_hint() implementation needs
-        #to either:
-        #* Just defer to inspect.get_annotations(). I'm *NOT* particularly keen
-        #  on that. That implementation is likely to be suboptimal and, more
-        #  importantly, outside our control. Moreover, there's really *NO* need
-        #  to defer to somebody else's implementation. Why? Because we basically
-        #  already implemented the entirety of inspect.get_annotations() without
-        #  knowing it as our "beartype._check.forward" subpackage. Ergo...
-        #* Derive mild inspiration from inspect.get_annotations(), but otherwise
-        #  substitute stock CPython stuff like "typing.ForwardRef" with
-        #  equivalent functionality from our own "beartype._check.forward"
-        #  subpackage.
-        #
-        #Control is pivotal here. We can iterate on underlying issues
-        #significantly faster than CPython. We can also optimize and
-        #microoptimize this as we see fit to generate even better yields.
-        #
-        #Note, however, that PEP 649-compliant stringizers are pretty
-        #phenomenal. It's unlikely that @beartype could or even should implement
-        #a better internal alternative. Ideally, our
-        #"beartype._check.forward.reference" API could be mildly refactored to
-        #internally support PEP 649-compliant stringizers under Python >= 3.13.
-        #Is that even feasible? Who knows. But... it's certainly desirable.
-        #FIXME: Actually... let's just defer to inspect.get_annotations(). Look.
-        #I know. I know. It's a shame. We threw a veritable ton of volunteer
-        #hours at "beartype._check.forward". But inspect.get_annotations() is
-        #strictly better than anything we've done or could reasonably do.
-        #Seriously. That train is moving on. Honestly, reproducing
-        #inspect.get_annotations() in @beartype is probably *NOT* feasible.
-        #inspect.get_annotations() does all sorts of intense and crazy stuff:
-        #    The “fake globals” environment will also have to create a fake
-        #    “closure”, a tuple of ForwardRef objects pre-created with the names
-        #    of the free variables referenced by the __annotate__ method.
-        #
-        #There's just no way we're dynamically constructing fake closures. So,
-        #inspect.get_annotations() is it -- at least, initially. I mean, if
-        #significant issues end up arising from our usage of
-        #inspect.get_annotations()... well, that's fine. At that point, we'd
-        #obviously begin deriving our alternative heavily inspired by
-        #inspect.get_annotations(). Until then, we genuinely do need to assume
-        #that CPython devs know what they are talking about. Call that getter.
-
+        # ..................{ VARS ~ func : hints            }..................
         # Dictionary mapping from the name of each annotated parameter accepted
         # by the unwrapped callable to the type hint annotating that parameter
         # *AFTER* resolving all postponed type hints elsewhere.
@@ -685,53 +607,190 @@ class BeartypeDecorMeta(object):
         # thin isomorphic wrapper deferring to "wrapper" (i.e., the callable to
         # be unwrapped). Even if "func" were annotated with type hints, those
         # type hints would be useless for most intents and purposes.
-        self.func_arg_name_to_hint = get_func_annotations(wrapper)
-        # print(f'Beartyping func {repr(func)} + wrapper {repr(wrapper)} w/ annotations {self.func_arg_name_to_hint}...')
+        self.func_annotations = get_pep649_hintable_annotations(
+            hintable=wrapper, exception_cls=BeartypeDecorWrappeeException)
+        # print(f'Beartyping func {repr(func)} + wrapper {repr(wrapper)} w/ annotations {self.func_annotations}...')
 
         # dict.get() method bound to this dictionary.
-        self.func_arg_name_to_hint_get = self.func_arg_name_to_hint.get
+        self.func_annotations_get = self.func_annotations.get
 
-        # If this callable is an asynchronous coroutine callable (i.e.,
-        # callable declared with "async def" rather than merely "def" keywords
-        # containing *NO* "yield" expressions)...
-        #
-        # Note that:
-        # * The code object of the higher-level wrapper rather than lower-level
-        #   wrappee is passed. Why? Because @beartype directly decorates *ONLY*
-        #   the former, whose asynchronicity has *NO* relation to that of the
-        #   latter. Notably, it is both feasible and (relatively) commonplace
-        #   for third-party decorators to enable:
-        #   * Synchronous callables to be called asynchronously by wrapping
-        #     synchronous callables with asynchronous closures.
-        #   * Asynchronous callables to be called synchronously by wrapping
-        #     asynchronous callables with synchronous closures. Indeed, our
-        #     top-level "conftest.py" pytest plugin does exactly this --
-        #     enabling asynchronous tests to be safely called by pytest's
-        #     currently synchronous framework.
-        # * The higher-level is_func_async() tester is intentionally *NOT*
-        #   called here, as doing so would also implicitly prefix all calls to
-        #   asynchronous generator callables (i.e., callables also declared
-        #   with the "async def" rather than merely "def" keywords but
-        #   containing one or more "yield" expressions) with the "await"
-        #   keyword. Whereas asynchronous coroutine objects implicitly returned
-        #   by all asynchronous coroutine callables return a single awaitable
-        #   value, asynchronous generator objects implicitly returned by all
-        #   asynchronous generator callables *NEVER* return any awaitable
-        #   value; they instead yield one or more values to external "async
-        #   for" loops.
-        if func_wrappee_codeobj and is_func_coro(func_wrappee_codeobj):
-            # Code snippet prefixing all calls to this callable.
-            self.func_wrapper_code_call_prefix = 'await '
+        # ..................{ VARS ~ func : kind             }..................
+        # Default all remaining code snippets to the empty string.
+        self.func_wrapper_code_signature_prefix = ''
+        self.func_wrapper_code_call_prefix = ''
 
-            # Code snippet prefixing the declaration of the wrapper function
-            # wrapping this callable with type-checking.
-            self.func_wrapper_code_signature_prefix = 'async '
-        # Else, this callable is synchronous (i.e., callable declared with
-        # "def" rather than "async def"). In this case, reduce these code
-        # snippets to the empty string.
-        else:
-            self.func_wrapper_code_call_prefix = ''
-            self.func_wrapper_code_signature_prefix = ''
+        # Default the same code snippets set below to those returning values
+        # from normal (i.e., non-generator) synchronous callables for sanity.
+        self.func_wrapper_code_return_checked = CODE_NORMAL_RETURN_CHECKED
+        self.func_wrapper_code_return_unchecked = (
+            CODE_NORMAL_RETURN_UNCHECKED_SYNC)
+
+        # If the wrappee callable currently being decorated is pure-Python...
+        if func_wrappee_codeobj:
+            # print(f'Decorated callable {repr(func)}...')
+            # print(f'synchronous generator factory? {is_func_sync_generator(func_wrappee_codeobj)}')
+
+            # If this wrappee is an asynchronous coroutine factory (i.e.,
+            # callable declared with "async def" rather than merely "def"
+            # keywords and containing *NO* "yield" expressions)...
+            #
+            # Note that:
+            # * The code object of the higher-level wrapper rather than
+            #   lower-level wrappee is passed. Why? Because @beartype directly
+            #   decorates *ONLY* the former, whose asynchronicity has *NO*
+            #   relation to that of the latter. Notably, it is both feasible and
+            #   (relatively) commonplace for third-party decorators to enable:
+            #   * Synchronous callables to be called asynchronously by wrapping
+            #     synchronous callables with asynchronous closures.
+            #   * Asynchronous callables to be called synchronously by wrapping
+            #     asynchronous callables with synchronous closures. Indeed, our
+            #     top-level "conftest.py" pytest plugin does exactly this --
+            #     enabling asynchronous tests to be safely called by pytest's
+            #     currently synchronous framework.
+            # * The higher-level is_func_async() tester is intentionally *NOT*
+            #   called here, as doing so would also implicitly prefix all calls
+            #   to asynchronous generator factories (i.e., callables also
+            #   declared with the "async def" rather than merely "def" keywords
+            #   but containing one or more "yield" expressions) with the "await"
+            #   keyword. Whereas asynchronous coroutine objects implicitly
+            #   returned by all asynchronous coroutine callables return a single
+            #   awaitable value, asynchronous generator objects implicitly
+            #   returned by all asynchronous generator callables *NEVER* return
+            #   any awaitable value; they instead yield one or more values to
+            #   external "async for" loops.
+            if is_func_coro(func_wrappee_codeobj):
+                # Code snippet prefixing the declaration of the wrapper function
+                # wrapping this coroutine factory with type-checking.
+                self.func_wrapper_code_signature_prefix = 'async '
+
+                # Code snippet prefixing all calls to this coroutine factory.
+                self.func_wrapper_code_call_prefix = 'await '
+
+                # Default the same code snippets set below to those returning
+                # values from normal (i.e., non-generator) asynchronous
+                # callables.
+                self.func_wrapper_code_return_unchecked = (
+                    CODE_NORMAL_RETURN_UNCHECKED_ASYNC)
+            # Else, this wrappee is *NOT* an asynchronous coroutine factory.
+            #
+            # If this wrappee is a synchronous generator factory (i.e.,
+            # callable declared with merely the "def" rather than "async def"
+            # keywords and containing one or more "yield" expressions)...
+            if is_func_sync_generator(func_wrappee_codeobj):
+                # print(f'Decorated synchronous generator factory {repr(func)} detected!')
+
+                # Code snippet yielding from (i.e., deferring to) the
+                # synchronous generator returned by calling this PEP
+                # 380-compliant synchronous generator factory.
+                #
+                # Note that:
+                # * This prefix is required *ONLY* to force the active Python
+                #   interpreter to implicitly enable the "inspect.CO_GENERATOR"
+                #   bit flag in the "func.__code__.co_flags" bit field of the
+                #   high-level wrapper subsequently generated by the @beartype
+                #   decorator wrapping this lower-level wrappee with
+                #   type-checking when that wrapper is defined. Why? Because the
+                #   standard inspect.isgeneratorfunction() tester conflates a
+                #   fictitious one-to-one relation between synchronous generator
+                #   factories and pure-Python callables enabling this bit flag.
+                #   If @beartype neglected to add "yield from" expressions to
+                #   the code generated for type-checking wrappers wrapping
+                #   synchronous generator factories, then:
+                #   * inspect.isgeneratorfunction() would declare those wrappers
+                #     to *NOT* be synchronous generator factories despite those
+                #     wrappers literally being such factories.
+                #   * Third-party packages (e.g., Gradio) improperly calling
+                #     inspect.isgeneratorfunction() to detect synchronous
+                #     generator factories would misidentify those wrappers to
+                #     *NOT* be synchronous generator factories.
+                # * Technically, high-level synchronous generator factories that
+                #   defer to lower-level synchronous generator factories do
+                #   *NOT* need to perform "yield from" expressions to be usable
+                #   as synchronous generator factories. Ergo, the standard
+                #   inspect.isgeneratorfunction() tester blatantly returns false
+                #   negatives in common use cases. Previously, @beartype was
+                #   such a use case. No one should call that tester. Of course,
+                #   everyone calls that tester.
+                # * This prefix serves *NO* other practical or useful purpose.
+                #   Indeed, @beartype previously generated high-level wrappers
+                #   for synchronous generator factories simply by calling those
+                #   factories and returning the synchronous generators returned
+                #   by those calls. That worked for a decade... until
+                #   third-party packages outside our control began
+                #   inappropriately calling inspect.isgeneratorfunction().
+                #
+                # See also this closed issue:
+                #     https://github.com/beartype/beartype/issues/423
+
+                #FIXME: Actually, this has an additional side benefit. Thanks to
+                #this, we can now type-check the value returned by a generator
+                #as well against the child hint "{hint_return}" if the return
+                #hint annotating this generator factory is of the expanded form
+                #"Generator[{hint_yield}, {hint_send}, {hint_return}]". Of
+                #course, basically *NOBODY* ever returns *ANYTHING* from a
+                #generator. So, it's unclear how many practical value this has.
+                #Still, it's feasible now. And that's half the battle.
+                #FIXME: Actually, we can do *FAR* better than that. By employing
+                #a similar technique as the solution below for asynchronous
+                #generators, we can now efficiently (and, more importantly,
+                #safely) type-check both synchronous and asynchronous generator
+                #*YIELDS* in O(1) time. How? Just:
+                #* If this callable is decorated by a return hint (which is
+                #  trivially detectable here) *AND* the yield-specific child
+                #  hint subscripting that return hint is unignorable (e.g., is
+                #  neither "object" nor "typing.Any"), then we should instead
+                #  assign "self.func_wrapper_code_return_prefix" here to a
+                #  full-blown code snippet implementing our best approximation
+                #  of "yield from" in pure-Python augmented with type-checking.
+                #* Else, preserve this assignment of
+                #  "self.func_wrapper_code_return_prefix" to "yield from", which
+                #  is both implemented in C *AND* is the official
+                #  implementation. So, it's guaranteed to be the fastest *AND*
+                #  safest means of deferring between synchronous generators.
+
+                self.func_wrapper_code_return_checked = (
+                    CODE_PEP342_RETURN_CHECKED)
+                self.func_wrapper_code_return_unchecked = (
+                    CODE_PEP342_RETURN_UNCHECKED)
+            # Else, this wrappee is *NOT* a synchronous generator factory.
+            #
+            # If this wrappee is a asynchronous generator factory (i.e.,
+            # callable declared with "async def" keywords and containing one or
+            # more "yield" expressions)...
+            elif is_func_async_generator(func_wrappee_codeobj):
+                # Code snippet prefixing the declaration of the wrapper function
+                # wrapping this coroutine factory with type-checking.
+                self.func_wrapper_code_signature_prefix = 'async '
+
+                # Code snippet yielding from (i.e., deferring to) the
+                # asynchronous generator returned by calling this PEP
+                # 525-compliant asynchronous generator factory.
+                #
+                # Note that:
+                # * All of the caveats documented above for the case in which
+                #   this wrappee is a synchronous generator factory also apply
+                #   here, substituting:
+                #   * "inspect.CO_GENERATOR" with "CO_ASYNC_GENERATOR".
+                #   * inspect.isgeneratorfunction() with
+                #     inspect.isasyncgenfunction().
+                # * Additional caveats also apply. Currently, there exists *NO*
+                #   C-based "async yield from" expression for asynchronous
+                #   generators equivalent to the PEP 380-compliant C-based
+                #   "yield from" expression for synchronous generators. This
+                #   pure-Python code snippet is our best approximation of a
+                #   pure-Python "async yield from" expression. See the docstring
+                #   and commentary surrounding the definition of this snippet
+                #   for gruesome details that will exhaust your will to code.
+                #
+                # See also this closed issue:
+                #     https://github.com/beartype/beartype/issues/592
+                self.func_wrapper_code_return_checked = (
+                    CODE_PEP525_RETURN_CHECKED)
+                self.func_wrapper_code_return_unchecked = (
+                    CODE_PEP525_RETURN_UNCHECKED)
+            # Else, this wrappee is *NOT* an asynchronous generator factory.
+        # Else, this wrappee is *NOT* pure-Python. In this case, preserve these
+        # code snippets as the empty string.
 
     # ..................{ DUNDERS                            }..................
     def __repr__(self) -> str:
@@ -747,6 +806,77 @@ class BeartypeDecorMeta(object):
             f'conf={repr(self.conf)}'
             f')'
         )
+
+    # ..................{ SETTERS                            }..................
+    #FIXME: Unit test us up, please.
+    def set_func_annotations_if_dirty(self) -> None:
+        '''
+        Safely set the ``__annotations__`` dunder dictionary annotating the
+        decorated callable to the possibly mutated type hint dictionary
+        associated with that callable if the latter is **dirty** (i.e., modified
+        from the original type hint dictionary annotating the decorated callable
+        by a prior call to the :meth:`set_func_pith_hint` setter).
+        '''
+
+        # If the type hint dictionary associated with the decorated callable is
+        # dirty (i.e., changed from the original "__annotations__" dunder
+        # dictionary annotating that callable), register these changes in a
+        # manner compliant with both PEP 649 and Python >= 3.14. Specifically...
+        if self._is_func_annotations_dirty:
+            # print(f'Setting new function {self.func_wrapper} annotations {self.func_annotations}...')
+
+            # Set these modified annotations on the decorated callable
+            # originating these annotations.
+            set_pep649_hintable_annotations(
+                hintable=self.func_wrapper, annotations=self.func_annotations)
+
+            # Note this type hint dictionary to now be clean.
+            self._is_func_annotations_dirty = False
+        # Else, the type hint dictionary associated with the decorated callable
+        # is still clean (i.e., identical to the original "__annotations__"
+        # dunder dictionary annotating that callable). In this case, silently
+        # reduce to a noop.
+
+
+    #FIXME: Unit test us up, please.
+    def set_func_pith_hint(self, pith_name: str, hint: Hint) -> None:
+        '''
+        Safely set the hint annotating the parameter or return with the passed
+        name of the decorated callable to the passed hint in a portable manner
+        consistent with Python >= 3.14 (and thus both :pep:`649` and :pep:`749`,
+        which fundamentally complicate hint mutation).
+
+        Parameters
+        ----------
+        pith_name : str
+            Name of the parameter or return to be re-annotated.
+        hint: Hint
+            Hint to re-annotate this parameter or return to.
+
+        Raises
+        ------
+        BeartypeDecorWrappeeException
+            If the decorated callable accepts *no* parameter or return with the
+            passed name.
+        '''
+        assert isinstance(pith_name, str), f'{repr(pith_name)} not string.'
+        # print(f'Setting new function {self.func_wrapper} pith "{pith_name}" hint {hint}...')
+
+        # If the decorated callable accepts *NO* parameter or return with the
+        # passed name, raise an exception.
+        if pith_name not in self.func_annotations:
+            raise BeartypeDecorWrappeeException(
+                f'{prefix_callable_pith(func=self.func_wrapper, pith_name=pith_name)}'
+                f'unrecognized.'
+            )
+        # Else, the decorated callable accepts this parameter or return.
+
+        # Note that the type hint dictionary is now dirty (i.e., modified from
+        # the original type hint dictionary annotating the decorated callable).
+        self._is_func_annotations_dirty = True
+
+        # Set the hint annotating this parameter or return to the passed hint.
+        self.func_annotations[pith_name] = hint
 
     # ..................{ LABELLERS                          }..................
     def label_func_wrapper(self) -> str:
@@ -821,6 +951,12 @@ def cull_beartype_call(decor_meta: BeartypeDecorMeta) -> None:
     decor_meta : BeartypeDecorMeta
         Beartype call metadata to be deinitialized.
     '''
+
+    # If the type hint dictionary associated with the decorated callable is
+    # dirty (i.e., changed from the original "__annotations__" dunder dictionary
+    # annotating that callable), register these changes in a manner compliant
+    # with both PEP 649 and Python >= 3.14 *BEFORE* nullifying these type hints.
+    decor_meta.set_func_annotations_if_dirty()
 
     # Deinitialize this beartype call metadata.
     decor_meta.deinit()

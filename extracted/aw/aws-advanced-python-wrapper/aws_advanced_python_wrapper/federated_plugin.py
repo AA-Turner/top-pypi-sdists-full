@@ -84,7 +84,7 @@ class FederatedAuthPlugin(Plugin):
 
         host = IamAuthUtils.get_iam_host(props, host_info)
         port = IamAuthUtils.get_port(props, host_info, self._plugin_service.database_dialect.default_port)
-        region = self._region_utils.get_region(props, WrapperProperties.IAM_REGION.name, host, self._session)
+        region = self._region_utils.get_region(props, WrapperProperties.IAM_REGION.name, host)
         if not region:
             error_message = "RdsUtils.UnsupportedHostname"
             logger.debug(error_message, host)
@@ -144,7 +144,8 @@ class FederatedAuthPlugin(Plugin):
         port: int = IamAuthUtils.get_port(props, host_info, self._plugin_service.database_dialect.default_port)
         credentials: Optional[Dict[str, str]] = self._credentials_provider_factory.get_aws_credentials(region, props)
 
-        self._fetch_token_counter.inc()
+        if self._fetch_token_counter is not None:
+            self._fetch_token_counter.inc()
         token: str = IamAuthUtils.generate_authentication_token(
             self._plugin_service,
             user,
@@ -158,10 +159,12 @@ class FederatedAuthPlugin(Plugin):
 
 
 class FederatedAuthPluginFactory(PluginFactory):
-    def get_instance(self, plugin_service: PluginService, props: Properties) -> Plugin:
-        return FederatedAuthPlugin(plugin_service, self.get_credentials_provider_factory(plugin_service, props))
+    @staticmethod
+    def get_instance(plugin_service: PluginService, props: Properties) -> Plugin:
+        return FederatedAuthPlugin(plugin_service, FederatedAuthPluginFactory.get_credentials_provider_factory(plugin_service, props))
 
-    def get_credentials_provider_factory(self, plugin_service: PluginService, props: Properties) -> AdfsCredentialsProviderFactory:
+    @staticmethod
+    def get_credentials_provider_factory(plugin_service: PluginService, props: Properties) -> AdfsCredentialsProviderFactory:
         idp_name = WrapperProperties.IDP_NAME.get(props)
         if idp_name is None or idp_name == "" or idp_name == "adfs":
             return AdfsCredentialsProviderFactory(plugin_service, props)

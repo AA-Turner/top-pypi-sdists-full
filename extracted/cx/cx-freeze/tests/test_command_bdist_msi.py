@@ -2,26 +2,39 @@
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 from setuptools import Distribution
 
-from cx_Freeze._compat import IS_MINGW, IS_WINDOWS, PLATFORM
+from cx_Freeze._compat import IS_ARM_64, IS_MINGW, IS_WINDOWS, IS_X86_64
 from cx_Freeze.command.bdist_msi import bdist_msi
-
-if sys.version_info[:2] >= (3, 13):
-    pytest.skip(
-        reason="bdist_msi is not supported on Python 3.13 yet.",
-        allow_module_level=True,
-    )
 
 DIST_ATTRS = {
     "name": "foo",
-    "version": "0.0",
     "executables": ["hello.py"],
     "script_name": "setup.py",
 }
+if IS_ARM_64:
+    MSI_PLATFORM = "win-arm64"
+elif IS_X86_64:
+    MSI_PLATFORM = "win64"
+else:
+    MSI_PLATFORM = "win32"
+
+
+@pytest.mark.skipif(not (IS_WINDOWS or IS_MINGW), reason="Windows test")
+def test_bdist_msi_target_dir() -> None:
+    """Test the bdist_msi initial_target_dir option."""
+    dist = Distribution(DIST_ATTRS)
+    cmd = bdist_msi(dist)
+    cmd.finalize_options()
+    cmd.ensure_finalized()
+    if IS_ARM_64 or IS_X86_64:
+        expected = r"[ProgramFiles64Folder]\foo"
+    else:
+        expected = r"[ProgramFilesFolder]\foo"
+    assert cmd.initial_target_dir == expected
+    assert cmd.fullname == "foo"
+    assert cmd.target_name == "foo"
 
 
 @pytest.mark.skipif(not (IS_WINDOWS or IS_MINGW), reason="Windows test")
@@ -32,7 +45,8 @@ def test_bdist_msi_target_name() -> None:
     cmd.target_name = "mytest"
     cmd.finalize_options()
     cmd.ensure_finalized()
-    assert cmd.fullname == "mytest-0.0"
+    assert cmd.fullname == "mytest"
+    assert cmd.target_name == "mytest"
 
 
 @pytest.mark.skipif(not (IS_WINDOWS or IS_MINGW), reason="Windows test")
@@ -45,6 +59,7 @@ def test_bdist_msi_target_name_and_version() -> None:
     cmd.finalize_options()
     cmd.ensure_finalized()
     assert cmd.fullname == "mytest-0.1"
+    assert cmd.target_name == "mytest"
 
 
 @pytest.mark.skipif(not (IS_WINDOWS or IS_MINGW), reason="Windows test")
@@ -52,8 +67,9 @@ def test_bdist_msi_default(tmp_package) -> None:
     """Test the msi_binary_data sample."""
     tmp_package.create_from_sample("msi_binary_data")
     tmp_package.freeze("cxfreeze bdist_msi")
-    platform = PLATFORM.replace("win-amd64", "win64")
-    file_created = tmp_package.path / "dist" / f"hello-0.1.2.3-{platform}.msi"
+    file_created = (
+        tmp_package.path / "dist" / f"hello-0.1.2.3-{MSI_PLATFORM}.msi"
+    )
     assert file_created.is_file()
 
 
@@ -83,8 +99,7 @@ def test_bdist_msi_target_name_with_extension_1(tmp_package) -> None:
 @pytest.mark.skipif(not (IS_WINDOWS or IS_MINGW), reason="Windows test")
 def test_bdist_msi_with_license(tmp_package) -> None:
     """Test the msi_license sample."""
-    platform = PLATFORM.replace("win-amd64", "win64")
-    msi_name = f"hello-0.1-{platform}.msi"
+    msi_name = f"hello-0.1-{MSI_PLATFORM}.msi"
 
     tmp_package.create_from_sample("msi_license")
     tmp_package.freeze("python setup.py bdist_msi")
@@ -136,6 +151,7 @@ pyproject.toml
     name = "hello"
     version = "0.1.2.3"
     description = "Sample cx_Freeze script"
+    authors = [{name = "cx_Freeze"}]
 
     [[tool.cxfreeze.executables]]
     script = "hello.py"

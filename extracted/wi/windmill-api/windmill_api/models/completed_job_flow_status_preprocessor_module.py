@@ -13,6 +13,12 @@ if TYPE_CHECKING:
     from ..models.completed_job_flow_status_preprocessor_module_agent_actions_item_type_1 import (
         CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType1,
     )
+    from ..models.completed_job_flow_status_preprocessor_module_agent_actions_item_type_2 import (
+        CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType2,
+    )
+    from ..models.completed_job_flow_status_preprocessor_module_agent_actions_item_type_3 import (
+        CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType3,
+    )
     from ..models.completed_job_flow_status_preprocessor_module_approvers_item import (
         CompletedJobFlowStatusPreprocessorModuleApproversItem,
     )
@@ -52,7 +58,9 @@ class CompletedJobFlowStatusPreprocessorModule:
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset, List[Union['CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType0',
-            'CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType1']]]):
+            'CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType1',
+            'CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType2',
+            'CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
     """
 
@@ -76,6 +84,8 @@ class CompletedJobFlowStatusPreprocessorModule:
             Union[
                 "CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType0",
                 "CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType1",
+                "CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType2",
+                "CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType3",
             ]
         ],
     ] = UNSET
@@ -85,6 +95,12 @@ class CompletedJobFlowStatusPreprocessorModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.completed_job_flow_status_preprocessor_module_agent_actions_item_type_0 import (
             CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType0,
+        )
+        from ..models.completed_job_flow_status_preprocessor_module_agent_actions_item_type_1 import (
+            CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType1,
+        )
+        from ..models.completed_job_flow_status_preprocessor_module_agent_actions_item_type_2 import (
+            CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -137,6 +153,12 @@ class CompletedJobFlowStatusPreprocessorModule:
                 agent_actions_item: Dict[str, Any]
 
                 if isinstance(agent_actions_item_data, CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType0):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType1):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType2):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
                 else:
@@ -195,6 +217,12 @@ class CompletedJobFlowStatusPreprocessorModule:
         )
         from ..models.completed_job_flow_status_preprocessor_module_agent_actions_item_type_1 import (
             CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType1,
+        )
+        from ..models.completed_job_flow_status_preprocessor_module_agent_actions_item_type_2 import (
+            CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType2,
+        )
+        from ..models.completed_job_flow_status_preprocessor_module_agent_actions_item_type_3 import (
+            CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType3,
         )
         from ..models.completed_job_flow_status_preprocessor_module_approvers_item import (
             CompletedJobFlowStatusPreprocessorModuleApproversItem,
@@ -275,6 +303,8 @@ class CompletedJobFlowStatusPreprocessorModule:
             ) -> Union[
                 "CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType0",
                 "CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType1",
+                "CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType2",
+                "CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType3",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -286,13 +316,33 @@ class CompletedJobFlowStatusPreprocessorModule:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType1.from_dict(
+                        data
+                    )
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType2.from_dict(
+                        data
+                    )
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType1.from_dict(
+                agent_actions_item_type_3 = CompletedJobFlowStatusPreprocessorModuleAgentActionsItemType3.from_dict(
                     data
                 )
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

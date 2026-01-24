@@ -1,16 +1,9 @@
 """IBM watsonx.ai Toolkit wrapper."""
 
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-    Type,
-    Union,
-)
+from typing import Any, cast
 
-from ibm_watsonx_ai import APIClient  # type: ignore
-from ibm_watsonx_ai.foundation_models.utils import (  # type: ignore
+from ibm_watsonx_ai import APIClient  # type: ignore[import-untyped]
+from ibm_watsonx_ai.foundation_models.utils import (  # type: ignore[import-untyped]
     Tool,
     Toolkit,
 )
@@ -18,6 +11,7 @@ from langchain_core.callbacks import CallbackManagerForToolRun
 from langchain_core.tools.base import BaseTool, BaseToolkit
 from langchain_core.utils.utils import secret_from_env
 from pydantic import (
+    AliasChoices,
     BaseModel,
     ConfigDict,
     Field,
@@ -26,11 +20,14 @@ from pydantic import (
     create_model,
     model_validator,
 )
-from typing_extensions import Self
+from typing_extensions import Self, override
 
-from langchain_ibm.utils import resolve_watsonx_credentials
-
-from .utils import convert_to_watsonx_tool
+from langchain_ibm.agent_toolkits.utility.utils import convert_to_watsonx_tool
+from langchain_ibm.utils import (
+    normalize_api_key,
+    resolve_watsonx_credentials,
+    secret_from_env_multi,
+)
 
 
 class WatsonxTool(BaseTool):
@@ -42,27 +39,28 @@ class WatsonxTool(BaseTool):
     description: str
     """Description of what the tool is used for."""
 
-    agent_description: Optional[str] = None
-    """The precise instruction to agent LLMs 
+    agent_description: str | None = None
+    """The precise instruction to agent LLMs
     and should be treated as part of the system prompt."""
 
-    tool_input_schema: Optional[Dict] = None
+    tool_input_schema: dict[str, Any] | None = None
     """Schema of the input that is provided when running the tool if applicable."""
 
-    tool_config_schema: Optional[Dict] = None
+    tool_config_schema: dict[str, Any] | None = None
     """Schema of the config that can be provided when running the tool if applicable."""
 
-    tool_config: Optional[Dict] = None
+    tool_config: dict[str, Any] | None = None
     """Config properties to be used when running a tool if applicable."""
 
-    args_schema: Type[BaseModel] = BaseModel
+    args_schema: type[BaseModel] = BaseModel
 
-    _watsonx_tool: Optional[Tool] = PrivateAttr(default=None)  #: :meta private:
+    _watsonx_tool: Tool  #: :meta private:
 
     watsonx_client: APIClient = Field(exclude=True)
 
     @model_validator(mode="after")
     def validate_tool(self) -> Self:
+        """Validate tool."""
         self._watsonx_tool = Tool(
             api_client=self.watsonx_client,
             name=self.name,
@@ -74,41 +72,42 @@ class WatsonxTool(BaseTool):
         converted_tool = convert_to_watsonx_tool(self)
         json_schema = converted_tool["function"]["parameters"]
         self.args_schema = _json_schema_to_pydantic_model(
-            name="ToolArgsSchema", schema=json_schema
+            name="ToolArgsSchema",
+            schema=json_schema,
         )
 
         return self
 
+    @override
     def _run(
         self,
         *args: Any,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        run_manager: CallbackManagerForToolRun | None = None,
         **kwargs: Any,
-    ) -> dict:
+    ) -> Any:
         """Run the tool."""
         if self.tool_input_schema is None:
-            input = kwargs.get("input") or args[0]
+            input_data = kwargs.get("input") or args[0]
         else:
-            input = {
+            input_data = {
                 k: v
                 for k, v in kwargs.items()
                 if k in self.tool_input_schema["properties"]
             }
 
-        return self._watsonx_tool.run(input, self.tool_config)  # type: ignore[union-attr]
+        return self._watsonx_tool.run(input_data, self.tool_config)
 
-    def set_tool_config(self, tool_config: dict) -> None:
+    def set_tool_config(self, tool_config: dict[str, Any]) -> None:
         """Set tool config properties.
 
-        Example:
-        .. code-block:: python
+        ???+ example "Example"
 
+            ```python
             google_search = watsonx_toolkit.get_tool("GoogleSearch")
             print(google_search.tool_config_schema)
-            tool_config = {
-                "maxResults": 3
-            }
+            tool_config = {"maxResults": 3}
             google_search.set_tool_config(tool_config)
+            ```
 
         """
         self.tool_config = tool_config
@@ -117,71 +116,93 @@ class WatsonxTool(BaseTool):
 class WatsonxToolkit(BaseToolkit):
     """IBM watsonx.ai Toolkit.
 
-    .. dropdown:: Setup
-        :open:
+    ???+ info "Setup"
 
-        To use, you should have ``langchain_ibm`` python package installed,
-        and the environment variable ``WATSONX_APIKEY`` set with your API key, or pass
-        it as a named parameter to the constructor.
+        To use, you should have `langchain_ibm` python package installed,
+        and the environment variable `WATSONX_API_KEY` set with your API key, or pass
+        it as a named parameter `api_key` to the constructor.
 
-        .. code-block:: bash
+        ```bash
+        pip install -U langchain-ibm
 
-            pip install -U langchain-ibm
-            export WATSONX_APIKEY="your-api-key"
+        # or using uv
+        uv add langchain-ibm
+        ```
 
+        ```bash
+        export WATSONX_API_KEY="your-api-key"
+        ```
 
-    IBM watsonx.ai for IBM Cloud example:
-        .. code-block:: python
+        !!! deprecated
+            `apikey` and `WATSONX_APIKEY` are deprecated and will be removed in
+            version `2.0.0`. Use `api_key` and `WATSONX_API_KEY` instead.
 
-            from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
+    ??? info "Instantiate"
 
-            watsonx_toolkit = WatsonxToolkit(
-                url="https://us-south.ml.cloud.ibm.com",
-                apikey="*****",
-            )
-            tools = watsonx_toolkit.get_tools()
+        IBM watsonx.ai for IBM Cloud:
 
-            google_search = watsonx_toolkit.get_tool(tool_name="GoogleSearch")
+        ```python
+        from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
 
-            tool_config = {
-                "maxResults": 3,
+        watsonx_toolkit = WatsonxToolkit(
+            url="https://us-south.ml.cloud.ibm.com",
+            project_id="*****",  # or `space_id`
+            api_key="*****",  # not needed if `WATSONX_API_KEY` is set
+        )
+        ```
+
+        IBM watsonx.ai software:
+        ```python
+        from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
+
+        watsonx_toolkit = WatsonxToolkit(
+            url="<CPD_URL>",
+            project_id="*****",  # or `space_id`
+            username="*****",
+            password="*****",
+            instance_id="*****",
+            version="*****",  # optional
+        )
+        ```
+
+    ??? info "Invoke"
+
+        ```python
+        tools = watsonx_toolkit.get_tools()
+
+        google_search = watsonx_toolkit.get_tool(tool_name="GoogleSearch")
+
+        tool_config = {
+            "maxResults": 3,
+        }
+        google_search.set_tool_config(tool_config)
+        input = {
+            "input": "Search IBM",
+        }
+        search_result = google_search.invoke(input)
+        ```
+
+    ??? info "Run"
+
+        ```python
+        rag_query = watsonx_toolkit.get_tool(tool_name="RAGQuery")
+
+        rag_query.set_tool_config(
+            {
+                "vectorIndexId": "<vector-index-id>",
+                "projectId": "<project-id>",
             }
-            google_search.set_tool_config(tool_config)
-            input = {
-                "input": "Search IBM",
-            }
-            search_result = google_search.invoke(input)
+        )
 
-    IBM watsonx.ai software example:
-        .. code-block:: python
-
-            from langchain_ibm.agent_toolkits.utility import WatsonxToolkit
-
-            watsonx_toolkit = WatsonxToolkit(
-                url="<CPD_URL>",
-                username="*****",
-                password="*****",
-                instance_id="*****",
-                version="*****"  # optional
-            )
-
-            rag_query = watsonx_toolkit.get_tool(tool_name="RAGQuery")
-
-            rag_query.set_tool_config(
-                {
-                    "vectorIndexId": "<vector-index-id>",
-                    "projectId": "<project-id>",
-                }
-            )
-
-            res = rag_query.run("How to initialize APIClient?")
+        res = rag_query.run("How to initialize APIClient?")
+        ```
 
     """
 
-    project_id: Optional[str] = None
+    project_id: str | None = None
     """ID of the watsonx.ai Studio project."""
 
-    space_id: Optional[str] = None
+    space_id: str | None = None
     """ID of the watsonx.ai Studio space."""
 
     url: SecretStr = Field(
@@ -190,52 +211,68 @@ class WatsonxToolkit(BaseToolkit):
     )
     """URL to the watsonx.ai Runtime."""
 
-    apikey: Optional[SecretStr] = Field(
-        alias="apikey", default_factory=secret_from_env("WATSONX_APIKEY", default=None)
+    apikey: SecretStr | None = None
+    api_key: SecretStr | None = Field(
+        default_factory=secret_from_env_multi(
+            names_priority=["WATSONX_API_KEY", "WATSONX_APIKEY"],
+            deprecated={"WATSONX_APIKEY"},
+        ),
+        serialization_alias="api_key",
+        validation_alias=AliasChoices("api_key", "apikey"),  # accept both on input
+        description="API key to the Watson Machine Learning or CPD instance.",
     )
     """API key to the watsonx.ai Runtime."""
 
-    token: Optional[SecretStr] = Field(
-        alias="token", default_factory=secret_from_env("WATSONX_TOKEN", default=None)
+    token: SecretStr | None = Field(
+        alias="token",
+        default_factory=secret_from_env("WATSONX_TOKEN", default=None),
     )
     """Token to the watsonx.ai Runtime."""
 
-    password: Optional[SecretStr] = Field(
+    password: SecretStr | None = Field(
         alias="password",
         default_factory=secret_from_env("WATSONX_PASSWORD", default=None),
     )
     """Password to the CPD instance."""
 
-    username: Optional[SecretStr] = Field(
+    username: SecretStr | None = Field(
         alias="username",
         default_factory=secret_from_env("WATSONX_USERNAME", default=None),
     )
     """Username to the CPD instance."""
 
-    instance_id: Optional[SecretStr] = Field(
+    instance_id: SecretStr | None = Field(
         alias="instance_id",
         default_factory=secret_from_env("WATSONX_INSTANCE_ID", default=None),
     )
     """Instance_id of the CPD instance."""
 
-    version: Optional[SecretStr] = None
+    version: SecretStr | None = None
     """Version of the CPD instance."""
 
-    verify: Union[str, bool, None] = None
+    verify: str | bool | None = None
     """You can pass one of following as verify:
         * the path to a CA_BUNDLE file
         * the path of directory with certificates of trusted CAs
         * True - default path to truststore will be taken
         * False - no verification will be made"""
 
-    _tools: Optional[List[WatsonxTool]] = None
+    _tools: list[WatsonxTool] | None = None
     """Tools in the toolkit."""
 
-    _watsonx_toolkit: Optional[Toolkit] = PrivateAttr(default=None)  #: :meta private:
+    _watsonx_toolkit: Toolkit | None = PrivateAttr(default=None)  #: :meta private:
 
-    watsonx_client: Optional[APIClient] = Field(default=None, exclude=True)
+    watsonx_client: APIClient | None = Field(default=None, exclude=True)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_and_warn_deprecated_input(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Handle deprecated input kwarg name `apikey` vs new `api_key`.
+            data = normalize_api_key(data=data)
+        return data
 
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
@@ -245,7 +282,7 @@ class WatsonxToolkit(BaseToolkit):
         else:
             credentials = resolve_watsonx_credentials(
                 url=self.url,
-                apikey=self.apikey,
+                api_key=self.api_key,
                 token=self.token,
                 password=self.password,
                 username=self.username,
@@ -274,7 +311,7 @@ class WatsonxToolkit(BaseToolkit):
 
         return self
 
-    def get_tools(self) -> list[WatsonxTool]:  # type: ignore
+    def get_tools(self) -> list[WatsonxTool]:  # type: ignore[override]
         """Get the tools in the toolkit."""
         return self._tools  # type: ignore[return-value]
 
@@ -283,12 +320,14 @@ class WatsonxToolkit(BaseToolkit):
         for tool in self.get_tools():
             if tool.name == tool_name:
                 return tool
-        raise ValueError(f"A tool with the given name ({tool_name}) was not found.")
+        error_msg = f"A tool with the given name ({tool_name}) was not found."
+        raise ValueError(error_msg)
 
 
 def _json_schema_to_pydantic_model(
-    name: str, schema: Dict[str, Any]
-) -> Type[BaseModel]:
+    name: str,
+    schema: dict[str, Any],
+) -> type[BaseModel]:
     properties = schema.get("properties", {})
     fields = {}
 
@@ -309,4 +348,4 @@ def _json_schema_to_pydantic_model(
 
         fields[field_name] = (py_type, ... if is_required else None)
 
-    return create_model(name, **fields)  # type: ignore[call-overload]
+    return cast("type[BaseModel]", create_model(name, **fields))  # type: ignore[call-overload]

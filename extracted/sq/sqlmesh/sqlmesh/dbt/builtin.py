@@ -25,7 +25,7 @@ from sqlmesh.dbt.target import TARGET_TYPE_TO_CONFIG_CLASS
 from sqlmesh.dbt.util import DBT_VERSION
 from sqlmesh.utils import AttributeDict, debug_mode_enabled, yaml
 from sqlmesh.utils.date import now
-from sqlmesh.utils.errors import ConfigError, MacroEvalError
+from sqlmesh.utils.errors import ConfigError
 from sqlmesh.utils.jinja import JinjaMacroRegistry, MacroReference, MacroReturnVal
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,22 @@ class Exceptions:
     def warn(self, msg: str) -> str:
         logger.warning(msg)
         return ""
+
+
+def try_or_compiler_error(
+    message_if_exception: str, func: t.Callable, *args: t.Any, **kwargs: t.Any
+) -> t.Any:
+    try:
+        return func(*args, **kwargs)
+    except Exception:
+        if DBT_VERSION >= (1, 4, 0):
+            from dbt.exceptions import CompilationError
+
+            raise CompilationError(message_if_exception)
+        else:
+            from dbt.exceptions import CompilationException  # type: ignore
+
+            raise CompilationException(message_if_exception)
 
 
 class Api:
@@ -365,18 +381,16 @@ def do_zip(*args: t.Any, default: t.Optional[t.Any] = None) -> t.Optional[t.Any]
         return default
 
 
-def as_bool(value: str) -> bool:
-    result = _try_literal_eval(value)
-    if isinstance(result, bool):
-        return result
-    raise MacroEvalError(f"Failed to convert '{value}' into boolean.")
+def as_bool(value: t.Any) -> t.Any:
+    # dbt's jinja TEXT_FILTERS just return the input value as is
+    # https://github.com/dbt-labs/dbt-common/blob/main/dbt_common/clients/jinja.py#L559
+    return value
 
 
 def as_number(value: str) -> t.Any:
-    result = _try_literal_eval(value)
-    if isinstance(value, (int, float)) and not isinstance(result, bool):
-        return result
-    raise MacroEvalError(f"Failed to convert '{value}' into number.")
+    # dbt's jinja TEXT_FILTERS just return the input value as is
+    # https://github.com/dbt-labs/dbt-common/blob/main/dbt_common/clients/jinja.py#L559
+    return value
 
 
 def _try_literal_eval(value: str) -> t.Any:
@@ -411,6 +425,7 @@ BUILTIN_GLOBALS = {
     "sqlmesh_incremental": True,
     "tojson": to_json,
     "toyaml": to_yaml,
+    "try_or_compiler_error": try_or_compiler_error,
     "zip": do_zip,
     "zip_strict": lambda *args: list(zip(*args)),
 }
@@ -465,7 +480,7 @@ def create_builtin_globals(
     if variables is not None:
         builtin_globals["var"] = Var(variables)
 
-    builtin_globals["config"] = Config(jinja_globals.pop("config", {}))
+    builtin_globals["config"] = Config(jinja_globals.pop("config", {"tags": []}))
 
     deployability_index = (
         jinja_globals.get("deployability_index") or DeployabilityIndex.all_deployable()
@@ -546,6 +561,7 @@ def create_builtin_globals(
             "statement": sql_execution.statement,
             "graph": adapter.graph,
             "selected_resources": list(jinja_globals.get("selected_models") or []),
+            "write": lambda input: None,  # We don't support writing yet
         }
     )
 

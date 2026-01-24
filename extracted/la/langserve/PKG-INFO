@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langserve
-Version: 0.3.2
+Version: 0.3.3
 Summary: 
 Home-page: https://github.com/langchain-ai/langserve
 License: LangServe
@@ -16,7 +16,7 @@ Provides-Extra: client
 Provides-Extra: server
 Requires-Dist: fastapi (>=0.90.1,<1) ; extra == "client" or extra == "server" or extra == "all"
 Requires-Dist: httpx (>=0.23.0,<1.0)
-Requires-Dist: langchain-core (>=0.3,<0.4)
+Requires-Dist: langchain-core (>=0.3,<2)
 Requires-Dist: orjson (>=2,<4)
 Requires-Dist: pydantic (>=2.7,<3.0)
 Requires-Dist: sse-starlette (>=1.3.0,<2.0.0) ; extra == "server" or extra == "all"

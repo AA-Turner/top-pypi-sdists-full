@@ -12,16 +12,16 @@ https://gitlab.com/keatontaylor/alexapy
 
 import asyncio
 import base64
-from collections.abc import Coroutine
+import contextlib
 import datetime
 import json
 import logging
 import math
 import random
 import time
-from typing import Any, Union, cast
-from typing import Callable  # noqa pylint: disable=unused-import
 import uuid
+from collections.abc import Callable, Coroutine
+from typing import Any, cast
 
 import aiohttp
 from aiohttp.http_websocket import WSCloseCode
@@ -30,13 +30,12 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 from alexapy.errors import AlexapyLoginError
 
-from .alexalogin import AlexaLogin  # noqa pylint
+from .alexalogin import AlexaLogin
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class Content:
-    # pylint: disable=too-few-public-methods, too-many-instance-attributes
     """Content Data Class."""
 
     def __init__(self) -> None:
@@ -56,11 +55,9 @@ class Content:
 
 
 class Message:
-    # pylint: disable=too-few-public-methods, too-many-instance-attributes
     """Message Data Class."""
 
-    def __init__(self, data: bytes) -> None:
-        # pylint: disable=too-many-nested-blocks
+    def __init__(self, data: bytes) -> None:  # noqa: PLR0915
         """Init for data."""
         self.service: str = ""
         self.content: Content = Content()
@@ -71,7 +68,7 @@ class Message:
         self.message_id: int = 0
         self.more_flag: str = ""
         self.seq: int = 0
-        self.json_payload: dict[str, Union[str, dict[str, str]]] = {}
+        self.json_payload: dict[str, str | dict[str, str]] = {}
 
         def read_hex(index: int, length: int) -> int:
             return int(data[index : index + length], 16)
@@ -91,10 +88,8 @@ class Message:
             # 10 + delimiter
             self.content = read_string(idx, content_length - 4 - idx)
             if self.content.startswith("{") and self.content.endswith("}"):
-                try:
+                with contextlib.suppress(json.decoder.JSONDecodeError):
                     self.content = json.loads(self.content)
-                except json.decoder.JSONDecodeError:
-                    pass
         elif self.service == "FABE":
             self.message_type = read_string(0, 3)
             self.channel = int.from_bytes(data[3:7], "big")
@@ -164,7 +159,6 @@ class Message:
 
 
 class WebsocketEchoClient:
-    # pylint: disable=too-many-instance-attributes
     """WebSocket Client Class for Echo Devices.
 
     Based on code from openHAB:
@@ -173,7 +167,7 @@ class WebsocketEchoClient:
     https://github.com/Apollon77/alexa-remote/blob/master/alexa-wsmqtt.js
     """
 
-    def __init__(  # pylint: disable=too-many-positional-arguments
+    def __init__(
         self,
         login: AlexaLogin,
         msg_callback: Callable[[Message], Coroutine[Any, Any, None]],
@@ -216,7 +210,7 @@ class WebsocketEchoClient:
                     "x-dp-comm-tuning": "A:F;A:H",
                     "x-dp-reason": "ClientInitiated;1",
                     "x-dp-tcomm-purpose": "Regular",
-                    # 'x-dp-deviceVersion': 'motorola/osprey_reteu_2gb/osprey_u2:6.0.1/MPI24.107-55/33:user/release-keys',
+                    # 'x-dp-deviceVersion': 'motorola/osprey_reteu_2gb/osprey_u2:6.0.1/MPI24.107-55/33:user/release-keys',  # noqa: E501
                     # 'x-dp-networkType': 'WIFI',
                     # 'x-dp-tcomm-versionCode': '894920010',
                     # 'x-dp-oui': 'dca632',
@@ -265,7 +259,6 @@ class WebsocketEchoClient:
             self._message_count += 1
 
     async def on_message(self, message: bytes) -> None:
-        # pylint: disable=too-many-statements
         """Handle New Message."""
         _LOGGER.debug("Received raw WebSocket: %s", message)
         message_obj: Message = Message(message)
@@ -338,7 +331,7 @@ class WebsocketEchoClient:
         else:
             self._message_id += 1
         msg = "MSG 0x00000361 "  # MSG channel
-        msg += f"0x{hex(self._message_id)[2:].zfill(8)} f 0x00000001 "  # Message number with no cont
+        msg += f"0x{hex(self._message_id)[2:].zfill(8)} f 0x00000001 "  # Message number with no cont  # noqa: E501
         idx = len(msg)
         msg += "0x00000000 "  # Checksum
         idx2 = len(msg)
@@ -371,7 +364,7 @@ class WebsocketEchoClient:
         copy_int_to_bytearray(complete_buffer, 0x000000E4, 20)
         copy_string_to_bytearray(
             complete_buffer,
-            'GWM MSG 0x0000b479 0x0000003b urn:tcomm-endpoint:device:deviceType:0:deviceSerialNumber:0 0x00000041 urn:tcomm-endpoint:service:serviceName:DeeWebsiteMessagingService {"command":"REGISTER_CONNECTION"}FABE',
+            'GWM MSG 0x0000b479 0x0000003b urn:tcomm-endpoint:device:deviceType:0:deviceSerialNumber:0 0x00000041 urn:tcomm-endpoint:service:serviceName:DeeWebsiteMessagingService {"command":"REGISTER_CONNECTION"}FABE',  # noqa: E501
             24,
         )
         checksum = compute_checksum(complete_buffer, 16, 20)
@@ -445,25 +438,24 @@ class WebsocketEchoClient:
         """
         date = datetime.datetime.utcnow().isoformat("T") + "Z"
         data = f"{method}\n{path}\n{date}\n{body}\n{self._mac_dms['adp_token']}"
-        private_key_string = f"-----BEGIN RSA PRIVATE KEY-----\n{self._mac_dms['device_private_key']}\n-----END RSA PRIVATE KEY-----"
+        private_key_string = f"-----BEGIN RSA PRIVATE KEY-----\n{self._mac_dms['device_private_key']}\n-----END RSA PRIVATE KEY-----"  # noqa: E501
 
         private_key = serialization.load_pem_private_key(
             private_key_string.encode("utf-8"), None
         )
         cipher = private_key.sign(
             data.encode(),
-            padding=padding.PKCS1v15(),  # required for Amazon's padding. PSS is not supported and results in disconnects.
+            padding=padding.PKCS1v15(),  # required for Amazon's padding. PSS is not supported and results in disconnects.  # noqa: E501
             algorithm=hashes.SHA256(),
         )
         signed_encoded = base64.b64encode(cipher)
         signature = f"{signed_encoded.decode()}:{date}"
-        # _LOGGER.debug(f"Data {data}\nKey\n{self._mac_dms['device_private_key']}\nSignature {signature}")
+        # _LOGGER.debug(f"Data {data}\nKey\n{self._mac_dms['device_private_key']}\nSignature {signature}")  # noqa: E501
         return signature
 
 
 # Checksum from https://github.com/Apollon77/alexa-remote/blob/master/alexa-wsmqtt.js#L571-L587
-def compute_checksum(text: Union[str, bytearray], f: int, k: int) -> int:
-    # pylint: disable=invalid-name
+def compute_checksum(text: str | bytearray, f: int, k: int) -> int:
     """Compute checksum of text or byte array.
 
     Args:

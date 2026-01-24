@@ -82,9 +82,9 @@ class MultiReporter(BaseReporter):
         self._reporters = reporters
         self.path_strip_prefix = os.getcwd() + os.sep
 
-    def on_set_current_module(self, *args: str, **kwargs: Any) -> None:
+    def on_set_current_module(self, module: str, filepath: str | None) -> None:
         for rep in self._reporters:
-            rep.on_set_current_module(*args, **kwargs)
+            rep.on_set_current_module(module, filepath)
 
     def handle_message(self, msg: Message) -> None:
         for rep in self._reporters:
@@ -257,7 +257,10 @@ class TestRunTC:
             out=out,
             code=4,
         )
-        assert "Checked 1 files, skipped 1 files/modules" in out.getvalue().strip()
+        stripped = out.getvalue().strip()
+        assert "Checked 1 files/modules" in stripped
+        assert "unnecessary_lambda.py" in stripped
+        assert "skipped 0 files/modules" in stripped
 
     def test_no_out_encoding(self) -> None:
         """Test redirection of stdout with non ascii characters."""
@@ -339,6 +342,60 @@ class TestRunTC:
             # If ~/.pylintrc is present remove the
             # Using config file...  line
             actual_output = actual_output[actual_output.find("\n") :]
+        assert self._clean_paths(expected_output.strip()) == actual_output.strip()
+
+    def test_progress_reporting(self) -> None:
+        module1 = join(HERE, "regrtest_data", "import_something.py")
+        module2 = join(HERE, "regrtest_data", "wrong_import_position.py")
+        args = [
+            module2,
+            module1,
+            "--disable=all",
+            "--enable=wrong-import-position",
+            "--verbose",
+            "-rn",
+            "-sn",
+        ]
+        out = StringIO()
+        self._run_pylint(args, out=out)
+        actual_output = self._clean_paths(out.getvalue().strip())
+
+        expected_output = textwrap.dedent(
+            f"""
+        Using config file pylint/testutils/testing_pylintrc
+        Get ASTs.
+        AST for {module2}
+        AST for {module1}
+        Linting 2 modules.
+        {module2} (1 of 2)
+        ************* Module wrong_import_position
+        {module2}:11:0: C0413: Import "import os" should be placed at the top of the module (wrong-import-position)
+        {module1} (2 of 2)
+        """
+        )
+        assert self._clean_paths(expected_output.strip()) == actual_output.strip()
+
+    def test_progress_reporting_not_shown_if_not_verbose(self) -> None:
+        module1 = join(HERE, "regrtest_data", "import_something.py")
+        module2 = join(HERE, "regrtest_data", "wrong_import_position.py")
+        args = [
+            module2,
+            module1,
+            "--disable=all",
+            "--enable=wrong-import-position",
+            "-rn",
+            "-sn",
+        ]
+        out = StringIO()
+        self._run_pylint(args, out=out)
+        actual_output = self._clean_paths(out.getvalue().strip())
+
+        expected_output = textwrap.dedent(
+            f"""
+        ************* Module wrong_import_position
+        {module2}:11:0: C0413: Import "import os" should be placed at the top of the module (wrong-import-position)
+        """
+        )
         assert self._clean_paths(expected_output.strip()) == actual_output.strip()
 
     def test_type_annotation_names(self) -> None:
@@ -878,7 +935,7 @@ a.py:1:4: E0001: Parsing failed: 'invalid syntax (a, line 1)' (syntax-error)"""
             sys.path = copy(paths)
             with _test_environ_pythonpath("/custom_pythonpath:"):
                 modify_sys_path()
-            assert sys.path == [paths[1]] + paths[3:]
+            assert sys.path == [paths[1], *paths[3:]]
 
             paths = ["", cwd, "/custom_pythonpath", *default_paths]
             sys.path = copy(paths)
@@ -1568,9 +1625,8 @@ class TestCallbackOptions:
     @staticmethod
     def test_errors_only() -> None:
         """Test the --errors-only flag."""
-        with pytest.raises(SystemExit):
-            run = Run(["--errors-only"])
-            assert run.linter._error_mode
+        run = Run([str(UNNECESSARY_LAMBDA), "--errors-only"], exit=False)
+        assert run.linter._error_mode
 
     @staticmethod
     def test_errors_only_functions_as_disable() -> None:
@@ -1586,13 +1642,8 @@ class TestCallbackOptions:
     @staticmethod
     def test_verbose() -> None:
         """Test the --verbose flag."""
-        with pytest.raises(SystemExit):
-            run = Run(["--verbose"])
-            assert run.verbose
-
-        with pytest.raises(SystemExit):
-            run = Run(["--verbose=True"])
-            assert run.verbose
+        run = Run([str(UNNECESSARY_LAMBDA), "--verbose"], exit=False)
+        assert run.verbose
 
     @staticmethod
     def test_enable_all_extensions() -> None:

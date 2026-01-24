@@ -18,29 +18,30 @@ classifiers = [
     'Intended Audience :: Developers',
     'Natural Language :: English',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Operating System :: OS Independent',
     'Topic :: Text Processing :: Markup :: XML'
 ]
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.10"
 dependencies = [
     'bottle>=0.13,<0.14',
     'certifi',
     'filelock',
     'isodate>=0,<1',
+    'jaconv>=0,<1',
     'jsonschema>=4,<5',
     'lxml>=4,<7,!=6.0.0',
     'numpy>=1,<3',
     'openpyxl>=3,<4',
-    'pillow>=10,<12',
+    'pillow>=10,<13',
     'pyparsing>=3,<4',
     'python-dateutil>=2,<3',
     'regex',
-    'truststore>=0,<1; python_version>"3.9"',
+    'truststore>=0,<1',
     'typing-extensions>=4,<5',
 ]
 
@@ -49,6 +50,7 @@ Crypto = [
     'pycryptodome>=3,<4',
 ]
 DB = [
+    'cx_Oracle>=8,<9',
     'pg8000>=1,<2',
     'PyMySQL>=1,<2',
     'pyodbc>=4,<6',
@@ -63,8 +65,14 @@ EFM = [
 ESEF = [
     'tinycss2>=1,<2',
 ]
+GUI = [
+    'pywin32>=300,<400 ; sys_platform == "win32"',
+]
 ObjectMaker = [
     'graphviz>=0,<1',
+]
+Viewer = [
+    'ixbrl-viewer>=1,<2',
 ]
 WebServer = [
     'cheroot>=8,<12',
@@ -111,7 +119,7 @@ markers = [
 [tool.mypy]
 # Warn when a # type: ignore comment does not specify any error codes
 enable_error_code = "ignore-without-code"
-python_version = "3.13"
+python_version = "3.14"
 show_error_codes = true
 strict = true
 # Others are not included in repo, but commonly copied into working directory by devs.
@@ -125,6 +133,7 @@ exclude = '''(?x)(
     | ^arelle/plugin/validate/DQC.py
     | ^arelle/plugin/validate/eforms.py
     | ^arelle/plugin/validate/ESEF-DQC.py
+    | ^arelle/plugin/xbrlus
     | ^arelle/plugin/xendr
     | ^arelle/plugin/Xince.py
     | ^arelle/plugin/xodel
@@ -164,7 +173,6 @@ module = [
     'arelle.FunctionXfi',
     'arelle.FunctionXs',
     'arelle.HashUtil',
-    'arelle.HtmlUtil',
     'arelle.InstanceAspectsEvaluator',
     'arelle.LocalViewer',
     'arelle.ModelDocument',
@@ -389,7 +397,8 @@ module = [
     'arelle.plugin.xuleSaver',
     'arelle.utils.EntryPointDetection',
     'arelle.webserver.bottle',
-    'tests.*',
+    'tests.plugin.*',
+    'tests.unit_tests.*',
 ]
 ignore_errors = true
 

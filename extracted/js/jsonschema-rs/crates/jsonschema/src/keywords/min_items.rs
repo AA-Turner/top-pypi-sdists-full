@@ -1,9 +1,11 @@
+#![allow(clippy::float_cmp, clippy::cast_sign_loss)]
+
 use crate::{
     compiler,
     error::ValidationError,
     keywords::{helpers::fail_on_non_positive_integer, CompilationResult},
-    paths::{LazyLocation, Location},
-    validator::Validate,
+    paths::{LazyLocation, Location, RefTracker},
+    validator::{Validate, ValidationContext},
 };
 use serde_json::{Map, Value};
 
@@ -39,7 +41,7 @@ impl MinItemsValidator {
 }
 
 impl Validate for MinItemsValidator {
-    fn is_valid(&self, instance: &Value) -> bool {
+    fn is_valid(&self, instance: &Value, _ctx: &mut ValidationContext) -> bool {
         if let Value::Array(items) = instance {
             if (items.len() as u64) < self.limit {
                 return false;
@@ -52,11 +54,14 @@ impl Validate for MinItemsValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        _ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Array(items) = instance {
             if (items.len() as u64) < self.limit {
                 return Err(ValidationError::min_items(
                     self.location.clone(),
+                    crate::paths::capture_evaluation_path(tracker, &self.location),
                     location.into(),
                     instance,
                     self.limit,

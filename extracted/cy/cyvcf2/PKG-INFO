@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cyvcf2
-Version: 0.31.1
+Version: 0.31.4
 Summary: fast vcf parsing with cython + htslib
 Home-page: https://github.com/brentp/cyvcf2/
 Author: Brent Pedersen
@@ -12,6 +12,16 @@ License-File: LICENSE
 Requires-Dist: numpy>=1.16.0
 Requires-Dist: coloredlogs
 Requires-Dist: click
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 cyvcf2
 ======

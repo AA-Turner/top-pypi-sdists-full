@@ -18,15 +18,17 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, constr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from lusid.models.dependency_source_filter import DependencySourceFilter
 
 class SpecificHoldingPricingInfo(BaseModel):
     """
     Allows a user to specify fallbacks/overrides using Holding fields for sources that match a particular DependencySourceFilter.  # noqa: E501
     """
-    dependency_source_filter: DependencySourceFilter = Field(..., alias="dependencySourceFilter")
+    dependency_source_filter: DependencySourceFilter = Field(alias="dependencySourceFilter")
     field:  StrictStr = Field(...,alias="field", description="The Holding field which the fallback/override should use to create a price quote.") 
     __properties = ["dependencySourceFilter", "field"]
 
@@ -81,3 +83,5 @@ class SpecificHoldingPricingInfo(BaseModel):
             "field": obj.get("field")
         })
         return _obj
+
+SpecificHoldingPricingInfo.update_forward_refs()

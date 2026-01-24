@@ -4,7 +4,7 @@ import os
 import sys
 import sysconfig
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Iterator, Protocol, Sequence
+from typing import TYPE_CHECKING, Protocol
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -20,6 +20,8 @@ from tox.tox_env.python.api import PythonInfo, VersionInfo
 from tox.tox_env.python.virtual_env.api import VirtualEnv
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator, Sequence
+
     from build import DistributionType
     from pytest_mock import MockerFixture
 
@@ -149,3 +151,9 @@ def build_pkg(dist_dir: Path, of: Path, distributions: Sequence[DistributionType
 @pytest.fixture(scope="session")
 def pkg_builder() -> Callable[[Path, Path, Sequence[DistributionType], bool], Path]:
     return build_pkg
+
+
+@pytest.fixture(scope="session", autouse=True)
+def no_default_config_ini(session_mocker: MockerFixture) -> None:
+    filename = str(uuid4())
+    session_mocker.patch("tox.config.cli.ini.DEFAULT_CONFIG_FILE", Path(filename))

@@ -2,11 +2,15 @@
 
 import copy
 from typing import Any, Optional
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from pandera.api.base.error_handler import ErrorHandler
+from pandera.backends.pandas.components import MultiIndexBackend
+from pandera.engines.pandas_engine import Engine, pandas_version
 from pandera.pandas import (
     Check,
     Column,
@@ -20,7 +24,6 @@ from pandera.pandas import (
     String,
     errors,
 )
-from pandera.engines.pandas_engine import Engine, pandas_version
 
 
 def test_column() -> None:
@@ -198,6 +201,117 @@ def test_multi_index_index() -> None:
     )
     with pytest.raises(errors.SchemaError):
         schema.validate(df_fail)
+
+
+def test_multi_index_failure_cases_show_full_tuples() -> None:
+    """Test that MultiIndex failure_cases include full tuples, not just level values."""
+    # Create a MultiIndex where 'c' appears at positions 2 and 4
+    mi = pd.MultiIndex.from_arrays(
+        [
+            ["a", "a", "c", "b", "c", "a"],  # level 0: 'c' at positions 2, 4
+            [1, 2, 3, 4, 5, 6],  # level 1
+        ],
+        names=["level0", "level1"],
+    )
+    df = pd.DataFrame({"col": range(6)}, index=mi)
+
+    # Schema that will fail for 'c' values
+    schema = DataFrameSchema(
+        columns={"col": Column(int)},
+        index=MultiIndex(
+            indexes=[
+                Index(String, Check.isin(["a", "b"]), name="level0"),
+                Index(Int, name="level1"),
+            ]
+        ),
+    )
+
+    # Validate with lazy=True to collect all errors
+    with pytest.raises(errors.SchemaErrors) as exc_info:
+        schema.validate(df, lazy=True)
+
+    # Check that we got the expected error
+    schema_errors = exc_info.value.schema_errors
+    assert len(schema_errors) == 1
+
+    # Get the failure_cases
+    failure_cases = schema_errors[0].failure_cases
+    assert isinstance(failure_cases, pd.DataFrame)
+    assert "index" in failure_cases.columns
+
+    expected_index = pd.Series(["('c', 3)", "('c', 5)"], name="index")
+    pd.testing.assert_series_equal(
+        failure_cases["index"].reset_index(drop=True),
+        expected_index,
+        check_names=False,
+    )
+
+
+def test_multi_index_failure_cases_with_nulls() -> None:
+    """Test that MultiIndex failure_cases include full tuples when null values fail checks."""
+    # Create a MultiIndex with null values
+    mi = pd.MultiIndex.from_arrays(
+        [
+            np.array(
+                [None, "a", "a", "c", "b", "c", "a", np.nan], dtype=object
+            ),
+            [1, 2, 3, 4, 5, 6, 7, 8],
+        ],
+        names=["level0", "level1"],
+    )
+    df = pd.DataFrame({"col": range(len(mi))}, index=mi)
+
+    schema = DataFrameSchema(
+        columns={"col": Column(int)},
+        index=MultiIndex(
+            indexes=[
+                Index(
+                    String,
+                    nullable=True,
+                    name="level0",
+                    checks=Check.isin(["a"], ignore_na=False),
+                ),
+                Index(Int, name="level1"),
+            ]
+        ),
+    )
+
+    with pytest.raises(errors.SchemaErrors) as exc_info:
+        schema.validate(df, lazy=True)
+
+    # Get failure cases from the aggregated errors
+    schema_errors = exc_info.value.schema_errors
+    assert len(schema_errors) == 1
+
+    failure_cases = schema_errors[0].failure_cases
+
+    # Expected failures: 2 NaN (positions 0, 7), 2 'c' (positions 3, 5), 1 'b' (position 4)
+    # Note: failure_case will be NaN for null values, 'c' for 'c', 'b' for 'b'
+    expected = pd.DataFrame(
+        {
+            "index": [
+                "(nan, 1)",
+                "(nan, 8)",
+                "('c', 4)",
+                "('c', 6)",
+                "('b', 5)",
+            ],
+            "failure_case": [np.nan, np.nan, "c", "c", "b"],
+            "column": ["level0"] * 5,
+        }
+    )
+
+    # Sort both DataFrames by index for consistent comparison
+    failure_cases_sorted = failure_cases.sort_values("index").reset_index(
+        drop=True
+    )
+    expected_sorted = expected.sort_values("index").reset_index(drop=True)
+
+    pd.testing.assert_frame_equal(
+        failure_cases_sorted,
+        expected_sorted,
+        check_like=True,
+    )
 
 
 def test_single_index_multi_index_mismatch() -> None:
@@ -443,7 +557,7 @@ def test_column_regex_multiindex() -> None:
 )
 def test_column_regex_matching(
     column_name_regex: str,
-    expected_matches: Optional[list[tuple[str, str]]],
+    expected_matches: list[tuple[str, str]] | None,
     error: type[BaseException],
 ) -> None:
     """
@@ -477,7 +591,6 @@ def test_column_regex_matching(
 
 
 def test_column_regex_error_failure_cases():
-
     data = pd.DataFrame({"a": [0, 2], "b": [1, 3]})
 
     column_schema = Column(
@@ -888,6 +1001,397 @@ def test_multiindex_incorrect_input(indexes) -> None:
     """Passing in non-Index object raises SchemaInitError."""
     with pytest.raises((errors.SchemaInitError, TypeError)):
         MultiIndex(indexes)
+
+
+@pytest.mark.parametrize(
+    "schema,expected_optimized_calls,expected_full_calls,expected_optimized_levels,expected_full_levels",
+    [
+        # All optimizable checks -> optimized path for both levels
+        (
+            DataFrameSchema(
+                columns={"value": Column(int)},
+                index=MultiIndex(
+                    [
+                        Index(
+                            String,
+                            checks=[
+                                Check.str_matches(
+                                    r"^(cat|dog)$"
+                                ),  # Optimizable
+                                Check.isin(["cat", "dog"]),  # Optimizable
+                            ],
+                            name="animal",
+                        ),
+                        Index(
+                            Int,
+                            checks=[
+                                Check.greater_than_or_equal_to(
+                                    0
+                                ),  # Optimizable
+                                Check.less_than(1000),  # Optimizable
+                            ],
+                            name="id",
+                        ),
+                    ]
+                ),
+            ),
+            2,
+            0,
+            [0, 1],
+            [],
+        ),
+        # Mixed checks -> full materialization for level with non-optimizable, optimized for others
+        (
+            DataFrameSchema(
+                columns={"value": Column(int)},
+                index=MultiIndex(
+                    [
+                        Index(
+                            String,
+                            checks=[
+                                Check.str_matches(
+                                    r"^(cat|dog)$"
+                                ),  # Optimizable
+                                Check(
+                                    lambda s: len(s) > 50,
+                                    determined_by_unique=False,
+                                ),  # NOT optimizable
+                            ],
+                            name="animal",
+                        ),
+                        Index(
+                            Int,
+                            checks=[
+                                Check.greater_than_or_equal_to(
+                                    0
+                                ),  # Optimizable
+                            ],
+                            name="id",
+                        ),
+                    ]
+                ),
+            ),
+            1,
+            1,
+            [1],
+            [0],
+        ),
+    ],
+)
+def test_multiindex_optimization_path_selection(
+    schema: DataFrameSchema,
+    expected_optimized_calls: int,
+    expected_full_calls: int,
+    expected_optimized_levels: list[int],
+    expected_full_levels: list[int],
+) -> None:
+    """Test that MultiIndex validation chooses the correct optimization path."""
+    # Create test MultiIndex with duplicates for optimization benefit
+    mi = pd.MultiIndex.from_arrays(
+        [
+            ["cat", "dog", "cat", "dog"] * 100,  # Lots of duplicates
+            list(range(400)),
+        ],
+        names=["animal", "id"],
+    )
+    df = pd.DataFrame({"value": range(400)}, index=mi)
+
+    # Mock the backend methods to track which path is taken
+    with (
+        patch(
+            "pandera.backends.pandas.components.MultiIndexBackend._validate_level_optimized"
+        ) as mock_optimized,
+        patch(
+            "pandera.backends.pandas.components.MultiIndexBackend._validate_level_with_full_materialization"
+        ) as mock_full,
+    ):
+        schema.validate(df)
+
+        # Verify correct number of calls
+        assert mock_optimized.call_count == expected_optimized_calls, (
+            f"Expected {expected_optimized_calls} calls to optimized path, got {mock_optimized.call_count}"
+        )
+        assert mock_full.call_count == expected_full_calls, (
+            f"Expected {expected_full_calls} calls to full materialization, got {mock_full.call_count}"
+        )
+
+        # Verify correct levels were called with correct methods
+        if expected_optimized_calls > 0:
+            optimized_calls = [
+                call[0][1] for call in mock_optimized.call_args_list
+            ]  # Extract level_pos argument
+            assert sorted(optimized_calls) == sorted(
+                expected_optimized_levels
+            ), (
+                f"Expected optimized calls for levels {expected_optimized_levels}, got {optimized_calls}"
+            )
+
+        if expected_full_calls > 0:
+            full_calls = [call[0][1] for call in mock_full.call_args_list]
+            assert sorted(full_calls) == sorted(expected_full_levels), (
+                f"Expected full calls for levels {expected_full_levels}, got {full_calls}"
+            )
+
+
+@pytest.mark.parametrize(
+    "checks,expected_can_optimize",
+    [
+        # Schema with all optimizable checks
+        ([Check.str_matches(r"^test$"), Check.isin(["test"])], True),
+        # Schema with mixed checks (includes non-optimizable)
+        (
+            [
+                Check.str_matches(r"^test$"),
+                Check(lambda s: len(s) > 100, determined_by_unique=False),
+            ],
+            False,
+        ),
+        # Schema with no checks
+        ([], True),
+        # Schema with only non-optimizable checks
+        (
+            [
+                Check(
+                    lambda s: s.nunique() > 10,
+                    determined_by_unique=False,
+                )
+            ],
+            False,
+        ),
+    ],
+)
+def test_multiindex_can_optimize_level(
+    checks: list, expected_can_optimize: bool
+) -> None:
+    """Test the _can_optimize_level decision logic."""
+    backend = MultiIndexBackend()
+    schema = Index(String, checks=checks)
+
+    result = backend._can_optimize_level(schema)
+    assert result is expected_can_optimize
+
+
+@pytest.mark.parametrize(
+    "check,expected_supports_optimization",
+    [
+        # Built-in optimizable check
+        (Check.greater_than(5), True),
+        # Explicitly non-optimizable check
+        (
+            Check(lambda s: s.nunique() > 10, determined_by_unique=False),
+            False,
+        ),
+        # Custom check marked as optimizable
+        (
+            Check(lambda s: s.str.len() > 2, determined_by_unique=True),
+            True,
+        ),
+        # Built-in optimizable check - isin
+        (Check.isin(["test"]), True),
+        # Built-in optimizable check - str_matches
+        (Check.str_matches(r"^test$"), True),
+    ],
+)
+def test_check_determined_by_unique(
+    check, expected_supports_optimization: bool
+) -> None:
+    """Test individual check support detection for unique optimization."""
+    backend = MultiIndexBackend()
+    result = backend._check_determined_by_unique(check)
+    assert result is expected_supports_optimization
+
+
+@pytest.fixture
+def multiindex_optimization_test_data():
+    """Create a DataFrame with MultiIndex containing duplicates and failing values including nulls."""
+    mi = pd.MultiIndex.from_arrays(
+        [
+            np.array(
+                [
+                    "invalid",
+                    "cat",
+                    "dog",
+                    "cat",
+                    "dog",
+                    "invalid",
+                    "other_invalid",
+                    np.nan,
+                    "other_invalid",
+                    np.nan,
+                ],
+                dtype=object,
+            ),
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        ],
+        names=["animal", "id"],
+    )
+    return pd.DataFrame({"col": range(len(mi))}, index=mi)
+
+
+@pytest.fixture
+def schema_with_optimized_validation():
+    """Schema with determined_by_unique=True (uses optimized validation path)."""
+    return DataFrameSchema(
+        columns={"col": Column(int)},
+        index=MultiIndex(
+            indexes=[
+                Index(
+                    String,
+                    checks=Check.isin(
+                        ["cat", "dog"],
+                        ignore_na=False,
+                        determined_by_unique=True,
+                    ),
+                    name="animal",
+                ),
+                Index(
+                    Int,
+                    name="id",
+                    checks=Check.greater_than(-1, determined_by_unique=True),
+                ),
+            ]
+        ),
+    )
+
+
+@pytest.fixture
+def schema_with_full_validation():
+    """Schema with determined_by_unique=False (uses full materialization path)."""
+    return DataFrameSchema(
+        columns={"col": Column(int)},
+        index=MultiIndex(
+            indexes=[
+                Index(
+                    String,
+                    checks=Check.isin(
+                        ["cat", "dog"],
+                        ignore_na=False,
+                        determined_by_unique=False,
+                    ),
+                    name="animal",
+                ),
+                Index(
+                    Int,
+                    name="id",
+                    checks=Check.greater_than(-1, determined_by_unique=False),
+                ),
+            ]
+        ),
+    )
+
+
+def test_schema_with_optimized_validation_uses_optimized_path(
+    multiindex_optimization_test_data,
+    schema_with_optimized_validation,
+) -> None:
+    """Verify that schema with determined_by_unique=True actually calls the optimized validation method."""
+    with (
+        patch(
+            "pandera.backends.pandas.components.MultiIndexBackend._validate_level_optimized"
+        ) as mock_optimized,
+        patch(
+            "pandera.backends.pandas.components.MultiIndexBackend._validate_level_with_full_materialization"
+        ) as mock_full,
+    ):
+        # Make the mock not raise an error so validation continues
+        mock_optimized.return_value = None
+        mock_full.return_value = None
+        try:
+            schema_with_optimized_validation.validate(
+                multiindex_optimization_test_data
+            )
+        except (errors.SchemaError, errors.SchemaErrors):
+            # Validation may fail, but we only care about which method was called
+            pass
+
+        # Verify that only the optimized method was called
+        assert mock_optimized.call_count == 2, (
+            "Schema with determined_by_unique=True should call _validate_level_optimized"
+        )
+        assert mock_full.call_count == 0, (
+            "Schema with determined_by_unique=True should not call _validate_level_with_full_materialization"
+        )
+
+
+def test_schema_with_full_validation_uses_full_materialization_path(
+    multiindex_optimization_test_data,
+    schema_with_full_validation,
+) -> None:
+    """Verify that schema with determined_by_unique=False actually calls the full materialization method."""
+    with (
+        patch(
+            "pandera.backends.pandas.components.MultiIndexBackend._validate_level_with_full_materialization"
+        ) as mock_full,
+        patch(
+            "pandera.backends.pandas.components.MultiIndexBackend._validate_level_optimized"
+        ) as mock_optimized,
+    ):
+        # Make the mock not raise an error so validation continues
+        mock_full.return_value = None
+        mock_optimized.return_value = None
+
+        try:
+            schema_with_full_validation.validate(
+                multiindex_optimization_test_data
+            )
+        except (errors.SchemaError, errors.SchemaErrors):
+            # Validation may fail, but we only care about which method was called
+            pass
+
+        # Verify that only the full materialization method was called
+        assert mock_full.call_count == 2, (
+            "Schema with determined_by_unique=False should call _validate_level_with_full_materialization"
+        )
+        assert mock_optimized.call_count == 0, (
+            "Schema with determined_by_unique=False should not call _validate_level_optimized"
+        )
+
+
+@pytest.mark.parametrize("lazy", [True, False], ids=["lazy", "eager"])
+def test_multiindex_optimized_vs_full_validation(
+    multiindex_optimization_test_data,
+    schema_with_optimized_validation,
+    schema_with_full_validation,
+    lazy,
+) -> None:
+    """Test that optimized and full materialization validation produce identical results.
+
+    Uses determined_by_unique flag to control which validation path is taken:
+    - determined_by_unique=True uses optimized validation
+    - determined_by_unique=False uses full materialization
+
+    Tests both lazy and eager validation modes.
+    """
+    # Validate with both schemas
+    optimized_error = None
+    try:
+        schema_with_optimized_validation.validate(
+            multiindex_optimization_test_data, lazy=lazy
+        )
+    except (errors.SchemaError, errors.SchemaErrors) as exc:
+        optimized_error = exc
+
+    full_error = None
+    try:
+        schema_with_full_validation.validate(
+            multiindex_optimization_test_data, lazy=lazy
+        )
+    except (errors.SchemaError, errors.SchemaErrors) as exc:
+        full_error = exc
+
+    # Both should produce errors
+    assert optimized_error is not None
+    assert full_error is not None
+
+    # Compare failure cases - they should be identical up to ordering
+    optimized_fc = optimized_error.failure_cases
+    full_fc = full_error.failure_cases
+
+    pd.testing.assert_frame_equal(
+        optimized_fc.sort_values(by="index").reset_index(drop=True),
+        full_fc.sort_values(by="index").reset_index(drop=True),
+        check_like=True,
+    )
 
 
 def test_index_validation_pandas_string_dtype():

@@ -189,7 +189,8 @@ async def integracao_contabil_generica(
         except Exception as error:
             console.print(f"Erro ao setar foco na janela: {main_window}")
 
-        await worker_sleep(4)
+        await worker_sleep(10)
+        pyautogui.press("enter")
         console.print("Iniciando interacao a janela de integracao contabil...")
         pyautogui.click(x=566, y=53)
         await worker_sleep(4)

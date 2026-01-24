@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 from .hrispayslipdetail import HrisPayslipDetail, HrisPayslipDetailTypedDict
+from .property_hrispayslip_deduction import (
+    PropertyHrisPayslipDeduction,
+    PropertyHrisPayslipDeductionTypedDict,
+)
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class PaymentType(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -23,6 +27,8 @@ class HrisPayslipTypedDict(TypedDict):
     company_id: NotRequired[str]
     created_at: NotRequired[datetime]
     currency: NotRequired[str]
+    deduction: NotRequired[PropertyHrisPayslipDeductionTypedDict]
+    r"""// The ID (and optionally name) of the employee deduction (if this detail represents a deduction)"""
     details: NotRequired[List[HrisPayslipDetailTypedDict]]
     end_at: NotRequired[datetime]
     gross_amount: NotRequired[float]
@@ -44,6 +50,9 @@ class HrisPayslip(BaseModel):
 
     currency: Optional[str] = None
 
+    deduction: Optional[PropertyHrisPayslipDeduction] = None
+    r"""// The ID (and optionally name) of the employee deduction (if this detail represents a deduction)"""
+
     details: Optional[List[HrisPayslipDetail]] = None
 
     end_at: Optional[datetime] = None
@@ -56,12 +65,52 @@ class HrisPayslip(BaseModel):
 
     paid_at: Optional[datetime] = None
 
-    payment_type: Annotated[
-        Optional[PaymentType], PlainValidator(validate_open_enum(False))
-    ] = None
+    payment_type: Optional[PaymentType] = None
 
     start_at: Optional[datetime] = None
 
     updated_at: Optional[datetime] = None
 
     user_id: Optional[str] = None
+
+    @field_serializer("payment_type")
+    def serialize_payment_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.PaymentType(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "company_id",
+                "created_at",
+                "currency",
+                "deduction",
+                "details",
+                "end_at",
+                "gross_amount",
+                "id",
+                "net_amount",
+                "paid_at",
+                "payment_type",
+                "start_at",
+                "updated_at",
+                "user_id",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

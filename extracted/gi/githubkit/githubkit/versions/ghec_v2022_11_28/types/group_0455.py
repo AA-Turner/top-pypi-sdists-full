@@ -9,21 +9,24 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
-from typing_extensions import TypedDict
+from typing import Any
+from typing_extensions import TypeAlias
 
-from .group_0003 import SimpleUserType
+LanguageType: TypeAlias = dict[str, Any]
+"""Language
 
-
-class StargazerType(TypedDict):
-    """Stargazer
-
-    Stargazer
-    """
-
-    starred_at: datetime
-    user: Union[None, SimpleUserType]
+Language
+"""
 
 
-__all__ = ("StargazerType",)
+LanguageTypeForResponse: TypeAlias = dict[str, Any]
+"""Language
+
+Language
+"""
+
+
+__all__ = (
+    "LanguageType",
+    "LanguageTypeForResponse",
+)

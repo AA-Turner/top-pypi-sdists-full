@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-markdownify
-Version: 0.9.5
+Version: 0.9.6
 Summary: Markdown template filter for Django.
 Home-page: https://github.com/erwinmatijsen/django-markdownify
-Download-URL: https://github.com/erwinmatijsen/django-markdownify/archive/0.9.5.tar.gz
+Download-URL: https://github.com/erwinmatijsen/django-markdownify/archive/0.9.6.tar.gz
 Author: Erwin Matijsen, R Moelker
 Author-email: erwin@erwinmatijsen.nl
 License: MIT
@@ -11,11 +11,24 @@ Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Django
 Requires-Dist: markdown
-Requires-Dist: bleach[css]>=5.0.0
+Requires-Dist: bleach[css]>=6.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Django Markdownify - A Django Markdown filter
 

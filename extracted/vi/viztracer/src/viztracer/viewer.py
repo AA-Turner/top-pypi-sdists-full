@@ -20,7 +20,7 @@ import threading
 import time
 import urllib.parse
 from http import HTTPStatus
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 
 dir_lock = threading.Lock()
@@ -88,6 +88,8 @@ class PerfettoHandler(HttpHandler):
             self.end_headers()
             self.wfile.write(json.dumps(self.server_thread.file_info).encode("utf-8"))
             self.wfile.flush()
+            # Since v1.1, file_info is the last request from the frontend
+            self.server.trace_served = True
         elif self.path.endswith("localtrace"):
             # self.directory is used after 3.8
             # os.getcwd() is used on 3.6
@@ -95,7 +97,6 @@ class PerfettoHandler(HttpHandler):
             with chdir_temp(self.directory):
                 filename = os.path.basename(self.server_thread.path)
                 self.path = f"/{filename}"
-                self.server.trace_served = True
                 return super().do_GET()
         else:
             self.directory = os.path.join(os.path.dirname(__file__), "web_dist")
@@ -277,12 +278,12 @@ class ServerThread(threading.Thread):
         self.quiet = quiet
         self.link = f"http://127.0.0.1:{self.port}"
         self.use_external_procesor = use_external_processor
-        self.externel_processor_process: Optional[ExternalProcessorProcess] = None
-        self.fg_data: Optional[list[dict[str, Any]]] = None
+        self.externel_processor_process: ExternalProcessorProcess | None = None
+        self.fg_data: list[dict[str, Any]] | None = None
         self.file_info = None
-        self.httpd: Optional[VizViewerTCPServer] = None
+        self.httpd: VizViewerTCPServer | None = None
         self.last_active = time.time()
-        self.retcode: Optional[int] = None
+        self.retcode: int | None = None
         self.ready = threading.Event()
         self.ready.clear()
         super().__init__(daemon=True)

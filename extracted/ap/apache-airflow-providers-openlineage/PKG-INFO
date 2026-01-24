@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-openlineage
-Version: 2.7.1
+Version: 2.10.0
 Summary: Provider package apache-airflow-providers-openlineage for Apache Airflow
 Keywords: airflow-provider,openlineage,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
@@ -14,25 +15,28 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
-Requires-Dist: apache-airflow>=2.10.0
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-sql>=1.20.0
-Requires-Dist: apache-airflow-providers-common-compat>=1.4.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: attrs>=22.2
-Requires-Dist: openlineage-integration-common>=1.36.0
-Requires-Dist: openlineage-python>=1.36.0
+Requires-Dist: openlineage-integration-common>=1.41.0
+Requires-Dist: openlineage-python>=1.41.0
+Requires-Dist: sqlalchemy>=1.4.49 ; extra == "sqlalchemy"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.7.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.7.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.10.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.10.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
+Provides-Extra: sqlalchemy
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -59,7 +63,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-openlineage``
 
-Release: ``2.7.1``
+Release: ``2.10.0``
 
 
 `OpenLineage <https://openlineage.io/>`__
@@ -72,7 +76,7 @@ This is a provider package for ``openlineage`` provider. All classes for this pr
 are in ``airflow.providers.openlineage`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.7.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.10.0/>`_.
 
 Installation
 ------------
@@ -89,12 +93,12 @@ Requirements
 ==========================================  ==================
 PIP package                                 Version required
 ==========================================  ==================
-``apache-airflow``                          ``>=2.10.0``
+``apache-airflow``                          ``>=2.11.0``
 ``apache-airflow-providers-common-sql``     ``>=1.20.0``
-``apache-airflow-providers-common-compat``  ``>=1.4.0``
+``apache-airflow-providers-common-compat``  ``>=1.11.0``
 ``attrs``                                   ``>=22.2``
-``openlineage-integration-common``          ``>=1.36.0``
-``openlineage-python``                      ``>=1.36.0``
+``openlineage-integration-common``          ``>=1.41.0``
+``openlineage-python``                      ``>=1.41.0``
 ==========================================  ==================
 
 Cross provider package dependencies
@@ -117,6 +121,15 @@ Dependent package                                                               
 `apache-airflow-providers-common-sql <https://airflow.apache.org/docs/apache-airflow-providers-common-sql>`_        ``common.sql``
 ==================================================================================================================  =================
 
+Optional dependencies
+----------------------
+
+==============  ======================
+Extra           Dependencies
+==============  ======================
+``sqlalchemy``  ``sqlalchemy>=1.4.49``
+==============  ======================
+
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.7.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-openlineage/2.10.0/changelog.html>`_.
 

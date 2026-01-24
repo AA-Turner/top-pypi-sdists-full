@@ -4,21 +4,23 @@ build-backend = "maturin"
 
 [project]
 name = "impit"
-version = "0.7.1"
+version = "0.9.3"
 description = "A library for making HTTP requests through browser impersonation"
 readme = "README.md"
+license = { file = "LICENSE.md" }
 authors = [{ name = "Jindřich Bär" }]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
+    "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries",
 ]
 keywords = [
@@ -31,10 +33,10 @@ keywords = [
 dependencies = []
 
 [project.urls]
-"Homepage" = "https://apify.github.io/impit/"
+"Homepage" = "https://apify.github.io/impit/python"
 "Apify homepage" = "https://apify.com"
 "Changelog" = "https://github.com/apify/impit/blob/master/impit-python/CHANGELOG.md"
-"Documentation" = "https://apify.github.io/impit/"
+"Documentation" = "https://apify.github.io/impit/python"
 "Issue tracker" = "https://github.com/apify/impit/issues"
 "Repository" = "https://github.com/apify/impit"
 
@@ -49,6 +51,13 @@ dev = [
     "pytest",
     "ruff",
     "setuptools",
+    "pproxy>=2.7.9",
+]
+docs = [
+    "sphinx>=7.4.7",
+    "myst-parser>=3.0.1",
+    "furo",
+    "stubdoc",
 ]
 
 [tool.maturin]
@@ -111,7 +120,7 @@ asyncio_mode = "auto"
 reruns = "3"
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 files = ["python", "test"]
 check_untyped_defs = true
 disallow_incomplete_defs = true
@@ -124,3 +133,9 @@ warn_return_any = true
 warn_unreachable = true
 warn_unused_ignores = true
 
+[[tool.mypy.overrides]]
+module = ["pproxy"]
+ignore_missing_imports = true
+
+[tool.uv.sources]
+stubdoc = { git = "https://github.com/bayashi-cl/stubdoc" }

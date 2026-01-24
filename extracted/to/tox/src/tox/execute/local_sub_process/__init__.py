@@ -8,7 +8,7 @@ import os
 import shutil
 import sys
 from subprocess import DEVNULL, PIPE, TimeoutExpired
-from typing import TYPE_CHECKING, Any, Generator, Sequence
+from typing import TYPE_CHECKING, Any
 
 from tox.execute.api import Execute, ExecuteInstance, ExecuteOptions, ExecuteStatus
 from tox.execute.request import ExecuteRequest, StdinSource
@@ -17,6 +17,7 @@ from tox.tox_env.errors import Fail
 
 if TYPE_CHECKING:
     import io
+    from collections.abc import Generator, Sequence
     from types import TracebackType
 
     from tox.execute.stream import SyncWrite
@@ -84,6 +85,7 @@ class LocalSubprocessExecuteStatus(ExecuteStatus):
                     self._process.send_signal(SIG_INTERRUPT)
                 if self.wait(self.options.interrupt_timeout) is None:  # still alive -> TERM # pragma: no branch
                     terminate_output = self.options.terminate_timeout
+                    msg = "send signal %s to %d from %d with timeout %.2f"
                     logging.warning(msg, f"SIGTERM({SIGTERM})", to_pid, host_pid, terminate_output)
                     self._process.terminate()
                     # Windows terminate is UNIX kill
@@ -216,7 +218,7 @@ class LocalSubProcessExecuteInstance(ExecuteInstance):
         except OSError as exception:
             # We log a nice error message to avout returning opaque error codes,
             # like exit code 2 (filenotfound).
-            logging.error("Exception running subprocess %s", str(exception))  # noqa: TRY400
+            logging.error("Exception running subprocess %s", exception)  # noqa: TRY400
             return LocalSubprocessExecuteFailedStatus(self.options, self._out, self._err, exception.errno)
 
         status = LocalSubprocessExecuteStatus(self.options, self._out, self._err, process)

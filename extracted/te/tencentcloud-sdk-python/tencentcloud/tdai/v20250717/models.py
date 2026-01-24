@@ -204,6 +204,137 @@ class Agent(AbstractModel):
         
 
 
+class AgentDutyTask(AbstractModel):
+    r"""智能体值守任务信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 任务ID
+        :type TaskId: str
+        :param _CreateTime: 任务创建时间
+        :type CreateTime: str
+        :param _StartTime: 任务开始运行时间
+        :type StartTime: str
+        :param _FinishTime: 任务结束时间
+        :type FinishTime: str
+        :param _Status: 任务状态
+        :type Status: str
+        :param _ResultExtraKey: 对外展示的Extra信息
+        :type ResultExtraKey: list of str
+        :param _Extra: 业务的额外敏感信息
+        :type Extra: list of ExtraInfo
+        """
+        self._TaskId = None
+        self._CreateTime = None
+        self._StartTime = None
+        self._FinishTime = None
+        self._Status = None
+        self._ResultExtraKey = None
+        self._Extra = None
+
+    @property
+    def TaskId(self):
+        r"""任务ID
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def CreateTime(self):
+        r"""任务创建时间
+        :rtype: str
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def StartTime(self):
+        r"""任务开始运行时间
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def FinishTime(self):
+        r"""任务结束时间
+        :rtype: str
+        """
+        return self._FinishTime
+
+    @FinishTime.setter
+    def FinishTime(self, FinishTime):
+        self._FinishTime = FinishTime
+
+    @property
+    def Status(self):
+        r"""任务状态
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def ResultExtraKey(self):
+        r"""对外展示的Extra信息
+        :rtype: list of str
+        """
+        return self._ResultExtraKey
+
+    @ResultExtraKey.setter
+    def ResultExtraKey(self, ResultExtraKey):
+        self._ResultExtraKey = ResultExtraKey
+
+    @property
+    def Extra(self):
+        r"""业务的额外敏感信息
+        :rtype: list of ExtraInfo
+        """
+        return self._Extra
+
+    @Extra.setter
+    def Extra(self, Extra):
+        self._Extra = Extra
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._CreateTime = params.get("CreateTime")
+        self._StartTime = params.get("StartTime")
+        self._FinishTime = params.get("FinishTime")
+        self._Status = params.get("Status")
+        self._ResultExtraKey = params.get("ResultExtraKey")
+        if params.get("Extra") is not None:
+            self._Extra = []
+            for item in params.get("Extra"):
+                obj = ExtraInfo()
+                obj._deserialize(item)
+                self._Extra.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class AgentInstance(AbstractModel):
     r"""智能体实例
 
@@ -1007,8 +1138,11 @@ class CreateChatCompletionRequest(AbstractModel):
         r"""
         :param _IsHidden: 是否隐藏
         :type IsHidden: bool
+        :param _IsChatHidden: 是否隐藏会话
+        :type IsChatHidden: bool
         """
         self._IsHidden = None
+        self._IsChatHidden = None
 
     @property
     def IsHidden(self):
@@ -1021,9 +1155,21 @@ class CreateChatCompletionRequest(AbstractModel):
     def IsHidden(self, IsHidden):
         self._IsHidden = IsHidden
 
+    @property
+    def IsChatHidden(self):
+        r"""是否隐藏会话
+        :rtype: bool
+        """
+        return self._IsChatHidden
+
+    @IsChatHidden.setter
+    def IsChatHidden(self, IsChatHidden):
+        self._IsChatHidden = IsChatHidden
+
 
     def _deserialize(self, params):
         self._IsHidden = params.get("IsHidden")
+        self._IsChatHidden = params.get("IsChatHidden")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1303,10 +1449,24 @@ class DescribeAgentDutyTaskDetailResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _AgentDutyTask: 任务详细信息
+        :type AgentDutyTask: :class:`tencentcloud.tdai.v20250717.models.AgentDutyTask`
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._AgentDutyTask = None
         self._RequestId = None
+
+    @property
+    def AgentDutyTask(self):
+        r"""任务详细信息
+        :rtype: :class:`tencentcloud.tdai.v20250717.models.AgentDutyTask`
+        """
+        return self._AgentDutyTask
+
+    @AgentDutyTask.setter
+    def AgentDutyTask(self, AgentDutyTask):
+        self._AgentDutyTask = AgentDutyTask
 
     @property
     def RequestId(self):
@@ -1321,6 +1481,9 @@ class DescribeAgentDutyTaskDetailResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        if params.get("AgentDutyTask") is not None:
+            self._AgentDutyTask = AgentDutyTask()
+            self._AgentDutyTask._deserialize(params.get("AgentDutyTask"))
         self._RequestId = params.get("RequestId")
 
 
@@ -1331,13 +1494,53 @@ class DescribeAgentDutyTasksRequest(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _InstanceId: agent实例ID
+        :type InstanceId: str
+        :param _ChatId: 会话ID
+        :type ChatId: str
         :param _Offset: 查询开始位置
         :type Offset: int
         :param _Limit: 列表查询数量
         :type Limit: int
+        :param _StartTime: 任务启动时间
+        :type StartTime: str
+        :param _EndTime: 任务结束时间
+        :type EndTime: str
+        :param _AgentTaskType: 任务类型
+        :type AgentTaskType: str
+        :param _Parameters: 业务参数
+        :type Parameters: list of Parameter
         """
+        self._InstanceId = None
+        self._ChatId = None
         self._Offset = None
         self._Limit = None
+        self._StartTime = None
+        self._EndTime = None
+        self._AgentTaskType = None
+        self._Parameters = None
+
+    @property
+    def InstanceId(self):
+        r"""agent实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def ChatId(self):
+        r"""会话ID
+        :rtype: str
+        """
+        return self._ChatId
+
+    @ChatId.setter
+    def ChatId(self, ChatId):
+        self._ChatId = ChatId
 
     @property
     def Offset(self):
@@ -1361,10 +1564,65 @@ class DescribeAgentDutyTasksRequest(AbstractModel):
     def Limit(self, Limit):
         self._Limit = Limit
 
+    @property
+    def StartTime(self):
+        r"""任务启动时间
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""任务结束时间
+        :rtype: str
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+    @property
+    def AgentTaskType(self):
+        r"""任务类型
+        :rtype: str
+        """
+        return self._AgentTaskType
+
+    @AgentTaskType.setter
+    def AgentTaskType(self, AgentTaskType):
+        self._AgentTaskType = AgentTaskType
+
+    @property
+    def Parameters(self):
+        r"""业务参数
+        :rtype: list of Parameter
+        """
+        return self._Parameters
+
+    @Parameters.setter
+    def Parameters(self, Parameters):
+        self._Parameters = Parameters
+
 
     def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._ChatId = params.get("ChatId")
         self._Offset = params.get("Offset")
         self._Limit = params.get("Limit")
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        self._AgentTaskType = params.get("AgentTaskType")
+        if params.get("Parameters") is not None:
+            self._Parameters = []
+            for item in params.get("Parameters"):
+                obj = Parameter()
+                obj._deserialize(item)
+                self._Parameters.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1384,10 +1642,13 @@ class DescribeAgentDutyTasksResponse(AbstractModel):
         r"""
         :param _TotalCount: 查询结果总数量
         :type TotalCount: int
+        :param _DutyTasks: 任务详细信息
+        :type DutyTasks: list of AgentDutyTask
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._TotalCount = None
+        self._DutyTasks = None
         self._RequestId = None
 
     @property
@@ -1400,6 +1661,17 @@ class DescribeAgentDutyTasksResponse(AbstractModel):
     @TotalCount.setter
     def TotalCount(self, TotalCount):
         self._TotalCount = TotalCount
+
+    @property
+    def DutyTasks(self):
+        r"""任务详细信息
+        :rtype: list of AgentDutyTask
+        """
+        return self._DutyTasks
+
+    @DutyTasks.setter
+    def DutyTasks(self, DutyTasks):
+        self._DutyTasks = DutyTasks
 
     @property
     def RequestId(self):
@@ -1415,6 +1687,12 @@ class DescribeAgentDutyTasksResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._TotalCount = params.get("TotalCount")
+        if params.get("DutyTasks") is not None:
+            self._DutyTasks = []
+            for item in params.get("DutyTasks"):
+                obj = AgentDutyTask()
+                obj._deserialize(item)
+                self._DutyTasks.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -1908,12 +2186,18 @@ class DescribeChatDetailRequest(AbstractModel):
         :type InstanceId: str
         :param _ChatId: 会话Id
         :type ChatId: str
-        :param _LastStreamingTokenId: 最后一条流式TokenID
-        :type LastStreamingTokenId: int
+        :param _StreamingId: 流ID
+        :type StreamingId: str
+        :param _BeginStreamingTokenId: 开始拉取的流式TokenID。0表示从该流最早的TokenID开始获取
+        :type BeginStreamingTokenId: int
+        :param _TokenLimit: 单次获取的token数量，默认2000
+        :type TokenLimit: int
         """
         self._InstanceId = None
         self._ChatId = None
-        self._LastStreamingTokenId = None
+        self._StreamingId = None
+        self._BeginStreamingTokenId = None
+        self._TokenLimit = None
 
     @property
     def InstanceId(self):
@@ -1938,21 +2222,45 @@ class DescribeChatDetailRequest(AbstractModel):
         self._ChatId = ChatId
 
     @property
-    def LastStreamingTokenId(self):
-        r"""最后一条流式TokenID
+    def StreamingId(self):
+        r"""流ID
+        :rtype: str
+        """
+        return self._StreamingId
+
+    @StreamingId.setter
+    def StreamingId(self, StreamingId):
+        self._StreamingId = StreamingId
+
+    @property
+    def BeginStreamingTokenId(self):
+        r"""开始拉取的流式TokenID。0表示从该流最早的TokenID开始获取
         :rtype: int
         """
-        return self._LastStreamingTokenId
+        return self._BeginStreamingTokenId
 
-    @LastStreamingTokenId.setter
-    def LastStreamingTokenId(self, LastStreamingTokenId):
-        self._LastStreamingTokenId = LastStreamingTokenId
+    @BeginStreamingTokenId.setter
+    def BeginStreamingTokenId(self, BeginStreamingTokenId):
+        self._BeginStreamingTokenId = BeginStreamingTokenId
+
+    @property
+    def TokenLimit(self):
+        r"""单次获取的token数量，默认2000
+        :rtype: int
+        """
+        return self._TokenLimit
+
+    @TokenLimit.setter
+    def TokenLimit(self, TokenLimit):
+        self._TokenLimit = TokenLimit
 
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
         self._ChatId = params.get("ChatId")
-        self._LastStreamingTokenId = params.get("LastStreamingTokenId")
+        self._StreamingId = params.get("StreamingId")
+        self._BeginStreamingTokenId = params.get("BeginStreamingTokenId")
+        self._TokenLimit = params.get("TokenLimit")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2292,6 +2600,87 @@ class DescribeReportUrlResponse(AbstractModel):
     def _deserialize(self, params):
         self._DownloadUrl = params.get("DownloadUrl")
         self._RequestId = params.get("RequestId")
+
+
+class ExtraInfo(AbstractModel):
+    r"""智能体值守任务额外信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Key: 出参额外信息的Key
+        :type Key: str
+        :param _Description: 额外信息描述
+        :type Description: str
+        :param _Value: ExtraInfo的值
+        :type Value: str
+        :param _ValueType: 值的数据结构类型
+        :type ValueType: str
+        """
+        self._Key = None
+        self._Description = None
+        self._Value = None
+        self._ValueType = None
+
+    @property
+    def Key(self):
+        r"""出参额外信息的Key
+        :rtype: str
+        """
+        return self._Key
+
+    @Key.setter
+    def Key(self, Key):
+        self._Key = Key
+
+    @property
+    def Description(self):
+        r"""额外信息描述
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def Value(self):
+        r"""ExtraInfo的值
+        :rtype: str
+        """
+        return self._Value
+
+    @Value.setter
+    def Value(self, Value):
+        self._Value = Value
+
+    @property
+    def ValueType(self):
+        r"""值的数据结构类型
+        :rtype: str
+        """
+        return self._ValueType
+
+    @ValueType.setter
+    def ValueType(self, ValueType):
+        self._ValueType = ValueType
+
+
+    def _deserialize(self, params):
+        self._Key = params.get("Key")
+        self._Description = params.get("Description")
+        self._Value = params.get("Value")
+        self._ValueType = params.get("ValueType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class InstanceInfos(AbstractModel):
@@ -2996,6 +3385,100 @@ class SqlAgentParameter(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class StartAgentTaskRequest(AbstractModel):
+    r"""StartAgentTask请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例ID
+        :type InstanceId: str
+        :param _InstanceToken: 配置Token
+        :type InstanceToken: str
+        """
+        self._InstanceId = None
+        self._InstanceToken = None
+
+    @property
+    def InstanceId(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def InstanceToken(self):
+        r"""配置Token
+        :rtype: str
+        """
+        return self._InstanceToken
+
+    @InstanceToken.setter
+    def InstanceToken(self, InstanceToken):
+        self._InstanceToken = InstanceToken
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._InstanceToken = params.get("InstanceToken")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class StartAgentTaskResponse(AbstractModel):
+    r"""StartAgentTask返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 任务ID
+        :type TaskId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TaskId = None
+        self._RequestId = None
+
+    @property
+    def TaskId(self):
+        r"""任务ID
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._RequestId = params.get("RequestId")
 
 
 class TagFilter(AbstractModel):

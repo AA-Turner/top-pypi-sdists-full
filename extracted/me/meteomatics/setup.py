@@ -11,13 +11,13 @@ DESCRIPTION = "Meteomatics API connector"
 URL = "https://github.com/meteomatics/python-connector-api"
 EMAIL = "support@meteomatics.com"
 AUTHOR = "Meteomatics AG"
-REQUIRES_PYTHON = ">=2.7.9"
+REQUIRES_PYTHON = ">=3.9.0"
 VERSION = None
 
 REQUIRED = [
     "isodate>=0.6.0",
     "requests>=2.21.0",
-    "pandas>=0.18.1",
+    "pandas>=1.1.5",
     "pathlib2>=2.3.5",
     'pytz'
 ]
@@ -55,7 +55,6 @@ setup(
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 3"
     ]
 )

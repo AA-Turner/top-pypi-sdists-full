@@ -595,7 +595,7 @@ ERROR test_file.py::test_sub_snapshot - Failed: your snapshot is missing one val
 ============================================================================ ERRORS ============================================================================
 ____________________________________________________________ ERROR at teardown of test_sub_snapshot ____________________________________________________________
 your snapshot is missing one value.
-If you just created this value with --snapshot=create, the value is now created and you can ignore this message.
+If you just created this value with --inline-snapshot=create, the value is now created and you can ignore this message.
 =================================================================== short test summary info ====================================================================
 ERROR tests/test_file.py::test_sub_snapshot - Failed: your snapshot is missing one value.
 ================================================================== 1 passed, 1 error in <time> ==================================================================
@@ -779,17 +779,23 @@ Please fix the way your object is copied or your __eq__ implementation.
 
 def test_unknown_flag():
 
-    Example(
+    e = Example(
         """\
 def test_a():
     assert 1==1
 """
-    ).run_pytest(
+    )
+
+    error = snapshot("ERROR: --inline-snapshot=creaigflen is a unknown flag\n")
+
+    e.run_pytest(
         ["--inline-snapshot=creaigflen"],
         report=snapshot(""),
         returncode=snapshot(4),
-        stderr=snapshot("ERROR: --inline-snapshot=creaigflen is a unknown flag\n"),
+        stderr=error,
     )
+
+    e.run_inline(["--inline-snapshot=creaigflen"], stderr=error)
 
 
 @pytest.mark.parametrize("storage_dir", ["tests/snapshots", None])
@@ -809,7 +815,7 @@ def test_storage_dir_config(project, tmp_path, storage_dir):
 [tool.inline-snapshot]
 storage-dir = {str(storage_dir)!r}
 """,
-            "test_a.py": """\
+            "tests/test_a.py": """\
 from inline_snapshot import outsource, snapshot
 
 def test_outsource():
@@ -820,7 +826,7 @@ def test_outsource():
         ["--inline-snapshot=create"],
         changed_files=IsIgnoreDict(
             {
-                "test_a.py": snapshot(
+                "tests/test_a.py": snapshot(
                     """\
 from inline_snapshot import outsource, snapshot
 

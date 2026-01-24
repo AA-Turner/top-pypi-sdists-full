@@ -24,7 +24,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organizations]:
+    ) -> models.Organizations:
         r"""Get a list of organizations for an instance
 
         This request returns the list of organizations for an instance.
@@ -34,12 +34,26 @@ class OrganizationsSDK(BaseSDK):
 
         :param include_members_count: Flag to denote whether the member counts of each organization should be included in the response or not.
         :param include_missing_member_with_elevated_permissions: Flag to denote whether or not to include a member with elevated permissions who is not currently a member of the organization.
-        :param query: Returns organizations with ID, name, or slug that match the given query. Uses exact match for organization ID and partial match for name and slug.
-        :param user_id: Returns organizations with the user ids specified. Any user ids not found are ignored. For each user id, the `+` and `-` can be prepended to the id, which denote whether the respective organization should be included or excluded from the result set.
-        :param organization_id: Returns organizations with the organization ids specified. Any organization ids not found are ignored. For each organization id, the `+` and `-` can be prepended to the id, which denote whether the respective organization should be included or excluded from the result set. Accepts up to 100 organization ids. Example: ?organization_id=+org_1&organization_id=-org_2
-        :param order_by: Allows to return organizations in a particular order. At the moment, you can order the returned organizations either by their `name`, `created_at` or `members_count`. In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by. For example, if you want organizations to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param query: Returns organizations with ID, name, or slug that match the given query.
+            Uses exact match for organization ID and partial match for name and slug.
+        :param user_id: Returns organizations that include any of the specified user IDs as members. Any user IDs not found are ignored.
+            For each user ID, the `+` and `-` can be prepended to the ID, which denote whether the
+            respective organization should be included or excluded from the result set.
+        :param organization_id: Returns organizations with the organization IDs specified. Any organization IDs not found are ignored.
+            For each organization ID, the `+` and `-` can be prepended to the ID, which denote whether the
+            respective organization should be included or excluded from the result set. Accepts up to 100 organization IDs.
+            Example: ?organization_id=+org_1&organization_id=-org_2
+        :param order_by: Allows to return organizations in a particular order.
+            At the moment, you can order the returned organizations either by their `name`, `created_at` or `members_count`.
+            In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by.
+            For example, if you want organizations to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -79,6 +93,7 @@ class OrganizationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -99,7 +114,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListOrganizations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -109,7 +124,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organizations], http_res)
+            return unmarshal_json_response(models.Organizations, http_res)
         if utils.match_response(http_res, ["400", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -137,7 +152,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organizations]:
+    ) -> models.Organizations:
         r"""Get a list of organizations for an instance
 
         This request returns the list of organizations for an instance.
@@ -147,12 +162,26 @@ class OrganizationsSDK(BaseSDK):
 
         :param include_members_count: Flag to denote whether the member counts of each organization should be included in the response or not.
         :param include_missing_member_with_elevated_permissions: Flag to denote whether or not to include a member with elevated permissions who is not currently a member of the organization.
-        :param query: Returns organizations with ID, name, or slug that match the given query. Uses exact match for organization ID and partial match for name and slug.
-        :param user_id: Returns organizations with the user ids specified. Any user ids not found are ignored. For each user id, the `+` and `-` can be prepended to the id, which denote whether the respective organization should be included or excluded from the result set.
-        :param organization_id: Returns organizations with the organization ids specified. Any organization ids not found are ignored. For each organization id, the `+` and `-` can be prepended to the id, which denote whether the respective organization should be included or excluded from the result set. Accepts up to 100 organization ids. Example: ?organization_id=+org_1&organization_id=-org_2
-        :param order_by: Allows to return organizations in a particular order. At the moment, you can order the returned organizations either by their `name`, `created_at` or `members_count`. In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by. For example, if you want organizations to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. Defaults to `-created_at`.
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param query: Returns organizations with ID, name, or slug that match the given query.
+            Uses exact match for organization ID and partial match for name and slug.
+        :param user_id: Returns organizations that include any of the specified user IDs as members. Any user IDs not found are ignored.
+            For each user ID, the `+` and `-` can be prepended to the ID, which denote whether the
+            respective organization should be included or excluded from the result set.
+        :param organization_id: Returns organizations with the organization IDs specified. Any organization IDs not found are ignored.
+            For each organization ID, the `+` and `-` can be prepended to the ID, which denote whether the
+            respective organization should be included or excluded from the result set. Accepts up to 100 organization IDs.
+            Example: ?organization_id=+org_1&organization_id=-org_2
+        :param order_by: Allows to return organizations in a particular order.
+            At the moment, you can order the returned organizations either by their `name`, `created_at` or `members_count`.
+            In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by.
+            For example, if you want organizations to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied.
+            Defaults to `-created_at`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -192,6 +221,7 @@ class OrganizationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -212,7 +242,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListOrganizations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -222,7 +252,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organizations], http_res)
+            return unmarshal_json_response(models.Organizations, http_res)
         if utils.match_response(http_res, ["400", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -248,7 +278,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organization]:
+    ) -> models.Organization:
         r"""Create an organization
 
         Creates a new organization with the given name for an instance.
@@ -304,6 +334,7 @@ class OrganizationsSDK(BaseSDK):
                 "json",
                 Optional[models.CreateOrganizationRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -324,7 +355,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -334,7 +365,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organization], http_res)
+            return unmarshal_json_response(models.Organization, http_res)
         if utils.match_response(http_res, ["400", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -360,7 +391,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organization]:
+    ) -> models.Organization:
         r"""Create an organization
 
         Creates a new organization with the given name for an instance.
@@ -416,6 +447,7 @@ class OrganizationsSDK(BaseSDK):
                 "json",
                 Optional[models.CreateOrganizationRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -436,7 +468,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -446,7 +478,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organization], http_res)
+            return unmarshal_json_response(models.Organization, http_res)
         if utils.match_response(http_res, ["400", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -469,7 +501,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organization]:
+    ) -> models.Organization:
         r"""Retrieve an organization by ID or slug
 
         Fetches the organization whose ID or slug matches the provided `id_or_slug` URL query parameter.
@@ -511,6 +543,7 @@ class OrganizationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -531,7 +564,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -541,7 +574,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organization], http_res)
+            return unmarshal_json_response(models.Organization, http_res)
         if utils.match_response(http_res, ["403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -564,7 +597,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organization]:
+    ) -> models.Organization:
         r"""Retrieve an organization by ID or slug
 
         Fetches the organization whose ID or slug matches the provided `id_or_slug` URL query parameter.
@@ -606,6 +639,7 @@ class OrganizationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -626,7 +660,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -636,7 +670,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organization], http_res)
+            return unmarshal_json_response(models.Organization, http_res)
         if utils.match_response(http_res, ["403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -664,7 +698,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organization]:
+    ) -> models.Organization:
         r"""Update an organization
 
         Updates an existing organization
@@ -672,7 +706,9 @@ class OrganizationsSDK(BaseSDK):
         :param organization_id: The ID of the organization to update
         :param public_metadata: Metadata saved on the organization, that is visible to both your frontend and backend.
         :param private_metadata: Metadata saved on the organization that is only visible to your backend.
-        :param name: The new name of the organization. May not contain URLs or HTML. Max length: 256
+        :param name: The new name of the organization.
+            May not contain URLs or HTML.
+            Max length: 256
         :param slug: The new slug of the organization, which needs to be unique in the instance
         :param max_allowed_memberships: The maximum number of memberships allowed for this organization
         :param admin_delete_enabled: If true, an admin can delete this organization with the Frontend API.
@@ -725,6 +761,7 @@ class OrganizationsSDK(BaseSDK):
                 "json",
                 models.UpdateOrganizationRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -745,18 +782,20 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
-            error_status_codes=["402", "404", "422", "4XX", "5XX"],
+            error_status_codes=["402", "403", "404", "422", "4XX", "5XX"],
             retry_config=retry_config,
         )
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organization], http_res)
-        if utils.match_response(http_res, ["402", "404", "422"], "application/json"):
+            return unmarshal_json_response(models.Organization, http_res)
+        if utils.match_response(
+            http_res, ["402", "403", "404", "422"], "application/json"
+        ):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
         if utils.match_response(http_res, "4XX", "*"):
@@ -783,7 +822,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organization]:
+    ) -> models.Organization:
         r"""Update an organization
 
         Updates an existing organization
@@ -791,7 +830,9 @@ class OrganizationsSDK(BaseSDK):
         :param organization_id: The ID of the organization to update
         :param public_metadata: Metadata saved on the organization, that is visible to both your frontend and backend.
         :param private_metadata: Metadata saved on the organization that is only visible to your backend.
-        :param name: The new name of the organization. May not contain URLs or HTML. Max length: 256
+        :param name: The new name of the organization.
+            May not contain URLs or HTML.
+            Max length: 256
         :param slug: The new slug of the organization, which needs to be unique in the instance
         :param max_allowed_memberships: The maximum number of memberships allowed for this organization
         :param admin_delete_enabled: If true, an admin can delete this organization with the Frontend API.
@@ -844,6 +885,7 @@ class OrganizationsSDK(BaseSDK):
                 "json",
                 models.UpdateOrganizationRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -864,18 +906,20 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
-            error_status_codes=["402", "404", "422", "4XX", "5XX"],
+            error_status_codes=["402", "403", "404", "422", "4XX", "5XX"],
             retry_config=retry_config,
         )
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organization], http_res)
-        if utils.match_response(http_res, ["402", "404", "422"], "application/json"):
+            return unmarshal_json_response(models.Organization, http_res)
+        if utils.match_response(
+            http_res, ["402", "403", "404", "422"], "application/json"
+        ):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
         if utils.match_response(http_res, "4XX", "*"):
@@ -895,12 +939,15 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeletedObject]:
+    ) -> models.DeletedObject:
         r"""Delete an organization
 
         Deletes the given organization.
         Please note that deleting an organization will also delete all memberships and invitations.
         This is not reversible.
+
+        After the organization is deleted, any user's active sessions that contain the deleted
+        organization will be cleared.
 
         :param organization_id: The ID of the organization to delete
         :param retries: Override the default retry configuration for this method
@@ -935,6 +982,7 @@ class OrganizationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -955,7 +1003,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -965,7 +1013,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.DeletedObject], http_res)
+            return unmarshal_json_response(models.DeletedObject, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -986,12 +1034,15 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeletedObject]:
+    ) -> models.DeletedObject:
         r"""Delete an organization
 
         Deletes the given organization.
         Please note that deleting an organization will also delete all memberships and invitations.
         This is not reversible.
+
+        After the organization is deleted, any user's active sessions that contain the deleted
+        organization will be cleared.
 
         :param organization_id: The ID of the organization to delete
         :param retries: Override the default retry configuration for this method
@@ -1026,6 +1077,7 @@ class OrganizationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1046,7 +1098,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteOrganization",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1056,7 +1108,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.DeletedObject], http_res)
+            return unmarshal_json_response(models.DeletedObject, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1079,7 +1131,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organization]:
+    ) -> models.Organization:
         r"""Merge and update metadata for an organization
 
         Update organization metadata attributes by merging existing values with the provided parameters.
@@ -1088,8 +1140,10 @@ class OrganizationsSDK(BaseSDK):
         You can remove metadata keys at any level by setting their value to `null`.
 
         :param organization_id: The ID of the organization for which metadata will be merged or updated
-        :param public_metadata: Metadata saved on the organization, that is visible to both your frontend and backend. The new object will be merged with the existing value.
-        :param private_metadata: Metadata saved on the organization that is only visible to your backend. The new object will be merged with the existing value.
+        :param public_metadata: Metadata saved on the organization, that is visible to both your frontend and backend.
+            The new object will be merged with the existing value.
+        :param private_metadata: Metadata saved on the organization that is only visible to your backend.
+            The new object will be merged with the existing value.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1133,6 +1187,7 @@ class OrganizationsSDK(BaseSDK):
                 "json",
                 models.MergeOrganizationMetadataRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1153,7 +1208,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="MergeOrganizationMetadata",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1163,7 +1218,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organization], http_res)
+            return unmarshal_json_response(models.Organization, http_res)
         if utils.match_response(
             http_res, ["400", "401", "404", "422"], "application/json"
         ):
@@ -1188,7 +1243,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organization]:
+    ) -> models.Organization:
         r"""Merge and update metadata for an organization
 
         Update organization metadata attributes by merging existing values with the provided parameters.
@@ -1197,8 +1252,10 @@ class OrganizationsSDK(BaseSDK):
         You can remove metadata keys at any level by setting their value to `null`.
 
         :param organization_id: The ID of the organization for which metadata will be merged or updated
-        :param public_metadata: Metadata saved on the organization, that is visible to both your frontend and backend. The new object will be merged with the existing value.
-        :param private_metadata: Metadata saved on the organization that is only visible to your backend. The new object will be merged with the existing value.
+        :param public_metadata: Metadata saved on the organization, that is visible to both your frontend and backend.
+            The new object will be merged with the existing value.
+        :param private_metadata: Metadata saved on the organization that is only visible to your backend.
+            The new object will be merged with the existing value.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -1242,6 +1299,7 @@ class OrganizationsSDK(BaseSDK):
                 "json",
                 models.MergeOrganizationMetadataRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1262,7 +1320,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="MergeOrganizationMetadata",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1272,7 +1330,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organization], http_res)
+            return unmarshal_json_response(models.Organization, http_res)
         if utils.match_response(
             http_res, ["400", "401", "404", "422"], "application/json"
         ):
@@ -1300,7 +1358,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationWithLogo]:
+    ) -> models.OrganizationWithLogo:
         r"""Upload a logo for the organization
 
         Set or replace an organization's logo, by uploading an image file.
@@ -1354,6 +1412,7 @@ class OrganizationsSDK(BaseSDK):
                 "multipart",
                 Optional[models.UploadOrganizationLogoRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1374,7 +1433,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UploadOrganizationLogo",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1384,9 +1443,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationWithLogo], http_res
-            )
+            return unmarshal_json_response(models.OrganizationWithLogo, http_res)
         if utils.match_response(
             http_res, ["400", "403", "404", "413"], "application/json"
         ):
@@ -1414,7 +1471,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OrganizationWithLogo]:
+    ) -> models.OrganizationWithLogo:
         r"""Upload a logo for the organization
 
         Set or replace an organization's logo, by uploading an image file.
@@ -1468,6 +1525,7 @@ class OrganizationsSDK(BaseSDK):
                 "multipart",
                 Optional[models.UploadOrganizationLogoRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1488,7 +1546,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UploadOrganizationLogo",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1498,9 +1556,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OrganizationWithLogo], http_res
-            )
+            return unmarshal_json_response(models.OrganizationWithLogo, http_res)
         if utils.match_response(
             http_res, ["400", "403", "404", "413"], "application/json"
         ):
@@ -1523,7 +1579,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organization]:
+    ) -> models.Organization:
         r"""Delete the organization's logo.
 
         Delete the organization's logo.
@@ -1561,6 +1617,7 @@ class OrganizationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1581,7 +1638,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteOrganizationLogo",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1591,7 +1648,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organization], http_res)
+            return unmarshal_json_response(models.Organization, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1612,7 +1669,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.Organization]:
+    ) -> models.Organization:
         r"""Delete the organization's logo.
 
         Delete the organization's logo.
@@ -1650,6 +1707,7 @@ class OrganizationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1670,7 +1728,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteOrganizationLogo",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1680,7 +1738,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.Organization], http_res)
+            return unmarshal_json_response(models.Organization, http_res)
         if utils.match_response(http_res, "404", "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1701,7 +1759,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.CommerceSubscription]:
+    ) -> models.CommerceSubscription:
         r"""Retrieve an organization's billing subscription
 
         Retrieves the billing subscription for the specified organization.
@@ -1741,6 +1799,7 @@ class OrganizationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1761,7 +1820,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetOrganizationBillingSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1771,9 +1830,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.CommerceSubscription], http_res
-            )
+            return unmarshal_json_response(models.CommerceSubscription, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):
@@ -1799,7 +1856,7 @@ class OrganizationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.CommerceSubscription]:
+    ) -> models.CommerceSubscription:
         r"""Retrieve an organization's billing subscription
 
         Retrieves the billing subscription for the specified organization.
@@ -1839,6 +1896,7 @@ class OrganizationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1859,7 +1917,7 @@ class OrganizationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetOrganizationBillingSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1869,9 +1927,7 @@ class OrganizationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.CommerceSubscription], http_res
-            )
+            return unmarshal_json_response(models.CommerceSubscription, http_res)
         if utils.match_response(
             http_res, ["400", "401", "403", "404", "422"], "application/json"
         ):

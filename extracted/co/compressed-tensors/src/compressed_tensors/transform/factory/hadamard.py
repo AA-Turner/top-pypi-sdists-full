@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import List, Optional
 
 import torch
 from compressed_tensors.transform import TransformArgs, TransformScheme
@@ -51,26 +51,29 @@ class HadamardFactory(TransformFactory):
         :param module: parent module that transform will be applied to
         :param args: defines how the transform will be applied to the module
         """
-        assert hasattr(module, "weight")
         size = get_transform_size(module, args.location, self.scheme.head_dim)
-        dtype = self.scheme.precision
-        device = get_offloaded_device(module)
         exec_device = get_execution_device(module)
+        device = get_offloaded_device(module)
+        precision = self.scheme.precision if args.is_online() else torch.float64
 
-        factory_kwargs = {"construct_device": exec_device}
-        weight = self.weights.get(size, dtype, device, factory_kwargs=factory_kwargs)
+        factory_kwargs = {
+            "device": device,
+            "construct_device": exec_device,
+            "precision": precision,
+        }
+        weight = self.weights.get(size, factory_kwargs=factory_kwargs)
+        # TODO: permutations should be keyed by fused modules, not weight
         perm = self.perms[weight] if self.scheme.randomize else None
         return HadamardTransform(weight, perm, self.scheme, args, type(module))
 
     def _create_weight(
         self,
         size: int,
-        dtype: dtype,
         device: device,
         construct_device: device,
+        precision: dtype,
     ) -> Parameter:
-        # construct on execution device, cache on offload device
-        data = deterministic_hadamard_matrix(size, dtype, construct_device)
+        data = deterministic_hadamard_matrix(size, precision, construct_device)
         data = data.to(device=device)
         return Parameter(data, requires_grad=self.scheme.requires_grad)
 
@@ -80,6 +83,8 @@ class HadamardFactory(TransformFactory):
 
 
 class HadamardTransform(TransformBase):
+    _dynamic_tied_weights_keys: List[str] = ["weight", "perm"]
+
     def __init__(
         self,
         weight: Parameter,
@@ -94,8 +99,7 @@ class HadamardTransform(TransformBase):
         self.scheme = scheme
         self.args = args
         self.module_type = module_type
-        self._scale = torch.tensor(weight.size(0), dtype=self.scheme.precision).sqrt()
-        self._precision = scheme.precision if args.is_online() else torch.float64
+        self._scale = torch.tensor(weight.size(0), dtype=torch.float64).sqrt()
 
     def forward(self, value: Tensor) -> Tensor:
         weight = self.weight
@@ -108,8 +112,8 @@ class HadamardTransform(TransformBase):
 
         return (
             apply_transform_weight(
-                weight.to(self._precision),
-                value.to(self._precision),
+                weight.to(device=value.device),
+                value.to(dtype=weight.dtype),
                 self.args.location,
                 self.module_type,
             )

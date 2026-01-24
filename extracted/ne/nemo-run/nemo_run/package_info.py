@@ -13,7 +13,7 @@
 # limitations under the License.
 from packaging.version import Version
 
-__version__ = "0.5.0"
+__version__ = "0.7.0"
 
 MAJOR = Version(__version__).major
 MINOR = Version(__version__).minor
@@ -28,8 +28,8 @@ DEV = Version(__version__).dev
 __package_name__ = "nemo_run"
 __contact_names__ = "NVIDIA"
 __contact_emails__ = "nemo-toolkit@nvidia.com"
-__repository_url__ = "https://github.com/NVIDIA/NeMo-Run"
-__download_url__ = "https://github.com/NVIDIA/NeMo-Run/releases"
+__repository_url__ = "https://github.com/NVIDIA-NeMo/Run"
+__download_url__ = "https://github.com/NVIDIA-NeMo/Run/releases"
 __description__ = "A powerful tool designed to streamline the configuration, execution and management of Machine Learning experiments across various computing environments."
 __license__ = "Apache2"
 __keywords__ = "deep learning, machine learning, gpu, NLP, NeMo, nvidia, pytorch, torch, language, preprocessing, LLM, large language model"

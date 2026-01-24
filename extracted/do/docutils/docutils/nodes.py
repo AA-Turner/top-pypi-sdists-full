@@ -1,4 +1,4 @@
-# $Id: nodes.py 10227 2025-09-05 14:07:30Z milde $
+# $Id: nodes.py 10272 2025-12-14 13:20:59Z milde $
 # Author: David Goodger <goodger@python.org>
 # Maintainer: docutils-develop@lists.sourceforge.net
 # Copyright: This module has been placed in the public domain.
@@ -1995,14 +1995,14 @@ class document(Root, Element):
     # "note" here is an imperative verb: "take note of".
     def note_implicit_target(
             self, target: Element, msgnode: Element | None = None) -> None:
-        # TODO: Postpone ID creation.  Register reference name instead of ID
-        # to allow for IDs based on explicit target pointing to the same
-        # element.  https://github.com/sphinx-doc/sphinx/issues/1961
+        # TODO: Postpone ID creation and register reference name instead of ID?
         id = self.set_id(target, msgnode)
         self.set_name_id_map(target, id, msgnode, explicit=False)
 
     def note_explicit_target(
             self, target: Element, msgnode: Element | None = None) -> None:
+        # TODO: if the id matching the name is applied to an implicid target,
+        # transfer it to this target and put a "disambiguated" id on the other.
         id = self.set_id(target, msgnode)
         self.set_name_id_map(target, id, msgnode, explicit=True)
 

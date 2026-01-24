@@ -107,10 +107,11 @@ def setupMetaData():
         b"UniCharArrayOfCount:In:",
         {
             "arguments": {
-                3: {
+                2
+                + 1: {
                     "type": objc._C_PTR + objc._C_UNICHAR,
                     "type_modifier": objc._C_IN,
-                    "c_array_of_lenght_in_arg": 2,
+                    "c_array_length_in_arg": 2 + 0,
                 }
             }
         },
@@ -123,7 +124,7 @@ def setupMetaData():
                 3: {
                     "type": objc._C_PTR + objc._C_UNICHAR,
                     "type_modifier": objc._C_OUT,
-                    "c_array_of_lenght_in_arg": 2,
+                    "c_array_length_in_arg": 2,
                 }
             }
         },
@@ -136,7 +137,7 @@ def setupMetaData():
                 3: {
                     "type": objc._C_PTR + objc._C_UNICHAR,
                     "type_modifier": objc._C_INOUT,
-                    "c_array_of_lenght_in_arg": 2,
+                    "c_array_length_in_arg": 2,
                 }
             }
         },
@@ -188,6 +189,11 @@ class TestTypeCode_UniChar(TestCase):
         ):
             o.UniCharArg_andUniCharArg_(400, 401)
 
+        with self.assertRaisesRegex(
+            ValueError, "Expecting string of length 1, got a 'str'"
+        ):
+            o.UniCharArg_andUniCharArg_(chr(70000), 401)
+
     def testStringArgument(self):
         o = OC_TestSpecialTypeCode.alloc().init()
 
@@ -208,6 +214,15 @@ class TestTypeCode_UniChar(TestCase):
         ):
             o.UniCharStringArg_([99, 100, 100, 0])
 
+        with self.assertRaisesRegex(UnicodeEncodeError, "surrogate"):
+            o.UniCharStringArg_("\udfff")
+
+        inval = "\U0001f9c1"
+        self.assertEqual(len(inval), 1)
+        inval.encode("utf-16")
+        outval = o.UniCharStringArg_("\U0001f9c1")
+        self.assertEqual(inval, outval)
+
     def testFixedArrayIn(self):
         o = OC_TestSpecialTypeCode.alloc().init()
 
@@ -220,6 +235,18 @@ class TestTypeCode_UniChar(TestCase):
         a = array.array("h", [200, 300, 400, 500])
         v = o.UniCharArrayOf4In_(a)
         self.assertEqual(v, "".join([chr(200), chr(300), chr(400), chr(500)]))
+
+        inval = "\udfffabc"
+
+        with self.assertRaises(UnicodeEncodeError):
+            inval.encode("utf-16")
+        with self.assertRaises(UnicodeEncodeError):
+            o.UniCharArrayOf4In_(inval)
+
+        inval = "\U0001f9c1bc"
+        self.assertEqual(len(inval.encode("utf-16")), 10)
+        outval = o.UniCharArrayOf4In_(inval)
+        self.assertEqual(inval, outval)
 
     def testFixedArrayOut(self):
         o = OC_TestSpecialTypeCode.alloc().init()
@@ -242,3 +269,11 @@ class TestTypeCode_UniChar(TestCase):
         v, w = o.UniCharArrayOf4InOut_("foot")
         self.assertEqual(v, "foot")
         self.assertEqual(w, "hand")
+
+    def test_counted_array(self):
+        o = OC_TestSpecialTypeCode.alloc().init()
+
+        self.assertArgIsIn(o.UniCharArrayOfCount_In_, 1)
+        self.assertArgSizeInArg(o.UniCharArrayOfCount_In_, 1, 0)
+        r = o.UniCharArrayOfCount_In_(4, "hello there")
+        self.assertEqual(r, "hell")

@@ -9,9 +9,9 @@ use merklehash::MerkleHash;
 use progress_tracking::item_tracking::SingleItemProgressUpdater;
 use progress_tracking::upload_tracking::CompletionTracker;
 
-use crate::error::Result;
 #[cfg(not(target_family = "wasm"))]
 use crate::OutputProvider;
+use crate::error::Result;
 
 /// A Client to the Shard service. The shard service
 /// provides for
@@ -61,9 +61,6 @@ pub trait Client {
         serialized_cas_object: SerializedCasObject,
         upload_tracker: Option<Arc<CompletionTracker>>,
     ) -> Result<u64>;
-
-    /// Check if a XORB already exists.
-    async fn exists(&self, prefix: &str, hash: &MerkleHash) -> Result<bool>;
 
     /// Indicates if the serialized cas object should have a written footer.
     /// This should only be true for testing with LocalClient.

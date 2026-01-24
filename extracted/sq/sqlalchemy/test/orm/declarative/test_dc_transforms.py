@@ -37,6 +37,7 @@ from sqlalchemy.orm import declared_attr
 from sqlalchemy.orm import deferred
 from sqlalchemy.orm import interfaces
 from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import mapped_as_dataclass
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import MappedAsDataclass
 from sqlalchemy.orm import MappedColumn
@@ -307,7 +308,7 @@ class DCTransformsTest(AssertsCompiledSQL, fixtures.TestBase):
 
     # TODO: get this test to work with future anno mode as well
     # anno only: @testing.exclusions.closed("doesn't work for future annotations mode yet")  # noqa: E501
-    @testing.variation("dc_type", ["decorator", "superclass"])
+    @testing.variation("dc_type", ["fn_decorator", "decorator", "superclass"])
     def test_dataclass_fn(self, dc_type: Variation):
         annotations = {}
 
@@ -315,7 +316,19 @@ class DCTransformsTest(AssertsCompiledSQL, fixtures.TestBase):
             annotations[kls] = kls.__annotations__
             return dataclasses.dataclass(kls, **kw)  # type: ignore
 
-        if dc_type.decorator:
+        if dc_type.fn_decorator:
+            reg = registry()
+
+            @mapped_as_dataclass(reg, dataclass_callable=dc_callable)
+            class MappedClass:
+                __tablename__ = "mapped_class"
+
+                id: Mapped[int] = mapped_column(primary_key=True)
+                name: Mapped[str]
+
+            eq_(annotations, {MappedClass: {"id": int, "name": str}})
+
+        elif dc_type.decorator:
             reg = registry()
 
             @reg.mapped_as_dataclass(dataclass_callable=dc_callable)
@@ -493,7 +506,7 @@ class DCTransformsTest(AssertsCompiledSQL, fixtures.TestBase):
         class B(A):
             b_data: Mapped[str] = mapped_column(default="bd")
 
-        # ensure we didnt break dataclasses contract of removing Field
+        # ensure we didn't break dataclasses contract of removing Field
         # issue #8880
         eq_(A.__dict__["some_field"], 5)
         assert "ctrl_one" not in A.__dict__
@@ -769,7 +782,7 @@ class DCTransformsTest(AssertsCompiledSQL, fixtures.TestBase):
             "are not being mixed. ",
         ):
 
-            @registry.mapped_as_dataclass
+            @mapped_as_dataclass(registry)
             class Foo(Mixin):
                 bar_value: Mapped[float] = mapped_column(default=78)
 
@@ -880,6 +893,37 @@ class DCTransformsTest(AssertsCompiledSQL, fixtures.TestBase):
         eq_(fields["id"].metadata, {})
         eq_(fields["value"].metadata, {"meta_key": "meta_value"})
 
+    @testing.requires.python314
+    def test_apply_dc_deferred_annotations(self, dc_decl_base):
+        """test for #12952"""
+
+        class Message(dc_decl_base):
+            __tablename__ = "message"
+
+            id: Mapped[int] = mapped_column(primary_key=True)
+            content: Mapped[str]
+            user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+
+            # annotation is unquoted and refers to nonexistent class (and if
+            # this is test_dc_transforms.py, __future__ annotations is not
+            # turned on), so would be rejected by any python interpreter < 3.14
+            # up front.  with python 3.14, the dataclass scan takes place
+            # and has to fetch the annotations using get_annotations()
+            # so that refs are turned into FwdRef without being resolved
+            user: Mapped[UnavailableUser] = relationship(  # type: ignore  # noqa
+                back_populates="messages"
+            )
+
+        # The key assertion: Message should be a dataclass
+        is_true(dataclasses.is_dataclass(Message))
+
+        # Verify the dataclass has proper __init__ signature
+        sig = pyinspect.signature(Message.__init__)
+        is_true("id" in sig.parameters)
+        is_true("content" in sig.parameters)
+        is_true("user_id" in sig.parameters)
+        is_true("user" in sig.parameters)
+
 
 class RelationshipDefaultFactoryTest(fixtures.TestBase):
     def test_list(self, dc_decl_base: Type[MappedAsDataclass]):
@@ -979,7 +1023,7 @@ class RelationshipDefaultFactoryTest(fixtures.TestBase):
     def test_replace_operation_works_w_history_etc(
         self, registry: _RegistryType
     ):
-        @registry.mapped_as_dataclass
+        @mapped_as_dataclass(registry)
         class A:
             __tablename__ = "a"
 
@@ -992,7 +1036,7 @@ class RelationshipDefaultFactoryTest(fixtures.TestBase):
                 default_factory=list
             )
 
-        @registry.mapped_as_dataclass
+        @mapped_as_dataclass(registry)
         class B:
             __tablename__ = "b"
 
@@ -1453,6 +1497,55 @@ class DataclassesForNonMappedClassesTest(fixtures.TestBase):
         n1 = Novel("the description")
         eq_(n1.description, "the description")
 
+    @testing.requires.python310
+    def test_cpython_142214(self, dc_decl_base):
+        """test for the cpython issue shown in issue #13021"""
+
+        class User(dc_decl_base):
+            __tablename__ = "user_account"
+
+            id: Mapped[int] = mapped_column(init=False, primary_key=True)
+            name: Mapped[str]
+
+        class CreatedByMixin(MappedAsDataclass, kw_only=True):
+            created_by_fk: Mapped[int] = mapped_column(
+                ForeignKey("user_account.id"), init=False
+            )
+
+            @declared_attr
+            @classmethod
+            def created_by(cls) -> Mapped[User]:
+                return relationship(foreign_keys=[cls.created_by_fk])
+
+        class Item(CreatedByMixin, dc_decl_base, kw_only=True):
+            __tablename__ = "item"
+
+            id: Mapped[int] = mapped_column(init=False, primary_key=True)
+            description: Mapped[str]
+
+        class SpecialItem(Item, kw_only=True):
+            __tablename__ = "special_item"
+
+            id: Mapped[int] = mapped_column(
+                ForeignKey("item.id"), init=False, primary_key=True
+            )
+            special_description: Mapped[str]
+
+        special_item = SpecialItem(
+            special_description="sd1",
+            description="d1",
+            created_by=User(name="u1"),
+        )
+
+        eq_(
+            special_item,
+            SpecialItem(
+                special_description="sd1",
+                description="d1",
+                created_by=User(name="u1"),
+            ),
+        )
+
 
 class DataclassArgsTest(fixtures.TestBase):
     dc_arg_names = ("init", "repr", "eq", "order", "unsafe_hash")
@@ -1681,13 +1774,20 @@ class DataclassArgsTest(fixtures.TestBase):
             )
             eq_(fas.kwonlyargs, [])
 
+    @testing.variation("decorator_type", ["fn", "method"])
     def test_dc_arguments_decorator(
         self,
         dc_argument_fixture,
         mapped_expr_constructor,
         registry: _RegistryType,
+        decorator_type,
     ):
-        @registry.mapped_as_dataclass(**dc_argument_fixture[0])
+        if decorator_type.fn:
+            dec = mapped_as_dataclass(registry, **dc_argument_fixture[0])
+        else:
+            dec = registry.mapped_as_dataclass(**dc_argument_fixture[0])
+
+        @dec
         class A:
             __tablename__ = "a"
 

@@ -3,7 +3,7 @@ Type annotations for keyspacesstreams service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_keyspacesstreams/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -22,11 +22,6 @@ from typing import Any
 
 from .literals import OriginTypeType, ShardIteratorTypeType, StreamStatusType, StreamViewTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -67,7 +62,7 @@ class GetRecordsInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -143,18 +138,18 @@ class GetStreamInputTypeDef(TypedDict):
 
 
 class KeyspacesCellMapDefinitionTypeDef(TypedDict):
-    key: NotRequired[Dict[str, Any]]
-    value: NotRequired[Dict[str, Any]]
+    key: NotRequired[dict[str, Any]]
+    value: NotRequired[dict[str, Any]]
     metadata: NotRequired[KeyspacesMetadataTypeDef]
 
 
 class KeyspacesCellTypeDef(TypedDict):
-    value: NotRequired[Dict[str, Any]]
+    value: NotRequired[dict[str, Any]]
     metadata: NotRequired[KeyspacesMetadataTypeDef]
 
 
 class ListStreamsOutputTypeDef(TypedDict):
-    streams: List[StreamTypeDef]
+    streams: list[StreamTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -162,7 +157,7 @@ class ListStreamsOutputTypeDef(TypedDict):
 class ShardTypeDef(TypedDict):
     shardId: NotRequired[str]
     sequenceNumberRange: NotRequired[SequenceNumberRangeTypeDef]
-    parentShardIds: NotRequired[List[str]]
+    parentShardIds: NotRequired[list[str]]
 
 
 class KeyspacesCellValueTypeDef(TypedDict):
@@ -177,25 +172,25 @@ class KeyspacesCellValueTypeDef(TypedDict):
     floatT: NotRequired[str]
     inetT: NotRequired[str]
     intT: NotRequired[str]
-    listT: NotRequired[List[KeyspacesCellTypeDef]]
-    mapT: NotRequired[List[KeyspacesCellMapDefinitionTypeDef]]
-    setT: NotRequired[List[KeyspacesCellTypeDef]]
+    listT: NotRequired[list[KeyspacesCellTypeDef]]
+    mapT: NotRequired[list[KeyspacesCellMapDefinitionTypeDef]]
+    setT: NotRequired[list[KeyspacesCellTypeDef]]
     smallintT: NotRequired[str]
     textT: NotRequired[str]
     timeT: NotRequired[str]
     timestampT: NotRequired[str]
     timeuuidT: NotRequired[str]
     tinyintT: NotRequired[str]
-    tupleT: NotRequired[List[KeyspacesCellTypeDef]]
+    tupleT: NotRequired[list[KeyspacesCellTypeDef]]
     uuidT: NotRequired[str]
     varcharT: NotRequired[str]
     varintT: NotRequired[str]
-    udtT: NotRequired[Dict[str, KeyspacesCellTypeDef]]
+    udtT: NotRequired[dict[str, KeyspacesCellTypeDef]]
 
 
 class KeyspacesRowTypeDef(TypedDict):
-    valueCells: NotRequired[Dict[str, KeyspacesCellTypeDef]]
-    staticCells: NotRequired[Dict[str, KeyspacesCellTypeDef]]
+    valueCells: NotRequired[dict[str, KeyspacesCellTypeDef]]
+    staticCells: NotRequired[dict[str, KeyspacesCellTypeDef]]
     rowMetadata: NotRequired[KeyspacesMetadataTypeDef]
 
 
@@ -207,7 +202,7 @@ class GetStreamOutputTypeDef(TypedDict):
     creationRequestDateTime: datetime
     keyspaceName: str
     tableName: str
-    shards: List[ShardTypeDef]
+    shards: list[ShardTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -216,14 +211,14 @@ class RecordTypeDef(TypedDict):
     eventVersion: NotRequired[str]
     createdAt: NotRequired[datetime]
     origin: NotRequired[OriginTypeType]
-    partitionKeys: NotRequired[Dict[str, KeyspacesCellValueTypeDef]]
-    clusteringKeys: NotRequired[Dict[str, KeyspacesCellValueTypeDef]]
+    partitionKeys: NotRequired[dict[str, KeyspacesCellValueTypeDef]]
+    clusteringKeys: NotRequired[dict[str, KeyspacesCellValueTypeDef]]
     newImage: NotRequired[KeyspacesRowTypeDef]
     oldImage: NotRequired[KeyspacesRowTypeDef]
     sequenceNumber: NotRequired[str]
 
 
 class GetRecordsOutputTypeDef(TypedDict):
-    changeRecords: List[RecordTypeDef]
+    changeRecords: list[RecordTypeDef]
     nextShardIterator: str
     ResponseMetadata: ResponseMetadataTypeDef

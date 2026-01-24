@@ -10,7 +10,6 @@ import pickle
 import threading
 import time
 from typing import Any
-from typing import Callable as TypingCallable
 from unittest.mock import MagicMock
 from unittest.mock import Mock
 from unittest.mock import patch
@@ -45,7 +44,7 @@ from optuna.trial import FrozenTrial
 from optuna.trial import TrialState
 
 
-CallbackFuncType = TypingCallable[[Study, FrozenTrial], None]
+CallbackFuncType = Callable[[Study, FrozenTrial], None]
 
 NUM_MINIMAL_TRIALS = 2
 MINIMUM_TIMEOUT_SEC = 0.01
@@ -468,9 +467,10 @@ def test_delete_study(storage_mode: str) -> None:
 @pytest.mark.parametrize("from_storage_mode", STORAGE_MODES)
 @pytest.mark.parametrize("to_storage_mode", STORAGE_MODES)
 def test_copy_study(from_storage_mode: str, to_storage_mode: str) -> None:
-    with StorageSupplier(from_storage_mode) as from_storage, StorageSupplier(
-        to_storage_mode
-    ) as to_storage:
+    with (
+        StorageSupplier(from_storage_mode) as from_storage,
+        StorageSupplier(to_storage_mode) as to_storage,
+    ):
         from_study = create_study(storage=from_storage, directions=["maximize", "minimize"])
         from_study._storage.set_study_system_attr(from_study._study_id, "foo", "bar")
         from_study.set_user_attr("baz", "qux")
@@ -498,9 +498,10 @@ def test_copy_study(from_storage_mode: str, to_storage_mode: str) -> None:
 @pytest.mark.parametrize("from_storage_mode", STORAGE_MODES)
 @pytest.mark.parametrize("to_storage_mode", STORAGE_MODES)
 def test_copy_study_to_study_name(from_storage_mode: str, to_storage_mode: str) -> None:
-    with StorageSupplier(from_storage_mode) as from_storage, StorageSupplier(
-        to_storage_mode
-    ) as to_storage:
+    with (
+        StorageSupplier(from_storage_mode) as from_storage,
+        StorageSupplier(to_storage_mode) as to_storage,
+    ):
         from_study = create_study(study_name="foo", storage=from_storage)
         _ = create_study(study_name="foo", storage=to_storage)
 
@@ -1200,7 +1201,7 @@ def test_optimize_with_multi_objectives(n_objectives: int) -> None:
     study = create_study(directions=directions)
 
     def objective(trial: Trial) -> list[float]:
-        return [trial.suggest_float("v{}".format(i), 0, 5) for i in range(n_objectives)]
+        return [trial.suggest_float(f"v{i}", 0, 5) for i in range(n_objectives)]
 
     study.optimize(objective, n_trials=NUM_MINIMAL_TRIALS)
 
@@ -1284,7 +1285,7 @@ def test_wrong_n_objectives() -> None:
     study = create_study(directions=directions)
 
     def objective(trial: Trial) -> list[float]:
-        return [trial.suggest_float("v{}".format(i), 0, 5) for i in range(n_objectives + 1)]
+        return [trial.suggest_float(f"v{i}", 0, 5) for i in range(n_objectives + 1)]
 
     study.optimize(objective, n_trials=NUM_MINIMAL_TRIALS)
 

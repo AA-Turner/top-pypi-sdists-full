@@ -42,7 +42,7 @@ def llm_validator(
 
     Parameters:
         statement (str): The statement to validate
-        model (str): The LLM to use for validation (default: "gpt-3.5-turbo-0613")
+        model (str): The LLM to use for validation (default: "gpt-4o-mini")
         temperature (float): The temperature to use for the LLM (default: 0)
         client (OpenAI): The OpenAI client to use (default: None)
     """

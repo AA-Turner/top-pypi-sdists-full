@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import warnings
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
@@ -31,6 +32,9 @@ from pywinauto.mouse import double_click
 from pywinauto_recorder.player import set_combobox
 from rich.console import Console
 import win32clipboard
+from playwright._impl._driver import compute_driver_executable
+from playwright.async_api import async_playwright
+
 
 from worker_automate_hub.config.settings import load_worker_config
 from worker_automate_hub.decorators.repeat import repeat
@@ -339,9 +343,27 @@ async def login_emsys_fiscal(
         message="32-bit application should be automated using 32-bit Python",
     )
     await worker_sleep(2)
-    filial_cod = task.configEntrada.get("empresa")
-    if filial_cod == None:
-        filial_cod = task.configEntrada.get("filialEmpresaOrigem")
+    filial_cod = (
+    task.configEntrada.get("empresa")
+    or task.configEntrada.get("filialEmpresaOrigem")
+    or task.configEntrada.get("descricaoFilial")
+    )
+
+    # Extrai apenas os dígitos iniciais da string
+    num = None
+    if filial_cod is not None:
+        s = str(filial_cod).strip()
+        m = re.match(r'^(\d+)', s)          # pega o número do INÍCIO
+        if not m:
+            m = re.search(r'\d+', s)        # fallback: primeiro número que aparecer
+        if m:
+            num = m.group(1)
+
+    if num is None:
+        raise ValueError(f"Não foi possível extrair número de: {filial_cod!r}")
+
+    filial_cod = num
+        
     console.print(f"Empresa a ser processada: {filial_cod}")
 
     try:
@@ -495,7 +517,7 @@ async def login_emsys_fiscal(
                 )
             else:
                 i = i + 1
-                await worker_sleep(1)
+                await worker_sleep(3)
 
         if i >= max_attempts:
             return RpaRetornoProcessoDTO(
@@ -704,10 +726,23 @@ async def login_emsys_old(
         )
 
 #Login novo
-async def login_emsys(config: dict, app, task: RpaProcessoEntradaDTO, **kwargs):
-    # Para processos onde a config_entrada é enviada vazia, obtemos
-    # o número da filial através do **kwargs
-    filial_origem = kwargs.get("filial_origem", None)
+async def login_emsys(config: dict, app, task: RpaProcessoEntradaDTO, filial_origem=None, **kwargs):
+    # Fonte de verdade: param explícito > kwargs > task.configEntrada
+    filial_origem = (
+        filial_origem
+        or kwargs.get("filial_origem")
+        or kwargs.get("descricaoFilial")
+        or (getattr(task, "configEntrada", {}) or {}).get("descricaoFilial")
+        or (getattr(task, "configEntrada", {}) or {}).get("codigoEmpresa")
+        or (getattr(task, "configEntrada", {}) or {}).get("filialEmpresaOrigem")
+    )
+
+    # Extrai só o número (ex.: "69" de "69 - Gravataí Free Way")
+    if filial_origem:
+        m = re.search(r"\d+", str(filial_origem))
+        if m:
+            filial_origem = m.group(0)
+
     warnings.filterwarnings(
         "ignore",
         category=UserWarning,
@@ -2029,7 +2064,7 @@ async def faturar_pre_venda(task: RpaProcessoEntradaDTO) -> dict:
         logger.info(log_msg)
         console.print(log_msg, style="bold yellow")
 
-    await worker_sleep(8)
+    await worker_sleep(13)
 
     # Seleciona Modelo
     console.log("Selecionando o modelo...\n", style="bold green")
@@ -2040,11 +2075,8 @@ async def faturar_pre_venda(task: RpaProcessoEntradaDTO) -> dict:
         combo_box_model = main_window.child_window(
             class_name="TDBIComboBox", found_index=1
         )
-        combo_box_model.click()
-
-        await worker_sleep(3)
-        set_combobox("||List", "NFe - NOTA FISCAL ELETRONICA PROPRIA - DANFE SERIE 077")
-        await worker_sleep(3)
+        combo_box_model.select("NFe - NOTA FISCAL ELETRONICA PROPRIA - DANFE SERIE 077")
+        
 
     except Exception as e:
 
@@ -5294,3 +5326,6 @@ async def gerenciador_nf_header_retransmissao(
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
         )
+
+async def ensure_browsers_installed():
+    subprocess.run([sys.executable, "-m", "playwright", "install"], check=True)

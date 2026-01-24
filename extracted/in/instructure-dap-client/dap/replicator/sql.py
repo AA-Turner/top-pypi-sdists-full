@@ -36,11 +36,15 @@ class SQLReplicator:
                 explorer, base_connection, self._connection.dialect
             ).upgrade()
 
-    async def _set_tracking_info(self, command: str, namespace: str, table_name: str, conn_ctx: BaseContext) -> None:
+    async def _set_tracking_info(
+        self, command: str, namespace: str, table_name: str, conn_ctx: BaseContext
+    ) -> None:
         if self._session.tracking_data:
             self._session.tracking_data.set_cmd_info(command, namespace, table_name)
             self._session.tracking_data.db_dialect = self._connection.dialect
-            self._session.tracking_data.db_version = await self._connection.get_version(self._connection.dialect, conn_ctx)
+            self._session.tracking_data.db_version = await self._connection.get_version(
+                self._connection.dialect, conn_ctx
+            )
 
     async def initialize(
         self,
@@ -50,7 +54,10 @@ class SQLReplicator:
         logger.debug(f"initializing table: {namespace}.{table_name}")
 
         async with self._connection.connection as base_connection:
-            await self._set_tracking_info("initdb", namespace, table_name, base_connection)
+            await self._connection.check_db_defaults(base_connection)
+            await self._set_tracking_info(
+                "initdb", namespace, table_name, base_connection
+            )
             explorer = self._connection.engine.create_explorer(base_connection)
 
             # Currently, in case of web logs, due to upstream 'at-least-once' logic,
@@ -78,7 +85,10 @@ class SQLReplicator:
         logger.debug(f"synchronizing table: {namespace}.{table_name}")
 
         async with self._connection.connection as base_connection:
-            await self._set_tracking_info("syncdb", namespace, table_name, base_connection)
+            await self._connection.check_db_defaults(base_connection)
+            await self._set_tracking_info(
+                "syncdb", namespace, table_name, base_connection
+            )
             explorer = self._connection.engine.create_explorer(base_connection)
 
             sync_op: SqlOp = SqlOpSync(
@@ -131,13 +141,17 @@ class SQLDrop:
                 logger.warning(f"no tables to drop in namespace {namespace}")
                 ui.warning(f"No tables to drop in namespace [bold]{namespace}[/bold]")
             else:
-                ui.title(f"Deleting [bold]{len(table_names_to_delete)}[/bold] table(s) in namespace [bold]{namespace}[/bold]")
+                ui.title(
+                    f"Deleting [bold]{len(table_names_to_delete)}[/bold] table(s) in namespace [bold]{namespace}[/bold]"
+                )
 
             exceptions = []
             for idx, table_name in enumerate(table_names_to_delete):
                 tables_idx_progress_str = ""
                 if len(table_names_to_delete) > 1:
-                    tables_idx_progress_str = f" ({idx + 1} of {len(table_names_to_delete)})"
+                    tables_idx_progress_str = (
+                        f" ({idx + 1} of {len(table_names_to_delete)})"
+                    )
                 try:
                     drop_op: SqlOp = SqlOpDrop(
                         conn=base_connection,
@@ -146,12 +160,16 @@ class SQLDrop:
                         explorer=explorer,
                     )
                     await drop_op.run()
-                    ui.success(f"Deleted table [bold]{table_name}[/bold]{tables_idx_progress_str}")
+                    ui.success(
+                        f"Deleted table [bold]{table_name}[/bold]{tables_idx_progress_str}"
+                    )
                     logger.info(
                         f"Deleted table '{table_name}'{tables_idx_progress_str}"
                     )
                 except Exception as e:
-                    ui.error(f"Could not delete table [bold]{table_name}[/bold]{tables_idx_progress_str}. Reason: {e}")
+                    ui.error(
+                        f"Could not delete table [bold]{table_name}[/bold]{tables_idx_progress_str}. Reason: {e}"
+                    )
                     logger.error(
                         f"Could not delete table '{table_name}'{tables_idx_progress_str}. Reason: {e}"
                     )

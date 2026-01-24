@@ -12,7 +12,6 @@ from jsonargparse import (
     ArgumentError,
     ArgumentParser,
     Namespace,
-    strip_meta,
 )
 from jsonargparse_tests.conftest import (
     get_parse_args_stderr,
@@ -72,7 +71,7 @@ def test_subcommands_not_given_when_many_subcommands(parser, subparser):
 
 
 def test_subcommands_missing_required_subargument(subcommands_parser):
-    with pytest.raises(ArgumentError, match='Key "a.ap1" is required'):
+    with pytest.raises(ArgumentError, match="Option 'a.ap1' is required"):
         subcommands_parser.parse_args(["a"])
 
 
@@ -119,20 +118,49 @@ def test_subcommands_parse_args_config(subcommands_parser):
     }
 
 
+def test_subcommands_parse_args_error_config_before_subcommand(parser, subparser):
+    subparser.add_argument("--sp1")
+    subcommands = parser.add_subcommands(required=False)
+    subcommands.add_subcommand("a", subparser)
+    parser.add_argument("--cfg", action="config")
+    parser.prog = "app"
+    parser.exit_on_error = True
+    err = get_parse_args_stderr(parser, ['--cfg={"sp1": "x"}', "a"])
+    assert "Option 'sp1' is not accepted before subcommand 'a'" in err
+    assert "For details of accepted options run: app --help" in err
+    err = get_parse_args_stderr(parser, ['--cfg={"sp1": "x"}'])
+    assert "Option 'sp1' is not accepted before subcommand {a,...}" in err
+    assert "For details of accepted options run: app --help" in err
+    assert "usage: app [--cfg CFG] {a} ..." in err
+
+
+def test_subcommands_parse_args_error_config_after_subcommand(parser, subparser):
+    parser.prog = "app"
+    parser.exit_on_error = True
+    subparser.add_argument("--sp1")
+    subcommands = parser.add_subcommands(required=False)
+    subcommands.add_subcommand("a", subparser)
+    parser.add_argument("--cfg", action="config")
+    err = get_parse_args_stderr(parser, ['--cfg={"a": {"sp2": "x"}}'])
+    assert "Subcommand 'a' does not accept option 'sp2'" in err
+    assert "For details of accepted options run: app a --help" in err
+    assert "usage: app [options] a [--sp1 SP1]" in err
+
+
 def test_subcommands_parse_string_implicit_subcommand(subcommands_parser):
     cfg = subcommands_parser.parse_string('{"a": {"ap1": "ap1_cfg"}}').as_dict()
     assert cfg["subcommand"] == "a"
     assert cfg["a"] == {"ap1": "ap1_cfg", "ao1": "ao1_def"}
     with pytest.raises(ArgumentError) as ctx:
         subcommands_parser.parse_string('{"a": {"ap1": "ap1_cfg", "unk": "unk_cfg"}}')
-    ctx.match("Subcommand 'a' does not accept nested key 'unk'")
+    ctx.match("Subcommand 'a' does not accept option 'unk'")
 
 
 def test_subcommands_parse_string_first_implicit_subcommand(subcommands_parser):
     with warnings.catch_warnings(record=True) as w:
         cfg = subcommands_parser.parse_string('{"a": {"ap1": "ap1_cfg"}, "b": {"nums": {"val1": 2}}}')
     assert len(w) == 1
-    assert 'Subcommand "a" will be used' in str(w[0].message)
+    assert "Subcommand 'a' will be used" in str(w[0].message)
     assert cfg.subcommand == "a"
     assert "b" not in cfg
 
@@ -224,9 +252,9 @@ def test_subcommand_default_config_repeated_keys(parser, subparser, tmp_cwd):
     subcommands = parser.add_subcommands()
     subcommands.add_subcommand("test", subparser)
 
-    cfg = parser.parse_args([], with_meta=False)
+    cfg = parser.parse_args([]).clone(with_meta=False)
     assert cfg == Namespace(subcommand="test", test=Namespace(test="value"))
-    cfg = parser.parse_args(["test", "--test=x"], with_meta=False)
+    cfg = parser.parse_args(["test", "--test=x"]).clone(with_meta=False)
     assert cfg == Namespace(subcommand="test", test=Namespace(test="x"))
 
 
@@ -241,9 +269,9 @@ def test_subsubcommand_default_config_repeated_keys(parser, subparser, tmp_cwd):
     subcommands2 = subparser.add_subcommands()
     subcommands2.add_subcommand("test", subsubparser)
 
-    cfg = parser.parse_args([], with_meta=False)
+    cfg = parser.parse_args([]).clone(with_meta=False)
     assert cfg.as_dict() == {"subcommand": "test", "test": {"subcommand": "test", "test": {"test": "value"}}}
-    cfg = parser.parse_args(["test", "test", "--test=x"], with_meta=False)
+    cfg = parser.parse_args(["test", "test", "--test=x"]).clone(with_meta=False)
     assert cfg.as_dict() == {"subcommand": "test", "test": {"subcommand": "test", "test": {"test": "x"}}}
 
 
@@ -258,7 +286,7 @@ def test_subcommand_required_arg_in_default_config(parser, subparser, tmp_cwd):
     subcommands.add_subcommand("prepare", subparser)
     cfg = parser.parse_args([])
     assert str(cfg.__default_config__) == "config.yaml"
-    assert strip_meta(cfg) == Namespace(output="test", prepare=Namespace(media="test"), subcommand="prepare")
+    assert cfg.clone(with_meta=False) == Namespace(output="test", prepare=Namespace(media="test"), subcommand="prepare")
 
 
 class SubModel:
@@ -308,7 +336,7 @@ def test_subsubcommands_parse_args(subtests):
     parser_s2_b = ArgumentParser(exit_on_error=False)
     parser_s2_b.add_argument("--os2b", default="os2b_def")
 
-    parser = ArgumentParser(prog="app", exit_on_error=False, default_meta=False)
+    parser = ArgumentParser(prog="app", exit_on_error=False)
     subcommands1 = parser.add_subcommands()
     subcommands1.add_subcommand("a", parser_s1_a)
 
@@ -374,10 +402,9 @@ def test_subcommands_custom_instantiator(parser, subparser, subtests):
         assert init.cmd.cls.call == "subparser"
 
 
-def test_subsubcommand_default_env_true(parser, subparser):
+def test_subsubcommand_default_env_true(parser, subparser, subsubparser):
     parser.default_env = True
     parser.env_prefix = "APP"
-    subsubparser = ArgumentParser()
     subsubparser.add_argument("--v", type=int, default=1)
     subcommands1 = parser.add_subcommands()
     subcommands1.add_subcommand("s1", subparser)
@@ -389,3 +416,67 @@ def test_subsubcommand_default_env_true(parser, subparser):
     with patch.dict(os.environ, {"APP_SUBCOMMAND": "s1", "APP_S1__SUBCOMMAND": "s2"}):
         cfg = parser.parse_args([])
     assert cfg == Namespace(subcommand="s1", s1=Namespace(subcommand="s2", s2=Namespace(v=1)))
+
+
+@pytest.mark.parametrize("default_env", [True, False])
+def test_subsubcommand_default_config_files(parser, subparser, subsubparser, default_env, tmp_cwd):
+    config = {"val0": 123, "cmd1": {"val1": 456, "cmd2": {"val2": 789}}}
+    Path("config.json").write_text(json.dumps(config))
+    parser.default_env = default_env
+    parser.default_config_files = ["config.json"]
+    parser.add_argument("--val0")
+    subparser.add_argument("--val1")
+    subsubparser.add_argument("--val2")
+    subcommands = parser.add_subcommands()
+    subcommands.add_subcommand("cmd1", subparser)
+    subsubcommands = subparser.add_subcommands()
+    subsubcommands.add_subcommand("cmd2", subsubparser)
+
+    cfg = parser.parse_args([])
+    assert cfg.clone(with_meta=False) == Namespace(
+        val0=123, subcommand="cmd1", cmd1=Namespace(val1=456, subcommand="cmd2", cmd2=Namespace(val2=789))
+    )
+
+
+def test_subcommands_in_default_config_files(parser, subtests, tmp_cwd):
+    parser.default_config_files = ["defaults.json"]
+    subs = parser.add_subcommands(required=True, dest="sub")
+    sub1 = ArgumentParser()
+    sub1.add_argument("--sub1val")
+    subs.add_subcommand("sub1", sub1)
+    sub2 = ArgumentParser()
+    sub2.add_argument("--sub2val")
+    subs.add_subcommand("sub2", sub2)
+
+    defaults: dict = {
+        "sub1": {"sub1val": 2},
+        "sub2": {"sub2val": 3},
+    }
+    Path("defaults.json").write_text(json.dumps(defaults))
+
+    with subtests.test("choose subcommand defaults"):
+        cfg = parser.parse_args(["sub1"])
+        assert cfg.sub == "sub1"
+        assert cfg.sub1 == Namespace(sub1val=2)
+        assert "sub2" not in cfg
+        cfg = parser.parse_args(["sub2"])
+        assert cfg.sub == "sub2"
+        assert cfg.sub2 == Namespace(sub2val=3)
+        assert "sub1" not in cfg
+
+    with subtests.test("implicit subcommand defaults"):
+        with warnings.catch_warnings(record=True) as w:
+            cfg = parser.parse_args([])
+        assert "Subcommand 'sub1' will be used" in str(w[0].message)
+        assert cfg.sub == "sub1"
+        assert cfg.sub1 == Namespace(sub1val=2)
+        assert "sub2" not in cfg
+
+    with subtests.test("no subcommand in defaults"):
+        defaults["sub"] = "sub2"
+        Path("defaults.json").write_text(json.dumps(defaults))
+        err = get_parse_args_stderr(parser, [])
+        assert (
+            "Problem in default config file 'defaults.json': A specific "
+            "subcommand can't be provided in defaults, got 'sub2'"
+        ) in err

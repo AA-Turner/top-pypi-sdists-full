@@ -1,4 +1,6 @@
 import csv
+import dataclasses
+import json
 import platform
 import re
 import string
@@ -17,7 +19,9 @@ from schemathesis.core.errors import (
     SerializationNotPossible,
 )
 from schemathesis.core.transforms import deepclone
+from schemathesis.transport.asgi import ASGI_TRANSPORT
 from schemathesis.transport.requests import REQUESTS_TRANSPORT, RequestsTransport
+from schemathesis.transport.serialization import Binary
 from schemathesis.transport.wsgi import WSGI_TRANSPORT, WSGITransport
 from test.utils import assert_requests_call
 
@@ -304,6 +308,29 @@ def test_unknown_multipart_fields_openapi2(ctx):
         ("note", "foo"),
         ("unknown", "seen"),
     ]
+
+
+@pytest.mark.filterwarnings("error")
+def test_multipart_examples_serialization(ctx, cli, openapi3_base_url, snapshot_cli):
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "multipart/form-data": {
+                                "example": {"key": {}},
+                                "schema": {"title": "Test"},
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
+    assert (
+        cli.run(str(schema_path), f"--url={openapi3_base_url}", "--checks=response_schema_conformance") == snapshot_cli
+    )
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Requires a more complex test setup")
@@ -601,7 +628,7 @@ def test_xml_with_binary(ctx):
     @given(case=schema["/test"]["POST"].as_strategy())
     @settings(max_examples=1)
     def test(case):
-        assert case.as_transport_kwargs()["data"] in ("", "0")
+        assert isinstance(case.as_transport_kwargs()["data"], str)
 
     test()
 
@@ -642,3 +669,275 @@ def test_duplicate_xml_attributes(ctx):
 
     serialized_data = case.as_transport_kwargs()["data"].decode("utf8")
     ElementTree.fromstring(serialized_data)
+
+
+def test_xml_with_referenced_property_schema(ctx):
+    # When a property references a subschema that contains XML configuration
+    schema = ctx.openapi.build_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/xml": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Main",
+                                }
+                            }
+                        },
+                        "required": True,
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Main": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "$ref": "#/components/schemas/IdField",
+                        }
+                    },
+                    "xml": {"name": "Root"},
+                },
+                "IdField": {"type": "integer", "xml": {"name": "custom-id", "attribute": True}},
+            }
+        },
+    )
+
+    schema = schemathesis.openapi.from_dict(schema)
+    case = schema["/test"]["POST"].Case(body={"id": 42})
+
+    # Then the XML should use the configuration from the referenced schema
+    data = REQUESTS_TRANSPORT.serialize_case(case)["data"]
+    assert data == b'<Root custom-id="42"></Root>'
+
+
+def test_xml_with_referenced_array_items(ctx):
+    # When array items reference a subschema with XML configuration
+    schema = ctx.openapi.build_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/xml": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ItemList",
+                                }
+                            }
+                        },
+                        "required": True,
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "ItemList": {
+                    "type": "array",
+                    "items": {"$ref": "#/components/schemas/Item"},
+                    "xml": {"name": "items", "wrapped": True},
+                },
+                "Item": {"type": "integer", "xml": {"name": "item"}},
+            }
+        },
+    )
+
+    schema = schemathesis.openapi.from_dict(schema)
+    case = schema["/test"]["POST"].Case(body=[42, 43])
+
+    # Then the XML should use the referenced item configuration
+    data = REQUESTS_TRANSPORT.serialize_case(case)["data"]
+    assert data == b"<items><item>42</item><item>43</item></items>"
+
+
+def test_xml_with_nested_schema_references(ctx):
+    # When schemas reference other schemas that also contain references with XML config
+    schema = ctx.openapi.build_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/xml": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Container",
+                                }
+                            }
+                        },
+                        "required": True,
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Container": {
+                    "type": "object",
+                    "properties": {"user": {"$ref": "#/components/schemas/User"}},
+                    "xml": {"name": "container"},
+                },
+                "User": {
+                    "type": "object",
+                    "properties": {"profile": {"$ref": "#/components/schemas/Profile"}},
+                    "xml": {"name": "user-data"},
+                },
+                "Profile": {"type": "string", "xml": {"name": "user-profile", "attribute": True}},
+            }
+        },
+    )
+
+    schema = schemathesis.openapi.from_dict(schema)
+    case = schema["/test"]["POST"].Case(body={"user": {"profile": "admin"}})
+
+    # Then XML should resolve the entire reference chain correctly
+    data = REQUESTS_TRANSPORT.serialize_case(case)["data"]
+    assert data == b'<container><user-data user-profile="admin"></user-data></container>'
+
+
+def test_xml_root_tag_from_reference_openapi2(ctx):
+    # When OpenAPI 2.0 schema references a definition for the request body
+    schema = ctx.openapi.build_schema(
+        {
+            "/test": {
+                "post": {
+                    "consumes": [
+                        "application/xml",
+                    ],
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "name": "body",
+                            "required": True,
+                            "schema": {"$ref": "#/definitions/UserProfile"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        definitions={
+            "UserProfile": {"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "integer"}}}
+        },
+        version="2.0",
+    )
+
+    schema = schemathesis.openapi.from_dict(schema)
+    case = schema["/test"]["POST"].Case(body={"name": "John", "age": 30}, media_type="application/xml")
+
+    # Then the root XML tag should be derived from the reference name "UserProfile"
+    data = REQUESTS_TRANSPORT.serialize_case(case)["data"]
+    assert data == b"<UserProfile><name>John</name><age>30</age></UserProfile>"
+
+
+@pytest.mark.parametrize(
+    "target,source,body,expected_content",
+    [
+        ("application/custom+yaml", "application/yaml", {"key": "value"}, "key: value"),
+        ("application/x-yaml-custom", "text/yaml", {"foo": "bar"}, "foo: bar"),
+        ("text/vnd.custom.yaml", "application/yaml", {"name": "test"}, "name: test"),
+    ],
+)
+def test_serializer_alias_single(ctx, target, source, body, expected_content):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "content": {target: {"schema": {"type": "object"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    schemathesis.serializer.alias(target, source)
+
+    try:
+        schema = schemathesis.openapi.from_dict(raw_schema)
+        case = schema["/test"]["POST"].Case(body=body, media_type=target)
+
+        for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT):
+            data = transport.serialize_case(case)["data"]
+            data_str = data.decode() if isinstance(data, bytes) else data
+            assert expected_content in data_str
+    finally:
+        for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT):
+            transport.unregister_serializer(target)
+
+
+def test_serializer_alias_multiple_targets(ctx):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/x-custom-yaml": {"schema": {"type": "object"}},
+                        }
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    schemathesis.serializer.alias(["application/x-custom-yaml", "text/vnd.yaml.custom"], "application/yaml")
+
+    try:
+        schema = schemathesis.openapi.from_dict(raw_schema)
+
+        for media_type in ["application/x-custom-yaml", "text/vnd.yaml.custom"]:
+            case = schema["/test"]["POST"].Case(body={"id": 42}, media_type=media_type)
+            for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT):
+                data = transport.serialize_case(case)["data"]
+                data_str = data.decode() if isinstance(data, bytes) else data
+                assert "id" in data_str and "42" in data_str
+    finally:
+        for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT, ASGI_TRANSPORT):
+            transport.unregister_serializer("application/x-custom-yaml", "text/vnd.yaml.custom")
+
+
+@pytest.mark.parametrize(
+    "target,source,expected_error",
+    [
+        (
+            "application/custom",
+            "application/nonexistent",
+            "No serializer found for media type: application/nonexistent",
+        ),
+        ("application/custom", "", "Source media type cannot be empty"),
+        ("", "application/json", "Target media type cannot be empty"),
+    ],
+)
+def test_serializer_alias_validation(target, source, expected_error):
+    with pytest.raises(ValueError, match=re.escape(expected_error)):
+        schemathesis.serializer.alias(target, source)
+
+
+def test_serializer_alias_empty_target_in_list():
+    with pytest.raises(ValueError, match="Target media type cannot be empty"):
+        schemathesis.serializer.alias(["application/custom", ""], "application/json")
+
+
+def test_binary_not_a_dataclass():
+    # Binary should not be a dataclass to prevent `dataclasses.asdict()` from
+    # expanding it and exposing raw bytes that break JSON serialization.
+    # This is important for compatibility with tools like Hypofuzz.
+    assert not dataclasses.is_dataclass(Binary(b"test"))
+
+    # Should be JSON serializable when used with dataclasses.asdict on a container
+    @dataclasses.dataclass
+    class Container:
+        value: Binary
+
+    container = Container(value=Binary(b"test data"))
+    # asdict should not expose raw bytes
+    as_dict = dataclasses.asdict(container)
+    json.dumps(as_dict)

@@ -4,9 +4,11 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <memory>
 
 #include <cstdint>
 
+#include "aligned_buffer.hpp"
 #include "bin.hpp"
 #include "daqlist.hpp"
 #include "mcobject.hpp"
@@ -19,6 +21,22 @@ class PyTimestampInfo : public TimestampInfo {
 
     using TimestampInfo::TimestampInfo;
 };
+
+py::dict mcobject_asdict(const McObject& self) {
+    py::dict d;
+    d["name"] = self.get_name();
+    d["address"] = self.get_address();
+    d["ext"] = self.get_ext();
+    d["length"] = self.get_length();
+    d["data_type"] = self.get_data_type();
+    py::list components_list;
+    for (const auto& component : self.get_components()) {
+        components_list.append(mcobject_asdict(component));
+    }
+    d["components"] = components_list;
+    return d;
+}
+
 
 PYBIND11_MODULE(cpp_ext, m) {
     m.doc() = "C++ extensions for pyXCP.";
@@ -40,6 +58,7 @@ PYBIND11_MODULE(cpp_ext, m) {
         .def_property_readonly("components", &McObject::get_components)
 
         .def("add_component", &McObject::add_component, "component"_a)
+        .def("asdict", &mcobject_asdict)
         .def("__eq__", [](const McObject& self, const McObject& other) { return self == other; })
         .def("__repr__", [](const McObject& self) { return to_string(self); })
         .def("__hash__", [](const McObject& self) { return self.get_hash(); })
@@ -51,32 +70,120 @@ PYBIND11_MODULE(cpp_ext, m) {
         .def_property("residual_capacity", &Bin::get_residual_capacity, &Bin::set_residual_capacity)
         .def_property("entries", &Bin::get_entries, nullptr)
         .def("append", &Bin::append)
-
+        .def("asdict", [](const Bin& self) {
+            py::dict d;
+            d["size"] = self.get_size();
+            d["residual_capacity"] = self.get_residual_capacity();
+            py::list entries_list;
+            for (const auto& entry : self.get_entries()) {
+                entries_list.append(mcobject_asdict(entry));
+            }
+            d["entries"] = entries_list;
+            return d;
+        })
         .def("__repr__", [](const Bin& self) { return to_string(self); })
-
         .def("__eq__", [](const Bin& self, const Bin& other) { return self == other; })
-
         .def("__len__", [](const Bin& self) { return std::size(self.get_entries()); });
 
-    py::class_<DaqList>(m, "DaqList")
+    py::class_<DaqListBase, std::shared_ptr<DaqListBase>>(m, "DaqListBase")
+        .def_property("name", &DaqListBase::get_name, nullptr)
+        .def_property("event_num", &DaqListBase::get_event_num, &DaqListBase::set_event_num)
+        .def_property("priority", &DaqListBase::get_priority, nullptr)
+        .def_property("prescaler", &DaqListBase::get_prescaler, nullptr)
+        .def_property("stim", &DaqListBase::get_stim, nullptr)
+        .def_property("enable_timestamps", &DaqListBase::get_enable_timestamps, nullptr)
+        .def_property("measurements_opt", &DaqListBase::get_measurements_opt, &DaqListBase::set_measurements_opt)
+        .def_property("headers", &DaqListBase::get_headers, nullptr)
+        .def_property("odt_count", &DaqListBase::get_odt_count, nullptr)
+        .def_property("total_entries", &DaqListBase::get_total_entries, nullptr)
+        .def_property("total_length", &DaqListBase::get_total_length, nullptr)
+        .def("asdict", [](const DaqListBase& self) {
+            py::dict d;
+            d["name"] = self.get_name();
+            d["event_num"] = self.get_event_num();
+            d["priority"] = self.get_priority();
+            d["prescaler"] = self.get_prescaler();
+            d["stim"] = self.get_stim();
+            d["enable_timestamps"] = self.get_enable_timestamps();
+            d["measurements_opt"] = self.get_measurements_opt();
+            d["headers"] = self.get_headers();
+            d["odt_count"] = self.get_odt_count();
+            d["total_entries"] = self.get_total_entries();
+            d["total_length"] = self.get_total_length();
+            return d;
+        });
+
+    py::class_<DaqList, DaqListBase, std::shared_ptr<DaqList>>(m, "DaqList")
         .def(
             py::init<std::string_view, std::uint16_t, bool, bool, const std::vector<DaqList::daq_list_initialzer_t>&,
             std::uint8_t, std::uint8_t>(), "name"_a, "event_num"_a, "stim"_a, "enable_timestamps"_a, "measurements"_a,
             "priority"_a=0, "prescaler"_a=1
         )
         .def("__repr__", [](const DaqList& self) { return self.to_string(); })
-        .def_property("name", &DaqList::get_name, nullptr)
-        .def_property("event_num", &DaqList::get_event_num, &DaqList::set_event_num)
-        .def_property("priority", &DaqList::get_priority, nullptr)
-        .def_property("prescaler", &DaqList::get_prescaler, nullptr)
-        .def_property("stim", &DaqList::get_stim, nullptr)
-        .def_property("enable_timestamps", &DaqList::get_enable_timestamps, nullptr)
         .def_property("measurements", &DaqList::get_measurements, nullptr)
-        .def_property("measurements_opt", &DaqList::get_measurements_opt, &DaqList::set_measurements_opt)
-        .def_property("headers", &DaqList::get_headers, nullptr)
-        .def_property("odt_count", &DaqList::get_odt_count, nullptr)
-        .def_property("total_entries", &DaqList::get_total_entries, nullptr)
-        .def_property("total_length", &DaqList::get_total_length, nullptr);
+        .def("asdict", [](const DaqList& self) {
+            py::dict d;
+            d["name"] = self.get_name();
+            d["event_num"] = self.get_event_num();
+            d["priority"] = self.get_priority();
+            d["prescaler"] = self.get_prescaler();
+            d["stim"] = self.get_stim();
+            d["enable_timestamps"] = self.get_enable_timestamps();
+            d["measurements_opt"] = self.get_measurements_opt();
+            d["headers"] = self.get_headers();
+            d["odt_count"] = self.get_odt_count();
+            d["total_entries"] = self.get_total_entries();
+            d["total_length"] = self.get_total_length();
+            py::list measurements_list;
+            for (const auto& measurement : self.get_measurements()) {
+                measurements_list.append(mcobject_asdict(measurement));
+            }
+            d["measurements"] = measurements_list;
+            return d;
+        });
+
+    py::class_<PredefinedDaqList, DaqListBase, std::shared_ptr<PredefinedDaqList>>(m, "PredefinedDaqList")
+        .def(
+            py::init<std::string_view, std::uint16_t, bool, bool, const PredefinedDaqList::predefined_daq_list_initializer_t&,
+            std::uint8_t, std::uint8_t>(), "name"_a, "event_num"_a, "stim"_a, "enable_timestamps"_a, "odts"_a,
+            "priority"_a=0, "prescaler"_a=1
+        )
+        .def("__repr__", [](const PredefinedDaqList& self) {
+            try {
+                return self.to_string();
+            } catch (const std::exception& e) {
+                return std::string("PredefinedDaqList(<repr error: ") + e.what() + ">)";
+            } catch (...) {
+                return std::string("PredefinedDaqList(<repr error: unknown>)");
+            }
+        })
+        .def("asdict", [](const PredefinedDaqList& self) {
+            py::dict d;
+            d["name"] = self.get_name();
+            d["event_num"] = self.get_event_num();
+            d["priority"] = self.get_priority();
+            d["prescaler"] = self.get_prescaler();
+            d["stim"] = self.get_stim();
+            d["enable_timestamps"] = self.get_enable_timestamps();
+            d["measurements_opt"] = self.get_measurements_opt();
+            d["headers"] = self.get_headers();
+            d["odt_count"] = self.get_odt_count();
+            d["total_entries"] = self.get_total_entries();
+            d["total_length"] = self.get_total_length();
+            return d;
+        })
+		;
+
+    // Aligned buffer utility
+    py::class_<AlignedBuffer>(m, "AlignedBuffer")
+        .def(py::init<std::size_t>(), py::arg("size") = 0xffff)
+        .def("reset", &AlignedBuffer::reset)
+        .def("append", &AlignedBuffer::append, py::arg("value"))
+        .def("extend", py::overload_cast<const py::bytes&>(&AlignedBuffer::extend))
+        .def("extend", py::overload_cast<const std::vector<std::uint8_t>&>(&AlignedBuffer::extend))
+        .def("__len__", [](const AlignedBuffer& self) { return self.size(); })
+        .def("__getitem__", [](const AlignedBuffer& self, py::object index) { return self.get_item(index); });
+
 
     py::enum_<TimestampType>(m, "TimestampType")
         .value("ABSOLUTE_TS", TimestampType::ABSOLUTE_TS)
@@ -97,4 +204,5 @@ PYBIND11_MODULE(cpp_ext, m) {
         .def_property("utc_offset", &TimestampInfo::get_utc_offset, &TimestampInfo::set_utc_offset)
         .def_property("dst_offset", &TimestampInfo::get_dst_offset, &TimestampInfo::set_dst_offset)
         .def_property("timezone", &TimestampInfo::get_timezone, &TimestampInfo::set_timezone);
+
 }

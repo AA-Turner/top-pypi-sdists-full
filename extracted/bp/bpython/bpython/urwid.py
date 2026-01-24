@@ -38,7 +38,6 @@ import time
 import locale
 import signal
 import urwid
-from typing import Optional
 
 from . import args as bpargs, repl, translations
 from .formatter import theme_map
@@ -563,7 +562,7 @@ class URWIDInteraction(repl.Interaction):
             self.callback = None
             callback(text)
 
-    def file_prompt(self, s: str) -> Optional[str]:
+    def file_prompt(self, s: str) -> str | None:
         raise NotImplementedError
 
 

@@ -134,8 +134,8 @@ struct GPROp : public OperationBase
 
     INST_COUNTER(GPROp);
 
-    GPROp(operation_t op, const evbase& loop)
-        :OperationBase (op, loop)
+    GPROp(operation_t op, const evbase& loop, const std::string& name)
+        :OperationBase (op, loop, name)
     {}
     ~GPROp() {
         if(loop.assertInRunningLoop())
@@ -582,6 +582,9 @@ std::shared_ptr<Operation> gpr_setup(const std::shared_ptr<ContextImpl>& context
                                      std::shared_ptr<GPROp>&& op,
                                      bool syncCancel)
 {
+    if(name.empty())
+        throw std::logic_error("Empty channel name");
+
     auto internal(std::move(op));
     internal->internal_self = internal;
 
@@ -625,7 +628,7 @@ std::shared_ptr<Operation> GetBuilder::_exec_get()
 
     auto context(ctx->impl->shared_from_this());
 
-    auto op(std::make_shared<GPROp>(Operation::Get, context->tcp_loop));
+    auto op(std::make_shared<GPROp>(Operation::Get, context->tcp_loop, _name));
     op->setDone(std::move(_result), std::move(_onInit));
     op->autoExec = _autoexec;
     op->pvRequest = _buildReq();
@@ -640,7 +643,7 @@ std::shared_ptr<Operation> PutBuilder::exec()
 
     auto context(ctx->impl->shared_from_this());
 
-    auto op(std::make_shared<GPROp>(Operation::Put, context->tcp_loop));
+    auto op(std::make_shared<GPROp>(Operation::Put, context->tcp_loop, _name));
     op->setDone(std::move(_result), std::move(_onInit));
 
     if(_builder) {
@@ -672,7 +675,7 @@ std::shared_ptr<Operation> RPCBuilder::exec()
 
     auto context(ctx->impl->shared_from_this());
 
-    auto op(std::make_shared<GPROp>(Operation::RPC, context->tcp_loop));
+    auto op(std::make_shared<GPROp>(Operation::RPC, context->tcp_loop, _name));
     op->setDone(std::move(_result), nullptr);
     if(_argument) {
         if(!_autoexec)

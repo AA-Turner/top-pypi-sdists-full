@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: propcache
-Version: 0.3.2
+Version: 0.4.1
 Summary: Accelerated property cache
 Home-page: https://github.com/aio-libs/propcache
 Author: Andrew Svetlov
@@ -29,6 +29,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
@@ -151,6 +152,75 @@ Changelog
     WARNING: Don't drop the next directive!
 
 .. towncrier release notes start
+
+0.4.1
+=====
+
+*(2025-10-08)*
+
+
+Bug fixes
+---------
+
+- Fixed reference leak caused by ``Py_INCREF`` because Cython has its own reference counter systems -- by `@Vizonex <https://github.com/sponsors/Vizonex>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#162 <https://github.com/aio-libs/propcache/issues/162>`__.
+
+
+Contributor-facing changes
+--------------------------
+
+- Fixes the default value for the ``os``
+  parameter in ``reusable-build-wheel.yml``
+  to be ``ubuntu-latest`` instead of
+  ``ubuntu``.
+
+  *Related issues and pull requests on GitHub:*
+  `#155 <https://github.com/aio-libs/propcache/issues/155>`__.
+
+
+----
+
+
+0.4.0
+=====
+
+*(2025-10-04)*
+
+
+Features
+--------
+
+- Optimized propcache by replacing sentinel ``object`` for checking if
+  the ``object`` is ``NULL`` and changed ``dict`` API for
+  Python C-API -- by `@Vizonex <https://github.com/sponsors/Vizonex>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#121 <https://github.com/aio-libs/propcache/issues/121>`__.
+
+
+Contributor-facing changes
+--------------------------
+
+- Builds have been added for arm64 Windows
+  wheels and the ``reusable-build-wheel.yml``
+  workflow has been modified to allow for
+  an OS value (``windows-11-arm``) which
+  does not include the ``-latest`` postfix
+  -- by `@finnagin <https://github.com/sponsors/finnagin>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#133 <https://github.com/aio-libs/propcache/issues/133>`__.
+
+- Added CI for CPython 3.14 -- by `@kumaraditya303 <https://github.com/sponsors/kumaraditya303>`__.
+
+  *Related issues and pull requests on GitHub:*
+  `#140 <https://github.com/aio-libs/propcache/issues/140>`__.
+
+
+----
+
 
 0.3.2
 =====

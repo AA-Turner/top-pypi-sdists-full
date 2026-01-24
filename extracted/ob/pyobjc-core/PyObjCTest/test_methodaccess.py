@@ -22,6 +22,17 @@ class OCTestWithAttributes(NSObject):
     # Attribute used in test_category_overides_attribute
     pyobjcTestMethod = 42
 
+    def method(self):
+        return 21
+
+    @classmethod
+    def clsmethod(cls):
+        return 99
+
+
+OCTestWithAttributes.method = -21
+type(OCTestWithAttributes).clsmethod = -99
+
 
 class MethodAccessTest(TestCase):
     def test_circular(self):
@@ -49,6 +60,21 @@ class MethodAccessTest(TestCase):
 
         self.assertEqual(objc.objc_object.pyobjc_classMethods.__dict__, {})
         self.assertEqual(objc.objc_object.pyobjc_instanceMethods.__dict__, {})
+
+    def test_access_replaced_method(self):
+        o = OCTestWithAttributes.alloc().init()
+        self.assertEqual(o.method, -21)
+
+        self.assertEqual(o.pyobjc_instanceMethods.method(), 21)
+
+    def test_access_replaced_method_through_class(self):
+        self.assertEqual(OCTestWithAttributes.clsmethod, -99)
+        self.assertEqual(OCTestWithAttributes.pyobjc_classMethods.clsmethod(), 99)
+
+        o = OCTestWithAttributes.alloc().init()
+        self.assertEqual(o.pyobjc_instanceMethods.method(), 21)
+        self.assertEqual(o.method, -21)
+        self.assertEqual(OCTestWithAttributes.pyobjc_instanceMethods.method(o), 21)
 
     def testNSProxyStuff(self):
         # NSProxy is incompatitble with pyobjc_{class,instance}Methods, but
@@ -91,9 +117,11 @@ class MethodAccessTest(TestCase):
             self.assertGreater(len(d), 10)
             self.assertIn("init", d)
 
-        # d = o.pyobjc_classMethods.__dict__.keys()
-        # self.assertGreater(len(d), 10)
-        # self.assertIn("alloc", d)
+        NSObject.testhelper = 42
+        self.assertEqual(NSObject.testhelper, 42)
+        self.assertNotIn("testhelper", NSObject.pyobjc_instanceMethods.__dict__)
+        self.assertNotIn("testhelper", NSObject.pyobjc_classMethods.__dict__)
+        del NSObject.testhelper
 
     def testAttributes(self):
         o = NSObject.new()
@@ -137,6 +165,16 @@ class MethodAccessTest(TestCase):
             repr(NSObject.pyobjc_classMethods),
             "<class method-accessor for <objective-c class NSObject at 0x[0-9a-f]+>>",
         )
+
+    def test_invalid_string(self):
+        with self.assertRaises(UnicodeEncodeError):
+            getattr(NSObject.pyobjc_classMethods, "\udfff")
+
+        with self.assertRaises(UnicodeEncodeError):
+            getattr(NSObject.pyobjc_instanceMethods, "\udfff")
+
+        with self.assertRaises(UnicodeEncodeError):
+            getattr(NSObject.alloc().init().pyobjc_instanceMethods, "\udfff")
 
     def test_python_category_override_attribute(self):
         # See also test_category_overides_attribute
@@ -196,6 +234,85 @@ class MethodAccessTest(TestCase):
         self.assertIsInstance(
             OC_UnusedClass.pyobjc_classMethods.someClassMethod, objc.selector
         )
+
+        OC_UnusedClass.someOtherInstanceMethod = 42
+
+        self.assertIsInstance(
+            OC_UnusedClass.pyobjc_instanceMethods.someOtherInstanceMethod, objc.selector
+        )
+
+        class helper:
+            def __get__(self, instance, instance_type=None):
+                raise RuntimeError("no getting")
+
+            def __set__(self, instance, new_value):
+                raise RuntimeError("no setting")
+
+        OC_UnusedClass.yetAnotherInstanceMethod = helper()
+
+        self.assertIsInstance(
+            OC_UnusedClass.pyobjc_instanceMethods.yetAnotherInstanceMethod,
+            objc.selector,
+        )
+
+        #
+        # Actually use the class to validate  that the changes to
+        # 'someOtherInstanceMethod' and 'yetAnotherInstanceMethod' were
+        # effective.
+        #
+
+        o = OC_UnusedClass.alloc().init()
+        self.assertEqual(o.someOtherInstanceMethod, 42)
+
+        with self.assertRaisesRegex(RuntimeError, "no getting"):
+            o.yetAnotherInstanceMethod
+
+        with self.assertRaisesRegex(RuntimeError, "no setting"):
+            o.yetAnotherInstanceMethod = 21
+
+        #
+        # Revalidate resolving through method accessor
+        #
+        self.assertIsInstance(
+            OC_UnusedClass.pyobjc_instanceMethods.someOtherInstanceMethod, objc.selector
+        )
+        self.assertIsInstance(
+            OC_UnusedClass.pyobjc_instanceMethods.yetAnotherInstanceMethod,
+            objc.selector,
+        )
+
+        # Check in __dict__
+        d = OC_UnusedClass.pyobjc_instanceMethods.__dict__
+        self.assertIn("someOtherInstanceMethod", d)
+        self.assertIn("yetAnotherInstanceMethod", d)
+        self.assertIsInstance(d["someOtherInstanceMethod"], objc.selector)
+        self.assertIsInstance(d["yetAnotherInstanceMethod"], objc.selector)
+
+    def test_various_methods(self):
+        value = OCTestWithAttributes.alloc().init()
+        NSObject.alloca = objc.python_method(OCTestWithAttributes.alloc)
+        for cls in type(value).__mro__:
+            try:
+                cls.__dict__["alloca"]
+            except KeyError:
+                pass
+        with self.assertRaisesRegex(AttributeError, "alloca"):
+            value.pyobjc_instanceMethods.alloca
+
+        # XXX: 'del' won't work, hence accept that this
+        #      pollutes the test environment a little.
+        # del NSObject.alloca
+
+        class OCTestWithGetAttr(NSObject):
+            def __getattr__(self, key):
+                raise AttributeError(f"no -- {key} --")
+
+        value = OCTestWithGetAttr.alloc().init()
+        with self.assertRaisesRegex(AttributeError, "no -- method --"):
+            value.method
+
+        with self.assertRaisesRegex(AttributeError, "No selector method"):
+            value.pyobjc_instanceMethods.method
 
     @expectedFailure
     def test_cycle(self):

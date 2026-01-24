@@ -3,7 +3,9 @@ import re
 from logging import getLogger
 from typing import Any
 
+import anyio
 from openai import (
+    APIStatusError,
     AsyncAzureOpenAI,
     AsyncOpenAI,
     NotGiven,
@@ -14,7 +16,6 @@ from openai.types.chat import ChatCompletion
 from openai.types.responses import Response
 from typing_extensions import override
 
-from inspect_ai._util.error import PrerequisiteError
 from inspect_ai._util.logger import warn_once
 from inspect_ai.model._generate_config import normalized_batch_config
 from inspect_ai.model._providers.openai_completions import (
@@ -38,17 +39,30 @@ from .._openai import (
 from .._openai_responses import is_native_tool_configured
 from ._openai_batch import OpenAIBatcher
 from .openai_o1 import generate_o1
-from .util import environment_prerequisite_error, model_base_url
+from .util import (
+    check_azure_deployment_mismatch,
+    environment_prerequisite_error,
+    model_base_url,
+    require_azure_base_url,
+    resolve_api_key,
+    resolve_azure_token_provider,
+)
 
 logger = getLogger(__name__)
 
 OPENAI_API_KEY = "OPENAI_API_KEY"
 AZURE_OPENAI_API_KEY = "AZURE_OPENAI_API_KEY"
 AZUREAI_OPENAI_API_KEY = "AZUREAI_OPENAI_API_KEY"
-AZUREAI_AUDIENCE = "AZUREAI_AUDIENCE"
+
+# Azure base URL environment variables
+AZURE_OPENAI_BASE_URL_VARS = [
+    "AZUREAI_OPENAI_BASE_URL",
+    "AZURE_OPENAI_BASE_URL",
+    "AZURE_OPENAI_ENDPOINT",
+]
 
 
-# NOTE: If you are creating a new provider that is OpenAI compatible you should inherit from OpenAICompatibleAPI rather than OpenAPAPI.
+# NOTE: If you are creating a new provider that is OpenAI compatible you should inherit from OpenAICompatibleAPI rather than OpenAIAPI.
 
 
 class OpenAIAPI(ModelAPI):
@@ -79,6 +93,11 @@ class OpenAIAPI(ModelAPI):
             "prompt_cache_key", NOT_GIVEN
         )
 
+        # extract prompt_cache_retention model arg if provided
+        self.prompt_cache_retention: str | NotGiven = model_args.pop(
+            "prompt_cache_retention", NOT_GIVEN
+        )
+
         # extract safety_identifier model arg if provided
         self.safety_identifier: str | NotGiven = model_args.pop(
             "safety_identifier", NOT_GIVEN
@@ -93,8 +112,17 @@ class OpenAIAPI(ModelAPI):
             config=config,
         )
 
+        # check for Azure model/URL mismatch
+        if self.is_azure():
+            check_azure_deployment_mismatch(
+                self.service_model_name(),
+                base_url,
+                AZURE_OPENAI_BASE_URL_VARS,
+                "AZUREAI_OPENAI",
+            )
+
         # set background bit (automatically use background for deep research)
-        if background is None and self.is_deep_research():
+        if background is None and (self.is_deep_research() or self.is_gpt_5_pro()):
             background = True
         self.background = background
 
@@ -103,7 +131,7 @@ class OpenAIAPI(ModelAPI):
             (self.is_o_series() and not self.is_o1_early())
             or self.is_codex()
             or self.is_gpt_5()
-        )
+        ) and config.num_choices is None
 
         # resolve whether we are forcing the responses api
         self.responses_api = (
@@ -126,29 +154,13 @@ class OpenAIAPI(ModelAPI):
         # resolve api_key or managed identity (for Azure)
         self.token_provider = None
         if not self.api_key:
-            if self.service == "azure":
-                self.api_key = os.environ.get(
-                    AZUREAI_OPENAI_API_KEY, os.environ.get(AZURE_OPENAI_API_KEY, None)
+            if self.is_azure():
+                self.api_key = resolve_api_key(
+                    [AZUREAI_OPENAI_API_KEY, AZURE_OPENAI_API_KEY]
                 )
                 if not self.api_key:
                     # try managed identity (Microsoft Entra ID)
-                    try:
-                        from azure.identity import (
-                            DefaultAzureCredential,
-                            get_bearer_token_provider,
-                        )
-
-                        self.token_provider = get_bearer_token_provider(
-                            DefaultAzureCredential(),
-                            os.environ.get(
-                                AZUREAI_AUDIENCE,
-                                "https://cognitiveservices.azure.com/.default",
-                            ),
-                        )
-                    except ImportError:
-                        raise PrerequisiteError(
-                            "ERROR: The OpenAI provider requires the `azure-identity` package for managed identity support."
-                        )
+                    self.token_provider = resolve_azure_token_provider("OpenAI")
             else:
                 self.api_key = os.environ.get(OPENAI_API_KEY, None)
 
@@ -158,62 +170,71 @@ class OpenAIAPI(ModelAPI):
                     [
                         OPENAI_API_KEY,
                         AZUREAI_OPENAI_API_KEY,
-                        "or managed identity (Entra ID)",
+                        "managed identity (Entra ID)",
                     ],
                 )
 
-        # create async http client
-        http_client = model_args.pop("http_client", OpenAIAsyncHttpxClient())
-
-        # azure client
+        # extract http_client and api_version before storing model_args
+        self.http_client = (
+            model_args.pop("http_client", None) or OpenAIAsyncHttpxClient()
+        )
         if self.is_azure():
-            # resolve base_url
-            base_url = model_base_url(
-                base_url,
-                [
-                    "AZUREAI_OPENAI_BASE_URL",
-                    "AZURE_OPENAI_BASE_URL",
-                    "AZURE_OPENAI_ENDPOINT",
-                ],
-            )
-            if not base_url:
-                raise PrerequisiteError(
-                    "ERROR: You must provide a base URL when using OpenAI on Azure. Use the AZUREAI_OPENAI_BASE_URL "
-                    + "environment variable or the --model-base-url CLI flag to set the base URL."
-                )
-
             # resolve version
             if model_args.get("api_version") is not None:
-                # use slightly complicated logic to allow for "api_version" to be removed
-                api_version = model_args.pop("api_version")
+                self.api_version = model_args.pop("api_version")
             else:
-                api_version = os.environ.get(
+                self.api_version = os.environ.get(
                     "AZUREAI_OPENAI_API_VERSION",
                     os.environ.get("OPENAI_API_VERSION", "2025-03-01-preview"),
                 )
 
+        # set initial reasoning_summaries bit (requires organizational verifification
+        # so we will probe for it on-demand if a request w/ reasoning summaries comes in)
+        self._reasoning_summaries: bool | None = None
+        self._reasoning_summaries_lock = anyio.Lock()
+
+        # store remaining model_args after extraction
+        self.model_args = model_args
+        self.initialize()
+
+    def _create_client(self) -> AsyncAzureOpenAI | AsyncOpenAI:
+        # azure client
+        if self.is_azure():
+            # resolve base_url (required for Azure)
+            base_url = require_azure_base_url(
+                self.base_url, AZURE_OPENAI_BASE_URL_VARS, "OpenAI"
+            )
+
             # use managed identity if available, otherwise API key
-            self.client: AsyncAzureOpenAI | AsyncOpenAI = AsyncAzureOpenAI(
+            return AsyncAzureOpenAI(
                 api_key=self.api_key,
                 azure_ad_token_provider=self.token_provider,
-                api_version=api_version,
+                api_version=self.api_version,
                 azure_endpoint=base_url,
-                http_client=http_client,
+                http_client=self.http_client,
                 timeout=self.client_timeout
                 if self.client_timeout is not None
                 else NOT_GIVEN,
-                **model_args,
+                **self.model_args,
             )
         else:
-            self.client = AsyncOpenAI(
+            return AsyncOpenAI(
                 api_key=self.api_key,
-                base_url=model_base_url(base_url, "OPENAI_BASE_URL"),
-                http_client=http_client,
+                base_url=model_base_url(self.base_url, "OPENAI_BASE_URL"),
+                http_client=self.http_client,
                 timeout=self.client_timeout
                 if self.client_timeout is not None
                 else NOT_GIVEN,
-                **model_args,
+                **self.model_args,
             )
+
+    def initialize(self) -> None:
+        super().initialize()
+
+        if self.http_client.is_closed:
+            self.http_client = OpenAIAsyncHttpxClient()
+
+        self.client = self._create_client()
 
         # TODO: Although we could enhance OpenAIBatcher to support requests with
         # homogenous endpoints (e.g. some going to completions and some going to
@@ -223,9 +244,19 @@ class OpenAIAPI(ModelAPI):
         # side step that complexity and just use two different batchers.
         self._completions_batcher: OpenAIBatcher[ChatCompletion] | None = None
         self._responses_batcher: OpenAIBatcher[Response] | None = None
-
-        # create time tracker
         self._http_hooks = HttpxHooks(self.client._client)
+
+    @override
+    async def count_text_tokens(self, text: str) -> int:
+        import tiktoken
+
+        try:
+            enc = tiktoken.encoding_for_model(self.service_model_name())
+        except KeyError:
+            enc = tiktoken.get_encoding("o200k_base")  # fallback
+
+        tokens = enc.encode(text)
+        return len(tokens)
 
     def is_azure(self) -> bool:
         return self.service == "azure"
@@ -233,7 +264,7 @@ class OpenAIAPI(ModelAPI):
     def has_reasoning_options(self) -> bool:
         return (
             (self.is_o_series() and not self.is_o1_early())
-            or self.is_gpt_5()
+            or (self.is_gpt_5() and not self.is_gpt_5_chat())
             or self.is_codex()
         )
 
@@ -250,6 +281,18 @@ class OpenAIAPI(ModelAPI):
     def is_gpt_5(self) -> bool:
         name = self.service_model_name()
         return "gpt-5" in name
+
+    def is_gpt_5_plus(self) -> bool:
+        name = self.service_model_name()
+        return "gpt-5." in name
+
+    def is_gpt_5_pro(self) -> bool:
+        name = self.service_model_name()
+        return self.is_gpt_5() and "-pro" in name
+
+    def is_gpt_5_chat(self) -> bool:
+        name = self.service_model_name()
+        return self.is_gpt_5() and "-chat" in name
 
     def is_o1(self) -> bool:
         name = self.service_model_name()
@@ -290,7 +333,7 @@ class OpenAIAPI(ModelAPI):
     @override
     def tool_result_images(self) -> bool:
         # computer_use_preview supports tool calls returning images
-        if self.is_computer_use_preview():
+        if self.is_computer_use_preview() or self.responses_api:
             return True
         else:
             return False
@@ -324,6 +367,11 @@ class OpenAIAPI(ModelAPI):
         )
         self._resolve_batcher(config, use_responses)
 
+        # if reasoning summaries are unset then try to auto-detect
+        if config.reasoning_summary is None:
+            if not await self.reasoning_summaries():
+                config = config.model_copy(update={"reasoning_summary": "none"})
+
         return await (
             generate_responses(
                 client=self.client,
@@ -336,6 +384,7 @@ class OpenAIAPI(ModelAPI):
                 background=self.background,
                 service_tier=self.service_tier,
                 prompt_cache_key=self.prompt_cache_key,
+                prompt_cache_retention=self.prompt_cache_retention,
                 safety_identifier=self.safety_identifier,
                 responses_store=self.responses_store,
                 model_info=self,
@@ -351,6 +400,7 @@ class OpenAIAPI(ModelAPI):
                 tool_choice=tool_choice,
                 config=config,
                 prompt_cache_key=self.prompt_cache_key,
+                prompt_cache_retention=self.prompt_cache_retention,
                 safety_identifier=self.safety_identifier,
                 openai_api=self,
                 batcher=self._completions_batcher,
@@ -360,6 +410,10 @@ class OpenAIAPI(ModelAPI):
     def service_model_name(self) -> str:
         """Model name without any service prefix."""
         return self.model_name.replace(f"{self.service}/", "", 1)
+
+    def canonical_name(self) -> str:
+        """Canonical model name for model info database lookup."""
+        return f"openai/{self.service_model_name()}"
 
     @override
     def should_retry(self, ex: BaseException) -> bool:
@@ -375,9 +429,39 @@ class OpenAIAPI(ModelAPI):
             return openai_should_retry(ex)
 
     @override
+    def is_auth_failure(self, ex: Exception) -> bool:
+        if isinstance(ex, APIStatusError):
+            return ex.status_code == 401
+        return False
+
+    @override
     def connection_key(self) -> str:
         """Scope for enforcing max_connections (could also use endpoint)."""
         return str(self.api_key)
+
+    async def reasoning_summaries(self) -> bool:
+        # validate that reasoning summaries are supported for this account
+        # (needs to be a 'verified organization'). we do this by making a
+        # simple request with reasoning summaries and if it succeeds we
+        # set the reasoning_summaries bit (we do this once for the lifetime
+        # of the model provider instance). use the lock to guard against
+        # multiple samples doing this concurrently at startup
+        async with self._reasoning_summaries_lock:
+            if self._reasoning_summaries is None:
+                reasoning_summaries = False
+                if self.responses_api and self.has_reasoning_options():
+                    try:
+                        await self.client.responses.create(
+                            model=self.service_model_name(),
+                            input="Please say 'hello, world'",
+                            reasoning={"effort": "low", "summary": "auto"},
+                        )
+                        reasoning_summaries = True
+                    except Exception:
+                        pass
+                self._reasoning_summaries = reasoning_summaries
+
+            return self._reasoning_summaries
 
     def _resolve_batcher(self, config: GenerateConfig, for_responses_api: bool) -> None:
         def _resolve_retry_config() -> ModelRetryConfig:
@@ -386,6 +470,7 @@ class OpenAIAPI(ModelAPI):
                 config.max_retries,
                 config.timeout,
                 self.should_retry,
+                lambda ex: None,
                 log_model_retry,
             )
 

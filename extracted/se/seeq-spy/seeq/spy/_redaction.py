@@ -1,3 +1,4 @@
+import logging
 from functools import wraps
 from typing import Callable, List, Any
 
@@ -11,7 +12,8 @@ def request_safely(*,
                    additional_errors: Optional[List[int]] = None,
                    ignore_errors: Optional[List[int]] = None,
                    on_error: Optional[Callable[[str], Any]] = None,
-                   default_value: Optional[Any] = None):
+                   default_value: Optional[Any] = None,
+                   dry_run: bool = False):
     """
     Safely make request(s) to the Seeq API while catching known problematic exceptions. The status codes to be
     caught are 403 (Forbidden), 404 (Not Found), and 500 (Internal Server Error).
@@ -26,12 +28,21 @@ def request_safely(*,
     :param on_error: A callable to override how to handle an error. Should accept a single string parameter that
         describes the problem. Default behavior is to log a warning to the status.
     :param default_value: The default value to return if a 403, 404, or 500 error occurs.
+    :param dry_run: If True, the function will not be executed and default_value will be returned instead.
     :return: The output of the decorated function or default_value if a failure occurred.
     """
 
     def decorator(func: Callable):
         @wraps(func)
         def out(*args, **kwargs):
+            def _log(msg, level=logging.INFO):
+                if action_description is not None and status is not None:
+                    status.log(msg, level=level)
+
+            if dry_run:
+                _log(f'[Dry Run] Would {action_description}')
+                return default_value
+
             if status is not None and not isinstance(status, Status):
                 raise TypeError(f'Status parameter must be of type spy.Status, but was {status.__class__.__name__}')
 
@@ -48,10 +59,14 @@ def request_safely(*,
                     error_action = status.warn
 
             try:
-                return func(*args, **kwargs)
+                retval = func(*args, **kwargs)
+                _log(f'Succeeded to {action_description}')
+                return retval
             except ApiException as e:
                 if ignore_errors and e.status in ignore_errors:
                     return default_value
+                _log(f'Exception when attempting to {action_description}:\n{traceback.format_exc()}',
+                     level=logging.ERROR)
                 if status is None or status.errors != 'catalog':
                     raise
                 reason = get_api_exception_message(e)
@@ -68,6 +83,10 @@ def request_safely(*,
                     # Other statuses (409 particularly) should be re-raised so the normal error handling can work
                     raise
                 return default_value
+            except BaseException:
+                _log(f'Exception when attempting to {action_description}:\n{traceback.format_exc()}',
+                     level=logging.ERROR)
+                raise
 
         return out
 
@@ -81,7 +100,8 @@ def safely(func: Callable,
            additional_errors: Optional[List[int]] = None,
            ignore_errors: Optional[List[int]] = None,
            on_error: Optional[Callable[[str], Any]] = None,
-           default_value: Optional[Any] = None):
+           default_value: Optional[Any] = None,
+           dry_run: bool = False):
     """
     Safely make request(s) to the Seeq API while catching known problematic exceptions. The status codes to be
     caught are 403 (Forbidden), 404 (Not Found), and 500 (Internal Server Error).
@@ -97,6 +117,7 @@ def safely(func: Callable,
     :param on_error: A callable to describe how to handle an error. Should accept a single string parameter that
         describes the problem. Default behavior is to log a warning to the status.
     :param default_value: The default value to return if a 403, 404, or 500 error occurs.
+    :param dry_run: If True, the function will not be executed and default_value will be returned instead.
     :return: The output of the decorated function or default_value if a failure occurred.
     """
     return request_safely(action_description=action_description,
@@ -104,4 +125,5 @@ def safely(func: Callable,
                           additional_errors=additional_errors,
                           ignore_errors=ignore_errors,
                           on_error=on_error,
-                          default_value=default_value)(func)()
+                          default_value=default_value,
+                          dry_run=dry_run)(func)()

@@ -5,10 +5,6 @@
 # top-level folder for each specific model found within the models/ directory at
 # the top-level of this source tree.
 
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# This software may be used and distributed in accordance with the terms of the Llama 3 Community License Agreement.
-
-import os
 from logging import getLogger
 from pathlib import Path
 from typing import (
@@ -25,7 +21,8 @@ from typing import (
 )
 
 import tiktoken
-from tiktoken.load import load_tiktoken_bpe
+
+from ..tokenizer_utils import load_bpe_file
 
 logger = getLogger(__name__)
 
@@ -60,10 +57,12 @@ LLAMA4_TEXT_POST_TRAIN_SPECIAL_TOKENS = [
     "<|text_post_train_reserved_special_token_3|>",
     "<|text_post_train_reserved_special_token_4|>",
     "<|text_post_train_reserved_special_token_5|>",
+    "<|python_start|>",
+    "<|python_end|>",
     "<|finetune_right_pad|>",
 ] + get_reserved_special_tokens(
-    "text_post_train", 61, 6
-)  # <|text_post_train_reserved_special_token_6|>, ..., <|text_post_train_reserved_special_token_66|>
+    "text_post_train", 61, 8
+)  # <|text_post_train_reserved_special_token_8|>, ..., <|text_post_train_reserved_special_token_68|>
 
 # 200080, ..., 201133
 LLAMA4_VISION_SPECIAL_TOKENS = [
@@ -84,7 +83,7 @@ LLAMA4_VISION_SPECIAL_TOKENS = [
     "vision", 1041, 7
 )  # <|vision_reserved_special_token_7|>, ..., <|vision_reserved_special_token_1047|>
 
-# 201134, ..., 201141
+# 201134, ..., 201143
 LLAMA4_REASONING_SPECIAL_TOKENS = [
     "<|reasoning_reserved_special_token_0|>",
     "<|reasoning_reserved_special_token_1|>",
@@ -92,6 +91,8 @@ LLAMA4_REASONING_SPECIAL_TOKENS = [
     "<|reasoning_reserved_special_token_3|>",
     "<|reasoning_reserved_special_token_4|>",
     "<|reasoning_reserved_special_token_5|>",
+    "<|reasoning_reserved_special_token_6|>",
+    "<|reasoning_reserved_special_token_7|>",
     "<|reasoning_thinking_start|>",
     "<|reasoning_thinking_end|>",
 ]
@@ -125,19 +126,20 @@ class Tokenizer:
         global _INSTANCE
 
         if _INSTANCE is None:
-            _INSTANCE = Tokenizer(os.path.join(os.path.dirname(__file__), "tokenizer.model"))
+            _INSTANCE = Tokenizer(Path(__file__).parent / "tokenizer.model")
         return _INSTANCE
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: Path):
         """
         Initializes the Tokenizer with a Tiktoken model.
 
         Args:
-            model_path (str): The path to the Tiktoken model file.
+            model_path (Path): The path to the Tiktoken model file.
         """
-        assert os.path.isfile(model_path), model_path
+        if not model_path.exists():
+            raise FileNotFoundError(f"Tokenizer model file not found: {model_path}")
 
-        mergeable_ranks = load_tiktoken_bpe(model_path)
+        mergeable_ranks = load_bpe_file(model_path)
         num_base_tokens = len(mergeable_ranks)
 
         special_tokens = BASIC_SPECIAL_TOKENS + LLAMA4_SPECIAL_TOKENS
@@ -151,7 +153,7 @@ class Tokenizer:
 
         self.special_tokens = {token: num_base_tokens + i for i, token in enumerate(special_tokens)}
         self.model = tiktoken.Encoding(
-            name=Path(model_path).name,
+            name=model_path.name,
             pat_str=self.O200K_PATTERN,
             mergeable_ranks=mergeable_ranks,
             special_tokens=self.special_tokens,

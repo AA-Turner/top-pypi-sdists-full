@@ -1,7 +1,7 @@
 r'''
 # `github_organization_custom_role`
 
-Refer to the Terraform Registry for docs: [`github_organization_custom_role`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role).
+Refer to the Terraform Registry for docs: [`github_organization_custom_role`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OrganizationCustomRole(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.organizationCustomRole.OrganizationCustomRole",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role github_organization_custom_role}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role github_organization_custom_role}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class OrganizationCustomRole(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role github_organization_custom_role} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role github_organization_custom_role} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param base_role: The base role for the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#base_role OrganizationCustomRole#base_role}
-        :param name: The organization custom repository role to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#name OrganizationCustomRole#name}
-        :param permissions: The permissions for the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#permissions OrganizationCustomRole#permissions}
-        :param description: The description of the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#description OrganizationCustomRole#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#id OrganizationCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param base_role: The base role for the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#base_role OrganizationCustomRole#base_role}
+        :param name: The organization custom repository role to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#name OrganizationCustomRole#name}
+        :param permissions: The permissions for the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#permissions OrganizationCustomRole#permissions}
+        :param description: The description of the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#description OrganizationCustomRole#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#id OrganizationCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class OrganizationCustomRole(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OrganizationCustomRole to import.
-        :param import_from_id: The id of the existing OrganizationCustomRole that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OrganizationCustomRole that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OrganizationCustomRole to import is found.
         '''
         if __debug__:
@@ -276,11 +276,11 @@ class OrganizationCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param base_role: The base role for the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#base_role OrganizationCustomRole#base_role}
-        :param name: The organization custom repository role to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#name OrganizationCustomRole#name}
-        :param permissions: The permissions for the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#permissions OrganizationCustomRole#permissions}
-        :param description: The description of the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#description OrganizationCustomRole#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#id OrganizationCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param base_role: The base role for the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#base_role OrganizationCustomRole#base_role}
+        :param name: The organization custom repository role to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#name OrganizationCustomRole#name}
+        :param permissions: The permissions for the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#permissions OrganizationCustomRole#permissions}
+        :param description: The description of the custom repository role. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#description OrganizationCustomRole#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#id OrganizationCustomRole#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -390,7 +390,7 @@ class OrganizationCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def base_role(self) -> builtins.str:
         '''The base role for the custom repository role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#base_role OrganizationCustomRole#base_role}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#base_role OrganizationCustomRole#base_role}
         '''
         result = self._values.get("base_role")
         assert result is not None, "Required property 'base_role' is missing"
@@ -400,7 +400,7 @@ class OrganizationCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The organization custom repository role to create.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#name OrganizationCustomRole#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#name OrganizationCustomRole#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -410,7 +410,7 @@ class OrganizationCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def permissions(self) -> typing.List[builtins.str]:
         '''The permissions for the custom repository role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#permissions OrganizationCustomRole#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#permissions OrganizationCustomRole#permissions}
         '''
         result = self._values.get("permissions")
         assert result is not None, "Required property 'permissions' is missing"
@@ -420,14 +420,14 @@ class OrganizationCustomRoleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the custom repository role.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#description OrganizationCustomRole#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#description OrganizationCustomRole#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_custom_role#id OrganizationCustomRole#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_custom_role#id OrganizationCustomRole#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

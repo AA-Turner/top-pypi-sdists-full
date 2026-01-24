@@ -1,10 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pybcj
-Version: 1.0.6
+Version: 1.0.7
 Summary: bcj filter library
 Author-email: Hiroshi Miura <miurahr@linux.com>
 License: LGPL-2.1-or-later
-Project-URL: Source, https://codeberg.org/miurahr/pybcj
+Project-URL: Homepage, https://pypi.org/project/pybcj
+Project-URL: Bug Tracker, https://github.com/miurahr/pybcj/issues
+Project-URL: Source, https://github.com/miurahr/pybcj
+Project-URL: Changelog, https://github.com/miurahr/pybcj/blob/main/Changelog.rst
 Keywords: lzma,bcj
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
@@ -14,16 +17,16 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: test
@@ -34,7 +37,7 @@ Requires-Dist: coverage[toml]>=5.2; extra == "test"
 Provides-Extra: check
 Requires-Dist: mypy>=1.10.0; extra == "check"
 Requires-Dist: check-manifest; extra == "check"
-Requires-Dist: flake8<5; extra == "check"
+Requires-Dist: flake8<8; extra == "check"
 Requires-Dist: flake8-black; extra == "check"
 Requires-Dist: flake8-colors; extra == "check"
 Requires-Dist: flake8-isort; extra == "check"
@@ -42,6 +45,7 @@ Requires-Dist: flake8-pyi; extra == "check"
 Requires-Dist: flake8-typing-imports; extra == "check"
 Requires-Dist: readme-renderer; extra == "check"
 Requires-Dist: pygments; extra == "check"
+Dynamic: license-file
 
 =======================================
 BCJ(Branch-Call-Jump) filter for python

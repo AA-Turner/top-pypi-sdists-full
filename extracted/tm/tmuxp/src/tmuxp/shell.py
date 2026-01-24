@@ -13,12 +13,13 @@ logger = logging.getLogger(__name__)
 if t.TYPE_CHECKING:
     from collections.abc import Callable
     from types import ModuleType
+    from typing import TypeAlias
 
     from libtmux.pane import Pane
     from libtmux.server import Server
     from libtmux.session import Session
     from libtmux.window import Window
-    from typing_extensions import NotRequired, TypeAlias, TypedDict, Unpack
+    from typing_extensions import NotRequired, TypedDict, Unpack
 
     CLIShellLiteral: TypeAlias = t.Literal[
         "best",
@@ -286,7 +287,7 @@ def get_code(use_pythonrc: bool, imported_objects: LaunchImports) -> t.Any:
             )
 
     def launch_code() -> None:
-        code.interact(local=imported_objects)
+        code.interact(local=imported_objects)  # type:ignore
 
     return launch_code
 

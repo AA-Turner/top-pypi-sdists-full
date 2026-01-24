@@ -24,6 +24,7 @@ from collections import defaultdict, namedtuple
 from . import ClusterUtil
 from .DaxError import DaxClientError, DaxServiceError, DaxErrorCode, DaxValidationError
 from .Assemblers import ENDPOINT_FIELDS
+from .Constants import IpDiscoveryValues
 
 import logging
 logger = logging.getLogger(__name__)
@@ -41,6 +42,8 @@ class ServiceEndpoint(_ServiceEndpoint):
             if 'address' not in endpoint:
                 # No address, so go ask DNS
                 addresses = _resolve_dns(endpoint['hostname'], endpoint['port'])
+                # Filter addresses by endpoint address ip version
+                addresses = [addr for addr in addresses if addr[2] == endpoint.get('ip_version')]
                 if addresses:
                     # If multiple addresses, pick one
                     endpoint['address'] = random.choice(addresses)[0]
@@ -118,12 +121,14 @@ class EndpointRouter(Router):
                  update_cluster_interval,
                  health_check_interval,
                  selector=None,
-                 executor=None):
+                 executor=None,
+                 ip_discovery=None):
         self.selector = selector or random_backend
 
         if len({scheme for scheme, _, _ in discovery_endpoints}) > 1:
             raise DaxValidationError('All endpoints must have the same scheme')
         self._discovery_endpoints = discovery_endpoints
+        self._ip_discovery=ip_discovery
         # set the scheme for the client factory
         self._client_factory = functools.partial(client_factory, discovery_endpoints[0][0])
 
@@ -419,6 +424,7 @@ class EndpointRouter(Router):
             seeds += seeds_from_endpoint
             endpoint_scheme = scheme # should be the same for all endpoints
 
+        seeds = _filter_seeds_by_ip_discovery(seeds, self._ip_discovery)
         random.shuffle(seeds)
         logger.debug('seeds: %s', seeds)
         service_endpoints = self._get_endpoints_from_seeds(endpoint_scheme, seeds)
@@ -428,11 +434,11 @@ class EndpointRouter(Router):
             return service_endpoints
 
     def _get_endpoints_from_seeds(self, scheme, seeds):
-        for hostname, sockaddr in seeds:
+        for hostname, sockaddr, ip_version in seeds:
             ip, port = sockaddr
             # Stop after the first successful call
             try:
-                client = self._client_factory(hostname, sockaddr)
+                client = self._client_factory(hostname, sockaddr, ip_version)
             except Exception: # pylint: disable=broad-except
                 logger.info('Could not connect to %s://%s:%s', scheme, ip,
                             port, exc_info=True)
@@ -442,7 +448,8 @@ class EndpointRouter(Router):
                     endpoints = client.endpoints()
 
                     # Restore the DNS domain name of the discovery endpoint,
-                    # for certificate validation
+                    # for certificate validation.
+                    # Add the address ip_version to be used downstream.
                     for endpoint in endpoints:
                         endpoint['hostname'] = hostname
 
@@ -589,7 +596,9 @@ class EndpointBackend(object):
 
             if not self.client:
                 try:
-                    self.client = self._client_factory(self._service_endpoint.hostname, self.addrport)
+                    self.client = self._client_factory(
+                        self._service_endpoint.hostname, self.addrport, self._service_endpoint.ip_version
+                    )
                 except Exception as e: # pylint: disable=broad-except
                     logger.warning("Health check failed to get client with Error %s", e)
 
@@ -615,12 +624,68 @@ class EndpointBackend(object):
 def _clock():
     return time.time()
 
+def _filter_seeds_by_ip_discovery(seeds, ip_discovery=IpDiscoveryValues.NONE):
+    '''
+    Filters a list of seeds (host, socket address and ip version)
+    based on the desired ip_discovery.
+    Below the behavior:
+        1. The method splits the initial list based on Ip version.
+        2. If both IPv4 and IPv6 lists exist, we have dual stack, if not, single stack.
+        3. If single stack and stack type does not match ip discovery, raises error.
+        4. If ip discovery matches stack type, returns the IPs.
+        5. If ip discovery is not provided, IPv4 is preferred for dual stack and IPv4 stack,
+        IPv6 is preferred for IPv6 stack.
+
+    :raise DaxValidationError: if mismatch between discovered IP stack and provided
+        ip discovery.
+    :param seeds: List of seeds
+    :param ip_discovery: Desired ip version.
+    :return: Filtered list of seeds.
+    '''
+
+    ipv4_seeds = []
+    ipv6_seeds = []
+    for seed in seeds:
+        if seed[2] == socket.AF_INET:
+            ipv4_seeds.append(seed)
+        elif seed[2] == socket.AF_INET6:
+            ipv6_seeds.append(seed)
+
+    # If only one is present (single stack), returns the existing one.
+    # In case of dual stack will favor the ipv4_seeds if ip_discovery not provided.
+    if ip_discovery is None:
+        return ipv4_seeds or ipv6_seeds
+
+    if ip_discovery == IpDiscoveryValues.IPV4:
+        # Seeds available for ipv6 ips, but discovery is set to ipv4
+        if not ipv4_seeds and ipv6_seeds:
+            raise DaxValidationError(
+                "ip_discovery does not match the SupportedNetworkType. "
+                "ip_discovery: {}, SupportedNetworkType: {}.".format(
+                    ip_discovery, IpDiscoveryValues.IPV6
+                )
+            )
+        return ipv4_seeds
+
+    if ip_discovery == IpDiscoveryValues.IPV6:
+        # Seeds available for ipv4 ips, but discovery is set to ipv6
+        if ipv4_seeds and not ipv6_seeds:
+            raise DaxValidationError(
+                "ip_discovery does not match the SupportedNetworkType. "
+                "ip_discovery: {}, SupportedNetworkType: {}.".format(
+                    ip_discovery, IpDiscoveryValues.IPV4
+                )
+            )
+        return ipv6_seeds
+
+    # Invalid ip_discovery - maybe validate up-stream
+    return []
+
 def _resolve_dns(host, port):
     try:
-        # Deliberately restrict it to IPv4 addresses
-        return [(host, sockaddr) \
-                for family, socktype, proto, canonname, sockaddr \
-                in socket.getaddrinfo(host, port, socket.AF_INET, 0, socket.IPPROTO_TCP)]
+        return [(host, sockaddr[:2], ip_version) \
+                for ip_version, socktype, proto, canonname, sockaddr \
+                in socket.getaddrinfo(host, port, socket.AF_UNSPEC, 0, socket.IPPROTO_TCP)]
     except socket.gaierror:
         # if there is an error, return no addresses
         return []

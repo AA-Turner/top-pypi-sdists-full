@@ -1,0 +1,15 @@
+audit:
+dracut:
+dracut-config-generic:
+grubby:
+kernel:
+initscripts:
+man-pages:
+lsb_release:
+redhat-rpm-config:
+linux-firmware:
+    uninstall: true
+linux-firmware-whence:
+    uninstall: true
+NetworkManager:
+dhcp-client:

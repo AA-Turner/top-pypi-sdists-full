@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 jid = "0.12"
-pyo3 = { version = "0.23", features = ["extension-module"] }
+pyo3 = { version = "0.26", features = ["extension-module"] }
 
 [lib]
 name = "jid"

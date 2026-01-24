@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-zxcvbn-password-validator
-Version: 1.5.1
+Version: 1.5.3
 Summary: A translatable password validator for django, based on zxcvbn-python.
 Author-email: Pierre SASSOULAS <pierre.sassoulas@gmail.com>
 License-Expression: MIT
@@ -9,6 +9,10 @@ Project-URL: Source Code, https://github.com/Pierre-Sassoulas/django-zxcvbn-pass
 Keywords: django,password-validator,zxcvbn
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
+Classifier: Framework :: Django :: 3.2
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: Arabic
 Classifier: Natural Language :: Armenian
@@ -35,15 +39,15 @@ Classifier: Natural Language :: Ukrainian
 Classifier: Natural Language :: Vietnamese
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9.0
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: django<6,>=2
+Requires-Dist: django<7,>=2
 Requires-Dist: zxcvbn
 Provides-Extra: dev
 Requires-Dist: build; extra == "dev"
@@ -51,11 +55,12 @@ Requires-Dist: coverage; extra == "dev"
 Requires-Dist: coveralls; extra == "dev"
 Requires-Dist: django-rosetta; extra == "dev"
 Requires-Dist: mock; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: python-coveralls; extra == "dev"
 Provides-Extra: pylint
 Requires-Dist: pre-commit>=2.16; extra == "pylint"
 Requires-Dist: pylint>=3.2; extra == "pylint"
-Requires-Dist: pylint-django==2.5.5; extra == "pylint"
+Requires-Dist: pylint-django==2.7; extra == "pylint"
 Dynamic: license-file
 
 # django-zxcvbn-password-validator
@@ -66,9 +71,10 @@ pip.
 Professional support for django-zxcvbn-password-validator is available as part of the
 [Tidelift Subscription](https://tidelift.com/subscription/pkg/pypi-django-zxcvbn-password-validator?utm_source=pypi-django-zxcvbn-password-validator&utm_medium=referral&utm_campaign=enterprise)
 
-[![Build Status](https://travis-ci.org/Pierre-Sassoulas/django-zxcvbn-password-validator.svg?branch=master)](https://travis-ci.org/Pierre-Sassoulas/django-zxcvbn-password-validator)
+[![Build status](https://github.com/Pierre-Sassoulas/django-zxcvbn-password-validator/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/Pierre-Sassoulas/django-zxcvbn-password-validator/actions?branch=main)
 [![Coverage Status](https://coveralls.io/repos/github/Pierre-Sassoulas/django-zxcvbn-password-validator/badge.svg?branch=master)](https://coveralls.io/github/Pierre-Sassoulas/django-zxcvbn-password-validator?branch=master)
 [![PyPI version](https://badge.fury.io/py/django-zxcvbn-password-validator.svg)](https://badge.fury.io/py/django-zxcvbn-password-validator)
+[![Published on Django Packages](https://img.shields.io/badge/Published%20on-Django%20Packages-0c3c26)](https://djangopackages.org/packages/p/django-zxcvbn-password-validator/)
 
 ## Translating the project
 

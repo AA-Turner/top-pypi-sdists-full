@@ -1,16 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ansible-modules-hashivault
-Version: 5.4.0
+Version: 5.6.0
 Summary: Ansible Modules for Hashicorp Vault
-Home-page: https://github.com/TerryHowe/ansible-modules-hashivault
-Author: Terry Howe
-Author-email: terrylhowe@example.com
+Author-email: Terry Howe <terrylhowe@example.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/TerryHowe/ansible-modules-hashivault
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: ansible-core>=2.12.0
 Requires-Dist: hvac>=2.1.0
 Requires-Dist: requests
+Dynamic: license-file
 
 Ansible Modules Hashivault
 ==========================
@@ -59,7 +63,7 @@ in order to authenticate to your HashiCorp Vault instance:
 
   * `VAULT_ADDR`: url for vault
   * `VAULT_SKIP_VERIFY=true`: if set, do not verify presented TLS certificate before communicating with Vault server. Setting this variable is not recommended except during testing
-  * `VAULT_AUTHTYPE`: authentication type to use: `token`, `userpass`, `github`, `ldap`, `approle`
+  * `VAULT_AUTHTYPE`: authentication type to use: `token`, `userpass`, `github`, `ldap`, `radius`, `approle`
   * `VAULT_LOGIN_MOUNT_POINT`: mount point for login defaults to auth type
   * `VAULT_TOKEN`: token for vault
   * `VAULT_ROLE_ID`: (required by `approle`)

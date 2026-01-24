@@ -1,0 +1,43 @@
+name: llo_template
+version: 1.0.0
+
+control:
+  backup:
+    type: count
+    value: 5
+  check_resource: True
+
+solution:
+  pip:
+    requirements: True
+      # - python-dotenv
+      # - pandas
+      # - numpy
+      # - matplotlib
+      # - seaborn
+      # - scikit-learn
+
+
+  credential:
+    env_file: .env
+
+api:
+  config:
+    logging:
+      formatters:
+        access:
+          fmt: '[%(asctime)s|%(levelname)s] %(client_addr)s - "%(request_line)s" %(status_code)s'
+  path:
+    /api/generate_questions:
+      GET:
+        handler: LLM_logic.generate_questions
+        parameter:
+          target: str
+          purpose: str
+          multipleChoiceCount: int
+          openEndedCount: int
+    /api/basic_analysis:
+      POST:
+        handler: LLM_logic.basic_analysis
+        parameter:
+          question: str

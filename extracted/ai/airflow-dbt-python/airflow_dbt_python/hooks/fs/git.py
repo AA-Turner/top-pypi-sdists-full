@@ -127,9 +127,9 @@ class DbtGitFSHook(SSHHook, DbtFSHook):
             return new_refs
 
         client.send_pack(
-            path,
+            path.encode("utf-8"),
             update_refs,
-            generate_pack_data=repo.generate_pack_data,
+            generate_pack_data=repo.generate_pack_data,  # type: ignore
         )
 
     def _download(
@@ -160,8 +160,7 @@ class DbtGitFSHook(SSHHook, DbtFSHook):
             path,
             str(destination),
             mkdir=not destination.exists(),
-            # NOTE: Dulwich expects branch to be bytes if defined.
-            branch=branch.encode("utf-8") if isinstance(branch, str) else branch,
+            branch=branch,
         )
 
     def get_git_client_path(self, url: URL) -> Tuple[GitClients, str, Optional[str]]:
@@ -191,7 +190,7 @@ class DbtGitFSHook(SSHHook, DbtFSHook):
                 host=url.hostname,
                 port=self.port,
                 username=url.username or self.username,
-                vendor=vendor,
+                vendor=vendor,  # type: ignore
             )
             path = f"{url.netloc.split(':')[1]}/{str(url.path)}"
 
@@ -211,7 +210,7 @@ class DbtGitFSHook(SSHHook, DbtFSHook):
             elif url.authentication.username:
                 base_url = f"{url.scheme}://{url.authentication.username}@{base_url}"
 
-            client = HttpGitClient(base_url, **auth_params)
+            client = HttpGitClient(base_url, **auth_params)  # type: ignore
 
             path = str(url.path)
 

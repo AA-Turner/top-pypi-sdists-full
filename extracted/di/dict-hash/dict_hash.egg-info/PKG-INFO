@@ -1,18 +1,24 @@
 Metadata-Version: 2.1
-Name: dict-hash
-Version: 1.3.6
+Name: dict_hash
+Version: 1.3.7
 Summary: Python package to hash dictionaries using default hash, md5, sha256 and more.
 Home-page: https://github.com/LucaCappelletti94/dict_hash
 Author: Luca Cappelletti
 Author-email: cappelletti.luca94@gmail.com
 License: MIT
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Description-Content-Type: text/markdown
-Provides-Extra: test
 License-File: LICENSE
+Requires-Dist: deflate_dict>=1.2.2
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: validate_version_code; extra == "test"
+Requires-Dist: random_dict; extra == "test"
+Requires-Dist: pytest-readme; extra == "test"
+Requires-Dist: netaddr; extra == "test"
 
 # Dict Hash
 
@@ -156,5 +162,3 @@ class MyHashable(Hashable):
 ## License
 
 This software is distributed under the MIT license.
-
-

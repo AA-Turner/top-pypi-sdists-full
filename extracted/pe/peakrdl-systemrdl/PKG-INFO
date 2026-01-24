@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peakrdl-systemrdl
-Version: 1.0.0
+Version: 1.0.1
 Summary: Write a register model to a SystemRDL file
 Author: Alex Mykyta
 License: LGPLv3
@@ -19,7 +19,9 @@ Classifier: Topic :: Scientific/Engineering :: Electronic Design Automation (EDA
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: systemrdl-compiler<2,>=1.25.1
+Requires-Dist: systemrdl-compiler~=1.30
+Provides-Extra: cli
+Requires-Dist: peakrdl-cli>=1.5.0; extra == "cli"
 Dynamic: license-file
 
 [![build](https://github.com/SystemRDL/PeakRDL-systemrdl/workflows/build/badge.svg)](https://github.com/SystemRDL/PeakRDL-systemrdl/actions?query=workflow%3Abuild+branch%3Amain)

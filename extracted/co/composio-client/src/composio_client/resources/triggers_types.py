@@ -49,7 +49,7 @@ class TriggersTypesResource(SyncAPIResource):
         self,
         slug: str,
         *,
-        version: str | Omit = omit,
+        toolkit_versions: Union[str, Dict[str, str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -62,9 +62,11 @@ class TriggersTypesResource(SyncAPIResource):
         identifier
 
         Args:
-          slug: The unique slug identifier for the trigger type
+          slug: The unique slug identifier for the trigger type. Case-insensitive (internally
+              normalized to uppercase).
 
-          version: Optional version of the trigger type to retrieve
+          toolkit_versions: Toolkit version specification. Use "latest" for latest versions or bracket
+              notation for specific versions per toolkit.
 
           extra_headers: Send extra headers
 
@@ -83,7 +85,9 @@ class TriggersTypesResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform({"version": version}, triggers_type_retrieve_params.TriggersTypeRetrieveParams),
+                query=maybe_transform(
+                    {"toolkit_versions": toolkit_versions}, triggers_type_retrieve_params.TriggersTypeRetrieveParams
+                ),
             ),
             cast_to=TriggersTypeRetrieveResponse,
         )
@@ -112,11 +116,12 @@ class TriggersTypesResource(SyncAPIResource):
               page. The cursor is used to paginate through the items. The cursor is not
               required for the first page.
 
-          limit: Number of items per page
+          limit: Number of items per page, max allowed is 1000
 
           toolkit_slugs: Array of toolkit slugs to filter triggers by
 
-          toolkit_versions: Can be omitted, null, a string, or an object mapping toolkit names to versions
+          toolkit_versions: Toolkit version specification. Use "latest" for latest versions or bracket
+              notation for specific versions per toolkit.
 
           extra_headers: Send extra headers
 
@@ -158,7 +163,7 @@ class TriggersTypesResource(SyncAPIResource):
     ) -> TriggersTypeRetrieveEnumResponse:
         """
         Retrieves a list of all available trigger type enum values that can be used
-        across the API
+        across the API from latest versions of the toolkit only
         """
         return self._get(
             "/api/v3/triggers_types/list/enum",
@@ -193,7 +198,7 @@ class AsyncTriggersTypesResource(AsyncAPIResource):
         self,
         slug: str,
         *,
-        version: str | Omit = omit,
+        toolkit_versions: Union[str, Dict[str, str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -206,9 +211,11 @@ class AsyncTriggersTypesResource(AsyncAPIResource):
         identifier
 
         Args:
-          slug: The unique slug identifier for the trigger type
+          slug: The unique slug identifier for the trigger type. Case-insensitive (internally
+              normalized to uppercase).
 
-          version: Optional version of the trigger type to retrieve
+          toolkit_versions: Toolkit version specification. Use "latest" for latest versions or bracket
+              notation for specific versions per toolkit.
 
           extra_headers: Send extra headers
 
@@ -228,7 +235,7 @@ class AsyncTriggersTypesResource(AsyncAPIResource):
                 extra_body=extra_body,
                 timeout=timeout,
                 query=await async_maybe_transform(
-                    {"version": version}, triggers_type_retrieve_params.TriggersTypeRetrieveParams
+                    {"toolkit_versions": toolkit_versions}, triggers_type_retrieve_params.TriggersTypeRetrieveParams
                 ),
             ),
             cast_to=TriggersTypeRetrieveResponse,
@@ -258,11 +265,12 @@ class AsyncTriggersTypesResource(AsyncAPIResource):
               page. The cursor is used to paginate through the items. The cursor is not
               required for the first page.
 
-          limit: Number of items per page
+          limit: Number of items per page, max allowed is 1000
 
           toolkit_slugs: Array of toolkit slugs to filter triggers by
 
-          toolkit_versions: Can be omitted, null, a string, or an object mapping toolkit names to versions
+          toolkit_versions: Toolkit version specification. Use "latest" for latest versions or bracket
+              notation for specific versions per toolkit.
 
           extra_headers: Send extra headers
 
@@ -304,7 +312,7 @@ class AsyncTriggersTypesResource(AsyncAPIResource):
     ) -> TriggersTypeRetrieveEnumResponse:
         """
         Retrieves a list of all available trigger type enum values that can be used
-        across the API
+        across the API from latest versions of the toolkit only
         """
         return await self._get(
             "/api/v3/triggers_types/list/enum",

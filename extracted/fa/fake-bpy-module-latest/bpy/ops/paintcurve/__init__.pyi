@@ -12,10 +12,7 @@ def add_point(
 ) -> None:
     """Add New Paint Curve Point
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param location: Location, Location of vertex in area space
-    :type location: collections.abc.Iterable[int] | None
     """
 
 def add_point_slide(
@@ -28,12 +25,8 @@ def add_point_slide(
 ) -> None:
     """Add new curve point and slide it
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param PAINTCURVE_OT_add_point: Add New Paint Curve Point, Add New Paint Curve Point
-    :type PAINTCURVE_OT_add_point: add_point | None
     :param PAINTCURVE_OT_slide: Slide Paint Curve Point, Select and slide paint curve point
-    :type PAINTCURVE_OT_slide: slide | None
     """
 
 def cursor(
@@ -41,44 +34,28 @@ def cursor(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Place cursor
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Place cursor"""
 
 def delete_point(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove Paint Curve Point
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove Paint Curve Point"""
 
 def draw(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Draw curve
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Draw curve"""
 
 def new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add new paint curve
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add new paint curve"""
 
 def select(
     execution_context: int | str | None = None,
@@ -91,14 +68,9 @@ def select(
 ) -> None:
     """Select a paint curve point
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param location: Location, Location of vertex in area space
-    :type location: collections.abc.Iterable[int] | None
     :param toggle: Toggle, (De)select all
-    :type toggle: bool | None
     :param extend: Extend, Extend selection
-    :type extend: bool | None
     """
 
 def slide(
@@ -111,10 +83,6 @@ def slide(
 ) -> None:
     """Select and slide paint curve point
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param align: Align Handles, Aligns opposite point handle during transform
-    :type align: bool | None
     :param select: Select, Attempt to select a point handle before transform
-    :type select: bool | None
     """

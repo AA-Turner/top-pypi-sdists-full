@@ -7,7 +7,7 @@ from .input_helpers import update_org_from_input_or_ctx, strip_none
 from .create import handle_api_409
 from agilicus.output.table import make_columns
 from . import resource_helpers
-
+from .pagination import normalize_page_args
 
 from .output.table import (
     subobject_column,
@@ -18,6 +18,7 @@ from .output.table import (
     subtable,
 )
 import agilicus
+
 
 permissioned_resource_types = [
     "application",
@@ -32,6 +33,10 @@ permissioned_resource_types = [
 resource_types = permissioned_resource_types + ["service_forwarder"]
 permissioned_resource_type_enum = click.Choice(permissioned_resource_types)
 resource_type_enum = click.Choice(resource_types)
+
+resource_page_fields = resource_helpers.standard_page_fields + [
+    "resource_type",
+]
 
 
 def query_permissions(ctx, org_id=None, **kwargs):
@@ -108,17 +113,21 @@ def bulk_delete_permission(ctx, **kwargs):
     )
 
 
-def query_resources(ctx, org_id=None, **kwargs):
+def query_resources(ctx, org_id=None, get_all=False, limit=None, **kwargs):
     org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
     kwargs["org_id"] = org_id
     params = {}
     update_if_not_none(params, kwargs)
-    query_results = apiclient.resources_api.list_resources(**params)
-    if query_results:
-        return query_results.resources
-    return []
+    params = normalize_page_args(params)
+    if not get_all:
+        if limit is None:
+            limit = 500
+        return apiclient.resources_api.list_resources(limit=limit, **params).resources
+    return apiclient.resources_api.list_resources.auto_paging_iter(
+        limit=limit, **params
+    ).all()
 
 
 def format_resources(ctx, resources, show_columns=None, reset_columns=None):

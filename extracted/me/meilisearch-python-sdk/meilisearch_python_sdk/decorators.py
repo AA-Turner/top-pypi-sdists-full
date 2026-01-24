@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable, Sequence
 from functools import wraps
-from typing import Any, Callable, NamedTuple
+from typing import Any, NamedTuple
 
 from meilisearch_python_sdk import AsyncClient, Client
 from meilisearch_python_sdk._utils import use_task_groups
+from meilisearch_python_sdk.types import JsonMapping
 
 
 class ConnectionInfo(NamedTuple):
-    """Infomation on how to connect to Meilisearch.
+    """Information on how to connect to Meilisearch.
 
     url: URL for the Meilisearch server.
     api_key: The API key for the server.
@@ -28,13 +30,13 @@ def async_add_documents(
     wait_for_task: bool = False,
     verify: bool = True,
 ) -> Callable:
-    """Decorator that takes the returned documents from a function and asyncronously adds them to Meilisearch.
+    """Decorator that takes the returned documents from a function and asynchronously adds them to Meilisearch.
 
     It is required that either an async_client or url is provided.
 
     Args:
         index_name: The name of the index to which the documents should be added.
-        connection_info: Either an AsyncClient instance ConnectionInfo with informtaion on how to
+        connection_info: Either an AsyncClient instance ConnectionInfo with information on how to
             connect to Meilisearch.
         batch_size: If provided the documents will be sent in batches of the specified size.
             Otherwise all documents are sent at once. Default = None.
@@ -45,7 +47,7 @@ def async_add_documents(
         verify: If set to `False` the decorator will not verify the SSL certificate of the server.
 
     Returns:
-        The list of documents proviced by the decorated function.
+        The list of documents provided by the decorated function.
 
     Raises:
         MeilisearchCommunicationError: If there was an error communicating with the server.
@@ -74,7 +76,7 @@ def async_add_documents(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
             result = await func(*args, **kwargs)
             if isinstance(connection_info, AsyncClient):
                 await _async_add_documents(
@@ -116,7 +118,7 @@ def add_documents(
 
     Args:
         index_name: The name of the index to which the documents should be added.
-        connection_info: Either an Client instance ConnectionInfo with informtaion on how to
+        connection_info: Either an Client instance ConnectionInfo with information on how to
             connect to Meilisearch.
         batch_size: If provided the documents will be sent in batches of the specified size.
             Otherwise all documents are sent at once. Default = None.
@@ -127,7 +129,7 @@ def add_documents(
         verify: If set to `False` the decorator will not verify the SSL certificate of the server.
 
     Returns:
-        The list of documents proviced by the decorated function.
+        The list of documents provided by the decorated function.
 
     Raises:
         MeilisearchCommunicationError: If there was an error communicating with the server.
@@ -156,7 +158,7 @@ def add_documents(
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
             result = func(*args, **kwargs)
             if isinstance(connection_info, Client):
                 _add_documents(
@@ -191,7 +193,7 @@ def add_documents(
 async def _async_add_documents(
     async_client: AsyncClient,
     index_name: str,
-    documents: Any,
+    documents: Sequence[JsonMapping],
     batch_size: int | None,
     primary_key: str | None,
     wait_for_task: bool,
@@ -220,7 +222,7 @@ async def _async_add_documents(
 def _add_documents(
     client: Client,
     index_name: str,
-    documents: Any,
+    documents: Sequence[JsonMapping],
     batch_size: int | None,
     primary_key: str | None,
     wait_for_task: bool,

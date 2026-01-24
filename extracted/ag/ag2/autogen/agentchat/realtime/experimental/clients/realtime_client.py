@@ -8,7 +8,7 @@ from contextlib import AbstractAsyncContextManager
 from logging import Logger
 from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
 
-from asyncer import create_task_group
+from anyio import create_task_group
 
 from .....doc_utils import export_module
 from .....llm_config import LLMConfig
@@ -140,7 +140,7 @@ class RealtimeClientBase:
         Args:
             audio (str): The audio.
         """
-        await self.add_event(InputAudioBufferDelta(delta=audio, item_id=None, raw_message=dict()))
+        await self.add_event(InputAudioBufferDelta(delta=audio, item_id=None, raw_message={}))
 
 
 _realtime_client_classes: dict[str, type[RealtimeClientProtocol]] = {}

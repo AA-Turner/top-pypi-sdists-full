@@ -7,5 +7,5 @@ def register_config(func: Callable) -> Callable:
     of all configs. This function should only be used in a module called configs, otherwise the auto-discover
     functionality won't work.
     """
-    setattr(func, "_is_config", True)
+    func._is_config = True
     return func

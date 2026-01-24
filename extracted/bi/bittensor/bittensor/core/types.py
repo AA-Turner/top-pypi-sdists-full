@@ -1,13 +1,37 @@
-from abc import ABC
 import argparse
-from typing import TypedDict, Optional
+from abc import ABC
+from dataclasses import dataclass
+from typing import Any, Literal, Optional, TypedDict, Union, TYPE_CHECKING
 
-from bittensor.utils import networking, Certificate
-from bittensor.utils.btlogging import logging
+import numpy as np
+from numpy.typing import NDArray
+
 from bittensor.core import settings
-from bittensor.core.config import Config
 from bittensor.core.chain_data import NeuronInfo, NeuronInfoLite
-from bittensor.utils import determine_chain_endpoint_and_network
+from bittensor.core.config import Config
+from bittensor.utils import (
+    determine_chain_endpoint_and_network,
+    get_caller_name,
+    format_error_message,
+    networking,
+    unlock_key,
+    Certificate,
+    UnlockStatus,
+)
+from bittensor.utils.btlogging import logging
+
+if TYPE_CHECKING:
+    from bittensor_wallet import Wallet
+    from bittensor.utils.balance import Balance
+    from scalecodec.types import GenericExtrinsic
+    from async_substrate_interface.sync_substrate import ExtrinsicReceipt
+    from async_substrate_interface.async_substrate import AsyncExtrinsicReceipt
+
+
+# Type annotations for UIDs and weights.
+UIDs = Union[NDArray[np.int64], list[Union[int]]]
+Weights = Union[NDArray[np.float32], list[Union[int, float]], list[int], list[float]]
+Salt = Union[NDArray[np.int64], list[int]]
 
 
 class SubtensorMixin(ABC):
@@ -34,21 +58,20 @@ class SubtensorMixin(ABC):
                 "This increases decentralization and resilience of the network."
             )
 
-    @staticmethod  # TODO can this be a class method?
+    @staticmethod
     def config() -> "Config":
         """
         Creates and returns a Bittensor configuration object.
 
         Returns:
-            config (bittensor.core.config.Config): A Bittensor configuration object configured with arguments added by
-                the `subtensor.add_args` method.
+            A Bittensor configuration object configured with arguments added by the `subtensor.add_args` method.
         """
         parser = argparse.ArgumentParser()
         SubtensorMixin.add_args(parser)
         return Config(parser)
 
     @staticmethod
-    def setup_config(network: Optional[str], config: "Config"):
+    def setup_config(network: Optional[str], config: "Config") -> tuple[str, str]:
         """
         Sets up and returns the configuration for the Subtensor network and endpoint.
 
@@ -60,11 +83,10 @@ class SubtensorMixin(ABC):
             4. Default chain endpoint.
             5. Default network.
 
-        Arguments:
-            network (Optional[str]): The name of the Subtensor network. If None, the network and endpoint will be
-                determined from the `config` object.
-            config (bittensor.core.config.Config): The configuration object containing the network and chain endpoint
-                settings.
+        Parameters:
+            network: The name of the Subtensor network. If None, the network and endpoint will be determined from the
+                `config` object.
+            config: The configuration object containing the network and chain endpoint settings.
 
         Returns:
             tuple: A tuple containing the formatted WebSocket endpoint URL and the evaluated network name.
@@ -107,10 +129,9 @@ class SubtensorMixin(ABC):
         """
         Adds command-line arguments to the provided ArgumentParser for configuring the Subtensor settings.
 
-        Arguments:
-            parser (argparse.ArgumentParser): The ArgumentParser object to which the Subtensor arguments will be added.
-            prefix (Optional[str]): An optional prefix for the argument names. If provided, the prefix is prepended to
-                each argument name.
+        Parameters:
+            parser: The ArgumentParser object to which the Subtensor arguments will be added.
+            prefix: An optional prefix for the argument names. If provided, the prefix is prepended to each argument name.
 
         Arguments added:
             --subtensor.network: The Subtensor network flag. Possible values are 'finney', 'test', 'archive', and
@@ -227,24 +248,19 @@ class AxonServeCallParams:
             self.certificate,
         )
 
-    def dict(self) -> dict:
-        """
-        Returns a dict representation of this object. If `self.certificate` is `None`,
-        it is not included in this.
-        """
-        d = {
+    def as_dict(self) -> dict:
+        """Returns a dict representation of this object. If `self.certificate` is `None`, it is not included in this."""
+        d: dict = {
             "version": self.version,
             "ip": self.ip,
             "port": self.port,
             "ip_type": self.ip_type,
             "netuid": self.netuid,
-            "hotkey": self.hotkey,
-            "coldkey": self.coldkey,
             "protocol": self.protocol,
             "placeholder1": self.placeholder1,
             "placeholder2": self.placeholder2,
         }
-        if self.certificate is not None:
+        if self.certificate:
             d["certificate"] = self.certificate
         return d
 
@@ -259,6 +275,303 @@ class PrometheusServeCallParams(TypedDict):
     netuid: int
 
 
-class ParamWithTypes(TypedDict):
-    name: str  # Name of the parameter.
-    type: str  # ScaleType string of the parameter.
+@dataclass
+class ExtrinsicResponse:
+    """
+    A standardized response container for handling the extrinsic results submissions and related operations in the SDK.
+
+    This class is designed to give developers a consistent way to represent the outcome of an extrinsic call — whether
+    it succeeded or failed — along with useful metadata for debugging, logging, or higher-level business logic.
+
+    The object also implements tuple-like behavior:
+      * Iteration yields ``(success, message)``.
+      * Indexing is supported: ``response[0] -> success``, ``response[1] -> message``.
+      * ``len(response)`` returns 2.
+
+    Attributes:
+        success: Indicates if the extrinsic execution was successful.
+        message: A status or informational message returned from the execution (e.g., "Successfully registered subnet").
+        extrinsic_function: The SDK extrinsic or external function name that was executed (e.g., "add_stake_extrinsic").
+        extrinsic: The raw extrinsic object used in the call, if available. This is a ``GenericExtrinsic`` instance
+            containing the full payload and metadata of the submitted extrinsic, including call section, method, signer,
+            signature, parameters, and encoded bytes. Useful for inspecting or reconstructing the exact transaction
+            submitted to the chain.
+        extrinsic_fee: The fee charged by the extrinsic, if available.
+        extrinsic_receipt: The receipt object of the submitted extrinsic. This is an ``ExtrinsicReceipt`` instance that
+            contains the most detailed execution data available, including the block number and hash, triggered events,
+            extrinsic index, execution phase, and other low-level details. This allows deep debugging or post-analysis
+            of on-chain execution.
+        mev_extrinsic: The extrinsic object of the revealed (decrypted and executed) MEV Shield extrinsic. This is
+            populated when using MEV Shield protection (``with_mev_protection=True``) and contains the execution details
+            of the second extrinsic that decrypts and executes the originally encrypted call. Contains triggered events,
+            block information, and other execution metadata. Set to ``None`` for non-MEV Shield transactions or when the
+            revealed extrinsic receipt is not available.
+        transaction_tao_fee: TAO fee charged by the transaction in TAO (e.g., fee for add_stake), if available.
+        transaction_alpha_fee: Alpha fee charged by the transaction (e.g., fee for transfer_stake), if available.
+        error: Captures the underlying exception if the extrinsic failed, otherwise `None`.
+        data: Arbitrary data returned from the extrinsic, such as decoded events, balance or another extra context.
+
+    Instance methods:
+        as_dict: Returns a dictionary representation of this object.
+        with_log: Returns itself but with logging message.
+
+    Class methods:
+        from_exception: Checks if error is raised or return ExtrinsicResponse accordingly.
+        unlock_wallet: Checks if keypair is unlocked and can be used for signing the extrinsic.
+
+
+    Example:
+        import bittensor as bt
+
+        subtensor = bt.SubtensorApi("local")
+        wallet = bt.Wallet("alice")
+
+        response = subtensor.subnets.register_subnet(alice_wallet)
+        print(response)
+
+        ExtrinsicResponse:
+            success: True
+            message: Successfully registered subnet
+            extrinsic_function: register_subnet_extrinsic
+            extrinsic: {'account_id': '0xd43593c715fdd31c...
+            transaction_fee: τ1.0
+            extrinsic_receipt: Extrinsic Receipt data of of the submitted extrinsic
+            mev_extrinsic: None
+            transaction_tao_fee: τ1.0
+            transaction_alpha_fee: 1.0β
+            error: None
+            data: None
+
+        success, message = response
+        print(success, message)
+
+        True Successfully registered subnet
+
+        print(response[0])
+        True
+        print(response[1])
+        'Successfully registered subnet'
+    """
+
+    success: bool = True
+    message: Optional[str] = None
+    extrinsic_function: Optional[str] = None
+    extrinsic: Optional["GenericExtrinsic"] = None
+    extrinsic_fee: Optional["Balance"] = None
+    extrinsic_receipt: Optional["AsyncExtrinsicReceipt | ExtrinsicReceipt"] = None
+    mev_extrinsic: Optional["AsyncExtrinsicReceipt | ExtrinsicReceipt"] = None
+    transaction_tao_fee: Optional["Balance"] = None
+    transaction_alpha_fee: Optional["Balance"] = None
+    error: Optional[Exception] = None
+    data: Optional[Any] = None
+
+    def __iter__(self):
+        yield self.success
+        yield self.message
+
+    def __str__(self):
+        _extrinsic_receipt = (
+            f"ExtrinsicReceipt<hash:{self.extrinsic_receipt.extrinsic_hash}>\n"
+            if self.extrinsic_receipt
+            else f"{self.extrinsic_receipt}\n"
+        )
+        return (
+            f"{self.__class__.__name__}:\n"
+            f"\tsuccess: {self.success}\n"
+            f"\tmessage: {self.message}\n"
+            f"\textrinsic_function: {self.extrinsic_function}\n"
+            f"\textrinsic: {self.extrinsic}\n"
+            f"\textrinsic_fee: {self.extrinsic_fee}\n"
+            f"\textrinsic_receipt: {_extrinsic_receipt}\n"
+            f"\tmev_extrinsic: {self.mev_extrinsic}\n"
+            f"\ttransaction_tao_fee: {self.transaction_tao_fee}\n"
+            f"\ttransaction_alpha_fee: {self.transaction_alpha_fee}\n"
+            f"\terror: {self.error}\n"
+            f"\tdata: {self.data}\n"
+        )
+
+    def __repr__(self):
+        return repr((self.success, self.message))
+
+    def as_dict(self) -> dict:
+        """Represents this object as a dictionary."""
+        return {
+            "success": self.success,
+            "message": self.message,
+            "extrinsic_function": self.extrinsic_function,
+            "extrinsic": self.extrinsic,
+            "extrinsic_fee": self.extrinsic_fee.rao if self.extrinsic_fee else None,
+            "transaction_tao_fee": self.transaction_tao_fee.rao
+            if self.transaction_tao_fee
+            else None,
+            "transaction_alpha_fee": str(self.transaction_alpha_fee)
+            if self.transaction_alpha_fee
+            else None,
+            "extrinsic_receipt": self.extrinsic_receipt,
+            "error": str(self.error) if self.error else None,
+            "data": self.data,
+        }
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, (tuple, list)):
+            return (self.success, self.message) == tuple(other)
+        if isinstance(other, ExtrinsicResponse):
+            return (
+                self.success == other.success
+                and self.message == other.message
+                and self.extrinsic_function == other.extrinsic_function
+                and self.extrinsic == other.extrinsic
+                and self.extrinsic_fee == other.extrinsic_fee
+                and self.transaction_tao_fee == other.transaction_tao_fee
+                and self.transaction_alpha_fee == other.transaction_alpha_fee
+                and self.extrinsic_receipt == other.extrinsic_receipt
+                and self.error == other.error
+                and self.data == other.data
+            )
+        return super().__eq__(other)
+
+    def __getitem__(self, index: int) -> Any:
+        if index == 0:
+            return self.success
+        elif index == 1:
+            return self.message
+        else:
+            raise IndexError(
+                "ExtrinsicResponse only supports indices 0 (success) and 1 (message)."
+            )
+
+    def __len__(self):
+        return 2
+
+    def __post_init__(self):
+        if self.extrinsic_function is None:
+            self.extrinsic_function = get_caller_name(depth=3)
+
+    @classmethod
+    def unlock_wallet(
+        cls,
+        wallet: "Wallet",
+        raise_error: bool = False,
+        unlock_type: str = "coldkey",
+        nonce_key: Optional[str] = None,
+    ) -> "ExtrinsicResponse":
+        """Check if keypair is unlocked and return ExtrinsicResponse accordingly.
+
+        Parameters:
+            wallet: Bittensor Wallet instance.
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            unlock_type: The key type, 'coldkey' or 'hotkey'. Or 'both' to check both.
+            nonce_key: Key used for generating nonce in extrinsic function.
+
+        Returns:
+            Extrinsic Response is used to check if the key is unlocked.
+
+        Note:
+            When an extrinsic is signed with the coldkey but internally references or uses the hotkey, both keypairs
+            must be validated. Passing unlock_type='both' ensures that authentication is performed against both the
+            coldkey and hotkey.
+        """
+        both = ["coldkey", "hotkey"]
+        keys = [unlock_type] if unlock_type in both else both
+        unlock = UnlockStatus(False, "")
+
+        for unlock_type in keys:
+            unlock = unlock_key(
+                wallet, unlock_type=unlock_type, raise_error=raise_error
+            )
+            if not unlock.success:
+                logging.error(unlock.message)
+
+        # If extrinsic uses `unlock_type` and `nonce_key` and `nonce_key` is not public, we need to check the
+        # availability of both keys.
+        if nonce_key and nonce_key != unlock_type and "pub" not in nonce_key:
+            nonce_key_unlock = unlock_key(
+                wallet, unlock_type=nonce_key, raise_error=raise_error
+            )
+            if not nonce_key_unlock.success:
+                logging.error(nonce_key_unlock.message)
+
+            return cls(
+                success=all([unlock.success, nonce_key_unlock.success]),
+                message=unlock.message,
+                extrinsic_function=get_caller_name(),
+            )
+
+        return cls(
+            success=unlock.success,
+            message=unlock.message,
+            extrinsic_function=get_caller_name(),
+        )
+
+    @classmethod
+    def from_exception(cls, raise_error: bool, error: Exception) -> "ExtrinsicResponse":
+        """Check if error is raised and return ExtrinsicResponse accordingly.
+        Parameters:
+            raise_error: Raises a relevant exception rather than returning `False` if unsuccessful.
+            error: Exception raised during extrinsic execution.
+
+        Returns:
+            Extrinsic Response with False checks whether to raise an error or simply return the instance.
+        """
+        if raise_error:
+            raise error
+        return cls(
+            success=False,
+            message=format_error_message(error),
+            error=error,
+            extrinsic_function=get_caller_name(),
+        ).with_log()
+
+    def with_log(
+        self,
+        level: Literal[
+            "trace", "debug", "info", "warning", "error", "success"
+        ] = "error",
+    ) -> "ExtrinsicResponse":
+        """Logs provided message with provided level.
+
+        Parameters:
+            level: Logging level represented as "trace", "debug", "info", "warning", "error", "success" uses to logging
+                message.
+
+        Returns:
+            ExtrinsicResponse instance.
+        """
+        if self.message:
+            if level in ["trace", "error"]:
+                message = f"[red]{self.message}[/red]"
+            elif level == "info":
+                message = f"[blue]{self.message}[/blue]"
+            elif level == "warning":
+                message = f"[yellow]{self.message}[/yellow]"
+            elif level == "success":
+                message = f"[green]{self.message}[/green]"
+            else:
+                message = self.message
+            getattr(logging, level)(message)
+        return self
+
+
+@dataclass
+class BlockInfo:
+    """
+    Class that holds information about a blockchain block.
+
+    This class encapsulates all relevant information about a block in the blockchain, including its number, hash,
+    timestamp, and contents.
+
+    Attributes:
+        number: The block number.
+        hash: The corresponding block hash.
+        timestamp: The timestamp of the block (based on the `Timestamp.Now` extrinsic).
+        header: The raw block header returned by the node RPC.
+        extrinsics: The list of extrinsics included in the block.
+        explorer: The link to block explorer service.
+    """
+
+    number: int
+    hash: str
+    timestamp: Optional[int]
+    header: dict
+    extrinsics: list
+    explorer: str

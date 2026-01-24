@@ -214,21 +214,47 @@ The structure of each dataframe is shown below:
 
     In [11]: chemicals.vapor_pressure.Psat_data_Landolt_Antoine
 """
+from __future__ import annotations
 
+from typing import TYPE_CHECKING
 
-__all__ = ['Antoine','dAntoine_dT', 'd2Antoine_dT2',
-           'Wagner_original',  'dWagner_original_dT', 'd2Wagner_original_dT2',
-           'Wagner', 'dWagner_dT', 'd2Wagner_dT2',
-           'TRC_Antoine_extended', 'dTRC_Antoine_extended_dT',
-           'd2TRC_Antoine_extended_dT2', 'dYaws_Psat_dT',
-           'boiling_critical_relation', 'Lee_Kesler', 'Ambrose_Walton',
-           'Edalat', 'Sanjari', 'Psat_IAPWS', 'dPsat_IAPWS_dT', 'Tsat_IAPWS',
-           'Psub_Clapeyron', 'Yaws_Psat', 'd2Yaws_Psat_dT2',
-           'Antoine_coeffs_from_point', 'Antoine_AB_coeffs_from_point',
-           'DIPPR101_ABC_coeffs_from_point', 'Wagner_original_fitting_jacobian',
-           'Wagner_fitting_jacobian', 'Yaws_Psat_fitting_jacobian',
-           'Antoine_fitting_jacobian', 'TRC_Antoine_extended_fitting_jacobian',
-           'TDE_PVExpansion', 'Arrhenius_extrapolation', 'Arrhenius_parameters']
+__all__: list[str] = [
+    "Ambrose_Walton",
+    "Antoine",
+    "Antoine_AB_coeffs_from_point",
+    "Antoine_coeffs_from_point",
+    "Antoine_fitting_jacobian",
+    "Arrhenius_extrapolation",
+    "Arrhenius_parameters",
+    "DIPPR101_ABC_coeffs_from_point",
+    "Edalat",
+    "Lee_Kesler",
+    "Psat_IAPWS",
+    "Psub_Clapeyron",
+    "Sanjari",
+    "TDE_PVExpansion",
+    "TRC_Antoine_extended",
+    "TRC_Antoine_extended_fitting_jacobian",
+    "Tsat_IAPWS",
+    "Wagner",
+    "Wagner_fitting_jacobian",
+    "Wagner_original",
+    "Wagner_original_fitting_jacobian",
+    "Yaws_Psat",
+    "Yaws_Psat_fitting_jacobian",
+    "boiling_critical_relation",
+    "d2Antoine_dT2",
+    "d2TRC_Antoine_extended_dT2",
+    "d2Wagner_dT2",
+    "d2Wagner_original_dT2",
+    "d2Yaws_Psat_dT2",
+    "dAntoine_dT",
+    "dPsat_IAPWS_dT",
+    "dTRC_Antoine_extended_dT",
+    "dWagner_dT",
+    "dWagner_original_dT",
+    "dYaws_Psat_dT",
+]
 
 from math import isinf, log10
 
@@ -237,48 +263,72 @@ from fluids.numerics import exp, log, sqrt, trunc_exp
 from fluids.numerics import numpy as np
 
 from chemicals.data_reader import data_source, register_df_source
-from chemicals.utils import PY37, can_load_data, mark_numba_incompatible, os_path_join, source_path
+from chemicals.utils import mark_numba_incompatible, os_path_join, source_path
 
-folder = os_path_join(source_path, 'Vapor Pressure')
+if TYPE_CHECKING:
+    from pandas.core.frame import DataFrame
+folder = os_path_join(source_path, "Vapor Pressure")
 
-register_df_source(folder, 'Antoine Collection Poling.tsv')
-register_df_source(folder, 'Table 2-8 Vapor Pressure of Inorganic and Organic Liquids.tsv')
+# Module-level variables for lazy-loaded data
+Psat_data_WagnerMcGarry: DataFrame
+Psat_values_WagnerMcGarry: np.ndarray
+Psat_data_AntoinePoling: DataFrame
+Psat_values_AntoinePoling: np.ndarray
+Psat_data_Alcock_elements: DataFrame
+Psat_values_Alcock_elements: np.ndarray
+Psub_data_Alcock_elements: DataFrame
+Psub_values_Alcock_elements: np.ndarray
+Psat_data_WagnerPoling: DataFrame
+Psat_values_WagnerPoling: np.ndarray
+Psat_data_AntoineExtended: DataFrame
+Psat_values_AntoineExtended: np.ndarray
+Psat_data_Perrys2_8: DataFrame
+Psat_values_Perrys2_8: np.ndarray
+Psat_data_VDI_PPDS_3: DataFrame
+Psat_values_VDI_PPDS_3: np.ndarray
+Psub_data_Landolt_Antoine: DataFrame
+Psub_values_Landolt_Antoine: np.ndarray
+Psat_data_Landolt_Antoine: DataFrame
+Psat_values_Landolt_Antoine: np.ndarray
 
-register_df_source(folder, 'Alcock_Itkin_Horrigan_metalic_elements.tsv',
-                   csv_kwargs={'dtype':{'Tmin': float, 'Tmax': float, 'A': float,
-                            'B': float, 'C': float, 'D': float, 'E': float}})
+register_df_source(folder, "Antoine Collection Poling.tsv")
+register_df_source(folder, "Table 2-8 Vapor Pressure of Inorganic and Organic Liquids.tsv")
 
-register_df_source(folder, 'Landolt_antoine_sublimation_V20.tsv',
-                   csv_kwargs={'dtype':{'Tmin': float, 'Tmax': float, 'A': float,
-                            'B': float, 'C': float}})
+register_df_source(folder, "Alcock_Itkin_Horrigan_metalic_elements.tsv",
+                   csv_kwargs={"dtype":{"Tmin": float, "Tmax": float, "A": float,
+                            "B": float, "C": float, "D": float, "E": float}})
 
-register_df_source(folder, 'Landolt_antoine_V20.tsv',
-                   csv_kwargs={'dtype':{'Tmin': float, 'Tmax': float, 'A': float,
-                            'B': float, 'C': float}})
+register_df_source(folder, "Landolt_antoine_sublimation_V20.tsv",
+                   csv_kwargs={"dtype":{"Tmin": float, "Tmax": float, "A": float,
+                            "B": float, "C": float}})
 
-register_df_source(folder, 'Alcock_Itkin_Horrigan_metalic_elements_sublimation.tsv',
-                   csv_kwargs={'dtype':{'Tmin': float, 'Tmax': float, 'A': float,
-                            'B': float, 'C': float, 'D': float}}, index_col=1)
+register_df_source(folder, "Landolt_antoine_V20.tsv",
+                   csv_kwargs={"dtype":{"Tmin": float, "Tmax": float, "A": float,
+                            "B": float, "C": float}})
 
-register_df_source(folder, 'Wagner Original McGarry.tsv', csv_kwargs={
-        'dtype': {'A': float, 'B': float, 'C': float, 'D': float,
-                 'Pc': float, 'Tc': float, 'Tmin': float}})
+register_df_source(folder, "Alcock_Itkin_Horrigan_metalic_elements_sublimation.tsv",
+                   csv_kwargs={"dtype":{"Tmin": float, "Tmax": float, "A": float,
+                            "B": float, "C": float, "D": float}}, index_col=1)
 
-register_df_source(folder, 'Wagner Collection Poling.tsv', csv_kwargs={
-        'dtype': {'A': float, 'B': float, 'C': float, 'D': float, 'Pc': float,
-                  'Tc': float, 'Tmin': float, 'Tmax': float}})
+register_df_source(folder, "Wagner Original McGarry.tsv", csv_kwargs={
+        "dtype": {"A": float, "B": float, "C": float, "D": float,
+                 "Pc": float, "Tc": float, "Tmin": float}})
 
-register_df_source(folder, 'Antoine Extended Collection Poling.tsv', csv_kwargs={
-    'dtype':{'A': float, 'B': float, 'C': float, 'Tc': float, 'to': float,
-             'n': float, 'E': float, 'F': float, 'Tmin': float, 'Tmax': float}})
+register_df_source(folder, "Wagner Collection Poling.tsv", csv_kwargs={
+        "dtype": {"A": float, "B": float, "C": float, "D": float, "Pc": float,
+                  "Tc": float, "Tmin": float, "Tmax": float}})
 
-register_df_source(folder, 'VDI PPDS Boiling temperatures at different pressures.tsv', csv_kwargs={
-        'dtype':{'Tm': float, 'Tc': float, 'Pc': float, 'A': float,
-                 'B': float, 'C': float, 'D': float}})
+register_df_source(folder, "Antoine Extended Collection Poling.tsv", csv_kwargs={
+    "dtype":{"A": float, "B": float, "C": float, "Tc": float, "to": float,
+             "n": float, "E": float, "F": float, "Tmin": float, "Tmax": float}})
+
+register_df_source(folder, "VDI PPDS Boiling temperatures at different pressures.tsv", csv_kwargs={
+        "dtype":{"Tm": float, "Tc": float, "Pc": float, "A": float,
+                 "B": float, "C": float, "D": float}})
 
 _vapor_pressure_dfs_loaded = False
 @mark_numba_incompatible
-def load_vapor_pressure_dfs():
+def load_vapor_pressure_dfs() -> None:
     global Psat_data_WagnerMcGarry, Psat_values_WagnerMcGarry, Psat_data_AntoinePoling, Psat_values_AntoinePoling
     global Psat_data_WagnerPoling, Psat_values_WagnerPoling, Psat_data_AntoineExtended, Psat_values_AntoineExtended
     global Psat_data_Perrys2_8, Psat_values_Perrys2_8, Psat_data_VDI_PPDS_3, Psat_values_VDI_PPDS_3
@@ -290,63 +340,59 @@ def load_vapor_pressure_dfs():
         return
 
     # 57463 bytes for df; 13720 bytes for numpy
-    Psat_data_WagnerMcGarry = data_source('Wagner Original McGarry.tsv')
+    Psat_data_WagnerMcGarry = data_source("Wagner Original McGarry.tsv")
     Psat_values_WagnerMcGarry = np.array(Psat_data_WagnerMcGarry.values[:, 1:], dtype=float)
 
     # 58216 bytes for df; 13000 bytes for numpy
-    Psat_data_AntoinePoling = data_source('Antoine Collection Poling.tsv')
+    Psat_data_AntoinePoling = data_source("Antoine Collection Poling.tsv")
     Psat_values_AntoinePoling = np.array(Psat_data_AntoinePoling.values[:, 1:], dtype=float)
 
-    Psat_data_Alcock_elements = data_source('Alcock_Itkin_Horrigan_metalic_elements.tsv')
+    Psat_data_Alcock_elements = data_source("Alcock_Itkin_Horrigan_metalic_elements.tsv")
     Psat_values_Alcock_elements = np.array(Psat_data_Alcock_elements.values[:, 1:], dtype=float)
 
-    Psub_data_Alcock_elements = data_source('Alcock_Itkin_Horrigan_metalic_elements_sublimation.tsv')
+    Psub_data_Alcock_elements = data_source("Alcock_Itkin_Horrigan_metalic_elements_sublimation.tsv")
     Psub_values_Alcock_elements = np.array(Psub_data_Alcock_elements.values[:, 1:], dtype=float)
 
     # 20928 bytes for df; 7488 bytes for numpy
-    Psat_data_WagnerPoling = data_source('Wagner Collection Poling.tsv')
+    Psat_data_WagnerPoling = data_source("Wagner Collection Poling.tsv")
     Psat_values_WagnerPoling = np.array(Psat_data_WagnerPoling.values[:, 1:], dtype=float)
 
     # 21388 bytes for df; 7760 bytes for numpy
-    Psat_data_AntoineExtended = data_source('Antoine Extended Collection Poling.tsv')
+    Psat_data_AntoineExtended = data_source("Antoine Extended Collection Poling.tsv")
     Psat_values_AntoineExtended = np.array(Psat_data_AntoineExtended.values[:, 1:], dtype=float)
 
     # 65740 bytes for df; 21760 bytes for numpy
-    Psat_data_Perrys2_8 = data_source('Table 2-8 Vapor Pressure of Inorganic and Organic Liquids.tsv')
+    Psat_data_Perrys2_8 = data_source("Table 2-8 Vapor Pressure of Inorganic and Organic Liquids.tsv")
     Psat_values_Perrys2_8 = np.array(Psat_data_Perrys2_8.values[:, 1:], dtype=float)
 
     # 52742 bytes for df; 15400 bytes for numpy
-    Psat_data_VDI_PPDS_3 = data_source('VDI PPDS Boiling temperatures at different pressures.tsv')
+    Psat_data_VDI_PPDS_3 = data_source("VDI PPDS Boiling temperatures at different pressures.tsv")
     Psat_values_VDI_PPDS_3 = np.array(Psat_data_VDI_PPDS_3.values[:, 1:], dtype=float)
 
-    Psub_data_Landolt_Antoine = data_source('Landolt_antoine_sublimation_V20.tsv')
+    Psub_data_Landolt_Antoine = data_source("Landolt_antoine_sublimation_V20.tsv")
     Psub_values_Landolt_Antoine = np.array(Psub_data_Landolt_Antoine.values[:, 1:], dtype=float)
 
-    Psat_data_Landolt_Antoine = data_source('Landolt_antoine_V20.tsv')
+    Psat_data_Landolt_Antoine = data_source("Landolt_antoine_V20.tsv")
     Psat_values_Landolt_Antoine = np.array(Psat_data_Landolt_Antoine.values[:, 1:], dtype=float)
 
     _vapor_pressure_dfs_loaded = True
 
-if PY37:
-    def __getattr__(name):
-        if name in ('Psat_data_WagnerMcGarry', 'Psat_values_WagnerMcGarry', 'Psat_data_AntoinePoling',
-                    'Psat_values_AntoinePoling', 'Psat_data_WagnerPoling', 'Psat_values_WagnerPoling',
-                    'Psat_data_AntoineExtended', 'Psat_values_AntoineExtended', 'Psat_data_Perrys2_8',
-                    'Psat_values_Perrys2_8', 'Psat_data_VDI_PPDS_3', 'Psat_values_VDI_PPDS_3',
-                    'Psat_data_Alcock_elements', 'Psat_values_Alcock_elements',
-                    'Psub_data_Alcock_elements', 'Psub_values_Alcock_elements',
-                    'Landolt_data_sublimation_Antoine', 'Psub_values_Landolt_Antoine',
-                    'Psat_data_Landolt_Antoine', 'Psat_values_Landolt_Antoine'):
-            load_vapor_pressure_dfs()
-            return globals()[name]
-        raise AttributeError(f"module {__name__} has no attribute {name}")
-else:
-    if can_load_data:
+def __getattr__(name: str) -> DataFrame:
+    if name in ("Psat_data_WagnerMcGarry", "Psat_values_WagnerMcGarry", "Psat_data_AntoinePoling",
+                "Psat_values_AntoinePoling", "Psat_data_WagnerPoling", "Psat_values_WagnerPoling",
+                "Psat_data_AntoineExtended", "Psat_values_AntoineExtended", "Psat_data_Perrys2_8",
+                "Psat_values_Perrys2_8", "Psat_data_VDI_PPDS_3", "Psat_values_VDI_PPDS_3",
+                "Psat_data_Alcock_elements", "Psat_values_Alcock_elements",
+                "Psub_data_Alcock_elements", "Psub_values_Alcock_elements",
+                "Landolt_data_sublimation_Antoine", "Psub_values_Landolt_Antoine",
+                "Psat_data_Landolt_Antoine", "Psat_values_Landolt_Antoine"):
         load_vapor_pressure_dfs()
+        return globals()[name]
+    raise AttributeError(f"module {__name__} has no attribute {name}")
 
 
 def TDE_PVExpansion(T, a1, a2, a3, a4=0.0, a5=0.0, a6=0.0, a7=0.0, a8=0.0):
-    r'''Calculates vapor pressure or sublimation pressure of a chemical using
+    r"""Calculates vapor pressure or sublimation pressure of a chemical using
     the PVExpansion equation for vapor pressure or sublimation pressure.
     Parameters `a1`, `a2`, `a3`, `a4`, `a5`, `a6`, `a7`, and `a8`
     are chemical-dependent. Parameters
@@ -399,12 +445,12 @@ def TDE_PVExpansion(T, a1, a2, a3, a4=0.0, a5=0.0, a6=0.0, a7=0.0, a8=0.0):
     ----------
     .. [1] "ThermoData Engine (TDE103a V10.1) User`s Guide."
        https://trc.nist.gov/TDE/Help/TDE103b/Eqns-Pure-PhaseBoundaryLG/PVExpansion.htm
-    '''
+    """
     T2 = T*T
     return trunc_exp(a1 + a2/T + a3*log(T) + a4*T + a5*T2 + a6/T2 + a7*T2*T2*T2 + a8/(T2*T2))
 
 def Yaws_Psat(T, A, B, C, D, E):
-    r'''Calculates vapor pressure of a chemical using the Yaws equation for
+    r"""Calculates vapor pressure of a chemical using the Yaws equation for
     vapor pressure.
     Parameters `A`, `B`, `C`, `D`, and `E` are chemical-dependent. Parameters
     can be found in numerous sources; however units of the coefficients used
@@ -461,19 +507,19 @@ def Yaws_Psat(T, A, B, C, D, E):
 
     References
     ----------
-    .. [1] Yaws, Carl L. Chemical Properties Handbook: Physical, Thermodynamic,
-       Environmental, Transport, Safety, and Health Related Properties for
-       Organic and Inorganic Chemicals. McGraw-Hill, 2001.
+    .. [1] Yaws, Carl L. Thermophysical Properties of Chemicals and
+       Hydrocarbons, Second Edition. Amsterdam Boston: Gulf Professional
+       Publishing, 2014.
     .. [2] "ThermoData Engine (TDE103a V10.1) User`s Guide."
        https://trc.nist.gov/TDE/Help/TDE103a/Eqns-Pure-PhaseBoundaryLG/Yaws-VaporPressure.htm.
-    '''
+    """
     exponent = (A + B/T + C*log10(T) + T*(D + E*T))
     if exponent > 308.0:
         return 1e308
     return 10.0**exponent
 
 def dYaws_Psat_dT(T, A, B, C, D, E):
-    r'''Calculates the first temperature derivative of vapor pressure of a
+    r"""Calculates the first temperature derivative of vapor pressure of a
     chemical using the Yaws equation for vapor pressure.
     Parameters `A`, `B`, `C`, `D`, and `E` are chemical-dependent. Parameters
     can be found in numerous sources; however units of the coefficients used
@@ -512,7 +558,7 @@ def dYaws_Psat_dT(T, A, B, C, D, E):
 
     >>> dYaws_Psat_dT(T=400.0, A=42.7918, B=-2965.83, C=-12.073, D=0.0033269, E=1.58609e-6)
     8134.87548930
-    '''
+    """
     x0 = 2.302585092994046
     x1 = T*T
     x2 = 1.0/T
@@ -520,7 +566,7 @@ def dYaws_Psat_dT(T, A, B, C, D, E):
     return 10.0**(A + B*x2 + D*T + E*x1 + x3*log(T))*x0*(-B/x1 + D + 2.0*E*T + x2*x3)
 
 def d2Yaws_Psat_dT2(T, A, B, C, D, E):
-    r'''Calculates the second temperature derivative of vapor pressure of a
+    r"""Calculates the second temperature derivative of vapor pressure of a
     chemical using the Yaws equation for vapor pressure.
     Parameters `A`, `B`, `C`, `D`, and `E` are chemical-dependent. Parameters
     can be found in numerous sources; however units of the coefficients used
@@ -561,7 +607,7 @@ def d2Yaws_Psat_dT2(T, A, B, C, D, E):
 
     >>> d2Yaws_Psat_dT2(T=400.0, A=42.7918, B=-2965.83, C=-12.073, D=0.0033269, E=1.58609e-6)
     141.7181045862
-    '''
+    """
     x0 = 2.302585092994046
     x1 = 1.0/T
     x2 = T*T
@@ -572,7 +618,7 @@ def d2Yaws_Psat_dT2(T, A, B, C, D, E):
     return 10.0**(A + B*x1 + D*T + E*x2 + x3*log(T))*x0*(2.0*B*x1*x1*x1 + x0*x6*x6 - x3*x5 + x4)
 
 def Yaws_Psat_fitting_jacobian(Ts, A, B, C, D, E):
-    r'''Compute and return the Jacobian of the property predicted by
+    r"""Compute and return the Jacobian of the property predicted by
     the Yaws vapor pressure equation with respect to all the coefficients. This is
     used in fitting parameters for chemicals.
 
@@ -597,7 +643,7 @@ def Yaws_Psat_fitting_jacobian(Ts, A, B, C, D, E):
         Matrix of derivatives of the equation with respect to the fitting
         parameters, [various]
 
-    '''
+    """
     x0 = 2.302585092994046
     N = len(Ts)
 #    out = np.zeros((N, 5)) # numba: uncomment
@@ -617,8 +663,8 @@ def Yaws_Psat_fitting_jacobian(Ts, A, B, C, D, E):
         r[4] = x2*x5
     return out
 
-def Antoine(T, A, B, C, base=10.0):
-    r'''Calculates vapor pressure of a chemical using the Antoine equation.
+def Antoine(T: float, A: float, B: float, C: float, base: float=10.0) -> float:
+    r"""Calculates vapor pressure of a chemical using the Antoine equation.
     Parameters `A`, `B`, and `C` are chemical-dependent. Parameters can be
     found in numerous sources; however units of the coefficients used vary.
     Originally proposed by Antoine (1888) [2]_.
@@ -699,16 +745,17 @@ def Antoine(T, A, B, C, base=10.0):
        New York: McGraw-Hill Professional, 2000.
     .. [2] Antoine, C. 1888. Tensions des Vapeurs: Nouvelle Relation Entre les
        Tensions et les Tempé. Compt.Rend. 107:681-684.
-    .. [3] Yaws, Carl L. The Yaws Handbook of Vapor Pressure: Antoine
-       Coefficients. 1 edition. Houston, Tex: Gulf Publishing Company, 2007.
-    '''
+    .. [3] Yaws, Carl L. Thermophysical Properties of Chemicals and
+       Hydrocarbons, Second Edition. Amsterdam Boston: Gulf Professional
+       Publishing, 2014.
+    """
     T_C = T + C
     if T_C <= 0.0:
         return 0.0
     return base**(A - B/(T_C))
 
 def dAntoine_dT(T, A, B, C, base=10.0):
-    r'''Calculates the first temperature derivative of vapor pressure of a
+    r"""Calculates the first temperature derivative of vapor pressure of a
     chemical using the Antoine equation.
     Parameters `A`, `B`, and `C` are chemical-dependent.
 
@@ -745,7 +792,7 @@ def dAntoine_dT(T, A, B, C, base=10.0):
 
     >>> dAntoine_dT(100.0, 8.7687, 395.744, -6.469)
     3591.4147747481
-    '''
+    """
     T_C = T + C
     if T_C <= 0.0:
         return 0.0
@@ -753,7 +800,7 @@ def dAntoine_dT(T, A, B, C, base=10.0):
     return B*base**(A - B*den)*log(base)*den*den
 
 def d2Antoine_dT2(T, A, B, C, base=10.0):
-    r'''Calculates the second temperature derivative of vapor pressure of a
+    r"""Calculates the second temperature derivative of vapor pressure of a
     chemical using the Antoine equation.
     Parameters `A`, `B`, and `C` are chemical-dependent.
 
@@ -791,7 +838,7 @@ def d2Antoine_dT2(T, A, B, C, base=10.0):
 
     >>> d2Antoine_dT2(100.0, 8.7687, 395.744, -6.469)
     297.30093799054
-    '''
+    """
     T_C = T + C
     if T_C <= 0.0:
         return 0.0
@@ -800,8 +847,8 @@ def d2Antoine_dT2(T, A, B, C, base=10.0):
     x0 = B*den*log_base
     return x0*base**(A - B*den)*(x0 - 2.0)*den*den
 
-def Antoine_coeffs_from_point(T, Psat, dPsat_dT, d2Psat_dT2, base=10.0):
-    r'''Calculates the antoine coefficients `A`, `B`, and `C` from a known
+def Antoine_coeffs_from_point(T: float, Psat: float, dPsat_dT: float, d2Psat_dT2: float, base: float=10.0) -> tuple[float, float, float]:
+    r"""Calculates the antoine coefficients `A`, `B`, and `C` from a known
     vapor pressure and its first and second temperature derivative.
 
     Parameters
@@ -857,7 +904,7 @@ def Antoine_coeffs_from_point(T, Psat, dPsat_dT, d2Psat_dT2, base=10.0):
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     x0 = 1.0/log(base)
     x1 = Psat*d2Psat_dT2
     dPsat_dT_2 = dPsat_dT*dPsat_dT
@@ -868,8 +915,8 @@ def Antoine_coeffs_from_point(T, Psat, dPsat_dT, d2Psat_dT2, base=10.0):
     C = -x3*(2.0*Psat*dPsat_dT + T*x1 - T*dPsat_dT_2)
     return (A, B, C)
 
-def Antoine_AB_coeffs_from_point(T, Psat, dPsat_dT, base=10.0):
-    r'''Calculates the antoine coefficients `A`, `B`, with `C` set to zero to
+def Antoine_AB_coeffs_from_point(T: float, Psat: float, dPsat_dT: float, base: float=10.0) -> tuple[float, float]:
+    r"""Calculates the antoine coefficients `A`, `B`, with `C` set to zero to
     improve low-temperature or high-temperature extrapolation, from a known
     vapor pressure and its first temperature derivative.
 
@@ -921,7 +968,7 @@ def Antoine_AB_coeffs_from_point(T, Psat, dPsat_dT, base=10.0):
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     log_base_inv = 1.0/log(base)
     Psat_inv = 1.0/Psat
     # The expression from SymPy is as follows
@@ -933,8 +980,8 @@ def Antoine_AB_coeffs_from_point(T, Psat, dPsat_dT, base=10.0):
     B = T*T*dPsat_dT*log_base_inv*Psat_inv
     return (A, B)
 
-def DIPPR101_ABC_coeffs_from_point(T, Psat, dPsat_dT, d2Psat_dT2):
-    r'''Calculates the first three DIPPR101 coefficients `A`, `B`, and `C`
+def DIPPR101_ABC_coeffs_from_point(T: float, Psat: float, dPsat_dT: float, d2Psat_dT2: float) -> tuple[float, float, float]:
+    r"""Calculates the first three DIPPR101 coefficients `A`, `B`, and `C`
     from a known vapor pressure and its first and second temperature derivative.
 
     If the second derivative is infinity as is the case in some vapor pressure
@@ -985,7 +1032,7 @@ def DIPPR101_ABC_coeffs_from_point(T, Psat, dPsat_dT, d2Psat_dT2):
     >>> Psat, dPsat_dT, d2Psat_dT2 = (0.03946094565666715, 0.006781441203850251, 0.0010801244983894853)
     >>> DIPPR101_ABC_coeffs_from_point(T, Psat, dPsat_dT, d2Psat_dT2)
     (72.47169926642, -6744.620564969, -7.2976291987890)
-    '''
+    """
     if isinf(d2Psat_dT2):
         # We cannot match the second derivative, so there will definitely be
         # a discontinuity
@@ -1004,8 +1051,8 @@ def DIPPR101_ABC_coeffs_from_point(T, Psat, dPsat_dT, d2Psat_dT2):
     C = x1*x5
     return (A, B, C)
 
-def TRC_Antoine_extended(T, Tc, to, A, B, C, n, E, F):
-    r'''Calculates vapor pressure of a chemical using the TRC Extended Antoine
+def TRC_Antoine_extended(T: float, Tc: float, to: float, A: float, B: float, C: float, n: float, E: float, F: float) -> float:
+    r"""Calculates vapor pressure of a chemical using the TRC Extended Antoine
     equation. Parameters are chemical dependent, and said to be from the
     Thermodynamics Research Center (TRC) at Texas A&M. Coefficients for various
     chemicals can be found in [1]_.
@@ -1059,7 +1106,7 @@ def TRC_Antoine_extended(T, Tc, to, A, B, C, n, E, F):
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     x = (T - to - 273.15)/Tc
     if x < 0.0:
         x = 0.0
@@ -1070,7 +1117,7 @@ def TRC_Antoine_extended(T, Tc, to, A, B, C, n, E, F):
     return 10.**(A - B/T_C + 0.43429*x**n + x4*x4*(E + F*x4))
 
 def dTRC_Antoine_extended_dT(T, Tc, to, A, B, C, n, E, F):
-    r'''Calculates the first temperature derivative of vapor pressure of a
+    r"""Calculates the first temperature derivative of vapor pressure of a
     chemical using the TRC Extended Antoine equation.
 
     .. math::
@@ -1129,7 +1176,7 @@ def dTRC_Antoine_extended_dT(T, Tc, to, A, B, C, n, E, F):
     >>> dTRC_Antoine_extended_dT(T=180.0, Tc=227.51, to=-120., A=8.95894,
     ... B=510.595, C=-15.95, n=2.41377, E=-93.74, F=7425.9)
     31219.6061263
-    '''
+    """
     T_ref = 273.15
     f = 0.43429
     ln10 = 2.302585092994046
@@ -1145,7 +1192,7 @@ def dTRC_Antoine_extended_dT(T, Tc, to, A, B, C, n, E, F):
                   + 12.0*x1**11*x3 + 8.0*x1**7*x2)*ln10)
 
 def d2TRC_Antoine_extended_dT2(T, Tc, to, A, B, C, n, E, F):
-    r'''Calculates the second temperature derivative of vapor pressure of a
+    r"""Calculates the second temperature derivative of vapor pressure of a
     chemical using the TRC Extended Antoine equation.
 
     .. math::
@@ -1211,7 +1258,7 @@ def d2TRC_Antoine_extended_dT2(T, Tc, to, A, B, C, n, E, F):
     >>> d2TRC_Antoine_extended_dT2(T=180.0, Tc=227.51, to=-120., A=8.95894,
     ... B=510.595, C=-15.95, n=2.41377, E=-93.74, F=7425.9)
     1022.550368944
-    '''
+    """
     T_ref = 273.15
     f = 0.43429
     x = (T - to - 273.15)/Tc
@@ -1230,8 +1277,8 @@ def d2TRC_Antoine_extended_dT2(T, Tc, to, A, B, C, n, E, F):
             + 132.0*x2**10*x4 + 56.0*x2**6*x3 - x6*x7))
 
 
-def Wagner_original(T, Tc, Pc, a, b, c, d):
-    r'''Calculates vapor pressure using the Wagner equation (3, 6 form).
+def Wagner_original(T: float, Tc: float, Pc: float, a: float, b: float, c: float, d: float) -> float:
+    r"""Calculates vapor pressure using the Wagner equation (3, 6 form).
 
     Requires critical temperature and pressure as well as four coefficients
     specific to each chemical.
@@ -1289,7 +1336,7 @@ def Wagner_original(T, Tc, Pc, a, b, c, d):
     .. [3] PPDS2 Temperature-Dependent Equation Forms. National Engineering
        Laboratory, 2004
        https://web.archive.org/web/20050510061545/http://www.ppds.co.uk/library/pdf/PPDS_EquationForms.pdf
-    '''
+    """
     Tr = T/Tc
     if Tr > 1.0:
         Tr = 1.0
@@ -1303,7 +1350,7 @@ def Wagner_original(T, Tc, Pc, a, b, c, d):
     return Pc*exp(((d*tau2*tau + c)*tau2 + a + b*sqrt(tau))*tau_Tr)
 
 def dWagner_original_dT(T, Tc, Pc, a, b, c, d):
-    r'''Calculates first temperature derivative of vapor pressure using the
+    r"""Calculates first temperature derivative of vapor pressure using the
     Wagner equation (3, 6 form).
 
     Requires critical temperature and pressure as well as four coefficients
@@ -1352,7 +1399,7 @@ def dWagner_original_dT(T, Tc, Pc, a, b, c, d):
     >>> dWagner_original_dT(100.0, 190.53, 4596420., a=-6.00435, b=1.1885,
     ... c=-0.834082, d=-1.22833)
     3593.70783283
-    '''
+    """
     Tr = T/Tc
     tau = 1.0 - Tr
     tau2 = tau*tau
@@ -1375,7 +1422,7 @@ def dWagner_original_dT(T, Tc, Pc, a, b, c, d):
     return dPsat_dT
 
 def d2Wagner_original_dT2(T, Tc, Pc, a, b, c, d):
-    r'''Calculates second temperature derivative of vapor pressure using the
+    r"""Calculates second temperature derivative of vapor pressure using the
     Wagner equation (3, 6 form).
 
     Requires critical temperature and pressure as well as four coefficients
@@ -1428,7 +1475,7 @@ def d2Wagner_original_dT2(T, Tc, Pc, a, b, c, d):
     >>> d2Wagner_original_dT2(100.0, 190.53, 4596420., a=-6.00435, b=1.1885,
     ... c=-0.834082, d=-1.22833)
     296.87593368224
-    '''
+    """
     Tr = T/Tc
     tau = 1.0 - Tr
     tau2 = tau*tau
@@ -1460,7 +1507,7 @@ def d2Wagner_original_dT2(T, Tc, Pc, a, b, c, d):
                    + 2.0*x1*T_inv)*exp_term)
 
 def Wagner_original_fitting_jacobian(Ts, Tc, Pc, a, b, c, d):
-    r'''Calculates the jacobian of the Wagner (3, 6) vapor pressure equation
+    r"""Calculates the jacobian of the Wagner (3, 6) vapor pressure equation
     for use in fitting these parameters when experimental values are known.
 
     Requires critical temperature and pressure as well as four coefficients
@@ -1488,7 +1535,7 @@ def Wagner_original_fitting_jacobian(Ts, Tc, Pc, a, b, c, d):
     jac : list[list[float, 4], len(Ts)]
         Matrix of derivatives of the equation with respect to the fitting
         parameters, [various]
-    '''
+    """
     N = len(Ts)
 #    out = np.zeros((N, 4)) # numba: uncomment
     out = [[0.0]*4 for _ in range(N)] # numba: delete
@@ -1508,7 +1555,7 @@ def Wagner_original_fitting_jacobian(Ts, Tc, Pc, a, b, c, d):
     return out
 
 def Wagner_fitting_jacobian(Ts, Tc, Pc, a, b, c, d):
-    r'''Calculates the jacobian of the Wagner (2.5, 5) vapor pressure equation
+    r"""Calculates the jacobian of the Wagner (2.5, 5) vapor pressure equation
     for use in fitting these parameters when experimental values are known.
 
     Requires critical temperature and pressure as well as four coefficients
@@ -1536,7 +1583,7 @@ def Wagner_fitting_jacobian(Ts, Tc, Pc, a, b, c, d):
     jac : list[list[float, 4], len(Ts)]
         Matrix of derivatives of the equation with respect to the fitting
         parameters, [various]
-    '''
+    """
     N = len(Ts)
 #    out = np.zeros((N, 4)) # numba: uncomment
     out = [[0.0]*4 for _ in range(N)] # numba: delete
@@ -1556,7 +1603,7 @@ def Wagner_fitting_jacobian(Ts, Tc, Pc, a, b, c, d):
     return out
 
 def Antoine_fitting_jacobian(Ts, A, B, C, base=10.0):
-    r'''Calculates the jacobian of the Antoine vapor pressure equation
+    r"""Calculates the jacobian of the Antoine vapor pressure equation
     for use in fitting these parameters when experimental values are known.
 
     Requires three coefficients specific to each chemical.
@@ -1579,7 +1626,7 @@ def Antoine_fitting_jacobian(Ts, A, B, C, base=10.0):
     jac : list[list[float, 3], len(Ts)]
         Matrix of derivatives of the equation with respect to the fitting
         parameters, [various]
-    '''
+    """
     N = len(Ts)
 #    out = np.zeros((N, 3)) # numba: uncomment
     out = [[0.0]*3 for _ in range(N)] # numba: delete
@@ -1600,7 +1647,7 @@ def Antoine_fitting_jacobian(Ts, A, B, C, base=10.0):
     return out
 
 def TRC_Antoine_extended_fitting_jacobian(Ts, Tc, to, A, B, C, n, E, F):
-    r'''Calculates the jacobian of the TRC Antoine extended vapor pressure
+    r"""Calculates the jacobian of the TRC Antoine extended vapor pressure
     equation for use in fitting these parameters when experimental values are
     known.
 
@@ -1633,7 +1680,7 @@ def TRC_Antoine_extended_fitting_jacobian(Ts, Tc, to, A, B, C, n, E, F):
     jac : list[list[float, 7], len(Ts)]
         Matrix of derivatives of the equation with respect to the fitting
         parameters, [various]
-    '''
+    """
     N = len(Ts)
 #    out = np.zeros((N, 7)) # numba: uncomment
     out = [[0.0]*7 for _ in range(N)] # numba: delete
@@ -1681,8 +1728,8 @@ def TRC_Antoine_extended_fitting_jacobian(Ts, Tc, to, A, B, C, n, E, F):
             row[6] = Tc_n12*x1_8*x1_4*x9
     return out
 
-def Wagner(T, Tc, Pc, a, b, c, d):
-    r'''Calculates vapor pressure using the Wagner equation (2.5, 5 form).
+def Wagner(T: float, Tc: float, Pc: float, a: float, b: float, c: float, d: float) -> float:
+    r"""Calculates vapor pressure using the Wagner equation (2.5, 5 form).
 
     Requires critical temperature and pressure as well as four coefficients
     specific to each chemical.
@@ -1738,7 +1785,7 @@ def Wagner(T, Tc, Pc, a, b, c, d):
     .. [3] PPDS2 Temperature-Dependent Equation Forms. National Engineering
        Laboratory, 2004
        https://web.archive.org/web/20050510061545/http://www.ppds.co.uk/library/pdf/PPDS_EquationForms.pdf
-    '''
+    """
     Tr = T/Tc
     if Tr > 1.0:
         Tr = 1.0
@@ -1749,7 +1796,7 @@ def Wagner(T, Tc, Pc, a, b, c, d):
     return Pc*exp((a + b*tau_rt + tau15*(c + d*tau25))*tau/Tr)
 
 def dWagner_dT(T, Tc, Pc, a, b, c, d):
-    r'''Calculates the first temperature derivative of vapor pressure using the
+    r"""Calculates the first temperature derivative of vapor pressure using the
     Wagner equation (2.5, 5 form).
 
     Requires critical temperature and pressure as well as four coefficients
@@ -1798,7 +1845,7 @@ def dWagner_dT(T, Tc, Pc, a, b, c, d):
     >>> dWagner_dT(100., 190.551, 4599200, -6.02242, 1.26652, -0.5707, -1.366)
     3587.2910498076
 
-    '''
+    """
     tau = 1.0 - T/Tc
     tau2 = tau*tau
     try:
@@ -1816,7 +1863,7 @@ def dWagner_dT(T, Tc, Pc, a, b, c, d):
     return -Pc*x0*(a + 1.5*b*tau_rt + 2.5*c*x1 + 5.0*d*tau2*tau2 + x2)*exp_term
 
 def d2Wagner_dT2(T, Tc, Pc, a, b, c, d):
-    r'''Calculates the second temperature derivative of vapor pressure using the
+    r"""Calculates the second temperature derivative of vapor pressure using the
     Wagner equation (2.5, 5 form).
 
     Requires critical temperature and pressure as well as four coefficients
@@ -1869,7 +1916,7 @@ def d2Wagner_dT2(T, Tc, Pc, a, b, c, d):
 
     >>> d2Wagner_dT2(100., 190.551, 4599200, -6.02242, 1.26652, -0.5707, -1.366)
     296.7091513877
-    '''
+    """
     tau = 1.0 - T/Tc
     tau_rt = sqrt(tau)
     tau2 = tau*tau
@@ -1894,8 +1941,8 @@ def d2Wagner_dT2(T, Tc, Pc, a, b, c, d):
             + 0.3*x5 + 0.5*x6 + x7)**2 + (0.75*b/tau_rt + 3.75*c*tau_rt
             + 20.0*d*tau*tau2)/Tc + 2.0*x2*T_inv*T_inv)*exp_term)
 
-def Psat_IAPWS(T):
-    r'''Calculates vapor pressure of water using the IAPWS explicit equation.
+def Psat_IAPWS(T: float) -> float:
+    r"""Calculates vapor pressure of water using the IAPWS explicit equation.
 
     .. math::
         P^{sat} = 10^6 \left[ \frac{2C}{-B + \sqrt{B^2 - 4AC}}  \right]^4
@@ -1942,7 +1989,7 @@ def Psat_IAPWS(T):
     .. [1] Kretzschmar, Hans-Joachim, and Wolfgang Wagner. International Steam
        Tables: Properties of Water and Steam Based on the Industrial
        Formulation IAPWS-IF97. Springer, 2019.
-    '''
+    """
     v = T - 0.23855557567849/(T - 0.65017534844798E3)
     v2 = v*v
     A = v2 + 0.11670521452767E4*v - 0.72421316703206E6
@@ -1954,8 +2001,8 @@ def Psat_IAPWS(T):
     return P
 
 
-def dPsat_IAPWS_dT(T):
-    r'''Calculates the first temperature dervative of vapor pressure of water
+def dPsat_IAPWS_dT(T: float) -> float:
+    r"""Calculates the first temperature dervative of vapor pressure of water
     using the IAPWS explicit equation. This was derived with SymPy, using the
     CSE method.
 
@@ -1983,7 +2030,7 @@ def dPsat_IAPWS_dT(T):
     .. [1] Kretzschmar, Hans-Joachim, and Wolfgang Wagner. International Steam
        Tables: Properties of Water and Steam Based on the Industrial
        Formulation IAPWS-IF97. Springer, 2019.
-    '''
+    """
     # 1 power, four divisions
     x0 = 1.0/(T - 650.175348447980014)
     x1 = T - 0.238555575678490006*x0
@@ -2010,7 +2057,7 @@ def dPsat_IAPWS_dT(T):
             - 1.42736343074136086e-12*x2 - 3.8769014372169964e-8))/x9)*x10_inv)*x20)
 
 def Tsat_IAPWS(P):
-    r'''Calculates the saturation temperature of water using the IAPWS explicit
+    r"""Calculates the saturation temperature of water using the IAPWS explicit
     equation.
 
     .. math::
@@ -2061,7 +2108,7 @@ def Tsat_IAPWS(P):
     .. [1] Kretzschmar, Hans-Joachim, and Wolfgang Wagner. International Steam
        Tables: Properties of Water and Steam Based on the Industrial
        Formulation IAPWS-IF97. Springer, 2019.
-    '''
+    """
     B = sqrt(sqrt(P*1E-6))
     E = B*(B + -0.17073846940092E2) + 0.14915108613530E2
     F = B*(0.11670521452767E4*B + 0.12020824702470E5) + -0.48232657361591E4
@@ -2074,8 +2121,8 @@ def Tsat_IAPWS(P):
 
 ### CSP Methods
 
-def boiling_critical_relation(T, Tb, Tc, Pc):
-    r'''Calculates vapor pressure of a fluid at arbitrary temperatures using a
+def boiling_critical_relation(T: float, Tb: float, Tc: float, Pc: float) -> float:
+    r"""Calculates vapor pressure of a fluid at arbitrary temperatures using a
     CSP relationship as in [1]_; requires a chemical's critical temperature
     and pressure as well as boiling point.
 
@@ -2119,15 +2166,15 @@ def boiling_critical_relation(T, Tb, Tc, Pc):
     ----------
     .. [1] Reid, Robert C..; Prausnitz, John M.;; Poling, Bruce E.
        The Properties of Gases and Liquids. McGraw-Hill Companies, 1987.
-    '''
+    """
     Tbr = Tb/Tc
     Tr = T/Tc
     h = Tbr*log(Pc/101325.)/(1 - Tbr)
     return exp(h*(1.0 - 1.0/Tr))*Pc
 
 
-def Lee_Kesler(T, Tc, Pc, omega):
-    r'''Calculates vapor pressure of a fluid at arbitrary temperatures using a
+def Lee_Kesler(T: float, Tc: float, Pc: float, omega: float) -> float:
+    r"""Calculates vapor pressure of a fluid at arbitrary temperatures using a
     CSP relationship by [1]_; requires a chemical's critical temperature and
     acentric factor.
 
@@ -2178,7 +2225,7 @@ def Lee_Kesler(T, Tc, Pc, omega):
        21, no. 3 (1975): 510-527. doi:10.1002/aic.690210313.
     .. [2] Reid, Robert C..; Prausnitz, John M.;; Poling, Bruce E.
        The Properties of Gases and Liquids. McGraw-Hill Companies, 1987.
-    '''
+    """
     Tr = T/Tc
     logTr = log(Tr)
     Tr6 = Tr*Tr
@@ -2188,8 +2235,8 @@ def Lee_Kesler(T, Tc, Pc, omega):
     return exp(f0 + omega*f1)*Pc
 
 
-def Ambrose_Walton(T, Tc, Pc, omega):
-    r'''Calculates vapor pressure of a fluid at arbitrary temperatures using a
+def Ambrose_Walton(T: float, Tc: float, Pc: float, omega: float) -> float:
+    r"""Calculates vapor pressure of a fluid at arbitrary temperatures using a
     CSP relationship by [1]_; requires a chemical's critical temperature and
     acentric factor.
 
@@ -2247,7 +2294,7 @@ def Ambrose_Walton(T, Tc, Pc, omega):
        Chemistry 61, no. 8 (1989): 1395-1403. doi:10.1351/pac198961081395.
     .. [2] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     if T > Tc:
         T = Tc
     Tr = T/Tc
@@ -2265,8 +2312,8 @@ def Ambrose_Walton(T, Tc, Pc, omega):
     return Pc*trunc_exp((f0 + omega*(f1 + f2*omega))/Tr)
 
 
-def Sanjari(T, Tc, Pc, omega):
-    r'''Calculates vapor pressure of a fluid at arbitrary temperatures using a
+def Sanjari(T: float, Tc: float, Pc: float, omega: float) -> float:
+    r"""Calculates vapor pressure of a fluid at arbitrary temperatures using a
     CSP relationship by [1]_. Requires a chemical's critical temperature,
     pressure, and acentric factor. Although developed for refrigerants,
     this model should have some general predictive ability.
@@ -2329,7 +2376,7 @@ def Sanjari(T, Tc, Pc, omega):
        Ghaheri. "An Accurate Generalized Model for Predict Vapor Pressure of
        Refrigerants." International Journal of Refrigeration 36, no. 4
        (June 2013): 1327-32. doi:10.1016/j.ijrefrig.2013.01.007.
-    '''
+    """
     Tr = T/Tc
     Tr_inv = 1.0/Tr
     log_Tr = log(Tr)
@@ -2340,8 +2387,8 @@ def Sanjari(T, Tc, Pc, omega):
     return Pc*exp(f0 + omega*f1 + omega*omega*f2)
 
 
-def Edalat(T, Tc, Pc, omega):
-    r'''Calculates vapor pressure of a fluid at arbitrary temperatures using a
+def Edalat(T: float, Tc: float, Pc: float, omega: float) -> float:
+    r"""Calculates vapor pressure of a fluid at arbitrary temperatures using a
     CSP relationship by [1]_. Requires a chemical's critical temperature,
     pressure, and acentric factor. Claimed to have a higher accuracy than the
     Lee-Kesler CSP relationship.
@@ -2397,7 +2444,7 @@ def Edalat(T, Tc, Pc, omega):
     .. [1] Edalat, M., R. B. Bozar-Jomehri, and G. A. Mansoori. "Generalized
        Equation Predicts Vapor Pressure of Hydrocarbons." Oil and Gas Journal;
        91:5 (February 1, 1993).
-    '''
+    """
     tau = 1. - T/Tc
     a = -6.1559 - 4.0855*omega
     c = -0.8747 - 7.8874*omega
@@ -2411,8 +2458,8 @@ def Edalat(T, Tc, Pc, omega):
 
 ### Sublimation Pressure
 
-def Psub_Clapeyron(T, Tt, Pt, Hsub_t):
-    r'''Calculates sublimation pressure of a solid at arbitrary temperatures
+def Psub_Clapeyron(T: float, Tt: float, Pt: float, Hsub_t: float) -> float:
+    r"""Calculates sublimation pressure of a solid at arbitrary temperatures
     using an approximate themodynamic identity - the Clapeyron equation as
     described in [1]_ and [2]_.
     Requires a chemical's triple temperature, triple pressure, and triple
@@ -2463,61 +2510,61 @@ def Psub_Clapeyron(T, Tt, Pt, Hsub_t):
        Sublimation Enthalpy of H2O Ice Ih between 0 and 273.16K." Geochimica et
        Cosmochimica Acta 71, no. 1 (January 1, 2007): 36-45.
        https://doi.org/10.1016/j.gca.2006.08.034.
-    '''
+    """
     ans = Pt*exp(Hsub_t*(T - Tt)/(R*T*Tt))
     # Truncation to avoid issues in later calculations
     return max(ans, 1e-200)
 
 
 def Arrhenius_parameters(T, P, dP_dT):
-    r'''Calculates parameters for Arrhenius-style vapor pressure extrapolation. This
+    r"""Calculates parameters for Arrhenius-style vapor pressure extrapolation. This
     converts a vapor pressure and its temperature derivative into a slope suitable
     for extrapolation in ln(P) vs 1/T coordinates.
-    
+
     .. math::
         \text{slope} = -T^2\frac{d \ln P}{dT} = -\frac{T^2}{P}\frac{dP}{dT}
-        
+
     Parameters
     ----------
     T : float
         Temperature point for extrapolation [K]
     P : float
-        Pressure at the temperature point [Pa] 
+        Pressure at the temperature point [Pa]
     dP_dT : float
         Temperature derivative of pressure at the temperature point [Pa/K]
-        
+
     Returns
     -------
     T : float
         Temperature point [K]
     P : float
-        Pressure at temperature point [Pa] 
+        Pressure at temperature point [Pa]
     slope : float
         Slope d(ln P)/d(1/T) at the temperature point
-    
+
     Notes
     -----
     Useful for extrapolating vapor pressures via the Clausius-Clapeyron relation.
-    The slope represents the negative of enthalpy of vaporization divided by the 
+    The slope represents the negative of enthalpy of vaporization divided by the
     gas constant.
-    
+
     Examples
     --------
     >>> Arrhenius_parameters(400.0, 1E5, 1E3)
     (400.0, 100000.0, -1600.0)
-    
+
     References
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     return (T, P, -T*T*dP_dT/P)
 
 def Arrhenius_extrapolation(T, T_ref, P_ref, slope):
-    r'''Calculates extrapolated vapor pressure using Arrhenius-style extrapolation
-    in ln(P) vs 1/T coordinates. This form of extrapolation is appropriate for 
+    r"""Calculates extrapolated vapor pressure using Arrhenius-style extrapolation
+    in ln(P) vs 1/T coordinates. This form of extrapolation is appropriate for
     vapor pressures following the Clausius-Clapeyron relation.
-    
+
     .. math::
         \ln P = \ln P_{ref} + \text{slope}\left(\frac{1}{T} - \frac{1}{T_{ref}}\right)
 
@@ -2531,35 +2578,35 @@ def Arrhenius_extrapolation(T, T_ref, P_ref, slope):
         Pressure at reference point [Pa]
     slope : float
         Slope d(ln P)/d(1/T) at reference point
-        
+
     Returns
     -------
     P : float
         Extrapolated vapor pressure [Pa]
-    
+
     Notes
     -----
-    
+
     Examples
     --------
     >>> Arrhenius_extrapolation(300.0, 400.0, 1E5, -1600)
     26359.713811
-    
+
     References
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     return P_ref*exp(slope*(1.0/T - 1.0/T_ref))
 
 
 
 def dArrhenius_extrapolation_dT(T, T_ref, P_ref, slope):
-    r'''Calculates the first temperature derivative of vapor pressure using the 
+    r"""Calculates the first temperature derivative of vapor pressure using the
     Arrhenius-style vapor pressure extrapolation in ln(P) vs 1/T coordinates.
 
     .. math::
-        \frac{\partial P}{\partial T} = -\frac{P_{ref} \cdot \text{slope} \cdot 
+        \frac{\partial P}{\partial T} = -\frac{P_{ref} \cdot \text{slope} \cdot
         e^{\text{slope}(1/T - 1/T_{ref})}}{T^2}
 
     Parameters
@@ -2580,22 +2627,22 @@ def dArrhenius_extrapolation_dT(T, T_ref, P_ref, slope):
 
     Notes
     -----
-    This derivative is useful for numerical solutions and for evaluating the 
+    This derivative is useful for numerical solutions and for evaluating the
     rate of change of vapor pressure with temperature.
 
     Examples
     --------
     >>> dArrhenius_extrapolation_dT(300.0, 400.0, 1E5, -1600)
     468.617134427
-    '''    
+    """
     return -P_ref*slope*exp(slope*(1.0/T - 1.0/T_ref))/(T*T)
 
 def d2Arrhenius_extrapolation_dT2(T, T_ref, P_ref, slope):
-    r'''Calculates the second temperature derivative of vapor pressure using the
+    r"""Calculates the second temperature derivative of vapor pressure using the
     Arrhenius-style vapor pressure extrapolation in ln(P) vs 1/T coordinates.
 
     .. math::
-        \frac{\partial^2 P}{\partial T^2} = \frac{P_{ref} \cdot \text{slope} \cdot 
+        \frac{\partial^2 P}{\partial T^2} = \frac{P_{ref} \cdot \text{slope} \cdot
         e^{\text{slope}(1/T - 1/T_{ref})}(\text{slope} + 2T)}{T^4}
 
     Parameters
@@ -2616,23 +2663,23 @@ def d2Arrhenius_extrapolation_dT2(T, T_ref, P_ref, slope):
 
     Notes
     -----
-    This derivative is useful for numerical solutions requiring higher-order 
+    This derivative is useful for numerical solutions requiring higher-order
     derivatives and for analyzing the curvature of vapor pressure with temperature.
 
     Examples
     --------
     >>> d2Arrhenius_extrapolation_dT2(300.0, 400.0, 1E5, -1600)
     5.206857049199541
-    '''
+    """
     e = exp(slope*(1.0/T - 1.0/T_ref))
     return P_ref*slope*e*(slope + 2.0*T)/(T*T*T*T)
 
 def d3Arrhenius_extrapolation_dT3(T, T_ref, P_ref, slope):
-    r'''Calculates the third temperature derivative of vapor pressure using the
+    r"""Calculates the third temperature derivative of vapor pressure using the
     Arrhenius-style vapor pressure extrapolation in ln(P) vs 1/T coordinates.
 
     .. math::
-        \frac{\partial^3 P}{\partial T^3} = -\frac{P_{ref} \cdot \text{slope} \cdot 
+        \frac{\partial^3 P}{\partial T^3} = -\frac{P_{ref} \cdot \text{slope} \cdot
         e^{\text{slope}(1/T - 1/T_{ref})}(\text{slope}^2 + 6\cdot\text{slope}T + 6T^2)}{T^6}
 
     Parameters
@@ -2653,14 +2700,14 @@ def d3Arrhenius_extrapolation_dT3(T, T_ref, P_ref, slope):
 
     Notes
     -----
-    This derivative provides additional detail for numerical solutions requiring 
-    higher-order derivatives and for analyzing the rate of change of vapor pressure 
+    This derivative provides additional detail for numerical solutions requiring
+    higher-order derivatives and for analyzing the rate of change of vapor pressure
     curvature.
 
     Examples
     --------
     >>> d3Arrhenius_extrapolation_dT3(300.0, 400.0, 1E5, -1600)
     0.012727872786932212
-    '''
+    """
     e = exp(slope*(1.0/T - 1.0/T_ref))
     return -P_ref*slope*e*(slope*slope + 6.0*slope*T + 6.0*T*T)/(T*T*T*T*T*T)

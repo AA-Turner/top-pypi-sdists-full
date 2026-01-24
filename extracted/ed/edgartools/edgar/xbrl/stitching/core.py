@@ -61,12 +61,13 @@ class StatementStitcher:
         self.concept_metadata = {}  # Metadata for each concept (level, etc.)
         self.ordering_manager = None  # Will be initialized during stitching
         self.original_statement_order = []  # Track original order for hierarchy context
+        self.concept_to_label_map = {}  # Maps concept IDs to label keys (persists across statements)
 
     def stitch_statements(
         self, 
         statements: List[Dict[str, Any]], 
         period_type: Union[PeriodType, str] = PeriodType.RECENT_PERIODS,
-        max_periods: int = None,
+        max_periods: Optional[int] = None,
         standard: bool = True
     ) -> Dict[str, Any]:
         """
@@ -87,6 +88,7 @@ class StatementStitcher:
         self.data = defaultdict(dict)
         self.concept_metadata = {}
         self.original_statement_order = []
+        self.concept_to_label_map = {}  # Reset concept-to-label mapping for each stitch
 
         # Initialize ordering manager for this statement type
         statement_type = statements[0].get('statement_type', 'IncomeStatement') if statements else 'IncomeStatement'
@@ -199,11 +201,13 @@ class StatementStitcher:
                         # Only replace if this statement is from a more recent filing
                         if i < existing_idx:
                             unique_periods[normalized_key] = (period_id, end_date, i)
-                            self.period_dates[period_id] = display_date
+                            # Use the enhanced label from period_info if available, otherwise fall back to display_date
+                            self.period_dates[period_id] = period_info.get('label', display_date)
                     else:
                         # Add new period
                         unique_periods[normalized_key] = (period_id, end_date, i)
-                        self.period_dates[period_id] = display_date
+                        # Use the enhanced label from period_info if available, otherwise fall back to display_date
+                        self.period_dates[period_id] = period_info.get('label', display_date)
 
                 except (ValueError, TypeError, IndexError):
                     # Skip periods with invalid dates
@@ -265,7 +269,7 @@ class StatementStitcher:
             # Find the most recent quarters (for income statements)
             quarterly_periods = []
 
-            for pid, date in durations:
+            for pid, _date in durations:
                 # Check if this appears to be a quarterly period
                 if not pid.startswith('duration_'):
                     continue
@@ -292,7 +296,7 @@ class StatementStitcher:
             # Find annual periods (for income statements)
             annual_periods = []
 
-            for pid, date in durations:
+            for pid, _date in durations:
                 # Check if this appears to be an annual period
                 if not pid.startswith('duration_'):
                     continue
@@ -343,8 +347,8 @@ class StatementStitcher:
         return standardize_statement(statement_data, self.concept_mapper)
 
     def _integrate_statement_data(
-        self, 
-        statement_data: List[Dict[str, Any]], 
+        self,
+        statement_data: List[Dict[str, Any]],
         period_map: Dict[str, Dict[str, str]],
         relevant_periods: Set[str]
     ) -> None:
@@ -356,9 +360,8 @@ class StatementStitcher:
             period_map: Map of period IDs to period information
             relevant_periods: Set of periods from this statement to include
         """
-        # Map to track concepts by their underlying concept ID, not just label
-        # This helps merge rows that represent the same concept but have different labels
-        concept_to_label_map = {}
+        # Use instance variable concept_to_label_map to track concepts by their underlying concept ID
+        # This helps merge rows that represent the same concept but have different labels across statements
 
         for item in statement_data:
             concept = item.get('concept')
@@ -381,13 +384,13 @@ class StatementStitcher:
 
             # If we've already seen this concept, use the existing label as the key
             # This ensures we merge rows that represent the same concept
-            if concept in concept_to_label_map:
-                concept_key = concept_to_label_map[concept]
+            if concept in self.concept_to_label_map:
+                concept_key = self.concept_to_label_map[concept]
             else:
                 # For a new concept, use the current label as the key
                 concept_key = label
                 # Remember this mapping for future occurrences
-                concept_to_label_map[concept] = concept_key
+                self.concept_to_label_map[concept] = concept_key
 
             # Store metadata about the concept (level, abstract status, etc.)
             # If we've already seen this concept, only update metadata if it's from a more recent period
@@ -433,7 +436,7 @@ class StatementStitcher:
                                 self.concept_metadata[new_concept_key]['latest_label'] = label
 
                                 # Update the concept mapping
-                                concept_to_label_map[concept] = new_concept_key
+                                self.concept_to_label_map[concept] = new_concept_key
                                 concept_key = new_concept_key
                             else:
                                 # Just update the latest label
@@ -595,10 +598,19 @@ def stitch_statements(
                             period_label = display_date
                     else:  # duration
                         # For duration periods, add fiscal quarter/year info if available
+                        # Also indicate if it's YTD (cumulative) vs quarterly (Issue #475)
                         if fiscal_period == 'FY':
                             period_label = f"FY {display_date}"
                         elif fiscal_period in ['Q1', 'Q2', 'Q3', 'Q4']:
-                            period_label = f"{fiscal_period} {display_date}"
+                            # Check if this is a YTD period (longer duration) vs quarterly
+                            # Threshold: 100 days (Q1≈90d, Q2 YTD≈180d, Q3 YTD≈270d)
+                            duration_days = period_metadata.get('duration_days')
+                            if duration_days and duration_days > 100:
+                                # YTD period (cumulative from fiscal year start)
+                                period_label = f"{fiscal_period} YTD {display_date}"
+                            else:
+                                # Regular quarterly period
+                                period_label = f"{fiscal_period} {display_date}"
                         else:
                             period_label = display_date
 

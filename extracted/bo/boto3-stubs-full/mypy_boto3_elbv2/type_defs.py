@@ -3,7 +3,7 @@ Type annotations for elbv2 service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elbv2/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -31,6 +32,7 @@ from .literals import (
     EnablePrefixForIpv6SourceNatEnumType,
     EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnumType,
     IpAddressTypeType,
+    JwtValidationActionAdditionalClaimFormatEnumType,
     LoadBalancerSchemeEnumType,
     LoadBalancerStateEnumType,
     LoadBalancerTypeEnumType,
@@ -43,16 +45,11 @@ from .literals import (
     TargetHealthReasonEnumType,
     TargetHealthStateEnumType,
     TargetTypeEnumType,
+    TransformTypeEnumType,
     TrustStoreAssociationStatusEnumType,
     TrustStoreStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -158,6 +155,9 @@ __all__ = (
     "HostHeaderConditionConfigOutputTypeDef",
     "HostHeaderConditionConfigTypeDef",
     "HostHeaderConditionConfigUnionTypeDef",
+    "HostHeaderRewriteConfigOutputTypeDef",
+    "HostHeaderRewriteConfigTypeDef",
+    "HostHeaderRewriteConfigUnionTypeDef",
     "HttpHeaderConditionConfigOutputTypeDef",
     "HttpHeaderConditionConfigTypeDef",
     "HttpHeaderConditionConfigUnionTypeDef",
@@ -165,6 +165,12 @@ __all__ = (
     "HttpRequestMethodConditionConfigTypeDef",
     "HttpRequestMethodConditionConfigUnionTypeDef",
     "IpamPoolsTypeDef",
+    "JwtValidationActionAdditionalClaimOutputTypeDef",
+    "JwtValidationActionAdditionalClaimTypeDef",
+    "JwtValidationActionAdditionalClaimUnionTypeDef",
+    "JwtValidationActionConfigOutputTypeDef",
+    "JwtValidationActionConfigTypeDef",
+    "JwtValidationActionConfigUnionTypeDef",
     "LimitTypeDef",
     "ListenerAttributeTypeDef",
     "ListenerTypeDef",
@@ -208,10 +214,14 @@ __all__ = (
     "RemoveTrustStoreRevocationsInputTypeDef",
     "ResponseMetadataTypeDef",
     "RevocationContentTypeDef",
+    "RewriteConfigTypeDef",
     "RuleConditionOutputTypeDef",
     "RuleConditionTypeDef",
     "RuleConditionUnionTypeDef",
     "RulePriorityPairTypeDef",
+    "RuleTransformOutputTypeDef",
+    "RuleTransformTypeDef",
+    "RuleTransformUnionTypeDef",
     "RuleTypeDef",
     "SetIpAddressTypeInputTypeDef",
     "SetIpAddressTypeOutputTypeDef",
@@ -238,6 +248,9 @@ __all__ = (
     "TrustStoreAssociationTypeDef",
     "TrustStoreRevocationTypeDef",
     "TrustStoreTypeDef",
+    "UrlRewriteConfigOutputTypeDef",
+    "UrlRewriteConfigTypeDef",
+    "UrlRewriteConfigUnionTypeDef",
     "WaiterConfigTypeDef",
     "ZonalCapacityReservationStateTypeDef",
 )
@@ -250,7 +263,7 @@ class AuthenticateCognitoActionConfigOutputTypeDef(TypedDict):
     SessionCookieName: NotRequired[str]
     Scope: NotRequired[str]
     SessionTimeout: NotRequired[int]
-    AuthenticationRequestExtraParams: NotRequired[Dict[str, str]]
+    AuthenticationRequestExtraParams: NotRequired[dict[str, str]]
     OnUnauthenticatedRequest: NotRequired[AuthenticateCognitoActionConditionalBehaviorEnumType]
 
 
@@ -264,7 +277,7 @@ class AuthenticateOidcActionConfigOutputTypeDef(TypedDict):
     SessionCookieName: NotRequired[str]
     Scope: NotRequired[str]
     SessionTimeout: NotRequired[int]
-    AuthenticationRequestExtraParams: NotRequired[Dict[str, str]]
+    AuthenticationRequestExtraParams: NotRequired[dict[str, str]]
     OnUnauthenticatedRequest: NotRequired[AuthenticateOidcActionConditionalBehaviorEnumType]
     UseExistingClientSecret: NotRequired[bool]
 
@@ -296,7 +309,7 @@ class CertificateTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -436,6 +449,7 @@ class TargetDescriptionTypeDef(TypedDict):
     Id: str
     Port: NotRequired[int]
     AvailabilityZone: NotRequired[str]
+    QuicServerId: NotRequired[str]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -595,29 +609,50 @@ class GetTrustStoreRevocationContentInputTypeDef(TypedDict):
 
 
 class HostHeaderConditionConfigOutputTypeDef(TypedDict):
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
+    RegexValues: NotRequired[list[str]]
 
 
 class HostHeaderConditionConfigTypeDef(TypedDict):
     Values: NotRequired[Sequence[str]]
+    RegexValues: NotRequired[Sequence[str]]
+
+
+class RewriteConfigTypeDef(TypedDict):
+    Regex: str
+    Replace: str
 
 
 class HttpHeaderConditionConfigOutputTypeDef(TypedDict):
     HttpHeaderName: NotRequired[str]
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
+    RegexValues: NotRequired[list[str]]
 
 
 class HttpHeaderConditionConfigTypeDef(TypedDict):
     HttpHeaderName: NotRequired[str]
     Values: NotRequired[Sequence[str]]
+    RegexValues: NotRequired[Sequence[str]]
 
 
 class HttpRequestMethodConditionConfigOutputTypeDef(TypedDict):
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 
 class HttpRequestMethodConditionConfigTypeDef(TypedDict):
     Values: NotRequired[Sequence[str]]
+
+
+class JwtValidationActionAdditionalClaimOutputTypeDef(TypedDict):
+    Format: JwtValidationActionAdditionalClaimFormatEnumType
+    Name: str
+    Values: list[str]
+
+
+class JwtValidationActionAdditionalClaimTypeDef(TypedDict):
+    Format: JwtValidationActionAdditionalClaimFormatEnumType
+    Name: str
+    Values: Sequence[str]
 
 
 class LoadBalancerStateTypeDef(TypedDict):
@@ -633,11 +668,13 @@ class ModifyTrustStoreInputTypeDef(TypedDict):
 
 
 class PathPatternConditionConfigOutputTypeDef(TypedDict):
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
+    RegexValues: NotRequired[list[str]]
 
 
 class PathPatternConditionConfigTypeDef(TypedDict):
     Values: NotRequired[Sequence[str]]
+    RegexValues: NotRequired[Sequence[str]]
 
 
 class QueryStringKeyValuePairTypeDef(TypedDict):
@@ -656,7 +693,7 @@ class RemoveTrustStoreRevocationsInputTypeDef(TypedDict):
 
 
 class SourceIpConditionConfigOutputTypeDef(TypedDict):
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 
 class RulePriorityPairTypeDef(TypedDict):
@@ -698,12 +735,12 @@ class RemoveListenerCertificatesInputTypeDef(TypedDict):
 
 
 class AddListenerCertificatesOutputTypeDef(TypedDict):
-    Certificates: List[CertificateTypeDef]
+    Certificates: list[CertificateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeListenerCertificatesOutputTypeDef(TypedDict):
-    Certificates: List[CertificateTypeDef]
+    Certificates: list[CertificateTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -729,7 +766,7 @@ class SetIpAddressTypeOutputTypeDef(TypedDict):
 
 
 class SetSecurityGroupsOutputTypeDef(TypedDict):
-    SecurityGroupIds: List[str]
+    SecurityGroupIds: list[str]
     EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic: (
         EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnumType
     )
@@ -751,7 +788,7 @@ class CreateTrustStoreInputTypeDef(TypedDict):
 
 class TagDescriptionTypeDef(TypedDict):
     ResourceArn: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class AddTrustStoreRevocationsInputTypeDef(TypedDict):
@@ -760,7 +797,7 @@ class AddTrustStoreRevocationsInputTypeDef(TypedDict):
 
 
 class AddTrustStoreRevocationsOutputTypeDef(TypedDict):
-    TrustStoreRevocations: List[TrustStoreRevocationTypeDef]
+    TrustStoreRevocations: list[TrustStoreRevocationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -776,8 +813,8 @@ class AvailabilityZoneTypeDef(TypedDict):
     ZoneName: NotRequired[str]
     SubnetId: NotRequired[str]
     OutpostId: NotRequired[str]
-    LoadBalancerAddresses: NotRequired[List[LoadBalancerAddressTypeDef]]
-    SourceNatIpv6Prefixes: NotRequired[List[str]]
+    LoadBalancerAddresses: NotRequired[list[LoadBalancerAddressTypeDef]]
+    SourceNatIpv6Prefixes: NotRequired[list[str]]
 
 
 class ZonalCapacityReservationStateTypeDef(TypedDict):
@@ -787,10 +824,10 @@ class ZonalCapacityReservationStateTypeDef(TypedDict):
 
 
 class SslPolicyTypeDef(TypedDict):
-    SslProtocols: NotRequired[List[str]]
-    Ciphers: NotRequired[List[CipherTypeDef]]
+    SslProtocols: NotRequired[list[str]]
+    Ciphers: NotRequired[list[CipherTypeDef]]
     Name: NotRequired[str]
-    SupportedLoadBalancerTypes: NotRequired[List[str]]
+    SupportedLoadBalancerTypes: NotRequired[list[str]]
 
 
 class ModifyIpPoolsInputTypeDef(TypedDict):
@@ -850,6 +887,7 @@ CreateTargetGroupInputTypeDef = TypedDict(
         "TargetType": NotRequired[TargetTypeEnumType],
         "Tags": NotRequired[Sequence[TagTypeDef]],
         "IpAddressType": NotRequired[TargetGroupIpAddressTypeEnumType],
+        "TargetControlPort": NotRequired[int],
     },
 )
 
@@ -884,27 +922,28 @@ TargetGroupTypeDef = TypedDict(
         "UnhealthyThresholdCount": NotRequired[int],
         "HealthCheckPath": NotRequired[str],
         "Matcher": NotRequired[MatcherTypeDef],
-        "LoadBalancerArns": NotRequired[List[str]],
+        "LoadBalancerArns": NotRequired[list[str]],
         "TargetType": NotRequired[TargetTypeEnumType],
         "ProtocolVersion": NotRequired[str],
         "IpAddressType": NotRequired[TargetGroupIpAddressTypeEnumType],
+        "TargetControlPort": NotRequired[int],
     },
 )
 
 
 class CreateTrustStoreOutputTypeDef(TypedDict):
-    TrustStores: List[TrustStoreTypeDef]
+    TrustStores: list[TrustStoreTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeTrustStoresOutputTypeDef(TypedDict):
-    TrustStores: List[TrustStoreTypeDef]
+    TrustStores: list[TrustStoreTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ModifyTrustStoreOutputTypeDef(TypedDict):
-    TrustStores: List[TrustStoreTypeDef]
+    TrustStores: list[TrustStoreTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -982,7 +1021,7 @@ class DescribeTrustStoresInputPaginateTypeDef(TypedDict):
 
 
 class DescribeAccountLimitsOutputTypeDef(TypedDict):
-    Limits: List[LimitTypeDef]
+    Limits: list[LimitTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -994,7 +1033,7 @@ class ModifyCapacityReservationInputTypeDef(TypedDict):
 
 
 class DescribeListenerAttributesOutputTypeDef(TypedDict):
-    Attributes: List[ListenerAttributeTypeDef]
+    Attributes: list[ListenerAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1004,12 +1043,12 @@ class ModifyListenerAttributesInputTypeDef(TypedDict):
 
 
 class ModifyListenerAttributesOutputTypeDef(TypedDict):
-    Attributes: List[ListenerAttributeTypeDef]
+    Attributes: list[ListenerAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeLoadBalancerAttributesOutputTypeDef(TypedDict):
-    Attributes: List[LoadBalancerAttributeTypeDef]
+    Attributes: list[LoadBalancerAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1019,7 +1058,7 @@ class ModifyLoadBalancerAttributesInputTypeDef(TypedDict):
 
 
 class ModifyLoadBalancerAttributesOutputTypeDef(TypedDict):
-    Attributes: List[LoadBalancerAttributeTypeDef]
+    Attributes: list[LoadBalancerAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1062,7 +1101,7 @@ class DescribeTargetHealthInputWaitTypeDef(TypedDict):
 
 
 class DescribeTargetGroupAttributesOutputTypeDef(TypedDict):
-    Attributes: List[TargetGroupAttributeTypeDef]
+    Attributes: list[TargetGroupAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1072,24 +1111,24 @@ class ModifyTargetGroupAttributesInputTypeDef(TypedDict):
 
 
 class ModifyTargetGroupAttributesOutputTypeDef(TypedDict):
-    Attributes: List[TargetGroupAttributeTypeDef]
+    Attributes: list[TargetGroupAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeTrustStoreAssociationsOutputTypeDef(TypedDict):
-    TrustStoreAssociations: List[TrustStoreAssociationTypeDef]
+    TrustStoreAssociations: list[TrustStoreAssociationTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeTrustStoreRevocationsOutputTypeDef(TypedDict):
-    TrustStoreRevocations: List[DescribeTrustStoreRevocationTypeDef]
+    TrustStoreRevocations: list[DescribeTrustStoreRevocationTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ForwardActionConfigOutputTypeDef(TypedDict):
-    TargetGroups: NotRequired[List[TargetGroupTupleTypeDef]]
+    TargetGroups: NotRequired[list[TargetGroupTupleTypeDef]]
     TargetGroupStickinessConfig: NotRequired[TargetGroupStickinessConfigTypeDef]
 
 
@@ -1101,11 +1140,40 @@ class ForwardActionConfigTypeDef(TypedDict):
 HostHeaderConditionConfigUnionTypeDef = Union[
     HostHeaderConditionConfigTypeDef, HostHeaderConditionConfigOutputTypeDef
 ]
+
+
+class HostHeaderRewriteConfigOutputTypeDef(TypedDict):
+    Rewrites: NotRequired[list[RewriteConfigTypeDef]]
+
+
+class HostHeaderRewriteConfigTypeDef(TypedDict):
+    Rewrites: NotRequired[Sequence[RewriteConfigTypeDef]]
+
+
+class UrlRewriteConfigOutputTypeDef(TypedDict):
+    Rewrites: NotRequired[list[RewriteConfigTypeDef]]
+
+
+class UrlRewriteConfigTypeDef(TypedDict):
+    Rewrites: NotRequired[Sequence[RewriteConfigTypeDef]]
+
+
 HttpHeaderConditionConfigUnionTypeDef = Union[
     HttpHeaderConditionConfigTypeDef, HttpHeaderConditionConfigOutputTypeDef
 ]
 HttpRequestMethodConditionConfigUnionTypeDef = Union[
     HttpRequestMethodConditionConfigTypeDef, HttpRequestMethodConditionConfigOutputTypeDef
+]
+
+
+class JwtValidationActionConfigOutputTypeDef(TypedDict):
+    JwksEndpoint: str
+    Issuer: str
+    AdditionalClaims: NotRequired[list[JwtValidationActionAdditionalClaimOutputTypeDef]]
+
+
+JwtValidationActionAdditionalClaimUnionTypeDef = Union[
+    JwtValidationActionAdditionalClaimTypeDef, JwtValidationActionAdditionalClaimOutputTypeDef
 ]
 PathPatternConditionConfigUnionTypeDef = Union[
     PathPatternConditionConfigTypeDef, PathPatternConditionConfigOutputTypeDef
@@ -1113,7 +1181,7 @@ PathPatternConditionConfigUnionTypeDef = Union[
 
 
 class QueryStringConditionConfigOutputTypeDef(TypedDict):
-    Values: NotRequired[List[QueryStringKeyValuePairTypeDef]]
+    Values: NotRequired[list[QueryStringKeyValuePairTypeDef]]
 
 
 class QueryStringConditionConfigTypeDef(TypedDict):
@@ -1138,7 +1206,7 @@ class TargetHealthDescriptionTypeDef(TypedDict):
 
 
 class DescribeTagsOutputTypeDef(TypedDict):
-    TagDescriptions: List[TagDescriptionTypeDef]
+    TagDescriptions: list[TagDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1154,8 +1222,8 @@ LoadBalancerTypeDef = TypedDict(
         "VpcId": NotRequired[str],
         "State": NotRequired[LoadBalancerStateTypeDef],
         "Type": NotRequired[LoadBalancerTypeEnumType],
-        "AvailabilityZones": NotRequired[List[AvailabilityZoneTypeDef]],
-        "SecurityGroups": NotRequired[List[str]],
+        "AvailabilityZones": NotRequired[list[AvailabilityZoneTypeDef]],
+        "SecurityGroups": NotRequired[list[str]],
         "IpAddressType": NotRequired[IpAddressTypeType],
         "CustomerOwnedIpv4Pool": NotRequired[str],
         "EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic": NotRequired[str],
@@ -1166,7 +1234,7 @@ LoadBalancerTypeDef = TypedDict(
 
 
 class SetSubnetsOutputTypeDef(TypedDict):
-    AvailabilityZones: List[AvailabilityZoneTypeDef]
+    AvailabilityZones: list[AvailabilityZoneTypeDef]
     IpAddressType: IpAddressTypeType
     EnablePrefixForIpv6SourceNat: EnablePrefixForIpv6SourceNatEnumType
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1176,7 +1244,7 @@ class DescribeCapacityReservationOutputTypeDef(TypedDict):
     LastModifiedTime: datetime
     DecreaseRequestsRemaining: int
     MinimumLoadBalancerCapacity: MinimumLoadBalancerCapacityTypeDef
-    CapacityReservationState: List[ZonalCapacityReservationStateTypeDef]
+    CapacityReservationState: list[ZonalCapacityReservationStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1184,32 +1252,47 @@ class ModifyCapacityReservationOutputTypeDef(TypedDict):
     LastModifiedTime: datetime
     DecreaseRequestsRemaining: int
     MinimumLoadBalancerCapacity: MinimumLoadBalancerCapacityTypeDef
-    CapacityReservationState: List[ZonalCapacityReservationStateTypeDef]
+    CapacityReservationState: list[ZonalCapacityReservationStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeSSLPoliciesOutputTypeDef(TypedDict):
-    SslPolicies: List[SslPolicyTypeDef]
+    SslPolicies: list[SslPolicyTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateTargetGroupOutputTypeDef(TypedDict):
-    TargetGroups: List[TargetGroupTypeDef]
+    TargetGroups: list[TargetGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeTargetGroupsOutputTypeDef(TypedDict):
-    TargetGroups: List[TargetGroupTypeDef]
+    TargetGroups: list[TargetGroupTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ModifyTargetGroupOutputTypeDef(TypedDict):
-    TargetGroups: List[TargetGroupTypeDef]
+    TargetGroups: list[TargetGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+ForwardActionConfigUnionTypeDef = Union[
+    ForwardActionConfigTypeDef, ForwardActionConfigOutputTypeDef
+]
+HostHeaderRewriteConfigUnionTypeDef = Union[
+    HostHeaderRewriteConfigTypeDef, HostHeaderRewriteConfigOutputTypeDef
+]
+RuleTransformOutputTypeDef = TypedDict(
+    "RuleTransformOutputTypeDef",
+    {
+        "Type": TransformTypeEnumType,
+        "HostHeaderRewriteConfig": NotRequired[HostHeaderRewriteConfigOutputTypeDef],
+        "UrlRewriteConfig": NotRequired[UrlRewriteConfigOutputTypeDef],
+    },
+)
+UrlRewriteConfigUnionTypeDef = Union[UrlRewriteConfigTypeDef, UrlRewriteConfigOutputTypeDef]
 ActionOutputTypeDef = TypedDict(
     "ActionOutputTypeDef",
     {
@@ -1221,22 +1304,27 @@ ActionOutputTypeDef = TypedDict(
         "RedirectConfig": NotRequired[RedirectActionConfigTypeDef],
         "FixedResponseConfig": NotRequired[FixedResponseActionConfigTypeDef],
         "ForwardConfig": NotRequired[ForwardActionConfigOutputTypeDef],
+        "JwtValidationConfig": NotRequired[JwtValidationActionConfigOutputTypeDef],
     },
 )
-ForwardActionConfigUnionTypeDef = Union[
-    ForwardActionConfigTypeDef, ForwardActionConfigOutputTypeDef
-]
+
+
+class JwtValidationActionConfigTypeDef(TypedDict):
+    JwksEndpoint: str
+    Issuer: str
+    AdditionalClaims: NotRequired[Sequence[JwtValidationActionAdditionalClaimUnionTypeDef]]
 
 
 class RuleConditionOutputTypeDef(TypedDict):
     Field: NotRequired[str]
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
     HostHeaderConfig: NotRequired[HostHeaderConditionConfigOutputTypeDef]
     PathPatternConfig: NotRequired[PathPatternConditionConfigOutputTypeDef]
     HttpHeaderConfig: NotRequired[HttpHeaderConditionConfigOutputTypeDef]
     QueryStringConfig: NotRequired[QueryStringConditionConfigOutputTypeDef]
     HttpRequestMethodConfig: NotRequired[HttpRequestMethodConditionConfigOutputTypeDef]
     SourceIpConfig: NotRequired[SourceIpConditionConfigOutputTypeDef]
+    RegexValues: NotRequired[list[str]]
 
 
 QueryStringConditionConfigUnionTypeDef = Union[
@@ -1245,21 +1333,29 @@ QueryStringConditionConfigUnionTypeDef = Union[
 
 
 class DescribeTargetHealthOutputTypeDef(TypedDict):
-    TargetHealthDescriptions: List[TargetHealthDescriptionTypeDef]
+    TargetHealthDescriptions: list[TargetHealthDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateLoadBalancerOutputTypeDef(TypedDict):
-    LoadBalancers: List[LoadBalancerTypeDef]
+    LoadBalancers: list[LoadBalancerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeLoadBalancersOutputTypeDef(TypedDict):
-    LoadBalancers: List[LoadBalancerTypeDef]
+    LoadBalancers: list[LoadBalancerTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+RuleTransformTypeDef = TypedDict(
+    "RuleTransformTypeDef",
+    {
+        "Type": TransformTypeEnumType,
+        "HostHeaderRewriteConfig": NotRequired[HostHeaderRewriteConfigUnionTypeDef],
+        "UrlRewriteConfig": NotRequired[UrlRewriteConfigUnionTypeDef],
+    },
+)
 ListenerTypeDef = TypedDict(
     "ListenerTypeDef",
     {
@@ -1267,34 +1363,25 @@ ListenerTypeDef = TypedDict(
         "LoadBalancerArn": NotRequired[str],
         "Port": NotRequired[int],
         "Protocol": NotRequired[ProtocolEnumType],
-        "Certificates": NotRequired[List[CertificateTypeDef]],
+        "Certificates": NotRequired[list[CertificateTypeDef]],
         "SslPolicy": NotRequired[str],
-        "DefaultActions": NotRequired[List[ActionOutputTypeDef]],
-        "AlpnPolicy": NotRequired[List[str]],
+        "DefaultActions": NotRequired[list[ActionOutputTypeDef]],
+        "AlpnPolicy": NotRequired[list[str]],
         "MutualAuthentication": NotRequired[MutualAuthenticationAttributesTypeDef],
     },
 )
-ActionTypeDef = TypedDict(
-    "ActionTypeDef",
-    {
-        "Type": ActionTypeEnumType,
-        "TargetGroupArn": NotRequired[str],
-        "AuthenticateOidcConfig": NotRequired[AuthenticateOidcActionConfigUnionTypeDef],
-        "AuthenticateCognitoConfig": NotRequired[AuthenticateCognitoActionConfigUnionTypeDef],
-        "Order": NotRequired[int],
-        "RedirectConfig": NotRequired[RedirectActionConfigTypeDef],
-        "FixedResponseConfig": NotRequired[FixedResponseActionConfigTypeDef],
-        "ForwardConfig": NotRequired[ForwardActionConfigUnionTypeDef],
-    },
-)
+JwtValidationActionConfigUnionTypeDef = Union[
+    JwtValidationActionConfigTypeDef, JwtValidationActionConfigOutputTypeDef
+]
 
 
 class RuleTypeDef(TypedDict):
     RuleArn: NotRequired[str]
     Priority: NotRequired[str]
-    Conditions: NotRequired[List[RuleConditionOutputTypeDef]]
-    Actions: NotRequired[List[ActionOutputTypeDef]]
+    Conditions: NotRequired[list[RuleConditionOutputTypeDef]]
+    Actions: NotRequired[list[ActionOutputTypeDef]]
     IsDefault: NotRequired[bool]
+    Transforms: NotRequired[list[RuleTransformOutputTypeDef]]
 
 
 class RuleConditionTypeDef(TypedDict):
@@ -1306,49 +1393,67 @@ class RuleConditionTypeDef(TypedDict):
     QueryStringConfig: NotRequired[QueryStringConditionConfigUnionTypeDef]
     HttpRequestMethodConfig: NotRequired[HttpRequestMethodConditionConfigUnionTypeDef]
     SourceIpConfig: NotRequired[SourceIpConditionConfigUnionTypeDef]
+    RegexValues: NotRequired[Sequence[str]]
+
+
+RuleTransformUnionTypeDef = Union[RuleTransformTypeDef, RuleTransformOutputTypeDef]
 
 
 class CreateListenerOutputTypeDef(TypedDict):
-    Listeners: List[ListenerTypeDef]
+    Listeners: list[ListenerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeListenersOutputTypeDef(TypedDict):
-    Listeners: List[ListenerTypeDef]
+    Listeners: list[ListenerTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ModifyListenerOutputTypeDef(TypedDict):
-    Listeners: List[ListenerTypeDef]
+    Listeners: list[ListenerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-ActionUnionTypeDef = Union[ActionTypeDef, ActionOutputTypeDef]
+ActionTypeDef = TypedDict(
+    "ActionTypeDef",
+    {
+        "Type": ActionTypeEnumType,
+        "TargetGroupArn": NotRequired[str],
+        "AuthenticateOidcConfig": NotRequired[AuthenticateOidcActionConfigUnionTypeDef],
+        "AuthenticateCognitoConfig": NotRequired[AuthenticateCognitoActionConfigUnionTypeDef],
+        "Order": NotRequired[int],
+        "RedirectConfig": NotRequired[RedirectActionConfigTypeDef],
+        "FixedResponseConfig": NotRequired[FixedResponseActionConfigTypeDef],
+        "ForwardConfig": NotRequired[ForwardActionConfigUnionTypeDef],
+        "JwtValidationConfig": NotRequired[JwtValidationActionConfigUnionTypeDef],
+    },
+)
 
 
 class CreateRuleOutputTypeDef(TypedDict):
-    Rules: List[RuleTypeDef]
+    Rules: list[RuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeRulesOutputTypeDef(TypedDict):
-    Rules: List[RuleTypeDef]
+    Rules: list[RuleTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ModifyRuleOutputTypeDef(TypedDict):
-    Rules: List[RuleTypeDef]
+    Rules: list[RuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SetRulePrioritiesOutputTypeDef(TypedDict):
-    Rules: List[RuleTypeDef]
+    Rules: list[RuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 RuleConditionUnionTypeDef = Union[RuleConditionTypeDef, RuleConditionOutputTypeDef]
+ActionUnionTypeDef = Union[ActionTypeDef, ActionOutputTypeDef]
 CreateListenerInputTypeDef = TypedDict(
     "CreateListenerInputTypeDef",
     {
@@ -1363,6 +1468,17 @@ CreateListenerInputTypeDef = TypedDict(
         "MutualAuthentication": NotRequired[MutualAuthenticationAttributesTypeDef],
     },
 )
+
+
+class CreateRuleInputTypeDef(TypedDict):
+    ListenerArn: str
+    Conditions: Sequence[RuleConditionUnionTypeDef]
+    Priority: int
+    Actions: Sequence[ActionUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    Transforms: NotRequired[Sequence[RuleTransformUnionTypeDef]]
+
+
 ModifyListenerInputTypeDef = TypedDict(
     "ModifyListenerInputTypeDef",
     {
@@ -1378,15 +1494,9 @@ ModifyListenerInputTypeDef = TypedDict(
 )
 
 
-class CreateRuleInputTypeDef(TypedDict):
-    ListenerArn: str
-    Conditions: Sequence[RuleConditionUnionTypeDef]
-    Priority: int
-    Actions: Sequence[ActionUnionTypeDef]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
 class ModifyRuleInputTypeDef(TypedDict):
     RuleArn: str
     Conditions: NotRequired[Sequence[RuleConditionUnionTypeDef]]
     Actions: NotRequired[Sequence[ActionUnionTypeDef]]
+    Transforms: NotRequired[Sequence[RuleTransformUnionTypeDef]]
+    ResetTransforms: NotRequired[bool]

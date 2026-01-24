@@ -16,7 +16,6 @@ short_description: Configure interfaces.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -64,6 +63,9 @@ options:
         description: The rc codes list with which the conditions to fail will be overriden.
         type: list
         elements: int
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -100,6 +102,7 @@ options:
                     - 'L4'
                     - 'LB'
                     - 'Source-MAC'
+                    - 'NPU-GRE'
             alias:
                 type: str
                 description: Alias.
@@ -1253,6 +1256,8 @@ options:
                     - 'lr8'
                     - 'cr8'
                     - 'dr'
+                    - 'sr-lr'
+                    - 'kr'
             member:
                 type: raw
                 description: (list or str) Member.
@@ -2725,8 +2730,8 @@ EXAMPLES = '''
     - name: Configure interfaces.
       fortinet.fortimanager.fmgr_fsp_vlan_interface:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -3330,13 +3335,14 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'vlan': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'fsp_vlan_interface': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
             'options': {
                 'ac-name': {'type': 'str'},
                 'aggregate': {'type': 'str'},
-                'algorithm': {'choices': ['L2', 'L3', 'L4', 'LB', 'Source-MAC'], 'type': 'str'},
+                'algorithm': {'choices': ['L2', 'L3', 'L4', 'LB', 'Source-MAC', 'NPU-GRE'], 'type': 'str'},
                 'alias': {'type': 'str'},
                 'allowaccess': {
                     'type': 'list',
@@ -3591,7 +3597,7 @@ def main():
                 'mediatype': {
                     'choices': [
                         'serdes-sfp', 'sgmii-sfp', 'cfp2-sr10', 'cfp2-lr4', 'serdes-copper-sfp', 'sr', 'cr', 'lr', 'qsfp28-sr4', 'qsfp28-lr4',
-                        'qsfp28-cr4', 'sr4', 'cr4', 'lr4', 'none', 'gmii', 'sgmii', 'sr2', 'lr2', 'cr2', 'sr8', 'lr8', 'cr8', 'dr'
+                        'qsfp28-cr4', 'sr4', 'cr4', 'lr4', 'none', 'gmii', 'sgmii', 'sr2', 'lr2', 'cr2', 'sr8', 'lr8', 'cr8', 'dr', 'sr-lr', 'kr'
                     ],
                     'type': 'str'
                 },
@@ -3872,11 +3878,11 @@ def main():
                     'choices': ['tag', 'untag', 'passthrough'],
                     'type': 'str'
                 },
-                'generic-receive-offload': {'v_range': [['7.0.5', '7.0.13'], ['7.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'interconnect-profile': {'v_range': [['7.0.5', '7.0.13'], ['7.2.1', '']], 'choices': ['default', 'profile1', 'profile2'], 'type': 'str'},
-                'large-receive-offload': {'v_range': [['7.0.5', '7.0.13'], ['7.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'generic-receive-offload': {'v_range': [['7.0.5', '7.0.15'], ['7.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'interconnect-profile': {'v_range': [['7.0.5', '7.0.15'], ['7.2.1', '']], 'choices': ['default', 'profile1', 'profile2'], 'type': 'str'},
+                'large-receive-offload': {'v_range': [['7.0.5', '7.0.15'], ['7.2.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'annex': {
-                    'v_range': [['7.0.10', '7.0.13'], ['7.2.5', '7.2.9'], ['7.4.2', '']],
+                    'v_range': [['7.0.10', '7.0.15'], ['7.2.5', '7.2.11'], ['7.4.2', '']],
                     'choices': ['a', 'b', 'j', 'bjm', 'i', 'al', 'm', 'aijlm', 'bj'],
                     'type': 'str'
                 },
@@ -3914,7 +3920,7 @@ def main():
                 'dhcp-relay-vrf-select': {'v_range': [['7.6.2', '']], 'type': 'int'},
                 'exclude-signatures': {'v_range': [['7.6.2', '']], 'type': 'list', 'choices': ['iot', 'ot'], 'elements': 'str'},
                 'profiles': {
-                    'v_range': [['7.4.7', '7.4.7'], ['7.6.3', '']],
+                    'v_range': [['7.0.14', '7.0.15'], ['7.2.10', '7.2.11'], ['7.4.7', '7.4.8'], ['7.6.3', '']],
                     'type': 'list',
                     'choices': ['8a', '8b', '8c', '8d', '12a', '12b', '17a', '30a', '35b'],
                     'elements': 'str'

@@ -3,19 +3,21 @@
 # SPDX-License-Identifier: MIT
 
 import datetime as dt
+import time
 
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 import tenacity
 
 import stamina
 
-from stamina._core import _make_stop
+from stamina._core import Attempt, _make_stop
 
 
-@pytest.mark.parametrize("attempts", [None, 1])
-@pytest.mark.parametrize("timeout", [None, 1, dt.timedelta(days=1)])
+@pytest.mark.parametrize("attempts", [None, -1, 0, 1])
+@pytest.mark.parametrize("timeout", [None, -1, 0, 1, dt.timedelta(days=1)])
 @pytest.mark.parametrize("duration", [1, dt.timedelta(days=1)])
 def test_ok(attempts, timeout, duration):
     """
@@ -311,3 +313,374 @@ def test_testing_mode_context():
         assert 3 == attempt.num
 
     assert not stamina.is_testing()
+
+
+class TestGeneratorFunctionDecoration:
+    @pytest.mark.parametrize("attempts", [None, 1])
+    @pytest.mark.parametrize("timeout", [None, 1, dt.timedelta(days=1)])
+    @pytest.mark.parametrize("duration", [1, dt.timedelta(days=1)])
+    def test_ok(self, attempts, timeout, duration):
+        """
+        No error, no problem.
+        """
+
+        class C:
+            @stamina.retry(
+                on=Exception,
+                attempts=attempts,
+                timeout=timeout,
+                wait_initial=duration,
+                wait_max=duration,
+                wait_jitter=duration,
+            )
+            def f(self):
+                yield 42
+
+        @stamina.retry(
+            on=Exception,
+            attempts=attempts,
+            timeout=timeout,
+            wait_initial=duration,
+            wait_max=duration,
+            wait_jitter=duration,
+        )
+        def f():
+            yield 42
+
+        assert 42 == next(f())
+        assert 42 == next(C().f())
+
+    @pytest.mark.parametrize(
+        "timeout",
+        [None, 1, dt.timedelta(days=1)],
+    )
+    @pytest.mark.parametrize("duration", [0, dt.timedelta(days=0)])
+    def test_retries(self, duration, timeout, on):
+        """
+        Retries if the specific error is raised.
+        """
+        i = 0
+
+        @stamina.retry(
+            on=on,
+            timeout=timeout,
+            wait_max=duration,
+            wait_initial=duration,
+            wait_jitter=duration,
+        )
+        def f():
+            nonlocal i
+            if i < 1:
+                i += 1
+                raise ValueError
+
+            yield 42
+
+        assert 42 == next(f())
+        assert 1 == i
+
+    @pytest.mark.parametrize(
+        "timeout",
+        [None, 1, dt.timedelta(days=1)],
+    )
+    @pytest.mark.parametrize("duration", [0, dt.timedelta(days=0)])
+    def test_retries_also_after_yields(self, duration, timeout, on):
+        """
+        Retries if the specific error is raised after yielding.
+        """
+        i = 0
+
+        @stamina.retry(
+            on=on,
+            timeout=timeout,
+            wait_max=duration,
+            wait_initial=duration,
+            wait_jitter=duration,
+        )
+        def f():
+            yield 42
+
+            nonlocal i
+            if i < 1:
+                i += 1
+                raise ValueError
+
+        assert [42, 42] == list(f())
+        assert 1 == i
+
+    def test_forwards_send(self):
+        """
+        Values sent via send() reach the wrapped generator unchanged.
+        """
+        sent_values = []
+
+        @stamina.retry(on=Exception)
+        def gen():
+            sent = yield "ready"
+            sent_values.append(sent)
+            yield sent
+
+        g = gen()
+
+        assert "ready" == next(g)
+        assert "sentinel" == g.send("sentinel")
+        assert ["sentinel"] == sent_values
+
+    def test_forwards_throw(self):
+        """
+        Exceptions raised via throw() reach the wrapped generator unchanged.
+        """
+        received = []
+
+        @stamina.retry(on=Exception, wait_max=0)
+        def gen():
+            try:
+                yield "ready"
+            except RuntimeError as err:
+                received.append(err)
+                raise
+
+        g = gen()
+
+        assert "ready" == next(g)
+
+        exc = RuntimeError("boom")
+
+        restart_value = g.throw(exc)
+
+        assert "ready" == restart_value
+        assert received == [exc]
+
+    def test_wrong_exception(self, on):
+        """
+        Exceptions that are not passed as `on` are left through.
+        """
+
+        @stamina.retry(on=on)
+        def f():
+            yield
+            raise TypeError("passed")
+
+        with pytest.raises(TypeError, match="passed"):
+            for _ in f():
+                pass
+
+    def test_inactive(self):
+        """
+        If inactive, don't retry.
+        """
+        num_called = 0
+
+        @stamina.retry(on=Exception)
+        def f():
+            nonlocal num_called
+            num_called += 1
+            yield
+            raise Exception("passed")
+
+        stamina.set_active(False)
+
+        with pytest.raises(Exception, match="passed"):
+            for _ in f():
+                pass
+
+        assert 1 == num_called
+
+    def test_retry_inactive_ok(self):
+        """
+        If inactive, the happy path still works.
+        """
+        num_called = 0
+
+        @stamina.retry(on=Exception)
+        def f():
+            nonlocal num_called
+            num_called += 1
+            yield
+
+        stamina.set_active(False)
+
+        next(f())
+
+        assert 1 == num_called
+
+    def test_wrapper_passes_through_return_value(self):
+        """
+        If no error, return should be passed through.
+        """
+
+        @stamina.retry(on=Exception)
+        def f():
+            yield 1
+            yield 2
+            return "Polizei"
+
+        gen = f()
+        assert 1 == next(gen)
+        assert 2 == next(gen)
+
+        with pytest.raises(StopIteration) as exc_info:
+            next(gen)
+
+        assert "Polizei" == exc_info.value.value
+
+
+def test_attempt_next_wait():
+    """
+    next_wait reflects the attempt number. The next wait is computed based on
+    the current attempt number.
+    """
+    am = Mock(retry_state=Mock())
+
+    def next_wait_fn(attempt_num: int) -> float:
+        return attempt_num
+
+    for i in range(1, 3):
+        am.retry_state.attempt_number = i
+        attempt = Attempt(am, next_wait_fn)
+
+        assert i == attempt.next_wait
+
+
+class CustomBackoffError(Exception):
+    def __init__(self, backoff: float):
+        self.backoff = backoff
+        super().__init__(f"Retry after {backoff}s")
+
+
+class TestBackoffHookSync:
+    def test_backoff_hook_in_test_mode_returns_zero(self):
+        """
+        In test mode, custom backoffs are ignored.
+        """
+        attempts = 0
+
+        with stamina.set_testing(True, attempts=3):
+
+            @stamina.retry(on=lambda exc: 10.0, attempts=3)
+            def f():
+                nonlocal attempts
+                attempts += 1
+                if attempts < 3:
+                    raise ValueError("retry")
+                return 42
+
+            start = time.perf_counter()
+            result = f()
+            duration = time.perf_counter() - start
+
+        assert 42 == result
+        assert 3 == attempts
+        assert duration < 0.1
+
+    def test_backoff_hook_returns_float(self):
+        """
+        If a backoff hook returns a float, it is used as the backoff duration.
+        """
+        attempts = 0
+
+        @stamina.retry(on=lambda exc: 0.0, wait_initial=5, attempts=3)
+        def f():
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                raise ValueError("retry")
+            return 42
+
+        started_at = time.perf_counter()
+        result = f()
+        duration = time.perf_counter() - started_at
+
+        assert 42 == result
+        assert 3 == attempts
+        assert duration < 5
+
+    def test_backoff_hook_returns_timedelta(self):
+        """
+        If a backoff hook returns a timedelta, it is used as the backoff duration.
+        """
+        attempts = 0
+
+        @stamina.retry(
+            on=lambda exc: dt.timedelta(seconds=0), wait_initial=5, attempts=3
+        )
+        def f():
+            nonlocal attempts
+            attempts += 1
+            if attempts < 2:
+                raise ValueError("retry")
+            return 42
+
+        started_at = time.perf_counter()
+        result = f()
+        duration = time.perf_counter() - started_at
+
+        assert 42 == result
+        assert 2 == attempts
+        assert duration < 1
+
+    def test_backoff_hook_custom_backoff_from_exception(self):
+        """
+        A backoff hook can extract a custombackoff from exception attributes.
+        """
+        attempts = 0
+
+        def hook(exc):
+            if isinstance(exc, CustomBackoffError):
+                return exc.backoff
+            return False
+
+        @stamina.retry(on=hook, attempts=3, wait_initial=5)
+        def f():
+            nonlocal attempts
+            attempts += 1
+            if attempts < 2:
+                raise CustomBackoffError(0)
+
+            return 42
+
+        started_at = time.perf_counter()
+        result = f()
+        duration = time.perf_counter() - started_at
+
+        assert 42 == result
+        assert 2 == attempts
+        assert duration < 5
+
+    def test_backoff_hook_with_retry_context(self):
+        """
+        Backoff hooks work with retry_context.
+        """
+        attempts = 0
+
+        started_at = time.perf_counter()
+        for attempt in stamina.retry_context(
+            on=lambda exc: 0.0, wait_initial=5, attempts=3
+        ):
+            with attempt:
+                attempts += 1
+                if attempts < 2:
+                    raise ValueError("retry")
+
+        duration = time.perf_counter() - started_at
+
+        assert 2 == attempts
+        assert duration < 5
+
+    def test_backoff_hook_returns_none(self):
+        """
+        If a backoff hook returns None, it is treated as False and a warning is
+        raised.
+        """
+
+        @stamina.retry(on=lambda exc: None, attempts=3)
+        def f():
+            raise ValueError("retry")
+
+        with pytest.raises(ValueError), pytest.warns() as ws:
+            f()
+
+        msg = ws.pop().message.args[0]
+
+        assert "Backoff hook" in msg
+        assert "lambda" in msg

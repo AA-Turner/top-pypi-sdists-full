@@ -34,6 +34,11 @@ debug_whitelist = [
     "INFO:coap-server:Render request raised a renderable error",
     "DEBUG:oscore-site:Will encrypt message as response: ",
     "DEBUG:aiocoap.cryptography:Unprotecting failed",
+    # When hunting down warnings issued by coverage, coverage can be run with
+    # --debug=trace, and then those pop up all over the place and include
+    # module names such as warning or error.
+    "falls outside the --source spec",
+    "Tracing '/home/",
 ]
 
 
@@ -47,16 +52,16 @@ class WithAssertNofaillines(unittest.TestCase):
         successfully report: 'Check passed: The validation failed. (Tag
         invalid)'"""
 
-        lines = text_to_check.decode("utf8").split("\n")
+        decoded = text_to_check.decode("utf8")
         lines = (
             l
             # "failed" and "error" are always legitimate in this position
-            # as they happen by design; whereever they are unexpected,
+            # as they happen by design; wherever they are unexpected,
             # they're caught by the regular plug test operation
             .replace("Precondition Failed", "Precondition @@@led").replace(
                 "Internal Server Error", "Internal Server @@@or"
             )
-            for l in lines
+            for l in decoded.split("\n")
         )
         lines = (
             l
@@ -64,12 +69,20 @@ class WithAssertNofaillines(unittest.TestCase):
             if not any(l.startswith(white) for white in output_whitelist)
         )
         lines = (l for l in lines if not any(white in l for white in debug_whitelist))
-        errorlines = (
+        errorlines = [
             l
             for l in lines
             if "fail" in l.lower() or "warning" in l.lower() or "error" in l.lower()
+        ]
+        self.assertEqual(
+            [],
+            list(errorlines),
+            message
+            + "\nFirst offender: "
+            + (errorlines + ["(none)"])[0]
+            + "\nFull text:\n"
+            + decoded,
         )
-        self.assertEqual([], list(errorlines), message)
 
 
 @unittest.skipIf(
@@ -219,7 +232,7 @@ for x in range(0, 17):
             t = unittest.expectedFailure(t)
         if x == 7:
             # That test fails because there is no proper observation cancellation
-            # aroun yet, see https://github.com/chrysn/aiocoap/issues/104
+            # around yet, see https://github.com/chrysn/aiocoap/issues/104
             #
             # Not making a statement on whether this is ecpected to work or
             # not, because it is highly irregular (it works with setup.py test

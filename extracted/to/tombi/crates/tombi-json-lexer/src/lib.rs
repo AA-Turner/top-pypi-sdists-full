@@ -13,9 +13,8 @@ use tombi_json_syntax::{SyntaxKind, T};
 macro_rules! regex {
     ($($var:ident = $re:expr);+;) => {
         $(
-            static $var: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-                regex::Regex::new($re).unwrap()
-            });
+            static $var: std::sync::LazyLock<tombi_regex::Regex> =
+                std::sync::LazyLock::new(|| tombi_regex::Regex::new($re).unwrap());
         )+
     };
 }
@@ -142,7 +141,7 @@ impl Cursor<'_> {
 
     fn line_break(&mut self) -> Result<Token, crate::Error> {
         let c = self.current();
-        assert!(matches!(c, '\r' | '\n'));
+        debug_assert!(matches!(c, '\r' | '\n'));
         if c == '\r' {
             if self.peek(1) == '\n' {
                 self.eat_n(1);
@@ -162,13 +161,13 @@ impl Cursor<'_> {
         let line = self.peek_with_current_while(|c| !is_token_separator(c));
 
         if let Some(m) = REGEX_FLOAT.find(&line) {
-            assert!(m.start() == 0);
+            debug_assert!(m.start() == 0);
             if m.end() > 1 {
                 self.eat_n(m.end() - 1);
             }
             return Ok(Token::new(SyntaxKind::NUMBER, self.pop_span_range()));
         } else if let Some(m) = REGEX_INTEGER_DEC.find(&line) {
-            assert!(m.start() == 0);
+            debug_assert!(m.start() == 0);
             if m.end() > 1 {
                 self.eat_n(m.end() - 1);
             }
@@ -181,7 +180,7 @@ impl Cursor<'_> {
     }
 
     fn string(&mut self) -> Result<Token, crate::Error> {
-        assert!(self.current() == '"');
+        debug_assert!(self.current() == '"');
 
         let mut first_error: Option<ErrorKind> = None;
         while let Some(c) = self.bump() {

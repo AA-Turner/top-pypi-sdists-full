@@ -1,6 +1,9 @@
 """Test the colorlog.colorlog module."""
 
 import sys
+import unittest.mock
+
+import pytest
 
 import colorlog
 
@@ -114,3 +117,20 @@ def test_ttycolorlog_notty(create_and_test_logger, monkeypatch):
         validator=lambda line: "\x1b[" not in line,
         stream=sys.stderr,
     )
+
+
+if sys.version_info >= (3, 13):
+
+    @pytest.mark.parametrize("tty", [True, False])
+    def test_formatException(tty: bool, monkeypatch):
+        stream = unittest.mock.Mock()
+        stream.isatty = unittest.mock.Mock(return_value=tty)
+
+        formatter = colorlog.ColoredFormatter(stream=stream)
+        try:
+            raise KeyError("test")
+        except KeyError:
+            ei = sys.exc_info()
+            text = formatter.formatException(ei)
+
+        assert ("\x1b[" in text) == tty

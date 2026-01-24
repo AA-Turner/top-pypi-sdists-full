@@ -3,6 +3,7 @@ from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeseri
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -14,6 +15,16 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class LogFacetType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    LOG_FACET_TYPE_UNSPECIFIED: _ClassVar[LogFacetType]
+    LOG_FACET_TYPE_LIST: _ClassVar[LogFacetType]
+    LOG_FACET_TYPE_RANGE: _ClassVar[LogFacetType]
+
+LOG_FACET_TYPE_UNSPECIFIED: LogFacetType
+LOG_FACET_TYPE_LIST: LogFacetType
+LOG_FACET_TYPE_RANGE: LogFacetType
 
 class LogEntry(_message.Message):
     __slots__ = (
@@ -138,3 +149,60 @@ class SearchLogEntriesAggregatedResponse(_message.Message):
     def __init__(
         self, chart: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...
     ) -> None: ...
+
+class GetLogFacetsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class LogFacet(_message.Message):
+    __slots__ = ("path", "name", "facet_type")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FACET_TYPE_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    name: str
+    facet_type: LogFacetType
+    def __init__(
+        self,
+        path: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        facet_type: _Optional[_Union[LogFacetType, str]] = ...,
+    ) -> None: ...
+
+class GetLogFacetsResponse(_message.Message):
+    __slots__ = ("facets",)
+    FACETS_FIELD_NUMBER: _ClassVar[int]
+    facets: _containers.RepeatedCompositeFieldContainer[LogFacet]
+    def __init__(self, facets: _Optional[_Iterable[_Union[LogFacet, _Mapping]]] = ...) -> None: ...
+
+class GetLogFacetValuesRequest(_message.Message):
+    __slots__ = ("path", "start_time", "end_time", "limit")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    limit: int
+    def __init__(
+        self,
+        path: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+    ) -> None: ...
+
+class LogFacetValue(_message.Message):
+    __slots__ = ("value", "count")
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    value: str
+    count: int
+    def __init__(self, value: _Optional[str] = ..., count: _Optional[int] = ...) -> None: ...
+
+class GetLogFacetValuesResponse(_message.Message):
+    __slots__ = ("values",)
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedCompositeFieldContainer[LogFacetValue]
+    def __init__(self, values: _Optional[_Iterable[_Union[LogFacetValue, _Mapping]]] = ...) -> None: ...

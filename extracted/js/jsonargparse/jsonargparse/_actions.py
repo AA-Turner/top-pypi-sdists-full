@@ -3,24 +3,23 @@
 import re
 import sys
 import warnings
-from argparse import SUPPRESS, _HelpAction, _SubParsersAction
+from argparse import SUPPRESS, _HelpAction, _SubParsersAction, _VersionAction
 from argparse import Action as ArgparseAction
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Optional, Union
 
-from ._common import Action, is_subclass, parser_context
+from ._common import Action, NonParsingAction, is_not_subclass_type, is_subclass, parser_context, parsing_defaults
 from ._loaders_dumpers import get_loader_exceptions, load_value
 from ._namespace import Namespace, NSKeyError, split_key, split_key_root
 from ._optionals import _get_config_read_mode, ruamel_support
+from ._paths import change_to_path_dir
 from ._type_checking import ActionsContainer, ArgumentParser
 from ._util import (
     Path,
     argument_error,
-    change_to_path_dir,
     default_config_option_help,
     get_import_path,
-    get_typehint_origin,
     import_object,
     indent_text,
     iter_to_set_str,
@@ -37,7 +36,7 @@ __all__ = [
 
 def _is_branch_key(parser, key: str) -> bool:
     root_key = split_key_root(key)[0]
-    for action in filter_default_actions(parser._actions):
+    for action in filter_non_parsing_actions(parser._actions):
         if isinstance(action, _ActionSubCommands) and root_key in action._name_parser_map:
             subparser = action._name_parser_map[root_key]
             return _is_branch_key(subparser, split_key_root(key)[1])
@@ -49,8 +48,8 @@ def _is_branch_key(parser, key: str) -> bool:
 def _find_action_and_subcommand(
     parser: Union[ArgumentParser, ActionsContainer],
     dest: str,
-    exclude: Optional[Union[Type[ArgparseAction], Tuple[Type[ArgparseAction], ...]]] = None,
-) -> Tuple[Optional[ArgparseAction], Optional[str]]:
+    exclude: Optional[Union[type[ArgparseAction], tuple[type[ArgparseAction], ...]]] = None,
+) -> tuple[Optional[ArgparseAction], Optional[str]]:
     """Finds an action in a parser given its destination key.
 
     Args:
@@ -60,7 +59,7 @@ def _find_action_and_subcommand(
     Returns:
         The action if found, otherwise None.
     """
-    actions = filter_default_actions(parser._actions)
+    actions = filter_non_parsing_actions(parser._actions)
     if exclude is not None:
         actions = [a for a in actions if not isinstance(a, exclude)]
     fallback_action = None
@@ -86,7 +85,7 @@ def _find_action_and_subcommand(
 def _find_action(
     parser: Union[ArgumentParser, ActionsContainer],
     dest: str,
-    exclude: Optional[Union[Type[ArgparseAction], Tuple[Type[ArgparseAction], ...]]] = None,
+    exclude: Optional[Union[type[ArgparseAction], tuple[type[ArgparseAction], ...]]] = None,
 ) -> Optional[ArgparseAction]:
     return _find_action_and_subcommand(parser, dest, exclude=exclude)[0]
 
@@ -94,8 +93,8 @@ def _find_action(
 def _find_parent_action_and_subcommand(
     parser: ArgumentParser,
     key: str,
-    exclude: Optional[Union[Type[ArgparseAction], Tuple[Type[ArgparseAction], ...]]] = None,
-) -> Tuple[Optional[ArgparseAction], Optional[str]]:
+    exclude: Optional[Union[type[ArgparseAction], tuple[type[ArgparseAction], ...]]] = None,
+) -> tuple[Optional[ArgparseAction], Optional[str]]:
     action, subcommand = _find_action_and_subcommand(parser, key, exclude=exclude)
     if action is None and "." in key:
         parts = split_key(key)
@@ -109,7 +108,7 @@ def _find_parent_action_and_subcommand(
 def _find_parent_action(
     parser: ArgumentParser,
     key: str,
-    exclude: Optional[Union[Type[ArgparseAction], Tuple[Type[ArgparseAction], ...]]] = None,
+    exclude: Optional[Union[type[ArgparseAction], tuple[type[ArgparseAction], ...]]] = None,
 ) -> Optional[ArgparseAction]:
     return _find_parent_action_and_subcommand(parser, key, exclude=exclude)[0]
 
@@ -139,13 +138,13 @@ def remove_actions(parser, types):
         remove(action_group._group_actions)
 
 
-def filter_default_actions(actions):
-    from ._completions import ShtabAction
+non_parsing_actions = (_HelpAction, _VersionAction, NonParsingAction)
 
-    default = (_HelpAction, _ActionHelpClassPath, _ActionPrintConfig, ShtabAction)
+
+def filter_non_parsing_actions(actions):
     if isinstance(actions, list):
-        return [a for a in actions if not isinstance(a, default)]
-    return {k: a for k, a in actions.items() if not isinstance(a, default)}
+        return [a for a in actions if not isinstance(a, non_parsing_actions)]
+    return {k: a for k, a in actions.items() if not isinstance(a, non_parsing_actions)}
 
 
 class ActionConfigFile(Action):
@@ -236,7 +235,7 @@ def previous_config_context(cfg):
 print_config_skip: ContextVar = ContextVar("print_config_skip", default=False)
 
 
-class _ActionPrintConfig(Action):
+class _ActionPrintConfig(NonParsingAction):
     def __init__(
         self,
         option_strings,
@@ -261,7 +260,7 @@ class _ActionPrintConfig(Action):
         kwargs = {"subparser": parser, "key": None, "skip_none": False, "skip_validation": False}
         valid_flags = {"": None, "skip_default": "skip_default", "skip_null": "skip_none"}
         if ruamel_support:
-            valid_flags["comments"] = "yaml_comments"
+            valid_flags["comments"] = "with_comments"
         if value is not None:
             flags = value[0].split(",")
             invalid_flags = [f for f in flags if f not in valid_flags]
@@ -305,7 +304,7 @@ class _ActionPrintConfig(Action):
 
 
 class _ActionConfigLoad(Action):
-    def __init__(self, basetype: Optional[Type] = None, **kwargs):
+    def __init__(self, basetype: Optional[type] = None, **kwargs):
         if len(kwargs) == 0:
             self._basetype = basetype
         else:
@@ -344,8 +343,14 @@ class _ActionConfigLoad(Action):
         return self._load_config(value, parser)
 
 
-class _ActionHelpClassPath(Action):
-    sub_add_kwargs: Dict[str, Any] = {}
+class _ActionHelpClassPath(NonParsingAction):
+    sub_add_kwargs: dict[str, Any] = {}
+
+    @classmethod
+    def get_help_types(cls, typehint) -> Optional[tuple]:
+        from ._typehints import get_subclass_or_closed_types
+
+        return get_subclass_or_closed_types(typehint=typehint, also_lists=True, callable_return=True)
 
     def __init__(self, typehint=None, **kwargs):
         if typehint is not None:
@@ -355,34 +360,28 @@ class _ActionHelpClassPath(Action):
             super().__init__(**kwargs)
 
     def update_init_kwargs(self, kwargs):
-        from ._typehints import (
-            get_optional_arg,
-            get_subclass_names,
-            get_subclass_types,
-            get_unaliased_type,
-            is_protocol,
-        )
+        from ._typehints import is_protocol
 
-        typehint = get_unaliased_type(get_optional_arg(kwargs.pop("_typehint")))
-        if get_typehint_origin(typehint) is not Union:
-            assert "nargs" not in kwargs
-            kwargs["nargs"] = "?"
-        self._typehint = typehint
-        self._basename = iter_to_set_str(get_subclass_names(typehint, callable_return=True))
-        self._baseclasses = get_subclass_types(typehint, callable_return=True)
-        assert self._baseclasses and all(isinstance(b, type) for b in self._baseclasses)
+        self._typehint = kwargs.pop("_typehint")
+        self._help_types = self.get_help_types(self._typehint)
+        assert self._help_types and all(isinstance(b, type) for b in self._help_types)
+        self._not_subclass = len(self._help_types) == 1 and is_not_subclass_type(self._help_types[0])
+        self._basename = iter_to_set_str(t.__name__ for t in self._help_types)
 
-        self._kind = "subclass of"
-        if any(is_protocol(b) for b in self._baseclasses):
-            self._kind = "subclass or implementer of protocol"
+        if len(self._help_types) == 1:
+            kwargs["nargs"] = 0 if self._not_subclass else "?"
 
-        kwargs.update(
-            {
-                "metavar": "CLASS_PATH_OR_NAME",
-                "default": SUPPRESS,
-                "help": f"Show the help for the given {self._kind} {self._basename} and exit.",
-            }
-        )
+        if self._not_subclass:
+            msg = ""
+        else:
+            kwargs["metavar"] = "CLASS_PATH_OR_NAME"
+            self._kind = "subclass of"
+            if any(is_protocol(b) for b in self._help_types):
+                self._kind = "subclass or implementer of protocol"
+            msg = f"the given {self._kind} "
+
+        kwargs["default"] = SUPPRESS
+        kwargs["help"] = f"Show the help for {msg}{self._basename} and exit."
 
     def __call__(self, *args, **kwargs):
         if len(args) == 0:
@@ -399,14 +398,14 @@ class _ActionHelpClassPath(Action):
 
         parser, _, value, option_string = call_args
         try:
-            if self.nargs == "?" and value is None:
-                val_class = self._typehint
+            if self.nargs == 0 or (self.nargs == "?" and value is None):
+                val_class = self._help_types[0]
             else:
-                val_class = import_object(resolve_class_path_by_name(self._baseclasses, value))
+                val_class = import_object(resolve_class_path_by_name(self._help_types, value))
         except Exception as ex:
             raise TypeError(f"{option_string}: {ex}") from ex
 
-        if not any(is_subclass(val_class, b) or implements_protocol(val_class, b) for b in self._baseclasses):
+        if not any(is_subclass(val_class, b) or implements_protocol(val_class, b) for b in self._help_types):
             raise TypeError(f'{option_string}: Class "{value}" is not a {self._kind} {self._basename}')
         dest = re.sub("\\.help$", "", self.dest)
         subparser = type(parser)(description=f"Help for {option_string}={get_import_path(val_class)}")
@@ -587,7 +586,7 @@ class ActionParser:
         required_args = {prefix + "." + x for x in subparser.required_args}
 
         option_string_actions = {}
-        for key, action in filter_default_actions(subparser._option_string_actions).items():
+        for key, action in filter_non_parsing_actions(subparser._option_string_actions).items():
             option_string_actions[add_prefix(key)] = action
 
         isect = set(option_string_actions).intersection(set(parser._option_string_actions))
@@ -596,7 +595,7 @@ class ActionParser:
 
         actions = []
         dest = prefix.replace("-", "_")
-        for action in filter_default_actions(subparser._actions):
+        for action in filter_non_parsing_actions(subparser._actions):
             if isinstance(action, ActionYesNo):
                 action._add_dest_prefix(prefix)
             else:
@@ -609,8 +608,8 @@ class ActionParser:
         if description is not None:
             base_action_group.description = description
         base_action_group.parser = parser
-        base_action_group._actions = filter_default_actions(base_action_group._actions)
-        base_action_group._group_actions = filter_default_actions(base_action_group._group_actions)
+        base_action_group._actions = filter_non_parsing_actions(base_action_group._actions)
+        base_action_group._group_actions = filter_non_parsing_actions(base_action_group._group_actions)
         extra_action_groups = subparser._action_groups[2:]
         for group in extra_action_groups:
             if group.dest is not None:
@@ -630,19 +629,7 @@ class ActionParser:
 
 
 single_subcommand: ContextVar = ContextVar("single_subcommand", default=True)
-parent_parsers: ContextVar = ContextVar("parent_parsers", default=[])
 parse_kwargs: ContextVar = ContextVar("parse_kwargs", default={})
-
-
-@contextmanager
-def parent_parsers_context(key, parser):
-    prev = parent_parsers.get()
-    curr = [] if parser is None else prev + [(key, parser)]
-    token = parent_parsers.set(curr)
-    try:
-        yield
-    finally:
-        parent_parsers.reset(token)
 
 
 class _ActionSubCommands(_SubParsersAction):
@@ -728,13 +715,13 @@ class _ActionSubCommands(_SubParsersAction):
         cfg: Namespace,
         prefix: str = "",
         fail_no_subcommand: bool = True,
-    ) -> Tuple[Optional[List[str]], Optional[List[ArgumentParser]]]:
+    ) -> tuple[Optional[list[str]], Optional[list[ArgumentParser]]]:
         """Returns subcommand names and corresponding subparsers."""
         if parser._subcommands_action is None:
             return None, None
         action = parser._subcommands_action
 
-        require_single = single_subcommand.get()
+        require_single = single_subcommand.get() and not parsing_defaults.get()
 
         # Get subcommand settings keys
         subcommand_keys = [k for k in action.choices if isinstance(cfg.get(prefix + k), Namespace)]
@@ -744,12 +731,14 @@ class _ActionSubCommands(_SubParsersAction):
         dest = prefix + action.dest
         if dest in cfg and cfg.get(dest) is not None:
             subcommand = cfg[dest]
+            if parsing_defaults.get():
+                raise NSKeyError(f"A specific subcommand can't be provided in defaults, got '{subcommand}'")
         elif len(subcommand_keys) > 0 and (fail_no_subcommand or require_single):
             cfg[dest] = subcommand = subcommand_keys[0]
             if len(subcommand_keys) > 1:
                 warnings.warn(
-                    f'Multiple subcommand settings provided ({", ".join(subcommand_keys)}) without an '
-                    f'explicit "{dest}" key. Subcommand "{subcommand}" will be used.'
+                    f"Multiple subcommand settings provided ({', '.join(subcommand_keys)}) without an "
+                    f"explicit '{dest}' key. Subcommand '{subcommand}' will be used."
                 )
 
         # Remove extra subcommand settings
@@ -784,7 +773,7 @@ class _ActionSubCommands(_SubParsersAction):
         cfg: Namespace,
         prefix: str = "",
         fail_no_subcommand: bool = True,
-    ) -> Tuple[Optional[str], Optional[ArgumentParser]]:
+    ) -> tuple[Optional[str], Optional[ArgumentParser]]:
         """Returns a single subcommand name and corresponding subparser."""
         subcommands, subparsers = _ActionSubCommands.get_subcommands(
             parser,
@@ -815,11 +804,10 @@ class _ActionSubCommands(_SubParsersAction):
             # Merge environment variable values and default values
             subnamespace = None
             key = prefix + subcommand
-            with parent_parsers_context(key, parser):
-                if env:
-                    subnamespace = subparser.parse_env(defaults=defaults, _skip_validation=True)
-                elif defaults:
-                    subnamespace = subparser.get_defaults(skip_validation=True)
+            if env:
+                subnamespace = subparser.parse_env(defaults=defaults, _skip_validation=True)
+            elif defaults:
+                subnamespace = subparser.get_defaults(skip_validation=True)
 
             # Update all subcommand settings
             if subnamespace is not None:

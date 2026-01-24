@@ -1,4 +1,4 @@
-# distutils: language=c++
+#cython: freethreading_compatible = True
 
 from . import fuzz_py
 from .distance._initialize_cpp import ScoreAlignment

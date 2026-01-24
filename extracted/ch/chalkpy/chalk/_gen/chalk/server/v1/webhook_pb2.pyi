@@ -156,3 +156,21 @@ class ListWebhooksResponse(_message.Message):
     WEBHOOKS_FIELD_NUMBER: _ClassVar[int]
     webhooks: _containers.RepeatedCompositeFieldContainer[Webhook]
     def __init__(self, webhooks: _Optional[_Iterable[_Union[Webhook, _Mapping]]] = ...) -> None: ...
+
+class TestWebhookRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class TestWebhookResponse(_message.Message):
+    __slots__ = ("success", "status_code", "error_message")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    STATUS_CODE_FIELD_NUMBER: _ClassVar[int]
+    ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    status_code: int
+    error_message: str
+    def __init__(
+        self, success: bool = ..., status_code: _Optional[int] = ..., error_message: _Optional[str] = ...
+    ) -> None: ...

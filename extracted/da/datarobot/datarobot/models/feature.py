@@ -144,50 +144,44 @@ class Feature(APIObject, HasHistogram):
         recent, finished EDA stage.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): Int,
-            t.Key("project_id"): String,
-            t.Key("name"): String,
-            t.Key("feature_type", optional=True): String,
-            t.Key("importance", optional=True): t.Float,
-            t.Key("low_information"): t.Bool,
-            t.Key("unique_count"): Int,
-            t.Key("na_count", optional=True): Int,
-            t.Key("date_format", optional=True): String,
-            t.Key("min", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("max", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("mean", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("median", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("std_dev", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("time_series_eligible"): t.Bool,
-            t.Key("time_series_eligibility_reason"): String,
-            t.Key("time_step", optional=True): Int,
-            t.Key("time_unit", optional=True): String,
-            t.Key("target_leakage", optional=True): String,
-            t.Key("feature_lineage_id", optional=True): t.Or(String, t.Null),
-            t.Key("key_summary", optional=True): t.List(
-                t.Dict(
-                    {
-                        t.Key("key"): String(allow_blank=True),
-                        t.Key("summary"): t.Dict(
-                            {
-                                t.Key("max"): t.Or(t.Float, Int),
-                                t.Key("min"): t.Or(t.Float, Int),
-                                t.Key("mean"): t.Or(t.Float, Int),
-                                t.Key("median"): t.Or(t.Float, Int),
-                                t.Key("std_dev"): t.Or(t.Float, Int),
-                                t.Key("pct_rows"): t.Or(t.Float, Int),
-                            }
-                        ).allow_extra("*"),
-                    }
-                ).allow_extra("*")
-            ),
-            t.Key("multilabel_insights", optional=True): t.Dict(
-                {t.Key("multilabel_insights_key"): String}
-            ).allow_extra("*"),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): Int,
+        t.Key("project_id"): String,
+        t.Key("name"): String,
+        t.Key("feature_type", optional=True): String,
+        t.Key("importance", optional=True): t.Float,
+        t.Key("low_information"): t.Bool,
+        t.Key("unique_count"): Int,
+        t.Key("na_count", optional=True): Int,
+        t.Key("date_format", optional=True): String,
+        t.Key("min", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("max", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("mean", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("median", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("std_dev", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("time_series_eligible"): t.Bool,
+        t.Key("time_series_eligibility_reason"): String,
+        t.Key("time_step", optional=True): Int,
+        t.Key("time_unit", optional=True): String,
+        t.Key("target_leakage", optional=True): String,
+        t.Key("feature_lineage_id", optional=True): t.Or(String, t.Null),
+        t.Key("key_summary", optional=True): t.List(
+            t.Dict({
+                t.Key("key"): String(allow_blank=True),
+                t.Key("summary"): t.Dict({
+                    t.Key("max"): t.Or(t.Float, Int),
+                    t.Key("min"): t.Or(t.Float, Int),
+                    t.Key("mean"): t.Or(t.Float, Int),
+                    t.Key("median"): t.Or(t.Float, Int),
+                    t.Key("std_dev"): t.Or(t.Float, Int),
+                    t.Key("pct_rows"): t.Or(t.Float, Int),
+                }).allow_extra("*"),
+            }).allow_extra("*")
+        ),
+        t.Key("multilabel_insights", optional=True): t.Dict({t.Key("multilabel_insights_key"): String}).allow_extra(
+            "*"
+        ),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -235,9 +229,7 @@ class Feature(APIObject, HasHistogram):
         self.target_leakage = target_leakage
         self.feature_lineage_id = feature_lineage_id
         self.key_summary = key_summary
-        self.multilabel_insights_key = (
-            multilabel_insights["multilabel_insights_key"] if multilabel_insights else None
-        )
+        self.multilabel_insights_key = multilabel_insights["multilabel_insights_key"] if multilabel_insights else None
 
     def __repr__(self):
         return f"Feature({self.name})"
@@ -297,24 +289,18 @@ class Feature(APIObject, HasHistogram):
         """
 
         def _extract_properties():
-            retrieve_url = "{}multiseriesProperties/".format(
-                self._build_url(self.project_id, self.name)
-            )
+            retrieve_url = "{}multiseriesProperties/".format(self._build_url(self.project_id, self.name))
             response = self._client.get(retrieve_url)
-            response_schema = t.Dict(
-                {
-                    t.Key("datetimePartitionColumn"): String(),
-                    t.Key("detectedMultiseriesIdColumns"): t.List(
-                        t.Dict(
-                            {
-                                t.Key("multiseriesIdColumns"): t.List(String()),
-                                t.Key("timeUnit"): String(),
-                                t.Key("timeStep"): Int(),
-                            }
-                        ).ignore_extra("*")
-                    ),
-                }
-            ).ignore_extra("*")
+            response_schema = t.Dict({
+                t.Key("datetimePartitionColumn"): String(),
+                t.Key("detectedMultiseriesIdColumns"): t.List(
+                    t.Dict({
+                        t.Key("multiseriesIdColumns"): t.List(String()),
+                        t.Key("timeUnit"): String(),
+                        t.Key("timeStep"): Int(),
+                    }).ignore_extra("*")
+                ),
+            }).ignore_extra("*")
             response_data = response_schema.check(response.json())
             detected_columns = response_data["detectedMultiseriesIdColumns"]
 
@@ -383,26 +369,21 @@ class Feature(APIObject, HasHistogram):
         """
 
         def _extract_properties():
-            retrieve_url = (
-                "projects/{}/multiseriesIds/{}/crossSeriesProperties/?"
-                "crossSeriesGroupByColumns={}"
-            ).format(self.project_id, self.name, cross_series_group_by_columns[0])
+            retrieve_url = ("projects/{}/multiseriesIds/{}/crossSeriesProperties/?crossSeriesGroupByColumns={}").format(
+                self.project_id, self.name, cross_series_group_by_columns[0]
+            )
 
             response = self._client.get(retrieve_url)
-            response_schema = t.Dict(
-                {
-                    t.Key("multiseriesId"): String(),
-                    t.Key("crossSeriesGroupByColumns"): t.List(
-                        t.Dict(
-                            {
-                                t.Key("name"): String(),
-                                t.Key("eligibility"): String(),
-                                t.Key("isEligible"): t.Bool(),
-                            }
-                        ).ignore_extra("*")
-                    ),
-                }
-            ).ignore_extra("*")
+            response_schema = t.Dict({
+                t.Key("multiseriesId"): String(),
+                t.Key("crossSeriesGroupByColumns"): t.List(
+                    t.Dict({
+                        t.Key("name"): String(),
+                        t.Key("eligibility"): String(),
+                        t.Key("isEligible"): t.Bool(),
+                    }).ignore_extra("*")
+                ),
+            }).ignore_extra("*")
 
             response_data = response_schema.check(response.json())
             for col in response_data["crossSeriesGroupByColumns"]:
@@ -624,42 +605,36 @@ class ModelingFeature(APIObject, HasHistogram):
                 pctRows: percentage occurrence of key in the EDA sample of the feature.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("name"): String,
-            t.Key("feature_type", optional=True): String,
-            t.Key("importance", optional=True): t.Float,
-            t.Key("low_information"): t.Bool,
-            t.Key("unique_count"): Int,
-            t.Key("na_count", optional=True): Int,
-            t.Key("date_format", optional=True): String,
-            t.Key("min", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("max", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("mean", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("median", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("std_dev", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("parent_feature_names"): t.List(String),
-            t.Key("is_restored_after_reduction", optional=True): t.Bool,
-            t.Key("key_summary", optional=True): t.List(
-                t.Dict(
-                    {
-                        t.Key("key"): String(allow_blank=True),
-                        t.Key("summary"): t.Dict(
-                            {
-                                t.Key("max"): t.Or(t.Float, Int),
-                                t.Key("min"): t.Or(t.Float, Int),
-                                t.Key("mean"): t.Or(t.Float, Int),
-                                t.Key("median"): t.Or(t.Float, Int),
-                                t.Key("std_dev"): t.Or(t.Float, Int),
-                                t.Key("pct_rows"): t.Or(t.Float, Int),
-                            }
-                        ).allow_extra("*"),
-                    }
-                ).allow_extra("*")
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("name"): String,
+        t.Key("feature_type", optional=True): String,
+        t.Key("importance", optional=True): t.Float,
+        t.Key("low_information"): t.Bool,
+        t.Key("unique_count"): Int,
+        t.Key("na_count", optional=True): Int,
+        t.Key("date_format", optional=True): String,
+        t.Key("min", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("max", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("mean", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("median", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("std_dev", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("parent_feature_names"): t.List(String),
+        t.Key("is_restored_after_reduction", optional=True): t.Bool,
+        t.Key("key_summary", optional=True): t.List(
+            t.Dict({
+                t.Key("key"): String(allow_blank=True),
+                t.Key("summary"): t.Dict({
+                    t.Key("max"): t.Or(t.Float, Int),
+                    t.Key("min"): t.Or(t.Float, Int),
+                    t.Key("mean"): t.Or(t.Float, Int),
+                    t.Key("median"): t.Or(t.Float, Int),
+                    t.Key("std_dev"): t.Or(t.Float, Int),
+                    t.Key("pct_rows"): t.Or(t.Float, Int),
+                }).allow_extra("*"),
+            }).allow_extra("*")
+        ),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -721,9 +696,7 @@ class ModelingFeature(APIObject, HasHistogram):
 
     @classmethod
     def _build_url(cls, project_id, feature_name):
-        return "projects/{}/modelingFeatures/{}/".format(
-            project_id, quote(feature_name.encode("utf-8"))
-        )
+        return "projects/{}/modelingFeatures/{}/".format(project_id, quote(feature_name.encode("utf-8")))
 
 
 class DatasetFeature(APIObject):
@@ -794,30 +767,28 @@ class DatasetFeature(APIObject):
         The descriptive text explaining the reason for target leakage, if any.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id") >> "id_": Int,
-            t.Key("dataset_id"): String,
-            t.Key("dataset_version_id"): String,
-            t.Key("name"): String,
-            t.Key("feature_type", optional=True): String,
-            t.Key("low_information", optional=True): t.Bool,
-            t.Key("unique_count", optional=True): Int,
-            t.Key("na_count", optional=True): Int,
-            t.Key("date_format", optional=True): String,
-            t.Key("min", optional=True) >> "min_": t.Or(String, Int, t.Float, t.Null),
-            t.Key("max", optional=True) >> "max_": t.Or(String, Int, t.Float, t.Null),
-            t.Key("mean", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("median", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("std_dev", optional=True): t.Or(String, Int, t.Float, t.Null),
-            t.Key("time_series_eligible", optional=True): t.Bool,
-            t.Key("time_series_eligibility_reason", optional=True): String,
-            t.Key("time_step", optional=True): Int,
-            t.Key("time_unit", optional=True): String,
-            t.Key("target_leakage", optional=True): String,
-            t.Key("target_leakage_reason", optional=True): String,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id") >> "id_": Int,
+        t.Key("dataset_id"): String,
+        t.Key("dataset_version_id"): String,
+        t.Key("name"): String,
+        t.Key("feature_type", optional=True): String,
+        t.Key("low_information", optional=True): t.Bool,
+        t.Key("unique_count", optional=True): Int,
+        t.Key("na_count", optional=True): Int,
+        t.Key("date_format", optional=True): String,
+        t.Key("min", optional=True) >> "min_": t.Or(String, Int, t.Float, t.Null),
+        t.Key("max", optional=True) >> "max_": t.Or(String, Int, t.Float, t.Null),
+        t.Key("mean", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("median", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("std_dev", optional=True): t.Or(String, Int, t.Float, t.Null),
+        t.Key("time_series_eligible", optional=True): t.Bool,
+        t.Key("time_series_eligibility_reason", optional=True): String,
+        t.Key("time_step", optional=True): Int,
+        t.Key("time_unit", optional=True): String,
+        t.Key("target_leakage", optional=True): String,
+        t.Key("target_leakage_reason", optional=True): String,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -920,19 +891,15 @@ class BaseFeatureHistogram(APIObject):
 
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("plot"): t.List(
-                t.Dict(
-                    {
-                        t.Key("label"): String,
-                        t.Key("count"): t.Or(Int, t.Float),
-                        t.Key("target", default=None): t.Or(t.Float, t.Null),
-                    }
-                )
-            )
-        }
-    )
+    _converter = t.Dict({
+        t.Key("plot"): t.List(
+            t.Dict({
+                t.Key("label"): String,
+                t.Key("count"): t.Or(Int, t.Float),
+                t.Key("target", default=None): t.Or(t.Float, t.Null),
+            })
+        )
+    })
 
     _root_path = None
 
@@ -968,12 +935,8 @@ class BaseFeatureHistogram(APIObject):
         return cls.from_location(path)
 
     @classmethod
-    def _build_url(
-        cls, project_id, feature_name, bin_limit=None, key_name=None
-    ):  # pylint: disable=missing-function-docstring
-        url = "{}/{}/featureHistograms/{}/".format(
-            cls._root_path, project_id, quote(feature_name.encode("utf-8"))
-        )
+    def _build_url(cls, project_id, feature_name, bin_limit=None, key_name=None):  # pylint: disable=missing-function-docstring
+        url = "{}/{}/featureHistograms/{}/".format(cls._root_path, project_id, quote(feature_name.encode("utf-8")))
 
         if bin_limit is not None:  # makes sure pass 0 to endpoint
             url = f"{url}?binLimit={bin_limit}"
@@ -1068,36 +1031,30 @@ class InteractionFeature(APIObject):
         dictionaries representing frequencies of each combined value in the interaction feature.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("rows"): Int,
-            t.Key("source_columns"): t.List(String, min_length=2, max_length=2),
-            t.Key("bars"): t.List(
-                t.Dict(
-                    {
-                        t.Key("column_name"): String,
-                        t.Key("counts"): t.List(
-                            t.Dict({t.Key("value"): String, t.Key("count"): Int}),
-                            min_length=2,
-                            max_length=2,
-                        ),
-                    }
-                ).allow_extra("*")
-            ),
-            t.Key("bubbles"): t.List(
-                t.Dict(
-                    {
-                        t.Key("count"): Int,
-                        t.Key("source_data"): t.List(
-                            t.Dict({t.Key("value"): String, t.Key("column_name"): String}),
-                            min_length=2,
-                            max_length=2,
-                        ),
-                    }
-                ).allow_extra("*")
-            ),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("rows"): Int,
+        t.Key("source_columns"): t.List(String, min_length=2, max_length=2),
+        t.Key("bars"): t.List(
+            t.Dict({
+                t.Key("column_name"): String,
+                t.Key("counts"): t.List(
+                    t.Dict({t.Key("value"): String, t.Key("count"): Int}),
+                    min_length=2,
+                    max_length=2,
+                ),
+            }).allow_extra("*")
+        ),
+        t.Key("bubbles"): t.List(
+            t.Dict({
+                t.Key("count"): Int,
+                t.Key("source_data"): t.List(
+                    t.Dict({t.Key("value"): String, t.Key("column_name"): String}),
+                    min_length=2,
+                    max_length=2,
+                ),
+            }).allow_extra("*")
+        ),
+    }).allow_extra("*")
 
     def __init__(self, rows, source_columns, bars, bubbles):
         self.rows = rows
@@ -1210,67 +1167,53 @@ class FeatureLineage(APIObject):
                 list of *data* steps id which brought the *columns* into the current step dataset.
     """
 
-    _join_table_trafaret = t.Dict(
-        {t.Key("datasteps"): t.List(Int(gte=1)), t.Key("columns"): t.List(String)}
-    )
+    _join_table_trafaret = t.Dict({t.Key("datasteps"): t.List(Int(gte=1)), t.Key("columns"): t.List(String)})
 
-    _duration_trafaret = t.Dict(
-        {
-            t.Key("duration"): Int,
-            t.Key("time_unit"): String,
-            t.Key("is_original", optional=True): t.Or(t.Bool, t.Null),
-        }
-    )
+    _duration_trafaret = t.Dict({
+        t.Key("duration"): Int,
+        t.Key("time_unit"): String,
+        t.Key("is_original", optional=True): t.Or(t.Bool, t.Null),
+    })
 
-    _columns_trafaret = t.Dict(
-        {
-            t.Key("name"): String,
-            t.Key("data_type"): String,
-            t.Key("is_input"): t.Bool,
-            t.Key("is_cutoff", optional=True): t.Bool,
-        }
-    ).allow_extra("*")
+    _columns_trafaret = t.Dict({
+        t.Key("name"): String,
+        t.Key("data_type"): String,
+        t.Key("is_input"): t.Bool,
+        t.Key("is_cutoff", optional=True): t.Bool,
+    }).allow_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("steps"): t.List(
-                t.Dict(
-                    {
-                        t.Key("id"): t.Or(Int(gte=0), t.Null),
-                        t.Key("step_type"): t.Regexp(regexp="data|join|generatedColumn|action"),
-                        t.Key("parents"): t.List(Int),
-                        t.Key("name", optional=True): String,
-                        t.Key("description", optional=True): t.Or(String, t.Null),
-                        t.Key("data_type", optional=True): t.Or(String, t.Null),
-                        t.Key("catalog_id", optional=True): t.Or(String, t.Null),
-                        t.Key("catalog_version_id", optional=True): t.Or(String, t.Null),
-                        t.Key("columns", optional=True): t.List(_columns_trafaret),
-                        t.Key("is_time_aware", optional=True): t.Bool,
-                        t.Key("join_info", optional=True): t.Dict(
-                            {
-                                t.Key("join_type"): t.Regexp(regexp="left|right"),
-                                t.Key("left_table"): _join_table_trafaret,
-                                t.Key("right_table"): _join_table_trafaret,
-                            }
-                        ).ignore_extra("*"),
-                        t.Key("group_by", optional=True): t.Or(t.List(String), t.Null),
-                        t.Key("time_info", optional=True): t.Or(
-                            t.Or(
-                                t.Dict(
-                                    {
-                                        t.Key("latest", optional=True): _duration_trafaret,
-                                        t.Key("duration", optional=True): _duration_trafaret,
-                                        t.Key("lag", optional=True): _duration_trafaret,
-                                    }
-                                ),
-                                t.Null,
-                            )
-                        ),
-                    }
-                ).ignore_extra("*")
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("steps"): t.List(
+            t.Dict({
+                t.Key("id"): t.Or(Int(gte=0), t.Null),
+                t.Key("step_type"): t.Regexp(regexp="data|join|generatedColumn|action"),
+                t.Key("parents"): t.List(Int),
+                t.Key("name", optional=True): String,
+                t.Key("description", optional=True): t.Or(String, t.Null),
+                t.Key("data_type", optional=True): t.Or(String, t.Null),
+                t.Key("catalog_id", optional=True): t.Or(String, t.Null),
+                t.Key("catalog_version_id", optional=True): t.Or(String, t.Null),
+                t.Key("columns", optional=True): t.List(_columns_trafaret),
+                t.Key("is_time_aware", optional=True): t.Bool,
+                t.Key("join_info", optional=True): t.Dict({
+                    t.Key("join_type"): t.Regexp(regexp="left|right"),
+                    t.Key("left_table"): _join_table_trafaret,
+                    t.Key("right_table"): _join_table_trafaret,
+                }).ignore_extra("*"),
+                t.Key("group_by", optional=True): t.Or(t.List(String), t.Null),
+                t.Key("time_info", optional=True): t.Or(
+                    t.Or(
+                        t.Dict({
+                            t.Key("latest", optional=True): _duration_trafaret,
+                            t.Key("duration", optional=True): _duration_trafaret,
+                            t.Key("lag", optional=True): _duration_trafaret,
+                        }),
+                        t.Null,
+                    )
+                ),
+            }).ignore_extra("*")
+        ),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -1323,27 +1266,21 @@ class MulticategoricalHistogram(APIObject):
 
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("feature_name"): String,
-            t.Key("histogram"): t.List(
-                t.Dict(
-                    {
-                        t.Key("label"): String,
-                        t.Key("plot"): t.List(
-                            t.Dict(
-                                {
-                                    t.Key("label_relevance"): Int,
-                                    t.Key("row_count"): Int,
-                                    t.Key("row_pct"): t.Float,
-                                }
-                            ).allow_extra("*")
-                        ),
-                    }
-                ).allow_extra("*")
-            ),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("feature_name"): String,
+        t.Key("histogram"): t.List(
+            t.Dict({
+                t.Key("label"): String,
+                t.Key("plot"): t.List(
+                    t.Dict({
+                        t.Key("label_relevance"): Int,
+                        t.Key("row_count"): Int,
+                        t.Key("row_pct"): t.Float,
+                    }).allow_extra("*")
+                ),
+            }).allow_extra("*")
+        ),
+    }).allow_extra("*")
 
     def __init__(self, feature_name, histogram):
         self.values = histogram

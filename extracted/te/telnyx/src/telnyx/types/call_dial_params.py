@@ -15,6 +15,7 @@ from .sound_modifications_param import SoundModificationsParam
 from .stream_bidirectional_mode import StreamBidirectionalMode
 from .stream_bidirectional_codec import StreamBidirectionalCodec
 from .stream_bidirectional_target_legs import StreamBidirectionalTargetLegs
+from .stream_bidirectional_sampling_rate import StreamBidirectionalSamplingRate
 from .calls.transcription_start_request_param import TranscriptionStartRequestParam
 
 __all__ = ["CallDialParams", "AnsweringMachineDetectionConfig", "ConferenceConfig"]
@@ -139,6 +140,14 @@ class CallDialParams(TypedDict, total=False):
     WAV or MP3 file.
     """
 
+    park_after_unbridge: str
+    """If supplied with the value `self`, the current leg will be parked after
+    unbridge.
+
+    If not set, the default behavior is to hang up the leg. When park_after_unbridge
+    is set, link_to becomes required.
+    """
+
     preferred_codecs: str
     """
     The list of comma-separated codecs in a preferred order for the forked media to
@@ -210,6 +219,9 @@ class CallDialParams(TypedDict, total=False):
     Currently only User-to-User header is supported.
     """
 
+    sip_region: Literal["US", "Europe", "Canada", "Australia", "Middle East"]
+    """Defines the SIP region to be used for the call."""
+
     sip_transport_protocol: Literal["UDP", "TCP", "TLS"]
     """Defines SIP transport protocol to be used on the call."""
 
@@ -225,7 +237,7 @@ class CallDialParams(TypedDict, total=False):
     stream_bidirectional_mode: StreamBidirectionalMode
     """Configures method of bidirectional streaming (mp3, rtp)."""
 
-    stream_bidirectional_sampling_rate: Literal[8000, 16000, 22050, 24000, 48000]
+    stream_bidirectional_sampling_rate: StreamBidirectionalSamplingRate
     """Audio sampling rate."""
 
     stream_bidirectional_target_legs: StreamBidirectionalTargetLegs
@@ -298,6 +310,10 @@ class CallDialParams(TypedDict, total=False):
 
 
 class AnsweringMachineDetectionConfig(TypedDict, total=False):
+    """
+    Optional configuration parameters to modify 'answering_machine_detection' performance.
+    """
+
     after_greeting_silence_millis: int
     """
     Silence duration threshold after a greeting message or voice for it be
@@ -342,6 +358,8 @@ class AnsweringMachineDetectionConfig(TypedDict, total=False):
 
 
 class ConferenceConfig(TypedDict, total=False):
+    """Optional configuration parameters to dial new participant into a conference."""
+
     id: str
     """Conference ID to be joined"""
 

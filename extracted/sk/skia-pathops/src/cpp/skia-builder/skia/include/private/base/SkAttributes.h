@@ -17,18 +17,6 @@
 #  define SK_ATTRIBUTE(attr)
 #endif
 
-#if !defined(SK_UNUSED)
-#  if !defined(__clang__) && defined(_MSC_VER)
-#    define SK_UNUSED __pragma(warning(suppress:4189))
-#  else
-#    define SK_UNUSED SK_ATTRIBUTE(unused)
-#  endif
-#endif
-
-#if !defined(SK_WARN_UNUSED_RESULT)
-    #define SK_WARN_UNUSED_RESULT SK_ATTRIBUTE(warn_unused_result)
-#endif
-
 /**
  * If your judgment is better than the compiler's (i.e. you've profiled it),
  * you can use SK_ALWAYS_INLINE to force inlining. E.g.
@@ -68,7 +56,26 @@
  * Used to ignore sanitizer warnings.
  */
 #if !defined(SK_NO_SANITIZE)
-#  define SK_NO_SANITIZE(A) SK_ATTRIBUTE(no_sanitize(A))
+  #if defined(__has_attribute)
+    #if __has_attribute(no_sanitize)
+      // This should be for clang and versions of gcc >= 8.0
+      #define SK_NO_SANITIZE(A) SK_ATTRIBUTE(no_sanitize(A))
+    #else
+      // For compilers that don't support sanitization, just do nothing.
+      #define SK_NO_SANITIZE(A)
+    #endif
+  #else // no __has_attribute, e.g. MSVC
+    #define SK_NO_SANITIZE(A)
+  #endif
+#endif
+
+/**
+ * Used to ignore CFI sanitizer warnings, supported only by Clang at the moment.
+ */
+#if defined(__clang__)
+  #define SK_NO_SANITIZE_CFI SK_NO_SANITIZE("cfi")
+#else
+  #define SK_NO_SANITIZE_CFI
 #endif
 
 /**

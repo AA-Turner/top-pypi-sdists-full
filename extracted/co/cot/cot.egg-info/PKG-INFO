@@ -1,0 +1,79 @@
+Metadata-Version: 2.1
+Name: cot
+Version: 2.2.1
+Summary: Common OVF Tool
+Home-page: https://github.com/glennmatthews/cot
+Author: Glenn Matthews
+Author-email: glenn@e-dad.net
+License: MIT
+Description: COT: the Common OVF Tool
+        ************************
+        
+        .. image:: https://img.shields.io/pypi/v/cot.svg
+            :target: https://pypi.python.org/pypi/cot/
+            :alt: Latest Version
+        .. image:: https://img.shields.io/pypi/pyversions/cot.svg
+            :target: https://pypi.python.org/pypi/cot
+            :alt: Python Versions Supported
+        .. image:: https://img.shields.io/badge/license-MIT-blue.svg
+            :target: https://pypi.python.org/pypi/cot/
+            :alt: License
+        .. image:: https://travis-ci.org/glennmatthews/cot.svg?branch=master
+            :target: https://travis-ci.org/glennmatthews/cot
+            :alt: Build Status
+        .. image:: https://codecov.io/gh/glennmatthews/cot/branch/master/graph/badge.svg
+            :target: https://codecov.io/gh/glennmatthews/cot
+            :alt: Coverage Status
+        .. image:: https://readthedocs.org/projects/cot/badge/?version=latest
+            :target: https://readthedocs.org/projects/cot/?badge=latest
+            :alt: Documentation Status
+        
+        COT (the Common OVF Tool) is a tool for editing `Open Virtualization Format`_
+        (``.ovf``, ``.ova``) virtual appliances, with a focus on virtualized network
+        appliances such as the `Cisco CSR 1000V`_ and `Cisco IOS XRv`_ platforms.
+        
+        COT's capabilities include:
+        
+        * Add a disk or other file to an OVF/OVA
+        * Edit OVF hardware information (CPUs, RAM, NICs, configuration profiles, etc.)
+        * Edit product description information in an OVF/OVA
+        * Edit OVF environment properties
+        * Display a descriptive summary of the contents of an OVA or OVF package
+        * Embed a bootstrap configuration text file into an OVF/OVA.
+        * Remove files and disks from an OVF or OVA package
+        * Deploy an OVF/OVA to an ESXi (VMware vSphere or vCenter) server to provision
+          a new virtual machine (VM), including serial port configuration as needed.
+        
+        For more information, refer to the documentation_.
+        
+        .. _`Open Virtualization Format`: http://dmtf.org/standards/ovf
+        .. _`Cisco CSR 1000V`: http://www.cisco.com/go/csr1000v
+        .. _`Cisco IOS XRv`: http://www.cisco.com/go/iosxrv
+        .. _documentation: http://cot.readthedocs.org/
+        
+Keywords: virtualization ovf ova esxi vmware vcenter
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Emulators
+Classifier: Topic :: System :: Installation/Setup
+Classifier: Topic :: System :: Software Distribution
+Classifier: Topic :: System :: Systems Administration
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Environment :: Console
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4
+Provides-Extra: tab-completion

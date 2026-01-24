@@ -24,8 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Mapping
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
-from packaging.version import Version, _cmpkey
-from pbs_installer import PythonVersion
+from packaging.version import Version
 
 from pdm.compat import importlib_metadata
 from pdm.exceptions import PDMDeprecationWarning, PdmException
@@ -33,6 +32,8 @@ from pdm.exceptions import PDMDeprecationWarning, PdmException
 if TYPE_CHECKING:
     from re import Match
     from typing import IO, Any, Iterator
+
+    from pbs_installer import PythonVersion
 
     from pdm._types import FileHash, HiddenText, RepositoryConfig
     from pdm.compat import Distribution
@@ -237,7 +238,7 @@ def expand_env_vars(credential: str, quote: bool = False, env: Mapping[str, str]
         env = os.environ
 
     def replace_func(match: Match) -> str:
-        rv = env.get(match.group(1), match.group(0))
+        rv = env.get(match.group(1), "")
         return parse.quote(rv, "") if quote else rv
 
     return re.sub(r"\$\{(.+?)\}", replace_func, credential)
@@ -346,18 +347,23 @@ def comparable_version(version: str) -> Version:
     """Normalize a version to make it valid in a specifier."""
     parsed = parse_version(version or "0.0.0")
     if parsed.local is not None:
-        # strip the local part
-        parsed._version = parsed._version._replace(local=None)
+        # strip the local part to make
+        # comparable_version("1.2.3+local1") == Version("1.2.3")
+        if hasattr(parsed, "__replace__"):  # packaging >= 26
+            parsed = parsed.__replace__(local=None)
+        else:
+            from packaging.version import _cmpkey
 
-        # To make comparable_version("1.2.3+local1") == Version("1.2.3")
-        parsed._key = _cmpkey(
-            parsed._version.epoch,
-            parsed._version.release,
-            parsed._version.pre,
-            parsed._version.post,
-            parsed._version.dev,
-            parsed._version.local,
-        )
+            parsed._version = parsed._version._replace(local=None)
+
+            parsed._key = _cmpkey(
+                parsed._version.epoch,
+                parsed._version.release,
+                parsed._version.pre,
+                parsed._version.post,
+                parsed._version.dev,
+                parsed._version.local,
+            )
 
     return parsed
 

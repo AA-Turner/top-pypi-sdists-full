@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable, Mapping
-from typing import Concatenate, Final, Literal, Protocol, TypeAlias, type_check_only
+from typing import Any, Concatenate, Final, Literal, Protocol, TypeAlias, type_check_only
 
 import numpy as np
 import optype as op
@@ -15,7 +15,7 @@ from scipy.sparse.linalg import LinearOperator
 _Ignored: TypeAlias = object
 
 _Float1D: TypeAlias = onp.Array1D[np.float64]
-_Float1ND: TypeAlias = onp.Array[onp.AtLeast1D, np.float64]
+_Float1ND: TypeAlias = onp.Array[onp.AtLeast1D[Any], np.float64]
 
 _LeastSquaresMethod: TypeAlias = Literal["trf", "dogbox", "lm"]
 
@@ -30,7 +30,7 @@ _XScale: TypeAlias = onp.ToFloat | onp.ToFloatND | _XScaleMethod
 _LossMethod: TypeAlias = Literal["linear", "soft_l1", "huber", "cauchy", "arctan"]
 _Loss: TypeAlias = _UserLossFunction | _LossMethod
 
-_ResidFunction: TypeAlias = Callable[Concatenate[_Float1D, ...], onp.ToFloat1D]
+_ResidFunction: TypeAlias = Callable[Concatenate[_Float1D, ...], onp.ToFloat1D | onp.ToFloat]
 
 _ResultStatus: TypeAlias = Literal[-2, -1, 0, 1, 2, 3, 4]
 

@@ -1,5 +1,4 @@
 import pytest
-
 from crewai.agents import parser
 from crewai.agents.parser import (
     AgentAction,

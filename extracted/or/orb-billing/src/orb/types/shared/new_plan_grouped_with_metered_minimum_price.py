@@ -22,22 +22,25 @@ __all__ = [
 
 
 class GroupedWithMeteredMinimumConfigScalingFactor(BaseModel):
+    """Configuration for a scaling factor"""
+
     scaling_factor: str
-    """Scaling factor"""
 
     scaling_value: str
-    """Scaling value"""
 
 
 class GroupedWithMeteredMinimumConfigUnitAmount(BaseModel):
+    """Configuration for a unit amount"""
+
     pricing_value: str
-    """Pricing value"""
 
     unit_amount: str
     """Per unit amount"""
 
 
 class GroupedWithMeteredMinimumConfig(BaseModel):
+    """Configuration for grouped_with_metered_minimum pricing"""
+
     grouping_key: str
     """Used to partition the usage into groups.
 

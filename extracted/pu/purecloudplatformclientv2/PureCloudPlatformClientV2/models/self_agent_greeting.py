@@ -50,31 +50,34 @@ class SelfAgentGreeting(object):
         """
         self.swagger_types = {
             'id': 'str',
-            'name': 'str',
             'inbound_prompt': 'Prompt',
             'outbound_prompt': 'Prompt',
+            'inbound_prompt_default_language': 'str',
+            'outbound_prompt_default_language': 'str',
             'self_uri': 'str'
         }
 
         self.attribute_map = {
             'id': 'id',
-            'name': 'name',
             'inbound_prompt': 'inboundPrompt',
             'outbound_prompt': 'outboundPrompt',
+            'inbound_prompt_default_language': 'inboundPromptDefaultLanguage',
+            'outbound_prompt_default_language': 'outboundPromptDefaultLanguage',
             'self_uri': 'selfUri'
         }
 
         self._id = None
-        self._name = None
         self._inbound_prompt = None
         self._outbound_prompt = None
+        self._inbound_prompt_default_language = None
+        self._outbound_prompt_default_language = None
         self._self_uri = None
 
     @property
     def id(self) -> str:
         """
         Gets the id of this SelfAgentGreeting.
-        The globally unique identifier for the object.
+        The ID of the associated user.
 
         :return: The id of this SelfAgentGreeting.
         :rtype: str
@@ -85,7 +88,7 @@ class SelfAgentGreeting(object):
     def id(self, id: str) -> None:
         """
         Sets the id of this SelfAgentGreeting.
-        The globally unique identifier for the object.
+        The ID of the associated user.
 
         :param id: The id of this SelfAgentGreeting.
         :type: str
@@ -95,34 +98,10 @@ class SelfAgentGreeting(object):
         self._id = id
 
     @property
-    def name(self) -> str:
-        """
-        Gets the name of this SelfAgentGreeting.
-
-
-        :return: The name of this SelfAgentGreeting.
-        :rtype: str
-        """
-        return self._name
-
-    @name.setter
-    def name(self, name: str) -> None:
-        """
-        Sets the name of this SelfAgentGreeting.
-
-
-        :param name: The name of this SelfAgentGreeting.
-        :type: str
-        """
-        
-
-        self._name = name
-
-    @property
     def inbound_prompt(self) -> 'Prompt':
         """
         Gets the inbound_prompt of this SelfAgentGreeting.
-        The agent greeting prompt to use when the call is connected
+        The agent greeting prompt to use when inbound calls are connected
 
         :return: The inbound_prompt of this SelfAgentGreeting.
         :rtype: Prompt
@@ -133,7 +112,7 @@ class SelfAgentGreeting(object):
     def inbound_prompt(self, inbound_prompt: 'Prompt') -> None:
         """
         Sets the inbound_prompt of this SelfAgentGreeting.
-        The agent greeting prompt to use when the call is connected
+        The agent greeting prompt to use when inbound calls are connected
 
         :param inbound_prompt: The inbound_prompt of this SelfAgentGreeting.
         :type: Prompt
@@ -146,7 +125,7 @@ class SelfAgentGreeting(object):
     def outbound_prompt(self) -> 'Prompt':
         """
         Gets the outbound_prompt of this SelfAgentGreeting.
-        The agent greeting prompt to use when the call is about to be disconnected
+        The agent greeting prompt to use when outbound calls are connected
 
         :return: The outbound_prompt of this SelfAgentGreeting.
         :rtype: Prompt
@@ -157,7 +136,7 @@ class SelfAgentGreeting(object):
     def outbound_prompt(self, outbound_prompt: 'Prompt') -> None:
         """
         Sets the outbound_prompt of this SelfAgentGreeting.
-        The agent greeting prompt to use when the call is about to be disconnected
+        The agent greeting prompt to use when outbound calls are connected
 
         :param outbound_prompt: The outbound_prompt of this SelfAgentGreeting.
         :type: Prompt
@@ -165,6 +144,54 @@ class SelfAgentGreeting(object):
         
 
         self._outbound_prompt = outbound_prompt
+
+    @property
+    def inbound_prompt_default_language(self) -> str:
+        """
+        Gets the inbound_prompt_default_language of this SelfAgentGreeting.
+        The default language to use for the agent greeting inbound prompt
+
+        :return: The inbound_prompt_default_language of this SelfAgentGreeting.
+        :rtype: str
+        """
+        return self._inbound_prompt_default_language
+
+    @inbound_prompt_default_language.setter
+    def inbound_prompt_default_language(self, inbound_prompt_default_language: str) -> None:
+        """
+        Sets the inbound_prompt_default_language of this SelfAgentGreeting.
+        The default language to use for the agent greeting inbound prompt
+
+        :param inbound_prompt_default_language: The inbound_prompt_default_language of this SelfAgentGreeting.
+        :type: str
+        """
+        
+
+        self._inbound_prompt_default_language = inbound_prompt_default_language
+
+    @property
+    def outbound_prompt_default_language(self) -> str:
+        """
+        Gets the outbound_prompt_default_language of this SelfAgentGreeting.
+        The default language to use for the agent greeting outbound prompt
+
+        :return: The outbound_prompt_default_language of this SelfAgentGreeting.
+        :rtype: str
+        """
+        return self._outbound_prompt_default_language
+
+    @outbound_prompt_default_language.setter
+    def outbound_prompt_default_language(self, outbound_prompt_default_language: str) -> None:
+        """
+        Sets the outbound_prompt_default_language of this SelfAgentGreeting.
+        The default language to use for the agent greeting outbound prompt
+
+        :param outbound_prompt_default_language: The outbound_prompt_default_language of this SelfAgentGreeting.
+        :type: str
+        """
+        
+
+        self._outbound_prompt_default_language = outbound_prompt_default_language
 
     @property
     def self_uri(self) -> str:

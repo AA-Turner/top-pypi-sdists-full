@@ -2,6 +2,7 @@
 
 Any `sampled = False` trace won't be written, and can be ignored by the instrumentation.
 """
+
 import json
 from json.decoder import JSONDecodeError
 from typing import Dict
@@ -10,7 +11,7 @@ from typing import Optional
 
 from ddtrace._trace.span import Span
 from ddtrace.constants import _SAMPLING_LIMIT_DECISION
-from ddtrace.settings._config import config
+from ddtrace.internal.settings._config import config
 
 from ..constants import ENV_KEY
 from ..internal.constants import MAX_UINT_64BITS
@@ -82,7 +83,7 @@ class DatadogSampler:
 
     SAMPLE_DEBUG_MESSAGE = (
         "Sampling decision applied to %s: sampled=%s sample_rate=%s sampling_mechanism=%s "
-        "matched_trace_sampling_rule=%s agent_sampled=%s"
+        "matched_trace_sampling_rule=%s agent_sampled=%s rules=%s sampler_id=%s"
     )
 
     def __init__(
@@ -132,12 +133,9 @@ class DatadogSampler:
 
     def __str__(self):
         rates = {key: sampler.sample_rate for key, sampler in self._agent_based_samplers.items()}
-        return "{}(agent_rates={!r}, limiter={!r}, rules={!r}), rate_limit_always_on={!r}".format(
-            self.__class__.__name__,
-            rates,
-            self.limiter,
-            self.rules,
-            self._rate_limit_always_on,
+        return (
+            f"{self.__class__.__name__}(agent_rates={rates!r}, limiter={self.limiter!r}, "
+            f"rules={self.rules!r}), rate_limit_always_on={self._rate_limit_always_on!r}"
         )
 
     __repr__ = __str__
@@ -197,7 +195,9 @@ class DatadogSampler:
             sample_rate,
             sampling_mechanism,
             matched_rule,
-            agent_sampler is not None,
+            str(agent_sampler) if agent_sampler is not None else "None",
+            str(self.rules) if self.rules is not None else "None",
+            id(self),
         )
         return sampled
 

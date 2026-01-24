@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.update_postgres_trigger_json_body_mode import UpdatePostgresTriggerJsonBodyMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -25,13 +26,13 @@ class UpdatePostgresTriggerJsonBody:
         path (str):
         script_path (str):
         is_flow (bool):
-        enabled (bool):
         postgres_resource_path (str):
+        mode (Union[Unset, UpdatePostgresTriggerJsonBodyMode]): job trigger mode
         publication (Union[Unset, UpdatePostgresTriggerJsonBodyPublication]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, UpdatePostgresTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, UpdatePostgresTriggerJsonBodyRetry]):
+        retry (Union[Unset, UpdatePostgresTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     replication_slot_name: str
@@ -39,8 +40,8 @@ class UpdatePostgresTriggerJsonBody:
     path: str
     script_path: str
     is_flow: bool
-    enabled: bool
     postgres_resource_path: str
+    mode: Union[Unset, UpdatePostgresTriggerJsonBodyMode] = UNSET
     publication: Union[Unset, "UpdatePostgresTriggerJsonBodyPublication"] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "UpdatePostgresTriggerJsonBodyErrorHandlerArgs"] = UNSET
@@ -53,8 +54,11 @@ class UpdatePostgresTriggerJsonBody:
         path = self.path
         script_path = self.script_path
         is_flow = self.is_flow
-        enabled = self.enabled
         postgres_resource_path = self.postgres_resource_path
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         publication: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.publication, Unset):
             publication = self.publication.to_dict()
@@ -77,10 +81,11 @@ class UpdatePostgresTriggerJsonBody:
                 "path": path,
                 "script_path": script_path,
                 "is_flow": is_flow,
-                "enabled": enabled,
                 "postgres_resource_path": postgres_resource_path,
             }
         )
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if publication is not UNSET:
             field_dict["publication"] = publication
         if error_handler_path is not UNSET:
@@ -111,9 +116,14 @@ class UpdatePostgresTriggerJsonBody:
 
         is_flow = d.pop("is_flow")
 
-        enabled = d.pop("enabled")
-
         postgres_resource_path = d.pop("postgres_resource_path")
+
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, UpdatePostgresTriggerJsonBodyMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = UpdatePostgresTriggerJsonBodyMode(_mode)
 
         _publication = d.pop("publication", UNSET)
         publication: Union[Unset, UpdatePostgresTriggerJsonBodyPublication]
@@ -144,8 +154,8 @@ class UpdatePostgresTriggerJsonBody:
             path=path,
             script_path=script_path,
             is_flow=is_flow,
-            enabled=enabled,
             postgres_resource_path=postgres_resource_path,
+            mode=mode,
             publication=publication,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,

@@ -4,9 +4,10 @@ from typing import Optional
 import typer
 from typer import Argument, Option, Typer
 
+from modal._load_context import LoadContext
 from modal._output import make_console
 from modal._resolver import Resolver
-from modal._utils.async_utils import synchronizer
+from modal._utils.async_utils import TaskContext, synchronizer
 from modal._utils.time_utils import timestamp_to_localized_str
 from modal.cli.utils import ENV_OPTION, YES_OPTION, display_table
 from modal.client import _Client
@@ -29,8 +30,11 @@ async def create(name: str, *, env: Optional[str] = ENV_OPTION):
     """
     d = _Dict.from_name(name, environment_name=env, create_if_missing=True)
     client = await _Client.from_env()
-    resolver = Resolver(client=client)
-    await resolver.load(d)
+    resolver = Resolver()
+
+    async with TaskContext() as tc:
+        load_context = LoadContext(client=client, environment_name=env, task_context=tc)
+        await resolver.load(d, load_context)
 
 
 @dict_cli.command(name="list", rich_help_panel="Management")

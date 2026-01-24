@@ -115,12 +115,13 @@ def test_encode_as_tokens_empty(
 ) -> None:
     """Test encoding of an empty list of sentences."""
     model = StaticModel(vectors=mock_vectors, tokenizer=mock_tokenizer, config=mock_config)
+    encoded: list[np.ndarray] | np.ndarray
     encoded = model.encode_as_sequence("")
     assert np.array_equal(encoded, np.zeros(shape=(0, 2), dtype=model.embedding.dtype))
 
-    encoded = model.encode_as_sequence(["", ""])
+    encoded_list = model.encode_as_sequence(["", ""])
     out = [np.zeros(shape=(0, 2), dtype=model.embedding.dtype) for _ in range(2)]
-    assert [np.array_equal(x, y) for x, y in zip(encoded, out)]
+    assert [np.array_equal(x, y) for x, y in zip(encoded_list, out)]
 
 
 def test_encode_empty_sentence(
@@ -179,7 +180,9 @@ def test_load_pretrained(
     # Assert that the loaded model has the same properties as the original one
     np.testing.assert_array_equal(loaded_model.embedding, mock_vectors)
     assert loaded_model.tokenizer.get_vocab() == mock_tokenizer.get_vocab()
-    assert loaded_model.config == mock_config
+    for k, v in mock_config.items():
+        assert loaded_model.config.get(k) == v
+    assert "embedding_dtype" in loaded_model.config
 
 
 def test_load_pretrained_quantized(
@@ -197,6 +200,7 @@ def test_load_pretrained_quantized(
     # Assert that the loaded model has the same properties as the original one
     assert loaded_model.embedding.dtype == np.int8
     assert loaded_model.embedding.shape == mock_vectors.shape
+    assert loaded_model.embedding_dtype == "int8"
 
     # Load the model back from the same path
     loaded_model = StaticModel.from_pretrained(save_path, quantize_to="float16")
@@ -204,12 +208,21 @@ def test_load_pretrained_quantized(
     # Assert that the loaded model has the same properties as the original one
     assert loaded_model.embedding.dtype == np.float16
     assert loaded_model.embedding.shape == mock_vectors.shape
+    assert loaded_model.embedding_dtype == "float16"
 
     # Load the model back from the same path
     loaded_model = StaticModel.from_pretrained(save_path, quantize_to="float32")
     # Assert that the loaded model has the same properties as the original one
     assert loaded_model.embedding.dtype == np.float32
     assert loaded_model.embedding.shape == mock_vectors.shape
+    assert loaded_model.embedding_dtype == "float32"
+
+    # Load the model back from the same path
+    loaded_model = StaticModel.from_pretrained(save_path, quantize_to="float64")
+    # Assert that the loaded model has the same properties as the original one
+    assert loaded_model.embedding.dtype == np.float64
+    # Should not copy if same as original.
+    assert loaded_model.embedding is loaded_model.embedding
 
 
 def test_load_pretrained_dim(
@@ -226,7 +239,9 @@ def test_load_pretrained_dim(
     # Assert that the loaded model has the same properties as the original one
     np.testing.assert_array_equal(loaded_model.embedding, mock_vectors[:, :2])
     assert loaded_model.tokenizer.get_vocab() == mock_tokenizer.get_vocab()
-    assert loaded_model.config == mock_config
+    for k, v in mock_config.items():
+        assert loaded_model.config.get(k) == v
+    assert "embedding_dtype" in loaded_model.config
 
     # Load the model back from the same path
     loaded_model = StaticModel.from_pretrained(save_path, dimensionality=None)
@@ -234,11 +249,38 @@ def test_load_pretrained_dim(
     # Assert that the loaded model has the same properties as the original one
     np.testing.assert_array_equal(loaded_model.embedding, mock_vectors)
     assert loaded_model.tokenizer.get_vocab() == mock_tokenizer.get_vocab()
-    assert loaded_model.config == mock_config
+    for k, v in mock_config.items():
+        assert loaded_model.config.get(k) == v
+    assert "embedding_dtype" in loaded_model.config
 
     # Load the model back from the same path
     with pytest.raises(ValueError):
         StaticModel.from_pretrained(save_path, dimensionality=3000)
+
+
+def test_load_pretrained_vocabulary_quantized(
+    tmp_path: Path, mock_vectors: np.ndarray, mock_tokenizer: Tokenizer, mock_config: dict[str, str]
+) -> None:
+    """Test loading a pretrained model with vocabulary quantization."""
+    # Save the model to a temporary path
+    model = StaticModel(vectors=mock_vectors, tokenizer=mock_tokenizer, config=mock_config)
+    save_path = tmp_path / "saved_model"
+    model.save_pretrained(save_path)
+
+    # Load the model back from the same path
+    loaded_model = StaticModel.from_pretrained(save_path, vocabulary_quantization=3)
+
+    # Assert that the loaded model has the same properties as the original one
+    assert loaded_model.embedding.dtype == np.float64
+    assert loaded_model.embedding.shape == (3, 2)  # Assuming 3 clusters after quantization
+    assert loaded_model.weights is not None
+    assert loaded_model.weights.shape == (5,)
+    assert loaded_model.token_mapping is not None
+    assert loaded_model.vocabulary_quantization == 3
+    assert len(loaded_model.token_mapping) == mock_tokenizer.get_vocab_size()
+    assert len(loaded_model.token_mapping) == len(loaded_model.weights)
+    assert loaded_model.encode("word1 word2").shape == (2,)
+    assert loaded_model.encode(["word1 word2"] * 4).shape == (4, 2)
 
 
 def test_initialize_normalize(mock_vectors: np.ndarray, mock_tokenizer: Tokenizer) -> None:
@@ -273,23 +315,3 @@ def test_dim(mock_vectors: np.ndarray, mock_tokenizer: Tokenizer, mock_config: d
     model = StaticModel(mock_vectors, mock_tokenizer, mock_config)
     assert model.dim == 2
     assert model.dim == model.embedding.shape[1]
-
-
-def test_local_load_from_model(mock_tokenizer: Tokenizer) -> None:
-    """Test local load from a model."""
-    x = np.ones((mock_tokenizer.get_vocab_size(), 2))
-    with TemporaryDirectory() as tempdir:
-        tempdir_path = Path(tempdir)
-        safetensors.numpy.save_file({"embeddings": x}, Path(tempdir) / "model.safetensors")
-        mock_tokenizer.save(str(Path(tempdir) / "tokenizer.json"))
-
-        model = StaticModel.load_local(tempdir_path)
-        assert model.embedding.shape == x.shape
-        assert model.tokenizer.to_str() == mock_tokenizer.to_str()
-        assert model.config == {"normalize": False}
-
-
-def test_local_load_from_model_no_folder() -> None:
-    """Test local load from a model with no folder."""
-    with pytest.raises(ValueError):
-        StaticModel.load_local("woahbuddy_relax_this_is_just_a_test")

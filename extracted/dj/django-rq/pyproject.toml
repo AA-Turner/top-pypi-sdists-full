@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-rq"
-version = "3.1"
+dynamic = ["version"]
 description = "An app that provides django integration for RQ (Redis Queue)"
-readme = "README.rst"
+readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE.txt"]
 authors = [{ name = "Selwin Ong", email = "selwin.ong@gmail.com" }]
-requires-python = ">=3.8"
-dependencies = ["django>=3.2", "rq>=2", "redis>=3.5"]
+requires-python = ">=3.9"
+dependencies = ["django>=4.2", "rq>=2.6.1", "redis>=3.5"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
@@ -42,12 +42,15 @@ classifiers = [
 [project.optional-dependencies]
 prometheus = ["prometheus_client >= 0.4.0"]
 Sentry = ["sentry-sdk >= 1.0.0"]
-testing = []
+testing = ["pytest>=7.0", "pytest-django>=4.5"]
 
 [project.urls]
 changelog = "https://github.com/rq/django-rq/blob/master/CHANGELOG.md"
 homepage = "https://python-rq.org/patterns/django/"
 repository = "https://github.com/rq/django-rq"
+
+[tool.hatch.version]
+path = "django_rq/__init__.py"
 
 [tool.hatch.build.targets.sdist]
 include = ["/django_rq", "/CHANGELOG.md", "/pyproject.toml"]
@@ -79,5 +82,38 @@ module = "rq_scheduler.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = "rq.cron"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = "sentry_sdk.*"
 ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py39"
+
+# Set what ruff should check for.
+# See https://beta.ruff.rs/docs/rules/ for a list of rules.
+line-length = 120
+format.quote-style = "preserve"
+lint.select = [
+  "E", # pycodestyle errors
+  "F", # pyflakes errors
+  "I", # import sorting
+  "W", # pycodestyle warnings,
+  "UP",
+]
+lint.isort.known-first-party = [ "django_rq" ]
+lint.isort.section-order = [
+  "future",
+  "standard-library",
+  "third-party",
+  "first-party",
+  "local-folder",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = ["test_*.py", "tests.py"]

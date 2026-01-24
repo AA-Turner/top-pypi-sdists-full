@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
- * Copyright (c) 2025 Munich Quantum Software Company GmbH
+ * Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+ * Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
  * All rights reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -13,12 +13,13 @@
 #include "Definitions.hpp"
 #include "Permutation.hpp"
 #include "Register.hpp"
-#include "operations/ClassicControlledOperation.hpp"
 #include "operations/CompoundOperation.hpp"
 #include "operations/Control.hpp"
 #include "operations/Expression.hpp"
+#include "operations/IfElseOperation.hpp"
 #include "operations/OpType.hpp"
 #include "operations/Operation.hpp"
+#include "operations/StandardOperation.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -251,6 +252,7 @@ public:
               const Controls& controls, const Qubit target);
 
   DECLARE_SINGLE_TARGET_TWO_PARAMETER_OPERATION(u2, phi, lambda)
+  DECLARE_SINGLE_TARGET_TWO_PARAMETER_OPERATION(r, theta, phi)
 
 #undef DECLARE_SINGLE_TARGET_TWO_PARAMETER_OPERATION
 
@@ -326,6 +328,8 @@ public:
    */
   void measureAll(bool addBits = true);
 
+  void bridge(const Targets& targets);
+
   void reset(Qubit target);
   void reset(const Targets& targets);
 
@@ -333,33 +337,33 @@ public:
   void barrier(Qubit target);
   void barrier(const Targets& targets);
 
-  void classicControlled(OpType op, Qubit target,
-                         const ClassicalRegister& controlRegister,
-                         std::uint64_t expectedValue = 1U,
-                         ComparisonKind cmp = Eq,
-                         const std::vector<fp>& params = {});
-  void classicControlled(OpType op, Qubit target, Control control,
-                         const ClassicalRegister& controlRegister,
-                         std::uint64_t expectedValue = 1U,
-                         ComparisonKind cmp = Eq,
-                         const std::vector<fp>& params = {});
-  void classicControlled(OpType op, Qubit target, const Controls& controls,
-                         const ClassicalRegister& controlRegister,
-                         std::uint64_t expectedValue = 1U,
-                         ComparisonKind cmp = Eq,
-                         const std::vector<fp>& params = {});
-  void classicControlled(OpType op, Qubit target, Bit cBit,
-                         std::uint64_t expectedValue = 1U,
-                         ComparisonKind cmp = Eq,
-                         const std::vector<fp>& params = {});
-  void classicControlled(OpType op, Qubit target, Control control, Bit cBit,
-                         std::uint64_t expectedValue = 1U,
-                         ComparisonKind cmp = Eq,
-                         const std::vector<fp>& params = {});
-  void classicControlled(OpType op, Qubit target, const Controls& controls,
-                         Bit cBit, std::uint64_t expectedValue = 1U,
-                         ComparisonKind cmp = Eq,
-                         const std::vector<fp>& params = {});
+  void ifElse(std::unique_ptr<Operation>&& thenOp,
+              std::unique_ptr<Operation>&& elseOp,
+              const ClassicalRegister& controlRegister,
+              std::uint64_t expectedValue = 1U, ComparisonKind cmp = Eq);
+  void ifElse(std::unique_ptr<Operation>&& thenOp,
+              std::unique_ptr<Operation>&& elseOp, Bit controlBit,
+              bool expectedValue = true, ComparisonKind cmp = Eq);
+
+  void if_(OpType op, Qubit target, const ClassicalRegister& controlRegister,
+           std::uint64_t expectedValue = 1U, ComparisonKind cmp = Eq,
+           const std::vector<fp>& params = {});
+  void if_(OpType op, Qubit target, Control control,
+           const ClassicalRegister& controlRegister,
+           std::uint64_t expectedValue = 1U, ComparisonKind cmp = Eq,
+           const std::vector<fp>& params = {});
+  void if_(OpType op, Qubit target, const Controls& controls,
+           const ClassicalRegister& controlRegister,
+           std::uint64_t expectedValue = 1U, ComparisonKind cmp = Eq,
+           const std::vector<fp>& params = {});
+  void if_(OpType op, Qubit target, Bit controlBit, bool expectedValue = true,
+           ComparisonKind cmp = Eq, const std::vector<fp>& params = {});
+  void if_(OpType op, Qubit target, Control control, Bit controlBit,
+           bool expectedValue = true, ComparisonKind cmp = Eq,
+           const std::vector<fp>& params = {});
+  void if_(OpType op, Qubit target, const Controls& controls, Bit controlBit,
+           bool expectedValue = true, ComparisonKind cmp = Eq,
+           const std::vector<fp>& params = {});
 
   /// strip away qubits with no operations applied to them and which do not pop
   /// up in the output permutation \param force if true, also strip away idle

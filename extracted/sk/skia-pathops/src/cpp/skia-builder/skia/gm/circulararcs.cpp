@@ -15,20 +15,12 @@
 #include "include/core/SkScalar.h"
 #include "include/core/SkTypes.h"
 #include "include/effects/SkDashPathEffect.h"
-#include "include/private/base/SkFloatBits.h"
 #include "include/private/base/SkTArray.h"
+#include "src/base/SkFloatBits.h"
 
 #include <functional>
 
-#include "include/effects/SkStrokeAndFillPathEffect.h"
-
 using namespace skia_private;
-
-static void set_strokeandfill(SkPaint* paint) {
-    SkASSERT(paint->getPathEffect() == nullptr);
-    paint->setPathEffect(SkStrokeAndFillPathEffect::Make());
-    paint->setStroke(true);
-}
 
 constexpr SkScalar kStarts[] = {0.f, 10.f, 30.f, 45.f, 90.f, 165.f, 180.f, 270.f};
 constexpr SkScalar kSweeps[] = {1.f, 45.f, 90.f, 130.f, 180.f, 184.f, 300.f, 355.f};
@@ -36,12 +28,12 @@ constexpr SkScalar kDiameter = 40.f;
 constexpr SkRect kRect = {0.f, 0.f, kDiameter, kDiameter};
 constexpr int kW = 1000;
 constexpr int kH = 1000;
-constexpr SkScalar kPad = 20.f;
 
 void draw_arcs(SkCanvas* canvas, std::function<void(SkPaint*)> configureStyle) {
     // Draws grid of arcs with different start/sweep angles in red and their complement arcs in
     // blue.
     auto drawGrid = [canvas, &configureStyle] (SkScalar x, SkScalar y, bool useCenter, bool aa) {
+        constexpr SkScalar kPad = 20.f;
         SkPaint p0;
         p0.setColor(SK_ColorRED);
         p0.setAntiAlias(aa);
@@ -123,30 +115,6 @@ DEF_ARC_GM(stroke_round) {
     draw_arcs(canvas, setStroke);
 }
 
-DEF_ARC_GM(stroke_and_fill_butt) {
-    auto setStroke = [] (SkPaint* p) {
-        set_strokeandfill(p);
-        p->setStrokeCap(SkPaint::kButt_Cap);
-    };
-    draw_arcs(canvas, setStroke);
-}
-
-DEF_ARC_GM(stroke_and_fill_square) {
-    auto setStroke = [] (SkPaint* p) {
-        set_strokeandfill(p);
-        p->setStrokeCap(SkPaint::kSquare_Cap);
-    };
-    draw_arcs(canvas, setStroke);
-}
-
-DEF_ARC_GM(stroke_and_fill_round) {
-    auto setStroke = [] (SkPaint* p) {
-        set_strokeandfill(p);
-        p->setStrokeCap(SkPaint::kRound_Cap);
-    };
-    draw_arcs(canvas, setStroke);
-}
-
 DEF_SIMPLE_GM(circular_arcs_weird, canvas, 1000, 400) {
     constexpr SkScalar kS = 50;
     struct Arc {
@@ -196,8 +164,9 @@ DEF_SIMPLE_GM(circular_arcs_weird, canvas, 1000, 400) {
     paints.push_back().setStroke(true);
     paints.back().setStrokeWidth(kS / 6.f);
     constexpr SkScalar kDashIntervals[] = {kS / 15, 2 * kS / 15};
-    paints.back().setPathEffect(SkDashPathEffect::Make(kDashIntervals, 2, 0.f));
+    paints.back().setPathEffect(SkDashPathEffect::Make(kDashIntervals, 0.f));
 
+    constexpr SkScalar kPad = 20.f;
     canvas->translate(kPad, kPad);
     // This loop should draw nothing.
     for (auto arc : noDrawArcs) {
@@ -351,4 +320,47 @@ DEF_SIMPLE_GM(circular_arc_stroke_matrix, canvas, 820, 1090) {
             }
         }
     }
+}
+
+DEF_SIMPLE_GM(crbug_1472747, canvas, 400, 400) {
+    auto addCanvas2dCircleArcTo = [](float cx, float cy, float radius, SkPathBuilder* builder) {
+        SkRect oval = SkRect::MakeLTRB(cx - radius, cy - radius, cx + radius, cy + radius);
+        // arcTo(oval, 0, 2pi, anticlockwise) gets split to 0->-180,-180->-360
+        builder->arcTo(oval, 0.f, -180.f, false);
+        builder->arcTo(oval, -180.f, -180.f, false);
+    };
+
+    // This manually stroked circle is large enough to trigger pre-chopping in the
+    // tessellation path renderers, but uses a non-default winding mode, which
+    // originally was not preserved in the chopped path.
+    static constexpr float kRadius = 31000.f;
+    SkPathBuilder strokedCircle;
+    addCanvas2dCircleArcTo(0.f, kRadius + 10.f, kRadius, &strokedCircle); // inner
+    addCanvas2dCircleArcTo(0.f, kRadius + 10.f, kRadius + 5.f, &strokedCircle); // outer
+    strokedCircle.setFillType(SkPathFillType::kEvenOdd);
+
+    SkPaint fill;
+    fill.setAntiAlias(true);
+    canvas->drawPath(strokedCircle.detach(), fill);
+}
+
+DEF_SIMPLE_GM(bug406747427, canvas, 400, 400) {
+    SkPaint paint;
+    paint.setAntiAlias(true);
+    paint.setStyle(SkPaint::kStroke_Style);
+    paint.setStrokeCap(SkPaint::kRound_Cap);
+    paint.setColor(SkColorSetARGB(255,255,0,0));
+    paint.setStrokeWidth(50);
+    SkRect oval = SkRect::MakeXYWH(100, 40, 50, 50);
+    canvas->drawArc(oval, 45, 275, false, paint);
+
+    paint.setColor(SkColorSetARGB(255,0,0,255));
+    paint.setStrokeWidth(48);
+    oval = SkRect::MakeXYWH(100, 140, 50, 50);
+    canvas->drawArc(oval, 45, 275, false, paint);
+
+    paint.setColor(SkColorSetARGB(255,0,255,0));
+    paint.setStrokeWidth(80);
+    oval = SkRect::MakeXYWH(100, 280, 50, 50);
+    canvas->drawArc(oval, 45, 275, false, paint);
 }

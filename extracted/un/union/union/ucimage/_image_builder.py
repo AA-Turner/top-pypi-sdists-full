@@ -20,8 +20,9 @@ from typing import ClassVar, List, Optional, Tuple
 
 import click
 from flytekit import Labels
-from flytekit.configuration import SerializationSettings
+from flytekit.configuration import SerializationSettings, TaskConfig
 from flytekit.constants import CopyFileDetection
+from flytekit.core.utils import str2bool
 from flytekit.exceptions.user import FlyteEntityNotExistException
 from flytekit.image_spec.image_spec import _F_IMG_ID, ImageBuildEngine, ImageSpec, ImageSpecBuilder
 from flytekit.models import security
@@ -49,12 +50,12 @@ UNIONAI_IMAGE_NAME_KEY = "unionai_image_name"
 # Task suffix used to append to build-image task template.
 # Used when we we are required to change the build-image task template
 _BUILD_IMAGE_SUFFIX = "exec"
-
 _BUILD_IMAGE_SUFFIX_HASH_ALGORITHM = "sha256"
 _BUILD_IMAGE_SUFFIX_HASH_LENGTH = 8
 
 _PACKAGE_NAME_RE = re.compile(r"^[\w-]+")
 _IMAGE_BUILDER_PROJECT_DOMAIN = {"project": "system", "domain": "production"}
+FLYTE_IMAGE_BUILD_IN_SYSTEM = str2bool(os.getenv("FLYTE_IMAGE_BUILD_IN_SYSTEM", "true"))
 
 
 def _is_union(package: str) -> bool:
@@ -78,10 +79,19 @@ def _get_remote() -> FlyteRemote:
     from union.configuration import UnionAIPlugin
     from union.remote import UnionRemote
 
+    cfg = TaskConfig.auto()
+    if FLYTE_IMAGE_BUILD_IN_SYSTEM:
+        project = _IMAGE_BUILDER_PROJECT_DOMAIN["project"]
+        domain = _IMAGE_BUILDER_PROJECT_DOMAIN["domain"]
+    else:
+        from union.remote._remote import common_init
+
+        project = common_init.project or cfg.project or _IMAGE_BUILDER_PROJECT_DOMAIN["project"]
+        domain = common_init.domain or cfg.domain or _IMAGE_BUILDER_PROJECT_DOMAIN["domain"]
     remote = UnionRemote(
         config=UnionAIPlugin._get_config_for_remote(None, default_to_union_semantics=True),
-        default_domain=_IMAGE_BUILDER_PROJECT_DOMAIN["domain"],
-        default_project=_IMAGE_BUILDER_PROJECT_DOMAIN["project"],
+        default_domain=domain,
+        default_project=project,
     )
     return remote
 
@@ -176,9 +186,10 @@ def _apply_task_template_changes(
     # Register the updated task with a new version
     name = f"{task.name}-{_BUILD_IMAGE_SUFFIX}"
     version = _build_image_exec_version([imagepull_secret_name, task.id.version])
-
+    project = _IMAGE_BUILDER_PROJECT_DOMAIN["project"]
+    domain = _IMAGE_BUILDER_PROJECT_DOMAIN["domain"]
     try:
-        task = remote.fetch_task(name=name, version=version)
+        task = remote.fetch_task(name=name, version=version, project=project, domain=domain)
         click.secho(f"{task.name} already exists. Skipping registration.", fg="blue")
         return task
     except FlyteEntityNotExistException:
@@ -186,8 +197,8 @@ def _apply_task_template_changes(
 
         new_task_id = Identifier(
             resource_type=ResourceType.TASK,
-            project=remote.default_project,
-            domain=remote.default_domain,
+            project=project,
+            domain=domain,
             name=name,
             version=version,
         )
@@ -202,7 +213,7 @@ def _apply_task_template_changes(
         task_spec = task_models.TaskSpec(template=template)
         new_task_id = remote.raw_register(task_spec, SerializationSettings(image_config=None), version)
 
-        new_task = remote.fetch_task(name=new_task_id.name, version=new_task_id.version)
+        new_task = remote.fetch_task(name=new_task_id.name, version=new_task_id.version, project=project, domain=domain)
 
         return new_task
 
@@ -216,7 +227,12 @@ def _build(spec: Path, context: Optional[Path], target_image: str, imagepull_sec
     context_url = "" if context is None else remote.upload_file(context)[1]
 
     spec_url = remote.upload_file(spec)[1]
-    entity = _apply_task_template_changes(remote, remote.fetch_task(name="build-image"), imagepull_secret_name)
+    task = remote.fetch_task(
+        name="build-image",
+        project=_IMAGE_BUILDER_PROJECT_DOMAIN["project"],
+        domain=_IMAGE_BUILDER_PROJECT_DOMAIN["domain"],
+    )
+    entity = _apply_task_template_changes(remote, task, imagepull_secret_name)
     sanitized_name = _sanitize_image_name(target_image)
     execution = remote.execute(
         entity,
@@ -561,7 +577,11 @@ class UCImageSpecBuilder(ImageSpecBuilder):
 def _check_image_builder_enabled(remote: FlyteRemote):
     """Checks if the Union image builder is enabled."""
     try:
-        remote.fetch_task(name="build-image")
+        remote.fetch_task(
+            name="build-image",
+            project=_IMAGE_BUILDER_PROJECT_DOMAIN["project"],
+            domain=_IMAGE_BUILDER_PROJECT_DOMAIN["domain"],
+        )
     except FlyteEntityNotExistException as e:
         msg = "Union remote image builder is not enabled. Please contact Union support to enable it."
         raise click.ClickException(msg) from e

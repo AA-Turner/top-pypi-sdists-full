@@ -12,7 +12,6 @@ __all__ = ["VideoToVideoCreateParams", "ContentModeration", "Reference"]
 
 class VideoToVideoCreateParams(TypedDict, total=False):
     model: Required[Literal["gen4_aleph"]]
-    """The model variant to use."""
 
     prompt_text: Required[Annotated[str, PropertyInfo(alias="promptText")]]
     """A non-empty string up to 1000 characters (measured in UTF-16 code units).
@@ -26,10 +25,7 @@ class VideoToVideoCreateParams(TypedDict, total=False):
     """The resolution of the output video."""
 
     video_uri: Required[Annotated[str, PropertyInfo(alias="videoUri")]]
-    """A HTTPS URL pointing to a video or a data URI containing a video.
-
-    See [our docs](/assets/inputs#videos) on video inputs for more information.
-    """
+    """A HTTPS URL."""
 
     content_moderation: Annotated[ContentModeration, PropertyInfo(alias="contentModeration")]
     """Settings that affect the behavior of the content moderation system."""
@@ -51,6 +47,8 @@ class VideoToVideoCreateParams(TypedDict, total=False):
 
 
 class ContentModeration(TypedDict, total=False):
+    """Settings that affect the behavior of the content moderation system."""
+
     public_figure_threshold: Annotated[Literal["auto", "low"], PropertyInfo(alias="publicFigureThreshold")]
     """
     When set to `low`, the content moderation system will be less strict about
@@ -59,10 +57,11 @@ class ContentModeration(TypedDict, total=False):
 
 
 class Reference(TypedDict, total=False):
+    """
+    Passing an image reference allows the model to emulate the style or content of the reference in the output.
+    """
+
     type: Required[Literal["image"]]
 
     uri: Required[str]
-    """A HTTPS URL pointing to an image or a data URI containing an image.
-
-    See [our docs](/assets/inputs#images) on image inputs for more information.
-    """
+    """A HTTPS URL."""

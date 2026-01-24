@@ -34,15 +34,17 @@ class DescribeMachinePoolMachinesFilters(object):
     """
     openapi_types = {
         'allocation_states': 'list[MachineAllocationState]',
-        'partitions': 'list[str]'
+        'partitions': 'list[str]',
+        'machine_type_partition_filters': 'list[MachineTypePartitionFilter]'
     }
 
     attribute_map = {
         'allocation_states': 'allocation_states',
-        'partitions': 'partitions'
+        'partitions': 'partitions',
+        'machine_type_partition_filters': 'machine_type_partition_filters'
     }
 
-    def __init__(self, allocation_states=None, partitions=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, allocation_states=None, partitions=None, machine_type_partition_filters=None, local_vars_configuration=None):  # noqa: E501
         """DescribeMachinePoolMachinesFilters - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,12 +52,15 @@ class DescribeMachinePoolMachinesFilters(object):
 
         self._allocation_states = None
         self._partitions = None
+        self._machine_type_partition_filters = None
         self.discriminator = None
 
         if allocation_states is not None:
             self.allocation_states = allocation_states
         if partitions is not None:
             self.partitions = partitions
+        if machine_type_partition_filters is not None:
+            self.machine_type_partition_filters = machine_type_partition_filters
 
     @property
     def allocation_states(self):
@@ -84,7 +89,7 @@ class DescribeMachinePoolMachinesFilters(object):
     def partitions(self):
         """Gets the partitions of this DescribeMachinePoolMachinesFilters.  # noqa: E501
 
-        The partitions to filter by.  # noqa: E501
+        The partitions to filter by (for backward compatibility).  # noqa: E501
 
         :return: The partitions of this DescribeMachinePoolMachinesFilters.  # noqa: E501
         :rtype: list[str]
@@ -95,13 +100,36 @@ class DescribeMachinePoolMachinesFilters(object):
     def partitions(self, partitions):
         """Sets the partitions of this DescribeMachinePoolMachinesFilters.
 
-        The partitions to filter by.  # noqa: E501
+        The partitions to filter by (for backward compatibility).  # noqa: E501
 
         :param partitions: The partitions of this DescribeMachinePoolMachinesFilters.  # noqa: E501
         :type: list[str]
         """
 
         self._partitions = partitions
+
+    @property
+    def machine_type_partition_filters(self):
+        """Gets the machine_type_partition_filters of this DescribeMachinePoolMachinesFilters.  # noqa: E501
+
+        The machine_type, partition pair to filter by. If not provided, no filtering is performed.  # noqa: E501
+
+        :return: The machine_type_partition_filters of this DescribeMachinePoolMachinesFilters.  # noqa: E501
+        :rtype: list[MachineTypePartitionFilter]
+        """
+        return self._machine_type_partition_filters
+
+    @machine_type_partition_filters.setter
+    def machine_type_partition_filters(self, machine_type_partition_filters):
+        """Sets the machine_type_partition_filters of this DescribeMachinePoolMachinesFilters.
+
+        The machine_type, partition pair to filter by. If not provided, no filtering is performed.  # noqa: E501
+
+        :param machine_type_partition_filters: The machine_type_partition_filters of this DescribeMachinePoolMachinesFilters.  # noqa: E501
+        :type: list[MachineTypePartitionFilter]
+        """
+
+        self._machine_type_partition_filters = machine_type_partition_filters
 
     def to_dict(self):
         """Returns the model properties as a dict"""

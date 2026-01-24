@@ -1,5 +1,4 @@
 ---
-
 name: Release
 
 on: workflow_dispatch
@@ -21,7 +20,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # See
           # https://github.com/stefanzweifel/git-auto-commit-action?tab=readme-ov-file#push-to-protected-branches
@@ -34,7 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           cache-dependency-glob: '**/pyproject.toml'
@@ -55,15 +54,26 @@ jobs:
           echo "underline=${underline}" >> "$GITHUB_OUTPUT"
 
       - name: Update changelog
+        id: update_changelog
         uses: jacobtomlinson/gha-find-replace@v3
         with:
           find: "Next\n----"
-          replace: "Next\n----\n\n${{ steps.calver.outputs.release }}\n${{ steps.changelog_underline.outputs.underline\
-            \ }}"
+          replace: |
+            Next
+            ----
+
+            ${{ steps.calver.outputs.release }}
+            ${{ steps.changelog_underline.outputs.underline }}
           include: CHANGELOG.rst
           regex: false
 
-      - uses: stefanzweifel/git-auto-commit-action@v5
+      - name: Check Update changelog was modified
+        run: |
+          if [ "${{ steps.update_changelog.outputs.modifiedFiles }}" = "0" ]; then
+            echo "Error: No files were modified when updating changelog"
+            exit 1
+          fi
+      - uses: stefanzweifel/git-auto-commit-action@v7
         id: commit
         with:
           commit_message: Bump CHANGELOG

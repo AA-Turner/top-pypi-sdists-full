@@ -180,13 +180,15 @@ class TestPageExplorer(WagtailTestUtils, TestCase):
         self.root_page.add_child(instance=event_page)
 
         orderings = {
-            "content_type": (
-                [self.new_page.id, self.old_page.id, event_page.id],
-                "-content_type",
+            "content_type__model": (
+                # SimplePage, SingleEventPage, StandardIndex
+                [self.new_page.id, event_page.id, self.old_page.id],
+                "-content_type__model",
             ),
-            "-content_type": (
-                [event_page.id, self.old_page.id, self.new_page.id],
-                "content_type",
+            "-content_type__model": (
+                # StandardIndex, SingleEventPage, SimplePage
+                [self.old_page.id, event_page.id, self.new_page.id],
+                "content_type__model",
             ),
         }
         url = reverse("wagtailadmin_explore", args=(self.root_page.id,))
@@ -345,7 +347,31 @@ class TestPageExplorer(WagtailTestUtils, TestCase):
         )
 
         # Pages must not be paginated
-        self.assertNotIsInstance(response.context["pages"], paginator.Page)
+        self.assertNotIsInstance(response.context["page_obj"], paginator.Page)
+
+    def test_reordering_disabled_when_searching_or_filtering(self):
+        standard_index_ct = ContentType.objects.get_for_model(StandardIndex).pk
+        cases = [
+            {"q": "old"},
+            {"content_type": standard_index_ct},
+            {"content_type": standard_index_ct, "q": "old"},
+        ]
+        for query in cases:
+            with self.subTest(query=query):
+                response = self.client.get(
+                    reverse("wagtailadmin_explore", args=(self.root_page.id,)),
+                    {"ordering": "ord", **query},
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(
+                    response, "wagtailadmin/pages/explorable_index.html"
+                )
+                self.assertEqual(
+                    response.context["ordering"],
+                    "-latest_revision_created_at",
+                )
+                # Pages is paginated
+                self.assertIsInstance(response.context["page_obj"], paginator.Page)
 
     def test_construct_explorer_page_queryset_hook(self):
         # testapp implements a construct_explorer_page_queryset hook
@@ -421,6 +447,7 @@ class TestPageExplorer(WagtailTestUtils, TestCase):
         self.assertTemplateUsed(response, "wagtailadmin/pages/explorable_index.html")
 
         # Check that we got the correct page
+        self.assertIsInstance(response.context["page_obj"], paginator.Page)
         self.assertEqual(response.context["page_obj"].number, 2)
         self.assertContains(response, "51-100 of 153")
 

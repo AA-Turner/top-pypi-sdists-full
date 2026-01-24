@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fab-classic
-Version: 1.20.1
+Version: 1.20.2
 Summary: fab-classic is a simple, Pythonic tool for remote execution and deployment.
 Home-page: https://github.com/ploxiln/fab-classic
 Author: Jeff Forcier

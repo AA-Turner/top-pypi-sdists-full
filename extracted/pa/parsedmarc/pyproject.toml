@@ -2,6 +2,7 @@
 requires = [
     "hatchling>=1.27.0",
 ]
+requires_python = ">=3.9,<3.14"
 build-backend = "hatchling.build"
 
 [project]
@@ -28,6 +29,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3"
 ]
+requires-python = ">=3.9"
 dependencies = [
     "azure-identity>=1.8.0",
     "azure-monitor-ingestion>=1.0.0",
@@ -46,7 +48,7 @@ dependencies = [
     "imapclient>=2.1.0",
     "kafka-python-ng>=2.2.2",
     "lxml>=4.4.0",
-    "mailsuite>=1.9.18",
+    "mailsuite>=1.11.2",
     "msgraph-core==0.2.2",
     "opensearch-py>=2.4.2,<=3.0.0",
     "publicsuffixlist>=0.10.0",
@@ -55,6 +57,7 @@ dependencies = [
     "tqdm>=4.31.1",
     "urllib3>=1.25.7",
     "xmltodict>=0.12.0",
+    "PyYAML>=6.0.3"
 ]
 
 [project.optional-dependencies]
@@ -85,11 +88,11 @@ include = [
 
 [tool.hatch.build]
 exclude = [
-"base_reverse_dns.csv",
-"find_bad_utf8.py",
-"find_unknown_base_reverse_dns.py",
-"unknown_base_reverse_dns.csv",
-"sortmaps.py",
-"README.md",
-"*.bak"
+    "base_reverse_dns.csv",
+    "find_bad_utf8.py",
+    "find_unknown_base_reverse_dns.py",
+    "unknown_base_reverse_dns.csv",
+    "sortmaps.py",
+    "README.md",
+    "*.bak"
 ]

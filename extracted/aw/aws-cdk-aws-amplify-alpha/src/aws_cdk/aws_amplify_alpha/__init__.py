@@ -354,6 +354,18 @@ amplify_app = amplify.App(self, "MyApp",
 )
 ```
 
+## Build Compute Type
+
+You can specify the build compute type by setting the `buildComputeType` property.
+
+For more information, see [Configuring the build instance for an Amplify application](https://docs.aws.amazon.com/amplify/latest/userguide/custom-build-instance.html).
+
+```python
+amplify_app = amplify.App(self, "MyApp",
+    build_compute_type=amplify.BuildComputeType.LARGE_16GB
+)
+```
+
 ## Deploying Assets
 
 `sourceCodeProvider` is optional; when this is not specified the Amplify app can be deployed to using `.zip` packages. The `asset` property can be used to deploy S3 assets to Amplify as part of the CDK:
@@ -432,6 +444,7 @@ import constructs as _constructs_77d1e7e8
         "auto_branch_creation": "autoBranchCreation",
         "auto_branch_deletion": "autoBranchDeletion",
         "basic_auth": "basicAuth",
+        "build_compute_type": "buildComputeType",
         "build_spec": "buildSpec",
         "cache_config_type": "cacheConfigType",
         "compute_role": "computeRole",
@@ -452,15 +465,16 @@ class AppProps:
         auto_branch_creation: typing.Optional[typing.Union["AutoBranchCreation", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_branch_deletion: typing.Optional[builtins.bool] = None,
         basic_auth: typing.Optional["BasicAuth"] = None,
-        build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
+        build_compute_type: typing.Optional["BuildComputeType"] = None,
+        build_spec: typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"] = None,
         cache_config_type: typing.Optional["CacheConfigType"] = None,
-        compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        compute_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         custom_response_headers: typing.Optional[typing.Sequence[typing.Union["CustomResponseHeader", typing.Dict[builtins.str, typing.Any]]]] = None,
         custom_rules: typing.Optional[typing.Sequence["CustomRule"]] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         platform: typing.Optional["Platform"] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         source_code_provider: typing.Optional["ISourceCodeProvider"] = None,
     ) -> None:
         '''(experimental) Properties for an App.
@@ -469,6 +483,7 @@ class AppProps:
         :param auto_branch_creation: (experimental) The auto branch creation configuration. Use this to automatically create branches that match a certain pattern. Default: - no auto branch creation
         :param auto_branch_deletion: (experimental) Automatically disconnect a branch in the Amplify Console when you delete a branch from your Git repository. Default: false
         :param basic_auth: (experimental) The Basic Auth configuration. Use this to set password protection at an app level to all your branches. Default: - no password protection
+        :param build_compute_type: (experimental) Specifies the size of the build instance. Default: undefined - Amplify default setting is ``BuildComputeType.STANDARD_8GB``.
         :param build_spec: (experimental) BuildSpec for the application. Alternatively, add a ``amplify.yml`` file to the repository. Default: - no build spec
         :param cache_config_type: (experimental) The type of cache configuration to use for an Amplify app. Default: CacheConfigType.AMPLIFY_MANAGED
         :param compute_role: (experimental) The IAM role for an SSR app. The Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. Default: undefined - a new role is created when ``platform`` is ``Platform.WEB_COMPUTE`` or ``Platform.WEB_DYNAMIC``, otherwise no compute role
@@ -504,6 +519,7 @@ class AppProps:
             check_type(argname="argument auto_branch_creation", value=auto_branch_creation, expected_type=type_hints["auto_branch_creation"])
             check_type(argname="argument auto_branch_deletion", value=auto_branch_deletion, expected_type=type_hints["auto_branch_deletion"])
             check_type(argname="argument basic_auth", value=basic_auth, expected_type=type_hints["basic_auth"])
+            check_type(argname="argument build_compute_type", value=build_compute_type, expected_type=type_hints["build_compute_type"])
             check_type(argname="argument build_spec", value=build_spec, expected_type=type_hints["build_spec"])
             check_type(argname="argument cache_config_type", value=cache_config_type, expected_type=type_hints["cache_config_type"])
             check_type(argname="argument compute_role", value=compute_role, expected_type=type_hints["compute_role"])
@@ -523,6 +539,8 @@ class AppProps:
             self._values["auto_branch_deletion"] = auto_branch_deletion
         if basic_auth is not None:
             self._values["basic_auth"] = basic_auth
+        if build_compute_type is not None:
+            self._values["build_compute_type"] = build_compute_type
         if build_spec is not None:
             self._values["build_spec"] = build_spec
         if cache_config_type is not None:
@@ -595,7 +613,20 @@ class AppProps:
         return typing.cast(typing.Optional["BasicAuth"], result)
 
     @builtins.property
-    def build_spec(self) -> typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec]:
+    def build_compute_type(self) -> typing.Optional["BuildComputeType"]:
+        '''(experimental) Specifies the size of the build instance.
+
+        :default: undefined - Amplify default setting is ``BuildComputeType.STANDARD_8GB``.
+
+        :stability: experimental
+        '''
+        result = self._values.get("build_compute_type")
+        return typing.cast(typing.Optional["BuildComputeType"], result)
+
+    @builtins.property
+    def build_spec(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"]:
         '''(experimental) BuildSpec for the application.
 
         Alternatively, add a ``amplify.yml``
@@ -607,7 +638,7 @@ class AppProps:
         :stability: experimental
         '''
         result = self._values.get("build_spec")
-        return typing.cast(typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"], result)
 
     @builtins.property
     def cache_config_type(self) -> typing.Optional["CacheConfigType"]:
@@ -621,7 +652,7 @@ class AppProps:
         return typing.cast(typing.Optional["CacheConfigType"], result)
 
     @builtins.property
-    def compute_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def compute_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role for an SSR app.
 
         The Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions.
@@ -631,7 +662,7 @@ class AppProps:
         :stability: experimental
         '''
         result = self._values.get("compute_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def custom_response_headers(
@@ -701,7 +732,7 @@ class AppProps:
         return typing.cast(typing.Optional["Platform"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM service role to associate with the application.
 
         The App
@@ -712,7 +743,7 @@ class AppProps:
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def source_code_provider(self) -> typing.Optional["ISourceCodeProvider"]:
@@ -757,7 +788,7 @@ class AutoBranchCreation:
         *,
         auto_build: typing.Optional[builtins.bool] = None,
         basic_auth: typing.Optional["BasicAuth"] = None,
-        build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
+        build_spec: typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
         pull_request_environment_name: typing.Optional[builtins.str] = None,
@@ -845,7 +876,9 @@ class AutoBranchCreation:
         return typing.cast(typing.Optional["BasicAuth"], result)
 
     @builtins.property
-    def build_spec(self) -> typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec]:
+    def build_spec(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"]:
         '''(experimental) Build spec for the auto created branch.
 
         :default: - application build spec
@@ -853,7 +886,7 @@ class AutoBranchCreation:
         :stability: experimental
         '''
         result = self._values.get("build_spec")
-        return typing.cast(typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"], result)
 
     @builtins.property
     def environment_variables(
@@ -952,8 +985,8 @@ class BasicAuth(
         self,
         *,
         username: builtins.str,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
-        password: typing.Optional[_aws_cdk_ceddda9d.SecretValue] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        password: typing.Optional["_aws_cdk_ceddda9d.SecretValue"] = None,
     ) -> None:
         '''
         :param username: (experimental) The username.
@@ -973,7 +1006,7 @@ class BasicAuth(
     def from_credentials(
         cls,
         username: builtins.str,
-        password: _aws_cdk_ceddda9d.SecretValue,
+        password: "_aws_cdk_ceddda9d.SecretValue",
     ) -> "BasicAuth":
         '''(experimental) Creates a Basic Auth configuration from a username and a password.
 
@@ -993,7 +1026,7 @@ class BasicAuth(
     def from_generated_password(
         cls,
         username: builtins.str,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
     ) -> "BasicAuth":
         '''(experimental) Creates a Basic Auth configuration with a password generated in Secrets Manager.
 
@@ -1011,7 +1044,7 @@ class BasicAuth(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
     ) -> "BasicAuthConfig":
         '''(experimental) Binds this Basic Auth configuration to an App.
@@ -1133,8 +1166,8 @@ class BasicAuthProps:
         self,
         *,
         username: builtins.str,
-        encryption_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
-        password: typing.Optional[_aws_cdk_ceddda9d.SecretValue] = None,
+        encryption_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        password: typing.Optional["_aws_cdk_ceddda9d.SecretValue"] = None,
     ) -> None:
         '''(experimental) Properties for a BasicAuth.
 
@@ -1188,7 +1221,7 @@ class BasicAuthProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def encryption_key(self) -> typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey]:
+    def encryption_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
         '''(experimental) The encryption key to use to encrypt the password when it's generated in Secrets Manager.
 
         :default: - default master key
@@ -1196,10 +1229,10 @@ class BasicAuthProps:
         :stability: experimental
         '''
         result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
 
     @builtins.property
-    def password(self) -> typing.Optional[_aws_cdk_ceddda9d.SecretValue]:
+    def password(self) -> typing.Optional["_aws_cdk_ceddda9d.SecretValue"]:
         '''(experimental) The password.
 
         :default: - A Secrets Manager generated password
@@ -1207,7 +1240,7 @@ class BasicAuthProps:
         :stability: experimental
         '''
         result = self._values.get("password")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.SecretValue], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.SecretValue"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1244,12 +1277,12 @@ class BranchOptions:
     def __init__(
         self,
         *,
-        asset: typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset] = None,
+        asset: typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"] = None,
         auto_build: typing.Optional[builtins.bool] = None,
-        basic_auth: typing.Optional[BasicAuth] = None,
+        basic_auth: typing.Optional["BasicAuth"] = None,
         branch_name: typing.Optional[builtins.str] = None,
-        build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
-        compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        build_spec: typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"] = None,
+        compute_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         performance_mode: typing.Optional[builtins.bool] = None,
@@ -1329,7 +1362,7 @@ class BranchOptions:
             self._values["stage"] = stage
 
     @builtins.property
-    def asset(self) -> typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset]:
+    def asset(self) -> typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"]:
         '''(experimental) Asset for deployment.
 
         The Amplify app must not have a sourceCodeProvider configured as this resource uses Amplify's
@@ -1340,7 +1373,7 @@ class BranchOptions:
         :stability: experimental
         '''
         result = self._values.get("asset")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"], result)
 
     @builtins.property
     def auto_build(self) -> typing.Optional[builtins.bool]:
@@ -1354,7 +1387,7 @@ class BranchOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def basic_auth(self) -> typing.Optional[BasicAuth]:
+    def basic_auth(self) -> typing.Optional["BasicAuth"]:
         '''(experimental) The Basic Auth configuration.
 
         Use this to set password protection for
@@ -1365,7 +1398,7 @@ class BranchOptions:
         :stability: experimental
         '''
         result = self._values.get("basic_auth")
-        return typing.cast(typing.Optional[BasicAuth], result)
+        return typing.cast(typing.Optional["BasicAuth"], result)
 
     @builtins.property
     def branch_name(self) -> typing.Optional[builtins.str]:
@@ -1379,7 +1412,9 @@ class BranchOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def build_spec(self) -> typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec]:
+    def build_spec(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"]:
         '''(experimental) BuildSpec for the branch.
 
         :default: - no build spec
@@ -1388,10 +1423,10 @@ class BranchOptions:
         :stability: experimental
         '''
         result = self._values.get("build_spec")
-        return typing.cast(typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"], result)
 
     @builtins.property
-    def compute_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def compute_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role to assign to a branch of an SSR app.
 
         The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions.
@@ -1403,7 +1438,7 @@ class BranchOptions:
         :stability: experimental
         '''
         result = self._values.get("compute_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1532,12 +1567,12 @@ class BranchProps(BranchOptions):
     def __init__(
         self,
         *,
-        asset: typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset] = None,
+        asset: typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"] = None,
         auto_build: typing.Optional[builtins.bool] = None,
-        basic_auth: typing.Optional[BasicAuth] = None,
+        basic_auth: typing.Optional["BasicAuth"] = None,
         branch_name: typing.Optional[builtins.str] = None,
-        build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
-        compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        build_spec: typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"] = None,
+        compute_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         performance_mode: typing.Optional[builtins.bool] = None,
@@ -1650,7 +1685,7 @@ class BranchProps(BranchOptions):
             self._values["stage"] = stage
 
     @builtins.property
-    def asset(self) -> typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset]:
+    def asset(self) -> typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"]:
         '''(experimental) Asset for deployment.
 
         The Amplify app must not have a sourceCodeProvider configured as this resource uses Amplify's
@@ -1661,7 +1696,7 @@ class BranchProps(BranchOptions):
         :stability: experimental
         '''
         result = self._values.get("asset")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"], result)
 
     @builtins.property
     def auto_build(self) -> typing.Optional[builtins.bool]:
@@ -1675,7 +1710,7 @@ class BranchProps(BranchOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def basic_auth(self) -> typing.Optional[BasicAuth]:
+    def basic_auth(self) -> typing.Optional["BasicAuth"]:
         '''(experimental) The Basic Auth configuration.
 
         Use this to set password protection for
@@ -1686,7 +1721,7 @@ class BranchProps(BranchOptions):
         :stability: experimental
         '''
         result = self._values.get("basic_auth")
-        return typing.cast(typing.Optional[BasicAuth], result)
+        return typing.cast(typing.Optional["BasicAuth"], result)
 
     @builtins.property
     def branch_name(self) -> typing.Optional[builtins.str]:
@@ -1700,7 +1735,9 @@ class BranchProps(BranchOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def build_spec(self) -> typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec]:
+    def build_spec(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"]:
         '''(experimental) BuildSpec for the branch.
 
         :default: - no build spec
@@ -1709,10 +1746,10 @@ class BranchProps(BranchOptions):
         :stability: experimental
         '''
         result = self._values.get("build_spec")
-        return typing.cast(typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"], result)
 
     @builtins.property
-    def compute_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def compute_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role to assign to a branch of an SSR app.
 
         The SSR Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions.
@@ -1724,7 +1761,7 @@ class BranchProps(BranchOptions):
         :stability: experimental
         '''
         result = self._values.get("compute_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1839,6 +1876,38 @@ class BranchProps(BranchOptions):
         )
 
 
+@jsii.enum(jsii_type="@aws-cdk/aws-amplify-alpha.BuildComputeType")
+class BuildComputeType(enum.Enum):
+    '''(experimental) Specifies the size of the build instance.
+
+    :stability: experimental
+    :link: https://docs.aws.amazon.com/amplify/latest/userguide/custom-build-instance.html
+    :exampleMetadata: infused
+
+    Example::
+
+        amplify_app = amplify.App(self, "MyApp",
+            build_compute_type=amplify.BuildComputeType.LARGE_16GB
+        )
+    '''
+
+    STANDARD_8GB = "STANDARD_8GB"
+    '''(experimental) vCPUs: 4, Memory: 8 GiB, Disk space: 128 GB.
+
+    :stability: experimental
+    '''
+    LARGE_16GB = "LARGE_16GB"
+    '''(experimental) vCPUs: 8, Memory: 16 GiB, Disk space: 128 GB.
+
+    :stability: experimental
+    '''
+    XLARGE_72GB = "XLARGE_72GB"
+    '''(experimental) vCPUs: 36, Memory: 72 GiB, Disk space: 256 GB.
+
+    :stability: experimental
+    '''
+
+
 @jsii.enum(jsii_type="@aws-cdk/aws-amplify-alpha.CacheConfigType")
 class CacheConfigType(enum.Enum):
     '''(experimental) The type of cache configuration to use for an Amplify app.
@@ -1874,7 +1943,7 @@ class CodeCommitSourceCodeProviderProps:
     def __init__(
         self,
         *,
-        repository: _aws_cdk_aws_codecommit_ceddda9d.IRepository,
+        repository: "_aws_cdk_aws_codecommit_ceddda9d.IRepository",
     ) -> None:
         '''(experimental) Properties for a CodeCommit source code provider.
 
@@ -1904,14 +1973,14 @@ class CodeCommitSourceCodeProviderProps:
         }
 
     @builtins.property
-    def repository(self) -> _aws_cdk_aws_codecommit_ceddda9d.IRepository:
+    def repository(self) -> "_aws_cdk_aws_codecommit_ceddda9d.IRepository":
         '''(experimental) The CodeCommit repository.
 
         :stability: experimental
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
-        return typing.cast(_aws_cdk_aws_codecommit_ceddda9d.IRepository, result)
+        return typing.cast("_aws_cdk_aws_codecommit_ceddda9d.IRepository", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2259,13 +2328,13 @@ class Domain(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         app: "IApp",
-        auto_sub_domain_iam_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        auto_sub_domain_iam_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         auto_subdomain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        custom_certificate: typing.Optional[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate] = None,
+        custom_certificate: typing.Optional["_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate"] = None,
         domain_name: typing.Optional[builtins.str] = None,
         enable_auto_subdomain: typing.Optional[builtins.bool] = None,
         sub_domains: typing.Optional[typing.Sequence[typing.Union["SubDomain", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2274,7 +2343,7 @@ class Domain(
         :param scope: -
         :param id: -
         :param app: (experimental) The application to which the domain must be connected.
-        :param auto_sub_domain_iam_role: (experimental) The IAM role with access to Route53 when using enableAutoSubdomain. Default: the IAM role from App.grantPrincipal
+        :param auto_sub_domain_iam_role: (experimental) The IAM role with access to Route53 when using enableAutoSubdomain. Default: - the IAM role from App.grantPrincipal
         :param auto_subdomain_creation_patterns: (experimental) Branches which should automatically create subdomains. Default: - all repository branches ['*', 'pr*']
         :param custom_certificate: (experimental) The type of SSL/TLS certificate to use for your custom domain. Default: - Amplify uses the default certificate that it provisions and manages for you
         :param domain_name: (experimental) The name of the domain. Default: - the construct's id
@@ -2382,13 +2451,13 @@ class Domain(
 
     @builtins.property
     @jsii.member(jsii_name="domainEnableAutoSubDomain")
-    def domain_enable_auto_sub_domain(self) -> _aws_cdk_ceddda9d.IResolvable:
+    def domain_enable_auto_sub_domain(self) -> "_aws_cdk_ceddda9d.IResolvable":
         '''(experimental) Specifies whether the automated creation of subdomains for branches is enabled.
 
         :stability: experimental
         :attribute: true
         '''
-        return typing.cast(_aws_cdk_ceddda9d.IResolvable, jsii.get(self, "domainEnableAutoSubDomain"))
+        return typing.cast("_aws_cdk_ceddda9d.IResolvable", jsii.get(self, "domainEnableAutoSubDomain"))
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -2437,7 +2506,7 @@ class DomainOptions:
         self,
         *,
         auto_subdomain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        custom_certificate: typing.Optional[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate] = None,
+        custom_certificate: typing.Optional["_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate"] = None,
         domain_name: typing.Optional[builtins.str] = None,
         enable_auto_subdomain: typing.Optional[builtins.bool] = None,
         sub_domains: typing.Optional[typing.Sequence[typing.Union["SubDomain", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2503,7 +2572,7 @@ class DomainOptions:
     @builtins.property
     def custom_certificate(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]:
+    ) -> typing.Optional["_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate"]:
         '''(experimental) The type of SSL/TLS certificate to use for your custom domain.
 
         :default: - Amplify uses the default certificate that it provisions and manages for you
@@ -2511,7 +2580,7 @@ class DomainOptions:
         :stability: experimental
         '''
         result = self._values.get("custom_certificate")
-        return typing.cast(typing.Optional[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate"], result)
 
     @builtins.property
     def domain_name(self) -> typing.Optional[builtins.str]:
@@ -2576,12 +2645,12 @@ class DomainProps(DomainOptions):
         self,
         *,
         auto_subdomain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        custom_certificate: typing.Optional[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate] = None,
+        custom_certificate: typing.Optional["_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate"] = None,
         domain_name: typing.Optional[builtins.str] = None,
         enable_auto_subdomain: typing.Optional[builtins.bool] = None,
         sub_domains: typing.Optional[typing.Sequence[typing.Union["SubDomain", typing.Dict[builtins.str, typing.Any]]]] = None,
         app: "IApp",
-        auto_sub_domain_iam_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        auto_sub_domain_iam_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''(experimental) Properties for a Domain.
 
@@ -2591,7 +2660,7 @@ class DomainProps(DomainOptions):
         :param enable_auto_subdomain: (experimental) Automatically create subdomains for connected branches. Default: false
         :param sub_domains: (experimental) Subdomains. Default: - use ``addSubDomain()`` to add subdomains
         :param app: (experimental) The application to which the domain must be connected.
-        :param auto_sub_domain_iam_role: (experimental) The IAM role with access to Route53 when using enableAutoSubdomain. Default: the IAM role from App.grantPrincipal
+        :param auto_sub_domain_iam_role: (experimental) The IAM role with access to Route53 when using enableAutoSubdomain. Default: - the IAM role from App.grantPrincipal
 
         :stability: experimental
         :exampleMetadata: fixture=_generated
@@ -2667,7 +2736,7 @@ class DomainProps(DomainOptions):
     @builtins.property
     def custom_certificate(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]:
+    ) -> typing.Optional["_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate"]:
         '''(experimental) The type of SSL/TLS certificate to use for your custom domain.
 
         :default: - Amplify uses the default certificate that it provisions and manages for you
@@ -2675,7 +2744,7 @@ class DomainProps(DomainOptions):
         :stability: experimental
         '''
         result = self._values.get("custom_certificate")
-        return typing.cast(typing.Optional[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate"], result)
 
     @builtins.property
     def domain_name(self) -> typing.Optional[builtins.str]:
@@ -2723,15 +2792,15 @@ class DomainProps(DomainOptions):
     @builtins.property
     def auto_sub_domain_iam_role(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    ) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role with access to Route53 when using enableAutoSubdomain.
 
-        :default: the IAM role from App.grantPrincipal
+        :default: - the IAM role from App.grantPrincipal
 
         :stability: experimental
         '''
         result = self._values.get("auto_sub_domain_iam_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2758,7 +2827,7 @@ class GitHubSourceCodeProviderProps:
     def __init__(
         self,
         *,
-        oauth_token: _aws_cdk_ceddda9d.SecretValue,
+        oauth_token: "_aws_cdk_ceddda9d.SecretValue",
         owner: builtins.str,
         repository: builtins.str,
     ) -> None:
@@ -2806,14 +2875,14 @@ class GitHubSourceCodeProviderProps:
         }
 
     @builtins.property
-    def oauth_token(self) -> _aws_cdk_ceddda9d.SecretValue:
+    def oauth_token(self) -> "_aws_cdk_ceddda9d.SecretValue":
         '''(experimental) A personal access token with the ``repo`` scope.
 
         :stability: experimental
         '''
         result = self._values.get("oauth_token")
         assert result is not None, "Required property 'oauth_token' is missing"
-        return typing.cast(_aws_cdk_ceddda9d.SecretValue, result)
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
 
     @builtins.property
     def owner(self) -> builtins.str:
@@ -2860,7 +2929,7 @@ class GitLabSourceCodeProviderProps:
     def __init__(
         self,
         *,
-        oauth_token: _aws_cdk_ceddda9d.SecretValue,
+        oauth_token: "_aws_cdk_ceddda9d.SecretValue",
         owner: builtins.str,
         repository: builtins.str,
     ) -> None:
@@ -2895,14 +2964,14 @@ class GitLabSourceCodeProviderProps:
         }
 
     @builtins.property
-    def oauth_token(self) -> _aws_cdk_ceddda9d.SecretValue:
+    def oauth_token(self) -> "_aws_cdk_ceddda9d.SecretValue":
         '''(experimental) A personal access token with the ``repo`` scope.
 
         :stability: experimental
         '''
         result = self._values.get("oauth_token")
         assert result is not None, "Required property 'oauth_token' is missing"
-        return typing.cast(_aws_cdk_ceddda9d.SecretValue, result)
+        return typing.cast("_aws_cdk_ceddda9d.SecretValue", result)
 
     @builtins.property
     def owner(self) -> builtins.str:
@@ -3155,8 +3224,8 @@ class SourceCodeProviderConfig:
         self,
         *,
         repository: builtins.str,
-        access_token: typing.Optional[_aws_cdk_ceddda9d.SecretValue] = None,
-        oauth_token: typing.Optional[_aws_cdk_ceddda9d.SecretValue] = None,
+        access_token: typing.Optional["_aws_cdk_ceddda9d.SecretValue"] = None,
+        oauth_token: typing.Optional["_aws_cdk_ceddda9d.SecretValue"] = None,
     ) -> None:
         '''(experimental) Configuration for the source code provider.
 
@@ -3210,7 +3279,7 @@ class SourceCodeProviderConfig:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def access_token(self) -> typing.Optional[_aws_cdk_ceddda9d.SecretValue]:
+    def access_token(self) -> typing.Optional["_aws_cdk_ceddda9d.SecretValue"]:
         '''(experimental) Personal Access token for 3rd party source control system for an Amplify App, used to create webhook and read-only deploy key.
 
         Token is not stored.
@@ -3223,10 +3292,10 @@ class SourceCodeProviderConfig:
         :stability: experimental
         '''
         result = self._values.get("access_token")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.SecretValue], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.SecretValue"], result)
 
     @builtins.property
-    def oauth_token(self) -> typing.Optional[_aws_cdk_ceddda9d.SecretValue]:
+    def oauth_token(self) -> typing.Optional["_aws_cdk_ceddda9d.SecretValue"]:
         '''(experimental) OAuth token for 3rd party source control system for an Amplify App, used to create webhook and read-only deploy key.
 
         OAuth token is not stored.
@@ -3239,7 +3308,7 @@ class SourceCodeProviderConfig:
         :stability: experimental
         '''
         result = self._values.get("oauth_token")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.SecretValue], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.SecretValue"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3262,7 +3331,7 @@ class SubDomain:
     def __init__(
         self,
         *,
-        branch: IBranch,
+        branch: "IBranch",
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Sub domain settings.
@@ -3299,14 +3368,14 @@ class SubDomain:
             self._values["prefix"] = prefix
 
     @builtins.property
-    def branch(self) -> IBranch:
+    def branch(self) -> "IBranch":
         '''(experimental) The branch.
 
         :stability: experimental
         '''
         result = self._values.get("branch")
         assert result is not None, "Required property 'branch' is missing"
-        return typing.cast(IBranch, result)
+        return typing.cast("IBranch", result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
@@ -3360,23 +3429,24 @@ class App(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         app_name: typing.Optional[builtins.str] = None,
-        auto_branch_creation: typing.Optional[typing.Union[AutoBranchCreation, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_branch_creation: typing.Optional[typing.Union["AutoBranchCreation", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_branch_deletion: typing.Optional[builtins.bool] = None,
-        basic_auth: typing.Optional[BasicAuth] = None,
-        build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
-        cache_config_type: typing.Optional[CacheConfigType] = None,
-        compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        custom_response_headers: typing.Optional[typing.Sequence[typing.Union[CustomResponseHeader, typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_rules: typing.Optional[typing.Sequence[CustomRule]] = None,
+        basic_auth: typing.Optional["BasicAuth"] = None,
+        build_compute_type: typing.Optional["BuildComputeType"] = None,
+        build_spec: typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"] = None,
+        cache_config_type: typing.Optional["CacheConfigType"] = None,
+        compute_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        custom_response_headers: typing.Optional[typing.Sequence[typing.Union["CustomResponseHeader", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_rules: typing.Optional[typing.Sequence["CustomRule"]] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        platform: typing.Optional[Platform] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        source_code_provider: typing.Optional[ISourceCodeProvider] = None,
+        platform: typing.Optional["Platform"] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        source_code_provider: typing.Optional["ISourceCodeProvider"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3385,6 +3455,7 @@ class App(
         :param auto_branch_creation: (experimental) The auto branch creation configuration. Use this to automatically create branches that match a certain pattern. Default: - no auto branch creation
         :param auto_branch_deletion: (experimental) Automatically disconnect a branch in the Amplify Console when you delete a branch from your Git repository. Default: false
         :param basic_auth: (experimental) The Basic Auth configuration. Use this to set password protection at an app level to all your branches. Default: - no password protection
+        :param build_compute_type: (experimental) Specifies the size of the build instance. Default: undefined - Amplify default setting is ``BuildComputeType.STANDARD_8GB``.
         :param build_spec: (experimental) BuildSpec for the application. Alternatively, add a ``amplify.yml`` file to the repository. Default: - no build spec
         :param cache_config_type: (experimental) The type of cache configuration to use for an Amplify app. Default: CacheConfigType.AMPLIFY_MANAGED
         :param compute_role: (experimental) The IAM role for an SSR app. The Compute role allows the Amplify Hosting compute service to securely access specific AWS resources based on the role's permissions. Default: undefined - a new role is created when ``platform`` is ``Platform.WEB_COMPUTE`` or ``Platform.WEB_DYNAMIC``, otherwise no compute role
@@ -3407,6 +3478,7 @@ class App(
             auto_branch_creation=auto_branch_creation,
             auto_branch_deletion=auto_branch_deletion,
             basic_auth=basic_auth,
+            build_compute_type=build_compute_type,
             build_spec=build_spec,
             cache_config_type=cache_config_type,
             compute_role=compute_role,
@@ -3425,10 +3497,10 @@ class App(
     @builtins.classmethod
     def from_app_id(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         app_id: builtins.str,
-    ) -> IApp:
+    ) -> "IApp":
         '''(experimental) Import an existing application.
 
         :param scope: -
@@ -3442,7 +3514,7 @@ class App(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
-        return typing.cast(IApp, jsii.sinvoke(cls, "fromAppId", [scope, id, app_id]))
+        return typing.cast("IApp", jsii.sinvoke(cls, "fromAppId", [scope, id, app_id]))
 
     @jsii.member(jsii_name="addAutoBranchEnvironment")
     def add_auto_branch_environment(
@@ -3471,12 +3543,12 @@ class App(
         self,
         id: builtins.str,
         *,
-        asset: typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset] = None,
+        asset: typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"] = None,
         auto_build: typing.Optional[builtins.bool] = None,
-        basic_auth: typing.Optional[BasicAuth] = None,
+        basic_auth: typing.Optional["BasicAuth"] = None,
         branch_name: typing.Optional[builtins.str] = None,
-        build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
-        compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        build_spec: typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"] = None,
+        compute_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         performance_mode: typing.Optional[builtins.bool] = None,
@@ -3526,7 +3598,7 @@ class App(
         return typing.cast("Branch", jsii.invoke(self, "addBranch", [id, options]))
 
     @jsii.member(jsii_name="addCustomRule")
-    def add_custom_rule(self, rule: CustomRule) -> "App":
+    def add_custom_rule(self, rule: "CustomRule") -> "App":
         '''(experimental) Adds a custom rewrite/redirect rule to this application.
 
         :param rule: -
@@ -3544,11 +3616,11 @@ class App(
         id: builtins.str,
         *,
         auto_subdomain_creation_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        custom_certificate: typing.Optional[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate] = None,
+        custom_certificate: typing.Optional["_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate"] = None,
         domain_name: typing.Optional[builtins.str] = None,
         enable_auto_subdomain: typing.Optional[builtins.bool] = None,
-        sub_domains: typing.Optional[typing.Sequence[typing.Union[SubDomain, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> Domain:
+        sub_domains: typing.Optional[typing.Sequence[typing.Union["SubDomain", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> "Domain":
         '''(experimental) Adds a domain to this application.
 
         :param id: -
@@ -3571,7 +3643,7 @@ class App(
             sub_domains=sub_domains,
         )
 
-        return typing.cast(Domain, jsii.invoke(self, "addDomain", [id, options]))
+        return typing.cast("Domain", jsii.invoke(self, "addDomain", [id, options]))
 
     @jsii.member(jsii_name="addEnvironment")
     def add_environment(self, name: builtins.str, value: builtins.str) -> "App":
@@ -3641,30 +3713,30 @@ class App(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> _aws_cdk_aws_iam_ceddda9d.IPrincipal:
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
         '''(experimental) The principal to grant permissions to.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="computeRole")
-    def compute_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def compute_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role for an SSR app.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], jsii.get(self, "computeRole"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], jsii.get(self, "computeRole"))
 
     @builtins.property
     @jsii.member(jsii_name="platform")
-    def platform(self) -> typing.Optional[Platform]:
+    def platform(self) -> typing.Optional["Platform"]:
         '''(experimental) The platform of the app.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[Platform], jsii.get(self, "platform"))
+        return typing.cast(typing.Optional["Platform"], jsii.get(self, "platform"))
 
 
 @jsii.implements(IBranch)
@@ -3689,16 +3761,16 @@ class Branch(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        app: IApp,
-        asset: typing.Optional[_aws_cdk_aws_s3_assets_ceddda9d.Asset] = None,
+        app: "IApp",
+        asset: typing.Optional["_aws_cdk_aws_s3_assets_ceddda9d.Asset"] = None,
         auto_build: typing.Optional[builtins.bool] = None,
-        basic_auth: typing.Optional[BasicAuth] = None,
+        basic_auth: typing.Optional["BasicAuth"] = None,
         branch_name: typing.Optional[builtins.str] = None,
-        build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
-        compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        build_spec: typing.Optional["_aws_cdk_aws_codebuild_ceddda9d.BuildSpec"] = None,
+        compute_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         description: typing.Optional[builtins.str] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         performance_mode: typing.Optional[builtins.bool] = None,
@@ -3754,10 +3826,10 @@ class Branch(
     @builtins.classmethod
     def from_branch_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         branch_name: builtins.str,
-    ) -> IBranch:
+    ) -> "IBranch":
         '''(experimental) Import an existing branch.
 
         :param scope: -
@@ -3771,7 +3843,7 @@ class Branch(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
-        return typing.cast(IBranch, jsii.sinvoke(cls, "fromBranchName", [scope, id, branch_name]))
+        return typing.cast("IBranch", jsii.sinvoke(cls, "fromBranchName", [scope, id, branch_name]))
 
     @jsii.member(jsii_name="addEnvironment")
     def add_environment(self, name: builtins.str, value: builtins.str) -> "Branch":
@@ -3847,7 +3919,7 @@ class CodeCommitSourceCodeProvider(
     def __init__(
         self,
         *,
-        repository: _aws_cdk_aws_codecommit_ceddda9d.IRepository,
+        repository: "_aws_cdk_aws_codecommit_ceddda9d.IRepository",
     ) -> None:
         '''
         :param repository: (experimental) The CodeCommit repository.
@@ -3859,7 +3931,7 @@ class CodeCommitSourceCodeProvider(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, app: App) -> SourceCodeProviderConfig:
+    def bind(self, app: "App") -> "SourceCodeProviderConfig":
         '''(experimental) Binds the source code provider to an app.
 
         :param app: -
@@ -3869,7 +3941,7 @@ class CodeCommitSourceCodeProvider(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28b2e5a130d115ac93f5dc1c7a49d85af09f80db57b20a2c3aacf0df76ee411f)
             check_type(argname="argument app", value=app, expected_type=type_hints["app"])
-        return typing.cast(SourceCodeProviderConfig, jsii.invoke(self, "bind", [app]))
+        return typing.cast("SourceCodeProviderConfig", jsii.invoke(self, "bind", [app]))
 
 
 @jsii.implements(ISourceCodeProvider)
@@ -3909,7 +3981,7 @@ class GitHubSourceCodeProvider(
     def __init__(
         self,
         *,
-        oauth_token: _aws_cdk_ceddda9d.SecretValue,
+        oauth_token: "_aws_cdk_ceddda9d.SecretValue",
         owner: builtins.str,
         repository: builtins.str,
     ) -> None:
@@ -3927,7 +3999,7 @@ class GitHubSourceCodeProvider(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, _app: App) -> SourceCodeProviderConfig:
+    def bind(self, _app: "App") -> "SourceCodeProviderConfig":
         '''(experimental) Binds the source code provider to an app.
 
         :param _app: -
@@ -3937,7 +4009,7 @@ class GitHubSourceCodeProvider(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95bb551e0bd0c5908f812aa7521905b367f553a81d84e74c14963deac202e989)
             check_type(argname="argument _app", value=_app, expected_type=type_hints["_app"])
-        return typing.cast(SourceCodeProviderConfig, jsii.invoke(self, "bind", [_app]))
+        return typing.cast("SourceCodeProviderConfig", jsii.invoke(self, "bind", [_app]))
 
 
 @jsii.implements(ISourceCodeProvider)
@@ -3964,7 +4036,7 @@ class GitLabSourceCodeProvider(
     def __init__(
         self,
         *,
-        oauth_token: _aws_cdk_ceddda9d.SecretValue,
+        oauth_token: "_aws_cdk_ceddda9d.SecretValue",
         owner: builtins.str,
         repository: builtins.str,
     ) -> None:
@@ -3982,7 +4054,7 @@ class GitLabSourceCodeProvider(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="bind")
-    def bind(self, _app: App) -> SourceCodeProviderConfig:
+    def bind(self, _app: "App") -> "SourceCodeProviderConfig":
         '''(experimental) Binds the source code provider to an app.
 
         :param _app: -
@@ -3992,7 +4064,7 @@ class GitLabSourceCodeProvider(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29dad1f763523380f6a67ed0ae532ec1546e13d4d89b8aa9148ee6c401326b7d)
             check_type(argname="argument _app", value=_app, expected_type=type_hints["_app"])
-        return typing.cast(SourceCodeProviderConfig, jsii.invoke(self, "bind", [_app]))
+        return typing.cast("SourceCodeProviderConfig", jsii.invoke(self, "bind", [_app]))
 
 
 __all__ = [
@@ -4005,6 +4077,7 @@ __all__ = [
     "Branch",
     "BranchOptions",
     "BranchProps",
+    "BuildComputeType",
     "CacheConfigType",
     "CodeCommitSourceCodeProvider",
     "CodeCommitSourceCodeProviderProps",
@@ -4035,6 +4108,7 @@ def _typecheckingstub__00fae34ad2733a382bf4bd9703c470687ee286b909acac7113a890be0
     auto_branch_creation: typing.Optional[typing.Union[AutoBranchCreation, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_branch_deletion: typing.Optional[builtins.bool] = None,
     basic_auth: typing.Optional[BasicAuth] = None,
+    build_compute_type: typing.Optional[BuildComputeType] = None,
     build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
     cache_config_type: typing.Optional[CacheConfigType] = None,
     compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
@@ -4268,6 +4342,7 @@ def _typecheckingstub__beb3fdecad4b351bd290c8a9d65c70964afb63130c3af329024642f75
     auto_branch_creation: typing.Optional[typing.Union[AutoBranchCreation, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_branch_deletion: typing.Optional[builtins.bool] = None,
     basic_auth: typing.Optional[BasicAuth] = None,
+    build_compute_type: typing.Optional[BuildComputeType] = None,
     build_spec: typing.Optional[_aws_cdk_aws_codebuild_ceddda9d.BuildSpec] = None,
     cache_config_type: typing.Optional[CacheConfigType] = None,
     compute_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
@@ -4396,3 +4471,6 @@ def _typecheckingstub__29dad1f763523380f6a67ed0ae532ec1546e13d4d89b8aa9148ee6c40
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IApp, IBranch, ISourceCodeProvider]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -36,6 +36,10 @@ class ComputeNodeType(object):
         'name': 'str',
         'instance_type': 'str',
         'resources': 'Resources',
+        'physical_resources': 'PhysicalResources',
+        'required_resources': 'PhysicalResources',
+        'labels': 'dict(str, str)',
+        'required_labels': 'dict(str, str)',
         'aws_advanced_configurations_json': 'object',
         'gcp_advanced_configurations_json': 'object',
         'advanced_configurations_json': 'object',
@@ -46,13 +50,17 @@ class ComputeNodeType(object):
         'name': 'name',
         'instance_type': 'instance_type',
         'resources': 'resources',
+        'physical_resources': 'physical_resources',
+        'required_resources': 'required_resources',
+        'labels': 'labels',
+        'required_labels': 'required_labels',
         'aws_advanced_configurations_json': 'aws_advanced_configurations_json',
         'gcp_advanced_configurations_json': 'gcp_advanced_configurations_json',
         'advanced_configurations_json': 'advanced_configurations_json',
         'flags': 'flags'
     }
 
-    def __init__(self, name=None, instance_type=None, resources=None, aws_advanced_configurations_json=None, gcp_advanced_configurations_json=None, advanced_configurations_json=None, flags=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, instance_type=None, resources=None, physical_resources=None, required_resources=None, labels=None, required_labels=None, aws_advanced_configurations_json=None, gcp_advanced_configurations_json=None, advanced_configurations_json=None, flags=None, local_vars_configuration=None):  # noqa: E501
         """ComputeNodeType - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -61,6 +69,10 @@ class ComputeNodeType(object):
         self._name = None
         self._instance_type = None
         self._resources = None
+        self._physical_resources = None
+        self._required_resources = None
+        self._labels = None
+        self._required_labels = None
         self._aws_advanced_configurations_json = None
         self._gcp_advanced_configurations_json = None
         self._advanced_configurations_json = None
@@ -68,9 +80,18 @@ class ComputeNodeType(object):
         self.discriminator = None
 
         self.name = name
-        self.instance_type = instance_type
+        if instance_type is not None:
+            self.instance_type = instance_type
         if resources is not None:
             self.resources = resources
+        if physical_resources is not None:
+            self.physical_resources = physical_resources
+        if required_resources is not None:
+            self.required_resources = required_resources
+        if labels is not None:
+            self.labels = labels
+        if required_labels is not None:
+            self.required_labels = required_labels
         if aws_advanced_configurations_json is not None:
             self.aws_advanced_configurations_json = aws_advanced_configurations_json
         if gcp_advanced_configurations_json is not None:
@@ -109,7 +130,7 @@ class ComputeNodeType(object):
     def instance_type(self):
         """Gets the instance_type of this ComputeNodeType.  # noqa: E501
 
-        The cloud provider instance type to use for this node.  # noqa: E501
+        The cloud provider instance type to use for this node. Optional when using free pod shapes with required_resources.  # noqa: E501
 
         :return: The instance_type of this ComputeNodeType.  # noqa: E501
         :rtype: str
@@ -120,13 +141,11 @@ class ComputeNodeType(object):
     def instance_type(self, instance_type):
         """Sets the instance_type of this ComputeNodeType.
 
-        The cloud provider instance type to use for this node.  # noqa: E501
+        The cloud provider instance type to use for this node. Optional when using free pod shapes with required_resources.  # noqa: E501
 
         :param instance_type: The instance_type of this ComputeNodeType.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and instance_type is None:  # noqa: E501
-            raise ValueError("Invalid value for `instance_type`, must not be `None`")  # noqa: E501
 
         self._instance_type = instance_type
 
@@ -152,6 +171,98 @@ class ComputeNodeType(object):
         """
 
         self._resources = resources
+
+    @property
+    def physical_resources(self):
+        """Gets the physical_resources of this ComputeNodeType.  # noqa: E501
+
+        DEPRECATED: This field is deprecated. Please use required_resources instead.  # noqa: E501
+
+        :return: The physical_resources of this ComputeNodeType.  # noqa: E501
+        :rtype: PhysicalResources
+        """
+        return self._physical_resources
+
+    @physical_resources.setter
+    def physical_resources(self, physical_resources):
+        """Sets the physical_resources of this ComputeNodeType.
+
+        DEPRECATED: This field is deprecated. Please use required_resources instead.  # noqa: E501
+
+        :param physical_resources: The physical_resources of this ComputeNodeType.  # noqa: E501
+        :type: PhysicalResources
+        """
+
+        self._physical_resources = physical_resources
+
+    @property
+    def required_resources(self):
+        """Gets the required_resources of this ComputeNodeType.  # noqa: E501
+
+        Required resources for compute node type which specifies the actual CPU, memory, and GPU resources that should be allocated for this node type.  # noqa: E501
+
+        :return: The required_resources of this ComputeNodeType.  # noqa: E501
+        :rtype: PhysicalResources
+        """
+        return self._required_resources
+
+    @required_resources.setter
+    def required_resources(self, required_resources):
+        """Sets the required_resources of this ComputeNodeType.
+
+        Required resources for compute node type which specifies the actual CPU, memory, and GPU resources that should be allocated for this node type.  # noqa: E501
+
+        :param required_resources: The required_resources of this ComputeNodeType.  # noqa: E501
+        :type: PhysicalResources
+        """
+
+        self._required_resources = required_resources
+
+    @property
+    def labels(self):
+        """Gets the labels of this ComputeNodeType.  # noqa: E501
+
+        Labels to associate the node with for scheduling purposes. Defaults to the list of Ray & Anyscale default labels.  # noqa: E501
+
+        :return: The labels of this ComputeNodeType.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._labels
+
+    @labels.setter
+    def labels(self, labels):
+        """Sets the labels of this ComputeNodeType.
+
+        Labels to associate the node with for scheduling purposes. Defaults to the list of Ray & Anyscale default labels.  # noqa: E501
+
+        :param labels: The labels of this ComputeNodeType.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._labels = labels
+
+    @property
+    def required_labels(self):
+        """Gets the required_labels of this ComputeNodeType.  # noqa: E501
+
+        Required labels that must be present on the node for scheduling purposes.  # noqa: E501
+
+        :return: The required_labels of this ComputeNodeType.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._required_labels
+
+    @required_labels.setter
+    def required_labels(self, required_labels):
+        """Sets the required_labels of this ComputeNodeType.
+
+        Required labels that must be present on the node for scheduling purposes.  # noqa: E501
+
+        :param required_labels: The required_labels of this ComputeNodeType.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._required_labels = required_labels
 
     @property
     def aws_advanced_configurations_json(self):

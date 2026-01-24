@@ -1,7 +1,6 @@
 #![doc = include_str!("../README.md")]
 use pyo3::types::PyModule;
 use pyo3::{Bound, PyResult};
-mod py_digest;
 #[cfg(feature = "xxhash32")]
 pub mod xxhash32;
 #[cfg(feature = "xxhash3_128")]

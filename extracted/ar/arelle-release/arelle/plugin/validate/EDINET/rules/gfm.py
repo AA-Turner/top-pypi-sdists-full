@@ -3,17 +3,19 @@ See COPYRIGHT.md for copyright information.
 """
 from __future__ import annotations
 
+import contextlib
 from collections import defaultdict
 from datetime import timedelta
 from typing import Any, cast, Iterable
 
 import regex
 
-from arelle import XbrlConst, XmlUtil
+from arelle import ModelDocument, UrlUtil, XbrlConst, XmlUtil
+from arelle.HtmlUtil import attrValue
 from arelle.LinkbaseType import LinkbaseType
-from arelle.ModelDtsObject import ModelConcept
-from arelle.ModelInstanceObject import ModelFact
-from arelle.ModelObject import ModelObject
+from arelle.ModelDtsObject import ModelConcept, ModelResource
+from arelle.ModelInstanceObject import ModelFact, ModelInlineFootnote
+from arelle.ModelObject import ModelObject, ModelComment
 from arelle.ModelValue import QName
 from arelle.PrototypeDtsObject import LocPrototype, ArcPrototype
 from arelle.UrlUtil import isHttpUrl, splitDecodeFragment
@@ -22,13 +24,13 @@ from arelle.ValidateXbrlCalcs import insignificantDigits
 from arelle.XbrlConst import qnXbrlScenario, qnXbrldiExplicitMember, xhtmlBaseIdentifier, xmlBaseIdentifier
 from arelle.XmlValidate import VALID
 from arelle.typing import TypeGetText
+from arelle.utils.validate.Concepts import getExtensionConcepts
 from arelle.utils.Contexts import getDuplicateContextGroups
 from arelle.utils.PluginHooks import ValidationHook
 from arelle.utils.Units import getDuplicateUnitGroups
 from arelle.utils.validate.Decorator import validation
 from arelle.utils.validate.Validation import Validation
-from arelle.utils.validate.ValidationUtil import etreeIterWithDepth
-from ..Constants import NUMERIC_LABEL_ROLES, domainItemTypeQname
+from ..Constants import domainItemTypeQname, HALF_KANA, JAPAN_LANGUAGE_CODES, NUMERIC_LABEL_ROLES, LC3_NAME_PATTERN, STANDARD_TAXONOMY_URL_PREFIXES
 from ..DisclosureSystems import (DISCLOSURE_SYSTEM_EDINET)
 from ..PluginValidationDataExtension import PluginValidationDataExtension
 
@@ -36,6 +38,7 @@ from ..PluginValidationDataExtension import PluginValidationDataExtension
 _: TypeGetText
 
 DISALLOWED_LABEL_WHITE_SPACE_CHARACTERS = regex.compile(r'\s{2,}')
+XBRLI_IDENTIFIER_PATTERN = regex.compile(r"^[A-Z]\d{5}-\d{3}$")
 GFM_CONTEXT_DATE_PATTERN = regex.compile(r"^[12][0-9]{3}-[01][0-9]-[0-3][0-9]$")
 GFM_RECOMMENDED_NAMESPACE_PREFIXES = {
     XbrlConst.xbrli: ("xbrli",),
@@ -85,9 +88,14 @@ def rule_gfm_1_1_3(
         for elt in rootElt.iterdescendants(XbrlConst.qnLinkLinkbase.clarkNotation):
             uri = elt.attrib.get(XbrlConst.qnXsiSchemaLocation.clarkNotation)
             values.append((modelDocument, elt, uri))
+        for elt in rootElt.iterdescendants(XbrlConst.qnLinkLinkbaseRef.clarkNotation):
+            uri = elt.attrib.get(XbrlConst.qnXlinkHref.clarkNotation)
+            values.append((modelDocument, elt, uri))
     for modelDocument, elt, uri in values:
         if uri is None:
             continue
+        if uri in val.modelXbrl.urlUnloadableDocs:
+            continue  # Already blocked, error fired.
         if not isHttpUrl(uri):
             if '/' not in uri:
                 continue  # Valid relative path
@@ -115,6 +123,33 @@ def rule_gfm_1_1_3(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_gfm_1_1_6(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.1.6] Filing must have one or more submitter specific(extension) taxonomies
+    """
+    if not hasattr(val, 'hasExtensionSchema'):
+        val.hasExtensionSchema = False
+    for modelDocument in val.modelXbrl.urlDocs.values():
+        if pluginData.isExtensionUri(modelDocument.uri, val.modelXbrl) and modelDocument.type == ModelDocument.Type.SCHEMA:
+            val.hasExtensionSchema = True
+            break
+    if not val.hasExtensionSchema:
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.1.6',
+            msg=_("Filing is missing an extension taxonomy."),
+            modelObject=val.modelXbrl,
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_gfm_1_1_7(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
@@ -129,7 +164,7 @@ def rule_gfm_1_1_7(
     """
     baseElements = []
     for rootElt in val.modelXbrl.ixdsHtmlElements:
-            for uncast_elt, depth in etreeIterWithDepth(rootElt):
+            for uncast_elt in rootElt.iter():
                 elt = cast(Any, uncast_elt)
                 if elt.get(xmlBaseIdentifier) is not None:
                     baseElements.append(elt)
@@ -141,6 +176,54 @@ def rule_gfm_1_1_7(
             msg=_("Attribute xml:base must not appear in any filing document."),
             modelObject=baseElements,
         )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.1] The scheme of the entity identifier must be http://disclosure.edinet-fsa.go.jp
+    """
+    entityIdentifierValues = val.modelXbrl.entityIdentifiersInDocument()
+    for entityId in entityIdentifierValues:
+        if entityId[0] != 'http://disclosure.edinet-fsa.go.jp':
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.2.1',
+                msg=_("The scheme of the entity identifier is: '%(scheme)s' but it must be 'http://disclosure.edinet-fsa.go.jp'."),
+                scheme=entityId[0],
+                modelObject=entityId,
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_2(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.2] The entity identifier element must match the following: X00000-000
+    """
+    entityIdentifierValues = val.modelXbrl.entityIdentifiersInDocument()
+    for entityId in entityIdentifierValues:
+        if not XBRLI_IDENTIFIER_PATTERN.match(entityId[1]):
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.2.2',
+                msg=_("The entity identifier element: '%(element)s' is incorrect. It must take the form of 'X00000-000'."),
+                element=entityId[1],
+                modelObject=entityId,
+            )
 
 
 @validation(
@@ -474,7 +557,6 @@ def rule_gfm_1_2_25(
             XbrlConst.qnXbrliEndDate.clarkNotation,
             XbrlConst.qnXbrliInstant.clarkNotation
         ):
-            elt = cast(ModelObject, elt)
             dateText = XmlUtil.text(elt)
             if not GFM_CONTEXT_DATE_PATTERN.match(dateText):
                 errors.append(elt)
@@ -651,6 +733,44 @@ def rule_gfm_1_3_1(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_gfm_1_3_2(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.2] The schemaLocation attribute of the xsd:import element specifying the EDINET taxonomy does not point to a valid location.
+
+    GFM-1.3.2:  If an xsd:import element has a namespace attribute equal to a standard taxonomy
+    schema, then its schemaLocation attribute must be the standard taxonomy assigned
+    to that namespace.
+    """
+    for document in val.modelXbrl.urlDocs.values():
+        if not pluginData.isExtensionUri(document.uri, val.modelXbrl) or not document.type == ModelDocument.Type.SCHEMA:
+            continue
+        for refDoc in document.referencesDocument.values():
+            if 'import' not in refDoc.referenceTypes:
+                continue
+            namespace = refDoc.referringModelObject.attrib.get('namespace')
+            schemaLocation = refDoc.referringModelObject.attrib.get('schemaLocation')
+            if not namespace or not schemaLocation:
+                continue
+            expectedXSDLocationSet = val.disclosureSystem.standardTaxonomiesDict.get(namespace)
+            if expectedXSDLocationSet is not None and schemaLocation not in expectedXSDLocationSet:
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.3.2',
+                    msg=_("The schemaLocation attribute of the xsd:import element specifying the EDINET taxonomy does not point to a valid location. "
+                          "The schemaLocation attribute value '%(schemaLocation)s'."),
+                    schemaLocation = schemaLocation,
+                    modelObject = refDoc.referringModelObject
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_gfm_1_3_8(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
@@ -680,6 +800,167 @@ def rule_gfm_1_3_8(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_gfm_1_3_10(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.10] Remove the duplicate link:roleType element.
+    """
+    for modelRoleTypes in val.modelXbrl.roleTypes.values():
+        if modelRoleTypes and len(modelRoleTypes) > 1:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.3.10',
+                msg=_("Remove the duplicate link:roleType element. Duplicate roleURI: %(roleURI)s"),
+                roleURI=modelRoleTypes[0].roleURI,
+                modelObject=modelRoleTypes
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_11(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.11] The usedOn attribute of the extended link role should be set to include all of link:presentationLink, link:calculationLink, and link:definitionLink.
+    """
+    requiredUsedOns = {XbrlConst.qnLinkPresentationLink,
+                       XbrlConst.qnLinkCalculationLink,
+                       XbrlConst.qnLinkDefinitionLink}
+    for modelRoleTypes in val.modelXbrl.roleTypes.values():
+        if len(modelRoleTypes) > 0:
+            modelRoleType = modelRoleTypes[0]
+            usedOns = modelRoleType.usedOns
+            if not usedOns.isdisjoint(requiredUsedOns) and len(requiredUsedOns - usedOns) > 0:
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.3.11',
+                    msg=_("The usedOn attribute of the extended link role should be set to include all of link:presentationLink, link:calculationLink, and link:definitionLink. "
+                          "Extended link role roleURI: %(roleURI)s is missing %(usedOn)s."),
+                    roleURI=modelRoleType.roleURI,
+                    modelObject=modelRoleType
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_13(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.13]  Remove any leading or trailing XML whitespace and newline
+    characters from the "link:definition" of your extended link role.
+    """
+    for modelRoleTypes in val.modelXbrl.roleTypes.values():
+        if len(modelRoleTypes) > 0:
+            modelRoleType = modelRoleTypes[0]
+            if (
+                    modelRoleType.definition and modelRoleType.definitionNotStripped
+                    and modelRoleType.definition != modelRoleType.definitionNotStripped
+            ):
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.3.13',
+                    msg=_("Remove any leading or trailing XML whitespace and newline characters from "
+                          "the `link:definition` of your extended link role. Definition: %(definition)s"),
+                    definition=modelRoleTypes[0].definitionNotStripped,
+                    modelObject=modelRoleTypes[0]
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_16(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.16] Remove the duplicate link:arcroleType element.
+    """
+    for modelArcRoleTypes in val.modelXbrl.arcroleTypes.values():
+        if len(modelArcRoleTypes) > 1:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.3.16',
+                msg=_("Remove the duplicate link:arcroleType element. Duplicate arcroleURI: %(arcroleURI)s"),
+                arcroleURI=modelArcRoleTypes[0].arcroleURI,
+                modelObject=modelArcRoleTypes
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_17(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.17] Add a link:definition to the link:arcroleType element.
+    """
+    for modelArcRoleTypes in val.modelXbrl.arcroleTypes.values():
+        modelArcRoleType = modelArcRoleTypes[0]
+        if not modelArcRoleType.definition:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.3.17',
+                msg=_("Add a link:definition to the link:arcroleType element. ArcroleURI: %(arcroleURI)s"),
+                arcroleURI=modelArcRoleType.arcroleURI,
+                modelObject=modelArcRoleType
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_18(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.18] The submitter's taxonomy contains an element whose name matches an element in the EDINET taxonomy.
+    Modify the element name so that it does not match the EDINET taxonomy, or use the element in the EDINET taxonomy and delete the
+    element added in the submitter's taxonomy.
+    """
+    for extensionConcept in getExtensionConcepts(val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
+        name = extensionConcept.get("name")
+        if name is not None:
+            concepts = val.modelXbrl.nameConcepts.get(name, [])
+            for concept in concepts:
+                if not pluginData.isExtensionUri(concept.document.uri, val.modelXbrl):
+                    yield Validation.warning(
+                        codes='EDINET.EC5700W.GFM.1.3.18',
+                        msg=_("Your extension taxonomy contains an element, %(concept)s, which has the same name as an element "
+                              "in the base taxonomy, %(standardConcept)s.  Please ensure that this extension is appropriate and "
+                              "if so, please change the extension concept."),
+                        concept=name,
+                        standardConcept=concept
+                    )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_gfm_1_3_19(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
@@ -691,7 +972,7 @@ def rule_gfm_1_3_19(
     should be set in the following format:{namespace prefix}_{element name}.
     """
     improperlyFormattedIds = set()
-    for concept in pluginData.getExtensionConcepts(val.modelXbrl):
+    for concept in getExtensionConcepts(val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
         prefix = concept.qname.prefix or ""
         name = concept.qname.localName
         requiredId = f"{prefix}_{name}"
@@ -747,7 +1028,7 @@ def rule_gfm_1_3_21(
     EDINET.EC5700W: [GFM 1.3.21] Remove the tuple definition.
     """
     tupleConcepts = [
-        concept for concept in pluginData.getExtensionConcepts(val.modelXbrl)
+        concept for concept in getExtensionConcepts(val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES)
         if concept.isTuple
     ]
     if len(tupleConcepts) > 0:
@@ -772,7 +1053,7 @@ def rule_gfm_1_3_22(
     EDINET.EC5700W: [GFM 1.3.22] Do not set the xbrldt:typedDomainRef attribute on elements defined in submitter-specific taxonomies.
     """
     typedDomainConcepts = [
-        concept for concept in pluginData.getExtensionConcepts(val.modelXbrl)
+        concept for concept in getExtensionConcepts(val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES)
         if concept.isTypedDimension
     ]
 
@@ -810,6 +1091,115 @@ def rule_gfm_1_3_23(
             msg=_("Set the periodType attribute to 'duration'."),
             modelObject=instantAbstractElements
         )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_25(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.25] Correct the element name so that it does not end with "Axis", or correct the
+    substitutionGroup to "xbrldt:dimensionItem".
+
+    GFM 1.3.25: The xsd:element substitutionGroup attribute must equal "xbrldt:dimensionItem" if
+    and only if the name attribute ends with "Axis".
+    """
+    for concept in getExtensionConcepts(val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
+        if concept.qname.localName.endswith("Axis") != (concept.substitutionGroupQname == XbrlConst.qnXbrldtDimensionItem):
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.3.25',
+                msg=_("Modify the element name, '%(conceptName)s', so that it does not end with 'Axis', or modify the substitutionGroup to 'xbrldt:dimensionItem'."),
+                conceptName=concept.qname.localName,
+                modelObject=concept,
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_26(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.26] Correct the element name so that it does not end with "Table", or correct the
+    substitutionGroup to "xbrldt:hypercubeItem".
+
+    GFM 1.3.26: The xsd:element name attribute must ends with "Table" if and only if
+    substitutionGroup attribute equals "xbrldt:hypercubeItem".
+    """
+    for concept in getExtensionConcepts(val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
+        if concept.qname.localName.endswith("Table") != (concept.substitutionGroupQname == XbrlConst.qnXbrldtHypercubeItem):
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.3.26',
+                msg=_("The substitution group 'xbrldt:hypercubeItem' is only allowed with an element name that ends with 'Table'."
+                      "Please change %(conceptName)s or change the substitutionGroup."),
+                conceptName=concept.qname.localName,
+                modelObject=concept
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_28(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.28] If the element name of an element extended by a submitter-specific taxonomy ends with "LineItems",
+    set the abstract attribute to "true".
+    """
+    for concept in getExtensionConcepts(val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
+        if concept.qname.localName.endswith("LineItems") and not concept.isAbstract:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.3.28',
+                msg=_("If the element name of an element extended by a submitter-specific taxonomy ends with 'LineItems', "
+                      "set the abstract attribute to 'true'. For the element, '%(conceptName)s', the abstract attribute is 'false'."),
+                conceptName=concept.qname.localName,
+                modelObject=concept
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_3_29(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.3.29] If the element name of an element extended by the submitter-specific taxonomy ends with
+    "Domain" or "Member", please set the type attribute to "nonnum:domainItemType".
+
+    GFM 1.3.29: The xsd:element name attribute must end with "Domain" or "Member" if and only
+    if the type attribute equals "nonnum:domainItemType".
+    """
+    for concept in getExtensionConcepts(val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
+        isConceptDomain = concept.type.isDomainItemType if concept.type is not None else False
+        if ((concept.qname.localName.endswith("Domain") or concept.qname.localName.endswith("Member")) != isConceptDomain):
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.3.29',
+                msg=_("The type 'us-types:domainItemType' is only allowed with an element name that ends with 'Domain' or 'Member'. "
+                      "Please change %(conceptName)s or change the type."),
+                conceptName=concept.qname.localName,
+                modelObject=concept
+            )
 
 
 @validation(
@@ -865,6 +1255,260 @@ def rule_gfm_1_3_31(
             msg=_("Set the abstract attribute to 'true'."),
             modelObject=nonAbstractDomainElements
         )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_4_4(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.4.4] If the type attribute is "extended" or "resource", set the xlink:role attribute to the extended link role.
+
+    GFM 1.4.4: The xlink:role attribute of an element with a type="extended" attribute or a
+    type="resource" attribute must be present and must not be empty.
+    """
+    for modelDocument in val.modelXbrl.urlDocs.values():
+        if pluginData.isStandardTaxonomyUrl(modelDocument.uri, val.modelXbrl):
+            continue
+        rootElt = modelDocument.xmlRootElement
+        ns = {'xlink': 'http://www.w3.org/1999/xlink'}
+        for elt in rootElt.xpath('//*[@xlink:type="extended" or @xlink:type="resource"]', namespaces=ns):
+            xlinkRole = elt.get(XbrlConst.qnXlinkRole.clarkNotation)
+            if not xlinkRole:
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.4.4',
+                    msg=_("If the type attribute is 'extended' or 'resource', set the xlink:role attribute to the extended link role."
+                            "%(element)s is missing an xlink:role"),
+                            modelObject=elt, element=elt.qname
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_4_6(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.4.6] Please correct the value of the link:arcroleRef attribute to
+    one specified in the XBRL 2.1 specification or the EDINET taxonomy.
+    GFM 1.4.6: The text preceding a sharp sign "#" in an xlink:href attribute of link:arcroleRef must
+    be a standard taxonomy or in a file recognised in the disclosure system.
+    """
+
+    for modelDocument in val.modelXbrl.urlDocs.values():
+        if pluginData.isStandardTaxonomyUrl(modelDocument.uri, val.modelXbrl):
+            continue
+        rootElt = modelDocument.xmlRootElement
+        for elt in rootElt.iter(XbrlConst.qnLinkArcroleRef.clarkNotation):
+            refUri = elt.get("arcroleURI")
+            hrefAttr = elt.get(XbrlConst.qnXlinkHref.clarkNotation)
+            hrefUri, hrefId = UrlUtil.splitDecodeFragment(hrefAttr)
+            if hrefUri not in val.disclosureSystem.standardTaxonomiesDict:
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.4.6',
+                    msg=_("Please correct the value of the link:arcroleRef attribute to one specified in the XBRL 2.1 specification or the EDINET taxonomy."
+                          " link:arcroleRef: %(xlinkHref)s, arcrole: %(refURI)s,"),
+                    modelObject=elt,
+                    refURI=refUri,
+                    xlinkHref=hrefUri
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_4_8(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.4.8] Correct the priority attribute value so that it is less than 10.
+    """
+
+    for modelDocument in val.modelXbrl.urlDocs.values():
+        if pluginData.isStandardTaxonomyUrl(modelDocument.uri, val.modelXbrl):
+            continue
+        rootElt = modelDocument.xmlRootElement
+        ns = {'xlink': 'http://www.w3.org/1999/xlink'}
+        for elt in rootElt.xpath('//*[@xlink:type="arc"][@priority]', namespaces=ns):
+            priority = elt.get("priority")
+            with contextlib.suppress(ValueError, TypeError):
+                if int(priority) >= 10:
+                    yield Validation.warning(
+                        codes='EDINET.EC5700W.GFM.1.4.8',
+                        msg=_("Correct the priority attribute value so that it is less than 10. Arc element: %(arcName)s, priority: %(priority)s"),
+                        arcName=elt.qname,
+                        modelObject=elt,
+                        priority=priority,
+                    )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_5_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.5.1] An element used in a fact or xbrldi:explicitMember in an instance must have a Japanese
+                                language standard label in the DTS of that instance.
+    """
+    usedConcepts = pluginData.getUsedConcepts(val.modelXbrl)
+    labelRelationshipSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
+    if labelRelationshipSet is None:
+        return
+    for concept in usedConcepts:
+        labelRels = labelRelationshipSet.fromModelObject(concept)
+        labelExists = False
+        for rel in labelRels:
+            label = rel.toModelObject
+            if (label is not None and
+                    label.role == XbrlConst.standardLabel and
+                    label.xmlLang in JAPAN_LANGUAGE_CODES):
+                labelExists = True
+                break
+        if not labelExists:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.5.1',
+                msg=_("The used concept of '%(concept)s' is missing a standard label in Japanese"),
+                concept=concept.qname.localName,
+                modelObject=concept
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_5_2(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.5.2] An element used in a fact or xbrldi:explicitMember in an instance must have at most one
+                                label for any combination of the xlink:role attribute and the xml:lang attribute in the
+                                DTS of that instance.
+    """
+    usedConcepts = pluginData.getUsedConcepts(val.modelXbrl)
+    labelRelationshipSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
+    if labelRelationshipSet is None:
+        return
+    for concept in usedConcepts:
+        labelRels = labelRelationshipSet.fromModelObject(concept)
+        labelsByRoleAndLang = defaultdict(list)
+        for rel in labelRels:
+            label = rel.toModelObject
+            if label is None:
+                continue
+            labelsByRoleAndLang[(label.role, label.xmlLang)].append(label)
+        warningLabels = []
+        for key, labels in labelsByRoleAndLang.items():
+            if len(labels) > 1:
+                warningLabels.append(key)
+        if len(warningLabels) > 0:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.5.2',
+                msg=_("The used concept of '%(concept)s' has more than one label for the given role/lang pairs: %(pairs)s."),
+                concept=concept.qname.localName,
+                pairs=warningLabels,
+                modelObject=concept
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_5_3(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.5.3] If an element used in an instance is assigned a label in the DTS whose xml:lang
+                                attribute does not reflect the default language, then the DTS must also contain a
+                                link:label for the same element and all other attributes with an xml:lang attribute
+                                reflecting the default language.
+    """
+    usedConcepts = pluginData.getUsedConcepts(val.modelXbrl)
+    labelRelationshipSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
+    if labelRelationshipSet is None:
+        return
+    for concept in usedConcepts:
+        labelRels = labelRelationshipSet.fromModelObject(concept)
+        labelsByRole = defaultdict(list)
+        for rel in labelRels:
+            label = rel.toModelObject
+            if label is None:
+                continue
+            labelsByRole[label.role].append(label)
+        warningRoles = []
+        for role, labels in labelsByRole.items():
+            if len([label for label in labels if label.xmlLang in JAPAN_LANGUAGE_CODES]) == 0:
+                warningRoles.append(role)
+        if len(warningRoles) > 0:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.5.3',
+                msg=_("The used concept of '%(concept)s' is missing a label in Japanese in the following roles: %(roles)s."),
+                concept=concept.qname.localName,
+                roles=warningRoles,
+                modelObject=concept
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_5_5(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.5.5] A label linkbase must not have a documentation label for an element defined in a
+                                standard taxonomy.
+    """
+    labelRelationshipSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
+    if labelRelationshipSet is None:
+        return
+    for concept in val.modelXbrl.qnameConcepts.values():
+        if concept.namespaceURI is not None and not pluginData.isStandardTaxonomyUrl(concept.namespaceURI, val.modelXbrl):
+            continue
+        labelRels = labelRelationshipSet.fromModelObject(concept)
+        for rel in labelRels:
+            label = rel.toModelObject
+            if (label is not None and
+                    not pluginData.isStandardTaxonomyUrl(label.modelDocument.uri, val.modelXbrl) and
+                    label.role == XbrlConst.documentationLabel):
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.5.5',
+                    msg=_("The standard concept of '%(concept)s' must not have a documentation label defined."),
+                    concept=concept.qname.localName,
+                    modelObject=label
+                )
 
 
 @validation(
@@ -1188,6 +1832,53 @@ def rule_gfm_1_7_3(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_gfm_1_7_5(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.7.5] The source and target of a calculation relationship must appear in either:
+                                1) a presentation relationship within each other
+                                2) two presentation relationships with any other elements that also share the same ELR.
+    """
+    calculationRelationshipSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.CALCULATION.getArcroles()))
+    if calculationRelationshipSet is None:
+        return
+    for rel in calculationRelationshipSet.modelRelationships:
+        conceptsMissingRels = []
+        concepts = []
+        for concept in [rel.fromModelObject, rel.toModelObject]:
+            if concept is not None:
+                conceptFacts = val.modelXbrl.factsByQname.get(concept.qname, set())
+                if len([fact for fact in conceptFacts if fact.xValid >= VALID and not fact.isNil]) > 0:
+                    concepts.append(concept)
+        if len(concepts) > 0:
+            presentationRelationshipSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.PRESENTATION.getArcroles()), rel.linkrole)
+            if presentationRelationshipSet is None:
+                conceptsMissingRels.extend(concepts)
+            else:
+                for concept in concepts:
+                    if (len(presentationRelationshipSet.fromModelObject(concept)) == 0 and
+                            len(presentationRelationshipSet.toModelObject(concept)) == 0):
+                        conceptsMissingRels.append(concept)
+            if len(conceptsMissingRels) > 0:
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.1.7.5',
+                    msg=_("The concepts participating in a calculation relationship must also participate in a presentation "
+                          "relationship within the same extended link role. The concept(s) of '%(concepts)s' "
+                          "do not appear in a presentation relationship within the extended link role of '%(elr)s'."),
+                    concepts=' and '.join([concept.qname.localName for concept in conceptsMissingRels]),
+                    elr=rel.linkrole,
+                    modelObject=rel
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_gfm_1_7_6(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
@@ -1278,6 +1969,123 @@ def rule_gfm_1_8_3(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_gfm_1_8_5(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.8.5] Each ELR can have at most one effective arc with the role of http://xbrl.org/int/dim/arcrole/all.
+    """
+    dimensionAllRelationshipSet = val.modelXbrl.relationshipSet(XbrlConst.all)
+    if dimensionAllRelationshipSet is None:
+        return
+    relsByLinkrole = defaultdict(list)
+    for rel in dimensionAllRelationshipSet.modelRelationships:
+        relsByLinkrole[rel.linkrole].append(rel)
+    for linkrole, rels in relsByLinkrole.items():
+        if len(rels) > 1:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.8.5',
+                msg=_("The extended link role of '%(elr)s' has more than one effective arc with the role of 'http://xbrl.org/int/dim/arcrole/all'"),
+                elr=linkrole,
+                modelObject=rels
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_8_9(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.8.9] Each ELR can have at most one effective arc with the role of http://xbrl.org/int/dim/arcrole/all.
+
+    GFM 1.8.9:  If the value of attribute xbrldt:targetRole on an effective definition relationship is
+    not empty, then that relationship must have at least one effective consecutive
+    relationship (as defined by the XBRL Dimensions 1.0 specification).
+    """
+    drsELRs = set()
+    for baseSetKey, baseSetModelLinks  in val.modelXbrl.baseSets.items():
+        arcrole, elr, linkqname, arcqname = baseSetKey
+        if elr and linkqname and arcqname and not arcrole.startswith("XBRL-"):
+            if arcrole == XbrlConst.all or arcrole == XbrlConst.notAll:
+                drsELRs.add(elr)
+    for ELR in drsELRs:
+        domainMemberRelationshipSet = val.modelXbrl.relationshipSet( XbrlConst.domainMember, ELR)
+        primaryItems = set()
+        for hypercubeArcrole in (XbrlConst.all, XbrlConst.notAll):
+            hypercubeRelationships = val.modelXbrl.relationshipSet(
+                hypercubeArcrole, ELR).fromModelObjects()
+            for hypercubeRels in hypercubeRelationships.values():
+                for hypercubeRel in hypercubeRels:
+                    hypercube = hypercubeRel.toModelObject
+                    fromConcept = hypercubeRel.fromModelObject
+                    primaryItems.add(fromConcept)
+                    toConcept = hypercubeRel.toModelObject
+                    dimELR = hypercubeRel.targetRole
+                    dimTargetRequired = (dimELR is not None)
+                    if not dimELR:
+                        dimELR = elr
+                    hypercubeDimRels = val.modelXbrl.relationshipSet(XbrlConst.hypercubeDimension, dimELR).fromModelObject(toConcept)
+                    if dimTargetRequired and len(hypercubeDimRels) == 0:
+                        yield Validation.warning(
+                            codes='EDINET.EC5700W.GFM.1.8.9',
+                            msg=_("Add the arc related to the xbrldt:targetRole attribute or remove the attribute. "
+                                  "Arcrole %(arcroleURI)s from %(fromConcept)s to %(toConcept)s."),
+                            modelObject=hypercubeRel,
+                            arcroleURI=hypercubeRel.arcrole,
+                            fromConcept=fromConcept.qname,
+                            toConcept=toConcept.qname,
+                        )
+                    for hypercubeDimRel in hypercubeDimRels:
+                        dim = hypercubeDimRel.toModelObject
+                        if not isinstance(dim, ModelConcept):
+                            continue
+                        domELR = hypercubeDimRel.targetRole
+                        domTargetRequired = (domELR is not None)
+                        if not domELR and dim.isExplicitDimension:
+                            domELR = dimELR
+                        dimDomRels = val.modelXbrl.relationshipSet(XbrlConst.dimensionDomain, domELR).fromModelObject(dim)
+                        if domTargetRequired and len(dimDomRels) == 0:
+                            yield Validation.warning(
+                                codes='EDINET.EC5700W.GFM.1.8.9',
+                                msg=_("Add the arc related to the xbrldt:targetRole attribute or remove the attribute. "
+                                      "Arcrole %(arcroleURI)s from %(fromConcept)s to %(toConcept)s."),
+                                modelObject=hypercubeDimRel,
+                                arcroleURI=hypercubeRel.arcrole,
+                                fromConcept=hypercube.qname,
+                                toConcept=dim.qname,
+                                )
+                    fromRelationships = domainMemberRelationshipSet.fromModelObjects()
+                    for relFrom, rels in fromRelationships.items():
+                        for rel in rels:
+                            fromMbr = rel.fromModelObject
+                            toMbr = rel.toModelObject
+                            toELR = rel.targetRole
+                            if isinstance(toMbr, ModelConcept) and toELR and len(
+                                    val.modelXbrl.relationshipSet(XbrlConst.domainMember, toELR).fromModelObject(toMbr)) == 0:
+                                        yield Validation.warning(
+                                            codes='EDINET.EC5700W.GFM.1.8.9',
+                                            msg=_("Add the arc related to the xbrldt:targetRole attribute or remove the attribute. "
+                                                      "Arcrole %(arcroleURI)s from %(fromConcept)s to %(toConcept)s."),
+                                            modelObject=rel,
+                                            arcroleURI=hypercubeRel.arcrole,
+                                            fromConcept=toMbr.qname,
+                                            toConcept=fromMbr.qname,
+                                        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_gfm_1_8_10(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
@@ -1333,3 +2141,342 @@ def rule_gfm_1_8_11(
                 msg=_("The definition relationship can not have the xbrldt:usable attribute set to False"),
                 modelObject=rel
             )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_9_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.9.1] References should not be defined for extension concepts.
+    """
+    conceptReferenceSet = val.modelXbrl.relationshipSet(XbrlConst.conceptReference)
+    for modelConcept in conceptReferenceSet.fromModelObjects():
+        if not isinstance(modelConcept, ModelConcept):
+            continue
+        if modelConcept.qname is None or modelConcept.qname.namespaceURI is None:
+            continue
+        if pluginData.isExtensionUri(modelConcept.document.uri, val.modelXbrl):
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.9.1',
+                msg=_("References should not be defined for extension concepts: %(conceptName)s"),
+                conceptName=modelConcept.qname,
+                modelObject=modelConcept
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_10_3(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.10.3] The Inline XBRL document must contain all necessary namespace declarations including
+    those for QName values of attributes. These namespace declarations must be on the root html element.
+    """
+    for ixdsHtmlRootElt in val.modelXbrl.ixdsHtmlElements:
+        for elt in ixdsHtmlRootElt.iterdescendants():
+            if not isinstance(elt, ModelObject):
+                continue
+            parent = elt.getparent()
+            if parent is None or elt.nsmap == parent.nsmap:
+                continue
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.10.3',
+                msg=_('The Inline XBRL document must contain all necessary namespace declarations on the root html '
+                      'element. Found namespace declaration on descendant element %(elementName)s.'),
+                elementName=elt.tag,
+                modelObject=elt
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_charsets(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC1010E: The charset specification in the content attribute of the HTML <meta> tag must be UTF-8.
+    EDINET.EC5000E: The encoding of the file must be UTF-8.
+    EDINET.EC5003E: Prohibited characters must not be used.
+    EDINET.EC5700W: [GFM 1.10.4] The document encoding must be set in both the XML document declaration and the HTML
+    meta element for content type.
+    """
+    for modelDocument in val.modelXbrl.urlDocs.values():
+        if pluginData.isStandardTaxonomyUrl(modelDocument.uri, val.modelXbrl):
+            continue
+
+        if modelDocument.type != ModelDocument.Type.INLINEXBRLDOCUMENTSET:
+            if modelDocument.documentEncoding is None or modelDocument.documentEncoding.lower() not in ('utf-8', 'utf-8-sig'):
+                yield Validation.error(
+                    codes='EDINET.EC5000E',
+                    msg=_("The encoding is not UTF-8. "
+                          "File name: '%(path)s'. "
+                          "Please change the encoding of the relevant file to UTF-8."),
+                    path=modelDocument.uri,
+                    modelObject=modelDocument,
+                )
+
+        # TODO: Consolidate wtih NL.FR-NL-1.02
+        for elt in modelDocument.xmlRootElement.iter():
+            if isinstance(elt, ModelComment):
+                texts = [getattr(elt, 'text')]
+            else:
+                texts = [elt.elementAttributesStr, elt.textValue]
+            illegalChars: set[str] = set()
+            for text in texts:
+                illegalChars.update(HALF_KANA.intersection(set(text)))
+            if len(illegalChars) > 0:
+                yield Validation.error(
+                    codes='EDINET.EC5003E',
+                    msg=_("Prohibited characters (%(chars)s) are used. "
+                          "File name: '%(file)s' (line %(line)s). "
+                          "The file in question contains prohibited characters. "
+                          "Please correct the prohibited characters. "),
+                    chars=', '.join(sorted(illegalChars)),
+                    file=modelDocument.basename,
+                    line=elt.sourceline,
+                    modelObject=elt,
+                )
+
+        if modelDocument.type != ModelDocument.Type.INLINEXBRL:
+            continue
+
+        xmlDeclaredEncoding = None
+        try:
+            with val.modelXbrl.fileSource.file(modelDocument.filepath)[0] as f:
+                fileContent = cast(str, f.read(512))
+            match = XmlUtil.xmlEncodingPattern.match(fileContent)
+            if match:
+                xmlDeclaredEncoding = match.group(1)
+        except Exception:
+            pass
+
+        if xmlDeclaredEncoding is None:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.10.4',
+                msg=_("The document encoding must be declared in an XML document declaration"),
+                modelObject=modelDocument
+            )
+
+        metaCharsetDeclared = False
+        for metaElt in modelDocument.xmlRootElement.iterdescendants(tag=XbrlConst.qnXhtmlMeta.clarkNotation):
+            metaCharset = None
+            httpEquiv = metaElt.get("http-equiv", "").lower()
+            if httpEquiv == "content-type":
+                content = metaElt.get("content")
+                if content:
+                    metaCharset = attrValue(content)
+            if metaCharset is not None:
+                metaCharsetDeclared = True
+                if xmlDeclaredEncoding is not None and metaCharset.lower() != xmlDeclaredEncoding.lower():
+                    yield Validation.warning(
+                        codes='EDINET.EC5700W.GFM.1.10.4',
+                        msg=_("The XML declaration encoding '%(xmlEncoding)s' does not match the HTML meta charset '%(metaCharset)s'"),
+                        xmlEncoding=xmlDeclaredEncoding,
+                        metaCharset=metaCharset,
+                        modelObject=metaElt
+                    )
+                if metaCharset.lower() != 'utf-8':
+                    yield Validation.error(
+                        codes='EDINET.EC1010E',
+                        msg=_("The charset specification in the content attribute of the HTML <meta> tag is not UTF-8. "
+                            "File name: '%(path)s'. "
+                            "Please set the character code of the file to UTF-8."),
+                        path=modelDocument.uri,
+                        modelObject=metaElt,
+                    )
+
+        if not metaCharsetDeclared:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.10.4',
+                msg=_("The document encoding must be declared in an HTML meta element charset"),
+                modelObject=modelDocument
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_10_12(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.10.12] In all inline XBRL files, multiple target attribute values ​​are not allowed.
+    Correct the target attribute value. (A warning will be issued if the target attribute is not specified and is
+    specified at the same time.)
+    """
+    targets: set[str | None] = set()
+    for ixdsHtmlRootElt in val.modelXbrl.ixdsHtmlElements:
+        targetEltTags = [qname.clarkNotation for qname in XbrlConst.ixbrlAllTargetElements]
+        for elt in ixdsHtmlRootElt.iter(targetEltTags):
+            targets.add(elt.get("target"))
+    if len(targets) > 1:
+        if None in targets:
+            msg = _("Inline document set may not use multiple target documents. Found targets: default, %(targets)s")
+        else:
+            msg = _("Inline document set may not use multiple target documents. Found targets: %(targets)s")
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.10.12',
+            msg=msg,
+            targets=",".join(target for target in targets if target is not None),
+            modelObject=val.modelXbrl,
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_10_14(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.10.14] All non-empty footnotes must be referenced by an element
+    """
+    footnotes = set()
+    usedFootnoteIDs = set()
+    for ixdsHtmlRootElt in val.modelXbrl.ixdsHtmlElements:
+        for elt in ixdsHtmlRootElt.iterdescendants(XbrlConst.qnIXbrlFootnote.clarkNotation, XbrlConst.qnIXbrl11Footnote.clarkNotation):
+            if isinstance(elt, ModelInlineFootnote) and elt.value != '':
+                footnotes.add(elt)
+    for rel in val.modelXbrl.relationshipSet("XBRL-footnotes").modelRelationships:
+        if rel.fromModelObject is not None and rel.toModelObject is not None:
+            usedFootnoteIDs.add(rel.toModelObject.footnoteID)
+    for footnote in footnotes:
+        if footnote.footnoteID not in usedFootnoteIDs:
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.10.14',
+                msg=_("A non-empty footnote is not referenced by an element"),
+                modelObject=footnote
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_2_3_5(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 2.3.5] The name attribute of an xsd:element should consist of
+    capitalized words corresponding to the standard label, a convention called Label
+    Camel Case Concatenation (LC3).
+    1. The first character of a name attribute must not be underscore.
+    2. The first character of a name attribute must be capitalized.
+    3. The following characters are not allowed in a name attribute:
+        ()*+[]?\\/^{}|@#%^=~`“‘;:,<>&$₤€
+    4. Do not use digits in the name attribute unless the element is
+        being declared specifically because it must identify a regulation
+        known by a number (“12b-1 Fees”, “FAS 132”). Always begin the name
+        with a letter (e.g., “Rule12b1Fees”) and conform to LC3 (e.g., “Fas132”).
+    5. Convert acronyms to Proper case (e.g., FAS becomes Fas, FHLC becomes
+        Fhlc). Treat digits in an acronym as word separators (e.g., WIN2K becomes Win2K).
+
+    Note: "corresponding to the standard label" is not enforceable, this implementation
+    only checks the LC3 formatting rules. Similarly, rule 4 and 5 are not enforced here.
+    """
+    for name, concepts in val.modelXbrl.nameConcepts.items():
+        for concept in concepts:
+            if pluginData.isStandardTaxonomyUrl(concept.modelDocument.uri, val.modelXbrl):
+                continue
+            if not LC3_NAME_PATTERN.fullmatch(name):
+                yield Validation.warning(
+                    codes='EDINET.EC5700W.GFM.2.3.5',
+                    msg=_("Element names should be set using capitalized words "
+                          "(LC3 conversion rules) that correspond to standard labels."),
+                    modelObject=concept
+                )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_2_5_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 2.5.1] A presentation linkbase of a standard taxonomy should not be included in the DTS of an instance.
+    """
+    for elt in pluginData.getStandardTaxonomyExtensionLinks(LinkbaseType.PRESENTATION, val.modelXbrl):
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.2.5.1',
+            msg=_("A presentation linkbase from the standard taxonomy file of '%(uri)s' is not allowed."),
+            uri=elt.attr(XbrlConst.qnXlinkHref.clarkNotation),
+            modelObject=elt
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_2_6_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 2.6.1] A calculation linkbase of a standard taxonomy should not be included in the DTS of an instance.
+    """
+    for elt in pluginData.getStandardTaxonomyExtensionLinks(LinkbaseType.CALCULATION, val.modelXbrl):
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.2.6.1',
+            msg=_("A calculation linkbase from the standard taxonomy file of '%(uri)s' is not allowed."),
+            uri=elt.attr(XbrlConst.qnXlinkHref.clarkNotation),
+            modelObject=elt
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_2_8_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 2.8.1] A reference linkbase of a standard taxonomy should not be included in the DTS of an instance.
+    """
+    for elt in pluginData.getStandardTaxonomyExtensionLinks(LinkbaseType.REFERENCE, val.modelXbrl):
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.2.8.1',
+            msg=_("A reference linkbase from the standard taxonomy file of '%(uri)s' is not allowed."),
+            uri=elt.attr(XbrlConst.qnXlinkHref.clarkNotation),
+            modelObject=elt
+        )

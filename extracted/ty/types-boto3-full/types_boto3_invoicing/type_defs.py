@@ -3,7 +3,7 @@ Type annotations for invoicing service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_invoicing/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,21 +17,25 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
-from .literals import InvoiceTypeType, ListInvoiceSummariesResourceTypeType
+from .literals import (
+    ConnectionTestingMethodType,
+    EinvoiceDeliveryAttachmentTypeType,
+    EinvoiceDeliveryDocumentTypeType,
+    InvoiceTypeType,
+    ListInvoiceSummariesResourceTypeType,
+    ProcurementPortalNameType,
+    ProcurementPortalPreferenceStatusType,
+    PurchaseOrderDataSourceTypeType,
+)
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 
 __all__ = (
@@ -39,21 +43,34 @@ __all__ = (
     "BatchGetInvoiceProfileRequestTypeDef",
     "BatchGetInvoiceProfileResponseTypeDef",
     "BillingPeriodTypeDef",
+    "ContactTypeDef",
     "CreateInvoiceUnitRequestTypeDef",
     "CreateInvoiceUnitResponseTypeDef",
+    "CreateProcurementPortalPreferenceRequestTypeDef",
+    "CreateProcurementPortalPreferenceResponseTypeDef",
     "CurrencyExchangeDetailsTypeDef",
     "DateIntervalTypeDef",
     "DeleteInvoiceUnitRequestTypeDef",
     "DeleteInvoiceUnitResponseTypeDef",
+    "DeleteProcurementPortalPreferenceRequestTypeDef",
+    "DeleteProcurementPortalPreferenceResponseTypeDef",
     "DiscountsBreakdownAmountTypeDef",
     "DiscountsBreakdownTypeDef",
+    "EinvoiceDeliveryPreferenceOutputTypeDef",
+    "EinvoiceDeliveryPreferenceTypeDef",
+    "EinvoiceDeliveryPreferenceUnionTypeDef",
     "EntityTypeDef",
     "FeesBreakdownAmountTypeDef",
     "FeesBreakdownTypeDef",
     "FiltersTypeDef",
+    "GetInvoicePDFRequestTypeDef",
+    "GetInvoicePDFResponseTypeDef",
     "GetInvoiceUnitRequestTypeDef",
     "GetInvoiceUnitResponseTypeDef",
+    "GetProcurementPortalPreferenceRequestTypeDef",
+    "GetProcurementPortalPreferenceResponseTypeDef",
     "InvoiceCurrencyAmountTypeDef",
+    "InvoicePDFTypeDef",
     "InvoiceProfileTypeDef",
     "InvoiceSummariesFilterTypeDef",
     "InvoiceSummariesSelectorTypeDef",
@@ -68,19 +85,35 @@ __all__ = (
     "ListInvoiceUnitsRequestPaginateTypeDef",
     "ListInvoiceUnitsRequestTypeDef",
     "ListInvoiceUnitsResponseTypeDef",
+    "ListProcurementPortalPreferencesRequestPaginateTypeDef",
+    "ListProcurementPortalPreferencesRequestTypeDef",
+    "ListProcurementPortalPreferencesResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "PaginatorConfigTypeDef",
+    "ProcurementPortalPreferenceSelectorOutputTypeDef",
+    "ProcurementPortalPreferenceSelectorTypeDef",
+    "ProcurementPortalPreferenceSelectorUnionTypeDef",
+    "ProcurementPortalPreferenceSummaryTypeDef",
+    "ProcurementPortalPreferenceTypeDef",
+    "PurchaseOrderDataSourceTypeDef",
+    "PutProcurementPortalPreferenceRequestTypeDef",
+    "PutProcurementPortalPreferenceResponseTypeDef",
     "ReceiverAddressTypeDef",
     "ResourceTagTypeDef",
     "ResponseMetadataTypeDef",
+    "SupplementalDocumentTypeDef",
     "TagResourceRequestTypeDef",
     "TaxesBreakdownAmountTypeDef",
     "TaxesBreakdownTypeDef",
+    "TestEnvPreferenceInputTypeDef",
+    "TestEnvPreferenceTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateInvoiceUnitRequestTypeDef",
     "UpdateInvoiceUnitResponseTypeDef",
+    "UpdateProcurementPortalPreferenceStatusRequestTypeDef",
+    "UpdateProcurementPortalPreferenceStatusResponseTypeDef",
 )
 
 
@@ -91,7 +124,7 @@ class BatchGetInvoiceProfileRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -101,9 +134,23 @@ class BillingPeriodTypeDef(TypedDict):
     Year: int
 
 
+class ContactTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Email: NotRequired[str]
+
+
 class ResourceTagTypeDef(TypedDict):
     Key: str
     Value: str
+
+
+class TestEnvPreferenceInputTypeDef(TypedDict):
+    BuyerDomain: Literal["NetworkID"]
+    BuyerIdentifier: str
+    SupplierDomain: Literal["NetworkID"]
+    SupplierIdentifier: str
+    ProcurementPortalSharedSecret: NotRequired[str]
+    ProcurementPortalInstanceEndpoint: NotRequired[str]
 
 
 class CurrencyExchangeDetailsTypeDef(TypedDict):
@@ -119,10 +166,19 @@ class DeleteInvoiceUnitRequestTypeDef(TypedDict):
     InvoiceUnitArn: str
 
 
+class DeleteProcurementPortalPreferenceRequestTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+
+
 class DiscountsBreakdownAmountTypeDef(TypedDict):
     Description: NotRequired[str]
     Amount: NotRequired[str]
     Rate: NotRequired[str]
+
+
+class PurchaseOrderDataSourceTypeDef(TypedDict):
+    EinvoiceDeliveryDocumentType: NotRequired[EinvoiceDeliveryDocumentTypeType]
+    PurchaseOrderDataSourceType: NotRequired[PurchaseOrderDataSourceTypeType]
 
 
 class EntityTypeDef(TypedDict):
@@ -139,10 +195,25 @@ class FiltersTypeDef(TypedDict):
     Names: NotRequired[Sequence[str]]
     InvoiceReceivers: NotRequired[Sequence[str]]
     Accounts: NotRequired[Sequence[str]]
+    BillSourceAccounts: NotRequired[Sequence[str]]
+
+
+class GetInvoicePDFRequestTypeDef(TypedDict):
+    InvoiceId: str
 
 
 class InvoiceUnitRuleOutputTypeDef(TypedDict):
-    LinkedAccounts: NotRequired[List[str]]
+    LinkedAccounts: NotRequired[list[str]]
+    BillSourceAccounts: NotRequired[list[str]]
+
+
+class GetProcurementPortalPreferenceRequestTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+
+
+class SupplementalDocumentTypeDef(TypedDict):
+    DocumentUrl: NotRequired[str]
+    DocumentUrlExpirationDate: NotRequired[datetime]
 
 
 class ReceiverAddressTypeDef(TypedDict):
@@ -164,6 +235,7 @@ class InvoiceSummariesSelectorTypeDef(TypedDict):
 
 class InvoiceUnitRuleTypeDef(TypedDict):
     LinkedAccounts: NotRequired[Sequence[str]]
+    BillSourceAccounts: NotRequired[Sequence[str]]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -172,8 +244,33 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 
+class ListProcurementPortalPreferencesRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
+
+
+class ProcurementPortalPreferenceSelectorOutputTypeDef(TypedDict):
+    InvoiceUnitArns: NotRequired[list[str]]
+    SellerOfRecords: NotRequired[list[str]]
+
+
+class ProcurementPortalPreferenceSelectorTypeDef(TypedDict):
+    InvoiceUnitArns: NotRequired[Sequence[str]]
+    SellerOfRecords: NotRequired[Sequence[str]]
+
+
+class TestEnvPreferenceTypeDef(TypedDict):
+    BuyerDomain: Literal["NetworkID"]
+    BuyerIdentifier: str
+    SupplierDomain: Literal["NetworkID"]
+    SupplierIdentifier: str
+    ProcurementPortalSharedSecret: NotRequired[str]
+    ProcurementPortalInstanceEndpoint: NotRequired[str]
+    PurchaseOrderRetrievalEndpoint: NotRequired[str]
 
 
 class TaxesBreakdownAmountTypeDef(TypedDict):
@@ -187,8 +284,21 @@ class UntagResourceRequestTypeDef(TypedDict):
     ResourceTagKeys: Sequence[str]
 
 
+class UpdateProcurementPortalPreferenceStatusRequestTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+    EinvoiceDeliveryPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
+    EinvoiceDeliveryPreferenceStatusReason: NotRequired[str]
+    PurchaseOrderRetrievalPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
+    PurchaseOrderRetrievalPreferenceStatusReason: NotRequired[str]
+
+
 class CreateInvoiceUnitResponseTypeDef(TypedDict):
     InvoiceUnitArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateProcurementPortalPreferenceResponseTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -197,13 +307,28 @@ class DeleteInvoiceUnitResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteProcurementPortalPreferenceResponseTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutProcurementPortalPreferenceResponseTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateInvoiceUnitResponseTypeDef(TypedDict):
     InvoiceUnitArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateProcurementPortalPreferenceStatusResponseTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    ResourceTags: List[ResourceTagTypeDef]
+    ResourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -223,12 +348,38 @@ class GetInvoiceUnitRequestTypeDef(TypedDict):
 
 
 class DiscountsBreakdownTypeDef(TypedDict):
-    Breakdown: NotRequired[List[DiscountsBreakdownAmountTypeDef]]
+    Breakdown: NotRequired[list[DiscountsBreakdownAmountTypeDef]]
     TotalAmount: NotRequired[str]
 
 
+EinvoiceDeliveryPreferenceOutputTypeDef = TypedDict(
+    "EinvoiceDeliveryPreferenceOutputTypeDef",
+    {
+        "EinvoiceDeliveryDocumentTypes": list[EinvoiceDeliveryDocumentTypeType],
+        "Protocol": Literal["CXML"],
+        "PurchaseOrderDataSources": list[PurchaseOrderDataSourceTypeDef],
+        "ConnectionTestingMethod": ConnectionTestingMethodType,
+        "EinvoiceDeliveryActivationDate": datetime,
+        "EinvoiceDeliveryAttachmentTypes": NotRequired[list[EinvoiceDeliveryAttachmentTypeType]],
+    },
+)
+EinvoiceDeliveryPreferenceTypeDef = TypedDict(
+    "EinvoiceDeliveryPreferenceTypeDef",
+    {
+        "EinvoiceDeliveryDocumentTypes": Sequence[EinvoiceDeliveryDocumentTypeType],
+        "Protocol": Literal["CXML"],
+        "PurchaseOrderDataSources": Sequence[PurchaseOrderDataSourceTypeDef],
+        "ConnectionTestingMethod": ConnectionTestingMethodType,
+        "EinvoiceDeliveryActivationDate": TimestampTypeDef,
+        "EinvoiceDeliveryAttachmentTypes": NotRequired[
+            Sequence[EinvoiceDeliveryAttachmentTypeType]
+        ],
+    },
+)
+
+
 class FeesBreakdownTypeDef(TypedDict):
-    Breakdown: NotRequired[List[FeesBreakdownAmountTypeDef]]
+    Breakdown: NotRequired[list[FeesBreakdownAmountTypeDef]]
     TotalAmount: NotRequired[str]
 
 
@@ -260,6 +411,13 @@ class InvoiceUnitTypeDef(TypedDict):
     LastModified: NotRequired[datetime]
 
 
+class InvoicePDFTypeDef(TypedDict):
+    InvoiceId: NotRequired[str]
+    DocumentUrl: NotRequired[str]
+    DocumentUrlExpirationDate: NotRequired[datetime]
+    SupplementalDocuments: NotRequired[list[SupplementalDocumentTypeDef]]
+
+
 class InvoiceProfileTypeDef(TypedDict):
     AccountId: NotRequired[str]
     ReceiverName: NotRequired[str]
@@ -278,8 +436,37 @@ class ListInvoiceUnitsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListProcurementPortalPreferencesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ProcurementPortalPreferenceSummaryTypeDef(TypedDict):
+    AwsAccountId: str
+    ProcurementPortalPreferenceArn: str
+    ProcurementPortalName: ProcurementPortalNameType
+    BuyerDomain: Literal["NetworkID"]
+    BuyerIdentifier: str
+    SupplierDomain: Literal["NetworkID"]
+    SupplierIdentifier: str
+    EinvoiceDeliveryEnabled: bool
+    PurchaseOrderRetrievalEnabled: bool
+    Version: int
+    CreateDate: datetime
+    LastUpdateDate: datetime
+    Selector: NotRequired[ProcurementPortalPreferenceSelectorOutputTypeDef]
+    EinvoiceDeliveryPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
+    EinvoiceDeliveryPreferenceStatusReason: NotRequired[str]
+    PurchaseOrderRetrievalPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
+    PurchaseOrderRetrievalPreferenceStatusReason: NotRequired[str]
+
+
+ProcurementPortalPreferenceSelectorUnionTypeDef = Union[
+    ProcurementPortalPreferenceSelectorTypeDef, ProcurementPortalPreferenceSelectorOutputTypeDef
+]
+
+
 class TaxesBreakdownTypeDef(TypedDict):
-    Breakdown: NotRequired[List[TaxesBreakdownAmountTypeDef]]
+    Breakdown: NotRequired[list[TaxesBreakdownAmountTypeDef]]
     TotalAmount: NotRequired[str]
 
 
@@ -289,14 +476,50 @@ class InvoiceSummariesFilterTypeDef(TypedDict):
     InvoicingEntity: NotRequired[str]
 
 
+class ProcurementPortalPreferenceTypeDef(TypedDict):
+    AwsAccountId: str
+    ProcurementPortalPreferenceArn: str
+    ProcurementPortalName: ProcurementPortalNameType
+    BuyerDomain: Literal["NetworkID"]
+    BuyerIdentifier: str
+    SupplierDomain: Literal["NetworkID"]
+    SupplierIdentifier: str
+    EinvoiceDeliveryEnabled: bool
+    PurchaseOrderRetrievalEnabled: bool
+    Version: int
+    CreateDate: datetime
+    LastUpdateDate: datetime
+    Selector: NotRequired[ProcurementPortalPreferenceSelectorOutputTypeDef]
+    ProcurementPortalSharedSecret: NotRequired[str]
+    ProcurementPortalInstanceEndpoint: NotRequired[str]
+    PurchaseOrderRetrievalEndpoint: NotRequired[str]
+    TestEnvPreference: NotRequired[TestEnvPreferenceTypeDef]
+    EinvoiceDeliveryPreference: NotRequired[EinvoiceDeliveryPreferenceOutputTypeDef]
+    Contacts: NotRequired[list[ContactTypeDef]]
+    EinvoiceDeliveryPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
+    EinvoiceDeliveryPreferenceStatusReason: NotRequired[str]
+    PurchaseOrderRetrievalPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
+    PurchaseOrderRetrievalPreferenceStatusReason: NotRequired[str]
+
+
+EinvoiceDeliveryPreferenceUnionTypeDef = Union[
+    EinvoiceDeliveryPreferenceTypeDef, EinvoiceDeliveryPreferenceOutputTypeDef
+]
+
+
 class ListInvoiceUnitsResponseTypeDef(TypedDict):
-    InvoiceUnits: List[InvoiceUnitTypeDef]
+    InvoiceUnits: list[InvoiceUnitTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
+class GetInvoicePDFResponseTypeDef(TypedDict):
+    InvoicePDF: InvoicePDFTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class BatchGetInvoiceProfileResponseTypeDef(TypedDict):
-    Profiles: List[InvoiceProfileTypeDef]
+    Profiles: list[InvoiceProfileTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -314,6 +537,12 @@ class UpdateInvoiceUnitRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     TaxInheritanceDisabled: NotRequired[bool]
     Rule: NotRequired[InvoiceUnitRuleUnionTypeDef]
+
+
+class ListProcurementPortalPreferencesResponseTypeDef(TypedDict):
+    ProcurementPortalPreferences: list[ProcurementPortalPreferenceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class AmountBreakdownTypeDef(TypedDict):
@@ -334,6 +563,41 @@ class ListInvoiceSummariesRequestTypeDef(TypedDict):
     Filter: NotRequired[InvoiceSummariesFilterTypeDef]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class GetProcurementPortalPreferenceResponseTypeDef(TypedDict):
+    ProcurementPortalPreference: ProcurementPortalPreferenceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateProcurementPortalPreferenceRequestTypeDef(TypedDict):
+    ProcurementPortalName: ProcurementPortalNameType
+    BuyerDomain: Literal["NetworkID"]
+    BuyerIdentifier: str
+    SupplierDomain: Literal["NetworkID"]
+    SupplierIdentifier: str
+    EinvoiceDeliveryEnabled: bool
+    PurchaseOrderRetrievalEnabled: bool
+    Contacts: Sequence[ContactTypeDef]
+    Selector: NotRequired[ProcurementPortalPreferenceSelectorUnionTypeDef]
+    ProcurementPortalSharedSecret: NotRequired[str]
+    ProcurementPortalInstanceEndpoint: NotRequired[str]
+    TestEnvPreference: NotRequired[TestEnvPreferenceInputTypeDef]
+    EinvoiceDeliveryPreference: NotRequired[EinvoiceDeliveryPreferenceUnionTypeDef]
+    ResourceTags: NotRequired[Sequence[ResourceTagTypeDef]]
+    ClientToken: NotRequired[str]
+
+
+class PutProcurementPortalPreferenceRequestTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+    EinvoiceDeliveryEnabled: bool
+    PurchaseOrderRetrievalEnabled: bool
+    Contacts: Sequence[ContactTypeDef]
+    Selector: NotRequired[ProcurementPortalPreferenceSelectorUnionTypeDef]
+    ProcurementPortalSharedSecret: NotRequired[str]
+    ProcurementPortalInstanceEndpoint: NotRequired[str]
+    TestEnvPreference: NotRequired[TestEnvPreferenceInputTypeDef]
+    EinvoiceDeliveryPreference: NotRequired[EinvoiceDeliveryPreferenceUnionTypeDef]
 
 
 class InvoiceCurrencyAmountTypeDef(TypedDict):
@@ -360,6 +624,6 @@ class InvoiceSummaryTypeDef(TypedDict):
 
 
 class ListInvoiceSummariesResponseTypeDef(TypedDict):
-    InvoiceSummaries: List[InvoiceSummaryTypeDef]
+    InvoiceSummaries: list[InvoiceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

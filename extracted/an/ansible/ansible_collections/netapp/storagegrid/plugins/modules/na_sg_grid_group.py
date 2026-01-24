@@ -59,6 +59,8 @@ options:
           - Group members can have permission to acknowledge alarms.
           required: false
           type: bool
+          aliases:
+          - alarm_acknowledgment
       other_grid_configuration:
           description:
           - Need to investigate.
@@ -89,11 +91,6 @@ options:
           - Users in this group will have permissions to query metrics on StorageGRID.
           required: false
           type: bool
-      activate_features:
-          description:
-          - Users in this group will have permissions to reactivate features.
-          required: false
-          type: bool
       ilm:
           description:
           - Users in this group will have permissions to manage ILM rules on StorageGRID.
@@ -109,6 +106,18 @@ options:
           - Users in this group will have root access.
           required: false
           type: bool
+      manage_alerts:
+          description:
+          - Users in this group will have the ability to manage silences, alert notifications, and alert rules.
+          required: false
+          type: bool
+          version_added: 21.16.0
+      storage_admin:
+          description:
+          - Users in this group will have the ability to view and update settings in E-Series SANtricity System Manager from StorageGRID.
+          required: false
+          type: bool
+          version_added: 21.16.0
 """
 
 EXAMPLES = """
@@ -121,9 +130,9 @@ EXAMPLES = """
     display_name: ansiblegroup100
     unique_name: group/ansiblegroup100
     management_policy:
-    tenant_accounts: true
-    maintenance: true
-    root_access: false
+      tenant_accounts: true
+      maintenance: true
+      root_access: false
 """
 
 RETURN = """
@@ -187,33 +196,36 @@ class SgGridGroup(object):
                     required=False,
                     type="dict",
                     options=dict(
-                        alarm_acknowledgement=dict(required=False, type="bool"),
+                        alarm_acknowledgement=dict(required=False, type="bool", aliases=["alarm_acknowledgment"]),
                         other_grid_configuration=dict(required=False, type="bool"),
                         grid_topology_page_configuration=dict(required=False, type="bool"),
                         tenant_accounts=dict(required=False, type="bool"),
                         change_tenant_root_password=dict(required=False, type="bool"),
                         maintenance=dict(required=False, type="bool"),
                         metrics_query=dict(required=False, type="bool"),
-                        activate_features=dict(required=False, type="bool"),
                         ilm=dict(required=False, type="bool"),
                         object_metadata=dict(required=False, type="bool"),
                         root_access=dict(required=False, type="bool"),
+                        manage_alerts=dict(required=False, type="bool"),
+                        storage_admin=dict(required=False, type="bool"),
                     ),
                 ),
             )
         )
         parameter_map = {
-            "alarm_acknowledgement": "alarmAcknowledgement",
+            "alarm_acknowledgement": "alarmAcknowledgment",
+            "alarm_acknowledgment": "alarmAcknowledgment",
             "other_grid_configuration": "otherGridConfiguration",
             "grid_topology_page_configuration": "gridTopologyPageConfiguration",
             "tenant_accounts": "tenantAccounts",
             "change_tenant_root_password": "changeTenantRootPassword",
             "maintenance": "maintenance",
             "metrics_query": "metricsQuery",
-            "activate_features": "activateFeatures",
             "ilm": "ilm",
             "object_metadata": "objectMetadata",
             "root_access": "rootAccess",
+            "manage_alerts": "manageAlerts",
+            "storage_admin": "storageAdmin",
         }
         self.module = AnsibleModule(
             argument_spec=self.argument_spec,
@@ -226,6 +238,10 @@ class SgGridGroup(object):
         self.parameters = self.na_helper.set_parameters(self.module.params)
         # Calling generic SG rest_api class
         self.rest_api = SGRestAPI(self.module)
+        # Get API version
+        self.rest_api.get_sg_product_version()
+        self.api_version = self.rest_api.get_api_version()
+
         # Checking for the parameters passed and create new parameters list
         self.data = {}
         self.data["displayName"] = self.parameters.get("display_name")
@@ -255,7 +271,7 @@ class SgGridGroup(object):
 
     def get_grid_group(self, unique_name):
         # Use the unique name to check if the group exists
-        api = "api/v3/grid/groups/%s" % unique_name
+        api = "api/%s/grid/groups/%s" % (self.api_version, unique_name)
         response, error = self.rest_api.get(api)
 
         if error:
@@ -266,7 +282,7 @@ class SgGridGroup(object):
         return None
 
     def create_grid_group(self):
-        api = "api/v3/grid/groups"
+        api = "api/%s/grid/groups" % self.api_version
 
         response, error = self.rest_api.post(api, self.data)
 
@@ -276,7 +292,7 @@ class SgGridGroup(object):
         return response["data"]
 
     def delete_grid_group(self, group_id):
-        api = "api/v3/grid/groups/" + group_id
+        api = "api/%s/grid/groups/%s" % (self.api_version, group_id)
 
         self.data = None
         response, error = self.rest_api.delete(api, self.data)
@@ -284,7 +300,7 @@ class SgGridGroup(object):
             self.module.fail_json(msg=error)
 
     def update_grid_group(self, group_id):
-        api = "api/v3/grid/groups/" + group_id
+        api = "api/%s/grid/groups/%s" % (self.api_version, group_id)
 
         response, error = self.rest_api.put(api, self.data)
         if error:

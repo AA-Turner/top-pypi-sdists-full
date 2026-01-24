@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any
 
 from schemathesis.config import ProjectConfig
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import diff
-from schemathesis.generation.meta import ComponentKind
 
 if TYPE_CHECKING:
     from schemathesis.generation.case import Case
-    from schemathesis.schemas import APIOperation, Parameter
+    from schemathesis.schemas import APIOperation, OperationParameter
 
 
 @dataclass
@@ -21,24 +21,25 @@ class Override:
     headers: dict[str, str]
     cookies: dict[str, str]
     path_parameters: dict[str, str]
+    body: dict[str, str]
 
-    __slots__ = ("query", "headers", "cookies", "path_parameters")
+    __slots__ = ("query", "headers", "cookies", "path_parameters", "body")
 
-    def items(self) -> Iterator[tuple[str, dict[str, str]]]:
+    def items(self) -> Iterator[tuple[ParameterLocation, dict[str, str]]]:
         for key, value in (
-            ("query", self.query),
-            ("headers", self.headers),
-            ("cookies", self.cookies),
-            ("path_parameters", self.path_parameters),
+            (ParameterLocation.QUERY, self.query),
+            (ParameterLocation.HEADER, self.headers),
+            (ParameterLocation.COOKIE, self.cookies),
+            (ParameterLocation.PATH, self.path_parameters),
         ):
             if value:
                 yield key, value
 
     @classmethod
-    def from_components(cls, components: dict[ComponentKind, StoredValue], case: Case) -> Override:
+    def from_components(cls, components: dict[ParameterLocation, StoredValue], case: Case) -> Override:
         return Override(
             **{
-                kind.value: get_component_diff(stored=stored, current=getattr(case, kind.value))
+                kind.container_name: get_component_diff(stored=stored, current=getattr(case, kind.container_name))
                 for kind, stored in components.items()
             }
         )
@@ -47,7 +48,7 @@ class Override:
 def for_operation(config: ProjectConfig, *, operation: APIOperation) -> Override:
     operation_config = config.operations.get_for_operation(operation)
 
-    output = Override(query={}, headers={}, cookies={}, path_parameters={})
+    output = Override(query={}, headers={}, cookies={}, path_parameters={}, body={})
     groups = [
         (output.query, operation.query),
         (output.headers, operation.headers),
@@ -69,9 +70,9 @@ def for_operation(config: ProjectConfig, *, operation: APIOperation) -> Override
     return output
 
 
-def _get_override_value(param: Parameter, parameters: dict[str, Any]) -> Any:
+def _get_override_value(param: OperationParameter, parameters: dict[str, Any]) -> Any:
     key = param.name
-    full_key = f"{param.location}.{param.name}"
+    full_key = f"{param.location.value}.{param.name}"
     if key in parameters:
         return parameters[key]
     elif full_key in parameters:
@@ -81,38 +82,46 @@ def _get_override_value(param: Parameter, parameters: dict[str, Any]) -> Any:
 
 @dataclass
 class StoredValue:
-    value: dict[str, Any] | None
+    value: Any
     is_generated: bool
 
     __slots__ = ("value", "is_generated")
 
 
-def store_original_state(value: dict[str, Any] | None) -> dict[str, Any] | None:
+def store_original_state(value: Any) -> Any:
     if isinstance(value, Mapping):
-        return value.copy()
+        return dict(value)
     return value
 
 
-def get_component_diff(stored: StoredValue, current: dict[str, Any] | None) -> dict[str, Any]:
+def get_component_diff(stored: StoredValue, current: Any) -> dict[str, Any]:
     """Calculate difference between stored and current components."""
     if not (current and stored.value):
         return {}
     if stored.is_generated:
-        return diff(stored.value, current)
-    return current
+        # Only compute diff for mapping types (dicts)
+        # Non-mapping bodies (e.g., GraphQL strings) are not tracked
+        if isinstance(stored.value, Mapping) and isinstance(current, Mapping):
+            return diff(stored.value, current)
+        return {}
+    # For non-generated components, return current if it's a dict, otherwise empty
+    if isinstance(current, Mapping):
+        return dict(current)
+    return {}
 
 
-def store_components(case: Case) -> dict[ComponentKind, StoredValue]:
+def store_components(case: Case) -> dict[ParameterLocation, StoredValue]:
     """Store original component states for a test case."""
     return {
         kind: StoredValue(
-            value=store_original_state(getattr(case, kind.value)),
-            is_generated=bool(case.meta and kind in case.meta.components),
+            value=store_original_state(getattr(case, kind.container_name)),
+            is_generated=bool(case._meta and kind in case._meta.components),
         )
         for kind in [
-            ComponentKind.QUERY,
-            ComponentKind.HEADERS,
-            ComponentKind.COOKIES,
-            ComponentKind.PATH_PARAMETERS,
+            ParameterLocation.QUERY,
+            ParameterLocation.HEADER,
+            ParameterLocation.COOKIE,
+            ParameterLocation.PATH,
+            ParameterLocation.BODY,
         ]
     }

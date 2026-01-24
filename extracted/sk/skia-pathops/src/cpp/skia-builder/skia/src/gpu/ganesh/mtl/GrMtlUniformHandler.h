@@ -21,13 +21,10 @@
 // Metal and/or some Vulkan GLSLisms left in.
 class GrMtlUniformHandler : public GrGLSLUniformHandler {
 public:
-    static const int kUniformsPerBlock = 8;
-
-    enum {
-        kUniformBinding = 0,
-        kLastUniformBinding = kUniformBinding,
-    };
-    static constexpr int kUniformBindingCount = kLastUniformBinding + 1;
+    static constexpr size_t kUniformsPerBlock = 8;
+    static constexpr size_t kUniformBinding = 0;
+    static constexpr size_t kLastUniformBinding = kUniformBinding;
+    static constexpr size_t kUniformBindingCount = 1;
 
     // fUBOffset is only valid if the SkSLType of the fVariable is not a sampler
     struct MtlUniformInfo : public UniformInfo {
@@ -96,7 +93,7 @@ private:
 
     UniformInfoArray    fUniforms;
     UniformInfoArray    fSamplers;
-    SkTArray<skgpu::Swizzle> fSamplerSwizzles;
+    skia_private::TArray<skgpu::Swizzle> fSamplerSwizzles;
 
     uint32_t            fCurrentUBOOffset;
     uint32_t            fCurrentUBOMaxAlignment;

@@ -1,31 +1,33 @@
-import asyncio
 import functools
 import inspect
-from contextlib import AsyncExitStack, ExitStack, asynccontextmanager, contextmanager
+import sys
+from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Callable
+from contextlib import (
+    AbstractContextManager,
+    AsyncExitStack,
+    ExitStack,
+    asynccontextmanager,
+    contextmanager,
+)
 from typing import (
     TYPE_CHECKING,
-    Any,
-    AsyncGenerator,
-    AsyncIterable,
-    Awaitable,
-    Callable,
-    ContextManager,
-    Dict,
-    ForwardRef,
-    List,
-    Tuple,
-    TypeVar,
-    Union,
-    cast,
-)
-
-import anyio
-from typing_extensions import (
     Annotated,
-    ParamSpec,
+    Any,
+    ForwardRef,
+    TypeVar,
+    cast,
     get_args,
     get_origin,
 )
+
+if sys.version_info >= (3, 12):
+    # to support PydanticV1 we should switch it expicitly
+    from typing import TypeAliasType
+else:
+    from typing_extensions import TypeAliasType
+
+import anyio
+from typing_extensions import ParamSpec
 
 from fast_depends._compat import evaluate_forwardref
 
@@ -37,10 +39,7 @@ T = TypeVar("T")
 
 
 async def run_async(
-    func: Union[
-        Callable[P, T],
-        Callable[P, Awaitable[T]],
-    ],
+    func: Callable[P, T] | Callable[P, Awaitable[T]],
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> T:
@@ -51,7 +50,9 @@ async def run_async(
 
 
 async def run_in_threadpool(
-    func: Callable[P, T], *args: P.args, **kwargs: P.kwargs
+    func: Callable[P, T],
+    *args: P.args,
+    **kwargs: P.kwargs,
 ) -> T:
     if kwargs:
         func = functools.partial(func, **kwargs)
@@ -59,7 +60,10 @@ async def run_in_threadpool(
 
 
 async def solve_generator_async(
-    *sub_args: Any, call: Callable[..., Any], stack: AsyncExitStack, **sub_values: Any
+    *sub_args: Any,
+    call: Callable[..., Any],
+    stack: AsyncExitStack,
+    **sub_values: Any,
 ) -> Any:
     if is_gen_callable(call):
         cm = contextmanager_in_threadpool(contextmanager(call)(**sub_values))
@@ -69,19 +73,24 @@ async def solve_generator_async(
 
 
 def solve_generator_sync(
-    *sub_args: Any, call: Callable[..., Any], stack: ExitStack, **sub_values: Any
+    *sub_args: Any,
+    call: Callable[..., Any],
+    stack: ExitStack,
+    **sub_values: Any,
 ) -> Any:
     cm = contextmanager(call)(*sub_args, **sub_values)
     return stack.enter_context(cm)
 
 
-def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, Any]:
+def get_typed_signature(call: Callable[..., Any]) -> tuple[inspect.Signature, Any]:
     signature = inspect.signature(call)
 
     locals = collect_outer_stack_locals()
 
     # We unwrap call to get the original unwrapped function
     call = inspect.unwrap(call)
+
+    type_params = getattr(call, "__type_params__", ()) or None
 
     globalns = getattr(call, "__globals__", {})
     typed_params = [
@@ -93,6 +102,7 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
                 param.annotation,
                 globalns,
                 locals,
+                type_params=type_params,
             ),
         )
         for param in signature.parameters.values()
@@ -102,13 +112,14 @@ def get_typed_signature(call: Callable[..., Any]) -> Tuple[inspect.Signature, An
         signature.return_annotation,
         globalns,
         locals,
+        type_params=type_params,
     )
 
 
-def collect_outer_stack_locals() -> Dict[str, Any]:
+def collect_outer_stack_locals() -> dict[str, Any]:
     frame = inspect.currentframe()
 
-    frames: List[FrameType] = []
+    frames: list[FrameType] = []
     while frame is not None:
         if "fast_depends" not in frame.f_code.co_filename:
             frames.append(frame)
@@ -123,19 +134,30 @@ def collect_outer_stack_locals() -> Dict[str, Any]:
 
 def get_typed_annotation(
     annotation: Any,
-    globalns: Dict[str, Any],
-    locals: Dict[str, Any],
+    globalns: dict[str, Any],
+    locals: dict[str, Any],
+    type_params: tuple[Any, ...] | None = None,
 ) -> Any:
+    if isinstance(annotation, TypeAliasType):
+        annotation = annotation.__value__
+
     if isinstance(annotation, str):
         annotation = ForwardRef(annotation)
 
     if isinstance(annotation, ForwardRef):
-        annotation = evaluate_forwardref(annotation, globalns, locals)
+        annotation = evaluate_forwardref(
+            annotation, globalns, locals, type_params=type_params
+        )
 
     if get_origin(annotation) is Annotated and (args := get_args(annotation)):
-        solved_args = [get_typed_annotation(x, globalns, locals) for x in args]
-        annotation.__origin__, annotation.__metadata__ = solved_args[0], tuple(
-            solved_args[1:]
+        solved_args = [
+            get_typed_annotation(x, globalns, locals, type_params=type_params)
+            for x in args
+        ]
+
+        annotation.__origin__, annotation.__metadata__ = (
+            solved_args[0],
+            tuple(solved_args[1:]),
         )
 
     return annotation
@@ -143,7 +165,7 @@ def get_typed_annotation(
 
 @asynccontextmanager
 async def contextmanager_in_threadpool(
-    cm: ContextManager[T],
+    cm: AbstractContextManager[T],
 ) -> AsyncGenerator[T, None]:
     exit_limiter = anyio.CapacityLimiter(1)
     try:
@@ -180,11 +202,11 @@ def is_coroutine_callable(call: Callable[..., Any]) -> bool:
     if inspect.isclass(call):
         return False
 
-    if asyncio.iscoroutinefunction(call):
+    if inspect.iscoroutinefunction(call):
         return True
 
     dunder_call = getattr(call, "__call__", None)  # noqa: B004
-    return asyncio.iscoroutinefunction(dunder_call)
+    return inspect.iscoroutinefunction(dunder_call)
 
 
 async def async_map(

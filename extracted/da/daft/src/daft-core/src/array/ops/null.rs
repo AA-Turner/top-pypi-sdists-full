@@ -1,8 +1,10 @@
-use std::{iter::repeat, sync::Arc};
+use std::{iter::repeat, ops::Not, sync::Arc};
 
 use common_error::DaftResult;
 
 use super::{DaftIsNull, DaftNotNull};
+#[cfg(feature = "python")]
+use crate::prelude::PythonArray;
 use crate::{
     array::{ListArray, StructArray},
     datatypes::*,
@@ -19,11 +21,11 @@ where
             // If the bitmap is None, the arrow array doesn't have null values
             // (unless it's a NullArray - so check the null count)
             None => match arrow_array.null_count() {
-                0 => arrow2::array::BooleanArray::from_slice(vec![!is_null; arrow_array.len()]), // false for is_null and true for not_null
-                _ => arrow2::array::BooleanArray::from_slice(vec![is_null; arrow_array.len()]), // true for is_null and false for not_null
+                0 => daft_arrow::array::BooleanArray::from_slice(vec![!is_null; arrow_array.len()]), // false for is_null and true for not_null
+                _ => daft_arrow::array::BooleanArray::from_slice(vec![is_null; arrow_array.len()]), // true for is_null and false for not_null
             },
-            Some(bitmap) => arrow2::array::BooleanArray::new(
-                arrow2::datatypes::DataType::Boolean,
+            Some(bitmap) => daft_arrow::array::BooleanArray::new(
+                daft_arrow::datatypes::DataType::Boolean,
                 if is_null { !bitmap } else { bitmap.clone() }, // flip the bitmap for is_null
                 None,
             ),
@@ -57,9 +59,54 @@ where
     }
 }
 
+#[cfg(feature = "python")]
+impl PythonArray {
+    // Common functionality for nullity checks
+    fn check_nullity(&self, is_null: bool) -> DaftResult<DataArray<BooleanType>> {
+        let bitmap = if let Some(nulls) = self.nulls() {
+            if is_null {
+                nulls.inner().not().into()
+            } else {
+                nulls.clone()
+            }
+        } else if is_null {
+            daft_arrow::buffer::NullBuffer::new_null(self.len())
+        } else {
+            daft_arrow::buffer::NullBuffer::new_valid(self.len())
+        };
+
+        BooleanArray::new(
+            Arc::new(Field::new(self.name(), DataType::Boolean)),
+            Box::new(daft_arrow::array::BooleanArray::new(
+                daft_arrow::datatypes::DataType::Boolean,
+                daft_arrow::buffer::from_null_buffer(bitmap),
+                None,
+            )),
+        )
+    }
+}
+
+#[cfg(feature = "python")]
+impl DaftIsNull for PythonArray {
+    type Output = DaftResult<DataArray<BooleanType>>;
+
+    fn is_null(&self) -> Self::Output {
+        self.check_nullity(true)
+    }
+}
+
+#[cfg(feature = "python")]
+impl DaftNotNull for PythonArray {
+    type Output = DaftResult<DataArray<BooleanType>>;
+
+    fn not_null(&self) -> Self::Output {
+        self.check_nullity(false)
+    }
+}
+
 macro_rules! check_nullity_nested_array {
     ($arr:expr, $is_null:expr) => {{
-        match $arr.validity() {
+        match $arr.nulls() {
             None => Ok(BooleanArray::from((
                 $arr.name(),
                 repeat(!$is_null)
@@ -67,15 +114,15 @@ macro_rules! check_nullity_nested_array {
                     .collect::<Vec<_>>()
                     .as_slice(),
             ))),
-            Some(validity) => Ok(BooleanArray::from((
+            Some(nulls) => Ok(BooleanArray::from((
                 $arr.name(),
-                arrow2::array::BooleanArray::new(
-                    arrow2::datatypes::DataType::Boolean,
-                    if $is_null {
-                        !validity
+                daft_arrow::array::BooleanArray::new(
+                    daft_arrow::datatypes::DataType::Boolean,
+                    daft_arrow::buffer::from_null_buffer(if $is_null {
+                        nulls.inner().not().into()
                     } else {
-                        validity.clone()
-                    },
+                        nulls.clone()
+                    }),
                     None,
                 ),
             ))),
@@ -128,9 +175,9 @@ where
 impl FixedSizeListArray {
     #[inline]
     pub fn is_valid(&self, idx: usize) -> bool {
-        match self.validity() {
+        match self.nulls() {
             None => true,
-            Some(validity) => validity.get(idx).unwrap(),
+            Some(nulls) => nulls.is_valid(idx),
         }
     }
 }
@@ -138,9 +185,9 @@ impl FixedSizeListArray {
 impl ListArray {
     #[inline]
     pub fn is_valid(&self, idx: usize) -> bool {
-        match self.validity() {
+        match self.nulls() {
             None => true,
-            Some(validity) => validity.get(idx).unwrap(),
+            Some(nulls) => nulls.is_valid(idx),
         }
     }
 }
@@ -148,9 +195,9 @@ impl ListArray {
 impl StructArray {
     #[inline]
     pub fn is_valid(&self, idx: usize) -> bool {
-        match self.validity() {
+        match self.nulls() {
             None => true,
-            Some(validity) => validity.get(idx).unwrap(),
+            Some(nulls) => nulls.is_valid(idx),
         }
     }
 }

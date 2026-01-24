@@ -1,9 +1,9 @@
 import datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal, assert_series_equal
-from zoneinfo import ZoneInfo
 
 import pandas_market_calendars as mcal
 from pandas_market_calendars.calendars.nyse import NYSEExchangeCalendar
@@ -59,6 +59,10 @@ def test_merge_schedules():
         index=pd.DatetimeIndex(["2016-07-01", "2016-07-04", "2016-07-05", "2016-07-06"]),
     )
     actual = mcal.merge_schedules([sch1, sch2], how="outer")
+    assert_frame_equal(actual, expected)
+
+    # reverse should also work
+    actual = mcal.merge_schedules([sch2, sch1], how="outer")
     assert_frame_equal(actual, expected)
 
     # inner join will exclude July 4th because not open for both

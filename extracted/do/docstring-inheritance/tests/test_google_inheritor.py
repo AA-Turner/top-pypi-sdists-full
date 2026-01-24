@@ -21,10 +21,13 @@ from __future__ import annotations
 
 import pytest
 
-from docstring_inheritance.docstring_inheritors.bases import SUMMARY_SECTION_NAME
-from docstring_inheritance.docstring_inheritors.bases.parser import NoSectionFound
-from docstring_inheritance.docstring_inheritors.google import DocstringParser
-from docstring_inheritance.docstring_inheritors.google import DocstringRenderer
+from docstring_inheritance._internal.docstring_inheritors.bases import (
+    SUMMARY_SECTION_NAME,
+)
+from docstring_inheritance._internal.docstring_inheritors.google import DocstringParser
+from docstring_inheritance._internal.docstring_inheritors.google import (
+    DocstringRenderer,
+)
 
 from .test_base_parser import _test_parse_sections
 
@@ -163,23 +166,10 @@ def test_render_section(section_name, section_body, expected_docstring):
             "Args:",
             " body",
         ),
-        (
-            "Dummy:",
-            "  body",
-        ),
-        (
-            "Dummy :",
-            "  body",
-        ),
-        (
-            "Dummy:",
-            "   body",
-        ),
     ],
 )
 def test_parse_one_section_no_section(line1, line2s):
-    with pytest.raises(NoSectionFound):
-        DocstringParser._parse_one_section(line1, line2s, [])
+    assert not DocstringParser._parse_one_section(line1, line2s, [])[0]
 
 
 @pytest.mark.parametrize(

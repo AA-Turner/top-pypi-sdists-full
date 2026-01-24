@@ -26,10 +26,10 @@ class RerankedResult(Generic[TRAW]):
     A single result coming `find_and_rerank` command, i.e. an item from DB with scores.
 
     Attributes:
-        document: a collection/row as returned by `find_and_rerank` API command.
+        document: a document/row as returned by `find_and_rerank` API command.
         scores: a dictionary of score labels to score float values, such as
             `{"$rerank": 0.87, "$vector" : 0.65, "$lexical" : 0.91}`.
     """
 
     document: TRAW
-    scores: dict[str, float]
+    scores: dict[str, float | int | None]

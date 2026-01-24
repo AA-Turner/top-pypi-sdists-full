@@ -15,7 +15,7 @@ class GlobalData:
         return cls.bounded_class is not None
 
     @classmethod
-    def set_logging_target(cls, value: datetime or None) -> None:
+    def set_logging_target(cls, value: datetime | None) -> None:
         """Sets the class variable to the entered value."""
         setattr(cls.bounded_class, '_global_logging_target_stream', value)
 
@@ -27,12 +27,12 @@ class GlobalData:
         return getattr(cls.bounded_class, '_global_logging_target_stream')
 
     @classmethod
-    def set_logging_relative_timestamp(cls, value: datetime or None) -> None:
+    def set_logging_relative_timestamp(cls, value: datetime | None) -> None:
         """Sets the class variable to the entered value."""
         setattr(cls.bounded_class, '_global_logging_relative_timestamp', value)
 
     @classmethod
-    def get_logging_relative_timestamp(cls) -> datetime or None:
+    def get_logging_relative_timestamp(cls) -> datetime | None:
         """Returns the class variable value."""
         if not cls.is_bounded():
             return None
@@ -44,7 +44,7 @@ class GlobalData:
         setattr(cls.bounded_class, '_global_logging_relative_timestamp_of_first_entry', value)
 
     @classmethod
-    def get_logging_relative_time_of_first_entry(cls) -> bool or None:
+    def get_logging_relative_time_of_first_entry(cls) -> bool | None:
         """Returns the class variable value."""
         if not cls.is_bounded():
             return None

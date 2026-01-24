@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-Compress
-Version: 1.18
+Version: 1.23
 Summary: Compress responses in your Flask app with gzip, deflate, brotli or zstandard.
 Home-page: https://github.com/colour-science/flask-compress
 Author: Thomas Mansencal
@@ -27,7 +27,7 @@ License-File: LICENSE.txt
 Requires-Dist: flask
 Requires-Dist: brotli; platform_python_implementation != "PyPy"
 Requires-Dist: brotlicffi; platform_python_implementation == "PyPy"
-Requires-Dist: pyzstd; python_version < "3.14"
+Requires-Dist: backports.zstd; python_version < "3.14"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -167,6 +167,23 @@ compress.cache_key = get_cache_key
 
 If you do not want to pull an external dependency, you can use a simple in-memory cache using `compress.cache = flask_compress.DictCache()`.
 
+
+## ETag support
+
+Flask-Compress supports ETag headers for conditional requests. When a client makes a request with an `If-None-Match` header, Flask-Compress will evaluate the ETag and return a `304 Not Modified` response if the resource has not changed. This helps to reduce bandwidth usage and improve performance for clients that support caching.
+
+To disable ETag support, set the `COMPRESS_EVALUATE_CONDITIONAL_REQUEST` configuration option to `False` in your Flask application settings.
+
+> For streaming responses, ETag support is disabled by default, as this effectively requires buffering the entire response in memory to compute the ETag. If you want to enable ETag support for streaming responses, you can add the endpoint name to the `COMPRESS_STREAMING_ENDPOINT_CONDITIONAL` configuration option, which defaults to `["static"]` for static files served by Flask.
+
+## Streaming support
+
+Flask-Compress supports compressing streaming responses. By default, streaming responses are compressed using the algorithms specified in the `COMPRESS_ALGORITHM_STREAMING` configuration option.
+
+To disable streaming compression, set the `COMPRESS_STREAMS` configuration option to `False` in your Flask application settings.
+
+> As mentioned above, ETag support is disabled by default for streaming responses. If you want to enable it for specific endpoints, you can add the endpoint name to the `COMPRESS_STREAMING_ENDPOINT_CONDITIONAL` configuration option, but this will require buffering the entire response in memory to compute the ETag.
+
 ## Options
 
 Within your Flask application's settings you can provide the following settings to control the behavior of Flask-Compress. None of the settings are required.
@@ -186,4 +203,7 @@ Within your Flask application's settings you can provide the following settings 
 | `COMPRESS_CACHE_BACKEND` | Specified the backend for storing the cached response data. | `None` |
 | `COMPRESS_REGISTER` | Specifies if compression should be automatically registered. | `True` |
 | `COMPRESS_ALGORITHM` | Supported compression algorithms. | `['zstd', 'br', 'gzip', 'deflate']` |
-| `COMPRESS_STREAMS` | Compress content streams. | `True` |
+| `COMPRESS_ALGORITHM_STREAMING` | Supported compression algorithms for streaming. | `['zstd', 'br', 'deflate']` |
+| `COMPRESS_STREAMS` | Compress streaming responses. | `True` |
+| `COMPRESS_EVALUATE_CONDITIONAL_REQUEST` | Compress evaluates conditional requests. | `True` |
+| `COMPRESS_STREAMING_ENDPOINT_CONDITIONAL` | Streaming endpoints where we evaluate conditional requests. | `["static"]` |

@@ -1,10 +1,10 @@
 # Copyright (c) 2008-2013 testtools developers. See LICENSE for details.
 
-PYTHON=python
+PYTHON=python3
 SOURCES=$(shell find testtools -name "*.py")
 
 check:
-	PYTHONPATH=$(PWD) $(PYTHON) -m testtools.run testtools.tests.test_suite
+	PYTHONPATH=$(PWD) $(PYTHON) -m testtools.run tests.test_suite
 
 TAGS: ${SOURCES}
 	ctags -e -R testtools/
@@ -22,8 +22,8 @@ prerelease:
 
 release:
 	hatchling build
-	twine upload dist/*
-	$(PYTHON) scripts/_lp_release.py
+	twine upload dist/testtools-$(shell hatchling version)-*
+	gpg -a --detach-sign dist/testtools-$(shell hatchling version).tar.gz
 
 snapshot: prerelease
 	hatchling build

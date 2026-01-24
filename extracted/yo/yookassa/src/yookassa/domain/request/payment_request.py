@@ -17,6 +17,7 @@ from yookassa.domain.models.payment_data.request.payment_data_bank_card import P
 from yookassa.domain.models.payment_data.request.receiver import Receiver
 from yookassa.domain.models.payment_data.request.receiver_factory import ReceiverFactory
 from yookassa.domain.models.receipt import Receipt
+from yookassa.domain.models.payment_data.statement import Statement, StatementFactory
 from yookassa.domain.models.transfer import Transfer
 
 DESCRIPTION_MAX_LENGTH = 128
@@ -87,6 +88,9 @@ class PaymentRequest(RequestObject):
 
     __payment_order = None
     """Платежное поручение — распоряжение на перевод банку для оплаты жилищно-коммунальных услуг (ЖКУ), сведения о платеже для регистрации в ГИС ЖКХ."""
+
+    __statements = []
+    """Данные для отправки справки. Необходимо передавать, если вы хотите, чтобы после оплаты пользователь получил справку. Сейчас доступен один тип справок — квитанция по платежу. Это информация об успешном платеже, которую ЮKassa отправляет на электронную почту пользователя. Квитанцию можно отправить, если оплата прошла с банковской карты, через SberPay или СБП. """  # noqa: E501
 
     @property
     def amount(self):
@@ -494,18 +498,18 @@ class PaymentRequest(RequestObject):
 
     @property
     def receiver(self):
-        """Возвращает receiver модели CreatePaymentRequest.
+        """Возвращает receiver модели PaymentRequest.
 
-        :return: receiver модели CreatePaymentRequest.
+        :return: receiver модели PaymentRequest.
         :rtype: CreatePaymentRequestReceiver
         """
         return self.__receiver
 
     @receiver.setter
     def receiver(self, value):
-        """Устанавливает receiver модели CreatePaymentRequest.
+        """Устанавливает receiver модели PaymentRequest.
 
-        :param value: receiver модели CreatePaymentRequest.
+        :param value: receiver модели PaymentRequest.
         :type value: Receiver
         """
         if isinstance(value, dict):
@@ -517,18 +521,18 @@ class PaymentRequest(RequestObject):
 
     @property
     def payment_order(self):
-        """Возвращает payment_order модели CreatePaymentRequest.
+        """Возвращает payment_order модели PaymentRequest.
 
-        :return: payment_order модели CreatePaymentRequest.
+        :return: payment_order модели PaymentRequest.
         :rtype: PaymentOrder
         """
         return self.__payment_order
 
     @payment_order.setter
     def payment_order(self, value):
-        """Устанавливает payment_order модели CreatePaymentRequest.
+        """Устанавливает payment_order модели PaymentRequest.
 
-        :param value: payment_order модели CreatePaymentRequest.
+        :param value: payment_order модели PaymentRequest.
         :type value: PaymentOrder
         """
         if isinstance(value, dict):
@@ -538,6 +542,35 @@ class PaymentRequest(RequestObject):
         else:
             raise TypeError('Invalid payment_order type')
 
+    @property
+    def statements(self):
+        """Возвращает statements модели PaymentRequest.
+
+        :return: statements модели PaymentRequest.
+        :rtype: list[Statement]
+        """
+        return self.__statements
+
+    @statements.setter
+    def statements(self, value):
+        """Устанавливает statements модели PaymentRequest.
+
+        :param value: statements модели PaymentRequest.
+        :type value: list[Statement]
+        """
+        if value is None:
+            self.__statements = []
+        elif isinstance(value, list):
+            self.__statements = []
+            for item in value:
+                if isinstance(item, dict):
+                    self.__statements.append(StatementFactory().create(item, self.context()))
+                elif isinstance(item, Statement):
+                    self.__statements.append(item)
+                else:
+                    raise TypeError(f'Invalid statement item type: {type(item)}')
+        else:
+            raise TypeError('Invalid statements data type in payment_request.statements')
 
     def validate(self):
         """

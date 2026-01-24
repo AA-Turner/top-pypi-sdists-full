@@ -28,6 +28,7 @@ from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio.cluster import RedisCluster as AsyncRedisCluster
 from redis.cluster import RedisCluster
 
+from redisvl.query.hybrid import HybridQuery
 from redisvl.query.query import VectorQuery
 from redisvl.redis.utils import (
     _keys_share_hash_tag,
@@ -49,7 +50,8 @@ if TYPE_CHECKING:
 
 from redis import __version__ as redis_version
 from redis.client import NEVER_DECODE
-from redis.commands.helpers import get_protocol_version  # type: ignore
+
+from redisvl.utils.redis_protocol import get_protocol_version
 
 # Redis 5.x compatibility (6 fixed the import path)
 if redis_version.startswith("5"):
@@ -78,21 +80,29 @@ from redisvl.query import (
     BaseVectorQuery,
     CountQuery,
     FilterQuery,
+    TextQuery,
 )
+from redisvl.query.aggregate import AggregateHybridQuery
 from redisvl.query.filter import FilterExpression
 from redisvl.redis.connection import (
     RedisConnectionFactory,
     convert_index_info_to_schema,
+    supports_svs,
+    supports_svs_async,
 )
+from redisvl.redis.constants import SVS_MIN_REDIS_VERSION
 from redisvl.schema import IndexSchema, StorageType
 from redisvl.schema.fields import (
     VECTOR_NORM_MAP,
+    SVSVectorField,
     VectorDistanceMetric,
     VectorIndexAlgorithm,
 )
 from redisvl.utils.log import get_logger
 
 logger = get_logger(__name__)
+
+_HYBRID_SEARCH_ERROR_MESSAGE = "Hybrid search is not available in this version of redis-py. Please upgrade to redis-py >= 7.1.0."
 
 
 REQUIRED_MODULES_FOR_INTROSPECTION = [
@@ -228,6 +238,12 @@ class BaseSearchIndex:
             index_schema=self.schema
         )
 
+    def _uses_svs_vamana(self) -> bool:
+        """Check if schema contains any SVS-VAMANA vector fields."""
+        return any(
+            isinstance(field, SVSVectorField) for field in self.schema.fields.values()
+        )
+
     def _validate_query(self, query: BaseQuery) -> None:
         """Validate a query."""
         if isinstance(query, VectorQuery):
@@ -237,6 +253,46 @@ class BaseSearchIndex:
                     "Vector field using 'flat' algorithm does not support EF_RUNTIME query parameter."
                 )
 
+        # Warn if using query-time stopwords with index-level STOPWORDS 0
+        if isinstance(query, (TextQuery, AggregateHybridQuery)):
+            index_stopwords = self.schema.index.stopwords
+            query_stopwords = query.stopwords
+
+            # Check if index has STOPWORDS 0 (empty list) and query has stopwords configured
+            # Note: query.stopwords is a set, and when any falsy value (None, False, '', 0, [], etc.)
+            # is passed to TextQuery/AggregateHybridQuery, it becomes an empty set. So we check if the set is non-empty.
+            if (
+                index_stopwords is not None
+                and len(index_stopwords) == 0
+                and len(query_stopwords) > 0
+            ):
+                query_type = (
+                    "TextQuery"
+                    if isinstance(query, TextQuery)
+                    else "AggregateHybridQuery"
+                )
+                warnings.warn(
+                    f"Query-time stopwords are configured but the index has STOPWORDS 0 (stopwords = []). "
+                    "This is counterproductive: all words including common words like 'of', 'the', 'a' are indexed, "
+                    "but your query-time stopwords will filter them from the search query. "
+                    "This makes your search less precise than it could be. "
+                    f"Consider setting stopwords=None (or any falsy value) in {query_type} to search for all indexed words.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+
+    def _validate_hybrid_query(self, query: Any) -> None:
+        """Validate that a hybrid query can be executed."""
+        try:
+            from redis.commands.search.hybrid_result import HybridResult
+
+            from redisvl.query.hybrid import HybridQuery
+        except (ImportError, ModuleNotFoundError):
+            raise ImportError(_HYBRID_SEARCH_ERROR_MESSAGE)
+
+        if not isinstance(query, HybridQuery):
+            raise TypeError(f"query must be of type HybridQuery, got {type(query)}")
+
     @property
     def name(self) -> str:
         """The name of the Redis search index."""
@@ -245,8 +301,10 @@ class BaseSearchIndex:
     @property
     def prefix(self) -> str:
         """The optional key prefix that comes before a unique key value in
-        forming a Redis key."""
-        return self.schema.index.prefix
+        forming a Redis key. If multiple prefixes are configured, returns the
+        first one."""
+        prefix = self.schema.index.prefix
+        return prefix[0] if isinstance(prefix, list) else prefix
 
     @property
     def key_separator(self) -> str:
@@ -329,7 +387,7 @@ class BaseSearchIndex:
         """
         return self._storage._key(
             id=id,
-            prefix=self.schema.index.prefix,
+            prefix=self.prefix,
             key_separator=self.schema.index.key_separator,
         )
 
@@ -404,7 +462,7 @@ class SearchIndex(BaseSearchIndex):
         self._connection_kwargs = connection_kwargs or {}
         self._lock = threading.Lock()
 
-        self._validated_client = False
+        self._validated_client = kwargs.pop("_client_validated", False)
         self._owns_redis_client = redis_client is None
         if self._owns_redis_client:
             weakref.finalize(self, self.disconnect)
@@ -438,23 +496,17 @@ class SearchIndex(BaseSearchIndex):
 
         Raises:
             ValueError: If redis_url or redis_client is not provided.
-            RedisModuleVersionError: If required Redis modules are not installed.
         """
-        try:
-            if redis_url:
-                redis_client = RedisConnectionFactory.get_redis_connection(
-                    redis_url=redis_url,
-                    required_modules=REQUIRED_MODULES_FOR_INTROSPECTION,
-                    **kwargs,
-                )
-            elif redis_client:
-                RedisConnectionFactory.validate_sync_redis(
-                    redis_client, required_modules=REQUIRED_MODULES_FOR_INTROSPECTION
-                )
-        except RedisModuleVersionError as e:
-            raise RedisModuleVersionError(
-                f"Loading from existing index failed. {str(e)}"
+        if redis_url:
+            redis_client = RedisConnectionFactory.get_redis_connection(
+                redis_url=redis_url,
+                **kwargs,
             )
+        elif redis_client:
+            # Validate client type and set lib name
+            RedisConnectionFactory.validate_sync_redis(redis_client)
+            # Mark that client was already validated to avoid duplicate calls
+            kwargs["_client_validated"] = True
 
         if not redis_client:
             raise ValueError("Must provide either a redis_url or redis_client")
@@ -480,11 +532,16 @@ class SearchIndex(BaseSearchIndex):
         if self.__redis_client is None:
             with self._lock:
                 if self.__redis_client is None:
+                    # Pass lib_name to connection factory
+                    kwargs = {**self._connection_kwargs}
+                    if self._lib_name:
+                        kwargs["lib_name"] = self._lib_name
                     self.__redis_client = RedisConnectionFactory.get_redis_connection(
                         redis_url=self._redis_url,
-                        **self._connection_kwargs,
+                        **kwargs,
                     )
-        if not self._validated_client:
+        if not self._validated_client and self._lib_name:
+            # Only set lib name for user-provided clients
             RedisConnectionFactory.validate_sync_redis(
                 self.__redis_client,
                 self._lib_name,
@@ -534,6 +591,15 @@ class SearchIndex(BaseSearchIndex):
         self.__redis_client = redis_client
         return self
 
+    def _check_svs_support(self) -> None:
+        """Validate SVS-VAMANA support.
+
+        Raises:
+            RedisModuleVersionError: If SVS-VAMANA requirements are not met.
+        """
+        if not supports_svs(self._redis_client):
+            raise RedisModuleVersionError.for_svs_vamana(SVS_MIN_REDIS_VERSION)
+
     def create(self, overwrite: bool = False, drop: bool = False) -> None:
         """Create an index in Redis with the current schema and properties.
 
@@ -565,6 +631,10 @@ class SearchIndex(BaseSearchIndex):
         if not isinstance(overwrite, bool):
             raise TypeError("overwrite must be of type bool")
 
+        # Check if schema uses SVS-VAMANA and validate Redis capabilities
+        if self._uses_svs_vamana():
+            self._check_svs_support()
+
         if self.exists():
             if not overwrite:
                 logger.info("Index already exists, not overwriting.")
@@ -576,17 +646,22 @@ class SearchIndex(BaseSearchIndex):
             definition = IndexDefinition(
                 prefix=[self.schema.index.prefix], index_type=self._storage.type
             )
+            # Extract stopwords from schema
+            stopwords = self.schema.index.stopwords
+
             if isinstance(self._redis_client, RedisCluster):
                 cluster_create_index(
                     index_name=self.name,
                     client=self._redis_client,
                     fields=redis_fields,
                     definition=definition,
+                    stopwords=stopwords,
                 )
             else:
                 self._redis_client.ft(self.name).create_index(
                     fields=redis_fields,
                     definition=definition,
+                    stopwords=stopwords,
                 )
         except redis.exceptions.RedisError as e:
             raise RedisSearchError(
@@ -943,6 +1018,57 @@ class SearchIndex(BaseSearchIndex):
         except Exception as e:
             raise RedisSearchError(f"Unexpected error while searching: {str(e)}") from e
 
+    def _hybrid_search(self, query: HybridQuery, **kwargs) -> List[Dict[str, Any]]:
+        """Perform a hybrid search against the index, combining text and vector search.
+
+        Args:
+            query (HybridQuery): The text+vector search query to be performed, with configurable fusion methods and
+                post-processing.
+            kwargs: Additional arguments to pass to the redis-py hybrid_search method (e.g. timeout).
+
+        Returns:
+            List[Dict[str, Any]]: The search results ordered by combined score unless otherwise specified.
+
+        Notes:
+            Hybrid search is only available in Redis 8.4.0+, and requires redis-py >= 7.1.0.
+
+        See Also:
+            - `FT.HYBRID command documentation <https://redis.io/docs/latest/commands/ft.hybrid>`_
+            - `redis-py hybrid_search documentation <https://redis.readthedocs.io/en/stable/redismodules.html#redis.commands.search.commands.SearchCommands.hybrid_search>`_
+
+        .. code-block:: python
+
+            from redisvl.query import HybridQuery
+
+            hybrid_query = HybridQuery(
+                text="lorem ipsum dolor sit amet",
+                text_field_name="description",
+                vector=[0.1, 0.2, 0.3],
+                vector_field_name="embedding"
+            )
+
+            results = index.query(hybrid_query)
+
+        """
+        index = self._redis_client.ft(self.schema.index.name)
+        self._validate_hybrid_query(query)
+
+        if not hasattr(index, "hybrid_search"):
+            raise ImportError(_HYBRID_SEARCH_ERROR_MESSAGE)
+
+        results = index.hybrid_search(
+            query=query.query,
+            combine_method=query.combination_method,
+            post_processing=(
+                query.postprocessing_config
+                if query.postprocessing_config.build_args()
+                else None
+            ),
+            params_substitution=query.params,  # type: ignore[arg-type]
+            **kwargs,
+        )  # type: ignore
+        return [convert_bytes(r) for r in results.results]  # type: ignore[union-attr]
+
     def batch_query(
         self, queries: Sequence[BaseQuery], batch_size: int = 10
     ) -> List[List[Dict[str, Any]]]:
@@ -968,14 +1094,16 @@ class SearchIndex(BaseSearchIndex):
         results = self.search(query.query, query_params=query.params)
         return process_results(results, query=query, schema=self.schema)
 
-    def query(self, query: Union[BaseQuery, AggregationQuery]) -> List[Dict[str, Any]]:
+    def query(
+        self, query: Union[BaseQuery, AggregationQuery, HybridQuery]
+    ) -> List[Dict[str, Any]]:
         """Execute a query on the index.
 
-        This method takes a BaseQuery or AggregationQuery object directly, and
+        This method takes a BaseQuery, AggregationQuery, or HybridQuery object directly, and
         handles post-processing of the search.
 
         Args:
-            query (Union[BaseQuery, AggregateQuery]): The query to run.
+            query (Union[BaseQuery, AggregateQuery, HybridQuery]): The query to run.
 
         Returns:
             List[Result]: A list of search results.
@@ -995,6 +1123,8 @@ class SearchIndex(BaseSearchIndex):
         """
         if isinstance(query, AggregationQuery):
             return self._aggregate(query)
+        elif isinstance(query, HybridQuery):
+            return self._hybrid_search(query)
         else:
             return self._query(query)
 
@@ -1164,7 +1294,7 @@ class AsyncSearchIndex(BaseSearchIndex):
         self._connection_kwargs = connection_kwargs or {}
         self._lock = asyncio.Lock()
 
-        self._validated_client = False
+        self._validated_client = kwargs.pop("_client_validated", False)
         self._owns_redis_client = redis_client is None
         if self._owns_redis_client:
             weakref.finalize(self, sync_wrapper(self.disconnect))
@@ -1192,21 +1322,16 @@ class AsyncSearchIndex(BaseSearchIndex):
                 "Must provide either a redis_url or redis_client to fetch Redis index info."
             )
 
-        try:
-            if redis_url:
-                redis_client = await RedisConnectionFactory._get_aredis_connection(
-                    url=redis_url,
-                    required_modules=REQUIRED_MODULES_FOR_INTROSPECTION,
-                    **kwargs,
-                )
-            elif redis_client:
-                await RedisConnectionFactory.validate_async_redis(
-                    redis_client, required_modules=REQUIRED_MODULES_FOR_INTROSPECTION
-                )
-        except RedisModuleVersionError as e:
-            raise RedisModuleVersionError(
-                f"Loading from existing index failed. {str(e)}"
-            ) from e
+        if redis_url:
+            redis_client = await RedisConnectionFactory._get_aredis_connection(
+                redis_url=redis_url,
+                **kwargs,
+            )
+        elif redis_client:
+            # Validate client type and set lib name
+            await RedisConnectionFactory.validate_async_redis(redis_client)
+            # Mark that client was already validated to avoid duplicate calls
+            kwargs["_client_validated"] = True
 
         if redis_client is None:
             raise ValueError(
@@ -1255,13 +1380,17 @@ class AsyncSearchIndex(BaseSearchIndex):
             async with self._lock:
                 # Double-check to protect against concurrent access
                 if self._redis_client is None:
-                    kwargs = self._connection_kwargs
+                    # Pass lib_name to connection factory
+                    kwargs = {**self._connection_kwargs}
                     if self._redis_url:
-                        kwargs["url"] = self._redis_url
+                        kwargs["redis_url"] = self._redis_url
+                    if self._lib_name:
+                        kwargs["lib_name"] = self._lib_name
                     self._redis_client = (
                         await RedisConnectionFactory._get_aredis_connection(**kwargs)
                     )
-        if not self._validated_client:
+        if not self._validated_client and self._lib_name:
+            # Set lib name for user-provided clients
             await RedisConnectionFactory.validate_async_redis(
                 self._redis_client,
                 self._lib_name,
@@ -1302,6 +1431,16 @@ class AsyncSearchIndex(BaseSearchIndex):
                 f"Error while fetching {name} index info: {str(e)}"
             ) from e
 
+    async def _check_svs_support_async(self) -> None:
+        """Validate SVS-VAMANA support.
+
+        Raises:
+            RedisModuleVersionError: If SVS-VAMANA requirements are not met.
+        """
+        client = await self._get_client()
+        if not await supports_svs_async(client):
+            raise RedisModuleVersionError.for_svs_vamana(SVS_MIN_REDIS_VERSION)
+
     async def create(self, overwrite: bool = False, drop: bool = False) -> None:
         """Asynchronously create an index in Redis with the current schema
             and properties.
@@ -1335,6 +1474,10 @@ class AsyncSearchIndex(BaseSearchIndex):
         if not isinstance(overwrite, bool):
             raise TypeError("overwrite must be of type bool")
 
+        # Check if schema uses SVS-VAMANA and validate Redis capabilities
+        if self._uses_svs_vamana():
+            await self._check_svs_support_async()
+
         if await self.exists():
             if not overwrite:
                 logger.info("Index already exists, not overwriting.")
@@ -1346,17 +1489,22 @@ class AsyncSearchIndex(BaseSearchIndex):
             definition = IndexDefinition(
                 prefix=[self.schema.index.prefix], index_type=self._storage.type
             )
+            # Extract stopwords from schema
+            stopwords = self.schema.index.stopwords
+
             if isinstance(client, AsyncRedisCluster):
                 await async_cluster_create_index(
                     index_name=self.schema.index.name,
                     client=client,
                     fields=redis_fields,
                     definition=definition,
+                    stopwords=stopwords,
                 )
             else:
                 await client.ft(self.schema.index.name).create_index(
                     fields=redis_fields,
                     definition=definition,
+                    stopwords=stopwords,
                 )
         except redis.exceptions.RedisError as e:
             raise RedisSearchError(
@@ -1746,6 +1894,56 @@ class AsyncSearchIndex(BaseSearchIndex):
         except Exception as e:
             raise RedisSearchError(f"Unexpected error while searching: {str(e)}") from e
 
+    async def _hybrid_search(
+        self, query: HybridQuery, **kwargs
+    ) -> List[Dict[str, Any]]:
+        """Perform a hybrid search against the index, combining text and vector search.
+
+        Args:
+            query (HybridQuery): The text+vector search query to be performed, with configurable fusion methods and
+                post-processing.
+            kwargs: Additional arguments to pass to the redis-py hybrid_search method (e.g. timeout).
+
+        Returns:
+            List[Dict[str, Any]]: The search results ordered by combined score unless otherwise specified.
+
+        Notes:
+            Hybrid search is only available in Redis 8.4.0+, and requires redis-py >= 7.1.0.
+
+        .. code-block:: python
+
+            from redisvl.query import HybridQuery
+
+            hybrid_query = HybridQuery(
+                text="lorem ipsum dolor sit amet",
+                text_field_name="description",
+                vector=[0.1, 0.2, 0.3],
+                vector_field_name="embedding"
+            )
+
+            results = await async_index.query(hybrid_query)
+
+        """
+        client = await self._get_client()
+        index = client.ft(self.schema.index.name)
+        self._validate_hybrid_query(query)
+
+        if not hasattr(index, "hybrid_search"):
+            raise ImportError(_HYBRID_SEARCH_ERROR_MESSAGE)
+
+        results = await index.hybrid_search(
+            query=query.query,
+            combine_method=query.combination_method,
+            post_processing=(
+                query.postprocessing_config
+                if query.postprocessing_config.build_args()
+                else None
+            ),
+            params_substitution=query.params,  # type: ignore[arg-type]
+            **kwargs,
+        )  # type: ignore
+        return [convert_bytes(r) for r in results.results]  # type: ignore[union-attr]
+
     async def batch_query(
         self, queries: List[BaseQuery], batch_size: int = 10
     ) -> List[List[Dict[str, Any]]]:
@@ -1777,15 +1975,15 @@ class AsyncSearchIndex(BaseSearchIndex):
         return process_results(results, query=query, schema=self.schema)
 
     async def query(
-        self, query: Union[BaseQuery, AggregationQuery]
+        self, query: Union[BaseQuery, AggregationQuery, HybridQuery]
     ) -> List[Dict[str, Any]]:
         """Asynchronously execute a query on the index.
 
-        This method takes a BaseQuery or AggregationQuery object directly, runs
+        This method takes a BaseQuery, AggregationQuery, or HybridQuery object directly, runs
         the search, and handles post-processing of the search.
 
         Args:
-            query (Union[BaseQuery, AggregateQuery]): The query to run.
+            query (Union[BaseQuery, AggregateQuery, HybridQuery]): The query to run.
 
         Returns:
             List[Result]: A list of search results.
@@ -1804,6 +2002,8 @@ class AsyncSearchIndex(BaseSearchIndex):
         """
         if isinstance(query, AggregationQuery):
             return await self._aggregate(query)
+        elif isinstance(query, HybridQuery):
+            return await self._hybrid_search(query)
         else:
             return await self._query(query)
 

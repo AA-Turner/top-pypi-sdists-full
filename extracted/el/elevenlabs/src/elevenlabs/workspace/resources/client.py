@@ -81,7 +81,7 @@ class ResourcesClient:
         group_id: typing.Optional[str] = OMIT,
         workspace_api_key_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Grants a role on a workspace resource to a user or a group. It overrides any existing role this user/service account/group/workspace api key has on the resource. To target a user or service account, pass only the user email. The user must be in your workspace. To target a group, pass only the group id. To target a workspace api key, pass the api key id. The resource will be shared with the service account associated with the api key. You must have admin access to the resource to share it.
 
@@ -110,7 +110,7 @@ class ResourcesClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -146,7 +146,7 @@ class ResourcesClient:
         group_id: typing.Optional[str] = OMIT,
         workspace_api_key_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Removes any existing role on a workspace resource from a user, service account, group or workspace api key. To target a user or service account, pass only the user email. The user must be in your workspace. To target a group, pass only the group id. To target a workspace api key, pass the api key id. The resource will be unshared from the service account associated with the api key. You must have admin access to the resource to unshare it. You cannot remove permissions from the user who created the resource.
 
@@ -172,7 +172,7 @@ class ResourcesClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -194,6 +194,54 @@ class ResourcesClient:
             group_id=group_id,
             workspace_api_key_id=workspace_api_key_id,
             request_options=request_options,
+        )
+        return _response.data
+
+    def copy_to_workspace(
+        self,
+        resource_id: str,
+        *,
+        resource_type: WorkspaceResourceType,
+        target_user_id: str,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Any:
+        """
+        Copies a workspace resource to another workspace.
+
+        Parameters
+        ----------
+        resource_id : str
+            The ID of the target resource.
+
+        resource_type : WorkspaceResourceType
+            Resource type of the target resource.
+
+        target_user_id : str
+            The ID of the target user.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.Any
+            Successful Response
+
+        Examples
+        --------
+        from elevenlabs import ElevenLabs
+
+        client = ElevenLabs(
+            api_key="YOUR_API_KEY",
+        )
+        client.workspace.resources.copy_to_workspace(
+            resource_id="resource_id",
+            resource_type="voice",
+            target_user_id="target_user_id",
+        )
+        """
+        _response = self._raw_client.copy_to_workspace(
+            resource_id, resource_type=resource_type, target_user_id=target_user_id, request_options=request_options
         )
         return _response.data
 
@@ -274,7 +322,7 @@ class AsyncResourcesClient:
         group_id: typing.Optional[str] = OMIT,
         workspace_api_key_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Grants a role on a workspace resource to a user or a group. It overrides any existing role this user/service account/group/workspace api key has on the resource. To target a user or service account, pass only the user email. The user must be in your workspace. To target a group, pass only the group id. To target a workspace api key, pass the api key id. The resource will be shared with the service account associated with the api key. You must have admin access to the resource to share it.
 
@@ -303,7 +351,7 @@ class AsyncResourcesClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -347,7 +395,7 @@ class AsyncResourcesClient:
         group_id: typing.Optional[str] = OMIT,
         workspace_api_key_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Removes any existing role on a workspace resource from a user, service account, group or workspace api key. To target a user or service account, pass only the user email. The user must be in your workspace. To target a group, pass only the group id. To target a workspace api key, pass the api key id. The resource will be unshared from the service account associated with the api key. You must have admin access to the resource to unshare it. You cannot remove permissions from the user who created the resource.
 
@@ -373,7 +421,7 @@ class AsyncResourcesClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -403,5 +451,61 @@ class AsyncResourcesClient:
             group_id=group_id,
             workspace_api_key_id=workspace_api_key_id,
             request_options=request_options,
+        )
+        return _response.data
+
+    async def copy_to_workspace(
+        self,
+        resource_id: str,
+        *,
+        resource_type: WorkspaceResourceType,
+        target_user_id: str,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Any:
+        """
+        Copies a workspace resource to another workspace.
+
+        Parameters
+        ----------
+        resource_id : str
+            The ID of the target resource.
+
+        resource_type : WorkspaceResourceType
+            Resource type of the target resource.
+
+        target_user_id : str
+            The ID of the target user.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.Any
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from elevenlabs import AsyncElevenLabs
+
+        client = AsyncElevenLabs(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.workspace.resources.copy_to_workspace(
+                resource_id="resource_id",
+                resource_type="voice",
+                target_user_id="target_user_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.copy_to_workspace(
+            resource_id, resource_type=resource_type, target_user_id=target_user_id, request_options=request_options
         )
         return _response.data

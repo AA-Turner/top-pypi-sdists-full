@@ -1,83 +1,9 @@
 Metadata-Version: 2.4
 Name: quantities
-Version: 0.16.2
+Version: 0.16.4
 Summary: Support for physical quantities with units, based on numpy
 Author-email: Darren Dale <dsdale24@gmail.com>
 Maintainer-email: Andrew Davison <andrew.davison@cnrs.fr>
-License: .. _license:
-        
-        ***********************************************
-        License
-        ***********************************************
-        
-        
-        Quantities only uses BSD compatible code.  See the Open Source
-        Initiative `licenses page <http://www.opensource.org/licenses>`_
-        for details on individual licenses.
-        
-        License Agreement for Quantities
-        ================================
-        
-        Copyright (c) 2012, Darren Dale <dsdale24@gmail.com>
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions
-        are met:
-        1. Redistributions of source code must retain the above copyright
-           notice, this list of conditions and the following disclaimer.
-        2. Redistributions in binary form must reproduce the above copyright
-           notice, this list of conditions and the following disclaimer in the
-           documentation and/or other materials provided with the distribution.
-        3. Neither the name of the University nor the names of its contributors
-           may be used to endorse or promote products derived from this software
-           without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
-        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-        ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-        OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-        HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-        LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-        OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-        SUCH DAMAGE.
-        
-        
-        License Agreement for Scimath
-        =============================
-        
-        This software is OSI Certified Open Source Software.
-        OSI Certified is a certification mark of the Open Source Initiative.
-        
-        Copyright (c) 2006, Enthought, Inc.
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions are met:
-        
-         * Redistributions of source code must retain the above copyright notice, this
-           list of conditions and the following disclaimer.
-         * Redistributions in binary form must reproduce the above copyright notice,
-           this list of conditions and the following disclaimer in the documentation
-           and/or other materials provided with the distribution.
-         * Neither the name of Enthought, Inc. nor the names of its contributors may
-           be used to endorse or promote products derived from this software without
-           specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-        ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-        (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-        LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-        ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-        SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-        
 Project-URL: documentation, http://python-quantities.readthedocs.io/
 Project-URL: repository, https://github.com/python-quantities/python-quantities
 Project-URL: changelog, https://github.com/python-quantities/python-quantities/blob/master/CHANGES.txt
@@ -89,19 +15,22 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Education
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: numpy>=1.20
+License-File: doc/user/license.rst
+Requires-Dist: numpy>=1.24
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: wheel; extra == "test"
 Provides-Extra: doc
 Requires-Dist: sphinx; extra == "doc"
+Provides-Extra: scipy
+Requires-Dist: scipy; extra == "scipy"
+Dynamic: license-file
 
 ==========
 quantities
@@ -163,12 +92,8 @@ Here is a simple example:
 
 Installation
 ------------
-quantities has a hard dependency on the `NumPy <http://www.numpy.org>`_ library.
-You should install it first, please refer to the NumPy installation guide:
 
-http://docs.scipy.org/doc/numpy/user/install.html
-
-To install quantities itself, then simply run::
+To install quantities itself, simply run::
 
     $ pip install quantities
 

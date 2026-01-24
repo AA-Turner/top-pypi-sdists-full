@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,7 +21,7 @@ from marimo._server.ai.constants import DEFAULT_MAX_TOKENS, DEFAULT_MODEL
 from marimo._server.ai.ids import AiModelId
 from marimo._server.ai.tools.tool_manager import get_tool_manager
 from marimo._server.ai.tools.types import ToolDefinition
-from marimo._server.api.status import HTTPStatus
+from marimo._utils.http import HTTPStatus
 
 
 @dataclass
@@ -30,6 +30,7 @@ class AnyProviderConfig:
 
     base_url: Optional[str]
     api_key: str
+    project: Optional[str] = None
     ssl_verify: Optional[bool] = None
     ca_bundle_path: Optional[str] = None
     client_pem: Optional[str] = None
@@ -47,20 +48,52 @@ class AnyProviderConfig:
     def for_openai(cls, config: AiConfig) -> AnyProviderConfig:
         fallback_key = cls.os_key("OPENAI_API_KEY")
         return cls._for_openai_like(
-            config, "open_ai", "OpenAI", fallback_key=fallback_key
+            config,
+            "open_ai",
+            "OpenAI",
+            fallback_key=fallback_key,
+            require_key=True,
         )
 
     @classmethod
     def for_azure(cls, config: AiConfig) -> AnyProviderConfig:
         fallback_key = cls.os_key("AZURE_API_KEY")
         return cls._for_openai_like(
-            config, "azure", "Azure OpenAI", fallback_key=fallback_key
+            config,
+            "azure",
+            "Azure OpenAI",
+            fallback_key=fallback_key,
+            require_key=True,
         )
 
     @classmethod
     def for_openai_compatible(cls, config: AiConfig) -> AnyProviderConfig:
         return cls._for_openai_like(
             config, "open_ai_compatible", "OpenAI Compatible"
+        )
+
+    @classmethod
+    def for_custom_provider(
+        cls, config: AiConfig, provider_name: str
+    ) -> AnyProviderConfig:
+        """Get config for a custom provider by name."""
+        custom_providers = cast(
+            dict[str, Any], config.get("custom_providers", {})
+        )
+        if provider_name not in custom_providers:
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST,
+                detail=f"Custom provider '{provider_name}' not configured. "
+                "Go to Settings > AI to configure.",
+            )
+
+        provider_config = cast(dict[str, Any], custom_providers[provider_name])
+        return cls._for_openai_like(
+            config,
+            key=provider_name,
+            name=provider_name.replace("_", " ").title(),
+            require_key=False,
+            ai_config=provider_config,
         )
 
     @classmethod
@@ -77,13 +110,55 @@ class AnyProviderConfig:
     @classmethod
     def for_github(cls, config: AiConfig) -> AnyProviderConfig:
         fallback_key = cls.os_key("GITHUB_TOKEN")
-        return cls._for_openai_like(
+        result = cls._for_openai_like(
             config,
             "github",
             "GitHub",
             fallback_key=fallback_key,
             # Default base URL for GitHub Copilot
             fallback_base_url="https://api.githubcopilot.com/",
+            require_key=True,
+        )
+
+        # Add default extra headers for GitHub, but allow user to override
+        default_headers = {
+            "editor-version": "vscode/1.95.0",
+            "Copilot-Integration-Id": "vscode-chat",
+        }
+
+        # Merge: user headers override defaults
+        if result.extra_headers:
+            merged_headers = {**default_headers, **result.extra_headers}
+        else:
+            merged_headers = default_headers
+
+        result.extra_headers = merged_headers
+        return result
+
+    @classmethod
+    def for_openrouter(cls, config: AiConfig) -> AnyProviderConfig:
+        fallback_key = cls.os_key("OPENROUTER_API_KEY")
+        return cls._for_openai_like(
+            config,
+            "openrouter",
+            "OpenRouter",
+            fallback_key=fallback_key,
+            # Default base URL for OpenRouter
+            fallback_base_url="https://openrouter.ai/api/v1/",
+            require_key=True,
+        )
+
+    @classmethod
+    def for_wandb(cls, config: AiConfig) -> AnyProviderConfig:
+        fallback_key = cls.os_key("WANDB_API_KEY")
+        return cls._for_openai_like(
+            config,
+            "wandb",
+            "Weights & Biases",
+            fallback_key=fallback_key,
+            # Default base URL for Weights & Biases
+            fallback_base_url="https://api.inference.wandb.ai/v1/",
+            require_key=True,
         )
 
     @classmethod
@@ -95,15 +170,25 @@ class AnyProviderConfig:
         *,
         fallback_key: Optional[str] = None,
         fallback_base_url: Optional[str] = None,
+        require_key: bool = False,
+        ai_config: dict[str, Any] | None = None,
     ) -> AnyProviderConfig:
-        ai_config = _get_ai_config(config, key)
-        key = _get_key(ai_config, name, fallback_key=fallback_key)
+        ai_config = ai_config or _get_ai_config(config, key)
+        key = _get_key(
+            ai_config, name, fallback_key=fallback_key, require_key=require_key
+        )
+
+        # Use SSL_CERT_FILE environment variable as fallback for ca_bundle_path
+        ca_bundle_path = ai_config.get("ca_bundle_path") or cls.os_key(
+            "SSL_CERT_FILE"
+        )
 
         kwargs: dict[str, Any] = {
             "base_url": _get_base_url(ai_config) or fallback_base_url,
             "api_key": key,
+            "project": ai_config.get("project", None),
             "ssl_verify": ai_config.get("ssl_verify", True),
-            "ca_bundle_path": ai_config.get("ca_bundle_path", None),
+            "ca_bundle_path": ca_bundle_path,
             "client_pem": ai_config.get("client_pem", None),
             "extra_headers": ai_config.get("extra_headers", None),
             "tools": _get_tools(config.get("mode", "manual")),
@@ -119,6 +204,7 @@ class AnyProviderConfig:
             ai_config,
             "Anthropic",
             fallback_key=fallback_key,
+            require_key=True,
         )
         return cls(
             base_url=_get_base_url(ai_config),
@@ -136,10 +222,12 @@ class AnyProviderConfig:
             ai_config,
             "Google AI",
             fallback_key=fallback_key,
+            require_key=False,
         )
         return cls(
             base_url=_get_base_url(ai_config),
             api_key=key,
+            ssl_verify=True,
             tools=_get_tools(config.get("mode", "manual")),
         )
 
@@ -148,7 +236,7 @@ class AnyProviderConfig:
         ai_config = _get_ai_config(config, "bedrock")
         key = _get_key(ai_config, "Bedrock")
         return cls(
-            base_url=_get_base_url(ai_config),
+            base_url=_get_base_url(ai_config, "Bedrock"),
             api_key=key,
             tools=_get_tools(config.get("mode", "manual")),
         )
@@ -170,12 +258,24 @@ class AnyProviderConfig:
             return cls.for_azure(config)
         elif model_id.provider == "github":
             return cls.for_github(config)
+        elif model_id.provider == "openrouter":
+            return cls.for_openrouter(config)
+        elif model_id.provider == "wandb":
+            return cls.for_wandb(config)
         elif model_id.provider == "openai_compatible":
             return cls.for_openai_compatible(config)
         else:
+            custom_providers = cast(
+                dict[str, Any], config.get("custom_providers", {})
+            )
+            if model_id.provider in custom_providers:
+                return cls.for_custom_provider(config, model_id.provider)
+
             # Catch-all: try OpenAI compatible first, then OpenAI.
             try:
-                return cls.for_openai_compatible(config)
+                if "open_ai_compatible" in config:
+                    return cls.for_openai_compatible(config)
+                return cls.for_openai(config)
             except HTTPException:
                 return cls.for_openai(config)
 
@@ -243,6 +343,7 @@ def _get_key(
     name: str,
     *,
     fallback_key: Optional[str] = None,
+    require_key: bool = False,
 ) -> str:
     """Get the API key for a given provider."""
     if not isinstance(config, dict):
@@ -277,10 +378,13 @@ def _get_key(
     if fallback_key:
         return fallback_key
 
-    raise HTTPException(
-        status_code=HTTPStatus.BAD_REQUEST,
-        detail=f"{name} API key not configured. Go to Settings > AI to configure.",
-    )
+    if require_key:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail=f"{name} API key not configured. Go to Settings > AI to configure.",
+        )
+
+    return ""
 
 
 def _get_base_url(config: Any, name: str = "") -> Optional[str]:

@@ -11,7 +11,7 @@ spec:
         - key: kubernetes.io/hostname
           operator: In
           values:
-          - {{ pin_node2 }}
+          - {{ lso_node }}
   storageClassDevices:
     - storageClassName: local-sc
       volumeMode: Block
@@ -42,7 +42,11 @@ spec:
     name: hammerdb
     args:
       pin: {{ pin }} # enable for nodeSelector
+      {%- if storage_type == 'lso' %}
+      pin_node: "{{ lso_node }}"
+      {%- else %}
       pin_node: "{{ pin_node2 }}"
+      {%- endif %}
       db_type: "{{ db_type }}"
       timed_test: true
       test_type: "tpc-c"
@@ -99,7 +103,7 @@ spec:
         sockets: {{ sockets }}
         cores: {{ cores }}
         threads: 1
-        image: quay.io/cloud-bulldozer/{{ db_image }}
+        image: quay.io/benchmark-runner/{{ db_image }}
         limits:
           memory: {{ vm_limits_memory }}
         requests:

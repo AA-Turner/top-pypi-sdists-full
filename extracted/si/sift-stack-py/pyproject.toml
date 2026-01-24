@@ -1,0 +1,377 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sift_stack_py"
+version = "0.9.6"
+description = "Python client library for the Sift API"
+requires-python = ">=3.8"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+maintainers = [
+    { name = "Sift Software Engineers", email = "engineering@siftstack.com" },
+]
+keywords = ["sift", "sift-stack", "siftstack", "sift_py"]
+dependencies = [
+    "grpcio~=1.13",
+    "PyYAML~=6.0",
+    "pandas~=2.0",
+    "protobuf>=5.0",
+    "pydantic~=2.10",
+    # Support python 3.9+ typing in older versons of python.
+    "eval-type-backport~=0.2",
+    "pydantic_core~=2.3",
+    "requests~=2.25",
+    "requests-toolbelt~=1.0",
+    "alive-progress~=3.0",
+    # May move these to optional dependencies in the future.
+    "pandas-stubs~=2.0",
+    "types-PyYAML~=6.0",
+    "types-protobuf>=5.0",
+    "typing-extensions~=4.6",
+    "types-requests~=2.25",
+]
+
+[project.urls]
+Homepage = "https://github.com/sift-stack/sift/tree/main/python"
+Documentation = "https://docs.siftstack.com/sift_py/sift_py.html"
+Repository = "https://github.com/sift-stack/sift/tree/main/python"
+Changelog = "https://github.com/sift-stack/sift/tree/main/python/CHANGELOG.md"
+
+[project.optional-dependencies]
+# AUTO GENERATED EXTRAS — EDIT [tool.sift.extras] ONLY
+all = [
+    'cffi~=1.14',
+    'h5py~=3.11',
+    'npTDMS~=1.9',
+    'polars~=1.8',
+    'pyOpenSSL<24.0.0',
+    'pyarrow>=17.0.0',
+    'rosbags~=0.0',
+    'sift-stream-bindings>=0.2.0-rc4',
+    'types-pyOpenSSL<24.0.0',
+]
+build = [
+    'build==1.2.1',
+    'pdoc==14.5.0',
+]
+data-review = [
+    'pyarrow>=17.0.0',
+]
+dev = [
+    'grpcio-testing~=1.13',
+    'mypy==1.10.0',
+    'pyright==1.1.386',
+    'pytest-asyncio==0.23.7',
+    'pytest-benchmark==4.0.0',
+    'pytest-dotenv==0.5.2',
+    'pytest-mock==3.14.0',
+    'pytest==8.2.2',
+    'ruff~=0.12.10',
+    'tomlkit~=0.13.3',
+]
+dev-all = [
+    'build==1.2.1',
+    'cffi~=1.14',
+    'grpcio-testing~=1.13',
+    'h5py~=3.11',
+    'mypy==1.10.0',
+    'npTDMS~=1.9',
+    'pdoc==14.5.0',
+    'polars~=1.8',
+    'pyOpenSSL<24.0.0',
+    'pyarrow>=17.0.0',
+    'pyright==1.1.386',
+    'pytest-asyncio==0.23.7',
+    'pytest-benchmark==4.0.0',
+    'pytest-dotenv==0.5.2',
+    'pytest-mock==3.14.0',
+    'pytest==8.2.2',
+    'rosbags~=0.0',
+    'ruff~=0.12.10',
+    'sift-stream-bindings>=0.2.0-rc4',
+    'tomlkit~=0.13.3',
+    'types-pyOpenSSL<24.0.0',
+]
+development = [
+    'grpcio-testing~=1.13',
+    'mypy==1.10.0',
+    'pyright==1.1.386',
+    'pytest-asyncio==0.23.7',
+    'pytest-benchmark==4.0.0',
+    'pytest-dotenv==0.5.2',
+    'pytest-mock==3.14.0',
+    'pytest==8.2.2',
+    'ruff~=0.12.10',
+    'tomlkit~=0.13.3',
+]
+docs = [
+    'griffe-pydantic',
+    'mike',
+    'mkdocs',
+    'mkdocs-api-autonav',
+    'mkdocs-include-markdown-plugin',
+    'mkdocs-jupyter',
+    'mkdocs-material',
+    'mkdocstrings[python]',
+]
+docs-build = [
+    'build==1.2.1',
+    'cffi~=1.14',
+    'griffe-pydantic',
+    'grpcio-testing~=1.13',
+    'h5py~=3.11',
+    'mike',
+    'mkdocs',
+    'mkdocs-api-autonav',
+    'mkdocs-include-markdown-plugin',
+    'mkdocs-jupyter',
+    'mkdocs-material',
+    'mkdocstrings[python]',
+    'mypy==1.10.0',
+    'npTDMS~=1.9',
+    'pdoc==14.5.0',
+    'polars~=1.8',
+    'pyOpenSSL<24.0.0',
+    'pyarrow>=17.0.0',
+    'pyright==1.1.386',
+    'pytest-asyncio==0.23.7',
+    'pytest-benchmark==4.0.0',
+    'pytest-dotenv==0.5.2',
+    'pytest-mock==3.14.0',
+    'pytest==8.2.2',
+    'rosbags~=0.0',
+    'ruff~=0.12.10',
+    'sift-stream-bindings>=0.2.0-rc4',
+    'tomlkit~=0.13.3',
+    'types-pyOpenSSL<24.0.0',
+]
+file-imports = [
+    'h5py~=3.11',
+    'npTDMS~=1.9',
+    'polars~=1.8',
+    'rosbags~=0.0',
+]
+hdf5 = [
+    'h5py~=3.11',
+    'polars~=1.8',
+]
+openssl = [
+    'cffi~=1.14',
+    'pyOpenSSL<24.0.0',
+    'types-pyOpenSSL<24.0.0',
+]
+rosbags = [
+    'rosbags~=0.0',
+]
+sift-stream = [
+    'sift-stream-bindings>=0.2.0-rc4',
+]
+sift-stream-bindings = [
+    'sift-stream-bindings>=0.2.0-rc4',
+]
+tdms = [
+    'npTDMS~=1.9',
+]
+
+[tool.sift.extras]
+# Extras configurations defined here will be available in [project.optional-dependencies]
+
+# development
+development = [
+    "grpcio-testing~=1.13",
+    "mypy==1.10.0",
+    "pyright==1.1.386",
+    "pytest==8.2.2",
+    "pytest-asyncio==0.23.7",
+    "pytest-benchmark==4.0.0",
+    "pytest-mock==3.14.0",
+    "pytest-dotenv==0.5.2",
+    "ruff~=0.12.10",
+    "tomlkit~=0.13.3"
+]
+build = ["pdoc==14.5.0", "build==1.2.1"]
+docs = ["mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "mkdocs-include-markdown-plugin",
+    "mkdocs-api-autonav",
+    "mike",
+    "griffe-pydantic",
+    "mkdocs-jupyter"]
+
+# May be required for certain library functionality
+openssl = ["pyOpenSSL<24.0.0", "types-pyOpenSSL<24.0.0", "cffi~=1.14"]
+tdms = ["npTDMS~=1.9"]
+rosbags = ["rosbags~=0.0"]
+sift-stream = ["sift-stream-bindings>=0.2.0-rc4"]
+hdf5 = ["h5py~=3.11", "polars~=1.8"]
+data-review = ["pyarrow>=17.0.0"]
+
+[tool.sift.extras.combine]
+# Combined extras configurations and aliases can be defined here
+
+# aliases
+dev = ["development"]
+sift-stream-bindings = ["sift-stream"]
+
+# combinations
+file-imports = ["tdms", "rosbags", "hdf5"]
+all = ["openssl", "sift-stream", "file-imports", "data-review"]
+
+dev-all = ["development", "all", "build"]
+docs-build = ["dev-all", "docs"] # Note python 3.9+
+
+[tool.mypy]
+python_version = "3.10" # Use the Python 3.10 type checker since we are using eval-type-backport and `from __future__ import annotations`
+
+[tool.pyright]
+python_version = "3.8"
+reportOptionalMemberAccess = "none"
+reportArgumentType = "none"
+reportAttributeAccessIssue = "none"
+stubPath = "lib/sift_client/resources/sync_stubs"
+useLibraryCodeForTypes = true
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+    "lib/sift",
+    "lib/buf",
+    "lib/google",
+    "lib/protoc_gen_openapiv2",
+]
+
+# No official typing stubs for Python gRPC libraries yet.
+# https://github.com/grpc/grpc/issues/29041
+[[tool.mypy.overrides]]
+module = "grpc_testing"
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "grpc"
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "grpc.aio"
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pyarrow"
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "requests_toolbelt"
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "sift-stream-bindings"
+ignore_missing_imports = true
+ignore_errors = true
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+
+[tool.setuptools.package-data]
+sift_grafana = ["py.typed"]
+sift_py = ["py.typed"]
+sift_client = ["py.typed", "resources/sync_stubs/*.pyi"]
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py38" # Python 3.8
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+    "lib/sift",
+    "lib/google",
+    "lib/buf",
+    "lib/protoc_gen_openapiv2",
+]
+
+[tool.ruff.lint]
+select = [
+    "F", # pyflakes
+    "W", # pycodestyle warning
+    "I", # import sort
+    "N", # pep8-naming
+    "TID", # flake8-tidy-imports
+]
+
+[tool.pytest.ini_options]
+env_files = [
+    ".env"
+]
+testpaths = [
+    "lib/sift_py",
+    "lib/sift_client/_tests",
+]
+
+markers = [
+    "integration: mark a test as an integration test (requires API)"
+]
+

@@ -19,10 +19,9 @@ import warnings
 from pydantic.v1 import validate_arguments, ValidationError
 from typing import overload, Optional, Union, Awaitable
 
-from pydantic.v1 import constr, validator
-
+from pydantic.v1 import Field, StrictStr
 from typing import List, Optional
-
+from typing_extensions import Annotated
 from finbourne_horizon.models.audit_complete_request import AuditCompleteRequest
 from finbourne_horizon.models.audit_complete_response import AuditCompleteResponse
 from finbourne_horizon.models.audit_update_request import AuditUpdateRequest

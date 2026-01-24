@@ -3,7 +3,7 @@ import logging
 import os
 import os.path as osp
 from collections import defaultdict
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 
@@ -12,7 +12,7 @@ from torch_geometric.data import Data, HeteroData
 from torch_geometric.io import fs
 from torch_geometric.loader.cluster import ClusterData
 from torch_geometric.sampler.utils import sort_csc
-from torch_geometric.typing import Dict, EdgeType, EdgeTypeStr, NodeType, Tuple
+from torch_geometric.typing import EdgeType, EdgeTypeStr, NodeType
 
 
 class Partitioner:
@@ -304,7 +304,7 @@ class Partitioner:
                 elif self.is_node_level_time:
                     node_time = data.time
 
-                # Sort by column to avoid keeping track of permuations in
+                # Sort by column to avoid keeping track of permutations in
                 # `NeighborSampler` when converting to CSC format:
                 global_row, global_col, perm = sort_csc(
                     global_row, global_col, node_time, edge_time)
@@ -361,7 +361,7 @@ class Partitioner:
             'edge_types': self.edge_types,
             'node_offset': list(node_offset.values()) if node_offset else None,
             'is_hetero': self.is_hetero,
-            'is_sorted': True,  # Based on colum/destination.
+            'is_sorted': True,  # Based on column/destination.
         }
         with open(osp.join(self.root, 'META.json'), 'w') as f:
             json.dump(meta, f)

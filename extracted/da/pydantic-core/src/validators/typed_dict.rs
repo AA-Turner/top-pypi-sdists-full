@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyType};
@@ -23,7 +25,7 @@ struct TypedDictField {
     lookup_key_collection: LookupKeyCollection,
     name_py: Py<PyString>,
     required: bool,
-    validator: CombinedValidator,
+    validator: Arc<CombinedValidator>,
 }
 
 impl_py_gc_traverse!(TypedDictField { validator });
@@ -32,7 +34,7 @@ impl_py_gc_traverse!(TypedDictField { validator });
 pub struct TypedDictValidator {
     fields: Vec<TypedDictField>,
     extra_behavior: ExtraBehavior,
-    extras_validator: Option<Box<CombinedValidator>>,
+    extras_validator: Option<Arc<CombinedValidator>>,
     strict: bool,
     loc_by_alias: bool,
     validate_by_alias: Option<bool>,
@@ -46,8 +48,8 @@ impl BuildValidator for TypedDictValidator {
     fn build(
         schema: &Bound<'_, PyDict>,
         _config: Option<&Bound<'_, PyDict>>,
-        definitions: &mut DefinitionsBuilder<CombinedValidator>,
-    ) -> PyResult<CombinedValidator> {
+        definitions: &mut DefinitionsBuilder<Arc<CombinedValidator>>,
+    ) -> PyResult<Arc<CombinedValidator>> {
         let py = schema.py();
 
         // typed dicts ignore the parent config and always use the config from this TypedDict
@@ -62,7 +64,7 @@ impl BuildValidator for TypedDictValidator {
         let extra_behavior = ExtraBehavior::from_schema_or_config(py, schema, config, ExtraBehavior::Ignore)?;
 
         let extras_validator = match (schema.get_item(intern!(py, "extras_schema"))?, &extra_behavior) {
-            (Some(v), ExtraBehavior::Allow) => Some(Box::new(build_validator(&v, config, definitions)?)),
+            (Some(v), ExtraBehavior::Allow) => Some(build_validator(&v, config, definitions)?),
             (Some(_), _) => return py_schema_err!("extras_schema can only be used if extra_behavior=allow"),
             (_, _) => None,
         };
@@ -93,7 +95,7 @@ impl BuildValidator for TypedDictValidator {
             let required = match field_info.get_as::<bool>(intern!(py, "required"))? {
                 Some(required) => {
                     if required {
-                        if let CombinedValidator::WithDefault(ref val) = validator {
+                        if let CombinedValidator::WithDefault(ref val) = validator.as_ref() {
                             if val.has_default() {
                                 return py_schema_err!(
                                     "Field '{}': a required field cannot have a default value",
@@ -108,7 +110,7 @@ impl BuildValidator for TypedDictValidator {
             };
 
             if required {
-                if let CombinedValidator::WithDefault(ref val) = validator {
+                if let CombinedValidator::WithDefault(ref val) = validator.as_ref() {
                     if val.omit_on_error() {
                         return py_schema_err!(
                             "Field '{}': 'on_error = omit' cannot be set for required fields",
@@ -129,7 +131,7 @@ impl BuildValidator for TypedDictValidator {
                 required,
             });
         }
-        Ok(Self {
+        Ok(CombinedValidator::TypedDict(Self {
             fields,
             extra_behavior,
             extras_validator,
@@ -138,7 +140,7 @@ impl BuildValidator for TypedDictValidator {
             validate_by_alias: config.get_as(intern!(py, "validate_by_alias"))?,
             validate_by_name: config.get_as(intern!(py, "validate_by_name"))?,
             cls_name,
-        }
+        })
         .into())
     }
 }
@@ -154,8 +156,9 @@ impl Validator for TypedDictValidator {
         py: Python<'py>,
         input: &(impl Input<'py> + ?Sized),
         state: &mut ValidationState<'_, 'py>,
-    ) -> ValResult<PyObject> {
+    ) -> ValResult<Py<PyAny>> {
         let strict = state.strict_or(self.strict);
+        let extra_behavior = state.extra_behavior_or(self.extra_behavior);
         let dict = input.validate_dict(strict)?;
 
         let output_dict = PyDict::new(py);
@@ -173,15 +176,16 @@ impl Validator for TypedDictValidator {
 
         // we only care about which keys have been used if we're iterating over the object for extra after
         // the first pass
-        let mut used_keys: Option<AHashSet<&str>> =
-            if self.extra_behavior == ExtraBehavior::Ignore || dict.is_py_get_attr() {
-                None
-            } else {
-                Some(AHashSet::with_capacity(self.fields.len()))
-            };
+        let mut used_keys: Option<AHashSet<&str>> = if extra_behavior == ExtraBehavior::Ignore || dict.is_py_get_attr()
+        {
+            None
+        } else {
+            Some(AHashSet::with_capacity(self.fields.len()))
+        };
 
         {
             let state = &mut state.rebind_extra(|extra| extra.data = Some(output_dict.clone()));
+            let state = &mut state.scoped_set(|state| &mut state.has_field_error, false);
 
             let mut fields_set_count: usize = 0;
 
@@ -226,15 +230,24 @@ impl Validator for TypedDictValidator {
                             output_dict.set_item(&field.name_py, value)?;
                             fields_set_count += 1;
                         }
-                        Err(ValError::Omit) => continue,
-                        Err(ValError::LineErrors(line_errors)) => {
-                            if !is_last_partial || field.required {
-                                for err in line_errors {
-                                    errors.push(lookup_path.apply_error_loc(err, self.loc_by_alias, &field.name));
+                        Err(e) => {
+                            state.has_field_error = true;
+                            match e {
+                                ValError::Omit => {}
+                                ValError::LineErrors(line_errors) => {
+                                    if !is_last_partial || field.required {
+                                        for err in line_errors {
+                                            errors.push(lookup_path.apply_error_loc(
+                                                err,
+                                                self.loc_by_alias,
+                                                &field.name,
+                                            ));
+                                        }
+                                    }
                                 }
+                                err => return Err(err),
                             }
                         }
-                        Err(err) => return Err(err),
                     }
                     continue;
                 }
@@ -257,6 +270,7 @@ impl Validator for TypedDictValidator {
                     }
                     Err(ValError::Omit) => {}
                     Err(ValError::LineErrors(line_errors)) => {
+                        state.has_field_error = true;
                         for err in line_errors {
                             // Note: this will always use the field name even if there is an alias
                             // However, we don't mind so much because this error can only happen if the
@@ -366,7 +380,7 @@ impl Validator for TypedDictValidator {
                 extras_validator: self.extras_validator.as_deref(),
                 output_dict: &output_dict,
                 state,
-                extra_behavior: self.extra_behavior,
+                extra_behavior,
                 partial_last_key,
                 allow_partial,
             })??;

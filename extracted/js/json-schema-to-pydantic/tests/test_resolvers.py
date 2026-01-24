@@ -27,6 +27,14 @@ def test_type_resolver_array():
 
     assert resolver.resolve_type(schema, {}) == List[str]
 
+def test_type_resolver_optional_array():
+    resolver = TypeResolver()
+
+    schema = {"type": ["array", "null"], "items": {"type": "string"}}
+    from typing import List, Optional
+
+    assert resolver.resolve_type(schema, {}) == Optional[List[str]]
+
 
 def test_type_resolver_undefined_array_items():
     """Test handling of arrays without defined item types."""
@@ -95,14 +103,12 @@ def test_nested_reference_resolution():
 
 
 def test_circular_reference_detection():
-    """Test detection of circular references."""
+    """Test detection of direct circular references (ref to itself)."""
     resolver = ReferenceResolver()
     root_schema = {
         "definitions": {
-            "person": {
-                "type": "object",
-                "properties": {"friend": {"$ref": "#/definitions/person"}},
-            }
+            # This is a direct circular reference where a definition references itself directly
+            "person": {"$ref": "#/definitions/person"}
         }
     }
 
@@ -202,6 +208,30 @@ def test_type_resolver_null():
     assert result == Optional[str]
 
 
+def test_recursive_reference_not_detected_in_properties():
+    """Test that recursive references in properties are NOT detected as circular.
+    
+    This is intentional - the model builder handles recursive references properly
+    using forward references, so the resolver should not eagerly resolve refs in properties.
+    """
+    resolver = ReferenceResolver()
+    root_schema = {
+        "definitions": {
+            "person": {
+                "type": "object",
+                "properties": {"friend": {"$ref": "#/definitions/person"}},
+            }
+        }
+    }
+
+    # This should NOT raise an error - the reference is preserved for the model builder to handle
+    result = resolver.resolve_ref("#/definitions/person", {}, root_schema)
+    assert result["type"] == "object"
+    assert "friend" in result["properties"]
+    # The friend property should still have the $ref
+    assert result["properties"]["friend"]["$ref"] == "#/definitions/person"
+
+
 def test_reference_resolver_nested_definitions():
     """Test resolution of nested definitions."""
     resolver = ReferenceResolver()
@@ -228,7 +258,8 @@ def test_reference_resolver_nested_definitions():
     result = resolver.resolve_ref("#/definitions/shape", {}, root_schema)
     assert result["type"] == "object"
     assert "name" in result["properties"]
-    assert result["properties"]["size"] == root_schema["definitions"]["size"]
+    # The size property should still have the $ref - it's not eagerly resolved
+    assert result["properties"]["size"]["$ref"] == "#/definitions/size"
 
 
 def test_reference_resolver_array_refs():
@@ -419,3 +450,89 @@ def test_type_resolver_anytype():
         schema_optional_any_reversed, {}
     )
     assert result_optional_any_reversed == Optional[Any]
+
+
+def test_type_resolver_multiple_types_without_null():
+    """Test handling of multiple types without null (Union)."""
+    resolver = TypeResolver()
+    from typing import Union
+
+    # Test ["string", "integer"]
+    schema = {"type": ["string", "integer"]}
+    result = resolver.resolve_type(schema, {})
+    assert result == Union[str, int]
+
+    # Test ["string", "number", "boolean"]
+    schema = {"type": ["string", "number", "boolean"]}
+    result = resolver.resolve_type(schema, {})
+    assert result == Union[str, float, bool]
+
+
+def test_type_resolver_multiple_types_with_null():
+    """Test handling of multiple types with null (Optional[Union])."""
+    resolver = TypeResolver()
+    from typing import Optional, Union
+
+    # Test ["string", "integer", "null"]
+    schema = {"type": ["string", "integer", "null"]}
+    result = resolver.resolve_type(schema, {})
+    assert result == Optional[Union[str, int]]
+
+    # Test ["string", "number", "boolean", "null"]
+    schema = {"type": ["string", "number", "boolean", "null"]}
+    result = resolver.resolve_type(schema, {})
+    assert result == Optional[Union[str, float, bool]]
+
+    # Test order shouldn't matter
+    schema = {"type": ["null", "string", "integer"]}
+    result = resolver.resolve_type(schema, {})
+    assert result == Optional[Union[str, int]]
+
+
+def test_type_resolver_multiple_complex_types():
+    """Test handling of multiple complex types."""
+    resolver = TypeResolver()
+    from typing import List, Optional, Union
+
+    # Test ["array", "string"] - array or string
+    schema = {"type": ["array", "string"], "items": {"type": "integer"}}
+    result = resolver.resolve_type(schema, {})
+    assert result == Union[List[int], str]
+
+    # Test ["array", "string", "null"] - optional array or string
+    schema = {"type": ["array", "string", "null"], "items": {"type": "integer"}}
+    result = resolver.resolve_type(schema, {})
+    assert result == Optional[Union[List[int], str]]
+
+
+def test_type_resolver_edge_cases():
+    """Test edge cases with type arrays."""
+    resolver = TypeResolver()
+
+    # Test single type in array (unusual but valid)
+    schema = {"type": ["string"]}
+    result = resolver.resolve_type(schema, {})
+    assert result is str
+
+    # Test only null in array (unusual but valid)
+    schema = {"type": ["null"]}
+    result = resolver.resolve_type(schema, {})
+    assert result is type(None)
+
+
+def test_type_resolver_undefined_type():
+    """Test handling of schemas without an explicit type."""
+    resolver = TypeResolver()
+    from typing import Any
+
+    # Test with undefined type and allow_undefined_type=False (default)
+    schema = {"description": "A field without a type"}
+    # Use the explicit alias in pytest.raises
+    with pytest.raises(
+        JsonSchemaTypeError, match="Schema must specify a type. Set allow_undefined_type=True"
+    ):
+        resolver.resolve_type(schema, {})
+
+    # Test with undefined type and allow_undefined_type=True
+    result = resolver.resolve_type(schema, {}, allow_undefined_type=True)
+    assert result is Any

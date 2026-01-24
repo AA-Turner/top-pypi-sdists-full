@@ -1,9 +1,11 @@
 import os
 import textwrap
+from collections.abc import Callable
 from copy import copy
 from functools import wraps
 from types import MethodType
-from typing import Any, Callable, List, Optional, Protocol, Tuple, TypeVar, Union
+from typing import Any, Protocol, TypeVar
+from typing_extensions import Self
 
 from .method import Method
 from .resolver import AmbiguousLookupError, NotFoundLookupError, Resolver
@@ -16,12 +18,6 @@ __all__ = ["Function"]
 
 _promised_convert = None
 """function or None: This will be set to :func:`.parametric.convert`."""
-
-# `typing.Self` is available for Python 3.11 and higher.
-try:  # pragma: specific no cover 3.11
-    from typing import Self
-except ImportError:  # pragma: specific no cover 3.8 3.9 3.10
-    Self = TypeVar("Self", bound="Function")
 
 SomeExceptionType = TypeVar("SomeExceptionType", bound=Exception)
 
@@ -53,7 +49,7 @@ class _FunctionMeta(type):
     docstring of the class."""
 
     @property
-    def __doc__(self):
+    def __doc__(self) -> str | None:
         return self._class_doc
 
 
@@ -76,7 +72,7 @@ class Function(metaclass=_FunctionMeta):
     def __init__(
         self,
         f: Callable,
-        owner: Optional[str] = None,
+        owner: str | None = None,
         warn_redefinition: bool = False,
     ) -> None:
         Function._instances.append(self)
@@ -90,21 +86,21 @@ class Function(metaclass=_FunctionMeta):
 
         # `owner` is the name of the owner. We will later attempt to resolve to
         # which class it actually points.
-        self._owner_name: Optional[str] = owner
-        self._owner: Optional[type] = None
+        self._owner_name: str | None = owner
+        self._owner: type | None = None
 
         self._warn_redefinition = warn_redefinition
 
         # Initialise pending and resolved methods.
-        self._pending: List[Tuple[Callable, Optional[Signature], int]] = []
+        self._pending: list[tuple[Callable, Signature | None, int]] = []
         self._resolver = Resolver(
             self.__name__,
             warn_redefinition=self._warn_redefinition,
         )
-        self._resolved: List[Tuple[Callable, Signature, int]] = []
+        self._resolved: list[tuple[Callable, Signature, int]] = []
 
     @property
-    def owner(self):
+    def owner(self) -> object | None:
         """object or None: Owner of the function. If `None`, then there is no owner."""
         if self._owner is None and self._owner_name is not None:
             name = self._owner_name.split(".")[-1]
@@ -116,7 +112,7 @@ class Function(metaclass=_FunctionMeta):
         return self._owner
 
     @property
-    def __doc__(self) -> Optional[str]:
+    def __doc__(self) -> str | None:
         """str or None: Documentation of the function. This consists of the
         documentation of the function given at initialisation with the documentation
         of all other registered methods appended.
@@ -125,18 +121,19 @@ class Function(metaclass=_FunctionMeta):
         """
         try:
             self._resolve_pending_registrations()
-        except NameError:  # pragma: specific no cover 3.7 3.8 3.9
-            # When `staticmethod` is combined with
-            # `from __future__ import annotations`, in Python 3.10 and higher
-            # `staticmethod` will attempt to inherit `__doc__` (see
-            # https://docs.python.org/3/library/functions.html#staticmethod). Since
-            # we are still in class construction, forward references are not yet
-            # defined, so attempting to resolve all pending methods might fail with a
-            # `NameError`. This is fine, because later calling `__doc__` on the
-            # `staticmethod` will again call this `__doc__`, at which point all methods
-            # will resolve properly. For now, we just ignore the error and undo the
-            # partially completed :meth:`Function._resolve_pending_registrations` by
-            # clearing the cache.
+        except NameError:
+            # When `staticmethod` is combined with `from __future__ import
+            # annotations`, in Python 3.10 and higher `staticmethod` will
+            # attempt to inherit `__doc__` (see
+            # https://docs.python.org/3/library/functions.html#staticmethod).
+            # Since we are still in class construction, forward references are
+            # not yet defined, so attempting to resolve all pending methods
+            # might fail with a `NameError`. This is fine, because later calling
+            # `__doc__` on the `staticmethod` will again call this `__doc__`, at
+            # which point all methods will resolve properly. For now, we just
+            # ignore the error and undo the partially completed
+            # :meth:`Function._resolve_pending_registrations` by clearing the
+            # cache.
             self.clear_cache(reregister=False)
 
         # Don't do any fancy appending of docstrings when the environment variable
@@ -176,14 +173,14 @@ class Function(metaclass=_FunctionMeta):
         self._doc = value if value else ""
 
     @property
-    def methods(self) -> List[Signature]:
+    def methods(self) -> list[Signature]:
         """list[:class:`.signature.Signature`]: All available methods."""
         self._resolve_pending_registrations()
         return self._resolver.methods
 
     def dispatch(
-        self: Self, method: Optional[Callable] = None, precedence=0
-    ) -> Union[Self, Callable[[Callable], Self]]:
+        self: Self, method: Callable | None = None, precedence=0
+    ) -> Self | Callable[[Callable], Self]:
         """Decorator to extend the function with another signature.
 
         Args:
@@ -199,7 +196,7 @@ class Function(metaclass=_FunctionMeta):
         return self
 
     def dispatch_multi(
-        self: Self, *signatures: Union[Signature, Tuple[TypeHint, ...]]
+        self: Self, *signatures: Signature | tuple[TypeHint, ...]
     ) -> Callable[[Callable], Self]:
         """Decorator to extend the function with multiple signatures at once.
 
@@ -251,7 +248,7 @@ class Function(metaclass=_FunctionMeta):
             )
 
     def register(
-        self, f: Callable, signature: Optional[Signature] = None, precedence=0
+        self, f: Callable, signature: Signature | None = None, precedence=0
     ) -> None:
         """Register a method.
 
@@ -296,8 +293,8 @@ class Function(metaclass=_FunctionMeta):
             self.clear_cache(reregister=False)
 
     def resolve_method(
-        self, target: Union[Tuple[object, ...], Signature]
-    ) -> Tuple[Callable, TypeHint]:
+        self, target: tuple[object, ...] | Signature
+    ) -> tuple[Callable, TypeHint]:
         """Find the method and return type for arguments.
 
         Args:
@@ -336,7 +333,7 @@ class Function(metaclass=_FunctionMeta):
 
     def _handle_not_found_lookup_error(
         self, ex: NotFoundLookupError
-    ) -> Tuple[Callable, TypeHint]:
+    ) -> tuple[Callable, TypeHint]:
         if not self.owner:
             # Not in a class. Nothing we can do.
             raise ex from None
@@ -384,9 +381,9 @@ class Function(metaclass=_FunctionMeta):
 
     def _resolve_method_with_cache(
         self,
-        args: Union[Tuple[object, ...], Signature, None] = None,
-        types: Optional[Tuple[TypeHint, ...]] = None,
-    ) -> Tuple[Callable, TypeHint]:
+        args: tuple[object, ...] | Signature | None = None,
+        types: tuple[TypeHint, ...] | None = None,
+    ) -> tuple[Callable, TypeHint]:
         if args is None and types is None:
             raise ValueError(
                 "Arguments `args` and `types` cannot both be `None`. "
@@ -477,8 +474,8 @@ class _DispatchFunction(Protocol):
     """Protocol for the `dispatch` method of a function."""
 
     def __call__(
-        self, method: Optional[Callable], precedence: int
-    ) -> Union[Self, Callable[[Callable], Self]]: ...
+        self, method: Callable | None, precedence: int
+    ) -> Self | Callable[[Callable], Self]: ...
 
 
 class _BoundFunction:
@@ -525,7 +522,7 @@ class _BoundFunction:
         return wrapped_method
 
     @property
-    def methods(self) -> List[Signature]:
+    def methods(self) -> list[Signature]:
         """list[:class:`.signature.Signature`]: All available methods."""
         return self._f.methods
 

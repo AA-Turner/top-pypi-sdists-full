@@ -15,10 +15,10 @@
 
 import logging
 
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.network import common
 
@@ -160,7 +160,7 @@ class ListNetworkSegment(command.Lister):
             '--network',
             metavar='<network>',
             help=_(
-                'List network segments that belong to this '
+                'List only network segments associated with the specified '
                 'network (name or ID)'
             ),
         )

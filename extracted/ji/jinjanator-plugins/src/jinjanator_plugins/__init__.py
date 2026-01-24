@@ -1,33 +1,27 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from typing import (
     Any,
-    Callable,
-    Optional,
     Protocol,
+    TypeAlias,
     TypeVar,
-    Union,
     cast,
 )
 
 import pluggy
 
-from typing_extensions import (
-    TypeAlias,
-)
-
 
 class Format(Protocol):
     name: str
-    suffixes: Optional[Iterable[str]]
-    option_names: Optional[Iterable[str]]
+    suffixes: Iterable[str] | None
+    option_names: Iterable[str] | None
 
-    def __init__(self, options: Optional[Iterable[str]]) -> None: ...  # pragma: no cover
+    def __init__(self, options: Iterable[str] | None) -> None: ...  # pragma: no cover
 
     def parse(self, data_string: str) -> Mapping[str, Any]: ...  # pragma: no cover
 
 
 class FormatOptionUnknownError(Exception):
-    def __init__(self, fmt: Union[type[Format], Format], option: str):
+    def __init__(self, fmt: type[Format] | Format, option: str):
         self.fmt = fmt
         self.option = option
 
@@ -45,7 +39,7 @@ class FormatOptionUnknownError(Exception):
 
 
 class FormatOptionUnsupportedError(Exception):
-    def __init__(self, fmt: Union[type[Format], Format], option: str, message: str):
+    def __init__(self, fmt: type[Format] | Format, option: str, message: str):
         self.fmt = fmt
         self.option = option
         self.message = message
@@ -55,7 +49,7 @@ class FormatOptionUnsupportedError(Exception):
 
 
 class FormatOptionValueError(Exception):
-    def __init__(self, fmt: Union[type[Format], Format], option: str, value: str, message: str):
+    def __init__(self, fmt: type[Format] | Format, option: str, value: str, message: str):
         self.fmt = fmt
         self.option = option
         self.message = message
@@ -63,13 +57,12 @@ class FormatOptionValueError(Exception):
 
     def __str__(self) -> str:
         return (
-            f"Format {self.fmt.name}: option '{self.option}' value '{self.value}'"
-            f" {self.message}."
+            f"Format {self.fmt.name}: option '{self.option}' value '{self.value}' {self.message}."
         )
 
 
 F = TypeVar("F", bound=Callable[..., Any])
-hookspec = cast(Callable[[F], F], pluggy.HookspecMarker("jinjanator"))
+hookspec = cast("Callable[[F], F]", pluggy.HookspecMarker("jinjanator"))
 
 Identity: TypeAlias = str
 Formats: TypeAlias = Mapping[str, type[Format]]
@@ -86,27 +79,27 @@ PluginGlobalsHook: TypeAlias = Callable[[], Globals]
 PluginExtensionsHook: TypeAlias = Callable[[], Extensions]
 
 plugin_identity_hook = cast(
-    Callable[[PluginIdentityHook], PluginIdentityHook],
+    "Callable[[PluginIdentityHook], PluginIdentityHook]",
     pluggy.HookimplMarker("jinjanator"),
 )
 plugin_formats_hook = cast(
-    Callable[[PluginFormatsHook], PluginFormatsHook],
+    "Callable[[PluginFormatsHook], PluginFormatsHook]",
     pluggy.HookimplMarker("jinjanator"),
 )
 plugin_filters_hook = cast(
-    Callable[[PluginFiltersHook], PluginFiltersHook],
+    "Callable[[PluginFiltersHook], PluginFiltersHook]",
     pluggy.HookimplMarker("jinjanator"),
 )
 plugin_tests_hook = cast(
-    Callable[[PluginTestsHook], PluginTestsHook],
+    "Callable[[PluginTestsHook], PluginTestsHook]",
     pluggy.HookimplMarker("jinjanator"),
 )
 plugin_globals_hook = cast(
-    Callable[[PluginGlobalsHook], PluginGlobalsHook],
+    "Callable[[PluginGlobalsHook], PluginGlobalsHook]",
     pluggy.HookimplMarker("jinjanator"),
 )
 plugin_extensions_hook = cast(
-    Callable[[PluginExtensionsHook], PluginExtensionsHook],
+    "Callable[[PluginExtensionsHook], PluginExtensionsHook]",
     pluggy.HookimplMarker("jinjanator"),
 )
 

@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use cas_object::CompressionScheme;
-use hub_client::{BearerCredentialHelper, HubClient, Operation};
+use hub_client::{BearerCredentialHelper, HubClient, Operation, RepoInfo};
 use mdb_shard::file_structs::MDBFileInfo;
-use tracing::{info_span, instrument, Instrument, Span};
+use tracing::{Instrument, Span, info_span, instrument};
 use utils::auth::TokenRefresher;
+use xet_runtime::XetRuntime;
 use xet_runtime::utils::run_constrained;
-use xet_runtime::ThreadPool;
 
 use super::hub_client_token_refresher::HubClientTokenRefresher;
 use crate::data_client::{clean_file, default_config};
@@ -33,7 +33,14 @@ pub async fn migrate_with_external_runtime(
     repo_id: &str,
 ) -> Result<()> {
     let cred_helper = BearerCredentialHelper::new(hub_token.to_owned(), "");
-    let hub_client = HubClient::new(hub_endpoint, repo_type, repo_id, "xtool", "", cred_helper)?;
+    let hub_client = HubClient::new(
+        hub_endpoint,
+        RepoInfo::try_from(repo_type, repo_id)?,
+        Some("main".to_owned()),
+        "xtool",
+        "",
+        cred_helper,
+    )?;
 
     migrate_files_impl(file_paths, false, hub_client, cas_endpoint, None, false).await?;
 
@@ -66,7 +73,7 @@ pub async fn migrate_files_impl(
     let num_workers = if sequential {
         1
     } else {
-        ThreadPool::current().num_worker_threads()
+        XetRuntime::current().num_worker_threads()
     };
     let processor = if dry_run {
         FileUploadSession::dry_run(config.into(), None).await?

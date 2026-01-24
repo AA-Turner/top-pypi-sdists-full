@@ -1,43 +1,52 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 1.38.4
+Version: 1.46.0
 Summary: CLI for MySQL Database. With auto-completion and syntax highlighting.
 Author-email: Mycli Core Team <mycli-dev@googlegroups.com>
 License-Expression: BSD-3-Clause
 Project-URL: homepage, http://mycli.net
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
-Requires-Dist: click<8.1.8,>=7.0
+Requires-Dist: click>=8.3.1
 Requires-Dist: cryptography>=1.0.0
-Requires-Dist: Pygments>=1.6
+Requires-Dist: Pygments~=2.19.2
 Requires-Dist: prompt_toolkit<4.0.0,>=3.0.6
 Requires-Dist: PyMySQL>=0.9.2
 Requires-Dist: sqlparse<0.6.0,>=0.3.0
-Requires-Dist: sqlglot[rs]==26.*
+Requires-Dist: sqlglot[rs]==27.*
 Requires-Dist: configobj>=5.0.5
 Requires-Dist: cli_helpers[styles]>=2.7.0
 Requires-Dist: pyperclip>=1.8.1
-Requires-Dist: pyaes>=1.6.1
+Requires-Dist: pycryptodomex
 Requires-Dist: pyfzf>=0.3.1
-Requires-Dist: llm>=0.19.0
-Requires-Dist: setuptools
-Requires-Dist: pip
+Requires-Dist: rapidfuzz~=3.14.3
 Provides-Extra: ssh
-Requires-Dist: paramiko; extra == "ssh"
+Requires-Dist: paramiko~=3.5.1; extra == "ssh"
 Requires-Dist: sshtunnel; extra == "ssh"
+Provides-Extra: llm
+Requires-Dist: llm>=0.19.0; extra == "llm"
+Requires-Dist: setuptools; extra == "llm"
+Requires-Dist: pip; extra == "llm"
+Provides-Extra: all
+Requires-Dist: mycli[ssh]; extra == "all"
+Requires-Dist: mycli[llm]; extra == "all"
 Provides-Extra: dev
 Requires-Dist: behave>=1.2.6; extra == "dev"
 Requires-Dist: coverage>=7.2.7; extra == "dev"
-Requires-Dist: mypy>=1.16.1; extra == "dev"
+Requires-Dist: mypy~=1.18.1; extra == "dev"
 Requires-Dist: pexpect>=4.9.0; extra == "dev"
 Requires-Dist: pytest>=7.4.4; extra == "dev"
 Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
 Requires-Dist: tox>=4.8.0; extra == "dev"
 Requires-Dist: pdbpp>=0.10.3; extra == "dev"
-Requires-Dist: paramiko; extra == "dev"
+Requires-Dist: paramiko~=3.5.1; extra == "dev"
 Requires-Dist: sshtunnel; extra == "dev"
+Requires-Dist: llm>=0.19.0; extra == "dev"
+Requires-Dist: setuptools; extra == "dev"
+Requires-Dist: pip; extra == "dev"
+Requires-Dist: ruff~=0.14.10; extra == "dev"
 Dynamic: license-file
 
 # mycli
@@ -62,19 +71,19 @@ If you already know how to install Python packages, then you can install it via 
 You might need sudo on Linux.
 
 ```bash
-$ pip install -U mycli
+pip install -U 'mycli[all]'
 ```
 
 or
 
 ```bash
-$ brew update && brew install mycli  # Only on macOS
+brew update && brew install mycli  # Only on macOS
 ```
 
 or
 
 ```bash
-$ sudo apt-get install mycli  # Only on Debian or Ubuntu
+sudo apt-get install mycli  # Only on Debian or Ubuntu
 ```
 
 ### Usage
@@ -82,7 +91,7 @@ $ sudo apt-get install mycli  # Only on Debian or Ubuntu
 See
 
 ```bash
-$ mycli --help
+mycli --help
 ```
 
 Features
@@ -126,7 +135,7 @@ These are some alternative ways to install mycli that are not managed by our tea
 You can install the mycli package available in the AUR:
 
 ```
-$ yay -S mycli
+yay -S mycli
 ```
 
 ### Debian, Ubuntu
@@ -134,7 +143,7 @@ $ yay -S mycli
 On Debian, Ubuntu distributions, you can easily install the mycli package using apt:
 
 ```
-$ sudo apt-get install mycli
+sudo apt-get install mycli
 ```
 
 ### Fedora
@@ -142,12 +151,26 @@ $ sudo apt-get install mycli
 Fedora has a package available for mycli, install it using dnf:
 
 ```
-$ sudo dnf install mycli
+sudo dnf install mycli
 ```
 
 ### Windows
 
+#### Option 1: Native Windows
+
+Install the `less` pager, for example by `scoop install less`.
+
 Follow the instructions on this blogpost: http://web.archive.org/web/20221006045208/https://www.codewall.co.uk/installing-using-mycli-on-windows/
+
+**Mycli is not tested on Windows**, but the libraries used in the app are Windows-compatible.
+This means it should work without any modifications, but isn't supported.
+
+PRs to add native Windows testing to Mycli CI would be welcome!
+
+#### Option 2: WSL
+
+Everything should work as expected in WSL.  This is a good option for using
+Mycli on Windows.
 
 
 ### Thanks:
@@ -168,11 +191,16 @@ Thanks to [PyMysql](https://github.com/PyMySQL/PyMySQL) for a pure python adapte
 
 ### Compatibility
 
-Mycli is tested on macOS and Linux, and requires Python 3.9 or better.
+Mycli is tested on macOS and Linux, and requires Python 3.10 or better.
 
-**Mycli is not tested on Windows**, but the libraries used in this app are Windows-compatible.
-This means it should work without any modifications. If you're unable to run it
-on Windows, please [file a bug](https://github.com/dbcli/mycli/issues/new).
+To connect to MySQL versions earlier than 5.5, you may need to set the following in `~/.myclirc`:
+
+```
+# character set for connections without --charset being set at the CLI
+default_character_set = utf8
+```
+
+or set `--charset=utf8` when invoking MyCLI.
 
 ### Configuration and Usage
 

@@ -40,6 +40,18 @@ LiteralColor = Literal[
 
 TagLiteral = Literal["GuiComponentMessage", "SceneNodeMessage"]
 
+LabelAnchor = Literal[
+    "top-left",
+    "top-center",
+    "top-right",
+    "center-left",
+    "center-center",
+    "center-right",
+    "bottom-left",
+    "bottom-center",
+    "bottom-right",
+]
+
 
 class Message(infra.Message):
     _tags: ClassVar[Tuple[TagLiteral, ...]] = tuple()
@@ -144,6 +156,13 @@ class NotificationMessage(Message):
     mode: Literal["show", "update"]
     uuid: str
     props: NotificationProps
+
+    @override
+    def redundancy_key(self) -> str:
+        # Include mode in the key so "show" and "update" messages are kept
+        # separately. Without this, an "update" message would cull the "show"
+        # message, preventing the notification from being created.
+        return f"{type(self).__name__}_{self.uuid}_{self.mode}"
 
 
 @dataclasses.dataclass
@@ -269,8 +288,9 @@ class GlbMessage(_CreateSceneNodeMessage):
 class GlbProps:
     glb_data: bytes
     """A binary payload containing the GLB data. """
-    scale: float
-    """A scale for resizing the GLB asset."""
+    scale: Union[float, Tuple[float, float, float]]
+    """A scale for resizing the GLB asset. A single float for uniform scaling
+    or a tuple of (x, y, z) for per-axis scaling."""
     cast_shadow: bool
     """Whether or not to cast shadows."""
     receive_shadow: Union[bool, float]
@@ -381,6 +401,16 @@ class LabelMessage(_CreateSceneNodeMessage):
 class LabelProps:
     text: str
     """Text content of the label."""
+    font_size_mode: Literal["screen", "scene"]
+    """Font size mode: 'screen' for screen-space sizing, 'scene' for world-space sizing."""
+    font_screen_scale: float
+    """Scale factor for screen-space font size. Only used when font_size_mode='screen'."""
+    font_scene_height: float
+    """Font height in scene units. Only used when font_size_mode='scene'."""
+    depth_test: bool
+    """Whether to enable depth testing for the label."""
+    anchor: LabelAnchor
+    """Anchor position of the label relative to its position."""
 
 
 @dataclasses.dataclass
@@ -618,6 +648,13 @@ class IcosphereMessage(_CreateSceneNodeMessage):
 
 
 @dataclasses.dataclass
+class CylinderMessage(_CreateSceneNodeMessage):
+    """Cylinder message."""
+
+    props: CylinderProps
+
+
+@dataclasses.dataclass
 class MeshProps:
     vertices: npt.NDArray[np.float32]
     """A numpy array of vertex positions. Should have shape (V, 3).
@@ -638,6 +675,9 @@ class MeshProps:
     """Side of the surface to render."""
     material: Literal["standard", "toon3", "toon5"]
     """Material type of the mesh."""
+    scale: Union[float, Tuple[float, float, float]]
+    """Scale of the mesh. A single float for uniform scaling or a tuple of
+    (x, y, z) for per-axis scaling."""
     cast_shadow: bool
     """Whether or not to cast shadows."""
     receive_shadow: Union[bool, float]
@@ -681,8 +721,7 @@ class IcosphereProps:
     radius: float
     """Radius of the icosphere."""
     subdivisions: int
-    """Number of subdivisions to use when creating the icosphere. Synchronized
-    """
+    """Number of subdivisions to use when creating the icosphere."""
     color: Tuple[int, int, int]
     """Color of the icosphere as RGB integers. """
     wireframe: bool
@@ -702,6 +741,34 @@ class IcosphereProps:
     """Whether to receive shadows. If True, receives shadows normally. If
     False, no shadows. If a float (0-1), shadows are rendered with a fixed
     opacity regardless of lighting conditions. """
+
+
+@dataclasses.dataclass
+class CylinderProps:
+    radius: float
+    """Radius of the cylinder."""
+    height: float
+    """Height of the cylinder."""
+    color: Tuple[int, int, int]
+    """Color of the cylinder as RGB integers."""
+    radial_segments: int
+    """Number of segmented faces around the circumference of the cylinder."""
+    wireframe: bool
+    """Boolean indicating if the cylinder should be rendered as a wireframe."""
+    opacity: Optional[float]
+    """Opacity of the cylinder. None means opaque."""
+    flat_shading: bool
+    """Whether to do flat shading."""
+    side: Literal["front", "back", "double"]
+    """Side of the surface to render."""
+    material: Literal["standard", "toon3", "toon5"]
+    """Material type of the cylinder."""
+    cast_shadow: bool
+    """Whether or not to cast shadows."""
+    receive_shadow: Union[bool, float]
+    """Whether to receive shadows. If True, receives shadows normally. If
+    False, no shadows. If a float (0-1), shadows are rendered with a fixed
+    opacity regardless of lighting conditions."""
 
 
 @dataclasses.dataclass
@@ -807,6 +874,8 @@ class BatchedMeshesProps(_BatchedMeshExtraProps):
     """Whether or not to cast shadows."""
     receive_shadow: bool
     """Whether or not to receive shadows."""
+    batched_opacities: Optional[npt.NDArray[np.float32]] = None
+    """Per-instance opacity multipliers, shape (N,). Multiplied with global opacity."""
 
 
 @dataclasses.dataclass
@@ -905,6 +974,8 @@ class SetCameraPositionMessage(Message):
     """Server -> client message to set the camera's position."""
 
     position: Tuple[float, float, float]
+    initial: bool = False
+    """If True, this is an initial camera setup that can be overridden by URL params."""
 
 
 @dataclasses.dataclass
@@ -912,6 +983,8 @@ class SetCameraUpDirectionMessage(Message):
     """Server -> client message to set the camera's up direction."""
 
     position: Tuple[float, float, float]
+    initial: bool = False
+    """If True, this is an initial camera setup that can be overridden by URL params."""
 
 
 @dataclasses.dataclass
@@ -919,6 +992,8 @@ class SetCameraLookAtMessage(Message):
     """Server -> client message to set the camera's look-at point."""
 
     look_at: Tuple[float, float, float]
+    initial: bool = False
+    """If True, this is an initial camera setup that can be overridden by URL params."""
 
 
 @dataclasses.dataclass
@@ -926,6 +1001,8 @@ class SetCameraNearMessage(Message):
     """Server -> client message to set the camera's near clipping plane."""
 
     near: float
+    initial: bool = False
+    """If True, this is an initial camera setup that can be overridden by URL params."""
 
 
 @dataclasses.dataclass
@@ -933,6 +1010,8 @@ class SetCameraFarMessage(Message):
     """Server -> client message to set the camera's far clipping plane."""
 
     far: float
+    initial: bool = False
+    """If True, this is an initial camera setup that can be overridden by URL params."""
 
 
 @dataclasses.dataclass
@@ -940,6 +1019,8 @@ class SetCameraFovMessage(Message):
     """Server -> client message to set the camera's field of view."""
 
     fov: float
+    initial: bool = False
+    """If True, this is an initial camera setup that can be overridden by URL params."""
 
 
 @dataclasses.dataclass
@@ -1273,6 +1354,8 @@ class GuiButtonProps(GuiBaseProps):
     """Color of the button."""
     _icon_html: Optional[str]
     """(Private) HTML string for the icon to be displayed on the button."""
+    _hold_callback_freqs: Tuple[float, ...]
+    """(Private) Tuple of frequencies (Hz) at which hold callbacks should be triggered."""
 
 
 @dataclasses.dataclass
@@ -1280,6 +1363,17 @@ class GuiButtonMessage(_CreateGuiComponentMessage):
     value: bool
     container_uuid: str
     props: GuiButtonProps
+
+
+@dataclasses.dataclass
+class GuiButtonHoldMessage(Message):
+    """Message sent from client->server when a button is being held.
+
+    Sent periodically at the specified frequency while the button is pressed."""
+
+    uuid: str
+    frequency: float
+    """The frequency (Hz) at which this hold message was triggered."""
 
 
 @dataclasses.dataclass

@@ -568,6 +568,8 @@ class ChatCompletionsRequest(AbstractModel):
 
     @property
     def EnableDeepSearch(self):
+        warnings.warn("parameter `EnableDeepSearch` is deprecated", DeprecationWarning) 
+
         r"""是否开启深度研究该问题，默认是false，在值为true且命中深度研究该问题时，会返回深度研究该问题信息。
         :rtype: bool
         """
@@ -575,6 +577,8 @@ class ChatCompletionsRequest(AbstractModel):
 
     @EnableDeepSearch.setter
     def EnableDeepSearch(self, EnableDeepSearch):
+        warnings.warn("parameter `EnableDeepSearch` is deprecated", DeprecationWarning) 
+
         self._EnableDeepSearch = EnableDeepSearch
 
     @property
@@ -636,6 +640,8 @@ class ChatCompletionsRequest(AbstractModel):
 
     @property
     def EnableDeepRead(self):
+        warnings.warn("parameter `EnableDeepRead` is deprecated", DeprecationWarning) 
+
         r"""是否开启深度阅读，默认是false，在值为true时，会返回深度阅读的结果信息。说明:1.深度阅读需要开启插件增强,即设置EnableEnhancement为true,当设置EnableDeepRead为true时EnableEnhancement默认为true；2.目前暂时只支持单文档单轮的深度阅读；3.深度阅读功能的文件上传可以使用FilesUploads接口，具体参数详见FilesUploads接口文档
         :rtype: bool
         """
@@ -643,6 +649,8 @@ class ChatCompletionsRequest(AbstractModel):
 
     @EnableDeepRead.setter
     def EnableDeepRead(self, EnableDeepRead):
+        warnings.warn("parameter `EnableDeepRead` is deprecated", DeprecationWarning) 
+
         self._EnableDeepRead = EnableDeepRead
 
     @property
@@ -982,10 +990,16 @@ class ChatTranslationsRequest(AbstractModel):
         :param _Text: 待翻译的文本
         :type Text: str
         :param _Source: 源语言。
-支持语言列表: 1. 简体中文：zh，2. 粤语：yue，3. 英语：en，4. 法语：fr，5. 葡萄牙语：pt，6. 西班牙语：es，7. 日语：ja，8. 土耳其语：tr，9. 俄语：ru，10. 阿拉伯语：ar，11. 韩语：ko，12. 泰语：th，13. 意大利语：it，14. 德语：de，15. 越南语：vi，16. 马来语：ms，17. 印尼语：id
+支持语言列表: 
+简体中文：zh，繁体中文：zh-TR，粤语：yue，英语：en，法语：fr，葡萄牙语：pt，西班牙语：es，日语：ja，土耳其语：tr，俄语：ru，阿拉伯语：ar，韩语：ko，泰语：th，意大利语：it，德语：de，越南语：vi，马来语：ms，印尼语：id
+以下语种仅 hunyuan-translation 模型支持：
+菲律宾语：fil，印地语：hi，波兰语：pl，捷克语：cs，荷兰语：nl，高棉语：km，缅甸语：my，波斯语：fa，古吉拉特语：gu，乌尔都语：ur，泰卢固语：te，马拉地语：mr，希伯来语：he，孟加拉语：bn，泰米尔语：ta，乌克兰语：uk，藏语：bo，哈萨克语：kk，蒙古语：mn，维吾尔语：ug
         :type Source: str
         :param _Target: 目标语言。
-支持语言列表: 1. 简体中文：zh，2. 粤语：yue，3. 英语：en，4. 法语：fr，5. 葡萄牙语：pt，6. 西班牙语：es，7. 日语：ja，8. 土耳其语：tr，9. 俄语：ru，10. 阿拉伯语：ar，11. 韩语：ko，12. 泰语：th，13. 意大利语：it，14. 德语：de，15. 越南语：vi，16. 马来语：ms，17. 印尼语：id
+支持语言列表: 
+简体中文：zh，繁体中文：zh-TR，粤语：yue，英语：en，法语：fr，葡萄牙语：pt，西班牙语：es，日语：ja，土耳其语：tr，俄语：ru，阿拉伯语：ar，韩语：ko，泰语：th，意大利语：it，德语：de，越南语：vi，马来语：ms，印尼语：id
+以下语种仅 hunyuan-translation 模型支持：
+菲律宾语：fil，印地语：hi，波兰语：pl，捷克语：cs，荷兰语：nl，高棉语：km，缅甸语：my，波斯语：fa，古吉拉特语：gu，乌尔都语：ur，泰卢固语：te，马拉地语：mr，希伯来语：he，孟加拉语：bn，泰米尔语：ta，乌克兰语：uk，藏语：bo，哈萨克语：kk，蒙古语：mn，维吾尔语：ug
         :type Target: str
         :param _Field: 待翻译文本所属领域，例如游戏剧情等
         :type Field: str
@@ -1050,7 +1064,10 @@ class ChatTranslationsRequest(AbstractModel):
     @property
     def Source(self):
         r"""源语言。
-支持语言列表: 1. 简体中文：zh，2. 粤语：yue，3. 英语：en，4. 法语：fr，5. 葡萄牙语：pt，6. 西班牙语：es，7. 日语：ja，8. 土耳其语：tr，9. 俄语：ru，10. 阿拉伯语：ar，11. 韩语：ko，12. 泰语：th，13. 意大利语：it，14. 德语：de，15. 越南语：vi，16. 马来语：ms，17. 印尼语：id
+支持语言列表: 
+简体中文：zh，繁体中文：zh-TR，粤语：yue，英语：en，法语：fr，葡萄牙语：pt，西班牙语：es，日语：ja，土耳其语：tr，俄语：ru，阿拉伯语：ar，韩语：ko，泰语：th，意大利语：it，德语：de，越南语：vi，马来语：ms，印尼语：id
+以下语种仅 hunyuan-translation 模型支持：
+菲律宾语：fil，印地语：hi，波兰语：pl，捷克语：cs，荷兰语：nl，高棉语：km，缅甸语：my，波斯语：fa，古吉拉特语：gu，乌尔都语：ur，泰卢固语：te，马拉地语：mr，希伯来语：he，孟加拉语：bn，泰米尔语：ta，乌克兰语：uk，藏语：bo，哈萨克语：kk，蒙古语：mn，维吾尔语：ug
         :rtype: str
         """
         return self._Source
@@ -1062,7 +1079,10 @@ class ChatTranslationsRequest(AbstractModel):
     @property
     def Target(self):
         r"""目标语言。
-支持语言列表: 1. 简体中文：zh，2. 粤语：yue，3. 英语：en，4. 法语：fr，5. 葡萄牙语：pt，6. 西班牙语：es，7. 日语：ja，8. 土耳其语：tr，9. 俄语：ru，10. 阿拉伯语：ar，11. 韩语：ko，12. 泰语：th，13. 意大利语：it，14. 德语：de，15. 越南语：vi，16. 马来语：ms，17. 印尼语：id
+支持语言列表: 
+简体中文：zh，繁体中文：zh-TR，粤语：yue，英语：en，法语：fr，葡萄牙语：pt，西班牙语：es，日语：ja，土耳其语：tr，俄语：ru，阿拉伯语：ar，韩语：ko，泰语：th，意大利语：it，德语：de，越南语：vi，马来语：ms，印尼语：id
+以下语种仅 hunyuan-translation 模型支持：
+菲律宾语：fil，印地语：hi，波兰语：pl，捷克语：cs，荷兰语：nl，高棉语：km，缅甸语：my，波斯语：fa，古吉拉特语：gu，乌尔都语：ur，泰卢固语：te，马拉地语：mr，希伯来语：he，孟加拉语：bn，泰米尔语：ta，乌克兰语：uk，藏语：bo，哈萨克语：kk，蒙古语：mn，维吾尔语：ug
         :rtype: str
         """
         return self._Target
@@ -1359,7 +1379,7 @@ tool_calls 标识函数调用。
 
 
 class Content(AbstractModel):
-    r"""可以传入多种类型的内容，如图片、文本。
+    r"""可以传入多种类型的内容，目前支持文本、图片、视频。
 
     """
 
@@ -1368,27 +1388,35 @@ class Content(AbstractModel):
         :param _Type: 内容类型
 注意：
 需包含至少一个 Type 为"text"的参数。
-参数值可选范围：[text", "image_url"]
+参数值可选范围：["text", "image_url","video_url","video_frames"]
 注意：此字段可能返回 null，表示取不到有效值。
         :type Type: str
-        :param _Text: 当 Type 为 text 时使用，表示具体的文本内容。当 Type 为 image_url 时，当前字段内容需保持为空，传递内容不生效。
+        :param _Text: 当 Type 为 text 时使用，表示具体的文本内容。当 Type 为 其他类型 时，当前字段内容需保持为空，传递内容不生效。
 注意：此字段可能返回 null，表示取不到有效值。
         :type Text: str
         :param _ImageUrl: 图片的url，当 Type 为 image_url 时使用，表示具体的图片内容
-如"https://example.com/1.png" 或 图片的base64（注意 "data:image/jpeg;base64," 为必要部分）："data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAA......"。当 Type 为 text 时，当前字段内容需保持为空，传递内容不生效。
+如"https://example.com/1.png" 或 图片的base64（注意 "data:image/jpeg;base64," 为必要部分）："data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAA......"。当 Type 为 其他类型 时，当前字段内容需保持为空，传递内容不生效。
 注意：此字段可能返回 null，表示取不到有效值。
         :type ImageUrl: :class:`tencentcloud.hunyuan.v20230901.models.ImageUrl`
+        :param _VideoUrl: 当 Type 为 video_url 时使用，标识具体的视频链接内容，如"https://your-video-path.mp4"。当 Type 为 其他类型 时，当前字段内容需保持为空，传递内容不生效。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type VideoUrl: :class:`tencentcloud.hunyuan.v20230901.models.VideoUrl`
+        :param _VideoFrames: 当 Type 为 video_frames 时使用，标识具体的视频内图像帧内容，当 Type 为 其他类型 时，当前字段内容需保持为空，传递内容不生效。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type VideoFrames: :class:`tencentcloud.hunyuan.v20230901.models.VideoFrames`
         """
         self._Type = None
         self._Text = None
         self._ImageUrl = None
+        self._VideoUrl = None
+        self._VideoFrames = None
 
     @property
     def Type(self):
         r"""内容类型
 注意：
 需包含至少一个 Type 为"text"的参数。
-参数值可选范围：[text", "image_url"]
+参数值可选范围：["text", "image_url","video_url","video_frames"]
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -1400,7 +1428,7 @@ class Content(AbstractModel):
 
     @property
     def Text(self):
-        r"""当 Type 为 text 时使用，表示具体的文本内容。当 Type 为 image_url 时，当前字段内容需保持为空，传递内容不生效。
+        r"""当 Type 为 text 时使用，表示具体的文本内容。当 Type 为 其他类型 时，当前字段内容需保持为空，传递内容不生效。
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -1413,7 +1441,7 @@ class Content(AbstractModel):
     @property
     def ImageUrl(self):
         r"""图片的url，当 Type 为 image_url 时使用，表示具体的图片内容
-如"https://example.com/1.png" 或 图片的base64（注意 "data:image/jpeg;base64," 为必要部分）："data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAA......"。当 Type 为 text 时，当前字段内容需保持为空，传递内容不生效。
+如"https://example.com/1.png" 或 图片的base64（注意 "data:image/jpeg;base64," 为必要部分）："data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAA......"。当 Type 为 其他类型 时，当前字段内容需保持为空，传递内容不生效。
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.hunyuan.v20230901.models.ImageUrl`
         """
@@ -1423,6 +1451,30 @@ class Content(AbstractModel):
     def ImageUrl(self, ImageUrl):
         self._ImageUrl = ImageUrl
 
+    @property
+    def VideoUrl(self):
+        r"""当 Type 为 video_url 时使用，标识具体的视频链接内容，如"https://your-video-path.mp4"。当 Type 为 其他类型 时，当前字段内容需保持为空，传递内容不生效。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.hunyuan.v20230901.models.VideoUrl`
+        """
+        return self._VideoUrl
+
+    @VideoUrl.setter
+    def VideoUrl(self, VideoUrl):
+        self._VideoUrl = VideoUrl
+
+    @property
+    def VideoFrames(self):
+        r"""当 Type 为 video_frames 时使用，标识具体的视频内图像帧内容，当 Type 为 其他类型 时，当前字段内容需保持为空，传递内容不生效。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.hunyuan.v20230901.models.VideoFrames`
+        """
+        return self._VideoFrames
+
+    @VideoFrames.setter
+    def VideoFrames(self, VideoFrames):
+        self._VideoFrames = VideoFrames
+
 
     def _deserialize(self, params):
         self._Type = params.get("Type")
@@ -1430,6 +1482,12 @@ class Content(AbstractModel):
         if params.get("ImageUrl") is not None:
             self._ImageUrl = ImageUrl()
             self._ImageUrl._deserialize(params.get("ImageUrl"))
+        if params.get("VideoUrl") is not None:
+            self._VideoUrl = VideoUrl()
+            self._VideoUrl._deserialize(params.get("VideoUrl"))
+        if params.get("VideoFrames") is not None:
+            self._VideoFrames = VideoFrames()
+            self._VideoFrames._deserialize(params.get("VideoFrames"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1632,6 +1690,135 @@ class Delta(AbstractModel):
         
 
 
+class Describe3DSmartTopologyJobRequest(AbstractModel):
+    r"""Describe3DSmartTopologyJob请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务ID。	
+        :type JobId: str
+        """
+        self._JobId = None
+
+    @property
+    def JobId(self):
+        r"""任务ID。	
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class Describe3DSmartTopologyJobResponse(AbstractModel):
+    r"""Describe3DSmartTopologyJob返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Status: 任务状态。WAIT：等待中，RUN：执行中，FAIL：任务失败，DONE：任务成功 示例值：RUN。	
+        :type Status: str
+        :param _ErrorCode: 错误码。	
+        :type ErrorCode: str
+        :param _ErrorMessage: 错误信息。	
+        :type ErrorMessage: str
+        :param _ResultFile3Ds: 生成文件的URL地址，有效期1天。	
+        :type ResultFile3Ds: list of File3D
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Status = None
+        self._ErrorCode = None
+        self._ErrorMessage = None
+        self._ResultFile3Ds = None
+        self._RequestId = None
+
+    @property
+    def Status(self):
+        r"""任务状态。WAIT：等待中，RUN：执行中，FAIL：任务失败，DONE：任务成功 示例值：RUN。	
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def ErrorCode(self):
+        r"""错误码。	
+        :rtype: str
+        """
+        return self._ErrorCode
+
+    @ErrorCode.setter
+    def ErrorCode(self, ErrorCode):
+        self._ErrorCode = ErrorCode
+
+    @property
+    def ErrorMessage(self):
+        r"""错误信息。	
+        :rtype: str
+        """
+        return self._ErrorMessage
+
+    @ErrorMessage.setter
+    def ErrorMessage(self, ErrorMessage):
+        self._ErrorMessage = ErrorMessage
+
+    @property
+    def ResultFile3Ds(self):
+        r"""生成文件的URL地址，有效期1天。	
+        :rtype: list of File3D
+        """
+        return self._ResultFile3Ds
+
+    @ResultFile3Ds.setter
+    def ResultFile3Ds(self, ResultFile3Ds):
+        self._ResultFile3Ds = ResultFile3Ds
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Status = params.get("Status")
+        self._ErrorCode = params.get("ErrorCode")
+        self._ErrorMessage = params.get("ErrorMessage")
+        if params.get("ResultFile3Ds") is not None:
+            self._ResultFile3Ds = []
+            for item in params.get("ResultFile3Ds"):
+                obj = File3D()
+                obj._deserialize(item)
+                self._ResultFile3Ds.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class EmbeddingData(AbstractModel):
     r"""Embedding 信息。
 
@@ -1802,6 +1989,72 @@ class ErrorMsg(AbstractModel):
     def _deserialize(self, params):
         self._Msg = params.get("Msg")
         self._Code = params.get("Code")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class File3D(AbstractModel):
+    r"""3D文件
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: 3D文件的格式。取值范围：GIF, OBJ
+        :type Type: str
+        :param _Url: 文件的Url（有效期24小时）
+        :type Url: str
+        :param _PreviewImageUrl: 预览图片Url
+        :type PreviewImageUrl: str
+        """
+        self._Type = None
+        self._Url = None
+        self._PreviewImageUrl = None
+
+    @property
+    def Type(self):
+        r"""3D文件的格式。取值范围：GIF, OBJ
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Url(self):
+        r"""文件的Url（有效期24小时）
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+    @property
+    def PreviewImageUrl(self):
+        r"""预览图片Url
+        :rtype: str
+        """
+        return self._PreviewImageUrl
+
+    @PreviewImageUrl.setter
+    def PreviewImageUrl(self, PreviewImageUrl):
+        self._PreviewImageUrl = PreviewImageUrl
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        self._Url = params.get("Url")
+        self._PreviewImageUrl = params.get("PreviewImageUrl")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4146,6 +4399,57 @@ class ImageUrl(AbstractModel):
         
 
 
+class InputFile3D(AbstractModel):
+    r"""3D文件
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Url: 文件的Url（有效期24小时）	
+        :type Url: str
+        :param _Type: 文件格式	
+        :type Type: str
+        """
+        self._Url = None
+        self._Type = None
+
+    @property
+    def Url(self):
+        r"""文件的Url（有效期24小时）	
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+    @property
+    def Type(self):
+        r"""文件格式	
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+
+    def _deserialize(self, params):
+        self._Url = params.get("Url")
+        self._Type = params.get("Type")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class Knowledge(AbstractModel):
     r"""外部知识
 
@@ -4342,7 +4646,7 @@ class Message(AbstractModel):
         :type Role: str
         :param _Content: 文本内容
         :type Content: str
-        :param _Contents: 多种类型内容（目前支持图片和文本），仅 hunyuan-vision 和 hunyuan-turbo-vision 模型支持
+        :param _Contents: 多种类型内容（目前支持文本、图片和视频），图片支持混元图生文系列模型，视频支持混元视频生文系列模型，详情参考[产品概述](https://cloud.tencent.com/document/product/1729/104753)
 注意：此字段可能返回 null，表示取不到有效值。
         :type Contents: list of Content
         :param _ToolCallId: 当role为tool时传入，标识具体的函数调用
@@ -4389,7 +4693,7 @@ class Message(AbstractModel):
 
     @property
     def Contents(self):
-        r"""多种类型内容（目前支持图片和文本），仅 hunyuan-vision 和 hunyuan-turbo-vision 模型支持
+        r"""多种类型内容（目前支持文本、图片和视频），图片支持混元图生文系列模型，视频支持混元视频生文系列模型，详情参考[产品概述](https://cloud.tencent.com/document/product/1729/104753)
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of Content
         """
@@ -4876,6 +5180,42 @@ quote:引用 n 篇资料作为参考
         self._Message = params.get("Message")
         self._State = params.get("State")
         self._Num = params.get("Num")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PromptTokensDetails(AbstractModel):
+    r"""输入token的详细信息。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CachedTokens: 缓存 token 的数量。
+        :type CachedTokens: str
+        """
+        self._CachedTokens = None
+
+    @property
+    def CachedTokens(self):
+        r"""缓存 token 的数量。
+        :rtype: str
+        """
+        return self._CachedTokens
+
+    @CachedTokens.setter
+    def CachedTokens(self, CachedTokens):
+        self._CachedTokens = CachedTokens
+
+
+    def _deserialize(self, params):
+        self._CachedTokens = params.get("CachedTokens")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -6169,6 +6509,127 @@ class SongExt(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class Submit3DSmartTopologyJobRequest(AbstractModel):
+    r"""Submit3DSmartTopologyJob请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _File3D: 源3D文件模型链接，参考值：
+Type：glb，obj格式文件必选其一。
+Url：文件大小不超过200MB。
+3D模型要求：复杂模型和拓扑过的模型暂无法支持减面操作，建议输入未拓扑过的高模，比如混元3D生成的模型，适用度比较高的类别：硬表面、游戏角色、道具、日常生活用品等。
+        :type File3D: :class:`tencentcloud.hunyuan.v20230901.models.InputFile3D`
+        :param _PolygonType: 多边形类型，表示模型的表面由几边形网格构成，默认为triangle,参考值:
+triangle:三角形面。
+quadrilateral：四边形面。
+        :type PolygonType: str
+        :param _FaceLevel: 减面后面数档位类型，可选值：high，medium, low。
+        :type FaceLevel: str
+        """
+        self._File3D = None
+        self._PolygonType = None
+        self._FaceLevel = None
+
+    @property
+    def File3D(self):
+        r"""源3D文件模型链接，参考值：
+Type：glb，obj格式文件必选其一。
+Url：文件大小不超过200MB。
+3D模型要求：复杂模型和拓扑过的模型暂无法支持减面操作，建议输入未拓扑过的高模，比如混元3D生成的模型，适用度比较高的类别：硬表面、游戏角色、道具、日常生活用品等。
+        :rtype: :class:`tencentcloud.hunyuan.v20230901.models.InputFile3D`
+        """
+        return self._File3D
+
+    @File3D.setter
+    def File3D(self, File3D):
+        self._File3D = File3D
+
+    @property
+    def PolygonType(self):
+        r"""多边形类型，表示模型的表面由几边形网格构成，默认为triangle,参考值:
+triangle:三角形面。
+quadrilateral：四边形面。
+        :rtype: str
+        """
+        return self._PolygonType
+
+    @PolygonType.setter
+    def PolygonType(self, PolygonType):
+        self._PolygonType = PolygonType
+
+    @property
+    def FaceLevel(self):
+        r"""减面后面数档位类型，可选值：high，medium, low。
+        :rtype: str
+        """
+        return self._FaceLevel
+
+    @FaceLevel.setter
+    def FaceLevel(self, FaceLevel):
+        self._FaceLevel = FaceLevel
+
+
+    def _deserialize(self, params):
+        if params.get("File3D") is not None:
+            self._File3D = InputFile3D()
+            self._File3D._deserialize(params.get("File3D"))
+        self._PolygonType = params.get("PolygonType")
+        self._FaceLevel = params.get("FaceLevel")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class Submit3DSmartTopologyJobResponse(AbstractModel):
+    r"""Submit3DSmartTopologyJob返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _JobId: 任务ID。	
+        :type JobId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._JobId = None
+        self._RequestId = None
+
+    @property
+    def JobId(self):
+        r"""任务ID。	
+        :rtype: str
+        """
+        return self._JobId
+
+    @JobId.setter
+    def JobId(self, JobId):
+        self._JobId = JobId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._JobId = params.get("JobId")
+        self._RequestId = params.get("RequestId")
 
 
 class SubmitHunyuanImageChatJobRequest(AbstractModel):
@@ -7761,10 +8222,13 @@ class Usage(AbstractModel):
         :type CompletionTokens: int
         :param _TotalTokens: 总 Token 数量。
         :type TotalTokens: int
+        :param _PromptTokensDetails: 输入 token 的详情。
+        :type PromptTokensDetails: :class:`tencentcloud.hunyuan.v20230901.models.PromptTokensDetails`
         """
         self._PromptTokens = None
         self._CompletionTokens = None
         self._TotalTokens = None
+        self._PromptTokensDetails = None
 
     @property
     def PromptTokens(self):
@@ -7799,11 +8263,25 @@ class Usage(AbstractModel):
     def TotalTokens(self, TotalTokens):
         self._TotalTokens = TotalTokens
 
+    @property
+    def PromptTokensDetails(self):
+        r"""输入 token 的详情。
+        :rtype: :class:`tencentcloud.hunyuan.v20230901.models.PromptTokensDetails`
+        """
+        return self._PromptTokensDetails
+
+    @PromptTokensDetails.setter
+    def PromptTokensDetails(self, PromptTokensDetails):
+        self._PromptTokensDetails = PromptTokensDetails
+
 
     def _deserialize(self, params):
         self._PromptTokens = params.get("PromptTokens")
         self._CompletionTokens = params.get("CompletionTokens")
         self._TotalTokens = params.get("TotalTokens")
+        if params.get("PromptTokensDetails") is not None:
+            self._PromptTokensDetails = PromptTokensDetails()
+            self._PromptTokensDetails._deserialize(params.get("PromptTokensDetails"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7857,6 +8335,93 @@ class UserLocation(AbstractModel):
         if params.get("Approximate") is not None:
             self._Approximate = Approximate()
             self._Approximate._deserialize(params.get("Approximate"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class VideoFrames(AbstractModel):
+    r"""当type为video_frames时使用，标识具体的视频内图像帧内容
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Frames: 视频图像帧列表，图像帧传url，最大支持传入数量为512帧
+        :type Frames: list of str
+        """
+        self._Frames = None
+
+    @property
+    def Frames(self):
+        r"""视频图像帧列表，图像帧传url，最大支持传入数量为512帧
+        :rtype: list of str
+        """
+        return self._Frames
+
+    @Frames.setter
+    def Frames(self, Frames):
+        self._Frames = Frames
+
+
+    def _deserialize(self, params):
+        self._Frames = params.get("Frames")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class VideoUrl(AbstractModel):
+    r"""当type为video_url时使用，标识具体的视频链接内容
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Url: 视频的url，如"https://your-video-path.mp4"，视频文件大小不超过100M。
+        :type Url: str
+        :param _Fps: 控制视频抽帧频率，取值范围为 0.1 ~5，表示每隔 1/fps 秒抽取一帧，默认为 1s抽取一帧
+        :type Fps: float
+        """
+        self._Url = None
+        self._Fps = None
+
+    @property
+    def Url(self):
+        r"""视频的url，如"https://your-video-path.mp4"，视频文件大小不超过100M。
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+    @property
+    def Fps(self):
+        r"""控制视频抽帧频率，取值范围为 0.1 ~5，表示每隔 1/fps 秒抽取一帧，默认为 1s抽取一帧
+        :rtype: float
+        """
+        return self._Fps
+
+    @Fps.setter
+    def Fps(self, Fps):
+        self._Fps = Fps
+
+
+    def _deserialize(self, params):
+        self._Url = params.get("Url")
+        self._Fps = params.get("Fps")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

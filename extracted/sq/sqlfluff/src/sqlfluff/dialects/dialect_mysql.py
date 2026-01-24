@@ -177,12 +177,14 @@ mysql_dialect.replace(
             Ref("SystemVariableSegment"),
         ]
     ),
+    PostTableExpressionGrammar=OneOf(
+        Ref("IndexHintClauseSegment"),
+        Ref("SelectPartitionClauseSegment"),
+    ),
     FromClauseTerminatorGrammar=ansi_dialect.get_grammar(
         "FromClauseTerminatorGrammar"
     ).copy(
         insert=[
-            Ref("IndexHintClauseSegment"),
-            Ref("SelectPartitionClauseSegment"),
             Ref("ForClauseSegment"),
             Ref("SetOperatorSegment"),
             Ref("WithNoSchemaBindingClauseSegment"),
@@ -302,7 +304,9 @@ mysql_dialect.replace(
             r"([A-Z0-9_]*[A-Z][A-Z0-9_]*)|_",
             IdentifierSegment,
             type="naked_identifier",
-            anti_template=r"^(" + r"|".join(dialect.sets("reserved_keywords")) + r")$",
+            anti_template=r"^("
+            + r"|".join(sorted(dialect.sets("reserved_keywords")))
+            + r")$",
         )
     ),
     LikeGrammar=OneOf("LIKE", "RLIKE", "REGEXP"),
@@ -361,7 +365,10 @@ class AliasExpressionSegment(ansi.AliasExpressionSegment):
         Indent,
         Ref("AsAliasOperatorSegment", optional=True),
         OneOf(
-            Ref("SingleIdentifierGrammar"),
+            Sequence(
+                Ref("SingleIdentifierGrammar"),
+                Bracketed(Ref("SingleIdentifierListSegment"), optional=True),
+            ),
             Ref("SingleQuotedIdentifierSegment"),
             Ref("DoubleQuotedIdentifierSegment"),
         ),
@@ -997,6 +1004,7 @@ class ColumnConstraintSegment(ansi.ColumnConstraintSegment):
             OneOf("STORED", "VIRTUAL", optional=True),
         ),
         Sequence("SRID", Ref("NumericLiteralSegment")),
+        OneOf("INVISIBLE", "VISIBLE"),
     )
 
 
@@ -1477,6 +1485,7 @@ class CreateProcedureStatementSegment(BaseSegment):
         "CREATE",
         Ref("DefinerSegment", optional=True),
         "PROCEDURE",
+        Ref("IfNotExistsGrammar", optional=True),
         Ref("FunctionNameSegment"),
         Ref("ProcedureParameterListGrammar", optional=True),
         Ref("CommentClauseSegment", optional=True),
@@ -1572,6 +1581,25 @@ class AlterTableStatementSegment(BaseSegment):
                         optional=True,
                     ),
                 ),
+                # Alter Column
+                Sequence(
+                    "ALTER",
+                    Ref.keyword("COLUMN", optional=True),
+                    Ref("SingleIdentifierGrammar"),  # Column name
+                    AnySetOf(
+                        OneOf(
+                            Sequence(
+                                "SET",
+                                "DEFAULT",
+                                OneOf(Ref("LiteralGrammar"), Ref("ExpressionSegment")),
+                            ),
+                            Sequence("DROP", "DEFAULT"),
+                        ),
+                        Sequence("SET", OneOf("INVISIBLE", "VISIBLE")),
+                        min_times=1,
+                    ),
+                ),
+                # Modify Column
                 Sequence(
                     "MODIFY",
                     Ref.keyword("COLUMN", optional=True),

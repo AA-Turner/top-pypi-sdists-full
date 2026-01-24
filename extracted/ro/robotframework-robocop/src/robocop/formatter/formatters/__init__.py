@@ -26,7 +26,7 @@ from robot.api.parsing import ModelTransformer
 from robot.errors import DataError
 from robot.utils.importer import Importer
 
-from robocop.errors import ImportFormatterError, InvalidParameterError
+from robocop.exceptions import ImportFormatterError, InvalidParameterError
 from robocop.formatter.skip import SKIP_OPTIONS, Skip, SkipConfig
 from robocop.formatter.utils import misc
 
@@ -107,9 +107,7 @@ class FormatterContainer:
         s = f"## Formatter {self.name}\n" + textwrap.dedent(self.instance.__doc__)
         if self.parameters:
             s += "\nSupported parameters:\n  - " + "\n - ".join(str(param) for param in self.parameters) + "\n"
-        s += (
-            f"\nSee <https://robotidy.readthedocs.io/en/latest/formatters/{self.name}.html> for more examples."  # FIXME
-        )
+        s += f"\nSee <https://robocop.dev/stable/formatter/formatters/{self.name}/> for more examples."
         return s
 
 
@@ -139,7 +137,7 @@ def get_formatter_short_name(name: str):
 
 
 def get_absolute_path_to_formatter(name):
-    """If the formatter is not default one, try to get absolute path to formatter to make it easier to import it."""
+    """Return an absolute path to the formatter if it's not a default formatter."""
     if pathlib.Path(name).exists():
         return pathlib.Path(name).resolve()
     return name
@@ -288,19 +286,19 @@ def get_skip_class(spec, skip_args, global_skip: SkipConfig):
 
 def resolve_args(formatter, spec, args, global_skip: SkipConfig, handles_skip):
     """
-    Use class definition to identify which arguments from configuration should be used to invoke it.
+    Use class definition to identify which arguments from the configuration should be used to invoke it.
 
-    First we're splitting arguments into class arguments and skip arguments
-    (those that are handled by Skip class).
-    Class arguments are resolved with their definition and if class accepts
-    "skip" parameter the Skip class will be also added to class arguments.
+    First, we're splitting arguments into class arguments and skip arguments (those that are handled by Skip class).
+    Class arguments are resolved with their definition, and if a class accepts the "skip" parameter, the Skip class
+    will be also added to class arguments.
     """
     args, skip_args = split_args_to_class_and_skip(args)
     spec_args = list(spec.argument_names)
     argument_names = resolve_argument_names(spec_args, handles_skip)
     assert_handled_arguments(formatter, args, argument_names)
     try:
-        positional, named = spec.resolve([f"{arg}={value}" for arg, value in args.items()])
+        args = [f"{arg}={value}" for arg, value in args.items()]
+        positional, named = spec.resolve(args)
         named = dict(named)
         if "skip" in spec_args:
             named["skip"] = get_skip_class(spec, skip_args, global_skip)

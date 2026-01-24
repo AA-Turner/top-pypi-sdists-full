@@ -54,25 +54,27 @@ class ObservabilityPipelineGooglePubSubSource(ModelNormal):
 
     def __init__(
         self_,
-        auth: ObservabilityPipelineGcpAuth,
         decoding: ObservabilityPipelineDecoding,
         id: str,
         project: str,
         subscription: str,
         type: ObservabilityPipelineGooglePubSubSourceType,
+        auth: Union[ObservabilityPipelineGcpAuth, UnsetType] = unset,
         tls: Union[ObservabilityPipelineTls, UnsetType] = unset,
         **kwargs,
     ):
         """
         The ``google_pubsub`` source ingests logs from a Google Cloud Pub/Sub subscription.
 
+        **Supported pipeline types:** logs
+
         :param auth: GCP credentials used to authenticate with Google Cloud Storage.
-        :type auth: ObservabilityPipelineGcpAuth
+        :type auth: ObservabilityPipelineGcpAuth, optional
 
         :param decoding: The decoding format used to interpret incoming logs.
         :type decoding: ObservabilityPipelineDecoding
 
-        :param id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
+        :param id: The unique identifier for this component. Used in other parts of the pipeline to reference this component (for example, as the ``input`` to downstream components).
         :type id: str
 
         :param project: The GCP project ID that owns the Pub/Sub subscription.
@@ -87,11 +89,12 @@ class ObservabilityPipelineGooglePubSubSource(ModelNormal):
         :param type: The source type. The value should always be ``google_pubsub``.
         :type type: ObservabilityPipelineGooglePubSubSourceType
         """
+        if auth is not unset:
+            kwargs["auth"] = auth
         if tls is not unset:
             kwargs["tls"] = tls
         super().__init__(kwargs)
 
-        self_.auth = auth
         self_.decoding = decoding
         self_.id = id
         self_.project = project

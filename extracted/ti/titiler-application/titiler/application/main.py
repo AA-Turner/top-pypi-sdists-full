@@ -3,13 +3,16 @@
 import json
 import logging
 from logging import config as log_config
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 import jinja2
 import rasterio
+from cogeo_mosaic.backends import MosaicBackend as MosaicJSONBackend
+from cogeo_mosaic.errors import MosaicAuthError, MosaicError, MosaicNotFoundError
 from fastapi import Depends, FastAPI, HTTPException, Query, Security
 from fastapi.security.api_key import APIKeyQuery
 from rio_tiler.io import Reader, STACReader
+from starlette import status
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.templating import Jinja2Templates
@@ -40,8 +43,11 @@ from titiler.extensions import (
     stacExtension,
     stacRenderExtension,
     stacViewerExtension,
+    wmtsExtension,
 )
 from titiler.mosaic.errors import MOSAIC_STATUS_CODES
+from titiler.mosaic.extensions.mosaicjson import MosaicJSONExtension
+from titiler.mosaic.extensions.wmts import wmtsExtension as mosaic_wmtsExtension
 from titiler.mosaic.factory import MosaicTilerFactory
 
 logging.getLogger("botocore.credentials").disabled = True
@@ -52,7 +58,7 @@ logging.getLogger("rio-tiler").setLevel(logging.ERROR)
 api_settings = ApiSettings()
 
 # custom template directory
-templates_location = (
+templates_location: list[jinja2.BaseLoader] = (
     [jinja2.FileSystemLoader(api_settings.template_directory)]
     if api_settings.template_directory
     else []
@@ -66,7 +72,7 @@ templates_location.extend(
 )
 
 jinja2_env = jinja2.Environment(
-    autoescape=jinja2.select_autoescape(["html", "xml"]),
+    autoescape=jinja2.select_autoescape(["html"]),
     loader=jinja2.ChoiceLoader(templates_location),
 )
 titiler_templates = Jinja2Templates(env=jinja2_env)
@@ -129,6 +135,7 @@ if not api_settings.disable_cog:
             cogValidateExtension(),
             cogViewerExtension(),
             stacExtension(),
+            wmtsExtension(),
         ],
         enable_telemetry=api_settings.telemetry_enabled,
         templates=titiler_templates,
@@ -149,10 +156,7 @@ if not api_settings.disable_stac:
         reader=STACReader,
         router_prefix="/stac",
         add_ogc_maps=True,
-        extensions=[
-            stacViewerExtension(),
-            stacRenderExtension(),
-        ],
+        extensions=[stacViewerExtension(), stacRenderExtension(), wmtsExtension()],
         enable_telemetry=api_settings.telemetry_enabled,
         templates=titiler_templates,
     )
@@ -169,7 +173,12 @@ if not api_settings.disable_stac:
 # Mosaic endpoints
 if not api_settings.disable_mosaic:
     mosaic = MosaicTilerFactory(
+        backend=MosaicJSONBackend,  # type: ignore
         router_prefix="/mosaicjson",
+        extensions=[
+            MosaicJSONExtension(),
+            mosaic_wmtsExtension(),
+        ],
         enable_telemetry=api_settings.telemetry_enabled,
         templates=titiler_templates,
     )
@@ -210,6 +219,15 @@ TITILER_CONFORMS_TO.update(cmaps.conforms_to)
 
 
 add_exception_handlers(app, DEFAULT_STATUS_CODES)
+
+# Add Mosaic specific error handlers
+MOSAIC_STATUS_CODES.update(
+    {
+        MosaicAuthError: status.HTTP_401_UNAUTHORIZED,
+        MosaicError: status.HTTP_424_FAILED_DEPENDENCY,
+        MosaicNotFoundError: status.HTTP_404_NOT_FOUND,
+    }
+)
 add_exception_handlers(app, MOSAIC_STATUS_CODES)
 
 # Set all CORS enabled origins
@@ -347,7 +365,7 @@ def application_health_check():
 def landing(
     request: Request,
     f: Annotated[
-        Optional[Literal["html", "json"]],
+        Literal["html", "json"] | None,
         Query(
             description="Response MediaType. Defaults to endpoint's default or value defined in `accept` header."
         ),
@@ -453,7 +471,7 @@ def landing(
 def conformance(
     request: Request,
     f: Annotated[
-        Optional[Literal["html", "json"]],
+        Literal["html", "json"] | None,
         Query(
             description="Response MediaType. Defaults to endpoint's default or value defined in `accept` header."
         ),

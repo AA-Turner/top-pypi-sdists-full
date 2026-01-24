@@ -1,11 +1,9 @@
 import pytest
-from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from faker import Faker
+from wbcore.contrib.authentication.models.users import User
 from wbcore.permissions.shortcuts import get_internal_users
-
-User = get_user_model()
 
 fake = Faker()
 

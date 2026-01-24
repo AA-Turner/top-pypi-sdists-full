@@ -22,13 +22,13 @@ jobs:
         - ubuntu-latest
         - windows-latest
         python-version:
-        - "3.9"          # Earliest supported version
-        - "3.10"
+        - "3.10"  # Earliest supported version
         - "3.11"
         - "3.12"
-        - "3.13"  # Latest supported version
+        - "3.13"
+        - "3.14"  # Latest supported version
         # commented: only enable once next Python version enters RC
-        # - "3.14.0-rc.1"  # Development version
+        # - "3.15.0-rc.1"  # Development version
 
       fail-fast: false
 
@@ -36,12 +36,12 @@ jobs:
     name: ${{ matrix.os }}-py${{ matrix.python-version }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Set up uv, Python
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v7
       with:
-        cache-dependency-glob: "**/pyproject.toml"
+        activate-environment: true
         python-version: ${{ matrix.python-version }}
 
     - name: Install the package and dependencies
@@ -66,13 +66,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: astral-sh/setup-uv@v5
-      with:
-        cache-dependency-glob: "**/pyproject.toml"
-        # TEMPORARY Use Python 3.12 to avoid https://github.com/python/mypy/issues/18216
-        python-version: "3.12"
-    - uses: actions/cache@v4
+    - uses: actions/checkout@v6
+    - uses: astral-sh/setup-uv@v7
+      with: { python-version: "3.14" }
+    - uses: actions/cache@v5
       with:
         path: ~/.cache/pre-commit
         key: ${{ github.job }}|${{ hashFiles('.pre-commit-config.yaml') }}

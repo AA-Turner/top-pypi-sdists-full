@@ -19,13 +19,15 @@ Returns both the raw binary data (as bytes) and the parsed data
 
 Created on 14 Feb 2022
 
-:author: semuadmin
-:copyright: SEMU Consulting © 2022
+:author: semuadmin (Steve Smith)
+:copyright: semuadmin © 2022
 :license: BSD 3-Clause
 """
 
 from logging import getLogger
 from socket import socket
+
+from pynmeagps import SocketWrapper
 
 from pyrtcm.exceptions import (
     RTCMMessageError,
@@ -41,7 +43,6 @@ from pyrtcm.rtcmtypes_core import (
     ERR_RAISE,
     VALCKSUM,
 )
-from pyrtcm.socketwrapper import SocketWrapper
 
 
 class RTCMReader:

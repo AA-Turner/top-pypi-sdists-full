@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -14,292 +14,6 @@ import System.Collections.Generic
 
 QuantConnect_Scheduling__EventContainer_Callable = typing.TypeVar("QuantConnect_Scheduling__EventContainer_Callable")
 QuantConnect_Scheduling__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Scheduling__EventContainer_ReturnType")
-
-
-class BaseScheduleRules(System.Object):
-    """Base rule scheduler"""
-
-    @property
-    def time_zone(self) -> typing.Any:
-        """
-        The algorithm's default time zone
-        
-        This property is protected.
-        """
-        ...
-
-    @time_zone.setter
-    def time_zone(self, value: typing.Any) -> None:
-        ...
-
-    @property
-    def securities(self) -> QuantConnect.Securities.SecurityManager:
-        """
-        The security manager
-        
-        This property is protected.
-        """
-        ...
-
-    @securities.setter
-    def securities(self, value: QuantConnect.Securities.SecurityManager) -> None:
-        ...
-
-    @property
-    def market_hours_database(self) -> QuantConnect.Securities.MarketHoursDatabase:
-        """
-        The market hours database instance to use
-        
-        This property is protected.
-        """
-        ...
-
-    @market_hours_database.setter
-    def market_hours_database(self, value: QuantConnect.Securities.MarketHoursDatabase) -> None:
-        ...
-
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, securities: QuantConnect.Securities.SecurityManager, time_zone: typing.Any, market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> None:
-        """
-        Initializes a new instance of the TimeRules helper class
-        
-        :param algorithm: The algorithm instance
-        :param securities: The security manager
-        :param time_zone: The algorithm's default time zone
-        :param market_hours_database: The market hours database instance to use
-        """
-        ...
-
-    def get_security_exchange_hours(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Securities.SecurityExchangeHours:
-        """
-        Helper method to fetch the security exchange hours
-        
-        This method is protected.
-        """
-        ...
-
-    def get_symbol(self, ticker: str) -> QuantConnect.Symbol:
-        """This method is protected."""
-        ...
-
-
-class ITimeRule(metaclass=abc.ABCMeta):
-    """Specifies times times on dates for events, used in conjunction with IDateRule"""
-
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
-        """
-        Creates the event times for the specified dates in UTC
-        
-        :param dates: The dates to apply times to
-        :returns: An enumerable of date times that is the result of applying this rule to the specified dates.
-        """
-        ...
-
-
-class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
-    """Helper class used to provide better syntax when defining time rules"""
-
-    @property
-    def now(self) -> QuantConnect.Scheduling.ITimeRule:
-        """Specifies an event should fire at the current time"""
-        ...
-
-    @property
-    def midnight(self) -> QuantConnect.Scheduling.ITimeRule:
-        """Convenience property for running a scheduled event at midnight in the algorithm time zone"""
-        ...
-
-    @property
-    def noon(self) -> QuantConnect.Scheduling.ITimeRule:
-        """Convenience property for running a scheduled event at noon in the algorithm time zone"""
-        ...
-
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, securities: QuantConnect.Securities.SecurityManager, time_zone: typing.Any, market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> None:
-        """
-        Initializes a new instance of the TimeRules helper class
-        
-        :param algorithm: The algorithm instance
-        :param securities: The security manager
-        :param time_zone: The algorithm's default time zone
-        :param market_hours_database: The market hours database instance to use
-        """
-        ...
-
-    @overload
-    def after_market_close(self, symbol: str, minutes_after_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at the market close +-
-        
-        :param symbol: The symbol whose market close we want an event for
-        :param minutes_after_close: The time after market close that the event should fire
-        :param extended_market_close: True to use extended market close, false to use regular market close
-        :returns: A time rule that fires the specified number of minutes after the symbol's market close.
-        """
-        ...
-
-    @overload
-    def after_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], minutes_after_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at the market close +-
-        
-        :param symbol: The symbol whose market close we want an event for
-        :param minutes_after_close: The time after market close that the event should fire
-        :param extended_market_close: True to use extended market close, false to use regular market close
-        :returns: A time rule that fires the specified number of minutes after the symbol's market close.
-        """
-        ...
-
-    @overload
-    def after_market_open(self, symbol: str, minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at market open +-
-        
-        :param symbol: The symbol whose market open we want an event for
-        :param minutes_after_open: The minutes after market open that the event should fire
-        :param extended_market_open: True to use extended market open, false to use regular market open
-        :returns: A time rule that fires the specified number of minutes after the symbol's market open.
-        """
-        ...
-
-    @overload
-    def after_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at market open +-
-        
-        :param symbol: The symbol whose market open we want an event for
-        :param minutes_after_open: The minutes after market open that the event should fire
-        :param extended_market_open: True to use extended market open, false to use regular market open
-        :returns: A time rule that fires the specified number of minutes after the symbol's market open.
-        """
-        ...
-
-    @overload
-    def at(self, hour: int, minute: int, time_zone: typing.Any) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at the specified time of day in the specified time zone
-        
-        :param hour: The hour
-        :param minute: The minute
-        :param time_zone: The time zone the event time is represented in
-        :returns: A time rule that fires at the specified time in the algorithm's time zone.
-        """
-        ...
-
-    @overload
-    def at(self, hour: int, minute: int, second: int, time_zone: typing.Any) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at the specified time of day in the specified time zone
-        
-        :param hour: The hour
-        :param minute: The minute
-        :param second: The second
-        :param time_zone: The time zone the event time is represented in
-        :returns: A time rule that fires at the specified time in the algorithm's time zone.
-        """
-        ...
-
-    @overload
-    def at(self, time_of_day: datetime.timedelta, time_zone: typing.Any) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at the specified time of day in the specified time zone
-        
-        :param time_of_day: The time of day in the algorithm's time zone the event should fire
-        :param time_zone: The time zone the date time is expressed in
-        :returns: A time rule that fires at the specified time in the algorithm's time zone.
-        """
-        ...
-
-    @overload
-    def at(self, time_of_day: datetime.timedelta) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at the specified time of day in the algorithm's time zone
-        
-        :param time_of_day: The time of day in the algorithm's time zone the event should fire
-        :returns: A time rule that fires at the specified time in the algorithm's time zone.
-        """
-        ...
-
-    @overload
-    def at(self, hour: int, minute: int, second: int = 0) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at the specified time of day in the algorithm's time zone
-        
-        :param hour: The hour
-        :param minute: The minute
-        :param second: The second
-        :returns: A time rule that fires at the specified time in the algorithm's time zone.
-        """
-        ...
-
-    @overload
-    def before_market_close(self, symbol: str, minutes_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at the market close +-
-        
-        :param symbol: The symbol whose market close we want an event for
-        :param minutes_before_close: The time before market close that the event should fire
-        :param extended_market_close: True to use extended market close, false to use regular market close
-        :returns: A time rule that fires the specified number of minutes before the symbol's market close.
-        """
-        ...
-
-    @overload
-    def before_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], minutes_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at the market close +-
-        
-        :param symbol: The symbol whose market close we want an event for
-        :param minutes_before_close: The time before market close that the event should fire
-        :param extended_market_close: True to use extended market close, false to use regular market close
-        :returns: A time rule that fires the specified number of minutes before the symbol's market close.
-        """
-        ...
-
-    @overload
-    def before_market_open(self, symbol: str, minutes_before_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at market open +-
-        
-        :param symbol: The symbol whose market open we want an event for
-        :param minutes_before_open: The minutes before market open that the event should fire
-        :param extended_market_open: True to use extended market open, false to use regular market open
-        :returns: A time rule that fires the specified number of minutes before the symbol's market open.
-        """
-        ...
-
-    @overload
-    def before_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], minutes_before_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire at market open +-
-        
-        :param symbol: The symbol whose market open we want an event for
-        :param minutes_before_open: The minutes before market open that the event should fire
-        :param extended_market_open: True to use extended market open, false to use regular market open
-        :returns: A time rule that fires the specified number of minutes before the symbol's market open.
-        """
-        ...
-
-    def every(self, interval: datetime.timedelta) -> QuantConnect.Scheduling.ITimeRule:
-        """
-        Specifies an event should fire periodically on the requested interval
-        
-        :param interval: The frequency with which the event should fire, can not be zero or less
-        :returns: A time rule that fires after each interval passes.
-        """
-        ...
-
-    def set_default_time_zone(self, time_zone: typing.Any) -> None:
-        """
-        Sets the default time zone
-        
-        :param time_zone: The time zone to use for helper methods that can't resolve a time zone
-        """
-        ...
 
 
 class ScheduledEvent(System.Object, System.IDisposable):
@@ -391,9 +105,10 @@ class ScheduledEvent(System.Object, System.IDisposable):
 
     def on_event_fired(self, trigger_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
-        Event invocator for the EventFired event
+        Event invocator for the event_fired event
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param trigger_time: The event's time in UTC
         """
@@ -424,63 +139,73 @@ class IEventSchedule(metaclass=abc.ABCMeta):
         ...
 
 
-class ScheduledEventException(System.Exception):
-    """Throw this if there is an exception in the callback function of the scheduled event"""
+class BaseScheduleRules(System.Object):
+    """Base rule scheduler"""
 
     @property
-    def scheduled_event_name(self) -> str:
-        """Gets the name of the scheduled event"""
-        ...
-
-    def __init__(self, name: str, message: str, inner_exception: System.Exception) -> None:
+    def time_zone(self) -> typing.Any:
         """
-        ScheduledEventException constructor
+        The algorithm's default time zone
         
-        :param name: The name of the scheduled event
-        :param message: The exception as a string
-        :param inner_exception: The exception that is the cause of the current exception
+        
+        This codeEntityType is protected.
         """
         ...
 
-
-class CompositeTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
-    """Combines multiple time rules into a single rule that emits for each rule"""
-
-    @property
-    def rules(self) -> typing.Sequence[QuantConnect.Scheduling.ITimeRule]:
-        """Gets the individual rules for this composite rule"""
+    @time_zone.setter
+    def time_zone(self, value: typing.Any) -> None:
         ...
 
     @property
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    @overload
-    def __init__(self, *time_rules: typing.Union[QuantConnect.Scheduling.ITimeRule, typing.Iterable[QuantConnect.Scheduling.ITimeRule]]) -> None:
+    def securities(self) -> QuantConnect.Securities.SecurityManager:
         """
-        Initializes a new instance of the CompositeTimeRule class
+        The security manager
         
-        :param time_rules: The time rules to compose
+        
+        This codeEntityType is protected.
         """
         ...
 
-    @overload
-    def __init__(self, time_rules: typing.List[QuantConnect.Scheduling.ITimeRule]) -> None:
+    @securities.setter
+    def securities(self, value: QuantConnect.Securities.SecurityManager) -> None:
+        ...
+
+    @property
+    def market_hours_database(self) -> QuantConnect.Securities.MarketHoursDatabase:
         """
-        Initializes a new instance of the CompositeTimeRule class
+        The market hours database instance to use
         
-        :param time_rules: The time rules to compose
+        
+        This codeEntityType is protected.
         """
         ...
 
-    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+    @market_hours_database.setter
+    def market_hours_database(self, value: QuantConnect.Securities.MarketHoursDatabase) -> None:
+        ...
+
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, securities: QuantConnect.Securities.SecurityManager, time_zone: typing.Any, market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> None:
         """
-        Creates the event times for the specified dates in UTC
+        Initializes a new instance of the TimeRules helper class
         
-        :param dates: The dates to apply times to
-        :returns: An enumerable of date times that is the result of applying this rule to the specified dates.
+        :param algorithm: The algorithm instance
+        :param securities: The security manager
+        :param time_zone: The algorithm's default time zone
+        :param market_hours_database: The market hours database instance to use
         """
+        ...
+
+    def get_security_exchange_hours(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Securities.SecurityExchangeHours:
+        """
+        Helper method to fetch the security exchange hours
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def get_symbol(self, ticker: str) -> QuantConnect.Symbol:
+        """This codeEntityType is protected."""
         ...
 
 
@@ -501,193 +226,6 @@ class IDateRule(metaclass=abc.ABCMeta):
         :param end: The end of the interval to produce dates for
         :returns: All dates in the interval matching this date rule.
         """
-        ...
-
-
-class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
-    """Uses a function to define an enumerable of dates over a requested start/end period"""
-
-    @property
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    @overload
-    def __init__(self, name: str, get_dates_function: typing.Any) -> None:
-        """
-        Initializes a new instance of the FuncDateRule class using a Python function
-        
-        :param name: The name of this rule
-        :param get_dates_function: The time applicator function in Python
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, get_dates_function: typing.Callable[[datetime.datetime, datetime.datetime], typing.List[datetime.datetime]]) -> None:
-        """
-        Initializes a new instance of the FuncDateRule class
-        
-        :param name: The name of this rule
-        :param get_dates_function: The time applicator function
-        """
-        ...
-
-    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
-        """
-        Gets the dates produced by this date rule between the specified times
-        
-        :param start: The start of the interval to produce dates for
-        :param end: The end of the interval to produce dates for
-        :returns: All dates in the interval matching this date rule.
-        """
-        ...
-
-
-class FuncTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
-    """Uses a function to define a time rule as a projection of date times to date times"""
-
-    @property
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    @overload
-    def __init__(self, name: str, create_utc_event_times_function: typing.Any) -> None:
-        """
-        Initializes a new instance of the FuncTimeRule class using a Python function
-        
-        :param name: The name of the time rule
-        :param create_utc_event_times_function: Function used to transform dates into event date times in Python
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, create_utc_event_times_function: typing.Callable[[typing.List[datetime.datetime]], typing.List[datetime.datetime]]) -> None:
-        """
-        Initializes a new instance of the FuncTimeRule class
-        
-        :param name: The name of the time rule
-        :param create_utc_event_times_function: Function used to transform dates into event date times
-        """
-        ...
-
-    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
-        """
-        Creates the event times for the specified dates in UTC
-        
-        :param dates: The dates to apply times to
-        :returns: An enumerable of date times that is the result of applying this rule to the specified dates.
-        """
-        ...
-
-
-class IFluentSchedulingRunnable(QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier, metaclass=abc.ABCMeta):
-    """Specifies the callback component of a scheduled event, as well as final filters"""
-
-    def during_market_hours(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], extended_market: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Filters the event times to only include times where the symbol's market is considered open"""
-        ...
-
-    @overload
-    def run(self, callback: typing.Callable[[], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
-        """Register the defined event with the callback"""
-        ...
-
-    @overload
-    def run(self, callback: typing.Callable[[datetime.datetime], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
-        """Register the defined event with the callback"""
-        ...
-
-    @overload
-    def run(self, callback: typing.Callable[[str, datetime.datetime], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
-        """Register the defined event with the callback"""
-        ...
-
-
-class IFluentSchedulingTimeSpecifier(metaclass=abc.ABCMeta):
-    """Specifies the time rule component of a scheduled event"""
-
-    def after_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire a specified number of minutes after market open"""
-        ...
-
-    @overload
-    def at(self, hour: int, minute: int, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specified time of day in the specified time zone"""
-        ...
-
-    @overload
-    def at(self, hour: int, minute: int, second: int, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specified time of day in the specified time zone"""
-        ...
-
-    @overload
-    def at(self, time_of_day: datetime.timedelta, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specified time of day in the specified time zone"""
-        ...
-
-    @overload
-    def at(self, hour: int, minute: int, second: int = 0) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specified time of day in the specified time zone"""
-        ...
-
-    @overload
-    def at(self, time_of_day: datetime.timedelta) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specific time of day in the algorithm's time zone"""
-        ...
-
-    def before_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], minute_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire a specified numer of minutes before market close"""
-        ...
-
-    def every(self, interval: datetime.timedelta) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire on a period define by the specified interval"""
-        ...
-
-    def where(self, predicate: typing.Callable[[datetime.datetime], bool]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Filters the event times using the predicate"""
-        ...
-
-
-class IFluentSchedulingDateSpecifier(metaclass=abc.ABCMeta):
-    """Specifies the date rule component of a scheduled event"""
-
-    def every(self, *days: typing.Union[System.DayOfWeek, typing.Iterable[System.DayOfWeek]]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on each of the specified day of week"""
-        ...
-
-    @overload
-    def every_day(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on every day of the year"""
-        ...
-
-    @overload
-    def every_day(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on every trading day of the year for the symbol"""
-        ...
-
-    @overload
-    def month_start(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on the first day of the month"""
-        ...
-
-    @overload
-    def month_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on the first trading day of the month"""
-        ...
-
-    @overload
-    def on(self, year: int, month: int, day: int) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events only on the specified date"""
-        ...
-
-    @overload
-    def on(self, *dates: typing.Union[datetime.datetime, typing.Iterable[datetime.datetime]]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events only on the specified dates"""
-        ...
-
-    def where(self, predicate: typing.Callable[[datetime.datetime], bool]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Filters the event times using the predicate"""
         ...
 
 
@@ -762,7 +300,7 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def every_day(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], extended_market_hours: bool = False) -> QuantConnect.Scheduling.IDateRule:
+    def every_day(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], extended_market_hours: bool = False) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire every day the symbol is trading
         
@@ -795,7 +333,7 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def month_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def month_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire on the last tradable date - offset for the specified symbol of each month
         
@@ -824,19 +362,21 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         :param symbol: The symbol whose exchange is used to determine the first tradable date of the month
         :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 30
         :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires on the first tradable date + offset for the specified security each month.
+        :returns: A date rule that fires on the first tradable date + offset for the
+        specified security each month.
         """
         ...
 
     @overload
-    def month_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def month_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire on the first tradable date + offset for the specified symbol of each month
         
         :param symbol: The symbol whose exchange is used to determine the first tradable date of the month
         :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 30
         :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires on the first tradable date + offset for the specified security each month.
+        :returns: A date rule that fires on the first tradable date + offset for the
+        specified security each month.
         """
         ...
 
@@ -884,7 +424,8 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         Specifies an event should fire on the last - offset tradable date for the specified
         symbol of each week
         
-        :param symbol: The symbol whose exchange is used to determine the last tradable date of the week
+        :param symbol: The symbol whose exchange is used to determine the last
+        tradable date of the week
         :param days_offset: The amount of tradable days to offset the last tradable day by each week
         :param extended_market_hours: True to include extended market hours, false otherwise
         :returns: A date rule that fires on the last - offset tradable date for the specified security each week.
@@ -892,12 +433,13 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def week_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def week_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire on the last - offset tradable date for the specified
         symbol of each week
         
-        :param symbol: The symbol whose exchange is used to determine the last tradable date of the week
+        :param symbol: The symbol whose exchange is used to determine the last
+        tradable date of the week
         :param days_offset: The amount of tradable days to offset the last tradable day by each week
         :param extended_market_hours: True to include extended market hours, false otherwise
         :returns: A date rule that fires on the last - offset tradable date for the specified security each week.
@@ -920,23 +462,27 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         Specifies an event should fire on the first tradable date + offset for the specified
         symbol each week
         
-        :param symbol: The symbol whose exchange is used to determine the first tradeable date of the week
+        :param symbol: The symbol whose exchange is used to determine the first
+        tradeable date of the week
         :param days_offset: The amount of tradable days to offset the first tradable day by
         :param extended_market_hours: True to include extended market hours, false otherwise
-        :returns: A date rule that fires on the first + offset tradable date for the specified security each week.
+        :returns: A date rule that fires on the first + offset tradable date for the specified
+        security each week.
         """
         ...
 
     @overload
-    def week_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def week_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire on the first tradable date + offset for the specified
         symbol each week
         
-        :param symbol: The symbol whose exchange is used to determine the first tradeable date of the week
+        :param symbol: The symbol whose exchange is used to determine the first
+        tradeable date of the week
         :param days_offset: The amount of tradable days to offset the first tradable day by
         :param extended_market_hours: True to include extended market hours, false otherwise
-        :returns: A date rule that fires on the first + offset tradable date for the specified security each week.
+        :returns: A date rule that fires on the first + offset tradable date for the specified
+        security each week.
         """
         ...
 
@@ -963,7 +509,7 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
     @overload
-    def year_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def year_end(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire on the last tradable date - offset for the specified symbol of each year
         
@@ -992,20 +538,353 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         :param symbol: The symbol whose exchange is used to determine the first tradable date of the year
         :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 365
         :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires on the first tradable date + offset for the specified security each year.
+        :returns: A date rule that fires on the first tradable date + offset for the
+        specified security each year.
         """
         ...
 
     @overload
-    def year_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
+    def year_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], days_offset: int = 0, extended_market_hours: bool = True) -> QuantConnect.Scheduling.IDateRule:
         """
         Specifies an event should fire on the first tradable date + offset for the specified symbol of each year
         
         :param symbol: The symbol whose exchange is used to determine the first tradable date of the year
         :param days_offset: The amount of tradable days to offset the schedule by; must be between 0 and 365
         :param extended_market_hours: True to include days with extended market hours only, like sunday for futures
-        :returns: A date rule that fires on the first tradable date + offset for the specified security each year.
+        :returns: A date rule that fires on the first tradable date + offset for the
+        specified security each year.
         """
+        ...
+
+
+class ITimeRule(metaclass=abc.ABCMeta):
+    """Specifies times times on dates for events, used in conjunction with IDateRule"""
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+        """
+        Creates the event times for the specified dates in UTC
+        
+        :param dates: The dates to apply times to
+        :returns: An enumerable of date times that is the result
+        of applying this rule to the specified dates.
+        """
+        ...
+
+
+class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
+    """Helper class used to provide better syntax when defining time rules"""
+
+    @property
+    def now(self) -> QuantConnect.Scheduling.ITimeRule:
+        """Specifies an event should fire at the current time"""
+        ...
+
+    @property
+    def midnight(self) -> QuantConnect.Scheduling.ITimeRule:
+        """Convenience property for running a scheduled event at midnight in the algorithm time zone"""
+        ...
+
+    @property
+    def noon(self) -> QuantConnect.Scheduling.ITimeRule:
+        """Convenience property for running a scheduled event at noon in the algorithm time zone"""
+        ...
+
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, securities: QuantConnect.Securities.SecurityManager, time_zone: typing.Any, market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> None:
+        """
+        Initializes a new instance of the TimeRules helper class
+        
+        :param algorithm: The algorithm instance
+        :param securities: The security manager
+        :param time_zone: The algorithm's default time zone
+        :param market_hours_database: The market hours database instance to use
+        """
+        ...
+
+    @overload
+    def after_market_close(self, symbol: str, minutes_after_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the market close +- minutes_after_close
+        
+        :param symbol: The symbol whose market close we want an event for
+        :param minutes_after_close: The time after market close that the event should fire
+        :param extended_market_close: True to use extended market close, false to use regular market close
+        :returns: A time rule that fires the specified number of minutes after the symbol's market close.
+        """
+        ...
+
+    @overload
+    def after_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_after_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the market close +- minutes_after_close
+        
+        :param symbol: The symbol whose market close we want an event for
+        :param minutes_after_close: The time after market close that the event should fire
+        :param extended_market_close: True to use extended market close, false to use regular market close
+        :returns: A time rule that fires the specified number of minutes after the symbol's market close.
+        """
+        ...
+
+    @overload
+    def after_market_open(self, symbol: str, minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at market open +- minutes_after_open
+        
+        :param symbol: The symbol whose market open we want an event for
+        :param minutes_after_open: The minutes after market open that the event should fire
+        :param extended_market_open: True to use extended market open, false to use regular market open
+        :returns: A time rule that fires the specified number of minutes after the symbol's market open.
+        """
+        ...
+
+    @overload
+    def after_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at market open +- minutes_after_open
+        
+        :param symbol: The symbol whose market open we want an event for
+        :param minutes_after_open: The minutes after market open that the event should fire
+        :param extended_market_open: True to use extended market open, false to use regular market open
+        :returns: A time rule that fires the specified number of minutes after the symbol's market open.
+        """
+        ...
+
+    @overload
+    def at(self, hour: int, minute: int, time_zone: typing.Any) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the specified time of day in the specified time zone
+        
+        :param hour: The hour
+        :param minute: The minute
+        :param time_zone: The time zone the event time is represented in
+        :returns: A time rule that fires at the specified time in the algorithm's time zone.
+        """
+        ...
+
+    @overload
+    def at(self, hour: int, minute: int, second: int, time_zone: typing.Any) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the specified time of day in the specified time zone
+        
+        :param hour: The hour
+        :param minute: The minute
+        :param second: The second
+        :param time_zone: The time zone the event time is represented in
+        :returns: A time rule that fires at the specified time in the algorithm's time zone.
+        """
+        ...
+
+    @overload
+    def at(self, time_of_day: datetime.timedelta, time_zone: typing.Any) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the specified time of day in the specified time zone
+        
+        :param time_of_day: The time of day in the algorithm's time zone the event should fire
+        :param time_zone: The time zone the date time is expressed in
+        :returns: A time rule that fires at the specified time in the algorithm's time zone.
+        """
+        ...
+
+    @overload
+    def at(self, time_of_day: datetime.timedelta) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the specified time of day in the algorithm's time zone
+        
+        :param time_of_day: The time of day in the algorithm's time zone the event should fire
+        :returns: A time rule that fires at the specified time in the algorithm's time zone.
+        """
+        ...
+
+    @overload
+    def at(self, hour: int, minute: int, second: int = 0) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the specified time of day in the algorithm's time zone
+        
+        :param hour: The hour
+        :param minute: The minute
+        :param second: The second
+        :returns: A time rule that fires at the specified time in the algorithm's time zone.
+        """
+        ...
+
+    @overload
+    def before_market_close(self, symbol: str, minutes_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the market close +- minutes_before_close
+        
+        :param symbol: The symbol whose market close we want an event for
+        :param minutes_before_close: The time before market close that the event should fire
+        :param extended_market_close: True to use extended market close, false to use regular market close
+        :returns: A time rule that fires the specified number of minutes before the symbol's market close.
+        """
+        ...
+
+    @overload
+    def before_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at the market close +- minutes_before_close
+        
+        :param symbol: The symbol whose market close we want an event for
+        :param minutes_before_close: The time before market close that the event should fire
+        :param extended_market_close: True to use extended market close, false to use regular market close
+        :returns: A time rule that fires the specified number of minutes before the symbol's market close.
+        """
+        ...
+
+    @overload
+    def before_market_open(self, symbol: str, minutes_before_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at market open +- minutes_before_open
+        
+        :param symbol: The symbol whose market open we want an event for
+        :param minutes_before_open: The minutes before market open that the event should fire
+        :param extended_market_open: True to use extended market open, false to use regular market open
+        :returns: A time rule that fires the specified number of minutes before the symbol's market open.
+        """
+        ...
+
+    @overload
+    def before_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_before_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire at market open +- minutes_before_open
+        
+        :param symbol: The symbol whose market open we want an event for
+        :param minutes_before_open: The minutes before market open that the event should fire
+        :param extended_market_open: True to use extended market open, false to use regular market open
+        :returns: A time rule that fires the specified number of minutes before the symbol's market open.
+        """
+        ...
+
+    def every(self, interval: datetime.timedelta) -> QuantConnect.Scheduling.ITimeRule:
+        """
+        Specifies an event should fire periodically on the requested interval
+        
+        :param interval: The frequency with which the event should fire, can not be zero or less
+        :returns: A time rule that fires after each interval passes.
+        """
+        ...
+
+    def set_default_time_zone(self, time_zone: typing.Any) -> None:
+        """
+        Sets the default time zone
+        
+        :param time_zone: The time zone to use for helper methods that can't resolve a time zone
+        """
+        ...
+
+
+class IFluentSchedulingRunnable(QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier, metaclass=abc.ABCMeta):
+    """Specifies the callback component of a scheduled event, as well as final filters"""
+
+    def during_market_hours(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], extended_market: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Filters the event times to only include times where the symbol's market is considered open"""
+        ...
+
+    @overload
+    def run(self, callback: typing.Callable[[], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
+        """Register the defined event with the callback"""
+        ...
+
+    @overload
+    def run(self, callback: typing.Callable[[datetime.datetime], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
+        """Register the defined event with the callback"""
+        ...
+
+    @overload
+    def run(self, callback: typing.Callable[[str, datetime.datetime], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
+        """Register the defined event with the callback"""
+        ...
+
+
+class IFluentSchedulingTimeSpecifier(metaclass=abc.ABCMeta):
+    """Specifies the time rule component of a scheduled event"""
+
+    def after_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire a specified number of minutes after market open"""
+        ...
+
+    @overload
+    def at(self, hour: int, minute: int, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specified time of day in the specified time zone"""
+        ...
+
+    @overload
+    def at(self, hour: int, minute: int, second: int, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specified time of day in the specified time zone"""
+        ...
+
+    @overload
+    def at(self, time_of_day: datetime.timedelta, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specified time of day in the specified time zone"""
+        ...
+
+    @overload
+    def at(self, hour: int, minute: int, second: int = 0) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specified time of day in the specified time zone"""
+        ...
+
+    @overload
+    def at(self, time_of_day: datetime.timedelta) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specific time of day in the algorithm's time zone"""
+        ...
+
+    def before_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minute_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire a specified numer of minutes before market close"""
+        ...
+
+    def every(self, interval: datetime.timedelta) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire on a period define by the specified interval"""
+        ...
+
+    def where(self, predicate: typing.Callable[[datetime.datetime], bool]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Filters the event times using the predicate"""
+        ...
+
+
+class IFluentSchedulingDateSpecifier(metaclass=abc.ABCMeta):
+    """Specifies the date rule component of a scheduled event"""
+
+    def every(self, *days: typing.Union[System.DayOfWeek, typing.Iterable[System.DayOfWeek]]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on each of the specified day of week"""
+        ...
+
+    @overload
+    def every_day(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on every day of the year"""
+        ...
+
+    @overload
+    def every_day(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on every trading day of the year for the symbol"""
+        ...
+
+    @overload
+    def month_start(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on the first day of the month"""
+        ...
+
+    @overload
+    def month_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on the first trading day of the month"""
+        ...
+
+    @overload
+    def on(self, year: int, month: int, day: int) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events only on the specified date"""
+        ...
+
+    @overload
+    def on(self, *dates: typing.Union[datetime.datetime, typing.Iterable[datetime.datetime]]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events only on the specified dates"""
+        ...
+
+    def where(self, predicate: typing.Callable[[datetime.datetime], bool]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Filters the event times using the predicate"""
         ...
 
 
@@ -1172,16 +1051,21 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
 
-class FluentScheduledEventBuilder(System.Object, QuantConnect.Scheduling.IFluentSchedulingDateSpecifier, QuantConnect.Scheduling.IFluentSchedulingRunnable):
-    """Provides a builder class to allow for fluent syntax when constructing new events"""
+class ScheduledEventException(System.Exception):
+    """Throw this if there is an exception in the callback function of the scheduled event"""
 
-    def __init__(self, schedule: QuantConnect.Scheduling.ScheduleManager, securities: QuantConnect.Securities.SecurityManager, name: str = None) -> None:
+    @property
+    def scheduled_event_name(self) -> str:
+        """Gets the name of the scheduled event"""
+        ...
+
+    def __init__(self, name: str, message: str, inner_exception: System.Exception) -> None:
         """
-        Initializes a new instance of the FluentScheduledEventBuilder class
+        ScheduledEventException constructor
         
-        :param schedule: The schedule to send created events to
-        :param securities: The algorithm's security manager
-        :param name: A specific name for this event
+        :param name: The name of the scheduled event
+        :param message: The exception as a string
+        :param inner_exception: The exception that is the cause of the current exception
         """
         ...
 
@@ -1219,13 +1103,147 @@ class TimeConsumer(System.Object):
     @property
     def next_time_request(self) -> typing.Optional[datetime.datetime]:
         """
-        The next time, base on the TimeProvider, that time should be requested
-        to be IsolatorLimitProvider
+        The next time, base on the time_provider, that time should be requested
+        to be isolator_limit_provider
         """
         ...
 
     @next_time_request.setter
     def next_time_request(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+
+class FuncTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
+    """Uses a function to define a time rule as a projection of date times to date times"""
+
+    @property
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    @overload
+    def __init__(self, name: str, create_utc_event_times_function: typing.Any) -> None:
+        """
+        Initializes a new instance of the FuncTimeRule class using a Python function
+        
+        :param name: The name of the time rule
+        :param create_utc_event_times_function: Function used to transform dates into event date times in Python
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, create_utc_event_times_function: typing.Callable[[typing.List[datetime.datetime]], typing.List[datetime.datetime]]) -> None:
+        """
+        Initializes a new instance of the FuncTimeRule class
+        
+        :param name: The name of the time rule
+        :param create_utc_event_times_function: Function used to transform dates into event date times
+        """
+        ...
+
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+        """
+        Creates the event times for the specified dates in UTC
+        
+        :param dates: The dates to apply times to
+        :returns: An enumerable of date times that is the result
+        of applying this rule to the specified dates.
+        """
+        ...
+
+
+class FluentScheduledEventBuilder(System.Object, QuantConnect.Scheduling.IFluentSchedulingDateSpecifier, QuantConnect.Scheduling.IFluentSchedulingRunnable):
+    """Provides a builder class to allow for fluent syntax when constructing new events"""
+
+    def __init__(self, schedule: QuantConnect.Scheduling.ScheduleManager, securities: QuantConnect.Securities.SecurityManager, name: str = None) -> None:
+        """
+        Initializes a new instance of the FluentScheduledEventBuilder class
+        
+        :param schedule: The schedule to send created events to
+        :param securities: The algorithm's security manager
+        :param name: A specific name for this event
+        """
+        ...
+
+
+class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
+    """Uses a function to define an enumerable of dates over a requested start/end period"""
+
+    @property
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    @overload
+    def __init__(self, name: str, get_dates_function: typing.Any) -> None:
+        """
+        Initializes a new instance of the FuncDateRule class using a Python function
+        
+        :param name: The name of this rule
+        :param get_dates_function: The time applicator function in Python
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, get_dates_function: typing.Callable[[datetime.datetime, datetime.datetime], typing.List[datetime.datetime]]) -> None:
+        """
+        Initializes a new instance of the FuncDateRule class
+        
+        :param name: The name of this rule
+        :param get_dates_function: The time applicator function
+        """
+        ...
+
+    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+        """
+        Gets the dates produced by this date rule between the specified times
+        
+        :param start: The start of the interval to produce dates for
+        :param end: The end of the interval to produce dates for
+        :returns: All dates in the interval matching this date rule.
+        """
+        ...
+
+
+class CompositeTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
+    """Combines multiple time rules into a single rule that emits for each rule"""
+
+    @property
+    def rules(self) -> typing.Sequence[QuantConnect.Scheduling.ITimeRule]:
+        """Gets the individual rules for this composite rule"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    @overload
+    def __init__(self, *time_rules: typing.Union[QuantConnect.Scheduling.ITimeRule, typing.Iterable[QuantConnect.Scheduling.ITimeRule]]) -> None:
+        """
+        Initializes a new instance of the CompositeTimeRule class
+        
+        :param time_rules: The time rules to compose
+        """
+        ...
+
+    @overload
+    def __init__(self, time_rules: typing.List[QuantConnect.Scheduling.ITimeRule]) -> None:
+        """
+        Initializes a new instance of the CompositeTimeRule class
+        
+        :param time_rules: The time rules to compose
+        """
+        ...
+
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+        """
+        Creates the event times for the specified dates in UTC
+        
+        :param dates: The dates to apply times to
+        :returns: An enumerable of date times that is the result
+        of applying this rule to the specified dates.
+        """
         ...
 
 
@@ -1240,7 +1258,8 @@ class TimeMonitor(System.Object, System.IDisposable):
         """
         List to store the coming TimeConsumer objects
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -1269,7 +1288,8 @@ class TimeMonitor(System.Object, System.IDisposable):
         """
         Process the TimeConsumer object in TimeConsumers list
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param consumer: The TimeConsumer object to be processed
         """
@@ -1279,7 +1299,8 @@ class TimeMonitor(System.Object, System.IDisposable):
         """
         Remove all TimeConsumer objects where the `Finished` field is marked as true
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 

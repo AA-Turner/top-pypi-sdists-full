@@ -1,8 +1,11 @@
+import logging
 import os
 from contextlib import suppress
 from pathlib import Path
 
 from pathspec import PathSpec
+
+LOGGER = logging.getLogger(__name__)
 
 
 def delete_out_of_scope_files(git_ignore: list[str], repo_path: str) -> None:
@@ -12,7 +15,7 @@ def delete_out_of_scope_files(git_ignore: list[str], repo_path: str) -> None:
         if match.startswith(".git/"):
             continue
 
-        file_path = os.path.join(repo_path, match)
+        file_path = os.path.join(repo_path, match)  # noqa: PTH118
         if Path(file_path).is_file():
             with suppress(FileNotFoundError):
                 Path(file_path).unlink()
@@ -20,6 +23,12 @@ def delete_out_of_scope_files(git_ignore: list[str], repo_path: str) -> None:
     # remove empty directories
     for root, dirs, _ in os.walk(repo_path, topdown=False):
         for dir_name in dirs:
-            dir_path = os.path.join(root, dir_name)
-            if not os.listdir(dir_path):  # noqa: PTH208
-                Path(dir_path).rmdir()
+            dir_path = os.path.join(root, dir_name)  # noqa: PTH118
+            try:
+                if not os.listdir(dir_path):  # noqa: PTH208
+                    Path(dir_path).rmdir()
+            except FileNotFoundError:
+                LOGGER.exception(
+                    "Error removing empty directory", extra={"extra": {"dir_path": dir_path}}
+                )
+                continue

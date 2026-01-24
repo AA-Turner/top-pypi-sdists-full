@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import ContainerLevelMetricsType, ContainerStatusType, MethodNameType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -89,11 +84,11 @@ class ContainerTypeDef(TypedDict):
 
 
 class CorsRuleOutputTypeDef(TypedDict):
-    AllowedOrigins: List[str]
-    AllowedHeaders: List[str]
-    AllowedMethods: NotRequired[List[MethodNameType]]
+    AllowedOrigins: list[str]
+    AllowedHeaders: list[str]
+    AllowedMethods: NotRequired[list[MethodNameType]]
     MaxAgeSeconds: NotRequired[int]
-    ExposeHeaders: NotRequired[List[str]]
+    ExposeHeaders: NotRequired[list[str]]
 
 
 class CorsRuleTypeDef(TypedDict):
@@ -112,7 +107,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -235,7 +230,7 @@ class GetContainerPolicyOutputTypeDef(TypedDict):
 
 
 class GetCorsPolicyOutputTypeDef(TypedDict):
-    CorsPolicy: List[CorsRuleOutputTypeDef]
+    CorsPolicy: list[CorsRuleOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -245,13 +240,13 @@ class GetLifecyclePolicyOutputTypeDef(TypedDict):
 
 
 class ListContainersOutputTypeDef(TypedDict):
-    Containers: List[ContainerTypeDef]
+    Containers: list[ContainerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -261,7 +256,7 @@ class ListContainersInputPaginateTypeDef(TypedDict):
 
 class MetricPolicyOutputTypeDef(TypedDict):
     ContainerLevelMetrics: ContainerLevelMetricsType
-    MetricPolicyRules: NotRequired[List[MetricPolicyRuleTypeDef]]
+    MetricPolicyRules: NotRequired[list[MetricPolicyRuleTypeDef]]
 
 
 class MetricPolicyTypeDef(TypedDict):

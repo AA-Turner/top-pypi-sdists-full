@@ -7,7 +7,8 @@
 
 #include "bench/Benchmark.h"
 #include "include/core/SkCanvas.h"
-#include "include/gpu/GrDirectContext.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
 
 using namespace skia_private;
 
@@ -15,22 +16,23 @@ class CreateBackendTextureBench : public Benchmark {
 private:
     SkString fName;
     TArray<GrBackendTexture> fBackendTextures;
-    GrMipmapped fMipmapped;
+    skgpu::Mipmapped fMipmapped;
 
 public:
-    CreateBackendTextureBench(GrMipmapped mipmapped) : fMipmapped(mipmapped) {
-        fName.printf("create_backend_texture%s", mipmapped == GrMipmapped::kYes ? "_mipped" : "");
+    CreateBackendTextureBench(skgpu::Mipmapped mipmapped) : fMipmapped(mipmapped) {
+        fName.printf("create_backend_texture%s",
+                     mipmapped == skgpu::Mipmapped::kYes ? "_mipped" : "");
     }
 
 private:
-    bool isSuitableFor(Backend backend) override { return kGPU_Backend == backend; }
+    bool isSuitableFor(Backend backend) override { return Backend::kGanesh == backend; }
 
     const char* onGetName() override { return fName.c_str(); }
 
     void onDraw(int loops, SkCanvas* canvas) override {
         auto context = canvas->recordingContext()->asDirectContext();
 
-        fBackendTextures.reserve_back(loops);
+        fBackendTextures.reserve_exact(fBackendTextures.size() + loops);
 
         static const int kSize = 16;
         for (int i = 0; i < loops; ++i) {
@@ -52,7 +54,7 @@ private:
         auto context = canvas->recordingContext()->asDirectContext();
 
         context->flush();
-        context->submit(true);
+        context->submit(GrSyncCpu::kYes);
 
         for (int i = 0; i < fBackendTextures.size(); ++i) {
             if (fBackendTextures[i].isValid()) {
@@ -63,5 +65,5 @@ private:
     }
 };
 
-DEF_BENCH(return new CreateBackendTextureBench(GrMipmapped::kNo);)
-DEF_BENCH(return new CreateBackendTextureBench(GrMipmapped::kYes);)
+DEF_BENCH(return new CreateBackendTextureBench(skgpu::Mipmapped::kNo);)
+DEF_BENCH(return new CreateBackendTextureBench(skgpu::Mipmapped::kYes);)

@@ -11,11 +11,7 @@ def add_simple_uvs(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add cube map UVs on mesh
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add cube map UVs on mesh"""
 
 def add_texture_paint_slot(
     execution_context: int | str | None = None,
@@ -47,30 +43,17 @@ def add_texture_paint_slot(
 ) -> None:
     """Add a paint slot
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Material Layer Type, Material layer type of new paint slot
-    :type type: typing.Literal['BASE_COLOR','SPECULAR','ROUGHNESS','METALLIC','NORMAL','BUMP','DISPLACEMENT'] | None
     :param slot_type: Slot Type, Type of new paint slot
-    :type slot_type: typing.Literal['IMAGE','COLOR_ATTRIBUTE'] | None
     :param name: Name, Name for new paint slot source
-    :type name: str
     :param color: Color, Default fill color
-    :type color: collections.abc.Iterable[float] | None
     :param width: Width, Image width
-    :type width: int | None
     :param height: Height, Image height
-    :type height: int | None
     :param alpha: Alpha, Create an image with an alpha channel
-    :type alpha: bool | None
     :param generated_type: Generated Type, Fill the image with a grid for UV map testing
-    :type generated_type: bpy.stub_internal.rna_enums.ImageGeneratedTypeItems | None
     :param float: 32-bit Float, Create image with 32-bit floating-point bit depth
-    :type float: bool | None
     :param domain: Domain, Type of element that attribute is stored on
-    :type domain: bpy.stub_internal.rna_enums.ColorAttributeDomainItems | None
     :param data_type: Data Type, Type of data stored in attribute
-    :type data_type: bpy.stub_internal.rna_enums.ColorAttributeTypeItems | None
     """
 
 def brush_colors_flip(
@@ -78,11 +61,7 @@ def brush_colors_flip(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Swap primary and secondary brush colors
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Swap primary and secondary brush colors"""
 
 def face_select_all(
     execution_context: int | str | None = None,
@@ -93,8 +72,6 @@ def face_select_all(
 ) -> None:
     """Change selection for all faces
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -108,7 +85,6 @@ def face_select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def face_select_hide(
@@ -120,10 +96,7 @@ def face_select_hide(
 ) -> None:
     """Hide selected faces
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param unselected: Unselected, Hide unselected rather than selected objects
-    :type unselected: bool | None
     """
 
 def face_select_less(
@@ -135,10 +108,7 @@ def face_select_less(
 ) -> None:
     """Deselect Faces connected to existing selection
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param face_step: Face Step, Also deselect faces that only touch on a corner
-    :type face_step: bool | None
     """
 
 def face_select_linked(
@@ -146,11 +116,7 @@ def face_select_linked(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select linked faces
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select linked faces"""
 
 def face_select_linked_pick(
     execution_context: int | str | None = None,
@@ -161,10 +127,7 @@ def face_select_linked_pick(
 ) -> None:
     """Select linked faces under the cursor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param deselect: Deselect, Deselect rather than select items
-    :type deselect: bool | None
     """
 
 def face_select_loop(
@@ -177,12 +140,8 @@ def face_select_loop(
 ) -> None:
     """Select face loop under the cursor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param select: Select, If false, faces will be deselected
-    :type select: bool | None
     :param extend: Extend, Extend the selection
-    :type extend: bool | None
     """
 
 def face_select_more(
@@ -194,10 +153,7 @@ def face_select_more(
 ) -> None:
     """Select Faces connected to existing selection
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param face_step: Face Step, Also select faces that only touch on a corner
-    :type face_step: bool | None
     """
 
 def face_vert_reveal(
@@ -209,10 +165,7 @@ def face_vert_reveal(
 ) -> None:
     """Reveal hidden faces and vertices
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param select: Select, Specifies whether the newly revealed geometry should be selected
-    :type select: bool | None
     """
 
 def grab_clone(
@@ -224,10 +177,7 @@ def grab_clone(
 ) -> None:
     """Move the clone source image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param delta: Delta, Delta offset of clone image in 0.0 to 1.0 coordinates
-    :type delta: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def hide_show(
@@ -246,18 +196,11 @@ def hide_show(
 ) -> None:
     """Hide/show some vertices
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param xmin: X Min
-        :type xmin: int | None
         :param xmax: X Max
-        :type xmax: int | None
         :param ymin: Y Min
-        :type ymin: int | None
         :param ymax: Y Max
-        :type ymax: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param action: Visibility Action, Whether to hide or show vertices
 
     HIDE
@@ -265,7 +208,6 @@ def hide_show(
 
     SHOW
     Show -- Show vertices.
-        :type action: typing.Literal['HIDE','SHOW'] | None
         :param area: Visibility Area, Which vertices to hide or show
 
     OUTSIDE
@@ -273,9 +215,7 @@ def hide_show(
 
     Inside
     Inside -- Hide or show vertices inside the selection.
-        :type area: typing.Literal['OUTSIDE','Inside'] | None
         :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :type use_front_faces_only: bool | None
     """
 
 def hide_show_all(
@@ -287,8 +227,6 @@ def hide_show_all(
 ) -> None:
     """Hide/show all vertices
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Visibility Action, Whether to hide or show vertices
 
     HIDE
@@ -296,7 +234,6 @@ def hide_show_all(
 
     SHOW
     Show -- Show vertices.
-        :type action: typing.Literal['HIDE','SHOW'] | None
     """
 
 def hide_show_lasso_gesture(
@@ -314,16 +251,10 @@ def hide_show_lasso_gesture(
 ) -> None:
     """Hide/show some vertices
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param path: Path
-        :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-        :type use_smooth_stroke: bool | None
         :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-        :type smooth_stroke_factor: float | None
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-        :type smooth_stroke_radius: int | None
         :param action: Visibility Action, Whether to hide or show vertices
 
     HIDE
@@ -331,7 +262,6 @@ def hide_show_lasso_gesture(
 
     SHOW
     Show -- Show vertices.
-        :type action: typing.Literal['HIDE','SHOW'] | None
         :param area: Visibility Area, Which vertices to hide or show
 
     OUTSIDE
@@ -339,9 +269,7 @@ def hide_show_lasso_gesture(
 
     Inside
     Inside -- Hide or show vertices inside the selection.
-        :type area: typing.Literal['OUTSIDE','Inside'] | None
         :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :type use_front_faces_only: bool | None
     """
 
 def hide_show_line_gesture(
@@ -362,20 +290,12 @@ def hide_show_line_gesture(
 ) -> None:
     """Hide/show some vertices
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param xstart: X Start
-        :type xstart: int | None
         :param xend: X End
-        :type xend: int | None
         :param ystart: Y Start
-        :type ystart: int | None
         :param yend: Y End
-        :type yend: int | None
         :param flip: Flip
-        :type flip: bool | None
         :param cursor: Cursor, Mouse cursor style to use during the modal operator
-        :type cursor: int | None
         :param action: Visibility Action, Whether to hide or show vertices
 
     HIDE
@@ -383,7 +303,6 @@ def hide_show_line_gesture(
 
     SHOW
     Show -- Show vertices.
-        :type action: typing.Literal['HIDE','SHOW'] | None
         :param area: Visibility Area, Which vertices to hide or show
 
     OUTSIDE
@@ -391,11 +310,8 @@ def hide_show_line_gesture(
 
     Inside
     Inside -- Hide or show vertices inside the selection.
-        :type area: typing.Literal['OUTSIDE','Inside'] | None
         :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :type use_front_faces_only: bool | None
         :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line
-        :type use_limit_to_segment: bool | None
     """
 
 def hide_show_masked(
@@ -407,8 +323,6 @@ def hide_show_masked(
 ) -> None:
     """Hide/show all masked vertices above a threshold
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Visibility Action, Whether to hide or show vertices
 
     HIDE
@@ -416,7 +330,6 @@ def hide_show_masked(
 
     SHOW
     Show -- Show vertices.
-        :type action: typing.Literal['HIDE','SHOW'] | None
     """
 
 def hide_show_polyline_gesture(
@@ -431,10 +344,7 @@ def hide_show_polyline_gesture(
 ) -> None:
     """Hide/show some vertices
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param path: Path
-        :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
         :param action: Visibility Action, Whether to hide or show vertices
 
     HIDE
@@ -442,7 +352,6 @@ def hide_show_polyline_gesture(
 
     SHOW
     Show -- Show vertices.
-        :type action: typing.Literal['HIDE','SHOW'] | None
         :param area: Visibility Area, Which vertices to hide or show
 
     OUTSIDE
@@ -450,9 +359,7 @@ def hide_show_polyline_gesture(
 
     Inside
     Inside -- Hide or show vertices inside the selection.
-        :type area: typing.Literal['OUTSIDE','Inside'] | None
         :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :type use_front_faces_only: bool | None
     """
 
 def image_from_view(
@@ -464,10 +371,7 @@ def image_from_view(
 ) -> None:
     """Make an image from biggest 3D view for reprojection
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: File Path, Name of the file
-    :type filepath: str
     """
 
 def image_paint(
@@ -477,15 +381,13 @@ def image_paint(
     *,
     stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
     | None = None,
-    mode: typing.Literal["NORMAL", "INVERT", "SMOOTH", "ERASE"] | None = "NORMAL",
+    mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
+    brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
 ) -> None:
     """Paint a stroke into the image
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param stroke: Stroke
-        :type stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement] | None
         :param mode: Stroke Mode, Action taken when a paint stroke is made
 
     NORMAL
@@ -493,15 +395,20 @@ def image_paint(
 
     INVERT
     Invert -- Invert action of brush for duration of stroke.
+        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke
+
+    None
+    None -- Apply brush normally.
 
     SMOOTH
-    Smooth -- Switch brush to smooth mode for duration of stroke.
+    Smooth -- Switch to smooth brush for duration of stroke.
 
     ERASE
-    Erase -- Switch brush to erase mode for duration of stroke.
-        :type mode: typing.Literal['NORMAL','INVERT','SMOOTH','ERASE'] | None
+    Erase -- Switch to erase brush for duration of stroke.
+
+    MASK
+    Mask -- Switch to mask brush for duration of stroke.
         :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
-        :type pen_flip: bool | None
     """
 
 def mask_box_gesture(
@@ -520,20 +427,12 @@ def mask_box_gesture(
 ) -> None:
     """Mask within a rectangle defined by the cursor
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param xmin: X Min
-        :type xmin: int | None
         :param xmax: X Max
-        :type xmax: int | None
         :param ymin: Y Min
-        :type ymin: int | None
         :param ymax: Y Max
-        :type ymax: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :type use_front_faces_only: bool | None
         :param mode: Mode
 
     VALUE
@@ -544,9 +443,7 @@ def mask_box_gesture(
 
     INVERT
     Invert -- Invert the mask.
-        :type mode: typing.Literal['VALUE','VALUE_INVERSE','INVERT'] | None
         :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
-        :type value: float | None
     """
 
 def mask_flood_fill(
@@ -559,8 +456,6 @@ def mask_flood_fill(
 ) -> None:
     """Fill the whole mask with a given value, or invert its values
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param mode: Mode
 
     VALUE
@@ -571,9 +466,7 @@ def mask_flood_fill(
 
     INVERT
     Invert -- Invert the mask.
-        :type mode: typing.Literal['VALUE','VALUE_INVERSE','INVERT'] | None
         :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
-        :type value: float | None
     """
 
 def mask_lasso_gesture(
@@ -591,18 +484,11 @@ def mask_lasso_gesture(
 ) -> None:
     """Mask within a shape defined by the cursor
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param path: Path
-        :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-        :type use_smooth_stroke: bool | None
         :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-        :type smooth_stroke_factor: float | None
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-        :type smooth_stroke_radius: int | None
         :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :type use_front_faces_only: bool | None
         :param mode: Mode
 
     VALUE
@@ -613,9 +499,7 @@ def mask_lasso_gesture(
 
     INVERT
     Invert -- Invert the mask.
-        :type mode: typing.Literal['VALUE','VALUE_INVERSE','INVERT'] | None
         :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
-        :type value: float | None
     """
 
 def mask_line_gesture(
@@ -636,24 +520,14 @@ def mask_line_gesture(
 ) -> None:
     """Mask to one side of a line defined by the cursor
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param xstart: X Start
-        :type xstart: int | None
         :param xend: X End
-        :type xend: int | None
         :param ystart: Y Start
-        :type ystart: int | None
         :param yend: Y End
-        :type yend: int | None
         :param flip: Flip
-        :type flip: bool | None
         :param cursor: Cursor, Mouse cursor style to use during the modal operator
-        :type cursor: int | None
         :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :type use_front_faces_only: bool | None
         :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line
-        :type use_limit_to_segment: bool | None
         :param mode: Mode
 
     VALUE
@@ -664,9 +538,7 @@ def mask_line_gesture(
 
     INVERT
     Invert -- Invert the mask.
-        :type mode: typing.Literal['VALUE','VALUE_INVERSE','INVERT'] | None
         :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
-        :type value: float | None
     """
 
 def mask_polyline_gesture(
@@ -681,12 +553,8 @@ def mask_polyline_gesture(
 ) -> None:
     """Mask within a shape defined by the cursor
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param path: Path
-        :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
         :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :type use_front_faces_only: bool | None
         :param mode: Mode
 
     VALUE
@@ -697,9 +565,7 @@ def mask_polyline_gesture(
 
     INVERT
     Invert -- Invert the mask.
-        :type mode: typing.Literal['VALUE','VALUE_INVERSE','INVERT'] | None
         :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
-        :type value: float | None
     """
 
 def project_image(
@@ -711,10 +577,7 @@ def project_image(
 ) -> None:
     """Project an edited render from the active camera back onto the object
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param image: Image
-    :type image: str | None
     """
 
 def sample_color(
@@ -728,14 +591,9 @@ def sample_color(
 ) -> None:
     """Use the mouse to sample a color in the image
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param location: Location
-    :type location: collections.abc.Iterable[int] | None
     :param merged: Sample Merged, Sample the output display color
-    :type merged: bool | None
     :param palette: Add to Palette
-    :type palette: bool | None
     """
 
 def texture_paint_toggle(
@@ -743,11 +601,7 @@ def texture_paint_toggle(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle texture paint mode in 3D view
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle texture paint mode in 3D view"""
 
 def vert_select_all(
     execution_context: int | str | None = None,
@@ -758,8 +612,6 @@ def vert_select_all(
 ) -> None:
     """Change selection for all vertices
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -773,7 +625,6 @@ def vert_select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def vert_select_hide(
@@ -785,10 +636,7 @@ def vert_select_hide(
 ) -> None:
     """Hide selected vertices
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param unselected: Unselected, Hide unselected rather than selected vertices
-    :type unselected: bool | None
     """
 
 def vert_select_less(
@@ -800,10 +648,7 @@ def vert_select_less(
 ) -> None:
     """Deselect Vertices connected to existing selection
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param face_step: Face Step, Also deselect faces that only touch on a corner
-    :type face_step: bool | None
     """
 
 def vert_select_linked(
@@ -811,11 +656,7 @@ def vert_select_linked(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select linked vertices
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select linked vertices"""
 
 def vert_select_linked_pick(
     execution_context: int | str | None = None,
@@ -826,10 +667,21 @@ def vert_select_linked_pick(
 ) -> None:
     """Select linked vertices under the cursor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param select: Select, Whether to select or deselect linked vertices under the cursor
-    :type select: bool | None
+    """
+
+def vert_select_loop(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    select: bool | None = True,
+    extend: bool | None = False,
+) -> None:
+    """Select vertex loop under the cursor
+
+    :param select: Select, If false, vertices will be deselected
+    :param extend: Extend, Extend the selection
     """
 
 def vert_select_more(
@@ -841,10 +693,7 @@ def vert_select_more(
 ) -> None:
     """Select Vertices connected to existing selection
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param face_step: Face Step, Also select faces that only touch on a corner
-    :type face_step: bool | None
     """
 
 def vert_select_ungrouped(
@@ -856,10 +705,7 @@ def vert_select_ungrouped(
 ) -> None:
     """Select vertices without a group
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend the selection
-    :type extend: bool | None
     """
 
 def vertex_color_brightness_contrast(
@@ -872,12 +718,8 @@ def vertex_color_brightness_contrast(
 ) -> None:
     """Adjust vertex color brightness/contrast
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param brightness: Brightness
-    :type brightness: float | None
     :param contrast: Contrast
-    :type contrast: float | None
     """
 
 def vertex_color_dirt(
@@ -894,20 +736,12 @@ def vertex_color_dirt(
 ) -> None:
     """Generate a dirt map gradient based on cavity
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param blur_strength: Blur Strength, Blur strength per iteration
-    :type blur_strength: float | None
     :param blur_iterations: Blur Iterations, Number of times to blur the colors (higher blurs more)
-    :type blur_iterations: int | None
     :param clean_angle: Highlight Angle, Less than 90 limits the angle used in the tonal range
-    :type clean_angle: float | None
     :param dirt_angle: Dirt Angle, Less than 90 limits the angle used in the tonal range
-    :type dirt_angle: float | None
     :param dirt_only: Dirt Only, Dont calculate cleans for convex areas
-    :type dirt_only: bool | None
     :param normalize: Normalize, Normalize the colors, increasing the contrast
-    :type normalize: bool | None
     """
 
 def vertex_color_from_weight(
@@ -915,11 +749,7 @@ def vertex_color_from_weight(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Convert active weight into gray scale vertex colors
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Convert active weight into gray scale vertex colors"""
 
 def vertex_color_hsv(
     execution_context: int | str | None = None,
@@ -932,14 +762,9 @@ def vertex_color_hsv(
 ) -> None:
     """Adjust vertex color Hue/Saturation/Value
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param h: Hue
-    :type h: float | None
     :param s: Saturation
-    :type s: float | None
     :param v: Value
-    :type v: float | None
     """
 
 def vertex_color_invert(
@@ -947,11 +772,7 @@ def vertex_color_invert(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Invert RGB values
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Invert RGB values"""
 
 def vertex_color_levels(
     execution_context: int | str | None = None,
@@ -963,12 +784,8 @@ def vertex_color_levels(
 ) -> None:
     """Adjust levels of vertex colors
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param offset: Offset, Value to add to colors
-    :type offset: float | None
     :param gain: Gain, Value to multiply colors by
-    :type gain: float | None
     """
 
 def vertex_color_set(
@@ -980,10 +797,7 @@ def vertex_color_set(
 ) -> None:
     """Fill the active vertex color layer with the current paint color
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_alpha: Affect Alpha, Set color completely opaque instead of reusing existing alpha
-    :type use_alpha: bool | None
     """
 
 def vertex_color_smooth(
@@ -991,11 +805,7 @@ def vertex_color_smooth(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Smooth colors across vertices
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Smooth colors across vertices"""
 
 def vertex_paint(
     execution_context: int | str | None = None,
@@ -1004,16 +814,14 @@ def vertex_paint(
     *,
     stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
     | None = None,
-    mode: typing.Literal["NORMAL", "INVERT", "SMOOTH", "ERASE"] | None = "NORMAL",
+    mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
+    brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
     override_location: bool | None = False,
 ) -> None:
     """Paint a stroke in the active color attribute layer
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param stroke: Stroke
-        :type stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement] | None
         :param mode: Stroke Mode, Action taken when a paint stroke is made
 
     NORMAL
@@ -1021,17 +829,21 @@ def vertex_paint(
 
     INVERT
     Invert -- Invert action of brush for duration of stroke.
+        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke
+
+    None
+    None -- Apply brush normally.
 
     SMOOTH
-    Smooth -- Switch brush to smooth mode for duration of stroke.
+    Smooth -- Switch to smooth brush for duration of stroke.
 
     ERASE
-    Erase -- Switch brush to erase mode for duration of stroke.
-        :type mode: typing.Literal['NORMAL','INVERT','SMOOTH','ERASE'] | None
+    Erase -- Switch to erase brush for duration of stroke.
+
+    MASK
+    Mask -- Switch to mask brush for duration of stroke.
         :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
-        :type pen_flip: bool | None
         :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions
-        :type override_location: bool | None
     """
 
 def vertex_paint_toggle(
@@ -1039,11 +851,7 @@ def vertex_paint_toggle(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle the vertex paint mode in 3D view
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle the vertex paint mode in 3D view"""
 
 def visibility_filter(
     execution_context: int | str | None = None,
@@ -1056,8 +864,6 @@ def visibility_filter(
 ) -> None:
     """Edit the visibility of the current mesh
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action
 
     GROW
@@ -1065,11 +871,8 @@ def visibility_filter(
 
     SHRINK
     Shrink Visibility -- Shrink the visibility by one face based on mesh topology.
-        :type action: typing.Literal['GROW','SHRINK'] | None
         :param iterations: Iterations, Number of times that the filter is going to be applied
-        :type iterations: int | None
         :param auto_iteration_count: Auto Iteration Count, Use an automatic number of iterations based on the number of vertices of the sculpt
-        :type auto_iteration_count: bool | None
     """
 
 def visibility_invert(
@@ -1077,11 +880,7 @@ def visibility_invert(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Invert the visibility of all vertices
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Invert the visibility of all vertices"""
 
 def weight_from_bones(
     execution_context: int | str | None = None,
@@ -1092,8 +891,6 @@ def weight_from_bones(
 ) -> None:
     """Set the weights of the groups matching the attached armatures selected bones, using the distance between the vertices and the bones
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type, Method to use for assigning weights
 
     AUTOMATIC
@@ -1101,7 +898,6 @@ def weight_from_bones(
 
     ENVELOPES
     From Envelopes -- Weights from envelopes with user defined radius.
-        :type type: typing.Literal['AUTOMATIC','ENVELOPES'] | None
     """
 
 def weight_gradient(
@@ -1119,22 +915,13 @@ def weight_gradient(
 ) -> None:
     """Draw a line to apply a weight gradient to selected vertices
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: typing.Literal['LINEAR','RADIAL'] | None
     :param xstart: X Start
-    :type xstart: int | None
     :param xend: X End
-    :type xend: int | None
     :param ystart: Y Start
-    :type ystart: int | None
     :param yend: Y End
-    :type yend: int | None
     :param flip: Flip
-    :type flip: bool | None
     :param cursor: Cursor, Mouse cursor style to use during the modal operator
-    :type cursor: int | None
     """
 
 def weight_paint(
@@ -1144,16 +931,14 @@ def weight_paint(
     *,
     stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
     | None = None,
-    mode: typing.Literal["NORMAL", "INVERT", "SMOOTH", "ERASE"] | None = "NORMAL",
+    mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
+    brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
     override_location: bool | None = False,
 ) -> None:
     """Paint a stroke in the current vertex groups weights
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param stroke: Stroke
-        :type stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement] | None
         :param mode: Stroke Mode, Action taken when a paint stroke is made
 
     NORMAL
@@ -1161,17 +946,21 @@ def weight_paint(
 
     INVERT
     Invert -- Invert action of brush for duration of stroke.
+        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke
+
+    None
+    None -- Apply brush normally.
 
     SMOOTH
-    Smooth -- Switch brush to smooth mode for duration of stroke.
+    Smooth -- Switch to smooth brush for duration of stroke.
 
     ERASE
-    Erase -- Switch brush to erase mode for duration of stroke.
-        :type mode: typing.Literal['NORMAL','INVERT','SMOOTH','ERASE'] | None
+    Erase -- Switch to erase brush for duration of stroke.
+
+    MASK
+    Mask -- Switch to mask brush for duration of stroke.
         :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
-        :type pen_flip: bool | None
         :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions
-        :type override_location: bool | None
     """
 
 def weight_paint_toggle(
@@ -1179,41 +968,25 @@ def weight_paint_toggle(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Toggle weight paint mode in 3D view
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Toggle weight paint mode in 3D view"""
 
 def weight_sample(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Use the mouse to sample a weight in the 3D view
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Use the mouse to sample a weight in the 3D view"""
 
 def weight_sample_group(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select one of the vertex groups available under current mouse position
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select one of the vertex groups available under current mouse position"""
 
 def weight_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Fill the active vertex group with the current paint weight
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Fill the active vertex group with the current paint weight"""

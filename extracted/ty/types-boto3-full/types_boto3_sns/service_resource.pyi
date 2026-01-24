@@ -3,7 +3,7 @@ Type annotations for sns service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sns/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -26,6 +26,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator, Sequence
 
 from boto3.resources.base import ResourceMeta, ServiceResource
 from boto3.resources.collection import ResourceCollection
@@ -48,12 +49,6 @@ from .type_defs import (
     SubscribeInputTopicSubscribeTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Iterator, Sequence
-else:
-    from typing import Dict, Iterator, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -114,7 +109,7 @@ class ServiceResourcePlatformApplicationsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sns/service_resource/#serviceresourceplatformapplicationscollection)
         """
 
-    def pages(self) -> Iterator[List[PlatformApplication]]:
+    def pages(self) -> Iterator[list[PlatformApplication]]:
         """
         A generator which yields pages of PlatformApplications.
 
@@ -172,7 +167,7 @@ class ServiceResourceSubscriptionsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sns/service_resource/#serviceresourcesubscriptionscollection)
         """
 
-    def pages(self) -> Iterator[List[Subscription]]:
+    def pages(self) -> Iterator[list[Subscription]]:
         """
         A generator which yields pages of Subscriptions.
 
@@ -230,7 +225,7 @@ class ServiceResourceTopicsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sns/service_resource/#serviceresourcetopicscollection)
         """
 
-    def pages(self) -> Iterator[List[Topic]]:
+    def pages(self) -> Iterator[list[Topic]]:
         """
         A generator which yields pages of Topics.
 
@@ -288,7 +283,7 @@ class PlatformApplicationEndpointsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sns/service_resource/#platformapplicationendpoints)
         """
 
-    def pages(self) -> Iterator[List[PlatformEndpoint]]:
+    def pages(self) -> Iterator[list[PlatformEndpoint]]:
         """
         A generator which yields pages of PlatformEndpoints.
 
@@ -346,7 +341,7 @@ class TopicSubscriptionsCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sns/service_resource/#topicsubscriptions)
         """
 
-    def pages(self) -> Iterator[List[Subscription]]:
+    def pages(self) -> Iterator[list[Subscription]]:
         """
         A generator which yields pages of Subscriptions.
 
@@ -370,7 +365,7 @@ class PlatformApplication(ServiceResource):
 
     arn: str
     endpoints: PlatformApplicationEndpointsCollection
-    attributes: Dict[str, str]
+    attributes: dict[str, str]
     meta: SNSResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -439,7 +434,7 @@ class PlatformEndpoint(ServiceResource):
     """
 
     arn: str
-    attributes: Dict[str, str]
+    attributes: dict[str, str]
     meta: SNSResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -502,7 +497,7 @@ class Subscription(ServiceResource):
     """
 
     arn: str
-    attributes: Dict[str, str]
+    attributes: dict[str, str]
     meta: SNSResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -554,7 +549,7 @@ class Topic(ServiceResource):
 
     arn: str
     subscriptions: TopicSubscriptionsCollection
-    attributes: Dict[str, str]
+    attributes: dict[str, str]
     meta: SNSResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

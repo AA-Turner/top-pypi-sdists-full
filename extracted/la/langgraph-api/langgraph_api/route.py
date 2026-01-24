@@ -4,6 +4,7 @@ import typing
 
 import jsonschema_rs
 import orjson
+import structlog
 from starlette._exception_handler import wrap_app_handling_exceptions
 from starlette._utils import is_async_callable
 from starlette.concurrency import run_in_threadpool
@@ -14,9 +15,11 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route, compile_path, get_name
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from langgraph_api import config
 from langgraph_api.serde import json_dumpb
 from langgraph_api.utils import get_auth_ctx, with_user
 
+logger = structlog.getLogger(__name__)
 SchemaType = (
     jsonschema_rs.Draft4Validator
     | jsonschema_rs.Draft6Validator
@@ -43,7 +46,7 @@ def api_request_response(
                 response: ASGIApp = await func(request)
             else:
                 response = await run_in_threadpool(
-                    typing.cast(typing.Callable[[Request], ASGIApp], func), request
+                    typing.cast("typing.Callable[[Request], ASGIApp]", func), request
                 )
             await response(scope, receive, send)
 
@@ -58,10 +61,11 @@ class ApiResponse(JSONResponse):
 
 
 def _json_loads(content: bytearray, schema: SchemaType) -> typing.Any:
-    json = orjson.loads(content)
+    """Parse JSON and validate schema. Used by threadpool for large payloads."""
+    json_data = orjson.loads(content)
     if schema is not None:
-        schema.validate(json)
-    return json
+        schema.validate(json_data)
+    return json_data
 
 
 class ApiRequest(Request):
@@ -76,8 +80,16 @@ class ApiRequest(Request):
     async def json(self, schema: SchemaType = None) -> typing.Any:
         if not hasattr(self, "_json"):
             body = await self.body()
+
+            # Hybrid approach for optimal performance:
+            # - Small payloads: parse directly (fast, no queueing/thread pool limitations)
+            # - Large payloads: use dedicated thread pool (safer, doesn't block event loop)
             try:
-                self._json = await run_in_threadpool(_json_loads, body, schema)
+                self._json = (
+                    await run_in_threadpool(_json_loads, body, schema)
+                    if len(body) > config.JSON_THREAD_POOL_MINIMUM_SIZE_BYTES
+                    else _json_loads(body, schema)
+                )
             except orjson.JSONDecodeError as e:
                 raise HTTPException(
                     status_code=422, detail="Invalid JSON in request body"
@@ -135,6 +147,8 @@ class ApiRoute(Route):
 
         scope["route"] = self.path
         set_logging_context({"path": self.path, "method": scope.get("method")})
+        route_pattern = f"{scope.get('root_path', '')}{self.path}"
+        _name_otel_span(scope, route_pattern)
         ctx = get_auth_ctx()
         if ctx:
             user, auth = ctx.user, ctx.permissions
@@ -142,3 +156,31 @@ class ApiRoute(Route):
             user, auth = scope.get("user"), scope.get("auth")
         async with with_user(user, auth):
             return await super().handle(scope, receive, send)
+
+
+def _name_otel_span(scope: Scope, route_pattern: str):
+    """Best-effort rename of the active OTEL server span to include the route.
+
+    - No-ops if OTEL is disabled or OTEL libs are unavailable.
+    - Sets span name to "METHOD /templated/path" and attaches http.route.
+    - Never raises; safe for hot path usage.
+    """
+    if not config.OTEL_ENABLED:
+        return
+    try:
+        from opentelemetry.trace import get_current_span
+
+        span = get_current_span()
+        if span.is_recording():
+            method = scope.get("method", "") or ""
+            try:
+                span.update_name(f"{method} {route_pattern}")
+            except Exception:
+                logger.error("Failed to update OTEL span name", exc_info=True)
+                pass
+            try:
+                span.set_attribute("http.route", route_pattern)
+            except Exception:
+                logger.error("Failed to update OTEL span attributes", exc_info=True)
+    except Exception:
+        logger.error("Failed to update OTEL span", exc_info=True)

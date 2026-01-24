@@ -52,6 +52,7 @@ class TelephoneContactFactory(ContactBaseFactory):
 class EmailContactFactory(ContactBaseFactory):
     class Meta:
         model = EmailContact
+        django_get_or_create = ["address"]
 
     address = factory.Faker("email")
 

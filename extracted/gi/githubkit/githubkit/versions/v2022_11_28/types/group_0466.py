@@ -9,48 +9,35 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
+import datetime as _dt
 from typing_extensions import TypedDict
 
 
-class WebhooksMarketplacePurchaseType(TypedDict):
-    """Marketplace Purchase"""
+class SshSigningKeyType(TypedDict):
+    """SSH Signing Key
 
-    account: WebhooksMarketplacePurchasePropAccountType
-    billing_cycle: str
-    free_trial_ends_on: Union[str, None]
-    next_billing_date: Union[str, None]
-    on_free_trial: bool
-    plan: WebhooksMarketplacePurchasePropPlanType
-    unit_count: int
+    A public SSH key used to sign Git commits
+    """
 
-
-class WebhooksMarketplacePurchasePropAccountType(TypedDict):
-    """WebhooksMarketplacePurchasePropAccount"""
-
+    key: str
     id: int
-    login: str
-    node_id: str
-    organization_billing_email: Union[str, None]
-    type: str
+    title: str
+    created_at: _dt.datetime
 
 
-class WebhooksMarketplacePurchasePropPlanType(TypedDict):
-    """WebhooksMarketplacePurchasePropPlan"""
+class SshSigningKeyTypeForResponse(TypedDict):
+    """SSH Signing Key
 
-    bullets: list[Union[str, None]]
-    description: str
-    has_free_trial: bool
+    A public SSH key used to sign Git commits
+    """
+
+    key: str
     id: int
-    monthly_price_in_cents: int
-    name: str
-    price_model: Literal["FREE", "FLAT_RATE", "PER_UNIT"]
-    unit_name: Union[str, None]
-    yearly_price_in_cents: int
+    title: str
+    created_at: str
 
 
 __all__ = (
-    "WebhooksMarketplacePurchasePropAccountType",
-    "WebhooksMarketplacePurchasePropPlanType",
-    "WebhooksMarketplacePurchaseType",
+    "SshSigningKeyType",
+    "SshSigningKeyTypeForResponse",
 )

@@ -12,13 +12,13 @@ from collections.abc import Generator, Mapping
 from contextlib import ExitStack
 from importlib.resources import as_file, files
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import pytest
 
 from cwltool.env_to_stdout import deserialize_env
 from cwltool.main import main
-from cwltool.singularity import is_version_2_6, is_version_3_or_newer
+from cwltool.singularity import get_version, is_version_2_6, is_version_3_or_newer
 
 
 def force_default_container(default_container_id: str, _: str) -> str:
@@ -51,6 +51,11 @@ needs_singularity = pytest.mark.skipif(
     reason="Requires the singularity executable on the system path.",
 )
 
+needs_singularity_not_apptainer = pytest.mark.skipif(
+    not (bool(shutil.which("singularity")) and "singularity" in get_version()[1]),
+    reason="Requires the singularity executable on the system path.",
+)
+
 needs_singularity_2_6 = pytest.mark.skipif(
     not bool(shutil.which("singularity") and is_version_2_6()),
     reason="Requires that version 2.6.x of singularity executable version is on the system path.",
@@ -66,7 +71,7 @@ needs_podman = pytest.mark.skipif(
     reason="Requires the podman executable on the system path.",
 )
 
-_env_accepts_null: Optional[bool] = None
+_env_accepts_null: bool | None = None
 
 
 def env_accepts_null() -> bool:
@@ -85,11 +90,11 @@ def env_accepts_null() -> bool:
 
 def get_main_output(
     args: list[str],
-    replacement_env: Optional[Mapping[str, str]] = None,
-    extra_env: Optional[Mapping[str, str]] = None,
-    monkeypatch: Optional[pytest.MonkeyPatch] = None,
+    replacement_env: Mapping[str, str] | None = None,
+    extra_env: Mapping[str, str] | None = None,
+    monkeypatch: pytest.MonkeyPatch | None = None,
     **extra_kwargs: Any,
-) -> tuple[Optional[int], str, str]:
+) -> tuple[int | None, str, str]:
     """Run cwltool main.
 
     args: the command line args to call it with
@@ -130,11 +135,11 @@ def get_main_output(
 def get_tool_env(
     tmp_path: Path,
     flag_args: list[str],
-    inputs_file: Optional[str] = None,
-    replacement_env: Optional[Mapping[str, str]] = None,
-    extra_env: Optional[Mapping[str, str]] = None,
-    monkeypatch: Optional[pytest.MonkeyPatch] = None,
-    runtime_env_accepts_null: Optional[bool] = None,
+    inputs_file: str | None = None,
+    replacement_env: Mapping[str, str] | None = None,
+    extra_env: Mapping[str, str] | None = None,
+    monkeypatch: pytest.MonkeyPatch | None = None,
+    runtime_env_accepts_null: bool | None = None,
 ) -> dict[str, str]:
     """Get the env vars for a tool's invocation."""
     # GNU env accepts the -0 option to end each variable's
@@ -169,7 +174,7 @@ def get_tool_env(
 
 
 @contextlib.contextmanager
-def working_directory(path: Union[str, Path]) -> Generator[None, None, None]:
+def working_directory(path: str | Path) -> Generator[None, None, None]:
     """Change working directory and returns to previous on exit."""
     prev_cwd = Path.cwd()
     os.chdir(path)

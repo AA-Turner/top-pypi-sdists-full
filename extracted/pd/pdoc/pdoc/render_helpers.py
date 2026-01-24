@@ -24,9 +24,10 @@ except ImportError:  # pragma: no cover
     from jinja2 import contextfilter as pass_context  # type: ignore
 
 from jinja2.runtime import Context
+import markdown2
 from markupsafe import Markup
 
-import pdoc.markdown2
+import pdoc
 
 from . import docstrings
 
@@ -175,7 +176,7 @@ def to_html(docstring: str) -> str:
     # careful: markdown2 returns a subclass of str with an extra
     # .toc_html attribute. don't further process the result,
     # otherwise this attribute will be lost.
-    return pdoc.markdown2.markdown(  # type: ignore
+    return markdown2.markdown(  # type: ignore
         docstring,
         extras=markdown_extensions,
         link_patterns=markdown_link_patterns,
@@ -408,7 +409,7 @@ def linkify(
             # First part of the identifier (e.g. "foo") - this is optional for relative references.
             (?:
                 \b
-                (?!\d)[a-zA-Z0-9_]+
+                (?!\d)\w+
                 |
                 \.*  # We may also start with multiple dots.
             )
@@ -416,7 +417,7 @@ def linkify(
             (?:
                 # A single dot or a dot surrounded with pygments highlighting.
                 (?:\.|</span><span\ class="o">\.</span><span\ class="n">)
-                (?!\d)[a-zA-Z0-9_]+
+                (?!\d)\w+
             )+
             (?:\(\)|\b(?!\(\)))  # we either end on () or on a word boundary.
             (?!</a>)  # not an existing link
@@ -424,7 +425,7 @@ def linkify(
 
             | # Part 2: `foo` or `foo()`. `foo.bar` is already covered with part 1.
             (?<=<code>)
-                 (?!\d)[a-zA-Z0-9_]+
+                 (?!\d)\w+
             (?:\(\))?
             (?=</code>(?!</a>))
             """,

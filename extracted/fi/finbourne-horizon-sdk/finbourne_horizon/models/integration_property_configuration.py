@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.field_mapping import FieldMapping
 from finbourne_horizon.models.property_mapping import PropertyMapping
 
@@ -28,8 +30,8 @@ class IntegrationPropertyConfiguration(BaseModel):
     Response containing the description of an integration.  # noqa: E501
     """
     type:  StrictStr = Field(...,alias="type", description="The Integration this property configuration applies to") 
-    properties: conlist(PropertyMapping) = Field(..., description="The mandatory and optional properties available in this integration")
-    fields: conlist(FieldMapping) = Field(..., description="The fields available in this integration")
+    properties: List[PropertyMapping] = Field(description="The mandatory and optional properties available in this integration")
+    fields: List[FieldMapping] = Field(description="The fields available in this integration")
     __properties = ["type", "properties", "fields"]
 
     class Config:
@@ -95,3 +97,5 @@ class IntegrationPropertyConfiguration(BaseModel):
             "fields": [FieldMapping.from_dict(_item) for _item in obj.get("fields")] if obj.get("fields") is not None else None
         })
         return _obj
+
+IntegrationPropertyConfiguration.update_forward_refs()

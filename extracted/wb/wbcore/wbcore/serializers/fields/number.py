@@ -86,6 +86,15 @@ class DecimalRangeField(RangeMixin, WBCoreSerializerFieldMixin, serializers.Deci
     field_type = WBCoreType.NUMBERRANGE.value
     internal_field = NumericRange
 
+    def to_representation(self, instance):
+        res = list(super().to_representation(instance))
+        # ensure empty value shows as None
+        if res[0] is None:
+            res[0] = "-Infinity"
+        if res[1] is None:
+            res[1] = "Infinity"
+        return tuple(res)
+
     def __init__(self, max_digits=None, decimal_places=None, **kwargs):
         if not max_digits:
             max_digits = 3

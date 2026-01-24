@@ -16,9 +16,8 @@ static std::string getLexicalPath(const Scope* scope) {
     if (!scope || scope->asSymbol().kind == SymbolKind::CompilationUnit)
         return "";
 
-    std::string str;
     auto& sym = scope->asSymbol();
-    sym.appendLexicalPath(str);
+    std::string str = sym.getLexicalPath();
 
     if (sym.kind == SymbolKind::Package || sym.kind == SymbolKind::ClassType ||
         sym.kind == SymbolKind::CovergroupType) {
@@ -92,24 +91,29 @@ void TypePrinter::visit(const EnumType& type, std::string_view overrideName) {
             buffer->append(overrideName);
     }
     else {
-        buffer->append("enum");
-        if (options.fullEnumType) {
-            buffer->append(" ");
-            buffer->append(type.baseType.toString());
+        if (options.enumsAsLinks) {
+            buffer->format("{} ", uintptr_t(&type));
         }
-        buffer->append("{");
+        else {
+            buffer->append("enum");
+            if (options.fullEnumType) {
+                buffer->append(" ");
+                buffer->append(type.baseType.toString());
+            }
+            buffer->append("{");
 
-        bool first = true;
-        for (const auto& member : type.values()) {
-            if (!first)
-                buffer->append(",");
+            bool first = true;
+            for (const auto& member : type.values()) {
+                if (!first)
+                    buffer->append(",");
 
-            auto& value = member.getValue().integer();
-            buffer->format("{}={}", member.name,
-                           value.toString(LiteralBase::Decimal, /* includeBase */ true));
-            first = false;
+                auto& value = member.getValue().integer();
+                buffer->format("{}={}", member.name,
+                               value.toString(LiteralBase::Decimal, /* includeBase */ true));
+                first = false;
+            }
+            buffer->append("}");
         }
-        buffer->append("}");
 
         if (options.skipScopedTypeNames) {
             // Nothing to do here.
@@ -364,7 +368,10 @@ void TypePrinter::visit(const ClassType& type, std::string_view) {
 }
 
 void TypePrinter::visit(const CovergroupType& type, std::string_view) {
-    buffer->append(type.name);
+    if (type.name.empty())
+        buffer->append("<unnamed covergroup>");
+    else
+        buffer->append(type.name);
 }
 
 void TypePrinter::visit(const VirtualInterfaceType& type, std::string_view) {
@@ -412,6 +419,8 @@ void TypePrinter::visit(const TypeAliasType& type, std::string_view overrideName
     }
 
     if (options.skipTypeDefs) {
+        if (options.typedefsAsLinks)
+            buffer->format("{} ", uintptr_t(&type));
         buffer->append(downstreamOverrideName);
     }
     else {

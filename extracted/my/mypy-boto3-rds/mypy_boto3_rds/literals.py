@@ -3,7 +3,7 @@ Type annotations for rds service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rds/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -113,6 +113,7 @@ __all__ = (
     "TargetTypeType",
     "TenantDatabaseAvailableWaiterName",
     "TenantDatabaseDeletedWaiterName",
+    "UpgradeRolloutOrderType",
     "WaiterName",
     "WriteForwardingStatusType",
 )
@@ -246,7 +247,9 @@ SourceTypeType = Literal[
     "db-parameter-group",
     "db-proxy",
     "db-security-group",
+    "db-shard-group",
     "db-snapshot",
+    "zero-etl",
 ]
 TargetConnectionNetworkTypeType = Literal["IPV4", "IPV6"]
 TargetHealthReasonType = Literal[
@@ -254,13 +257,15 @@ TargetHealthReasonType = Literal[
     "CONNECTION_FAILED",
     "INVALID_REPLICATION_STATE",
     "PENDING_PROXY_CAPACITY",
+    "PROMOTED",
     "UNREACHABLE",
 ]
 TargetRoleType = Literal["READ_ONLY", "READ_WRITE", "UNKNOWN"]
-TargetStateType = Literal["AVAILABLE", "REGISTERING", "UNAVAILABLE"]
+TargetStateType = Literal["AVAILABLE", "REGISTERING", "UNAVAILABLE", "UNUSED"]
 TargetTypeType = Literal["RDS_INSTANCE", "RDS_SERVERLESS_ENDPOINT", "TRACKED_CLUSTER"]
 TenantDatabaseAvailableWaiterName = Literal["tenant_database_available"]
 TenantDatabaseDeletedWaiterName = Literal["tenant_database_deleted"]
+UpgradeRolloutOrderType = Literal["first", "last", "second"]
 WriteForwardingStatusType = Literal["disabled", "disabling", "enabled", "enabling", "unknown"]
 RDSServiceName = Literal["rds"]
 ServiceName = Literal[
@@ -289,7 +294,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -359,6 +363,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -404,7 +409,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -457,7 +461,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -496,8 +499,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -532,6 +533,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -541,6 +543,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -551,6 +554,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -572,8 +578,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -588,15 +592,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -627,8 +632,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -668,6 +673,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

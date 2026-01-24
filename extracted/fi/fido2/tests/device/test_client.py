@@ -72,7 +72,17 @@ def test_exclude_credentials_multiple(credential, client, excluded_match):
         client.make_credential(create_options.public_key)
 
 
-def test_exclude_credentials_others(credential, client):
+def test_exclude_credentials_max(info, client):
+    max_len = info.max_cred_id_length
+    n_creds = (info.max_creds_in_list or 1) + 2
+    exclude = [
+        {"id": os.urandom(max_len), "type": "public-key"} for _ in range(n_creds)
+    ]
+    create_options, state = server.register_begin(user, exclude)
+    client.make_credential(create_options.public_key)
+
+
+def test_exclude_credentials_others(client):
     exclude = [{"id": os.urandom(32), "type": "public-key"} for _ in range(5)]
     create_options, state = server.register_begin(user, exclude)
     client.make_credential(create_options.public_key)
@@ -100,7 +110,7 @@ def test_allow_credentials_multiple(credential, client):
     server.authenticate_complete(state, credentials, result)
 
 
-def test_allow_credentials_ineligible(credential, client):
+def test_allow_credentials_ineligible(client):
     allow = [{"id": os.urandom(32), "type": "public-key"} for _ in range(5)]
     request_options, state = server.authenticate_begin(allow)
     with pytest.raises(ClientError, match="DEVICE_INELIGIBLE"):

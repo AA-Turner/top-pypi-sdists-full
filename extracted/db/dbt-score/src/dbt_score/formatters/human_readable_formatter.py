@@ -4,7 +4,7 @@ from typing import Any
 
 from dbt_score.evaluation import EvaluableResultsType
 from dbt_score.formatters import Formatter
-from dbt_score.models import Evaluable, Exposure, Model, Seed, Snapshot, Source
+from dbt_score.models import Evaluable, Exposure, Macro, Model, Seed, Snapshot, Source
 from dbt_score.rule import RuleViolation
 from dbt_score.scoring import Score
 
@@ -40,6 +40,8 @@ class HumanReadableFormatter(Formatter):
             case Exposure():
                 return evaluable.name
             case Seed():
+                return evaluable.name
+            case Macro():
                 return evaluable.name
             case _:
                 raise NotImplementedError
@@ -95,8 +97,8 @@ class HumanReadableFormatter(Formatter):
             for evaluable, evaluable_score in self._failed_evaluables:
                 resource_type = type(evaluable)
                 print(
-                    f"{resource_type.__name__} "
-                    f"{self.pretty_name(evaluable)} scored {evaluable_score.value}"
+                    f"{resource_type.__name__} {self.pretty_name(evaluable)} "
+                    f"scored {evaluable_score.rounded_value}"
                 )
 
         elif score.value < self._config.fail_project_under:

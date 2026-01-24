@@ -1,9 +1,10 @@
 PYTHON = python3
-RUFF ?= $(PYTHON) -m ruff 
+RUFF ?= $(PYTHON) -m ruff
 SETUP = $(PYTHON) setup.py
 TESTRUNNER ?= unittest
 RUNTEST = PYTHONHASHSEED=random PYTHONPATH=$(shell pwd)$(if $(PYTHONPATH),:$(PYTHONPATH),) $(PYTHON) -m $(TESTRUNNER) $(TEST_OPTIONS)
 COVERAGE = python3-coverage
+PYDOCTOR_ARGS ?=
 
 DESTDIR=/
 
@@ -42,8 +43,6 @@ check-noextensions:: clean
 check-contrib:: clean
 	$(RUNTEST) -v dulwich.contrib.test_suite
 
-check-all: check check-pypy check-noextensions
-
 typing:
 	$(PYTHON) -m mypy dulwich
 
@@ -63,7 +62,7 @@ coverage-html: coverage
 .PHONY: apidocs
 
 apidocs:
-	$(PYTHON) -m pydoctor --intersphinx http://urllib3.readthedocs.org/en/latest/objects.inv --intersphinx http://docs.python.org/3/objects.inv --docformat=google dulwich --project-url=https://www.dulwich.io/ --project-name=dulwich
+	$(PYTHON) -m pydoctor $(PYDOCTOR_ARGS) --intersphinx https://www.dulwich.io/api/objects.inv --intersphinx http://docs.python.org/3/objects.inv --docformat=google dulwich --project-url=https://www.dulwich.io/ --project-name=dulwich
 
 fix:
 	ruff check --fix .

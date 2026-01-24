@@ -174,6 +174,22 @@ class TypedAgentDataItems(BaseModel, Generic[AgentDataT]):
     )
 
 
+class BoundingBox(BaseModel):
+    """Bounding box coordinates for a citation location on a page."""
+
+    x: float = Field(description="X coordinate of the bounding box origin")
+    y: float = Field(description="Y coordinate of the bounding box origin")
+    w: float = Field(description="Width of the bounding box")
+    h: float = Field(description="Height of the bounding box")
+
+
+class PageDimensions(BaseModel):
+    """Dimensions of a page in the source document."""
+
+    width: float = Field(description="Width of the page")
+    height: float = Field(description="Height of the page")
+
+
 class FieldCitation(BaseModel):
     page: Optional[int] = Field(
         None, description="The page number that the field occurred on"
@@ -181,6 +197,14 @@ class FieldCitation(BaseModel):
     matching_text: Optional[str] = Field(
         None,
         description="The original text this field's value was derived from",
+    )
+    bounding_boxes: Optional[List[BoundingBox]] = Field(
+        None,
+        description="Bounding boxes indicating where the citation appears on the page",
+    )
+    page_dimensions: Optional[PageDimensions] = Field(
+        None,
+        description="Dimensions of the page containing the citation",
     )
 
 
@@ -200,6 +224,10 @@ class ExtractedFieldMetadata(BaseModel):
     extraction_confidence: Optional[float] = Field(
         None,
         description="The confidence score for the field based on the extracted text only",
+    )
+    parsing_confidence: Optional[float] = Field(
+        None,
+        description="The confidence score for the field based on the parsing/OCR quality",
     )
     citation: Optional[List[FieldCitation]] = Field(
         None,
@@ -447,26 +475,49 @@ class ExtractedData(BaseModel, Generic[ExtractedT]):
                 },
             )
         except ValidationError as e:
+            # Capture the job-level error from the extraction run if available
+            job_error = result.error
+
             invalid_item = ExtractedData[Dict[str, Any]].create(
                 data=result.data or {},
                 status="error",
                 field_metadata=field_metadata,
-                metadata={"extraction_error": str(e), **(metadata or {})},
+                metadata={
+                    "extraction_error": str(e),
+                    **({"job_error": job_error} if job_error else {}),
+                    **(metadata or {}),
+                },
                 file_id=file_id,
                 file_name=file_name,
                 file_hash=file_hash,
             )
-            raise InvalidExtractionData(invalid_item) from e
+            raise InvalidExtractionData(invalid_item, extraction_error=job_error) from e
 
 
 class InvalidExtractionData(Exception):
     """
     Exception raised when the extracted data does not conform to the schema.
+
+    Attributes:
+        invalid_item: The ExtractedData instance containing the invalid data and metadata
+        extraction_error: The error message from the extraction job, if available
     """
 
-    def __init__(self, invalid_item: ExtractedData[Dict[str, Any]]):
+    def __init__(
+        self,
+        invalid_item: ExtractedData[Dict[str, Any]],
+        extraction_error: Optional[str] = None,
+    ):
         self.invalid_item = invalid_item
-        super().__init__("Not able to parse the extracted data, parsed invalid format")
+        self.extraction_error = extraction_error
+
+        # Build an informative error message
+        if extraction_error:
+            message = f"Extraction error: {extraction_error}"
+        else:
+            message = "Not able to parse the extracted data, parsed invalid format"
+
+        super().__init__(message)
 
 
 def calculate_overall_confidence(

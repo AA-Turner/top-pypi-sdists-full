@@ -13,9 +13,9 @@ def map_cmd(cmd: RunCommand) -> Command:
     update = cmd.get("update")
     if isinstance(update, tuple | list) and all(
         isinstance(t, tuple | list) and len(t) == 2 and isinstance(t[0], str)
-        for t in cast(list, update)
+        for t in cast("list", update)
     ):
-        update = [tuple(t) for t in cast(list, update)]
+        update = [tuple(t) for t in cast("list", update)]
 
     return Command(
         update=update,

@@ -179,6 +179,8 @@ public:
      *
      * @param[out] gpure   Array of standard state Gibbs free energies. length =
      *     m_kk. units are J/kmol.
+     * @deprecated  To be removed after %Cantera 3.2. Use getStandardChemPotentials()
+     *     instead.
      */
     void getPureGibbs(double* gpure) const override;
 
@@ -265,8 +267,6 @@ protected:
      */
     virtual void _updateReferenceStateThermo() const;
 
-    //! Temporary storage - length = m_kk.
-    mutable vector<double> m_tmpV;
 public:
 
     //! @name Thermodynamic Values for the Species Reference States
@@ -423,6 +423,7 @@ public:
     //! liquid side) for the current temperature.
     /*!
      * @returns the density with units of kg m-3
+     * @deprecated To be removed after %Cantera 3.1.
      */
     virtual double densSpinodalLiquid() const;
 
@@ -430,6 +431,7 @@ public:
     //! side) for the current temperature.
     /*!
      * @returns the density with units of kg m-3
+     * @deprecated To be removed after %Cantera 3.1.
      */
     virtual double densSpinodalGas() const;
 

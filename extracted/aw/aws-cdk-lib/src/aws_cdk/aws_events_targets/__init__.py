@@ -21,6 +21,7 @@ Currently supported are:
   * [Invoke an API Destination](#invoke-an-api-destination)
   * [Invoke an AppSync GraphQL API](#invoke-an-appsync-graphql-api)
   * [Put an event on an EventBridge bus](#put-an-event-on-an-eventbridge-bus)
+  * [Put an event on a Firehose delivery stream](#put-an-event-on-a-firehose-delivery-stream)
   * [Run an ECS Task](#run-an-ecs-task)
 
     * [Tagging Tasks](#tagging-tasks)
@@ -523,6 +524,28 @@ rule.add_target(targets.EventBus(
     events.EventBus.from_event_bus_arn(self, "External", "arn:aws:events:eu-west-1:999999999999:event-bus/test-bus")))
 ```
 
+## Put an event on a Firehose delivery stream
+
+Use the `FirehoseDeliveryStream` target to put event to an Amazon Data Firehose delivery stream.
+
+The code snippet below creates the scheduled event rule that put events to an Amazon Data Firehose delivery stream.
+
+```python
+import aws_cdk.aws_kinesisfirehose as firehose
+import aws_cdk.aws_s3 as s3
+
+# bucket: s3.Bucket
+
+stream = firehose.DeliveryStream(self, "DeliveryStream",
+    destination=firehose.S3Bucket(bucket)
+)
+
+rule = events.Rule(self, "Rule",
+    schedule=events.Schedule.expression("rate(1 minute)")
+)
+rule.add_target(targets.FirehoseDeliveryStream(stream))
+```
+
 ## Run an ECS Task
 
 Use the `EcsTask` target to run an ECS Task.
@@ -694,6 +717,52 @@ rule.add_target(targets.RedshiftQuery(workgroup.attr_workgroup_workgroup_arn,
 ))
 ```
 
+## Send events to an SQS queue
+
+Use the `SqsQueue` target to send events to an SQS queue.
+
+The code snippet below creates an event rule that sends events to an SQS queue every hour:
+
+```python
+queue = sqs.Queue(self, "MyQueue")
+
+rule = events.Rule(self, "Rule",
+    schedule=events.Schedule.rate(cdk.Duration.hours(1))
+)
+
+rule.add_target(targets.SqsQueue(queue))
+```
+
+### Using Message Group IDs
+
+You can specify a `messageGroupId` to ensure messages are processed in order. This parameter is required for FIFO queues and optional for standard queues:
+
+```python
+# FIFO queue - messageGroupId required
+fifo_queue = sqs.Queue(self, "MyFifoQueue",
+    fifo=True
+)
+
+fifo_rule = events.Rule(self, "FifoRule",
+    schedule=events.Schedule.rate(cdk.Duration.hours(1))
+)
+
+fifo_rule.add_target(targets.SqsQueue(fifo_queue,
+    message_group_id="MyMessageGroupId"
+))
+
+# Standard queue - messageGroupId optional (SQS Fair queue feature)
+standard_queue = sqs.Queue(self, "MyStandardQueue")
+
+standard_rule = events.Rule(self, "StandardRule",
+    schedule=events.Schedule.rate(cdk.Duration.hours(1))
+)
+
+standard_rule.add_target(targets.SqsQueue(standard_queue,
+    message_group_id="MyMessageGroupId"
+))
+```
+
 ## Publish to an SNS Topic
 
 Use the `SnsTopic` target to publish to an SNS Topic.
@@ -767,8 +836,6 @@ from ..aws_apigateway import (
 )
 from ..aws_apigatewayv2 import IHttpApi as _IHttpApi_dc82ff0d
 from ..aws_appsync import IGraphqlApi as _IGraphqlApi_ed8270f3
-from ..aws_codebuild import IProject as _IProject_aafae30a
-from ..aws_codepipeline import IPipeline as _IPipeline_0931f838
 from ..aws_ec2 import (
     ISecurityGroup as _ISecurityGroup_acf8a799,
     SubnetSelection as _SubnetSelection_e57d76df,
@@ -793,13 +860,19 @@ from ..aws_iam import (
     IRole as _IRole_235f5d8e, PolicyStatement as _PolicyStatement_0fe33853
 )
 from ..aws_kinesis import IStream as _IStream_4e2457d2
-from ..aws_kinesisfirehose import CfnDeliveryStream as _CfnDeliveryStream_8f3b1735
+from ..aws_kinesisfirehose import (
+    CfnDeliveryStream as _CfnDeliveryStream_8f3b1735,
+    IDeliveryStream as _IDeliveryStream_8f118861,
+)
 from ..aws_lambda import IFunction as _IFunction_6adb0ab8
-from ..aws_logs import ILogGroup as _ILogGroup_3c4fa718
 from ..aws_secretsmanager import ISecret as _ISecret_6e020e6a
 from ..aws_sns import ITopic as _ITopic_9eca4852
 from ..aws_sqs import IQueue as _IQueue_7ed6f679
 from ..aws_stepfunctions import IStateMachine as _IStateMachine_73e8d2b0
+from ..interfaces.aws_codebuild import IProjectRef as _IProjectRef_7528e639
+from ..interfaces.aws_codepipeline import IPipelineRef as _IPipelineRef_fb1b56f9
+from ..interfaces.aws_events import IRuleRef as _IRuleRef_4038a611
+from ..interfaces.aws_logs import ILogGroupRef as _ILogGroupRef_874d025a
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -832,15 +905,15 @@ class ApiDestination(
 
     def __init__(
         self,
-        api_destination: _IApiDestination_44cdeedd,
+        api_destination: "_IApiDestination_44cdeedd",
         *,
-        event: typing.Optional[_RuleTargetInput_6beca786] = None,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
+        event: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
         header_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -873,19 +946,19 @@ class ApiDestination(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to trigger API destinations from an EventBridge event.
 
-        :param _rule: -
+        :param rule: -
         :param _id: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fc3c1c0cf00ea5f22f33bc5b97cb9290363f2ca57adb35a3ef3345ba3c4ee26)
-            check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [_rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -935,18 +1008,18 @@ class ApiGateway(
 
     def __init__(
         self,
-        rest_api: _IRestApi_1f02523d,
+        rest_api: "_IRestApi_1f02523d",
         *,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
         header_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         method: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
         path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-        post_body: typing.Optional[_RuleTargetInput_6beca786] = None,
+        post_body: typing.Optional["_RuleTargetInput_6beca786"] = None,
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stage: typing.Optional[builtins.str] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -985,9 +1058,9 @@ class ApiGateway(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to trigger this API Gateway REST APIs as a result from an EventBridge event.
 
         :param rule: -
@@ -999,23 +1072,23 @@ class ApiGateway(
             type_hints = typing.get_type_hints(_typecheckingstub__f34d8ba93048cf243454dc97d2236199033c050fc0bbc6ff84e18fa6033ee8b0)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
     @builtins.property
     @jsii.member(jsii_name="iRestApi")
-    def i_rest_api(self) -> _IRestApi_1f02523d:
+    def i_rest_api(self) -> "_IRestApi_1f02523d":
         '''Returns the target IRestApi.'''
-        return typing.cast(_IRestApi_1f02523d, jsii.get(self, "iRestApi"))
+        return typing.cast("_IRestApi_1f02523d", jsii.get(self, "iRestApi"))
 
     @builtins.property
     @jsii.member(jsii_name="restApi")
-    def rest_api(self) -> _RestApi_777c8238:
+    def rest_api(self) -> "_RestApi_777c8238":
         '''
         :deprecated: Use the ``iRestApi`` getter instead
 
         :stability: deprecated
         '''
-        return typing.cast(_RestApi_777c8238, jsii.get(self, "restApi"))
+        return typing.cast("_RestApi_777c8238", jsii.get(self, "restApi"))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -1040,18 +1113,18 @@ class ApiGatewayV2(
 
     def __init__(
         self,
-        http_api: _IHttpApi_dc82ff0d,
+        http_api: "_IHttpApi_dc82ff0d",
         *,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
         header_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         method: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
         path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-        post_body: typing.Optional[_RuleTargetInput_6beca786] = None,
+        post_body: typing.Optional["_RuleTargetInput_6beca786"] = None,
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stage: typing.Optional[builtins.str] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -1090,9 +1163,9 @@ class ApiGatewayV2(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to trigger this API Gateway HTTP APIs as a result from an EventBridge event.
 
         :param rule: -
@@ -1104,13 +1177,13 @@ class ApiGatewayV2(
             type_hints = typing.get_type_hints(_typecheckingstub__278e3545966677d368a504247d212e49fccdecf42a63bdd56101b78bbeed205d)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
     @builtins.property
     @jsii.member(jsii_name="iHttpApi")
-    def i_http_api(self) -> _IHttpApi_dc82ff0d:
+    def i_http_api(self) -> "_IHttpApi_dc82ff0d":
         '''Returns the target IHttpApi.'''
-        return typing.cast(_IHttpApi_dc82ff0d, jsii.get(self, "iHttpApi"))
+        return typing.cast("_IHttpApi_dc82ff0d", jsii.get(self, "iHttpApi"))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -1149,13 +1222,13 @@ class AppSync(
 
     def __init__(
         self,
-        appsync_api: _IGraphqlApi_ed8270f3,
+        appsync_api: "_IGraphqlApi_ed8270f3",
         *,
         graph_ql_operation: builtins.str,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
-        variables: typing.Optional[_RuleTargetInput_6beca786] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
+        variables: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -1184,9 +1257,9 @@ class AppSync(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to trigger this AppSync GraphQL API as a result from an EventBridge event.
 
         :param rule: -
@@ -1196,7 +1269,7 @@ class AppSync(
             type_hints = typing.get_type_hints(_typecheckingstub__6b1999a517525e35ef54e6129e3396c11b46ecb394388d3f908c6d627c051c4f)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -1227,7 +1300,7 @@ class AwsApi(
     def __init__(
         self,
         *,
-        policy_statement: typing.Optional[_PolicyStatement_0fe33853] = None,
+        policy_statement: typing.Optional["_PolicyStatement_0fe33853"] = None,
         action: builtins.str,
         service: builtins.str,
         api_version: typing.Optional[builtins.str] = None,
@@ -1256,9 +1329,9 @@ class AwsApi(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to trigger this AwsApi as a result from an EventBridge event.
 
         :param rule: -
@@ -1268,7 +1341,7 @@ class AwsApi(
             type_hints = typing.get_type_hints(_typecheckingstub__a41bcbfd7e37d2d2cf83a8f636d325a2a328da0a83ef4d994f0be12782f7d357)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, id]))
 
 
 @jsii.data_type(
@@ -1426,7 +1499,7 @@ class AwsApiProps(AwsApiInput):
         api_version: typing.Optional[builtins.str] = None,
         catch_error_pattern: typing.Optional[builtins.str] = None,
         parameters: typing.Any = None,
-        policy_statement: typing.Optional[_PolicyStatement_0fe33853] = None,
+        policy_statement: typing.Optional["_PolicyStatement_0fe33853"] = None,
     ) -> None:
         '''Properties for an AwsApi target.
 
@@ -1531,7 +1604,7 @@ class AwsApiProps(AwsApiInput):
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def policy_statement(self) -> typing.Optional[_PolicyStatement_0fe33853]:
+    def policy_statement(self) -> typing.Optional["_PolicyStatement_0fe33853"]:
         '''The IAM policy statement to allow the API call.
 
         Use only if
@@ -1540,7 +1613,7 @@ class AwsApiProps(AwsApiInput):
         :default: - extract the permission from the API call
         '''
         result = self._values.get("policy_statement")
-        return typing.cast(typing.Optional[_PolicyStatement_0fe33853], result)
+        return typing.cast(typing.Optional["_PolicyStatement_0fe33853"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1616,16 +1689,16 @@ class BatchJob(
     def __init__(
         self,
         job_queue_arn: builtins.str,
-        job_queue_scope: _constructs_77d1e7e8.IConstruct,
+        job_queue_scope: "_constructs_77d1e7e8.IConstruct",
         job_definition_arn: builtins.str,
-        job_definition_scope: _constructs_77d1e7e8.IConstruct,
+        job_definition_scope: "_constructs_77d1e7e8.IConstruct",
         *,
         attempts: typing.Optional[jsii.Number] = None,
-        event: typing.Optional[_RuleTargetInput_6beca786] = None,
+        event: typing.Optional["_RuleTargetInput_6beca786"] = None,
         job_name: typing.Optional[builtins.str] = None,
         size: typing.Optional[jsii.Number] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -1662,9 +1735,9 @@ class BatchJob(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to trigger queue this batch job as a result from an EventBridge event.
 
         :param rule: -
@@ -1674,7 +1747,7 @@ class BatchJob(
             type_hints = typing.get_type_hints(_typecheckingstub__154b5229eec4b919f6367b1ffec428480b40785475052bfd94fade237bd22597)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -1704,13 +1777,13 @@ class CloudWatchLogGroup(
 
     def __init__(
         self,
-        log_group: _ILogGroup_3c4fa718,
+        log_group: "_ILogGroupRef_874d025a",
         *,
-        event: typing.Optional[_RuleTargetInput_6beca786] = None,
+        event: typing.Optional["_RuleTargetInput_6beca786"] = None,
         install_latest_aws_sdk: typing.Optional[builtins.bool] = None,
         log_event: typing.Optional["LogGroupTargetInput"] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -1739,9 +1812,9 @@ class CloudWatchLogGroup(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to log an event into a CloudWatch LogGroup.
 
         :param rule: -
@@ -1751,7 +1824,7 @@ class CloudWatchLogGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__5583066efc6b7b2980bfbfbf33e6491271f5faf3b97e5d2ae998d1fe4189d1d4)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -1787,12 +1860,12 @@ class CodeBuildProject(
 
     def __init__(
         self,
-        project: _IProject_aafae30a,
+        project: "_IProjectRef_7528e639",
         *,
-        event: typing.Optional[_RuleTargetInput_6beca786] = None,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        event: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -1819,9 +1892,9 @@ class CodeBuildProject(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: _IRule_af9e3d28,
+        _rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Allows using build projects as event rule targets.
 
         :param _rule: -
@@ -1831,7 +1904,7 @@ class CodeBuildProject(
             type_hints = typing.get_type_hints(_typecheckingstub__c864909db0683c496942d72c9b834b03e1082bec9e20c368a204df37449c6e48)
             check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [_rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [_rule, _id]))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -1861,11 +1934,11 @@ class CodePipeline(
 
     def __init__(
         self,
-        pipeline: _IPipeline_0931f838,
+        pipeline: "_IPipelineRef_fb1b56f9",
         *,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -1890,9 +1963,9 @@ class CodePipeline(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: _IRule_af9e3d28,
+        _rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns the rule target specification.
 
         NOTE: Do not use the various ``inputXxx`` options. They can be set in a call to ``addTarget``.
@@ -1904,7 +1977,7 @@ class CodePipeline(
             type_hints = typing.get_type_hints(_typecheckingstub__add42f3c28d5f6651e451885b955fd84ad865300b4e6606be36174db4f3d8c73)
             check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [_rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [_rule, _id]))
 
 
 @jsii.data_type(
@@ -2078,27 +2151,27 @@ class EcsTask(
     def __init__(
         self,
         *,
-        cluster: _ICluster_16cddd09,
-        task_definition: _ITaskDefinition_889ba4d8,
+        cluster: "_ICluster_16cddd09",
+        task_definition: "_ITaskDefinition_889ba4d8",
         assign_public_ip: typing.Optional[builtins.bool] = None,
-        container_overrides: typing.Optional[typing.Sequence[typing.Union[ContainerOverride, typing.Dict[builtins.str, typing.Any]]]] = None,
+        container_overrides: typing.Optional[typing.Sequence[typing.Union["ContainerOverride", typing.Dict[builtins.str, typing.Any]]]] = None,
         cpu: typing.Optional[builtins.str] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
         ephemeral_storage: typing.Optional[typing.Union["EphemeralStorageOverride", typing.Dict[builtins.str, typing.Any]]] = None,
-        execution_role: typing.Optional[_IRole_235f5d8e] = None,
+        execution_role: typing.Optional["_IRole_235f5d8e"] = None,
         inference_accelerator_overrides: typing.Optional[typing.Sequence[typing.Union["InferenceAcceleratorOverride", typing.Dict[builtins.str, typing.Any]]]] = None,
-        launch_type: typing.Optional[_LaunchType_6894135d] = None,
+        launch_type: typing.Optional["_LaunchType_6894135d"] = None,
         memory: typing.Optional[builtins.str] = None,
-        platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-        propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
+        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_count: typing.Optional[jsii.Number] = None,
-        task_role: typing.Optional[_IRole_235f5d8e] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        task_role: typing.Optional["_IRole_235f5d8e"] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -2155,9 +2228,9 @@ class EcsTask(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Allows using tasks as target of EventBridge events.
 
         :param rule: -
@@ -2167,18 +2240,20 @@ class EcsTask(
             type_hints = typing.get_type_hints(_typecheckingstub__8ad199a8641f171a0447e974756bbddd91b00aaa9bcf33d231826916b85b8166)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroups")
-    def security_groups(self) -> typing.Optional[typing.List[_ISecurityGroup_acf8a799]]:
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
         '''The security groups associated with the task.
 
         Only applicable with awsvpc network mode.
 
         :default: - A new security group is created.
         '''
-        return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], jsii.get(self, "securityGroups"))
+        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], jsii.get(self, "securityGroups"))
 
 
 @jsii.data_type(
@@ -2254,10 +2329,10 @@ class EventBus(
 
     def __init__(
         self,
-        event_bus: _IEventBus_88d13111,
+        event_bus: "_IEventBus_88d13111",
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''
         :param event_bus: -
@@ -2274,9 +2349,9 @@ class EventBus(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns the rule target specification.
 
         NOTE: Do not use the various ``inputXxx`` options. They can be set in a call to ``addTarget``.
@@ -2288,7 +2363,7 @@ class EventBus(
             type_hints = typing.get_type_hints(_typecheckingstub__00d16e4ddfa6305196a715a56432c551f3ba5a905dead2e6a85f30bad692c31f)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
 
 @jsii.data_type(
@@ -2300,8 +2375,8 @@ class EventBusProps:
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''Configuration properties of an Event Bus event.
 
@@ -2339,7 +2414,7 @@ class EventBusProps:
             self._values["role"] = role
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -2349,16 +2424,16 @@ class EventBusProps:
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''Role to be used to publish the event.
 
         :default: a new role is created.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2372,15 +2447,142 @@ class EventBusProps:
         )
 
 
+@jsii.implements(_IRuleTarget_7a91f454)
+class FirehoseDeliveryStream(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_events_targets.FirehoseDeliveryStream",
+):
+    '''Customize the Amazon Data Firehose Stream Event Target.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_kinesisfirehose as firehose
+        import aws_cdk.aws_s3 as s3
+        
+        # bucket: s3.Bucket
+        
+        stream = firehose.DeliveryStream(self, "DeliveryStream",
+            destination=firehose.S3Bucket(bucket)
+        )
+        
+        rule = events.Rule(self, "Rule",
+            schedule=events.Schedule.expression("rate(1 minute)")
+        )
+        rule.add_target(targets.FirehoseDeliveryStream(stream))
+    '''
+
+    def __init__(
+        self,
+        delivery_stream: "_IDeliveryStream_8f118861",
+        *,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
+    ) -> None:
+        '''
+        :param delivery_stream: -
+        :param message: The message to send to the stream. Must be a valid JSON text passed to the target stream. Default: - the entire Event Bridge event
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8b83537633e15491c91cd6cebe1eddb6bc388617c53b754a40f318f493dc48e)
+            check_type(argname="argument delivery_stream", value=delivery_stream, expected_type=type_hints["delivery_stream"])
+        props = FirehoseDeliveryStreamProps(message=message)
+
+        jsii.create(self.__class__, self, [delivery_stream, props])
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        _rule: "_IRuleRef_4038a611",
+        _id: typing.Optional[builtins.str] = None,
+    ) -> "_RuleTargetConfig_4e70fe03":
+        '''Returns a RuleTarget that can be used to trigger this Firehose Stream as a result from a Event Bridge event.
+
+        :param _rule: -
+        :param _id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45499f815ce457b36825c13b8a0a6ffd1d6994523698febc614678776c341fb7)
+            check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
+            check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [_rule, _id]))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events_targets.FirehoseDeliveryStreamProps",
+    jsii_struct_bases=[],
+    name_mapping={"message": "message"},
+)
+class FirehoseDeliveryStreamProps:
+    def __init__(
+        self,
+        *,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
+    ) -> None:
+        '''Customize the Amazon Data Firehose Stream Event Target.
+
+        :param message: The message to send to the stream. Must be a valid JSON text passed to the target stream. Default: - the entire Event Bridge event
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_events as events
+            from aws_cdk import aws_events_targets as events_targets
+            
+            # rule_target_input: events.RuleTargetInput
+            
+            firehose_delivery_stream_props = events_targets.FirehoseDeliveryStreamProps(
+                message=rule_target_input
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c2311008fe7ae7c5e650063e35f32620f673ed3b0110bcab83f56ce21512d70c)
+            check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if message is not None:
+            self._values["message"] = message
+
+    @builtins.property
+    def message(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
+        '''The message to send to the stream.
+
+        Must be a valid JSON text passed to the target stream.
+
+        :default: - the entire Event Bridge event
+        '''
+        result = self._values.get("message")
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FirehoseDeliveryStreamProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_events_targets.IDeliveryStream")
 class IDeliveryStream(_IResource_c80c4260, typing_extensions.Protocol):
-    '''Represents an Amazon Data Firehose delivery stream.'''
+    '''(deprecated) Represents an Amazon Data Firehose delivery stream.
+
+    :deprecated: Use aws_kinesisfirehose.IDeliveryStream
+
+    :stability: deprecated
+    '''
 
     @builtins.property
     @jsii.member(jsii_name="deliveryStreamArn")
     def delivery_stream_arn(self) -> builtins.str:
-        '''The ARN of the delivery stream.
+        '''(deprecated) The ARN of the delivery stream.
 
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -2388,8 +2590,9 @@ class IDeliveryStream(_IResource_c80c4260, typing_extensions.Protocol):
     @builtins.property
     @jsii.member(jsii_name="deliveryStreamName")
     def delivery_stream_name(self) -> builtins.str:
-        '''The name of the delivery stream.
+        '''(deprecated) The name of the delivery stream.
 
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -2398,15 +2601,21 @@ class IDeliveryStream(_IResource_c80c4260, typing_extensions.Protocol):
 class _IDeliveryStreamProxy(
     jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
 ):
-    '''Represents an Amazon Data Firehose delivery stream.'''
+    '''(deprecated) Represents an Amazon Data Firehose delivery stream.
+
+    :deprecated: Use aws_kinesisfirehose.IDeliveryStream
+
+    :stability: deprecated
+    '''
 
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_events_targets.IDeliveryStream"
 
     @builtins.property
     @jsii.member(jsii_name="deliveryStreamArn")
     def delivery_stream_arn(self) -> builtins.str:
-        '''The ARN of the delivery stream.
+        '''(deprecated) The ARN of the delivery stream.
 
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "deliveryStreamArn"))
@@ -2414,8 +2623,9 @@ class _IDeliveryStreamProxy(
     @builtins.property
     @jsii.member(jsii_name="deliveryStreamName")
     def delivery_stream_name(self) -> builtins.str:
-        '''The name of the delivery stream.
+        '''(deprecated) The name of the delivery stream.
 
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "deliveryStreamName"))
@@ -2494,7 +2704,7 @@ class KinesisFirehoseStream(
 ):
     '''(deprecated) Customize the Amazon Data Firehose Stream Event Target.
 
-    :deprecated: Use KinesisFirehoseStreamV2
+    :deprecated: Use FirehoseDeliveryStream
 
     :stability: deprecated
     :exampleMetadata: fixture=_generated
@@ -2517,13 +2727,13 @@ class KinesisFirehoseStream(
 
     def __init__(
         self,
-        stream: _CfnDeliveryStream_8f3b1735,
+        stream: "_CfnDeliveryStream_8f3b1735",
         *,
-        message: typing.Optional[_RuleTargetInput_6beca786] = None,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
     ) -> None:
         '''
         :param stream: -
-        :param message: The message to send to the stream. Must be a valid JSON text passed to the target stream. Default: - the entire Event Bridge event
+        :param message: (deprecated) The message to send to the stream. Must be a valid JSON text passed to the target stream. Default: - the entire Event Bridge event
 
         :stability: deprecated
         '''
@@ -2537,9 +2747,9 @@ class KinesisFirehoseStream(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: _IRule_af9e3d28,
+        _rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''(deprecated) Returns a RuleTarget that can be used to trigger this Firehose Stream as a result from a Event Bridge event.
 
         :param _rule: -
@@ -2551,7 +2761,7 @@ class KinesisFirehoseStream(
             type_hints = typing.get_type_hints(_typecheckingstub__b38a65da97645536b57df6537ab7a5b06cf8910d4235008699171e7ced62c584)
             check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [_rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [_rule, _id]))
 
 
 @jsii.data_type(
@@ -2563,12 +2773,15 @@ class KinesisFirehoseStreamProps:
     def __init__(
         self,
         *,
-        message: typing.Optional[_RuleTargetInput_6beca786] = None,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
     ) -> None:
-        '''Customize the Amazon Data Firehose Stream Event Target.
+        '''(deprecated) Customize the Amazon Data Firehose Stream Event Target.
 
-        :param message: The message to send to the stream. Must be a valid JSON text passed to the target stream. Default: - the entire Event Bridge event
+        :param message: (deprecated) The message to send to the stream. Must be a valid JSON text passed to the target stream. Default: - the entire Event Bridge event
 
+        :deprecated: Use FirehoseDeliveryStreamProps
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2592,15 +2805,17 @@ class KinesisFirehoseStreamProps:
             self._values["message"] = message
 
     @builtins.property
-    def message(self) -> typing.Optional[_RuleTargetInput_6beca786]:
-        '''The message to send to the stream.
+    def message(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
+        '''(deprecated) The message to send to the stream.
 
         Must be a valid JSON text passed to the target stream.
 
         :default: - the entire Event Bridge event
+
+        :stability: deprecated
         '''
         result = self._values.get("message")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2619,8 +2834,11 @@ class KinesisFirehoseStreamV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_events_targets.KinesisFirehoseStreamV2",
 ):
-    '''Customize the Amazon Data Firehose Stream Event Target V2 to support L2 Amazon Data Firehose Delivery Stream instead of L1 Cfn Firehose Delivery Stream.
+    '''(deprecated) Customize the Amazon Data Firehose Stream Event Target V2 to support L2 Amazon Data Firehose Delivery Stream instead of L1 Cfn Firehose Delivery Stream.
 
+    :deprecated: Use FirehoseDeliveryStream
+
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -2640,13 +2858,15 @@ class KinesisFirehoseStreamV2(
 
     def __init__(
         self,
-        stream: IDeliveryStream,
+        stream: "IDeliveryStream",
         *,
-        message: typing.Optional[_RuleTargetInput_6beca786] = None,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
     ) -> None:
         '''
         :param stream: -
-        :param message: The message to send to the stream. Must be a valid JSON text passed to the target stream. Default: - the entire Event Bridge event
+        :param message: (deprecated) The message to send to the stream. Must be a valid JSON text passed to the target stream. Default: - the entire Event Bridge event
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8230487c5e79599a4ad63af004c2c8350c2b25e209491350274d38019afa418)
@@ -2658,19 +2878,21 @@ class KinesisFirehoseStreamV2(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: _IRule_af9e3d28,
+        _rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
-        '''Returns a RuleTarget that can be used to trigger this Firehose Stream as a result from a Event Bridge event.
+    ) -> "_RuleTargetConfig_4e70fe03":
+        '''(deprecated) Returns a RuleTarget that can be used to trigger this Firehose Stream as a result from a Event Bridge event.
 
         :param _rule: -
         :param _id: -
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3467ab0e593ed64d775dafc3b3fc1b1835fa2853c7ee8685668bf081dd189e44)
             check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [_rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [_rule, _id]))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -2689,12 +2911,12 @@ class KinesisStream(
 
     def __init__(
         self,
-        stream: _IStream_4e2457d2,
+        stream: "_IStream_4e2457d2",
         *,
-        message: typing.Optional[_RuleTargetInput_6beca786] = None,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
         partition_key_path: typing.Optional[builtins.str] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -2721,9 +2943,9 @@ class KinesisStream(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: _IRule_af9e3d28,
+        _rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to trigger this Kinesis Stream as a result from a CloudWatch event.
 
         :param _rule: -
@@ -2733,7 +2955,7 @@ class KinesisStream(
             type_hints = typing.get_type_hints(_typecheckingstub__ae222f596f043d31f56819c2cb64c58ef12e8e3d35bce41fa6f0cd929c2db58a)
             check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [_rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [_rule, _id]))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -2773,11 +2995,11 @@ class LambdaFunction(
 
     def __init__(
         self,
-        handler: _IFunction_6adb0ab8,
+        handler: "_IFunction_6adb0ab8",
         *,
-        event: typing.Optional[_RuleTargetInput_6beca786] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        event: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -2802,9 +3024,9 @@ class LambdaFunction(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to trigger this Lambda as a result from an EventBridge event.
 
         :param rule: -
@@ -2814,7 +3036,7 @@ class LambdaFunction(
             type_hints = typing.get_type_hints(_typecheckingstub__906b4fb6301e027a5cc5111944bf8d3844e211a5f528e71002c42bebd068aad6)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
 
 class LogGroupTargetInput(
@@ -2850,8 +3072,8 @@ class LogGroupTargetInput(
         *,
         message: typing.Any = None,
         timestamp: typing.Any = None,
-    ) -> _RuleTargetInput_6beca786:
-        '''(deprecated) Pass a JSON object to the the log group event target.
+    ) -> "_RuleTargetInput_6beca786":
+        '''(deprecated) Pass a JSON object to the log group event target.
 
         May contain strings returned by ``EventField.from()`` to substitute in parts of the
         matched event.
@@ -2865,7 +3087,7 @@ class LogGroupTargetInput(
         '''
         options = LogGroupTargetInputOptions(message=message, timestamp=timestamp)
 
-        return typing.cast(_RuleTargetInput_6beca786, jsii.sinvoke(cls, "fromObject", [options]))
+        return typing.cast("_RuleTargetInput_6beca786", jsii.sinvoke(cls, "fromObject", [options]))
 
     @jsii.member(jsii_name="fromObjectV2")
     @builtins.classmethod
@@ -2889,7 +3111,7 @@ class LogGroupTargetInput(
 
     @jsii.member(jsii_name="bind")
     @abc.abstractmethod
-    def bind(self, rule: _IRule_af9e3d28) -> _RuleTargetInputProperties_38e7b0db:
+    def bind(self, rule: "_IRule_af9e3d28") -> "_RuleTargetInputProperties_38e7b0db":
         '''Return the input properties for this input object.
 
         :param rule: -
@@ -2899,7 +3121,7 @@ class LogGroupTargetInput(
 
 class _LogGroupTargetInputProxy(LogGroupTargetInput):
     @jsii.member(jsii_name="bind")
-    def bind(self, rule: _IRule_af9e3d28) -> _RuleTargetInputProperties_38e7b0db:
+    def bind(self, rule: "_IRule_af9e3d28") -> "_RuleTargetInputProperties_38e7b0db":
         '''Return the input properties for this input object.
 
         :param rule: -
@@ -2907,7 +3129,7 @@ class _LogGroupTargetInputProxy(LogGroupTargetInput):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__758083b81fe2898a867779bb9918a1aaa26f0291624b27f0e1637860027d86a5)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
-        return typing.cast(_RuleTargetInputProperties_38e7b0db, jsii.invoke(self, "bind", [rule]))
+        return typing.cast("_RuleTargetInputProperties_38e7b0db", jsii.invoke(self, "bind", [rule]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, LogGroupTargetInput).__jsii_proxy_class__ = lambda : _LogGroupTargetInputProxy
@@ -3030,10 +3252,10 @@ class RedshiftQuery(
         database: builtins.str,
         sql: typing.Sequence[builtins.str],
         db_user: typing.Optional[builtins.str] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_RuleTargetInput_6beca786] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        secret: typing.Optional[_ISecret_6e020e6a] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        secret: typing.Optional["_ISecret_6e020e6a"] = None,
         send_event_bridge_event: typing.Optional[builtins.bool] = None,
         statement_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -3069,9 +3291,9 @@ class RedshiftQuery(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns the rule target specification.
 
         NOTE: Do not use the various ``inputXxx`` options. They can be set in a call to ``addTarget``.
@@ -3083,7 +3305,7 @@ class RedshiftQuery(
             type_hints = typing.get_type_hints(_typecheckingstub__39a86a8b0444f7c45c252e76fda9d4157fe34d2c363d4a99075556e92c234689)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
 
 @jsii.data_type(
@@ -3108,10 +3330,10 @@ class RedshiftQueryProps:
         database: builtins.str,
         sql: typing.Sequence[builtins.str],
         db_user: typing.Optional[builtins.str] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        input: typing.Optional[_RuleTargetInput_6beca786] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        secret: typing.Optional[_ISecret_6e020e6a] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        input: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        secret: typing.Optional["_ISecret_6e020e6a"] = None,
         send_event_bridge_event: typing.Optional[builtins.bool] = None,
         statement_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -3212,34 +3434,34 @@ class RedshiftQueryProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The queue to be used as dead letter queue.
 
         :default: - No dead letter queue is specified
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def input(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def input(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''The input to the state machine execution.
 
         :default: - the entire EventBridge event
         '''
         result = self._values.get("input")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The IAM role to be used to execute the SQL statement.
 
         :default: - a new role will be created.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def secret(self) -> typing.Optional[_ISecret_6e020e6a]:
+    def secret(self) -> typing.Optional["_ISecret_6e020e6a"]:
         '''The secret containing the password for the database user.
 
         This is required when authenticating via Secrets Manager.
@@ -3248,7 +3470,7 @@ class RedshiftQueryProps:
         :default: - No secret is specified
         '''
         result = self._values.get("secret")
-        return typing.cast(typing.Optional[_ISecret_6e020e6a], result)
+        return typing.cast(typing.Optional["_ISecret_6e020e6a"], result)
 
     @builtins.property
     def send_event_bridge_event(self) -> typing.Optional[builtins.bool]:
@@ -3319,12 +3541,12 @@ class SfnStateMachine(
 
     def __init__(
         self,
-        machine: _IStateMachine_73e8d2b0,
+        machine: "_IStateMachine_73e8d2b0",
         *,
-        input: typing.Optional[_RuleTargetInput_6beca786] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        input: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -3351,26 +3573,26 @@ class SfnStateMachine(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a properties that are used in an Rule to trigger this State Machine.
 
-        :param _rule: -
+        :param rule: -
         :param _id: -
 
         :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/resource-based-policies-eventbridge.html#sns-permissions
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e0733fbe09a8310edfc7237ca759e925b3db6d25ad43627fcf4f165c2efe942)
-            check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [_rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
     @builtins.property
     @jsii.member(jsii_name="machine")
-    def machine(self) -> _IStateMachine_73e8d2b0:
-        return typing.cast(_IStateMachine_73e8d2b0, jsii.get(self, "machine"))
+    def machine(self) -> "_IStateMachine_73e8d2b0":
+        return typing.cast("_IStateMachine_73e8d2b0", jsii.get(self, "machine"))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -3391,13 +3613,13 @@ class SnsTopic(
 
     def __init__(
         self,
-        topic: _ITopic_9eca4852,
+        topic: "_ITopic_9eca4852",
         *,
         authorize_using_role: typing.Optional[builtins.bool] = None,
-        message: typing.Optional[_RuleTargetInput_6beca786] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -3426,26 +3648,26 @@ class SnsTopic(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to trigger this SNS topic as a result from an EventBridge event.
 
-        :param _rule: -
+        :param rule: -
         :param _id: -
 
         :see: https://docs.aws.amazon.com/eventbridge/latest/userguide/resource-based-policies-eventbridge.html#sns-permissions
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6de2339b649dec356056a716737bfe488b0873abee2d224f4a18f7ad162d83f6)
-            check_type(argname="argument _rule", value=_rule, expected_type=type_hints["_rule"])
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [_rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
     @builtins.property
     @jsii.member(jsii_name="topic")
-    def topic(self) -> _ITopic_9eca4852:
-        return typing.cast(_ITopic_9eca4852, jsii.get(self, "topic"))
+    def topic(self) -> "_ITopic_9eca4852":
+        return typing.cast("_ITopic_9eca4852", jsii.get(self, "topic"))
 
 
 @jsii.implements(_IRuleTarget_7a91f454)
@@ -3464,18 +3686,18 @@ class SqsQueue(
 
     def __init__(
         self,
-        queue: _IQueue_7ed6f679,
+        queue: "_IQueue_7ed6f679",
         *,
-        message: typing.Optional[_RuleTargetInput_6beca786] = None,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
         message_group_id: typing.Optional[builtins.str] = None,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
         :param queue: -
         :param message: The message to send to the queue. Must be a valid JSON text passed to the target queue. Default: the entire EventBridge event
-        :param message_group_id: Message Group ID for messages sent to this queue. Required for FIFO queues, leave empty for regular queues. Default: - no message group ID (regular queue)
+        :param message_group_id: Message Group ID for messages sent to this queue. Required for FIFO queues. For standard queues, this parameter is optional and can be used for SQS fair queue feature and deduplication. Default: - no message group ID
         :param dead_letter_queue: The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_. The events not successfully delivered are automatically retried for a specified period of time, depending on the retry policy of the target. If an event is not delivered before all retry attempts are exhausted, it will be sent to the dead letter queue. Default: - no dead-letter queue
         :param max_event_age: The maximum age of a request that Lambda sends to a function for processing. Minimum value of 60. Maximum value of 86400. Default: Duration.hours(24)
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Minimum value of 0. Maximum value of 185. Default: 185
@@ -3496,9 +3718,9 @@ class SqsQueue(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        rule: _IRule_af9e3d28,
+        rule: "_IRuleRef_4038a611",
         _id: typing.Optional[builtins.str] = None,
-    ) -> _RuleTargetConfig_4e70fe03:
+    ) -> "_RuleTargetConfig_4e70fe03":
         '''Returns a RuleTarget that can be used to trigger this SQS queue as a result from an EventBridge event.
 
         :param rule: -
@@ -3510,12 +3732,12 @@ class SqsQueue(
             type_hints = typing.get_type_hints(_typecheckingstub__d7bbb7c546d67f5f999da3b2a71dc36c03ae5d8723a592b50de5b0193d62ebe6)
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
             check_type(argname="argument _id", value=_id, expected_type=type_hints["_id"])
-        return typing.cast(_RuleTargetConfig_4e70fe03, jsii.invoke(self, "bind", [rule, _id]))
+        return typing.cast("_RuleTargetConfig_4e70fe03", jsii.invoke(self, "bind", [rule, _id]))
 
     @builtins.property
     @jsii.member(jsii_name="queue")
-    def queue(self) -> _IQueue_7ed6f679:
-        return typing.cast(_IQueue_7ed6f679, jsii.get(self, "queue"))
+    def queue(self) -> "_IQueue_7ed6f679":
+        return typing.cast("_IQueue_7ed6f679", jsii.get(self, "queue"))
 
 
 @jsii.data_type(
@@ -3593,8 +3815,8 @@ class TargetBaseProps:
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''The generic properties for an RuleTarget.
@@ -3635,7 +3857,7 @@ class TargetBaseProps:
             self._values["retry_attempts"] = retry_attempts
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -3645,10 +3867,10 @@ class TargetBaseProps:
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -3657,7 +3879,7 @@ class TargetBaseProps:
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -3767,11 +3989,11 @@ class ApiDestinationProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        event: typing.Optional[_RuleTargetInput_6beca786] = None,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
+        event: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
         header_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -3847,7 +4069,7 @@ class ApiDestinationProps(TargetBaseProps):
             self._values["query_string_parameters"] = query_string_parameters
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -3857,10 +4079,10 @@ class ApiDestinationProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -3869,7 +4091,7 @@ class ApiDestinationProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -3884,22 +4106,22 @@ class ApiDestinationProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def event(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def event(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''The event to send.
 
         :default: - the entire EventBridge event
         '''
         result = self._values.get("event")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     @builtins.property
-    def event_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def event_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The role to assume before invoking the target.
 
         :default: - a new role will be created
         '''
         result = self._values.get("event_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def header_parameters(
@@ -3978,15 +4200,15 @@ class ApiGatewayProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
         header_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         method: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
         path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
-        post_body: typing.Optional[_RuleTargetInput_6beca786] = None,
+        post_body: typing.Optional["_RuleTargetInput_6beca786"] = None,
         query_string_parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stage: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -4079,7 +4301,7 @@ class ApiGatewayProps(TargetBaseProps):
             self._values["stage"] = stage
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -4089,10 +4311,10 @@ class ApiGatewayProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -4101,7 +4323,7 @@ class ApiGatewayProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -4116,13 +4338,13 @@ class ApiGatewayProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def event_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def event_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The role to assume before invoking the target (i.e., the pipeline) when the given rule is triggered.
 
         :default: - a new role will be created
         '''
         result = self._values.get("event_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def header_parameters(
@@ -4166,13 +4388,13 @@ class ApiGatewayProps(TargetBaseProps):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def post_body(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def post_body(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''This will be the post request body send to the API.
 
         :default: the entire EventBridge event
         '''
         result = self._values.get("post_body")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     @builtins.property
     def query_string_parameters(
@@ -4222,12 +4444,12 @@ class AppSyncGraphQLApiProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
         graph_ql_operation: builtins.str,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
-        variables: typing.Optional[_RuleTargetInput_6beca786] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
+        variables: typing.Optional["_RuleTargetInput_6beca786"] = None,
     ) -> None:
         '''Customize the AppSync GraphQL API target.
 
@@ -4287,7 +4509,7 @@ class AppSyncGraphQLApiProps(TargetBaseProps):
             self._values["variables"] = variables
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -4297,10 +4519,10 @@ class AppSyncGraphQLApiProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -4309,7 +4531,7 @@ class AppSyncGraphQLApiProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -4335,22 +4557,22 @@ class AppSyncGraphQLApiProps(TargetBaseProps):
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def event_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def event_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The role to assume before invoking the target (i.e., the pipeline) when the given rule is triggered.
 
         :default: - a new role with permissions to access mutations will be created
         '''
         result = self._values.get("event_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def variables(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def variables(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''The variables that are include in the GraphQL operation.
 
         :default: - The entire event is used
         '''
         result = self._values.get("variables")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4381,11 +4603,11 @@ class BatchJobProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
         attempts: typing.Optional[jsii.Number] = None,
-        event: typing.Optional[_RuleTargetInput_6beca786] = None,
+        event: typing.Optional["_RuleTargetInput_6beca786"] = None,
         job_name: typing.Optional[builtins.str] = None,
         size: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -4471,7 +4693,7 @@ class BatchJobProps(TargetBaseProps):
             self._values["size"] = size
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -4481,10 +4703,10 @@ class BatchJobProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -4493,7 +4715,7 @@ class BatchJobProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -4519,7 +4741,7 @@ class BatchJobProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def event(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def event(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''The event to send to the Lambda.
 
         This will be the payload sent to the Lambda Function.
@@ -4527,7 +4749,7 @@ class BatchJobProps(TargetBaseProps):
         :default: the entire EventBridge event
         '''
         result = self._values.get("event")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
@@ -4576,11 +4798,11 @@ class CodeBuildProjectProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        event: typing.Optional[_RuleTargetInput_6beca786] = None,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
+        event: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''Customize the CodeBuild Event Target.
 
@@ -4636,7 +4858,7 @@ class CodeBuildProjectProps(TargetBaseProps):
             self._values["event_role"] = event_role
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -4646,10 +4868,10 @@ class CodeBuildProjectProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -4658,7 +4880,7 @@ class CodeBuildProjectProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -4673,7 +4895,7 @@ class CodeBuildProjectProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def event(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def event(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''The event to send to CodeBuild.
 
         This will be the payload for the StartBuild API.
@@ -4681,16 +4903,16 @@ class CodeBuildProjectProps(TargetBaseProps):
         :default: - the entire EventBridge event
         '''
         result = self._values.get("event")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     @builtins.property
-    def event_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def event_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The role to assume before invoking the target (i.e., the codebuild) when the given rule is triggered.
 
         :default: - a new role will be created
         '''
         result = self._values.get("event_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4718,10 +4940,10 @@ class CodePipelineTargetOptions(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        event_role: typing.Optional[_IRole_235f5d8e] = None,
+        event_role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''Customization options when creating a ``CodePipeline`` event target.
 
@@ -4768,7 +4990,7 @@ class CodePipelineTargetOptions(TargetBaseProps):
             self._values["event_role"] = event_role
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -4778,10 +5000,10 @@ class CodePipelineTargetOptions(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -4790,7 +5012,7 @@ class CodePipelineTargetOptions(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -4805,13 +5027,13 @@ class CodePipelineTargetOptions(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def event_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def event_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The role to assume before invoking the target (i.e., the pipeline) when the given rule is triggered.
 
         :default: - a new role will be created
         '''
         result = self._values.get("event_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4857,28 +5079,28 @@ class EcsTaskProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        cluster: _ICluster_16cddd09,
-        task_definition: _ITaskDefinition_889ba4d8,
+        cluster: "_ICluster_16cddd09",
+        task_definition: "_ITaskDefinition_889ba4d8",
         assign_public_ip: typing.Optional[builtins.bool] = None,
-        container_overrides: typing.Optional[typing.Sequence[typing.Union[ContainerOverride, typing.Dict[builtins.str, typing.Any]]]] = None,
+        container_overrides: typing.Optional[typing.Sequence[typing.Union["ContainerOverride", typing.Dict[builtins.str, typing.Any]]]] = None,
         cpu: typing.Optional[builtins.str] = None,
         enable_execute_command: typing.Optional[builtins.bool] = None,
-        ephemeral_storage: typing.Optional[typing.Union[EphemeralStorageOverride, typing.Dict[builtins.str, typing.Any]]] = None,
-        execution_role: typing.Optional[_IRole_235f5d8e] = None,
-        inference_accelerator_overrides: typing.Optional[typing.Sequence[typing.Union[InferenceAcceleratorOverride, typing.Dict[builtins.str, typing.Any]]]] = None,
-        launch_type: typing.Optional[_LaunchType_6894135d] = None,
+        ephemeral_storage: typing.Optional[typing.Union["EphemeralStorageOverride", typing.Dict[builtins.str, typing.Any]]] = None,
+        execution_role: typing.Optional["_IRole_235f5d8e"] = None,
+        inference_accelerator_overrides: typing.Optional[typing.Sequence[typing.Union["InferenceAcceleratorOverride", typing.Dict[builtins.str, typing.Any]]]] = None,
+        launch_type: typing.Optional["_LaunchType_6894135d"] = None,
         memory: typing.Optional[builtins.str] = None,
-        platform_version: typing.Optional[_FargatePlatformVersion_55d8be5c] = None,
-        propagate_tags: typing.Optional[_PropagatedTagSource_ad4e874a] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
-        subnet_selection: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+        platform_version: typing.Optional["_FargatePlatformVersion_55d8be5c"] = None,
+        propagate_tags: typing.Optional["_PropagatedTagSource_ad4e874a"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        subnet_selection: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_count: typing.Optional[jsii.Number] = None,
-        task_role: typing.Optional[_IRole_235f5d8e] = None,
+        task_role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''Properties to define an ECS Event Task.
 
@@ -5003,7 +5225,7 @@ class EcsTaskProps(TargetBaseProps):
             self._values["task_role"] = task_role
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -5013,10 +5235,10 @@ class EcsTaskProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -5025,7 +5247,7 @@ class EcsTaskProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -5040,18 +5262,18 @@ class EcsTaskProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def cluster(self) -> _ICluster_16cddd09:
+    def cluster(self) -> "_ICluster_16cddd09":
         '''Cluster where service will be deployed.'''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
-        return typing.cast(_ICluster_16cddd09, result)
+        return typing.cast("_ICluster_16cddd09", result)
 
     @builtins.property
-    def task_definition(self) -> _ITaskDefinition_889ba4d8:
+    def task_definition(self) -> "_ITaskDefinition_889ba4d8":
         '''Task Definition of the task that should be started.'''
         result = self._values.get("task_definition")
         assert result is not None, "Required property 'task_definition' is missing"
-        return typing.cast(_ITaskDefinition_889ba4d8, result)
+        return typing.cast("_ITaskDefinition_889ba4d8", result)
 
     @builtins.property
     def assign_public_ip(self) -> typing.Optional[builtins.bool]:
@@ -5065,14 +5287,14 @@ class EcsTaskProps(TargetBaseProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def container_overrides(self) -> typing.Optional[typing.List[ContainerOverride]]:
+    def container_overrides(self) -> typing.Optional[typing.List["ContainerOverride"]]:
         '''Container setting overrides.
 
         Key is the name of the container to override, value is the
         values you want to override.
         '''
         result = self._values.get("container_overrides")
-        return typing.cast(typing.Optional[typing.List[ContainerOverride]], result)
+        return typing.cast(typing.Optional[typing.List["ContainerOverride"]], result)
 
     @builtins.property
     def cpu(self) -> typing.Optional[builtins.str]:
@@ -5095,7 +5317,7 @@ class EcsTaskProps(TargetBaseProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def ephemeral_storage(self) -> typing.Optional[EphemeralStorageOverride]:
+    def ephemeral_storage(self) -> typing.Optional["EphemeralStorageOverride"]:
         '''The ephemeral storage setting override for the task.
 
         NOTE: This parameter is only supported for tasks hosted on Fargate that use the following platform versions:
@@ -5106,10 +5328,10 @@ class EcsTaskProps(TargetBaseProps):
         :default: - The task definition's ephemeral storage value
         '''
         result = self._values.get("ephemeral_storage")
-        return typing.cast(typing.Optional[EphemeralStorageOverride], result)
+        return typing.cast(typing.Optional["EphemeralStorageOverride"], result)
 
     @builtins.property
-    def execution_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def execution_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The execution role for the task.
 
         The Amazon Resource Name (ARN) of the task execution role override for the task.
@@ -5117,21 +5339,21 @@ class EcsTaskProps(TargetBaseProps):
         :default: - The task definition's execution role
         '''
         result = self._values.get("execution_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def inference_accelerator_overrides(
         self,
-    ) -> typing.Optional[typing.List[InferenceAcceleratorOverride]]:
+    ) -> typing.Optional[typing.List["InferenceAcceleratorOverride"]]:
         '''The Elastic Inference accelerator override for the task.
 
         :default: - The task definition's inference accelerator overrides
         '''
         result = self._values.get("inference_accelerator_overrides")
-        return typing.cast(typing.Optional[typing.List[InferenceAcceleratorOverride]], result)
+        return typing.cast(typing.Optional[typing.List["InferenceAcceleratorOverride"]], result)
 
     @builtins.property
-    def launch_type(self) -> typing.Optional[_LaunchType_6894135d]:
+    def launch_type(self) -> typing.Optional["_LaunchType_6894135d"]:
         '''Specifies the launch type on which your task is running.
 
         The launch type that you specify here
@@ -5140,7 +5362,7 @@ class EcsTaskProps(TargetBaseProps):
         :default: - 'EC2' if ``isEc2Compatible`` for the ``taskDefinition`` is true, otherwise 'FARGATE'
         '''
         result = self._values.get("launch_type")
-        return typing.cast(typing.Optional[_LaunchType_6894135d], result)
+        return typing.cast(typing.Optional["_LaunchType_6894135d"], result)
 
     @builtins.property
     def memory(self) -> typing.Optional[builtins.str]:
@@ -5152,7 +5374,7 @@ class EcsTaskProps(TargetBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def platform_version(self) -> typing.Optional[_FargatePlatformVersion_55d8be5c]:
+    def platform_version(self) -> typing.Optional["_FargatePlatformVersion_55d8be5c"]:
         '''The platform version on which to run your task.
 
         Unless you have specific compatibility requirements, you don't need to specify this.
@@ -5162,10 +5384,10 @@ class EcsTaskProps(TargetBaseProps):
         :see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/platform_versions.html
         '''
         result = self._values.get("platform_version")
-        return typing.cast(typing.Optional[_FargatePlatformVersion_55d8be5c], result)
+        return typing.cast(typing.Optional["_FargatePlatformVersion_55d8be5c"], result)
 
     @builtins.property
-    def propagate_tags(self) -> typing.Optional[_PropagatedTagSource_ad4e874a]:
+    def propagate_tags(self) -> typing.Optional["_PropagatedTagSource_ad4e874a"]:
         '''Specifies whether to propagate the tags from the task definition to the task.
 
         If no value is specified, the tags are not propagated.
@@ -5173,19 +5395,21 @@ class EcsTaskProps(TargetBaseProps):
         :default: - Tags will not be propagated
         '''
         result = self._values.get("propagate_tags")
-        return typing.cast(typing.Optional[_PropagatedTagSource_ad4e874a], result)
+        return typing.cast(typing.Optional["_PropagatedTagSource_ad4e874a"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''Existing IAM role to run the ECS task.
 
         :default: A new IAM role is created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
-    def security_groups(self) -> typing.Optional[typing.List[_ISecurityGroup_acf8a799]]:
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
         '''Existing security groups to use for the task's ENIs.
 
         (Only applicable in case the TaskDefinition is configured for AwsVpc networking)
@@ -5193,10 +5417,10 @@ class EcsTaskProps(TargetBaseProps):
         :default: A new security group is created
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], result)
+        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
 
     @builtins.property
-    def subnet_selection(self) -> typing.Optional[_SubnetSelection_e57d76df]:
+    def subnet_selection(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
         '''In what subnets to place the task's ENIs.
 
         (Only applicable in case the TaskDefinition is configured for AwsVpc networking)
@@ -5204,10 +5428,10 @@ class EcsTaskProps(TargetBaseProps):
         :default: Private subnets
         '''
         result = self._values.get("subnet_selection")
-        return typing.cast(typing.Optional[_SubnetSelection_e57d76df], result)
+        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[Tag]]:
+    def tags(self) -> typing.Optional[typing.List["Tag"]]:
         '''The metadata that you apply to the task to help you categorize and organize them.
 
         Each tag consists of a key and an optional value, both of which you define.
@@ -5215,7 +5439,7 @@ class EcsTaskProps(TargetBaseProps):
         :default: - No additional tags are applied to the task
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[Tag]], result)
+        return typing.cast(typing.Optional[typing.List["Tag"]], result)
 
     @builtins.property
     def task_count(self) -> typing.Optional[jsii.Number]:
@@ -5227,13 +5451,13 @@ class EcsTaskProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def task_role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def task_role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The IAM role for the task.
 
         :default: - The task definition's task role
         '''
         result = self._values.get("task_role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5262,10 +5486,10 @@ class KinesisStreamProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        message: typing.Optional[_RuleTargetInput_6beca786] = None,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
         partition_key_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Customize the Kinesis Stream Event Target.
@@ -5318,7 +5542,7 @@ class KinesisStreamProps(TargetBaseProps):
             self._values["partition_key_path"] = partition_key_path
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -5328,10 +5552,10 @@ class KinesisStreamProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -5340,7 +5564,7 @@ class KinesisStreamProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -5355,7 +5579,7 @@ class KinesisStreamProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def message(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def message(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''The message to send to the stream.
 
         Must be a valid JSON text passed to the target stream.
@@ -5363,7 +5587,7 @@ class KinesisStreamProps(TargetBaseProps):
         :default: - the entire CloudWatch event
         '''
         result = self._values.get("message")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     @builtins.property
     def partition_key_path(self) -> typing.Optional[builtins.str]:
@@ -5400,10 +5624,10 @@ class LambdaFunctionProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        event: typing.Optional[_RuleTargetInput_6beca786] = None,
+        event: typing.Optional["_RuleTargetInput_6beca786"] = None,
     ) -> None:
         '''Customize the Lambda Event Target.
 
@@ -5456,7 +5680,7 @@ class LambdaFunctionProps(TargetBaseProps):
             self._values["event"] = event
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -5466,10 +5690,10 @@ class LambdaFunctionProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -5478,7 +5702,7 @@ class LambdaFunctionProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -5493,7 +5717,7 @@ class LambdaFunctionProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def event(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def event(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''The event to send to the Lambda.
 
         This will be the payload sent to the Lambda Function.
@@ -5501,7 +5725,7 @@ class LambdaFunctionProps(TargetBaseProps):
         :default: the entire EventBridge event
         '''
         result = self._values.get("event")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5531,12 +5755,12 @@ class LogGroupProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        event: typing.Optional[_RuleTargetInput_6beca786] = None,
+        event: typing.Optional["_RuleTargetInput_6beca786"] = None,
         install_latest_aws_sdk: typing.Optional[builtins.bool] = None,
-        log_event: typing.Optional[LogGroupTargetInput] = None,
+        log_event: typing.Optional["LogGroupTargetInput"] = None,
     ) -> None:
         '''Customize the CloudWatch LogGroup Event Target.
 
@@ -5587,7 +5811,7 @@ class LogGroupProps(TargetBaseProps):
             self._values["log_event"] = log_event
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -5597,10 +5821,10 @@ class LogGroupProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -5609,7 +5833,7 @@ class LogGroupProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -5624,7 +5848,7 @@ class LogGroupProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def event(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def event(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''(deprecated) The event to send to the CloudWatch LogGroup.
 
         This will be the event logged into the CloudWatch LogGroup
@@ -5636,7 +5860,7 @@ class LogGroupProps(TargetBaseProps):
         :stability: deprecated
         '''
         result = self._values.get("event")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     @builtins.property
     def install_latest_aws_sdk(self) -> typing.Optional[builtins.bool]:
@@ -5648,7 +5872,7 @@ class LogGroupProps(TargetBaseProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def log_event(self) -> typing.Optional[LogGroupTargetInput]:
+    def log_event(self) -> typing.Optional["LogGroupTargetInput"]:
         '''The event to send to the CloudWatch LogGroup.
 
         This will be the event logged into the CloudWatch LogGroup
@@ -5656,7 +5880,7 @@ class LogGroupProps(TargetBaseProps):
         :default: - the entire EventBridge event
         '''
         result = self._values.get("log_event")
-        return typing.cast(typing.Optional[LogGroupTargetInput], result)
+        return typing.cast(typing.Optional["LogGroupTargetInput"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5685,11 +5909,11 @@ class SfnStateMachineProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        input: typing.Optional[_RuleTargetInput_6beca786] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        input: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''Customize the Step Functions State Machine target.
 
@@ -5746,7 +5970,7 @@ class SfnStateMachineProps(TargetBaseProps):
             self._values["role"] = role
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -5756,10 +5980,10 @@ class SfnStateMachineProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -5768,7 +5992,7 @@ class SfnStateMachineProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -5783,22 +6007,22 @@ class SfnStateMachineProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def input(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def input(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''The input to the state machine execution.
 
         :default: the entire EventBridge event
         '''
         result = self._values.get("input")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The IAM role to be assumed to execute the State Machine.
 
         :default: - a new role will be created
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5828,12 +6052,12 @@ class SnsTopicProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
         authorize_using_role: typing.Optional[builtins.bool] = None,
-        message: typing.Optional[_RuleTargetInput_6beca786] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
         '''Customize the SNS Topic Event Target.
 
@@ -5881,7 +6105,7 @@ class SnsTopicProps(TargetBaseProps):
             self._values["role"] = role
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -5891,10 +6115,10 @@ class SnsTopicProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -5903,7 +6127,7 @@ class SnsTopicProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -5927,22 +6151,22 @@ class SnsTopicProps(TargetBaseProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def message(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def message(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''The message to send to the topic.
 
         :default: the entire EventBridge event
         '''
         result = self._values.get("message")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''The IAM role to be used to publish to the topic.
 
         :default: - a new role will be created if ``authorizeUsingRole`` is true
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5971,10 +6195,10 @@ class SqsQueueProps(TargetBaseProps):
     def __init__(
         self,
         *,
-        dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
-        max_event_age: typing.Optional[_Duration_4839e8c3] = None,
+        dead_letter_queue: typing.Optional["_IQueue_7ed6f679"] = None,
+        max_event_age: typing.Optional["_Duration_4839e8c3"] = None,
         retry_attempts: typing.Optional[jsii.Number] = None,
-        message: typing.Optional[_RuleTargetInput_6beca786] = None,
+        message: typing.Optional["_RuleTargetInput_6beca786"] = None,
         message_group_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Customize the SQS Queue Event Target.
@@ -5983,29 +6207,35 @@ class SqsQueueProps(TargetBaseProps):
         :param max_event_age: The maximum age of a request that Lambda sends to a function for processing. Minimum value of 60. Maximum value of 86400. Default: Duration.hours(24)
         :param retry_attempts: The maximum number of times to retry when the function returns an error. Minimum value of 0. Maximum value of 185. Default: 185
         :param message: The message to send to the queue. Must be a valid JSON text passed to the target queue. Default: the entire EventBridge event
-        :param message_group_id: Message Group ID for messages sent to this queue. Required for FIFO queues, leave empty for regular queues. Default: - no message group ID (regular queue)
+        :param message_group_id: Message Group ID for messages sent to this queue. Required for FIFO queues. For standard queues, this parameter is optional and can be used for SQS fair queue feature and deduplication. Default: - no message group ID
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_events as events
-            from aws_cdk import aws_events_targets as events_targets
-            from aws_cdk import aws_sqs as sqs
-            
-            # queue: sqs.Queue
-            # rule_target_input: events.RuleTargetInput
-            
-            sqs_queue_props = events_targets.SqsQueueProps(
-                dead_letter_queue=queue,
-                max_event_age=cdk.Duration.minutes(30),
-                message=rule_target_input,
-                message_group_id="messageGroupId",
-                retry_attempts=123
+            # FIFO queue - messageGroupId required
+            fifo_queue = sqs.Queue(self, "MyFifoQueue",
+                fifo=True
             )
+            
+            fifo_rule = events.Rule(self, "FifoRule",
+                schedule=events.Schedule.rate(cdk.Duration.hours(1))
+            )
+            
+            fifo_rule.add_target(targets.SqsQueue(fifo_queue,
+                message_group_id="MyMessageGroupId"
+            ))
+            
+            # Standard queue - messageGroupId optional (SQS Fair queue feature)
+            standard_queue = sqs.Queue(self, "MyStandardQueue")
+            
+            standard_rule = events.Rule(self, "StandardRule",
+                schedule=events.Schedule.rate(cdk.Duration.hours(1))
+            )
+            
+            standard_rule.add_target(targets.SqsQueue(standard_queue,
+                message_group_id="MyMessageGroupId"
+            ))
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6472cea5f7d90ec67bd493d4b2ba6bc083b2c915d8dc1da40193693c2eb79cc7)
@@ -6027,7 +6257,7 @@ class SqsQueueProps(TargetBaseProps):
             self._values["message_group_id"] = message_group_id
 
     @builtins.property
-    def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
+    def dead_letter_queue(self) -> typing.Optional["_IQueue_7ed6f679"]:
         '''The SQS queue to be used as deadLetterQueue. Check out the `considerations for using a dead-letter queue <https://docs.aws.amazon.com/eventbridge/latest/userguide/rule-dlq.html#dlq-considerations>`_.
 
         The events not successfully delivered are automatically retried for a specified period of time,
@@ -6037,10 +6267,10 @@ class SqsQueueProps(TargetBaseProps):
         :default: - no dead-letter queue
         '''
         result = self._values.get("dead_letter_queue")
-        return typing.cast(typing.Optional[_IQueue_7ed6f679], result)
+        return typing.cast(typing.Optional["_IQueue_7ed6f679"], result)
 
     @builtins.property
-    def max_event_age(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_event_age(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum age of a request that Lambda sends to a function for processing.
 
         Minimum value of 60.
@@ -6049,7 +6279,7 @@ class SqsQueueProps(TargetBaseProps):
         :default: Duration.hours(24)
         '''
         result = self._values.get("max_event_age")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def retry_attempts(self) -> typing.Optional[jsii.Number]:
@@ -6064,7 +6294,7 @@ class SqsQueueProps(TargetBaseProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def message(self) -> typing.Optional[_RuleTargetInput_6beca786]:
+    def message(self) -> typing.Optional["_RuleTargetInput_6beca786"]:
         '''The message to send to the queue.
 
         Must be a valid JSON text passed to the target queue.
@@ -6072,15 +6302,16 @@ class SqsQueueProps(TargetBaseProps):
         :default: the entire EventBridge event
         '''
         result = self._values.get("message")
-        return typing.cast(typing.Optional[_RuleTargetInput_6beca786], result)
+        return typing.cast(typing.Optional["_RuleTargetInput_6beca786"], result)
 
     @builtins.property
     def message_group_id(self) -> typing.Optional[builtins.str]:
         '''Message Group ID for messages sent to this queue.
 
-        Required for FIFO queues, leave empty for regular queues.
+        Required for FIFO queues. For standard queues, this parameter is optional
+        and can be used for SQS fair queue feature and deduplication.
 
-        :default: - no message group ID (regular queue)
+        :default: - no message group ID
         '''
         result = self._values.get("message_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6121,6 +6352,8 @@ __all__ = [
     "EphemeralStorageOverride",
     "EventBus",
     "EventBusProps",
+    "FirehoseDeliveryStream",
+    "FirehoseDeliveryStreamProps",
     "IDeliveryStream",
     "InferenceAcceleratorOverride",
     "KinesisFirehoseStream",
@@ -6164,7 +6397,7 @@ def _typecheckingstub__1d106eb32ee82e64ee59c0904873ef15fb598d1b5613440afd038509c
     pass
 
 def _typecheckingstub__7fc3c1c0cf00ea5f22f33bc5b97cb9290363f2ca57adb35a3ef3345ba3c4ee26(
-    _rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6189,7 +6422,7 @@ def _typecheckingstub__4351ee68d84b56105dfaf7566e76bf0350931a4945a4f9e2599f6310f
     pass
 
 def _typecheckingstub__f34d8ba93048cf243454dc97d2236199033c050fc0bbc6ff84e18fa6033ee8b0(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6214,7 +6447,7 @@ def _typecheckingstub__383729f98d86a6617d8a045270e12ac1a082325deb3e0e67276cb84f8
     pass
 
 def _typecheckingstub__278e3545966677d368a504247d212e49fccdecf42a63bdd56101b78bbeed205d(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6234,14 +6467,14 @@ def _typecheckingstub__56a99cbd83a0d7a956b68eb6ee5cedd89a2b1c37754c2dc7f5a5ea2cc
     pass
 
 def _typecheckingstub__6b1999a517525e35ef54e6129e3396c11b46ecb394388d3f908c6d627c051c4f(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a41bcbfd7e37d2d2cf83a8f636d325a2a328da0a83ef4d994f0be12782f7d357(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6288,14 +6521,14 @@ def _typecheckingstub__47158c034f7c0f0c69db5367db77245ba70cbcc56ed81ec05ad80116f
     pass
 
 def _typecheckingstub__154b5229eec4b919f6367b1ffec428480b40785475052bfd94fade237bd22597(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__c7cd04d50c1c36eb2be36abb3fbdf553a534c7ae5d60f1c9cac6b5cf6428d284(
-    log_group: _ILogGroup_3c4fa718,
+    log_group: _ILogGroupRef_874d025a,
     *,
     event: typing.Optional[_RuleTargetInput_6beca786] = None,
     install_latest_aws_sdk: typing.Optional[builtins.bool] = None,
@@ -6308,14 +6541,14 @@ def _typecheckingstub__c7cd04d50c1c36eb2be36abb3fbdf553a534c7ae5d60f1c9cac6b5cf6
     pass
 
 def _typecheckingstub__5583066efc6b7b2980bfbfbf33e6491271f5faf3b97e5d2ae998d1fe4189d1d4(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__3a8679d207265b7ec6863cf63c5b8aaaa8577dce8b9b2c6ec8d9a52c6bde44f1(
-    project: _IProject_aafae30a,
+    project: _IProjectRef_7528e639,
     *,
     event: typing.Optional[_RuleTargetInput_6beca786] = None,
     event_role: typing.Optional[_IRole_235f5d8e] = None,
@@ -6327,14 +6560,14 @@ def _typecheckingstub__3a8679d207265b7ec6863cf63c5b8aaaa8577dce8b9b2c6ec8d9a52c6
     pass
 
 def _typecheckingstub__c864909db0683c496942d72c9b834b03e1082bec9e20c368a204df37449c6e48(
-    _rule: _IRule_af9e3d28,
+    _rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__daa7b4e77a0ef964ea3cdb54ce57cc8f475d7342b57d85f348e63fff7e5ecc14(
-    pipeline: _IPipeline_0931f838,
+    pipeline: _IPipelineRef_fb1b56f9,
     *,
     event_role: typing.Optional[_IRole_235f5d8e] = None,
     dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
@@ -6345,7 +6578,7 @@ def _typecheckingstub__daa7b4e77a0ef964ea3cdb54ce57cc8f475d7342b57d85f348e63fff7
     pass
 
 def _typecheckingstub__add42f3c28d5f6651e451885b955fd84ad865300b4e6606be36174db4f3d8c73(
-    _rule: _IRule_af9e3d28,
+    _rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6364,7 +6597,7 @@ def _typecheckingstub__c13bb1641d81a866856c7cdeae6fa612e09bb941bc83053a19b901e30
     pass
 
 def _typecheckingstub__8ad199a8641f171a0447e974756bbddd91b00aaa9bcf33d231826916b85b8166(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6387,7 +6620,7 @@ def _typecheckingstub__e6012a31db9ac91c35876daca0265cba4fbb81bfdf8acd148b6278650
     pass
 
 def _typecheckingstub__00d16e4ddfa6305196a715a56432c551f3ba5a905dead2e6a85f30bad692c31f(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6397,6 +6630,28 @@ def _typecheckingstub__5af20e134873490c1ac4788761972ccd53cd625edbd9b75c1c1f0b1a3
     *,
     dead_letter_queue: typing.Optional[_IQueue_7ed6f679] = None,
     role: typing.Optional[_IRole_235f5d8e] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8b83537633e15491c91cd6cebe1eddb6bc388617c53b754a40f318f493dc48e(
+    delivery_stream: _IDeliveryStream_8f118861,
+    *,
+    message: typing.Optional[_RuleTargetInput_6beca786] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45499f815ce457b36825c13b8a0a6ffd1d6994523698febc614678776c341fb7(
+    _rule: _IRuleRef_4038a611,
+    _id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2311008fe7ae7c5e650063e35f32620f673ed3b0110bcab83f56ce21512d70c(
+    *,
+    message: typing.Optional[_RuleTargetInput_6beca786] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6418,7 +6673,7 @@ def _typecheckingstub__c6dba8ed5e351380147a927ce30f4c9095bc69a54a2de45039c2a1d82
     pass
 
 def _typecheckingstub__b38a65da97645536b57df6537ab7a5b06cf8910d4235008699171e7ced62c584(
-    _rule: _IRule_af9e3d28,
+    _rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6440,7 +6695,7 @@ def _typecheckingstub__e8230487c5e79599a4ad63af004c2c8350c2b25e209491350274d3801
     pass
 
 def _typecheckingstub__3467ab0e593ed64d775dafc3b3fc1b1835fa2853c7ee8685668bf081dd189e44(
-    _rule: _IRule_af9e3d28,
+    _rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6459,7 +6714,7 @@ def _typecheckingstub__47a9d917a1971c5aa11b68bf823d9f34a57a7b1e7653b0f82809c0630
     pass
 
 def _typecheckingstub__ae222f596f043d31f56819c2cb64c58ef12e8e3d35bce41fa6f0cd929c2db58a(
-    _rule: _IRule_af9e3d28,
+    _rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6477,7 +6732,7 @@ def _typecheckingstub__1ed39c6222adc3f41ac8913ef4f7e22134443e2aa19c19114f6650e1d
     pass
 
 def _typecheckingstub__906b4fb6301e027a5cc5111944bf8d3844e211a5f528e71002c42bebd068aad6(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6514,7 +6769,7 @@ def _typecheckingstub__6f991f630fb494b0dbf6dd8dd11dec71e3b3618d520bce2a1761a0562
     pass
 
 def _typecheckingstub__39a86a8b0444f7c45c252e76fda9d4157fe34d2c363d4a99075556e92c234689(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6548,7 +6803,7 @@ def _typecheckingstub__257316eeebae5ef658a5b570361035fdfb5ab37e96962b24c2e814b07
     pass
 
 def _typecheckingstub__0e0733fbe09a8310edfc7237ca759e925b3db6d25ad43627fcf4f165c2efe942(
-    _rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6568,7 +6823,7 @@ def _typecheckingstub__b58aa74b2a717b90ef291556746b786df8882b8158b4b3255bf88691d
     pass
 
 def _typecheckingstub__6de2339b649dec356056a716737bfe488b0873abee2d224f4a18f7ad162d83f6(
-    _rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6587,7 +6842,7 @@ def _typecheckingstub__26484816bdcb2fef6d100370a28b06c1fd038591b98fcbe847383a512
     pass
 
 def _typecheckingstub__d7bbb7c546d67f5f999da3b2a71dc36c03ae5d8723a592b50de5b0193d62ebe6(
-    rule: _IRule_af9e3d28,
+    rule: _IRuleRef_4038a611,
     _id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6789,3 +7044,6 @@ def _typecheckingstub__6472cea5f7d90ec67bd493d4b2ba6bc083b2c915d8dc1da40193693c2
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IDeliveryStream]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -1,13 +1,13 @@
 """Container for the results of running autodiff variational inference"""
 
 from collections import OrderedDict
-from typing import Dict, Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
 
 from cmdstanpy.cmdstan_args import Method
-from cmdstanpy.utils import scan_variational_csv
+from cmdstanpy.utils import stancsv
 from cmdstanpy.utils.logging import get_logger
 
 from .metadata import InferenceMetadata
@@ -28,7 +28,65 @@ class CmdStanVB:
                 'found method {}'.format(runset.method)
             )
         self.runset = runset
-        self._set_variational_attrs(runset.csv_files[0])
+
+        csv_file = self.runset.csv_files[0]
+        try:
+            (
+                comment_lines,
+                header,
+                draw_lines,
+            ) = stancsv.parse_comments_header_and_draws(
+                self.runset.csv_files[0]
+            )
+
+            self._metadata = InferenceMetadata(
+                stancsv.construct_config_header_dict(comment_lines, header)
+            )
+            self._eta = stancsv.parse_variational_eta(comment_lines)
+
+            draws_np = stancsv.csv_bytes_list_to_numpy(draw_lines)
+
+        except Exception as exc:
+            raise ValueError(
+                f"An error occurred when parsing Stan csv {csv_file}"
+            ) from exc
+        self._variational_mean: np.ndarray = draws_np[0]
+        self._variational_sample: np.ndarray = draws_np[1:]
+
+    def create_inits(
+        self, seed: Optional[int] = None, chains: int = 4
+    ) -> Union[list[dict[str, np.ndarray]], dict[str, np.ndarray]]:
+        """
+        Create initial values for the parameters of the model
+        by randomly selecting draws from the variational approximation
+        draws.
+
+        :param seed: Used for random selection, defaults to None
+        :param chains: Number of initial values to return, defaults to 4
+        :return: The initial values for the parameters of the model.
+
+        If ``chains`` is 1, a dictionary is returned, otherwise a list
+        of dictionaries is returned, in the format expected for the
+        ``inits`` argument of :meth:`CmdStanModel.sample`.
+        """
+        rng = np.random.default_rng(seed)
+        idxs = rng.choice(
+            self.variational_sample.shape[0], size=chains, replace=False
+        )
+        if chains == 1:
+            draw = self.variational_sample[idxs[0]]
+            return {
+                name: var.extract_reshape(draw)
+                for name, var in self._metadata.stan_vars.items()
+            }
+        else:
+            return [
+                {
+                    name: var.extract_reshape(self.variational_sample[idx])
+                    for name, var in self._metadata.stan_vars.items()
+                }
+                for idx in idxs
+            ]
 
     def __repr__(self) -> str:
         repr = 'CmdStanVB: model={}{}'.format(
@@ -52,15 +110,6 @@ class CmdStanVB:
             # pylint: disable=raise-missing-from
             raise AttributeError(*e.args)
 
-    def _set_variational_attrs(self, sample_csv_0: str) -> None:
-        meta = scan_variational_csv(sample_csv_0)
-        self._metadata = InferenceMetadata(meta)
-        # these three assignments don't grant type information
-        self._column_names: Tuple[str, ...] = meta['column_names']
-        self._eta: float = meta['eta']
-        self._variational_mean: np.ndarray = meta['variational_mean']
-        self._variational_sample: np.ndarray = meta['variational_sample']
-
     @property
     def columns(self) -> int:
         """
@@ -68,16 +117,16 @@ class CmdStanVB:
         Includes approximation information and names of model parameters
         and computed quantities.
         """
-        return len(self._column_names)
+        return len(self.column_names)
 
     @property
-    def column_names(self) -> Tuple[str, ...]:
+    def column_names(self) -> tuple[str, ...]:
         """
         Names of information items returned by sampler for each draw.
         Includes approximation information and names of model parameters
         and computed quantities.
         """
-        return self._column_names
+        return self.metadata.column_names
 
     @property
     def eta(self) -> float:
@@ -101,7 +150,7 @@ class CmdStanVB:
         return pd.DataFrame([self._variational_mean], columns=self.column_names)
 
     @property
-    def variational_params_dict(self) -> Dict[str, np.ndarray]:
+    def variational_params_dict(self) -> dict[str, np.ndarray]:
         """Returns inferred parameter means as Dict."""
         return OrderedDict(zip(self.column_names, self._variational_mean))
 
@@ -191,7 +240,7 @@ class CmdStanVB:
 
     def stan_variables(
         self, *, mean: Optional[bool] = None
-    ) -> Dict[str, Union[np.ndarray, float]]:
+    ) -> dict[str, Union[np.ndarray, float]]:
         """
         Return a dictionary mapping Stan program variables names
         to the corresponding numpy.ndarray containing the inferred values.

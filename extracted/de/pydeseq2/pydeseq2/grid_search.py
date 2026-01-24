@@ -4,7 +4,9 @@ from scipy.special import gammaln  # type: ignore
 import pydeseq2.utils
 
 
-def vec_nb_nll(counts: np.ndarray, mu: np.ndarray, alpha: np.ndarray) -> np.ndarray:
+def vec_nb_nll(
+    counts: np.ndarray, mu: np.ndarray, alpha: np.ndarray | float
+) -> np.ndarray:
     r"""Return the negative log-likelihood of a negative binomial.
 
     Vectorized version.
@@ -17,7 +19,7 @@ def vec_nb_nll(counts: np.ndarray, mu: np.ndarray, alpha: np.ndarray) -> np.ndar
     mu : ndarray
         Mean of the distribution.
 
-    alpha : ndarray
+    alpha : ndarray or float
         Dispersion of the distribution, s.t. the variance is
         :math:`\mu + \alpha \mu^2`.
 
@@ -40,13 +42,13 @@ def vec_nb_nll(counts: np.ndarray, mu: np.ndarray, alpha: np.ndarray) -> np.ndar
             -logbinom
             + (counts[:, None] + alpha_neg1) * np.log(mu[:, None] + alpha_neg1)
             - (counts * np.log(mu))[:, None]
-        ).sum(0)
+        ).sum(axis=0)
     else:
         return n * alpha_neg1 * np.log(alpha) + (
             -logbinom
             + (counts[:, None] + alpha_neg1) * np.log(mu + alpha_neg1)
             - (counts[:, None] * np.log(mu))
-        ).sum(0)
+        ).sum(axis=0)
 
 
 def grid_fit_alpha(

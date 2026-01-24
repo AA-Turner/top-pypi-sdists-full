@@ -32,9 +32,9 @@ def module_version_error(
     feature: str, package: str, required_version: str
 ) -> Exception:
     return PrerequisiteError(
-        f"[bold]ERROR[/bold]: {feature} requires at least version {required_version} of package {package} "
+        f"ERROR: {feature} requires at least version {required_version} of package {package} "
         f"(you have version {version(package)} installed).\n\n"
-        f"Upgrade with:\n\n[bold]pip install --upgrade {package}[/bold]"
+        f"Upgrade with: pip install --upgrade {package}"
     )
 
 
@@ -53,6 +53,10 @@ def exception_message(ex: BaseException) -> str:
 class PrerequisiteError(Exception):
     def __init__(self, message: RenderableType) -> None:
         self.message = message
+
+
+class SilentException(Exception):
+    pass
 
 
 class WriteConflictError(Exception):
@@ -74,8 +78,10 @@ def exception_hook() -> Callable[..., None]:
     ) -> None:
         if isinstance(exception, PrerequisiteError):
             print(f"\n{exception.message}\n")
-        else:
+        elif not isinstance(exception, SilentException):
             sys_handler(exception_type, exception, traceback)
+        else:
+            sys.exit(1)
 
     return handler
 

@@ -12,7 +12,7 @@ Use get_ufunc_info() to get the information related to a ufunc.
 import math
 import numpy as np
 from functools import lru_cache
-from numba.core import typing
+from numba.cuda import typing
 from numba.cuda.mathimpl import (
     get_unary_impl_for_fn_and_ty,
     get_binary_impl_for_fn_and_ty,
@@ -26,9 +26,9 @@ def get_ufunc_info(ufunc_key):
 @lru_cache
 def ufunc_db():
     # Imports here are at function scope to avoid circular imports
-    from numba.cpython import cmathimpl, mathimpl, numbers
-    from numba.np import npyfuncs
-    from numba.np.numpy_support import numpy_version
+    from numba.cuda.cpython import cmathimpl, mathimpl, numbers
+    from numba.cuda.np import npyfuncs
+    from numba.cuda.np.numpy_support import numpy_version
 
     def np_unary_impl(fn, context, builder, sig, args):
         npyfuncs._check_arity_and_homogeneity(sig, args, 1)
@@ -680,6 +680,67 @@ def ufunc_db():
         "d->d": np_real_log10_impl,
         "F->F": npyfuncs.np_complex_log10_impl,
         "D->D": npyfuncs.np_complex_log10_impl,
+    }
+
+    db[np.isnan] = {
+        "f->?": npyfuncs.np_real_isnan_impl,
+        "d->?": npyfuncs.np_real_isnan_impl,
+        "F->?": npyfuncs.np_complex_isnan_impl,
+        "D->?": npyfuncs.np_complex_isnan_impl,
+        # int8
+        "b->?": npyfuncs.np_int_isnan_impl,
+        "B->?": npyfuncs.np_int_isnan_impl,
+        # int16
+        "h->?": npyfuncs.np_int_isnan_impl,
+        "H->?": npyfuncs.np_int_isnan_impl,
+        # int32
+        "i->?": npyfuncs.np_int_isnan_impl,
+        "I->?": npyfuncs.np_int_isnan_impl,
+        # int64
+        "l->?": npyfuncs.np_int_isnan_impl,
+        "L->?": npyfuncs.np_int_isnan_impl,
+        # intp
+        "q->?": npyfuncs.np_int_isnan_impl,
+        "Q->?": npyfuncs.np_int_isnan_impl,
+        # boolean
+        "?->?": npyfuncs.np_int_isnan_impl,
+        # datetime & timedelta
+        "m->?": npyfuncs.np_datetime_isnat_impl,
+        "M->?": npyfuncs.np_datetime_isnat_impl,
+    }
+
+    db[np.conjugate] = {
+        "b->b": numbers.real_conjugate_impl,
+        "B->B": numbers.real_conjugate_impl,
+        "h->h": numbers.real_conjugate_impl,
+        "H->H": numbers.real_conjugate_impl,
+        "i->i": numbers.real_conjugate_impl,
+        "I->I": numbers.real_conjugate_impl,
+        "l->l": numbers.real_conjugate_impl,
+        "L->L": numbers.real_conjugate_impl,
+        "q->q": numbers.real_conjugate_impl,
+        "Q->Q": numbers.real_conjugate_impl,
+        "f->f": numbers.real_conjugate_impl,
+        "d->d": numbers.real_conjugate_impl,
+        "F->F": numbers.complex_conjugate_impl,
+        "D->D": numbers.complex_conjugate_impl,
+    }
+
+    db[np.divide] = {
+        "bb->b": npyfuncs.np_int_truediv_impl,
+        "BB->B": npyfuncs.np_int_truediv_impl,
+        "hh->h": npyfuncs.np_int_truediv_impl,
+        "HH->H": npyfuncs.np_int_truediv_impl,
+        "ii->i": npyfuncs.np_int_truediv_impl,
+        "II->I": npyfuncs.np_int_truediv_impl,
+        "ll->l": npyfuncs.np_int_truediv_impl,
+        "LL->L": npyfuncs.np_int_truediv_impl,
+        "qq->q": npyfuncs.np_int_truediv_impl,
+        "QQ->Q": npyfuncs.np_int_truediv_impl,
+        "ff->f": npyfuncs.np_real_div_impl,
+        "dd->d": npyfuncs.np_real_div_impl,
+        "FF->F": npyfuncs.np_complex_div_impl,
+        "DD->D": npyfuncs.np_complex_div_impl,
     }
 
     return db

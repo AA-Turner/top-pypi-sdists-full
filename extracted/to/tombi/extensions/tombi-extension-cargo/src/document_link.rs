@@ -2,7 +2,7 @@ use std::{borrow::Cow, str::FromStr};
 
 use crate::{
     find_package_cargo_toml_paths, find_path_crate_cargo_toml, find_workspace_cargo_toml,
-    get_workspace_path, load_cargo_toml,
+    get_uri_relative_to_cargo_toml, get_workspace_path, load_cargo_toml,
 };
 use itertools::Itertools;
 use tombi_config::TomlVersion;
@@ -22,6 +22,7 @@ pub enum DocumentLinkToolTip {
     CargoToml,
     CargoTomlFirstMember,
     WorkspaceCargoToml,
+    RustSource,
 }
 
 impl From<&DocumentLinkToolTip> for &'static str {
@@ -34,6 +35,7 @@ impl From<&DocumentLinkToolTip> for &'static str {
             DocumentLinkToolTip::CargoToml => "Open Cargo.toml",
             DocumentLinkToolTip::CargoTomlFirstMember => "Open first Cargo.toml in members",
             DocumentLinkToolTip::WorkspaceCargoToml => "Open Workspace Cargo.toml",
+            DocumentLinkToolTip::RustSource => "Open Rust Source",
         }
     }
 }
@@ -180,7 +182,8 @@ fn create_member_document_links(
         let mut member_document_links: Vec<_> =
             find_package_cargo_toml_paths(&member_patterns, &exclude_patterns, workspace_dir_path)
                 .filter_map(|(_, cargo_toml_path)| {
-                    let cargo_toml_document_tree = load_cargo_toml(&cargo_toml_path, toml_version)?;
+                    let (_, cargo_toml_document_tree) =
+                        load_cargo_toml(&cargo_toml_path, toml_version)?;
                     let (_, package_name) =
                         dig_keys(&cargo_toml_document_tree, &["package", "name"])?;
                     let package_name = match package_name {
@@ -256,10 +259,24 @@ fn document_link_for_crate_cargo_toml(
         {
             total_dependencies.extend(dependencies.key_values());
         }
+        if let Some((_, tombi_document_tree::Value::Table(targets))) =
+            dig_keys(crate_document_tree, &["target"])
+        {
+            for value in targets.values() {
+                let tombi_document_tree::Value::Table(platform) = value else {
+                    continue;
+                };
+                if let Some((_, tombi_document_tree::Value::Table(dependencies))) =
+                    dig_keys(platform, &[key])
+                {
+                    total_dependencies.extend(dependencies.key_values());
+                }
+            }
+        }
     }
 
     let mut total_document_links = vec![];
-    if let Some((workspace_cargo_toml_path, workspace_document_tree)) = find_workspace_cargo_toml(
+    if let Some((workspace_cargo_toml_path, _, workspace_document_tree)) = find_workspace_cargo_toml(
         crate_cargo_toml_path,
         get_workspace_path(crate_document_tree),
         toml_version,
@@ -271,14 +288,13 @@ fn document_link_for_crate_cargo_toml(
         // See: https://doc.rust-lang.org/cargo/reference/manifest.html#the-workspace-field
         if let Some((_, tombi_document_tree::Value::String(workspace_path))) =
             dig_keys(crate_document_tree, &["package", "workspace"])
+            && let Ok(target) = tombi_uri::Uri::from_file_path(&workspace_cargo_toml_path)
         {
-            if let Ok(target) = tombi_uri::Uri::from_file_path(&workspace_cargo_toml_path) {
-                total_document_links.push(tombi_extension::DocumentLink {
-                    target,
-                    range: workspace_path.unquoted_range(),
-                    tooltip: DocumentLinkToolTip::WorkspaceCargoToml.into(),
-                });
-            }
+            total_document_links.push(tombi_extension::DocumentLink {
+                target,
+                range: workspace_path.unquoted_range(),
+                tooltip: DocumentLinkToolTip::WorkspaceCargoToml.into(),
+            });
         }
 
         // Support Package Table
@@ -335,19 +351,18 @@ fn document_link_for_crate_cargo_toml(
         ) = (
             dig_keys(crate_document_tree, &["lints", "workspace"]),
             dig_keys(&workspace_document_tree, &["workspace", "lints"]),
-        ) {
-            if let Ok(mut target) = tombi_uri::Uri::from_file_path(&workspace_cargo_toml_path) {
-                target.set_fragment(Some(&format!(
-                    "L{}",
-                    workspace_lints_key.range().start.line + 1
-                )));
-                total_document_links.push(tombi_extension::DocumentLink {
-                    target,
-                    range: workspace_key.range() + value.range(),
-                    tooltip: DocumentLinkToolTip::WorkspaceCargoToml.into(),
-                });
-            };
-        }
+        ) && let Ok(mut target) = tombi_uri::Uri::from_file_path(&workspace_cargo_toml_path)
+        {
+            target.set_fragment(Some(&format!(
+                "L{}",
+                workspace_lints_key.range().start.line + 1
+            )));
+            total_document_links.push(tombi_extension::DocumentLink {
+                target,
+                range: workspace_key.range() + value.range(),
+                tooltip: DocumentLinkToolTip::WorkspaceCargoToml.into(),
+            });
+        };
 
         // Support Workspace Dependencies
         let workspace_dependencies =
@@ -386,6 +401,11 @@ fn document_link_for_crate_cargo_toml(
             }
         }
     }
+
+    total_document_links.extend(document_link_for_bin_targets(
+        crate_document_tree,
+        crate_cargo_toml_path,
+    ));
 
     Ok(total_document_links)
 }
@@ -445,43 +465,35 @@ fn document_link_for_crate_dependency_has_workspace(
         None => {
             if let (tombi_document_tree::Value::Table(table), Some(workspace_dependencies)) =
                 (crate_value, workspace_dependencies)
-            {
-                if let Some((workspace_key, tombi_document_tree::Value::Boolean(is_workspace))) =
+                && let Some((workspace_key, tombi_document_tree::Value::Boolean(is_workspace))) =
                     table.get_key_value("workspace")
-                {
-                    if is_workspace.value() {
-                        if let Some(workspace_crate_value) = workspace_dependencies.get(&crate_key)
-                        {
-                            if let Ok(mut target) =
-                                tombi_uri::Uri::from_file_path(workspace_cargo_toml_path)
-                            {
-                                let mut document_links = document_link_for_workspace_dependency(
-                                    crate_key,
-                                    workspace_crate_value,
-                                    workspace_cargo_toml_path,
-                                    registories,
-                                    toml_version,
-                                )?
-                                .into_iter()
-                                .next()
-                                .into_iter()
-                                .collect_vec();
+                && is_workspace.value()
+                && let Some(workspace_crate_value) = workspace_dependencies.get(&crate_key)
+                && let Ok(mut target) = tombi_uri::Uri::from_file_path(workspace_cargo_toml_path)
+            {
+                let mut document_links = document_link_for_workspace_dependency(
+                    crate_key,
+                    workspace_crate_value,
+                    workspace_cargo_toml_path,
+                    registories,
+                    toml_version,
+                )?
+                .into_iter()
+                .next()
+                .into_iter()
+                .collect_vec();
 
-                                target.set_fragment(Some(&format!(
-                                    "L{}",
-                                    workspace_crate_value.range().start.line + 1
-                                )));
-                                document_links.push(tombi_extension::DocumentLink {
-                                    target,
-                                    range: workspace_key.range() + is_workspace.range(),
-                                    tooltip: DocumentLinkToolTip::WorkspaceCargoToml.into(),
-                                });
+                target.set_fragment(Some(&format!(
+                    "L{}",
+                    workspace_crate_value.range().start.line + 1
+                )));
+                document_links.push(tombi_extension::DocumentLink {
+                    target,
+                    range: workspace_key.range() + is_workspace.range(),
+                    tooltip: DocumentLinkToolTip::WorkspaceCargoToml.into(),
+                });
 
-                                return Ok(document_links);
-                            }
-                        }
-                    }
-                }
+                return Ok(document_links);
             }
 
             Ok(get_crate_io_crate_link(crate_key, crate_value)
@@ -489,6 +501,43 @@ fn document_link_for_crate_dependency_has_workspace(
                 .collect_vec())
         }
     }
+}
+
+fn document_link_for_bin_targets(
+    crate_document_tree: &tombi_document_tree::DocumentTree,
+    crate_cargo_toml_path: &std::path::Path,
+) -> Vec<tombi_extension::DocumentLink> {
+    let Some((_, tombi_document_tree::Value::Array(bin_items))) =
+        dig_keys(crate_document_tree, &["bin"])
+    else {
+        return Vec::with_capacity(0);
+    };
+
+    bin_items
+        .values()
+        .iter()
+        .filter_map(|value| match value {
+            tombi_document_tree::Value::Table(bin_table) => bin_table.get_key_value("path"),
+            _ => None,
+        })
+        .filter_map(|(_, path_value)| match path_value {
+            tombi_document_tree::Value::String(path_string) => Some(path_string),
+            _ => None,
+        })
+        .filter_map(|path_string| {
+            let raw_path = path_string.value();
+            let target = get_uri_relative_to_cargo_toml(
+                std::path::Path::new(raw_path),
+                crate_cargo_toml_path,
+            )?;
+
+            Some(tombi_extension::DocumentLink {
+                target,
+                range: path_string.unquoted_range(),
+                tooltip: DocumentLinkToolTip::RustSource.into(),
+            })
+        })
+        .collect()
 }
 
 fn document_link_for_dependency(
@@ -504,43 +553,39 @@ fn document_link_for_dependency(
             package_name = real_package.value();
         };
 
-        if let Some(tombi_document_tree::Value::String(crate_path)) = table.get("path") {
-            if let Some((path_target_cargo_toml_path, path_target_document_tree)) =
+        if let Some(tombi_document_tree::Value::String(crate_path)) = table.get("path")
+            && let Some((path_target_cargo_toml_path, _, path_target_document_tree)) =
                 find_path_crate_cargo_toml(
                     crate_cargo_toml_path,
                     std::path::Path::new(crate_path.value()),
                     toml_version,
                 )
-            {
-                if let Some((package_name_key, tombi_document_tree::Value::String(package_name))) =
-                    tombi_document_tree::dig_keys(&path_target_document_tree, &["package", "name"])
+            && let Some((package_name_key, tombi_document_tree::Value::String(package_name))) =
+                tombi_document_tree::dig_keys(&path_target_document_tree, &["package", "name"])
+        {
+            let package_name_check =
+                if let Some(tombi_document_tree::Value::String(real_package_name)) =
+                    table.get("package")
                 {
-                    let package_name_check =
-                        if let Some(tombi_document_tree::Value::String(real_package_name)) =
-                            table.get("package")
-                        {
-                            real_package_name.value() == crate_key.value
-                        } else {
-                            package_name.value() == crate_key.value
-                        };
-                    if package_name_check {
-                        let Ok(mut target) =
-                            tombi_uri::Uri::from_file_path(path_target_cargo_toml_path)
-                        else {
-                            return Ok(None);
-                        };
-                        target.set_fragment(Some(&format!(
-                            "L{}",
-                            package_name_key.range().start.line + 1
-                        )));
+                    real_package_name.value() == crate_key.value
+                } else {
+                    package_name.value() == crate_key.value
+                };
+            if package_name_check {
+                let Ok(mut target) = tombi_uri::Uri::from_file_path(path_target_cargo_toml_path)
+                else {
+                    return Ok(None);
+                };
+                target.set_fragment(Some(&format!(
+                    "L{}",
+                    package_name_key.range().start.line + 1
+                )));
 
-                        return Ok(Some(tombi_extension::DocumentLink {
-                            target,
-                            range: crate_path.unquoted_range(),
-                            tooltip: DocumentLinkToolTip::CargoToml.into(),
-                        }));
-                    }
-                }
+                return Ok(Some(tombi_extension::DocumentLink {
+                    target,
+                    range: crate_path.unquoted_range(),
+                    tooltip: DocumentLinkToolTip::CargoToml.into(),
+                }));
             }
         }
 
@@ -560,18 +605,16 @@ fn document_link_for_dependency(
             }));
         }
 
-        if let Some(tombi_document_tree::Value::String(registory_name)) = table.get("registory") {
-            if let Some(registry) = registories.get(registory_name.value()) {
-                if let Ok(target) =
-                    tombi_uri::Uri::from_str(&format!("{}/{}", registry.index, package_name))
-                {
-                    return Ok(Some(tombi_extension::DocumentLink {
-                        target,
-                        range: registory_name.unquoted_range(),
-                        tooltip: DocumentLinkToolTip::CrateIo.into(),
-                    }));
-                }
-            }
+        if let Some(tombi_document_tree::Value::String(registory_name)) = table.get("registory")
+            && let Some(registry) = registories.get(registory_name.value())
+            && let Ok(target) =
+                tombi_uri::Uri::from_str(&format!("{}/{}", registry.index, package_name))
+        {
+            return Ok(Some(tombi_extension::DocumentLink {
+                target,
+                range: registory_name.unquoted_range(),
+                tooltip: DocumentLinkToolTip::CrateIo.into(),
+            }));
         }
     }
 
@@ -583,24 +626,22 @@ fn get_registories(
     toml_version: TomlVersion,
 ) -> Result<RegistoryMap, tower_lsp::jsonrpc::Error> {
     let mut registories = RegistoryMap::default();
-    if let Some(cargo_toml_document_tree) = load_cargo_toml(
+    if let Some((_, cargo_toml_document_tree)) = load_cargo_toml(
         &workspace_cargo_toml_path.join(".cargo/config.toml"),
         toml_version,
-    ) {
-        if let Some(tombi_document_tree::Value::Table(registories_table)) =
-            cargo_toml_document_tree.get("registories")
-        {
-            for (name, value) in registories_table.key_values() {
-                if let tombi_document_tree::Value::Table(table) = value {
-                    if let Some(tombi_document_tree::Value::String(index)) = table.get("index") {
-                        registories.insert(
-                            name.value.to_owned(),
-                            Registory {
-                                index: index.value().into(),
-                            },
-                        );
-                    }
-                }
+    ) && let Some(tombi_document_tree::Value::Table(registories_table)) =
+        cargo_toml_document_tree.get("registories")
+    {
+        for (name, value) in registories_table.key_values() {
+            if let tombi_document_tree::Value::Table(table) = value
+                && let Some(tombi_document_tree::Value::String(index)) = table.get("index")
+            {
+                registories.insert(
+                    name.value.to_owned(),
+                    Registory {
+                        index: index.value().into(),
+                    },
+                );
             }
         }
     }
@@ -613,10 +654,10 @@ fn get_crate_io_crate_link(
     crate_value: &tombi_document_tree::Value,
 ) -> Option<tombi_extension::DocumentLink> {
     let mut crate_name = crate_key.value.as_str();
-    if let tombi_document_tree::Value::Table(table) = crate_value {
-        if let Some(tombi_document_tree::Value::String(real_package)) = table.get("package") {
-            crate_name = real_package.value();
-        }
+    if let tombi_document_tree::Value::Table(table) = crate_value
+        && let Some(tombi_document_tree::Value::String(real_package)) = table.get("package")
+    {
+        crate_name = real_package.value();
     }
 
     tombi_uri::Uri::from_str(&format!("{DEFAULT_REGISTORY_INDEX}/{crate_name}"))

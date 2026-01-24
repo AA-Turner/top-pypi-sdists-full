@@ -230,7 +230,7 @@ installation_node_purger = _Purger("all_installation_node_nodes")
 extensions_node_purger = Purger("all_extensions_node_nodes")
 
 
-class Sources(List[Tuple[str, str, Callable, Callable, Optional[Dict[str, Callable]]]]):
+class Sources(List[Tuple[str, str, Callable, Callable, Optional[Dict[str, Callable]]]]):  # noqa: PRM002
 	"""
 	Class to store functions that provide installation instructions for different sources.
 
@@ -293,8 +293,8 @@ class Sources(List[Tuple[str, str, Callable, Callable, Optional[Dict[str, Callab
 			if list(signature.parameters.keys()) != self._args:
 				raise SyntaxError(  # pragma: no cover
 					"The decorated function must take only the following arguments: "
-					f"{word_join(self._args, use_repr=True, oxford=True)}"
-					)
+					f"{word_join(self._args, use_repr=True, oxford=True)}",
+				)
 
 			self.append((option_name, source_name, function, validator, extra_options or {}))
 
@@ -379,7 +379,7 @@ def conda_installation(
 	if lines:
 		lines.blankline(ensure_single=True)
 
-	lines.append(f".. prompt:: bash")
+	lines.append(".. prompt:: bash")
 	lines.blankline(ensure_single=True)
 
 	with lines.with_indent_size(lines.indent_size + 1):
@@ -411,7 +411,7 @@ def github_installation(
 	if "sphinx_toolbox.github" not in env.app.extensions:
 		raise ValueError(
 				"The 'sphinx_toolbox.github' extension is required for the "
-				":github: option but it is not enabled!"
+				":github: option but it is not enabled!",
 				)
 
 	username = getattr(env.config, "github_username", None)
@@ -427,7 +427,7 @@ def github_installation(
 	return [
 			".. prompt:: bash",
 			'',
-			f"    python3 -m pip install git+https://github.com/{username}/{repository}@{branch} --user"
+			f"    python3 -m pip install git+https://github.com/{username}/{repository}@{branch} --user",
 			]
 
 
@@ -602,7 +602,7 @@ class ExtensionsDirective(SphinxDirective):
 		"no-preamble": flag,
 		"no-postamble": flag,
 		"first": flag,
-		}
+	}
 
 	def run(self) -> List[nodes.Node]:
 		"""
@@ -633,7 +633,7 @@ class ExtensionsDirective(SphinxDirective):
 				".. rst-class:: sphinx-toolbox-extensions",
 				'',
 				f"    Enable ``{self.arguments[0]}`` by adding the following",
-				f"    to the ``extensions`` variable in your ``conf.py``:",
+				"    to the ``extensions`` variable in your ``conf.py``:",
 				)
 		bottom_text = textwrap.dedent(
 				r"""
@@ -646,7 +646,7 @@ class ExtensionsDirective(SphinxDirective):
 		.. raw:: latex
 
 			\end{flushleft}
-		"""
+		""",
 				).expandtabs(4).splitlines()
 
 		if "no-preamble" in self.options:
@@ -654,7 +654,7 @@ class ExtensionsDirective(SphinxDirective):
 		else:
 			content = [*top_text, '']
 
-		content.append(".. code-block:: python", )
+		content.append(".. code-block:: python")
 
 		if "no-postamble" not in self.options:
 			content.append("    :class: sphinx-toolbox-extensions")

@@ -3,9 +3,9 @@ from __future__ import annotations
 import codecs
 import operator
 import pathlib
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from functools import reduce
-from typing import Callable, Generator
 from urllib.parse import urlparse
 
 import click
@@ -58,7 +58,7 @@ def validate_url(value: str) -> None:
     from requests import PreparedRequest, RequestException
 
     try:
-        PreparedRequest().prepare_url(value, {})  # type: ignore
+        PreparedRequest().prepare_url(value, {})
     except RequestException as exc:
         raise click.UsageError(INVALID_SCHEMA_MESSAGE) from exc
 

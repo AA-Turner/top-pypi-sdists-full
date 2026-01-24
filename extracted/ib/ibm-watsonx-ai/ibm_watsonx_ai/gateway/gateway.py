@@ -1,15 +1,17 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import json
-from typing import Any, AsyncIterator, Iterator
+from typing import Any, AsyncIterator, Iterator, Literal, overload
 
-import ibm_watsonx_ai._wrappers.requests as requests
+import httpx
+
 from ibm_watsonx_ai import APIClient, Credentials
 from ibm_watsonx_ai.gateway.models import Models
 from ibm_watsonx_ai.gateway.policies import Policies
 from ibm_watsonx_ai.gateway.providers import Providers
+from ibm_watsonx_ai.gateway.rate_limits import RateLimits
 from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -22,10 +24,10 @@ def _streaming_create(api_client: APIClient, url: str, request_json: dict) -> It
         headers=api_client._get_headers(),
     )
 
-    if isinstance(api_client.httpx_client, requests.HTTPXClient):
-        stream_function = api_client.httpx_client.post_stream  # type: ignore[assignment]
+    if hasattr(api_client.httpx_client, "post_stream"):
+        stream_function = api_client.httpx_client.post_stream
     else:
-        stream_function = api_client.httpx_client.stream  # type: ignore[assignment]
+        stream_function = api_client.httpx_client.stream
 
     with stream_function(**kw_args) as resp:
         if resp.status_code == 200:
@@ -57,13 +59,13 @@ async def _streaming_acreate(
         method="POST",
         url=url,
         json=request_json,
-        headers=api_client._get_headers(),
+        headers=await api_client._aget_headers(),
     )
 
-    if isinstance(api_client.async_httpx_client, requests.HTTPXAsyncClient):
-        stream_function = api_client.async_httpx_client.post_stream  # type: ignore[assignment]
+    if hasattr(api_client.async_httpx_client, "post_stream"):
+        stream_function = api_client.async_httpx_client.post_stream
     else:
-        stream_function = api_client.async_httpx_client.stream  # type: ignore[assignment]
+        stream_function = api_client.async_httpx_client.stream
 
     async with stream_function(**kw_args) as resp:
         if resp.status_code == 200:
@@ -109,21 +111,47 @@ class Gateway(WMLResource):
 
         WMLResource.__init__(self, __name__, api_client)
 
-        if self._client.ICP_PLATFORM_SPACES:
-            raise WMLClientError("AI Gateway is not supported on CPD.")
+        if self._client.ICP_PLATFORM_SPACES and self._client.CPD_version < 5.2:
+            raise WMLClientError("AI Gateway is not supported for this release.")
 
         self.providers = Providers(self._client)
         self.models = Models(self._client)
         self.policies = Policies(self._client)
+        self.rate_limits = RateLimits(self._client)
 
         # Chat completions
         class _ChatCompletions(WMLResource):
             def __init__(self, api_client: APIClient):
                 WMLResource.__init__(self, __name__, api_client)
 
+            @overload
             def create(
-                self, model: str, messages: list[dict], **kwargs: Any
-            ) -> dict | Iterator:
+                self,
+                model: str,
+                messages: list[dict],
+                *,
+                stream: Literal[False] = False,
+                **kwargs: Any,
+            ) -> dict: ...
+
+            @overload
+            def create(
+                self,
+                model: str,
+                messages: list[dict],
+                *,
+                stream: Literal[True],
+                **kwargs: Any,
+            ) -> Iterator: ...
+
+            def create(
+                self,
+                model: str,
+                messages: list[dict],
+                *,
+                stream: bool = False,
+                **kwargs: Any,
+            ) -> dict | Iterator | httpx.Response:
                 """Generate chat completions for given model and messages.
 
                 :param model: name of model for given provider or alias
@@ -132,14 +160,15 @@ class Gateway(WMLResource):
                 :param messages: messages to be processed during call
                 :type messages: list[dict]
 
+                :param stream: if True will stream the response, defaults to False
+                :type stream: bool, optional
+
                 :returns: model answer
                 :rtype: dict | Iterator
                 """
-                stream = kwargs.get("stream", False)
-                request_json = {"messages": messages, "model": model}
-
-                if kwargs:
-                    request_json.update(**kwargs)
+                request_json = {"messages": messages, "model": model, **kwargs}
+                if stream:
+                    request_json["stream"] = True
 
                 url = self._client._href_definitions.get_gateway_chat_completions_href()
 
@@ -147,21 +176,44 @@ class Gateway(WMLResource):
                     return _streaming_create(
                         api_client=self._client, url=url, request_json=request_json
                     )
-                else:
-                    response = self._client.httpx_client.post(
-                        url=url,
-                        headers=self._client._get_headers(),
-                        json=request_json,
-                    )
 
-                    return self._handle_response(
-                        200, "chat completion creation", response
-                    )
+                response = self._client.httpx_client.post(
+                    url=url,
+                    headers=self._client._get_headers(),
+                    json=request_json,
+                )
+
+                return self._handle_response(200, "chat completion creation", response)
+
+            @overload
+            async def acreate(
+                self,
+                model: str,
+                messages: list[dict],
+                *,
+                stream: Literal[False] = False,
+                **kwargs: Any,
+            ) -> dict: ...
+
+            @overload
+            async def acreate(
+                self,
+                model: str,
+                messages: list[dict],
+                *,
+                stream: Literal[True],
+                **kwargs: Any,
+            ) -> AsyncIterator: ...
 
             async def acreate(
-                self, model: str, messages: list[dict], **kwargs: Any
-            ) -> dict | AsyncIterator:
-                """Generate asynchronously chat completions for given model and messages.
+                self,
+                model: str,
+                messages: list[dict],
+                *,
+                stream: bool = False,
+                **kwargs: Any,
+            ) -> dict | AsyncIterator | httpx.Response:
+                """Generate chat completions for given model and messages asynchronously.
 
                 :param model: name of model for given provider or alias
                 :type model: str
@@ -169,14 +221,15 @@ class Gateway(WMLResource):
                 :param messages: messages to be processed during call
                 :type messages: list[dict]
 
+                :param stream: if True will stream the response, defaults to False
+                :type stream: bool, optional
+
                 :returns: model answer
                 :rtype: dict | AsyncIterator
                 """
-                stream = kwargs.get("stream", False)
-                request_json = {"messages": messages, "model": model}
-
-                if kwargs:
-                    request_json.update(**kwargs)
+                request_json = {"messages": messages, "model": model, **kwargs}
+                if stream:
+                    request_json["stream"] = True
 
                 url = self._client._href_definitions.get_gateway_chat_completions_href()
 
@@ -184,16 +237,14 @@ class Gateway(WMLResource):
                     return _streaming_acreate(
                         api_client=self._client, url=url, request_json=request_json
                     )
-                else:
-                    response = await self._client.async_httpx_client.post(
-                        url=url,
-                        headers=self._client._get_headers(),
-                        json=request_json,
-                    )
 
-                    return self._handle_response(
-                        200, "chat completion creation", response
-                    )
+                response = await self._client.async_httpx_client.post(
+                    url=url,
+                    headers=await self._client._aget_headers(),
+                    json=request_json,
+                )
+
+                return self._handle_response(200, "chat completion creation", response)
 
         class _Chat:
             def __init__(self, api_client: APIClient):
@@ -206,8 +257,33 @@ class Gateway(WMLResource):
             def __init__(self, api_client: APIClient):
                 WMLResource.__init__(self, __name__, api_client)
 
+            @overload
             def create(
-                self, model: str, prompt: str | list[str] | list[int], **kwargs: Any
+                self,
+                model: str,
+                prompt: str | list[str] | list[int],
+                *,
+                stream: Literal[False] = False,
+                **kwargs: Any,
+            ) -> dict: ...
+
+            @overload
+            def create(
+                self,
+                model: str,
+                prompt: str | list[str] | list[int],
+                *,
+                stream: Literal[True],
+                **kwargs: Any,
+            ) -> Iterator: ...
+
+            def create(
+                self,
+                model: str,
+                prompt: str | list[str] | list[int],
+                *,
+                stream: bool = False,
+                **kwargs: Any,
             ) -> dict | Iterator:
                 """Generate text completions for given model and prompt.
 
@@ -217,14 +293,15 @@ class Gateway(WMLResource):
                 :param prompt: prompt for processing
                 :type prompt: str or list[str] or list[int]
 
+                :param stream: if True will stream the response, defaults to False
+                :type stream: bool, optional
+
                 :returns: model answer
                 :rtype: dict | Iterator
                 """
-                stream = kwargs.get("stream", False)
-                request_json = {"prompt": prompt, "model": model}
-
-                if kwargs:
-                    request_json.update(**kwargs)
+                request_json = {"prompt": prompt, "model": model, **kwargs}
+                if stream:
+                    request_json["stream"] = True
 
                 url = self._client._href_definitions.get_gateway_text_completions_href()
 
@@ -243,10 +320,35 @@ class Gateway(WMLResource):
                         200, "text completion creation", response
                     )
 
+            @overload
             async def acreate(
-                self, model: str, prompt: str | list[str] | list[int], **kwargs: Any
+                self,
+                model: str,
+                prompt: str | list[str] | list[int],
+                *,
+                stream: Literal[False] = False,
+                **kwargs: Any,
+            ) -> dict: ...
+
+            @overload
+            async def acreate(
+                self,
+                model: str,
+                prompt: str | list[str] | list[int],
+                *,
+                stream: Literal[True],
+                **kwargs: Any,
+            ) -> AsyncIterator: ...
+
+            async def acreate(
+                self,
+                model: str,
+                prompt: str | list[str] | list[int],
+                *,
+                stream: bool = False,
+                **kwargs: Any,
             ) -> dict | AsyncIterator:
-                """Generate asynchronous text completions for given model and prompt.
+                """Generate text completions for given model and prompt asynchronously.
 
                 :param model: name of model for given provider or alias
                 :type model: str
@@ -254,14 +356,15 @@ class Gateway(WMLResource):
                 :param prompt: prompt for processing
                 :type prompt: str or list[str] or list[int]
 
+                :param stream: if True will stream the response, defaults to False
+                :type stream: bool, optional
+
                 :returns: model answer
                 :rtype: dict | AsyncIterator
                 """
-                stream = kwargs.get("stream", False)
-                request_json = {"prompt": prompt, "model": model}
-
-                if kwargs:
-                    request_json.update(**kwargs)
+                request_json = {"prompt": prompt, "model": model, **kwargs}
+                if stream:
+                    request_json["stream"] = True
 
                 url = self._client._href_definitions.get_gateway_text_completions_href()
 
@@ -301,10 +404,7 @@ class Gateway(WMLResource):
                 :returns: embeddings for given model and input
                 :rtype: dict
                 """
-                request_json = {"input": input, "model": model}
-
-                if kwargs:
-                    request_json.update(**kwargs)
+                request_json = {"input": input, "model": model, **kwargs}
 
                 response = self._client.httpx_client.post(
                     self._client._href_definitions.get_gateway_embeddings_href(),
@@ -317,7 +417,7 @@ class Gateway(WMLResource):
             async def acreate(
                 self, model: str, input: str | list[str] | list[int], **kwargs: Any
             ) -> dict:
-                """Generate asynchronous embeddings for given model and input.
+                """Generate embeddings for given model and input asynchronously.
 
                 :param model: name of model for given provider or alias
                 :type model: str
@@ -328,10 +428,7 @@ class Gateway(WMLResource):
                 :returns: embeddings for given model and input
                 :rtype: dict
                 """
-                request_json = {"input": input, "model": model}
-
-                if kwargs:
-                    request_json.update(**kwargs)
+                request_json = {"input": input, "model": model, **kwargs}
 
                 response = await self._client.async_httpx_client.post(
                     self._client._href_definitions.get_gateway_embeddings_href(),
@@ -342,37 +439,3 @@ class Gateway(WMLResource):
                 return self._handle_response(200, "embedding creation", response)
 
         self.embeddings = _Embeddings(self._client)
-
-    def set_secrets_manager(
-        self, secrets_manager: str, name: str = "Watsonx AI Model Gateway configuration"
-    ) -> dict:
-        """Configure Model Gateway by, among others, setting Secrets Manager url.
-
-        :param secrets_manager: Secrets Manager url
-        :type secrets_manager: str
-
-        :param name: Model Gateway configuration name
-        :type name: str, optional
-        """
-        response = self._client.httpx_client.post(
-            self._client._href_definitions.get_gateway_tenant_href(),
-            headers=self._client._get_headers(),
-            json={"name": name, "secrets_manager": secrets_manager},
-        )
-
-        return self._handle_response(201, "set secrets manager", response)
-
-    def clear_secrets_manager(self) -> str:
-        """Clear Model Gateway configuration.
-
-        :return: status ("SUCCESS" if succeeded)
-        :rtype: str
-        """
-        response = self._client.httpx_client.delete(
-            self._client._href_definitions.get_gateway_tenant_href(),
-            headers=self._client._get_headers(),
-        )
-
-        return self._handle_response(
-            204, "tenant deletion", response, json_response=False
-        )

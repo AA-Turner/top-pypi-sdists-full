@@ -20,7 +20,12 @@
 from unittest import mock
 
 from absl.testing import absltest
-from google.cloud.aiplatform.tensorboard import uploader_utils
+import pytest
+
+try:
+    from google.cloud.aiplatform.tensorboard import uploader_utils
+except ImportError:
+    pytest.skip("Tensorboard not available", allow_module_level=True)
 
 
 class FakeTime:

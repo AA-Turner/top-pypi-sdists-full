@@ -178,6 +178,7 @@ class BaseConfig:
     upgrade: bool = False
 
     require_model_names_without_spaces: bool = False
+    require_ref_searches_node_package_before_root: bool = False
     exclude_resource_types: list[str] = dataclasses.field(
         default_factory=list, repr=False
     )
@@ -368,7 +369,7 @@ class BaseConfig:
             and runtime_config
             and not DBT_INSTALLED_GTE_1_10_7
         ):
-            manifest = parse_manifest(
+            manifest = parse_manifest(  # type: ignore
                 runtime_config,
                 write_perf_info=write_perf_info,
                 write=False,

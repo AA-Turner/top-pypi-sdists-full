@@ -81,8 +81,20 @@ class TestHttpxAsyncNodeCreation:
                 str(exc.value) == "You cannot use 'ca_certs' when 'verify_certs=False'"
             )
 
+    def test_path_prefix(self):
+        node = create_node(
+            NodeConfig(
+                "http",
+                "localhost",
+                9200,
+                path_prefix="/test",
+            )
+        )
+        assert node.base_url == "http://localhost:9200/test"
+        assert node.client.base_url == "http://localhost:9200/test/"
 
-@pytest.mark.asyncio
+
+@pytest.mark.anyio
 class TestHttpxAsyncNode:
     @respx.mock
     async def test_simple_request(self):

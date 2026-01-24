@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests for coverage.templite."""
 
@@ -197,6 +197,38 @@ class TempliteTest(CoverageTest):
             "Hi, NEDBEN!",
         )
 
+    def test_if_else(self) -> None:
+        self.try_render(
+            "Hi, {% if ned %}NED{% else %}NO NED{% endif %}!",
+            {"ned": 1},
+            "Hi, NED!",
+        )
+        self.try_render(
+            "Hi, {% if ned %}NED{% else %}NO NED{% endif %}!",
+            {"ned": 0},
+            "Hi, NO NED!",
+        )
+        self.try_render(
+            "Hi, {% if n %}NED{% if b %}BEN{% else %}NO BEN{% endif %}{% else %}NO NED{% endif %}!",
+            {"n": 1, "b": 1},
+            "Hi, NEDBEN!",
+        )
+        self.try_render(
+            "Hi, {% if n %}NED{% if b %}BEN{% else %}NO BEN{% endif %}{% else %}NO NED{% endif %}!",
+            {"n": 1, "b": 0},
+            "Hi, NEDNO BEN!",
+        )
+        self.try_render(
+            "Hi, {% if n %}NED{% if b %}BEN{% else %}NO BEN{% endif %}{% else %}NO NED{% endif %}!",
+            {"n": 0, "b": 1},
+            "Hi, NO NED!",
+        )
+        self.try_render(
+            "Hi, {% if n %}NED{% if b %}BEN{% else %}NO BEN{% endif %}{% else %}NO NED{% endif %}!",
+            {"n": 0, "b": 0},
+            "Hi, NO NED!",
+        )
+
     def test_complex_if(self) -> None:
         class Complex(SimpleNamespace):
             """A class to try out complex data access."""
@@ -323,6 +355,14 @@ class TempliteTest(CoverageTest):
             self.try_render("Buh? {% if %}hi!{% endif %}")
         with self.assertSynErr("Don't understand if: '{% if this or that %}'"):
             self.try_render("Buh? {% if this or that %}hi!{% endif %}")
+
+    def test_malformed_else(self) -> None:
+        with self.assertSynErr("Don't understand else: '{% else now %}'"):
+            self.try_render("Buh? {% if x %}hi!{% else now %}{% endif %}")
+        with self.assertSynErr("Mismatched else: '{% else %}'"):
+            self.try_render("Buh? {% else %}hi!{% endif %}")
+        with self.assertSynErr("Mismatched else: '{% else %}'"):
+            self.try_render("Buh? {% for x in xs %}{% else %}hi!{% endfor %}")
 
     def test_malformed_for(self) -> None:
         with self.assertSynErr("Don't understand for: '{% for %}'"):

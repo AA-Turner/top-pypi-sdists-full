@@ -38,7 +38,7 @@ class UploadsApi(object):
     def upload_create(self, project_id, file, file_format, locale_id, **kwargs):  # noqa: E501
         """Upload a new file  # noqa: E501
 
-        Upload a new language file. Creates necessary resources in your project.  # noqa: E501
+        Upload a new language file. Creates necessary resources in your project.  Note: be aware of [upload limits](https://support.phrase.com/hc/en-us/articles/8548271212188-Phrase-Strings-Limits#file-size-upload-limits-0-0).   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.upload_create(project_id, file, file_format, locale_id, async_req=True)
@@ -53,9 +53,10 @@ class UploadsApi(object):
         :param str branch: specify the branch to use
         :param str tags: List of tags separated by comma to be associated with the new keys contained in the upload.
         :param bool update_translations: Indicates whether existing translations should be updated with the file content.
-        :param bool update_custom_metadata: Indicates whether existing custom metadata properties should be updated with the file content
+        :param bool update_custom_metadata: Determines whether to update custom metadata values when uploading a file. If set to true, existing metadata can be changed or removed. Passing an empty value deletes the corresponding metadata property.
         :param bool update_translation_keys: Pass `false` here to prevent new keys from being created and existing keys updated.
         :param bool update_translations_on_source_match: Update target translations only if the source translations of the uploaded multilingual file match the stored translations.
+        :param str source_locale_id: Specifies the source locale for multilingual files. Can be the name or id of the locale. Preferred is id.
         :param bool update_descriptions: Existing key descriptions will be updated with the file content. Empty descriptions overwrite existing descriptions.
         :param bool convert_emoji: This option is obsolete. Providing the option will cause a bad request error.
         :param bool skip_upload_tags: Indicates whether the upload should not create upload tags.
@@ -85,7 +86,7 @@ class UploadsApi(object):
     def upload_create_with_http_info(self, project_id, file, file_format, locale_id, **kwargs):  # noqa: E501
         """Upload a new file  # noqa: E501
 
-        Upload a new language file. Creates necessary resources in your project.  # noqa: E501
+        Upload a new language file. Creates necessary resources in your project.  Note: be aware of [upload limits](https://support.phrase.com/hc/en-us/articles/8548271212188-Phrase-Strings-Limits#file-size-upload-limits-0-0).   # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.upload_create_with_http_info(project_id, file, file_format, locale_id, async_req=True)
@@ -100,9 +101,10 @@ class UploadsApi(object):
         :param str branch: specify the branch to use
         :param str tags: List of tags separated by comma to be associated with the new keys contained in the upload.
         :param bool update_translations: Indicates whether existing translations should be updated with the file content.
-        :param bool update_custom_metadata: Indicates whether existing custom metadata properties should be updated with the file content
+        :param bool update_custom_metadata: Determines whether to update custom metadata values when uploading a file. If set to true, existing metadata can be changed or removed. Passing an empty value deletes the corresponding metadata property.
         :param bool update_translation_keys: Pass `false` here to prevent new keys from being created and existing keys updated.
         :param bool update_translations_on_source_match: Update target translations only if the source translations of the uploaded multilingual file match the stored translations.
+        :param str source_locale_id: Specifies the source locale for multilingual files. Can be the name or id of the locale. Preferred is id.
         :param bool update_descriptions: Existing key descriptions will be updated with the file content. Empty descriptions overwrite existing descriptions.
         :param bool convert_emoji: This option is obsolete. Providing the option will cause a bad request error.
         :param bool skip_upload_tags: Indicates whether the upload should not create upload tags.
@@ -143,6 +145,7 @@ class UploadsApi(object):
             'update_custom_metadata',
             'update_translation_keys',
             'update_translations_on_source_match',
+            'source_locale_id',
             'update_descriptions',
             'convert_emoji',
             'skip_upload_tags',
@@ -222,6 +225,8 @@ class UploadsApi(object):
             form_params.append(('update_translation_keys', local_var_params['update_translation_keys']))  # noqa: E501
         if 'update_translations_on_source_match' in local_var_params:
             form_params.append(('update_translations_on_source_match', local_var_params['update_translations_on_source_match']))  # noqa: E501
+        if 'source_locale_id' in local_var_params:
+            form_params.append(('source_locale_id', local_var_params['source_locale_id']))  # noqa: E501
         if 'update_descriptions' in local_var_params:
             form_params.append(('update_descriptions', local_var_params['update_descriptions']))  # noqa: E501
         if 'convert_emoji' in local_var_params:

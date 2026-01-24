@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.user_defined_function._generated.models.argument import Argument, ArgumentModel
@@ -52,9 +52,9 @@ class UserDefinedFunction(BaseModel):
     is_memoizable : bool, optional
         Indicates whether the function is memoizable. Applicable only for Python language type.
     is_table_function : bool, optional
-        True if the UDF is a table function; false otherwise.
+        True if the UDF is a table function; false otherwise — **Read-only:** *any user-provided value will be ignored.*
     valid_for_clustering : bool, optional
-        True if the UDF is valid for clustering; false otherwise.
+        True if the UDF is valid for clustering; false otherwise — **Read-only:** *any user-provided value will be ignored.*
     is_secure : bool, optional
         Specifies whether the function/procedure is secure or not
     comment : str, optional
@@ -62,21 +62,21 @@ class UserDefinedFunction(BaseModel):
     body : str, optional
         Function/procedure definition
     created_on : datetime, optional
-        The date and time when the function/procedure was created
+        The date and time when the function/procedure was created — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        The name of the schema in which the function/procedure exists.
+        The name of the schema in which the function/procedure exists — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        The name of the database in which the function/procedure exists.
+        The name of the database in which the function/procedure exists — **Read-only:** *any user-provided value will be ignored.*
     min_num_arguments : int, optional
-        The minimum number of arguments
+        The minimum number of arguments — **Read-only:** *any user-provided value will be ignored.*
     max_num_arguments : int, optional
-        The maximum number of arguments
+        The maximum number of arguments — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the function/procedure
+        Role that owns the function/procedure — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the function/procedure
+        The type of role that owns the function/procedure — **Read-only:** *any user-provided value will be ignored.*
     is_builtin : bool, optional
-        If the function/procedure is built-in or not (user-defined)
+        If the function/procedure is built-in or not (user-defined) — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -180,9 +180,10 @@ class UserDefinedFunction(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -220,7 +221,7 @@ class UserDefinedFunction(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in arguments (list)
         _items = []
@@ -251,9 +252,9 @@ class UserDefinedFunction(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return UserDefinedFunction.parse_obj(obj)
+            return UserDefinedFunction.model_validate(obj)
 
-        _obj = UserDefinedFunction.parse_obj(
+        _obj = UserDefinedFunction.model_validate(
             {
                 "name": obj.get("name"),
                 "is_temporary": obj.get("is_temporary"),

@@ -1,6 +1,6 @@
 use tombi_comment_directive::{
-    document::TombiDocumentDirectiveContent, TombiCommentDirectiveImpl,
-    TOMBI_COMMENT_DIRECTIVE_TOML_VERSION,
+    TOMBI_COMMENT_DIRECTIVE_TOML_VERSION, TombiCommentDirectiveImpl,
+    document::TombiDocumentDirectiveContent,
 };
 use tombi_comment_directive_store::comment_directive_document_schema;
 use tombi_diagnostic::SetDiagnostics;
@@ -85,17 +85,14 @@ pub async fn get_tombi_document_comment_directive_and_diagnostics(
                         .into_iter()
                         .map(|diagnostic| into_directive_diagnostic(&diagnostic, content_range)),
                 );
-            } else {
-                if let Err(diagnostics) =
-                    crate::validate(document_tree.clone(), Some(&source_schema), &schema_context)
-                        .await
-                {
-                    total_diagnostics.extend(
-                        diagnostics.into_iter().map(|diagnostic| {
-                            into_directive_diagnostic(&diagnostic, content_range)
-                        }),
-                    );
-                }
+            } else if let Err(diagnostics) =
+                crate::validate(document_tree.clone(), Some(&source_schema), &schema_context).await
+            {
+                total_diagnostics.extend(
+                    diagnostics
+                        .into_iter()
+                        .map(|diagnostic| into_directive_diagnostic(&diagnostic, content_range)),
+                );
             }
             if let Some(total_document_tree_table) = total_document_tree_table.as_mut() {
                 if let Err(errors) = total_document_tree_table.merge(document_tree.into()) {

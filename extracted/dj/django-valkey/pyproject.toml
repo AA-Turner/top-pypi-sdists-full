@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-valkey"
-version = "0.3.0"
+version = "0.4.0"
 description = "a valkey backend for django"
 readme = "README.rst"
 requires-python = ">=3.10"
@@ -27,13 +27,14 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Framework :: Django :: 5.0",
-    "Framework :: Django :: 5.1",
+    "Programming Language :: Python :: 3.14",
+    "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0"
 ]
 
 dependencies = [
-    "django>=4.2",
+    "django>=4.2,!=5.0.*,!=5.1.*",
     "valkey>=6.0.2",
 ]
 
@@ -46,13 +47,20 @@ lz4 = [
     "lz4>=4.3.3",
 ]
 pyzstd = [
-    "pyzstd>=0.16.2",
+    "backports.zstd>=1.0.0",
+]
+zstd = [
+    "backports.zstd>=1.0.0",
 ]
 msgpack = [
     "msgpack>=1.1.0",
 ]
 brotli = [
     "brotli>=1.1.0",
+]
+
+msgspec = [
+    "msgspec>=0.19.0",
 ]
 
 [dependency-groups]
@@ -81,9 +89,9 @@ ipython = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/django-utils/django-valkey"
-Source = "https://github.com/django-utils/django-valkey"
-Issues = "https://github.com/django-utils/django-valkey/issues"
+Homepage = "https://github.com/django-commons/django-valkey"
+Source = "https://github.com/django-commons/django-valkey"
+Issues = "https://github.com/django-commons/django-valkey/issues"
 Documentation = "https://django-valkey.readthedocs.io/en/latest/"
 
 
@@ -108,6 +116,8 @@ DJANGO_SETTINGS_MODULE = "tests.settings.sqlite"
 plugins = ["django_coverage_plugin"]
 parallel = true
 
+[tool.codespell]
+ignore-words-list = "aadd,asend,smove"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "F401", "F403"]

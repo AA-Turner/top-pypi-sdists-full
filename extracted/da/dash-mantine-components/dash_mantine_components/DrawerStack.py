@@ -82,7 +82,7 @@ Keyword arguments:
 - toggle (string; optional):
     Toggles one or more drawers by ID. Accepts a single ID (string or
     dict) or a list of IDs."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'DrawerStack'

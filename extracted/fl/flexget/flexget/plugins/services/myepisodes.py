@@ -54,16 +54,18 @@ class MyEpisodes:
     In some cases, the TVDB name is either not unique or won't even be discovered.
     In that case you need to specify the MyEpisodes id manually using the set plugin.
 
-    tasks:
-      tvshows:
-        myepisodes:
-          username: <username>
-          password: <password>
-        series:
-         - human target:
-             set:
-               myepisodes_id: 5111
-         - chuck
+    .. code:: yaml
+
+        tasks:
+          tvshows:
+            myepisodes:
+              username: <username>
+              password: <password>
+            series:
+             - human target:
+                 set:
+                   myepisodes_id: 5111
+             - chuck
 
     How to find the MyEpisodes id: http://matrixagents.org/screencasts/myep_example-20110507-131555.png
     """
@@ -161,7 +163,8 @@ class MyEpisodes:
         """
         lc_series_name = entry['series_name'].lower()
         info = (
-            self.db_session.query(MyEpisodesInfo)
+            self.db_session
+            .query(MyEpisodesInfo)
             .filter(MyEpisodesInfo.series_name == lc_series_name)
             .first()
         )
@@ -225,7 +228,8 @@ class MyEpisodes:
         """
         # if we already have the a record for that id, update the name so that we find it next time
         db_item = (
-            self.db_session.query(MyEpisodesInfo)
+            self.db_session
+            .query(MyEpisodesInfo)
             .filter(MyEpisodesInfo.myepisodes_id == myepisodes_id)
             .first()
         )

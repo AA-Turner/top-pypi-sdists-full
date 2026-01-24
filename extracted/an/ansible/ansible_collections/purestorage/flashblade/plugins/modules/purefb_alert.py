@@ -29,9 +29,9 @@ options:
   state:
     type: str
     description:
-    - Create or delete alert email
+    - Create, delete or test alert email
     default: present
-    choices: [ absent, present ]
+    choices: [ absent, present, test ]
   address:
     type: str
     description:
@@ -73,64 +73,46 @@ RETURN = r"""
 """
 
 
-HAS_PURITY_FB = True
+HAS_PYPURECLIENT = True
 try:
-    from purity_fb import AlertWatcher
+    from pypureclient.flashblade import AlertWatcher, AlertWatcherPost
 except ImportError:
-    HAS_PURITY_FB = False
+    HAS_PYPURECLIENT = False
 
 
 import re
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
-    get_blade,
+    get_system,
     purefb_argument_spec,
 )
-
-
-MIN_REQUIRED_API_VERSION = "1.9"
 
 
 def create_alert(module, blade):
     """Create Alert Email"""
     changed = True
     if not module.check_mode:
-        api_version = blade.api_version.list_versions().versions
-        if MIN_REQUIRED_API_VERSION in api_version:
-            watcher_settings = AlertWatcher(
-                minimum_notification_severity=module.params["severity"]
+        watcher_settings = AlertWatcherPost(
+            minimum_notification_severity=module.params["severity"]
+        )
+        res = blade.post_alert_watchers(
+            names=[module.params["address"]], alert_watcher=watcher_settings
+        )
+        if res.status_code != 200:
+            module.fail_json(
+                msg="Failed to create alert email {0}. Error: {1}".format(
+                    module.params["address"], res.errors[0].message
+                )
             )
-            try:
-                blade.alert_watchers.create_alert_watchers(
-                    names=[module.params["address"]], watcher_settings=watcher_settings
-                )
-            except Exception:
-                module.fail_json(
-                    msg="Failed to create alert email: {0}".format(
-                        module.params["address"]
-                    )
-                )
-        else:
-            try:
-                blade.alert_watchers.create_alert_watchers(
-                    names=[module.params["address"]]
-                )
-            except Exception:
-                module.fail_json(
-                    msg="Failed to create alert email: {0}".format(
-                        module.params["address"]
-                    )
-                )
         if not module.params["enabled"]:
             watcher_settings = AlertWatcher(enabled=module.params["enabled"])
-            try:
-                blade.alert_watchers.update_alert_watchers(
-                    names=[module.params["address"]], watcher_settings=watcher_settings
-                )
-            except Exception:
+            res = blade.patch_alert_watchers(
+                names=[module.params["address"]], alert_watcher=watcher_settings
+            )
+            if res.status_code != 200:
                 module.fail_json(
-                    msg="Failed to disable during create alert email: {0}".format(
-                        module.params["address"]
+                    msg="Failed to disable during create alert email {0}. Error: {1}".format(
+                        module.params["address"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -138,45 +120,44 @@ def create_alert(module, blade):
 
 def update_alert(module, blade):
     """Update alert Watcher"""
-    api_version = blade.api_version.list_versions().versions
     mod_alert = False
-    try:
-        alert = blade.alert_watchers.list_alert_watchers(
-            names=[module.params["address"]]
-        )
-    except Exception:
+    res = blade.get_alert_watchers(names=[module.params["address"]])
+    if res.status_code == 200:
+        alert = list(res.items)[0]
+    else:
         module.fail_json(
-            msg="Failed to get information for alert email: {0}".format(
-                module.params["address"]
+            msg="Failed to get information for alert email {0}. Error: {1}".format(
+                module.params["address"], res.errors[0].message
             )
         )
     current_state = {
-        "enabled": alert.items[0].enabled,
-        "severity": alert.items[0].minimum_notification_severity,
+        "enabled": alert.enabled,
+        "severity": alert.minimum_notification_severity,
     }
     if current_state["enabled"] != module.params["enabled"]:
+        enabled = module.params["enabled"]
         mod_alert = True
-    if MIN_REQUIRED_API_VERSION in api_version:
-        if current_state["severity"] != module.params["severity"]:
-            mod_alert = True
+    else:
+        enabled = current_state["enabled"]
+    if current_state["severity"] != module.params["severity"]:
+        severity = module.params["severity"]
+        mod_alert = True
+    else:
+        severity = current_state["severity"]
     if mod_alert:
         changed = True
         if not module.check_mode:
-            if MIN_REQUIRED_API_VERSION in api_version:
-                watcher_settings = AlertWatcher(
-                    enabled=module.params["enabled"],
-                    minimum_notification_severity=module.params["severity"],
-                )
-            else:
-                watcher_settings = AlertWatcher(enabled=module.params["enabled"])
-            try:
-                blade.alert_watchers.update_alert_watchers(
-                    names=[module.params["address"]], watcher_settings=watcher_settings
-                )
-            except Exception:
+            watcher_settings = AlertWatcher(
+                enabled=enabled,
+                minimum_notification_severity=severity,
+            )
+            res = blade.patch_alert_watchers(
+                names=[module.params["address"]], alert_watcher=watcher_settings
+            )
+            if res.status_code != 200:
                 module.fail_json(
-                    msg="Failed to update alert email: {0}".format(
-                        module.params["address"]
+                    msg="Failed to update alert email {0}: Error: {1}".format(
+                        module.params["address"], res.errors[0].message
                     )
                 )
     else:
@@ -188,14 +169,46 @@ def delete_alert(module, blade):
     """Delete Alert Email"""
     changed = True
     if not module.check_mode:
-        try:
-            blade.alert_watchers.delete_alert_watchers(names=[module.params["address"]])
-        except Exception:
+        res = blade.delete_alert_watchers(names=[module.params["address"]])
+        if res.status_code != 200:
             module.fail_json(
-                msg="Failed to delete alert email: {0}".format(module.params["address"])
+                msg="Failed to delete alert email {0}. Error: {1}".format(
+                    module.params["address"], res.errors[0].message
+                )
             )
 
     module.exit_json(changed=changed)
+
+
+def test_alert(module, blade):
+    """Test alert watchers"""
+    test_response = []
+    response = list(
+        blade.get_alert_watchers_test(names=[module.params["address"]]).items
+    )
+    for component in range(len(response)):
+        if response[component].enabled:
+            enabled = "true"
+        else:
+            enabled = "false"
+        if response[component].success:
+            success = "true"
+        else:
+            success = "false"
+        test_response.append(
+            {
+                "component_address": response[component].component_address,
+                "component_name": response[component].component_name,
+                "description": response[component].description,
+                "destination": response[component].destination,
+                "enabled": enabled,
+                "result_details": getattr(response[component], "result_details", ""),
+                "success": success,
+                "test_type": response[component].test_type,
+                "resource_name": response[component].resource.name,
+            }
+        )
+    module.exit_json(changed=False, test_response=test_response)
 
 
 def main():
@@ -207,28 +220,34 @@ def main():
             severity=dict(
                 type="str", default="info", choices=["info", "warning", "critical"]
             ),
-            state=dict(type="str", default="present", choices=["absent", "present"]),
+            state=dict(
+                type="str", default="present", choices=["absent", "present", "test"]
+            ),
         )
     )
 
     module = AnsibleModule(argument_spec, supports_check_mode=True)
 
-    if not HAS_PURITY_FB:
-        module.fail_json(msg="purity_fb SDK is required for this module")
+    if not HAS_PYPURECLIENT:
+        module.fail_json(msg="py-pure-client SDK is required for this module")
 
     pattern = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
     if not pattern.match(module.params["address"]):
         module.fail_json(msg="Valid email address not provided.")
 
-    blade = get_blade(module)
+    blade = get_system(module)
 
     exists = False
-    try:
-        emails = blade.alert_watchers.list_alert_watchers()
-    except Exception:
-        module.fail_json(msg="Failed to get exisitng email list")
-    for email in range(0, len(emails.items)):
-        if emails.items[email].name == module.params["address"]:
+    res = blade.get_alert_watchers()
+    if res.status_code != 200:
+        module.fail_json(
+            msg="Failed to get exisitng email list. Error: {0}".format(
+                res.errors[0].message
+            )
+        )
+    emails = list(res.items)
+    for email in range(len(emails)):
+        if emails[email].name == module.params["address"]:
             exists = True
             break
     if module.params["state"] == "present" and not exists:
@@ -237,6 +256,8 @@ def main():
         update_alert(module, blade)
     elif module.params["state"] == "absent" and exists:
         delete_alert(module, blade)
+    elif module.params["state"] == "test":
+        test_alert(module, blade)
 
     module.exit_json(changed=False)
 

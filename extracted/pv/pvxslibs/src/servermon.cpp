@@ -59,6 +59,8 @@ struct MonitorOp final : public ServerOp
     // is doReply() scheduled to run
     bool scheduled=false;
     bool pipeline=false; // const after setup
+    // set until first update queued
+    bool first=true;
     // finish() called
     bool finished=false;
     size_t window=0u, limit=4u;
@@ -88,7 +90,9 @@ struct MonitorOp final : public ServerOp
                 if(!conn || conn->state==ConnBase::Disconnected)
                     return;
 
-                if(conn->connection() && (bufferevent_get_enabled(conn->connection())&EV_READ)) {
+                auto bev(conn->connection());
+
+                if(bev && evbuffer_get_length(bufferevent_get_output(bev)) < conn->tcp_tx_limit) {
                     doReply(op);
                 } else {
                     // connection TX queue is too full
@@ -128,7 +132,11 @@ struct MonitorOp final : public ServerOp
         uint8_t subcmd = 0u;
         if(self->state==Creating) {
             subcmd = 0x08;
-            self->state = self->type ? Idle : Dead;
+            if(self->type) {
+                self->state = Idle;
+            } else {
+                self->cleanup();
+            }
 
         } else if(self->state==Executing) {
             if(self->queue.empty() || (self->pipeline && !self->window && !self->finished)) {
@@ -138,7 +146,7 @@ struct MonitorOp final : public ServerOp
 
             } else if(!self->queue.front()) {
                 subcmd = 0x10;
-                self->state = Dead;
+                self->cleanup();
                 log_debug_printf(connio, "Client %s IOID %u finishes\n",
                                  conn->peerName.c_str(), unsigned(self->ioid));
             }
@@ -177,7 +185,6 @@ struct MonitorOp final : public ServerOp
         ch->statTx += conn->enqueueTxBody(pva_app_msg_t::CMD_MONITOR);
 
         if(self->state == ServerOp::Dead) {
-            self->cleanup();
             return;
         }
 
@@ -250,7 +257,11 @@ struct ServerMonitorControl : public server::MonitorControlOp
             throw std::logic_error("Type change not allowed in post().  Recommend pvxs::Value::cloneEmpty()");
 
         // pvMask is const at this point, so no need to lock
-        bool real = testmask(val, mon->pvMask);
+        bool real = mon->first; // always post through first update
+        if(real)
+            mon->first = false;
+        else
+            real = testmask(val, mon->pvMask); // consider mask for subsequent updates
 
         Guard G(mon->lock);
         if(mon->finished)
@@ -533,7 +544,7 @@ void ServerConn::handle_MONITOR()
 
         if(op->pipeline) {
             if(!nack) {
-                // before UNRELEASED initial nack=0 clamped the window size to zero!
+                // before 1.4.0 initial nack=0 clamped the window size to zero!
                 log_err_printf(connsetup,
                                "Client %s \"%s\" pipeline monitor w/o initial nack incompatible\n",
                                peerName.c_str(), chan->name.c_str());

@@ -1,31 +1,42 @@
 from __future__ import annotations
 
 import abc
+import logging
 import sys
-from typing import Dict, Optional, Type
+from typing import Iterable
 
 from .config import Config
 from .terminal import Terminal
 from .trigger import Trigger
 
+logger = logging.getLogger(__name__)
+
 
 class Manager:
-    _registry: Dict[str, Command] = {}
+    _registry: dict[str, Command] = {}
 
     @classmethod
-    def list_commands(cls):
-        return cls._registry.values()
+    def list_commands(cls) -> Iterable[Command]:
+        prev: Command | None = None
+
+        for cmd in cls._registry.values():
+            if cmd is not prev:
+                prev = cmd
+                yield cmd
 
     @classmethod
-    def get_command(cls, character: str) -> Optional[Command]:
+    def get_command(cls, character: str) -> Command | None:
         return cls._registry.get(character)
 
     @classmethod
-    def register(cls, command: Type[Command]):
-        if command.character in cls._registry:
-            raise ValueError(f"Duplicate character {repr(command.character)}")
+    def register(cls, command: type[Command]) -> None:
+        _command = command()
 
-        cls._registry[command.character] = command()
+        for char in command.get_characters():
+            if char in cls._registry:
+                raise ValueError(f"Duplicate character {repr(char)}")
+
+            cls._registry[char] = _command
 
     @classmethod
     def run_command(
@@ -33,11 +44,16 @@ class Manager:
     ) -> None:
         command = cls.get_command(character)
         if command:
+            logger.debug(
+                "Running command %s for %s", command.__class__.__name__, repr(character)
+            )
             command.run(trigger, term, config)
+        else:
+            logger.debug("No command mapped for %s", repr(character))
 
 
 class Command(abc.ABC):
-    character: str
+    character: str | tuple[str, ...]
     caption: str
     description: str
     show_in_menu: bool = True
@@ -47,15 +63,19 @@ class Command(abc.ABC):
             if not hasattr(cls, field):
                 raise NotImplementedError(f"{cls.__name__}: {field} not specified")
 
+        assert isinstance(cls.character, (str, tuple))
+
         super().__init_subclass__(**kwargs)
         Manager.register(cls)
 
     @abc.abstractmethod
-    def run(self, trigger: Trigger, term: Terminal, config: Config) -> None:
-        """
-        Modify runner_args in-place if needed and return a bool indicating whether
-        tests should be triggered instantly
-        """
+    def run(self, trigger: Trigger, term: Terminal, config: Config) -> None: ...
+
+    @classmethod
+    def get_characters(cls) -> tuple[str, ...]:
+        if isinstance(cls.character, tuple):
+            return cls.character
+        return (cls.character,)
 
 
 class OpenMenuCommand(Command):
@@ -70,7 +90,7 @@ class OpenMenuCommand(Command):
 
 
 class InvokeCommand(Command):
-    character = "\n"
+    character = ("\n", "\r", "\r\n")
     caption = "Enter"
     description = "Invoke test runner"
 

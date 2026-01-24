@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
@@ -10,37 +10,6 @@ import System.IO
 import System.Reflection
 import System.Resources
 import System.Runtime.Serialization
-
-
-class UltimateResourceFallbackLocation(Enum):
-    """Specifies whether a ResourceManager object looks for the resources of the app's default culture in the main assembly or in a satellite assembly."""
-
-    MAIN_ASSEMBLY = 0
-
-    SATELLITE = 1
-
-    def __int__(self) -> int:
-        ...
-
-
-class NeutralResourcesLanguageAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @property
-    def location(self) -> System.Resources.UltimateResourceFallbackLocation:
-        ...
-
-    @overload
-    def __init__(self, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, culture_name: str, location: System.Resources.UltimateResourceFallbackLocation) -> None:
-        ...
 
 
 class MissingManifestResourceException(System.SystemException):
@@ -60,16 +29,19 @@ class MissingManifestResourceException(System.SystemException):
 
     @overload
     def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
         ...
 
 
+class UltimateResourceFallbackLocation(IntEnum):
+    """This class has no documentation."""
+
+    MAIN_ASSEMBLY = 0
+
+    SATELLITE = 1
+
+
 class IResourceReader(System.Collections.IEnumerable, System.IDisposable, metaclass=abc.ABCMeta):
-    """Abstraction to read streams of resources."""
+    """This class has no documentation."""
 
     def close(self) -> None:
         ...
@@ -80,7 +52,6 @@ class ResourceSet(System.Object, System.IDisposable, System.Collections.IEnumera
 
     @property
     def reader(self) -> System.Resources.IResourceReader:
-        """This field is protected."""
         ...
 
     @reader.setter
@@ -89,7 +60,6 @@ class ResourceSet(System.Object, System.IDisposable, System.Collections.IEnumera
 
     @overload
     def __init__(self) -> None:
-        """This method is protected."""
         ...
 
     @overload
@@ -109,7 +79,6 @@ class ResourceSet(System.Object, System.IDisposable, System.Collections.IEnumera
 
     @overload
     def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
         ...
 
     @overload
@@ -142,7 +111,6 @@ class ResourceSet(System.Object, System.IDisposable, System.Collections.IEnumera
         ...
 
     def read_resources(self) -> None:
-        """This method is protected."""
         ...
 
 
@@ -151,7 +119,6 @@ class ResourceManager(System.Object):
 
     @property
     def base_name_field(self) -> str:
-        """This field is protected."""
         ...
 
     @base_name_field.setter
@@ -160,7 +127,6 @@ class ResourceManager(System.Object):
 
     @property
     def main_assembly(self) -> System.Reflection.Assembly:
-        """This field is protected."""
         ...
 
     @main_assembly.setter
@@ -189,7 +155,6 @@ class ResourceManager(System.Object):
 
     @property
     def fallback_location(self) -> System.Resources.UltimateResourceFallbackLocation:
-        """This property is protected."""
         ...
 
     @fallback_location.setter
@@ -198,7 +163,6 @@ class ResourceManager(System.Object):
 
     @overload
     def __init__(self) -> None:
-        """This method is protected."""
         ...
 
     @overload
@@ -219,7 +183,6 @@ class ResourceManager(System.Object):
 
     @staticmethod
     def get_neutral_resources_language(a: System.Reflection.Assembly) -> System.Globalization.CultureInfo:
-        """This method is protected."""
         ...
 
     @overload
@@ -231,7 +194,6 @@ class ResourceManager(System.Object):
         ...
 
     def get_resource_file_name(self, culture: System.Globalization.CultureInfo) -> str:
-        """This method is protected."""
         ...
 
     def get_resource_set(self, culture: System.Globalization.CultureInfo, create_if_not_exists: bool, try_parents: bool) -> System.Resources.ResourceSet:
@@ -239,7 +201,6 @@ class ResourceManager(System.Object):
 
     @staticmethod
     def get_satellite_contract_version(a: System.Reflection.Assembly) -> System.Version:
-        """This method is protected."""
         ...
 
     @overload
@@ -259,15 +220,34 @@ class ResourceManager(System.Object):
         ...
 
     def internal_get_resource_set(self, culture: System.Globalization.CultureInfo, create_if_not_exists: bool, try_parents: bool) -> System.Resources.ResourceSet:
-        """This method is protected."""
         ...
 
     def release_all_resources(self) -> None:
         ...
 
 
+class NeutralResourcesLanguageAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @property
+    def location(self) -> System.Resources.UltimateResourceFallbackLocation:
+        ...
+
+    @overload
+    def __init__(self, culture_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, culture_name: str, location: System.Resources.UltimateResourceFallbackLocation) -> None:
+        ...
+
+
 class SatelliteContractVersionAttribute(System.Attribute):
-    """Instructs a ResourceManager object to ask for a particular version of a satellite assembly."""
+    """This class has no documentation."""
 
     @property
     def version(self) -> str:
@@ -302,7 +282,7 @@ class ResourceReader(System.Object, System.Resources.IResourceReader):
 
 
 class MissingSatelliteAssemblyException(System.SystemException):
-    """The exception that is thrown when the satellite assembly for the resources of the default culture is missing."""
+    """This class has no documentation."""
 
     @property
     def culture_name(self) -> str:
@@ -326,11 +306,6 @@ class MissingSatelliteAssemblyException(System.SystemException):
 
     @overload
     def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
         ...
 
 

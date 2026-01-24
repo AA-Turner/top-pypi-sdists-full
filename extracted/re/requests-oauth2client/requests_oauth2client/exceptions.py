@@ -16,7 +16,7 @@ class OAuth2Error(Exception):
 
     Args:
         response: the HTTP response containing the error
-        client : the OAuth2Client used to send the request
+        client: the OAuth2Client used to send the request
         description: description of the error
 
     """
@@ -264,3 +264,11 @@ class InvalidBackChannelAuthenticationResponse(OAuth2Error):
 
 class InvalidPushedAuthorizationResponse(OAuth2Error):
     """Raised when the Pushed Authorization Endpoint returns an error."""
+
+
+class UnsupportedTokenTypeError(ValueError):
+    """Raised when an unsupported token_type is provided."""
+
+    def __init__(self, token_type: str) -> None:
+        super().__init__(f"Unsupported token_type: {token_type}")
+        self.token_type = token_type

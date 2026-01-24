@@ -5,6 +5,7 @@ An example project that uses setuptools in pyproject.toml
 """
 
 from incremental import Version
+
 from ._version import __version__
 
 __all__ = ["__version__"]

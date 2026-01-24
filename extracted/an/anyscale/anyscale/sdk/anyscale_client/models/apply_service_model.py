@@ -47,7 +47,8 @@ class ApplyServiceModel(object):
         'tracing_config': 'TracingConfig',
         'auto_complete_rollout': 'bool',
         'max_surge_percent': 'int',
-        'tags': 'dict(str, str)'
+        'tags': 'dict(str, str)',
+        'traffic_percent': 'int'
     }
 
     attribute_map = {
@@ -65,10 +66,11 @@ class ApplyServiceModel(object):
         'tracing_config': 'tracing_config',
         'auto_complete_rollout': 'auto_complete_rollout',
         'max_surge_percent': 'max_surge_percent',
-        'tags': 'tags'
+        'tags': 'tags',
+        'traffic_percent': 'traffic_percent'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, version=None, canary_percent=None, ray_serve_config=None, build_id=None, compute_config_id=None, config=None, rollout_strategy=None, ray_gcs_external_storage_config=None, tracing_config=None, auto_complete_rollout=True, max_surge_percent=None, tags=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, version=None, canary_percent=None, ray_serve_config=None, build_id=None, compute_config_id=None, config=None, rollout_strategy=None, ray_gcs_external_storage_config=None, tracing_config=None, auto_complete_rollout=True, max_surge_percent=None, tags=None, traffic_percent=None, local_vars_configuration=None):  # noqa: E501
         """ApplyServiceModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,6 +91,7 @@ class ApplyServiceModel(object):
         self._auto_complete_rollout = None
         self._max_surge_percent = None
         self._tags = None
+        self._traffic_percent = None
         self.discriminator = None
 
         self.name = name
@@ -117,6 +120,8 @@ class ApplyServiceModel(object):
             self.max_surge_percent = max_surge_percent
         if tags is not None:
             self.tags = tags
+        if traffic_percent is not None:
+            self.traffic_percent = traffic_percent
 
     @property
     def name(self):
@@ -193,7 +198,7 @@ class ApplyServiceModel(object):
     def version(self):
         """Gets the version of this ApplyServiceModel.  # noqa: E501
 
-        A version string that represents the version for this service. Will be populated with the hash of the config if not specified.  # noqa: E501
+        A version string that represents the version for this service. Will be populated with a random version if not specified.  # noqa: E501
 
         :return: The version of this ApplyServiceModel.  # noqa: E501
         :rtype: str
@@ -204,7 +209,7 @@ class ApplyServiceModel(object):
     def version(self, version):
         """Sets the version of this ApplyServiceModel.
 
-        A version string that represents the version for this service. Will be populated with the hash of the config if not specified.  # noqa: E501
+        A version string that represents the version for this service. Will be populated with a random version if not specified.  # noqa: E501
 
         :param version: The version of this ApplyServiceModel.  # noqa: E501
         :type: str
@@ -470,6 +475,29 @@ class ApplyServiceModel(object):
         """
 
         self._tags = tags
+
+    @property
+    def traffic_percent(self):
+        """Gets the traffic_percent of this ApplyServiceModel.  # noqa: E501
+
+         Percentage of traffic forwarded to a particular service version from the ALB.  # noqa: E501
+
+        :return: The traffic_percent of this ApplyServiceModel.  # noqa: E501
+        :rtype: int
+        """
+        return self._traffic_percent
+
+    @traffic_percent.setter
+    def traffic_percent(self, traffic_percent):
+        """Sets the traffic_percent of this ApplyServiceModel.
+
+         Percentage of traffic forwarded to a particular service version from the ALB.  # noqa: E501
+
+        :param traffic_percent: The traffic_percent of this ApplyServiceModel.  # noqa: E501
+        :type: int
+        """
+
+        self._traffic_percent = traffic_percent
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, Kr8s Developers (See LICENSE for list)
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, Kr8s Developers (See LICENSE for list)
 # SPDX-License-Identifier: BSD 3-Clause License
 """
 This module contains `kr8s`, a simple, extensible Python client library for Kubernetes.
@@ -12,13 +12,17 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from functools import partial, update_wrapper
-from typing import cast
+from typing import Union, cast
 
 from . import asyncio, objects, portforward
 from ._api import ALL
 from ._api import Api as _AsyncApi
 from ._async_utils import as_sync_func as _as_sync_func
 from ._async_utils import as_sync_generator as _as_sync_generator
+from ._constants import (
+    KUBERNETES_MAXIMUM_SUPPORTED_VERSION,
+    KUBERNETES_MINIMUM_SUPPORTED_VERSION,
+)
 from ._exceptions import (
     APITimeoutError,
     ConnectionClosedError,
@@ -78,10 +82,11 @@ class Api(_AsyncApi):
         field_selector: str | dict | None = None,
         as_object: type[APIObject] | None = None,
         allow_unknown_type: bool = True,
+        raw: bool = False,
         **kwargs,
-    ) -> Generator[objects.APIObject]:
+    ) -> Generator[objects.APIObject | dict]:
         yield from cast(
-            Generator[objects.APIObject],
+            Generator[Union[objects.APIObject, dict]],
             _as_sync_generator(self.async_get)(
                 kind,
                 *names,
@@ -90,6 +95,7 @@ class Api(_AsyncApi):
                 field_selector=field_selector,
                 as_object=as_object,
                 allow_unknown_type=allow_unknown_type,
+                raw=raw,
                 **kwargs,
             ),
         )
@@ -133,6 +139,7 @@ def get(
     field_selector: str | dict | None = None,
     as_object: type | None = None,
     allow_unknown_type: bool = True,
+    raw: bool = False,
     api=None,
     **kwargs,
 ):
@@ -146,11 +153,12 @@ def get(
         field_selector: The field selector to filter the resources by
         as_object: The object to populate with the resource data
         allow_unknown_type: Whether to allow unknown types
+        raw: If True, return raw dictionaries instead of APIObject instances, default False
         api: The api to use to get the resource
         **kwargs: Additional arguments to pass to the API
 
     Returns:
-        The populated object
+        The populated object (or dict if raw=True)
 
     Raises:
         ValueError: If the resource is not found
@@ -165,6 +173,10 @@ def get(
         >>> ings = kr8s.get("ingress.networking.k8s.io")     # Full group name
         >>> ings = kr8s.get("ingress.v1.networking.k8s.io")  # Full with explicit version
         >>> ings = kr8s.get("ingress.networking.k8s.io/v1")  # Full with explicit version alt.
+        >>>
+        >>> # Get raw dictionaries for better performance
+        >>> pods = list(kr8s.get("pods", raw=True))
+        >>> print(pods[0]["metadata"]["name"])
     """
     return _as_sync_generator(_get)(
         kind,
@@ -174,6 +186,7 @@ def get(
         field_selector=field_selector,
         as_object=as_object,
         allow_unknown_type=allow_unknown_type,
+        raw=raw,
         api=api,
         _asyncio=False,
         **kwargs,
@@ -265,4 +278,6 @@ __all__ = [
     "ExecError",
     "NotFoundError",
     "ServerError",
+    "KUBERNETES_MINIMUM_SUPPORTED_VERSION",
+    "KUBERNETES_MAXIMUM_SUPPORTED_VERSION",
 ]

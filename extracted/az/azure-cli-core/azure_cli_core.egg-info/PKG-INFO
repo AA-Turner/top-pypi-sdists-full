@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-cli-core
-Version: 2.77.0
+Version: 2.82.0
 Summary: Microsoft Azure Command-Line Tools Core Module
 Home-page: https://github.com/Azure/azure-cli
 Author: Microsoft Corporation
@@ -11,17 +11,16 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 License-File: LICENSE.txt
 Requires-Dist: argcomplete~=3.5.2
 Requires-Dist: azure-cli-telemetry==1.1.0.*
-Requires-Dist: azure-core~=1.35.0
+Requires-Dist: azure-core~=1.37.0
 Requires-Dist: azure-mgmt-core<2,>=1.2.0
 Requires-Dist: cryptography
 Requires-Dist: distro; sys_platform == "linux"

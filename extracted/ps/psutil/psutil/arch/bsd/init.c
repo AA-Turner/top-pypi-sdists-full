@@ -6,20 +6,22 @@
 
 #include <Python.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "../../arch/all/init.h"
-#include "init.h"
 
 
 void
 convert_kvm_err(const char *syscall, char *errbuf) {
-    char fullmsg[8192];
+    char fullmsg[512];
 
-    sprintf(fullmsg, "(originated from %s: %s)", syscall, errbuf);
+    str_format(
+        fullmsg, sizeof(fullmsg), "(originated from %s: %s)", syscall, errbuf
+    );
     if (strstr(errbuf, "Permission denied") != NULL)
-        AccessDenied(fullmsg);
+        psutil_oserror_ad(fullmsg);
     else if (strstr(errbuf, "Operation not permitted") != NULL)
-        AccessDenied(fullmsg);
+        psutil_oserror_ad(fullmsg);
     else
-        PyErr_Format(PyExc_RuntimeError, fullmsg);
+        psutil_runtime_error(fullmsg);
 }

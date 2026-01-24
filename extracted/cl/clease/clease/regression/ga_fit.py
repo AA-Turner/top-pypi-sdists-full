@@ -125,7 +125,7 @@ class GAFit:
         """Initialize the population from file."""
         logger.info("Initializing population from %s", self.fname)
         individuals = []
-        with open(self.fname, "r") as infile:
+        with open(self.fname) as infile:
             for line in infile:
                 individual = np.zeros(self.num_genes, dtype=np.uint8)
                 indices = np.array([int(x.strip()) for x in line.split(",")])

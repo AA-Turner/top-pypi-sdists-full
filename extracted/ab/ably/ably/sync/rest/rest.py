@@ -3,15 +3,14 @@ from typing import Optional
 from urllib.parse import urlencode
 
 from ably.sync.http.http import HttpSync
-from ably.sync.http.paginatedresult import PaginatedResultSync, HttpPaginatedResponseSync
-from ably.sync.http.paginatedresult import format_params
+from ably.sync.http.paginatedresult import HttpPaginatedResponseSync, PaginatedResultSync, format_params
 from ably.sync.rest.auth import AuthSync
 from ably.sync.rest.channel import ChannelsSync
 from ably.sync.rest.push import PushSync
-from ably.sync.util.exceptions import AblyException, catch_all
 from ably.sync.types.options import Options
 from ably.sync.types.stats import stats_response_processor
 from ably.sync.types.tokendetails import TokenDetails
+from ably.sync.util.exceptions import AblyException, catch_all
 
 log = logging.getLogger(__name__)
 
@@ -33,8 +32,14 @@ class AblyRestSync:
 
           **Optional Parameters**
           - `client_id`: Undocumented
-          - `rest_host`: The host to connect to. Defaults to rest.ably.io
-          - `environment`: The environment to use. Defaults to 'production'
+          - `endpoint`: Endpoint specifies either a routing policy name or
+            fully qualified domain name to connect to Ably.
+          - `rest_host`: Deprecated: this property is deprecated and will
+            be removed in a future version. The host to connect to.
+            Defaults to rest.ably.io
+          - `environment`: Deprecated: this property is deprecated and
+            will be removed in a future version. The environment to use.
+            Defaults to 'production'
           - `port`: The port to connect to. Defaults to 80
           - `tls_port`: The tls_port to connect to. Defaults to 443
           - `tls`: Specifies whether the client should use TLS. Defaults
@@ -62,9 +67,7 @@ class AblyRestSync:
         else:
             options = Options(**kwargs)
 
-        try:
-            self._is_realtime
-        except AttributeError:
+        if not hasattr(self, '_is_realtime'):
             self._is_realtime = False
 
         self.__http = HttpSync(self, options)

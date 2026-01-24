@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 from hypothesis import Phase, assume, given, settings
@@ -7,6 +8,8 @@ from jsonschema import Draft4Validator
 
 import schemathesis
 from schemathesis.config import GenerationConfig
+from schemathesis.core.parameters import ParameterLocation
+from schemathesis.openapi.generation import filters
 from schemathesis.openapi.generation.filters import is_valid_header
 from schemathesis.specs.openapi import _hypothesis, formats
 from schemathesis.specs.openapi._hypothesis import make_positive_strategy
@@ -133,20 +136,19 @@ def test_inlined_definitions(deeply_nested_schema):
     test()
 
 
-@pytest.mark.parametrize("keywords", [{}, {"pattern": r"\A[A-F0-9]{12}\Z"}])
 @pytest.mark.hypothesis_nested
-def test_valid_headers(keywords):
+def test_valid_headers():
     # When headers are generated
     # And there is no other keywords than "type"
     strategy = make_positive_strategy(
         {
             "type": "object",
-            "properties": {"X-Foo": {"type": "string", **keywords}},
+            "properties": {"X-Foo": {"type": "string", "pattern": r"\A[A-F0-9]{12}\Z"}},
             "required": ["X-Foo"],
             "additionalProperties": False,
         },
         "GET /users/",
-        "header",
+        ParameterLocation.HEADER,
         None,
         GenerationConfig(),
         Draft4Validator,
@@ -164,12 +166,18 @@ def test_configure_headers():
     strategy = make_positive_strategy(
         {
             "type": "object",
-            "properties": {"X-Foo": {"type": "string"}},
+            "properties": {
+                "X-Foo": {
+                    "type": "string",
+                    # This is added a few layers above
+                    "format": formats.HEADER_FORMAT,
+                }
+            },
             "required": ["X-Foo"],
             "additionalProperties": False,
         },
         "GET /users/",
-        "header",
+        ParameterLocation.HEADER,
         None,
         GenerationConfig(exclude_header_characters="".join({chr(i) for i in range(256)} - {"A", "B", "C"})),
         Draft4Validator,
@@ -196,7 +204,7 @@ def test_no_much_filtering_in_headers():
             "additionalProperties": False,
         },
         "GET /users/",
-        "header",
+        ParameterLocation.HEADER,
         None,
         GenerationConfig(),
         Draft4Validator,
@@ -277,7 +285,10 @@ def _scoped_remote_schema(testdir):
 def test_inline_remote_refs(testdir, deeply_nested_schema, setup, check):
     # See GH-986
     setup(testdir)
-    deeply_nested_schema["components"]["schemas"]["foo9"] = {"$ref": "bar.json#/bar"}
+
+    deeply_nested_schema["components"]["schemas"]["foo9"] = {
+        "$ref": Path(str(testdir.tmpdir / "bar.json")).as_uri() + "#/bar"
+    }
 
     original = json.dumps(deeply_nested_schema, sort_keys=True, ensure_ascii=True)
     schema = schemathesis.openapi.from_dict(deeply_nested_schema)
@@ -315,7 +326,7 @@ def make_header_param(schema, **kwargs):
 
 def test_header_filtration_not_needed(ctx, mocker):
     # When schema contains a simple header
-    mocked = mocker.spy(_hypothesis, "is_valid_header")
+    mocked = mocker.spy(filters, "is_valid_header")
     schema = ctx.openapi.build_schema({})
     make_header_param(schema)
 
@@ -333,7 +344,7 @@ def test_header_filtration_not_needed(ctx, mocker):
 
 def test_header_filtration_needed(ctx, mocker):
     # When schema contains a header with a custom format
-    mocked = mocker.spy(_hypothesis, "is_valid_header")
+    mocked = mocker.spy(filters, "is_valid_header")
     schema = ctx.openapi.build_schema({})
     make_header_param(schema, format="date")
 
@@ -352,7 +363,7 @@ def test_header_filtration_needed(ctx, mocker):
 
 def test_missing_header_filter(ctx, mocker):
     # Regression. See GH-1142
-    mocked = mocker.spy(_hypothesis, "is_valid_header")
+    mocked = mocker.spy(filters, "is_valid_header")
     # When some header parameters have the `format` keyword
     # And some don't
     schema = ctx.openapi.build_schema(
@@ -484,3 +495,50 @@ def test_unregister_string_format_valid():
 def test_unregister_string_format_invalid():
     with pytest.raises(ValueError, match="Unknown Open API format: unknown"):
         formats.unregister_string_format("unknown")
+
+
+def test_custom_format_with_bytes(testdir):
+    # See GH-3289: custom formats returning bytes should work
+    testdir.make_test(
+        """
+import schemathesis
+from hypothesis import strategies as st
+
+# Register a custom format that returns bytes
+pdf_strategy = st.sampled_from([
+    b"%PDF-1.4\\n1 0 obj\\n",
+    b"%PDF-1.5\\n%\\xe2\\xe3",
+])
+schemathesis.openapi.format("custom-pdf", pdf_strategy)
+
+schema = schemathesis.openapi.from_dict({
+    "openapi": "3.0.0",
+    "info": {"title": "Test", "version": "1.0.0"},
+    "paths": {
+        "/upload": {
+            "put": {
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/octet-stream": {
+                            "schema": {
+                                "type": "string",
+                                "format": "custom-pdf"
+                            }
+                        }
+                    }
+                },
+                "responses": {"200": {"description": "OK"}}
+            }
+        }
+    }
+})
+
+@schema.parametrize()
+def test_api(case):
+    # Should not crash
+    pass
+        """,
+    )
+    result = testdir.runpytest("-v", "-s")
+    result.assert_outcomes(passed=1)

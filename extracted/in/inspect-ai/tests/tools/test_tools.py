@@ -8,6 +8,7 @@ from test_helpers.tool_call_utils import (
 )
 from test_helpers.tools import addition, raise_error, read_file
 from test_helpers.utils import (
+    flaky_retry,
     skip_if_no_anthropic,
     skip_if_no_google,
     skip_if_no_mistral,
@@ -180,19 +181,22 @@ def test_anthropic_tools():
 
 @skip_if_no_mistral
 def test_mistral_tools():
-    check_tools("mistral/mistral-large-latest")
+    check_tools("mistral/mistral-large-latest", disable=["force"])
 
 
 # groq tool calling is extremely unreliable and consequently causes
 # failed tests that are red herrings. don't exercise this for now.
 # @skip_if_no_groq
 # def test_groq_tools():
-#     check_tools("groq/mixtral-8x7b-32768")
+#     check_tools("groq/openai/gpt-oss-20b")
 
 
 @skip_if_no_google
+# Rarely, but reproducibly, gemini will respond with '' after the tool call returns '2'?!?
+# In my testing, it failed on the order of a couple times per 100 attempts
+@flaky_retry(max_retries=3)
 def test_google_tools():
-    check_tools("google/gemini-1.5-pro")
+    check_tools("google/gemini-2.5-pro")
 
 
 def test_dynamic_tools():

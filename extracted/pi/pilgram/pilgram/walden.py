@@ -14,11 +14,10 @@
 
 from PIL import Image
 
-from pilgram import css
-from pilgram import util
+from pilgram import css, util
 
 
-def walden(im):
+def walden(im: Image.Image) -> Image.Image:
     """Applies Walden filter.
 
     Arguments:
@@ -28,15 +27,15 @@ def walden(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
-    cs = util.fill(cb.size, [0, 68, 204])
+    cs = util.fill(cb.size, (0, 68, 204))
     cs = css.blending.screen(cb, cs)
-    cr = Image.blend(cb, cs, .3)  # opacity
+    cr = Image.blend(cb, cs, 0.3)  # opacity
 
     cr = css.brightness(cr, 1.1)
     cr = css.hue_rotate(cr, -10)
-    cr = css.sepia(cr, .3)
+    cr = css.sepia(cr, 0.3)
     cr = css.saturate(cr, 1.6)
 
     return cr
